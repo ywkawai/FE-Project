@@ -1,0 +1,78 @@
+#!/usr/bin/env ruby
+
+def usage
+  print "Usage: ruby #$0 srcdir\n"
+  exit(-1)
+end
+
+srcdir = ARGV.shift || usage
+
+deps = Hash.new
+pros = Hash.new
+
+SCALE_INCLUDE="/Users/ykawai/workspace/scale_release5.3.3/scale-5.3.3/include"
+SUFFIX = ".F90"
+
+def parse(deps, pros, srcdir, dir="")
+  dirs = Dir[ File.join(srcdir, dir, "*") ]
+  dirs.each do |fdir|
+    dir = fdir.sub(/#{srcdir}\//,"")
+    next if /\A\./ =~ dir
+    parse(deps, pros, srcdir, dir)
+    files = Dir[ File.join(fdir, "*#{SUFFIX}") ]
+    files.each do |file|
+      basename = File.basename(file, SUFFIX)
+      dep = {
+        :dir => dir,
+        :depends => Array.new
+      }
+      pro = {
+        :dir => dir,
+        :file => basename
+      }
+      deps[basename] = dep
+      File.foreach(file) do |line|
+        case line
+        when /^\s*module (\w+)/
+          mod = $1
+          next if /procedure/ =~ mod
+          pros[mod] = pro
+        when /^\s*use (\w+)/
+          mod = $1
+#          next if /(dc_types|gtool|mpi|netcdf|NAME)/ =~ mod
+        next if (/(iso_c_binding|mpi|MPI|netcdf|gadg|rng|mt|NAME)/ =~ mod)
+        next if (File.exist?("#{SCALE_INCLUDE}/#{mod}.mod"))
+
+          dep[:depends].push(mod) unless dep[:depends].include?(mod)
+        end
+      end
+    end
+  end
+end
+
+parse(deps, pros, srcdir)
+
+p deps
+File.open( File.join(srcdir, "depend"), "w" ) do |file|
+  deps.sort.each do |name, dep|
+    file.print "$(OBJ_DIR)/#{name}.o: #{dep[:dir]}/#{name}.F90 $(DEPENDLIB)"
+
+    dep[:depends].sort.each do |mod|
+      if pro = pros[mod]
+        file.print " $(OBJ_DIR)/#{pro[:file]}.o"
+      else
+        $stderr.print "Module '#{mod}' is used in '#{name}', but it is not found.\n"
+        raise "ERROR"
+      end
+    end
+    file.print "\n"
+  end
+  file.print "\n"
+  mods = Array.new
+
+  pros.keys.sort.map{|mod|
+     mod = mod.downcase
+     mods.push "$(OBJ_DIR)/#{mod}.mod"
+  }
+  file.print "MODS =\t\\\n\t", mods.join("\t\\\n\t"), "\n"
+end

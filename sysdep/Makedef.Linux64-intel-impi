@@ -1,0 +1,27 @@
+#
+#
+#
+
+FC=mpiifort
+FFLAGS=-openmp -O3 -opt-report
+
+LD      = $(FC)
+LDFLAGS = $(FFLAGS)
+
+##### Lapack
+LAPACK_LIBS    ?= -mkl=sequential
+
+##### gtool5
+GTOOL_INCLUDE  ?= -I$(GTOOL)/include
+GTOOL_LIBS     ?= -L$(GTOOL)/lib -lgtool5-serial
+
+##### NetCDF
+NETCDF_INCLUDE ?= -I$(NETCDF)/include
+NETCDF_LIBS    ?= -L$(NETCDF)/lib  -lnetcdff -lnetcdf -lm -lz
+
+##### for frontend
+INSTALL = install
+AR      = ar
+ARFLAGS = r
+RANLIB  = ranlib
+JOBSUB  = sh
