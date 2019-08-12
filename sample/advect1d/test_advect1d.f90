@@ -37,7 +37,7 @@ program test_advect1d
   !-----------------------------------------------------------------------------
   implicit none
 
-  integer, parameter :: NeGX = 32
+  integer, parameter :: NeGX = 8
   integer, parameter :: NLocalMeshPerPrc = 1
 
   ! sin, cosbell, hat
@@ -48,7 +48,7 @@ program test_advect1d
   real(RP), parameter :: ADV_VEL  = 1.0_RP
 
   type(LineElement) :: refElem
-  integer, parameter :: PolyOrder = 3
+  integer, parameter :: PolyOrder = 2
   logical, parameter :: DumpedMassMatFlag = .false.
   type(sparsemat) :: Dx, Sx, Lift
   integer, parameter :: PolyOrderErrorCheck = 6
@@ -245,11 +245,10 @@ contains
     real(RP), intent(in) :: dom_min, dom_max
     real(RP) :: upos(size(pos))
 
-    real(RP) :: period
+    integer :: period
     !-------
 
     period = ADV_VEL*nowtime/(dom_max - dom_min)
-    
     upos(:) = pos(:) - (ADV_VEL*nowtime - dble(period)*(dom_max - dom_min))
     where (upos < dom_min)
       upos = dom_max + (upos - dom_min)

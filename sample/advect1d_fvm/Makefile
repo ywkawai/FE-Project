@@ -14,7 +14,7 @@ include $(TOPDIR)/Mkinclude
 
 BINNAME = test_advect1d
 
-LIBS = $(LIBDIR)/libscaleFECore.a
+LIBS = $(LIBDIR)/libScaleFECore.a
 
 OBJS = mod_output.o
 

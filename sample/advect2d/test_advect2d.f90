@@ -267,7 +267,7 @@ contains
     real(RP), intent(in) :: dom_min, dom_max
     real(RP) :: upos(size(pos))
 
-    real(RP) :: period
+    integer :: period
     !-------
 
     period = ADV_VEL*nowtime/(dom_max - dom_min)

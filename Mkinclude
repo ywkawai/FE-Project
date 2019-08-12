@@ -53,7 +53,7 @@ endif
 
 # NetCDF library setting
 # library location are inquired in order of: environment variable->Makedef.XXX->here
-#include $(TOPDIR)/utils/make/Make_checknetcdf
+include $(TOPDIR)/utils/make/Make_checknetcdf
 
 ifeq ($(SCALE_ENABLE_PNETCDF),T)
    SCALE_NETCDF_INCLUDE += -DPNETCDF

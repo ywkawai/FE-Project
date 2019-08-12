@@ -70,7 +70,7 @@ SCALE_NETCDF_LIBS    = -L$(NETCDF)/lib  -lnetcdff -lnetcdf -lm -lz
 SCALE_MATHLIB_LIBS=-L/usr/lib -llapack
 
 ##### SCALE
-SCALEORI_INCLUDE  ?= -I$(SCALE)/include
+SCALEORI_INCLUDE  ?= -I$(SCALE)/include -I$(SCALE)/scalelib/include
 SCALEORI_LIBS     ?= -L$(SCALE)/lib -lscale -ldcutils
 
 ##### for frontend

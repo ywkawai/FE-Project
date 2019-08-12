@@ -169,7 +169,7 @@ contains
     use scale_prc, only: &
       PRC_LOCAL_COMM_WORLD, PRC_abort, PRC_MPIbarrier
     use mpi, only: &
-      MPI_waitall,    &
+      !MPI_waitall,    &
       MPI_STATUS_SIZE
     implicit none
   
@@ -275,7 +275,8 @@ contains
     use scale_prc, only: &
       PRC_LOCAL_COMM_WORLD
     use mpi, only: &
-      MPI_isend, MPI_irecv, MPI_DOUBLE_PRECISION
+      !MPI_isend, MPI_irecv, &
+      MPI_DOUBLE_PRECISION
     implicit none
 
     class(LocalMeshCommData), intent(inout) :: this
