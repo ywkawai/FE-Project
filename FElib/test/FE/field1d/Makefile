@@ -14,7 +14,7 @@ include $(TOPDIR)/Mkinclude
 
 BINNAME = test_field1d
 
-LIBS = $(LIBDIR)/libscaleFECore.a
+LIBS = $(LIBDIR)/libScaleFECore.a
 
 OBJS =
 

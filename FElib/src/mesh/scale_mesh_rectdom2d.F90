@@ -236,7 +236,6 @@ contains
 
     mesh%BCType(:,:) = BCTYPE_INTERIOR
 
-
     !----
 
     call MeshUtil2D_genRectDomain( mesh%pos_ev, mesh%EToV,   & ! (out)
@@ -245,7 +244,7 @@ contains
 
     !---
     call MeshBase2D_setGeometricInfo(mesh)
-
+ 
     !---
 
     call MeshUtil2D_genConnectivity( mesh%EToE, mesh%EToF, & ! (out)

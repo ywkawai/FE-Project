@@ -14,7 +14,7 @@ include $(TOPDIR)/Mkinclude
 
 BINNAME = test_polynominal
 
-LIBS = $(LIBDIR)/libscaleFECore.a
+LIBS = $(LIBDIR)/libScaleFECore.a
 
 OBJS =
 
@@ -46,6 +46,7 @@ distclean: clean
 
 clean:
 	rm -rf $(BUILD_DIR)
+	rm -f legendre*.dat
 
 .SUFFIXES:
 .SUFFIXES: .o .f90 .mod

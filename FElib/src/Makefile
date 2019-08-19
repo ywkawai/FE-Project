@@ -12,10 +12,11 @@ VPATH = \
 	file:
 
 OBJS_NAME_COMMON = \
-	scale_polynominal.o \
-	scale_sparsemat.o   \
-	scale_linalgebra.o  \
-	scale_time_manager.o
+	scale_polynominal.o  \
+	scale_sparsemat.o    \
+	scale_linalgebra.o   \
+	scale_time_manager.o \
+	scale_quicksort.o
 
 OBJS_NAME_ELEMENT = \
 	scale_element_base.o     \
@@ -106,9 +107,6 @@ $(LIBNAME): $(OBJS)
 	ar -r $@ $?
 	ranlib $@
 
-$(OBJ_DIR)/%.o : %.F90
-	$(FC) $(FFLAGS) $(SCALE_INCLUDE) $(INCLUDE) -I$(SCALEFELIBDIR)/include -o $@ -c $<
-
 modules: $(OBJS)
 	install $(MODS) $(MOD_DIR)
 
@@ -120,6 +118,20 @@ distclean: clean
 
 allclean: distclean
 
+dependency:
+	./makedepend .
+
+
+.SUFFIXES:
+.SUFFIXES: .o .F90 .c .erb .mod
+
+%.F90 : %.F90.erb
+	erb $< > $@
+
+common/scale_quicksort.F90: scale_quicksort.F90.erb
+
+$(OBJ_DIR)/%.o : %.F90
+	$(FC) $(FFLAGS) $(SCALE_INCLUDE) $(INCLUDE) -I$(SCALEFELIBDIR)/include -o $@ -c $<
 
 -include depend
 

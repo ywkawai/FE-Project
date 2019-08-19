@@ -86,6 +86,7 @@ contains
   subroutine MeshUtil2D_genConnectivity( EToE, EToF, &
     & EToV, Ne, Nfaces )
     
+    use scale_quicksort, only: QUICKSORT_exec_with_idx
     implicit none
 
     integer, intent(in) :: Ne
@@ -96,19 +97,22 @@ contains
 
     integer :: nodes(Ne*Nfaces,2)
     integer :: face_ids(Ne*Nfaces)
-    integer :: spNodeToNode(Ne*Nfaces,4)
     integer :: k
     integer :: f
     integer :: n
     integer :: n1, n2
     integer :: Nnodes
     integer :: tmp
-    integer :: spNodeToNodeRowTmp(4)
     integer :: Nnodes_row
     integer :: matchL(2,4), matchR(2,4)
 
     real(RP) :: EToE_1d(Ne*Nfaces)
     real(RP) :: EToF_1d(Ne*Nfaces)
+
+    integer :: spNodeToNode(4,Ne*Nfaces)
+    integer :: spNodeToNodeRowTmp(4,Ne*Nfaces)
+    integer :: sort_indx(Ne*Nfaces)
+    integer :: sort_val(Ne*Nfaces)
 
     !-----------------------------------------------------------------------------
 
@@ -122,6 +126,7 @@ contains
        nodes(n+2*Ne,:) = EToV(n,(/ 4, 3 /))
        nodes(n+3*Ne,:) = EToV(n,(/ 3, 1 /))
     end do
+   
     ! Sort
     do n=1, Nnodes_row
        if (nodes(n,1) > nodes(n,2) ) then
@@ -132,7 +137,6 @@ contains
        ! write(*,*) n, ":", nodes(n,:)
     end do
     nodes = nodes - 1
-
     !---------
 
     do n=1, Ne
@@ -145,33 +149,28 @@ contains
     do f=1, Nfaces
     do k=1, Ne
        n = k + (f-1)*Ne
-       spNodeToNode(n,:) = (/ face_ids(n), n, EToE(k,f), EToF(k,f) /)
-       ! write(*,*) "face_id, n, EToE, EToF:", spNodeToNode(n,:)
+       spNodeToNode(:,n) = (/ face_ids(n), n, EToE(k,f), EToF(k,f) /)
+       sort_val(n) = face_ids(n)
+       sort_indx(n) = n
+       ! write(*,*) "face_id, n, EToE, EToF:", spNodeToNode(:,n)
     end do
     end do
 
-    ! Sort row
-    do n1=1, Nnodes_row-1
-    do n2=n1+1, Nnodes_row
-       if (spNodeToNode(n1,1) > spNodeToNode(n2,1)) then
-          spNodeToNodeRowTmp(:) = spNodeToNode(n1,:)
-          spNodeToNode(n1,:) = spNodeToNode(n2,:)
-          spNodeToNode(n2,:) = spNodeToNodeRowTmp
-       end if
-    end do
+    
+    !- sort row
+    call QUICKSORT_exec_with_idx( Ne*Nfaces, sort_val, sort_indx )
+    spNodeToNodeRowTmp(:,:) = spNodeToNode(:,:)
+    do n=1, Nnodes_row
+      spNodeToNode(:,n) = spNodeToNodeRowTmp(:,sort_indx(n))
+      ! write(*,'(a,4i10)') "(sorted) face_id, n, EToE, EToF:", spNodeToNode(:,n)
     end do
 
-    ! do n=1, Nnodes_row
-    !    write(*,*) "(sorted) face_id, n, EToE, EToF:", spNodeToNode(n,:)
-    ! end do
-
-    !
     EToE_1d(:) = -1
     EToF_1d(:) = -1
     do n=1, Nnodes_row-1
-       if ( spNodeToNode(n,1) - spNodeToNode(n+1,1) == 0 ) then
-          matchL(:,:) = spNodeToNode((/ n, n+1 /), :)
-          matchR(:,:) = spNodeToNode((/ n+1, n /), :)
+       if ( spNodeToNode(1,n) - spNodeToNode(1,n+1) == 0 ) then
+          matchL(:,:) = transpose( spNodeToNode(:,(/ n, n+1 /)) )
+          matchR(:,:) = transpose( spNodeToNode(:,(/ n+1, n /)) )
 
           EToE_1d(matchL(:,2)) = matchR(:,3)
           EToF_1d(matchL(:,2)) = matchR(:,4)
@@ -655,5 +654,6 @@ subroutine MeshUtil2D_genPatchBoundaryMap(  VMapB, MapB, VMapP, &
     !   end do
     ! end if
   end subroutine MeshUtil2D_buildGlobalMap
+
 
 end module scale_meshutil_2d

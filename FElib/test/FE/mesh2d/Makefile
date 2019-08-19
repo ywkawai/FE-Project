@@ -14,7 +14,7 @@ include $(TOPDIR)/Mkinclude
 
 BINNAME = test_mesh2d
 
-LIBS = $(LIBDIR)/libscaleFECore.a
+LIBS = $(LIBDIR)/libScaleFECore.a
 
 OBJS =
 

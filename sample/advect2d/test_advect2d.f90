@@ -37,8 +37,8 @@ program test_advect2d
   !-----------------------------------------------------------------------------
   implicit none
 
-  integer, parameter :: NeGX = 16
-  integer, parameter :: NeGY = 16
+  integer :: NeGX
+  integer :: NeGY
   integer, parameter :: NLocalMeshPerPrc = 1
 
   ! sin, cosbell, hat
@@ -53,7 +53,7 @@ program test_advect2d
   real(RP), parameter :: ADV_VELY = sqrt(1.0_RP)
 
   type(QuadrialElement) :: refElem
-  integer, parameter :: PolyOrder = 3
+  integer :: PolyOrder
   logical, parameter :: DumpedMassMatFlag = .false.
   integer, parameter :: PolyOrderErrorCheck = 6
   type(sparsemat) :: Dx, Sx, Dy, Sy, Lift
@@ -75,11 +75,12 @@ program test_advect2d
   real(RP) :: rkcoef1(nrkstage) = (/ 0.0_RP, 3.0_RP/4.0_RP, 1.0_RP/3.0_RP /)
   real(RP) :: rkcoef2(nrkstage) = (/ 1.0_RP, 1.0_RP/4.0_RP, 2.0_RP/3.0_RP /)
 
-  real(RP) :: IntrpMat(PolyOrderErrorCheck**2,(PolyOrder+1)**2)
+  real(RP), allocatable :: IntrpMat(:,:)
   real(RP) :: intw_intrp(PolyOrderErrorCheck**2)
   real(RP) :: x_intrp(PolyOrderErrorCheck**2)
   real(RP) :: y_intrp(PolyOrderErrorCheck**2)
 
+  integer :: nstep_eval_error
   !-------------------------------------------------------
 
   call init()
@@ -122,8 +123,8 @@ program test_advect2d
     call TIME_manager_advance()
 
     tsec_ = TIME_NOWDATE(6) + TIME_NOWMS
-    if (mod(tsec_,0.25_RP) == 0.0_RP) then 
-      write(*,*) "t=", real(tsec_), "[s]"
+    if (mod(nowstep,nstep_eval_error) == 0) then 
+      LOG_PROGRESS('(A,F13.5,A)') "t=", real(tsec_), "[s]"
       call evaluate_error(tsec_)
     end if
     call FILE_HISTORY_set_nowdate( TIME_NOWDATE, TIME_NOWMS, TIME_NOWSTEP )
@@ -223,6 +224,7 @@ contains
     real(DP), intent(in) :: tsec
 
     real(RP) :: l2error
+    real(RP) :: linferror
     real(RP) :: q_intrp(PolyOrderErrorCheck**2)
     real(RP) :: qexact_intrp(PolyOrderErrorCheck**2)
     real(RP) :: x_uwind(refElem%Np), y_vwind(refElem%Np)
@@ -232,6 +234,7 @@ contains
 
     !------------------------------------------------------------------------
 
+    linferror = 0.0_RP
     l2error = 0.0_RP
     do n=1, mesh%LOCAL_MESH_NUM
       lcmesh => mesh%lcmesh_list(n)
@@ -253,11 +256,15 @@ contains
 
         l2error = l2error &
           + sum(   lcmesh%J(1,k) * intw_intrp(:)          &
-                * ( q_intrp(:) - qexact_intrp(:) )**2 ) 
+                * ( q_intrp(:) - qexact_intrp(:) )**2 )
+        
+        linferror = max(linferror, maxval(abs(q%local(n)%val(:,k) - qexact%local(n)%val(:,k))))
       end do
     end do
 
-    write(*,*) "L2 error:", sqrt(l2error)/( (dom_xmax - dom_xmin) * (dom_ymax - dom_ymin) )
+    LOG_INFO("evaluate_error_l2",*), sqrt(l2error)/( (dom_xmax - dom_xmin) * (dom_ymax - dom_ymin) )
+    LOG_INFO("evaluate_error_linf",*) linferror
+
   end subroutine evaluate_error
 
   function get_upwind_pos(pos, ADV_VEL, nowtime, dom_min, dom_max) result(upos)
@@ -297,6 +304,8 @@ contains
     call FILE_HISTORY_meshfield_put(HST_ID(2), qexact)
     call FILE_HISTORY_meshfield_write()   
   
+    LOG_PROGRESS('(A,F13.5,A)') "t=", real(0.0_RP), "[s]"
+    call evaluate_error(0.0_RP)
     return
   end subroutine set_initcond
 
@@ -308,7 +317,7 @@ contains
     real(RP), intent(in) :: y(:)
     real(RP) :: profile(size(x))
 
-    real(RP) :: half_width = 0.3_RP
+    real(RP) :: half_width = 0.15_RP
     real(RP) :: dist(size(x))
     !------------------------------------------------------------------------
 
@@ -345,17 +354,22 @@ contains
         
     implicit none
 
+    namelist /PARAM_TEST/ &
+      NeGX, NeGY, PolyOrder, InitShapeName, &
+      nstep_eval_error
+    
     integer :: comm, myrank, nprocs
     logical :: ismaster
 
     real(RP) :: r_int1D_i(PolyOrderErrorCheck)
     real(RP) :: r_int1Dw_i(PolyOrderErrorCheck)
-    real(RP) :: P_int1D_ori(PolyOrderErrorCheck,PolyOrder+1)
-    real(RP) :: Vint(PolyOrderErrorCheck**2,(PolyOrder+1)**2)
+    real(RP), allocatable :: P_int1D_ori(:,:)
+    real(RP), allocatable :: Vint(:,:)
     
     integer :: p1, p2, p1_, p2_
     integer :: n_, l_
 
+    integer :: ierr
     !------------------------------------------------------------------------
 
     call PRC_MPIstart( comm )
@@ -370,7 +384,23 @@ contains
     
     ! setup log
     call IO_LOG_setup( myrank, ismaster )   
-    
+  
+    !--- read namelist
+
+    NeGX = 2; NeGY = 2; PolyOrder = 1 
+    InitShapeName    = 'sin'
+    nstep_eval_error = 5
+
+    rewind(IO_FID_CONF)
+    read(IO_FID_CONF,nml=PARAM_TEST,iostat=ierr)
+    if( ierr < 0 ) then !--- missing
+       LOG_INFO("init",*) 'Not found namelist. Default used.'
+    elseif( ierr > 0 ) then !--- fatal error
+       LOG_ERROR("init",*) 'Not appropriate names in namelist PARAM_TEST. Check!'
+       call PRC_abort
+    endif
+    LOG_NML(PARAM_TEST)
+
     ! setup profiler
     call PROF_setup
     call PROF_rapstart( "total", 0 )
@@ -380,20 +410,21 @@ contains
     call CALENDAR_setup
     call TIME_manager_Init
 
-    !------
+    !------   
+    
     call refElem%Init(PolyOrder, DumpedMassMatFlag)
     call Dx%Init(refElem%Dx1)
     call Sx%Init(refElem%Sx1)
     call Dy%Init(refElem%Dx2)
     call Sy%Init(refElem%Sx2)
     call Lift%Init(refElem%Lift)
-
+  
     call mesh%Init( &
       NeGX, NeGY,                             &
       dom_xmin, dom_xmax, dom_ymin, dom_ymax, &
       .true., .true.,                         &
       refElem, NLocalMeshPerPrc )
-    
+
     call mesh%Generate()
 
     !---
@@ -407,13 +438,15 @@ contains
     call FILE_HISTORY_meshfield_setup( mesh2d_=mesh )
     call FILE_HISTORY_reg( q%varname, "q", q%unit, HST_ID(1), dim_type='XY')
     call FILE_HISTORY_reg( qexact%varname, "qexact", q%unit, HST_ID(2), dim_type='XY')
-
     !---
-  
+
+    allocate( P_int1D_ori(PolyOrderErrorCheck,Polyorder+1) )
+    allocate( Vint(PolyOrderErrorCheck**2,(PolyOrder+1)**2) )
+
     r_int1D_i(:) = Polynominal_GenGaussLegendrePt( PolyOrderErrorCheck )
     r_int1Dw_i(:) = Polynominal_GenGaussLegendrePtIntWeight( PolyOrderErrorCheck )
     P_int1D_ori(:,:) = Polynominal_GenLegendrePoly(refElem%PolyOrder, r_int1D_i)
-    
+
     do p2_=1, PolyOrderErrorCheck
     do p1_=1, PolyOrderErrorCheck
       n_= p1_ + (p2_-1)*PolyOrderErrorCheck
@@ -430,8 +463,10 @@ contains
       end do
     end do
     end do
+
+    allocate( IntrpMat(PolyOrderErrorCheck**2,(PolyOrder+1)**2) )
     IntrpMat(:,:) = matmul(Vint, refElem%invV)
-    
+
     call PROF_rapend( "init", 1 )
     return
   end subroutine init
