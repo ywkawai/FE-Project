@@ -1,4 +1,4 @@
-#include "scalelib.h"
+#include "scaleFElib.h"
 module scale_localmesh_1d
 
   !-----------------------------------------------------------------------------

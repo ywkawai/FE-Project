@@ -54,6 +54,7 @@ contains
     call mesh%Init( &
       NeGX, NeGY,                             &
       dom_xmin, dom_xmax, dom_ymin, dom_ymax, &
+      .true., .true.,                         &
       refElem, NLocalMeshPerPrc )
     
     call mesh%Generate()

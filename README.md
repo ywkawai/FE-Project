@@ -21,15 +21,15 @@ Build
 1. preparation
   - set SCALE_FE_SYS environmental variable (see the sysdef directory)
 
-  `% export SCALE_FE_SYS=MacOSX-gnu-ompi (for example)`
+  `% export SCALE_FE_SYS=MacOSX-gnu-ompi`   (for example)
 
   - set a directory in which SCALE library is contained
 
-  `% export SCALE="~/workspace/scale-5.3.3/` (for example)`
+  `% export SCALE="~/workspace/scale-5.3.3/"`   (for example)
 
-  - set a directory in which NetCDF library is contained
-
-  `% export NETCDF="/ap/netcdf4-fortran/4.4.2/` (for example)`
+  - set a directory in which NetCDF library is contained (if necessary).
+    
+  `% export NETCDF="/ap/netcdf4-fortran/4.4.2/"`   (for example)
 
 2. build the library in the directory of FElib
 

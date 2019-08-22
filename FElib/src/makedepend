@@ -10,8 +10,8 @@ srcdir = ARGV.shift || usage
 deps = Hash.new
 pros = Hash.new
 
-#SCALE_INCLUDE="/Users/ykawai/workspace/scale_release5.3.3/scale-5.3.3/include"
-SCALE_INCLUDE="/data5/ykawai/scale/include"
+SCALE_INCLUDE="#{ENV["SCALE"]}/include"
+puts "SCALE_INCLUDE: #{SCALE_INCLUDE}"
 SUFFIX = ".F90"
 
 def parse(deps, pros, srcdir, dir="")
