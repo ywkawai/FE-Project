@@ -23,6 +23,7 @@ module scale_element_line
   contains
     procedure :: Init => LineElement_Init
     procedure :: Final => LineElement_Final
+    procedure :: GenIntGaussLegendreIntrpMat => LineElement_gen_IntGaussLegendreIntrpMat    
   end type LineElement
 
 contains
@@ -38,6 +39,7 @@ contains
     !-----------------------------------------------------------------------------
     
     elem%PolyOrder = elemOrder
+    elem%Nv = 1
     elem%Np = elemOrder + 1
     elem%Nfp = 1
     elem%Nfaces = 2
@@ -152,5 +154,43 @@ contains
 
     return
   end subroutine construct_Element
+
+  function LineElement_gen_IntGaussLegendreIntrpMat( this, IntrpPolyOrder, &
+    intw_intrp, x_intrp ) result(IntrpMat)
+
+    use scale_polynominal, only: &
+      Polynominal_genLegendrePoly,    &
+      Polynominal_GenGaussLegendrePt, &
+      Polynominal_GenGaussLegendrePtIntWeight
+    
+    implicit none
+
+    class(LineElement), intent(in) :: this
+    integer, intent(in) :: IntrpPolyOrder
+    real(RP), intent(out), optional :: intw_intrp(IntrpPolyOrder)
+    real(RP), intent(out), optional :: x_intrp(IntrpPolyOrder)
+    real(RP) :: IntrpMat(IntrpPolyOrder,this%Np)
+
+    real(RP) :: r_int1D_i(IntrpPolyOrder)
+    real(RP) :: r_int1Dw_i(IntrpPolyOrder)
+    real(RP) :: P_int1D_ori(IntrpPolyOrder,this%PolyOrder+1)
+    real(RP) :: Vint(IntrpPolyOrder**2,(this%PolyOrder+1)**2)
+
+    integer :: p1, p1_
+    !-----------------------------------------------------
+
+    r_int1D_i(:) = Polynominal_GenGaussLegendrePt( IntrpPolyOrder )
+    r_int1Dw_i(:) = Polynominal_GenGaussLegendrePtIntWeight( IntrpPolyOrder )
+    P_int1D_ori(:,:) = Polynominal_GenLegendrePoly( this%PolyOrder, r_int1D_i)
+
+    do p1_=1, IntrpPolyOrder
+      if (present(intw_intrp)) intw_intrp(p1_) = r_int1Dw_i(p1_)
+      if (present(x_intrp)) x_intrp(p1_) = r_int1D_i(p1_)
+      do p1=1, this%Np
+        Vint(p1_,p1) =  P_int1D_ori(p1_,p1) * sqrt(real(p1-1,kind=RP) + 0.5_RP)
+      end do
+    end do
+    IntrpMat(:,:) = matmul(Vint, this%invV)
+  end function LineElement_gen_IntGaussLegendreIntrpMat
 
 end module scale_element_Line

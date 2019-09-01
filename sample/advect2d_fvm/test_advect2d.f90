@@ -12,12 +12,6 @@ program test_advect2d
   use scale_prof
   use scale_io, only: &
      H_SHORT
-  use scale_prc_cartesC, only: &
-     PRC_CARTESC_setup     
-  use scale_comm_cartesC, only: &
-     COMM_setup, &
-     COMM_vars8, &
-     COMM_wait
   use scale_atmos_grid_cartesC, only: &
      CX              => ATMOS_GRID_CARTESC_CX,              &
      CZ              => ATMOS_GRID_CARTESC_CZ,              &
@@ -26,6 +20,7 @@ program test_advect2d
      RCDZ            => ATMOS_GRID_CARTESC_RCDZ,            &
      RCDX            => ATMOS_GRID_CARTESC_RCDX,            &
      RFDZ            => ATMOS_GRID_CARTESC_RFDZ
+
   use scale_atmos_hydrometeor, only: &
      I_QV
 
@@ -37,46 +32,57 @@ program test_advect2d
     TIME_NOWDATE, TIME_NOWMS, TIME_NOWSTEP,            &
     TIME_DTSEC, TIME_NSTEP 
 
+   use mod_fieldutil, only: &
+    get_upwind_pos1d => fieldutil_get_upwind_pos1d, &
+    get_profile2d => fieldutil_get_profile2d    
+
+  use mod_operator_fvm, only: &
+    operator_fvm
+  use mod_timeint_rk, only: &
+    timeint_rk
+  
   !-----------------------------------------------------------------------------
   implicit none
 
-  integer, parameter :: NeGX = 128*2
-  integer, parameter :: NeGY = 128*2
+  integer :: NeGX, GXHALO
+  integer :: NeGY, GYHALO
   integer, parameter :: NLocalMeshPerPrc = 1
 
-  ! sin, cosbell, hat
-  character(len=H_SHORT) :: InitShapeName = 'cosbell'
+  ! sin, cosbell, top-hat
+  character(len=H_SHORT) :: InitShapeName
+  real(RP) :: InitShapeParam1, InitShapeParam2
 
-  real(RP), parameter :: dom_xmin = 0.0_RP
+  real(RP), parameter :: dom_xmin = -0.0_RP
   real(RP), parameter :: dom_xmax = +2.0_RP
+  real(RP), parameter :: dom_centerx = 0.5_RP*(dom_xmin + dom_xmax)
   real(RP), parameter :: dom_ymin = 0.0_RP
   real(RP), parameter :: dom_ymax = +2.0_RP
+  real(RP), parameter :: dom_centery = 0.5_RP*(dom_ymin + dom_ymax)
 
   real(RP), parameter :: ADV_VELX  = sqrt(1.0_RP)
   real(RP), parameter :: ADV_VELY  = sqrt(1.0_RP)
-  
-  integer, parameter :: FLUX_CD2_SCHEME = 1
-  integer, parameter :: FLUX_CD4_SCHEME = 2
-  integer :: FLUX_SCHEME_TYPE = FLUX_CD4_SCHEME
 
+  character(len=H_SHORT) :: FLUX_SCHEME_TYPE
+  type(operator_fvm) :: optr_fvm
+
+  character(len=H_SHORT) :: TINTEG_SCHEME_TYPE
+  type(timeint_rk) :: tinteg
   integer :: nowstep
   integer :: rkstage
-  integer, parameter :: nrkstage = 3
-  real(RP) :: rkcoef1(nrkstage) = (/ 0.0_RP, 3.0_RP/4.0_RP, 1.0_RP/3.0_RP /)
-  real(RP) :: rkcoef2(nrkstage) = (/ 1.0_RP, 1.0_RP/4.0_RP, 2.0_RP/3.0_RP /)
+  integer :: tintbuf_ind
+  integer, parameter :: RKVAR_Q = 1
 
   real(RP) :: tsec_
   character(len=H_MID), parameter :: APPNAME = "advect2d with FVM"
 
   integer :: HST_ID(2)
   real(RP), allocatable :: q(:,:,:)
-  real(RP), allocatable :: q0(:,:,:)
   real(RP), allocatable :: qexact(:,:,:)
   real(RP), allocatable :: u(:,:,:)
   real(RP), allocatable :: v(:,:,:)
 
   integer :: j
-
+  integer :: nstep_eval_error
   !-------------------------------------------------------
 
   call init()
@@ -86,29 +92,29 @@ program test_advect2d
 
   call PROF_rapstart( 'TimeLoop', 1)
   do nowstep=1, TIME_NSTEP
-
-    q0(:,:,JS) = q(:,:,JS)
-    do rkstage=1, nrkstage
-
+    do rkstage=1, tinteg%nstage
       !* Exchange halo data
       call PROF_rapstart( 'exchange_halo', 1)
       call excahge_halo( q(:,:,JS) )
       call PROF_rapend( 'exchange_halo', 1)
 
       !* Update prognostic variables
-      call PROF_rapstart( 'update_dyn', 1)
-      call update_dyn( &
-          TIME_DTSEC, rkcoef1(rkstage), rkcoef2(rkstage), &
-          q(:,:,JS), q0(:,:,JS), u(:,:,JS), v(:,:,JS) )
-      call PROF_rapend( 'update_dyn', 1)  
+      call PROF_rapstart( 'cal_dyn_tend', 1)
+      tintbuf_ind = tinteg%tend_buf_indmap(rkstage)
+      call cal_dyn_tend( tinteg%tend_buf2D(:,:,RKVAR_Q,tintbuf_ind), q, u, v )
+      call PROF_rapend( 'cal_dyn_tend', 1) 
+
+      call PROF_rapstart( 'update_var', 1)
+      call tinteg%Advance(rkstage, q(:,:,JS), RKVAR_Q, KS, KE, IS, IE)
+      call PROF_rapend('update_var', 1)
     end do
 
     !* Advance time
     call TIME_manager_advance()
 
     tsec_ = TIME_NOWDATE(6) + TIME_NOWMS
-    if (mod(tsec_,0.25_RP) == 0.0_RP) then 
-      write(*,*) "t=", real(tsec_), "[s]"
+    if (mod(nowstep,nstep_eval_error) == 0) then 
+      LOG_PROGRESS('(A,F13.5,A)') "t=", real(tsec_), "[s]"
       call evaluate_error(tsec_)
     end if
     call FILE_HISTORY_set_nowdate( TIME_NOWDATE, TIME_NOWMS, TIME_NOWSTEP )
@@ -123,71 +129,40 @@ program test_advect2d
   call final()
 
 contains
-  subroutine update_dyn( dt, rkcoef_1, rkcoef_2, q_, q0_, u_, v_ )
+  subroutine cal_dyn_tend( dqdt, q_, u_, v_ )
 
     implicit none
 
-    real(RP), intent(in) :: dt
-    real(RP), intent(in) :: rkcoef_1, rkcoef_2
-    real(RP), intent(out) :: q_(KA,IA)
-    real(RP), intent(in)  :: q0_(KA,IA)
-    real(RP), intent(in)  :: u_(KA,IA)
-    real(RP), intent(in)  :: v_(KA,IA)
+    real(RP), intent(out) :: dqdt(KA,IA,JS:JS)
+    real(RP), intent(in) :: q_(KA,IA,JA)
+    real(RP), intent(in)  :: u_(KA,IA,JA)
+    real(RP), intent(in)  :: v_(KA,IA,JA)
 
-    integer :: k, i
-    real(RP) :: qfluxUY(KA,IA)
-    real(RP) :: qfluxXV(KA,IA)
-    real(RP) :: dqdt
-    
-    real(RP) :: F2  = 0.5_RP
-    real(RP) :: F41 =   7.0_RP/12.0_RP
-    real(RP) :: F42 = - 1.0_RP/12.0_RP
+    integer :: k, i, j
+    real(RP) :: qflux(KA,IA,JA,2)
 
     !------------------------------------------------------------------------
 
-    call PROF_rapstart( 'update_dyn_cal_flux', 2)
-
-    select case(FLUX_SCHEME_TYPE)
-    case (FLUX_CD2_SCHEME) !----------------------------------------
-      do i=IS, IE
-      do k=KS-1, KE
-        qfluxUY(k,i) = u_(k,i)*( F2*(q_(k,i) + q_(k+1,i)) )
-      end do
-      end do
-      do i=IS-1, IE
-      do k=KS, KE
-        qfluxXV(k,i) = v_(k,i)*( F2*(q_(k,i) + q_(k,i+1)) )
-      end do
-      end do
-    case (FLUX_CD4_SCHEME) !------------------------------------------------------------
-      do i=IS, IE
-      do k=KS-1, KE
-        qfluxUY(k,i) = u_(k,i)*( F41*(q_(k,i) + q_(k+1,i)) + F42*(q_(k+2,i) + q_(k-1,i)) )
-      end do
-      end do
-      do i=IS-1, IE
-      do k=KS, KE
-        qfluxXV(k,i) = v_(k,i)*( F41*(q_(k,i) + q_(k,i+1)) + F42*(q_(k,i+2) + q_(k,i-1)) )
-      end do
-      end do      
-    end select
-
-    call PROF_rapend( 'update_dyn_cal_flux', 2)
+    call PROF_rapstart( 'cal_dyn_tend_flux', 2)
+    call optr_fvm%C_flux_XYW( qflux(:,:,:,1), u_, q_ )
+    call optr_fvm%C_flux_UYZ( qflux(:,:,:,2), v_, q_ )
+    call PROF_rapend( 'cal_dyn_tend_flux', 2)
 
     !----
 
-    call PROF_rapstart( 'update_dyn_cal_tend', 2)
+    call PROF_rapstart( 'cal_dyn_tend_dqdt', 2)
+    do j=JS, JS
     do i=IS, IE
     do k=KS, KE
-      dqdt = - (qfluxUY(k,i) - qfluxUY(k-1,i  )) * RCDZ(k) &
-             - (qfluxXV(k,i) - qfluxXV(k  ,i-1)) * RCDX(i)
-      q_(k,i) = rkcoef_1*q0_(k,i) + rkcoef_2*(q_(k,i) + dt * dqdt)
+      dqdt(k,i,j) = - (qflux(k,i,j,1) - qflux(k-1,i,j,1)) * RCDZ(k) &
+                    - (qflux(k,i,j,2) - qflux(k,i-1,j,2)) * RCDX(i)
     end do
     end do
-    call PROF_rapend( 'update_dyn_cal_tend', 2)
+    end do
+    call PROF_rapend( 'cal_dyn_tend_dqdt', 2)
 
     return
-  end subroutine update_dyn
+  end subroutine cal_dyn_tend
  
   !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -215,58 +190,53 @@ contains
     implicit none
     real(DP), intent(in) :: tsec
 
-    real(RP) :: l2error
     real(RP) :: diff(KA)
     real(RP) :: exact_sol(KA)
-    real(RP) :: x_uwind(KA), y_vwind(IA)
-    integer :: periodx, periody
-
-    real(RP) :: center_x, center_y
+    real(RP) :: x_uwind_1d(KA), y_vwind_1d(IA)
+    real(RP) :: y_vwind(KA)
     integer :: k, i
 
-    l2error = 0.0_RP
-    center_x = 0.5_RP*(dom_xmax + dom_xmin)
-    center_y = 0.5_RP*(dom_ymax + dom_ymin)
-    periodx = ADV_VELX*tsec/(dom_xmax - dom_xmin)
-    periody = ADV_VELY*tsec/(dom_ymax - dom_ymin)
+    real(RP) :: l2error
+    real(RP) :: linferror
+    !------------------------------------------------------------------------
 
+    x_uwind_1d(KS:KE) =  get_upwind_pos1d(CZ(KS:KE) - dom_centerx, ADV_VELX, tsec, dom_xmin - dom_centerx, dom_xmax - dom_centerx)
+    y_vwind_1d(IS:IE) =  get_upwind_pos1d(CX(IS:IE) - dom_centery, ADV_VELY, tsec, dom_ymin - dom_centery, dom_ymax - dom_centery)
+    do i=IS, IE
+      y_vwind(:) = y_vwind_1d(i)
+      qexact(KS:KE,i,JS) = get_profile2d( InitShapeName, x_uwind_1d(KS:KE), y_vwind(KS:KE), &
+                                          InitShapeParam1, InitShapeParam2 )      
+    end do
 
-    x_uwind(KS:KE) =  CZ(KS:KE) - center_x &
-                    - (ADV_VELX*tsec - dble(periodx)*(dom_xmax - dom_xmin))
-    where (x_uwind < -1.0_RP)
-      x_uwind = dom_xmax + (x_uwind - dom_xmin)
-    end where
-    
-    y_vwind(IS:IE) =  CX(IS:IE) - center_y &
-                   - (ADV_VELY*tsec - dble(periody)*(dom_ymax - dom_ymin))
-    where (y_vwind < -1.0_RP)
-      y_vwind = dom_ymax + (y_vwind - dom_ymin)
-    end where
-    
-    qexact(KS:KE,IS:IE,JS) = get_profile(InitShapeName, x_uwind(KS:KE), y_vwind(IS:IE))
-    
-    l2error = 0.0_RP
+    l2error   = 0.0_RP   
+    linferror = 0.0_RP  
     do i=IS, IE
     do k=KS, KE
       l2error = l2error &
                + CDZ(k)*CDX(i) * ( q(k,i,JS) - qexact(k,i,JS) )**2
+      linferror = max(linferror, abs(q(k,i,JS) - qexact(k,i,JS)))
     end do
     end do
-    write(*,*) "L2 error:", sqrt(l2error)/((dom_xmax - dom_xmin)*(dom_ymax - dom_ymin))
+    LOG_INFO("evaluate_error_l2",*), sqrt(l2error)/((dom_xmax - dom_xmin)*(dom_ymax - dom_ymin))
+    LOG_INFO("evaluate_error_linf",*) linferror
 
   end subroutine evaluate_error
 
   subroutine set_initcond() 
     implicit none
 
-    integer :: i, j
+    real(RP) :: x(KA,IA), y(KA,IA)
+    real(DP) :: y_tmp(KA)
+    integer :: k, i    
 
-    !-----------------------------------------
+    !----------------------------------------- 
     do j=JS, JE
-      q(:,:,j)      = get_profile( initShapeName,                        &
-                                   CZ(:) - 0.5_RP*(dom_xmin + dom_xmax), &
-                                   CX(:) - 0.5_RP*(dom_ymin + dom_ymax)   )
-      qexact(:,:,j) = q(:,:,j)
+    do i=IS, IE
+      y_tmp(:) = CX(i)
+      q(KS:KE,i,j)      = get_profile2d( InitShapeName, CZ(KS:KE) - dom_centerx, y_tmp(KS:KE) - dom_centery, &
+                                     InitShapeParam1, InitShapeParam2 )
+      qexact(:,i,j) = q(:,i,j)
+    end do
     end do
     u(:,:,:)      = ADV_VELX
     v(:,:,:)      = ADV_VELY
@@ -275,51 +245,14 @@ contains
     call FILE_HISTORY_put(HST_ID(2), qexact(KS:KE,IS:IE,JS))
     call FILE_HISTORY_write()   
     
+    LOG_PROGRESS('(A,F13.5,A)') "t=", real(0.0_RP), "[s]"
+    call evaluate_error(0.0_RP)
     return
   end subroutine set_initcond
 
-  function get_profile(profile_name, x, y) result(profile)
-    use scale_const, only: &
-      PI => CONST_PI
-    implicit none
-
-    character(*), intent(in) :: profile_name
-    real(RP), intent(in) :: x(:)
-    real(RP), intent(in) :: y(:)
-    real(RP) :: profile(size(x),size(y))
-
-    real(RP) :: half_width = 0.3_RP
-    real(RP) :: dist(size(x),size(y))
-
-    integer :: j
-    !------------------------------------------------------------------------
-
-    profile(:,:) = 0.0_RP
-
-    do j=1,size(y)
-      dist(:,j) = sqrt(x(:)**2 + y(j)**2)
-    end do
-
-    select case(InitShapeName)
-    case ('sin')
-      do j=1, size(y)
-        profile(:,j) = sin( PI*x(:) )
-      end do
-    case ('cosbell')
-      where( dist <= half_width )
-        profile(:,:) = (1.0_RP + cos(PI*dist(:,:)/half_width))*0.5_RP
-      end where
-    case ('hat')
-      where( dist <= half_width )
-        profile(:,:) = 1.0_RP
-      end where
-    end select
-
-    return
-  end function get_profile
-
   subroutine init()
-
+    use scale_prc_cartesC, only: PRC_CARTESC_setup     
+    use scale_comm_cartesC, only: COMM_setup
     use scale_calendar, only: CALENDAR_setup
     use scale_time_manager, only: TIME_manager_Init 
     use scale_atmos_grid_cartesC, only: &
@@ -329,25 +262,55 @@ contains
       ATMOS_HYDROMETEOR_regist
     use scale_file_cartesC, only: &
       FILE_CARTESC_setup
-    use mod_output, only: output_setup
+    use mod_output_fvm, only: output_fvm_setup
     use scale_file_history, only: FILE_HISTORY_reg
 
     implicit none
 
+    namelist /PARAM_TEST/ &
+      NeGX, GXHALO, NeGY, GYHALO,                        &
+      FLUX_SCHEME_TYPE, TINTEG_SCHEME_TYPE,              &
+      InitShapeName, InitShapeParam1, InitShapeParam2,   &
+      nstep_eval_error
+        
     integer :: comm, myrank, nprocs
     logical :: ismaster
     real(RP) :: delx, dely
+    
+    integer :: ierr
     !----------------------------------------------
     
     ! scale setup
     call SCALE_init( APPNAME ) 
     call PROF_rapstart( "init", 1 )
 
+    !--- read namelist
+
+    NeGX = 2; GXHALO =2
+    NeGY = 2; GYHALO =2
+    FLUX_SCHEME_TYPE   = 'CD2'
+    TINTEG_SCHEME_TYPE = 'RK2'
+    InitShapeName    = 'sin'
+    InitShapeParam1  = 1.0_RP; InitShapeParam2 = 1.0_RP
+    nstep_eval_error = 5
+
+    rewind(IO_FID_CONF)
+    read(IO_FID_CONF,nml=PARAM_TEST,iostat=ierr)
+    if( ierr < 0 ) then !--- missing
+       LOG_INFO("init",*) 'Not found namelist. Default used.'
+    elseif( ierr > 0 ) then !--- fatal error
+       LOG_ERROR("init",*) 'Not appropriate names in namelist PARAM_TEST. Check!'
+       call PRC_abort
+    endif
+    LOG_NML(PARAM_TEST)
+
+    
     ! setup process
     call PRC_CARTESC_setup
 
-    call ATMOS_GRID_CARTESC_INDEX_setup( KMAX=NeGX, IMAX=NeGY, JMAX=1, JHALO=1, IBLOCK=1, JBLOCK=1 )
-
+    call ATMOS_GRID_CARTESC_INDEX_setup( &
+      KMAX=NeGX, KHALO=GXHALO, IMAX=NeGY, IHALO=GYHALO, JMAX=1, JHALO=1, &
+      IBLOCK=1, JBLOCK=1 )
 
     ! setup horizontal/veritical grid system
     call ATMOS_GRID_CARTESC_allocate
@@ -365,11 +328,17 @@ contains
     call CALENDAR_setup
     call TIME_manager_Init
     
+    ! setup a module for FVM operator
+    call optr_fvm%Init( FLUX_SCHEME_TYPE, KS, KE, KA, IS, IE, IA, JS, JS, JA )
+
+    ! setup a module for time integrator
+    call tinteg%Init( TINTEG_SCHEME_TYPE, TIME_DTSEC, 1, (/ KA, IA /) )
+    
     ! setup variables and history files
-    allocate( q(KA,IA,JA), q0(KA,IA,JA), qexact(KA,IA,JA) )
+    allocate( q(KA,IA,JA), qexact(KA,IA,JA) )
     allocate( u(KA,IA,JA), v(KA,IA,JA) )
 
-    call output_setup
+    call output_fvm_setup( 'rectdom2d' )
     call FILE_HISTORY_reg( "q", "q", "1", HST_ID(1), dim_type='XY')
     call FILE_HISTORY_reg( "qexact", "qexact", "1", HST_ID(2), dim_type='XY')
 
@@ -379,14 +348,17 @@ contains
 
   subroutine final()
 
-    use mod_output, only: output_finalize
+    use mod_output_fvm, only: output_fvm_finalize
     use scale_time_manager, only: TIME_manager_Final    
     implicit none
     !----------------------------------------------
 
     call PROF_rapstart( "final", 1 )
 
-    call output_finalize
+    call optr_fvm%Final()
+    call tinteg%Final()
+
+    call output_fvm_finalize
     call TIME_manager_Final
 
     call PROF_rapend( "final", 1 )

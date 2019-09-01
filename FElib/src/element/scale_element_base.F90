@@ -18,6 +18,7 @@ module scale_element_base
     integer :: Np
     integer :: Nfaces
     integer :: NfpTot
+    integer :: Nv
 
     real(RP), allocatable :: V(:,:)
     real(RP), allocatable :: invV(:,:)

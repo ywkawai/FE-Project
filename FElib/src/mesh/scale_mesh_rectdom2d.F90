@@ -40,9 +40,7 @@ module scale_mesh_rectdom2d
     procedure :: Generate => MeshRectDom2D_generate
   end type MeshRectDom2D
 
-  public :: MeshRectDom2D_Init, MeshRectDom2D_Final
-  public :: MeshRectDom2D_generate
-  public :: MeshRectDom2D_setupLocalDom
+  public :: MeshRectDom2D_coord_conv
 
   !-----------------------------------------------------------------------------
   !
@@ -139,7 +137,7 @@ contains
     
     !--- Construct the connectivity of patches  (only master node)
 
-    call Messh2D_assignDomID( this,    & ! (in)
+    call MesshRectDom2D_assignDomID( this,    & ! (in)
         & NprcX, NprcY,                & ! (out)
         & tileID_table, panelID_table, & ! (out)
         & pi_table, pj_table )           ! (out)
@@ -171,6 +169,8 @@ contains
 
     this%isGenerated = .true.
   end subroutine MeshRectDom2D_generate
+
+  !- private ------------------------------------------------------
 
   subroutine MeshRectDom2D_setupLocalDom( mesh, &
     tileID, panelID,                         &
@@ -243,7 +243,8 @@ contains
         & mesh%NeY, mesh%ymin, mesh%ymax )                     ! (in)
 
     !---
-    call MeshBase2D_setGeometricInfo(mesh)
+    
+    call MeshBase2D_setGeometricInfo(mesh, MeshRectDom2D_coord_conv)
  
     !---
 
@@ -262,7 +263,7 @@ contains
     return
   end subroutine MeshRectDom2D_setupLocalDom
 
-  subroutine Messh2D_assignDomID( this, &
+  subroutine MesshRectDom2D_assignDomID( this, &
     NprcX, NprcY,                       &
     tileID_table, panelID_table,        &
     pi_table, pj_table )
@@ -330,6 +331,25 @@ contains
     end do
 
     return
-  end subroutine Messh2D_assignDomID
+  end subroutine MesshRectDom2D_assignDomID
   
+  subroutine MeshRectDom2D_coord_conv( x, y, xr, xs, yr, ys, &
+    vx, vy, elem )
+
+    type(elementbase2D), intent(in) :: elem
+    real(RP), intent(out) :: x(elem%Np), y(elem%Np)
+    real(RP), intent(out) :: xr(elem%Np), xs(elem%Np), yr(elem%Np), ys(elem%Np)
+    real(RP), intent(in) :: vx(elem%Nv), vy(elem%Nv)
+
+    !-------------------------------------------------
+    
+    x(:) = vx(1) + 0.5_RP*(elem%x1(:) + 1.0_RP)*(vx(2) - vx(1))
+    y(:) = vy(1) + 0.5_RP*(elem%x2(:) + 1.0_RP)*(vy(3) - vy(1))
+
+    xr(:) = 0.5_RP*(vx(2) - vx(1)) !matmul(refElem%Dr,mesh%x(:,n))
+    xs(:) = 0d0                        !matmul(refElem%Ds,mesh%x(:,n))
+    yr(:) = 0d0                        !matmul(refElem%Dr,mesh%y(:,n))
+    ys(:) = 0.5_RP*(vy(3) - vy(1)) !matmul(refElem%Ds,mesh%y(:,n))
+  end subroutine MeshRectDom2D_coord_conv  
+
 end module scale_mesh_rectdom2d

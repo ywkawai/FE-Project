@@ -1,11 +1,9 @@
-#include "scalelib.h"
+#include "scaleFElib.h"
 program test_advect2d
   !-----------------------------------------------------------------------------
   !
   !++ used modules
-  !  
-  use scale_const, only: &
-    PI  => CONST_PI
+  !
   use scale_precision
   use scale_prc
   use scale_io
@@ -33,6 +31,12 @@ program test_advect2d
     TIME_manager_advance,                              &
     TIME_NOWDATE, TIME_NOWMS, TIME_NOWSTEP,            &
     TIME_DTSEC, TIME_NSTEP 
+  use mod_timeint_rk, only: &
+    timeint_rk
+  
+  use mod_fieldutil, only: &
+    get_upwind_pos1d => fieldutil_get_upwind_pos1d, &
+    get_profile2d => fieldutil_get_profile2d
 
   !-----------------------------------------------------------------------------
   implicit none
@@ -41,8 +45,9 @@ program test_advect2d
   integer :: NeGY
   integer, parameter :: NLocalMeshPerPrc = 1
 
-  ! sin, cosbell, hat
-  character(len=H_SHORT) :: InitShapeName = 'cosbell'
+  ! sin, cosbell, top-hat
+  character(len=H_SHORT) :: InitShapeName
+  real(RP) :: InitShapeParam1, InitShapeParam2
 
   real(RP), parameter :: dom_xmin = -1.0_RP
   real(RP), parameter :: dom_xmax = +1.0_RP
@@ -59,7 +64,7 @@ program test_advect2d
   type(sparsemat) :: Dx, Sx, Dy, Sy, Lift
   
   type(MeshRectDom2D), target :: mesh
-  type(MeshField2D), target :: q, q0, qexact  
+  type(MeshField2D), target :: q, qexact  
   type(MeshField2D), target :: u, v
   type(MeshFieldCommRectDom2D) :: fields_comm
   type(MeshFieldContainer) :: field_list(3)  
@@ -68,12 +73,13 @@ program test_advect2d
   integer :: n, k, p
   type(LocalMesh2D), pointer :: lcmesh
   
+  character(len=H_SHORT) :: TINTEG_SCHEME_TYPE
+  type(timeint_rk), allocatable :: tinteg_lc(:)
   integer :: nowstep
   integer :: rkstage
-  integer, parameter :: nrkstage = 3
+  integer :: tintbuf_ind
+  integer, parameter :: RKVAR_Q = 1
   real(RP) :: tsec_
-  real(RP) :: rkcoef1(nrkstage) = (/ 0.0_RP, 3.0_RP/4.0_RP, 1.0_RP/3.0_RP /)
-  real(RP) :: rkcoef2(nrkstage) = (/ 1.0_RP, 1.0_RP/4.0_RP, 2.0_RP/3.0_RP /)
 
   real(RP), allocatable :: IntrpMat(:,:)
   real(RP) :: intw_intrp(PolyOrderErrorCheck**2)
@@ -91,12 +97,7 @@ program test_advect2d
   field_list(3)%field2d => v
 
   do nowstep=1, TIME_NSTEP
-  
-    do n=1, mesh%LOCAL_MESH_NUM
-      q0%local(n)%val(:,:) = q%local(n)%val(:,:)
-    end do
-
-    do rkstage=1, nrkstage
+    do rkstage=1, tinteg_lc(1)%nstage
       !* Exchange halo data
       call PROF_rapstart( 'exchange_halo', 1)
 
@@ -107,16 +108,22 @@ program test_advect2d
       call PROF_rapend( 'exchange_halo', 1)
 
       !* Update prognostic variables
-      call PROF_rapstart( 'update_dyn', 1)
       do n=1, mesh%LOCAL_MESH_NUM
-        call update_dyn( &
-          TIME_DTSEC, rkcoef1(rkstage), rkcoef2(rkstage), &
-          mesh%lcmesh_list(n), refElem,                   &
-          q%local(n)%val, q0%local(n)%val,                &
-          u%local(n)%val, v%local(n)%val )        
-      end do
-      call PROF_rapend( 'update_dyn', 1)
+        lcmesh => mesh%lcmesh_list(n)
+        tintbuf_ind = tinteg_lc(n)%tend_buf_indmap(rkstage)
 
+        call PROF_rapstart( 'cal_dyn_tend', 1)
+        call cal_dyn_tend( &
+           tinteg_lc(n)%tend_buf2D(:,:,RKVAR_Q,tintbuf_ind), &
+           q%local(n)%val, u%local(n)%val, v%local(n)%val,   &
+           lcmesh, lcmesh%refElem2D ) 
+        call PROF_rapend( 'cal_dyn_tend', 1)
+
+        call PROF_rapstart( 'update_var', 1)
+        call tinteg_lc(n)%Advance( rkstage, q%local(n)%val, RKVAR_Q,              &
+                                   1, lcmesh%refElem%Np, lcmesh%NeS, lcmesh%NeE )
+        call PROF_rapend('update_var', 1)     
+      end do
     end do
     
     !* Advance time
@@ -138,49 +145,43 @@ program test_advect2d
   call final()
 
 contains
-  subroutine update_dyn( dt, rkcoef_1, rkcoef_2, lmesh, elem, q_, q0_, u_, v_)
+  subroutine cal_dyn_tend( dqdt, q_, u_, v_, lmesh, elem)
     implicit none
 
-    real(RP), intent(in) :: dt
-    real(RP), intent(in) :: rkcoef_1, rkcoef_2
     class(LocalMesh2D), intent(in) :: lmesh
     class(elementbase2D), intent(in) :: elem
-    real(RP), intent(inout) :: q_(elem%Np,lmesh%NeA)
-    real(RP), intent(in)    :: q0_(elem%Np,lmesh%NeA)
-    real(RP), intent(in)    :: u_(elem%Np,lmesh%NeA)
-    real(RP), intent(in)    :: v_(elem%Np,lmesh%NeA)
+    real(RP), intent(out) :: dqdt(elem%Np,lmesh%NeA)
+    real(RP), intent(in)  :: q_(elem%Np,lmesh%NeA)
+    real(RP), intent(in)  :: u_(elem%Np,lmesh%NeA)
+    real(RP), intent(in)  :: v_(elem%Np,lmesh%NeA)
 
     real(RP) :: Fx(elem%Np), Fy(elem%Np), LiftDelFlx(elem%Np)
-    real(RP) :: dqdt(elem%Np)
     real(RP) :: del_flux(elem%NfpTot,lmesh%Ne)
+
     !------------------------------------------------------------------------
 
-    call PROF_rapstart( 'update_dyn_cal_bndflux', 2)
+    call PROF_rapstart( 'cal_dyn_tend_bndflux', 2)
     call cal_del_flux_dyn( del_flux,                              & ! (out)
       q_, u_, v_, lmesh%normal_fn(:,:,1), lmesh%normal_fn(:,:,2), & ! (in)
       lmesh%vmapM, lmesh%vmapP,                                   & ! (in)
       lmesh, elem )                                                 ! (in)
-    
-    call PROF_rapend( 'update_dyn_cal_bndflux', 2)
+    call PROF_rapend( 'cal_dyn_tend_bndflux', 2)
 
     !-----
-    call PROF_rapstart( 'update_dyn_cal_interior', 2)
-    
+    call PROF_rapstart( 'cal_dyn_tend_interior', 2)
     do k = lmesh%NeS, lmesh%NeE
       call sparsemat_matmul(Dx, q_(:,k)*u_(:,k), Fx)
       call sparsemat_matmul(Dy, q_(:,k)*v_(:,k), Fy)
       call sparsemat_matmul(Lift, lmesh%Fscale(:,k)*del_flux(:,k), LiftDelFlx)
-      
-      dqdt(:) = - (  lmesh%Escale(:,k,1,1) * Fx(:) &
-                   + lmesh%Escale(:,k,2,2) * Fy(:) &
-                   + LiftDelFlx )
-      q_(:,k) = rkcoef_1*q0_(:,k) + rkcoef_2*(q_(:,k) + dt * dqdt)
-    end do
 
-    call PROF_rapend( 'update_dyn_cal_interior', 2)
+      dqdt(:,k) = - (  lmesh%Escale(:,k,1,1) * Fx(:) &
+                     + lmesh%Escale(:,k,2,2) * Fy(:) &
+                     + LiftDelFlx )
+    end do
+    call PROF_rapend( 'cal_dyn_tend_interior', 2)
 
     return
-  end subroutine update_dyn
+  end subroutine cal_dyn_tend
 
   subroutine cal_del_flux_dyn( del_flux, q_, u_, v_, nx, ny, vmapM, vmapP, lmesh, elem )
     implicit none
@@ -223,8 +224,6 @@ contains
 
     real(DP), intent(in) :: tsec
 
-    real(RP) :: l2error
-    real(RP) :: linferror
     real(RP) :: q_intrp(PolyOrderErrorCheck**2)
     real(RP) :: qexact_intrp(PolyOrderErrorCheck**2)
     real(RP) :: x_uwind(refElem%Np), y_vwind(refElem%Np)
@@ -232,31 +231,32 @@ contains
     real(RP) :: pos_intrp(PolyOrderErrorCheck**2,2)
     real(RP) vx(4), vy(4)
 
+    real(RP) :: l2error
+    real(RP) :: linferror
     !------------------------------------------------------------------------
 
+    l2error   = 0.0_RP   
     linferror = 0.0_RP
-    l2error = 0.0_RP
     do n=1, mesh%LOCAL_MESH_NUM
       lcmesh => mesh%lcmesh_list(n)
       do k=lcmesh%NeS, lcmesh%NeE
 
-        x_uwind(:) = get_upwind_pos(lcmesh%pos_en(:,k,1), ADV_VELX, tsec, dom_xmin, dom_xmax)
-        y_vwind(:) = get_upwind_pos(lcmesh%pos_en(:,k,2), ADV_VELY, tsec, dom_ymin, dom_ymax)
+        x_uwind(:) = get_upwind_pos1d(lcmesh%pos_en(:,k,1), ADV_VELX, tsec, dom_xmin, dom_xmax)
+        y_vwind(:) = get_upwind_pos1d(lcmesh%pos_en(:,k,2), ADV_VELY, tsec, dom_ymin, dom_ymax)
 
         vx(:) = lcmesh%pos_ev(lcmesh%EToV(k,:),1)
         vy(:) = lcmesh%pos_ev(lcmesh%EToV(k,:),2)
         pos_intrp(:,1) = vx(1) + 0.5_RP*(x_intrp(:) + 1.0_RP)*(vx(2) - vx(1))
         pos_intrp(:,2) = vy(1) + 0.5_RP*(y_intrp(:) + 1.0_RP)*(vy(3) - vy(1))
-        x_uwind_intrp(:) = get_upwind_pos(pos_intrp(:,1), ADV_VELX, tsec, dom_xmin, dom_xmax)
-        y_vwind_intrp(:) = get_upwind_pos(pos_intrp(:,2), ADV_VELY, tsec, dom_ymin, dom_ymax)
+        x_uwind_intrp(:) = get_upwind_pos1d(pos_intrp(:,1), ADV_VELX, tsec, dom_xmin, dom_xmax)
+        y_vwind_intrp(:) = get_upwind_pos1d(pos_intrp(:,2), ADV_VELY, tsec, dom_ymin, dom_ymax)
 
-        qexact%local(n)%val(:,k) = get_profile(InitShapeName, x_uwind, y_vwind)
-        qexact_intrp(:) = get_profile(InitShapeName, x_uwind_intrp, y_vwind_intrp)
+        qexact%local(n)%val(:,k) = get_profile2d(InitShapeName, x_uwind, y_vwind, InitShapeParam1, InitShapeParam2)
+        qexact_intrp(:) = get_profile2d(InitShapeName, x_uwind_intrp, y_vwind_intrp, InitShapeParam1, InitShapeParam2)
         q_intrp(:) = matmul(IntrpMat, q%local(n)%val(:,k))
 
         l2error = l2error &
-          + sum(   lcmesh%J(1,k) * intw_intrp(:)          &
-                * ( q_intrp(:) - qexact_intrp(:) )**2 )
+            + sum(   lcmesh%J(1,k) * intw_intrp(:) * ( q_intrp(:) - qexact_intrp(:) )**2 )
         
         linferror = max(linferror, maxval(abs(q%local(n)%val(:,k) - qexact%local(n)%val(:,k))))
       end do
@@ -267,34 +267,53 @@ contains
 
   end subroutine evaluate_error
 
-  function get_upwind_pos(pos, ADV_VEL, nowtime, dom_min, dom_max) result(upos)
-    real(RP), intent(in) :: pos(:)
-    real(RP), intent(in) :: ADV_VEL
-    real(RP), intent(in) :: nowtime
-    real(RP), intent(in) :: dom_min, dom_max
-    real(RP) :: upos(size(pos))
-
-    integer :: period
-    !-------
-
-    period = ADV_VEL*nowtime/(dom_max - dom_min)
-    
-    upos(:) = pos(:) - (ADV_VEL*nowtime - dble(period)*(dom_max - dom_min))
-    where (upos < dom_min)
-      upos = dom_max + (upos - dom_min)
-    end where
-  end function get_upwind_pos
-
-
   subroutine set_initcond()
+    use scale_linalgebra, only: linalgebra_inv
+    use scale_polynominal, only: &
+      Polynominal_GenLagrangePoly, Polynominal_GenGaussLobattoPt, Polynominal_GenGaussLegendrePt
     implicit none
+
+    real(RP) :: q_intrp(PolyOrderErrorCheck**2)
+    real(RP) :: lgl1D(refElem%PolyOrder+1), r_int1D_i(PolyOrderErrorCheck)
+    real(RP) :: lagrange_intrp1D(PolyOrderErrorCheck,refElem%PolyOrder+1)    
+    real(RP) :: lagrange_intrp(PolyOrderErrorCheck**2,refElem%Np**2)
+    real(RP) :: pos_intrp(PolyOrderErrorCheck**2,2)
+    real(RP) vx(4), vy(4)
+    integer :: p1, p2, p1_, p2_
+    integer :: n_, l_
+    real(RP) int_gphi(refElem%Np)
     !------------------------------------------------------------------------
+
+    lgl1D(:) = Polynominal_GenGaussLobattoPt(refElem%PolyOrder)
+    r_int1D_i(:) = Polynominal_GenGaussLegendrePt( PolyOrderErrorCheck )
+    lagrange_intrp1D(:,:) = Polynominal_GenLagrangePoly(refElem%PolyOrder, lgl1D, r_int1D_i)
+    do p2_=1, PolyOrderErrorCheck
+    do p1_=1, PolyOrderErrorCheck
+      n_= p1_ + (p2_-1)*PolyOrderErrorCheck
+      do p2=1, refElem%Nfp
+      do p1=1, refElem%Nfp
+        l_ = p1 + (p2-1)*refElem%Nfp
+        lagrange_intrp(n_,l_) = lagrange_intrp1D(p1_,p1)*lagrange_intrp1D(p2_,p2)
+      end do
+      end do
+    end do
+    end do
 
     do n=1, mesh%LOCAL_MESH_NUM
       lcmesh => mesh%lcmesh_list(n)
       do k=lcmesh%NeS, lcmesh%NeE
-        q%local(n)%val(:,k) = get_profile(InitShapeName, lcmesh%pos_en(:,k,1), lcmesh%pos_en(:,k,2))
-        qexact%local(n)%val(:,k) = q%local(n)%val(:,k)
+        qexact%local(n)%val(:,k) = get_profile2d( InitShapeName, lcmesh%pos_en(:,k,1), lcmesh%pos_en(:,k,2), &
+                                                  InitShapeParam1, InitShapeParam2 )
+        
+        vx(:) = lcmesh%pos_ev(lcmesh%EToV(k,:),1)
+        vy(:) = lcmesh%pos_ev(lcmesh%EToV(k,:),2)                                                  
+        pos_intrp(:,1) = vx(1) + 0.5_RP*(x_intrp(:) + 1.0_RP)*(vx(2) - vx(1))
+        pos_intrp(:,2) = vy(1) + 0.5_RP*(y_intrp(:) + 1.0_RP)*(vy(3) - vy(1))       
+        q_intrp(:) = get_profile2d( InitShapeName, pos_intrp(:,1), pos_intrp(:,2), InitShapeParam1, InitShapeParam2 )
+        do l_=1, refElem%Np
+          int_gphi(l_) = sum(intw_intrp(:)*lagrange_intrp(:,l_)*q_intrp(:)) 
+        end do
+        q%local(n)%val(:,k) = matmul(refElem%invM, int_gphi)
         u%local(n)%val(:,k) = ADV_VELX
         v%local(n)%val(:,k) = ADV_VELY
       end do
@@ -309,66 +328,23 @@ contains
     return
   end subroutine set_initcond
 
-  function get_profile(profile_name, x, y) result(profile)
-    implicit none
-
-    character(*), intent(in) :: profile_name
-    real(RP), intent(in) :: x(:)
-    real(RP), intent(in) :: y(:)
-    real(RP) :: profile(size(x))
-
-    real(RP) :: half_width = 0.15_RP
-    real(RP) :: dist(size(x))
-    !------------------------------------------------------------------------
-
-    profile(:) = 0.0_RP
-    dist(:) = sqrt(x(:)**2 + y(:)**2)
-
-    select case(InitShapeName)
-    case ('sin')
-      profile(:) = sin( PI*x(:) )
-    case ('cosbell')
-      where( dist <= half_width )
-        profile(:) = (1.0_RP + cos(PI*dist(:)/half_width))*0.5_RP
-      end where
-    case ('hat')
-      where( dist <= half_width )
-        profile(:) = 1.0_RP
-      end where
-    end select
-
-    return
-  end function get_profile
-
   subroutine init()
 
     use scale_calendar, only: CALENDAR_setup
     use scale_time_manager, only: TIME_manager_Init 
     use scale_file_history_meshfield, only: FILE_HISTORY_meshfield_setup  
     use scale_file_history, only: FILE_HISTORY_reg 
-    
-    use scale_polynominal, only: &
-      Polynominal_genLegendrePoly,    &
-      Polynominal_GenGaussLegendrePt, &
-      Polynominal_GenGaussLegendrePtIntWeight
         
     implicit none
 
     namelist /PARAM_TEST/ &
-      NeGX, NeGY, PolyOrder, InitShapeName, &
+      NeGX, NeGY, PolyOrder, &
+      TINTEG_SCHEME_TYPE,    &
+      InitShapeName, InitShapeParam1, InitShapeParam2, &
       nstep_eval_error
     
     integer :: comm, myrank, nprocs
     logical :: ismaster
-
-    real(RP) :: r_int1D_i(PolyOrderErrorCheck)
-    real(RP) :: r_int1Dw_i(PolyOrderErrorCheck)
-    real(RP), allocatable :: P_int1D_ori(:,:)
-    real(RP), allocatable :: Vint(:,:)
-    
-    integer :: p1, p2, p1_, p2_
-    integer :: n_, l_
-
     integer :: ierr
     !------------------------------------------------------------------------
 
@@ -388,7 +364,9 @@ contains
     !--- read namelist
 
     NeGX = 2; NeGY = 2; PolyOrder = 1 
+    TINTEG_SCHEME_TYPE = 'RK_TVD_3'
     InitShapeName    = 'sin'
+    InitShapeParam1 = 1.0_RP; InitShapeParam2 = 1.0_RP
     nstep_eval_error = 5
 
     rewind(IO_FID_CONF)
@@ -427,9 +405,16 @@ contains
 
     call mesh%Generate()
 
+    ! setup for time integrator
+    allocate( tinteg_lc(mesh%LOCAL_MESH_NUM) )
+    do n=1, mesh%LOCAL_MESH_NUM
+      lcmesh => mesh%lcmesh_list(n)
+      call tinteg_lc(n)%Init( TINTEG_SCHEME_TYPE, TIME_DTSEC, 1,  &
+                              (/ lcmesh%refElem%Np, lcmesh%NeA /)  )
+    end do
+
     !---
     call q%Init( "q", "1", mesh )
-    call q0%Init( "q0", "1", mesh )
     call qexact%Init( "qexact", "1", mesh )
     call u%Init( "u", "m/s", mesh )
     call v%Init( "v", "m/s", mesh )
@@ -438,34 +423,11 @@ contains
     call FILE_HISTORY_meshfield_setup( mesh2d_=mesh )
     call FILE_HISTORY_reg( q%varname, "q", q%unit, HST_ID(1), dim_type='XY')
     call FILE_HISTORY_reg( qexact%varname, "qexact", q%unit, HST_ID(2), dim_type='XY')
+    
     !---
-
-    allocate( P_int1D_ori(PolyOrderErrorCheck,Polyorder+1) )
-    allocate( Vint(PolyOrderErrorCheck**2,(PolyOrder+1)**2) )
-
-    r_int1D_i(:) = Polynominal_GenGaussLegendrePt( PolyOrderErrorCheck )
-    r_int1Dw_i(:) = Polynominal_GenGaussLegendrePtIntWeight( PolyOrderErrorCheck )
-    P_int1D_ori(:,:) = Polynominal_GenLegendrePoly(refElem%PolyOrder, r_int1D_i)
-
-    do p2_=1, PolyOrderErrorCheck
-    do p1_=1, PolyOrderErrorCheck
-      n_= p1_ + (p2_-1)*PolyOrderErrorCheck
-      x_intrp(n_) = r_int1D_i(p1_)
-      y_intrp(n_) = r_int1D_i(p2_)
-      intw_intrp(n_) = r_int1Dw_i(p1_) * r_int1Dw_i(p2_)
-
-      do p2=1, refElem%Nfp
-      do p1=1, refElem%Nfp
-        l_ = p1 + (p2-1)*refElem%Nfp
-        Vint(n_,l_) =  P_int1D_ori(p1_,p1) * sqrt(real(p1-1,kind=RP) + 0.5_RP) &
-                     * P_int1D_ori(p2_,p2) * sqrt(real(p2-1,kind=RP) + 0.5_RP)
-      end do
-      end do
-    end do
-    end do
-
     allocate( IntrpMat(PolyOrderErrorCheck**2,(PolyOrder+1)**2) )
-    IntrpMat(:,:) = matmul(Vint, refElem%invV)
+    IntrpMat(:,:) = refElem%GenIntGaussLegendreIntrpMat( PolyOrderErrorCheck,          & ! (in)
+                                                         intw_intrp, x_intrp, y_intrp )  ! (out)
 
     call PROF_rapend( "init", 1 )
     return
@@ -483,8 +445,11 @@ contains
 
     call FILE_HISTORY_meshfield_finalize()
 
+    do n=1, mesh%LOCAL_MESH_NUM
+      call tinteg_lc(n)%Final()
+    end do
+
     call q%Final()
-    call q0%Final()
     call qexact%Final()
     call u%Final()
     call V%Final()
@@ -508,5 +473,4 @@ contains
 
     return
   end subroutine final
-
 end program test_advect2d

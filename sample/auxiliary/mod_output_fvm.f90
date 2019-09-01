@@ -1,13 +1,13 @@
 !-------------------------------------------------------------------------------
-#include "scalelib.h"
-module mod_output
+#include "scaleFElib.h"
+module mod_output_fvm
   !-----------------------------------------------------------------------------
   !
   !++ Used modules
   !
   use scale_precision
   use scale_io
-  use scale_atmos_grid_cartesC_index
+  use scale_prc
   use scale_file_history, only: &
     FILE_HISTORY_Setup, &
     FILE_HISTORY_Set_NowDate, &
@@ -20,6 +20,18 @@ module mod_output
     FILE_HISTORY_Set_Axis,    &
     FILE_HISTORY_finalize
 
+  use scale_atmos_grid_cartesC_index
+  use scale_atmos_grid_cartesC, only: &
+    DOMAIN_CENTER_Y => ATMOS_GRID_CARTESC_DOMAIN_CENTER_Y, &
+    CX              => ATMOS_GRID_CARTESC_CX,              &
+    CY              => ATMOS_GRID_CARTESC_CY,              &
+    CZ              => ATMOS_GRID_CARTESC_CZ,              &
+    FZ              => ATMOS_GRID_CARTESC_FZ,              &
+    CDZ             => ATMOS_GRID_CARTESC_CDZ,             &
+    RCDZ            => ATMOS_GRID_CARTESC_RCDZ,            &
+    RFDZ            => ATMOS_GRID_CARTESC_RFDZ
+   
+
   !-----------------------------------------------------------------------------
   implicit none
   private
@@ -27,8 +39,8 @@ module mod_output
   !
   !++ Public procedures
   !
-  public :: output_setup
-  public :: output_finalize
+  public :: output_fvm_setup
+  public :: output_fvm_finalize
   !-----------------------------------------------------------------------------
   !
   !++ Public parameters & variables
@@ -49,7 +61,7 @@ contains
 
 !----------------
 
-subroutine output_setup()
+subroutine output_fvm_setup( dom_type )
 
   use scale_file_h, only: &
     FILE_HSHORT
@@ -66,6 +78,8 @@ subroutine output_setup()
     CALENDAR_get_name
   implicit none
 
+  character(*), intent(in) :: dom_type
+
   character(len=H_MID) :: FILE_HISTORY_MESHFILED_H_TITLE = 'SCALE-FEM FILE_HISTORY_MESHFIELD' !< title of the output file
   character(len=H_MID) :: FILE_HISTORY_MESHFIELD_T_SINCE
 
@@ -74,7 +88,6 @@ subroutine output_setup()
   real(DP) :: start_daysec
   integer  :: ierr
   integer  :: k
-
   !---------------------------------------------------------------------------
 
 
@@ -107,16 +120,39 @@ subroutine output_setup()
 
   call FILE_HISTORY_Set_NowDate( TIME_NOWDATE, TIME_NOWMS, TIME_NOWSTEP )
 
-  call set_dims()
-  call set_axis()
+  select case(dom_type)
+  case ('linedom1d')
+    call set_dims_linedom1d()
+    call set_axis_linedom1d()
+  case ('rectdom2d')
+    call set_dims_rectdom2d()
+    call set_axis_rectdom2d()    
+  case default
+    LOG_ERROR("output_setup",'(a)') "dom_type="//trim(dom_type)// "is not supported. Check!"
+    call PRC_abort
+  end select
 
-end subroutine output_setup
-subroutine output_finalize
+end subroutine output_fvm_setup
+
+subroutine output_fvm_finalize
+
   call FILE_HISTORY_finalize
-end subroutine output_finalize
-!----------------
 
-subroutine set_dims()
+end subroutine output_fvm_finalize
+
+!- private --------------------------------------------------
+
+subroutine set_dims_linedom1d()
+  character(len=H_SHORT) :: dims(3,3)
+  integer :: start(3,3), count(3,3)  
+
+  start(1,1) = 1
+  dims(1,1)  = "x"
+  count(1,1) = KMAX
+  call FILE_HISTORY_Set_Dim( "X", 1, 1, dims(:,:), zs(:), start(:,:), count(:,:))
+end subroutine set_dims_linedom1d
+
+subroutine set_dims_rectdom2d()
   character(len=H_SHORT) :: dims(3,3)
   integer :: start(3,3), count(3,3)  
 
@@ -138,24 +174,30 @@ subroutine set_dims()
   count(2,1) = IMAX
   call FILE_HISTORY_Set_Dim( "XY", 2, 1, dims(:,:), zs(:), start(:,:), count(:,:))
 
-end subroutine set_dims
+end subroutine set_dims_rectdom2d
 
-subroutine set_axis()
-  use scale_atmos_grid_cartesC, only: &
-     DOMAIN_CENTER_Y => ATMOS_GRID_CARTESC_DOMAIN_CENTER_Y, &
-     CX              => ATMOS_GRID_CARTESC_CX,              &
-     CY              => ATMOS_GRID_CARTESC_CY,              &
-     CZ              => ATMOS_GRID_CARTESC_CZ,              &
-     FZ              => ATMOS_GRID_CARTESC_FZ,              &
-     CDZ             => ATMOS_GRID_CARTESC_CDZ,             &
-     RCDZ            => ATMOS_GRID_CARTESC_RCDZ,            &
-     RFDZ            => ATMOS_GRID_CARTESC_RFDZ
-    
+subroutine set_axis_linedom1d()    
 
   integer :: k
   integer :: startz
   real(RP) :: z_bnds(2,KA)
+  !--------------------
+    !
+    startz = 1
 
+    ! bounds
+    do k = KS, KE
+      z_bnds(1,k) = FZ(k-1)
+      z_bnds(2,k) = FZ(k  )
+    end do
+  call FILE_HISTORY_Set_Axis( 'x', 'X-coordinate', '1', 'x', CZ(KS:KE))!,               &
+                              !bounds=z_bnds (:,KS  :KE), gsize=KMAX, start=startZ )
+end subroutine set_axis_linedom1d
+
+subroutine set_axis_rectdom2d()
+  integer :: k
+  integer :: startz
+  real(RP) :: z_bnds(2,KA)
   !--------------------
   !
   startz = 1
@@ -172,8 +214,9 @@ subroutine set_axis()
   call FILE_HISTORY_Set_Axis( 'y', 'Y-coordinate', '1', 'y', CX(IS:IE))!,               &
                               !bounds=z_bnds (:,KS  :KE), gsize=KMAX, start=startZ )
 
-end subroutine set_axis
+end subroutine set_axis_rectdom2d
 
 !----------------
 
-end module mod_output
+end module mod_output_fvm
+

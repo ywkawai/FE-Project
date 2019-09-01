@@ -101,15 +101,15 @@ contains
     this%rowPtr(:) = tmp_rowptr(1:rowptr_counter)
     this%rowPtrSize = rowptr_counter
     
-    ! write(*,*) "--- Mat ------"
-    ! write(*,*) "shape:", shape(mat)
-    ! write(*,*) "size:", size(mat)
+    !write(*,*) "--- Mat ------"
+    !write(*,*) "shape:", shape(mat)
+    !write(*,*) "size:", size(mat)
     ! do j=1, size(mat,2)
     !    write(*,*) mat(:,j)
     ! end do
-    ! write(*,*) "--- Compressed Mat ------"
-    ! write(*,*) "shape (Mat, colInd, rowPtr):", &
-    !   & shape(this%val), shape(this%colInd), shape(this%rowPtr)
+    !write(*,*) "--- Compressed Mat ------"
+    !write(*,*) "shape (Mat, colInd, rowPtr):", &
+    !  & shape(this%val), shape(this%colInd), shape(this%rowPtr)
     ! write(*,*) "val:", this%val(:)
     ! write(*,*) "colInd:", this%colInd(:)
     ! write(*,*) "rowPtr:", this%rowPtr(:)
@@ -189,7 +189,7 @@ contains
 
   subroutine sparsemat_matmul(A, b, c)
 
-    class(sparsemat), intent(in) :: A
+    type(sparsemat), intent(in) :: A
     real(RP), intent(in) :: b(:)
     real(RP), intent(out) :: c(:)
 
@@ -198,7 +198,7 @@ contains
 
     !--------------------------------------------------------------------------- 
 
-!!$    call mkl_dcsrgemv( 'N', A%rowPtrSize-1, A%val, A%rowPtr, A%colInd, b, c)
+    !call mkl_dcsrgemv( 'N', A%rowPtrSize-1, A%val, A%rowPtr, A%colInd, b, c)
     j1 = A%rowPtr(1)
     do p=1, A%rowPtrSize-1
        j2 = A%rowPtr(p+1) 

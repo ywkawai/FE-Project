@@ -12,6 +12,7 @@ module scale_mesh_linedom1d
     MeshBase1D_assignDomID, MeshBase1D_setGeometricInfo, MeshBase1D_setupLocalDom
 
   use scale_localmesh_1d, only: LocalMesh1D
+  use scale_element_base, only: elementbase1D
   use scale_element_line, only: LineElement
 
   !-----------------------------------------------------------------------------
@@ -137,4 +138,5 @@ contains
     this%isGenerated = .true.
   end subroutine MeshLineDom1D_generate
   
+  !-------------------------------------------------
 end module scale_mesh_linedom1d

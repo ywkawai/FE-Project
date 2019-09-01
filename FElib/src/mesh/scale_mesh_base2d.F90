@@ -97,17 +97,28 @@ contains
 
   end subroutine MeshBase2D_Final
   
-  subroutine MeshBase2D_setGeometricInfo( mesh )
+  subroutine MeshBase2D_setGeometricInfo( mesh, coord_conv )
 
     implicit none
     
     type(LocalMesh2D), intent(inout) :: mesh
+    interface
+      subroutine coord_conv( x, y, xr, xs, yr, ys, &
+        vx, vy, elem )
+        import elementbase2D
+        import RP
+        type(elementbase2D), intent(in) :: elem
+        real(RP), intent(out) :: x(elem%Np), y(elem%Np)
+        real(RP), intent(out) :: xr(elem%Np), xs(elem%Np), yr(elem%Np), ys(elem%Np)
+        real(RP), intent(in) :: vx(elem%Nv), vy(elem%Nv)        
+      end subroutine coord_conv
+    end interface
 
     class(ElementBase2D), pointer :: refElem
     integer :: n
     integer :: f
     integer :: i
-    real(RP) :: vx(4), vy(4)
+    real(RP) :: vx(mesh%refElem%Nv), vy(mesh%refElem%Nv)
     real(RP) :: xr(mesh%refElem%Np), xs(mesh%refElem%Np)
     real(RP) :: yr(mesh%refElem%Np), ys(mesh%refElem%Np)
     real(DP) :: Escale(2,2,mesh%refElem%Np)
@@ -142,16 +153,11 @@ contains
     end do
 
     do n=1, mesh%Ne
-
        vx(:) = mesh%pos_ev(mesh%EToV(n,:),1)
        vy(:) = mesh%pos_ev(mesh%EToV(n,:),2)
-       mesh%pos_en(:,n,1) = vx(1) + 0.5_RP*(refElem%x1(:) + 1.0_RP)*(vx(2) - vx(1))
-       mesh%pos_en(:,n,2) = vy(1) + 0.5_RP*(refElem%x2(:) + 1.0_RP)*(vy(3) - vy(1))
-
-       xr(:) = 0.5d0*(vx(2) - vx(1)) !matmul(refElem%Dr,mesh%x(:,n))
-       xs(:) = 0d0                   !matmul(refElem%Ds,mesh%x(:,n))
-       yr(:) = 0d0                   !matmul(refElem%Dr,mesh%y(:,n))
-       ys(:) = 0.5d0*(vy(3) - vy(1)) !matmul(refElem%Ds,mesh%y(:,n))
+       call coord_conv( &
+        mesh%pos_en(:,n,1), mesh%pos_en(:,n,2), xr, xs, yr, ys, & ! (out)
+        vx, vy, refElem )                                         ! (in)
 
        mesh%J(:,n) = - xs*yr + xr*ys
        mesh%Escale(:,n,1,1) =   ys/mesh%J(:,n)

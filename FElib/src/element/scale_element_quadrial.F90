@@ -23,6 +23,7 @@ module scale_element_quadrial
   contains
     procedure :: Init => QuadrialElement_Init
     procedure :: Final => QuadrialElement_Final
+    procedure :: GenIntGaussLegendreIntrpMat => QuadrialElement_gen_IntGaussLegendreIntrpMat
   end type QuadrialElement
 
 contains
@@ -38,6 +39,7 @@ contains
     !-----------------------------------------------------------------------------
     
     elem%PolyOrder = elemOrder
+    elem%Nv = 4
     elem%Np = (elemOrder + 1)**2
     elem%Nfp = elemOrder + 1
     elem%Nfaces = 4
@@ -193,5 +195,54 @@ contains
     elem%Lift(:,:) = matmul( elem%invM, Emat )
   
   end subroutine construct_Element
+
+  function QuadrialElement_gen_IntGaussLegendreIntrpMat( this, IntrpPolyOrder, &
+    intw_intrp, x_intrp, y_intrp ) result(IntrpMat)
+
+    use scale_polynominal, only: &
+      Polynominal_genLegendrePoly,    &
+      Polynominal_GenGaussLegendrePt, &
+      Polynominal_GenGaussLegendrePtIntWeight
+    
+    implicit none
+
+    class(QuadrialElement), intent(in) :: this
+    integer, intent(in) :: IntrpPolyOrder
+    real(RP), intent(out), optional :: intw_intrp(IntrpPolyOrder**2)
+    real(RP), intent(out), optional :: x_intrp(IntrpPolyOrder**2)
+    real(RP), intent(out), optional :: y_intrp(IntrpPolyOrder**2)
+    real(RP) :: IntrpMat(IntrpPolyOrder**2,this%Np)
+
+    real(RP) :: r_int1D_i(IntrpPolyOrder)
+    real(RP) :: r_int1Dw_i(IntrpPolyOrder)
+    real(RP) :: P_int1D_ori(IntrpPolyOrder,this%PolyOrder+1)
+    real(RP) :: Vint(IntrpPolyOrder**2,(this%PolyOrder+1)**2)
+
+    integer :: p1, p2, p1_, p2_
+    integer :: n_, l_
+    !-----------------------------------------------------
+
+    r_int1D_i(:) = Polynominal_GenGaussLegendrePt( IntrpPolyOrder )
+    r_int1Dw_i(:) = Polynominal_GenGaussLegendrePtIntWeight( IntrpPolyOrder )
+    P_int1D_ori(:,:) = Polynominal_GenLegendrePoly( this%PolyOrder, r_int1D_i)
+
+    do p2_=1, IntrpPolyOrder
+    do p1_=1, IntrpPolyOrder
+      n_= p1_ + (p2_-1)*IntrpPolyOrder
+      if (present(intw_intrp)) intw_intrp(n_) = r_int1Dw_i(p1_) * r_int1Dw_i(p2_)
+      if (present(x_intrp)) x_intrp(n_) = r_int1D_i(p1_)
+      if (present(y_intrp)) y_intrp(n_) = r_int1D_i(p2_)
+      
+      do p2=1, this%Nfp
+      do p1=1, this%Nfp
+        l_ = p1 + (p2-1)*this%Nfp
+        Vint(n_,l_) =  P_int1D_ori(p1_,p1) * sqrt(real(p1-1,kind=RP) + 0.5_RP) &
+                     * P_int1D_ori(p2_,p2) * sqrt(real(p2-1,kind=RP) + 0.5_RP)
+      end do
+      end do
+    end do
+    end do
+    IntrpMat(:,:) = matmul(Vint, this%invV)
+  end function QuadrialElement_gen_IntGaussLegendreIntrpMat
 
 end module scale_element_quadrial
