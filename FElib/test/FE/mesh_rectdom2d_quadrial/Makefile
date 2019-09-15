@@ -12,7 +12,7 @@ SYSDEP_DIR  = $(TOPDIR)/sysdep
 include $(SYSDEP_DIR)/Makedef.$(SCALE_FE_SYS)
 include $(TOPDIR)/Mkinclude
 
-BINNAME = test_field2d
+BINNAME = test_mesh_rectdom2d_quadrial
 
 LIBS = $(LIBDIR)/libScaleFECore.a
 
@@ -31,7 +31,7 @@ makebin: $(BINNAME)
 	@echo "Complete making."
 
 run:
-	mpirun -n 1 ./$(BINNAME) test.conf
+	mpirun -n 1 ./$(BINNAME)
 
 vis:
 	bash ./visualize/visualize.sh

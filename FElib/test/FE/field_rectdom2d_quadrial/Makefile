@@ -12,7 +12,7 @@ SYSDEP_DIR  = $(TOPDIR)/sysdep
 include $(SYSDEP_DIR)/Makedef.$(SCALE_FE_SYS)
 include $(TOPDIR)/Mkinclude
 
-BINNAME = test_field1d
+BINNAME = test_field_rectdom2d_quadrial
 
 LIBS = $(LIBDIR)/libScaleFECore.a
 
@@ -46,6 +46,7 @@ distclean: clean
 
 clean:
 	rm -rf $(BUILD_DIR)
+	rm -f *.nc
 
 .SUFFIXES:
 .SUFFIXES: .o .f90 .mod

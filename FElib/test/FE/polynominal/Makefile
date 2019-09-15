@@ -47,6 +47,7 @@ distclean: clean
 clean:
 	rm -rf $(BUILD_DIR)
 	rm -f legendre*.dat
+	rm -f lagrange*.dat
 
 .SUFFIXES:
 .SUFFIXES: .o .f90 .mod

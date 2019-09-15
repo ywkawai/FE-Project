@@ -4,6 +4,8 @@ program test_polynominal
   use scale_polynominal
   implicit none
 
+  !----------------------------------------------
+  
   !* n=1
   real(RP), parameter :: lgl_pts_n1(2) = (/ -1.0_RP, 1.0_RP /)
   real(RP), parameter :: lgl_intw_n1(2) = (/ 1.0_RP, 1.0_RP /)
