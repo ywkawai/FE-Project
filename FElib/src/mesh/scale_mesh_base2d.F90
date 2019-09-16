@@ -14,7 +14,6 @@ module scale_mesh_base2d
     MeshBase, MeshBase_Init, MeshBase_Final
     
   use scale_element_base, only: elementbase2D
-  use scale_element_quadrial, only: QuadrialElement
 
   !-----------------------------------------------------------------------------
   implicit none

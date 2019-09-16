@@ -11,7 +11,7 @@ program test_advect2d
 
   use scale_sparsemat  
   use scale_element_base
-  use scale_element_quadrial
+  use scale_element_quadrilateral
   use scale_localmesh_2d
   use scale_mesh_rectdom2d
 
@@ -57,7 +57,7 @@ program test_advect2d
   real(RP), parameter :: ADV_VELX = sqrt(1.0_RP)
   real(RP), parameter :: ADV_VELY = sqrt(1.0_RP)
 
-  type(QuadrialElement) :: refElem
+  type(QuadrilateralElement) :: refElem
   integer :: PolyOrder
   logical, parameter :: DumpedMassMatFlag = .false.
   integer, parameter :: PolyOrderErrorCheck = 6
@@ -262,7 +262,7 @@ contains
       end do
     end do
 
-    LOG_INFO("evaluate_error_l2",*), sqrt(l2error)/( (dom_xmax - dom_xmin) * (dom_ymax - dom_ymin) )
+    LOG_INFO("evaluate_error_l2",*) sqrt(l2error)/( (dom_xmax - dom_xmin) * (dom_ymax - dom_ymin) )
     LOG_INFO("evaluate_error_linf",*) linferror
 
   end subroutine evaluate_error

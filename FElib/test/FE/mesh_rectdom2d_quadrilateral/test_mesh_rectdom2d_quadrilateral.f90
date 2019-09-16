@@ -4,7 +4,7 @@ program test_mesh_rectdom2d_quadrial
   use scale_prc
   use scale_io  
   use scale
-  use scale_element_quadrial
+  use scale_element_quadrilateral
   use scale_mesh_rectdom2d
   use scale_localmesh_2d
 
@@ -19,7 +19,7 @@ program test_mesh_rectdom2d_quadrial
   real(RP), parameter :: dom_ymin = -1.0_RP
   real(RP), parameter :: dom_ymax = +1.0_RP
 
-  type(QuadrialElement) :: refElem
+  type(QuadrilateralElement) :: refElem
   integer, parameter :: PolyOrder = 2
   
   type(MeshRectDom2D) :: mesh
@@ -75,7 +75,7 @@ contains
 
   subroutine check_connectivity( lcmesh, elem )
     type(LocalMesh2D), intent(in) :: lcmesh
-    type(QuadrialElement), intent(in) :: elem 
+    type(QuadrilateralElement), intent(in) :: elem 
 
     integer :: k, i, j, f, p
     integer :: EToE_ans(elem%Nfaces,lcmesh%Ne)

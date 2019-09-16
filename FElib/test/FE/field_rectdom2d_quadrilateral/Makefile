@@ -12,7 +12,7 @@ SYSDEP_DIR  = $(TOPDIR)/sysdep
 include $(SYSDEP_DIR)/Makedef.$(SCALE_FE_SYS)
 include $(TOPDIR)/Mkinclude
 
-BINNAME = test_field_rectdom2d_quadrial
+BINNAME = test_field_rectdom2d_quadrilateral
 
 LIBS = $(LIBDIR)/libScaleFECore.a
 

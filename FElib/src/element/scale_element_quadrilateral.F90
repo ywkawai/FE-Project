@@ -1,5 +1,5 @@
 #include "scaleFElib.h"
-module scale_element_quadrial
+module scale_element_quadrilateral
 
   !-----------------------------------------------------------------------------
   !
@@ -19,20 +19,20 @@ module scale_element_quadrial
   !
   !++ Public type & procedure
   !  
-  type, public, extends(elementbase2D) :: QuadrialElement
+  type, public, extends(elementbase2D) :: QuadrilateralElement
   contains
-    procedure :: Init => QuadrialElement_Init
-    procedure :: Final => QuadrialElement_Final
-    procedure :: GenIntGaussLegendreIntrpMat => QuadrialElement_gen_IntGaussLegendreIntrpMat
-  end type QuadrialElement
+    procedure :: Init => QuadrilateralElement_Init
+    procedure :: Final => QuadrilateralElement_Final
+    procedure :: GenIntGaussLegendreIntrpMat => QuadrilateralElement_gen_IntGaussLegendreIntrpMat
+  end type QuadrilateralElement
 
 contains
 
-  subroutine QuadrialElement_Init( &
+  subroutine QuadrilateralElement_Init( &
       elem, elemOrder,             &
       DumpedMassMatFlag )
     
-    class(QuadrialElement), intent(inout) :: elem
+    class(QuadrilateralElement), intent(inout) :: elem
     integer, intent(in) :: elemOrder
     logical, intent(in) :: DumpedMassMatFlag
 
@@ -48,14 +48,14 @@ contains
     call ElementBase2D_Init(elem)
     call construct_Element(elem, DumpedMassMatFlag)
 
-  end subroutine QuadrialElement_Init
+  end subroutine QuadrilateralElement_Init
 
-  subroutine QuadrialElement_Final(elem)
-    class(QuadrialElement), intent(inout) :: elem
+  subroutine QuadrilateralElement_Final(elem)
+    class(QuadrilateralElement), intent(inout) :: elem
     !-----------------------------------------------------------------------------
 
     call ElementBase2D_Final(elem)
-  end subroutine QuadrialElement_Final
+  end subroutine QuadrilateralElement_Final
 
   subroutine construct_Element(elem, DumpedMassMatFlag)
 
@@ -65,7 +65,7 @@ contains
     polynominal_genLegendrePoly, Polynominal_genDLegendrePoly,               &
     polynominal_genLagrangePoly, polynominal_genDLagrangePoly_lglpt
 
-    type(QuadrialElement), intent(inout) :: elem
+    type(QuadrilateralElement), intent(inout) :: elem
     logical, intent(in) :: DumpedMassMatFlag
 
     integer :: nodes_ij(elem%Nfp, elem%Nfp)
@@ -196,7 +196,7 @@ contains
   
   end subroutine construct_Element
 
-  function QuadrialElement_gen_IntGaussLegendreIntrpMat( this, IntrpPolyOrder, &
+  function QuadrilateralElement_gen_IntGaussLegendreIntrpMat( this, IntrpPolyOrder, &
     intw_intrp, x_intrp, y_intrp ) result(IntrpMat)
 
     use scale_polynominal, only: &
@@ -206,7 +206,7 @@ contains
     
     implicit none
 
-    class(QuadrialElement), intent(in) :: this
+    class(QuadrilateralElement), intent(in) :: this
     integer, intent(in) :: IntrpPolyOrder
     real(RP), intent(out), optional :: intw_intrp(IntrpPolyOrder**2)
     real(RP), intent(out), optional :: x_intrp(IntrpPolyOrder**2)
@@ -243,6 +243,6 @@ contains
     end do
     end do
     IntrpMat(:,:) = matmul(Vint, this%invV)
-  end function QuadrialElement_gen_IntGaussLegendreIntrpMat
+  end function QuadrilateralElement_gen_IntGaussLegendreIntrpMat
 
-end module scale_element_quadrial
+end module scale_element_quadrilateral

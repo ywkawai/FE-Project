@@ -14,7 +14,7 @@ module scale_mesh_rectdom2d
   use scale_localmesh_2d, only: &
     LocalMesh2D
   use scale_element_base, only: elementbase2D
-  use scale_element_quadrial, only: QuadrialElement
+  use scale_element_quadrilateral, only: QuadrilateralElement
 
   !-----------------------------------------------------------------------------
   implicit none
@@ -75,7 +75,7 @@ contains
     real(RP), intent(in) :: dom_ymax
     logical, intent(in) :: isPeriodicX
     logical, intent(in) :: isPeriodicY
-    type(QuadrialElement), intent(in), target :: refElem
+    type(QuadrilateralElement), intent(in), target :: refElem
     integer, intent(in) :: NLocalMeshPerPrc
 
     !-----------------------------------------------------------------------------

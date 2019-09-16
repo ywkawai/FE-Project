@@ -6,7 +6,7 @@ program test_field2d
   use scale_file_history
   use scale
 
-  use scale_element_quadrial
+  use scale_element_quadrilateral
   use scale_localmesh_2d
   use scale_mesh_rectdom2d
 
@@ -37,7 +37,7 @@ program test_field2d
   real(RP), parameter :: dom_ymin = -1.0_RP
   real(RP), parameter :: dom_ymax = +1.0_RP
 
-  type(QuadrialElement) :: refElem
+  type(QuadrilateralElement) :: refElem
   integer, parameter :: PolyOrder = 2
   
   type(MeshRectDom2D), target :: mesh

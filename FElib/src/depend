@@ -1,6 +1,6 @@
 $(OBJ_DIR)/scale_element_base.o: element/scale_element_base.F90 $(DEPENDLIB)
 $(OBJ_DIR)/scale_element_line.o: element/scale_element_line.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_element_base.o $(OBJ_DIR)/scale_linalgebra.o $(OBJ_DIR)/scale_polynominal.o
-$(OBJ_DIR)/scale_element_quadrial.o: element/scale_element_quadrial.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_element_base.o $(OBJ_DIR)/scale_linalgebra.o $(OBJ_DIR)/scale_polynominal.o
+$(OBJ_DIR)/scale_element_quadrilateral.o: element/scale_element_quadrilateral.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_element_base.o $(OBJ_DIR)/scale_linalgebra.o $(OBJ_DIR)/scale_polynominal.o
 $(OBJ_DIR)/scale_file_history_meshfield.o: file/scale_file_history_meshfield.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_element_base.o $(OBJ_DIR)/scale_localmesh_1d.o $(OBJ_DIR)/scale_localmesh_2d.o $(OBJ_DIR)/scale_mesh_base1d.o $(OBJ_DIR)/scale_mesh_base2d.o $(OBJ_DIR)/scale_mesh_rectdom2d.o $(OBJ_DIR)/scale_meshfield_base.o
 $(OBJ_DIR)/scale_linalgebra.o: common/scale_linalgebra.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_sparsemat.o
 $(OBJ_DIR)/scale_localmesh_1d.o: mesh/scale_localmesh_1d.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_element_base.o $(OBJ_DIR)/scale_localmesh_base.o
@@ -9,9 +9,9 @@ $(OBJ_DIR)/scale_localmesh_base.o: mesh/scale_localmesh_base.F90 $(DEPENDLIB) $(
 $(OBJ_DIR)/scale_localmeshfield_base.o: data/scale_localmeshfield_base.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_element_base.o $(OBJ_DIR)/scale_localmesh_1d.o $(OBJ_DIR)/scale_localmesh_2d.o
 $(OBJ_DIR)/scale_mesh_base.o: mesh/scale_mesh_base.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_element_base.o $(OBJ_DIR)/scale_localmesh_base.o
 $(OBJ_DIR)/scale_mesh_base1d.o: mesh/scale_mesh_base1d.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_element_base.o $(OBJ_DIR)/scale_element_line.o $(OBJ_DIR)/scale_localmesh_1d.o $(OBJ_DIR)/scale_localmesh_base.o $(OBJ_DIR)/scale_mesh_base.o $(OBJ_DIR)/scale_meshutil_1d.o
-$(OBJ_DIR)/scale_mesh_base2d.o: mesh/scale_mesh_base2d.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_element_base.o $(OBJ_DIR)/scale_element_quadrial.o $(OBJ_DIR)/scale_localmesh_2d.o $(OBJ_DIR)/scale_mesh_base.o
-$(OBJ_DIR)/scale_mesh_linedom1d.o: mesh/scale_mesh_linedom1d.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_element_line.o $(OBJ_DIR)/scale_localmesh_1d.o $(OBJ_DIR)/scale_mesh_base1d.o
-$(OBJ_DIR)/scale_mesh_rectdom2d.o: mesh/scale_mesh_rectdom2d.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_element_base.o $(OBJ_DIR)/scale_element_quadrial.o $(OBJ_DIR)/scale_localmesh_2d.o $(OBJ_DIR)/scale_localmesh_base.o $(OBJ_DIR)/scale_mesh_base2d.o $(OBJ_DIR)/scale_meshutil_2d.o
+$(OBJ_DIR)/scale_mesh_base2d.o: mesh/scale_mesh_base2d.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_element_base.o $(OBJ_DIR)/scale_localmesh_2d.o $(OBJ_DIR)/scale_mesh_base.o
+$(OBJ_DIR)/scale_mesh_linedom1d.o: mesh/scale_mesh_linedom1d.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_element_base.o $(OBJ_DIR)/scale_element_line.o $(OBJ_DIR)/scale_localmesh_1d.o $(OBJ_DIR)/scale_mesh_base1d.o
+$(OBJ_DIR)/scale_mesh_rectdom2d.o: mesh/scale_mesh_rectdom2d.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_element_base.o $(OBJ_DIR)/scale_element_quadrilateral.o $(OBJ_DIR)/scale_localmesh_2d.o $(OBJ_DIR)/scale_localmesh_base.o $(OBJ_DIR)/scale_mesh_base2d.o $(OBJ_DIR)/scale_meshutil_2d.o
 $(OBJ_DIR)/scale_meshfield_base.o: data/scale_meshfield_base.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_element_base.o $(OBJ_DIR)/scale_localmesh_1d.o $(OBJ_DIR)/scale_localmesh_2d.o $(OBJ_DIR)/scale_localmeshfield_base.o $(OBJ_DIR)/scale_mesh_base1d.o $(OBJ_DIR)/scale_mesh_base2d.o
 $(OBJ_DIR)/scale_meshfieldcomm_1d.o: data/scale_meshfieldcomm_1d.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_element_base.o $(OBJ_DIR)/scale_localmesh_1d.o $(OBJ_DIR)/scale_mesh_base1d.o $(OBJ_DIR)/scale_meshfield_base.o $(OBJ_DIR)/scale_meshfieldcomm_base.o
 $(OBJ_DIR)/scale_meshfieldcomm_base.o: data/scale_meshfieldcomm_base.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_element_base.o $(OBJ_DIR)/scale_localmesh_base.o $(OBJ_DIR)/scale_mesh_base.o $(OBJ_DIR)/scale_meshfield_base.o
@@ -26,7 +26,7 @@ $(OBJ_DIR)/scale_time_manager.o: common/scale_time_manager.F90 $(DEPENDLIB)
 MODS =	\
 	$(OBJ_DIR)/scale_element_base.mod	\
 	$(OBJ_DIR)/scale_element_line.mod	\
-	$(OBJ_DIR)/scale_element_quadrial.mod	\
+	$(OBJ_DIR)/scale_element_quadrilateral.mod	\
 	$(OBJ_DIR)/scale_file_history_meshfield.mod	\
 	$(OBJ_DIR)/scale_linalgebra.mod	\
 	$(OBJ_DIR)/scale_localmesh_1d.mod	\

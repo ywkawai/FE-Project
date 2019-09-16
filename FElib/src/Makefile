@@ -19,9 +19,9 @@ OBJS_NAME_COMMON = \
 	scale_quicksort.o
 
 OBJS_NAME_ELEMENT = \
-	scale_element_base.o     \
-	scale_element_line.o     \
-	scale_element_quadrial.o 
+	scale_element_base.o          \
+	scale_element_line.o          \
+	scale_element_quadrilateral.o 
 
 OBJS_NAME_MESH = \
 	scale_meshutil_1d.o    \
