@@ -377,7 +377,6 @@ subroutine set_axis2D()
         js = jgs + 1 + (j-1)*refElem%Nfp
         je = js + refElem%Nfp - 1
         y(js:je) = lcmesh%pos_en(refElem%Fmask(:,4),k,2)
-        write(*,*) js, je, ":", refElem%Fmask(:,4)
       end if
     end do
     end do

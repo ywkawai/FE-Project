@@ -25,8 +25,8 @@ program test_advect1d
     TIME_DTSEC, TIME_NSTEP 
 
   use mod_fieldutil, only: &
-    get_upwind_pos1d => fieldutil_get_upwind_pos1d, &
-    get_profile1d => fieldutil_get_profile1d    
+    get_upwind_pos1d => fieldutil_get_upwind_pos1d,         &
+    get_profile1d_tracer => fieldutil_get_profile1d_tracer
   
   use mod_operator_fvm, only: &
     operator_fvm    
@@ -39,15 +39,14 @@ program test_advect1d
   integer :: NeGX, GXHALO
   integer, parameter :: NLocalMeshPerPrc = 1
 
-  ! sin, cosbell, top-hat
-  character(len=H_SHORT) :: InitShapeName = 'cosbell'
-  real(RP) :: InitShapeParam1, InitShapeParam2
+  ! The type of initial q (sin, gaussian-hill, cosine-bell, top-hat)
+  character(len=H_SHORT) :: InitShapeName
+  real(RP) :: InitShapeParams(2)
+  ! The type of specified velocify field (constant)
+  real(RP) :: ADV_VEL
 
-  real(RP), parameter :: dom_xmin = 0.0_RP
-  real(RP), parameter :: dom_xmax = +2.0_RP
-  real(RP), parameter :: dom_centerx = 0.5_RP*(dom_xmin + dom_xmax)
-
-  real(RP), parameter :: ADV_VEL  = 1.0_RP
+  real(RP), parameter :: dom_xmin =  0.0_RP
+  real(RP), parameter :: dom_xmax = +1.0_RP
 
   character(len=H_SHORT) :: FLUX_SCHEME_TYPE
   type(operator_fvm) :: optr_fvm
@@ -154,6 +153,7 @@ subroutine cal_dyn_tend( dqdt, q_, u_ )
       var(KE+k) = var(KS+k-1)
     end do
   end subroutine excahge_halo
+
   subroutine evaluate_error(tsec)
     
     implicit none
@@ -167,8 +167,9 @@ subroutine cal_dyn_tend( dqdt, q_, u_ )
     real(RP) :: linferror
     !------------------------------------------------------------------------
     
-    x_uwind_1d(KS:KE) =  get_upwind_pos1d(CZ(KS:KE) - dom_centerx, ADV_VEL, tsec, dom_xmin, dom_xmax)
-    qexact(KS:KE,IS,JS) = get_profile1d(InitShapeName, x_uwind_1d(KS:KE), InitShapeParam1)
+    x_uwind_1d(KS:KE) =  get_upwind_pos1d(CZ(KS:KE), ADV_VEL, tsec, dom_xmin, dom_xmax)
+    call get_profile1d_tracer( qexact(KS:KE,IS,JS),                & ! (out)
+      initShapeName, x_uwind_1d(KS:KE), InitShapeParams, KE-KS+1 )   ! (in)    
     
     l2error   = 0.0_RP   
     linferror = 0.0_RP      
@@ -189,7 +190,8 @@ subroutine cal_dyn_tend( dqdt, q_, u_ )
     !-----------------------------------------
     do j=JS, JE
     do i=IS, IE
-      q(:,i,j)      = get_profile1d(initShapeName, CZ(:) - dom_centerx, InitShapeParam1)
+      call get_profile1d_tracer( q(KS:KE,i,j),               & ! (out)
+        initShapeName, CZ(KS:KE), InitShapeParams, KE-KS+1 )   ! (in)
       qexact(:,i,j) = q(:,i,j)
     end do
     end do
@@ -222,7 +224,8 @@ subroutine cal_dyn_tend( dqdt, q_, u_ )
     namelist /PARAM_TEST/ &
       NeGX, GXHALO,                         &
       FLUX_SCHEME_TYPE, TINTEG_SCHEME_TYPE, &
-      InitShapeName, InitShapeParam1,       &
+      InitShapeName, InitShapeParams,       &
+      ADV_VEL,                              &
       nstep_eval_error
         
     integer :: comm, myrank, nprocs
@@ -242,7 +245,8 @@ subroutine cal_dyn_tend( dqdt, q_, u_ )
     FLUX_SCHEME_TYPE = 'CD2'
     TINTEG_SCHEME_TYPE = 'RK4'
     InitShapeName    = 'sin'
-    InitShapeParam1  = 1.0_RP; 
+    InitShapeParams  = (/ 1.0_RP, 0.0_RP /)
+    ADV_VEL          = 1.0_RP
     nstep_eval_error = 5
 
     rewind(IO_FID_CONF)

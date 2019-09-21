@@ -14,7 +14,9 @@ program test_advect2d
      H_SHORT
   use scale_atmos_grid_cartesC, only: &
      CX              => ATMOS_GRID_CARTESC_CX,              &
+     FX              => ATMOS_GRID_CARTESC_FX,              &
      CZ              => ATMOS_GRID_CARTESC_CZ,              &
+     FZ              => ATMOS_GRID_CARTESC_FZ,              &
      CDZ             => ATMOS_GRID_CARTESC_CDZ,             &
      CDX             => ATMOS_GRID_CARTESC_CDX,             &
      RCDZ            => ATMOS_GRID_CARTESC_RCDZ,            &
@@ -32,9 +34,10 @@ program test_advect2d
     TIME_NOWDATE, TIME_NOWMS, TIME_NOWSTEP,            &
     TIME_DTSEC, TIME_NSTEP 
 
-   use mod_fieldutil, only: &
-    get_upwind_pos1d => fieldutil_get_upwind_pos1d, &
-    get_profile2d => fieldutil_get_profile2d    
+  use mod_fieldutil, only: &
+    get_upwind_pos1d => fieldutil_get_upwind_pos1d,         &
+    get_profile2d_tracer => fieldutil_get_profile2d_tracer, &
+    get_profile2d_flow => fieldutil_get_profile2d_flow    
 
   use mod_operator_fvm, only: &
     operator_fvm
@@ -48,19 +51,17 @@ program test_advect2d
   integer :: NeGY, GYHALO
   integer, parameter :: NLocalMeshPerPrc = 1
 
-  ! sin, cosbell, top-hat
+  ! The type of initial q (sin, gaussian-hill, cosine-bell, top-hat)
   character(len=H_SHORT) :: InitShapeName
-  real(RP) :: InitShapeParam1, InitShapeParam2
+  real(RP) :: InitShapeParams(4)
+  ! The type of specified velocify field (constant, rigid-body-rot)
+  character(len=H_SHORT) :: VelTypeName 
+  real(RP) :: VelTypeParams(4)
 
-  real(RP), parameter :: dom_xmin = -0.0_RP
-  real(RP), parameter :: dom_xmax = +2.0_RP
-  real(RP), parameter :: dom_centerx = 0.5_RP*(dom_xmin + dom_xmax)
-  real(RP), parameter :: dom_ymin = 0.0_RP
-  real(RP), parameter :: dom_ymax = +2.0_RP
-  real(RP), parameter :: dom_centery = 0.5_RP*(dom_ymin + dom_ymax)
-
-  real(RP), parameter :: ADV_VELX  = sqrt(1.0_RP)
-  real(RP), parameter :: ADV_VELY  = sqrt(1.0_RP)
+  real(RP), parameter :: dom_xmin =  0.0_RP
+  real(RP), parameter :: dom_xmax = +1.0_RP
+  real(RP), parameter :: dom_ymin =  0.0_RP
+  real(RP), parameter :: dom_ymax = +1.0_RP
 
   character(len=H_SHORT) :: FLUX_SCHEME_TYPE
   type(operator_fvm) :: optr_fvm
@@ -93,10 +94,16 @@ program test_advect2d
   call PROF_rapstart( 'TimeLoop', 1)
   do nowstep=1, TIME_NSTEP
     do rkstage=1, tinteg%nstage
+      tsec_ = TIME_NOWDATE(6) + TIME_NOWMS
+
       !* Exchange halo data
       call PROF_rapstart( 'exchange_halo', 1)
       call excahge_halo( q(:,:,JS) )
       call PROF_rapend( 'exchange_halo', 1)
+
+      call PROF_rapstart( 'set_velocity', 1)
+      call set_velocity( u, v, tsec_ )
+      call PROF_rapend( 'set_velocity', 1)  
 
       !* Update prognostic variables
       call PROF_rapstart( 'cal_dyn_tend', 1)
@@ -198,18 +205,21 @@ contains
 
     real(RP) :: l2error
     real(RP) :: linferror
+    real(RP) :: ADV_VELX, ADV_VELY    
     !------------------------------------------------------------------------
 
-    x_uwind_1d(KS:KE) =  get_upwind_pos1d(CZ(KS:KE) - dom_centerx, ADV_VELX, tsec, dom_xmin - dom_centerx, dom_xmax - dom_centerx)
-    y_vwind_1d(IS:IE) =  get_upwind_pos1d(CX(IS:IE) - dom_centery, ADV_VELY, tsec, dom_ymin - dom_centery, dom_ymax - dom_centery)
+    l2error   = 0.0_RP   
+    linferror = 0.0_RP
+    ADV_VELX = VelTypeParams(1); ADV_VELY = VelTypeParams(2)
+
+    x_uwind_1d(KS:KE) =  get_upwind_pos1d(CZ(KS:KE), ADV_VELX, tsec, dom_xmin, dom_xmax)
+    y_vwind_1d(IS:IE) =  get_upwind_pos1d(CX(IS:IE), ADV_VELY, tsec, dom_ymin, dom_ymax)
     do i=IS, IE
       y_vwind(:) = y_vwind_1d(i)
-      qexact(KS:KE,i,JS) = get_profile2d( InitShapeName, x_uwind_1d(KS:KE), y_vwind(KS:KE), &
-                                          InitShapeParam1, InitShapeParam2 )      
+      call get_profile2d_tracer( qexact(KS:KE,i,j),                                 & ! (out)
+        InitShapeName, x_uwind_1d(KS:KE), y_vwind(KS:KE), InitShapeParams, KE-KS+1 )  ! (in)      
     end do
 
-    l2error   = 0.0_RP   
-    linferror = 0.0_RP  
     do i=IS, IE
     do k=KS, KE
       l2error = l2error &
@@ -222,24 +232,52 @@ contains
 
   end subroutine evaluate_error
 
+  subroutine set_velocity( u_, v_, tsec )
+    real(RP), intent(inout) :: u_(KA,IA,JA)
+    real(RP), intent(inout) :: v_(KA,IA,JA)
+    real(RP), intent(in) :: tsec
+
+    real(DP) :: y_tmp(KA), v_uyz(KA), u_xvz(KA)
+    integer :: k, i    
+    !-----------------------------------------------
+
+    VelTypeParams(4) = tsec
+
+    do j=JS, JE
+    do i=IS, IE
+      y_tmp(:) = CX(i)      
+      call get_profile2d_flow( u_(KS-1:KE,i,j), v_uyz(KS-1:KE),              & ! (out)
+        VelTypeName, FZ(KS-1:KE), y_tmp(KS-1:KE), VelTypeParams, KE-KS+2 )    ! (in)
+    end do
+    end do
+    do j=JS, JE
+    do i=IS-1, IE
+        y_tmp(:) = FX(i)      
+        call get_profile2d_flow( u_xvz(KS:KE), v_(KS:KE,i,j),                & ! (out)
+          VelTypeName, CZ(KS:KE), y_tmp(KS:KE), VelTypeParams, KE-KS+1 )      ! (in)
+    end do
+    end do
+
+  end subroutine set_velocity
+
   subroutine set_initcond() 
     implicit none
 
     real(RP) :: x(KA,IA), y(KA,IA)
-    real(DP) :: y_tmp(KA)
+    real(DP) :: y_tmp(KA), v_uyz(KA), u_xvz(KA)
     integer :: k, i    
 
     !----------------------------------------- 
     do j=JS, JE
     do i=IS, IE
       y_tmp(:) = CX(i)
-      q(KS:KE,i,j)      = get_profile2d( InitShapeName, CZ(KS:KE) - dom_centerx, y_tmp(KS:KE) - dom_centery, &
-                                     InitShapeParam1, InitShapeParam2 )
+      call get_profile2d_tracer( q(KS:KE,i,j),                            & ! (out)
+        InitShapeName, CZ(KS:KE), y_tmp(KS:KE), InitShapeParams, KE-KS+1 )  ! (in)
+
       qexact(:,i,j) = q(:,i,j)
     end do
     end do
-    u(:,:,:)      = ADV_VELX
-    v(:,:,:)      = ADV_VELY
+    call set_velocity( u, v, 0.0_RP )
 
     call FILE_HISTORY_put(HST_ID(1), q(KS:KE,IS:IE,JS))
     call FILE_HISTORY_put(HST_ID(2), qexact(KS:KE,IS:IE,JS))
@@ -268,9 +306,10 @@ contains
     implicit none
 
     namelist /PARAM_TEST/ &
-      NeGX, GXHALO, NeGY, GYHALO,                        &
-      FLUX_SCHEME_TYPE, TINTEG_SCHEME_TYPE,              &
-      InitShapeName, InitShapeParam1, InitShapeParam2,   &
+      NeGX, GXHALO, NeGY, GYHALO,            &
+      FLUX_SCHEME_TYPE, TINTEG_SCHEME_TYPE,  &
+      InitShapeName, InitShapeParams,        &
+      VelTypeName, VelTypeParams,            &
       nstep_eval_error
         
     integer :: comm, myrank, nprocs
@@ -289,9 +328,11 @@ contains
     NeGX = 2; GXHALO =2
     NeGY = 2; GYHALO =2
     FLUX_SCHEME_TYPE   = 'CD2'
-    TINTEG_SCHEME_TYPE = 'RK2'
-    InitShapeName    = 'sin'
-    InitShapeParam1  = 1.0_RP; InitShapeParam2 = 1.0_RP
+    TINTEG_SCHEME_TYPE = 'RK_TVD_3'
+    InitShapeName      = 'sin'
+    InitShapeParams(:) = (/ 1.0_RP, 1.0_RP, 0.0_RP, 0.0_RP /)
+    VelTypeName        = 'const'
+    VelTypeParams(:)   = (/ 1.0_RP, 1.0_RP, 0.0_RP, 0.0_RP /)
     nstep_eval_error = 5
 
     rewind(IO_FID_CONF)
@@ -316,7 +357,8 @@ contains
     call ATMOS_GRID_CARTESC_allocate
     delx = (dom_xmax - dom_xmin)/real(NeGX,kind=RP)
     dely = (dom_ymax - dom_ymin)/real(NeGY,kind=RP)
-    call ATMOS_GRID_CARTESC_generate( DZ=delx, DX=dely, DY=delx )
+    call ATMOS_GRID_CARTESC_generate( &
+      DZ=delx, DX=dely, DY=delx )
 
     ! setup file I/O
     call FILE_CARTESC_setup

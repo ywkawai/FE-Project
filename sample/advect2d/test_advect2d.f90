@@ -35,8 +35,9 @@ program test_advect2d
     timeint_rk
   
   use mod_fieldutil, only: &
-    get_upwind_pos1d => fieldutil_get_upwind_pos1d, &
-    get_profile2d => fieldutil_get_profile2d
+    get_upwind_pos1d => fieldutil_get_upwind_pos1d,         &
+    get_profile2d_tracer => fieldutil_get_profile2d_tracer, &
+    get_profile2d_flow => fieldutil_get_profile2d_flow
 
   !-----------------------------------------------------------------------------
   implicit none
@@ -45,21 +46,22 @@ program test_advect2d
   integer :: NeGY
   integer, parameter :: NLocalMeshPerPrc = 1
 
-  ! sin, cosbell, top-hat
+  ! The type of initial q (sin, gaussian-hill, cosine-bell, top-hat)
   character(len=H_SHORT) :: InitShapeName
-  real(RP) :: InitShapeParam1, InitShapeParam2
+  real(RP) :: InitShapeParams(4)
+  ! The type of specified velocify field (constant, rigid-body-rot)
+  character(len=H_SHORT) :: VelTypeName 
+  real(RP) :: VelTypeParams(4)
 
-  real(RP), parameter :: dom_xmin = -1.0_RP
+  real(RP), parameter :: dom_xmin =  0.0_RP
   real(RP), parameter :: dom_xmax = +1.0_RP
-  real(RP), parameter :: dom_ymin = -1.0_RP
+  real(RP), parameter :: dom_ymin =  0.0_RP
   real(RP), parameter :: dom_ymax = +1.0_RP
   
-  real(RP), parameter :: ADV_VELX = sqrt(1.0_RP)
-  real(RP), parameter :: ADV_VELY = sqrt(1.0_RP)
-
   type(QuadrilateralElement) :: refElem
   integer :: PolyOrder
-  logical, parameter :: DumpedMassMatFlag = .false.
+  logical, parameter :: LumpedMassMatFlag = .false.
+  logical :: InitCond_GalerkinProjFlag 
   integer, parameter :: PolyOrderErrorCheck = 6
   type(sparsemat) :: Dx, Sx, Dy, Sy, Lift
   
@@ -98,14 +100,18 @@ program test_advect2d
 
   do nowstep=1, TIME_NSTEP
     do rkstage=1, tinteg_lc(1)%nstage
+      tsec_ =  TIME_NOWDATE(6) + TIME_NOWMS
+      
       !* Exchange halo data
       call PROF_rapstart( 'exchange_halo', 1)
-
       call fields_comm%Put(field_list, 1)
       call fields_comm%Exchange()
       call fields_comm%Get(field_list, 1)
-
       call PROF_rapend( 'exchange_halo', 1)
+
+      call PROF_rapstart( 'set_velocity', 1)
+      call set_velocity( u, v, tsec_ )
+      call PROF_rapend( 'set_velocity', 1)  
 
       !* Update prognostic variables
       do n=1, mesh%LOCAL_MESH_NUM
@@ -122,7 +128,7 @@ program test_advect2d
         call PROF_rapstart( 'update_var', 1)
         call tinteg_lc(n)%Advance( rkstage, q%local(n)%val, RKVAR_Q,              &
                                    1, lcmesh%refElem%Np, lcmesh%NeS, lcmesh%NeE )
-        call PROF_rapend('update_var', 1)     
+        call PROF_rapend('update_var', 1)      
       end do
     end do
     
@@ -233,10 +239,13 @@ contains
 
     real(RP) :: l2error
     real(RP) :: linferror
+    real(RP) :: ADV_VELX, ADV_VELY
     !------------------------------------------------------------------------
 
     l2error   = 0.0_RP   
     linferror = 0.0_RP
+    ADV_VELX = VelTypeParams(1); ADV_VELY = VelTypeParams(2)
+
     do n=1, mesh%LOCAL_MESH_NUM
       lcmesh => mesh%lcmesh_list(n)
       do k=lcmesh%NeS, lcmesh%NeE
@@ -251,8 +260,12 @@ contains
         x_uwind_intrp(:) = get_upwind_pos1d(pos_intrp(:,1), ADV_VELX, tsec, dom_xmin, dom_xmax)
         y_vwind_intrp(:) = get_upwind_pos1d(pos_intrp(:,2), ADV_VELY, tsec, dom_ymin, dom_ymax)
 
-        qexact%local(n)%val(:,k) = get_profile2d(InitShapeName, x_uwind, y_vwind, InitShapeParam1, InitShapeParam2)
-        qexact_intrp(:) = get_profile2d(InitShapeName, x_uwind_intrp, y_vwind_intrp, InitShapeParam1, InitShapeParam2)
+        call get_profile2d_tracer( qexact%local(n)%val(:,k),             & ! (out)
+          InitShapeName, x_uwind, y_vwind, InitShapeParams, refElem%Np )   ! (in)
+
+        call get_profile2d_tracer( qexact_intrp(:),                                              & ! (out) 
+          InitShapeName, x_uwind_intrp, y_vwind_intrp, InitShapeParams, PolyOrderErrorCheck**2 )   ! (in)
+
         q_intrp(:) = matmul(IntrpMat, q%local(n)%val(:,k))
 
         l2error = l2error &
@@ -266,6 +279,25 @@ contains
     LOG_INFO("evaluate_error_linf",*) linferror
 
   end subroutine evaluate_error
+
+  subroutine set_velocity( u_, v_, tsec )
+    type(MeshField2D), intent(inout) :: u_
+    type(MeshField2D), intent(inout) :: v_ 
+    real(RP), intent(in) :: tsec
+    
+    !----------------------------------------
+
+    VelTypeParams(4) = tsec
+
+    do n=1, mesh%LOCAL_MESH_NUM
+      lcmesh => mesh%lcmesh_list(n)
+      do k=lcmesh%NeS, lcmesh%NeE
+        call get_profile2d_flow( u%local(n)%val(:,k), v%local(n)%val(:,k),                         & ! (out)
+          VelTypeName, lcmesh%pos_en(:,k,1), lcmesh%pos_en(:,k,2), VelTypeParams, refElem%Np )       ! (in)
+      end do
+    end do
+
+  end subroutine set_velocity
 
   subroutine set_initcond()
     use scale_linalgebra, only: linalgebra_inv
@@ -284,40 +316,52 @@ contains
     real(RP) int_gphi(refElem%Np)
     !------------------------------------------------------------------------
 
-    lgl1D(:) = Polynominal_GenGaussLobattoPt(refElem%PolyOrder)
-    r_int1D_i(:) = Polynominal_GenGaussLegendrePt( PolyOrderErrorCheck )
-    lagrange_intrp1D(:,:) = Polynominal_GenLagrangePoly(refElem%PolyOrder, lgl1D, r_int1D_i)
-    do p2_=1, PolyOrderErrorCheck
-    do p1_=1, PolyOrderErrorCheck
-      n_= p1_ + (p2_-1)*PolyOrderErrorCheck
-      do p2=1, refElem%Nfp
-      do p1=1, refElem%Nfp
-        l_ = p1 + (p2-1)*refElem%Nfp
-        lagrange_intrp(n_,l_) = lagrange_intrp1D(p1_,p1)*lagrange_intrp1D(p2_,p2)
-      end do
-      end do
-    end do
-    end do
-
     do n=1, mesh%LOCAL_MESH_NUM
       lcmesh => mesh%lcmesh_list(n)
       do k=lcmesh%NeS, lcmesh%NeE
-        qexact%local(n)%val(:,k) = get_profile2d( InitShapeName, lcmesh%pos_en(:,k,1), lcmesh%pos_en(:,k,2), &
-                                                  InitShapeParam1, InitShapeParam2 )
+        call get_profile2d_tracer( qexact%local(n)%val(:,k),                                        & ! (out)
+          InitShapeName, lcmesh%pos_en(:,k,1), lcmesh%pos_en(:,k,2), InitShapeParams, refElem%Np )    ! (in)
         
-        vx(:) = lcmesh%pos_ev(lcmesh%EToV(k,:),1)
-        vy(:) = lcmesh%pos_ev(lcmesh%EToV(k,:),2)                                                  
-        pos_intrp(:,1) = vx(1) + 0.5_RP*(x_intrp(:) + 1.0_RP)*(vx(2) - vx(1))
-        pos_intrp(:,2) = vy(1) + 0.5_RP*(y_intrp(:) + 1.0_RP)*(vy(3) - vy(1))       
-        q_intrp(:) = get_profile2d( InitShapeName, pos_intrp(:,1), pos_intrp(:,2), InitShapeParam1, InitShapeParam2 )
-        do l_=1, refElem%Np
-          int_gphi(l_) = sum(intw_intrp(:)*lagrange_intrp(:,l_)*q_intrp(:)) 
-        end do
-        q%local(n)%val(:,k) = matmul(refElem%invM, int_gphi)
-        u%local(n)%val(:,k) = ADV_VELX
-        v%local(n)%val(:,k) = ADV_VELY
+        q%local(n)%val(:,k) = qexact%local(n)%val(:,k)
       end do
     end do
+    call set_velocity( u, v, 0.0_RP )
+
+    if (InitCond_GalerkinProjFlag) then
+
+      lgl1D(:) = Polynominal_GenGaussLobattoPt(refElem%PolyOrder)
+      r_int1D_i(:) = Polynominal_GenGaussLegendrePt( PolyOrderErrorCheck )
+      lagrange_intrp1D(:,:) = Polynominal_GenLagrangePoly(refElem%PolyOrder, lgl1D, r_int1D_i)
+      do p2_=1, PolyOrderErrorCheck
+      do p1_=1, PolyOrderErrorCheck
+        n_= p1_ + (p2_-1)*PolyOrderErrorCheck
+        do p2=1, refElem%Nfp
+        do p1=1, refElem%Nfp
+          l_ = p1 + (p2-1)*refElem%Nfp
+          lagrange_intrp(n_,l_) = lagrange_intrp1D(p1_,p1)*lagrange_intrp1D(p2_,p2)
+        end do
+        end do
+      end do
+      end do
+
+      do n=1, mesh%LOCAL_MESH_NUM
+        lcmesh => mesh%lcmesh_list(n)
+        do k=lcmesh%NeS, lcmesh%NeE      
+          vx(:) = lcmesh%pos_ev(lcmesh%EToV(k,:),1)
+          vy(:) = lcmesh%pos_ev(lcmesh%EToV(k,:),2)                                                  
+          pos_intrp(:,1) = vx(1) + 0.5_RP*(x_intrp(:) + 1.0_RP)*(vx(2) - vx(1))
+          pos_intrp(:,2) = vy(1) + 0.5_RP*(y_intrp(:) + 1.0_RP)*(vy(3) - vy(1))       
+  
+          call get_profile2d_tracer( q_intrp(:),                                                     & ! (out)
+            InitShapeName, pos_intrp(:,1), pos_intrp(:,2), InitShapeParams, PolyOrderErrorCheck**2 )   ! (in)        
+  
+          do l_=1, refElem%Np
+            int_gphi(l_) = sum(intw_intrp(:)*lagrange_intrp(:,l_)*q_intrp(:)) 
+          end do
+          q%local(n)%val(:,k) = matmul(refElem%invM, int_gphi)
+        end do
+      end do
+    end if
 
     call FILE_HISTORY_meshfield_put(HST_ID(1), q)
     call FILE_HISTORY_meshfield_put(HST_ID(2), qexact)
@@ -338,9 +382,11 @@ contains
     implicit none
 
     namelist /PARAM_TEST/ &
-      NeGX, NeGY, PolyOrder, &
-      TINTEG_SCHEME_TYPE,    &
-      InitShapeName, InitShapeParam1, InitShapeParam2, &
+      NeGX, NeGY, PolyOrder,          &
+      TINTEG_SCHEME_TYPE,             &
+      InitShapeName, InitShapeParams, &
+      InitCond_GalerkinProjFlag,      &      
+      VelTypeName, VelTypeParams,     &
       nstep_eval_error
     
     integer :: comm, myrank, nprocs
@@ -356,7 +402,7 @@ contains
     call PRC_ERRHANDLER_setup( .false., ismaster ) ! [IN]
     
     ! setup scale_io
-    call IO_setup( "test", allow_noconf = .true. )
+    call IO_setup( "test_advect2d", "test.conf" )
     
     ! setup log
     call IO_LOG_setup( myrank, ismaster )   
@@ -365,8 +411,11 @@ contains
 
     NeGX = 2; NeGY = 2; PolyOrder = 1 
     TINTEG_SCHEME_TYPE = 'RK_TVD_3'
-    InitShapeName    = 'sin'
-    InitShapeParam1 = 1.0_RP; InitShapeParam2 = 1.0_RP
+    InitShapeName      = 'sin'
+    InitShapeParams(:) = (/ 1.0_RP, 1.0_RP, 0.0_RP, 0.0_RP /)
+    VelTypeName        = 'const'
+    InitCond_GalerkinProjFlag = .false.
+    VelTypeParams(:)   = (/ 1.0_RP, 1.0_RP, 0.0_RP, 0.0_RP /)
     nstep_eval_error = 5
 
     rewind(IO_FID_CONF)
@@ -390,21 +439,21 @@ contains
 
     !------   
     
-    call refElem%Init(PolyOrder, DumpedMassMatFlag)
+    call refElem%Init(PolyOrder, LumpedMassMatFlag)
     call Dx%Init(refElem%Dx1)
     call Sx%Init(refElem%Sx1)
     call Dy%Init(refElem%Dx2)
     call Sy%Init(refElem%Sx2)
     call Lift%Init(refElem%Lift)
-  
+
     call mesh%Init( &
       NeGX, NeGY,                             &
       dom_xmin, dom_xmax, dom_ymin, dom_ymax, &
       .true., .true.,                         &
       refElem, NLocalMeshPerPrc )
-
+    
     call mesh%Generate()
-
+    
     ! setup for time integrator
     allocate( tinteg_lc(mesh%LOCAL_MESH_NUM) )
     do n=1, mesh%LOCAL_MESH_NUM
@@ -419,7 +468,7 @@ contains
     call u%Init( "u", "m/s", mesh )
     call v%Init( "v", "m/s", mesh )
     call fields_comm%Init(3, 0, mesh)
-    
+
     call FILE_HISTORY_meshfield_setup( mesh2d_=mesh )
     call FILE_HISTORY_reg( q%varname, "q", q%unit, HST_ID(1), dim_type='XY')
     call FILE_HISTORY_reg( qexact%varname, "qexact", q%unit, HST_ID(2), dim_type='XY')

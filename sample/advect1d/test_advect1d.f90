@@ -37,8 +37,8 @@ program test_advect1d
     timeint_rk
   
   use mod_fieldutil, only: &
-    get_upwind_pos1d => fieldutil_get_upwind_pos1d, &
-    get_profile1d => fieldutil_get_profile1d 
+    get_upwind_pos1d => fieldutil_get_upwind_pos1d,        &
+    get_profile1d_tracer => fieldutil_get_profile1d_tracer 
   
 
   !-----------------------------------------------------------------------------
@@ -47,13 +47,14 @@ program test_advect1d
   integer :: NeGX = 8
   integer, parameter :: NLocalMeshPerPrc = 1
 
-  !* Initial shape
-  character(len=H_SHORT) :: InitShapeName   = 'sin'
-  real(RP)               :: InitShapeParam1 = 1.0_RP
+  ! The type of initial q (sin, gaussian-hill, cosine-bell, top-hat)
+  character(len=H_SHORT) :: InitShapeName
+  real(RP) :: InitShapeParams(2)
+  ! The type of specified velocify field (constant)
+  real(RP) :: ADV_VEL
 
-  real(RP), parameter :: dom_xmin = -1.0_RP
+  real(RP), parameter :: dom_xmin =  0.0_RP
   real(RP), parameter :: dom_xmax = +1.0_RP
-  real(RP), parameter :: ADV_VEL  = 1.0_RP
 
   type(LineElement)  :: refElem
   integer            :: PolyOrder
@@ -108,7 +109,7 @@ program test_advect1d
         lcmesh => mesh%lcmesh_list(n)
         tintbuf_ind = tinteg_lc(n)%tend_buf_indmap(rkstage)      
         
-        call PROF_rapstart( 'update_dyn_tend', 1)
+        call PROF_rapstart( 'cal_dyn_tend', 1)
         call cal_dyn_tend( &
           tinteg_lc(n)%tend_buf2D(:,:,RKVAR_Q,tintbuf_ind), &
           q%local(n)%val, u%local(n)%val,                   &
@@ -233,8 +234,12 @@ end subroutine cal_dyn_tend
         pos_intrp(:) = vx(1) + 0.5_RP*(x_intrp(:) + 1.0_RP)*(vx(2) - vx(1))
         x_uwind_intrp(:) = get_upwind_pos1d(pos_intrp(:), ADV_VEL, tsec, dom_xmin, dom_xmax)
 
-        qexact%local(n)%val(:,k) = get_profile1d(InitShapeName, x_uwind, InitShapeParam1)
-        qexact_intrp(:) = get_profile1d(InitShapeName, x_uwind_intrp, InitShapeParam1)
+        call get_profile1d_tracer( qexact%local(n)%val(:,k),    & ! (out)
+          InitShapeName, x_uwind, InitShapeParams, refElem%Np )   ! (in)
+
+        call get_profile1d_tracer( qexact_intrp(:),                              & ! (out)
+          InitShapeName, x_uwind_intrp, InitShapeParams(:), PolyOrderErrorCheck)   ! (in)
+        
         q_intrp(:) = matmul(IntrpMat, q%local(n)%val(:,k))
 
         l2error = l2error &
@@ -255,7 +260,9 @@ end subroutine cal_dyn_tend
     do n=1, mesh%LOCAL_MESH_NUM
       lcmesh => mesh%lcmesh_list(n)
       do k=lcmesh%NeS, lcmesh%NeE
-        q%local(n)%val(:,k) = get_profile1d(InitShapeName, lcmesh%pos_en(:,k,1), InitShapeParam1)
+        call get_profile1d_tracer( q%local(n)%val(:,k),                      & ! (out)
+          InitShapeName, lcmesh%pos_en(:,k,1), InitShapeParams, refElem%Np )   ! (in)   
+             
         qexact%local(n)%val(:,k) = q%local(n)%val(:,k)
         u%local(n)%val(:,k) = ADV_VEL
       end do
@@ -281,7 +288,8 @@ end subroutine cal_dyn_tend
     namelist /PARAM_TEST/ &
       NeGX, PolyOrder,                &
       TINTEG_SCHEME_TYPE,             &
-      InitShapeName, InitShapeParam1, &
+      InitShapeName, InitShapeParams, &
+      ADV_VEL,                        &
       nstep_eval_error
         
     integer :: comm, myrank, nprocs
@@ -301,11 +309,13 @@ end subroutine cal_dyn_tend
     
     ! setup log
     call IO_LOG_setup( myrank, ismaster )   
-    
+
     !--- read namelist
 
     NeGX = 2; PolyOrder = 1 
-    InitShapeName    = 'sin'; InitShapeParam1 = 1.0_RP
+    InitShapeName    = 'sin'; 
+    InitShapeParams  = (/ 1.0_RP, 0.0_RP /)
+    ADV_VEL          = 1.0_RP
     nstep_eval_error = 5
 
     rewind(IO_FID_CONF)
@@ -317,7 +327,7 @@ end subroutine cal_dyn_tend
        call PRC_abort
     endif
     LOG_NML(PARAM_TEST)
-
+    
     ! setup profiler
     call PROF_setup
     call PROF_rapstart( "total", 0 )
