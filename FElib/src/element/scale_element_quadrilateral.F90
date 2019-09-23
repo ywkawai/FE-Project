@@ -30,11 +30,11 @@ contains
 
   subroutine QuadrilateralElement_Init( &
       elem, elemOrder,             &
-      DumpedMassMatFlag )
+      LumpedMassMatFlag )
     
     class(QuadrilateralElement), intent(inout) :: elem
     integer, intent(in) :: elemOrder
-    logical, intent(in) :: DumpedMassMatFlag
+    logical, intent(in) :: LumpedMassMatFlag
 
     !-----------------------------------------------------------------------------
     
@@ -46,7 +46,7 @@ contains
     elem%NfpTot = elem%Nfp*elem%Nfaces
        
     call ElementBase2D_Init(elem)
-    call construct_Element(elem, DumpedMassMatFlag)
+    call construct_Element(elem, LumpedMassMatFlag)
 
   end subroutine QuadrilateralElement_Init
 
@@ -57,7 +57,7 @@ contains
     call ElementBase2D_Final(elem)
   end subroutine QuadrilateralElement_Final
 
-  subroutine construct_Element(elem, DumpedMassMatFlag)
+  subroutine construct_Element(elem, LumpedMassMatFlag)
 
     use scale_linalgebra, only: linalgebra_inv
     use scale_polynominal, only: &
@@ -66,7 +66,7 @@ contains
     polynominal_genLagrangePoly, polynominal_genDLagrangePoly_lglpt
 
     type(QuadrilateralElement), intent(inout) :: elem
-    logical, intent(in) :: DumpedMassMatFlag
+    logical, intent(in) :: LumpedMassMatFlag
 
     integer :: nodes_ij(elem%Nfp, elem%Nfp)
 
@@ -150,7 +150,7 @@ contains
 
     !* Set the mass matrix
 
-    if (DumpedMassMatFlag) then
+    if (LumpedMassMatFlag) then
       elem%invM(:,:) = 0.0_RP
       elem%M(:,:)    = 0.0_RP
       do j=1, elem%Nfp
@@ -181,7 +181,7 @@ contains
     Emat(:,:) = 0.0_RP
     do f=1, elem%Nfaces
 
-      if (DumpedMassMatFlag) then
+      if (LumpedMassMatFlag) then
         MassEdge = 0.0_RP
         do l=1, elem%Nfp
           MassEdge(l,l) = intWeight_lgl1DPts(l)

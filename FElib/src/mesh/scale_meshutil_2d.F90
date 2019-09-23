@@ -18,7 +18,6 @@ module scale_meshutil_2d
   public :: MeshUtil2D_genConnectivity
   public :: MeshUtil2D_buildInteriorMap
   public :: MeshUtil2D_genPatchBoundaryMap
-  public :: MeshUtil2D_genPeriodicBoundaryMap
   public :: MeshUtil2D_buildGlobalMap
 
 contains
@@ -422,124 +421,7 @@ subroutine MeshUtil2D_genPatchBoundaryMap(  VMapB, MapB, VMapP, &
          faceIds(counterB(domB_ID),domB_ID) = f
        end if
      end subroutine eval_domain_boundary
- end subroutine MeshUtil2D_genPatchBoundaryMap
-
- subroutine MeshUtil2D_genPeriodicBoundaryMap( EToE, EToF, VMapP, &
-    & xperiod, yperiod, x, y, fx, fy, Fmask, Ne, Np, Nfp, Nfaces, Nv)
-
-   implicit none
-   integer, intent(in) :: Ne
-   integer, intent(in) :: Np
-   integer, intent(in) :: Nfp
-   integer, intent(in) :: Nfaces
-   integer, intent(in) :: Nv   
-   integer, intent(inout) :: EToE(Ne, Nfaces)
-   integer, intent(inout) :: EToF(Ne, Nfaces)  
-   integer, intent(inout) :: VMapP(Nfp,Nfaces,Ne)    
-   real(RP), intent(in) :: xperiod
-   real(RP), intent(in) :: yperiod
-   real(RP), intent(in) :: x(Np,Ne)
-   real(RP), intent(in) :: y(Np,Ne)
-   real(RP), intent(in) :: fx(Nfp*Ne)
-   real(RP), intent(in) :: fy(Nfp*Ne)
-   integer, intent(in) :: Fmask(Nfp,4)
-
-   integer :: k, k1, k2
-   integer :: f, f1, f2
-   integer :: p
-   integer :: n
-
-   real(RP) :: cx1, cx2
-   real(RP) :: cy1, cy2
-   real(RP) :: dx_pbc, dy_pbc
-
-   integer :: idP, idM
-   integer :: vidL(Nfp), vidR(Nfp)
-   integer :: fidL(Nfp), fidR(Nfp)
-
-   real(DP) :: refd2
-   real(DP) :: x1(Nfp,Nfp), x2(Nfp,Nfp)
-   real(DP) :: y1(Nfp,Nfp), y2(Nfp,Nfp)
-   real(DP) :: dist(Nfp,Nfp)
-
-   real(DP), parameter :: NODE_TOL = 1.0E-12_RP
-
-    !-----------------------------------------------------------------------------
-
-
-    do k1=1, Ne
-    do f1=1, Nfaces
-     cx1 = sum(x(Fmask(:,f1),k1)/dble(Nfp))
-     cy1 = sum(y(Fmask(:,f1),k1)/dble(Nfp))
-
-     k2 = EToE(k1,f1); f2 = EToF(k1,f1)
-     if (k2==k1) then
-       do k2=1, Ne
-         if (k1 /= k2) then
-           do f2=1, Nfaces
-             if (EToE(k2,f2) == k2) then
-               cx2 = sum(x(Fmask(:,f2),k2)/dble(Nfp))
-               cy2 = sum(y(Fmask(:,f2),k2)/dble(Nfp))
-
-               dx_pbc = sqrt( (abs(cx1-cx2)-xperiod)**2 + (cy1-cy2)**2 )
-               dy_pbc = sqrt( (cx1-cx2)**2 + (abs(cy1-cy2)-yperiod)**2 )
-
-               if (dx_pbc < NODE_TOL .or. dy_pbc < NODE_TOL) then
-
-                 EtoE(k1,f1) = k2; EToE(k2,f2) = k1
-                 EtoF(k1,f1) = f2; EToF(k2,f2) = f1
-
-                 !mesh%BCType(f1,k1) = BCTYPE_PERIODIC
-                 !mesh%BCType(f2,k2) = BCTYPE_PERIODIC
-
-                 do p=1, Nfp
-                   vidL(p) = Fmask(p,f1) + (k1-1)*Np
-                   vidR(p) = Fmask(p,f2) + (k2-1)*Np
-                   fidL(p) = p + (f1-1)*Nfp + (k1-1)*Nfp*Nfaces
-                   fidR(p) = p + (f2-1)*Nfp + (k2-1)*Nfp*Nfaces
-                 end do
-
-                 x1(:,:) = spread( fx(fidL(:)), 2, Nfp )
-                 x2(:,:) = spread( fx(fidR(:)), 1, Nfp )
-                 y1(:,:) = spread( fy(fidL(:)), 2, Nfp )
-                 y2(:,:) = spread( fy(fidR(:)), 1, Nfp )
-
-                 if (dx_pbc < NODE_TOL) then
-                   dist(:,:) = (abs(x1-x2) -xperiod)**2 + (y1 - y2)**2
-                 else
-                   dist(:,:) = (x1 - x2)**2 + (abs(y1-y2) -yperiod)**2
-                 end if
-
-                 do idP=1,Nfp
-                 do idM=1,Nfp
-                     if (dist(idM,idP) < NODE_TOL) then
-                       VMapP(idM,f1,k1) = vidR(idP)
-                       VMapP(idP,f2,k2) = vidL(idM)
-                     end if
-                 end do
-                 end do
-
-               end if
-             end if
-           end do
-         end if
-       end do
-     end if
-
-   end do
-   end do
-
-   !-------
-
-!    write(*,*) "Build MapInfo (Periodic BC): "
-!    do k=1,mesh%Ne
-!       write(*,*) "k=", k, "---"
-!       write(*,*) " VMapM:", mesh%VMapM(:,:,k)
-!       write(*,*) " VMapP:", mesh%VMapP(:,:,k)
-!       write(*,*) "BCType:", mesh%BCType(:,k)
-!    end do
-
-  end subroutine MeshUtil2D_genPeriodicBoundaryMap
+  end subroutine MeshUtil2D_genPatchBoundaryMap
 
   subroutine MeshUtil2D_buildGlobalMap( &
     & panelID_table, pi_table, pj_table,     &

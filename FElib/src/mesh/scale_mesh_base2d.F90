@@ -96,11 +96,11 @@ contains
 
   end subroutine MeshBase2D_Final
   
-  subroutine MeshBase2D_setGeometricInfo( mesh, coord_conv )
+  subroutine MeshBase2D_setGeometricInfo( lcmesh, coord_conv, calc_normal )
 
     implicit none
     
-    type(LocalMesh2D), intent(inout) :: mesh
+    type(LocalMesh2D), intent(inout) :: lcmesh
     interface
       subroutine coord_conv( x, y, xr, xs, yr, ys, &
         vx, vy, elem )
@@ -111,38 +111,46 @@ contains
         real(RP), intent(out) :: xr(elem%Np), xs(elem%Np), yr(elem%Np), ys(elem%Np)
         real(RP), intent(in) :: vx(elem%Nv), vy(elem%Nv)        
       end subroutine coord_conv
+      subroutine calc_normal( normal_fn, &
+        Escale_f, fid, elem )
+        import elementbase2D
+        import RP
+        type(elementbase2D), intent(in) :: elem
+        real(RP), intent(out) :: normal_fn(elem%NfpTot,2)
+        integer, intent(in) :: fid(elem%Nfp,elem%Nfaces)
+        real(RP), intent(in) :: Escale_f(elem%NfpTot,2,2)
+      end subroutine calc_normal      
     end interface
 
     class(ElementBase2D), pointer :: refElem
     integer :: n
     integer :: f
-    integer :: i
-    real(RP) :: vx(mesh%refElem%Nv), vy(mesh%refElem%Nv)
-    real(RP) :: xr(mesh%refElem%Np), xs(mesh%refElem%Np)
-    real(RP) :: yr(mesh%refElem%Np), ys(mesh%refElem%Np)
-    real(DP) :: Escale(2,2,mesh%refElem%Np)
-    integer :: fmask(mesh%refElem%NfpTot)
-    integer :: fid(mesh%refElem2D%Nfp,mesh%refElem2D%Nfaces)
-    real(DP) :: fxr(mesh%refElem%NfpTot), fxs(mesh%refElem%NfpTot)
-    real(DP) :: fyr(mesh%refElem%NfpTot), fys(mesh%refElem%NfpTot)
+    integer :: i, j
+    integer :: d
+    real(RP) :: vx(lcmesh%refElem%Nv), vy(lcmesh%refElem%Nv)
+    real(RP) :: xr(lcmesh%refElem%Np), xs(lcmesh%refElem%Np)
+    real(RP) :: yr(lcmesh%refElem%Np), ys(lcmesh%refElem%Np)
+    integer :: fmask(lcmesh%refElem%NfpTot)
+    integer :: fid(lcmesh%refElem2D%Nfp,lcmesh%refElem2D%Nfaces)
+    real(RP) :: Escale_f(lcmesh%refElem%NfpTot,2,2)
 
-  !-----------------------------------------------------------------------------
+    !-----------------------------------------------------------------------------
 
-    refElem => mesh%refElem2D
+    refElem => lcmesh%refElem2D
 
-    allocate( mesh%pos_en(refElem%Np,mesh%Ne,2) )
+    allocate( lcmesh%pos_en(refElem%Np,lcmesh%Ne,2) )
     !allocate( mesh%fx(refElem%Nfaces*refElem%Nfp,mesh%Ne) )
     !allocate( mesh%fy(refElem%Nfaces*refElem%Nfp,mesh%Ne) )
-    allocate( mesh%normal_fn(refElem%NfpTot,mesh%Ne,2) )
-    allocate( mesh%sJ(refElem%NfpTot,mesh%Ne) )
-    allocate( mesh%J(refElem%Np,mesh%Ne) )
-    allocate( mesh%Fscale(refElem%NfpTot,mesh%Ne) )
-    allocate( mesh%Escale(refElem%Np,mesh%Ne,2,2) )
-    allocate( mesh%Gsqrt(refElem%Np,mesh%Ne) )
-    allocate( mesh%G_ij(refElem%Np,mesh%Ne, 2, 2) )
-    allocate( mesh%GIJ (refElem%Np,mesh%Ne, 2, 2) )
-    allocate( mesh%lon(refElem%Np,mesh%Ne) )
-    allocate( mesh%lat(refElem%Np,mesh%Ne) )
+    allocate( lcmesh%normal_fn(refElem%NfpTot,lcmesh%Ne,2) )
+    allocate( lcmesh%sJ(refElem%NfpTot,lcmesh%Ne) )
+    allocate( lcmesh%J(refElem%Np,lcmesh%Ne) )
+    allocate( lcmesh%Fscale(refElem%NfpTot,lcmesh%Ne) )
+    allocate( lcmesh%Escale(refElem%Np,lcmesh%Ne,2,2) )
+    allocate( lcmesh%Gsqrt(refElem%Np,lcmesh%Ne) )
+    allocate( lcmesh%G_ij(refElem%Np,lcmesh%Ne, 2, 2) )
+    allocate( lcmesh%GIJ (refElem%Np,lcmesh%Ne, 2, 2) )
+    allocate( lcmesh%lon(refElem%Np,lcmesh%Ne) )
+    allocate( lcmesh%lat(refElem%Np,lcmesh%Ne) )
     
     fmask(:) = reshape(refElem%Fmask, shape(fmask))
     do f=1, refElem%Nfaces
@@ -151,44 +159,43 @@ contains
     end do
     end do
 
-    do n=1, mesh%Ne
-       vx(:) = mesh%pos_ev(mesh%EToV(n,:),1)
-       vy(:) = mesh%pos_ev(mesh%EToV(n,:),2)
-       call coord_conv( &
-        mesh%pos_en(:,n,1), mesh%pos_en(:,n,2), xr, xs, yr, ys, & ! (out)
-        vx, vy, refElem )                                         ! (in)
+    do n=1, lcmesh%Ne
+      vx(:) = lcmesh%pos_ev(lcmesh%EToV(n,:),1)
+      vy(:) = lcmesh%pos_ev(lcmesh%EToV(n,:),2)
+      call coord_conv( &
+      lcmesh%pos_en(:,n,1), lcmesh%pos_en(:,n,2), xr, xs, yr, ys, & ! (out)
+      vx, vy, refElem )                                             ! (in)
+    
+      lcmesh%J(:,n) = - xs*yr + xr*ys
+      lcmesh%Escale(:,n,1,1) =   ys/lcmesh%J(:,n)
+      lcmesh%Escale(:,n,1,2) = - xs/lcmesh%J(:,n)
+      lcmesh%Escale(:,n,2,1) = - yr/lcmesh%J(:,n)
+      lcmesh%Escale(:,n,2,2) =   xr/lcmesh%J(:,n)
 
-       mesh%J(:,n) = - xs*yr + xr*ys
-       mesh%Escale(:,n,1,1) =   ys/mesh%J(:,n)
-       mesh%Escale(:,n,1,2) = - xs/mesh%J(:,n)
-       mesh%Escale(:,n,2,1) = - yr/mesh%J(:,n)
-       mesh%Escale(:,n,2,2) =   xr/mesh%J(:,n)
+      !* Face
 
-       !* Face
+      !
+      !mesh%fx(:,n) = mesh%x(fmask(:),n)
+      !mesh%fy(:,n) = mesh%y(fmask(:),n)
 
-       !
-       !mesh%fx(:,n) = mesh%x(fmask(:),n)
-       !mesh%fy(:,n) = mesh%y(fmask(:),n)
+      ! Calculate normal vectors
+      do j=1, 2
+      do i=1, 2
+        Escale_f(:,i,j) = lcmesh%Escale(fmask(:),n,i,j)
+      end do
+      end do
 
-       ! Calculate normal vectors
-       fxr(:) = xr(fmask(:))
-       fxs(:) = xs(fmask(:))
-       fyr(:) = yr(fmask(:))
-       fys(:) = ys(fmask(:))
-       mesh%normal_fn(fid(:,1),n,1) = +fyr(fid(:,1))
-       mesh%normal_fn(fid(:,1),n,2) = -fxr(fid(:,1))
-       mesh%normal_fn(fid(:,2),n,1) = +fys(fid(:,2))
-       mesh%normal_fn(fid(:,2),n,2) = +fxs(fid(:,2))
-       mesh%normal_fn(fid(:,3),n,1) = +fyr(fid(:,3))
-       mesh%normal_fn(fid(:,3),n,2) = +fxr(fid(:,3))
-       mesh%normal_fn(fid(:,4),n,1) = -fys(fid(:,4))
-       mesh%normal_fn(fid(:,4),n,2) = +fxs(fid(:,4))
+      call calc_normal( lcmesh%normal_fn(:,n,:), & ! (out)
+        Escale_f, fid, refElem )                   ! (in)
 
-       mesh%sJ(:,n) = sqrt(mesh%normal_fn(:,n,1)**2 + mesh%normal_fn(:,n,2)**2)
-       mesh%normal_fn(:,n,1) = mesh%normal_fn(:,n,1)/mesh%sJ(:,n)
-       mesh%normal_fn(:,n,2) = mesh%normal_fn(:,n,2)/mesh%sJ(:,n)
-       mesh%Fscale(:,n) = mesh%sJ(:,n)/mesh%J(fmask(:),n)
-       mesh%Gsqrt(:,n) = 1d0       
+      lcmesh%sJ(:,n) = sqrt( lcmesh%normal_fn(:,n,1)**2 + lcmesh%normal_fn(:,n,2)**2 )
+      do d=1, 2
+        lcmesh%normal_fn(:,n,d) = lcmesh%normal_fn(:,n,d)/lcmesh%sJ(:,n)
+      end do
+      lcmesh%sJ(:,n) = lcmesh%sJ(:,n)*lcmesh%J(:,n)
+
+      lcmesh%Fscale(:,n) = lcmesh%sJ(:,n)/lcmesh%J(fmask(:),n)       
+      lcmesh%Gsqrt(:,n) = 1.0_RP       
     end do
 
   end subroutine MeshBase2D_setGeometricInfo

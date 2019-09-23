@@ -195,9 +195,9 @@ contains
         fnid = p+(f-1)*refElem%Nfp
         iM = lcmesh_%VMapM(fnid,k)
         iP = lcmesh_%VMapP(fnid,k)
-        write(*,'(a,3(i3),a,i10,a,i10,a,i10)') "k , f, p =", k,f,p,           &
+        write(*,'(a,3(i3),a,i10,a,i10,a,3i4)') "k , f, p =", k,f,p,           &
           " : q- = ", int(lcfield_fl(iM)), ",  q+ =", int(lcfield_fl(iP)),  &
-          ", nx=", int(lcmesh_%normal_fn(fnid,k,1))
+          ", normal=", int(lcmesh_%normal_fn(fnid,k,:))
       end do
       end do
 

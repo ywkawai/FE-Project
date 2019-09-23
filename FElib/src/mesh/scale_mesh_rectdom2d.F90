@@ -172,7 +172,7 @@ contains
 
   !- private ------------------------------------------------------
 
-  subroutine MeshRectDom2D_setupLocalDom( mesh, &
+  subroutine MeshRectDom2D_setupLocalDom( lcmesh, &
     tileID, panelID,                         &
     i, j, NprcX, NprcY,                      &
     dom_xmin, dom_xmax, dom_ymin, dom_ymax,  &
@@ -187,13 +187,13 @@ contains
     use scale_localmesh_base, only: BCTYPE_INTERIOR
     implicit none
       
-    type(LocalMesh2D), intent(inout) :: mesh
+    type(LocalMesh2D), intent(inout) :: lcmesh
     integer, intent(in) :: tileID
     integer, intent(in) :: panelID
     integer, intent(in) :: i, j
     integer, intent(in) :: NprcX, NprcY
-    real(RP) :: dom_xmin, dom_xmax
-    real(RP) :: dom_ymin, dom_ymax
+    real(RP), intent(in) :: dom_xmin, dom_xmax
+    real(RP), intent(in) :: dom_ymin, dom_ymax
     integer, intent(in) ::NeX, NeY
     
     class(ElementBase2D), pointer :: elem
@@ -201,64 +201,63 @@ contains
     
     !-----------------------------------------------------------------------------
 
-    elem => mesh%refElem2D
-    mesh%tileID = tileID
-    mesh%panelID = panelID
+    elem => lcmesh%refElem2D
+    lcmesh%tileID = tileID
+    lcmesh%panelID = panelID
     
     !--
 
-    mesh%Ne  = NeX * NeY
-    mesh%Nv  = (NeX + 1)*(NeY + 1)
-    mesh%NeS = 1
-    mesh%NeE = mesh%Ne
-    mesh%NeA = mesh%Ne + 2*(NeX + NeY)
+    lcmesh%Ne  = NeX * NeY
+    lcmesh%Nv  = (NeX + 1)*(NeY + 1)
+    lcmesh%NeS = 1
+    lcmesh%NeE = lcmesh%Ne
+    lcmesh%NeA = lcmesh%Ne + 2*(NeX + NeY)
 
-    mesh%NeX = NeX
-    mesh%NeY = NeY
+    lcmesh%NeX = NeX
+    lcmesh%NeY = NeY
 
     delx = (dom_xmax - dom_xmin)/dble(NprcX)
     dely = (dom_ymax - dom_ymin)/dble(NprcY)
 
-    mesh%xmin = dom_xmin + (i-1)*delx
-    mesh%xmax = dom_xmin +  i   *delx
-    mesh%ymin = dom_ymin + (j-1)*dely
-    mesh%ymax = dom_ymin +  j   *dely
+    lcmesh%xmin = dom_xmin + (i-1)*delx
+    lcmesh%xmax = dom_xmin +  i   *delx
+    lcmesh%ymin = dom_ymin + (j-1)*dely
+    lcmesh%ymax = dom_ymin +  j   *dely
 
-    allocate(mesh%pos_ev(mesh%Nv,2))
-    allocate( mesh%EToV(mesh%Ne,4) )
-    allocate( mesh%EToE(mesh%Ne,elem%Nfaces) )
-    allocate( mesh%EToF(mesh%Ne,elem%Nfaces) )
-    allocate( mesh%BCType(mesh%refElem%Nfaces,mesh%Ne) )
-    allocate( mesh%VMapM(elem%NfpTot, mesh%Ne) )
-    allocate( mesh%VMapP(elem%NfpTot, mesh%Ne) )
-    allocate( mesh%MapM(elem%NfpTot, mesh%Ne) )
-    allocate( mesh%MapP(elem%NfpTot, mesh%Ne) )
+    allocate( lcmesh%pos_ev(lcmesh%Nv,2) )
+    allocate( lcmesh%EToV(lcmesh%Ne,elem%Nv) )
+    allocate( lcmesh%EToE(lcmesh%Ne,elem%Nfaces) )
+    allocate( lcmesh%EToF(lcmesh%Ne,elem%Nfaces) )
+    allocate( lcmesh%BCType(lcmesh%refElem%Nfaces,lcmesh%Ne) )
+    allocate( lcmesh%VMapM(elem%NfpTot, lcmesh%Ne) )
+    allocate( lcmesh%VMapP(elem%NfpTot, lcmesh%Ne) )
+    allocate( lcmesh%MapM(elem%NfpTot, lcmesh%Ne) )
+    allocate( lcmesh%MapP(elem%NfpTot, lcmesh%Ne) )
 
-    mesh%BCType(:,:) = BCTYPE_INTERIOR
+    lcmesh%BCType(:,:) = BCTYPE_INTERIOR
 
     !----
 
-    call MeshUtil2D_genRectDomain( mesh%pos_ev, mesh%EToV,   & ! (out)
-        & mesh%NeX, mesh%xmin, mesh%xmax,                    & ! (in)
-        & mesh%NeY, mesh%ymin, mesh%ymax )                     ! (in)
+    call MeshUtil2D_genRectDomain( lcmesh%pos_ev, lcmesh%EToV,   & ! (out)
+        & lcmesh%NeX, lcmesh%xmin, lcmesh%xmax,                  & ! (in)
+        & lcmesh%NeY, lcmesh%ymin, lcmesh%ymax )                   ! (in)
 
     !---
-    
-    call MeshBase2D_setGeometricInfo(mesh, MeshRectDom2D_coord_conv)
+    call MeshBase2D_setGeometricInfo(lcmesh, MeshRectDom2D_coord_conv, MeshRectDom2D_calc_normal )
  
     !---
 
-    call MeshUtil2D_genConnectivity( mesh%EToE, mesh%EToF, & ! (out)
-        & mesh%EToV, mesh%Ne, elem%Nfaces )                  ! (in)
+    call MeshUtil2D_genConnectivity( lcmesh%EToE, lcmesh%EToF, & ! (out)
+        & lcmesh%EToV, lcmesh%Ne, elem%Nfaces )                  ! (in)
 
     !---
-    call MeshUtil2D_BuildInteriorMap( mesh%VmapM, mesh%VMapP, mesh%MapM, mesh%MapP,  &
-      & mesh%pos_en, mesh%pos_ev, mesh%EToE, mesh%EtoF, mesh%EtoV,                   &
-      & elem%Fmask, mesh%Ne, elem%Np, elem%Nfp, elem%Nfaces, mesh%Nv )
+    call MeshUtil2D_BuildInteriorMap( lcmesh%VmapM, lcmesh%VMapP, lcmesh%MapM, lcmesh%MapP,  &
+      & lcmesh%pos_en, lcmesh%pos_ev, lcmesh%EToE, lcmesh%EtoF, lcmesh%EtoV,                   &
+      & elem%Fmask, lcmesh%Ne, elem%Np, elem%Nfp, elem%Nfaces, lcmesh%Nv )
 
-    call MeshUtil2D_genPatchBoundaryMap( mesh%VMapB, mesh%MapB, mesh%VMapP, &
-      & mesh%pos_en, mesh%xmin, mesh%xmax, mesh%ymin, mesh%ymax,            &
-      & elem%Fmask, mesh%Ne, elem%Np, elem%Nfp, elem%Nfaces, mesh%Nv)
+    call MeshUtil2D_genPatchBoundaryMap( lcmesh%VMapB, lcmesh%MapB, lcmesh%VMapP, &
+      & lcmesh%pos_en, lcmesh%xmin, lcmesh%xmax, lcmesh%ymin, lcmesh%ymax,            &
+      & elem%Fmask, lcmesh%Ne, elem%Np, elem%Nfp, elem%Nfaces, lcmesh%Nv)
     
     return
   end subroutine MeshRectDom2D_setupLocalDom
@@ -336,6 +335,8 @@ contains
   subroutine MeshRectDom2D_coord_conv( x, y, xr, xs, yr, ys, &
     vx, vy, elem )
 
+    implicit none
+
     type(elementbase2D), intent(in) :: elem
     real(RP), intent(out) :: x(elem%Np), y(elem%Np)
     real(RP), intent(out) :: xr(elem%Np), xs(elem%Np), yr(elem%Np), ys(elem%Np)
@@ -346,10 +347,35 @@ contains
     x(:) = vx(1) + 0.5_RP*(elem%x1(:) + 1.0_RP)*(vx(2) - vx(1))
     y(:) = vy(1) + 0.5_RP*(elem%x2(:) + 1.0_RP)*(vy(3) - vy(1))
 
-    xr(:) = 0.5_RP*(vx(2) - vx(1)) !matmul(refElem%Dr,mesh%x(:,n))
-    xs(:) = 0d0                        !matmul(refElem%Ds,mesh%x(:,n))
-    yr(:) = 0d0                        !matmul(refElem%Dr,mesh%y(:,n))
-    ys(:) = 0.5_RP*(vy(3) - vy(1)) !matmul(refElem%Ds,mesh%y(:,n))
+    xr(:) = 0.5_RP*(vx(2) - vx(1)) !matmul(refElem%Dx1,mesh%x1(:,n))
+    xs(:) = 0.0_RP                 !matmul(refElem%Dx2,mesh%x1(:,n))
+    yr(:) = 0.0_RP                 !matmul(refElem%Dx1,mesh%x2(:,n))
+    ys(:) = 0.5_RP*(vy(3) - vy(1)) !matmul(refElem%Dx2,mesh%x2(:,n))
+
+    return
   end subroutine MeshRectDom2D_coord_conv  
+
+  subroutine MeshRectDom2D_calc_normal( normal_fn, &
+    Escale_f, fid, elem )
+
+    implicit none
+
+    type(elementbase2D), intent(in) :: elem
+    real(RP), intent(out) :: normal_fn(elem%NfpTot,2)
+    integer, intent(in) :: fid(elem%Nfp,elem%Nfaces)
+    real(RP), intent(in) :: Escale_f(elem%NfpTot,2,2)
+
+    integer :: d
+    !-------------------------------------------------
+
+    do d=1, 2
+      normal_fn(fid(:,1),d) = - Escale_f(fid(:,1),2,d)
+      normal_fn(fid(:,2),d) = + Escale_f(fid(:,2),1,d)
+      normal_fn(fid(:,3),d) = + Escale_f(fid(:,3),2,d)
+      normal_fn(fid(:,4),d) = - Escale_f(fid(:,4),1,d)  
+    end do
+
+    return
+  end subroutine MeshRectDom2D_calc_normal 
 
 end module scale_mesh_rectdom2d

@@ -10,15 +10,17 @@ module scale_meshfield_base
 
   use scale_localmesh_1d, only: LocalMesh1D
   use scale_localmesh_2d, only: LocalMesh2D
+  use scale_localmesh_3d, only: LocalMesh3D
 
   use scale_mesh_base1d, only: MeshBase1D
   use scale_mesh_base2d, only: MeshBase2D
+  use scale_mesh_base3d, only: MeshBase3D
   
   use scale_localmeshfield_base, only: &
-    LocalMeshField1D, LocalMeshField2D
+    LocalMeshField1D, LocalMeshField2D, LocalMeshField3D
     
   use scale_element_base, only: &
-    elementbase1D, elementbase2D
+    elementbase1D, elementbase2D, elementbase3D
 
 
   !-----------------------------------------------------------------------------
@@ -50,6 +52,14 @@ module scale_meshfield_base
     procedure :: Init => MeshField2D_Init
     procedure :: Final => MeshField2D_Final  
   end type MeshField2D
+
+  type, extends(MeshFieldBase), public :: MeshField3D
+    type(LocalMeshField3D), allocatable :: local(:)
+    class(MeshBase3D), pointer :: mesh   
+  contains
+    procedure :: Init => MeshField3D_Init
+    procedure :: Final => MeshField3D_Final  
+  end type MeshField3D
 
   !-----------------------------------------------------------------------------
   !
@@ -134,5 +144,40 @@ contains
     deallocate( this%local )
 
   end subroutine MeshField2D_Final
+
+  !*******
+
+  subroutine MeshField3D_Init(this, varname, units, mesh)
+    class(MeshField3D), intent(inout) :: this
+    character(len=*), intent(in) :: varname
+    character(len=*), intent(in) :: units    
+    class(MeshBase3D), target, intent(in) :: mesh
+
+    integer :: n
+    !-----------------------------------------------------------------------------
+    
+    this%varname = varname
+    this%unit = units
+    this%mesh => mesh
+
+    allocate( this%local(mesh%LOCAL_MESH_NUM) )  
+    do n=1, mesh%LOCAL_MESH_NUM
+      call this%local(n)%Init( mesh%lcmesh_list(n) )
+    end do
+
+  end subroutine MeshField3D_Init
+  
+  subroutine MeshField3D_Final(this)
+    class(MeshField3D), intent(inout) :: this
+    
+    integer :: n
+    !-----------------------------------------------------------------------------
+
+    do n=1, size(this%local)
+      call this%local(n)%Final()
+    end do
+    deallocate( this%local )
+
+  end subroutine MeshField3D_Final
 
 end module scale_meshfield_base

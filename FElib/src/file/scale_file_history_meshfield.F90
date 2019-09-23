@@ -20,14 +20,17 @@ module scale_file_history_meshfield
     FILE_HISTORY_Set_Axis,    &
     FILE_HISTORY_finalize
 
-  use scale_element_base, only: elementbase1D, elementbase2D
+  use scale_element_base, only: elementbase1D, elementbase2D, elementbase3D
   use scale_mesh_base1d, only: MeshBase1D
   use scale_mesh_base2d, only: MeshBase2D
+  use scale_mesh_base3d, only: MeshBase3D
   use scale_mesh_rectdom2d, only: MeshRectDom2D
+  use scale_mesh_cubedom3d, only: MeshCubeDom3D
   use scale_localmesh_1d, only: LocalMesh1D
   use scale_localmesh_2d, only: LocalMesh2D
+  use scale_localmesh_3d, only: LocalMesh3D
 
-  use scale_meshfield_base, only: MeshField1D, MeshField2D
+  use scale_meshfield_base, only: MeshField1D, MeshField2D, MeshField3D
 
   !-----------------------------------------------------------------------------
   implicit none
@@ -44,7 +47,9 @@ module scale_file_history_meshfield
   interface FILE_HISTORY_meshfield_put
     module procedure FILE_HISTORY_meshfield_put1D
     module procedure FILE_HISTORY_meshfield_put2D
+    module procedure FILE_HISTORY_meshfield_put3D
   end interface
+  
   !-----------------------------------------------------------------------------
   !
   !++ Public parameters & variables
@@ -62,9 +67,11 @@ module scale_file_history_meshfield
   real(DP) :: FILE_HISTORY_MESHFIELD_STARTMS      !< subsecond part of start time [millisec]
 
   class(MeshBase1D), pointer :: mesh1D
-  
   class(MeshRectDom2D), pointer :: mesh2D
+  class(MeshCubeDom3D), pointer :: mesh3D
+
   integer :: mesh2D_icount, mesh2D_jcount
+  integer :: mesh3D_icount, mesh3D_jcount, mesh3D_kcount
 
 contains
 
@@ -243,6 +250,66 @@ subroutine FILE_HISTORY_meshfield_put2D(hstid, field2d)
   return
 end subroutine FILE_HISTORY_meshfield_put2D
 
+subroutine FILE_HISTORY_meshfield_put3D(hstid, field3d)
+  implicit none
+  integer, intent(in) :: hstid
+  class(MeshField3D), intent(in) :: field3d
+
+  integer :: n, kelem1, p
+  integer :: i0, j0, k0, i1, j1, k1, i2, j2, k2, i, j, k
+  class(Meshbase3d), pointer :: mesh
+  type(LocalMesh3D), pointer :: lcmesh
+  type(elementbase3D), pointer :: refElem
+  integer :: i0_s, j0_s, k0_s, indx
+
+  real(RP), allocatable :: buf(:,:,:)
+
+  !--------------------
+
+  mesh => field3d%mesh
+  allocate( buf(mesh3D_icount, mesh3D_jcount, mesh3D_kcount) )
+
+  i0_s = 0; j0_s = 0; k0_s = 0
+
+  do k0=1, size(mesh3D%rcdomIJK2LCMeshID,3)  
+  do j0=1, size(mesh3D%rcdomIJK2LCMeshID,2)
+  do i0=1, size(mesh3D%rcdomIJK2LCMeshID,1)
+    n =  mesh3D%rcdomIJK2LCMeshID(i0,j0,k0)
+
+    lcmesh => mesh%lcmesh_list(n)
+    refElem => lcmesh%refElem3D
+
+    do k1=1, lcmesh%NeZ
+    do j1=1, lcmesh%NeY
+    do i1=1, lcmesh%NeX
+      kelem1 = i1 + (j1-1)*lcmesh%NeX
+      do k2=1, refElem%Nnode_v
+      do j2=1, refElem%Nnode_h1D
+      do i2=1, refElem%Nnode_h1D
+        i = i0_s + i2 + (i1-1)*refElem%Nnode_h1D
+        j = j0_s + j2 + (j1-1)*refElem%Nnode_h1D
+        k = k0_s + k2 + (k1-1)*refElem%Nnode_v
+        indx = i2 + (j2-1)*refElem%Nnode_h1D + (k2-1)*refElem%Nnode_h1D**2
+        buf(i,j,k) = field3d%local(n)%val(indx,kelem1)
+      end do
+      end do
+      end do
+    end do
+    end do
+    end do
+
+    i0_s = i0_s + lcmesh%NeX * refElem%Nnode_h1D
+    j0_s = j0_s + lcmesh%NeY * refElem%Nnode_h1D
+    k0_s = k0_s + lcmesh%NeZ * refElem%Nnode_v
+  end do
+  end do
+  end do
+
+  call FILE_HISTORY_put(hstid, buf)
+
+  return
+end subroutine FILE_HISTORY_meshfield_put3D
+
 !----------------
 
 subroutine set_dims1D()
@@ -340,6 +407,74 @@ subroutine set_dims2D()
   return
 end subroutine set_dims2D
 
+subroutine set_dims3D()
+  implicit none
+
+  character(len=H_SHORT) :: dims(3,3)
+  integer :: start(3,3), count(3,3)  
+
+  type(LocalMesh3D), pointer :: lcmesh
+  integer :: i, j, k, n
+  integer :: icount, jcount, kcount
+
+  !-------------------------------------
+  
+  icount = 0
+  do i=1, size(mesh3D%rcdomIJK2LCMeshID,1)
+    n = mesh3D%rcdomIJK2LCMeshID(i,1,1)
+    lcmesh => mesh3D%lcmesh_list(n)
+    icount = icount + lcmesh%NeX * lcmesh%refElem3D%Nnode_h1D
+  end do
+
+  jcount = 0
+  do j=1, size(mesh3D%rcdomIJK2LCMeshID,2)
+    n = mesh3D%rcdomIJK2LCMeshID(1,j,1)
+    lcmesh => mesh3D%lcmesh_list(n)
+    jcount = jcount + lcmesh%NeY * lcmesh%refElem3D%Nnode_h1D
+  end do
+
+  kcount = 0
+  do k=1, size(mesh3D%rcdomIJK2LCMeshID,3)
+    n = mesh3D%rcdomIJK2LCMeshID(1,1,k)
+    lcmesh => mesh3D%lcmesh_list(n)
+    kcount = kcount + lcmesh%NeZ * lcmesh%refElem3D%Nnode_v
+  end do  
+
+  mesh3D_icount = icount
+  mesh3D_jcount = jcount
+  mesh3D_kcount = kcount
+
+  !--
+
+  start(1,1) = 1
+  dims(1,1)  = "x"
+  count(1,1) = icount
+  call FILE_HISTORY_Set_Dim( "X", 1, 1, dims(:,:), zs(:), start(:,:), count(:,:))
+
+  start(1,1) = 1
+  dims(1,1)  = "y"
+  count(1,1) = jcount
+  call FILE_HISTORY_Set_Dim( "Y", 1, 1, dims(:,:), zs(:), start(:,:), count(:,:))
+
+  start(1,1) = 1
+  dims(1,1)  = "z"
+  count(1,1) = kcount
+  call FILE_HISTORY_Set_Dim( "Z", 1, 1, dims(:,:), zs(:), start(:,:), count(:,:))
+
+  start(1,1) = 1
+  start(2,1) = 1
+  start(3,1) = 1
+  dims(1,1)  = "x"
+  dims(2,1)  = "y"
+  dims(3,1)  = "z"
+  count(1,1) = icount
+  count(2,1) = jcount
+  count(3,1) = kcount
+  call FILE_HISTORY_Set_Dim( "XYZ", 3, 1, dims(:,:), zs(:), start(:,:), count(:,:))
+
+  return
+end subroutine set_dims3D
+
 subroutine set_axis2D()
   implicit none
 
@@ -388,6 +523,66 @@ subroutine set_axis2D()
   call FILE_HISTORY_Set_Axis( 'y', 'Y-coordinate', '1', 'y', y)
 
 end subroutine set_axis2D
+
+subroutine set_axis3D()
+  implicit none
+
+  real(RP), allocatable :: x(:)
+  real(RP), allocatable :: y(:)
+  real(RP), allocatable :: z(:)
+  integer :: n, kelem
+  integer :: i, j, k
+  integer :: i2, j2, k2
+  type(ElementBase3D), pointer :: refElem
+  type(LocalMesh3D), pointer :: lcmesh
+
+  integer :: is, js, ks, ie, je, ke, igs, jgs, kgs
+  integer :: Nnode_h1D
+
+  !--------------------
+  
+  allocate( x(mesh3d_icount), y(mesh3d_jcount), z(mesh3d_kcount) )
+  
+  !--
+
+  igs = 0; jgs = 0; kgs = 0
+
+  do n=1 ,mesh3D%LOCAL_MESH_NUM
+    lcmesh => mesh3D%lcmesh_list(n)
+    refElem => lcmesh%refElem3D
+    Nnode_h1D = refElem%Nnode_h1D
+
+    do k=1, lcmesh%NeZ
+    do j=1, lcmesh%NeY
+    do i=1, lcmesh%NeX
+      kelem = i + (j-1)*lcmesh%NeX + (k-1)*lcmesh%NeX*lcmesh%NeY
+      if ( j==1 .and. k==1) then
+        is = igs + 1 + (i-1)*Nnode_h1D
+        ie = is + Nnode_h1D - 1
+        x(is:ie) = lcmesh%pos_en(refElem%Fmask_h(1:Nnode_h1D,1),kelem,1)
+      end if
+      if ( i==1 .and. k==1) then
+        js = jgs + 1 + (j-1)*Nnode_h1D
+        je = js + Nnode_h1D - 1
+        y(js:je) = lcmesh%pos_en(refElem%Fmask_h(1:Nnode_h1D,4),kelem,2)
+      end if
+      if ( i==1 .and. j==1) then
+        ks = kgs + 1 + (k-1)*refElem%Nnode_v
+        ke = ks + refElem%Nnode_v - 1
+        z(ks:ke) = lcmesh%pos_en(refElem%Colmask(:,1),kelem,2)
+      end if
+    end do
+    end do
+    end do
+
+    igs = ie; jgs = je
+  end do
+
+  call FILE_HISTORY_Set_Axis( 'x', 'X-coordinate', '1', 'x', x)
+  call FILE_HISTORY_Set_Axis( 'y', 'Y-coordinate', '1', 'y', y)
+  call FILE_HISTORY_Set_Axis( 'z', 'Z-coordinate', '1', 'z', z)
+
+end subroutine set_axis3D
 
 !----------------
 

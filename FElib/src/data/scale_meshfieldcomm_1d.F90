@@ -63,11 +63,13 @@ contains
     class(MeshFieldComm1D), intent(inout) :: this
     integer, intent(in) :: sfield_num
     integer, intent(in) :: hvfield_num
-    class(Meshbase1d), intent(in), target :: mesh1d
-    
+    class(Meshbase1d), intent(in), target :: mesh1d    
     !-----------------------------------------------------------------------------
+    
     this%mesh1d => mesh1d 
     call MeshFieldCommBase_Init( this, sfield_num, hvfield_num, mesh1d%refElem1D%Nfp * 2, 2, mesh1d)  
+  
+    return
   end subroutine MeshFieldComm1D_Init
 
   subroutine MeshFieldComm1D_Final( this )
@@ -75,8 +77,11 @@ contains
     implicit none
     
     class(MeshFieldComm1D), intent(inout) :: this
+    !-----------------------------------------------------------------------------
 
     call MeshFieldCommBase_Final( this )
+
+    return
   end subroutine MeshFieldComm1D_Final
 
   subroutine MeshFieldComm1D_put(this, field_list, varid_s)
@@ -88,8 +93,8 @@ contains
     integer :: i
     integer :: n
     type(LocalMesh1D), pointer :: mesh
-
     !-----------------------------------------------------------------------------
+    
     do i=1, size(field_list)
     do n=1, this%mesh%LOCAL_MESH_NUM
       mesh => this%mesh1d%lcmesh_list(n)
@@ -97,6 +102,8 @@ contains
         this%send_buf(:,varid_s+i-1,n) )                                                                  ! (out)
     end do
     end do
+
+    return
   end subroutine MeshFieldComm1D_put
 
   subroutine MeshFieldComm1D_get(this, field_list, varid_s)
@@ -109,8 +116,8 @@ contains
     integer :: i
     integer :: n
     type(LocalMesh1D), pointer :: mesh
-
     !-----------------------------------------------------------------------------
+    
     do i=1, size(field_list) 
     do n=1, this%mesh1D%LOCAL_MESH_NUM
       mesh => this%mesh1d%lcmesh_list(n)
@@ -118,6 +125,8 @@ contains
         field_list(i)%field1d%local(n)%val )                                                      !(out)
     end do
     end do
+
+    return
   end subroutine MeshFieldComm1D_get
 
   subroutine MeshFieldComm1D_exchange( this )
@@ -138,7 +147,6 @@ contains
     integer, parameter :: Nnode_LCMeshFace = 1
     type(LocalMeshCommData), target :: commdata_list(this%nfaces_comm, this%mesh%LOCAL_MESH_NUM)
     type(LocalMeshCommData), pointer :: commdata
-    
     !-----------------------------------------------------------------------------
     
     do n=1, this%mesh%LOCAL_MESH_NUM
@@ -166,6 +174,7 @@ contains
     end do
     end do 
 
+    return
   end subroutine MeshFieldComm1D_exchange
 
 !----------------------------
@@ -180,7 +189,8 @@ contains
     integer, intent(in) :: s_faceID, f
   
     integer :: is, ie, lincrement
-    
+    !-----------------------------------------------------------------------------
+  
     if ( s_faceID > 0 ) then
       is = 1 + (f-1)*Nnode_LCMeshFace
       ie = is + Nnode_LCMeshFace - 1
@@ -190,7 +200,9 @@ contains
       ie   = 1 + (f - 1)*Nnode_LCMeshFace          
       lincrement = -1          
     end if 
-    lc_send_buf(:,:) = send_buf(is:ie:lincrement,:)          
+    lc_send_buf(:,:) = send_buf(is:ie:lincrement,:) 
+    
+    return
   end subroutine push_localsendbuf
 
 end module scale_meshfieldcomm_1d

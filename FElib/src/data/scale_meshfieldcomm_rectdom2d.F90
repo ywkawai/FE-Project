@@ -73,6 +73,8 @@ contains
     lcmesh => mesh2d%lcmesh_list(1)
     bufsize_per_field = 2*(lcmesh%NeX + lcmesh%NeY)*lcmesh%refElem2D%Nfp
     call MeshFieldCommBase_Init( this, sfield_num, hvfield_num, bufsize_per_field, 4, mesh2d)  
+  
+    return
   end subroutine MeshFieldCommRectDom2D_Init
 
   subroutine MeshFieldCommRectDom2D_Final( this )
@@ -80,8 +82,11 @@ contains
     implicit none
     
     class(MeshFieldCommRectDom2D), intent(inout) :: this
+    !-----------------------------------------------------------------------------
 
     call MeshFieldCommBase_Final( this )
+
+    return
   end subroutine MeshFieldCommRectDom2D_Final
 
   subroutine MeshFieldCommRectDom2D_put(this, field_list, varid_s)
@@ -92,17 +97,18 @@ contains
   
     integer :: i
     integer :: n
-    type(Localmesh2d), pointer :: mesh
-
+    type(Localmesh2d), pointer :: lcmesh
     !-----------------------------------------------------------------------------
 
     do i=1, size(field_list)
     do n=1, this%mesh%LOCAL_MESH_NUM
-      mesh => this%mesh2d%lcmesh_list(n)
-      call MeshFieldCommBase_extract_bounddata( field_list(i)%field2d%local(n)%val, mesh%refElem, mesh, & ! (in)
+      lcmesh => this%mesh2d%lcmesh_list(n)
+      call MeshFieldCommBase_extract_bounddata( field_list(i)%field2d%local(n)%val, lcmesh%refElem, lcmesh, & ! (in)
         this%send_buf(:,varid_s+i-1,n) )                                                                  ! (out)
     end do
     end do
+
+    return
   end subroutine MeshFieldCommRectDom2D_put
 
   subroutine MeshFieldCommRectDom2D_get(this, field_list, varid_s)
@@ -114,17 +120,18 @@ contains
 
     integer :: i
     integer :: n
-    type(Localmesh2d), pointer :: mesh
-
+    type(Localmesh2d), pointer :: lcmesh
     !-----------------------------------------------------------------------------
 
     do i=1, size(field_list) 
     do n=1, this%mesh2d%LOCAL_MESH_NUM
-      mesh => this%mesh2d%lcmesh_list(n)
-      call MeshFieldCommBase_set_bounddata( this%recv_buf(:,varid_s+i-1,n), mesh%refElem, mesh, & !(in)
+      lcmesh => this%mesh2d%lcmesh_list(n)
+      call MeshFieldCommBase_set_bounddata( this%recv_buf(:,varid_s+i-1,n), lcmesh%refElem, lcmesh, & !(in)
          field_list(i)%field2d%local(n)%val )                                                         !(out)
     end do
     end do
+
+    return
   end subroutine MeshFieldCommRectDom2D_get
 
 
@@ -142,21 +149,19 @@ contains
     class(MeshFieldCommRectDom2D), intent(inout) :: this
   
     integer :: n, f
-    type(LocalMesh2D), pointer :: mesh
+    type(LocalMesh2D), pointer :: lcmesh
     integer :: Nnode_LCMeshFace(4)
     type(LocalMeshCommData), target :: commdata_list(this%nfaces_comm, this%mesh%LOCAL_MESH_NUM)
     type(LocalMeshCommData), pointer :: commdata
-    
     !-----------------------------------------------------------------------------
-    
 
     do n=1, this%mesh%LOCAL_MESH_NUM
-      mesh => this%mesh2d%lcmesh_list(n)
-      Nnode_LCMeshFace(:) = (/ mesh%NeX, mesh%NeY, mesh%NeX, mesh%NeX /) * mesh%refElem2D%Nfp
+      lcmesh => this%mesh2d%lcmesh_list(n)
+      Nnode_LCMeshFace(:) = (/ lcmesh%NeX, lcmesh%NeY, lcmesh%NeX, lcmesh%NeY /) * lcmesh%refElem2D%Nfp
       
       do f=1, this%nfaces_comm
         commdata => commdata_list(f,n)
-        call commdata%Init(this, mesh, f, Nnode_LCMeshFace(f))
+        call commdata%Init(this, lcmesh, f, Nnode_LCMeshFace(f))
 
         call push_localsendbuf( commdata%send_buf(:,:),      &  ! (inout)
           this%send_buf(:,:,n), commdata%s_faceID, f,        &  ! (in)
@@ -176,6 +181,7 @@ contains
     end do
     end do 
 
+    return
   end subroutine MeshFieldCommRectDom2D_exchange
 
 !----------------------------
@@ -190,6 +196,7 @@ contains
     integer, intent(in) :: s_faceID, f
   
     integer :: is, ie, lincrement
+    !-----------------------------------------------------------------------------
     
     if ( s_faceID > 0 ) then
       is = 1 + (f-1)*Nnode_LCMeshFace
@@ -200,7 +207,9 @@ contains
       ie   = 1 + (f - 1)*Nnode_LCMeshFace          
       lincrement = -1          
     end if 
-    lc_send_buf(:,:) = send_buf(is:ie:lincrement,:)          
+    lc_send_buf(:,:) = send_buf(is:ie:lincrement,:)   
+    
+    return
   end subroutine push_localsendbuf
 
 end module scale_meshfieldcomm_rectdom2d

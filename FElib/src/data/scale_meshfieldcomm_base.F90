@@ -11,8 +11,9 @@ module scale_meshfieldcomm_base
   use scale_element_base, only: elementbase
   use scale_mesh_base, only: MeshBase
   use scale_meshfield_base, only: &
-    MeshFieldBase, MeshField1D, MeshField2D
-  use scale_localmesh_base, only: LocalMeshBase
+    MeshFieldBase, MeshField1D, MeshField2D, MeshField3D
+  use scale_localmesh_base, only: &
+    LocalMeshBase
 
   !-----------------------------------------------------------------------------
   implicit none
@@ -48,7 +49,7 @@ module scale_meshfieldcomm_base
   type, public :: MeshFieldContainer
     class(MeshField1D), pointer :: field1d
     class(MeshField2D), pointer :: field2d
-    !class(MeshFieldBase), pointer :: field3d        
+    class(MeshField3D), pointer :: field3d        
   end type
 
   type, public :: LocalMeshCommData

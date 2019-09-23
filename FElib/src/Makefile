@@ -21,26 +21,32 @@ OBJS_NAME_COMMON = \
 OBJS_NAME_ELEMENT = \
 	scale_element_base.o          \
 	scale_element_line.o          \
-	scale_element_quadrilateral.o 
+	scale_element_quadrilateral.o \
+	scale_element_hexahedral.o 
 
 OBJS_NAME_MESH = \
 	scale_meshutil_1d.o    \
 	scale_meshutil_2d.o    \
+	scale_meshutil_3d.o    \
 	scale_localmesh_base.o \
 	scale_localmesh_1d.o   \
 	scale_localmesh_2d.o   \
+	scale_localmesh_3d.o   \
 	scale_mesh_base.o	     \
 	scale_mesh_base1d.o	   \
 	scale_mesh_base2d.o	   \
+	scale_mesh_base3d.o	   \
 	scale_mesh_linedom1d.o \
-	scale_mesh_rectdom2d.o
+	scale_mesh_rectdom2d.o \
+	scale_mesh_cubedom3d.o
 
 OBJS_NAME_DATA = \
-	scale_localmeshfield_base.o    \
-	scale_meshfield_base.o         \
-	scale_meshfieldcomm_base.o     \
-	scale_meshfieldcomm_1d.o       \
-	scale_meshfieldcomm_rectdom2d.o
+	scale_localmeshfield_base.o      \
+	scale_meshfield_base.o           \
+	scale_meshfieldcomm_base.o       \
+	scale_meshfieldcomm_1d.o         \
+	scale_meshfieldcomm_rectdom2d.o  \
+	scale_meshfieldcomm_cubedom3d.o
 
 OBJS_NAME_FILE = \
 	scale_file_history_meshfield.o
