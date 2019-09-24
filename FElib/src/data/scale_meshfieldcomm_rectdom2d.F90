@@ -53,6 +53,7 @@ module scale_meshfieldcomm_rectdom2d
   !
   !++ Private parameters & variables
   !
+  integer :: bufsize_per_field
 
 contains
   subroutine MeshFieldCommRectDom2D_Init( this, &
@@ -65,7 +66,6 @@ contains
     integer, intent(in) :: hvfield_num
     class(MeshRectDom2D), intent(in), target :: mesh2d
     
-    integer :: bufsize_per_field
     type(LocalMesh2D), pointer :: lcmesh
     !-----------------------------------------------------------------------------
     
@@ -150,7 +150,8 @@ contains
   
     integer :: n, f
     type(LocalMesh2D), pointer :: lcmesh
-    integer :: Nnode_LCMeshFace(4)
+    integer :: Nnode_LCMeshFace(this%nfaces_comm)
+    integer :: is_f(this%nfaces_comm)    
     type(LocalMeshCommData), target :: commdata_list(this%nfaces_comm, this%mesh%LOCAL_MESH_NUM)
     type(LocalMeshCommData), pointer :: commdata
     !-----------------------------------------------------------------------------
@@ -159,12 +160,17 @@ contains
       lcmesh => this%mesh2d%lcmesh_list(n)
       Nnode_LCMeshFace(:) = (/ lcmesh%NeX, lcmesh%NeY, lcmesh%NeX, lcmesh%NeY /) * lcmesh%refElem2D%Nfp
       
+      is_f(1) = 1
+      do f=2, this%nfaces_comm
+        is_f(f) = is_f(f-1) + Nnode_LCMeshFace(f-1)
+      end do
+
       do f=1, this%nfaces_comm
         commdata => commdata_list(f,n)
         call commdata%Init(this, lcmesh, f, Nnode_LCMeshFace(f))
 
         call push_localsendbuf( commdata%send_buf(:,:),      &  ! (inout)
-          this%send_buf(:,:,n), commdata%s_faceID, f,        &  ! (in)
+          this%send_buf(:,:,n), commdata%s_faceID, is_f(f),  &  ! (in)
           commdata%Nnode_LCMeshFace, this%field_num_tot)        ! (in)
       end do
     end do
@@ -186,28 +192,24 @@ contains
 
 !----------------------------
 
-  subroutine push_localsendbuf( lc_send_buf, send_buf, s_faceID, f, Nnode_LCMeshFace, var_num )
+  subroutine push_localsendbuf( lc_send_buf, send_buf, s_faceID, is, Nnode_LCMeshFace, var_num )
     implicit none
 
     integer, intent(in) :: var_num
     integer, intent(in) ::  Nnode_LCMeshFace
     real(RP), intent(inout) :: lc_send_buf(Nnode_LCMeshFace,var_num)
-    real(RP), intent(in) :: send_buf(Nnode_LCMeshFace*4,var_num)  
-    integer, intent(in) :: s_faceID, f
+    real(RP), intent(in) :: send_buf(bufsize_per_field,var_num)  
+    integer, intent(in) :: s_faceID, is
   
-    integer :: is, ie, lincrement
+    integer :: ie
     !-----------------------------------------------------------------------------
-    
+
+    ie = is + Nnode_LCMeshFace - 1
     if ( s_faceID > 0 ) then
-      is = 1 + (f-1)*Nnode_LCMeshFace
-      ie = is + Nnode_LCMeshFace - 1
-      lincrement = +1          
+      lc_send_buf(:,:) = send_buf(is:ie,:)   
     else
-      is   = f*Nnode_LCMeshFace
-      ie   = 1 + (f - 1)*Nnode_LCMeshFace          
-      lincrement = -1          
+      lc_send_buf(:,:) = send_buf(ie:is:-1,:)   
     end if 
-    lc_send_buf(:,:) = send_buf(is:ie:lincrement,:)   
     
     return
   end subroutine push_localsendbuf

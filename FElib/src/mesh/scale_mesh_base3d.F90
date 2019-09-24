@@ -219,7 +219,7 @@ contains
       do d=1, 3
         lcmesh%normal_fn(:,n,d) = lcmesh%normal_fn(:,n,d)/lcmesh%sJ(:,n)
       end do
-      lcmesh%sJ(:,n) = lcmesh%sJ(:,n)*lcmesh%J(:,n)
+      lcmesh%sJ(:,n) = lcmesh%sJ(:,n)*lcmesh%J(fmask(:),n)
 
       lcmesh%Fscale(:,n) = lcmesh%sJ(:,n)/lcmesh%J(fmask(:),n)
       lcmesh%Gsqrt(:,n) = 1.0_RP

@@ -74,20 +74,21 @@ contains
 !----------------
 
   subroutine timeint_rk_Init( this,  &
-    rk_scheme_name, dt, var_num, size_each_var )
+    rk_scheme_name, dt, var_num, ndim, size_each_var )
     
     class(timeint_rk), intent(inout) :: this
     character(*), intent(in) :: rk_scheme_name
     real(RP), intent(in) :: dt
     integer, intent(in) :: var_num
-    integer, intent(in) :: size_each_var(:)
+    integer, intent(in) :: ndim
+    integer, intent(in) :: size_each_var(ndim)
 
     !----------------------------------------
 
     this%dt = dt
-    this%ndim = size(size_each_var)
+    this%ndim = ndim
     this%var_num  = 1
-    allocate( this%size_each_var(this%ndim) )
+    allocate( this%size_each_var(ndim) )
     this%size_each_var(:) = size_each_var(:)
 
     select case(rk_scheme_name)
@@ -249,7 +250,7 @@ contains
     a_ss = this%coef_a(nowstage,nowstage)
     do i=is, ie
       q(i) = (1.0_RP - a_ss)*this%var0_1d(i,varID)                   &
-              + a_ss*(q(i) + this%dt * this%tend_buf1D(i,1,varID) )
+              + a_ss*(q(i) + this%dt * this%tend_buf1D(i,varID,1) )
     end do
     call PROF_rapend( 'rk_advance_low_storage', 2)
 
@@ -280,7 +281,7 @@ contains
     do j=js, je
     do i=is, ie
       q(i,j) = (1.0_RP - a_ss)*this%var0_2d(i,j,varID)                   &
-              + a_ss*(q(i,j) + this%dt * this%tend_buf2D(i,j,1,varID) )
+              + a_ss*(q(i,j) + this%dt * this%tend_buf2D(i,j,varID,1) )
     end do
     end do
     call PROF_rapend( 'rk_advance_low_storage', 2)
@@ -315,7 +316,7 @@ contains
     do j=js, je
     do i=is, ie
       q(i,j,k) = (1.0_RP - a_ss)*this%var0_3d(i,j,k,varID)                   &
-              + a_ss*(q(i,j,k) + this%dt * this%tend_buf3D(i,j,k,1,varID) )
+              + a_ss*(q(i,j,k) + this%dt * this%tend_buf3D(i,j,k,varID,1) )
     end do
     end do
     end do
@@ -344,27 +345,27 @@ contains
     else if (nowstage == this%nstage ) then
       do i=is, ie
         q(i) =  this%varTmp_1d(i,varID)                                             &
-              + this%dt * this%coef_b(nowstage) * this%tend_buf1D(i,1,varID)
+              + this%dt * this%coef_b(nowstage) * this%tend_buf1D(i,varID,1)
       end do
       return
     end if 
     if (this%tend_buf_size == 1) then
       do i=is, ie
         this%varTmp_1d(i,varID) =  this%varTmp_1d(i,varID)                          &
-            +  this%dt * this%coef_b(nowstage)*this%tend_buf1d(i,1,varID)
+            +  this%dt * this%coef_b(nowstage)*this%tend_buf1d(i,varID,1)
         q(i) = this%var0_1d(i,varID)                                                &
-            +  this%dt * this%coef_a(nowstage+1,nowstage)*this%tend_buf1d(i,1,varID)
+            +  this%dt * this%coef_a(nowstage+1,nowstage)*this%tend_buf1d(i,varID,1)
       end do
     else
       do i=is, ie
         this%varTmp_1d(i,varID) =  this%varTmp_1d(i,varID)                             &
-            +  this%dt * this%coef_b(nowstage)*this%tend_buf1d(i,1,varID)
+            +  this%dt * this%coef_b(nowstage)*this%tend_buf1d(i,varID,1)
         q(i) = this%var0_1d(i,varID)               
       end do
       do s=1, nowstage
       do i=is, ie
         q(i) = q(i)                                                             &
-            +  this%dt * this%coef_a(s,nowstage)*this%tend_buf1d(i,s,varID)
+            +  this%dt * this%coef_a(s,nowstage)*this%tend_buf1d(i,varID,s)
       end do
       end do
     end if
@@ -394,7 +395,7 @@ contains
       do j=js, je
       do i=is, ie
         q(i,j) =  this%varTmp_2d(i,j,varID)                                             &
-              + this%dt * this%coef_b(nowstage) * this%tend_buf2D(i,j,1,varID)
+              + this%dt * this%coef_b(nowstage) * this%tend_buf2D(i,j,varID,1)
       end do
       end do
       return
@@ -403,16 +404,16 @@ contains
       do j=js, je
       do i=is, ie
         this%varTmp_2d(i,j,varID) =  this%varTmp_2d(i,j,varID)                          &
-            +  this%dt * this%coef_b(nowstage)*this%tend_buf2d(i,j,1,varID)
+            +  this%dt * this%coef_b(nowstage)*this%tend_buf2d(i,j,varID,1)
         q(i,j) = this%var0_2d(i,j,varID)                                                &
-            +  this%dt * this%coef_a(nowstage+1,nowstage)*this%tend_buf2d(i,j,1,varID)
+            +  this%dt * this%coef_a(nowstage+1,nowstage)*this%tend_buf2d(i,j,varID,1)
       end do
       end do
     else
       do j=js, je
       do i=is, ie
         this%varTmp_2d(i,j,varID) =  this%varTmp_2d(i,j,varID)                             &
-            +  this%dt * this%coef_b(nowstage)*this%tend_buf2d(i,j,1,varID)
+            +  this%dt * this%coef_b(nowstage)*this%tend_buf2d(i,j,varID,1)
         q(i,j) = this%var0_2d(i,j,varID)               
       end do
       end do
@@ -420,7 +421,7 @@ contains
       do j=js, je
       do i=is, ie
         q(i,j) = q(i,j)                                                             &
-            +  this%dt * this%coef_a(s,nowstage)*this%tend_buf2d(i,j,s,varID)
+            +  this%dt * this%coef_a(s,nowstage)*this%tend_buf2d(i,j,varID,s)
       end do
       end do
       end do
@@ -454,7 +455,7 @@ contains
       do j=js, je
       do i=is, ie
         q(i,j,k) =  this%varTmp_3d(i,j,k,varID)                                             &
-              + this%dt * this%coef_b(nowstage) * this%tend_buf3D(i,j,k,1,varID)
+              + this%dt * this%coef_b(nowstage) * this%tend_buf3D(i,j,k,varID,1)
       end do
       end do
       end do
@@ -465,9 +466,9 @@ contains
       do j=js, je
       do i=is, ie
         this%varTmp_3d(i,j,k,varID) =  this%varTmp_3d(i,j,k,varID)                          &
-            +  this%dt * this%coef_b(nowstage)*this%tend_buf3d(i,j,k,1,varID)
+            +  this%dt * this%coef_b(nowstage)*this%tend_buf3d(i,j,k,varID,1)
         q(i,j,k) = this%var0_3d(i,j,k,varID)                                                &
-            +  this%dt * this%coef_a(nowstage+1,nowstage)*this%tend_buf3d(i,j,k,1,varID)
+            +  this%dt * this%coef_a(nowstage+1,nowstage)*this%tend_buf3d(i,j,k,varID,1)
       end do
       end do
       end do
@@ -476,7 +477,7 @@ contains
       do j=js, je
       do i=is, ie
         this%varTmp_3d(i,j,k,varID) =  this%varTmp_3d(i,j,k,varID)                             &
-            +  this%dt * this%coef_b(nowstage)*this%tend_buf3d(i,j,k,1,varID)
+            +  this%dt * this%coef_b(nowstage)*this%tend_buf3d(i,j,k,varID,1)
         q(i,j,k) = this%var0_3d(i,j,k,varID)               
       end do
       end do
@@ -486,7 +487,7 @@ contains
       do j=js, je
       do i=is, ie
         q(i,j,k) = q(i,j,k)                                                             &
-            +  this%dt * this%coef_a(s,nowstage)*this%tend_buf3d(i,j,k,s,varID)
+            +  this%dt * this%coef_a(s,nowstage)*this%tend_buf3d(i,j,k,varID,s)
       end do
       end do
       end do

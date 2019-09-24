@@ -232,7 +232,7 @@ contains
     do <%=ind_name[d-i]%>=<%=ind_range_list[d-i]%>
 %end
       q(<%=ind_ary%>) = (1.0_RP - a_ss)*this%var0_<%=d%>d(<%=ind_ary%>,varID)                   &
-              + a_ss*(q(<%=ind_ary%>) + this%dt * this%tend_buf<%=d%>D(<%=ind_ary%>,1,varID) )
+              + a_ss*(q(<%=ind_ary%>) + this%dt * this%tend_buf<%=d%>D(<%=ind_ary%>,varID,1) )
 % for i in 1..d
     end do
 % end
@@ -279,7 +279,7 @@ contains
       do <%=ind_name[d-i]%>=<%=ind_range_list[d-i]%>
 % end    
         q(<%=ind_ary%>) =  this%varTmp_<%=d%>d(<%=ind_ary%>,varID)                                             &
-              + this%dt * this%coef_b(nowstage) * this%tend_buf<%=d%>D(<%=ind_ary%>,1,varID)
+              + this%dt * this%coef_b(nowstage) * this%tend_buf<%=d%>D(<%=ind_ary%>,varID,1)
 % for i in 1..d
       end do
 % end
@@ -290,9 +290,9 @@ contains
       do <%=ind_name[d-i]%>=<%=ind_range_list[d-i]%>
 % end 
         this%varTmp_<%=d%>d(<%=ind_ary%>,varID) =  this%varTmp_<%=d%>d(<%=ind_ary%>,varID)                          &
-            +  this%dt * this%coef_b(nowstage)*this%tend_buf<%=d%>d(<%=ind_ary%>,1,varID)
+            +  this%dt * this%coef_b(nowstage)*this%tend_buf<%=d%>d(<%=ind_ary%>,varID,1)
         q(<%=ind_ary%>) = this%var0_<%=d%>d(<%=ind_ary%>,varID)                                                &
-            +  this%dt * this%coef_a(nowstage+1,nowstage)*this%tend_buf<%=d%>d(<%=ind_ary%>,1,varID)
+            +  this%dt * this%coef_a(nowstage+1,nowstage)*this%tend_buf<%=d%>d(<%=ind_ary%>,varID,1)
 % for i in 1..d
       end do
 % end
@@ -301,7 +301,7 @@ contains
       do <%=ind_name[d-i]%>=<%=ind_range_list[d-i]%>
 % end 
         this%varTmp_<%=d%>d(<%=ind_ary%>,varID) =  this%varTmp_<%=d%>d(<%=ind_ary%>,varID)                             &
-            +  this%dt * this%coef_b(nowstage)*this%tend_buf<%=d%>d(<%=ind_ary%>,1,varID)
+            +  this%dt * this%coef_b(nowstage)*this%tend_buf<%=d%>d(<%=ind_ary%>,varID,1)
         q(<%=ind_ary%>) = this%var0_<%=d%>d(<%=ind_ary%>,varID)               
 % for i in 1..d
       end do
@@ -311,7 +311,7 @@ contains
       do <%=ind_name[d-i]%>=<%=ind_range_list[d-i]%>
 % end 
         q(<%=ind_ary%>) = q(<%=ind_ary%>)                                                             &
-            +  this%dt * this%coef_a(s,nowstage)*this%tend_buf<%=d%>d(<%=ind_ary%>,s,varID)
+            +  this%dt * this%coef_a(s,nowstage)*this%tend_buf<%=d%>d(<%=ind_ary%>,varID,s)
 % for i in 1..d
       end do
 % end    

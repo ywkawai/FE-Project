@@ -57,7 +57,7 @@ contains
          n = i + (j-1)*Ke_x
          EToV(n,1:4) = (j-1)*NvX + &
               & (/ i, i+1,              &
-              &    i + NvY, i+1 + NvY /)
+              &    i + NvX, i+1 + NvX /)
       end do
       end do
 

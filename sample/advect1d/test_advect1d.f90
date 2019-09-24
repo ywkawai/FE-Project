@@ -249,7 +249,7 @@ end subroutine cal_dyn_tend
       end do
     end do
 
-    LOG_INFO("evaluate_error_l2",*), sqrt(l2error)/ (dom_xmax - dom_xmin) 
+    LOG_INFO("evaluate_error_l2",*) sqrt(l2error)/ (dom_xmax - dom_xmin) 
     LOG_INFO("evaluate_error_linf",*) linferror
 
   end subroutine evaluate_error
@@ -365,7 +365,7 @@ end subroutine cal_dyn_tend
     do n=1, mesh%LOCAL_MESH_NUM
       lcmesh => mesh%lcmesh_list(n)
       call tinteg_lc(n)%Init( TINTEG_SCHEME_TYPE, TIME_DTSEC, 1,  &
-                              (/ lcmesh%refElem%Np, lcmesh%NeA /)  )
+                              2, (/ lcmesh%refElem%Np, lcmesh%NeA /)  )
     end do
 
     !------------------

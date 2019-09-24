@@ -165,15 +165,16 @@ contains
       call coord_conv( &
       lcmesh%pos_en(:,n,1), lcmesh%pos_en(:,n,2), xr, xs, yr, ys, & ! (out)
       vx, vy, refElem )                                             ! (in)
-    
+      
       lcmesh%J(:,n) = - xs*yr + xr*ys
+
       lcmesh%Escale(:,n,1,1) =   ys/lcmesh%J(:,n)
       lcmesh%Escale(:,n,1,2) = - xs/lcmesh%J(:,n)
       lcmesh%Escale(:,n,2,1) = - yr/lcmesh%J(:,n)
       lcmesh%Escale(:,n,2,2) =   xr/lcmesh%J(:,n)
-
+      
       !* Face
-
+      
       !
       !mesh%fx(:,n) = mesh%x(fmask(:),n)
       !mesh%fy(:,n) = mesh%y(fmask(:),n)
@@ -184,18 +185,18 @@ contains
         Escale_f(:,i,j) = lcmesh%Escale(fmask(:),n,i,j)
       end do
       end do
-
+      
       call calc_normal( lcmesh%normal_fn(:,n,:), & ! (out)
         Escale_f, fid, refElem )                   ! (in)
-
+      
       lcmesh%sJ(:,n) = sqrt( lcmesh%normal_fn(:,n,1)**2 + lcmesh%normal_fn(:,n,2)**2 )
       do d=1, 2
         lcmesh%normal_fn(:,n,d) = lcmesh%normal_fn(:,n,d)/lcmesh%sJ(:,n)
       end do
-      lcmesh%sJ(:,n) = lcmesh%sJ(:,n)*lcmesh%J(:,n)
+      lcmesh%sJ(:,n) = lcmesh%sJ(:,n)*lcmesh%J(fmask(:),n)
 
       lcmesh%Fscale(:,n) = lcmesh%sJ(:,n)/lcmesh%J(fmask(:),n)       
-      lcmesh%Gsqrt(:,n) = 1.0_RP       
+      lcmesh%Gsqrt(:,n) = 1.0_RP     
     end do
 
   end subroutine MeshBase2D_setGeometricInfo

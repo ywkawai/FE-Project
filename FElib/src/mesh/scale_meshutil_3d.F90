@@ -65,10 +65,10 @@ contains
         n = i + (j-1)*Ke_x + (k-1)*NvX*NvY
         EToV(n,1:4) = (k-1)*NvX*NvY + (j-1)*NvX + &
               & (/ i, i+1,              &
-              &    i + NvY, i+1 + NvY /)
+              &    i + NvX, i+1 + NvX /)
         EToV(n,5:8) = k    *NvX*NvY + (j-1)*NvX + &
               & (/ i, i+1,              &
-              &    i + NvY, i+1 + NvY /)              
+              &    i + NvX, i+1 + NvX /)              
       end do
       end do
       end do

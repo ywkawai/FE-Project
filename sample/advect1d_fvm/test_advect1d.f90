@@ -177,7 +177,7 @@ subroutine cal_dyn_tend( dqdt, q_, u_ )
       l2error = l2error + CDZ(k) * ( q(k,IS,JS) - qexact(k,IS,JS) )**2
       linferror = max(linferror, abs(q(k,IS,JS) - qexact(k,IS,JS)))
     end do
-    LOG_INFO("evaluate_error_l2",*), sqrt(l2error)/(dom_xmax - dom_xmin)
+    LOG_INFO("evaluate_error_l2",*) sqrt(l2error)/(dom_xmax - dom_xmin)
     LOG_INFO("evaluate_error_linf",*) linferror
 
   end subroutine evaluate_error
@@ -285,7 +285,8 @@ subroutine cal_dyn_tend( dqdt, q_, u_ )
     call optr_fvm%Init( FLUX_SCHEME_TYPE, KS, KE, KA, IS, IS, IA, JS, JS, JA )
     
     ! setup a module for time integrator
-    call tinteg%Init( TINTEG_SCHEME_TYPE, TIME_DTSEC, 1, (/ KA /) )
+    call tinteg%Init( TINTEG_SCHEME_TYPE, TIME_DTSEC, 1, &
+                      1, (/ KA /) )
 
     ! setup variables and history files
     allocate( q(KA,IA,JA), qexact(KA,IA,JA), u(KA,IA,JA) )

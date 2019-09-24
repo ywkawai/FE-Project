@@ -153,7 +153,8 @@ contains
   
     integer :: n, f
     type(LocalMesh3D), pointer :: lcmesh
-    integer :: Nnode_LCMeshFace(this%nfaces_comm), is_f(this%nfaces_comm)
+    integer :: Nnode_LCMeshFace(this%nfaces_comm)
+    integer :: is_f(this%nfaces_comm)
     type(LocalMeshCommData), target :: commdata_list(this%nfaces_comm, this%mesh%LOCAL_MESH_NUM)
     type(LocalMeshCommData), pointer :: commdata
     !-----------------------------------------------------------------------------

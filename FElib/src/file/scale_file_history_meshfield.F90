@@ -575,7 +575,7 @@ subroutine set_axis3D()
     end do
     end do
 
-    igs = ie; jgs = je
+    igs = ie; jgs = je; kgs = ke
   end do
 
   call FILE_HISTORY_Set_Axis( 'x', 'X-coordinate', '1', 'x', x)

@@ -458,8 +458,8 @@ contains
     allocate( tinteg_lc(mesh%LOCAL_MESH_NUM) )
     do n=1, mesh%LOCAL_MESH_NUM
       lcmesh => mesh%lcmesh_list(n)
-      call tinteg_lc(n)%Init( TINTEG_SCHEME_TYPE, TIME_DTSEC, 1,  &
-                              (/ lcmesh%refElem%Np, lcmesh%NeA /)  )
+      call tinteg_lc(n)%Init( TINTEG_SCHEME_TYPE, TIME_DTSEC, 1,        &
+                              2, (/ lcmesh%refElem%Np, lcmesh%NeA /)  )
     end do
 
     !---
