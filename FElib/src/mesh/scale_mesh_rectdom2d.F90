@@ -239,8 +239,8 @@ contains
     !----
 
     call MeshUtil2D_genRectDomain( lcmesh%pos_ev, lcmesh%EToV,   & ! (out)
-        & lcmesh%NeX, lcmesh%xmin, lcmesh%xmax,                  & ! (in)
-        & lcmesh%NeY, lcmesh%ymin, lcmesh%ymax )                   ! (in)
+      lcmesh%NeX, lcmesh%xmin, lcmesh%xmax,                      & ! (in)
+      lcmesh%NeY, lcmesh%ymin, lcmesh%ymax )                       ! (in)
     
     !---
     call MeshBase2D_setGeometricInfo(lcmesh, MeshRectDom2D_coord_conv, MeshRectDom2D_calc_normal )
@@ -248,16 +248,16 @@ contains
     !---
 
     call MeshUtil2D_genConnectivity( lcmesh%EToE, lcmesh%EToF, & ! (out)
-        & lcmesh%EToV, lcmesh%Ne, elem%Nfaces )                  ! (in)
+      lcmesh%EToV, lcmesh%Ne, elem%Nfaces )                      ! (in)
 
     !---
-    call MeshUtil2D_BuildInteriorMap( lcmesh%VmapM, lcmesh%VMapP, lcmesh%MapM, lcmesh%MapP,  &
-      & lcmesh%pos_en, lcmesh%pos_ev, lcmesh%EToE, lcmesh%EtoF, lcmesh%EtoV,                   &
-      & elem%Fmask, lcmesh%Ne, elem%Np, elem%Nfp, elem%Nfaces, lcmesh%Nv )
+    call MeshUtil2D_BuildInteriorMap( lcmesh%VmapM, lcmesh%VMapP, lcmesh%MapM, lcmesh%MapP, &
+      lcmesh%pos_en, lcmesh%pos_ev, lcmesh%EToE, lcmesh%EtoF, lcmesh%EtoV,                  &
+      elem%Fmask, lcmesh%Ne, elem%Np, elem%Nfp, elem%Nfaces, lcmesh%Nv )
 
     call MeshUtil2D_genPatchBoundaryMap( lcmesh%VMapB, lcmesh%MapB, lcmesh%VMapP, &
-      & lcmesh%pos_en, lcmesh%xmin, lcmesh%xmax, lcmesh%ymin, lcmesh%ymax,            &
-      & elem%Fmask, lcmesh%Ne, elem%Np, elem%Nfp, elem%Nfaces, lcmesh%Nv)
+      lcmesh%pos_en, lcmesh%xmin, lcmesh%xmax, lcmesh%ymin, lcmesh%ymax,          &
+      elem%Fmask, lcmesh%Ne, elem%Np, elem%Nfp, elem%Nfaces, lcmesh%Nv)
     
     return
   end subroutine MeshRectDom2D_setupLocalDom

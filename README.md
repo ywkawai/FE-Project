@@ -9,8 +9,9 @@ and some sample programs with the library for DGMs.
 
 Sample programs
 -----------------------------------------------------------------------------------------
-* 1-dimensional linear advection problem
-* 2-dimensional linear advection problem in a rectangle domain
+* 1-dimensional linear advection problems
+* 2-dimensional linear advection problems in a rectangle domain
+* a 2-dimensional nonhydrostatic atmospheric model
 
 Dependency
 ----------------------------------------------------------------------------------------

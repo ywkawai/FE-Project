@@ -124,7 +124,7 @@ contains
       !* Set the Vandermonde and differential matricies
       do p2=1, elem%Nfp
       do p1=1, elem%Nfp
-        l = p1 + (p2 - 1)*elem%Nfp
+        l = p1 + (p2-1)*elem%Nfp
         elem%V(n,l) = (P1D_ori(i,p1)*P1D_ori(j,p2))                       &
                       * sqrt((dble(p1-1) + 0.5_RP)*(dble(p2-1) + 0.5_RP))
   
