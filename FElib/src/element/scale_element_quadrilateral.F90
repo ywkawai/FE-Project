@@ -32,6 +32,8 @@ contains
       elem, elemOrder,             &
       LumpedMassMatFlag )
     
+    implicit none
+
     class(QuadrilateralElement), intent(inout) :: elem
     integer, intent(in) :: elemOrder
     logical, intent(in) :: LumpedMassMatFlag
@@ -48,13 +50,18 @@ contains
     call ElementBase2D_Init(elem)
     call construct_Element(elem, LumpedMassMatFlag)
 
+    return
   end subroutine QuadrilateralElement_Init
 
   subroutine QuadrilateralElement_Final(elem)
+    implicit none
+
     class(QuadrilateralElement), intent(inout) :: elem
     !-----------------------------------------------------------------------------
 
     call ElementBase2D_Final(elem)
+
+    return
   end subroutine QuadrilateralElement_Final
 
   subroutine construct_Element(elem, LumpedMassMatFlag)
@@ -64,6 +71,8 @@ contains
     polynominal_genGaussLobattoPt, Polynominal_GenGaussLobattoPtIntWeight,   &
     polynominal_genLegendrePoly, Polynominal_genDLegendrePoly,               &
     polynominal_genLagrangePoly, polynominal_genDLagrangePoly_lglpt
+
+    implicit none
 
     type(QuadrilateralElement), intent(inout) :: elem
     logical, intent(in) :: LumpedMassMatFlag
@@ -80,15 +89,16 @@ contains
     real(RP) :: Emat(elem%Np, elem%Nfp*elem%Nfaces)
     real(RP) :: MassEdge(elem%Nfp, elem%Nfp)
 
+    real(RP) :: eta, etac
+    real(RP) :: filter1D(elem%Nfp), filter2D(elem%Np)
+
     integer :: i, j
     integer :: p1, p2
     integer :: n, l, f
     integer :: Nord
-
     !-----------------------------------------------------------------------------
 
     lglPts1D(:)      = polynominal_genGaussLobattoPt( elem%PolyOrder )
-
     P1D_ori(:,:)     = polynominal_genLegendrePoly( elem%PolyOrder, lglPts1D )
     DP1D_ori(:,:) = polynominal_genDLegendrePoly( elem%PolyOrder, lglPts1D, P1D_ori )
     DLagr1D(:,:) = polynominal_GenDLagrangePoly_lglpt(elem%PolyOrder, lglPts1D)
@@ -194,6 +204,28 @@ contains
     end do
     elem%Lift(:,:) = matmul( elem%invM, Emat )
   
+    !* Construct filter matrix
+
+    etac = (elem%PolyOrder*0.5_RP)/dble(elem%PolyOrder)
+    filter1D(:) = 1.0_RP
+    do p1=1, elem%Nfp
+      eta = dble(p1-1)/dble(elem%PolyOrder)
+      if ( eta > etac .and. p1 /= 1) then
+        filter1D(p1) = exp( - 36.0_RP*( ((eta - etac)/(1.0_RP - etac))**4 ))
+      end if
+    end do
+
+    elem%Filter(:,:) = 0.0_RP
+    do p2=1, elem%Nfp
+    do p1=1, elem%Nfp
+      l = p1 + (p2-1)*elem%Nfp
+      elem%Filter(l,l) = filter1D(p1) * filter1D(p2)
+    end do  
+    end do
+    elem%Filter(:,:) = matmul(elem%Filter, elem%invV)
+    elem%Filter(:,:) = matmul(elem%V, elem%Filter)
+
+    return
   end subroutine construct_Element
 
   function QuadrilateralElement_gen_IntGaussLegendreIntrpMat( this, IntrpPolyOrder, &
@@ -243,6 +275,10 @@ contains
     end do
     end do
     IntrpMat(:,:) = matmul(Vint, this%invV)
+
+    return
   end function QuadrilateralElement_gen_IntGaussLegendreIntrpMat
+
+  !-------------------
 
 end module scale_element_quadrilateral

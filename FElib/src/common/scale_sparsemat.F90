@@ -51,7 +51,8 @@ module scale_sparsemat
   
 contains
   subroutine sparsemat_Init(this, mat, EPS)
- 
+    implicit none
+
     class(SparseMat), intent(inout) :: this
     real(RP), intent(in) :: mat(:,:)
     real(RP), optional, intent(in) :: EPS
@@ -114,10 +115,11 @@ contains
     ! write(*,*) "colInd:", this%colInd(:)
     ! write(*,*) "rowPtr:", this%rowPtr(:)
 
+    return
   end subroutine sparsemat_Init
 
   subroutine sparsemat_Final(this)
-
+    implicit none
     class(SparseMat), intent(inout) :: this
 
     !--------------------------------------------------------------------------- 
@@ -126,6 +128,7 @@ contains
     deallocate( this%colInd )
     deallocate( this%rowPtr )
     
+    return
   end subroutine sparsemat_Final
 
   function sparsemat_GetVal(A, i, j) result(v)
@@ -164,6 +167,7 @@ contains
   end subroutine sparsemat_SetVal
 
   subroutine sparsemat_print(A)
+    implicit none
     class(sparsemat), intent(in) :: A
 
     real(RP) :: row_val(A%rowPtrSize-1)
@@ -185,9 +189,11 @@ contains
        j1 = j2
     end do
   
+    return
   end subroutine sparsemat_print
 
   subroutine sparsemat_matmul(A, b, c)
+    implicit none
 
     type(sparsemat), intent(in) :: A
     real(RP), intent(in) :: b(:)
@@ -208,7 +214,8 @@ contains
        end do
        j1 = j2
     end do
-        
+
+    return
   end subroutine sparsemat_matmul
 
 end module scale_sparsemat

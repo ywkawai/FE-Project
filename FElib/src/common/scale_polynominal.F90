@@ -185,7 +185,7 @@ contains
 
     real(RP) :: xold
     real(RP) :: x(Nord+1)
-    real(RP), parameter :: EPS = 1E-18_RP
+    real(RP), parameter :: EPS = 1E-16_RP
     real(RP) :: P(1,Nord+1)
 
     !---------------------------------------------------------------------------
@@ -228,6 +228,7 @@ contains
 
     int_weight_lgl(:) = 2d0/(dble(Nord*(Nord+1))*P1D_ori(:,Nord+1)**2)
 
+    return
   end function Polynominal_GenGaussLobattoPtIntWeight
 
   !> A function to calcuate the Gauss-Legendre points.
@@ -286,6 +287,7 @@ contains
 
     int_weight_lgl(:) = 2d0/( (1.0_RP - glPts1D(:)**2) * dP1D_ori(:,Nord+1)**2 )
 
+    return
   end function Polynominal_GenGaussLegendrePtIntWeight
 
 end module scale_polynominal

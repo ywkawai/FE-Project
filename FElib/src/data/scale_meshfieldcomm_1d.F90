@@ -73,7 +73,6 @@ contains
   end subroutine MeshFieldComm1D_Init
 
   subroutine MeshFieldComm1D_Final( this )
-
     implicit none
     
     class(MeshFieldComm1D), intent(inout) :: this

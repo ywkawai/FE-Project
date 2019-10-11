@@ -96,6 +96,7 @@ contains
 
     integer :: ierr
     !---------------------------------------------------------------------------
+    
     LOG_NEWLINE
     LOG_INFO("TIME_manager_setup",*) 'Setup'
 
@@ -127,17 +128,20 @@ contains
     TIME_NSTEP   = int( TIME_DURATIONSEC / TIME_DTSEC )
     TIME_NOWSTEP    = 1
 
-
+    return
   end subroutine TIME_manager_Init
   
   subroutine TIME_manager_Final()
     implicit none
+    !---------------------------------------------------------------------------
 
+    return
   end subroutine TIME_manager_Final  
 
 
   subroutine TIME_manager_advance()
     implicit none
+    !---------------------------------------------------------------------------
 
     TIME_NOWSTEP = TIME_NOWSTEP + 1
     TIME_NOWDAY  = TIME_STARTDAY
@@ -150,6 +154,8 @@ contains
                                TIME_NOWDAY, TIME_NOWSEC, TIME_OFFSET_YEAR ) ! [IN]
   
     TIME_NOWDAYSEC = CALENDAR_combine_daysec( TIME_NOWDAY, TIME_NOWSEC )
+  
+    return
   end subroutine TIME_manager_advance
   
 end module scale_time_manager

@@ -71,7 +71,7 @@ module scale_localmeshfield_base
 
 contains
   subroutine LocalMeshField1D_Init(this, mesh)
-
+    implicit none
     class(LocalMeshField1D), intent(inout) :: this
     class(LocalMesh1D), target, intent(in) :: mesh
 
@@ -80,21 +80,23 @@ contains
     this%mesh => mesh
     allocate( this%val(mesh%refElem%Np, mesh%NeA) )
 
+    return
   end subroutine LocalMeshField1D_Init
 
   subroutine LocalMeshField1D_Final( this )
-
+    implicit none
     class(LocalMeshField1D), intent(inout) :: this
     !-----------------------------------------------------------------------------
 
     if (allocated(this%val)) deallocate( this%val )
 
+    return
   end subroutine LocalMeshField1D_Final
 
   !**********
   
   subroutine LocalMeshField2D_Init(this, mesh)
-
+    implicit none
     class(LocalMeshField2D), intent(inout) :: this
     class(LocalMesh2D), target, intent(in) :: mesh
 
@@ -103,38 +105,41 @@ contains
     this%mesh => mesh
     allocate( this%val(mesh%refElem%Np, mesh%NeA) )
 
+    return
   end subroutine LocalMeshField2D_Init
 
   subroutine LocalMeshField2D_Final( this )
-
+    implicit none
     class(LocalMeshField2D), intent(inout) :: this
     !-----------------------------------------------------------------------------
 
     if (allocated(this%val)) deallocate( this%val )
 
+    return
   end subroutine LocalMeshField2D_Final
 
   !**********
   
   subroutine LocalMeshField3D_Init(this, mesh)
-
+    implicit none
     class(LocalMeshField3D), intent(inout) :: this
     class(LocalMesh3D), target, intent(in) :: mesh
-
     !-----------------------------------------------------------------------------
 
     this%mesh => mesh
     allocate( this%val(mesh%refElem%Np, mesh%NeA) )
 
+    return
   end subroutine LocalMeshField3D_Init
 
   subroutine LocalMeshField3D_Final( this )
-
+    implicit none
     class(LocalMeshField3D), intent(inout) :: this
     !-----------------------------------------------------------------------------
 
     if (allocated(this%val)) deallocate( this%val )
 
+    return
   end subroutine LocalMeshField3D_Final
 
 end module scale_localmeshfield_base

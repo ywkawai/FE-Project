@@ -28,6 +28,7 @@ OBJS_NAME_MESH = \
 	scale_meshutil_1d.o    \
 	scale_meshutil_2d.o    \
 	scale_meshutil_3d.o    \
+	scale_mesh_bndinfo.o   \
 	scale_localmesh_base.o \
 	scale_localmesh_1d.o   \
 	scale_localmesh_2d.o   \

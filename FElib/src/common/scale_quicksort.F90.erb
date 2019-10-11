@@ -46,6 +46,8 @@ contains
 
 % for t in [["integer", "int"], ["real(RP)", "real_RP"]] 
   recursive subroutine quicksort_core_<%=t[1]%>(key, ind, first, last)
+    implicit none
+    
     <%=t[0]%>, intent(inout) :: key(:)
     integer, intent(inout) :: ind(:)
     integer, intent(in) :: first, last
@@ -76,6 +78,7 @@ contains
     if ( first < i-1 ) call quicksort_core_<%=t[1]%>(key, ind, first, i-1)
     if ( j+1 < last )  call quicksort_core_<%=t[1]%>(key, ind, j+1, last)
 
+    return
   end subroutine quicksort_core_<%=t[1]%>
 % end
 end module scale_quicksort

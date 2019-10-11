@@ -80,6 +80,7 @@ contains
     if ( first < i-1 ) call quicksort_core_int(key, ind, first, i-1)
     if ( j+1 < last )  call quicksort_core_int(key, ind, j+1, last)
 
+    return
   end subroutine quicksort_core_int
   recursive subroutine quicksort_core_real_RP(key, ind, first, last)
     real(RP), intent(inout) :: key(:)
@@ -112,5 +113,6 @@ contains
     if ( first < i-1 ) call quicksort_core_real_RP(key, ind, first, i-1)
     if ( j+1 < last )  call quicksort_core_real_RP(key, ind, j+1, last)
 
+    return
   end subroutine quicksort_core_real_RP
 end module scale_quicksort

@@ -31,6 +31,7 @@ contains
   subroutine HexhedralElement_Init( &
       elem, elemOrder_h, elemOrder_v,      &
       LumpedMassMatFlag )
+    implicit none
     
     class(HexahedralElement), intent(inout) :: elem
     integer, intent(in) :: elemOrder_h
@@ -58,23 +59,30 @@ contains
     call ElementBase3D_Init(elem)
     call construct_Element(elem, LumpedMassMatFlag)
 
+    return
   end subroutine HexhedralElement_Init
 
   subroutine HexhedralElement_Final(elem)
+    implicit none
+
     class(HexahedralElement), intent(inout) :: elem
     !-----------------------------------------------------------------------------
 
     call ElementBase3D_Final(elem)
+
+    return
   end subroutine HexhedralElement_Final
 
   subroutine construct_Element(elem, LumpedMassMatFlag)
 
     use scale_linalgebra, only: linalgebra_inv
     use scale_polynominal, only: &
-    polynominal_genGaussLobattoPt, Polynominal_GenGaussLobattoPtIntWeight,   &
-    polynominal_genLegendrePoly, Polynominal_genDLegendrePoly,               &
-    polynominal_genLagrangePoly, polynominal_genDLagrangePoly_lglpt
+      polynominal_genGaussLobattoPt, Polynominal_GenGaussLobattoPtIntWeight,   &
+      polynominal_genLegendrePoly, Polynominal_genDLegendrePoly,               &
+      polynominal_genLagrangePoly, polynominal_genDLagrangePoly_lglpt
 
+    implicit none
+    
     type(HexahedralElement), intent(inout) :: elem
     logical, intent(in) :: LumpedMassMatFlag
 
@@ -299,6 +307,7 @@ contains
 
     elem%Lift(:,:) = matmul( elem%invM, Emat )
   
+    return
   end subroutine construct_Element
 
   function HexhedralElement_gen_IntGaussLegendreIntrpMat( this, IntrpPolyOrder, &
@@ -357,6 +366,8 @@ contains
     end do
     end do
     IntrpMat(:,:) = matmul(Vint, this%invV)
+
+    return
   end function HexhedralElement_gen_IntGaussLegendreIntrpMat
 
 end module scale_element_hexahedral

@@ -73,6 +73,7 @@ contains
       call PRC_abort
     end if
 
+    return
   end function linalgebra_inv
 
   subroutine linalgebra_SolveLinEq(A, b, x)
@@ -98,6 +99,7 @@ contains
     call DGETRS('N', n, 1, A_lu, n, ipiv, x, n, info)
     if (info /=0 ) LOG_ERROR("linalgebra_SolveLinEq",*)  "Matrix inversion is failed"
 
+    return
   end subroutine linalgebra_SolveLinEq
 
   subroutine linalgebra_SolveLinEq_GMRES(A, b, x, m, restart_num, CONV_CRIT)
@@ -193,6 +195,7 @@ contains
       r0_l2 = r0_l2_new
     end do
 
+    return
   end subroutine linalgebra_SolveLinEq_GMRES
 
   subroutine PreCondStep_PtJacobi(A, b, x)
@@ -211,6 +214,8 @@ contains
     do n=1, size(x)
       x(n) = b(n)/get_val(A, n, n)
     end do
+
+    return
   end subroutine PreCondStep_PtJacobi
 
   subroutine PreCondStep_ILU0_constructmat(A, M)
@@ -249,6 +254,7 @@ contains
       end do
     end do
 
+    return
   end subroutine PreCondStep_ILU0_constructmat
 
   subroutine PreCondStep_ILU0_solve(M, b, x)
@@ -295,6 +301,7 @@ contains
       x(i) = x(i)/get_val(M,i,i)
     end do
 
+    return
   end subroutine PreCondStep_ILU0_solve
 
 end module scale_linalgebra

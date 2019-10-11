@@ -29,9 +29,11 @@ module scale_element_line
 contains
 
   subroutine LineElement_Init( &
-      elem, elemOrder,             &
-      DumpedMassMatFlag )
+    elem, elemOrder,           &
+    DumpedMassMatFlag )
     
+    implicit none
+
     class(LineElement), intent(inout) :: elem
     integer, intent(in) :: elemOrder
     logical, intent(in) :: DumpedMassMatFlag
@@ -48,13 +50,18 @@ contains
     call ElementBase1D_Init(elem)
     call construct_Element(elem, DumpedMassMatFlag)
 
+    return
   end subroutine LineElement_Init
 
   subroutine LineElement_Final(elem)
+    implicit none
+
     class(LineElement), intent(inout) :: elem
     !-----------------------------------------------------------------------------
 
     call ElementBase1D_Final(elem)
+
+    return
   end subroutine LineElement_Final
 
   subroutine construct_Element(elem, DumpedMassMatFlag)
@@ -64,6 +71,8 @@ contains
       polynominal_genGaussLobattoPt, Polynominal_GenGaussLobattoPtIntWeight,   &
       polynominal_genLegendrePoly, Polynominal_genDLegendrePoly,               &
       polynominal_genLagrangePoly, polynominal_genDLagrangePoly_lglpt
+
+    implicit none
 
     type(LineElement), intent(inout) :: elem
     logical, intent(in) :: DumpedMassMatFlag
@@ -191,6 +200,8 @@ contains
       end do
     end do
     IntrpMat(:,:) = matmul(Vint, this%invV)
+
+    return
   end function LineElement_gen_IntGaussLegendreIntrpMat
 
 end module scale_element_Line

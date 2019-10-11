@@ -78,6 +78,7 @@ module scale_meshfield_base
 
 contains
   subroutine MeshField1D_Init(this, varname, units, mesh)
+    implicit none
     class(MeshField1D), intent(inout) :: this
     character(len=*), intent(in) :: varname
     character(len=*), intent(in) :: units    
@@ -95,9 +96,11 @@ contains
       call this%local(n)%Init( mesh%lcmesh_list(n) )
     end do
 
+    return
   end subroutine MeshField1D_Init
 
   subroutine MeshField1D_Final(this)
+    implicit none
     class(MeshField1D), intent(inout) :: this
     
     integer :: n
@@ -108,11 +111,14 @@ contains
     end do
     deallocate( this%local )
 
+    return
   end subroutine MeshField1D_Final
 
   !*******
 
   subroutine MeshField2D_Init(this, varname, units, mesh)
+    implicit none
+
     class(MeshField2D), intent(inout) :: this
     character(len=*), intent(in) :: varname
     character(len=*), intent(in) :: units    
@@ -130,9 +136,12 @@ contains
       call this%local(n)%Init( mesh%lcmesh_list(n) )
     end do
 
+    return
   end subroutine MeshField2D_Init
   
   subroutine MeshField2D_Final(this)
+    implicit none
+
     class(MeshField2D), intent(inout) :: this
     
     integer :: n
@@ -143,11 +152,14 @@ contains
     end do
     deallocate( this%local )
 
+    return
   end subroutine MeshField2D_Final
 
   !*******
 
   subroutine MeshField3D_Init(this, varname, units, mesh)
+    implicit none
+
     class(MeshField3D), intent(inout) :: this
     character(len=*), intent(in) :: varname
     character(len=*), intent(in) :: units    
@@ -165,9 +177,12 @@ contains
       call this%local(n)%Init( mesh%lcmesh_list(n) )
     end do
 
+    return
   end subroutine MeshField3D_Init
   
   subroutine MeshField3D_Final(this)
+    implicit none
+
     class(MeshField3D), intent(inout) :: this
     
     integer :: n
@@ -178,6 +193,7 @@ contains
     end do
     deallocate( this%local )
 
+    return
   end subroutine MeshField3D_Final
 
 end module scale_meshfield_base
