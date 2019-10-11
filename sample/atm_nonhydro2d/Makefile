@@ -13,7 +13,7 @@ include $(SYSDEP_DIR)/Makedef.$(SCALE_FE_SYS)
 include $(TOPDIR)/Mkinclude
 
 BINNAME = atm_nonhydro2d
-OBJS = mod_vars.o mod_exp.o
+OBJS = mod_vars.o mod_exp.o mod_dyn.o mod_bnd.o
 
 LIBS = $(LIBDIR)/libScaleFECore.a
 
@@ -69,5 +69,9 @@ $(BUILD_DIR)/%.o: %.f90
 
 include $(TOPDIR)/utils/make/Make_environments
 
-$(BUILD_DIR)/$(BINNAME).o: $(BUILD_DIR)/mod_vars.o
+$(BUILD_DIR)/$(BINNAME).o: \
+	$(BUILD_DIR)/mod_dyn.o $(BUILD_DIR)/mod_exp.o \
+	$(BUILD_DIR)/mod_bnd.o
+
+$(BUILD_DIR)/mod_dyn.o: $(BUILD_DIR)/mod_vars.o 
 $(BUILD_DIR)/mod_exp.o: $(BUILD_DIR)/mod_vars.o

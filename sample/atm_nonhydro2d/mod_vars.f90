@@ -49,7 +49,7 @@ module mod_vars
   type(MeshField2D), public, save, target :: DTHETA
   type(MeshField2D), public, save, target :: GxU, GzU
   type(MeshField2D), public, save, target :: GxW, GzW
-  type(MeshField2D), public, save, target :: GxTHETA, GzTHETA
+  type(MeshField2D), public, save, target :: GxPT, GzPT
 
   type(MeshField2D), public, save, target :: PRES_hydro
   type(MeshField2D), public, save, target :: DENS_hydro
@@ -73,15 +73,15 @@ module mod_vars
   integer, public, parameter :: AUX_VARS_NUM       = 2
 
   integer, public, parameter :: VARS_GxU_ID       = 1
-  integer, public, parameter :: VARS_GZU_ID       = 2
+  integer, public, parameter :: VARS_GzU_ID       = 2
   integer, public, parameter :: VARS_GxW_ID       = 3
-  integer, public, parameter :: VARS_GZW_ID       = 4
-  integer, public, parameter :: VARS_GxTHETA_ID   = 5
-  integer, public, parameter :: VARS_GzTHETA_ID   = 6
+  integer, public, parameter :: VARS_GzW_ID       = 4
+  integer, public, parameter :: VARS_GxPT_ID      = 5
+  integer, public, parameter :: VARS_GzPT_ID      = 6
   integer, public, parameter :: AUX_DIFFVARS_NUM  = 6
 
 
-  integer, public, parameter :: VARS_TOT_NUM  = PROG_VARS_NUM + DIAG_VARS_NUM + AUX_VARS_NUM
+  integer, public, parameter :: VARS_TOT_NUM  = PROG_VARS_NUM + DIAG_VARS_NUM + AUX_VARS_NUM + 3
 
   type(MeshFieldCommRectDom2D), public, save :: PROG_VARS_comm
   type(MeshFieldContainer), public, save :: PROG_VARS_list(PROG_VARS_NUM)
@@ -89,6 +89,13 @@ module mod_vars
   type(MeshFieldCommRectDom2D), public, save :: AUX_DIFFVARS_comm
   type(MeshFieldContainer), public, save :: AUX_DIFFVARS_list(AUX_DIFFVARS_NUM)
 
+  type(MeshField2D), public, save :: DxMOMX
+  type(MeshField2D), public, save  :: DzMOMZ
+  type(MeshField2D), public, save :: LiftDDENS
+  integer, public, parameter :: VARS_DxMOMX_ID       = 12
+  integer, public, parameter :: VARS_DzMOMZ_ID       = 13
+  integer, public, parameter :: VARS_LiftDDENS_ID       = 14
+  
   !-----------------------------------------------------------------------------
   !
   !++ Private procedures
@@ -103,9 +110,16 @@ contains
     use scale_file_history_meshfield, only: FILE_HISTORY_meshfield_setup  
     implicit none
 
-    type(MeshRectDom2D), intent(in) :: mesh
+    type(MeshRectDom2D), intent(in), target :: mesh
+
+    integer :: n, k
+    type(LocalMesh2D), pointer :: lcmesh
     !-------------------------------------------------------------------------
   
+    call DxMOMX%Init( "DxMOMX", "", mesh)
+    call DzMOMZ%Init( "DzMOMZ", "", mesh)
+    call LiftDDENS%Init( "LiftDDENS", "", mesh)
+    
     call DDENS%Init( "DDENS", "kg/m3", mesh )
     call MOMX%Init( "MOMX", "kg/m2/s", mesh )
     call MOMZ%Init( "MOMZ", "kg/m2/s", mesh )
@@ -121,8 +135,16 @@ contains
     call GzU%Init( "GzU", "s-1", mesh )
     call GxW%Init( "GxW", "s-1", mesh )
     call GzW%Init( "GzW", "s-1", mesh )
-    call GxTHETA%Init( "GxTHETA", "K/m", mesh )
-    call GzTHETA%Init( "GzTHETA", "K/m", mesh )
+    call GxPT%Init( "GxPT", "K/m", mesh )
+    call GzPT%Init( "GzPT", "K/m", mesh )
+    do n=1, mesh%LOCAL_MESH_NUM
+      GxU%local(n)%val(:,:) = 0.0_RP
+      GzU%local(n)%val(:,:) = 0.0_RP
+      GxW%local(n)%val(:,:) = 0.0_RP
+      GzW%local(n)%val(:,:) = 0.0_RP
+      GxPT%local(n)%val(:,:) = 0.0_RP
+      GzPT%local(n)%val(:,:) = 0.0_RP
+    end do
 
     call DENS_hydro%Init( "DENS_hydro", "kg/m3", mesh )
     call PRES_hydro%Init( "PRES_hydro", "kg.s-2.m-1", mesh )
@@ -138,8 +160,8 @@ contains
     AUX_DIFFVARS_list(VARS_GzU_ID)%field2d => GzU
     AUX_DIFFVARS_list(VARS_GxW_ID)%field2d => GxW
     AUX_DIFFVARS_list(VARS_GzW_ID)%field2d => GzW
-    AUX_DIFFVARS_list(VARS_GxTHETA_ID)%field2d => GxTHETA
-    AUX_DIFFVARS_list(VARS_GzTHETA_ID)%field2d => GzTHETA
+    AUX_DIFFVARS_list(VARS_GxPT_ID)%field2d => GxPT
+    AUX_DIFFVARS_list(VARS_GzPT_ID)%field2d => GzPT
 
     call FILE_HISTORY_meshfield_setup( mesh2d_=mesh )
     call FILE_HISTORY_reg( DDENS%varname, "deviation of density", DDENS%unit, HST_ID(VARS_DDENS_ID), dim_type='XY')
@@ -156,6 +178,9 @@ contains
     call FILE_HISTORY_reg( PRES_hydro%varname, "hydrostatic pressure", DPRES%unit, HST_ID(VARS_PRES_HYDRO_ID), dim_type='XY')
     call FILE_HISTORY_reg( DENS_hydro%varname, "hydrostatic density", TEMP%unit, HST_ID(VARS_DENS_HYDRO_ID), dim_type='XY')
 
+    call FILE_HISTORY_reg( DxMOMX%varname, "DxMOMX", DxMOMX%unit, HST_ID(VARS_DxMOMX_ID), dim_type='XY' )
+    call FILE_HISTORY_reg( DzMOMZ%varname, "DzMOMZ", DzMOMZ%unit, HST_ID(VARS_DzMOMZ_ID), dim_type='XY' )
+    call FILE_HISTORY_reg( LiftDDENS%varname, "LiftDDENS", LiftDDENS%unit, HST_ID(VARS_LiftDDENS_ID), dim_type='XY' )
     return
   end subroutine vars_Init
 
@@ -183,8 +208,8 @@ contains
     call GzU%Final()
     call GxW%Final()
     call GzW%Final()
-    call GxTHETA%Final()
-    call GzTHETA%Final()
+    call GxPT%Final()
+    call GzPT%Final()
 
     call DENS_hydro%Final()
     call PRES_hydro%Final()
@@ -225,6 +250,10 @@ contains
 
     call FILE_HISTORY_meshfield_put(HST_ID(VARS_DENS_HYDRO_ID), DENS_hydro)
     call FILE_HISTORY_meshfield_put(HST_ID(VARS_PRES_HYDRO_ID), PRES_hydro)
+
+    call FILE_HISTORY_meshfield_put(HST_ID(VARS_DxMOMX_ID), DxMOMX)
+    call FILE_HISTORY_meshfield_put(HST_ID(VARS_DzMOMZ_ID), DzMOMZ)
+    call FILE_HISTORY_meshfield_put(HST_ID(VARS_LiftDDENS_ID), LiftDDENS)
 
     call FILE_HISTORY_meshfield_write()   
 

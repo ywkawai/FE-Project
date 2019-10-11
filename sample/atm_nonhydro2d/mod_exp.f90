@@ -20,6 +20,7 @@ module mod_exp
   use scale_meshfield_base, only: MeshField2D
   use scale_mesh_rectdom2d, only: MeshRectDom2D
   use scale_element_base, only: ElementBase2D
+  use scale_element_quadrilateral, only: QuadrilateralElement
   use scale_localmesh_2d, only: LocalMesh2D
 
   use scale_meshfieldcomm_rectdom2d, only: MeshFieldCommRectDom2D
@@ -56,6 +57,8 @@ module mod_exp
   character(*), parameter :: EXP_GRAVITYWAVE_LABEL = 'GravityWave'
   character(*), parameter :: EXP_DENSCURRENT_LABEL = 'DensityCurrent'
 
+  logical :: InitCond_GalerkinProjFlag 
+
 contains
   subroutine exp_Init( exp_name )
     implicit none
@@ -64,14 +67,20 @@ contains
     !----------------------------------------------------------------------
 
     expName = exp_name
+    InitCond_GalerkinProjFlag = .false.
+
+    return
   end subroutine exp_Init
 
   subroutine exp_Final()
+    implicit none
+
+    return
   end subroutine exp_Final
   
   subroutine exp_SetInitCond( &
     DENS_hyd, PRES_hyd, DDENS, MOMX, MOMZ, DRHOT, &
-    mesh )
+    mesh, refElem2D )
     implicit none
 
     type(MeshField2D), intent(inout) :: DENS_hyd
@@ -81,6 +90,7 @@ contains
     type(MeshField2D), intent(inout) :: MOMZ
     type(MeshField2D), intent(inout) :: DRHOT
     type(MeshRectDom2D), intent(in), target :: mesh
+    type(QuadrilateralElement), intent(in) :: refElem2D
 
     integer :: n
     type(LocalMesh2D), pointer :: lcmesh
@@ -91,11 +101,11 @@ contains
         x, z, dom_xmin, dom_xmax, dom_zmin, dom_zmax, lcmesh, elem )
     
         import LocalMesh2D 
-        import ElementBase2D
+        import QuadrilateralElement
         import RP
 
         type(LocalMesh2D), intent(in) :: lcmesh
-        class(ElementBase2D), intent(in) :: elem
+        class(QuadrilateralElement), intent(in) :: elem
         real(RP), intent(out) :: DENS_hyd(elem%Np,lcmesh%NeA)
         real(RP), intent(out) :: PRES_hyd(elem%Np,lcmesh%NeA)
         real(RP), intent(out) :: DDENS(elem%Np,lcmesh%NeA)
@@ -124,12 +134,11 @@ contains
     
     do n=1, mesh%LOCAL_MESH_NUM
       lcmesh => mesh%lcmesh_list(n)
-
       call SetInitCond_p( &
         DENS_hyd%local(n)%val, PRES_hyd%local(n)%val,                                       & ! (out)
         DDENS%local(n)%val, MOMX%local(n)%val, MOMZ%local(n)%val, DRHOT%local(n)%val,       & ! (out)
         lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2),                                         & ! (in)
-        mesh%xmin_gl, mesh%xmax_gl, mesh%ymin_gl, mesh%ymax_gl, lcmesh, lcmesh%refElem2D )    ! (in) 
+        mesh%xmin_gl, mesh%xmax_gl, mesh%ymin_gl, mesh%ymax_gl, lcmesh, refElem2D )           ! (in) 
     end do
 
     return
@@ -142,7 +151,7 @@ contains
     implicit none
 
     type(LocalMesh2D), intent(in) :: lcmesh
-    class(ElementBase2D), intent(in) :: elem
+    class(QuadrilateralElement), intent(in) :: elem
     real(RP), intent(out) :: DENS_hyd(elem%Np,lcmesh%NeA)
     real(RP), intent(out) :: PRES_hyd(elem%Np,lcmesh%NeA)
     real(RP), intent(out) :: DDENS(elem%Np,lcmesh%NeA)
@@ -221,7 +230,7 @@ contains
     implicit none
 
     type(LocalMesh2D), intent(in) :: lcmesh
-    class(ElementBase2D), intent(in) :: elem
+    class(QuadrilateralElement), intent(in) :: elem
     real(RP), intent(out) :: DENS_hyd(elem%Np,lcmesh%NeA)
     real(RP), intent(out) :: PRES_hyd(elem%Np,lcmesh%NeA)
     real(RP), intent(out) :: DDENS(elem%Np,lcmesh%NeA)
@@ -238,12 +247,25 @@ contains
     real(RP) :: x_c, z_c, r_x, r_z
 
     namelist /PARAM_EXP/ &
-      THETA0, DTHETA,        &
-      x_c, z_c, r_x, r_z
+      THETA0, DTHETA,            &
+      x_c, z_c, r_x, r_z,        &
+      InitCond_GalerkinProjFlag
+
 
     integer :: k
     real(RP) :: THETA(elem%Np), DENS(elem%Np), dens_zfunc(elem%Np), RHOT(elem%Np)
     real(RP) :: r(elem%Np)
+
+    integer, parameter :: IntrpPolyOrder = 8
+    type(QuadrilateralElement) :: elem_intrp
+    real(RP), allocatable :: x_intrp(:), z_intrp(:)
+    real(RP) :: vx(elem%Nv), vz(elem%Nv)
+    real(RP), allocatable :: IntrpMat(:,:), InvV_intrp(:,:)
+    integer :: p1, p2, p_, p_intrp
+
+    real(RP), allocatable :: r_intrp(:)
+    real(RP), allocatable :: THETA_intrp(:)
+  
     integer :: ierr
     !-----------------------------------------------------------------------------
 
@@ -263,14 +285,42 @@ contains
     LOG_NML(PARAM_EXP)
 
     !---
+    call elem_intrp%Init( IntrpPolyOrder, .false. )
+    allocate( IntrpMat(elem%Np,elem_intrp%Np) )
+    allocate( InvV_intrp(elem%Np,elem_intrp%Np) )
+    allocate( x_intrp(elem_intrp%Np), z_intrp(elem_intrp%Np) )
+  
+    allocate( r_intrp(elem_intrp%Np) )
+    allocate( THETA_intrp(elem_intrp%Np) )
 
+
+    InvV_intrp(:,:) = 0.0_RP
+    do p2=1, elem%PolyOrder+1
+    do p1=1, elem%PolyOrder+1
+      p_ = p1 + (p2-1)*(elem%PolyOrder + 1)
+      p_intrp = p1 + (p2-1)*(elem_intrp%PolyOrder + 1)
+      InvV_intrp(p_,:) = elem_intrp%invV(p_intrp,:)
+    end do
+    end do    
+    IntrpMat(:,:) = matmul(elem%V, InvV_intrp)
+
+    !----
     do k=1, lcmesh%Ne
+      vx(:) = lcmesh%pos_ev(lcmesh%EToV(k,:),1)
+      vz(:) = lcmesh%pos_ev(lcmesh%EToV(k,:),2)
+      x_intrp(:) = vx(1) + 0.5_RP*(elem_intrp%x1(:) + 1.0_RP)*(vx(2) - vx(1))
+      z_intrp(:) = vz(1) + 0.5_RP*(elem_intrp%x2(:) + 1.0_RP)*(vz(3) - vz(1))
+
       dens_zfunc(:) = (1.0_RP - Grav*z(:,k)/(CpDry*THETA0))**(CVdry/Rdry)
       DENS_hyd(:,k) = PRES00/(THETA0*Rdry) * dens_zfunc(:)
       PRES_hyd(:,k) = PRES00 * (Rdry*DENS_hyd(:,k)*THETA0/PRES00)**(CPdry/Cvdry)
 
       r(:) = min(1.0_RP, sqrt(((x(:,k) - x_c)/r_x)**2 + ((z(:,k) - z_c)/r_z)**2))
-      THETA(:) = THETA0 + DTHETA*0.5_RP*(1.0_RP + cos(PI*r(:)))
+      r_intrp(:) = min(1.0_RP, sqrt(((x_intrp(:) - x_c)/r_x)**2 + ((z_intrp(:) - z_c)/r_z)**2))
+      
+      THETA_intrp(:) = THETA0 + DTHETA*0.5_RP*(1.0_RP + cos(PI*r_intrp(:)))
+      !THETA(:) = THETA0 + DTHETA*0.5_RP*(1.0_RP + cos(PI*r(:)))
+      THETA(:) = matmul(IntrpMat, THETA_intrp)
 
       DENS(:) = PRES00/(THETA(:)*Rdry) * dens_zfunc(:)
       DDENS(:,k) = DENS(:) - DENS_hyd(:,k)
@@ -281,6 +331,8 @@ contains
       MOMX(:,k) = 0.0_RP
       MOMZ(:,k) = 0.0_RP
     end do
+    
+    call elem_intrp%Final()
 
     return
   end subroutine exp_SetInitCond_densitycurrent
