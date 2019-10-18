@@ -32,8 +32,8 @@ module mod_exp
   !
   !++ Public procedures
   !
-  public :: exp_Init
-  public :: exp_Final
+  public :: exp_setup
+  public :: exp_finalize
   public :: exp_SetInitCond
 
   !-----------------------------------------------------------------------------
@@ -60,7 +60,7 @@ module mod_exp
   logical :: InitCond_GalerkinProjFlag 
 
 contains
-  subroutine exp_Init( exp_name )
+  subroutine exp_setup( exp_name )
     implicit none
 
     character(len=*), intent(in) :: exp_name
@@ -70,27 +70,21 @@ contains
     InitCond_GalerkinProjFlag = .false.
 
     return
-  end subroutine exp_Init
+  end subroutine exp_setup
 
-  subroutine exp_Final()
+  subroutine exp_finalize()
     implicit none
 
     return
-  end subroutine exp_Final
+  end subroutine exp_finalize
   
-  subroutine exp_SetInitCond( &
-    DENS_hyd, PRES_hyd, DDENS, MOMX, MOMZ, DRHOT, &
-    mesh, refElem2D )
+  subroutine exp_SetInitCond()
+    use mod_atmos_vars, only: &
+      DENS_hydro, PRES_hydro,   &
+      DDENS, MOMX, MOMZ, DRHOT
+    use mod_atmos_mesh, only: &
+      mesh, refElem
     implicit none
-
-    type(MeshField2D), intent(inout) :: DENS_hyd
-    type(MeshField2D), intent(inout) :: PRES_hyd
-    type(MeshField2D), intent(inout) :: DDENS
-    type(MeshField2D), intent(inout) :: MOMX
-    type(MeshField2D), intent(inout) :: MOMZ
-    type(MeshField2D), intent(inout) :: DRHOT
-    type(MeshRectDom2D), intent(in), target :: mesh
-    type(QuadrilateralElement), intent(in) :: refElem2D
 
     integer :: n
     type(LocalMesh2D), pointer :: lcmesh
@@ -135,10 +129,10 @@ contains
     do n=1, mesh%LOCAL_MESH_NUM
       lcmesh => mesh%lcmesh_list(n)
       call SetInitCond_p( &
-        DENS_hyd%local(n)%val, PRES_hyd%local(n)%val,                                       & ! (out)
+        DENS_hydro%local(n)%val, PRES_hydro%local(n)%val,                                   & ! (out)
         DDENS%local(n)%val, MOMX%local(n)%val, MOMZ%local(n)%val, DRHOT%local(n)%val,       & ! (out)
         lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2),                                         & ! (in)
-        mesh%xmin_gl, mesh%xmax_gl, mesh%ymin_gl, mesh%ymax_gl, lcmesh, refElem2D )           ! (in) 
+        mesh%xmin_gl, mesh%xmax_gl, mesh%ymin_gl, mesh%ymax_gl, lcmesh, refElem )             ! (in) 
     end do
 
     return
@@ -256,7 +250,7 @@ contains
     real(RP) :: THETA(elem%Np), DENS(elem%Np), dens_zfunc(elem%Np), RHOT(elem%Np)
     real(RP) :: r(elem%Np)
 
-    integer, parameter :: IntrpPolyOrder = 8
+    integer, parameter :: IntrpPolyOrder = 12
     type(QuadrilateralElement) :: elem_intrp
     real(RP), allocatable :: x_intrp(:), z_intrp(:)
     real(RP) :: vx(elem%Nv), vz(elem%Nv)
@@ -318,7 +312,9 @@ contains
       r(:) = min(1.0_RP, sqrt(((x(:,k) - x_c)/r_x)**2 + ((z(:,k) - z_c)/r_z)**2))
       r_intrp(:) = min(1.0_RP, sqrt(((x_intrp(:) - x_c)/r_x)**2 + ((z_intrp(:) - z_c)/r_z)**2))
       
-      THETA_intrp(:) = THETA0 + DTHETA*0.5_RP*(1.0_RP + cos(PI*r_intrp(:)))
+      THETA_intrp(:) = THETA0                          &
+         + DTHETA*0.5_RP*(1.0_RP + cos(PI*r_intrp(:))) &
+           / (1.0_RP - Grav*z_intrp(:)/(CpDry*THETA0)) 
       !THETA(:) = THETA0 + DTHETA*0.5_RP*(1.0_RP + cos(PI*r(:)))
       THETA(:) = matmul(IntrpMat, THETA_intrp)
 

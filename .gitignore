@@ -4,6 +4,7 @@ bin/
 *.mod
 *~
 *.a
+*.nc
 
 *.bak
 *.aux

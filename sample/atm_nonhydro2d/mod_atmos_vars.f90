@@ -1,6 +1,6 @@
 !-------------------------------------------------------------------------------
 #include "scaleFElib.h"
-module mod_vars
+module mod_atmos_vars
   !-----------------------------------------------------------------------------
   !
   !++ Used modules
@@ -10,17 +10,10 @@ module mod_vars
   use scale_prc
 
   use scale_meshfield_base, only: MeshField2D
-  use scale_mesh_rectdom2d, only: MeshRectDom2D
   use scale_element_base, only: ElementBase2D
   use scale_localmesh_2d, only: LocalMesh2D
-
   use scale_meshfieldcomm_rectdom2d, only: MeshFieldCommRectDom2D
   use scale_meshfieldcomm_base, only: MeshFieldContainer
-
-  use scale_file_history_meshfield, only: &
-    FILE_HISTORY_meshfield_put,   &
-    FILE_HISTORY_meshfield_write
-  use scale_file_history, only: FILE_HISTORY_reg 
 
   !-----------------------------------------------------------------------------
   implicit none
@@ -29,9 +22,9 @@ module mod_vars
   !
   !++ Public procedures
   !
-  public :: vars_Init
-  public :: vars_Final
-  public :: vars_Output
+  public :: ATMOS_VARS_setup
+  public :: ATMOS_VARS_finalize
+  public :: ATMOS_VARS_output
 
   !-----------------------------------------------------------------------------
   !
@@ -106,11 +99,10 @@ module mod_vars
 
 
 contains  
-  subroutine vars_Init( mesh )
-    use scale_file_history_meshfield, only: FILE_HISTORY_meshfield_setup  
+  subroutine ATMOS_VARS_setup()
+    use scale_file_history, only: FILE_HISTORY_reg
+    use mod_atmos_mesh, only: mesh
     implicit none
-
-    type(MeshRectDom2D), intent(in), target :: mesh
 
     integer :: n, k
     type(LocalMesh2D), pointer :: lcmesh
@@ -163,7 +155,6 @@ contains
     AUX_DIFFVARS_list(VARS_GxPT_ID)%field2d => GxPT
     AUX_DIFFVARS_list(VARS_GzPT_ID)%field2d => GzPT
 
-    call FILE_HISTORY_meshfield_setup( mesh2d_=mesh )
     call FILE_HISTORY_reg( DDENS%varname, "deviation of density", DDENS%unit, HST_ID(VARS_DDENS_ID), dim_type='XY')
     call FILE_HISTORY_reg( MOMX%varname, "momentum (X)", MOMX%unit, HST_ID(VARS_MOMX_ID), dim_type='XY')
     call FILE_HISTORY_reg( MOMZ%varname, "momentum (Z)", MOMZ%unit, HST_ID(VARS_MOMZ_ID), dim_type='XY')
@@ -182,14 +173,12 @@ contains
     call FILE_HISTORY_reg( DzMOMZ%varname, "DzMOMZ", DzMOMZ%unit, HST_ID(VARS_DzMOMZ_ID), dim_type='XY' )
     call FILE_HISTORY_reg( LiftDDENS%varname, "LiftDDENS", LiftDDENS%unit, HST_ID(VARS_LiftDDENS_ID), dim_type='XY' )
     return
-  end subroutine vars_Init
+  end subroutine ATMOS_VARS_setup
 
-  subroutine vars_Final()
-    use scale_file_history_meshfield, only: FILE_HISTORY_meshfield_finalize    
+  subroutine ATMOS_VARS_finalize()
     implicit none
     !-------------------------------------------------------------------------
 
-    call FILE_HISTORY_meshfield_finalize()
     call PROG_VARS_comm%Final()
     call AUX_DIFFVARS_comm%Final()
 
@@ -215,14 +204,16 @@ contains
     call PRES_hydro%Final()
 
     return
-  end subroutine vars_Final
+  end subroutine ATMOS_VARS_finalize
 
 
-  subroutine vars_Output( mesh, tsec_ )
+  subroutine ATMOS_VARS_output( tsec_ )
+    use scale_file_history_meshfield, only: &
+      FILE_HISTORY_meshfield_put,   &
+      FILE_HISTORY_meshfield_write
+    use mod_atmos_mesh, only: mesh
     implicit none
 
-    type(MeshRectDom2D), intent(in), target :: mesh
-    
     real(RP), intent(in) :: tsec_
     
     integer :: n
@@ -258,7 +249,7 @@ contains
     call FILE_HISTORY_meshfield_write()   
 
     return
-  end subroutine vars_Output
+  end subroutine ATMOS_VARS_output
 
   subroutine vars_calc_diagnoseVar( &
     U_, W_, DPRES_, TEMP_, DTHETA_,                      &
@@ -312,4 +303,4 @@ contains
     return
   end subroutine vars_calc_diagnoseVar
 
-end module mod_vars
+end module mod_atmos_vars

@@ -1,6 +1,6 @@
 !-------------------------------------------------------------------------------
 #include "scaleFElib.h"
-module mod_bnd
+module mod_atmos_bnd
   !-----------------------------------------------------------------------------
   !
   !++ Used modules
@@ -35,11 +35,11 @@ module mod_bnd
   !
   !++ Public procedures
   !
-  public :: bnd_Init
-  public :: bnd_Final
-  public :: bnd_setBCInfo
-  public :: bnd_applyBC_prgvars
-  public :: bnd_applyBC_auxvars
+  public :: ATMOS_bnd_setup
+  public :: ATMOS_bnd_finalize
+  public :: ATMOS_bnd_setBCInfo
+  public :: ATMOS_bnd_applyBC_prgvars
+  public :: ATMOS_bnd_applyBC_auxvars
 
   !-----------------------------------------------------------------------------
   !
@@ -68,19 +68,16 @@ module mod_bnd
   logical, save :: is_initialized = .false.
 
 contains
-  subroutine bnd_Init( isPeriodicX, isPeriodicZ )
+  subroutine ATMOS_bnd_setup()
     use scale_mesh_bndinfo, only: &
       BND_TYPE_NOSPEC_NAME, &
       BND_TYPE_PERIODIC_ID, &
       BndType_NameToID
     implicit none
-
-    logical, intent(out) :: isPeriodicX
-    logical, intent(out) :: isPeriodicZ
     
     character(len=H_SHORT) :: btm_vel_bc, top_vel_bc, left_vel_bc, right_vel_bc
     character(len=H_SHORT) :: btm_thermal_bc, top_thermal_bc, left_thermal_bc, right_thermal_bc
-    namelist /PARAM_BND/ &
+    namelist /PARAM_ATMOS_BND/ &
       btm_vel_bc, top_vel_bc, left_vel_bc, right_vel_bc,                 &
       btm_thermal_bc, top_thermal_bc, left_thermal_bc, right_thermal_bc
     
@@ -98,14 +95,14 @@ contains
     right_thermal_bc = BND_TYPE_NOSPEC_NAME
 
     rewind(IO_FID_CONF)
-    read(IO_FID_CONF,nml=PARAM_BND,iostat=ierr)
+    read(IO_FID_CONF,nml=PARAM_ATMOS_BND,iostat=ierr)
     if( ierr < 0 ) then !--- missing
-       LOG_INFO("bnd_Init",*) 'Not found namelist. Default used.'
+       LOG_INFO("ATMOS_bnd_setup",*) 'Not found namelist. Default used.'
     elseif( ierr > 0 ) then !--- fatal error
-       LOG_ERROR("bnd_Init",*) 'Not appropriate names in namelist PARAM_BND. Check!'
+       LOG_ERROR("ATMOS_bnd_setup",*) 'Not appropriate names in namelist PARAM_BND. Check!'
        call PRC_abort
     endif
-    LOG_NML(PARAM_BND)
+    LOG_NML(PARAM_ATMOS_BND)
     
     velBC_ids(domBnd_Btm_ID) = BndType_NameToID(btm_vel_bc)
     velBC_ids(domBnd_Top_ID) = BndType_NameToID(top_vel_bc)
@@ -118,29 +115,11 @@ contains
     thermalBC_ids(domBnd_Right_ID) = BndType_NameToID(right_thermal_bc)    
     !------
 
-    if (velBC_ids(domBnd_Btm_ID) == BND_TYPE_PERIODIC_ID) then
-      if (velBC_ids(domBnd_Top_ID) /= BND_TYPE_PERIODIC_ID) then
-        LOG_ERROR("bnd_Init",*) 'The specified top and bottom boundary conditions are inconsistent. Check!'
-      end if
-      isPeriodicZ = .true.
-    else
-      isPeriodicZ = .false.
-    end if
-
-    if (velBC_ids(domBnd_Left_ID) == BND_TYPE_PERIODIC_ID) then
-      if (velBC_ids(domBnd_Right_ID) /= BND_TYPE_PERIODIC_ID) then
-        LOG_ERROR("bnd_Init",*) 'The specified lateral boundary conditions are inconsistent. Check!'
-      end if
-      isPeriodicX = .true.
-    else
-      isPeriodicX = .false.
-    end if    
-
     is_initialized = .false.
     return
-  end subroutine bnd_Init
+  end subroutine ATMOS_bnd_setup
 
-  subroutine bnd_Final()
+  subroutine ATMOS_bnd_finalize()
     implicit none
 
     integer :: n
@@ -156,12 +135,14 @@ contains
 
     is_initialized = .false.
     return
-  end subroutine bnd_Final  
+  end subroutine ATMOS_bnd_finalize  
 
-  subroutine bnd_setBCInfo( mesh )
-    type(MeshRectDom2D), intent(in), target :: mesh
+  subroutine ATMOS_bnd_setBCInfo()
+    use mod_atmos_mesh, only: mesh
+    implicit none
 
-    integer :: n, b
+    integer :: n
+    integer :: b
     type(LocalMesh2D), pointer :: lcmesh  
     !--------------------------------------------------
 
@@ -178,9 +159,9 @@ contains
 
     is_initialized = .true.
     return
-  end subroutine bnd_setBCInfo
+  end subroutine ATMOS_bnd_setBCInfo
 
-  subroutine bnd_applyBC_prgvars(    &
+  subroutine ATMOS_bnd_applyBC_prgvars(    &
     DDENS, MOMX, MOMZ, DRHOT,        &
     DENS_hydro, PRES_hydro,          &
     mesh )
@@ -209,11 +190,12 @@ contains
     end do
 
     return
-  end subroutine bnd_applyBC_prgvars
+  end subroutine ATMOS_bnd_applyBC_prgvars
 
-  subroutine bnd_applyBC_auxvars(     &
+  subroutine ATMOS_bnd_applyBC_auxvars(     &
     GxU, GzU, GxW, GzW, GxPT, GzPT,  &
     DENS_hydro, PRES_hydro,          &
+    viscCoef_h, viscCoef_v,          &
     diffCoef_h, diffCoef_v,          &
     mesh )
 
@@ -224,6 +206,8 @@ contains
     type(MeshField2D), intent(inout) :: GxPT, GzPT
     type(MeshField2D), intent(in) :: DENS_hydro
     type(MeshField2D), intent(in) :: PRES_hydro
+    real(RP), intent(in) :: viscCoef_h
+    real(RP), intent(in) :: viscCoef_v
     real(RP), intent(in) :: diffCoef_h
     real(RP), intent(in) :: diffCoef_v
 
@@ -236,14 +220,15 @@ contains
       call applyBC_auxvars_lc( &
         GxU%local(n)%val, GzU%local(n)%val, GxW%local(n)%val, GzW%local(n)%val,                     & ! (inout)
         GxPT%local(n)%val, GzPT%local(n)%val,                                                       & ! (inout)
-        DENS_hydro%local(n)%val, PRES_hydro%local(n)%val, diffCoef_h, diffCoef_v,                   & ! (in)
+        DENS_hydro%local(n)%val, PRES_hydro%local(n)%val,                                           & ! (in)
+        viscCoef_h, viscCoef_v, diffCoef_h, diffCoef_v,                                             & ! (in)
         VelBC_list(n), ThermalBC_list(n),                                                           & ! (in)
         lcmesh%normal_fn(:,:,1), lcmesh%normal_fn(:,:,2), lcmesh%VMapM, lcmesh%VMapP, lcmesh%VMapB, & ! (in)
         lcmesh, lcmesh%refElem2D )                                                                    ! (in)
     end do
 
     return
-  end subroutine bnd_applyBC_auxvars
+  end subroutine ATMOS_bnd_applyBC_auxvars
     
   !---------------------------------------------------------
 
@@ -347,7 +332,9 @@ contains
 
   subroutine applyBC_auxvars_lc(  &
     GxU, GzU, GxW, GzW, GxPT, GzPT,               & ! (inout)
-    DENS_hyd, PRES_hyd, diffCoef_h, diffCoef_v,   & ! (in)
+    DENS_hyd, PRES_hyd,                           & ! (in)
+    viscCoef_h, viscCoef_v,                       & ! (in)
+    diffCoef_h, diffCoef_v,                       & ! (in)
     velBCInfo, thermalBCInfo,                     & ! (in)
     nx, nz, vmapM, vmapP, vmapB, lmesh, elem )      ! (in)
 
@@ -366,7 +353,10 @@ contains
     real(RP), intent(inout) :: GzPT(elem%Np*lmesh%NeA)
     real(RP), intent(in) :: DENS_hyd(elem%Np*lmesh%NeA)
     real(RP), intent(in) :: PRES_hyd(elem%Np*lmesh%NeA)
-    real(RP), intent(in) :: diffCoef_h, diffCoef_v
+    real(RP), intent(in) :: viscCoef_h
+    real(RP), intent(in) :: viscCoef_v
+    real(RP), intent(in) :: diffCoef_h
+    real(RP), intent(in) :: diffCoef_v
     type(MeshBndInfo), intent(in) :: velBCInfo
     type(MeshBndInfo), intent(in) :: thermalBCInfo
     real(RP), intent(in) :: nx(elem%NfpTot*lmesh%Ne)
@@ -379,7 +369,6 @@ contains
     real(RP) :: gradU_normal
     real(RP) :: gradW_normal
     real(RP) :: gradPT_normal
-
     !-----------------------------------------------
 
     do i=1, elem%NfpTot*lmesh%Ne
@@ -410,4 +399,4 @@ contains
     return
   end subroutine applyBC_auxvars_lc
 
-end module mod_bnd
+end module mod_atmos_bnd

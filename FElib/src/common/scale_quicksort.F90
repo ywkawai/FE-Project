@@ -50,6 +50,8 @@ contains
   !-- private ------------------------------------------------
 
   recursive subroutine quicksort_core_int(key, ind, first, last)
+    implicit none
+    
     integer, intent(inout) :: key(:)
     integer, intent(inout) :: ind(:)
     integer, intent(in) :: first, last
@@ -83,6 +85,8 @@ contains
     return
   end subroutine quicksort_core_int
   recursive subroutine quicksort_core_real_RP(key, ind, first, last)
+    implicit none
+    
     real(RP), intent(inout) :: key(:)
     integer, intent(inout) :: ind(:)
     integer, intent(in) :: first, last
