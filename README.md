@@ -59,12 +59,12 @@ Build
  In the directory of 'visualize', some python scripts with matplotlib 
  are prepared for visualizing simulation results. 
 
-Example of result
+Example of results
 ----------------------------------------------------------------------------------------
  
-A simulation of density current with a 2-dimensional nonhydrostatic atmospheric model
+A simulation of density current by a 2-dimensional nonhydrostatic atmospheric model with nodal DGM
 
-![A simulation of density current](https://github.com/ywkawai/FE-projet/wiki/gallery/atm_nohydro2d/density_current/density_current.gif)
+![A simulation of density current](https://github.com/ywkawai/FE-project/wiki/gallery/atm_nonhydro2d/density_current/density_current.gif)
 
  For more animations of simulation results, please see the Wiki of FE-project on github or 'FE-project gallery' channel on YouTube (url: https://www.youtube.com/channel/UCO17OQtKHwkkQwmHD9y9mQg/featured). 
 
