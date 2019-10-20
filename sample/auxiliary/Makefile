@@ -16,8 +16,7 @@ SAMPLE_AUX_LIBS = libScaleFESampleAux.a
 SAMPLE_AUX_OBJS = \
 	mod_operator_fvm.o \
 	mod_output_fvm.o   \
-	mod_fieldutil.o    \
-	mod_timeint_rk.o
+	mod_fieldutil.o
 
 all:
 	$(MAKE) envlog
@@ -43,7 +42,6 @@ clean:
 .SUFFIXES:
 .SUFFIXES: .o .f90 .mod
 
-mod_timeint_rk.f90: mod_timeint_rk.f90.erb
 
 %.f90 : %.f90.erb
 	erb $< > $@

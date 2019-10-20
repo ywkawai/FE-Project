@@ -18,7 +18,7 @@ module mod_atmos_dyn_driver
 
   use scale_localmeshfield_base, only: LocalMeshField2D
   use scale_meshfield_base, only: MeshField2D
-  use mod_timeint_rk, only: timeint_rk
+  use scale_timeint_rk, only: timeint_rk
 
   !-----------------------------------------------------------------------------
   implicit none

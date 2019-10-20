@@ -23,14 +23,14 @@ program atm_nonhydro2d
   !-------------------------------------------------------
 
   call init()
-  call ATMOS_set_initcond()
   
   do nowstep=1, TIME_NSTEP
     !* Advance time
     call TIME_manager_advance()
     call FILE_HISTORY_set_nowdate( TIME_NOWDATE, TIME_NOWMS, TIME_NOWSTEP )
 
-    call ATMOS_update()
+    call update()
+    call calc_tendency()
 
     if (mod(nowstep,1000) == 0) then 
       write(timelabel,'(I4.4,I2.2,I2.2,A1,I2.2,A1,I2.2,A1,I2.2)') &
@@ -46,29 +46,35 @@ program atm_nonhydro2d
 contains
   !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-  subroutine ATMOS_update()
+  subroutine update()
     use mod_atmos_vars, only: ATMOS_VARS_output
     use mod_atmos_dyn_driver, only: ATMOS_DYN_driver
+    use mod_user, only: USER_update
     implicit none
     !------------------------------------------------------------------------
-
+    
+    !- ATMOS
     call ATMOS_DYN_driver()
-    call ATMOS_VARS_output( TIME_NOWDAYSEC )    
+    call ATMOS_VARS_output( TIME_NOWDAYSEC )
+
+    !- USER
+    call USER_update()
+
     return
-  end subroutine ATMOS_update
-  
-  subroutine ATMOS_set_initcond()
-    use mod_exp, only: exp_SetInitCond
-    use mod_atmos_vars, only: ATMOS_VARS_output
+  end subroutine update
+
+  subroutine calc_tendency()
+    use mod_user, only: USER_calc_tendency
     implicit none
     !------------------------------------------------------------------------
+    
+    !- ATMOS
 
-    call exp_SetInitCond()
-    call ATMOS_VARS_output( TIME_NOWDAYSEC )
-    LOG_PROGRESS('(A,F13.5,A)') "time=", real(0.0_RP), "[s]"
+    !- USER
+    call USER_calc_tendency()
 
     return
-  end subroutine ATMOS_set_initcond
+  end subroutine calc_tendency
 
   subroutine init()
     use scale_const, only: CONST_setup
@@ -76,14 +82,15 @@ contains
     use scale_time_manager, only: TIME_manager_Init
     use scale_file_history_meshfield, only: FILE_HISTORY_meshfield_setup
 
-    use mod_atmos_vars, only: ATMOS_VARS_setup
+    use mod_atmos_vars, only: &
+      ATMOS_VARS_setup, ATMOS_VARS_output
     use mod_atmos_mesh, only: &
       ATMOS_MESH_setup, mesh
     use mod_atmos_bnd, only: &
       ATMOS_bnd_setup, ATMOS_bnd_setBCInfo
     use mod_atmos_dyn_driver, only: &
       ATMOS_DYN_driver_setup
-    use mod_exp, only: exp_setup    
+    use mod_user, only: USER_setup
     implicit none
 
     character(len=H_SHORT) :: exp_name
@@ -140,7 +147,6 @@ contains
     !-
     ! Setup a module to manage boundary conditions
     call ATMOS_bnd_setup()
-    call exp_setup(exp_name)
 
     ! Setup a module to manage mesh
     call ATMOS_MESH_setup()
@@ -157,8 +163,13 @@ contains
     ! Set some informations for boundary conditions
     call ATMOS_bnd_setBCInfo()
     
-    !---
+    call USER_setup()
 
+    !--
+    call ATMOS_VARS_output( TIME_NOWDAYSEC )
+    LOG_PROGRESS('(A,F13.5,A)') "time=", real(0.0_RP), "[s]"
+
+    !---
     call PROF_rapend( "init", 1 )
     return
   end subroutine init
@@ -170,7 +181,6 @@ contains
     use mod_atmos_mesh, only: ATMOS_MESH_finalize
     use mod_atmos_bnd, only: ATMOS_bnd_finalize
     use mod_atmos_dyn_driver, only: ATMOS_DYN_driver_finalize  
-    use mod_exp, only: exp_finalize   
     implicit none
     !------------------------------------------------------------------------
 
@@ -178,7 +188,6 @@ contains
 
     call ATMOS_DYN_driver_finalize()
     call ATMOS_bnd_finalize()
-    call exp_finalize()
     call ATMOS_VARS_finalize()
     call ATMOS_MESH_finalize()   
     

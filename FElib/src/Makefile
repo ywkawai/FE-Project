@@ -5,18 +5,20 @@ include $(SYSDEP_DIR)/Makedef.$(SCALE_FE_SYS)
 include $(TOPDIR)/Mkinclude
 
 VPATH = \
-	common:  \
-	element: \
-	mesh:    \
-	data:    \
-	file:
+	common:          \
+	element:         \
+	mesh:            \
+	data:            \
+	file:            \
+	fluid_dyn_solver: 
 
 OBJS_NAME_COMMON = \
 	scale_polynominal.o  \
 	scale_sparsemat.o    \
 	scale_linalgebra.o   \
 	scale_time_manager.o \
-	scale_quicksort.o
+	scale_quicksort.o    \
+	scale_timeint_rk.o
 
 OBJS_NAME_ELEMENT = \
 	scale_element_base.o          \
@@ -52,38 +54,17 @@ OBJS_NAME_DATA = \
 OBJS_NAME_FILE = \
 	scale_file_history_meshfield.o
 
-#OBJS_NAME_MESH = \
-	MeshCubedSphere3D_mod.o \
-	MeshCubedSphere2D_mod.o \
-	Mesh3D_mod.o            \
-	Mesh2D_mod.o            \
-	LocalMesh3D_mod.o       \
-	LocalMesh2D_mod.o       \
-	MeshBase_mod.o          \
-	CubedSphereUtil_mod.o   \
-	MeshUtil3D_mod.o        \
-	MeshUtil2D_mod.o
-
-#OBJS_NAME_DATA = \
-	LocalMeshField_mod.o     \
-	LocalMeshFieldList_mod.o \
-	MeshField_mod.o          \
-	CSMeshField_mod.o        \
-	CSMeshFieldList_mod.o    \
-	MeshFieldComm_mod.o      \
-	CSMeshFieldComm_mod.o 
-
-#OBJS_NAME_IO = \
-	LocalMeshFieldWriter_mod.o    \
-	CSLonLatMeshFieldWriter_mod.o
+OBJS_NAME_FLUID_DYN_SOLVER = \
+	scale_atm_dyn_nonhydro2d.o
 
 
 OBJS_NAME = \
-	$(OBJS_NAME_COMMON)  \
-	$(OBJS_NAME_ELEMENT) \
-	$(OBJS_NAME_MESH)    \
-	$(OBJS_NAME_DATA)		 \
-	$(OBJS_NAME_FILE)
+	$(OBJS_NAME_COMMON)           \
+	$(OBJS_NAME_ELEMENT)          \
+	$(OBJS_NAME_MESH)             \
+	$(OBJS_NAME_DATA)		          \
+	$(OBJS_NAME_FILE)             \
+	$(OBJS_NAME_FLUID_DYN_SOLVER)
 
 
 OBJ_DIR= .
@@ -136,6 +117,7 @@ dependency:
 	erb $< > $@
 
 common/scale_quicksort.F90: scale_quicksort.F90.erb
+common/scale_timeint_rk.F90: scale_timeint_rk.F90.erb
 
 $(OBJ_DIR)/%.o : %.F90
 	$(FC) $(FFLAGS) $(SCALE_INCLUDE) $(INCLUDE) -I$(SCALEFELIBDIR)/include -o $@ -c $<

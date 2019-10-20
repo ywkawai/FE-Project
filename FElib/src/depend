@@ -1,3 +1,4 @@
+$(OBJ_DIR)/scale_atm_dyn_nonhydro2d.o: fluid_dyn_solver/scale_atm_dyn_nonhydro2d.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_element_base.o $(OBJ_DIR)/scale_element_quadrilateral.o $(OBJ_DIR)/scale_localmesh_2d.o $(OBJ_DIR)/scale_localmeshfield_base.o $(OBJ_DIR)/scale_mesh_base2d.o $(OBJ_DIR)/scale_meshfield_base.o $(OBJ_DIR)/scale_sparsemat.o
 $(OBJ_DIR)/scale_element_base.o: element/scale_element_base.F90 $(DEPENDLIB)
 $(OBJ_DIR)/scale_element_hexahedral.o: element/scale_element_hexahedral.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_element_base.o $(OBJ_DIR)/scale_linalgebra.o $(OBJ_DIR)/scale_polynominal.o
 $(OBJ_DIR)/scale_element_line.o: element/scale_element_line.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_element_base.o $(OBJ_DIR)/scale_linalgebra.o $(OBJ_DIR)/scale_polynominal.o
@@ -29,8 +30,10 @@ $(OBJ_DIR)/scale_polynominal.o: common/scale_polynominal.F90 $(DEPENDLIB)
 $(OBJ_DIR)/scale_quicksort.o: common/scale_quicksort.F90 $(DEPENDLIB)
 $(OBJ_DIR)/scale_sparsemat.o: common/scale_sparsemat.F90 $(DEPENDLIB)
 $(OBJ_DIR)/scale_time_manager.o: common/scale_time_manager.F90 $(DEPENDLIB)
+$(OBJ_DIR)/scale_timeint_rk.o: common/scale_timeint_rk.F90 $(DEPENDLIB)
 
 MODS =	\
+	$(OBJ_DIR)/scale_atm_dyn_nonhydro2d.mod	\
 	$(OBJ_DIR)/scale_element_base.mod	\
 	$(OBJ_DIR)/scale_element_hexahedral.mod	\
 	$(OBJ_DIR)/scale_element_line.mod	\
@@ -61,4 +64,5 @@ MODS =	\
 	$(OBJ_DIR)/scale_polynominal.mod	\
 	$(OBJ_DIR)/scale_quicksort.mod	\
 	$(OBJ_DIR)/scale_sparsemat.mod	\
-	$(OBJ_DIR)/scale_time_manager.mod
+	$(OBJ_DIR)/scale_time_manager.mod	\
+	$(OBJ_DIR)/scale_timeint_rk.mod

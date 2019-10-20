@@ -23,6 +23,9 @@ program test_advect1d
     TIME_manager_advance,                              &
     TIME_NOWDATE, TIME_NOWMS, TIME_NOWSTEP,            &
     TIME_DTSEC, TIME_NSTEP 
+  
+  use scale_timeint_rk, only: &
+    timeint_rk 
 
   use mod_fieldutil, only: &
     get_upwind_pos1d => fieldutil_get_upwind_pos1d,         &
@@ -30,8 +33,6 @@ program test_advect1d
   
   use mod_operator_fvm, only: &
     operator_fvm    
-  use mod_timeint_rk, only: &
-    timeint_rk 
    
   !-----------------------------------------------------------------------------
   implicit none

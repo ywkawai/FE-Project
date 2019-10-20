@@ -31,7 +31,7 @@ program test_advect2d
     TIME_manager_advance,                              &
     TIME_NOWDATE, TIME_NOWMS, TIME_NOWSTEP,            &
     TIME_DTSEC, TIME_NSTEP 
-  use mod_timeint_rk, only: &
+  use scale_timeint_rk, only: &
     timeint_rk
   
   use mod_fieldutil, only: &

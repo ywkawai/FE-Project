@@ -34,6 +34,9 @@ program test_advect2d
     TIME_NOWDATE, TIME_NOWMS, TIME_NOWSTEP,            &
     TIME_DTSEC, TIME_NSTEP 
 
+  use scale_timeint_rk, only: &
+    timeint_rk
+
   use mod_fieldutil, only: &
     get_upwind_pos1d => fieldutil_get_upwind_pos1d,         &
     get_profile2d_tracer => fieldutil_get_profile2d_tracer, &
@@ -41,8 +44,7 @@ program test_advect2d
 
   use mod_operator_fvm, only: &
     operator_fvm
-  use mod_timeint_rk, only: &
-    timeint_rk
+
   
   !-----------------------------------------------------------------------------
   implicit none
@@ -227,7 +229,7 @@ contains
       linferror = max(linferror, abs(q(k,i,JS) - qexact(k,i,JS)))
     end do
     end do
-    LOG_INFO("evaluate_error_l2",*), sqrt(l2error)/((dom_xmax - dom_xmin)*(dom_ymax - dom_ymin))
+    LOG_INFO("evaluate_error_l2",*) sqrt(l2error)/((dom_xmax - dom_xmin)*(dom_ymax - dom_ymin))
     LOG_INFO("evaluate_error_linf",*) linferror
 
   end subroutine evaluate_error
@@ -374,7 +376,8 @@ contains
     call optr_fvm%Init( FLUX_SCHEME_TYPE, KS, KE, KA, IS, IE, IA, JS, JS, JA )
 
     ! setup a module for time integrator
-    call tinteg%Init( TINTEG_SCHEME_TYPE, TIME_DTSEC, 1, (/ KA, IA /) )
+    call tinteg%Init( TINTEG_SCHEME_TYPE, TIME_DTSEC, 1, &
+                      2, (/ KA, IA /) )
     
     ! setup variables and history files
     allocate( q(KA,IA,JA), qexact(KA,IA,JA) )
