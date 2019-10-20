@@ -2,7 +2,7 @@ FE-project
 
 =======================================================================================
 
-Target
+# Target
 -----------------------------------------------------------------------------------------
 FE project provides a library for some discontinuous Galerkin methods (DGMs), 
 and some sample programs with the library for DGMs. 
@@ -53,15 +53,18 @@ Build
  `% cd rootdir/sample/atm_nonhydro2d/test/case/density_current`
 
  `% make`
+
  `% make run`
 
  In the directory of 'visualize', some python scripts with matplotlib 
  are prepared for visualizing simulation results. 
 
- Gallery of results
- ----------------------------------------------------------------------------------------
- * a 2-dimensional nonhydrostatic atmospheric model
-   ![A simulation of density current](https://raw.github.com/wiki/ywkawai/FE-projet/gallery/atm_nohydro2d/density_current/density_current.gif)
+Example of result
+----------------------------------------------------------------------------------------
+ 
+A simulation of density current with a 2-dimensional nonhydrostatic atmospheric model
+
+![A simulation of density current](https://github.com/ywkawai/FE-projet/wiki/gallery/atm_nohydro2d/density_current/density_current.gif)
 
  For more animations of simulation results, please see the Wiki of FE-project on github or 'FE-project gallery' channel on YouTube (url: https://www.youtube.com/channel/UCO17OQtKHwkkQwmHD9y9mQg/featured). 
 
