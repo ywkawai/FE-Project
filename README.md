@@ -38,10 +38,30 @@ Build
 
  `% make`
 
-3. compile and run a sample program in the directory of sample
+3. compile and run 
+
+ For simple sample programs such as sample/advect1d or sample/advect2d, 
  e.g.,
  
  `% cd rootdir/sample/advect1d/`
 
  `% make`
+
+ If you want to build a 2-dimensional nonhydrostatic atmospheric model, 
+ and conduct a idealized test case, such as density current, using it, 
  
+ `% cd rootdir/sample/atm_nonhydro2d/test/case/density_current`
+
+ `% make`
+ `% make run`
+
+ In the directory of 'visualize', some python scripts with matplotlib 
+ are prepared for visualizing simulation results. 
+
+ Gallery of results
+ ----------------------------------------------------------------------------------------
+ * a 2-dimensional nonhydrostatic atmospheric model
+   ![A simulation of density current](https://raw.github.com/wiki/ywkawai/FE-projet/gallery/atm_nohydro2d/density_current/density_current.gif)
+
+ For more animations of simulation results, please see the Wiki of FE-project on github or 'FE-project gallery' channel on YouTube (url: https://www.youtube.com/channel/UCO17OQtKHwkkQwmHD9y9mQg/featured). 
+

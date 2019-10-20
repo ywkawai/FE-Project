@@ -36,7 +36,7 @@ X, Z = np.meshgrid(x, z)
 fig = plt.figure(figsize=(10,5)) 
 ax = fig.add_subplot(1,1,1)
 set_fig_XY_axis(ax)
-ax.set_title("gravity wave ($\Theta', U', W$)")
+ax.set_title("density current ($\Theta', U, W$)")
 
 pcm = ax.pcolormesh(X, Z, dtheta.isel(time=0), vmin=-12.0, vmax=+2.0, cmap='jet')#cmap='YlGnBu_r')
 fmt = tick.ScalarFormatter(useMathText=True)
@@ -74,9 +74,10 @@ def update(i):
     c.remove()
   cnt = ax.contour(X, Z, dtheta_, **cnt_opts)
 
-  ax.set_title(f"density current ($\Theta', U', W$) t={i}[s]")
+  ax.set_title(f"density current ($\Theta', U, W$) t={i}[s]")
   
 
 ani = animation.FuncAnimation(fig, update, frames=time.values, interval=1000*10)
-ani.save('density_current.mp4', writer="ffmpeg", fps=5)
+ani.save('density_current.mp4', writer="ffmpeg", fps=8)
+#ani.save('density_current.gif', writer="imagemagick", fps=8)
 #plt.show()
