@@ -1,0 +1,84 @@
+.DEFAULT_GOAL := all
+
+OBJ_DIR   = ./.libs
+INST_DIR  = $(TOPDIR)
+
+ifeq ($(origin BINDIR),undefined)
+   BINDIR = $(INST_DIR)/bin
+endif
+
+ifeq ($(origin LIBDIR),undefined)
+   LIBDIR = $(INST_DIR)/lib
+endif
+
+ifeq ($(origin MODDIR),undefined)
+   MODDIR = $(INST_DIR)/include
+endif
+
+DCUTILSDIR  = $(TOPDIR)/dc_utils
+SCALEFELIBDIR    = $(TOPDIR)/FElib
+ATMNONHYDRO2DDIR = $(TOPDIR)/sample/atm_nonhydro2d
+
+CONTRIB_LIBS    = $(SCALEORI_LIBS)
+CONTRIB_INCLUDE = $(SCALEORI_INCLUDE)
+
+ifeq ($(SCALE_DEBUG),T)
+   FFLAGS = $(FFLAGS_DEBUG) $(FFLAGS_SYSDEPEND) -DDEBUG $(SCALEORI_INCLUDE)
+   CFLAGS = $(CFLAGS_DEBUG) $(CFLAGS_SYSDEPEND)
+else
+   FFLAGS = $(FFLAGS_FAST)  $(FFLAGS_SYSDEPEND) $(SCALEORI_INCLUDE)
+   CFLAGS = $(CFLAGS_FAST)  $(CFLAGS_SYSDEPEND)
+   ifeq ($(SCALE_USE_AGGRESSIVEOPT),T)
+      FFLAGS += $(FFLAGS_AGGRESSIVE)
+      CFLAGS += $(CFLAGS_AGGRESSIVE)
+   endif
+   ifeq ($(SCALE_QUICKDEBUG),T)
+      FFLAGS += $(FFLAGS_QUICKDEBUG) -DQUICKDEBUG
+   endif
+endif
+
+ifeq ($(SCALE_USE_SINGLEFP),T)
+   FFLAGS += -DSINGLE
+endif
+
+ifeq ($(SCALE_USE_MASSCHECK),T)
+   FFLAGS += -DCHECK_MASS
+endif
+
+ifeq ($(SCALE_ENABLE_OPENMP),T)
+   FFLAGS += $(FFLAGS_OPENMP)
+endif
+
+ifeq ($(SCALE_ENABLE_OPENACC),T)
+   FFLAGS += $(FFLAGS_OPENACC)
+endif
+
+# NetCDF library setting
+# library location are inquired in order of: environment variable->Makedef.XXX->here
+include $(TOPDIR)/utils/make/Make_checknetcdf
+
+ifeq ($(SCALE_ENABLE_PNETCDF),T)
+   SCALE_NETCDF_INCLUDE += -DPNETCDF
+   ifeq ($(shell pnetcdf-config --help > /dev/null 2>&1 && echo yes),yes)
+      SCALE_NETCDF_INCLUDE += $(shell pnetcdf-config --cppflags) -I$(shell pnetcdf-config --includedir)
+      SCALE_NETCDF_LIBS := -L$(shell pnetcdf-config --libdir) -lpnetcdf $(SCALE_NETCDF_LIBS)
+   endif
+endif
+
+ifeq ($(SCALE_COMPAT_NETCDF3),T)
+   CFLAGS += -DNETCDF3
+endif
+
+# Math library setting
+# library location are inquired in order of: environment variable->Makedef.XXX
+ifeq ($(SCALE_ENABLE_MATHLIB),T)
+   FFLAGS += -DMATHLIB
+endif
+
+# PAPI library setting
+# library location are inquired in order of: environment variable->Makedef.XXX
+ifeq ($(SCALE_ENABLE_PAPI),T)
+   FFLAGS += -DPAPI
+endif
+
+
