@@ -1,0 +1,20 @@
+name: workflow-test
+
+on:
+  push:
+    branches: 
+      - develop
+      - feature/ci_* 
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v1
+    - name: Setup 
+      run: |
+        echo "Install fortran compiler .."
+        apt install -y gfortran
+        echo "Install NetCDF library .."
+        apt install -y libnetcdf-dev
