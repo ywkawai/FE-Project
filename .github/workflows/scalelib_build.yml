@@ -1,4 +1,4 @@
-name: workflow-test
+name: build_scalelib
 
 on:
   push:

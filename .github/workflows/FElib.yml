@@ -1,9 +1,11 @@
-name: workflow-test
+name: build_FElib
 
 on:
-  push:
-    branches: 
-      - feature/ci_* 
+  pull_request:
+    types: [opened, synchronize]
+  #push:
+  #  branches: 
+  #  - feature/ci_* 
 
 jobs:
   build:
