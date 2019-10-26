@@ -421,6 +421,8 @@ contains
           elemIds(counterB(domB_ID),domB_ID) = k_
           faceIds(counterB(domB_ID),domB_ID) = f_
         end if
+
+        return
      end subroutine eval_domain_boundary
      
   end subroutine MeshUtil2D_genPatchBoundaryMap
@@ -431,6 +433,7 @@ contains
     Ntile, isPeriodicX, isPeriodicY )
     
     use scale_prc, only: PRC_isMaster
+    implicit none
 
     integer, intent(in) :: Ntile
     integer, intent(out) :: panelID_table(Ntile)
@@ -443,7 +446,7 @@ contains
     logical, intent(in) :: isPeriodicY
 
     integer :: NtilePerPanel
-    integer :: Ne, Nv
+    integer :: NeX, NeY, NvX, NvY
     integer, allocatable :: nodesID_2d(:,:)
     integer, allocatable :: EToV(:,:)
     integer, allocatable :: EToE(:,:)
@@ -456,14 +459,16 @@ contains
     !-----------------------------------------------------------------------------
 
     NtilePerPanel = Ntile/1
-    Ne = sqrt(dble(NtilePerPanel))
-    Nv = Ne + 1
-    allocate( nodesID_2d(Nv,Nv) )
+    NeY = sqrt(dble(NtilePerPanel))
+    NeX = NtilePerPanel/NeY
+    NvX = NeX + 1
+    NvY = NeY + 1
+    allocate( nodesID_2d(NvX,NvY) )
     allocate( EToV(Ntile,4), EToE(Ntile,4), EToF(Ntile,4) )
 
     counter = 0
-    do j = 1, Nv
-    do i = 1, Nv
+    do j = 1, NvY
+    do i = 1, NvX
       counter = counter + 1
       nodesID_2d(i,j) = counter
     end do
@@ -473,8 +478,8 @@ contains
     !----
 
     tileID = 0
-    do j = 1, Ne
-    do i = 1, Ne
+    do j = 1, NeY
+    do i = 1, NeX
       tileID = tileID + 1
       panelID_table(tileID) = 1
       pi_table(tileID) = i; pj_table(tileID) = j
@@ -498,11 +503,11 @@ contains
     if (isPeriodicX) then
       do tileID=1, Ntile
         if (pi_table(tileID) == 1 .and. tileFaceID_map(4,tileID) == 4) then
-          tileID_map(4,tileID) = Ne + (pj_table(tileID) - 1)*Ne
+          tileID_map(4,tileID) = NeX + (pj_table(tileID) - 1)*NeX
           tileFaceID_map(4,tileID) = 2
         end if
-        if (pi_table(tileID) == Ne .and. tileFaceID_map(2,tileID) == 2) then
-          tileID_map(2,tileID) = 1 + (pj_table(tileID) - 1)*Ne
+        if (pi_table(tileID) == NeX .and. tileFaceID_map(2,tileID) == 2) then
+          tileID_map(2,tileID) = 1 + (pj_table(tileID) - 1)*NeX
           tileFaceID_map(2,tileID) = 4
         end if
       end do
@@ -511,15 +516,17 @@ contains
     if (isPeriodicY) then
       do tileID=1, Ntile
         if (pj_table(tileID) == 1 .and. tileFaceID_map(1,tileID) == 1) then
-          tileID_map(1,tileID) = pi_table(tileID) + (Ne - 1)*Ne
+          tileID_map(1,tileID) = pi_table(tileID) + (NeY - 1)*NeX
           tileFaceID_map(1,tileID) = 3
         end if
-        if (pj_table(tileID) == Ne .and. tileFaceID_map(3,tileID) == 3) then
+        if (pj_table(tileID) == NeY .and. tileFaceID_map(3,tileID) == 3) then
           tileID_map(3,tileID) = pi_table(tileID)
           tileFaceID_map(3,tileID) = 1
         end if
       end do
     end if
+
+    return 
 
     !--
 

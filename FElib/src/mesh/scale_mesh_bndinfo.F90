@@ -24,7 +24,7 @@ module scale_mesh_bndinfo
     procedure :: Init => MeshBndInfo_Init
     procedure :: Final => MeshBndInfo_Final
     procedure, private :: Set_by_ID => MeshBndInfo_set_by_ID
-    procedure, private :: Set_by_name => MeshBndInfo_set_by_ID
+    procedure, private :: Set_by_name => MeshBndInfo_set_by_name
     generic :: Set => Set_by_ID, Set_by_name
   end type MeshBndInfo
   

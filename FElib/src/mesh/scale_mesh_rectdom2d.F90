@@ -155,16 +155,16 @@ contains
          & this%NeGX/NprcX, this%NeGY/NprcY )
 
       !---
-      ! write(*,*) "** my_rank=", mesh%PRC_myrank
-      ! write(*,*) " tileID:", mesh%tileID
-      ! write(*,*) " pnlID:", mesh%panelID, "-- i,j (within a panel)=", pi_table(tileID), pj_table(tileID)
-      ! write(*,*) " local mesh:", n, "( total", this%LOCAL_MESH_NUM, ")"
-      ! write(*,*) " panel_connect:", this%tilePanelID_globalMap(:,mesh%tileID)
-      ! write(*,*) " tile_connect:", this%tileID_globalMap(:,mesh%tileID)
-      ! write(*,*) " face_connect:", this%tileFaceID_globalMap(:,mesh%tileID)
-      ! write(*,*) " domain size"
-      ! write(*,*) "   NeX, NeY:", mesh%NeX, mesh%NeY
-      ! write(*,*) "   [X], [Y]:",  mesh%xmin, mesh%xmax, ":", mesh%ymin, mesh%ymax
+      write(*,*) "** my_rank=", mesh%PRC_myrank
+      write(*,*) " tileID:", mesh%tileID
+      write(*,*) " pnlID:", mesh%panelID, "-- i,j (within a panel)=", pi_table(tileID), pj_table(tileID)
+      write(*,*) " local mesh:", n, "( total", this%LOCAL_MESH_NUM, ")"
+      write(*,*) " panel_connect:", this%tilePanelID_globalMap(:,mesh%tileID)
+      write(*,*) " tile_connect:", this%tileID_globalMap(:,mesh%tileID)
+      write(*,*) " face_connect:", this%tileFaceID_globalMap(:,mesh%tileID)
+      write(*,*) " domain size"
+      write(*,*) "   NeX, NeY:", mesh%NeX, mesh%NeY
+      write(*,*) "   [X], [Y]:",  mesh%xmin, mesh%xmax, ":", mesh%ymin, mesh%ymax
     end do
 
     this%isGenerated = .true.

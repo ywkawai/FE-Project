@@ -10,8 +10,8 @@ program test_mesh_rectdom2d_quadrial
 
   implicit none
 
-  integer, parameter :: NeGX = 3
-  integer, parameter :: NeGY = 3
+  integer, parameter :: NeGX = 4
+  integer, parameter :: NeGY = 4
   integer, parameter :: NLocalMeshPerPrc = 1
 
   real(RP), parameter :: dom_xmin = -1.0_RP
@@ -141,8 +141,9 @@ contains
     write(*,*) " tile_connect:", mesh%tileID_globalMap(:,lcmesh%tileID)
     write(*,*) " face_connect:", mesh%tileFaceID_globalMap(:,lcmesh%tileID)
     write(*,*) " domain size"
-    write(*,*) "   NeX:", lcmesh%Ne
-    write(*,*) "   [X]:",  lcmesh%xmin, lcmesh%xmax   
+    write(*,*) "   NeX, NeY:", lcmesh%NeX, lcmesh%NeY
+    write(*,*) "   [X]     :",  lcmesh%xmin, lcmesh%xmax   
+    write(*,*) "   [Y]     :",  lcmesh%ymin, lcmesh%ymax   
 
     do k=1, lcmesh%Ne
       write(*,*) "k=", k
