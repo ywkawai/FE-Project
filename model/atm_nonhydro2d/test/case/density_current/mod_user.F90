@@ -217,13 +217,13 @@ contains
       PRES_hyd(:,k) = PRES00 * (Rdry*DENS_hyd(:,k)*THETA0/PRES00)**(CPdry/Cvdry)
 
       if (InitCond_GalerkinProjFlag) then
-        r_intrp(:) = min(1.0_RP, sqrt(((x_intrp(:) - x_c)/r_c)**2 + ((z_intrp(:) - z_c)/r_c)**2))
+        r_intrp(:) = min(1.0_RP, sqrt(((x_intrp(:) - x_c)/r_x)**2 + ((z_intrp(:) - z_c)/r_z)**2))
         THETA_intrp(:) = THETA0                          &
          + DTHETA*0.5_RP*(1.0_RP + cos(PI*r_intrp(:))) &
            / (1.0_RP - Grav*z_intrp(:)/(CpDry*THETA0))
         THETA(:) = matmul(IntrpMat, THETA_intrp)
       else
-        r(:) = min(1.0_RP, sqrt(((x(:,k) - x_c)/r_c)**2 + ((z(:,k) - z_c)/r_c)**2))
+        r(:) = min(1.0_RP, sqrt(((x(:,k) - x_c)/r_x)**2 + ((z(:,k) - z_c)/r_z)**2))
         THETA(:) = THETA0                          &
          + DTHETA*0.5_RP*(1.0_RP + cos(PI*r(:))) &
            / (1.0_RP - Grav*lcmesh%pos_en(:,k,2)/(CpDry*THETA0)) 

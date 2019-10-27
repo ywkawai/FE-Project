@@ -70,7 +70,16 @@ jobs:
         make -C field_linedom1d
         make -C field_rectdom2d_quadrilateral
         
+    - name: Build models
+      run: |
+        echo "Build models .."      
+        cd model/
+        export SCALE_FE_SYS=Linux64-gnu-ompi
+        export SCALE=${GITHUB_WORKSPACE}/../scale
 
+        echo "Build 2D nonhydrostatic atmospheric model"
+        make -C model/atm_nonhydro2d/src
+        
       
 
       
