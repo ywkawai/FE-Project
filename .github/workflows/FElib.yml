@@ -54,7 +54,7 @@ jobs:
         echo "Build FE library .."
         export SCALE_FE_SYS=Linux64-gnu-ompi
         export SCALE=${GITHUB_WORKSPACE}/../scale
-        make -C FElib/src
+        make -j 2 -C FElib/src
 
     - name: unit test for FElib
       run: | 

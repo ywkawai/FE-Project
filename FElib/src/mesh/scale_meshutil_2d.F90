@@ -459,7 +459,7 @@ contains
     !-----------------------------------------------------------------------------
 
     NtilePerPanel = Ntile/1
-    NeY = sqrt(dble(NtilePerPanel))
+    NeY = int( sqrt(dble(NtilePerPanel)) )
     NeX = NtilePerPanel/NeY
     NvX = NeX + 1
     NvY = NeY + 1
@@ -473,7 +473,6 @@ contains
       nodesID_2d(i,j) = counter
     end do
     end do
-
 
     !----
 

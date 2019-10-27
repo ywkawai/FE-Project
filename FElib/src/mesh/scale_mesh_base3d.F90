@@ -78,14 +78,17 @@ contains
     do n=1, this%LOCAL_MESH_NUM
       call LocalMesh3D_Init( this%lcmesh_list(n), refElem, PRC_myrank )
     end do
+
+    return
   end subroutine MeshBase3D_Init
 
   subroutine MeshBase3D_Final( this )
     
+    implicit none
+
     class(MeshBase3D), intent(inout) :: this
 
     integer :: n
-
     !-----------------------------------------------------------------------------
   
     do n=1, this%LOCAL_MESH_NUM
@@ -95,6 +98,7 @@ contains
     
     call MeshBase_Final(this)
 
+    return
   end subroutine MeshBase3D_Final
   
   subroutine MeshBase3D_setGeometricInfo( lcmesh, coord_conv, calc_normal )
@@ -225,6 +229,7 @@ contains
       lcmesh%Gsqrt(:,n) = 1.0_RP
     end do
 
+    return
   end subroutine MeshBase3D_setGeometricInfo
   
 end module scale_mesh_base3d

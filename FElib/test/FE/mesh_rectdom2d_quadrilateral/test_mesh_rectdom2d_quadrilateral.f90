@@ -83,6 +83,7 @@ contains
     integer :: VMapM_ans(elem%Nfp,elem%Nfaces,lcmesh%Ne)
     integer :: VMapP_ans(elem%Nfp,elem%Nfaces,lcmesh%Ne)
     integer :: Np, Nfp
+    integer :: NeX, NeY
 
     !---------------------------
 
@@ -90,11 +91,13 @@ contains
 
     Np = elem%Np
     Nfp = elem%Nfp
-
-    do j=1, NeGX
-    do i=1, NeGX
-      k = i + (j-1)*NeGX
-      EToE_ans(:,k) = (/ i + (j-2)*NeGX, i+1 +(j-1)*NeGX, i + j*NeGX, i-1 +(j-1)*NeGX/)
+    NeX = lcmesh%NeX
+    NeY = lcmesh%NeY
+    
+    do j=1, NeY
+    do i=1, NeX
+      k = i + (j-1)*NeX
+      EToE_ans(:,k) = (/ i + (j-2)*NeX, i+1 +(j-1)*NeX, i + j*NeX, i-1 +(j-1)*NeX/)
       EToF_ans(:,k) = (/ 3, 4, 1, 2 /)
       do p=1, elem%Nfp
         VMapM_ans(p,:,k) = (k-1)*Np &
@@ -109,33 +112,32 @@ contains
          VMapP_ans(p,1,k) = lcmesh%Ne*Np + (p + (i-1)*Nfp)
         end do
       end if
-      if (i==NeGX) then
+      if (i==NeX) then
         EToE_ans(2,k) = k; EToF_ans(2,k) = 2
         do p=1, Nfp
-         VMapP_ans(p,2,k) = lcmesh%Ne*Np + Nfp*NeGX + (p + (j-1)*Nfp)
+         VMapP_ans(p,2,k) = lcmesh%Ne*Np + Nfp*NeX + (p + (j-1)*Nfp)
         end do
       end if
-      if (j==NeGY) then
+      if (j==NeY) then
         EToE_ans(3,k) = k; EToF_ans(3,k) = 3
         do p=1, Nfp
-          VMapP_ans(p,3,k) = lcmesh%Ne*Np + Nfp*NeGX + Nfp*NeGY  + (p + (i-1)*Nfp)
+          VMapP_ans(p,3,k) = lcmesh%Ne*Np + Nfp*NeX + Nfp*NeY  + (p + (i-1)*Nfp)
         end do
       end if
       if (i==1) then
         EToE_ans(4,k) = k; EToF_ans(4,k) = 4
         do p=1, Nfp
-          VMapP_ans(p,4,k) = lcmesh%Ne*Np + 2*Nfp*NeGX + Nfp*NeGY  + (p + (j-1)*Nfp)
+          VMapP_ans(p,4,k) = lcmesh%Ne*Np + 2*Nfp*NeX + Nfp*NeY  + (p + (j-1)*Nfp)
         end do
       end if
     end do
     end do
     
-
     !-- Check the connectivity of 2D mesh. 
 
     write(*,*) "** my_rank=", lcmesh%PRC_myrank
     write(*,*) " tileID:", lcmesh%tileID
-    write(*,*) " pnlID:", lcmesh%panelID!, "-- i (within a panel)=", pi_table(tileID)
+    !write(*,*) " pnlID:", lcmesh%panelID, "-- i (within a panel)=", pi_table(tileID)
     write(*,*) " local mesh:", n, "( total", mesh%LOCAL_MESH_NUM, ")"
     write(*,*) " panel_connect:", mesh%tilePanelID_globalMap(:,lcmesh%tileID)
     write(*,*) " tile_connect:", mesh%tileID_globalMap(:,lcmesh%tileID)
@@ -144,7 +146,7 @@ contains
     write(*,*) "   NeX, NeY:", lcmesh%NeX, lcmesh%NeY
     write(*,*) "   [X]     :",  lcmesh%xmin, lcmesh%xmax   
     write(*,*) "   [Y]     :",  lcmesh%ymin, lcmesh%ymax   
-
+    
     do k=1, lcmesh%Ne
       write(*,*) "k=", k
       call assert(k, lcmesh%EToE(k,:), EToE_ans(:,k), "EtoE", elem%Nfaces)
