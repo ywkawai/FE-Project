@@ -1,4 +1,4 @@
-name: build_FElib
+name: build_FE-Project
 
 on:
   pull_request:
@@ -78,8 +78,8 @@ jobs:
         export SCALE=${GITHUB_WORKSPACE}/../scale
 
         echo "Build 2D nonhydrostatic atmospheric model"
-        make -C model/atm_nonhydro2d/src
-        
+        make -C atm_nonhydro2d/src
+
       
 
       
