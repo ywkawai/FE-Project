@@ -46,11 +46,11 @@ module mod_user
   !++ Private parameters & variables
   !
 
-  type, private, extends(experiment) :: Exp_density_current
+  type, private, extends(experiment) :: Exp_rising_therm_bubble
   contains 
-    procedure :: setInitCond_lc => exp_SetInitCond_density_current
+    procedure :: setInitCond_lc => exp_SetInitCond_rising_therm_bubble
   end type
-  type(Exp_density_current), private :: exp_manager
+  type(Exp_rising_therm_bubble), private :: exp_manager
 
   logical, private :: USER_do                   = .false. !< do user step?
 
@@ -110,7 +110,7 @@ contains
   end subroutine USER_update
 
   !------
-  subroutine exp_SetInitCond_density_current( this,              &
+  subroutine exp_SetInitCond_rising_therm_bubble( this,              &
     DENS_hyd, PRES_hyd, DDENS, MOMX, MOMZ, DRHOT,                &
     x, z, dom_xmin, dom_xmax, dom_zmin, dom_zmax, lcmesh, elem )
     
@@ -127,7 +127,7 @@ contains
     use scale_localmesh_2d, only: LocalMesh2D    
     implicit none
 
-    class(Exp_density_current), intent(inout) :: this
+    class(Exp_rising_therm_bubble), intent(inout) :: this
     type(LocalMesh2D), intent(in) :: lcmesh
     class(QuadrilateralElement), intent(in) :: elem
     real(RP), intent(out) :: DENS_hyd(elem%Np,lcmesh%NeA)
@@ -143,12 +143,12 @@ contains
     
     real(RP) :: THETA0
     real(RP) :: DTHETA
-    real(RP) :: x_c, z_c, r_x, r_z
+    real(RP) :: x_c, z_c, r_c
     logical :: InitCond_GalerkinProjFlag
 
     namelist /PARAM_EXP/ &
       THETA0, DTHETA,            &
-      x_c, z_c, r_x, r_z,        &
+      x_c, z_c, r_c,             &
       InitCond_GalerkinProjFlag
 
 
@@ -169,18 +169,18 @@ contains
     integer :: ierr
     !-----------------------------------------------------------------------------
 
-    x_c = 0.0_RP; z_c = 3.0E3_RP
-    r_x = 4.0E3_RP; r_z = 2.0E3_RP
+    x_c = 500.0_RP; z_c = 350.0_RP
+    r_c = 250.0_RP
     THETA0    = 300.0_RP
-    DTHETA    = -15.0_RP
+    DTHETA    = 0.5_RP
     InitCond_GalerkinProjFlag = .false.
 
     rewind(IO_FID_CONF)
     read(IO_FID_CONF,nml=PARAM_EXP,iostat=ierr)
     if( ierr < 0 ) then !--- missing
-       LOG_INFO("exp_SetInitCond_densitycurrent",*) 'Not found namelist. Default used.'
+       LOG_INFO("exp_SetInitCond_risingwarmbubble",*) 'Not found namelist. Default used.'
     elseif( ierr > 0 ) then !--- fatal error
-       LOG_ERROR("exp_SetInitCond_densitycurrent",*) 'Not appropriate names in namelist PARAM_EXP. Check!'
+       LOG_ERROR("exp_SetInitCond_risingwarmbubble",*) 'Not appropriate names in namelist PARAM_EXP. Check!'
        call PRC_abort
     endif
     LOG_NML(PARAM_EXP)
@@ -218,22 +218,17 @@ contains
 
       if (InitCond_GalerkinProjFlag) then
         r_intrp(:) = min(1.0_RP, sqrt(((x_intrp(:) - x_c)/r_c)**2 + ((z_intrp(:) - z_c)/r_c)**2))
-        THETA_intrp(:) = THETA0                          &
-         + DTHETA*0.5_RP*(1.0_RP + cos(PI*r_intrp(:))) &
-           / (1.0_RP - Grav*z_intrp(:)/(CpDry*THETA0))
+        THETA_intrp(:) = THETA0 + DTHETA*0.5_RP*(1.0_RP + cos(PI*r_intrp(:)))
         THETA(:) = matmul(IntrpMat, THETA_intrp)
       else
         r(:) = min(1.0_RP, sqrt(((x(:,k) - x_c)/r_c)**2 + ((z(:,k) - z_c)/r_c)**2))
-        THETA(:) = THETA0                          &
-         + DTHETA*0.5_RP*(1.0_RP + cos(PI*r(:))) &
-           / (1.0_RP - Grav*lcmesh%pos_en(:,k,2)/(CpDry*THETA0)) 
+        THETA(:) = THETA0 + DTHETA*0.5_RP*(1.0_RP + cos(PI*r(:))) 
       end if
-      
+
       DENS(:) = PRES00/(THETA(:)*Rdry) * dens_zfunc(:)
       DDENS(:,k) = DENS(:) - DENS_hyd(:,k)
 
       DRHOT(:,k) = DENS(:)*THETA(:) - DENS_hyd(:,k)*THETA0
-
 
       MOMX(:,k) = 0.0_RP
       MOMZ(:,k) = 0.0_RP
@@ -242,5 +237,5 @@ contains
     call elem_intrp%Final()
 
     return
-  end subroutine exp_SetInitCond_density_current
+  end subroutine exp_SetInitCond_rising_therm_bubble
 end module mod_user
