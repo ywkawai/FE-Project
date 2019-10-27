@@ -1,4 +1,4 @@
-name: FE_project_build
+name: build_FElib
 
 on:
   pull_request:
@@ -56,7 +56,7 @@ jobs:
         export SCALE=${GITHUB_WORKSPACE}/../scale
         make -j 2 -C FElib/src
 
-    - name: Unit tests for FElib
+    - name: unit test for FElib
       run: | 
         echo "Perform unit tests .."
 
@@ -69,13 +69,6 @@ jobs:
         make -C mesh_rectdom2d_quadrilateral
         make -C field_linedom1d
         make -C field_rectdom2d_quadrilateral
-
-    - name: Build models
-      run: |
-        echo "Build 2D nonhydrostatic atmospheric model"
-        make -C model/atm_nonhydro2d/src
-      
-      
         
 
       

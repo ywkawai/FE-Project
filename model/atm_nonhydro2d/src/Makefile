@@ -25,7 +25,7 @@ endif
 
 VPATH = \
 	$(BUILD_DIR): \
-	$(USER): 
+	user: 
 
 OBJS = \
 	mod_atmos_vars.o             \
