@@ -92,14 +92,14 @@ contains
       call LocalMesh1D_Init( this%lcmesh_list(n), refElem, PRC_myrank )
     end do
 
+    return
   end subroutine Meshbase1d_Init
 
   subroutine Meshbase1d_Final( this )
-    
+    implicit none    
     class(Meshbase1d), intent(inout) :: this
 
     integer :: n
-
     !-----------------------------------------------------------------------------
   
     do n=1, this%LOCAL_MESH_NUM
@@ -108,10 +108,11 @@ contains
     deallocate( this%lcmesh_list )
     
     call MeshBase_Final(this)
+
+    return
   end subroutine Meshbase1d_Final
   
   subroutine Meshbase1d_setGeometricInfo( mesh )
-
     implicit none
     
     type(LocalMesh1D), intent(inout) :: mesh
@@ -162,6 +163,7 @@ contains
        mesh%Gsqrt(:,n) = 1.0_RP
     end do
 
+    return
   end subroutine Meshbase1d_setGeometricInfo
 
   subroutine Meshbase1D_assignDomID( this, &
@@ -171,7 +173,8 @@ contains
   
     use scale_meshutil_1d, only: &       
       MeshUtil1D_buildGlobalMap
-
+    implicit none
+    
     class(Meshbase1d), intent(inout) :: this    
     integer, intent(out) :: Nprc
     integer, intent(out) :: tileID_table(this%LOCAL_MESH_NUM, this%PRC_NUM)
@@ -201,6 +204,7 @@ contains
     end do
     end do
 
+    return
   end subroutine Meshbase1D_assignDomID
 
   subroutine MeshBase1D_setupLocalDom( mesh,    &
@@ -283,6 +287,7 @@ contains
       & mesh%pos_en, mesh%xmin, mesh%xmax,                                  &
       & elem%Fmask, mesh%Ne, elem%Np, elem%Nfp, elem%Nfaces, mesh%Nv)
     
+    return
   end subroutine MeshBase1D_setupLocalDom
 
 end module scale_mesh_base1d

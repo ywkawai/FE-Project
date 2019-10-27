@@ -77,6 +77,8 @@ contains
     allocate( this%PRCRank_globalMap(this%LOCAL_MESH_NUM_global) )
     
     this%isGenerated = .false.
+
+    return
   end subroutine MeshBase_Init
 
   subroutine MeshBase_Final( this )
@@ -93,6 +95,7 @@ contains
     deallocate( this%tileID_global2localMap )
     deallocate( this%PRCRank_globalMap )
 
+    return
   end subroutine MeshBase_Final
 
   subroutine MeshBase_setGeometricInfo( mesh, ndim )
@@ -120,6 +123,7 @@ contains
     allocate( mesh%G_ij(refElem%Np,mesh%Ne, ndim,ndim) )
     allocate( mesh%GIJ (refElem%Np,mesh%Ne, ndim,ndim) )
 
+    return
   end subroutine MeshBase_setGeometricInfo
 
 end module scale_mesh_base

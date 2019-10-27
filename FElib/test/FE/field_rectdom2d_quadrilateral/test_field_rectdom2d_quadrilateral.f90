@@ -28,8 +28,8 @@ program test_field2d
 
   implicit none
 
-  integer, parameter :: NeGX = 3
-  integer, parameter :: NeGY = 3
+  integer, parameter :: NeGX = 2
+  integer, parameter :: NeGY = 2
   integer, parameter :: NLocalMeshPerPrc = 1
 
   real(RP), parameter :: dom_xmin = -1.0_RP

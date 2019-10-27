@@ -19,7 +19,6 @@ module scale_localmeshfield_base
 
   use scale_element_base, only: elementbase2D
 
-
   !-----------------------------------------------------------------------------
   implicit none
   private
