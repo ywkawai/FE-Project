@@ -1,3 +1,14 @@
+!-------------------------------------------------------------------------------
+!> Program atm_nonhydro2d (a launcher of main routine)
+!!
+!! @par Description
+!!         atm_nonhydro2d is a 2-dimensional nonhydrostatic atmospheric model
+!!         whose dynamical process is discretized by a discontinuous galerkin method. 
+!!
+!! @author Team SCALE
+!!
+!<
+!-------------------------------------------------------------------------------
 #include "scaleFElib.h"
 program atm_nonhydro2d
   !-----------------------------------------------------------------------------
