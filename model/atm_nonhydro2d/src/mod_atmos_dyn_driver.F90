@@ -258,11 +258,12 @@ contains
                                    1, lcmesh%refElem%Np, lcmesh%NeS, lcmesh%NeE )                                                                     
         call PROF_rapend('ATM_DYN_tint_advance', 1)
         
-        call PROF_rapstart( 'ATM_DYN_tint_expfilter', 1)
         if (ATMOS_DYN_EXPFILTER_FLAG) then
+          call PROF_rapstart( 'ATM_DYN_tint_expfilter', 1)
           call atm_dyn_nonhydro2d_filter_prgvar( &
             DDENS%local(n)%val, MOMX%local(n)%val, MOMZ%local(n)%val, DRHOT%local(n)%val, &
             lcmesh, lcmesh%refElem2D )
+          call PROF_rapend( 'ATM_DYN_tint_expfilter', 1)
         end if
       end do
     end do

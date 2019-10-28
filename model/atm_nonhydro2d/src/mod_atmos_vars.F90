@@ -24,7 +24,7 @@ module mod_atmos_vars
   !
   public :: ATMOS_VARS_setup
   public :: ATMOS_VARS_finalize
-  public :: ATMOS_VARS_output
+  public :: ATMOS_VARS_history
 
   !-----------------------------------------------------------------------------
   !
@@ -81,13 +81,6 @@ module mod_atmos_vars
 
   type(MeshFieldCommRectDom2D), public, save :: AUX_DIFFVARS_comm
   type(MeshFieldContainer), public, save :: AUX_DIFFVARS_list(AUX_DIFFVARS_NUM)
-
-  type(MeshField2D), public, save :: DxMOMX
-  type(MeshField2D), public, save  :: DzMOMZ
-  type(MeshField2D), public, save :: LiftDDENS
-  integer, public, parameter :: VARS_DxMOMX_ID       = 12
-  integer, public, parameter :: VARS_DzMOMZ_ID       = 13
-  integer, public, parameter :: VARS_LiftDDENS_ID       = 14
   
   !-----------------------------------------------------------------------------
   !
@@ -104,13 +97,9 @@ contains
     use mod_atmos_mesh, only: mesh
     implicit none
 
-    integer :: n, k
+    integer :: n
     type(LocalMesh2D), pointer :: lcmesh
     !-------------------------------------------------------------------------
-  
-    call DxMOMX%Init( "DxMOMX", "", mesh)
-    call DzMOMZ%Init( "DzMOMZ", "", mesh)
-    call LiftDDENS%Init( "LiftDDENS", "", mesh)
     
     call DDENS%Init( "DDENS", "kg/m3", mesh )
     call MOMX%Init( "MOMX", "kg/m2/s", mesh )
@@ -169,9 +158,6 @@ contains
     call FILE_HISTORY_reg( PRES_hydro%varname, "hydrostatic pressure", DPRES%unit, HST_ID(VARS_PRES_HYDRO_ID), dim_type='XY')
     call FILE_HISTORY_reg( DENS_hydro%varname, "hydrostatic density", TEMP%unit, HST_ID(VARS_DENS_HYDRO_ID), dim_type='XY')
 
-    call FILE_HISTORY_reg( DxMOMX%varname, "DxMOMX", DxMOMX%unit, HST_ID(VARS_DxMOMX_ID), dim_type='XY' )
-    call FILE_HISTORY_reg( DzMOMZ%varname, "DzMOMZ", DzMOMZ%unit, HST_ID(VARS_DzMOMZ_ID), dim_type='XY' )
-    call FILE_HISTORY_reg( LiftDDENS%varname, "LiftDDENS", LiftDDENS%unit, HST_ID(VARS_LiftDDENS_ID), dim_type='XY' )
     return
   end subroutine ATMOS_VARS_setup
 
@@ -207,15 +193,11 @@ contains
   end subroutine ATMOS_VARS_finalize
 
 
-  subroutine ATMOS_VARS_output( tsec_ )
-    use scale_file_history_meshfield, only: &
-      FILE_HISTORY_meshfield_put,   &
-      FILE_HISTORY_meshfield_write
+  subroutine ATMOS_VARS_history()
+    use scale_file_history_meshfield, only: FILE_HISTORY_meshfield_put
     use mod_atmos_mesh, only: mesh
     implicit none
 
-    real(RP), intent(in) :: tsec_
-    
     integer :: n
     type(LocalMesh2D), pointer :: lcmesh
     !-------------------------------------------------------------------------
@@ -242,14 +224,8 @@ contains
     call FILE_HISTORY_meshfield_put(HST_ID(VARS_DENS_HYDRO_ID), DENS_hydro)
     call FILE_HISTORY_meshfield_put(HST_ID(VARS_PRES_HYDRO_ID), PRES_hydro)
 
-    call FILE_HISTORY_meshfield_put(HST_ID(VARS_DxMOMX_ID), DxMOMX)
-    call FILE_HISTORY_meshfield_put(HST_ID(VARS_DzMOMZ_ID), DzMOMZ)
-    call FILE_HISTORY_meshfield_put(HST_ID(VARS_LiftDDENS_ID), LiftDDENS)
-
-    call FILE_HISTORY_meshfield_write()   
-
     return
-  end subroutine ATMOS_VARS_output
+  end subroutine ATMOS_VARS_history
 
   subroutine vars_calc_diagnoseVar( &
     U_, W_, DPRES_, TEMP_, DTHETA_,                      &
