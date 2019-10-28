@@ -23,10 +23,12 @@ program atm_nonhydro2d
     FILE_HISTORY_set_nowdate
   
   use scale_time_manager, only: &
-    TIME_manager_advance,                              &
-    TIME_NOWDATE, TIME_NOWMS, TIME_NOWSTEP,            &
-    TIME_NOWDAYSEC, TIME_DTSEC, TIME_NSTEP
+    TIME_manager_checkstate, TIME_manager_advance,      &
+    TIME_NOWDATE, TIME_NOWMS, TIME_NOWSTEP, TIME_NSTEP, &
+    TIME_DOresume, TIME_DOend
 
+  use scale_file_history_meshfield, only:   &
+      FILE_HISTORY_meshfield_write
   implicit none
 
   integer :: nowstep
@@ -35,20 +37,31 @@ program atm_nonhydro2d
 
   call init()
   
-  do nowstep=1, TIME_NSTEP
+  LOG_NEWLINE
+  LOG_PROGRESS(*) 'START TIMESTEP'  
+  do
+    ! report current time
+    call TIME_manager_checkstate()
+
+    if (TIME_DOresume) then
+      ! set state from restart files
+      call restart_read()
+      call FILE_HISTORY_meshfield_write()
+    end if
+
     !* Advance time
     call TIME_manager_advance()
     call FILE_HISTORY_set_nowdate( TIME_NOWDATE, TIME_NOWMS, TIME_NOWSTEP )
 
+    ! change to next state
     call update()
     call calc_tendency()
 
-    if (mod(nowstep,1000) == 0) then 
-      write(timelabel,'(I4.4,I2.2,I2.2,A1,I2.2,A1,I2.2,A1,I2.2)') &
-        TIME_NOWDATE(1:3), '-', TIME_NOWDATE(4), ":", TIME_NOWDATE(5), ":", TIME_NOWDATE(6)
-      LOG_PROGRESS('(A,A)') "time = ", trim(timelabel)
-    end if
-
+    !* output history files
+    call FILE_HISTORY_meshfield_write()
+    
+    if (TIME_DOend) exit
+    
     if( IO_L ) call flush(IO_FID_LOG)
   end do
 
@@ -57,8 +70,18 @@ program atm_nonhydro2d
 contains
   !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+  subroutine restart_read()
+    use mod_atmos_vars, only: ATMOS_VARS_history
+    implicit none
+    !--------------------------------------------
+
+    call ATMOS_VARS_history()
+
+    return
+  end subroutine restart_read
+
   subroutine update()
-    use mod_atmos_vars, only: ATMOS_VARS_output
+    use mod_atmos_vars, only: ATMOS_VARS_history
     use mod_atmos_dyn_driver, only: ATMOS_DYN_driver
     use mod_user, only: USER_update
     implicit none
@@ -66,7 +89,7 @@ contains
     
     !- ATMOS
     call ATMOS_DYN_driver()
-    call ATMOS_VARS_output( TIME_NOWDAYSEC )
+    call ATMOS_VARS_history()
 
     !- USER
     call USER_update()
@@ -93,8 +116,7 @@ contains
     use scale_time_manager, only: TIME_manager_Init
     use scale_file_history_meshfield, only: FILE_HISTORY_meshfield_setup
 
-    use mod_atmos_vars, only: &
-      ATMOS_VARS_setup, ATMOS_VARS_output
+    use mod_atmos_vars, only: ATMOS_VARS_setup
     use mod_atmos_mesh, only: &
       ATMOS_MESH_setup, mesh
     use mod_atmos_bnd, only: &
@@ -175,10 +197,6 @@ contains
     call ATMOS_bnd_setBCInfo()
     
     call USER_setup()
-
-    !--
-    call ATMOS_VARS_output( TIME_NOWDAYSEC )
-    LOG_PROGRESS('(A,F13.5,A)') "time=", real(0.0_RP), "[s]"
 
     !---
     call PROF_rapend( "init", 1 )
