@@ -68,7 +68,7 @@ make_sample_aux:
 $(BINDIR)/$(BINNAME): $(BUILD_DIR)/$(BINNAME).o $(patsubst %,$(BUILD_DIR)/%,$(OBJS)) $(SAMPLE_AUX_LIB) $(LIBS)
 	$(LD) $(LDFLAGS) $(ADDITIONAL_FFLAGS) -o $@ $^ $(LIBS) $(SCALE_NETCDF_LIBS) $(SCALE_MATHLIB_LIBS) $(SCALE_PAPI_LIBS) $(CONTRIB_LIBS)
 
-$(BUILD_DIR)/$(BINNAME).o: $(BINNAME).f90 $(patsubst %,$(BUILD_DIR)/%,$(OBJS))
+$(BUILD_DIR)/$(BINNAME).o: $(BINNAME).F90 $(patsubst %,$(BUILD_DIR)/%,$(OBJS))
 
 distclean: clean
 	rm -f $(BINNAME)
