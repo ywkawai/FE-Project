@@ -70,8 +70,10 @@ jobs:
         make -C polynominal
         make -C mesh_linedom1d
         make -C mesh_rectdom2d_quadrilateral
+        make -C mesh_cubedom3d_hexahedral
         make -C field_linedom1d
         make -C field_rectdom2d_quadrilateral
+        make -C field_cubedom3d_hexahedral
         
     - name: Build models
       run: |
