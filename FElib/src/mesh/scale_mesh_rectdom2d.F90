@@ -92,6 +92,8 @@ contains
     this%isPeriodicY = isPeriodicY
 
     call MeshBase2D_Init(this, refElem, NLocalMeshPerPrc)
+
+    return
   end subroutine MeshRectDom2D_Init
 
   subroutine MeshRectDom2D_Final( this )
@@ -108,6 +110,7 @@ contains
 
     call MeshBase2D_Final(this)
 
+    return
   end subroutine MeshRectDom2D_Final
   
   subroutine MeshRectDom2D_generate( this )
@@ -168,6 +171,8 @@ contains
     end do
 
     this%isGenerated = .true.
+
+    return
   end subroutine MeshRectDom2D_generate
 
   !- private ------------------------------------------------------

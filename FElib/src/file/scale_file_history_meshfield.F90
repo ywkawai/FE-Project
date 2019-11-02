@@ -77,7 +77,7 @@ contains
 
 !----------------
 
-subroutine FILE_HISTORY_meshfield_setup( mesh1D_, mesh2D_ )
+subroutine FILE_HISTORY_meshfield_setup( mesh1D_, mesh2D_, mesh3D_ )
 
   use scale_file_h, only: &
     FILE_HSHORT
@@ -97,6 +97,7 @@ subroutine FILE_HISTORY_meshfield_setup( mesh1D_, mesh2D_ )
 
   class(Meshbase1d), intent(in), target, optional :: mesh1D_
   class(MeshRectDom2d), intent(in), target, optional :: mesh2D_
+  class(MeshCubeDom3D), intent(in), target, optional :: mesh3D_
 
   character(len=H_MID) :: FILE_HISTORY_MESHFILED_H_TITLE = 'SCALE-FEM FILE_HISTORY_MESHFIELD' !< title of the output file
   character(len=H_MID) :: FILE_HISTORY_MESHFIELD_T_SINCE
@@ -146,6 +147,10 @@ subroutine FILE_HISTORY_meshfield_setup( mesh1D_, mesh2D_ )
     mesh2D => mesh2D_
     call set_dims2D()
     call set_axis2D()
+  else if ( present(mesh3D_) ) then
+    mesh3D => mesh3D_
+    call set_dims3D()
+    call set_axis3D()    
   else
     LOG_ERROR("FILE_HISTORY_meshfield_setup",*)   "Any mesh (mesh1d, mesh2d) are not specified."
     call PRC_abort

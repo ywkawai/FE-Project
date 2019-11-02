@@ -61,7 +61,7 @@ contains
     do k=1, Ke_z
     do j=1, Ke_y
     do i=1, Ke_x
-      n = i + (j-1)*Ke_x + (k-1)*NvX*NvY
+      n = i + (j-1)*Ke_x + (k-1)*Ke_x*Ke_y
       EToV(n,1:4) = (k-1)*NvX*NvY + (j-1)*NvX + &
             & (/ i, i+1,              &
             &    i + NvX, i+1 + NvX /)
@@ -262,7 +262,7 @@ contains
     real(RP), intent(in) :: pos_ev(Nv,3)
     integer, intent(in) :: EToE(Ne,Nfaces)
     integer, intent(in) :: EToF(Ne,Nfaces)
-    integer, intent(in) :: EToV(Ne,4)
+    integer, intent(in) :: EToV(Ne,Nv)
     integer, intent(in) :: Fmask_h(Nfp_h,Nfaces_h)
     integer, intent(in) :: Fmask_v(Nfp_v,Nfaces_v)
 
@@ -302,7 +302,7 @@ contains
     end do
 
     do k=1, Ne
-      do f=1, Nfaces
+      do f=1, Nfaces_h
       do p=1, Nfp_h
         n = p + (f-1)*Nfp_h + (k-1)*NfpTot
         MapM_h(p,f,k) = n
@@ -310,9 +310,9 @@ contains
         VMapM_h(p,f,k) = nodeids(Fmask_h(p,f),k)
       end do
       end do
-      do f=1, Nfaces
+      do f=1, Nfaces_v
       do p=1, Nfp_v
-        n = p + 4*Nfp_h + (f-1)*Nfp_v + (k-1)*NfpTot
+        n = p + Nfaces_h*Nfp_h + (f-1)*Nfp_v + (k-1)*NfpTot
         MapM_v(p,f,k) = n
         MapP_v(p,f,k) = n
         VMapM_v(p,f,k) = nodeids(Fmask_v(p,f),k)
@@ -325,10 +325,11 @@ contains
     do f1=1, Nfaces_h
       k2 = EToE(k1,f1); f2 = EToF(k1,f1)
 
-      v1 = EToV(k1,f1); v2 = EToV(k1,1+mod(f1,Nfaces))
+      v1 = EToV(k1,f1); v2 = EToV(k1,1+mod(f1,Nfaces_h))
+
       refd2 =    (pos_ev(v1,1) - pos_ev(v2,1))**2   &
-                + (pos_ev(v1,2) - pos_ev(v2,2))**2   &
-                + (pos_ev(v1,3) - pos_ev(v2,3))**2
+               + (pos_ev(v1,2) - pos_ev(v2,2))**2   &
+               + (pos_ev(v1,3) - pos_ev(v2,3))**2
 
       r_h(:,:,1,1) = spread( x(VMapM_h(:,f1,k1)), 2, Nfp_h )
       r_h(:,:,1,2) = spread( x(VMapM_h(:,f2,k2)), 1, Nfp_h )
@@ -354,12 +355,10 @@ contains
     VMapP_v(:,:,:) = -1
     do k1=1, Ne
     do f1=1, Nfaces_v
-      k2 = EToE(k1,f1); f2 = EToF(k1,f1) - Nfp_h
-
-      v1 = EToV(k1,f1); v2 = EToV(k1,1+mod(Nfp_h+f1,Nfaces))
-      refd2 =    (pos_ev(v1,1) - pos_ev(v2,1))**2   &
-                + (pos_ev(v1,2) - pos_ev(v2,2))**2   &
-                + (pos_ev(v1,3) - pos_ev(v2,3))**2
+      k2 = EToE(k1,Nfaces_h+f1); f2 = EToF(k1,Nfaces_h+f1) - Nfaces_h
+      
+      v1 = EToV(k1,1); v2 = EToV(k1,Nfaces_h+1)
+      refd2 =  sum( (pos_ev(v1,:) - pos_ev(v2,:))**2 )
 
       r_v(:,:,1,1) = spread( x(VMapM_v(:,f1,k1)), 2, Nfp_v )
       r_v(:,:,1,2) = spread( x(VMapM_v(:,f2,k2)), 1, Nfp_v )
@@ -368,7 +367,7 @@ contains
       r_v(:,:,3,1) = spread( z(VMapM_v(:,f1,k1)), 2, Nfp_v )
       r_v(:,:,3,2) = spread( z(VMapM_v(:,f2,k2)), 1, Nfp_v )
       
-      dist_v(:,:) =  (r_v(:,:,1,1) - r_v(:,:,1,2))**2  &
+      dist_v(:,:) =   (r_v(:,:,1,1) - r_v(:,:,1,2))**2  &
                     + (r_v(:,:,2,1) - r_v(:,:,2,2))**2  &
                     + (r_v(:,:,3,1) - r_v(:,:,3,2))**2
       do idP=1, Nfp_v
@@ -469,52 +468,92 @@ contains
     integer :: b
     integer :: f
     integer :: i, j
-    real(RP) :: x, y
+    real(RP) :: x, y, z
 
     real(RP), parameter :: NODE_TOL = 1.0E-12_RP
 
-    real(RP) :: ordInfo(Nfp_h*Ne,Nfaces_h)
-    integer :: elemIDs(Nfp_h*Ne,Nfaces_h)
-    integer :: faceIDs(Nfp_h*Ne,Nfaces_h)
-    integer :: counterB(Nfaces_h)
+    integer :: elemIDs_h(Nfp_h*Ne,Nfaces_h)
+    real(RP) :: ordInfo_h(Nfp_h*Ne,Nfaces_h)
+    integer :: faceIDs_h(Nfp_h*Ne,Nfaces_h)
+    integer :: counterB_h(Nfaces_h)
+
+    integer :: elemIDs_v(Nfp_v*Ne,Nfaces_v)
+    real(RP) :: ordInfo_v(Nfp_v*Ne,Nfaces_v)
+    integer :: faceIDs_v(Nfp_v*Ne,Nfaces_v)
+    integer :: counterB_v(Nfaces_v)
+
     integer :: mapB_counter
-    real(RP) :: rdomx, rdomy
+    real(RP) :: rdomx, rdomy, rdomz
     !-----------------------------------------------------------------------------
 
-    counterB(:) = 0.0_RP
+    counterB_h(:) = 0
+    counterB_v(:) = 0
+
     rdomx = 1.0_RP/(xmax - xmin)
     rdomy = 1.0_RP/(ymax - ymin)
+    rdomz = 1.0_RP/(zmax - zmin)
 
     do k=1, Ne
-    do f=1, Nfaces_h
-      x = sum(pos_en(Fmask_h(:,f),k,1)/dble(Nfp_h))
-      y = sum(pos_en(Fmask_h(:,f),k,2)/dble(Nfp_h))
+      do f=1, Nfaces_h
+        x = sum(pos_en(Fmask_h(:,f),k,1)/dble(Nfp_h))
+        y = sum(pos_en(Fmask_h(:,f),k,2)/dble(Nfp_h))
 
-      call eval_domain_boundary(1, y, ymin, x, k, f, rdomy)
-      call eval_domain_boundary(2, x, xmax, y, k, f, rdomx)
-      call eval_domain_boundary(3, y, ymax, x, k, f, rdomy)
-      call eval_domain_boundary(4, x, xmin, y, k, f, rdomx)
+        call eval_domain_boundary( &
+          elemIDs_h, ordInfo_h, faceIDs_h, counterB_h, & ! (inout)
+          1, y, ymin, x, k, f, rdomy                   ) ! (in)
+        call eval_domain_boundary( &
+          elemIDs_h, ordInfo_h, faceIDs_h, counterB_h, & ! (inout)
+          2, x, xmax, y, k, f, rdomx                   ) ! (in)    
+        call eval_domain_boundary( &
+          elemIDs_h, ordInfo_h, faceIDs_h, counterB_h, & ! (inout)
+          3, y, ymax, x, k, f, rdomy                   ) ! (in)
+        call eval_domain_boundary( &
+          elemIDs_h, ordInfo_h, faceIDs_h, counterB_h, & ! (inout)
+          4, x, xmin, y, k, f, rdomx                   ) ! (in)
+      end do
+      do f=1, Nfaces_v
+        x = sum(pos_en(Fmask_v(:,f),k,1)/dble(Nfp_v))
+        z = sum(pos_en(Fmask_v(:,f),k,3)/dble(Nfp_v))
+
+        call eval_domain_boundary( &
+          elemIDs_v, ordInfo_v, faceIDs_v, counterB_v, & ! (inout)
+          1, z, zmin, x, k, f, rdomz                   ) ! (in)
+        call eval_domain_boundary( &
+          elemIDs_v, ordInfo_v, faceIDs_v, counterB_v, & ! (inout)
+          2, z, zmax, x, k, f, rdomz                   ) ! (in)  
+      end do    
     end do
-    end do
 
 
-    allocate( mapB(sum(counterB*Nfp_h))    )
+    allocate( mapB(sum(counterB_h(:)*Nfp_h)+sum(counterB_v(:)*Nfp_v)) )
     allocate( vmapB(size(mapB)) )
 
     mapB_counter = 1
-    do b = 1, Nfp_h
+    do b = 1, Nfaces_h
       ! write(*,*) "LocalMesh boundary ID:", b
-      ! write(*,*) counterB(b)
-      ! write(*,*) ordInfo(1:counterB(1),b)
-      ! write(*,*) elemIds(1:counterB(1),b)
-      ! write(*,*) faceIds(1:counterB(1),b)
+      ! write(*,*) counterB_h(b)
+      ! write(*,*) ordInfo_h(1:counterB_h(1),b)
+      ! write(*,*) elemIds_h(1:counterB_h(1),b)
+      ! write(*,*) faceIds_h(1:counterB_h(1),b)
 
-      do i=1, counterB(b)
-        k = elemIds(i,b); f = faceIDs(i,b)
+      do i=1, counterB_h(b)
+        k = elemIDs_h(i,b); f = faceIDs_h(i,b)
         do j=1, Nfp_h
           n = j + (f-1)*Nfp_h
           VMapP(n,k) = Np*Ne + mapB_counter
           VmapB(mapB_counter) = Fmask_h(j,f) + (k-1)*Np
+          mapB_counter = mapB_counter + 1
+        end do
+      end do
+    end do
+
+    do b = 1, Nfaces_v
+      do i=1, counterB_v(b)
+        k = elemIDs_v(i,b); f = faceIDs_v(i,b)
+        do j=1, Nfp_v
+          n = j + Nfp_h*Nfaces_h + Nfp_v*(f-1)
+          VMapP(n,k) = Np*Ne + mapB_counter
+          VmapB(mapB_counter) = Fmask_v(j,f) + (k-1)*Np
           mapB_counter = mapB_counter + 1
         end do
       end do
@@ -534,9 +573,15 @@ contains
     return
 
   contains
-    subroutine eval_domain_boundary(domb_id, r, rbc, ord_info, k_, f_, normalized_fac)
+    subroutine eval_domain_boundary( &
+        elemIDs, ordInfo, faceIDs, counterB,              &
+        domb_id, r, rbc, ord_info, k_, f_, normalized_fac )
       implicit none
 
+      integer, intent(inout) :: elemIDs(:,:)
+      real(RP), intent(inout) :: ordInfo(:,:)
+      integer, intent(inout) :: counterB(:)
+      integer, intent(inout) :: faceIDs(:,:)
       integer, intent(in) :: domb_id
       real(RP), intent(in) :: r
       real(RP), intent(in) :: rbc
@@ -548,8 +593,8 @@ contains
       if ( abs(r - rbc)*normalized_fac < NODE_TOL ) then
         counterB(domB_ID) = counterB(domB_ID) + 1
         ordInfo(counterB(domB_ID),domB_ID) = ord_info
-        elemIds(counterB(domB_ID),domB_ID) = k_
-        faceIds(counterB(domB_ID),domB_ID) = f_
+        elemIDs(counterB(domB_ID),domB_ID) = k_
+        faceIDs(counterB(domB_ID),domB_ID) = f_
       end if
 
       return

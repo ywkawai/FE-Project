@@ -127,7 +127,7 @@ module scale_meshfieldcomm_base
 
 contains
   subroutine MeshFieldCommBase_Init( this, &
-    & sfield_num, hvfield_num, bufsize_per_field, comm_face_num, mesh )
+    sfield_num, hvfield_num, bufsize_per_field, comm_face_num, mesh )
 
     implicit none
     
@@ -137,6 +137,7 @@ contains
     integer, intent(in) :: bufsize_per_field
     integer, intent(in) :: comm_face_num
     class(Meshbase), intent(in), target :: mesh
+    !-----------------------------------------------------------------------------
 
     this%mesh => mesh
     this%sfield_num = sfield_num
@@ -153,10 +154,10 @@ contains
   end subroutine MeshFieldCommBase_Init
 
   subroutine MeshFieldCommBase_Final( this )
-
     implicit none
     
     class(MeshFieldCommBase), intent(inout) :: this
+    !-----------------------------------------------------------------------------
 
     if (this%field_num_tot > 0) then
       deallocate( this%send_buf, this%recv_buf )
@@ -187,7 +188,6 @@ contains
     integer :: request_recv(this%nfaces_comm * this%mesh%LOCAL_MESH_NUM)
     integer :: stat_send(MPI_STATUS_SIZE, this%nfaces_comm * this%mesh%LOCAL_MESH_NUM)
     integer :: stat_recv(MPI_STATUS_SIZE, this%nfaces_comm * this%mesh%LOCAL_MESH_NUM)
-  
     !-----------------------------------------------------------------------------
     
     req_counter = 0
@@ -227,7 +227,8 @@ contains
     class(LocalMeshBase), intent(in) :: mesh
     real(RP), intent(in) :: var(refElem%Np * mesh%NeA)
     real(RP), intent(inout) :: buf(size(mesh%VmapB))
-  
+    !-----------------------------------------------------------------------------
+
     buf(:) = var(mesh%VmapB(:))
     return
   end subroutine MeshFieldCommBase_extract_bounddata
@@ -239,6 +240,7 @@ contains
     class(LocalMeshBase), intent(in) :: mesh
     real(RP), intent(in) :: buf(size(mesh%VmapB))
     real(RP), intent(inout) :: var(refElem%Np * mesh%NeA)
+    !-----------------------------------------------------------------------------
 
     var(refElem%Np*mesh%NeE+1:refElem%Np*mesh%NeE+size(buf)) = buf(:)
     return
@@ -247,11 +249,14 @@ contains
   !-------------------------------------------
   
   subroutine LocalMeshCommData_Init( this, comm, lcmesh, faceID, Nnode_LCMeshFace )
+    implicit none
+
     class(LocalMeshCommData), intent(inout) :: this
     class(MeshFieldCommBase), intent(in) :: comm
     class(LocalMeshBase), intent(in), target :: lcmesh
     integer, intent(in) :: faceID
     integer, intent(in) :: Nnode_LCMeshFace
+    !-----------------------------------------------------------------------------
 
     this%lcmesh => lcmesh
     this%Nnode_LCMeshFace = Nnode_LCMeshFace
@@ -289,7 +294,6 @@ contains
     integer :: tag
     integer :: bufsize
     integer :: ierr
-
     !-------------------------------------------
 
     if ( this%s_rank /= this%lcmesh%PRC_myrank ) then
@@ -317,8 +321,11 @@ contains
   end subroutine LocalMeshCommData_isendrecv
 
   subroutine LocalMeshCommData_Final( this )
-    class(LocalMeshCommData), intent(inout) :: this
+    implicit none
     
+    class(LocalMeshCommData), intent(inout) :: this
+    !-----------------------------------------------------------------------------
+
     deallocate( this%send_buf )
     deallocate( this%recv_buf )
 

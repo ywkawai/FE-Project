@@ -103,6 +103,8 @@ contains
     this%isPeriodicZ = isPeriodicZ
 
     call MeshBase3D_Init(this, refElem, NLocalMeshPerPrc, 6)
+
+    return
   end subroutine MeshCubeDom3D_Init
 
   subroutine MeshCubeDom3D_Final( this )
@@ -120,6 +122,7 @@ contains
 
     call MeshBase3D_Final(this)
 
+    return
   end subroutine MeshCubeDom3D_Final
   
   subroutine MeshCubeDom3D_generate( this )
@@ -153,7 +156,7 @@ contains
         & NprcX, NprcY, NprcZ,                & ! (out)
         & tileID_table, panelID_table,        & ! (out)
         & pi_table, pj_table, pk_table )        ! (out)
-
+    
     !--- Setup local meshes managed by my process
 
     do n=1, this%LOCAL_MESH_NUM
@@ -180,6 +183,8 @@ contains
     end do
 
     this%isGenerated = .true.
+
+    return
   end subroutine MeshCubeDom3D_generate
 
   !- private ------------------------------------------------------
@@ -223,7 +228,7 @@ contains
     lcmesh%Nv  = (NeX + 1)*(NeY + 1)*(NeZ + 1)
     lcmesh%NeS = 1
     lcmesh%NeE = lcmesh%Ne
-    lcmesh%NeA = lcmesh%Ne + 2*(NeX + NeY + NeZ)
+    lcmesh%NeA = lcmesh%Ne + 2*(NeX + NeY)*NeZ + 2*NeX*NeY
 
     lcmesh%NeX = NeX
     lcmesh%NeY = NeY
@@ -239,7 +244,7 @@ contains
     lcmesh%ymax = dom_ymin +  j   *dely
     lcmesh%zmin = dom_zmin + (k-1)*delz
     lcmesh%zmax = dom_zmin +  k   *delz
-
+    
     allocate(lcmesh%pos_ev(lcmesh%Nv,3))
     allocate( lcmesh%EToV(lcmesh%Ne,elem%Nv) )
     allocate( lcmesh%EToE(lcmesh%Ne,elem%Nfaces) )
@@ -249,9 +254,9 @@ contains
     allocate( lcmesh%VMapP(elem%NfpTot, lcmesh%Ne) )
     allocate( lcmesh%MapM(elem%NfpTot, lcmesh%Ne) )
     allocate( lcmesh%MapP(elem%NfpTot, lcmesh%Ne) )
-
+    
     lcmesh%BCType(:,:) = BCTYPE_INTERIOR
-
+    
     !----
 
     call MeshUtil3D_genCubeDomain( lcmesh%pos_ev, lcmesh%EToV,     & ! (out)
@@ -386,6 +391,8 @@ contains
     zX(:) = 0.0_RP                 !matmul(refElem%Dx1,mesh%x3(:,n))
     zY(:) = 0.0_RP                 !matmul(refElem%Dx2,mesh%x3(:,n))
     zZ(:) = 0.5_RP*(vz(5) - vz(1)) !matmul(refElem%Dx3,mesh%x3(:,n))
+
+    return
   end subroutine MeshCubeDom3D_coord_conv  
 
   subroutine MeshCubeDom3D_calc_normal( normal_fn, &
@@ -411,6 +418,8 @@ contains
       normal_fn(fid_v(:,1),d) = - Escale_f(fid_v(:,1),3,d)
       normal_fn(fid_v(:,2),d) = + Escale_f(fid_v(:,2),3,d)    
     end do
+
+    return
   end subroutine MeshCubeDom3D_calc_normal 
 
 end module scale_mesh_cubedom3d

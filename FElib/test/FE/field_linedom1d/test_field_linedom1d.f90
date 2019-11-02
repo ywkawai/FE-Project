@@ -60,6 +60,8 @@ program test_field1d
   call perform_comm()
 
   do n=1, mesh%LOCAL_MESH_NUM
+    lcmesh => mesh%lcmesh_list(n)
+
     write(*,*) "Check interior & halo data.."
     write(*,*) "tileID=", lcmesh%tileID
     call check_interior_data(n, mesh%lcmesh_list(n), q%local(n)%val, q%local(n)%val)
