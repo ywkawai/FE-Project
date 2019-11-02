@@ -86,20 +86,20 @@ contains
     type(HexahedralElement), intent(inout) :: elem
     logical, intent(in) :: LumpedMassMatFlag
 
-    integer :: nodes_ijk(elem%Nnode_h1D, elem%Nnode_h1D, elem%Nfp_v)
+    integer :: nodes_ijk(elem%Nnode_h1D, elem%Nnode_h1D, elem%Nnode_v)
 
     real(RP) :: lglPts1D_h(elem%Nnode_h1D)
-    real(RP) :: lglPts1D_v(elem%Nfp_v)
+    real(RP) :: lglPts1D_v(elem%Nnode_v)
 
     real(DP) :: intWeight_lgl1DPts_h(elem%Nnode_h1D)
-    real(DP) :: intWeight_lgl1DPts_v(elem%Nfp_v)
+    real(DP) :: intWeight_lgl1DPts_v(elem%Nnode_v)
 
     real(RP) :: P1D_ori_h(elem%Nnode_h1D, elem%Nnode_h1D)
-    real(RP) :: P1D_ori_v(elem%Nfp_v, elem%Nfp_v)
+    real(RP) :: P1D_ori_v(elem%Nnode_v, elem%Nnode_v)
     real(RP) :: DP1D_ori_h(elem%Nnode_h1D, elem%Nnode_h1D)
-    real(RP) :: DP1D_ori_v(elem%Nfp_v, elem%Nfp_v)
+    real(RP) :: DP1D_ori_v(elem%Nnode_v, elem%Nnode_v)
     real(RP) :: DLagr1D_h(elem%Nnode_h1D, elem%Nnode_h1D)
-    real(RP) :: DLagr1D_v(elem%Nfp_v, elem%Nfp_v)
+    real(RP) :: DLagr1D_v(elem%Nnode_v, elem%Nnode_v)
     real(RP) :: V2D_h(elem%Nfp_h, elem%Nfp_h)
     real(RP) :: V2D_v(elem%Nfp_v, elem%Nfp_v)
     real(RP) :: Emat(elem%Np, elem%NfpTot)
@@ -141,7 +141,7 @@ contains
     elem%Fmask_h(:,4) = reshape(nodes_ijk(1,:,:), (/ elem%Nfp_h /))
 
     elem%Fmask_v(:,1) = reshape(nodes_ijk(:,:,1), (/ elem%Nfp_v /))
-    elem%Fmask_v(:,2) = reshape(nodes_ijk(:,:,elem%Nfp_v), (/ elem%Nfp_v /))
+    elem%Fmask_v(:,2) = reshape(nodes_ijk(:,:,elem%Nnode_v), (/ elem%Nfp_v /))
 
     do j=1, elem%Nnode_h1D
     do i=1, elem%Nnode_h1D
@@ -193,8 +193,8 @@ contains
       do p2=1, elem%Nnode_h1D
       do p1=1, elem%Nnode_h1D
         l = p1 + (p2 - 1)*elem%Nnode_h1D + (p3-1)*elem%Nnode_h1D**2
-        elem%V(n,l) = (P1D_ori_h(i,p1)*P1D_ori_h(j,p2)*P1D_ori_v(k,p3))                       &
-                      * sqrt((dble(p1-1) + 0.5_RP)*(dble(p2-1) + 0.5_RP)*(dble(p3-1) + 0.5_RP))
+        elem%V(n,l) = (P1D_ori_h(i,p1)*P1D_ori_h(j,p2)*P1D_ori_v(k,p3))                         &
+                      * sqrt((dble(p1-1) + 0.5_DP)*(dble(p2-1) + 0.5_DP)*(dble(p3-1) + 0.5_DP))
   
         if(p2==j .and. p3==k) elem%Dx1(n,l) = DLagr1D_h(p1,i)
         if(p1==i .and. p3==k) elem%Dx2(n,l) = DLagr1D_h(p2,j)
@@ -232,7 +232,7 @@ contains
       do i=1, elem%Nnode_h1D
         l = i + (j-1)*elem%Nnode_h1D + (k-1)*elem%Nnode_h1D**2
         elem%M(l,l) = elem%IntWeight_lgl(l)
-        elem%invM(l,l) = 1.0_RP/elem%IntWeight_lgl(l)
+        elem%invM(l,l) = 1.0_DP/elem%IntWeight_lgl(l)
       end do
       end do
       end do
@@ -256,15 +256,25 @@ contains
     do k=1, elem%Nnode_v
     do i=1, elem%Nnode_h1D
       n = i + (k-1)*elem%Nnode_h1D
-      V2D_h(:,n) =   P1D_ori_h(:,i)*P1D_ori_v(:,k) &
-                   * sqrt(dble(i-1) + 0.5_RP)*sqrt(dble(k-1) + 0.5_RP)
+      do p3=1, elem%Nnode_v
+      do p1=1, elem%Nnode_h1D
+        l = p1 + (p3-1)*elem%Nnode_h1D
+        V2D_h(n,l) =   P1D_ori_h(i,p1)*P1D_ori_v(k,p3) &
+                   * sqrt(dble(p1-1) + 0.5_DP)*sqrt(dble(p3-1) + 0.5_DP)
+      end do
+      end do
     end do
     end do
     do j=1, elem%Nnode_h1D
     do i=1, elem%Nnode_h1D
-        n = i + (j-1)*elem%Nnode_h1D
-        V2D_v(:,n) =   P1D_ori_h(:,i)*P1D_ori_h(:,j) &
-                     * sqrt(dble(i-1) + 0.5_RP)*sqrt(dble(j-1) + 0.5_RP)
+      n = i + (j-1)*elem%Nnode_h1D
+      do p2=1, elem%Nnode_h1D
+      do p1=1, elem%Nnode_h1D
+        l = p1 + (p2-1)*elem%Nnode_h1D
+        V2D_v(n,l) =   P1D_ori_h(i,p1)*P1D_ori_h(j,p2) &
+                     * sqrt(dble(p1-1) + 0.5_DP)*sqrt(dble(p2-1) + 0.5_DP)
+      end do
+      end do
     end do
     end do
   
@@ -356,9 +366,9 @@ contains
       do p2=1, this%Nnode_h1D
       do p1=1, this%Nnode_h1D
         l_ = p1 + (p2-1)*this%Nnode_h1D + (p3-1)*this%Nnode_h1D**2
-        Vint(n_,l_) =  P_int1D_ori_h(p1_,p1) * sqrt(real(p1-1,kind=RP) + 0.5_RP) &
-                     * P_int1D_ori_h(p2_,p2) * sqrt(real(p2-1,kind=RP) + 0.5_RP) &
-                     * P_int1D_ori_v(p3_,p3) * sqrt(real(p3-1,kind=RP) + 0.5_RP)
+        Vint(n_,l_) =  P_int1D_ori_h(p1_,p1) * sqrt(dble(p1-1) + 0.5_DP) &
+                     * P_int1D_ori_h(p2_,p2) * sqrt(dble(p2-1) + 0.5_DP) &
+                     * P_int1D_ori_v(p3_,p3) * sqrt(dble(p3-1) + 0.5_DP)
       end do
       end do
       end do

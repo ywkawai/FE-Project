@@ -156,7 +156,7 @@ contains
     allocate( lcmesh%sJ(refElem%NfpTot,lcmesh%Ne) )
     allocate( lcmesh%J(refElem%Np,lcmesh%Ne) )
     allocate( lcmesh%Fscale(refElem%NfpTot,lcmesh%Ne) )
-    allocate( lcmesh%Escale(refElem%Np,lcmesh%Ne2D,2,2) )
+    allocate( lcmesh%Escale(refElem%Np,lcmesh%Ne,3,3) )
     allocate( lcmesh%zS(refElem%Np,lcmesh%Ne) )
     allocate( lcmesh%Sz(refElem%Np,lcmesh%Ne) )
     allocate( lcmesh%Gsqrt(refElem%Np,lcmesh%Ne) )

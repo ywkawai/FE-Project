@@ -356,7 +356,7 @@ contains
     !-----------------------------------------------------------------------------
 
 
-    counterB(:) = 0.0_RP
+    counterB(:) = 0
     rdomx = 1.0_RP/(xmax - xmin)
     rdomy = 1.0_RP/(ymax - ymin)
 
