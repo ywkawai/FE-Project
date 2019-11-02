@@ -604,7 +604,7 @@ contains
   subroutine MeshUtil3D_buildGlobalMap( &
     panelID_table, pi_table, pj_table, pk_table,    &
     tileID_map, tileFaceID_map, tilePanelID_map,    &
-    Ntile, NtileFace,                               &
+    Ntile, NtileFace, NtileVertex,                  &
     isPeriodicX, isPeriodicY, isPeriodicZ )
     
     use scale_prc, only: PRC_isMaster
@@ -612,6 +612,7 @@ contains
 
     integer, intent(in) :: Ntile
     integer, intent(in) :: NtileFace
+    integer, intent(in) :: NtileVertex
     integer, intent(out) :: panelID_table(Ntile)
     integer, intent(out) :: pi_table(Ntile)
     integer, intent(out) :: pj_table(Ntile)
@@ -645,7 +646,7 @@ contains
     Nv_v = Ne_v + 1
 
     allocate( nodesID_3d(Nv_h,Nv_h,Nv_v) )
-    allocate( EToV(Ntile,NtileFace), EToE(Ntile,NtileFace), EToF(Ntile,NtileFace) )
+    allocate( EToV(Ntile,NtileVertex), EToE(Ntile,NtileFace), EToF(Ntile,NtileFace) )
 
     counter = 0
     do k = 1, Nv_v
@@ -741,7 +742,7 @@ contains
     !     write(*,*) "tileID:", tileID, ", EtoF:", EtoF(tileID,:)
     !   end do
     ! end if
-
+    
     return
   end subroutine MeshUtil3D_buildGlobalMap
 

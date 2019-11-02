@@ -327,7 +327,8 @@ contains
     call MeshUtil3D_buildGlobalMap( &
       panelID_table, pi_table, pj_table, pk_table,                                          & ! (out)
       this%tileID_globalMap, this%tileFaceID_globalMap, this%tilePanelID_globalMap,         & ! (out)
-      this%LOCAL_MESH_NUM_global, 6, this%isPeriodicX, this%isPeriodicY, this%isPeriodicZ )   ! (in)                                        ! (in)
+      this%LOCAL_MESH_NUM_global, 6, 8,                                                     & ! (in)
+      this%isPeriodicX, this%isPeriodicY, this%isPeriodicZ )                                  ! (in)                                        ! (in)
 
     !----
     
