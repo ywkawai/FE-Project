@@ -151,7 +151,7 @@ contains
     
     
     !--- Construct the connectivity of patches  (only master node)
-
+    LOG_INFO("generate",*)  'MesshCubeDom3D_assignDomID ..'
     call MesshCubeDom3D_assignDomID( this,    & ! (in)
         & NprcX, NprcY, NprcZ,                & ! (out)
         & tileID_table, panelID_table,        & ! (out)
@@ -159,6 +159,7 @@ contains
     
     !--- Setup local meshes managed by my process
 
+    LOG_INFO("generate",*)  'Setup local meshes managed by my process ..'
     do n=1, this%LOCAL_MESH_NUM
       mesh => this%lcmesh_list(n)
       tileID = tileID_table(n, mesh%PRC_myrank+1)
