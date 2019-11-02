@@ -42,6 +42,8 @@ contains
     integer :: comm, myrank, nprocs
     logical :: ismaster
 
+    !----------------------------------------------
+
     call PRC_MPIstart( comm )
     
     call PRC_SINGLECOM_setup( comm,    & ! [IN]
@@ -56,21 +58,27 @@ contains
     call IO_LOG_setup( myrank, ismaster )   
     
     !------
+    LOG_INFO("init",*)  'Initialize HexahedralElement ..'
     call refElem%Init(PolyOrder_h, PolyOrder_v, .true.)
 
+    LOG_INFO("init",*)  'Initialzie MeshCubeDom3D ..'
     call mesh%Init( &
       NeGX, NeGY, NeGZ,                                           &
       dom_xmin, dom_xmax, dom_ymin, dom_ymax, dom_zmin, dom_zmax, &
       .true., .true., .true.,                                     &
       refElem, NLocalMeshPerPrc )
     
+    LOG_INFO("init",*)  'Generate MeshCubeDom3D ..'    
     call mesh%Generate()
+
+    LOG_INFO("init",*) 'Initialization has succeeded.'
 
     return
   end subroutine init
 
   subroutine final()
-    
+    LOG_INFO("init",*) 'Finalize ...'
+
     call mesh%Final()
     call refElem%Final()
     
@@ -108,6 +116,8 @@ contains
     NeY = lcmesh%NeY
     NeZ = lcmesh%NeZ
     
+    LOG_INFO("check_connectivity",*) 'Set information about correct values..'
+
     do k=1, NeZ
     do j=1, NeY
     do i=1, NeX
@@ -176,7 +186,8 @@ contains
     end do
     end do
     
-    !-- Check the connectivity of 2D mesh. 
+    !---
+    LOG_INFO("check_connectivity",*) 'Check the connectivity of 3D mesh..'
 
     write(*,*) "** my_rank=", lcmesh%PRC_myrank
     write(*,*) " tileID:", lcmesh%tileID
