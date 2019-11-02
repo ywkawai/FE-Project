@@ -716,11 +716,11 @@ contains
     if (isPeriodicZ) then
       do tileID=1, Ntile
         if (pk_table(tileID) == 1 .and. tileFaceID_map(5,tileID) == 5) then
-          tileID_map(1,tileID) = pi_table(tileID) + (pj_table(tileID) - 1)*Ne_h  + (Ne_v - 1)*Ne_h**2
+          tileID_map(5,tileID) = pi_table(tileID) + (pj_table(tileID) - 1)*Ne_h  + (Ne_v - 1)*Ne_h**2
           tileFaceID_map(5,tileID) = 6
         end if
         if (pk_table(tileID) == Ne_v .and. tileFaceID_map(6,tileID) == 6) then
-          tileID_map(3,tileID) = pi_table(tileID) + (pj_table(tileID) - 1)*Ne_h
+          tileID_map(6,tileID) = pi_table(tileID) + (pj_table(tileID) - 1)*Ne_h
           tileFaceID_map(6,tileID) = 5
         end if
       end do
