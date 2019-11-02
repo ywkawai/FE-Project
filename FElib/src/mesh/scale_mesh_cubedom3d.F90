@@ -5,6 +5,7 @@ module scale_mesh_cubedom3d
   !
   !++ used modules
   !
+  use scale_io
   use scale_precision
 
   use scale_mesh_base3d, only: &
@@ -152,6 +153,7 @@ contains
     
     !--- Construct the connectivity of patches  (only master node)
     LOG_INFO("generate",*)  'MesshCubeDom3D_assignDomID ..'
+
     call MesshCubeDom3D_assignDomID( this,    & ! (in)
         & NprcX, NprcY, NprcZ,                & ! (out)
         & tileID_table, panelID_table,        & ! (out)
