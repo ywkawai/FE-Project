@@ -1,66 +1,35 @@
 # FE-project 
 
-## Target
-FE project provides a library for some discontinuous Galerkin methods (DGMs), 
-and some sample programs with the library for DGMs. 
+## What is FE-project?
+FE project provides a library and some sample programs for some discontinuous Galerkin methods 
+Futhermore, some dynamical cores of atmospheric and oceanic model with DGM will be provided. 
 
-## Simple sample programs with FE library
-- 1-dimensional linear advection problems
-- 2-dimensional linear advection problems in a rectangle domain
-
-## Models with FE library
-- 2-dimensional dynamical core of nonhydrostatic atmospheric model
-
-## Dependency
-This FE library requires following libraries: 
-  - SCALE library (http://r-ccs-climate.riken.jp/scale/ja/index.html). 
-
-## Build
-1. preparation
-  - set SCALE_FE_SYS environmental variable (see the sysdef directory)
-
-  `% export SCALE_FE_SYS=MacOSX-gnu-ompi`   (for example)
-
-  - set a directory in which SCALE library is contained
-
-  `% export SCALE="~/workspace/scale-5.3.3/"`   (for example)
-
-  - set a directory in which NetCDF library is contained (if necessary).
-    
-  `% export NETCDF="/ap/netcdf4-fortran/4.4.2/"`   (for example)
-
-2. build the library in the directory of FElib
-
- `% cd rootdir/FElib/src/`
-
- `% make`
-
-3. compile and run 
-
- For simple sample programs such as sample/advect1d or sample/advect2d, 
- e.g.,
- 
- `% cd rootdir/sample/advect1d/`
-
- `% make`
-
- If you want to build a 2-dimensional nonhydrostatic atmospheric model, 
- and conduct a idealized test case, such as density current, using it, 
- 
- `% cd rootdir/model/atm_nonhydro2d/test/case/density_current`
-
- `% make`
-
- `% make run`
-
- In the directory of 'visualize', some python scripts with matplotlib 
- are prepared for visualizing simulation results. 
-
-## Example of simulation results
- 
-A simulation of density current by a 2-dimensional nonhydrostatic atmospheric model with nodal DGM
+- Example of simulation results by a 2D nonhydrostatic atmospheric model with nodal DGM
 
 ![A simulation of density current](https://github.com/ywkawai/FE-project/wiki/gallery/atm_nonhydro2d/density_current/density_current.gif)
 
  For more animations of simulation results, please see the Wiki of FE-project on github or 'FE-project gallery' channel on YouTube (url: https://www.youtube.com/channel/UCO17OQtKHwkkQwmHD9y9mQg/featured). 
+
+
+## Simple samples with FE library
+### 1D problems 
+  - linear advection 
+    - various profiles of advected quantity
+
+### 2D problems 
+  - linear advection in a rectangle domain
+    - various profiles of advected quantity and flow
+
+### 3D problems 
+  - linear advection in a cubic domain
+    - various profiles of advected quantity
+
+## Models with FE library
+### Dynamical cores of atmospheric model 
+- 2-dimensional dynamical core of nonhydrostatic atmospheric model
+
+ 
+## Build FE library
+Please see ``INSTALL.md''.  
+
 
