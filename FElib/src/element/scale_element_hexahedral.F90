@@ -356,7 +356,7 @@ contains
     do p3_=1, IntrpPolyOrder
     do p2_=1, IntrpPolyOrder
     do p1_=1, IntrpPolyOrder
-      n_= p1_ + (p2_-1)*IntrpPolyOrder
+      n_= p1_ + (p2_-1)*IntrpPolyOrder + (p3_-1)*IntrpPolyOrder**2
       if (present(intw_intrp)) intw_intrp(n_) = r_int1Dw_i(p1_) * r_int1Dw_i(p2_) * r_int1Dw_i(p3_)
       if (present(x_intrp)) x_intrp(n_) = r_int1D_i(p1_)
       if (present(y_intrp)) y_intrp(n_) = r_int1D_i(p2_)
