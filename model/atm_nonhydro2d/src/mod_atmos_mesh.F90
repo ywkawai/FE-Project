@@ -72,7 +72,8 @@ contains
       dom_xmin, dom_xmax,         &
       dom_zmin, dom_zmax,         &
       isPeriodicX, isPeriodicZ,   &
-      NeGX, NeGZ, PolyOrder
+      NeGX, NeGZ, PolyOrder,      &
+      LumpedMassMatFlag
     
     integer :: ierr
     !-------------------------------------------

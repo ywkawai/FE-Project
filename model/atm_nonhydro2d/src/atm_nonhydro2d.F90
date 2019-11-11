@@ -139,7 +139,7 @@ contains
     !------------------------------------------------------------------------
 
     call PRC_MPIstart( comm )
-     
+
     call PRC_SINGLECOM_setup( comm,    & ! [IN]
       nprocs, myrank, ismaster )         ! [OUT]
     
@@ -151,7 +151,6 @@ contains
     
     ! setup log
     call IO_LOG_setup( myrank, ismaster )   
- 
 
     !--- read namelist
 
@@ -165,6 +164,7 @@ contains
     endif
     LOG_NML(PARAM_ATM_NONHYDRO2D)
 
+        
     ! setup profiler
     call PROF_setup
     call PROF_rapstart( "total", 0 )

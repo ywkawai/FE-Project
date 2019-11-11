@@ -69,6 +69,8 @@ contains
     this%PRC_NUM               = PRC_nprocs
     this%LOCAL_MESH_NUM        = NLocalMeshPerPrc
     this%LOCAL_MESH_NUM_global = PRC_nprocs * this%LOCAL_MESH_NUM
+
+    this%refElem => refElem
         
     allocate( this%tileID_globalMap(NsideTile, this%LOCAL_MESH_NUM_global) )
     allocate( this%tileFaceID_globalMap(NsideTile, this%LOCAL_MESH_NUM_global) )
