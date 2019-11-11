@@ -57,7 +57,8 @@ OBJS_NAME_FILE = \
 	scale_file_history_meshfield.o
 
 OBJS_NAME_FLUID_DYN_SOLVER = \
-	scale_atm_dyn_nonhydro2d.o
+	scale_atm_dyn_nonhydro2d.o \
+	scale_atm_dyn_nonhydro3d.o
 
 
 OBJS_NAME_MODEL_FRAMEWORK = \
