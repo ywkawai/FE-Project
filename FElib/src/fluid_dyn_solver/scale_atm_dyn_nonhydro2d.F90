@@ -65,6 +65,7 @@ module scale_atm_dyn_nonhydro2d
   integer, private, parameter :: AUX_DIFFVARS_NUM = 6
 
   real(RP), private, allocatable :: FilterMat(:,:)
+  real(RP), private, allocatable :: IntrpMat_VPOrdM1(:,:)
 
   private :: cal_del_flux_dyn
   private :: cal_del_gradDiffVar
@@ -73,8 +74,26 @@ contains
   subroutine atm_dyn_nonhydro2d_Init( mesh )
 
     implicit none
-    class(MeshBase2D), intent(in) :: mesh
+    class(MeshBase2D), intent(in), target :: mesh
+
+
+    integer :: p1, p_
+    real(RP), allocatable :: invV_VPOrdM1(:,:)
+    
+    type(ElementBase2D), pointer :: elem
     !--------------------------------------------
+
+    elem => mesh%refElem2D
+
+    allocate( invV_VPOrdM1(elem%Np,elem%Np) )
+    InvV_VPOrdM1(:,:) = elem%invV
+    do p1=1, elem%PolyOrder+1
+      p_ = p1 + elem%PolyOrder*(elem%PolyOrder + 1)
+      InvV_VPOrdM1(p_,:) = 0.0_RP
+    end do
+
+    allocate( IntrpMat_VPOrdM1(elem%Np,elem%Np) )
+    IntrpMat_VPOrdM1(:,:) = matmul(elem%V, invV_VPOrdM1)
 
     return
   end subroutine atm_dyn_nonhydro2d_Init
@@ -87,7 +106,7 @@ contains
     class(elementbase2D), intent(in) :: elem
     real(RP), intent(in) :: etac
     real(RP), intent(in) :: alpha
-    real(RP), intent(in) :: ord
+    integer, intent(in) :: ord
 
     real(RP) :: filter1D(elem%Nfp)
     real(RP) :: eta
@@ -121,6 +140,7 @@ contains
     implicit none
     !--------------------------------------------
     
+    if( allocated(IntrpMat_VPOrdM1) ) deallocate( IntrpMat_VPOrdM1 )
     if( allocated(FilterMat) ) deallocate( FilterMat )
     
     return
@@ -191,19 +211,6 @@ contains
     real(RP) :: pres_(elem%Np), u_(elem%Np), w_(elem%Np)
 
     integer :: k
-
-    integer :: p1, p_
-    real(RP) :: IntrpMat_VPOrdM1(elem%Np,elem%Np)
-    real(RP) :: invV_VPOrdM1(elem%Np,elem%Np)
-    !------------------------------------------------------------------------
-
-    InvV_VPOrdM1(:,:) = elem%invV
-    do p1=1, elem%PolyOrder+1
-      p_ = p1 + elem%PolyOrder*(elem%PolyOrder + 1)
-      InvV_VPOrdM1(p_,:) = 0.0_RP
-    end do
-    IntrpMat_VPOrdM1(:,:) = matmul(elem%V, invV_VPOrdM1)
-    
     !------------------------------------------------------------------------
 
     call PROF_rapstart( 'cal_dyn_tend_bndflux', 2)
@@ -259,7 +266,7 @@ contains
             lmesh%Escale(:,k,1,1) * Fx(:)   &
           + lmesh%Escale(:,k,2,2) * Fz(:)   &
           + LiftDelFlx(:)                )  &
-          - matmul(IntrpMat_VPOrdM1, DDENS_(:,k)) * Grav
+        - matmul(IntrpMat_VPOrdM1, DDENS_(:,k)) * Grav
         !- DDENS_(:,k)*Grav
         
 

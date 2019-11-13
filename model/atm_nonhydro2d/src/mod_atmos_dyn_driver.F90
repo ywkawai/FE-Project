@@ -54,7 +54,7 @@ module mod_atmos_dyn_driver
   logical, private :: ATMOS_DYN_EXPFILTER_FLAG   = .false.
   real(RP), private :: ATMOS_DYN_EXPFILTER_ETAC  = 1.0_RP
   real(RP), private :: ATMOS_DYN_EXPFILTER_ALPHA = 36.0_RP
-  real(RP), private :: ATMOS_DYN_EXPFILTER_ORDER = 32
+  integer, private :: ATMOS_DYN_EXPFILTER_ORDER = 32
 
 contains
   subroutine ATMOS_DYN_driver_setup()
@@ -100,7 +100,7 @@ contains
 
     !
     call atm_dyn_nonhydro2d_Init( mesh )
-    
+
     ! setup for time integrator
     allocate( tinteg_lc(mesh%LOCAL_MESH_NUM) )
     do n=1, mesh%LOCAL_MESH_NUM
