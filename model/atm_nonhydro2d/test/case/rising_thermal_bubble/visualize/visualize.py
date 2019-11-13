@@ -26,7 +26,7 @@ def set_fig_XY_axis(ax):
   ax.yaxis.set_minor_locator(tick.MultipleLocator(0.1e3))
 
 #nc = xr.open_dataset('history.pe000000.nc', decode_times=False)
-nc = xr.open_mfdataset('history.pe0000*.nc', decode_times=False, combine='by_coords')
+nc = xr.open_mfdataset('history.pe000*.nc', decode_times=False, combine='by_coords')
 dtheta = nc.DTHETA
 u = nc.U
 w = nc.W
@@ -40,7 +40,7 @@ ax = fig.add_subplot(1,1,1)
 set_fig_XY_axis(ax)
 ax.set_title("Rising thermal bubble ($\Theta', U, W$)")
 
-pcm = ax.pcolormesh(X, Z, dtheta.isel(time=0), vmin=-0.1, vmax=+0.5, cmap='jet')#cmap='YlGnBu_r')
+pcm = ax.pcolormesh(X, Z, dtheta.isel(time=0), vmin=-0.2, vmax=+0.6, cmap='jet')#cmap='YlGnBu_r')
 fmt = tick.ScalarFormatter(useMathText=True)
 fmt.set_powerlimits((0,0))
 cbar = plt.colorbar(pcm, extend='both', orientation='vertical', shrink=0.8, aspect=30.0)#, format=fmt)
@@ -53,8 +53,8 @@ matplotlib.rcParams['contour.negative_linestyle']= 'solid'
 cnt = ax.contour(X, Z, dtheta.isel(time=0), **cnt_opts)
 
 u0 = 0.0
-v_xslice_int = 3
-v_zslice_int = 3
+v_xslice_int = 5
+v_zslice_int = 5
 q = ax.quiver(X[::v_zslice_int,::v_xslice_int], Z[::v_zslice_int,::v_xslice_int], 
               (u.isel(time=0)[::v_zslice_int,::v_xslice_int]-u0), 
               w.isel(time=0)[::v_zslice_int,::v_xslice_int], 
