@@ -5,12 +5,13 @@ include $(SYSDEP_DIR)/Makedef.$(SCALE_FE_SYS)
 include $(TOPDIR)/Mkinclude
 
 VPATH = \
-	common:          \
-	element:         \
-	mesh:            \
-	data:            \
-	file:            \
-	fluid_dyn_solver: 
+	common:           \
+	element:          \
+	mesh:             \
+	data:             \
+	file:             \
+	fluid_dyn_solver: \
+	model_framework:  
 
 OBJS_NAME_COMMON = \
 	scale_polynominal.o  \
@@ -18,7 +19,8 @@ OBJS_NAME_COMMON = \
 	scale_linalgebra.o   \
 	scale_time_manager.o \
 	scale_quicksort.o    \
-	scale_timeint_rk.o
+	scale_timeint_rk.o   \
+	scale_linkedlist.o
 
 OBJS_NAME_ELEMENT = \
 	scale_element_base.o          \
@@ -58,13 +60,20 @@ OBJS_NAME_FLUID_DYN_SOLVER = \
 	scale_atm_dyn_nonhydro2d.o
 
 
+OBJS_NAME_MODEL_FRAMEWORK = \
+	scale_model_component.o      \
+	scale_model_component_proc.o \
+	scale_model_var_manager.o
+
 OBJS_NAME = \
 	$(OBJS_NAME_COMMON)           \
 	$(OBJS_NAME_ELEMENT)          \
 	$(OBJS_NAME_MESH)             \
 	$(OBJS_NAME_DATA)		          \
 	$(OBJS_NAME_FILE)             \
-	$(OBJS_NAME_FLUID_DYN_SOLVER)
+	$(OBJS_NAME_FLUID_DYN_SOLVER) \
+	$(OBJS_NAME_MODEL_FRAMEWORK)
+	
 
 
 OBJ_DIR= .
