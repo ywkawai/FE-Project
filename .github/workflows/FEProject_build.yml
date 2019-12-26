@@ -59,7 +59,17 @@ jobs:
         export SCALE=${GITHUB_WORKSPACE}/../scale
         make -j 2 -C FElib/src
 
-    - name: unit test for FElib
+    - name: unit test for common
+      run: | 
+        echo "Perform unit tests .."
+
+        export SCALE_FE_SYS=Linux64-gnu-ompi
+        export SCALE=${GITHUB_WORKSPACE}/../scale
+
+        cd FElib/test/common
+        make -C linkedlist
+
+    - name: unit test for FE
       run: | 
         echo "Perform unit tests .."
 
@@ -74,7 +84,17 @@ jobs:
         make -C field_linedom1d
         make -C field_rectdom2d_quadrilateral
         make -C field_cubedom3d_hexahedral
-        
+    
+    - name: unit test for framework
+      run: | 
+        echo "Perform unit tests .."
+
+        export SCALE_FE_SYS=Linux64-gnu-ompi
+        export SCALE=${GITHUB_WORKSPACE}/../scale
+
+        cd FElib/test/framework
+        make -C model_framework
+
     - name: Build models
       run: |
         echo "Build models .."      
