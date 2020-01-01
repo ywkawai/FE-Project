@@ -8,7 +8,6 @@ module scale_model_component
   use scale_io
   use scale_prof
 
-  use scale_model_component_proc
   !-----------------------------------------------------------------------------
   implicit none
   private
@@ -18,12 +17,16 @@ module scale_model_component
   !
   
   type, abstract, public :: ModelComponent
-    character(len=H_SHORT) :: name
+    character(len=H_SHORT), private :: name
+    logical, private :: is_activated = .false.
   contains
     procedure(ModelComponent_setup), deferred, public :: setup
     procedure(ModelComponent_calc_tendency), deferred, public :: calc_tendency
     procedure(ModelComponent_update), deferred, public :: update
-    procedure(ModelComponent_finalize), deferred, public :: finalize    
+    procedure(ModelComponent_finalize), deferred, public :: finalize 
+
+    procedure, public :: ModelComponent_Init    
+    procedure, public :: IsActivated => ModelComponent_isActivated
   end type ModelComponent
 
   interface
@@ -62,5 +65,30 @@ module scale_model_component
   !
   !-----------------------------------------------------------------------------
 
+contains
+  subroutine ModelComponent_Init( this, name, is_activated )
+    implicit none
+
+    class(ModelComponent), intent(inout) :: this
+    character(len=*), intent(in) :: name
+    logical, intent(in) :: is_activated 
+    !---------------------------------------------------
+    
+    this%name = name
+    this%is_activated = is_activated
+
+    return
+  end subroutine ModelComponent_Init
+
+  function ModelComponent_isActivated( this ) result( is_activated )
+    implicit none
+
+    class(ModelComponent), intent(in) :: this
+    logical :: is_activated 
+    !---------------------------------------------------
+
+    is_activated = this%is_activated
+    return
+  end function ModelComponent_isActivated
 
 end module scale_model_component

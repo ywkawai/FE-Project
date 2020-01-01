@@ -12,7 +12,7 @@ module mod_atmos_vars
   use scale_meshfield_base, only: MeshField1D
 
   use scale_model_var_manager, only: &
-    ModelVarManager  
+    ModelVarManager, VariableInfo
   
   use mod_atmos_mesh, only: AtmosMesh
 
@@ -22,14 +22,18 @@ module mod_atmos_vars
   type, public :: AtmosVars
     type(MeshField1D) :: V
     type(MeshField1D) :: T
-    type(ModelVarManager) :: vars_list
+    type(MeshField1D) :: P
+    type(ModelVarManager) :: prgvars_list
+    type(ModelVarManager) :: auxvars_list
   contains
     procedure :: Init => AtmosVars_Init
     procedure :: Final => AtmosVars_Final
   end type AtmosVars
 
   integer, public, parameter :: ATMOSVARS_V_ID = 1
-  integer, public, parameter :: ATMOSVARS_T_ID = 1
+  integer, public, parameter :: ATMOSVARS_T_ID = 2
+  
+  integer, public, parameter :: ATMOSVARS_P_ID = 1
 
 contains
 
@@ -39,17 +43,25 @@ subroutine AtmosVars_Init( this, mesh )
   class(AtmosMesh), intent(in) :: mesh
 
   integer :: n
+  type(VariableInfo) :: VINFO_PRG(2)
+  DATA VINFO_PRG / &
+  VariableInfo( ATMOSVARS_V_ID, "V", "velocity",    "m/s", 1, "X", ""), &
+  VariableInfo( ATMOSVARS_T_ID, "T", "temperature", "K"  , 1, "X", "")  /
+  
+    type(VariableInfo) :: VINFO_AUX(1)
+  DATA VINFO_AUX / &
+    VariableInfo( ATMOSVARS_P_ID, "P", "pressure",    "Pa", 1, "X", "") /
+
   !--------------------------------------------------
 
   LOG_INFO('AtmosVars_Init',*)
 
-  call this%vars_list%Init()
+  call this%prgvars_list%Init()
+  call this%prgvars_list%Regist( VINFO_PRG(1), mesh%mesh, this%V, .false. )
+  call this%prgvars_list%Regist( VINFO_PRG(2), mesh%mesh, this%T, .false. )
 
-  call this%V%Init("V", "m/s", mesh%mesh)
-  call this%vars_list%Regist( ATMOSVARS_V_ID, this%V )
-
-  call this%T%Init("T", "K", mesh%mesh)
-  call this%vars_list%Regist( ATMOSVARS_T_ID, this%T )
+  call this%auxvars_list%Init()
+  call this%auxvars_list%Regist( VINFO_AUX(1), mesh%mesh, this%P, .false. )
   
   return
 end subroutine AtmosVars_Init
@@ -63,7 +75,8 @@ subroutine AtmosVars_Final( this )
 
   LOG_INFO('AtmosVars_Final',*)
 
-  call this%vars_list%Final()
+  call this%prgvars_list%Final()
+  call this%auxvars_list%Final()
 
   return
 end subroutine AtmosVars_Final

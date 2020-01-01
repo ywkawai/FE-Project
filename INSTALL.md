@@ -3,7 +3,7 @@
 ## Dependency & Environment
 
 This FE library requires following libraries: 
-  - Fortran compiler supporting Fortran 2003. 
+  - Fortran compiler supporting Fortran 2008. 
   - MPI library
   - LAPACK
   - NetCDF
@@ -15,13 +15,13 @@ We confirm that building our codes has succeeded in the following environments:
     - OpenMPI 4.0.1
     - LAPACK 3.8.0
     - NetCDF 4.6.3
-    - SCALE library 5.3.3
+    - SCALE library 5.3.5
   - Ubuntu 18.04 LTS
     - GNU Fortran 7.4.0
     - OpenMPI 2.1.1
     - LAPACK 3.7.1
     - NetCDF 4.6.0
-    - SCALE library 5.3.3
+    - SCALE library 5.3.5
 
 ## Build FE-library 
 
@@ -54,10 +54,10 @@ We confirm that building our codes has succeeded in the following environments:
 
 ## Compile and run dynamical core
 
- If you want to build a 2-dimensional nonhydrostatic atmospheric model, 
+ If you want to build a 3-dimensional nonhydrostatic atmospheric model, 
  and conduct a idealized test case, such as density current, using it, 
  
- `% cd rootdir/model/atm_nonhydro2d/test/case/density_current`
+ `% cd rootdir/model/atm_nonhydro3d/test/case/density_current`
 
  `% make`
 

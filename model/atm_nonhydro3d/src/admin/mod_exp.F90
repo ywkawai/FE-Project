@@ -17,13 +17,14 @@ module mod_exp
     CVdry => CONST_CVdry, &
     PRES00 => CONST_PRE00
     
-  use scale_meshfield_base, only: MeshField2D
-  use scale_mesh_rectdom2d, only: MeshRectDom2D
-  use scale_element_base, only: ElementBase2D
-  use scale_element_quadrilateral, only: QuadrilateralElement
-  use scale_localmesh_2d, only: LocalMesh2D
+  use scale_meshfield_base, only: MeshField3D
+  use scale_mesh_cubedom3d, only: MeshCubeDom3D
+  use scale_element_base, only: ElementBase3D
+  use scale_element_hexahedral, only: HexahedralElement
+  use scale_localmesh_3d, only: LocalMesh3D
 
-  use scale_meshfieldcomm_rectdom2d, only: MeshFieldCommRectDom2D
+  use scale_localmeshfield_base, only: LocalMeshFieldBase
+  use scale_meshfieldcomm_cubedom3d, only: MeshFieldCommCubeDom3D
 
   !-----------------------------------------------------------------------------
   implicit none
@@ -43,26 +44,30 @@ module mod_exp
 
   abstract interface
     subroutine exp_SetInitCond_lc( &
-      this, DENS_hyd, PRES_hyd, DDENS, MOMX, MOMZ, DRHOT, &
-      x, z, dom_xmin, dom_xmax, dom_zmin, dom_zmax, lcmesh, elem )
+      this, DENS_hyd, PRES_hyd, DDENS, MOMX, MOMY, MOMZ, DRHOT,  &
+      x, y, z, dom_xmin, dom_xmax, dom_ymin, dom_ymax, dom_zmin, &
+      dom_zmax, lcmesh, elem )
 
       import experiment
-      import LocalMesh2D 
-      import QuadrilateralElement
+      import LocalMesh3D 
+      import ElementBase3D
       import RP
 
       class(experiment), intent(inout) :: this
-      type(LocalMesh2D), intent(in) :: lcmesh
-      class(QuadrilateralElement), intent(in) :: elem
+      type(LocalMesh3D), intent(in) :: lcmesh
+      class(ElementBase3D), intent(in) :: elem
       real(RP), intent(out) :: DENS_hyd(elem%Np,lcmesh%NeA)
       real(RP), intent(out) :: PRES_hyd(elem%Np,lcmesh%NeA)
       real(RP), intent(out) :: DDENS(elem%Np,lcmesh%NeA)
       real(RP), intent(out) :: MOMX(elem%Np,lcmesh%NeA)
+      real(RP), intent(out) :: MOMY(elem%Np,lcmesh%NeA)
       real(RP), intent(out) :: MOMZ(elem%Np,lcmesh%NeA)
       real(RP), intent(out) :: DRHOT(elem%Np,lcmesh%NeA)
       real(RP), intent(in) :: x(elem%Np,lcmesh%Ne)
+      real(RP), intent(in) :: y(elem%Np,lcmesh%Ne)
       real(RP), intent(in) :: z(elem%Np,lcmesh%Ne)
       real(RP), intent(in) :: dom_xmin, dom_xmax
+      real(RP), intent(in) :: dom_ymin, dom_ymax      
       real(RP), intent(in) :: dom_zmin, dom_zmax
     end subroutine exp_SetInitCond_lc
   end interface
@@ -102,27 +107,43 @@ contains
     return
   end subroutine exp_Final
   
-  subroutine exp_SetInitCond( this )
-    use mod_atmos_vars, only: &
-      DENS_hydro, PRES_hydro,   &
-      DDENS, MOMX, MOMZ, DRHOT
-    use mod_atmos_mesh, only: &
-      mesh, refElem
+  subroutine exp_SetInitCond( this, &
+    model_mesh, atm_prgvars_manager, atm_auxvars_manager )
+    
+    use scale_model_var_manager, only: ModelVarManager  
+    use mod_atmos_vars, only: AtmosVars_GetLocalMeshFields
+    use mod_atmos_mesh, only: AtmosMesh
+  
     implicit none
 
     class(experiment), intent(inout) :: this
+    class(AtmosMesh), target, intent(in) :: model_mesh
+    class(ModelVarManager), intent(inout) :: atm_prgvars_manager
+    class(ModelVarManager), intent(inout) :: atm_auxvars_manager
+
+    class(LocalMeshFieldBase), pointer :: DDENS, MOMX, MOMY, MOMZ, DRHOT
+    class(LocalMeshFieldBase), pointer :: &
+      GxU, GyU, GzU, GxV, GyV, GzV, GxW, GyW, GzW, GxPT, GyPT, GzPT
+    class(LocalMeshFieldBase), pointer :: DENS_hyd, PRES_hyd
 
     integer :: n
-    type(LocalMesh2D), pointer :: lcmesh
+    class(LocalMesh3D), pointer :: lcmesh3D
+    class(MeshCubeDom3D), pointer :: mesh
     !----------------------------------------------------------------------
     
+    mesh => model_mesh%mesh
     do n=1, mesh%LOCAL_MESH_NUM
-      lcmesh => mesh%lcmesh_list(n)
+      call AtmosVars_GetLocalMeshFields( n, mesh, atm_prgvars_manager, atm_auxvars_manager, &
+        DDENS, MOMX, MOMY, MOMZ, DRHOT,                                                     &
+        GxU, GyU, GzU, GxV, GyV, GzV, GxW, GyW, GzW, GxPT, GyPT, GzPT,                      &
+        DENS_hyd, PRES_hyd, lcmesh3D                                                        )
+
       call this%setInitCond_lc( &
-        DENS_hydro%local(n)%val, PRES_hydro%local(n)%val,                                   & ! (out)
-        DDENS%local(n)%val, MOMX%local(n)%val, MOMZ%local(n)%val, DRHOT%local(n)%val,       & ! (out)
-        lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2),                                         & ! (in)
-        mesh%xmin_gl, mesh%xmax_gl, mesh%ymin_gl, mesh%ymax_gl, lcmesh, refElem )             ! (in) 
+        DENS_hyd%val, PRES_hyd%val,                                                         & ! (out)
+        DDENS%val, MOMX%val, MOMY%val, MOMZ%val, DRHOT%val,                                 & ! (out)
+        lcmesh3D%pos_en(:,:,1), lcmesh3D%pos_en(:,:,2), lcmesh3D%pos_en(:,:,3),             & ! (in)
+        mesh%xmin_gl, mesh%xmax_gl, mesh%ymin_gl, mesh%ymax_gl, mesh%zmin_gl, mesh%zmax_gl, & ! (in)
+        lcmesh3D, lcmesh3D%refElem3D )                                                        ! (in) 
     end do
 
     return

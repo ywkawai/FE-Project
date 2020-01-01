@@ -7,13 +7,13 @@ module mod_atmos_mesh
   use scale_element_line
   use scale_localmesh_1d
   use scale_mesh_linedom1d
-
+  use scale_model_mesh_manager, only: ModelMesh1D
   
   implicit none
   private
 
   
-  type, public :: AtmosMesh
+  type, extends(ModelMesh1D), public :: AtmosMesh
     type(MeshLineDom1D) :: mesh
     type(LineElement) :: element
   contains

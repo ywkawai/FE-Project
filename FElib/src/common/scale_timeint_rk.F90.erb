@@ -217,7 +217,7 @@ contains
 
     !----------------------------------------    
 
-    call PROF_rapstart( 'rk_advance_low_storage', 2)    
+    call PROF_rapstart( 'rk_advance_low_storage', 3)    
     if (nowstage == 1) then
 % for i in 1..d
       do <%=ind_name[d-i]%>=<%=ind_range_list[d-i]%>
@@ -236,7 +236,7 @@ contains
 % for i in 1..d
     end do
 % end
-    call PROF_rapend( 'rk_advance_low_storage', 2)
+    call PROF_rapend( 'rk_advance_low_storage', 3)
 
   end subroutine rk_advance_low_storage<%=d%>D
 % end

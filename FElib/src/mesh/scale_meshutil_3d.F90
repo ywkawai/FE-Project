@@ -625,7 +625,8 @@ contains
     logical, intent(in) :: isPeriodicZ
 
     integer :: NtilePerPanel
-    integer :: Ne_h, Ne_v, Nv_h, Nv_v
+    integer :: Ne_x, Ne_y, Ne_z
+    integer :: Nv_x, Nv_y, Nv_z
     integer, allocatable :: nodesID_3d(:,:,:)
     integer, allocatable :: EToV(:,:)
     integer, allocatable :: EToE(:,:)
@@ -639,19 +640,22 @@ contains
 
     NtilePerPanel = Ntile/1
     
-    Ne_h = sqrt(dble(NtilePerPanel))
-    Nv_h = Ne_h + 1
-    
-    Ne_v = 1
-    Nv_v = Ne_v + 1
+    Ne_x = int( sqrt(dble(NtilePerPanel)) )
+    Nv_x = Ne_x + 1
 
-    allocate( nodesID_3d(Nv_h,Nv_h,Nv_v) )
+    Ne_y = NtilePerPanel/Ne_x
+    Nv_y = Ne_y + 1  
+    
+    Ne_z = 1
+    Nv_z = Ne_z + 1
+
+    allocate( nodesID_3d(Nv_x,Nv_y,Nv_z) )
     allocate( EToV(Ntile,NtileVertex), EToE(Ntile,NtileFace), EToF(Ntile,NtileFace) )
 
     counter = 0
-    do k = 1, Nv_v
-    do j = 1, Nv_h
-    do i = 1, Nv_h
+    do k = 1, Nv_z
+    do j = 1, Nv_y
+    do i = 1, Nv_x
       counter = counter + 1
       nodesID_3d(i,j,k) = counter
     end do
@@ -662,9 +666,9 @@ contains
     !----
 
     tileID = 0
-    do k = 1, Ne_v
-    do j = 1, Ne_h
-    do i = 1, Ne_h
+    do k = 1, Ne_z
+    do j = 1, Ne_y
+    do i = 1, Ne_x
       tileID = tileID + 1
       panelID_table(tileID) = 1
       pi_table(tileID) = i; pj_table(tileID) = j; pk_table(tileID) = k
@@ -691,11 +695,11 @@ contains
     if (isPeriodicX) then
       do tileID=1, Ntile
         if (pi_table(tileID) == 1 .and. tileFaceID_map(4,tileID) == 4) then
-          tileID_map(4,tileID) = Ne_h + (pj_table(tileID) - 1)*Ne_h + (pk_table(tileID) - 1)*Ne_h**2
+          tileID_map(4,tileID) = Ne_x + (pj_table(tileID) - 1)*Ne_x + (pk_table(tileID) - 1)*Ne_x*Ne_y
           tileFaceID_map(4,tileID) = 2
         end if
-        if (pi_table(tileID) == Ne_h .and. tileFaceID_map(2,tileID) == 2) then
-          tileID_map(2,tileID) = 1 + (pj_table(tileID) - 1)*Ne_h + (pk_table(tileID) - 1)*Ne_h**2
+        if (pi_table(tileID) == Ne_x .and. tileFaceID_map(2,tileID) == 2) then
+          tileID_map(2,tileID) = 1 + (pj_table(tileID) - 1)*Ne_x + (pk_table(tileID) - 1)*Ne_x*Ne_y
           tileFaceID_map(2,tileID) = 4
         end if
       end do
@@ -704,11 +708,11 @@ contains
     if (isPeriodicY) then
       do tileID=1, Ntile
         if (pj_table(tileID) == 1 .and. tileFaceID_map(1,tileID) == 1) then
-          tileID_map(1,tileID) = pi_table(tileID) + (Ne_h - 1)*Ne_h + (pk_table(tileID) - 1)*Ne_h**2
+          tileID_map(1,tileID) = pi_table(tileID) + (Ne_y - 1)*Ne_x + (pk_table(tileID) - 1)*Ne_x*Ne_y
           tileFaceID_map(1,tileID) = 3
         end if
-        if (pj_table(tileID) == Ne_h .and. tileFaceID_map(3,tileID) == 3) then
-          tileID_map(3,tileID) = pi_table(tileID) + (pk_table(tileID) - 1)*Ne_h**2
+        if (pj_table(tileID) == Ne_y .and. tileFaceID_map(3,tileID) == 3) then
+          tileID_map(3,tileID) = pi_table(tileID) + (pk_table(tileID) - 1)*Ne_x*Ne_y
           tileFaceID_map(3,tileID) = 1
         end if
       end do
@@ -717,11 +721,11 @@ contains
     if (isPeriodicZ) then
       do tileID=1, Ntile
         if (pk_table(tileID) == 1 .and. tileFaceID_map(5,tileID) == 5) then
-          tileID_map(5,tileID) = pi_table(tileID) + (pj_table(tileID) - 1)*Ne_h  + (Ne_v - 1)*Ne_h**2
+          tileID_map(5,tileID) = pi_table(tileID) + (pj_table(tileID) - 1)*Ne_x  + (Ne_z - 1)*Ne_x*Ne_y
           tileFaceID_map(5,tileID) = 6
         end if
-        if (pk_table(tileID) == Ne_v .and. tileFaceID_map(6,tileID) == 6) then
-          tileID_map(6,tileID) = pi_table(tileID) + (pj_table(tileID) - 1)*Ne_h
+        if (pk_table(tileID) == Ne_z .and. tileFaceID_map(6,tileID) == 6) then
+          tileID_map(6,tileID) = pi_table(tileID) + (pj_table(tileID) - 1)*Ne_x*Ne_y
           tileFaceID_map(6,tileID) = 5
         end if
       end do

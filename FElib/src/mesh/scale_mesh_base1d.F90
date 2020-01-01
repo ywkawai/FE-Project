@@ -33,6 +33,7 @@ module scale_mesh_base1d
     real(RP), public :: xmin_gl, xmax_gl    
   contains
     procedure(Meshbase1d_generate), deferred :: Generate 
+    procedure :: GetLocalMesh => MeshBase1D_get_localmesh
   end type Meshbase1d
 
   interface 
@@ -112,6 +113,19 @@ contains
     return
   end subroutine Meshbase1d_Final
   
+  subroutine MeshBase1D_get_localmesh( this, id, ptr_lcmesh )
+    use scale_localmesh_base, only: LocalMeshBase
+    implicit none
+
+    class(MeshBase1D), target, intent(in) :: this
+    integer, intent(in) :: id
+    class(LocalMeshBase), pointer, intent(out) :: ptr_lcmesh
+    !-------------------------------------------------------------
+
+    ptr_lcmesh => this%lcmesh_list(id)
+    return
+  end subroutine MeshBase1D_get_localmesh
+
   subroutine Meshbase1d_setGeometricInfo( mesh )
     implicit none
     
