@@ -15,13 +15,13 @@ We confirm that building our codes has succeeded in the following environments:
     - OpenMPI 4.0.1
     - LAPACK 3.8.0
     - NetCDF 4.6.3
-    - SCALE library 5.3.3
+    - SCALE library 5.3.5
   - Ubuntu 18.04 LTS
     - GNU Fortran 7.4.0
     - OpenMPI 2.1.1
     - LAPACK 3.7.1
     - NetCDF 4.6.0
-    - SCALE library 5.3.3
+    - SCALE library 5.3.5
 
 ## Build FE-library 
 

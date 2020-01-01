@@ -30,8 +30,8 @@ $(OBJ_DIR)/scale_meshutil_2d.o: mesh/scale_meshutil_2d.F90 $(DEPENDLIB) $(OBJ_DI
 $(OBJ_DIR)/scale_meshutil_3d.o: mesh/scale_meshutil_3d.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_quicksort.o
 $(OBJ_DIR)/scale_model_component.o: model_framework/scale_model_component.F90 $(DEPENDLIB)
 $(OBJ_DIR)/scale_model_component_proc.o: model_framework/scale_model_component_proc.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_model_mesh_manager.o $(OBJ_DIR)/scale_model_var_manager.o
-$(OBJ_DIR)/scale_model_mesh_manager.o: model_framework/scale_model_mesh_manager.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_mesh_base.o $(OBJ_DIR)/scale_mesh_base1d.o $(OBJ_DIR)/scale_mesh_base2d.o $(OBJ_DIR)/scale_mesh_base3d.o
-$(OBJ_DIR)/scale_model_var_manager.o: model_framework/scale_model_var_manager.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_linkedlist.o $(OBJ_DIR)/scale_mesh_base1d.o $(OBJ_DIR)/scale_mesh_base2d.o $(OBJ_DIR)/scale_mesh_base3d.o $(OBJ_DIR)/scale_meshfield_base.o
+$(OBJ_DIR)/scale_model_mesh_manager.o: model_framework/scale_model_mesh_manager.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_mesh_base.o $(OBJ_DIR)/scale_mesh_base1d.o $(OBJ_DIR)/scale_mesh_base2d.o $(OBJ_DIR)/scale_mesh_base3d.o $(OBJ_DIR)/scale_sparsemat.o
+$(OBJ_DIR)/scale_model_var_manager.o: model_framework/scale_model_var_manager.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_linkedlist.o $(OBJ_DIR)/scale_mesh_base1d.o $(OBJ_DIR)/scale_mesh_base2d.o $(OBJ_DIR)/scale_mesh_base3d.o $(OBJ_DIR)/scale_meshfield_base.o $(OBJ_DIR)/scale_meshfieldcomm_base.o
 $(OBJ_DIR)/scale_polynominal.o: common/scale_polynominal.F90 $(DEPENDLIB)
 $(OBJ_DIR)/scale_quicksort.o: common/scale_quicksort.F90 $(DEPENDLIB)
 $(OBJ_DIR)/scale_sparsemat.o: common/scale_sparsemat.F90 $(DEPENDLIB)

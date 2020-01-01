@@ -104,6 +104,10 @@ jobs:
 
         echo "Build 2D nonhydrostatic atmospheric model"
         make -C atm_nonhydro2d/src
+
+        echo "Build 3D nonhydrostatic atmospheric model"
+        make -C atm_nonhydro3d/src
+      
       
 
       
