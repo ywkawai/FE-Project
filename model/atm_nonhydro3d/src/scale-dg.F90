@@ -17,8 +17,6 @@ program scaledg
   use scale_precision
   use scale_io
   use scale_prof
-use mpi
-  use testmod
   use scale_prc
   use scale_prc, only: &
      PRC_abort,           &

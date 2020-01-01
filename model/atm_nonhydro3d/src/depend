@@ -1,22 +1,18 @@
-$(BUILD_DIR)/mod_atmos_bnd.o: atmos/mod_atmos_bnd.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_mesh.o
-$(BUILD_DIR)/mod_atmos_driver.o: atmos/mod_atmos_driver.F90 $(DEPENDLIB)
-$(BUILD_DIR)/mod_atmos_dyn_driver.o: atmos/mod_atmos_dyn_driver.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_bnd.o $(BUILD_DIR)/mod_atmos_mesh.o $(BUILD_DIR)/mod_atmos_vars.o
+$(BUILD_DIR)/mod_atmos_bnd.o: atmos/mod_atmos_bnd.F90 $(DEPENDLIB)
+$(BUILD_DIR)/mod_atmos_component.o: atmos/mod_atmos_component.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_dyn.o $(BUILD_DIR)/mod_atmos_mesh.o $(BUILD_DIR)/mod_atmos_vars.o
+$(BUILD_DIR)/mod_atmos_dyn.o: atmos/mod_atmos_dyn.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_bnd.o $(BUILD_DIR)/mod_atmos_mesh.o $(BUILD_DIR)/mod_atmos_vars.o
 $(BUILD_DIR)/mod_atmos_mesh.o: atmos/mod_atmos_mesh.F90 $(DEPENDLIB)
 $(BUILD_DIR)/mod_atmos_vars.o: atmos/mod_atmos_vars.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_mesh.o
-$(BUILD_DIR)/mod_dg_driver.o: admin/mod_dg_driver.F90 $(DEPENDLIB)
+$(BUILD_DIR)/mod_dg_driver.o: admin/mod_dg_driver.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_component.o $(BUILD_DIR)/mod_user.o
 $(BUILD_DIR)/mod_exp.o: admin/mod_exp.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_mesh.o $(BUILD_DIR)/mod_atmos_vars.o
-$(BUILD_DIR)/mod_user.o: user/mod_user.F90 $(DEPENDLIB)
-$(BUILD_DIR)/scale_model_component.o: framework/scale_model_component.F90 $(DEPENDLIB)
-$(BUILD_DIR)/scale_model_component_proc.o: framework/scale_model_component_proc.F90 $(DEPENDLIB)
+$(BUILD_DIR)/mod_user.o: user/mod_user.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_component.o
 
 MODS =	\
-	mod_atmos_bnd.mod	\
-	mod_atmos_driver.mod	\
-	mod_atmos_dyn_driver.mod	\
+	mod_atmos_component.mod	\
+	mod_atmos_dyn.mod	\
+	mod_atmos_dyn_bnd.mod	\
 	mod_atmos_mesh.mod	\
 	mod_atmos_vars.mod	\
 	mod_dg_driver.mod	\
 	mod_exp.mod	\
-	mod_user.mod	\
-	scale_model_component.mod	\
-	scale_model_component_proc.mod
+	mod_user.mod

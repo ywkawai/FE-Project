@@ -19,6 +19,16 @@ module mod_dg_driver
   use scale_prof
   use scale_prc
 
+  use mod_atmos_component, only: &
+    AtmosComponent
+  
+  use scale_file_history_meshfield, only: &
+    FILE_HISTORY_meshfield_write
+  use scale_file_history, only: &
+    FILE_HISTORY_set_nowdate
+
+  use mod_user, only: &
+    USER_update, USER_calc_tendency
 
   !-----------------------------------------------------------------------------
   implicit none
@@ -48,9 +58,17 @@ module mod_dg_driver
   !
   character(len=H_MID), private, parameter :: MODELNAME = "SCALE-DG ver. "//VERSION
 
+  type(AtmosComponent) :: atmos
+
 contains
   subroutine dg_driver( &
     comm_world, intercomm_parent, intercomm_child, cnf_fname )
+
+    use scale_time_manager, only: &
+      TIME_manager_checkstate, TIME_manager_advance,      &
+      TIME_NOWDATE, TIME_NOWMS, TIME_NOWSTEP, TIME_NSTEP, &
+      TIME_DOresume, TIME_DOend
+
     implicit none
 
     integer,          intent(in) :: comm_world
@@ -76,9 +94,9 @@ contains
 
     ! setup Log
     call IO_LOG_setup( myrank, ismaster )
-   
+ 
     call initialize()
-  
+
     !###########################################################################
  
     !########## main ##########
@@ -86,6 +104,36 @@ contains
     LOG_PROGRESS(*) 'START TIMESTEP'
     call PROF_setprefx('MAIN')
     call PROF_rapstart('Main_Loop', 0)
+
+    do
+      ! report current time
+      call TIME_manager_checkstate()
+  
+      if (TIME_DOresume) then
+        ! set state from restart file
+        call restart_read()
+        call FILE_HISTORY_meshfield_write()
+      end if
+
+      !* Advance time
+      call TIME_manager_advance()
+      call FILE_HISTORY_set_nowdate( TIME_NOWDATE, TIME_NOWMS, TIME_NOWSTEP )
+
+      !* change to next state
+      call atmos%update()
+      call USER_update()
+
+      !* calc tendencies and diagnostices
+      call atmos%calc_tendency()
+      call USER_calc_tendency()
+  
+      !* output history files
+      call FILE_HISTORY_meshfield_write()
+      
+      if (TIME_DOend) exit
+      
+      if( IO_L ) call flush(IO_FID_LOG)
+    end do
 
     call PROF_rapend('Main_Loop', 0)
 
@@ -104,17 +152,14 @@ contains
 
     use scale_const, only: CONST_setup
     use scale_calendar, only: CALENDAR_setup
-    use scale_file_history_meshfield, only: &
-      FILE_HISTORY_meshfield_setup
+    use scale_time_manager, only: TIME_manager_Init
+    use mod_user, only: USER_setup    
     implicit none
 
     !----------------------------------------------
 
     ! namelist compatibility check
     !call ADMIN_versioncheck
-
-    ! setup process
-    !call PRC_CARTESC_setup
 
     ! setup PROF
     call PROF_setup
@@ -127,16 +172,12 @@ contains
 
     ! setup calendar & initial time
     call CALENDAR_setup
-!    call TIME_manager_Init
+    call TIME_manager_Init
 
-    ! setup submodel administrator
-    call ATMOS_admin_setup
-    
-    ! Setup a module to manage mesh
-    !call ATMOS_MESH_setup()
-    
-    ! Setup file I/O
-    !call FILE_HISTORY_meshfield_setup( mesh2d_=mesh )
+    ! setup submodels
+    call  atmos%setup()
+
+    call USER_setup( atmos )
 
     call PROF_rapend('Initialize', 0)
 
@@ -144,21 +185,35 @@ contains
   end subroutine initialize
 
   subroutine finalize()
+    use scale_file_history_meshfield, only: FILE_HISTORY_meshfield_finalize
+    use scale_time_manager, only: TIME_manager_Final   
     implicit none
     
     !----------------------------------------------
     call PROF_setprefx('FIN')
-
     call PROF_rapstart('All', 1)
 
-    call PROF_rapstart('File', 2)
-    !call FILE_HISTORY_meshfield_finalize()
-    call PROF_rapend('File', 2)
+    call FILE_HISTORY_meshfield_finalize()
+
+    ! finialzie submodels
+    call  atmos%finalize()
+
+    !
+    call TIME_manager_Final()
 
     call PROF_rapend  ('All', 1)
-
     call PROF_rapreport()
 
     return
   end subroutine finalize
+
+  subroutine restart_read()
+    implicit none
+    !----------------------------------------
+
+    if ( atmos%IsActivated() ) call atmos%vars%History()
+
+    return
+  end subroutine restart_read
+
 end module mod_dg_driver

@@ -60,8 +60,8 @@ module mod_exp
       real(RP), intent(out) :: MOMX(elem%Np,lcmesh%NeA)
       real(RP), intent(out) :: MOMZ(elem%Np,lcmesh%NeA)
       real(RP), intent(out) :: DRHOT(elem%Np,lcmesh%NeA)
-      real(RP), intent(in) :: x(elem%Np,lcmesh%NeA)
-      real(RP), intent(in) :: z(elem%Np,lcmesh%NeA)
+      real(RP), intent(in) :: x(elem%Np,lcmesh%Ne)
+      real(RP), intent(in) :: z(elem%Np,lcmesh%Ne)
       real(RP), intent(in) :: dom_xmin, dom_xmax
       real(RP), intent(in) :: dom_zmin, dom_zmax
     end subroutine exp_SetInitCond_lc

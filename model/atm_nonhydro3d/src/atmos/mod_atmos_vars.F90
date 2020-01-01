@@ -12,86 +12,98 @@ module mod_atmos_vars
   use scale_meshfield_base, only: MeshField3D
   use scale_element_base, only: ElementBase3D
   use scale_localmesh_3d, only: LocalMesh3D
+  use scale_mesh_base3d, only: MeshBase3D
   use scale_meshfieldcomm_cubedom3d, only: MeshFieldCommCubeDom3D
   use scale_meshfieldcomm_base, only: MeshFieldContainer
 
+  use scale_model_var_manager, only: &
+    ModelVarManager, VariableInfo
+
+  use mod_atmos_mesh, only: AtmosMesh
+    
   !-----------------------------------------------------------------------------
   implicit none
   private
+
   !-----------------------------------------------------------------------------
   !
-  !++ Public procedures
+  !++ Public type & procedures
   !
-  public :: ATMOS_VARS_setup
-  public :: ATMOS_VARS_finalize
-  public :: ATMOS_VARS_history
+  type, public :: AtmosVars
+    type(MeshField3D), allocatable :: PROG_VARS(:)
+    type(ModelVarManager) :: PROGVARS_manager
+    type(MeshFieldCommCubeDom3D) :: PROGVARS_comm
+    
+    type(MeshField3D), allocatable :: AUX_VARS(:)
+    type(ModelVarManager) :: AUXVARS_manager 
+    type(MeshFieldCommCubeDom3D) :: AUXVARS_comm    
+  contains
+    procedure :: Init => AtmosVars_Init
+    procedure :: Final => AtmosVars_Final
+    procedure :: History => AtmosVars_History
+  end type AtmosVars
+
+  public AtmosVars_GetLocalMeshFields
 
   !-----------------------------------------------------------------------------
   !
   !++ Public parameters & variables
   !
-  type(MeshField3D), public, save, target :: DDENS
-  type(MeshField3D), public, save, target :: MOMX
-  type(MeshField3D), public, save, target :: MOMY
-  type(MeshField3D), public, save,target :: MOMZ
-  type(MeshField3D), public, save,target :: DRHOT
-  
-  type(MeshField3D), public, save, target :: U
-  type(MeshField3D), public, save, target :: V
-  type(MeshField3D), public, save, target :: W
-  type(MeshField3D), public, save, target :: DPRES
-  type(MeshField3D), public, save, target :: TEMP
-  type(MeshField3D), public, save, target :: DTHETA
-  type(MeshField3D), public, save, target :: GxU, GyU, GzU
-  type(MeshField3D), public, save, target :: GxV, GyV, GzV
-  type(MeshField3D), public, save, target :: GxW, GyW, GzW
-  type(MeshField3D), public, save, target :: GxPT, GyPT, GzPT
+  integer, public, parameter :: ATMOS_PROGVARS_NUM = 5
+  integer, public, parameter :: ATMOS_PROGVARS_DDENS_ID = 1
+  integer, public, parameter :: ATMOS_PROGVARS_MOMX_ID  = 2
+  integer, public, parameter :: ATMOS_PROGVARS_MOMY_ID  = 3
+  integer, public, parameter :: ATMOS_PROGVARS_MOMZ_ID  = 4
+  integer, public, parameter :: ATMOS_PROGVARS_DRHOT_ID = 5
 
-  type(MeshField3D), public, save, target :: PRES_hydro
-  type(MeshField3D), public, save, target :: DENS_hydro
+  type(VariableInfo), public :: ATMOS_PROGVARS_VINFO(ATMOS_PROGVARS_NUM)
 
+  DATA ATMOS_PROGVARS_VINFO / &
+    VariableInfo( ATMOS_PROGVARS_DDENS_ID, 'DDENS', 'deviation of density',       &
+                  'kg/m3',  3, 'XYZ',  'air_density'                           ), &
+    VariableInfo( ATMOS_PROGVARS_MOMX_ID , 'MOMX', 'momentum x',                  &
+                  'kg/m2/s', 3, 'XYZ', 'upward_mass_flux_of_air'               ), &
+    VariableInfo( ATMOS_PROGVARS_MOMY_ID , 'MOMY', 'momentum y',                  &
+                  'kg/m2/s', 3, 'XYZ', 'eastward_mass_flux_of_air'             ), &
+    VariableInfo( ATMOS_PROGVARS_MOMZ_ID , 'MOMZ', 'momentum z',                  &
+                  'kg/m2/s', 3, 'XYZ', 'northward_mass_flux_of_air'            ), &
+    VariableInfo( ATMOS_PROGVARS_DRHOT_ID, 'DRHOT', 'deviation of rho * theta',   &
+                  'kg/m3*K', 3, 'XYZ',  ''                                    )   /
 
-  integer, public, parameter :: VARS_DDENS_ID = 1
-  integer, public, parameter :: VARS_MOMX_ID  = 2
-  integer, public, parameter :: VARS_MOMY_ID  = 3
-  integer, public, parameter :: VARS_MOMZ_ID  = 4
-  integer, public, parameter :: VARS_DRHOT_ID = 5
-  integer, public, parameter :: PROG_VARS_NUM = 5
+  integer, public, parameter :: ATMOS_AUXVARS_NUM          = 14
+  integer, public, parameter :: ATMOS_AUXVARS_PRESHYDRO_ID = 1
+  integer, public, parameter :: ATMOS_AUXVARS_DENSHYDRO_ID = 2
+  integer, public, parameter :: ATMOS_AUXVARS_DxU_ID    = 3
+  integer, public, parameter :: ATMOS_AUXVARS_DyU_ID    = 4
+  integer, public, parameter :: ATMOS_AUXVARS_DzU_ID    = 5
+  integer, public, parameter :: ATMOS_AUXVARS_DxV_ID    = 6
+  integer, public, parameter :: ATMOS_AUXVARS_DyV_ID    = 7
+  integer, public, parameter :: ATMOS_AUXVARS_DzV_ID    = 8
+  integer, public, parameter :: ATMOS_AUXVARS_DxW_ID    = 9
+  integer, public, parameter :: ATMOS_AUXVARS_DyW_ID    = 10
+  integer, public, parameter :: ATMOS_AUXVARS_DzW_ID    = 11
+  integer, public, parameter :: ATMOS_AUXVARS_DxPT_ID   = 12
+  integer, public, parameter :: ATMOS_AUXVARS_DyPT_ID   = 13
+  integer, public, parameter :: ATMOS_AUXVARS_DzPT_ID   = 14
 
-  integer, public, parameter :: VARS_U_ID       = 6
-  integer, public, parameter :: VARS_V_ID       = 7
-  integer, public, parameter :: VARS_W_ID       = 8
-  integer, public, parameter :: VARS_DPRES_ID   = 9
-  integer, public, parameter :: VARS_TEMP_ID    = 10
-  integer, public, parameter :: VARS_DTHETA_ID  = 11
-  integer, public, parameter :: DIAG_VARS_NUM   = 6
-
-  integer, public, parameter :: VARS_PRES_HYDRO_ID = 11
-  integer, public, parameter :: VARS_DENS_HYDRO_ID = 12
-  integer, public, parameter :: AUX_VARS_NUM       = 2
-
-  integer, public, parameter :: VARS_GxU_ID       = 1
-  integer, public, parameter :: VARS_GyU_ID       = 2
-  integer, public, parameter :: VARS_GzU_ID       = 3
-  integer, public, parameter :: VARS_GxV_ID       = 4
-  integer, public, parameter :: VARS_GyV_ID       = 5
-  integer, public, parameter :: VARS_GzV_ID       = 6
-  integer, public, parameter :: VARS_GxW_ID       = 7
-  integer, public, parameter :: VARS_GyW_ID       = 8
-  integer, public, parameter :: VARS_GzW_ID       = 9
-  integer, public, parameter :: VARS_GxPT_ID      = 10
-  integer, public, parameter :: VARS_GyPT_ID      = 11
-  integer, public, parameter :: VARS_GzPT_ID      = 12
-  integer, public, parameter :: AUX_DIFFVARS_NUM  = 12
-
-
-  integer, public, parameter :: VARS_TOT_NUM  = PROG_VARS_NUM + DIAG_VARS_NUM + AUX_VARS_NUM + 3
-
-  type(MeshFieldCommCubeDom3D), public, save :: PROG_VARS_comm
-  type(MeshFieldContainer), public, save :: PROG_VARS_list(PROG_VARS_NUM)
-
-  type(MeshFieldCommCubeDom3D), public, save :: AUX_DIFFVARS_comm
-  type(MeshFieldContainer), public, save :: AUX_DIFFVARS_list(AUX_DIFFVARS_NUM)
+  type(VariableInfo), public :: ATMOS_AUXVARS_VINFO(ATMOS_AUXVARS_NUM)
+  DATA ATMOS_AUXVARS_VINFO / &
+    VariableInfo( ATMOS_AUXVARS_PRESHYDRO_ID, 'PRES_hyd', 'hydrostatic part of pressure',  &
+                  'Pa',  3, 'XYZ',  ''                                                  ), &
+    VariableInfo( ATMOS_AUXVARS_DENSHYDRO_ID , 'DENS_hyd', 'hydrostatic part of density',  &
+                  'kg/m3', 3, 'XYZ', ''                                                 ), &    
+    VariableInfo( ATMOS_AUXVARS_DxU_ID, 'DxU', '', '', 3, 'XYZ', ''          ), &
+    VariableInfo( ATMOS_AUXVARS_DyU_ID, 'DyU', '', '', 3, 'XYZ', ''          ), &
+    VariableInfo( ATMOS_AUXVARS_DzU_ID, 'DzU', '', '', 3, 'XYZ', ''          ), &
+    VariableInfo( ATMOS_AUXVARS_DxV_ID, 'DxV', '', '', 3, 'XYZ', ''          ), &
+    VariableInfo( ATMOS_AUXVARS_DyV_ID, 'DyV', '', '', 3, 'XYZ', ''          ), &
+    VariableInfo( ATMOS_AUXVARS_DzV_ID, 'DzV', '', '', 3, 'XYZ', ''          ), &
+    VariableInfo( ATMOS_AUXVARS_DxW_ID, 'DxW', '', '', 3, 'XYZ', ''          ), &
+    VariableInfo( ATMOS_AUXVARS_DyW_ID, 'DyW', '', '', 3, 'XYZ', ''          ), &
+    VariableInfo( ATMOS_AUXVARS_DzW_ID, 'DzW', '', '', 3, 'XYZ', ''          ), &
+    VariableInfo( ATMOS_AUXVARS_DxPT_ID, 'DxPT', '', '', 3, 'XYZ', ''        ), &
+    VariableInfo( ATMOS_AUXVARS_DyPT_ID, 'DyPT', '', '', 3, 'XYZ', ''        ), &
+    VariableInfo( ATMOS_AUXVARS_DzPT_ID, 'DzPT', '', '', 3, 'XYZ', ''        )  /
   
   !-----------------------------------------------------------------------------
   !
@@ -99,176 +111,212 @@ module mod_atmos_vars
   !
   !-------------------
 
-  integer :: HST_ID(VARS_TOT_NUM)
-
-
-contains  
-  subroutine ATMOS_VARS_setup()
-    use scale_file_history, only: FILE_HISTORY_reg
-    use mod_atmos_mesh, only: mesh
+contains
+  subroutine AtmosVars_Init( this, atm_mesh )
     implicit none
+    class(AtmosVars), target, intent(inout) :: this
+    class(AtmosMesh), intent(in) :: atm_mesh
 
+    integer :: v
     integer :: n
-    type(LocalMesh3D), pointer :: lcmesh
-    !-------------------------------------------------------------------------
-    
-    call DDENS%Init( "DDENS", "kg/m3", mesh )
-    call MOMX%Init( "MOMX", "kg/m2/s", mesh )
-    call MOMY%Init( "MOMY", "kg/m2/s", mesh )
-    call MOMZ%Init( "MOMZ", "kg/m2/s", mesh )
-    call DRHOT%Init( "DRHOT", "kg/m3.K", mesh )
+    logical :: reg_file_hist
+    !--------------------------------------------------
 
-    call U%Init( "U", "m/s", mesh )
-    call V%Init( "V", "m/s", mesh )
-    call W%Init( "W", "m/s", mesh )
-    call DPRES%Init( "DPRES", "kg.s-2.m-1", mesh )
-    call TEMP%Init( "TEMP", "K", mesh )    
-    call DTHETA%Init( "DTHETA", "K", mesh )    
+    LOG_INFO('AtmosVars_Init',*)
 
-    call GxU%Init( "GxU", "s-1", mesh )
-    call GyU%Init( "GyU", "s-1", mesh )
-    call GzU%Init( "GzU", "s-1", mesh )
-    call GxV%Init( "GxV", "s-1", mesh )
-    call GyV%Init( "GyV", "s-1", mesh )
-    call GzV%Init( "GzV", "s-1", mesh )    
-    call GxW%Init( "GxW", "s-1", mesh )
-    call GyW%Init( "GyW", "s-1", mesh )
-    call GzW%Init( "GzW", "s-1", mesh )
-    call GxPT%Init( "GxPT", "K/m", mesh )
-    call GyPT%Init( "GyPT", "K/m", mesh )
-    call GzPT%Init( "GzPT", "K/m", mesh )
-    do n=1, mesh%LOCAL_MESH_NUM
-      GxU%local(n)%val(:,:) = 0.0_RP
-      GyU%local(n)%val(:,:) = 0.0_RP
-      GzU%local(n)%val(:,:) = 0.0_RP
-      GxV%local(n)%val(:,:) = 0.0_RP
-      GyV%local(n)%val(:,:) = 0.0_RP
-      GzV%local(n)%val(:,:) = 0.0_RP
-      GxW%local(n)%val(:,:) = 0.0_RP
-      GyW%local(n)%val(:,:) = 0.0_RP
-      GzW%local(n)%val(:,:) = 0.0_RP
-      GxPT%local(n)%val(:,:) = 0.0_RP
-      GyPT%local(n)%val(:,:) = 0.0_RP
-      GzPT%local(n)%val(:,:) = 0.0_RP
+    !- Initialize prognostic variables
+
+    call this%PROGVARS_manager%Init()
+    allocate( this%PROG_VARS(ATMOS_PROGVARS_NUM) )
+
+    reg_file_hist = .true.    
+    do v = 1, ATMOS_PROGVARS_NUM
+      call this%PROGVARS_manager%Regist(        &
+        ATMOS_PROGVARS_VINFO(v), atm_mesh%mesh, & ! (in) 
+        this%PROG_VARS(v), reg_file_hist        ) ! (out)
+      do n = 1, atm_mesh%mesh%LOCAL_MESH_NUM
+        this%PROG_VARS(v)%local(n)%val(:,:) = 1.0_RP
+      end do         
     end do
 
-    call DENS_hydro%Init( "DENS_hydro", "kg/m3", mesh )
-    call PRES_hydro%Init( "PRES_hydro", "kg.s-2.m-1", mesh )
+    call this%PROGVARS_comm%Init(ATMOS_PROGVARS_NUM, 0, atm_mesh%mesh)
+    call this%PROGVARS_manager%MeshFieldComm_Prepair( this%PROGVARS_comm, this%PROG_VARS(:) )
 
-    call PROG_VARS_comm%Init(PROG_VARS_NUM, 0, mesh)
-    PROG_VARS_list(VARS_DDENS_ID)%field3d => DDENS
-    PROG_VARS_list(VARS_MOMX_ID)%field3d => MOMX
-    PROG_VARS_list(VARS_MOMY_ID)%field3d => MOMY
-    PROG_VARS_list(VARS_MOMZ_ID)%field3d => MOMZ
-    PROG_VARS_list(VARS_DRHOT_ID)%field3d => DRHOT
+    !- Initialize auxiliary and diagnostic variables
 
-    call AUX_DIFFVARS_comm%Init(AUX_DIFFVARS_NUM, 0, mesh)
-    AUX_DIFFVARS_list(VARS_GxU_ID)%field3d => GxU
-    AUX_DIFFVARS_list(VARS_GyU_ID)%field3d => GyU
-    AUX_DIFFVARS_list(VARS_GzU_ID)%field3d => GzU
-    AUX_DIFFVARS_list(VARS_GxV_ID)%field3d => GxV
-    AUX_DIFFVARS_list(VARS_GyV_ID)%field3d => GyV
-    AUX_DIFFVARS_list(VARS_GzV_ID)%field3d => GzV    
-    AUX_DIFFVARS_list(VARS_GxW_ID)%field3d => GxW
-    AUX_DIFFVARS_list(VARS_GyW_ID)%field3d => GyW
-    AUX_DIFFVARS_list(VARS_GzW_ID)%field3d => GzW
-    AUX_DIFFVARS_list(VARS_GxPT_ID)%field3d => GxPT
-    AUX_DIFFVARS_list(VARS_GyPT_ID)%field3d => GyPT
-    AUX_DIFFVARS_list(VARS_GzPT_ID)%field3d => GzPT
-
-    call FILE_HISTORY_reg( DDENS%varname, "deviation of density", DDENS%unit, HST_ID(VARS_DDENS_ID), dim_type='XYZ')
-    call FILE_HISTORY_reg( MOMX%varname, "momentum (X)", MOMX%unit, HST_ID(VARS_MOMX_ID), dim_type='XYZ')
-    call FILE_HISTORY_reg( MOMY%varname, "momentum (Y)", MOMY%unit, HST_ID(VARS_MOMY_ID), dim_type='XYZ')
-    call FILE_HISTORY_reg( MOMZ%varname, "momentum (Z)", MOMZ%unit, HST_ID(VARS_MOMZ_ID), dim_type='XYZ')
-    call FILE_HISTORY_reg( DRHOT%varname, "deviation of rho * theta", DRHOT%unit, HST_ID(VARS_DRHOT_ID), dim_type='XYZ')
-
-    call FILE_HISTORY_reg( U%varname, "velocity (X)", U%unit, HST_ID(VARS_U_ID), dim_type='XYZ')
-    call FILE_HISTORY_reg( V%varname, "velocity (X)", U%unit, HST_ID(VARS_V_ID), dim_type='XYZ')
-    call FILE_HISTORY_reg( W%varname, "velocity (Z)", W%unit, HST_ID(VARS_W_ID), dim_type='XYZ')
-    call FILE_HISTORY_reg( DPRES%varname, "deviation of pressure", DPRES%unit, HST_ID(VARS_DPRES_ID), dim_type='XYZ')
-    call FILE_HISTORY_reg( TEMP%varname, "temperature", TEMP%unit, HST_ID(VARS_TEMP_ID), dim_type='XYZ')
-    call FILE_HISTORY_reg( DTHETA%varname, "deviation of potential temperature", DTHETA%unit, HST_ID(VARS_DTHETA_ID), dim_type='XYZ')
-
-    call FILE_HISTORY_reg( PRES_hydro%varname, "hydrostatic pressure", DPRES%unit, HST_ID(VARS_PRES_HYDRO_ID), dim_type='XYZ')
-    call FILE_HISTORY_reg( DENS_hydro%varname, "hydrostatic density", TEMP%unit, HST_ID(VARS_DENS_HYDRO_ID), dim_type='XYZ')
-
-    return
-  end subroutine ATMOS_VARS_setup
-
-  subroutine ATMOS_VARS_finalize()
-    implicit none
-    !-------------------------------------------------------------------------
-
-    call PROG_VARS_comm%Final()
-    call AUX_DIFFVARS_comm%Final()
-
-    call DDENS%Final()
-    call MOMX%Final()
-    call MOMY%Final()
-    call MOMZ%Final()
-    call DRHOT%Final()
+    call this%AUXVARS_manager%Init()
+    allocate( this%AUX_VARS(ATMOS_AUXVARS_NUM) )
     
-    call U%Final()
-    call V%Final()
-    call W%Final()
-    call DPRES%Final()
-    call TEMP%Final()
-    call DTHETA%Final()
+    reg_file_hist = .true.
+    do v = ATMOS_AUXVARS_PRESHYDRO_ID, ATMOS_AUXVARS_DENSHYDRO_ID
+      call this%AUXVARS_manager%Regist(        &
+        ATMOS_AUXVARS_VINFO(v), atm_mesh%mesh, & ! (in) 
+        this%AUX_VARS(v), reg_file_hist        ) ! (out)
+      do n = 1, atm_mesh%mesh%LOCAL_MESH_NUM
+        this%AUX_VARS(v)%local(n)%val(:,:) = 1.0_RP
+      end do             
+    end do
 
-    call GxU%Final()
-    call GyU%Final()
-    call GzU%Final()
-    call GxV%Final()
-    call GyV%Final()
-    call GzV%Final()
-    call GxW%Final()
-    call GyW%Final()
-    call GzW%Final()
-    call GxPT%Final()
-    call GzPT%Final()
+    reg_file_hist = .false.    
+    do v = ATMOS_AUXVARS_DxU_ID, ATMOS_AUXVARS_DzPT_ID
+      call this%AUXVARS_manager%Regist(        &
+        ATMOS_AUXVARS_VINFO(v), atm_mesh%mesh, & ! (in) 
+        this%AUX_VARS(v), reg_file_hist        ) ! (out)      
 
-    call DENS_hydro%Final()
-    call PRES_hydro%Final()
+      do n = 1, atm_mesh%mesh%LOCAL_MESH_NUM
+        this%AUX_VARS(v)%local(n)%val(:,:) = 1.0_RP
+      end do
+    end do
+
+    call this%AUXVARS_comm%Init(3*4, 0, atm_mesh%mesh)
+    call this%AUXVARS_manager%MeshFieldComm_Prepair( &
+      this%AUXVARS_comm, this%AUX_VARS(ATMOS_AUXVARS_DxU_ID:ATMOS_AUXVARS_DzPT_ID) )
 
     return
-  end subroutine ATMOS_VARS_finalize
+  end subroutine AtmosVars_Init
 
+  subroutine AtmosVars_Final( this )
+    implicit none
+    class(AtmosVars), intent(inout) :: this
 
-  subroutine ATMOS_VARS_history()
+    !--------------------------------------------------
+
+    LOG_INFO('AtmosVars_Final',*)
+
+    call this%PROGVARS_comm%Final()
+    call this%PROGVARS_manager%Final()
+
+    call this%AUXVARS_comm%Final()
+    call this%AUXVARS_manager%Final()
+
+    return
+  end subroutine AtmosVars_Final
+
+  subroutine AtmosVars_history( this )
     use scale_file_history_meshfield, only: FILE_HISTORY_meshfield_put
-    use mod_atmos_mesh, only: mesh
     implicit none
-
+    class(AtmosVars), intent(in) :: this
+  
     integer :: n
-    type(LocalMesh3D), pointer :: lcmesh
+    integer :: v
+    class(MeshBase3D), pointer :: mesh3D
+    class(LocalMesh3D), pointer :: lcmesh
+    integer :: hst_id
     !-------------------------------------------------------------------------
 
-    call FILE_HISTORY_meshfield_put(HST_ID(VARS_DDENS_ID), DDENS)
-    call FILE_HISTORY_meshfield_put(HST_ID(VARS_MOMX_ID), MOMX)
-    call FILE_HISTORY_meshfield_put(HST_ID(VARS_MOMY_ID), MOMY)
-    call FILE_HISTORY_meshfield_put(HST_ID(VARS_MOMZ_ID), MOMZ)
-    call FILE_HISTORY_meshfield_put(HST_ID(VARS_DRHOT_ID), DRHOT)
-
-    do n=1, mesh%LOCAL_MESH_NUM
-      lcmesh => mesh%lcmesh_list(n)
-
-      call vars_calc_diagnoseVar( &
-        U%local(n)%val, V%local(n)%val, W%local(n)%val, DPRES%local(n)%val, TEMP%local(n)%val, DTHETA%local(n)%val,   &
-        DDENS%local(n)%val, MOMX%local(n)%val, MOMY%local(n)%val, MOMZ%local(n)%val, DRHOT%local(n)%val,              &
-        PRES_hydro%local(n)%val, DENS_hydro%local(n)%val,                                                             &
-        lcmesh, lcmesh%refElem3D )
+    mesh3D => this%PROG_VARS(1)%mesh
+    do v = 1, ATMOS_PROGVARS_NUM
+      hst_id = this%PROG_VARS(v)%hist_id
+      if ( hst_id > 0 ) call FILE_HISTORY_meshfield_put( hst_id, this%PROG_VARS(v) )
     end do
-    call FILE_HISTORY_meshfield_put(HST_ID(VARS_U_ID), U)
-    call FILE_HISTORY_meshfield_put(HST_ID(VARS_V_ID), V)
-    call FILE_HISTORY_meshfield_put(HST_ID(VARS_W_ID), W)
-    call FILE_HISTORY_meshfield_put(HST_ID(VARS_DTHETA_ID), DTHETA)
-    call FILE_HISTORY_meshfield_put(HST_ID(VARS_DPRES_ID), DPRES)
 
-    call FILE_HISTORY_meshfield_put(HST_ID(VARS_DENS_HYDRO_ID), DENS_hydro)
-    call FILE_HISTORY_meshfield_put(HST_ID(VARS_PRES_HYDRO_ID), PRES_hydro)
+    do n=1, mesh3D%LOCAL_MESH_NUM
+      lcmesh => mesh3D%lcmesh_list(n)
+  !     call vars_calc_diagnoseVar( &
+  !       U%local(n)%val, V%local(n)%val, W%local(n)%val, DPRES%local(n)%val, TEMP%local(n)%val, DTHETA%local(n)%val,   &
+  !       DDENS%local(n)%val, MOMX%local(n)%val, MOMY%local(n)%val, MOMZ%local(n)%val, DRHOT%local(n)%val,              &
+  !       PRES_hydro%local(n)%val, DENS_hydro%local(n)%val,                                                             &
+  !       lcmesh, lcmesh%refElem3D )
+    end do
+
+    do v = 1, ATMOS_AUXVARS_NUM
+      hst_id = this%AUX_VARS(v)%hist_id
+      if ( hst_id > 0 ) call FILE_HISTORY_meshfield_put( hst_id, this%AUX_VARS(v) )
+    end do
 
     return
-  end subroutine ATMOS_VARS_history
+  end subroutine AtmosVars_history
+
+  subroutine AtmosVars_GetLocalMeshFields( domID, mesh, prgvars_list, auxvars_list, &
+    DDENS, MOMX, MOMY, MOMZ, DRHOT,                                 &
+    GxU, GyU, GzU, GxV, GyV, GzV, GxW, GyW, GzW, GxPT, GyPT, GzPT,  &
+    DENS_hyd, PRES_hyd, lcmesh3D                                    &
+    )
+
+    use scale_mesh_base, only: MeshBase
+    use scale_meshfield_base, only: MeshFieldBase
+    use scale_localmeshfield_base, only: LocalMeshFieldBase
+    use scale_localmesh_base, only: LocalMeshBase
+    use scale_localmesh_3d, only: LocalMesh3D
+
+    implicit none
+    integer, intent(in) :: domID
+    class(MeshBase), intent(in) :: mesh
+    class(ModelVarManager), intent(inout) :: prgvars_list
+    class(ModelVarManager), intent(inout) :: auxvars_list
+    class(LocalMeshFieldBase), pointer, intent(out) :: DDENS, MOMX, MOMY, MOMZ, DRHOT
+    class(LocalMeshFieldBase), pointer, intent(out) :: &
+      GxU, GyU, GzU, GxV, GyV, GzV, GxW, GyW, GzW, GxPT, GyPT, GzPT
+    class(LocalMeshFieldBase), pointer, intent(out) :: DENS_hyd, PRES_hyd
+    class(LocalMesh3D), pointer, intent(out), optional :: lcmesh3D
+
+    class(MeshFieldBase), pointer :: field
+    class(LocalMeshBase), pointer :: lcmesh
+    !-------------------------------------------------------
+
+    !--
+    call prgvars_list%Get(ATMOS_PROGVARS_DDENS_ID, field)
+    call field%GetLocalMeshField(domID, DDENS)
+
+    call prgvars_list%Get(ATMOS_PROGVARS_MOMX_ID, field)
+    call field%GetLocalMeshField(domID, MOMX)
+    
+    call prgvars_list%Get(ATMOS_PROGVARS_MOMY_ID, field)
+    call field%GetLocalMeshField(domID, MOMY)
+
+    call prgvars_list%Get(ATMOS_PROGVARS_MOMZ_ID, field)
+    call field%GetLocalMeshField(domID, MOMZ)
+
+    call prgvars_list%Get(ATMOS_PROGVARS_DRHOT_ID, field)
+    call field%GetLocalMeshField(domID, DRHOT)
+
+    !--
+    call auxvars_list%Get(ATMOS_AUXVARS_DxU_ID, field)
+    call field%GetLocalMeshField(domID, GxU)
+    call auxvars_list%Get(ATMOS_AUXVARS_DyU_ID, field)
+    call field%GetLocalMeshField(domID, GyU)
+    call auxvars_list%Get(ATMOS_AUXVARS_DzU_ID, field)
+    call field%GetLocalMeshField(domID, GzU)
+
+    call auxvars_list%Get(ATMOS_AUXVARS_DxV_ID, field)
+    call field%GetLocalMeshField(domID, GxV)
+    call auxvars_list%Get(ATMOS_AUXVARS_DyV_ID, field)
+    call field%GetLocalMeshField(domID, GyV)
+    call auxvars_list%Get(ATMOS_AUXVARS_DzV_ID, field)
+    call field%GetLocalMeshField(domID, GzV)
+    
+    call auxvars_list%Get(ATMOS_AUXVARS_DxW_ID, field)
+    call field%GetLocalMeshField(domID, GxW)
+    call auxvars_list%Get(ATMOS_AUXVARS_DyW_ID, field)
+    call field%GetLocalMeshField(domID, GyW)
+    call auxvars_list%Get(ATMOS_AUXVARS_DzU_ID, field)
+    call field%GetLocalMeshField(domID, GzW)
+    
+    call auxvars_list%Get(ATMOS_AUXVARS_DxPT_ID, field)
+    call field%GetLocalMeshField(domID, GxPT)
+    call auxvars_list%Get(ATMOS_AUXVARS_DyPT_ID, field)
+    call field%GetLocalMeshField(domID, GyPT)
+    call auxvars_list%Get(ATMOS_AUXVARS_DzPT_ID, field)
+    call field%GetLocalMeshField(domID, GzPT)    
+    !--
+    call auxvars_list%Get(ATMOS_AUXVARS_DENSHYDRO_ID, field)
+    call field%GetLocalMeshField(domID, DENS_hyd)
+
+    call auxvars_list%Get(ATMOS_AUXVARS_PRESHYDRO_ID, field)
+    call field%GetLocalMeshField(domID, PRES_hyd)
+
+    !---
+    
+    call mesh%GetLocalMesh( domID, lcmesh )
+    nullify( lcmesh3D )
+
+    select type(lcmesh)
+    type is (LocalMesh3D)
+      if (present(lcmesh3D)) lcmesh3D => lcmesh
+    end select
+
+    return
+  end subroutine AtmosVars_GetLocalMeshFields
 
   subroutine vars_calc_diagnoseVar( &
     U_, V_, W_, DPRES_, TEMP_, DTHETA_,                         &
@@ -323,6 +371,5 @@ contains
     end do
 
     return
-  end subroutine vars_calc_diagnoseVar
-
+  end subroutine vars_calc_diagnoseVar  
 end module mod_atmos_vars

@@ -31,12 +31,13 @@ VPATH = \
 
 OBJS = \
 	mod_dg_driver.o              \
+	mod_atmos_component.o        \
+	mod_atmos_dyn.o              \
+	mod_atmos_mesh.o             \
 	mod_atmos_vars.o             \
-	mod_user.o                   \
-	mod_exp.o                    \
-	mod_atmos_dyn_driver.o       \
 	mod_atmos_bnd.o              \
-	mod_atmos_mesh.o             
+	mod_user.o                   \
+	mod_exp.o
 
 LIBS = $(LIBDIR)/libScaleFECore.a
 
@@ -96,3 +97,4 @@ $(BUILD_DIR)/%.o: %.F90
 include $(TOPDIR)/utils/make/Make_environments
 -include depend
 
+$(BUILD_DIR)/mod_user.o: $(BUILD_DIR)/mod_exp.o

@@ -19,6 +19,9 @@ module mod_user
   use scale_io
   use scale_prof
 
+  use mod_atmos_component, only: &
+    AtmosComponent
+    
   !-----------------------------------------------------------------------------
   implicit none
   private
@@ -54,11 +57,13 @@ contains
     return
   end subroutine USER_mkinit
 
-  subroutine USER_setup
+  subroutine USER_setup( atm )
     use scale_prc, only: &
        PRC_abort
     implicit none
 
+    class(AtmosComponent), intent(inout) :: atm
+    
     namelist / PARAM_USER / &
        USER_do
 
