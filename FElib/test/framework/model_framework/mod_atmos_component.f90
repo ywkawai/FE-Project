@@ -47,13 +47,13 @@ subroutine Atmos_setup( this )
   !--------------------------------------------------
 
   LOG_INFO('AtmosComponent_setup',*)
-  this%name = 'Atmos'
+  call this%ModelComponent_Init( 'Atmos', .true. )
   
   call this%mesh%Init()
   call this%vars%Init( this%mesh )
 
   !-------------------------------------
-  call this%dyn_proc%setup()
+  call this%dyn_proc%setup( this%mesh )
 
   return
 end subroutine Atmos_setup
@@ -66,7 +66,7 @@ subroutine Atmos_calc_tendency( this )
 
   LOG_INFO('AtmosComponent_calc_tendency',*)
 
-  call this%dyn_proc%calc_tendency()
+  call this%dyn_proc%calc_tendency( this%mesh, this%vars%prgvars_list, this%vars%auxvars_list )
 
   return  
 end subroutine Atmos_calc_tendency
@@ -78,7 +78,7 @@ subroutine Atmos_update( this )
 
   LOG_INFO('AtmosComponent_update',*)
 
-  call this%dyn_proc%update()
+  call this%dyn_proc%update( this%mesh, this%vars%prgvars_list, this%vars%auxvars_list )
 
   return  
 end subroutine Atmos_update
