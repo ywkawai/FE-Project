@@ -28,6 +28,7 @@ module scale_mesh_base2d
     type(elementbase2D), pointer :: refElem2D
   contains
     procedure(MeshBase2D_generate), deferred :: Generate 
+    procedure :: GetLocalMesh => MeshBase2D_get_localmesh
   end type MeshBase2D
 
   interface 
@@ -98,6 +99,19 @@ contains
     return
   end subroutine MeshBase2D_Final
   
+  subroutine MeshBase2D_get_localmesh( this, id, ptr_lcmesh )
+    use scale_localmesh_base, only: LocalMeshBase
+    implicit none
+
+    class(MeshBase2D), target, intent(in) :: this
+    integer, intent(in) :: id
+    class(LocalMeshBase), pointer, intent(out) :: ptr_lcmesh
+    !-------------------------------------------------------------
+
+    ptr_lcmesh => this%lcmesh_list(id)
+    return
+  end subroutine MeshBase2D_get_localmesh
+
   subroutine MeshBase2D_setGeometricInfo( lcmesh, coord_conv, calc_normal )
 
     implicit none

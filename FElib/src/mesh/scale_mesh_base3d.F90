@@ -28,6 +28,7 @@ module scale_mesh_base3d
     type(elementbase3D), pointer :: refElem3D
   contains
     procedure(MeshBase3D_generate), deferred :: Generate 
+    procedure :: GetLocalMesh => MeshBase3D_get_localmesh
   end type MeshBase3D
 
   interface 
@@ -101,6 +102,19 @@ contains
     return
   end subroutine MeshBase3D_Final
   
+  subroutine MeshBase3D_get_localmesh( this, id, ptr_lcmesh )
+    use scale_localmesh_base, only: LocalMeshBase
+    implicit none
+
+    class(MeshBase3D), target, intent(in) :: this
+    integer, intent(in) :: id
+    class(LocalMeshBase), pointer, intent(out) :: ptr_lcmesh
+    !-------------------------------------------------------------
+
+    ptr_lcmesh => this%lcmesh_list(id)
+    return
+  end subroutine MeshBase3D_get_localmesh
+
   subroutine MeshBase3D_setGeometricInfo( lcmesh, coord_conv, calc_normal )
 
     implicit none

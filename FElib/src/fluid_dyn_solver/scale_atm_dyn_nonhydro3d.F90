@@ -94,7 +94,7 @@ contains
     class(elementbase3D), intent(in) :: elem
     real(RP), intent(in) :: etac
     real(RP), intent(in) :: alpha
-    real(RP), intent(in) :: ord
+    integer, intent(in) :: ord
 
     real(RP) :: filter1D_h(elem%Nnode_h1D)
     real(RP) :: filter1D_v(elem%Nnode_v)
@@ -233,10 +233,10 @@ contains
     end do
     end do
     IntrpMat_VPOrdM1(:,:) = matmul(elem%V, invV_VPOrdM1)
-    
+
     !------------------------------------------------------------------------
 
-    call PROF_rapstart( 'cal_dyn_tend_bndflux', 2)
+    call PROF_rapstart( 'cal_dyn_tend_bndflux', 3)
     call cal_del_flux_dyn( del_flux,                                          & ! (out)
       DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd,                & ! (in)
       GxU_, GyU_, GzU_, GxV_, GyV_, GzV_, GxW_, GyW_, GzW_,                   & ! (in)
@@ -246,10 +246,10 @@ contains
       lmesh%normal_fn(:,:,1), lmesh%normal_fn(:,:,2), lmesh%normal_fn(:,:,3), & ! (in)
       lmesh%vmapM, lmesh%vmapP,                                               & ! (in)
       lmesh, elem )                                                             ! (in)
-    call PROF_rapend( 'cal_dyn_tend_bndflux', 2)
+    call PROF_rapend( 'cal_dyn_tend_bndflux', 3)
     
     !-----
-    call PROF_rapstart( 'cal_dyn_tend_interior', 2)
+    call PROF_rapstart( 'cal_dyn_tend_interior', 3)
     do k = lmesh%NeS, lmesh%NeE
       !--
 
@@ -326,7 +326,7 @@ contains
           + LiftDelFlx )
     
     end do
-    call PROF_rapend( 'cal_dyn_tend_interior', 2)
+    call PROF_rapend( 'cal_dyn_tend_interior', 3)
 
     return
   end subroutine atm_dyn_nonhydro3d_cal_tend

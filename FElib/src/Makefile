@@ -62,6 +62,7 @@ OBJS_NAME_FLUID_DYN_SOLVER = \
 
 
 OBJS_NAME_MODEL_FRAMEWORK = \
+	scale_model_mesh_manager.o   \
 	scale_model_component.o      \
 	scale_model_component_proc.o \
 	scale_model_var_manager.o

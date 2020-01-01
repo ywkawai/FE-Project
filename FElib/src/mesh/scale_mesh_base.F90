@@ -30,7 +30,19 @@ module scale_mesh_base
 
     class(ElementBase), pointer :: refElem
     logical :: isGenerated
+  contains
+    procedure(MeshBase_get_localmesh), deferred :: GetLocalMesh
   end type MeshBase
+
+  interface 
+    subroutine MeshBase_get_localmesh( this, id, ptr_lcmesh )
+      import MeshBase
+      import LocalMeshBase
+      class(MeshBase), target, intent(in) :: this
+      integer, intent(in) :: id
+      class(LocalMeshBase), pointer, intent(out) :: ptr_lcmesh
+    end subroutine MeshBase_get_localmesh
+  end interface
 
   public :: MeshBase_Init, MeshBase_Final
   public :: MeshBase_setGeometricInfo
