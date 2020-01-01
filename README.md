@@ -26,7 +26,7 @@ Futhermore, some dynamical cores of atmospheric and oceanic model with DGM will 
 
 ## Models with FE library
 ### Dynamical cores of atmospheric model 
-- 2-dimensional dynamical core of nonhydrostatic atmospheric model
+- 2D and 3D dynamical core of nonhydrostatic atmospheric model
 
  
 ## Build FE library
