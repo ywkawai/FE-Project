@@ -19,6 +19,7 @@ module scale_element_base
     integer :: Nfaces
     integer :: NfpTot
     integer :: Nv
+    logical, private :: LumpedMatFlag
 
     real(RP), allocatable :: V(:,:)
     real(RP), allocatable :: invV(:,:)
@@ -26,7 +27,9 @@ module scale_element_base
     real(RP), allocatable :: invM(:,:)
     real(RP), allocatable :: Lift(:,:)
     real(RP), allocatable :: Filter(:,:)
-    real(RP), allocatable :: IntWeight_lgl(:)    
+    real(RP), allocatable :: IntWeight_lgl(:)
+  contains
+    procedure :: IsLumpedMatrix => ElementBase_isLumpedMatrix
   end type elementbase
   
   !-
@@ -127,10 +130,11 @@ module scale_element_base
 
 contains
 
-  subroutine ElementBase_Init( elem )
+  subroutine ElementBase_Init( elem, lumpedmat_flag )
     implicit none
 
     class(ElementBase), intent(inout) :: elem
+    logical, intent(in) :: lumpedmat_flag
     !-----------------------------------------------------------------------------
 
     allocate( elem%IntWeight_lgl(elem%Np) )  
@@ -143,6 +147,8 @@ contains
     allocate( elem%Lift(elem%Np, elem%NfpTot) )    
     
     allocate( elem%Filter(elem%Np, elem%Np))
+
+    elem%LumpedMatFlag = lumpedmat_flag
 
     return
   end subroutine ElementBase_Init
@@ -163,14 +169,26 @@ contains
 
     return
   end subroutine ElementBase_Final
-    
-  subroutine ElementBase1D_Init( elem )
+
+  function ElementBase_isLumpedMatrix( elem ) result(lumpedmat_flag)
+    implicit none
+    class(ElementBase), intent(in) :: elem
+    logical :: lumpedmat_flag
+    !---------------------------------------------
+
+    lumpedmat_flag = elem%LumpedMatFlag
+    return
+  end function ElementBase_isLumpedMatrix
+
+  !--------------------------------------------------------------------------------
+  subroutine ElementBase1D_Init( elem, lumpedmat_flag )
     implicit none
 
     class(ElementBase1D), intent(inout) :: elem
+    logical, intent(in) :: lumpedmat_flag    
     !-----------------------------------------------------------------------------
 
-    call ElementBase_Init( elem )
+    call ElementBase_Init( elem, lumpedmat_flag )
 
     allocate( elem%x1(elem%Np) )  
     allocate( elem%Fmask(elem%Nfp, elem%Nfaces) )
@@ -197,13 +215,14 @@ contains
     return
   end subroutine ElementBase1D_Final
 
-  subroutine ElementBase2D_Init( elem )
+  subroutine ElementBase2D_Init( elem, lumpedmat_flag )
     implicit none
 
     class(ElementBase2D), intent(inout) :: elem
+    logical, intent(in) :: lumpedmat_flag    
     !-----------------------------------------------------------------------------
 
-    call ElementBase_Init( elem )
+    call ElementBase_Init( elem, lumpedmat_flag )
 
     allocate( elem%x1(elem%Np), elem%x2(elem%Np) )
     allocate( elem%Fmask(elem%Nfp, elem%Nfaces) )
@@ -231,13 +250,14 @@ contains
     return
   end subroutine ElementBase2D_Final
 
-  subroutine ElementBase3D_Init( elem )
+  subroutine ElementBase3D_Init( elem, lumpedmat_flag )
     implicit none
 
     class(ElementBase3D), intent(inout) :: elem
+    logical, intent(in) :: lumpedmat_flag
     !-----------------------------------------------------------------------------
 
-    call ElementBase_Init( elem )
+    call ElementBase_Init( elem, lumpedmat_flag )
 
     allocate( elem%x1(elem%Np), elem%x2(elem%Np), elem%x3(elem%Np) )
     allocate( elem%Dx1(elem%Np, elem%Np), elem%Dx2(elem%Np, elem%Np), elem%Dx3(elem%Np, elem%Np) )

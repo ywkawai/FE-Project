@@ -8,6 +8,7 @@ module scale_localmesh_3d
   use scale_precision
   use scale_localmesh_base, only: &
     LocalMeshBase, LocalMeshBase_Init, LocalMeshBase_Final
+  use scale_localmesh_2d, only: LocalMesh2D
   use scale_element_base, only: elementbase, elementbase3D
 
   !-----------------------------------------------------------------------------
@@ -29,8 +30,13 @@ module scale_localmesh_3d
     real(DP), allocatable :: Sz(:,:)
     real(DP), allocatable :: zS(:,:)
 
+    class(LocalMesh2D), pointer :: lcmesh2D
     real(DP), allocatable :: lon2D(:,:)     
-    real(DP), allocatable :: lat2D(:,:)     
+    real(DP), allocatable :: lat2D(:,:)
+
+    integer, allocatable :: EMap3Dto2D(:)  
+  contains
+    procedure :: SetLocalMesh2D => LocalMesh3D_setLocalMesh2D  
   end type LocalMesh3D
 
   public :: LocalMesh3D_Init, LocalMesh3D_Final
@@ -62,7 +68,8 @@ contains
   
     this%PRC_myrank   = PRC_myrank
     this%refElem3D    => refElem
-    
+    nullify( this%lcmesh2D )
+
     call LocalMeshBase_Init(this, refElem, 3)
 
   end subroutine LocalMesh3D_Init
@@ -74,4 +81,15 @@ contains
 
   end subroutine LocalMesh3D_Final
   
+  subroutine LocalMesh3D_setLocalMesh2D( this, lcmesh2D )
+    implicit none
+    class(LocalMesh3D), intent(inout) :: this
+    class(LocalMesh2D), intent(in), target :: lcmesh2D
+    !----------------
+
+    this%lcmesh2D => lcmesh2D
+
+    return
+  end subroutine LocalMesh3D_setLocalMesh2D
+
 end module scale_localmesh_3d

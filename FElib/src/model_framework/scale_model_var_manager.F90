@@ -249,7 +249,7 @@ contains
     
     call this%ptr_comm%Put( this%comm_list, 1 )
     call this%ptr_comm%Exchange()
-    call this%ptr_comm%Get(this%comm_list, 1 )
+    call this%ptr_comm%Get( this%comm_list, 1 )
 
     return
   end subroutine ModelVarManager_meshfiled_comm_exchange

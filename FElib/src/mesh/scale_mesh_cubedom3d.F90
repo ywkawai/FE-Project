@@ -12,10 +12,19 @@ module scale_mesh_cubedom3d
     MeshBase3D, MeshBase3D_Init, MeshBase3D_Final, &
     MeshBase3D_setGeometricInfo
 
+  use scale_mesh_base2d, only: &
+    MeshBase2D, MeshBase2D_Init, MeshBase2D_Final, &
+    MeshBase2D_setGeometricInfo
+
   use scale_localmesh_3d, only: &
     LocalMesh3D
   use scale_element_base, only: elementbase3D
   use scale_element_hexahedral, only: HexahedralElement
+
+  use scale_mesh_rectdom2d, only: &
+    MeshRectDom2D, MeshRectDom2D_setupLocalDom
+  
+  use scale_element_quadrilateral, only: QuadrilateralElement
 
   !-----------------------------------------------------------------------------
   implicit none
@@ -38,10 +47,14 @@ module scale_mesh_cubedom3d
     logical :: isPeriodicX
     logical :: isPeriodicY
     logical :: isPeriodicZ
+
+    type(MeshRectDom2D) :: mesh2D
+    type(QuadrilateralElement) :: refElem2D
   contains
     procedure :: Init => MeshCubeDom3D_Init
     procedure :: Final => MeshCubeDom3D_Final
     procedure :: Generate => MeshCubeDom3D_generate
+    procedure :: GetMesh2D => MeshCubeDom3D_getMesh2D
   end type MeshCubeDom3D
 
   public :: MeshCubeDom3D_coord_conv
@@ -105,6 +118,11 @@ contains
 
     call MeshBase3D_Init(this, refElem, NLocalMeshPerPrc, 6)
 
+    !---
+
+    call this%refElem2D%Init( this%refElem3D%PolyOrder_h, refElem%IsLumpedMatrix() )
+    call MeshBase2D_Init(this%mesh2D, this%refElem2D, NLocalMeshPerPrc )
+
     return
   end subroutine MeshCubeDom3D_Init
 
@@ -121,11 +139,24 @@ contains
       deallocate( this%rcdomIJK2LCMeshID )
     end if
 
+    call this%mesh2D%Final()
+    call this%refElem2D%Final()
+
     call MeshBase3D_Final(this)
 
     return
   end subroutine MeshCubeDom3D_Final
   
+  subroutine MeshCubeDom3D_getMesh2D( this, ptr_mesh2D )
+    implicit none
+    class(MeshCubeDom3D), intent(in), target :: this
+    class(MeshBase2D), pointer, intent(out) :: ptr_mesh2D
+    !-------------------------------------------------------
+
+    ptr_mesh2D => this%mesh2D
+    return
+  end subroutine MeshCubeDom3D_getMesh2D
+
   subroutine MeshCubeDom3D_generate( this )
     
     implicit none
@@ -170,6 +201,14 @@ contains
          & this%xmin_gl, this%xmax_gl, this%ymin_gl, this%ymax_gl, this%zmin_gl, this%zmax_gl, &
          & this%NeGX/NprcX, this%NeGY/NprcY, this%NeGZ/1 )
 
+      call MeshRectDom2D_setupLocalDom( this%mesh2D%lcmesh_list(n),   &
+        & tileID,  panelID_table(tileID),                             &
+        & pi_table(tileID), pj_table(tileID), NprcX, NprcY,           &
+        & this%xmin_gl, this%xmax_gl, this%ymin_gl, this%ymax_gl,     &
+        & this%NeGX/NprcX, this%NeGY/NprcY )
+
+      call mesh%SetLocalMesh2D( this%mesh2D%lcmesh_list(n) )
+      
       !---
       ! write(*,*) "** my_rank=", mesh%PRC_myrank
       ! write(*,*) " tileID:", mesh%tileID
@@ -217,6 +256,7 @@ contains
     
     class(ElementBase3D), pointer :: elem
     real(RP) :: delx, dely, delz
+    integer :: ii, jj, kk, ke
     !-----------------------------------------------------------------------------
 
     elem => lcmesh%refElem3D
@@ -256,6 +296,8 @@ contains
     allocate( lcmesh%MapM(elem%NfpTot, lcmesh%Ne) )
     allocate( lcmesh%MapP(elem%NfpTot, lcmesh%Ne) )
     
+    allocate( lcmesh%EMap3Dto2D(lcmesh%Ne) )
+
     lcmesh%BCType(:,:) = BCTYPE_INTERIOR
     
     !----
@@ -285,6 +327,16 @@ contains
       & elem%Fmask_h, elem%Fmask_v, lcmesh%Ne, lcmesh%Nv, elem%Np, elem%Nfp_h, elem%Nfp_v, elem%NfpTot,   & ! (in)
       elem%Nfaces_h, elem%Nfaces_v, elem%Nfaces )                                                           ! (in)
     
+    !---
+    do kk=1, lcmesh%NeZ
+    do jj=1, lcmesh%NeY
+    do ii=1, lcmesh%NeX
+      ke = ii + (jj-1) * lcmesh%NeX + (kk-1) * lcmesh%NeX * lcmesh%NeY
+      lcmesh%EMap3Dto2D(ke) = ii + (jj-1) * lcmesh%NeX
+    end do
+    end do
+    end do
+
     return
   end subroutine MeshCubeDom3D_setupLocalDom
 

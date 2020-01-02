@@ -12,7 +12,8 @@ module scale_mesh_base3d
 
   use scale_mesh_base, only: &
     MeshBase, MeshBase_Init, MeshBase_Final
-    
+  use scale_mesh_base2d, only: &
+    MeshBase2D
   use scale_element_base, only: elementbase3D
 
   !-----------------------------------------------------------------------------
@@ -28,6 +29,7 @@ module scale_mesh_base3d
     type(elementbase3D), pointer :: refElem3D
   contains
     procedure(MeshBase3D_generate), deferred :: Generate 
+    procedure(MeshBase3D_getMesh2D), deferred  :: GetMesh2D
     procedure :: GetLocalMesh => MeshBase3D_get_localmesh
   end type MeshBase3D
 
@@ -36,6 +38,13 @@ module scale_mesh_base3d
       import MeshBase3D
       class(MeshBase3D), intent(inout), target :: this
     end subroutine MeshBase3D_generate
+
+    subroutine MeshBase3D_getMesh2D(this, ptr_mesh2D)
+      import MeshBase3D
+      import MeshBase2D
+      class(MeshBase3D), intent(in), target :: this
+      class(MeshBase2D), pointer, intent(out) :: ptr_mesh2D
+    end subroutine MeshBase3D_getMesh2D
   end interface
 
   public :: MeshBase3D_Init, MeshBase3D_Final

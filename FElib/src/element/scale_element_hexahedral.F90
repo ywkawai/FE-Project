@@ -56,8 +56,8 @@ contains
 
     elem%Np = elem%Nfp_v * elem%Nnode_v
     
-    call ElementBase3D_Init(elem)
-    call construct_Element(elem, LumpedMassMatFlag)
+    call ElementBase3D_Init(elem, LumpedMassMatFlag)
+    call construct_Element(elem)
 
     return
   end subroutine HexhedralElement_Init
@@ -73,7 +73,7 @@ contains
     return
   end subroutine HexhedralElement_Final
 
-  subroutine construct_Element(elem, LumpedMassMatFlag)
+  subroutine construct_Element(elem)
 
     use scale_linalgebra, only: linalgebra_inv
     use scale_polynominal, only: &
@@ -84,7 +84,6 @@ contains
     implicit none
     
     type(HexahedralElement), intent(inout) :: elem
-    logical, intent(in) :: LumpedMassMatFlag
 
     integer :: nodes_ijk(elem%Nnode_h1D, elem%Nnode_h1D, elem%Nnode_v)
 
@@ -224,7 +223,7 @@ contains
 
     !* Set the mass matrix
 
-    if (LumpedMassMatFlag) then
+    if (elem%IsLumpedMatrix()) then
       elem%invM(:,:) = 0.0_RP
       elem%M(:,:)    = 0.0_RP
       do k=1, elem%Nnode_v
@@ -280,7 +279,7 @@ contains
   
     Emat(:,:) = 0.0_RP
     do f=1, elem%Nfaces_h
-      if (LumpedMassMatFlag) then
+      if (elem%IsLumpedMatrix()) then
         MassEdge_h(:,:) = 0.0_RP
         do k=1, elem%Nnode_v
         do i=1, elem%Nnode_h1D
@@ -298,7 +297,7 @@ contains
     end do
 
     do f=1, elem%Nfaces_v
-      if (LumpedMassMatFlag) then
+      if (elem%IsLumpedMatrix()) then
         MassEdge_v(:,:) = 0.0_RP
         do j=1, elem%Nnode_h1D
         do i=1, elem%Nnode_h1D
