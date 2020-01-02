@@ -43,7 +43,7 @@ module mod_atmos_vars
     procedure :: History => AtmosVars_History
   end type AtmosVars
 
-  public AtmosVars_GetLocalMeshFields
+  public :: AtmosVars_GetLocalMeshFields
 
   !-----------------------------------------------------------------------------
   !
@@ -135,7 +135,7 @@ contains
         ATMOS_PROGVARS_VINFO(v), atm_mesh%mesh, & ! (in) 
         this%PROG_VARS(v), reg_file_hist        ) ! (out)
       do n = 1, atm_mesh%mesh%LOCAL_MESH_NUM
-        this%PROG_VARS(v)%local(n)%val(:,:) = 1.0_RP
+        this%PROG_VARS(v)%local(n)%val(:,:) = 1.E20_RP
       end do         
     end do
 
@@ -307,13 +307,15 @@ contains
 
     !---
     
-    call mesh%GetLocalMesh( domID, lcmesh )
-    nullify( lcmesh3D )
+    if (present(lcmesh3D)) then
+      call mesh%GetLocalMesh( domID, lcmesh )
+      nullify( lcmesh3D )
 
-    select type(lcmesh)
-    type is (LocalMesh3D)
-      if (present(lcmesh3D)) lcmesh3D => lcmesh
-    end select
+      select type(lcmesh)
+      type is (LocalMesh3D)
+        if (present(lcmesh3D)) lcmesh3D => lcmesh
+      end select
+    end if
 
     return
   end subroutine AtmosVars_GetLocalMeshFields

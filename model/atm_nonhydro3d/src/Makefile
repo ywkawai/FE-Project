@@ -33,6 +33,7 @@ OBJS = \
 	mod_dg_driver.o              \
 	mod_atmos_component.o        \
 	mod_atmos_dyn.o              \
+	mod_atmos_dyn_vars.o         \
 	mod_atmos_mesh.o             \
 	mod_atmos_vars.o             \
 	mod_atmos_bnd.o              \

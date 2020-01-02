@@ -86,14 +86,14 @@ contains
     !-------------------------------------------
 
     LOG_NEWLINE
-    LOG_INFO("ATMOS_MESH_driver_setup",*) 'Setup'
+    LOG_INFO("ATMOS_MESH_setup",*) 'Setup'
 
     rewind(IO_FID_CONF)
     read(IO_FID_CONF,nml=PARAM_ATMOS_MESH,iostat=ierr)
     if( ierr < 0 ) then !--- missing
-        LOG_INFO("ATMOS_MESH_driver_setup",*) 'Not found namelist. Default used.'
+        LOG_INFO("ATMOS_MESH_setup",*) 'Not found namelist. Default used.'
     elseif( ierr > 0 ) then !--- fatal error
-        LOG_ERROR("ATMOS_MESH_driver_setup",*) 'Not appropriate names in namelist PARAM_ATM_MESH. Check!'
+        LOG_ERROR("ATMOS_MESH_setup",*) 'Not appropriate names in namelist PARAM_ATM_MESH. Check!'
         call PRC_abort
     endif
     LOG_NML(PARAM_ATMOS_MESH)

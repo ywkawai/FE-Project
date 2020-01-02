@@ -18,14 +18,19 @@ module mod_atmos_dyn
   use scale_prc
   use scale_io
   use scale_prof
+  use scale_const, only: &
+    UNDEF => CONST_UNDEF8
 
   use scale_timeint_rk, only: TimeInt_RK
   
   use scale_mesh_base, only: MeshBase
+  use scale_mesh_base2d, only: MeshBase2D
+  use scale_mesh_base3d, only: MeshBase3D
+
   use scale_localmesh_base, only: LocalMeshBase
   use scale_localmesh_3d, only: LocalMesh3D
   use scale_element_base, only: &
-    ElementBase, ElementBase3D
+    ElementBase, ElementBase2D, ElementBase3D
     
   use scale_meshfield_base, only: MeshFieldBase
   use scale_localmeshfield_base, only: LocalMeshFieldBase
@@ -35,6 +40,8 @@ module mod_atmos_dyn
   use scale_model_component_proc, only:  ModelComponentProc
 
   use mod_atmos_dyn_bnd, only: AtmosDynBnd
+  use mod_atmos_dyn_vars, only: &
+    AtmosDynVars, AtmosDynVars_GetLocalMeshFields
 
   !-----------------------------------------------------------------------------
   implicit none
@@ -46,6 +53,7 @@ module mod_atmos_dyn
   type, extends(ModelComponentProc), public :: AtmosDyn
     type(TimeInt_RK), allocatable :: tint(:)
     type(AtmosDynBnd) :: boundary_cond
+    type(AtmosDynVars) :: dyn_vars
 
     logical :: CALC_DIFFVARS_FLAG
     real(RP) :: VISCCOEF_H, VISCCOEF_V
@@ -94,19 +102,27 @@ contains
     real(RP) :: VISCCOEF_V = 0.0_RP
     real(RP) :: DIFFCOEF_H = 0.0_RP
     real(RP) :: DIFFCOEF_V = 0.0_RP
+    
     logical  :: EXPFILTER_FLAG = .false.
     real(RP) :: EXPFILTER_ETAC  = 2.0_RP/3.0_RP
     real(RP) :: EXPFILTER_ALPHA = 36.0_RP
     integer  :: EXPFILTER_ORDER = 16
 
+    character(len=H_SHORT) :: coriolis_type = 'PLANE'   ! type of coriolis force: 'PLANE', 'SPHERE'
+    real(RP) :: coriolis_f0         = 0.0_RP
+    real(RP) :: coriolis_beta       = 0.0_RP
+    real(RP) :: coriolis_y0         = UNDEF                  ! default is domain center    
+
     namelist / PARAM_ATMOS_DYN /       &
-      TINTEG_TYPE,                     &
-      DT_SEC,                          &
-      VISCCOEF_H, VISCCOEF_V,          &
-      DIFFCOEF_H, DIFFCOEF_V,          &
-      EXPFILTER_FLAG,                  &
-      EXPFILTER_ETAC, EXPFILTER_ALPHA, &
-      EXPFILTER_ORDER
+      TINTEG_TYPE,                            &
+      DT_SEC,                                 &
+      VISCCOEF_H, VISCCOEF_V,                 &
+      DIFFCOEF_H, DIFFCOEF_V,                 &
+      EXPFILTER_FLAG,                         &
+      EXPFILTER_ETAC, EXPFILTER_ALPHA,        &
+      EXPFILTER_ORDER,                        &
+      CORIOLIS_TYPE,                          &
+      CORIOLIS_f0, CORIOLIS_beta, CORIOLIS_y0
     
     integer :: ierr
 
@@ -168,9 +184,12 @@ contains
         (/ ptr_mesh%refElem%Np, ptr_lcmesh%NeA /) )
     end do
 
-    !- initialize an object to manage boundary conditions for dynamical process
+    !- initialize an object to manage boundary conditions and variables for dynamical process
     call this%boundary_cond%Init()
     call this%boundary_cond%SetBCInfo( ptr_mesh )
+
+    call this%dyn_vars%Init( model_mesh )
+    call set_coriolis_parameter( this%dyn_vars, model_mesh, CORIOLIS_type, CORIOLIS_f0, CORIOLIS_beta, CORIOLIS_y0 )
 
     return  
   end subroutine AtmosDyn_setup
@@ -212,6 +231,7 @@ contains
     integer :: tintbuf_ind
 
     class(MeshBase), pointer :: mesh
+    class(MeshBase2D), pointer :: mesh2D    
     class(LocalMesh3D), pointer :: lcmesh
     integer :: n
 
@@ -219,6 +239,7 @@ contains
     class(LocalMeshFieldBase), pointer :: &
       GxU, GyU, GzU, GxV, GyV, GzV, GxW, GyW, GzW, GxPT, GyPT, GzPT
     class(LocalMeshFieldBase), pointer :: DENS_hyd, PRES_hyd
+    class(LocalMeshFieldBase), pointer :: Coriolis
 
 
     integer :: v
@@ -307,6 +328,10 @@ contains
           DDENS, MOMX, MOMY, MOMZ, DRHOT,                                 &
           GxU, GyU, GzU, GxV, GyV, GzV, GxW, GyW, GzW, GxPT, GyPT, GzPT,  &
           DENS_hyd, PRES_hyd, lcmesh                                      )
+        
+        call AtmosDynVars_GetLocalMeshFields( n,       &
+          mesh, this%dyn_vars%AUXVARS_manager,         &
+          Coriolis, lcmesh )
         call PROF_rapend( 'ATM_DYN_get_localmesh_ptr', 2)
 
         call PROF_rapstart( 'ATM_DYN_update_caltend', 2)
@@ -318,6 +343,7 @@ contains
           this%tint(n)%tend_buf2D(:,:,ATMOS_PROGVARS_DRHOT_ID,tintbuf_ind),       &
           DDENS%val, MOMX%val, MOMY%val, MOMZ%val, DRHOT%val,                     &
           DENS_hyd%val, PRES_hyd%val,                                             &
+          Coriolis%val,                                                           &
           GxU%val, GyU%val, GzU%val, GxV%val, GyV%val, GzV%val,                   &
           GxW%val, GyW%val, GzW%val, GxPT%val, GyPT%val, GzPT%val,                &
           this%VISCCOEF_H, this%VISCCOEF_V,                                       &
@@ -325,7 +351,7 @@ contains
           model_mesh%DOptrMat(1), model_mesh%DOptrMat(2), model_mesh%DOptrMat(3), &
           model_mesh%SOptrMat(1), model_mesh%SOptrMat(2), model_mesh%SOptrMat(3), &
           model_mesh%LiftOptrMat,                                                 &
-          lcmesh, lcmesh%refElem3D ) 
+          lcmesh, lcmesh%refElem3D, lcmesh%lcmesh2D, lcmesh%lcmesh2D%refElem2D ) 
         call PROF_rapend( 'ATM_DYN_update_caltend', 2)
  
         call PROF_rapstart( 'ATM_DYN_update_advance', 2)      
@@ -377,9 +403,63 @@ contains
     deallocate( this%tint )
 
     call this%boundary_cond%Final()
+    call this%dyn_vars%Final()
 
     return  
   end subroutine AtmosDyn_finalize  
 
   !--- private ---------------
+
+  subroutine set_coriolis_parameter( this, model_mesh, &
+    COLIORIS_type, f0, beta, y0_ )
+
+    use mod_atmos_mesh, only: AtmosMesh
+    use scale_const, only: &
+      OHM     => CONST_OHM
+    implicit none
+
+    class(AtmosDynVars), target, intent(inout) :: this
+    class(ModelMeshBase), intent(in) :: model_mesh
+    character(*), intent(in) :: COLIORIS_type
+    real(RP), intent(in) :: f0, beta, y0_
+
+    class(AtmosMesh), pointer :: atm_mesh
+    class(MeshBase2D), pointer :: mesh2D    
+
+    class(LocalMeshFieldBase), pointer :: coriolis
+    class(LocalMesh3D), pointer :: lcmesh3D
+    integer :: n
+    real(RP) :: y0
+    !-----------------------------------------------
+
+    nullify( atm_mesh )
+    select type(model_mesh)
+    type is (AtmosMesh)
+      atm_mesh => model_mesh
+    end select
+    call atm_mesh%mesh%GetMesh2D( mesh2D )
+
+    if (y0_ == UNDEF) then
+      y0 = 0.5_RP*(atm_mesh%mesh%ymax_gl -  atm_mesh%mesh%ymin_gl)
+    else
+      y0 = y0_
+    end if
+
+    do n = 1, mesh2D%LOCAL_MESH_NUM
+      call AtmosDynVars_GetLocalMeshFields( n, atm_mesh%mesh, this%AUXVARS_manager, &
+        coriolis, lcmesh3D )
+
+      if ( trim(COLIORIS_type) == 'PLANE' ) then
+        coriolis%val(:,:) = f0 + beta*(lcmesh3D%lcmesh2D%pos_en(:,:,2) - y0)
+      else if ( trim(COLIORIS_type) == 'SPHERE' ) then
+        coriolis%val(:,:) = 2.0_RP*OHM*sin(lcmesh3D%lat2D(:,:))
+      else
+        LOG_ERROR('AtmosDyn_set_colioris_parameter',*) 'Unexpected COLIORIS_type is specified. Check! COLIORIS_type=', COLIORIS_type
+        call PRC_abort
+      end if  
+    end do
+
+    return
+  end subroutine set_coriolis_parameter
+
 end module mod_atmos_dyn

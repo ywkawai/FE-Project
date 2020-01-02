@@ -360,8 +360,8 @@ contains
     !-----------------------------------------------
 
     dom_bnd_sizes(:) = &
-        elem%NfpTot*lmesh%NeZ*(/ lmesh%NeX, lmesh%NeY, lmesh%NeX, lmesh%NeY, 0, 0 /) &
-      + elem%NfpTot*lmesh%NeX*lmesh%NeY*(/ 0, 0, 0, 0, 1, 1 /)
+        elem%Nfp_h*lmesh%NeZ*(/ lmesh%NeX, lmesh%NeY, lmesh%NeX, lmesh%NeY, 0, 0 /) &
+      + elem%Nfp_v*lmesh%NeX*lmesh%NeY*(/ 0, 0, 0, 0, 1, 1 /)
     bnd_buf_size = sum(dom_bnd_sizes)
     
     call velBCInfo%Init( bnd_buf_size )
