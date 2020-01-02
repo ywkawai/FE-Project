@@ -32,7 +32,7 @@ We confirm that building our codes has succeeded in the following environments:
 
   - set a directory in which SCALE library is contained
 
-  `% export SCALE="~/workspace/scale-5.3.3/"`   (for example)
+  `% export SCALE="~/workspace/scale-5.3.5/"`   (for example)
 
   - set a directory in which NetCDF library is contained (if necessary).
     
