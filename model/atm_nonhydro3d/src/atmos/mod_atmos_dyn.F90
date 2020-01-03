@@ -246,7 +246,7 @@ contains
     !--------------------------------------------------
     
     if (.not. this%IsActivated()) return
-    LOG_INFO('AtmosDyn_update',*)
+    !LOG_INFO('AtmosDyn_update',*)
     
     call PROF_rapstart( 'ATM_DYN_update', 1)   
 
@@ -419,7 +419,7 @@ contains
     implicit none
 
     class(AtmosDynVars), target, intent(inout) :: this
-    class(ModelMeshBase), intent(in) :: model_mesh
+    class(ModelMeshBase), target, intent(in) :: model_mesh
     character(*), intent(in) :: COLIORIS_type
     real(RP), intent(in) :: f0, beta, y0_
 

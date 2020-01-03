@@ -39,7 +39,7 @@ module mod_exp
     procedure, public :: Init => exp_Init
     procedure, public :: Final => exp_Final
     procedure, public :: SetInitCond => exp_SetInitCond
-    procedure(exp_SetInitCond_lc), private, deferred :: setInitCond_lc
+    procedure(exp_SetInitCond_lc), deferred :: setInitCond_lc
   end type
 
   abstract interface

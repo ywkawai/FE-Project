@@ -115,7 +115,7 @@ subroutine Atmos_calc_tendency( this )
 
   !--------------------------------------------------
   call PROF_rapstart( 'ATM_tendency', 1)
-  LOG_INFO('AtmosComponent_calc_tendency',*)
+  !LOG_INFO('AtmosComponent_calc_tendency',*)
 
   call this%dyn_proc%calc_tendency( this%mesh, this%vars%PROGVARS_manager, this%vars%AUXVARS_manager )
 
@@ -129,7 +129,7 @@ subroutine Atmos_update( this )
   
   !--------------------------------------------------
   call PROF_rapstart( 'ATM_update', 1)
-  LOG_INFO('AtmosComponent_update',*)
+  !LOG_INFO('AtmosComponent_update',*)
 
   !########## Dynamics ##########  
   call this%dyn_proc%update( this%mesh, this%vars%PROGVARS_manager, this%vars%AUXVARS_manager )

@@ -74,6 +74,7 @@ module scale_atm_dyn_nonhydro3d
   integer, private, parameter :: AUX_DIFFVARS_NUM = 12
 
   real(RP), private, allocatable :: FilterMat(:,:)
+  real(RP), private, allocatable :: IntrpMat_VPOrdM1(:,:)
 
   private :: cal_del_flux_dyn
   private :: cal_del_gradDiffVar
@@ -83,7 +84,23 @@ contains
 
     implicit none
     class(MeshBase3D), intent(in) :: mesh
+
+    integer :: p1, p2, p_
+    type(ElementBase3D), pointer :: elem
+    real(RP) :: invV_VPOrdM1(mesh%refElem3D%Np,mesh%refElem3D%Np)
     !--------------------------------------------
+
+    elem => mesh%refElem3D
+    allocate( IntrpMat_VPOrdM1(elem%Np,elem%Np) )
+    
+    InvV_VPOrdM1(:,:) = elem%invV
+    do p2=1, elem%PolyOrder_h+1
+    do p1=1, elem%PolyOrder_h+1
+      p_ = p1 + (p2-1)*(elem%PolyOrder_h + 1) + elem%PolyOrder_v*(elem%PolyOrder_h + 1)**2
+      InvV_VPOrdM1(p_,:) = 0.0_RP
+    end do
+    end do
+    IntrpMat_VPOrdM1(:,:) = matmul(elem%V, invV_VPOrdM1)
 
     return
   end subroutine atm_dyn_nonhydro3d_Init
@@ -141,6 +158,7 @@ contains
     implicit none
     !--------------------------------------------
     
+    deallocate( IntrpMat_VPOrdM1 )
     if( allocated(FilterMat) ) deallocate( FilterMat )
     
     return
@@ -225,21 +243,6 @@ contains
     real(RP) :: Cori(elem%Np)
 
     integer :: ke, ke2d
-
-    integer :: p1, p2, p_
-    real(RP) :: IntrpMat_VPOrdM1(elem%Np,elem%Np)
-    real(RP) :: invV_VPOrdM1(elem%Np,elem%Np)
-    !------------------------------------------------------------------------
-
-    InvV_VPOrdM1(:,:) = elem%invV
-    do p2=1, elem%PolyOrder_h+1
-    do p1=1, elem%PolyOrder_h+1
-      p_ = p1 + (p2-1)*(elem%PolyOrder_h + 1) + elem%PolyOrder_v*(elem%PolyOrder_h + 1)**2
-      InvV_VPOrdM1(p_,:) = 0.0_RP
-    end do
-    end do
-    IntrpMat_VPOrdM1(:,:) = matmul(elem%V, invV_VPOrdM1)
-
     !------------------------------------------------------------------------
 
     call PROF_rapstart( 'cal_dyn_tend_bndflux', 3)

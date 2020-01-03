@@ -120,7 +120,7 @@ contains
       NeGX, NeGY, NeGZ,                                           &
       dom_xmin, dom_xmax, dom_ymin, dom_ymax, dom_zmin, dom_zmax, &
       .true., .true., .true.,                                     &
-      refElem, NLocalMeshPerPrc )
+      refElem, NLocalMeshPerPrc, nprocs, 1 )
     
     call mesh%Generate()
 

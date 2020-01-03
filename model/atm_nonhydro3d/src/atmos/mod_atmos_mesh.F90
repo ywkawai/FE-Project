@@ -68,9 +68,11 @@ contains
     logical  :: isPeriodicY       = .true.
     logical  :: isPeriodicZ       = .false.
   
-    integer  :: NeGX              = 2
-    integer  :: NeGY              = 2
-    integer  :: NeGZ              = 2
+    integer  :: NeX               = 2
+    integer  :: NeY               = 2
+    integer  :: NeZ               = 2
+    integer  :: NprcX             = 1
+    integer  :: NprcY             = 1 
     integer  :: PolyOrder_h       = 2
     integer  :: PolyOrder_v       = 2
     logical  :: LumpedMassMatFlag = .false.
@@ -80,7 +82,8 @@ contains
       dom_ymin, dom_ymax,                        &
       dom_zmin, dom_zmax,                        &
       isPeriodicX, isPeriodicY, isPeriodicZ,     &
-      NeGX, NeGY, NeGZ, PolyOrder_h, PolyOrder_v
+      NeX, NeY, NeZ, PolyOrder_h, PolyOrder_v,   &
+      NprcX, NprcY
     
     integer :: ierr
     !-------------------------------------------
@@ -102,10 +105,10 @@ contains
     call this%element%Init( PolyOrder_h, PolyOrder_v, LumpedMassMatFlag )
     
     call this%mesh%Init( &
-      NeGX, NeGY, NeGZ,                                          &
+      NprcX*NeX, NprcY*NeY, NeZ,                                 &
       dom_xmin, dom_xmax,dom_ymin, dom_ymax, dom_zmin, dom_zmax, &
       isPeriodicX, isPeriodicY, isPeriodicZ,                     &
-      this%element, ATMOS_MESH_NLocalMeshPerPrc )
+      this%element, ATMOS_MESH_NLocalMeshPerPrc, NprcX, NprcY    )
     
     call this%mesh%Generate()
     

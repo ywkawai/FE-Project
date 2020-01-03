@@ -38,6 +38,10 @@ module scale_mesh_cubedom3d
     integer :: NeGX
     integer :: NeGY
     integer :: NeGZ
+
+    integer :: NprcX
+    integer :: NprcY
+    integer :: NprcZ
     
     real(RP), public :: xmin_gl, xmax_gl
     real(RP), public :: ymin_gl, ymax_gl    
@@ -79,7 +83,7 @@ contains
     NeGX, NeGY, NeGZ,                                           &
     dom_xmin, dom_xmax, dom_ymin, dom_ymax, dom_zmin, dom_zmax, &
     isPeriodicX, isPeriodicY, isPeriodicZ,                      &
-    refElem, NLocalMeshPerPrc )
+    refElem, NLocalMeshPerPrc, NprcX, NprcY )
     
     implicit none
 
@@ -98,6 +102,8 @@ contains
     logical, intent(in) :: isPeriodicZ
     type(HexahedralElement), intent(in), target :: refElem
     integer, intent(in) :: NLocalMeshPerPrc
+    integer, intent(in) :: NprcX
+    integer, intent(in) :: NprcY
 
     !-----------------------------------------------------------------------------
     
@@ -115,6 +121,10 @@ contains
     this%isPeriodicX = isPeriodicX
     this%isPeriodicY = isPeriodicY
     this%isPeriodicZ = isPeriodicZ
+
+    this%NprcX = NprcX
+    this%NprcY = NprcY
+    this%NprcZ = 1
 
     call MeshBase3D_Init(this, refElem, NLocalMeshPerPrc, 6)
 
@@ -174,7 +184,6 @@ contains
     integer :: pk_table(this%LOCAL_MESH_NUM*this%PRC_NUM)
 
     integer :: TILE_NUM_PER_PANEL
-    integer :: NprcX, NprcY, NprcZ
     real(RP) :: delx, dely, delz
     integer :: tileID
     !-----------------------------------------------------------------------------
@@ -185,7 +194,6 @@ contains
     !--- Construct the connectivity of patches  (only master node)
 
     call MesshCubeDom3D_assignDomID( this,    & ! (in)
-        & NprcX, NprcY, NprcZ,                & ! (out)
         & tileID_table, panelID_table,        & ! (out)
         & pi_table, pj_table, pk_table )        ! (out)
     
@@ -196,16 +204,16 @@ contains
       tileID = tileID_table(n, mesh%PRC_myrank+1)
 
       call MeshCubeDom3D_setupLocalDom( mesh, &
-         & tileID,  panelID_table(tileID),                                                     &
-         & pi_table(tileID), pj_table(tileID), pk_table(tileID), NprcX, NprcY, NprcZ,          &
-         & this%xmin_gl, this%xmax_gl, this%ymin_gl, this%ymax_gl, this%zmin_gl, this%zmax_gl, &
-         & this%NeGX/NprcX, this%NeGY/NprcY, this%NeGZ/1 )
+         & tileID,  panelID_table(tileID),                                                           &
+         & pi_table(tileID), pj_table(tileID), pk_table(tileID), this%NprcX, this%NprcY, this%NprcZ, &
+         & this%xmin_gl, this%xmax_gl, this%ymin_gl, this%ymax_gl, this%zmin_gl, this%zmax_gl,       &
+         & this%NeGX/this%NprcX, this%NeGY/this%NprcY, this%NeGZ/this%NprcZ )
 
       call MeshRectDom2D_setupLocalDom( this%mesh2D%lcmesh_list(n),   &
         & tileID,  panelID_table(tileID),                             &
-        & pi_table(tileID), pj_table(tileID), NprcX, NprcY,           &
+        & pi_table(tileID), pj_table(tileID), this%NprcX, this%NprcY, &
         & this%xmin_gl, this%xmax_gl, this%ymin_gl, this%ymax_gl,     &
-        & this%NeGX/NprcX, this%NeGY/NprcY )
+        & this%NeGX/this%NprcX, this%NeGY/this%NprcY )
 
       call mesh%SetLocalMesh2D( this%mesh2D%lcmesh_list(n) )
       
@@ -341,7 +349,6 @@ contains
   end subroutine MeshCubeDom3D_setupLocalDom
 
   subroutine MesshCubeDom3D_assignDomID( this, &
-    NprcX, NprcY, NprcZ,                       &
     tileID_table, panelID_table,               &
     pi_table, pj_table, pk_table )
   
@@ -352,9 +359,6 @@ contains
     implicit none
 
     type(MeshCubeDom3D), intent(inout) :: this    
-    integer, intent(out) :: NprcX
-    integer, intent(out) :: NprcY
-    integer, intent(out) :: NprcZ
     integer, intent(out) :: tileID_table(this%LOCAL_MESH_NUM, this%PRC_NUM)
     integer, intent(out) :: panelID_table(this%LOCAL_MESH_NUM*this%PRC_NUM)
     integer, intent(out) :: pi_table(this%LOCAL_MESH_NUM*this%PRC_NUM)
@@ -370,15 +374,12 @@ contains
     
     !-----------------------------------------------------------------------------
     
-    NprcX = int(sqrt(dble(this%PRC_NUM)))
-    NprcY = this%PRC_NUM/NprcX
-    NprcZ = 1
-
     call MeshUtil3D_buildGlobalMap( &
       panelID_table, pi_table, pj_table, pk_table,                                          & ! (out)
       this%tileID_globalMap, this%tileFaceID_globalMap, this%tilePanelID_globalMap,         & ! (out)
       this%LOCAL_MESH_NUM_global, 6, 8,                                                     & ! (in)
-      this%isPeriodicX, this%isPeriodicY, this%isPeriodicZ )                                  ! (in)                                        ! (in)
+      this%isPeriodicX, this%isPeriodicY, this%isPeriodicZ,                                 & ! (in)
+      this%NprcX, this%NprcY, this%NprcZ )                                                    ! (in)
 
     !----
     

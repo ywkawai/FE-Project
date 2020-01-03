@@ -66,7 +66,7 @@ contains
       NeGX, NeGY, NeGZ,                                           &
       dom_xmin, dom_xmax, dom_ymin, dom_ymax, dom_zmin, dom_zmax, &
       .true., .true., .true.,                                     &
-      refElem, NLocalMeshPerPrc )
+      refElem, NLocalMeshPerPrc, nprocs, 1 )
     
     LOG_INFO("init",*)  'Generate MeshCubeDom3D ..'    
     call mesh%Generate()

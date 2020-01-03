@@ -70,7 +70,7 @@ contains
   subroutine AtmosDynVars_Init( this, model_mesh )
     implicit none
     class(AtmosDynVars), target, intent(inout) :: this
-    class(ModelMeshBase), intent(in) :: model_mesh
+    class(ModelMeshBase), target, intent(in) :: model_mesh
 
     integer :: v
     integer :: n
