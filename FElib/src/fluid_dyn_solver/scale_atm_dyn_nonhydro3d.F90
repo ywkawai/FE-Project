@@ -256,7 +256,7 @@ contains
       lmesh%vmapM, lmesh%vmapP,                                               & ! (in)
       lmesh, elem )                                                             ! (in)
     call PROF_rapend( 'cal_dyn_tend_bndflux', 3)
-    
+ 
     !-----
     call PROF_rapstart( 'cal_dyn_tend_interior', 3)
     do ke = lmesh%NeS, lmesh%NeE
@@ -326,7 +326,7 @@ contains
           + lmesh%Escale(:,ke,3,3) * Fz(:)   &
           + LiftDelFlx(:)                )   &
           - matmul(IntrpMat_VPOrdM1, DDENS_(:,ke)) * Grav
-        !- DDENS_(:,k)*Grav
+        !- DDENS_(:,ke)*Grav
         
 
       !-- RHOT
@@ -447,6 +447,7 @@ contains
 
         dDiffFluxPT = diffCoef*( &
             (densP*GxPT_(iP) - densM*GxPT_(iM))*nx(i)     &
+          + (densP*GyPT_(iP) - densM*GyPT_(iM))*ny(i)     &            
           + (densP*GzPT_(iP) - densM*GzPT_(iM))*nz(i)     &
           + mu*(densP + densM)*(rhotP/densP - rhotM/densM) )
       else

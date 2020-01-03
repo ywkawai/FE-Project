@@ -723,7 +723,7 @@ contains
           tileFaceID_map(5,tileID) = 6
         end if
         if (pk_table(tileID) == Ne_z .and. tileFaceID_map(6,tileID) == 6) then
-          tileID_map(6,tileID) = pi_table(tileID) + (pj_table(tileID) - 1)*Ne_x*Ne_y
+          tileID_map(6,tileID) = pi_table(tileID) + (pj_table(tileID) - 1)*Ne_x
           tileFaceID_map(6,tileID) = 5
         end if
       end do
