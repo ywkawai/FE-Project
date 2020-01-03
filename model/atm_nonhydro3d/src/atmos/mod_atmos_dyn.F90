@@ -28,6 +28,7 @@ module mod_atmos_dyn
   use scale_mesh_base3d, only: MeshBase3D
 
   use scale_localmesh_base, only: LocalMeshBase
+  use scale_localmesh_2d, only: LocalMesh2D
   use scale_localmesh_3d, only: LocalMesh3D
   use scale_element_base, only: &
     ElementBase, ElementBase2D, ElementBase3D
@@ -39,9 +40,18 @@ module mod_atmos_dyn
   use scale_model_var_manager, only: ModelVarManager
   use scale_model_component_proc, only:  ModelComponentProc
 
+  use scale_atm_dyn_nonhydro3d, only: &
+    atm_dyn_nonhydro3d_Init,              &
+    atm_dyn_nonhydro3d_Final,             &
+    atm_dyn_nonhydro3d_cal_tend,          &
+    atm_dyn_nonhydro3d_cal_grad_diffVars, &
+    atm_dyn_nonhydro3d_filter_prgvar
+
+  use mod_atmos_mesh, only: AtmosMesh    
   use mod_atmos_dyn_bnd, only: AtmosDynBnd
   use mod_atmos_dyn_vars, only: &
     AtmosDynVars, AtmosDynVars_GetLocalMeshFields
+
 
   !-----------------------------------------------------------------------------
   implicit none
@@ -126,7 +136,9 @@ contains
     
     integer :: ierr
 
+    class(AtmosMesh), pointer :: atm_mesh
     class(MeshBase), pointer :: ptr_mesh
+    class(MeshBase2D), pointer :: ptr_mesh2D 
     class(LocalMeshBase), pointer :: ptr_lcmesh
     class(LocalMesh3D), pointer :: lcmesh3D
     integer :: n
@@ -184,12 +196,21 @@ contains
         (/ ptr_mesh%refElem%Np, ptr_lcmesh%NeA /) )
     end do
 
+    !----
+    select type(model_mesh)
+    type is (AtmosMesh)
+      atm_mesh => model_mesh
+    end select
+
     !- initialize an object to manage boundary conditions and variables for dynamical process
     call this%boundary_cond%Init()
     call this%boundary_cond%SetBCInfo( ptr_mesh )
 
     call this%dyn_vars%Init( model_mesh )
-    call set_coriolis_parameter( this%dyn_vars, model_mesh, CORIOLIS_type, CORIOLIS_f0, CORIOLIS_beta, CORIOLIS_y0 )
+    call set_coriolis_parameter( this%dyn_vars, atm_mesh, CORIOLIS_type, CORIOLIS_f0, CORIOLIS_beta, CORIOLIS_y0 )
+
+    !- Initialize a module for 3D dynamical core 
+    call atm_dyn_nonhydro3d_Init( atm_mesh%mesh )
 
     return  
   end subroutine AtmosDyn_setup
@@ -210,11 +231,7 @@ contains
   end subroutine AtmosDyn_calc_tendency
 
   subroutine AtmosDyn_update( this, model_mesh, prgvars_list, auxvars_list )
-    use scale_atm_dyn_nonhydro3d, only: &
-      atm_dyn_nonhydro3d_cal_tend,          &
-      atm_dyn_nonhydro3d_cal_grad_diffVars, &
-      atm_dyn_nonhydro3d_filter_prgvar
-    
+
     use mod_atmos_vars, only: &
       AtmosVars_GetLocalMeshFields, &
       ATMOS_PROGVARS_DDENS_ID, ATMOS_PROGVARS_DRHOT_ID,                      &
@@ -397,6 +414,8 @@ contains
     if (.not. this%IsActivated()) return
     LOG_INFO('AtmosDyn_finalize',*)
 
+    call atm_dyn_nonhydro3d_Final()
+    
     do n = 1, size(this%tint)
       call this%tint(n)%Final()
     end do
@@ -410,34 +429,24 @@ contains
 
   !--- private ---------------
 
-  subroutine set_coriolis_parameter( this, model_mesh, &
+  subroutine set_coriolis_parameter( this, atm_mesh, &
     COLIORIS_type, f0, beta, y0_ )
 
-    use mod_atmos_mesh, only: AtmosMesh
     use scale_const, only: &
       OHM     => CONST_OHM
     implicit none
 
     class(AtmosDynVars), target, intent(inout) :: this
-    class(ModelMeshBase), target, intent(in) :: model_mesh
+    class(AtmosMesh), target, intent(in) :: atm_mesh
     character(*), intent(in) :: COLIORIS_type
     real(RP), intent(in) :: f0, beta, y0_
 
-    class(AtmosMesh), pointer :: atm_mesh
-    class(MeshBase2D), pointer :: mesh2D    
-
     class(LocalMeshFieldBase), pointer :: coriolis
     class(LocalMesh3D), pointer :: lcmesh3D
-    integer :: n
+    class(LocalMesh2D), pointer :: lcmesh2D
+    integer :: n, ke
     real(RP) :: y0
     !-----------------------------------------------
-
-    nullify( atm_mesh )
-    select type(model_mesh)
-    type is (AtmosMesh)
-      atm_mesh => model_mesh
-    end select
-    call atm_mesh%mesh%GetMesh2D( mesh2D )
 
     if (y0_ == UNDEF) then
       y0 = 0.5_RP*(atm_mesh%mesh%ymax_gl -  atm_mesh%mesh%ymin_gl)
@@ -445,14 +454,19 @@ contains
       y0 = y0_
     end if
 
-    do n = 1, mesh2D%LOCAL_MESH_NUM
+    do n = 1, atm_mesh%mesh%LOCAL_MESH_NUM
       call AtmosDynVars_GetLocalMeshFields( n, atm_mesh%mesh, this%AUXVARS_manager, &
         coriolis, lcmesh3D )
+      lcmesh2D => lcmesh3D%lcmesh2D
 
       if ( trim(COLIORIS_type) == 'PLANE' ) then
-        coriolis%val(:,:) = f0 + beta*(lcmesh3D%lcmesh2D%pos_en(:,:,2) - y0)
+        do ke=1, lcmesh2D%Ne
+          coriolis%val(:,ke) = f0 + beta*(lcmesh2D%pos_en(:,ke,2) - y0)
+        end do
       else if ( trim(COLIORIS_type) == 'SPHERE' ) then
-        coriolis%val(:,:) = 2.0_RP*OHM*sin(lcmesh3D%lat2D(:,:))
+        do ke=1, lcmesh2D%Ne
+          coriolis%val(:,ke) = 2.0_RP*OHM*sin(lcmesh3D%lat2D(:,ke))
+        end do
       else
         LOG_ERROR('AtmosDyn_set_colioris_parameter',*) 'Unexpected COLIORIS_type is specified. Check! COLIORIS_type=', COLIORIS_type
         call PRC_abort
