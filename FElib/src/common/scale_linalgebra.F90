@@ -83,7 +83,6 @@ contains
     real(RP), intent(out) :: x(size(b))
 
     real(RP) :: A_lu(size(A,1),size(A,2))
-    real(RP) :: work(size(A,1))
     integer :: ipiv(size(A,1))
     integer :: n, info
 
@@ -229,8 +228,7 @@ contains
 
     integer :: i, j, k, n
     real(RP) :: Mij
-
-    integer :: j1, j2
+    real(RP), parameter :: EPS = 1.0E-16_RP
 
     !--------------------------------------------------------------------------- 
 
@@ -239,13 +237,13 @@ contains
     M = A
     do i=2, n
       do k=1, i-1
-        if (get_val(M,i,k) /= 0d0 .and. get_val(M,k,k) /= 0d0) then
+        if ( abs(get_val(M,i,k)) < EPS .and. abs(get_val(M,k,k)) < EPS ) then
           call set_val( M,i,k, &
             & get_val(M,i,k)/get_val(M,k,k) )
 
           do j=k+1, n
             Mij = get_val(M,i,j)
-            if (Mij /= 0d0) then
+            if ( abs(Mij) < EPS ) then
               call set_val(M,i,j, &
                 & Mij - get_val(M,i,k)*get_val(M,k,j) )
             end if
@@ -269,9 +267,7 @@ contains
 
     integer :: i
     integer :: j
-    integer :: k
     integer :: n
-    real(RP) :: Mij
 
     integer :: j1, j2
 

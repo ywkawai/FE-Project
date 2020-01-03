@@ -83,7 +83,7 @@ module scale_time_manager
   
   !-----------------------------------------------------------------------------
 
-  real(DP), private :: TIME_RES_RESUME
+  integer, private :: TIME_RES_RESUME
 
 contains
 

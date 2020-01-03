@@ -181,7 +181,7 @@ contains
     real(RP) :: pts(Nord+1)
 
     integer :: N1
-    integer :: i, k
+    integer :: i
 
     real(RP) :: xold
     real(RP) :: x(Nord+1)
@@ -239,7 +239,7 @@ contains
     integer, intent(in) :: Nord
     real(RP) :: pts(Nord)
 
-    integer :: i, k
+    integer :: i
     integer :: N1
     real(RP) :: xold
     real(RP) :: x(Nord)

@@ -212,7 +212,7 @@ contains
     integer, intent(in) :: varID
     integer, intent(in) :: <%=ind_arg%>
 
-    integer :: i, j, k
+    integer :: <%=ind_ary%>
     real(RP) :: a_ss
 
     !----------------------------------------    
@@ -260,9 +260,8 @@ contains
     integer, intent(in) :: varID
     integer, intent(in) :: <%=ind_arg%>
 
-    integer :: i, j, k, s
-    real(RP) :: a_ss
-
+    integer :: <%=ind_ary%>
+    integer :: s
     !----------------------------------------    
 
     if (nowstage == 1) then

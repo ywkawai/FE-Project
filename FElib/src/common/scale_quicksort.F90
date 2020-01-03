@@ -56,7 +56,8 @@ contains
     integer, intent(inout) :: ind(:)
     integer, intent(in) :: first, last
 
-    integer :: x, tmp, i, j
+    integer :: x, tmp
+    integer :: i, j, tmp_i
     !-------------------------------
 
     x = key( (first + last)/2 )
@@ -74,7 +75,7 @@ contains
       
       ! swap
       tmp = key(i); key(i) = key(j); key(j) = tmp
-      tmp = ind(i); ind(i) = ind(j); ind(j) = tmp
+      tmp_i = ind(i); ind(i) = ind(j); ind(j) = tmp_i
 
       i = i + 1; j = j - 1
     end do
@@ -91,7 +92,8 @@ contains
     integer, intent(inout) :: ind(:)
     integer, intent(in) :: first, last
 
-    integer :: x, tmp, i, j
+    real(RP) :: x, tmp
+    integer :: i, j, tmp_i
     !-------------------------------
 
     x = key( (first + last)/2 )
@@ -109,7 +111,7 @@ contains
       
       ! swap
       tmp = key(i); key(i) = key(j); key(j) = tmp
-      tmp = ind(i); ind(i) = ind(j); ind(j) = tmp
+      tmp_i = ind(i); ind(i) = ind(j); ind(j) = tmp_i
 
       i = i + 1; j = j - 1
     end do

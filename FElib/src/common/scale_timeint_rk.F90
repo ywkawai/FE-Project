@@ -236,7 +236,7 @@ contains
     integer, intent(in) :: varID
     integer, intent(in) :: is, ie 
 
-    integer :: i, j, k
+    integer :: i
     real(RP) :: a_ss
 
     !----------------------------------------    
@@ -264,7 +264,7 @@ contains
     integer, intent(in) :: varID
     integer, intent(in) :: is, ie ,js, je 
 
-    integer :: i, j, k
+    integer :: i,j
     real(RP) :: a_ss
 
     !----------------------------------------    
@@ -296,7 +296,7 @@ contains
     integer, intent(in) :: varID
     integer, intent(in) :: is, ie ,js, je ,ks, ke 
 
-    integer :: i, j, k
+    integer :: i,j,k
     real(RP) :: a_ss
 
     !----------------------------------------    
@@ -332,9 +332,8 @@ contains
     integer, intent(in) :: varID
     integer, intent(in) :: is, ie 
 
-    integer :: i, j, k, s
-    real(RP) :: a_ss
-
+    integer :: i
+    integer :: s
     !----------------------------------------    
 
     if (nowstage == 1) then
@@ -379,9 +378,8 @@ contains
     integer, intent(in) :: varID
     integer, intent(in) :: is, ie ,js, je 
 
-    integer :: i, j, k, s
-    real(RP) :: a_ss
-
+    integer :: i,j
+    integer :: s
     !----------------------------------------    
 
     if (nowstage == 1) then
@@ -436,9 +434,8 @@ contains
     integer, intent(in) :: varID
     integer, intent(in) :: is, ie ,js, je ,ks, ke 
 
-    integer :: i, j, k, s
-    real(RP) :: a_ss
-
+    integer :: i,j,k
+    integer :: s
     !----------------------------------------    
 
     if (nowstage == 1) then
