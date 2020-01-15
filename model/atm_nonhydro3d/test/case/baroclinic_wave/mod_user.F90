@@ -197,6 +197,10 @@ contains
     integer :: ke, ke2D
     integer :: i, j, k
     integer :: p1, p2, p3, p_, p2D_
+    
+    real(RP) :: ln_eta_e(elem%Np)
+    real(RP) :: yphase_e(elem%Np)
+    real(RP) :: DPRES(elem%Np)
   
     integer :: ierr
     !-----------------------------------------------------------------------------
@@ -251,8 +255,8 @@ contains
                      + geopot_hvari/Rdry*(2.0_RP*(ln_eta/b)**2 - 1.0_RP)*exp(-(ln_eta/b)**2) 
               geopot = REF_TEMP*GRAV/LAPSE_RATE*(1.0_RP - temp_vfunc)  &
                      + geopot_hvari*ln_eta*exp(-(ln_eta/b)**2)
-                     del_eta = -  ( - Grav*z(p_,ke) + geopot )    & ! <- F
-                          &      *( - eta/(Rdry*temp_) )            ! <- (dF/deta)^-1
+              del_eta = -  ( - Grav*z(p_,ke) + geopot )    & ! <- F
+                             *( - eta/(Rdry*temp_) )            ! <- (dF/deta)^-1
    
               eta = eta + del_eta
               itr = itr + 1
@@ -280,21 +284,26 @@ contains
       do p1 = 1, elem%Nnode_h1D
         p_ = p1 + (p2-1)*elem%Nnode_h1D + (p3-1)*elem%Nnode_h1D**2
 
-        yphase = 2.0_RP*PI*y(p_,ke)/Ly        
-        PRES_hyd(p_,ke) = pres_yz(p2,p3,j,k)
-        DENS_hyd(p_,ke) = PRES_hyd(p_,ke)/(Rdry*temp_yz(p2,p3,j,k))
-        DDENS(p_,ke) = 0.0_RP
-        DRHOT(p_,ke) = 0.0_RP
+        PRES_hyd(p_,ke) = REF_PRES*(1.0_RP - LAPSE_RATE * z(p_,ke) / REF_TEMP)**(Grav / (Rdry * LAPSE_RATE))
+        !DPRES(p_) = pres_yz(p2,p3,j,k) - PRES_hyd(p_,ke)
+        DENS_hyd(p_,ke) = PRES_hyd(p_,ke) / (Rdry * (REF_TEMP - LAPSE_RATE * z(p_,ke)))
 
-        ln_eta = log(PRES_hyd(p_,ke)/REF_PRES)
-        MOMX(p_,ke) = DENS_hyd(p_,ke)*( &
-                       - U0*sin(0.5_RP*yphase)**2*ln_eta*exp(-(ln_eta/b)**2)        &
-                       + Up*exp(- ((x(p_,ke) - Xc)**2 + (y(p_,ke) - Yc)**2)/Lp**2)  )
-        MOMY(p_,ke) = 0.0_RP
-        MOMZ(p_,ke) = 0.0_RP
+        DDENS(p_,ke) = pres_yz(p2,p3,j,k) / (Rdry * temp_yz(p2,p3,j,k)) - DENS_hyd(p_,ke)
+        DRHOT(p_,ke) = PRES00 / Rdry * ( (pres_yz(p2,p3,j,k)/PRES00)**(CvDry/CpDry) - (PRES_hyd(p_,ke)/PRES00)**(CvDry/CpDry) )
+        ln_eta_e(p_) = log(pres_yz(p2,p3,j,k)/REF_PRES)
       end do
       end do  
       end do
+
+      !DENS_hyd(:,ke) = - lcmesh%Escale(:,ke,3,3)*matmul(elem%Dx3, PRES_hyd(:,ke)) / Grav
+      !DDENS(:,ke) =  - lcmesh%Escale(:,ke,3,3)*matmul(elem%Dx3, DPRES(:)) / Grav
+
+      yphase_e(:) = 2.0_RP*PI*y(:,ke)/Ly
+      MOMX(:,ke) = (DENS_hyd(:,ke) + DDENS(:,ke))*( &
+        - U0*sin(0.5_RP*yphase_e(:))**2*ln_eta_e(:)*exp(-(ln_eta_e(:)/b)**2)        &
+        + Up*exp(- ((x(:,ke) - Xc)**2 + (y(:,ke) - Yc)**2)/Lp**2)  )
+      MOMY(:,ke) = 0.0_RP
+      MOMZ(:,ke) = 0.0_RP
     end do    
     end do  
     end do

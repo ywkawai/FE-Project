@@ -104,7 +104,7 @@ contains
     implicit none
 
     class(AtmosDyn), intent(inout) :: this
-    class(ModelMeshBase), intent(in) :: model_mesh
+    class(ModelMeshBase), target, intent(in) :: model_mesh
 
     character(len=H_SHORT) :: TINTEG_TYPE = 'RK_TVD_3'
     real(DP) :: DT_SEC     = 1.0_RP
@@ -449,7 +449,7 @@ contains
     !-----------------------------------------------
 
     if (y0_ == UNDEF) then
-      y0 = 0.5_RP*(atm_mesh%mesh%ymax_gl -  atm_mesh%mesh%ymin_gl)
+      y0 = 0.5_RP*(atm_mesh%mesh%ymax_gl +  atm_mesh%mesh%ymin_gl)
     else
       y0 = y0_
     end if
