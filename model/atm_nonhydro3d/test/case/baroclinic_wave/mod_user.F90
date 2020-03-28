@@ -116,6 +116,7 @@ contains
   end subroutine USER_update
 
   !------
+
   subroutine exp_SetInitCond_baroclinicwave( this,                      &
     DENS_hyd, PRES_hyd, DDENS, MOMX, MOMY, MOMZ, DRHOT,                  &
     x, y, z, dom_xmin, dom_xmax, dom_ymin, dom_ymax, dom_zmin, dom_zmax, &
@@ -185,10 +186,13 @@ contains
     real(RP) :: ln_eta
     real(RP) :: del_eta
     real(RP) :: y_, yphase
-    real(RP) :: temp_, temp_yz(elem%Nnode_h1D,elem%Nnode_v,lcmesh%NeY,lcmesh%NeZ)
+    real(RP) :: temp_
     real(RP) :: temp_vfunc
     real(RP) :: geopot, geopot_hvari
-    real(RP) :: pres_yz(elem%Nnode_h1D,elem%Nnode_v,lcmesh%NeY,lcmesh%NeZ)
+    real(RP), allocatable :: pres_z(:,:)
+    real(RP), allocatable :: temp_z(:,:)
+    real(RP), allocatable :: pres_yz(:,:,:,:)
+    real(RP), allocatable :: temp_yz(:,:,:,:)
 
     integer :: itr
     integer,  parameter :: ITRMAX = 1000
@@ -202,6 +206,26 @@ contains
     real(RP) :: yphase_e(elem%Np)
     real(RP) :: DPRES(elem%Np)
   
+    integer, parameter :: IntrpPolyOrder_h = 8
+    integer, parameter :: IntrpPolyOrder_v = 8
+    type(HexahedralElement) :: elem_intrp
+    real(RP), allocatable :: x_intrp(:), y_intrp(:), z_intrp(:)
+    real(RP) :: vx(elem%Nv), vy(elem%Nv), vz(elem%Nv)
+    real(RP), allocatable :: IntrpMat(:,:), InvV_intrp(:,:)
+    real(RP), allocatable :: IntrpVm1Mat(:,:), InvV_intrpVm1(:,:)
+    integer :: p_intrp
+
+    real(RP), allocatable :: pres_intrp(:)
+    real(RP), allocatable :: temp_intrp(:)
+    real(RP), allocatable :: dens_intrp(:)
+    real(RP), allocatable :: pres_hyd_intrp(:)
+    real(RP), allocatable :: temp_hyd_intrp(:)
+    real(RP), allocatable :: dens_hyd_intrp(:)
+    real(RP), allocatable :: ln_eta_intrp(:)
+
+
+    real(RP) :: RGamma
+
     integer :: ierr
     !-----------------------------------------------------------------------------
 
@@ -215,7 +239,49 @@ contains
     endif
     LOG_NML(PARAM_EXP)
 
-    !----
+    !----------------------------
+
+    call elem_intrp%Init( IntrpPolyOrder_h, IntrpPolyOrder_v, elem%IsLumpedMatrix() )
+    allocate( IntrpMat(elem%Np,elem_intrp%Np), InvV_intrp(elem%Np,elem_intrp%Np) )
+    allocate( IntrpVm1Mat(elem%Np,elem_intrp%Np), InvV_intrpVm1(elem%Np,elem_intrp%Np) )
+
+    InvV_intrp(:,:) = 0.0_RP
+    do p3=1, 2!elem%PolyOrder_v+1
+    do p2=1, 2!elem%PolyOrder_h+1
+    do p1=1, 2!elem%PolyOrder_h+1
+      p_ = p1 + (p2-1)*(elem%PolyOrder_h + 1) + (p3-1)*(elem%PolyOrder_h + 1)**2
+      p_intrp = p1 + (p2-1)*(elem_intrp%PolyOrder_h + 1) + (p3-1)*(elem_intrp%PolyOrder_h + 1)**2
+      InvV_intrp(p_,:) = elem_intrp%invV(p_intrp,:)
+    end do
+    end do
+    end do
+    IntrpMat(:,:) = matmul(elem%V, InvV_intrp)
+
+    InvV_intrpVm1(:,:) = 0.0_RP
+    do p3=1, 1!elem%PolyOrder_v+1
+    do p2=1, 2!elem%PolyOrder_h+1
+    do p1=1, 2!elem%PolyOrder_h+1
+      p_ = p1 + (p2-1)*(elem%PolyOrder_h + 1) + (p3-1)*(elem%PolyOrder_h + 1)**2
+      p_intrp = p1 + (p2-1)*(elem_intrp%PolyOrder_h + 1) + (p3-1)*(elem_intrp%PolyOrder_h + 1)**2
+      InvV_intrpVm1(p_,:) = elem_intrp%invV(p_intrp,:)
+    end do
+    end do
+    end do
+    IntrpVm1Mat(:,:) = matmul(elem%V, InvV_intrpVm1)
+
+    !----------------------------
+
+    allocate( pres_z(elem_intrp%Nnode_v,lcmesh%NeZ) )
+    allocate( temp_z(elem_intrp%Nnode_v,lcmesh%NeZ) )
+    allocate( pres_yz(elem_intrp%Nnode_h1D,elem_intrp%Nnode_v,lcmesh%NeY,lcmesh%NeZ) )
+    allocate( temp_yz(elem_intrp%Nnode_h1D,elem_intrp%Nnode_v,lcmesh%NeY,lcmesh%NeZ) )
+
+    allocate( x_intrp(elem_intrp%Np), y_intrp(elem_intrp%Np), z_intrp(elem_intrp%Np) )
+    allocate( pres_intrp(elem_intrp%Np), pres_hyd_intrp(elem_intrp%Np) )
+    allocate( temp_intrp(elem_intrp%Np), temp_hyd_intrp(elem_intrp%Np) )
+    allocate( dens_intrp(elem_intrp%Np), dens_hyd_intrp(elem_intrp%Np) )
+    allocate( ln_eta_intrp(elem_intrp%Np) )
+
     Ly = dom_ymax - dom_ymin
     y0 = 0.5_RP*(dom_ymax + dom_ymin)
 
@@ -228,10 +294,14 @@ contains
     
     do j=1, lcmesh%NeY
       ke2D = 1 + (j-1)*lcmesh%NeX
-      do p2=1, elem%Nnode_h1D
-        p2D_ = 1 + (p2-1)*elem%Nnode_h1D
+
+      vy(:) = lcmesh%pos_ev(lcmesh%EToV(ke2D,:),2)
+      y_intrp(:) = vy(1) + 0.5_RP*(elem_intrp%x2(:) + 1.0_RP)*(vy(4) - vy(1))
+
+      do p2=1, elem_intrp%Nnode_h1D
+        p2D_ = 1 + (p2-1)*elem_intrp%Nnode_h1D
         
-        y_ = y(p2D_,ke2D)
+        y_ = y_intrp(p2D_)
         yphase = 2.0_RP*PI*y_/Ly
         ! Calc horizontal variation of geopotential height
         geopot_hvari = 0.5_RP*U0*(                                                                     &
@@ -241,8 +311,12 @@ contains
           )
         do k=1, lcmesh%NeZ
           ke = ke2D + (k-1)*lcmesh%NeX*lcmesh%NeY
-          do p3=1, elem%Nnode_v
-            p_ = p2D_ + (p3-1)*elem%Nnode_h1D**2
+
+          vz(:) = lcmesh%pos_ev(lcmesh%EToV(ke,:),3)    
+          z_intrp(:) = vz(1) + 0.5_RP*(elem_intrp%x3(:) + 1.0_RP)*(vz(5) - vz(1))
+    
+          do p3=1, elem_intrp%Nnode_v
+            p_ = p2D_ + (p3-1)*elem_intrp%Nnode_h1D**2
             del_eta = 1.0_RP
 
             !-- The loop for iteration
@@ -251,12 +325,12 @@ contains
             do while( abs(del_eta) > CONV_EPS ) 
               ln_eta = log(eta)
               temp_vfunc = eta**(Rdry*LAPSE_RATE/Grav)   
-              temp_  = REF_TEMP*temp_vfunc &
-                     + geopot_hvari/Rdry*(2.0_RP*(ln_eta/b)**2 - 1.0_RP)*exp(-(ln_eta/b)**2) 
-              geopot = REF_TEMP*GRAV/LAPSE_RATE*(1.0_RP - temp_vfunc)  &
-                     + geopot_hvari*ln_eta*exp(-(ln_eta/b)**2)
-              del_eta = -  ( - Grav*z(p_,ke) + geopot )    & ! <- F
-                             *( - eta/(Rdry*temp_) )            ! <- (dF/deta)^-1
+              temp_  = REF_TEMP * temp_vfunc &
+                     + geopot_hvari / Rdry * (2.0_RP*(ln_eta/b)**2 - 1.0_RP)*exp(-(ln_eta/b)**2) 
+              geopot = REF_TEMP * GRAV / LAPSE_RATE*(1.0_RP - temp_vfunc)  &
+                     + geopot_hvari * ln_eta * exp(-(ln_eta/b)**2)
+              del_eta = -  ( - Grav*z_intrp(p_) + geopot )     & ! <- F
+                             * ( - eta/(Rdry*temp_) )            ! <- (dF/deta)^-1
    
               eta = eta + del_eta
               itr = itr + 1
@@ -270,43 +344,61 @@ contains
             end do  !- End of loop for iteration ----------------------------
             pres_yz(p2,p3,j,k) = eta*REF_PRES
             temp_yz(p2,p3,j,k) = temp_
-          end do
-        end do       
-      end do
-    end do
+            if (j==1 .and. p2==1) then
+              temp_z(p3,k) = REF_TEMP - LAPSE_RATE * z_intrp(p_)
+              pres_z(p3,k) = REF_PRES * (temp_z(p3,k) / REF_TEMP)**(Grav / (Rdry * LAPSE_RATE))
+            end if
+          end do ! for p3
+        end do ! for k
+      end do ! for p2
+    end do ! for j
     
+    RGamma = CvDry/CpDry
+
     do k = 1, lcmesh%NeZ
     do j = 1, lcmesh%NeY
     do i = 1, lcmesh%NeX
       ke = i + (j-1)*lcmesh%NeX + (k-1)*lcmesh%NeX*lcmesh%NeY
-      do p3 = 1, elem%Nnode_v
-      do p2 = 1, elem%Nnode_h1D
-      do p1 = 1, elem%Nnode_h1D
-        p_ = p1 + (p2-1)*elem%Nnode_h1D + (p3-1)*elem%Nnode_h1D**2
 
-        PRES_hyd(p_,ke) = REF_PRES*(1.0_RP - LAPSE_RATE * z(p_,ke) / REF_TEMP)**(Grav / (Rdry * LAPSE_RATE))
-        !DPRES(p_) = pres_yz(p2,p3,j,k) - PRES_hyd(p_,ke)
-        DENS_hyd(p_,ke) = PRES_hyd(p_,ke) / (Rdry * (REF_TEMP - LAPSE_RATE * z(p_,ke)))
-
-        DDENS(p_,ke) = pres_yz(p2,p3,j,k) / (Rdry * temp_yz(p2,p3,j,k)) - DENS_hyd(p_,ke)
-        DRHOT(p_,ke) = PRES00 / Rdry * ( (pres_yz(p2,p3,j,k)/PRES00)**(CvDry/CpDry) - (PRES_hyd(p_,ke)/PRES00)**(CvDry/CpDry) )
-        ln_eta_e(p_) = log(pres_yz(p2,p3,j,k)/REF_PRES)
+      do p3 = 1, elem_intrp%Nnode_v
+      do p2 = 1, elem_intrp%Nnode_h1D
+      do p1 = 1, elem_intrp%Nnode_h1D
+        p_ = p1 + (p2-1)*elem_intrp%Nnode_h1D + (p3-1)*elem_intrp%Nnode_h1D**2
+        pres_intrp(p_) = pres_yz(p2,p3,j,k)
+        temp_intrp(p_) = temp_yz(p2,p3,j,k)
       end do
       end do  
       end do
+      pres_hyd_intrp(:) = pres_z(elem_intrp%IndexZ1Dto3D,k)
+      temp_hyd_intrp(:) = temp_z(elem_intrp%IndexZ1Dto3D,k)
 
-      !DENS_hyd(:,ke) = - lcmesh%Escale(:,ke,3,3)*matmul(elem%Dx3, PRES_hyd(:,ke)) / Grav
-      !DDENS(:,ke) =  - lcmesh%Escale(:,ke,3,3)*matmul(elem%Dx3, DPRES(:)) / Grav
+      dens_intrp(:) = pres_intrp(:) / (Rdry * temp_intrp(:))
+      dens_hyd_intrp(:) = pres_hyd_intrp(:) / (Rdry * temp_hyd_intrp(:))
+      DENS_hyd(:,ke) = matmul( IntrpVm1Mat, dens_hyd_intrp(:) )
+      DDENS(:,ke) = matmul(IntrpVm1Mat, dens_intrp(:)) - DENS_hyd(:,ke)
 
-      yphase_e(:) = 2.0_RP*PI*y(:,ke)/Ly
-      MOMX(:,ke) = (DENS_hyd(:,ke) + DDENS(:,ke))*( &
-        - U0*sin(0.5_RP*yphase_e(:))**2*ln_eta_e(:)*exp(-(ln_eta_e(:)/b)**2)        &
-        + Up*exp(- ((x(:,ke) - Xc)**2 + (y(:,ke) - Yc)**2)/Lp**2)  )
+      PRES_hyd(:,ke) = matmul(IntrpMat, pres_hyd_intrp(:) )
+      DRHOT(:,ke) =  PRES00 / Rdry  * matmul( IntrpMat,                     &
+        (pres_intrp(:)/PRES00)**RGamma - (pres_hyd_intrp(:)/PRES00)**RGamma )
+      ln_eta_intrp(:) = log(pres_intrp(:)/REF_PRES)
+
+      vx(:) = lcmesh%pos_ev(lcmesh%EToV(ke,:),1)
+      vy(:) = lcmesh%pos_ev(lcmesh%EToV(ke,:),2)
+      x_intrp(:) = vx(1) + 0.5_RP*(elem_intrp%x1(:) + 1.0_RP)*(vx(2) - vx(1))
+      y_intrp(:) = vy(1) + 0.5_RP*(elem_intrp%x2(:) + 1.0_RP)*(vy(4) - vy(1))
+
+      MOMX(:,ke) = matmul( IntrpMat, &
+        dens_intrp(:)*(                                                                   &
+         - U0*sin(PI*y_intrp(:)/Ly)**2 * ln_eta_intrp(:) * exp(-(ln_eta_intrp(:)/b)**2)   &
+         + Up*exp(- ((x_intrp - Xc)**2 + (y_intrp - Yc)**2)/Lp**2)                      ) )
       MOMY(:,ke) = 0.0_RP
       MOMZ(:,ke) = 0.0_RP
     end do    
     end do  
     end do
+
+    !------
+    call elem_intrp%Final()
 
     return
   end subroutine exp_SetInitCond_baroclinicwave

@@ -131,10 +131,10 @@ contains
     end do
 
     filter1D_v(:) = 1.0_RP
-    do p1=1, elem%Nnode_h1D
-      eta = dble(p1-1)/dble(elem%PolyOrder_v)
-      if ( eta >  etac .and. p1 /= 1) then
-        filter1D_v(p1) = exp( -  alpha*( ((eta - etac)/(1.0_RP - etac))**ord ))
+    do p3=1, elem%Nnode_v
+      eta = dble(p3-1)/dble(elem%PolyOrder_v)
+      if ( eta >  etac .and. p3 /= 1) then
+        filter1D_v(p3) = exp( -  alpha*( ((eta - etac)/(1.0_RP - etac))**ord ))
       end if
     end do
 
@@ -218,7 +218,7 @@ contains
     real(RP), intent(in)  :: DRHOT_(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: DENS_hyd(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: PRES_hyd(elem%Np,lmesh%NeA)
-    real(RP), intent(in)  :: CORIOLIS(elem2D%Np,lmesh2D%Ne)
+    real(RP), intent(in)  :: CORIOLIS(elem2D%Np,lmesh2D%NeA)
     real(RP), intent(in)  :: GxU_(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: GyU_(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: GzU_(elem%Np,lmesh%NeA)
@@ -313,7 +313,7 @@ contains
           + LiftDelFlx(:)                  &
           + Cori(:)*MOMX_(:,ke)            &
           )
-    
+
       !-- MOMZ
       call sparsemat_matmul(Dx, u_(:)*MOMZ_(:,ke)             - viscCoef_h*dens_(:)*GxW_(:,ke), Fx)
       call sparsemat_matmul(Dy, v_(:)*MOMZ_(:,ke)             - viscCoef_h*dens_(:)*GyW_(:,ke), Fy)
@@ -325,9 +325,9 @@ contains
           + lmesh%Escale(:,ke,2,2) * Fy(:)   &
           + lmesh%Escale(:,ke,3,3) * Fz(:)   &
           + LiftDelFlx(:)                )   &
-          - matmul(IntrpMat_VPOrdM1, DDENS_(:,ke)) * Grav
+        - matmul(IntrpMat_VPOrdM1, DDENS_(:,ke)) * Grav
         !- DDENS_(:,ke)*Grav
-        
+      
 
       !-- RHOT
       call sparsemat_matmul(Dx, u_(:)*RHOT_(:) - diffCoef_h*dens_(:)*GxPT_(:,ke), Fx)
@@ -434,10 +434,10 @@ contains
           + mu*(densP + densM)*(MOMX_(iP)/densP - MOMX_(iM)/densM) )
 
         dDiffFluxV = viscCoef*( &
-          (densP*GxV_(iP) - densM*GxV_(iM))*nx(i)                    &
-        + (densP*GyV_(iP) - densM*GyV_(iM))*ny(i)                    &
-        + (densP*GzV_(iP) - densM*GzV_(iM))*nz(i)                    &
-        + mu*(densP + densM)*(MOMY_(iP)/densP - MOMY_(iM)/densM) )
+            (densP*GxV_(iP) - densM*GxV_(iM))*nx(i)                    &
+          + (densP*GyV_(iP) - densM*GyV_(iM))*ny(i)                    &
+          + (densP*GzV_(iP) - densM*GzV_(iM))*nz(i)                    &
+          + mu*(densP + densM)*(MOMY_(iP)/densP - MOMY_(iM)/densM) )
         
         dDiffFluxW = viscCoef*( &
             (densP*GxW_(iP) - densM*GxW_(iM))*nx(i)                    &
@@ -456,7 +456,7 @@ contains
         dDiffFluxW  = 0.0_RP
         dDiffFluxPT = 0.0_RP
       end if
-      
+           
       del_flux(i,VARS_DDENS_ID) = 0.5_RP*(               &
                     ( densP*VelP - densM*VelM )          &
                     - alpha*(DDENS_(iP) - DDENS_(iM))   )

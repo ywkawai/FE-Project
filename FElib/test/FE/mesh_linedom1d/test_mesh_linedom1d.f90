@@ -113,7 +113,6 @@ contains
     write(*,*) "   NeX:", lcmesh%Ne
     write(*,*) "   [X]:",  lcmesh%xmin, lcmesh%xmax   
 
-
     do k=1, lcmesh%Ne
       write(*,*) "k=", k
       call assert(k, lcmesh%EToE(k,:), EToE_ans(:,k), "EtoE")

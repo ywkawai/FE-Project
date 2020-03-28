@@ -66,7 +66,7 @@ contains
 
     use scale_time_manager, only: &
       TIME_manager_checkstate, TIME_manager_advance,      &
-      TIME_NOWDATE, TIME_NOWMS, TIME_NOWSTEP, TIME_NSTEP, &
+      TIME_NOWDATE, TIME_NOWSUBSEC, TIME_NOWSTEP, TIME_NSTEP, &
       TIME_DOresume, TIME_DOend
 
     implicit none
@@ -117,7 +117,7 @@ contains
 
       !* Advance time
       call TIME_manager_advance()
-      call FILE_HISTORY_set_nowdate( TIME_NOWDATE, TIME_NOWMS, TIME_NOWSTEP )
+      call FILE_HISTORY_set_nowdate( TIME_NOWDATE, TIME_NOWSUBSEC, TIME_NOWSTEP )
 
       !* change to next state
       call atmos%update()
@@ -208,10 +208,12 @@ contains
   end subroutine finalize
 
   subroutine restart_read()
-    implicit none
+    implicit none    
     !----------------------------------------
 
-    if ( atmos%IsActivated() ) call atmos%vars%History()
+    if (  atmos%isActivated() ) then
+      call atmos%vars%History()
+    end if
 
     return
   end subroutine restart_read

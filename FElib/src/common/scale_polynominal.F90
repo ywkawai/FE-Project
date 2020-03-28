@@ -7,6 +7,7 @@ module scale_polynominal
   use scale_precision
   use scale_const, only: &
     PI => CONST_PI
+  use scale_io
   
   !-----------------------------------------------------------------------------
   implicit none
