@@ -40,6 +40,7 @@ module mod_exp
     procedure, public :: Final => exp_Final
     procedure, public :: SetInitCond => exp_SetInitCond
     procedure(exp_SetInitCond_lc), deferred :: setInitCond_lc
+    procedure(exp_geostrophic_balance_correction_lc), deferred :: geostrophic_balance_correction_lc
   end type
 
   abstract interface
@@ -70,6 +71,28 @@ module mod_exp
       real(RP), intent(in) :: dom_ymin, dom_ymax      
       real(RP), intent(in) :: dom_zmin, dom_zmax
     end subroutine exp_SetInitCond_lc
+
+    subroutine exp_geostrophic_balance_correction_lc( this,                              &
+      DENS_hyd, PRES_hyd, DDENS, MOMX, MOMY, MOMZ, DRHOT,                  &
+      lcmesh, elem )
+    
+      import experiment
+      import LocalMesh3D 
+      import ElementBase3D
+      import RP
+
+      class(experiment), intent(inout) :: this
+      type(LocalMesh3D), intent(in) :: lcmesh
+      class(ElementBase3D), intent(in) :: elem
+      real(RP), intent(inout) :: DENS_hyd(elem%Np,lcmesh%NeA)
+      real(RP), intent(in) :: PRES_hyd(elem%Np,lcmesh%NeA)
+      real(RP), intent(inout) :: DDENS(elem%Np,lcmesh%NeA)
+      real(RP), intent(inout) :: MOMX(elem%Np,lcmesh%NeA)
+      real(RP), intent(inout) :: MOMY(elem%Np,lcmesh%NeA)    
+      real(RP), intent(inout) :: MOMZ(elem%Np,lcmesh%NeA)
+      real(RP), intent(inout) :: DRHOT(elem%Np,lcmesh%NeA)
+    end subroutine exp_geostrophic_balance_correction_lc
+
   end interface
 
   !-----------------------------------------------------------------------------
@@ -110,10 +133,15 @@ contains
   subroutine exp_SetInitCond( this, &
     model_mesh, atm_prgvars_manager, atm_auxvars_manager )
     
-    use scale_model_var_manager, only: ModelVarManager  
-    use mod_atmos_vars, only: AtmosVars_GetLocalMeshFields
+    use scale_meshfield_base, only: MeshFieldBase
+    use scale_model_var_manager, only: ModelVarManager
+    use scale_meshfieldcomm_base, only: MeshFieldContainer  
+    use mod_atmos_vars, only: &
+      AtmosVars_GetLocalMeshFields, &
+      ATMOS_AUXVARS_PRESHYDRO_ID, &
+      ATMOS_AUXVARS_DENSHYDRO_ID
     use mod_atmos_mesh, only: AtmosMesh
-  
+    
     implicit none
 
     class(experiment), intent(inout) :: this
@@ -129,9 +157,14 @@ contains
     integer :: n
     class(LocalMesh3D), pointer :: lcmesh3D
     class(MeshCubeDom3D), pointer :: mesh
+
+    type(MeshFieldCommCubeDom3D) :: hydvars_comm
+    type(MeshFieldContainer) :: hydvars_comm_list(1)
+    class(MeshFieldBase), pointer :: field_ptr
     !----------------------------------------------------------------------
     
     mesh => model_mesh%mesh
+    
     do n=1, mesh%LOCAL_MESH_NUM
       call AtmosVars_GetLocalMeshFields( n, mesh, atm_prgvars_manager, atm_auxvars_manager, &
         DDENS, MOMX, MOMY, MOMZ, DRHOT,                                                     &
@@ -145,6 +178,41 @@ contains
         mesh%xmin_gl, mesh%xmax_gl, mesh%ymin_gl, mesh%ymax_gl, mesh%zmin_gl, mesh%zmax_gl, & ! (in)
         lcmesh3D, lcmesh3D%refElem3D )                                                        ! (in) 
     end do
+
+    !------------------------------------------------------
+    call hydvars_comm%Init(1, 0, mesh)
+
+    call atm_auxvars_manager%Get(ATMOS_AUXVARS_PRESHYDRO_ID, field_ptr)
+    select type(field_ptr) 
+    type is (MeshField3D)
+      hydvars_comm_list(1)%field3d => field_ptr
+    end select
+    call hydvars_comm%Put(hydvars_comm_list, 1)
+    call hydvars_comm%Exchange()
+    call hydvars_comm%Get(hydvars_comm_list, 1)
+
+    !--------------------------------
+    do n=1, mesh%LOCAL_MESH_NUM
+      call AtmosVars_GetLocalMeshFields( n, mesh, atm_prgvars_manager, atm_auxvars_manager, &
+        DDENS, MOMX, MOMY, MOMZ, DRHOT,                                                     &
+        GxU, GyU, GzU, GxV, GyV, GzV, GxW, GyW, GzW, GxPT, GyPT, GzPT,                      &
+        DENS_hyd, PRES_hyd, lcmesh3D                                                        )
+
+      call this%geostrophic_balance_correction_lc( &
+        DENS_hyd%val, PRES_hyd%val,                                                         & ! (out)
+        DDENS%val, MOMX%val, MOMY%val, MOMZ%val, DRHOT%val,                                 & ! (out)
+        lcmesh3D, lcmesh3D%refElem3D )                                                        ! (in) 
+    end do
+
+    call atm_auxvars_manager%Get(ATMOS_AUXVARS_DENSHYDRO_ID, field_ptr)
+    select type(field_ptr) 
+    type is (MeshField3D)
+      hydvars_comm_list(1)%field3d => field_ptr
+    end select
+    call hydvars_comm%Put(hydvars_comm_list, 1)
+    call hydvars_comm%Exchange()
+    call hydvars_comm%Get(hydvars_comm_list, 1)
+    call hydvars_comm%Final()
 
     return
   end subroutine exp_SetInitCond

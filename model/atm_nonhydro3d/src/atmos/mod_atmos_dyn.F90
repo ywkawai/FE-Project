@@ -121,7 +121,7 @@ contains
     character(len=H_SHORT) :: coriolis_type = 'PLANE'   ! type of coriolis force: 'PLANE', 'SPHERE'
     real(RP) :: coriolis_f0         = 0.0_RP
     real(RP) :: coriolis_beta       = 0.0_RP
-    real(RP) :: coriolis_y0         = UNDEF                  ! default is domain center    
+    real(RP) :: coriolis_y0         = UNDEF             ! default is domain center    
 
     namelist / PARAM_ATMOS_DYN /       &
       TINTEG_TYPE,                            &
@@ -388,7 +388,7 @@ contains
                                   1, lcmesh%refElem%Np, lcmesh%NeS, lcmesh%NeE  )
         call PROF_rapend( 'ATM_DYN_update_advance', 2)
 
-        if (this%EXPFILTER_FLAG) then
+        if (rkstage==this%tint(1)%nstage .and. this%EXPFILTER_FLAG) then
           call PROF_rapstart( 'ATM_DYN_update_expfilter', 2)
           call atm_dyn_nonhydro3d_filter_prgvar(                & ! (inout)
             DDENS%val, MOMX%val, MOMY%val, MOMZ%val, DRHOT%val, & ! (in)

@@ -82,7 +82,8 @@ contains
       dom_ymin, dom_ymax,                        &
       dom_zmin, dom_zmax,                        &
       isPeriodicX, isPeriodicY, isPeriodicZ,     &
-      NeX, NeY, NeZ, PolyOrder_h, PolyOrder_v,   &
+      NeX, NeY, NeZ,                               &
+      PolyOrder_h, PolyOrder_v, LumpedMassMatFlag, &
       NprcX, NprcY
     
     integer :: ierr

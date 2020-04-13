@@ -277,6 +277,7 @@ contains
     end do
     end do
   
+
     Emat(:,:) = 0.0_RP
     do f=1, elem%Nfaces_h
       if (elem%IsLumpedMatrix()) then

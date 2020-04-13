@@ -41,7 +41,7 @@ contains
     !-----------------------------------------------------------------------------
     
     elem%PolyOrder = elemOrder
-    elem%Nv = 1
+    elem%Nv = 2
     elem%Np = elemOrder + 1
     elem%Nfp = 1
     elem%Nfaces = 2

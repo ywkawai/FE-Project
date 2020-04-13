@@ -19,10 +19,26 @@ module mod_user
   use scale_io
   use scale_prof
   use scale_prc, only: PRC_abort  
+
+  use scale_const, only: &
+  PI => CONST_PI,          &
+  GRAV => CONST_GRAV,      &
+  Rdry => CONST_Rdry,      &
+  CPdry => CONST_CPdry,    &
+  CVdry => CONST_CVdry,    &
+  PRES00 => CONST_PRE00,   &
+  RPlanet => CONST_RADIUS, &
+  OHM     => CONST_OHM
+ 
+
   use mod_exp, only: experiment
 
   use mod_atmos_component, only: &
     AtmosComponent
+
+  use scale_element_base, only: ElementBase3D
+  use scale_element_hexahedral, only: HexahedralElement
+  use scale_localmesh_3d, only: LocalMesh3D  
 
   !-----------------------------------------------------------------------------
   implicit none
@@ -44,6 +60,10 @@ module mod_user
   !
   !++ Private procedure
   !
+
+  real(RP), private :: f0, beta0
+  real(RP), private :: y0
+
   !-----------------------------------------------------------------------------
   !
   !++ Private parameters & variables
@@ -52,6 +72,7 @@ module mod_user
   type, private, extends(experiment) :: Exp_baroclinic_wave
   contains 
     procedure :: setInitCond_lc => exp_SetInitCond_baroclinicwave
+    procedure :: geostrophic_balance_correction_lc => exp_geostrophic_balance_correction
   end type
   type(Exp_baroclinic_wave), private :: exp_manager
 
@@ -93,7 +114,7 @@ contains
     LOG_NML(PARAM_USER)
 
     !-
-    call exp_manager%Init('density_current')
+    call exp_manager%Init('baroclinic_wave')
     call exp_manager%SetInitCond( &
       atm%mesh, atm%vars%PROGVARS_manager, atm%vars%AUXVARS_manager )
     call exp_manager%Final()
@@ -122,19 +143,6 @@ contains
     x, y, z, dom_xmin, dom_xmax, dom_ymin, dom_ymax, dom_zmin, dom_zmax, &
     lcmesh, elem )
     
-    use scale_const, only: &
-      PI => CONST_PI,          &
-      GRAV => CONST_GRAV,      &
-      Rdry => CONST_Rdry,      &
-      CPdry => CONST_CPdry,    &
-      CVdry => CONST_CVdry,    &
-      PRES00 => CONST_PRE00,   &
-      RPlanet => CONST_RADIUS, &
-      OHM     => CONST_OHM
-    
-    use scale_element_base, only: ElementBase3D
-    use scale_element_hexahedral, only: HexahedralElement
-    use scale_localmesh_3d, only: LocalMesh3D    
     implicit none
 
     class(Exp_baroclinic_wave), intent(inout) :: this
@@ -179,8 +187,7 @@ contains
       U0, b,                          &
       Up, Lp, Xc, Yc
 
-    real(RP) :: f0, beta0
-    real(RP) :: y0, Ly
+    real(RP) :: Ly
 
     real(RP) :: eta
     real(RP) :: ln_eta
@@ -225,7 +232,7 @@ contains
 
 
     real(RP) :: RGamma
-
+    real(RP) :: Fy(elem%Np)
     integer :: ierr
     !-----------------------------------------------------------------------------
 
@@ -246,9 +253,9 @@ contains
     allocate( IntrpVm1Mat(elem%Np,elem_intrp%Np), InvV_intrpVm1(elem%Np,elem_intrp%Np) )
 
     InvV_intrp(:,:) = 0.0_RP
-    do p3=1, 2!elem%PolyOrder_v+1
-    do p2=1, 2!elem%PolyOrder_h+1
-    do p1=1, 2!elem%PolyOrder_h+1
+    do p3=1, elem%PolyOrder_v+1
+    do p2=1, elem%PolyOrder_h+1
+    do p1=1, elem%PolyOrder_h+1
       p_ = p1 + (p2-1)*(elem%PolyOrder_h + 1) + (p3-1)*(elem%PolyOrder_h + 1)**2
       p_intrp = p1 + (p2-1)*(elem_intrp%PolyOrder_h + 1) + (p3-1)*(elem_intrp%PolyOrder_h + 1)**2
       InvV_intrp(p_,:) = elem_intrp%invV(p_intrp,:)
@@ -258,9 +265,9 @@ contains
     IntrpMat(:,:) = matmul(elem%V, InvV_intrp)
 
     InvV_intrpVm1(:,:) = 0.0_RP
-    do p3=1, 1!elem%PolyOrder_v+1
-    do p2=1, 2!elem%PolyOrder_h+1
-    do p1=1, 2!elem%PolyOrder_h+1
+    do p3=1, elem%PolyOrder_v+1
+    do p2=1, elem%PolyOrder_h+1
+    do p1=1, elem%PolyOrder_h+1
       p_ = p1 + (p2-1)*(elem%PolyOrder_h + 1) + (p3-1)*(elem%PolyOrder_h + 1)**2
       p_intrp = p1 + (p2-1)*(elem_intrp%PolyOrder_h + 1) + (p3-1)*(elem_intrp%PolyOrder_h + 1)**2
       InvV_intrpVm1(p_,:) = elem_intrp%invV(p_intrp,:)
@@ -369,28 +376,28 @@ contains
       end do
       end do  
       end do
-      pres_hyd_intrp(:) = pres_z(elem_intrp%IndexZ1Dto3D,k)
-      temp_hyd_intrp(:) = temp_z(elem_intrp%IndexZ1Dto3D,k)
+      pres_hyd_intrp(:) = pres_intrp(:)
+      temp_hyd_intrp(:) = temp_intrp(:)
 
-      dens_intrp(:) = pres_intrp(:) / (Rdry * temp_intrp(:))
+      PRES_hyd(:,ke) = matmul(IntrpMat, pres_hyd_intrp(:))      
+      DRHOT(:,ke) =  0.0_RP
+      ln_eta_intrp(:) = log(pres_hyd_intrp(:)/REF_PRES)
+
       dens_hyd_intrp(:) = pres_hyd_intrp(:) / (Rdry * temp_hyd_intrp(:))
-      DENS_hyd(:,ke) = matmul( IntrpVm1Mat, dens_hyd_intrp(:) )
-      DDENS(:,ke) = matmul(IntrpVm1Mat, dens_intrp(:)) - DENS_hyd(:,ke)
-
-      PRES_hyd(:,ke) = matmul(IntrpMat, pres_hyd_intrp(:) )
-      DRHOT(:,ke) =  PRES00 / Rdry  * matmul( IntrpMat,                     &
-        (pres_intrp(:)/PRES00)**RGamma - (pres_hyd_intrp(:)/PRES00)**RGamma )
-      ln_eta_intrp(:) = log(pres_intrp(:)/REF_PRES)
+      DENS_hyd(:,ke) = matmul(IntrpVm1Mat, dens_hyd_intrp) !- lcmesh%Escale(:,ke,3,3)*matmul(elem%Dx3,PRES_hyd(:,ke)) / Grav
+      DDENS(:,ke) = 0.0_RP 
 
       vx(:) = lcmesh%pos_ev(lcmesh%EToV(ke,:),1)
       vy(:) = lcmesh%pos_ev(lcmesh%EToV(ke,:),2)
       x_intrp(:) = vx(1) + 0.5_RP*(elem_intrp%x1(:) + 1.0_RP)*(vx(2) - vx(1))
       y_intrp(:) = vy(1) + 0.5_RP*(elem_intrp%x2(:) + 1.0_RP)*(vy(4) - vy(1))
 
-      MOMX(:,ke) = matmul( IntrpMat, &
-        dens_intrp(:)*(                                                                   &
+      MOMX(:,ke) = & !- lcmesh%Escale(:,ke,2,2)*matmul(elem%Dx2,PRES_hyd(:,ke)) / (f0 + 0d0*beta0*(y(:,ke) - y0)) &
+        + matmul( IntrpMat, &
+        dens_hyd_intrp(:)*(                                                               &
          - U0*sin(PI*y_intrp(:)/Ly)**2 * ln_eta_intrp(:) * exp(-(ln_eta_intrp(:)/b)**2)   &
          + Up*exp(- ((x_intrp - Xc)**2 + (y_intrp - Yc)**2)/Lp**2)                      ) )
+  
       MOMY(:,ke) = 0.0_RP
       MOMZ(:,ke) = 0.0_RP
     end do    
@@ -402,4 +409,72 @@ contains
 
     return
   end subroutine exp_SetInitCond_baroclinicwave
+
+  subroutine exp_geostrophic_balance_correction( this,                              &
+    DENS_hyd, PRES_hyd, DDENS, MOMX, MOMY, MOMZ, DRHOT,                  &
+    lcmesh, elem )
+    
+    implicit none
+
+    class(Exp_baroclinic_wave), intent(inout) :: this
+    type(LocalMesh3D), intent(in) :: lcmesh
+    class(ElementBase3D), intent(in) :: elem
+    real(RP), intent(inout) :: DENS_hyd(elem%Np,lcmesh%NeA)
+    real(RP), intent(in) :: PRES_hyd(elem%Np,lcmesh%NeA)
+    real(RP), intent(inout) :: DDENS(elem%Np,lcmesh%NeA)
+    real(RP), intent(inout) :: MOMX(elem%Np,lcmesh%NeA)
+    real(RP), intent(inout) :: MOMY(elem%Np,lcmesh%NeA)    
+    real(RP), intent(inout) :: MOMZ(elem%Np,lcmesh%NeA)
+    real(RP), intent(inout) :: DRHOT(elem%Np,lcmesh%NeA)
+
+    integer :: ke
+    real(RP) :: LiftDelFlx(elem%Np)
+    real(RP) :: del_flux(elem%NfpTot,lcmesh%Ne,5)
+    !---------------------------------------------------
+
+    ! call cal_del_flux_dyn( del_flux, &
+    !   PRES_hyd, lcmesh%normal_fn(:,:,2), lcmesh%normal_fn(:,:,3), &
+    !   lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2), lcmesh%pos_en(:,:,3), &
+    !   lcmesh%VMapM, lcmesh%VMapP, lcmesh, elem )
+
+    ! do ke=lcmesh%NeS, lcmesh%NeE
+    !   LiftDelFlx(:) = matmul(elem%Lift, lcmesh%Fscale(:,ke)*del_flux(:,ke,2))    
+    !   MOMX(:,ke) = MOMX(:,ke) - LiftDelFlx(:) / (f0 + beta0*(lcmesh%pos_en(:,ke,2) - y0))
+
+
+    !   LiftDelFlx(:) = matmul(elem%Lift, lcmesh%Fscale(:,ke)*del_flux(:,ke,3))     
+    !   DENS_hyd(:,ke) = DENS_hyd(:,ke) - LiftDelFlx(:)/Grav
+    ! end do
+
+    return
+  end subroutine exp_geostrophic_balance_correction
+
+  subroutine cal_del_flux_dyn( del_flux, &
+    PRES_hyd,  ny, nz, x, y, z, vmapM, vmapP, lmesh, elem )
+
+    implicit none
+
+    class(LocalMesh3D), intent(in) :: lmesh
+    class(elementbase3D), intent(in) :: elem  
+    real(RP), intent(out) ::  del_flux(elem%NfpTot*lmesh%Ne,5) 
+    real(RP), intent(in) ::  PRES_hyd(elem%Np*lmesh%NeA)
+    real(RP), intent(in) :: ny(elem%NfpTot*lmesh%Ne)
+    real(RP), intent(in) :: nz(elem%NfpTot*lmesh%Ne)
+    real(RP), intent(in) :: x(elem%Np*lmesh%Ne), y(elem%Np*lmesh%Ne), z(elem%Np*lmesh%Ne)
+    integer, intent(in) :: vmapM(elem%NfpTot*lmesh%Ne)
+    integer, intent(in) :: vmapP(elem%NfpTot*lmesh%Ne)
+    
+    integer :: i, iP, iM
+    !------------------------------------------------------------------------
+
+    do i=1, elem%NfpTot*lmesh%Ne
+      iM = vmapM(i); iP = vmapP(i) 
+      del_flux(i,2) = 0.5_RP*( PRES_hyd(iP) - PRES_hyd(iM) )*ny(i)
+      del_flux(i,3) = 0.5_RP*( PRES_hyd(iP) - PRES_hyd(iM) )*nz(i)
+    end do
+
+    return
+  end subroutine cal_del_flux_dyn
+
+
 end module mod_user

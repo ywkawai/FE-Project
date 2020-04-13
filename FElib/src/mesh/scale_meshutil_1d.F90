@@ -236,13 +236,13 @@ subroutine MeshUtil1D_BuildInteriorMap( VMapM, VMapP, MapM, MapP, &
   end do
   end do
 
-  VMapP = -1
+  VMapP(:,:,:) = -1
   do k1=1, Ne
   do f1=1, Nfaces
      k2 = EToE(k1,f1); f2 = EToF(k1,f1)
 
      v1 = EToV(k1,f1); v2 = EToV(k1,1+mod(f1,Nfaces))
-     refd2 =    (pos_ev(v1,1) - pos_ev(v2,1))**2
+     refd2 = (pos_ev(v1,1) - pos_ev(v2,1))**2
 
      x1(:,:) = spread( x(VMapM(:,f1,k1)), 2, Nfp )
      x2(:,:) = spread( x(VMapM(:,f2,k2)), 1, Nfp )
@@ -282,12 +282,12 @@ subroutine MeshUtil1D_BuildInteriorMap( VMapM, VMapP, MapM, MapP, &
 !    mesh%vmapB(:) = vmapB_tmp(1:mapB_counter)
 
   !-------
-!    write(*,*) "Build MapInfo: "
-!    do k=mesh%NeS,mesh%NeE
-!       write(*,*) "k=", k, "---"
-!       write(*,*) " VMapM:", mesh%VMapM(:,:,k)
-!       write(*,*) " VMapP:", mesh%VMapP(:,:,k)
-!    end do
+  !  write(*,*) "Build MapInfo: "
+  !  do k=1,Ne
+  !     write(*,*) "k=", k, "---"
+  !     write(*,*) " VMapM:", VMapM(:,:,k)
+  !     write(*,*) " VMapP:", VMapP(:,:,k)
+  !  end do
 
 !    write(*,*) "mapB:", mesh%mapB(:)
 !    write(*,*) "vmapB:", mesh%vmapB(:)

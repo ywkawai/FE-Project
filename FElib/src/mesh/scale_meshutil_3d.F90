@@ -343,7 +343,7 @@ contains
                     + (r_h(:,:,3,1) - r_h(:,:,3,2))**2
       do idP=1, Nfp_h
       do idM=1, Nfp_h
-          if (dist_h(idM,idP)/refd2 < 1d-14) then
+          if (dist_h(idM,idP)/refd2 < 1.0E-14_RP) then
             VMapP_h(idM,f1,k1) = VMapM_h(idP,f2,k2)
             MapP_h(idM,f1,k1) = idP + (f2-1)*Nfp_h + (k2-1)*NfpTot
           end if

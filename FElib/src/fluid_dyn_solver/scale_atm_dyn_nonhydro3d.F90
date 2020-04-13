@@ -287,7 +287,7 @@ contains
           + LiftDelFlx(:) )
       
       !-- MOMX
-      call sparsemat_matmul(Dx, u_(:)*MOMX_(:,ke) + dpres_(:) - viscCoef_h*dens_(:)*GxU_(:,ke), Fx)
+      call sparsemat_matmul(Dx, u_(:)*MOMX_(:,ke) + pres_(:)  - viscCoef_h*dens_(:)*GxU_(:,ke), Fx)
       call sparsemat_matmul(Dy, v_(:)*MOMX_(:,ke)             - viscCoef_h*dens_(:)*GyU_(:,ke), Fy)
       call sparsemat_matmul(Dz, w_(:)*MOMX_(:,ke)             - viscCoef_v*dens_(:)*GzU_(:,ke) ,Fz)
       call sparsemat_matmul(Lift, lmesh%Fscale(:,ke)*del_flux(:,ke,VARS_MOMX_ID), LiftDelFlx)
@@ -302,7 +302,7 @@ contains
 
       !-- MOMY
       call sparsemat_matmul(Dx, u_(:)*MOMY_(:,ke)             - viscCoef_h*dens_(:)*GxV_(:,ke), Fx)
-      call sparsemat_matmul(Dy, v_(:)*MOMY_(:,ke) + dpres_(:) - viscCoef_h*dens_(:)*GyV_(:,ke), Fy)
+      call sparsemat_matmul(Dy, v_(:)*MOMY_(:,ke) + pres_(:)  - viscCoef_h*dens_(:)*GyV_(:,ke), Fy)
       call sparsemat_matmul(Dz, w_(:)*MOMY_(:,ke)             - viscCoef_v*dens_(:)*GzV_(:,ke) ,Fz)
       call sparsemat_matmul(Lift, lmesh%Fscale(:,ke)*del_flux(:,ke,VARS_MOMY_ID), LiftDelFlx)
 
@@ -340,7 +340,7 @@ contains
           + lmesh%Escale(:,ke,2,2) * Fy(:) &
           + lmesh%Escale(:,ke,3,3) * Fz(:) &
           + LiftDelFlx )
-    
+
     end do
     call PROF_rapend( 'cal_dyn_tend_interior', 3)
 
@@ -393,7 +393,7 @@ contains
     
     integer :: i, iP, iM
     real(RP) :: VelP, VelM, alpha
-    real(RP) :: uM, uP, vM, vP, wM, wP, presM, presP, dpresM, dpresP, densM, densP, rhotM, rhotP, rhot_hyd
+    real(RP) :: uM, uP, vM, vP, wM, wP, presM, presP, dpresM, dpresP, densM, densP, rhotM, rhotP, rhot_hyd_M, rhot_hyd_P
     real(RP) :: dDiffFluxU, dDiffFluxV, dDiffFluxW, dDiffFluxPT
     real(RP) :: gamm, rgamm
     real(RP) :: mu, viscCoef, diffCoef
@@ -405,18 +405,19 @@ contains
     do i=1, elem%NfpTot*lmesh%Ne
       iM = vmapM(i); iP = vmapP(i)
 
-      rhot_hyd = PRES00/Rdry * (PRES_hyd(iM)/PRES00)**rgamm
+      rhot_hyd_M = PRES00/Rdry * (PRES_hyd(iM)/PRES00)**rgamm
+      rhot_hyd_P = PRES00/Rdry * (PRES_hyd(iP)/PRES00)**rgamm
       
-      rhotM = rhot_hyd + DRHOT_(iM)
+      rhotM = rhot_hyd_M + DRHOT_(iM)
       presM = PRES00 * (Rdry*rhotM/PRES00)**gamm
-      dpresM = presM - PRES_hyd(iM)
+      dpresM = presM - PRES_hyd(iM)*abs(nz(i))
 
-      rhotP = rhot_hyd + DRHOT_(iP) 
+      rhotP = rhot_hyd_P + DRHOT_(iP) 
       presP = PRES00 * (Rdry*rhotP/PRES00)**gamm
-      dpresP = presP - PRES_hyd(iM)
+      dpresP = presP - PRES_hyd(iP)*abs(nz(i))
 
       densM = DDENS_(iM) + DENS_hyd(iM)
-      densP = DDENS_(iP) + DENS_hyd(iM)
+      densP = DDENS_(iP) + DENS_hyd(iP)
 
       VelM = (MOMX_(iM)*nx(i) + MOMY_(iM)*ny(i) + MOMZ_(iM)*nz(i))/densM
       VelP = (MOMX_(iP)*nx(i) + MOMY_(iP)*ny(i) + MOMZ_(iP)*nz(i))/densP
@@ -425,7 +426,7 @@ contains
       mu = (2.0_RP * dble((elem%PolyOrder_h+1)*(elem%PolyOrder_h+2)) / 2.0_RP / 600.0_RP) 
       viscCoef = viscCoef_h*(abs(nx(i)) + abs(ny(i))) + viscCoef_v*abs(nz(i))
       diffCoef = diffCoef_h*(abs(nx(i)) + abs(ny(i))) + diffCoef_v*abs(nz(i))
-      
+
       if (diffCoef > 0.0_RP) then
         dDiffFluxU = viscCoef*( &
             (densP*GxU_(iP) - densM*GxU_(iM))*nx(i)                    &
@@ -480,7 +481,7 @@ contains
                     - dDiffFluxW                        )
       
       del_flux(i,VARS_DRHOT_ID) = 0.5_RP*(               &
-                    ( rhotP*VelP - rhotM*VelM )          &
+                      ( rhotP*VelP - rhotM*VelM )        &
                     - alpha*(DRHOT_(iP) - DRHOT_(iM))    &
                     - dDiffFluxPT                       )
 

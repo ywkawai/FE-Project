@@ -283,7 +283,7 @@ contains
     !----
 
     call MeshUtil1D_genLineDomain( mesh%pos_ev, mesh%EToV,   & ! (out)
-        & mesh%Ne, mesh%xmin, mesh%xmax )                      ! (in)
+        mesh%Ne, mesh%xmin, mesh%xmax   )                      ! (in)
 
 
     !---
