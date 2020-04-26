@@ -131,7 +131,7 @@ contains
     end do
     end do
     end do
-
+    
     ! Set the mask to extract the values at faces
     
     elem%Fmask_h(:,1) = reshape(nodes_ijk(:,1,:), (/ elem%Nfp_h /))
@@ -141,14 +141,14 @@ contains
 
     elem%Fmask_v(:,1) = reshape(nodes_ijk(:,:,1), (/ elem%Nfp_v /))
     elem%Fmask_v(:,2) = reshape(nodes_ijk(:,:,elem%Nnode_v), (/ elem%Nfp_v /))
-
+    
     do j=1, elem%Nnode_h1D
     do i=1, elem%Nnode_h1D
       n = i + (j-1)*elem%Nnode_h1D
       elem%Colmask(:,n) = nodes_ijk(i,j,:)
     end do
     end do
-
+    
     do k=1, elem%Nnode_v
       elem%Hslice(:,k) = reshape(nodes_ijk(:,:,k), (/ elem%Nfp_v /))
     end do
@@ -170,7 +170,7 @@ contains
     end do
     end do    
     end do
-
+    
     !* Set the coordinates of LGL points, and the Vandermonde and differential matricies
 
     elem%Dx1(:,:) = 0.0_RP

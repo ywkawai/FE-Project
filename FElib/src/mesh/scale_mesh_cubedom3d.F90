@@ -468,7 +468,7 @@ contains
       normal_fn(fid_h(:,1),d) = - Escale_f(fid_h(:,1),2,d)
       normal_fn(fid_h(:,2),d) = + Escale_f(fid_h(:,2),1,d)
       normal_fn(fid_h(:,3),d) = + Escale_f(fid_h(:,3),2,d)
-      normal_fn(fid_h(:,4),d) = - Escale_f(fid_h(:,2),2,d)
+      normal_fn(fid_h(:,4),d) = - Escale_f(fid_h(:,4),1,d)
 
       normal_fn(fid_v(:,1),d) = - Escale_f(fid_v(:,1),3,d)
       normal_fn(fid_v(:,2),d) = + Escale_f(fid_v(:,2),3,d)    

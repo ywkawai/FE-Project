@@ -263,7 +263,7 @@ contains
     allocate( elem%Dx1(elem%Np, elem%Np), elem%Dx2(elem%Np, elem%Np), elem%Dx3(elem%Np, elem%Np) )
     allocate( elem%Sx1(elem%Np, elem%Np), elem%Sx2(elem%Np, elem%Np), elem%Sx3(elem%Np, elem%Np) )
     allocate( elem%Fmask_h(elem%Nfp_h, elem%Nfaces_h), elem%Fmask_v(elem%Nfp_v, elem%Nfaces_v) )
-    allocate( elem%Colmask(elem%Nnode_v,elem%Nfp_h))
+    allocate( elem%Colmask(elem%Nnode_v,elem%Nfp_v))
     allocate( elem%Hslice(elem%Nfp_v,elem%Nnode_v) )
     allocate( elem%IndexH2Dto3D(elem%Np) )
     allocate( elem%IndexZ1Dto3D(elem%Np) )

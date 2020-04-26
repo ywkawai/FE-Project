@@ -181,6 +181,7 @@ contains
     integer :: k
     !------------------------------------
 
+    !$omp parallel do
     do k=1, lmesh%Ne
       DDENS_(:,k) = matmul(FilterMat,DDENS_(:,k))
       MOMX_(:,k) = matmul(FilterMat,MOMX_(:,k))
@@ -259,6 +260,7 @@ contains
  
     !-----
     call PROF_rapstart( 'cal_dyn_tend_interior', 3)
+    !$omp parallel do private(RHOT_,pres_,dpres_,dens_,u_,v_,w_,ke2d,Cori,Fx,Fy,Fz,LiftDelFlx)
     do ke = lmesh%NeS, lmesh%NeE
       !--
 
@@ -325,8 +327,8 @@ contains
           + lmesh%Escale(:,ke,2,2) * Fy(:)   &
           + lmesh%Escale(:,ke,3,3) * Fz(:)   &
           + LiftDelFlx(:)                )   &
-        - matmul(IntrpMat_VPOrdM1, DDENS_(:,ke)) * Grav
-        !- DDENS_(:,ke)*Grav
+          - matmul(IntrpMat_VPOrdM1, DDENS_(:,ke)) * Grav
+          !- DDENS_(:,ke)*Grav
       
 
       !-- RHOT
@@ -339,7 +341,7 @@ contains
             lmesh%Escale(:,ke,1,1) * Fx(:) &
           + lmesh%Escale(:,ke,2,2) * Fy(:) &
           + lmesh%Escale(:,ke,3,3) * Fz(:) &
-          + LiftDelFlx )
+          + LiftDelFlx(:) )
 
     end do
     call PROF_rapend( 'cal_dyn_tend_interior', 3)
@@ -402,6 +404,10 @@ contains
     gamm = CpDry/CvDry
     rgamm = CvDry/CpDry
 
+    !$omp parallel do private( &
+    !$omp iM, iP, uM, VelP, VelM, alpha, &
+    !$omp uP, vM, vP, wM, wP, presM, presP, dpresM, dpresP, densM, densP, rhotM, rhotP, rhot_hyd_M, rhot_hyd_P, &
+    !$omp dDiffFluxU, dDiffFluxV, dDiffFluxW, dDiffFluxPT, mu, viscCoef, diffCoef )
     do i=1, elem%NfpTot*lmesh%Ne
       iM = vmapM(i); iP = vmapP(i)
 
@@ -457,7 +463,7 @@ contains
         dDiffFluxW  = 0.0_RP
         dDiffFluxPT = 0.0_RP
       end if
-           
+      
       del_flux(i,VARS_DDENS_ID) = 0.5_RP*(               &
                     ( densP*VelP - densM*VelM )          &
                     - alpha*(DDENS_(iP) - DDENS_(iM))   )
