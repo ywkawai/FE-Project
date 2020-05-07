@@ -158,7 +158,7 @@ contains
         ATMOS_PROGVARS_VINFO(v), atm_mesh%mesh, & ! (in) 
         this%PROG_VARS(v), reg_file_hist        ) ! (out)
       do n = 1, atm_mesh%mesh%LOCAL_MESH_NUM
-        this%PROG_VARS(v)%local(n)%val(:,:) = 0.E20_RP
+        this%PROG_VARS(v)%local(n)%val(:,:) = 0.0_RP
       end do         
     end do
 
@@ -251,15 +251,6 @@ contains
       if ( hst_id > 0 ) call FILE_HISTORY_meshfield_put( hst_id, this%PROG_VARS(v) )
     end do
 
-    do n=1, mesh3D%LOCAL_MESH_NUM
-      lcmesh => mesh3D%lcmesh_list(n)
-  !     call vars_calc_diagnoseVar( &
-  !       U%local(n)%val, V%local(n)%val, W%local(n)%val, DPRES%local(n)%val, TEMP%local(n)%val, DTHETA%local(n)%val,   &
-  !       DDENS%local(n)%val, MOMX%local(n)%val, MOMY%local(n)%val, MOMZ%local(n)%val, DRHOT%local(n)%val,              &
-  !       PRES_hydro%local(n)%val, DENS_hydro%local(n)%val,                                                             &
-  !       lcmesh, lcmesh%refElem3D )
-    end do
-
     do v = 1, ATMOS_AUXVARS_NUM
       hst_id = this%AUX_VARS(v)%hist_id
       if ( hst_id > 0 ) call FILE_HISTORY_meshfield_put( hst_id, this%AUX_VARS(v) )
@@ -268,7 +259,7 @@ contains
     call tmp_field%Init( "tmp_field", "", mesh3D)
     do v = 1, ATMOS_DIAGVARS_NUM
       hst_id = this%DIAGVARS_HISTID(v)
-      if (hst_id > 0) then
+      if ( hst_id > 0 ) then
         call vars_calc_diagvar( this, ATMOS_DIAGVARS_VINFO(v)%NAME, tmp_field )
         call FILE_HISTORY_meshfield_put( hst_id, tmp_field )
       end if

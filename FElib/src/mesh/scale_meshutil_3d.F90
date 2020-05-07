@@ -679,7 +679,7 @@ contains
     end do
 
     call MeshUtil3D_genConnectivity( EToE, EToF, &
-      & EToV, Ntile, NtileFace )
+      EToV, Ntile, NtileFace )
     tileID_map(:,:) = transpose(EToE)
     tileFaceID_map(:,:) = transpose(EToF)
 

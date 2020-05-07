@@ -29,7 +29,7 @@ program test_advect3d
 
   use scale_time_manager, only: &
     TIME_manager_advance,                              &
-    TIME_NOWDATE, TIME_NOWMS, TIME_NOWSTEP,            &
+    TIME_NOWDATE, TIME_NOWSUBSEC, TIME_NOWSTEP,        &
     TIME_DTSEC, TIME_NSTEP 
   use scale_timeint_rk, only: &
     timeint_rk
@@ -42,7 +42,8 @@ program test_advect3d
   !-----------------------------------------------------------------------------
   implicit none
 
-  integer :: NeGX, NeGY, NeGZ
+  integer :: NprcX, NprcY
+  integer :: NeX, NeY, NeGZ
   integer, parameter :: NLocalMeshPerPrc = 1
 
   ! The type of initial q (sin, gaussian-hill, cosine-bell, top-hat)
@@ -103,7 +104,7 @@ program test_advect3d
 
   do nowstep=1, TIME_NSTEP
     do rkstage=1, tinteg_lc(1)%nstage
-      tsec_ =  TIME_NOWDATE(6) + TIME_NOWMS
+      tsec_ =  TIME_NOWDATE(6) + TIME_NOWSUBSEC
       
       !* Exchange halo data
       call PROF_rapstart( 'exchange_halo', 1)
@@ -138,12 +139,12 @@ program test_advect3d
     !* Advance time
     call TIME_manager_advance()
 
-    tsec_ = TIME_NOWDATE(6) + TIME_NOWMS
+    tsec_ = TIME_NOWDATE(6) + TIME_NOWSUBSEC
     if (mod(nowstep,nstep_eval_error) == 0) then 
       LOG_PROGRESS('(A,F13.5,A)') "t=", real(tsec_), "[s]"
       call evaluate_error(tsec_)
     end if
-    call FILE_HISTORY_set_nowdate( TIME_NOWDATE, TIME_NOWMS, TIME_NOWSTEP )
+    call FILE_HISTORY_set_nowdate( TIME_NOWDATE, TIME_NOWSUBSEC, TIME_NOWSTEP )
 
     !* Output
     call FILE_HISTORY_meshfield_put(HST_ID(1), q)
@@ -415,7 +416,7 @@ contains
     implicit none
 
     namelist /PARAM_TEST/ &
-      NeGX, NeGY, NeGZ,               & 
+      NprcX, NeX, NprcY, NeY, NeGZ,   & 
       PolyOrder_h, PolyOrder_v,       &
       TINTEG_SCHEME_TYPE,             &
       InitShapeName, InitShapeParams, &
@@ -436,14 +437,14 @@ contains
     call PRC_ERRHANDLER_setup( .false., ismaster ) ! [IN]
     
     ! setup scale_io
-    call IO_setup( "test_advect2d", "test.conf" )
+    call IO_setup( "test_advect3d", "test.conf" )
     
     ! setup log
     call IO_LOG_setup( myrank, ismaster )   
   
     !--- read namelist
 
-    NeGX = 2; NeGY = 2; NeGZ = 2
+    NeX = 2; NeY = 2; NeGZ = 2
     PolyOrder_h = 1; PolyOrder_v = 1
     TINTEG_SCHEME_TYPE = 'RK_TVD_3'
     InitShapeName      = 'sin'
@@ -484,10 +485,10 @@ contains
     call Lift%Init(refElem%Lift)
 
     call mesh%Init( &
-      NeGX, NeGY, NeGZ,                                           &
+      NeX, NeY, NeGZ,                                             &
       dom_xmin, dom_xmax, dom_ymin, dom_ymax, dom_zmin, dom_zmax, &
       .true., .true., .true.,                                     &
-      refElem, NLocalMeshPerPrc )
+      refElem, NLocalMeshPerPrc, NprcX, NprcY )
     
     call mesh%Generate()
     

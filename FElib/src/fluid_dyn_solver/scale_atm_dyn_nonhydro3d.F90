@@ -94,9 +94,9 @@ contains
     allocate( IntrpMat_VPOrdM1(elem%Np,elem%Np) )
     
     InvV_VPOrdM1(:,:) = elem%invV
-    do p2=1, elem%PolyOrder_h+1
-    do p1=1, elem%PolyOrder_h+1
-      p_ = p1 + (p2-1)*(elem%PolyOrder_h + 1) + elem%PolyOrder_v*(elem%PolyOrder_h + 1)**2
+    do p2=1, elem%Nnode_h1D
+    do p1=1, elem%Nnode_h1D
+      p_ = p1 + (p2-1)*elem%Nnode_h1D + (elem%Nnode_v-1)*elem%Nnode_h1D**2
       InvV_VPOrdM1(p_,:) = 0.0_RP
     end do
     end do
@@ -590,7 +590,7 @@ contains
 
       call sparsemat_matmul(Dz, W_, Fz)
       call sparsemat_matmul(Lift, lmesh%Fscale(:,ke)*del_flux(:,ke,VARS_GzW_ID), LiftDelFlx)
-      GzW_(:,ke) = lmesh%Escale(:,ke,2,2)*Fz(:) + LiftDelFlx(:)
+      GzW_(:,ke) = lmesh%Escale(:,ke,3,3)*Fz(:) + LiftDelFlx(:)
 
       !- PT
 
@@ -682,4 +682,5 @@ contains
     return
   end subroutine cal_del_gradDiffVar
 
+  !------------------------------------------------
 end module scale_atm_dyn_nonhydro3d

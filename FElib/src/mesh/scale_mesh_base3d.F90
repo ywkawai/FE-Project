@@ -212,7 +212,7 @@ contains
         xX, xY, xZ, yX, yY, yZ, zX, zY, zZ,                               & ! (out)
         vx, vy, vz, refElem )                                               ! (in)
 
-      lcmesh%J(:,n) =    xX(:)*(yY(:)*zZ(:) - zY(:)*yZ) &
+      lcmesh%J(:,n) =   xX(:)*(yY(:)*zZ(:) - zY(:)*yZ) &
                       - yX(:)*(xY(:)*zZ(:) - zY(:)*xZ) &
                       + zX(:)*(xY(:)*yZ(:) - yY(:)*xZ)
 

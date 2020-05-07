@@ -191,7 +191,7 @@ contains
       do p3=1, elem%Nnode_v
       do p2=1, elem%Nnode_h1D
       do p1=1, elem%Nnode_h1D
-        l = p1 + (p2 - 1)*elem%Nnode_h1D + (p3-1)*elem%Nnode_h1D**2
+        l = p1 + (p2-1)*elem%Nnode_h1D + (p3-1)*elem%Nnode_h1D**2
         elem%V(n,l) = (P1D_ori_h(i,p1)*P1D_ori_h(j,p2)*P1D_ori_v(k,p3))                         &
                       * sqrt((dble(p1-1) + 0.5_DP)*(dble(p2-1) + 0.5_DP)*(dble(p3-1) + 0.5_DP))
   
@@ -259,7 +259,7 @@ contains
       do p1=1, elem%Nnode_h1D
         l = p1 + (p3-1)*elem%Nnode_h1D
         V2D_h(n,l) =   P1D_ori_h(i,p1)*P1D_ori_v(k,p3) &
-                   * sqrt(dble(p1-1) + 0.5_DP)*sqrt(dble(p3-1) + 0.5_DP)
+                     * sqrt( (dble(p1-1) + 0.5_DP)*(dble(p3-1) + 0.5_DP) )
       end do
       end do
     end do
@@ -271,7 +271,7 @@ contains
       do p1=1, elem%Nnode_h1D
         l = p1 + (p2-1)*elem%Nnode_h1D
         V2D_v(n,l) =   P1D_ori_h(i,p1)*P1D_ori_h(j,p2) &
-                     * sqrt(dble(p1-1) + 0.5_DP)*sqrt(dble(p2-1) + 0.5_DP)
+                     * sqrt( (dble(p1-1) + 0.5_DP)*(dble(p2-1) + 0.5_DP) )
       end do
       end do
     end do

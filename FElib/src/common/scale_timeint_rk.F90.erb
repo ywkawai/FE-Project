@@ -217,8 +217,16 @@ contains
 
     !----------------------------------------    
 
-    call PROF_rapstart( 'rk_advance_low_storage', 3)    
+    call PROF_rapstart( 'rk_advance_low_storage<%=d%>D', 3) 
+
+    a_ss = this%coef_a(nowstage,nowstage)
+
+    !$omp parallel
     if (nowstage == 1) then
+      !$omp do 
+%if (d > 2) then
+      !%omp collapse(<%=(d-1)%>)
+%end
 % for i in 1..d
       do <%=ind_name[d-i]%>=<%=ind_range_list[d-i]%>
 %end
@@ -226,8 +234,12 @@ contains
 % for i in 1..d
       end do
 % end
-    end if   
-    a_ss = this%coef_a(nowstage,nowstage)
+    end if
+
+    !$omp do 
+%if (d > 2) then
+    !%omp collapse(<%=(d-1)%>)
+%end      
 % for i in 1..d
     do <%=ind_name[d-i]%>=<%=ind_range_list[d-i]%>
 %end
@@ -236,7 +248,10 @@ contains
 % for i in 1..d
     end do
 % end
-    call PROF_rapend( 'rk_advance_low_storage', 3)
+
+    !$omp end parallel
+
+    call PROF_rapend( 'rk_advance_low_storage<%=d%>D', 3)
 
   end subroutine rk_advance_low_storage<%=d%>D
 % end

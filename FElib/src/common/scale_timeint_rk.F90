@@ -241,18 +241,27 @@ contains
 
     !----------------------------------------    
 
-    call PROF_rapstart( 'rk_advance_low_storage', 3)    
+    call PROF_rapstart( 'rk_advance_low_storage1D', 3) 
+
+    a_ss = this%coef_a(nowstage,nowstage)
+
+    !$omp parallel
     if (nowstage == 1) then
+      !$omp do 
       do i=is, ie
         this%var0_1D(i,varID) = q(i)
       end do
-    end if   
-    a_ss = this%coef_a(nowstage,nowstage)
+    end if
+
+    !$omp do 
     do i=is, ie
       q(i) = (1.0_RP - a_ss)*this%var0_1d(i,varID)                   &
               + a_ss*(q(i) + this%dt * this%tend_buf1D(i,varID,1) )
     end do
-    call PROF_rapend( 'rk_advance_low_storage', 3)
+
+    !$omp end parallel
+
+    call PROF_rapend( 'rk_advance_low_storage1D', 3)
 
   end subroutine rk_advance_low_storage1D
 
@@ -269,22 +278,31 @@ contains
 
     !----------------------------------------    
 
-    call PROF_rapstart( 'rk_advance_low_storage', 3)    
+    call PROF_rapstart( 'rk_advance_low_storage2D', 3) 
+
+    a_ss = this%coef_a(nowstage,nowstage)
+
+    !$omp parallel
     if (nowstage == 1) then
+      !$omp do 
       do j=js, je
       do i=is, ie
         this%var0_2D(i,j,varID) = q(i,j)
       end do
       end do
-    end if   
-    a_ss = this%coef_a(nowstage,nowstage)
+    end if
+
+    !$omp do 
     do j=js, je
     do i=is, ie
       q(i,j) = (1.0_RP - a_ss)*this%var0_2d(i,j,varID)                   &
               + a_ss*(q(i,j) + this%dt * this%tend_buf2D(i,j,varID,1) )
     end do
     end do
-    call PROF_rapend( 'rk_advance_low_storage', 3)
+
+    !$omp end parallel
+
+    call PROF_rapend( 'rk_advance_low_storage2D', 3)
 
   end subroutine rk_advance_low_storage2D
 
@@ -301,8 +319,14 @@ contains
 
     !----------------------------------------    
 
-    call PROF_rapstart( 'rk_advance_low_storage', 3)    
+    call PROF_rapstart( 'rk_advance_low_storage3D', 3) 
+
+    a_ss = this%coef_a(nowstage,nowstage)
+
+    !$omp parallel
     if (nowstage == 1) then
+      !$omp do 
+      !%omp collapse(2)
       do k=ks, ke
       do j=js, je
       do i=is, ie
@@ -310,8 +334,10 @@ contains
       end do
       end do
       end do
-    end if   
-    a_ss = this%coef_a(nowstage,nowstage)
+    end if
+
+    !$omp do 
+    !%omp collapse(2)
     do k=ks, ke
     do j=js, je
     do i=is, ie
@@ -320,7 +346,10 @@ contains
     end do
     end do
     end do
-    call PROF_rapend( 'rk_advance_low_storage', 3)
+
+    !$omp end parallel
+
+    call PROF_rapend( 'rk_advance_low_storage3D', 3)
 
   end subroutine rk_advance_low_storage3D
 
