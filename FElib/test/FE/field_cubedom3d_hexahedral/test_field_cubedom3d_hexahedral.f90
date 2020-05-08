@@ -17,7 +17,7 @@ program test_field3d
 
   use scale_time_manager, only: &
     TIME_manager_Init , TIME_manager_Final,            &
-    TIME_NOWDATE, TIME_NOWMS, TIME_NOWSTEP,            &
+    TIME_NOWDATE, TIME_NOWSUBSEC, TIME_NOWSTEP,        &
     TIME_DTSEC, TIME_NSTEP 
     
   use scale_file_history_meshfield, only: &
