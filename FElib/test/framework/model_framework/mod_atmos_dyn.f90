@@ -31,7 +31,7 @@ contains
 subroutine AtmosDyn_setup( this, model_mesh )
   implicit none
   class(AtmosDynProc), intent(inout) :: this
-  class(ModelMeshBase), intent(in) :: model_mesh
+  class(ModelMeshBase), target, intent(in) :: model_mesh
   !--------------------------------------------------
 
   LOG_INFO('AtmosDyn_setup',*)
