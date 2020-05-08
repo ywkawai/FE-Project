@@ -17,7 +17,7 @@ program test_field3d
 
   use scale_time_manager, only: &
     TIME_manager_Init , TIME_manager_Final,            &
-    TIME_NOWDATE, TIME_NOWMS, TIME_NOWSTEP,            &
+    TIME_NOWDATE, TIME_NOWSUBSEC, TIME_NOWSTEP,        &
     TIME_DTSEC, TIME_NSTEP 
     
   use scale_file_history_meshfield, only: &
@@ -62,17 +62,17 @@ program test_field3d
   call init()
 
   !----
-  write(*,*) "* Check data communication.."
+  ! write(*,*) "* Check data communication.."
   call perform_comm()
 
-  do n=1, mesh%LOCAL_MESH_NUM
-    lcmesh => mesh%lcmesh_list(n)
+  ! do n=1, mesh%LOCAL_MESH_NUM
+  !   lcmesh => mesh%lcmesh_list(n)
 
-    write(*,*) "Check interior & halo data.."
-    write(*,*) "tileID=", lcmesh%tileID
-    call check_interior_data(n, mesh%lcmesh_list(n), q%local(n)%val, q%local(n)%val)
-    call check_halo_data(n, mesh%lcmesh_list(n), q%local(n)%val, q%local(n)%val)
-  end do
+  !   write(*,*) "Check interior & halo data.."
+  !   write(*,*) "tileID=", lcmesh%tileID
+  !   call check_interior_data(n, mesh%lcmesh_list(n), q%local(n)%val, q%local(n)%val)
+  !   call check_halo_data(n, mesh%lcmesh_list(n), q%local(n)%val, q%local(n)%val)
+  ! end do
   !----
 
   call final()
@@ -120,7 +120,7 @@ contains
       NeGX, NeGY, NeGZ,                                           &
       dom_xmin, dom_xmax, dom_ymin, dom_ymax, dom_zmin, dom_zmax, &
       .true., .true., .true.,                                     &
-      refElem, NLocalMeshPerPrc )
+      refElem, NLocalMeshPerPrc, nprocs, 1 )
     
     call mesh%Generate()
 

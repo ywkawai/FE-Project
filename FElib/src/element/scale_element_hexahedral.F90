@@ -56,8 +56,8 @@ contains
 
     elem%Np = elem%Nfp_v * elem%Nnode_v
     
-    call ElementBase3D_Init(elem)
-    call construct_Element(elem, LumpedMassMatFlag)
+    call ElementBase3D_Init(elem, LumpedMassMatFlag)
+    call construct_Element(elem)
 
     return
   end subroutine HexhedralElement_Init
@@ -73,7 +73,7 @@ contains
     return
   end subroutine HexhedralElement_Final
 
-  subroutine construct_Element(elem, LumpedMassMatFlag)
+  subroutine construct_Element(elem)
 
     use scale_linalgebra, only: linalgebra_inv
     use scale_polynominal, only: &
@@ -84,7 +84,6 @@ contains
     implicit none
     
     type(HexahedralElement), intent(inout) :: elem
-    logical, intent(in) :: LumpedMassMatFlag
 
     integer :: nodes_ijk(elem%Nnode_h1D, elem%Nnode_h1D, elem%Nnode_v)
 
@@ -132,7 +131,7 @@ contains
     end do
     end do
     end do
-
+    
     ! Set the mask to extract the values at faces
     
     elem%Fmask_h(:,1) = reshape(nodes_ijk(:,1,:), (/ elem%Nfp_h /))
@@ -142,14 +141,14 @@ contains
 
     elem%Fmask_v(:,1) = reshape(nodes_ijk(:,:,1), (/ elem%Nfp_v /))
     elem%Fmask_v(:,2) = reshape(nodes_ijk(:,:,elem%Nnode_v), (/ elem%Nfp_v /))
-
+    
     do j=1, elem%Nnode_h1D
     do i=1, elem%Nnode_h1D
       n = i + (j-1)*elem%Nnode_h1D
       elem%Colmask(:,n) = nodes_ijk(i,j,:)
     end do
     end do
-
+    
     do k=1, elem%Nnode_v
       elem%Hslice(:,k) = reshape(nodes_ijk(:,:,k), (/ elem%Nfp_v /))
     end do
@@ -171,7 +170,7 @@ contains
     end do
     end do    
     end do
-
+    
     !* Set the coordinates of LGL points, and the Vandermonde and differential matricies
 
     elem%Dx1(:,:) = 0.0_RP
@@ -192,7 +191,7 @@ contains
       do p3=1, elem%Nnode_v
       do p2=1, elem%Nnode_h1D
       do p1=1, elem%Nnode_h1D
-        l = p1 + (p2 - 1)*elem%Nnode_h1D + (p3-1)*elem%Nnode_h1D**2
+        l = p1 + (p2-1)*elem%Nnode_h1D + (p3-1)*elem%Nnode_h1D**2
         elem%V(n,l) = (P1D_ori_h(i,p1)*P1D_ori_h(j,p2)*P1D_ori_v(k,p3))                         &
                       * sqrt((dble(p1-1) + 0.5_DP)*(dble(p2-1) + 0.5_DP)*(dble(p3-1) + 0.5_DP))
   
@@ -224,7 +223,7 @@ contains
 
     !* Set the mass matrix
 
-    if (LumpedMassMatFlag) then
+    if (elem%IsLumpedMatrix()) then
       elem%invM(:,:) = 0.0_RP
       elem%M(:,:)    = 0.0_RP
       do k=1, elem%Nnode_v
@@ -260,7 +259,7 @@ contains
       do p1=1, elem%Nnode_h1D
         l = p1 + (p3-1)*elem%Nnode_h1D
         V2D_h(n,l) =   P1D_ori_h(i,p1)*P1D_ori_v(k,p3) &
-                   * sqrt(dble(p1-1) + 0.5_DP)*sqrt(dble(p3-1) + 0.5_DP)
+                     * sqrt( (dble(p1-1) + 0.5_DP)*(dble(p3-1) + 0.5_DP) )
       end do
       end do
     end do
@@ -272,15 +271,16 @@ contains
       do p1=1, elem%Nnode_h1D
         l = p1 + (p2-1)*elem%Nnode_h1D
         V2D_v(n,l) =   P1D_ori_h(i,p1)*P1D_ori_h(j,p2) &
-                     * sqrt(dble(p1-1) + 0.5_DP)*sqrt(dble(p2-1) + 0.5_DP)
+                     * sqrt( (dble(p1-1) + 0.5_DP)*(dble(p2-1) + 0.5_DP) )
       end do
       end do
     end do
     end do
   
+
     Emat(:,:) = 0.0_RP
     do f=1, elem%Nfaces_h
-      if (LumpedMassMatFlag) then
+      if (elem%IsLumpedMatrix()) then
         MassEdge_h(:,:) = 0.0_RP
         do k=1, elem%Nnode_v
         do i=1, elem%Nnode_h1D
@@ -298,7 +298,7 @@ contains
     end do
 
     do f=1, elem%Nfaces_v
-      if (LumpedMassMatFlag) then
+      if (elem%IsLumpedMatrix()) then
         MassEdge_v(:,:) = 0.0_RP
         do j=1, elem%Nnode_h1D
         do i=1, elem%Nnode_h1D

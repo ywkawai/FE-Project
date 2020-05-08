@@ -1,6 +1,7 @@
 $(BUILD_DIR)/mod_atmos_bnd.o: atmos/mod_atmos_bnd.F90 $(DEPENDLIB)
 $(BUILD_DIR)/mod_atmos_component.o: atmos/mod_atmos_component.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_dyn.o $(BUILD_DIR)/mod_atmos_mesh.o $(BUILD_DIR)/mod_atmos_vars.o
-$(BUILD_DIR)/mod_atmos_dyn.o: atmos/mod_atmos_dyn.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_bnd.o $(BUILD_DIR)/mod_atmos_mesh.o $(BUILD_DIR)/mod_atmos_vars.o
+$(BUILD_DIR)/mod_atmos_dyn.o: atmos/mod_atmos_dyn.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_bnd.o $(BUILD_DIR)/mod_atmos_dyn_vars.o $(BUILD_DIR)/mod_atmos_mesh.o $(BUILD_DIR)/mod_atmos_vars.o
+$(BUILD_DIR)/mod_atmos_dyn_vars.o: atmos/mod_atmos_dyn_vars.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_mesh.o
 $(BUILD_DIR)/mod_atmos_mesh.o: atmos/mod_atmos_mesh.F90 $(DEPENDLIB)
 $(BUILD_DIR)/mod_atmos_vars.o: atmos/mod_atmos_vars.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_mesh.o
 $(BUILD_DIR)/mod_dg_driver.o: admin/mod_dg_driver.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_component.o $(BUILD_DIR)/mod_user.o
@@ -11,6 +12,7 @@ MODS =	\
 	mod_atmos_component.mod	\
 	mod_atmos_dyn.mod	\
 	mod_atmos_dyn_bnd.mod	\
+	mod_atmos_dyn_vars.mod	\
 	mod_atmos_mesh.mod	\
 	mod_atmos_vars.mod	\
 	mod_dg_driver.mod	\

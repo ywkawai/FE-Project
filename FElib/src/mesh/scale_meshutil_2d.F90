@@ -257,14 +257,14 @@ contains
     end do
     end do
 
-    VMapP = -1
+    VMapP(:,:,:) = -1
     do k1=1, Ne
     do f1=1, Nfaces
       k2 = EToE(k1,f1); f2 = EToF(k1,f1)
 
       v1 = EToV(k1,f1); v2 = EToV(k1,1+mod(f1,Nfaces))
-      refd2 =    (pos_ev(v1,1) - pos_ev(v2,1))**2   &
-            &   + (pos_ev(v1,2) - pos_ev(v2,2))**2
+      refd2 =   (pos_ev(v1,1) - pos_ev(v2,1))**2   &
+              + (pos_ev(v1,2) - pos_ev(v2,2))**2
 
       x1(:,:) = spread( x(VMapM(:,f1,k1)), 2, Nfp )
       x2(:,:) = spread( x(VMapM(:,f2,k2)), 1, Nfp )
@@ -274,7 +274,7 @@ contains
       dist(:,:) = (x1 - x2)**2 + (y1 - y2)**2
       do idP=1, Nfp
       do idM=1, Nfp
-          if (dist(idM,idP)/refd2 < 1d-14) then
+          if (dist(idM,idP)/refd2 < 1.0E-14_RP) then
             VMapP(idM,f1,k1) = VMapM(idP,f2,k2)
             MapP(idM,f1,k1) = idP + (f2-1)*Nfp + (k2-1)*Nfp*Nfaces
           end if

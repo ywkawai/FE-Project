@@ -68,9 +68,11 @@ contains
     logical  :: isPeriodicY       = .true.
     logical  :: isPeriodicZ       = .false.
   
-    integer  :: NeGX              = 2
-    integer  :: NeGY              = 2
-    integer  :: NeGZ              = 2
+    integer  :: NeX               = 2
+    integer  :: NeY               = 2
+    integer  :: NeZ               = 2
+    integer  :: NprcX             = 1
+    integer  :: NprcY             = 1 
     integer  :: PolyOrder_h       = 2
     integer  :: PolyOrder_v       = 2
     logical  :: LumpedMassMatFlag = .false.
@@ -80,20 +82,22 @@ contains
       dom_ymin, dom_ymax,                        &
       dom_zmin, dom_zmax,                        &
       isPeriodicX, isPeriodicY, isPeriodicZ,     &
-      NeGX, NeGY, NeGZ, PolyOrder_h, PolyOrder_v
+      NeX, NeY, NeZ,                               &
+      PolyOrder_h, PolyOrder_v, LumpedMassMatFlag, &
+      NprcX, NprcY
     
     integer :: ierr
     !-------------------------------------------
 
     LOG_NEWLINE
-    LOG_INFO("ATMOS_MESH_driver_setup",*) 'Setup'
+    LOG_INFO("ATMOS_MESH_setup",*) 'Setup'
 
     rewind(IO_FID_CONF)
     read(IO_FID_CONF,nml=PARAM_ATMOS_MESH,iostat=ierr)
     if( ierr < 0 ) then !--- missing
-        LOG_INFO("ATMOS_MESH_driver_setup",*) 'Not found namelist. Default used.'
+        LOG_INFO("ATMOS_MESH_setup",*) 'Not found namelist. Default used.'
     elseif( ierr > 0 ) then !--- fatal error
-        LOG_ERROR("ATMOS_MESH_driver_setup",*) 'Not appropriate names in namelist PARAM_ATM_MESH. Check!'
+        LOG_ERROR("ATMOS_MESH_setup",*) 'Not appropriate names in namelist PARAM_ATM_MESH. Check!'
         call PRC_abort
     endif
     LOG_NML(PARAM_ATMOS_MESH)
@@ -102,10 +106,10 @@ contains
     call this%element%Init( PolyOrder_h, PolyOrder_v, LumpedMassMatFlag )
     
     call this%mesh%Init( &
-      NeGX, NeGY, NeGZ,                                          &
+      NprcX*NeX, NprcY*NeY, NeZ,                                 &
       dom_xmin, dom_xmax,dom_ymin, dom_ymax, dom_zmin, dom_zmax, &
       isPeriodicX, isPeriodicY, isPeriodicZ,                     &
-      this%element, ATMOS_MESH_NLocalMeshPerPrc )
+      this%element, ATMOS_MESH_NLocalMeshPerPrc, NprcX, NprcY    )
     
     call this%mesh%Generate()
     

@@ -13,15 +13,18 @@ module scale_time_manager
   use scale_time, only: &
     TIME_STARTDAYSEC, &
     TIME_NOWDATE,     &
-    TIME_NOWMS,       &
     TIME_NOWDAY,      &
     TIME_NOWDAYSEC,   &           
     TIME_NOWSEC,      &
     TIME_NOWSTEP,     &
+#ifdef SCALE_DEVELOP
+    TIME_NOWSUBSEC,   &
+#else
+    TIME_NOWSUBSEC => TIME_NOWMS,     &
+#endif
     TIME_NSTEP,       &
     TIME_DTSEC,       &
-    TIME_OFFSET_YEAR, &
-    TIME_NOWSTEP  
+    TIME_OFFSET_YEAR
   
   use scale_calendar, only: &
     CALENDAR_date2daysec,    &
@@ -66,7 +69,7 @@ module scale_time_manager
   integer, public :: TIME_DSTEP_RESUME
 
   public :: TIME_STARTDAYSEC
-  public :: TIME_NOWDATE,  TIME_NOWMS, TIME_NOWDAY,  TIME_NOWDAYSEC, TIME_NOWSEC
+  public :: TIME_NOWDATE,  TIME_NOWSUBSEC, TIME_NOWDAY,  TIME_NOWDAYSEC, TIME_NOWSEC
   public :: TIME_NOWSTEP, TIME_NSTEP
   public :: TIME_DTSEC
   public :: TIME_OFFSET_YEAR
@@ -83,7 +86,7 @@ module scale_time_manager
   
   !-----------------------------------------------------------------------------
 
-  real(DP), private :: TIME_RES_RESUME
+  integer, private :: TIME_RES_RESUME
 
 contains
 
@@ -150,8 +153,8 @@ contains
                               TIME_STARTDATE(:), TIME_STARTMS,  TIME_OFFSET_YEAR   ) ! [IN]
 
     TIME_STARTDAYSEC  = CALENDAR_combine_daysec( TIME_STARTDAY, TIME_STARTSEC )
-    TIME_NOWDATE(:) = TIME_STARTDATE(:)
-    TIME_NOWMS      = TIME_STARTMS
+    TIME_NOWDATE(:)   = TIME_STARTDATE(:)
+    TIME_NOWSUBSEC    = TIME_STARTMS
 
     call CALENDAR_unit2sec( TIME_DURATIONSEC, TIME_DURATION, TIME_DURATION_UNIT )
     TIME_ENDSEC = TIME_STARTSEC + TIME_DURATIONSEC
@@ -185,7 +188,7 @@ contains
     ! reallocate day & sub-day
     call CALENDAR_adjust_daysec( TIME_NOWDAY, TIME_NOWSEC ) ! [INOUT]
   
-    call CALENDAR_daysec2date( TIME_NOWDATE(:), TIME_NOWMS,               & ! [OUT]
+    call CALENDAR_daysec2date( TIME_NOWDATE(:), TIME_NOWSUBSEC,           & ! [OUT]
                                TIME_NOWDAY, TIME_NOWSEC, TIME_OFFSET_YEAR ) ! [IN]
   
     TIME_NOWDAYSEC = CALENDAR_combine_daysec( TIME_NOWDAY, TIME_NOWSEC )
@@ -214,7 +217,7 @@ contains
 
     if (mod(TIME_NOWSTEP-1, 1000) == 0) then
       call CALENDAR_date2char( nowchardate,                       & ! [OUT]
-                              TIME_NOWDATE(:), TIME_NOWMS       )   ! [IN]    
+                              TIME_NOWDATE(:), TIME_NOWSUBSEC     ) ! [IN]    
       LOG_PROGRESS('(1x,2A,2(A,I7),A,F10.1)') 'TIME: ', nowchardate,' STEP:',TIME_NOWSTEP, '/', TIME_NSTEP
     end if
 

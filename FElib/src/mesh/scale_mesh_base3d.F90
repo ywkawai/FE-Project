@@ -12,7 +12,8 @@ module scale_mesh_base3d
 
   use scale_mesh_base, only: &
     MeshBase, MeshBase_Init, MeshBase_Final
-    
+  use scale_mesh_base2d, only: &
+    MeshBase2D
   use scale_element_base, only: elementbase3D
 
   !-----------------------------------------------------------------------------
@@ -28,6 +29,7 @@ module scale_mesh_base3d
     type(elementbase3D), pointer :: refElem3D
   contains
     procedure(MeshBase3D_generate), deferred :: Generate 
+    procedure(MeshBase3D_getMesh2D), deferred  :: GetMesh2D
     procedure :: GetLocalMesh => MeshBase3D_get_localmesh
   end type MeshBase3D
 
@@ -36,6 +38,13 @@ module scale_mesh_base3d
       import MeshBase3D
       class(MeshBase3D), intent(inout), target :: this
     end subroutine MeshBase3D_generate
+
+    subroutine MeshBase3D_getMesh2D(this, ptr_mesh2D)
+      import MeshBase3D
+      import MeshBase2D
+      class(MeshBase3D), intent(in), target :: this
+      class(MeshBase2D), pointer, intent(out) :: ptr_mesh2D
+    end subroutine MeshBase3D_getMesh2D
   end interface
 
   public :: MeshBase3D_Init, MeshBase3D_Final
@@ -154,6 +163,7 @@ contains
     integer :: fid_v(lcmesh%refElem3D%Nfp_v,lcmesh%refElem3D%Nfaces_v)
     real(DP) :: Escale_f(lcmesh%refElem%NfpTot,3,3)
 
+    integer :: node_ids(lcmesh%refElem%Nv)
     real(RP) :: vx(lcmesh%refElem%Nv), vy(lcmesh%refElem%Nv), vz(lcmesh%refElem%Nv)    
     real(RP) :: xX(lcmesh%refElem%Np), xY(lcmesh%refElem%Np), xZ(lcmesh%refElem%Np)
     real(RP) :: yX(lcmesh%refElem%Np), yY(lcmesh%refElem%Np), yZ(lcmesh%refElem%Np)
@@ -193,15 +203,16 @@ contains
     end do
 
     do n=1, lcmesh%Ne
-      vx(:) = lcmesh%pos_ev(lcmesh%EToV(n,:),1)
-      vy(:) = lcmesh%pos_ev(lcmesh%EToV(n,:),2)
-      vz(:) = lcmesh%pos_ev(lcmesh%EToV(n,:),3)
+      node_ids(:) = lcmesh%EToV(n,:)
+      vx(:) = lcmesh%pos_ev(node_ids(:),1)
+      vy(:) = lcmesh%pos_ev(node_ids(:),2)
+      vz(:) = lcmesh%pos_ev(node_ids(:),3)
       call coord_conv( &
         lcmesh%pos_en(:,n,1), lcmesh%pos_en(:,n,2), lcmesh%pos_en(:,n,3), & ! (in)
         xX, xY, xZ, yX, yY, yZ, zX, zY, zZ,                               & ! (out)
         vx, vy, vz, refElem )                                               ! (in)
 
-      lcmesh%J(:,n) =    xX(:)*(yY(:)*zZ(:) - zY(:)*yZ) &
+      lcmesh%J(:,n) =   xX(:)*(yY(:)*zZ(:) - zY(:)*yZ) &
                       - yX(:)*(xY(:)*zZ(:) - zY(:)*xZ) &
                       + zX(:)*(xY(:)*yZ(:) - yY(:)*xZ)
 

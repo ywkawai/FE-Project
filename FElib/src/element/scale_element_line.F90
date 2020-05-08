@@ -30,25 +30,25 @@ contains
 
   subroutine LineElement_Init( &
     elem, elemOrder,           &
-    DumpedMassMatFlag )
+    LumpedMassMatFlag )
     
     implicit none
 
     class(LineElement), intent(inout) :: elem
     integer, intent(in) :: elemOrder
-    logical, intent(in) :: DumpedMassMatFlag
+    logical, intent(in) :: LumpedMassMatFlag
 
     !-----------------------------------------------------------------------------
     
     elem%PolyOrder = elemOrder
-    elem%Nv = 1
+    elem%Nv = 2
     elem%Np = elemOrder + 1
     elem%Nfp = 1
     elem%Nfaces = 2
     elem%NfpTot = elem%Nfp*elem%Nfaces
        
-    call ElementBase1D_Init(elem)
-    call construct_Element(elem, DumpedMassMatFlag)
+    call ElementBase1D_Init(elem, LumpedMassMatFlag)
+    call construct_Element(elem)
 
     return
   end subroutine LineElement_Init
@@ -64,7 +64,7 @@ contains
     return
   end subroutine LineElement_Final
 
-  subroutine construct_Element(elem, DumpedMassMatFlag)
+  subroutine construct_Element(elem)
 
     use scale_linalgebra, only: linalgebra_inv
     use scale_polynominal, only: &
@@ -75,7 +75,6 @@ contains
     implicit none
 
     type(LineElement), intent(inout) :: elem
-    logical, intent(in) :: DumpedMassMatFlag
 
     integer :: nodes(elem%Np)
 
@@ -133,7 +132,7 @@ contains
 
     !* Set the mass matrix
 
-    if (DumpedMassMatFlag) then
+    if (elem%IsLumpedMatrix()) then
       elem%invM(:,:) = 0.0_RP
       elem%M(:,:)    = 0.0_RP
       do i=1, elem%Np

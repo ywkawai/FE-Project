@@ -143,6 +143,7 @@ contains
     integer :: f
     integer :: i, j
     integer :: d
+    integer :: node_ids(lcmesh%refElem%Nv)
     real(RP) :: vx(lcmesh%refElem%Nv), vy(lcmesh%refElem%Nv)
     real(RP) :: xr(lcmesh%refElem%Np), xs(lcmesh%refElem%Np)
     real(RP) :: yr(lcmesh%refElem%Np), ys(lcmesh%refElem%Np)
@@ -176,11 +177,12 @@ contains
     end do
 
     do n=1, lcmesh%Ne
-      vx(:) = lcmesh%pos_ev(lcmesh%EToV(n,:),1)
-      vy(:) = lcmesh%pos_ev(lcmesh%EToV(n,:),2)
+      node_ids(:) = lcmesh%EToV(n,:)
+      vx(:) = lcmesh%pos_ev(node_ids(:),1)
+      vy(:) = lcmesh%pos_ev(node_ids(:),2)
       call coord_conv( &
-      lcmesh%pos_en(:,n,1), lcmesh%pos_en(:,n,2), xr, xs, yr, ys, & ! (out)
-      vx, vy, refElem )                                             ! (in)
+        lcmesh%pos_en(:,n,1), lcmesh%pos_en(:,n,2), xr, xs, yr, ys, & ! (out)
+        vx, vy, refElem )                                             ! (in)
       
       lcmesh%J(:,n) = - xs*yr + xr*ys
 

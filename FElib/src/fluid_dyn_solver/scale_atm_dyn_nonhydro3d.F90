@@ -17,8 +17,10 @@ module scale_atm_dyn_nonhydro3d
     PRES00 => CONST_PRE00
 
   use scale_sparsemat  
-  use scale_element_base
+  use scale_element_base, only: &
+    ElementBase2D, ElementBase3D
   use scale_element_hexahedral, only: HexahedralElement
+  use scale_localmesh_2d, only: LocalMesh2D  
   use scale_localmesh_3d, only: LocalMesh3D
   use scale_mesh_base3d, only: MeshBase3D
   use scale_localmeshfield_base, only: LocalMeshField3D
@@ -72,6 +74,7 @@ module scale_atm_dyn_nonhydro3d
   integer, private, parameter :: AUX_DIFFVARS_NUM = 12
 
   real(RP), private, allocatable :: FilterMat(:,:)
+  real(RP), private, allocatable :: IntrpMat_VPOrdM1(:,:)
 
   private :: cal_del_flux_dyn
   private :: cal_del_gradDiffVar
@@ -81,7 +84,23 @@ contains
 
     implicit none
     class(MeshBase3D), intent(in) :: mesh
+
+    integer :: p1, p2, p_
+    type(ElementBase3D), pointer :: elem
+    real(RP) :: invV_VPOrdM1(mesh%refElem3D%Np,mesh%refElem3D%Np)
     !--------------------------------------------
+
+    elem => mesh%refElem3D
+    allocate( IntrpMat_VPOrdM1(elem%Np,elem%Np) )
+    
+    InvV_VPOrdM1(:,:) = elem%invV
+    do p2=1, elem%Nnode_h1D
+    do p1=1, elem%Nnode_h1D
+      p_ = p1 + (p2-1)*elem%Nnode_h1D + (elem%Nnode_v-1)*elem%Nnode_h1D**2
+      InvV_VPOrdM1(p_,:) = 0.0_RP
+    end do
+    end do
+    IntrpMat_VPOrdM1(:,:) = matmul(elem%V, invV_VPOrdM1)
 
     return
   end subroutine atm_dyn_nonhydro3d_Init
@@ -112,10 +131,10 @@ contains
     end do
 
     filter1D_v(:) = 1.0_RP
-    do p1=1, elem%Nnode_h1D
-      eta = dble(p1-1)/dble(elem%PolyOrder_v)
-      if ( eta >  etac .and. p1 /= 1) then
-        filter1D_v(p1) = exp( -  alpha*( ((eta - etac)/(1.0_RP - etac))**ord ))
+    do p3=1, elem%Nnode_v
+      eta = dble(p3-1)/dble(elem%PolyOrder_v)
+      if ( eta >  etac .and. p3 /= 1) then
+        filter1D_v(p3) = exp( -  alpha*( ((eta - etac)/(1.0_RP - etac))**ord ))
       end if
     end do
 
@@ -139,6 +158,7 @@ contains
     implicit none
     !--------------------------------------------
     
+    deallocate( IntrpMat_VPOrdM1 )
     if( allocated(FilterMat) ) deallocate( FilterMat )
     
     return
@@ -161,6 +181,7 @@ contains
     integer :: k
     !------------------------------------
 
+    !$omp parallel do
     do k=1, lmesh%Ne
       DDENS_(:,k) = matmul(FilterMat,DDENS_(:,k))
       MOMX_(:,k) = matmul(FilterMat,MOMX_(:,k))
@@ -174,15 +195,17 @@ contains
 
   subroutine atm_dyn_nonhydro3d_cal_tend( &
     DENS_dt, MOMX_dt, MOMY_dt, MOMZ_dt, RHOT_dt,                                & ! (out)
-    DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd,                    & ! (in)
+    DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd, CORIOLIS,          & ! (in)
     GxU_, GyU_, GzU_, GxV_, GyV_, GzV_, GxW_, GyW_, GzW_, GxPT_, GyPT_, GzPT_,  & ! (in)
     viscCoef_h, viscCoef_v, diffCoef_h, diffCoef_v,                             & ! (in)
-    Dx, Dy, Dz, Sx, Sy, Sz, Lift, lmesh, elem )
+    Dx, Dy, Dz, Sx, Sy, Sz, Lift, lmesh, elem, lmesh2D, elem2D )
 
     implicit none
 
     class(LocalMesh3D), intent(in) :: lmesh
     class(elementbase3D), intent(in) :: elem
+    class(LocalMesh2D), intent(in) :: lmesh2D
+    class(elementbase2D), intent(in) :: elem2D
     type(SparseMat), intent(in) :: Dx, Dy, Dz, Sx, Sy, Sz, Lift
     real(RP), intent(out) :: DENS_dt(elem%Np,lmesh%NeA)
     real(RP), intent(out) :: MOMX_dt(elem%Np,lmesh%NeA)
@@ -196,6 +219,7 @@ contains
     real(RP), intent(in)  :: DRHOT_(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: DENS_hyd(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: PRES_hyd(elem%Np,lmesh%NeA)
+    real(RP), intent(in)  :: CORIOLIS(elem2D%Np,lmesh2D%NeA)
     real(RP), intent(in)  :: GxU_(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: GyU_(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: GzU_(elem%Np,lmesh%NeA)
@@ -217,23 +241,9 @@ contains
     real(RP) :: del_flux(elem%NfpTot,lmesh%Ne,PROG_VARS_NUM)
     real(RP) :: dens_(elem%Np), RHOT_(elem%Np), dpres_(elem%Np)
     real(RP) :: pres_(elem%Np), u_(elem%Np), v_(elem%Np), w_(elem%Np)
+    real(RP) :: Cori(elem%Np)
 
-    integer :: k
-
-    integer :: p1, p2, p_
-    real(RP) :: IntrpMat_VPOrdM1(elem%Np,elem%Np)
-    real(RP) :: invV_VPOrdM1(elem%Np,elem%Np)
-    !------------------------------------------------------------------------
-
-    InvV_VPOrdM1(:,:) = elem%invV
-    do p2=1, elem%PolyOrder_h+1
-    do p1=1, elem%PolyOrder_h+1
-      p_ = p1 + (p2-1)*(elem%PolyOrder_h + 1) + elem%PolyOrder_v*(elem%PolyOrder_h + 1)**2
-      InvV_VPOrdM1(p_,:) = 0.0_RP
-    end do
-    end do
-    IntrpMat_VPOrdM1(:,:) = matmul(elem%V, invV_VPOrdM1)
-
+    integer :: ke, ke2d
     !------------------------------------------------------------------------
 
     call PROF_rapstart( 'cal_dyn_tend_bndflux', 3)
@@ -247,84 +257,92 @@ contains
       lmesh%vmapM, lmesh%vmapP,                                               & ! (in)
       lmesh, elem )                                                             ! (in)
     call PROF_rapend( 'cal_dyn_tend_bndflux', 3)
-    
+ 
     !-----
     call PROF_rapstart( 'cal_dyn_tend_interior', 3)
-    do k = lmesh%NeS, lmesh%NeE
+    !$omp parallel do private(RHOT_,pres_,dpres_,dens_,u_,v_,w_,ke2d,Cori,Fx,Fy,Fz,LiftDelFlx)
+    do ke = lmesh%NeS, lmesh%NeE
       !--
 
-      RHOT_(:) = PRES00/Rdry * (PRES_hyd(:,k)/PRES00)**(CVdry/CPdry) + DRHOT_(:,k)
+      RHOT_(:) = PRES00/Rdry * (PRES_hyd(:,ke)/PRES00)**(CVdry/CPdry) + DRHOT_(:,ke)
       pres_(:) = PRES00 * (Rdry*RHOT_(:)/PRES00)**(CPdry/Cvdry)
-      dpres_(:) = pres_(:) - PRES_hyd(:,k)
-      dens_(:) = DDENS_(:,k) + DENS_hyd(:,k)
+      dpres_(:) = pres_(:) - PRES_hyd(:,ke)
+      dens_(:) = DDENS_(:,ke) + DENS_hyd(:,ke)
 
-      u_(:) = MOMX_(:,k)/dens_(:)
-      v_(:) = MOMY_(:,k)/dens_(:)
-      w_(:) = MOMZ_(:,k)/dens_(:)
+      u_(:) = MOMX_(:,ke)/dens_(:)
+      v_(:) = MOMY_(:,ke)/dens_(:)
+      w_(:) = MOMZ_(:,ke)/dens_(:)
+
+      ke2d = lmesh%EMap3Dto2D(ke)
+      Cori(:) = CORIOLIS(elem%IndexH2Dto3D(:),ke2d)
 
       !-- DENS
-      call sparsemat_matmul(Dx, MOMX_(:,k), Fx)
-      call sparsemat_matmul(Dy, MOMY_(:,k), Fy)
-      call sparsemat_matmul(Dz, MOMZ_(:,k), Fz)
-      call sparsemat_matmul(Lift, lmesh%Fscale(:,k)*del_flux(:,k,VARS_DDENS_ID), LiftDelFlx)
+      call sparsemat_matmul(Dx, MOMX_(:,ke), Fx)
+      call sparsemat_matmul(Dy, MOMY_(:,ke), Fy)
+      call sparsemat_matmul(Dz, MOMZ_(:,ke), Fz)
+      call sparsemat_matmul(Lift, lmesh%Fscale(:,ke)*del_flux(:,ke,VARS_DDENS_ID), LiftDelFlx)
 
-      DENS_dt(:,k) = - ( &
-            lmesh%Escale(:,k,1,1) * Fx(:) &
-          + lmesh%Escale(:,k,2,2) * Fy(:) &
-          + lmesh%Escale(:,k,3,3) * Fz(:) &
+      DENS_dt(:,ke) = - ( &
+            lmesh%Escale(:,ke,1,1) * Fx(:) &
+          + lmesh%Escale(:,ke,2,2) * Fy(:) &
+          + lmesh%Escale(:,ke,3,3) * Fz(:) &
           + LiftDelFlx(:) )
       
       !-- MOMX
-      call sparsemat_matmul(Dx, u_(:)*MOMX_(:,k) + dpres_(:) - viscCoef_h*dens_(:)*GxU_(:,k), Fx)
-      call sparsemat_matmul(Dy, v_(:)*MOMX_(:,k)             - viscCoef_h*dens_(:)*GyU_(:,k), Fy)
-      call sparsemat_matmul(Dz, w_(:)*MOMX_(:,k)             - viscCoef_v*dens_(:)*GzU_(:,k) ,Fz)
-      call sparsemat_matmul(Lift, lmesh%Fscale(:,k)*del_flux(:,k,VARS_MOMX_ID), LiftDelFlx)
+      call sparsemat_matmul(Dx, u_(:)*MOMX_(:,ke) + pres_(:)  - viscCoef_h*dens_(:)*GxU_(:,ke), Fx)
+      call sparsemat_matmul(Dy, v_(:)*MOMX_(:,ke)             - viscCoef_h*dens_(:)*GyU_(:,ke), Fy)
+      call sparsemat_matmul(Dz, w_(:)*MOMX_(:,ke)             - viscCoef_v*dens_(:)*GzU_(:,ke) ,Fz)
+      call sparsemat_matmul(Lift, lmesh%Fscale(:,ke)*del_flux(:,ke,VARS_MOMX_ID), LiftDelFlx)
 
-      MOMX_dt(:,k) = - (  &
-            lmesh%Escale(:,k,1,1) * Fx(:) &
-          + lmesh%Escale(:,k,2,2) * Fy(:) &
-          + lmesh%Escale(:,k,3,3) * Fz(:) &
-          + LiftDelFlx(:) )
+      MOMX_dt(:,ke) = - (  &
+            lmesh%Escale(:,ke,1,1) * Fx(:)      &
+          + lmesh%Escale(:,ke,2,2) * Fy(:)      &
+          + lmesh%Escale(:,ke,3,3) * Fz(:)      &
+          + LiftDelFlx(:)                       &
+          - Cori(:)*MOMY_(:,ke)                 &
+          )
 
       !-- MOMY
-      call sparsemat_matmul(Dx, u_(:)*MOMY_(:,k)             - viscCoef_h*dens_(:)*GxV_(:,k), Fx)
-      call sparsemat_matmul(Dy, v_(:)*MOMY_(:,k) + dpres_(:) - viscCoef_h*dens_(:)*GyV_(:,k), Fy)
-      call sparsemat_matmul(Dz, w_(:)*MOMY_(:,k)             - viscCoef_v*dens_(:)*GzV_(:,k) ,Fz)
-      call sparsemat_matmul(Lift, lmesh%Fscale(:,k)*del_flux(:,k,VARS_MOMY_ID), LiftDelFlx)
+      call sparsemat_matmul(Dx, u_(:)*MOMY_(:,ke)             - viscCoef_h*dens_(:)*GxV_(:,ke), Fx)
+      call sparsemat_matmul(Dy, v_(:)*MOMY_(:,ke) + pres_(:)  - viscCoef_h*dens_(:)*GyV_(:,ke), Fy)
+      call sparsemat_matmul(Dz, w_(:)*MOMY_(:,ke)             - viscCoef_v*dens_(:)*GzV_(:,ke) ,Fz)
+      call sparsemat_matmul(Lift, lmesh%Fscale(:,ke)*del_flux(:,ke,VARS_MOMY_ID), LiftDelFlx)
 
-      MOMY_dt(:,k) = - (  &
-            lmesh%Escale(:,k,1,1) * Fx(:) &
-          + lmesh%Escale(:,k,2,2) * Fy(:) &
-          + lmesh%Escale(:,k,3,3) * Fz(:) &
-          + LiftDelFlx(:) )
-    
+      MOMY_dt(:,ke) = - (  &
+            lmesh%Escale(:,ke,1,1) * Fx(:) &
+          + lmesh%Escale(:,ke,2,2) * Fy(:) &
+          + lmesh%Escale(:,ke,3,3) * Fz(:) &
+          + LiftDelFlx(:)                  &
+          + Cori(:)*MOMX_(:,ke)            &
+          )
+
       !-- MOMZ
-      call sparsemat_matmul(Dx, u_(:)*MOMZ_(:,k)             - viscCoef_h*dens_(:)*GxW_(:,k), Fx)
-      call sparsemat_matmul(Dy, v_(:)*MOMZ_(:,k)             - viscCoef_h*dens_(:)*GyW_(:,k), Fy)
-      call sparsemat_matmul(Dz, w_(:)*MOMZ_(:,k) + dpres_(:) - viscCoef_v*dens_(:)*GzW_(:,k), Fz)
-      call sparsemat_matmul(Lift, lmesh%Fscale(:,k)*del_flux(:,k,VARS_MOMZ_ID), LiftDelFlx)
+      call sparsemat_matmul(Dx, u_(:)*MOMZ_(:,ke)             - viscCoef_h*dens_(:)*GxW_(:,ke), Fx)
+      call sparsemat_matmul(Dy, v_(:)*MOMZ_(:,ke)             - viscCoef_h*dens_(:)*GyW_(:,ke), Fy)
+      call sparsemat_matmul(Dz, w_(:)*MOMZ_(:,ke) + dpres_(:) - viscCoef_v*dens_(:)*GzW_(:,ke), Fz)
+      call sparsemat_matmul(Lift, lmesh%Fscale(:,ke)*del_flux(:,ke,VARS_MOMZ_ID), LiftDelFlx)
       
-      MOMZ_dt(:,k) = - ( &
-            lmesh%Escale(:,k,1,1) * Fx(:)   &
-          + lmesh%Escale(:,k,2,2) * Fy(:)   &
-          + lmesh%Escale(:,k,3,3) * Fz(:)   &
-          + LiftDelFlx(:)                )  &
-          - matmul(IntrpMat_VPOrdM1, DDENS_(:,k)) * Grav
-        !- DDENS_(:,k)*Grav
-        
+      MOMZ_dt(:,ke) = - ( &
+            lmesh%Escale(:,ke,1,1) * Fx(:)   &
+          + lmesh%Escale(:,ke,2,2) * Fy(:)   &
+          + lmesh%Escale(:,ke,3,3) * Fz(:)   &
+          + LiftDelFlx(:)                )   &
+          - matmul(IntrpMat_VPOrdM1, DDENS_(:,ke)) * Grav
+          !- DDENS_(:,ke)*Grav
+      
 
       !-- RHOT
-      call sparsemat_matmul(Dx, u_(:)*RHOT_(:) - diffCoef_h*dens_(:)*GxPT_(:,k), Fx)
-      call sparsemat_matmul(Dy, v_(:)*RHOT_(:) - diffCoef_h*dens_(:)*GyPT_(:,k), Fy)
-      call sparsemat_matmul(Dz, w_(:)*RHOT_(:) - diffCoef_v*dens_(:)*GzPT_(:,k), Fz)
-      call sparsemat_matmul(Lift, lmesh%Fscale(:,k)*del_flux(:,k,VARS_DRHOT_ID), LiftDelFlx)
+      call sparsemat_matmul(Dx, u_(:)*RHOT_(:) - diffCoef_h*dens_(:)*GxPT_(:,ke), Fx)
+      call sparsemat_matmul(Dy, v_(:)*RHOT_(:) - diffCoef_h*dens_(:)*GyPT_(:,ke), Fy)
+      call sparsemat_matmul(Dz, w_(:)*RHOT_(:) - diffCoef_v*dens_(:)*GzPT_(:,ke), Fz)
+      call sparsemat_matmul(Lift, lmesh%Fscale(:,ke)*del_flux(:,ke,VARS_DRHOT_ID), LiftDelFlx)
       
-      RHOT_dt(:,k) =  - (  &
-            lmesh%Escale(:,k,1,1) * Fx(:) &
-          + lmesh%Escale(:,k,2,2) * Fy(:) &
-          + lmesh%Escale(:,k,3,3) * Fz(:) &
-          + LiftDelFlx )
-    
+      RHOT_dt(:,ke) =  - (  &
+            lmesh%Escale(:,ke,1,1) * Fx(:) &
+          + lmesh%Escale(:,ke,2,2) * Fy(:) &
+          + lmesh%Escale(:,ke,3,3) * Fz(:) &
+          + LiftDelFlx(:) )
+
     end do
     call PROF_rapend( 'cal_dyn_tend_interior', 3)
 
@@ -377,7 +395,7 @@ contains
     
     integer :: i, iP, iM
     real(RP) :: VelP, VelM, alpha
-    real(RP) :: uM, uP, vM, vP, wM, wP, presM, presP, dpresM, dpresP, densM, densP, rhotM, rhotP, rhot_hyd
+    real(RP) :: uM, uP, vM, vP, wM, wP, presM, presP, dpresM, dpresP, densM, densP, rhotM, rhotP, rhot_hyd_M, rhot_hyd_P
     real(RP) :: dDiffFluxU, dDiffFluxV, dDiffFluxW, dDiffFluxPT
     real(RP) :: gamm, rgamm
     real(RP) :: mu, viscCoef, diffCoef
@@ -386,21 +404,26 @@ contains
     gamm = CpDry/CvDry
     rgamm = CvDry/CpDry
 
+    !$omp parallel do private( &
+    !$omp iM, iP, uM, VelP, VelM, alpha, &
+    !$omp uP, vM, vP, wM, wP, presM, presP, dpresM, dpresP, densM, densP, rhotM, rhotP, rhot_hyd_M, rhot_hyd_P, &
+    !$omp dDiffFluxU, dDiffFluxV, dDiffFluxW, dDiffFluxPT, mu, viscCoef, diffCoef )
     do i=1, elem%NfpTot*lmesh%Ne
       iM = vmapM(i); iP = vmapP(i)
 
-      rhot_hyd = PRES00/Rdry * (PRES_hyd(iM)/PRES00)**rgamm
+      rhot_hyd_M = PRES00/Rdry * (PRES_hyd(iM)/PRES00)**rgamm
+      rhot_hyd_P = PRES00/Rdry * (PRES_hyd(iP)/PRES00)**rgamm
       
-      rhotM = rhot_hyd + DRHOT_(iM)
+      rhotM = rhot_hyd_M + DRHOT_(iM)
       presM = PRES00 * (Rdry*rhotM/PRES00)**gamm
-      dpresM = presM - PRES_hyd(iM)
+      dpresM = presM - PRES_hyd(iM)*abs(nz(i))
 
-      rhotP = rhot_hyd + DRHOT_(iP) 
+      rhotP = rhot_hyd_P + DRHOT_(iP) 
       presP = PRES00 * (Rdry*rhotP/PRES00)**gamm
-      dpresP = presP - PRES_hyd(iM)
+      dpresP = presP - PRES_hyd(iP)*abs(nz(i))
 
       densM = DDENS_(iM) + DENS_hyd(iM)
-      densP = DDENS_(iP) + DENS_hyd(iM)
+      densP = DDENS_(iP) + DENS_hyd(iP)
 
       VelM = (MOMX_(iM)*nx(i) + MOMY_(iM)*ny(i) + MOMZ_(iM)*nz(i))/densM
       VelP = (MOMX_(iP)*nx(i) + MOMY_(iP)*ny(i) + MOMZ_(iP)*nz(i))/densP
@@ -409,7 +432,7 @@ contains
       mu = (2.0_RP * dble((elem%PolyOrder_h+1)*(elem%PolyOrder_h+2)) / 2.0_RP / 600.0_RP) 
       viscCoef = viscCoef_h*(abs(nx(i)) + abs(ny(i))) + viscCoef_v*abs(nz(i))
       diffCoef = diffCoef_h*(abs(nx(i)) + abs(ny(i))) + diffCoef_v*abs(nz(i))
-      
+
       if (diffCoef > 0.0_RP) then
         dDiffFluxU = viscCoef*( &
             (densP*GxU_(iP) - densM*GxU_(iM))*nx(i)                    &
@@ -418,10 +441,10 @@ contains
           + mu*(densP + densM)*(MOMX_(iP)/densP - MOMX_(iM)/densM) )
 
         dDiffFluxV = viscCoef*( &
-          (densP*GxV_(iP) - densM*GxV_(iM))*nx(i)                    &
-        + (densP*GyV_(iP) - densM*GyV_(iM))*ny(i)                    &
-        + (densP*GzV_(iP) - densM*GzV_(iM))*nz(i)                    &
-        + mu*(densP + densM)*(MOMY_(iP)/densP - MOMY_(iM)/densM) )
+            (densP*GxV_(iP) - densM*GxV_(iM))*nx(i)                    &
+          + (densP*GyV_(iP) - densM*GyV_(iM))*ny(i)                    &
+          + (densP*GzV_(iP) - densM*GzV_(iM))*nz(i)                    &
+          + mu*(densP + densM)*(MOMY_(iP)/densP - MOMY_(iM)/densM) )
         
         dDiffFluxW = viscCoef*( &
             (densP*GxW_(iP) - densM*GxW_(iM))*nx(i)                    &
@@ -431,6 +454,7 @@ contains
 
         dDiffFluxPT = diffCoef*( &
             (densP*GxPT_(iP) - densM*GxPT_(iM))*nx(i)     &
+          + (densP*GyPT_(iP) - densM*GyPT_(iM))*ny(i)     &            
           + (densP*GzPT_(iP) - densM*GzPT_(iM))*nz(i)     &
           + mu*(densP + densM)*(rhotP/densP - rhotM/densM) )
       else
@@ -463,7 +487,7 @@ contains
                     - dDiffFluxW                        )
       
       del_flux(i,VARS_DRHOT_ID) = 0.5_RP*(               &
-                    ( rhotP*VelP - rhotM*VelM )          &
+                      ( rhotP*VelP - rhotM*VelM )        &
                     - alpha*(DRHOT_(iP) - DRHOT_(iM))    &
                     - dDiffFluxPT                       )
 
@@ -566,7 +590,7 @@ contains
 
       call sparsemat_matmul(Dz, W_, Fz)
       call sparsemat_matmul(Lift, lmesh%Fscale(:,ke)*del_flux(:,ke,VARS_GzW_ID), LiftDelFlx)
-      GzW_(:,ke) = lmesh%Escale(:,ke,2,2)*Fz(:) + LiftDelFlx(:)
+      GzW_(:,ke) = lmesh%Escale(:,ke,3,3)*Fz(:) + LiftDelFlx(:)
 
       !- PT
 
@@ -658,4 +682,5 @@ contains
     return
   end subroutine cal_del_gradDiffVar
 
+  !------------------------------------------------
 end module scale_atm_dyn_nonhydro3d

@@ -24,7 +24,7 @@ program atm_nonhydro2d
   
   use scale_time_manager, only: &
     TIME_manager_checkstate, TIME_manager_advance,      &
-    TIME_NOWDATE, TIME_NOWMS, TIME_NOWSTEP, TIME_NSTEP, &
+    TIME_NOWDATE, TIME_NOWSUBSEC, TIME_NOWSTEP, TIME_NSTEP, &
     TIME_DOresume, TIME_DOend
 
   use scale_file_history_meshfield, only:   &
@@ -51,7 +51,7 @@ program atm_nonhydro2d
 
     !* Advance time
     call TIME_manager_advance()
-    call FILE_HISTORY_set_nowdate( TIME_NOWDATE, TIME_NOWMS, TIME_NOWSTEP )
+    call FILE_HISTORY_set_nowdate( TIME_NOWDATE, TIME_NOWSUBSEC, TIME_NOWSTEP )
 
     ! change to next state
     call update()

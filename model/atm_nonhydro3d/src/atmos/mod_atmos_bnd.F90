@@ -59,10 +59,9 @@ module mod_atmos_dyn_bnd
   !-------------------
 
 
-
-  integer, parameter :: domBnd_North_ID = 1
-  integer, parameter :: domBnd_South_ID = 2
-  integer, parameter :: domBnd_East_ID  = 3
+  integer, parameter :: domBnd_South_ID = 1
+  integer, parameter :: domBnd_East_ID  = 2
+  integer, parameter :: domBnd_North_ID = 3
   integer, parameter :: domBnd_West_ID  = 4
   integer, parameter :: domBnd_Btm_ID   = 5
   integer, parameter :: domBnd_Top_ID   = 6
@@ -227,7 +226,7 @@ contains
     do i=1, elem%NfpTot*lmesh%Ne
       iP = vmapP(i)
       i_ = iP - elem%Np*lmesh%NeE
-      
+
       if (i_ > 0) then
         iM = vmapM(i)
         select case( this%VelBC_list(domID)%list(i_) )
@@ -360,8 +359,8 @@ contains
     !-----------------------------------------------
 
     dom_bnd_sizes(:) = &
-        elem%NfpTot*lmesh%NeZ*(/ lmesh%NeX, lmesh%NeY, lmesh%NeX, lmesh%NeY, 0, 0 /) &
-      + elem%NfpTot*lmesh%NeX*lmesh%NeY*(/ 0, 0, 0, 0, 1, 1 /)
+        elem%Nfp_h*lmesh%NeZ*(/ lmesh%NeX, lmesh%NeY, lmesh%NeX, lmesh%NeY, 0, 0 /) &
+      + elem%Nfp_v*lmesh%NeX*lmesh%NeY*(/ 0, 0, 0, 0, 1, 1 /)
     bnd_buf_size = sum(dom_bnd_sizes)
     
     call velBCInfo%Init( bnd_buf_size )

@@ -47,8 +47,8 @@ contains
     elem%Nfaces = 4
     elem%NfpTot = elem%Nfp*elem%Nfaces
        
-    call ElementBase2D_Init(elem)
-    call construct_Element(elem, LumpedMassMatFlag)
+    call ElementBase2D_Init(elem, LumpedMassMatFlag)
+    call construct_Element(elem)
 
     return
   end subroutine QuadrilateralElement_Init
@@ -64,7 +64,7 @@ contains
     return
   end subroutine QuadrilateralElement_Final
 
-  subroutine construct_Element(elem, LumpedMassMatFlag)
+  subroutine construct_Element(elem)
 
     use scale_linalgebra, only: linalgebra_inv
     use scale_polynominal, only: &
@@ -75,7 +75,6 @@ contains
     implicit none
 
     type(QuadrilateralElement), intent(inout) :: elem
-    logical, intent(in) :: LumpedMassMatFlag
 
     integer :: nodes_ij(elem%Nfp, elem%Nfp)
 
@@ -160,7 +159,7 @@ contains
 
     !* Set the mass matrix
 
-    if (LumpedMassMatFlag) then
+    if (elem%IsLumpedMatrix()) then
       elem%invM(:,:) = 0.0_RP
       elem%M(:,:)    = 0.0_RP
       do j=1, elem%Nfp
@@ -191,7 +190,7 @@ contains
     Emat(:,:) = 0.0_RP
     do f=1, elem%Nfaces
 
-      if (LumpedMassMatFlag) then
+      if (elem%IsLumpedMatrix()) then
         MassEdge = 0.0_RP
         do l=1, elem%Nfp
           MassEdge(l,l) = intWeight_lgl1DPts(l)

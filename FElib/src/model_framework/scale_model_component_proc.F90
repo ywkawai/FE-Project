@@ -41,7 +41,7 @@ module scale_model_component_proc
       import ModelComponentProc
       import ModelMeshBase
       class(ModelComponentProc), intent(inout) :: this
-      class(ModelMeshBase), intent(in) :: model_mesh
+      class(ModelMeshBase), target, intent(in) :: model_mesh
     end subroutine ModelComponentProc_setup
 
     subroutine ModelComponentProc_calc_tendency( this, model_mesh, prgvars_list, auxvars_list )

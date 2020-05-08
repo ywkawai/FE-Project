@@ -66,7 +66,6 @@ contains
     real(DP) :: tmp_val(size(mat)+1)
     integer :: tmp_colInd(size(mat)+1)
     integer :: tmp_rowptr(0:size(mat,1)+1)
-    logical :: is_zero_row
     real(RP) :: EPS_ = 1.0E-15_RP
     
     !--------------------------------------------------------------------------- 
@@ -172,7 +171,7 @@ contains
 
     real(RP) :: row_val(A%rowPtrSize-1)
     integer :: p
-    integer :: j1, j2, j
+    integer :: j1, j2
 
     !--------------------------------------------------------------------------- 
 

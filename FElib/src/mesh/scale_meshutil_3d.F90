@@ -343,7 +343,7 @@ contains
                     + (r_h(:,:,3,1) - r_h(:,:,3,2))**2
       do idP=1, Nfp_h
       do idM=1, Nfp_h
-          if (dist_h(idM,idP)/refd2 < 1d-14) then
+          if (dist_h(idM,idP)/refd2 < 1.0E-14_RP) then
             VMapP_h(idM,f1,k1) = VMapM_h(idP,f2,k2)
             MapP_h(idM,f1,k1) = idP + (f2-1)*Nfp_h + (k2-1)*NfpTot
           end if
@@ -605,7 +605,8 @@ contains
     panelID_table, pi_table, pj_table, pk_table,    &
     tileID_map, tileFaceID_map, tilePanelID_map,    &
     Ntile, NtileFace, NtileVertex,                  &
-    isPeriodicX, isPeriodicY, isPeriodicZ )
+    isPeriodicX, isPeriodicY, isPeriodicZ,          &
+    Ne_x, Ne_y, Ne_z )
     
     use scale_prc, only: PRC_isMaster
     implicit none
@@ -623,9 +624,11 @@ contains
     logical, intent(in) :: isPeriodicX
     logical, intent(in) :: isPeriodicY
     logical, intent(in) :: isPeriodicZ
+    integer, intent(in) :: Ne_x
+    integer, intent(in) :: Ne_y
 
     integer :: NtilePerPanel
-    integer :: Ne_x, Ne_y, Ne_z
+    integer :: Ne_z
     integer :: Nv_x, Nv_y, Nv_z
     integer, allocatable :: nodesID_3d(:,:,:)
     integer, allocatable :: EToV(:,:)
@@ -640,13 +643,8 @@ contains
 
     NtilePerPanel = Ntile/1
     
-    Ne_x = int( sqrt(dble(NtilePerPanel)) )
     Nv_x = Ne_x + 1
-
-    Ne_y = NtilePerPanel/Ne_x
-    Nv_y = Ne_y + 1  
-    
-    Ne_z = 1
+    Nv_y = Ne_y + 1
     Nv_z = Ne_z + 1
 
     allocate( nodesID_3d(Nv_x,Nv_y,Nv_z) )
@@ -681,7 +679,7 @@ contains
     end do
 
     call MeshUtil3D_genConnectivity( EToE, EToF, &
-      & EToV, Ntile, NtileFace )
+      EToV, Ntile, NtileFace )
     tileID_map(:,:) = transpose(EToE)
     tileFaceID_map(:,:) = transpose(EToF)
 
@@ -725,7 +723,7 @@ contains
           tileFaceID_map(5,tileID) = 6
         end if
         if (pk_table(tileID) == Ne_z .and. tileFaceID_map(6,tileID) == 6) then
-          tileID_map(6,tileID) = pi_table(tileID) + (pj_table(tileID) - 1)*Ne_x*Ne_y
+          tileID_map(6,tileID) = pi_table(tileID) + (pj_table(tileID) - 1)*Ne_x
           tileFaceID_map(6,tileID) = 5
         end if
       end do

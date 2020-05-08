@@ -41,7 +41,8 @@ module scale_mesh_rectdom2d
   end type MeshRectDom2D
 
   public :: MeshRectDom2D_coord_conv
-
+  public :: MeshRectDom2D_setupLocalDom
+  
   !-----------------------------------------------------------------------------
   !
   !++ Public parameters & variables
