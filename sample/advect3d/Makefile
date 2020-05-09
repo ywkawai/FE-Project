@@ -35,7 +35,7 @@ makebin: $(BINNAME)
 	@echo "Complete making."
 
 run:
-	mpirun -n 1 ./$(BINNAME) test.conf
+	mpirun -n 4 ./$(BINNAME) test.conf
 
 vis:
 	bash ./visualize/visualize.sh

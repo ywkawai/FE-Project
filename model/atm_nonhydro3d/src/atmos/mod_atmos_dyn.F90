@@ -369,11 +369,11 @@ contains
 
         call PROF_rapstart( 'ATM_DYN_update_caltend', 2)
         call atm_dyn_nonhydro3d_cal_tend( &
-          this%tint(n)%tend_buf2D(:,:,ATMOS_PROGVARS_DDENS_ID,tintbuf_ind),       &
-          this%tint(n)%tend_buf2D(:,:,ATMOS_PROGVARS_MOMX_ID ,tintbuf_ind),       &
-          this%tint(n)%tend_buf2D(:,:,ATMOS_PROGVARS_MOMY_ID ,tintbuf_ind),       &
-          this%tint(n)%tend_buf2D(:,:,ATMOS_PROGVARS_MOMZ_ID ,tintbuf_ind),       &
-          this%tint(n)%tend_buf2D(:,:,ATMOS_PROGVARS_DRHOT_ID,tintbuf_ind),       &
+          this%tint(n)%tend_buf2D_ex(:,:,ATMOS_PROGVARS_DDENS_ID,tintbuf_ind),    &
+          this%tint(n)%tend_buf2D_ex(:,:,ATMOS_PROGVARS_MOMX_ID ,tintbuf_ind),    &
+          this%tint(n)%tend_buf2D_ex(:,:,ATMOS_PROGVARS_MOMY_ID ,tintbuf_ind),    &
+          this%tint(n)%tend_buf2D_ex(:,:,ATMOS_PROGVARS_MOMZ_ID ,tintbuf_ind),    &
+          this%tint(n)%tend_buf2D_ex(:,:,ATMOS_PROGVARS_DRHOT_ID,tintbuf_ind),    &
           DDENS%val, MOMX%val, MOMY%val, MOMZ%val, DRHOT%val,                     &
           DENS_hyd%val, PRES_hyd%val,                                             &
           Coriolis%val,                                                           &

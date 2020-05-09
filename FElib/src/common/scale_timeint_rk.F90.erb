@@ -23,35 +23,44 @@ module scale_timeint_rk
   !++ Public type, procedures
   !
   type, public :: timeint_rk
-    real(RP) :: dt
+    real(RP), private :: dt
 
-    integer :: rk_scheme_id
-    integer :: var_num
-    integer, allocatable :: size_each_var(:)
-    integer :: nstage
-    integer :: tend_buf_size
+    integer, private :: rk_scheme_id_ex
+    integer, private :: rk_scheme_id_im
 
-    real(RP), allocatable :: coef_a(:,:)
-    real(RP), allocatable :: coef_b(:)
-    real(RP), allocatable :: coef_c(:)
+    integer, public :: var_num
+    integer, private, allocatable :: size_each_var(:)
+    integer, public :: nstage
+    integer, public :: tend_buf_size
+
+    real(RP), public, allocatable :: coef_a_ex(:,:)
+    real(RP), private, allocatable :: coef_b_ex(:)
+    real(RP), private, allocatable :: coef_c_ex(:)
+
+    real(RP), public, allocatable :: coef_a_im(:,:)
+    real(RP), private, allocatable :: coef_b_im(:)
+    real(RP), private, allocatable :: coef_c_im(:)
 
     integer, allocatable :: tend_buf_indmap(:)
 % for d in 1..3
-    real(RP), allocatable :: tend_buf<%=d%>D(<%=(":,"*(d+2)).chop%>)
-    real(RP), allocatable :: var0_<%=d%>D(<%=(":,"*(d+1)).chop%>)
-    real(RP), allocatable :: varTmp_<%=d%>D(<%=(":,"*(d+1)).chop%>)    
+    real(RP), public, allocatable :: tend_buf<%=d%>D_ex(<%=(":,"*(d+2)).chop%>)
+    real(RP), public, allocatable :: tend_buf<%=d%>D_im(<%=(":,"*(d+2)).chop%>)
+    real(RP), private, allocatable :: var0_<%=d%>D(<%=(":,"*(d+1)).chop%>)
+    real(RP), private, allocatable :: varTmp_<%=d%>D(<%=(":,"*(d+1)).chop%>)    
 % end
 
-    logical :: low_storage_flag
-    integer :: ndim
+    logical, private :: low_storage_flag
+    logical, private :: imex_flag
+    integer, public :: ndim
   contains
-    procedure :: Init => timeint_rk_Init
-    procedure :: Final => timeint_rk_Final
+    procedure, public :: Init => timeint_rk_Init
+    procedure, public :: Final => timeint_rk_Final
 % for d in 1..3    
-    procedure :: Advance<%=d%>D => timeint_rk_advance<%=d%>D
+    procedure, public :: Advance<%=d%>D => timeint_rk_advance<%=d%>D
+    procedure, public :: Correct<%=d%>D => timeint_rk_correct<%=d%>D
 % end
-    generic :: Advance => Advance1D, Advance2D, Advance3D
-  end type
+    generic, public :: Advance => Advance1D, Advance2D, Advance3D
+  end type timeint_rk
 
   !-----------------------------------------------------------------------------
   !
@@ -79,6 +88,7 @@ contains
     integer, intent(in) :: ndim
     integer, intent(in) :: size_each_var(ndim)
 
+    real(RP) :: alp, gam, del
     !----------------------------------------
 
     this%dt = dt
@@ -88,24 +98,41 @@ contains
     this%size_each_var(:) = size_each_var(:)
 
     select case(rk_scheme_name)
+    case('Euler')
+      this%nstage = 1
+      this%tend_buf_size = 1
+      this%low_storage_flag = .true.
+      this%imex_flag = .false.    
     case('RK_4')
       this%nstage = 4
       this%tend_buf_size = 1
       this%low_storage_flag = .false.
+      this%imex_flag = .false.
     case('RK_TVD_2')
       this%nstage = 2
       this%tend_buf_size = 1
       this%low_storage_flag = .true.
+      this%imex_flag = .false.
     case('RK_TVD_3')
       this%nstage = 3
       this%tend_buf_size = 1
       this%low_storage_flag = .true.
+      this%imex_flag = .false.
+    case('ARK_232')
+      this%nstage = 3
+      this%tend_buf_size = 3
+      this%low_storage_flag = .false.
+      this%imex_flag = .true.      
     case default
       LOG_ERROR("timeint_rk_Init",*) trim(rk_scheme_name)//' is not supported. Check!'
       call PRC_abort
     end select
 
-    allocate ( this%coef_a(this%nstage,this%nstage), this%coef_b(this%nstage), this%coef_c(this%nstage) )
+    allocate ( this%coef_a_ex(this%nstage,this%nstage), this%coef_b_ex(this%nstage), this%coef_c_ex(this%nstage) )
+    if (this%imex_flag) then
+      allocate ( this%coef_a_im(this%nstage,this%nstage), this%coef_b_im(this%nstage), this%coef_c_im(this%nstage) )
+    end if
+
     select case(this%ndim)
 % for d in 1..3
     case(<%=d%>)
@@ -114,33 +141,58 @@ contains
 %   str << "size_each_var(#{i}),"
 % end
 % str.chop!
-      allocate( this%tend_buf<%=d%>D(<%=str%>, var_num, this%tend_buf_size) )
+      allocate( this%tend_buf<%=d%>D_ex(<%=str%>, var_num, this%tend_buf_size) )
+      if (this%imex_flag) then
+        allocate( this%tend_buf<%=d%>D_im(<%=str%>, var_num, this%tend_buf_size) )
+      end if
       allocate( this%var0_<%=d%>D(<%=str%>, var_num) )
       if (.not. this%low_storage_flag) allocate( this%varTmp_<%=d%>D(<%=str%>, var_num) )        
 % end
     end select
     allocate( this%tend_buf_indmap(this%nstage) )
 
-    this%coef_a(:,:) = 0.0_RP
-    this%coef_b(:) = 0.0_RP
-    this%coef_c(:) = 0.0_RP
+    this%coef_a_ex(:,:) = 0.0_RP
+    this%coef_b_ex(:) = 0.0_RP
+    this%coef_c_ex(:) = 0.0_RP
+
+    this%coef_a_im(:,:) = 0.0_RP
+    this%coef_b_im(:) = 0.0_RP
+    this%coef_c_im(:) = 0.0_RP
 
     select case(rk_scheme_name)
-    case('RK_4')
-      this%coef_a(2,1) = 0.5_RP
-      this%coef_a(3,2) = 0.5_RP
-      this%coef_a(4,3) = 1.0_RP
-      this%coef_b(:) = (/ 1.0_RP, 2.0_RP, 2.0_RP, 1.0_RP /)/6.0_RP
+    case('Euler')
+      this%coef_a_ex(1,1) = 1.0_RP
+      this%coef_b_ex(:) = (/ 1.0_RP /)
+      this%tend_buf_indmap(:) = 1      
+    case('RK_4')      
+      this%coef_a_ex(2,1) = 0.5_RP
+      this%coef_a_ex(3,2) = 0.5_RP
+      this%coef_a_ex(4,3) = 1.0_RP
+      this%coef_b_ex(:) = (/ 1.0_RP, 2.0_RP, 2.0_RP, 1.0_RP /)/6.0_RP
       this%tend_buf_indmap(:) = 1
     case('RK_TVD_2')
-      this%coef_a(1,1) = 1.0_RP
-      this%coef_a(2,2) = 0.5_RP
+      this%coef_a_ex(1,1) = 1.0_RP
+      this%coef_a_ex(2,2) = 0.5_RP
       this%tend_buf_indmap(:) = 1
     case('RK_TVD_3')
-      this%coef_a(1,1) = 1.0_RP
-      this%coef_a(2,2) = 1.0_RP/4.0_RP
-      this%coef_a(3,3) = 2.0_RP/3.0_RP
+      this%coef_a_ex(1,1) = 1.0_RP
+      this%coef_a_ex(2,2) = 1.0_RP/4.0_RP
+      this%coef_a_ex(3,3) = 2.0_RP/3.0_RP
       this%tend_buf_indmap(:) = 1
+    case('ARK_232')
+      alp = (3.0_RP + 2.0_RP*sqrt(2.0_RP))/6.0_RP
+      gam = 1.0_RP - 1.0_RP/sqrt(2.0_RP)
+      del = 1.0_RP/(2.0_RP*sqrt(2.0_RP))
+      
+      this%coef_a_ex(2,1) = 2.0_RP*gam
+      this%coef_a_ex(3,:) = (/ 1.0_RP - alp, alp, 0.0_RP /)
+      this%coef_b_ex(:) = (/ del, del, gam /)
+
+      this%coef_a_im(2,:) = (/ gam, gam, 0.0_RP /)
+      this%coef_a_im(3,:) = (/ del, del, gam /)
+      this%coef_b_im(:) = this%coef_b_ex(:)
+      
+      this%tend_buf_indmap(:) = (/ 1, 1, 1 /)       
     end select
     return
   end subroutine timeint_rk_Init
@@ -150,11 +202,17 @@ contains
     class(timeint_rk), intent(inout) :: this
     !----------------------------------------
     
-    deallocate( this%coef_a, this%coef_b, this%coef_c )
+    deallocate( this%coef_a_ex, this%coef_b_ex, this%coef_c_ex )
+    if (this%imex_flag) then
+      deallocate( this%coef_a_im, this%coef_b_im, this%coef_c_im )
+    end if
+
     select case(this%ndim)
 % for d in 1..3      
     case(<%=d%>)
-      deallocate( this%tend_buf<%=d%>D, this%var0_<%=d%>d )
+      deallocate( this%var0_<%=d%>d )
+      deallocate( this%tend_buf<%=d%>D_ex )
+      if (this%imex_flag) deallocate( this%tend_buf<%=d%>D_im )
       if (.not. this%low_storage_flag) deallocate( this%varTmp_<%=d%>d )
 %end
     end select
@@ -188,6 +246,19 @@ contains
     end if
 
   end subroutine timeint_rk_advance<%=d%>D
+
+  subroutine timeint_rk_correct<%=d%>D( this, nowstage, q, varID, <%=ind_arg%>)
+    class(timeint_rk), intent(inout) :: this
+    integer, intent(in) :: nowstage
+    real(RP), intent(inout) :: q(<%=(":,"*d).chop%>)
+    integer, intent(in) :: varID
+    integer, intent(in) :: <%=ind_arg%>
+
+    !----------------------------------------    
+ 
+    call rk_advance_general<%=d%>D_cor( this, nowstage, q, varID, <%=ind_arg%> )
+
+  end subroutine timeint_rk_correct<%=d%>D
 % end
 
 !-------------------
@@ -219,7 +290,7 @@ contains
 
     call PROF_rapstart( 'rk_advance_low_storage<%=d%>D', 3) 
 
-    a_ss = this%coef_a(nowstage,nowstage)
+    a_ss = this%coef_a_ex(nowstage,nowstage)
 
     !$omp parallel
     if (nowstage == 1) then
@@ -244,7 +315,7 @@ contains
     do <%=ind_name[d-i]%>=<%=ind_range_list[d-i]%>
 %end
       q(<%=ind_ary%>) = (1.0_RP - a_ss)*this%var0_<%=d%>d(<%=ind_ary%>,varID)                   &
-              + a_ss*(q(<%=ind_ary%>) + this%dt * this%tend_buf<%=d%>D(<%=ind_ary%>,varID,1) )
+              + a_ss*(q(<%=ind_ary%>) + this%dt * this%tend_buf<%=d%>D_ex(<%=ind_ary%>,varID,1) )
 % for i in 1..d
     end do
 % end
@@ -253,6 +324,7 @@ contains
 
     call PROF_rapend( 'rk_advance_low_storage<%=d%>D', 3)
 
+    return
   end subroutine rk_advance_low_storage<%=d%>D
 % end
 
@@ -277,9 +349,10 @@ contains
 
     integer :: <%=ind_ary%>
     integer :: s
+    integer :: tintbuf_ind
     !----------------------------------------    
 
-    if (nowstage == 1) then
+    if ( nowstage == 1 ) then
 % for i in 1..d
       do <%=ind_name[d-i]%>=<%=ind_range_list[d-i]%>
 % end      
@@ -288,12 +361,13 @@ contains
 % for i in 1..d
       end do
 % end
-    else if (nowstage == this%nstage ) then
+    else if ( nowstage == this%nstage .and. (.not. this%imex_flag) ) then
+      tintbuf_ind = this%tend_buf_indmap(nowstage)
 % for i in 1..d
       do <%=ind_name[d-i]%>=<%=ind_range_list[d-i]%>
 % end    
         q(<%=ind_ary%>) =  this%varTmp_<%=d%>d(<%=ind_ary%>,varID)                                             &
-              + this%dt * this%coef_b(nowstage) * this%tend_buf<%=d%>D(<%=ind_ary%>,varID,1)
+              + this%dt * this%coef_b_ex(nowstage) * this%tend_buf<%=d%>D_ex(<%=ind_ary%>,varID,tintbuf_ind)
 % for i in 1..d
       end do
 % end
@@ -304,18 +378,18 @@ contains
       do <%=ind_name[d-i]%>=<%=ind_range_list[d-i]%>
 % end 
         this%varTmp_<%=d%>d(<%=ind_ary%>,varID) =  this%varTmp_<%=d%>d(<%=ind_ary%>,varID)                          &
-            +  this%dt * this%coef_b(nowstage)*this%tend_buf<%=d%>d(<%=ind_ary%>,varID,1)
+            +  this%dt * this%coef_b_ex(nowstage)*this%tend_buf<%=d%>D_ex(<%=ind_ary%>,varID,1)
         q(<%=ind_ary%>) = this%var0_<%=d%>d(<%=ind_ary%>,varID)                                                &
-            +  this%dt * this%coef_a(nowstage+1,nowstage)*this%tend_buf<%=d%>d(<%=ind_ary%>,varID,1)
+            +  this%dt * this%coef_a_ex(nowstage+1,nowstage)*this%tend_buf<%=d%>D_ex(<%=ind_ary%>,varID,1)
 % for i in 1..d
       end do
 % end
-    else
+    else if ( .not. this%imex_flag ) then
 % for i in 1..d
       do <%=ind_name[d-i]%>=<%=ind_range_list[d-i]%>
 % end 
         this%varTmp_<%=d%>d(<%=ind_ary%>,varID) =  this%varTmp_<%=d%>d(<%=ind_ary%>,varID)                             &
-            +  this%dt * this%coef_b(nowstage)*this%tend_buf<%=d%>d(<%=ind_ary%>,varID,1)
+            +  this%dt * this%coef_b_ex(nowstage)*this%tend_buf<%=d%>D_ex(<%=ind_ary%>,varID,1)
         q(<%=ind_ary%>) = this%var0_<%=d%>d(<%=ind_ary%>,varID)               
 % for i in 1..d
       end do
@@ -325,14 +399,80 @@ contains
       do <%=ind_name[d-i]%>=<%=ind_range_list[d-i]%>
 % end 
         q(<%=ind_ary%>) = q(<%=ind_ary%>)                                                             &
-            +  this%dt * this%coef_a(s,nowstage)*this%tend_buf<%=d%>d(<%=ind_ary%>,varID,s)
+            +  this%dt * this%coef_a_ex(nowstage+1,s)*this%tend_buf<%=d%>D_ex(<%=ind_ary%>,varID,s)
+% for i in 1..d
+      end do
+% end    
+      end do
+    else ! IMEX
+% for i in 1..d
+      do <%=ind_name[d-i]%>=<%=ind_range_list[d-i]%>
+% end 
+        q(<%=ind_ary%>) = this%var0_<%=d%>d(<%=ind_ary%>,varID)               
+% for i in 1..d
+      end do
+% end
+      do s=1, nowstage
+% for i in 1..d
+      do <%=ind_name[d-i]%>=<%=ind_range_list[d-i]%>
+% end 
+        q(<%=ind_ary%>) = q(<%=ind_ary%>)                                                               &
+            +  this%dt * ( this%coef_a_ex(nowstage+1,s)*this%tend_buf<%=d%>D_ex(<%=ind_ary%>,varID,s)  &
+                         + this%coef_a_im(nowstage+1,s)*this%tend_buf<%=d%>D_im(<%=ind_ary%>,varID,s)  )
 % for i in 1..d
       end do
 % end    
       end do
     end if
 
+    return
   end subroutine rk_advance_general<%=d%>D
+
+  subroutine rk_advance_general<%=d%>D_cor( this, nowstage, q, varID, <%=ind_arg%> )
+    class(timeint_rk), intent(inout) :: this
+    integer, intent(in) :: nowstage
+    real(RP), intent(inout) :: q(<%=(":,"*d).chop%>)
+    integer, intent(in) :: varID
+    integer, intent(in) :: <%=ind_arg%>
+
+    integer :: <%=ind_ary%>
+    integer :: s
+    integer :: tintbuf_ind
+    !----------------------------------------    
+
+    tintbuf_ind = this%tend_buf_indmap(nowstage)
+
+    if (.not. this%imex_flag ) return
+     
+    if ( nowstage == this%nstage ) then
+% for i in 1..d
+      do <%=ind_name[d-i]%>=<%=ind_range_list[d-i]%>
+% end    
+        q(<%=ind_ary%>) =  this%varTmp_<%=d%>d(<%=ind_ary%>,varID)                                               &
+              + this%dt * ( this%coef_b_ex(nowstage) * this%tend_buf<%=d%>D_ex(<%=ind_ary%>,varID,tintbuf_ind)  &
+                          + this%coef_b_im(nowstage) * this%tend_buf<%=d%>D_im(<%=ind_ary%>,varID,tintbuf_ind)  )
+% for i in 1..d
+      end do
+% end
+      return
+    end if 
+
+% for i in 1..d
+    do <%=ind_name[d-i]%>=<%=ind_range_list[d-i]%>
+% end 
+      this%varTmp_<%=d%>d(<%=ind_ary%>,varID) =  this%varTmp_<%=d%>d(<%=ind_ary%>,varID)                     &
+          + this%dt * ( this%coef_b_ex(nowstage) * this%tend_buf<%=d%>D_ex(<%=ind_ary%>,varID,tintbuf_ind)  &
+                      + this%coef_b_im(nowstage) * this%tend_buf<%=d%>D_im(<%=ind_ary%>,varID,tintbuf_ind)  )
+      
+      q(<%=ind_ary%>) = q(<%=ind_ary%>)                                                                      &
+            +  this%dt * this%coef_a_im(nowstage+1,s)*this%tend_buf<%=d%>D_im(<%=ind_ary%>,varID,tintbuf_ind)  
+% for i in 1..d
+    end do
+% end
+
+    return
+  end subroutine rk_advance_general<%=d%>D_cor
+ 
 % end
 end module scale_timeint_rk
 

@@ -124,7 +124,7 @@ program test_advect3d
 
         call PROF_rapstart( 'cal_dyn_tend', 1)
         call cal_dyn_tend( &
-           tinteg_lc(n)%tend_buf2D(:,:,RKVAR_Q,tintbuf_ind),                 &
+           tinteg_lc(n)%tend_buf2D_ex(:,:,RKVAR_Q,tintbuf_ind),              &
            q%local(n)%val, u%local(n)%val, v%local(n)%val, w%local(n)%val,   &
            lcmesh, lcmesh%refElem3D ) 
         call PROF_rapend( 'cal_dyn_tend', 1)
@@ -499,7 +499,7 @@ contains
       call tinteg_lc(n)%Init( TINTEG_SCHEME_TYPE, TIME_DTSEC, 1,        &
                               2, (/ lcmesh%refElem%Np, lcmesh%NeA /)  )
     end do
-
+    
     !---
     call q%Init( "q", "1", mesh )
     call qexact%Init( "qexact", "1", mesh )
