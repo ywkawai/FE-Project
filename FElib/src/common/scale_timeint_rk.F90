@@ -56,18 +56,20 @@ module scale_timeint_rk
     real(RP), private, allocatable :: varTmp_3D(:,:,:,:)    
 
     logical, private :: low_storage_flag
-    logical, private :: imex_flag
+    logical, public :: imex_flag
     integer, public :: ndim
   contains
     procedure, public :: Init => timeint_rk_Init
     procedure, public :: Final => timeint_rk_Final
+    procedure, public :: Get_implicit_diagfac => timeint_rk_Get_implicit_diagfac 
     procedure, public :: Advance1D => timeint_rk_advance1D
-    procedure, public :: Correct1D => timeint_rk_correct1D
+    procedure, public :: StoreImplicit1D => timeint_rk_storeimpl1D
     procedure, public :: Advance2D => timeint_rk_advance2D
-    procedure, public :: Correct2D => timeint_rk_correct2D
+    procedure, public :: StoreImplicit2D => timeint_rk_storeimpl2D
     procedure, public :: Advance3D => timeint_rk_advance3D
-    procedure, public :: Correct3D => timeint_rk_correct3D
+    procedure, public :: StoreImplicit3D => timeint_rk_storeimpl3D
     generic, public :: Advance => Advance1D, Advance2D, Advance3D
+    generic, public :: StoreImplicit => StoreImplicit1D, StoreImplicit2D, StoreImplicit3D
   end type timeint_rk
 
   !-----------------------------------------------------------------------------
@@ -131,6 +133,16 @@ contains
       this%tend_buf_size = 3
       this%low_storage_flag = .false.
       this%imex_flag = .true.      
+    case('ARK_324')
+      this%nstage = 4
+      this%tend_buf_size = 4
+      this%low_storage_flag = .false.
+      this%imex_flag = .true.        
+    case('HEVI_debug')
+      this%nstage = 1
+      this%tend_buf_size = 1
+      this%low_storage_flag = .false.
+      this%imex_flag = .true.         
     case default
       LOG_ERROR("timeint_rk_Init",*) trim(rk_scheme_name)//' is not supported. Check!'
       call PRC_abort
@@ -170,9 +182,11 @@ contains
     this%coef_b_ex(:) = 0.0_RP
     this%coef_c_ex(:) = 0.0_RP
 
-    this%coef_a_im(:,:) = 0.0_RP
-    this%coef_b_im(:) = 0.0_RP
-    this%coef_c_im(:) = 0.0_RP
+    if (this%imex_flag) then    
+      this%coef_a_im(:,:) = 0.0_RP
+      this%coef_b_im(:) = 0.0_RP
+      this%coef_c_im(:) = 0.0_RP
+    end if
 
     select case(rk_scheme_name)
     case('Euler')
@@ -207,7 +221,35 @@ contains
       this%coef_a_im(3,:) = (/ del, del, gam /)
       this%coef_b_im(:) = this%coef_b_ex(:)
       
-      this%tend_buf_indmap(:) = (/ 1, 1, 1 /)       
+      this%tend_buf_indmap(:) = (/ 1, 2, 3 /)   
+    case('ARK_324')
+      
+      this%coef_a_ex(2,1) = 1767732205903.0_RP/2027836641118.0_RP
+      this%coef_a_ex(3,1) = 5535828885825.0_RP/10492691773637.0_RP
+      this%coef_a_ex(3,2) = 788022342437.0_RP/10882634858940.0_RP
+      this%coef_a_ex(4,1) = 6485989280629.0_RP/16251701735622.0_RP
+      this%coef_a_ex(4,2) = -4246266847089.0_RP/9704473918619.0_RP
+      this%coef_a_ex(4,3) = 10755448449292.0_RP/10357097424841.0_RP
+      this%coef_b_ex(1) = 1471266399579.0_RP/7840856788654.0_RP
+      this%coef_b_ex(2) = -4482444167858.0_RP/7529755066697.0_RP
+      this%coef_b_ex(3) = 11266239266428.0_RP/11593286722821.0_RP
+      this%coef_b_ex(4) = 1767732205903.0_RP/4055673282236.0_RP
+
+      this%coef_a_im(2,1:2) = 1767732205903.0_RP/4055673282236.0_RP
+      this%coef_a_im(3,1) = 2746238789719.0_RP/10658868560708.0_RP
+      this%coef_a_im(3,2) = -640167445237.0_RP/6845629431997.0_RP
+      this%coef_a_im(3,3) = 1767732205903.0_RP/4055673282236.0_RP
+      this%coef_a_im(4,:) = this%coef_b_ex(:)
+      this%coef_b_im(:) = this%coef_b_ex(:)
+      
+      this%tend_buf_indmap(:) = (/ 1, 2, 3, 4 /)   
+  
+    case ('HEVI_debug')
+      this%coef_a_ex(1,:) = (/ 1.0_RP /)
+      this%coef_a_im(1,:) = (/ 0.0_RP /)
+      this%coef_b_ex(:) = (/ 1.0_RP /)
+      this%coef_b_im(:) = (/ 1.0_RP /)
+      this%tend_buf_indmap(:) = 1.0_RP
     end select
     return
   end subroutine timeint_rk_Init
@@ -243,6 +285,17 @@ contains
     return
   end subroutine timeint_rk_Final
 
+  elemental function timeint_rk_Get_implicit_diagfac( this, nowstage ) result(fac)
+    implicit none
+    class(timeint_rk), intent(in) :: this
+    integer, intent(in) :: nowstage
+    real(RP) :: fac
+    !-----------------------------------------------------
+    
+    fac = this%coef_a_im(nowstage,nowstage) * this%dt
+
+    return
+  end function timeint_rk_Get_implicit_diagfac
   !----------------
 
 
@@ -261,9 +314,10 @@ contains
       call rk_advance_general1D( this, nowstage, q, varID, is, ie  )
     end if
 
+    return
   end subroutine timeint_rk_advance1D
 
-  subroutine timeint_rk_correct1D( this, nowstage, q, varID, is, ie )
+  subroutine timeint_rk_storeimpl1D( this, nowstage, q, varID, is, ie )
     class(timeint_rk), intent(inout) :: this
     integer, intent(in) :: nowstage
     real(RP), intent(inout) :: q(:)
@@ -272,9 +326,10 @@ contains
 
     !----------------------------------------    
  
-    call rk_advance_general1D_cor( this, nowstage, q, varID, is, ie  )
+    call rk_storeimpl_general1D( this, nowstage, q, varID, is, ie  )
 
-  end subroutine timeint_rk_correct1D
+    return
+  end subroutine timeint_rk_storeimpl1D
 
   subroutine timeint_rk_advance2D( this, nowstage, q, varID, is, ie ,js, je )
     class(timeint_rk), intent(inout) :: this
@@ -291,9 +346,10 @@ contains
       call rk_advance_general2D( this, nowstage, q, varID, is, ie ,js, je  )
     end if
 
+    return
   end subroutine timeint_rk_advance2D
 
-  subroutine timeint_rk_correct2D( this, nowstage, q, varID, is, ie ,js, je )
+  subroutine timeint_rk_storeimpl2D( this, nowstage, q, varID, is, ie ,js, je )
     class(timeint_rk), intent(inout) :: this
     integer, intent(in) :: nowstage
     real(RP), intent(inout) :: q(:,:)
@@ -302,9 +358,10 @@ contains
 
     !----------------------------------------    
  
-    call rk_advance_general2D_cor( this, nowstage, q, varID, is, ie ,js, je  )
+    call rk_storeimpl_general2D( this, nowstage, q, varID, is, ie ,js, je  )
 
-  end subroutine timeint_rk_correct2D
+    return
+  end subroutine timeint_rk_storeimpl2D
 
   subroutine timeint_rk_advance3D( this, nowstage, q, varID, is, ie ,js, je ,ks, ke )
     class(timeint_rk), intent(inout) :: this
@@ -321,9 +378,10 @@ contains
       call rk_advance_general3D( this, nowstage, q, varID, is, ie ,js, je ,ks, ke  )
     end if
 
+    return
   end subroutine timeint_rk_advance3D
 
-  subroutine timeint_rk_correct3D( this, nowstage, q, varID, is, ie ,js, je ,ks, ke )
+  subroutine timeint_rk_storeimpl3D( this, nowstage, q, varID, is, ie ,js, je ,ks, ke )
     class(timeint_rk), intent(inout) :: this
     integer, intent(in) :: nowstage
     real(RP), intent(inout) :: q(:,:,:)
@@ -332,9 +390,10 @@ contains
 
     !----------------------------------------    
  
-    call rk_advance_general3D_cor( this, nowstage, q, varID, is, ie ,js, je ,ks, ke  )
+    call rk_storeimpl_general3D( this, nowstage, q, varID, is, ie ,js, je ,ks, ke  )
 
-  end subroutine timeint_rk_correct3D
+    return
+  end subroutine timeint_rk_storeimpl3D
 
 !-------------------
 
@@ -480,47 +539,64 @@ contains
     integer :: tintbuf_ind
     !----------------------------------------    
 
-    if ( nowstage == 1 ) then
+    tintbuf_ind = this%tend_buf_indmap(nowstage)
+
+    if ( nowstage == 1 .and. (.not. this%imex_flag) ) then
       do i=is, ie
         this%var0_1D(i,varID) = q(i)
         this%varTmp_1D(i,varID) = q(i)
       end do
-    else if ( nowstage == this%nstage .and. (.not. this%imex_flag) ) then
-      tintbuf_ind = this%tend_buf_indmap(nowstage)
-      do i=is, ie
-        q(i) =  this%varTmp_1d(i,varID)                                             &
-              + this%dt * this%coef_b_ex(nowstage) * this%tend_buf1D_ex(i,varID,tintbuf_ind)
-      end do
-      return
     end if 
-    if (this%tend_buf_size == 1) then
+
+    if ( nowstage ==  this%nstage ) then
+      if ( this%imex_flag ) then
+        do i=is, ie
+          q(i) =  this%varTmp_1d(i,varID) + this%dt * ( &
+              + this%coef_b_ex(nowstage) * this%tend_buf1D_ex(i,varID,tintbuf_ind)   & 
+              + this%coef_b_im(nowstage) * this%tend_buf1D_im(i,varID,tintbuf_ind)   )
+        end do
+      else
+        do i=is, ie
+          q(i) =  this%varTmp_1d(i,varID)                                             &
+                  + this%dt * this%coef_b_ex(nowstage) * this%tend_buf1D_ex(i,varID,tintbuf_ind)
+        end do
+      end if       
+      return
+    end if
+
+    if ( this%imex_flag ) then
       do i=is, ie
-        this%varTmp_1d(i,varID) =  this%varTmp_1d(i,varID)                          &
-            +  this%dt * this%coef_b_ex(nowstage)*this%tend_buf1D_ex(i,varID,1)
+        q(i) = this%var0_1d(i,varID)
+        this%varTmp_1d(i,varID) =  this%varTmp_1d(i,varID) + this%dt * ( &
+              + this%coef_b_ex(nowstage) * this%tend_buf1D_ex(i,varID,tintbuf_ind)   & 
+              + this%coef_b_im(nowstage) * this%tend_buf1D_im(i,varID,tintbuf_ind)   )
+      end do
+    else
+      do i=is, ie
+        q(i) = this%var0_1d(i,varID)
+        this%varTmp_1d(i,varID) =  this%varTmp_1d(i,varID)                                             &
+                  + this%dt * this%coef_b_ex(nowstage) * this%tend_buf1D_ex(i,varID,tintbuf_ind)
+      end do
+    end if 
+
+    if ( this%tend_buf_size == 1 .and. (.not. this%imex_flag) ) then
+      do i=is, ie
         q(i) = this%var0_1d(i,varID)                                                &
             +  this%dt * this%coef_a_ex(nowstage+1,nowstage)*this%tend_buf1D_ex(i,varID,1)
       end do
-    else if ( .not. this%imex_flag ) then
-      do i=is, ie
-        this%varTmp_1d(i,varID) =  this%varTmp_1d(i,varID)                             &
-            +  this%dt * this%coef_b_ex(nowstage)*this%tend_buf1D_ex(i,varID,1)
-        q(i) = this%var0_1d(i,varID)               
-      end do
+    else if ( .not. this%imex_flag ) then      
       do s=1, nowstage
       do i=is, ie
-        q(i) = q(i)                                                             &
+        q(i) = q(i)                                  &
             +  this%dt * this%coef_a_ex(nowstage+1,s)*this%tend_buf1D_ex(i,varID,s)
       end do
       end do
-    else ! IMEX
-      do i=is, ie
-        q(i) = this%var0_1d(i,varID)               
-      end do
+    else ! IMEX   
       do s=1, nowstage
       do i=is, ie
-        q(i) = q(i)                                                               &
+        q(i) = q(i)                                        &
             +  this%dt * ( this%coef_a_ex(nowstage+1,s)*this%tend_buf1D_ex(i,varID,s)  &
-                         + this%coef_a_im(nowstage+1,s)*this%tend_buf1D_im(i,varID,s)  )
+                         + this%coef_a_im(nowstage+1,s)*this%tend_buf1D_im(i,varID,s)  )                         
       end do
       end do
     end if
@@ -528,7 +604,7 @@ contains
     return
   end subroutine rk_advance_general1D
 
-  subroutine rk_advance_general1D_cor( this, nowstage, q, varID, is, ie  )
+  subroutine rk_storeimpl_general1D( this, nowstage, q, varID, is, ie  )
     class(timeint_rk), intent(inout) :: this
     integer, intent(in) :: nowstage
     real(RP), intent(inout) :: q(:)
@@ -540,30 +616,23 @@ contains
     integer :: tintbuf_ind
     !----------------------------------------    
 
-    tintbuf_ind = this%tend_buf_indmap(nowstage)
-
     if (.not. this%imex_flag ) return
-     
-    if ( nowstage == this%nstage ) then
+    
+    if ( nowstage == 1 ) then
       do i=is, ie
-        q(i) =  this%varTmp_1d(i,varID)                                               &
-              + this%dt * ( this%coef_b_ex(nowstage) * this%tend_buf1D_ex(i,varID,tintbuf_ind)  &
-                          + this%coef_b_im(nowstage) * this%tend_buf1D_im(i,varID,tintbuf_ind)  )
+        this%var0_1D(i,varID) = q(i)
+        this%varTmp_1D(i,varID) = q(i)
       end do
-      return
-    end if 
-
+    end if
+            
+    tintbuf_ind = this%tend_buf_indmap(nowstage)    
     do i=is, ie
-      this%varTmp_1d(i,varID) =  this%varTmp_1d(i,varID)                     &
-          + this%dt * ( this%coef_b_ex(nowstage) * this%tend_buf1D_ex(i,varID,tintbuf_ind)  &
-                      + this%coef_b_im(nowstage) * this%tend_buf1D_im(i,varID,tintbuf_ind)  )
-      
-      q(i) = q(i)                                                                      &
-            +  this%dt * this%coef_a_im(nowstage+1,s)*this%tend_buf1D_im(i,varID,tintbuf_ind)  
+      q(i) = q(i)                                                                              &
+            +  this%dt * this%coef_a_im(nowstage,nowstage)*this%tend_buf1D_im(i,varID,tintbuf_ind)  
     end do
 
     return
-  end subroutine rk_advance_general1D_cor
+  end subroutine rk_storeimpl_general1D
  
 
   subroutine rk_advance_general2D( this, nowstage, q, varID, is, ie ,js, je  )
@@ -578,60 +647,79 @@ contains
     integer :: tintbuf_ind
     !----------------------------------------    
 
-    if ( nowstage == 1 ) then
+    tintbuf_ind = this%tend_buf_indmap(nowstage)
+
+    if ( nowstage == 1 .and. (.not. this%imex_flag) ) then
       do j=js, je
       do i=is, ie
         this%var0_2D(i,j,varID) = q(i,j)
         this%varTmp_2D(i,j,varID) = q(i,j)
       end do
       end do
-    else if ( nowstage == this%nstage .and. (.not. this%imex_flag) ) then
-      tintbuf_ind = this%tend_buf_indmap(nowstage)
-      do j=js, je
-      do i=is, ie
-        q(i,j) =  this%varTmp_2d(i,j,varID)                                             &
-              + this%dt * this%coef_b_ex(nowstage) * this%tend_buf2D_ex(i,j,varID,tintbuf_ind)
-      end do
-      end do
-      return
     end if 
-    if (this%tend_buf_size == 1) then
+
+    if ( nowstage ==  this%nstage ) then
+      if ( this%imex_flag ) then
+        do j=js, je
+        do i=is, ie
+          q(i,j) =  this%varTmp_2d(i,j,varID) + this%dt * ( &
+              + this%coef_b_ex(nowstage) * this%tend_buf2D_ex(i,j,varID,tintbuf_ind)   & 
+              + this%coef_b_im(nowstage) * this%tend_buf2D_im(i,j,varID,tintbuf_ind)   )
+        end do
+        end do
+      else
+        do j=js, je
+        do i=is, ie
+          q(i,j) =  this%varTmp_2d(i,j,varID)                                             &
+                  + this%dt * this%coef_b_ex(nowstage) * this%tend_buf2D_ex(i,j,varID,tintbuf_ind)
+        end do
+        end do
+      end if       
+      return
+    end if
+
+    if ( this%imex_flag ) then
       do j=js, je
       do i=is, ie
-        this%varTmp_2d(i,j,varID) =  this%varTmp_2d(i,j,varID)                          &
-            +  this%dt * this%coef_b_ex(nowstage)*this%tend_buf2D_ex(i,j,varID,1)
+        q(i,j) = this%var0_2d(i,j,varID)
+        this%varTmp_2d(i,j,varID) =  this%varTmp_2d(i,j,varID) + this%dt * ( &
+              + this%coef_b_ex(nowstage) * this%tend_buf2D_ex(i,j,varID,tintbuf_ind)   & 
+              + this%coef_b_im(nowstage) * this%tend_buf2D_im(i,j,varID,tintbuf_ind)   )
+      end do
+      end do
+    else
+      do j=js, je
+      do i=is, ie
+        q(i,j) = this%var0_2d(i,j,varID)
+        this%varTmp_2d(i,j,varID) =  this%varTmp_2d(i,j,varID)                                             &
+                  + this%dt * this%coef_b_ex(nowstage) * this%tend_buf2D_ex(i,j,varID,tintbuf_ind)
+      end do
+      end do
+    end if 
+
+    if ( this%tend_buf_size == 1 .and. (.not. this%imex_flag) ) then
+      do j=js, je
+      do i=is, ie
         q(i,j) = this%var0_2d(i,j,varID)                                                &
             +  this%dt * this%coef_a_ex(nowstage+1,nowstage)*this%tend_buf2D_ex(i,j,varID,1)
       end do
       end do
-    else if ( .not. this%imex_flag ) then
-      do j=js, je
-      do i=is, ie
-        this%varTmp_2d(i,j,varID) =  this%varTmp_2d(i,j,varID)                             &
-            +  this%dt * this%coef_b_ex(nowstage)*this%tend_buf2D_ex(i,j,varID,1)
-        q(i,j) = this%var0_2d(i,j,varID)               
-      end do
-      end do
+    else if ( .not. this%imex_flag ) then      
       do s=1, nowstage
       do j=js, je
       do i=is, ie
-        q(i,j) = q(i,j)                                                             &
+        q(i,j) = q(i,j)                                  &
             +  this%dt * this%coef_a_ex(nowstage+1,s)*this%tend_buf2D_ex(i,j,varID,s)
       end do
       end do
       end do
-    else ! IMEX
-      do j=js, je
-      do i=is, ie
-        q(i,j) = this%var0_2d(i,j,varID)               
-      end do
-      end do
+    else ! IMEX   
       do s=1, nowstage
       do j=js, je
       do i=is, ie
-        q(i,j) = q(i,j)                                                               &
+        q(i,j) = q(i,j)                                        &
             +  this%dt * ( this%coef_a_ex(nowstage+1,s)*this%tend_buf2D_ex(i,j,varID,s)  &
-                         + this%coef_a_im(nowstage+1,s)*this%tend_buf2D_im(i,j,varID,s)  )
+                         + this%coef_a_im(nowstage+1,s)*this%tend_buf2D_im(i,j,varID,s)  )                         
       end do
       end do
       end do
@@ -640,7 +728,7 @@ contains
     return
   end subroutine rk_advance_general2D
 
-  subroutine rk_advance_general2D_cor( this, nowstage, q, varID, is, ie ,js, je  )
+  subroutine rk_storeimpl_general2D( this, nowstage, q, varID, is, ie ,js, je  )
     class(timeint_rk), intent(inout) :: this
     integer, intent(in) :: nowstage
     real(RP), intent(inout) :: q(:,:)
@@ -652,34 +740,27 @@ contains
     integer :: tintbuf_ind
     !----------------------------------------    
 
-    tintbuf_ind = this%tend_buf_indmap(nowstage)
-
     if (.not. this%imex_flag ) return
-     
-    if ( nowstage == this%nstage ) then
+    
+    if ( nowstage == 1 ) then
       do j=js, je
       do i=is, ie
-        q(i,j) =  this%varTmp_2d(i,j,varID)                                               &
-              + this%dt * ( this%coef_b_ex(nowstage) * this%tend_buf2D_ex(i,j,varID,tintbuf_ind)  &
-                          + this%coef_b_im(nowstage) * this%tend_buf2D_im(i,j,varID,tintbuf_ind)  )
+        this%var0_2D(i,j,varID) = q(i,j)
+        this%varTmp_2D(i,j,varID) = q(i,j)
       end do
       end do
-      return
-    end if 
-
+    end if
+            
+    tintbuf_ind = this%tend_buf_indmap(nowstage)    
     do j=js, je
     do i=is, ie
-      this%varTmp_2d(i,j,varID) =  this%varTmp_2d(i,j,varID)                     &
-          + this%dt * ( this%coef_b_ex(nowstage) * this%tend_buf2D_ex(i,j,varID,tintbuf_ind)  &
-                      + this%coef_b_im(nowstage) * this%tend_buf2D_im(i,j,varID,tintbuf_ind)  )
-      
-      q(i,j) = q(i,j)                                                                      &
-            +  this%dt * this%coef_a_im(nowstage+1,s)*this%tend_buf2D_im(i,j,varID,tintbuf_ind)  
+      q(i,j) = q(i,j)                                                                              &
+            +  this%dt * this%coef_a_im(nowstage,nowstage)*this%tend_buf2D_im(i,j,varID,tintbuf_ind)  
     end do
     end do
 
     return
-  end subroutine rk_advance_general2D_cor
+  end subroutine rk_storeimpl_general2D
  
 
   subroutine rk_advance_general3D( this, nowstage, q, varID, is, ie ,js, je ,ks, ke  )
@@ -694,7 +775,9 @@ contains
     integer :: tintbuf_ind
     !----------------------------------------    
 
-    if ( nowstage == 1 ) then
+    tintbuf_ind = this%tend_buf_indmap(nowstage)
+
+    if ( nowstage == 1 .and. (.not. this%imex_flag) ) then
       do k=ks, ke
       do j=js, je
       do i=is, ie
@@ -703,64 +786,83 @@ contains
       end do
       end do
       end do
-    else if ( nowstage == this%nstage .and. (.not. this%imex_flag) ) then
-      tintbuf_ind = this%tend_buf_indmap(nowstage)
-      do k=ks, ke
-      do j=js, je
-      do i=is, ie
-        q(i,j,k) =  this%varTmp_3d(i,j,k,varID)                                             &
-              + this%dt * this%coef_b_ex(nowstage) * this%tend_buf3D_ex(i,j,k,varID,tintbuf_ind)
-      end do
-      end do
-      end do
-      return
     end if 
-    if (this%tend_buf_size == 1) then
+
+    if ( nowstage ==  this%nstage ) then
+      if ( this%imex_flag ) then
+        do k=ks, ke
+        do j=js, je
+        do i=is, ie
+          q(i,j,k) =  this%varTmp_3d(i,j,k,varID) + this%dt * ( &
+              + this%coef_b_ex(nowstage) * this%tend_buf3D_ex(i,j,k,varID,tintbuf_ind)   & 
+              + this%coef_b_im(nowstage) * this%tend_buf3D_im(i,j,k,varID,tintbuf_ind)   )
+        end do
+        end do
+        end do
+      else
+        do k=ks, ke
+        do j=js, je
+        do i=is, ie
+          q(i,j,k) =  this%varTmp_3d(i,j,k,varID)                                             &
+                  + this%dt * this%coef_b_ex(nowstage) * this%tend_buf3D_ex(i,j,k,varID,tintbuf_ind)
+        end do
+        end do
+        end do
+      end if       
+      return
+    end if
+
+    if ( this%imex_flag ) then
       do k=ks, ke
       do j=js, je
       do i=is, ie
-        this%varTmp_3d(i,j,k,varID) =  this%varTmp_3d(i,j,k,varID)                          &
-            +  this%dt * this%coef_b_ex(nowstage)*this%tend_buf3D_ex(i,j,k,varID,1)
+        q(i,j,k) = this%var0_3d(i,j,k,varID)
+        this%varTmp_3d(i,j,k,varID) =  this%varTmp_3d(i,j,k,varID) + this%dt * ( &
+              + this%coef_b_ex(nowstage) * this%tend_buf3D_ex(i,j,k,varID,tintbuf_ind)   & 
+              + this%coef_b_im(nowstage) * this%tend_buf3D_im(i,j,k,varID,tintbuf_ind)   )
+      end do
+      end do
+      end do
+    else
+      do k=ks, ke
+      do j=js, je
+      do i=is, ie
+        q(i,j,k) = this%var0_3d(i,j,k,varID)
+        this%varTmp_3d(i,j,k,varID) =  this%varTmp_3d(i,j,k,varID)                                             &
+                  + this%dt * this%coef_b_ex(nowstage) * this%tend_buf3D_ex(i,j,k,varID,tintbuf_ind)
+      end do
+      end do
+      end do
+    end if 
+
+    if ( this%tend_buf_size == 1 .and. (.not. this%imex_flag) ) then
+      do k=ks, ke
+      do j=js, je
+      do i=is, ie
         q(i,j,k) = this%var0_3d(i,j,k,varID)                                                &
             +  this%dt * this%coef_a_ex(nowstage+1,nowstage)*this%tend_buf3D_ex(i,j,k,varID,1)
       end do
       end do
       end do
-    else if ( .not. this%imex_flag ) then
-      do k=ks, ke
-      do j=js, je
-      do i=is, ie
-        this%varTmp_3d(i,j,k,varID) =  this%varTmp_3d(i,j,k,varID)                             &
-            +  this%dt * this%coef_b_ex(nowstage)*this%tend_buf3D_ex(i,j,k,varID,1)
-        q(i,j,k) = this%var0_3d(i,j,k,varID)               
-      end do
-      end do
-      end do
+    else if ( .not. this%imex_flag ) then      
       do s=1, nowstage
       do k=ks, ke
       do j=js, je
       do i=is, ie
-        q(i,j,k) = q(i,j,k)                                                             &
+        q(i,j,k) = q(i,j,k)                                  &
             +  this%dt * this%coef_a_ex(nowstage+1,s)*this%tend_buf3D_ex(i,j,k,varID,s)
       end do
       end do
       end do
       end do
-    else ! IMEX
-      do k=ks, ke
-      do j=js, je
-      do i=is, ie
-        q(i,j,k) = this%var0_3d(i,j,k,varID)               
-      end do
-      end do
-      end do
+    else ! IMEX   
       do s=1, nowstage
       do k=ks, ke
       do j=js, je
       do i=is, ie
-        q(i,j,k) = q(i,j,k)                                                               &
+        q(i,j,k) = q(i,j,k)                                        &
             +  this%dt * ( this%coef_a_ex(nowstage+1,s)*this%tend_buf3D_ex(i,j,k,varID,s)  &
-                         + this%coef_a_im(nowstage+1,s)*this%tend_buf3D_im(i,j,k,varID,s)  )
+                         + this%coef_a_im(nowstage+1,s)*this%tend_buf3D_im(i,j,k,varID,s)  )                         
       end do
       end do
       end do
@@ -770,7 +872,7 @@ contains
     return
   end subroutine rk_advance_general3D
 
-  subroutine rk_advance_general3D_cor( this, nowstage, q, varID, is, ie ,js, je ,ks, ke  )
+  subroutine rk_storeimpl_general3D( this, nowstage, q, varID, is, ie ,js, je ,ks, ke  )
     class(timeint_rk), intent(inout) :: this
     integer, intent(in) :: nowstage
     real(RP), intent(inout) :: q(:,:,:)
@@ -782,38 +884,31 @@ contains
     integer :: tintbuf_ind
     !----------------------------------------    
 
-    tintbuf_ind = this%tend_buf_indmap(nowstage)
-
     if (.not. this%imex_flag ) return
-     
-    if ( nowstage == this%nstage ) then
+    
+    if ( nowstage == 1 ) then
       do k=ks, ke
       do j=js, je
       do i=is, ie
-        q(i,j,k) =  this%varTmp_3d(i,j,k,varID)                                               &
-              + this%dt * ( this%coef_b_ex(nowstage) * this%tend_buf3D_ex(i,j,k,varID,tintbuf_ind)  &
-                          + this%coef_b_im(nowstage) * this%tend_buf3D_im(i,j,k,varID,tintbuf_ind)  )
+        this%var0_3D(i,j,k,varID) = q(i,j,k)
+        this%varTmp_3D(i,j,k,varID) = q(i,j,k)
       end do
       end do
       end do
-      return
-    end if 
-
+    end if
+            
+    tintbuf_ind = this%tend_buf_indmap(nowstage)    
     do k=ks, ke
     do j=js, je
     do i=is, ie
-      this%varTmp_3d(i,j,k,varID) =  this%varTmp_3d(i,j,k,varID)                     &
-          + this%dt * ( this%coef_b_ex(nowstage) * this%tend_buf3D_ex(i,j,k,varID,tintbuf_ind)  &
-                      + this%coef_b_im(nowstage) * this%tend_buf3D_im(i,j,k,varID,tintbuf_ind)  )
-      
-      q(i,j,k) = q(i,j,k)                                                                      &
-            +  this%dt * this%coef_a_im(nowstage+1,s)*this%tend_buf3D_im(i,j,k,varID,tintbuf_ind)  
+      q(i,j,k) = q(i,j,k)                                                                              &
+            +  this%dt * this%coef_a_im(nowstage,nowstage)*this%tend_buf3D_im(i,j,k,varID,tintbuf_ind)  
     end do
     end do
     end do
 
     return
-  end subroutine rk_advance_general3D_cor
+  end subroutine rk_storeimpl_general3D
  
 end module scale_timeint_rk
 

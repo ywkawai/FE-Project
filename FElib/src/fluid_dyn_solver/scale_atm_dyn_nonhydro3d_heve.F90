@@ -1,6 +1,6 @@
 !-------------------------------------------------------------------------------
 #include "scaleFElib.h"
-module scale_atm_dyn_nonhydro3d
+module scale_atm_dyn_nonhydro3d_heve
   !-----------------------------------------------------------------------------
   !
   !++ Used modules
@@ -34,12 +34,12 @@ module scale_atm_dyn_nonhydro3d
   !
   !++ Public procedures
   !
-  public :: atm_dyn_nonhydro3d_Init
-  public :: atm_dyn_nonhydro3d_Final
-  public :: atm_dyn_nonhydro3d_prepair_expfilter
-  public :: atm_dyn_nonhydro3d_cal_tend
-  public :: atm_dyn_nonhydro3d_cal_grad_diffVars
-  public :: atm_dyn_nonhydro3d_filter_prgvar
+  public :: atm_dyn_nonhydro3d_heve_Init
+  public :: atm_dyn_nonhydro3d_heve_Final
+  public :: atm_dyn_nonhydro3d_heve_prepair_expfilter
+  public :: atm_dyn_nonhydro3d_heve_cal_tend
+  public :: atm_dyn_nonhydro3d_heve_cal_grad_diffVars
+  public :: atm_dyn_nonhydro3d_heve_filter_prgvar
 
   !-----------------------------------------------------------------------------
   !
@@ -80,7 +80,7 @@ module scale_atm_dyn_nonhydro3d
   private :: cal_del_gradDiffVar
 
 contains
-  subroutine atm_dyn_nonhydro3d_Init( mesh )
+  subroutine atm_dyn_nonhydro3d_heve_Init( mesh )
 
     implicit none
     class(MeshBase3D), intent(in) :: mesh
@@ -103,9 +103,9 @@ contains
     IntrpMat_VPOrdM1(:,:) = matmul(elem%V, invV_VPOrdM1)
 
     return
-  end subroutine atm_dyn_nonhydro3d_Init
+  end subroutine atm_dyn_nonhydro3d_heve_Init
 
-  subroutine atm_dyn_nonhydro3d_prepair_expfilter(  &
+  subroutine atm_dyn_nonhydro3d_heve_prepair_expfilter(  &
     elem,                                           &
     etac, alpha, ord )
 
@@ -152,9 +152,9 @@ contains
     FilterMat(:,:) = matmul(elem%V, FilterMat)
     
     return
-  end subroutine atm_dyn_nonhydro3d_prepair_expfilter
+  end subroutine atm_dyn_nonhydro3d_heve_prepair_expfilter
 
-  subroutine atm_dyn_nonhydro3d_Final()
+  subroutine atm_dyn_nonhydro3d_heve_Final()
     implicit none
     !--------------------------------------------
     
@@ -162,11 +162,11 @@ contains
     if( allocated(FilterMat) ) deallocate( FilterMat )
     
     return
-  end subroutine atm_dyn_nonhydro3d_Final  
+  end subroutine atm_dyn_nonhydro3d_heve_Final  
 
   !-------------------------------
 
-  subroutine atm_dyn_nonhydro3d_filter_prgvar( &
+  subroutine atm_dyn_nonhydro3d_heve_filter_prgvar( &
     DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, lmesh, elem  )
     implicit none
 
@@ -191,9 +191,9 @@ contains
     end do
     
     return
-  end subroutine atm_dyn_nonhydro3d_filter_prgvar
+  end subroutine atm_dyn_nonhydro3d_heve_filter_prgvar
 
-  subroutine atm_dyn_nonhydro3d_cal_tend( &
+  subroutine atm_dyn_nonhydro3d_heve_cal_tend( &
     DENS_dt, MOMX_dt, MOMY_dt, MOMZ_dt, RHOT_dt,                                & ! (out)
     DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd, CORIOLIS,          & ! (in)
     GxU_, GyU_, GzU_, GxV_, GyV_, GzV_, GxW_, GyW_, GzW_, GxPT_, GyPT_, GzPT_,  & ! (in)
@@ -347,7 +347,7 @@ contains
     call PROF_rapend( 'cal_dyn_tend_interior', 3)
 
     return
-  end subroutine atm_dyn_nonhydro3d_cal_tend
+  end subroutine atm_dyn_nonhydro3d_heve_cal_tend
 
   !------
 
@@ -490,13 +490,14 @@ contains
                       ( rhotP*VelP - rhotM*VelM )        &
                     - alpha*(DRHOT_(iP) - DRHOT_(iM))    &
                     - dDiffFluxPT                       )
+                    
 
     end do
 
     return
   end subroutine cal_del_flux_dyn
 
-  subroutine atm_dyn_nonhydro3d_cal_grad_diffVars( &
+  subroutine atm_dyn_nonhydro3d_heve_cal_grad_diffVars( &
     GxU_, GyU_, GzU_, GxV_, GyV_, GzV_, GxW_, GyW_, GzW_, GxPT_, GyPT_, GzPT_,   &
     DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd,                     &
     Dx, Dy, Dz, Lift, lmesh, elem )
@@ -609,7 +610,7 @@ contains
     end do
 
     return
-  end subroutine atm_dyn_nonhydro3d_cal_grad_diffVars
+  end subroutine atm_dyn_nonhydro3d_heve_cal_grad_diffVars
 
   subroutine cal_del_gradDiffVar( del_flux,                  &
     DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd, &
@@ -683,4 +684,4 @@ contains
   end subroutine cal_del_gradDiffVar
 
   !------------------------------------------------
-end module scale_atm_dyn_nonhydro3d
+end module scale_atm_dyn_nonhydro3d_heve

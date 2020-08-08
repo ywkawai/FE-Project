@@ -212,11 +212,12 @@ contains
     real(RP), allocatable :: temp_intrp(:)
     real(RP), allocatable :: dens_intrp(:)
     real(RP), allocatable :: pres_hyd_intrp(:)
+    real(RP), allocatable :: rhot_hyd_intrp(:)  
     real(RP), allocatable :: temp_hyd_intrp(:)
     real(RP), allocatable :: dens_hyd_intrp(:)
     real(RP), allocatable :: ln_eta_intrp(:)
 
-    real(RP) :: RGamma
+    real(RP) :: Gamm, RGamma
     real(RP) :: Fy(elem%Np)
     integer :: ierr
     !-----------------------------------------------------------------------------
@@ -270,6 +271,7 @@ contains
 
     allocate( x_intrp(elem_intrp%Np), y_intrp(elem_intrp%Np), z_intrp(elem_intrp%Np) )
     allocate( pres_intrp(elem_intrp%Np), pres_hyd_intrp(elem_intrp%Np) )
+    allocate( rhot_hyd_intrp(elem_intrp%Np) )
     allocate( temp_intrp(elem_intrp%Np), temp_hyd_intrp(elem_intrp%Np) )
     allocate( dens_intrp(elem_intrp%Np), dens_hyd_intrp(elem_intrp%Np) )
     allocate( ln_eta_intrp(elem_intrp%Np) )
@@ -323,13 +325,14 @@ contains
     end do ! for p2
     end do ! for j
     
-
+    Gamm = CpDry/CvDry
     RGamma = CvDry/CpDry
 
    !$omp parallel do collapse(3) private(& 
    !$omp  ke, p3, p2, p1, p_,                              &
    !$omp  pres_intrp, temp_intrp, ln_eta_intrp,            &
    !$omp  pres_hyd_intrp, temp_hyd_intrp, dens_hyd_intrp,  &
+   !$omp  rhot_hyd_intrp,                                  &
    !$omp  vx, vy, x_intrp, y_intrp                         )
     do k = 1, lcmesh%NeZ
     do j = 1, lcmesh%NeY
@@ -348,13 +351,16 @@ contains
       pres_hyd_intrp(:) = pres_intrp(:)
       temp_hyd_intrp(:) = temp_intrp(:)
 
-      PRES_hyd(:,ke) = matmul(IntrpMat, pres_hyd_intrp(:))      
+      rhot_hyd_intrp(:) = PRES00/Rdry * (pres_hyd_intrp(:)/PRES00)**RGamma
+
+      PRES_hyd(:,ke) = matmul(IntrpMat, pres_hyd_intrp(:))    
+      !PRES_hyd(:,ke) = PRES00 * matmul( IntrpMat, (Rdry/PRES00*rhot_hyd_intrp(:))**Gamm )
       DRHOT(:,ke) =  0.0_RP
       ln_eta_intrp(:) = log(pres_hyd_intrp(:)/REF_PRES)
 
       dens_hyd_intrp(:) = pres_hyd_intrp(:) / (Rdry * temp_hyd_intrp(:))
-      DENS_hyd(:,ke) = matmul(IntrpVm1Mat, dens_hyd_intrp) !- lcmesh%Escale(:,ke,3,3)*matmul(elem%Dx3,PRES_hyd(:,ke)) / Grav
-      !DENS_hyd(:,ke) = matmul(IntrpMat, dens_hyd_intrp) !- lcmesh%Escale(:,ke,3,3)*matmul(elem%Dx3,PRES_hyd(:,ke)) / Grav
+      DENS_hyd(:,ke) = matmul(IntrpVM1Mat, dens_hyd_intrp) !- lcmesh%Escale(:,ke,3,3)*matmul(elem%Dx3,PRES_hyd(:,ke)) / Grav
+      !DENS_hyd(:,ke) = - lcmesh%Escale(:,ke,3,3)*matmul(elem%Dx3,PRES_hyd(:,ke)) / Grav
       DDENS(:,ke) = 0.0_RP 
 
       vx(:) = lcmesh%pos_ev(lcmesh%EToV(ke,:),1)
@@ -362,11 +368,11 @@ contains
       x_intrp(:) = vx(1) + 0.5_RP*(elem_intrp%x1(:) + 1.0_RP)*(vx(2) - vx(1))
       y_intrp(:) = vy(1) + 0.5_RP*(elem_intrp%x2(:) + 1.0_RP)*(vy(4) - vy(1))
 
-      MOMX(:,ke) = & !- lcmesh%Escale(:,ke,2,2)*matmul(elem%Dx2,PRES_hyd(:,ke)) / (f0 + 0d0*beta0*(y(:,ke) - y0)) &
+      MOMX(:,ke) = & !- lcmesh%Escale(:,ke,2,2)*matmul(elem%Dx2,PRES_hyd(:,ke)) / (f0 + beta0*(y(:,ke) - y0)) &
         + matmul( IntrpMat, &
-        dens_hyd_intrp(:)*(                                                               &
-         - U0*sin(PI*y_intrp(:)/Ly)**2 * ln_eta_intrp(:) * exp(-(ln_eta_intrp(:)/b)**2)   &
-         + Up*exp(- ((x_intrp - Xc)**2 + (y_intrp - Yc)**2)/Lp**2)                      ) )
+          dens_hyd_intrp(:)*(                                                               &
+          - U0*sin(PI*y_intrp(:)/Ly)**2 * ln_eta_intrp(:) * exp(-(ln_eta_intrp(:)/b)**2)   &
+          + Up*exp(- ((x_intrp - Xc)**2 + (y_intrp - Yc)**2)/Lp**2)                      ) )
    
       MOMY(:,ke) = 0.0_RP
       MOMZ(:,ke) = 0.0_RP
@@ -485,20 +491,20 @@ contains
     real(RP) :: LiftDelFlx(elem%Np)
     real(RP) :: del_flux(elem%NfpTot,lcmesh%Ne,5)
     !---------------------------------------------------
+    return
+    call cal_del_flux_dyn( del_flux, &
+      PRES_hyd, lcmesh%normal_fn(:,:,2), lcmesh%normal_fn(:,:,3), &
+      lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2), lcmesh%pos_en(:,:,3), &
+      lcmesh%VMapM, lcmesh%VMapP, lcmesh, elem )
 
-    ! call cal_del_flux_dyn( del_flux, &
-    !   PRES_hyd, lcmesh%normal_fn(:,:,2), lcmesh%normal_fn(:,:,3), &
-    !   lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2), lcmesh%pos_en(:,:,3), &
-    !   lcmesh%VMapM, lcmesh%VMapP, lcmesh, elem )
-
-    ! do ke=lcmesh%NeS, lcmesh%NeE
-    !   LiftDelFlx(:) = matmul(elem%Lift, lcmesh%Fscale(:,ke)*del_flux(:,ke,2))    
-    !   MOMX(:,ke) = MOMX(:,ke) - LiftDelFlx(:) / (f0 + beta0*(lcmesh%pos_en(:,ke,2) - y0))
+    do ke=lcmesh%NeS, lcmesh%NeE
+      LiftDelFlx(:) = matmul(elem%Lift, lcmesh%Fscale(:,ke)*del_flux(:,ke,2))    
+      MOMX(:,ke) = MOMX(:,ke) - LiftDelFlx(:) / (f0 + beta0*(lcmesh%pos_en(:,ke,2) - y0))
 
 
-    !   LiftDelFlx(:) = matmul(elem%Lift, lcmesh%Fscale(:,ke)*del_flux(:,ke,3))     
-    !   DENS_hyd(:,ke) = DENS_hyd(:,ke) - LiftDelFlx(:)/Grav
-    ! end do
+      LiftDelFlx(:) = matmul(elem%Lift, lcmesh%Fscale(:,ke)*del_flux(:,ke,3))     
+      DENS_hyd(:,ke) = DENS_hyd(:,ke) - LiftDelFlx(:)/Grav
+    end do
 
     return
   end subroutine exp_geostrophic_balance_correction

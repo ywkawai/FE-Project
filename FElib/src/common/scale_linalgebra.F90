@@ -17,6 +17,7 @@ module scale_linalgebra
   !++ Public procedure
   !  
 
+  public :: linalgebra_LU
   public :: linalgebra_inv
   public :: linalgebra_SolveLinEq
   public :: linalgebra_SolveLinEq_GMRES
@@ -58,7 +59,7 @@ contains
 
     !--------------------------------------------------------------------------- 
 
-    Ainv = A
+    Ainv(:,:) = A
     n = size(A,1)
 
     call DGETRF(n, n, Ainv, n, ipiv, info)
@@ -92,14 +93,40 @@ contains
     n = size(A,1)
 
     call DGETRF(n, n, A_lu, n, ipiv, info)
-    if (info /=0 ) LOG_ERROR("linalgebra_SolveLinEq",*)  "Matrix is singular"
+    if (info /=0 ) then
+      LOG_ERROR("linalgebra_SolveLinEq",*) "Matrix is singular"
+      call PRC_abort
+    end if
 
     x(:) = b
     call DGETRS('N', n, 1, A_lu, n, ipiv, x, n, info)
-    if (info /=0 ) LOG_ERROR("linalgebra_SolveLinEq",*)  "Matrix inversion is failed"
+    if (info /=0 ) then
+      LOG_ERROR("linalgebra_SolveLinEq",*)  "Matrix inversion is failed"
+      call PRC_abort
+    end if
 
     return
   end subroutine linalgebra_SolveLinEq
+
+  subroutine linalgebra_LU(A_lu, ipiv)
+
+    real(RP), intent(inout) :: A_lu(:,:)
+    integer, intent(out) :: ipiv(size(A_lu,1))
+
+    integer :: n
+    integer :: info
+
+    !--------------------------------------------------------------------------- 
+    n = size(A_lu,1)
+
+    call DGETRF(n, n, A_lu, n, ipiv, info)
+    if (info /=0 ) then
+      LOG_ERROR("linalgebra_LU",*)  "Matrix is singular"
+      call PRC_abort
+    end if
+
+    return
+  end subroutine linalgebra_LU
 
   subroutine linalgebra_SolveLinEq_GMRES(A, b, x, m, restart_num, CONV_CRIT)
 

@@ -227,7 +227,7 @@ contains
     lglPts1D(:)      = polynominal_genGaussLobattoPt( Nord )
     P1D_ori(:,:)     = polynominal_genLegendrePoly( Nord, lglPts1D )
 
-    int_weight_lgl(:) = 2d0/(dble(Nord*(Nord+1))*P1D_ori(:,Nord+1)**2)
+    int_weight_lgl(:) = 2.0_RP/(dble(Nord*(Nord+1))*P1D_ori(:,Nord+1)**2)
 
     return
   end function Polynominal_GenGaussLobattoPtIntWeight

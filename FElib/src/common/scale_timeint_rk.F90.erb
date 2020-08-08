@@ -50,16 +50,18 @@ module scale_timeint_rk
 % end
 
     logical, private :: low_storage_flag
-    logical, private :: imex_flag
+    logical, public :: imex_flag
     integer, public :: ndim
   contains
     procedure, public :: Init => timeint_rk_Init
     procedure, public :: Final => timeint_rk_Final
+    procedure, public :: Get_implicit_diagfac => timeint_rk_Get_implicit_diagfac 
 % for d in 1..3    
     procedure, public :: Advance<%=d%>D => timeint_rk_advance<%=d%>D
-    procedure, public :: Correct<%=d%>D => timeint_rk_correct<%=d%>D
+    procedure, public :: StoreImplicit<%=d%>D => timeint_rk_storeimpl<%=d%>D
 % end
     generic, public :: Advance => Advance1D, Advance2D, Advance3D
+    generic, public :: StoreImplicit => StoreImplicit1D, StoreImplicit2D, StoreImplicit3D
   end type timeint_rk
 
   !-----------------------------------------------------------------------------
@@ -123,6 +125,16 @@ contains
       this%tend_buf_size = 3
       this%low_storage_flag = .false.
       this%imex_flag = .true.      
+    case('ARK_324')
+      this%nstage = 4
+      this%tend_buf_size = 4
+      this%low_storage_flag = .false.
+      this%imex_flag = .true.        
+    case('HEVI_debug')
+      this%nstage = 1
+      this%tend_buf_size = 1
+      this%low_storage_flag = .false.
+      this%imex_flag = .true.         
     case default
       LOG_ERROR("timeint_rk_Init",*) trim(rk_scheme_name)//' is not supported. Check!'
       call PRC_abort
@@ -155,9 +167,11 @@ contains
     this%coef_b_ex(:) = 0.0_RP
     this%coef_c_ex(:) = 0.0_RP
 
-    this%coef_a_im(:,:) = 0.0_RP
-    this%coef_b_im(:) = 0.0_RP
-    this%coef_c_im(:) = 0.0_RP
+    if (this%imex_flag) then    
+      this%coef_a_im(:,:) = 0.0_RP
+      this%coef_b_im(:) = 0.0_RP
+      this%coef_c_im(:) = 0.0_RP
+    end if
 
     select case(rk_scheme_name)
     case('Euler')
@@ -192,7 +206,35 @@ contains
       this%coef_a_im(3,:) = (/ del, del, gam /)
       this%coef_b_im(:) = this%coef_b_ex(:)
       
-      this%tend_buf_indmap(:) = (/ 1, 1, 1 /)       
+      this%tend_buf_indmap(:) = (/ 1, 2, 3 /)   
+    case('ARK_324')
+      
+      this%coef_a_ex(2,1) = 1767732205903.0_RP/2027836641118.0_RP
+      this%coef_a_ex(3,1) = 5535828885825.0_RP/10492691773637.0_RP
+      this%coef_a_ex(3,2) = 788022342437.0_RP/10882634858940.0_RP
+      this%coef_a_ex(4,1) = 6485989280629.0_RP/16251701735622.0_RP
+      this%coef_a_ex(4,2) = -4246266847089.0_RP/9704473918619.0_RP
+      this%coef_a_ex(4,3) = 10755448449292.0_RP/10357097424841.0_RP
+      this%coef_b_ex(1) = 1471266399579.0_RP/7840856788654.0_RP
+      this%coef_b_ex(2) = -4482444167858.0_RP/7529755066697.0_RP
+      this%coef_b_ex(3) = 11266239266428.0_RP/11593286722821.0_RP
+      this%coef_b_ex(4) = 1767732205903.0_RP/4055673282236.0_RP
+
+      this%coef_a_im(2,1:2) = 1767732205903.0_RP/4055673282236.0_RP
+      this%coef_a_im(3,1) = 2746238789719.0_RP/10658868560708.0_RP
+      this%coef_a_im(3,2) = -640167445237.0_RP/6845629431997.0_RP
+      this%coef_a_im(3,3) = 1767732205903.0_RP/4055673282236.0_RP
+      this%coef_a_im(4,:) = this%coef_b_ex(:)
+      this%coef_b_im(:) = this%coef_b_ex(:)
+      
+      this%tend_buf_indmap(:) = (/ 1, 2, 3, 4 /)   
+  
+    case ('HEVI_debug')
+      this%coef_a_ex(1,:) = (/ 1.0_RP /)
+      this%coef_a_im(1,:) = (/ 0.0_RP /)
+      this%coef_b_ex(:) = (/ 1.0_RP /)
+      this%coef_b_im(:) = (/ 1.0_RP /)
+      this%tend_buf_indmap(:) = 1.0_RP
     end select
     return
   end subroutine timeint_rk_Init
@@ -220,6 +262,17 @@ contains
     return
   end subroutine timeint_rk_Final
 
+  elemental function timeint_rk_Get_implicit_diagfac( this, nowstage ) result(fac)
+    implicit none
+    class(timeint_rk), intent(in) :: this
+    integer, intent(in) :: nowstage
+    real(RP) :: fac
+    !-----------------------------------------------------
+    
+    fac = this%coef_a_im(nowstage,nowstage) * this%dt
+
+    return
+  end function timeint_rk_Get_implicit_diagfac
   !----------------
 
 % for d in 1..3
@@ -245,9 +298,10 @@ contains
       call rk_advance_general<%=d%>D( this, nowstage, q, varID, <%=ind_arg%> )
     end if
 
+    return
   end subroutine timeint_rk_advance<%=d%>D
 
-  subroutine timeint_rk_correct<%=d%>D( this, nowstage, q, varID, <%=ind_arg%>)
+  subroutine timeint_rk_storeimpl<%=d%>D( this, nowstage, q, varID, <%=ind_arg%>)
     class(timeint_rk), intent(inout) :: this
     integer, intent(in) :: nowstage
     real(RP), intent(inout) :: q(<%=(":,"*d).chop%>)
@@ -256,9 +310,10 @@ contains
 
     !----------------------------------------    
  
-    call rk_advance_general<%=d%>D_cor( this, nowstage, q, varID, <%=ind_arg%> )
+    call rk_storeimpl_general<%=d%>D( this, nowstage, q, varID, <%=ind_arg%> )
 
-  end subroutine timeint_rk_correct<%=d%>D
+    return
+  end subroutine timeint_rk_storeimpl<%=d%>D
 % end
 
 !-------------------
@@ -352,7 +407,9 @@ contains
     integer :: tintbuf_ind
     !----------------------------------------    
 
-    if ( nowstage == 1 ) then
+    tintbuf_ind = this%tend_buf_indmap(nowstage)
+
+    if ( nowstage == 1 .and. (.not. this%imex_flag) ) then
 % for i in 1..d
       do <%=ind_name[d-i]%>=<%=ind_range_list[d-i]%>
 % end      
@@ -361,64 +418,83 @@ contains
 % for i in 1..d
       end do
 % end
-    else if ( nowstage == this%nstage .and. (.not. this%imex_flag) ) then
-      tintbuf_ind = this%tend_buf_indmap(nowstage)
+    end if 
+
+    if ( nowstage ==  this%nstage ) then
+      if ( this%imex_flag ) then
+% for i in 1..d
+        do <%=ind_name[d-i]%>=<%=ind_range_list[d-i]%>
+% end    
+          q(<%=ind_ary%>) =  this%varTmp_<%=d%>d(<%=ind_ary%>,varID) + this%dt * ( &
+              + this%coef_b_ex(nowstage) * this%tend_buf<%=d%>D_ex(<%=ind_ary%>,varID,tintbuf_ind)   & 
+              + this%coef_b_im(nowstage) * this%tend_buf<%=d%>D_im(<%=ind_ary%>,varID,tintbuf_ind)   )
+% for i in 1..d
+        end do
+% end
+      else
+% for i in 1..d
+        do <%=ind_name[d-i]%>=<%=ind_range_list[d-i]%>
+% end 
+          q(<%=ind_ary%>) =  this%varTmp_<%=d%>d(<%=ind_ary%>,varID)                                             &
+                  + this%dt * this%coef_b_ex(nowstage) * this%tend_buf<%=d%>D_ex(<%=ind_ary%>,varID,tintbuf_ind)
+% for i in 1..d
+        end do
+% end      
+      end if       
+      return
+    end if
+
+    if ( this%imex_flag ) then
 % for i in 1..d
       do <%=ind_name[d-i]%>=<%=ind_range_list[d-i]%>
 % end    
-        q(<%=ind_ary%>) =  this%varTmp_<%=d%>d(<%=ind_ary%>,varID)                                             &
-              + this%dt * this%coef_b_ex(nowstage) * this%tend_buf<%=d%>D_ex(<%=ind_ary%>,varID,tintbuf_ind)
+        q(<%=ind_ary%>) = this%var0_<%=d%>d(<%=ind_ary%>,varID)
+        this%varTmp_<%=d%>d(<%=ind_ary%>,varID) =  this%varTmp_<%=d%>d(<%=ind_ary%>,varID) + this%dt * ( &
+              + this%coef_b_ex(nowstage) * this%tend_buf<%=d%>D_ex(<%=ind_ary%>,varID,tintbuf_ind)   & 
+              + this%coef_b_im(nowstage) * this%tend_buf<%=d%>D_im(<%=ind_ary%>,varID,tintbuf_ind)   )
 % for i in 1..d
       end do
 % end
-      return
-    end if 
-    if (this%tend_buf_size == 1) then
+    else
 % for i in 1..d
       do <%=ind_name[d-i]%>=<%=ind_range_list[d-i]%>
 % end 
-        this%varTmp_<%=d%>d(<%=ind_ary%>,varID) =  this%varTmp_<%=d%>d(<%=ind_ary%>,varID)                          &
-            +  this%dt * this%coef_b_ex(nowstage)*this%tend_buf<%=d%>D_ex(<%=ind_ary%>,varID,1)
+        q(<%=ind_ary%>) = this%var0_<%=d%>d(<%=ind_ary%>,varID)
+        this%varTmp_<%=d%>d(<%=ind_ary%>,varID) =  this%varTmp_<%=d%>d(<%=ind_ary%>,varID)                                             &
+                  + this%dt * this%coef_b_ex(nowstage) * this%tend_buf<%=d%>D_ex(<%=ind_ary%>,varID,tintbuf_ind)
+% for i in 1..d
+      end do
+% end      
+    end if 
+
+    if ( this%tend_buf_size == 1 .and. (.not. this%imex_flag) ) then
+% for i in 1..d
+      do <%=ind_name[d-i]%>=<%=ind_range_list[d-i]%>
+% end 
         q(<%=ind_ary%>) = this%var0_<%=d%>d(<%=ind_ary%>,varID)                                                &
             +  this%dt * this%coef_a_ex(nowstage+1,nowstage)*this%tend_buf<%=d%>D_ex(<%=ind_ary%>,varID,1)
 % for i in 1..d
       end do
 % end
-    else if ( .not. this%imex_flag ) then
-% for i in 1..d
-      do <%=ind_name[d-i]%>=<%=ind_range_list[d-i]%>
-% end 
-        this%varTmp_<%=d%>d(<%=ind_ary%>,varID) =  this%varTmp_<%=d%>d(<%=ind_ary%>,varID)                             &
-            +  this%dt * this%coef_b_ex(nowstage)*this%tend_buf<%=d%>D_ex(<%=ind_ary%>,varID,1)
-        q(<%=ind_ary%>) = this%var0_<%=d%>d(<%=ind_ary%>,varID)               
-% for i in 1..d
-      end do
-% end
+    else if ( .not. this%imex_flag ) then      
       do s=1, nowstage
 % for i in 1..d
       do <%=ind_name[d-i]%>=<%=ind_range_list[d-i]%>
 % end 
-        q(<%=ind_ary%>) = q(<%=ind_ary%>)                                                             &
+        q(<%=ind_ary%>) = q(<%=ind_ary%>)                                  &
             +  this%dt * this%coef_a_ex(nowstage+1,s)*this%tend_buf<%=d%>D_ex(<%=ind_ary%>,varID,s)
 % for i in 1..d
       end do
 % end    
       end do
-    else ! IMEX
-% for i in 1..d
-      do <%=ind_name[d-i]%>=<%=ind_range_list[d-i]%>
-% end 
-        q(<%=ind_ary%>) = this%var0_<%=d%>d(<%=ind_ary%>,varID)               
-% for i in 1..d
-      end do
-% end
+    else ! IMEX   
       do s=1, nowstage
 % for i in 1..d
       do <%=ind_name[d-i]%>=<%=ind_range_list[d-i]%>
 % end 
-        q(<%=ind_ary%>) = q(<%=ind_ary%>)                                                               &
+        q(<%=ind_ary%>) = q(<%=ind_ary%>)                                        &
             +  this%dt * ( this%coef_a_ex(nowstage+1,s)*this%tend_buf<%=d%>D_ex(<%=ind_ary%>,varID,s)  &
-                         + this%coef_a_im(nowstage+1,s)*this%tend_buf<%=d%>D_im(<%=ind_ary%>,varID,s)  )
+                         + this%coef_a_im(nowstage+1,s)*this%tend_buf<%=d%>D_im(<%=ind_ary%>,varID,s)  )                         
 % for i in 1..d
       end do
 % end    
@@ -428,7 +504,7 @@ contains
     return
   end subroutine rk_advance_general<%=d%>D
 
-  subroutine rk_advance_general<%=d%>D_cor( this, nowstage, q, varID, <%=ind_arg%> )
+  subroutine rk_storeimpl_general<%=d%>D( this, nowstage, q, varID, <%=ind_arg%> )
     class(timeint_rk), intent(inout) :: this
     integer, intent(in) :: nowstage
     real(RP), intent(inout) :: q(<%=(":,"*d).chop%>)
@@ -440,38 +516,31 @@ contains
     integer :: tintbuf_ind
     !----------------------------------------    
 
-    tintbuf_ind = this%tend_buf_indmap(nowstage)
-
     if (.not. this%imex_flag ) return
-     
-    if ( nowstage == this%nstage ) then
+    
+    if ( nowstage == 1 ) then
 % for i in 1..d
       do <%=ind_name[d-i]%>=<%=ind_range_list[d-i]%>
-% end    
-        q(<%=ind_ary%>) =  this%varTmp_<%=d%>d(<%=ind_ary%>,varID)                                               &
-              + this%dt * ( this%coef_b_ex(nowstage) * this%tend_buf<%=d%>D_ex(<%=ind_ary%>,varID,tintbuf_ind)  &
-                          + this%coef_b_im(nowstage) * this%tend_buf<%=d%>D_im(<%=ind_ary%>,varID,tintbuf_ind)  )
+% end      
+        this%var0_<%=d%>D(<%=ind_ary%>,varID) = q(<%=ind_ary%>)
+        this%varTmp_<%=d%>D(<%=ind_ary%>,varID) = q(<%=ind_ary%>)
 % for i in 1..d
       end do
 % end
-      return
-    end if 
-
+    end if
+            
+    tintbuf_ind = this%tend_buf_indmap(nowstage)    
 % for i in 1..d
     do <%=ind_name[d-i]%>=<%=ind_range_list[d-i]%>
-% end 
-      this%varTmp_<%=d%>d(<%=ind_ary%>,varID) =  this%varTmp_<%=d%>d(<%=ind_ary%>,varID)                     &
-          + this%dt * ( this%coef_b_ex(nowstage) * this%tend_buf<%=d%>D_ex(<%=ind_ary%>,varID,tintbuf_ind)  &
-                      + this%coef_b_im(nowstage) * this%tend_buf<%=d%>D_im(<%=ind_ary%>,varID,tintbuf_ind)  )
-      
-      q(<%=ind_ary%>) = q(<%=ind_ary%>)                                                                      &
-            +  this%dt * this%coef_a_im(nowstage+1,s)*this%tend_buf<%=d%>D_im(<%=ind_ary%>,varID,tintbuf_ind)  
+% end      
+      q(<%=ind_ary%>) = q(<%=ind_ary%>)                                                                              &
+            +  this%dt * this%coef_a_im(nowstage,nowstage)*this%tend_buf<%=d%>D_im(<%=ind_ary%>,varID,tintbuf_ind)  
 % for i in 1..d
     end do
 % end
 
     return
-  end subroutine rk_advance_general<%=d%>D_cor
+  end subroutine rk_storeimpl_general<%=d%>D
  
 % end
 end module scale_timeint_rk
