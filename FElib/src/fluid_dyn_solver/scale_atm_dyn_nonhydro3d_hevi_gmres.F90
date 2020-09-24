@@ -38,10 +38,8 @@ module scale_atm_dyn_nonhydro3d_hevi_gmres
   !
   public :: atm_dyn_nonhydro3d_hevi_Init
   public :: atm_dyn_nonhydro3d_hevi_Final
-  public :: atm_dyn_nonhydro3d_hevi_prepair_expfilter
   public :: atm_dyn_nonhydro3d_hevi_cal_tend
   public :: atm_dyn_nonhydro3d_hevi_cal_grad_diffVars
-  public :: atm_dyn_nonhydro3d_hevi_filter_prgvar
   public :: atm_dyn_nonhydro3d_hevi_cal_vi
 
   !-----------------------------------------------------------------------------
@@ -76,9 +74,7 @@ module scale_atm_dyn_nonhydro3d_hevi_gmres
   integer, private, parameter :: VARS_GzPT_ID     = 12
   integer, private, parameter :: AUX_DIFFVARS_NUM = 12
 
-  real(RP), private, allocatable :: FilterMat(:,:)
   real(RP), private, allocatable :: IntrpMat_VPOrdM1(:,:)
-  real(RP), private, allocatable :: IntrpMat_YPOrdM1(:,:)
 
   private :: cal_del_flux_dyn
   private :: cal_del_gradDiffVar
@@ -96,7 +92,6 @@ contains
 
     elem => mesh%refElem3D
     allocate( IntrpMat_VPOrdM1(elem%Np,elem%Np) )
-    allocate( IntrpMat_YPOrdM1(elem%Np,elem%Np) )
     
     invV_POrdM1(:,:) = elem%invV
     do p2=1, elem%Nnode_h1D
@@ -107,106 +102,19 @@ contains
     end do
     IntrpMat_VPOrdM1(:,:) = matmul(elem%V, invV_POrdM1)
 
-    invV_POrdM1(:,:) = elem%invV
-    do p3=1, elem%Nnode_v
-    do p1=1, elem%Nnode_h1D
-      p_ = p1 + (elem%Nnode_h1D-1)*elem%Nnode_h1D + (p3-1)*elem%Nnode_h1D**2
-      invV_POrdM1(p_,:) = 0.0_RP
-    end do
-    end do
-    IntrpMat_YPOrdM1(:,:) = matmul(elem%V, invV_POrdM1)
-
     return
   end subroutine atm_dyn_nonhydro3d_hevi_Init
-
-  subroutine atm_dyn_nonhydro3d_hevi_prepair_expfilter(  &
-    elem,                                           &
-    etac, alpha, ord )
-
-    implicit none
-    class(elementbase3D), intent(in) :: elem
-    real(RP), intent(in) :: etac
-    real(RP), intent(in) :: alpha
-    integer, intent(in) :: ord
-
-    real(RP) :: filter1D_h(elem%Nnode_h1D)
-    real(RP) :: filter1D_v(elem%Nnode_v)
-    real(RP) :: eta
-    integer :: p1, p2, p3
-    integer :: l
-    !----------------------------------------------------
-
-    filter1D_h(:) = 1.0_RP
-    do p1=1, elem%Nnode_h1D
-      eta = dble(p1-1)/dble(elem%PolyOrder_h)
-      if ( eta >  etac .and. p1 /= 1) then
-        filter1D_h(p1) = exp( -  alpha*( ((eta - etac)/(1.0_RP - etac))**ord ))
-      end if
-    end do
-
-    filter1D_v(:) = 1.0_RP
-    do p3=1, elem%Nnode_v
-      eta = dble(p3-1)/dble(elem%PolyOrder_v)
-      if ( eta >  etac .and. p3 /= 1) then
-        filter1D_v(p3) = exp( -  alpha*( ((eta - etac)/(1.0_RP - etac))**ord ))
-      end if
-    end do
-
-    allocate( FilterMat(elem%Np,elem%Np) )
-    FilterMat(:,:) = 0.0_RP
-    do p3=1, elem%Nnode_v
-    do p2=1, elem%Nnode_h1D
-    do p1=1, elem%Nnode_h1D
-      l = p1 + (p2-1)*elem%Nnode_h1D + (p3-1)*elem%Nnode_h1D**2
-      FilterMat(l,l) = filter1D_h(p1) * filter1D_h(p2) * filter1D_v(p3)
-    end do  
-    end do
-    end do
-    FilterMat(:,:) = matmul(FilterMat, elem%invV)
-    FilterMat(:,:) = matmul(elem%V, FilterMat)
-    
-    return
-  end subroutine atm_dyn_nonhydro3d_hevi_prepair_expfilter
 
   subroutine atm_dyn_nonhydro3d_hevi_Final()
     implicit none
     !--------------------------------------------
 
-    deallocate( IntrpMat_YPOrdM1 )    
     deallocate( IntrpMat_VPOrdM1 )
-    if( allocated(FilterMat) ) deallocate( FilterMat )
     
     return
   end subroutine atm_dyn_nonhydro3d_hevi_Final  
 
   !-------------------------------
-
-  subroutine atm_dyn_nonhydro3d_hevi_filter_prgvar( &
-    DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, lmesh, elem  )
-    implicit none
-
-    class(LocalMesh3D), intent(in) :: lmesh
-    class(elementbase3D), intent(in) :: elem    
-    real(RP), intent(inout)  :: DDENS_(elem%Np,lmesh%NeA)
-    real(RP), intent(inout)  :: MOMX_(elem%Np,lmesh%NeA)
-    real(RP), intent(inout)  :: MOMY_(elem%Np,lmesh%NeA)
-    real(RP), intent(inout)  :: MOMZ_(elem%Np,lmesh%NeA)
-    real(RP), intent(inout)  :: DRHOT_(elem%Np,lmesh%NeA)
-    
-    integer :: k
-    !------------------------------------
-
-    !$omp parallel do
-    do k=1, lmesh%Ne
-      DDENS_(:,k) = matmul(FilterMat,DDENS_(:,k))
-      MOMX_(:,k) = matmul(FilterMat,MOMX_(:,k))
-      MOMY_(:,k) = matmul(FilterMat,MOMY_(:,k))
-      MOMZ_(:,k) = matmul(FilterMat,MOMZ_(:,k))
-      DRHOT_(:,k) = matmul(FilterMat,DRHOT_(:,k))
-    end do
-    
-    return
-  end subroutine atm_dyn_nonhydro3d_hevi_filter_prgvar
 
   subroutine atm_dyn_nonhydro3d_hevi_cal_tend( &
     DENS_dt, MOMX_dt, MOMY_dt, MOMZ_dt, RHOT_dt,                                & ! (out)
@@ -526,6 +434,190 @@ contains
 
     return
   end subroutine cal_del_flux_dyn
+
+  subroutine cal_del_flux_dyn_AUSMup( del_flux, &
+    DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd,   &
+    GxU_, GyU_, GzU_, GxV_, GyV_, GzV_, GxW_, GyW_, GzW_,      &
+    GxPT_, GyPT_, GzPT_,                                       &
+    viscCoef_h, viscCoef_v,                                    &
+    diffCoef_h, diffCoef_v,                                    &
+    nx, ny, nz, vmapM, vmapP, lmesh, elem )
+
+    implicit none
+
+    class(LocalMesh3D), intent(in) :: lmesh
+    class(elementbase3D), intent(in) :: elem  
+    real(RP), intent(out) ::  del_flux(elem%NfpTot*lmesh%Ne,PROG_VARS_NUM)
+    real(RP), intent(in) ::  DDENS_(elem%Np*lmesh%NeA)
+    real(RP), intent(in) ::  MOMX_(elem%Np*lmesh%NeA)  
+    real(RP), intent(in) ::  MOMY_(elem%Np*lmesh%NeA)  
+    real(RP), intent(in) ::  MOMZ_(elem%Np*lmesh%NeA)  
+    real(RP), intent(in) ::  DRHOT_(elem%Np*lmesh%NeA)  
+    real(RP), intent(in) ::  DENS_hyd(elem%Np*lmesh%NeA)
+    real(RP), intent(in) ::  PRES_hyd(elem%Np*lmesh%NeA)
+    real(RP), intent(in) ::  GxU_(elem%Np*lmesh%NeA)
+    real(RP), intent(in) ::  GyU_(elem%Np*lmesh%NeA)
+    real(RP), intent(in) ::  GzU_(elem%Np*lmesh%NeA)
+    real(RP), intent(in) ::  GxV_(elem%Np*lmesh%NeA)
+    real(RP), intent(in) ::  GyV_(elem%Np*lmesh%NeA)
+    real(RP), intent(in) ::  GzV_(elem%Np*lmesh%NeA)
+    real(RP), intent(in) ::  GxW_(elem%Np*lmesh%NeA)
+    real(RP), intent(in) ::  GyW_(elem%Np*lmesh%NeA)
+    real(RP), intent(in) ::  GzW_(elem%Np*lmesh%NeA)
+    real(RP), intent(in) ::  GxPT_(elem%Np*lmesh%NeA)
+    real(RP), intent(in) ::  GyPT_(elem%Np*lmesh%NeA)
+    real(RP), intent(in) ::  GzPT_(elem%Np*lmesh%NeA)
+    real(RP), intent(in) :: viscCoef_h
+    real(RP), intent(in) :: viscCoef_v
+    real(RP), intent(in) :: diffCoef_h
+    real(RP), intent(in) :: diffCoef_v
+    real(RP), intent(in) :: nx(elem%NfpTot*lmesh%Ne)
+    real(RP), intent(in) :: ny(elem%NfpTot*lmesh%Ne)
+    real(RP), intent(in) :: nz(elem%NfpTot*lmesh%Ne)
+    integer, intent(in) :: vmapM(elem%NfpTot*lmesh%Ne)
+    integer, intent(in) :: vmapP(elem%NfpTot*lmesh%Ne)
+    
+    integer :: i, iP, iM
+    real(RP) :: VelP, VelM, MOMZ_P, alpha, swV
+    real(RP) :: presM, presP, dpresM, dpresP, densM, densP, rhotM, rhotP, rhot_hyd_M, rhot_hyd_P
+    real(RP) :: MaM, MaP, Ma, mflx, CsP, CsM, betaP, betaM, chi, dpres_num
+    real(RP) :: dDiffFluxU, dDiffFluxV, dDiffFluxW, dDiffFluxPT
+    real(RP) :: gamm, rgamm
+    real(RP) :: mu
+    logical :: visc_flag, diff_flag
+
+    !------------------------------------------------------------------------
+
+    gamm = CpDry/CvDry
+    rgamm = CvDry/CpDry
+
+    if (viscCoef_h > 0.0_RP .or. viscCoef_v > 0.0_RP) then
+      visc_flag = .true.
+    else 
+      visc_flag = .false.
+      dDiffFluxU  = 0.0_RP
+      dDiffFluxV  = 0.0_RP
+      dDiffFluxW  = 0.0_RP
+    end if 
+   
+    if (diffCoef_h > 0.0_RP .or. diffCoef_v > 0.0_RP) then
+      diff_flag = .true.
+    else
+      diff_flag = .false.
+      dDiffFluxPT = 0.0_RP
+    end if     
+
+    !$omp parallel do  &
+    !$omp private( iM, iP, VelP, VelM, MOMZ_P, alpha, swV, &
+    !$omp presM, presP, dpresM, dpresP, densM, densP, rhotM, rhotP, rhot_hyd_M, rhot_hyd_P, &
+    !$omp MaM, MaP, Ma, mflx, CsP, CsM, betaP, betaM, chi, dpres_num ) &
+    !$omp firstprivate( dDiffFluxU, dDiffFluxV, dDiffFluxW, dDiffFluxPT, mu )
+    do i=1, elem%NfpTot*lmesh%Ne
+      iM = vmapM(i); iP = vmapP(i)
+
+      rhot_hyd_M = PRES00/Rdry * (PRES_hyd(iM)/PRES00)**rgamm
+      rhot_hyd_P = PRES00/Rdry * (PRES_hyd(iP)/PRES00)**rgamm
+      
+      rhotM = rhot_hyd_M + DRHOT_(iM)
+      presM = PRES_hyd(iM) * (1.0_RP + DRHOT_(iM)/rhot_hyd_M)**gamm
+      dpresM = presM - PRES_hyd(iM)*abs(nz(i))
+
+      rhotP = rhot_hyd_P + DRHOT_(iP) 
+      presP = PRES_hyd(iP) * (1.0_RP + DRHOT_(iP)/rhot_hyd_P)**gamm
+      dpresP = presP - PRES_hyd(iP)*abs(nz(i))
+
+      densM = DDENS_(iM) + DENS_hyd(iM)
+      densP = DDENS_(iP) + DENS_hyd(iP)
+
+      swV = 1.0_RP - nz(i)**2
+      VelM = (MOMX_(iM)*nx(i) + MOMY_(iM)*ny(i) + MOMZ_(iM)*nz(i))/densM
+      VelP = (MOMX_(iP)*nx(i) + MOMY_(iP)*ny(i) + MOMZ_(iP)*nz(i))/densP
+      MOMZ_P = MOMZ_(iP)
+
+      CsM = sqrt(gamm*presM/densM)
+      CsP = sqrt(gamm*presP/densP)
+      MaM = 2.0_RP * VelM / (CsM + CsP)
+      MaP = 2.0_RP * VelM / (CsM + CsP)
+      betaM = 0.25_RP * ( 2.0_RP + MaM ) * ( MaM - 1.0_RP )**2
+      betaP = 0.25_RP * ( 2.0_RP - MaP ) * ( MaP - 1.0_RP )**2
+      chi = min( 1.0_RP,                                                      &
+                 2.0_RP/(CsM + CsP) * sqrt( 0.5_RP*(                          &
+                    (MOMX_(iM)**2 + MOMY_(iM)**2 + MOMZ_(iM)**2)/densM**2     &
+                  + (MOMX_(iP)**2 + MOMY_(iP)**2 + MOMZ_(iP)**2)/densP**2 ) ) )
+      alpha = swV * ( densM * abs(VelM) + densP * abs(VelP) ) / ( densM + densP )
+
+      mflx = 0.5_RP * ( &
+           densM * VelM + densP * VelP                  &
+         - alpha*( DDENS_(iP) - DDENS_(iM) )            &
+         - swV * 2.0_RP * (dpresP - dpresM)/(CsM + csP) )
+      
+      dpres_num = 0.5_RP * ( &
+            (1.0_RP + (1.0_RP - chi)*(betaM + betaP - 1.0_RP)) * (dpresM + dpresP) &
+          - (betaP - betaM)*(dpresP - dpresM)                                      )
+       
+      mu = (2.0_RP * dble((elem%PolyOrder_h+1)*(elem%PolyOrder_h+2)) / 2.0_RP / 600.0_RP) 
+
+      
+      if ( visc_flag ) then
+        dDiffFluxU = ( &
+            viscCoef_h*(densP*GxU_(iP) - densM*GxU_(iM))*nx(i)     &
+          + viscCoef_h*(densP*GyU_(iP) - densM*GyU_(iM))*ny(i)     &
+          + viscCoef_v*(densP*GzU_(iP) - densM*GzU_(iM))*nz(i)     &
+          + mu*(densP + densM)*(MOMX_(iP)/densP - MOMX_(iM)/densM) )
+
+        dDiffFluxV = ( &
+            viscCoef_h*(densP*GxV_(iP) - densM*GxV_(iM))*nx(i)     &
+          + viscCoef_h*(densP*GyV_(iP) - densM*GyV_(iM))*ny(i)     &
+          + viscCoef_v*(densP*GzV_(iP) - densM*GzV_(iM))*nz(i)     &
+          + mu*(densP + densM)*(MOMY_(iP)/densP - MOMY_(iM)/densM) )
+        
+        dDiffFluxW = ( &
+            viscCoef_h*(densP*GxW_(iP) - densM*GxW_(iM))*nx(i)     &
+          + viscCoef_h*(densP*GyW_(iP) - densM*GyW_(iM))*ny(i)     &
+          + viscCoef_v*(densP*GzW_(iP) - densM*GzW_(iM))*nz(i)     &
+          + mu*(densP + densM)*(MOMZ_(iP)/densP - MOMZ_(iM)/densM) )
+      end if
+      if ( diff_flag ) then
+        dDiffFluxPT = ( &
+            diffCoef_h*(densP*GxPT_(iP) - densM*GxPT_(iM))*nx(i)   &
+          + diffCoef_h*(densP*GyPT_(iP) - densM*GyPT_(iM))*ny(i)   &            
+          + diffCoef_v*(densP*GzPT_(iP) - densM*GzPT_(iM))*nz(i)   &
+          + mu*(densP + densM)*(rhotP/densP - rhotM/densM)         )
+      end if
+      
+      del_flux(i,DDENS_VID) = swV * ( &
+                      mflx                                   &
+                    - densM * VelM                 )
+      
+      del_flux(i,MOMX_VID) = 0.5_RP*(                        &
+                      (mflx + abs(mflx)) * MOMX_(iM) / densM &
+                    + (mflx - abs(mflx)) * MOMX_(iP) / densP &
+                    - 2.0_RP * MOMX_(iM) * VelM              &
+                    + 2.0_RP * (dpres_num - dpresM ) * nx(i) &
+                    - dDiffFluxU                   )
+
+      del_flux(i,MOMY_VID) = 0.5_RP*(                        &
+                      (mflx + abs(mflx)) * MOMY_(iM) / densM &
+                    + (mflx - abs(mflx)) * MOMY_(iP) / densP &
+                    - 2.0_RP * MOMY_(iM) * VelM              &
+                    + 2.0_RP * (dpres_num - dpresM ) * ny(i) &
+                    - dDiffFluxV                   )               
+
+      del_flux(i,MOMZ_VID) = 0.5_RP*(                        &
+                      (mflx + abs(mflx)) * MOMZ_(iM) / densM &
+                    + (mflx - abs(mflx)) * MOMZ_(iP) / densP &
+                    - 2.0_RP * MOMZ_(iM) * VelM              &
+                    - dDiffFluxW                   )
+      
+      del_flux(i,DRHOT_VID) = 0.5_RP*(                       &
+                      (mflx + abs(mflx)) * rhotM / densM     &
+                    + (mflx - abs(mflx)) * rhotP / densP     &
+                    - 2.0_RP * rhotM * VelM                  &
+                    - dDiffFluxPT                  )
+    end do
+
+    return
+  end subroutine cal_del_flux_dyn_AUSMup
 
   subroutine atm_dyn_nonhydro3d_hevi_cal_grad_diffVars( &
     GxU_, GyU_, GzU_, GxV_, GyV_, GzV_, GxW_, GyW_, GzW_, GxPT_, GyPT_, GzPT_,   &

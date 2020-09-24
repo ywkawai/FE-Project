@@ -277,6 +277,7 @@ contains
     end do
     end do
   
+    !--
 
     Emat(:,:) = 0.0_RP
     do f=1, elem%Nfaces_h
@@ -316,7 +317,7 @@ contains
     end do
 
     elem%Lift(:,:) = matmul( elem%invM, Emat )
-  
+
     return
   end subroutine construct_Element
 

@@ -368,7 +368,7 @@ contains
       x_intrp(:) = vx(1) + 0.5_RP*(elem_intrp%x1(:) + 1.0_RP)*(vx(2) - vx(1))
       y_intrp(:) = vy(1) + 0.5_RP*(elem_intrp%x2(:) + 1.0_RP)*(vy(4) - vy(1))
 
-      MOMX(:,ke) = & !- lcmesh%Escale(:,ke,2,2)*matmul(elem%Dx2,PRES_hyd(:,ke)) / (f0 + beta0*(y(:,ke) - y0)) &
+      MOMX(:,ke) =  & !- lcmesh%Escale(:,ke,2,2)*matmul(elem%Dx2,PRES_hyd(:,ke)) / (f0 + beta0*(y(:,ke) - y0)) &
         + matmul( IntrpMat, &
           dens_hyd_intrp(:)*(                                                               &
           - U0*sin(PI*y_intrp(:)/Ly)**2 * ln_eta_intrp(:) * exp(-(ln_eta_intrp(:)/b)**2)   &
