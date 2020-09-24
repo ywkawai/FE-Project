@@ -12,7 +12,7 @@ SYSDEP_DIR  = $(TOPDIR)/sysdep
 include $(SYSDEP_DIR)/Makedef.$(SCALE_FE_SYS)
 include $(TOPDIR)/Mkinclude
 
-BINNAME = test_advect3d
+BINNAME = test_euler3d
 OBJS = 
 
 LIBS = $(LIBDIR)/libScaleFECore.a
@@ -26,7 +26,7 @@ all:
 	$(MAKE) makedir
 	$(MAKE) make_sample_aux
 	$(MAKE) makebin
-	$(MAKE) run
+	#$(MAKE) run
 
 makedir:
 	mkdir -p $(BUILD_DIR)

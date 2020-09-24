@@ -20,7 +20,8 @@ OBJS_NAME_COMMON = \
 	scale_time_manager.o \
 	scale_quicksort.o    \
 	scale_timeint_rk.o   \
-	scale_linkedlist.o
+	scale_linkedlist.o   \
+	scale_gmres.o
 
 OBJS_NAME_ELEMENT = \
 	scale_element_base.o          \
@@ -57,8 +58,12 @@ OBJS_NAME_FILE = \
 	scale_file_history_meshfield.o
 
 OBJS_NAME_FLUID_DYN_SOLVER = \
+	scale_atm_dyn_modalfilter.o \
 	scale_atm_dyn_nonhydro2d.o \
-	scale_atm_dyn_nonhydro3d.o
+	scale_atm_dyn_nonhydro3d_heve.o \
+	scale_atm_dyn_nonhydro3d_hevi.o \
+	scale_atm_dyn_nonhydro3d_diff.o \
+	scale_atm_dyn_nonhydro3d_hevi_gmres.o 
 
 
 OBJS_NAME_MODEL_FRAMEWORK = \

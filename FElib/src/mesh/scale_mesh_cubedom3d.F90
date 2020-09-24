@@ -330,10 +330,10 @@ contains
       elem%Fmask_h, elem%Fmask_v, lcmesh%Ne, lcmesh%Nv, elem%Np, elem%Nfp_h, elem%Nfp_v, elem%NfpTot, & ! (in)
       elem%Nfaces_h, elem%Nfaces_v, elem%Nfaces )                                                       ! (in)
 
-    call MeshUtil3D_genPatchBoundaryMap( lcmesh%VMapB, lcmesh%MapB, lcmesh%VMapP,                         & !(out)
-      & lcmesh%pos_en, lcmesh%xmin, lcmesh%xmax, lcmesh%ymin, lcmesh%ymax, lcmesh%zmin, lcmesh%zmax,      & ! (in)
-      & elem%Fmask_h, elem%Fmask_v, lcmesh%Ne, lcmesh%Nv, elem%Np, elem%Nfp_h, elem%Nfp_v, elem%NfpTot,   & ! (in)
-      elem%Nfaces_h, elem%Nfaces_v, elem%Nfaces )                                                           ! (in)
+    call MeshUtil3D_genPatchBoundaryMap( lcmesh%VMapB, lcmesh%MapB, lcmesh%VMapP,                       & !(out)
+      lcmesh%pos_en, lcmesh%xmin, lcmesh%xmax, lcmesh%ymin, lcmesh%ymax, lcmesh%zmin, lcmesh%zmax,      & ! (in)
+      elem%Fmask_h, elem%Fmask_v, lcmesh%Ne, lcmesh%Nv, elem%Np, elem%Nfp_h, elem%Nfp_v, elem%NfpTot,   & ! (in)
+      elem%Nfaces_h, elem%Nfaces_v, elem%Nfaces )                                                         ! (in)
     
     !---
     do kk=1, lcmesh%NeZ

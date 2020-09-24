@@ -21,6 +21,7 @@ module mod_atmos_dyn
   use scale_const, only: &
     UNDEF => CONST_UNDEF8
 
+  use scale_sparsemat, only: SparseMat
   use scale_timeint_rk, only: TimeInt_RK
   
   use scale_mesh_base, only: MeshBase
@@ -40,13 +41,27 @@ module mod_atmos_dyn
   use scale_model_var_manager, only: ModelVarManager
   use scale_model_component_proc, only:  ModelComponentProc
 
-  use scale_atm_dyn_nonhydro3d, only: &
-    atm_dyn_nonhydro3d_Init,              &
-    atm_dyn_nonhydro3d_Final,             &
-    atm_dyn_nonhydro3d_cal_tend,          &
-    atm_dyn_nonhydro3d_cal_grad_diffVars, &
-    atm_dyn_nonhydro3d_filter_prgvar
+  use scale_atm_dyn_nonhydro3d_heve, only: &
+    atm_dyn_nonhydro3d_heve_Init,              &
+    atm_dyn_nonhydro3d_heve_Final,             &
+    atm_dyn_nonhydro3d_heve_cal_tend
 
+  use scale_atm_dyn_nonhydro3d_hevi, only: &
+    atm_dyn_nonhydro3d_hevi_Init,              &
+    atm_dyn_nonhydro3d_hevi_Final,             &
+    atm_dyn_nonhydro3d_hevi_cal_tend,          &
+    atm_dyn_nonhydro3d_hevi_cal_vi
+
+  use scale_atm_dyn_nonhydro3d_diff, only: &
+    atm_dyn_nonhydro3d_diff_Init,   &
+    atm_dyn_nonhydro3d_diff_Final,  &
+    atm_dyn_nonhydro3d_diff_cal_flx
+  
+  use scale_atm_dyn_modalfilter, only: &
+    atm_dyn_modalfilter_Init,  &
+    atm_dyn_modalfilter_Final, &
+    atm_dyn_modalfilter_apply
+  
   use mod_atmos_mesh, only: AtmosMesh    
   use mod_atmos_dyn_bnd, only: AtmosDynBnd
   use mod_atmos_dyn_vars, only: &
@@ -71,9 +86,6 @@ module mod_atmos_dyn
     real(RP) :: DIFFCOEF_H, DIFFCOEF_V
 
     logical :: EXPFILTER_FLAG
-    real(RP) :: EXPFILTER_ETAC
-    real(RP) :: EXPFILTER_ALPHA
-    integer :: EXPFILTER_ORDER
   contains
     procedure, public :: setup => AtmosDyn_setup 
     procedure, public :: calc_tendency => AtmosDyn_calc_tendency
@@ -82,9 +94,14 @@ module mod_atmos_dyn
   end type AtmosDyn
 
   !-----------------------------------------------------------------------------
-  !
   !++ Public parameters & variables
-  !
+  !-----------------------------------------------------------------------------
+  
+  integer, public :: EQS_TYPEID
+  integer, parameter :: EQS_TYPEID_NONHYD3D_HEVE = 1
+  integer, parameter :: EQS_TYPEID_NONHYD3D_HEVI = 2
+
+
   !-----------------------------------------------------------------------------
   !
   !++ Private procedure
@@ -95,18 +112,72 @@ module mod_atmos_dyn
   !
   !-----------------------------------------------------------------------------
 
+  abstract interface
+    subroutine atm_dyn_nonhydro3d_cal_tend_ex( &
+      DENS_dt, MOMX_dt, MOMY_dt, MOMZ_dt, RHOT_dt,                                & ! (out)
+      DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd, CORIOLIS,          & ! (in)
+      GxU_, GyU_, GzU_, GxV_, GyV_, GzV_, GxW_, GyW_, GzW_, GxPT_, GyPT_, GzPT_,  & ! (in)
+      viscCoef_h, viscCoef_v, diffCoef_h, diffCoef_v,                             & ! (in)
+      Dx, Dy, Dz, Sx, Sy, Sz, Lift, lmesh, elem, lmesh2D, elem2D )
+
+      import RP
+      import LocalMesh3D
+      import elementbase3D
+      import LocalMesh2D
+      import elementbase2D
+      import SparseMat
+      implicit none
+
+      class(LocalMesh3D), intent(in) :: lmesh
+      class(elementbase3D), intent(in) :: elem
+      class(LocalMesh2D), intent(in) :: lmesh2D
+      class(elementbase2D), intent(in) :: elem2D
+      type(SparseMat), intent(in) :: Dx, Dy, Dz, Sx, Sy, Sz, Lift
+      real(RP), intent(out) :: DENS_dt(elem%Np,lmesh%NeA)
+      real(RP), intent(out) :: MOMX_dt(elem%Np,lmesh%NeA)
+      real(RP), intent(out) :: MOMY_dt(elem%Np,lmesh%NeA)
+      real(RP), intent(out) :: MOMZ_dt(elem%Np,lmesh%NeA)
+      real(RP), intent(out) :: RHOT_dt(elem%Np,lmesh%NeA)
+      real(RP), intent(in)  :: DDENS_(elem%Np,lmesh%NeA)
+      real(RP), intent(in)  :: MOMX_(elem%Np,lmesh%NeA)
+      real(RP), intent(in)  :: MOMY_(elem%Np,lmesh%NeA)
+      real(RP), intent(in)  :: MOMZ_(elem%Np,lmesh%NeA)
+      real(RP), intent(in)  :: DRHOT_(elem%Np,lmesh%NeA)
+      real(RP), intent(in)  :: DENS_hyd(elem%Np,lmesh%NeA)
+      real(RP), intent(in)  :: PRES_hyd(elem%Np,lmesh%NeA)
+      real(RP), intent(in)  :: CORIOLIS(elem2D%Np,lmesh2D%NeA)
+      real(RP), intent(in)  :: GxU_(elem%Np,lmesh%NeA)
+      real(RP), intent(in)  :: GyU_(elem%Np,lmesh%NeA)
+      real(RP), intent(in)  :: GzU_(elem%Np,lmesh%NeA)
+      real(RP), intent(in)  :: GxV_(elem%Np,lmesh%NeA)
+      real(RP), intent(in)  :: GyV_(elem%Np,lmesh%NeA)
+      real(RP), intent(in)  :: GzV_(elem%Np,lmesh%NeA)
+      real(RP), intent(in)  :: GxW_(elem%Np,lmesh%NeA)
+      real(RP), intent(in)  :: GyW_(elem%Np,lmesh%NeA)
+      real(RP), intent(in)  :: GzW_(elem%Np,lmesh%NeA)
+      real(RP), intent(in)  :: GxPT_(elem%Np,lmesh%NeA)
+      real(RP), intent(in)  :: GyPT_(elem%Np,lmesh%NeA)
+      real(RP), intent(in)  :: GzPT_(elem%Np,lmesh%NeA) 
+      real(RP), intent(in) :: viscCoef_h
+      real(RP), intent(in) :: viscCoef_v
+      real(RP), intent(in) :: diffCoef_h
+      real(RP), intent(in) :: diffCoef_v
+
+    end subroutine atm_dyn_nonhydro3d_cal_tend_ex
+  end interface
+  procedure (atm_dyn_nonhydro3d_cal_tend_ex), pointer :: cal_tend_ex => null()
+
 contains
 
   subroutine AtmosDyn_setup( this, model_mesh )
     use mod_atmos_mesh, only: AtmosMesh
     use mod_atmos_vars, only: ATMOS_PROGVARS_NUM
-    use scale_atm_dyn_nonhydro3d, only: &
-      atm_dyn_nonhydro3d_prepair_expfilter
     implicit none
 
     class(AtmosDyn), intent(inout) :: this
     class(ModelMeshBase), target, intent(in) :: model_mesh
 
+    character(len=H_MID) :: EQS_TYPE    = "NONHYDRO3D_HEVE"
     character(len=H_SHORT) :: TINTEG_TYPE = 'RK_TVD_3'
     real(DP) :: DT_SEC     = 1.0_RP
     real(RP) :: VISCCOEF_H = 0.0_RP
@@ -115,9 +186,12 @@ contains
     real(RP) :: DIFFCOEF_V = 0.0_RP
     
     logical  :: EXPFILTER_FLAG = .false.
-    real(RP) :: EXPFILTER_ETAC  = 2.0_RP/3.0_RP
-    real(RP) :: EXPFILTER_ALPHA = 36.0_RP
-    integer  :: EXPFILTER_ORDER = 16
+    real(RP) :: EXPFILTER_ETAC_h  = 2.0_RP/3.0_RP
+    real(RP) :: EXPFILTER_ALPHA_h = 36.0_RP
+    integer  :: EXPFILTER_ORDER_h = 16
+    real(RP) :: EXPFILTER_ETAC_v  = 2.0_RP/3.0_RP
+    real(RP) :: EXPFILTER_ALPHA_v = 36.0_RP
+    integer  :: EXPFILTER_ORDER_v = 16
 
     character(len=H_SHORT) :: coriolis_type = 'PLANE'   ! type of coriolis force: 'PLANE', 'SPHERE'
     real(RP) :: coriolis_f0         = 0.0_RP
@@ -125,13 +199,16 @@ contains
     real(RP) :: coriolis_y0         = UNDEF             ! default is domain center    
 
     namelist / PARAM_ATMOS_DYN /       &
+      EQS_TYPE,                               &
       TINTEG_TYPE,                            &
       DT_SEC,                                 &
       VISCCOEF_H, VISCCOEF_V,                 &
       DIFFCOEF_H, DIFFCOEF_V,                 &
       EXPFILTER_FLAG,                         &
-      EXPFILTER_ETAC, EXPFILTER_ALPHA,        &
-      EXPFILTER_ORDER,                        &
+      EXPFILTER_ETAC_h, EXPFILTER_ALPHA_h,    &
+      EXPFILTER_ORDER_h,                      &
+      EXPFILTER_ETAC_v, EXPFILTER_ALPHA_v,    &
+      EXPFILTER_ORDER_v,                      &
       CORIOLIS_TYPE,                          &
       CORIOLIS_f0, CORIOLIS_beta, CORIOLIS_y0
     
@@ -162,32 +239,9 @@ contains
     !---------------------------------------------------
 
     call model_mesh%GetModelMesh( ptr_mesh )
-
     this%dtsec = DT_SEC
 
-    if( VISCCOEF_H > 0.0_RP .or. VISCCOEF_V > 0.0_RP .or. &
-        DIFFCOEF_H > 0.0_RP .or. DIFFCOEF_V > 0.0_RP      ) then
-      this%CALC_DIFFVARS_FLAG = .true.
-      this%VISCCOEF_H = VISCCOEF_H; this%VISCCOEF_V = VISCCOEF_V
-      this%DIFFCOEF_H = DIFFCOEF_H; this%DIFFCOEF_V = DIFFCOEF_V
-    else
-      this%CALC_DIFFVARS_FLAG = .false.
-    end if    
-
-    this%EXPFILTER_FLAG = EXPFILTER_FLAG
-    if ( this%EXPFILTER_FLAG ) then
-      this%EXPFILTER_ALPHA = EXPFILTER_ALPHA
-      this%EXPFILTER_ETAC = EXPFILTER_ETAC
-      this%EXPFILTER_ORDER = EXPFILTER_ORDER
-
-      call ptr_mesh%GetLocalMesh(1, ptr_lcmesh)
-      select type( ptr_lcmesh )
-      type is (LocalMesh3D)
-        lcmesh3D => ptr_lcmesh
-      end select
-      call atm_dyn_nonhydro3d_prepair_expfilter( lcmesh3D%refElem3D,  &
-        EXPFILTER_ETAC, EXPFILTER_ALPHA, EXPFILTER_ORDER )
-    end if
+    !--
 
     !-
     allocate( this%tint(ptr_mesh%LOCAL_MESH_NUM) )
@@ -211,7 +265,44 @@ contains
     call set_coriolis_parameter( this%dyn_vars, atm_mesh, CORIOLIS_type, CORIOLIS_f0, CORIOLIS_beta, CORIOLIS_y0 )
 
     !- Initialize a module for 3D dynamical core 
-    call atm_dyn_nonhydro3d_Init( atm_mesh%mesh )
+
+    select case(EQS_TYPE)
+    case("NONHYDRO3D_HEVE")
+      EQS_TYPEID = EQS_TYPEID_NONHYD3D_HEVE
+      call atm_dyn_nonhydro3d_heve_Init( atm_mesh%mesh )
+      cal_tend_ex => atm_dyn_nonhydro3d_heve_cal_tend
+    case("NONHYDRO3D_HEVI")      
+      EQS_TYPEID = EQS_TYPEID_NONHYD3D_HEVI
+      call atm_dyn_nonhydro3d_hevi_Init( atm_mesh%mesh )
+      cal_tend_ex => atm_dyn_nonhydro3d_hevi_cal_tend
+    case default
+      LOG_ERROR("ATMOS_DYN_setup",*) 'Not appropriate names in namelist PARAM_ATMOS_DYN. Check!'
+      call PRC_abort
+    end select    
+
+    !-
+    if( VISCCOEF_H > 0.0_RP .or. VISCCOEF_V > 0.0_RP .or. &
+        DIFFCOEF_H > 0.0_RP .or. DIFFCOEF_V > 0.0_RP      ) then
+      this%CALC_DIFFVARS_FLAG = .true.
+      this%VISCCOEF_H = VISCCOEF_H; this%VISCCOEF_V = VISCCOEF_V
+      this%DIFFCOEF_H = DIFFCOEF_H; this%DIFFCOEF_V = DIFFCOEF_V
+      call atm_dyn_nonhydro3d_diff_Init( atm_mesh%mesh )
+    else
+      this%CALC_DIFFVARS_FLAG = .false.
+    end if    
+
+    !-
+    this%EXPFILTER_FLAG = EXPFILTER_FLAG
+    if ( this%EXPFILTER_FLAG ) then
+      call ptr_mesh%GetLocalMesh(1, ptr_lcmesh)
+      select type( ptr_lcmesh )
+      type is (LocalMesh3D)
+        lcmesh3D => ptr_lcmesh
+      end select
+      call atm_dyn_modalfilter_Init( lcmesh3D%refElem3D,  &
+        EXPFILTER_ETAC_h, EXPFILTER_ALPHA_h, EXPFILTER_ORDER_h, &
+        EXPFILTER_ETAC_v, EXPFILTER_ALPHA_v, EXPFILTER_ORDER_v  )
+    end if
 
     return  
   end subroutine AtmosDyn_setup
@@ -261,6 +352,7 @@ contains
 
     class(LocalMeshFieldBase), pointer :: MOMZ_t, MOMZ_t_advx, MOMZ_t_advY, MOMZ_t_advZ, MOMZ_t_lift, MOMZ_t_buoy
     integer :: v
+    real(RP) :: implicit_fac
     !--------------------------------------------------
     
     if (.not. this%IsActivated()) return
@@ -270,13 +362,59 @@ contains
 
     call model_mesh%GetModelMesh( mesh )
 
+    !-
     do rkstage=1, this%tint(1)%nstage
+
+      if (this%tint(1)%imex_flag) then        
+        do n=1, mesh%LOCAL_MESH_NUM
+          call PROF_rapstart( 'ATM_DYN_get_localmesh_ptr', 2)         
+          call AtmosVars_GetLocalMeshFields( n, &
+            mesh, prgvars_list, auxvars_list,                               &
+            DDENS, MOMX, MOMY, MOMZ, DRHOT,                                 &
+            GxU, GyU, GzU, GxV, GyV, GzV, GxW, GyW, GzW, GxPT, GyPT, GzPT,  &
+            DENS_hyd, PRES_hyd, lcmesh                                      )
+          call PROF_rapend( 'ATM_DYN_get_localmesh_ptr', 2)   
+
+          call PROF_rapstart( 'ATM_DYN_cal_vi', 2)
+          implicit_fac = this%tint(n)%Get_implicit_diagfac(rkstage)
+          tintbuf_ind = this%tint(n)%tend_buf_indmap(rkstage)
+          call atm_dyn_nonhydro3d_hevi_cal_vi( &
+            this%tint(n)%tend_buf2D_im(:,:,ATMOS_PROGVARS_DDENS_ID,tintbuf_ind),    &
+            this%tint(n)%tend_buf2D_im(:,:,ATMOS_PROGVARS_MOMX_ID ,tintbuf_ind),    &
+            this%tint(n)%tend_buf2D_im(:,:,ATMOS_PROGVARS_MOMY_ID ,tintbuf_ind),    &
+            this%tint(n)%tend_buf2D_im(:,:,ATMOS_PROGVARS_MOMZ_ID ,tintbuf_ind),    &
+            this%tint(n)%tend_buf2D_im(:,:,ATMOS_PROGVARS_DRHOT_ID,tintbuf_ind),    &
+            DDENS%val, MOMX%val, MOMY%val, MOMZ%val, DRHOT%val,                     &
+            DENS_hyd%val, PRES_hyd%val,                                             &
+            model_mesh%DOptrMat(3), model_mesh%LiftOptrMat, implicit_fac,           &
+            lcmesh, lcmesh%refElem3D, lcmesh%lcmesh2D, lcmesh%lcmesh2D%refElem2D ) 
+          
+          call PROF_rapend( 'ATM_DYN_cal_vi', 2)  
+          
+          call PROF_rapstart( 'ATM_DYN_store_impl', 2)      
+          call this%tint(n)%StoreImplicit( rkstage, DDENS%val, ATMOS_PROGVARS_DDENS_ID,  &
+                                     1, lcmesh%refElem%Np, lcmesh%NeS, lcmesh%NeE        )
+          
+          call this%tint(n)%StoreImplicit( rkstage, MOMX%val, ATMOS_PROGVARS_MOMX_ID,    &
+                                     1, lcmesh%refElem%Np, lcmesh%NeS, lcmesh%NeE        )
+          
+          call this%tint(n)%StoreImplicit( rkstage, MOMY%val, ATMOS_PROGVARS_MOMY_ID,    &
+                                     1, lcmesh%refElem%Np, lcmesh%NeS, lcmesh%NeE        )
+
+          call this%tint(n)%StoreImplicit( rkstage, MOMZ%val, ATMOS_PROGVARS_MOMZ_ID,    &
+                                     1, lcmesh%refElem%Np, lcmesh%NeS, lcmesh%NeE        )
+
+          call this%tint(n)%StoreImplicit( rkstage, DRHOT%val, ATMOS_PROGVARS_DRHOT_ID,  &
+                                     1, lcmesh%refElem%Np, lcmesh%NeS, lcmesh%NeE        )
+          call PROF_rapend( 'ATM_DYN_store_impl', 2) 
+        end do
+      end if
 
       !* Exchange halo data
       call PROF_rapstart( 'ATM_DYN_exchange_prgv', 2)
       call prgvars_list%MeshFieldComm_Exchange()
       call PROF_rapend( 'ATM_DYN_exchange_prgv', 2)
-
+  
       do n=1, mesh%LOCAL_MESH_NUM
         call PROF_rapstart( 'ATM_DYN_get_localmesh_ptr', 2)         
         call AtmosVars_GetLocalMeshFields( n, &
@@ -296,8 +434,8 @@ contains
         call PROF_rapend( 'ATM_DYN_applyBC_prgv', 2)
         
         if ( this%CALC_DIFFVARS_FLAG ) then
-          call PROF_rapstart( 'ATM_DYN_cal_grad_diffv', 1)
-          call atm_dyn_nonhydro3d_cal_grad_diffVars( &
+          call PROF_rapstart( 'ATM_DYN_diff_cal_flx', 1)
+          call atm_dyn_nonhydro3d_diff_cal_flx( &
             GxU%val, GyU%val, GzU%val, GxV%val, GyV%val, GzV%val, GxW%val, GyW%val, GzW%val, &
             GxPT%val, GyPT%val, GzPT%val,                                                    &
             DDENS%val, MOMX%val, MOMY%val, MOMZ%val, DRHOT%val,                              &
@@ -305,9 +443,9 @@ contains
             model_mesh%DOptrMat(1), model_mesh%DOptrMat(2), model_mesh%DOptrMat(3),          &
             model_mesh%LiftOptrMat,                                                          &
             lcmesh, lcmesh%refElem3D ) 
-          call PROF_rapend( 'ATM_DYN_cal_grad_diffv', 2)
+          call PROF_rapend( 'ATM_DYN_diff_cal_flx', 2)
         end if
-
+  
         ! if (rkstage==1 ) then
         !   call AtmosDynVars_GetLocalMeshFields_analysis( n,       &
         !     mesh, this%dyn_vars%ANALYSISVARS_manager,                  &
@@ -325,6 +463,7 @@ contains
       end do
 
       if ( this%CALC_DIFFVARS_FLAG ) then
+
         !* Exchange halo data
         call PROF_rapstart( 'ATM_DYN_exchange_gradv', 2)
         call auxvars_list%MeshFieldComm_Exchange()
@@ -367,13 +506,13 @@ contains
           Coriolis, lcmesh )
         call PROF_rapend( 'ATM_DYN_get_localmesh_ptr', 2)
 
-        call PROF_rapstart( 'ATM_DYN_update_caltend', 2)
-        call atm_dyn_nonhydro3d_cal_tend( &
-          this%tint(n)%tend_buf2D(:,:,ATMOS_PROGVARS_DDENS_ID,tintbuf_ind),       &
-          this%tint(n)%tend_buf2D(:,:,ATMOS_PROGVARS_MOMX_ID ,tintbuf_ind),       &
-          this%tint(n)%tend_buf2D(:,:,ATMOS_PROGVARS_MOMY_ID ,tintbuf_ind),       &
-          this%tint(n)%tend_buf2D(:,:,ATMOS_PROGVARS_MOMZ_ID ,tintbuf_ind),       &
-          this%tint(n)%tend_buf2D(:,:,ATMOS_PROGVARS_DRHOT_ID,tintbuf_ind),       &
+        call PROF_rapstart( 'ATM_DYN_update_caltend_ex', 2)
+        call cal_tend_ex( &
+          this%tint(n)%tend_buf2D_ex(:,:,ATMOS_PROGVARS_DDENS_ID,tintbuf_ind),    &
+          this%tint(n)%tend_buf2D_ex(:,:,ATMOS_PROGVARS_MOMX_ID ,tintbuf_ind),    &
+          this%tint(n)%tend_buf2D_ex(:,:,ATMOS_PROGVARS_MOMY_ID ,tintbuf_ind),    &
+          this%tint(n)%tend_buf2D_ex(:,:,ATMOS_PROGVARS_MOMZ_ID ,tintbuf_ind),    &
+          this%tint(n)%tend_buf2D_ex(:,:,ATMOS_PROGVARS_DRHOT_ID,tintbuf_ind),    &
           DDENS%val, MOMX%val, MOMY%val, MOMZ%val, DRHOT%val,                     &
           DENS_hyd%val, PRES_hyd%val,                                             &
           Coriolis%val,                                                           &
@@ -385,8 +524,8 @@ contains
           model_mesh%SOptrMat(1), model_mesh%SOptrMat(2), model_mesh%SOptrMat(3), &
           model_mesh%LiftOptrMat,                                                 &
           lcmesh, lcmesh%refElem3D, lcmesh%lcmesh2D, lcmesh%lcmesh2D%refElem2D ) 
-        call PROF_rapend( 'ATM_DYN_update_caltend', 2)
- 
+        call PROF_rapend( 'ATM_DYN_update_caltend_ex', 2)
+
         call PROF_rapstart( 'ATM_DYN_update_advance', 2)      
         call this%tint(n)%Advance( rkstage, DDENS%val, ATMOS_PROGVARS_DDENS_ID, &
                                   1, lcmesh%refElem%Np, lcmesh%NeS, lcmesh%NeE  )
@@ -404,9 +543,11 @@ contains
                                   1, lcmesh%refElem%Np, lcmesh%NeS, lcmesh%NeE  )
         call PROF_rapend( 'ATM_DYN_update_advance', 2)
 
+        !------------------------------------------------------------------------------
+
         if (rkstage==this%tint(1)%nstage .and. this%EXPFILTER_FLAG) then
           call PROF_rapstart( 'ATM_DYN_update_expfilter', 2)
-          call atm_dyn_nonhydro3d_filter_prgvar(                & ! (inout)
+          call atm_dyn_modalfilter_apply(                       & ! (inout)
             DDENS%val, MOMX%val, MOMY%val, MOMZ%val, DRHOT%val, & ! (in)
             lcmesh, lcmesh%refElem3D                            )
           call PROF_rapend( 'ATM_DYN_update_expfilter', 2)
@@ -430,7 +571,20 @@ contains
     if (.not. this%IsActivated()) return
     LOG_INFO('AtmosDyn_finalize',*)
 
-    call atm_dyn_nonhydro3d_Final()
+    select case(EQS_TYPEID)
+    case(EQS_TYPEID_NONHYD3D_HEVE)
+      call atm_dyn_nonhydro3d_heve_Final()
+    case(EQS_TYPEID_NONHYD3D_HEVI)      
+      call atm_dyn_nonhydro3d_hevi_Final()
+    end select 
+
+    if (this%CALC_DIFFVARS_FLAG) then
+      call atm_dyn_nonhydro3d_diff_Final()
+    end if
+
+    if (this%EXPFILTER_FLAG) then
+      call atm_dyn_modalfilter_Final()
+    end if
     
     do n = 1, size(this%tint)
       call this%tint(n)%Final()

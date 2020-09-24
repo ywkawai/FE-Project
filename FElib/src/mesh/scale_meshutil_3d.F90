@@ -495,8 +495,8 @@ contains
 
     do k=1, Ne
       do f=1, Nfaces_h
-        x = sum(pos_en(Fmask_h(:,f),k,1)/dble(Nfp_h))
-        y = sum(pos_en(Fmask_h(:,f),k,2)/dble(Nfp_h))
+        x = sum(pos_en(Fmask_h(:,f),k,1)) / dble(Nfp_h)
+        y = sum(pos_en(Fmask_h(:,f),k,2)) / dble(Nfp_h)
 
         call eval_domain_boundary( &
           elemIDs_h, ordInfo_h, faceIDs_h, counterB_h, & ! (inout)
@@ -512,8 +512,8 @@ contains
           4, x, xmin, y, k, f, rdomx                   ) ! (in)
       end do
       do f=1, Nfaces_v
-        x = sum(pos_en(Fmask_v(:,f),k,1)/dble(Nfp_v))
-        z = sum(pos_en(Fmask_v(:,f),k,3)/dble(Nfp_v))
+        x = sum(pos_en(Fmask_v(:,f),k,1)) / dble(Nfp_v)
+        z = sum(pos_en(Fmask_v(:,f),k,3)) / dble(Nfp_v)
 
         call eval_domain_boundary( &
           elemIDs_v, ordInfo_v, faceIDs_v, counterB_v, & ! (inout)

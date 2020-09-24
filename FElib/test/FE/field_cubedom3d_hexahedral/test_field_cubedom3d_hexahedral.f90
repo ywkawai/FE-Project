@@ -28,9 +28,9 @@ program test_field3d
 
   implicit none
 
-  integer, parameter :: NeGX = 4
-  integer, parameter :: NeGY = 4
-  integer, parameter :: NeGZ = 4
+  integer, parameter :: NeGX = 3
+  integer, parameter :: NeGY = 3
+  integer, parameter :: NeGZ = 3
   integer, parameter :: NLocalMeshPerPrc = 1
 
   real(RP), parameter :: dom_xmin = -1.0_RP
@@ -65,14 +65,14 @@ program test_field3d
   ! write(*,*) "* Check data communication.."
   call perform_comm()
 
-  ! do n=1, mesh%LOCAL_MESH_NUM
-  !   lcmesh => mesh%lcmesh_list(n)
+  do n=1, mesh%LOCAL_MESH_NUM
+    lcmesh => mesh%lcmesh_list(n)
 
-  !   write(*,*) "Check interior & halo data.."
-  !   write(*,*) "tileID=", lcmesh%tileID
-  !   call check_interior_data(n, mesh%lcmesh_list(n), q%local(n)%val, q%local(n)%val)
-  !   call check_halo_data(n, mesh%lcmesh_list(n), q%local(n)%val, q%local(n)%val)
-  ! end do
+    write(*,*) "Check interior & halo data.."
+    write(*,*) "tileID=", lcmesh%tileID
+    call check_interior_data(n, mesh%lcmesh_list(n), q%local(n)%val, q%local(n)%val)
+    call check_halo_data(n, mesh%lcmesh_list(n), q%local(n)%val, q%local(n)%val)
+  end do
   !----
 
   call final()

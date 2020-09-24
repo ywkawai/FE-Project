@@ -143,7 +143,6 @@ contains
     allocate( elem%invM(elem%Np, elem%Np) )
     allocate( elem%V(elem%Np, elem%Np) )
     allocate( elem%invV(elem%Np, elem%Np) )
-
     allocate( elem%Lift(elem%Np, elem%NfpTot) )    
     
     allocate( elem%Filter(elem%Np, elem%Np))

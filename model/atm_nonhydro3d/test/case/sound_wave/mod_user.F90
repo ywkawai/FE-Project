@@ -53,12 +53,12 @@ module mod_user
   !++ Private parameters & variables
   !
 
-  type, private, extends(experiment) :: Exp_inertia_gravity_wave
+  type, private, extends(experiment) :: Exp_sound_wave
   contains 
     procedure :: setInitCond_lc => exp_SetInitCond_inertia_gravity_wave
     procedure :: geostrophic_balance_correction_lc => exp_geostrophic_balance_correction
   end type
-  type(Exp_inertia_gravity_wave), private :: exp_manager
+  type(Exp_sound_wave), private :: exp_manager
 
   logical, private :: USER_do                   = .false. !< do user step?
 
@@ -98,7 +98,7 @@ contains
     LOG_NML(PARAM_USER)
 
     !-
-    call exp_manager%Init('inertia_gravity_wave')
+    call exp_manager%Init('sound_wave')
     call exp_manager%SetInitCond( &
       atm%mesh, atm%vars%PROGVARS_manager, atm%vars%AUXVARS_manager )
     call exp_manager%Final()
@@ -136,7 +136,7 @@ contains
     
     implicit none
 
-    class(Exp_inertia_gravity_wave), intent(inout) :: this
+    class(Exp_sound_wave), intent(inout) :: this
     type(LocalMesh3D), intent(in) :: lcmesh
     class(ElementBase3D), intent(in) :: elem
     real(RP), intent(out) :: DENS_hyd(elem%Np,lcmesh%NeA)
@@ -153,23 +153,21 @@ contains
     real(RP), intent(in) :: dom_ymin, dom_ymax
     real(RP), intent(in) :: dom_zmin, dom_zmax
     
-    real(RP) :: THETA0 = 300.0_RP
-    real(RP) :: BruntVaisalaFreq = 1.0E-2_RP ! [s-1]
-    real(RP) :: DTHETA = 0.01_RP
-    real(RP) :: H0
-    real(RP) :: x_c, y_c
-    real(RP) :: r_x, r_y
+    real(RP) :: TEMP0 = 300.0_RP
+    real(RP) :: DPRES = 1.0_RP
+    real(RP) :: x_c, y_c, z_c
+    real(RP) :: r_x, r_y, r_z
     logical :: InitCond_GalerkinProjFlag = .false.
 
     namelist /PARAM_EXP/ &
-      THETA0, DTHETA,           &
-      x_c, y_c,                 &
-      r_x, r_y,                 &
+      TEMP0, DPRES,             &
+      x_c, y_c, z_c,            &
+      r_x, r_y, r_z,            &
       InitCond_GalerkinProjFlag
 
 
     integer :: k
-    real(RP) :: THETA(elem%Np), DENS(elem%Np), dens_zfunc(elem%Np), RHOT(elem%Np)
+    real(RP) :: DENS(elem%Np), dens_zfunc(elem%Np), RHOT(elem%Np)
     real(RP) :: r(elem%Np)
 
     integer, parameter :: IntrpPolyOrder_h = 6
@@ -181,26 +179,33 @@ contains
     real(RP), allocatable :: IntrpVm1Mat(:,:), InvV_intrpVm1(:,:)
     integer :: p1, p2, p3, p_, p_intrp
 
-    real(RP), allocatable :: THETA_hyd_intrp(:)
-    real(RP), allocatable :: DENS_intrp(:)
-    real(RP), allocatable :: DTHETA_intrp(:)
-    real(RP), allocatable :: RHOT_intrp(:)    
-    real(RP), allocatable :: EXNER_hyd_intrp(:) 
-    real(RP), allocatable :: DRHOT_intrp(:)
+    real(RP), allocatable :: DPRES_intrp(:)
     real(RP), allocatable :: r_intrp(:)   
   
+    real(RP) :: gamm, rgamm
+
     integer :: ierr
     !-----------------------------------------------------------------------------
 
+    gamm = CpDry/CvDry
+    rgamm = CvDry/CpDry
 
     InitCond_GalerkinProjFlag = .false.
+
+    x_c = 0.5_RP * (dom_xmax + dom_xmin)
+    y_c = 0.5_RP * (dom_ymax + dom_ymin)
+    z_c = 0.5_RP * (dom_zmax + dom_zmin)
+
+    r_x = 0.1_RP *  (dom_xmax - dom_xmin)
+    r_y = 0.1_RP * (dom_ymax - dom_ymin)
+    r_z = 0.1_RP * (dom_zmax - dom_zmin)
 
     rewind(IO_FID_CONF)
     read(IO_FID_CONF,nml=PARAM_EXP,iostat=ierr)
     if( ierr < 0 ) then !--- missing
-       LOG_INFO("exp_SetInitCond_inertia_gravity_wave",*) 'Not found namelist. Default used.'
+       LOG_INFO("exp_SetInitCond_soundwave",*) 'Not found namelist. Default used.'
     elseif( ierr > 0 ) then !--- fatal error
-       LOG_ERROR("exp_SetInitCond_inertia_gravity_wave",*) 'Not appropriate names in namelist PARAM_EXP. Check!'
+       LOG_ERROR("exp_SetInitCond_soundwave",*) 'Not appropriate names in namelist PARAM_EXP. Check!'
        call PRC_abort
     endif
     LOG_NML(PARAM_EXP)
@@ -212,14 +217,9 @@ contains
 
     allocate( x_intrp(elem_intrp%Np), y_intrp(elem_intrp%Np), z_intrp(elem_intrp%Np) )
 
-    allocate( THETA_hyd_intrp(elem_intrp%Np) )
-    allocate( EXNER_hyd_intrp(elem_intrp%Np) )
+    allocate( DPRES_intrp(elem_intrp%Np) )    
+    allocate( r_intrp(elem_intrp%Np) )
 
-    allocate( DTHETA_intrp(elem_intrp%Np) )
-    allocate( DENS_intrp(elem_intrp%Np) )
-    allocate( RHOT_intrp(elem_intrp%Np) )
-
-    allocate( DRHOT_intrp(elem_intrp%Np) )    
 
     InvV_intrp(:,:) = 0.0_RP
     do p3=1, elem%PolyOrder_v+1
@@ -246,7 +246,6 @@ contains
     IntrpVm1Mat(:,:) = matmul(elem%V, InvV_intrpVm1)
 
     !----
-    H0 = Rdry*THETA0/Grav
 
     do k=1, lcmesh%Ne
       vx(:) = lcmesh%pos_ev(lcmesh%EToV(k,:),1)
@@ -256,17 +255,25 @@ contains
       y_intrp(:) = vy(1) + 0.5_RP*(elem_intrp%x2(:) + 1.0_RP)*(vy(4) - vy(1))
       z_intrp(:) = vz(1) + 0.5_RP*(elem_intrp%x3(:) + 1.0_RP)*(vz(5) - vz(1))
 
-      THETA_hyd_intrp(:) = THETA0 * exp(BruntVaisalaFreq**2*z_intrp(:)/Grav)
-      EXNER_hyd_intrp(:) = 1.0_RP + Grav**2/(CpDry*BruntVaisalaFreq**2) * (1.0_RP/THETA_hyd_intrp(:) - 1.0_RP/THETA0)
+      PRES_hyd(:,k) = PRES00
+      DENS_hyd(:,k) = PRES00 / (Rdry * TEMP0)
 
-      PRES_hyd(:,k) = matmul( IntrpMat, PRES00 * (EXNER_hyd_intrp(:))**(CpDry/Rdry) )
-      DENS_hyd(:,k) = matmul( IntrpVm1Mat, PRES00 / (Rdry * THETA_hyd_intrp(:)) * (EXNER_hyd_intrp(:))**(CvDry/Rdry) )
+      r_intrp(:) = sqrt( &
+          ( (x_intrp(:) - x_c) / r_x )**2 &
+        + ( (y_intrp(:) - y_c) / r_y )**2 &
+        + ( (z_intrp(:) - z_c) / r_z )**2 )
+      
+      where( r_intrp <= 1.0_RP) 
+        DPRES_intrp(:) = DPRES * cos(0.5_RP*PI*r_intrp(:))
+      elsewhere
+        DPRES_intrp(:) = 0.0_RP
+      end where
+      
+      DRHOT(:,k) = PRES00/Rdry * ( &
+          ( (PRES_hyd(:,k) + matmul( IntrpMat, DPRES_intrp )) / PRES00 )**rgamm &
+        - ( PRES_hyd(:,k) / PRES00 )*rgamm )
 
-      DTHETA_intrp(:) = DTHETA * sin( PI*z_intrp(:)/10.0E3_RP) &
-                        / ( 1.0_RP + ((x_intrp(:) - x_c)/r_x)**2 + ((y_intrp(:) - y_c)/r_y)**2 )
-
-      DDENS(:,k) =  matmul(IntrpVm1Mat, PRES00 / (Rdry * (THETA_hyd_intrp(:) + DTHETA_intrp(:))) * (EXNER_hyd_intrp(:))**(CvDry/Rdry))  &
-                  - DENS_hyd(:,k)
+      DDENS(:,k) = 0.0_RP
 
       MOMX(:,k) = 0.0_RP
       MOMY(:,k) = 0.0_RP      
@@ -284,7 +291,7 @@ contains
     
     implicit none
 
-    class(Exp_inertia_gravity_wave), intent(inout) :: this
+    class(Exp_sound_wave), intent(inout) :: this
     type(LocalMesh3D), intent(in) :: lcmesh
     class(ElementBase3D), intent(in) :: elem
     real(RP), intent(inout) :: DENS_hyd(elem%Np,lcmesh%NeA)

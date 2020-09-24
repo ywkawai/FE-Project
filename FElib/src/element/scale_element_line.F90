@@ -182,7 +182,7 @@ contains
     real(RP) :: r_int1D_i(IntrpPolyOrder)
     real(RP) :: r_int1Dw_i(IntrpPolyOrder)
     real(RP) :: P_int1D_ori(IntrpPolyOrder,this%PolyOrder+1)
-    real(RP) :: Vint(IntrpPolyOrder**2,(this%PolyOrder+1)**2)
+    real(RP) :: Vint(IntrpPolyOrder,this%PolyOrder+1)
 
     integer :: p1, p1_
     !-----------------------------------------------------

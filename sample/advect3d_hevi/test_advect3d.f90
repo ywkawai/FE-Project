@@ -70,6 +70,7 @@ program test_advect3d
   type(MeshCubeDom3D), target :: mesh
   type(MeshField3D), target :: q, qexact  
   type(MeshField3D), target :: u, v, w
+  integer, parameter :: PROG_VARS_NUM = 1
   type(MeshFieldCommCubeDom3D) :: fields_comm
   type(MeshFieldContainer) :: field_list(4)  
   integer :: HST_ID(2)
@@ -92,6 +93,7 @@ program test_advect3d
   real(RP) :: z_intrp(PolyOrderErrorCheck**3)
 
   integer :: nstep_eval_error
+  real(RP) :: impl_fac
   !-------------------------------------------------------
 
   call init()
@@ -106,6 +108,23 @@ program test_advect3d
     do rkstage=1, tinteg_lc(1)%nstage
       tsec_ =  TIME_NOWDATE(6) + TIME_NOWSUBSEC
       
+      do n=1, mesh%LOCAL_MESH_NUM
+        lcmesh => mesh%lcmesh_list(n)
+        tintbuf_ind = tinteg_lc(n)%tend_buf_indmap(rkstage)
+        impl_fac = tinteg_lc(n)%Get_implicit_diagfac(rkstage)
+
+        call PROF_rapstart( 'cal_dyn_tend_vi', 1)
+        call cal_dyn_tend_vi( &
+           tinteg_lc(n)%tend_buf2D_im(:,:,RKVAR_Q,tintbuf_ind),              &
+           q%local(n)%val, u%local(n)%val, v%local(n)%val, w%local(n)%val,   &
+           impl_fac, lcmesh, lcmesh%refElem3D ) 
+        call PROF_rapend( 'cal_dyn_tend_vi', 1)
+        call PROF_rapstart( 'update_var_vi', 1)
+        call tinteg_lc(n)%StoreImplicit2D( rkstage, q%local(n)%val, RKVAR_Q,    &
+                                   1, lcmesh%refElem%Np, lcmesh%NeS, lcmesh%NeE )
+        call PROF_rapend('update_var_vi', 1)      
+      end do
+
       !* Exchange halo data
       call PROF_rapstart( 'exchange_halo', 1)
       call fields_comm%Put(field_list, 1)
@@ -117,13 +136,12 @@ program test_advect3d
       call set_velocity( u, v, w, tsec_ )
       call PROF_rapend( 'set_velocity', 1)  
 
-      !* Update prognostic variables
       do n=1, mesh%LOCAL_MESH_NUM
         lcmesh => mesh%lcmesh_list(n)
         tintbuf_ind = tinteg_lc(n)%tend_buf_indmap(rkstage)
 
         call PROF_rapstart( 'cal_dyn_tend', 1)
-        call cal_dyn_tend( &
+        call cal_dyn_tend_he( &
            tinteg_lc(n)%tend_buf2D_ex(:,:,RKVAR_Q,tintbuf_ind),              &
            q%local(n)%val, u%local(n)%val, v%local(n)%val, w%local(n)%val,   &
            lcmesh, lcmesh%refElem3D ) 
@@ -155,7 +173,7 @@ program test_advect3d
   call final()
 
 contains
-  subroutine cal_dyn_tend( dqdt, q_, u_, v_, w_, lmesh, elem)
+  subroutine cal_dyn_tend_he( dqdt, q_, u_, v_, w_, lmesh, elem)
     implicit none
 
     class(LocalMesh3D), intent(in) :: lmesh
@@ -173,7 +191,7 @@ contains
     !------------------------------------------------------------------------
 
     call PROF_rapstart( 'cal_dyn_tend_bndflux', 2)
-    call cal_del_flux_dyn( del_flux,                                          & ! (out)
+    call cal_del_flux_dyn_he( del_flux,                                       & ! (out)
       q_, u_, v_, w_,                                                         & ! (in)
       lmesh%normal_fn(:,:,1), lmesh%normal_fn(:,:,2), lmesh%normal_fn(:,:,3), & ! (in)
       lmesh%vmapM, lmesh%vmapP,                                               & ! (in)
@@ -185,20 +203,18 @@ contains
     do ke = lmesh%NeS, lmesh%NeE
       call sparsemat_matmul(Dx, q_(:,ke)*u_(:,ke), Fx)
       call sparsemat_matmul(Dy, q_(:,ke)*v_(:,ke), Fy)
-      call sparsemat_matmul(Dz, q_(:,ke)*w_(:,ke), Fz)
       call sparsemat_matmul(Lift, lmesh%Fscale(:,ke)*del_flux(:,ke), LiftDelFlx)
 
       dqdt(:,ke) = - ( lmesh%Escale(:,ke,1,1) * Fx(:) &
                      + lmesh%Escale(:,ke,2,2) * Fy(:) &
-                     + lmesh%Escale(:,ke,3,3) * Fz(:) &
                      + LiftDelFlx )
     end do
     call PROF_rapend( 'cal_dyn_tend_interior', 2)
 
     return
-  end subroutine cal_dyn_tend
+  end subroutine cal_dyn_tend_he
 
-  subroutine cal_del_flux_dyn( del_flux, q_, u_, v_, w_, nx, ny, nz, vmapM, vmapP, lmesh, elem )
+  subroutine cal_del_flux_dyn_he( del_flux, q_, u_, v_, w_, nx, ny, nz, vmapM, vmapP, lmesh, elem )
     implicit none
 
     class(LocalMesh3D), intent(in) :: lmesh
@@ -221,17 +237,470 @@ contains
     do i=1, elem%NfpTot*lmesh%Ne
       iM = vmapM(i); iP = vmapP(i)
 
-      VelM = u_(iM)*nx(i) + v_(iM)*ny(i) + w_(iM)*nz(i)
-      VelP = u_(iP)*nx(i) + v_(iP)*ny(i) + w_(iP)*nz(i)
+      VelM = u_(iM)*nx(i) + v_(iM)*ny(i)
+      VelP = u_(iP)*nx(i) + v_(iP)*ny(i)
 
-      alpha = 0.5_RP*abs(VelM + VelP)
+      alpha = 0.5_RP*abs(VelM + VelP) * (1.0_RP - nz(i)**2)
       del_flux(i) = 0.5_RP*(               &
           ( q_(iP)*VelP - q_(iM)*VelM )    &
         - alpha*(q_(iP) - q_(iM))        )
     end do
 
     return
-  end subroutine cal_del_flux_dyn
+  end subroutine cal_del_flux_dyn_he
+
+  subroutine cal_dyn_tend_vi( tend_q, q_, u_, v_, w_, impl_fac, lmesh, elem)
+    implicit none
+
+    class(LocalMesh3D), intent(in) :: lmesh
+    class(elementbase3D), intent(in) :: elem
+    real(RP), intent(out) :: tend_q(elem%Np,lmesh%NeA)
+    real(RP), intent(in)  :: q_(elem%Np,lmesh%NeA)
+    real(RP), intent(in)  :: u_(elem%Np,lmesh%NeA)
+    real(RP), intent(in)  :: v_(elem%Np,lmesh%NeA)
+    real(RP), intent(in)  :: w_(elem%Np,lmesh%NeA)
+    real(RP), intent(in) :: impl_fac
+
+    !------------------------------------------------------------------------
+    real(RP) :: PROG_VARS(elem%Np,PROG_VARS_NUM,lmesh%NeZ)
+    real(RP) :: PROG_VARS0(elem%Np,PROG_VARS_NUM,lmesh%NeZ)
+    real(RP) :: PROG_DEL(elem%Np,PROG_VARS_NUM,lmesh%NeZ)
+    real(RP) :: b(elem%Np,PROG_VARS_NUM,lmesh%NeZ)
+    real(RP) :: Ax(elem%Np,PROG_VARS_NUM,lmesh%NeZ)
+    real(RP) :: tend(elem%Np,PROG_VARS_NUM,lmesh%NeZ)
+    real(RP) :: nz(elem%NfpTot,lmesh%NeZ)
+    real(RP) :: w_l(elem%Np,lmesh%NeZ)
+    integer :: vmapM(elem%NfpTot,lmesh%NeZ)
+    integer :: vmapP(elem%NfpTot,lmesh%NeZ)    
+    integer :: ke_x, ke_y, ke_z, ke, p
+    integer :: itr, m, N
+    integer :: f, vs, ve
+    logical :: is_converged
+    !------------------------------------------------------------------------
+    
+    N = elem%Np * PROG_VARS_NUM * lmesh%NeZ
+    m = N
+
+    do ke_z=1, lmesh%NeZ
+      do f=1, elem%Nfaces_h
+        vs = 1 + (f-1)*elem%Nfp_h
+        ve = vs + elem%Nfp_h - 1
+        vmapM(vs:ve,ke_z) = elem%Fmask_h(:,f) + (ke_z-1)*elem%Np
+      end do
+      do f=1, elem%Nfaces_v
+        vs = elem%Nfp_h*elem%Nfaces_h + 1 + (f-1)*elem%Nfp_v
+        ve = vs + elem%Nfp_v - 1
+        vmapM(vs:ve,ke_z) = elem%Fmask_v(:,f) + (ke_z-1)*elem%Np
+      end do
+      vmapP(:,ke_z) = vmapM(:,ke_z)
+    end do
+
+    do ke_z=1, lmesh%NeZ
+      vs = elem%Nfp_h*elem%Nfaces_h + 1
+      ve = vs + elem%Nfp_v - 1
+      if (ke_z > 1) then
+        vmapP(vs:ve,ke_z) = elem%Fmask_v(:,2) + (ke_z-2)*elem%Np
+      else
+        vmapP(vs:ve,ke_z) = elem%Fmask_v(:,2) + (lmesh%NeZ-1)*elem%Np
+      end if
+
+      vs = elem%Nfp_h*elem%Nfaces_h + 1 + elem%Nfp_v
+      ve = vs + elem%Nfp_v - 1
+      if (ke_z < lmesh%NeZ) then
+        vmapP(vs:ve,ke_z) = elem%Fmask_v(:,1) + ke_z*elem%Np
+      else
+        vmapP(vs:ve,ke_z) = elem%Fmask_v(:,1)
+      end if
+
+    end do
+
+    do ke_y=1, lmesh%NeY
+    do ke_x=1, lmesh%NeX
+
+      do ke_z=1, lmesh%NeZ
+        ke = ke_x + (ke_y-1)*lmesh%NeX + (ke_z-1)*lmesh%NeX*lmesh%NeY
+        PROG_VARS(:,1,ke_z) = q_(:,ke)
+        PROG_VARS0(:,:,ke_z) = PROG_VARS(:,:,ke_z)
+        PROG_DEL(:,:,ke_z) = 0.0_RP
+
+        w_l(:,ke_z) = w_(:,ke)
+        nz(:,ke_z) = lmesh%normal_fn(:,ke,3)
+      end do
+      
+      if ( impl_fac > 0.0_RP ) then
+        call vi_eval_Ax( Ax(:,:,:),                       & ! (out)
+          PROG_VARS, PROG_VARS0, w_l,                     & ! (in)
+          Dz, Lift, impl_fac, lmesh, elem,                & ! (in)
+          nz, vmapM, vmapP, ke_x, ke_y, .false. )
+
+        do ke_z=1, lmesh%NeZ
+          b(:,:,ke_z) = - Ax(:,:,ke_z) + PROG_VARS0(:,:,ke_z)
+        end do
+
+        is_converged = .false.
+        do itr=1, 2*int(N/m)
+
+          call vi_GMRES_core( PROG_DEL(:,:,:),             & ! (inout)
+            is_converged,                                  & ! (out)
+            PROG_VARS(:,:,:), b(:,:,:), N, m,              & ! (in)
+            w_l,                                           & ! (in)
+            Dz, Lift, impl_fac, lmesh, elem,               & ! (in)
+            nz, vmapM, vmapP, ke_x, ke_y ) 
+
+          if (is_converged) exit
+        end do ! itr
+
+        do ke_z=1, lmesh%NeZ
+          PROG_VARS(:,:,ke_z) = PROG_VARS(:,:,ke_z) + PROG_DEL(:,:,ke_z)
+        end do        
+      end if
+
+      call vi_eval_Ax( tend(:,:,:),                     & ! (out)
+        PROG_VARS, PROG_VARS0, w_l,                     & ! (in)
+        Dz, Lift, impl_fac, lmesh, elem,                & ! (in)
+        nz, vmapM, vmapP, ke_x, ke_y, .true. )
+      
+      !tend(:,:,:) = 0.0_RP
+      do ke_z=1, lmesh%NeZ
+        ke = Ke_x + (Ke_y-1)*lmesh%NeX + (ke_z-1)*lmesh%NeX*lmesh%NeY
+        tend_q(:,ke) = - tend(:,1,ke_z)
+      end do
+
+    end do
+    end do
+
+    return
+  end subroutine cal_dyn_tend_vi
+
+  subroutine cal_del_flux_dyn_vi( del_flux, q_, u_, v_, w_, nx, ny, nz, vmapM, vmapP, lmesh, elem )
+    implicit none
+
+    class(LocalMesh3D), intent(in) :: lmesh
+    class(elementbase3D), intent(in) :: elem  
+    real(RP), intent(out) ::  del_flux(elem%NfpTot*lmesh%Ne)
+    real(RP), intent(in) ::  q_(elem%Np*lmesh%NeA)
+    real(RP), intent(in) ::  u_(elem%Np*lmesh%NeA)  
+    real(RP), intent(in) ::  v_(elem%Np*lmesh%NeA)  
+    real(RP), intent(in) ::  w_(elem%Np*lmesh%NeA)  
+    real(RP), intent(in) :: nx(elem%NfpTot*lmesh%Ne)
+    real(RP), intent(in) :: ny(elem%NfpTot*lmesh%Ne)
+    real(RP), intent(in) :: nz(elem%NfpTot*lmesh%Ne)
+    integer, intent(in) :: vmapM(elem%NfpTot*lmesh%Ne)
+    integer, intent(in) :: vmapP(elem%NfpTot*lmesh%Ne)
+     
+    integer :: i, iP, iM
+    real(RP) :: VelP, VelM, alpha
+    !------------------------------------------------------------------------
+
+    do i=1, elem%NfpTot*lmesh%Ne
+      iM = vmapM(i); iP = vmapP(i)
+
+      VelM = u_(iM)*nx(i) + v_(iM)*ny(i)
+      VelP = u_(iP)*nx(i) + v_(iP)*ny(i)
+
+      alpha = 0.5_RP*abs(VelM + VelP) * (1.0_RP - nz(i)**2)
+      del_flux(i) = 0.5_RP*(               &
+          ( q_(iP)*VelP - q_(iM)*VelM )    &
+        - alpha*(q_(iP) - q_(iM))        )
+    end do
+
+    return
+  end subroutine cal_del_flux_dyn_vi
+
+  subroutine vi_GMRES_core( x, is_converged,  & ! (inout)
+    x0, b, N, m,                              & ! (in)
+    w_,                                       & ! (in)
+    Dz, Lift, impl_fac, lmesh, elem,          & ! (in)
+    nz, vmapM, vmapP, ke_x, ke_y  )
+    
+    implicit none
+    integer, intent(in) :: N
+    integer, intent(in) :: m    
+    real(RP), intent(inout) :: x(N)
+    logical, intent(out) :: is_converged
+    real(RP), intent(in) :: x0(N)
+    real(RP), intent(in) :: b(N)
+    !---
+    class(LocalMesh3D), intent(in) :: lmesh
+    class(elementbase3D), intent(in) :: elem
+    real(RP), intent(in)  :: w_(elem%Np,lmesh%NeZ)
+    class(SparseMat), intent(in) :: Dz, Lift
+    real(RP), intent(in) :: impl_fac
+    real(RP), intent(in) :: nz(elem%NfpTot,lmesh%NeZ)
+    integer, intent(in) :: vmapM(elem%NfpTot,lmesh%NeZ)
+    integer, intent(in) :: vmapP(elem%NfpTot,lmesh%NeZ)    
+    integer, intent(in) :: ke_x, ke_y    
+
+    real(RP) :: r0(N)
+    real(RP) :: beta
+    real(RP) :: v(N,m+1)
+    real(RP) :: hj(m+1)
+    real(RP) :: g(m+1)
+    real(RP) :: wj(N)
+    integer :: i, j
+    integer :: m_out
+    real(RP) :: r(m+1,m)
+    real(RP) :: co(m), si(m)
+    real(RP) :: tmp1, tmp2
+    real(RP) :: y(m)
+    real(RP), parameter :: EPS0 = 1.0E-16_RP
+    real(RP), parameter :: EPS = 1.0E-16_RP
+
+    !--------------------------------------
+
+    call vi_eval_Ax_lin( wj(:),             & ! (out)
+      x, x0, w_,                            & ! (in)
+      Dz, Lift, impl_fac, lmesh, elem,      & ! (in)
+      nz, vmapM, vmapP, ke_x, ke_y, .false. ) ! (in)
+
+    r0(:) = b(:) - wj(:)
+    beta = sqrt(sum(r0(:)**2))
+    if (beta < EPS0*N) then
+      is_converged = .true.
+      return
+    end if
+
+    v(:,1) = r0(:)/beta
+
+    g(1) = beta
+
+    m_out = min(m, N)
+    is_converged = .false.
+    do j=1, min(m, N)
+      call vi_eval_Ax_lin( wj(:),            & ! (out)
+       v(:,j), x0, w_,                       & ! (in)
+       Dz, Lift, impl_fac, lmesh, elem,      & ! (in)
+       nz, vmapM, vmapP, ke_x, ke_y, .false. ) ! (in)
+      
+      do i=1, j
+        hj(i) = sum( wj(:)*v(:,i) )
+        wj(:) = wj(:) - hj(i)*v(:,i)
+      end do
+      hj(j+1) = sqrt(sum(wj(:)**2))
+
+      if (abs(hj(j+1)) < EPS0) then
+        m_out = j
+        if (ke_x==1 .and. ke_y==3) write(*,*) m_out, "small hj=", abs(hj(j+1))
+        is_converged = .true.
+        exit
+      else
+        v(:,j+1) = wj(:)/hj(j+1)
+      end if
+
+      r(1,j) = hj(1)
+      do i=1, j-1
+        tmp1 =  co(i)*r(i,j) + si(i)*hj(i+1)
+        tmp2 = -si(i)*r(i,j) + co(i)*hj(i+1)
+        r(i,j) = tmp1
+        r(i+1,j) = tmp2
+      end do
+
+      tmp1 = 1.0_RP / sqrt(r(j,j)**2 + hj(j+1)**2)
+      co(j) = tmp1 * r(j,j)
+      si(j) = tmp1 * hj(j+1)
+
+      g(j+1) = - si(j)*g(j)
+      g(j)   =   co(j)*g(j)
+
+      r(j,j) = co(j)*r(j,j) + si(j)*hj(j+1)
+      r(j+1,j) = 0.0_RP
+      if ( abs(si(j)*g(j)) < EPS ) then
+        m_out = j
+        if (ke_x==1 .and. ke_y==3) write(*,*) m_out, "converge: RES=",  abs(si(j)*g(j)), si(j), g(j), EPS
+        is_converged = .true.
+        exit
+      end if
+    end do
+
+    do j=m_out,1,-1
+      y(j) = g(j)
+      do i=j+1,m_out
+        y(j) = y(j) - r(j,i)*y(i)
+      end do
+      y(j) = y(j)/r(j,j)
+    end do
+
+    x(:) = x(:) + matmul(v(:,1:m_out),y(1:m_out))
+    return
+  end subroutine vi_GMRES_core
+
+
+  subroutine vi_eval_Ax( Ax, &
+    PROG_VARS, PROG_VARS0, w_,                        & ! (in)
+    Dz, Lift, impl_fac, lmesh, elem,                  & ! (in)
+    nz, vmapM, vmapP, ke_x, ke_y, cal_tend_flag )
+
+    implicit none
+
+    class(LocalMesh3D), intent(in) :: lmesh
+    class(elementbase3D), intent(in) :: elem
+    real(RP), intent(out) :: Ax(elem%Np,PROG_VARS_NUM,lmesh%NeZ)
+    real(RP), intent(in)  :: PROG_VARS(elem%Np,PROG_VARS_NUM,lmesh%NeZ)
+    real(RP), intent(in)  :: PROG_VARS0(elem%Np,PROG_VARS_NUM,lmesh%NeZ)
+    real(RP), intent(in)  :: w_(elem%Np,lmesh%NeZ)
+    class(SparseMat), intent(in) :: Dz, Lift
+    real(RP), intent(in) :: impl_fac
+    real(RP), intent(in) :: nz(elem%NfpTot,lmesh%NeZ)
+    integer, intent(in) :: vmapM(elem%NfpTot,lmesh%NeZ)
+    integer, intent(in) :: vmapP(elem%NfpTot,lmesh%NeZ)    
+    integer, intent(in) :: ke_x, ke_y
+    logical, intent(in) :: cal_tend_flag
+
+    real(RP) :: Fz(elem%Np), LiftDelFlx(elem%Np)
+    real(RP) :: del_flux(elem%NfpTot,lmesh%NeZ,PROG_VARS_NUM)
+    integer :: ke_z
+    integer :: ke
+
+    !--------------------------------------------------------
+
+    call vi_cal_del_flux_dyn( del_flux,                    & ! (out)
+      PROG_VARS(:,1,:), PROG_VARS0(:,1,:),                 & ! (in)
+      w_, nz, vmapM, vmapP,                                & ! (in)
+      lmesh, elem )                                          ! (in)
+
+    do ke_z=1, lmesh%NeZ
+      ke = Ke_x + (Ke_y-1)*lmesh%NeX + (ke_z-1)*lmesh%NeX*lmesh%NeY
+
+      !- Q
+      call sparsemat_matmul(Dz, w_(:,ke_z) * PROG_VARS(:,1,ke_z), Fz)
+      call sparsemat_matmul(Lift, lmesh%Fscale(:,ke)*del_flux(:,ke_z,1), LiftDelFlx)
+      Ax(:,1,ke_z) = lmesh%Escale(:,ke,3,3) * Fz(:) + LiftDelFlx(:)
+
+      !--
+      if ( .not. cal_tend_flag ) then
+        Ax(:,:,ke_z) =  PROG_VARS(:,:,ke_z) + impl_fac * Ax(:,:,ke_z)
+      end if 
+    end do    
+
+    return
+  end subroutine vi_eval_Ax
+
+  subroutine vi_cal_del_flux_dyn( del_flux, &
+    q_, q0_,                                &
+    w_, nz, vmapM, vmapP, lmesh, elem )
+
+    implicit none
+
+    class(LocalMesh3D), intent(in) :: lmesh
+    class(elementbase3D), intent(in) :: elem  
+    real(RP), intent(out) ::  del_flux(elem%NfpTot*lmesh%NeZ,PROG_VARS_NUM)
+    real(RP), intent(in) ::  q_(elem%Np*lmesh%NeZ)
+    real(RP), intent(in) ::  q0_(elem%Np*lmesh%NeZ)
+    real(RP), intent(in) ::  w_(elem%Np*lmesh%NeZ)
+    real(RP), intent(in) :: nz(elem%NfpTot*lmesh%NeZ)
+    integer, intent(in) :: vmapM(elem%NfpTot*lmesh%NeZ)
+    integer, intent(in) :: vmapP(elem%NfpTot*lmesh%NeZ)
+    
+    integer :: i, p, ke_z, iP, iM
+    real(RP) :: alpha0, swV
+    !------------------------------------------------------------------------
+
+    
+    do ke_z=1, lmesh%NeZ
+    do p=1, elem%NfpTot
+      i = p + (ke_z-1)*elem%NfpTot
+      iM = vmapM(i); iP = vmapP(i)
+
+      !-
+      swV = nz(i)**2      
+      alpha0 = swV * 0.5_RP * ( w_(iP) + w_(iM) )
+      
+      del_flux(i,1) = 0.5_RP * (                   &
+                    + ( w_(iP)*q_(iP) - w_(iM)*q_(iM) ) * nz(i)  &
+                    - alpha0 * ( q_(iP) - q_(iM) )               )
+    end do
+    end do
+
+    return
+  end subroutine vi_cal_del_flux_dyn
+!-
+  subroutine vi_eval_Ax_lin( Ax, &
+    PROG_VARS, PROG_VARS0, w_,                        & ! (in)
+    Dz, Lift, impl_fac, lmesh, elem,                  & ! (in)
+    nz, vmapM, vmapP, ke_x, ke_y, cal_tend_flag )
+
+    implicit none
+
+    class(LocalMesh3D), intent(in) :: lmesh
+    class(elementbase3D), intent(in) :: elem
+    real(RP), intent(out) :: Ax(elem%Np,PROG_VARS_NUM,lmesh%NeZ)
+    real(RP), intent(in)  :: PROG_VARS(elem%Np,PROG_VARS_NUM,lmesh%NeZ)
+    real(RP), intent(in)  :: PROG_VARS0(elem%Np,PROG_VARS_NUM,lmesh%NeZ)
+    real(RP), intent(in)  :: w_(elem%Np,lmesh%NeZ)
+    class(SparseMat), intent(in) :: Dz, Lift
+    real(RP), intent(in) :: impl_fac
+    real(RP), intent(in) :: nz(elem%NfpTot,lmesh%NeZ)
+    integer, intent(in) :: vmapM(elem%NfpTot,lmesh%NeZ)
+    integer, intent(in) :: vmapP(elem%NfpTot,lmesh%NeZ)    
+    integer, intent(in) :: ke_x, ke_y
+    logical, intent(in) :: cal_tend_flag
+
+    real(RP) :: Fz(elem%Np), LiftDelFlx(elem%Np)
+    real(RP) :: del_flux(elem%NfpTot,lmesh%NeZ,PROG_VARS_NUM)
+    integer :: ke_z
+    integer :: ke
+
+    !--------------------------------------------------------
+
+
+    call vi_cal_del_flux_dyn_lin( del_flux,                & ! (out)
+      PROG_VARS(:,1,:), PROG_VARS0(:,1,:),                 & ! (in)
+      w_, nz, vmapM, vmapP,                                & ! (in)
+      lmesh, elem )                                          ! (in)
+
+    do ke_z=1, lmesh%NeZ
+      ke = Ke_x + (Ke_y-1)*lmesh%NeX + (ke_z-1)*lmesh%NeX*lmesh%NeY
+
+      !- DENS
+      call sparsemat_matmul(Dz, PROG_VARS(:,1,ke_z), Fz)
+      call sparsemat_matmul(Lift, lmesh%Fscale(:,ke) * del_flux(:,ke_z,1), LiftDelFlx)
+      Ax(:,1,ke_z) = lmesh%Escale(:,ke,3,3) * Fz(:) + LiftDelFlx(:)
+
+      !--
+      if ( .not. cal_tend_flag ) then
+        Ax(:,:,ke_z) =  PROG_VARS(:,:,ke_z) + impl_fac * Ax(:,:,ke_z)
+      end if 
+    end do    
+
+    return
+  end subroutine vi_eval_Ax_lin
+
+  subroutine vi_cal_del_flux_dyn_lin( del_flux, &
+    q_, q0_, w_, nz, vmapM, vmapP, lmesh, elem )
+
+    implicit none
+
+    class(LocalMesh3D), intent(in) :: lmesh
+    class(elementbase3D), intent(in) :: elem  
+    real(RP), intent(out) ::  del_flux(elem%NfpTot*lmesh%NeZ,PROG_VARS_NUM)
+    real(RP), intent(in) ::  q_(elem%Np*lmesh%NeZ)
+    real(RP), intent(in) ::  q0_(elem%Np*lmesh%NeZ)
+    real(RP), intent(in) ::  w_(elem%Np*lmesh%NeZ)
+    real(RP), intent(in) :: nz(elem%NfpTot*lmesh%NeZ)
+    integer, intent(in) :: vmapM(elem%NfpTot*lmesh%NeZ)
+    integer, intent(in) :: vmapP(elem%NfpTot*lmesh%NeZ)
+    
+    integer :: i, p, ke_z, iP, iM
+    real(RP) :: alpha0, swV
+    !------------------------------------------------------------------------
+    
+    do ke_z=1, lmesh%NeZ
+    do p=1, elem%NfpTot
+      i = p + (ke_z-1)*elem%NfpTot
+      iM = vmapM(i); iP = vmapP(i)
+      
+      !-
+      swV = nz(i)**2      
+      alpha0 = swV * 0.5_RP * ( w_(iP) + w_(iM) )
+      
+      del_flux(i,1) = 0.5_RP * (                   &
+                    + ( w_(iP)*q_(iP) - w_(iM)*q_(iM) ) * nz(i)  &
+                    - alpha0 * ( q_(iP) - q_(iM) )               )
+    end do
+    end do
+
+    return
+  end subroutine vi_cal_del_flux_dyn_lin
 
   !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 

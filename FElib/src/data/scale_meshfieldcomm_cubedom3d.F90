@@ -146,7 +146,7 @@ contains
     use scale_meshfieldcomm_base, only: &
       MeshFieldCommBase_exchange_core,  &
       LocalMeshCommData
-
+    use scale_prof
     implicit none
   
     class(MeshFieldCommCubeDom3D), intent(inout) :: this
@@ -159,7 +159,6 @@ contains
     type(LocalMeshCommData), pointer :: commdata
     !-----------------------------------------------------------------------------
     
-
     do n=1, this%mesh%LOCAL_MESH_NUM
       lcmesh => this%mesh3d%lcmesh_list(n)
       
@@ -186,7 +185,7 @@ contains
     call MeshFieldCommBase_exchange_core(this, commdata_list(:,:))
 
     !---------------------
-  
+
     do n=1, this%mesh%LOCAL_MESH_NUM
     do f=1, this%nfaces_comm
       call commdata_list(f,n)%Final()

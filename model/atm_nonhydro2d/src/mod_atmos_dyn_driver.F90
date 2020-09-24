@@ -231,10 +231,10 @@ contains
 
         call PROF_rapstart( 'ATM_DYN_cal_tend', 1)
         call atm_dyn_nonhydro2d_cal_tend( &
-          tinteg_lc(n)%tend_buf2D(:,:,VARS_DDENS_ID,tintbuf_ind),                        &
-          tinteg_lc(n)%tend_buf2D(:,:,VARS_MOMX_ID,tintbuf_ind),                         &
-          tinteg_lc(n)%tend_buf2D(:,:,VARS_MOMZ_ID,tintbuf_ind),                         &
-          tinteg_lc(n)%tend_buf2D(:,:,VARS_DRHOT_ID,tintbuf_ind),                        &
+          tinteg_lc(n)%tend_buf2D_ex(:,:,VARS_DDENS_ID,tintbuf_ind),                     &
+          tinteg_lc(n)%tend_buf2D_ex(:,:,VARS_MOMX_ID,tintbuf_ind),                      &
+          tinteg_lc(n)%tend_buf2D_ex(:,:,VARS_MOMZ_ID,tintbuf_ind),                      &
+          tinteg_lc(n)%tend_buf2D_ex(:,:,VARS_DRHOT_ID,tintbuf_ind),                     &
           DDENS%local(n)%val, MOMX%local(n)%val, MOMZ%local(n)%val, DRHOT%local(n)%val,  &
           DENS_hydro%local(n)%val, PRES_hydro%local(n)%val,                              &
           GxU%local(n)%val, GzU%local(n)%val, GxW%local(n)%val, GzW%local(n)%val,        &
