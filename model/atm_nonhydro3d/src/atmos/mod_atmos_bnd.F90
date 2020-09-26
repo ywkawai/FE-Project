@@ -196,12 +196,46 @@ contains
     DENS_hyd, PRES_hyd,                           & ! (in)
     nx, ny, nz, vmapM, vmapP, vmapB, lmesh, elem )  ! (in)
 
+    implicit none
+
+    class(AtmosDynBnd), intent(in) :: this    
+    integer, intent(in) :: domID
+    class(LocalMesh3D), intent(in) :: lmesh
+    class(elementbase3D), intent(in) :: elem    
+    real(RP), intent(inout) :: DDENS(elem%Np,lmesh%NeA)
+    real(RP), intent(inout) :: MOMX(elem%Np,lmesh%NeA)
+    real(RP), intent(inout) :: MOMY(elem%Np,lmesh%NeA)
+    real(RP), intent(inout) :: MOMZ(elem%Np,lmesh%NeA)
+    real(RP), intent(inout) :: DRHOT(elem%Np,lmesh%NeA)
+    real(RP), intent(in) :: DENS_hyd(elem%Np,lmesh%NeA)
+    real(RP), intent(in) :: PRES_hyd(elem%Np,lmesh%NeA)
+    real(RP), intent(in) :: nx(elem%NfpTot,lmesh%Ne)
+    real(RP), intent(in) :: ny(elem%NfpTot,lmesh%Ne)
+    real(RP), intent(in) :: nz(elem%NfpTot,lmesh%Ne)
+    integer, intent(in) :: vmapM(elem%NfpTot,lmesh%Ne)
+    integer, intent(in) :: vmapP(elem%NfpTot,lmesh%Ne)
+    integer, intent(in) :: vmapB(:)
+    !----------
+
+    call applyBC_prgvars_lc( this, domID,  &
+      DDENS, MOMX, MOMY, MOMZ, DRHOT,                    & ! (inout)
+      DENS_hyd, PRES_hyd,                                & ! (in)
+      nx, ny, nz, vmapM, vmapP, vmapB, lmesh, elem )       ! (in)    
+    
+    return
+  end  subroutine ATMOS_dyn_bnd_applyBC_prgvars_lc
+
+  subroutine applyBC_prgvars_lc( this, domID,  &
+    DDENS, MOMX, MOMY, MOMZ, DRHOT,               & ! (inout)
+    DENS_hyd, PRES_hyd,                           & ! (in)
+    nx, ny, nz, vmapM, vmapP, vmapB, lmesh, elem )  ! (in)
+
     use scale_mesh_bndinfo, only: &
       BND_TYPE_SLIP_ID, BND_TYPE_NOSLIP_ID, &
       BND_TYPE_ADIABAT_ID
     implicit none
 
-    class(AtmosDynBnd), intent(in) :: this    
+    type(AtmosDynBnd), intent(in) :: this    
     integer, intent(in) :: domID
     class(LocalMesh3D), intent(in) :: lmesh
     class(elementbase3D), intent(in) :: elem    
@@ -244,7 +278,7 @@ contains
     end do
     
     return
-  end subroutine ATMOS_dyn_bnd_applyBC_prgvars_lc
+  end subroutine applyBC_prgvars_lc
 
   subroutine ATMOS_dyn_bnd_applyBC_auxvars_lc(  this,  domID, &
     GxU, GyU, GzU, GxV, GyV, GzV, GxW, GyW, GzW,   & ! (inout)
@@ -260,6 +294,59 @@ contains
     implicit none
 
     class(AtmosDynBnd), intent(in) :: this
+    integer, intent(in) :: domID
+    class(LocalMesh3D), intent(in) :: lmesh
+    class(elementbase3D), intent(in) :: elem    
+    real(RP), intent(inout) :: GxU(elem%Np,lmesh%NeA)
+    real(RP), intent(inout) :: GyU(elem%Np,lmesh%NeA)
+    real(RP), intent(inout) :: GzU(elem%Np,lmesh%NeA)
+    real(RP), intent(inout) :: GxV(elem%Np,lmesh%NeA)
+    real(RP), intent(inout) :: GyV(elem%Np,lmesh%NeA)
+    real(RP), intent(inout) :: GzV(elem%Np,lmesh%NeA)
+    real(RP), intent(inout) :: GxW(elem%Np,lmesh%NeA)
+    real(RP), intent(inout) :: GyW(elem%Np,lmesh%NeA)
+    real(RP), intent(inout) :: GzW(elem%Np,lmesh%NeA)
+    real(RP), intent(inout) :: GxPT(elem%Np,lmesh%NeA)
+    real(RP), intent(inout) :: GyPT(elem%Np,lmesh%NeA)
+    real(RP), intent(inout) :: GzPT(elem%Np,lmesh%NeA)
+    real(RP), intent(in) :: DENS_hyd(elem%Np,lmesh%NeA)
+    real(RP), intent(in) :: PRES_hyd(elem%Np,lmesh%NeA)
+    real(RP), intent(in) :: viscCoef_h
+    real(RP), intent(in) :: viscCoef_v
+    real(RP), intent(in) :: diffCoef_h
+    real(RP), intent(in) :: diffCoef_v
+    real(RP), intent(in) :: nx(elem%NfpTot,lmesh%Ne)
+    real(RP), intent(in) :: ny(elem%NfpTot,lmesh%Ne)
+    real(RP), intent(in) :: nz(elem%NfpTot,lmesh%Ne)
+    integer, intent(in) :: vmapM(elem%NfpTot,lmesh%Ne)
+    integer, intent(in) :: vmapP(elem%NfpTot,lmesh%Ne)
+    integer, intent(in) :: vmapB(:)
+    !-----------------------------------
+
+    call applyBC_auxvars_lc(  this,  domID,          &
+      GxU, GyU, GzU, GxV, GyV, GzV, GxW, GyW, GzW,   & ! (inout)
+      GxPT, GyPT, GzPT,                              & ! (inout)
+      DENS_hyd, PRES_hyd,                            & ! (in)
+      viscCoef_h, viscCoef_v,                        & ! (in)
+      diffCoef_h, diffCoef_v,                        & ! (in)
+      nx, ny, nz, vmapM, vmapP, vmapB, lmesh, elem )   ! (in)
+    return
+  end subroutine ATMOS_dyn_bnd_applyBC_auxvars_lc
+
+  subroutine applyBC_auxvars_lc(  this,  domID, &
+    GxU, GyU, GzU, GxV, GyV, GzV, GxW, GyW, GzW,   & ! (inout)
+    GxPT, GyPT, GzPT,                              & ! (inout)
+    DENS_hyd, PRES_hyd,                            & ! (in)
+    viscCoef_h, viscCoef_v,                        & ! (in)
+    diffCoef_h, diffCoef_v,                        & ! (in)
+    nx, ny, nz, vmapM, vmapP, vmapB, lmesh, elem )   ! (in)
+
+    use scale_mesh_bndinfo, only: &
+      BND_TYPE_SLIP_ID, BND_TYPE_NOSLIP_ID, &
+      BND_TYPE_ADIABAT_ID
+    implicit none
+
+    type(AtmosDynBnd), intent(in) :: this
     integer, intent(in) :: domID
     class(LocalMesh3D), intent(in) :: lmesh
     class(elementbase3D), intent(in) :: elem    
@@ -330,7 +417,7 @@ contains
     end do
 
     return
-  end subroutine ATMOS_dyn_bnd_applyBC_auxvars_lc
+  end subroutine applyBC_auxvars_lc
 
   !---------------------------------------------------------
 
