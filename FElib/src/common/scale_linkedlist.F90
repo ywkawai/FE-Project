@@ -268,7 +268,7 @@ contains
     select type (key)
     type is (integer)
     type is (character(len=*))
-    class is (LinkedListKey)
+!    class is (LinkedListKey)
     class default
       LOG_ERROR("LinkedList_add_by_pointer",*)   "The type of key is invalid. Check!"
     end select
@@ -415,12 +415,7 @@ contains
     is_keys_eqaul = .false.
 
     if ( same_type_as(key1, key2) ) then
-      select type (key1)
-      class is (LinkedListKey)
-        select type(key2)
-        class is (LinkedListKey)
-          is_keys_eqaul = (key1 == key2)
-        end select      
+      select type (key1)    
       type is (integer)
         select type(key2)
         type is (integer)
@@ -430,8 +425,13 @@ contains
         select type(key2)
         type is (character(len=*))
           is_keys_eqaul = (key1 == key2)
-        end select    
-      end select
+        end select
+      ! class is (LinkedListKey)
+      ! select type(key2)
+      ! class is (LinkedListKey)
+      !   is_keys_eqaul = (key1 == key2)
+      ! end select       
+      end select 
     end if
 
     return
