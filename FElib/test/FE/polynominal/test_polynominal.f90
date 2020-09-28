@@ -1,6 +1,7 @@
 #include "scalelib.h"
 program test_polynominal
   use scale_precision
+  use scale_io
   use scale_polynominal
   implicit none
 

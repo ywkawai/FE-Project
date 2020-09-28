@@ -70,7 +70,7 @@ subroutine output_fvm_setup( dom_type )
     PRC_myrank
   use scale_time, only: &
     TIME_NOWDATE,       &
-    TIME_NOWMS,         &
+    TIME_NOWSUBSEC,     &
     TIME_STARTDAYSEC,   &
     TIME_DTSEC,         &
     TIME_NOWSTEP
@@ -92,7 +92,7 @@ subroutine output_fvm_setup( dom_type )
 
 
   FILE_HISTORY_MESHFIELD_STARTDATE(:) = TIME_NOWDATE
-  FILE_HISTORY_MESHFIELD_STARTMS      = TIME_NOWMS
+  FILE_HISTORY_MESHFIELD_STARTMS      = TIME_NOWSUBSEC
 
   start_daysec = TIME_STARTDAYSEC
   if ( TIME_NOWDATE(1) > 0 ) then
@@ -102,7 +102,7 @@ subroutine output_fvm_setup( dom_type )
                                                         ' ', TIME_NOWDATE(4), &
                                                         ':', TIME_NOWDATE(5), &
                                                         ':', TIME_NOWDATE(6)
-     start_daysec = TIME_NOWMS
+     start_daysec = TIME_NOWSUBSEC
   else
      FILE_HISTORY_MESHFIELD_T_SINCE = ''
   endif
@@ -118,7 +118,7 @@ subroutine output_fvm_setup( dom_type )
     default_zcoord = 'model',                                     & ! [IN]
     myrank = PRC_myrank                        )                    ! [IN]
 
-  call FILE_HISTORY_Set_NowDate( TIME_NOWDATE, TIME_NOWMS, TIME_NOWSTEP )
+  call FILE_HISTORY_Set_NowDate( TIME_NOWDATE, TIME_NOWSUBSEC, TIME_NOWSTEP )
 
   select case(dom_type)
   case ('linedom1d')

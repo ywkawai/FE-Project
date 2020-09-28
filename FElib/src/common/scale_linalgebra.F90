@@ -5,6 +5,7 @@ module scale_linalgebra
   !++ used modules
   !
   use scale_precision
+  use scale_io
   use scale_prc
   use scale_sparsemat, only: sparsemat
 

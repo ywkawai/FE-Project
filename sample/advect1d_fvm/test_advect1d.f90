@@ -1,4 +1,4 @@
-#include "scalelib.h"
+#include "scaleFElib.h"
 program test_advect1d
   !-----------------------------------------------------------------------------
   !
@@ -8,8 +8,7 @@ program test_advect1d
   use scale
   use scale_atmos_grid_cartesC_index
   use scale_index
-  use scale_io, only: &
-    H_SHORT
+  use scale_io
   use scale_prof
   use scale_atmos_grid_cartesC, only: &
     CZ             => ATMOS_GRID_CARTESC_CZ,             &  

@@ -17,11 +17,7 @@ module scale_time_manager
     TIME_NOWDAYSEC,   &           
     TIME_NOWSEC,      &
     TIME_NOWSTEP,     &
-#ifdef SCALE_DEVELOP
     TIME_NOWSUBSEC,   &
-#else
-    TIME_NOWSUBSEC => TIME_NOWMS,     &
-#endif
     TIME_NSTEP,       &
     TIME_DTSEC,       &
     TIME_OFFSET_YEAR

@@ -64,7 +64,7 @@ module scale_file_history_meshfield
   character(len=8), parameter :: zs(nzs) = (/  "model   " /)
 
   integer  :: FILE_HISTORY_MESHFIELD_STARTDATE(6) !< start time [YYYY MM DD HH MM SS]
-  real(DP) :: FILE_HISTORY_MESHFIELD_STARTMS      !< subsecond part of start time [millisec]
+  real(DP) :: FILE_HISTORY_MESHFIELD_STARTSUBSEC      !< subsecond part of start time [millisec]
 
   class(MeshBase1D), pointer :: mesh1D
   class(MeshRectDom2D), pointer :: mesh2D
@@ -87,7 +87,7 @@ subroutine FILE_HISTORY_meshfield_setup( mesh1D_, mesh2D_, mesh3D_ )
     PRC_abort
   use scale_time, only: &
     TIME_NOWDATE,       &
-    TIME_NOWMS,         &
+    TIME_NOWSUBSEC,     &
     TIME_STARTDAYSEC,   &
     TIME_DTSEC,         &
     TIME_NOWSTEP
@@ -111,7 +111,7 @@ subroutine FILE_HISTORY_meshfield_setup( mesh1D_, mesh2D_, mesh3D_ )
   !---------------------------------------------------------------------------
 
   FILE_HISTORY_MESHFIELD_STARTDATE(:) = TIME_NOWDATE
-  FILE_HISTORY_MESHFIELD_STARTMS      = TIME_NOWMS
+  FILE_HISTORY_MESHFIELD_STARTSUBSEC  = TIME_NOWSUBSEC
 
   start_daysec = TIME_STARTDAYSEC
   if ( TIME_NOWDATE(1) > 0 ) then
@@ -121,7 +121,7 @@ subroutine FILE_HISTORY_meshfield_setup( mesh1D_, mesh2D_, mesh3D_ )
                                                         ' ', TIME_NOWDATE(4), &
                                                         ':', TIME_NOWDATE(5), &
                                                         ':', TIME_NOWDATE(6)
-     start_daysec = TIME_NOWMS
+     start_daysec = TIME_NOWSUBSEC
   else
      FILE_HISTORY_MESHFIELD_T_SINCE = ''
   endif
@@ -137,7 +137,7 @@ subroutine FILE_HISTORY_meshfield_setup( mesh1D_, mesh2D_, mesh3D_ )
     default_zcoord = 'model',                                     & ! [IN]
     myrank = PRC_myrank                        )                    ! [IN]
 
-  call FILE_HISTORY_Set_NowDate( TIME_NOWDATE, TIME_NOWMS, TIME_NOWSTEP )
+  call FILE_HISTORY_Set_NowDate( TIME_NOWDATE, TIME_NOWSUBSEC, TIME_NOWSTEP )
 
   if ( present(mesh1D_) ) then
     mesh1D => mesh1D_
