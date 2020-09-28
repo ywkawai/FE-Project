@@ -39,7 +39,6 @@ module mod_atmos_vars
     
     type(MeshField3D), allocatable :: AUX_VARS(:)
     type(ModelVarManager) :: AUXVARS_manager 
-    type(MeshFieldCommCubeDom3D) :: AUXVARS_comm
     
     type(ModelVarManager) :: DIAGVARS_manager    
     integer, allocatable :: DIAGVARS_HISTID(:)
@@ -49,6 +48,7 @@ module mod_atmos_vars
     procedure :: History => AtmosVars_History
   end type AtmosVars
 
+  public :: AtmosVars_GetLocalMeshField
   public :: AtmosVars_GetLocalMeshFields
 
   !-----------------------------------------------------------------------------
@@ -76,40 +76,16 @@ module mod_atmos_vars
     VariableInfo( ATMOS_PROGVARS_DRHOT_ID, 'DRHOT', 'deviation of rho * theta',   &
                   'kg/m3*K', 3, 'XYZ',  ''                                    )   /
 
-  integer, public, parameter :: ATMOS_AUXVARS_NUM          = 14
+  integer, public, parameter :: ATMOS_AUXVARS_NUM          = 2
   integer, public, parameter :: ATMOS_AUXVARS_PRESHYDRO_ID = 1
   integer, public, parameter :: ATMOS_AUXVARS_DENSHYDRO_ID = 2
-  integer, public, parameter :: ATMOS_AUXVARS_DxU_ID    = 3
-  integer, public, parameter :: ATMOS_AUXVARS_DyU_ID    = 4
-  integer, public, parameter :: ATMOS_AUXVARS_DzU_ID    = 5
-  integer, public, parameter :: ATMOS_AUXVARS_DxV_ID    = 6
-  integer, public, parameter :: ATMOS_AUXVARS_DyV_ID    = 7
-  integer, public, parameter :: ATMOS_AUXVARS_DzV_ID    = 8
-  integer, public, parameter :: ATMOS_AUXVARS_DxW_ID    = 9
-  integer, public, parameter :: ATMOS_AUXVARS_DyW_ID    = 10
-  integer, public, parameter :: ATMOS_AUXVARS_DzW_ID    = 11
-  integer, public, parameter :: ATMOS_AUXVARS_DxPT_ID   = 12
-  integer, public, parameter :: ATMOS_AUXVARS_DyPT_ID   = 13
-  integer, public, parameter :: ATMOS_AUXVARS_DzPT_ID   = 14  
 
   type(VariableInfo), public :: ATMOS_AUXVARS_VINFO(ATMOS_AUXVARS_NUM)
   DATA ATMOS_AUXVARS_VINFO / &
     VariableInfo( ATMOS_AUXVARS_PRESHYDRO_ID, 'PRES_hyd', 'hydrostatic part of pressure',  &
                   'Pa',  3, 'XYZ',  ''                                                  ), &
     VariableInfo( ATMOS_AUXVARS_DENSHYDRO_ID , 'DENS_hyd', 'hydrostatic part of density',  &
-                  'kg/m3', 3, 'XYZ', ''                                                 ), &    
-    VariableInfo( ATMOS_AUXVARS_DxU_ID, 'DxU', '', '', 3, 'XYZ', ''          ), &
-    VariableInfo( ATMOS_AUXVARS_DyU_ID, 'DyU', '', '', 3, 'XYZ', ''          ), &
-    VariableInfo( ATMOS_AUXVARS_DzU_ID, 'DzU', '', '', 3, 'XYZ', ''          ), &
-    VariableInfo( ATMOS_AUXVARS_DxV_ID, 'DxV', '', '', 3, 'XYZ', ''          ), &
-    VariableInfo( ATMOS_AUXVARS_DyV_ID, 'DyV', '', '', 3, 'XYZ', ''          ), &
-    VariableInfo( ATMOS_AUXVARS_DzV_ID, 'DzV', '', '', 3, 'XYZ', ''          ), &
-    VariableInfo( ATMOS_AUXVARS_DxW_ID, 'DxW', '', '', 3, 'XYZ', ''          ), &
-    VariableInfo( ATMOS_AUXVARS_DyW_ID, 'DyW', '', '', 3, 'XYZ', ''          ), &
-    VariableInfo( ATMOS_AUXVARS_DzW_ID, 'DzW', '', '', 3, 'XYZ', ''          ), &
-    VariableInfo( ATMOS_AUXVARS_DxPT_ID, 'DxPT', '', '', 3, 'XYZ', ''        ), &
-    VariableInfo( ATMOS_AUXVARS_DyPT_ID, 'DyPT', '', '', 3, 'XYZ', ''        ), &
-    VariableInfo( ATMOS_AUXVARS_DzPT_ID, 'DzPT', '', '', 3, 'XYZ', ''        )  /
+                  'kg/m3', 3, 'XYZ', ''                                                 )  /
   
   integer, public, parameter :: ATMOS_DIAGVARS_NUM       = 5
   integer, public, parameter :: ATMOS_DIAGVARS_U_ID      = 1
@@ -171,7 +147,7 @@ contains
     allocate( this%AUX_VARS(ATMOS_AUXVARS_NUM) )
     
     reg_file_hist = .true.
-    do v = ATMOS_AUXVARS_PRESHYDRO_ID, ATMOS_AUXVARS_DxU_ID-1
+    do v = 1, ATMOS_AUXVARS_NUM
       call this%AUXVARS_manager%Regist(        &
         ATMOS_AUXVARS_VINFO(v), atm_mesh%mesh, & ! (in) 
         this%AUX_VARS(v), reg_file_hist        ) ! (out)
@@ -179,21 +155,6 @@ contains
         this%AUX_VARS(v)%local(n)%val(:,:) = 1.0_RP
       end do             
     end do
-
-    reg_file_hist = .false.    
-    do v = ATMOS_AUXVARS_DxU_ID, ATMOS_AUXVARS_DzPT_ID
-      call this%AUXVARS_manager%Regist(        &
-        ATMOS_AUXVARS_VINFO(v), atm_mesh%mesh, & ! (in) 
-        this%AUX_VARS(v), reg_file_hist        ) ! (out)      
-
-      do n = 1, atm_mesh%mesh%LOCAL_MESH_NUM
-        this%AUX_VARS(v)%local(n)%val(:,:) = 1.0_RP
-      end do
-    end do
-
-    call this%AUXVARS_comm%Init(3*4, 0, atm_mesh%mesh)
-    call this%AUXVARS_manager%MeshFieldComm_Prepair( &
-      this%AUXVARS_comm, this%AUX_VARS(ATMOS_AUXVARS_DxU_ID:ATMOS_AUXVARS_DzPT_ID) )
 
     !- Initialize diagnostic variables for output
     call this%DIAGVARS_manager%Init()
@@ -223,7 +184,6 @@ contains
     call this%PROGVARS_comm%Final()
     call this%PROGVARS_manager%Final()
 
-    call this%AUXVARS_comm%Final()
     call this%AUXVARS_manager%Final()
 
     deallocate( this%DIAGVARS_HISTID )
@@ -269,9 +229,58 @@ contains
     return
   end subroutine AtmosVars_history
 
+  subroutine AtmosVars_GetLocalMeshField( domID, mesh, prgvars_list, auxvars_list, &
+     varid,                                                                        &
+     var, DENS_hyd, PRES_hyd, lcmesh3D                                             &
+    )
+    !------------
+    use scale_mesh_base, only: MeshBase
+    use scale_meshfield_base, only: MeshFieldBase
+    use scale_localmesh_base, only: LocalMeshBase
+    use scale_localmesh_3d, only: LocalMesh3D
+
+    implicit none
+    integer, intent(in) :: domID
+    class(MeshBase), intent(in) :: mesh
+    class(ModelVarManager), intent(inout) :: prgvars_list
+    class(ModelVarManager), intent(inout) :: auxvars_list
+    integer, intent(in) :: varid
+    class(LocalMeshFieldBase), pointer, intent(out) :: var
+    class(LocalMeshFieldBase), pointer, intent(out), optional :: DENS_hyd, PRES_hyd
+    class(LocalMesh3D), pointer, intent(out), optional :: lcmesh3D
+
+    class(MeshFieldBase), pointer :: field
+    class(LocalMeshBase), pointer :: lcmesh
+    !-------------------------------------------------------
+
+    !--
+    call prgvars_list%Get(varid, field)
+    call field%GetLocalMeshField(domID, var)
+
+    if (present(DENS_hyd)) then
+      call auxvars_list%Get(ATMOS_AUXVARS_DENSHYDRO_ID, field)
+      call field%GetLocalMeshField(domID, DENS_hyd)
+    end if
+    if (present(DENS_hyd)) then
+      call auxvars_list%Get(ATMOS_AUXVARS_PRESHYDRO_ID, field)
+      call field%GetLocalMeshField(domID, PRES_hyd)
+    end if
+
+    if (present(lcmesh3D)) then
+      call mesh%GetLocalMesh( domID, lcmesh )
+      nullify( lcmesh3D )
+
+      select type(lcmesh)
+      type is (LocalMesh3D)
+        if (present(lcmesh3D)) lcmesh3D => lcmesh
+      end select
+    end if
+
+    return
+  end subroutine AtmosVars_GetLocalMeshField
+
   subroutine AtmosVars_GetLocalMeshFields( domID, mesh, prgvars_list, auxvars_list, &
     DDENS, MOMX, MOMY, MOMZ, DRHOT,                                 &
-    GxU, GyU, GzU, GxV, GyV, GzV, GxW, GyW, GzW, GxPT, GyPT, GzPT,  &
     DENS_hyd, PRES_hyd, lcmesh3D                                    &
     )
 
@@ -286,8 +295,6 @@ contains
     class(ModelVarManager), intent(inout) :: prgvars_list
     class(ModelVarManager), intent(inout) :: auxvars_list
     class(LocalMeshFieldBase), pointer, intent(out) :: DDENS, MOMX, MOMY, MOMZ, DRHOT
-    class(LocalMeshFieldBase), pointer, intent(out) :: &
-      GxU, GyU, GzU, GxV, GyV, GzV, GxW, GyW, GzW, GxPT, GyPT, GzPT
     class(LocalMeshFieldBase), pointer, intent(out) :: DENS_hyd, PRES_hyd
     class(LocalMesh3D), pointer, intent(out), optional :: lcmesh3D
 
@@ -310,35 +317,7 @@ contains
 
     call prgvars_list%Get(ATMOS_PROGVARS_DRHOT_ID, field)
     call field%GetLocalMeshField(domID, DRHOT)
-
-    !--
-    call auxvars_list%Get(ATMOS_AUXVARS_DxU_ID, field)
-    call field%GetLocalMeshField(domID, GxU)
-    call auxvars_list%Get(ATMOS_AUXVARS_DyU_ID, field)
-    call field%GetLocalMeshField(domID, GyU)
-    call auxvars_list%Get(ATMOS_AUXVARS_DzU_ID, field)
-    call field%GetLocalMeshField(domID, GzU)
-
-    call auxvars_list%Get(ATMOS_AUXVARS_DxV_ID, field)
-    call field%GetLocalMeshField(domID, GxV)
-    call auxvars_list%Get(ATMOS_AUXVARS_DyV_ID, field)
-    call field%GetLocalMeshField(domID, GyV)
-    call auxvars_list%Get(ATMOS_AUXVARS_DzV_ID, field)
-    call field%GetLocalMeshField(domID, GzV)
-    
-    call auxvars_list%Get(ATMOS_AUXVARS_DxW_ID, field)
-    call field%GetLocalMeshField(domID, GxW)
-    call auxvars_list%Get(ATMOS_AUXVARS_DyW_ID, field)
-    call field%GetLocalMeshField(domID, GyW)
-    call auxvars_list%Get(ATMOS_AUXVARS_DzU_ID, field)
-    call field%GetLocalMeshField(domID, GzW)
-    
-    call auxvars_list%Get(ATMOS_AUXVARS_DxPT_ID, field)
-    call field%GetLocalMeshField(domID, GxPT)
-    call auxvars_list%Get(ATMOS_AUXVARS_DyPT_ID, field)
-    call field%GetLocalMeshField(domID, GyPT)
-    call auxvars_list%Get(ATMOS_AUXVARS_DzPT_ID, field)
-    call field%GetLocalMeshField(domID, GzPT)    
+  
     !--
     call auxvars_list%Get(ATMOS_AUXVARS_DENSHYDRO_ID, field)
     call field%GetLocalMeshField(domID, DENS_hyd)

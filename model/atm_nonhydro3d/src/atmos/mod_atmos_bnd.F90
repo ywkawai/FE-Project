@@ -29,6 +29,10 @@ module mod_atmos_dyn_bnd
 
   use scale_mesh_bndinfo, only: MeshBndInfo
 
+  use mod_atmos_vars, only: &
+    ATMOS_PROGVARS_DDENS_ID, ATMOS_PROGVARS_DRHOT_ID,                    &
+    ATMOS_PROGVARS_MOMX_ID, ATMOS_PROGVARS_MOMY_ID, ATMOS_PROGVARS_MOMZ_ID
+
   !-----------------------------------------------------------------------------
   implicit none
   private
@@ -47,7 +51,8 @@ module mod_atmos_dyn_bnd
     procedure :: Final => ATMOS_dyn_bnd_finalize
     procedure :: SetBCInfo => ATMOS_dyn_bnd_setBCInfo
     procedure :: ApplyBC_PROGVARS_lc => ATMOS_dyn_bnd_applyBC_prgvars_lc
-    procedure :: ApplyBC_AUXVARS_lc => ATMOS_dyn_bnd_applyBC_auxvars_lc
+    procedure :: ApplyBC_numdiff_odd_lc => ATMOS_dyn_bnd_applyBC_numdiff_odd_lc
+    procedure :: ApplyBC_numdiff_even_lc => ATMOS_dyn_bnd_applyBC_numdiff_even_lc
   end type
 
 
@@ -280,12 +285,8 @@ contains
     return
   end subroutine applyBC_prgvars_lc
 
-  subroutine ATMOS_dyn_bnd_applyBC_auxvars_lc(  this,  domID, &
-    GxU, GyU, GzU, GxV, GyV, GzV, GxW, GyW, GzW,   & ! (inout)
-    GxPT, GyPT, GzPT,                              & ! (inout)
-    DENS_hyd, PRES_hyd,                            & ! (in)
-    viscCoef_h, viscCoef_v,                        & ! (in)
-    diffCoef_h, diffCoef_v,                        & ! (in)
+  subroutine ATMOS_dyn_bnd_applyBC_numdiff_odd_lc(  this,  domID, &
+    GxVar, GyVar, GzVar, VarID,                    & ! (inout)
     nx, ny, nz, vmapM, vmapP, vmapB, lmesh, elem )   ! (in)
 
     use scale_mesh_bndinfo, only: &
@@ -297,24 +298,10 @@ contains
     integer, intent(in) :: domID
     class(LocalMesh3D), intent(in) :: lmesh
     class(elementbase3D), intent(in) :: elem    
-    real(RP), intent(inout) :: GxU(elem%Np,lmesh%NeA)
-    real(RP), intent(inout) :: GyU(elem%Np,lmesh%NeA)
-    real(RP), intent(inout) :: GzU(elem%Np,lmesh%NeA)
-    real(RP), intent(inout) :: GxV(elem%Np,lmesh%NeA)
-    real(RP), intent(inout) :: GyV(elem%Np,lmesh%NeA)
-    real(RP), intent(inout) :: GzV(elem%Np,lmesh%NeA)
-    real(RP), intent(inout) :: GxW(elem%Np,lmesh%NeA)
-    real(RP), intent(inout) :: GyW(elem%Np,lmesh%NeA)
-    real(RP), intent(inout) :: GzW(elem%Np,lmesh%NeA)
-    real(RP), intent(inout) :: GxPT(elem%Np,lmesh%NeA)
-    real(RP), intent(inout) :: GyPT(elem%Np,lmesh%NeA)
-    real(RP), intent(inout) :: GzPT(elem%Np,lmesh%NeA)
-    real(RP), intent(in) :: DENS_hyd(elem%Np,lmesh%NeA)
-    real(RP), intent(in) :: PRES_hyd(elem%Np,lmesh%NeA)
-    real(RP), intent(in) :: viscCoef_h
-    real(RP), intent(in) :: viscCoef_v
-    real(RP), intent(in) :: diffCoef_h
-    real(RP), intent(in) :: diffCoef_v
+    real(RP), intent(inout) :: GxVar(elem%Np,lmesh%NeA)
+    real(RP), intent(inout) :: GyVar(elem%Np,lmesh%NeA)
+    real(RP), intent(inout) :: GzVar(elem%Np,lmesh%NeA)
+    integer, intent(in) :: VarID
     real(RP), intent(in) :: nx(elem%NfpTot,lmesh%Ne)
     real(RP), intent(in) :: ny(elem%NfpTot,lmesh%Ne)
     real(RP), intent(in) :: nz(elem%NfpTot,lmesh%Ne)
@@ -323,22 +310,14 @@ contains
     integer, intent(in) :: vmapB(:)
     !-----------------------------------
 
-    call applyBC_auxvars_lc(  this,  domID,          &
-      GxU, GyU, GzU, GxV, GyV, GzV, GxW, GyW, GzW,   & ! (inout)
-      GxPT, GyPT, GzPT,                              & ! (inout)
-      DENS_hyd, PRES_hyd,                            & ! (in)
-      viscCoef_h, viscCoef_v,                        & ! (in)
-      diffCoef_h, diffCoef_v,                        & ! (in)
+    call applyBC_numdiff_odd_lc(  this,  domID, &
+      GxVar, GyVar, GzVar, VarID,                    & ! (inout)
       nx, ny, nz, vmapM, vmapP, vmapB, lmesh, elem )   ! (in)
     return
-  end subroutine ATMOS_dyn_bnd_applyBC_auxvars_lc
+  end subroutine ATMOS_dyn_bnd_applyBC_numdiff_odd_lc
 
-  subroutine applyBC_auxvars_lc(  this,  domID, &
-    GxU, GyU, GzU, GxV, GyV, GzV, GxW, GyW, GzW,   & ! (inout)
-    GxPT, GyPT, GzPT,                              & ! (inout)
-    DENS_hyd, PRES_hyd,                            & ! (in)
-    viscCoef_h, viscCoef_v,                        & ! (in)
-    diffCoef_h, diffCoef_v,                        & ! (in)
+  subroutine applyBC_numdiff_odd_lc(  this,  domID, &
+    GxVar, GyVar, GzVar, VarID,                    & ! (inout)
     nx, ny, nz, vmapM, vmapP, vmapB, lmesh, elem )   ! (in)
 
     use scale_mesh_bndinfo, only: &
@@ -350,24 +329,10 @@ contains
     integer, intent(in) :: domID
     class(LocalMesh3D), intent(in) :: lmesh
     class(elementbase3D), intent(in) :: elem    
-    real(RP), intent(inout) :: GxU(elem%Np*lmesh%NeA)
-    real(RP), intent(inout) :: GyU(elem%Np*lmesh%NeA)
-    real(RP), intent(inout) :: GzU(elem%Np*lmesh%NeA)
-    real(RP), intent(inout) :: GxV(elem%Np*lmesh%NeA)
-    real(RP), intent(inout) :: GyV(elem%Np*lmesh%NeA)
-    real(RP), intent(inout) :: GzV(elem%Np*lmesh%NeA)
-    real(RP), intent(inout) :: GxW(elem%Np*lmesh%NeA)
-    real(RP), intent(inout) :: GyW(elem%Np*lmesh%NeA)
-    real(RP), intent(inout) :: GzW(elem%Np*lmesh%NeA)
-    real(RP), intent(inout) :: GxPT(elem%Np*lmesh%NeA)
-    real(RP), intent(inout) :: GyPT(elem%Np*lmesh%NeA)
-    real(RP), intent(inout) :: GzPT(elem%Np*lmesh%NeA)
-    real(RP), intent(in) :: DENS_hyd(elem%Np*lmesh%NeA)
-    real(RP), intent(in) :: PRES_hyd(elem%Np*lmesh%NeA)
-    real(RP), intent(in) :: viscCoef_h
-    real(RP), intent(in) :: viscCoef_v
-    real(RP), intent(in) :: diffCoef_h
-    real(RP), intent(in) :: diffCoef_v
+    real(RP), intent(inout) :: GxVar(elem%Np*lmesh%NeA)
+    real(RP), intent(inout) :: GyVar(elem%Np*lmesh%NeA)
+    real(RP), intent(inout) :: GzVar(elem%Np*lmesh%NeA)
+    integer, intent(in) :: VarID
     real(RP), intent(in) :: nx(elem%NfpTot*lmesh%Ne)
     real(RP), intent(in) :: ny(elem%NfpTot*lmesh%Ne)
     real(RP), intent(in) :: nz(elem%NfpTot*lmesh%Ne)
@@ -376,11 +341,7 @@ contains
     integer, intent(in) :: vmapB(:)
 
     integer :: i, i_, iM, iP
-    real(RP) :: gradU_normal
-    real(RP) :: gradV_normal
-    real(RP) :: gradW_normal
-    real(RP) :: gradPT_normal
-
+    real(RP) :: grad_normal
     !-----------------------------------------------
 
     do i=1, elem%NfpTot*lmesh%Ne
@@ -391,33 +352,133 @@ contains
         iM = vmapM(i)
 
         if ( this%VelBC_list(domID)%list(i_) == BND_TYPE_SLIP_ID ) then
-          gradU_normal = GxU(iM)*nx(i) + GyU(iM)*ny(i) + GzU(iM)*nz(i)
-          !GxU(iP) = GxU(iM) - 2.0_RP*gradU_normal*nx(i)
-          GyU(iP) = GyU(iM) - 2.0_RP*gradU_normal*ny(i)
-          GzU(iP) = GzU(iM) - 2.0_RP*gradU_normal*nz(i)
+          grad_normal = GxVar(iM) * nx(i) + GyVar(iM) * ny(i) + GzVar(iM) * nz(i)
 
-          gradV_normal = GxV(iM)*nx(i) + GyV(iM)*ny(i) + GzV(iM)*nz(i)
-          !GxU(iP) = GxU(iM) - 2.0_RP*gradU_normal*nx(i)
-          GxV(iP) = GxV(iM) - 2.0_RP*gradV_normal*nx(i)
-          GzV(iP) = GzV(iM) - 2.0_RP*gradV_normal*nz(i)
-
-          gradW_normal = GxW(iM)*nx(i) + GyW(iM)*ny(i) + GzW(iM)*nz(i)
-          GxW(iP) = GxW(iM) - 2.0_RP*gradW_normal*nx(i)
-          GyW(iP) = GyW(iM) - 2.0_RP*gradW_normal*ny(i)
-          !GzW(iP) = GzW(iM) - 2.0_RP*gradW_normal*nz(i)
+          select case(VarID)
+          case(ATMOS_PROGVARS_MOMX_ID)
+            GyVar(iP) = GyVar(iM) - 2.0_RP * grad_normal * ny(i)
+            GzVar(iP) = GzVar(iM) - 2.0_RP * grad_normal * nz(i)
+          case(ATMOS_PROGVARS_MOMY_ID)          
+            GxVar(iP) = GxVar(iM) - 2.0_RP * grad_normal * nx(i)
+            GzVar(iP) = GzVar(iM) - 2.0_RP * grad_normal * nz(i)
+          case(ATMOS_PROGVARS_MOMZ_ID)          
+            GxVar(iP) = GxVar(iM) - 2.0_RP*grad_normal * nx(i)
+            GyVar(iP) = GyVar(iM) - 2.0_RP*grad_normal * ny(i)
+          end select
         end if
         if ( this%ThermalBC_list(domID)%list(i_) == BND_TYPE_ADIABAT_ID ) then
-          gradPT_normal = GxPT(iM)*nx(i) + GyPT(iM)*ny(i) + GzPT(iM)*nz(i)
-          GxPT(iP) = GxPT(iM) - 2.0_RP*gradPT_normal*nx(i)
-          GyPT(iP) = GyPT(iM) - 2.0_RP*gradPT_normal*ny(i)
-          GzPT(iP) = GzPT(iM) - 2.0_RP*gradPT_normal*nz(i)
+          select case(VarID)
+          case(ATMOS_PROGVARS_DDENS_ID, ATMOS_PROGVARS_DRHOT_ID)
+            GxVar(iP) = GxVar(iM) - 2.0_RP * grad_normal * nx(i)
+            GyVar(iP) = GyVar(iM) - 2.0_RP * grad_normal * ny(i)
+            GzVar(iP) = GzVar(iM) - 2.0_RP * grad_normal * nz(i)
+          end select
+        end if
+      
+      end if
+
+    end do
+
+    return
+  end subroutine applyBC_numdiff_odd_lc
+
+  subroutine ATMOS_dyn_bnd_applyBC_numdiff_even_lc(  this,  domID, &
+    Var, VarID,                                    & ! (inout)
+    MOMX, MOMY, MOMZ, DENS_hyd, PRES_hyd,          & ! (in)
+    nx, ny, nz, vmapM, vmapP, vmapB, lmesh, elem )   ! (in)
+
+    use scale_mesh_bndinfo, only: &
+      BND_TYPE_SLIP_ID, BND_TYPE_NOSLIP_ID, &
+      BND_TYPE_ADIABAT_ID
+    implicit none
+
+    class(AtmosDynBnd), intent(in) :: this
+    integer, intent(in) :: domID
+    class(LocalMesh3D), intent(in) :: lmesh
+    class(elementbase3D), intent(in) :: elem    
+    real(RP), intent(inout) :: Var(elem%Np,lmesh%NeA)
+    integer, intent(in) :: VarID
+    real(RP), intent(in) :: MOMX(elem%Np,lmesh%NeA)
+    real(RP), intent(in) :: MOMY(elem%Np,lmesh%NeA)
+    real(RP), intent(in) :: MOMZ(elem%Np,lmesh%NeA)
+    real(RP), intent(in) :: DENS_hyd(elem%Np,lmesh%NeA)
+    real(RP), intent(in) :: PRES_hyd(elem%Np,lmesh%NeA)
+    real(RP), intent(in) :: nx(elem%NfpTot,lmesh%Ne)
+    real(RP), intent(in) :: ny(elem%NfpTot,lmesh%Ne)
+    real(RP), intent(in) :: nz(elem%NfpTot,lmesh%Ne)
+    integer, intent(in) :: vmapM(elem%NfpTot,lmesh%Ne)
+    integer, intent(in) :: vmapP(elem%NfpTot,lmesh%Ne)
+    integer, intent(in) :: vmapB(:)
+    !-----------------------------------
+
+    call applyBC_numdiff_even_lc(  this,  domID, &
+      Var, VarID,                                    & ! (inout)
+      MOMX, MOMY, MOMZ, DENS_hyd, PRES_hyd,          & ! (in)
+      nx, ny, nz, vmapM, vmapP, vmapB, lmesh, elem )   ! (in)
+    return
+  end subroutine ATMOS_dyn_bnd_applyBC_numdiff_even_lc
+
+  subroutine applyBC_numdiff_even_lc(  this,  domID, &
+    Var, VarID,                                    & ! (inout)
+    MOMX, MOMY, MOMZ, DENS_hyd, PRES_hyd,          & ! (in)
+    nx, ny, nz, vmapM, vmapP, vmapB, lmesh, elem )   ! (in)
+
+    use scale_mesh_bndinfo, only: &
+      BND_TYPE_SLIP_ID, BND_TYPE_NOSLIP_ID, &
+      BND_TYPE_ADIABAT_ID
+    implicit none
+
+    type(AtmosDynBnd), intent(in) :: this
+    integer, intent(in) :: domID
+    class(LocalMesh3D), intent(in) :: lmesh
+    class(elementbase3D), intent(in) :: elem    
+    real(RP), intent(inout) :: Var(elem%Np*lmesh%NeA)
+    integer, intent(in) :: VarID
+    real(RP), intent(in) :: MOMX(elem%Np*lmesh%NeA)
+    real(RP), intent(in) :: MOMY(elem%Np*lmesh%NeA)
+    real(RP), intent(in) :: MOMZ(elem%Np*lmesh%NeA)
+    real(RP), intent(in) :: DENS_hyd(elem%Np*lmesh%NeA)
+    real(RP), intent(in) :: PRES_hyd(elem%Np*lmesh%NeA)
+    real(RP), intent(in) :: nx(elem%NfpTot*lmesh%Ne)
+    real(RP), intent(in) :: ny(elem%NfpTot*lmesh%Ne)
+    real(RP), intent(in) :: nz(elem%NfpTot*lmesh%Ne)
+    integer, intent(in) :: vmapM(elem%NfpTot*lmesh%Ne)
+    integer, intent(in) :: vmapP(elem%NfpTot*lmesh%Ne)
+    integer, intent(in) :: vmapB(:)
+
+    integer :: i, i_, iM, iP
+    real(RP) :: grad_normal
+    !-----------------------------------------------
+
+    do i=1, elem%NfpTot*lmesh%Ne
+      iP = vmapP(i)
+      i_ = iP - elem%Np*lmesh%NeE
+      
+      if (i_ > 0) then  
+        iM = vmapM(i)
+        grad_normal = MOMX(iM) * nx(i) + MOMY(iM) * ny(i) + MOMZ(iM) * nz(i)
+
+        if ( this%VelBC_list(domID)%list(i_) == BND_TYPE_SLIP_ID ) then
+          select case(VarID)
+          case(ATMOS_PROGVARS_MOMX_ID)
+            Var(iP) = Var(iM) - 2.0_RP * grad_normal * nx(i)
+          case(ATMOS_PROGVARS_MOMY_ID)          
+            Var(iP) = Var(iM) - 2.0_RP * grad_normal * ny(i)
+          case(ATMOS_PROGVARS_MOMZ_ID)          
+            Var(iP) = Var(iM) - 2.0_RP * grad_normal * nz(i)
+          end select
+        else if ( this%VelBC_list(domID)%list(i_) == BND_TYPE_NOSLIP_ID ) then
+          select case(VarID)
+          case(ATMOS_PROGVARS_MOMX_ID, ATMOS_PROGVARS_MOMY_ID, ATMOS_PROGVARS_MOMZ_ID)
+            Var(iP) = - Var(iM)
+          end select
         end if
 
       end if
     end do
 
     return
-  end subroutine applyBC_auxvars_lc
+  end subroutine applyBC_numdiff_even_lc
 
   !---------------------------------------------------------
 

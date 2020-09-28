@@ -62,6 +62,7 @@ module scale_timeint_rk
     procedure, public :: Init => timeint_rk_Init
     procedure, public :: Final => timeint_rk_Final
     procedure, public :: Get_implicit_diagfac => timeint_rk_Get_implicit_diagfac 
+    procedure, public :: Get_deltime => timeint_rk_Get_deltime
     procedure, public :: Advance1D => timeint_rk_advance1D
     procedure, public :: StoreImplicit1D => timeint_rk_storeimpl1D
     procedure, public :: Advance2D => timeint_rk_advance2D
@@ -284,6 +285,17 @@ contains
     
     return
   end subroutine timeint_rk_Final
+
+  elemental function timeint_rk_Get_DelTime( this ) result(dt)
+    implicit none
+    class(timeint_rk), intent(in) :: this
+    real(RP) :: dt
+    !-----------------------------------------------------
+    
+    dt = this%dt
+
+    return
+  end function timeint_rk_Get_DelTime
 
   elemental function timeint_rk_Get_implicit_diagfac( this, nowstage ) result(fac)
     implicit none
