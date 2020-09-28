@@ -23,7 +23,8 @@ program scaledg
      PRC_DOMAIN_nlim,     &
      PRC_MPIstart,        &
      PRC_MPIfinish,       &
-     PRC_MPIsplit,        &
+     PRC_MPIsplit_bulk,   &
+     PRC_MPIsplit_nest,   &
      PRC_UNIVERSAL_setup, &
      PRC_GLOBAL_setup,    &
      PRC_GLOBAL_ROOT,     &
@@ -71,23 +72,22 @@ program scaledg
 
   integer               :: universal_comm                         ! universal communicator
   integer               :: universal_nprocs                       ! number of procs in universal communicator
+  integer               :: universal_myrank                       ! my rank         in universal communicator  
   logical               :: universal_master                       ! master process  in universal communicator?
   character(len=H_LONG) :: universal_cnf_fname                    ! config file for launcher
 
   integer               :: global_comm                            ! communicator for each member
   integer               :: global_nprocs                          ! number of procs in global communicator
   integer               :: PRC_BULKJOB(PRC_DOMAIN_nlim) = 0       ! = global_nprocs
-  character(len=H_LONG) :: dummy1     (PRC_DOMAIN_nlim) = ""
-  integer               :: intercomm_parent_null                  ! NULL inter communicator with parent
-  integer               :: intercomm_child_null                   ! NULL inter communicator with child
-  character(len=H_LONG) :: bulk_prefix                            ! dirname of each member
+  integer               :: ID_BULKJOB                             ! bulk job ID
 
   logical               :: use_fpm = .false.                      ! switch for fpm module
 
-  integer               :: local_comm       ! assigned local communicator
-  integer               :: intercomm_parent ! inter communicator with parent
-  integer               :: intercomm_child  ! inter communicator with child
-  character(len=H_LONG) :: local_cnf_fname  ! config file for local domain
+  integer               :: local_comm                       ! assigned local communicator
+  integer               :: ID_DOMAIN                        ! domain ID
+  integer               :: intercomm_parent                 ! inter communicator with parent
+  integer               :: intercomm_child                  ! inter communicator with child
+  character(len=H_LONG) :: local_cnf_fname                  ! config file for local domain
 
   integer :: fid, ierr
   !-----------------------------------------------------------
@@ -97,6 +97,7 @@ program scaledg
 
   call PRC_UNIVERSAL_setup( universal_comm,   & ! [IN]
                             universal_nprocs, & ! [OUT]
+                            universal_myrank, & ! [OUT]
                             universal_master  ) ! [OUT]
 
   if( universal_master ) write(*,*) '*** Start Launch System for SCALE-DG'
@@ -166,18 +167,13 @@ program scaledg
   endif
 
   ! communicator split for bulk/ensemble
-  call PRC_MPIsplit( universal_comm,        & ! [IN]
-                     NUM_BULKJOB,           & ! [IN]
-                     PRC_BULKJOB(:),        & ! [IN]
-                     dummy1 (:),            & ! [IN]  dummy
-                     LOG_SPLIT,             & ! [IN]
-                     .true.,                & ! [IN]  flag bulk_split
-                     .false.,               & ! [IN]  no reordering
-                     global_comm,           & ! [OUT]
-                     intercomm_parent_null, & ! [OUT] null
-                     intercomm_child_null,  & ! [OUT] null
-                     bulk_prefix            ) ! [OUT] dir name instead of file name
-                     
+  call PRC_MPIsplit_bulk( universal_comm,        & ! [IN]
+                          NUM_BULKJOB,           & ! [IN]
+                          PRC_BULKJOB(:),        & ! [IN]
+                          LOG_SPLIT,             & ! [IN]
+                          global_comm,           & ! [OUT]
+                          ID_BULKJOB             ) ! [OUT]
+
   call PRC_GLOBAL_setup( ABORT_ALL_JOBS, & ! [IN]
                          global_comm     ) ! [IN]
                          
@@ -189,17 +185,15 @@ program scaledg
   endif
 
   ! communicator split for nesting domains
-  call PRC_MPIsplit( global_comm,      & ! [IN]
-                     NUM_DOMAIN,       & ! [IN]
-                     PRC_DOMAINS(:),   & ! [IN]
-                     CONF_FILES (:),   & ! [IN]
-                     LOG_SPLIT,        & ! [IN]
-                     .false.,          & ! [IN] flag bulk_split
-                     COLOR_REORDER,    & ! [IN]
-                     local_comm,       & ! [OUT]
-                     intercomm_parent, & ! [OUT]
-                     intercomm_child,  & ! [OUT]
-                     local_cnf_fname   ) ! [OUT]
+  call PRC_MPIsplit_nest( global_comm,      & ! [IN]
+                          NUM_DOMAIN,       & ! [IN]
+                          PRC_DOMAINS(:),   & ! [IN]
+                          LOG_SPLIT,        & ! [IN]
+                          COLOR_REORDER,    & ! [IN]
+                          local_comm,       & ! [OUT]
+                          ID_DOMAIN,        & ! [OUT]
+                          intercomm_parent, & ! [OUT]
+                          intercomm_child   ) ! [OUT]
                      
   !--- initialize FPM module & error handler
   call FPM_Init( NUM_FAIL_TOLERANCE, & ! [IN]
@@ -216,7 +210,9 @@ program scaledg
   !--- start main routine
 
   if ( NUM_BULKJOB > 1 ) then
-     local_cnf_fname = trim(bulk_prefix)//"/"//trim(local_cnf_fname)
+    write(local_cnf_fname,'(I4.4,2A)') ID_BULKJOB, "/", trim(CONF_FILES(ID_DOMAIN))
+  else
+    local_cnf_fname = trim(CONF_FILES(ID_DOMAIN))
   endif
 
   call dg_driver( local_comm,       & ! [IN]

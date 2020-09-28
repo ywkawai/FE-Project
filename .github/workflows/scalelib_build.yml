@@ -38,8 +38,8 @@ jobs:
         mkdir -p ${SCALE_INST_DIR} && cd ${SCALE_INST_DIR}
 
         echo "Download SCALE library .."
-        wget -q http://r-ccs-climate.riken.jp/scale/download/archives/scale-5.3.5.tar.gz
-        tar xzf scale-5.3.5.tar.gz --strip-components 1
+        wget -q http://r-ccs-climate.riken.jp/scale/download/archives/scale-5.4.0.tar.gz
+        tar xzf scale-5.4.0.tar.gz --strip-components 1
 
         echo "Build SCALE library .."
         export SCALE_SYS=Linux64-gnu-ompi
