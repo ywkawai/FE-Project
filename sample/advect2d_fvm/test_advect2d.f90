@@ -10,8 +10,7 @@ program test_advect2d
   use scale_index
   use scale_tracer
   use scale_prof
-  use scale_io, only: &
-     H_SHORT
+  use scale_io
   use scale_atmos_grid_cartesC, only: &
      CX              => ATMOS_GRID_CARTESC_CX,              &
      FX              => ATMOS_GRID_CARTESC_FX,              &
