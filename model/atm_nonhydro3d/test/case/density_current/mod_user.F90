@@ -24,6 +24,11 @@ module mod_user
   use mod_atmos_component, only: &
     AtmosComponent
 
+  use scale_element_base, only: ElementBase3D
+  use scale_element_hexahedral, only: HexahedralElement
+  use scale_localmesh_3d, only: LocalMesh3D    
+
+
   !-----------------------------------------------------------------------------
   implicit none
   private
@@ -52,6 +57,7 @@ module mod_user
   type, private, extends(experiment) :: Exp_density_current
   contains 
     procedure :: setInitCond_lc => exp_SetInitCond_density_current
+    procedure :: geostrophic_balance_correction_lc => exp_geostrophic_balance_correction
   end type
   type(Exp_density_current), private :: exp_manager
 
@@ -129,9 +135,6 @@ contains
       CVdry => CONST_CVdry, &
       PRES00 => CONST_PRE00
     
-    use scale_element_base, only: ElementBase3D
-    use scale_element_hexahedral, only: HexahedralElement
-    use scale_localmesh_3d, only: LocalMesh3D    
     implicit none
 
     class(Exp_density_current), intent(inout) :: this
@@ -230,22 +233,22 @@ contains
       z_intrp(:) = vz(1) + 0.5_RP*(elem_intrp%x3(:) + 1.0_RP)*(vz(5) - vz(1))
 
       dens_zfunc(:) = (1.0_RP - Grav*z(:,k)/(CpDry*THETA0))**(CVdry/Rdry)
-      DENS_hyd(:,k) = PRES00/(THETA0*Rdry) * dens_zfunc(:)
+      DENS_hyd(:,k) = PRES00 / (THETA0 * Rdry) * dens_zfunc(:)
       PRES_hyd(:,k) = PRES00 * (Rdry*DENS_hyd(:,k)*THETA0/PRES00)**(CPdry/Cvdry)
 
       if (InitCond_GalerkinProjFlag) then
         r_intrp(:) = sqrt( ((x_intrp(:) - x_c)/r_x)**2 + ((y_intrp(:) - y_c)/r_y)**2 + ((z_intrp(:) - z_c)/r_z)**2 )
         r_intrp(:) = min(1.0_RP, r_intrp(:))
         THETA_intrp(:) = THETA0                          &
-         + DTHETA*0.5_RP*(1.0_RP + cos(PI*r_intrp(:))) &
+         + DTHETA * 0.5_RP*(1.0_RP + cos(PI*r_intrp(:))) &
            / (1.0_RP - Grav*z_intrp(:)/(CpDry*THETA0))
         THETA(:) = matmul(IntrpMat, THETA_intrp)
       else
         r(:) = sqrt( ((x(:,k) - x_c)/r_x)**2 + ((y(:,k) - y_c)/r_y)**2 + ((z(:,k) - z_c)/r_z)**2 )
         r(:) = min(1.0_RP, r(:))
-        THETA(:) = THETA0                        &
-         + DTHETA*0.5_RP*(1.0_RP + cos(PI*r(:))) &
-           / (1.0_RP - Grav*lcmesh%pos_en(:,k,2)/(CpDry*THETA0)) 
+        THETA(:) = THETA0                         &
+         + DTHETA * 0.5_RP*(1.0_RP + cos(PI*r(:))) &
+           / (1.0_RP - Grav*z(:,k)/(CpDry*THETA0)) 
       end if
       
       DENS(:) = PRES00/(THETA(:)*Rdry) * dens_zfunc(:)
@@ -263,4 +266,26 @@ contains
 
     return
   end subroutine exp_SetInitCond_density_current
+
+  subroutine exp_geostrophic_balance_correction( this,                              &
+    DENS_hyd, PRES_hyd, DDENS, MOMX, MOMY, MOMZ, DRHOT,                  &
+    lcmesh, elem )
+    
+    implicit none
+
+    class(Exp_density_current), intent(inout) :: this
+    type(LocalMesh3D), intent(in) :: lcmesh
+    class(ElementBase3D), intent(in) :: elem
+    real(RP), intent(inout) :: DENS_hyd(elem%Np,lcmesh%NeA)
+    real(RP), intent(in) :: PRES_hyd(elem%Np,lcmesh%NeA)
+    real(RP), intent(inout) :: DDENS(elem%Np,lcmesh%NeA)
+    real(RP), intent(inout) :: MOMX(elem%Np,lcmesh%NeA)
+    real(RP), intent(inout) :: MOMY(elem%Np,lcmesh%NeA)    
+    real(RP), intent(inout) :: MOMZ(elem%Np,lcmesh%NeA)
+    real(RP), intent(inout) :: DRHOT(elem%Np,lcmesh%NeA)
+
+    !---------------------------------------------------
+    return
+  end subroutine exp_geostrophic_balance_correction 
+
 end module mod_user

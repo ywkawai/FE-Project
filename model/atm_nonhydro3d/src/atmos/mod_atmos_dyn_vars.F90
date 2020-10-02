@@ -38,7 +38,16 @@ module mod_atmos_dyn_vars
   !
   type, public :: AtmosDynVars
     type(MeshField2D), allocatable :: AUX_VARS2D(:)
-    type(ModelVarManager) :: AUXVARS_manager
+    type(ModelVarManager) :: AUXVARS2D_manager
+
+    type(MeshField3D), allocatable :: NUMDIFF_FLUX_VARS3D(:)
+    type(ModelVarManager) :: NUMDIFF_FLUX_manager
+    type(MeshFieldCommCubeDom3D) :: NUMDIFF_FLUX_comm
+
+    type(MeshField3D), allocatable :: NUMDIFF_TEND_VARS3D(:)
+    type(ModelVarManager) :: NUMDIFF_TEND_manager
+    type(MeshFieldCommCubeDom3D) :: NUMDIFF_TEND_comm
+
     type(MeshField3D), allocatable :: ANALYSIS_VARS3D(:)
     type(ModelVarManager) :: ANALYSISVARS_manager
   contains
@@ -47,7 +56,9 @@ module mod_atmos_dyn_vars
     procedure :: History => AtmosDynVars_History
   end type AtmosDynVars
 
-  public :: AtmosDynVars_GetLocalMeshFields
+  public :: AtmosDynAuxVars_GetLocalMeshFields
+  public :: AtmosDynNumDiffFlux_GetLocalMeshFields
+  public :: AtmosDynNumDiffTend_GetLocalMeshFields
   !public :: AtmosDynVars_GetLocalMeshFields_analysis
 
   !-----------------------------------------------------------------------------
@@ -62,6 +73,31 @@ module mod_atmos_dyn_vars
   DATA ATMOS_DYN_AUXVARS2D_VINFO / &
     VariableInfo( ATMOS_DYN_AUXVARS2D_CORIOLIS_ID, 'CORIOLIS', 'coriolis parameter',  &
                   's-1',  2, 'XY',  ''                                             )  / 
+
+  integer, public, parameter :: ATMOS_DYN_NUMDIFF_FLUX_NUM       = 3
+  integer, public, parameter :: ATMOS_DYN_NUMDIFFFLX_X_ID    = 1
+  integer, public, parameter :: ATMOS_DYN_NUMDIFFFLX_Y_ID    = 2
+  integer, public, parameter :: ATMOS_DYN_NUMDIFFFLX_Z_ID    = 3
+
+  integer, public, parameter :: ATMOS_DYN_NUMDIFF_TEND_NUM       = 2
+  integer, public, parameter :: ATMOS_DYN_NUMDIFF_LAPLAH_ID  = 1
+  integer, public, parameter :: ATMOS_DYN_NUMDIFF_LAPLAV_ID  = 2
+
+  type(VariableInfo), public :: ATMOS_DYN_NUMDIFF_FLUX_VINFO(ATMOS_DYN_NUMDIFF_FLUX_NUM)
+  DATA ATMOS_DYN_NUMDIFF_FLUX_VINFO / &
+    VariableInfo( ATMOS_DYN_NUMDIFFFLX_X_ID, 'DIFFFLX_X', 'flux in x-direction',  &
+                  '?.m/s',  3, 'XYZ',  ''                                           ),   & 
+    VariableInfo( ATMOS_DYN_NUMDIFFFLX_Y_ID, 'DIFFFLX_Y', 'flux in y-direction',  &
+                  '?.m/s',  3, 'XYZ',  ''                                           ),   &
+    VariableInfo( ATMOS_DYN_NUMDIFFFLX_Z_ID, 'DIFFFLX_Z', 'flux in z-direction',  &
+                  '?.m/s',  3, 'XYZ',  ''                                           )    / 
+                
+  type(VariableInfo), public :: ATMOS_DYN_NUMDIFF_TEND_VINFO(ATMOS_DYN_NUMDIFF_TEND_NUM)
+  DATA ATMOS_DYN_NUMDIFF_TEND_VINFO / &
+    VariableInfo( ATMOS_DYN_NUMDIFF_LAPLAH_ID, 'NUMDIFF_LAPLAH', 'tendency due to nundiff',  &
+                  '?/s',  3, 'XYZ',  ''                                                   ), &
+    VariableInfo( ATMOS_DYN_NUMDIFF_LAPLAV_ID, 'NUMDIFF_LAPLAV', 'tendency due to nundiff',  &
+                  '?/s',  3, 'XYZ',  ''                                                   )  /
 
   ! integer, public, parameter :: ATMOS_DYN_ANALYSISVARS_NUM          = 6
   ! integer, public, parameter :: ATMOS_DYN_ANALYSISVAR_MOMZ_t        = 1
@@ -105,6 +141,7 @@ contains
 
     class(AtmosMesh), pointer :: atm_mesh
     class(MeshBase2D), pointer :: mesh2D
+    class(MeshBase3D), pointer :: mesh3D
 
     !--------------------------------------------------
 
@@ -118,15 +155,16 @@ contains
       atm_mesh => model_mesh
     end select
     
-
-    call this%AUXVARS_manager%Init()
-    allocate( this%AUX_VARS2D(ATMOS_DYN_AUXVARS2D_NUM) )
-
+    mesh3D => atm_mesh%mesh
     call atm_mesh%mesh%GetMesh2D( mesh2D )
+
+    !-
+    call this%AUXVARS2D_manager%Init()
+    allocate( this%AUX_VARS2D(ATMOS_DYN_AUXVARS2D_NUM) )
 
     reg_file_hist = .false.    
     do v = 1, ATMOS_DYN_AUXVARS2D_NUM
-      call this%AUXVARS_manager%Regist(                     &
+      call this%AUXVARS2D_manager%Regist(                   &
         ATMOS_DYN_AUXVARS2D_VINFO(v), mesh2D,               & ! (in) 
         this%AUX_VARS2D(v), reg_file_hist                   ) ! (out)
       
@@ -135,6 +173,42 @@ contains
       end do         
     end do
 
+    !-
+    call this%NUMDIFF_FLUX_manager%Init()
+    allocate( this%NUMDIFF_FLUX_VARS3D(ATMOS_DYN_NUMDIFF_FLUX_NUM) )
+
+    reg_file_hist = .false.    
+    do v = 1, ATMOS_DYN_NUMDIFF_FLUX_NUM
+      call this%NUMDIFF_FLUX_manager%Regist(                &
+        ATMOS_DYN_NUMDIFF_FLUX_VINFO(v), mesh3D,            & ! (in) 
+        this%NUMDIFF_FLUX_VARS3D(v), reg_file_hist          ) ! (out)
+      
+      do n = 1, atm_mesh%mesh%LOCAL_MESH_NUM
+        this%NUMDIFF_FLUX_VARS3D(v)%local(n)%val(:,:) = 0.0_RP
+      end do         
+    end do
+    call this%NUMDIFF_FLUX_comm%Init( ATMOS_DYN_NUMDIFF_FLUX_NUM, 0, atm_mesh%mesh )
+    call this%NUMDIFF_FLUX_manager%MeshFieldComm_Prepair( this%NUMDIFF_FLUX_comm, this%NUMDIFF_FLUX_VARS3D(:) )
+
+    !-
+    call this%NUMDIFF_TEND_manager%Init()
+    allocate( this%NUMDIFF_TEND_VARS3D(ATMOS_DYN_NUMDIFF_TEND_NUM) )
+
+    reg_file_hist = .false.    
+    do v = 1, ATMOS_DYN_NUMDIFF_TEND_NUM
+      call this%NUMDIFF_TEND_manager%Regist(                &
+        ATMOS_DYN_NUMDIFF_TEND_VINFO(v), mesh3D,            & ! (in) 
+        this%NUMDIFF_TEND_VARS3D(v), reg_file_hist          ) ! (out)
+      
+      do n = 1, atm_mesh%mesh%LOCAL_MESH_NUM
+        this%NUMDIFF_TEND_VARS3D(v)%local(n)%val(:,:) = 0.0_RP
+      end do         
+    end do
+    call this%NUMDIFF_TEND_comm%Init( ATMOS_DYN_NUMDIFF_TEND_NUM, 0, atm_mesh%mesh )
+    call this%NUMDIFF_TEND_manager%MeshFieldComm_Prepair( this%NUMDIFF_TEND_comm, this%NUMDIFF_TEND_VARS3D(:) )
+
+
+    !-
     ! call this%ANALYSISVARS_manager%Init()
     ! allocate( this%ANALYSIS_VARS3D(ATMOS_DYN_ANALYSISVARS_NUM) )
 
@@ -156,7 +230,14 @@ contains
 
     LOG_INFO('AtmosDynVars_Final',*)
 
-    call this%AUXVARS_manager%Final()
+    call this%AUXVARS2D_manager%Final()
+
+    call this%NUMDIFF_FLUX_comm%Final()
+    call this%NUMDIFF_FLUX_manager%Final()
+
+    call this%NUMDIFF_TEND_comm%Final()
+    call this%NUMDIFF_TEND_manager%Final()
+
     !call this%ANALYSISVARS_manager%Final()
 
     return
@@ -179,9 +260,9 @@ contains
     return
   end subroutine AtmosDynVars_History
 
-  subroutine AtmosDynVars_GetLocalMeshFields( domID, mesh, auxvars_list, &
-    Coriolis,                                                            &
-    lcmesh3D                                                             &
+  subroutine AtmosDynAuxVars_GetLocalMeshFields( domID, mesh, auxvars_list, &
+    Coriolis,                                                               &
+    lcmesh3D                                                                &
     )
 
     use scale_mesh_base, only: MeshBase
@@ -214,8 +295,93 @@ contains
     end if
 
     return
-  end subroutine AtmosDynVars_GetLocalMeshFields
+  end subroutine AtmosDynAuxVars_GetLocalMeshFields
 
+  subroutine AtmosDynNumDiffFlux_GetLocalMeshFields( domID, mesh, auxvars_list, &
+    NUMDIFF_FLUX_X, NUMDIFF_FLUX_Y, NUMDIFF_FLUX_Z,                             &
+    lcmesh3D                                                                    &
+    )
+
+    use scale_mesh_base, only: MeshBase
+    use scale_meshfield_base, only: MeshFieldBase
+    implicit none
+
+    integer, intent(in) :: domID
+    class(MeshBase), intent(in) :: mesh
+    class(ModelVarManager), intent(inout) :: auxvars_list
+    class(LocalMeshFieldBase), pointer, intent(out) :: NUMDIFF_FLUX_X
+    class(LocalMeshFieldBase), pointer, intent(out) :: NUMDIFF_FLUX_Y
+    class(LocalMeshFieldBase), pointer, intent(out) :: NUMDIFF_FLUX_Z
+    class(LocalMesh3D), pointer, intent(out), optional :: lcmesh3D
+
+    class(MeshFieldBase), pointer :: field   
+    class(LocalMeshBase), pointer :: lcmesh
+    !-------------------------------------------------------
+
+    !--
+    call auxvars_list%Get(ATMOS_DYN_NUMDIFFFLX_X_ID, field)
+    call field%GetLocalMeshField(domID, NUMDIFF_FLUX_X)
+
+    call auxvars_list%Get(ATMOS_DYN_NUMDIFFFLX_Y_ID, field)
+    call field%GetLocalMeshField(domID, NUMDIFF_FLUX_Y)
+
+    call auxvars_list%Get(ATMOS_DYN_NUMDIFFFLX_Z_ID, field)
+    call field%GetLocalMeshField(domID, NUMDIFF_FLUX_Z)
+    !---
+    
+    if (present(lcmesh3D)) then
+      call mesh%GetLocalMesh( domID, lcmesh )
+      nullify( lcmesh3D )
+
+      select type(lcmesh)
+      type is (LocalMesh3D)
+        if (present(lcmesh3D)) lcmesh3D => lcmesh
+      end select
+    end if
+
+    return
+  end subroutine AtmosDynNumDiffFlux_GetLocalMeshFields
+
+  subroutine AtmosDynNumDiffTend_GetLocalMeshFields( domID, mesh, auxvars_list, &
+    NUMDIFF_LAPLAH, NUMDIFF_LAPLAV,                                             &
+    lcmesh3D                                                                    &
+    )
+
+    use scale_mesh_base, only: MeshBase
+    use scale_meshfield_base, only: MeshFieldBase
+    implicit none
+
+    integer, intent(in) :: domID
+    class(MeshBase), intent(in) :: mesh
+    class(ModelVarManager), intent(inout) :: auxvars_list
+    class(LocalMeshFieldBase), pointer, intent(out) :: NUMDIFF_LAPLAH
+    class(LocalMeshFieldBase), pointer, intent(out) :: NUMDIFF_LAPLAV
+    class(LocalMesh3D), pointer, intent(out), optional :: lcmesh3D
+
+    class(MeshFieldBase), pointer :: field   
+    class(LocalMeshBase), pointer :: lcmesh
+    !-------------------------------------------------------
+
+    !--
+    call auxvars_list%Get(ATMOS_DYN_NUMDIFF_LAPLAH_ID, field)
+    call field%GetLocalMeshField(domID, NUMDIFF_LAPLAH)
+
+    call auxvars_list%Get(ATMOS_DYN_NUMDIFF_LAPLAV_ID, field)
+    call field%GetLocalMeshField(domID, NUMDIFF_LAPLAV) 
+    !---
+    
+    if (present(lcmesh3D)) then
+      call mesh%GetLocalMesh( domID, lcmesh )
+      nullify( lcmesh3D )
+
+      select type(lcmesh)
+      type is (LocalMesh3D)
+        if (present(lcmesh3D)) lcmesh3D => lcmesh
+      end select
+    end if
+
+    return
+  end subroutine AtmosDynNumDiffTend_GetLocalMeshFields
   
   ! subroutine AtmosDynVars_GetLocalMeshFields_analysis( domID, mesh, analysis_list, &
   !   MOMZ_t, MOMZ_t_advx, MOMZ_t_advY, MOMZ_t_advZ, MOMZ_t_lift, MOMZ_t_buoy,       &

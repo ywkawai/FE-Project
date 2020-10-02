@@ -150,8 +150,6 @@ contains
     class(ModelVarManager), intent(inout) :: atm_auxvars_manager
 
     class(LocalMeshFieldBase), pointer :: DDENS, MOMX, MOMY, MOMZ, DRHOT
-    class(LocalMeshFieldBase), pointer :: &
-      GxU, GyU, GzU, GxV, GyV, GzV, GxW, GyW, GzW, GxPT, GyPT, GzPT
     class(LocalMeshFieldBase), pointer :: DENS_hyd, PRES_hyd
 
     integer :: n
@@ -168,7 +166,6 @@ contains
     do n=1, mesh%LOCAL_MESH_NUM
       call AtmosVars_GetLocalMeshFields( n, mesh, atm_prgvars_manager, atm_auxvars_manager, &
         DDENS, MOMX, MOMY, MOMZ, DRHOT,                                                     &
-        GxU, GyU, GzU, GxV, GyV, GzV, GxW, GyW, GzW, GxPT, GyPT, GzPT,                      &
         DENS_hyd, PRES_hyd, lcmesh3D                                                        )
 
       call this%setInitCond_lc( &
@@ -195,7 +192,6 @@ contains
     do n=1, mesh%LOCAL_MESH_NUM
       call AtmosVars_GetLocalMeshFields( n, mesh, atm_prgvars_manager, atm_auxvars_manager, &
         DDENS, MOMX, MOMY, MOMZ, DRHOT,                                                     &
-        GxU, GyU, GzU, GxV, GyV, GzV, GxW, GyW, GzW, GxPT, GyPT, GzPT,                      &
         DENS_hyd, PRES_hyd, lcmesh3D                                                        )
 
       call this%geostrophic_balance_correction_lc( &

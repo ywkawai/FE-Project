@@ -56,20 +56,6 @@ module scale_atm_dyn_nonhydro3d_heve
   integer, private, parameter :: VARS_DRHOT_ID  = 5
   integer, private, parameter :: PROG_VARS_NUM  = 5
   
-  integer, private, parameter :: VARS_GxU_ID      = 1
-  integer, private, parameter :: VARS_GyU_ID      = 2
-  integer, private, parameter :: VARS_GzU_ID      = 3
-  integer, private, parameter :: VARS_GxV_ID      = 4
-  integer, private, parameter :: VARS_GyV_ID      = 5
-  integer, private, parameter :: VARS_GzV_ID      = 6
-  integer, private, parameter :: VARS_GxW_ID      = 7
-  integer, private, parameter :: VARS_GyW_ID      = 8
-  integer, private, parameter :: VARS_GzW_ID      = 9
-  integer, private, parameter :: VARS_GxPT_ID     = 10
-  integer, private, parameter :: VARS_GyPT_ID     = 11
-  integer, private, parameter :: VARS_GzPT_ID     = 12
-  integer, private, parameter :: AUX_DIFFVARS_NUM = 12
-
   real(RP), private, allocatable :: IntrpMat_VPOrdM1(:,:)
 
   private :: cal_del_flux_dyn
@@ -115,8 +101,6 @@ contains
   subroutine atm_dyn_nonhydro3d_heve_cal_tend( &
     DENS_dt, MOMX_dt, MOMY_dt, MOMZ_dt, RHOT_dt,                                & ! (out)
     DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd, CORIOLIS,          & ! (in)
-    GxU_, GyU_, GzU_, GxV_, GyV_, GzV_, GxW_, GyW_, GzW_, GxPT_, GyPT_, GzPT_,  & ! (in)
-    viscCoef_h, viscCoef_v, diffCoef_h, diffCoef_v,                             & ! (in)
     Dx, Dy, Dz, Sx, Sy, Sz, Lift, lmesh, elem, lmesh2D, elem2D )
 
     implicit none
@@ -139,22 +123,6 @@ contains
     real(RP), intent(in)  :: DENS_hyd(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: PRES_hyd(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: CORIOLIS(elem2D%Np,lmesh2D%NeA)
-    real(RP), intent(in)  :: GxU_(elem%Np,lmesh%NeA)
-    real(RP), intent(in)  :: GyU_(elem%Np,lmesh%NeA)
-    real(RP), intent(in)  :: GzU_(elem%Np,lmesh%NeA)
-    real(RP), intent(in)  :: GxV_(elem%Np,lmesh%NeA)
-    real(RP), intent(in)  :: GyV_(elem%Np,lmesh%NeA)
-    real(RP), intent(in)  :: GzV_(elem%Np,lmesh%NeA)
-    real(RP), intent(in)  :: GxW_(elem%Np,lmesh%NeA)
-    real(RP), intent(in)  :: GyW_(elem%Np,lmesh%NeA)
-    real(RP), intent(in)  :: GzW_(elem%Np,lmesh%NeA)
-    real(RP), intent(in)  :: GxPT_(elem%Np,lmesh%NeA)
-    real(RP), intent(in)  :: GyPT_(elem%Np,lmesh%NeA)
-    real(RP), intent(in)  :: GzPT_(elem%Np,lmesh%NeA) 
-    real(RP), intent(in) :: viscCoef_h
-    real(RP), intent(in) :: viscCoef_v
-    real(RP), intent(in) :: diffCoef_h
-    real(RP), intent(in) :: diffCoef_v
 
     real(RP) :: Fx(elem%Np), Fy(elem%Np), Fz(elem%Np), LiftDelFlx(elem%Np)
     real(RP) :: del_flux(elem%NfpTot,lmesh%Ne,PROG_VARS_NUM)
@@ -168,10 +136,6 @@ contains
     call PROF_rapstart( 'cal_dyn_tend_bndflux', 3)
     call cal_del_flux_dyn( del_flux,                                          & ! (out)
       DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd,                & ! (in)
-      GxU_, GyU_, GzU_, GxV_, GyV_, GzV_, GxW_, GyW_, GzW_,                   & ! (in)
-      GxPT_, GyPT_, GzPT_,                                                    & ! (in)
-      viscCoef_h, viscCoef_v,                                                 & ! (in)
-      diffCoef_h, diffCoef_v,                                                 & ! (in)
       lmesh%normal_fn(:,:,1), lmesh%normal_fn(:,:,2), lmesh%normal_fn(:,:,3), & ! (in)
       lmesh%vmapM, lmesh%vmapP,                                               & ! (in)
       lmesh, elem )                                                             ! (in)
@@ -208,9 +172,9 @@ contains
           + LiftDelFlx(:) )
       
       !-- MOMX
-      call sparsemat_matmul(Dx, u_(:)*MOMX_(:,ke) + pres_(:)  - viscCoef_h*dens_(:)*GxU_(:,ke), Fx)
-      call sparsemat_matmul(Dy, v_(:)*MOMX_(:,ke)             - viscCoef_h*dens_(:)*GyU_(:,ke), Fy)
-      call sparsemat_matmul(Dz, w_(:)*MOMX_(:,ke)             - viscCoef_v*dens_(:)*GzU_(:,ke) ,Fz)
+      call sparsemat_matmul(Dx, u_(:)*MOMX_(:,ke) + pres_(:), Fx)
+      call sparsemat_matmul(Dy, v_(:)*MOMX_(:,ke)           , Fy)
+      call sparsemat_matmul(Dz, w_(:)*MOMX_(:,ke)           , Fz)
       call sparsemat_matmul(Lift, lmesh%Fscale(:,ke)*del_flux(:,ke,VARS_MOMX_ID), LiftDelFlx)
 
       MOMX_dt(:,ke) = - (  &
@@ -222,9 +186,9 @@ contains
           )
 
       !-- MOMY
-      call sparsemat_matmul(Dx, u_(:)*MOMY_(:,ke)             - viscCoef_h*dens_(:)*GxV_(:,ke), Fx)
-      call sparsemat_matmul(Dy, v_(:)*MOMY_(:,ke) + pres_(:)  - viscCoef_h*dens_(:)*GyV_(:,ke), Fy)
-      call sparsemat_matmul(Dz, w_(:)*MOMY_(:,ke)             - viscCoef_v*dens_(:)*GzV_(:,ke) ,Fz)
+      call sparsemat_matmul(Dx, u_(:)*MOMY_(:,ke)           , Fx)
+      call sparsemat_matmul(Dy, v_(:)*MOMY_(:,ke) + pres_(:), Fy)
+      call sparsemat_matmul(Dz, w_(:)*MOMY_(:,ke)           , Fz)
       call sparsemat_matmul(Lift, lmesh%Fscale(:,ke)*del_flux(:,ke,VARS_MOMY_ID), LiftDelFlx)
 
       MOMY_dt(:,ke) = - (  &
@@ -236,9 +200,9 @@ contains
           )
 
       !-- MOMZ
-      call sparsemat_matmul(Dx, u_(:)*MOMZ_(:,ke)             - viscCoef_h*dens_(:)*GxW_(:,ke), Fx)
-      call sparsemat_matmul(Dy, v_(:)*MOMZ_(:,ke)             - viscCoef_h*dens_(:)*GyW_(:,ke), Fy)
-      call sparsemat_matmul(Dz, w_(:)*MOMZ_(:,ke) + dpres_(:) - viscCoef_v*dens_(:)*GzW_(:,ke), Fz)
+      call sparsemat_matmul(Dx, u_(:)*MOMZ_(:,ke)            , Fx)
+      call sparsemat_matmul(Dy, v_(:)*MOMZ_(:,ke)            , Fy)
+      call sparsemat_matmul(Dz, w_(:)*MOMZ_(:,ke) + dpres_(:), Fz)
       call sparsemat_matmul(Lift, lmesh%Fscale(:,ke)*del_flux(:,ke,VARS_MOMZ_ID), LiftDelFlx)
       
       MOMZ_dt(:,ke) = - ( &
@@ -246,14 +210,12 @@ contains
           + lmesh%Escale(:,ke,2,2) * Fy(:)   &
           + lmesh%Escale(:,ke,3,3) * Fz(:)   &
           + LiftDelFlx(:)                )   &
-          - matmul(IntrpMat_VPOrdM1, DDENS_(:,ke)) * Grav
-          !- DDENS_(:,ke)*Grav
-      
+          - matmul(IntrpMat_VPOrdM1, DDENS_(:,ke)) * Grav      
 
       !-- RHOT
-      call sparsemat_matmul(Dx, u_(:)*RHOT_(:) - diffCoef_h*dens_(:)*GxPT_(:,ke), Fx)
-      call sparsemat_matmul(Dy, v_(:)*RHOT_(:) - diffCoef_h*dens_(:)*GyPT_(:,ke), Fy)
-      call sparsemat_matmul(Dz, w_(:)*RHOT_(:) - diffCoef_v*dens_(:)*GzPT_(:,ke), Fz)
+      call sparsemat_matmul(Dx, u_(:)*RHOT_(:), Fx)
+      call sparsemat_matmul(Dy, v_(:)*RHOT_(:), Fy)
+      call sparsemat_matmul(Dz, w_(:)*RHOT_(:), Fz)
       call sparsemat_matmul(Lift, lmesh%Fscale(:,ke)*del_flux(:,ke,VARS_DRHOT_ID), LiftDelFlx)
       
       RHOT_dt(:,ke) =  - (  &
@@ -272,11 +234,7 @@ contains
 
   subroutine cal_del_flux_dyn( del_flux, &
     DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd,   &
-    GxU_, GyU_, GzU_, GxV_, GyV_, GzV_, GxW_, GyW_, GzW_,      &
-    GxPT_, GyPT_, GzPT_,                                       &
-    viscCoef_h, viscCoef_v,                                    &
-    diffCoef_h, diffCoef_v,                                    &
-    nx, ny, nz, vmapM, vmapP, lmesh, elem )
+    nx, ny, nz, vmapM, vmapP, lmesh, elem                      )
 
     implicit none
 
@@ -290,22 +248,6 @@ contains
     real(RP), intent(in) ::  DRHOT_(elem%Np*lmesh%NeA)  
     real(RP), intent(in) ::  DENS_hyd(elem%Np*lmesh%NeA)
     real(RP), intent(in) ::  PRES_hyd(elem%Np*lmesh%NeA)
-    real(RP), intent(in) ::  GxU_(elem%Np*lmesh%NeA)
-    real(RP), intent(in) ::  GyU_(elem%Np*lmesh%NeA)
-    real(RP), intent(in) ::  GzU_(elem%Np*lmesh%NeA)
-    real(RP), intent(in) ::  GxV_(elem%Np*lmesh%NeA)
-    real(RP), intent(in) ::  GyV_(elem%Np*lmesh%NeA)
-    real(RP), intent(in) ::  GzV_(elem%Np*lmesh%NeA)
-    real(RP), intent(in) ::  GxW_(elem%Np*lmesh%NeA)
-    real(RP), intent(in) ::  GyW_(elem%Np*lmesh%NeA)
-    real(RP), intent(in) ::  GzW_(elem%Np*lmesh%NeA)
-    real(RP), intent(in) ::  GxPT_(elem%Np*lmesh%NeA)
-    real(RP), intent(in) ::  GyPT_(elem%Np*lmesh%NeA)
-    real(RP), intent(in) ::  GzPT_(elem%Np*lmesh%NeA)
-    real(RP), intent(in) :: viscCoef_h
-    real(RP), intent(in) :: viscCoef_v
-    real(RP), intent(in) :: diffCoef_h
-    real(RP), intent(in) :: diffCoef_v
     real(RP), intent(in) :: nx(elem%NfpTot*lmesh%Ne)
     real(RP), intent(in) :: ny(elem%NfpTot*lmesh%Ne)
     real(RP), intent(in) :: nz(elem%NfpTot*lmesh%Ne)
@@ -317,16 +259,15 @@ contains
     real(RP) :: uM, uP, vM, vP, wM, wP, presM, presP, dpresM, dpresP, densM, densP, rhotM, rhotP, rhot_hyd_M, rhot_hyd_P
     real(RP) :: dDiffFluxU, dDiffFluxV, dDiffFluxW, dDiffFluxPT
     real(RP) :: gamm, rgamm
-    real(RP) :: mu, viscCoef, diffCoef
     !------------------------------------------------------------------------
 
     gamm = CpDry/CvDry
     rgamm = CvDry/CpDry
 
-    !$omp parallel do private( &
-    !$omp iM, iP, uM, VelP, VelM, alpha, &
-    !$omp uP, vM, vP, wM, wP, presM, presP, dpresM, dpresP, densM, densP, rhotM, rhotP, rhot_hyd_M, rhot_hyd_P, &
-    !$omp dDiffFluxU, dDiffFluxV, dDiffFluxW, dDiffFluxPT, mu, viscCoef, diffCoef )
+    !$omp parallel do private( iM, iP, alpha, &
+    !$omp uM, uP, vM, vP, wM, wP, VelP, VelM,                 &
+    !$omp presM, presP, dpresM, dpresP,                       &
+    !$omp densM, densP, rhotM, rhotP, rhot_hyd_M, rhot_hyd_P  )
     do i=1, elem%NfpTot*lmesh%Ne
       iM = vmapM(i); iP = vmapP(i)
 
@@ -348,40 +289,6 @@ contains
       VelP = (MOMX_(iP)*nx(i) + MOMY_(iP)*ny(i) + MOMZ_(iP)*nz(i))/densP
 
       alpha = max( sqrt(gamm*presM/densM) + abs(VelM), sqrt(gamm*presP/densP) + abs(VelP)  )
-      mu = (2.0_RP * dble((elem%PolyOrder_h+1)*(elem%PolyOrder_h+2)) / 2.0_RP / 600.0_RP) 
-      viscCoef = viscCoef_h*(abs(nx(i)) + abs(ny(i))) + viscCoef_v*abs(nz(i))
-      diffCoef = diffCoef_h*(abs(nx(i)) + abs(ny(i))) + diffCoef_v*abs(nz(i))
-
-      if (diffCoef > 0.0_RP) then
-        dDiffFluxU = viscCoef*( &
-            (densP*GxU_(iP) - densM*GxU_(iM))*nx(i)                    &
-          + (densP*GyU_(iP) - densM*GyU_(iM))*ny(i)                    &
-          + (densP*GzU_(iP) - densM*GzU_(iM))*nz(i)                    &
-          + mu*(densP + densM)*(MOMX_(iP)/densP - MOMX_(iM)/densM) )
-
-        dDiffFluxV = viscCoef*( &
-            (densP*GxV_(iP) - densM*GxV_(iM))*nx(i)                    &
-          + (densP*GyV_(iP) - densM*GyV_(iM))*ny(i)                    &
-          + (densP*GzV_(iP) - densM*GzV_(iM))*nz(i)                    &
-          + mu*(densP + densM)*(MOMY_(iP)/densP - MOMY_(iM)/densM) )
-        
-        dDiffFluxW = viscCoef*( &
-            (densP*GxW_(iP) - densM*GxW_(iM))*nx(i)                    &
-          + (densP*GyW_(iP) - densM*GyW_(iM))*ny(i)                    &
-          + (densP*GzW_(iP) - densM*GzW_(iM))*nz(i)                    &
-          + mu*(densP + densM)*(MOMZ_(iP)/densP - MOMZ_(iM)/densM) )
-
-        dDiffFluxPT = diffCoef*( &
-            (densP*GxPT_(iP) - densM*GxPT_(iM))*nx(i)     &
-          + (densP*GyPT_(iP) - densM*GyPT_(iM))*ny(i)     &            
-          + (densP*GzPT_(iP) - densM*GzPT_(iM))*nz(i)     &
-          + mu*(densP + densM)*(rhotP/densP - rhotM/densM) )
-      else
-        dDiffFluxU  = 0.0_RP
-        dDiffFluxV  = 0.0_RP
-        dDiffFluxW  = 0.0_RP
-        dDiffFluxPT = 0.0_RP
-      end if
       
       del_flux(i,VARS_DDENS_ID) = 0.5_RP*(               &
                     ( densP*VelP - densM*VelM )          &
@@ -390,27 +297,21 @@ contains
       del_flux(i,VARS_MOMX_ID) = 0.5_RP*(                &
                     ( MOMX_(iP)*VelP - MOMX_(iM)*VelM )  &
                     + ( dpresP - dpresM )*nx(i)          &
-                    - alpha*(MOMX_(iP) - MOMX_(iM))      &
-                    - dDiffFluxU                        )
+                    - alpha*(MOMX_(iP) - MOMX_(iM))      )
       
       del_flux(i,VARS_MOMY_ID) = 0.5_RP*(                &
                     ( MOMY_(iP)*VelP - MOMY_(iM)*VelM )  &
                     + ( dpresP - dpresM )*ny(i)          &
-                    - alpha*(MOMY_(iP) - MOMY_(iM))      &
-                    - dDiffFluxV                        )               
+                    - alpha*(MOMY_(iP) - MOMY_(iM))      )               
       
       del_flux(i,VARS_MOMZ_ID) = 0.5_RP*(                &
                     ( MOMZ_(iP)*VelP - MOMZ_(iM)*VelM)   &
                     + ( dpresP - dpresM )*nz(i)          &                    
-                    - alpha*(MOMZ_(iP) - MOMZ_(iM))      &
-                    - dDiffFluxW                        )
+                    - alpha*(MOMZ_(iP) - MOMZ_(iM))      )
       
       del_flux(i,VARS_DRHOT_ID) = 0.5_RP*(               &
                       ( rhotP*VelP - rhotM*VelM )        &
-                    - alpha*(DRHOT_(iP) - DRHOT_(iM))    &
-                    - dDiffFluxPT                       )
-                    
-
+                    - alpha*(DRHOT_(iP) - DRHOT_(iM))    )
     end do
 
     return
