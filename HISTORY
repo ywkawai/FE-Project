@@ -1,3 +1,13 @@
+= 2020-10-02 (0.2.0)
+* New features
+  * Add a library for solving PDEs within regular 3D domains 
+    with nodal discontinuous galerkin method (nodal DGM). 
+  * Add sample programs of 3D linear advection problems using our library. 
+  * Implement a 3D nonhydrostatic atmospheric model with nodal DGM using our library. 
+    * Add four test cases for dynamical core: sound wave, inertia gravity wave, density current, and baroclinic wave. 
+* Fix many bugs.
+
+
 = 2019-10-20 (0.1.0)
 * New features
   * Add a library for solving PDEs within 1D and regular 2D domains 

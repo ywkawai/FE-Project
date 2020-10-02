@@ -11,9 +11,9 @@ This FE library requires following libraries:
 
 We confirm that building our codes has succeeded in the following environments:
   - macOS Mojave
-    - GNU Fortran 9.2.0
-    - OpenMPI 4.0.1
-    - LAPACK 3.8.0
+    - GNU Fortran 9.3.0
+    - OpenMPI 4.0.3
+    - LAPACK 3.9.0
     - NetCDF 4.6.3
     - SCALE library 5.4.0
   - Ubuntu 18.04 LTS
