@@ -270,10 +270,10 @@ contains
         iM = vmapM(i)
         select case( this%VelBC_list(domID)%list(i_) )
         case ( BND_TYPE_SLIP_ID)
-          mom_normal = MOMX(iM)*nx(i) + MOMY(iM)*ny(i) + MOMZ(iM)*nz(i)
-          MOMX(iP) = MOMX(iM) - 2.0_RP*mom_normal*nx(i)
-          MOMY(iP) = MOMY(iM) - 2.0_RP*mom_normal*ny(i)
-          MOMZ(iP) = MOMZ(iM) - 2.0_RP*mom_normal*nz(i)
+          mom_normal = MOMX(iM) * nx(i) + MOMY(iM) * ny(i) + MOMZ(iM) * nz(i)
+          MOMX(iP) = MOMX(iM) - 2.0_RP * mom_normal * nx(i)
+          MOMY(iP) = MOMY(iM) - 2.0_RP * mom_normal * ny(i)
+          MOMZ(iP) = MOMZ(iM) - 2.0_RP * mom_normal * nz(i)
         case ( BND_TYPE_NOSLIP_ID )
           MOMX(iP) = - MOMX(iM)
           MOMY(iP) = - MOMY(iM)
@@ -350,10 +350,9 @@ contains
       
       if (i_ > 0) then  
         iM = vmapM(i)
+        grad_normal = GxVar(iM) * nx(i) + GyVar(iM) * ny(i) + GzVar(iM) * nz(i)
 
         if ( this%VelBC_list(domID)%list(i_) == BND_TYPE_SLIP_ID ) then
-          grad_normal = GxVar(iM) * nx(i) + GyVar(iM) * ny(i) + GzVar(iM) * nz(i)
-
           select case(VarID)
           case(ATMOS_PROGVARS_MOMX_ID)
             GyVar(iP) = GyVar(iM) - 2.0_RP * grad_normal * ny(i)
@@ -362,8 +361,8 @@ contains
             GxVar(iP) = GxVar(iM) - 2.0_RP * grad_normal * nx(i)
             GzVar(iP) = GzVar(iM) - 2.0_RP * grad_normal * nz(i)
           case(ATMOS_PROGVARS_MOMZ_ID)          
-            GxVar(iP) = GxVar(iM) - 2.0_RP*grad_normal * nx(i)
-            GyVar(iP) = GyVar(iM) - 2.0_RP*grad_normal * ny(i)
+            GxVar(iP) = GxVar(iM) - 2.0_RP * grad_normal * nx(i)
+            GyVar(iP) = GyVar(iM) - 2.0_RP * grad_normal * ny(i)
           end select
         end if
         if ( this%ThermalBC_list(domID)%list(i_) == BND_TYPE_ADIABAT_ID ) then
@@ -456,15 +455,19 @@ contains
       
       if (i_ > 0) then  
         iM = vmapM(i)
-        grad_normal = MOMX(iM) * nx(i) + MOMY(iM) * ny(i) + MOMZ(iM) * nz(i)
 
         if ( this%VelBC_list(domID)%list(i_) == BND_TYPE_SLIP_ID ) then
+          grad_normal = MOMX(iM) * nx(i) + MOMY(iM) * ny(i) + MOMZ(iM) * nz(i)
+
           select case(VarID)
           case(ATMOS_PROGVARS_MOMX_ID)
+            grad_normal = Var(iM) * nx(i)         
             Var(iP) = Var(iM) - 2.0_RP * grad_normal * nx(i)
-          case(ATMOS_PROGVARS_MOMY_ID)          
+          case(ATMOS_PROGVARS_MOMY_ID) 
+            grad_normal = Var(iM) * ny(i)         
             Var(iP) = Var(iM) - 2.0_RP * grad_normal * ny(i)
           case(ATMOS_PROGVARS_MOMZ_ID)          
+            grad_normal = Var(iM) * nz(i)         
             Var(iP) = Var(iM) - 2.0_RP * grad_normal * nz(i)
           end select
         else if ( this%VelBC_list(domID)%list(i_) == BND_TYPE_NOSLIP_ID ) then

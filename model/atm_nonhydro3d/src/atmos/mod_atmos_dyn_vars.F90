@@ -81,7 +81,7 @@ module mod_atmos_dyn_vars
 
   integer, public, parameter :: ATMOS_DYN_NUMDIFF_TEND_NUM       = 2
   integer, public, parameter :: ATMOS_DYN_NUMDIFF_LAPLAH_ID  = 1
-  integer, public, parameter :: ATMOS_DYN_NUMDIFF_LAPLAV_ID  = 1
+  integer, public, parameter :: ATMOS_DYN_NUMDIFF_LAPLAV_ID  = 2
 
   type(VariableInfo), public :: ATMOS_DYN_NUMDIFF_FLUX_VINFO(ATMOS_DYN_NUMDIFF_FLUX_NUM)
   DATA ATMOS_DYN_NUMDIFF_FLUX_VINFO / &
@@ -89,7 +89,7 @@ module mod_atmos_dyn_vars
                   '?.m/s',  3, 'XYZ',  ''                                           ),   & 
     VariableInfo( ATMOS_DYN_NUMDIFFFLX_Y_ID, 'DIFFFLX_Y', 'flux in y-direction',  &
                   '?.m/s',  3, 'XYZ',  ''                                           ),   &
-    VariableInfo( ATMOS_DYN_NUMDIFFFLX_X_ID, 'DIFFFLX_Z', 'flux in z-direction',  &
+    VariableInfo( ATMOS_DYN_NUMDIFFFLX_Z_ID, 'DIFFFLX_Z', 'flux in z-direction',  &
                   '?.m/s',  3, 'XYZ',  ''                                           )    / 
                 
   type(VariableInfo), public :: ATMOS_DYN_NUMDIFF_TEND_VINFO(ATMOS_DYN_NUMDIFF_TEND_NUM)
@@ -298,7 +298,7 @@ contains
   end subroutine AtmosDynAuxVars_GetLocalMeshFields
 
   subroutine AtmosDynNumDiffFlux_GetLocalMeshFields( domID, mesh, auxvars_list, &
-    NUMDIFF_FLUX_X, NUMDIFF_FLUX_Y, NUMDIFF_FLUX_Z,               &
+    NUMDIFF_FLUX_X, NUMDIFF_FLUX_Y, NUMDIFF_FLUX_Z,                             &
     lcmesh3D                                                                    &
     )
 

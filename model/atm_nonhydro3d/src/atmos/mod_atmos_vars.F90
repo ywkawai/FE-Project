@@ -261,7 +261,7 @@ contains
       call auxvars_list%Get(ATMOS_AUXVARS_DENSHYDRO_ID, field)
       call field%GetLocalMeshField(domID, DENS_hyd)
     end if
-    if (present(DENS_hyd)) then
+    if (present(PRES_hyd)) then
       call auxvars_list%Get(ATMOS_AUXVARS_PRESHYDRO_ID, field)
       call field%GetLocalMeshField(domID, PRES_hyd)
     end if

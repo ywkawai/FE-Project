@@ -172,11 +172,6 @@ contains
     character(len=H_MID) :: EQS_TYPE    = "NONHYDRO3D_HEVE"
     character(len=H_SHORT) :: TINTEG_TYPE = 'RK_TVD_3'
     real(DP) :: DT_SEC     = 1.0_RP
-
-    real(RP) :: VISCCOEF_H = 0.0_RP
-    real(RP) :: VISCCOEF_V = 0.0_RP
-    real(RP) :: DIFFCOEF_H = 0.0_RP
-    real(RP) :: DIFFCOEF_V = 0.0_RP
     
     logical  :: MODALFILTER_FLAG = .false.
     real(RP) :: MF_ETAC_h  = 2.0_RP/3.0_RP
@@ -200,8 +195,6 @@ contains
       EQS_TYPE,                               &
       TINTEG_TYPE,                            &
       DT_SEC,                                 &
-      VISCCOEF_H, VISCCOEF_V,                 &
-      DIFFCOEF_H, DIFFCOEF_V,                 &
       MODALFILTER_FLAG,                       &
       NUMDIFF_FLAG,                           &
       CORIOLIS_TYPE,                          &
@@ -287,12 +280,21 @@ contains
     !-
     this%CALC_NUMDIFF_FLAG = NUMDIFF_FLAG
     if( this%CALC_NUMDIFF_FLAG ) then
+      rewind(IO_FID_CONF)
+      read(IO_FID_CONF,nml=PARAM_ATMOS_DYN_NUMDIFF,iostat=ierr)
+      if( ierr < 0 ) then !--- missing
+        LOG_INFO("ATMOS_DYN_NUMDIFF_setup",*) 'Not found namelist. Default used.'
+      elseif( ierr > 0 ) then !--- fatal error
+        LOG_ERROR("ATMOS_DYN_NUMDIFF_setup",*) 'Not appropriate names in namelist PARAM_ATMOS_DYN_NUMDIFF. Check!'
+        call PRC_abort
+      endif
+      LOG_NML(PARAM_ATMOS_DYN_NUMDIFF)      
+
+
       this%ND_LAPLACIAN_NUM = ND_LAPLACIAN_NUM
       this%ND_COEF_H = ND_COEF_h
       this%ND_COEF_v = ND_COEF_v
       call atm_dyn_nonhydro3d_numdiff_Init( atm_mesh%mesh )
-    else
-      this%CALC_NUMDIFF_FLAG = .false.
     end if    
 
     !-
@@ -304,7 +306,7 @@ contains
       if( ierr < 0 ) then !--- missing
         LOG_INFO("ATMOS_DYN_MODALFILTER_setup",*) 'Not found namelist. Default used.'
       elseif( ierr > 0 ) then !--- fatal error
-        LOG_ERROR("ATMOS_DYN_MODALFILTER_setup",*) 'Not appropriate names in namelist PARAM_ATMOS_DYN_MODALFILTER_. Check!'
+        LOG_ERROR("ATMOS_DYN_MODALFILTER_setup",*) 'Not appropriate names in namelist PARAM_ATMOS_DYN_MODALFILTER. Check!'
         call PRC_abort
       endif
       LOG_NML(PARAM_ATMOS_DYN_MODALFILTER)      
@@ -455,7 +457,7 @@ contains
         
         call AtmosDynAuxVars_GetLocalMeshFields( n,      &
           mesh, this%dyn_vars%AUXVARS2D_manager,         &
-          Coriolis, lcmesh )
+          Coriolis )
         call PROF_rapend( 'ATM_DYN_get_localmesh_ptr', 2)
 
         call PROF_rapstart( 'ATM_DYN_update_caltend_ex', 2)
@@ -532,11 +534,11 @@ contains
           DENS_hyd, PRES_hyd, lcmesh                                      )
         !$omp parallel do
         do ke=1, lcmesh%Ne
-          DDENS%val(:,ke) = DDENS%val(:,ke) + dt * this%tint(n)%tend_buf2D_ex(:,ke,ATMOS_PROGVARS_DDENS_ID,1)
-          MOMX %val(:,ke) = MOMX %val(:,ke) + dt * this%tint(n)%tend_buf2D_ex(:,ke,ATMOS_PROGVARS_MOMX_ID ,1)
-          MOMY %val(:,ke) = MOMY %val(:,ke) + dt * this%tint(n)%tend_buf2D_ex(:,ke,ATMOS_PROGVARS_MOMY_ID ,1)
-          MOMZ %val(:,ke) = MOMZ %val(:,ke) + dt * this%tint(n)%tend_buf2D_ex(:,ke,ATMOS_PROGVARS_MOMZ_ID ,1)
-          DRHOT%val(:,ke) = DRHOT%val(:,ke) + dt * this%tint(n)%tend_buf2D_ex(:,ke,ATMOS_PROGVARS_DRHOT_ID,1)
+         DDENS%val(:,ke) = DDENS%val(:,ke) + dt * this%tint(n)%tend_buf2D_ex(:,ke,ATMOS_PROGVARS_DDENS_ID,1)
+         MOMX %val(:,ke) = MOMX %val(:,ke) + dt * this%tint(n)%tend_buf2D_ex(:,ke,ATMOS_PROGVARS_MOMX_ID ,1)
+         MOMY %val(:,ke) = MOMY %val(:,ke) + dt * this%tint(n)%tend_buf2D_ex(:,ke,ATMOS_PROGVARS_MOMY_ID ,1)
+         MOMZ %val(:,ke) = MOMZ %val(:,ke) + dt * this%tint(n)%tend_buf2D_ex(:,ke,ATMOS_PROGVARS_MOMZ_ID ,1)
+         DRHOT%val(:,ke) = DRHOT%val(:,ke) + dt * this%tint(n)%tend_buf2D_ex(:,ke,ATMOS_PROGVARS_DRHOT_ID,1)
         end do
       end do
       
@@ -604,38 +606,38 @@ contains
     class(MeshBase), pointer :: mesh
     class(LocalMesh3D), pointer :: lcmesh
     integer :: n
+    integer :: ke
     integer :: nd_itr
     real(RP) :: nd_sign
+    logical :: dens_weight_flag
 
     !-----------------------------------------
 
     nd_sign = (-1)**(mod(this%ND_LAPLACIAN_NUM+1,2))
+    dens_weight_flag = (varid /= ATMOS_PROGVARS_DDENS_ID)
 
     call model_mesh%GetModelMesh( mesh )
 
     do n=1, mesh%LOCAL_MESH_NUM
-      call AtmosVars_GetLocalMeshField( n, &
-        mesh, prgvars_list, auxvars_list,                               &
-        varid, var,                                                     &
-        DENS_hyd, PRES_hyd, lcmesh                                      )
-      call AtmosVars_GetLocalMeshFields( n, &
-        mesh, prgvars_list, auxvars_list,                               &
-        DDENS, MOMX, MOMY, MOMZ, DRHOT,                                 &
-        DENS_hyd, PRES_hyd, lcmesh                                      )
+      call AtmosVars_GetLocalMeshField( n, mesh, prgvars_list, auxvars_list,  &
+        varid, var,                                                           &
+        DENS_hyd, PRES_hyd, lcmesh                                            )
+      call AtmosVars_GetLocalMeshFields( n, mesh, prgvars_list, auxvars_list, &
+        DDENS, MOMX, MOMY, MOMZ, DRHOT,                                       &
+        DENS_hyd, PRES_hyd                                                    )
+      call AtmosDynNumDiffFlux_GetLocalMeshFields( n, mesh, this%dyn_vars%NUMDIFF_FLUX_manager, &
+        ND_flx_x, ND_flx_y, ND_flx_z )
 
       call this%boundary_cond%ApplyBC_numdiff_even_lc( n, var%val, varid, &
         MOMX%val, MOMY%val, MOMZ%val, DENS_hyd%val, PRES_hyd%val,                  &
         lcmesh%normal_fn(:,:,1), lcmesh%normal_fn(:,:,2), lcmesh%normal_fn(:,:,3), &
         lcmesh%vmapM, lcmesh%vmapP, lcmesh%vmapB, lcmesh, lcmesh%refElem3D )
-
-      call AtmosDynNumDiffFlux_GetLocalMeshFields( n, mesh, this%dyn_vars%NUMDIFF_FLUX_manager, &
-        ND_flx_x, ND_flx_y, ND_flx_z, lcmesh)
       
       call atm_dyn_nonhydro3d_numdiff_cal_flx( ND_flx_x%val, ND_flx_y%val, ND_flx_z%val, &
-        var%val, var%val,                                                                &
+        var%val, var%val, DDENS%val, DENS_hyd%val,                                       &
         model_mesh%DOptrMat(1), model_mesh%DOptrMat(2), model_mesh%DOptrMat(3),          &
         model_mesh%LiftOptrMat,                                                          &
-        lcmesh, lcmesh%refElem3D ) 
+        lcmesh, lcmesh%refElem3D, dens_weight_flag ) 
     end do
 
     !* Exchange halo data
@@ -643,9 +645,11 @@ contains
 
     do nd_itr=1, this%ND_LAPLACIAN_NUM-1
       do n = 1, mesh%LOCAL_MESH_NUM
-        call AtmosDynNumDiffTend_GetLocalMeshFields( n, mesh, this%dyn_vars%NUMDIFF_FLUX_manager, &
-          ND_lapla_h, ND_lapla_v, lcmesh)
-        
+        call AtmosDynNumDiffFlux_GetLocalMeshFields( n, mesh, this%dyn_vars%NUMDIFF_FLUX_manager, &
+          ND_flx_x, ND_flx_y, ND_flx_z, lcmesh)
+        call AtmosDynNumDiffTend_GetLocalMeshFields( n, mesh, this%dyn_vars%NUMDIFF_TEND_manager, &
+          ND_lapla_h, ND_lapla_v )
+          
         call this%boundary_cond%ApplyBC_numdiff_odd_lc( n, &
           ND_flx_x%val, ND_flx_y%val, ND_flx_z%val, varid,                           &
           lcmesh%normal_fn(:,:,1), lcmesh%normal_fn(:,:,2), lcmesh%normal_fn(:,:,3), &
@@ -663,33 +667,31 @@ contains
       do n = 1, mesh%LOCAL_MESH_NUM
         call AtmosDynNumDiffFlux_GetLocalMeshFields( n, mesh, this%dyn_vars%NUMDIFF_FLUX_manager, &
           ND_flx_x, ND_flx_y, ND_flx_z, lcmesh)
-        call AtmosDynNumDiffTend_GetLocalMeshFields( n, mesh, this%dyn_vars%NUMDIFF_FLUX_manager, &
-          ND_lapla_h, ND_lapla_v, lcmesh)
-                    
+        call AtmosDynNumDiffTend_GetLocalMeshFields( n, mesh, this%dyn_vars%NUMDIFF_TEND_manager, &
+          ND_lapla_h, ND_lapla_v )    
+        call AtmosVars_GetLocalMeshFields( n, mesh, prgvars_list, auxvars_list, &
+          DDENS, MOMX, MOMY, MOMZ, DRHOT,                                       &
+          DENS_hyd, PRES_hyd                                                    )
+          
         call this%boundary_cond%ApplyBC_numdiff_even_lc( n, ND_lapla_h%val, varid,   &
           MOMX%val, MOMY%val, MOMZ%val, DENS_hyd%val, PRES_hyd%val,                  &
           lcmesh%normal_fn(:,:,1), lcmesh%normal_fn(:,:,2), lcmesh%normal_fn(:,:,3), &
           lcmesh%vmapM, lcmesh%vmapP, lcmesh%vmapB, lcmesh, lcmesh%refElem3D )
-        
-        call this%boundary_cond%ApplyBC_numdiff_even_lc( n, ND_lapla_v%val, varid,   &
-          MOMX%val, MOMY%val, MOMZ%val, DENS_hyd%val, PRES_hyd%val,                  &
-          lcmesh%normal_fn(:,:,1), lcmesh%normal_fn(:,:,2), lcmesh%normal_fn(:,:,3), &
-          lcmesh%vmapM, lcmesh%vmapP, lcmesh%vmapB, lcmesh, lcmesh%refElem3D )
-  
+          
         call atm_dyn_nonhydro3d_numdiff_cal_flx( ND_flx_x%val, ND_flx_y%val, ND_flx_z%val, &
-          ND_lapla_h%val, ND_lapla_v%val,                                                  &
+          ND_lapla_h%val, ND_lapla_v%val, DDENS%val, DENS_hyd%val,                         &
           model_mesh%DOptrMat(1), model_mesh%DOptrMat(2), model_mesh%DOptrMat(3),          &
           model_mesh%LiftOptrMat,                                                          &
-          lcmesh, lcmesh%refElem3D ) 
+          lcmesh, lcmesh%refElem3D, .false. ) 
       end do
       !* Exchange halo data
       call this%dyn_vars%NUMDIFF_FLUX_manager%MeshFieldComm_Exchange()
     end do
     
     do n = 1, mesh%LOCAL_MESH_NUM
+
       call AtmosDynNumDiffFlux_GetLocalMeshFields( n, mesh, this%dyn_vars%NUMDIFF_FLUX_manager, &
-        ND_flx_x, ND_flx_y, ND_flx_z, lcmesh)
-  
+        ND_flx_x, ND_flx_y, ND_flx_z, lcmesh)  
       call AtmosVars_GetLocalMeshField( n, mesh, prgvars_list, auxvars_list,  &
         varid, var,                                                           &
         DENS_hyd, PRES_hyd, lcmesh                                            )
@@ -706,7 +708,7 @@ contains
         DDENS%val, DENS_hyd%val, nd_sign * this%ND_COEF_H, nd_sign * this%ND_COEF_V,  &
         model_mesh%DOptrMat(1), model_mesh%DOptrMat(2), model_mesh%DOptrMat(3),       &
         model_mesh%LiftOptrMat,                                                       &
-        lcmesh, lcmesh%refElem3D ) 
+        lcmesh, lcmesh%refElem3D, dens_weight_flag ) 
     end do
 
     return
@@ -744,11 +746,11 @@ contains
 
       if ( trim(COLIORIS_type) == 'PLANE' ) then
         do ke=1, lcmesh2D%Ne
-          coriolis%val(:,ke) = f0 + beta*(lcmesh2D%pos_en(:,ke,2) - y0)
+          coriolis%val(:,ke) = f0 + beta * (lcmesh2D%pos_en(:,ke,2) - y0)
         end do
       else if ( trim(COLIORIS_type) == 'SPHERE' ) then
         do ke=1, lcmesh2D%Ne
-          coriolis%val(:,ke) = 2.0_RP*OHM*sin(lcmesh3D%lat2D(:,ke))
+          coriolis%val(:,ke) = 2.0_RP * OHM * sin(lcmesh3D%lat2D(:,ke))
         end do
       else
         LOG_ERROR('AtmosDyn_set_colioris_parameter',*) 'Unexpected COLIORIS_type is specified. Check! COLIORIS_type=', COLIORIS_type

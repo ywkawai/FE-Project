@@ -85,7 +85,7 @@ contains
     type(ElementBase3D), pointer :: elem
     real(RP) :: invV_POrdM1(mesh%refElem3D%Np,mesh%refElem3D%Np)
 
-    real(RP), allocatable :: InvV_(:,:), InvV_ip(:,:)
+    real(RP), allocatable :: InvV_(:,:)
     !--------------------------------------------
 
     elem => mesh%refElem3D
@@ -143,7 +143,7 @@ contains
 
     real(RP) :: Fx(elem%Np), Fy(elem%Np), Fz(elem%Np), LiftDelFlx(elem%Np)
     real(RP) :: del_flux(elem%NfpTot,lmesh%Ne,PROG_VARS_NUM)
-    real(RP) :: dens_(elem%Np), RHOT_hyd(elem%Np), RHOT_(elem%Np), dpres_(elem%Np)
+    real(RP) :: dens_(elem%Np), RHOT_hyd(elem%Np), RHOT_(elem%Np)
     real(RP) :: pres_(elem%Np), u_(elem%Np), v_(elem%Np), w_(elem%Np), pot_(elem%Np)
     real(RP) :: Cori(elem%Np)
 
@@ -166,20 +166,20 @@ contains
     rgamm = CvDry / CpDry
 
     !$omp parallel do private( &
-    !$omp RHOT_hyd, RHOT_, pres_, dpres_, dens_, u_, v_, w_, pot_, ke2d, Cori, &
-    !$omp Fx, Fy, Fz,LiftDelFlx )
+    !$omp RHOT_hyd, RHOT_, pres_, dens_, u_, v_, w_, pot_, ke2d, Cori, &
+    !$omp Fx, Fy, Fz, LiftDelFlx )
     do ke = lmesh%NeS, lmesh%NeE
       !--
       RHOT_hyd(:) = PRES00/Rdry * (PRES_hyd(:,ke)/PRES00)**rgamm
+
       RHOT_(:) = RHOT_hyd(:) + DRHOT_(:,ke)
       pres_(:) = PRES_hyd(:,ke) * (1.0_RP + DRHOT_(:,ke)/RHOT_hyd(:))**gamm
-      dpres_(:) = pres_(:) - PRES_hyd(:,ke)
       dens_(:) = DDENS_(:,ke) + DENS_hyd(:,ke)
 
-      u_(:) = MOMX_(:,ke)/dens_(:)
-      v_(:) = MOMY_(:,ke)/dens_(:)
-      w_(:) = MOMZ_(:,ke)/dens_(:)
-      pot_(:) = RHOT_(:)/dens_(:)
+      u_  (:) = MOMX_(:,ke) / dens_(:)
+      v_  (:) = MOMY_(:,ke) / dens_(:)
+      w_  (:) = MOMZ_(:,ke) / dens_(:)
+      pot_(:) = RHOT_(:)    / dens_(:)
 
       ke2d = lmesh%EMap3Dto2D(ke)
       Cori(:) = CORIOLIS(elem%IndexH2Dto3D(:),ke2d)
@@ -187,46 +187,46 @@ contains
       !-- DENS
       call sparsemat_matmul(Dx, MOMX_(:,ke), Fx)
       call sparsemat_matmul(Dy, MOMY_(:,ke), Fy)
-      call sparsemat_matmul(Lift, lmesh%Fscale(:,ke)*del_flux(:,ke,DDENS_VID), LiftDelFlx)
+      call sparsemat_matmul(Lift, lmesh%Fscale(:,ke) * del_flux(:,ke,DDENS_VID), LiftDelFlx)
 
       DENS_dt(:,ke) = - ( &
             lmesh%Escale(:,ke,1,1) * Fx(:) &
           + lmesh%Escale(:,ke,2,2) * Fy(:) &
-          + LiftDelFlx(:) ) 
+          + LiftDelFlx(:) )
       
       !-- MOMX
-      call sparsemat_matmul(Dx, u_(:)*MOMX_(:,ke) + pres_(:), Fx)
-      call sparsemat_matmul(Dy, v_(:)*MOMX_(:,ke)           , Fy)
-      call sparsemat_matmul(Dz, w_(:)*MOMX_(:,ke)           , Fz)
-      call sparsemat_matmul(Lift, lmesh%Fscale(:,ke)*del_flux(:,ke,MOMX_VID), LiftDelFlx)
+      call sparsemat_matmul(Dx, u_(:) * MOMX_(:,ke) + pres_(:), Fx)
+      call sparsemat_matmul(Dy, v_(:) * MOMX_(:,ke)           , Fy)
+      call sparsemat_matmul(Dz, w_(:) * MOMX_(:,ke)           , Fz)
+      call sparsemat_matmul(Lift, lmesh%Fscale(:,ke) * del_flux(:,ke,MOMX_VID), LiftDelFlx)
 
       MOMX_dt(:,ke) = - (  &
             lmesh%Escale(:,ke,1,1) * Fx(:)      &
           + lmesh%Escale(:,ke,2,2) * Fy(:)      &
           + lmesh%Escale(:,ke,3,3) * Fz(:)      &
           + LiftDelFlx(:)                       &
-          - Cori(:)*MOMY_(:,ke)                 &
-          ) 
+          - Cori(:) * MOMY_(:,ke)               &
+          )
 
       !-- MOMY
-      call sparsemat_matmul(Dx, u_(:)*MOMY_(:,ke)           , Fx)
-      call sparsemat_matmul(Dy, v_(:)*MOMY_(:,ke) + pres_(:), Fy)
-      call sparsemat_matmul(Dz, w_(:)*MOMY_(:,ke)           , Fz)
-      call sparsemat_matmul(Lift, lmesh%Fscale(:,ke)*del_flux(:,ke,MOMY_VID), LiftDelFlx)
+      call sparsemat_matmul(Dx, u_(:) * MOMY_(:,ke)           , Fx)
+      call sparsemat_matmul(Dy, v_(:) * MOMY_(:,ke) + pres_(:), Fy)
+      call sparsemat_matmul(Dz, w_(:) * MOMY_(:,ke)           , Fz)
+      call sparsemat_matmul(Lift, lmesh%Fscale(:,ke) * del_flux(:,ke,MOMY_VID), LiftDelFlx)
 
       MOMY_dt(:,ke) = - (  &
             lmesh%Escale(:,ke,1,1) * Fx(:) &
           + lmesh%Escale(:,ke,2,2) * Fy(:) &
           + lmesh%Escale(:,ke,3,3) * Fz(:) &
           + LiftDelFlx(:)                  &
-          + Cori(:)*MOMX_(:,ke) &
+          + Cori(:) * MOMX_(:,ke)          &
           ) 
 
       !-- MOMZ
-      call sparsemat_matmul(Dx, u_(:)*MOMZ_(:,ke), Fx)
-      call sparsemat_matmul(Dy, v_(:)*MOMZ_(:,ke), Fy)
-      call sparsemat_matmul(Dz, w_(:)*MOMZ_(:,ke), Fz)
-      call sparsemat_matmul(Lift, lmesh%Fscale(:,ke)*del_flux(:,ke,MOMZ_VID), LiftDelFlx)
+      call sparsemat_matmul(Dx, u_(:) * MOMZ_(:,ke), Fx)
+      call sparsemat_matmul(Dy, v_(:) * MOMZ_(:,ke), Fy)
+      call sparsemat_matmul(Dz, w_(:) * MOMZ_(:,ke), Fz)
+      call sparsemat_matmul(Lift, lmesh%Fscale(:,ke) * del_flux(:,ke,MOMZ_VID), LiftDelFlx)
       
       MOMZ_dt(:,ke) = - ( &
             lmesh%Escale(:,ke,1,1) * Fx(:)   &
@@ -235,9 +235,9 @@ contains
           + LiftDelFlx(:)                )   
 
       !-- RHOT
-      call sparsemat_matmul(Dx, pot_(:)*MOMX_(:,ke), Fx)
-      call sparsemat_matmul(Dy, pot_(:)*MOMY_(:,ke), Fy)
-      call sparsemat_matmul(Lift, lmesh%Fscale(:,ke)*del_flux(:,ke,DRHOT_VID), LiftDelFlx)
+      call sparsemat_matmul(Dx, pot_(:) * MOMX_(:,ke), Fx)
+      call sparsemat_matmul(Dy, pot_(:) * MOMY_(:,ke), Fy)
+      call sparsemat_matmul(Lift, lmesh%Fscale(:,ke) * del_flux(:,ke,DRHOT_VID), LiftDelFlx)
       
       RHOT_dt(:,ke) =  - (  &
             lmesh%Escale(:,ke,1,1) * Fx(:) &
@@ -332,7 +332,7 @@ contains
       
       del_flux(i,DRHOT_VID) = 0.5_RP*(                     &
                       swV*( rhotP*VelP - rhotM*VelM )      &
-                    - alpha *(DRHOT_(iP) - DRHOT_(iM))     )
+                    - alpha * (DRHOT_(iP) - DRHOT_(iM))    )
     end do
 
     return
