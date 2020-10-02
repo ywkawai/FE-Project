@@ -5,6 +5,7 @@ module scale_linalgebra
   !++ used modules
   !
   use scale_precision
+  use scale_io
   use scale_prc
   use scale_sparsemat, only: sparsemat
 
@@ -17,6 +18,7 @@ module scale_linalgebra
   !++ Public procedure
   !  
 
+  public :: linalgebra_LU
   public :: linalgebra_inv
   public :: linalgebra_SolveLinEq
   public :: linalgebra_SolveLinEq_GMRES
@@ -58,7 +60,7 @@ contains
 
     !--------------------------------------------------------------------------- 
 
-    Ainv = A
+    Ainv(:,:) = A
     n = size(A,1)
 
     call DGETRF(n, n, Ainv, n, ipiv, info)
@@ -83,7 +85,6 @@ contains
     real(RP), intent(out) :: x(size(b))
 
     real(RP) :: A_lu(size(A,1),size(A,2))
-    real(RP) :: work(size(A,1))
     integer :: ipiv(size(A,1))
     integer :: n, info
 
@@ -93,14 +94,40 @@ contains
     n = size(A,1)
 
     call DGETRF(n, n, A_lu, n, ipiv, info)
-    if (info /=0 ) LOG_ERROR("linalgebra_SolveLinEq",*)  "Matrix is singular"
+    if (info /=0 ) then
+      LOG_ERROR("linalgebra_SolveLinEq",*) "Matrix is singular"
+      call PRC_abort
+    end if
 
     x(:) = b
     call DGETRS('N', n, 1, A_lu, n, ipiv, x, n, info)
-    if (info /=0 ) LOG_ERROR("linalgebra_SolveLinEq",*)  "Matrix inversion is failed"
+    if (info /=0 ) then
+      LOG_ERROR("linalgebra_SolveLinEq",*)  "Matrix inversion is failed"
+      call PRC_abort
+    end if
 
     return
   end subroutine linalgebra_SolveLinEq
+
+  subroutine linalgebra_LU(A_lu, ipiv)
+
+    real(RP), intent(inout) :: A_lu(:,:)
+    integer, intent(out) :: ipiv(size(A_lu,1))
+
+    integer :: n
+    integer :: info
+
+    !--------------------------------------------------------------------------- 
+    n = size(A_lu,1)
+
+    call DGETRF(n, n, A_lu, n, ipiv, info)
+    if (info /=0 ) then
+      LOG_ERROR("linalgebra_LU",*)  "Matrix is singular"
+      call PRC_abort
+    end if
+
+    return
+  end subroutine linalgebra_LU
 
   subroutine linalgebra_SolveLinEq_GMRES(A, b, x, m, restart_num, CONV_CRIT)
 
@@ -229,8 +256,7 @@ contains
 
     integer :: i, j, k, n
     real(RP) :: Mij
-
-    integer :: j1, j2
+    real(RP), parameter :: EPS = 1.0E-16_RP
 
     !--------------------------------------------------------------------------- 
 
@@ -239,13 +265,13 @@ contains
     M = A
     do i=2, n
       do k=1, i-1
-        if (get_val(M,i,k) /= 0d0 .and. get_val(M,k,k) /= 0d0) then
+        if ( abs(get_val(M,i,k)) < EPS .and. abs(get_val(M,k,k)) < EPS ) then
           call set_val( M,i,k, &
             & get_val(M,i,k)/get_val(M,k,k) )
 
           do j=k+1, n
             Mij = get_val(M,i,j)
-            if (Mij /= 0d0) then
+            if ( abs(Mij) < EPS ) then
               call set_val(M,i,j, &
                 & Mij - get_val(M,i,k)*get_val(M,k,j) )
             end if
@@ -269,9 +295,7 @@ contains
 
     integer :: i
     integer :: j
-    integer :: k
     integer :: n
-    real(RP) :: Mij
 
     integer :: j1, j2
 

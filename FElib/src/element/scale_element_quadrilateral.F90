@@ -47,8 +47,8 @@ contains
     elem%Nfaces = 4
     elem%NfpTot = elem%Nfp*elem%Nfaces
        
-    call ElementBase2D_Init(elem)
-    call construct_Element(elem, LumpedMassMatFlag)
+    call ElementBase2D_Init(elem, LumpedMassMatFlag)
+    call construct_Element(elem)
 
     return
   end subroutine QuadrilateralElement_Init
@@ -64,7 +64,7 @@ contains
     return
   end subroutine QuadrilateralElement_Final
 
-  subroutine construct_Element(elem, LumpedMassMatFlag)
+  subroutine construct_Element(elem)
 
     use scale_linalgebra, only: linalgebra_inv
     use scale_polynominal, only: &
@@ -75,7 +75,6 @@ contains
     implicit none
 
     type(QuadrilateralElement), intent(inout) :: elem
-    logical, intent(in) :: LumpedMassMatFlag
 
     integer :: nodes_ij(elem%Nfp, elem%Nfp)
 
@@ -136,7 +135,7 @@ contains
       do p1=1, elem%Nfp
         l = p1 + (p2-1)*elem%Nfp
         elem%V(n,l) = (P1D_ori(i,p1)*P1D_ori(j,p2))                       &
-                      * sqrt((dble(p1-1) + 0.5_RP)*(dble(p2-1) + 0.5_RP))
+                      * sqrt((dble(p1-1) + 0.5_DP)*(dble(p2-1) + 0.5_DP))
   
         if(p2==j) elem%Dx1(n,l) = DLagr1D(p1,i)
         if(p1==i) elem%Dx2(n,l) = Dlagr1D(p2,j)
@@ -160,7 +159,7 @@ contains
 
     !* Set the mass matrix
 
-    if (LumpedMassMatFlag) then
+    if (elem%IsLumpedMatrix()) then
       elem%invM(:,:) = 0.0_RP
       elem%M(:,:)    = 0.0_RP
       do j=1, elem%Nfp
@@ -184,14 +183,14 @@ contains
 
     !* Set the lift matrix
 
-    do n=1, elem%Nfp
-      V1D(:,n) = P1D_ori(:,n)*sqrt(dble(n-1) + 0.5_RP)
+    do p1=1, elem%Nfp
+      V1D(:,p1) = P1D_ori(:,p1)*sqrt(dble(p1-1) + 0.5_DP)
     end do
 
     Emat(:,:) = 0.0_RP
     do f=1, elem%Nfaces
 
-      if (LumpedMassMatFlag) then
+      if (elem%IsLumpedMatrix()) then
         MassEdge = 0.0_RP
         do l=1, elem%Nfp
           MassEdge(l,l) = intWeight_lgl1DPts(l)
@@ -211,7 +210,7 @@ contains
     do p1=1, elem%Nfp
       eta = dble(p1-1)/dble(elem%PolyOrder)
       if ( eta > etac .and. p1 /= 1) then
-        filter1D(p1) = exp( - 36.0_RP*( ((eta - etac)/(1.0_RP - etac))**4 ))
+        filter1D(p1) = exp( - 36.0_DP*( ((eta - etac)/(1.0_DP - etac))**4 ))
       end if
     end do
 
@@ -268,8 +267,8 @@ contains
       do p2=1, this%Nfp
       do p1=1, this%Nfp
         l_ = p1 + (p2-1)*this%Nfp
-        Vint(n_,l_) =  P_int1D_ori(p1_,p1) * sqrt(real(p1-1,kind=RP) + 0.5_RP) &
-                     * P_int1D_ori(p2_,p2) * sqrt(real(p2-1,kind=RP) + 0.5_RP)
+        Vint(n_,l_) =  P_int1D_ori(p1_,p1) * sqrt(dble(p1-1) + 0.5_DP) &
+                     * P_int1D_ori(p2_,p2) * sqrt(dble(p2-1) + 0.5_DP)
       end do
       end do
     end do

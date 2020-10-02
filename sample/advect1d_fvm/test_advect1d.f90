@@ -1,4 +1,4 @@
-#include "scalelib.h"
+#include "scaleFElib.h"
 program test_advect1d
   !-----------------------------------------------------------------------------
   !
@@ -8,8 +8,7 @@ program test_advect1d
   use scale
   use scale_atmos_grid_cartesC_index
   use scale_index
-  use scale_io, only: &
-    H_SHORT
+  use scale_io
   use scale_prof
   use scale_atmos_grid_cartesC, only: &
     CZ             => ATMOS_GRID_CARTESC_CZ,             &  
@@ -21,7 +20,7 @@ program test_advect1d
 
   use scale_time_manager, only: &
     TIME_manager_advance,                              &
-    TIME_NOWDATE, TIME_NOWMS, TIME_NOWSTEP,            &
+    TIME_NOWDATE, TIME_NOWSUBSEC, TIME_NOWSTEP,        &
     TIME_DTSEC, TIME_NSTEP 
   
   use scale_timeint_rk, only: &
@@ -86,7 +85,7 @@ program test_advect1d
       !* Update prognostic variables
       call PROF_rapstart( 'cal_dyn_tend', 1)
       tintbuf_ind = tinteg%tend_buf_indmap(rkstage)
-      call cal_dyn_tend( tinteg%tend_buf1D(:,RKVAR_Q,tintbuf_ind), q, u )
+      call cal_dyn_tend( tinteg%tend_buf1D_ex(:,RKVAR_Q,tintbuf_ind), q, u )
       call PROF_rapend( 'cal_dyn_tend', 1) 
 
       call PROF_rapstart( 'update_var', 1)
@@ -97,12 +96,12 @@ program test_advect1d
     !* Advance time
     call TIME_manager_advance()
 
-    tsec_ = TIME_NOWDATE(6) + TIME_NOWMS
+    tsec_ = TIME_NOWDATE(6) + TIME_NOWSUBSEC
     if (mod(nowstep,nstep_eval_error) == 0) then 
       LOG_PROGRESS('(A,F13.5,A)') "t=", real(tsec_), "[s]"
       call evaluate_error(tsec_)
     end if
-    call FILE_HISTORY_set_nowdate( TIME_NOWDATE, TIME_NOWMS, TIME_NOWSTEP )
+    call FILE_HISTORY_set_nowdate( TIME_NOWDATE, TIME_NOWSUBSEC, TIME_NOWSTEP )
 
     !* Output
     call FILE_HISTORY_put(HST_ID(1), q(KS:KE,IS,JS))

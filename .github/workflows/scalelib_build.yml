@@ -1,0 +1,72 @@
+name: build_scalelib
+
+on:
+  push:
+    branches: 
+      - feature/scalelib_build 
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+
+    - name: Install Fortran compiler & NetCDF & OpenMPI & openssh
+      run: |
+        echo "Install Fortran compiler .."
+        sudo apt-get install -y gfortran
+        
+        echo "Install NetCDF library .."
+        sudo apt-get install -y libnetcdf-dev libnetcdff-dev
+
+        echo "Install OpenMPI library .."
+        sudo apt-get install -y openmpi-bin libopenmpi-dev
+
+        echo "Install openssh .."
+        sudo apt-get install -y openssh-client rsync    
+
+    - name: Install SSH key
+      uses: shimataro/ssh-key-action@v1
+      with:
+        private-key: ${{ secrets.SSH_KEY }} 
+        public-key: ${{ secrets.SSH_KEY_PUBLIC }} 
+        name: id_rsa
+    
+    - name: Build SCALE library & send it to a server
+      run: |
+        export SCALE_INST_DIR=${GITHUB_WORKSPACE}/../scale
+        mkdir -p ${SCALE_INST_DIR} && cd ${SCALE_INST_DIR}
+
+        echo "Download SCALE library .."
+        wget -q https://scale.riken.jp/archives/scale-5.4.0.tar.gz
+        tar xzf scale-5.4.0.tar.gz --strip-components 1
+
+        echo "Build SCALE library .."
+        export SCALE_SYS=Linux64-gnu-ompi
+        make -j 2 -C dc_utils
+        make -j 2 -C scalelib/src
+
+        echo "Package .. & rsync"
+        export tmp_dir=scalelib_ubuntu_latest
+        mkdir ${tmp_dir}
+        mkdir -p ${tmp_dir}/scalelib/include
+        cp -r ./include ${tmp_dir}
+        cp -r ./lib ${tmp_dir}
+        cp -r scalelib/include/*.h ${tmp_dir}/scalelib/include/
+        zip -r ${tmp_dir}.zip ${tmp_dir}
+
+        sed -i -e "s#\\\\n#\n#g" ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa
+        ssh-keyscan -H www.gfd-dennou.org >> ~/.ssh/known_hosts
+        rsync ${tmp_dir}.zip ykawai@www.gfd-dennou.org:FE-Project_GitActions/
+
+
+
+
+
+
+
+  
+
+
+

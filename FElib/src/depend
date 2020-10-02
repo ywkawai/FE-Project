@@ -1,21 +1,28 @@
+$(OBJ_DIR)/scale_atm_dyn_modalfilter.o: fluid_dyn_solver/scale_atm_dyn_modalfilter.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_element_base.o $(OBJ_DIR)/scale_element_hexahedral.o $(OBJ_DIR)/scale_element_line.o $(OBJ_DIR)/scale_localmesh_2d.o $(OBJ_DIR)/scale_localmesh_3d.o $(OBJ_DIR)/scale_localmeshfield_base.o $(OBJ_DIR)/scale_mesh_base3d.o $(OBJ_DIR)/scale_meshfield_base.o
 $(OBJ_DIR)/scale_atm_dyn_nonhydro2d.o: fluid_dyn_solver/scale_atm_dyn_nonhydro2d.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_element_base.o $(OBJ_DIR)/scale_element_quadrilateral.o $(OBJ_DIR)/scale_localmesh_2d.o $(OBJ_DIR)/scale_localmeshfield_base.o $(OBJ_DIR)/scale_mesh_base2d.o $(OBJ_DIR)/scale_meshfield_base.o $(OBJ_DIR)/scale_sparsemat.o
+$(OBJ_DIR)/scale_atm_dyn_nonhydro3d_heve.o: fluid_dyn_solver/scale_atm_dyn_nonhydro3d_heve.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_element_base.o $(OBJ_DIR)/scale_element_hexahedral.o $(OBJ_DIR)/scale_localmesh_2d.o $(OBJ_DIR)/scale_localmesh_3d.o $(OBJ_DIR)/scale_localmeshfield_base.o $(OBJ_DIR)/scale_mesh_base3d.o $(OBJ_DIR)/scale_meshfield_base.o $(OBJ_DIR)/scale_sparsemat.o
+$(OBJ_DIR)/scale_atm_dyn_nonhydro3d_hevi.o: fluid_dyn_solver/scale_atm_dyn_nonhydro3d_hevi.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_element_base.o $(OBJ_DIR)/scale_element_hexahedral.o $(OBJ_DIR)/scale_linalgebra.o $(OBJ_DIR)/scale_localmesh_2d.o $(OBJ_DIR)/scale_localmesh_3d.o $(OBJ_DIR)/scale_localmeshfield_base.o $(OBJ_DIR)/scale_mesh_base3d.o $(OBJ_DIR)/scale_meshfield_base.o $(OBJ_DIR)/scale_sparsemat.o
+$(OBJ_DIR)/scale_atm_dyn_nonhydro3d_hevi_gmres.o: fluid_dyn_solver/scale_atm_dyn_nonhydro3d_hevi_gmres.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_element_base.o $(OBJ_DIR)/scale_element_hexahedral.o $(OBJ_DIR)/scale_gmres.o $(OBJ_DIR)/scale_linalgebra.o $(OBJ_DIR)/scale_localmesh_2d.o $(OBJ_DIR)/scale_localmesh_3d.o $(OBJ_DIR)/scale_localmeshfield_base.o $(OBJ_DIR)/scale_mesh_base3d.o $(OBJ_DIR)/scale_meshfield_base.o $(OBJ_DIR)/scale_sparsemat.o
+$(OBJ_DIR)/scale_atm_dyn_nonhydro3d_numdiff.o: fluid_dyn_solver/scale_atm_dyn_nonhydro3d_numdiff.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_element_base.o $(OBJ_DIR)/scale_element_hexahedral.o $(OBJ_DIR)/scale_localmesh_2d.o $(OBJ_DIR)/scale_localmesh_3d.o $(OBJ_DIR)/scale_localmeshfield_base.o $(OBJ_DIR)/scale_mesh_base3d.o $(OBJ_DIR)/scale_meshfield_base.o $(OBJ_DIR)/scale_sparsemat.o
 $(OBJ_DIR)/scale_element_base.o: element/scale_element_base.F90 $(DEPENDLIB)
 $(OBJ_DIR)/scale_element_hexahedral.o: element/scale_element_hexahedral.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_element_base.o $(OBJ_DIR)/scale_linalgebra.o $(OBJ_DIR)/scale_polynominal.o
 $(OBJ_DIR)/scale_element_line.o: element/scale_element_line.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_element_base.o $(OBJ_DIR)/scale_linalgebra.o $(OBJ_DIR)/scale_polynominal.o
 $(OBJ_DIR)/scale_element_quadrilateral.o: element/scale_element_quadrilateral.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_element_base.o $(OBJ_DIR)/scale_linalgebra.o $(OBJ_DIR)/scale_polynominal.o
 $(OBJ_DIR)/scale_file_history_meshfield.o: file/scale_file_history_meshfield.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_element_base.o $(OBJ_DIR)/scale_localmesh_1d.o $(OBJ_DIR)/scale_localmesh_2d.o $(OBJ_DIR)/scale_localmesh_3d.o $(OBJ_DIR)/scale_mesh_base1d.o $(OBJ_DIR)/scale_mesh_base2d.o $(OBJ_DIR)/scale_mesh_base3d.o $(OBJ_DIR)/scale_mesh_cubedom3d.o $(OBJ_DIR)/scale_mesh_rectdom2d.o $(OBJ_DIR)/scale_meshfield_base.o
+$(OBJ_DIR)/scale_gmres.o: common/scale_gmres.F90 $(DEPENDLIB)
 $(OBJ_DIR)/scale_linalgebra.o: common/scale_linalgebra.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_sparsemat.o
+$(OBJ_DIR)/scale_linkedlist.o: common/scale_linkedlist.F90 $(DEPENDLIB)
 $(OBJ_DIR)/scale_localmesh_1d.o: mesh/scale_localmesh_1d.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_element_base.o $(OBJ_DIR)/scale_localmesh_base.o
 $(OBJ_DIR)/scale_localmesh_2d.o: mesh/scale_localmesh_2d.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_element_base.o $(OBJ_DIR)/scale_localmesh_base.o
-$(OBJ_DIR)/scale_localmesh_3d.o: mesh/scale_localmesh_3d.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_element_base.o $(OBJ_DIR)/scale_localmesh_base.o
+$(OBJ_DIR)/scale_localmesh_3d.o: mesh/scale_localmesh_3d.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_element_base.o $(OBJ_DIR)/scale_localmesh_2d.o $(OBJ_DIR)/scale_localmesh_base.o
 $(OBJ_DIR)/scale_localmesh_base.o: mesh/scale_localmesh_base.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_element_base.o
 $(OBJ_DIR)/scale_localmeshfield_base.o: data/scale_localmeshfield_base.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_element_base.o $(OBJ_DIR)/scale_localmesh_1d.o $(OBJ_DIR)/scale_localmesh_2d.o $(OBJ_DIR)/scale_localmesh_3d.o
 $(OBJ_DIR)/scale_mesh_base.o: mesh/scale_mesh_base.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_element_base.o $(OBJ_DIR)/scale_localmesh_base.o
 $(OBJ_DIR)/scale_mesh_base1d.o: mesh/scale_mesh_base1d.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_element_base.o $(OBJ_DIR)/scale_element_line.o $(OBJ_DIR)/scale_localmesh_1d.o $(OBJ_DIR)/scale_localmesh_base.o $(OBJ_DIR)/scale_mesh_base.o $(OBJ_DIR)/scale_meshutil_1d.o
-$(OBJ_DIR)/scale_mesh_base2d.o: mesh/scale_mesh_base2d.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_element_base.o $(OBJ_DIR)/scale_localmesh_2d.o $(OBJ_DIR)/scale_mesh_base.o
-$(OBJ_DIR)/scale_mesh_base3d.o: mesh/scale_mesh_base3d.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_element_base.o $(OBJ_DIR)/scale_localmesh_3d.o $(OBJ_DIR)/scale_mesh_base.o
+$(OBJ_DIR)/scale_mesh_base2d.o: mesh/scale_mesh_base2d.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_element_base.o $(OBJ_DIR)/scale_localmesh_2d.o $(OBJ_DIR)/scale_localmesh_base.o $(OBJ_DIR)/scale_mesh_base.o
+$(OBJ_DIR)/scale_mesh_base3d.o: mesh/scale_mesh_base3d.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_element_base.o $(OBJ_DIR)/scale_localmesh_3d.o $(OBJ_DIR)/scale_localmesh_base.o $(OBJ_DIR)/scale_mesh_base.o $(OBJ_DIR)/scale_mesh_base2d.o
 $(OBJ_DIR)/scale_mesh_bndinfo.o: mesh/scale_mesh_bndinfo.F90 $(DEPENDLIB)
-$(OBJ_DIR)/scale_mesh_cubedom3d.o: mesh/scale_mesh_cubedom3d.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_element_base.o $(OBJ_DIR)/scale_element_hexahedral.o $(OBJ_DIR)/scale_localmesh_3d.o $(OBJ_DIR)/scale_localmesh_base.o $(OBJ_DIR)/scale_mesh_base3d.o $(OBJ_DIR)/scale_meshutil_3d.o
+$(OBJ_DIR)/scale_mesh_cubedom3d.o: mesh/scale_mesh_cubedom3d.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_element_base.o $(OBJ_DIR)/scale_element_hexahedral.o $(OBJ_DIR)/scale_element_quadrilateral.o $(OBJ_DIR)/scale_localmesh_3d.o $(OBJ_DIR)/scale_localmesh_base.o $(OBJ_DIR)/scale_mesh_base2d.o $(OBJ_DIR)/scale_mesh_base3d.o $(OBJ_DIR)/scale_mesh_rectdom2d.o $(OBJ_DIR)/scale_meshutil_3d.o
 $(OBJ_DIR)/scale_mesh_linedom1d.o: mesh/scale_mesh_linedom1d.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_element_base.o $(OBJ_DIR)/scale_element_line.o $(OBJ_DIR)/scale_localmesh_1d.o $(OBJ_DIR)/scale_mesh_base1d.o
 $(OBJ_DIR)/scale_mesh_rectdom2d.o: mesh/scale_mesh_rectdom2d.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_element_base.o $(OBJ_DIR)/scale_element_quadrilateral.o $(OBJ_DIR)/scale_localmesh_2d.o $(OBJ_DIR)/scale_localmesh_base.o $(OBJ_DIR)/scale_mesh_base2d.o $(OBJ_DIR)/scale_meshutil_2d.o
 $(OBJ_DIR)/scale_meshfield_base.o: data/scale_meshfield_base.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_element_base.o $(OBJ_DIR)/scale_localmesh_1d.o $(OBJ_DIR)/scale_localmesh_2d.o $(OBJ_DIR)/scale_localmesh_3d.o $(OBJ_DIR)/scale_localmeshfield_base.o $(OBJ_DIR)/scale_mesh_base1d.o $(OBJ_DIR)/scale_mesh_base2d.o $(OBJ_DIR)/scale_mesh_base3d.o
@@ -26,6 +33,10 @@ $(OBJ_DIR)/scale_meshfieldcomm_rectdom2d.o: data/scale_meshfieldcomm_rectdom2d.F
 $(OBJ_DIR)/scale_meshutil_1d.o: mesh/scale_meshutil_1d.F90 $(DEPENDLIB)
 $(OBJ_DIR)/scale_meshutil_2d.o: mesh/scale_meshutil_2d.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_quicksort.o
 $(OBJ_DIR)/scale_meshutil_3d.o: mesh/scale_meshutil_3d.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_quicksort.o
+$(OBJ_DIR)/scale_model_component.o: model_framework/scale_model_component.F90 $(DEPENDLIB)
+$(OBJ_DIR)/scale_model_component_proc.o: model_framework/scale_model_component_proc.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_model_mesh_manager.o $(OBJ_DIR)/scale_model_var_manager.o
+$(OBJ_DIR)/scale_model_mesh_manager.o: model_framework/scale_model_mesh_manager.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_mesh_base.o $(OBJ_DIR)/scale_mesh_base1d.o $(OBJ_DIR)/scale_mesh_base2d.o $(OBJ_DIR)/scale_mesh_base3d.o $(OBJ_DIR)/scale_sparsemat.o
+$(OBJ_DIR)/scale_model_var_manager.o: model_framework/scale_model_var_manager.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_linkedlist.o $(OBJ_DIR)/scale_mesh_base1d.o $(OBJ_DIR)/scale_mesh_base2d.o $(OBJ_DIR)/scale_mesh_base3d.o $(OBJ_DIR)/scale_meshfield_base.o $(OBJ_DIR)/scale_meshfieldcomm_base.o
 $(OBJ_DIR)/scale_polynominal.o: common/scale_polynominal.F90 $(DEPENDLIB)
 $(OBJ_DIR)/scale_quicksort.o: common/scale_quicksort.F90 $(DEPENDLIB)
 $(OBJ_DIR)/scale_sparsemat.o: common/scale_sparsemat.F90 $(DEPENDLIB)
@@ -33,13 +44,20 @@ $(OBJ_DIR)/scale_time_manager.o: common/scale_time_manager.F90 $(DEPENDLIB)
 $(OBJ_DIR)/scale_timeint_rk.o: common/scale_timeint_rk.F90 $(DEPENDLIB)
 
 MODS =	\
+	$(OBJ_DIR)/scale_atm_dyn_modalfilter.mod	\
 	$(OBJ_DIR)/scale_atm_dyn_nonhydro2d.mod	\
+	$(OBJ_DIR)/scale_atm_dyn_nonhydro3d_heve.mod	\
+	$(OBJ_DIR)/scale_atm_dyn_nonhydro3d_hevi.mod	\
+	$(OBJ_DIR)/scale_atm_dyn_nonhydro3d_hevi_gmres.mod	\
+	$(OBJ_DIR)/scale_atm_dyn_nonhydro3d_numdiff.mod	\
 	$(OBJ_DIR)/scale_element_base.mod	\
 	$(OBJ_DIR)/scale_element_hexahedral.mod	\
 	$(OBJ_DIR)/scale_element_line.mod	\
 	$(OBJ_DIR)/scale_element_quadrilateral.mod	\
 	$(OBJ_DIR)/scale_file_history_meshfield.mod	\
+	$(OBJ_DIR)/scale_gmres.mod	\
 	$(OBJ_DIR)/scale_linalgebra.mod	\
+	$(OBJ_DIR)/scale_linkedlist.mod	\
 	$(OBJ_DIR)/scale_localmesh_1d.mod	\
 	$(OBJ_DIR)/scale_localmesh_2d.mod	\
 	$(OBJ_DIR)/scale_localmesh_3d.mod	\
@@ -61,6 +79,10 @@ MODS =	\
 	$(OBJ_DIR)/scale_meshutil_1d.mod	\
 	$(OBJ_DIR)/scale_meshutil_2d.mod	\
 	$(OBJ_DIR)/scale_meshutil_3d.mod	\
+	$(OBJ_DIR)/scale_model_component.mod	\
+	$(OBJ_DIR)/scale_model_component_proc.mod	\
+	$(OBJ_DIR)/scale_model_mesh_manager.mod	\
+	$(OBJ_DIR)/scale_model_var_manager.mod	\
 	$(OBJ_DIR)/scale_polynominal.mod	\
 	$(OBJ_DIR)/scale_quicksort.mod	\
 	$(OBJ_DIR)/scale_sparsemat.mod	\

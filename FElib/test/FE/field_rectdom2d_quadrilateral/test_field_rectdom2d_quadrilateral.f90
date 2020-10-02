@@ -17,7 +17,7 @@ program test_field2d
 
   use scale_time_manager, only: &
     TIME_manager_Init , TIME_manager_Final,            &
-    TIME_NOWDATE, TIME_NOWMS, TIME_NOWSTEP,            &
+    TIME_NOWDATE, TIME_NOWSUBSEC, TIME_NOWSTEP,            &
     TIME_DTSEC, TIME_NSTEP 
     
   use scale_file_history_meshfield, only: &
@@ -28,8 +28,8 @@ program test_field2d
 
   implicit none
 
-  integer, parameter :: NeGX = 3
-  integer, parameter :: NeGY = 3
+  integer, parameter :: NeGX = 2
+  integer, parameter :: NeGY = 2
   integer, parameter :: NLocalMeshPerPrc = 1
 
   real(RP), parameter :: dom_xmin = -1.0_RP
@@ -63,6 +63,8 @@ program test_field2d
   call perform_comm()
 
   do n=1, mesh%LOCAL_MESH_NUM
+    lcmesh => mesh%lcmesh_list(n)
+    
     write(*,*) "Check interior & halo data.."
     write(*,*) "tileID=", lcmesh%tileID
     call check_interior_data(n, mesh%lcmesh_list(n), q%local(n)%val, q%local(n)%val)
@@ -248,7 +250,7 @@ contains
       end do
     end do
     call assert( -1, int(lcfield_fl(haloInd_s:haloInd_e)), ans_by(:,:),     &
-      'check_halo_data', 'q_halo_west', refElem%Nfp*lcmesh_%NeY)
+      'check_halo_data', 'q_halo_east', refElem%Nfp*lcmesh_%NeY)
 
     haloInd_s = haloInd_e + 1    
     haloInd_e = haloInd_s + refElem%Nfp*lcmesh_%NeX - 1    
@@ -270,7 +272,7 @@ contains
       end do
     end do    
     call assert( -1, int(lcfield_fl(haloInd_s:haloInd_e)), ans_by(:,:),     &
-      'check_halo_data', 'q_halo_east', refElem%Nfp*lcmesh_%NeY)    
+      'check_halo_data', 'q_halo_west', refElem%Nfp*lcmesh_%NeY)    
 
   end subroutine check_halo_data
 

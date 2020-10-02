@@ -87,18 +87,23 @@ module scale_localmesh_base
 
 contains
   subroutine LocalMeshBase_Init( this, refElem, dims )
+    implicit none
 
     class(LocalMeshBase), intent(inout) :: this
     class(ElementBase), intent(in), target :: refElem
     integer, intent(in) :: dims
+    !-----------------------------------------------------------------------------
 
     this%refElem => refElem
     
+    return
   end subroutine LocalMeshBase_Init
 
   subroutine LocalMeshBase_Final( this )
-
+    implicit none
+    
     class(LocalMeshBase), intent(inout) :: this
+    !-----------------------------------------------------------------------------
 
   end subroutine LocalMeshBase_Final
 

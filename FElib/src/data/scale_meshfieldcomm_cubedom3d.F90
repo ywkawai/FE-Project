@@ -74,8 +74,8 @@ contains
     lcmesh => mesh3d%lcmesh_list(1)
     elem => lcmesh%refElem3D
 
-    bufsize_per_field =  2*(lcmesh%NeX + lcmesh%NeY)*elem%Nfp_h &
-                       + 2*lcmesh%NeZ*elem%Nfp_v
+    bufsize_per_field =  2*(lcmesh%NeX + lcmesh%NeY)*lcmesh%NeZ*elem%Nfp_h &
+                       + 2*lcmesh%NeX*lcmesh%NeY*elem%Nfp_v
     call MeshFieldCommBase_Init( this, sfield_num, hvfield_num, bufsize_per_field, 6, mesh3d)  
   
     return
@@ -107,7 +107,7 @@ contains
     do n=1, this%mesh%LOCAL_MESH_NUM
       lcmesh => this%mesh3d%lcmesh_list(n)
       call MeshFieldCommBase_extract_bounddata( field_list(i)%field3d%local(n)%val, lcmesh%refElem, lcmesh, & ! (in)
-        this%send_buf(:,varid_s+i-1,n) )                                                                  ! (out)
+        this%send_buf(:,varid_s+i-1,n) )                                                                      ! (out)
     end do
     end do
 
@@ -130,7 +130,7 @@ contains
     do n=1, this%mesh3d%LOCAL_MESH_NUM
       lcmesh => this%mesh3d%lcmesh_list(n)
       call MeshFieldCommBase_set_bounddata( this%recv_buf(:,varid_s+i-1,n), lcmesh%refElem, lcmesh, & !(in)
-         field_list(i)%field3d%local(n)%val )                                                     !(out)
+         field_list(i)%field3d%local(n)%val )                                                         !(out)
     end do
     end do
 
@@ -146,7 +146,7 @@ contains
     use scale_meshfieldcomm_base, only: &
       MeshFieldCommBase_exchange_core,  &
       LocalMeshCommData
-
+    use scale_prof
     implicit none
   
     class(MeshFieldCommCubeDom3D), intent(inout) :: this
@@ -159,12 +159,12 @@ contains
     type(LocalMeshCommData), pointer :: commdata
     !-----------------------------------------------------------------------------
     
-
     do n=1, this%mesh%LOCAL_MESH_NUM
       lcmesh => this%mesh3d%lcmesh_list(n)
       
-      Nnode_LCMeshFace(:) =   (/ lcmesh%NeX, lcmesh%NeY, lcmesh%NeX, lcmesh%NeY, 0, 0 /) * lcmesh%refElem3D%Nnode_h1D &
-                            + (/ 0, 0, 0, 0, lcmesh%NeZ, lcmesh%NeZ /) * lcmesh%refElem3D%Nfp_v
+      Nnode_LCMeshFace(:) = &
+          (/ lcmesh%NeX, lcmesh%NeY, lcmesh%NeX, lcmesh%NeY, 0, 0 /) * lcmesh%NeZ * lcmesh%refElem3D%Nfp_h &
+        + (/ 0, 0, 0, 0, 1, 1 /) * lcmesh%NeX*lcmesh%NeY * lcmesh%refElem3D%Nfp_v
       is_f(1) = 1
       do f=2, this%nfaces_comm
         is_f(f) = is_f(f-1) + Nnode_LCMeshFace(f-1)
@@ -185,7 +185,7 @@ contains
     call MeshFieldCommBase_exchange_core(this, commdata_list(:,:))
 
     !---------------------
-  
+
     do n=1, this%mesh%LOCAL_MESH_NUM
     do f=1, this%nfaces_comm
       call commdata_list(f,n)%Final()

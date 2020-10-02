@@ -56,8 +56,8 @@ contains
 
     elem%Np = elem%Nfp_v * elem%Nnode_v
     
-    call ElementBase3D_Init(elem)
-    call construct_Element(elem, LumpedMassMatFlag)
+    call ElementBase3D_Init(elem, LumpedMassMatFlag)
+    call construct_Element(elem)
 
     return
   end subroutine HexhedralElement_Init
@@ -73,7 +73,7 @@ contains
     return
   end subroutine HexhedralElement_Final
 
-  subroutine construct_Element(elem, LumpedMassMatFlag)
+  subroutine construct_Element(elem)
 
     use scale_linalgebra, only: linalgebra_inv
     use scale_polynominal, only: &
@@ -84,22 +84,21 @@ contains
     implicit none
     
     type(HexahedralElement), intent(inout) :: elem
-    logical, intent(in) :: LumpedMassMatFlag
 
-    integer :: nodes_ijk(elem%Nnode_h1D, elem%Nnode_h1D, elem%Nfp_v)
+    integer :: nodes_ijk(elem%Nnode_h1D, elem%Nnode_h1D, elem%Nnode_v)
 
     real(RP) :: lglPts1D_h(elem%Nnode_h1D)
-    real(RP) :: lglPts1D_v(elem%Nfp_v)
+    real(RP) :: lglPts1D_v(elem%Nnode_v)
 
     real(DP) :: intWeight_lgl1DPts_h(elem%Nnode_h1D)
-    real(DP) :: intWeight_lgl1DPts_v(elem%Nfp_v)
+    real(DP) :: intWeight_lgl1DPts_v(elem%Nnode_v)
 
     real(RP) :: P1D_ori_h(elem%Nnode_h1D, elem%Nnode_h1D)
-    real(RP) :: P1D_ori_v(elem%Nfp_v, elem%Nfp_v)
+    real(RP) :: P1D_ori_v(elem%Nnode_v, elem%Nnode_v)
     real(RP) :: DP1D_ori_h(elem%Nnode_h1D, elem%Nnode_h1D)
-    real(RP) :: DP1D_ori_v(elem%Nfp_v, elem%Nfp_v)
+    real(RP) :: DP1D_ori_v(elem%Nnode_v, elem%Nnode_v)
     real(RP) :: DLagr1D_h(elem%Nnode_h1D, elem%Nnode_h1D)
-    real(RP) :: DLagr1D_v(elem%Nfp_v, elem%Nfp_v)
+    real(RP) :: DLagr1D_v(elem%Nnode_v, elem%Nnode_v)
     real(RP) :: V2D_h(elem%Nfp_h, elem%Nfp_h)
     real(RP) :: V2D_v(elem%Nfp_v, elem%Nfp_v)
     real(RP) :: Emat(elem%Np, elem%NfpTot)
@@ -132,7 +131,7 @@ contains
     end do
     end do
     end do
-
+    
     ! Set the mask to extract the values at faces
     
     elem%Fmask_h(:,1) = reshape(nodes_ijk(:,1,:), (/ elem%Nfp_h /))
@@ -141,15 +140,15 @@ contains
     elem%Fmask_h(:,4) = reshape(nodes_ijk(1,:,:), (/ elem%Nfp_h /))
 
     elem%Fmask_v(:,1) = reshape(nodes_ijk(:,:,1), (/ elem%Nfp_v /))
-    elem%Fmask_v(:,2) = reshape(nodes_ijk(:,:,elem%Nfp_v), (/ elem%Nfp_v /))
-
+    elem%Fmask_v(:,2) = reshape(nodes_ijk(:,:,elem%Nnode_v), (/ elem%Nfp_v /))
+    
     do j=1, elem%Nnode_h1D
     do i=1, elem%Nnode_h1D
       n = i + (j-1)*elem%Nnode_h1D
       elem%Colmask(:,n) = nodes_ijk(i,j,:)
     end do
     end do
-
+    
     do k=1, elem%Nnode_v
       elem%Hslice(:,k) = reshape(nodes_ijk(:,:,k), (/ elem%Nfp_v /))
     end do
@@ -171,7 +170,7 @@ contains
     end do
     end do    
     end do
-
+    
     !* Set the coordinates of LGL points, and the Vandermonde and differential matricies
 
     elem%Dx1(:,:) = 0.0_RP
@@ -192,9 +191,9 @@ contains
       do p3=1, elem%Nnode_v
       do p2=1, elem%Nnode_h1D
       do p1=1, elem%Nnode_h1D
-        l = p1 + (p2 - 1)*elem%Nnode_h1D + (p3-1)*elem%Nnode_h1D**2
-        elem%V(n,l) = (P1D_ori_h(i,p1)*P1D_ori_h(j,p2)*P1D_ori_v(k,p3))                       &
-                      * sqrt((dble(p1-1) + 0.5_RP)*(dble(p2-1) + 0.5_RP)*(dble(p3-1) + 0.5_RP))
+        l = p1 + (p2-1)*elem%Nnode_h1D + (p3-1)*elem%Nnode_h1D**2
+        elem%V(n,l) = (P1D_ori_h(i,p1)*P1D_ori_h(j,p2)*P1D_ori_v(k,p3))                         &
+                      * sqrt((dble(p1-1) + 0.5_DP)*(dble(p2-1) + 0.5_DP)*(dble(p3-1) + 0.5_DP))
   
         if(p2==j .and. p3==k) elem%Dx1(n,l) = DLagr1D_h(p1,i)
         if(p1==i .and. p3==k) elem%Dx2(n,l) = DLagr1D_h(p2,j)
@@ -224,7 +223,7 @@ contains
 
     !* Set the mass matrix
 
-    if (LumpedMassMatFlag) then
+    if (elem%IsLumpedMatrix()) then
       elem%invM(:,:) = 0.0_RP
       elem%M(:,:)    = 0.0_RP
       do k=1, elem%Nnode_v
@@ -232,7 +231,7 @@ contains
       do i=1, elem%Nnode_h1D
         l = i + (j-1)*elem%Nnode_h1D + (k-1)*elem%Nnode_h1D**2
         elem%M(l,l) = elem%IntWeight_lgl(l)
-        elem%invM(l,l) = 1.0_RP/elem%IntWeight_lgl(l)
+        elem%invM(l,l) = 1.0_DP/elem%IntWeight_lgl(l)
       end do
       end do
       end do
@@ -256,21 +255,33 @@ contains
     do k=1, elem%Nnode_v
     do i=1, elem%Nnode_h1D
       n = i + (k-1)*elem%Nnode_h1D
-      V2D_h(:,n) =   P1D_ori_h(:,i)*P1D_ori_v(:,k) &
-                   * sqrt(dble(i-1) + 0.5_RP)*sqrt(dble(k-1) + 0.5_RP)
+      do p3=1, elem%Nnode_v
+      do p1=1, elem%Nnode_h1D
+        l = p1 + (p3-1)*elem%Nnode_h1D
+        V2D_h(n,l) =   P1D_ori_h(i,p1)*P1D_ori_v(k,p3) &
+                     * sqrt( (dble(p1-1) + 0.5_DP)*(dble(p3-1) + 0.5_DP) )
+      end do
+      end do
     end do
     end do
     do j=1, elem%Nnode_h1D
     do i=1, elem%Nnode_h1D
-        n = i + (j-1)*elem%Nnode_h1D
-        V2D_v(:,n) =   P1D_ori_h(:,i)*P1D_ori_h(:,j) &
-                     * sqrt(dble(i-1) + 0.5_RP)*sqrt(dble(j-1) + 0.5_RP)
+      n = i + (j-1)*elem%Nnode_h1D
+      do p2=1, elem%Nnode_h1D
+      do p1=1, elem%Nnode_h1D
+        l = p1 + (p2-1)*elem%Nnode_h1D
+        V2D_v(n,l) =   P1D_ori_h(i,p1)*P1D_ori_h(j,p2) &
+                     * sqrt( (dble(p1-1) + 0.5_DP)*(dble(p2-1) + 0.5_DP) )
+      end do
+      end do
     end do
     end do
   
+    !--
+
     Emat(:,:) = 0.0_RP
     do f=1, elem%Nfaces_h
-      if (LumpedMassMatFlag) then
+      if (elem%IsLumpedMatrix()) then
         MassEdge_h(:,:) = 0.0_RP
         do k=1, elem%Nnode_v
         do i=1, elem%Nnode_h1D
@@ -288,7 +299,7 @@ contains
     end do
 
     do f=1, elem%Nfaces_v
-      if (LumpedMassMatFlag) then
+      if (elem%IsLumpedMatrix()) then
         MassEdge_v(:,:) = 0.0_RP
         do j=1, elem%Nnode_h1D
         do i=1, elem%Nnode_h1D
@@ -306,7 +317,7 @@ contains
     end do
 
     elem%Lift(:,:) = matmul( elem%invM, Emat )
-  
+
     return
   end subroutine construct_Element
 
@@ -346,7 +357,7 @@ contains
     do p3_=1, IntrpPolyOrder
     do p2_=1, IntrpPolyOrder
     do p1_=1, IntrpPolyOrder
-      n_= p1_ + (p2_-1)*IntrpPolyOrder
+      n_= p1_ + (p2_-1)*IntrpPolyOrder + (p3_-1)*IntrpPolyOrder**2
       if (present(intw_intrp)) intw_intrp(n_) = r_int1Dw_i(p1_) * r_int1Dw_i(p2_) * r_int1Dw_i(p3_)
       if (present(x_intrp)) x_intrp(n_) = r_int1D_i(p1_)
       if (present(y_intrp)) y_intrp(n_) = r_int1D_i(p2_)
@@ -356,9 +367,9 @@ contains
       do p2=1, this%Nnode_h1D
       do p1=1, this%Nnode_h1D
         l_ = p1 + (p2-1)*this%Nnode_h1D + (p3-1)*this%Nnode_h1D**2
-        Vint(n_,l_) =  P_int1D_ori_h(p1_,p1) * sqrt(real(p1-1,kind=RP) + 0.5_RP) &
-                     * P_int1D_ori_h(p2_,p2) * sqrt(real(p2-1,kind=RP) + 0.5_RP) &
-                     * P_int1D_ori_v(p3_,p3) * sqrt(real(p3-1,kind=RP) + 0.5_RP)
+        Vint(n_,l_) =  P_int1D_ori_h(p1_,p1) * sqrt(dble(p1-1) + 0.5_DP) &
+                     * P_int1D_ori_h(p2_,p2) * sqrt(dble(p2-1) + 0.5_DP) &
+                     * P_int1D_ori_v(p3_,p3) * sqrt(dble(p3-1) + 0.5_DP)
       end do
       end do
       end do

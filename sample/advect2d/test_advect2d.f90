@@ -29,7 +29,7 @@ program test_advect2d
 
   use scale_time_manager, only: &
     TIME_manager_advance,                              &
-    TIME_NOWDATE, TIME_NOWMS, TIME_NOWSTEP,            &
+    TIME_NOWDATE, TIME_NOWSUBSEC, TIME_NOWSTEP,        &
     TIME_DTSEC, TIME_NSTEP 
   use scale_timeint_rk, only: &
     timeint_rk
@@ -100,7 +100,7 @@ program test_advect2d
 
   do nowstep=1, TIME_NSTEP
     do rkstage=1, tinteg_lc(1)%nstage
-      tsec_ =  TIME_NOWDATE(6) + TIME_NOWMS
+      tsec_ =  TIME_NOWDATE(6) + TIME_NOWSUBSEC
       
       !* Exchange halo data
       call PROF_rapstart( 'exchange_halo', 1)
@@ -120,8 +120,8 @@ program test_advect2d
 
         call PROF_rapstart( 'cal_dyn_tend', 1)
         call cal_dyn_tend( &
-           tinteg_lc(n)%tend_buf2D(:,:,RKVAR_Q,tintbuf_ind), &
-           q%local(n)%val, u%local(n)%val, v%local(n)%val,   &
+           tinteg_lc(n)%tend_buf2D_ex(:,:,RKVAR_Q,tintbuf_ind), &
+           q%local(n)%val, u%local(n)%val, v%local(n)%val,      &
            lcmesh, lcmesh%refElem2D ) 
         call PROF_rapend( 'cal_dyn_tend', 1)
 
@@ -135,12 +135,12 @@ program test_advect2d
     !* Advance time
     call TIME_manager_advance()
 
-    tsec_ = TIME_NOWDATE(6) + TIME_NOWMS
+    tsec_ = TIME_NOWDATE(6) + TIME_NOWSUBSEC
     if (mod(nowstep,nstep_eval_error) == 0) then 
       LOG_PROGRESS('(A,F13.5,A)') "t=", real(tsec_), "[s]"
       call evaluate_error(tsec_)
     end if
-    call FILE_HISTORY_set_nowdate( TIME_NOWDATE, TIME_NOWMS, TIME_NOWSTEP )
+    call FILE_HISTORY_set_nowdate( TIME_NOWDATE, TIME_NOWSUBSEC, TIME_NOWSTEP )
 
     !* Output
     call FILE_HISTORY_meshfield_put(HST_ID(1), q)

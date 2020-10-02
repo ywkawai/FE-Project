@@ -64,7 +64,7 @@ module scale_file_history_meshfield
   character(len=8), parameter :: zs(nzs) = (/  "model   " /)
 
   integer  :: FILE_HISTORY_MESHFIELD_STARTDATE(6) !< start time [YYYY MM DD HH MM SS]
-  real(DP) :: FILE_HISTORY_MESHFIELD_STARTMS      !< subsecond part of start time [millisec]
+  real(DP) :: FILE_HISTORY_MESHFIELD_STARTSUBSEC      !< subsecond part of start time [millisec]
 
   class(MeshBase1D), pointer :: mesh1D
   class(MeshRectDom2D), pointer :: mesh2D
@@ -77,7 +77,7 @@ contains
 
 !----------------
 
-subroutine FILE_HISTORY_meshfield_setup( mesh1D_, mesh2D_ )
+subroutine FILE_HISTORY_meshfield_setup( mesh1D_, mesh2D_, mesh3D_ )
 
   use scale_file_h, only: &
     FILE_HSHORT
@@ -87,7 +87,7 @@ subroutine FILE_HISTORY_meshfield_setup( mesh1D_, mesh2D_ )
     PRC_abort
   use scale_time, only: &
     TIME_NOWDATE,       &
-    TIME_NOWMS,         &
+    TIME_NOWSUBSEC,     &
     TIME_STARTDAYSEC,   &
     TIME_DTSEC,         &
     TIME_NOWSTEP
@@ -97,6 +97,7 @@ subroutine FILE_HISTORY_meshfield_setup( mesh1D_, mesh2D_ )
 
   class(Meshbase1d), intent(in), target, optional :: mesh1D_
   class(MeshRectDom2d), intent(in), target, optional :: mesh2D_
+  class(MeshCubeDom3D), intent(in), target, optional :: mesh3D_
 
   character(len=H_MID) :: FILE_HISTORY_MESHFILED_H_TITLE = 'SCALE-FEM FILE_HISTORY_MESHFIELD' !< title of the output file
   character(len=H_MID) :: FILE_HISTORY_MESHFIELD_T_SINCE
@@ -110,7 +111,7 @@ subroutine FILE_HISTORY_meshfield_setup( mesh1D_, mesh2D_ )
   !---------------------------------------------------------------------------
 
   FILE_HISTORY_MESHFIELD_STARTDATE(:) = TIME_NOWDATE
-  FILE_HISTORY_MESHFIELD_STARTMS      = TIME_NOWMS
+  FILE_HISTORY_MESHFIELD_STARTSUBSEC  = TIME_NOWSUBSEC
 
   start_daysec = TIME_STARTDAYSEC
   if ( TIME_NOWDATE(1) > 0 ) then
@@ -120,7 +121,7 @@ subroutine FILE_HISTORY_meshfield_setup( mesh1D_, mesh2D_ )
                                                         ' ', TIME_NOWDATE(4), &
                                                         ':', TIME_NOWDATE(5), &
                                                         ':', TIME_NOWDATE(6)
-     start_daysec = TIME_NOWMS
+     start_daysec = TIME_NOWSUBSEC
   else
      FILE_HISTORY_MESHFIELD_T_SINCE = ''
   endif
@@ -136,7 +137,7 @@ subroutine FILE_HISTORY_meshfield_setup( mesh1D_, mesh2D_ )
     default_zcoord = 'model',                                     & ! [IN]
     myrank = PRC_myrank                        )                    ! [IN]
 
-  call FILE_HISTORY_Set_NowDate( TIME_NOWDATE, TIME_NOWMS, TIME_NOWSTEP )
+  call FILE_HISTORY_Set_NowDate( TIME_NOWDATE, TIME_NOWSUBSEC, TIME_NOWSTEP )
 
   if ( present(mesh1D_) ) then
     mesh1D => mesh1D_
@@ -146,6 +147,10 @@ subroutine FILE_HISTORY_meshfield_setup( mesh1D_, mesh2D_ )
     mesh2D => mesh2D_
     call set_dims2D()
     call set_axis2D()
+  else if ( present(mesh3D_) ) then
+    mesh3D => mesh3D_
+    call set_dims3D()
+    call set_axis3D()    
   else
     LOG_ERROR("FILE_HISTORY_meshfield_setup",*)   "Any mesh (mesh1d, mesh2d) are not specified."
     call PRC_abort
@@ -154,12 +159,20 @@ subroutine FILE_HISTORY_meshfield_setup( mesh1D_, mesh2D_ )
   return
 end subroutine FILE_HISTORY_meshfield_setup
 
-subroutine FILE_HISTORY_meshfield_write
+subroutine FILE_HISTORY_meshfield_write()
+  implicit none
+  !-------------------------------------------------
+
   call FILE_HISTORY_write
+  return
 end subroutine FILE_HISTORY_meshfield_write
 
-subroutine FILE_HISTORY_meshfield_finalize
-  call FILE_HISTORY_finalize
+subroutine FILE_HISTORY_meshfield_finalize()
+  implicit none
+  !-------------------------------------------------
+
+  call FILE_HISTORY_finalize()
+  return
 end subroutine FILE_HISTORY_meshfield_finalize
 
 subroutine FILE_HISTORY_meshfield_put1D(hstid, field1d)
@@ -172,8 +185,7 @@ subroutine FILE_HISTORY_meshfield_put1D(hstid, field1d)
   type(LocalMesh1D), pointer :: lcmesh
   integer :: bufsize, ptr
   real(RP), allocatable :: buf(:)
-
-  !--------------------
+  !-------------------------------------------------
     
   bufsize = 0
   mesh => field1d%mesh
@@ -212,8 +224,7 @@ subroutine FILE_HISTORY_meshfield_put2D(hstid, field2d)
   integer :: i0_s, j0_s
 
   real(RP), allocatable :: buf(:,:)
-
-  !--------------------
+  !-------------------------------------------------
 
   mesh => field2d%mesh
   allocate( buf(mesh2D_icount, mesh2D_jcount) )
@@ -264,7 +275,7 @@ subroutine FILE_HISTORY_meshfield_put3D(hstid, field3d)
 
   real(RP), allocatable :: buf(:,:,:)
 
-  !--------------------
+  !-------------------------------------------------
 
   mesh => field3d%mesh
   allocate( buf(mesh3D_icount, mesh3D_jcount, mesh3D_kcount) )
@@ -282,7 +293,7 @@ subroutine FILE_HISTORY_meshfield_put3D(hstid, field3d)
     do k1=1, lcmesh%NeZ
     do j1=1, lcmesh%NeY
     do i1=1, lcmesh%NeX
-      kelem1 = i1 + (j1-1)*lcmesh%NeX
+      kelem1 = i1 + (j1-1)*lcmesh%NeX + (k1-1)*lcmesh%NeX*lcmesh%NeY
       do k2=1, refElem%Nnode_v
       do j2=1, refElem%Nnode_h1D
       do i2=1, refElem%Nnode_h1D
@@ -317,6 +328,7 @@ subroutine set_dims1D()
 
   character(len=H_SHORT) :: dims(3,3)
   integer :: start(3,3), count(3,3)  
+  !-------------------------------------------------
 
   start(1,1) = 1
   dims(1,1)  = "x"
@@ -335,8 +347,7 @@ subroutine set_axis1D()
   integer :: i2
   type(ElementBase1D), pointer :: refElem
   type(LocalMesh1D), pointer :: lcmesh
-
-  !--------------------
+  !-------------------------------------------------
   
   do n=1,mesh1D%LOCAL_MESH_NUM
     lcmesh => mesh1D%lcmesh_list(n)
@@ -365,8 +376,7 @@ subroutine set_dims2D()
   type(LocalMesh2D), pointer :: lcmesh
   integer :: i, j, n
   integer :: icount, jcount
-
-  !-------------------------------------
+  !-------------------------------------------------
   
   icount = 0
   do i=1, size(mesh2D%rcdomIJ2LCMeshID,1)
@@ -416,8 +426,7 @@ subroutine set_dims3D()
   type(LocalMesh3D), pointer :: lcmesh
   integer :: i, j, k, n
   integer :: icount, jcount, kcount
-
-  !-------------------------------------
+  !-------------------------------------------------
   
   icount = 0
   do i=1, size(mesh3D%rcdomIJK2LCMeshID,1)
@@ -439,7 +448,7 @@ subroutine set_dims3D()
     lcmesh => mesh3D%lcmesh_list(n)
     kcount = kcount + lcmesh%NeZ * lcmesh%refElem3D%Nnode_v
   end do  
-
+  
   mesh3D_icount = icount
   mesh3D_jcount = jcount
   mesh3D_kcount = kcount
@@ -488,8 +497,7 @@ subroutine set_axis2D()
   type(LocalMesh2D), pointer :: lcmesh
 
   integer :: is, js, ie, je, igs, jgs
-
-  !--------------------
+  !-------------------------------------------------
   
   allocate( x(mesh2d_icount), y(mesh2d_jcount) )
   
@@ -522,6 +530,7 @@ subroutine set_axis2D()
   call FILE_HISTORY_Set_Axis( 'x', 'X-coordinate', '1', 'x', x)
   call FILE_HISTORY_Set_Axis( 'y', 'Y-coordinate', '1', 'y', y)
 
+  return
 end subroutine set_axis2D
 
 subroutine set_axis3D()
@@ -569,7 +578,7 @@ subroutine set_axis3D()
       if ( i==1 .and. j==1) then
         ks = kgs + 1 + (k-1)*refElem%Nnode_v
         ke = ks + refElem%Nnode_v - 1
-        z(ks:ke) = lcmesh%pos_en(refElem%Colmask(:,1),kelem,2)
+        z(ks:ke) = lcmesh%pos_en(refElem%Colmask(:,1),kelem,3)
       end if
     end do
     end do
@@ -582,6 +591,7 @@ subroutine set_axis3D()
   call FILE_HISTORY_Set_Axis( 'y', 'Y-coordinate', '1', 'y', y)
   call FILE_HISTORY_Set_Axis( 'z', 'Z-coordinate', '1', 'z', z)
 
+  return
 end subroutine set_axis3D
 
 !----------------

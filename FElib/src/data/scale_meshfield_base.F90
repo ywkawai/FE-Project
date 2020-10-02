@@ -17,6 +17,7 @@ module scale_meshfield_base
   use scale_mesh_base3d, only: MeshBase3D
   
   use scale_localmeshfield_base, only: &
+    LocalMeshFieldBase,                                  &
     LocalMeshField1D, LocalMeshField2D, LocalMeshField3D
     
   use scale_element_base, only: &
@@ -32,17 +33,33 @@ module scale_meshfield_base
   !++ Public type & procedure
   ! 
 
-  type, public :: MeshFieldBase
+  type, abstract, public :: MeshFieldBase
     character(len=H_SHORT) :: varname
     character(len=H_SHORT) :: unit
+    integer :: hist_id
+  contains
+    procedure(MeshFieldBase_get_LocalMeshField), deferred, public :: GetLocalMeshField
   end type MeshFieldBase
+
+  interface
+    subroutine MeshFieldBase_get_LocalMeshField( this, domID, ptr_lcmeshField )
+      import MeshFieldBase
+      import LocalMeshFieldBase
+      class(MeshFieldBase), target, intent(in) :: this
+      integer, intent(in) :: domID
+      class(LocalMeshFieldBase), pointer, intent(out) :: ptr_lcmeshfield
+    end subroutine MeshFieldBase_get_LocalMeshField
+  end interface
+
+  !------
   
   type, extends(MeshFieldBase), public :: MeshField1D
     type(LocalMeshField1D), allocatable :: local(:)
     class(MeshBase1D), pointer :: mesh 
   contains
     procedure :: Init => MeshField1D_Init
-    procedure :: Final => MeshField1D_Final  
+    procedure :: Final => MeshField1D_Final
+    procedure :: GetLocalMeshField =>  MeshField1D_get_LocalMeshField
   end type MeshField1D
 
   type, extends(MeshFieldBase), public :: MeshField2D
@@ -50,7 +67,8 @@ module scale_meshfield_base
     class(MeshBase2D), pointer :: mesh   
   contains
     procedure :: Init => MeshField2D_Init
-    procedure :: Final => MeshField2D_Final  
+    procedure :: Final => MeshField2D_Final
+    procedure :: GetLocalMeshField =>  MeshField2D_get_LocalMeshField
   end type MeshField2D
 
   type, extends(MeshFieldBase), public :: MeshField3D
@@ -59,6 +77,7 @@ module scale_meshfield_base
   contains
     procedure :: Init => MeshField3D_Init
     procedure :: Final => MeshField3D_Final  
+    procedure :: GetLocalMeshField =>  MeshField3D_get_LocalMeshField
   end type MeshField3D
 
   !-----------------------------------------------------------------------------
@@ -77,6 +96,7 @@ module scale_meshfield_base
   !
 
 contains
+  !**** 1D **********************************************************************
   subroutine MeshField1D_Init(this, varname, units, mesh)
     implicit none
     class(MeshField1D), intent(inout) :: this
@@ -88,8 +108,9 @@ contains
     !-----------------------------------------------------------------------------
     
     this%varname = varname
-    this%unit = units
+    this%unit    = units
     this%mesh => mesh
+    this%hist_id = -1
     
     allocate( this%local(mesh%LOCAL_MESH_NUM) )  
     do n=1, mesh%LOCAL_MESH_NUM
@@ -114,7 +135,19 @@ contains
     return
   end subroutine MeshField1D_Final
 
-  !*******
+  subroutine MeshField1D_get_LocalMeshField( this, domID, ptr_lcmeshField )
+    implicit none
+
+    class(MeshField1D), target, intent(in) :: this
+    integer, intent(in) :: domID
+    class(LocalMeshFieldBase), pointer, intent(out) :: ptr_lcmeshfield
+    !-----------------------------------------------------------------------------
+
+    ptr_lcmeshfield => this%local(domID)
+    return
+  end subroutine MeshField1D_get_LocalMeshField
+
+  !**** 2D **********************************************************************
 
   subroutine MeshField2D_Init(this, varname, units, mesh)
     implicit none
@@ -130,6 +163,7 @@ contains
     this%varname = varname
     this%unit = units
     this%mesh => mesh
+    this%hist_id = -1
 
     allocate( this%local(mesh%LOCAL_MESH_NUM) )  
     do n=1, mesh%LOCAL_MESH_NUM
@@ -155,7 +189,19 @@ contains
     return
   end subroutine MeshField2D_Final
 
-  !*******
+  subroutine MeshField2D_get_LocalMeshField( this, domID, ptr_lcmeshField )
+    implicit none
+
+    class(MeshField2D), target, intent(in) :: this
+    integer, intent(in) :: domID
+    class(LocalMeshFieldBase), pointer, intent(out) :: ptr_lcmeshfield
+    !-----------------------------------------------------------------------------
+
+    ptr_lcmeshfield => this%local(domID)
+    return
+  end subroutine MeshField2D_get_LocalMeshField
+
+  !**** 3D **********************************************************************
 
   subroutine MeshField3D_Init(this, varname, units, mesh)
     implicit none
@@ -171,7 +217,8 @@ contains
     this%varname = varname
     this%unit = units
     this%mesh => mesh
-
+    this%hist_id = -1
+    
     allocate( this%local(mesh%LOCAL_MESH_NUM) )  
     do n=1, mesh%LOCAL_MESH_NUM
       call this%local(n)%Init( mesh%lcmesh_list(n) )
@@ -195,5 +242,17 @@ contains
 
     return
   end subroutine MeshField3D_Final
+
+  subroutine MeshField3D_get_LocalMeshField( this, domID, ptr_lcmeshField )
+    implicit none
+
+    class(MeshField3D), target, intent(in) :: this
+    integer, intent(in) :: domID
+    class(LocalMeshFieldBase), pointer, intent(out) :: ptr_lcmeshfield
+    !-----------------------------------------------------------------------------
+
+    ptr_lcmeshfield => this%local(domID)
+    return
+  end subroutine MeshField3D_get_LocalMeshField
 
 end module scale_meshfield_base

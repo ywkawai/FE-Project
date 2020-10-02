@@ -7,6 +7,7 @@ module scale_polynominal
   use scale_precision
   use scale_const, only: &
     PI => CONST_PI
+  use scale_io
   
   !-----------------------------------------------------------------------------
   implicit none
@@ -181,7 +182,7 @@ contains
     real(RP) :: pts(Nord+1)
 
     integer :: N1
-    integer :: i, k
+    integer :: i
 
     real(RP) :: xold
     real(RP) :: x(Nord+1)
@@ -226,7 +227,7 @@ contains
     lglPts1D(:)      = polynominal_genGaussLobattoPt( Nord )
     P1D_ori(:,:)     = polynominal_genLegendrePoly( Nord, lglPts1D )
 
-    int_weight_lgl(:) = 2d0/(dble(Nord*(Nord+1))*P1D_ori(:,Nord+1)**2)
+    int_weight_lgl(:) = 2.0_RP/(dble(Nord*(Nord+1))*P1D_ori(:,Nord+1)**2)
 
     return
   end function Polynominal_GenGaussLobattoPtIntWeight
@@ -239,7 +240,7 @@ contains
     integer, intent(in) :: Nord
     real(RP) :: pts(Nord)
 
-    integer :: i, k
+    integer :: i
     integer :: N1
     real(RP) :: xold
     real(RP) :: x(Nord)

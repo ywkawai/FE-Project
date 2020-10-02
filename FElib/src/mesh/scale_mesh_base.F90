@@ -30,7 +30,19 @@ module scale_mesh_base
 
     class(ElementBase), pointer :: refElem
     logical :: isGenerated
+  contains
+    procedure(MeshBase_get_localmesh), deferred :: GetLocalMesh
   end type MeshBase
+
+  interface 
+    subroutine MeshBase_get_localmesh( this, id, ptr_lcmesh )
+      import MeshBase
+      import LocalMeshBase
+      class(MeshBase), target, intent(in) :: this
+      integer, intent(in) :: id
+      class(LocalMeshBase), pointer, intent(out) :: ptr_lcmesh
+    end subroutine MeshBase_get_localmesh
+  end interface
 
   public :: MeshBase_Init, MeshBase_Final
   public :: MeshBase_setGeometricInfo
@@ -69,6 +81,8 @@ contains
     this%PRC_NUM               = PRC_nprocs
     this%LOCAL_MESH_NUM        = NLocalMeshPerPrc
     this%LOCAL_MESH_NUM_global = PRC_nprocs * this%LOCAL_MESH_NUM
+
+    this%refElem => refElem
         
     allocate( this%tileID_globalMap(NsideTile, this%LOCAL_MESH_NUM_global) )
     allocate( this%tileFaceID_globalMap(NsideTile, this%LOCAL_MESH_NUM_global) )
@@ -77,6 +91,8 @@ contains
     allocate( this%PRCRank_globalMap(this%LOCAL_MESH_NUM_global) )
     
     this%isGenerated = .false.
+
+    return
   end subroutine MeshBase_Init
 
   subroutine MeshBase_Final( this )
@@ -93,6 +109,7 @@ contains
     deallocate( this%tileID_global2localMap )
     deallocate( this%PRCRank_globalMap )
 
+    return
   end subroutine MeshBase_Final
 
   subroutine MeshBase_setGeometricInfo( mesh, ndim )
@@ -120,6 +137,7 @@ contains
     allocate( mesh%G_ij(refElem%Np,mesh%Ne, ndim,ndim) )
     allocate( mesh%GIJ (refElem%Np,mesh%Ne, ndim,ndim) )
 
+    return
   end subroutine MeshBase_setGeometricInfo
 
 end module scale_mesh_base

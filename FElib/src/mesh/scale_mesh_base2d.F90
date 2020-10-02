@@ -28,6 +28,7 @@ module scale_mesh_base2d
     type(elementbase2D), pointer :: refElem2D
   contains
     procedure(MeshBase2D_generate), deferred :: Generate 
+    procedure :: GetLocalMesh => MeshBase2D_get_localmesh
   end type MeshBase2D
 
   interface 
@@ -77,14 +78,15 @@ contains
     do n=1, this%LOCAL_MESH_NUM
       call LocalMesh2D_Init( this%lcmesh_list(n), refElem, PRC_myrank )
     end do
+
+    return
   end subroutine MeshBase2D_Init
 
   subroutine MeshBase2D_Final( this )
+    implicit none
     
     class(MeshBase2D), intent(inout) :: this
-
     integer :: n
-
     !-----------------------------------------------------------------------------
   
     do n=1, this%LOCAL_MESH_NUM
@@ -94,8 +96,22 @@ contains
     
     call MeshBase_Final(this)
 
+    return
   end subroutine MeshBase2D_Final
   
+  subroutine MeshBase2D_get_localmesh( this, id, ptr_lcmesh )
+    use scale_localmesh_base, only: LocalMeshBase
+    implicit none
+
+    class(MeshBase2D), target, intent(in) :: this
+    integer, intent(in) :: id
+    class(LocalMeshBase), pointer, intent(out) :: ptr_lcmesh
+    !-------------------------------------------------------------
+
+    ptr_lcmesh => this%lcmesh_list(id)
+    return
+  end subroutine MeshBase2D_get_localmesh
+
   subroutine MeshBase2D_setGeometricInfo( lcmesh, coord_conv, calc_normal )
 
     implicit none
@@ -127,6 +143,7 @@ contains
     integer :: f
     integer :: i, j
     integer :: d
+    integer :: node_ids(lcmesh%refElem%Nv)
     real(RP) :: vx(lcmesh%refElem%Nv), vy(lcmesh%refElem%Nv)
     real(RP) :: xr(lcmesh%refElem%Np), xs(lcmesh%refElem%Np)
     real(RP) :: yr(lcmesh%refElem%Np), ys(lcmesh%refElem%Np)
@@ -160,11 +177,12 @@ contains
     end do
 
     do n=1, lcmesh%Ne
-      vx(:) = lcmesh%pos_ev(lcmesh%EToV(n,:),1)
-      vy(:) = lcmesh%pos_ev(lcmesh%EToV(n,:),2)
+      node_ids(:) = lcmesh%EToV(n,:)
+      vx(:) = lcmesh%pos_ev(node_ids(:),1)
+      vy(:) = lcmesh%pos_ev(node_ids(:),2)
       call coord_conv( &
-      lcmesh%pos_en(:,n,1), lcmesh%pos_en(:,n,2), xr, xs, yr, ys, & ! (out)
-      vx, vy, refElem )                                             ! (in)
+        lcmesh%pos_en(:,n,1), lcmesh%pos_en(:,n,2), xr, xs, yr, ys, & ! (out)
+        vx, vy, refElem )                                             ! (in)
       
       lcmesh%J(:,n) = - xs*yr + xr*ys
 
@@ -199,6 +217,7 @@ contains
       lcmesh%Gsqrt(:,n) = 1.0_RP     
     end do
 
+    return
   end subroutine MeshBase2D_setGeometricInfo
   
 end module scale_mesh_base2d

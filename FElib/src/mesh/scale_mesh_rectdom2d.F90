@@ -41,7 +41,8 @@ module scale_mesh_rectdom2d
   end type MeshRectDom2D
 
   public :: MeshRectDom2D_coord_conv
-
+  public :: MeshRectDom2D_setupLocalDom
+  
   !-----------------------------------------------------------------------------
   !
   !++ Public parameters & variables
@@ -92,6 +93,8 @@ contains
     this%isPeriodicY = isPeriodicY
 
     call MeshBase2D_Init(this, refElem, NLocalMeshPerPrc)
+
+    return
   end subroutine MeshRectDom2D_Init
 
   subroutine MeshRectDom2D_Final( this )
@@ -108,6 +111,7 @@ contains
 
     call MeshBase2D_Final(this)
 
+    return
   end subroutine MeshRectDom2D_Final
   
   subroutine MeshRectDom2D_generate( this )
@@ -168,6 +172,8 @@ contains
     end do
 
     this%isGenerated = .true.
+
+    return
   end subroutine MeshRectDom2D_generate
 
   !- private ------------------------------------------------------
@@ -289,18 +295,17 @@ contains
     integer :: ilc, jlc
     
     !-----------------------------------------------------------------------------
-    
-    NprcX = int(sqrt(dble(this%PRC_NUM)))
-    NprcY = this%PRC_NUM/NprcX
 
     call MeshUtil2D_buildGlobalMap( &
       panelID_table, pi_table, pj_table,                                            & ! (out)
       this%tileID_globalMap, this%tileFaceID_globalMap, this%tilePanelID_globalMap, & ! (out)
       this%LOCAL_MESH_NUM_global, this%isPeriodicX, this%isPeriodicY )                ! (in)                                        ! (in)
 
+    NprcX = maxval(pi_table)
+    NprcY = maxval(pj_table)
+    
     !----
     
-
     do p=1, this%PRC_NUM
     do n=1, this%LOCAL_MESH_NUM
       tileID = n + (p-1)*this%LOCAL_MESH_NUM

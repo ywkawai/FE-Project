@@ -24,7 +24,7 @@ module scale_mesh_bndinfo
     procedure :: Init => MeshBndInfo_Init
     procedure :: Final => MeshBndInfo_Final
     procedure, private :: Set_by_ID => MeshBndInfo_set_by_ID
-    procedure, private :: Set_by_name => MeshBndInfo_set_by_ID
+    procedure, private :: Set_by_name => MeshBndInfo_set_by_name
     generic :: Set => Set_by_ID, Set_by_name
   end type MeshBndInfo
   
@@ -35,15 +35,15 @@ module scale_mesh_bndinfo
   !++ Public parameters & variables
   !
   character(len=*), public , parameter :: BND_TYPE_NOSPEC_NAME  = 'NONSPEC'
-  integer, public :: BND_TYPE_NOSPEC_ID                         = 0
+  integer, public, parameter :: BND_TYPE_NOSPEC_ID              = 0
   character(len=*), public, parameter :: BND_TYPE_PERIODIC_NAME = 'PERIODIC'
   integer, public, parameter  :: BND_TYPE_PERIODIC_ID           = 1
   character(len=*), public, parameter  :: BND_TYPE_SLIP_NAME    = 'SLIP'
-  integer, public :: BND_TYPE_SLIP_ID                           = 2
+  integer, public, parameter :: BND_TYPE_SLIP_ID                = 2
   character(len=*), public, parameter  :: BND_TYPE_NOSLIP_NAME  = 'NOSLIP'
-  integer, public :: BND_TYPE_NOSLIP_ID                         = 3
+  integer, public, parameter:: BND_TYPE_NOSLIP_ID               = 3
   character(len=*), public , parameter :: BND_TYPE_ADIABAT_NAME = 'ADIABATIC'
-  integer, public :: BND_TYPE_ADIABAT_ID                        = 5
+  integer, public, parameter :: BND_TYPE_ADIABAT_ID             = 4
 
   !-----------------------------------------------------------------------------
   !
