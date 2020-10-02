@@ -11,6 +11,11 @@ Futhermore, some dynamical cores of atmospheric and oceanic model with DGM will 
  For more animations of simulation results, please see the Wiki of FE-project on github or 'FE-project gallery' channel on YouTube (url: https://www.youtube.com/channel/UCO17OQtKHwkkQwmHD9y9mQg/featured). 
 
 
+## Models with FE library
+### Dynamical cores of atmospheric model 
+- 2D and 3D dynamical core of nonhydrostatic atmospheric model
+
+
 ## Simple samples with FE library
 ### 1D problems 
   - linear advection 
@@ -23,10 +28,6 @@ Futhermore, some dynamical cores of atmospheric and oceanic model with DGM will 
 ### 3D problems 
   - linear advection in a cubic domain
     - various profiles of advected quantity
-
-## Models with FE library
-### Dynamical cores of atmospheric model 
-- 2D and 3D dynamical core of nonhydrostatic atmospheric model
 
  
 ## Build FE library
