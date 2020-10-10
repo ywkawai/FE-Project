@@ -47,6 +47,7 @@ OBJS_NAME_MESH = \
 	scale_mesh_cubedom3d.o
 
 OBJS_NAME_DATA = \
+	scale_variableinfo.o             \
 	scale_localmeshfield_base.o      \
 	scale_meshfield_base.o           \
 	scale_meshfieldcomm_base.o       \
@@ -55,7 +56,9 @@ OBJS_NAME_DATA = \
 	scale_meshfieldcomm_cubedom3d.o
 
 OBJS_NAME_FILE = \
-	scale_file_history_meshfield.o
+	scale_file_common_meshfield.o  \
+	scale_file_history_meshfield.o \
+	scale_file_restart_meshfield.o
 
 OBJS_NAME_FLUID_DYN_SOLVER = \
 	scale_atm_dyn_modalfilter.o          \

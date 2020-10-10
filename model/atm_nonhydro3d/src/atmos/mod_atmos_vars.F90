@@ -16,6 +16,7 @@ module mod_atmos_vars
   use scale_meshfield_base, only: MeshField3D
   use scale_localmeshfield_base, only: LocalMeshFieldBase
   
+  use scale_file_restart_meshfield, only: FILE_restart_meshfield_component
   use scale_meshfieldcomm_cubedom3d, only: MeshFieldCommCubeDom3D
   use scale_meshfieldcomm_base, only: MeshFieldContainer
 
@@ -50,6 +51,8 @@ module mod_atmos_vars
 
   public :: AtmosVars_GetLocalMeshField
   public :: AtmosVars_GetLocalMeshFields
+
+  type(FILE_restart_meshfield_component) :: restart_file
 
   !-----------------------------------------------------------------------------
   !

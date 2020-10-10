@@ -8,6 +8,9 @@ module scale_model_component
   use scale_io
   use scale_prof
 
+  use scale_time_manager, only: &
+    TIME_manager_component
+
   !-----------------------------------------------------------------------------
   implicit none
   private
@@ -19,6 +22,7 @@ module scale_model_component
   type, abstract, public :: ModelComponent
     character(len=H_SHORT), private :: name
     logical, private :: is_activated = .false.
+    type(TIME_manager_component) :: time_manager
   contains
     procedure(ModelComponent_setup), deferred, public :: setup
     procedure(ModelComponent_calc_tendency), deferred, public :: calc_tendency

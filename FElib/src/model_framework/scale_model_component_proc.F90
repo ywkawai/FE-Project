@@ -8,6 +8,8 @@ module scale_model_component_proc
   use scale_io
   use scale_prof
 
+  use scale_time_manager, only: &
+    TIME_manager_component
   use scale_model_mesh_manager, only: &
     ModelMeshBase
   use scale_model_var_manager, only: &
@@ -37,11 +39,13 @@ module scale_model_component_proc
   end type ModelComponentProc
 
   interface
-    subroutine ModelComponentProc_setup( this, model_mesh )
+    subroutine ModelComponentProc_setup( this, model_mesh, time_manager )
       import ModelComponentProc
       import ModelMeshBase
+      import TIME_manager_component
       class(ModelComponentProc), intent(inout) :: this
       class(ModelMeshBase), target, intent(in) :: model_mesh
+      class(TIME_manager_component) :: time_manager
     end subroutine ModelComponentProc_setup
 
     subroutine ModelComponentProc_calc_tendency( this, model_mesh, prgvars_list, auxvars_list )
