@@ -94,6 +94,7 @@ contains
 
     ! setup calendar & initial time
     call CALENDAR_setup
+
     call TIME_manager_Init
 
     ! setup ATMOS ------------------

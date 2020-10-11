@@ -210,8 +210,8 @@ contains
     !--
     TIME_OFFSET_YEAR = TIME_STARTDATE(1)
     
-    call CALENDAR_date2daysec( TIME_STARTDAY, TIME_STARTSEC,                       & ! [OUT]
-                              TIME_STARTDATE(:), TIME_STARTMS,  TIME_OFFSET_YEAR   ) ! [IN]
+    call CALENDAR_date2daysec( TIME_STARTDAY, TIME_STARTSEC,                        & ! [OUT]
+                               TIME_STARTDATE(:), TIME_STARTMS,  TIME_OFFSET_YEAR   ) ! [IN]
 
     TIME_STARTDAYSEC  = CALENDAR_combine_daysec( TIME_STARTDAY, TIME_STARTSEC )
     TIME_NOWDATE(:)   = TIME_STARTDATE(:)

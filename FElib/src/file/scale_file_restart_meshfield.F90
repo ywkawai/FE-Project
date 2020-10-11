@@ -288,13 +288,13 @@ subroutine FILE_restart_meshfield_component_open( &
     basename = trim(this%in_basename)
   endif
 
-  LOG_INFO(trim(this%comp_name)//"_vars_restart_create",*) 'basename: ', trim(basename)
-
   !--------------------------------
 
   LOG_NEWLINE
   LOG_INFO(trim(this%comp_name)//"_vars_restart_open",*) 'Open restart file'
-  call FILE_open( basename, this%fid )
+  call FILE_open( basename,         & ! [in]
+                  this%fid,         & ! [out]
+                  rankid=PRC_myrank ) ! [in]
 
   return
 end subroutine FILE_restart_meshfield_component_open
