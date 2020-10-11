@@ -1,3 +1,9 @@
+################################################################################
+#
+# Makefile for scale library
+#
+################################################################################
+
 TOPDIR      =../../
 SYSDEP_DIR :=../../sysdep
 
@@ -12,6 +18,14 @@ VPATH = \
 	file:             \
 	fluid_dyn_solver: \
 	model_framework:  
+
+LIBVERSION = $(shell git rev-parse --short HEAD 2> /dev/null)
+ifeq ($(LIBVERSION),)
+  LIBVERSION  = $(shell cat VERSION)
+else
+  LIBVERSION := $(LIBVERSION)
+endif
+
 
 OBJS_NAME_COMMON = \
 	scale_polynominal.o  \
@@ -106,6 +120,14 @@ makedir:
 	mkdir -p $(MODDIR)
 	mkdir -p $(LIBDIR)
 
+
+info:
+	@$(MAKE) --no-print-directory envlog
+	@echo
+	@echo "SCALEFElib"
+	@$(MAKE) --no-print-directory conflog
+
+
 $(LIBDIR)/$(LIBNAME): $(LIBNAME)
 	install $< $@
 
@@ -141,7 +163,10 @@ common/scale_timeint_rk.F90: scale_timeint_rk.F90.erb
 $(OBJ_DIR)/%.o : %.F90
 	$(FC) $(FFLAGS) $(SCALE_INCLUDE) $(INCLUDE) -I$(SCALEFELIBDIR)/include -o $@ -c $<
 
+.PHONY : clean distclean allclean depend modules dependency
+
+include $(TOPDIR)/utils/make/Make_environments
+
 -include depend
 
-	# DO NOT DELETE
 # DO NOT DELETE

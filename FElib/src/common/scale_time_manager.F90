@@ -136,10 +136,14 @@ module scale_time_manager
   type(TIME_manager_component_ptr), private :: time_manager_comp_ptr_list(TIME_MANAGER_COMPONENT_MAX_NUM)
   integer, private :: TIME_MANAGER_COMPONENT_num
 
+  logical :: setup_tinteg_flag
+
 contains
 
-  subroutine TIME_manager_Init()
+  subroutine TIME_manager_Init( setup_TimeIntegration )
     implicit none
+
+    logical, intent(in), optional :: setup_TimeIntegration
     
     real(DP)               :: TIME_DURATION                = UNDEF8
     character(len=H_SHORT) :: TIME_DURATION_UNIT           = "SEC"
@@ -161,7 +165,6 @@ contains
        TIME_DT_RESUME_UNIT       
 
     integer :: ierr
-
     integer :: n
     !---------------------------------------------------------------------------
     
@@ -179,23 +182,31 @@ contains
     endif
     LOG_NML(PARAM_TIME)
 
-    if ( TIME_DT == UNDEF8 ) then
-      LOG_ERROR("TIME_manager_setup",*) 'Not found TIME_DT. STOP.'
-      call PRC_abort
-    endif
-    if ( TIME_DURATION == UNDEF8 ) then
-      LOG_ERROR("TIME_manager_setup",*) 'Not found TIME_DURATION. STOP.'
-      call PRC_abort
-    endif
-        
-    if ( TIME_DT_RESUME == UNDEF8 ) then
-      TIME_DT_RESUME = TIME_DURATION
-    endif
-    if ( TIME_DT_RESUME_UNIT == '' ) then
-        LOG_INFO_CONT(*) 'Not found TIME_DT_RESUME_UNIT.        TIME_DURATION_UNIT is used.'
-        TIME_DT_RESUME_UNIT = TIME_DURATION_UNIT
-    endif
-        
+    if ( present(setup_TimeIntegration) ) then
+      setup_tinteg_flag = setup_TimeIntegration
+    else
+      setup_tinteg_flag = .true.
+    end if
+
+    if ( setup_tinteg_flag ) then
+      if ( TIME_DT == UNDEF8 ) then
+        LOG_ERROR("TIME_manager_setup",*) 'Not found TIME_DT. STOP.'
+        call PRC_abort
+      endif
+      if ( TIME_DURATION == UNDEF8 ) then
+        LOG_ERROR("TIME_manager_setup",*) 'Not found TIME_DURATION. STOP.'
+        call PRC_abort
+      endif
+            
+      if ( TIME_DT_RESUME == UNDEF8 ) then
+        TIME_DT_RESUME = TIME_DURATION
+      endif
+      if ( TIME_DT_RESUME_UNIT == '' ) then
+          LOG_INFO_CONT(*) 'Not found TIME_DT_RESUME_UNIT.        TIME_DURATION_UNIT is used.'
+          TIME_DT_RESUME_UNIT = TIME_DURATION_UNIT
+      endif
+    end if
+
     !--
     TIME_OFFSET_YEAR = TIME_STARTDATE(1)
     
@@ -206,16 +217,24 @@ contains
     TIME_NOWDATE(:)   = TIME_STARTDATE(:)
     TIME_NOWSUBSEC    = TIME_STARTMS
 
-    call CALENDAR_unit2sec( TIME_DURATIONSEC, TIME_DURATION, TIME_DURATION_UNIT )
-    TIME_ENDSEC = TIME_STARTSEC + TIME_DURATIONSEC
+    if (setup_tinteg_flag) then
+      call CALENDAR_unit2sec( TIME_DURATIONSEC, TIME_DURATION, TIME_DURATION_UNIT )
+      TIME_ENDSEC = TIME_STARTSEC + TIME_DURATIONSEC
+    else
+      TIME_ENDSEC = TIME_STARTSEC
+    end if
 
-    call CALENDAR_unit2sec( TIME_DTSEC, TIME_DT, TIME_DT_UNIT )
-    TIME_NSTEP   = int( TIME_DURATIONSEC / TIME_DTSEC )
-    TIME_NOWSTEP = 1
+    if (setup_tinteg_flag) then
+      call CALENDAR_unit2sec( TIME_DTSEC, TIME_DT, TIME_DT_UNIT )
+      TIME_NSTEP   = int( TIME_DURATIONSEC / TIME_DTSEC )
+      TIME_NOWSTEP = 1
 
-    call CALENDAR_unit2sec( TIME_DTSEC_RESUME, TIME_DT_RESUME, TIME_DT_RESUME_UNIT )
-    TIME_DSTEP_RESUME = nint( TIME_DTSEC_RESUME / TIME_DTSEC )
-    TIME_RES_RESUME = TIME_DSTEP_RESUME - 1
+      call CALENDAR_unit2sec( TIME_DTSEC_RESUME, TIME_DT_RESUME, TIME_DT_RESUME_UNIT )
+      TIME_DSTEP_RESUME = nint( TIME_DTSEC_RESUME / TIME_DTSEC )
+      TIME_RES_RESUME = TIME_DSTEP_RESUME - 1
+    else
+      TIME_DTSEC = 1.0_RP
+    end if
 
     !--
     TIME_MANAGER_COMPONENT_num = 0
@@ -325,7 +344,12 @@ contains
     character(*), intent(in) :: dt_restart_unit
     !------------------------------------------------------------------------
 
+    this%process_num = 0
+    this%res_step = 0
+    this%res_step_restart = 0
+
     !--
+    if (.not. setup_tinteg_flag) return
 
     if (dt == UNDEF8) then
       LOG_INFO_CONT(*) 'Not found TIME_DT_'//trim(comp_name)//'. TIME_DTSEC is used.'
@@ -360,10 +384,6 @@ contains
     end if
 
     !--
-    this%res_step = 0
-    this%res_step_restart = 0
-
-    this%process_num = 0
 
     return
   end subroutine TIME_manager_component_Init
@@ -480,6 +500,10 @@ contains
     character(*), intent(in) :: dt_unit
     !--------------------------------------------------
 
+    this%res_step = 0
+
+    if (.not. setup_tinteg_flag) return
+
     if (dt == UNDEF8) then
       LOG_INFO_CONT(*) 'Not found TIME_DT_'//trim(process_name)//'. TIME_DTSEC is used.'
       this%dtsec = TIME_DTSEC
@@ -496,8 +520,6 @@ contains
         this%dtsec, real(this%dstep,kind=DP)*TIME_DTSEC
       call PRC_abort
     end if
-
-    this%res_step = 0
 
     return
   end subroutine TIME_manager_process_Init  

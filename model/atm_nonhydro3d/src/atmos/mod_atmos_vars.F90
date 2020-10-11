@@ -287,11 +287,19 @@ contains
     return
   end subroutine AtmosVars_history
 
-  subroutine AtmosVar_Read_restart_file( this )
+  subroutine AtmosVar_Read_restart_file( this, atmos_mesh )
+
+    use scale_meshfieldcomm_cubedom3d, only: MeshFieldCommCubeDom3D
+    use scale_meshfieldcomm_base, only: MeshFieldContainer
     implicit none
-    class(AtmosVars), intent(inout) :: this
+    
+    class(AtmosVars), intent(inout), target :: this
+    class(AtmosMesh), intent(in) :: atmos_mesh
 
     integer :: v
+
+    type(MeshFieldCommCubeDom3D) :: auxvars_comm
+    type(MeshFieldContainer) :: auxvars_comm_list(ATMOS_AUXVARS_NUM)
     !---------------------------------------
 
     LOG_NEWLINE
@@ -313,6 +321,17 @@ contains
     !- Close restart file
     LOG_INFO("ATMOSVar_read_restart_file",*) 'Close restart file (ATMOS) '
     call this%restart_file%Close()
+
+    !- Communicate halo data of hydrostatic variables
+
+    call auxvars_comm%Init( ATMOS_AUXVARS_NUM, 0, atmos_mesh%mesh )
+    do v=1, ATMOS_AUXVARS_NUM
+      auxvars_comm_list(v)%field3d => this%AUX_VARS(v)
+    end do
+    call auxvars_comm%Put( auxvars_comm_list, 1 )
+    call auxvars_comm%Exchange()
+    call auxvars_comm%Get( auxvars_comm_list, 1 )
+    call auxvars_comm%Final()
 
     return
   end subroutine AtmosVar_Read_restart_file

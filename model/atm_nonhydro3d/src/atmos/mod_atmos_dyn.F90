@@ -380,9 +380,6 @@ contains
     real(RP) :: dt
     !--------------------------------------------------
     
-    if (.not. this%IsActivated()) return
-    !LOG_INFO('AtmosDyn_update',*)
-    
     call PROF_rapstart( 'ATM_DYN_update', 1)   
 
     call model_mesh%GetModelMesh( mesh )

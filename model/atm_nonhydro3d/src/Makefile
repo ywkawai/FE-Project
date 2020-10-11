@@ -12,9 +12,12 @@ SYSDEP_DIR  = $(TOPDIR)/sysdep
 include $(SYSDEP_DIR)/Makedef.$(SCALE_FE_SYS)
 include $(TOPDIR)/Mkinclude
 
-BINNAME = scale-dg
+BINNAME  = scale-dg
+INITNAME = scale-dg_init
 
-BINS = $(BINDIR)/$(BINNAME)
+BINS = $(BINDIR)/$(BINNAME)$(POSTFIX)  \
+       $(BINDIR)/$(INITNAME)$(POSTFIX) 
+LIBS = $(LIBDIR)/libScaleFECore.a
 
 VERSION = $(shell git rev-parse --short HEAD 2> /dev/null)
 ifeq ($(VERSION),)
@@ -27,7 +30,8 @@ VPATH = \
 	$(BUILD_DIR): \
 	admin:        \
 	atmos:        \
-	user:         
+	user:         \
+	preprocess:
 
 OBJS = \
 	mod_dg_driver.o              \
@@ -38,48 +42,62 @@ OBJS = \
 	mod_atmos_vars.o             \
 	mod_atmos_bnd.o              \
 	mod_user.o                   \
-	mod_exp.o
-
-LIBS = $(LIBDIR)/libScaleFECore.a
-
-SAMPLE_AUX_DIR = $(TOPDIR)/sample/auxiliary
-SAMPLE_AUX_INCLUDE = $(SAMPLE_AUX_DIR)/.libs
-SAMPLE_AUX_LIB = $(SAMPLE_AUX_DIR)/libScaleFESampleAux.a
+	mod_exp.o                    \
+	\
+	mod_dg_prep.o                \
+	mod_mkinit.o
 
 
 all:
-	$(MAKE) envlog
-	$(MAKE) makedir
-	$(MAKE) make_sample_aux
-	@echo;echo "Entering atm_nonhydro3d ...";echo "Current version is " $(VERSION)
-	$(MAKE) makebin
-	@echo "Complete making."
+	$(MAKE) build
+	$(MAKE) install
 
-makedir:
-	mkdir -p $(BINDIR)
+build:
+	$(MAKE) info
+	$(MAKE) makelib
+	@echo;echo "Entering scale-dg...";echo "Current version is " $(VERSION)
 	mkdir -p $(BUILD_DIR)
+	$(MAKE) $(subst $(BINDIR),$(BUILD_DIR),$(BINS))
+	@echo "Complete making scale-dg."
 
-makebin: $(BINS)
+install:
+	mkdir -p $(BINDIR)
+	$(MAKE) $(BINS)
 
-run:
-	mpirun -n 1 ./$(BINNAME) $(CONF_NAME)
+info:
+	@$(MAKE) -C $(SCALEFELIBDIR)/src --no-print-directory info
+	@echo
+	@echo "SCALE-DG"
+	@$(MAKE) --no-print-directory conflog
 
-vis:
-	bash ./visualize/visualize.sh
+makelib:
+	$(MAKE) -C $(SCALEFELIBDIR)/src
 
-make_sample_aux:
-	make -C $(SAMPLE_AUX_DIR)
 
-$(BINDIR)/$(BINNAME): $(BUILD_DIR)/$(BINNAME).o $(patsubst %,$(BUILD_DIR)/%,$(OBJS)) $(SAMPLE_AUX_LIB) $(LIBS)
+$(BUILD_DIR)/$(BINNAME)$(POSTFIX)  : $(BUILD_DIR)/$(BINNAME).o  $(patsubst %,$(BUILD_DIR)/%,$(OBJS)) $(BUILD_DIR)/mod_user.o $(LIBS)
 	$(LD) $(LDFLAGS) $(ADDITIONAL_FFLAGS) -o $@ $^ $(LIBS) $(CONTRIB_LIBS) $(SCALE_NETCDF_LIBS) $(SCALE_MATHLIB_LIBS) $(SCALE_PAPI_LIBS)
 
-$(BUILD_DIR)/$(BINNAME).o: $(BINNAME).F90 $(patsubst %,$(BUILD_DIR)/%,$(OBJS))
+$(BUILD_DIR)/$(INITNAME)$(POSTFIX) : $(BUILD_DIR)/$(INITNAME).o $(patsubst %,$(BUILD_DIR)/%,$(OBJS)) $(BUILD_DIR)/mod_user.o $(LIBS)
+	$(LD) $(LDFLAGS) $(ADDITIONAL_FFLAGS) -o $@ $^ $(LIBS) $(CONTRIB_LIBS) $(SCALE_NETCDF_LIBS) $(SCALE_MATHLIB_LIBS) $(SCALE_PAPI_LIBS)
+
+$(BUILD_DIR)/$(BINNAME).o  : $(LIBS) $(patsubst %,$(BUILD_DIR)/%,$(OBJS)) $(BUILD_DIR)/mod_user.o
+$(BUILD_DIR)/$(INITNAME).o : $(LIBS) $(patsubst %,$(BUILD_DIR)/%,$(OBJS)) $(BUILD_DIR)/mod_user.o
+$(BUILD_DIR)/mod_user.o    : $(LIBS) $(patsubst %,$(BUILD_DIR)/%,$(SUB_OBJS)) $(BUILD_DIR)/mod_exp.o
+
+$(BINDIR)/$(BINNAME)$(POSTFIX)  : $(BUILD_DIR)/$(BINNAME)$(POSTFIX)
+	install $< $@
+
+$(BINDIR)/$(INITNAME)$(POSTFIX) : $(BUILD_DIR)/$(INITNAME)$(POSTFIX)
+	install $< $@
 
 distclean: clean
-	rm -f $(BINNAME)
+	rm -f $(BINDIR)/$(BINNAME)$(POSTFIX)
+	rm -f $(BINDIR)/$(INITNAME)$(POSTFIX)
+	rm -rf ./.libs*
 
 clean:
 	rm -rf $(BUILD_DIR)
+	rm -f *.o *.mod *.lst *~
 
 dependency:
 	./makedepend .
@@ -93,9 +111,11 @@ dependency:
 $(BUILD_DIR)/%.o: %.F90
 	$(FC) $(FFLAGS) $(ADDITIONAL_FFLAGS) -DVERSION_MACRO=\"$(VERSION)\" -I$(BUILD_DIR) -I$(MODDIR) -I../include $(CONTRIB_INCLUDE) -I$(SCALEFELIBDIR)/include -I$(SAMPLE_AUX_INCLUDE) $(SCALE_NETCDF_INCLUDE) $(MODDIROPT) $(BUILD_DIR) -o $@ -c $<
 
-.PHONY : clean distclean allclean
+$(BUILD_DIR)/%.o : %.c
+	$(CC) $(CFLAGS) -o $@ -c $<
+
+.PHONY : clean distclean allclean depend dependency
 
 include $(TOPDIR)/utils/make/Make_environments
 -include depend
 
-$(BUILD_DIR)/mod_user.o: $(BUILD_DIR)/mod_exp.o

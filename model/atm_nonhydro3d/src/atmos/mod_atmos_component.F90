@@ -162,13 +162,15 @@ subroutine Atmos_update( this )
 
   !########## Dynamics ########## 
 
-  tm_process_id = this%dyn_proc%tm_process_id
-  if ( this%time_manager%Do_process( tm_process_id ) ) then
-    do inner_itr=1, this%time_manager%Get_process_inner_itr_num( tm_process_id )
-      call this%dyn_proc%update( this%mesh, this%vars%PROGVARS_manager, this%vars%AUXVARS_manager )
-    end do
+  if ( this%dyn_proc%IsActivated() ) then
+    tm_process_id = this%dyn_proc%tm_process_id
+    if ( this%time_manager%Do_process( tm_process_id ) ) then
+      do inner_itr=1, this%time_manager%Get_process_inner_itr_num( tm_process_id )
+        call this%dyn_proc%update( this%mesh, this%vars%PROGVARS_manager, this%vars%AUXVARS_manager )
+      end do
+    end if
   end if
-
+  
   call PROF_rapend( 'ATM_update', 1)
   return  
 end subroutine Atmos_update
