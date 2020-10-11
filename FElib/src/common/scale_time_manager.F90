@@ -75,6 +75,7 @@ module scale_time_manager
     procedure, public :: Regist_process => TIME_manager_component_Regist_process
     procedure, public :: Check_state => TIME_manager_component_checkstate
     procedure, public :: Do_process => TIME_manager_component_do_process
+    procedure, public :: Get_process_inner_itr_num => TIME_manager_component_get_process_inner_itr_num
     procedure, public :: Final => TIME_manager_component_Final
   end type TIME_manager_component
 
@@ -456,6 +457,16 @@ contains
     do_step = this%process_list(tm_process_id)%do_step
     return
   end function TIME_manager_component_do_process
+
+  function TIME_manager_component_get_process_inner_itr_num( this, tm_process_id ) result(itr_num)
+    implicit none
+    class(TIME_manager_component), intent(inout) :: this
+    integer, intent(in) :: tm_process_id
+    integer :: itr_num
+    !--------------------------------------------------
+    itr_num = this%process_list(tm_process_id)%inner_itr_num
+    return
+  end function TIME_manager_component_get_process_inner_itr_num
 
   !---
 

@@ -7,6 +7,9 @@ module scale_file_restart_meshfield
   !
   use scale_precision
   use scale_io
+  use scale_prc, only: &
+    PRC_myrank, &
+    PRC_abort
   use scale_file_h, only: &
      FILE_FILE_MAX
   use scale_file_common_meshfield, only: &
@@ -26,10 +29,12 @@ module scale_file_restart_meshfield
   use scale_variableinfo, only: VariableInfo
 
   use scale_file_common_meshfield, only: &
-    File_common_meshfield_put_field3D_cartesbuf, &
-    MF3D_DIMTYPEID_X => FILE_COMMON_MESHFILED3D_DIMTYPEID_X,   &
-    MF3D_DIMTYPEID_Y => FILE_COMMON_MESHFILED3D_DIMTYPEID_Y,   &
-    MF3D_DIMTYPEID_Z => FILE_COMMON_MESHFILED3D_DIMTYPEID_Z
+    MF1D_DTYPE_NUM => FILE_COMMON_MESHFILED1D_DIMTYPE_NUM, &
+    MF2D_DTYPE_NUM => FILE_COMMON_MESHFILED2D_DIMTYPE_NUM, &
+    MF3D_DTYPE_NUM => FILE_COMMON_MESHFILED3D_DIMTYPE_NUM, &
+    MF3D_DIMTYPE_X => FILE_COMMON_MESHFILED3D_DIMTYPEID_X, &
+    MF3D_DIMTYPE_Y => FILE_COMMON_MESHFILED3D_DIMTYPEID_Y, &
+    MF3D_DIMTYPE_Z => FILE_COMMON_MESHFILED3D_DIMTYPEID_Z
   
   !-----------------------------------------------------------------------------
   implicit none
@@ -38,14 +43,6 @@ module scale_file_restart_meshfield
   !
   !++ Public type & procedures
   !
-  type, public :: axisattinfo
-    integer :: size_global (1)
-    integer :: start_global(1)
-    integer :: halo_global (2)
-    integer :: halo_local  (2)
-    logical :: periodic  
-  end type axisattinfo
-
   type :: FILE_restart_meshfield
     logical :: flag_output
     character(len=H_LONG) :: in_basename
@@ -76,10 +73,11 @@ module scale_file_restart_meshfield
     procedure :: Init2 => FILE_restart_meshfield_component_Init2
     generic :: Init => Init1, Init2
     procedure :: Open => FILE_restart_meshfield_component_open
-!    procedure :: Read_var3D => FILE_restart_meshfield_component_read_var3d
-!    generic :: Read_var => Read_var3D
+   procedure :: Read_var3D => FILE_restart_meshfield_component_read_var3d
+   generic :: Read_var => Read_var3D
     procedure :: Create => FILE_restart_meshfield_component_create
     procedure :: Def_var => FILE_restart_meshfield_component_def_var
+    procedure :: End_def => FILE_restart_meshfield_component_enddef
     procedure :: Write_var3D => FILE_restart_meshfield_component_write_var3d
     generic :: Write_var => Write_var3D
     procedure :: Close => FILE_restart_meshfield_component_close
@@ -105,22 +103,22 @@ contains
 subroutine FILE_restart_meshfield_setup()
   implicit none
 
-  logical :: RESTART_OUTPUT                              = .false.   !< Output restart file?
-  character(len=H_LONG) :: RESTART_IN_BASENAME           = ''        !< Basename of the input  file
-  logical :: RESTART_IN_POSTFIX_TIMELABEL                = .false.   !< Add timelabel to the basename of input  file?
-  character(len=H_LONG) :: RESTART_OUT_BASENAME          = ''        !< Basename of the output file
-  logical :: RESTART_OUT_POSTFIX_TIMELABEL               = .true.    !< Add timelabel to the basename of output file?
-  character(len=H_MID) :: RESTART_OUT_TITLE              = ''        !< Title    of the output file
-  character(len=H_SHORT) :: RESTART_OUT_DTYPE            = 'DEFAULT' !< REAL4 or REAL8
+  logical :: OUTPUT_FLAG                         = .false.   !< Output restart file?
+  character(len=H_LONG) :: IN_BASENAME           = ''        !< Basename of the input  file
+  logical :: IN_POSTFIX_TIMELABEL                = .false.   !< Add timelabel to the basename of input  file?
+  character(len=H_LONG) :: OUT_BASENAME          = ''        !< Basename of the output file
+  logical :: OUT_POSTFIX_TIMELABEL               = .true.    !< Add timelabel to the basename of output file?
+  character(len=H_MID) :: OUT_TITLE              = ''        !< Title    of the output file
+  character(len=H_SHORT) :: OUT_DTYPE            = 'DEFAULT' !< REAL4 or REAL8
 
   namelist / PARAM_RESTART / &
-    RESTART_OUTPUT,                &
-    RESTART_IN_BASENAME,           &
-    RESTART_IN_POSTFIX_TIMELABEL,  &
-    RESTART_OUT_BASENAME,          &
-    RESTART_OUT_POSTFIX_TIMELABEL, &
-    RESTART_OUT_TITLE,             &
-    RESTART_OUT_DTYPE
+    OUTPUT_FLAG,           &
+    IN_BASENAME,           &
+    IN_POSTFIX_TIMELABEL,  &
+    OUT_BASENAME,          &
+    OUT_POSTFIX_TIMELABEL, &
+    OUT_TITLE,             &
+    OUT_DTYPE
 
   integer :: ierr  
   !----------------------------------------
@@ -138,15 +136,15 @@ subroutine FILE_restart_meshfield_setup()
   endif
   LOG_NML(PARAM_RESTART)
 
-  restart_file%flag_output = RESTART_OUTPUT
+  restart_file%flag_output = OUTPUT_FLAG
 
-  restart_file%in_basename = RESTART_IN_BASENAME
-  restart_file%in_postfix_timelabel = RESTART_IN_POSTFIX_TIMELABEL
+  restart_file%in_basename = IN_BASENAME
+  restart_file%in_postfix_timelabel = IN_POSTFIX_TIMELABEL
   
-  restart_file%out_basename = RESTART_OUT_BASENAME
-  restart_file%out_postfix_timelabel = RESTART_OUT_POSTFIX_TIMELABEL
-  restart_file%out_title = RESTART_OUT_TITLE
-  restart_file%out_dtype = RESTART_OUT_DTYPE
+  restart_file%out_basename = OUT_BASENAME
+  restart_file%out_postfix_timelabel = OUT_POSTFIX_TIMELABEL
+  restart_file%out_title = OUT_TITLE
+  restart_file%out_dtype = OUT_DTYPE
 
   restart_file%fid = -1
 
@@ -189,8 +187,7 @@ subroutine FILE_restart_meshfield_component_Init2( this,  &
     var_num, mesh1D, mesh2D, mesh3D )
 
   use scale_file_common_meshfield, only: &
-    File_common_meshfield_get_dims  
-
+    File_common_meshfield_get_dims
   implicit none
 
   class(FILE_restart_meshfield_component), intent(inout) :: this
@@ -233,21 +230,21 @@ subroutine FILE_restart_meshfield_component_Init2( this,  &
     this%mesh1D => mesh1D
     check_specify_mesh = .true.
 
-    allocate( this%dimsinfo(1) )
+    allocate( this%dimsinfo(MF1D_DTYPE_NUM) )
     call File_common_meshfield_get_dims( mesh1D, this%dimsinfo(:) )
   end if
   if (present(mesh2D)) then
     this%mesh2D => mesh2D
     check_specify_mesh = .true.
 
-    allocate( this%dimsinfo(2) )
+    allocate( this%dimsinfo(MF2D_DTYPE_NUM) )
     call File_common_meshfield_get_dims( mesh2D, this%dimsinfo(:) )
   end if
   if (present(mesh3D)) then
     this%mesh3D => mesh3D
     check_specify_mesh = .true.
 
-    allocate( this%dimsinfo(3) )
+    allocate( this%dimsinfo(MF3D_DTYPE_NUM) )
     call File_common_meshfield_get_dims( mesh3D, this%dimsinfo(:) )
   end if
 
@@ -268,9 +265,6 @@ subroutine FILE_restart_meshfield_component_open( &
 
   use scale_file, only: &
     FILE_open
-  use scale_prc, only: &
-    PRC_myrank, &
-    PRC_abort
   use scale_time, only: &
     TIME_gettimelabel    
   implicit none
@@ -315,9 +309,6 @@ subroutine FILE_restart_meshfield_component_create( &
     TIME_gettimelabel,         &
     NOWDATE   => TIME_NOWDATE, &
     NOWSUBSEC => TIME_NOWSUBSEC
-  use scale_prc, only: &
-    PRC_myrank, &
-    PRC_abort    
   implicit none
 
   class(FILE_restart_meshfield_component), intent(inout) :: this
@@ -360,6 +351,7 @@ subroutine FILE_restart_meshfield_component_create( &
   
   if ( .not. fileexisted ) then
     call put_global_attribute( this%fid, NOWSUBSEC, tunits, calendar )
+    call def_axes( this )
   end if
 
   return
@@ -378,8 +370,8 @@ subroutine FILE_restart_meshfield_component_def_var( this, &
   class(MeshFieldBase), intent(in) :: field
   character(len=*), intent(in) :: desc
   integer, intent(in) :: dim_type_id
-  character(len=*), intent(in) :: datatype
   integer, intent(in) :: vid
+  character(len=*), optional, intent(in) :: datatype
   character(len=*), optional, intent(in) :: standard_name
   real(DP), optional, intent(in) :: timeinv
   integer, optional, intent(in) :: nsteps
@@ -390,7 +382,11 @@ subroutine FILE_restart_meshfield_component_def_var( this, &
   character(len=H_MID)   :: standard_name_  
   !--------------------------------------------------------------
 
-  dtype = get_dtype(datatype)
+  if ( present(datatype) ) then
+    dtype = get_dtype(datatype)
+  else
+    dtype = get_dtype(this%out_dtype)
+  end if
 
   if ( present(nsteps) ) then
     this%write_buf_amount = this%write_buf_amount + this%dimsinfo(dim_type_id)%size * nsteps
@@ -447,7 +443,6 @@ subroutine FILE_restart_meshfield_component_write_var3d( this, &
   use scale_file, only: &
       FILE_opened, &
       FILE_Write
-  use scale_prc    
   use scale_time, only: &
     NOWDAYSEC  => TIME_NOWDAYSEC  
   use scale_file_common_meshfield, only: &
@@ -464,9 +459,9 @@ subroutine FILE_restart_meshfield_component_write_var3d( this, &
 
   if ( this%fid /= -1 ) then
     start(:) = 1
-    dims(1) = this%dimsinfo(MF3D_DIMTYPEID_X)%size
-    dims(2) = this%dimsinfo(MF3D_DIMTYPEID_Y)%size
-    dims(3) = this%dimsinfo(MF3D_DIMTYPEID_Z)%size
+    dims(1) = this%dimsinfo(MF3D_DIMTYPE_X)%size
+    dims(2) = this%dimsinfo(MF3D_DIMTYPE_Y)%size
+    dims(3) = this%dimsinfo(MF3D_DIMTYPE_Z)%size
     allocate( buf(dims(1),dims(2),dims(3)) )
     call File_common_meshfield_put_field3D_cartesbuf( this%mesh3D, field3d, buf(:,:,:) )
 
@@ -482,7 +477,6 @@ subroutine FILE_restart_meshfield_component_read_var3d( this, &
 
   use scale_file, only: &
     FILE_Read
-  use scale_prc    
   use scale_time, only: &
     NOWDAYSEC  => TIME_NOWDAYSEC  
   use scale_file_common_meshfield, only: &
@@ -504,9 +498,9 @@ subroutine FILE_restart_meshfield_component_read_var3d( this, &
 
   if ( this%fid /= -1 ) then
     start(:) = 1
-    dims(1) = this%dimsinfo(MF3D_DIMTYPEID_X)%size
-    dims(2) = this%dimsinfo(MF3D_DIMTYPEID_Y)%size
-    dims(3) = this%dimsinfo(MF3D_DIMTYPEID_Z)%size
+    dims(1) = this%dimsinfo(MF3D_DIMTYPE_X)%size
+    dims(2) = this%dimsinfo(MF3D_DIMTYPE_Y)%size
+    dims(3) = this%dimsinfo(MF3D_DIMTYPE_Z)%size
     allocate( buf(dims(1),dims(2),dims(3)) )
 
     call FILE_Read( this%fid, varname,                       & ! (in)
@@ -555,9 +549,6 @@ end subroutine FILE_restart_meshfield_component_Final
 !- private -----------------------------------------
 
 subroutine file_restart_setup( this )
-  use scale_prc, only: &
-    PRC_myrank, &
-    PRC_abort
   use scale_const, only: &
     EPS => CONST_EPS
   use scale_file, only: &
@@ -583,8 +574,6 @@ subroutine file_restart_open( &
   use scale_file, only: &
     FILE_AGGREGATE, &
     FILE_Open
-  use scale_prc, only: &
-    PRC_myrank
   implicit none
 
   character(len=*), intent(in)  :: basename !< basename of the file
@@ -612,16 +601,18 @@ subroutine def_axes( this )
   implicit none
 
   class(FILE_restart_meshfield_component), intent(in) :: this
-  integer :: d
+  integer :: d, n, ndim
   integer :: dtype
   !------------
 
   dtype = get_dtype( this%out_dtype )
 
   if ( associated(this%mesh1D) ) then
-    call FILE_Def_Axis( this%fid, &
-      this%dimsinfo(1)%name, this%dimsinfo(1)%desc, this%dimsinfo(1)%unit, &
-      this%dimsinfo(1)%name, dtype, this%dimsinfo(1)%size                  )
+    do d=1, 1
+      call FILE_Def_Axis( this%fid, &
+        this%dimsinfo(d)%name, this%dimsinfo(d)%desc, this%dimsinfo(d)%unit, &
+        this%dimsinfo(d)%name, dtype, this%dimsinfo(d)%size                  )
+    end do
   end if
 
   if ( associated(this%mesh2D) ) then
@@ -649,9 +640,6 @@ subroutine write_axes( this, start )
   use scale_file, only: &
     FILE_Write_Axis,    &
     FILE_Write_AssociatedCoordinate
-  use scale_prc, only: &
-    PRC_myrank, &
-    PRC_IsMaster  
   use scale_file_common_meshfield, only: &
     File_common_meshfield_get_axis
   implicit none
@@ -717,9 +705,7 @@ end subroutine put_global_attribute
 function get_dtype( datatype ) result( dtype )
 
   use scale_file_h, only: &
-    FILE_REAL8, &
-    FILE_REAL4
-    
+    FILE_REAL8, FILE_REAL4
   implicit none
 
   character(*), intent(in) :: datatype
@@ -748,6 +734,8 @@ end function get_dtype
 subroutine get_tunits_and_calendarname( date, &
     tunits, calendar_name )
 
+  use scale_file, only: &
+    FILE_get_CFtunits
   use scale_calendar, only: &
     CALENDAR_get_name    
   implicit none

@@ -31,6 +31,7 @@ module scale_model_component
 
     procedure, public :: ModelComponent_Init    
     procedure, public :: IsActivated => ModelComponent_isActivated
+    procedure, public :: GetComponentName => ModelComponent_getCompName
   end type ModelComponent
 
   interface
@@ -94,5 +95,16 @@ contains
     is_activated = this%is_activated
     return
   end function ModelComponent_isActivated
+
+  function ModelComponent_getCompName( this ) result( model_name )
+    implicit none
+
+    class(ModelComponent), intent(in) :: this
+    character(len=H_SHORT) :: model_name
+    !---------------------------------------------------
+
+    model_name = this%name
+    return
+  end function ModelComponent_getCompName
 
 end module scale_model_component

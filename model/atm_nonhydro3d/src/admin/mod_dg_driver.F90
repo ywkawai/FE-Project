@@ -106,30 +106,54 @@ contains
     call PROF_rapstart('Main_Loop', 0)
 
     do
+
+      !*******************************************
+
       ! report current time
       call TIME_manager_checkstate()
   
       if (TIME_DOresume) then
         ! set state from restart file
         call restart_read()
+        ! history & monitor file output        
         call FILE_HISTORY_meshfield_write()
       end if
 
-      !* Advance time
+      !* Advance time *********************************
+
       call TIME_manager_advance()
       call FILE_HISTORY_set_nowdate( TIME_NOWDATE, TIME_NOWSUBSEC, TIME_NOWSTEP )
 
-      !* change to next state
-      call atmos%update()
+      !* change to next state *************************
+
+      !- ATMOS
+      if ( atmos%IsActivated() .and. atmos%time_manager%do_step) then
+        call atmos%update()
+      end if
+
+      !- USER
       call USER_update()
 
-      !* calc tendencies and diagnostices
-      call atmos%calc_tendency()
+      !* restart and monitor output *******************
+      call restart_write()
+
+      !* calc tendencies and diagnostices *************
+
+      !- ATMOS 
+      if ( atmos%IsActivated() .and. atmos%time_manager%do_step) then
+        call atmos%calc_tendency()
+      end if
+
+      !- USER 
       call USER_calc_tendency()
   
-      !* output history files
+      !* output history files *************************
+
+      if ( atmos%IsActivated() ) call atmos%vars%History()
+
       call FILE_HISTORY_meshfield_write()
       
+      !*******************************************
       if (TIME_DOend) exit
       
       if( IO_L ) call flush(IO_FID_LOG)
@@ -198,12 +222,13 @@ contains
     call PROF_setprefx('FIN')
     call PROF_rapstart('All', 1)
 
+    !-
     call FILE_HISTORY_meshfield_finalize()
 
-    ! finialzie submodels
+    ! finalization submodels
     call  atmos%finalize()
 
-    !
+    !-
     call TIME_manager_Final()
 
     call PROF_rapend  ('All', 1)
@@ -216,11 +241,36 @@ contains
     implicit none    
     !----------------------------------------
 
-    if (  atmos%isActivated() ) then
+    !- read restart data
+    if ( atmos%isActivated() ) then
+      call atmos%vars%Read_restart_file()
+    end if
+      
+    !- Calculate the tendencies
+
+    if ( atmos%IsActivated() ) call atmos%calc_tendency()
+
+
+    !- History & Monitor 
+
+    if ( atmos%isActivated() ) then
       call atmos%vars%History()
+      ! call atmos%vars%Monitor()
     end if
 
     return
   end subroutine restart_read
+
+  subroutine restart_write
+    implicit none    
+    !----------------------------------------
+
+
+    if ( atmos%isActivated() .and. atmos%time_manager%do_restart) then
+      call atmos%vars%Write_restart_file()
+    end if
+
+    return
+  end subroutine 
 
 end module mod_dg_driver

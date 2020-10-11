@@ -27,7 +27,7 @@ module scale_model_component_proc
   type, abstract, public :: ModelComponentProc
     character(len=H_SHORT) :: name
     logical, private :: is_activated = .false.    
-    real(DP) :: dtsec
+    integer :: tm_process_id
   contains
     procedure(ModelComponentProc_setup), deferred, public :: setup
     procedure(ModelComponentProc_calc_tendency), deferred, public :: calc_tendency
@@ -39,13 +39,13 @@ module scale_model_component_proc
   end type ModelComponentProc
 
   interface
-    subroutine ModelComponentProc_setup( this, model_mesh, time_manager )
+    subroutine ModelComponentProc_setup( this, model_mesh, tm_parent_comp )
       import ModelComponentProc
       import ModelMeshBase
       import TIME_manager_component
       class(ModelComponentProc), intent(inout) :: this
       class(ModelMeshBase), target, intent(in) :: model_mesh
-      class(TIME_manager_component) :: time_manager
+      class(TIME_manager_component), intent(inout) :: tm_parent_comp
     end subroutine ModelComponentProc_setup
 
     subroutine ModelComponentProc_calc_tendency( this, model_mesh, prgvars_list, auxvars_list )

@@ -20,6 +20,7 @@ module mod_atmos_component
   use scale_prc
 
   use scale_model_component, only: ModelComponent
+
   use mod_atmos_vars, only: AtmosVars
   use mod_atmos_mesh, only: AtmosMesh
   use mod_atmos_dyn, only: AtmosDyn
@@ -36,7 +37,6 @@ module mod_atmos_component
     type(AtmosMesh) :: mesh
 
     type(AtmosDyn) :: dyn_proc
-
   contains
     procedure, public :: setup => Atmos_setup 
     procedure, public :: calc_tendency => Atmos_calc_tendency
@@ -59,17 +59,31 @@ module mod_atmos_component
   !-----------------------------------------------------------------------------
 contains
 subroutine Atmos_setup( this )
-  use scale_file_history_meshfield, only: FILE_HISTORY_meshfield_setup  
+  use scale_const, only: &
+    UNDEF8 => CONST_UNDEF8
+  use scale_file_history_meshfield, only: &
+    FILE_HISTORY_meshfield_setup  
+  use scale_time_manager, only: &
+    TIME_manager_Regist_component
   implicit none
 
   class(AtmosComponent), intent(inout) :: this
 
   logical :: ACTIVATE_FLAG = .true.
+
+  real(DP) :: TIME_DT                             = UNDEF8
+  character(len=H_SHORT) :: TIME_DT_UNIT          = 'SEC'
+  real(DP) :: TIME_DT_RESTART                     = UNDEF8
+  character(len=H_SHORT) :: TIME_DT_RESTART_UNIT  = 'SEC'
+
   logical :: ATMOS_DYN_DO  = .true.
-  character(len=H_SHORT) :: DYN_TYPE = 'NONE'
 
   namelist / PARAM_ATMOS / &
     ACTIVATE_FLAG,         &
+    TIME_DT,               &
+    TIME_DT_UNIT,          &
+    TIME_DT_RESTART,       &
+    TIME_DT_RESTART_UNIT,  &
     ATMOS_DYN_DO
 
   integer :: ierr
@@ -89,21 +103,34 @@ subroutine Atmos_setup( this )
   LOG_NML(PARAM_ATMOS)
 
   !************************************************
-  call this%ModelComponent_Init('Atmos', ACTIVATE_FLAG )
+  call this%ModelComponent_Init('ATMOS', ACTIVATE_FLAG )
   if ( .not. ACTIVATE_FLAG ) return
 
+  !- Setup time manager
+
+  call this%time_manager%Init( this%GetComponentName(), &
+    TIME_DT, TIME_DT_UNIT,                              &
+    TIME_DT_RESTART, TIME_DT_RESTART_UNIT               ) 
+  
+  call TIME_manager_Regist_component( this%time_manager )
+  
   !- Setup mesh
+
   call this%mesh%Init()
 
   !- Setup file I/O for atmospheric component
+
   call FILE_HISTORY_meshfield_setup( mesh3d_=this%mesh%mesh )  
   
   !- Setup variables
-  call this%vars%Init( this%mesh )
 
-  !-------------------------------------
+  call this%vars%Init( this%mesh )
+  
+  !- Setup each processes in atmospheric model ------------------------------------
+
+  !- Setup the module for atmosphere / dynamics 
   call this%dyn_proc%ModelComponentProc_Init('AtmosDyn', ATMOS_DYN_DO )
-  call this%dyn_proc%setup( this%mesh )
+  call this%dyn_proc%setup( this%mesh, this%time_manager )
   
   call PROF_rapend( 'ATM_setup', 1)
   return
@@ -124,18 +151,23 @@ subroutine Atmos_calc_tendency( this )
 end subroutine Atmos_calc_tendency
 
 subroutine Atmos_update( this )
+
   implicit none
   class(AtmosComponent), intent(inout) :: this
   
+  integer :: tm_process_id
+  integer :: inner_itr
   !--------------------------------------------------
   call PROF_rapstart( 'ATM_update', 1)
-  !LOG_INFO('AtmosComponent_update',*)
 
-  !########## Dynamics ##########  
-  call this%dyn_proc%update( this%mesh, this%vars%PROGVARS_manager, this%vars%AUXVARS_manager )
+  !########## Dynamics ########## 
 
-  !########## History & Monitor ##########
-  call this%vars%History()
+  tm_process_id = this%dyn_proc%tm_process_id
+  if ( this%time_manager%Do_process( tm_process_id ) ) then
+    do inner_itr=1, this%time_manager%Get_process_inner_itr_num( tm_process_id )
+      call this%dyn_proc%update( this%mesh, this%vars%PROGVARS_manager, this%vars%AUXVARS_manager )
+    end do
+  end if
 
   call PROF_rapend( 'ATM_update', 1)
   return  
@@ -153,6 +185,7 @@ subroutine Atmos_finalize( this )
   call this%dyn_proc%finalize()
   call this%vars%Final()
   call this%mesh%Final()
+  call this%time_manager%Final()
 
   return  
 end subroutine Atmos_finalize

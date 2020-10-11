@@ -19,7 +19,7 @@ module mod_atmos_dyn
   use scale_io
   use scale_prof
   use scale_const, only: &
-    UNDEF => CONST_UNDEF8
+    UNDEF8 => CONST_UNDEF8
 
   use scale_sparsemat, only: SparseMat
   use scale_timeint_rk, only: TimeInt_RK
@@ -161,17 +161,20 @@ module mod_atmos_dyn
 
 contains
 
-  subroutine AtmosDyn_setup( this, model_mesh )
+  subroutine AtmosDyn_setup( this, model_mesh, tm_parent_comp )
     use mod_atmos_mesh, only: AtmosMesh
     use mod_atmos_vars, only: ATMOS_PROGVARS_NUM
+    use scale_time_manager, only: TIME_manager_component
     implicit none
 
     class(AtmosDyn), intent(inout) :: this
     class(ModelMeshBase), target, intent(in) :: model_mesh
+    class(TIME_manager_component), intent(inout) :: tm_parent_comp
 
     character(len=H_MID) :: EQS_TYPE    = "NONHYDRO3D_HEVE"
     character(len=H_SHORT) :: TINTEG_TYPE = 'RK_TVD_3'
-    real(DP) :: DT_SEC     = 1.0_RP
+    real(DP) :: TIME_DT                             = UNDEF8
+    character(len=H_SHORT) :: TIME_DT_UNIT          = 'SEC'  
     
     logical  :: MODALFILTER_FLAG = .false.
     real(RP) :: MF_ETAC_h  = 2.0_RP/3.0_RP
@@ -189,12 +192,13 @@ contains
     character(len=H_SHORT) :: coriolis_type = 'PLANE'   ! type of coriolis force: 'PLANE', 'SPHERE'
     real(RP) :: coriolis_f0         = 0.0_RP
     real(RP) :: coriolis_beta       = 0.0_RP
-    real(RP) :: coriolis_y0         = UNDEF             ! default is domain center    
+    real(RP) :: coriolis_y0         = UNDEF8            ! default is domain center    
 
     namelist / PARAM_ATMOS_DYN /       &
       EQS_TYPE,                               &
       TINTEG_TYPE,                            &
-      DT_SEC,                                 &
+      TIME_DT,                                &
+      TIME_DT_UNIT,                           &
       MODALFILTER_FLAG,                       &
       NUMDIFF_FLAG,                           &
       CORIOLIS_TYPE,                          &
@@ -217,6 +221,9 @@ contains
     class(LocalMeshBase), pointer :: ptr_lcmesh
     class(LocalMesh3D), pointer :: lcmesh3D
     integer :: n
+
+    real(DP) :: dtsec
+
     !--------------------------------------------------
 
     if (.not. this%IsActivated()) return
@@ -236,19 +243,24 @@ contains
     !---------------------------------------------------
 
     call model_mesh%GetModelMesh( ptr_mesh )
-    this%dtsec = DT_SEC
 
-    !--
 
-    !-
+    !---
+    
+    call tm_parent_comp%Regist_process( 'ATMOS_DYN', TIME_DT, TIME_DT_UNIT, & ! (in)
+      this%tm_process_id )                                                    ! (out)
+
+    dtsec = tm_parent_comp%process_list(this%tm_process_id)%dtsec
+    
     allocate( this%tint(ptr_mesh%LOCAL_MESH_NUM) )
     do n = 1, ptr_mesh%LOCAL_MESH_NUM
       call ptr_mesh%GetLocalMesh( n, ptr_lcmesh )
-      call this%tint(n)%Init( TINTEG_TYPE, DT_SEC, ATMOS_PROGVARS_NUM, 2, &
+      call this%tint(n)%Init( TINTEG_TYPE, dtsec, ATMOS_PROGVARS_NUM, 2, &
         (/ ptr_mesh%refElem%Np, ptr_lcmesh%NeA /) )
     end do
 
     !----
+
     select type(model_mesh)
     type is (AtmosMesh)
       atm_mesh => model_mesh
@@ -733,7 +745,7 @@ contains
     real(RP) :: y0
     !-----------------------------------------------
 
-    if (y0_ == UNDEF) then
+    if (y0_ == UNDEF8) then
       y0 = 0.5_RP*(atm_mesh%mesh%ymax_gl +  atm_mesh%mesh%ymin_gl)
     else
       y0 = y0_

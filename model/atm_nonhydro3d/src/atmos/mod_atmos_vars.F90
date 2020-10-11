@@ -16,7 +16,11 @@ module mod_atmos_vars
   use scale_meshfield_base, only: MeshField3D
   use scale_localmeshfield_base, only: LocalMeshFieldBase
   
-  use scale_file_restart_meshfield, only: FILE_restart_meshfield_component
+  use scale_file_restart_meshfield, only: &
+    FILE_restart_meshfield_component
+  use scale_file_common_meshfield, only: &
+    DIMTYPE_XYZ  => FILE_COMMON_MESHFILED3D_DIMTYPEID_XYZ
+  
   use scale_meshfieldcomm_cubedom3d, only: MeshFieldCommCubeDom3D
   use scale_meshfieldcomm_base, only: MeshFieldContainer
 
@@ -43,10 +47,14 @@ module mod_atmos_vars
     
     type(ModelVarManager) :: DIAGVARS_manager    
     integer, allocatable :: DIAGVARS_HISTID(:)
+
+    type(FILE_restart_meshfield_component) :: restart_file
   contains
     procedure :: Init => AtmosVars_Init
     procedure :: Final => AtmosVars_Final
     procedure :: History => AtmosVars_History
+    procedure :: Read_restart_file => AtmosVar_Read_restart_file
+    procedure :: Write_restart_file => AtmosVar_Write_restart_file
   end type AtmosVars
 
   public :: AtmosVars_GetLocalMeshField
@@ -122,6 +130,24 @@ contains
     logical :: reg_file_hist
 
     type(MeshField3D) :: diag_vars(ATMOS_DIAGVARS_NUM)
+
+    character(len=H_LONG) :: IN_BASENAME           = ''        !< Basename of the input  file
+    logical :: IN_POSTFIX_TIMELABEL                = .false.   !< Add timelabel to the basename of input  file?
+    character(len=H_LONG) :: OUT_BASENAME          = ''        !< Basename of the output file
+    logical :: OUT_POSTFIX_TIMELABEL               = .true.    !< Add timelabel to the basename of output file?
+    character(len=H_MID) :: OUT_TITLE              = ''        !< Title    of the output file
+    character(len=H_SHORT) :: OUT_DTYPE            = 'DEFAULT' !< REAL4 or REAL8  
+
+    namelist / PARAM_ATMOS_VARS_RESTART / &
+      IN_BASENAME,           &
+      IN_POSTFIX_TIMELABEL,  &
+      OUT_BASENAME,          &
+      OUT_POSTFIX_TIMELABEL, &
+      OUT_TITLE,             &
+      OUT_DTYPE    
+    
+    integer :: ierr
+    logical :: is_specified
     !--------------------------------------------------
 
     LOG_INFO('AtmosVars_Init',*)
@@ -173,6 +199,33 @@ contains
     end do
     call this%DIAGVARS_manager%Final()
 
+    !-- Setup information for input/output restart files. 
+
+    is_specified = .true.
+    !- read namelist
+    rewind(IO_FID_CONF)
+    read(IO_FID_CONF,nml=PARAM_ATMOS_VARS_RESTART,iostat=ierr)
+    if( ierr < 0 ) then !--- missing
+       LOG_INFO("AtmosVars_Init",*) 'Not found namelist PARAM_ATMOS_VARS_RESTART. Default used.'
+       is_specified = .false.
+    elseif( ierr > 0 ) then !--- fatal error
+       LOG_ERROR("AtmosVars_Init",*) 'Not appropriate names in namelist PARAM_ATMOS_VARS_RESTART. Check!'
+       call PRC_abort
+    endif
+    LOG_NML(PARAM_ATMOS_VARS_RESTART)
+
+    if (is_specified) then
+      call this%restart_file%Init('ATMOS',                          &
+        IN_BASENAME, IN_POSTFIX_TIMELABEL,                          &
+        OUT_BASENAME, OUT_POSTFIX_TIMELABEL, OUT_DTYPE, OUT_TITLE,  &
+        ATMOS_PROGVARS_NUM + ATMOS_AUXVARS_NUM,                     &
+        mesh3D=atm_mesh%mesh                    )
+    else
+      call this%restart_file%Init('ATMOS',      &
+        ATMOS_PROGVARS_NUM + ATMOS_AUXVARS_NUM, &
+        mesh3D=atm_mesh%mesh                    )
+    end if
+
     return
   end subroutine AtmosVars_Init
 
@@ -183,6 +236,8 @@ contains
     !--------------------------------------------------
 
     LOG_INFO('AtmosVars_Final',*)
+
+    call this%restart_file%Final()
 
     call this%PROGVARS_comm%Final()
     call this%PROGVARS_manager%Final()
@@ -231,6 +286,80 @@ contains
 
     return
   end subroutine AtmosVars_history
+
+  subroutine AtmosVar_Read_restart_file( this )
+    implicit none
+    class(AtmosVars), intent(inout) :: this
+
+    integer :: v
+    !---------------------------------------
+
+    LOG_NEWLINE
+    LOG_INFO("ATMOSVar_read_restart_file",*) 'Open restart file (ATMOS) '
+
+    !- Open restart file
+    call this%restart_file%Open()
+
+    !- Read restart file
+    do v=1, ATMOS_PROGVARS_NUM
+      call this%restart_file%Read_var( DIMTYPE_XYZ, this%PROG_VARS(v)%varname, &
+        this%PROG_VARS(v)                                                      )
+    end do
+    do v=1, ATMOS_AUXVARS_NUM
+      call this%restart_file%Read_var( DIMTYPE_XYZ, this%AUX_VARS(v)%varname, &
+        this%AUX_VARS(v)                                                      )
+    end do
+
+    !- Close restart file
+    LOG_INFO("ATMOSVar_read_restart_file",*) 'Close restart file (ATMOS) '
+    call this%restart_file%Close()
+
+    return
+  end subroutine AtmosVar_Read_restart_file
+
+  subroutine AtmosVar_write_restart_file( this )
+
+    implicit none
+    class(AtmosVars), intent(inout) :: this
+
+    integer :: v, rf_vid
+    !---------------------------------------
+    
+    LOG_NEWLINE
+    LOG_INFO("ATMOSVar_write_restart_file",*) 'Create restart file (ATMOS) '
+
+    !- Create restart file
+    call this%restart_file%Create()
+
+    !- Define variables
+    do v=1, ATMOS_PROGVARS_NUM
+      rf_vid = v
+      call this%restart_file%Def_var( this%PROG_VARS(v),  &
+        ATMOS_PROGVARS_VINFO(v)%DESC, rf_vid, DIMTYPE_XYZ )
+    end do
+    do v=1, ATMOS_AUXVARS_NUM
+      rf_vid = ATMOS_PROGVARS_NUM + v
+      call this%restart_file%Def_var( this%AUX_VARS(v),   &
+        ATMOS_AUXVARS_VINFO(v)%DESC, rf_vid, DIMTYPE_XYZ  )
+    end do
+    call this%restart_file%End_def()
+
+    !- Write restart file
+    do v=1, ATMOS_PROGVARS_NUM
+      rf_vid = v
+      call this%restart_file%Write_var(rf_vid, this%PROG_VARS(v) )
+    end do
+    do v=1, ATMOS_AUXVARS_NUM
+      rf_vid = ATMOS_PROGVARS_NUM + v
+     call this%restart_file%Write_var(rf_vid, this%AUX_VARS(v) )
+    end do
+
+    !- Close restart file
+    LOG_INFO("ATMOSVar_write_restart_file",*) 'Close restart file (ATMOS) '
+    call this%restart_file%Close()
+
+    return
+  end subroutine AtmosVar_write_restart_file
 
   subroutine AtmosVars_GetLocalMeshField( domID, mesh, prgvars_list, auxvars_list, &
      varid,                                                                        &
