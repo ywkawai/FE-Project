@@ -49,6 +49,7 @@ module scale_time_manager
     integer :: dstep
     integer :: res_step
     logical :: do_step
+    integer :: inner_itr_num
   contains
     procedure, public :: Init => TIME_manager_process_Init
     procedure, public :: Check_state => TIME_manager_process_checkstate
@@ -73,6 +74,7 @@ module scale_time_manager
     procedure, public :: Init => TIME_manager_component_Init
     procedure, public :: Regist_process => TIME_manager_component_Regist_process
     procedure, public :: Check_state => TIME_manager_component_checkstate
+    procedure, public :: Do_process => TIME_manager_component_do_process
     procedure, public :: Final => TIME_manager_component_Final
   end type TIME_manager_component
 
@@ -266,13 +268,15 @@ contains
 
     character(len=27) :: nowchardate
     integer :: n
-    type(TIME_manager_component), pointer :: tmanager_comp
+    type(TIME_manager_component), pointer :: tm_comp
+
     !---------------------------------------------------------------------------
 
     do n=1, TIME_MANAGER_COMPONENT_num
-      call time_manager_comp_ptr_list(n)%ptr%Check_state()
+      tm_comp => time_manager_comp_ptr_list(n)%ptr
+      call tm_comp%Check_state()
     end do
-
+ 
     TIME_DOresume   = .false.
     TIME_RES_RESUME = TIME_RES_RESUME + 1
 
@@ -355,6 +359,8 @@ contains
     end if
 
     !--
+    this%res_step = 0
+    this%res_step_restart = 0
 
     this%process_num = 0
 
@@ -363,45 +369,65 @@ contains
 
   subroutine TIME_manager_component_checkstate( this )    
     implicit none
-    class(TIME_manager_component), intent(inout) :: this
+    class(TIME_manager_component), intent(inout), target :: this
 
     integer :: n
+    type(TIME_manager_process), pointer :: tm_process
     !--------------------------------------------------
 
-    this%do_step = .false.
-    this%res_step = this%res_step + 1
-    if ( this%res_step == this%dstep ) then
-      this%do_step = .true.
-      this%res_step = 0
+    this%do_step = .false.      
+
+    if (this%process_num > 0) then
+      do n=1, this%process_num
+        tm_process => this%process_list(n)
+        call tm_process%Check_state()
+        if (tm_process%do_step) this%do_step = .true.
+      end do  
+    else
+      this%res_step = this%res_step + 1
+      if ( this%res_step == this%dstep ) then
+        this%do_step = .true.
+        this%res_step = 0
+      end if  
     end if
 
-    do n=1, this%process_num
-      call this%process_list(n)%Check_state()
-    end do
+    !-
+    this%do_restart = .false.
+
+    this%res_step_restart = this%res_step_restart + 1
+    if ( this%res_step_restart == this%dstep_restart ) then
+      this%do_restart = .true.
+      this%res_step_restart = 0
+    end if  
 
     return
   end subroutine TIME_manager_component_checkstate
 
   subroutine TIME_manager_component_Regist_process( this, &
-      process_name, dt, dt_unit )    
+      process_name, dt, dt_unit,                          &
+      tm_process_id )    
     implicit none
+
     class(TIME_manager_component), intent(inout), target :: this
     character(*), intent(in) :: process_name
     real(DP), intent(in) :: dt
     character(*), intent(in) :: dt_unit
+    integer, intent(out) :: tm_process_id
 
-    type(TIME_manager_process), pointer :: process
+    type(TIME_manager_process), pointer :: tm_process
     !--------------------------------------------------
 
     this%process_num = this%process_num + 1
+    tm_process_id = this%process_num 
+
     if( this%process_num > TIME_MANAGER_PROCESS_MAX_NUM) then
       LOG_ERROR("TIME_manager_component_Regist_process",*) 'The number of TIME_manager_process registered exceeds ', &
         this%process_num, TIME_MANAGER_PROCESS_MAX_NUM
       call PRC_abort
     end if
 
-    process => this%process_list(this%process_num)
-    call process%Init( process_name, dt, dt_unit )
+    tm_process => this%process_list(this%process_num)
+    call tm_process%Init( process_name, dt, dt_unit )
 
     return
   end subroutine TIME_manager_component_Regist_process
@@ -420,6 +446,16 @@ contains
 
     return
   end subroutine TIME_manager_component_Final
+
+  function TIME_manager_component_do_process( this, tm_process_id ) result(do_step)
+    implicit none
+    class(TIME_manager_component), intent(inout) :: this
+    integer, intent(in) :: tm_process_id
+    logical :: do_step
+    !--------------------------------------------------
+    do_step = this%process_list(tm_process_id)%do_step
+    return
+  end function TIME_manager_component_do_process
 
   !---
 
@@ -440,13 +476,17 @@ contains
       call CALENDAR_unit2sec( this%dtsec, dt, dt_unit )
     end if
 
-    this%dstep = nint( this%dtsec / TIME_DTSEC )
+    this%inner_itr_num = max( nint(TIME_DTSEC/this%dtsec), 1 )
+    this%dstep = nint( this%dtsec / TIME_DTSEC * this%inner_itr_num )
 
-    if ( abs(this%dtsec - real(this%dstep,kind=DP)*TIME_DTSEC) > eps ) then
+    if ( abs(  real(this%inner_itr_num, kind=DP)*this%dtsec         &
+             - real(this%dstep         ,kind=DP)*TIME_DTSEC          ) > eps ) then
       LOG_ERROR("TIME_manager_process_Init",*) 'delta t('//trim(process_name)//') must be a multiple of delta t ', &
         this%dtsec, real(this%dstep,kind=DP)*TIME_DTSEC
       call PRC_abort
     end if
+
+    this%res_step = 0
 
     return
   end subroutine TIME_manager_process_Init  
@@ -466,8 +506,10 @@ contains
     !--------------------------------------------------
 
     this%do_step = .false.
+    this%res_step = this%res_step + 1
     if ( this%res_step == this%dstep ) then
       this%do_step = .true.
+      this%res_step = 0
     end if
 
     return
