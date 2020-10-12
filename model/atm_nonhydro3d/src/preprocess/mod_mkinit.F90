@@ -78,6 +78,17 @@ contains
     logical, intent(out) :: output
     !---------------------------------------------------------------------------
 
+
+    LOG_NEWLINE
+    LOG_PROGRESS(*) 'start making initial data'
+
+    call PROF_rapstart('_MkInit_main',3)    
+    call PROF_rapend  ('_MkInit_main',3)
+        
+    LOG_PROGRESS(*) 'end   making initial data'
+
+    output = .true.
+
     return
   end subroutine MKINIT
 end module mod_mkinit

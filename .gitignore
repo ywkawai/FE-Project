@@ -1,11 +1,12 @@
 bin/
 .libs/
 *.o
+*.lst
 *.mod
 *~
 *.a
-*.nc
 
+#
 *.bak
 *.aux
 *.dvi
@@ -16,3 +17,18 @@ bin/
 *.blg
 *.fls
 *.out
+
+#
+*.out
+*.err
+*.stats
+STDOUT.*
+LOG.pe*
+init_LOG.pe*
+*.nc
+
+
+#
+scale-dg
+scale-dg_init
+

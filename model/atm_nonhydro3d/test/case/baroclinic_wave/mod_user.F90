@@ -80,9 +80,16 @@ module mod_user
 
   !-----------------------------------------------------------------------------
 contains
-  subroutine USER_mkinit
+  subroutine USER_mkinit( atm )
+    class(AtmosComponent), intent(inout) :: atm
+
     implicit none
     !------------------------------------------
+
+    call exp_manager%Init('baroclinic_wave')
+    call exp_manager%SetInitCond( &
+      atm%mesh, atm%vars%PROGVARS_manager, atm%vars%AUXVARS_manager )
+    call exp_manager%Final()
 
     return
   end subroutine USER_mkinit
@@ -114,10 +121,6 @@ contains
     LOG_NML(PARAM_USER)
 
     !-
-    call exp_manager%Init('baroclinic_wave')
-    call exp_manager%SetInitCond( &
-      atm%mesh, atm%vars%PROGVARS_manager, atm%vars%AUXVARS_manager )
-    call exp_manager%Final()
 
     return
   end subroutine USER_setup
