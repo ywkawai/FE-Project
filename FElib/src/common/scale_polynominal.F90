@@ -138,7 +138,7 @@ contains
 
     P(:,2) = x(:)
     do n=2, Nord
-      P(:,n+1) = ( dble(2*n-1)*x(:)*P(:,n) - dble(n-1)*P(:,n-1))/dble(n)
+      P(:,n+1) = ( dble(2*n-1)*x(:)*P(:,n) - dble(n-1)*P(:,n-1) )/dble(n)
     end do
     
     return    
@@ -182,33 +182,12 @@ contains
     real(RP) :: pts(Nord+1)
 
     integer :: N1
-    integer :: i
-
-    real(RP) :: xold
-    real(RP) :: x(Nord+1)
-    real(RP), parameter :: EPS = 1E-16_RP
-    real(RP) :: P(1,Nord+1)
-
     !---------------------------------------------------------------------------
 
-    N1 = Nord+1
+    pts(1) = -1.0_RP; pts(Nord+1) = 1.0_RP
+    if (Nord==1) return
 
-    x(1) = -1.0_RP; x(N1) = 1.0_RP
-    do i=2, Nord
-      x(i) = - cos( PI * dble(i-1)/dble(Nord) )
-    end do
-
-    xold = 10.0_RP
-    do i=2, Nord
-      do while(abs(x(i) - xold) > EPS)
-        xold = x(i)
-        
-        P(:,:) = Polynominal_GenLegendrePoly(Nord, (/ x(i) /))
-        x(i) = xold - (x(i) * P(1,N1) - P(1,Nord))/(dble(N1) * P(1,N1))
-      end do
-    end do
-
-    pts(:) = x(:)
+    call gen_JacobiGaussQuadraturePts( 1, 1, Nord-2, pts(2:Nord) )
     return   
   end function Polynominal_GenGaussLobattoPt
 
@@ -239,43 +218,19 @@ contains
 
     integer, intent(in) :: Nord
     real(RP) :: pts(Nord)
-
-    integer :: i
-    integer :: N1
-    real(RP) :: xold
-    real(RP) :: x(Nord)
-    real(RP), parameter :: EPS = 1E-15_RP
-    real(RP) :: P(1,Nord+1)
-
     !---------------------------------------------------------------------------
 
-    do i=1, Nord
-      x(i) = - cos( 0.5_RP*PI * dble(4*i-1)/dble(2*Nord+1) )
-    end do
-
-    N1 = Nord+1
-    xold = 10.0_RP
-    do i=1, Nord
-      do while(abs(x(i) - xold) > EPS)
-        xold = x(i)
-        
-        P(:,:) = Polynominal_GenLegendrePoly(Nord, (/ x(i) /))
-        x(i) = xold - P(1,N1) * (xold**2 - 1.0_RP)/(dble(Nord)*(xold * P(1,N1) - P(1,Nord)))
-      end do
-    end do
-
-    pts(:) = x(:)
-
+    call gen_JacobiGaussQuadraturePts( 0, 0, Nord-1, pts(:) )
     return   
   end function Polynominal_GenGaussLegendrePt
 
   !> A function to calcuate the Gauss-Legendre weights. 
   !!  
-  function Polynominal_GenGaussLegendrePtIntWeight(Nord) result(int_weight_lgl)
+  function Polynominal_GenGaussLegendrePtIntWeight(Nord) result(int_weight_gl)
     implicit none
 
     integer, intent(in) :: Nord
-    real(RP) :: int_weight_lgl(Nord)
+    real(RP) :: int_weight_gl(Nord)
 
     real(RP) :: glPts1D(Nord)
     real(RP) :: P1D_ori(Nord, Nord+1)
@@ -286,9 +241,53 @@ contains
     P1D_ori(:,:)    = Polynominal_GenLegendrePoly( Nord, glPts1D )   
     dP1D_ori(:,:) = polynominal_genDLegendrePoly( Nord, glPts1D, P1D_ori )
 
-    int_weight_lgl(:) = 2d0/( (1.0_RP - glPts1D(:)**2) * dP1D_ori(:,Nord+1)**2 )
+    int_weight_gl(:) = 2.0_RP / ( (1.0_RP - glPts1D(:)**2) * dP1D_ori(:,Nord+1)**2 )
 
     return
   end function Polynominal_GenGaussLegendrePtIntWeight
+
+  !- private -------------------------------
+
+  !> Calculate the N'th-order Gauss quadrature points and weights associated the Jacobi polynomial of type (alpja,beta).
+  subroutine gen_JacobiGaussQuadraturePts( alpha, beta, N, &
+      x )
+
+    implicit none
+    integer, intent(in) :: alpha
+    integer, intent(in) :: beta
+    integer, intent(in) :: N
+    real(RP), intent(out) :: x(N+1)
+
+    integer :: i
+    real(DP) :: d(N+1), e(N)
+    real(DP) :: work(2*(N+1)-2), z(N+1,N+1)
+    real(DP) :: h1(N+1)
+    integer :: info
+    !--------------------------------------------------------------
+
+    if (N==0) then
+      x(1) = - dble(alpha - beta) / dble(alpha + beta + 2)
+      return
+    end if
+
+    do i=0, N
+      h1(i+1) = dble( 2*i + alpha + beta )
+    end do
+
+    do i=1, N+1
+      d(i) = - dble(alpha**2 - beta**2) / (h1(i) * (h1(i) + 2D0))
+    end do
+    do i=1, N
+      e(i) = 2D0 / (h1(i) + 2D0) &
+           * sqrt( dble(i * (i + alpha + beta) * (i + alpha) * (i + beta)) &
+                   / ((h1(i) + 1D0) * (h1(i) + 3D0))                       )
+    end do
+    if ( dble(alpha + beta) < 1D-16) d(1) = 0.0_RP
+    
+    call dstev( 'Vectors', N+1, d, e, z, N+1, work, info )
+    x(:) = d(:) 
+
+    return
+  end subroutine gen_JacobiGaussQuadraturePts
 
 end module scale_polynominal
