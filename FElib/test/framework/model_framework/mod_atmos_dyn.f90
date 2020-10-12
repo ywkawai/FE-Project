@@ -13,6 +13,7 @@ module mod_atmos_dyn
 
   use scale_model_mesh_manager, only: ModelMeshBase
   use scale_model_var_manager, only: ModelVarManager
+  use scale_time_manager, only: TIME_manager_component
 
   implicit none
   private
@@ -28,10 +29,12 @@ module mod_atmos_dyn
 
 contains
 
-subroutine AtmosDyn_setup( this, model_mesh )
+subroutine AtmosDyn_setup( this, model_mesh, tm_parent_comp )
   implicit none
   class(AtmosDynProc), intent(inout) :: this
   class(ModelMeshBase), target, intent(in) :: model_mesh
+  class(TIME_manager_component), intent(inout) :: tm_parent_comp
+
   !--------------------------------------------------
 
   LOG_INFO('AtmosDyn_setup',*)

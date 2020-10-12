@@ -55,7 +55,7 @@ module mod_user
 
   type, private, extends(experiment) :: Exp_sound_wave
   contains 
-    procedure :: setInitCond_lc => exp_SetInitCond_inertia_gravity_wave
+    procedure :: setInitCond_lc => exp_SetInitCond_sound_wave
     procedure :: geostrophic_balance_correction_lc => exp_geostrophic_balance_correction
   end type
   type(Exp_sound_wave), private :: exp_manager
@@ -64,9 +64,16 @@ module mod_user
 
   !-----------------------------------------------------------------------------
 contains
-  subroutine USER_mkinit
+  subroutine USER_mkinit ( atm )
     implicit none
+
+    class(AtmosComponent), intent(inout) :: atm
     !------------------------------------------
+
+    call exp_manager%Init('sound_wave')
+    call exp_manager%SetInitCond( &
+      atm%mesh, atm%vars%PROGVARS_manager, atm%vars%AUXVARS_manager )
+    call exp_manager%Final()
 
     return
   end subroutine USER_mkinit
@@ -98,11 +105,6 @@ contains
     LOG_NML(PARAM_USER)
 
     !-
-    call exp_manager%Init('sound_wave')
-    call exp_manager%SetInitCond( &
-      atm%mesh, atm%vars%PROGVARS_manager, atm%vars%AUXVARS_manager )
-    call exp_manager%Final()
-
     return
   end subroutine USER_setup
 
@@ -121,7 +123,7 @@ contains
   end subroutine USER_update
 
   !------
-  subroutine exp_SetInitCond_inertia_gravity_wave( this,                      &
+  subroutine exp_SetInitCond_sound_wave( this,                      &
     DENS_hyd, PRES_hyd, DDENS, MOMX, MOMY, MOMZ, DRHOT,                  &
     x, y, z, dom_xmin, dom_xmax, dom_ymin, dom_ymax, dom_zmin, dom_zmax, &
     lcmesh, elem )
@@ -283,7 +285,7 @@ contains
     call elem_intrp%Final()
 
     return
-  end subroutine exp_SetInitCond_inertia_gravity_wave
+  end subroutine exp_SetInitCond_sound_wave
 
   subroutine exp_geostrophic_balance_correction( this,                              &
     DENS_hyd, PRES_hyd, DDENS, MOMX, MOMY, MOMZ, DRHOT,                  &

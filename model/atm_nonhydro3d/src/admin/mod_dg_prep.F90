@@ -1,15 +1,17 @@
 !-------------------------------------------------------------------------------
-!> module SCALE-DG driver
+!> module SCALE-DG prep
 !!
 !! @par Description
-!!         
+!!          This program is driver of preprocess tools
+!!          1) boundary data (e.g. topography, land use index)
+!!          2) initial data for ideal/real test cases
 !!
 !! @author Team SCALE
 !!
 !<
 !-------------------------------------------------------------------------------
 #include "scaleFElib.h"
-module mod_dg_driver
+module mod_dg_prep
   !-----------------------------------------------------------------------------
   !
   !++ used modules
@@ -28,8 +30,12 @@ module mod_dg_driver
     FILE_HISTORY_set_nowdate
 
   use mod_user, only: &
-    USER_update, USER_calc_tendency
+    USER_setup, &
+    USER_mkinit
 
+  use mod_mkinit, only: &
+    MKINIT
+  
   !-----------------------------------------------------------------------------
   implicit none
   private
@@ -43,7 +49,7 @@ module mod_dg_driver
   !
   !++ Public procedure
   !
-  public :: dg_driver
+  public :: dg_prep
   !-----------------------------------------------------------------------------
   !
   !++ Public parameters & variables
@@ -61,7 +67,7 @@ module mod_dg_driver
   type(AtmosComponent) :: atmos
 
 contains
-  subroutine dg_driver( &
+  subroutine dg_prep( &
     comm_world, intercomm_parent, intercomm_child, cnf_fname )
 
     use scale_time_manager, only: &
@@ -77,9 +83,9 @@ contains
     character(len=*), intent(in) :: cnf_fname
 
     integer :: myrank
-    integer :: fpm_counter
     logical :: ismaster
-    logical :: sign_exit
+
+    logical :: output
     !---------------------------------------------------------------------------
 
     !########## Initial setup ##########
@@ -100,75 +106,37 @@ contains
     !###########################################################################
  
     !########## main ##########
-    LOG_NEWLINE
-    LOG_PROGRESS(*) 'START TIMESTEP'
     call PROF_setprefx('MAIN')
-    call PROF_rapstart('Main_Loop', 0)
+    call PROF_rapstart('Main_prep', 0)
 
-    do
+    !- Execute preprocess
 
-      !*******************************************
+    !- Execute mktopo
 
-      ! report current time
-      call TIME_manager_checkstate()
-  
-      if (TIME_DOresume) then
-        ! set state from restart file
-        call restart_read()
-        ! history & monitor file output        
-        call FILE_HISTORY_meshfield_write()
-      end if
+    !- Re-setup
 
-      !* Advance time *********************************
+    !- Execute mkinit
+    call PROF_rapstart('MkInit',1)
+    call MKINIT( output )
+    call USER_mkinit( atmos )
+    call PROF_rapend  ('MkInit',1)
+    call PROF_rapend('Main_prep', 0)
 
-      call TIME_manager_advance()
-      call FILE_HISTORY_set_nowdate( TIME_NOWDATE, TIME_NOWSUBSEC, TIME_NOWSTEP )
+    !- Output
 
-      !* change to next state *************************
+    ! call TOPOGRAPHY_write
 
-      !- ATMOS
-      if ( atmos%IsActivated() .and. atmos%time_manager%do_step) then
-        call atmos%update()
-      end if
-
-      !- USER
-      call USER_update()
-
-      !* restart and monitor output *******************
+    if (output) then
+      call PROF_rapstart('MkInit_restart',1)
       call restart_write()
-
-      !* calc tendencies and diagnostices *************
-
-      !- ATMOS 
-      if ( atmos%IsActivated() .and. atmos%time_manager%do_step) then
-        call atmos%calc_tendency()
-      end if
-
-      !- USER 
-      call USER_calc_tendency()
-  
-      !* output history files *************************
-
-      if ( atmos%IsActivated() ) call atmos%vars%History()
-
-      call FILE_HISTORY_meshfield_write()
-      
-      !*******************************************
-      if (TIME_DOend) exit
-      
-      if( IO_L ) call flush(IO_FID_LOG)
-    end do
-
-    call PROF_rapend('Main_Loop', 0)
-
-    LOG_PROGRESS(*) 'END TIMESTEP'
-    LOG_NEWLINE
+      call PROF_rapend  ('MkInit_restart',1)
+    end if
 
     !########## Finalize ##########
     call finalize()    
 
     return
-  end subroutine dg_driver
+  end subroutine dg_prep
 
   !----------------------------
   
@@ -179,7 +147,10 @@ contains
     use scale_file_restart_meshfield, only: &
       FILE_restart_meshfield_setup
     use scale_time_manager, only: TIME_manager_Init
+
     use mod_user, only: USER_setup    
+    use mod_mkinit, only: MKINIT_setup
+
     implicit none
 
     !----------------------------------------------
@@ -198,7 +169,7 @@ contains
 
     ! setup calendar & initial time
     call CALENDAR_setup
-    call TIME_manager_Init
+    call TIME_manager_Init( .false. )
 
     ! setup a module for restart file
     call FILE_restart_meshfield_setup
@@ -206,6 +177,10 @@ contains
     ! setup submodels
     call  atmos%setup()
 
+    ! setup mkinit
+    call MKINIT_setup()
+
+    ! setup mod_user
     call USER_setup( atmos )
 
     call PROF_rapend('Initialize', 0)
@@ -237,40 +212,13 @@ contains
     return
   end subroutine finalize
 
-  subroutine restart_read()
-    implicit none    
-    !----------------------------------------
-
-    !- read restart data
-    if ( atmos%isActivated() ) then
-      call atmos%vars%Read_restart_file( atmos%mesh )
-    end if
-      
-    !- Calculate the tendencies
-
-    if ( atmos%IsActivated() ) call atmos%calc_tendency()
-
-
-    !- History & Monitor 
-
-    if ( atmos%isActivated() ) then
-      call atmos%vars%History()
-      ! call atmos%vars%Monitor()
-    end if
-
-    return
-  end subroutine restart_read
-
   subroutine restart_write
     implicit none    
     !----------------------------------------
 
-
-    if ( atmos%isActivated() .and. atmos%time_manager%do_restart) then
-      call atmos%vars%Write_restart_file()
-    end if
+    if ( atmos%isActivated() ) call atmos%vars%Write_restart_file()
 
     return
   end subroutine 
 
-end module mod_dg_driver
+end module mod_dg_prep

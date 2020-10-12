@@ -16,6 +16,9 @@ module scale_model_var_manager
   use scale_meshfieldcomm_base, only: &
     MeshFieldCommBase, MeshFieldContainer
   
+  use scale_variableinfo, only: &
+    VariableInfo
+  
   !-----------------------------------------------------------------------------
   implicit none
   private
@@ -23,16 +26,6 @@ module scale_model_var_manager
   !
   !++ Public type & procedures
   !
-  type, public :: VariableInfo
-    integer                :: keyID
-    character(len=H_SHORT) :: NAME
-    character(len=H_MID)   :: DESC
-    character(len=H_SHORT) :: UNIT
-    integer                :: ndims
-    character(len=H_SHORT) :: dim_type
-    character(len=H_MID)   :: STDNAME
-  end type VariableInfo
-
   type, public :: ModelVarManager
     type(LinkedList) :: list
     class(MeshFieldCommBase), pointer :: ptr_comm
@@ -51,6 +44,7 @@ module scale_model_var_manager
     procedure, public :: MeshFieldComm_Exchange => ModelVarManager_meshfiled_comm_exchange
   end type ModelVarManager
 
+  public :: VariableInfo ! Cascade
 
   !-----------------------------------------------------------------------------
   !

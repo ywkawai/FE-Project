@@ -11,7 +11,6 @@ program test_model_framework
 
   use scale_localmeshfield_base, only: LocalMeshField1D
   use scale_meshfield_base, only: MeshField1D
-
   use mod_atmos_component, only: &
     AtmosComponent
 
@@ -26,6 +25,7 @@ program test_model_framework
 contains
   subroutine init()
     use scale_calendar, only: CALENDAR_setup
+    use scale_time_manager, only: TIME_manager_Init
 
     integer :: comm, myrank, nprocs
     logical :: ismaster
@@ -46,14 +46,19 @@ contains
     call IO_LOG_setup( myrank, ismaster )   
     
     !------
+    call TIME_manager_Init()
     call atmos%setup()
 
     return
   end subroutine init
 
   subroutine final()
+    use scale_time_manager, only: TIME_manager_Final
+    implicit none
+    !------------------
 
     call atmos%finalize()
+    call TIME_manager_Final()
     call PRC_MPIfinish()
 
     return

@@ -40,7 +40,7 @@ contains
     call PRC_SINGLECOM_setup( comm,    & ! [IN]
       nprocs, myrank, ismaster )         ! [OUT]
     
-      call PRC_ERRHANDLER_setup( .false., ismaster ) ! [IN]
+    call PRC_ERRHANDLER_setup( .false., ismaster ) ! [IN]
     
     ! setup scale_io
     call IO_setup( "test", allow_noconf = .true. )
