@@ -71,6 +71,7 @@ OBJS_NAME_DATA = \
 
 OBJS_NAME_FILE = \
 	scale_file_common_meshfield.o  \
+	scale_file_base_meshfield.o    \
 	scale_file_history_meshfield.o \
 	scale_file_restart_meshfield.o
 
