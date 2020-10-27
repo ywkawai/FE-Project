@@ -48,26 +48,33 @@ module scale_localmesh_2d
 
 contains
   subroutine LocalMesh2D_Init( this, &
-    refElem, PRC_myrank )
+    refElem, myrank )
     
     implicit none
 
     class(LocalMesh2D), intent(inout) :: this
     class(ElementBase2D), intent(in), target :: refElem
-    integer, intent(in) :: PRC_myrank
-  
-    this%PRC_myrank   = PRC_myrank
-    this%refElem2D    => refElem
-    
-    call LocalMeshBase_Init(this, refElem, 2)
+    integer, intent(in), optional :: myrank
+    !-------------------------------------------------
 
+    this%refElem2D  => refElem
+    call LocalMeshBase_Init(this, refElem, 2, myrank)
+
+    return
   end subroutine LocalMesh2D_Init
 
-  subroutine LocalMesh2D_Final( this )
+  subroutine LocalMesh2D_Final( this, is_generated )
+    implicit none
     type(LocalMesh2D), intent(inout) :: this
+    logical, intent(in) :: is_generated
+    !-------------------------------------------------
 
-    call LocalMeshBase_Final(this)
+    if (is_generated) then
+      deallocate( this%lon, this%lat )
+    end if
+    call LocalMeshBase_Final( this, is_generated )
 
+    return
   end subroutine LocalMesh2D_Final
   
 end module scale_localmesh_2d

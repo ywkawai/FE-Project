@@ -65,9 +65,9 @@ contains
   subroutine Meshbase1d_Init( this,         &
     NeG,                                    &
     dom_xmin, dom_xmax,                     &
-    refElem, NLocalMeshPerPrc )
+    refElem, NLocalMeshPerPrc,              &
+    nprocs, myrank )
     
-    use scale_prc, only: PRC_myrank
     implicit none
 
     class(Meshbase1d), intent(inout) :: this
@@ -76,9 +76,10 @@ contains
     real(RP), intent(in) :: dom_xmax   
     class(elementbase1d), intent(in), target :: refElem
     integer, intent(in) :: NLocalMeshPerPrc
+    integer, intent(in), optional :: nprocs
+    integer, intent(in), optional :: myrank
 
     integer :: n
-
     !-----------------------------------------------------------------------------
     
     this%NeG = NeG
@@ -86,11 +87,13 @@ contains
     this%xmax_gl       = dom_xmax
 
     this%refElem1D => refElem
-    call MeshBase_Init(this, refElem, NLocalMeshPerPrc, 2)
+    call MeshBase_Init( this,       &
+      refElem, NLocalMeshPerPrc, 2, &
+      nprocs                        )
     
     allocate( this%lcmesh_list(this%LOCAL_MESH_NUM) )
     do n=1, this%LOCAL_MESH_NUM
-      call LocalMesh1D_Init( this%lcmesh_list(n), refElem, PRC_myrank )
+      call LocalMesh1D_Init( this%lcmesh_list(n), refElem, myrank )
     end do
 
     return
@@ -104,7 +107,7 @@ contains
     !-----------------------------------------------------------------------------
   
     do n=1, this%LOCAL_MESH_NUM
-      call LocalMesh1D_Final( this%lcmesh_list(n) )
+      call LocalMesh1D_Final( this%lcmesh_list(n), this%isGenerated )
     end do
     deallocate( this%lcmesh_list )
     

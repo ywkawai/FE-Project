@@ -60,8 +60,6 @@ module mod_atmos_vars
   public :: AtmosVars_GetLocalMeshField
   public :: AtmosVars_GetLocalMeshFields
 
-  type(FILE_restart_meshfield_component) :: restart_file
-
   !-----------------------------------------------------------------------------
   !
   !++ Public parameters & variables

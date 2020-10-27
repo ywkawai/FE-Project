@@ -79,11 +79,12 @@ module scale_mesh_cubedom3d
   !
 
 contains
-  subroutine MeshCubeDom3D_Init(this,       &
+  subroutine MeshCubeDom3D_Init( this,                          &
     NeGX, NeGY, NeGZ,                                           &
     dom_xmin, dom_xmax, dom_ymin, dom_ymax, dom_zmin, dom_zmax, &
     isPeriodicX, isPeriodicY, isPeriodicZ,                      &
-    refElem, NLocalMeshPerPrc, NprcX, NprcY )
+    refElem, NLocalMeshPerPrc, NprcX, NprcY,                    &
+    nproc, myrank                                               )
     
     implicit none
 
@@ -104,7 +105,8 @@ contains
     integer, intent(in) :: NLocalMeshPerPrc
     integer, intent(in) :: NprcX
     integer, intent(in) :: NprcY
-
+    integer, intent(in), optional :: nproc
+    integer, intent(in), optional :: myrank
     !-----------------------------------------------------------------------------
     
     this%NeGX = NeGX
@@ -126,18 +128,20 @@ contains
     this%NprcY = NprcY
     this%NprcZ = 1
 
-    call MeshBase3D_Init(this, refElem, NLocalMeshPerPrc, 6)
+    call MeshBase3D_Init( this, refElem, NLocalMeshPerPrc, 6, &
+                          nproc, myrank                       )
 
     !---
 
     call this%refElem2D%Init( this%refElem3D%PolyOrder_h, refElem%IsLumpedMatrix() )
-    call MeshBase2D_Init(this%mesh2D, this%refElem2D, NLocalMeshPerPrc )
+    call MeshBase2D_Init( this%mesh2D, this%refElem2D, NLocalMeshPerPrc,           &
+                          nproc, myrank                                            )
 
     return
   end subroutine MeshCubeDom3D_Init
 
   subroutine MeshCubeDom3D_Final( this )
-    
+    use scale_prc
     implicit none
 
     class(MeshCubeDom3D), intent(inout) :: this
@@ -168,7 +172,6 @@ contains
   end subroutine MeshCubeDom3D_getMesh2D
 
   subroutine MeshCubeDom3D_generate( this )
-    
     implicit none
 
     class(MeshCubeDom3D), intent(inout), target :: this
@@ -216,7 +219,6 @@ contains
         & this%NeGX/this%NprcX, this%NeGY/this%NprcY )
 
       call mesh%SetLocalMesh2D( this%mesh2D%lcmesh_list(n) )
-      
       !---
       ! write(*,*) "** my_rank=", mesh%PRC_myrank
       ! write(*,*) " tileID:", mesh%tileID
@@ -231,6 +233,7 @@ contains
     end do
 
     this%isGenerated = .true.
+    this%mesh2D%isGenerated = .true.
 
     return
   end subroutine MeshCubeDom3D_generate
@@ -273,7 +276,8 @@ contains
     
     !--
 
-    lcmesh%Ne  = NeX * NeY * NeZ
+    lcmesh%Ne   = NeX * NeY * NeZ
+    lcmesh%Ne2D = NeX * NeY
     lcmesh%Nv  = (NeX + 1)*(NeY + 1)*(NeZ + 1)
     lcmesh%NeS = 1
     lcmesh%NeE = lcmesh%Ne
@@ -294,7 +298,7 @@ contains
     lcmesh%zmin = dom_zmin + (k-1)*delz
     lcmesh%zmax = dom_zmin +  k   *delz
     
-    allocate(lcmesh%pos_ev(lcmesh%Nv,3))
+    allocate( lcmesh%pos_ev(lcmesh%Nv,3) )
     allocate( lcmesh%EToV(lcmesh%Ne,elem%Nv) )
     allocate( lcmesh%EToE(lcmesh%Ne,elem%Nfaces) )
     allocate( lcmesh%EToF(lcmesh%Ne,elem%Nfaces) )
@@ -320,9 +324,8 @@ contains
     call MeshBase3D_setGeometricInfo( lcmesh, MeshCubeDom3D_coord_conv, MeshCubeDom3D_calc_normal )
  
     !---
-
     call MeshUtil3D_genConnectivity( lcmesh%EToE, lcmesh%EToF, & ! (out)
-        & lcmesh%EToV, lcmesh%Ne, elem%Nfaces )                  ! (in)
+        lcmesh%EToV, lcmesh%Ne, elem%Nfaces )                    ! (in)
 
     !---
     call MeshUtil3D_BuildInteriorMap( lcmesh%VmapM, lcmesh%VMapP, lcmesh%MapM, lcmesh%MapP,           & ! (out)
@@ -352,13 +355,11 @@ contains
     tileID_table, panelID_table,               &
     pi_table, pj_table, pk_table )
   
-    use scale_prc, only: PRC_myrank
     use scale_meshutil_3d, only: &       
-      MeshUtil3D_buildGlobalMap
-    
+      MeshUtil3D_buildGlobalMap    
     implicit none
 
-    type(MeshCubeDom3D), intent(inout) :: this    
+    type(MeshCubeDom3D), target, intent(inout) :: this    
     integer, intent(out) :: tileID_table(this%LOCAL_MESH_NUM, this%PRC_NUM)
     integer, intent(out) :: panelID_table(this%LOCAL_MESH_NUM*this%PRC_NUM)
     integer, intent(out) :: pi_table(this%LOCAL_MESH_NUM*this%PRC_NUM)
@@ -371,7 +372,8 @@ contains
     integer :: is_lc, js_lc, ks_lc
     integer :: ilc_count, jlc_count, klc_count
     integer :: ilc, jlc, klc
-    
+
+    type(LocalMesh3D), pointer :: lcmesh
     !-----------------------------------------------------------------------------
     
     call MeshUtil3D_buildGlobalMap( &
@@ -387,14 +389,14 @@ contains
     do p=1, this%PRC_NUM
     do n=1, this%LOCAL_MESH_NUM
       tileID = n + (p-1)*this%LOCAL_MESH_NUM
-      
+      lcmesh => this%lcmesh_list(n)
       !-
       tileID_table(n,p)                   = tileID
       this%tileID_global2localMap(tileID) = n
       this%PRCRank_globalMap(tileID)      = p - 1
 
       !-
-      if ( this%PRCRank_globalMap(tileID) == PRC_myrank ) then
+      if ( this%PRCRank_globalMap(tileID) == lcmesh%PRC_myrank ) then
         if (n==1) then
           is_lc = pi_table(tileID); ilc_count = 1
           js_lc = pj_table(tileID); jlc_count = 1

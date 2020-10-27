@@ -608,7 +608,7 @@ contains
     isPeriodicX, isPeriodicY, isPeriodicZ,          &
     Ne_x, Ne_y, Ne_z )
     
-    use scale_prc, only: PRC_isMaster
+    ! use scale_prc, only: PRC_isMaster
     implicit none
 
     integer, intent(in) :: Ntile
