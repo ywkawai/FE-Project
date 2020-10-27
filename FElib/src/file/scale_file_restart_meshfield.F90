@@ -45,7 +45,9 @@ module scale_file_restart_meshfield
   !
   !++ Public type & procedures
   !
-  type, extends(FILE_base_meshfield) :: FILE_restart_meshfield
+  type :: FILE_restart_meshfield
+    type(FILE_base_meshfield) :: base
+
     logical :: flag_output
     character(len=H_LONG) :: in_basename
     logical :: in_postfix_timelabel
@@ -65,15 +67,17 @@ module scale_file_restart_meshfield
     procedure :: Init1 => FILE_restart_meshfield_component_Init1
     procedure :: Init2 => FILE_restart_meshfield_component_Init2
     generic :: Init => Init1, Init2
-    procedure :: FILE_restart_meshfield_component_open    
-    generic :: Open => FILE_restart_meshfield_component_open 
+    procedure :: Open => FILE_restart_meshfield_component_open    
     procedure :: FILE_restart_meshfield_component_create
     generic :: Create => FILE_restart_meshfield_component_create
     procedure :: FILE_restart_meshfield_component_def_var
     generic :: Def_var => FILE_restart_meshfield_component_def_var
+    procedure :: End_def => FILE_restart_meshfield_component_enddef
     procedure :: FILE_restart_meshfield_component_write_var3d
     generic :: Write_var => FILE_restart_meshfield_component_write_var3d
     procedure :: Close => FILE_restart_meshfield_component_close
+    procedure :: FILE_restart_meshfield_component_read_var3d
+    generic :: Read_Var => FILE_restart_meshfield_component_read_var3d
     procedure :: Final => FILE_restart_meshfield_component_Final
   end type
 
@@ -139,7 +143,7 @@ contains
     restart_file%out_title = OUT_TITLE
     restart_file%out_dtype = OUT_DTYPE
 
-    restart_file%fid = -1
+    restart_file%base%fid = -1
 
     return
   end subroutine FILE_restart_meshfield_setup
@@ -162,7 +166,7 @@ contains
 
     !--------------------------------------------------
 
-    call this%Init( &
+    call this%Init2( &
       comp_name,                                                     &
       restart_file%in_basename, restart_file%in_postfix_timelabel,   &
       restart_file%out_basename, restart_file%out_postfix_timelabel, &
@@ -179,8 +183,6 @@ contains
       out_dtype, out_title,                                 &
       var_num, mesh1D, mesh2D, mesh3D )
 
-    use scale_file_common_meshfield, only: &
-      File_common_meshfield_get_dims
     implicit none
 
     class(FILE_restart_meshfield_component), intent(inout) :: this
@@ -207,7 +209,7 @@ contains
     this%out_dtype = out_dtype
 
     !-
-    call this%FILE_base_meshfield%Init( var_num, mesh1D, mesh2D, mesh3D )
+    call this%base%Init( var_num, mesh1D, mesh2D, mesh3D )
 
     return
   end subroutine FILE_restart_meshfield_component_Init2
@@ -242,7 +244,7 @@ contains
 
     LOG_NEWLINE
     LOG_INFO(trim(this%comp_name)//"_vars_restart_open",*) 'Open restart file'
-    call this%FILE_base_meshfield%open( basename, myrank=PRC_myrank )
+    call this%base%open( basename, myrank=PRC_myrank )
 
     return
   end subroutine FILE_restart_meshfield_component_open
@@ -284,12 +286,12 @@ contains
     call get_tunits_and_calendarname( NOWDATE, &
       tunits, calendar )
     
-    call this%FILE_base_meshfield%Create( basename, this%out_title, this%out_dtype,           & ! (in)
-                                          fileexisted,                                        & ! (out)
-                                          myrank=PRC_myrank, tunits=tunits, calendar=calendar ) ! (in)
+    call this%base%Create( basename, this%out_title, this%out_dtype,           & ! (in)
+                           fileexisted,                                        & ! (out)
+                           myrank=PRC_myrank, tunits=tunits, calendar=calendar ) ! (in)
     
     if ( .not. fileexisted ) then
-      call put_global_attribute( this%fid, NOWSUBSEC, tunits, calendar )
+      call put_global_attribute( this%base%fid, NOWSUBSEC, tunits, calendar )
     end if
 
     return
@@ -307,11 +309,21 @@ contains
     integer, intent(in) :: dim_type_id
     !------------------------------------------------------------------
 
-    call this%FILE_base_meshfield%Def_var( &
+    call this%base%Def_var( &
       field, desc, vid, dim_type_id, this%out_dtype )   
      
     return 
   end subroutine FILE_restart_meshfield_component_def_var
+
+  subroutine FILE_restart_meshfield_component_enddef( this )
+
+    implicit none
+    class(FILE_restart_meshfield_component), intent(inout) :: this
+    !--------------------------------------------------------------
+  
+    call this%base%End_def()
+    return
+  end subroutine FILE_restart_meshfield_component_enddef
 
   subroutine FILE_restart_meshfield_component_write_var3d( this, &
     vid, field3d )
@@ -324,10 +336,30 @@ contains
     class(MeshField3D), intent(in) :: field3d
     !--------------------------------------------------
 
-    call this%FILE_base_meshfield%Write_var3D( vid, field3d, TIME_NOWDAYSEC, TIME_NOWDAYSEC )
+    call this%base%Write_var3D( vid, field3d, TIME_NOWDAYSEC, TIME_NOWDAYSEC )
 
     return
   end subroutine FILE_restart_meshfield_component_write_var3d
+
+  subroutine FILE_restart_meshfield_component_read_var3d( this,  &
+    dim_typeid, varname, field3d, step, allow_missing  )
+  
+  
+    implicit none
+  
+    class(FILE_restart_meshfield_component), intent(inout) :: this
+    integer, intent(in) :: dim_typeid
+    character(*), intent(in) :: varname
+    class(MeshField3D), intent(inout) :: field3d
+    integer, intent(in), optional :: step
+    logical, intent(in), optional :: allow_missing
+    !------------------------------------------------------
+
+    call this%base%Read_Var( &
+          dim_typeid, varname, field3d, step, allow_missing  )
+    
+    return
+  end subroutine FILE_restart_meshfield_component_read_var3d
 
   subroutine FILE_restart_meshfield_component_close( this )
     implicit none
@@ -335,10 +367,10 @@ contains
     class(FILE_restart_meshfield_component), intent(inout) :: this
     !--------------------------------------------------
 
-    if ( this%fid /= -1 ) then
+    if ( this%base%fid /= -1 ) then
       LOG_NEWLINE
       LOG_INFO(trim(this%comp_name)//"_vars_restart_close",*) 'Close restart file'
-      call this%FILE_base_meshfield%Close()
+      call this%base%Close()
     end if
 
     return
@@ -350,7 +382,7 @@ contains
     class(FILE_restart_meshfield_component), intent(inout) :: this
     !--------------------------------------------------
 
-    call this%FILE_base_meshfield%Final()
+    call this%base%Final()
 
     return
   end subroutine FILE_restart_meshfield_component_Final
