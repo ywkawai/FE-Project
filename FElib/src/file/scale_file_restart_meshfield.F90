@@ -296,20 +296,19 @@ contains
   end subroutine FILE_restart_meshfield_component_create
 
   subroutine FILE_restart_meshfield_component_def_var( this,      &
-    field, desc, vid, dim_type_id, standard_name )
+    field, desc, vid, dim_type_id                                 )
   
     implicit none
   
     class(FILE_restart_meshfield_component), intent(inout) :: this
     class(MeshFieldBase), intent(in) :: field
     character(len=*), intent(in) :: desc
-    integer, intent(in) :: dim_type_id
     integer, intent(in) :: vid
-    character(len=*), optional, intent(in) :: standard_name
+    integer, intent(in) :: dim_type_id
     !------------------------------------------------------------------
 
-    call this%Def_var( &
-      field, desc, vid, dim_type_id, this%out_dtype, standard_name )   
+    call this%FILE_base_meshfield%Def_var( &
+      field, desc, vid, dim_type_id, this%out_dtype )   
      
     return 
   end subroutine FILE_restart_meshfield_component_def_var

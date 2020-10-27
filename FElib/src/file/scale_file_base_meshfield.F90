@@ -56,9 +56,13 @@ module scale_file_base_meshfield
     class(MeshCubeDom3D), pointer :: mesh3D  
     type(FILE_common_meshfield_diminfo), allocatable :: dimsinfo(:)
   contains
-    procedure :: Init => FILE_base_meshfield_Init
-    procedure :: Open => FILE_base_meshfield_open
-    procedure :: Create => FILE_base_meshfield_create
+    procedure :: FILE_base_meshfield_Init
+    generic :: Init => FILE_base_meshfield_Init
+    procedure :: FILE_base_meshfield_open
+    generic :: Open => FILE_base_meshfield_open
+    procedure :: FILE_base_meshfield_create
+    generic :: Create => FILE_base_meshfield_create
+
     !-
     procedure :: FILE_base_meshfield_def_var1
     procedure :: FILE_base_meshfield_def_var2
