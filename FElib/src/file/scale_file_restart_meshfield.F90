@@ -242,7 +242,7 @@ contains
 
     LOG_NEWLINE
     LOG_INFO(trim(this%comp_name)//"_vars_restart_open",*) 'Open restart file'
-    call this%FILE_base_meshfield%open( basename )
+    call this%FILE_base_meshfield%open( basename, myrank=PRC_myrank )
 
     return
   end subroutine FILE_restart_meshfield_component_open
@@ -284,9 +284,9 @@ contains
     call get_tunits_and_calendarname( NOWDATE, &
       tunits, calendar )
     
-    call this%FILE_base_meshfield%Create( basename, this%out_title, this%out_dtype, & ! (in)
-                                          fileexisted,                              & ! (out)
-                                          calendar=calendar, tunits=tunits          ) ! (in)
+    call this%FILE_base_meshfield%Create( basename, this%out_title, this%out_dtype,           & ! (in)
+                                          fileexisted,                                        & ! (out)
+                                          myrank=PRC_myrank, tunits=tunits, calendar=calendar ) ! (in)
     
     if ( .not. fileexisted ) then
       call put_global_attribute( this%fid, NOWSUBSEC, tunits, calendar )
@@ -296,7 +296,7 @@ contains
   end subroutine FILE_restart_meshfield_component_create
 
   subroutine FILE_restart_meshfield_component_def_var( this,      &
-    field, desc, vid, dim_type_id, standard_name, timeinv, nsteps )
+    field, desc, vid, dim_type_id, standard_name )
   
     implicit none
   
@@ -306,12 +306,10 @@ contains
     integer, intent(in) :: dim_type_id
     integer, intent(in) :: vid
     character(len=*), optional, intent(in) :: standard_name
-    real(DP), optional, intent(in) :: timeinv
-    integer, optional, intent(in) :: nsteps
     !------------------------------------------------------------------
 
     call this%Def_var( &
-      field, desc, vid, dim_type_id, this%out_dtype, standard_name, timeinv, nsteps )   
+      field, desc, vid, dim_type_id, this%out_dtype, standard_name )   
      
     return 
   end subroutine FILE_restart_meshfield_component_def_var
@@ -327,7 +325,7 @@ contains
     class(MeshField3D), intent(in) :: field3d
     !--------------------------------------------------
 
-    call this%FILE_base_meshfield%Write_var3D( vid, field3d, TIME_NOWDAYSEC )
+    call this%FILE_base_meshfield%Write_var3D( vid, field3d, TIME_NOWDAYSEC, TIME_NOWDAYSEC )
 
     return
   end subroutine FILE_restart_meshfield_component_write_var3d

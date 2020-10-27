@@ -7,11 +7,11 @@ module scale_file_base_meshfield
   !
   use scale_precision
   use scale_io
+  use scale_file_h
   use scale_prc, only: &
-    PRC_myrank, &
     PRC_abort
   use scale_file_h, only: &
-     FILE_FILE_MAX
+    FILE_FILE_MAX
   
   use scale_file_common_meshfield, only: &
     FILE_common_meshfield_diminfo,                         &
@@ -20,7 +20,8 @@ module scale_file_base_meshfield
     MF3D_DTYPE_NUM => FILE_COMMON_MESHFILED3D_DIMTYPE_NUM, &
     MF3D_DIMTYPE_X => FILE_COMMON_MESHFILED3D_DIMTYPEID_X, &
     MF3D_DIMTYPE_Y => FILE_COMMON_MESHFILED3D_DIMTYPEID_Y, &
-    MF3D_DIMTYPE_Z => FILE_COMMON_MESHFILED3D_DIMTYPEID_Z
+    MF3D_DIMTYPE_Z => FILE_COMMON_MESHFILED3D_DIMTYPEID_Z, &
+    get_dtype => File_common_meshfield_get_dtype
 
   use scale_element_base, only: elementbase1D, elementbase2D, elementbase3D
   use scale_mesh_base1d, only: MeshBase1D
@@ -58,13 +59,23 @@ module scale_file_base_meshfield
     procedure :: Init => FILE_base_meshfield_Init
     procedure :: Open => FILE_base_meshfield_open
     procedure :: Create => FILE_base_meshfield_create
-    procedure :: FILE_base_meshfield_def_var
-    generic :: Def_Var => FILE_base_meshfield_def_var
+    !-
+    procedure :: FILE_base_meshfield_def_var1
+    procedure :: FILE_base_meshfield_def_var2
+    generic :: Def_Var => FILE_base_meshfield_def_var1, FILE_base_meshfield_def_var2
     procedure :: End_def => FILE_base_meshfield_enddef
+    !-
     procedure :: FILE_base_meshfield_write_var3d
     generic :: Write_var3D => FILE_base_meshfield_write_var3d
+    !-
     procedure :: FILE_base_meshfield_read_var3d
-    generic :: Read_Var => FILE_base_meshfield_read_var3d
+    procedure :: FILE_base_meshfield_read_var3d_local
+    generic :: Read_Var => FILE_base_meshfield_read_var3d, FILE_base_meshfield_read_var3d_local
+    !-
+    procedure :: Get_commonInfo => FILE_base_meshfield_get_commonInfo
+    procedure :: Get_dataInfo => FILE_base_meshfield_get_dataInfo
+    procedure :: Get_VarStepSize => FILE_base_meshfield_get_VarStepSize
+    !-
     procedure :: Close => FILE_base_meshfield_close
     procedure :: Final => FILE_base_meshfield_Final
   end type FILE_base_meshfield
@@ -133,19 +144,20 @@ contains
   end subroutine FILE_base_meshfield_Init
 
   subroutine FILE_base_meshfield_open( &
-    this, basename )
+    this, basename, myrank )
   
     use scale_file, only: &
       FILE_open 
     implicit none
   
     class(FILE_base_meshfield), intent(inout) :: this
-    character(*), intent(in) :: basename  
+    character(*), intent(in) :: basename
+    integer, intent(in), optional :: myrank
     !--------------------------------------------------------------
     
     call FILE_open( basename,         & ! [in]
                     this%fid,         & ! [out]
-                    rankid=PRC_myrank ) ! [in]
+                    rankid=myrank     ) ! [in]
   
     return
   end subroutine FILE_base_meshfield_open
@@ -153,7 +165,7 @@ contains
   subroutine FILE_base_meshfield_create( &
     this, basename, title, dtype,        &
     fileexisted,                         &
-    calendar, tunits )
+    myrank, tunits, calendar )
   
     use scale_file, only: &
       FILE_Create
@@ -164,6 +176,7 @@ contains
     character(*), intent(in) :: title    
     character(*), intent(in) :: dtype
     logical, intent(out) :: fileexisted
+    integer, intent(in), optional :: myrank
     character(*), intent(in), optional :: calendar
     character(*), intent(in), optional :: tunits
     !--------------------------------------------------------------
@@ -174,7 +187,7 @@ contains
                       H_INSTITUTE,             & ! [IN]
                       this%fid,                & ! [OUT]
                       fileexisted,             & ! [OUT]
-                      rankid     = PRC_myrank, & ! [IN]
+                      rankid     = myrank,     & ! [IN]
                       time_units = tunits,     & ! [IN]
                       calendar   = calendar    ) ! [IN]
     
@@ -185,8 +198,29 @@ contains
     return
   end subroutine FILE_base_meshfield_create
 
-  subroutine FILE_base_meshfield_def_var( this, &
+  subroutine FILE_base_meshfield_def_var1( this, &
     field, desc, vid, dim_type_id, datatype, standard_name, timeinv, nsteps )
+    implicit none
+  
+    class(FILE_base_meshfield), intent(inout) :: this
+    class(MeshFieldBase), intent(in) :: field
+    character(len=*), intent(in) :: desc
+    integer, intent(in) :: dim_type_id
+    integer, intent(in) :: vid
+    character(len=*), intent(in) :: datatype
+    character(len=*), optional, intent(in) :: standard_name
+    real(DP), optional, intent(in) :: timeinv
+    integer, optional, intent(in) :: nsteps
+    !--------------------------------------------------------------
+
+    call this%Def_Var( field%varname, field%unit, &
+      desc, vid, dim_type_id, datatype, standard_name, timeinv, nsteps )
+  
+    return
+  end subroutine FILE_base_meshfield_def_var1  
+
+  subroutine FILE_base_meshfield_def_var2( this, &
+    varname, units, desc, vid, dim_type_id, datatype, standard_name, timeinv, nsteps )
   
     use scale_file, only: &
       FILE_opened, &
@@ -194,8 +228,9 @@ contains
       FILE_Set_Attribute  
     implicit none
   
-    class(FILE_base_meshfield), intent(inout) :: this
-    class(MeshFieldBase), intent(in) :: field
+    class(FILE_base_meshfield), intent(inout) :: this    
+    character(len=*), intent(in) :: varname
+    character(len=*), intent(in) :: units
     character(len=*), intent(in) :: desc
     integer, intent(in) :: dim_type_id
     integer, intent(in) :: vid
@@ -224,17 +259,16 @@ contains
   
     ndim = this%dimsinfo(dim_type_id)%ndim
     if ( present(timeinv) ) then
-      call FILE_Def_Variable( this%fid, field%varname, desc, field%unit, standard_name_, &
+      call FILE_Def_Variable( this%fid, varname, desc, units, standard_name_,            &
         ndim, this%dimsinfo(dim_type_id)%dims(1:ndim), i_dtype, this%vars_ncid(vid),     &
         time_int=timeinv )
     else
-      call FILE_Def_Variable( this%fid, field%varname, desc, field%unit, standard_name_, &
+      call FILE_Def_Variable( this%fid, varname, desc, units, standard_name_,            &
         ndim, this%dimsinfo(dim_type_id)%dims(1:ndim), i_dtype, this%vars_ncid(vid)      )    
     end if
   
     return
-  end subroutine FILE_base_meshfield_def_var  
-
+  end subroutine FILE_base_meshfield_def_var2  
 
   subroutine FILE_base_meshfield_enddef( this )
 
@@ -261,7 +295,7 @@ contains
   end subroutine FILE_base_meshfield_enddef
   
   subroutine FILE_base_meshfield_write_var3d( this, &
-      vid, field3d, nowdaysec )
+      vid, field3d, sec_str, sec_end )
   
     use scale_file, only: &
         FILE_opened, &
@@ -272,7 +306,8 @@ contains
     class(FILE_base_meshfield), intent(inout) :: this
     integer, intent(in) :: vid
     class(MeshField3D), intent(in) :: field3d
-    real(RP), intent(in) :: nowdaysec
+    real(DP), intent(in) :: sec_str
+    real(DP), intent(in) :: sec_end
     
     real(RP), allocatable :: buf(:,:,:)
     integer :: dims(3)
@@ -288,13 +323,75 @@ contains
       call File_common_meshfield_put_field3D_cartesbuf( this%mesh3D, field3d, buf(:,:,:) )
   
       call FILE_Write( this%vars_ncid(vid), buf(:,:,:),     & ! (in)
-        nowdaysec, nowdaysec, start  ) ! (in)
+        sec_str, sec_end, start                             ) ! (in)
     end if
   
     return
   end subroutine FILE_base_meshfield_write_var3d
-  
-  subroutine FILE_base_meshfield_read_var3d( this, &
+
+  subroutine FILE_base_meshfield_get_commonInfo( this, &
+    title, source, institution )
+    use scale_file, only: &
+      FILE_get_attribute
+    implicit none
+    
+    class(FILE_base_meshfield), intent(in) :: this
+    character(len=FILE_HMID), intent(out), optional :: title
+    character(len=FILE_HMID), intent(out), optional :: source
+    character(len=FILE_HMID), intent(out), optional :: institution
+    !-------------------------------------------------
+
+    if ( present(title) ) call FILE_get_attribute( this%fid, 'global', 'title', title )
+    if ( present(source) ) call FILE_get_attribute( this%fid, 'global', 'source', source )
+    if ( present(institution) ) call FILE_get_attribute( this%fid, 'global', 'institution', institution )
+
+    return
+  end subroutine FILE_base_meshfield_get_commonInfo
+
+  subroutine FILE_base_meshfield_get_VarStepSize( this, varname, &
+    len )
+    use scale_file, only: &
+      FILE_get_stepSize    
+    implicit none
+
+    class(FILE_base_meshfield), intent(in) :: this
+    character(*), intent(in) :: varname
+    integer, intent(out) :: len
+    !-------------------------------------------------
+
+    call FILE_get_stepSize( this%fid, varname, & ! (in)
+      len )                                      ! (out)
+    
+    return    
+  end subroutine FILE_base_meshfield_get_VarStepSize
+
+  subroutine FILE_base_meshfield_get_dataInfo( this, varname, istep, &
+    description, units, standard_name,                               &
+    time_start, time_end, time_units, calendar )
+    use scale_file, only: &
+      FILE_get_dataInfo
+    implicit none
+    
+    class(FILE_base_meshfield), intent(in) :: this
+    character(*), intent(in) :: varname
+    integer, intent(in), optional :: istep
+    character(len=FILE_HMID), intent(out), optional :: description
+    character(len=FILE_HSHORT), intent(out), optional :: units
+    character(len=FILE_HMID), intent(out), optional :: standard_name
+    real(DP), intent(out), optional :: time_start
+    real(DP), intent(out), optional :: time_end
+    character(len=FILE_HMID), intent(out), optional :: time_units
+    character(len=FILE_HSHORT), intent(out), optional :: calendar
+    !-------------------------------------------------
+
+    call FILE_get_dataInfo( this%fid, varname, istep=istep,                               & ! (in)
+      description=description, units=units, standard_name=standard_name,                  & ! (out)
+      time_start=time_start, time_end=time_end, time_units=time_units, calendar=calendar  ) ! (out)
+
+    return
+  end subroutine FILE_base_meshfield_get_dataInfo
+
+  subroutine FILE_base_meshfield_read_var3d( this,            &
     dim_typeid, varname, field3d, step, allow_missing )
   
     use scale_file, only: &
@@ -333,6 +430,50 @@ contains
   
     return
   end subroutine FILE_base_meshfield_read_var3d
+
+  subroutine FILE_base_meshfield_read_var3d_local( this, &
+    dim_typeid, varname, lcmesh, i0_s, j0_s, k0_s, val,  &
+    step, allow_missing  )
+  
+    use scale_file, only: &
+      FILE_Read
+    use scale_file_common_meshfield, only: &
+      File_common_meshfield_set_cartesbuf_field3D_local
+  
+    implicit none
+  
+    class(FILE_base_meshfield), intent(inout) :: this
+    integer, intent(in) :: dim_typeid
+    character(*), intent(in) :: varname
+    class(LocalMesh3D), intent(in) :: lcmesh
+    integer, intent(in) :: i0_s, j0_s, k0_s
+    real(RP), intent(out) :: val(lcmesh%refElem3D%Np,lcmesh%NeA)
+    integer, intent(in), optional :: step
+    logical, intent(in), optional :: allow_missing
+  
+    real(RP), allocatable :: buf(:,:,:)
+    integer :: dims(3)
+    integer :: start(3)   ! start offset of globale variable
+    !-------------------------------------------------
+  
+    if ( this%fid /= -1 ) then
+      start(:) = 1
+      dims(1) = this%dimsinfo(MF3D_DIMTYPE_X)%size
+      dims(2) = this%dimsinfo(MF3D_DIMTYPE_Y)%size
+      dims(3) = this%dimsinfo(MF3D_DIMTYPE_Z)%size
+      allocate( buf(dims(1),dims(2),dims(3)) )
+  
+      call FILE_Read( this%fid, varname,                       & ! (in)
+        buf(:,:,:),                                            & ! (out)
+        step=step, allow_missing=allow_missing                 ) ! (in)
+  
+      call File_common_meshfield_set_cartesbuf_field3D_local( &
+        lcmesh, buf(:,:,:), i0_s, j0_s, k0_s,                 &
+        val(:,:) )
+    end if
+  
+    return
+  end subroutine FILE_base_meshfield_read_var3d_local 
 
   subroutine FILE_base_meshfield_close( this )
     use scale_file, only: FILE_Close
@@ -414,8 +555,7 @@ contains
     use scale_const, only: &
       UNDEF => CONST_UNDEF
     use scale_file, only: &
-      FILE_Write_Axis,    &
-      FILE_Write_AssociatedCoordinate
+      FILE_Write_Axis
     use scale_file_common_meshfield, only: &
       File_common_meshfield_get_axis
     implicit none
@@ -452,35 +592,5 @@ contains
     return
   end subroutine write_axes
 
-  !- private -----------
-
-  function get_dtype( datatype ) result( dtype )
-
-    use scale_file_h, only: &
-      FILE_REAL8, FILE_REAL4
-    implicit none
-  
-    character(*), intent(in) :: datatype
-    integer :: dtype
-    !--------------------------
-  
-    ! dtype is used to define the data type of axis variables in file
-    if    ( datatype == 'REAL8' ) then
-      dtype = FILE_REAL8
-    elseif( datatype == 'REAL4' ) then
-        dtype = FILE_REAL4
-    else
-      if    ( RP == 8 ) then
-        dtype = FILE_REAL8
-      elseif( RP == 4 ) then
-        dtype = FILE_REAL4
-      else
-        LOG_ERROR("file_restart_meshfield_get_dtype",*) 'unsupported data type. Check!', trim(datatype)
-        call PRC_abort
-      endif
-    endif
-  
-    return
-  end function get_dtype
   
 end module scale_file_base_meshfield
