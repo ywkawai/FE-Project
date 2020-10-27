@@ -322,7 +322,6 @@ contains
     !---
     
     call MeshBase3D_setGeometricInfo( lcmesh, MeshCubeDom3D_coord_conv, MeshCubeDom3D_calc_normal )
-    if (lcmesh%refElem3D%PolyOrder_h ==1) then
  
     !---
     call MeshUtil3D_genConnectivity( lcmesh%EToE, lcmesh%EToF, & ! (out)
@@ -339,7 +338,6 @@ contains
       elem%Fmask_h, elem%Fmask_v, lcmesh%Ne, lcmesh%Nv, elem%Np, elem%Nfp_h, elem%Nfp_v, elem%NfpTot,   & ! (in)
       elem%Nfaces_h, elem%Nfaces_v, elem%Nfaces )                                                         ! (in)
     
-   end if
     !---
     do kk=1, lcmesh%NeZ
     do jj=1, lcmesh%NeY
