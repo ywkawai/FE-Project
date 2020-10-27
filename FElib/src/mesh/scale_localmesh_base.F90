@@ -47,10 +47,10 @@ module scale_localmesh_base
     integer, allocatable :: BCType(:,:)
     integer, allocatable :: MapB(:)
     integer, allocatable :: VMapB(:)
-    integer, allocatable :: MapD(:)
-    integer, allocatable :: VMapD(:)
-    integer, allocatable :: MapN(:)
-    integer, allocatable :: VMapN(:)
+    ! integer, allocatable :: MapD(:)
+    ! integer, allocatable :: VMapD(:)
+    ! integer, allocatable :: MapN(:)
+    ! integer, allocatable :: VMapN(:)
 
     integer :: tileID
     integer :: panelID
@@ -86,25 +86,56 @@ module scale_localmesh_base
   !
 
 contains
-  subroutine LocalMeshBase_Init( this, refElem, dims )
+  subroutine LocalMeshBase_Init( this, refElem, dims, myrank )
+    
+    use scale_prc, only: PRC_myrank
     implicit none
 
     class(LocalMeshBase), intent(inout) :: this
     class(ElementBase), intent(in), target :: refElem
     integer, intent(in) :: dims
+    integer, intent(in), optional :: myrank
     !-----------------------------------------------------------------------------
 
     this%refElem => refElem
-    
+
+    if (present(myrank)) then
+      this%PRC_myrank = myrank
+    else
+      this%PRC_myrank = PRC_myrank
+    end if
+
     return
   end subroutine LocalMeshBase_Init
 
-  subroutine LocalMeshBase_Final( this )
+  subroutine LocalMeshBase_Final( this, is_generated )
     implicit none
     
     class(LocalMeshBase), intent(inout) :: this
+    logical, intent(in) :: is_generated
     !-----------------------------------------------------------------------------
 
+    if ( is_generated ) then
+      deallocate( this%pos_ev, this%pos_en, this%normal_fn )
+      deallocate( this%sJ, this%J )
+
+      deallocate( this%Escale, this%Fscale )
+
+      deallocate( this%EToV, this%EToE, this%EToF )
+
+      if ( allocated(this%VMapM) ) then
+        deallocate( this%VMapM, this%VMapP, this%MapM, this%MapP )
+      end if
+      if ( allocated(this%VMapB) ) then
+        deallocate( this%BCType )
+        deallocate( this%VMapB, this%MapB )
+      end if
+      if ( allocated(this%G_ij) ) then
+        deallocate( this%G_ij, this%GIJ, this%Gsqrt )
+      end if
+    end if
+
+    return
   end subroutine LocalMeshBase_Final
 
 end module scale_localmesh_base

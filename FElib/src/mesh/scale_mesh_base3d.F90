@@ -66,27 +66,28 @@ module scale_mesh_base3d
   !
 
 contains
-  subroutine MeshBase3D_Init(this, &
-    & refElem, NLocalMeshPerPrc, NsideTile )
+  subroutine MeshBase3D_Init(this,        &
+    refElem, NLocalMeshPerPrc, NsideTile, &
+    nproc, myrank )
     
-    use scale_prc, only: PRC_nprocs, PRC_myrank
     implicit none
 
     class(MeshBase3D), intent(inout) :: this
     class(elementbase3D), intent(in), target :: refElem
     integer, intent(in) :: NLocalMeshPerPrc
     integer, intent(in) :: NsideTile
+    integer, intent(in), optional :: nproc
+    integer, intent(in), optional :: myrank
 
     integer :: n
-
     !-----------------------------------------------------------------------------
     
     this%refElem3D => refElem
-    call MeshBase_Init(this, refElem, NLocalMeshPerPrc, NsideTile)
+    call MeshBase_Init( this, refElem, NLocalMeshPerPrc, NsideTile, nproc )
 
     allocate( this%lcmesh_list(this%LOCAL_MESH_NUM) )
     do n=1, this%LOCAL_MESH_NUM
-      call LocalMesh3D_Init( this%lcmesh_list(n), refElem, PRC_myrank )
+      call LocalMesh3D_Init( this%lcmesh_list(n), refElem, myrank )
     end do
 
     return
@@ -102,7 +103,7 @@ contains
     !-----------------------------------------------------------------------------
   
     do n=1, this%LOCAL_MESH_NUM
-      call LocalMesh3D_Final( this%lcmesh_list(n) )
+      call LocalMesh3D_Final( this%lcmesh_list(n), this%isGenerated )
     end do
     deallocate( this%lcmesh_list )
     
@@ -125,7 +126,6 @@ contains
   end subroutine MeshBase3D_get_localmesh
 
   subroutine MeshBase3D_setGeometricInfo( lcmesh, coord_conv, calc_normal )
-
     implicit none
     
     type(LocalMesh3D), intent(inout) :: lcmesh

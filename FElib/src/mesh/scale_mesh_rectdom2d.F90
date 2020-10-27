@@ -106,10 +106,12 @@ contains
     !-----------------------------------------------------------------------------
   
     if (this%isGenerated) then
-      deallocate( this%rcdomIJ2LCMeshID )
+      if ( allocated(this%rcdomIJ2LCMeshID) ) then
+        deallocate( this%rcdomIJ2LCMeshID )
+      end if
     end if
 
-    call MeshBase2D_Final(this)
+    call MeshBase2D_Final( this )
 
     return
   end subroutine MeshRectDom2D_Final

@@ -43,26 +43,31 @@ module scale_localmesh_1d
 
 contains
   subroutine LocalMesh1D_Init( this, &
-    refElem, PRC_myrank )
+    refElem, myrank )
     
     implicit none
 
     type(LocalMesh1D), intent(inout) :: this
     class(elementbase1D), intent(in), target :: refElem
-    integer, intent(in) :: PRC_myrank
-  
-    this%PRC_myrank   = PRC_myrank
-    this%refElem1D    => refElem
-    
-    call LocalMeshBase_Init(this, refElem, 1)
+    integer, intent(in), optional :: myrank
+    !-------------------------------------------------
 
+    this%refElem1D => refElem
+    call LocalMeshBase_Init(this, refElem, 1, myrank)
+
+    return
   end subroutine LocalMesh1D_Init
 
-  subroutine LocalMesh1D_Final( this )
+  subroutine LocalMesh1D_Final( this, is_generated )
+    implicit none
+
     type(LocalMesh1D), intent(inout) :: this
+    logical, intent(in) :: is_generated
+    !-------------------------------------------------
 
-    call LocalMeshBase_Final(this)
+    call LocalMeshBase_Final( this, is_generated )
 
+    return
   end subroutine LocalMesh1D_Final
   
 end module scale_localmesh_1d
