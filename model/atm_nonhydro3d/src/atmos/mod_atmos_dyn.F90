@@ -52,7 +52,7 @@ module mod_atmos_dyn
     atm_dyn_nonhydro3d_hevi_cal_tend,          &
     atm_dyn_nonhydro3d_hevi_cal_vi
 
-  use scale_atm_dyn_nonhydro3d_hevi_splitform, only: &
+  use scale_atm_dyn_nonhydro3d_splitform_hevi, only: &
     atm_dyn_nonhydro3d_hevi_splitform_Init,          &
     atm_dyn_nonhydro3d_hevi_splitform_Final,         &
     atm_dyn_nonhydro3d_hevi_splitform_cal_tend,      &
