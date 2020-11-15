@@ -257,7 +257,6 @@ contains
     integer :: i, iP, iM
     real(RP) :: VelP, VelM, alpha
     real(RP) :: uM, uP, vM, vP, wM, wP, presM, presP, dpresM, dpresP, densM, densP, rhotM, rhotP, rhot_hyd_M, rhot_hyd_P
-    real(RP) :: dDiffFluxU, dDiffFluxV, dDiffFluxW, dDiffFluxPT
     real(RP) :: gamm, rgamm
     !------------------------------------------------------------------------
 
@@ -316,5 +315,6 @@ contains
 
     return
   end subroutine cal_del_flux_dyn
+
   !------------------------------------------------
 end module scale_atm_dyn_nonhydro3d_heve

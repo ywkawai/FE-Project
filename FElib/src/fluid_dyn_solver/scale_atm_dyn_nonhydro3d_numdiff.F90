@@ -9,12 +9,6 @@ module scale_atm_dyn_nonhydro3d_numdiff
   use scale_io
   use scale_prc
   use scale_prof
-  use scale_const, only: &
-    GRAV => CONST_GRAV,  &
-    Rdry => CONST_Rdry,  &
-    CPdry => CONST_CPdry, &
-    CVdry => CONST_CVdry, &
-    PRES00 => CONST_PRE00
 
   use scale_sparsemat  
   use scale_element_base, only: &
@@ -84,7 +78,7 @@ contains
   subroutine atm_dyn_nonhydro3d_numdiff_tend( &
     tend_,                                                     & ! (out)
     GxV_, GyV_, GzV_,                                          & ! (in)
-    DDENS_, DENS_hyd, diffcoef_h, diffcoef_v,                          & ! (in)
+    DDENS_, DENS_hyd, diffcoef_h, diffcoef_v,                  & ! (in)
     Dx, Dy, Dz, Lift, lmesh, elem, mul_dens_flag               )
 
     implicit none
@@ -185,8 +179,8 @@ contains
       end if
       
       del_flux(i) = 0.5_RP * ( &
-          ( 1.0_RP + 0.0_RP*sign(1.0_RP,nx(i)) ) * coef_h * ( densP * GxV_(iP) - densM * GxV_(iM) ) * nx(i) &
-        + ( 1.0_RP + 0.0_RP*sign(1.0_RP,ny(i)) ) * coef_h * ( densP * GyV_(iP) - densM * GyV_(iM) ) * ny(i) &
+          ( 1.0_RP + sign(1.0_RP,nx(i)) ) * coef_h * ( densP * GxV_(iP) - densM * GxV_(iM) ) * nx(i) &
+        + ( 1.0_RP + sign(1.0_RP,ny(i)) ) * coef_h * ( densP * GyV_(iP) - densM * GyV_(iM) ) * ny(i) &
         + ( 1.0_RP + sign(1.0_RP,nz(i)) ) * coef_v * ( densP * GzV_(iP) - densM * GzV_(iM) ) * nz(i) )
     end do
 
@@ -278,8 +272,8 @@ contains
       iM = vmapM(i); iP = vmapP(i)
           
       del_flux_h(i) = 0.5_RP * ( &
-          ( 1.0_RP + 0.0_RP*sign(1.0_RP,nx(i)) ) * ( GxV_(iP) - GxV_(iM) ) * nx(i) &
-        + ( 1.0_RP + 0.0_RP*sign(1.0_RP,ny(i)) ) * ( GyV_(iP) - GyV_(iM) ) * ny(i) )
+          ( 1.0_RP + sign(1.0_RP,nx(i)) ) * ( GxV_(iP) - GxV_(iM) ) * nx(i) &
+        + ( 1.0_RP + sign(1.0_RP,ny(i)) ) * ( GyV_(iP) - GyV_(iM) ) * ny(i) )
       
       del_flux_v(i) = 0.5_RP * ( &
           ( 1.0_RP + sign(1.0_RP,nz(i)) ) * ( GzV_(iP) - GzV_(iM) ) * nz(i) )
@@ -391,8 +385,8 @@ contains
       delVarh = 0.5_RP * (Varh_(iP) * weight_P - Varh_(iM) * weight_M)
       delVarv = 0.5_RP * (Varv_(iP) * weight_P - Varv_(iM) * weight_M)
 
-      del_flux(i,1) = ( 1.0_RP - 0.0_RP*sign(1.0_RP,nx(i)) ) * delVarh * nx(i)
-      del_flux(i,2) = ( 1.0_RP - 0.0_RP*sign(1.0_RP,ny(i)) ) * delVarh * ny(i)
+      del_flux(i,1) = ( 1.0_RP - sign(1.0_RP,nx(i)) ) * delVarh * nx(i)
+      del_flux(i,2) = ( 1.0_RP - sign(1.0_RP,ny(i)) ) * delVarh * ny(i)
       del_flux(i,3) = ( 1.0_RP - sign(1.0_RP,nz(i)) ) * delVarv * nz(i)
     end do
 

@@ -52,6 +52,12 @@ module mod_atmos_dyn
     atm_dyn_nonhydro3d_hevi_cal_tend,          &
     atm_dyn_nonhydro3d_hevi_cal_vi
 
+  use scale_atm_dyn_nonhydro3d_splitform_hevi, only: &
+    atm_dyn_nonhydro3d_hevi_splitform_Init,          &
+    atm_dyn_nonhydro3d_hevi_splitform_Final,         &
+    atm_dyn_nonhydro3d_hevi_splitform_cal_tend,      &
+    atm_dyn_nonhydro3d_hevi_splitform_cal_vi    
+  
   use scale_atm_dyn_nonhydro3d_numdiff, only: &
     atm_dyn_nonhydro3d_numdiff_Init,          &
     atm_dyn_nonhydro3d_numdiff_Final,         &
@@ -109,8 +115,9 @@ module mod_atmos_dyn
   !-----------------------------------------------------------------------------
   
   integer, public :: EQS_TYPEID
-  integer, parameter :: EQS_TYPEID_NONHYD3D_HEVE = 1
-  integer, parameter :: EQS_TYPEID_NONHYD3D_HEVI = 2
+  integer, parameter :: EQS_TYPEID_NONHYD3D_HEVE           = 1
+  integer, parameter :: EQS_TYPEID_NONHYD3D_HEVI           = 2
+  integer, parameter :: EQS_TYPEID_NONHYD3D_SPLITFORM_HEVI = 3
 
 
   !-----------------------------------------------------------------------------
@@ -123,7 +130,7 @@ module mod_atmos_dyn
   !
   !-----------------------------------------------------------------------------
 
-  abstract interface
+  abstract interface    
     subroutine atm_dyn_nonhydro3d_cal_tend_ex( &
       DENS_dt, MOMX_dt, MOMY_dt, MOMZ_dt, RHOT_dt,                                & ! (out)
       DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd, CORIOLIS,          & ! (in)
@@ -158,6 +165,42 @@ module mod_atmos_dyn
     end subroutine atm_dyn_nonhydro3d_cal_tend_ex
   end interface
   procedure (atm_dyn_nonhydro3d_cal_tend_ex), pointer :: cal_tend_ex => null()
+
+  abstract interface    
+    subroutine atm_dyn_nonhydro3d_cal_vi( &
+      DENS_dt, MOMX_dt, MOMY_dt, MOMZ_dt, RHOT_dt,             & ! (out)
+      DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd, & ! (in)
+      Dz, Lift, impl_fac, lmesh, elem, lmesh2D, elem2D )
+  
+      import RP
+      import LocalMesh3D
+      import elementbase3D
+      import LocalMesh2D
+      import elementbase2D
+      import SparseMat
+      implicit none
+  
+      class(LocalMesh3D), intent(in) :: lmesh
+      class(elementbase3D), intent(in) :: elem
+      class(LocalMesh2D), intent(in) :: lmesh2D
+      class(elementbase2D), intent(in) :: elem2D
+      real(RP), intent(out) :: DENS_dt(elem%Np,lmesh%NeA)
+      real(RP), intent(out) :: MOMX_dt(elem%Np,lmesh%NeA)
+      real(RP), intent(out) :: MOMY_dt(elem%Np,lmesh%NeA)
+      real(RP), intent(out) :: MOMZ_dt(elem%Np,lmesh%NeA)
+      real(RP), intent(out) :: RHOT_dt(elem%Np,lmesh%NeA)
+      real(RP), intent(in)  :: DDENS_(elem%Np,lmesh%NeA)
+      real(RP), intent(in)  :: MOMX_(elem%Np,lmesh%NeA)
+      real(RP), intent(in)  :: MOMY_(elem%Np,lmesh%NeA)
+      real(RP), intent(in)  :: MOMZ_(elem%Np,lmesh%NeA)
+      real(RP), intent(in)  :: DRHOT_(elem%Np,lmesh%NeA)
+      real(RP), intent(in)  :: DENS_hyd(elem%Np,lmesh%NeA)
+      real(RP), intent(in)  :: PRES_hyd(elem%Np,lmesh%NeA)
+      class(SparseMat), intent(in) :: Dz, Lift
+      real(RP), intent(in) :: impl_fac
+    end subroutine atm_dyn_nonhydro3d_cal_vi
+  end interface
+  procedure (atm_dyn_nonhydro3d_cal_vi), pointer :: cal_vi => null()
 
 contains
 
@@ -280,10 +323,17 @@ contains
       EQS_TYPEID = EQS_TYPEID_NONHYD3D_HEVE
       call atm_dyn_nonhydro3d_heve_Init( atm_mesh%mesh )
       cal_tend_ex => atm_dyn_nonhydro3d_heve_cal_tend
-    case("NONHYDRO3D_HEVI")      
+      cal_vi => null()
+    case("NONHYDRO3D_HEVI")
       EQS_TYPEID = EQS_TYPEID_NONHYD3D_HEVI
       call atm_dyn_nonhydro3d_hevi_Init( atm_mesh%mesh )
       cal_tend_ex => atm_dyn_nonhydro3d_hevi_cal_tend
+      cal_vi => atm_dyn_nonhydro3d_hevi_cal_vi
+    case("NONHYDRO3D_SPLITFORM_HEVI")
+      EQS_TYPEID = EQS_TYPEID_NONHYD3D_SPLITFORM_HEVI
+      call atm_dyn_nonhydro3d_hevi_splitform_Init( atm_mesh%mesh )
+      cal_tend_ex => atm_dyn_nonhydro3d_hevi_splitform_cal_tend
+      cal_vi => atm_dyn_nonhydro3d_hevi_splitform_cal_vi
     case default
       LOG_ERROR("ATMOS_DYN_setup",*) 'Not appropriate names in namelist PARAM_ATMOS_DYN. Check!'
       call PRC_abort
@@ -399,7 +449,7 @@ contains
           call PROF_rapstart( 'ATM_DYN_cal_vi', 2)
           implicit_fac = this%tint(n)%Get_implicit_diagfac(rkstage)
           tintbuf_ind = this%tint(n)%tend_buf_indmap(rkstage)
-          call atm_dyn_nonhydro3d_hevi_cal_vi( &
+          call cal_vi( &
             this%tint(n)%tend_buf2D_im(:,:,ATMOS_PROGVARS_DDENS_ID,tintbuf_ind),    &
             this%tint(n)%tend_buf2D_im(:,:,ATMOS_PROGVARS_MOMX_ID ,tintbuf_ind),    &
             this%tint(n)%tend_buf2D_im(:,:,ATMOS_PROGVARS_MOMY_ID ,tintbuf_ind),    &
@@ -572,8 +622,10 @@ contains
     select case(EQS_TYPEID)
     case(EQS_TYPEID_NONHYD3D_HEVE)
       call atm_dyn_nonhydro3d_heve_Final()
-    case(EQS_TYPEID_NONHYD3D_HEVI)      
+    case(EQS_TYPEID_NONHYD3D_HEVI)  
       call atm_dyn_nonhydro3d_hevi_Final()
+    case(EQS_TYPEID_NONHYD3D_SPLITFORM_HEVI)  
+      call atm_dyn_nonhydro3d_hevi_splitform_Final()     
     end select 
 
     if (this%CALC_NUMDIFF_FLAG) then

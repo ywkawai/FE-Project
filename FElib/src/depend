@@ -4,6 +4,7 @@ $(OBJ_DIR)/scale_atm_dyn_nonhydro3d_heve.o: fluid_dyn_solver/scale_atm_dyn_nonhy
 $(OBJ_DIR)/scale_atm_dyn_nonhydro3d_hevi.o: fluid_dyn_solver/scale_atm_dyn_nonhydro3d_hevi.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_element_base.o $(OBJ_DIR)/scale_element_hexahedral.o $(OBJ_DIR)/scale_linalgebra.o $(OBJ_DIR)/scale_localmesh_2d.o $(OBJ_DIR)/scale_localmesh_3d.o $(OBJ_DIR)/scale_localmeshfield_base.o $(OBJ_DIR)/scale_mesh_base3d.o $(OBJ_DIR)/scale_meshfield_base.o $(OBJ_DIR)/scale_sparsemat.o
 $(OBJ_DIR)/scale_atm_dyn_nonhydro3d_hevi_gmres.o: fluid_dyn_solver/scale_atm_dyn_nonhydro3d_hevi_gmres.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_element_base.o $(OBJ_DIR)/scale_element_hexahedral.o $(OBJ_DIR)/scale_gmres.o $(OBJ_DIR)/scale_linalgebra.o $(OBJ_DIR)/scale_localmesh_2d.o $(OBJ_DIR)/scale_localmesh_3d.o $(OBJ_DIR)/scale_localmeshfield_base.o $(OBJ_DIR)/scale_mesh_base3d.o $(OBJ_DIR)/scale_meshfield_base.o $(OBJ_DIR)/scale_sparsemat.o
 $(OBJ_DIR)/scale_atm_dyn_nonhydro3d_numdiff.o: fluid_dyn_solver/scale_atm_dyn_nonhydro3d_numdiff.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_element_base.o $(OBJ_DIR)/scale_element_hexahedral.o $(OBJ_DIR)/scale_localmesh_2d.o $(OBJ_DIR)/scale_localmesh_3d.o $(OBJ_DIR)/scale_localmeshfield_base.o $(OBJ_DIR)/scale_mesh_base3d.o $(OBJ_DIR)/scale_meshfield_base.o $(OBJ_DIR)/scale_sparsemat.o
+$(OBJ_DIR)/scale_atm_dyn_nonhydro3d_splitform_hevi.o: fluid_dyn_solver/scale_atm_dyn_nonhydro3d_splitform_hevi.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_element_base.o $(OBJ_DIR)/scale_element_hexahedral.o $(OBJ_DIR)/scale_linalgebra.o $(OBJ_DIR)/scale_localmesh_2d.o $(OBJ_DIR)/scale_localmesh_3d.o $(OBJ_DIR)/scale_localmeshfield_base.o $(OBJ_DIR)/scale_mesh_base3d.o $(OBJ_DIR)/scale_meshfield_base.o $(OBJ_DIR)/scale_sparsemat.o
 $(OBJ_DIR)/scale_element_base.o: element/scale_element_base.F90 $(DEPENDLIB)
 $(OBJ_DIR)/scale_element_hexahedral.o: element/scale_element_hexahedral.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_element_base.o $(OBJ_DIR)/scale_linalgebra.o $(OBJ_DIR)/scale_polynominal.o
 $(OBJ_DIR)/scale_element_line.o: element/scale_element_line.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_element_base.o $(OBJ_DIR)/scale_linalgebra.o $(OBJ_DIR)/scale_polynominal.o
@@ -54,6 +55,7 @@ MODS =	\
 	$(OBJ_DIR)/scale_atm_dyn_nonhydro3d_hevi.mod	\
 	$(OBJ_DIR)/scale_atm_dyn_nonhydro3d_hevi_gmres.mod	\
 	$(OBJ_DIR)/scale_atm_dyn_nonhydro3d_numdiff.mod	\
+	$(OBJ_DIR)/scale_atm_dyn_nonhydro3d_splitform_hevi.mod	\
 	$(OBJ_DIR)/scale_element_base.mod	\
 	$(OBJ_DIR)/scale_element_hexahedral.mod	\
 	$(OBJ_DIR)/scale_element_line.mod	\
