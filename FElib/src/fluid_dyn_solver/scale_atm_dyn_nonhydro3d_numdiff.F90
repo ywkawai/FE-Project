@@ -1,4 +1,13 @@
 !-------------------------------------------------------------------------------
+!> module Atmosphere / Dynamics HEVI 
+!!
+!! @par Description
+!!      Explicit numerical diffusion for Atmospheric dynamical process. 
+!!      For the discretization, the local DGM (e.g., Cockburn and Shu, 1998) is used. 
+!!
+!! @author Team SCALE
+!<
+!-------------------------------------------------------------------------------
 #include "scaleFElib.h"
 module scale_atm_dyn_nonhydro3d_numdiff
   !-----------------------------------------------------------------------------

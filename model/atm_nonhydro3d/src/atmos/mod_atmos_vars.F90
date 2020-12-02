@@ -96,12 +96,13 @@ module mod_atmos_vars
     VariableInfo( ATMOS_AUXVARS_DENSHYDRO_ID , 'DENS_hyd', 'hydrostatic part of density',  &
                   'kg/m3', 3, 'XYZ', ''                                                 )  /
   
-  integer, public, parameter :: ATMOS_DIAGVARS_NUM       = 5
+  integer, public, parameter :: ATMOS_DIAGVARS_NUM       = 6
   integer, public, parameter :: ATMOS_DIAGVARS_U_ID      = 1
   integer, public, parameter :: ATMOS_DIAGVARS_V_ID      = 2
   integer, public, parameter :: ATMOS_DIAGVARS_W_ID      = 3
   integer, public, parameter :: ATMOS_DIAGVARS_PRES_ID   = 4
   integer, public, parameter :: ATMOS_DIAGVARS_T_ID      = 5  
+  integer, public, parameter :: ATMOS_DIAGVARS_THETA_ID  = 6
 
   type(VariableInfo), public :: ATMOS_DIAGVARS_VINFO(ATMOS_DIAGVARS_NUM)
   DATA ATMOS_DIAGVARS_VINFO / &
@@ -109,7 +110,8 @@ module mod_atmos_vars
     VariableInfo( ATMOS_DIAGVARS_V_ID, 'V', 'velocity v', 'm/s', 3, 'XYZ', 'y_wind'             ), &  
     VariableInfo( ATMOS_DIAGVARS_W_ID, 'W', 'velocity w', 'm/s', 3, 'XYZ', 'upward_air_velocity'), &
     VariableInfo( ATMOS_DIAGVARS_PRES_ID, 'PRES', 'pressure', 'Pa', 3, 'XYZ', 'air_pressure'    ), &
-    VariableInfo( ATMOS_DIAGVARS_T_ID   , 'T', 'temperature', 'K', 3, 'XYZ', 'air_temperature'  )  /
+    VariableInfo( ATMOS_DIAGVARS_T_ID    , 'T', 'temperature', 'K', 3, 'XYZ', 'air_temperature'  ), &
+    VariableInfo( ATMOS_DIAGVARS_THETA_ID, 'PT', 'potential temperature', 'K', 3, 'XYZ', 'potential_temperature'  ) /
 
   !-----------------------------------------------------------------------------
   !
@@ -577,7 +579,7 @@ contains
         PRES(:) = PRES00 * (Rdry*RHOT(:)/PRES00)**(CPdry/Cvdry)
         var_out(:,ke) = PRES(:) / (Rdry*(DDENS_(:,ke) + DENS_hyd(:,ke)))
       end do
-    case('THETA')        
+    case('PT')        
       do ke=1, lcmesh%Ne
         RHOT(:) = PRES00/Rdry * (PRES_hyd(:,ke)/PRES00)**(CVdry/CPdry) + DRHOT_(:,ke)
         var_out(:,ke) = RHOT(:) / (DDENS_(:,ke) + DENS_hyd(:,ke))

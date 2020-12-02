@@ -2,7 +2,7 @@
 !> module USER
 !!
 !! @par Description
-!!          User defined module
+!!    Set the initial data for baroclinic wave in a channel based on Ullrich et al. (2015).
 !!
 !! @author Team SCALE
 !!
@@ -81,9 +81,10 @@ module mod_user
   !-----------------------------------------------------------------------------
 contains
   subroutine USER_mkinit( atm )
+    implicit none
+
     class(AtmosComponent), intent(inout) :: atm
 
-    implicit none
     !------------------------------------------
 
     call exp_manager%Init('baroclinic_wave')

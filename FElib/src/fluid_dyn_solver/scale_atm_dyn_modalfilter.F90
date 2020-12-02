@@ -1,4 +1,13 @@
 !-------------------------------------------------------------------------------
+!> module Atmosphere / Dynamics HEVI 
+!!
+!! @par Description
+!!      Modal filter for Atmospheric dynamical process. 
+!!      The modal filter surpresses the numerical instability due to the aliasing errors. 
+!!
+!! @author Team SCALE
+!<
+!-------------------------------------------------------------------------------
 #include "scaleFElib.h"
 module scale_atm_dyn_modalfilter
   !-----------------------------------------------------------------------------

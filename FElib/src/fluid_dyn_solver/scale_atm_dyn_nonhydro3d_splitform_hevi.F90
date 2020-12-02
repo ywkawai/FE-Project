@@ -1,4 +1,14 @@
 !-------------------------------------------------------------------------------
+!> module Atmosphere / Dynamics HEVI 
+!!
+!! @par Description
+!!      HEVI DGM scheme for Atmospheric dynamical process. 
+!!      To improve the numerical instability due to the aliasing errors, 
+!!      the split form based on Gassner et al. (2016, JCP) is used for advection terms. 
+!!
+!! @author Team SCALE
+!<
+!-------------------------------------------------------------------------------
 #include "scaleFElib.h"
 module scale_atm_dyn_nonhydro3d_splitform_hevi
   !-----------------------------------------------------------------------------
