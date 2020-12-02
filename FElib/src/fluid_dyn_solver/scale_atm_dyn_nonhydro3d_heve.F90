@@ -1,4 +1,12 @@
 !-------------------------------------------------------------------------------
+!> module Atmosphere / Dynamics HEVI 
+!!
+!! @par Description
+!!      HEVE DGM scheme for Atmospheric dynamical process. 
+!!
+!! @author Team SCALE
+!<
+!-------------------------------------------------------------------------------
 #include "scaleFElib.h"
 module scale_atm_dyn_nonhydro3d_heve
   !-----------------------------------------------------------------------------
