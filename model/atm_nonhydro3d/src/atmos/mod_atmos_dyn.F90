@@ -403,7 +403,6 @@ contains
   end subroutine AtmosDyn_calc_tendency
 
   subroutine AtmosDyn_update( this, model_mesh, prgvars_list, auxvars_list )
-     
     implicit none
 
     class(AtmosDyn), intent(inout) :: this
@@ -428,6 +427,7 @@ contains
     integer :: v
     real(RP) :: implicit_fac
     real(RP) :: dt
+    character(len=H_SHORT) :: labl
     !--------------------------------------------------
     
     call PROF_rapstart( 'ATM_DYN_update', 1)   
@@ -600,7 +600,7 @@ contains
          DRHOT%val(:,ke) = DRHOT%val(:,ke) + dt * this%tint(n)%tend_buf2D_ex(:,ke,ATMOS_PROGVARS_DRHOT_ID,1)
         end do
       end do
-      
+
       call PROF_rapend( 'ATM_DYN_numfilter', 2)
     end if
 
@@ -671,6 +671,7 @@ contains
     integer :: nd_itr
     real(RP) :: nd_sign
     logical :: dens_weight_flag
+    logical, allocatable :: is_bound(:,:)
 
     !-----------------------------------------
 
@@ -688,17 +689,20 @@ contains
         DENS_hyd, PRES_hyd                                                    )
       call AtmosDynNumDiffFlux_GetLocalMeshFields( n, mesh, this%dyn_vars%NUMDIFF_FLUX_manager, &
         ND_flx_x, ND_flx_y, ND_flx_z )
-
-      call this%boundary_cond%ApplyBC_numdiff_even_lc( n, var%val, varid, &
-        MOMX%val, MOMY%val, MOMZ%val, DENS_hyd%val, PRES_hyd%val,                  &
-        lcmesh%normal_fn(:,:,1), lcmesh%normal_fn(:,:,2), lcmesh%normal_fn(:,:,3), &
+      
+      allocate( is_bound(lcmesh%refElem%NfpTot,lcmesh%Ne) )
+      call this%boundary_cond%ApplyBC_numdiff_even_lc( var%val, is_bound, varid, n, &
+        MOMX%val, MOMY%val, MOMZ%val, DENS_hyd%val, PRES_hyd%val,                    &
+        lcmesh%normal_fn(:,:,1), lcmesh%normal_fn(:,:,2), lcmesh%normal_fn(:,:,3),   &
         lcmesh%vmapM, lcmesh%vmapP, lcmesh%vmapB, lcmesh, lcmesh%refElem3D )
       
       call atm_dyn_nonhydro3d_numdiff_cal_flx( ND_flx_x%val, ND_flx_y%val, ND_flx_z%val, &
         var%val, var%val, DDENS%val, DENS_hyd%val,                                       &
         model_mesh%DOptrMat(1), model_mesh%DOptrMat(2), model_mesh%DOptrMat(3),          &
         model_mesh%LiftOptrMat,                                                          &
-        lcmesh, lcmesh%refElem3D, dens_weight_flag ) 
+        lcmesh, lcmesh%refElem3D, is_bound, dens_weight_flag ) 
+
+      deallocate( is_bound )
     end do
 
     !* Exchange halo data
@@ -711,8 +715,9 @@ contains
         call AtmosDynNumDiffTend_GetLocalMeshFields( n, mesh, this%dyn_vars%NUMDIFF_TEND_manager, &
           ND_lapla_h, ND_lapla_v )
           
-        call this%boundary_cond%ApplyBC_numdiff_odd_lc( n, &
-          ND_flx_x%val, ND_flx_y%val, ND_flx_z%val, varid,                           &
+        allocate( is_bound(lcmesh%refElem%NfpTot,lcmesh%Ne) )
+        call this%boundary_cond%ApplyBC_numdiff_odd_lc( &
+          ND_flx_x%val, ND_flx_y%val, ND_flx_z%val, is_bound, varid, n,              &
           lcmesh%normal_fn(:,:,1), lcmesh%normal_fn(:,:,2), lcmesh%normal_fn(:,:,3), &
           lcmesh%vmapM, lcmesh%vmapP, lcmesh%vmapB, lcmesh, lcmesh%refElem3D )
 
@@ -720,7 +725,9 @@ contains
           ND_flx_x%val, ND_flx_y%val, ND_flx_z%val,                                    &
           model_mesh%DOptrMat(1), model_mesh%DOptrMat(2), model_mesh%DOptrMat(3),      &
           model_mesh%LiftOptrMat,                                                      &
-          lcmesh, lcmesh%refElem3D )
+          lcmesh, lcmesh%refElem3D, is_bound )
+        
+        deallocate( is_bound )
       end do
       !* Exchange halo data
       call this%dyn_vars%NUMDIFF_TEND_manager%MeshFieldComm_Exchange()
@@ -734,7 +741,9 @@ contains
           DDENS, MOMX, MOMY, MOMZ, DRHOT,                                       &
           DENS_hyd, PRES_hyd                                                    )
           
-        call this%boundary_cond%ApplyBC_numdiff_even_lc( n, ND_lapla_h%val, varid,   &
+        allocate( is_bound(lcmesh%refElem%NfpTot,lcmesh%Ne) )
+        call this%boundary_cond%ApplyBC_numdiff_even_lc( &
+          ND_lapla_h%val, is_bound, varid, n,                                        &
           MOMX%val, MOMY%val, MOMZ%val, DENS_hyd%val, PRES_hyd%val,                  &
           lcmesh%normal_fn(:,:,1), lcmesh%normal_fn(:,:,2), lcmesh%normal_fn(:,:,3), &
           lcmesh%vmapM, lcmesh%vmapP, lcmesh%vmapB, lcmesh, lcmesh%refElem3D )
@@ -743,7 +752,9 @@ contains
           ND_lapla_h%val, ND_lapla_v%val, DDENS%val, DENS_hyd%val,                         &
           model_mesh%DOptrMat(1), model_mesh%DOptrMat(2), model_mesh%DOptrMat(3),          &
           model_mesh%LiftOptrMat,                                                          &
-          lcmesh, lcmesh%refElem3D, .false. ) 
+          lcmesh, lcmesh%refElem3D, is_bound, .false. ) 
+
+        deallocate( is_bound )
       end do
       !* Exchange halo data
       call this%dyn_vars%NUMDIFF_FLUX_manager%MeshFieldComm_Exchange()
@@ -759,8 +770,9 @@ contains
       call AtmosVars_GetLocalMeshField( n, mesh, prgvars_list, auxvars_list,  &
         ATMOS_PROGVARS_DDENS_ID, DDENS                                        )
 
-      call this%boundary_cond%ApplyBC_numdiff_odd_lc( n, &
-        ND_flx_x%val, ND_flx_y%val, ND_flx_z%val, varid,                           &
+      allocate( is_bound(lcmesh%refElem%NfpTot,lcmesh%Ne) )
+      call this%boundary_cond%ApplyBC_numdiff_odd_lc(                              &
+        ND_flx_x%val, ND_flx_y%val, ND_flx_z%val, is_bound, varid, n,              &
         lcmesh%normal_fn(:,:,1), lcmesh%normal_fn(:,:,2), lcmesh%normal_fn(:,:,3), &
         lcmesh%vmapM, lcmesh%vmapP, lcmesh%vmapB, lcmesh, lcmesh%refElem3D )
 
@@ -769,7 +781,9 @@ contains
         DDENS%val, DENS_hyd%val, nd_sign * this%ND_COEF_H, nd_sign * this%ND_COEF_V,  &
         model_mesh%DOptrMat(1), model_mesh%DOptrMat(2), model_mesh%DOptrMat(3),       &
         model_mesh%LiftOptrMat,                                                       &
-        lcmesh, lcmesh%refElem3D, dens_weight_flag ) 
+        lcmesh, lcmesh%refElem3D, is_bound, dens_weight_flag ) 
+
+      deallocate( is_bound )
     end do
 
     return

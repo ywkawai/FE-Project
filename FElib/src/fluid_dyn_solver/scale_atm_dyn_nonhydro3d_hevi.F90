@@ -68,6 +68,7 @@ module scale_atm_dyn_nonhydro3d_hevi
   real(RP), private, allocatable :: IntrpMat_VPOrdM1(:,:)
 
   private :: cal_del_flux_dyn
+  private :: vi_cal_del_flux_dyn
 
 contains
   subroutine atm_dyn_nonhydro3d_hevi_Init( mesh )
@@ -245,9 +246,9 @@ contains
 
   !------
 
-  subroutine cal_del_flux_dyn( del_flux, &
-    DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd,   &
-    nx, ny, nz, vmapM, vmapP, lmesh, elem )
+  subroutine cal_del_flux_dyn( del_flux,                     & ! (out)
+    DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd, & ! (in)
+    nx, ny, nz, vmapM, vmapP, lmesh, elem                    ) ! (in)
 
     implicit none
 
@@ -271,7 +272,6 @@ contains
     real(RP) :: VelP, VelM, MOMZ_P, alpha, swV
     real(RP) :: presM, presP, dpresM, dpresP, densM, densP, rhotM, rhotP, rhot_hyd_M, rhot_hyd_P
     real(RP) :: gamm, rgamm
-
     !------------------------------------------------------------------------
 
     gamm = CpDry/CvDry
@@ -336,7 +336,7 @@ contains
   subroutine atm_dyn_nonhydro3d_hevi_cal_vi( &
     DENS_dt, MOMX_dt, MOMY_dt, MOMZ_dt, RHOT_dt,             & ! (out)
     DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd, & ! (in)
-    Dz, Lift, impl_fac, lmesh, elem, lmesh2D, elem2D )
+    Dz, Lift, impl_fac, lmesh, elem, lmesh2D, elem2D )         ! (in)
 
     implicit none
 
@@ -380,7 +380,6 @@ contains
 
 
     real(RP), allocatable :: PmatBnd(:,:,:)
-
     !------------------------------------------------------------------------
 
     
@@ -447,6 +446,8 @@ contains
       if ( abs(impl_fac) > 0.0_RP ) then
         call PROF_rapstart( 'hevi_cal_vi_itr', 3)
 
+        ! G = (q^n+1 - q^n*) + impl_fac * A(q^n+1) = 0
+        ! dG/dq^n+1 del[q] = - G(q^n*)
         do itr_nlin = 1, 1
 
           call vi_eval_Ax( Ax(:,:,:),                       & ! (out)
@@ -514,9 +515,9 @@ contains
       do ke_z=1, lmesh%NeZ
         ke = Ke_x + (Ke_y-1)*lmesh%NeX + (ke_z-1)*lmesh%NeX*lmesh%NeY
         DENS_dt(:,ke) = - tend(:,DDENS_VID,ke_z)
-        MOMX_dt(:,ke) = - tend(:,MOMX_VID,ke_z)
-        MOMY_dt(:,ke) = - tend(:,MOMY_VID,ke_z)
-        MOMZ_dt(:,ke) = - tend(:,MOMZ_VID,ke_z)
+        MOMX_dt(:,ke) = - tend(:,MOMX_VID ,ke_z)
+        MOMY_dt(:,ke) = - tend(:,MOMY_VID ,ke_z)
+        MOMZ_dt(:,ke) = - tend(:,MOMZ_VID ,ke_z)
         RHOT_dt(:,ke) = - tend(:,DRHOT_VID,ke_z)
       end do
       call PROF_rapend( 'hevi_cal_vi_retrun_var', 3)
@@ -559,7 +560,6 @@ contains
     integer :: ke
     integer :: v
     real(RP) :: gamm, rgamm
-
     !--------------------------------------------------------
 
     gamm = CpDry/CvDry
@@ -575,7 +575,9 @@ contains
       DENS_hyd, PRES_hyd, nz, vmapM, vmapP,                & ! (in)
       lmesh, elem )                                          ! (in)
 
-    !$omp parallel do private(ke, RHOT_hyd, DPRES, POT, Fz, LiftDelFlx)
+    !$omp parallel do private( &
+    !$omp ke, RHOT_hyd, DPRES, POT, Fz, LiftDelFlx &
+    !$omp )
     do ke_z=1, lmesh%NeZ
       ke = Ke_x + (Ke_y-1)*lmesh%NeX + (ke_z-1)*lmesh%NeX*lmesh%NeY
 
@@ -600,7 +602,7 @@ contains
       !-MOMZ
       call sparsemat_matmul(Dz, DPRES(:), Fz)
       call sparsemat_matmul(Lift, lmesh%Fscale(:,ke)*del_flux(:,ke_z,MOMZ_VID), LiftDelFlx)
-      Ax(:,MOMZ_VID,ke_z) = lmesh%Escale(:,ke,3,3) * Fz(:) + LiftDelFlx(:)             &
+      Ax(:,MOMZ_VID,ke_z) = lmesh%Escale(:,ke,3,3) * Fz(:) + LiftDelFlx(:)                &
                           + Grav * matmul(IntrpMat_VPOrdM1, PROG_VARS(:,DDENS_VID,ke_z)) 
 
       !-RHOT
@@ -618,10 +620,10 @@ contains
     return
   end subroutine vi_eval_Ax
 
-  subroutine vi_cal_del_flux_dyn( del_flux, &
-    DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_,              &
-    DDENS0_, MOMX0_, MOMY0_, MOMZ0_, DRHOT0_,              &
-    DENS_hyd, PRES_hyd, nz, vmapM, vmapP, lmesh, elem )
+  subroutine vi_cal_del_flux_dyn( del_flux,           & ! (out)
+    DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_,              & ! (in)
+    DDENS0_, MOMX0_, MOMY0_, MOMZ0_, DRHOT0_,         & ! (in)
+    DENS_hyd, PRES_hyd, nz, vmapM, vmapP, lmesh, elem ) ! (in)
 
     implicit none
 
@@ -725,7 +727,6 @@ contains
     Dz, Lift, impl_fac, lmesh, elem,        & ! (in)
     nz, vmapM, vmapP, ke_x, ke_y )
 
-    use scale_linalgebra, only: linalgebra_LU
     implicit none
 
     class(LocalMesh3D), intent(in) :: lmesh
@@ -757,8 +758,7 @@ contains
     real(RP) :: PmatU(elem%Nnode_v,elem%Nnode_v,PROG_VARS_NUM,PROG_VARS_NUM)
     integer :: Colmask(elem%Nnode_v)
     real(RP) :: Id(elem%Nnode_v,elem%Nnode_v)
-    real(RP) :: tmp1, tmp2, tmp3
-    real(RP) :: delVar
+    real(RP) :: tmp1
     real(RP) :: alphaM, alphaP
     real(RP) :: fac
 
@@ -779,7 +779,6 @@ contains
     eval_flag(MOMZ_VID,DRHOT_VID) = .true.
     eval_flag(DRHOT_VID,MOMZ_VID) = .true.
     eval_flag(DRHOT_VID,DDENS_VID) = .true.
-!    eval_flag(:,DDENS_VID) = .true.
 
     Id(:,:) = 0.0_RP
     do p=1, elem%Nnode_v
@@ -816,17 +815,13 @@ contains
     !$omp end parallel
 
     !$omp parallel do private(ke_z, ke, ColMask, p, fp, v, f1, ke_z2, fac_dz_p, &
-    !$omp fac, tmp1, tmp2, tmp3, alphaM, alphaP, delVar, FmV,                   &
-    !$omp ij, v1, v2, pv1, pv2, pb1, g_kj, g_kjp1, g_kjm1, bc_flag ) &
+    !$omp fac, tmp1, alphaM, alphaP, FmV,                                       &
+    !$omp ij, v1, v2, pv1, pv2, pb1, g_kj, g_kjp1, g_kjm1, bc_flag            ) &
     !$omp firstprivate(PmatD, PmatL, PmatU)
     do ij=1, elem%Nnode_h1D**2
     do ke_z=1, lmesh%NeZ
       ke = Ke_x + (Ke_y-1)*lmesh%NeX + (ke_z-1)*lmesh%NeX*lmesh%NeY
       Colmask(:) = elem%Colmask(:,ij)
-
-      PmatD(:,:,:,:) = 0.0_RP
-      PmatL(:,:,:,:) = 0.0_RP
-      PmatU(:,:,:,:) = 0.0_RP
 
       !-----  
       do p=1, elem%Nnode_v
@@ -843,7 +838,7 @@ contains
         PmatD(:,p,MOMY_VID,MOMY_VID) = Id(:,p)
 
         ! MOMZ
-        PmatD(:,p,MOMZ_VID,MOMZ_VID) = Id(:,p)
+        PmatD(:,p,MOMZ_VID,MOMZ_VID) = Id(:,p) 
         PmatD(:,p,MOMZ_VID,DDENS_VID) = impl_fac * Grav * IntrpMat_VPOrdM1(Colmask(:),Colmask(p))
         PmatD(:,p,MOMZ_VID,DRHOT_VID) = fac_dz_p(:) * DPDRHOT0(p,ke_z,ij)
 
@@ -875,11 +870,6 @@ contains
         !--
         alphaM = abs( W0(pv1,ke_z ,ij) ) + Cs0(pv1,ke_z ,ij)
         alphaP = abs( W0(pv2,ke_z2,ij) ) + Cs0(pv2,ke_z2,ij)
-        if (alphaM > alphaP) then
-          tmp2 = - 0.5_RP * alphaM / DENS0(pv1,ke_z,ij)
-        else
-          tmp2 = - 0.5_RP * alphaP / DENS0(pv2,ke_z2,ij)
-        end if
 
         tmp1 = fac * elem%Lift(FmV,fp) * lmesh%Fscale(fp,ke) * max(alphaM, alphaP)
         if (bc_flag) then
@@ -901,6 +891,8 @@ contains
         if (bc_flag) then
           PmatD(pv1,pv1,DDENS_VID,MOMZ_VID ) = PmatD(pv1,pv1,DDENS_VID,MOMZ_VID ) - 2.0_RP * tmp1
           PmatD(pv1,pv1,DRHOT_VID,MOMZ_VID ) = PmatD(pv1,pv1,DRHOT_VID,MOMZ_VID ) - 2.0_RP * tmp1 * POT0(pv1,ke_z,ij)
+          PmatD(pv1,pv1,DRHOT_VID,DDENS_VID) = PmatD(pv1,pv1,DRHOT_VID,DDENS_VID) + 2.0_RP * tmp1 * POT0(pv1,ke_z,ij) * W0(pv1,ke_z,ij)
+          PmatD(pv1,pv1,DRHOT_VID,DRHOT_VID) = PmatD(pv1,pv1,DRHOT_VID,DRHOT_VID) - 2.0_RP * tmp1 * W0(pv1,ke_z,ij)
         else 
           PmatD(pv1,pv1,DDENS_VID,MOMZ_VID ) = PmatD(pv1,pv1,DDENS_VID,MOMZ_VID ) - tmp1
           PmatD(pv1,pv1,MOMZ_VID ,DRHOT_VID) = PmatD(pv1,pv1,MOMZ_VID ,DRHOT_VID) - tmp1 * DPDRHOT0(pv1,ke_z,ij)
