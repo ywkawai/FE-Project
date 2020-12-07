@@ -27,6 +27,7 @@ module scale_atm_dyn_nonhydro3d_hevi
   use scale_sparsemat  
   use scale_element_base, only: &
     ElementBase2D, ElementBase3D
+  use scale_element_modalfilter, only: ModalFilter
   use scale_element_hexahedral, only: HexahedralElement
   use scale_localmesh_2d, only: LocalMesh2D  
   use scale_localmesh_3d, only: LocalMesh3D
@@ -301,7 +302,7 @@ contains
       VelM = (MOMX_(iM)*nx(i) + MOMY_(iM)*ny(i) + MOMZ_(iM)*nz(i))/densM
       VelP = (MOMX_(iP)*nx(i) + MOMY_(iP)*ny(i) + MOMZ_(iP)*nz(i))/densP
       MOMZ_P = MOMZ_(iP)
-      
+
       alpha = swV*max( sqrt(gamm * presM / densM) + abs(VelM), &
                        sqrt(gamm * presP / densP) + abs(VelP)  )
             
@@ -336,7 +337,9 @@ contains
   subroutine atm_dyn_nonhydro3d_hevi_cal_vi( &
     DENS_dt, MOMX_dt, MOMY_dt, MOMZ_dt, RHOT_dt,             & ! (out)
     DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd, & ! (in)
-    Dz, Lift, impl_fac, lmesh, elem, lmesh2D, elem2D )         ! (in)
+    Dz, Lift,                                                & ! (in)
+    modalFilterFlag, VModalFilter,                           & ! (in)
+    impl_fac, lmesh, elem, lmesh2D, elem2D                   ) ! (in)
 
     implicit none
 
@@ -357,6 +360,8 @@ contains
     real(RP), intent(in)  :: DENS_hyd(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: PRES_hyd(elem%Np,lmesh%NeA)
     class(SparseMat), intent(in) :: Dz, Lift
+    logical, intent(in) :: modalFilterFlag
+    class(ModalFilter), intent(in) :: VModalFilter
     real(RP), intent(in) :: impl_fac
 
     real(RP) :: PROG_VARS(elem%Np,PROG_VARS_NUM,lmesh%NeZ)
@@ -450,10 +455,13 @@ contains
         ! dG/dq^n+1 del[q] = - G(q^n*)
         do itr_nlin = 1, 1
 
-          call vi_eval_Ax( Ax(:,:,:),                       & ! (out)
-            PROG_VARS, PROG_VARS0, DENS_hyd_z, PRES_hyd_z,  & ! (in)
-            Dz, Lift, impl_fac, lmesh, elem,                & ! (in)
-            nz, vmapM, vmapP, ke_x, ke_y, .false. )
+          call vi_eval_Ax( Ax(:,:,:),                        & ! (out)
+            PROG_VARS, PROG_VARS0, DENS_hyd_z, PRES_hyd_z,   & ! (in)
+            Dz, Lift,                                        & ! (in)
+            modalFilterFlag, VModalFilter%FilterMat,         & ! (in)
+            impl_fac,                                        & ! (in) 
+            lmesh, elem,                                     & ! (in)
+            nz, vmapM, vmapP, ke_x, ke_y, .false.            ) ! (in)
 
           do ke_z=1, lmesh%NeZ
             b(:,:,ke_z) = - Ax(:,:,ke_z) + PROG_VARS00(:,:,ke_z)
@@ -464,8 +472,11 @@ contains
           call vi_construct_matbnd( PmatBnd,                & ! (out)
             kl, ku, nz_1D,                                  & ! (in)
             PROG_VARS0, DENS_hyd_z, PRES_hyd_z,             & ! (in)
-            Dz, Lift, impl_fac, lmesh, elem,                & ! (in)
-            nz, vmapM, vmapP, ke_x, ke_y  )
+            Dz, Lift,                                       & ! (in)
+            modalFilterFlag, VModalFilter%FilterMat,        & ! (in)
+            impl_fac,                                       & ! (in)
+            lmesh, elem,                                    & ! (in)
+            nz, vmapM, vmapP, ke_x, ke_y                    ) ! (in)
 
           call PROF_rapend( 'hevi_cal_vi_matbnd', 3)
           
@@ -507,8 +518,11 @@ contains
       else
         call vi_eval_Ax( tend(:,:,:),                      & ! (out)
           PROG_VARS, PROG_VARS, DENS_hyd_z, PRES_hyd_z,    & ! (in)
-          Dz, Lift, impl_fac, lmesh, elem,                 & ! (in)
-          nz, vmapM, vmapP, ke_x, ke_y, .true. )
+          Dz, Lift,                                        & ! (in)
+          modalFilterFlag, VModalFilter%FilterMat,         & ! (in)
+          impl_fac,                                        & ! (in) 
+          lmesh, elem,                                     & ! (in)
+          nz, vmapM, vmapP, ke_x, ke_y, .true. )             ! (in)
       end if
 
       !$omp parallel do private(ke)
@@ -530,10 +544,13 @@ contains
   !------------------------------------------------
 
   !---
-  subroutine vi_eval_Ax( Ax, &
-    PROG_VARS, PROG_VARS0, DENS_hyd, PRES_hyd,        & ! (in)
-    Dz, Lift, impl_fac, lmesh, elem,                  & ! (in)
-    nz, vmapM, vmapP, ke_x, ke_y, cal_tend_flag )
+  subroutine vi_eval_Ax( Ax,                    & ! (out)
+    PROG_VARS, PROG_VARS0, DENS_hyd, PRES_hyd,  & ! (in)
+    Dz, Lift,                                   & ! (in)
+    modalFilterFlag, VModalFilter,              & ! (in)
+    impl_fac,                                   & ! (in)
+    lmesh, elem,                                & ! (in)
+    nz, vmapM, vmapP, ke_x, ke_y, cal_tend_flag ) ! (in)
 
     implicit none
 
@@ -545,6 +562,8 @@ contains
     real(RP), intent(in)  :: DENS_hyd(elem%Np,lmesh%NeZ)
     real(RP), intent(in)  :: PRES_hyd(elem%Np,lmesh%NeZ)
     class(SparseMat), intent(in) :: Dz, Lift
+    logical, intent(in) :: modalFilterFlag
+    real(RP), intent(in) :: VModalFilter(elem%Nnode_v,elem%Nnode_v)    
     real(RP), intent(in) :: impl_fac
     real(RP), intent(in) :: nz(elem%NfpTot,lmesh%NeZ)
     integer, intent(in) :: vmapM(elem%NfpTot,lmesh%NeZ)
@@ -556,9 +575,11 @@ contains
     real(RP) :: del_flux(elem%NfpTot,lmesh%NeZ,PROG_VARS_NUM)
     real(RP) :: RHOT_hyd(elem%Np), POT(elem%Np)
     real(RP) :: DPRES(elem%Np)
+    real(RP) :: tmpV1D(elem%Nnode_v)
     integer :: ke_z
     integer :: ke
     integer :: v
+    integer :: ij
     real(RP) :: gamm, rgamm
     !--------------------------------------------------------
 
@@ -576,7 +597,8 @@ contains
       lmesh, elem )                                          ! (in)
 
     !$omp parallel do private( &
-    !$omp ke, RHOT_hyd, DPRES, POT, Fz, LiftDelFlx &
+    !$omp ke, RHOT_hyd, DPRES, POT, Fz, LiftDelFlx, &
+    !$omp v, ij, tmpV1D                             &                                      
     !$omp )
     do ke_z=1, lmesh%NeZ
       ke = Ke_x + (Ke_y-1)*lmesh%NeX + (ke_z-1)*lmesh%NeX*lmesh%NeY
@@ -609,6 +631,14 @@ contains
       call sparsemat_matmul(Dz, POT(:)*PROG_VARS(:,MOMZ_VID,ke_z), Fz)
       call sparsemat_matmul(Lift, lmesh%Fscale(:,ke)*del_flux(:,ke_z,DRHOT_VID), LiftDelFlx)
       Ax(:,DRHOT_VID,ke_z) = lmesh%Escale(:,ke,3,3) * Fz(:) + LiftDelFlx(:)
+
+      !--
+      do v=1, PROG_VARS_NUM
+        do ij=1, elem%Nnode_h1D**2
+          Ax(elem%Colmask(:,ij),v,ke_z) = Ax(elem%Colmask(:,ij),v,ke_z)      &
+            - matmul(VModalFilter, PROG_VARS(elem%Colmask(:,ij),v,ke_z) ) / 100.0_RP
+        end do
+      end do
 
       !--
       if ( .not. cal_tend_flag ) then
@@ -694,6 +724,7 @@ contains
       
       if (iM==iP .and. (ke_z == 1 .or. ke_z == lmesh%NeZ)) then
         MOMZ_P = - MOMZ_(iM)
+        alpha0 = 0.0_RP
       else
         MOMZ_P = MOMZ_(iP)
       end if
@@ -724,8 +755,11 @@ contains
   subroutine vi_construct_matbnd( PmatBnd,  & ! (out)
     kl, ku, nz_1D,                          & ! (in)
     PROG_VARS0, DENS_hyd, PRES_hyd,         & ! (in)
-    Dz, Lift, impl_fac, lmesh, elem,        & ! (in)
-    nz, vmapM, vmapP, ke_x, ke_y )
+    Dz, Lift,                               & ! (in)
+    modalFilterFlag, VModalFilter,          & ! (in)
+    impl_fac,                               & ! (in)
+    lmesh, elem,                            & ! (in)
+    nz, vmapM, vmapP, ke_x, ke_y )            ! (in)
 
     implicit none
 
@@ -737,6 +771,8 @@ contains
     real(RP), intent(in)  :: DENS_hyd(elem%Np,lmesh%NeZ)
     real(RP), intent(in)  :: PRES_hyd(elem%Np,lmesh%NeZ)
     class(SparseMat), intent(in) :: Dz, Lift
+    logical, intent(in) :: modalFilterFlag
+    real(RP), intent(in) :: VModalFilter(elem%Nnode_v,elem%Nnode_v)
     real(RP), intent(in) :: impl_fac
     real(RP), intent(in) :: nz(elem%NfpTot,lmesh%NeZ)
     integer, intent(in) :: vmapM(elem%NfpTot,lmesh%NeZ)
@@ -758,6 +794,7 @@ contains
     real(RP) :: PmatU(elem%Nnode_v,elem%Nnode_v,PROG_VARS_NUM,PROG_VARS_NUM)
     integer :: Colmask(elem%Nnode_v)
     real(RP) :: Id(elem%Nnode_v,elem%Nnode_v)
+    real(RP) :: Dd(elem%Nnode_v)
     real(RP) :: tmp1
     real(RP) :: alphaM, alphaP
     real(RP) :: fac
@@ -816,7 +853,8 @@ contains
 
     !$omp parallel do private(ke_z, ke, ColMask, p, fp, v, f1, ke_z2, fac_dz_p, &
     !$omp fac, tmp1, alphaM, alphaP, FmV,                                       &
-    !$omp ij, v1, v2, pv1, pv2, pb1, g_kj, g_kjp1, g_kjm1, bc_flag            ) &
+    !$omp ij, v1, v2, pv1, pv2, pb1, g_kj, g_kjp1, g_kjm1, bc_flag,             &
+    !$omp Dd                                                                  ) &
     !$omp firstprivate(PmatD, PmatL, PmatU)
     do ij=1, elem%Nnode_h1D**2
     do ke_z=1, lmesh%NeZ
@@ -825,27 +863,32 @@ contains
 
       !-----  
       do p=1, elem%Nnode_v
-        fac_dz_p(:) = impl_fac * lmesh%Escale(Colmask(:),ke,3,3) * elem%Dx3(Colmask(:),Colmask(p)) 
+        fac_dz_p(:) = impl_fac * lmesh%Escale(Colmask(:),ke,3,3) * elem%Dx3(Colmask(:),Colmask(p))
+        if (modalFilterFlag) then
+          Dd(:) = Id(:,p) - VModalFilter(:,p) * impl_fac / 100.0_RP
+        else
+          Dd(:) = Id(:,p)
+        end if
 
         ! DDENS
-        PmatD(:,p,DDENS_VID,DDENS_VID) = Id(:,p)
+        PmatD(:,p,DDENS_VID,DDENS_VID) = Dd(:)
         PmatD(:,p,DDENS_VID,MOMZ_VID) = fac_dz_p(:) 
 
         ! MOMX
-        PmatD(:,p,MOMX_VID,MOMX_VID) = Id(:,p)
+        PmatD(:,p,MOMX_VID,MOMX_VID) = Dd(:)
 
         ! MOMY
-        PmatD(:,p,MOMY_VID,MOMY_VID) = Id(:,p)
+        PmatD(:,p,MOMY_VID,MOMY_VID) = Dd(:)
 
         ! MOMZ
-        PmatD(:,p,MOMZ_VID,MOMZ_VID) = Id(:,p) 
+        PmatD(:,p,MOMZ_VID,MOMZ_VID) = Dd(:) 
         PmatD(:,p,MOMZ_VID,DDENS_VID) = impl_fac * Grav * IntrpMat_VPOrdM1(Colmask(:),Colmask(p))
         PmatD(:,p,MOMZ_VID,DRHOT_VID) = fac_dz_p(:) * DPDRHOT0(p,ke_z,ij)
 
         !DRHOT
         PmatD(:,p,DRHOT_VID,DDENS_VID) = - fac_dz_p(:) * POT0(p,ke_z,ij) * W0(p,ke_z,ij)
         PmatD(:,p,DRHOT_VID,MOMZ_VID ) =   fac_dz_p(:) * POT0(p,ke_z,ij)
-        PmatD(:,p,DRHOT_VID,DRHOT_VID) = Id(:,p) + fac_dz_p(:) * W0(p,ke_z,ij)
+        PmatD(:,p,DRHOT_VID,DRHOT_VID) = Dd(:) + fac_dz_p(:) * W0(p,ke_z,ij)
       end do
 
       do f1=1, 2
@@ -873,7 +916,7 @@ contains
 
         tmp1 = fac * elem%Lift(FmV,fp) * lmesh%Fscale(fp,ke) * max(alphaM, alphaP)
         if (bc_flag) then
-          PmatD(pv1,pv1,MOMZ_VID,MOMZ_VID) = PmatD(pv1,pv1,MOMZ_VID,MOMZ_VID) + 2.0_RP * tmp1
+          !PmatD(pv1,pv1,MOMZ_VID,MOMZ_VID) = PmatD(pv1,pv1,MOMZ_VID,MOMZ_VID) + 2.0_RP * tmp1
         else 
           do v=1, PROG_VARS_NUM
             PmatD(pv1,pv1,v,v) = PmatD(pv1,pv1,v,v) + tmp1            

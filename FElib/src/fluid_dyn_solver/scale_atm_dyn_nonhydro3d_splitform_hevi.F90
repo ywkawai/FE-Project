@@ -27,6 +27,7 @@ module scale_atm_dyn_nonhydro3d_splitform_hevi
     PRES00 => CONST_PRE00
 
   use scale_sparsemat  
+  use scale_element_modalfilter, only: ModalFilter
   use scale_element_base, only: &
     ElementBase2D, ElementBase3D
   use scale_element_hexahedral, only: HexahedralElement
@@ -392,7 +393,9 @@ contains
   subroutine atm_dyn_nonhydro3d_hevi_splitform_cal_vi( &
     DENS_dt, MOMX_dt, MOMY_dt, MOMZ_dt, RHOT_dt,             & ! (out)
     DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd, & ! (in)
-    Dz, Lift, impl_fac, lmesh, elem, lmesh2D, elem2D )
+    Dz, Lift,                                                & ! (in)
+    modalFilterFlag, VModalFilter,                           & ! (in)
+    impl_fac, lmesh, elem, lmesh2D, elem2D                   ) ! (in)
 
     implicit none
 
@@ -413,6 +416,8 @@ contains
     real(RP), intent(in)  :: DENS_hyd(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: PRES_hyd(elem%Np,lmesh%NeA)
     class(SparseMat), intent(in) :: Dz, Lift
+    logical, intent(in) :: modalFilterFlag
+    class(ModalFilter), intent(in) :: VModalFilter
     real(RP), intent(in) :: impl_fac
 
     real(RP) :: PROG_VARS(elem%Np,PROG_VARS_NUM,lmesh%NeZ)

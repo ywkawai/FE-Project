@@ -65,9 +65,9 @@ module mod_atmos_dyn
     atm_dyn_nonhydro3d_numdiff_cal_laplacian, &
     atm_dyn_nonhydro3d_numdiff_cal_flx
   
+  use scale_element_modalfilter, only: &
+    ModalFilter
   use scale_atm_dyn_modalfilter, only: &
-    atm_dyn_modalfilter_Init,  &
-    atm_dyn_modalfilter_Final, &
     atm_dyn_modalfilter_apply
   
   use mod_atmos_mesh, only: AtmosMesh
@@ -103,6 +103,8 @@ module mod_atmos_dyn
     real(RP) :: ND_COEF_V
 
     logical :: MODALFILTER_FLAG
+    type(ModalFilter) :: modal_filter_3d
+    type(ModalFilter) :: modal_filter_v1D
   contains
     procedure, public :: setup => AtmosDyn_setup 
     procedure, public :: calc_tendency => AtmosDyn_calc_tendency
@@ -170,13 +172,17 @@ module mod_atmos_dyn
     subroutine atm_dyn_nonhydro3d_cal_vi( &
       DENS_dt, MOMX_dt, MOMY_dt, MOMZ_dt, RHOT_dt,             & ! (out)
       DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd, & ! (in)
-      Dz, Lift, impl_fac, lmesh, elem, lmesh2D, elem2D )
+      Dz, Lift,                                                & ! (in)
+      modalFilterFlag, VModalFilter,                           & ! (in)
+      impl_fac,                                                & ! (in)
+      lmesh, elem, lmesh2D, elem2D )
   
       import RP
       import LocalMesh3D
-      import elementbase3D
+      import ElementBase3D
       import LocalMesh2D
-      import elementbase2D
+      import ElementBase2D
+      import ModalFilter
       import SparseMat
       implicit none
   
@@ -197,6 +203,8 @@ module mod_atmos_dyn
       real(RP), intent(in)  :: DENS_hyd(elem%Np,lmesh%NeA)
       real(RP), intent(in)  :: PRES_hyd(elem%Np,lmesh%NeA)
       class(SparseMat), intent(in) :: Dz, Lift
+      logical, intent(in) :: modalFilterFlag
+      class(ModalFilter), intent(in) :: VModalFilter
       real(RP), intent(in) :: impl_fac
     end subroutine atm_dyn_nonhydro3d_cal_vi
   end interface
@@ -208,6 +216,7 @@ contains
     use mod_atmos_mesh, only: AtmosMesh
     use mod_atmos_vars, only: ATMOS_PROGVARS_NUM
     use scale_time_manager, only: TIME_manager_component
+
     implicit none
 
     class(AtmosDyn), intent(inout) :: this
@@ -264,9 +273,10 @@ contains
     class(LocalMeshBase), pointer :: ptr_lcmesh
     class(LocalMesh3D), pointer :: lcmesh3D
     integer :: n
+    integer :: p
 
     real(DP) :: dtsec
-
+    class(ElementBase3D), pointer :: elem3D
     !--------------------------------------------------
 
     if (.not. this%IsActivated()) return
@@ -286,9 +296,12 @@ contains
     !---------------------------------------------------
 
     call model_mesh%GetModelMesh( ptr_mesh )
+    select type(model_mesh)
+    type is (AtmosMesh)
+      atm_mesh => model_mesh
+    end select
 
-
-    !---
+    !--- Setup the temporal integrator
     
     call tm_parent_comp%Regist_process( 'ATMOS_DYN', TIME_DT, TIME_DT_UNIT, & ! (in)
       this%tm_process_id )                                                    ! (out)
@@ -301,13 +314,6 @@ contains
       call this%tint(n)%Init( TINTEG_TYPE, dtsec, ATMOS_PROGVARS_NUM, 2, &
         (/ ptr_mesh%refElem%Np, ptr_lcmesh%NeA /) )
     end do
-
-    !----
-
-    select type(model_mesh)
-    type is (AtmosMesh)
-      atm_mesh => model_mesh
-    end select
 
     !- initialize an object to manage boundary conditions and variables for dynamical process
     call this%boundary_cond%Init()
@@ -339,7 +345,8 @@ contains
       call PRC_abort
     end select    
 
-    !-
+    !- Setup the numerical diffusion
+
     this%CALC_NUMDIFF_FLAG = NUMDIFF_FLAG
     if( this%CALC_NUMDIFF_FLAG ) then
       rewind(IO_FID_CONF)
@@ -352,14 +359,14 @@ contains
       endif
       LOG_NML(PARAM_ATMOS_DYN_NUMDIFF)      
 
-
       this%ND_LAPLACIAN_NUM = ND_LAPLACIAN_NUM
       this%ND_COEF_H = ND_COEF_h
       this%ND_COEF_v = ND_COEF_v
       call atm_dyn_nonhydro3d_numdiff_Init( atm_mesh%mesh )
     end if    
 
-    !-
+    !- Setup the modal filter
+
     this%MODALFILTER_FLAG = MODALFILTER_FLAG
     if ( this%MODALFILTER_FLAG ) then
 
@@ -373,15 +380,17 @@ contains
       endif
       LOG_NML(PARAM_ATMOS_DYN_MODALFILTER)      
 
-      call ptr_mesh%GetLocalMesh(1, ptr_lcmesh)
-      select type( ptr_lcmesh )
-      type is (LocalMesh3D)
-        lcmesh3D => ptr_lcmesh
-      end select
-      call atm_dyn_modalfilter_Init( &
-        lcmesh3D%refElem3D,       &
-        MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h, &
-        MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v  )
+     if ( .not. associated( cal_vi ) ) then
+        call atm_mesh%Construct_ModalFilter3D( &
+          this%modal_filter_3d,                & ! (inout)
+          MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h,   & ! (in)
+          MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v    ) ! (in)
+      else
+        call atm_mesh%Construct_ModalFilterHV( &
+          this%modal_filter_3d, this%modal_filter_v1D, & ! (inout)
+          MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h,           & ! (in)
+          MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v            ) ! (in)
+      end if
     end if
 
     return  
@@ -457,8 +466,10 @@ contains
             this%tint(n)%tend_buf2D_im(:,:,ATMOS_PROGVARS_DRHOT_ID,tintbuf_ind),    &
             DDENS%val, MOMX%val, MOMY%val, MOMZ%val, DRHOT%val,                     &
             DENS_hyd%val, PRES_hyd%val,                                             &
-            model_mesh%DOptrMat(3), model_mesh%LiftOptrMat, implicit_fac,           &
-            lcmesh, lcmesh%refElem3D, lcmesh%lcmesh2D, lcmesh%lcmesh2D%refElem2D ) 
+            model_mesh%DOptrMat(3), model_mesh%LiftOptrMat,                         &
+            this%MODALFILTER_FLAG, this%modal_filter_v1D,                           &
+            implicit_fac,                                                           &
+            lcmesh, lcmesh%refElem3D, lcmesh%lcmesh2D, lcmesh%lcmesh2D%refElem2D    ) 
           
           call PROF_rapend( 'ATM_DYN_cal_vi', 2)  
           
@@ -569,7 +580,7 @@ contains
         call PROF_rapstart( 'ATM_DYN_update_expfilter', 2)
         call atm_dyn_modalfilter_apply(                       & ! (inout)
           DDENS%val, MOMX%val, MOMY%val, MOMZ%val, DRHOT%val, & ! (in)
-          lcmesh, lcmesh%refElem3D                            )
+          lcmesh, lcmesh%refElem3D, this%modal_filter_3d      ) ! (in)
         call PROF_rapend( 'ATM_DYN_update_expfilter', 2)
       end do
     end if
@@ -633,7 +644,8 @@ contains
     end if
 
     if (this%MODALFILTER_FLAG) then
-      call atm_dyn_modalfilter_Final()
+      call this%modal_filter_3d%Final()
+      if ( associated(cal_vi) ) call this%modal_filter_v1D%Final()
     end if
     
     do n = 1, size(this%tint)
