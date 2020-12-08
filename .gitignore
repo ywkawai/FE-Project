@@ -19,16 +19,26 @@ bin/
 *.out
 
 #
+scale-dg_init
+init_LOG.pe*
+init_*.pe*.nc
+
+#
+scale-dg
+LOG.pe*
+history.pe*.nc
+restart_*.pe*.nc
+
+#
+interp_LOG.pe*
+
+#
+job_init.sh
+job_run.sh
 *.out
 *.err
 *.stats
 STDOUT.*
-LOG.pe*
-init_LOG.pe*
-*.nc
-
 
 #
-scale-dg
-scale-dg_init
-
+model/atm_nonhydro3d/test/case/**/*.nc

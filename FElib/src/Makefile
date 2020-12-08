@@ -41,7 +41,8 @@ OBJS_NAME_ELEMENT = \
 	scale_element_base.o          \
 	scale_element_line.o          \
 	scale_element_quadrilateral.o \
-	scale_element_hexahedral.o 
+	scale_element_hexahedral.o    \
+	scale_element_modalfilter.o
 
 OBJS_NAME_MESH = \
 	scale_meshutil_1d.o    \
