@@ -339,7 +339,8 @@ contains
     DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd, & ! (in)
     Dz, Lift,                                                & ! (in)
     modalFilterFlag, VModalFilter,                           & ! (in)
-    impl_fac, lmesh, elem, lmesh2D, elem2D                   ) ! (in)
+    impl_fac, dt,                                            & ! (in)
+    lmesh, elem, lmesh2D, elem2D                             ) ! (in)
 
     implicit none
 
@@ -363,6 +364,7 @@ contains
     logical, intent(in) :: modalFilterFlag
     class(ModalFilter), intent(in) :: VModalFilter
     real(RP), intent(in) :: impl_fac
+    real(RP), intent(in) :: dt
 
     real(RP) :: PROG_VARS(elem%Np,PROG_VARS_NUM,lmesh%NeZ)
     real(RP) :: PROG_VARS0(elem%Np,PROG_VARS_NUM,lmesh%NeZ)
@@ -459,7 +461,7 @@ contains
             PROG_VARS, PROG_VARS0, DENS_hyd_z, PRES_hyd_z,   & ! (in)
             Dz, Lift,                                        & ! (in)
             modalFilterFlag, VModalFilter%FilterMat,         & ! (in)
-            impl_fac,                                        & ! (in) 
+            impl_fac, dt,                                    & ! (in) 
             lmesh, elem,                                     & ! (in)
             nz, vmapM, vmapP, ke_x, ke_y, .false.            ) ! (in)
 
@@ -474,7 +476,7 @@ contains
             PROG_VARS0, DENS_hyd_z, PRES_hyd_z,             & ! (in)
             Dz, Lift,                                       & ! (in)
             modalFilterFlag, VModalFilter%FilterMat,        & ! (in)
-            impl_fac,                                       & ! (in)
+            impl_fac, dt,                                   & ! (in)
             lmesh, elem,                                    & ! (in)
             nz, vmapM, vmapP, ke_x, ke_y                    ) ! (in)
 
@@ -520,7 +522,7 @@ contains
           PROG_VARS, PROG_VARS, DENS_hyd_z, PRES_hyd_z,    & ! (in)
           Dz, Lift,                                        & ! (in)
           modalFilterFlag, VModalFilter%FilterMat,         & ! (in)
-          impl_fac,                                        & ! (in) 
+          impl_fac, dt,                                    & ! (in) 
           lmesh, elem,                                     & ! (in)
           nz, vmapM, vmapP, ke_x, ke_y, .true. )             ! (in)
       end if
@@ -543,12 +545,11 @@ contains
 
   !------------------------------------------------
 
-  !---
   subroutine vi_eval_Ax( Ax,                    & ! (out)
     PROG_VARS, PROG_VARS0, DENS_hyd, PRES_hyd,  & ! (in)
     Dz, Lift,                                   & ! (in)
     modalFilterFlag, VModalFilter,              & ! (in)
-    impl_fac,                                   & ! (in)
+    impl_fac, dt,                               & ! (in)
     lmesh, elem,                                & ! (in)
     nz, vmapM, vmapP, ke_x, ke_y, cal_tend_flag ) ! (in)
 
@@ -565,6 +566,7 @@ contains
     logical, intent(in) :: modalFilterFlag
     real(RP), intent(in) :: VModalFilter(elem%Nnode_v,elem%Nnode_v)    
     real(RP), intent(in) :: impl_fac
+    real(RP), intent(in) :: dt
     real(RP), intent(in) :: nz(elem%NfpTot,lmesh%NeZ)
     integer, intent(in) :: vmapM(elem%NfpTot,lmesh%NeZ)
     integer, intent(in) :: vmapP(elem%NfpTot,lmesh%NeZ)    
@@ -632,13 +634,15 @@ contains
       call sparsemat_matmul(Lift, lmesh%Fscale(:,ke)*del_flux(:,ke_z,DRHOT_VID), LiftDelFlx)
       Ax(:,DRHOT_VID,ke_z) = lmesh%Escale(:,ke,3,3) * Fz(:) + LiftDelFlx(:)
 
-      !--
-      do v=1, PROG_VARS_NUM
-        do ij=1, elem%Nnode_h1D**2
-          Ax(elem%Colmask(:,ij),v,ke_z) = Ax(elem%Colmask(:,ij),v,ke_z)      &
-            - matmul(VModalFilter, PROG_VARS(elem%Colmask(:,ij),v,ke_z) ) / 100.0_RP
+      !-- Modal filtering in the vertical direction      
+      if ( modalFilterFlag ) then
+        do v=1, PROG_VARS_NUM
+          do ij=1, elem%Nnode_h1D**2
+            Ax(elem%Colmask(:,ij),v,ke_z) = Ax(elem%Colmask(:,ij),v,ke_z)      &
+              - matmul(VModalFilter, PROG_VARS(elem%Colmask(:,ij),v,ke_z) ) / dt
+          end do
         end do
-      end do
+      end if
 
       !--
       if ( .not. cal_tend_flag ) then
@@ -757,7 +761,7 @@ contains
     PROG_VARS0, DENS_hyd, PRES_hyd,         & ! (in)
     Dz, Lift,                               & ! (in)
     modalFilterFlag, VModalFilter,          & ! (in)
-    impl_fac,                               & ! (in)
+    impl_fac, dt,                           & ! (in)
     lmesh, elem,                            & ! (in)
     nz, vmapM, vmapP, ke_x, ke_y )            ! (in)
 
@@ -774,6 +778,7 @@ contains
     logical, intent(in) :: modalFilterFlag
     real(RP), intent(in) :: VModalFilter(elem%Nnode_v,elem%Nnode_v)
     real(RP), intent(in) :: impl_fac
+    real(RP), intent(in) :: dt
     real(RP), intent(in) :: nz(elem%NfpTot,lmesh%NeZ)
     integer, intent(in) :: vmapM(elem%NfpTot,lmesh%NeZ)
     integer, intent(in) :: vmapP(elem%NfpTot,lmesh%NeZ)    
@@ -865,7 +870,7 @@ contains
       do p=1, elem%Nnode_v
         fac_dz_p(:) = impl_fac * lmesh%Escale(Colmask(:),ke,3,3) * elem%Dx3(Colmask(:),Colmask(p))
         if (modalFilterFlag) then
-          Dd(:) = Id(:,p) - VModalFilter(:,p) * impl_fac / 100.0_RP
+          Dd(:) = Id(:,p) - VModalFilter(:,p) * impl_fac / dt
         else
           Dd(:) = Id(:,p)
         end if

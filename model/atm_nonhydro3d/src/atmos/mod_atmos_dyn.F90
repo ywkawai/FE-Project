@@ -174,7 +174,7 @@ module mod_atmos_dyn
       DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd, & ! (in)
       Dz, Lift,                                                & ! (in)
       modalFilterFlag, VModalFilter,                           & ! (in)
-      impl_fac,                                                & ! (in)
+      impl_fac, dt,                                            & ! (in)
       lmesh, elem, lmesh2D, elem2D )
   
       import RP
@@ -206,6 +206,7 @@ module mod_atmos_dyn
       logical, intent(in) :: modalFilterFlag
       class(ModalFilter), intent(in) :: VModalFilter
       real(RP), intent(in) :: impl_fac
+      real(RP), intent(in) :: dt
     end subroutine atm_dyn_nonhydro3d_cal_vi
   end interface
   procedure (atm_dyn_nonhydro3d_cal_vi), pointer :: cal_vi => null()
@@ -458,18 +459,19 @@ contains
           call PROF_rapstart( 'ATM_DYN_cal_vi', 2)
           implicit_fac = this%tint(n)%Get_implicit_diagfac(rkstage)
           tintbuf_ind = this%tint(n)%tend_buf_indmap(rkstage)
+          dt = this%tint(n)%Get_deltime()
           call cal_vi( &
-            this%tint(n)%tend_buf2D_im(:,:,ATMOS_PROGVARS_DDENS_ID,tintbuf_ind),    &
-            this%tint(n)%tend_buf2D_im(:,:,ATMOS_PROGVARS_MOMX_ID ,tintbuf_ind),    &
-            this%tint(n)%tend_buf2D_im(:,:,ATMOS_PROGVARS_MOMY_ID ,tintbuf_ind),    &
-            this%tint(n)%tend_buf2D_im(:,:,ATMOS_PROGVARS_MOMZ_ID ,tintbuf_ind),    &
-            this%tint(n)%tend_buf2D_im(:,:,ATMOS_PROGVARS_DRHOT_ID,tintbuf_ind),    &
-            DDENS%val, MOMX%val, MOMY%val, MOMZ%val, DRHOT%val,                     &
-            DENS_hyd%val, PRES_hyd%val,                                             &
-            model_mesh%DOptrMat(3), model_mesh%LiftOptrMat,                         &
-            this%MODALFILTER_FLAG, this%modal_filter_v1D,                           &
-            implicit_fac,                                                           &
-            lcmesh, lcmesh%refElem3D, lcmesh%lcmesh2D, lcmesh%lcmesh2D%refElem2D    ) 
+            this%tint(n)%tend_buf2D_im(:,:,ATMOS_PROGVARS_DDENS_ID,tintbuf_ind),    & ! (out)
+            this%tint(n)%tend_buf2D_im(:,:,ATMOS_PROGVARS_MOMX_ID ,tintbuf_ind),    & ! (out)
+            this%tint(n)%tend_buf2D_im(:,:,ATMOS_PROGVARS_MOMY_ID ,tintbuf_ind),    & ! (out)
+            this%tint(n)%tend_buf2D_im(:,:,ATMOS_PROGVARS_MOMZ_ID ,tintbuf_ind),    & ! (out)
+            this%tint(n)%tend_buf2D_im(:,:,ATMOS_PROGVARS_DRHOT_ID,tintbuf_ind),    & ! (out)
+            DDENS%val, MOMX%val, MOMY%val, MOMZ%val, DRHOT%val,                     & ! (in)
+            DENS_hyd%val, PRES_hyd%val,                                             & ! (in)
+            model_mesh%DOptrMat(3), model_mesh%LiftOptrMat,                         & ! (in)
+            this%MODALFILTER_FLAG, this%modal_filter_v1D,                           & ! (in)
+            implicit_fac, dt,                                                       & ! (in)
+            lcmesh, lcmesh%refElem3D, lcmesh%lcmesh2D, lcmesh%lcmesh2D%refElem2D    ) ! (in)
           
           call PROF_rapend( 'ATM_DYN_cal_vi', 2)  
           
