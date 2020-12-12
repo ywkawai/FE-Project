@@ -179,10 +179,10 @@ subroutine Atmos_calc_tendency( this )
   type(PhysTendPtrList) :: tp_list(ATMOS_PHYTEND_NUM)
 
   integer :: tm_process_id
+  logical :: is_update
   integer :: n
   integer :: v
   integer :: ke
-
   !------------------------------------------------------------------
   call PROF_rapstart( 'ATM_tendency', 1)
   !LOG_INFO('AtmosComponent_calc_tendency',*)
@@ -208,10 +208,9 @@ subroutine Atmos_calc_tendency( this )
   ! Surface flux
   if ( this%phy_sfc_proc%IsActivated() ) then
     tm_process_id = this%phy_sfc_proc%tm_process_id
-    if ( this%time_manager%Do_process( tm_process_id) ) then
-      call this%phy_sfc_proc%calc_tendency( &
-        this%mesh, this%vars%PROGVARS_manager, this%vars%AUXVARS_manager, this%vars%PHYTENDS_manager )
-    end if
+    is_update = this%time_manager%Do_process(tm_process_id)
+    call this%phy_sfc_proc%calc_tendency( &
+        this%mesh, this%vars%PROGVARS_manager, this%vars%AUXVARS_manager, this%vars%PHYTENDS_manager, is_update )
   end if
   
   call PROF_rapend( 'ATM_tendency', 1)
@@ -223,6 +222,7 @@ subroutine Atmos_update( this )
   class(AtmosComponent), intent(inout) :: this
   
   integer :: tm_process_id
+  logical :: is_update
   integer :: inner_itr
   !--------------------------------------------------
   call PROF_rapstart( 'ATM_update', 1)
@@ -231,13 +231,13 @@ subroutine Atmos_update( this )
 
   if ( this%dyn_proc%IsActivated() ) then
     tm_process_id = this%dyn_proc%tm_process_id
-    if ( this%time_manager%Do_process( tm_process_id ) ) then
-      LOG_PROGRESS(*) 'atmosphere / dynamics'   
-      do inner_itr=1, this%time_manager%Get_process_inner_itr_num( tm_process_id )
-        call this%dyn_proc%update( &
-          this%mesh, this%vars%PROGVARS_manager, this%vars%AUXVARS_manager, this%vars%PHYTENDS_manager )
-      end do
-    end if
+    is_update = this%time_manager%Do_process( tm_process_id )
+
+    LOG_PROGRESS(*) 'atmosphere / dynamics'   
+    do inner_itr=1, this%time_manager%Get_process_inner_itr_num( tm_process_id )
+      call this%dyn_proc%update( &
+        this%mesh, this%vars%PROGVARS_manager, this%vars%AUXVARS_manager, this%vars%PHYTENDS_manager, is_update )
+    end do
   end if
   
   !########## Calculate diagnostic variables ##########  

@@ -181,7 +181,9 @@ contains
     use scale_file_restart_meshfield, only: &
       restart_file,                         &
       FILE_restart_meshfield_setup
-    use scale_time_manager, only: TIME_manager_Init
+    use scale_time_manager, only: &
+      TIME_manager_Init,               &
+      TIME_manager_report_timeintervals
     
     use mod_user, only: USER_setup    
     implicit none
@@ -216,6 +218,9 @@ contains
     call  atmos%setup()
 
     call USER_setup( atmos )
+
+    !
+    call TIME_manager_report_timeintervals
 
     call PROF_rapend('Initialize', 0)
 

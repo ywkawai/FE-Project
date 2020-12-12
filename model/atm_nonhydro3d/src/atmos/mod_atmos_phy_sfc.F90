@@ -37,6 +37,7 @@ module mod_atmos_phy_sfc
   use scale_model_var_manager, only: ModelVarManager
   use scale_model_component_proc, only:  ModelComponentProc
   
+  use mod_atmos_phy_sfc_vars, only: AtmosPhySfcVars
 
   !-----------------------------------------------------------------------------
   implicit none
@@ -47,6 +48,7 @@ module mod_atmos_phy_sfc
   !
   type, extends(ModelComponentProc), public :: AtmosPhySfc
     integer :: SFCFLX_TYPEID
+    type(AtmosPhySfcVars) :: vars
   contains
     procedure, public :: setup => AtmosPhySfc_setup 
     procedure, public :: calc_tendency => AtmosPhySfc_calc_tendency
@@ -112,12 +114,14 @@ contains
     endif
     LOG_NML(PARAM_ATMOS_PHY_SFC)
 
-    !--- Setup the temporal integrator
+    !--- Regist this compoent in the time manager
     
     call tm_parent_comp%Regist_process( 'ATMOS_PHY_SFC', TIME_DT, TIME_DT_UNIT, & ! (in)
       this%tm_process_id )                                                        ! (out)
 
-    
+    !- initialize the variables 
+    call this%vars%Init( model_mesh )      
+
     !--- Set the type of surface flux scheme
 
     select case( SFCFLX_TYPE )
@@ -133,11 +137,13 @@ contains
   end subroutine AtmosPhySfc_setup
 
 
-  subroutine AtmosPhySfc_calc_tendency( this, model_mesh, prgvars_list, auxvars_list, forcing_list )
+  subroutine AtmosPhySfc_calc_tendency( this, model_mesh, prgvars_list, auxvars_list, forcing_list, is_update )
 
     use mod_atmos_vars, only: &
       AtmosVars_GetLocalMeshPrgVars, &
       AtmosVars_GetLocalMeshPhyTends
+    use mod_atmos_phy_sfc_vars, only: &
+      AtmosPhySfcVars_GetLocalMeshFields
     
     implicit none
     
@@ -146,6 +152,7 @@ contains
     class(ModelVarManager), intent(inout) :: prgvars_list
     class(ModelVarManager), intent(inout) :: auxvars_list
     class(ModelVarManager), intent(inout) :: forcing_list
+    logical, intent(in) :: is_update
 
     class(MeshBase), pointer :: mesh
     class(MeshBase2D), pointer :: mesh2D    
@@ -154,10 +161,12 @@ contains
     class(LocalMeshFieldBase), pointer :: DDENS, MOMX, MOMY, MOMZ, DRHOT
     class(LocalMeshFieldBase), pointer :: DENS_hyd, PRES_hyd
     class(LocalMeshFieldBase), pointer :: DENS_tp, MOMX_tp, MOMY_tp, MOMZ_tp, RHOH_p
+    class(LocalMeshFieldBase), pointer :: SFLX_MU, SFLX_MV, SFLX_MW, SFLX_SH, SFLX_LH
 
     integer :: n
     !--------------------------------------------------
     if (.not. this%IsActivated()) return
+
     !LOG_INFO('AtmosDyn_tendency',*)
 
     call model_mesh%GetModelMesh( mesh )
@@ -171,11 +180,16 @@ contains
       call AtmosVars_GetLocalMeshPhyTends( n,       &
         mesh, forcing_list,                         &
         DENS_tp, MOMX_tp, MOMY_tp, MOMZ_tp, RHOH_p  )
+
+      call AtmosPhySfcVars_GetLocalMeshFields( n,    &
+        mesh, this%vars%SFCFLX_manager,              &
+        SFLX_MU, SFLX_MV, SFLX_MW, SFLX_SH, SFLX_LH  )
       call PROF_rapend( 'ATM_PHY_SFC_get_localmesh_ptr', 2)   
 
       call PROF_rapstart( 'ATM_PHY_SFC_cal_tend', 2)
-      call cal_tend_from_sfcflx( this,                                          &
+      call cal_tend_from_sfcflx( this, is_update,                               &
         DENS_tp%val, MOMX_tp%val, MOMY_tp%val, MOMZ_tp%val, RHOH_p%val,         &
+        SFLX_MU%val, SFLX_MV%val, SFLX_MW%val, SFLX_SH%val, SFLX_LH%val,        &
         DDENS%val, MOMX%val, MOMY%val, MOMZ%val, DRHOT%val,                     &
         DENS_hyd%val, PRES_hyd%val,                                             &
         model_mesh%DOptrMat(3), model_mesh%SOptrMat(3), model_mesh%LiftOptrMat, &
@@ -186,7 +200,7 @@ contains
     return  
   end subroutine AtmosPhySfc_calc_tendency
 
-  subroutine AtmosPhySfc_update( this, model_mesh, prgvars_list, auxvars_list, forcing_list )
+  subroutine AtmosPhySfc_update( this, model_mesh, prgvars_list, auxvars_list, forcing_list, is_update )
     implicit none
 
     class(AtmosPhySfc), intent(inout) :: this
@@ -194,6 +208,7 @@ contains
     class(ModelVarManager), intent(inout) :: prgvars_list
     class(ModelVarManager), intent(inout) :: auxvars_list
     class(ModelVarManager), intent(inout) :: forcing_list
+    logical, intent(in) :: is_update
     !--------------------------------------------------
 
     return
@@ -206,16 +221,19 @@ contains
     !--------------------------------------------------
     if (.not. this%IsActivated()) return
 
+    call this%vars%Final()
+
     return
   end subroutine AtmosPhySfc_finalize
 
 !- private ------------------------------------------------
 
-  subroutine cal_tend_from_sfcflx( this,         &
-    DENS_tp, MOMX_tp, MOMY_tp, MOMZ_tp, RHOH_p,  &
-    DDENS, MOMX, MOMY, MOMZ, DRHOT,              &
-    DENS_hyd, PRES_hyd,                          &
-    Dz, Sz, Lift,                                &
+  subroutine cal_tend_from_sfcflx( this, is_update_sflx, &
+    DENS_tp, MOMX_tp, MOMY_tp, MOMZ_tp, RHOH_p,          &
+    SFLX_MU, SFLX_MV, SFLX_MW, SFLX_SH, SFLX_LH,         &
+    DDENS, MOMX, MOMY, MOMZ, DRHOT,                      &
+    DENS_hyd, PRES_hyd,                                  &
+    Dz, Sz, Lift,                                        &
     lcmesh, elem, lcmesh2D, elem2D )
 
     use scale_const, only: &
@@ -236,11 +254,17 @@ contains
     class(elementbase3D), intent(in) :: elem
     class(LocalMesh2D), intent(in) :: lcmesh2D
     class(elementbase2D), intent(in) :: elem2D
+    logical, intent(in) :: is_update_sflx
     real(RP), intent(inout) :: DENS_tp(elem%Np,lcmesh%NeA)
     real(RP), intent(inout) :: MOMX_tp(elem%Np,lcmesh%NeA)
     real(RP), intent(inout) :: MOMY_tp(elem%Np,lcmesh%NeA)
     real(RP), intent(inout) :: MOMZ_tp(elem%Np,lcmesh%NeA)
     real(RP), intent(inout) :: RHOH_p   (elem%Np,lcmesh%NeA)
+    real(RP), intent(inout) :: SFLX_MU(elem%Np,lcmesh%NeA)
+    real(RP), intent(inout) :: SFLX_MV(elem%Np,lcmesh%NeA)
+    real(RP), intent(inout) :: SFLX_MW(elem%Np,lcmesh%NeA)
+    real(RP), intent(inout) :: SFLX_SH(elem%Np,lcmesh%NeA)
+    real(RP), intent(inout) :: SFLX_LH(elem%Np,lcmesh%NeA)
     real(RP), intent(in) :: DDENS(elem%Np,lcmesh%NeA)
     real(RP), intent(in) :: MOMX(elem%Np,lcmesh%NeA)
     real(RP), intent(in) :: MOMY(elem%Np,lcmesh%NeA)
@@ -257,11 +281,7 @@ contains
     real(RP) :: SFC_TEMP(elem2D%Np,lcmesh2D%Ne)
     real(RP) :: SFC_DENS(elem2D%Np,lcmesh2D%Ne)
 
-    real(RP) :: SFLX_MW(elem2D%Np,lcmesh2D%Ne)
-    real(RP) :: SFLX_MU(elem2D%Np,lcmesh2D%Ne)
-    real(RP) :: SFLX_MV(elem2D%Np,lcmesh2D%Ne)
-    real(RP) :: SFLX_SH(elem2D%Np,lcmesh2D%Ne)
-    real(RP) :: SFLX_LH(elem2D%Np,lcmesh2D%Ne)
+    ! dummy
     real(RP) :: SFLX_QV(elem2D%Np,lcmesh2D%Ne)
     real(RP) :: U10(elem2D%Np,lcmesh2D%Ne)
     real(RP) :: V10(elem2D%Np,lcmesh2D%Ne)
@@ -277,41 +297,44 @@ contains
 
     !-------------------------------------------------
 
-    !$omp parallel do collapse(2) private( &
-    !$omp ke, hSliceZ0, hsliceZ1,          &
-    !$omp pres, rhot                       )
-    do ke2D=lcmesh2D%NeS, lcmesh2D%NeE
-    do ij=1, elem2D%Np
+    if (is_update_sflx) then
+      !$omp parallel do collapse(2) private( &
+      !$omp ke, hSliceZ0, hsliceZ1,          &
+      !$omp pres, rhot                       )
+      do ke2D=lcmesh2D%NeS, lcmesh2D%NeE
+      do ij=1, elem2D%Np
 
-      ke = ke2D
-      hsliceZ0 = elem%Hslice(ij,1)
-      hsliceZ1 = elem%Hslice(ij,2)
+        ke = ke2D
+        hsliceZ0 = elem%Hslice(ij,1)
+        hsliceZ1 = elem%Hslice(ij,2)
 
-      SFC_DENS(ij,ke2D) = DENS_hyd(hsliceZ0,ke) + DDENS(hsliceZ0,ke)      
-      ATM_W(ij,ke2D) = MOMZ(hsliceZ1,ke) / SFC_DENS(ij,ke2D)
-      ATM_U(ij,ke2D) = MOMX(hsliceZ1,ke) / SFC_DENS(ij,ke2D)
-      ATM_V(ij,ke2D) = MOMY(hsliceZ1,ke) / SFC_DENS(ij,ke2D)
+        SFC_DENS(ij,ke2D) = DENS_hyd(hsliceZ0,ke) + DDENS(hsliceZ0,ke)      
+        ATM_W(ij,ke2D) = MOMZ(hsliceZ1,ke) / SFC_DENS(ij,ke2D)
+        ATM_U(ij,ke2D) = MOMX(hsliceZ1,ke) / SFC_DENS(ij,ke2D)
+        ATM_V(ij,ke2D) = MOMY(hsliceZ1,ke) / SFC_DENS(ij,ke2D)
 
-      rhot = PRES00/Rdry * (PRES_hyd(hsliceZ0,ke)/PRES00)**(CVdry/CPdry) + DRHOT(hsliceZ0,ke)
-      pres = PRES00 * (Rdry*rhot/PRES00)**(CPdry/Cvdry)      
-      SFC_TEMP(ij,ke2D) = pres / ( Rdry * SFC_DENS(ij,ke2D) )
+        rhot = PRES00/Rdry * (PRES_hyd(hsliceZ0,ke)/PRES00)**(CVdry/CPdry) + DRHOT(hsliceZ0,ke)
+        pres = PRES00 * (Rdry*rhot/PRES00)**(CPdry/Cvdry)      
+        SFC_TEMP(ij,ke2D) = pres / ( Rdry * SFC_DENS(ij,ke2D) )
 
-      Z1(ij,ke2D) = lcmesh%pos_en(hsliceZ1,ke,3)
-    end do
-    end do
+        Z1(ij,ke2D) = lcmesh%pos_en(hsliceZ1,ke,3)
+      end do
+      end do
 
-    select case ( this%SFCFLX_TYPEID )
-    case ( SFCFLX_TYPEID_CONST )
-      call ATMOS_PHY_SF_const_flux( &
-        elem2D%Np, 1, elem2D%Np, lcmesh2D%Ne, 1, lcmesh2D%Ne, & ! [IN]
-        ATM_W(:,:), ATM_U(:,:), ATM_V(:,:), SFC_TEMP(:,:),    & ! [IN]
-        Z1(:,:), SFC_DENS(:,:),                               & ! [IN]
-        SFLX_MW(:,:), SFLX_MU(:,:), SFLX_MV(:,:),             & ! [OUT]
-        SFLX_SH(:,:), SFLX_LH(:,:), SFLX_QV(:,:),             & ! [OUT]
-        U10(:,:), V10(:,:)                                    ) ! [OUT]
-    end select
+      select case ( this%SFCFLX_TYPEID )
+      case ( SFCFLX_TYPEID_CONST )
+        call ATMOS_PHY_SF_const_flux( &
+          elem2D%Np, 1, elem2D%Np, lcmesh2D%Ne, 1, lcmesh2D%Ne, & ! [IN]
+          ATM_W(:,:), ATM_U(:,:), ATM_V(:,:), SFC_TEMP(:,:),    & ! [IN]
+          Z1(:,:), SFC_DENS(:,:),                               & ! [IN]
+          SFLX_MW(:,:), SFLX_MU(:,:), SFLX_MV(:,:),             & ! [OUT]
+          SFLX_SH(:,:), SFLX_LH(:,:), SFLX_QV(:,:),             & ! [OUT]
+          U10(:,:), V10(:,:)                                    ) ! [OUT]
+      end select
 
-    !-
+    end if
+
+    !- Add the tendency due to the surface flux
 
     call cal_del_flux( del_flux,            &
       SFLX_MU, SFLX_MV, SFLX_MW, SFLX_SH,   &
