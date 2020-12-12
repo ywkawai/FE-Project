@@ -10,11 +10,12 @@ module mod_atmos_vars
   use scale_prc
 
   use scale_element_base, only: ElementBase3D
-  use scale_localmesh_3d, only: LocalMesh3D
+  use scale_mesh_base, only: MeshBase
   use scale_mesh_base3d, only: MeshBase3D
-
-  use scale_meshfield_base, only: MeshField3D
+  use scale_localmesh_base, only: LocalMeshBase
+  use scale_localmesh_3d, only: LocalMesh3D
   use scale_localmeshfield_base, only: LocalMeshFieldBase
+  use scale_meshfield_base, only: MeshFieldBase, MeshField3D
   
   use scale_file_restart_meshfield, only: &
     FILE_restart_meshfield_component
@@ -45,6 +46,9 @@ module mod_atmos_vars
     type(MeshField3D), allocatable :: AUX_VARS(:)
     type(ModelVarManager) :: AUXVARS_manager 
     
+    type(MeshField3D), allocatable :: PHY_TEND(:)
+    type(ModelVarManager) :: PHYTENDS_manager 
+
     type(ModelVarManager) :: DIAGVARS_manager    
     integer, allocatable :: DIAGVARS_HISTID(:)
 
@@ -57,13 +61,17 @@ module mod_atmos_vars
     procedure :: Write_restart_file => AtmosVar_Write_restart_file
   end type AtmosVars
 
-  public :: AtmosVars_GetLocalMeshField
-  public :: AtmosVars_GetLocalMeshFields
+  public :: AtmosVars_GetLocalMeshPrgVar
+  public :: AtmosVars_GetLocalMeshPrgVars
+  public :: AtmosVars_GetLocalMeshPhyTends
 
   !-----------------------------------------------------------------------------
   !
   !++ Public parameters & variables
   !
+
+  ! Prognostic variables in dynamical process  
+
   integer, public, parameter :: ATMOS_PROGVARS_NUM = 5
   integer, public, parameter :: ATMOS_PROGVARS_DDENS_ID = 1
   integer, public, parameter :: ATMOS_PROGVARS_MOMX_ID  = 2
@@ -85,6 +93,8 @@ module mod_atmos_vars
     VariableInfo( ATMOS_PROGVARS_DRHOT_ID, 'DRHOT', 'deviation of rho * theta',   &
                   'kg/m3*K', 3, 'XYZ',  ''                                    )   /
 
+  ! Reference state
+  
   integer, public, parameter :: ATMOS_AUXVARS_NUM          = 2
   integer, public, parameter :: ATMOS_AUXVARS_PRESHYDRO_ID = 1
   integer, public, parameter :: ATMOS_AUXVARS_DENSHYDRO_ID = 2
@@ -96,6 +106,31 @@ module mod_atmos_vars
     VariableInfo( ATMOS_AUXVARS_DENSHYDRO_ID , 'DENS_hyd', 'hydrostatic part of density',  &
                   'kg/m3', 3, 'XYZ', ''                                                 )  /
   
+  
+  ! Tendency by physical processes
+  
+  integer, public, parameter :: ATMOS_PHYTEND_NUM         = 5
+  integer, public, parameter :: ATMOS_PHYTEND_DENS_ID     = 1
+  integer, public, parameter :: ATMOS_PHYTEND_MOMX_ID     = 2
+  integer, public, parameter :: ATMOS_PHYTEND_MOMY_ID     = 3
+  integer, public, parameter :: ATMOS_PHYTEND_MOMZ_ID     = 4
+  integer, public, parameter :: ATMOS_PHYTEND_RHOH_ID     = 5
+
+  type(VariableInfo), public :: ATMOS_PHYTEND_VINFO(ATMOS_PHYTEND_NUM)
+  DATA ATMOS_PHYTEND_VINFO / &
+    VariableInfo( ATMOS_PHYTEND_DENS_ID, 'DENS_tp', 'DENS_tp',                        &
+                  'kg/m3/s',  3, 'XYZ',  'tendency of physical process for DENS' ),   &
+    VariableInfo( ATMOS_PHYTEND_MOMX_ID, 'MOMX_tp', 'MOMX_tp',                        &
+                  'kg/m2/s',  3, 'XYZ',  'tendency of physical process for MOMX' ),   &
+    VariableInfo( ATMOS_PHYTEND_MOMY_ID, 'MOMY_tp', 'MOMY_tp',                        &
+                  'kg/m2/s',  3, 'XYZ',  'tendency of physical process for MOMY' ),   &
+    VariableInfo( ATMOS_PHYTEND_MOMZ_ID, 'MOMZ_tp', 'MOMZ_tp',                        &
+                  'kg/m2/s',  3, 'XYZ',  'tendency of physical process for MOMZ' ),   &
+    VariableInfo( ATMOS_PHYTEND_RHOH_ID, 'RHOT_tp', 'RHOT_tp',                        &
+                  'kg/m3.K/s',  3, 'XYZ',  'tendency of physical process for RHOT' )  /
+
+  ! Diagnostic variables
+
   integer, public, parameter :: ATMOS_DIAGVARS_NUM       = 6
   integer, public, parameter :: ATMOS_DIAGVARS_U_ID      = 1
   integer, public, parameter :: ATMOS_DIAGVARS_V_ID      = 2
@@ -185,6 +220,21 @@ contains
       end do             
     end do
 
+    !- Initialize the tendency of physical processes
+
+    call this%PHYTENDS_manager%Init()
+    allocate( this%PHY_TEND(ATMOS_PHYTEND_NUM) )
+    
+    reg_file_hist = .true.
+    do v = 1, ATMOS_PHYTEND_NUM
+      call this%PHYTENDS_manager%Regist(       &
+        ATMOS_PHYTEND_VINFO(v), atm_mesh%mesh, & ! (in) 
+        this%PHY_TEND(v), reg_file_hist        ) ! (out)
+      do n = 1, atm_mesh%mesh%LOCAL_MESH_NUM
+        this%PHY_TEND(v)%local(n)%val(:,:) = 0.0_RP
+      end do             
+    end do
+
     !- Initialize diagnostic variables for output
     call this%DIAGVARS_manager%Init()
     allocate( this%DIAGVARS_HISTID(ATMOS_DIAGVARS_NUM) )
@@ -241,8 +291,9 @@ contains
 
     call this%PROGVARS_comm%Final()
     call this%PROGVARS_manager%Final()
-
+    call this%PHYTENDS_manager%Final()
     call this%AUXVARS_manager%Final()
+
 
     deallocate( this%DIAGVARS_HISTID )
 
@@ -380,15 +431,9 @@ contains
     return
   end subroutine AtmosVar_write_restart_file
 
-  subroutine AtmosVars_GetLocalMeshField( domID, mesh, prgvars_list, auxvars_list, &
-     varid,                                                                        &
-     var, DENS_hyd, PRES_hyd, lcmesh3D                                             &
-    )
-    !------------
-    use scale_mesh_base, only: MeshBase
-    use scale_meshfield_base, only: MeshFieldBase
-    use scale_localmesh_base, only: LocalMeshBase
-    use scale_localmesh_3d, only: LocalMesh3D
+  subroutine AtmosVars_GetLocalMeshPrgVar( domID, mesh, prgvars_list, auxvars_list, &
+     varid,                                                                         &
+     var, DENS_hyd, PRES_hyd, lcmesh3D                                              )
 
     implicit none
     integer, intent(in) :: domID
@@ -428,11 +473,11 @@ contains
     end if
 
     return
-  end subroutine AtmosVars_GetLocalMeshField
+  end subroutine AtmosVars_GetLocalMeshPrgVar
 
-  subroutine AtmosVars_GetLocalMeshFields( domID, mesh, prgvars_list, auxvars_list, &
-    DDENS, MOMX, MOMY, MOMZ, DRHOT,                                 &
-    DENS_hyd, PRES_hyd, lcmesh3D                                    &
+  subroutine AtmosVars_GetLocalMeshPrgVars( domID, mesh, prgvars_list, auxvars_list, &
+    DDENS, MOMX, MOMY, MOMZ, DRHOT,                                                  &
+    DENS_hyd, PRES_hyd, lcmesh3D                                                     &
     )
 
     use scale_mesh_base, only: MeshBase
@@ -489,7 +534,52 @@ contains
     end if
 
     return
-  end subroutine AtmosVars_GetLocalMeshFields
+  end subroutine AtmosVars_GetLocalMeshPrgVars
+
+  subroutine AtmosVars_GetLocalMeshPhyTends( domID, mesh, phytends_list,  &
+    DENS_tp, MOMX_tp, MOMY_tp, MOMZ_tp, RHOH_p,                           &
+    lcmesh3D                                                              )
+
+    implicit none
+    integer, intent(in) :: domID
+    class(MeshBase), intent(in) :: mesh
+    class(ModelVarManager), intent(inout) :: phytends_list
+    class(LocalMeshFieldBase), pointer, intent(out) :: DENS_tp, MOMX_tp, MOMY_tp, MOMZ_tp, RHOH_p
+    class(LocalMesh3D), pointer, intent(out), optional :: lcmesh3D
+
+    class(MeshFieldBase), pointer :: field
+    class(LocalMeshBase), pointer :: lcmesh
+    !-------------------------------------------------------
+
+    !--
+    call phytends_list%Get(ATMOS_PHYTEND_DENS_ID, field)
+    call field%GetLocalMeshField(domID, DENS_tp)
+
+    call phytends_list%Get(ATMOS_PHYTEND_MOMX_ID, field)
+    call field%GetLocalMeshField(domID, MOMX_tp)
+    
+    call phytends_list%Get(ATMOS_PHYTEND_MOMY_ID, field)
+    call field%GetLocalMeshField(domID, MOMY_tp)
+
+    call phytends_list%Get(ATMOS_PHYTEND_MOMZ_ID, field)
+    call field%GetLocalMeshField(domID, MOMZ_tp)
+
+    call phytends_list%Get(ATMOS_PHYTEND_RHOH_ID, field)
+    call field%GetLocalMeshField(domID, RHOH_p)
+
+    !---
+    if (present(lcmesh3D)) then
+      call mesh%GetLocalMesh( domID, lcmesh )
+      nullify( lcmesh3D )
+
+      select type(lcmesh)
+      type is (LocalMesh3D)
+        if (present(lcmesh3D)) lcmesh3D => lcmesh
+      end select
+    end if
+
+    return
+  end subroutine AtmosVars_GetLocalMeshPhyTends
 
   subroutine vars_calc_diagvar( this, field_name, field_work ) 
     use scale_const, only: &

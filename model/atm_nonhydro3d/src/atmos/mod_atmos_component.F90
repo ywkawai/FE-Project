@@ -19,12 +19,17 @@ module mod_atmos_component
   use scale_prof
   use scale_prc
 
+  use scale_mesh_base, only: MeshBase
+  use scale_localmesh_3d, only: LocalMesh3D
+  use scale_localmeshfield_base, only: LocalMeshFieldBase
   use scale_model_component, only: ModelComponent
 
   use mod_atmos_vars, only: AtmosVars
   use mod_atmos_mesh, only: AtmosMesh
+
   use mod_atmos_dyn, only: AtmosDyn
-  
+  use mod_atmos_phy_sfc, only: AtmosPhySfc
+
   !-----------------------------------------------------------------------------
   implicit none
   private
@@ -37,6 +42,8 @@ module mod_atmos_component
     type(AtmosMesh) :: mesh
 
     type(AtmosDyn) :: dyn_proc
+    type(AtmosPhySfc) :: phy_sfc_proc
+
   contains
     procedure, public :: setup => Atmos_setup 
     procedure, public :: calc_tendency => Atmos_calc_tendency
@@ -61,10 +68,14 @@ contains
 subroutine Atmos_setup( this )
   use scale_const, only: &
     UNDEF8 => CONST_UNDEF8
+  use scale_atmos_hydrometeor, only: &
+    ATMOS_HYDROMETEOR_setup
+
   use scale_file_history_meshfield, only: &
     FILE_HISTORY_meshfield_setup  
   use scale_time_manager, only: &
     TIME_manager_Regist_component
+
   implicit none
 
   class(AtmosComponent), intent(inout) :: this
@@ -76,7 +87,8 @@ subroutine Atmos_setup( this )
   real(DP) :: TIME_DT_RESTART                     = UNDEF8
   character(len=H_SHORT) :: TIME_DT_RESTART_UNIT  = 'SEC'
 
-  logical :: ATMOS_DYN_DO  = .true.
+  logical :: ATMOS_DYN_DO    = .true.
+  logical :: ATMOS_PHY_SF_DO = .false.
 
   namelist / PARAM_ATMOS / &
     ACTIVATE_FLAG,         &
@@ -84,7 +96,8 @@ subroutine Atmos_setup( this )
     TIME_DT_UNIT,          &
     TIME_DT_RESTART,       &
     TIME_DT_RESTART_UNIT,  &
-    ATMOS_DYN_DO
+    ATMOS_DYN_DO,          &
+    ATMOS_PHY_SF_DO
 
   integer :: ierr
   !--------------------------------------------------
@@ -128,30 +141,84 @@ subroutine Atmos_setup( this )
   
   !- Setup each processes in atmospheric model ------------------------------------
 
+  !- Setup index for atmospheric tracers
+  call ATMOS_HYDROMETEOR_setup()
+    
   !- Setup the module for atmosphere / dynamics 
-  call this%dyn_proc%ModelComponentProc_Init('AtmosDyn', ATMOS_DYN_DO )
+  call this%dyn_proc%ModelComponentProc_Init( 'AtmosDyn', ATMOS_DYN_DO )
   call this%dyn_proc%setup( this%mesh, this%time_manager )
+
+  !- Setup the module for atmosphere / physics / surface
+  call this%phy_sfc_proc%ModelComponentProc_Init( 'AtmosPhysSfc', ATMOS_PHY_SF_DO )
+  call this%phy_sfc_proc%setup( this%mesh, this%time_manager )
   
   call PROF_rapend( 'ATM_setup', 1)
   return
 end subroutine Atmos_setup
 
 subroutine Atmos_calc_tendency( this )
+
+  use mod_atmos_vars, only: &
+    AtmosVars_GetLocalMeshPhyTends, &
+    ATMOS_PHYTEND_NUM,                &
+    DENS_tp => ATMOS_PHYTEND_DENS_ID, &
+    MOMX_tp => ATMOS_PHYTEND_MOMX_ID, &
+    MOMY_tp => ATMOS_PHYTEND_MOMY_ID, &
+    MOMZ_tp => ATMOS_PHYTEND_MOMZ_ID, &
+    RHOH_p  => ATMOS_PHYTEND_RHOH_ID
+
   implicit none
   class(AtmosComponent), intent(inout) :: this
 
-  !--------------------------------------------------
+
+  class(MeshBase), pointer :: mesh
+  class(LocalMesh3D), pointer :: lcmesh
+  type :: PhysTendPtrList
+    class(LocalMeshFieldBase), pointer :: ptr => null()
+  end type PhysTendPtrList
+  type(PhysTendPtrList) :: tp_list(ATMOS_PHYTEND_NUM)
+
+  integer :: tm_process_id
+  integer :: n
+  integer :: v
+  integer :: ke
+
+  !------------------------------------------------------------------
   call PROF_rapstart( 'ATM_tendency', 1)
   !LOG_INFO('AtmosComponent_calc_tendency',*)
 
-  call this%dyn_proc%calc_tendency( this%mesh, this%vars%PROGVARS_manager, this%vars%AUXVARS_manager )
+  !########## calculate tendency ##########
 
+  ! reset tendencies of physics
+
+  call this%mesh%GetModelMesh( mesh )  
+  do n=1, mesh%LOCAL_MESH_NUM
+    call AtmosVars_GetLocalMeshPhyTends( n, mesh, this%vars%PHYTENDS_manager , & ! (in)
+      tp_list(DENS_tp)%ptr, tp_list(MOMX_tp)%ptr, tp_list(MOMY_tp)%ptr,        & ! (out)
+      tp_list(MOMZ_tp)%ptr, tp_list(RHOH_p)%ptr, lcmesh                        ) ! (out)
+    
+    !$omp parallel do    
+    do v=1, ATMOS_PHYTEND_NUM
+    do ke=lcmesh%NeS, lcmesh%NeE
+      tp_list(v)%ptr%val(:,ke) = 0.0_RP
+    end do
+    end do
+  end do
+
+  ! Surface flux
+  if ( this%phy_sfc_proc%IsActivated() ) then
+    tm_process_id = this%phy_sfc_proc%tm_process_id
+    if ( this%time_manager%Do_process( tm_process_id) ) then
+      call this%phy_sfc_proc%calc_tendency( &
+        this%mesh, this%vars%PROGVARS_manager, this%vars%AUXVARS_manager, this%vars%PHYTENDS_manager )
+    end if
+  end if
+  
   call PROF_rapend( 'ATM_tendency', 1)
   return  
 end subroutine Atmos_calc_tendency
 
 subroutine Atmos_update( this )
-
   implicit none
   class(AtmosComponent), intent(inout) :: this
   
@@ -166,11 +233,21 @@ subroutine Atmos_update( this )
     tm_process_id = this%dyn_proc%tm_process_id
     if ( this%time_manager%Do_process( tm_process_id ) ) then
       do inner_itr=1, this%time_manager%Get_process_inner_itr_num( tm_process_id )
-        call this%dyn_proc%update( this%mesh, this%vars%PROGVARS_manager, this%vars%AUXVARS_manager )
+        call this%dyn_proc%update( &
+          this%mesh, this%vars%PROGVARS_manager, this%vars%AUXVARS_manager, this%vars%PHYTENDS_manager )
       end do
     end if
   end if
   
+  !########## Calculate diagnostic variables ##########  
+
+  !########## Adjustment ##########
+  ! Microphysics
+  ! Aerosol
+  ! Lightning
+
+  !########## Reference State ###########
+
   call PROF_rapend( 'ATM_update', 1)
   return  
 end subroutine Atmos_update
@@ -185,6 +262,7 @@ subroutine Atmos_finalize( this )
   if ( .not. this%IsActivated() ) return
 
   call this%dyn_proc%finalize()
+  call this%phy_sfc_proc%finalize()
   call this%vars%Final()
   call this%mesh%Final()
   call this%time_manager%Final()

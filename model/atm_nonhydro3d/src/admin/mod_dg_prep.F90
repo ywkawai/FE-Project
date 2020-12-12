@@ -144,6 +144,8 @@ contains
 
     use scale_const, only: CONST_setup
     use scale_calendar, only: CALENDAR_setup
+    use scale_random, only: RANDOM_setup
+
     use scale_file_restart_meshfield, only: &
       FILE_restart_meshfield_setup
     use scale_time_manager, only: TIME_manager_Init
@@ -170,6 +172,9 @@ contains
     ! setup calendar & initial time
     call CALENDAR_setup
     call TIME_manager_Init( .false. )
+
+    ! setup random number
+    call RANDOM_setup
 
     ! setup a module for restart file
     call FILE_restart_meshfield_setup
