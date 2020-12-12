@@ -38,6 +38,7 @@ OBJS = \
 	mod_atmos_component.o        \
 	mod_atmos_dyn.o              \
 	mod_atmos_dyn_vars.o         \
+	mod_atmos_phy_sfc.o          \
 	mod_atmos_mesh.o             \
 	mod_atmos_vars.o             \
 	mod_atmos_bnd.o              \
@@ -109,7 +110,7 @@ dependency:
 	$(MAKE) $(patsubst %.F90,%.o,$<)
 
 $(BUILD_DIR)/%.o: %.F90
-	$(FC) $(FFLAGS) $(ADDITIONAL_FFLAGS) -DVERSION_MACRO=\"$(VERSION)\" -I$(BUILD_DIR) -I$(MODDIR) -I../include $(CONTRIB_INCLUDE) -I$(SCALEFELIBDIR)/include -I$(SAMPLE_AUX_INCLUDE) $(SCALE_NETCDF_INCLUDE) $(MODDIROPT) $(BUILD_DIR) -o $@ -c $<
+	$(FC) $(FFLAGS) $(ADDITIONAL_FFLAGS) -DVERSION_MACRO=\"$(VERSION)\" -I$(BUILD_DIR) -I$(MODDIR) -I../include $(CONTRIB_INCLUDE) -I$(SCALEFELIBDIR)/include $(SCALE_NETCDF_INCLUDE) $(MODDIROPT) $(BUILD_DIR) -o $@ -c $<
 
 $(BUILD_DIR)/%.o : %.c
 	$(CC) $(CFLAGS) -o $@ -c $<

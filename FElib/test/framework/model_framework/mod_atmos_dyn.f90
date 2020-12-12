@@ -43,12 +43,13 @@ subroutine AtmosDyn_setup( this, model_mesh, tm_parent_comp )
   return  
 end subroutine AtmosDyn_setup
 
-subroutine AtmosDyn_calc_tendency( this, model_mesh, prgvars_list, auxvars_list  )
+subroutine AtmosDyn_calc_tendency( this, model_mesh, prgvars_list, auxvars_list, forcing_list )
   implicit none
   class(AtmosDynProc), intent(inout) :: this
   class(ModelMeshBase), intent(in) :: model_mesh
   class(ModelVarManager), intent(inout) :: prgvars_list
   class(ModelVarManager), intent(inout) :: auxvars_list  
+  class(ModelVarManager), intent(inout) :: forcing_list
   !--------------------------------------------------
 
   LOG_INFO('AtmosDyn_tendency',*)
@@ -56,12 +57,13 @@ subroutine AtmosDyn_calc_tendency( this, model_mesh, prgvars_list, auxvars_list 
   return  
 end subroutine AtmosDyn_calc_tendency
 
-subroutine AtmosDyn_update( this, model_mesh, prgvars_list, auxvars_list  )
+subroutine AtmosDyn_update( this, model_mesh, prgvars_list, auxvars_list, forcing_list )
   implicit none
   class(AtmosDynProc), intent(inout) :: this
   class(ModelMeshBase), intent(in) :: model_mesh
   class(ModelVarManager), intent(inout) :: prgvars_list
-  class(ModelVarManager), intent(inout) :: auxvars_list  
+  class(ModelVarManager), intent(inout) :: auxvars_list 
+  class(ModelVarManager), intent(inout) :: forcing_list
   !--------------------------------------------------
 
   LOG_INFO('AtmosDyn_update',*)

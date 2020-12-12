@@ -23,8 +23,11 @@ module mod_atmos_vars
     type(MeshField1D) :: V
     type(MeshField1D) :: T
     type(MeshField1D) :: P
+    type(MeshField1D) :: F_V
+    type(MeshField1D) :: F_T
     type(ModelVarManager) :: prgvars_list
     type(ModelVarManager) :: auxvars_list
+    type(ModelVarManager) :: forcing_list
   contains
     procedure :: Init => AtmosVars_Init
     procedure :: Final => AtmosVars_Final
@@ -34,6 +37,9 @@ module mod_atmos_vars
   integer, public, parameter :: ATMOSVARS_T_ID = 2
   
   integer, public, parameter :: ATMOSVARS_P_ID = 1
+
+  integer, public, parameter :: ATMOSVARS_F_V_ID = 1
+  integer, public, parameter :: ATMOSVARS_F_T_ID = 2
 
 contains
 
@@ -48,20 +54,29 @@ subroutine AtmosVars_Init( this, mesh )
   VariableInfo( ATMOSVARS_V_ID, "V", "velocity",    "m/s", 1, "X", ""), &
   VariableInfo( ATMOSVARS_T_ID, "T", "temperature", "K"  , 1, "X", "")  /
   
-    type(VariableInfo) :: VINFO_AUX(1)
+  type(VariableInfo) :: VINFO_AUX(1)
   DATA VINFO_AUX / &
     VariableInfo( ATMOSVARS_P_ID, "P", "pressure",    "Pa", 1, "X", "") /
+
+  type(VariableInfo) :: VINFO_FORCING(2)
+  DATA VINFO_FORCING / &
+    VariableInfo( ATMOSVARS_F_V_ID, "F_V", "forcing_V", "m/s2", 1, "X", ""), &
+    VariableInfo( ATMOSVARS_F_T_ID, "F_T", "forcing_T", "K/s",  1, "X", "") /
 
   !--------------------------------------------------
 
   LOG_INFO('AtmosVars_Init',*)
 
   call this%prgvars_list%Init()
-  call this%prgvars_list%Regist( VINFO_PRG(1), mesh%mesh, this%V, .false. )
-  call this%prgvars_list%Regist( VINFO_PRG(2), mesh%mesh, this%T, .false. )
+  call this%prgvars_list%Regist( VINFO_PRG(ATMOSVARS_V_ID), mesh%mesh, this%V, .false. )
+  call this%prgvars_list%Regist( VINFO_PRG(ATMOSVARS_T_ID), mesh%mesh, this%T, .false. )
 
   call this%auxvars_list%Init()
-  call this%auxvars_list%Regist( VINFO_AUX(1), mesh%mesh, this%P, .false. )
+  call this%auxvars_list%Regist( VINFO_AUX(ATMOSVARS_P_ID), mesh%mesh, this%P, .false. )
+
+  call this%forcing_list%Init()
+  call this%forcing_list%Regist( VINFO_FORCING(ATMOSVARS_F_V_ID), mesh%mesh, this%F_T, .false. )
+  call this%forcing_list%Regist( VINFO_FORCING(ATMOSVARS_F_T_ID), mesh%mesh, this%F_V, .false. )
   
   return
 end subroutine AtmosVars_Init
@@ -77,6 +92,7 @@ subroutine AtmosVars_Final( this )
 
   call this%prgvars_list%Final()
   call this%auxvars_list%Final()
+  call this%forcing_list%Final()
 
   return
 end subroutine AtmosVars_Final

@@ -18,14 +18,14 @@ module mod_dg_driver
   use scale_io
   use scale_prof
   use scale_prc
-
-  use mod_atmos_component, only: &
-    AtmosComponent
   
   use scale_file_history_meshfield, only: &
     FILE_HISTORY_meshfield_write
   use scale_file_history, only: &
     FILE_HISTORY_set_nowdate
+
+  use mod_atmos_component, only: &
+    AtmosComponent
 
   use mod_user, only: &
     USER_update, USER_calc_tendency
@@ -176,9 +176,12 @@ contains
 
     use scale_const, only: CONST_setup
     use scale_calendar, only: CALENDAR_setup
+    use scale_random, only: RANDOM_setup
+
     use scale_file_restart_meshfield, only: &
       FILE_restart_meshfield_setup
     use scale_time_manager, only: TIME_manager_Init
+    
     use mod_user, only: USER_setup    
     implicit none
 
@@ -199,6 +202,9 @@ contains
     ! setup calendar & initial time
     call CALENDAR_setup
     call TIME_manager_Init
+
+    ! setup random number
+    call RANDOM_setup
 
     ! setup a module for restart file
     call FILE_restart_meshfield_setup
