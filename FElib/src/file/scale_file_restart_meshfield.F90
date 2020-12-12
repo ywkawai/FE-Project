@@ -57,6 +57,7 @@ module scale_file_restart_meshfield
     character(len=H_MID) :: out_title
     character(len=H_SHORT) :: out_dtype
   end type FILE_restart_meshfield
+  type(FILE_restart_meshfield), public :: restart_file
 
   public :: FILE_restart_meshfield_setup
 
@@ -90,8 +91,6 @@ module scale_file_restart_meshfield
   !++ Private procedures
   !
   !-------------------
-
-  type(FILE_restart_meshfield) :: restart_file
 
 contains
 

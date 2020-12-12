@@ -232,6 +232,7 @@ subroutine Atmos_update( this )
   if ( this%dyn_proc%IsActivated() ) then
     tm_process_id = this%dyn_proc%tm_process_id
     if ( this%time_manager%Do_process( tm_process_id ) ) then
+      LOG_PROGRESS(*) 'atmosphere / dynamics'   
       do inner_itr=1, this%time_manager%Get_process_inner_itr_num( tm_process_id )
         call this%dyn_proc%update( &
           this%mesh, this%vars%PROGVARS_manager, this%vars%AUXVARS_manager, this%vars%PHYTENDS_manager )

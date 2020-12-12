@@ -448,8 +448,6 @@ contains
     character(len=H_SHORT) :: labl
     !--------------------------------------------------
     
-    LOG_PROGRESS(*) 'atmosphere / dynamics'
-
     call PROF_rapstart( 'ATM_DYN_update', 1)   
 
     call model_mesh%GetModelMesh( mesh )
