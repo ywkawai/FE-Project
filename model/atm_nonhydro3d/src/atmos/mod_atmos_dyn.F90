@@ -318,10 +318,11 @@ contains
         (/ ptr_mesh%refElem%Np, ptr_lcmesh%NeA /) )
     end do
 
-    !- initialize an object to manage boundary conditions and variables for dynamical process
+    !- initialize an object to manage boundary conditions
     call this%boundary_cond%Init()
     call this%boundary_cond%SetBCInfo( ptr_mesh )
 
+    !- initialize the variables 
     call this%dyn_vars%Init( model_mesh )
     call set_coriolis_parameter( this%dyn_vars, atm_mesh, CORIOLIS_type, CORIOLIS_f0, CORIOLIS_beta, CORIOLIS_y0 )
 
@@ -399,7 +400,7 @@ contains
     return  
   end subroutine AtmosDyn_setup
 
-  subroutine AtmosDyn_calc_tendency( this, model_mesh, prgvars_list, auxvars_list, forcing_list )
+  subroutine AtmosDyn_calc_tendency( this, model_mesh, prgvars_list, auxvars_list, forcing_list, is_update )
     implicit none
     
     class(AtmosDyn), intent(inout) :: this
@@ -407,7 +408,7 @@ contains
     class(ModelVarManager), intent(inout) :: prgvars_list
     class(ModelVarManager), intent(inout) :: auxvars_list
     class(ModelVarManager), intent(inout) :: forcing_list
-
+    logical, intent(in) :: is_update
     !--------------------------------------------------
     if (.not. this%IsActivated()) return
     !LOG_INFO('AtmosDyn_tendency',*)
@@ -415,7 +416,7 @@ contains
     return  
   end subroutine AtmosDyn_calc_tendency
 
-  subroutine AtmosDyn_update( this, model_mesh, prgvars_list, auxvars_list, forcing_list )
+  subroutine AtmosDyn_update( this, model_mesh, prgvars_list, auxvars_list, forcing_list, is_update )
 
     use scale_atm_dyn_modalfilter, only: &
       atm_dyn_modalfilter_apply
@@ -427,6 +428,7 @@ contains
     class(ModelVarManager), intent(inout) :: prgvars_list
     class(ModelVarManager), intent(inout) :: auxvars_list
     class(ModelVarManager), intent(inout) :: forcing_list
+    logical, intent(in) :: is_update
 
     integer :: rkstage
     integer :: tintbuf_ind

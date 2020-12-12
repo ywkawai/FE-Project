@@ -47,6 +47,7 @@ module scale_time_manager
   public :: TIME_manager_Regist_component
   public :: TIME_manager_checkstate
   public :: TIME_manager_advance
+  public :: TIME_manager_report_timeintervals
 
   
   type :: TIME_manager_process
@@ -55,6 +56,7 @@ module scale_time_manager
     integer :: res_step
     logical :: do_step
     integer :: inner_itr_num
+    character(len=H_SHORT) :: process_name
   contains
     procedure, public :: Init => TIME_manager_process_Init
     procedure, public :: Check_state => TIME_manager_process_checkstate
@@ -72,6 +74,7 @@ module scale_time_manager
     integer :: dstep_restart
     integer :: res_step_restart
     logical :: do_restart
+    character(len=H_SHORT) :: comp_name
     !--
     type(TIME_manager_process) :: process_list(TIME_MANAGER_PROCESS_MAX_NUM)
     integer :: process_num
@@ -103,8 +106,6 @@ module scale_time_manager
   logical, public :: TIME_DOend
 
   real(DP), public :: TIME_DTSEC_RESUME
-
-  ! integer, public :: TIME_DTSEC_RESUME
   integer, public :: TIME_DSTEP_RESUME
 
   public :: TIME_STARTDAYSEC
@@ -405,10 +406,12 @@ contains
     use scale_calendar, only: CALENDAR_date2char    
     implicit none
 
-    character(len=27) :: nowchardate
     integer :: n
     type(TIME_manager_component), pointer :: tm_comp
 
+    real(DP)          :: WALLCLOCK_elapse
+    character(len=27) :: nowchardate
+    logical           :: TO_STDOUT
     !---------------------------------------------------------------------------
 
     do n=1, TIME_MANAGER_COMPONENT_num
@@ -424,14 +427,76 @@ contains
       TIME_RES_RESUME =  0
     end if
 
-    if (mod(TIME_NOWSTEP-1, 1000) == 0) then
-      call CALENDAR_date2char( nowchardate,                       & ! [OUT]
-                              TIME_NOWDATE(:), TIME_NOWSUBSEC     ) ! [IN]    
-      LOG_PROGRESS('(1x,2A,2(A,I7),A,F10.1)') 'TIME: ', nowchardate,' STEP:',TIME_NOWSTEP, '/', TIME_NSTEP
-    end if
+    !----
+
+    TO_STDOUT = .false.
+    if ( IO_STEP_TO_STDOUT > 0 ) then
+       if( mod(TIME_NOWSTEP-1,IO_STEP_TO_STDOUT) == 0 ) TO_STDOUT = .true.
+    endif
+
+    call CALENDAR_date2char( nowchardate,     & ! [OUT]
+                             TIME_NOWDATE(:), & ! [IN]
+                             TIME_NOWSUBSEC   ) ! [IN]
+
+    WALLCLOCK_elapse = PRC_MPItime() - TIME_WALLCLOCK_START
+
+    LOG_NEWLINE
+    if ( TIME_WALLCLOCK_LIMIT > 0.0_DP ) then
+       LOG_PROGRESS('(1x,2A,2(A,I7),2(A,F10.1))') 'TIME: ', nowchardate,' STEP:',TIME_NOWSTEP, '/', TIME_NSTEP, &
+                                                                 ' WCLOCK:', WALLCLOCK_elapse, '/', TIME_WALLCLOCK_safelim
+       if ( PRC_UNIVERSAL_IsMaster .AND. TO_STDOUT ) then ! universal master node
+          write(*,'(1x,2A,2(A,I7),2(A,F10.1))') 'TIME: ', nowchardate,' STEP:',TIME_NOWSTEP, '/', TIME_NSTEP, &
+                                                ' WCLOCK:', WALLCLOCK_elapse, '/', TIME_WALLCLOCK_safelim
+       endif
+    else
+       LOG_PROGRESS('(1x,2A,2(A,I7),A,F10.1)') 'TIME: ', nowchardate,' STEP:',TIME_NOWSTEP, '/', TIME_NSTEP, &
+                                                              ' WCLOCK:', WALLCLOCK_elapse
+       if ( PRC_UNIVERSAL_IsMaster .AND. TO_STDOUT ) then ! universal master node
+          write(*,'(1x,2A,2(A,I7),A,F10.1)') 'TIME: ', nowchardate,' STEP:',TIME_NOWSTEP, '/', TIME_NSTEP, &
+                                             ' WCLOCK:', WALLCLOCK_elapse
+       endif
+    endif
 
     return
   end subroutine TIME_manager_checkstate
+
+  subroutine TIME_manager_report_timeintervals()    
+    implicit none
+
+    integer :: n, p
+    type(TIME_manager_component), pointer :: tm_comp
+    type(TIME_manager_process), pointer :: tm_process
+    !-------------------------------------------------------------------
+
+    LOG_NEWLINE
+    LOG_INFO("TIME_manager_report_timeintervals",*) 'Time interval for each component (sec.)'
+
+    do n=1, TIME_MANAGER_COMPONENT_num
+      tm_comp => time_manager_comp_ptr_list(n)%ptr
+      LOG_INFO_CONT(*) trim(tm_comp%comp_name)
+      do p=1, tm_comp%process_num
+        tm_process => tm_comp%process_list(p)
+        LOG_INFO_CONT('(1x,A,F10.3)')        trim(tm_process%process_name)//' (time)             : ', tm_process%dtsec
+        if (tm_process%inner_itr_num > 1) then
+          LOG_INFO_CONT('(1x,A,I10)') ' (step)             : ', tm_process%inner_itr_num 
+        end if
+        LOG_INFO_CONT('(1x,A,I8,A)')  ' (step interval=', tm_process%dstep,    ')' 
+      end do
+    end do
+
+    LOG_NEWLINE
+    LOG_INFO_CONT(*)                     'Time interval for restart (sec.)'
+
+    do n=1, TIME_MANAGER_COMPONENT_num
+      tm_comp => time_manager_comp_ptr_list(n)%ptr
+      LOG_INFO_CONT('(1x,A,F10.3,A,I8,A)') trim(tm_comp%comp_name)//' variables       : ', tm_comp%dtsec_restart, &
+                                         ' (step interval=', tm_comp%dstep_restart, ')'
+    end do
+    LOG_INFO_CONT('(1x,A,F10.3,A,I8,A)') 'Resume                      : ', TIME_DTSEC_RESUME, &
+    ' (step interval=', TIME_DSTEP_RESUME,        ')'
+
+    return
+  end subroutine TIME_manager_report_timeintervals
 
   subroutine TIME_manager_Regist_component( tmanager_comp )
     implicit none
@@ -466,6 +531,7 @@ contains
     this%process_num = 0
     this%res_step = 0
     this%res_step_restart = 0
+    this%comp_name = comp_name
 
     !--
     if (.not. setup_tinteg_flag) return
@@ -513,10 +579,6 @@ contains
 
     integer :: n
     type(TIME_manager_process), pointer :: tm_process
-
-    real(DP)          :: WALLCLOCK_elapse
-    character(len=27) :: nowchardate
-    logical           :: TO_STDOUT
     !--------------------------------------------------
 
     this%do_step = .false.      
@@ -543,36 +605,6 @@ contains
       this%do_restart = .true.
       this%res_step_restart = 0
     end if  
-
-    !----
-
-    TO_STDOUT = .false.
-    if ( IO_STEP_TO_STDOUT > 0 ) then
-       if( mod(TIME_NOWSTEP-1,IO_STEP_TO_STDOUT) == 0 ) TO_STDOUT = .true.
-    endif
-
-    call CALENDAR_date2char( nowchardate,     & ! [OUT]
-                             TIME_NOWDATE(:), & ! [IN]
-                             TIME_NOWSUBSEC   ) ! [IN]
-
-    WALLCLOCK_elapse = PRC_MPItime() - TIME_WALLCLOCK_START
-
-    LOG_NEWLINE
-    if ( TIME_WALLCLOCK_LIMIT > 0.0_DP ) then
-       LOG_PROGRESS('(1x,2A,2(A,I7),2(A,F10.1))') 'TIME: ', nowchardate,' STEP:',TIME_NOWSTEP, '/', TIME_NSTEP, &
-                                                                 ' WCLOCK:', WALLCLOCK_elapse, '/', TIME_WALLCLOCK_safelim
-       if ( PRC_UNIVERSAL_IsMaster .AND. TO_STDOUT ) then ! universal master node
-          write(*,'(1x,2A,2(A,I7),2(A,F10.1))') 'TIME: ', nowchardate,' STEP:',TIME_NOWSTEP, '/', TIME_NSTEP, &
-                                                ' WCLOCK:', WALLCLOCK_elapse, '/', TIME_WALLCLOCK_safelim
-       endif
-    else
-       LOG_PROGRESS('(1x,2A,2(A,I7),A,F10.1)') 'TIME: ', nowchardate,' STEP:',TIME_NOWSTEP, '/', TIME_NSTEP, &
-                                                              ' WCLOCK:', WALLCLOCK_elapse
-       if ( PRC_UNIVERSAL_IsMaster .AND. TO_STDOUT ) then ! universal master node
-          write(*,'(1x,2A,2(A,I7),A,F10.1)') 'TIME: ', nowchardate,' STEP:',TIME_NOWSTEP, '/', TIME_NSTEP, &
-                                             ' WCLOCK:', WALLCLOCK_elapse
-       endif
-    endif
 
     return
   end subroutine TIME_manager_component_checkstate
@@ -654,6 +686,7 @@ contains
     !--------------------------------------------------
 
     this%res_step = 0
+    this%process_name = process_name
 
     if (.not. setup_tinteg_flag) return
 

@@ -48,7 +48,7 @@ module scale_model_component_proc
       class(TIME_manager_component), intent(inout) :: tm_parent_comp
     end subroutine ModelComponentProc_setup
 
-    subroutine ModelComponentProc_calc_tendency( this, model_mesh, prgvars_list, auxvars_list, forcing_list )
+    subroutine ModelComponentProc_calc_tendency( this, model_mesh, prgvars_list, auxvars_list, forcing_list, is_update )
       import ModelComponentProc
       import ModelMeshBase
       import ModelVarManager      
@@ -57,9 +57,10 @@ module scale_model_component_proc
       class(ModelVarManager), intent(inout) :: prgvars_list
       class(ModelVarManager), intent(inout) :: auxvars_list         
       class(ModelVarManager), intent(inout) :: forcing_list 
+      logical, intent(in) :: is_update
     end subroutine ModelComponentProc_calc_tendency
 
-    subroutine ModelComponentProc_update( this, model_mesh, prgvars_list, auxvars_list, forcing_list )
+    subroutine ModelComponentProc_update( this, model_mesh, prgvars_list, auxvars_list, forcing_list, is_update )
       import ModelComponentProc
       import ModelMeshBase
       import ModelVarManager
@@ -68,6 +69,7 @@ module scale_model_component_proc
       class(ModelVarManager), intent(inout) :: prgvars_list
       class(ModelVarManager), intent(inout) :: auxvars_list
       class(ModelVarManager), intent(inout) :: forcing_list
+      logical, intent(in) :: is_update
     end subroutine ModelComponentProc_update
 
     subroutine ModelComponentProc_finalize( this )

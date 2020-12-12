@@ -74,12 +74,12 @@ module mod_atmos_dyn_vars
     VariableInfo( ATMOS_DYN_AUXVARS2D_CORIOLIS_ID, 'CORIOLIS', 'coriolis parameter',  &
                   's-1',  2, 'XY',  ''                                             )  / 
 
-  integer, public, parameter :: ATMOS_DYN_NUMDIFF_FLUX_NUM       = 3
+  integer, public, parameter :: ATMOS_DYN_NUMDIFF_FLUX_NUM   = 3
   integer, public, parameter :: ATMOS_DYN_NUMDIFFFLX_X_ID    = 1
   integer, public, parameter :: ATMOS_DYN_NUMDIFFFLX_Y_ID    = 2
   integer, public, parameter :: ATMOS_DYN_NUMDIFFFLX_Z_ID    = 3
 
-  integer, public, parameter :: ATMOS_DYN_NUMDIFF_TEND_NUM       = 2
+  integer, public, parameter :: ATMOS_DYN_NUMDIFF_TEND_NUM   = 2
   integer, public, parameter :: ATMOS_DYN_NUMDIFF_LAPLAH_ID  = 1
   integer, public, parameter :: ATMOS_DYN_NUMDIFF_LAPLAV_ID  = 2
 
