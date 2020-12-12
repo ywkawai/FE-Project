@@ -95,7 +95,7 @@ contains
     ! setup Log
     call IO_LOG_setup( myrank, ismaster )
  
-    call initialize()
+    call initialize
 
     !###########################################################################
  
@@ -110,18 +110,18 @@ contains
       !*******************************************
 
       ! report current time
-      call TIME_manager_checkstate()
+      call TIME_manager_checkstate
   
       if (TIME_DOresume) then
         ! set state from restart file
-        call restart_read()
+        call restart_read
         ! history & monitor file output        
-        call FILE_HISTORY_meshfield_write()
+        call FILE_HISTORY_meshfield_write
       end if
 
       !* Advance time *********************************
 
-      call TIME_manager_advance()
+      call TIME_manager_advance
       call FILE_HISTORY_set_nowdate( TIME_NOWDATE, TIME_NOWSUBSEC, TIME_NOWSTEP )
 
       !* change to next state *************************
@@ -132,10 +132,10 @@ contains
       end if
 
       !- USER
-      call USER_update()
+      call USER_update
 
       !* restart and monitor output *******************
-      call restart_write()
+      call restart_write
 
       !* calc tendencies and diagnostices *************
 
@@ -145,13 +145,13 @@ contains
       end if
 
       !- USER 
-      call USER_calc_tendency()
+      call USER_calc_tendency
   
       !* output history files *************************
 
       if ( atmos%IsActivated() ) call atmos%vars%History()
 
-      call FILE_HISTORY_meshfield_write()
+      call FILE_HISTORY_meshfield_write
       
       !*******************************************
       if (TIME_DOend) exit
@@ -165,7 +165,7 @@ contains
     LOG_NEWLINE
 
     !########## Finalize ##########
-    call finalize()    
+    call finalize
 
     return
   end subroutine dg_driver
@@ -179,6 +179,7 @@ contains
     use scale_random, only: RANDOM_setup
 
     use scale_file_restart_meshfield, only: &
+      restart_file,                         &
       FILE_restart_meshfield_setup
     use scale_time_manager, only: TIME_manager_Init
     
@@ -201,13 +202,15 @@ contains
 
     ! setup calendar & initial time
     call CALENDAR_setup
-    call TIME_manager_Init
 
     ! setup random number
     call RANDOM_setup
 
     ! setup a module for restart file
     call FILE_restart_meshfield_setup
+    call TIME_manager_Init( &
+      setup_TimeIntegration = .true.,                   &
+      restart_in_basename   =  restart_file%in_basename )
 
     ! setup submodels
     call  atmos%setup()
@@ -220,8 +223,10 @@ contains
   end subroutine initialize
 
   subroutine finalize()
-    use scale_file_history_meshfield, only: FILE_HISTORY_meshfield_finalize
-    use scale_time_manager, only: TIME_manager_Final   
+    use scale_file_history_meshfield, only: &
+      FILE_HISTORY_meshfield_finalize
+    use scale_time_manager, only: &
+      TIME_manager_Final   
     implicit none
     
     !----------------------------------------------
@@ -229,16 +234,16 @@ contains
     call PROF_rapstart('All', 1)
 
     !-
-    call FILE_HISTORY_meshfield_finalize()
+    call FILE_HISTORY_meshfield_finalize
 
     ! finalization submodels
     call  atmos%finalize()
 
     !-
-    call TIME_manager_Final()
+    call TIME_manager_Final
 
     call PROF_rapend  ('All', 1)
-    call PROF_rapreport()
+    call PROF_rapreport
 
     return
   end subroutine finalize

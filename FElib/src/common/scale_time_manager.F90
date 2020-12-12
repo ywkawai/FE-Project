@@ -11,23 +11,28 @@ module scale_time_manager
   use scale_io
   
   use scale_time, only: &
-    TIME_STARTDAYSEC, &
-    TIME_NOWDATE,     &
-    TIME_NOWDAY,      &
-    TIME_NOWDAYSEC,   &           
-    TIME_NOWSEC,      &
-    TIME_NOWSTEP,     &
-    TIME_NOWSUBSEC,   &
-    TIME_NSTEP,       &
-    TIME_DTSEC,       &
-    TIME_OFFSET_YEAR
+    TIME_STARTDAYSEC,           &
+    TIME_NOWDATE,               &
+    TIME_NOWDAY,                &
+    TIME_NOWDAYSEC,             &               
+    TIME_NOWSEC,                &
+    TIME_NOWSUBSEC,             &
+    TIME_NOWSTEP,               &   
+    TIME_NSTEP,                 &
+    TIME_DTSEC,                 &
+    TIME_OFFSET_YEAR,           &
+    TIME_DTSEC_WALLCLOCK_CHECK, &
+    TIME_DSTEP_WALLCLOCK_CHECK
+
   
   use scale_calendar, only: &
     CALENDAR_date2daysec,    &
     CALENDAR_daysec2date,    &
     CALENDAR_combine_daysec, &
     CALENDAR_adjust_daysec,  &
-    CALENDAR_unit2sec
+    CALENDAR_unit2sec,       &
+    CALENDAR_CFunits2sec,    &
+    CALENDAR_date2char
 
   !-----------------------------------------------------------------------------
   implicit none
@@ -83,13 +88,14 @@ module scale_time_manager
   !
   !++ Public parameters & variables
   !
-  integer, public :: TIME_STARTDATE(6) = (/ 0, 1, 1, 0, 0, 0 /)
+  integer, public :: TIME_STARTDATE(6) = (/ -999, 1, 1, 0, 0, 0 /)
   real(DP), public :: TIME_STARTMS     = 0.0_DP !< [millisec]
+  real(DP), public :: TIME_STARTSUBSEC
   integer, public :: TIME_STARTDAY
   real(DP), public :: TIME_STARTSEC
 
   integer, public  :: TIME_ENDDATE(6)
-  real(DP), public :: TIME_ENDMS
+  real(DP), public :: TIME_ENDSUBSEC
   integer, public  :: TIME_ENDDAY
   real(DP), public :: TIME_ENDSEC
 
@@ -129,6 +135,7 @@ module scale_time_manager
 
   real(DP), private, parameter :: eps = 1.E-6_DP !> epsilon for timesec
 
+
   integer, private, parameter :: TIME_MANAGER_COMPONENT_MAX_NUM = 20
   type TIME_manager_component_ptr
     type(TIME_manager_component), pointer :: ptr
@@ -140,19 +147,28 @@ module scale_time_manager
 
 contains
 
-  subroutine TIME_manager_Init( setup_TimeIntegration )
+  subroutine TIME_manager_Init( &
+      setup_TimeIntegration,    &
+      restart_in_basename       )
+
+    use scale_file, only: &
+      FILE_Get_Attribute
+
     implicit none
 
     logical, intent(in), optional :: setup_TimeIntegration
+    character(len=*), intent(in), optional :: restart_in_basename
     
     real(DP)               :: TIME_DURATION                = UNDEF8
     character(len=H_SHORT) :: TIME_DURATION_UNIT           = "SEC"
     real(DP)               :: TIME_DT                      = UNDEF8
     character(len=H_SHORT) :: TIME_DT_UNIT                 = "SEC"
-    real(DP) :: TIME_DURATIONSEC
 
     real(DP)               :: TIME_DT_RESUME               = UNDEF8
     character(len=H_SHORT) :: TIME_DT_RESUME_UNIT          = ""
+
+    real(DP)               :: TIME_DT_WALLCLOCK_CHECK      = UNDEF8
+    character(len=H_SHORT) :: TIME_DT_WALLCLOCK_CHECK_UNIT = ""
 
     namelist /PARAM_TIME/ &
        TIME_STARTDATE,               &
@@ -162,8 +178,21 @@ contains
        TIME_DT,                      &
        TIME_DT_UNIT,                 &
        TIME_DT_RESUME,               &
-       TIME_DT_RESUME_UNIT       
+       TIME_DT_RESUME_UNIT,          &
+       TIME_DT_WALLCLOCK_CHECK,      &
+       TIME_DT_WALLCLOCK_CHECK_UNIT, &
+       TIME_WALLCLOCK_LIMIT,         &
+       TIME_WALLCLOCK_SAFE
 
+    integer              :: dateday
+    real(DP)             :: datesec
+    real(DP)             :: cftime(1)
+    character(len=H_MID) :: cfunits
+   
+    real(DP)          :: TIME_DURATIONSEC
+    character(len=27) :: startchardate
+    character(len=27) :: endchardate
+   
     integer :: ierr
     integer :: n
     !---------------------------------------------------------------------------
@@ -207,22 +236,83 @@ contains
       endif
     end if
 
-    !--
+    !--- calculate time
+    if ( TIME_STARTDATE(1) == -999 ) then
+      if ( present(restart_in_basename) ) then
+        if ( restart_in_basename /= '' ) then ! read start time from the restart data
+          call FILE_Get_Attribute( RESTART_IN_BASENAME, & ! [IN]
+                                   "global",            & ! [IN]
+                                   'time_start',        & ! [IN]
+                                   cftime(:),           & ! [OUT]
+                                   rankid = PRC_myrank, & ! [IN]
+                                   single = .false.     ) ! [IN]
+
+          call FILE_Get_Attribute( RESTART_IN_BASENAME, & ! [IN]
+                                   "global",            & ! [IN]
+                                   'time_units',        & ! [IN]
+                                   cfunits,             & ! [OUT]
+                                   rankid = PRC_myrank, & ! [IN]
+                                   single = .false.     ) ! [IN]
+
+         dateday = 0
+         datesec = CALENDAR_CFunits2sec( cftime(1), cfunits, 0 )
+
+         call CALENDAR_adjust_daysec( dateday, datesec )
+
+         call CALENDAR_daysec2date( TIME_STARTDATE,   & ! [OUT]
+                                    TIME_STARTSUBSEC, & ! [OUT]
+                                    dateday,          & ! [IN]
+                                    datesec,          & ! [IN]
+                                    0                 ) ! [IN]
+        end if
+      else
+         TIME_STARTDATE   = (/ 0, 1, 1, 0, 0, 0 /)
+         TIME_STARTSUBSEC = 0.0_DP
+      endif
+    else
+      TIME_STARTSUBSEC = TIME_STARTMS * 1.E-3_DP
+    endif
+
     TIME_OFFSET_YEAR = TIME_STARTDATE(1)
     
     call CALENDAR_date2daysec( TIME_STARTDAY, TIME_STARTSEC,                        & ! [OUT]
                                TIME_STARTDATE(:), TIME_STARTMS,  TIME_OFFSET_YEAR   ) ! [IN]
 
+    call CALENDAR_date2char( startchardate,                        & ! [OUT]
+                             TIME_STARTDATE(:), TIME_STARTSUBSEC   ) ! [IN]
+  
     TIME_STARTDAYSEC  = CALENDAR_combine_daysec( TIME_STARTDAY, TIME_STARTSEC )
+
     TIME_NOWDATE(:)   = TIME_STARTDATE(:)
     TIME_NOWSUBSEC    = TIME_STARTMS
+    TIME_NOWDAY       = TIME_STARTDAY
+    TIME_NOWSEC       = TIME_STARTSEC
+    TIME_NOWDAYSEC    = CALENDAR_combine_daysec( TIME_NOWDAY, TIME_NOWSEC )
 
+    TIME_ENDDAY       = TIME_STARTDAY
     if (setup_tinteg_flag) then
       call CALENDAR_unit2sec( TIME_DURATIONSEC, TIME_DURATION, TIME_DURATION_UNIT )
       TIME_ENDSEC = TIME_STARTSEC + TIME_DURATIONSEC
     else
       TIME_ENDSEC = TIME_STARTSEC
     end if
+
+    call CALENDAR_adjust_daysec( TIME_ENDDAY, TIME_ENDSEC ) ! [INOUT]
+
+    call CALENDAR_daysec2date( TIME_ENDDATE(:), & ! [OUT]
+                               TIME_ENDSUBSEC,  & ! [OUT]
+                               TIME_ENDDAY,     & ! [IN]
+                               TIME_ENDSEC,     & ! [IN]
+                               TIME_OFFSET_YEAR ) ! [IN]
+
+    call CALENDAR_date2char( endchardate,     & ! [OUT]
+                             TIME_ENDDATE(:), & ! [IN]
+                             TIME_ENDSUBSEC   ) ! [IN]
+
+    LOG_NEWLINE
+    LOG_INFO("TIME_manager_setup",*) 'Global date / time setting '
+    LOG_INFO_CONT('(1x,A,A)') 'START Date     : ', startchardate
+    LOG_INFO_CONT('(1x,A,A)') 'END   Date     : ', endchardate
 
     if (setup_tinteg_flag) then
       call CALENDAR_unit2sec( TIME_DTSEC, TIME_DT, TIME_DT_UNIT )
@@ -242,6 +332,35 @@ contains
       nullify( time_manager_comp_ptr_list(n)%ptr )
     end do
     
+    !--
+    TIME_WALLCLOCK_START = PRC_MPItime()
+
+    if ( TIME_WALLCLOCK_LIMIT > 0.0_DP ) then
+      LOG_NEWLINE
+      LOG_INFO("TIME_manager_setup",*) 'Wall clock time limit of execution is specified.'
+
+      if ( TIME_DT_WALLCLOCK_CHECK == UNDEF8 ) then
+        LOG_INFO_CONT(*) 'Not found TIME_DT_WALLCLOCK_CHECK. TIME_DT is used.'
+        TIME_DTSEC_WALLCLOCK_CHECK = TIME_DTSEC
+     else
+        if ( TIME_DT_WALLCLOCK_CHECK_UNIT == '' ) then
+           LOG_INFO_CONT(*) 'Not found TIME_DT_WALLCLOCK_CHECK_UNIT. TIME_DURATION_UNIT is used.'
+           TIME_DT_WALLCLOCK_CHECK_UNIT = TIME_DURATION_UNIT
+        endif
+        call CALENDAR_unit2sec( TIME_DTSEC_WALLCLOCK_CHECK, TIME_DT_WALLCLOCK_CHECK, TIME_DT_WALLCLOCK_CHECK_UNIT )
+        TIME_DTSEC_WALLCLOCK_CHECK = max( TIME_DTSEC_WALLCLOCK_CHECK, TIME_DTSEC )
+     endif
+
+     TIME_DSTEP_WALLCLOCK_CHECK = int( TIME_DTSEC_WALLCLOCK_CHECK / TIME_DTSEC )
+
+     TIME_WALLCLOCK_SAFE    = max( min( TIME_WALLCLOCK_SAFE, 1.0_DP ), 0.0_DP )
+     TIME_WALLCLOCK_safelim = TIME_WALLCLOCK_LIMIT * TIME_WALLCLOCK_SAFE
+
+     LOG_INFO_CONT('(1x,A,F10.1,A)')      'This job stops after ', TIME_WALLCLOCK_safelim, ' seconds.'
+     LOG_INFO_CONT('(1x,A,F10.3,A,I8,A)') 'Time interval for check     : ', TIME_DTSEC_WALLCLOCK_CHECK, &
+                                          ' (step interval=', TIME_DSTEP_WALLCLOCK_CHECK, ')'
+    end if
+
     return
   end subroutine TIME_manager_Init
 
@@ -394,6 +513,10 @@ contains
 
     integer :: n
     type(TIME_manager_process), pointer :: tm_process
+
+    real(DP)          :: WALLCLOCK_elapse
+    character(len=27) :: nowchardate
+    logical           :: TO_STDOUT
     !--------------------------------------------------
 
     this%do_step = .false.      
@@ -420,6 +543,36 @@ contains
       this%do_restart = .true.
       this%res_step_restart = 0
     end if  
+
+    !----
+
+    TO_STDOUT = .false.
+    if ( IO_STEP_TO_STDOUT > 0 ) then
+       if( mod(TIME_NOWSTEP-1,IO_STEP_TO_STDOUT) == 0 ) TO_STDOUT = .true.
+    endif
+
+    call CALENDAR_date2char( nowchardate,     & ! [OUT]
+                             TIME_NOWDATE(:), & ! [IN]
+                             TIME_NOWSUBSEC   ) ! [IN]
+
+    WALLCLOCK_elapse = PRC_MPItime() - TIME_WALLCLOCK_START
+
+    LOG_NEWLINE
+    if ( TIME_WALLCLOCK_LIMIT > 0.0_DP ) then
+       LOG_PROGRESS('(1x,2A,2(A,I7),2(A,F10.1))') 'TIME: ', nowchardate,' STEP:',TIME_NOWSTEP, '/', TIME_NSTEP, &
+                                                                 ' WCLOCK:', WALLCLOCK_elapse, '/', TIME_WALLCLOCK_safelim
+       if ( PRC_UNIVERSAL_IsMaster .AND. TO_STDOUT ) then ! universal master node
+          write(*,'(1x,2A,2(A,I7),2(A,F10.1))') 'TIME: ', nowchardate,' STEP:',TIME_NOWSTEP, '/', TIME_NSTEP, &
+                                                ' WCLOCK:', WALLCLOCK_elapse, '/', TIME_WALLCLOCK_safelim
+       endif
+    else
+       LOG_PROGRESS('(1x,2A,2(A,I7),A,F10.1)') 'TIME: ', nowchardate,' STEP:',TIME_NOWSTEP, '/', TIME_NSTEP, &
+                                                              ' WCLOCK:', WALLCLOCK_elapse
+       if ( PRC_UNIVERSAL_IsMaster .AND. TO_STDOUT ) then ! universal master node
+          write(*,'(1x,2A,2(A,I7),A,F10.1)') 'TIME: ', nowchardate,' STEP:',TIME_NOWSTEP, '/', TIME_NSTEP, &
+                                             ' WCLOCK:', WALLCLOCK_elapse
+       endif
+    endif
 
     return
   end subroutine TIME_manager_component_checkstate
@@ -512,7 +665,7 @@ contains
     end if
 
     this%inner_itr_num = max( nint(TIME_DTSEC/this%dtsec), 1 )
-    this%dstep = nint( this%dtsec / TIME_DTSEC * this%inner_itr_num )
+    this%dstep = nint( this%dtsec / TIME_DTSEC * dble(this%inner_itr_num) )
 
     if ( abs(  real(this%inner_itr_num, kind=DP)*this%dtsec         &
              - real(this%dstep         ,kind=DP)*TIME_DTSEC          ) > eps ) then
