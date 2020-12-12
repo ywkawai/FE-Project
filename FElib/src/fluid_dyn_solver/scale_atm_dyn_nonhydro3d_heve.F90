@@ -278,47 +278,48 @@ contains
     do i=1, elem%NfpTot*lmesh%Ne
       iM = vmapM(i); iP = vmapP(i)
 
-      rhot_hyd_M = PRES00/Rdry * (PRES_hyd(iM)/PRES00)**rgamm
-      rhot_hyd_P = PRES00/Rdry * (PRES_hyd(iP)/PRES00)**rgamm
+      rhot_hyd_M = PRES00 / Rdry * (PRES_hyd(iM) / PRES00)**rgamm
+      rhot_hyd_P = PRES00 / Rdry * (PRES_hyd(iP) / PRES00)**rgamm
       
       rhotM = rhot_hyd_M + DRHOT_(iM)
-      presM = PRES00 * (Rdry*rhotM/PRES00)**gamm
-      dpresM = presM - PRES_hyd(iM)*abs(nz(i))
+      presM = PRES00 * (Rdry * rhotM / PRES00)**gamm
+      dpresM = presM - PRES_hyd(iM) * abs(nz(i))
 
       rhotP = rhot_hyd_P + DRHOT_(iP) 
       presP = PRES00 * (Rdry*rhotP/PRES00)**gamm
-      dpresP = presP - PRES_hyd(iP)*abs(nz(i))
+      dpresP = presP - PRES_hyd(iP) * abs(nz(i))
 
       densM = DDENS_(iM) + DENS_hyd(iM)
       densP = DDENS_(iP) + DENS_hyd(iP)
 
-      VelM = (MOMX_(iM)*nx(i) + MOMY_(iM)*ny(i) + MOMZ_(iM)*nz(i))/densM
-      VelP = (MOMX_(iP)*nx(i) + MOMY_(iP)*ny(i) + MOMZ_(iP)*nz(i))/densP
+      VelM = ( MOMX_(iM) * nx(i) + MOMY_(iM) * ny(i) + MOMZ_(iM) * nz(i) ) / densM
+      VelP = ( MOMX_(iP) * nx(i) + MOMY_(iP) * ny(i) + MOMZ_(iP) * nz(i) ) / densP
 
-      alpha = max( sqrt(gamm*presM/densM) + abs(VelM), sqrt(gamm*presP/densP) + abs(VelP)  )
+      alpha = max( sqrt(gamm*presM/densM) + abs(VelM), &
+                   sqrt(gamm*presP/densP) + abs(VelP)  )
       
-      del_flux(i,VARS_DDENS_ID) = 0.5_RP*(               &
-                    ( densP*VelP - densM*VelM )          &
-                    - alpha*(DDENS_(iP) - DDENS_(iM))   )
+      del_flux(i,VARS_DDENS_ID) = 0.5_RP * (             &
+                    ( densP * VelP - densM * VelM )      &
+                    - alpha * (DDENS_(iP) - DDENS_(iM))  )
       
-      del_flux(i,VARS_MOMX_ID) = 0.5_RP*(                &
-                    ( MOMX_(iP)*VelP - MOMX_(iM)*VelM )  &
-                    + ( dpresP - dpresM )*nx(i)          &
-                    - alpha*(MOMX_(iP) - MOMX_(iM))      )
+      del_flux(i,VARS_MOMX_ID) = 0.5_RP*(                    &
+                    ( MOMX_(iP) * VelP - MOMX_(iM) * VelM )  &
+                    + ( dpresP - dpresM ) * nx(i)            &
+                    - alpha * (MOMX_(iP) - MOMX_(iM))        )
       
-      del_flux(i,VARS_MOMY_ID) = 0.5_RP*(                &
-                    ( MOMY_(iP)*VelP - MOMY_(iM)*VelM )  &
-                    + ( dpresP - dpresM )*ny(i)          &
-                    - alpha*(MOMY_(iP) - MOMY_(iM))      )               
+      del_flux(i,VARS_MOMY_ID) = 0.5_RP * (                  &
+                    ( MOMY_(iP) * VelP - MOMY_(iM) * VelM )  &
+                    + ( dpresP - dpresM ) * ny(i)            &
+                    - alpha * (MOMY_(iP) - MOMY_(iM))        )               
       
-      del_flux(i,VARS_MOMZ_ID) = 0.5_RP*(                &
-                    ( MOMZ_(iP)*VelP - MOMZ_(iM)*VelM)   &
-                    + ( dpresP - dpresM )*nz(i)          &                    
-                    - alpha*(MOMZ_(iP) - MOMZ_(iM))      )
+      del_flux(i,VARS_MOMZ_ID) = 0.5_RP * (                  &
+                    ( MOMZ_(iP) * VelP - MOMZ_(iM) * VelM)   &
+                    + ( dpresP - dpresM ) * nz(i)            &                    
+                    - alpha * (MOMZ_(iP) - MOMZ_(iM))        )
       
-      del_flux(i,VARS_DRHOT_ID) = 0.5_RP*(               &
-                      ( rhotP*VelP - rhotM*VelM )        &
-                    - alpha*(DRHOT_(iP) - DRHOT_(iM))    )
+      del_flux(i,VARS_DRHOT_ID) = 0.5_RP * (                 &
+                    ( rhotP * VelP - rhotM * VelM )          &
+                    - alpha * (DRHOT_(iP) - DRHOT_(iM))      )
     end do
 
     return
