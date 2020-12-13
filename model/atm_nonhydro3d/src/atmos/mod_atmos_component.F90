@@ -253,6 +253,9 @@ subroutine Atmos_update( this )
 
   !########## Reference State ###########
 
+  !#### Check values #################################
+  call this%vars%Check()
+
   call PROF_rapend( 'ATM_update', 1)
   return  
 end subroutine Atmos_update

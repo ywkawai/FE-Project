@@ -183,14 +183,16 @@ contains
     use scale_random, only: RANDOM_setup
     use scale_time_manager, only: TIME_DTSEC
 
+    use scale_time_manager, only:           &
+      TIME_manager_Init,                    &
+      TIME_manager_report_timeintervals
+    use scale_meshfield_statistics, only:   &
+      MeshField_statistics_setup
     use scale_file_restart_meshfield, only: &
       restart_file,                         &
       FILE_restart_meshfield_setup
     use scale_file_monitor_meshfield, only: &
       FILE_monitor_meshfield_setup  
-    use scale_time_manager, only: &
-      TIME_manager_Init,               &
-      TIME_manager_report_timeintervals
     
     use mod_user, only: USER_setup    
     implicit none
@@ -221,14 +223,15 @@ contains
       setup_TimeIntegration = .true.,                   &
       restart_in_basename   =  restart_file%in_basename )
 
+    ! setup statistics
+    call MeshField_statistics_setup
+
     ! setup monitor
     call FILE_monitor_meshfield_setup( TIME_DTSEC )
 
     ! setup submodels
     call  atmos%setup()
 
-
-  
     call USER_setup( atmos )
 
     !
@@ -293,7 +296,7 @@ contains
 
     if ( atmos%isActivated() ) then
       call atmos%vars%History()
-      ! call atmos%vars%Monitor()
+      call atmos%vars%Monitor()
     end if
 
     return

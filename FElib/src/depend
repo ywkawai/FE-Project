@@ -32,6 +32,7 @@ $(OBJ_DIR)/scale_mesh_cubedom3d.o: mesh/scale_mesh_cubedom3d.F90 $(DEPENDLIB) $(
 $(OBJ_DIR)/scale_mesh_linedom1d.o: mesh/scale_mesh_linedom1d.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_element_base.o $(OBJ_DIR)/scale_element_line.o $(OBJ_DIR)/scale_localmesh_1d.o $(OBJ_DIR)/scale_mesh_base1d.o
 $(OBJ_DIR)/scale_mesh_rectdom2d.o: mesh/scale_mesh_rectdom2d.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_element_base.o $(OBJ_DIR)/scale_element_quadrilateral.o $(OBJ_DIR)/scale_localmesh_2d.o $(OBJ_DIR)/scale_localmesh_base.o $(OBJ_DIR)/scale_mesh_base2d.o $(OBJ_DIR)/scale_meshutil_2d.o
 $(OBJ_DIR)/scale_meshfield_base.o: data/scale_meshfield_base.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_element_base.o $(OBJ_DIR)/scale_localmesh_1d.o $(OBJ_DIR)/scale_localmesh_2d.o $(OBJ_DIR)/scale_localmesh_3d.o $(OBJ_DIR)/scale_localmeshfield_base.o $(OBJ_DIR)/scale_mesh_base1d.o $(OBJ_DIR)/scale_mesh_base2d.o $(OBJ_DIR)/scale_mesh_base3d.o
+$(OBJ_DIR)/scale_meshfield_statistics.o: data/scale_meshfield_statistics.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_element_base.o $(OBJ_DIR)/scale_localmesh_1d.o $(OBJ_DIR)/scale_localmesh_2d.o $(OBJ_DIR)/scale_localmesh_3d.o $(OBJ_DIR)/scale_localmeshfield_base.o $(OBJ_DIR)/scale_mesh_base1d.o $(OBJ_DIR)/scale_mesh_base2d.o $(OBJ_DIR)/scale_mesh_base3d.o $(OBJ_DIR)/scale_meshfield_base.o
 $(OBJ_DIR)/scale_meshfieldcomm_1d.o: data/scale_meshfieldcomm_1d.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_element_base.o $(OBJ_DIR)/scale_localmesh_1d.o $(OBJ_DIR)/scale_mesh_base1d.o $(OBJ_DIR)/scale_meshfield_base.o $(OBJ_DIR)/scale_meshfieldcomm_base.o
 $(OBJ_DIR)/scale_meshfieldcomm_base.o: data/scale_meshfieldcomm_base.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_element_base.o $(OBJ_DIR)/scale_localmesh_base.o $(OBJ_DIR)/scale_mesh_base.o $(OBJ_DIR)/scale_meshfield_base.o
 $(OBJ_DIR)/scale_meshfieldcomm_cubedom3d.o: data/scale_meshfieldcomm_cubedom3d.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_element_base.o $(OBJ_DIR)/scale_localmesh_3d.o $(OBJ_DIR)/scale_mesh_cubedom3d.o $(OBJ_DIR)/scale_meshfield_base.o $(OBJ_DIR)/scale_meshfieldcomm_base.o
@@ -42,7 +43,7 @@ $(OBJ_DIR)/scale_meshutil_3d.o: mesh/scale_meshutil_3d.F90 $(DEPENDLIB) $(OBJ_DI
 $(OBJ_DIR)/scale_model_component.o: model_framework/scale_model_component.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_time_manager.o
 $(OBJ_DIR)/scale_model_component_proc.o: model_framework/scale_model_component_proc.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_model_mesh_manager.o $(OBJ_DIR)/scale_model_var_manager.o $(OBJ_DIR)/scale_time_manager.o
 $(OBJ_DIR)/scale_model_mesh_manager.o: model_framework/scale_model_mesh_manager.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_mesh_base.o $(OBJ_DIR)/scale_mesh_base1d.o $(OBJ_DIR)/scale_mesh_base2d.o $(OBJ_DIR)/scale_mesh_base3d.o $(OBJ_DIR)/scale_sparsemat.o
-$(OBJ_DIR)/scale_model_var_manager.o: model_framework/scale_model_var_manager.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_linkedlist.o $(OBJ_DIR)/scale_mesh_base1d.o $(OBJ_DIR)/scale_mesh_base2d.o $(OBJ_DIR)/scale_mesh_base3d.o $(OBJ_DIR)/scale_meshfield_base.o $(OBJ_DIR)/scale_meshfieldcomm_base.o $(OBJ_DIR)/scale_variableinfo.o
+$(OBJ_DIR)/scale_model_var_manager.o: model_framework/scale_model_var_manager.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_file_monitor_meshfield.o $(OBJ_DIR)/scale_linkedlist.o $(OBJ_DIR)/scale_mesh_base1d.o $(OBJ_DIR)/scale_mesh_base2d.o $(OBJ_DIR)/scale_mesh_base3d.o $(OBJ_DIR)/scale_meshfield_base.o $(OBJ_DIR)/scale_meshfieldcomm_base.o $(OBJ_DIR)/scale_variableinfo.o
 $(OBJ_DIR)/scale_polynominal.o: common/scale_polynominal.F90 $(DEPENDLIB)
 $(OBJ_DIR)/scale_quicksort.o: common/scale_quicksort.F90 $(DEPENDLIB)
 $(OBJ_DIR)/scale_sparsemat.o: common/scale_sparsemat.F90 $(DEPENDLIB)
@@ -85,6 +86,7 @@ MODS =	\
 	$(OBJ_DIR)/scale_mesh_linedom1d.mod	\
 	$(OBJ_DIR)/scale_mesh_rectdom2d.mod	\
 	$(OBJ_DIR)/scale_meshfield_base.mod	\
+	$(OBJ_DIR)/scale_meshfield_statistics.mod	\
 	$(OBJ_DIR)/scale_meshfieldcomm_1d.mod	\
 	$(OBJ_DIR)/scale_meshfieldcomm_base.mod	\
 	$(OBJ_DIR)/scale_meshfieldcomm_cubedom3d.mod	\

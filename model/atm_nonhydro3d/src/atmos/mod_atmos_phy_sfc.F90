@@ -291,7 +291,7 @@ contains
     integer :: hsliceZ0, hsliceZ1
     integer :: ij
     real(RP) :: pres, rhot
-
+    real(RP) :: dens
     real(RP) :: LiftDelFlx(elem%Np)
     real(RP) :: del_flux(elem%NfpTot,lcmesh%Ne,4)
 
@@ -300,7 +300,7 @@ contains
     if (is_update_sflx) then
       !$omp parallel do collapse(2) private( &
       !$omp ke, hSliceZ0, hsliceZ1,          &
-      !$omp pres, rhot                       )
+      !$omp pres, rhot, dens                 )
       do ke2D=lcmesh2D%NeS, lcmesh2D%NeE
       do ij=1, elem2D%Np
 
@@ -308,13 +308,14 @@ contains
         hsliceZ0 = elem%Hslice(ij,1)
         hsliceZ1 = elem%Hslice(ij,2)
 
-        SFC_DENS(ij,ke2D) = DENS_hyd(hsliceZ0,ke) + DDENS(hsliceZ0,ke)      
-        ATM_W(ij,ke2D) = MOMZ(hsliceZ1,ke) / SFC_DENS(ij,ke2D)
-        ATM_U(ij,ke2D) = MOMX(hsliceZ1,ke) / SFC_DENS(ij,ke2D)
-        ATM_V(ij,ke2D) = MOMY(hsliceZ1,ke) / SFC_DENS(ij,ke2D)
+        dens = DENS_hyd(hsliceZ1,ke) + DDENS(hsliceZ1,ke)
+        ATM_U(ij,ke2D) = MOMX(hsliceZ1,ke) / dens
+        ATM_V(ij,ke2D) = MOMY(hsliceZ1,ke) / dens
+        ATM_W(ij,ke2D) = MOMZ(hsliceZ1,ke) / dens
 
         rhot = PRES00/Rdry * (PRES_hyd(hsliceZ0,ke)/PRES00)**(CVdry/CPdry) + DRHOT(hsliceZ0,ke)
         pres = PRES00 * (Rdry*rhot/PRES00)**(CPdry/Cvdry)      
+        SFC_DENS(ij,ke2D) = DENS_hyd(hsliceZ0,ke) + DDENS(hsliceZ0,ke)
         SFC_TEMP(ij,ke2D) = pres / ( Rdry * SFC_DENS(ij,ke2D) )
 
         Z1(ij,ke2D) = lcmesh%pos_en(hsliceZ1,ke,3)
