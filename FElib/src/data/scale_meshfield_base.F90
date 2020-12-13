@@ -37,6 +37,7 @@ module scale_meshfield_base
     character(len=H_SHORT) :: varname
     character(len=H_SHORT) :: unit
     integer :: hist_id
+    integer :: monitor_id
   contains
     procedure(MeshFieldBase_get_LocalMeshField), deferred, public :: GetLocalMeshField
   end type MeshFieldBase
@@ -110,7 +111,8 @@ contains
     this%varname = varname
     this%unit    = units
     this%mesh => mesh
-    this%hist_id = -1
+    this%hist_id    = -1
+    this%monitor_id = -1
     
     allocate( this%local(mesh%LOCAL_MESH_NUM) )  
     do n=1, mesh%LOCAL_MESH_NUM

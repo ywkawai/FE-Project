@@ -57,6 +57,7 @@ module mod_atmos_vars
     procedure :: Init => AtmosVars_Init
     procedure :: Final => AtmosVars_Final
     procedure :: History => AtmosVars_History
+    procedure :: Monitor => AtmosVars_Monitor
     procedure :: Read_restart_file => AtmosVar_Read_restart_file
     procedure :: Write_restart_file => AtmosVar_Write_restart_file
   end type AtmosVars
@@ -72,12 +73,12 @@ module mod_atmos_vars
 
   ! Prognostic variables in dynamical process  
 
-  integer, public, parameter :: ATMOS_PROGVARS_NUM = 5
   integer, public, parameter :: ATMOS_PROGVARS_DDENS_ID = 1
   integer, public, parameter :: ATMOS_PROGVARS_MOMX_ID  = 2
   integer, public, parameter :: ATMOS_PROGVARS_MOMY_ID  = 3
   integer, public, parameter :: ATMOS_PROGVARS_MOMZ_ID  = 4
   integer, public, parameter :: ATMOS_PROGVARS_DRHOT_ID = 5
+  integer, public, parameter :: ATMOS_PROGVARS_NUM      = 5
 
   type(VariableInfo), public :: ATMOS_PROGVARS_VINFO(ATMOS_PROGVARS_NUM)
 
@@ -95,9 +96,9 @@ module mod_atmos_vars
 
   ! Reference state
   
-  integer, public, parameter :: ATMOS_AUXVARS_NUM          = 2
   integer, public, parameter :: ATMOS_AUXVARS_PRESHYDRO_ID = 1
   integer, public, parameter :: ATMOS_AUXVARS_DENSHYDRO_ID = 2
+  integer, public, parameter :: ATMOS_AUXVARS_NUM          = 2
 
   type(VariableInfo), public :: ATMOS_AUXVARS_VINFO(ATMOS_AUXVARS_NUM)
   DATA ATMOS_AUXVARS_VINFO / &
@@ -109,12 +110,12 @@ module mod_atmos_vars
   
   ! Tendency by physical processes
   
-  integer, public, parameter :: ATMOS_PHYTEND_NUM         = 5
   integer, public, parameter :: ATMOS_PHYTEND_DENS_ID     = 1
   integer, public, parameter :: ATMOS_PHYTEND_MOMX_ID     = 2
   integer, public, parameter :: ATMOS_PHYTEND_MOMY_ID     = 3
   integer, public, parameter :: ATMOS_PHYTEND_MOMZ_ID     = 4
   integer, public, parameter :: ATMOS_PHYTEND_RHOH_ID     = 5
+  integer, public, parameter :: ATMOS_PHYTEND_NUM         = 5
 
   type(VariableInfo), public :: ATMOS_PHYTEND_VINFO(ATMOS_PHYTEND_NUM)
   DATA ATMOS_PHYTEND_VINFO / &
@@ -131,13 +132,13 @@ module mod_atmos_vars
 
   ! Diagnostic variables
 
-  integer, public, parameter :: ATMOS_DIAGVARS_NUM       = 6
   integer, public, parameter :: ATMOS_DIAGVARS_U_ID      = 1
   integer, public, parameter :: ATMOS_DIAGVARS_V_ID      = 2
   integer, public, parameter :: ATMOS_DIAGVARS_W_ID      = 3
   integer, public, parameter :: ATMOS_DIAGVARS_PRES_ID   = 4
   integer, public, parameter :: ATMOS_DIAGVARS_T_ID      = 5  
   integer, public, parameter :: ATMOS_DIAGVARS_THETA_ID  = 6
+  integer, public, parameter :: ATMOS_DIAGVARS_NUM       = 6
 
   type(VariableInfo), public :: ATMOS_DIAGVARS_VINFO(ATMOS_DIAGVARS_NUM)
   DATA ATMOS_DIAGVARS_VINFO / &
@@ -150,12 +151,20 @@ module mod_atmos_vars
 
   !-----------------------------------------------------------------------------
   !
-  !++ Private procedures
+  !++ Private procedures & variables
   !
   !-------------------
 
+  ! for monitor
+  integer, private, parameter   :: IM_QDRY         = 1
+  integer, private, parameter   :: DVM_nmax        = 1
+  integer, private              :: DV_MONIT_id(DVM_nmax)
+
+
 contains
   subroutine AtmosVars_Init( this, atm_mesh )
+    use scale_file_monitor_meshfield, only: &
+      FILE_monitor_meshfield_reg
     implicit none
     class(AtmosVars), target, intent(inout) :: this
     class(AtmosMesh), intent(in) :: atm_mesh
@@ -194,9 +203,12 @@ contains
 
     reg_file_hist = .true.    
     do v = 1, ATMOS_PROGVARS_NUM
+
       call this%PROGVARS_manager%Regist(        &
         ATMOS_PROGVARS_VINFO(v), atm_mesh%mesh, & ! (in) 
-        this%PROG_VARS(v), reg_file_hist        ) ! (out)
+        this%PROG_VARS(v),                      & ! (inout)
+        reg_file_hist,  monitor_flag=.true.     ) ! (out)
+
       do n = 1, atm_mesh%mesh%LOCAL_MESH_NUM
         this%PROG_VARS(v)%local(n)%val(:,:) = 0.0_RP
       end do         
@@ -276,6 +288,13 @@ contains
         mesh3D=atm_mesh%mesh                    )
     end if
 
+    !-----< monitor output setup >-----
+    
+    call FILE_monitor_meshfield_reg( &
+      'QDRY',         'dry air mass',           'kg', & ! (in)
+      DV_MONIT_id(IM_QDRY),                           & ! (out)
+      dim_type='ATM3D', is_tendency=.false.           ) ! (in)  
+      
     return
   end subroutine AtmosVars_Init
 
@@ -581,6 +600,25 @@ contains
     return
   end subroutine AtmosVars_GetLocalMeshPhyTends
 
+  subroutine AtmosVars_Monitor( this )
+    use scale_file_monitor_meshfield, only: &
+      FILE_monitor_meshfield_put
+    
+    implicit none
+    class(AtmosVars), intent(in) :: this
+
+    integer :: iv
+    !--------------------------------------------------------------------------
+
+    do iv=1, ATMOS_PROGVARS_NUM
+      call FILE_monitor_meshfield_put( this%PROG_VARS(iv)%monitor_id, this%PROG_VARS(iv) )
+    end do
+  
+    return
+  end subroutine AtmosVars_Monitor
+
+!-- private -----------------------------------------------------------------------
+    
   subroutine vars_calc_diagvar( this, field_name, field_work ) 
     use scale_const, only: &
       Rdry => CONST_Rdry,      &
