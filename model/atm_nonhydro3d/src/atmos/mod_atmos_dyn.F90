@@ -79,8 +79,6 @@ module mod_atmos_dyn
     AtmosDynVars,                      &
     AtmosDynAuxVars_GetLocalMeshFields
 
-
-
   !-----------------------------------------------------------------------------
   implicit none
   private
@@ -93,6 +91,7 @@ module mod_atmos_dyn
     subroutine atm_dyn_nonhydro3d_cal_tend_ex( &
       DENS_dt, MOMX_dt, MOMY_dt, MOMZ_dt, RHOT_dt,                                & ! (out)
       DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd, CORIOLIS,          & ! (in)
+      SL_flag, wdamp_tau, wdamp_height,                                           & ! (in)
       Dx, Dy, Dz, Sx, Sy, Sz, Lift, lmesh, elem, lmesh2D, elem2D )
 
       import RP
@@ -121,6 +120,10 @@ module mod_atmos_dyn
       real(RP), intent(in)  :: DENS_hyd(elem%Np,lmesh%NeA)
       real(RP), intent(in)  :: PRES_hyd(elem%Np,lmesh%NeA)
       real(RP), intent(in)  :: CORIOLIS(elem2D%Np,lmesh2D%NeA)
+      logical, intent(in)   :: SL_flag
+      real(RP), intent(in)  :: wdamp_tau
+      real(RP), intent(in)  :: wdamp_height
+  
     end subroutine atm_dyn_nonhydro3d_cal_tend_ex
   end interface
 
@@ -175,14 +178,22 @@ module mod_atmos_dyn
     procedure (atm_dyn_nonhydro3d_cal_vi), pointer, nopass :: cal_vi => null()
     procedure (atm_dyn_nonhydro3d_cal_tend_ex), pointer, nopass :: cal_tend_ex => null()
 
+    ! explicit numerical diffusion
     logical :: CALC_NUMDIFF_FLAG
     integer  :: ND_LAPLACIAN_NUM
     real(RP) :: ND_COEF_H
     real(RP) :: ND_COEF_V
 
+    ! element-wise modal filter
     logical :: MODALFILTER_FLAG
     type(ModalFilter) :: modal_filter_3d
     type(ModalFilter) :: modal_filter_v1D
+
+    ! sponge layer
+    logical :: SPONGELAYER_FLAG
+    real(RP) :: wdamp_tau
+    real(RP) :: wdamp_height
+
   contains
     procedure, public :: setup => AtmosDyn_setup 
     procedure, public :: calc_tendency => AtmosDyn_calc_tendency
@@ -194,24 +205,28 @@ module mod_atmos_dyn
   !++ Public parameters & variables
   !-----------------------------------------------------------------------------
   
-  integer, parameter :: EQS_TYPEID_NONHYD3D_HEVE           = 1
-  integer, parameter :: EQS_TYPEID_NONHYD3D_HEVI           = 2
-  integer, parameter :: EQS_TYPEID_NONHYD3D_SPLITFORM_HEVI = 3
+  integer, public, parameter :: EQS_TYPEID_NONHYD3D_HEVE           = 1
+  integer, public, parameter :: EQS_TYPEID_NONHYD3D_HEVI           = 2
+  integer, public, parameter :: EQS_TYPEID_NONHYD3D_SPLITFORM_HEVI = 3
 
 
   !-----------------------------------------------------------------------------
   !
   !++ Private procedure
   !
+  private :: cal_numfilter_tend
+  private :: add_phy_tend
+
+  private :: setup_modalfilter
+  private :: setup_numdiff
+  private :: setup_spongelayer
+  private :: setup_coriolis_parameter
+
   !-----------------------------------------------------------------------------
   !
   !++ Private parameters & variables
   !
   !-----------------------------------------------------------------------------
-
-
-  private :: cal_numfilter_tend
-  private :: add_phy_tend
 
 contains
 
@@ -232,17 +247,8 @@ contains
     character(len=H_SHORT) :: TIME_DT_UNIT          = 'SEC'  
     
     logical  :: MODALFILTER_FLAG = .false.
-    real(RP) :: MF_ETAC_h  = 2.0_RP/3.0_RP
-    real(RP) :: MF_ALPHA_h = 36.0_RP
-    integer  :: MF_ORDER_h = 16
-    real(RP) :: MF_ETAC_v  = 2.0_RP/3.0_RP
-    real(RP) :: MF_ALPHA_v = 36.0_RP
-    integer  :: MF_ORDER_v = 16
-
-    logical :: NUMDIFF_FLAG = .false.
-    integer ::  ND_LAPLACIAN_NUM  = 1
-    real(RP) :: ND_COEF_h = 0.0_RP
-    real(RP) :: ND_COEF_v = 0.0_RP
+    logical :: NUMDIFF_FLAG      = .false.
+    logical :: SPONGELAYER_FLAG  = .false.
 
     character(len=H_SHORT) :: coriolis_type = 'PLANE'   ! type of coriolis force: 'PLANE', 'SPHERE'
     real(RP) :: coriolis_f0         = 0.0_RP
@@ -256,30 +262,18 @@ contains
       TIME_DT_UNIT,                           &
       MODALFILTER_FLAG,                       &
       NUMDIFF_FLAG,                           &
+      SPONGELAYER_FLAG,                       &
       CORIOLIS_TYPE,                          &
       CORIOLIS_f0, CORIOLIS_beta, CORIOLIS_y0
-
-    namelist /PARAM_ATMOS_DYN_MODALFILTER/ &
-      MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h,   &
-      MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v
-
-    namelist /PARAM_ATMOS_DYN_NUMDIFF/ &
-      ND_LAPLACIAN_NUM,                &
-      ND_COEF_h, ND_COEF_v
-      
     
-    integer :: ierr
-
-    class(AtmosMesh), pointer :: atm_mesh
-    class(MeshBase), pointer :: ptr_mesh
-    class(MeshBase2D), pointer :: ptr_mesh2D 
+    class(AtmosMesh), pointer     :: atm_mesh
+    class(MeshBase), pointer      :: ptr_mesh
     class(LocalMeshBase), pointer :: ptr_lcmesh
-    class(LocalMesh3D), pointer :: lcmesh3D
-    integer :: n
-    integer :: p
-
-    real(DP) :: dtsec
     class(ElementBase3D), pointer :: elem3D
+    integer :: n
+    real(DP) :: dtsec
+
+    integer :: ierr
     !--------------------------------------------------
 
     if (.not. this%IsActivated()) return
@@ -296,7 +290,7 @@ contains
     endif
     LOG_NML(PARAM_ATMOS_DYN)
     
-    !---------------------------------------------------
+    !- get mesh --------------------------------------------------
 
     call model_mesh%GetModelMesh( ptr_mesh )
     select type(model_mesh)
@@ -304,8 +298,8 @@ contains
       atm_mesh => model_mesh
     end select
 
-    !--- Setup the temporal integrator
-    
+    !- Setup the temporal integrator
+
     call tm_parent_comp%Regist_process( 'ATMOS_DYN', TIME_DT, TIME_DT_UNIT, & ! (in)
       this%tm_process_id )                                                    ! (out)
 
@@ -324,7 +318,7 @@ contains
 
     !- initialize the variables 
     call this%dyn_vars%Init( model_mesh )
-    call set_coriolis_parameter( this%dyn_vars, atm_mesh, CORIOLIS_type, CORIOLIS_f0, CORIOLIS_beta, CORIOLIS_y0 )
+    call setup_coriolis_parameter( this%dyn_vars, atm_mesh, CORIOLIS_type, CORIOLIS_f0, CORIOLIS_beta, CORIOLIS_y0 )
 
     !- Initialize a module for 3D dynamical core 
 
@@ -350,54 +344,18 @@ contains
     end select    
 
     !- Setup the numerical diffusion
-
     this%CALC_NUMDIFF_FLAG = NUMDIFF_FLAG
-    if( this%CALC_NUMDIFF_FLAG ) then
-      rewind(IO_FID_CONF)
-      read(IO_FID_CONF,nml=PARAM_ATMOS_DYN_NUMDIFF,iostat=ierr)
-      if( ierr < 0 ) then !--- missing
-        LOG_INFO("ATMOS_DYN_NUMDIFF_setup",*) 'Not found namelist. Default used.'
-      elseif( ierr > 0 ) then !--- fatal error
-        LOG_ERROR("ATMOS_DYN_NUMDIFF_setup",*) 'Not appropriate names in namelist PARAM_ATMOS_DYN_NUMDIFF. Check!'
-        call PRC_abort
-      endif
-      LOG_NML(PARAM_ATMOS_DYN_NUMDIFF)      
-
-      this%ND_LAPLACIAN_NUM = ND_LAPLACIAN_NUM
-      this%ND_COEF_H = ND_COEF_h
-      this%ND_COEF_v = ND_COEF_v
-      call atm_dyn_nonhydro3d_numdiff_Init( atm_mesh%mesh )
-    end if    
+    if( NUMDIFF_FLAG ) call setup_numdiff( this, atm_mesh )
 
     !- Setup the modal filter
-
     this%MODALFILTER_FLAG = MODALFILTER_FLAG
-    if ( this%MODALFILTER_FLAG ) then
+    if ( MODALFILTER_FLAG ) call setup_modalfilter( this, atm_mesh )
 
-      rewind(IO_FID_CONF)
-      read(IO_FID_CONF,nml=PARAM_ATMOS_DYN_MODALFILTER,iostat=ierr)
-      if( ierr < 0 ) then !--- missing
-        LOG_INFO("ATMOS_DYN_MODALFILTER_setup",*) 'Not found namelist. Default used.'
-      elseif( ierr > 0 ) then !--- fatal error
-        LOG_ERROR("ATMOS_DYN_MODALFILTER_setup",*) 'Not appropriate names in namelist PARAM_ATMOS_DYN_MODALFILTER. Check!'
-        call PRC_abort
-      endif
-      LOG_NML(PARAM_ATMOS_DYN_MODALFILTER)      
+    !- Setup the sponge layer
+    this%SPONGELAYER_FLAG = SPONGELAYER_FLAG
+    if ( SPONGELAYER_FLAG ) call setup_spongelayer( this, atm_mesh, dtsec )
 
-     if ( .not. associated( this%cal_vi ) ) then
-        call atm_mesh%Construct_ModalFilter3D( &
-          this%modal_filter_3d,                & ! (inout)
-          MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h,   & ! (in)
-          MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v    ) ! (in)
-      else
-        call atm_mesh%Construct_ModalFilterHV( &
-          this%modal_filter_3d, this%modal_filter_v1D, & ! (inout)
-          MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h,           & ! (in)
-          MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v            ) ! (in)
-      end if
-    end if
-
-    return  
+    return
   end subroutine AtmosDyn_setup
 
   subroutine AtmosDyn_calc_tendency( this, model_mesh, prgvars_list, auxvars_list, forcing_list, is_update )
@@ -552,6 +510,7 @@ contains
           DDENS%val, MOMX%val, MOMY%val, MOMZ%val, DRHOT%val,                     &
           DENS_hyd%val, PRES_hyd%val,                                             &
           Coriolis%val,                                                           &
+          this%SPONGELAYER_FLAG, this%wdamp_tau, this%wdamp_height,               &
           model_mesh%DOptrMat(1), model_mesh%DOptrMat(2), model_mesh%DOptrMat(3), &
           model_mesh%SOptrMat(1), model_mesh%SOptrMat(2), model_mesh%SOptrMat(3), &
           model_mesh%LiftOptrMat,                                                 &
@@ -884,7 +843,147 @@ contains
     return
   end subroutine cal_numfilter_tend
 
-  subroutine set_coriolis_parameter( this, atm_mesh, &
+  !-- Setup modal filter
+  subroutine setup_modalfilter( this, atm_mesh )
+    implicit none
+
+    class(AtmosDyn), target, intent(inout) :: this
+    class(AtmosMesh), target, intent(in) :: atm_mesh
+
+    real(RP) :: MF_ETAC_h  = 2.0_RP/3.0_RP
+    real(RP) :: MF_ALPHA_h = 36.0_RP
+    integer  :: MF_ORDER_h = 16
+    real(RP) :: MF_ETAC_v  = 2.0_RP/3.0_RP
+    real(RP) :: MF_ALPHA_v = 36.0_RP
+    integer  :: MF_ORDER_v = 16
+
+    namelist /PARAM_ATMOS_DYN_MODALFILTER/ &
+      MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h,   &
+      MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v    
+
+    integer :: ierr
+    !---------------------------------------------------------------
+
+    rewind(IO_FID_CONF)
+    read(IO_FID_CONF,nml=PARAM_ATMOS_DYN_MODALFILTER,iostat=ierr)
+    if( ierr < 0 ) then !--- missing
+      LOG_INFO("ATMOS_DYN_setup_modalfilter",*) 'Not found namelist. Default used.'
+    elseif( ierr > 0 ) then !--- fatal error
+      LOG_ERROR("ATMOS_DYN_setup_modalfilter",*) 'Not appropriate names in namelist PARAM_ATMOS_DYN_MODALFILTER. Check!'
+      call PRC_abort
+    endif
+    LOG_NML(PARAM_ATMOS_DYN_MODALFILTER)      
+
+   if ( .not. associated( this%cal_vi ) ) then
+      call atm_mesh%Construct_ModalFilter3D( &
+        this%modal_filter_3d,                & ! (inout)
+        MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h,   & ! (in)
+        MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v    ) ! (in)
+    else
+      call atm_mesh%Construct_ModalFilterHV( &
+        this%modal_filter_3d, this%modal_filter_v1D, & ! (inout)
+        MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h,           & ! (in)
+        MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v            ) ! (in)
+    end if
+
+    return
+  end subroutine setup_modalfilter
+
+  !-- Setup explicit numerical diffusion
+
+  subroutine setup_numdiff( this, atm_mesh )
+    implicit none
+
+    class(AtmosDyn), target, intent(inout) :: this
+    class(AtmosMesh), target, intent(in) :: atm_mesh
+
+    integer ::  ND_LAPLACIAN_NUM = 1
+    real(RP) :: ND_COEF_h        = 0.0_RP
+    real(RP) :: ND_COEF_v        = 0.0_RP
+
+    namelist /PARAM_ATMOS_DYN_NUMDIFF/ &
+      ND_LAPLACIAN_NUM,                &
+      ND_COEF_h, ND_COEF_v
+
+    integer :: ierr
+    !---------------------------------------------------------------
+
+    rewind(IO_FID_CONF)
+    read(IO_FID_CONF,nml=PARAM_ATMOS_DYN_NUMDIFF,iostat=ierr)
+    if( ierr < 0 ) then !--- missing
+      LOG_INFO("ATMOS_DYN_setup_numdiff",*) 'Not found namelist. Default used.'
+    elseif( ierr > 0 ) then !--- fatal error
+      LOG_ERROR("ATMOS_DYN_setup_numdiff",*) 'Not appropriate names in namelist PARAM_ATMOS_DYN_NUMDIFF. Check!'
+      call PRC_abort
+    endif
+    LOG_NML(PARAM_ATMOS_DYN_NUMDIFF)      
+
+    this%ND_LAPLACIAN_NUM = ND_LAPLACIAN_NUM
+    this%ND_COEF_H = ND_COEF_h
+    this%ND_COEF_v = ND_COEF_v
+    call atm_dyn_nonhydro3d_numdiff_Init( atm_mesh%mesh )
+
+    return
+  end subroutine setup_numdiff
+
+  !-- Setup sponge layer
+  subroutine setup_spongelayer( this, atm_mesh, dtsec )
+    implicit none
+
+    class(AtmosDyn), target, intent(inout) :: this
+    class(AtmosMesh), target, intent(in) :: atm_mesh
+    real(RP), intent(in) :: dtsec
+
+    real(RP) :: SL_WDAMP_TAU    = -1.0_RP ! the maximum tau for Rayleigh damping of w [s]
+    real(RP) :: SL_WDAMP_HEIGHT = -1.0_RP ! the height to start apply Rayleigh damping [m]
+    integer  :: SL_WDAMP_LAYER  = -1      ! the vertical number of finite element to start apply Rayleigh damping [num]
+    
+    namelist /PARAM_ATMOS_DYN_SPONGELAYER/ &
+      SL_WDAMP_TAU,                        &                
+      SL_WDAMP_HEIGHT,                     &
+      SL_WDAMP_LAYER
+    
+    class(LocalMesh3D), pointer :: lcmesh3D
+    class(ElementBase3D), pointer :: elem3D
+  
+    integer :: ierr
+    !---------------------------------------------------------------
+
+    rewind(IO_FID_CONF)
+    read(IO_FID_CONF,nml=PARAM_ATMOS_DYN_SPONGELAYER,iostat=ierr)
+    if( ierr < 0 ) then !--- missing
+      LOG_INFO("ATMOS_DYN_setup_spongelayer",*) 'Not found namelist. Default used.'
+    else if( ierr > 0 ) then !--- fatal error
+      LOG_ERROR("ATMOS_DYN_setup_spongelayer",*) 'Not appropriate names in namelist PARAM_ATMOS_DYN_SPONGELAYER. Check!'
+      call PRC_abort
+    end if
+    LOG_NML(PARAM_ATMOS_DYN_SPONGELAYER)
+
+    this%wdamp_tau    = SL_WDAMP_TAU 
+    this%wdamp_height = SL_WDAMP_HEIGHT
+
+    lcmesh3D => atm_mesh%mesh%lcmesh_list(1)
+    elem3D => lcmesh3D%refElem3D
+
+    if ( SL_WDAMP_LAYER > atm_mesh%mesh%NeGZ ) then
+      LOG_ERROR("ATMOS_DYN_setup_spongelayer",*) 'SL_wdamp_layer should be less than total of vertical elements (NeGZ). Check!'
+      call PRC_abort
+    else if( SL_WDAMP_LAYER > 0 ) then
+      this%wdamp_height = lcmesh3D%pos_en(1,1+(SL_WDAMP_LAYER-1)*lcmesh3D%NeX*lcmesh3D%NeY,3)
+    end if
+    if ( this%wdamp_tau < 0.0_RP ) then
+      this%wdamp_tau = dtsec * 10.0_RP
+    else if ( this%wdamp_tau < dtsec ) then
+      LOG_ERROR("ATMOS_DYN_setup_spongelayer",*) 'SL_wdamp_tau should be larger than TIME_DT (ATMOS_DYN). Check!'
+      call PRC_abort
+    end if
+    
+    return
+  end subroutine setup_spongelayer
+
+  !-- Setup Coriolis parameter
+
+  subroutine setup_coriolis_parameter( this, atm_mesh, &
     COLIORIS_type, f0, beta, y0_ )
 
     use scale_const, only: &
@@ -901,7 +1000,7 @@ contains
     class(LocalMesh2D), pointer :: lcmesh2D
     integer :: n, ke
     real(RP) :: y0
-    !-----------------------------------------------
+    !---------------------------------------------------------------
 
     if (y0_ == UNDEF8) then
       y0 = 0.5_RP*(atm_mesh%mesh%ymax_gl +  atm_mesh%mesh%ymin_gl)
@@ -929,7 +1028,7 @@ contains
     end do
 
     return
-  end subroutine set_coriolis_parameter
+  end subroutine setup_coriolis_parameter
 
 !--------
 

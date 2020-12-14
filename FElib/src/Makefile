@@ -81,6 +81,7 @@ OBJS_NAME_FILE = \
 
 OBJS_NAME_FLUID_DYN_SOLVER = \
 	scale_atm_dyn_modalfilter.o               \
+	scale_atm_dyn_spongelayer.o               \
 	scale_atm_dyn_nonhydro3d_numdiff.o        \
 	scale_atm_dyn_nonhydro2d.o                \
 	scale_atm_dyn_nonhydro3d_heve.o           \

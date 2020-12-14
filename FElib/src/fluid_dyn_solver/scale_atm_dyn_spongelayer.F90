@@ -1,0 +1,119 @@
+!-------------------------------------------------------------------------------
+!> module Atmosphere / Dynamics common
+!!
+!! @par Description
+!!      Modal filter for Atmospheric dynamical process. 
+!!      The modal filter surpresses the numerical instability due to the aliasing errors. 
+!!
+!! @author Team SCALE
+!<
+!-------------------------------------------------------------------------------
+#include "scaleFElib.h"
+module scale_atm_dyn_spongelayer
+  !-----------------------------------------------------------------------------
+  !
+  !++ Used modules
+  !
+  use scale_precision
+  use scale_io
+
+  use scale_element_base, only: &
+    ElementBase, ElementBase3D
+  use scale_localmesh_base, only: LocalMeshBase
+  use scale_localmesh_3d, only: LocalMesh3D
+
+  !-----------------------------------------------------------------------------
+  implicit none
+  private
+  !-----------------------------------------------------------------------------
+  !
+  !++ Public procedures
+  !
+  public :: atm_dyn_spongelayer_add_tend
+
+  !-----------------------------------------------------------------------------
+  !
+  !++ Public parameters & variables
+  !
+
+  !-----------------------------------------------------------------------------
+  !
+  !++ Private procedures & variables
+  !
+  private :: calc_wdampcoef
+
+contains
+
+  subroutine atm_dyn_spongelayer_add_tend( MOMZ_dt, &
+      MOMZ_, wdamp_tau, wdamp_height, lmesh, elem   )
+
+    implicit none
+    class(LocalMesh3D), intent(in) :: lmesh
+    class(elementbase3D), intent(in) :: elem
+    real(RP), intent(inout) :: MOMZ_dt(elem%Np,lmesh%NeA)
+    real(RP), intent(in) :: MOMZ_(elem%Np,lmesh%NeA)
+    real(RP), intent(in) :: wdamp_tau
+    real(RP), intent(in) :: wdamp_height
+
+    integer :: ke
+    integer :: ke_x, ke_y, ke_z
+    integer :: keZtop
+    real(RP) :: wdamp_coef(elem%Np)
+    real(RP) :: zTop(elem%Nnode_h1D**2)
+    !-----------------------------------------------------------------
+
+    !$omp parallel do collapse(3) private(ke,keZtop,zTop,wdamp_coef)
+    do ke_z = 1, lmesh%NeZ
+    do ke_y = 1, lmesh%NeY
+    do ke_x = 1, lmesh%NeX
+      ke = ke_x + (ke_y-1)*lmesh%NeX + (ke_z-1)*lmesh%NeX*lmesh%NeY
+      keZtop =  ke_x + (ke_y-1)*lmesh%NeX + (lmesh%NeZ-1)*lmesh%NeX*lmesh%NeY
+      zTop(:) = lmesh%pos_en(elem%Hslice(:,elem%Nnode_v),keZtop,3)
+
+      call calc_wdampcoef( &
+        wdamp_tau, wdamp_height, lmesh%pos_en(:,ke,3), zTop(:), &
+        elem%Nnode_h1D, elem%Nnode_v,                           &
+        wdamp_coef(:) )
+
+      MOMZ_dt(:,ke) = MOMZ_dt(:,ke) - wdamp_coef(:) * MOMZ_(:,ke)
+    end do
+    end do
+    end do
+
+    return
+  end subroutine atm_dyn_spongelayer_add_tend
+
+!-- private ------------------------------
+
+  subroutine calc_wdampcoef( &
+    wdamp_tau, wdamp_height, z, zTop, Nnode_h1D, Nnode_v, & ! (in)
+    wdamp_coef                                            ) ! (out)
+
+    use scale_const, only: &
+      PI => CONST_PI
+    implicit none
+
+    integer, intent(in) :: Nnode_h1D
+    integer, intent(in) :: Nnode_v
+    real(RP), intent(out) :: wdamp_coef(Nnode_h1D**2,Nnode_v)
+    real(RP), intent(in) :: wdamp_tau
+    real(RP), intent(in) :: wdamp_height
+    real(RP), intent(in) :: z(Nnode_h1D**2,Nnode_v)
+    real(RP), intent(in) :: zTop(Nnode_h1D**2)
+
+    integer :: p_z
+    real(RP) :: sw(Nnode_h1D**2)
+    real(RP) :: r_wdamp_tau
+    !-----------------------------------------------------------------
+
+    r_wdamp_tau = 1.0_RP / wdamp_tau
+    do p_z=1, Nnode_v
+      wdamp_coef(:,p_z) = 0.25_RP * r_wdamp_tau                                     &
+        * sign( 0.5_RP, z(:,p_z) - wdamp_height )                                   &
+        * (1.0_RP - cos( PI * (z(:,p_z) - wdamp_height)/(zTop(p_z) - wdamp_height)) )
+    end do
+
+    return
+  end subroutine calc_wdampcoef
+
+end module scale_atm_dyn_spongelayer

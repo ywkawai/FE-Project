@@ -1,5 +1,5 @@
 !-------------------------------------------------------------------------------
-!> module Atmosphere / Dynamics HEVI 
+!> module Atmosphere / Dynamics common
 !!
 !! @par Description
 !!      Modal filter for Atmospheric dynamical process. 

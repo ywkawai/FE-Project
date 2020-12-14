@@ -160,7 +160,7 @@ contains
     
     use scale_element_modalfilter, only: ModalFilter
     implicit none
-    class(AtmosMesh), intent(inout) :: this
+    class(AtmosMesh), intent(in) :: this
     class(ModalFilter), intent(inout) :: filter
     real(RP), intent(in) :: etac_h
     real(RP), intent(in) :: alpha_h
@@ -185,7 +185,7 @@ contains
     use scale_element_modalfilter, only: ModalFilter
     use scale_element_line, only: LineElement
     implicit none
-    class(AtmosMesh), intent(inout) :: this
+    class(AtmosMesh), intent(in) :: this
     class(ModalFilter), intent(inout) :: filterH3D
     class(ModalFilter), intent(inout) :: filterV1D
     real(RP), intent(in) :: etac_h
