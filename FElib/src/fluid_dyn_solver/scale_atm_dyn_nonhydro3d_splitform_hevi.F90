@@ -155,8 +155,12 @@ contains
   subroutine atm_dyn_nonhydro3d_hevi_splitform_cal_tend( &
     DENS_dt, MOMX_dt, MOMY_dt, MOMZ_dt, RHOT_dt,                                & ! (out)
     DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd, CORIOLIS,          & ! (in)
+    SL_flag, wdamp_tau, wdamp_height,                                           & ! (in)
     Dx, Dy, Dz, Sx, Sy, Sz, Lift, lmesh, elem, lmesh2D, elem2D )
 
+    use scale_atm_dyn_spongelayer, only: &
+      atm_dyn_spongelayer_add_tend
+    
     implicit none
 
     class(LocalMesh3D), intent(in) :: lmesh
@@ -177,6 +181,9 @@ contains
     real(RP), intent(in)  :: DENS_hyd(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: PRES_hyd(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: CORIOLIS(elem2D%Np,lmesh2D%NeA)
+    logical, intent(in) :: SL_flag
+    real(RP), intent(in) :: wdamp_tau
+    real(RP), intent(in) :: wdamp_height
 
     real(RP) :: Fx(elem%Np), Fy(elem%Np), Fz(elem%Np), LiftDelFlx(elem%Np)
     real(RP) :: Fx_sp(elem%Np), Fy_sp(elem%Np), Fz_sp(elem%Np)    
@@ -285,6 +292,14 @@ contains
           + LiftDelFlx(:)                     ) 
     end do
     call PROF_rapend( 'cal_dyn_tend_interior', 3)
+
+    !- Sponge layer
+    if (SL_flag) then
+      call PROF_rapend( 'cal_dyn_tend_sponge', 3)
+      call atm_dyn_spongelayer_add_tend( MOMZ_dt, &
+        MOMZ_, wdamp_tau, wdamp_tau, lmesh, elem  )
+      call PROF_rapend( 'cal_dyn_tend_sponge', 3)
+    end if
 
     return
   end subroutine atm_dyn_nonhydro3d_hevi_splitform_cal_tend
