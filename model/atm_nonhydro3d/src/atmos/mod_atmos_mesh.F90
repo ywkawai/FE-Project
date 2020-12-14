@@ -56,6 +56,10 @@ module mod_atmos_mesh
 
 contains
   subroutine AtmosMesh_Init( this )
+
+    use scale_FILE_monitor_meshfield, only: &
+      FILE_monitor_meshfield_set_dim
+    
     implicit none
     class(AtmosMesh), target, intent(inout) :: this
 
@@ -88,6 +92,10 @@ contains
       NprcX, NprcY
     
     integer :: ierr
+
+    integer :: n
+    character(len=H_SHORT) :: dim_type
+    class(LocalMesh3D), pointer :: lcmesh     
     !-------------------------------------------
 
     LOG_NEWLINE
@@ -126,6 +134,9 @@ contains
     call this%SOptrMat(3)%Init( this%element%Sx3 )
 
     call this%LiftOptrMat%Init( this%element%Lift )
+
+    !-
+    call FILE_monitor_meshfield_set_dim( this%mesh, 'ATM3D' )
 
     return
   end subroutine AtmosMesh_Init

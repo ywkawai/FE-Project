@@ -18,15 +18,16 @@ module mod_dg_driver
   use scale_io
   use scale_prof
   use scale_prc
-  
+
   use scale_file_history_meshfield, only: &
     FILE_HISTORY_meshfield_write
   use scale_file_history, only: &
     FILE_HISTORY_set_nowdate
-
+  use scale_file_monitor_meshfield, only: &
+    FILE_monitor_meshfield_write
+  
   use mod_atmos_component, only: &
     AtmosComponent
-
   use mod_user, only: &
     USER_update, USER_calc_tendency
 
@@ -115,7 +116,8 @@ contains
       if (TIME_DOresume) then
         ! set state from restart file
         call restart_read
-        ! history & monitor file output        
+        ! history & monitor file output 
+        call FILE_MONITOR_meshfield_write('MAIN', TIME_NOWSTEP)
         call FILE_HISTORY_meshfield_write
       end if
 
@@ -135,7 +137,9 @@ contains
       call USER_update
 
       !* restart and monitor output *******************
+      if ( atmos%IsActivated() ) call atmos%vars%Monitor()
       call restart_write
+      call FILE_MONITOR_meshfield_write('MAIN', TIME_NOWSTEP)
 
       !* calc tendencies and diagnostices *************
 
@@ -177,13 +181,18 @@ contains
     use scale_const, only: CONST_setup
     use scale_calendar, only: CALENDAR_setup
     use scale_random, only: RANDOM_setup
+    use scale_time_manager, only: TIME_DTSEC
 
+    use scale_time_manager, only:           &
+      TIME_manager_Init,                    &
+      TIME_manager_report_timeintervals
+    use scale_meshfield_statistics, only:   &
+      MeshField_statistics_setup
     use scale_file_restart_meshfield, only: &
       restart_file,                         &
       FILE_restart_meshfield_setup
-    use scale_time_manager, only: &
-      TIME_manager_Init,               &
-      TIME_manager_report_timeintervals
+    use scale_file_monitor_meshfield, only: &
+      FILE_monitor_meshfield_setup  
     
     use mod_user, only: USER_setup    
     implicit none
@@ -214,6 +223,12 @@ contains
       setup_TimeIntegration = .true.,                   &
       restart_in_basename   =  restart_file%in_basename )
 
+    ! setup statistics
+    call MeshField_statistics_setup
+
+    ! setup monitor
+    call FILE_monitor_meshfield_setup( TIME_DTSEC )
+
     ! setup submodels
     call  atmos%setup()
 
@@ -228,8 +243,12 @@ contains
   end subroutine initialize
 
   subroutine finalize()
+    use scale_file, only: &
+      FILE_Close_All
     use scale_file_history_meshfield, only: &
       FILE_HISTORY_meshfield_finalize
+    use scale_file_monitor_meshfield, only: &
+      FILE_monitor_meshfield_final
     use scale_time_manager, only: &
       TIME_manager_Final   
     implicit none
@@ -238,8 +257,14 @@ contains
     call PROF_setprefx('FIN')
     call PROF_rapstart('All', 1)
 
+    call PROF_rapstart('Monit', 2)
+    call FILE_monitor_meshfield_final
+    call PROF_rapend  ('Monit', 2)
+
     !-
+    call PROF_rapstart('File', 2)
     call FILE_HISTORY_meshfield_finalize
+    call PROF_rapend  ('File', 2)
 
     ! finalization submodels
     call  atmos%finalize()
@@ -271,7 +296,7 @@ contains
 
     if ( atmos%isActivated() ) then
       call atmos%vars%History()
-      ! call atmos%vars%Monitor()
+      call atmos%vars%Monitor()
     end if
 
     return

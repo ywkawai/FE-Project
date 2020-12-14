@@ -68,13 +68,16 @@ OBJS_NAME_DATA = \
 	scale_meshfieldcomm_base.o       \
 	scale_meshfieldcomm_1d.o         \
 	scale_meshfieldcomm_rectdom2d.o  \
-	scale_meshfieldcomm_cubedom3d.o
+	scale_meshfieldcomm_cubedom3d.o  \
+	scale_meshfield_statistics.o           
+
 
 OBJS_NAME_FILE = \
 	scale_file_common_meshfield.o  \
 	scale_file_base_meshfield.o    \
 	scale_file_history_meshfield.o \
-	scale_file_restart_meshfield.o
+	scale_file_restart_meshfield.o \
+	scale_file_monitor_meshfield.o
 
 OBJS_NAME_FLUID_DYN_SOLVER = \
 	scale_atm_dyn_modalfilter.o               \

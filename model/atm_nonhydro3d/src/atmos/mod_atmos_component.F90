@@ -207,10 +207,12 @@ subroutine Atmos_calc_tendency( this )
 
   ! Surface flux
   if ( this%phy_sfc_proc%IsActivated() ) then
+    call PROF_rapstart('ATM_SurfaceFlux', 1)
     tm_process_id = this%phy_sfc_proc%tm_process_id
     is_update = this%time_manager%Do_process(tm_process_id)
     call this%phy_sfc_proc%calc_tendency( &
         this%mesh, this%vars%PROGVARS_manager, this%vars%AUXVARS_manager, this%vars%PHYTENDS_manager, is_update )
+    call PROF_rapend('ATM_SurfaceFlux', 1)
   end if
   
   call PROF_rapend( 'ATM_tendency', 1)
@@ -230,6 +232,7 @@ subroutine Atmos_update( this )
   !########## Dynamics ########## 
 
   if ( this%dyn_proc%IsActivated() ) then
+    call PROF_rapstart('ATM_Dynamics', 1)
     tm_process_id = this%dyn_proc%tm_process_id
     is_update = this%time_manager%Do_process( tm_process_id )
 
@@ -238,6 +241,7 @@ subroutine Atmos_update( this )
       call this%dyn_proc%update( &
         this%mesh, this%vars%PROGVARS_manager, this%vars%AUXVARS_manager, this%vars%PHYTENDS_manager, is_update )
     end do
+    call PROF_rapend('ATM_Dynamics', 1)
   end if
   
   !########## Calculate diagnostic variables ##########  
@@ -248,6 +252,9 @@ subroutine Atmos_update( this )
   ! Lightning
 
   !########## Reference State ###########
+
+  !#### Check values #################################
+  call this%vars%Check()
 
   call PROF_rapend( 'ATM_update', 1)
   return  
