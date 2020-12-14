@@ -193,7 +193,6 @@ module mod_atmos_dyn
     logical :: SPONGELAYER_FLAG
     real(RP) :: wdamp_tau
     real(RP) :: wdamp_height
-    real(RP) :: wdamp_layer
 
   contains
     procedure, public :: setup => AtmosDyn_setup 
@@ -937,7 +936,7 @@ contains
 
     real(RP) :: SL_WDAMP_TAU    = -1.0_RP ! the maximum tau for Rayleigh damping of w [s]
     real(RP) :: SL_WDAMP_HEIGHT = -1.0_RP ! the height to start apply Rayleigh damping [m]
-    real(RP) :: SL_WDAMP_LAYER  = -1      ! the vertical number of finite element to start apply Rayleigh damping [num]
+    integer  :: SL_WDAMP_LAYER  = -1      ! the vertical number of finite element to start apply Rayleigh damping [num]
     
     namelist /PARAM_ATMOS_DYN_SPONGELAYER/ &
       SL_WDAMP_TAU,                        &                
@@ -962,16 +961,15 @@ contains
 
     this%wdamp_tau    = SL_WDAMP_TAU 
     this%wdamp_height = SL_WDAMP_HEIGHT
-    this%wdamp_layer  = SL_WDAMP_LAYER
 
     lcmesh3D => atm_mesh%mesh%lcmesh_list(1)
     elem3D => lcmesh3D%refElem3D
 
-    if ( this%wdamp_layer > atm_mesh%mesh%NeGZ ) then
+    if ( SL_WDAMP_LAYER > atm_mesh%mesh%NeGZ ) then
       LOG_ERROR("ATMOS_DYN_setup_spongelayer",*) 'SL_wdamp_layer should be less than total of vertical elements (NeGZ). Check!'
       call PRC_abort
-    else if( this%wdamp_layer > 0 ) then
-      this%wdamp_height = lcmesh3D%pos_en(1,1+(this%wdamp_layer-1)*lcmesh3D%NeX*lcmesh3D%NeY,3)
+    else if( SL_WDAMP_LAYER > 0 ) then
+      this%wdamp_height = lcmesh3D%pos_en(1,1+(SL_WDAMP_LAYER-1)*lcmesh3D%NeX*lcmesh3D%NeY,3)
     end if
     if ( this%wdamp_tau < 0.0_RP ) then
       this%wdamp_tau = dtsec * 10.0_RP
