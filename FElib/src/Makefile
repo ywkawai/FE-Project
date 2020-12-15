@@ -80,14 +80,14 @@ OBJS_NAME_FILE = \
 	scale_file_monitor_meshfield.o
 
 OBJS_NAME_FLUID_DYN_SOLVER = \
-	scale_atm_dyn_modalfilter.o               \
-	scale_atm_dyn_spongelayer.o               \
-	scale_atm_dyn_nonhydro3d_numdiff.o        \
-	scale_atm_dyn_nonhydro2d.o                \
-	scale_atm_dyn_nonhydro3d_heve.o           \
-	scale_atm_dyn_nonhydro3d_hevi.o           \
-	scale_atm_dyn_nonhydro3d_splitform_hevi.o \
-	scale_atm_dyn_nonhydro3d_hevi_gmres.o 
+	scale_atm_dyn_dgm_modalfilter.o               \
+	scale_atm_dyn_dgm_spongelayer.o               \
+	scale_atm_dyn_dgm_nonhydro3d_numdiff.o        \
+	scale_atm_dyn_dgm_nonhydro2d.o                \
+	scale_atm_dyn_dgm_nonhydro3d_heve.o           \
+	scale_atm_dyn_dgm_nonhydro3d_hevi.o           \
+	scale_atm_dyn_dgm_nonhydro3d_splitform_hevi.o \
+	scale_atm_dyn_dgm_nonhydro3d_hevi_gmres.o 
 
 
 OBJS_NAME_MODEL_FRAMEWORK = \

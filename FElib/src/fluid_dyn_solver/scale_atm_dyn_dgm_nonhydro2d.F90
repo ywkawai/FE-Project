@@ -1,6 +1,6 @@
 !-------------------------------------------------------------------------------
 #include "scaleFElib.h"
-module scale_atm_dyn_nonhydro2d
+module scale_atm_dyn_dgm_nonhydro2d
   !-----------------------------------------------------------------------------
   !
   !++ Used modules
@@ -32,12 +32,12 @@ module scale_atm_dyn_nonhydro2d
   !
   !++ Public procedures
   !
-  public :: atm_dyn_nonhydro2d_Init
-  public :: atm_dyn_nonhydro2d_Final
-  public :: atm_dyn_nonhydro2d_prepair_expfilter
-  public :: atm_dyn_nonhydro2d_cal_tend
-  public :: atm_dyn_nonhydro2d_cal_grad_diffVars
-  public :: atm_dyn_nonhydro2d_filter_prgvar
+  public :: atm_dyn_dgm_nonhydro2d_Init
+  public :: atm_dyn_dgm_nonhydro2d_Final
+  public :: atm_dyn_dgm_nonhydro2d_prepair_expfilter
+  public :: atm_dyn_dgm_nonhydro2d_cal_tend
+  public :: atm_dyn_dgm_nonhydro2d_cal_grad_diffVars
+  public :: atm_dyn_dgm_nonhydro2d_filter_prgvar
 
   !-----------------------------------------------------------------------------
   !
@@ -71,7 +71,7 @@ module scale_atm_dyn_nonhydro2d
   private :: cal_del_gradDiffVar
 
 contains
-  subroutine atm_dyn_nonhydro2d_Init( mesh )
+  subroutine atm_dyn_dgm_nonhydro2d_Init( mesh )
 
     implicit none
     class(MeshBase2D), intent(in), target :: mesh
@@ -96,9 +96,9 @@ contains
     IntrpMat_VPOrdM1(:,:) = matmul(elem%V, invV_VPOrdM1)
 
     return
-  end subroutine atm_dyn_nonhydro2d_Init
+  end subroutine atm_dyn_dgm_nonhydro2d_Init
 
-  subroutine atm_dyn_nonhydro2d_prepair_expfilter(  &
+  subroutine atm_dyn_dgm_nonhydro2d_prepair_expfilter(  &
     elem,                                           &
     etac, alpha, ord )
 
@@ -134,9 +134,9 @@ contains
     FilterMat(:,:) = matmul(elem%V, FilterMat)
     
     return
-  end subroutine atm_dyn_nonhydro2d_prepair_expfilter
+  end subroutine atm_dyn_dgm_nonhydro2d_prepair_expfilter
 
-  subroutine atm_dyn_nonhydro2d_Final()
+  subroutine atm_dyn_dgm_nonhydro2d_Final()
     implicit none
     !--------------------------------------------
     
@@ -144,11 +144,11 @@ contains
     if( allocated(FilterMat) ) deallocate( FilterMat )
     
     return
-  end subroutine atm_dyn_nonhydro2d_Final  
+  end subroutine atm_dyn_dgm_nonhydro2d_Final  
 
   !-------------------------------
 
-  subroutine atm_dyn_nonhydro2d_filter_prgvar( &
+  subroutine atm_dyn_dgm_nonhydro2d_filter_prgvar( &
     DDENS_, MOMX_, MOMZ_, DRHOT_, lmesh, elem  )
     implicit none
 
@@ -170,9 +170,9 @@ contains
     end do
     
     return
-  end subroutine atm_dyn_nonhydro2d_filter_prgvar
+  end subroutine atm_dyn_dgm_nonhydro2d_filter_prgvar
 
-  subroutine atm_dyn_nonhydro2d_cal_tend( &
+  subroutine atm_dyn_dgm_nonhydro2d_cal_tend( &
     DENS_dt, MOMX_dt, MOMZ_dt, RHOT_dt,               & ! (out)
     DDENS_, MOMX_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd, & ! (in)
     GxU_, GzU_, GxW_, GzW_, GxPT_, GzPT_,             & ! (in)
@@ -284,7 +284,7 @@ contains
     call PROF_rapend( 'cal_dyn_tend_interior', 2)
 
     return
-  end subroutine atm_dyn_nonhydro2d_cal_tend
+  end subroutine atm_dyn_dgm_nonhydro2d_cal_tend
 
   !------
 
@@ -403,7 +403,7 @@ contains
     return
   end subroutine cal_del_flux_dyn
 
-  subroutine atm_dyn_nonhydro2d_cal_grad_diffVars( GxU_, GzU_, GxW_, GzW_, GxPT_, GzPT_,   &
+  subroutine atm_dyn_dgm_nonhydro2d_cal_grad_diffVars( GxU_, GzU_, GxW_, GzW_, GxPT_, GzPT_,   &
     DDENS_, MOMX_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd,                       &
     Dx, Dz, Lift, lmesh, elem )
     
@@ -472,7 +472,7 @@ contains
     end do
 
     return
-  end subroutine atm_dyn_nonhydro2d_cal_grad_diffVars
+  end subroutine atm_dyn_dgm_nonhydro2d_cal_grad_diffVars
 
   subroutine cal_del_gradDiffVar( del_flux, &
     DDENS_, MOMX_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd, nx, nz, vmapM, vmapP, lmesh, elem )
@@ -528,4 +528,4 @@ contains
     return
   end subroutine cal_del_gradDiffVar
 
-end module scale_atm_dyn_nonhydro2d
+end module scale_atm_dyn_dgm_nonhydro2d

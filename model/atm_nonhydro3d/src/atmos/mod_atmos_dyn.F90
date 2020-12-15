@@ -41,26 +41,26 @@ module mod_atmos_dyn
   use scale_model_var_manager, only: ModelVarManager
   use scale_model_component_proc, only:  ModelComponentProc
 
-  use scale_atm_dyn_nonhydro3d_heve, only: &
-    atm_dyn_nonhydro3d_heve_Init,              &
-    atm_dyn_nonhydro3d_heve_Final,             &
-    atm_dyn_nonhydro3d_heve_cal_tend
+  use scale_atm_dyn_dgm_nonhydro3d_heve, only: &
+    atm_dyn_dgm_nonhydro3d_heve_Init,          &
+    atm_dyn_dgm_nonhydro3d_heve_Final,         &
+    atm_dyn_dgm_nonhydro3d_heve_cal_tend
 
-  use scale_atm_dyn_nonhydro3d_hevi, only: &
-    atm_dyn_nonhydro3d_hevi_Init,              &
-    atm_dyn_nonhydro3d_hevi_Final,             &
-    atm_dyn_nonhydro3d_hevi_cal_tend,          &
-    atm_dyn_nonhydro3d_hevi_cal_vi
+  use scale_atm_dyn_dgm_nonhydro3d_hevi, only: &
+    atm_dyn_dgm_nonhydro3d_hevi_Init,          &
+    atm_dyn_dgm_nonhydro3d_hevi_Final,         &
+    atm_dyn_dgm_nonhydro3d_hevi_cal_tend,      &
+    atm_dyn_dgm_nonhydro3d_hevi_cal_vi
 
-  use scale_atm_dyn_nonhydro3d_splitform_hevi, only: &
-    atm_dyn_nonhydro3d_hevi_splitform_Init,          &
-    atm_dyn_nonhydro3d_hevi_splitform_Final,         &
-    atm_dyn_nonhydro3d_hevi_splitform_cal_tend,      &
-    atm_dyn_nonhydro3d_hevi_splitform_cal_vi    
+  use scale_atm_dyn_dgm_nonhydro3d_splitform_hevi, only: &
+    atm_dyn_dgm_nonhydro3d_hevi_splitform_Init,          &
+    atm_dyn_dgm_nonhydro3d_hevi_splitform_Final,         &
+    atm_dyn_dgm_nonhydro3d_hevi_splitform_cal_tend,      &
+    atm_dyn_dgm_nonhydro3d_hevi_splitform_cal_vi    
   
-  use scale_atm_dyn_nonhydro3d_numdiff, only: &
-    atm_dyn_nonhydro3d_numdiff_Init,          &
-    atm_dyn_nonhydro3d_numdiff_Final
+  use scale_atm_dyn_dgm_nonhydro3d_numdiff, only: &
+    atm_dyn_dgm_nonhydro3d_numdiff_Init,          &
+    atm_dyn_dgm_nonhydro3d_numdiff_Final
   
   use scale_element_modalfilter, only: ModalFilter
 
@@ -325,19 +325,19 @@ contains
     select case(EQS_TYPE)
     case("NONHYDRO3D_HEVE")
       this%EQS_TYPEID = EQS_TYPEID_NONHYD3D_HEVE
-      call atm_dyn_nonhydro3d_heve_Init( atm_mesh%mesh )
-      this%cal_tend_ex => atm_dyn_nonhydro3d_heve_cal_tend
+      call atm_dyn_dgm_nonhydro3d_heve_Init( atm_mesh%mesh )
+      this%cal_tend_ex => atm_dyn_dgm_nonhydro3d_heve_cal_tend
       this%cal_vi => null()
     case("NONHYDRO3D_HEVI")
       this%EQS_TYPEID = EQS_TYPEID_NONHYD3D_HEVI
-      call atm_dyn_nonhydro3d_hevi_Init( atm_mesh%mesh )
-      this%cal_tend_ex => atm_dyn_nonhydro3d_hevi_cal_tend
-      this%cal_vi => atm_dyn_nonhydro3d_hevi_cal_vi
+      call atm_dyn_dgm_nonhydro3d_hevi_Init( atm_mesh%mesh )
+      this%cal_tend_ex => atm_dyn_dgm_nonhydro3d_hevi_cal_tend
+      this%cal_vi => atm_dyn_dgm_nonhydro3d_hevi_cal_vi
     case("NONHYDRO3D_SPLITFORM_HEVI")
       this%EQS_TYPEID = EQS_TYPEID_NONHYD3D_SPLITFORM_HEVI
-      call atm_dyn_nonhydro3d_hevi_splitform_Init( atm_mesh%mesh )
-      this%cal_tend_ex => atm_dyn_nonhydro3d_hevi_splitform_cal_tend
-      this%cal_vi => atm_dyn_nonhydro3d_hevi_splitform_cal_vi
+      call atm_dyn_dgm_nonhydro3d_hevi_splitform_Init( atm_mesh%mesh )
+      this%cal_tend_ex => atm_dyn_dgm_nonhydro3d_hevi_splitform_cal_tend
+      this%cal_vi => atm_dyn_dgm_nonhydro3d_hevi_splitform_cal_vi
     case default
       LOG_ERROR("ATMOS_DYN_setup",*) 'Not appropriate names in namelist PARAM_ATMOS_DYN. Check!'
       call PRC_abort
@@ -376,8 +376,8 @@ contains
 
   subroutine AtmosDyn_update( this, model_mesh, prgvars_list, auxvars_list, forcing_list, is_update )
 
-    use scale_atm_dyn_modalfilter, only: &
-      atm_dyn_modalfilter_apply
+    use scale_atm_dyn_dgm_modalfilter, only: &
+      atm_dyn_dgm_modalfilter_apply
 
     implicit none
 
@@ -556,7 +556,7 @@ contains
         call PROF_rapend( 'ATM_DYN_get_localmesh_ptr', 2)
 
         call PROF_rapstart( 'ATM_DYN_update_expfilter', 2)
-        call atm_dyn_modalfilter_apply(                       & ! (inout)
+        call atm_dyn_dgm_modalfilter_apply(                   & ! (inout)
           DDENS%val, MOMX%val, MOMY%val, MOMZ%val, DRHOT%val, & ! (in)
           lcmesh, lcmesh%refElem3D, this%modal_filter_3d      ) ! (in)
         call PROF_rapend( 'ATM_DYN_update_expfilter', 2)
@@ -610,15 +610,15 @@ contains
 
     select case(this%EQS_TYPEID)
     case(EQS_TYPEID_NONHYD3D_HEVE)
-      call atm_dyn_nonhydro3d_heve_Final()
+      call atm_dyn_dgm_nonhydro3d_heve_Final()
     case(EQS_TYPEID_NONHYD3D_HEVI)  
-      call atm_dyn_nonhydro3d_hevi_Final()
+      call atm_dyn_dgm_nonhydro3d_hevi_Final()
     case(EQS_TYPEID_NONHYD3D_SPLITFORM_HEVI)  
-      call atm_dyn_nonhydro3d_hevi_splitform_Final()     
+      call atm_dyn_dgm_nonhydro3d_hevi_splitform_Final()     
     end select 
 
     if (this%CALC_NUMDIFF_FLAG) then
-      call atm_dyn_nonhydro3d_numdiff_Final()
+      call atm_dyn_dgm_nonhydro3d_numdiff_Final()
     end if
 
     if (this%MODALFILTER_FLAG) then
@@ -699,10 +699,10 @@ contains
       AtmosDynNumDiffFlux_GetLocalMeshFields, &
       AtmosDynNumDiffTend_GetLocalMeshFields
     
-    use scale_atm_dyn_nonhydro3d_numdiff, only: &
-      atm_dyn_nonhydro3d_numdiff_tend,          &
-      atm_dyn_nonhydro3d_numdiff_cal_laplacian, &
-      atm_dyn_nonhydro3d_numdiff_cal_flx
+    use scale_atm_dyn_dgm_nonhydro3d_numdiff, only: &
+      atm_dyn_dgm_nonhydro3d_numdiff_tend,          &
+      atm_dyn_dgm_nonhydro3d_numdiff_cal_laplacian, &
+      atm_dyn_dgm_nonhydro3d_numdiff_cal_flx
 
     implicit none
           
@@ -750,7 +750,7 @@ contains
         lcmesh%normal_fn(:,:,1), lcmesh%normal_fn(:,:,2), lcmesh%normal_fn(:,:,3),   &
         lcmesh%vmapM, lcmesh%vmapP, lcmesh%vmapB, lcmesh, lcmesh%refElem3D )
       
-      call atm_dyn_nonhydro3d_numdiff_cal_flx( ND_flx_x%val, ND_flx_y%val, ND_flx_z%val, &
+      call atm_dyn_dgm_nonhydro3d_numdiff_cal_flx( ND_flx_x%val, ND_flx_y%val, ND_flx_z%val, &
         var%val, var%val, DDENS%val, DENS_hyd%val,                                       &
         model_mesh%DOptrMat(1), model_mesh%DOptrMat(2), model_mesh%DOptrMat(3),          &
         model_mesh%LiftOptrMat,                                                          &
@@ -775,10 +775,10 @@ contains
           lcmesh%normal_fn(:,:,1), lcmesh%normal_fn(:,:,2), lcmesh%normal_fn(:,:,3), &
           lcmesh%vmapM, lcmesh%vmapP, lcmesh%vmapB, lcmesh, lcmesh%refElem3D )
 
-        call atm_dyn_nonhydro3d_numdiff_cal_laplacian( ND_lapla_h%val, ND_lapla_v%val, &
-          ND_flx_x%val, ND_flx_y%val, ND_flx_z%val,                                    &
-          model_mesh%DOptrMat(1), model_mesh%DOptrMat(2), model_mesh%DOptrMat(3),      &
-          model_mesh%LiftOptrMat,                                                      &
+        call atm_dyn_dgm_nonhydro3d_numdiff_cal_laplacian( ND_lapla_h%val, ND_lapla_v%val, &
+          ND_flx_x%val, ND_flx_y%val, ND_flx_z%val,                                        &
+          model_mesh%DOptrMat(1), model_mesh%DOptrMat(2), model_mesh%DOptrMat(3),          &
+          model_mesh%LiftOptrMat,                                                          &
           lcmesh, lcmesh%refElem3D, is_bound )
         
         deallocate( is_bound )
@@ -792,8 +792,8 @@ contains
         call AtmosDynNumDiffTend_GetLocalMeshFields( n, mesh, this%dyn_vars%NUMDIFF_TEND_manager, &
           ND_lapla_h, ND_lapla_v )    
         call AtmosVars_GetLocalMeshPrgVars( n, mesh, prgvars_list, auxvars_list, &
-          DDENS, MOMX, MOMY, MOMZ, DRHOT,                                       &
-          DENS_hyd, PRES_hyd                                                    )
+          DDENS, MOMX, MOMY, MOMZ, DRHOT,                                        &
+          DENS_hyd, PRES_hyd                                                     )
           
         allocate( is_bound(lcmesh%refElem%NfpTot,lcmesh%Ne) )
         call this%boundary_cond%ApplyBC_numdiff_even_lc( &
@@ -802,10 +802,10 @@ contains
           lcmesh%normal_fn(:,:,1), lcmesh%normal_fn(:,:,2), lcmesh%normal_fn(:,:,3), &
           lcmesh%vmapM, lcmesh%vmapP, lcmesh%vmapB, lcmesh, lcmesh%refElem3D )
           
-        call atm_dyn_nonhydro3d_numdiff_cal_flx( ND_flx_x%val, ND_flx_y%val, ND_flx_z%val, &
-          ND_lapla_h%val, ND_lapla_v%val, DDENS%val, DENS_hyd%val,                         &
-          model_mesh%DOptrMat(1), model_mesh%DOptrMat(2), model_mesh%DOptrMat(3),          &
-          model_mesh%LiftOptrMat,                                                          &
+        call atm_dyn_dgm_nonhydro3d_numdiff_cal_flx( ND_flx_x%val, ND_flx_y%val, ND_flx_z%val, &
+          ND_lapla_h%val, ND_lapla_v%val, DDENS%val, DENS_hyd%val,                             &
+          model_mesh%DOptrMat(1), model_mesh%DOptrMat(2), model_mesh%DOptrMat(3),              &
+          model_mesh%LiftOptrMat,                                                              &
           lcmesh, lcmesh%refElem3D, is_bound, .false. ) 
 
         deallocate( is_bound )
@@ -830,11 +830,11 @@ contains
         lcmesh%normal_fn(:,:,1), lcmesh%normal_fn(:,:,2), lcmesh%normal_fn(:,:,3), &
         lcmesh%vmapM, lcmesh%vmapP, lcmesh%vmapB, lcmesh, lcmesh%refElem3D )
 
-      call atm_dyn_nonhydro3d_numdiff_tend( this%tint(n)%tend_buf2D_ex(:,:,varid,1),  &
-        ND_flx_x%val, ND_flx_y%val, ND_flx_z%val,                                     &
-        DDENS%val, DENS_hyd%val, nd_sign * this%ND_COEF_H, nd_sign * this%ND_COEF_V,  &
-        model_mesh%DOptrMat(1), model_mesh%DOptrMat(2), model_mesh%DOptrMat(3),       &
-        model_mesh%LiftOptrMat,                                                       &
+      call atm_dyn_dgm_nonhydro3d_numdiff_tend( this%tint(n)%tend_buf2D_ex(:,:,varid,1),  &
+        ND_flx_x%val, ND_flx_y%val, ND_flx_z%val,                                         &
+        DDENS%val, DENS_hyd%val, nd_sign * this%ND_COEF_H, nd_sign * this%ND_COEF_V,      &
+        model_mesh%DOptrMat(1), model_mesh%DOptrMat(2), model_mesh%DOptrMat(3),           &
+        model_mesh%LiftOptrMat,                                                           &
         lcmesh, lcmesh%refElem3D, is_bound, dens_weight_flag ) 
 
       deallocate( is_bound )
@@ -921,7 +921,7 @@ contains
     this%ND_LAPLACIAN_NUM = ND_LAPLACIAN_NUM
     this%ND_COEF_H = ND_COEF_h
     this%ND_COEF_v = ND_COEF_v
-    call atm_dyn_nonhydro3d_numdiff_Init( atm_mesh%mesh )
+    call atm_dyn_dgm_nonhydro3d_numdiff_Init( atm_mesh%mesh )
 
     return
   end subroutine setup_numdiff
