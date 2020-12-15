@@ -98,6 +98,9 @@ contains
     integer :: n
     character(len=H_SHORT) :: dim_type
     class(LocalMesh3D), pointer :: lcmesh 
+
+    integer :: k
+    logical :: is_spec_FZ
     
     integer :: ierr
     !-------------------------------------------
@@ -119,14 +122,32 @@ contains
 
     !----
 
+    ! Setup the element
+
     call this%element%Init( PolyOrder_h, PolyOrder_v, LumpedMassMatFlag )
-     
-    call this%mesh%Init( &
-      NprcX*NeX, NprcY*NeY, NeZ,                                 &
-      dom_xmin, dom_xmax,dom_ymin, dom_ymax, dom_zmin, dom_zmax, &
-      isPeriodicX, isPeriodicY, isPeriodicZ,                     &
-      this%element, ATMOS_MESH_NLocalMeshPerPrc, NprcX, NprcY,   &
-      FZ=FZ(1:NeZ+1)    )
+
+    ! Setup the mesh
+    
+    is_spec_FZ = .true.
+    do k=1, NeZ+1
+      if (FZ(k) < 0.0_RP) then
+        is_spec_FZ = .false.
+      end if
+    end do
+    if (is_spec_FZ) then
+      call this%mesh%Init( &
+        NprcX*NeX, NprcY*NeY, NeZ,                                 &
+        dom_xmin, dom_xmax,dom_ymin, dom_ymax, dom_zmin, dom_zmax, &
+        isPeriodicX, isPeriodicY, isPeriodicZ,                     &
+        this%element, ATMOS_MESH_NLocalMeshPerPrc, NprcX, NprcY,   &
+        FZ=FZ(1:NeZ+1)    )
+    else
+      call this%mesh%Init( &
+        NprcX*NeX, NprcY*NeY, NeZ,                                 &
+        dom_xmin, dom_xmax,dom_ymin, dom_ymax, dom_zmin, dom_zmax, &
+        isPeriodicX, isPeriodicY, isPeriodicZ,                     &
+        this%element, ATMOS_MESH_NLocalMeshPerPrc, NprcX, NprcY    )
+    end if
     
     call this%mesh%Generate()
     

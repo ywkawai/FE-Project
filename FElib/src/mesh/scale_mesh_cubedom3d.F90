@@ -7,6 +7,7 @@ module scale_mesh_cubedom3d
   !
   use scale_io
   use scale_precision
+  use scale_prc
 
   use scale_mesh_base3d, only: &
     MeshBase3D, MeshBase3D_Init, MeshBase3D_Final, &
@@ -139,19 +140,14 @@ contains
 
     !--
     allocate( this%FZ(this%NeGZ+1) )
-    
-    FZ_valid = .true.
-    do k=1, this%NeGZ+1
-      if ( FZ(k) < 0.0_RP ) FZ_valid = .false.
-    end do
 
-    if ( present(FZ) .and. FZ_valid ) then
+    if ( present(FZ) ) then
       this%FZ(:) = FZ(:)
     else
-      this%FZ(1        ) = dom_Zmin
-      this%FZ(this%NeGZ) = dom_Zmax
+      this%FZ(1          ) = dom_Zmin
+      this%FZ(this%NeGZ+1) = dom_Zmax
       dz = (dom_zmax - dom_zmin) / dble(this%NeGZ)
-      do k=2, this%NeGZ-1
+      do k=2, this%NeGZ
         this%FZ(k) = this%FZ(k-1) + dz
       end do
     end if
