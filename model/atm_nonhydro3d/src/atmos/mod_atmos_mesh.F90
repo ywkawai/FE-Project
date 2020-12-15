@@ -82,24 +82,30 @@ contains
     integer  :: PolyOrder_v       = 2
     logical  :: LumpedMassMatFlag = .false.
 
+    integer, parameter :: FZ_nmax = 1000
+    real(RP) :: FZ(FZ_nmax)
+
     namelist / PARAM_ATMOS_MESH / &
-      dom_xmin, dom_xmax,                        &
-      dom_ymin, dom_ymax,                        &
-      dom_zmin, dom_zmax,                        &
-      isPeriodicX, isPeriodicY, isPeriodicZ,     &
+      dom_xmin, dom_xmax,                          &
+      dom_ymin, dom_ymax,                          &
+      dom_zmin, dom_zmax,                          &
+      FZ,                                          &
+      isPeriodicX, isPeriodicY, isPeriodicZ,       &
       NeX, NeY, NeZ,                               &
       PolyOrder_h, PolyOrder_v, LumpedMassMatFlag, &
       NprcX, NprcY
     
-    integer :: ierr
-
     integer :: n
     character(len=H_SHORT) :: dim_type
-    class(LocalMesh3D), pointer :: lcmesh     
+    class(LocalMesh3D), pointer :: lcmesh 
+    
+    integer :: ierr
     !-------------------------------------------
 
     LOG_NEWLINE
     LOG_INFO("ATMOS_MESH_setup",*) 'Setup'
+
+    FZ(:) = -1.0_RP
 
     rewind(IO_FID_CONF)
     read(IO_FID_CONF,nml=PARAM_ATMOS_MESH,iostat=ierr)
@@ -110,15 +116,17 @@ contains
         call PRC_abort
     endif
     LOG_NML(PARAM_ATMOS_MESH)
+
     !----
 
     call this%element%Init( PolyOrder_h, PolyOrder_v, LumpedMassMatFlag )
-    
+     
     call this%mesh%Init( &
       NprcX*NeX, NprcY*NeY, NeZ,                                 &
       dom_xmin, dom_xmax,dom_ymin, dom_ymax, dom_zmin, dom_zmax, &
       isPeriodicX, isPeriodicY, isPeriodicZ,                     &
-      this%element, ATMOS_MESH_NLocalMeshPerPrc, NprcX, NprcY    )
+      this%element, ATMOS_MESH_NLocalMeshPerPrc, NprcX, NprcY,   &
+      FZ=FZ(1:NeZ+1)    )
     
     call this%mesh%Generate()
     

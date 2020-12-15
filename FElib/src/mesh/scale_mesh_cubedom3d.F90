@@ -45,7 +45,10 @@ module scale_mesh_cubedom3d
     
     real(RP), public :: xmin_gl, xmax_gl
     real(RP), public :: ymin_gl, ymax_gl    
-    real(RP), public :: zmin_gl, zmax_gl    
+    real(RP), public :: zmin_gl, zmax_gl
+
+    real(RP), allocatable :: FZ(:)
+
     integer, allocatable :: rcdomIJK2LCMeshID(:,:,:)
 
     logical :: isPeriodicX
@@ -84,7 +87,8 @@ contains
     dom_xmin, dom_xmax, dom_ymin, dom_ymax, dom_zmin, dom_zmax, &
     isPeriodicX, isPeriodicY, isPeriodicZ,                      &
     refElem, NLocalMeshPerPrc, NprcX, NprcY,                    &
-    nproc, myrank                                               )
+    nproc, myrank,                                              &
+    FZ                                                          )
     
     implicit none
 
@@ -107,6 +111,11 @@ contains
     integer, intent(in) :: NprcY
     integer, intent(in), optional :: nproc
     integer, intent(in), optional :: myrank
+    real(RP), intent(in), optional :: FZ(NeGZ+1)
+
+    integer :: k
+    real(RP) :: dz
+    logical :: FZ_valid
     !-----------------------------------------------------------------------------
     
     this%NeGX = NeGX
@@ -128,6 +137,26 @@ contains
     this%NprcY = NprcY
     this%NprcZ = 1
 
+    !--
+    allocate( this%FZ(this%NeGZ+1) )
+    
+    FZ_valid = .true.
+    do k=1, this%NeGZ+1
+      if ( FZ(k) < 0.0_RP ) FZ_valid = .false.
+    end do
+
+    if ( present(FZ) .and. FZ_valid ) then
+      this%FZ(:) = FZ(:)
+    else
+      this%FZ(1        ) = dom_Zmin
+      this%FZ(this%NeGZ) = dom_Zmax
+      dz = (dom_zmax - dom_zmin) / dble(this%NeGZ)
+      do k=2, this%NeGZ-1
+        this%FZ(k) = this%FZ(k-1) + dz
+      end do
+    end if
+
+    !--
     call MeshBase3D_Init( this, refElem, NLocalMeshPerPrc, 6, &
                           nproc, myrank                       )
 
@@ -210,7 +239,7 @@ contains
          & tileID,  panelID_table(tileID),                                                           &
          & pi_table(tileID), pj_table(tileID), pk_table(tileID), this%NprcX, this%NprcY, this%NprcZ, &
          & this%xmin_gl, this%xmax_gl, this%ymin_gl, this%ymax_gl, this%zmin_gl, this%zmax_gl,       &
-         & this%NeGX/this%NprcX, this%NeGY/this%NprcY, this%NeGZ/this%NprcZ )
+         & this%NeGX/this%NprcX, this%NeGY/this%NprcY, this%NeGZ/this%NprcZ, this%FZ(:)              )
 
       call MeshRectDom2D_setupLocalDom( this%mesh2D%lcmesh_list(n),   &
         & tileID,  panelID_table(tileID),                             &
@@ -244,7 +273,8 @@ contains
     tileID, panelID,                                            &
     i, j, k, NprcX, NprcY, NprcZ,                               &
     dom_xmin, dom_xmax, dom_ymin, dom_ymax, dom_zmin, dom_zmax, &
-    NeX, NeY, NeZ )
+    NeX, NeY, NeZ,                                              &
+    FZ                                                          )
 
     use scale_meshutil_3d, only: &
       MeshUtil3D_genConnectivity,   &
@@ -263,11 +293,15 @@ contains
     real(RP), intent(in) :: dom_xmin, dom_xmax
     real(RP), intent(in) :: dom_ymin, dom_ymax
     real(RP), intent(in) :: dom_Zmin, dom_zmax
-    integer, intent(in) ::NeX, NeY, NeZ
+    integer, intent(in) :: NeX, NeY, NeZ
+    real(RP), intent(in) :: FZ(NeZ*NprcZ+1)
     
     class(ElementBase3D), pointer :: elem
-    real(RP) :: delx, dely, delz
-    integer :: ii, jj, kk, ke
+    real(RP) :: delx, dely
+    real(RP) :: FZ_lc(NeZ+1)
+
+    integer :: ii, jj, kk
+    integer :: ke
     !-----------------------------------------------------------------------------
 
     elem => lcmesh%refElem3D
@@ -289,14 +323,13 @@ contains
 
     delx = (dom_xmax - dom_xmin)/dble(NprcX)
     dely = (dom_ymax - dom_ymin)/dble(NprcY)
-    delz = (dom_zmax - dom_zmin)/dble(NprcZ)
-
+    FZ_lc(:) = Fz((k-1)*NeZ+1:k*NeZ)
     lcmesh%xmin = dom_xmin + (i-1)*delx
     lcmesh%xmax = dom_xmin +  i   *delx
     lcmesh%ymin = dom_ymin + (j-1)*dely
     lcmesh%ymax = dom_ymin +  j   *dely
-    lcmesh%zmin = dom_zmin + (k-1)*delz
-    lcmesh%zmax = dom_zmin +  k   *delz
+    lcmesh%zmin = FZ_lc(1)
+    lcmesh%zmax = FZ_lc(NeZ+1)
     
     allocate( lcmesh%pos_ev(lcmesh%Nv,3) )
     allocate( lcmesh%EToV(lcmesh%Ne,elem%Nv) )
@@ -317,7 +350,7 @@ contains
     call MeshUtil3D_genCubeDomain( lcmesh%pos_ev, lcmesh%EToV,     & ! (out)
         & lcmesh%NeX, lcmesh%xmin, lcmesh%xmax,                    & ! (in)
         & lcmesh%NeY, lcmesh%ymin, lcmesh%ymax,                    & ! (in) 
-        & lcmesh%NeZ, lcmesh%zmin, lcmesh%zmax )                     ! (in) 
+        & lcmesh%NeZ, lcmesh%zmin, lcmesh%zmax, FZ=FZ_lc           ) ! (in) 
 
     !---
     

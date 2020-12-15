@@ -23,7 +23,8 @@ module scale_meshutil_3d
 contains
 
   subroutine MeshUtil3D_genCubeDomain( pos_v, EToV,        &
-    Ke_x, xmin, xmax, Ke_y, ymin, ymax, Ke_z, zmin, zmax )
+    Ke_x, xmin, xmax, Ke_y, ymin, ymax, Ke_z, zmin, zmax,  &
+    Fz )
 
     implicit none
 
@@ -33,6 +34,7 @@ contains
     real(RP), intent(in) :: ymin, ymax
     integer, intent(in) :: Ke_z
     real(RP), intent(in) :: zmin, zmax
+    real(RP), intent(in), optional :: Fz(Ke_z+1)
     
     real(RP), intent(out) :: pos_v((Ke_x+1)*(Ke_y+1)*(Ke_z+1),3)
     integer, intent(out) :: EToV(Ke_x*Ke_y*Ke_z,8)
@@ -53,7 +55,11 @@ contains
       n = i + (j-1)*NvX + (k-1)*NvX*NvY
       pos_v(n,1) = (xmax - xmin)*dble(i - 1)/dble(NvX - 1) + xmin
       pos_v(n,2) = (ymax - ymin)*dble(j - 1)/dble(NvY - 1) + ymin
-      pos_v(n,3) = (zmax - zmin)*dble(k - 1)/dble(NvZ - 1) + zmin
+      if ( present(Fz) ) then
+        pos_v(n,3) = Fz(k)
+      else
+        pos_v(n,3) = (zmax - zmin)*dble(k - 1)/dble(NvZ - 1) + zmin
+      end if
     end do
     end do
     end do
