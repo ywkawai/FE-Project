@@ -67,20 +67,6 @@ module scale_atm_dyn_dgm_nonhydro3d_splitform_hevi
   integer, private, parameter :: MOMZ_VID   = 4
   integer, private, parameter :: DRHOT_VID  = 5
   integer, private, parameter :: PROG_VARS_NUM  = 5
-  
-  integer, private, parameter :: VARS_GxU_ID      = 1
-  integer, private, parameter :: VARS_GyU_ID      = 2
-  integer, private, parameter :: VARS_GzU_ID      = 3
-  integer, private, parameter :: VARS_GxV_ID      = 4
-  integer, private, parameter :: VARS_GyV_ID      = 5
-  integer, private, parameter :: VARS_GzV_ID      = 6
-  integer, private, parameter :: VARS_GxW_ID      = 7
-  integer, private, parameter :: VARS_GyW_ID      = 8
-  integer, private, parameter :: VARS_GzW_ID      = 9
-  integer, private, parameter :: VARS_GxPT_ID     = 10
-  integer, private, parameter :: VARS_GyPT_ID     = 11
-  integer, private, parameter :: VARS_GzPT_ID     = 12
-  integer, private, parameter :: AUX_DIFFVARS_NUM = 12
 
   real(RP), private, allocatable :: IntrpMat_VPOrdM1(:,:)
   real(RP), private, allocatable :: DxT1D_(:,:)

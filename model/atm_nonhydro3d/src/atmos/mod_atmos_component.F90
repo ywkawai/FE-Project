@@ -29,6 +29,7 @@ module mod_atmos_component
 
   use mod_atmos_dyn, only: AtmosDyn
   use mod_atmos_phy_sfc, only: AtmosPhySfc
+  use mod_atmos_phy_tb , only: AtmosPhyTb
 
   !-----------------------------------------------------------------------------
   implicit none
@@ -43,7 +44,7 @@ module mod_atmos_component
 
     type(AtmosDyn) :: dyn_proc
     type(AtmosPhySfc) :: phy_sfc_proc
-
+    type(AtmosPhyTb ) :: phy_tb_proc
   contains
     procedure, public :: setup => Atmos_setup 
     procedure, public :: calc_tendency => Atmos_calc_tendency
@@ -89,6 +90,7 @@ subroutine Atmos_setup( this )
 
   logical :: ATMOS_DYN_DO    = .true.
   logical :: ATMOS_PHY_SF_DO = .false.
+  logical :: ATMOS_PHY_TB_DO = .false.
 
   namelist / PARAM_ATMOS / &
     ACTIVATE_FLAG,         &
@@ -97,7 +99,8 @@ subroutine Atmos_setup( this )
     TIME_DT_RESTART,       &
     TIME_DT_RESTART_UNIT,  &
     ATMOS_DYN_DO,          &
-    ATMOS_PHY_SF_DO
+    ATMOS_PHY_SF_DO,       &
+    ATMOS_PHY_TB_DO
 
   integer :: ierr
   !--------------------------------------------------
@@ -151,6 +154,10 @@ subroutine Atmos_setup( this )
   !- Setup the module for atmosphere / physics / surface
   call this%phy_sfc_proc%ModelComponentProc_Init( 'AtmosPhysSfc', ATMOS_PHY_SF_DO )
   call this%phy_sfc_proc%setup( this%mesh, this%time_manager )
+
+  !- Setup the module for atmosphere / physics / turbulence
+  call this%phy_tb_proc%ModelComponentProc_Init( 'AtmosPhysTb', ATMOS_PHY_TB_DO )
+  call this%phy_tb_proc%setup( this%mesh, this%time_manager )
   
   call PROF_rapend( 'ATM_setup', 1)
   return
@@ -165,6 +172,7 @@ subroutine Atmos_calc_tendency( this )
     MOMX_tp => ATMOS_PHYTEND_MOMX_ID, &
     MOMY_tp => ATMOS_PHYTEND_MOMY_ID, &
     MOMZ_tp => ATMOS_PHYTEND_MOMZ_ID, &
+    RHOT_tp => ATMOS_PHYTEND_RHOT_ID, &
     RHOH_p  => ATMOS_PHYTEND_RHOH_ID
 
   implicit none
@@ -195,7 +203,7 @@ subroutine Atmos_calc_tendency( this )
   do n=1, mesh%LOCAL_MESH_NUM
     call AtmosVars_GetLocalMeshPhyTends( n, mesh, this%vars%PHYTENDS_manager , & ! (in)
       tp_list(DENS_tp)%ptr, tp_list(MOMX_tp)%ptr, tp_list(MOMY_tp)%ptr,        & ! (out)
-      tp_list(MOMZ_tp)%ptr, tp_list(RHOH_p)%ptr, lcmesh                        ) ! (out)
+      tp_list(MOMZ_tp)%ptr, tp_list(RHOT_tp)%ptr, tp_list(RHOH_p)%ptr, lcmesh  ) ! (out)
     
     !$omp parallel do    
     do v=1, ATMOS_PHYTEND_NUM
@@ -215,6 +223,16 @@ subroutine Atmos_calc_tendency( this )
     call PROF_rapend('ATM_SurfaceFlux', 1)
   end if
   
+  ! Turbulence
+  if ( this%phy_tb_proc%IsActivated() ) then
+    call PROF_rapstart('ATM_Turbulence', 1)
+    tm_process_id = this%phy_tb_proc%tm_process_id
+    is_update = this%time_manager%Do_process(tm_process_id)
+    call this%phy_tb_proc%calc_tendency( &
+        this%mesh, this%vars%PROGVARS_manager, this%vars%AUXVARS_manager, this%vars%PHYTENDS_manager, is_update )
+    call PROF_rapend('ATM_Turbulence', 1)
+  end if
+
   call PROF_rapend( 'ATM_tendency', 1)
   return  
 end subroutine Atmos_calc_tendency
@@ -271,6 +289,8 @@ subroutine Atmos_finalize( this )
 
   call this%dyn_proc%finalize()
   call this%phy_sfc_proc%finalize()
+  call this%phy_tb_proc%finalize()
+  
   call this%vars%Final()
   call this%mesh%Final()
   call this%time_manager%Final()

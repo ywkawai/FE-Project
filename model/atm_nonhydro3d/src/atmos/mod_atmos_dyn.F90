@@ -593,8 +593,12 @@ contains
       call PROF_rapend( 'ATM_DYN_numfilter', 2)
     end if
 
-    call PROF_rapend( 'ATM_DYN_update', 1)   
+    !* Exchange halo data ( for physics )
+    call PROF_rapstart( 'ATM_DYN_exchange_prgv', 2)
+    call prgvars_list%MeshFieldComm_Exchange()
+    call PROF_rapend( 'ATM_DYN_exchange_prgv', 2)
 
+    call PROF_rapend( 'ATM_DYN_update', 1)
 
     return  
   end subroutine AtmosDyn_update
@@ -666,7 +670,7 @@ contains
     class(MeshBase), intent(in) :: mesh
     integer, intent(in) :: domID
 
-    class(LocalMeshFieldBase), pointer :: DENS_tp, MOMX_tp, MOMY_tp, MOMZ_tp, RHOH_p
+    class(LocalMeshFieldBase), pointer :: DENS_tp, MOMX_tp, MOMY_tp, MOMZ_tp, RHOT_tp, RHOH_p
     integer :: ke
 
     real(RP) :: RHOT(elem3D%Np)
@@ -674,7 +678,7 @@ contains
     !---------------------------------------------------------------------------------
 
     call AtmosVars_GetLocalMeshPhyTends( domID, mesh, phytends_list, & ! (in)
-      DENS_tp, MOMX_tp, MOMY_tp, MOMZ_tp, RHOH_p                     ) ! (out)
+      DENS_tp, MOMX_tp, MOMY_tp, MOMZ_tp, RHOT_tp, RHOH_p            ) ! (out)
 
     !$omp parallel do          &
     !$Omp private( RHOT, EXNER )
@@ -686,7 +690,8 @@ contains
       dyn_tends(:,ke,MOMX_ID ) = dyn_tends(:,ke,MOMX_ID ) + MOMX_tp%val(:,ke)
       dyn_tends(:,ke,MOMY_ID ) = dyn_tends(:,ke,MOMY_ID ) + MOMY_tp%val(:,ke)
       dyn_tends(:,ke,MOMZ_ID ) = dyn_tends(:,ke,MOMZ_ID ) + MOMZ_tp%val(:,ke)
-      dyn_tends(:,ke,DRHOT_ID) = dyn_tends(:,ke,DRHOT_ID) + RHOH_p %val(:,ke) / ( CpDry * EXNER(:) )
+      dyn_tends(:,ke,DRHOT_ID) = dyn_tends(:,ke,DRHOT_ID) + RHOT_tp%val(:,ke) &
+                               + RHOH_p %val(:,ke) / ( CpDry * EXNER(:) )
     end do
 
     return

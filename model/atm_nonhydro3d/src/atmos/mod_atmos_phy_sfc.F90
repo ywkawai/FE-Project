@@ -160,7 +160,7 @@ contains
 
     class(LocalMeshFieldBase), pointer :: DDENS, MOMX, MOMY, MOMZ, DRHOT
     class(LocalMeshFieldBase), pointer :: DENS_hyd, PRES_hyd
-    class(LocalMeshFieldBase), pointer :: DENS_tp, MOMX_tp, MOMY_tp, MOMZ_tp, RHOH_p
+    class(LocalMeshFieldBase), pointer :: DENS_tp, MOMX_tp, MOMY_tp, MOMZ_tp, RHOT_tp, RHOH_p
     class(LocalMeshFieldBase), pointer :: SFLX_MU, SFLX_MV, SFLX_MW, SFLX_SH, SFLX_LH
 
     integer :: n
@@ -177,9 +177,10 @@ contains
         DDENS, MOMX, MOMY, MOMZ, DRHOT,       &
         DENS_hyd, PRES_hyd, lcmesh            )
       
-      call AtmosVars_GetLocalMeshPhyTends( n,       &
-        mesh, forcing_list,                         &
-        DENS_tp, MOMX_tp, MOMY_tp, MOMZ_tp, RHOH_p  )
+      call AtmosVars_GetLocalMeshPhyTends( n,        &
+        mesh, forcing_list,                          &
+        DENS_tp, MOMX_tp, MOMY_tp, MOMZ_tp, RHOT_tp, &
+        RHOH_p  )
 
       call AtmosPhySfcVars_GetLocalMeshFields( n,    &
         mesh, this%vars%SFCFLX_manager,              &
@@ -403,6 +404,5 @@ contains
 
     return
   end subroutine cal_del_flux
-
 
 end module mod_atmos_phy_sfc

@@ -47,12 +47,12 @@ module mod_atmos_phy_sfc_vars
     procedure :: Final => AtmosPhySfcVars_Final
   end type AtmosPhySfcVars
 
-  integer, public, parameter :: ATMOS_PHY_SF_SFLX_NUM    = 5
   integer, public, parameter :: ATMOS_PHY_SF_SFLX_MU_ID  = 1
   integer, public, parameter :: ATMOS_PHY_SF_SFLX_MV_ID  = 2
   integer, public, parameter :: ATMOS_PHY_SF_SFLX_MW_ID  = 3
   integer, public, parameter :: ATMOS_PHY_SF_SFLX_SH_ID  = 4
   integer, public, parameter :: ATMOS_PHY_SF_SFLX_LH_ID  = 5
+  integer, public, parameter :: ATMOS_PHY_SF_SFLX_NUM    = 5
 
   type(VariableInfo), public :: ATMOS_PHY_SF_SFLX_VINFO(ATMOS_PHY_SF_SFLX_NUM)
   DATA ATMOS_PHY_SF_SFLX_VINFO / &

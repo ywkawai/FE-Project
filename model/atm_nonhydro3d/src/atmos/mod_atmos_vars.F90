@@ -123,8 +123,9 @@ module mod_atmos_vars
   integer, public, parameter :: ATMOS_PHYTEND_MOMX_ID     = 2
   integer, public, parameter :: ATMOS_PHYTEND_MOMY_ID     = 3
   integer, public, parameter :: ATMOS_PHYTEND_MOMZ_ID     = 4
-  integer, public, parameter :: ATMOS_PHYTEND_RHOH_ID     = 5
-  integer, public, parameter :: ATMOS_PHYTEND_NUM         = 5
+  integer, public, parameter :: ATMOS_PHYTEND_RHOT_ID     = 5
+  integer, public, parameter :: ATMOS_PHYTEND_RHOH_ID     = 6
+  integer, public, parameter :: ATMOS_PHYTEND_NUM         = 6
 
   type(VariableInfo), public :: ATMOS_PHYTEND_VINFO(ATMOS_PHYTEND_NUM)
   DATA ATMOS_PHYTEND_VINFO / &
@@ -136,8 +137,10 @@ module mod_atmos_vars
                   'kg/m2/s',  3, 'XYZ',  'tendency of physical process for MOMY' ),   &
     VariableInfo( ATMOS_PHYTEND_MOMZ_ID, 'MOMZ_tp', 'MOMZ_tp',                        &
                   'kg/m2/s',  3, 'XYZ',  'tendency of physical process for MOMZ' ),   &
-    VariableInfo( ATMOS_PHYTEND_RHOH_ID, 'RHOT_tp', 'RHOT_tp',                        &
-                  'kg/m3.K/s',  3, 'XYZ',  'tendency of physical process for RHOT' )  /
+    VariableInfo( ATMOS_PHYTEND_RHOT_ID, 'RHOT_tp', 'RHOT_tp',                        &
+                  'kg/m3.K/s',  3, 'XYZ',  'tendency of physical process for RHOT' ), &
+    VariableInfo( ATMOS_PHYTEND_RHOH_ID,  'RHOH_p',  'RHOH_p',                        &
+                  'kg/m3.K/s',  3, 'XYZ',  'heating of physical process for RHOT' )   /
 
   ! Diagnostic variables
 
@@ -751,14 +754,15 @@ contains
   end subroutine AtmosVars_GetLocalMeshPrgVars
 
   subroutine AtmosVars_GetLocalMeshPhyTends( domID, mesh, phytends_list,  &
-    DENS_tp, MOMX_tp, MOMY_tp, MOMZ_tp, RHOH_p,                           &
+    DENS_tp, MOMX_tp, MOMY_tp, MOMZ_tp, RHOT_tp, RHOH_p,                  &
     lcmesh3D                                                              )
 
     implicit none
     integer, intent(in) :: domID
     class(MeshBase), intent(in) :: mesh
     class(ModelVarManager), intent(inout) :: phytends_list
-    class(LocalMeshFieldBase), pointer, intent(out) :: DENS_tp, MOMX_tp, MOMY_tp, MOMZ_tp, RHOH_p
+    class(LocalMeshFieldBase), pointer, intent(out) :: DENS_tp, MOMX_tp, MOMY_tp, MOMZ_tp, RHOT_tp
+    class(LocalMeshFieldBase), pointer, intent(out) :: RHOH_p
     class(LocalMesh3D), pointer, intent(out), optional :: lcmesh3D
 
     class(MeshFieldBase), pointer :: field

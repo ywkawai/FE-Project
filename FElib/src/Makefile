@@ -17,7 +17,8 @@ VPATH = \
 	data:             \
 	file:             \
 	fluid_dyn_solver: \
-	model_framework:  
+	turbulence:       \
+	model_framework:
 
 LIBVERSION = $(shell git rev-parse --short HEAD 2> /dev/null)
 ifeq ($(LIBVERSION),)
@@ -71,7 +72,6 @@ OBJS_NAME_DATA = \
 	scale_meshfieldcomm_cubedom3d.o  \
 	scale_meshfield_statistics.o           
 
-
 OBJS_NAME_FILE = \
 	scale_file_common_meshfield.o  \
 	scale_file_base_meshfield.o    \
@@ -89,6 +89,8 @@ OBJS_NAME_FLUID_DYN_SOLVER = \
 	scale_atm_dyn_dgm_nonhydro3d_splitform_hevi.o \
 	scale_atm_dyn_dgm_nonhydro3d_hevi_gmres.o 
 
+OBJS_NAME_TURBULENCE = \
+	scale_atm_phy_tb_dgm_smg.o
 
 OBJS_NAME_MODEL_FRAMEWORK = \
 	scale_model_mesh_manager.o   \
@@ -103,6 +105,7 @@ OBJS_NAME = \
 	$(OBJS_NAME_DATA)		          \
 	$(OBJS_NAME_FILE)             \
 	$(OBJS_NAME_FLUID_DYN_SOLVER) \
+	$(OBJS_NAME_TURBULENCE)       \
 	$(OBJS_NAME_MODEL_FRAMEWORK)
 	
 
