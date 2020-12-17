@@ -422,6 +422,11 @@ contains
       if ( hst_id > 0 ) call FILE_HISTORY_meshfield_put( hst_id, this%AUX_VARS(v) )
     end do
 
+    do v = 1, ATMOS_PHYTEND_NUM
+      hst_id = this%PHY_TEND(v)%hist_id
+      if ( hst_id > 0 ) call FILE_HISTORY_meshfield_put( hst_id, this%PHY_TEND(v) )
+    end do
+
     call tmp_field%Init( "tmp_field", "", mesh3D)
     do v = 1, ATMOS_DIAGVARS_NUM
       hst_id = this%DIAGVARS_HISTID(v)
