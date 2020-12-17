@@ -577,6 +577,7 @@ contains
     real(RP) :: TauM_x, TauP_x
     real(RP) :: TauM_y, TauP_y
     real(RP) :: TauM_z, TauP_z
+    
     !------------------------------------------------------------------------
 
     !$omp parallel do private( iM, iP, &
@@ -609,11 +610,18 @@ contains
       TauP_z = Nu(iP) * 2.0_RP * ( S31(iP) * nx(i) + S23(iP) * ny(i) + ( S33(iP) - SkkOvThreeP ) * nz(i) ) &
              - TKEMulTwoOvThreeP * nz(i)
 
-      del_flux_mom(i,1) = 0.5_RP * ( densP * TauP_x - densM * TauM_x )
-      del_flux_mom(i,2) = 0.5_RP * ( densP * TauP_y - densM * TauM_y )
-      del_flux_mom(i,3) = 0.5_RP * ( densP * TauP_z - densM * TauM_z )
-      del_flux_rhot(i)  = 0.5_RP * ( densP * Kh(iP) * ( dPTdx(iP)*nx(i) + dPTdx(iP)*ny(i) + dPTdz(iP)*nz(i) ) &
-                                   - densM * Kh(iM) * ( dPTdx(iM)*nx(i) + dPTdx(iM)*ny(i) + dPTdz(iM)*nz(i) ) )
+      if ( iM == iP ) then ! Tentative implementation for the treatmnet of lower/upper boundary. 
+        del_flux_mom(i,1) = - densM * TauM_x
+        del_flux_mom(i,2) = - densM * TauM_y
+        del_flux_mom(i,3) = - densM * TauM_z
+        del_flux_rhot(i)  = - densM * Kh(iM) * ( dPTdx(iM)*nx(i) + dPTdx(iM)*ny(i) + dPTdz(iM)*nz(i) )
+      else        
+        del_flux_mom(i,1) = 0.5_RP * ( densP * TauP_x - densM * TauM_x )
+        del_flux_mom(i,2) = 0.5_RP * ( densP * TauP_y - densM * TauM_y )
+        del_flux_mom(i,3) = 0.5_RP * ( densP * TauP_z - densM * TauM_z )
+        del_flux_rhot(i)  = 0.5_RP * ( densP * Kh(iP) * ( dPTdx(iP)*nx(i) + dPTdx(iP)*ny(i) + dPTdz(iP)*nz(i) ) &
+                                    - densM * Kh(iM) * ( dPTdx(iM)*nx(i) + dPTdx(iM)*ny(i) + dPTdz(iM)*nz(i) ) )
+      end if
     end do
 
     return
