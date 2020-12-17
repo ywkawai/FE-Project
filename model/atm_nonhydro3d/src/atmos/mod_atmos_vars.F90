@@ -782,6 +782,9 @@ contains
     call phytends_list%Get(ATMOS_PHYTEND_MOMZ_ID, field)
     call field%GetLocalMeshField(domID, MOMZ_tp)
 
+    call phytends_list%Get(ATMOS_PHYTEND_RHOT_ID, field)
+    call field%GetLocalMeshField(domID, RHOT_tp)
+
     call phytends_list%Get(ATMOS_PHYTEND_RHOH_ID, field)
     call field%GetLocalMeshField(domID, RHOH_p)
 

@@ -192,6 +192,7 @@ subroutine Atmos_calc_tendency( this )
   integer :: v
   integer :: ke
   !------------------------------------------------------------------
+  
   call PROF_rapstart( 'ATM_tendency', 1)
   !LOG_INFO('AtmosComponent_calc_tendency',*)
 
@@ -201,11 +202,11 @@ subroutine Atmos_calc_tendency( this )
 
   call this%mesh%GetModelMesh( mesh )  
   do n=1, mesh%LOCAL_MESH_NUM
-    call AtmosVars_GetLocalMeshPhyTends( n, mesh, this%vars%PHYTENDS_manager , & ! (in)
-      tp_list(DENS_tp)%ptr, tp_list(MOMX_tp)%ptr, tp_list(MOMY_tp)%ptr,        & ! (out)
-      tp_list(MOMZ_tp)%ptr, tp_list(RHOT_tp)%ptr, tp_list(RHOH_p)%ptr, lcmesh  ) ! (out)
+    call AtmosVars_GetLocalMeshPhyTends( n, mesh, this%vars%PHYTENDS_manager ,  & ! (in)
+      tp_list(DENS_tp)%ptr, tp_list(MOMX_tp)%ptr, tp_list(MOMY_tp)%ptr,         & ! (out)
+      tp_list(MOMZ_tp)%ptr, tp_list(RHOT_tp)%ptr, tp_list(RHOH_p )%ptr, lcmesh  ) ! (out)
     
-    !$omp parallel do    
+    !$omp parallel do collapse(2)
     do v=1, ATMOS_PHYTEND_NUM
     do ke=lcmesh%NeS, lcmesh%NeE
       tp_list(v)%ptr%val(:,ke) = 0.0_RP
