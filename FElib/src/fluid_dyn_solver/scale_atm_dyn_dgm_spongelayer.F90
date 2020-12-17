@@ -108,9 +108,9 @@ contains
 
     r_wdamp_tau = 1.0_RP / wdamp_tau
     do p_z=1, Nnode_v
-      wdamp_coef(:,p_z) = 0.25_RP * r_wdamp_tau                                     &
-        * sign( 0.5_RP, z(:,p_z) - wdamp_height )                                   &
-        * (1.0_RP - cos( PI * (z(:,p_z) - wdamp_height)/(zTop(p_z) - wdamp_height)) )
+      wdamp_coef(:,p_z) = 0.25_RP * r_wdamp_tau                                        &
+        * ( 1.0_RP + sign( 1.0_RP, z(:,p_z) - wdamp_height )                         ) &
+        * ( 1.0_RP - cos( PI * (z(:,p_z) - wdamp_height)/(zTop(p_z) - wdamp_height)) )
     end do
 
     return
