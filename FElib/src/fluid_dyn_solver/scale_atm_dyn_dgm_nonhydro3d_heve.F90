@@ -8,7 +8,7 @@
 !<
 !-------------------------------------------------------------------------------
 #include "scaleFElib.h"
-module scale_atm_dyn_nonhydro3d_heve
+module scale_atm_dyn_dgm_nonhydro3d_heve
   !-----------------------------------------------------------------------------
   !
   !++ Used modules
@@ -42,9 +42,9 @@ module scale_atm_dyn_nonhydro3d_heve
   !
   !++ Public procedures
   !
-  public :: atm_dyn_nonhydro3d_heve_Init
-  public :: atm_dyn_nonhydro3d_heve_Final
-  public :: atm_dyn_nonhydro3d_heve_cal_tend
+  public :: atm_dyn_dgm_nonhydro3d_heve_Init
+  public :: atm_dyn_dgm_nonhydro3d_heve_Final
+  public :: atm_dyn_dgm_nonhydro3d_heve_cal_tend
 
   !-----------------------------------------------------------------------------
   !
@@ -69,7 +69,7 @@ module scale_atm_dyn_nonhydro3d_heve
   private :: cal_del_flux_dyn
 
 contains
-  subroutine atm_dyn_nonhydro3d_heve_Init( mesh )
+  subroutine atm_dyn_dgm_nonhydro3d_heve_Init( mesh )
 
     implicit none
     class(MeshBase3D), intent(in) :: mesh
@@ -92,28 +92,28 @@ contains
     IntrpMat_VPOrdM1(:,:) = matmul(elem%V, invV_VPOrdM1)
 
     return
-  end subroutine atm_dyn_nonhydro3d_heve_Init
+  end subroutine atm_dyn_dgm_nonhydro3d_heve_Init
 
 
-  subroutine atm_dyn_nonhydro3d_heve_Final()
+  subroutine atm_dyn_dgm_nonhydro3d_heve_Final()
     implicit none
     !--------------------------------------------
     
     deallocate( IntrpMat_VPOrdM1 )
     
     return
-  end subroutine atm_dyn_nonhydro3d_heve_Final  
+  end subroutine atm_dyn_dgm_nonhydro3d_heve_Final  
 
   !-------------------------------
 
-  subroutine atm_dyn_nonhydro3d_heve_cal_tend( &
+  subroutine atm_dyn_dgm_nonhydro3d_heve_cal_tend( &
     DENS_dt, MOMX_dt, MOMY_dt, MOMZ_dt, RHOT_dt,                                & ! (out)
     DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd, CORIOLIS,          & ! (in)
     SL_flag, wdamp_tau, wdamp_height,                                           & ! (in)
     Dx, Dy, Dz, Sx, Sy, Sz, Lift, lmesh, elem, lmesh2D, elem2D )
 
-    use scale_atm_dyn_spongelayer, only: &
-      atm_dyn_spongelayer_add_tend
+    use scale_atm_dyn_dgm_spongelayer, only: &
+      atm_dyn_dgm_spongelayer_add_tend
 
     implicit none
 
@@ -249,13 +249,13 @@ contains
     !- Sponge layer
     if (SL_flag) then
       call PROF_rapend( 'cal_dyn_tend_sponge', 3)
-      call atm_dyn_spongelayer_add_tend( MOMZ_dt, &
-        MOMZ_, wdamp_tau, wdamp_tau, lmesh, elem  )
+      call atm_dyn_dgm_spongelayer_add_tend( MOMZ_dt, &
+        MOMZ_, wdamp_tau, wdamp_tau, lmesh, elem      )
       call PROF_rapend( 'cal_dyn_tend_sponge', 3)
     end if
 
     return
-  end subroutine atm_dyn_nonhydro3d_heve_cal_tend
+  end subroutine atm_dyn_dgm_nonhydro3d_heve_cal_tend
 
   !------
 
@@ -345,4 +345,4 @@ contains
   end subroutine cal_del_flux_dyn
 
   !------------------------------------------------
-end module scale_atm_dyn_nonhydro3d_heve
+end module scale_atm_dyn_dgm_nonhydro3d_heve

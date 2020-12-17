@@ -58,9 +58,9 @@ module mod_atmos_dyn_driver
 
 contains
   subroutine ATMOS_DYN_driver_setup()
-    use scale_atm_dyn_nonhydro2d, only: &
-      atm_dyn_nonhydro2d_Init,              &
-      atm_dyn_nonhydro2d_prepair_expfilter
+    use scale_atm_dyn_dgm_nonhydro2d, only: &
+      atm_dyn_dgm_nonhydro2d_Init,              &
+      atm_dyn_dgm_nonhydro2d_prepair_expfilter
     use scale_time_manager, only: TIME_DTSEC
 
     use mod_atmos_mesh, only: mesh
@@ -99,7 +99,7 @@ contains
     LOG_NML(PARAM_ATMOS_DYN)
 
     !
-    call atm_dyn_nonhydro2d_Init( mesh )
+    call atm_dyn_dgm_nonhydro2d_Init( mesh )
 
     ! setup for time integrator
     allocate( tinteg_lc(mesh%LOCAL_MESH_NUM) )
@@ -118,7 +118,7 @@ contains
     end if
 
     if (ATMOS_DYN_EXPFILTER_FLAG) then
-      call atm_dyn_nonhydro2d_prepair_expfilter( mesh%lcmesh_list(1)%refElem2D,         &
+      call atm_dyn_dgm_nonhydro2d_prepair_expfilter( mesh%lcmesh_list(1)%refElem2D,    &
         ATMOS_DYN_EXPFILTER_ETAC, ATMOS_DYN_EXPFILTER_ALPHA, ATMOS_DYN_EXPFILTER_ORDER )
     end if
 
@@ -126,8 +126,8 @@ contains
   end subroutine ATMOS_DYN_driver_setup
 
   subroutine ATMOS_DYN_driver_finalize()
-    use scale_atm_dyn_nonhydro2d, only: &
-      atm_dyn_nonhydro2d_Final
+    use scale_atm_dyn_dgm_nonhydro2d, only: &
+      atm_dyn_dgm_nonhydro2d_Final
     
     use mod_atmos_mesh, only: mesh
     implicit none
@@ -135,7 +135,7 @@ contains
     integer :: n
     !-------------------------------------------
 
-    call atm_dyn_nonhydro2d_Final()
+    call atm_dyn_dgm_nonhydro2d_Final()
 
     do n=1, mesh%LOCAL_MESH_NUM
       call tinteg_lc(n)%Final()
@@ -161,10 +161,10 @@ contains
       AUX_DIFFVARS_comm, AUX_DIFFVARS_list
     use mod_atmos_bnd, only: &
       ATMOS_bnd_applyBC_prgvars, ATMOS_bnd_applyBC_auxvars
-    use scale_atm_dyn_nonhydro2d, only: &
-      atm_dyn_nonhydro2d_cal_tend,          &
-      atm_dyn_nonhydro2d_cal_grad_diffVars, &
-      atm_dyn_nonhydro2d_filter_prgvar
+    use scale_atm_dyn_dgm_nonhydro2d, only: &
+      atm_dyn_dgm_nonhydro2d_cal_tend,          &
+      atm_dyn_dgm_nonhydro2d_cal_grad_diffVars, &
+      atm_dyn_dgm_nonhydro2d_filter_prgvar
     
     implicit none
 
@@ -196,7 +196,7 @@ contains
         call PROF_rapstart( 'ATM_DYN_cal_grad_diffv', 1)
         do n=1, mesh%LOCAL_MESH_NUM
           lcmesh => mesh%lcmesh_list(n)
-          call atm_dyn_nonhydro2d_cal_grad_diffVars( &
+          call atm_dyn_dgm_nonhydro2d_cal_grad_diffVars( &
             GxU%local(n)%val, GzU%local(n)%val, GxW%local(n)%val, GzW%local(n)%val,        &
             GxPT%local(n)%val, GzPT%local(n)%val,                                          &
             DDENS%local(n)%val, MOMX%local(n)%val, MOMZ%local(n)%val, DRHOT%local(n)%val,  &
@@ -230,7 +230,7 @@ contains
         tintbuf_ind = tinteg_lc(n)%tend_buf_indmap(rkstage)
 
         call PROF_rapstart( 'ATM_DYN_cal_tend', 1)
-        call atm_dyn_nonhydro2d_cal_tend( &
+        call atm_dyn_dgm_nonhydro2d_cal_tend( &
           tinteg_lc(n)%tend_buf2D_ex(:,:,VARS_DDENS_ID,tintbuf_ind),                     &
           tinteg_lc(n)%tend_buf2D_ex(:,:,VARS_MOMX_ID,tintbuf_ind),                      &
           tinteg_lc(n)%tend_buf2D_ex(:,:,VARS_MOMZ_ID,tintbuf_ind),                      &
@@ -260,7 +260,7 @@ contains
         
         if (ATMOS_DYN_EXPFILTER_FLAG) then
           call PROF_rapstart( 'ATM_DYN_tint_expfilter', 1)
-          call atm_dyn_nonhydro2d_filter_prgvar( &
+          call atm_dyn_dgm_nonhydro2d_filter_prgvar( &
             DDENS%local(n)%val, MOMX%local(n)%val, MOMZ%local(n)%val, DRHOT%local(n)%val, &
             lcmesh, lcmesh%refElem2D )
           call PROF_rapend( 'ATM_DYN_tint_expfilter', 1)

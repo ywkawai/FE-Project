@@ -9,7 +9,7 @@
 !<
 !-------------------------------------------------------------------------------
 #include "scaleFElib.h"
-module scale_atm_dyn_nonhydro3d_numdiff
+module scale_atm_dyn_dgm_nonhydro3d_numdiff
   !-----------------------------------------------------------------------------
   !
   !++ Used modules
@@ -37,11 +37,11 @@ module scale_atm_dyn_nonhydro3d_numdiff
   !
   !++ Public procedures
   !
-  public :: atm_dyn_nonhydro3d_numdiff_Init
-  public :: atm_dyn_nonhydro3d_numdiff_Final
-  public :: atm_dyn_nonhydro3d_numdiff_tend 
-  public :: atm_dyn_nonhydro3d_numdiff_cal_laplacian 
-  public :: atm_dyn_nonhydro3d_numdiff_cal_flx
+  public :: atm_dyn_dgm_nonhydro3d_numdiff_Init
+  public :: atm_dyn_dgm_nonhydro3d_numdiff_Final
+  public :: atm_dyn_dgm_nonhydro3d_numdiff_tend 
+  public :: atm_dyn_dgm_nonhydro3d_numdiff_cal_laplacian 
+  public :: atm_dyn_dgm_nonhydro3d_numdiff_cal_flx
   
   !-----------------------------------------------------------------------------
   !
@@ -59,26 +59,26 @@ module scale_atm_dyn_nonhydro3d_numdiff
   private :: cal_del_gradDiffVar
 
 contains
-  subroutine atm_dyn_nonhydro3d_numdiff_Init( mesh )
+  subroutine atm_dyn_dgm_nonhydro3d_numdiff_Init( mesh )
     
     implicit none
     class(MeshBase3D), intent(in) :: mesh
     !--------------------------------------------
 
     return
-  end subroutine atm_dyn_nonhydro3d_numdiff_Init
+  end subroutine atm_dyn_dgm_nonhydro3d_numdiff_Init
 
 
-  subroutine atm_dyn_nonhydro3d_numdiff_Final()
+  subroutine atm_dyn_dgm_nonhydro3d_numdiff_Final()
     implicit none
     !--------------------------------------------
     
     return
-  end subroutine atm_dyn_nonhydro3d_numdiff_Final  
+  end subroutine atm_dyn_dgm_nonhydro3d_numdiff_Final  
 
   !-------------------------------
 
-  subroutine atm_dyn_nonhydro3d_numdiff_tend( &
+  subroutine atm_dyn_dgm_nonhydro3d_numdiff_tend( &
     tend_,                                                     & ! (out)
     GxV_, GyV_, GzV_,                                          & ! (in)
     DDENS_, DENS_hyd, diffcoef_h, diffcoef_v,                  & ! (in)
@@ -139,7 +139,7 @@ contains
     end do
 
     return
-  end subroutine atm_dyn_nonhydro3d_numdiff_tend
+  end subroutine atm_dyn_dgm_nonhydro3d_numdiff_tend
 
   subroutine cal_del_flux_lap_with_coef( del_flux, & ! (out)
     GxV_, GyV_, GzV_,                              & ! (in)
@@ -202,7 +202,7 @@ contains
 
   !--
 
-  subroutine atm_dyn_nonhydro3d_numdiff_cal_laplacian( &
+  subroutine atm_dyn_dgm_nonhydro3d_numdiff_cal_laplacian( &
     lapla_h, lapla_v,                                  & ! (out)
     GxV_, GyV_, GzV_,                                  & ! (in)
     Dx, Dy, Dz, Lift, lmesh, elem, is_bound            ) ! (in)
@@ -255,7 +255,7 @@ contains
     end do
 
     return
-  end subroutine atm_dyn_nonhydro3d_numdiff_cal_laplacian 
+  end subroutine atm_dyn_dgm_nonhydro3d_numdiff_cal_laplacian 
 
 
   subroutine cal_del_flux_lap( del_flux_h, del_flux_v, & ! (out)
@@ -302,7 +302,7 @@ contains
 
   !-------------------------------------------------------
 
-  subroutine atm_dyn_nonhydro3d_numdiff_cal_flx( &
+  subroutine atm_dyn_dgm_nonhydro3d_numdiff_cal_flx( &
     GxV_, GyV_, GzV_,                                         & ! (out)
     Varh_, Varv_, DDENS_, DENS_hyd_,                          & ! (in)
     Dx, Dy, Dz, Lift, lmesh, elem, is_bound, divide_dens_flag ) ! (in)
@@ -361,7 +361,7 @@ contains
     end do
 
     return
-  end subroutine atm_dyn_nonhydro3d_numdiff_cal_flx
+  end subroutine atm_dyn_dgm_nonhydro3d_numdiff_cal_flx
 
   subroutine cal_del_gradDiffVar( del_flux, & ! (out)
     VARh_, VARv_, DDENS_, DENS_hyd_,        & ! (in)
@@ -419,4 +419,4 @@ contains
   end subroutine cal_del_gradDiffVar
 
   !------------------------------------------------
-end module scale_atm_dyn_nonhydro3d_numdiff
+end module scale_atm_dyn_dgm_nonhydro3d_numdiff

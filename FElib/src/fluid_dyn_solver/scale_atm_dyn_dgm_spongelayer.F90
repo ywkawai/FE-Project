@@ -9,7 +9,7 @@
 !<
 !-------------------------------------------------------------------------------
 #include "scaleFElib.h"
-module scale_atm_dyn_spongelayer
+module scale_atm_dyn_dgm_spongelayer
   !-----------------------------------------------------------------------------
   !
   !++ Used modules
@@ -29,7 +29,7 @@ module scale_atm_dyn_spongelayer
   !
   !++ Public procedures
   !
-  public :: atm_dyn_spongelayer_add_tend
+  public :: atm_dyn_dgm_spongelayer_add_tend
 
   !-----------------------------------------------------------------------------
   !
@@ -44,7 +44,7 @@ module scale_atm_dyn_spongelayer
 
 contains
 
-  subroutine atm_dyn_spongelayer_add_tend( MOMZ_dt, &
+  subroutine atm_dyn_dgm_spongelayer_add_tend( MOMZ_dt, &
       MOMZ_, wdamp_tau, wdamp_height, lmesh, elem   )
 
     implicit none
@@ -81,7 +81,7 @@ contains
     end do
 
     return
-  end subroutine atm_dyn_spongelayer_add_tend
+  end subroutine atm_dyn_dgm_spongelayer_add_tend
 
 !-- private ------------------------------
 
@@ -108,12 +108,12 @@ contains
 
     r_wdamp_tau = 1.0_RP / wdamp_tau
     do p_z=1, Nnode_v
-      wdamp_coef(:,p_z) = 0.25_RP * r_wdamp_tau                                     &
-        * sign( 0.5_RP, z(:,p_z) - wdamp_height )                                   &
-        * (1.0_RP - cos( PI * (z(:,p_z) - wdamp_height)/(zTop(p_z) - wdamp_height)) )
+      wdamp_coef(:,p_z) = 0.25_RP * r_wdamp_tau                                        &
+        * ( 1.0_RP + sign( 1.0_RP, z(:,p_z) - wdamp_height )                         ) &
+        * ( 1.0_RP - cos( PI * (z(:,p_z) - wdamp_height)/(zTop(p_z) - wdamp_height)) )
     end do
 
     return
   end subroutine calc_wdampcoef
 
-end module scale_atm_dyn_spongelayer
+end module scale_atm_dyn_dgm_spongelayer

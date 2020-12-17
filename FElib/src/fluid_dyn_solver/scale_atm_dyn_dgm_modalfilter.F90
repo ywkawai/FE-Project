@@ -9,7 +9,7 @@
 !<
 !-------------------------------------------------------------------------------
 #include "scaleFElib.h"
-module scale_atm_dyn_modalfilter
+module scale_atm_dyn_dgm_modalfilter
   !-----------------------------------------------------------------------------
   !
   !++ Used modules
@@ -28,7 +28,7 @@ module scale_atm_dyn_modalfilter
   !
   !++ Public procedures
   !
-  public :: atm_dyn_modalfilter_apply
+  public :: atm_dyn_dgm_modalfilter_apply
 
   !-----------------------------------------------------------------------------
   !
@@ -42,9 +42,9 @@ module scale_atm_dyn_modalfilter
   !-------------------
 
 contains
-  subroutine atm_dyn_modalfilter_apply(  &
-    DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, & ! (inout)
-    lmesh, elem, filter )                  ! (in)
+  subroutine atm_dyn_dgm_modalfilter_apply(  &
+    DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_,     & ! (inout)
+    lmesh, elem, filter )                      ! (in)
 
     implicit none
 
@@ -70,6 +70,6 @@ contains
     end do
 
     return
-  end subroutine atm_dyn_modalfilter_apply
+  end subroutine atm_dyn_dgm_modalfilter_apply
 
-end module scale_atm_dyn_modalfilter
+end module scale_atm_dyn_dgm_modalfilter
