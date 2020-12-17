@@ -1,6 +1,6 @@
-$(BUILD_DIR)/mod_atmos_bnd.o: atmos/mod_atmos_bnd.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_vars.o
 $(BUILD_DIR)/mod_atmos_component.o: atmos/mod_atmos_component.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_dyn.o $(BUILD_DIR)/mod_atmos_mesh.o $(BUILD_DIR)/mod_atmos_phy_sfc.o $(BUILD_DIR)/mod_atmos_phy_tb.o $(BUILD_DIR)/mod_atmos_vars.o
-$(BUILD_DIR)/mod_atmos_dyn.o: atmos/mod_atmos_dyn.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_bnd.o $(BUILD_DIR)/mod_atmos_dyn_vars.o $(BUILD_DIR)/mod_atmos_mesh.o $(BUILD_DIR)/mod_atmos_vars.o
+$(BUILD_DIR)/mod_atmos_dyn.o: atmos/mod_atmos_dyn.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_dyn_bnd.o $(BUILD_DIR)/mod_atmos_dyn_vars.o $(BUILD_DIR)/mod_atmos_mesh.o $(BUILD_DIR)/mod_atmos_vars.o
+$(BUILD_DIR)/mod_atmos_dyn_bnd.o: atmos/mod_atmos_dyn_bnd.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_vars.o
 $(BUILD_DIR)/mod_atmos_dyn_vars.o: atmos/mod_atmos_dyn_vars.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_mesh.o
 $(BUILD_DIR)/mod_atmos_mesh.o: atmos/mod_atmos_mesh.F90 $(DEPENDLIB)
 $(BUILD_DIR)/mod_atmos_phy_sfc.o: atmos/mod_atmos_phy_sfc.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_mesh.o $(BUILD_DIR)/mod_atmos_phy_sfc_vars.o $(BUILD_DIR)/mod_atmos_vars.o
