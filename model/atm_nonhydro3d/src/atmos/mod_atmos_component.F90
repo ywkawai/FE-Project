@@ -198,6 +198,11 @@ subroutine Atmos_calc_tendency( this )
 
   !########## calculate tendency ##########
 
+  !* Exchange halo data ( for physics )
+  call PROF_rapstart( 'ATM_exchange_prgv', 2)
+  call this%vars%PROGVARS_manager%MeshFieldComm_Exchange()
+  call PROF_rapend( 'ATM_exchange_prgv', 2)
+
   ! reset tendencies of physics
 
   call this%mesh%GetModelMesh( mesh )  

@@ -593,11 +593,6 @@ contains
       call PROF_rapend( 'ATM_DYN_numfilter', 2)
     end if
 
-    !* Exchange halo data ( for physics )
-    call PROF_rapstart( 'ATM_DYN_exchange_prgv', 2)
-    call prgvars_list%MeshFieldComm_Exchange()
-    call PROF_rapend( 'ATM_DYN_exchange_prgv', 2)
-
     call PROF_rapend( 'ATM_DYN_update', 1)
 
     return  

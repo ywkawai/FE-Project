@@ -129,7 +129,7 @@ contains
       !* change to next state *************************
 
       !- ATMOS
-      if ( atmos%IsActivated() .and. atmos%time_manager%do_step) then
+      if ( atmos%IsActivated() .and. atmos%time_manager%do_step ) then
         call atmos%update()
       end if
 
@@ -144,7 +144,7 @@ contains
       !* calc tendencies and diagnostices *************
 
       !- ATMOS 
-      if ( atmos%IsActivated() .and. atmos%time_manager%do_step) then
+      if ( atmos%IsActivated() .and. atmos%time_manager%do_step ) then
         call atmos%calc_tendency()
       end if
 
@@ -289,7 +289,9 @@ contains
       
     !- Calculate the tendencies
 
-    if ( atmos%IsActivated() ) call atmos%calc_tendency()
+    if ( atmos%IsActivated() ) then
+      call atmos%calc_tendency()
+    end if
 
 
     !- History & Monitor 

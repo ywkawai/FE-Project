@@ -222,11 +222,12 @@ contains
       call PROF_rapend( 'ATM_PHY_TB_cal_grad', 2)
     end do
 
+    if (is_update) then
       !* Exchange halo data
-    call PROF_rapstart( 'ATM_PHY_TB_exchange_prgv', 2)
-    call this%vars%auxvars_comm%Exchange()
-    call PROF_rapend( 'ATM_PHY_TB_exchange_prgv', 2)
-
+      call PROF_rapstart( 'ATM_PHY_TB_exchange_prgv', 2)
+      call this%vars%auxvars_comm%Exchange()
+      call PROF_rapend( 'ATM_PHY_TB_exchange_prgv', 2)
+    end if
 
     do n=1, mesh%LOCAL_MESH_NUM
       call PROF_rapstart( 'ATM_PHY_TB_get_localmesh_ptr', 2)         
@@ -265,14 +266,14 @@ contains
               model_mesh%LiftOptrMat,                                                    &
               lcmesh, lcmesh%refElem3D, lcmesh%lcmesh2D, lcmesh%lcmesh2D%refElem2D       )
         end select
-      else
-        do ke=lcmesh%NeS, lcmesh%NeE
-          MOMX_tp%val(:,ke) = MOMX_tp%val(:,ke) + tb_MOMX_t%val(:,ke)
-          MOMY_tp%val(:,ke) = MOMY_tp%val(:,ke) + tb_MOMY_t%val(:,ke)
-          MOMZ_tp%val(:,ke) = MOMZ_tp%val(:,ke) + tb_MOMZ_t%val(:,ke)
-          RHOT_tp%val(:,ke) = RHOT_tp%val(:,ke) + tb_RHOT_t%val(:,ke)
-        end do
       end if
+      
+      do ke=lcmesh%NeS, lcmesh%NeE
+        MOMX_tp%val(:,ke) = MOMX_tp%val(:,ke) + tb_MOMX_t%val(:,ke)
+        MOMY_tp%val(:,ke) = MOMY_tp%val(:,ke) + tb_MOMY_t%val(:,ke)
+        MOMZ_tp%val(:,ke) = MOMZ_tp%val(:,ke) + tb_MOMZ_t%val(:,ke)
+        RHOT_tp%val(:,ke) = RHOT_tp%val(:,ke) + tb_RHOT_t%val(:,ke)
+      end do
       call PROF_rapend( 'ATM_PHY_TB_cal_tend', 2)
     end do
 
