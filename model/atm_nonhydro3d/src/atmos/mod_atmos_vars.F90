@@ -422,6 +422,11 @@ contains
       if ( hst_id > 0 ) call FILE_HISTORY_meshfield_put( hst_id, this%AUX_VARS(v) )
     end do
 
+    do v = 1, ATMOS_PHYTEND_NUM
+      hst_id = this%PHY_TEND(v)%hist_id
+      if ( hst_id > 0 ) call FILE_HISTORY_meshfield_put( hst_id, this%PHY_TEND(v) )
+    end do
+
     call tmp_field%Init( "tmp_field", "", mesh3D)
     do v = 1, ATMOS_DIAGVARS_NUM
       hst_id = this%DIAGVARS_HISTID(v)
@@ -781,6 +786,9 @@ contains
 
     call phytends_list%Get(ATMOS_PHYTEND_MOMZ_ID, field)
     call field%GetLocalMeshField(domID, MOMZ_tp)
+
+    call phytends_list%Get(ATMOS_PHYTEND_RHOT_ID, field)
+    call field%GetLocalMeshField(domID, RHOT_tp)
 
     call phytends_list%Get(ATMOS_PHYTEND_RHOH_ID, field)
     call field%GetLocalMeshField(domID, RHOH_p)
