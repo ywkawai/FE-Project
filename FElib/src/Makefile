@@ -29,13 +29,14 @@ endif
 
 
 OBJS_NAME_COMMON = \
-	scale_polynominal.o  \
-	scale_sparsemat.o    \
-	scale_linalgebra.o   \
-	scale_time_manager.o \
-	scale_quicksort.o    \
-	scale_timeint_rk.o   \
-	scale_linkedlist.o   \
+	scale_polynominal.o            \
+	scale_sparsemat.o              \
+	scale_linalgebra.o             \
+	scale_time_manager.o           \
+	scale_quicksort.o              \
+	scale_timeint_rk_butcher_tab.o \
+	scale_timeint_rk.o             \
+	scale_linkedlist.o             \
 	scale_gmres.o
 
 OBJS_NAME_ELEMENT = \
