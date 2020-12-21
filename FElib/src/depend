@@ -51,7 +51,7 @@ $(OBJ_DIR)/scale_quicksort.o: common/scale_quicksort.F90 $(DEPENDLIB)
 $(OBJ_DIR)/scale_sparsemat.o: common/scale_sparsemat.F90 $(DEPENDLIB)
 $(OBJ_DIR)/scale_time_manager.o: common/scale_time_manager.F90 $(DEPENDLIB)
 $(OBJ_DIR)/scale_timeint_rk.o: common/scale_timeint_rk.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_timeint_rk_butcher_tab.o
-$(OBJ_DIR)/scale_timeint_rk_butcher_tab.o: common/scale_timeint_rk_butcher_tab.F90 $(DEPENDLIB)
+$(OBJ_DIR)/scale_timeint_rk_butcher_tab.o: common/scale_timeint_rk_butcher_tab.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_linalgebra.o
 $(OBJ_DIR)/scale_variableinfo.o: data/scale_variableinfo.F90 $(DEPENDLIB)
 
 MODS =	\
