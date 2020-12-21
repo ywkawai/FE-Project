@@ -121,29 +121,43 @@ contains
     return
   end subroutine File_common_meshfield_get_dims1D
 
-  subroutine File_common_meshfield_get_axis1D( mesh1D, dimsinfo, x )
+  subroutine File_common_meshfield_get_axis1D( mesh1D, dimsinfo, x, &
+    force_uniform_grid )
     implicit none
 
     class(MeshBase1D), target, intent(in) :: mesh1D
     type(FILE_common_meshfield_diminfo), intent(in) :: dimsinfo(FILE_COMMON_MESHFILED1D_DIMTYPE_NUM)
     real(DP), intent(out) :: x(dimsinfo(FILE_COMMON_MESHFILED1D_DIMTYPEID_X)%size)
+    logical, intent(in), optional :: force_uniform_grid
 
     integer :: n
     integer :: i
-    integer :: i2
+    integer :: is, ie
     type(ElementBase1D), pointer :: refElem
     type(LocalMesh1D), pointer :: lcmesh
+
+    logical :: uniform_grid = .false.
+    real(RP), allocatable :: x_local(:)
     !-------------------------------------------------
     
+    if ( present(force_uniform_grid) ) uniform_grid = force_uniform_grid
+
     do n=1,mesh1D%LOCAL_MESH_NUM
       lcmesh => mesh1D%lcmesh_list(n)
       refElem => lcmesh%refElem1D
 
+      allocate( x_local(refElem%Np) )
+
       do i=1,mesh1D%NeG
-      do i2=1, refElem%Np
-        x(i2 + (i-1)*refElem%Np + (n-1)*refElem%Np*lcmesh%Ne) = mesh1D%lcmesh_list(n)%pos_en(i2,i,1)
+        x_local(:) = lcmesh%pos_en(:,i,1)
+        if ( uniform_grid ) call get_uniform_grid1D( x_local, refElem%Nfp )
+
+        is = 1 + (i-1)*refElem%Np + (n-1)*refElem%Np*lcmesh%Ne
+        ie = is + refElem%Np
+        x(is:ie) = x_local(:)
       end do
-      end do
+
+      deallocate( x_local )
     end do
     
     return
@@ -217,13 +231,15 @@ contains
     return
   end subroutine File_common_meshfield_get_dims2D
 
-  subroutine File_common_meshfield_get_axis2D( mesh2D, dimsinfo, x, y  )
+  subroutine File_common_meshfield_get_axis2D( mesh2D, dimsinfo, x, y, &
+    force_uniform_grid  )
     implicit none
 
     class(MeshRectDom2D), target, intent(in) :: mesh2D  
     type(FILE_common_meshfield_diminfo), intent(in) :: dimsinfo(FILE_COMMON_MESHFILED2D_DIMTYPE_NUM)
     real(DP), intent(out) :: x(dimsinfo(FILE_COMMON_MESHFILED2D_DIMTYPEID_X)%size)
     real(DP), intent(out) :: y(dimsinfo(FILE_COMMON_MESHFILED2D_DIMTYPEID_Y)%size)
+    logical, intent(in), optional :: force_uniform_grid
 
     integer :: n
     integer :: k
@@ -233,31 +249,45 @@ contains
     type(LocalMesh2D), pointer :: lcmesh
 
     integer :: is, js, ie, je, igs, jgs
+
+    logical :: uniform_grid = .false.
+    real(RP), allocatable :: x_local(:)
+    real(RP), allocatable :: y_local(:)
     !-------------------------------------------------
     
+    if ( present(force_uniform_grid) ) uniform_grid = force_uniform_grid
 
     igs = 0; jgs = 0
     do n=1 ,mesh2D%LOCAL_MESH_NUM
       lcmesh => mesh2D%lcmesh_list(n)
       refElem => lcmesh%refElem2D
 
+      allocate( x_local(refElem%Nfp), y_local(refElem%Nfp) )
+
       do j=1, lcmesh%NeY
       do i=1, lcmesh%NeX
         k = i + (j-1) * lcmesh%NeX
         if ( j==1 ) then
+          x_local(:) = lcmesh%pos_en(refElem%Fmask(:,1),k,1)
+          if ( uniform_grid ) call get_uniform_grid1D( x_local, refElem%Nfp )
+
           is = igs + 1 + (i-1)*refElem%Nfp
           ie = is + refElem%Nfp - 1
-          x(is:ie) = lcmesh%pos_en(refElem%Fmask(:,1),k,1)
+          x(is:ie) = x_local(:)
         end if
         if ( i==1 ) then
+          y_local(:) = lcmesh%pos_en(refElem%Fmask(:,4),k,2)
+          if ( uniform_grid ) call get_uniform_grid1D( y_local, refElem%Nfp )
+
           js = jgs + 1 + (j-1)*refElem%Nfp
           je = js + refElem%Nfp - 1
-          y(js:je) = lcmesh%pos_en(refElem%Fmask(:,4),k,2)
+          y(js:je) = y_local(:)
         end if
       end do
       end do
 
       igs = ie; jgs = je
+      deallocate( x_local, y_local )
     end do
 
     return
@@ -358,7 +388,8 @@ contains
     return
   end subroutine File_common_meshfield_get_dims3D
 
-  subroutine File_common_meshfield_get_axis3D( mesh3D, dimsinfo, x, y, z )
+  subroutine File_common_meshfield_get_axis3D( mesh3D, dimsinfo, x, y, z, &
+    force_uniform_grid )
     implicit none
 
     class(MeshCubeDom3D), target, intent(in) :: mesh3D  
@@ -366,6 +397,7 @@ contains
     real(DP), intent(out) :: x(dimsinfo(FILE_COMMON_MESHFILED3D_DIMTYPEID_X)%size)
     real(DP), intent(out) :: y(dimsinfo(FILE_COMMON_MESHFILED3D_DIMTYPEID_Y)%size)
     real(DP), intent(out) :: z(dimsinfo(FILE_COMMON_MESHFILED3D_DIMTYPEID_Z)%size)
+    logical, intent(in), optional :: force_uniform_grid
 
     integer :: n, kelem
     integer :: i, j, k
@@ -374,59 +406,100 @@ contains
     type(LocalMesh3D), pointer :: lcmesh
 
     integer :: is, js, ks, ie, je, ke, igs, jgs, kgs
-    integer :: Nnode_h1D
+    integer :: Nnode_h1D, Nnode_v
 
-    !--------------------
+    logical :: uniform_grid = .false.
+    real(RP), allocatable :: x_local(:)
+    real(RP), allocatable :: y_local(:)
+    real(RP), allocatable :: z_local(:)
+    !------------------------------------------------------------------------------------------
     
+    if ( present(force_uniform_grid) ) uniform_grid = force_uniform_grid
+
     igs = 0; jgs = 0; kgs = 0
 
     do n=1 ,mesh3D%LOCAL_MESH_NUM
       lcmesh => mesh3D%lcmesh_list(n)
       refElem => lcmesh%refElem3D
       Nnode_h1D = refElem%Nnode_h1D
+      Nnode_v   = refElem%Nnode_v
+
+      allocate( x_local(Nnode_h1D), y_local(Nnode_h1D) )
+      allocate( z_local(Nnode_v) )
 
       do k=1, lcmesh%NeZ
       do j=1, lcmesh%NeY
       do i=1, lcmesh%NeX
         kelem = i + (j-1)*lcmesh%NeX + (k-1)*lcmesh%NeX*lcmesh%NeY
         if ( j==1 .and. k==1) then
+          x_local(:) = lcmesh%pos_en(refElem%Fmask_h(1:Nnode_h1D,1),kelem,1)
+          if ( uniform_grid ) call get_uniform_grid1D( x_local, Nnode_h1D )
+
           is = igs + 1 + (i-1)*Nnode_h1D
           ie = is + Nnode_h1D - 1
-          x(is:ie) = lcmesh%pos_en(refElem%Fmask_h(1:Nnode_h1D,1),kelem,1)
+          x(is:ie) = x_local(:)
         end if
         if ( i==1 .and. k==1) then
+          y_local(:) = lcmesh%pos_en(refElem%Fmask_h(1:Nnode_h1D,4),kelem,2)
+          if ( uniform_grid ) call get_uniform_grid1D( y_local, Nnode_h1D )
+
           js = jgs + 1 + (j-1)*Nnode_h1D
           je = js + Nnode_h1D - 1
-          y(js:je) = lcmesh%pos_en(refElem%Fmask_h(1:Nnode_h1D,4),kelem,2)
+          y(js:je) = y_local(:)
         end if
         if ( i==1 .and. j==1) then
-          ks = kgs + 1 + (k-1)*refElem%Nnode_v
-          ke = ks + refElem%Nnode_v - 1
-          z(ks:ke) = lcmesh%pos_en(refElem%Colmask(:,1),kelem,3)
+          z_local(:) = lcmesh%pos_en(refElem%Colmask(:,1),kelem,3)
+          if ( uniform_grid ) call get_uniform_grid1D( z_local, Nnode_v )
+
+          ks = kgs + 1 + (k-1)*Nnode_v
+          ke = ks + Nnode_v - 1
+          z(ks:ke) = z_local(:)
         end if
       end do
       end do
       end do
 
       igs = ie; jgs = je; kgs = ke
+      deallocate( x_local, y_local )
+      deallocate( z_local )
     end do
 
     return
   end subroutine File_common_meshfield_get_axis3D
 
   subroutine File_common_meshfield_put_field3D_cartesbuf( mesh3D, field3D, &
-    buf )
+    buf, force_uniform_grid )
+    use scale_polynominal, only: &
+      polynominal_genLegendrePoly    
     implicit none
     class(MeshCubeDom3D), target, intent(in) :: mesh3D
     class(MeshField3D), intent(in) :: field3d
     real(RP), intent(inout) :: buf(:,:,:)
+    logical, intent(in), optional :: force_uniform_grid
 
     integer :: n, kelem1, p
     integer :: i0, j0, k0, i1, j1, k1, i2, j2, k2, i, j, k
     type(LocalMesh3D), pointer :: lcmesh
     type(elementbase3D), pointer :: refElem
     integer :: i0_s, j0_s, k0_s, indx
+
+    logical :: uniform_grid = .false.
+    integer :: Nnode_h1D, Nnode_v
+    real(RP), allocatable :: x_local(:)
+    real(RP) :: x_local0, delx
+    real(RP), allocatable :: y_local(:)
+    real(RP) :: y_local0, dely
+    real(RP), allocatable :: z_local(:)
+    real(RP) :: z_local0, delz
+    real(RP) :: ox, oy, oz
+    real(RP), allocatable :: spectral_coef(:)
+    real(RP), allocatable :: P1D_ori_x(:,:)
+    real(RP), allocatable :: P1D_ori_y(:,:)
+    real(RP), allocatable :: P1D_ori_z(:,:)
+    integer :: l, p1, p2, p3
     !----------------------------------------------------
+
+    if ( present(force_uniform_grid) ) uniform_grid = force_uniform_grid
 
     i0_s = 0; j0_s = 0; k0_s = 0
 
@@ -437,22 +510,76 @@ contains
 
       lcmesh => mesh3D%lcmesh_list(n)
       refElem => lcmesh%refElem3D
+      Nnode_h1D = refElem%Nnode_h1D
+      Nnode_v   = refElem%Nnode_v
+
+      if ( uniform_grid ) then
+        allocate( x_local(Nnode_h1D), y_local(Nnode_h1D) )
+        allocate( z_local(Nnode_v) ) 
+        allocate( spectral_coef(refElem%Np) )
+        allocate( P1D_ori_x(1,refElem%Nnode_h1D), P1D_ori_y(1,refElem%Nnode_h1D) )
+        allocate( P1D_ori_z(1,refElem%Nnode_v) )     
+      end if
 
       do k1=1, lcmesh%NeZ
       do j1=1, lcmesh%NeY
       do i1=1, lcmesh%NeX
         kelem1 = i1 + (j1-1)*lcmesh%NeX + (k1-1)*lcmesh%NeX*lcmesh%NeY
-        do k2=1, refElem%Nnode_v
-        do j2=1, refElem%Nnode_h1D
-        do i2=1, refElem%Nnode_h1D
-          i = i0_s + i2 + (i1-1)*refElem%Nnode_h1D
-          j = j0_s + j2 + (j1-1)*refElem%Nnode_h1D
-          k = k0_s + k2 + (k1-1)*refElem%Nnode_v
-          indx = i2 + (j2-1)*refElem%Nnode_h1D + (k2-1)*refElem%Nnode_h1D**2
-          buf(i,j,k) = field3d%local(n)%val(indx,kelem1)
-        end do
-        end do
-        end do
+
+        if ( uniform_grid ) then
+          x_local(:) = lcmesh%pos_en(refElem%Fmask_h(1:Nnode_h1D,1),kelem1,1)
+          x_local0 = x_local(1); delx = x_local(Nnode_h1D) - x_local0
+          y_local(:) = lcmesh%pos_en(refElem%Fmask_h(1:Nnode_h1D,4),kelem1,2)
+          y_local0 = y_local(1); dely = y_local(Nnode_h1D) - y_local0
+          z_local(:) = lcmesh%pos_en(refElem%Colmask(:,1),kelem1,3)
+          z_local0 = z_local(1); delz = z_local(Nnode_v  ) - z_local0
+          call get_uniform_grid1D( x_local, Nnode_h1D )
+          call get_uniform_grid1D( y_local, Nnode_h1D )
+          call get_uniform_grid1D( z_local, Nnode_v   )
+
+          spectral_coef(:) = matmul(refElem%invV(:,:), field3d%local(n)%val(:,kelem1))
+          do k2=1, Nnode_v
+          do j2=1, Nnode_h1D
+          do i2=1, Nnode_h1D
+            ox = - 1.0_RP + 2.0_RP * (x_local(i2) - x_local0) / delx
+            oy = - 1.0_RP + 2.0_RP * (y_local(j2) - y_local0) / dely
+            oz = - 1.0_RP + 2.0_RP * (z_local(k2) - z_local0) / delz
+  
+            P1D_ori_x(:,:) = polynominal_genLegendrePoly( refElem%PolyOrder_h, (/ ox /) )
+            P1D_ori_y(:,:) = polynominal_genLegendrePoly( refElem%PolyOrder_h, (/ oy /) )
+            P1D_ori_z(:,:) = polynominal_genLegendrePoly( refElem%PolyOrder_v, (/ oz /) )
+  
+            i = i0_s + i2 + (i1-1)*Nnode_h1D
+            j = j0_s + j2 + (j1-1)*Nnode_h1D
+            k = k0_s + k2 + (k1-1)*Nnode_v
+            buf(i,j,k) = 0.0_RP 
+            do p3=1, Nnode_v
+            do p2=1, Nnode_h1D
+            do p1=1, Nnode_h1D
+              l = p1 + (p2-1)*Nnode_h1D + (p3-1)*Nnode_h1D**2
+              buf(i,j,k) = buf(i,j,k) + &
+                  ( P1D_ori_x(1,p1) * P1D_ori_y(1,p2) * P1D_ori_z(1,p3) )                 &
+                * sqrt((dble(p1-1) + 0.5_RP)*(dble(p2-1) + 0.5_RP)*(dble(p3-1) + 0.5_RP)) &
+                * spectral_coef(l)
+            end do
+            end do
+            end do            
+          end do
+          end do
+          end do
+        else
+          do k2=1, Nnode_v
+          do j2=1, Nnode_h1D
+          do i2=1, Nnode_h1D
+            i = i0_s + i2 + (i1-1)*Nnode_h1D
+            j = j0_s + j2 + (j1-1)*Nnode_h1D
+            k = k0_s + k2 + (k1-1)*Nnode_v
+            indx = i2 + (j2-1)*Nnode_h1D + (k2-1)*Nnode_h1D**2
+            buf(i,j,k) = field3d%local(n)%val(indx,kelem1)
+          end do
+          end do
+          end do
+        end if
       end do
       end do
       end do
@@ -460,6 +587,11 @@ contains
       i0_s = i0_s + lcmesh%NeX * refElem%Nnode_h1D
       j0_s = j0_s + lcmesh%NeY * refElem%Nnode_h1D
       k0_s = k0_s + lcmesh%NeZ * refElem%Nnode_v
+      if ( uniform_grid ) then
+        deallocate( x_local, y_local )
+        deallocate( z_local )
+        deallocate( spectral_coef )
+      end if
     end do
     end do
     end do
@@ -573,6 +705,25 @@ contains
   end function File_common_meshfield_get_dtype
 
   !- private -----------------------------------------------------------------------
+
+  subroutine get_uniform_grid1D( pos1D, Np )
+    implicit none
+    integer, intent(in) :: Np
+    real(RP), intent(inout) :: pos1D(Np)
+
+    real(RP) :: del
+    integer :: i
+    !-----------------------------------------------
+
+    del = ( pos1D(Np) - pos1D(1) ) / dble(Np)
+    pos1D(1) = pos1D(1) + 0.5_RP * del
+    do i=2, Np
+      pos1D(i) = pos1D(i-1) + del
+    end do
+
+    return
+  end subroutine get_uniform_grid1D
+
   subroutine set_dimension( dim, name, desc, dim_type, ndims, dims, count )
     implicit none
 
