@@ -283,7 +283,7 @@ contains
     gam_Ns = this%dt * this%coef_gam_ex(this%nstage+1,nowstage)
 
     if ( nowstage == this%nstage ) then
-      !$omp parallel 
+      !$omp parallel private(<%=ind_ary%>)
 % if (d > 2) then
       !$omp do collapse(<%=(d-1)%>)
 % else
@@ -301,12 +301,12 @@ contains
       return
     end if
       
-    !$omp parallel
+    !$omp parallel private(<%=ind_ary%>)
     if (nowstage == 1) then
 % if (d > 2) then
-      !%omp do collapse(<%=(d-1)%>)
+      !$omp do collapse(<%=(d-1)%>)
 %else
-      !%omp do
+      !$omp do
 %end        
 %for i in 1..d
       do <%=ind_name[d-i]%>=<%=ind_range_list[d-i]%>
@@ -318,7 +318,7 @@ contains
 % end
     end if
 
-    if ( sig_Ns > EPS .or. gam_Ns > EPS ) then
+    if ( abs(sig_Ns) > EPS .or. abs(gam_Ns) > EPS ) then
 % if (d > 2) then
       !$omp do collapse(<%=(d-1)%>)
 % else

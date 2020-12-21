@@ -353,7 +353,7 @@ contains
     gam_Ns = this%dt * this%coef_gam_ex(this%nstage+1,nowstage)
 
     if ( nowstage == this%nstage ) then
-      !$omp parallel 
+      !$omp parallel private(i)
       !$omp do
       do i=is, ie
         q(i) =  this%varTmp_1d(i,varID)                                             &
@@ -363,16 +363,16 @@ contains
       return
     end if
       
-    !$omp parallel
+    !$omp parallel private(i)
     if (nowstage == 1) then
-      !%omp do
+      !$omp do
       do i=is, ie
         this%var0_1D(i,varID)   = q(i)
         this%varTmp_1D(i,varID) = 0.0_RP
       end do
     end if
 
-    if ( sig_Ns > EPS .or. gam_Ns > EPS ) then
+    if ( abs(sig_Ns) > EPS .or. abs(gam_Ns) > EPS ) then
       !$omp do
       do i=is, ie
         this%varTmp_1d(i,varID) = this%varTmp_1d(i,varID)      &
@@ -421,7 +421,7 @@ contains
     gam_Ns = this%dt * this%coef_gam_ex(this%nstage+1,nowstage)
 
     if ( nowstage == this%nstage ) then
-      !$omp parallel 
+      !$omp parallel private(i,j)
       !$omp do
       do j=js, je
       do i=is, ie
@@ -433,9 +433,9 @@ contains
       return
     end if
       
-    !$omp parallel
+    !$omp parallel private(i,j)
     if (nowstage == 1) then
-      !%omp do
+      !$omp do
       do j=js, je
       do i=is, ie
         this%var0_2D(i,j,varID)   = q(i,j)
@@ -444,7 +444,7 @@ contains
       end do
     end if
 
-    if ( sig_Ns > EPS .or. gam_Ns > EPS ) then
+    if ( abs(sig_Ns) > EPS .or. abs(gam_Ns) > EPS ) then
       !$omp do
       do j=js, je
       do i=is, ie
@@ -497,7 +497,7 @@ contains
     gam_Ns = this%dt * this%coef_gam_ex(this%nstage+1,nowstage)
 
     if ( nowstage == this%nstage ) then
-      !$omp parallel 
+      !$omp parallel private(i,j,k)
       !$omp do collapse(2)
       do k=ks, ke
       do j=js, je
@@ -511,9 +511,9 @@ contains
       return
     end if
       
-    !$omp parallel
+    !$omp parallel private(i,j,k)
     if (nowstage == 1) then
-      !%omp do collapse(2)
+      !$omp do collapse(2)
       do k=ks, ke
       do j=js, je
       do i=is, ie
@@ -524,7 +524,7 @@ contains
       end do
     end if
 
-    if ( sig_Ns > EPS .or. gam_Ns > EPS ) then
+    if ( abs(sig_Ns) > EPS .or. abs(gam_Ns) > EPS ) then
       !$omp do collapse(2)
       do k=ks, ke
       do j=js, je
