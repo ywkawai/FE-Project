@@ -164,26 +164,76 @@ contains
   end subroutine File_common_meshfield_get_axis1D
 
   subroutine File_common_meshfield_put_field1D_cartesbuf( mesh1D, field1D, &
-    buf )
+    buf, force_uniform_grid )
+    use scale_polynominal, only: &
+      polynominal_genLegendrePoly
     implicit none
     class(MeshBase1D), target, intent(in) :: mesh1D
     class(MeshField1D), intent(in) :: field1d
     real(RP), intent(inout) :: buf(:)
+    logical, intent(in), optional :: force_uniform_grid
 
-    integer :: n, k, p
+    integer :: n, kelem1, p
+    integer :: i0, i1, i2, i
     type(LocalMesh1D), pointer :: lcmesh
-    integer :: bufsize, ptr
+    type(elementbase1D), pointer :: refElem
+    integer :: i0_s
+
+    logical :: uniform_grid = .false.
+    integer :: Np
+    real(RP), allocatable :: x_local(:)
+    real(RP) :: x_local0, delx
+    real(RP) :: ox
+    real(RP), allocatable :: spectral_coef(:)
+    real(RP), allocatable :: P1D_ori_x(:,:)
     !------------------------------------------------
 
-    ptr = 0
+    if ( present(force_uniform_grid) ) uniform_grid = force_uniform_grid
+
+    i0_s = 0
     do n=1, mesh1D%LOCAL_MESH_NUM
       lcmesh => mesh1D%lcmesh_list(n)
-      do k=lcmesh%NeS, lcmesh%NeE
-      do p=1, lcmesh%refElem%Np
-        ptr = ptr + 1
-        buf(ptr) =  field1d%local(n)%val(p,k)
+      refElem => lcmesh%refElem1D
+      Np = refElem%Np
+      
+      if ( uniform_grid ) then
+        allocate( x_local(Np) )
+        allocate( spectral_coef(Np) )
+        allocate( P1D_ori_x(1,Np) )
+      end if
+
+      do kelem1=lcmesh%NeS, lcmesh%NeE
+        if ( uniform_grid ) then
+          x_local(:) = lcmesh%pos_en(:,kelem1,1)
+          x_local0 = x_local(1); delx = x_local(Np) - x_local0
+          call get_uniform_grid1D( x_local, Np )
+  
+          spectral_coef(:) = matmul(refElem%invV(:,:), field1d%local(n)%val(:,kelem1))
+          do i2=1, Np
+            ox = - 1.0_RP + 2.0_RP * (x_local(i2) - x_local0) / delx  
+            P1D_ori_x(:,:) = polynominal_genLegendrePoly( refElem%PolyOrder, (/ ox /) )
+  
+            i = i0_s + i2 + (kelem1-1)*Np 
+            buf(i) = 0.0_RP 
+            do p=1, Np
+              buf(i) = buf(i) + &
+                  P1D_ori_x(1,p) * sqrt( dble(p-1) + 0.5_RP ) * spectral_coef(p)
+            end do
+          end do
+        else
+          do i2=1, Np
+            i = i0_s + i2 + (kelem1-1)*Np 
+            buf(i) =  field1d%local(n)%val(i2,kelem1)
+          end do
+        end if
       end do
-      end do
+
+      i0_s = i0_s + lcmesh%Ne * refElem%Np
+      if ( uniform_grid ) then
+        deallocate( x_local )
+        deallocate( spectral_coef )
+        deallocate( P1D_ori_x )
+      end if
     end do
 
     return
@@ -294,18 +344,35 @@ contains
   end subroutine File_common_meshfield_get_axis2D
 
   subroutine File_common_meshfield_put_field2D_cartesbuf( mesh2D, field2D, &
-    buf )
+    buf, force_uniform_grid )
+    use scale_polynominal, only: &
+      polynominal_genLegendrePoly
     implicit none
     class(MeshRectDom2D), target, intent(in) :: mesh2D
     class(MeshField2D), intent(in) :: field2d
     real(RP), intent(inout) :: buf(:,:)
+    logical, intent(in), optional :: force_uniform_grid
 
-    integer :: n, k1, p
+    integer :: n, kelem1, p
     integer :: i0, j0, i1, j1, i2, j2, i, j
     type(LocalMesh2D), pointer :: lcmesh
     type(elementbase2D), pointer :: refElem
     integer :: i0_s, j0_s
+
+    logical :: uniform_grid = .false.
+    integer :: Nfp
+    real(RP), allocatable :: x_local(:)
+    real(RP) :: x_local0, delx
+    real(RP), allocatable :: y_local(:)
+    real(RP) :: y_local0, dely
+    real(RP) :: ox, oy
+    real(RP), allocatable :: spectral_coef(:)
+    real(RP), allocatable :: P1D_ori_x(:,:)
+    real(RP), allocatable :: P1D_ori_y(:,:)
+    integer :: l, p1, p2
     !------------------------------------------------
+
+    if ( present(force_uniform_grid) ) uniform_grid = force_uniform_grid
 
     i0_s = 0; j0_s = 0
     
@@ -315,22 +382,71 @@ contains
 
       lcmesh => mesh2D%lcmesh_list(n)
       refElem => lcmesh%refElem2D
-        
+      Nfp = refElem%Nfp
+      
+      if ( uniform_grid ) then
+        allocate( x_local(Nfp), y_local(Nfp) )
+        allocate( spectral_coef(refElem%Np) )
+        allocate( P1D_ori_x(1,Nfp), P1D_ori_y(1,Nfp) )
+      end if
+  
       do j1=1, lcmesh%NeY
       do i1=1, lcmesh%NeX
-        k1 = i1 + (j1-1)*lcmesh%NeX
-        do j2=1, refElem%Nfp
-        do i2=1, refElem%Nfp
-          i = i0_s + i2 + (i1-1)*refElem%Nfp 
-          j = j0_s + j2 + (j1-1)*refElem%Nfp
-          buf(i,j) = field2d%local(n)%val(i2+(j2-1)*refElem%Nfp,k1)
-        end do
-        end do
-      end do
-      end do
+        kelem1 = i1 + (j1-1)*lcmesh%NeX
 
+        if ( uniform_grid ) then
+          x_local(:) = lcmesh%pos_en(refElem%Fmask(1:Nfp,1),kelem1,1)
+          x_local0 = x_local(1); delx = x_local(Nfp) - x_local0
+          y_local(:) = lcmesh%pos_en(refElem%Fmask(1:Nfp,4),kelem1,2)
+          y_local0 = y_local(1); dely = y_local(Nfp) - y_local0
+          call get_uniform_grid1D( x_local, Nfp )
+          call get_uniform_grid1D( y_local, Nfp )
+  
+          spectral_coef(:) = matmul(refElem%invV(:,:), field2d%local(n)%val(:,kelem1))
+          do j2=1, Nfp
+          do i2=1, Nfp
+            ox = - 1.0_RP + 2.0_RP * (x_local(i2) - x_local0) / delx
+            oy = - 1.0_RP + 2.0_RP * (y_local(j2) - y_local0) / dely
+  
+            P1D_ori_x(:,:) = polynominal_genLegendrePoly( refElem%PolyOrder, (/ ox /) )
+            P1D_ori_y(:,:) = polynominal_genLegendrePoly( refElem%PolyOrder, (/ oy /) )
+  
+            i = i0_s + i2 + (i1-1)*Nfp
+            j = j0_s + j2 + (j1-1)*Nfp
+            buf(i,j) = 0.0_RP 
+            do p2=1, Nfp
+            do p1=1, Nfp
+              l = p1 + (p2-1)*Nfp
+              buf(i,j) = buf(i,j) + &
+                  ( P1D_ori_x(1,p1) * P1D_ori_y(1,p2) )             &
+                * sqrt((dble(p1-1) + 0.5_RP)*(dble(p2-1) + 0.5_RP)) &
+                * spectral_coef(l)
+            end do
+            end do
+          end do
+          end do
+        
+        else
+
+          do j2=1, Nfp
+          do i2=1, Nfp
+            i = i0_s + i2 + (i1-1)*Nfp 
+            j = j0_s + j2 + (j1-1)*Nfp
+            buf(i,j) = field2d%local(n)%val(i2+(j2-1)*Nfp,kelem1)
+          end do
+          end do
+        
+        end if
+      end do
+      end do
+      
       i0_s = i0_s + lcmesh%NeX * refElem%Nfp
       j0_s = j0_s + lcmesh%NeY * refElem%Nfp
+      if ( uniform_grid ) then
+        deallocate( x_local, y_local  )
+        deallocate( spectral_coef )
+        deallocate( P1D_ori_x, P1D_ori_y )
+      end if
     end do
     end do
 
