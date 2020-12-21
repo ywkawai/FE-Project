@@ -47,6 +47,7 @@ module mod_interp_file
   !
 
   type(FILE_base_meshfield) :: out_file
+  logical, private  :: out_UniformGrid = .false. 
 
 contains
   subroutine interp_file_Init( in_basename, out_vinfo, mesh3D )
@@ -67,7 +68,8 @@ contains
     namelist / PARAM_INTERP_FILE / &
       out_basename, &
       out_title,    &
-      out_dtype
+      out_dtype,    &
+      out_UniformGrid
     
     integer :: ierr
     logical :: fileexisted
@@ -112,7 +114,7 @@ contains
     call in_file%Get_dataInfo( out_vinfo(1)%varname, 1,     & ! (in)
       time_units=tunits, calendar=calendar                  ) ! (out)
 
-    call out_file%Init( var_num, mesh3D=mesh3D )
+    call out_file%Init( var_num, mesh3D=mesh3D, force_uniform_grid=out_UniformGrid )
     call out_file%Create( out_basename, out_title, out_dtype,                 & ! (in)
                           fileexisted,                                        & ! (out)
                           myrank=PRC_myrank, calendar=calendar, tunits=tunits ) ! (in)

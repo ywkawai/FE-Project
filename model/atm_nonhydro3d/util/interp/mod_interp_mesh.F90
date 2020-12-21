@@ -47,7 +47,8 @@ module mod_interp_mesh
     integer, allocatable :: prcXY2inListID(:,:)
     integer :: cubedom_icount
     integer :: cubedom_jcount
-    integer :: cubedom_kcount    
+    integer :: cubedom_kcount
+
   contains
     procedure :: Init => NodeMappingInfo_Init
     procedure :: Final => NodeMappingInfo_Final
@@ -97,6 +98,10 @@ contains
     real(RP) :: dom_zmax        = 0.0_RP
     logical  :: isPeriodicZ     = .false.
  
+    integer, parameter :: FZ_nmax = 1000
+    real(RP) :: in_FZ(FZ_nmax)
+    real(RP) :: out_FZ(FZ_nmax)
+
     namelist / PARAM_INTERP_MESH / &
       in_NprcX,        &
       in_NeX,          &
@@ -117,7 +122,8 @@ contains
       dom_ymin, dom_ymax, &
       isPeriodicY,        &
       dom_zmin, dom_zmax, &
-      isPeriodicZ
+      isPeriodicZ,        &
+      in_Fz, out_Fz
 
     integer :: ierr
     !-------------------------------------------
@@ -144,12 +150,13 @@ contains
     call out_mesh%Init( out_NprcX * out_NeX, out_NprcY * out_NeY, out_NeZ,             &
        dom_xmin, dom_xmax, dom_ymin, dom_ymax, dom_zmin, dom_zmax,                     &
        isPeriodicX, isPeriodicY, isPeriodicZ, out_elem3D, ATMOS_MESH_NLocalMeshPerPrc, &
-       out_NprcX, out_NprcY )
+       out_NprcX, out_NprcY,                                                           &
+       FZ=out_FZ(1:out_NeZ+1) )
     
     call out_mesh%Generate()
 
     !-
-    call construct_map()
+    call construct_map( in_FZ(1:in_NeZ+1) )
 
 
     return
@@ -188,9 +195,10 @@ contains
 
   !- private -------------------------------------
 
-  subroutine construct_map()
+  subroutine construct_map( in_Fz )
     implicit none
 
+    real(RP), intent(in) :: in_Fz(1:in_NeZ+1)
     integer :: n
     integer :: i, j
     real(RP) :: in_tiles_x(4,in_NprcX,in_NprcY)
@@ -212,13 +220,13 @@ contains
 
     do n=1, out_mesh%LOCAL_MESH_NUM
       lcmesh => out_mesh%lcmesh_list(n)
-      call nodeMap_list(n)%Init( lcmesh, lcmesh%refElem3D, in_tiles_x, in_tiles_y )
+      call nodeMap_list(n)%Init( lcmesh, lcmesh%refElem3D, in_tiles_x, in_tiles_y, in_Fz )
     end do
 
     return
   end subroutine construct_map
 
-  subroutine NodeMappingInfo_Init( this, lcmesh, elem, tile_x, tile_y )
+  subroutine NodeMappingInfo_Init( this, lcmesh, elem, tile_x, tile_y, in_Fz )
     use scale_prc
     implicit none
 
@@ -227,10 +235,14 @@ contains
     type(ElementBase3D), intent(in) :: elem
     real(RP), intent(in) :: tile_x(4,in_NprcX,in_NprcY)
     real(RP), intent(in) :: tile_y(4,in_NprcX,in_NprcY)
+    real(RP), intent(in) :: in_Fz(1:in_NeZ+1)
 
     integer :: prc_i, prc_j
     integer :: i, j
-    integer :: ke_h, p_h, ke_z, ke_z2, p_z, p_z2, p, ke
+    integer :: p, ke
+    integer :: ke_h
+    integer :: p_h, p_h_x, p_h_y
+    integer :: ke_z, ke_z2, p_z, p_z2
     logical :: is_inside_tile(elem%Nnode_h1D**2)
     logical :: is_inside_elem
     real(RP) :: in_elem_x(4)
@@ -243,6 +255,10 @@ contains
     type(LocalMesh3D), pointer :: in_lcmesh
     real(RP) :: in_Z0, in_Z1
     integer :: in_ke3D
+
+    real(RP) :: out_x, out_y
+    real(RP) :: out_x0, del_x
+    real(RP) :: out_y0, del_y
     !-------------------------------------------
 
     allocate( this%prc_x(elem%Nnode_h1D**2, lcmesh%NeX*lcmesh%NeY) )
@@ -257,62 +273,73 @@ contains
 
     in_tile_num = 0
     do ke_h=1, lcmesh%NeX * lcmesh%NeY
-    do p_h=1, elem%Nnode_h1D**2
+      do p_h_y=1, elem%Nnode_h1D
+      do p_h_x=1, elem%Nnode_h1D
+        p_h = p_h_x + (p_h_y-1)*elem%Nnode_h1D
+        this%prc_x(p_h,ke_h) = -1
+        this%prc_y(p_h,ke_h) = -1
+        
+        out_x = lcmesh%pos_en(elem%Hslice(p_h,1),ke_h,1)
+        out_y = lcmesh%pos_en(elem%Hslice(p_h,1),ke_h,2)
 
-      this%prc_x(p_h,ke_h) = -1
-      this%prc_y(p_h,ke_h) = -1
-      
-      loop_prc: do prc_j=1, in_NprcY
-      do prc_i=1, in_NprcX
-        is_inside_tile(p_h) = inpoly( lcmesh%pos_en(elem%Hslice(p_h,1),ke_h,1),      &
-                                      lcmesh%pos_en(elem%Hslice(p_h,1),ke_h,2),      &
-                                      4, tile_x(:,prc_i,prc_j), tile_y(:,prc_i,prc_j))
-        if ( is_inside_tile(p_h) ) then
-          this%prc_x(p_h,ke_h) =  prc_i
-          this%prc_y(p_h,ke_h) =  prc_j
-          if ( .not. target_tile_flag(prc_i,prc_j) ) then
-            target_tile_flag(prc_i,prc_j) = .true.
-            in_tile_num = in_tile_num + 1
-            in_tileID_tmp(in_tile_num) = prc_i + in_NprcX * (prc_j - 1)
-            this%prcXY2inListID(prc_i,prc_j) = in_tile_num
+        loop_prc: do prc_j=1, in_NprcY
+        do prc_i=1, in_NprcX
+          is_inside_tile(p_h) = inpoly( out_x, out_y,                                  &
+                                        4, tile_x(:,prc_i,prc_j), tile_y(:,prc_i,prc_j))
+          if ( is_inside_tile(p_h) ) then
+            this%prc_x(p_h,ke_h) =  prc_i
+            this%prc_y(p_h,ke_h) =  prc_j
+            if ( .not. target_tile_flag(prc_i,prc_j) ) then
+              target_tile_flag(prc_i,prc_j) = .true.
+              in_tile_num = in_tile_num + 1
+              in_tileID_tmp(in_tile_num) = prc_i + in_NprcX * (prc_j - 1)
+              this%prcXY2inListID(prc_i,prc_j) = in_tile_num
+            end if
+            exit loop_prc
           end if
-          exit loop_prc
-        end if
 
+        end do
+        end do loop_prc
       end do
-      end do loop_prc
-    end do
+      end do
+
     end do
     allocate( this%in_tileID_list(in_tile_num) )
     this%in_tileID_list(:) = in_tileID_tmp(1:in_tile_num)
 
     do ke_h=1, lcmesh%NeX * lcmesh%NeY
-    do p_h=1, elem%Nnode_h1D**2
-      prc_i = this%prc_x(p_h,ke_h)
-      prc_j = this%prc_y(p_h,ke_h)
-      this%elem_i(p_h,ke_h) = -1
-      this%elem_j(p_h,ke_h) = -1
-      if ( prc_i > 0 .and. prc_j > 0) then
-        delx = ( tile_x(2,prc_i,prc_j) - tile_x(1,prc_i,prc_j) ) / dble(in_NeX)
-        dely = ( tile_y(4,prc_i,prc_j) - tile_y(1,prc_i,prc_j) ) / dble(in_NeY)
-        loop_ne: do j=1, in_NeY
-        do i=1, in_NeX        
-          in_elem_x(:) = tile_x(1,prc_i,prc_j) + delx * dble( (/ i-1, i, i, i-1 /) )
-          in_elem_y(:) = tile_y(1,prc_i,prc_j) + dely * dble( (/ j-1, j-1, j, j /) )
-          is_inside_elem  = inpoly( lcmesh%pos_en(elem%Hslice(p_h,1),ke_h,1), &
-                                    lcmesh%pos_en(elem%Hslice(p_h,1),ke_h,2), &
-                                    4, in_elem_x(:), in_elem_y(:)         )
-          if (is_inside_elem) then
-            this%elem_i(p_h,ke_h) = i
-            this%elem_j(p_h,ke_h) = j
-            exit loop_ne
-          end if
-        end do  
-        end do loop_ne
-      end if
+      do p_h_y=1, elem%Nnode_h1D
+      do p_h_x=1, elem%Nnode_h1D
+
+        p_h = p_h_x + (p_h_y-1)*elem%Nnode_h1D
+        out_x = lcmesh%pos_en(elem%Hslice(p_h,1),ke_h,1)
+        out_y = lcmesh%pos_en(elem%Hslice(p_h,1),ke_h,2)
+
+        prc_i = this%prc_x(p_h,ke_h)
+        prc_j = this%prc_y(p_h,ke_h)
+        this%elem_i(p_h,ke_h) = -1
+        this%elem_j(p_h,ke_h) = -1
+        if ( prc_i > 0 .and. prc_j > 0) then
+          delx = ( tile_x(2,prc_i,prc_j) - tile_x(1,prc_i,prc_j) ) / dble(in_NeX)
+          dely = ( tile_y(4,prc_i,prc_j) - tile_y(1,prc_i,prc_j) ) / dble(in_NeY)
+          loop_ne: do j=1, in_NeY
+          do i=1, in_NeX        
+            in_elem_x(:) = tile_x(1,prc_i,prc_j) + delx * dble( (/ i-1, i, i, i-1 /) )
+            in_elem_y(:) = tile_y(1,prc_i,prc_j) + dely * dble( (/ j-1, j-1, j, j /) )
+            is_inside_elem  = inpoly( out_x, out_y,                 &
+                                      4, in_elem_x(:), in_elem_y(:) )
+            if (is_inside_elem) then
+              this%elem_i(p_h,ke_h) = i
+              this%elem_j(p_h,ke_h) = j
+              exit loop_ne
+            end if
+          end do  
+          end do loop_ne
+        end if
+      end do
+      end do
     end do
-    end do
-  
+
     !-- prepair mesh for input data --------------------------------
 
     allocate( this%in_mesh_list(in_tile_num) )
@@ -323,7 +350,8 @@ contains
         out_mesh%zmin_gl, out_mesh%zmax_gl,                                      &
         out_mesh%isPeriodicX, out_mesh%isPeriodicY, out_mesh%isPeriodicZ,        &
         in_elem3D, 1, in_NprcX, in_NprcY,                                        &
-        nproc=in_NprcX*in_NprcY, myrank=in_rank                                  )
+        nproc=in_NprcX*in_NprcY, myrank=in_rank,                                 &
+        FZ=in_FZ(:)                                                              )
       
       call this%in_mesh_list(i)%Generate()
     end do

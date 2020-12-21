@@ -45,7 +45,7 @@ $(BUILD_DIR)/$(BINNAME) : $(BUILD_DIR)/prg_$(BINNAME).o  $(patsubst %,$(BUILD_DI
 $(BUILD_DIR)/prg_$(BINNAME).o : prg_$(BINNAME).F90 $(patsubst %,$(BUILD_DIR)/%,$(OBJS))
 
 $(BUILD_DIR)/mod_interp_mesh.o     : mod_interp_mesh.F90
-$(BUILD_DIR)/mod_interp_file.o     : mod_interp_file.F90
+$(BUILD_DIR)/mod_interp_file.o     : $(BUILD_DIR)/mod_interp_field.o mod_interp_file.F90
 $(BUILD_DIR)/mod_interp_field.o    : $(BUILD_DIR)/mod_interp_mesh.o mod_interp_field.F90
 
 

@@ -55,6 +55,8 @@ module scale_file_base_meshfield
     class(MeshRectDom2D), pointer :: mesh2D
     class(MeshCubeDom3D), pointer :: mesh3D  
     type(FILE_common_meshfield_diminfo), allocatable :: dimsinfo(:)
+
+    logical :: force_uniform_grid
   contains
     procedure :: Init => FILE_base_meshfield_Init
     procedure :: Open => FILE_base_meshfield_open
@@ -84,7 +86,8 @@ module scale_file_base_meshfield
 contains
 
   subroutine FILE_base_meshfield_Init( this,  &
-    var_num, mesh1D, mesh2D, mesh3D )
+    var_num, mesh1D, mesh2D, mesh3D,          &
+    force_uniform_grid )
 
     use scale_file_common_meshfield, only: &
       File_common_meshfield_get_dims  
@@ -96,6 +99,7 @@ contains
     class(MeshBase1D), target, optional, intent(in) :: mesh1D
     class(MeshRectDom2D), target, optional, intent(in) :: mesh2D
     class(MeshCubeDom3D), target, optional, intent(in) :: mesh3D
+    logical, intent(in), optional :: force_uniform_grid
 
     logical :: check_specify_mesh
 
@@ -132,6 +136,12 @@ contains
       call File_common_meshfield_get_dims( mesh3D, this%dimsinfo(:) )
     end if
   
+    if ( present(force_uniform_grid) ) then
+      this%force_uniform_grid = force_uniform_grid
+    else
+      this%force_uniform_grid = .false.
+    end if
+     
     if (.not. check_specify_mesh) then
       LOG_ERROR("FILE_base_meshfield_Init",*) 'Specify a mesh among mesh1D, 2D, and 3D. Check!'
       call PRC_abort
@@ -321,7 +331,8 @@ contains
       dims(2) = this%dimsinfo(MF3D_DIMTYPE_Y)%size
       dims(3) = this%dimsinfo(MF3D_DIMTYPE_Z)%size
       allocate( buf(dims(1),dims(2),dims(3)) )
-      call File_common_meshfield_put_field3D_cartesbuf( this%mesh3D, field3d, buf(:,:,:) )
+      call File_common_meshfield_put_field3D_cartesbuf( this%mesh3D, field3d, buf(:,:,:), &
+        this%force_uniform_grid )
   
       call FILE_Write( this%vars_ncid(vid), buf(:,:,:),     & ! (in)
         sec_str, sec_end, start                             ) ! (in)
@@ -563,19 +574,22 @@ contains
 
     class(FILE_base_meshfield), intent(in) :: this
     integer, intent(in) :: start(3)
-    real(RP), allocatable :: x(:), y(:), z(:)
+
+    real(RP), allocatable :: x(:)
+    real(RP), allocatable :: y(:)
+    real(RP), allocatable :: z(:)
     !------------
 
     if ( associated(this%mesh1D) ) then
       allocate( x(this%dimsinfo(1)%size) )
-      call File_common_meshfield_get_axis(this%mesh1D, this%dimsinfo, x(:))
+      call File_common_meshfield_get_axis( this%mesh1D, this%dimsinfo, x(:), this%force_uniform_grid )
 
       call FILE_Write_Axis( this%fid, this%dimsinfo(1)%name, x(:), start(1:1) )
     end if
 
     if ( associated(this%mesh2D) ) then
       allocate( x(this%dimsinfo(1)%size), y(this%dimsinfo(2)%size) )
-      call File_common_meshfield_get_axis(this%mesh2D, this%dimsinfo, x(:), y(:))
+      call File_common_meshfield_get_axis( this%mesh2D, this%dimsinfo, x(:), y(:), this%force_uniform_grid )
 
       call FILE_Write_Axis( this%fid, this%dimsinfo(1)%name, x(:), start(1:1) )
       call FILE_Write_Axis( this%fid, this%dimsinfo(2)%name, y(:), start(2:2) )
@@ -583,7 +597,7 @@ contains
 
     if ( associated(this%mesh3D) ) then
       allocate( x(this%dimsinfo(1)%size), y(this%dimsinfo(2)%size), z(this%dimsinfo(3)%size) )
-      call File_common_meshfield_get_axis(this%mesh3D, this%dimsinfo, x(:), y(:), z(:))
+      call File_common_meshfield_get_axis( this%mesh3D, this%dimsinfo, x(:), y(:), z(:), this%force_uniform_grid )
 
       call FILE_Write_Axis( this%fid, this%dimsinfo(1)%name, x(:), start(1:1) )
       call FILE_Write_Axis( this%fid, this%dimsinfo(2)%name, y(:), start(2:2) )
