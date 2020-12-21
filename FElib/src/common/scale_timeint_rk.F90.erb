@@ -38,18 +38,26 @@ module scale_timeint_rk
     integer, public :: var_num
     integer, private, allocatable :: size_each_var(:)
     integer, public :: nstage
+    integer, public :: var_buf_size
     integer, public :: tend_buf_size
 
+    ! For Butcher representation (explicit part)
     real(RP), public, allocatable :: coef_a_ex(:,:)
-    real(RP), private, allocatable :: coef_b_ex(:)
-    real(RP), private, allocatable :: coef_c_ex(:)
+    real(RP), public, allocatable :: coef_b_ex(:)
+    real(RP), public, allocatable :: coef_c_ex(:)
 
+    ! For Shu-Osher representation (explicit part)
+    real(RP), public, allocatable :: coef_sig_ex(:,:)
+    real(RP), public, allocatable :: coef_gam_ex(:,:)
+
+    ! For Butcher representation (implicit part)
     real(RP), public, allocatable :: coef_a_im(:,:)
-    real(RP), private, allocatable :: coef_b_im(:)
-    real(RP), private, allocatable :: coef_c_im(:)
+    real(RP), public, allocatable :: coef_b_im(:)
+    real(RP), public, allocatable :: coef_c_im(:)
 
     integer, allocatable :: tend_buf_indmap(:)
 % for d in 1..3
+    real(RP), public, allocatable :: var_buf<%=d%>D_ex(<%=(":,"*(d+2)).chop%>)
     real(RP), public, allocatable :: tend_buf<%=d%>D_ex(<%=(":,"*(d+2)).chop%>)
     real(RP), public, allocatable :: tend_buf<%=d%>D_im(<%=(":,"*(d+2)).chop%>)
     real(RP), private, allocatable :: var0_<%=d%>D(<%=(":,"*(d+1)).chop%>)
@@ -82,8 +90,6 @@ module scale_timeint_rk
   !
   !-------------------
 
-  integer, parameter :: RK_SCHEME_TVD_3 = 1
-
 contains
 
 !----------------
@@ -114,6 +120,7 @@ contains
       this%low_storage_flag, this%imex_flag               ) ! (out)
     
     allocate ( this%coef_a_ex(this%nstage,this%nstage), this%coef_b_ex(this%nstage), this%coef_c_ex(this%nstage) )
+    allocate ( this%coef_sig_ex(this%nstage+1,this%nstage), this%coef_gam_ex(this%nstage+1,this%nstage) )
     if (this%imex_flag) then
       allocate ( this%coef_a_im(this%nstage,this%nstage), this%coef_b_im(this%nstage), this%coef_c_im(this%nstage) )
     end if
@@ -127,11 +134,11 @@ contains
 % end
 % str.chop!
       allocate( this%tend_buf<%=d%>D_ex(<%=str%>, var_num, this%tend_buf_size) )
-      if (this%imex_flag) then
+      if ( this%imex_flag ) then
         allocate( this%tend_buf<%=d%>D_im(<%=str%>, var_num, this%tend_buf_size) )
       end if
       allocate( this%var0_<%=d%>D(<%=str%>, var_num) )
-      if (.not. this%low_storage_flag) allocate( this%varTmp_<%=d%>D(<%=str%>, var_num) )        
+      allocate( this%varTmp_<%=d%>D(<%=str%>, var_num) ) 
 % end
     end select
     allocate( this%tend_buf_indmap(this%nstage) )
@@ -139,6 +146,7 @@ contains
     call timeint_rk_butcher_tab_get( &
       rk_scheme_name, this%nstage, this%imex_flag,    & ! (in)
       this%coef_a_ex, this%coef_b_ex, this%coef_c_ex, & ! (out)
+      this%coef_sig_ex, this%coef_gam_ex,             & ! (out)
       this%coef_a_im, this%coef_b_im, this%coef_c_im, & ! (out)
       this%tend_buf_indmap                            ) ! (out)
 
@@ -161,7 +169,7 @@ contains
       deallocate( this%var0_<%=d%>d )
       deallocate( this%tend_buf<%=d%>D_ex )
       if (this%imex_flag) deallocate( this%tend_buf<%=d%>D_im )
-      if (.not. this%low_storage_flag) deallocate( this%varTmp_<%=d%>d )
+      deallocate( this%varTmp_<%=d%>d )
 %end
     end select
     
@@ -249,6 +257,8 @@ contains
 % ind_ary.chop!
 
   subroutine rk_advance_low_storage<%=d%>D( this, nowstage, q, varID, <%=ind_arg%> )
+    use scale_const, only: &
+      EPS => CONST_EPS
     class(timeint_rk), intent(inout) :: this
     integer, intent(in) :: nowstage
     real(RP), intent(inout) :: q(<%=(":,"*d).chop%>)
@@ -256,38 +266,84 @@ contains
     integer, intent(in) :: <%=ind_arg%>
 
     integer :: <%=ind_ary%>
-    real(RP) :: a_ss
+    real(RP) :: sig_ss
+    real(RP) :: gam_ss
+    real(RP) :: one_Minus_sig_ss
+    real(RP) :: sig_Ns
+    real(RP) :: gam_Ns
 
     !----------------------------------------    
 
     call PROF_rapstart( 'rk_advance_low_storage<%=d%>D', 3) 
 
-    a_ss = this%coef_a_ex(nowstage,nowstage)
+    sig_ss = this%coef_sig_ex(nowstage+1,nowstage)
+    sig_Ns = this%coef_sig_ex(this%nstage+1,nowstage)
+    one_Minus_sig_ss = 1.0_RP - sig_ss
+    gam_ss = this%dt * this%coef_gam_ex(nowstage+1,nowstage)
+    gam_Ns = this%dt * this%coef_gam_ex(this%nstage+1,nowstage)
 
-    !$omp parallel
-    if (nowstage == 1) then
-      !$omp do 
-%if (d > 2) then
-      !%omp collapse(<%=(d-1)%>)
-%end
+    if ( nowstage == this%nstage ) then
+      !$omp parallel 
+% if (d > 2) then
+      !$omp do collapse(<%=(d-1)%>)
+% else
+      !$omp do
+% end        
 % for i in 1..d
       do <%=ind_name[d-i]%>=<%=ind_range_list[d-i]%>
+% end 
+        q(<%=ind_ary%>) =  this%varTmp_<%=d%>d(<%=ind_ary%>,varID)                                             &
+                + sig_ss * q(<%=ind_ary%>) + gam_ss * this%tend_buf<%=d%>D_ex(<%=ind_ary%>,varID,1)
+% for i in 1..d
+      end do
+% end
+      !$omp end parallel
+      return
+    end if
+      
+    !$omp parallel
+    if (nowstage == 1) then
+% if (d > 2) then
+      !%omp do collapse(<%=(d-1)%>)
+%else
+      !%omp do
+%end        
+%for i in 1..d
+      do <%=ind_name[d-i]%>=<%=ind_range_list[d-i]%>
 %end
-        this%var0_<%=d%>D(<%=ind_ary%>,varID) = q(<%=ind_ary%>)
+        this%var0_<%=d%>D(<%=ind_ary%>,varID)   = q(<%=ind_ary%>)
+        this%varTmp_<%=d%>D(<%=ind_ary%>,varID) = 0.0_RP
 % for i in 1..d
       end do
 % end
     end if
 
-    !$omp do 
+    if ( sig_Ns > EPS .or. gam_Ns > EPS ) then
+% if (d > 2) then
+      !$omp do collapse(<%=(d-1)%>)
+% else
+      !$omp do
+% end        
+% for i in 1..d
+      do <%=ind_name[d-i]%>=<%=ind_range_list[d-i]%>
+% end
+        this%varTmp_<%=d%>d(<%=ind_ary%>,varID) = this%varTmp_<%=d%>d(<%=ind_ary%>,varID)      &
+            + sig_Ns * q(<%=ind_ary%>) + gam_Ns * this%tend_buf<%=d%>D_ex(<%=ind_ary%>,varID,1)
+% for i in 1..d
+      end do
+% end        
+    end if
+
 %if (d > 2) then
-    !%omp collapse(<%=(d-1)%>)
-%end      
+    !$omp do collapse(<%=(d-1)%>)
+%else
+    !$omp do
+%end        
 % for i in 1..d
     do <%=ind_name[d-i]%>=<%=ind_range_list[d-i]%>
 %end
-      q(<%=ind_ary%>) = (1.0_RP - a_ss)*this%var0_<%=d%>d(<%=ind_ary%>,varID)                   &
-              + a_ss*(q(<%=ind_ary%>) + this%dt * this%tend_buf<%=d%>D_ex(<%=ind_ary%>,varID,1) )
+      q(<%=ind_ary%>) = one_Minus_sig_ss * this%var0_<%=d%>d(<%=ind_ary%>,varID)                &
+              + sig_ss * q(<%=ind_ary%>) + gam_ss * this%tend_buf<%=d%>D_ex(<%=ind_ary%>,varID,1)
 % for i in 1..d
     end do
 % end
@@ -326,19 +382,14 @@ contains
 
     tintbuf_ind = this%tend_buf_indmap(nowstage)
 
-    if ( nowstage == 1 .and. (.not. this%imex_flag) ) then
-% for i in 1..d
-      do <%=ind_name[d-i]%>=<%=ind_range_list[d-i]%>
-% end      
-        this%var0_<%=d%>D(<%=ind_ary%>,varID) = q(<%=ind_ary%>)
-        this%varTmp_<%=d%>D(<%=ind_ary%>,varID) = q(<%=ind_ary%>)
-% for i in 1..d
-      end do
-% end
-    end if 
-
     if ( nowstage ==  this%nstage ) then
       if ( this%imex_flag ) then
+
+% if (d > 2) then
+      !$omp parallel do collapse(<%=(d-1)%>)
+% else
+      !$omp parallel do
+% end    
 % for i in 1..d
         do <%=ind_name[d-i]%>=<%=ind_range_list[d-i]%>
 % end    
@@ -349,22 +400,52 @@ contains
         end do
 % end
       else
+
+% if (d > 2) then
+        !$omp parallel do collapse(<%=(d-1)%>)
+% else
+        !$omp parallel do
+% end   
 % for i in 1..d
         do <%=ind_name[d-i]%>=<%=ind_range_list[d-i]%>
-% end 
+% end
           q(<%=ind_ary%>) =  this%varTmp_<%=d%>d(<%=ind_ary%>,varID)                                             &
                   + this%dt * this%coef_b_ex(nowstage) * this%tend_buf<%=d%>D_ex(<%=ind_ary%>,varID,tintbuf_ind)
 % for i in 1..d
         end do
-% end      
+% end    
       end if       
       return
-    end if
+    end if 
 
-    if ( this%imex_flag ) then
+    !$omp parallel private( s ) &
+    !$omp private( <%=ind_ary%> )
+
+    if ( nowstage == 1 .and. (.not. this%imex_flag) ) then
+% if (d > 2) then
+      !$omp do collapse(<%=(d-1)%>)
+% else
+      !$omp do
+% end
 % for i in 1..d
       do <%=ind_name[d-i]%>=<%=ind_range_list[d-i]%>
-% end    
+% end      
+        this%var0_<%=d%>D(<%=ind_ary%>,varID) = q(<%=ind_ary%>)
+        this%varTmp_<%=d%>D(<%=ind_ary%>,varID) = q(<%=ind_ary%>)
+% for i in 1..d
+      end do
+% end
+    end if 
+
+    if ( this%imex_flag ) then
+% if (d > 2) then
+      !$omp do collapse(<%=(d-1)%>)
+% else
+      !$omp do
+% end
+% for i in 1..d
+      do <%=ind_name[d-i]%>=<%=ind_range_list[d-i]%>
+% end  
         q(<%=ind_ary%>) = this%var0_<%=d%>d(<%=ind_ary%>,varID)
         this%varTmp_<%=d%>d(<%=ind_ary%>,varID) =  this%varTmp_<%=d%>d(<%=ind_ary%>,varID) + this%dt * ( &
               + this%coef_b_ex(nowstage) * this%tend_buf<%=d%>D_ex(<%=ind_ary%>,varID,tintbuf_ind)   & 
@@ -373,6 +454,11 @@ contains
       end do
 % end
     else
+% if (d > 2) then
+      !$omp do collapse(<%=(d-1)%>)
+% else
+      !$omp do
+% end 
 % for i in 1..d
       do <%=ind_name[d-i]%>=<%=ind_range_list[d-i]%>
 % end 
@@ -385,9 +471,14 @@ contains
     end if 
 
     if ( this%tend_buf_size == 1 .and. (.not. this%imex_flag) ) then
+% if (d > 2) then
+      !$omp do collapse(<%=(d-1)%>)
+% else
+      !$omp do
+% end  
 % for i in 1..d
       do <%=ind_name[d-i]%>=<%=ind_range_list[d-i]%>
-% end 
+% end
         q(<%=ind_ary%>) = this%var0_<%=d%>d(<%=ind_ary%>,varID)                                                &
             +  this%dt * this%coef_a_ex(nowstage+1,nowstage)*this%tend_buf<%=d%>D_ex(<%=ind_ary%>,varID,1)
 % for i in 1..d
@@ -395,6 +486,11 @@ contains
 % end
     else if ( .not. this%imex_flag ) then      
       do s=1, nowstage
+% if (d > 2) then
+      !$omp do collapse(<%=(d-1)%>)
+% else
+      !$omp do
+% end     
 % for i in 1..d
       do <%=ind_name[d-i]%>=<%=ind_range_list[d-i]%>
 % end 
@@ -406,6 +502,11 @@ contains
       end do
     else ! IMEX   
       do s=1, nowstage
+% if (d > 2) then
+      !$omp do collapse(<%=(d-1)%>)
+% else
+      !$omp do
+% end      
 % for i in 1..d
       do <%=ind_name[d-i]%>=<%=ind_range_list[d-i]%>
 % end 
@@ -418,6 +519,8 @@ contains
       end do
     end if
 
+    !$omp end parallel
+
     return
   end subroutine rk_advance_general<%=d%>D
 
@@ -429,13 +532,21 @@ contains
     integer, intent(in) :: <%=ind_arg%>
 
     integer :: <%=ind_ary%>
-    integer :: s
     integer :: tintbuf_ind
     !----------------------------------------    
 
     if (.not. this%imex_flag ) return
     
+    tintbuf_ind = this%tend_buf_indmap(nowstage)   
+
+    !$omp parallel
+
     if ( nowstage == 1 ) then
+% if (d > 2) then
+      !$omp do collapse(<%=(d-1)%>)
+% else
+      !$omp do
+% end      
 % for i in 1..d
       do <%=ind_name[d-i]%>=<%=ind_range_list[d-i]%>
 % end      
@@ -446,7 +557,11 @@ contains
 % end
     end if
             
-    tintbuf_ind = this%tend_buf_indmap(nowstage)    
+% if (d > 2) then
+    !$omp do collapse(<%=(d-1)%>)
+% else
+    !$omp do
+% end     
 % for i in 1..d
     do <%=ind_name[d-i]%>=<%=ind_range_list[d-i]%>
 % end      
@@ -455,6 +570,7 @@ contains
 % for i in 1..d
     end do
 % end
+    !$omp end parallel
 
     return
   end subroutine rk_storeimpl_general<%=d%>D
