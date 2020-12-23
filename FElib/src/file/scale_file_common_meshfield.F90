@@ -633,10 +633,16 @@ contains
         allocate( x_local(Nnode_h1D), y_local(Nnode_h1D) )
         allocate( z_local(Nnode_v) ) 
         allocate( spectral_coef(refElem%Np) )
-        allocate( P1D_ori_x(1,refElem%Nnode_h1D), P1D_ori_y(1,refElem%Nnode_h1D) )
-        allocate( P1D_ori_z(1,refElem%Nnode_v) )     
+        allocate( P1D_ori_x(1,Nnode_h1D), P1D_ori_y(1,Nnode_h1D) )
+        allocate( P1D_ori_z(1,Nnode_v) )     
       end if
 
+    !$omp parallel do collapse(2) private( kelem1, &
+    !$omp i, i1, i2, j, j2, k, k2, indx,                               &
+    !$omp x_local, x_local0, y_local, y_local0, z_local, z_local0,     &
+    !$omp delx, dely, delz, ox, oy, oz,                                &
+    !$omp spectral_coef, P1D_ori_x, P1D_ori_y, P1D_ori_z,              &
+    !$omp p1, p2, p3, l                                                )        
       do k1=1, lcmesh%NeZ
       do j1=1, lcmesh%NeY
       do i1=1, lcmesh%NeX

@@ -16,7 +16,9 @@ module mod_interp_field
   use scale_localmesh_3d, only: LocalMesh3D
   use scale_element_base, only: ElementBase3D
   use scale_meshfield_base, only: MeshField3D
-
+  use scale_file_base_meshfield, only: &
+    FILE_base_meshfield
+  
   use mod_interp_mesh, only: &
     NodeMappingInfo
 
@@ -46,7 +48,7 @@ module mod_interp_field
   end type OutVarInfo
   integer, public :: out_var3D_num
   type(OutVarInfo), public, allocatable :: out_vinfo(:)
-
+  
   character(len=H_LONG), public   :: in_basename      = ''       ! Basename of the input  file 
 
   !-----------------------------------------------------------------------------
@@ -66,13 +68,18 @@ module mod_interp_field
     real(RP), allocatable :: spectral_coef(:,:,:,:)
   end type in_local_val
 
+  type :: in_local_file_list
+    type(FILE_base_meshfield), allocatable :: in_files(:)
+  end type in_local_file_list
+  type(in_local_file_list), private, allocatable, target :: in_file_list(:)
+  logical, private :: is_cached_in_files
+
 contains
-  subroutine interp_field_Init( out_mesh )
-    use scale_file_base_meshfield, only: &
-      FILE_base_meshfield
+  subroutine interp_field_Init( out_mesh, nodeMap_list )
     use scale_file_h
     implicit none
     class(MeshCubeDom3D), intent(in) :: out_mesh
+    type(NodeMappingInfo), intent(in) :: nodeMap_list(:)
 
     integer :: nn
     character(len=H_SHORT)  :: vars(ITEM_MAX_NUM) = ''       ! name of variables
@@ -111,6 +118,7 @@ contains
     allocate( out_vinfo(out_var3D_num) )
 
     !--
+
     call in_file%Init( out_var3D_num, mesh3D=out_mesh )
     call in_file%Open( in_basename, myrank=0 )
     do nn = 1, out_var3D_num
@@ -128,6 +136,10 @@ contains
     call in_file%Close()
     call in_file%Final()
 
+    !--
+    is_cached_in_files = .false.
+
+    !
     call out_var3D%Init( "tmp", "1", out_mesh )
 
     return
@@ -137,9 +149,24 @@ contains
     implicit none
 
     integer :: vid
+    integer :: domID
+    integer :: in_ii
+    type(FILE_base_meshfield), pointer :: in_file_ptr
     !-------------------------------------------
 
     call out_var3D%Final()
+
+    if (is_cached_in_files) then
+      do domID=1, size(in_file_list)
+        do in_ii=1, size(in_file_list(domID)%in_files)
+          in_file_ptr => in_file_list(domID)%in_files(in_ii)
+          call in_file_ptr%Close()
+          call in_file_ptr%Final()
+        end do
+        deallocate( in_file_list(domID)%in_files )
+      end do
+      deallocate( in_file_list )
+    end if
 
     return
   end subroutine interp_field_Final
@@ -156,20 +183,48 @@ contains
 
     class(LocalMesh3D), pointer :: lcmesh
     integer :: n
+
+    integer :: domID
+    integer :: in_mesh_num
+    integer :: in_ii
+    integer :: in_rank
+    type(FILE_base_meshfield), pointer :: in_file_ptr
     !-------------------------------------------
+
+    call PROF_rapstart('INTERP_field_interpolate', 0)
+
+    if (.not. is_cached_in_files) then
+      allocate( in_file_list(out_mesh%LOCAL_MESH_NUM)  )
+      do domID=1, out_mesh%LOCAL_MESH_NUM
+        in_mesh_num = size(nodeMap_list(domID)%in_mesh_list)
+        allocate( in_file_list(domID)%in_files(in_mesh_num) )
+        do in_ii=1, in_mesh_num
+          in_file_ptr => in_file_list(domID)%in_files(in_ii)
+          in_rank = nodeMap_list(domID)%in_tileID_list(in_ii) - 1
+
+          LOG_INFO("interp_field",'(a,i4,a,a,i6)') 'domID=', domID, 'Open in_file:', trim(in_basename), in_rank        
+          call in_file_ptr%Init( out_var3D_num,            &
+            mesh3D=nodeMap_list(domID)%in_mesh_list(in_ii) )
+          call in_file_ptr%Open( in_basename, in_rank )
+        end do
+      end do
+      is_cached_in_files = .true.
+    end if
 
     do n=1, out_mesh%LOCAL_MESH_NUM
       lcmesh => out_mesh%lcmesh_list(n)
-      call interpolate_local( out_field%local(n)%val(:,:),         &
-        istep, varname, lcmesh, lcmesh%refElem3D, nodeMap_list(n), &
+      call interpolate_local( out_field%local(n)%val(:,:),            &
+        n, istep, varname, lcmesh, lcmesh%refElem3D, nodeMap_list(n), &
         out_mesh   )
     end do
+
+    call PROF_rapend('INTERP_field_interpolate', 0)
 
     return
   end subroutine interp_field_interpolate
 
   subroutine interpolate_local( out_val, &
-      istep, varname, out_lcmesh, out_elem, mappingInfo, out_mesh3D )
+      out_domID, istep, varname, out_lcmesh, out_elem, mappingInfo, out_mesh3D )
 
     use scale_const, only: &
       UNDEF8 => CONST_UNDEF8
@@ -188,6 +243,7 @@ contains
     class(LocalMesh3D), intent(in) :: out_lcmesh
     class(ElementBase3D), intent(in) :: out_elem
     real(DP), intent(out) :: out_val(out_elem%Np,out_lcmesh%NeA)
+    integer, intent(in) :: out_domID
     integer, intent(in) :: istep
     character(*), intent(in) :: varname
     type(NodeMappingInfo), intent(in), target :: mappingInfo
@@ -202,7 +258,6 @@ contains
     integer :: in_tile_num
     integer :: in_rank
     type(LocalMesh3D), pointer :: in_lcmesh
-    type(FILE_base_meshfield) :: in_file
     integer :: n
     integer :: ii, jj, kk, i0_s, j0_s, k0_s
 
@@ -233,12 +288,9 @@ contains
       do jj = 1, size(in_mesh%rcdomIJK2LCMeshID,2)
       do ii = 1, size(in_mesh%rcdomIJK2LCMeshID,1)
         if ( in_mesh%rcdomIJK2LCMeshID(ii,jj,kk) == n ) then
-          call in_file%Init( 1, mesh3D=in_mesh )
-          call in_file%Open( in_basename, in_rank )
-          call in_file%Read_Var( MF3D_XYZT, varname, in_lcmesh, &
+          call in_file_list(out_domID)%in_files(i)%Read_Var( &
+            MF3D_XYZT, varname, in_lcmesh, &
             i0_s, j0_s, k0_s, in_val_list(i)%val(:,:), step=istep )
-          call in_file%Close()
-          call in_file%Final()
         end if
         i0_s = i0_s + in_lcmesh%NeX * in_lcmesh%refElem3D%Nnode_h1D
         j0_s = j0_s + in_lcmesh%NeY * in_lcmesh%refElem3D%Nnode_h1D
