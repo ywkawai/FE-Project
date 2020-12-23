@@ -146,7 +146,11 @@ contains
     real(DP), intent(in) :: end_sec
     !-------------------------------------------
 
+    call PROF_rapstart('INTERP_file_write_var', 0)
+    
     call out_file%Write_var3D( vid, field, start_sec, end_sec )
+
+    call PROF_rapend('INTERP_file_write_var', 0)
     return
   end subroutine interp_file_write_var
 

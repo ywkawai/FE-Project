@@ -61,6 +61,12 @@ program interp
    call initialize()
    
    !-
+   !########## main ##########
+   call PROF_rapstart('Main', 0)
+
+   LOG_NEWLINE
+   LOG_PROGRESS(*) 'START LOOP'
+
    do vid =1, out_var3D_num
    do istep=1, out_vinfo(vid)%num_step      
       start_sec = out_vinfo(vid)%start_sec + (istep - 1) * out_vinfo(vid)%dt
@@ -70,8 +76,14 @@ program interp
          out_mesh, out_var3D, nodeMap_list                          )
       call interp_file_write_var( vid, out_var3D, &
          start_sec, start_sec + out_vinfo(vid)%dt )
+      
+      if( IO_L ) call flush(IO_FID_LOG)      
    end do
    end do
+
+   LOG_PROGRESS(*) 'END LOOP'
+   LOG_NEWLINE
+   call PROF_rapend  ('Main', 0)
 
    !-
    call finalize()
@@ -126,9 +138,7 @@ contains
     
       ! setup profiler
       call PROF_setup
-    
-      call PROF_rapstart('Main', 0)
-      !########## main ##########
+      call PROF_rapstart ('Initialize', 0)
     
       ! setup constants
       call CONST_setup
@@ -155,13 +165,15 @@ contains
     
       !
       call interp_mesh_Init
-      call interp_field_Init( out_mesh )
+      call interp_field_Init( out_mesh, nodeMap_list )
       call interp_file_Init( in_basename, out_vinfo, out_mesh )
 
       !-
       do_output = .true.
     
       LOG_INFO("INTERP",*) 'Setup has been finished.'
+
+      call PROF_rapend ('Initialize', 0)
 
       return
    end subroutine initialize
@@ -180,15 +192,16 @@ contains
       implicit none
       !--------------------------------------
 
-      call PROF_rapend  ('Main', 0)
+      call PROF_rapstart ('Finalize', 0)
 
-      !-
       call interp_file_Final
       call interp_field_Final
       call interp_mesh_Final
 
       !
       call FILE_close_all
+      call PROF_rapend ('Finalize', 0)
+      
       call PROF_rapreport
     
       ! stop MPI
