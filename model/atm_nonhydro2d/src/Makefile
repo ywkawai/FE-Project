@@ -50,6 +50,7 @@ all:
 	$(MAKE) makebin
 	@echo "Complete making."
 
+
 makedir:
 	mkdir -p $(BINDIR)
 	mkdir -p $(BUILD_DIR)
@@ -70,11 +71,20 @@ $(BINDIR)/$(BINNAME): $(BUILD_DIR)/$(BINNAME).o $(patsubst %,$(BUILD_DIR)/%,$(OB
 
 $(BUILD_DIR)/$(BINNAME).o: $(BINNAME).F90 $(patsubst %,$(BUILD_DIR)/%,$(OBJS))
 
+
+allclean: distclean
+	$(MAKE) -C $(SCALEFELIBDIR)/src allclean
+	rm -f $(BINDIR)/$(BINNAME)*
+	rm -f $(BINDIR)/$(PPNAME)*
+	rm -rf $(TOPDIR)/bin
+
+
 distclean: clean
-	rm -f $(BINNAME)
+	rm -f $(BINDIR)/$(BINNAME)
 
 clean:
 	rm -rf $(BUILD_DIR)
+	rm -f *.o *.mod *.lst *~
 
 .SUFFIXES:
 .SUFFIXES: .o .F90 .mod
@@ -88,6 +98,7 @@ $(BUILD_DIR)/%.o: %.F90
 .PHONY : clean distclean allclean
 
 include $(TOPDIR)/utils/make/Make_environments
+
 
 $(BUILD_DIR)/$(BINNAME).o: \
 	$(BUILD_DIR)/mod_atmos_dyn_driver.o \

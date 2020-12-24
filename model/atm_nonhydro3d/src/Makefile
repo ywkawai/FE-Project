@@ -118,8 +118,21 @@ $(BUILD_DIR)/%.o: %.F90
 $(BUILD_DIR)/%.o : %.c
 	$(CC) $(CFLAGS) -o $@ -c $<
 
+allclean: distclean
+	$(MAKE) -C $(SCALEFELIBDIR)/src allclean
+	rm -f $(BINDIR)/$(BINNAME)*
+	rm -f $(BINDIR)/$(INITNAME)*
+#        rm -f $(BINDIR)/$(PPNAME)*
+	rm -rf $(TOPDIR)/bin
+
+
+distclean: clean
+	rm -f $(BINDIR)/$(BINNAME)$(POSTFIX)
+	rm -f $(BINDIR)/$(INITNAME)$(POSTFIX)
+#        rm -f $(BINDIR)/$(PPNAME)$(POSTFIX)
+	rm -rf ./.libs*
+
 .PHONY : clean distclean allclean depend dependency
 
 include $(TOPDIR)/utils/make/Make_environments
 -include depend
-
