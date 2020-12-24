@@ -96,7 +96,24 @@ jobs:
         cd FElib/test/framework
         make -C model_framework
 
-    - name: Build models
+    - name: samples
+      run: | 
+        echo "Build samples .."
+
+        export SCALE_FE_SYS=Linux64-gnu-ompi
+        export SCALE=${GITHUB_WORKSPACE}/../scale
+
+        cd sample/
+        make -C advect1d
+        make -C advect1d_fvm
+        make -C advdiff1d
+        make -C advect2d
+        make -C advect2d_fvm
+        make -C advect3d
+        make -C advect3d_hevi
+        make -C euler3d_hevi
+
+    - name: Build model
       run: |
         echo "Build models .."      
         cd model/

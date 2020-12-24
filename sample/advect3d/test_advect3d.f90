@@ -446,7 +446,7 @@ contains
 
     NeX = 2; NeY = 2; NeGZ = 2
     PolyOrder_h = 1; PolyOrder_v = 1
-    TINTEG_SCHEME_TYPE = 'RK_TVD_3'
+    TINTEG_SCHEME_TYPE = 'ERK_SSP_3s3o'
     InitShapeName      = 'sin'
     InitShapeParams(:) = (/ 1.0_RP, 1.0_RP, 1.0_RP, 0.0_RP, 0.0_RP, 0.0_RP /)
     VelTypeName        = 'const'
@@ -489,7 +489,7 @@ contains
       dom_xmin, dom_xmax, dom_ymin, dom_ymax, dom_zmin, dom_zmax, &
       .true., .true., .true.,                                     &
       refElem, NLocalMeshPerPrc, NprcX, NprcY )
-    
+
     call mesh%Generate()
     
     ! setup for time integrator

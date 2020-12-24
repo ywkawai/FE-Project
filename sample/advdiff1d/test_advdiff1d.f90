@@ -410,7 +410,8 @@ contains
     ADV_VEL          = 0.0_RP
     DIFF_COEF        = 0.0_RP
     nstep_eval_error = 5
-
+    TINTEG_SCHEME_TYPE = 'ERK_SSP_3s3o'
+    
     rewind(IO_FID_CONF)
     read(IO_FID_CONF,nml=PARAM_TEST,iostat=ierr)
     if( ierr < 0 ) then !--- missing

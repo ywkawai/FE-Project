@@ -318,7 +318,8 @@ end subroutine cal_dyn_tend
     InitShapeParams  = (/ 1.0_RP, 0.0_RP /)
     ADV_VEL          = 1.0_RP
     nstep_eval_error = 5
-
+    TINTEG_SCHEME_TYPE = 'ERK_SSP_3s3o'
+    
     rewind(IO_FID_CONF)
     read(IO_FID_CONF,nml=PARAM_TEST,iostat=ierr)
     if( ierr < 0 ) then !--- missing
