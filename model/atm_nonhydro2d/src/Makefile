@@ -12,9 +12,11 @@ SYSDEP_DIR  = $(TOPDIR)/sysdep
 include $(SYSDEP_DIR)/Makedef.$(SCALE_FE_SYS)
 include $(TOPDIR)/Mkinclude
 
-BINNAME = atm_nonhydro2d
+BINNAME  = atm_nonhydro2d
 
-BINS = $(BINDIR)/$(BINNAME)
+BINS = $(BINDIR)/$(BINNAME)$(POSTFIX)
+
+LIBS = $(LIBDIR)/libScaleFECore.a
 
 VERSION = $(shell git rev-parse --short HEAD 2> /dev/null)
 ifeq ($(VERSION),)
@@ -35,42 +37,39 @@ OBJS = \
 	mod_atmos_bnd.o              \
 	mod_atmos_mesh.o
 
-LIBS = $(LIBDIR)/libScaleFECore.a
-
-SAMPLE_AUX_DIR = $(TOPDIR)/sample/auxiliary
-SAMPLE_AUX_INCLUDE = $(SAMPLE_AUX_DIR)/.libs
-SAMPLE_AUX_LIB = $(SAMPLE_AUX_DIR)/libScaleFESampleAux.a
-
 
 all:
-	$(MAKE) envlog
-	$(MAKE) makedir
-	$(MAKE) make_sample_aux
-	@echo;echo "Entering atm_nonhydro2d ...";echo "Current version is " $(VERSION)
-	$(MAKE) makebin
-	@echo "Complete making."
+	$(MAKE) build
+	$(MAKE) install
 
-
-makedir:
-	mkdir -p $(BINDIR)
+build:
+	$(MAKE) info
+	$(MAKE) makelib
+	@echo;echo "Entering scale-dg (2D)...";echo "Current version is " $(VERSION)
 	mkdir -p $(BUILD_DIR)
+	$(MAKE) $(subst $(BINDIR),$(BUILD_DIR),$(BINS))
+	@echo "Complete making scale-dg (2D)."
 
-makebin: $(BINS)
+install:
+	mkdir -p $(BINDIR)
+	$(MAKE) $(BINS)
 
-run:
-	mpirun -n 1 ./$(BINNAME) $(CONF_NAME)
+info:
+	@$(MAKE) -C $(SCALEFELIBDIR)/src --no-print-directory info
+	@echo
+	@echo "SCALE-DG"
+	@$(MAKE) --no-print-directory conflog
 
-vis:
-	bash ./visualize/visualize.sh
+makelib:
+	$(MAKE) -C $(SCALEFELIBDIR)/src
 
-make_sample_aux:
-	make -C $(SAMPLE_AUX_DIR)
-
-$(BINDIR)/$(BINNAME): $(BUILD_DIR)/$(BINNAME).o $(patsubst %,$(BUILD_DIR)/%,$(OBJS)) $(SAMPLE_AUX_LIB) $(LIBS)
+$(BUILD_DIR)/$(BINNAME)$(POSTFIX): $(BUILD_DIR)/$(BINNAME).o $(patsubst %,$(BUILD_DIR)/%,$(OBJS)) $(LIBS)
 	$(LD) $(LDFLAGS) $(ADDITIONAL_FFLAGS) -o $@ $^ $(LIBS) $(CONTRIB_LIBS) $(SCALE_NETCDF_LIBS) $(SCALE_MATHLIB_LIBS) $(SCALE_PAPI_LIBS)
 
 $(BUILD_DIR)/$(BINNAME).o: $(BINNAME).F90 $(patsubst %,$(BUILD_DIR)/%,$(OBJS))
 
+$(BINDIR)/$(BINNAME)$(POSTFIX)  : $(BUILD_DIR)/$(BINNAME)$(POSTFIX)
+	install $< $@
 
 allclean: distclean
 	$(MAKE) -C $(SCALEFELIBDIR)/src allclean
@@ -93,7 +92,7 @@ clean:
 	$(MAKE) $(patsubst %.F90,%.o,$<)
 
 $(BUILD_DIR)/%.o: %.F90
-	$(FC) $(FFLAGS) $(ADDITIONAL_FFLAGS) -DVERSION_MACRO=\"$(VERSION)\" -I$(BUILD_DIR) -I$(MODDIR) $(CONTRIB_INCLUDE) -I$(SCALEFELIBDIR)/include -I$(SAMPLE_AUX_INCLUDE) $(SCALE_NETCDF_INCLUDE) $(MODDIROPT) $(BUILD_DIR) -o $@ -c $<
+	$(FC) $(FFLAGS) $(ADDITIONAL_FFLAGS) -DVERSION_MACRO=\"$(VERSION)\" -I$(BUILD_DIR) -I$(MODDIR) $(CONTRIB_INCLUDE) -I$(SCALEFELIBDIR)/include $(SCALE_NETCDF_INCLUDE) $(MODDIROPT) $(BUILD_DIR) -o $@ -c $<
 
 .PHONY : clean distclean allclean
 
@@ -112,4 +111,9 @@ $(BUILD_DIR)/mod_user.o: \
 	$(BUILD_DIR)/mod_atmos_vars.o \
 	$(BUILD_DIR)/mod_exp.o
 
-$(BUILD_DIR)/mod_atmos_vars.o: $(BUILD_DIR)/mod_atmos_mesh.o
+$(BUILD_DIR)/mod_exp.o: \
+	$(BUILD_DIR)/mod_atmos_vars.o
+
+$(BUILD_DIR)/mod_atmos_vars.o: \
+	$(BUILD_DIR)/mod_atmos_mesh.o
+
