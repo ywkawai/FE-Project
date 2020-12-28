@@ -229,6 +229,7 @@ contains
 
 !- private ------------------------------------------------
 
+!OCL SERIAL  
   subroutine cal_tend_from_sfcflx( this, is_update_sflx, &
     DENS_tp, MOMX_tp, MOMY_tp, MOMZ_tp, RHOH_p,          &
     SFLX_MU, SFLX_MV, SFLX_MW, SFLX_SH, SFLX_LH,         &
@@ -362,6 +363,7 @@ contains
 
   end subroutine cal_tend_from_sfcflx
 
+!OCL SERIAL  
   subroutine cal_del_flux( del_flux,      &
     sflx_mu, sflx_mv, sflx_mw, sflx_sh,   &
     nz,                                   &

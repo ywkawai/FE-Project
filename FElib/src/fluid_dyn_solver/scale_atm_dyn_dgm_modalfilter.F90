@@ -42,6 +42,8 @@ module scale_atm_dyn_dgm_modalfilter
   !-------------------
 
 contains
+
+!OCL SERIAL
   subroutine atm_dyn_dgm_modalfilter_apply(  &
     DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_,     & ! (inout)
     lmesh, elem, filter )                      ! (in)
@@ -63,9 +65,9 @@ contains
     !$omp parallel do
     do ke=1, lmesh%Ne
       DDENS_(:,ke) = matmul(filter%FilterMat,DDENS_(:,ke))
-      MOMX_ (:,ke) = matmul(filter%FilterMat,MOMX_(:,ke))
-      MOMY_ (:,ke) = matmul(filter%FilterMat,MOMY_(:,ke))
-      MOMZ_ (:,ke) = matmul(filter%FilterMat,MOMZ_(:,ke))
+      MOMX_ (:,ke) = matmul(filter%FilterMat,MOMX_ (:,ke))
+      MOMY_ (:,ke) = matmul(filter%FilterMat,MOMY_ (:,ke))
+      MOMZ_ (:,ke) = matmul(filter%FilterMat,MOMZ_ (:,ke))
       DRHOT_(:,ke) = matmul(filter%FilterMat,DRHOT_(:,ke))
     end do
 

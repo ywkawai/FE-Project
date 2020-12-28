@@ -130,14 +130,10 @@ contains
 
     !------
     call refElem%Init(PolyOrder_h, PolyOrder_v, .true.)
-    call Dx%Init( refElem%Dx1, storage_format='ELL')
-    call Dy%Init( refElem%Dx2, storage_format='ELL')
-    call Dz%Init( refElem%Dx3, storage_format='ELL')
-    call Lift%Init( refElem%Lift, storage_format='ELL')
-    ! call Dx%Init( refElem%Dx1, storage_format='CSR')
-    ! call Dy%Init( refElem%Dx2, storage_format='CSR')
-    ! call Dz%Init( refElem%Dx3, storage_format='CSR')
-!    call Lift%Init( refElem%Lift, storage_format='CSR')
+    call Dx%Init( refElem%Dx1 )
+    call Dy%Init( refElem%Dx2 )
+    call Dz%Init( refElem%Dx3 )
+    call Lift%Init( refElem%Lift )
 
     call mesh%Init( &
       NeGX, NeGY, NeGZ,                                           &

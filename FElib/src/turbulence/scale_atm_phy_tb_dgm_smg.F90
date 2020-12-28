@@ -146,6 +146,7 @@ contains
     return
   end subroutine atm_phy_tb_dgm_smg_Final
 
+!OCL SERIAL  
   subroutine atm_phy_tb_dgm_smg_cal_grad( &
     S11, S12, S22, S23, S31, S33, TKE,                         &
     dPTdx, dPTdy, dPTdz,                                       &
@@ -346,6 +347,7 @@ contains
     return
   end subroutine atm_phy_tb_dgm_smg_cal_grad
 
+!OCL SERIAL  
   subroutine cal_del_flux_grad( del_flux_rho, del_flux_mom, del_flux_rhot, &
     DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd,               &
     nx, ny, nz, vmapM, vmapP, lmesh, elem                                  )
@@ -421,6 +423,7 @@ contains
     return
   end subroutine cal_del_flux_grad
 
+!OCL SERIAL  
   subroutine atm_phy_tb_dgm_smg_cal_tend( &
     MOMX_t, MOMY_t, MOMZ_t, RHOT_t,                            &
     S11, S12, S22, S23, S31, S33, TKE,                         &
@@ -538,6 +541,7 @@ contains
     return
   end subroutine atm_phy_tb_dgm_smg_cal_tend
 
+!OCL SERIAL  
   subroutine cal_del_flux( del_flux_mom, del_flux_rhot,                &
     S11, S12, S22, S23, S31, S33, TKE,                                 &
     dPTdx, dPTdy, dPTdz,                                               &
@@ -635,6 +639,7 @@ contains
 
   !--- private ------------------
 
+!OCL SERIAL  
   subroutine calculate_lambda( lambda, &
     lmesh, elem, lmesh2D, elem2D       )
     implicit none

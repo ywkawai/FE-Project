@@ -106,6 +106,7 @@ contains
 
   !-------------------------------
 
+!OCL SERIAL
   subroutine atm_dyn_dgm_nonhydro3d_heve_cal_tend( &
     DENS_dt, MOMX_dt, MOMY_dt, MOMZ_dt, RHOT_dt,                                & ! (out)
     DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd, CORIOLIS,          & ! (in)
@@ -144,9 +145,13 @@ contains
     real(RP) :: dens_(elem%Np), RHOT_(elem%Np), dpres_(elem%Np)
     real(RP) :: pres_(elem%Np), u_(elem%Np), v_(elem%Np), w_(elem%Np)
     real(RP) :: Cori(elem%Np)
+    real(RP) :: r_dens
 
     integer :: ke, ke2d
+    integer :: p
     real(RP) :: gamm, rgamm
+    real(RP) :: rP0
+    real(RP) :: RovP0, P0ovR
     !------------------------------------------------------------------------
 
     call PROF_rapstart( 'cal_dyn_tend_bndflux', 3)
@@ -161,22 +166,32 @@ contains
     call PROF_rapstart( 'cal_dyn_tend_interior', 3)
     gamm = CPDry / CvDry
     rgamm = CvDry / CpDry
+    rP0 = 1.0_RP / PRES00
+    RovP0 = Rdry * rP0
+    P0ovR = PRES00 / Rdry
 
-    !$omp parallel do private(RHOT_,pres_,dpres_,dens_,u_,v_,w_,ke2d,Cori,Fx,Fy,Fz,LiftDelFlx)
+    !$omp parallel do private( p, ke2d, &
+    !$omp RHOT_, pres_, dpres_, dens_,  &
+    !$omp u_,v_,w_, Cori,               &
+    !$omp r_dens,                       &
+    !$omp Fx,Fy,Fz,LiftDelFlx )
     do ke = lmesh%NeS, lmesh%NeE
       !--
 
-      RHOT_(:) = PRES00/Rdry * (PRES_hyd(:,ke)/PRES00)**(CVdry/CPdry) + DRHOT_(:,ke)
-      pres_(:) = PRES00 * (Rdry*RHOT_(:)/PRES00)**gamm
-      dpres_(:) = pres_(:) - PRES_hyd(:,ke)
-      dens_(:) = DDENS_(:,ke) + DENS_hyd(:,ke)
-
-      u_(:) = MOMX_(:,ke)/dens_(:)
-      v_(:) = MOMY_(:,ke)/dens_(:)
-      w_(:) = MOMZ_(:,ke)/dens_(:)
-
       ke2d = lmesh%EMap3Dto2D(ke)
-      Cori(:) = CORIOLIS(elem%IndexH2Dto3D(:),ke2d)
+      do p=1, elem%Np
+        dens_(p) = DDENS_(p,ke) + DENS_hyd(p,ke)
+        r_dens   = 1.0_RP / dens_(p)
+        RHOT_(p) = P0ovR * (rP0 * PRES_hyd(p,ke))**rgamm + DRHOT_(p,ke)
+        pres_(p) = PRES00 * (RovP0 * RHOT_(p))**gamm
+
+        u_(p) = MOMX_(p,ke) * r_dens
+        v_(p) = MOMY_(p,ke) * r_dens
+        w_(p) = MOMZ_(p,ke) * r_dens
+        dpres_(p) = pres_(p) - PRES_hyd(p,ke)
+
+        Cori(p) = CORIOLIS(elem%IndexH2Dto3D(p),ke2d)
+      end do
 
       !-- DENS
       call sparsemat_matmul(Dx, MOMX_(:,ke), Fx)
@@ -248,7 +263,7 @@ contains
 
     !- Sponge layer
     if (SL_flag) then
-      call PROF_rapend( 'cal_dyn_tend_sponge', 3)
+      call PROF_rapstart( 'cal_dyn_tend_sponge', 3)
       call atm_dyn_dgm_spongelayer_add_tend( MOMZ_dt, &
         MOMZ_, wdamp_tau, wdamp_tau, lmesh, elem      )
       call PROF_rapend( 'cal_dyn_tend_sponge', 3)
@@ -293,7 +308,7 @@ contains
     !$omp parallel do private( iM, iP, alpha, &
     !$omp uM, uP, vM, vP, wM, wP, VelP, VelM,                 &
     !$omp presM, presP, dpresM, dpresP,                       &
-    !$omp densM, densP, rhotM, rhotP, rhot_hyd_M, rhot_hyd_P  )
+    !$omp densM, densP, rhotM, rhotP, rhot_hyd_M, rhot_hyd_P  )    
     do i=1, elem%NfpTot*lmesh%Ne
       iM = vmapM(i); iP = vmapP(i)
 

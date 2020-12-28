@@ -102,6 +102,8 @@ contains
     integer :: k
     logical :: is_spec_FZ
     
+    character(len=H_SHORT) :: SpMV_storage_format = 'CSR' ! CSR or ELL
+
     integer :: ierr
     !-------------------------------------------
 
@@ -154,15 +156,15 @@ contains
     !-
     call this%ModelMesh3D_Init( this%mesh )
 
-    call this%DOptrMat(1)%Init( this%element%Dx1 )
-    call this%DOptrMat(2)%Init( this%element%Dx2 )
-    call this%DOptrMat(3)%Init( this%element%Dx3 )
+    call this%DOptrMat(1)%Init( this%element%Dx1, storage_format=SpMV_storage_format )
+    call this%DOptrMat(2)%Init( this%element%Dx2, storage_format=SpMV_storage_format )
+    call this%DOptrMat(3)%Init( this%element%Dx3, storage_format=SpMV_storage_format )
 
-    call this%SOptrMat(1)%Init( this%element%Sx1 )
-    call this%SOptrMat(2)%Init( this%element%Sx2 )
-    call this%SOptrMat(3)%Init( this%element%Sx3 )
+    call this%SOptrMat(1)%Init( this%element%Sx1, storage_format=SpMV_storage_format )
+    call this%SOptrMat(2)%Init( this%element%Sx2, storage_format=SpMV_storage_format )
+    call this%SOptrMat(3)%Init( this%element%Sx3, storage_format=SpMV_storage_format )
 
-    call this%LiftOptrMat%Init( this%element%Lift )
+    call this%LiftOptrMat%Init( this%element%Lift, storage_format=SpMV_storage_format )
 
     !-
     call FILE_monitor_meshfield_set_dim( this%mesh, 'ATM3D' )

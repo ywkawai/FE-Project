@@ -326,6 +326,7 @@ contains
 
 
 
+!OCL SERIAL
   subroutine rk_advance_low_storage1D( this, nowstage, q, varID, is, ie  )
     use scale_const, only: &
       EPS => CONST_EPS
@@ -360,6 +361,8 @@ contains
                 + sig_ss * q(i) + gam_ss * this%tend_buf1D_ex(i,varID,1)
       end do
       !$omp end parallel
+      call PROF_rapend( 'rk_advance_low_storage1D', 3)
+
       return
     end if
       
@@ -394,6 +397,7 @@ contains
   end subroutine rk_advance_low_storage1D
 
 
+!OCL SERIAL
   subroutine rk_advance_low_storage2D( this, nowstage, q, varID, is, ie ,js, je  )
     use scale_const, only: &
       EPS => CONST_EPS
@@ -430,6 +434,8 @@ contains
       end do
       end do
       !$omp end parallel
+      call PROF_rapend( 'rk_advance_low_storage2D', 3)
+
       return
     end if
       
@@ -470,6 +476,7 @@ contains
   end subroutine rk_advance_low_storage2D
 
 
+!OCL SERIAL
   subroutine rk_advance_low_storage3D( this, nowstage, q, varID, is, ie ,js, je ,ks, ke  )
     use scale_const, only: &
       EPS => CONST_EPS
@@ -508,6 +515,8 @@ contains
       end do
       end do
       !$omp end parallel
+      call PROF_rapend( 'rk_advance_low_storage3D', 3)
+
       return
     end if
       
@@ -554,6 +563,7 @@ contains
   end subroutine rk_advance_low_storage3D
 
 
+!OCL SERIAL
   subroutine rk_advance_general1D( this, nowstage, q, varID, is, ie  )
     class(timeint_rk), intent(inout) :: this
     integer, intent(in) :: nowstage
@@ -565,6 +575,8 @@ contains
     integer :: s
     integer :: tintbuf_ind
     !----------------------------------------    
+
+    call PROF_rapstart( 'rk_advance_generall1D', 3)
 
     tintbuf_ind = this%tend_buf_indmap(nowstage)
 
@@ -584,7 +596,9 @@ contains
           q(i) =  this%varTmp_1d(i,varID)                                             &
                   + this%dt * this%coef_b_ex(nowstage) * this%tend_buf1D_ex(i,varID,tintbuf_ind)
         end do
-      end if       
+      end if    
+      call PROF_rapend( 'rk_advance_generall1D', 3)
+
       return
     end if 
 
@@ -642,10 +656,12 @@ contains
     end if
 
     !$omp end parallel
+    call PROF_rapend( 'rk_advance_generall1D', 3)
 
     return
   end subroutine rk_advance_general1D
 
+!OCL SERIAL
   subroutine rk_storeimpl_general1D( this, nowstage, q, varID, is, ie  )
     class(timeint_rk), intent(inout) :: this
     integer, intent(in) :: nowstage
@@ -682,6 +698,7 @@ contains
   end subroutine rk_storeimpl_general1D
  
 
+!OCL SERIAL
   subroutine rk_advance_general2D( this, nowstage, q, varID, is, ie ,js, je  )
     class(timeint_rk), intent(inout) :: this
     integer, intent(in) :: nowstage
@@ -693,6 +710,8 @@ contains
     integer :: s
     integer :: tintbuf_ind
     !----------------------------------------    
+
+    call PROF_rapstart( 'rk_advance_generall2D', 3)
 
     tintbuf_ind = this%tend_buf_indmap(nowstage)
 
@@ -716,7 +735,9 @@ contains
                   + this%dt * this%coef_b_ex(nowstage) * this%tend_buf2D_ex(i,j,varID,tintbuf_ind)
         end do
         end do
-      end if       
+      end if    
+      call PROF_rapend( 'rk_advance_generall2D', 3)
+
       return
     end if 
 
@@ -786,10 +807,12 @@ contains
     end if
 
     !$omp end parallel
+    call PROF_rapend( 'rk_advance_generall2D', 3)
 
     return
   end subroutine rk_advance_general2D
 
+!OCL SERIAL
   subroutine rk_storeimpl_general2D( this, nowstage, q, varID, is, ie ,js, je  )
     class(timeint_rk), intent(inout) :: this
     integer, intent(in) :: nowstage
@@ -830,6 +853,7 @@ contains
   end subroutine rk_storeimpl_general2D
  
 
+!OCL SERIAL
   subroutine rk_advance_general3D( this, nowstage, q, varID, is, ie ,js, je ,ks, ke  )
     class(timeint_rk), intent(inout) :: this
     integer, intent(in) :: nowstage
@@ -841,6 +865,8 @@ contains
     integer :: s
     integer :: tintbuf_ind
     !----------------------------------------    
+
+    call PROF_rapstart( 'rk_advance_generall3D', 3)
 
     tintbuf_ind = this%tend_buf_indmap(nowstage)
 
@@ -868,7 +894,9 @@ contains
         end do
         end do
         end do
-      end if       
+      end if    
+      call PROF_rapend( 'rk_advance_generall3D', 3)
+
       return
     end if 
 
@@ -950,10 +978,12 @@ contains
     end if
 
     !$omp end parallel
+    call PROF_rapend( 'rk_advance_generall3D', 3)
 
     return
   end subroutine rk_advance_general3D
 
+!OCL SERIAL
   subroutine rk_storeimpl_general3D( this, nowstage, q, varID, is, ie ,js, je ,ks, ke  )
     class(timeint_rk), intent(inout) :: this
     integer, intent(in) :: nowstage

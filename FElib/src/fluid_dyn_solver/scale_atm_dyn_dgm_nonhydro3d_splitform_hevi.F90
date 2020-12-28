@@ -281,7 +281,7 @@ contains
 
     !- Sponge layer
     if (SL_flag) then
-      call PROF_rapend( 'cal_dyn_tend_sponge', 3)
+      call PROF_rapstart( 'cal_dyn_tend_sponge', 3)
       call atm_dyn_dgm_spongelayer_add_tend( MOMZ_dt, &
         MOMZ_, wdamp_tau, wdamp_tau, lmesh, elem  )
       call PROF_rapend( 'cal_dyn_tend_sponge', 3)

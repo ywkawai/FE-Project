@@ -22,6 +22,7 @@ module scale_sparsemat
 
   type, public :: sparsemat
     integer :: M, N
+    integer :: buf_size
     real(RP), allocatable :: val(:)
     integer, allocatable :: colInd(:)
 
@@ -157,6 +158,7 @@ contains
       call PRC_abort
     end select
 
+    this%buf_size = val_counter
     allocate( this%val(val_counter) )
     allocate( this%colInd(val_counter) )
     this%val(:)    = tmp_val   (1:val_counter)
@@ -271,7 +273,7 @@ contains
 
     write(*,*) "-- print matrix:"
     write(*,'(a,i,a,i)') "orginal matrix shape:", A%M, 'x', A%N
-    write(*,'(a,i)') "size of compressed matrix:", size(A%val)
+    write(*,'(a,i)') "size of compressed matrix:", A%buf_size
     select case ( A%storage_format_id )
     case ( SPARSEMAT_STORAGE_TYPEID_CSR )
       write(*,*) "rowPtr:", A%rowPtr(:)
@@ -315,9 +317,11 @@ contains
 
     select case( A%storage_format_id )
     case( SPARSEMAT_STORAGE_TYPEID_CSR )
-      call sparsemat_matmul_CSR( A, b, c )
+      call sparsemat_matmul_CSR( A%val, A%colInd, A%rowPtr, b, c, &
+        A%M, A%N, A%buf_size, A%rowPtrSize                        )
     case( SPARSEMAT_STORAGE_TYPEID_ELL )
-      call sparsemat_matmul_ELL( A, b, c )
+      call sparsemat_matmul_ELL( A%val, A%colInd, b, c,           &
+        A%M, A%N, A%buf_size, A%col_size                          )
     end select
 
     return
@@ -326,25 +330,31 @@ contains
 !--- private ----------------------------------------------
 
 !OCL SERIAL
-  subroutine sparsemat_matmul_CSR(A, b, c)
+  subroutine sparsemat_matmul_CSR(A, col_Ind, rowPtr, b, c, M, N, buf_size, rowPtr_size)
     implicit none
 
-    type(sparsemat), intent(in) :: A
-    real(RP), intent(in ) :: b(:)
-    real(RP), intent(out) :: c(A%M)
+    integer, intent(in) :: M
+    integer, intent(in) :: N
+    integer, intent(in) :: buf_size
+    integer, intent(in) :: rowPtr_size
+    real(RP), intent(in) :: A(buf_size)
+    integer, intent(in) :: col_Ind(buf_size)
+    integer, intent(in) :: rowPtr(rowPtr_size)
+    real(RP), intent(in ) :: b(N)
+    real(RP), intent(out) :: c(M)
 
     integer :: p
     integer :: j1, j2, j
 
     !--------------------------------------------------------------------------- 
 
-    !call mkl_dcsrgemv( 'N', A%rowPtrSize-1, A%val, A%rowPtr, A%colInd, b, c)
-    j1 = A%rowPtr(1)
-    do p=1, A%rowPtrSize-1
-       j2 = A%rowPtr(p+1) 
+    !call mkl_dcsrgemv( 'N', rowPtr_size-1, A, rowPtr, col_Ind, b, c)
+    j1 = rowPtr(1)
+    do p=1, rowPtr_size-1
+       j2 = rowPtr(p+1) 
        c(p) = 0.0_RP
        do j=j1, j2-1
-          c(p) = c(p) + A%val(j) * b(A%colInd(j))
+          c(p) = c(p) + A(j) * b(col_Ind(j))
        end do
        j1 = j2
     end do
@@ -353,28 +363,28 @@ contains
   end subroutine sparsemat_matmul_CSR
 
 !OCL SERIAL
-  subroutine sparsemat_matmul_ELL(A, b, c)
+  subroutine sparsemat_matmul_ELL(A, col_Ind, b, c, M, N, buf_size, col_size)
     implicit none
 
-    type(sparsemat), intent(in) :: A
-    real(RP), intent(in ) :: b(:)
-    real(RP), intent(out) :: c(A%M)
+    integer, intent(in) :: M
+    integer, intent(in) :: N
+    integer, intent(in) :: buf_size
+    integer, intent(in) :: col_size
+    real(RP), intent(in) :: A(buf_size)
+    integer, intent(in) :: col_Ind(buf_size)
+    real(RP), intent(in ) :: b(N)
+    real(RP), intent(out) :: c(M)
 
-    integer :: k, kk, i, ii
+    integer :: k, kk, i
     integer :: j_ptr
-    integer :: row_size
-
     !--------------------------------------------------------------------------- 
 
-    row_size = A%M
-
     c(:) = 0.0_RP
-    do k=1, A%col_size
-      kk = row_size * (k-1)
-      do i=1, row_size
+    do k=1, col_size
+      kk = M * (k-1)
+      do i=1, M
         j_ptr = kk + i        
-        ii = A%colInd(j_ptr)
-        c(i) = c(i) + A%val(j_ptr) * b(ii)
+        c(i) = c(i) + A(j_ptr) * b(col_Ind(j_ptr))
       end do
     end do
 

@@ -374,6 +374,7 @@ contains
     return  
   end subroutine AtmosDyn_calc_tendency
 
+!OCL SERIAL
   subroutine AtmosDyn_update( this, model_mesh, prgvars_list, auxvars_list, forcing_list, is_update )
 
     use scale_atm_dyn_dgm_modalfilter, only: &
@@ -638,6 +639,7 @@ contains
 
   !--- private ---------------
 
+!OCL SERIAL
   subroutine add_phy_tend( this,      & ! (in)
     dyn_tends,                        & ! (inout)
     DRHOT, PRES_hyd,                  & ! (in)
@@ -692,6 +694,7 @@ contains
     return
   end subroutine add_phy_tend
 
+!OCL SERIAL
   subroutine cal_numfilter_tend( this, model_mesh, prgvars_list, auxvars_list, varid )
 
     use mod_atmos_dyn_vars, only: &
@@ -983,6 +986,7 @@ contains
 
   !-- Setup Coriolis parameter
 
+!OCL SERIAL
   subroutine setup_coriolis_parameter( this, atm_mesh, &
     COLIORIS_type, f0, beta, y0_ )
 
@@ -1014,10 +1018,12 @@ contains
       lcmesh2D => lcmesh3D%lcmesh2D
 
       if ( trim(COLIORIS_type) == 'PLANE' ) then
+        !$omp parallel do
         do ke=1, lcmesh2D%Ne
           coriolis%val(:,ke) = f0 + beta * (lcmesh2D%pos_en(:,ke,2) - y0)
         end do
       else if ( trim(COLIORIS_type) == 'SPHERE' ) then
+        !$omp parallel do
         do ke=1, lcmesh2D%Ne
           coriolis%val(:,ke) = 2.0_RP * OHM * sin(lcmesh3D%lat2D(:,ke))
         end do
