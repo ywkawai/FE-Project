@@ -360,16 +360,16 @@ contains
 
     integer :: k, kk, i, ii
     integer :: j_ptr
-    integer :: N
+    integer :: row_size
 
     !--------------------------------------------------------------------------- 
 
-    N = size(b)
+    row_size = A%M
 
     c(:) = 0.0_RP
     do k=1, A%col_size
-      kk = N * (k-1)
-      do i=1, N
+      kk = row_size * (k-1)
+      do i=1, row_size
         j_ptr = kk + i        
         ii = A%colInd(j_ptr)
         c(i) = c(i) + A%val(j_ptr) * b(ii)
