@@ -270,6 +270,8 @@ contains
     !--------------------------------------------------------------------------- 
 
     write(*,*) "-- print matrix:"
+    write(*,'(a,i,a,i)') "orginal matrix shape:", A%M, 'x', A%N
+    write(*,'(a,i)') "size of compressed matrix:", size(A%val)
     select case ( A%storage_format_id )
     case ( SPARSEMAT_STORAGE_TYPEID_CSR )
       write(*,*) "rowPtr:", A%rowPtr(:)
@@ -307,7 +309,7 @@ contains
 
     type(sparsemat), intent(in) :: A
     real(RP), intent(in ) :: b(:)
-    real(RP), intent(out) :: c(size(b))
+    real(RP), intent(out) :: c(A%M)
 
     !--------------------------------------------------------------------------- 
 
@@ -329,7 +331,7 @@ contains
 
     type(sparsemat), intent(in) :: A
     real(RP), intent(in ) :: b(:)
-    real(RP), intent(out) :: c(size(b))
+    real(RP), intent(out) :: c(A%M)
 
     integer :: p
     integer :: j1, j2, j
@@ -356,7 +358,7 @@ contains
 
     type(sparsemat), intent(in) :: A
     real(RP), intent(in ) :: b(:)
-    real(RP), intent(out) :: c(size(b))
+    real(RP), intent(out) :: c(A%M)
 
     integer :: k, kk, i, ii
     integer :: j_ptr

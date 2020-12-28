@@ -4,12 +4,16 @@ program test_field3d
   use scale_prc
   use scale_io  
   use scale_file_history
+  use scale_const, only: &
+    PI => CONST_PI
   use scale
 
+  use scale_sparsemat
+  use scale_element_base
   use scale_element_hexahedral
   use scale_localmesh_3d
   use scale_mesh_cubedom3d
-
+  
   use scale_localmeshfield_base, only: LocalMeshField3D
   use scale_meshfield_base, only: MeshField3D
   use scale_meshfieldcomm_base, only: MeshFieldContainer
@@ -43,6 +47,7 @@ program test_field3d
   type(HexahedralElement) :: refElem
   integer, parameter :: PolyOrder_h = 2
   integer, parameter :: PolyOrder_v = 2
+  type(SparseMat) :: Dx, Dy, Dz, Lift
   
   type(MeshCubeDom3D), target :: mesh
 
@@ -50,7 +55,11 @@ program test_field3d
   character(len=H_short), parameter :: q_VARNAME = "q"
   character(len=H_short), parameter :: q_DESC    = "q"
   character(len=H_short), parameter :: q_UNITS   = "K"
-  integer :: HST_ID(1)
+  type(MeshField3D), target :: u
+  type(MeshField3D), target :: dudx
+  type(MeshField3D), target :: dudy
+  type(MeshField3D), target :: dudz
+  integer :: HST_ID(5)
 
   type(MeshFieldCommCubeDom3D) :: fields_comm
 
@@ -72,9 +81,15 @@ program test_field3d
     write(*,*) "tileID=", lcmesh%tileID
     call check_interior_data(n, mesh%lcmesh_list(n), q%local(n)%val, q%local(n)%val)
     call check_halo_data(n, mesh%lcmesh_list(n), q%local(n)%val, q%local(n)%val)
+
+    write(*,*) "Check gradient operator.."
+    write(*,*) "tileID=", lcmesh%tileID
+    call calc_grad( dudx%local(n)%val, dudy%local(n)%val, dudz%local(n)%val, &
+      u%local(n)%val, lcmesh, lcmesh%refElem3D )
+
   end do
   !----
-
+  
   call final()
 
 contains
@@ -93,7 +108,7 @@ contains
     integer :: comm, myrank, nprocs
     logical :: ismaster
     
-    integer :: k, p
+    integer :: ke, p
     !---------
 
     call PRC_MPIstart( comm )
@@ -115,6 +130,14 @@ contains
 
     !------
     call refElem%Init(PolyOrder_h, PolyOrder_v, .true.)
+    call Dx%Init( refElem%Dx1, storage_format='ELL')
+    call Dy%Init( refElem%Dx2, storage_format='ELL')
+    call Dz%Init( refElem%Dx3, storage_format='ELL')
+    call Lift%Init( refElem%Lift, storage_format='ELL')
+    ! call Dx%Init( refElem%Dx1, storage_format='CSR')
+    ! call Dy%Init( refElem%Dx2, storage_format='CSR')
+    ! call Dz%Init( refElem%Dx3, storage_format='CSR')
+!    call Lift%Init( refElem%Lift, storage_format='CSR')
 
     call mesh%Init( &
       NeGX, NeGY, NeGZ,                                           &
@@ -126,39 +149,61 @@ contains
 
     !---
     call q%Init( q_VARNAME, q_UNITS, mesh )
-    call fields_comm%Init(1, 0, mesh)
-    
+    call u   %Init( "u"   , "1", mesh )
+    call dudx%Init( "dudx", "1", mesh )
+    call dudy%Init( "dudy", "1", mesh )
+    call dudz%Init( "dudz", "1", mesh )
+    call fields_comm%Init(2, 0, mesh)
+
     call FILE_HISTORY_meshfield_setup( mesh3d_=mesh )
     call FILE_HISTORY_reg( q_VARNAME, q_DESC, q_UNITS, HST_ID(1), dim_type='XYZ')
-
-    !---
+    call FILE_HISTORY_reg( "u"   ,    "u", "1", HST_ID(2), dim_type='XYZ')
+    call FILE_HISTORY_reg( "dudx", "dudx", "1", HST_ID(3), dim_type='XYZ')
+    call FILE_HISTORY_reg( "dudy", "dudy", "1", HST_ID(4), dim_type='XYZ')
+    call FILE_HISTORY_reg( "dudz", "dudz", "1", HST_ID(5), dim_type='XYZ')
 
     !---
     do n=1, mesh%LOCAL_MESH_NUM
       lcmesh => mesh%lcmesh_list(n)
-      q%local(n)%val(:,:) = -1.0E2_RP
-      do k=lcmesh%NeS, lcmesh%NeE
+
+      do ke=lcmesh%NeS, lcmesh%NeE
       do p=1, refElem%Np
-        q%local(n)%val(p,k) = get_field_val(lcmesh%tileID, k, p)
+        q%local(n)%val(p,ke) = get_field_val(lcmesh%tileID, ke, p)
+
+        u%local(n)%val(p,ke) = sin( PI * lcmesh%pos_en(p,ke,1) ) &
+                             * sin( PI * lcmesh%pos_en(p,ke,2) ) &
+                             * sin( PI * lcmesh%pos_en(p,ke,3) )                            
       end do
       end do
     end do
-
-    call FILE_HISTORY_meshfield_put(HST_ID(1), q)
-    call FILE_HISTORY_meshfield_write()    
-
     !---
 
 
   end subroutine init
 
   subroutine final()
+    implicit none
+    !------------------------------------------------------
 
+    call FILE_HISTORY_meshfield_put(HST_ID(1), q)
+    call FILE_HISTORY_meshfield_put(HST_ID(2), u)
+    call FILE_HISTORY_meshfield_put(HST_ID(3), dudx)
+    call FILE_HISTORY_meshfield_put(HST_ID(4), dudy)
+    call FILE_HISTORY_meshfield_put(HST_ID(5), dudz)
+
+    call FILE_HISTORY_meshfield_write()   
     call FILE_HISTORY_meshfield_finalize()
 
     call q%Final()
+    call u%Final()
+    call dudx%Final()
+    call dudy%Final()
+    call dudz%Final()
     call fields_comm%Final()
+
     call mesh%Final()
+    call Dx%Final(); call Dy%Final(); call Dz%Final()
+    call Lift%Final()    
     call refElem%Final()
     
     call TIME_manager_Final()
@@ -167,10 +212,12 @@ contains
   end subroutine final
 
   subroutine perform_comm()
-    type(MeshFieldContainer) :: field_list(1)
+    type(MeshFieldContainer) :: field_list(2)
     !---------------------------
 
     field_list(1)%field3d => q
+    field_list(2)%field3d => u
+
     write(*,*) " - Put.."
     call fields_comm%Put(field_list, 1)
     write(*,*) " - Exchange.."
@@ -336,6 +383,74 @@ contains
 
     return
   end subroutine check_halo_data
+
+  subroutine calc_grad( dudx_, dudy_, dudz_, &
+      u_, lmesh, elem                        )
+    
+    implicit none
+    class(LocalMesh3D), intent(in) :: lmesh
+    class(ElementBase3D), intent(in) :: elem
+    real(RP), intent(out) :: dudx_(elem%Np,lmesh%NeA)
+    real(RP), intent(out) :: dudy_(elem%Np,lmesh%NeA)
+    real(RP), intent(out) :: dudz_(elem%Np,lmesh%NeA)
+    real(RP), intent(in) :: u_(elem%Np,lmesh%NeA)
+
+    integer :: ke
+    real(RP) :: del_flux(elem%NfpTot,lcmesh%Ne,3)
+    real(RP) :: Fx(elem%Np), Fy(elem%Np), Fz(elem%Np), LiftDelFlux(elem%Np)
+    !------------------------------------------------
+
+    call calc_grad_delflx( del_flux,                                              &
+      u_, lmesh%normal_fn(:,:,1), lmesh%normal_fn(:,:,2), lmesh%normal_fn(:,:,3), &
+      lmesh%VMapM, lmesh%VMapP, lmesh, elem )
+    
+    !$omp parallel do private(Fx, Fy, Fz, LiftDelFlux)
+    do ke=1, lmesh%Ne
+      call sparsemat_matmul(Dx, u_(:,ke), Fx)
+      call sparsemat_matmul(Lift, lmesh%Fscale(:,ke)*del_flux(:,ke,1), LiftDelFlux )
+      dudx_(:,ke) = lmesh%Escale(:,ke,1,1) * Fx(:) + LiftDelFlux(:)
+
+      call sparsemat_matmul(Dy, u_(:,ke), Fy)
+      call sparsemat_matmul(Lift, lmesh%Fscale(:,ke)*del_flux(:,ke,2), LiftDelFlux )
+      dudy_(:,ke) = lmesh%Escale(:,ke,2,2) * Fy(:) + LiftDelFlux(:)
+
+      call sparsemat_matmul(Dz, u_(:,ke), Fz)
+      call sparsemat_matmul(Lift, lmesh%Fscale(:,ke)*del_flux(:,ke,3), LiftDelFlux )
+      dudz_(:,ke) = lmesh%Escale(:,ke,3,3) * Fz(:) + LiftDelFlux(:)
+    end do
+
+    return
+  end subroutine calc_grad
+
+  subroutine calc_grad_delflx( del_flux,        &
+      u_, nx, ny, nz, VMapM, VMapP, lmesh, elem )
+          
+    class(LocalMesh3D), intent(in) :: lmesh
+    class(ElementBase3D), intent(in) :: elem
+    real(RP), intent(out) :: del_flux(elem%NfpTot*lmesh%Ne,3)
+    real(RP), intent(in) :: u_(elem%Np*lmesh%NeA)
+    real(RP), intent(in) :: nx(elem%NfpTot*lmesh%Ne)
+    real(RP), intent(in) :: ny(elem%NfpTot*lmesh%Ne)
+    real(RP), intent(in) :: nz(elem%NfpTot*lmesh%Ne)
+    integer, intent(in) :: VMapM(elem%NfpTot*lmesh%Ne)
+    integer, intent(in) :: VMapP(elem%NfpTot*lmesh%Ne)
+  
+    integer :: i
+    integer :: iM, iP
+    real(RP) :: del
+    !-----------------------------------------
+
+    !$omp parallel do private(iM, iP, del)
+    do i=1, elem%NfpTot*lmesh%Ne
+      iM = VMapM(i); iP = VMapP(i)
+      del = 0.5_RP * (u_(iP) - u_(iM))
+      del_flux(i,1) = del * nx(i)
+      del_flux(i,2) = del * ny(i)
+      del_flux(i,3) = del * nz(i)
+    end do
+
+    return
+  end subroutine calc_grad_delflx
 
   subroutine assert(k, vals, ans, assert_name, var_name, val_size)
     integer, intent(in) :: val_size
