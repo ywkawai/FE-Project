@@ -69,6 +69,7 @@ jobs:
         cd FElib/test/common
         make -C linkedlist
         make -C time_manager
+        make -C sparsemat
 
     - name: unit test for FE
       run: | 

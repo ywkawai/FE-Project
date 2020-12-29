@@ -12,7 +12,7 @@ SFC = frtpx
 MODDIROPT = -M
 
 FFLAGS_FAST  = -Kfast,parallel,ocl,preex,array_private,noalias=s,mfunc=2 \
-               -Nlst=i,lst=t -X08 -Ncompdisp -Koptmsg=1 -Cpp                   \
+               -Nlst=i,lst=t -X08 -Ncompdisp -Koptmsg=1 -Cpp             \
                -x-                                                       \
                -Ksimd                                                    \
                -Kauto,threadsafe

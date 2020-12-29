@@ -111,6 +111,7 @@ contains
 
   !-------------------------------
 
+!OCL SERIAL  
   subroutine atm_dyn_dgm_nonhydro3d_hevi_cal_tend( &
     DENS_dt, MOMX_dt, MOMY_dt, MOMZ_dt, RHOT_dt,                                & ! (out)
     DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd, CORIOLIS,          & ! (in)
@@ -153,10 +154,6 @@ contains
     real(RP) :: tmp(elem%Np)
     integer :: ke, ke2d
     real(RP) :: gamm, rgamm
-
-    integer :: ke_x, ke_y, ke_z, keZtop
-    real(RP) :: wdamp_coef(elem%Np)
-    real(RP) :: zTop(elem%Nnode_h1D**2)
     !------------------------------------------------------------------------
 
     call PROF_rapstart( 'cal_dyn_tend_bndflux', 3)
@@ -255,7 +252,7 @@ contains
 
     !- Sponge layer
     if (SL_flag) then
-      call PROF_rapend( 'cal_dyn_tend_sponge', 3)
+      call PROF_rapstart( 'cal_dyn_tend_sponge', 3)
       call atm_dyn_dgm_spongelayer_add_tend( MOMZ_dt, &
         MOMZ_, wdamp_tau, wdamp_tau, lmesh, elem  )
       call PROF_rapend( 'cal_dyn_tend_sponge', 3)
@@ -266,6 +263,7 @@ contains
 
   !------
 
+!OCL SERIAL  
   subroutine cal_del_flux_dyn( del_flux,                     & ! (out)
     DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd, & ! (in)
     nx, ny, nz, vmapM, vmapP, lmesh, elem                    ) ! (in)
@@ -353,6 +351,7 @@ contains
     return
   end subroutine cal_del_flux_dyn
 
+!OCL SERIAL  
   subroutine atm_dyn_dgm_nonhydro3d_hevi_cal_vi( &
     DENS_dt, MOMX_dt, MOMY_dt, MOMZ_dt, RHOT_dt,             & ! (out)
     DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd, & ! (in)
@@ -564,6 +563,7 @@ contains
 
   !------------------------------------------------
 
+!OCL SERIAL  
   subroutine vi_eval_Ax( Ax,                    & ! (out)
     PROG_VARS, PROG_VARS0, DENS_hyd, PRES_hyd,  & ! (in)
     Dz, Lift,                                   & ! (in)
@@ -673,6 +673,7 @@ contains
     return
   end subroutine vi_eval_Ax
 
+!OCL SERIAL  
   subroutine vi_cal_del_flux_dyn( del_flux,           & ! (out)
     DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_,              & ! (in)
     DDENS0_, MOMX0_, MOMY0_, MOMZ0_, DRHOT0_,         & ! (in)
@@ -775,6 +776,7 @@ contains
     return
   end subroutine vi_cal_del_flux_dyn
 
+!OCL SERIAL  
   subroutine vi_construct_matbnd( PmatBnd,  & ! (out)
     kl, ku, nz_1D,                          & ! (in)
     PROG_VARS0, DENS_hyd, PRES_hyd,         & ! (in)

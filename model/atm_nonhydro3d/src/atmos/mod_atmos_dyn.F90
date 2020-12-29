@@ -374,6 +374,7 @@ contains
     return  
   end subroutine AtmosDyn_calc_tendency
 
+!OCL SERIAL
   subroutine AtmosDyn_update( this, model_mesh, prgvars_list, auxvars_list, forcing_list, is_update )
 
     use scale_atm_dyn_dgm_modalfilter, only: &
@@ -638,6 +639,7 @@ contains
 
   !--- private ---------------
 
+!OCL SERIAL
   subroutine add_phy_tend( this,      & ! (in)
     dyn_tends,                        & ! (inout)
     DRHOT, PRES_hyd,                  & ! (in)
@@ -670,7 +672,17 @@ contains
 
     real(RP) :: RHOT(elem3D%Np)
     real(RP) :: EXNER(elem3D%Np)
+
+    real(RP) :: rgamm    
+    real(RP) :: rP0
+    real(RP) :: RovP0, P0ovR, RovCv     
     !---------------------------------------------------------------------------------
+
+    rgamm = CvDry / CpDry
+    rP0   = 1.0_RP / PRES00
+    RovP0 = Rdry * rP0
+    P0ovR = PRES00 / Rdry 
+    RovCv = Rdry/Cvdry   
 
     call AtmosVars_GetLocalMeshPhyTends( domID, mesh, phytends_list, & ! (in)
       DENS_tp, MOMX_tp, MOMY_tp, MOMZ_tp, RHOT_tp, RHOH_p            ) ! (out)
@@ -678,8 +690,8 @@ contains
     !$omp parallel do          &
     !$Omp private( RHOT, EXNER )
     do ke=lcmesh%NeS, lcmesh%NeE
-      RHOT(:) = PRES00/Rdry * (PRES_hyd(:,ke)/PRES00)**(CVdry/CPdry) + DRHOT(:,ke)
-      EXNER(:) = (Rdry*RHOT(:)/PRES00)**(Rdry/Cvdry)
+      RHOT(:) = P0ovR * (PRES_hyd(:,ke) * rP0)**rgamm + DRHOT(:,ke)
+      EXNER(:) = (RovP0 * RHOT(:))**RovCv
 
       dyn_tends(:,ke,DDENS_ID) = dyn_tends(:,ke,DDENS_ID) + DENS_tp%val(:,ke)
       dyn_tends(:,ke,MOMX_ID ) = dyn_tends(:,ke,MOMX_ID ) + MOMX_tp%val(:,ke)
@@ -692,6 +704,7 @@ contains
     return
   end subroutine add_phy_tend
 
+!OCL SERIAL
   subroutine cal_numfilter_tend( this, model_mesh, prgvars_list, auxvars_list, varid )
 
     use mod_atmos_dyn_vars, only: &
@@ -983,6 +996,7 @@ contains
 
   !-- Setup Coriolis parameter
 
+!OCL SERIAL
   subroutine setup_coriolis_parameter( this, atm_mesh, &
     COLIORIS_type, f0, beta, y0_ )
 
@@ -1014,10 +1028,12 @@ contains
       lcmesh2D => lcmesh3D%lcmesh2D
 
       if ( trim(COLIORIS_type) == 'PLANE' ) then
+        !$omp parallel do
         do ke=1, lcmesh2D%Ne
           coriolis%val(:,ke) = f0 + beta * (lcmesh2D%pos_en(:,ke,2) - y0)
         end do
       else if ( trim(COLIORIS_type) == 'SPHERE' ) then
+        !$omp parallel do
         do ke=1, lcmesh2D%Ne
           coriolis%val(:,ke) = 2.0_RP * OHM * sin(lcmesh3D%lat2D(:,ke))
         end do

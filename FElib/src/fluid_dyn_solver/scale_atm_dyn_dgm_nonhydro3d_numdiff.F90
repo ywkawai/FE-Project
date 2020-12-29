@@ -78,6 +78,7 @@ contains
 
   !-------------------------------
 
+!OCL SERIAL  
   subroutine atm_dyn_dgm_nonhydro3d_numdiff_tend( &
     tend_,                                                     & ! (out)
     GxV_, GyV_, GzV_,                                          & ! (in)
@@ -141,6 +142,7 @@ contains
     return
   end subroutine atm_dyn_dgm_nonhydro3d_numdiff_tend
 
+!OCL SERIAL  
   subroutine cal_del_flux_lap_with_coef( del_flux, & ! (out)
     GxV_, GyV_, GzV_,                              & ! (in)
     DDENS_, DENS_hyd, coef_h, coef_v,              & ! (in)
@@ -202,6 +204,7 @@ contains
 
   !--
 
+!OCL SERIAL  
   subroutine atm_dyn_dgm_nonhydro3d_numdiff_cal_laplacian( &
     lapla_h, lapla_v,                                  & ! (out)
     GxV_, GyV_, GzV_,                                  & ! (in)
@@ -257,7 +260,7 @@ contains
     return
   end subroutine atm_dyn_dgm_nonhydro3d_numdiff_cal_laplacian 
 
-
+!OCL SERIAL
   subroutine cal_del_flux_lap( del_flux_h, del_flux_v, & ! (out)
     GxV_, GyV_, GzV_,                                  & ! (in)
     nx, ny, nz, vmapM, vmapP, lmesh, elem, is_bound    ) ! (in)
@@ -302,6 +305,7 @@ contains
 
   !-------------------------------------------------------
 
+!OCL SERIAL  
   subroutine atm_dyn_dgm_nonhydro3d_numdiff_cal_flx( &
     GxV_, GyV_, GzV_,                                         & ! (out)
     Varh_, Varv_, DDENS_, DENS_hyd_,                          & ! (in)
@@ -363,6 +367,7 @@ contains
     return
   end subroutine atm_dyn_dgm_nonhydro3d_numdiff_cal_flx
 
+!OCL SERIAL  
   subroutine cal_del_gradDiffVar( del_flux, & ! (out)
     VARh_, VARv_, DDENS_, DENS_hyd_,        & ! (in)
     nx, ny, nz, vmapM, vmapP, lmesh, elem,  & ! (in)

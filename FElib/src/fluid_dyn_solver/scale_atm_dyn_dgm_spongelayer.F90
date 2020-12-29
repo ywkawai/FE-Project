@@ -85,6 +85,7 @@ contains
 
 !-- private ------------------------------
 
+!OCL SERIAL
   subroutine calc_wdampcoef( &
     wdamp_tau, wdamp_height, z, zTop, Nnode_h1D, Nnode_v, & ! (in)
     wdamp_coef                                            ) ! (out)

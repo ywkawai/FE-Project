@@ -261,38 +261,31 @@ contains
   end subroutine linalgebra_SolveLinEq_GMRES
 
   subroutine PreCondStep_PtJacobi(A, b, x)
-
-    use scale_sparsemat, only: &
-      & get_val => sparsemat_GetVal
-
+    implicit none
     type(sparsemat), intent(in) :: A
     real(RP), intent(in) :: b(:)
     real(RP), intent(out) :: x(size(b))
 
     integer :: n
-
     !--------------------------------------------------------------------------- 
 
     do n=1, size(x)
-      x(n) = b(n)/get_val(A, n, n)
+      x(n) = b(n) / A%GetVal(n, n)
     end do
 
     return
   end subroutine PreCondStep_PtJacobi
 
   subroutine PreCondStep_ILU0_constructmat(A, M)
-
-    use scale_sparsemat, only: &
-      & get_val => sparsemat_GetVal, &
-      & set_val => sparsemat_SetVal
+    use scale_const, only: &
+      EPS => CONST_EPS
+    implicit none
 
     type(SparseMat), intent(in) :: A
     type(SparseMat), intent(inout) :: M
 
     integer :: i, j, k, n
-    real(RP) :: Mij
-    real(RP), parameter :: EPS = 1.0E-16_RP
-
+    real(RP) :: Mij, M_ik, M_kk
     !--------------------------------------------------------------------------- 
 
     n = A%rowPtrSize-1
@@ -300,15 +293,16 @@ contains
     M = A
     do i=2, n
       do k=1, i-1
-        if ( abs(get_val(M,i,k)) < EPS .and. abs(get_val(M,k,k)) < EPS ) then
-          call set_val( M,i,k, &
-            & get_val(M,i,k)/get_val(M,k,k) )
+        M_ik = M%GetVal(i,k)
+        M_kk = M%GetVal(k,k)
+        if ( abs(M_ik) < EPS .and. abs(M_kk) < EPS ) then
+          M_ik = M_ik / M_kk
+          call M%ReplaceVal( i, k,  M_ik )
 
           do j=k+1, n
-            Mij = get_val(M,i,j)
+            Mij = M%GetVal(i,j)
             if ( abs(Mij) < EPS ) then
-              call set_val(M,i,j, &
-                & Mij - get_val(M,i,k)*get_val(M,k,j) )
+              call M%ReplaceVal( i, j, Mij - M%GetVal(i,k) * M%GetVal(k,j) )
             end if
           end do
         end if
@@ -319,10 +313,9 @@ contains
   end subroutine PreCondStep_ILU0_constructmat
 
   subroutine PreCondStep_ILU0_solve(M, b, x)
-
     use scale_sparsemat, only: &
-      & get_val => sparsemat_GetVal, &
-      & set_val => sparsemat_SetVal
+      SPARSEMAT_STORAGE_TYPEID_CSR
+    implicit none
 
     type(SparseMat), intent(in) :: M
     real(RP), intent(in) :: b(:)
@@ -333,8 +326,12 @@ contains
     integer :: n
 
     integer :: j1, j2
-
     !--------------------------------------------------------------------------- 
+
+    if ( M%GetStorageFormatId() /= SPARSEMAT_STORAGE_TYPEID_CSR ) then
+      LOG_ERROR("linalgebra_PreCondStep_ILU0_solve",*)  "The strorge type of specified sparse matrix is not supported. Check!"
+      call PRC_abort
+    end if
 
     n = size(x)
 
@@ -344,20 +341,20 @@ contains
       j2 = M%rowPtr(i+1)-1
       x(i) = b(i)
       do j=j1, j2
-        if (M%colInd(j) <= i-1) &
-          & x(i) = x(i) - M%val(j)*x(M%colInd(j))
+        if (M%colIdx(j) <= i-1) &
+          x(i) = x(i) - M%val(j)*x(M%colIdx(j))
       end do
     end do
 
-    x(n) = x(n)/get_val(M,n,n)
+    x(n) = x(n) / M%GetVal(n,n)
     do i=n-1, 1, -1
       j1 = M%rowPtr(i)
       j2 = M%rowPtr(i+1)-1
       do j=j1, j2
-        if (M%colInd(j) >= i+1) &
-          & x(i) = x(i) - M%val(j)*x(M%colInd(j))
+        if (M%colIdx(j) >= i+1) &
+          x(i) = x(i) - M%val(j)*x(M%colIdx(j))
       end do
-      x(i) = x(i)/get_val(M,i,i)
+      x(i) = x(i)/M%GetVal(i,i)
     end do
 
     return

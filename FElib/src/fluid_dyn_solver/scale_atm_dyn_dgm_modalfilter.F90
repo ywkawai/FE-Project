@@ -40,8 +40,9 @@ module scale_atm_dyn_dgm_modalfilter
   !++ Private procedures & variables
   !
   !-------------------
-
 contains
+
+!OCL SERIAL
   subroutine atm_dyn_dgm_modalfilter_apply(  &
     DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_,     & ! (inout)
     lmesh, elem, filter )                      ! (in)
@@ -58,15 +59,30 @@ contains
     class(ModalFilter), intent(in) :: filter
     
     integer :: ke
+    real(RP) :: tmp(elem%Np,5)
+    integer :: ii, kk
+    real(RP) :: Mik
     !------------------------------------
 
-    !$omp parallel do
-    do ke=1, lmesh%Ne
-      DDENS_(:,ke) = matmul(filter%FilterMat,DDENS_(:,ke))
-      MOMX_ (:,ke) = matmul(filter%FilterMat,MOMX_(:,ke))
-      MOMY_ (:,ke) = matmul(filter%FilterMat,MOMY_(:,ke))
-      MOMZ_ (:,ke) = matmul(filter%FilterMat,MOMZ_(:,ke))
-      DRHOT_(:,ke) = matmul(filter%FilterMat,DRHOT_(:,ke))
+    !$omp parallel do private( tmp, ii, kk, Mik )
+    do ke=lmesh%NeS, lmesh%NeE
+
+      tmp(:,:) = 0.0_RP
+      do ii=1, elem%Np
+      do kk=1, elem%Np
+        Mik = filter%FilterMat(ii,kk)
+        tmp(ii,1) = tmp(ii,1) + Mik * DDENS_(kk,ke)
+        tmp(ii,2) = tmp(ii,2) + Mik * MOMX_ (kk,ke)
+        tmp(ii,3) = tmp(ii,3) + Mik * MOMY_ (kk,ke)
+        tmp(ii,4) = tmp(ii,4) + Mik * MOMZ_ (kk,ke)
+        tmp(ii,5) = tmp(ii,5) + Mik * DRHOT_(kk,ke)
+      end do
+      end do      
+      DDENS_(:,ke) = tmp(:,1)
+      MOMX_ (:,ke) = tmp(:,2)
+      MOMY_ (:,ke) = tmp(:,3)
+      MOMZ_ (:,ke) = tmp(:,4)
+      DRHOT_(:,ke) = tmp(:,5)
     end do
 
     return

@@ -256,6 +256,7 @@ contains
 % ind_arg.chop!
 % ind_ary.chop!
 
+!OCL SERIAL
   subroutine rk_advance_low_storage<%=d%>D( this, nowstage, q, varID, <%=ind_arg%> )
     use scale_const, only: &
       EPS => CONST_EPS
@@ -298,6 +299,8 @@ contains
       end do
 % end
       !$omp end parallel
+      call PROF_rapend( 'rk_advance_low_storage<%=d%>D', 3)
+
       return
     end if
       
@@ -368,6 +371,7 @@ contains
 % end
 % ind_arg.chop!
 % ind_ary.chop!
+!OCL SERIAL
   subroutine rk_advance_general<%=d%>D( this, nowstage, q, varID, <%=ind_arg%> )
     class(timeint_rk), intent(inout) :: this
     integer, intent(in) :: nowstage
@@ -379,6 +383,8 @@ contains
     integer :: s
     integer :: tintbuf_ind
     !----------------------------------------    
+
+    call PROF_rapstart( 'rk_advance_generall<%=d%>D', 3)
 
     tintbuf_ind = this%tend_buf_indmap(nowstage)
 
@@ -414,7 +420,9 @@ contains
 % for i in 1..d
         end do
 % end    
-      end if       
+      end if    
+      call PROF_rapend( 'rk_advance_generall<%=d%>D', 3)
+
       return
     end if 
 
@@ -520,10 +528,12 @@ contains
     end if
 
     !$omp end parallel
+    call PROF_rapend( 'rk_advance_generall<%=d%>D', 3)
 
     return
   end subroutine rk_advance_general<%=d%>D
 
+!OCL SERIAL
   subroutine rk_storeimpl_general<%=d%>D( this, nowstage, q, varID, <%=ind_arg%> )
     class(timeint_rk), intent(inout) :: this
     integer, intent(in) :: nowstage
