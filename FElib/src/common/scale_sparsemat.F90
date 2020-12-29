@@ -286,8 +286,8 @@ contains
     !--------------------------------------------------------------------------- 
 
     write(*,*) "-- print matrix:"
-    write(*,'(a,i,a,i)') "orginal matrix shape:", A%M, 'x', A%N
-    write(*,'(a,i)') "size of compressed matrix:", A%nnz
+    write(*,'(a,i5,a,i5)') "orginal matrix shape:", A%M, 'x', A%N
+    write(*,'(a,i5)') "size of compressed matrix:", A%nnz
     select case ( A%storage_format_id )
     case ( SPARSEMAT_STORAGE_TYPEID_CSR )
       write(*,*) "rowPtr:", A%rowPtr(:)
