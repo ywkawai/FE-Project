@@ -672,7 +672,17 @@ contains
 
     real(RP) :: RHOT(elem3D%Np)
     real(RP) :: EXNER(elem3D%Np)
+
+    real(RP) :: rgamm    
+    real(RP) :: rP0
+    real(RP) :: RovP0, P0ovR, RovCv     
     !---------------------------------------------------------------------------------
+
+    rgamm = CvDry / CpDry
+    rP0   = 1.0_RP / PRES00
+    RovP0 = Rdry * rP0
+    P0ovR = PRES00 / Rdry 
+    RovCv = Rdry/Cvdry   
 
     call AtmosVars_GetLocalMeshPhyTends( domID, mesh, phytends_list, & ! (in)
       DENS_tp, MOMX_tp, MOMY_tp, MOMZ_tp, RHOT_tp, RHOH_p            ) ! (out)
@@ -680,8 +690,8 @@ contains
     !$omp parallel do          &
     !$Omp private( RHOT, EXNER )
     do ke=lcmesh%NeS, lcmesh%NeE
-      RHOT(:) = PRES00/Rdry * (PRES_hyd(:,ke)/PRES00)**(CVdry/CPdry) + DRHOT(:,ke)
-      EXNER(:) = (Rdry*RHOT(:)/PRES00)**(Rdry/Cvdry)
+      RHOT(:) = P0ovR * (PRES_hyd(:,ke) * rP0)**rgamm + DRHOT(:,ke)
+      EXNER(:) = (RovP0 * RHOT(:))**RovCv
 
       dyn_tends(:,ke,DDENS_ID) = dyn_tends(:,ke,DDENS_ID) + DENS_tp%val(:,ke)
       dyn_tends(:,ke,MOMX_ID ) = dyn_tends(:,ke,MOMX_ID ) + MOMX_tp%val(:,ke)

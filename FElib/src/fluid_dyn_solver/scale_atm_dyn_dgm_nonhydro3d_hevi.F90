@@ -154,10 +154,6 @@ contains
     real(RP) :: tmp(elem%Np)
     integer :: ke, ke2d
     real(RP) :: gamm, rgamm
-
-    integer :: ke_x, ke_y, ke_z, keZtop
-    real(RP) :: wdamp_coef(elem%Np)
-    real(RP) :: zTop(elem%Nnode_h1D**2)
     !------------------------------------------------------------------------
 
     call PROF_rapstart( 'cal_dyn_tend_bndflux', 3)

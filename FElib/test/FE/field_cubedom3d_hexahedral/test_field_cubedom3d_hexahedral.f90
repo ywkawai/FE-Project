@@ -95,6 +95,8 @@ program test_field3d
 contains
 
   elemental function get_field_val(tileID, k, p) result(val)
+    implicit none
+
     integer, intent(in) :: tileID, k, p
     real(RP) :: val
     !----------------------------
@@ -104,6 +106,7 @@ contains
 
   subroutine init()
     use scale_calendar, only: CALENDAR_setup
+    implicit none
 
     integer :: comm, myrank, nprocs
     logical :: ismaster
@@ -174,7 +177,7 @@ contains
     end do
     !---
 
-
+    return
   end subroutine init
 
   subroutine final()
@@ -205,9 +208,12 @@ contains
     call TIME_manager_Final()
     call PRC_MPIfinish()
 
+    return
   end subroutine final
 
   subroutine perform_comm()
+    implicit none
+
     type(MeshFieldContainer) :: field_list(2)
     !---------------------------
 
@@ -221,9 +227,12 @@ contains
     write(*,*) " - Get.."
     call fields_comm%Get(field_list, 1)
 
+    return
   end subroutine perform_comm
     
   subroutine check_interior_data(n, lcmesh_, lcfield, lcfield_fl)
+    implicit none
+
     integer, intent(in) :: n
     type(LocalMesh3D), intent(in) :: lcmesh_
     real(RP), intent(in) :: lcfield(refElem%Np,lcmesh_%NeA)
@@ -262,6 +271,7 @@ contains
       end do
     end do
 
+    return
   end subroutine check_interior_data
 
   subroutine check_halo_data(n, lcmesh_, lcfield, lcfield_fl)
@@ -464,7 +474,9 @@ contains
       LOG_ERROR(assert_name,*) 'The value of '//trim(var_name)//' is unexcepted!', &
         ' k=', k, ": val=", vals(:), " ans=", ans(:)
       call PRC_abort
-    end if    
+    end if
+
+    return
   end subroutine assert
 
 end program test_field3d

@@ -21,27 +21,33 @@ module scale_sparsemat
   !  
 
   type, public :: sparsemat
-    integer :: M, N
-    integer :: buf_size
-    real(RP), allocatable :: val(:)
-    integer, allocatable :: colInd(:)
+    integer :: M                      !< Number of row of original matrix
+    integer :: N                      !< Number of column of original matrix
+    integer :: nnz                    !< Number of nonzero of the matrix
+    real(RP), allocatable :: val(:)   !< Array storing the values of the nonzeros
+    integer, allocatable :: colIdx(:) !< Array saving the column indices of the nonzeros
 
     ! for CSR format
-    integer, allocatable :: rowPtr(:)
-    integer :: rowPtrSize
+    integer, allocatable :: rowPtr(:) !< Array saving the start and end pointers of the nonzeros of the rows.
+    integer :: rowPtrSize             !< Size of rowPtr
 
     ! for ELL format
     integer :: col_size
 
-    integer :: storage_format_id
+    integer, private :: storage_format_id      !< Number of row of original matrix
   contains
-    procedure :: Init => sparsemat_Init
-    procedure :: Final => sparsemat_Final
-    procedure :: Print => sparsemat_Print
-    procedure :: ReplaceVal => sparsemat_ReplceVal
-    procedure :: GetVal => sparsemat_GetVal
+    procedure, public :: Init => sparsemat_Init
+    procedure, public :: Final => sparsemat_Final
+    procedure, public :: Print => sparsemat_Print
+    procedure, public :: ReplaceVal => sparsemat_ReplceVal
+    procedure, public :: GetVal => sparsemat_GetVal
+    procedure, public :: GetStorageFormatId => sparsemat_get_storage_format_id
   end type sparsemat
 
+  interface sparsemat_matmul
+    module procedure sparsemat_matmul1
+    module procedure sparsemat_matmul2
+  end interface
   public :: sparsemat_matmul
 
   !-----------------------------------------------------------------------------
@@ -55,8 +61,10 @@ module scale_sparsemat
   !
   !++ Private procedure
   !
-  private :: sparsemat_matmul_CSR
-  private :: sparsemat_matmul_ELL
+  private :: sparsemat_matmul_CSR_1
+  private :: sparsemat_matmul_CSR_2
+  private :: sparsemat_matmul_ELL_1
+  private :: sparsemat_matmul_ELL_2
 
   !-----------------------------------------------------------------------------
   !
@@ -105,7 +113,7 @@ contains
     if (present(EPS)) then
       EPS_ = EPS
     else
-      EPS_ = CONST_EPS
+      EPS_ = CONST_EPS * 500.0_RP ! ~ 1x10^-13
     end if
 
     if (present(storage_format)) then
@@ -141,7 +149,7 @@ contains
       val_counter   = this%M * this%col_size
 
       tmp_val(:)    = 0.0_RP
-      tmp_colInd(:) = 1
+      tmp_colInd(:) = -1
       do i=1, this%M
         col_size_l = 0
         do j=1,this%N
@@ -158,17 +166,23 @@ contains
       call PRC_abort
     end select
 
-    this%buf_size = val_counter
+    this%nnz = val_counter
     allocate( this%val(val_counter) )
-    allocate( this%colInd(val_counter) )
+    allocate( this%colIdx(val_counter) )
     this%val(:)    = tmp_val   (1:val_counter)
-    this%colInd(:) = tmp_colInd(1:val_counter)
+    this%colIdx(:) = tmp_colInd(1:val_counter)
 
     select case (storage_format_)
     case ('CSR')
       allocate( this%rowPtr(rowptr_counter) )
       this%rowPtr(:) = tmp_rowptr(1:rowptr_counter)
       this%rowPtrSize = rowptr_counter
+    case('ELL')
+      do l=2, val_counter
+        if (this%colIdx(l) == -1) then
+          this%colIdx(l) = this%colIdx(l-1)
+        end if
+      end do
     end select
 
     !write(*,*) "--- Mat ------"
@@ -194,7 +208,7 @@ contains
     !--------------------------------------------------------------------------- 
 
     deallocate( this%val )
-    deallocate( this%colInd )
+    deallocate( this%colIdx )
 
     select case( this%storage_format_id )
     case( SPARSEMAT_STORAGE_TYPEID_CSR )
@@ -217,14 +231,14 @@ contains
     select case( A%storage_format_id )
     case( SPARSEMAT_STORAGE_TYPEID_CSR )
       do n=A%rowPtr(i),A%rowPtr(i+1)-1
-        if (A%colInd(n) == j) then
+        if (A%colIdx(n) == j) then
           v = A%val(n); exit
         end if
       end do
     case ( SPARSEMAT_STORAGE_TYPEID_ELL )
       do jj=1, A%col_size
         n = i + (jj-1)*A%M
-        if (A%colInd(n) == j) then
+        if (A%colIdx(n) == j) then
           v = A%val(n); exit
         end if
       end do
@@ -246,14 +260,14 @@ contains
     select case ( A%storage_format_id )
     case ( SPARSEMAT_STORAGE_TYPEID_CSR )
       do n=A%rowPtr(i),A%rowPtr(i+1)-1
-        if (A%colInd(n) == j) then
+        if (A%colIdx(n) == j) then
           A%val(n) = v; exit
         end if
       end do
     case ( SPARSEMAT_STORAGE_TYPEID_ELL )
       do jj=1, A%col_size
         n = i + (jj-1)*A%M
-        if (A%colInd(n) == j) then
+        if (A%colIdx(n) == j) then
           A%val(n) = v; exit
         end if
       end do
@@ -273,12 +287,12 @@ contains
 
     write(*,*) "-- print matrix:"
     write(*,'(a,i,a,i)') "orginal matrix shape:", A%M, 'x', A%N
-    write(*,'(a,i)') "size of compressed matrix:", A%buf_size
+    write(*,'(a,i)') "size of compressed matrix:", A%nnz
     select case ( A%storage_format_id )
     case ( SPARSEMAT_STORAGE_TYPEID_CSR )
       write(*,*) "rowPtr:", A%rowPtr(:)
     end select
-    write(*,*) "colInd:", A%colInd(:)
+    write(*,*) "colInd:", A%colIdx(:)
     write(*,*) "val:"
 
     select case ( A%storage_format_id )
@@ -287,7 +301,7 @@ contains
       do p=1, A%rowPtrSize-1
         j2 = A%rowPtr(p+1)
         row_val(:) = 0.0_RP
-        row_val(A%colInd(j1:j2-1)) = A%val(j1:j2-1)
+        row_val(A%colIdx(j1:j2-1)) = A%val(j1:j2-1)
         write(*,*) row_val(:)
         j1 = j2
       end do
@@ -296,7 +310,7 @@ contains
         row_val(:) = 0.0_RP
         do j1=1, A%col_size
           j2 = p + (j1-1)*A%M
-         row_val(A%colInd(j2)) = A%val(j2)
+         row_val(A%colIdx(j2)) = A%val(j2)
         end do
         write(*,*) row_val(:)
       end do
@@ -305,8 +319,18 @@ contains
     return
   end subroutine sparsemat_print
 
+  function sparsemat_get_storage_format_id( A ) result(id)
+    implicit none
+    class(sparsemat), intent(in) :: A
+    real(RP) :: id
+    !------------------------------------------------------
+
+    id = A%storage_format_id
+    return 
+  end function sparsemat_get_storage_format_id
+
 !OCL SERIAL  
-  subroutine sparsemat_matmul(A, b, c)
+  subroutine sparsemat_matmul1(A, b, c)
     implicit none
 
     type(sparsemat), intent(in) :: A
@@ -317,20 +341,42 @@ contains
 
     select case( A%storage_format_id )
     case( SPARSEMAT_STORAGE_TYPEID_CSR )
-      call sparsemat_matmul_CSR( A%val, A%colInd, A%rowPtr, b, c, &
-        A%M, A%N, A%buf_size, A%rowPtrSize                        )
+      call sparsemat_matmul_CSR_1( A%val, A%colIdx, A%rowPtr, b, c, &
+        A%M, A%N, A%nnz, A%rowPtrSize                          )
     case( SPARSEMAT_STORAGE_TYPEID_ELL )
-      call sparsemat_matmul_ELL( A%val, A%colInd, b, c,           &
-        A%M, A%N, A%buf_size, A%col_size                          )
+      call sparsemat_matmul_ELL_1( A%val, A%colIdx, b, c,           &
+        A%M, A%N, A%nnz, A%col_size                            )
     end select
 
     return
-  end subroutine sparsemat_matmul
+  end subroutine sparsemat_matmul1
+
+!OCL SERIAL  
+  subroutine sparsemat_matmul2(A, b, c)
+    implicit none
+
+    type(sparsemat), intent(in) :: A
+    real(RP), intent(in ) :: b(:,:)
+    real(RP), intent(out) :: c(size(b,1),A%M)
+
+    !--------------------------------------------------------------------------- 
+
+    select case( A%storage_format_id )
+    case( SPARSEMAT_STORAGE_TYPEID_CSR )
+      call sparsemat_matmul_CSR_2( A%val, A%colIdx, A%rowPtr, b, c, &
+        A%M, A%N, A%nnz, A%rowPtrSize, size(b,1)               )
+    case( SPARSEMAT_STORAGE_TYPEID_ELL )
+      call sparsemat_matmul_ELL_2( A%val, A%colIdx, b, c,           &
+        A%M, A%N, A%nnz, A%col_size, size(b,1)                 )
+    end select
+
+    return
+  end subroutine sparsemat_matmul2
 
 !--- private ----------------------------------------------
 
 !OCL SERIAL
-  subroutine sparsemat_matmul_CSR(A, col_Ind, rowPtr, b, c, M, N, buf_size, rowPtr_size)
+  subroutine sparsemat_matmul_CSR_1(A, col_Ind, rowPtr, b, c, M, N, buf_size, rowPtr_size)
     implicit none
 
     integer, intent(in) :: M
@@ -343,8 +389,8 @@ contains
     real(RP), intent(in ) :: b(N)
     real(RP), intent(out) :: c(M)
 
-    integer :: p
-    integer :: j1, j2, j
+    integer :: p, j
+    integer :: j1, j2
 
     !--------------------------------------------------------------------------- 
 
@@ -360,10 +406,44 @@ contains
     end do
 
     return
-  end subroutine sparsemat_matmul_CSR
+  end subroutine sparsemat_matmul_CSR_1
 
 !OCL SERIAL
-  subroutine sparsemat_matmul_ELL(A, col_Ind, b, c, M, N, buf_size, col_size)
+  subroutine sparsemat_matmul_CSR_2(A, col_Ind, rowPtr, b, c, M, N, buf_size, rowPtr_size, NQ)
+    implicit none
+
+    integer, intent(in) :: M
+    integer, intent(in) :: N
+    integer, intent(in) :: NQ
+    integer, intent(in) :: buf_size
+    integer, intent(in) :: rowPtr_size
+    real(RP), intent(in) :: A(buf_size)
+    integer, intent(in) :: col_Ind(buf_size)
+    integer, intent(in) :: rowPtr(rowPtr_size)
+    real(RP), intent(in ) :: b(NQ,N)
+    real(RP), intent(out) :: c(NQ,M)
+
+    integer :: p, j
+    integer :: j1, j2
+
+    !--------------------------------------------------------------------------- 
+
+    !call mkl_dcsrgemv( 'N', rowPtr_size-1, A, rowPtr, col_Ind, b, c)
+    j1 = rowPtr(1)
+    c(:,:) = 0.0_RP
+    do p=1, rowPtr_size-1
+      j2 = rowPtr(p+1) 
+      do j=j1, j2-1
+        c(:,p) = c(:,p) + A(j) * b(:,col_Ind(j))
+      end do
+      j1 = j2
+    end do
+
+    return
+  end subroutine sparsemat_matmul_CSR_2
+
+!OCL SERIAL
+  subroutine sparsemat_matmul_ELL_1(A, col_Ind, b, c, M, N, buf_size, col_size)
     implicit none
 
     integer, intent(in) :: M
@@ -389,7 +469,37 @@ contains
     end do
 
     return
-  end subroutine sparsemat_matmul_ELL
+  end subroutine sparsemat_matmul_ELL_1
+
+!OCL SERIAL
+  subroutine sparsemat_matmul_ELL_2(A, col_Ind, b, c, M, N, buf_size, col_size, NQ)
+    implicit none
+
+    integer, intent(in) :: M
+    integer, intent(in) :: N
+    integer, intent(in) :: buf_size
+    integer, intent(in) :: col_size
+    integer, intent(in) :: NQ
+    real(RP), intent(in) :: A(buf_size)
+    integer, intent(in) :: col_Ind(buf_size)
+    real(RP), intent(in ) :: b(NQ,N)
+    real(RP), intent(out) :: c(NQ,M)
+
+    integer :: k, kk, i
+    integer :: j_ptr
+    !--------------------------------------------------------------------------- 
+
+    c(:,:) = 0.0_RP
+    do k=1, col_size
+      kk = M * (k-1)
+      do i=1, M
+        j_ptr = kk + i        
+        c(:,i) = c(:,i) + A(j_ptr) * b(:,col_Ind(j_ptr))
+      end do
+    end do
+
+    return
+  end subroutine sparsemat_matmul_ELL_2
 
 end module scale_sparsemat
 

@@ -102,7 +102,7 @@ contains
     integer :: k
     logical :: is_spec_FZ
     
-    character(len=H_SHORT) :: SpMV_storage_format = 'CSR' ! CSR or ELL
+    character(len=H_SHORT) :: SpMV_storage_format = 'ELL' ! CSR or ELL
 
     integer :: ierr
     !-------------------------------------------

@@ -328,7 +328,7 @@ contains
     integer :: j1, j2
     !--------------------------------------------------------------------------- 
 
-    if ( M%storage_format_id /= SPARSEMAT_STORAGE_TYPEID_CSR ) then
+    if ( M%GetStorageFormatId() /= SPARSEMAT_STORAGE_TYPEID_CSR ) then
       LOG_ERROR("linalgebra_PreCondStep_ILU0_solve",*)  "The strorge type of specified sparse matrix is not supported. Check!"
       call PRC_abort
     end if
@@ -341,8 +341,8 @@ contains
       j2 = M%rowPtr(i+1)-1
       x(i) = b(i)
       do j=j1, j2
-        if (M%colInd(j) <= i-1) &
-          & x(i) = x(i) - M%val(j)*x(M%colInd(j))
+        if (M%colIdx(j) <= i-1) &
+          x(i) = x(i) - M%val(j)*x(M%colIdx(j))
       end do
     end do
 
@@ -351,8 +351,8 @@ contains
       j1 = M%rowPtr(i)
       j2 = M%rowPtr(i+1)-1
       do j=j1, j2
-        if (M%colInd(j) >= i+1) &
-          & x(i) = x(i) - M%val(j)*x(M%colInd(j))
+        if (M%colIdx(j) >= i+1) &
+          x(i) = x(i) - M%val(j)*x(M%colIdx(j))
       end do
       x(i) = x(i)/M%GetVal(i,i)
     end do
