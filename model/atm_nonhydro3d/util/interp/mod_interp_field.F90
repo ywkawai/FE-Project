@@ -45,9 +45,10 @@ module mod_interp_field
     integer :: num_step
     real(DP) :: dt
     real(DP) :: start_sec
+    integer :: out_tintrv
   end type OutVarInfo
   integer, public :: out_var3D_num
-  type(OutVarInfo), public, allocatable :: out_vinfo(:)
+  type(OutVarInfo), public, allocatable, target :: out_vinfo(:)
   
   character(len=H_LONG), public   :: in_basename      = ''       ! Basename of the input  file 
 
@@ -83,10 +84,12 @@ contains
 
     integer :: nn
     character(len=H_SHORT)  :: vars(ITEM_MAX_NUM) = ''       ! name of variables
+    integer :: out_tinterval(ITEM_MAX_NUM)
 
     namelist /PARAM_INTERP_FIELD/ &
       in_basename,     &
-      vars
+      vars,            &
+      out_tinterval
     integer :: ierr
 
     type(FILE_base_meshfield) :: in_file
@@ -96,6 +99,8 @@ contains
     LOG_NEWLINE
     LOG_INFO("interp_field",*) 'Setup'
   
+    out_tinterval(:) = 1
+
     !--- read namelist
     rewind(IO_FID_CONF)
     read(IO_FID_CONF,nml=PARAM_INTERP_FIELD,iostat=ierr)
@@ -131,7 +136,8 @@ contains
       call in_file%Get_VarStepSize( vars(nn), & ! (in)
         out_vinfo(nn)%num_step                ) ! (out)
       
-        out_vinfo(nn)%dt = time_endsec - out_vinfo(nn)%start_sec
+      out_vinfo(nn)%dt = time_endsec - out_vinfo(nn)%start_sec
+      out_vinfo(nn)%out_tintrv = out_tinterval(nn)
     end do
     call in_file%Close()
     call in_file%Final()

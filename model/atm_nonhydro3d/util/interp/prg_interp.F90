@@ -25,6 +25,7 @@ program interp
       out_mesh,               &
       nodeMap_list  
    use mod_interp_field, only: &
+      OutVarInfo,              &
       out_var3D_num,           &
       out_var3D,               &
       out_vinfo,               &
@@ -56,6 +57,8 @@ program interp
    integer :: vid
    integer :: istep
    real(DP) :: start_sec
+
+   type(OutVarInfo), pointer :: vinfo
    !-----------------------------------------------------------------------------
 
    call initialize()
@@ -68,17 +71,18 @@ program interp
    LOG_PROGRESS(*) 'START LOOP'
 
    do vid =1, out_var3D_num
-   do istep=1, out_vinfo(vid)%num_step      
-      start_sec = out_vinfo(vid)%start_sec + (istep - 1) * out_vinfo(vid)%dt
+      vinfo => out_vinfo(vid)
+      do istep=1, vinfo%num_step, vinfo%out_tintrv
+         start_sec = vinfo%start_sec + (istep - 1) * vinfo%dt
 
-      LOG_INFO("INTERP",'(a,i4)') 'Interpolate :' // trim(out_vinfo(vid)%varname) // " step=", istep
-      call interp_field_Interpolate( istep, out_vinfo(vid)%varname, &
-         out_mesh, out_var3D, nodeMap_list                          )
-      call interp_file_write_var( vid, out_var3D, &
-         start_sec, start_sec + out_vinfo(vid)%dt )
-      
-      if( IO_L ) call flush(IO_FID_LOG)      
-   end do
+         LOG_INFO("INTERP",'(a,i4)') 'Interpolate :' // trim(out_vinfo(vid)%varname) // " step=", istep
+         call interp_field_Interpolate( istep, vinfo%varname, &
+            out_mesh, out_var3D, nodeMap_list                 )
+         call interp_file_write_var( vid, out_var3D,          &
+            start_sec, start_sec + vinfo%dt )
+         
+         if( IO_L ) call flush(IO_FID_LOG)      
+      end do
    end do
 
    LOG_PROGRESS(*) 'END LOOP'
