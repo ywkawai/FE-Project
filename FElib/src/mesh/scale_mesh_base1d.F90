@@ -29,8 +29,10 @@ module scale_mesh_base1d
     type(LocalMesh1D), allocatable :: lcmesh_list(:)
     class(elementbase1D), pointer :: refElem1D
     
-    integer :: NeG
-    real(RP), public :: xmin_gl, xmax_gl    
+    integer, public :: NeG
+    integer, public :: Nprc
+    real(RP), public :: xmin_gl, xmax_gl
+    real(RP), public, allocatable :: FX(:)
   contains
     procedure(Meshbase1d_generate), deferred :: Generate 
     procedure :: GetLocalMesh => MeshBase1D_get_localmesh
@@ -66,7 +68,7 @@ contains
     NeG,                                    &
     dom_xmin, dom_xmax,                     &
     refElem, NLocalMeshPerPrc,              &
-    nprocs, myrank )
+    nprocs, myrank, FX                      )
     
     implicit none
 
@@ -78,19 +80,38 @@ contains
     integer, intent(in) :: NLocalMeshPerPrc
     integer, intent(in), optional :: nprocs
     integer, intent(in), optional :: myrank
+    real(RP), intent(in), optional :: FX(NeG+1)
 
     integer :: n
+    integer :: k
+    real(RP) :: dx
     !-----------------------------------------------------------------------------
     
     this%NeG = NeG
+
     this%xmin_gl       = dom_xmin
     this%xmax_gl       = dom_xmax
+
+    !- Fx
+    allocate( this%FX(NeG+1) )
+    if ( present(FX) ) then
+      this%FX(:) = FX(:)
+    else
+      this%FX(1    ) = dom_xmin
+      this%FX(NeG+1) = dom_xmax
+      dx = (dom_xmax - dom_xmin) / dble(NeG)
+      do k=2, NeG
+        this%FX(k) = this%FX(k-1) + dx
+      end do
+    end if
 
     this%refElem1D => refElem
     call MeshBase_Init( this,       &
       refElem, NLocalMeshPerPrc, 2, &
       nprocs                        )
-    
+
+    this%Nprc = this%PRC_NUM
+         
     allocate( this%lcmesh_list(this%LOCAL_MESH_NUM) )
     do n=1, this%LOCAL_MESH_NUM
       call LocalMesh1D_Init( this%lcmesh_list(n), refElem, myrank )
@@ -186,7 +207,6 @@ contains
   end subroutine Meshbase1d_setGeometricInfo
 
   subroutine Meshbase1D_assignDomID( this, &
-    Nprc,                               &
     tileID_table, panelID_table,        &
     pi_table )
   
@@ -195,7 +215,6 @@ contains
     implicit none
     
     class(Meshbase1d), intent(inout) :: this    
-    integer, intent(out) :: Nprc
     integer, intent(out) :: tileID_table(this%LOCAL_MESH_NUM, this%PRC_NUM)
     integer, intent(out) :: panelID_table(this%LOCAL_MESH_NUM*this%PRC_NUM)
     integer, intent(out) :: pi_table(this%LOCAL_MESH_NUM*this%PRC_NUM)
@@ -203,11 +222,8 @@ contains
     integer :: n
     integer :: p
     integer :: tileID
-    
     !-----------------------------------------------------------------------------
     
-    Nprc = this%PRC_NUM
-
     call MeshUtil1D_buildGlobalMap( &
       panelID_table, pi_table,                                                      & ! (out)
       this%tileID_globalMap, this%tileFaceID_globalMap, this%tilePanelID_globalMap, & ! (out)
@@ -230,7 +246,7 @@ contains
     tileID, panelID,                            &
     i, Nprc,                                    &
     dom_xmin, dom_xmax,                         &
-    Ne )
+    Ne, FX )
 
     use scale_meshutil_1d, only: &
       MeshUtil1D_genConnectivity,   &
@@ -248,10 +264,11 @@ contains
     integer, intent(in) :: Nprc
     real(RP) :: dom_xmin, dom_xmax
     integer, intent(in) ::Ne
+    real(RP), intent(in) :: FX(Ne*Nprc+1)
     
     class(ElementBase1D), pointer :: elem
     real(RP) :: delx
-    
+    real(RP) :: FX_lc(Ne+1)    
     !-----------------------------------------------------------------------------
 
     elem => mesh%refElem1D
@@ -266,10 +283,10 @@ contains
     mesh%NeE = mesh%Ne
     mesh%NeA = mesh%Ne + 2
 
-    delx = (dom_xmax - dom_xmin)/dble(Nprc)
-
-    mesh%xmin = dom_xmin + (i-1)*delx
-    mesh%xmax = dom_xmin +  i   *delx
+    !delx = (dom_xmax - dom_xmin)/dble(Nprc)
+    FX_lc(:) = Fx((i-1)*Ne+1:i*Ne)
+    mesh%xmin = FX_lc(1)
+    mesh%xmax = FX_lc(Ne+1)
 
     allocate(mesh%pos_ev(mesh%Nv,1))
     allocate( mesh%EToV(mesh%Ne,2) )
@@ -286,7 +303,7 @@ contains
     !----
 
     call MeshUtil1D_genLineDomain( mesh%pos_ev, mesh%EToV,   & ! (out)
-        mesh%Ne, mesh%xmin, mesh%xmax   )                      ! (in)
+        mesh%Ne, mesh%xmin, mesh%xmax, FX=FX_lc   )            ! (in)
 
 
     !---

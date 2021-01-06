@@ -53,7 +53,10 @@ module scale_file_common_meshfield
   public :: File_common_meshfield_put_field2D_cartesbuf
   public :: File_common_meshfield_put_field3D_cartesbuf
 
+  public :: File_common_meshfield_set_cartesbuf_field1D
   public :: File_common_meshfield_set_cartesbuf_field3D
+
+  public :: File_common_meshfield_set_cartesbuf_field1D_local
   public :: File_common_meshfield_set_cartesbuf_field3D_local
 
   type, public :: FILE_common_meshfield_diminfo
@@ -85,12 +88,13 @@ module scale_file_common_meshfield
   integer, public :: FILE_COMMON_MESHFILED2D_DIMTYPEID_XY  = 3
   integer, public :: FILE_COMMON_MESHFILED2D_DIMTYPEID_XYT = 4
 
-  integer, public :: FILE_COMMON_MESHFILED3D_DIMTYPE_NUM    = 5
+  integer, public :: FILE_COMMON_MESHFILED3D_DIMTYPE_NUM    = 6
   integer, public :: FILE_COMMON_MESHFILED3D_DIMTYPEID_X    = 1
   integer, public :: FILE_COMMON_MESHFILED3D_DIMTYPEID_Y    = 2
   integer, public :: FILE_COMMON_MESHFILED3D_DIMTYPEID_Z    = 3
   integer, public :: FILE_COMMON_MESHFILED3D_DIMTYPEID_XYZ  = 4
   integer, public :: FILE_COMMON_MESHFILED3D_DIMTYPEID_XYZT = 5
+  integer, public :: FILE_COMMON_MESHFILED3D_DIMTYPEID_ZT   = 6
 
   !--------------------
   !
@@ -238,6 +242,66 @@ contains
 
     return
   end subroutine File_common_meshfield_put_field1D_cartesbuf
+
+  subroutine File_common_meshfield_set_cartesbuf_field1D( mesh1D, buf, &
+    field1D )
+    implicit none
+    class(MeshBase1D), target, intent(in) :: mesh1D
+    real(RP), intent(in) :: buf(:)
+    class(MeshField1D), intent(inout) :: field1d
+
+    integer :: n
+    integer :: i0
+    type(LocalMesh1D), pointer :: lcmesh
+    type(elementbase1D), pointer :: refElem
+    integer :: i0_s
+    !----------------------------------------------------
+
+    i0_s = 0
+
+    do i0=1, mesh1D%LOCAL_MESH_NUM
+      n = i0
+      lcmesh => mesh1D%lcmesh_list(n)
+      refElem => lcmesh%refElem1D
+
+      call File_common_meshfield_set_cartesbuf_field1D_local(  &
+        lcmesh, buf(:), i0_s,                                  &
+        field1d%local(n)%val(:,:)                              )
+
+      i0_s = i0_s + lcmesh%Ne * refElem%Np
+    end do
+
+    return
+  end subroutine File_common_meshfield_set_cartesbuf_field1D
+
+  subroutine File_common_meshfield_set_cartesbuf_field1D_local( &
+    lcmesh, buf, i0_s,                                          &
+    val )
+    implicit none
+    type(LocalMesh1D), intent(in) :: lcmesh
+    real(RP), intent(in) :: buf(:)
+    integer, intent(in) :: i0_s
+    real(RP), intent(inout) :: val(lcmesh%refElem1D%Np,lcmesh%NeA)
+
+    integer :: n, kelem1, p
+    integer :: i, i1, i2
+    type(elementbase1D), pointer :: refElem
+    integer :: indx
+    !----------------------------------------------------
+
+    refElem => lcmesh%refElem1D
+
+    do i1=1, lcmesh%Ne
+      kelem1 = i1
+      do i2=1, refElem%Np
+        i = i0_s + i2 + (i1-1)*refElem%Np
+        indx = i2
+        val(indx,kelem1) = buf(i)
+      end do
+    end do
+
+    return
+  end subroutine File_common_meshfield_set_cartesbuf_field1D_local
 
   !- 2D ---------------
 
@@ -491,15 +555,20 @@ contains
 
     call set_dimension( dimsinfo(FILE_COMMON_MESHFILED3D_DIMTYPEID_X),  &
       "x", "X-coordinate", "X", 1, (/ "x" /), (/ i_size /)              )
+    
     call set_dimension( dimsinfo(FILE_COMMON_MESHFILED3D_DIMTYPEID_Y),  &
       "y", "Y-coordinate", "Y", 1, (/ "y" /), (/ j_size /)              )
+    
     call set_dimension( dimsinfo(FILE_COMMON_MESHFILED3D_DIMTYPEID_Z),  &
       "z", "Z-coordinate", "Z", 1, (/ "z" /), (/ k_size /)              )
+    call set_dimension( dimsinfo(FILE_COMMON_MESHFILED3D_DIMTYPEID_ZT), &
+      "zt", "Z-coordinate", "ZT", 1, (/ "z" /), (/ k_size /)            )
 
     call set_dimension( dimsinfo(FILE_COMMON_MESHFILED3D_DIMTYPEID_XYZ),                   &
       "xyz", "XYZ-coordinate", "XYZ", 3, (/ "x", "y", "z" /), (/ i_size, j_size, k_size /) )
     call set_dimension( dimsinfo(FILE_COMMON_MESHFILED3D_DIMTYPEID_XYZT),                &
       "xyzt", "XYZ-coordinate", "XYZT", 3, (/ "x", "y", "z" /), (/ i_size, j_size, k_size /) )
+
 
     return
   end subroutine File_common_meshfield_get_dims3D
