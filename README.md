@@ -1,7 +1,7 @@
 # FE-project 
 
 ## What is FE-project?
-FE project provides a library and some sample programs for some discontinuous Galerkin methods 
+This project provides a library and some sample programs for some discontinuous Galerkin methods. 
 Futhermore, some dynamical cores of atmospheric and oceanic model with DGM will be provided. 
 
 - Example of simulation results by nonhydrostatic atmospheric models with nodal DGM
@@ -10,7 +10,7 @@ Futhermore, some dynamical cores of atmospheric and oceanic model with DGM will 
 
 ![A simulation of idealized baroclinic instability](https://github.com/ywkawai/FE-project/wiki/gallery/atm_nonhydro3d/baroc_wave/BarocWave.gif)
 
- For more animations of simulation results, please see the Wiki of FE-project on github or 'FE-project gallery' channel on YouTube (url: https://www.youtube.com/channel/UCO17OQtKHwkkQwmHD9y9mQg/featured). 
+ For more animations, please see 'FE-project gallery' channel on YouTube (url: https://www.youtube.com/channel/UCO17OQtKHwkkQwmHD9y9mQg/featured) the Wiki of FE-project on github or . 
 
 
 ## Models with FE library
@@ -31,7 +31,7 @@ Futhermore, some dynamical cores of atmospheric and oceanic model with DGM will 
 
 ### 3D problems 
   - linear advection equation in a cubic domain
-   - various profiles of advected quantity
+    - various profiles of advected quantity
   - Euler equation in a cubic domain
     - Test the propagation of sound waves with HEVI temporal methods
 
