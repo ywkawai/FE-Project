@@ -10,7 +10,7 @@ Futhermore, some dynamical cores of atmospheric and oceanic model with DGM will 
 
 ![A simulation of idealized baroclinic instability](https://github.com/ywkawai/FE-project/wiki/gallery/atm_nonhydro3d/baroc_wave/BarocWave.gif)
 
- For more animations, please see 'FE-project gallery' channel on YouTube (url: https://www.youtube.com/channel/UCO17OQtKHwkkQwmHD9y9mQg/featured) the Wiki of FE-project on github or . 
+ For more animations, please see 'FE-project gallery' channel on YouTube (url: https://www.youtube.com/channel/UCO17OQtKHwkkQwmHD9y9mQg/featured) or Wiki of FE-project on github. 
 
 
 ## Models with FE library
