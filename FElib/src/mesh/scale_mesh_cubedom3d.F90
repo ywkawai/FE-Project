@@ -116,7 +116,6 @@ contains
 
     integer :: k
     real(RP) :: dz
-    logical :: FZ_valid
     !-----------------------------------------------------------------------------
     
     this%NeGX = NeGX
@@ -138,9 +137,8 @@ contains
     this%NprcY = NprcY
     this%NprcZ = 1
 
-    !--
+    !- Fz
     allocate( this%FZ(this%NeGZ+1) )
-
     if ( present(FZ) ) then
       this%FZ(:) = FZ(:)
     else
@@ -176,6 +174,8 @@ contains
   
     if (this%isGenerated) then
       deallocate( this%rcdomIJK2LCMeshID )
+    else
+      deallocate( this%FZ )
     end if
 
     call this%mesh2D%Final()
@@ -259,6 +259,8 @@ contains
 
     this%isGenerated = .true.
     this%mesh2D%isGenerated = .true.
+    
+    deallocate( this%FZ )
 
     return
   end subroutine MeshCubeDom3D_generate
