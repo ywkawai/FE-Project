@@ -1,11 +1,17 @@
-$(BUILD_DIR)/mod_atmos_bnd.o: atmos/mod_atmos_bnd.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_vars.o
-$(BUILD_DIR)/mod_atmos_component.o: atmos/mod_atmos_component.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_dyn.o $(BUILD_DIR)/mod_atmos_mesh.o $(BUILD_DIR)/mod_atmos_vars.o
-$(BUILD_DIR)/mod_atmos_dyn.o: atmos/mod_atmos_dyn.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_bnd.o $(BUILD_DIR)/mod_atmos_dyn_vars.o $(BUILD_DIR)/mod_atmos_mesh.o $(BUILD_DIR)/mod_atmos_vars.o
+$(BUILD_DIR)/mod_atmos_component.o: atmos/mod_atmos_component.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_dyn.o $(BUILD_DIR)/mod_atmos_mesh.o $(BUILD_DIR)/mod_atmos_phy_sfc.o $(BUILD_DIR)/mod_atmos_phy_tb.o $(BUILD_DIR)/mod_atmos_vars.o
+$(BUILD_DIR)/mod_atmos_dyn.o: atmos/mod_atmos_dyn.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_dyn_bnd.o $(BUILD_DIR)/mod_atmos_dyn_vars.o $(BUILD_DIR)/mod_atmos_mesh.o $(BUILD_DIR)/mod_atmos_vars.o
+$(BUILD_DIR)/mod_atmos_dyn_bnd.o: atmos/mod_atmos_dyn_bnd.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_vars.o
 $(BUILD_DIR)/mod_atmos_dyn_vars.o: atmos/mod_atmos_dyn_vars.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_mesh.o
 $(BUILD_DIR)/mod_atmos_mesh.o: atmos/mod_atmos_mesh.F90 $(DEPENDLIB)
+$(BUILD_DIR)/mod_atmos_phy_sfc.o: atmos/mod_atmos_phy_sfc.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_mesh.o $(BUILD_DIR)/mod_atmos_phy_sfc_vars.o $(BUILD_DIR)/mod_atmos_vars.o
+$(BUILD_DIR)/mod_atmos_phy_sfc_vars.o: atmos/mod_atmos_phy_sfc_vars.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_mesh.o
+$(BUILD_DIR)/mod_atmos_phy_tb.o: atmos/mod_atmos_phy_tb.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_mesh.o $(BUILD_DIR)/mod_atmos_phy_tb_vars.o $(BUILD_DIR)/mod_atmos_vars.o
+$(BUILD_DIR)/mod_atmos_phy_tb_vars.o: atmos/mod_atmos_phy_tb_vars.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_mesh.o
 $(BUILD_DIR)/mod_atmos_vars.o: atmos/mod_atmos_vars.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_mesh.o
 $(BUILD_DIR)/mod_dg_driver.o: admin/mod_dg_driver.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_component.o $(BUILD_DIR)/mod_user.o
+$(BUILD_DIR)/mod_dg_prep.o: admin/mod_dg_prep.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_component.o $(BUILD_DIR)/mod_mkinit.o $(BUILD_DIR)/mod_user.o
 $(BUILD_DIR)/mod_exp.o: admin/mod_exp.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_mesh.o $(BUILD_DIR)/mod_atmos_vars.o
+$(BUILD_DIR)/mod_mkinit.o: preprocess/mod_mkinit.F90 $(DEPENDLIB)
 $(BUILD_DIR)/mod_user.o: user/mod_user.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_component.o
 
 MODS =	\
@@ -14,7 +20,13 @@ MODS =	\
 	mod_atmos_dyn_bnd.mod	\
 	mod_atmos_dyn_vars.mod	\
 	mod_atmos_mesh.mod	\
+	mod_atmos_phy_sfc.mod	\
+	mod_atmos_phy_sfc_vars.mod	\
+	mod_atmos_phy_tb.mod	\
+	mod_atmos_phy_tb_vars.mod	\
 	mod_atmos_vars.mod	\
 	mod_dg_driver.mod	\
+	mod_dg_prep.mod	\
 	mod_exp.mod	\
+	mod_mkinit.mod	\
 	mod_user.mod

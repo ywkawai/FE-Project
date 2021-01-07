@@ -22,7 +22,6 @@ all:
 	$(MAKE) envlog
 	$(MAKE) makedir
 	$(MAKE) makebin
-	$(MAKE) run
 
 makedir:
 	mkdir -p $(BUILD_DIR)

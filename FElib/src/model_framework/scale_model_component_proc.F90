@@ -8,6 +8,8 @@ module scale_model_component_proc
   use scale_io
   use scale_prof
 
+  use scale_time_manager, only: &
+    TIME_manager_component
   use scale_model_mesh_manager, only: &
     ModelMeshBase
   use scale_model_var_manager, only: &
@@ -25,7 +27,7 @@ module scale_model_component_proc
   type, abstract, public :: ModelComponentProc
     character(len=H_SHORT) :: name
     logical, private :: is_activated = .false.    
-    real(DP) :: dtsec
+    integer :: tm_process_id
   contains
     procedure(ModelComponentProc_setup), deferred, public :: setup
     procedure(ModelComponentProc_calc_tendency), deferred, public :: calc_tendency
@@ -37,14 +39,16 @@ module scale_model_component_proc
   end type ModelComponentProc
 
   interface
-    subroutine ModelComponentProc_setup( this, model_mesh )
+    subroutine ModelComponentProc_setup( this, model_mesh, tm_parent_comp )
       import ModelComponentProc
       import ModelMeshBase
+      import TIME_manager_component
       class(ModelComponentProc), intent(inout) :: this
       class(ModelMeshBase), target, intent(in) :: model_mesh
+      class(TIME_manager_component), intent(inout) :: tm_parent_comp
     end subroutine ModelComponentProc_setup
 
-    subroutine ModelComponentProc_calc_tendency( this, model_mesh, prgvars_list, auxvars_list )
+    subroutine ModelComponentProc_calc_tendency( this, model_mesh, prgvars_list, auxvars_list, forcing_list, is_update )
       import ModelComponentProc
       import ModelMeshBase
       import ModelVarManager      
@@ -52,9 +56,11 @@ module scale_model_component_proc
       class(ModelMeshBase), intent(in) :: model_mesh
       class(ModelVarManager), intent(inout) :: prgvars_list
       class(ModelVarManager), intent(inout) :: auxvars_list         
+      class(ModelVarManager), intent(inout) :: forcing_list 
+      logical, intent(in) :: is_update
     end subroutine ModelComponentProc_calc_tendency
 
-    subroutine ModelComponentProc_update( this, model_mesh, prgvars_list, auxvars_list )
+    subroutine ModelComponentProc_update( this, model_mesh, prgvars_list, auxvars_list, forcing_list, is_update )
       import ModelComponentProc
       import ModelMeshBase
       import ModelVarManager
@@ -62,6 +68,8 @@ module scale_model_component_proc
       class(ModelMeshBase), intent(in) :: model_mesh
       class(ModelVarManager), intent(inout) :: prgvars_list
       class(ModelVarManager), intent(inout) :: auxvars_list
+      class(ModelVarManager), intent(inout) :: forcing_list
+      logical, intent(in) :: is_update
     end subroutine ModelComponentProc_update
 
     subroutine ModelComponentProc_finalize( this )

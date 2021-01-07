@@ -35,7 +35,7 @@ makebin: $(BINNAME)
 	@echo "Complete making."
 
 run:
-	mpirun -n 4 ./$(BINNAME) test.conf
+	OMP_NUM_THREADS=2 mpirun -n 1 ./$(BINNAME) test.conf
 
 vis:
 	bash ./visualize/visualize.sh
@@ -44,7 +44,7 @@ make_sample_aux:
 	make -C $(SAMPLE_AUX_DIR)
 
 $(BINNAME): $(BUILD_DIR)/$(BINNAME).o $(patsubst %,$(BUILD_DIR)/%,$(OBJS)) $(SAMPLE_AUX_LIB) $(LIBS)
-	$(LD) $(LDFLAGS) $(ADDITIONAL_FFLAGS) -o $@ $^ $(LIBS) $(SCALE_NETCDF_LIBS) $(SCALE_MATHLIB_LIBS) $(SCALE_PAPI_LIBS) $(CONTRIB_LIBS)
+	$(LD) $(LDFLAGS) $(ADDITIONAL_FFLAGS) -o $@ $^ $(LIBS) $(CONTRIB_LIBS) $(SCALE_NETCDF_LIBS) $(SCALE_MATHLIB_LIBS) $(SCALE_PAPI_LIBS)
 
 $(BUILD_DIR)/$(BINNAME).o: $(BINNAME).f90 $(patsubst %,$(BUILD_DIR)/%,$(OBJS))
 

@@ -1,6 +1,6 @@
 !-------------------------------------------------------------------------------
 #include "scaleFElib.h"
-module scale_atm_dyn_nonhydro3d_hevi_gmres
+module scale_atm_dyn_dgm_nonhydro3d_hevi_gmres
   !-----------------------------------------------------------------------------
   !
   !++ Used modules
@@ -36,11 +36,11 @@ module scale_atm_dyn_nonhydro3d_hevi_gmres
   !
   !++ Public procedures
   !
-  public :: atm_dyn_nonhydro3d_hevi_Init
-  public :: atm_dyn_nonhydro3d_hevi_Final
-  public :: atm_dyn_nonhydro3d_hevi_cal_tend
-  public :: atm_dyn_nonhydro3d_hevi_cal_grad_diffVars
-  public :: atm_dyn_nonhydro3d_hevi_cal_vi
+  public :: atm_dyn_dgm_nonhydro3d_hevi_Init
+  public :: atm_dyn_dgm_nonhydro3d_hevi_Final
+  public :: atm_dyn_dgm_nonhydro3d_hevi_cal_tend
+  public :: atm_dyn_dgm_nonhydro3d_hevi_cal_grad_diffVars
+  public :: atm_dyn_dgm_nonhydro3d_hevi_cal_vi
 
   !-----------------------------------------------------------------------------
   !
@@ -80,7 +80,7 @@ module scale_atm_dyn_nonhydro3d_hevi_gmres
   private :: cal_del_gradDiffVar
 
 contains
-  subroutine atm_dyn_nonhydro3d_hevi_Init( mesh )
+  subroutine atm_dyn_dgm_nonhydro3d_hevi_Init( mesh )
 
     implicit none
     class(MeshBase3D), intent(in) :: mesh
@@ -103,20 +103,20 @@ contains
     IntrpMat_VPOrdM1(:,:) = matmul(elem%V, invV_POrdM1)
 
     return
-  end subroutine atm_dyn_nonhydro3d_hevi_Init
+  end subroutine atm_dyn_dgm_nonhydro3d_hevi_Init
 
-  subroutine atm_dyn_nonhydro3d_hevi_Final()
+  subroutine atm_dyn_dgm_nonhydro3d_hevi_Final()
     implicit none
     !--------------------------------------------
 
     deallocate( IntrpMat_VPOrdM1 )
     
     return
-  end subroutine atm_dyn_nonhydro3d_hevi_Final  
+  end subroutine atm_dyn_dgm_nonhydro3d_hevi_Final  
 
   !-------------------------------
 
-  subroutine atm_dyn_nonhydro3d_hevi_cal_tend( &
+  subroutine atm_dyn_dgm_nonhydro3d_hevi_cal_tend( &
     DENS_dt, MOMX_dt, MOMY_dt, MOMZ_dt, RHOT_dt,                                & ! (out)
     DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd, CORIOLIS,          & ! (in)
     GxU_, GyU_, GzU_, GxV_, GyV_, GzV_, GxW_, GyW_, GzW_, GxPT_, GyPT_, GzPT_,  & ! (in)
@@ -270,7 +270,7 @@ contains
     call PROF_rapend( 'cal_dyn_tend_interior', 3)
 
     return
-  end subroutine atm_dyn_nonhydro3d_hevi_cal_tend
+  end subroutine atm_dyn_dgm_nonhydro3d_hevi_cal_tend
 
   !------
 
@@ -619,7 +619,7 @@ contains
     return
   end subroutine cal_del_flux_dyn_AUSMup
 
-  subroutine atm_dyn_nonhydro3d_hevi_cal_grad_diffVars( &
+  subroutine atm_dyn_dgm_nonhydro3d_hevi_cal_grad_diffVars( &
     GxU_, GyU_, GzU_, GxV_, GyV_, GzV_, GxW_, GyW_, GzW_, GxPT_, GyPT_, GzPT_,   &
     DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd,                     &
     Dx, Dy, Dz, Lift, lmesh, elem )
@@ -732,7 +732,7 @@ contains
     end do
 
     return
-  end subroutine atm_dyn_nonhydro3d_hevi_cal_grad_diffVars
+  end subroutine atm_dyn_dgm_nonhydro3d_hevi_cal_grad_diffVars
 
   subroutine cal_del_gradDiffVar( del_flux,                  &
     DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd, &
@@ -805,7 +805,7 @@ contains
     return
   end subroutine cal_del_gradDiffVar
 
-  subroutine atm_dyn_nonhydro3d_hevi_cal_vi( &
+  subroutine atm_dyn_dgm_nonhydro3d_hevi_cal_vi( &
     DENS_dt, MOMX_dt, MOMY_dt, MOMZ_dt, RHOT_dt,             & ! (out)
     DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd, & ! (in)
     Dz, Lift, impl_fac, lmesh, elem, lmesh2D, elem2D )
@@ -1005,7 +1005,7 @@ contains
     call PROF_rapend( 'hevi_cal_vi', 3)    
 
     return
-  end subroutine atm_dyn_nonhydro3d_hevi_cal_vi
+  end subroutine atm_dyn_dgm_nonhydro3d_hevi_cal_vi
 
   !------------------------------------------------
 
@@ -1936,4 +1936,4 @@ contains
   end subroutine vi_construct_pmatInv
 
     
-end module scale_atm_dyn_nonhydro3d_hevi_gmres
+end module scale_atm_dyn_dgm_nonhydro3d_hevi_gmres

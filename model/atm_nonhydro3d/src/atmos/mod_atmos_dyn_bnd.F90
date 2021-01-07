@@ -1,4 +1,12 @@
 !-------------------------------------------------------------------------------
+!> module ATMOSPHERE boundary
+!!
+!! @par Description
+!!          A module for setting halo data based on boundary conditions. 
+!!
+!! @author Team SCALE
+!<
+!-------------------------------------------------------------------------------
 #include "scaleFElib.h"
 module mod_atmos_dyn_bnd
   !-----------------------------------------------------------------------------
@@ -54,8 +62,6 @@ module mod_atmos_dyn_bnd
     procedure :: ApplyBC_numdiff_odd_lc => ATMOS_dyn_bnd_applyBC_numdiff_odd_lc
     procedure :: ApplyBC_numdiff_even_lc => ATMOS_dyn_bnd_applyBC_numdiff_even_lc
   end type
-
-
 
   !-----------------------------------------------------------------------------
   !
@@ -196,51 +202,19 @@ contains
     return
   end subroutine ATMOS_dyn_bnd_setBCInfo
 
-  subroutine ATMOS_dyn_bnd_applyBC_prgvars_lc( this, domID,  &
-    DDENS, MOMX, MOMY, MOMZ, DRHOT,               & ! (inout)
-    DENS_hyd, PRES_hyd,                           & ! (in)
-    nx, ny, nz, vmapM, vmapP, vmapB, lmesh, elem )  ! (in)
-
-    implicit none
-
-    class(AtmosDynBnd), intent(in) :: this    
-    integer, intent(in) :: domID
-    class(LocalMesh3D), intent(in) :: lmesh
-    class(elementbase3D), intent(in) :: elem    
-    real(RP), intent(inout) :: DDENS(elem%Np,lmesh%NeA)
-    real(RP), intent(inout) :: MOMX(elem%Np,lmesh%NeA)
-    real(RP), intent(inout) :: MOMY(elem%Np,lmesh%NeA)
-    real(RP), intent(inout) :: MOMZ(elem%Np,lmesh%NeA)
-    real(RP), intent(inout) :: DRHOT(elem%Np,lmesh%NeA)
-    real(RP), intent(in) :: DENS_hyd(elem%Np,lmesh%NeA)
-    real(RP), intent(in) :: PRES_hyd(elem%Np,lmesh%NeA)
-    real(RP), intent(in) :: nx(elem%NfpTot,lmesh%Ne)
-    real(RP), intent(in) :: ny(elem%NfpTot,lmesh%Ne)
-    real(RP), intent(in) :: nz(elem%NfpTot,lmesh%Ne)
-    integer, intent(in) :: vmapM(elem%NfpTot,lmesh%Ne)
-    integer, intent(in) :: vmapP(elem%NfpTot,lmesh%Ne)
-    integer, intent(in) :: vmapB(:)
-    !----------
-
-    call applyBC_prgvars_lc( this, domID,  &
-      DDENS, MOMX, MOMY, MOMZ, DRHOT,                    & ! (inout)
-      DENS_hyd, PRES_hyd,                                & ! (in)
-      nx, ny, nz, vmapM, vmapP, vmapB, lmesh, elem )       ! (in)    
-    
-    return
-  end  subroutine ATMOS_dyn_bnd_applyBC_prgvars_lc
-
-  subroutine applyBC_prgvars_lc( this, domID,  &
-    DDENS, MOMX, MOMY, MOMZ, DRHOT,               & ! (inout)
-    DENS_hyd, PRES_hyd,                           & ! (in)
-    nx, ny, nz, vmapM, vmapP, vmapB, lmesh, elem )  ! (in)
+  subroutine ATMOS_dyn_bnd_applyBC_prgvars_lc( this, &
+    domID,                                           & ! (in)
+    DDENS, MOMX, MOMY, MOMZ, DRHOT,                  & ! (inout)
+    DENS_hyd, PRES_hyd,                              & ! (in)
+    nx, ny, nz, vmapM, vmapP, vmapB, lmesh, elem )     ! (in)
 
     use scale_mesh_bndinfo, only: &
       BND_TYPE_SLIP_ID, BND_TYPE_NOSLIP_ID, &
       BND_TYPE_ADIABAT_ID
+        
     implicit none
 
-    type(AtmosDynBnd), intent(in) :: this    
+    class(AtmosDynBnd), intent(in) :: this    
     integer, intent(in) :: domID
     class(LocalMesh3D), intent(in) :: lmesh
     class(elementbase3D), intent(in) :: elem    
@@ -280,59 +254,32 @@ contains
           MOMZ(iP) = - MOMZ(iM)          
         end select
       end if
-    end do
-    
+    end do 
+   
     return
-  end subroutine applyBC_prgvars_lc
+  end  subroutine ATMOS_dyn_bnd_applyBC_prgvars_lc
 
-  subroutine ATMOS_dyn_bnd_applyBC_numdiff_odd_lc(  this,  domID, &
-    GxVar, GyVar, GzVar, VarID,                    & ! (inout)
-    nx, ny, nz, vmapM, vmapP, vmapB, lmesh, elem )   ! (in)
+  subroutine ATMOS_dyn_bnd_applyBC_numdiff_odd_lc(  this, & ! (in)
+    GxVar, GyVar, GzVar,                                  & ! (inout)
+    is_bound,                                             & ! (out)
+    VarID, domID,                                         & ! (in)
+    nx, ny, nz, vmapM, vmapP, vmapB, lmesh, elem )          ! (in)
 
     use scale_mesh_bndinfo, only: &
       BND_TYPE_SLIP_ID, BND_TYPE_NOSLIP_ID, &
       BND_TYPE_ADIABAT_ID
+    
     implicit none
 
     class(AtmosDynBnd), intent(in) :: this
-    integer, intent(in) :: domID
-    class(LocalMesh3D), intent(in) :: lmesh
-    class(elementbase3D), intent(in) :: elem    
-    real(RP), intent(inout) :: GxVar(elem%Np,lmesh%NeA)
-    real(RP), intent(inout) :: GyVar(elem%Np,lmesh%NeA)
-    real(RP), intent(inout) :: GzVar(elem%Np,lmesh%NeA)
-    integer, intent(in) :: VarID
-    real(RP), intent(in) :: nx(elem%NfpTot,lmesh%Ne)
-    real(RP), intent(in) :: ny(elem%NfpTot,lmesh%Ne)
-    real(RP), intent(in) :: nz(elem%NfpTot,lmesh%Ne)
-    integer, intent(in) :: vmapM(elem%NfpTot,lmesh%Ne)
-    integer, intent(in) :: vmapP(elem%NfpTot,lmesh%Ne)
-    integer, intent(in) :: vmapB(:)
-    !-----------------------------------
-
-    call applyBC_numdiff_odd_lc(  this,  domID, &
-      GxVar, GyVar, GzVar, VarID,                    & ! (inout)
-      nx, ny, nz, vmapM, vmapP, vmapB, lmesh, elem )   ! (in)
-    return
-  end subroutine ATMOS_dyn_bnd_applyBC_numdiff_odd_lc
-
-  subroutine applyBC_numdiff_odd_lc(  this,  domID, &
-    GxVar, GyVar, GzVar, VarID,                    & ! (inout)
-    nx, ny, nz, vmapM, vmapP, vmapB, lmesh, elem )   ! (in)
-
-    use scale_mesh_bndinfo, only: &
-      BND_TYPE_SLIP_ID, BND_TYPE_NOSLIP_ID, &
-      BND_TYPE_ADIABAT_ID
-    implicit none
-
-    type(AtmosDynBnd), intent(in) :: this
-    integer, intent(in) :: domID
     class(LocalMesh3D), intent(in) :: lmesh
     class(elementbase3D), intent(in) :: elem    
     real(RP), intent(inout) :: GxVar(elem%Np*lmesh%NeA)
     real(RP), intent(inout) :: GyVar(elem%Np*lmesh%NeA)
     real(RP), intent(inout) :: GzVar(elem%Np*lmesh%NeA)
+    logical, intent(out) :: is_bound(elem%NfpTot*lmesh%Ne)
     integer, intent(in) :: VarID
+    integer, intent(in) :: domID
     real(RP), intent(in) :: nx(elem%NfpTot*lmesh%Ne)
     real(RP), intent(in) :: ny(elem%NfpTot*lmesh%Ne)
     real(RP), intent(in) :: nz(elem%NfpTot*lmesh%Ne)
@@ -347,6 +294,7 @@ contains
     do i=1, elem%NfpTot*lmesh%Ne
       iP = vmapP(i)
       i_ = iP - elem%Np*lmesh%NeE
+      is_bound(i) = .false.
       
       if (i_ > 0) then  
         iM = vmapM(i)
@@ -364,6 +312,8 @@ contains
             GxVar(iP) = GxVar(iM) - 2.0_RP * grad_normal * nx(i)
             GyVar(iP) = GyVar(iM) - 2.0_RP * grad_normal * ny(i)
           end select
+          is_bound(i) = .true.
+
         end if
         if ( this%ThermalBC_list(domID)%list(i_) == BND_TYPE_ADIABAT_ID ) then
           select case(VarID)
@@ -372,6 +322,8 @@ contains
             GyVar(iP) = GyVar(iM) - 2.0_RP * grad_normal * ny(i)
             GzVar(iP) = GzVar(iM) - 2.0_RP * grad_normal * nz(i)
           end select
+          is_bound(i) = .true.
+
         end if
       
       end if
@@ -379,12 +331,14 @@ contains
     end do
 
     return
-  end subroutine applyBC_numdiff_odd_lc
+  end subroutine ATMOS_dyn_bnd_applyBC_numdiff_odd_lc
 
-  subroutine ATMOS_dyn_bnd_applyBC_numdiff_even_lc(  this,  domID, &
-    Var, VarID,                                    & ! (inout)
-    MOMX, MOMY, MOMZ, DENS_hyd, PRES_hyd,          & ! (in)
-    nx, ny, nz, vmapM, vmapP, vmapB, lmesh, elem )   ! (in)
+  subroutine ATMOS_dyn_bnd_applyBC_numdiff_even_lc(  this, & ! (in)
+    Var,                                                   & ! (inout)
+    is_bound,                                              & ! (out)
+    VarID, domID,                                          & ! (in)
+    MOMX, MOMY, MOMZ, DENS_hyd, PRES_hyd,                  & ! (in)
+    nx, ny, nz, vmapM, vmapP, vmapB, lmesh, elem )           ! (in)
 
     use scale_mesh_bndinfo, only: &
       BND_TYPE_SLIP_ID, BND_TYPE_NOSLIP_ID, &
@@ -392,47 +346,12 @@ contains
     implicit none
 
     class(AtmosDynBnd), intent(in) :: this
-    integer, intent(in) :: domID
-    class(LocalMesh3D), intent(in) :: lmesh
-    class(elementbase3D), intent(in) :: elem    
-    real(RP), intent(inout) :: Var(elem%Np,lmesh%NeA)
-    integer, intent(in) :: VarID
-    real(RP), intent(in) :: MOMX(elem%Np,lmesh%NeA)
-    real(RP), intent(in) :: MOMY(elem%Np,lmesh%NeA)
-    real(RP), intent(in) :: MOMZ(elem%Np,lmesh%NeA)
-    real(RP), intent(in) :: DENS_hyd(elem%Np,lmesh%NeA)
-    real(RP), intent(in) :: PRES_hyd(elem%Np,lmesh%NeA)
-    real(RP), intent(in) :: nx(elem%NfpTot,lmesh%Ne)
-    real(RP), intent(in) :: ny(elem%NfpTot,lmesh%Ne)
-    real(RP), intent(in) :: nz(elem%NfpTot,lmesh%Ne)
-    integer, intent(in) :: vmapM(elem%NfpTot,lmesh%Ne)
-    integer, intent(in) :: vmapP(elem%NfpTot,lmesh%Ne)
-    integer, intent(in) :: vmapB(:)
-    !-----------------------------------
-
-    call applyBC_numdiff_even_lc(  this,  domID, &
-      Var, VarID,                                    & ! (inout)
-      MOMX, MOMY, MOMZ, DENS_hyd, PRES_hyd,          & ! (in)
-      nx, ny, nz, vmapM, vmapP, vmapB, lmesh, elem )   ! (in)
-    return
-  end subroutine ATMOS_dyn_bnd_applyBC_numdiff_even_lc
-
-  subroutine applyBC_numdiff_even_lc(  this,  domID, &
-    Var, VarID,                                    & ! (inout)
-    MOMX, MOMY, MOMZ, DENS_hyd, PRES_hyd,          & ! (in)
-    nx, ny, nz, vmapM, vmapP, vmapB, lmesh, elem )   ! (in)
-
-    use scale_mesh_bndinfo, only: &
-      BND_TYPE_SLIP_ID, BND_TYPE_NOSLIP_ID, &
-      BND_TYPE_ADIABAT_ID
-    implicit none
-
-    type(AtmosDynBnd), intent(in) :: this
-    integer, intent(in) :: domID
     class(LocalMesh3D), intent(in) :: lmesh
     class(elementbase3D), intent(in) :: elem    
     real(RP), intent(inout) :: Var(elem%Np*lmesh%NeA)
+    logical, intent(out) :: is_bound(elem%NfpTot*lmesh%Ne)
     integer, intent(in) :: VarID
+    integer, intent(in) :: domID
     real(RP), intent(in) :: MOMX(elem%Np*lmesh%NeA)
     real(RP), intent(in) :: MOMY(elem%Np*lmesh%NeA)
     real(RP), intent(in) :: MOMZ(elem%Np*lmesh%NeA)
@@ -452,13 +371,12 @@ contains
     do i=1, elem%NfpTot*lmesh%Ne
       iP = vmapP(i)
       i_ = iP - elem%Np*lmesh%NeE
-      
+      is_bound(i) = .false.
+
       if (i_ > 0) then  
         iM = vmapM(i)
 
         if ( this%VelBC_list(domID)%list(i_) == BND_TYPE_SLIP_ID ) then
-          grad_normal = MOMX(iM) * nx(i) + MOMY(iM) * ny(i) + MOMZ(iM) * nz(i)
-
           select case(VarID)
           case(ATMOS_PROGVARS_MOMX_ID)
             grad_normal = Var(iM) * nx(i)         
@@ -470,18 +388,21 @@ contains
             grad_normal = Var(iM) * nz(i)         
             Var(iP) = Var(iM) - 2.0_RP * grad_normal * nz(i)
           end select
-        else if ( this%VelBC_list(domID)%list(i_) == BND_TYPE_NOSLIP_ID ) then
+          is_bound(i) = .true.
+
+        else if ( this%VelBC_list(domID)%list(i_) == BND_TYPE_NOSLIP_ID ) then          
           select case(VarID)
           case(ATMOS_PROGVARS_MOMX_ID, ATMOS_PROGVARS_MOMY_ID, ATMOS_PROGVARS_MOMZ_ID)
             Var(iP) = - Var(iM)
           end select
+          is_bound(i) = .true.
         end if
 
       end if
     end do
 
     return
-  end subroutine applyBC_numdiff_even_lc
+  end subroutine ATMOS_dyn_bnd_applyBC_numdiff_even_lc
 
   !---------------------------------------------------------
 
@@ -534,4 +455,5 @@ contains
 
     return
   end  subroutine bnd_Init_lc
+
 end module mod_atmos_dyn_bnd

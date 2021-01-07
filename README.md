@@ -1,33 +1,39 @@
 # FE-project 
 
 ## What is FE-project?
-FE project provides a library and some sample programs for some discontinuous Galerkin methods 
+This project provides a library and some sample programs for some discontinuous Galerkin methods. 
 Futhermore, some dynamical cores of atmospheric and oceanic model with DGM will be provided. 
 
-- Example of simulation results by a 2D nonhydrostatic atmospheric model with nodal DGM
+- Example of simulation results by nonhydrostatic atmospheric models with nodal DGM
 
 ![A simulation of density current](https://github.com/ywkawai/FE-project/wiki/gallery/atm_nonhydro2d/density_current/density_current.gif)
 
- For more animations of simulation results, please see the Wiki of FE-project on github or 'FE-project gallery' channel on YouTube (url: https://www.youtube.com/channel/UCO17OQtKHwkkQwmHD9y9mQg/featured). 
+![A simulation of idealized baroclinic instability](https://github.com/ywkawai/FE-project/wiki/gallery/atm_nonhydro3d/baroc_wave/BarocWave.gif)
+
+ For more animations, please see 'FE-project gallery' channel on YouTube (url: https://www.youtube.com/channel/UCO17OQtKHwkkQwmHD9y9mQg/featured) the Wiki of FE-project on github or . 
 
 
 ## Models with FE library
-### Dynamical cores of atmospheric model 
-- 2D and 3D dynamical core of nonhydrostatic atmospheric model
+### Nonhydrostatic atmospheric model
+- Simple 2D model with only dynamical process
+- 3D model with dynamical process and some physical processes
 
 
-## Simple samples with FE library
+## Simple samples for intrduction to DGM. 
 ### 1D problems 
-  - linear advection 
+  - linear advection equation
     - various profiles of advected quantity
+  - linear advection-diffusion equation
 
 ### 2D problems 
-  - linear advection in a rectangle domain
+  - linear advection equation in a rectangle domain
     - various profiles of advected quantity and flow
 
 ### 3D problems 
-  - linear advection in a cubic domain
+  - linear advection equation in a cubic domain
     - various profiles of advected quantity
+  - Euler equation in a cubic domain
+    - Test the propagation of sound waves with HEVI temporal methods
 
  
 ## Build FE library

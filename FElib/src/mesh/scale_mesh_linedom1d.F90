@@ -49,10 +49,11 @@ module scale_mesh_linedom1d
   !
 
 contains
-  subroutine MeshLineDom1D_Init(this,       &
-    NeG,                                    &
-    dom_xmin, dom_xmax,                     &
-    refElem, NLocalMeshPerPrc )
+  subroutine MeshLineDom1D_Init(this,       & ! (inout)
+    NeG,                                    & ! (in)
+    dom_xmin, dom_xmax,                     & ! (in)
+    refElem, NLocalMeshPerPrc,              & ! (in)
+    nproc, myrank, FX )                       ! (in)
     
     implicit none
 
@@ -62,18 +63,21 @@ contains
     real(RP), intent(in) :: dom_xmax   
     type(LineElement), intent(in), target :: refElem
     integer, intent(in) :: NLocalMeshPerPrc
-
+    integer, intent(in), optional :: nproc
+    integer, intent(in), optional :: myrank
+    real(RP), intent(in), optional :: FX(NeG+1)
     !-----------------------------------------------------------------------------
 
     call MeshBase1D_Init(this, &
       NeG,                                    &
       dom_xmin, dom_xmax,                     &
-      refElem, NLocalMeshPerPrc )
+      refElem, NLocalMeshPerPrc,              &
+      nproc, myrank, FX )
 
   end subroutine MeshLineDom1D_Init
 
-  subroutine MeshLineDom1D_Final( this )
-    
+  subroutine MeshLineDom1D_Final( this ) ! (inout)
+    implicit none
     class(MeshLineDom1D), intent(inout) :: this
     !-----------------------------------------------------------------------------
   
@@ -81,10 +85,8 @@ contains
 
   end subroutine MeshLineDom1D_Final
   
-  subroutine MeshLineDom1D_generate( this )
-    
+  subroutine MeshLineDom1D_generate( this ) ! (inout)
     implicit none
-
     class(MeshLineDom1D), intent(inout), target :: this
             
     integer :: n
@@ -96,7 +98,6 @@ contains
     integer :: pi_table(this%LOCAL_MESH_NUM*this%PRC_NUM)
 
     !integer :: TILE_NUM_PER_PANEL
-    integer :: Nprc
     integer :: tileID
     
     !-----------------------------------------------------------------------------
@@ -107,9 +108,8 @@ contains
     !--- Construct the connectivity of patches  (only master node)
 
     call MeshBase1D_assignDomID( this,    & ! (in)
-        & Nprc,                           & ! (out)
-        & tileID_table, panelID_table,    & ! (out)
-        & pi_table )                        ! (out)
+        tileID_table, panelID_table,      & ! (out)
+        pi_table )                          ! (out)
 
     !--- Setup local meshes managed by my process
 
@@ -118,9 +118,9 @@ contains
       tileID = tileID_table(n, mesh%PRC_myrank+1)
       call MeshBase1D_setupLocalDom( mesh,              & ! (inout)
          tileID,  panelID_table(tileID),                & ! (in)
-         pi_table(tileID), Nprc,                        & ! (in)
+         pi_table(tileID), this%Nprc,                   & ! (in)
          this%xmin_gl, this%xmax_gl,                    & ! (in)
-         this%NeG/Nprc )                                  ! (in)
+         this%NeG / this%Nprc, this%FX(:) )               ! (in)
 
       !---
       ! write(*,*) "** my_rank=", mesh%PRC_myrank
@@ -136,6 +136,8 @@ contains
     end do
 
     this%isGenerated = .true.
+
+    return
   end subroutine MeshLineDom1D_generate
   
   !-------------------------------------------------

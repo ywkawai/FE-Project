@@ -8,6 +8,8 @@ module scale_model_var_manager
   use scale_io
 
   use scale_file_history, only: FILE_HISTORY_reg
+  use scale_file_monitor_meshfield, only: FILE_monitor_meshfield_reg
+
 
   use scale_meshfield_base, only: &
     MeshFieldBase, MeshField1D, MeshField2D, MeshField3D
@@ -16,6 +18,9 @@ module scale_model_var_manager
   use scale_meshfieldcomm_base, only: &
     MeshFieldCommBase, MeshFieldContainer
   
+  use scale_variableinfo, only: &
+    VariableInfo
+  
   !-----------------------------------------------------------------------------
   implicit none
   private
@@ -23,16 +28,6 @@ module scale_model_var_manager
   !
   !++ Public type & procedures
   !
-  type, public :: VariableInfo
-    integer                :: keyID
-    character(len=H_SHORT) :: NAME
-    character(len=H_MID)   :: DESC
-    character(len=H_SHORT) :: UNIT
-    integer                :: ndims
-    character(len=H_SHORT) :: dim_type
-    character(len=H_MID)   :: STDNAME
-  end type VariableInfo
-
   type, public :: ModelVarManager
     type(LinkedList) :: list
     class(MeshFieldCommBase), pointer :: ptr_comm
@@ -51,6 +46,7 @@ module scale_model_var_manager
     procedure, public :: MeshFieldComm_Exchange => ModelVarManager_meshfiled_comm_exchange
   end type ModelVarManager
 
+  public :: VariableInfo ! Cascade
 
   !-----------------------------------------------------------------------------
   !
@@ -107,8 +103,9 @@ contains
     return
   end subroutine field_release
 
-  subroutine ModelVarManager_Regist1D( this,      &
-      varinfo, mesh, field, reg_file_history_flag )
+  subroutine ModelVarManager_Regist1D( this,       &
+      varinfo, mesh, field, reg_file_history_flag, &
+      monitor_flag )
     
     use scale_mesh_base1d, only: Meshbase1d
     implicit none
@@ -118,6 +115,7 @@ contains
     class(MeshBase1D), intent(in) :: mesh
     class(MeshField1D), intent(inout), target :: field
     logical, intent(in) :: reg_file_history_flag
+    logical, intent(in), optional :: monitor_flag
 
     class(*), pointer :: ptr_field    
     !------------------------------------------------
@@ -126,6 +124,13 @@ contains
     if (reg_file_history_flag) then
       call FILE_HISTORY_reg( varinfo%NAME, varinfo%DESC, varinfo%UNIT, field%hist_id, dim_type=varinfo%dim_type)
     end if
+    if ( present(monitor_flag) ) then
+      if (monitor_flag) then
+        call FILE_monitor_meshfield_reg( &
+          varinfo%NAME, varinfo%DESC, trim(varinfo%UNIT)//'*m',        & ! (in)
+          field%monitor_id, dim_type='ATM1D', is_tendency=.false.      ) ! (in)
+      end if
+    end if
 
     ptr_field => field
     call this%list%AddByPointer( varinfo%keyID, ptr_field )
@@ -133,8 +138,9 @@ contains
     return
   end subroutine ModelVarManager_Regist1D
 
-  subroutine ModelVarManager_Regist2D( this,    &
-    varinfo, mesh, field, reg_file_history_flag )
+  subroutine ModelVarManager_Regist2D( this,     &
+    varinfo, mesh, field, reg_file_history_flag, &
+    monitor_flag  )
     use scale_mesh_base2d, only: Meshbase2d
     implicit none
 
@@ -143,6 +149,7 @@ contains
     class(MeshBase2D), intent(in) :: mesh
     class(MeshField2D), intent(inout), target :: field
     logical, intent(in) :: reg_file_history_flag
+    logical, intent(in), optional :: monitor_flag
 
     class(*), pointer :: ptr_field    
     !------------------------------------------------
@@ -150,6 +157,13 @@ contains
     call field%Init( varinfo%NAME, varinfo%UNIT, mesh )
     if (reg_file_history_flag) then
       call FILE_HISTORY_reg( varinfo%NAME, varinfo%DESC, varinfo%UNIT, field%hist_id, dim_type=varinfo%dim_type)
+    end if
+    if ( present(monitor_flag) ) then
+      if (monitor_flag) then
+        call FILE_monitor_meshfield_reg( &
+          varinfo%NAME, varinfo%DESC, trim(varinfo%UNIT)//'*m2',       & ! (in)
+          field%monitor_id, dim_type='ATM2D', is_tendency=.false.      ) ! (in)
+      end if
     end if
 
     ptr_field => field
@@ -159,7 +173,8 @@ contains
   end subroutine ModelVarManager_Regist2D
 
   subroutine ModelVarManager_Regist3D( this,    &
-    varinfo, mesh, field, reg_file_history_flag )
+    varinfo, mesh, field, reg_file_history_flag, &
+    monitor_flag  )
     use scale_mesh_base3d, only: MeshBase3D
     implicit none
 
@@ -168,6 +183,7 @@ contains
     class(MeshBase3D), intent(in) :: mesh
     class(MeshField3D), intent(inout), target :: field
     logical, intent(in) :: reg_file_history_flag
+    logical, intent(in), optional :: monitor_flag
 
     class(*), pointer :: ptr_field    
     !------------------------------------------------
@@ -176,6 +192,13 @@ contains
     if (reg_file_history_flag) then
       call FILE_HISTORY_reg( field%varname, varinfo%DESC, field%unit, field%hist_id, &
                              dim_type=varinfo%dim_type )
+    end if
+    if ( present(monitor_flag) ) then
+      if (monitor_flag) then
+        call FILE_monitor_meshfield_reg( &
+          varinfo%NAME, varinfo%DESC, trim(varinfo%UNIT)//'*m3',       & ! (in)
+          field%monitor_id, dim_type='ATM3D', is_tendency=.false.      ) ! (in)
+      end if
     end if
 
     ptr_field => field

@@ -64,23 +64,30 @@ module scale_mesh_base
 
 contains
   subroutine MeshBase_Init(this, &
-    & refElem, NLocalMeshPerPrc, NsideTile )
+     refElem, NLocalMeshPerPrc, NsideTile, &
+     nprocs                                )
     
-    use scale_prc, only: PRC_nprocs, PRC_myrank
+    use scale_prc, only: &
+      PRC_nprocs
     implicit none
 
     class(MeshBase), intent(inout) :: this
     class(ElementBase), intent(in), target :: refElem
     integer, intent(in) :: NLocalMeshPerPrc
     integer, intent(in) :: NsideTile
+    integer, intent(in), optional :: nprocs
 
     integer :: n
-
     !-----------------------------------------------------------------------------
     
-    this%PRC_NUM               = PRC_nprocs
+    if (present(nprocs)) then
+      this%PRC_NUM = nprocs
+    else
+      this%PRC_NUM = PRC_nprocs
+    end if
+
     this%LOCAL_MESH_NUM        = NLocalMeshPerPrc
-    this%LOCAL_MESH_NUM_global = PRC_nprocs * this%LOCAL_MESH_NUM
+    this%LOCAL_MESH_NUM_global = this%PRC_NUM * this%LOCAL_MESH_NUM
 
     this%refElem => refElem
         
@@ -96,11 +103,10 @@ contains
   end subroutine MeshBase_Init
 
   subroutine MeshBase_Final( this )
-    
+    implicit none
     class(MeshBase), intent(inout) :: this
 
     integer :: n
-
     !-----------------------------------------------------------------------------
   
     deallocate( this%tileID_globalMap )
@@ -113,15 +119,13 @@ contains
   end subroutine MeshBase_Final
 
   subroutine MeshBase_setGeometricInfo( mesh, ndim )
-
     implicit none
     
     class(LocalMeshBase), intent(inout) :: mesh
     integer, intent(in) :: ndim
 
     class(elementbase), pointer :: refElem
-
-  !-----------------------------------------------------------------------------
+    !-----------------------------------------------------------------------------
 
     refElem => mesh%refElem
 

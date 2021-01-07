@@ -1,17 +1,36 @@
+= 2021-01-07 (0.3.0)
+* New features
+  * Add some Runge-Kutta scheme
+    * Explicit SSP RK scheme with higher-order accuracy and wider stability region
+    * IMEX schemes with higher-order accuracy
+  * Add simplified sample programs using our library
+    * 1D linear advection-diffusion equation
+    * 3D Euler equation with HEVI temporal scheme
+  * Enhance the 3D nonhydrostatic atmospheric model
+    * Support a HEVI method in dynamical process
+    * Support the sponge layer in dynamical process
+    * Support the size of finite element which is variable along the vertical direction
+    * Add a component to provide the surface flux
+    * Add a component to represent sub-grid scale turbulent process (experimental)
+    * Support different time steps among the components
+    * Add a function to monitor the globally averaging values
+  * Add a tool, INTERP, to interpolate output data from DG atmospheric model
+  * Support the executions in FUGAKU as computational environment, and improve the computational perfomance
+* Fix many bugs
+
 = 2020-10-02 (0.2.0)
 * New features
   * Add a library for solving PDEs within regular 3D domains 
-    with nodal discontinuous galerkin method (nodal DGM). 
-  * Add sample programs of 3D linear advection problems using our library. 
-  * Implement a 3D nonhydrostatic atmospheric model with nodal DGM using our library. 
-    * Add four test cases for dynamical core: sound wave, inertia gravity wave, density current, and baroclinic wave. 
-* Fix many bugs.
-
+    with nodal discontinuous galerkin method (nodal DGM)
+  * Add sample programs of 3D linear advection problems using our library
+  * Implement a 3D nonhydrostatic atmospheric model with nodal DGM using our library
+    * Add four test cases for dynamical core: sound wave, inertia gravity wave, density current, and baroclinic wave
+* Fix many bugs
 
 = 2019-10-20 (0.1.0)
 * New features
   * Add a library for solving PDEs within 1D and regular 2D domains 
-    with nodal discontinuous galerkin method (nodal DGM). 
-  * Add sample programs of 1D and 2D linear advection problems using our library. 
-  * Implement a 2D nonhydrostatic atmospheric model with nodal DGM using our library. 
-    * Add two test cases for dynamical core, gravity wave and density current. 
+    with nodal discontinuous galerkin method (nodal DGM)
+  * Add sample programs of 1D and 2D linear advection problems using our library
+  * Implement a 2D nonhydrostatic atmospheric model with nodal DGM using our library
+    * Add two test cases for dynamical core, gravity wave and density current

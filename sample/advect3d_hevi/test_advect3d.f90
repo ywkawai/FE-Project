@@ -915,7 +915,7 @@ contains
 
     NeX = 2; NeY = 2; NeGZ = 2
     PolyOrder_h = 1; PolyOrder_v = 1
-    TINTEG_SCHEME_TYPE = 'RK_TVD_3'
+    TINTEG_SCHEME_TYPE = 'IMEX_ARK232'
     InitShapeName      = 'sin'
     InitShapeParams(:) = (/ 1.0_RP, 1.0_RP, 1.0_RP, 0.0_RP, 0.0_RP, 0.0_RP /)
     VelTypeName        = 'const'

@@ -329,7 +329,7 @@ contains
     NeGX = 2; GXHALO =2
     NeGY = 2; GYHALO =2
     FLUX_SCHEME_TYPE   = 'CD2'
-    TINTEG_SCHEME_TYPE = 'RK_TVD_3'
+    TINTEG_SCHEME_TYPE = 'RK_SSP_3s3o'
     InitShapeName      = 'sin'
     InitShapeParams(:) = (/ 1.0_RP, 1.0_RP, 0.0_RP, 0.0_RP /)
     VelTypeName        = 'const'

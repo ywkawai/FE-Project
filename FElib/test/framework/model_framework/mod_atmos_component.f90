@@ -40,6 +40,8 @@ module mod_atmos_component
 contains
 
 subroutine Atmos_setup( this )
+  use scale_const, only: &
+    UNDEF8 => CONST_UNDEF8
   implicit none
   class(AtmosComponent), intent(inout) :: this
 
@@ -49,11 +51,13 @@ subroutine Atmos_setup( this )
   LOG_INFO('AtmosComponent_setup',*)
   call this%ModelComponent_Init( 'Atmos', .true. )
   
+  call this%time_manager%Init( this%GetComponentName(), UNDEF8, 'SEC', UNDEF8, 'SEC' )
+
   call this%mesh%Init()
   call this%vars%Init( this%mesh )
 
   !-------------------------------------
-  call this%dyn_proc%setup( this%mesh )
+  call this%dyn_proc%setup( this%mesh, this%time_manager )
 
   return
 end subroutine Atmos_setup
@@ -66,7 +70,8 @@ subroutine Atmos_calc_tendency( this )
 
   LOG_INFO('AtmosComponent_calc_tendency',*)
 
-  call this%dyn_proc%calc_tendency( this%mesh, this%vars%prgvars_list, this%vars%auxvars_list )
+  call this%dyn_proc%calc_tendency( &
+    this%mesh, this%vars%prgvars_list, this%vars%auxvars_list, this%vars%forcing_list, .true. )
 
   return  
 end subroutine Atmos_calc_tendency
@@ -78,7 +83,8 @@ subroutine Atmos_update( this )
 
   LOG_INFO('AtmosComponent_update',*)
 
-  call this%dyn_proc%update( this%mesh, this%vars%prgvars_list, this%vars%auxvars_list )
+  call this%dyn_proc%update( &
+   this%mesh, this%vars%prgvars_list, this%vars%auxvars_list, this%vars%forcing_list, .true. )
 
   return  
 end subroutine Atmos_update
@@ -93,6 +99,7 @@ subroutine Atmos_finalize( this )
   call this%dyn_proc%finalize()
   call this%vars%Final()
   call this%mesh%Final()
+  call this%time_manager%Final()
 
   return  
 end subroutine Atmos_finalize

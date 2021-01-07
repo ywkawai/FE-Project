@@ -50,8 +50,10 @@ module mod_user
 
   !-----------------------------------------------------------------------------
 contains
-  subroutine USER_mkinit
+  subroutine USER_mkinit( atm )
     implicit none
+
+    class(AtmosComponent), intent(inout) :: atm
     !------------------------------------------
 
     return

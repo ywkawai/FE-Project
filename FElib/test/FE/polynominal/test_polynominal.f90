@@ -41,13 +41,17 @@ program test_polynominal
 
  !----------------------------------------------------------------------------------------
 
+  write(*,*) "Start test_polynominal..."
+
   call chechk_value(1, lgl_pts_n1, lgl_intw_n1, gl_pts_n1, gl_intw_n1)
   call chechk_value(2, lgl_pts_n2, lgl_intw_n2, gl_pts_n2, gl_intw_n2)
   call chechk_value(3, lgl_pts_n3, lgl_intw_n3, gl_pts_n3, gl_intw_n3)
   call chechk_value(4, lgl_pts_n4, lgl_intw_n4, gl_pts_n4, gl_intw_n4)
 
   call output_expandfunc(4, 200)
+
   write(*,*) "test_polynominal has been succeeded!"
+
 contains
   subroutine chechk_value(Norder, lgl_pts_ans, lgl_intw_ans, gl_pts_ans, gl_intw_ans)
     integer, intent(in) :: Norder

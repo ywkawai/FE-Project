@@ -243,7 +243,7 @@ subroutine cal_dyn_tend( dqdt, q_, u_ )
 
     NeGX = 2; GXHALO = 2
     FLUX_SCHEME_TYPE = 'CD2'
-    TINTEG_SCHEME_TYPE = 'RK4'
+    TINTEG_SCHEME_TYPE = 'ERK_SSP_3s3o'
     InitShapeName    = 'sin'
     InitShapeParams  = (/ 1.0_RP, 0.0_RP /)
     ADV_VEL          = 1.0_RP

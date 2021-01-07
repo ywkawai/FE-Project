@@ -57,35 +57,45 @@ module scale_localmesh_3d
   !
 
 contains
+
   subroutine LocalMesh3D_Init( this, &
-    refElem, PRC_myrank )
-    
+    refElem, myrank )
     implicit none
 
     class(LocalMesh3D), intent(inout) :: this
     class(ElementBase3D), intent(in), target :: refElem
-    integer, intent(in) :: PRC_myrank
-  
-    this%PRC_myrank   = PRC_myrank
+    integer, intent(in), optional :: myrank
+    !-------------------------------------------------
+
     this%refElem3D    => refElem
     nullify( this%lcmesh2D )
 
-    call LocalMeshBase_Init(this, refElem, 3)
+    call LocalMeshBase_Init( this, refElem, 3, myrank )
 
+    return
   end subroutine LocalMesh3D_Init
 
-  subroutine LocalMesh3D_Final( this )
+  subroutine LocalMesh3D_Final( this, is_generated )
+    implicit none
     type(LocalMesh3D), intent(inout) :: this
+    logical, intent(in) :: is_generated
+    !-------------------------------------------------
 
-    call LocalMeshBase_Final(this)
+    call LocalMeshBase_Final( this, is_generated )
+    if (is_generated) then
+      deallocate( this%zS, this%Sz )
+      deallocate( this%lon2D, this%lat2D )
+      deallocate( this%EMap3Dto2D )
+    end if
 
+    return
   end subroutine LocalMesh3D_Final
   
   subroutine LocalMesh3D_setLocalMesh2D( this, lcmesh2D )
     implicit none
     class(LocalMesh3D), intent(inout) :: this
     class(LocalMesh2D), intent(in), target :: lcmesh2D
-    !----------------
+    !-------------------------------------------------
 
     this%lcmesh2D => lcmesh2D
 

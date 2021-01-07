@@ -58,7 +58,8 @@ module scale_mesh_base2d
 
 contains
   subroutine MeshBase2D_Init(this, &
-    & refElem, NLocalMeshPerPrc )
+    refElem, NLocalMeshPerPrc,     &
+    nprocs, myrank                 )
     
     use scale_prc, only: PRC_nprocs, PRC_myrank
     implicit none
@@ -66,13 +67,15 @@ contains
     class(MeshBase2D), intent(inout) :: this
     class(elementbase2D), intent(in), target :: refElem
     integer, intent(in) :: NLocalMeshPerPrc
+    integer, intent(in), optional :: nprocs
+    integer, intent(in), optional :: myrank
 
     integer :: n
-
     !-----------------------------------------------------------------------------
     
     this%refElem2D => refElem
-    call MeshBase_Init(this, refElem, NLocalMeshPerPrc, 4)
+    call MeshBase_Init( this, refElem, NLocalMeshPerPrc, 4, &
+      nprocs                                                )
 
     allocate( this%lcmesh_list(this%LOCAL_MESH_NUM) )
     do n=1, this%LOCAL_MESH_NUM
@@ -90,7 +93,7 @@ contains
     !-----------------------------------------------------------------------------
   
     do n=1, this%LOCAL_MESH_NUM
-      call LocalMesh2D_Final( this%lcmesh_list(n) )
+      call LocalMesh2D_Final( this%lcmesh_list(n), this%isGenerated )
     end do
     deallocate( this%lcmesh_list )
     

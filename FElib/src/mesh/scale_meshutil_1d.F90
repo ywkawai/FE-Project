@@ -23,13 +23,15 @@ module scale_meshutil_1d
 
 contains
 
-  subroutine MeshUtil1D_genLineDomain( pos_v, EToV, &
-    Ke_x, xmin, xmax )
+  subroutine MeshUtil1D_genLineDomain( pos_v, EToV, & ! (out)
+    Ke_x, xmin, xmax,                               & ! (in)
+    Fx )                                              ! (in)
 
     implicit none
 
     integer, intent(in) :: Ke_x
     real(RP), intent(in) :: xmin, xmax
+    real(RP), intent(in), optional :: Fx(Ke_x+1)
 
     real(RP), intent(out) :: pos_v(Ke_x+1,1)
     integer, intent(out) :: EToV(Ke_x,2)
@@ -43,7 +45,11 @@ contains
     NvX = Ke_X + 1
 
     do i=1, NvX
-      pos_v(i,1) = (xmax - xmin)*dble(i - 1)/dble(NvX - 1) + xmin
+      if (present(Fx) ) then
+        pos_v(i,1) = Fx(i)
+      else
+        pos_v(i,1) = (xmax - xmin)*dble(i - 1)/dble(NvX - 1) + xmin
+      end if
     end do
 
     do i=1, Ke_x
@@ -72,8 +78,8 @@ contains
   end subroutine MeshUtil1D_genLineDomain
 
 
-  subroutine MeshUtil1D_genConnectivity( EToE, EToF, &
-    EToV, Ne, Nfaces )
+  subroutine MeshUtil1D_genConnectivity( EToE, EToF, & ! (out)
+    EToV, Ne, Nfaces )                                 ! (in)
     
     implicit none
 
@@ -179,8 +185,8 @@ contains
     return
 end subroutine MeshUtil1D_genConnectivity
 
-subroutine MeshUtil1D_BuildInteriorMap( VMapM, VMapP, MapM, MapP, &
-  pos_en, pos_ev, EtoE, EtoF, EtoV, Fmask, Ne, Np, Nfp, Nfaces, Nv)
+subroutine MeshUtil1D_BuildInteriorMap( VMapM, VMapP, MapM, MapP,  & ! (out)
+  pos_en, pos_ev, EtoE, EtoF, EtoV, Fmask, Ne, Np, Nfp, Nfaces, Nv ) ! (in)
 
 
   implicit none
@@ -295,8 +301,8 @@ subroutine MeshUtil1D_BuildInteriorMap( VMapM, VMapP, MapM, MapP, &
   return
 end subroutine MeshUtil1D_BuildInteriorMap
 
-subroutine MeshUtil1D_genPatchBoundaryMap(  VMapB, MapB, VMapP, &
-  pos_en, xmin, xmax, Fmask, Ne, Np, Nfp, Nfaces, Nv)
+subroutine MeshUtil1D_genPatchBoundaryMap(  VMapB, MapB, VMapP, & ! (inout)
+  pos_en, xmin, xmax, Fmask, Ne, Np, Nfp, Nfaces, Nv            ) ! (in)
 
   implicit none
 
@@ -395,8 +401,8 @@ subroutine MeshUtil1D_genPatchBoundaryMap(  VMapB, MapB, VMapP, &
     end subroutine eval_domain_boundary
   end subroutine MeshUtil1D_genPatchBoundaryMap
 
-  subroutine MeshUtil1D_genPeriodicBoundaryMap( EToE, EToF, VMapP, &
-    xperiod, x, fx, Fmask, Ne, Np, Nfp, Nfaces, Nv)
+  subroutine MeshUtil1D_genPeriodicBoundaryMap( EToE, EToF, VMapP, & ! (inout)
+    xperiod, x, fx, Fmask, Ne, Np, Nfp, Nfaces, Nv                 ) ! (in)
 
     implicit none
 
@@ -499,9 +505,9 @@ subroutine MeshUtil1D_genPatchBoundaryMap(  VMapB, MapB, VMapP, &
   end subroutine MeshUtil1D_genPeriodicBoundaryMap
 
   subroutine MeshUtil1D_buildGlobalMap( &
-    panelID_table, pi_table,                     &
-    tileID_map, tileFaceID_map, tilePanelID_map, &
-    Ntile )
+    panelID_table, pi_table,                     & ! (out)
+    tileID_map, tileFaceID_map, tilePanelID_map, & ! (out)
+    Ntile )                                        ! (in)
     
     use scale_prc, only: PRC_isMaster
     implicit none

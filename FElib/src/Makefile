@@ -1,3 +1,9 @@
+################################################################################
+#
+# Makefile for scale library
+#
+################################################################################
+
 TOPDIR      =../../
 SYSDEP_DIR :=../../sysdep
 
@@ -11,23 +17,34 @@ VPATH = \
 	data:             \
 	file:             \
 	fluid_dyn_solver: \
-	model_framework:  
+	turbulence:       \
+	model_framework:
+
+LIBVERSION = $(shell git rev-parse --short HEAD 2> /dev/null)
+ifeq ($(LIBVERSION),)
+  LIBVERSION  = $(shell cat VERSION)
+else
+  LIBVERSION := $(LIBVERSION)
+endif
+
 
 OBJS_NAME_COMMON = \
-	scale_polynominal.o  \
-	scale_sparsemat.o    \
-	scale_linalgebra.o   \
-	scale_time_manager.o \
-	scale_quicksort.o    \
-	scale_timeint_rk.o   \
-	scale_linkedlist.o   \
+	scale_polynominal.o            \
+	scale_sparsemat.o              \
+	scale_linalgebra.o             \
+	scale_time_manager.o           \
+	scale_quicksort.o              \
+	scale_timeint_rk_butcher_tab.o \
+	scale_timeint_rk.o             \
+	scale_linkedlist.o             \
 	scale_gmres.o
 
 OBJS_NAME_ELEMENT = \
 	scale_element_base.o          \
 	scale_element_line.o          \
 	scale_element_quadrilateral.o \
-	scale_element_hexahedral.o 
+	scale_element_hexahedral.o    \
+	scale_element_modalfilter.o
 
 OBJS_NAME_MESH = \
 	scale_meshutil_1d.o    \
@@ -47,24 +64,34 @@ OBJS_NAME_MESH = \
 	scale_mesh_cubedom3d.o
 
 OBJS_NAME_DATA = \
+	scale_variableinfo.o             \
 	scale_localmeshfield_base.o      \
 	scale_meshfield_base.o           \
 	scale_meshfieldcomm_base.o       \
 	scale_meshfieldcomm_1d.o         \
 	scale_meshfieldcomm_rectdom2d.o  \
-	scale_meshfieldcomm_cubedom3d.o
+	scale_meshfieldcomm_cubedom3d.o  \
+	scale_meshfield_statistics.o           
 
 OBJS_NAME_FILE = \
-	scale_file_history_meshfield.o
+	scale_file_common_meshfield.o  \
+	scale_file_base_meshfield.o    \
+	scale_file_history_meshfield.o \
+	scale_file_restart_meshfield.o \
+	scale_file_monitor_meshfield.o
 
 OBJS_NAME_FLUID_DYN_SOLVER = \
-	scale_atm_dyn_modalfilter.o          \
-	scale_atm_dyn_nonhydro3d_numdiff.o   \
-	scale_atm_dyn_nonhydro2d.o           \
-	scale_atm_dyn_nonhydro3d_heve.o      \
-	scale_atm_dyn_nonhydro3d_hevi.o      \
-	scale_atm_dyn_nonhydro3d_hevi_gmres.o 
+	scale_atm_dyn_dgm_modalfilter.o               \
+	scale_atm_dyn_dgm_spongelayer.o               \
+	scale_atm_dyn_dgm_nonhydro3d_numdiff.o        \
+	scale_atm_dyn_dgm_nonhydro2d.o                \
+	scale_atm_dyn_dgm_nonhydro3d_heve.o           \
+	scale_atm_dyn_dgm_nonhydro3d_hevi.o           \
+	scale_atm_dyn_dgm_nonhydro3d_splitform_hevi.o \
+	scale_atm_dyn_dgm_nonhydro3d_hevi_gmres.o 
 
+OBJS_NAME_TURBULENCE = \
+	scale_atm_phy_tb_dgm_smg.o
 
 OBJS_NAME_MODEL_FRAMEWORK = \
 	scale_model_mesh_manager.o   \
@@ -79,6 +106,7 @@ OBJS_NAME = \
 	$(OBJS_NAME_DATA)		          \
 	$(OBJS_NAME_FILE)             \
 	$(OBJS_NAME_FLUID_DYN_SOLVER) \
+	$(OBJS_NAME_TURBULENCE)       \
 	$(OBJS_NAME_MODEL_FRAMEWORK)
 	
 
@@ -102,6 +130,14 @@ makedir:
 	mkdir -p $(OBJ_DIR)
 	mkdir -p $(MODDIR)
 	mkdir -p $(LIBDIR)
+
+
+info:
+	@$(MAKE) --no-print-directory envlog
+	@echo
+	@echo "SCALEFElib"
+	@$(MAKE) --no-print-directory conflog
+
 
 $(LIBDIR)/$(LIBNAME): $(LIBNAME)
 	install $< $@
@@ -138,7 +174,10 @@ common/scale_timeint_rk.F90: scale_timeint_rk.F90.erb
 $(OBJ_DIR)/%.o : %.F90
 	$(FC) $(FFLAGS) $(SCALE_INCLUDE) $(INCLUDE) -I$(SCALEFELIBDIR)/include -o $@ -c $<
 
+.PHONY : clean distclean allclean depend modules dependency
+
+include $(TOPDIR)/utils/make/Make_environments
+
 -include depend
 
-	# DO NOT DELETE
 # DO NOT DELETE

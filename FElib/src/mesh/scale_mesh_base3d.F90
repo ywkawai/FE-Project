@@ -66,27 +66,28 @@ module scale_mesh_base3d
   !
 
 contains
-  subroutine MeshBase3D_Init(this, &
-    & refElem, NLocalMeshPerPrc, NsideTile )
+  subroutine MeshBase3D_Init(this,        &
+    refElem, NLocalMeshPerPrc, NsideTile, &
+    nproc, myrank )
     
-    use scale_prc, only: PRC_nprocs, PRC_myrank
     implicit none
 
     class(MeshBase3D), intent(inout) :: this
     class(elementbase3D), intent(in), target :: refElem
     integer, intent(in) :: NLocalMeshPerPrc
     integer, intent(in) :: NsideTile
+    integer, intent(in), optional :: nproc
+    integer, intent(in), optional :: myrank
 
     integer :: n
-
     !-----------------------------------------------------------------------------
     
     this%refElem3D => refElem
-    call MeshBase_Init(this, refElem, NLocalMeshPerPrc, NsideTile)
+    call MeshBase_Init( this, refElem, NLocalMeshPerPrc, NsideTile, nproc )
 
     allocate( this%lcmesh_list(this%LOCAL_MESH_NUM) )
     do n=1, this%LOCAL_MESH_NUM
-      call LocalMesh3D_Init( this%lcmesh_list(n), refElem, PRC_myrank )
+      call LocalMesh3D_Init( this%lcmesh_list(n), refElem, myrank )
     end do
 
     return
@@ -102,7 +103,7 @@ contains
     !-----------------------------------------------------------------------------
   
     do n=1, this%LOCAL_MESH_NUM
-      call LocalMesh3D_Final( this%lcmesh_list(n) )
+      call LocalMesh3D_Final( this%lcmesh_list(n), this%isGenerated )
     end do
     deallocate( this%lcmesh_list )
     
@@ -125,7 +126,6 @@ contains
   end subroutine MeshBase3D_get_localmesh
 
   subroutine MeshBase3D_setGeometricInfo( lcmesh, coord_conv, calc_normal )
-
     implicit none
     
     type(LocalMesh3D), intent(inout) :: lcmesh
@@ -154,7 +154,7 @@ contains
     end interface
 
     class(ElementBase3D), pointer :: refElem
-    integer :: n
+    integer :: ke
     integer :: f
     integer :: i, j
     integer :: d
@@ -202,31 +202,31 @@ contains
     end do
     end do
 
-    do n=1, lcmesh%Ne
-      node_ids(:) = lcmesh%EToV(n,:)
+    do ke=1, lcmesh%Ne
+      node_ids(:) = lcmesh%EToV(ke,:)
       vx(:) = lcmesh%pos_ev(node_ids(:),1)
       vy(:) = lcmesh%pos_ev(node_ids(:),2)
       vz(:) = lcmesh%pos_ev(node_ids(:),3)
       call coord_conv( &
-        lcmesh%pos_en(:,n,1), lcmesh%pos_en(:,n,2), lcmesh%pos_en(:,n,3), & ! (in)
-        xX, xY, xZ, yX, yY, yZ, zX, zY, zZ,                               & ! (out)
-        vx, vy, vz, refElem )                                               ! (in)
+        lcmesh%pos_en(:,ke,1), lcmesh%pos_en(:,ke,2), lcmesh%pos_en(:,ke,3), & ! (out)
+        xX, xY, xZ, yX, yY, yZ, zX, zY, zZ,                                  & ! (out)
+        vx, vy, vz, refElem )                                                  ! (in)
 
-      lcmesh%J(:,n) =   xX(:)*(yY(:)*zZ(:) - zY(:)*yZ) &
-                      - yX(:)*(xY(:)*zZ(:) - zY(:)*xZ) &
-                      + zX(:)*(xY(:)*yZ(:) - yY(:)*xZ)
+      lcmesh%J(:,ke) =   xX(:)*(yY(:)*zZ(:) - zY(:)*yZ) & 
+                       - yX(:)*(xY(:)*zZ(:) - zY(:)*xZ) &
+                       + zX(:)*(xY(:)*yZ(:) - yY(:)*xZ)
 
-      lcmesh%Escale(:,n,1,1) =   (yY(:)*zZ(:) - zY(:)*yZ(:))/lcmesh%J(:,n)
-      lcmesh%Escale(:,n,1,2) = - (xY(:)*zZ(:) - zY(:)*xZ(:))/lcmesh%J(:,n)
-      lcmesh%Escale(:,n,1,3) =   (xY(:)*yZ(:) - yY(:)*xZ(:))/lcmesh%J(:,n)
+      lcmesh%Escale(:,ke,1,1) =   (yY(:)*zZ(:) - zY(:)*yZ(:))/lcmesh%J(:,ke)
+      lcmesh%Escale(:,ke,1,2) = - (xY(:)*zZ(:) - zY(:)*xZ(:))/lcmesh%J(:,ke)
+      lcmesh%Escale(:,ke,1,3) =   (xY(:)*yZ(:) - yY(:)*xZ(:))/lcmesh%J(:,ke)
       
-      lcmesh%Escale(:,n,2,1) = - (yX(:)*zZ(:) - zX(:)*YZ(:))/lcmesh%J(:,n)
-      lcmesh%Escale(:,n,2,2) =   (xX(:)*zZ(:) - zX(:)*xZ(:))/lcmesh%J(:,n)
-      lcmesh%Escale(:,n,2,3) = - (xX(:)*yZ(:) - yX(:)*xZ(:))/lcmesh%J(:,n)
+      lcmesh%Escale(:,ke,2,1) = - (yX(:)*zZ(:) - zX(:)*YZ(:))/lcmesh%J(:,ke)
+      lcmesh%Escale(:,ke,2,2) =   (xX(:)*zZ(:) - zX(:)*xZ(:))/lcmesh%J(:,ke)
+      lcmesh%Escale(:,ke,2,3) = - (xX(:)*yZ(:) - yX(:)*xZ(:))/lcmesh%J(:,ke)
       
-      lcmesh%Escale(:,n,3,1) =   (yX(:)*zY(:) - zX(:)*yY(:))/lcmesh%J(:,n)
-      lcmesh%Escale(:,n,3,2) = - (xX(:)*zY(:) - zX(:)*xY(:))/lcmesh%J(:,n)
-      lcmesh%Escale(:,n,3,3) =   (xX(:)*yY(:) - yX(:)*xY(:))/lcmesh%J(:,n)
+      lcmesh%Escale(:,ke,3,1) =   (yX(:)*zY(:) - zX(:)*yY(:))/lcmesh%J(:,ke)
+      lcmesh%Escale(:,ke,3,2) = - (xX(:)*zY(:) - zX(:)*xY(:))/lcmesh%J(:,ke)
+      lcmesh%Escale(:,ke,3,3) =   (xX(:)*yY(:) - yX(:)*xY(:))/lcmesh%J(:,ke)
       
       !* Face
 
@@ -237,21 +237,21 @@ contains
       ! Calculate normal vectors
       do j=1, 3
       do i=1, 3
-        Escale_f(:,i,j) = lcmesh%Escale(fmask(:),n,i,j)
+        Escale_f(:,i,j) = lcmesh%Escale(fmask(:),ke,i,j)
       end do
       end do
-      call calc_normal( lcmesh%normal_fn(:,n,:), & ! (out)
-        Escale_f, fid_h, fid_v, refElem )          ! (in)
+      call calc_normal( lcmesh%normal_fn(:,ke,:), & ! (out)
+         Escale_f, fid_h, fid_v, refElem )          ! (in)
 
-      lcmesh%sJ(:,n) = sqrt( &
-        lcmesh%normal_fn(:,n,1)**2 + lcmesh%normal_fn(:,n,2)**2 + lcmesh%normal_fn(:,n,3)**2 )
+      lcmesh%sJ(:,ke) = sqrt( &
+        lcmesh%normal_fn(:,ke,1)**2 + lcmesh%normal_fn(:,ke,2)**2 + lcmesh%normal_fn(:,ke,3)**2 )
       do d=1, 3
-        lcmesh%normal_fn(:,n,d) = lcmesh%normal_fn(:,n,d)/lcmesh%sJ(:,n)
+        lcmesh%normal_fn(:,ke,d) = lcmesh%normal_fn(:,ke,d)/lcmesh%sJ(:,ke)
       end do
-      lcmesh%sJ(:,n) = lcmesh%sJ(:,n)*lcmesh%J(fmask(:),n)
+      lcmesh%sJ(:,ke) = lcmesh%sJ(:,ke)*lcmesh%J(fmask(:),ke)
 
-      lcmesh%Fscale(:,n) = lcmesh%sJ(:,n)/lcmesh%J(fmask(:),n)
-      lcmesh%Gsqrt(:,n) = 1.0_RP
+      lcmesh%Fscale(:,ke) = lcmesh%sJ(:,ke)/lcmesh%J(fmask(:),ke)
+      lcmesh%Gsqrt(:,ke) = 1.0_RP
     end do
 
     return

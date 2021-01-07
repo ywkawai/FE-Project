@@ -19,14 +19,15 @@ module mod_dg_driver
   use scale_prof
   use scale_prc
 
-  use mod_atmos_component, only: &
-    AtmosComponent
-  
   use scale_file_history_meshfield, only: &
     FILE_HISTORY_meshfield_write
   use scale_file_history, only: &
     FILE_HISTORY_set_nowdate
-
+  use scale_file_monitor_meshfield, only: &
+    FILE_monitor_meshfield_write
+  
+  use mod_atmos_component, only: &
+    AtmosComponent
   use mod_user, only: &
     USER_update, USER_calc_tendency
 
@@ -95,7 +96,7 @@ contains
     ! setup Log
     call IO_LOG_setup( myrank, ismaster )
  
-    call initialize()
+    call initialize
 
     !###########################################################################
  
@@ -106,30 +107,57 @@ contains
     call PROF_rapstart('Main_Loop', 0)
 
     do
+
+      !*******************************************
+
       ! report current time
-      call TIME_manager_checkstate()
+      call TIME_manager_checkstate
   
       if (TIME_DOresume) then
         ! set state from restart file
-        call restart_read()
-        call FILE_HISTORY_meshfield_write()
+        call restart_read
+        ! history & monitor file output 
+        call FILE_MONITOR_meshfield_write('MAIN', TIME_NOWSTEP)
+        call FILE_HISTORY_meshfield_write
       end if
 
-      !* Advance time
-      call TIME_manager_advance()
+      !* Advance time *********************************
+
+      call TIME_manager_advance
       call FILE_HISTORY_set_nowdate( TIME_NOWDATE, TIME_NOWSUBSEC, TIME_NOWSTEP )
 
-      !* change to next state
-      call atmos%update()
-      call USER_update()
+      !* change to next state *************************
 
-      !* calc tendencies and diagnostices
-      call atmos%calc_tendency()
-      call USER_calc_tendency()
+      !- ATMOS
+      if ( atmos%IsActivated() .and. atmos%time_manager%do_step ) then
+        call atmos%update()
+      end if
+
+      !- USER
+      call USER_update
+
+      !* restart and monitor output *******************
+      if ( atmos%IsActivated() ) call atmos%vars%Monitor()
+      call restart_write
+      call FILE_MONITOR_meshfield_write('MAIN', TIME_NOWSTEP)
+
+      !* calc tendencies and diagnostices *************
+
+      !- ATMOS 
+      if ( atmos%IsActivated() .and. atmos%time_manager%do_step ) then
+        call atmos%calc_tendency()
+      end if
+
+      !- USER 
+      call USER_calc_tendency
   
-      !* output history files
-      call FILE_HISTORY_meshfield_write()
+      !* output history files *************************
+
+      if ( atmos%IsActivated() ) call atmos%vars%History()
+
+      call FILE_HISTORY_meshfield_write
       
+      !*******************************************
       if (TIME_DOend) exit
       
       if( IO_L ) call flush(IO_FID_LOG)
@@ -141,7 +169,7 @@ contains
     LOG_NEWLINE
 
     !########## Finalize ##########
-    call finalize()    
+    call finalize
 
     return
   end subroutine dg_driver
@@ -152,7 +180,20 @@ contains
 
     use scale_const, only: CONST_setup
     use scale_calendar, only: CALENDAR_setup
-    use scale_time_manager, only: TIME_manager_Init
+    use scale_random, only: RANDOM_setup
+    use scale_time_manager, only: TIME_DTSEC
+
+    use scale_time_manager, only:           &
+      TIME_manager_Init,                    &
+      TIME_manager_report_timeintervals
+    use scale_meshfield_statistics, only:   &
+      MeshField_statistics_setup
+    use scale_file_restart_meshfield, only: &
+      restart_file,                         &
+      FILE_restart_meshfield_setup
+    use scale_file_monitor_meshfield, only: &
+      FILE_monitor_meshfield_setup  
+    
     use mod_user, only: USER_setup    
     implicit none
 
@@ -172,12 +213,29 @@ contains
 
     ! setup calendar & initial time
     call CALENDAR_setup
-    call TIME_manager_Init
+
+    ! setup random number
+    call RANDOM_setup
+
+    ! setup a module for restart file
+    call FILE_restart_meshfield_setup
+    call TIME_manager_Init( &
+      setup_TimeIntegration = .true.,                   &
+      restart_in_basename   =  restart_file%in_basename )
+
+    ! setup statistics
+    call MeshField_statistics_setup
+
+    ! setup monitor
+    call FILE_monitor_meshfield_setup( TIME_DTSEC )
 
     ! setup submodels
     call  atmos%setup()
 
     call USER_setup( atmos )
+
+    !
+    call TIME_manager_report_timeintervals
 
     call PROF_rapend('Initialize', 0)
 
@@ -185,24 +243,37 @@ contains
   end subroutine initialize
 
   subroutine finalize()
-    use scale_file_history_meshfield, only: FILE_HISTORY_meshfield_finalize
-    use scale_time_manager, only: TIME_manager_Final   
+    use scale_file, only: &
+      FILE_Close_All
+    use scale_file_history_meshfield, only: &
+      FILE_HISTORY_meshfield_finalize
+    use scale_file_monitor_meshfield, only: &
+      FILE_monitor_meshfield_final
+    use scale_time_manager, only: &
+      TIME_manager_Final   
     implicit none
     
     !----------------------------------------------
     call PROF_setprefx('FIN')
     call PROF_rapstart('All', 1)
 
-    call FILE_HISTORY_meshfield_finalize()
+    call PROF_rapstart('Monit', 2)
+    call FILE_monitor_meshfield_final
+    call PROF_rapend  ('Monit', 2)
 
-    ! finialzie submodels
+    !-
+    call PROF_rapstart('File', 2)
+    call FILE_HISTORY_meshfield_finalize
+    call PROF_rapend  ('File', 2)
+
+    ! finalization submodels
     call  atmos%finalize()
 
-    !
-    call TIME_manager_Final()
+    !-
+    call TIME_manager_Final
 
     call PROF_rapend  ('All', 1)
-    call PROF_rapreport()
+    call PROF_rapreport
 
     return
   end subroutine finalize
@@ -211,11 +282,38 @@ contains
     implicit none    
     !----------------------------------------
 
-    if (  atmos%isActivated() ) then
+    !- read restart data
+    if ( atmos%isActivated() ) then
+      call atmos%vars%Read_restart_file( atmos%mesh )
+    end if
+      
+    !- Calculate the tendencies
+
+    if ( atmos%IsActivated() ) then
+      call atmos%calc_tendency()
+    end if
+
+
+    !- History & Monitor 
+
+    if ( atmos%isActivated() ) then
       call atmos%vars%History()
+      call atmos%vars%Monitor()
     end if
 
     return
   end subroutine restart_read
+
+  subroutine restart_write
+    implicit none    
+    !----------------------------------------
+
+
+    if ( atmos%isActivated() .and. atmos%time_manager%do_restart) then
+      call atmos%vars%Write_restart_file()
+    end if
+
+    return
+  end subroutine 
 
 end module mod_dg_driver

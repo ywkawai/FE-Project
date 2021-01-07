@@ -410,7 +410,7 @@ contains
     !--- read namelist
 
     NeGX = 2; NeGY = 2; PolyOrder = 1 
-    TINTEG_SCHEME_TYPE = 'RK_TVD_3'
+    TINTEG_SCHEME_TYPE = 'ERK_SSP_3s3o'
     InitShapeName      = 'sin'
     InitShapeParams(:) = (/ 1.0_RP, 1.0_RP, 0.0_RP, 0.0_RP /)
     VelTypeName        = 'const'

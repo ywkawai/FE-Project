@@ -129,7 +129,7 @@ contains
 
     return
   end subroutine exp_Final
-  
+
   subroutine exp_SetInitCond( this, &
     model_mesh, atm_prgvars_manager, atm_auxvars_manager )
     
@@ -137,7 +137,7 @@ contains
     use scale_model_var_manager, only: ModelVarManager
     use scale_meshfieldcomm_base, only: MeshFieldContainer  
     use mod_atmos_vars, only: &
-      AtmosVars_GetLocalMeshFields, &
+      AtmosVars_GetLocalMeshPrgVars, &
       ATMOS_AUXVARS_PRESHYDRO_ID, &
       ATMOS_AUXVARS_DENSHYDRO_ID
     use mod_atmos_mesh, only: AtmosMesh
@@ -164,7 +164,7 @@ contains
     mesh => model_mesh%mesh
     
     do n=1, mesh%LOCAL_MESH_NUM
-      call AtmosVars_GetLocalMeshFields( n, mesh, atm_prgvars_manager, atm_auxvars_manager, &
+      call AtmosVars_GetLocalMeshPrgVars( n, mesh, atm_prgvars_manager, atm_auxvars_manager, &
         DDENS, MOMX, MOMY, MOMZ, DRHOT,                                                     &
         DENS_hyd, PRES_hyd, lcmesh3D                                                        )
 
@@ -190,7 +190,7 @@ contains
 
     !--------------------------------
     do n=1, mesh%LOCAL_MESH_NUM
-      call AtmosVars_GetLocalMeshFields( n, mesh, atm_prgvars_manager, atm_auxvars_manager, &
+      call AtmosVars_GetLocalMeshPrgVars( n, mesh, atm_prgvars_manager, atm_auxvars_manager, &
         DDENS, MOMX, MOMY, MOMZ, DRHOT,                                                     &
         DENS_hyd, PRES_hyd, lcmesh3D                                                        )
 
