@@ -15,13 +15,15 @@ We confirm that building our codes has succeeded in the following environments:
     - OpenMPI 4.0.3
     - LAPACK 3.9.0
     - NetCDF 4.6.3
-    - SCALE library 5.4.0
-  - Ubuntu 18.04 LTS
-    - GNU Fortran 7.4.0
-    - OpenMPI 2.1.1
+    - SCALE library 5.4.2
+  - Ubuntu 20.04 LTS
+    - GNU Fortran 9.3.0
+    - OpenMPI 4.0.3
     - LAPACK 3.7.1
-    - NetCDF 4.6.0
-    - SCALE library 5.4.0
+    - NetCDF 4.7.3
+    - SCALE library 5.4.2
+
+We also validate the codes in Oakbridge-CX(intel compiler) and Fugaku. 
 
 ## Build FE-library 
 
@@ -32,11 +34,11 @@ We confirm that building our codes has succeeded in the following environments:
 
   - set a directory in which SCALE library is contained
 
-  `% export SCALE="~/workspace/scale-5.4.0/"`   (for example)
+  `% export SCALE="~/workspace/scale-5.4.2/"`   (for example)
 
   - set a directory in which NetCDF library is contained (if necessary).
     
-  `% export NETCDF="/ap/netcdf4-fortran/4.4.2/"`   (for example)
+  `% export NETCDF="/ap/netcdf4-fortran/4.7.3/"`   (for example)
 
 2. build the library in the directory of FElib
 
