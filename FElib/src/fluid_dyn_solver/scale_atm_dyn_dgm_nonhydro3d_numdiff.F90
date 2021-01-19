@@ -1,5 +1,5 @@
 !-------------------------------------------------------------------------------
-!> module Atmosphere / Dynamics HEVI 
+!> module Atmosphere / Dynamics common
 !!
 !! @par Description
 !!      Explicit numerical diffusion for Atmospheric dynamical process. 

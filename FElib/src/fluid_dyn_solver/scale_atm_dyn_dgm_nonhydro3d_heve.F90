@@ -1,5 +1,5 @@
 !-------------------------------------------------------------------------------
-!> module Atmosphere / Dynamics HEVI 
+!> module Atmosphere / Dynamics HEVE
 !!
 !! @par Description
 !!      HEVE DGM scheme for Atmospheric dynamical process. 
@@ -348,11 +348,11 @@ contains
       rhotM(:) = P0ovR * (PRES_hyd_M(:) * rP0)**rgamm + DRHOT_M(:)
       rhotP(:) = P0ovR * (PRES_hyd_P(:) * rP0)**rgamm + DRHOT_P(:)
 
-      presM(:) = PRES00 * (RovP0 * rhotM(:) )**gamm
-      presP(:) = PRES00 * (RovP0 * rhotP(:) )**gamm
+      presM(:) = PRES00 * (RovP0 * rhotM(:))**gamm
+      presP(:) = PRES00 * (RovP0 * rhotP(:))**gamm
 
       dpres(:)  =  presP(:) - presM(:)                         &
-             + ( PRES_hyd_P(:) - PRES_hyd_M(:) ) * abs(nz(:,ke))
+             - ( PRES_hyd_P(:) - PRES_hyd_M(:) ) * abs(nz(:,ke))
 
       alpha(:) = max( sqrt(gamm * presM(:) / densM(:)) + abs(VelM(:)), &
                       sqrt(gamm * presP(:) / densP(:)) + abs(VelP(:))  )
