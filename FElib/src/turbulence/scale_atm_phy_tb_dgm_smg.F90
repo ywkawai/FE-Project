@@ -401,9 +401,15 @@ contains
       rhotM = rhot_hyd_M + DRHOT_(iM)
       rhotP = rhot_hyd_P + DRHOT_(iP) 
 
-      facx = 1.0_RP - sign(1.0_RP,nx(i))
-      facy = 1.0_RP - sign(1.0_RP,ny(i))
-      facz = 1.0_RP - sign(1.0_RP,nz(i))
+      if ( iP > elem%NfpTot * lmesh%Ne .and. abs(nz(i)) > EPS ) then
+        facx = 1.0_RP
+        facy = 1.0_RP 
+        facz = 1.0_RP 
+      else
+        facx = 1.0_RP - sign(1.0_RP,nx(i))
+        facy = 1.0_RP - sign(1.0_RP,ny(i))
+        facz = 1.0_RP - sign(1.0_RP,nz(i))
+      end if
 
       del = 0.5_RP * ( densP - densM )
       del_flux_rho(i,1) = facx * del * nx(i)
@@ -616,9 +622,15 @@ contains
       TKEMulTwoOvThreeM = twoOverThree * TKE(iM) * tke_fac
       TKEMulTwoOvThreeP = twoOverThree * TKE(iP) * tke_fac
 
-      nx_ = ( 1.0_RP + sign(1.0_RP,nx(i)) ) * nx(i)
-      ny_ = ( 1.0_RP + sign(1.0_RP,ny(i)) ) * ny(i)
-      nz_ = ( 1.0_RP + sign(1.0_RP,nz(i)) ) * nz(i)
+      if ( iP > elem%NfpTot * lmesh%Ne .and. abs(nz(i)) > EPS ) then ! Tentative implementation for the treatmnet of lower/upper boundary. 
+        nx_ = nx(i)
+        ny_ = ny(i)
+        nz_ = nz(i)
+      else
+        nx_ = ( 1.0_RP + sign(1.0_RP,nx(i)) ) * nx(i)
+        ny_ = ( 1.0_RP + sign(1.0_RP,ny(i)) ) * ny(i)
+        nz_ = ( 1.0_RP + sign(1.0_RP,nz(i)) ) * nz(i)
+      end if
 
       TauM_x = Nu(iM) * 2.0_RP * ( ( S11(iM) - SkkOvThreeM ) * nx_ + S12(iM) * ny_ + S31(iM) * nz_ ) &
              - TKEMulTwoOvThreeM * nx_
@@ -635,7 +647,7 @@ contains
       TauP_z = Nu(iP) * 2.0_RP * ( S31(iP) * nx_ + S23(iP) * ny_ + ( S33(iP) - SkkOvThreeP ) * nz_ ) &
              - TKEMulTwoOvThreeP * nz_
 
-      if ( iM == iP ) then ! Tentative implementation for the treatmnet of lower/upper boundary. 
+      if ( iP > elem%NfpTot * lmesh%Ne .and. abs(nz(i)) > EPS )  then ! Tentative implementation for the treatmnet of lower/upper boundary. 
         del_flux_mom(i,1) = - densM * TauM_x
         del_flux_mom(i,2) = - densM * TauM_y
         del_flux_mom(i,3) = - densM * TauM_z

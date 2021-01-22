@@ -103,7 +103,7 @@ module mod_atmos_phy_tb_vars
                   's-1',  3, 'XYZ',  ''                                           ), &
     VariableInfo( ATMOS_PHY_TB_AUX_S33_ID, 'S33', 'strain velocity tensor (S33)',    &
                   's-1',  3, 'XYZ',  ''                                           ), &
-    VariableInfo( ATMOS_PHY_TB_AUX_TKE_ID, 'TKE', 'turbluence kinetic energy',       &
+    VariableInfo( ATMOS_PHY_TB_AUX_TKE_ID, 'TKE', 'SGS turbluence kinetic energy',   &
                   'm2/s2',  3, 'XYZ',  ''                                         ), &
     VariableInfo( ATMOS_PHY_TB_AUX_DPTDX_ID, 'DPTDX', 'gradient of PT (x)',          &
                   'K/m',  3, 'XYZ',  ''                                           ), &
