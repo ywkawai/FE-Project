@@ -401,7 +401,7 @@ contains
       rhotM = rhot_hyd_M + DRHOT_(iM)
       rhotP = rhot_hyd_P + DRHOT_(iP) 
 
-      if ( iP > elem%NfpTot * lmesh%Ne .and. abs(nz(i)) > EPS ) then
+      if ( iP > elem%Np * lmesh%Ne .and. abs(nz(i)) > EPS ) then
         facx = 1.0_RP
         facy = 1.0_RP 
         facz = 1.0_RP 
@@ -472,9 +472,9 @@ contains
     real(RP), intent(in)  :: Nu   (elem%Np,lmesh%NeA) ! Eddy viscosity
     real(RP), intent(in)  :: Kh   (elem%Np,lmesh%NeA) ! Eddy diffusivity
     real(RP), intent(in)  :: DDENS_(elem%Np,lmesh%NeA)
-    real(RP), intent(in)  :: MOMX_(elem%Np,lmesh%NeA)
-    real(RP), intent(in)  :: MOMY_(elem%Np,lmesh%NeA)
-    real(RP), intent(in)  :: MOMZ_(elem%Np,lmesh%NeA)
+    real(RP), intent(in)  :: MOMX_ (elem%Np,lmesh%NeA)
+    real(RP), intent(in)  :: MOMY_ (elem%Np,lmesh%NeA)
+    real(RP), intent(in)  :: MOMZ_ (elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: DRHOT_(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: DENS_hyd(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: PRES_hyd(elem%Np,lmesh%NeA)
@@ -647,7 +647,7 @@ contains
       TauP_z = Nu(iP) * 2.0_RP * ( S31(iP) * nx_ + S23(iP) * ny_ + ( S33(iP) - SkkOvThreeP ) * nz_ ) &
              - TKEMulTwoOvThreeP * nz_
 
-      if ( iP > elem%NfpTot * lmesh%Ne .and. abs(nz(i)) > EPS )  then ! Tentative implementation for the treatmnet of lower/upper boundary. 
+      if ( iP > elem%Np * lmesh%Ne .and. abs(nz(i)) > EPS )  then ! Tentative implementation for the treatmnet of lower/upper boundary. 
         del_flux_mom(i,1) = - densM * TauM_x
         del_flux_mom(i,2) = - densM * TauM_y
         del_flux_mom(i,3) = - densM * TauM_z

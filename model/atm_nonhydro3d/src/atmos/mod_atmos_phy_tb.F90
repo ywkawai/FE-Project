@@ -225,7 +225,7 @@ contains
     if (is_update) then
       !* Exchange halo data
       call PROF_rapstart('ATM_PHY_TB_exchange_prgv', 2)
-      call this%vars%auxvars_comm%Exchange()
+      call this%vars%auxvars_manager%MeshFieldComm_Exchange()
       call PROF_rapend('ATM_PHY_TB_exchange_prgv', 2)
     end if
 
