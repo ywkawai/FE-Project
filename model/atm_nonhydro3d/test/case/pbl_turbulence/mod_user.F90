@@ -131,12 +131,13 @@ contains
     lcmesh, elem )
     
     use scale_const, only: &
-      PI => CONST_PI,       &
-      GRAV => CONST_GRAV,   &
-      Rdry => CONST_Rdry,   &
-      CPdry => CONST_CPdry, &
-      CVdry => CONST_CVdry, &
-      PRES00 => CONST_PRE00
+      PI => CONST_PI,        &
+      GRAV => CONST_GRAV,    &
+      Rdry => CONST_Rdry,    &
+      CPdry => CONST_CPdry,  &
+      CVdry => CONST_CVdry,  &
+      PRES00 => CONST_PRE00, &
+      Pstd   => CONST_Pstd
     use scale_random, only: &
       RANDOM_uniform
     implicit none
@@ -157,7 +158,8 @@ contains
     real(RP), intent(in) :: dom_xmin, dom_xmax
     real(RP), intent(in) :: dom_ymin, dom_ymax
     real(RP), intent(in) :: dom_zmin, dom_zmax
-    
+
+    real(RP) :: ENV_PRES_SFC    
     real(RP) :: ENV_U          = 5.0_RP
     real(RP) :: ENV_V          = 0.0_RP
     real(RP) :: ENV_THETA_SFC  = 298.0_RP 
@@ -171,17 +173,21 @@ contains
       ENV_U,            &
       ENV_THETA_SFC,    &
       ENV_THETA_LAPS,   &
+      ENV_PRES_SFC,     &
       RANDOM_THETA,     &
       InitCond_GalerkinProjFlag
 
 
     integer :: ke
+    real(RP) :: EXNER_sfc
     real(RP) :: EXNER(elem%Np)
     real(RP) :: THETA(elem%Np), THETA0(elem%Np)
     real(RP) :: DENS(elem%Np)
     real(RP) :: rndm(elem%Np)  
     integer :: ierr
     !-----------------------------------------------------------------------------
+
+    ENV_PRES_SFC = Pstd
 
     rewind(IO_FID_CONF)
     read(IO_FID_CONF,nml=PARAM_EXP,iostat=ierr)
@@ -194,9 +200,15 @@ contains
     LOG_NML(PARAM_EXP)
 
     !---
+
+    EXNER_sfc = (Pstd/PRES00)**(Rdry/Cpdry)
+
+    !$omp parallel do private(             &
+    !$omp EXNER, THETA, THETA0, DENS, rndm )
     do ke=1, lcmesh%Ne
       THETA0(:) = ENV_THETA_SFC + ENV_THETA_LAPS * z(:,ke)       
-      EXNER(:) = 1.0_RP - Grav / (CpDry * ENV_THETA_LAPS ) * log(1.0_RP + ENV_THETA_LAPS / ENV_THETA_SFC * z(:,ke))
+      EXNER(:) = EXNER_sfc  &
+               - Grav / (CpDry * ENV_THETA_LAPS ) * log(1.0_RP + ENV_THETA_LAPS / ENV_THETA_SFC * z(:,ke))
       PRES_hyd(:,ke) = PRES00 * EXNER(:)**(CpDry/Rdry)
       DENS_hyd(:,ke) = PRES_hyd(:,ke) / ( Rdry * EXNER(:) * THETA0(:) )
 

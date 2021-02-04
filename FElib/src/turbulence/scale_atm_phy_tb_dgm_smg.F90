@@ -204,6 +204,10 @@ contains
 
     integer :: ke
     integer :: p
+
+    real(RP) :: rgamm    
+    real(RP) :: rP0
+    real(RP) :: P0ovR       
     !--------------------------------------------------------------------
 
     call cal_del_flux_grad( del_flux_rho, del_flux_mom, del_flux_rhot,        & ! (out)
@@ -215,86 +219,91 @@ contains
     call calculate_lambda( lambda, & ! (out)
       lmesh, elem, lmesh2D, elem2D ) ! (in)
     
+    rgamm = CvDry / CpDry
+    rP0   = 1.0_RP / PRES00
+    P0ovR = PRES00 / Rdry
+  
     !$omp parallel do private( &
     !$omp Fx, Fy, Fz, LiftDelFlx,                     &
     !$omp DENS, RHOT, RDENS, Q, DdensDxi, DVelDxi,    & 
     !$omp p, Ri, S2, fm, Pr, lambda_r, E, C1          )
     do ke=lmesh%NeS, lmesh%NeE
+      !---
       DENS (:) = DENS_hyd(:,ke) + DDENS_(:,ke)
       RDENS(:) = 1.0_RP / DENS(:)
-      RHOT(:) = PRES00/Rdry * (PRES_hyd(:,ke)/PRES00)**(CVdry/CPdry) + DRHOT_(:,ke)
+      RHOT(:) = P0ovR * (PRES_hyd(:,ke) * rP0)**rgamm + DRHOT_(:,ke)
 
       ! gradient of density
       call sparsemat_matmul( Dx, DENS, Fx )
-      call sparsemat_matmul( Lift, lmesh%Fscale(:,ke)*del_flux_rho(:,ke,1), LiftDelFlx )
+      call sparsemat_matmul( Lift, lmesh%Fscale(:,ke) * del_flux_rho(:,ke,1), LiftDelFlx )
       DdensDxi(:,1) = lmesh%Escale(:,ke,1,1) * Fx(:) + LiftDelFlx(:)
 
       call sparsemat_matmul( Dy, DENS, Fy )
-      call sparsemat_matmul( Lift, lmesh%Fscale(:,ke)*del_flux_rho(:,ke,2), LiftDelFlx )
+      call sparsemat_matmul( Lift, lmesh%Fscale(:,ke) * del_flux_rho(:,ke,2), LiftDelFlx )
       DdensDxi(:,2) = lmesh%Escale(:,ke,2,2) * Fy(:) + LiftDelFlx(:)
 
       call sparsemat_matmul( Dz, DENS, Fz )
-      call sparsemat_matmul( Lift, lmesh%Fscale(:,ke)*del_flux_rho(:,ke,3), LiftDelFlx )
+      call sparsemat_matmul( Lift, lmesh%Fscale(:,ke) * del_flux_rho(:,ke,3), LiftDelFlx )
       DdensDxi(:,3) = lmesh%Escale(:,ke,3,3) * Fz(:) + LiftDelFlx(:)
       
       ! gradient of u
       Q(:) = MOMX_(:,ke) * RDENS(:)
 
       call sparsemat_matmul( Dx, MOMX_(:,ke), Fx )
-      call sparsemat_matmul( Lift, lmesh%Fscale(:,ke)*del_flux_mom(:,ke,1,1), LiftDelFlx )
+      call sparsemat_matmul( Lift, lmesh%Fscale(:,ke) * del_flux_mom(:,ke,1,1), LiftDelFlx )
       DVelDxi(:,1,1) = ( lmesh%Escale(:,ke,1,1) * Fx(:) + LiftDelFlx(:) - Q(:) * DdensDxi(:,1) ) * RDENS(:)
 
       call sparsemat_matmul( Dy, MOMX_(:,ke), Fy )
-      call sparsemat_matmul( Lift, lmesh%Fscale(:,ke)*del_flux_mom(:,ke,2,1), LiftDelFlx )
+      call sparsemat_matmul( Lift, lmesh%Fscale(:,ke) * del_flux_mom(:,ke,2,1), LiftDelFlx )
       DVelDxi(:,2,1) = ( lmesh%Escale(:,ke,2,2) * Fy(:) + LiftDelFlx(:) - Q(:) * DdensDxi(:,2) ) * RDENS(:)
 
       call sparsemat_matmul( Dz, MOMX_(:,ke), Fz )
-      call sparsemat_matmul( Lift, lmesh%Fscale(:,ke)*del_flux_mom(:,ke,3,1), LiftDelFlx )
+      call sparsemat_matmul( Lift, lmesh%Fscale(:,ke) * del_flux_mom(:,ke,3,1), LiftDelFlx )
       DVelDxi(:,3,1) = ( lmesh%Escale(:,ke,3,3) * Fz(:) + LiftDelFlx(:) - Q(:) * DdensDxi(:,3) ) * RDENS(:)
 
       ! gradient of v
       Q(:) = MOMY_(:,ke) * RDENS(:)
 
       call sparsemat_matmul( Dx, MOMY_(:,ke), Fx )
-      call sparsemat_matmul( Lift, lmesh%Fscale(:,ke)*del_flux_mom(:,ke,1,2), LiftDelFlx )
+      call sparsemat_matmul( Lift, lmesh%Fscale(:,ke) * del_flux_mom(:,ke,1,2), LiftDelFlx )
       DVelDxi(:,1,2) = ( lmesh%Escale(:,ke,1,1) * Fx(:) + LiftDelFlx(:) - Q(:) * DdensDxi(:,1) ) * RDENS(:)
 
       call sparsemat_matmul( Dy, MOMY_(:,ke), Fy )
-      call sparsemat_matmul( Lift, lmesh%Fscale(:,ke)*del_flux_mom(:,ke,2,2), LiftDelFlx )
+      call sparsemat_matmul( Lift, lmesh%Fscale(:,ke) * del_flux_mom(:,ke,2,2), LiftDelFlx )
       DVelDxi(:,2,2) = ( lmesh%Escale(:,ke,2,2) * Fy(:) + LiftDelFlx(:) - Q(:) * DdensDxi(:,2) ) * RDENS(:)
 
       call sparsemat_matmul( Dz, MOMY_(:,ke), Fz )
-      call sparsemat_matmul( Lift, lmesh%Fscale(:,ke)*del_flux_mom(:,ke,3,2), LiftDelFlx )
+      call sparsemat_matmul( Lift, lmesh%Fscale(:,ke) * del_flux_mom(:,ke,3,2), LiftDelFlx )
       DVelDxi(:,3,2) = ( lmesh%Escale(:,ke,3,3) * Fz(:) + LiftDelFlx(:) - Q(:) * DdensDxi(:,3) ) * RDENS(:)
 
       ! gradient of w
       Q(:) = MOMZ_(:,ke) * RDENS(:)
 
       call sparsemat_matmul( Dx, MOMZ_(:,ke), Fx )
-      call sparsemat_matmul( Lift, lmesh%Fscale(:,ke)*del_flux_mom(:,ke,1,3), LiftDelFlx )
+      call sparsemat_matmul( Lift, lmesh%Fscale(:,ke) *del_flux_mom(:,ke,1,3), LiftDelFlx )
       DVelDxi(:,1,3) = ( lmesh%Escale(:,ke,1,1) * Fx(:) + LiftDelFlx(:) - Q(:) * DdensDxi(:,1) ) * RDENS(:)
 
       call sparsemat_matmul( Dy, MOMZ_(:,ke), Fy )
-      call sparsemat_matmul( Lift, lmesh%Fscale(:,ke)*del_flux_mom(:,ke,2,3), LiftDelFlx )
+      call sparsemat_matmul( Lift, lmesh%Fscale(:,ke) * del_flux_mom(:,ke,2,3), LiftDelFlx )
       DVelDxi(:,2,3) = ( lmesh%Escale(:,ke,2,2) * Fy(:) + LiftDelFlx(:) - Q(:) * DdensDxi(:,2) ) * RDENS(:)
 
       call sparsemat_matmul( Dz, MOMZ_(:,ke), Fz )
-      call sparsemat_matmul( Lift, lmesh%Fscale(:,ke)*del_flux_mom(:,ke,3,3), LiftDelFlx )
+      call sparsemat_matmul( Lift, lmesh%Fscale(:,ke) * del_flux_mom(:,ke,3,3), LiftDelFlx )
       DVelDxi(:,3,3) = ( lmesh%Escale(:,ke,3,3) * Fz(:) + LiftDelFlx(:) - Q(:) * DdensDxi(:,3) ) * RDENS(:)
 
       ! gradient of pt
       Q(:) = RHOT(:) * RDENS(:)
 
       call sparsemat_matmul( Dx, RHOT, Fx )
-      call sparsemat_matmul( Lift, lmesh%Fscale(:,ke)*del_flux_rhot(:,ke,1), LiftDelFlx )
+      call sparsemat_matmul( Lift, lmesh%Fscale(:,ke) * del_flux_rhot(:,ke,1), LiftDelFlx )
       dPTdx(:,ke) = ( lmesh%Escale(:,ke,1,1) * Fx(:) + LiftDelFlx(:) - Q(:) * DdensDxi(:,1) ) * RDENS(:)
 
       call sparsemat_matmul( Dy, RHOT, Fy )
-      call sparsemat_matmul( Lift, lmesh%Fscale(:,ke)*del_flux_rhot(:,ke,2), LiftDelFlx )
+      call sparsemat_matmul( Lift, lmesh%Fscale(:,ke) * del_flux_rhot(:,ke,2), LiftDelFlx )
       dPTdy(:,ke) = ( lmesh%Escale(:,ke,2,2) * Fy(:) + LiftDelFlx(:) - Q(:) * DdensDxi(:,2) ) * RDENS(:)
 
       call sparsemat_matmul( Dz, RHOT, Fz )
-      call sparsemat_matmul( Lift, lmesh%Fscale(:,ke)*del_flux_rhot(:,ke,3), LiftDelFlx )
+      call sparsemat_matmul( Lift, lmesh%Fscale(:,ke) * del_flux_rhot(:,ke,3), LiftDelFlx )
       dPTdz(:,ke) = ( lmesh%Escale(:,ke,3,3) * Fz(:) + LiftDelFlx(:) - Q(:) * DdensDxi(:,3) ) * RDENS(:)
 
 
@@ -381,11 +390,16 @@ contains
     integer :: i, iP, iM
     real(RP) :: densM, densP, rhotM, rhotP, rhot_hyd_M, rhot_hyd_P
     real(RP) :: del
-    real(RP) :: rgamm
     real(RP) :: facx, facy, facz
+
+    real(RP) :: rgamm
+    real(RP) :: rP0
+    real(RP) :: P0ovR       
     !------------------------------------------------------------------------
 
     rgamm = CVdry / CPdry
+    rP0   = 1.0_RP / PRES00
+    P0ovR = PRES00 / Rdry
     
     !$omp parallel do private ( iM, iP,                       &
     !$omp densM, densP, rhot_hyd_M, rhot_hyd_P, rhotM, rhotP, &
@@ -396,8 +410,8 @@ contains
       densM = DDENS_(iM) + DENS_hyd(iM)
       densP = DDENS_(iP) + DENS_hyd(iP)
 
-      rhot_hyd_M = PRES00 / Rdry * (PRES_hyd(iM) / PRES00)**rgamm
-      rhot_hyd_P = PRES00 / Rdry * (PRES_hyd(iP) / PRES00)**rgamm
+      rhot_hyd_M = P0ovR * (PRES_hyd(iM) * rP0)**rgamm
+      rhot_hyd_P = P0ovR * (PRES_hyd(iP) * rP0)**rgamm
       rhotM = rhot_hyd_M + DRHOT_(iM)
       rhotP = rhot_hyd_P + DRHOT_(iP) 
 
@@ -406,9 +420,12 @@ contains
         facy = 1.0_RP 
         facz = 1.0_RP 
       else
-        facx = 1.0_RP - sign(1.0_RP,nx(i))
-        facy = 1.0_RP - sign(1.0_RP,ny(i))
-        facz = 1.0_RP - sign(1.0_RP,nz(i))
+        ! facx = 1.0_RP - sign(1.0_RP,nx(i))
+        ! facy = 1.0_RP - sign(1.0_RP,ny(i))
+        ! facz = 1.0_RP - sign(1.0_RP,nz(i))
+        facx = 1.0_RP
+        facy = 1.0_RP
+        facz = 1.0_RP
       end if
 
       del = 0.5_RP * ( densP - densM )
@@ -622,14 +639,17 @@ contains
       TKEMulTwoOvThreeM = twoOverThree * TKE(iM) * tke_fac
       TKEMulTwoOvThreeP = twoOverThree * TKE(iP) * tke_fac
 
-      if ( iP > elem%NfpTot * lmesh%Ne .and. abs(nz(i)) > EPS ) then ! Tentative implementation for the treatmnet of lower/upper boundary. 
+      if ( iP > elem%Np * lmesh%Ne .and. abs(nz(i)) > EPS ) then ! Tentative implementation for the treatmnet of lower/upper boundary. 
         nx_ = nx(i)
         ny_ = ny(i)
         nz_ = nz(i)
       else
-        nx_ = ( 1.0_RP + sign(1.0_RP,nx(i)) ) * nx(i)
-        ny_ = ( 1.0_RP + sign(1.0_RP,ny(i)) ) * ny(i)
-        nz_ = ( 1.0_RP + sign(1.0_RP,nz(i)) ) * nz(i)
+        ! nx_ = ( 1.0_RP + sign(1.0_RP,nx(i)) ) * nx(i)
+        ! ny_ = ( 1.0_RP + sign(1.0_RP,ny(i)) ) * ny(i)
+        ! nz_ = ( 1.0_RP + sign(1.0_RP,nz(i)) ) * nz(i)
+        nx_ = nx(i)
+        ny_ = ny(i)
+        nz_ = nz(i)
       end if
 
       TauM_x = Nu(iM) * 2.0_RP * ( ( S11(iM) - SkkOvThreeM ) * nx_ + S12(iM) * ny_ + S31(iM) * nz_ ) &
