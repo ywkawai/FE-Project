@@ -313,7 +313,7 @@ contains
         dens = DENS_hyd(hsliceZ1,ke) + DDENS(hsliceZ1,ke)
         ATM_U(ij,ke2D) = MOMX(hsliceZ1,ke) / dens
         ATM_V(ij,ke2D) = MOMY(hsliceZ1,ke) / dens
-        ATM_W(ij,ke2D) = MOMZ(hsliceZ1,ke) / dens
+        ATM_W(ij,ke2D) = 0.0_RP !MOMZ(hsliceZ1,ke) / dens
 
         rhot = PRES00/Rdry * (PRES_hyd(hsliceZ0,ke)/PRES00)**(CVdry/CPdry) + DRHOT(hsliceZ0,ke)
         pres = PRES00 * (Rdry*rhot/PRES00)**(CPdry/Cvdry)      

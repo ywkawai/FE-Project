@@ -202,13 +202,14 @@ contains
     integer :: itr_lin
     integer :: itr_nlin
 
-    real(RP), parameter :: EPS0 = 1.0E-16_RP
-    real(RP), parameter :: EPS = 1.0E-16_RP
+    real(RP), parameter :: EPS0 = 1.0E-12_RP
+    real(RP), parameter :: EPS = 1.0E-12_RP
 
     type(SparseMat) :: Dz, Lift
 
     type(GMRES) :: gmres_hydro
     real(RP), allocatable :: wj(:)
+    real(RP), allocatable :: pinv_v(:)
     integer :: N, m
     integer :: vmapM_z1D(elem%NfpTot,lcmesh%NeZ)
     integer :: vmapP_z1D(elem%NfpTot,lcmesh%NeZ) 
@@ -220,6 +221,12 @@ contains
     real(RP) :: nz(elem%NfpTot,lcmesh%NeZ)
     real(RP) :: DENS_hyd_z(elem%Np,lcmesh%NeZ)
     real(RP) :: PRES_hyd_z(elem%Np,lcmesh%NeZ)
+    real(RP) :: PmatDlu(elem%Np,elem%Np,lcmesh%NeZ)
+    integer :: PmatDlu_ipiv(elem%Np,lcmesh%NeZ)
+    real(RP) :: PmatL(elem%Np,elem%Np,lcmesh%NeZ)
+    real(RP) :: PmatU(elem%Np,elem%Np,lcmesh%NeZ)
+
+    real(RP) :: linf_b
 
     logical :: is_converged
 
@@ -247,9 +254,9 @@ contains
 
     !---
     N = elem%Np * lcmesh%NeZ
-    m = N / elem%Nnode_h1D**2
+    m = min(N / elem%Nnode_h1D**2, 30)
     call gmres_hydro%Init( N, m, EPS, EPS )
-    allocate( wj(N) )
+    allocate( wj(N), pinv_v(N) )
 
     call Dz%Init( elem%Dx3, storage_format='ELL' )
     call Lift%Init( elem%Lift, storage_format='ELL' )
@@ -267,7 +274,6 @@ contains
     IntrpMat_VPOrdM1(:,:) = matmul(elem%V, invV_POrdM1)
 
     call elem3D%Init( elem%PolyOrder_h, elem%PolyOrder_v, .false. )
-    call mfilter%Init( elem3D, 0.0_RP, 32.0_RP, 16, 0.0_RP, 32.0_RP, 16 )
 
     !-----
 
@@ -290,7 +296,6 @@ contains
       !
       call RANDOM_uniform( rndm )
       POT(:,ke_z,ke_x,ke_y) = THETA0(:) + (rndm(:) * 2.0_RP - 1.0_RP ) * RANDOM_THETA
-      POT(:,ke_z,ke_x,ke_y) = matmul(mfilter%FilterMat, POT(:,ke_z,ke_x,ke_y))
     end do
     end do
     end do
@@ -310,35 +315,38 @@ contains
         PRES_hyd_z(:,ke_z) = PRES_hyd(:,ke)
       end do
 
-      do itr_nlin=1, 10!3
+      do itr_nlin=1, 10
 
         do ke_z=1, lcmesh%NeZ
           VAR_DEL(:,ke_z) = 0.0_RP
         end do
 
         call eval_Ax( Ax(:,:), &
-          VARS, VARS0, POT(:,:,ke_x,ke_y), DENS_hyd, PRES_hyd,         &
-          Dz, Lift, IntrpMat_VPOrdM1, lcmesh, elem, &
+          VARS, VARS0, POT(:,:,ke_x,ke_y), DENS_hyd_z, PRES_hyd_z,  &
+          Dz, Lift, IntrpMat_VPOrdM1, lcmesh, elem,                 &
           nz, vmapM_z1D, vmapP_z1D, ke_x, ke_y )
         
         do ke_z=1, lcmesh%NeZ
           b(:,ke_z) = - Ax(:,ke_z)
-        end do          
-
+        end do
         if (lcmesh%tileID==1) then
           LOG_PROGRESS(*) ke_x, ke_y, "itr:", itr_nlin, 0, ": VAR", VARS(elem%Colmask(:,1),1)
           LOG_PROGRESS(*) ke_x, ke_y, "itr:", itr_nlin, 0, ": b", b(elem%Colmask(:,1),1)
           if( IO_L ) call flush(IO_FID_LOG)
         end if
+
+        if ( maxval(abs(b(:,:))) < 1.0E-10_RP ) exit
+        
+        call construct_pmatInv( PmatDlu, PmatDlu_ipiv, PmatL, PmatU,  & ! (out)
+          VARS0, POT(:,:,ke_x,ke_y), DENS_hyd_z, PRES_hyd_z,          & ! (in)
+          Dz, Lift, IntrpMat_VPOrdM1, lcmesh, elem,                   & ! (in)
+          nz, vmapM_z1D, vmapP_z1D, ke_x, ke_y  )
+
         do itr_lin=1, 2*int(N/m)
-          ! if (lcmesh%tileID==1) then
-          !   LOG_PROGRESS(*) ke_x, ke_y, "itr:", itr_nlin, itr_lin, ":DEL", VAR_DEL(elem%Colmask(:,1),1)
-          !   if( IO_L ) call flush(IO_FID_LOG)
-          ! end if
-  
           !
           call GMRES_hydro_core( gmres_hydro, VAR_DEL, wj, is_converged, &
             VARS, b, N, m,                                               &
+            PmatDlu,  PmatDlu_ipiv,  PmatL, PmatU, pinv_v,               & ! (in)
             POT(:,:,ke_x,ke_y), DENS_hyd_z, PRES_hyd_z,                  &
             Dz, Lift, IntrpMat_VPOrdM1, lcmesh, elem,                    &
             nz, vmapM_z1D, vmapP_z1D, ke_x, ke_y )
@@ -453,6 +461,7 @@ contains
 !OCL SERIAL
   subroutine GMRES_hydro_core( gmres_hydro, x, wj, is_converged, &
     x0, b, N, m,                                        &
+    PmatDlu, PmatDlu_ipiv, PmatL, PmatU, pinv_v,                 & ! (in)    
     POT, DENS_hyd, PRES_hyd,                            &
     Dz, Lift, IntrpMat_VPOrdM1, lmesh, elem,            &
     nz, vmapM, vmapP, ke_x, ke_y )
@@ -470,6 +479,11 @@ contains
     logical, intent(out) :: is_converged
     real(RP), intent(in) :: x0(N)
     real(RP), intent(in) :: b(N)
+    real(RP), intent(in) :: PmatDlu(elem%Np,elem%Np,lmesh%NeZ)
+    integer, intent(in) :: PmatDlu_ipiv(elem%Np,lmesh%NeZ)
+    real(RP), intent(in) :: PmatL(elem%Np,elem%Np,lmesh%NeZ)
+    real(RP), intent(in) :: PmatU(elem%Np,elem%Np,lmesh%NeZ)
+    real(RP), intent(inout) :: pinv_v(N)
     !---
     real(RP), intent(in) :: POT(elem%Np,lmesh%NeZ)
     real(RP), intent(in) :: DENS_hyd(elem%Np,lmesh%NeZ)
@@ -493,18 +507,95 @@ contains
     if (is_converged) return 
 
     do j=1, min(m, N)
-      call eval_Ax_lin( wj(:),                  & ! (out)
-       gmres_hydro%v(:,j), x0, POT, DENS_hyd, PRES_hyd,             & ! (in)
-       Dz, Lift, IntrpMat_VPOrdM1, lmesh, elem, & ! (in)
-       nz, vmapM, vmapP, ke_x, ke_y             ) ! (in)
+      call matmul_pinv_v( pinv_v, PmatDlu, PmatDlu_ipiv, PmatL, PmatU, gmres_hydro%v(:,j) )
+
+      call eval_Ax_lin( wj(:),                   & ! (out)
+        pinv_v, x0, POT, DENS_hyd, PRES_hyd,     & ! (in)
+        Dz, Lift, IntrpMat_VPOrdM1, lmesh, elem, & ! (in)
+        nz, vmapM, vmapP, ke_x, ke_y             ) ! (in)
       
       call gmres_hydro%Iterate_step_j( j, wj, is_converged )
       if (is_converged) exit
     end do
 
-    call gmres_hydro%Iterate_post( x(:) )
+    do j=1, N
+      wj(j) = 0.0_RP
+    end do
+    call gmres_hydro%Iterate_post( wj )
+    call matmul_pinv_v_plus_x0( x, PmatDlu, PmatDlu_ipiv, PmatL, pmatU, wj)
 
     return
+  contains
+
+!OCL SERIAL
+    subroutine matmul_pinv_v( pinv_v_, pDlu_, PmatDlu_ipiv_, pL, pU, v)
+      implicit none
+      real(RP), intent(out) :: pinv_v_(elem%Np,lmesh%NeZ)      
+      real(RP), intent(in) :: pDlu_(elem%Np,elem%Np,lmesh%NeZ)
+      integer, intent(in) :: PmatDlu_ipiv_(elem%Np,lmesh%NeZ)
+      real(RP), intent(in) :: pL(elem%Np,elem%Np,lmesh%NeZ)
+      real(RP), intent(in) :: pU(elem%Np,elem%Np,lmesh%NeZ)
+      real(RP), intent(in) :: v(elem%Np,lmesh%NeZ)      
+
+      integer :: k, n
+      real(RP) :: tmp(elem%Np)
+      integer :: vs, ve
+      integer :: info
+      !------------------------------------
+      
+      n = elem%Np
+
+      vs = 1
+      ve = vs + elem%Np - 1
+      pinv_v_(:,1) = v(vs:ve,1)
+      call DGETRS('N', n, 1, pDlu_(:,:,1), n, PmatDlu_ipiv_(:,1), pinv_v_(:,1), n, info)
+
+      do k=2, lmesh%NeZ
+        vs = 1; ve = elem%Np
+        pinv_v_(:,k) = v(vs:ve,k) &
+          - matmul( pL(:,:,k), pinv_v_(:,k-1) )
+        
+        call DGETRS('N', n, 1, pDlu_(:,:,k), n, PmatDlu_ipiv_(:,k), pinv_v_(:,k), n, info)
+      end do
+
+      !
+      do k=lmesh%NeZ-1, 1, -1
+        vs = 1; ve = elem%Np
+        tmp(vs:ve) = matmul( pU(:,:,k), pinv_v_(:,k+1) )
+        call DGETRS('N', n, 1, pDlu_(:,:,k), n, PmatDlu_ipiv_(:,k), tmp(:), n, info)
+
+        vs = 1
+        ve = vs + elem%Np - 1  
+        pinv_v_(:,k) = pinv_v_(:,k) - tmp(vs:ve)
+      end do
+
+      return
+    end subroutine matmul_pinv_v
+
+!OCL SERIAL
+    subroutine matmul_pinv_v_plus_x0( x_, pDlu_, PmatDlu_ipiv_, pL, pU, v)
+      implicit none
+      real(RP), intent(inout) :: x_(elem%Np,lmesh%NeZ)      
+      real(RP), intent(in) :: pDlu_(elem%Np,elem%Np,lmesh%NeZ)
+      integer, intent(in) :: PmatDlu_ipiv_(elem%Np,lmesh%NeZ)
+      real(RP), intent(in) :: pL(elem%Np,elem%Np,lmesh%NeZ)
+      real(RP), intent(in) :: pU(elem%Np,elem%Np,lmesh%NeZ)
+      real(RP), intent(in) :: v(elem%Np,lmesh%NeZ)      
+
+      integer :: k
+      real(RP) :: tmp(elem%Np,lmesh%NeZ)
+
+      !------------------------------------
+      
+      call matmul_pinv_v( tmp, pDlu_, PmatDlu_ipiv_, pL, pU, v)
+      !$omp parallel do
+      do k=1, lmesh%NeZ
+        x_(:,k) = x_(:,k) + tmp(:,k)
+      end do
+
+      return
+    end subroutine matmul_pinv_v_plus_x0    
+
   end subroutine GMRES_hydro_core
 
 !OCL SERIAL
@@ -531,7 +622,7 @@ contains
     integer, intent(in) :: vmapP(elem%NfpTot,lmesh%NeZ)    
     integer, intent(in) :: ke_x, ke_y
 
-    real(RP) :: DPRES(elem%Np)
+    real(RP) :: DPRES(elem%Np), DENS(elem%Np)
     real(RP) :: Fz(elem%Np), LiftDelFlx(elem%Np)
     real(RP) :: del_flux(elem%NfpTot,lmesh%NeZ)
 
@@ -549,23 +640,18 @@ contains
       DDENS, POT, DENS_hyd, PRES_hyd,                   & ! (in)        
       nz, vmapM, vmapP, lmesh, elem ) ! (in)
 
-    !$omp parallel do private(ke, DPRES, Fz, LiftDelFlx)
+    !$omp parallel do private(ke, DPRES, DENS, Fz, LiftDelFlx)
     do ke_z=1, lmesh%NeZ
       ke = Ke_x + (Ke_y-1)*lmesh%NeX + (ke_z-1)*lmesh%NeX*lmesh%NeY
 
-      DPRES(:) = PRES00 * ( RdOvP00 * (DENS_hyd(:,ke_z) + DDENS(:,ke_z)) * POT(:,ke_z) )**gamm &
-               - PRES_hyd(:,ke_z)
+      DENS(:) = DENS_hyd(:,ke_z) + DDENS(:,ke_z)
+      DPRES(:) = PRES00 * ( RdOvP00 * DENS(:) * POT(:,ke_z) )**gamm !&
+               !- PRES_hyd(:,ke_z)
       call sparsemat_matmul(Dz, DPRES, Fz)
       call sparsemat_matmul(Lift, lmesh%Fscale(:,ke)*del_flux(:,ke_z), LiftDelFlx)
 
       Ax(:,ke_z) = lmesh%Escale(:,ke,3,3) * Fz(:) + LiftDelFlx(:) &
-                 + Grav * matmul(IntrpMat_VPOrdM1, DDENS(:,ke_z))
-
-      ! if (lmesh%tileID==1 .and. ke_x==1 .and. ke_y==1 ) then
-      !   LOG_PROGRESS(*) "DENS:", DENS(:,ke_z)
-      !   LOG_PROGRESS(*) "DPdz:", lmesh%Escale(:,ke,3,3) * Fz(:)
-      !   if( IO_L ) call flush(IO_FID_LOG)
-      ! end if
+                 + Grav * matmul(IntrpMat_VPOrdM1, DENS(:))!DDENS(:,ke_z))
     end do
 
     return
@@ -606,9 +692,9 @@ contains
       i = p + (ke_z-1)*elem%NfpTot
       iM = vmapM(i); iP = vmapP(i)
   
-      dpresM = PRES00 *  ( RdOvP00 * (DENS_hyd(iM) + DDENS_(iM)) * POT_(iM) )**gamm - PRES_hyd(iM)
-      dpresP = PRES00 *  ( RdOvP00 * (DENS_hyd(iP) + DDENS_(iP)) * POT_(iP) )**gamm - PRES_hyd(iP)
-      if (ke_z==1.and. iM==iP) dpresP = 0.0_RP
+      dpresM = PRES00 *  ( RdOvP00 * (DENS_hyd(iM) + DDENS_(iM)) * POT_(iM) )**gamm !- PRES_hyd(iM)
+      dpresP = PRES00 *  ( RdOvP00 * (DENS_hyd(iP) + DDENS_(iP)) * POT_(iP) )**gamm !- PRES_hyd(iP)
+      if (ke_z==1.and. iM==iP) dpresP = PRES_hyd(iP)!0.0_RP
 
       del_flux(i) = 0.5_RP * (dpresP - dpresM) * nz(i)
     end do
@@ -727,5 +813,155 @@ contains
 
     return
   end subroutine cal_del_flux_lin
+
+!OCL SERIAL
+  subroutine construct_pmatInv( PmatDlu, PmatDlu_ipiv, PmatL, PmatU, &
+    DDENS0, POT, DENS_hyd, PRES_hyd,                   & ! (in)
+    Dz, Lift, IntrpMat_VPOrdM1, lmesh, elem,                            & ! (in)
+    nz, vmapM, vmapP, ke_x, ke_y )
+
+    use scale_linalgebra, only: linalgebra_LU
+    implicit none
+
+    class(LocalMesh3D), intent(in) :: lmesh
+    class(elementbase3D), intent(in) :: elem
+    real(RP), intent(out) :: PmatDlu(elem%Np,elem%Np,lmesh%NeZ)
+    integer, intent(out) :: PmatDlu_ipiv(elem%Np,lmesh%NeZ)
+    real(RP), intent(out) :: PmatL(elem%Np,elem%Np,lmesh%NeZ)
+    real(RP), intent(out) :: PmatU(elem%Np,elem%Np,lmesh%NeZ)
+    real(RP), intent(in)  :: DDENS0(elem%Np,lmesh%NeZ)
+    real(RP), intent(in)  :: POT(elem%Np,lmesh%NeZ)
+    real(RP), intent(in)  :: DENS_hyd(elem%Np,lmesh%NeZ)
+    real(RP), intent(in)  :: PRES_hyd(elem%Np,lmesh%NeZ)
+    class(SparseMat), intent(in) :: Dz, Lift
+    real(RP), intent(in) :: IntrpMat_VPOrdM1(elem%Np,elem%Np)
+    real(RP), intent(in) :: nz(elem%NfpTot,lmesh%NeZ)
+    integer, intent(in) :: vmapM(elem%NfpTot,lmesh%NeZ)
+    integer, intent(in) :: vmapP(elem%NfpTot,lmesh%NeZ)    
+    integer, intent(in) :: ke_x, ke_y
+
+    real(RP) :: DENS0(elem%Np,lmesh%NeZ)
+    real(RP) :: PRES0(elem%Np,lmesh%NeZ)
+    integer :: ke_z, ke_z2
+    integer :: ke, p, fp, v
+    real(RP) :: gamm, rgamm
+    real(RP) :: dz_p(elem%Np)
+    real(RP) :: PmatD(elem%Np,elem%Np)
+
+    integer :: f1, f2, fp_s, fp_e
+    integer :: FmV(elem%Nfp_v)
+    integer :: FmV2 (elem%Nfp_v)
+    real(RP) :: lift_op(elem%Np,elem%NfpTot)
+    real(RP) :: lift_(elem%Np,elem%Np)
+    real(RP) :: lift_2(elem%Np,elem%Np)
+    real(RP) :: tmp(elem%Nfp_v)
+    real(RP) :: fac
+    !--------------------------------------------------------
+
+    gamm = CpDry/CvDry
+    rgamm = CvDry/CpDry
+
+    lift_op(:,:) = elem%Lift
+
+    !$omp parallel do   
+    do ke_z=1, lmesh%NeZ
+      DENS0(:,ke_z) = DENS_hyd(:,ke_z) + DDENS0(:,ke_z)
+      PRES0(:,ke_z) = PRES00 * ( Rdry / PRES00 * DENS0(:,ke_z) * POT(:,ke_z) )**gamm
+    end do
+
+!   !$omp parallel do private(ke, p, fp, v, f1, f2, ke_z2, dz_p, &
+!   !$omp fac, tmp, lift_, lift_2, &
+!   !$omp PmatD, FmV, FmV2, fp_s, fp_e)
+    do ke_z=1, lmesh%NeZ
+      ke = Ke_x + (Ke_y-1)*lmesh%NeX + (ke_z-1)*lmesh%NeX*lmesh%NeY
+
+      !-----
+      PmatD(:,:) = 0.0_RP
+      PmatL(:,:,ke_z) = 0.0_RP
+      PmatU(:,:,ke_z) = 0.0_RP
+
+      do p=1, elem%Np
+        dz_p(:) = lmesh%Escale(p,ke,3,3) * elem%Dx3(p,:) 
+        PmatD(p,:) = dz_p(:) * gamm * PRES0(:,ke_z ) / DENS0(:,ke_z) &
+                   + Grav * IntrpMat_VPOrdM1(p,:)
+      end do
+
+      do f1=1, 2
+        if (f1==1) then
+          f2 = 2; ke_z2 = max(ke_z-1, 1)
+        else
+          f2 = 1; ke_z2 = min(ke_z+1, lmesh%NeZ)
+        end if
+        fac  = 0.5_RP
+        if ( (ke_z == 1 .and. f1==1) .or. (ke_z == lmesh%NeZ .and. f1==elem%Nfaces_v) ) then
+          f2 = f1
+        end if
+
+        FmV (:) = elem%Fmask_v(:,f1)
+        FmV2(:) = elem%Fmask_v(:,f2)
+
+        fp_s = elem%Nfp_h * elem%Nfaces_h + 1 + (f1-1)*elem%Nfp_v
+        fp_e = fp_s + elem%Nfp_v - 1
+        
+        !
+        lift_ (:,:) = 0.0_RP
+        lift_2(:,:) = 0.0_RP
+        do fp=fp_s, fp_e
+          p = fp-fp_s+1
+          tmp(:) = lift_op(FmV,fp) * lmesh%Fscale(fp,ke) * nz(fp,ke_z)
+          lift_ (FmV,FmV (p)) = tmp(:) * gamm * PRES0(FmV (p),ke_z ) / DENS0(FmV (p),ke_z )
+          lift_2(FmV,FmV2(p)) = tmp(:) * gamm * PRES0(FmV2(p),ke_z2) / DENS0(FmV2(p),ke_z2)
+        end do
+
+        !----        
+        if ( (ke_z == 1 .and. f1==1) ) then
+          PmatD(:,:) = PmatD(:,:) - fac * lift_(:,:)
+        else if ( (ke_z == lmesh%NeZ .and. f1==elem%Nfaces_v) ) then
+        else
+          PmatD(:,:) = PmatD(:,:) - fac * lift_(:,:)
+          if (f1 == 1) then
+            PmatL(:,:,ke_z) = fac * lift_2(:,:)
+          else
+            PmatU(:,:,ke_z) = fac * lift_2(:,:)
+          end if  
+        end if
+
+      end do
+      call get_PmatD_LU( PmatDlu(:,:,ke_z), PmatD(:,:), PmatDlu_ipiv(:,ke_z), elem%Np )
+    end do    
+
+    return
+
+  contains 
+!OCL SERIAL
+    subroutine get_PmatD_LU( pmatDlu_, pmatD_, pmatDlu_ipiv_, N)
+      use scale_linalgebra, only: linalgebra_LU
+      implicit none
+      integer, intent(in) :: N
+      real(RP), intent(out) :: pmatDlu_(N,N)
+      real(RP), intent(in) :: pmatD_(N,N)
+      integer, intent(out) :: pmatDlu_ipiv_(N)
+      integer :: info
+      !------------------------------------------
+
+      pmatDlu_(:,:) = pmatD_(:,:)
+      call linalgebra_LU(pmatDlu_, pmatDlu_ipiv_)
+      return
+    end subroutine get_PmatD_LU
+    
+!OCL SERIAL
+    subroutine get_PmatD_inv( pmatDinv_, pmatD_, pmatDlu_ipiv_, N)
+      use scale_linalgebra, only: linalgebra_inv
+      implicit none
+      integer, intent(in) :: N
+      real(RP), intent(out) :: pmatDinv_(N,N)
+      real(RP), intent(in) :: pmatD_(N,N)
+      integer, intent(out) :: pmatDlu_ipiv_(N)
+      !------------------------------------------
+
+      pmatDinv_(:,:) = linalgebra_inv(pmatD_)
+      return
+    end subroutine get_PmatD_inv    
+  end subroutine construct_pmatInv
 
 end module mod_user
