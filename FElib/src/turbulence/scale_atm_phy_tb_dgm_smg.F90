@@ -394,7 +394,9 @@ contains
 
     real(RP) :: rgamm
     real(RP) :: rP0
-    real(RP) :: P0ovR       
+    real(RP) :: P0ovR
+
+    real(RP) :: MOMZ_P
     !------------------------------------------------------------------------
 
     rgamm = CVdry / CPdry
@@ -403,7 +405,7 @@ contains
     
     !$omp parallel do private ( iM, iP,                       &
     !$omp densM, densP, rhot_hyd_M, rhot_hyd_P, rhotM, rhotP, &
-    !$omp del, facx, facy, facz                               )
+    !$omp del, facx, facy, facz, MOMZ_P                       )
     do i=1, elem%NfpTot * lmesh%Ne
       iM = vmapM(i); iP = vmapP(i)
 
@@ -418,7 +420,8 @@ contains
       if ( iP > elem%Np * lmesh%Ne .and. abs(nz(i)) > EPS ) then
         facx = 1.0_RP
         facy = 1.0_RP 
-        facz = 1.0_RP 
+        facz = 1.0_RP
+        MOMZ_P = - MOMZ_(iM)
       else
         ! facx = 1.0_RP - sign(1.0_RP,nx(i))
         ! facy = 1.0_RP - sign(1.0_RP,ny(i))
@@ -426,6 +429,7 @@ contains
         facx = 1.0_RP
         facy = 1.0_RP
         facz = 1.0_RP
+        MOMZ_P = MOMZ_(iP)
       end if
 
       del = 0.5_RP * ( densP - densM )
@@ -443,7 +447,7 @@ contains
       del_flux_mom(i,2,2) = facy * del * ny(i)
       del_flux_mom(i,3,2) = facz * del * nz(i)
 
-      del = 0.5_RP * ( MOMZ_(iP) - MOMZ_(iM) )
+      del = 0.5_RP * ( MOMZ_P - MOMZ_(iM) )
       del_flux_mom(i,1,3) = facx * del * nx(i)
       del_flux_mom(i,2,3) = facy * del * ny(i)
       del_flux_mom(i,3,3) = facz * del * nz(i)
@@ -715,7 +719,8 @@ contains
       Zs(:) = lmesh%pos_en(elem%Hslice(:,1),lmesh%EMap3Dto2D(ke),3)
       dz(:) = lmesh%pos_en(:,ke,3) - Zs(elem%IndexH2Dto3D(:))
 
-      lambda(:,ke) = sqrt( 1.0_RP / (1.0_RP / lambda0**2 + 1.0_RP / ( KARMAN * max( dz(:), EPS ) )**2 ) )
+      !lambda(:,ke) = sqrt( 1.0_RP / (1.0_RP / lambda0**2 + 1.0_RP / ( KARMAN * max( dz(:), EPS ) )**2 ) )
+      lambda(:,ke) = sqrt( 1.0_RP / (1.0_RP / lambda0**2 + 1.0_RP / ( KARMAN * max( dz(:), 10.0_RP ) )**2 ) )
     end do
 
     return
