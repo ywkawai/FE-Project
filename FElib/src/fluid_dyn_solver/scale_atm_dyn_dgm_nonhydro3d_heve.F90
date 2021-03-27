@@ -359,26 +359,26 @@ contains
 
       del_flux(:,ke,VARS_DDENS_ID) = 0.5_RP * (                  &
                     ( densP(:) * VelP(:) - densM(:) * VelM(:) )  &
-                    - alpha(:) * (DDENS_P(:) - DDENS_M(:))       )
+                    - alpha(:) * ( DDENS_P(:) - DDENS_M(:) )     )
 
       del_flux(:,ke,VARS_MOMX_ID) = 0.5_RP * (                     &
                     ( MOMX_P(:) * VelP(:) - MOMX_M(:) * VelM(:) )  &
                     + dpres(:) * nx(:,ke)                          &
-                    - alpha(:) * (MOMX_P(:) - MOMX_M(:))           )
+                    - alpha(:) * ( MOMX_P(:) - MOMX_M(:) )         )
       
       del_flux(:,ke,VARS_MOMY_ID) = 0.5_RP * (                     &
                     ( MOMY_P(:) * VelP(:) - MOMY_M(:) * VelM(:) )  &
                     + dpres(:) * ny(:,ke)                          &
-                    - alpha(:) * (MOMY_P(:) - MOMY_M(:))           )               
+                    - alpha(:) * ( MOMY_P(:) - MOMY_M(:) )         )               
       
       del_flux(:,ke,VARS_MOMZ_ID) = 0.5_RP * (                     &
                     ( MOMZ_P(:) * VelP(:) - MOMZ_M(:) * VelM(:))   &
                     + dpres(:) * nz(:,ke)                          &                   
-                    - alpha(:) * (MOMZ_P(:) - MOMZ_M(:))           )
+                    - alpha(:) * ( MOMZ_P(:) - MOMZ_M(:) )         )
       
       del_flux(:,ke,VARS_DRHOT_ID) = 0.5_RP * (                    &
                     ( rhotP(:) * VelP(:) - rhotM(:) * VelM(:) )    &
-                    - alpha(:) * (DRHOT_P(:) - DRHOT_M(:))         )
+                    - alpha(:) * ( DRHOT_P(:) - DRHOT_M(:) )       )
     end do
 
     return
