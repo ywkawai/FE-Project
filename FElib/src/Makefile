@@ -87,6 +87,7 @@ OBJS_NAME_FLUID_DYN_SOLVER = \
 	scale_atm_dyn_dgm_nonhydro2d.o                \
 	scale_atm_dyn_dgm_nonhydro3d_heve.o           \
 	scale_atm_dyn_dgm_nonhydro3d_hevi.o           \
+	scale_atm_dyn_dgm_nonhydro3d_splitform_heve.o \
 	scale_atm_dyn_dgm_nonhydro3d_splitform_hevi.o \
 	scale_atm_dyn_dgm_nonhydro3d_hevi_gmres.o 
 
