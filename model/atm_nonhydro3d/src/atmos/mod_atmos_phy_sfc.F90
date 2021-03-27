@@ -261,7 +261,7 @@ contains
     real(RP), intent(inout) :: MOMX_tp(elem%Np,lcmesh%NeA)
     real(RP), intent(inout) :: MOMY_tp(elem%Np,lcmesh%NeA)
     real(RP), intent(inout) :: MOMZ_tp(elem%Np,lcmesh%NeA)
-    real(RP), intent(inout) :: RHOH_p   (elem%Np,lcmesh%NeA)
+    real(RP), intent(inout) :: RHOH_p (elem%Np,lcmesh%NeA)
     real(RP), intent(inout) :: SFLX_MU(elem2D%Np,lcmesh2D%NeA)
     real(RP), intent(inout) :: SFLX_MV(elem2D%Np,lcmesh2D%NeA)
     real(RP), intent(inout) :: SFLX_MW(elem2D%Np,lcmesh2D%NeA)
@@ -276,17 +276,17 @@ contains
     real(RP), intent(in) :: DENS_hyd(elem%Np,lcmesh%NeA)
     type(SparseMat), intent(in) :: Dz, Sz, Lift
 
-    real(RP) :: ATM_W   (elem2D%Np,lcmesh2D%Ne)
-    real(RP) :: ATM_U   (elem2D%Np,lcmesh2D%Ne)
-    real(RP) :: ATM_V   (elem2D%Np,lcmesh2D%Ne)
-    real(RP) :: Z1      (elem2D%Np,lcmesh2D%Ne)
-    real(RP) :: SFC_TEMP(elem2D%Np,lcmesh2D%Ne)
-    real(RP) :: SFC_DENS(elem2D%Np,lcmesh2D%Ne)
+    real(RP) :: ATM_W   (elem2D%Np,lcmesh2D%NeA)
+    real(RP) :: ATM_U   (elem2D%Np,lcmesh2D%NeA)
+    real(RP) :: ATM_V   (elem2D%Np,lcmesh2D%NeA)
+    real(RP) :: Z1      (elem2D%Np,lcmesh2D%NeA)
+    real(RP) :: SFC_TEMP(elem2D%Np,lcmesh2D%NeA)
+    real(RP) :: SFC_DENS(elem2D%Np,lcmesh2D%NeA)
 
     ! dummy
-    real(RP) :: SFLX_QV(elem2D%Np,lcmesh2D%Ne)
-    real(RP) :: U10(elem2D%Np,lcmesh2D%Ne)
-    real(RP) :: V10(elem2D%Np,lcmesh2D%Ne)
+    real(RP) :: SFLX_QV(elem2D%Np,lcmesh2D%NeA)
+    real(RP) :: U10(elem2D%Np,lcmesh2D%NeA)
+    real(RP) :: V10(elem2D%Np,lcmesh2D%NeA)
 
     integer :: ke
     integer :: ke2D
@@ -313,7 +313,7 @@ contains
         dens = DENS_hyd(hsliceZ1,ke) + DDENS(hsliceZ1,ke)
         ATM_U(ij,ke2D) = MOMX(hsliceZ1,ke) / dens
         ATM_V(ij,ke2D) = MOMY(hsliceZ1,ke) / dens
-        ATM_W(ij,ke2D) = 0.0_RP !MOMZ(hsliceZ1,ke) / dens
+        ATM_W(ij,ke2D) = 0.0_RP
 
         rhot = PRES00/Rdry * (PRES_hyd(hsliceZ0,ke)/PRES00)**(CVdry/CPdry) + DRHOT(hsliceZ0,ke)
         pres = PRES00 * (Rdry*rhot/PRES00)**(CPdry/Cvdry)      
@@ -327,12 +327,12 @@ contains
       select case ( this%SFCFLX_TYPEID )
       case ( SFCFLX_TYPEID_CONST )
         call ATMOS_PHY_SF_const_flux( &
-          elem2D%Np, 1, elem2D%Np, lcmesh2D%Ne, 1, lcmesh2D%Ne, & ! [IN]
-          ATM_W(:,:), ATM_U(:,:), ATM_V(:,:), SFC_TEMP(:,:),    & ! [IN]
-          Z1(:,:), SFC_DENS(:,:),                               & ! [IN]
-          SFLX_MW(:,:), SFLX_MU(:,:), SFLX_MV(:,:),             & ! [OUT]
-          SFLX_SH(:,:), SFLX_LH(:,:), SFLX_QV(:,:),             & ! [OUT]
-          U10(:,:), V10(:,:)                                    ) ! [OUT]
+          elem2D%Np, 1, elem2D%Np, lcmesh2D%NeA, 1, lcmesh2D%Ne, & ! [IN]
+          ATM_W(:,:), ATM_U(:,:), ATM_V(:,:), SFC_TEMP(:,:),     & ! [IN]
+          Z1(:,:), SFC_DENS(:,:),                                & ! [IN]
+          SFLX_MW(:,:), SFLX_MU(:,:), SFLX_MV(:,:),              & ! [OUT]
+          SFLX_SH(:,:), SFLX_LH(:,:), SFLX_QV(:,:),              & ! [OUT]
+          U10(:,:), V10(:,:)                                     ) ! [OUT]
       end select
 
     end if
@@ -376,10 +376,10 @@ contains
     class(LocalMesh2D), intent(in) :: lmesh2D
     class(elementbase2D), intent(in) :: elem2D   
     real(RP), intent(out) ::  del_flux(elem%NfpTot*lmesh%Ne,4)
-    real(RP), intent(in) :: sflx_mu(elem2D%Np,lmesh2D%Ne)
-    real(RP), intent(in) :: sflx_mv(elem2D%Np,lmesh2D%Ne)
-    real(RP), intent(in) :: sflx_mw(elem2D%Np,lmesh2D%Ne)
-    real(RP), intent(in) :: sflx_sh(elem2D%Np,lmesh2D%Ne)
+    real(RP), intent(in) :: sflx_mu(elem2D%Np,lmesh2D%NeA)
+    real(RP), intent(in) :: sflx_mv(elem2D%Np,lmesh2D%NeA)
+    real(RP), intent(in) :: sflx_mw(elem2D%Np,lmesh2D%NeA)
+    real(RP), intent(in) :: sflx_sh(elem2D%Np,lmesh2D%NeA)
     real(RP), intent(in) :: nz(elem%NfpTot*lmesh%Ne)
 
     integer :: ke2D, p

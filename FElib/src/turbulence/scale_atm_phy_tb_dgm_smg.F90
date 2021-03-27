@@ -674,7 +674,7 @@ contains
       if ( iP > elem%Np * lmesh%Ne .and. abs(nz(i)) > EPS )  then ! Tentative implementation for the treatmnet of lower/upper boundary. 
         del_flux_mom(i,1) = - densM * TauM_x
         del_flux_mom(i,2) = - densM * TauM_y
-        del_flux_mom(i,3) = - densM * TauM_z
+        del_flux_mom(i,3) = 0.5_RP * ( densP * TauP_z - densM * TauM_z )
         del_flux_rhot(i)  = - densM * Kh(iM) * ( dPTdx(iM) * nx(i) + dPTdy(iM) * ny(i) + dPTdz(iM) * nz(i) )
       else        
         del_flux_mom(i,1) = 0.5_RP * ( densP * TauP_x - densM * TauM_x )
@@ -720,7 +720,7 @@ contains
       dz(:) = lmesh%pos_en(:,ke,3) - Zs(elem%IndexH2Dto3D(:))
 
       !lambda(:,ke) = sqrt( 1.0_RP / (1.0_RP / lambda0**2 + 1.0_RP / ( KARMAN * max( dz(:), EPS ) )**2 ) )
-      lambda(:,ke) = sqrt( 1.0_RP / (1.0_RP / lambda0**2 + 1.0_RP / ( KARMAN * max( dz(:), 10.0_RP ) )**2 ) )
+      lambda(:,ke) = sqrt( 1.0_RP / (1.0_RP / lambda0**2 + 1.0_RP / ( KARMAN * ( dz(:) + 1.0E-4_RP ) )**2 ) )    
     end do
 
     return

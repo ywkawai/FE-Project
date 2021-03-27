@@ -279,8 +279,8 @@ contains
 
     EXNER_sfc = (Pstd/PRES00)**(Rdry/Cpdry)
 
-    !$omp parallel do private( &
-    !$omp EXNER, THETA0, rndm  )
+    !$omp parallel do private(    &
+    !$omp ke, EXNER, THETA0, rndm  )
     do ke_z=1, lcmesh%NeZ
     do ke_y=1, lcmesh%NeY
     do ke_x=1, lcmesh%NeX
@@ -295,7 +295,7 @@ contains
 
       !
       call RANDOM_uniform( rndm )
-      POT(:,ke_z,ke_x,ke_y) = THETA0(:) + (rndm(:) * 2.0_RP - 1.0_RP ) * RANDOM_THETA
+      POT(:,ke_z,ke_x,ke_y) = THETA0(:) + (rndm(:) * 2.0_RP - 1.0_RP ) * RANDOM_THETA 
     end do
     end do
     end do
