@@ -321,7 +321,7 @@ contains
 
     delx = (dom_xmax - dom_xmin)/dble(NprcX)
     dely = (dom_ymax - dom_ymin)/dble(NprcY)
-    FZ_lc(:) = Fz((k-1)*NeZ+1:k*NeZ)
+    FZ_lc(:) = Fz((k-1)*NeZ+1:k*NeZ+1)
     lcmesh%xmin = dom_xmin + (i-1)*delx
     lcmesh%xmax = dom_xmin +  i   *delx
     lcmesh%ymin = dom_ymin + (j-1)*dely

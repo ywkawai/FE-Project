@@ -52,6 +52,11 @@ module mod_atmos_dyn
     atm_dyn_dgm_nonhydro3d_hevi_cal_tend,      &
     atm_dyn_dgm_nonhydro3d_hevi_cal_vi
 
+  use scale_atm_dyn_dgm_nonhydro3d_splitform_heve, only: &
+    atm_dyn_dgm_nonhydro3d_heve_splitform_Init,          &
+    atm_dyn_dgm_nonhydro3d_heve_splitform_Final,         &
+    atm_dyn_dgm_nonhydro3d_heve_splitform_cal_tend
+
   use scale_atm_dyn_dgm_nonhydro3d_splitform_hevi, only: &
     atm_dyn_dgm_nonhydro3d_hevi_splitform_Init,          &
     atm_dyn_dgm_nonhydro3d_hevi_splitform_Final,         &
@@ -206,8 +211,9 @@ module mod_atmos_dyn
   !-----------------------------------------------------------------------------
   
   integer, public, parameter :: EQS_TYPEID_NONHYD3D_HEVE           = 1
-  integer, public, parameter :: EQS_TYPEID_NONHYD3D_HEVI           = 2
-  integer, public, parameter :: EQS_TYPEID_NONHYD3D_SPLITFORM_HEVI = 3
+  integer, public, parameter :: EQS_TYPEID_NONHYD3D_SPLITFORM_HEVE = 2
+  integer, public, parameter :: EQS_TYPEID_NONHYD3D_HEVI           = 3
+  integer, public, parameter :: EQS_TYPEID_NONHYD3D_SPLITFORM_HEVI = 4
 
 
   !-----------------------------------------------------------------------------
@@ -328,11 +334,16 @@ contains
       call atm_dyn_dgm_nonhydro3d_heve_Init( atm_mesh%mesh )
       this%cal_tend_ex => atm_dyn_dgm_nonhydro3d_heve_cal_tend
       this%cal_vi => null()
+    case("NONHYDRO3D_SPLITFORM_HEVE")
+      this%EQS_TYPEID = EQS_TYPEID_NONHYD3D_SPLITFORM_HEVE
+      call atm_dyn_dgm_nonhydro3d_heve_splitform_Init( atm_mesh%mesh )
+      this%cal_tend_ex => atm_dyn_dgm_nonhydro3d_heve_splitform_cal_tend
+      this%cal_vi => null()
     case("NONHYDRO3D_HEVI")
       this%EQS_TYPEID = EQS_TYPEID_NONHYD3D_HEVI
       call atm_dyn_dgm_nonhydro3d_hevi_Init( atm_mesh%mesh )
       this%cal_tend_ex => atm_dyn_dgm_nonhydro3d_hevi_cal_tend
-      this%cal_vi => atm_dyn_dgm_nonhydro3d_hevi_cal_vi
+      this%cal_vi => atm_dyn_dgm_nonhydro3d_hevi_cal_vi      
     case("NONHYDRO3D_SPLITFORM_HEVI")
       this%EQS_TYPEID = EQS_TYPEID_NONHYD3D_SPLITFORM_HEVI
       call atm_dyn_dgm_nonhydro3d_hevi_splitform_Init( atm_mesh%mesh )

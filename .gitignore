@@ -17,6 +17,7 @@ bin/
 *.blg
 *.fls
 *.out
+*.png
 
 #
 scale-dg_init

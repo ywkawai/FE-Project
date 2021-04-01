@@ -53,6 +53,7 @@ module scale_linalgebra
 
 contains
 
+!OCL SERIAL
   function linalgebra_inv(A) result(Ainv)
 
     real(RP), intent(in) :: A(:,:)
@@ -82,6 +83,7 @@ contains
     return
   end function linalgebra_inv
 
+!OCL SERIAL
   subroutine linalgebra_SolveLinEq_b1D(A, b, x)
 
     real(RP), intent(in) :: A(:,:)
@@ -113,6 +115,7 @@ contains
     return
   end subroutine linalgebra_SolveLinEq_b1D
 
+!OCL SERIAL
   subroutine linalgebra_SolveLinEq_b2D(A, b, x)
 
     real(RP), intent(in) :: A(:,:)
@@ -144,6 +147,7 @@ contains
     return
   end subroutine linalgebra_SolveLinEq_b2D
 
+!OCL SERIAL
   subroutine linalgebra_LU(A_lu, ipiv)
 
     real(RP), intent(inout) :: A_lu(:,:)

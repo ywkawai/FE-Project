@@ -88,6 +88,7 @@ subroutine GMRES_Init( this, N, m, eps, eps0 )
   return
 end subroutine GMRES_Init
 
+!OCL SERIAL
 subroutine GMRES_Iterate_pre( this, b, w0, is_converged )
   implicit none
   class(GMRES), intent(inout) :: this
@@ -121,6 +122,7 @@ subroutine GMRES_Iterate_pre( this, b, w0, is_converged )
   return
 end subroutine GMRES_Iterate_pre
 
+!OCL SERIAL
 subroutine GMRES_Iterate_step_j( this, j, wj, is_converged )
   implicit none
   class(GMRES), intent(inout) :: this
@@ -174,6 +176,7 @@ subroutine GMRES_Iterate_step_j( this, j, wj, is_converged )
   return
 end subroutine GMRES_Iterate_step_j
 
+!OCL SERIAL
 subroutine GMRES_Iterate_post( this, x )
   implicit none
   class(GMRES), intent(inout) :: this

@@ -1,5 +1,5 @@
 !-------------------------------------------------------------------------------
-!> module Atmosphere / Dynamics HEVI 
+!> module Atmosphere / Dynamics HEVE
 !!
 !! @par Description
 !!      HEVE DGM scheme for Atmospheric dynamical process. 
@@ -262,7 +262,7 @@ contains
     if (SL_flag) then
       call PROF_rapstart('cal_dyn_tend_sponge', 3)
       call atm_dyn_dgm_spongelayer_add_tend( MOMZ_dt, &
-        MOMZ_, wdamp_tau, wdamp_tau, lmesh, elem      )
+        MOMZ_, wdamp_tau, wdamp_height, lmesh, elem   )
       call PROF_rapend('cal_dyn_tend_sponge', 3)
     end if
 
@@ -348,37 +348,37 @@ contains
       rhotM(:) = P0ovR * (PRES_hyd_M(:) * rP0)**rgamm + DRHOT_M(:)
       rhotP(:) = P0ovR * (PRES_hyd_P(:) * rP0)**rgamm + DRHOT_P(:)
 
-      presM(:) = PRES00 * (RovP0 * rhotM(:) )**gamm
-      presP(:) = PRES00 * (RovP0 * rhotP(:) )**gamm
+      presM(:) = PRES00 * (RovP0 * rhotM(:))**gamm
+      presP(:) = PRES00 * (RovP0 * rhotP(:))**gamm
 
       dpres(:)  =  presP(:) - presM(:)                         &
-             + ( PRES_hyd_P(:) - PRES_hyd_M(:) ) * abs(nz(:,ke))
+             - ( PRES_hyd_P(:) - PRES_hyd_M(:) ) * abs(nz(:,ke))
 
       alpha(:) = max( sqrt(gamm * presM(:) / densM(:)) + abs(VelM(:)), &
                       sqrt(gamm * presP(:) / densP(:)) + abs(VelP(:))  )
 
       del_flux(:,ke,VARS_DDENS_ID) = 0.5_RP * (                  &
                     ( densP(:) * VelP(:) - densM(:) * VelM(:) )  &
-                    - alpha(:) * (DDENS_P(:) - DDENS_M(:))       )
+                    - alpha(:) * ( DDENS_P(:) - DDENS_M(:) )     )
 
       del_flux(:,ke,VARS_MOMX_ID) = 0.5_RP * (                     &
                     ( MOMX_P(:) * VelP(:) - MOMX_M(:) * VelM(:) )  &
                     + dpres(:) * nx(:,ke)                          &
-                    - alpha(:) * (MOMX_P(:) - MOMX_M(:))           )
+                    - alpha(:) * ( MOMX_P(:) - MOMX_M(:) )         )
       
       del_flux(:,ke,VARS_MOMY_ID) = 0.5_RP * (                     &
                     ( MOMY_P(:) * VelP(:) - MOMY_M(:) * VelM(:) )  &
                     + dpres(:) * ny(:,ke)                          &
-                    - alpha(:) * (MOMY_P(:) - MOMY_M(:))           )               
+                    - alpha(:) * ( MOMY_P(:) - MOMY_M(:) )         )               
       
       del_flux(:,ke,VARS_MOMZ_ID) = 0.5_RP * (                     &
                     ( MOMZ_P(:) * VelP(:) - MOMZ_M(:) * VelM(:))   &
                     + dpres(:) * nz(:,ke)                          &                   
-                    - alpha(:) * (MOMZ_P(:) - MOMZ_M(:))           )
+                    - alpha(:) * ( MOMZ_P(:) - MOMZ_M(:) )         )
       
       del_flux(:,ke,VARS_DRHOT_ID) = 0.5_RP * (                    &
                     ( rhotP(:) * VelP(:) - rhotM(:) * VelM(:) )    &
-                    - alpha(:) * (DRHOT_P(:) - DRHOT_M(:))         )
+                    - alpha(:) * ( DRHOT_P(:) - DRHOT_M(:) )       )
     end do
 
     return
