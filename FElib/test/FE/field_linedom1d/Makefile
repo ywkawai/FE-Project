@@ -46,7 +46,7 @@ distclean: clean
 
 clean:
 	rm -rf $(BUILD_DIR)
-	rm *.nc
+	rm -f *.nc
 
 .SUFFIXES:
 .SUFFIXES: .o .f90 .mod
