@@ -323,8 +323,8 @@ contains
           is_lc = pi_table(tileID); ilc_count = 1
           js_lc = pj_table(tileID); jlc_count = 1
         end if
-        if(ilc_count > pi_table(tileID)) ilc_count = ilc_count + 1
-        if(jlc_count > pj_table(tileID)) jlc_count = jlc_count + 1
+        if(ilc_count < pi_table(tileID)) ilc_count = ilc_count + 1
+        if(jlc_count < pj_table(tileID)) jlc_count = jlc_count + 1
       end if 
     end do
     end do
