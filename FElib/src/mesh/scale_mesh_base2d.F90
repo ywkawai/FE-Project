@@ -61,7 +61,6 @@ contains
     refElem, NLocalMeshPerPrc,     &
     nprocs, myrank                 )
     
-    use scale_prc, only: PRC_nprocs, PRC_myrank
     implicit none
 
     class(MeshBase2D), intent(inout) :: this
@@ -79,7 +78,7 @@ contains
 
     allocate( this%lcmesh_list(this%LOCAL_MESH_NUM) )
     do n=1, this%LOCAL_MESH_NUM
-      call LocalMesh2D_Init( this%lcmesh_list(n), refElem, PRC_myrank )
+      call LocalMesh2D_Init( this%lcmesh_list(n), refElem, myrank )
     end do
 
     return
