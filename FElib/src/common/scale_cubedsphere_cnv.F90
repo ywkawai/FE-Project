@@ -64,11 +64,18 @@ contains
 
     select case( panelID )
     case(1, 2, 3, 4)
-      !$omp parallel do
+      !$omp parallel 
+      !$omp do
       do p=1, Np
         lon(p) = alpha(p) + 0.5_RP * PI * dble(panelID - 1)
         lat(p) = atan( tan( beta(p) ) * cos( alpha(p) ) )
       end do
+      !$omp workshare
+      where( lon(:) < 0.0_RP )
+        lon(:) = lon(:) + 2.0_RP * PI
+      end where
+      !$omp end workshare
+      !$omp end parallel
     case(5)
       !$omp parallel
       !$omp do
@@ -80,6 +87,9 @@ contains
       !$omp workshare
       where( beta(:) >= 0.0_RP )
         lon(:) = lon(:) + PI
+      end where
+      where( alpha < 0.0_RP .and. beta(:) < 0.0_RP )
+        lon(:) = lon(:) + 2.0_RP * PI
       end where
       !$omp end workshare
       !$omp end parallel
@@ -93,7 +103,10 @@ contains
       !$omp end do
       !$omp workshare
       where( beta(:) < 0.0_RP )
-        lon = lon + PI
+        lon(:) = lon(:) + PI
+      end where
+      where( alpha(:) < 0.0_RP .and. beta(:) >= 0.0_RP )
+        lon(:) = lon(:) + 2.0_RP * PI
       end where
       !$omp end workshare
       !$omp end parallel
@@ -105,6 +118,8 @@ contains
     return
   end subroutine CubedSphereCnv_CS2LonLatCoord
 
+  !
+  !
   subroutine CubedSphereCnv_LonLat2CSVec( &
     panelID, alpha, beta, Np,  radius,     & ! (in)
     VecLon, VecLat,                        & ! (in)
@@ -318,7 +333,7 @@ contains
     return
   end subroutine CubedSphereCnv_CS2CartCoord
 
-  subroutine CubedSphereCnv_LonLat2CSPos( &
+  subroutine CubedSphereCnv_LonLat2CSPos(  &
     panelID, lon, lat, Np,                 & ! (in)
     alpha, beta                            ) ! (out)
 
@@ -341,7 +356,7 @@ contains
       !$omp parallel
       if ( panelID == 1 ) then
         !$omp workshare
-        where (lon(:) < 2.0_RP * PI - 0.25_RP * PI )
+        where (lon(:) > 2.0_RP * PI - 0.25_RP * PI )
           lon_(:) = lon(:) - 2.0_RP * PI
         elsewhere
           lon_(:) = lon(:)
@@ -363,14 +378,7 @@ contains
       end do
       !$omp end parallel
     case ( 5 )
-      !$omp parallel
-      !$omp workshare
-      where (0.5_RP * PI <= lon(:) .and. lon(:) < 1.5_RP )
-        lon_(:) = lon(:) - 2.0_RP * PI
-      elsewhere
-        lon_(:) = lon(:)
-      end where
-      !$omp end workshare
+      !$omp parallel private(tan_lat)   
       !$omp do
       do p=1, Np
         tan_lat = tan(lat(p)) 
@@ -379,14 +387,7 @@ contains
       end do
       !$omp end parallel
     case ( 6 )
-      !$omp parallel
-      !$omp workshare
-      where (0.5_RP * PI <= lon(:) .and. lon(:) < 1.5_RP )
-        lon_(:) = lon(:) - 2.0_RP * PI
-      elsewhere
-        lon_(:) = lon(:)
-      end where
-      !$omp end workshare
+      !$omp parallel private(tan_lat)    
       !$omp do
       do p=1, Np
         tan_lat = tan(lat(p)) 
