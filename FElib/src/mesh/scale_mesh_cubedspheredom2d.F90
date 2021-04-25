@@ -5,6 +5,7 @@ module scale_mesh_cubedspheredom2d
   !
   !++ used modules
   !
+  use scale_io
   use scale_precision
 
   use scale_mesh_base2d, only: &
@@ -37,10 +38,10 @@ module scale_mesh_cubedspheredom2d
     procedure :: Init => MeshCubedSphereDom2D_Init
     procedure :: Final => MeshCubedSphereDom2D_Final
     procedure :: Generate => MeshCubedSphereDom2D_generate
+    procedure :: AssignDomID => MesshCubedSphereDom2D_assignDomID
   end type MeshCubedSphereDom2D
 
-  ! public :: MeshRectDom2D_coord_conv
-  ! public :: MeshRectDom2D_setupLocalDom
+  public :: MeshCubedSphereDom2D_check_division_params
   
   !-----------------------------------------------------------------------------
   !
@@ -60,7 +61,8 @@ module scale_mesh_cubedspheredom2d
 contains
   subroutine MeshCubedSphereDom2D_Init(this, &
     NeGX, NeGY, RPlanet,                     &
-    refElem, NLocalMeshPerPrc )
+    refElem, NLocalMeshPerPrc,               &
+    nproc, myrank                            )
     
     use scale_const, only: &
       PI => CONST_PI
@@ -72,18 +74,21 @@ contains
     real(RP), intent(in) :: RPlanet
     type(QuadrilateralElement), intent(in), target :: refElem
     integer, intent(in) :: NLocalMeshPerPrc
+    integer, intent(in), optional :: nproc
+    integer, intent(in), optional :: myrank
     !-----------------------------------------------------------------------------
 
     this%NeGX = NeGX
     this%NeGY = NeGY
 
-    this%xmin_gl       = - 0.25_RP * PI 
-    this%xmax_gl       = + 0.25_RP * PI 
-    this%ymin_gl       = - 0.25_RP * PI 
-    this%ymax_gl       = + 0.25_RP * PI 
+    this%xmin_gl = - 0.25_RP * PI 
+    this%xmax_gl = + 0.25_RP * PI 
+    this%ymin_gl = - 0.25_RP * PI 
+    this%ymax_gl = + 0.25_RP * PI 
     this%RPlanet = RPlanet
 
-    call MeshBase2D_Init(this, refElem, NLocalMeshPerPrc)
+    call MeshBase2D_Init( this, refElem, NLocalMeshPerPrc, &
+      nproc, myrank )
 
     return
   end subroutine MeshCubedSphereDom2D_Init
@@ -105,8 +110,6 @@ contains
   end subroutine MeshCubedSphereDom2D_Final
 
   subroutine MeshCubedSphereDom2D_generate( this )
-    use scale_io
-    use scale_prc, only: PRC_abort
     implicit none
 
     class(MeshCubedSphereDom2D), intent(inout), target :: this
@@ -120,57 +123,33 @@ contains
     integer :: pi_table(this%LOCAL_MESH_NUM*this%PRC_NUM)
     integer :: pj_table(this%LOCAL_MESH_NUM*this%PRC_NUM)
 
-    integer :: TILE_NUM_PER_PANEL
     integer :: NprcX_lc, NprcY_lc
     real(RP) :: delx, dely
     integer :: tileID
    
     !-----------------------------------------------------------------------------
 
-    if ( this%PRC_NUM <= 6 .and. this%LOCAL_MESH_NUM_global /= 6 ) then
-      LOG_ERROR("MeshCubedSphereDom2D_generate",*) "The total number of local mesh must be 6 if PRC_NUM <=6. Check!"
-      call PRC_abort
-    end if
-
-    TILE_NUM_PER_PANEL = this%LOCAL_MESH_NUM_global / 6
-    if ( ( this%PRC_NUM == 1 ) .or. &
-         ( this%PRC_NUM <= 6 .and. (mod(this%PRC_NUM,2)==0 .or. mod(this%PRC_NUM,3)==0)) ) then
-      NprcX_lc = 1; NprcY_lc = 1
-    else
-      LOG_ERROR("MeshCubedSphereDom2D_generate",*) "The number of proceses is inappropriate. Check!"
-      call PRC_abort
-    end if
-
-    if ( this%PRC_NUM > 6 ) then
-      if ( mod(this%PRC_NUM,6) == 0 ) then
-        NprcX_lc = int(sqrt(dble(TILE_NUM_PER_PANEL)))
-        NprcY_lc = TILE_NUM_PER_PANEL / NprcX_lc
-        if ( NprcX_lc /= NprcY_lc ) then
-          LOG_ERROR("MeshCubedSphereDom2D_generate",*) "The number of proceses is inappropriate. Check!"
-          call PRC_abort  
-        end if
-      else
-        LOG_ERROR("MeshCubedSphereDom2D_generate",*) "The number of proceses is inappropriate. Check!"
-        call PRC_abort        
-      end if
-    end if
+    call MeshCubedSphereDom2D_check_division_params( &
+      NprcX_lc, NprcY_lc,                            &
+      this%PRC_NUM, this%LOCAL_MESH_NUM_global,      &
+      .true. )
 
     !--- Construct the connectivity of patches  (only master node)
 
-    call MesshCubedSphereDom2D_assignDomID( this, & ! (in)
-        & NprcX_lc, NprcY_lc,                     & ! (in)
-        & tileID_table, panelID_table,            & ! (out)
-        & pi_table, pj_table )                      ! (out)
+    call this%AssignDomID( & 
+      NprcX_lc, NprcY_lc,          & ! (in)
+      tileID_table, panelID_table, & ! (out)
+      pi_table, pj_table )           ! (out)
 
     do n=1, this%LOCAL_MESH_NUM
       mesh => this%lcmesh_list(n)
       tileID = tileID_table(n, mesh%PRC_myrank+1)
 
       call MeshCubedSphereDom2D_setupLocalDom( mesh, &
-          & tileID,  panelID_table(tileID),                                       &
-          & pi_table(tileID), pj_table(tileID), NprcX_lc, NprcY_lc,               &
-          & this%xmin_gl, this%xmax_gl, this%ymin_gl, this%ymax_gl, this%RPlanet, &
-          & this%NeGX/NprcX_lc, this%NeGY/NprcY_lc )
+        tileID,  panelID_table(tileID),                                       &
+        pi_table(tileID), pj_table(tileID), NprcX_lc, NprcY_lc,               &
+        this%xmin_gl, this%xmax_gl, this%ymin_gl, this%ymax_gl, this%RPlanet, &
+        this%NeGX/NprcX_lc, this%NeGY/NprcY_lc )
 
       !---
       ! write(*,*) "** my_rank=", mesh%PRC_myrank
@@ -190,6 +169,62 @@ contains
     return
   end subroutine MeshCubedSphereDom2D_generate
 
+  subroutine MeshCubedSphereDom2D_check_division_params( &
+    NprcX_lc, NprcY_lc,                                  &
+    PRC_NUM, LOCAL_MESH_NUM_global,                      &
+    call_prc_abort )
+    
+    use scale_prc, only: PRC_abort
+    implicit none
+
+    integer, intent(in) :: PRC_NUM
+    integer, intent(in) :: LOCAL_MESH_NUM_global
+    integer, intent(out) :: NprcX_lc
+    integer, intent(out) :: NprcY_lc
+    logical, intent(in), optional :: call_prc_abort
+
+    integer :: TILE_NUM_PER_PANEL
+    logical :: call_prc_abort_
+    !-----------------------------------------------------------------------------
+
+    if (present(call_prc_abort)) then
+      call_prc_abort_ = call_prc_abort
+    else
+      call_prc_abort_ = .false.
+    end if
+
+    if ( mod(LOCAL_MESH_NUM_global, 6) /= 0 ) then
+      LOG_ERROR("MeshCubedSphereDom2D_division_params",*) "The total number of local mesh must be a multiple of 6. Check!"
+      if (call_prc_abort_) call PRC_abort
+    end if
+
+    TILE_NUM_PER_PANEL = LOCAL_MESH_NUM_global / 6
+
+    if ( PRC_NUM <= 6 ) then
+      if ( ( PRC_NUM == 1 ) .or. &
+          ( PRC_NUM <= 6 .and. (mod(PRC_NUM,2)==0 .or. mod(PRC_NUM,3)==0)) ) then
+        NprcX_lc = 1; NprcY_lc = 1
+      else
+        LOG_ERROR("MeshCubedSphereDom2D_division_params",*) "The number of proceses is inappropriate. Check!"
+        if (call_prc_abort_) call PRC_abort
+      end if
+    else
+      if ( mod(PRC_NUM,6) == 0 ) then
+        NprcX_lc = int(sqrt(dble(TILE_NUM_PER_PANEL)))
+        NprcY_lc = TILE_NUM_PER_PANEL / NprcX_lc
+        if ( NprcX_lc /= NprcY_lc ) then
+          LOG_ERROR("MeshCubedSphereDom2D_division_params",*) "The number of proceses is inappropriate. Check!"
+          if (call_prc_abort_) call PRC_abort  
+        end if
+      else
+        LOG_ERROR("MeshCubedSphereDom2D_division_params",*) "The number of proceses is inappropriate. Check!"
+        if (call_prc_abort_) call PRC_abort        
+      end if
+    end if
+
+    return
+  end subroutine MeshCubedSphereDom2D_check_division_params
+
   !- private ------------------------------
 
   subroutine MeshCubedSphereDom2D_setupLocalDom( lcmesh,   &
@@ -205,7 +240,8 @@ contains
       MeshUtilCubedSphere2D_genPatchBoundaryMap
 
     use scale_cubedsphere_cnv, only: &
-      CubedSphereCnv_GetMetric
+      CubedSphereCnv_GetMetric,      &
+      CubedSphereCnv_CS2LonLatCoord
     
     use scale_localmesh_base, only: BCTYPE_INTERIOR
 
@@ -241,8 +277,8 @@ contains
     lcmesh%NeX = NeX
     lcmesh%NeY = NeY
 
-    delx = (dom_xmax - dom_xmin)/dble(NprcX)
-    dely = (dom_ymax - dom_ymin)/dble(NprcY)
+    delx = ( dom_xmax - dom_xmin ) / dble(NprcX)
+    dely = ( dom_ymax - dom_ymin ) / dble(NprcY)
 
     lcmesh%xmin = dom_xmin + (i-1)*delx
     lcmesh%xmax = dom_xmin +  i   *delx
@@ -269,10 +305,16 @@ contains
     
     !---
     call MeshBase2D_setGeometricInfo(lcmesh, MeshCubedSphereDom2D_coord_conv, MeshCubedSphereDom2D_calc_normal )
+
     call CubedSphereCnv_GetMetric( &
       lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2), elem%Np * lcmesh%Ne, planet_radius, & ! (in)
       lcmesh%G_ij, lcmesh%GIJ, lcmesh%Gsqrt                                           ) ! (out)
 
+    call CubedSphereCnv_CS2LonLatCoord( &
+      lcmesh%panelID, lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2), &
+      lcmesh%Ne * lcmesh%refElem2D%Np, planet_radius,             &
+      lcmesh%lon(:,:), lcmesh%lat(:,:)                            )
+    
     !---
 
     call MeshUtilCubedSphere2D_genConnectivity( lcmesh%EToE, lcmesh%EToF, & ! (out)
@@ -297,13 +339,12 @@ contains
     tileID_table, panelID_table,                      &
     pi_table, pj_table )
   
-    use scale_prc, only: PRC_myrank
     use scale_meshutil_cubedsphere2d, only: &       
       MeshUtilCubedSphere2D_buildGlobalMap
     
     implicit none
 
-    type(MeshCubedSphereDom2D), intent(inout) :: this    
+    class(MeshCubedSphereDom2D), target, intent(inout) :: this    
     integer, intent(in) :: NprcX_lc
     integer, intent(in) :: NprcY_lc
     integer, intent(out) :: tileID_table(this%LOCAL_MESH_NUM, this%PRC_NUM)
@@ -319,6 +360,7 @@ contains
     integer :: ilc, jlc, plc
     integer :: Npanel_lc
     
+    type(LocalMesh2D), pointer :: lcmesh
     !-----------------------------------------------------------------------------
 
     call MeshUtilCubedSphere2D_buildGlobalMap( &
@@ -331,22 +373,23 @@ contains
     do prc=1, this%PRC_NUM
     do n=1, this%LOCAL_MESH_NUM
       tileID = n + (prc-1)*this%LOCAL_MESH_NUM
+      lcmesh => this%lcmesh_list(n)
       
       !-
-      tileID_table(n,prc)                   = tileID
+      tileID_table(n,prc)                 = tileID
       this%tileID_global2localMap(tileID) = n
       this%PRCRank_globalMap(tileID)      = prc - 1
 
       !-
-      if ( this%PRCRank_globalMap(tileID) == PRC_myrank ) then
+      if ( this%PRCRank_globalMap(tileID) == lcmesh%PRC_myrank ) then
         if (n==1) then
           is_lc = pi_table(tileID); ilc_count = 1
           js_lc = pj_table(tileID); jlc_count = 1
           ps_lc = panelID_table(tileID); plc_count = 1
         end if
-        if(ilc_count < pi_table(tileID)) ilc_count = ilc_count + 1
-        if(jlc_count < pj_table(tileID)) jlc_count = jlc_count + 1
-        if(plc_count < panelID_table(tileID)) plc_count = plc_count + 1
+        if(is_lc < pi_table(tileID)) ilc_count = ilc_count + 1
+        if(js_lc < pj_table(tileID)) jlc_count = jlc_count + 1
+        if(ps_lc < panelID_table(tileID)) plc_count = plc_count + 1
       end if 
     end do
     end do
@@ -355,7 +398,7 @@ contains
     do plc=1, plc_count
     do jlc=1, jlc_count
     do ilc=1, ilc_count
-      this%rcdomIJP2LCMeshID(ilc,jlc,plc) = ilc + (jlc - 1)*ilc_count + (plc - 1)*ilc_count*jlc_count
+      this%rcdomIJP2LCMeshID(ilc,jlc,plc) = ilc + (jlc - 1)*ilc_count + (plc-1)*ilc_count*jlc_count
     end do
     end do
     end do

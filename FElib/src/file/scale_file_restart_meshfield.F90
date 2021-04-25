@@ -20,6 +20,7 @@ module scale_file_restart_meshfield
   use scale_mesh_base2d, only: MeshBase2D
   use scale_mesh_base3d, only: MeshBase3D
   use scale_mesh_rectdom2d, only: MeshRectDom2D
+  use scale_mesh_cubedspheredom2d, only: MeshCubedSphereDom2D
   use scale_mesh_cubedom3d, only: MeshCubeDom3D
   use scale_localmesh_1d, only: LocalMesh1D
   use scale_localmesh_2d, only: LocalMesh2D
@@ -149,7 +150,7 @@ contains
 
   subroutine FILE_restart_meshfield_component_Init1( this,  &
     comp_name,                                              &
-    var_num, mesh1D, mesh2D, mesh3D )
+    var_num, mesh1D, mesh2D, meshCubedSphere2D, mesh3D )
 
   use scale_file_common_meshfield, only: &
     File_common_meshfield_get_dims  
@@ -161,6 +162,7 @@ contains
     integer, intent(in) :: var_num
     class(MeshBase1D), target, optional, intent(in) :: mesh1D
     class(MeshRectDom2D), target, optional, intent(in) :: mesh2D
+    class(MeshCubedSphereDom2D), target, optional, intent(in) :: meshCubedSphere2D
     class(MeshCubeDom3D), target, optional, intent(in) :: mesh3D
 
     !--------------------------------------------------
@@ -170,7 +172,7 @@ contains
       restart_file%in_basename, restart_file%in_postfix_timelabel,   &
       restart_file%out_basename, restart_file%out_postfix_timelabel, &
       restart_file%out_dtype, restart_file%out_title,                &
-      var_num, mesh1D, mesh2D, mesh3D )
+      var_num, mesh1D, mesh2D, meshCubedSphere2D, mesh3D )
 
     return
   end subroutine FILE_restart_meshfield_component_Init1
@@ -180,7 +182,7 @@ contains
       in_basename, in_postfix_timelabel,                    &
       out_basename, out_postfix_timelabel,                  &
       out_dtype, out_title,                                 &
-      var_num, mesh1D, mesh2D, mesh3D )
+      var_num, mesh1D, mesh2D, meshCubedSphere2D, mesh3D )
 
     implicit none
 
@@ -195,6 +197,7 @@ contains
     integer, intent(in) :: var_num
     class(MeshBase1D), target, optional, intent(in) :: mesh1D
     class(MeshRectDom2D), target, optional, intent(in) :: mesh2D
+    class(MeshCubedSphereDom2D), target, optional, intent(in) :: meshCubedSphere2D
     class(MeshCubeDom3D), target, optional, intent(in) :: mesh3D
     !--------------------------------------------------
     this%comp_name = comp_name
@@ -208,7 +211,7 @@ contains
     this%out_dtype = out_dtype
 
     !-
-    call this%base%Init( var_num, mesh1D, mesh2D, mesh3D )
+    call this%base%Init( var_num, mesh1D, mesh2D, meshCubedSphere2D, mesh3D )
 
     return
   end subroutine FILE_restart_meshfield_component_Init2

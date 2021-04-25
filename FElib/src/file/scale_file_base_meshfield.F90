@@ -19,6 +19,8 @@ module scale_file_base_meshfield
     MF2D_DTYPE_NUM => FILE_COMMON_MESHFILED2D_DIMTYPE_NUM, &
     MF3D_DTYPE_NUM => FILE_COMMON_MESHFILED3D_DIMTYPE_NUM, &
     MF1D_DIMTYPE_X => FILE_COMMON_MESHFILED1D_DIMTYPEID_X, &
+    MF2D_DIMTYPE_X => FILE_COMMON_MESHFILED2D_DIMTYPEID_X, &
+    MF2D_DIMTYPE_Y => FILE_COMMON_MESHFILED2D_DIMTYPEID_Y, &
     MF3D_DIMTYPE_X => FILE_COMMON_MESHFILED3D_DIMTYPEID_X, &
     MF3D_DIMTYPE_Y => FILE_COMMON_MESHFILED3D_DIMTYPEID_Y, &
     MF3D_DIMTYPE_Z => FILE_COMMON_MESHFILED3D_DIMTYPEID_Z, &
@@ -29,6 +31,7 @@ module scale_file_base_meshfield
   use scale_mesh_base2d, only: MeshBase2D
   use scale_mesh_base3d, only: MeshBase3D
   use scale_mesh_rectdom2d, only: MeshRectDom2D
+  use scale_mesh_cubedspheredom2d, only: MeshCubedSphereDom2D
   use scale_mesh_cubedom3d, only: MeshCubeDom3D
   use scale_localmesh_1d, only: LocalMesh1D
   use scale_localmesh_2d, only: LocalMesh2D
@@ -54,6 +57,7 @@ module scale_file_base_meshfield
 
     class(MeshBase1D), pointer :: mesh1D
     class(MeshRectDom2D), pointer :: mesh2D
+    class(MeshCubedSphereDom2D), pointer :: meshCS2D
     class(MeshCubeDom3D), pointer :: mesh3D  
     type(FILE_common_meshfield_diminfo), allocatable :: dimsinfo(:)
 
@@ -71,17 +75,26 @@ module scale_file_base_meshfield
     !-
     procedure :: FILE_base_meshfield_write_var1d
     generic :: Write_var1D => FILE_base_meshfield_write_var1d
+    procedure :: FILE_base_meshfield_write_var2d
+    generic :: Write_var2D => FILE_base_meshfield_write_var2d
     procedure :: FILE_base_meshfield_write_var3d
     generic :: Write_var3D => FILE_base_meshfield_write_var3d
     !-
     procedure :: FILE_base_meshfield_read_var1d
     procedure :: FILE_base_meshfield_read_var1d_local
+    procedure :: FILE_base_meshfield_read_var2d
+    procedure :: FILE_base_meshfield_read_var2d_local
+    procedure :: FILE_base_meshfield_read_var2d_cubedsphere
     procedure :: FILE_base_meshfield_read_var3d
     procedure :: FILE_base_meshfield_read_var3d_local
     generic :: Read_Var => &
       FILE_base_meshfield_read_var1d, FILE_base_meshfield_read_var1d_local, &
+      FILE_base_meshfield_read_var2d, FILE_base_meshfield_read_var2d_local, &
       FILE_base_meshfield_read_var3d, FILE_base_meshfield_read_var3d_local
-    !-
+    generic :: Read_Var_cubedsphere => &
+      FILE_base_meshfield_read_var2d_cubedsphere
+    
+    !-  
     procedure :: Get_commonInfo => FILE_base_meshfield_get_commonInfo
     procedure :: Get_dataInfo => FILE_base_meshfield_get_dataInfo
     procedure :: Get_VarStepSize => FILE_base_meshfield_get_VarStepSize
@@ -92,9 +105,9 @@ module scale_file_base_meshfield
 
 contains
 
-  subroutine FILE_base_meshfield_Init( this,  & ! (inout)
-    var_num, mesh1D, mesh2D, mesh3D,          & ! (in)
-    force_uniform_grid )                        ! (in)
+  subroutine FILE_base_meshfield_Init( this,            & ! (inout)
+    var_num, mesh1D, mesh2D, meshCubedSphere2D, mesh3D, & ! (in)
+    force_uniform_grid )                                  ! (in)
 
     use scale_file_common_meshfield, only: &
       File_common_meshfield_get_dims  
@@ -105,6 +118,7 @@ contains
     integer, intent(in) :: var_num
     class(MeshBase1D), target, optional, intent(in) :: mesh1D
     class(MeshRectDom2D), target, optional, intent(in) :: mesh2D
+    class(MeshCubedSphereDom2D), target, optional, intent(in) :: meshCubedSPhere2D    
     class(MeshCubeDom3D), target, optional, intent(in) :: mesh3D
     logical, intent(in), optional :: force_uniform_grid
 
@@ -133,6 +147,13 @@ contains
   
       allocate( this%dimsinfo(MF2D_DTYPE_NUM) )
       call File_common_meshfield_get_dims( mesh2D, this%dimsinfo(:) )
+    end if
+    if (present(meshCubedSPhere2D)) then
+      this%meshCS2D => meshCubedSPhere2D
+      check_specify_mesh = .true.
+  
+      allocate( this%dimsinfo(MF2D_DTYPE_NUM) )
+      call File_common_meshfield_get_dims( meshCubedSPhere2D, this%dimsinfo(:) )
     end if
     if (present(mesh3D)) then
       this%mesh3D => mesh3D
@@ -348,6 +369,42 @@ contains
     return
   end subroutine FILE_base_meshfield_write_var1d
 
+  subroutine FILE_base_meshfield_write_var2d( this, & ! (inout)
+    vid, field2d, sec_str, sec_end                  ) ! (in)
+
+    use scale_file, only: &
+        FILE_opened, &
+        FILE_Write 
+    use scale_file_common_meshfield, only: &
+      File_common_meshfield_put_field2D_cartesbuf
+    implicit none
+
+    class(FILE_base_meshfield), intent(inout) :: this
+    integer, intent(in) :: vid
+    class(MeshField2D), intent(in) :: field2d
+    real(DP), intent(in) :: sec_str
+    real(DP), intent(in) :: sec_end
+    
+    real(RP), allocatable :: buf(:,:)
+    integer :: dims(2)
+    integer :: start(2)
+    !-------------------------------------------------
+
+    if ( this%fid /= -1 ) then
+      start(:) = 1
+      dims(1) = this%dimsinfo(MF2D_DIMTYPE_X)%size
+      dims(2) = this%dimsinfo(MF2D_DIMTYPE_Y)%size
+      allocate( buf(dims(1),dims(2)) )
+      call File_common_meshfield_put_field2D_cartesbuf( this%mesh2D, field2d, buf(:,:), &
+        this%force_uniform_grid )
+
+      call FILE_Write( this%vars_ncid(vid), buf(:,:),   & ! (in)
+        sec_str, sec_end, start=start                   ) ! (in)
+    end if
+
+    return
+  end subroutine FILE_base_meshfield_write_var2d
+
   subroutine FILE_base_meshfield_write_var3d( this, & ! (inout)
       vid, field3d, sec_str, sec_end                ) ! (in)
   
@@ -530,6 +587,133 @@ contains
     return
   end subroutine FILE_base_meshfield_read_var1d_local 
 
+  subroutine FILE_base_meshfield_read_var2d( this, & ! (inout)
+    dim_typeid, varname,                           & ! (in)
+    field2d,                                       & ! (inout)
+    step, allow_missing                            ) ! (in)
+  
+    use scale_file, only: &
+      FILE_Read
+    use scale_file_common_meshfield, only: &
+      File_common_meshfield_set_cartesbuf_field2D
+  
+    implicit none
+  
+    class(FILE_base_meshfield), intent(inout) :: this
+    integer, intent(in) :: dim_typeid
+    character(*), intent(in) :: varname
+    class(MeshField2D), intent(inout) :: field2d
+    integer, intent(in), optional :: step
+    logical, intent(in), optional :: allow_missing
+  
+    real(RP), allocatable :: buf(:,:)
+    integer :: dims(2)
+    integer :: start(2)   ! start offset of globale variable
+    !-------------------------------------------------
+  
+    if ( this%fid /= -1 ) then
+      start(:) = 1
+      dims(1) = this%dimsinfo(MF2D_DIMTYPE_X)%size
+      dims(2) = this%dimsinfo(MF2D_DIMTYPE_Y)%size
+      allocate( buf(dims(1),dims(2)) )
+  
+      call FILE_Read( this%fid, varname,                       & ! (in)
+        buf(:,:),                                              & ! (out)
+        step=step, allow_missing=allow_missing                 ) ! (in)
+  
+      call File_common_meshfield_set_cartesbuf_field2D( this%mesh2D, buf(:,:), &
+        field2d )
+    end if
+  
+    return
+  end subroutine FILE_base_meshfield_read_var2d
+
+  subroutine FILE_base_meshfield_read_var2d_cubedsphere( &
+    this,                                                & ! (inout)
+    dim_typeid, varname,                                 & ! (in)
+    field2d,                                             & ! (inout)
+    step, allow_missing                                  ) ! (in)
+  
+    use scale_file, only: &
+      FILE_Read
+    use scale_file_common_meshfield, only: &
+      File_common_meshfield_set_cartesbuf_field2D_cubedsphere
+  
+    implicit none
+  
+    class(FILE_base_meshfield), intent(inout) :: this
+    integer, intent(in) :: dim_typeid
+    character(*), intent(in) :: varname
+    class(MeshField2D), intent(inout) :: field2d
+    integer, intent(in), optional :: step
+    logical, intent(in), optional :: allow_missing
+  
+    real(RP), allocatable :: buf(:,:)
+    integer :: dims(2)
+    integer :: start(2)   ! start offset of globale variable
+    !-------------------------------------------------
+  
+    if ( this%fid /= -1 ) then
+      start(:) = 1
+      dims(1) = this%dimsinfo(MF2D_DIMTYPE_X)%size
+      dims(2) = this%dimsinfo(MF2D_DIMTYPE_Y)%size
+      allocate( buf(dims(1),dims(2)) )
+  
+      call FILE_Read( this%fid, varname,                       & ! (in)
+        buf(:,:),                                              & ! (out)
+        step=step, allow_missing=allow_missing                 ) ! (in)
+  
+      call File_common_meshfield_set_cartesbuf_field2D_cubedsphere( &
+        this%meshCS2D, buf(:,:),                                    &
+        field2d )
+    end if
+  
+    return
+  end subroutine FILE_base_meshfield_read_var2d_cubedsphere
+
+  subroutine FILE_base_meshfield_read_var2d_local( this, & ! (inout)
+    dim_typeid, varname, lcmesh, i0_s, j0_s,             & ! (in)
+    val,                                                 & ! (out)
+    step, allow_missing  )                                 ! (in)
+  
+    use scale_file, only: &
+      FILE_Read
+    use scale_file_common_meshfield, only: &
+      File_common_meshfield_set_cartesbuf_field2D_local
+  
+    implicit none
+  
+    class(FILE_base_meshfield), intent(inout) :: this
+    integer, intent(in) :: dim_typeid
+    character(*), intent(in) :: varname
+    class(LocalMesh2D), intent(in) :: lcmesh
+    integer, intent(in) :: i0_s, j0_s
+    real(RP), intent(out) :: val(lcmesh%refElem2D%Np,lcmesh%NeA)
+    integer, intent(in), optional :: step
+    logical, intent(in), optional :: allow_missing
+  
+    real(RP), allocatable :: buf(:,:)
+    integer :: dims(2)
+    integer :: start(2)   ! start offset of globale variable
+    !-------------------------------------------------
+  
+    if ( this%fid /= -1 ) then
+      start(:) = 1
+      dims(1) = this%dimsinfo(MF2D_DIMTYPE_X)%size
+      dims(2) = this%dimsinfo(MF2D_DIMTYPE_Y)%size
+      allocate( buf(dims(1),dims(2)) )
+  
+      call FILE_Read( this%fid, varname,                       & ! (in)
+        buf(:,:),                                              & ! (out)
+        step=step, allow_missing=allow_missing                 ) ! (in)
+  
+      call File_common_meshfield_set_cartesbuf_field2D_local( &
+        lcmesh, buf(:,:), i0_s, j0_s,                         &
+        val(:,:) )
+    end if
+  
+    return
+  end subroutine FILE_base_meshfield_read_var2d_local
 
   subroutine FILE_base_meshfield_read_var3d( this, & ! (inout)
     dim_typeid, varname,                           & ! (in)
