@@ -28,6 +28,9 @@ module scale_mesh_rectdom2d
     integer :: NeGX
     integer :: NeGY
     
+    integer :: NprcX
+    integer :: NprcY
+
     real(RP), public :: xmin_gl, xmax_gl
     real(RP), public :: ymin_gl, ymax_gl    
     integer, allocatable :: rcdomIJ2LCMeshID(:,:)
@@ -63,7 +66,7 @@ contains
     NeGX, NeGY,                             &
     dom_xmin, dom_xmax, dom_ymin, dom_ymax, &
     isPeriodicX, isPeriodicY,               &
-    refElem, NLocalMeshPerPrc )
+    refElem, NLocalMeshPerPrc, NprcX, NprcY )
     
     implicit none
 
@@ -78,6 +81,8 @@ contains
     logical, intent(in) :: isPeriodicY
     type(QuadrilateralElement), intent(in), target :: refElem
     integer, intent(in) :: NLocalMeshPerPrc
+    integer, intent(in) :: NprcX
+    integer, intent(in) :: NprcY
 
     !-----------------------------------------------------------------------------
     
@@ -91,6 +96,9 @@ contains
 
     this%isPeriodicX = isPeriodicX
     this%isPeriodicY = isPeriodicY
+
+    this%NprcX = NprcX
+    this%NprcY = NprcY
 
     call MeshBase2D_Init(this, refElem, NLocalMeshPerPrc)
 
@@ -275,13 +283,12 @@ contains
     tileID_table, panelID_table,        &
     pi_table, pj_table )
   
-    use scale_prc, only: PRC_myrank
     use scale_meshutil_2d, only: &       
       MeshUtil2D_buildGlobalMap
     
     implicit none
 
-    type(MeshRectDom2D), intent(inout) :: this    
+    type(MeshRectDom2D), target, intent(inout) :: this    
     integer, intent(out) :: NprcX
     integer, intent(out) :: NprcY
     integer, intent(out) :: tileID_table(this%LOCAL_MESH_NUM, this%PRC_NUM)
@@ -296,6 +303,7 @@ contains
     integer :: ilc_count, jlc_count
     integer :: ilc, jlc
     
+    type(LocalMesh2D), pointer :: lcmesh    
     !-----------------------------------------------------------------------------
 
     call MeshUtil2D_buildGlobalMap( &
@@ -311,20 +319,20 @@ contains
     do p=1, this%PRC_NUM
     do n=1, this%LOCAL_MESH_NUM
       tileID = n + (p-1)*this%LOCAL_MESH_NUM
-      
+      lcmesh => this%lcmesh_list(n)      
       !-
       tileID_table(n,p)                   = tileID
       this%tileID_global2localMap(tileID) = n
       this%PRCRank_globalMap(tileID)      = p - 1
 
       !-
-      if ( this%PRCRank_globalMap(tileID) == PRC_myrank ) then
+      if ( this%PRCRank_globalMap(tileID) == lcmesh%PRC_myrank ) then
         if (n==1) then
           is_lc = pi_table(tileID); ilc_count = 1
           js_lc = pj_table(tileID); jlc_count = 1
         end if
-        if(ilc_count > pi_table(tileID)) ilc_count = ilc_count + 1
-        if(jlc_count > pj_table(tileID)) jlc_count = jlc_count + 1
+        if(is_lc < pi_table(tileID)) ilc_count = ilc_count + 1
+        if(js_lc < pj_table(tileID)) jlc_count = jlc_count + 1
       end if 
     end do
     end do

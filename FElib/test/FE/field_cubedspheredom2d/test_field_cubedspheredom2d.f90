@@ -1,19 +1,21 @@
 #include "scalelib.h"
-program test_field2d
+program test_field_cubedspheredom2d
   use scale_precision
   use scale_prc
   use scale_io  
   use scale_file_history
   use scale
+  use scale_const, only: &
+    RPlanet => CONST_Radius
 
   use scale_element_quadrilateral
   use scale_localmesh_2d
-  use scale_mesh_rectdom2d
+  use scale_mesh_cubedspheredom2d
 
   use scale_localmeshfield_base, only: LocalMeshField2D
   use scale_meshfield_base, only: MeshField2D
   use scale_meshfieldcomm_base, only: MeshFieldContainer
-  use scale_meshfieldcomm_rectdom2d, only: MeshFieldCommRectDom2D
+  use scale_meshfieldcomm_cubedspheredom2d, only: MeshFieldCommCubedSphereDom2D
 
   use scale_time_manager, only: &
     TIME_manager_Init , TIME_manager_Final,            &
@@ -28,19 +30,13 @@ program test_field2d
 
   implicit none
 
-  integer, parameter :: NeGX = 2
-  integer, parameter :: NeGY = 2
-  integer, parameter :: NLocalMeshPerPrc = 1
-
-  real(RP), parameter :: dom_xmin = -1.0_RP
-  real(RP), parameter :: dom_xmax = +1.0_RP
-  real(RP), parameter :: dom_ymin = -1.0_RP
-  real(RP), parameter :: dom_ymax = +1.0_RP
-
-  type(QuadrilateralElement) :: refElem
   integer, parameter :: PolyOrder = 2
-  
-  type(MeshRectDom2D), target :: mesh
+  integer, parameter :: NeGX = 3
+  integer, parameter :: NeGY = 3
+  integer, parameter :: NLocalMeshPerPrc = 6
+
+  type(QuadrilateralElement) :: refElem  
+  type(MeshCubedSphereDom2D), target :: mesh
 
   type(MeshField2D), target :: q
   character(len=H_short), parameter :: q_VARNAME = "q"
@@ -48,7 +44,7 @@ program test_field2d
   character(len=H_short), parameter :: q_UNITS   = "K"
   integer :: HST_ID(1)
 
-  type(MeshFieldCommRectDom2D) :: fields_comm
+  type(MeshFieldCommCubedSphereDom2D) :: fields_comm
   type(MeshFieldContainer) :: field_list(1)  
 
   integer :: n
@@ -67,8 +63,8 @@ program test_field2d
     
     write(*,*) "Check interior & halo data.."
     write(*,*) "tileID=", lcmesh%tileID
-    call check_interior_data(n, mesh%lcmesh_list(n), q%local(n)%val, q%local(n)%val)
-    call check_halo_data(n, mesh%lcmesh_list(n), q%local(n)%val, q%local(n)%val)
+    ! call check_interior_data(n, mesh%lcmesh_list(n), q%local(n)%val, q%local(n)%val)
+    ! call check_halo_data(n, mesh%lcmesh_list(n), q%local(n)%val, q%local(n)%val)
   end do
   !----
 
@@ -77,14 +73,19 @@ program test_field2d
 contains
 
   elemental function get_field_val(tileID, k, p) result(val)
+    implicit none
     integer, intent(in) :: tileID, k, p
     real(RP) :: val
     !----------------------------
     val = tileID*1000000 + k*1000 + p
+
+    return
   end function get_field_val
 
   subroutine init()
     use scale_calendar, only: CALENDAR_setup
+    use scale_const, only: CONST_setup
+    implicit none
 
     integer :: comm, myrank, nprocs
     logical :: ismaster
@@ -109,14 +110,15 @@ contains
     call CALENDAR_setup
     call TIME_manager_Init
 
+    ! setup constant
+    call CONST_setup
+
     !------
     call refElem%Init(PolyOrder, .true.)
 
     call mesh%Init( &
-      NeGX, NeGY,                             &
-      dom_xmin, dom_xmax, dom_ymin, dom_ymax, &
-      .true., .true.,                         &
-      refElem, NLocalMeshPerPrc, 1, 1         )
+      NeGX, NeGY,                        &
+      RPlanet, refElem, NLocalMeshPerPrc )
     
     call mesh%Generate()
 
@@ -124,7 +126,7 @@ contains
     call q%Init( q_VARNAME, q_UNITS, mesh )
     call fields_comm%Init(1, 0, mesh)
     
-    call FILE_HISTORY_meshfield_setup( mesh2d_=mesh )
+    call FILE_HISTORY_meshfield_setup( meshCubedSphere2D_ = mesh )
     call FILE_HISTORY_reg( q_VARNAME, q_DESC, q_UNITS, HST_ID(1), dim_type='XY')
 
     !---
@@ -144,10 +146,11 @@ contains
 
     !---
 
-
+    return
   end subroutine init
 
   subroutine final()
+    implicit none
 
     call FILE_HISTORY_meshfield_finalize()
 
@@ -159,6 +162,7 @@ contains
     call TIME_manager_Final()
     call PRC_MPIfinish()
 
+    return
   end subroutine final
 
   subroutine perform_comm()
@@ -295,4 +299,4 @@ contains
     end if    
   end subroutine assert
 
-end program test_field2d
+end program test_field_cubedspheredom2d

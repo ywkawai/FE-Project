@@ -37,7 +37,8 @@ OBJS_NAME_COMMON = \
 	scale_timeint_rk_butcher_tab.o \
 	scale_timeint_rk.o             \
 	scale_linkedlist.o             \
-	scale_gmres.o
+	scale_gmres.o                  \
+	scale_cubedsphere_cnv.o
 
 OBJS_NAME_ELEMENT = \
 	scale_element_base.o          \
@@ -47,30 +48,33 @@ OBJS_NAME_ELEMENT = \
 	scale_element_modalfilter.o
 
 OBJS_NAME_MESH = \
-	scale_meshutil_1d.o    \
-	scale_meshutil_2d.o    \
-	scale_meshutil_3d.o    \
-	scale_mesh_bndinfo.o   \
-	scale_localmesh_base.o \
-	scale_localmesh_1d.o   \
-	scale_localmesh_2d.o   \
-	scale_localmesh_3d.o   \
-	scale_mesh_base.o	     \
-	scale_mesh_base1d.o	   \
-	scale_mesh_base2d.o	   \
-	scale_mesh_base3d.o	   \
-	scale_mesh_linedom1d.o \
-	scale_mesh_rectdom2d.o \
-	scale_mesh_cubedom3d.o
+	scale_meshutil_1d.o            \
+	scale_meshutil_2d.o            \
+	scale_meshutil_3d.o            \
+	scale_meshutil_cubedsphere2d.o \
+	scale_mesh_bndinfo.o           \
+	scale_localmesh_base.o         \
+	scale_localmesh_1d.o           \
+	scale_localmesh_2d.o           \
+	scale_localmesh_3d.o           \
+	scale_mesh_base.o	             \
+	scale_mesh_base1d.o	           \
+	scale_mesh_base2d.o	           \
+	scale_mesh_base3d.o	           \
+	scale_mesh_linedom1d.o         \
+	scale_mesh_rectdom2d.o         \
+	scale_mesh_cubedom3d.o         \
+	scale_mesh_cubedspheredom2d.o
 
 OBJS_NAME_DATA = \
-	scale_variableinfo.o             \
-	scale_localmeshfield_base.o      \
-	scale_meshfield_base.o           \
-	scale_meshfieldcomm_base.o       \
-	scale_meshfieldcomm_1d.o         \
-	scale_meshfieldcomm_rectdom2d.o  \
-	scale_meshfieldcomm_cubedom3d.o  \
+	scale_variableinfo.o                    \
+	scale_localmeshfield_base.o             \
+	scale_meshfield_base.o                  \
+	scale_meshfieldcomm_base.o              \
+	scale_meshfieldcomm_1d.o                \
+	scale_meshfieldcomm_rectdom2d.o         \
+	scale_meshfieldcomm_cubedspheredom2d.o  \
+	scale_meshfieldcomm_cubedom3d.o         \
 	scale_meshfield_statistics.o           
 
 OBJS_NAME_FILE = \

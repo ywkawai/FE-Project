@@ -26,6 +26,7 @@ module scale_file_history_meshfield
   use scale_mesh_base3d, only: MeshBase3D
   use scale_mesh_rectdom2d, only: MeshRectDom2D
   use scale_mesh_cubedom3d, only: MeshCubeDom3D
+  use scale_mesh_cubedspheredom2d, only: MeshCubedSphereDom2D
   use scale_localmesh_1d, only: LocalMesh1D
   use scale_localmesh_2d, only: LocalMesh2D
   use scale_localmesh_3d, only: LocalMesh3D
@@ -69,6 +70,7 @@ module scale_file_history_meshfield
   class(MeshBase1D), pointer :: mesh1D
   class(MeshRectDom2D), pointer :: mesh2D
   class(MeshCubeDom3D), pointer :: mesh3D
+  class(MeshCubedSphereDom2D), pointer :: meshCubedSphere2D
 
   integer :: dims1D_size(1)
   integer :: dims2D_size(2)
@@ -78,7 +80,9 @@ contains
 
 !----------------
 
-  subroutine FILE_HISTORY_meshfield_setup( mesh1D_, mesh2D_, mesh3D_ )
+  subroutine FILE_HISTORY_meshfield_setup( &
+      mesh1D_, mesh2D_, mesh3D_,           &
+      meshcubedsphere2D_ )
 
     use scale_file_h, only: &
       FILE_HSHORT
@@ -99,6 +103,7 @@ contains
     class(Meshbase1d), intent(in), target, optional :: mesh1D_
     class(MeshRectDom2d), intent(in), target, optional :: mesh2D_
     class(MeshCubeDom3D), intent(in), target, optional :: mesh3D_
+    class(MeshCubedSphereDom2D), intent(in), target, optional :: meshCubedsphere2D_
 
     character(len=H_MID) :: FILE_HISTORY_MESHFILED_H_TITLE = 'SCALE-FEM FILE_HISTORY_MESHFIELD' !< title of the output file
     character(len=H_MID) :: FILE_HISTORY_MESHFIELD_T_SINCE
@@ -140,6 +145,11 @@ contains
 
     call FILE_HISTORY_Set_NowDate( TIME_NOWDATE, TIME_NOWSUBSEC, TIME_NOWSTEP )
 
+    !- Set a pointer to the  variable of mesh 
+    
+    nullify( mesh1D, mesh2D, mesh3D )
+    nullify( meshCubedSphere2D )
+
     if ( present(mesh1D_) ) then
       mesh1D => mesh1D_
       call set_dim_axis1D()
@@ -149,6 +159,9 @@ contains
     else if ( present(mesh3D_) ) then
       mesh3D => mesh3D_
       call set_dim_axis3D()
+    else if ( present(meshCubedsphere2D_) ) then
+      meshCubedSphere2D => meshCubedsphere2D_
+      call set_dim_axis2D_cubedsphere()
     else
       LOG_ERROR("FILE_HISTORY_meshfield_setup",*)   "Any mesh (mesh1d/2d/3d) are not specified."
       call PRC_abort
@@ -193,7 +206,8 @@ contains
 
   subroutine FILE_HISTORY_meshfield_put2D(hstid, field2d)
     use scale_file_common_meshfield, only: &
-      File_common_meshfield_put_field2D_cartesbuf
+      File_common_meshfield_put_field2D_cartesbuf,            &
+      File_common_meshfield_put_field2D_cubedsphere_cartesbuf
 
     implicit none
     integer, intent(in) :: hstid
@@ -202,9 +216,14 @@ contains
     real(RP), allocatable :: buf(:,:)
     !-------------------------------------------------
 
-
     allocate( buf(dims2D_size(1),dims2D_size(2)) )
-    call File_common_meshfield_put_field2D_cartesbuf( mesh2D, field2d, buf(:,:) )
+    
+    if ( associated(mesh2D) ) then
+      call File_common_meshfield_put_field2D_cartesbuf( mesh2D, field2d, buf(:,:) )
+    else if ( associated(meshCubedSphere2D) ) then
+      call File_common_meshfield_put_field2D_cubedsphere_cartesbuf( &
+        meshCubedSphere2D, field2d, buf(:,:) )
+    end if
     call FILE_HISTORY_put(hstid, buf)
 
     return
@@ -223,7 +242,6 @@ contains
     !-------------------------------------------------
 
     allocate( buf(dims3D_size(1,1),dims3D_size(2,1),dims3D_size(3,1)) )
-
     call File_common_meshfield_put_field3D_cartesbuf( mesh3D, field3d, buf(:,:,:) )
     call FILE_HISTORY_put(hstid, buf)
 
@@ -358,6 +376,50 @@ contains
 
     return
   end subroutine set_dim_axis3D
+
+  subroutine set_dim_axis2D_cubedsphere()
+    use scale_file_common_meshfield, only: &
+      FILE_COMMON_MESHFILED2D_DIMTYPE_NUM, &
+      DIMTYPE_X  => FILE_COMMON_MESHFILED2D_DIMTYPEID_X,    &
+      DIMTYPE_Y  => FILE_COMMON_MESHFILED2D_DIMTYPEID_Y,    &
+      DIMTYPE_XYT => FILE_COMMON_MESHFILED2D_DIMTYPEID_XYT, &
+      FILE_common_meshfield_diminfo,  &
+      File_common_meshfield_get_dims, &
+      File_common_meshfield_get_axis
+
+    implicit none
+
+    type(FILE_common_meshfield_diminfo) :: dimsinfo(FILE_COMMON_MESHFILED2D_DIMTYPE_NUM)
+    real(RP), allocatable :: x(:), y(:)
+    integer :: start(2,1), count(2,1)
+    character(len=H_SHORT) :: dims(2,1)
+    integer :: d, n, ndim
+    !-------------------------------------------------
+    
+    call File_common_meshfield_get_dims( meshCubedSphere2D, & ! (in)
+      dimsinfo(:) )                                           ! (out)
+    
+    dims2D_size(1) = dimsinfo(DIMTYPE_X)%size
+    dims2D_size(2) = dimsinfo(DIMTYPE_Y)%size
+    allocate( x(dims2D_size(1)), y(dims2D_size(2)) )
+    
+    call File_common_meshfield_get_axis( meshCubedSphere2D, dimsinfo, & ! (in)
+      x, y )                                                            ! (out)
+    
+    start(:,:) = 1
+
+    do n=1, FILE_COMMON_MESHFILED2D_DIMTYPE_NUM
+      ndim = dimsinfo(n)%ndim
+      dims(1:ndim,1)  = dimsinfo(n)%dims(1:ndim)
+      count(1:ndim,1) = dimsinfo(n)%count(1:ndim)
+      call FILE_HISTORY_Set_Dim ( dimsinfo(n)%type, ndim, 1, dims(1:ndim,:), zs(:), start(1:ndim,:), count(1:ndim,:))
+    end do
+    
+    call FILE_HISTORY_Set_Axis( dimsinfo(DIMTYPE_X)%name, dimsinfo(DIMTYPE_X)%type, dimsinfo(DIMTYPE_X)%unit, dimsinfo(DIMTYPE_X)%name, x(:))
+    call FILE_HISTORY_Set_Axis( dimsinfo(DIMTYPE_Y)%name, dimsinfo(DIMTYPE_Y)%type, dimsinfo(DIMTYPE_Y)%unit, dimsinfo(DIMTYPE_Y)%name, y(:))
+    
+    return
+  end subroutine set_dim_axis2D_cubedsphere
 
 !----------------
 

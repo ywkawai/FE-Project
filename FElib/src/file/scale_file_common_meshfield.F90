@@ -14,6 +14,7 @@ module scale_file_common_meshfield
   use scale_mesh_base3d, only: MeshBase3D
   use scale_mesh_rectdom2d, only: MeshRectDom2D
   use scale_mesh_cubedom3d, only: MeshCubeDom3D
+  use scale_mesh_cubedspheredom2d, only: MeshCubedSphereDom2D
   use scale_localmesh_1d, only: LocalMesh1D
   use scale_localmesh_2d, only: LocalMesh2D
   use scale_localmesh_3d, only: LocalMesh3D
@@ -34,6 +35,7 @@ module scale_file_common_meshfield
   interface File_common_meshfield_get_dims
     module procedure File_common_meshfield_get_dims1D
     module procedure File_common_meshfield_get_dims2D
+    module procedure File_common_meshfield_get_dims2D_cubedsphere
     module procedure File_common_meshfield_get_dims3D
   end interface
   public :: FILE_common_meshfield_get_dims
@@ -45,18 +47,23 @@ module scale_file_common_meshfield
   interface File_common_meshfield_get_axis
     module procedure File_common_meshfield_get_axis1D
     module procedure File_common_meshfield_get_axis2D
+    module procedure File_common_meshfield_get_axis2D_cubedsphere
     module procedure File_common_meshfield_get_axis3D
   end interface
   public :: FILE_common_meshfield_get_axis
 
   public :: File_common_meshfield_put_field1D_cartesbuf
   public :: File_common_meshfield_put_field2D_cartesbuf
+  public :: File_common_meshfield_put_field2D_cubedsphere_cartesbuf  
   public :: File_common_meshfield_put_field3D_cartesbuf
 
   public :: File_common_meshfield_set_cartesbuf_field1D
+  public :: File_common_meshfield_set_cartesbuf_field2D
+  public :: File_common_meshfield_set_cartesbuf_field2D_cubedsphere
   public :: File_common_meshfield_set_cartesbuf_field3D
 
   public :: File_common_meshfield_set_cartesbuf_field1D_local
+  public :: File_common_meshfield_set_cartesbuf_field2D_local
   public :: File_common_meshfield_set_cartesbuf_field3D_local
 
   type, public :: FILE_common_meshfield_diminfo
@@ -78,10 +85,12 @@ module scale_file_common_meshfield
   !
   !-----------------------------------------------------------------------------
 
+  ! 1D
   integer, public :: FILE_COMMON_MESHFILED1D_DIMTYPE_NUM   = 2
   integer, public :: FILE_COMMON_MESHFILED1D_DIMTYPEID_X   = 1
   integer, public :: FILE_COMMON_MESHFILED1D_DIMTYPEID_XT  = 2
 
+  ! 2D
   integer, public :: FILE_COMMON_MESHFILED2D_DIMTYPE_NUM   = 4
   integer, public :: FILE_COMMON_MESHFILED2D_DIMTYPEID_X   = 1
   integer, public :: FILE_COMMON_MESHFILED2D_DIMTYPEID_Y   = 2
@@ -345,6 +354,48 @@ contains
     return
   end subroutine File_common_meshfield_get_dims2D
 
+  subroutine File_common_meshfield_get_dims2D_cubedsphere( mesh2D, dimsinfo )
+    implicit none
+
+    class(MeshCubedSphereDom2D), target, intent(in) :: mesh2D
+    type(FILE_common_meshfield_diminfo), intent(out) :: dimsinfo(FILE_COMMON_MESHFILED2D_DIMTYPE_NUM)
+
+    type(ElementBase2D), pointer :: refElem
+    type(LocalMesh2D), pointer :: lcmesh
+    integer :: i, j, n
+
+    integer :: i_size, j_size
+    !-------------------------------------------------
+    
+    i_size = 0
+    do i=1, size(mesh2D%rcdomIJP2LCMeshID,1)
+      n = mesh2D%rcdomIJP2LCMeshID(i,1,1)
+      lcmesh => mesh2D%lcmesh_list(n)
+      i_size =i_size + lcmesh%NeX * lcmesh%refElem2D%Nfp
+    end do
+
+    j_size = 0
+    do j=1, size(mesh2D%rcdomIJP2LCMeshID,2)
+      n = mesh2D%rcdomIJP2LCMeshID(1,j,1)
+      lcmesh => mesh2D%lcmesh_list(n)
+      j_size = j_size + lcmesh%NeY * lcmesh%refElem2D%Nfp
+    end do
+
+    j_size = j_size * size(mesh2D%rcdomIJP2LCMeshID,3)
+  
+    call set_dimension( dimsinfo(FILE_COMMON_MESHFILED2D_DIMTYPEID_X),  &
+      "x", "X-coordinate", "X", 1, (/ "x" /), (/ i_size /)              )
+    call set_dimension( dimsinfo(FILE_COMMON_MESHFILED2D_DIMTYPEID_Y),  &
+      "y", "Y-coordinate", "Y", 1, (/ "y" /), (/ j_size /)              )
+
+    call set_dimension( dimsinfo(FILE_COMMON_MESHFILED2D_DIMTYPEID_XY),    &
+      "xy", "XY-coordinate", "XY", 2, (/ "x", "y" /), (/ i_size, j_size /) )
+    call set_dimension( dimsinfo(FILE_COMMON_MESHFILED2D_DIMTYPEID_XYT),  &
+      "xyt", "XY-coordinate", "XYT", 2, (/ "x", "y" /), (/ i_size, j_size /) )
+
+    return
+  end subroutine File_common_meshfield_get_dims2D_cubedsphere
+
   subroutine File_common_meshfield_get_axis2D( mesh2D, dimsinfo, x, y, &
     force_uniform_grid  )
     implicit none
@@ -356,6 +407,7 @@ contains
     logical, intent(in), optional :: force_uniform_grid
 
     integer :: n
+    integer :: ni, nj
     integer :: k
     integer :: i, j 
     integer :: i2, j2
@@ -372,7 +424,9 @@ contains
     if ( present(force_uniform_grid) ) uniform_grid = force_uniform_grid
 
     igs = 0; jgs = 0
-    do n=1 ,mesh2D%LOCAL_MESH_NUM
+    do nj=1, size(mesh2D%rcdomIJ2LCMeshID,2) 
+    do ni=1, size(mesh2D%rcdomIJ2LCMeshID,1)
+      n = mesh2D%rcdomIJ2LCMeshID(ni,nj)
       lcmesh => mesh2D%lcmesh_list(n)
       refElem => lcmesh%refElem2D
 
@@ -381,7 +435,7 @@ contains
       do j=1, lcmesh%NeY
       do i=1, lcmesh%NeX
         k = i + (j-1) * lcmesh%NeX
-        if ( j==1 ) then
+        if ( j==1 .and. nj == 1 ) then
           x_local(:) = lcmesh%pos_en(refElem%Fmask(:,1),k,1)
           if ( uniform_grid ) call get_uniform_grid1D( x_local, refElem%Nfp )
 
@@ -389,7 +443,7 @@ contains
           ie = is + refElem%Nfp - 1
           x(is:ie) = x_local(:)
         end if
-        if ( i==1 ) then
+        if ( i==1 .and. ni == 1 ) then
           y_local(:) = lcmesh%pos_en(refElem%Fmask(:,4),k,2)
           if ( uniform_grid ) call get_uniform_grid1D( y_local, refElem%Nfp )
 
@@ -403,9 +457,77 @@ contains
       igs = ie; jgs = je
       deallocate( x_local, y_local )
     end do
+    end do
 
     return
   end subroutine File_common_meshfield_get_axis2D
+
+  subroutine File_common_meshfield_get_axis2D_cubedsphere( mesh2D, dimsinfo, x, y  )
+
+    use scale_const, only: &
+      PI => CONST_PI
+    use scale_prc
+    implicit none
+
+    class(MeshCubedSphereDom2D), target, intent(in) :: mesh2D  
+    type(FILE_common_meshfield_diminfo), intent(in) :: dimsinfo(FILE_COMMON_MESHFILED2D_DIMTYPE_NUM)
+    real(DP), intent(out) :: x(dimsinfo(FILE_COMMON_MESHFILED2D_DIMTYPEID_X)%size)
+    real(DP), intent(out) :: y(dimsinfo(FILE_COMMON_MESHFILED2D_DIMTYPEID_Y)%size)
+
+    integer :: ni, nj, np, n
+    integer :: k
+    integer :: i, j, p
+    integer :: i2, j2, p2
+    type(ElementBase2D), pointer :: refElem
+    type(LocalMesh2D), pointer :: lcmesh
+
+    integer :: is, js, ie, je, igs, jgs
+
+    logical :: uniform_grid = .false.
+    real(RP), allocatable :: x_local(:)
+    real(RP), allocatable :: y_local(:)
+    !-------------------------------------------------
+    
+    igs = 0; jgs = 0
+    
+    do np=1, size(mesh2D%rcdomIJP2LCMeshID,3) 
+    do nj=1, size(mesh2D%rcdomIJP2LCMeshID,2) 
+    do ni=1, size(mesh2D%rcdomIJP2LCMeshID,1)
+      n = mesh2D%rcdomIJP2LCMeshID(ni,nj,np)
+      lcmesh => mesh2D%lcmesh_list(n)
+      refElem => lcmesh%refElem2D
+
+      allocate( x_local(refElem%Nfp), y_local(refElem%Nfp) )
+
+      do j=1, lcmesh%NeY
+      do i=1, lcmesh%NeX
+        k = i + (j-1) * lcmesh%NeX
+        if ( j==1 .and. nj == 1 .and. np == 1) then
+          x_local(:) = lcmesh%pos_en(refElem%Fmask(:,1),k,1)
+
+          is = igs + 1 + (i-1)*refElem%Nfp
+          ie = is + refElem%Nfp - 1
+          x(is:ie) = x_local(:)
+        end if
+        if ( i==1 .and. ni == 1 ) then
+          y_local(:) = lcmesh%pos_en(refElem%Fmask(:,4),k,2) &
+                     + ( lcmesh%panelID - 1.0_RP ) * 0.5_RP * PI
+
+          js = jgs + 1 + (j-1)*refElem%Nfp
+          je = js + refElem%Nfp - 1
+          y(js:je) = y_local(:)
+        end if
+      end do
+      end do
+
+      igs = ie; jgs = je
+      deallocate( x_local, y_local )
+    end do
+    end do
+    end do
+
+    return
+  end subroutine File_common_meshfield_get_axis2D_cubedsphere
 
   subroutine File_common_meshfield_put_field2D_cartesbuf( mesh2D, field2D, &
     buf, force_uniform_grid )
@@ -516,6 +638,166 @@ contains
 
     return
   end subroutine File_common_meshfield_put_field2D_cartesbuf
+
+  subroutine File_common_meshfield_put_field2D_cubedsphere_cartesbuf( mesh2D, field2D, &
+    buf )
+    use scale_prc, only: PRC_abort
+    use scale_polynominal, only: &
+      polynominal_genLegendrePoly
+    implicit none
+    class(MeshCubedSphereDom2D), target, intent(in) :: mesh2D
+    class(MeshField2D), intent(in) :: field2d
+    real(RP), intent(inout) :: buf(:,:)
+
+    integer :: n, kelem1, p
+    integer :: i0, j0, p0, i1, j1, i2, j2, i, j
+    type(LocalMesh2D), pointer :: lcmesh
+    type(elementbase2D), pointer :: refElem
+    integer :: i0_s, j0_s
+    integer :: Nfp
+    !------------------------------------------------
+
+    i0_s = 0; j0_s = 0
+
+    do p0=1, size(mesh2D%rcdomIJP2LCMeshID,3)    
+      do j0=1, size(mesh2D%rcdomIJP2LCMeshID,2)
+      do i0=1, size(mesh2D%rcdomIJP2LCMeshID,1)
+        n = mesh2D%rcdomIJP2LCMeshID(i0,j0,p0)
+
+        lcmesh => mesh2D%lcmesh_list(n)
+        refElem => lcmesh%refElem2D
+        Nfp = refElem%Nfp
+            
+        do j1=1, lcmesh%NeY
+        do i1=1, lcmesh%NeX
+          kelem1 = i1 + (j1-1)*lcmesh%NeX
+
+          do j2=1, Nfp
+          do i2=1, Nfp
+            i = i0_s + i2 + (i1-1)*Nfp
+            j = j0_s + j2 + (j1-1)*Nfp
+            buf(i,j) = field2d%local(n)%val(i2+(j2-1)*Nfp,kelem1)
+          end do
+          end do
+          
+        end do
+        end do
+        
+        i0_s = i0_s + lcmesh%NeX * refElem%Nfp
+        j0_s = j0_s + lcmesh%NeY * refElem%Nfp
+      end do
+      end do
+      i0_s = 0
+    end do
+    
+    return
+  end subroutine File_common_meshfield_put_field2D_cubedsphere_cartesbuf
+
+
+  subroutine File_common_meshfield_set_cartesbuf_field2D( mesh2D, buf, &
+    field2D )
+    implicit none
+    class(MeshRectDom2D), target, intent(in) :: mesh2D
+    real(RP), intent(in) :: buf(:,:)
+    class(MeshField2D), intent(inout) :: field2d
+
+    integer :: n
+    integer :: i0, j0
+    type(LocalMesh2D), pointer :: lcmesh
+    type(elementbase2D), pointer :: refElem
+    integer :: i0_s, j0_s
+    !----------------------------------------------------
+
+    i0_s = 0; j0_s = 0
+
+    do j0=1, size(mesh2D%rcdomIJ2LCMeshID,2)
+    do i0=1, size(mesh2D%rcdomIJ2LCMeshID,1)
+      n = mesh2D%rcdomIJ2LCMeshID(i0,j0)
+      lcmesh => mesh2D%lcmesh_list(n)
+      refElem => lcmesh%refElem2D
+
+      call File_common_meshfield_set_cartesbuf_field2D_local(  &
+        lcmesh, buf(:,:), i0_s, j0_s,                          &
+        field2d%local(n)%val(:,:)                              )
+
+      i0_s = i0_s + lcmesh%NeX * refElem%Nfp
+      j0_s = j0_s + lcmesh%NeY * refElem%Nfp
+    end do
+    end do
+
+    return
+  end subroutine File_common_meshfield_set_cartesbuf_field2D
+
+  subroutine File_common_meshfield_set_cartesbuf_field2D_local( &
+    lcmesh, buf, i0_s, j0_s,                                    &
+    val )
+    implicit none
+    type(LocalMesh2D), intent(in) :: lcmesh
+    real(RP), intent(in) :: buf(:,:)
+    integer, intent(in) :: i0_s, j0_s
+    real(RP), intent(inout) :: val(lcmesh%refElem2D%Np,lcmesh%NeA)
+
+    integer :: n, kelem1, p
+    integer :: i1, j1, i2, j2, i, j
+    type(elementbase2D), pointer :: refElem
+    integer :: indx
+    !----------------------------------------------------
+
+    refElem => lcmesh%refElem2D
+
+    do j1=1, lcmesh%NeY
+    do i1=1, lcmesh%NeX
+      kelem1 = i1 + (j1-1)*lcmesh%NeX
+      do j2=1, refElem%Nfp
+      do i2=1, refElem%Nfp
+        i = i0_s + i2 + (i1-1)*refElem%Nfp
+        j = j0_s + j2 + (j1-1)*refElem%Nfp
+        indx = i2 + (j2-1)*refElem%Nfp
+        val(indx,kelem1) = buf(i,j)
+      end do
+      end do
+    end do
+    end do
+
+    return
+  end subroutine File_common_meshfield_set_cartesbuf_field2D_local
+
+  subroutine File_common_meshfield_set_cartesbuf_field2D_cubedsphere( mesh2D, buf, &
+    field2D )
+    implicit none
+    class(MeshCubedSphereDom2D), target, intent(in) :: mesh2D
+    real(RP), intent(in) :: buf(:,:)
+    class(MeshField2D), intent(inout) :: field2d
+
+    integer :: n
+    integer :: i0, j0, p0
+    type(LocalMesh2D), pointer :: lcmesh
+    type(elementbase2D), pointer :: refElem
+    integer :: i0_s, j0_s, p0_s
+    !----------------------------------------------------
+
+    i0_s = 0; j0_s = 0; p0_s = 0
+
+    do p0=1, size(mesh2D%rcdomIJP2LCMeshID,3)
+      do j0=1, size(mesh2D%rcdomIJP2LCMeshID,2)
+      do i0=1, size(mesh2D%rcdomIJP2LCMeshID,1)
+        n = mesh2D%rcdomIJP2LCMeshID(i0,j0,p0)
+        lcmesh => mesh2D%lcmesh_list(n)
+        refElem => lcmesh%refElem2D
+
+        call File_common_meshfield_set_cartesbuf_field2D_local(  &
+          lcmesh, buf(:,:), i0_s, j0_s,                          &
+          field2d%local(n)%val(:,:)                              )
+
+        i0_s = i0_s + lcmesh%NeX * refElem%Nfp
+        j0_s = j0_s + lcmesh%NeY * refElem%Nfp
+      end do
+      end do
+      i0_s = 0
+    end do
+
+    return
+  end subroutine File_common_meshfield_set_cartesbuf_field2D_cubedsphere
 
   !- 3D ------------
 

@@ -82,9 +82,11 @@ jobs:
         make -C polynominal
         make -C mesh_linedom1d
         make -C mesh_rectdom2d_quadrilateral
+        make -C mesh_cubedsphere2d
         make -C mesh_cubedom3d_hexahedral
         make -C field_linedom1d
         make -C field_rectdom2d_quadrilateral
+        make -C field_cubedspheredom2d
         make -C field_cubedom3d_hexahedral
     
     - name: unit test for framework
@@ -109,6 +111,7 @@ jobs:
         make -C advect1d_fvm
         make -C advdiff1d
         make -C advect2d
+        make -C advect2dGlobal
         make -C advect2d_fvm
         make -C advect3d
         make -C advect3d_hevi

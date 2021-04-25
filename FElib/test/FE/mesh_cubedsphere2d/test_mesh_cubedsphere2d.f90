@@ -1,42 +1,38 @@
 #include "scalelib.h"
-program test_mesh_rectdom2d_quadrial
+program test_mesh_cubedsphere2d
   use scale_precision
   use scale_prc
   use scale_io  
   use scale
   use scale_element_quadrilateral
-  use scale_mesh_rectdom2d
+  use scale_mesh_cubedspheredom2d
   use scale_localmesh_2d
 
   implicit none
 
-  integer, parameter :: NeGX = 4
-  integer, parameter :: NeGY = 4
-  integer, parameter :: NLocalMeshPerPrc = 1
-
-  real(RP), parameter :: dom_xmin = -1.0_RP
-  real(RP), parameter :: dom_xmax = +1.0_RP
-  real(RP), parameter :: dom_ymin = -1.0_RP
-  real(RP), parameter :: dom_ymax = +1.0_RP
-
   type(QuadrilateralElement) :: refElem
   integer, parameter :: PolyOrder = 2
-  
-  type(MeshRectDom2D) :: mesh
+  integer, parameter :: NeGX = 3
+  integer, parameter :: NeGY = 3
+  integer, parameter :: NLocalMeshPerPrc = 6
+  real(RP), parameter :: RPlanet = 6.327E6_RP
+
+  type(MeshCubedSphereDom2D) :: mesh
   integer :: n
 
   !-------------------------------------------------
-
   call init()
   do n=1, mesh%LOCAL_MESH_NUM
     call check_connectivity( mesh%lcmesh_list(n), refElem )
   end do  
   call final()
-
+  
 contains
   subroutine init()
+    implicit none
     integer :: comm, myrank, nprocs
     logical :: ismaster
+    !-------------------------------
 
     call PRC_MPIstart( comm )
     
@@ -54,24 +50,24 @@ contains
     !------
     call refElem%Init(PolyOrder, .true.)
 
-    call mesh%Init( &
-      NeGX, NeGY,                             &
-      dom_xmin, dom_xmax, dom_ymin, dom_ymax, &
-      .true., .true.,                         &
-      refElem, NLocalMeshPerPrc, 1, 1 )
+    call mesh%Init( NeGX, NeGY, RPlanet, refElem, NLocalMeshPerPrc )
     
     call mesh%Generate()
-    
+
+    return
   end subroutine init
 
   subroutine final()
+    implicit none
+    !-------------------------------
     
     call mesh%Final()
     call refElem%Final()
     
     call PRC_MPIfinish()
 
-  end subroutine final
+    return
+  end subroutine final  
 
   subroutine check_connectivity( lcmesh, elem )
     type(LocalMesh2D), intent(in) :: lcmesh
@@ -178,5 +174,5 @@ contains
   end subroutine assert
 
   !--------------------------
-  
-end program test_mesh_rectdom2d_quadrial
+
+end program test_mesh_cubedsphere2d
