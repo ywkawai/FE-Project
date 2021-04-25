@@ -111,6 +111,7 @@ jobs:
         make -C advect1d_fvm
         make -C advdiff1d
         make -C advect2d
+        make -C advect2dGlobal
         make -C advect2d_fvm
         make -C advect3d
         make -C advect3d_hevi
