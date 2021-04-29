@@ -67,20 +67,21 @@ module mod_dg_prep
   type(AtmosComponent) :: atmos
 
 contains
-  subroutine dg_prep( &
-    comm_world, intercomm_parent, intercomm_child, cnf_fname )
+  subroutine dg_prep(                     &
+    comm_world, cnf_fname, path, add_path )
 
     use scale_time_manager, only: &
-      TIME_manager_checkstate, TIME_manager_advance,      &
+      TIME_manager_checkstate, TIME_manager_advance,          &
       TIME_NOWDATE, TIME_NOWSUBSEC, TIME_NOWSTEP, TIME_NSTEP, &
       TIME_DOresume, TIME_DOend
 
     implicit none
 
     integer,          intent(in) :: comm_world
-    integer,          intent(in) :: intercomm_parent
-    integer,          intent(in) :: intercomm_child
     character(len=*), intent(in) :: cnf_fname
+    character(len=*), intent(in) :: path
+    logical,          intent(in) :: add_path
+
 
     integer :: myrank
     logical :: ismaster
@@ -91,7 +92,11 @@ contains
     !########## Initial setup ##########
 
     ! setup standard I/O
-    call IO_setup( MODELNAME, cnf_fname )
+    if ( add_path .and. path /= "" ) then
+      call IO_setup( MODELNAME, trim(path)//cnf_fname, prefix=path )
+    else
+      call IO_setup( MODELNAME, trim(path)//cnf_fname )
+    end if
 
     ! setup MPI
     call PRC_LOCAL_setup( comm_world, & ! [IN]
