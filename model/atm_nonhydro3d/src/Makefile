@@ -34,6 +34,7 @@ VPATH = \
 	preprocess:
 
 OBJS = \
+	mod_dg_launcher.o            \
 	mod_dg_driver.o              \
 	mod_atmos_component.o        \
 	mod_atmos_dyn.o              \

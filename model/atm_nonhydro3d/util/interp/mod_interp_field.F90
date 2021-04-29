@@ -128,16 +128,26 @@ contains
     call in_file%Open( in_basename, myrank=0 )
     do nn = 1, out_var3D_num
       out_vinfo(nn)%varname = vars(nn)
-      call in_file%Get_dataInfo( vars(nn), istep=1, & ! (in)
-        units=out_vinfo(nn)%units,                  & ! (out)
-        time_start=out_vinfo(nn)%start_sec,         & ! (out)
-        time_end=time_endsec                        ) ! (out)
-
-      call in_file%Get_VarStepSize( vars(nn), & ! (in)
-        out_vinfo(nn)%num_step                ) ! (out)
-      
-      out_vinfo(nn)%dt = time_endsec - out_vinfo(nn)%start_sec
       out_vinfo(nn)%out_tintrv = out_tinterval(nn)
+
+      if ( out_tinterval(nn) > 0 ) then
+        call in_file%Get_dataInfo( vars(nn), istep=1, & ! (in)
+          units=out_vinfo(nn)%units,                  & ! (out)
+          time_start=out_vinfo(nn)%start_sec,         & ! (out)
+          time_end=time_endsec                        ) ! (out)
+
+        call in_file%Get_VarStepSize( vars(nn), & ! (in)
+          out_vinfo(nn)%num_step                ) ! (out)
+      else
+        call in_file%Get_dataInfo( vars(nn), istep=1, & ! (in)
+          units=out_vinfo(nn)%units                   ) ! (out)
+        
+        out_vinfo(nn)%start_sec = 0.0_RP
+        time_endsec             = 0.0_RP
+        out_vinfo(nn)%num_step  = 1
+      end if
+
+      out_vinfo(nn)%dt = time_endsec - out_vinfo(nn)%start_sec
     end do
     call in_file%Close()
     call in_file%Final()

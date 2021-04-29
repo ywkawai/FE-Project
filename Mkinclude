@@ -54,6 +54,11 @@ ifeq ($(SCALE_ENABLE_OPENACC),T)
    FFLAGS += $(FFLAGS_OPENACC)
 endif
 
+ifeq ($(SCALE_DEVELOP),T)
+   FFLAGS += -DSCALE_DEVELOP
+endif
+
+
 # NetCDF library setting
 # library location are inquired in order of: environment variable->Makedef.XXX->here
 include $(TOPDIR)/utils/make/Make_checknetcdf
