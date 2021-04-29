@@ -168,7 +168,6 @@ contains
     integer :: n
     !-------------------------------------------
 
-!    call in_mesh%Final()
     call in_elem3D%Final()
 
     call out_mesh%Final()
@@ -180,18 +179,6 @@ contains
     
     return
   end subroutine interp_mesh_Final
-
-  subroutine interp_mesh_Interpolate_field()
-    implicit none
-    !-------------------------------------------
-
-    call in_elem3D%Final()
-
-    call out_mesh%Final()
-    call out_elem3D%Final()
-
-    return
-  end subroutine interp_mesh_Interpolate_field
 
   !- private -------------------------------------
 
