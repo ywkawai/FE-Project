@@ -86,12 +86,16 @@ contains
 
     !########## Initial setup ##########
 
+#ifdef SCALE_DEVELOP
     ! setup standard I/O
     if ( add_path .and. path /= "" ) then
       call IO_setup( MODELNAME, trim(path)//cnf_fname, prefix=path )
     else
+#endif
       call IO_setup( MODELNAME, trim(path)//cnf_fname )
+#ifdef SCALE_DEVELOP
     end if
+#endif
 
     call IO_setup( MODELNAME, cnf_fname )
 

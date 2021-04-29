@@ -127,7 +127,7 @@ contains
                               universal_myrank, & ! [OUT]
                               universal_master  ) ! [OUT]
 
-    if( universal_master ) write(*,*) '*** Start Launch System for SCALE-RM'
+    if( universal_master ) write(*,*) '*** Start Launch System for SCALE-DG'
 
     !--- read launcher config
 
@@ -314,7 +314,7 @@ contains
     ! stop MPI
     call PRC_MPIfinish
 
-    if( universal_master ) write(*,*) '*** End   Launch System for SCALE-RM'
+    if( universal_master ) write(*,*) '*** End   Launch System for SCALE-DG'
 
   end subroutine launcher
 
