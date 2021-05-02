@@ -277,6 +277,12 @@ contains
     
     call PRC_ERRHANDLER_setup( .false., ismaster ) ! [IN]
 
+    ! setup scale_io                                                                                                                                                                                 
+    call IO_setup( "test_time_manager", "test.conf", allow_noconf = .true. )
+  
+    ! setup log
+    call IO_LOG_setup( myrank, ismaster )   
+
     return
   end subroutine init
 
