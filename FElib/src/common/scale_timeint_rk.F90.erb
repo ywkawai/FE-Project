@@ -388,6 +388,21 @@ contains
 
     tintbuf_ind = this%tend_buf_indmap(nowstage)
 
+    if ( this%nstage == 1 ) then
+% if (d > 2) then
+      !$omp parallel do collapse(<%=(d-1)%>)
+% else
+      !$omp parallel do
+% end   
+% for i in 1..d
+      do <%=ind_name[d-i]%>=<%=ind_range_list[d-i]%>
+% end
+        this%varTmp_<%=d%>d(<%=ind_ary%>,varID) = q(<%=ind_ary%>)
+% for i in 1..d
+      end do
+% end      
+    end if
+
     if ( nowstage ==  this%nstage ) then
       if ( this%imex_flag ) then
 
