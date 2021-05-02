@@ -70,6 +70,7 @@ jobs:
         make -C linkedlist
         make -C time_manager
         make -C sparsemat
+        make -C timeint_rk
 
     - name: unit test for FE
       run: | 
