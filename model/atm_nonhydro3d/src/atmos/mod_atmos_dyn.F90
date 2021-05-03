@@ -256,11 +256,6 @@ contains
     logical :: NUMDIFF_FLAG      = .false.
     logical :: SPONGELAYER_FLAG  = .false.
 
-    character(len=H_SHORT) :: coriolis_type = 'PLANE'   ! type of coriolis force: 'PLANE', 'SPHERE'
-    real(RP) :: coriolis_f0         = 0.0_RP
-    real(RP) :: coriolis_beta       = 0.0_RP
-    real(RP) :: coriolis_y0         = UNDEF8            ! default is domain center    
-
     namelist / PARAM_ATMOS_DYN /       &
       EQS_TYPE,                               &
       TINTEG_TYPE,                            &
@@ -268,9 +263,7 @@ contains
       TIME_DT_UNIT,                           &
       MODALFILTER_FLAG,                       &
       NUMDIFF_FLAG,                           &
-      SPONGELAYER_FLAG,                       &
-      CORIOLIS_TYPE,                          &
-      CORIOLIS_f0, CORIOLIS_beta, CORIOLIS_y0
+      SPONGELAYER_FLAG
     
     class(AtmosMesh), pointer     :: atm_mesh
     class(MeshBase), pointer      :: ptr_mesh
@@ -324,7 +317,7 @@ contains
 
     !- initialize the variables 
     call this%dyn_vars%Init( model_mesh )
-    call setup_coriolis_parameter( this%dyn_vars, atm_mesh, CORIOLIS_type, CORIOLIS_f0, CORIOLIS_beta, CORIOLIS_y0 )
+    call setup_coriolis_parameter( this%dyn_vars, atm_mesh )
 
     !- Initialize a module for 3D dynamical core 
 
@@ -868,6 +861,7 @@ contains
   end subroutine cal_numfilter_tend
 
   !-- Setup modal filter
+!OCL SERIAL
   subroutine setup_modalfilter( this, atm_mesh )
     implicit none
 
@@ -914,7 +908,7 @@ contains
   end subroutine setup_modalfilter
 
   !-- Setup explicit numerical diffusion
-
+!OCL SERIAL
   subroutine setup_numdiff( this, atm_mesh )
     implicit none
 
@@ -951,6 +945,7 @@ contains
   end subroutine setup_numdiff
 
   !-- Setup sponge layer
+!OCL SERIAL
   subroutine setup_spongelayer( this, atm_mesh, dtsec )
     implicit none
 
@@ -1008,50 +1003,55 @@ contains
   !-- Setup Coriolis parameter
 
 !OCL SERIAL
-  subroutine setup_coriolis_parameter( this, atm_mesh, &
-    COLIORIS_type, f0, beta, y0_ )
+  subroutine setup_coriolis_parameter( this, atm_mesh )
 
-    use scale_const, only: &
-      OHM => CONST_OHM
+    use scale_coriolis_param, only: &
+      get_coriolis_parameter
     implicit none
 
     class(AtmosDynVars), target, intent(inout) :: this
     class(AtmosMesh), target, intent(in) :: atm_mesh
-    character(*), intent(in) :: COLIORIS_type
-    real(RP), intent(in) :: f0, beta, y0_
 
     class(LocalMeshFieldBase), pointer :: coriolis
     class(LocalMesh3D), pointer :: lcmesh3D
     class(LocalMesh2D), pointer :: lcmesh2D
-    integer :: n, ke
-    real(RP) :: y0
+    integer :: n
+
+    character(len=H_SHORT) :: CORIOLIS_type ! type of coriolis force: 'PLANE', 'SPHERE'
+    real(RP) :: CORIOLIS_f0   = 0.0_RP
+    real(RP) :: CORIOLIS_beta = 0.0_RP
+    real(RP) :: CORIOLIS_y0
+
+    namelist /PARAM_ATMOS_DYN_CORIOLIS/ &
+      CORIOLIS_type,                         &                
+      CORIOLIS_f0, CORIOLIS_beta, CORIOLIS_y0
+        
+    integer :: ierr
     !---------------------------------------------------------------
 
-    if (y0_ == UNDEF8) then
-      y0 = 0.5_RP*(atm_mesh%mesh%ymax_gl +  atm_mesh%mesh%ymin_gl)
-    else
-      y0 = y0_
+    CORIOLIS_type = 'NONE'
+    CORIOLIS_y0 = 0.5_RP*(atm_mesh%mesh%ymax_gl +  atm_mesh%mesh%ymin_gl)
+
+    rewind(IO_FID_CONF)
+    read(IO_FID_CONF,nml=PARAM_ATMOS_DYN_CORIOLIS,iostat=ierr)
+    if( ierr < 0 ) then !--- missing
+      LOG_INFO("ATMOS_DYN_setup_coriolis",*) 'Not found namelist. Default used.'
+    else if( ierr > 0 ) then !--- fatal error
+      LOG_ERROR("ATMOS_DYN_setup_coriolis",*) 'Not appropriate names in namelist PARAM_ATMOS_DYN_CORIOLIS. Check!'
+      call PRC_abort
     end if
+    LOG_NML(PARAM_ATMOS_DYN_CORIOLIS)
 
     do n = 1, atm_mesh%mesh%LOCAL_MESH_NUM
       call AtmosDynAuxVars_GetLocalMeshFields( n, atm_mesh%mesh, this%AUXVARS2D_manager, &
         coriolis, lcmesh3D )
       lcmesh2D => lcmesh3D%lcmesh2D
 
-      if ( trim(COLIORIS_type) == 'PLANE' ) then
-        !$omp parallel do
-        do ke=1, lcmesh2D%Ne
-          coriolis%val(:,ke) = f0 + beta * (lcmesh2D%pos_en(:,ke,2) - y0)
-        end do
-      else if ( trim(COLIORIS_type) == 'SPHERE' ) then
-        !$omp parallel do
-        do ke=1, lcmesh2D%Ne
-          coriolis%val(:,ke) = 2.0_RP * OHM * sin(lcmesh3D%lat2D(:,ke))
-        end do
-      else
-        LOG_ERROR('AtmosDyn_set_colioris_parameter',*) 'Unexpected COLIORIS_type is specified. Check! COLIORIS_type=', COLIORIS_type
-        call PRC_abort
-      end if  
+      call get_coriolis_parameter( &
+        coriolis%val(:,lcmesh2D%NeS:lcmesh2D%NeE),                       & ! (out)
+        CORIOLIS_type, lcmesh2D%refElem2D%Np * lcmesh2D%Ne,              & ! (in)
+        lcmesh2D%pos_en(:,:,2), CORIOLIS_f0, CORIOLIS_beta, CORIOLIS_y0, & ! (in)
+        lcmesh3D%lat2D(:,:)                                              ) ! (in)
     end do
 
     return

@@ -77,6 +77,7 @@ module mod_cs2lonlat_interp_field
   logical, private :: is_cached_in_files
 
 contains
+!OCL SERIAL
   subroutine interp_field_Init( out_mesh, nodeMap_list )
     use scale_file_h
     implicit none
@@ -152,6 +153,7 @@ contains
     return
   end subroutine interp_field_Init
 
+!OCL SERIAL
   subroutine interp_field_Final()
     implicit none
 
@@ -178,6 +180,7 @@ contains
     return
   end subroutine interp_field_Final
 
+!OCL SERIAL
   subroutine interp_field_Interpolate( istep, varname, out_mesh, out_field, nodeMap_list )
     use scale_mesh_rectdom2d, only: MeshRectDom2D
     implicit none
@@ -232,6 +235,7 @@ contains
     return
   end subroutine interp_field_interpolate
 
+!OCL SERIAL
   subroutine interpolate_local( out_val, &
       out_domID, istep, varname, out_lcmesh, out_elem2D, mappingInfo, out_mesh2D )
 
