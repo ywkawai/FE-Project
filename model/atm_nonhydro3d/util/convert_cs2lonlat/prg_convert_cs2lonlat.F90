@@ -93,6 +93,7 @@ program convert_cs2lonlat
    call finalize()
 
 contains
+!OCL SERIAL
    subroutine initialize()
       use scale_prc, only: &
          PRC_MPIstart,        &
@@ -182,6 +183,7 @@ contains
       return
    end subroutine initialize
 
+!OCL SERIAL
    subroutine finalize
       use scale_prc, only: &
          PRC_mpibarrier, &

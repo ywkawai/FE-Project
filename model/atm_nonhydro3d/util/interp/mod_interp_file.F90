@@ -50,6 +50,7 @@ module mod_interp_file
   logical, private  :: out_UniformGrid = .false. 
 
 contains
+!OCL SERIAL
   subroutine interp_file_Init( in_basename, out_vinfo, mesh3D )
     use scale_file_h
     use scale_file_common_meshfield, only: &
@@ -130,6 +131,7 @@ contains
     return
   end subroutine interp_file_Init
 
+!OCL SERIAL
   subroutine interp_file_write_var( vid, field, start_sec, end_sec )
     implicit none
     integer, intent(in) :: vid

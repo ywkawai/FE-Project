@@ -172,6 +172,7 @@ contains
 
   !- private -------------------------------------
 
+!OCL SERIAL  
   subroutine construct_map()
     implicit none
 
@@ -238,6 +239,7 @@ contains
     return
   end subroutine construct_map
 
+!OCL SERIAL
   subroutine NodeMappingInfo_Init( this, &
       lcmesh, elem2D, tile_x, tile_y, tileID_table, panelID_table, &
       NprcX_lc, NprcY_lc )
@@ -419,6 +421,7 @@ contains
     return
   end subroutine NodeMappingInfo_Init
 
+!OCL SERIAL  
   subroutine NodeMappingInfo_Final( this )
     implicit none
     class(NodeMappingInfo), intent(inout) :: this
@@ -442,6 +445,7 @@ contains
   end subroutine NodeMappingInfo_Final
 
   !> Check whether the point is located inside a polyngon
+!OCL SERIAL
   function inpoly( pt_x, pt_y, num_node, v_x, v_y ) result(ret)
     implicit none
     real(RP), intent(in) :: pt_x
@@ -478,6 +482,7 @@ contains
     return
   end function inpoly
 
+!OCL SERIAL
   subroutine get_panelID( panelID, lon, lat, Np )
     use scale_cubedsphere_cnv, only: &
       CubedSphereCnv_LonLat2CSPos
