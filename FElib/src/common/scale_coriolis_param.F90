@@ -45,8 +45,8 @@ contains
     !------------------------------------------
 
     if ( trim(COLIORIS_type) == 'PLANE' ) then
-      if ( (present(f0) == .false.) .or. (present(beta) == .false.)      &
-            .or. (present(y) == .false.) .or. (present(y0) == .false.) ) then
+      if ( ( .not. present(f0) ) .or. ( .not. present(beta) )    &
+            .or. ( .not. present(y) ) .or. ( .not. present(y0) ) ) then
         LOG_ERROR('get_coriolis_parameter',*) 'If COLIORIS_type is set to PLANE, f0 and beta must be passed. Check!'
         call PRC_abort
       end if
