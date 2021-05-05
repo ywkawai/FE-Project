@@ -139,6 +139,11 @@ contains
       CVdry => CONST_CVdry, &
       PRES00 => CONST_PRE00
     
+    use scale_atm_dyn_dgm_hydrostatic, only: &
+      hydrostatic_calc_basicstate_constPT
+    use mod_mkinit_util, only: &
+      mkinitutil_calc_cosinebell
+
     implicit none
 
     class(Exp_rising_therm_bubble), intent(inout) :: this
@@ -162,31 +167,21 @@ contains
     real(RP) :: DTHETA
     real(RP) :: x_c, y_c, z_c
     real(RP) :: r_x, r_y, r_z
-    logical :: InitCond_GalerkinProjFlag
 
     namelist /PARAM_EXP/ &
       THETA0, DTHETA,            &
-      x_c, y_c, z_c,             &
-      r_x, r_y, r_z,             &
-      InitCond_GalerkinProjFlag
+      x_c, y_c, z_c,            &
+      r_x, r_y, r_z
 
+    integer, parameter :: IntrpPolyOrder_h = 6
+    integer, parameter :: IntrpPolyOrder_v = 8
+    real(RP), allocatable :: THETA_purtub(:,:)
+    
+    real(RP) :: RovCp
+    real(RP) :: PT  (elem%Np)
+    real(RP) :: DENS(elem%Np)
 
     integer :: ke
-    real(RP) :: THETA(elem%Np), DENS(elem%Np), dens_zfunc(elem%Np), RHOT(elem%Np)
-
-    integer, parameter :: IntrpPolyOrder = 10
-    real(RP) :: vx(elem%Nv), vy(elem%Nv), vz(elem%Nv)
-    real(RP), allocatable :: r(:)
-
-    real(RP), allocatable :: IntrpMat(:,:), InvV_intrp(:,:)
-    type(HexahedralElement) :: elem_intrp
-    real(RP), allocatable :: x_intrp(:), y_intrp(:), z_intrp(:)
-    real(RP), allocatable :: r_intrp(:)
-    real(RP), allocatable :: THETA_intrp(:)
-  
-    integer :: p1, p2, p3
-    integer :: p_, p_intrp
-
     integer :: ierr
     !-----------------------------------------------------------------------------
 
@@ -194,78 +189,40 @@ contains
     r_x = 250.0_RP; r_y = 250.0_RP; r_z = 250.0_RP;
     THETA0    = 300.0_RP
     DTHETA    = 0.5_RP
-    InitCond_GalerkinProjFlag = .false.
 
     rewind(IO_FID_CONF)
     read(IO_FID_CONF,nml=PARAM_EXP,iostat=ierr)
     if( ierr < 0 ) then !--- missing
-       LOG_INFO("exp_SetInitCond_risingwarmbubble",*) 'Not found namelist. Default used.'
+       LOG_INFO("RISING_THERMAL_BUBBL_setup",*) 'Not found namelist. Default used.'
     elseif( ierr > 0 ) then !--- fatal error
-       LOG_ERROR("exp_SetInitCond_risingwarmbubble",*) 'Not appropriate names in namelist PARAM_EXP. Check!'
+       LOG_ERROR("RISING_THERMAL_BUBBL_setup",*) 'Not appropriate names in namelist PARAM_EXP. Check!'
        call PRC_abort
     endif
     LOG_NML(PARAM_EXP)
 
     !---
-    call elem_intrp%Init( IntrpPolyOrder, IntrpPolyOrder, .false. )
-    allocate( IntrpMat(elem%Np,elem_intrp%Np) )
-    allocate( InvV_intrp(elem%Np,elem_intrp%Np) )
-    allocate( x_intrp(elem_intrp%Np), y_intrp(elem_intrp%Np), z_intrp(elem_intrp%Np) )
-  
-    allocate( r(elem%Np) )
-    allocate( r_intrp(elem_intrp%Np) )
-    allocate( THETA_intrp(elem_intrp%Np) )
 
-
-    InvV_intrp(:,:) = 0.0_RP
-    do p3=1, elem%Nnode_v
-    do p2=1, elem%Nnode_h1D
-    do p1=1, elem%Nnode_h1D
-      p_ = p1 + (p2-1)*elem%PolyOrder_h + (p3-1)*elem%PolyOrder_h**2
-      p_intrp = p1 + (p2-1)*elem_intrp%PolyOrder_h + (p3-1)*elem_intrp%PolyOrder_h**2
-      InvV_intrp(p_,:) = elem_intrp%invV(p_intrp,:)
-    end do
-    end do    
-    end do    
-    IntrpMat(:,:) = matmul(elem%V, InvV_intrp)
-
-    !----
-    do ke=1, lcmesh%Ne
-      vx(:) = lcmesh%pos_ev(lcmesh%EToV(ke,:),1)
-      vy(:) = lcmesh%pos_ev(lcmesh%EToV(ke,:),2)
-      vz(:) = lcmesh%pos_ev(lcmesh%EToV(ke,:),3)
-      x_intrp(:) = vx(1) + 0.5_RP*(elem_intrp%x1(:) + 1.0_RP)*(vx(2) - vx(1))
-      y_intrp(:) = vy(1) + 0.5_RP*(elem_intrp%x2(:) + 1.0_RP)*(vy(3) - vy(1))
-      z_intrp(:) = vz(1) + 0.5_RP*(elem_intrp%x3(:) + 1.0_RP)*(vz(5) - vz(1))
-
-      dens_zfunc(:) = (1.0_RP - Grav*z(:,ke)/(CpDry*THETA0))**(CVdry/Rdry)
-      DENS_hyd(:,ke) = PRES00/(THETA0*Rdry) * dens_zfunc(:)
-      PRES_hyd(:,ke) = PRES00 * (Rdry*DENS_hyd(:,ke)*THETA0/PRES00)**(CPdry/Cvdry)
-
-      if (InitCond_GalerkinProjFlag) then
-        r_intrp(:) = min( sqrt(  ((x_intrp(:) - x_c)/r_x)**2           &
-                               + ((y_intrp(:) - y_c)/r_y)**2           &
-                               + ((z_intrp(:) - z_c)/r_z)**2 ), 1.0_RP )
-        THETA_intrp(:) = THETA0 + DTHETA * 0.5_RP*( 1.0_RP + cos(PI*r_intrp(:)) )
-        THETA(:) = matmul(IntrpMat, THETA_intrp)
-      else
-        r(:) = min( sqrt(  ((x(:,ke) - x_c)/r_x)**2           &
-                         + ((y(:,ke) - y_c)/r_y)**2           &
-                         + ((z(:,ke) - z_c)/r_z)**2 ), 1.0_RP )
-        THETA(:) = THETA0 + DTHETA * 0.5_RP*( 1.0_RP + cos(PI * r(:)) ) 
-      end if
-
-      DENS(:) = PRES00/(THETA(:)*Rdry) * dens_zfunc(:)
-      DDENS(:,ke) = DENS(:) - DENS_hyd(:,ke)
-
-      DRHOT(:,ke) = DENS(:)*THETA(:) - DENS_hyd(:,ke)*THETA0
-
-      MOMX(:,ke) = 0.0_RP
-      MOMY(:,ke) = 0.0_RP
-      MOMZ(:,ke) = 0.0_RP
-    end do
+    allocate( THETA_purtub(elem%Np,lcmesh%NeA) )
+    call mkinitutil_calc_cosinebell( &
+      THETA_purtub,                          &
+      DTHETA, r_x, r_y, r_z, x_c, y_c, z_c,  &
+      x, y, z, lcmesh, elem,                 &
+      IntrpPolyOrder_h, IntrpPolyOrder_v     )  
     
-    call elem_intrp%Final()
+    call hydrostatic_calc_basicstate_constPT( DENS_hyd, PRES_hyd,                       &
+      THETA0, PRES00, lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2), lcmesh%pos_en(:,:,3), &
+      lcmesh, elem )
+    
+    !---
+    RovCp = Rdry / CpDry
+
+    !$omp parallel do private(PT, DENS)
+    do ke=lcmesh%NeS, lcmesh%NeE
+      PT(:) = THETA0 + THETA_purtub(:,ke)
+      DENS(:) = PRES_hyd(:,ke) / ( Rdry * PT(:) * (PRES_hyd(:,ke)/PRES00)**(RovCp) )
+      DDENS(:,ke) = DENS(:) - DENS_hyd(:,ke)
+      DRHOT(:,ke) = DENS(:) * PT(:) - DENS_hyd(:,ke)*THETA0
+    end do
 
     return
   end subroutine exp_SetInitCond_rising_therm_bubble

@@ -50,6 +50,7 @@ OBJS = \
 	mod_exp.o                    \
 	\
 	mod_dg_prep.o                \
+	mod_mkinit_util.o            \
 	mod_mkinit.o
 
 
@@ -87,7 +88,7 @@ $(BUILD_DIR)/$(INITNAME)$(POSTFIX) : $(BUILD_DIR)/$(INITNAME).o $(patsubst %,$(B
 
 $(BUILD_DIR)/$(BINNAME).o  : $(LIBS) $(patsubst %,$(BUILD_DIR)/%,$(OBJS)) $(BUILD_DIR)/mod_user.o
 $(BUILD_DIR)/$(INITNAME).o : $(LIBS) $(patsubst %,$(BUILD_DIR)/%,$(OBJS)) $(BUILD_DIR)/mod_user.o
-$(BUILD_DIR)/mod_user.o    : $(LIBS) $(patsubst %,$(BUILD_DIR)/%,$(SUB_OBJS)) $(BUILD_DIR)/mod_exp.o
+$(BUILD_DIR)/mod_user.o    : $(LIBS) $(patsubst %,$(BUILD_DIR)/%,$(SUB_OBJS)) $(BUILD_DIR)/mod_exp.o $(BUILD_DIR)/mod_mkinit_util.o
 
 $(BINDIR)/$(BINNAME)$(POSTFIX)  : $(BUILD_DIR)/$(BINNAME)$(POSTFIX)
 	install $< $@
