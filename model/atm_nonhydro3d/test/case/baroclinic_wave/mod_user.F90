@@ -30,7 +30,6 @@ module mod_user
   RPlanet => CONST_RADIUS, &
   OHM     => CONST_OHM
  
-
   use mod_exp, only: experiment
 
   use mod_atmos_component, only: &
@@ -147,6 +146,9 @@ contains
     x, y, z, dom_xmin, dom_xmax, dom_ymin, dom_ymax, dom_zmin, dom_zmax, &
     lcmesh, elem )
     
+    use mod_mkinit_util, only: &
+      mkinitutil_gen_GPMat,    &
+      mkinitutil_gen_Vm1Mat
     implicit none
 
     class(Exp_baroclinic_wave), intent(inout) :: this
@@ -165,6 +167,7 @@ contains
     real(RP), intent(in) :: dom_xmin, dom_xmax
     real(RP), intent(in) :: dom_ymin, dom_ymax
     real(RP), intent(in) :: dom_zmin, dom_zmax
+    
     
     ! Parameters for inital stratification
     real(RP) :: REF_TEMP    = 288.E0_RP ! The reference temperature [K]
@@ -208,8 +211,8 @@ contains
     type(HexahedralElement) :: elem_intrp
     real(RP), allocatable :: x_intrp(:), y_intrp(:), z_intrp(:)
     real(RP) :: vx(elem%Nv), vy(elem%Nv), vz(elem%Nv)
-    real(RP), allocatable :: IntrpMat(:,:), InvV_intrp(:,:)
-    real(RP), allocatable :: IntrpVm1Mat(:,:), InvV_intrpVm1(:,:)
+    real(RP), allocatable :: IntrpMat(:,:)
+    real(RP), allocatable :: IntrpVM1Mat(:,:)
     integer :: p_intrp
 
     real(RP), allocatable :: pres_intrp(:)
@@ -223,50 +226,31 @@ contains
 
     real(RP) :: Gamm, RGamma
     real(RP) :: Fy(elem%Np)
+
     integer :: ierr
     !-----------------------------------------------------------------------------
 
     rewind(IO_FID_CONF)
     read(IO_FID_CONF,nml=PARAM_EXP,iostat=ierr)
     if( ierr < 0 ) then !--- missing
-       LOG_INFO("exp_SetInitCond_baroclinicwave",*) 'Not found namelist. Default used.'
+       LOG_INFO("BAROCLINIC_WAVE_setup",*) 'Not found namelist. Default used.'
     elseif( ierr > 0 ) then !--- fatal error
-       LOG_ERROR("exp_SetInitCond_baroclinicwave",*) 'Not appropriate names in namelist PARAM_EXP. Check!'
+       LOG_ERROR("BAROCLINIC_WAVE_setup",*) 'Not appropriate names in namelist PARAM_EXP. Check!'
        call PRC_abort
     endif
     LOG_NML(PARAM_EXP)
 
-    !----------------------------
-
-    call elem_intrp%Init( IntrpPolyOrder_h, IntrpPolyOrder_v, elem%IsLumpedMatrix() )
-    allocate( IntrpMat(elem%Np,elem_intrp%Np), InvV_intrp(elem%Np,elem_intrp%Np) )
-    allocate( IntrpVm1Mat(elem%Np,elem_intrp%Np), InvV_intrpVm1(elem%Np,elem_intrp%Np) )
-
-    InvV_intrp(:,:) = 0.0_RP
-    do p3=1, elem%PolyOrder_v+1
-    do p2=1, elem%PolyOrder_h+1
-    do p1=1, elem%PolyOrder_h+1
-      p_ = p1 + (p2-1)*(elem%PolyOrder_h + 1) + (p3-1)*(elem%PolyOrder_h + 1)**2
-      p_intrp = p1 + (p2-1)*(elem_intrp%PolyOrder_h + 1) + (p3-1)*(elem_intrp%PolyOrder_h + 1)**2
-      InvV_intrp(p_,:) = elem_intrp%invV(p_intrp,:)
-    end do
-    end do
-    end do
-    IntrpMat(:,:) = matmul(elem%V, InvV_intrp)
-
-    InvV_intrpVm1(:,:) = 0.0_RP
-    do p3=1, elem%PolyOrder_v
-    do p2=1, elem%PolyOrder_h+1
-    do p1=1, elem%PolyOrder_h+1
-      p_ = p1 + (p2-1)*(elem%PolyOrder_h + 1) + (p3-1)*(elem%PolyOrder_h + 1)**2
-      p_intrp = p1 + (p2-1)*(elem_intrp%PolyOrder_h + 1) + (p3-1)*(elem_intrp%PolyOrder_h + 1)**2
-      InvV_intrpVm1(p_,:) = elem_intrp%invV(p_intrp,:)
-    end do
-    end do
-    end do
-    IntrpVm1Mat(:,:) = matmul(elem%V, InvV_intrpVm1)
+    !---
     
-    !----------------------------
+    call elem_intrp%Init( IntrpPolyOrder_h, IntrpPolyOrder_v, elem%IsLumpedMatrix() )
+
+    allocate( IntrpMat(elem%Np,elem_intrp%Np) )
+    call mkinitutil_gen_GPMat( IntrpMat, elem_intrp, elem )
+
+    allocate( IntrpVm1Mat(elem%Np,elem_intrp%Np) )
+    call mkinitutil_gen_Vm1Mat( IntrpVM1Mat, elem_intrp, elem )
+
+    !---
 
     allocate( pres_z(elem_intrp%Nnode_v,lcmesh%NeZ) )
     allocate( temp_z(elem_intrp%Nnode_v,lcmesh%NeZ) )
@@ -281,11 +265,11 @@ contains
     allocate( ln_eta_intrp(elem_intrp%Np) )
 
     Ly = dom_ymax - dom_ymin
-    y0 = 0.5_RP*(dom_ymax + dom_ymin)
+    y0 = 0.5_RP * ( dom_ymax + dom_ymin )
 
     ! Set coriolis parameters
-    f0 = 2.0_RP*OHM*sin(phi0Deg*PI/180.0_RP)
-    beta0 = (2.0_RP*OHM/RPlanet)*cos(phi0Deg*PI/180.0_RP)
+    f0 = 2.0_RP * OHM * sin( phi0Deg * PI / 180.0_RP )
+    beta0 = ( 2.0_RP * OHM / RPlanet ) * cos( phi0Deg * PI / 180.0_RP )
 
     ! Calculate eta(=p/p_s) level corresponding to z level of each (y,z) grid point
     ! using Newton's iteration method
@@ -355,16 +339,14 @@ contains
       pres_hyd_intrp(:) = pres_intrp(:)
       temp_hyd_intrp(:) = temp_intrp(:)
 
-      rhot_hyd_intrp(:) = PRES00/Rdry * (pres_hyd_intrp(:)/PRES00)**RGamma
+      rhot_hyd_intrp(:) = PRES00 / Rdry * (pres_hyd_intrp(:) / PRES00)**RGamma
 
       PRES_hyd(:,ke) = matmul(IntrpMat, pres_hyd_intrp(:))    
-      !PRES_hyd(:,ke) = PRES00 * matmul( IntrpMat, (Rdry/PRES00*rhot_hyd_intrp(:))**Gamm )
       DRHOT(:,ke) =  0.0_RP
-      ln_eta_intrp(:) = log(pres_hyd_intrp(:)/REF_PRES)
+      ln_eta_intrp(:) = log(pres_hyd_intrp(:) / REF_PRES)
 
-      dens_hyd_intrp(:) = pres_hyd_intrp(:) / (Rdry * temp_hyd_intrp(:))
-      DENS_hyd(:,ke) = matmul(IntrpVM1Mat, dens_hyd_intrp) !- lcmesh%Escale(:,ke,3,3)*matmul(elem%Dx3,PRES_hyd(:,ke)) / Grav
-      !DENS_hyd(:,ke) = - lcmesh%Escale(:,ke,3,3)*matmul(elem%Dx3,PRES_hyd(:,ke)) / Grav
+      dens_hyd_intrp(:) = pres_hyd_intrp(:) / ( Rdry * temp_hyd_intrp(:) )
+      DENS_hyd(:,ke) = matmul(IntrpVM1Mat, dens_hyd_intrp) 
       DDENS(:,ke) = 0.0_RP 
 
       vx(:) = lcmesh%pos_ev(lcmesh%EToV(ke,:),1)
@@ -372,14 +354,11 @@ contains
       x_intrp(:) = vx(1) + 0.5_RP*(elem_intrp%x1(:) + 1.0_RP)*(vx(2) - vx(1))
       y_intrp(:) = vy(1) + 0.5_RP*(elem_intrp%x2(:) + 1.0_RP)*(vy(4) - vy(1))
 
-      MOMX(:,ke) =  & !- lcmesh%Escale(:,ke,2,2)*matmul(elem%Dx2,PRES_hyd(:,ke)) / (f0 + beta0*(y(:,ke) - y0)) &
-        + matmul( IntrpMat, &
-          dens_hyd_intrp(:)*(                                                               &
-          - U0*sin(PI*y_intrp(:)/Ly)**2 * ln_eta_intrp(:) * exp(-(ln_eta_intrp(:)/b)**2)   &
-          + Up*exp(- ((x_intrp - Xc)**2 + (y_intrp - Yc)**2)/Lp**2)                      ) )
-   
-      MOMY(:,ke) = 0.0_RP
-      MOMZ(:,ke) = 0.0_RP
+      MOMX(:,ke) =  & 
+        + matmul( IntrpMat,                                                                       &
+          dens_hyd_intrp(:) * (                                                                   &
+          - U0 * sin(PI * y_intrp(:) / Ly)**2 * ln_eta_intrp(:) * exp(- (ln_eta_intrp(:) / b)**2) &
+          + Up * exp(- ( (x_intrp - Xc)**2 + (y_intrp - Yc)**2 ) / Lp**2 )                      ) )
     end do    
     end do  
     end do
@@ -405,14 +384,14 @@ contains
     real(RP) :: yphase
     !-------------------------------------------
 
-    yphase = 2.0_RP*PI*y_/Ly
+    yphase = 2.0_RP * PI * y_ / Ly
 
     ! Calc horizontal variation of geopotential height
-    geopot_hvari = 0.5_RP*U0*(                                                                     &
-      (f0 - beta0*y0)*(y_ - 0.5_RP*Ly*(1.0_RP + sin(yphase)/PI))                                   &
-      + 0.5_RP*beta0*( y_**2 - Ly*y_/PI*sin(yphase) - 0.5_RP*(Ly/PI)**2*(cos(yphase) + 1.0_RP)     &
-                        - Ly**2/3.0_RP                                                          )   &
-    )
+    geopot_hvari = 0.5_RP * U0 * (                                                  &
+      ( f0 - beta0 * y0 ) * ( y_ - 0.5_RP * Ly * ( 1.0_RP + sin(yphase) / PI ) )    &
+      + 0.5_RP * beta0 * ( y_**2 - Ly * y_ / PI * sin(yphase)                       &
+                           - 0.5_RP * ( Ly / PI )**2 * ( cos(yphase) + 1.0_RP )     &
+                           - Ly**2/3.0_RP                                        )  )
 
     return
   end subroutine get_thermal_wind_balance_1point_geopot_hvari
@@ -449,19 +428,19 @@ contains
     eta = 1.0E-8_RP ! Set first guess of eta
     do while( abs(del_eta) > CONV_EPS ) 
       ln_eta = log(eta)
-      temp_vfunc = eta**(Rdry*LAPSE_RATE/Grav)   
+      temp_vfunc = eta**( Rdry * LAPSE_RATE / Grav )
       temp_  = REF_TEMP * temp_vfunc &
-              + geopot_hvari / Rdry * (2.0_RP*(ln_eta/b)**2 - 1.0_RP)*exp(-(ln_eta/b)**2) 
+              + geopot_hvari / Rdry * ( 2.0_RP * (ln_eta / b)**2 - 1.0_RP) * exp(- (ln_eta / b)**2) 
       geopot = REF_TEMP * GRAV / LAPSE_RATE*(1.0_RP - temp_vfunc)  &
               + geopot_hvari * ln_eta * exp(-(ln_eta/b)**2)
-      del_eta = -  ( - Grav*z + geopot )         & ! <- F
-                 * ( - eta/(Rdry*temp_) )          ! <- (dF/deta)^-1
+      del_eta = -  ( - Grav * z + geopot )         & ! <- F
+                 * ( - eta / ( Rdry * temp_ ) )      ! <- (dF/deta)^-1
 
       eta = eta + del_eta
       itr = itr + 1
 
       if ( itr > ITRMAX ) then
-          LOG_ERROR("MKINIT_barocwave",*) "Fail the convergence of iteration. Check!"
+          LOG_ERROR("BAROCLINIC_WAVE_setup",*) "Fail the convergence of iteration. Check!"
           LOG_ERROR_CONT(*) "* (Y,Z)=", y, z
           LOG_ERROR_CONT(*) "itr=", itr, "del_eta=", del_eta, "eta=", eta, "temp=", temp_
           call PRC_abort

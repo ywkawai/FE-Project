@@ -136,6 +136,11 @@ contains
       CVdry => CONST_CVdry, &
       PRES00 => CONST_PRE00
     
+    use scale_atm_dyn_dgm_hydrostatic, only: &
+      hydrostatic_calc_basicstate_constPT
+    use mod_mkinit_util, only: &
+      mkinitutil_calc_cosinebell
+  
     implicit none
 
     class(Exp_sound_wave), intent(inout) :: this
@@ -159,136 +164,68 @@ contains
     real(RP) :: DPRES = 1.0_RP
     real(RP) :: x_c, y_c, z_c
     real(RP) :: r_x, r_y, r_z
-    logical :: InitCond_GalerkinProjFlag = .false.
 
     namelist /PARAM_EXP/ &
       TEMP0, DPRES,             &
       x_c, y_c, z_c,            &
-      r_x, r_y, r_z,            &
-      InitCond_GalerkinProjFlag
-
-
-    integer :: k
-    real(RP) :: DENS(elem%Np), dens_zfunc(elem%Np), RHOT(elem%Np)
-    real(RP) :: r(elem%Np)
+      r_x, r_y, r_z
 
     integer, parameter :: IntrpPolyOrder_h = 6
-    integer, parameter :: IntrpPolyOrder_v = 8
-    type(HexahedralElement) :: elem_intrp
-    real(RP), allocatable :: x_intrp(:), y_intrp(:), z_intrp(:)
-    real(RP) :: vx(elem%Nv), vy(elem%Nv), vz(elem%Nv)
-    real(RP), allocatable :: IntrpMat(:,:), InvV_intrp(:,:)
-    real(RP), allocatable :: IntrpVm1Mat(:,:), InvV_intrpVm1(:,:)
-    integer :: p1, p2, p3, p_, p_intrp
-
-    real(RP), allocatable :: DPRES_intrp(:)
-    real(RP), allocatable :: r_intrp(:)   
+    integer, parameter :: IntrpPolyOrder_v = 6
+    real(RP), allocatable :: PRES_purtub(:,:)
   
-    real(RP) :: gamm, rgamm
+    real(RP) :: rgamm
 
+    integer :: ke
     integer :: ierr
     !-----------------------------------------------------------------------------
-
-    gamm = CpDry/CvDry
-    rgamm = CvDry/CpDry
-
-    InitCond_GalerkinProjFlag = .false.
 
     x_c = 0.5_RP * (dom_xmax + dom_xmin)
     y_c = 0.5_RP * (dom_ymax + dom_ymin)
     z_c = 0.5_RP * (dom_zmax + dom_zmin)
 
-    r_x = 0.1_RP *  (dom_xmax - dom_xmin)
+    r_x = 0.1_RP * (dom_xmax - dom_xmin)
     r_y = 0.1_RP * (dom_ymax - dom_ymin)
     r_z = 0.1_RP * (dom_zmax - dom_zmin)
 
     rewind(IO_FID_CONF)
     read(IO_FID_CONF,nml=PARAM_EXP,iostat=ierr)
     if( ierr < 0 ) then !--- missing
-       LOG_INFO("exp_SetInitCond_soundwave",*) 'Not found namelist. Default used.'
+       LOG_INFO("SOUND_WAVE_setup",*) 'Not found namelist. Default used.'
     elseif( ierr > 0 ) then !--- fatal error
-       LOG_ERROR("exp_SetInitCond_soundwave",*) 'Not appropriate names in namelist PARAM_EXP. Check!'
+       LOG_ERROR("SOUND_WAVE_setup",*) 'Not appropriate names in namelist PARAM_EXP. Check!'
        call PRC_abort
     endif
     LOG_NML(PARAM_EXP)
 
     !---
-    call elem_intrp%Init( IntrpPolyOrder_h, IntrpPolyOrder_v, .false. )
-    allocate( IntrpMat(elem%Np,elem_intrp%Np), InvV_intrp(elem%Np,elem_intrp%Np) )
-    allocate( IntrpVm1Mat(elem%Np,elem_intrp%Np), InvV_intrpVm1(elem%Np,elem_intrp%Np) )
 
-    allocate( x_intrp(elem_intrp%Np), y_intrp(elem_intrp%Np), z_intrp(elem_intrp%Np) )
+    allocate( PRES_purtub(elem%Np,lcmesh%NeA) )
+    call mkinitutil_calc_cosinebell( &
+      PRES_purtub,                           &
+      DPRES, r_x, r_y, r_z, x_c, y_c, z_c,   &
+      x, y, z, lcmesh, elem,                 &
+      IntrpPolyOrder_h, IntrpPolyOrder_v     )  
+    
+    call hydrostatic_calc_basicstate_constPT( DENS_hyd, PRES_hyd,                      &
+      TEMP0, PRES00, lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2), lcmesh%pos_en(:,:,3), &
+      lcmesh, elem )
+    
+    !---
+    rgamm = CvDry / CpDry
 
-    allocate( DPRES_intrp(elem_intrp%Np) )    
-    allocate( r_intrp(elem_intrp%Np) )
-
-
-    InvV_intrp(:,:) = 0.0_RP
-    do p3=1, elem%PolyOrder_v+1
-    do p2=1, elem%PolyOrder_h+1
-    do p1=1, elem%PolyOrder_h+1
-      p_ = p1 + (p2-1)*(elem%PolyOrder_h + 1) + (p3-1)*(elem%PolyOrder_h + 1)**2
-      p_intrp = p1 + (p2-1)*(elem_intrp%PolyOrder_h + 1) + (p3-1)*(elem_intrp%PolyOrder_h + 1)**2
-      InvV_intrp(p_,:) = elem_intrp%invV(p_intrp,:)
+    !$omp parallel do
+    do ke=lcmesh%NeS, lcmesh%NeE
+      DRHOT(:,ke) = PRES00/Rdry * ( &
+          ( ( PRES_hyd(:,ke) + PRES_purtub(:,ke) ) / PRES00 )**rgamm &
+        - ( PRES_hyd(:,ke) / PRES00 )*rgamm                          )
     end do
-    end do
-    end do
-    IntrpMat(:,:) = matmul(elem%V, InvV_intrp)
-
-    InvV_intrpVm1(:,:) = 0.0_RP
-    do p3=1, elem%PolyOrder_v
-    do p2=1, elem%PolyOrder_h+1
-    do p1=1, elem%PolyOrder_h+1
-      p_ = p1 + (p2-1)*(elem%PolyOrder_h + 1) + (p3-1)*(elem%PolyOrder_h + 1)**2
-      p_intrp = p1 + (p2-1)*(elem_intrp%PolyOrder_h + 1) + (p3-1)*(elem_intrp%PolyOrder_h + 1)**2
-      InvV_intrpVm1(p_,:) = elem_intrp%invV(p_intrp,:)
-    end do
-    end do
-    end do
-    IntrpVm1Mat(:,:) = matmul(elem%V, InvV_intrpVm1)
-
-    !----
-
-    do k=1, lcmesh%Ne
-      vx(:) = lcmesh%pos_ev(lcmesh%EToV(k,:),1)
-      vy(:) = lcmesh%pos_ev(lcmesh%EToV(k,:),2)
-      vz(:) = lcmesh%pos_ev(lcmesh%EToV(k,:),3)
-      x_intrp(:) = vx(1) + 0.5_RP*(elem_intrp%x1(:) + 1.0_RP)*(vx(2) - vx(1))
-      y_intrp(:) = vy(1) + 0.5_RP*(elem_intrp%x2(:) + 1.0_RP)*(vy(4) - vy(1))
-      z_intrp(:) = vz(1) + 0.5_RP*(elem_intrp%x3(:) + 1.0_RP)*(vz(5) - vz(1))
-
-      PRES_hyd(:,k) = PRES00
-      DENS_hyd(:,k) = PRES00 / (Rdry * TEMP0)
-
-      r_intrp(:) = sqrt( &
-          ( (x_intrp(:) - x_c) / r_x )**2 &
-        + ( (y_intrp(:) - y_c) / r_y )**2 &
-        + ( (z_intrp(:) - z_c) / r_z )**2 )
-      
-      where( r_intrp <= 1.0_RP) 
-        DPRES_intrp(:) = DPRES * cos(0.5_RP*PI*r_intrp(:))
-      elsewhere
-        DPRES_intrp(:) = 0.0_RP
-      end where
-      
-      DRHOT(:,k) = PRES00/Rdry * ( &
-          ( (PRES_hyd(:,k) + matmul( IntrpMat, DPRES_intrp )) / PRES00 )**rgamm &
-        - ( PRES_hyd(:,k) / PRES00 )*rgamm )
-
-      DDENS(:,k) = 0.0_RP
-
-      MOMX(:,k) = 0.0_RP
-      MOMY(:,k) = 0.0_RP      
-      MOMZ(:,k) = 0.0_RP
-    end do
-
-    call elem_intrp%Final()
 
     return
   end subroutine exp_SetInitCond_sound_wave
 
-  subroutine exp_geostrophic_balance_correction( this,                              &
-    DENS_hyd, PRES_hyd, DDENS, MOMX, MOMY, MOMZ, DRHOT,                  &
+  subroutine exp_geostrophic_balance_correction( this,  &
+    DENS_hyd, PRES_hyd, DDENS, MOMX, MOMY, MOMZ, DRHOT, &
     lcmesh, elem )
     
     implicit none

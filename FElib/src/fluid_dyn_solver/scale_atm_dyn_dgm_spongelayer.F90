@@ -2,8 +2,7 @@
 !> module Atmosphere / Dynamics common
 !!
 !! @par Description
-!!      Modal filter for Atmospheric dynamical process. 
-!!      The modal filter surpresses the numerical instability due to the aliasing errors. 
+!!      Sponge layer for Atmospheric dynamical process. 
 !!
 !! @author Team SCALE
 !<
