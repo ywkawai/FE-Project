@@ -158,6 +158,7 @@ subroutine Atmos_setup( this )
   !- Setup the module for atmosphere / physics / turbulence
   call this%phy_tb_proc%ModelComponentProc_Init( 'AtmosPhysTb', ATMOS_PHY_TB_DO )
   call this%phy_tb_proc%setup( this%mesh, this%time_manager )
+  call this%phy_tb_proc%SetDynBC( this%dyn_proc%boundary_cond )
   
   call PROF_rapend( 'ATM_setup', 1)
   return
@@ -269,6 +270,9 @@ subroutine Atmos_update( this )
   end if
   
   !########## Calculate diagnostic variables ##########  
+
+  call this%vars%Clac_diagnostics()
+  call this%vars%AUXVARS_manager%MeshFieldComm_Exchange()
 
   !########## Adjustment ##########
   ! Microphysics

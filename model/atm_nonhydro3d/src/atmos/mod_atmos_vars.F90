@@ -47,6 +47,7 @@ module mod_atmos_vars
     
     type(MeshField3D), allocatable :: AUX_VARS(:)
     type(ModelVarManager) :: AUXVARS_manager 
+    type(MeshFieldCommCubeDom3D) :: AUXVARS_comm
     
     type(MeshField3D), allocatable :: PHY_TEND(:)
     type(ModelVarManager) :: PHYTENDS_manager 
@@ -61,6 +62,7 @@ module mod_atmos_vars
   contains
     procedure :: Init => AtmosVars_Init
     procedure :: Final => AtmosVars_Final
+    procedure :: Clac_diagnostics => AtmosVars_CalculateDiagnostics
     procedure :: History => AtmosVars_History
     procedure :: Check   => AtmosVars_Check
     procedure :: Monitor => AtmosVars_Monitor
@@ -70,6 +72,7 @@ module mod_atmos_vars
 
   public :: AtmosVars_GetLocalMeshPrgVar
   public :: AtmosVars_GetLocalMeshPrgVars
+  public :: AtmosVars_GetLocalMeshPhyAuxVars
   public :: AtmosVars_GetLocalMeshPhyTends
 
   !-----------------------------------------------------------------------------
@@ -107,15 +110,20 @@ module mod_atmos_vars
   
   integer, public, parameter :: ATMOS_AUXVARS_PRESHYDRO_ID = 1
   integer, public, parameter :: ATMOS_AUXVARS_DENSHYDRO_ID = 2
-  integer, public, parameter :: ATMOS_AUXVARS_NUM          = 2
+  integer, public, parameter :: ATMOS_AUXVARS_PRES_ID      = 3
+  integer, public, parameter :: ATMOS_AUXVARS_PT_ID        = 4
+  integer, public, parameter :: ATMOS_AUXVARS_NUM          = 4
 
   type(VariableInfo), public :: ATMOS_AUXVARS_VINFO(ATMOS_AUXVARS_NUM)
   DATA ATMOS_AUXVARS_VINFO / &
     VariableInfo( ATMOS_AUXVARS_PRESHYDRO_ID, 'PRES_hyd', 'hydrostatic part of pressure',  &
-                  'Pa',  3, 'XYZ',  ''                                                  ), &
-    VariableInfo( ATMOS_AUXVARS_DENSHYDRO_ID , 'DENS_hyd', 'hydrostatic part of density',  &
-                  'kg/m3', 3, 'XYZ', ''                                                 )  /
-  
+                     'Pa', 3, 'XYZ', ''                                                 ), &
+    VariableInfo( ATMOS_AUXVARS_DENSHYDRO_ID, 'DENS_hyd', 'hydrostatic part of density',   &
+                  'kg/m3', 3, 'XYZ', ''                                                 ), &
+    VariableInfo( ATMOS_AUXVARS_PRES_ID     ,     'PRES', 'pressure',                      &
+                     'Pa', 3, 'XYZ', 'air_pressure'                                     ), &
+    VariableInfo( ATMOS_AUXVARS_PT_ID       ,       'PT', 'potential temperature',         &
+                      'K', 3, 'XYZ', 'potential_temperature'                            )  /
   
   ! Tendency by physical processes
   
@@ -147,24 +155,20 @@ module mod_atmos_vars
   integer, public, parameter :: ATMOS_DIAGVARS_U_ID      = 1
   integer, public, parameter :: ATMOS_DIAGVARS_V_ID      = 2
   integer, public, parameter :: ATMOS_DIAGVARS_W_ID      = 3
-  integer, public, parameter :: ATMOS_DIAGVARS_PRES_ID   = 4
-  integer, public, parameter :: ATMOS_DIAGVARS_T_ID      = 5  
-  integer, public, parameter :: ATMOS_DIAGVARS_THETA_ID  = 6
-  integer, public, parameter :: ATMOS_DIAGVARS_QDRY      = 7
-  integer, public, parameter :: ATMOS_DIAGVARS_ENGT      = 8
-  integer, public, parameter :: ATMOS_DIAGVARS_ENGP      = 9
-  integer, public, parameter :: ATMOS_DIAGVARS_ENGK      = 10
-  integer, public, parameter :: ATMOS_DIAGVARS_ENGI      = 11 
-  integer, public, parameter :: ATMOS_DIAGVARS_NUM       = 11
+  integer, public, parameter :: ATMOS_DIAGVARS_T_ID      = 4  
+  integer, public, parameter :: ATMOS_DIAGVARS_QDRY      = 5
+  integer, public, parameter :: ATMOS_DIAGVARS_ENGT      = 6
+  integer, public, parameter :: ATMOS_DIAGVARS_ENGP      = 7
+  integer, public, parameter :: ATMOS_DIAGVARS_ENGK      = 8
+  integer, public, parameter :: ATMOS_DIAGVARS_ENGI      = 9 
+  integer, public, parameter :: ATMOS_DIAGVARS_NUM       = 9
 
   type(VariableInfo), public :: ATMOS_DIAGVARS_VINFO(ATMOS_DIAGVARS_NUM)
   DATA ATMOS_DIAGVARS_VINFO / &
     VariableInfo( ATMOS_DIAGVARS_U_ID    , 'U'   , 'velocity u'           , 'm/s'  , 3, 'XYZ', 'x_wind'               ), &
     VariableInfo( ATMOS_DIAGVARS_V_ID    , 'V'   , 'velocity v'           , 'm/s'  , 3, 'XYZ', 'y_wind'               ), &  
     VariableInfo( ATMOS_DIAGVARS_W_ID    , 'W'   , 'velocity w'           , 'm/s'  , 3, 'XYZ', 'upward_air_velocity'  ), &
-    VariableInfo( ATMOS_DIAGVARS_PRES_ID , 'PRES', 'pressure'             , 'Pa'   , 3, 'XYZ', 'air_pressure'         ), &
     VariableInfo( ATMOS_DIAGVARS_T_ID    , 'T'   , 'temperature'          , 'K'    , 3, 'XYZ', 'air_temperature'      ), &
-    VariableInfo( ATMOS_DIAGVARS_THETA_ID, 'PT'  , 'potential temperature', 'K'    , 3, 'XYZ', 'potential_temperature'), &
     Variableinfo( ATMOS_DIAGVARS_QDRY    , 'QDRY', 'dry air'              , 'kg/kg', 3, 'XYZ', ''                     ), &
     Variableinfo( ATMOS_DIAGVARS_ENGT    , 'ENGT', 'total energy'         , 'J/m3' , 3, 'XYZ', ''                     ), &
     Variableinfo( ATMOS_DIAGVARS_ENGP    , 'ENGP', 'potential energy'     , 'J/m3' , 3, 'XYZ', ''                     ), &
@@ -290,6 +294,9 @@ contains
       end do             
     end do
 
+    call this%AUXVARS_comm%Init(ATMOS_AUXVARS_NUM, 0, atm_mesh%mesh)
+    call this%AUXVARS_manager%MeshFieldComm_Prepair( this%AUXVARS_comm, this%AUX_VARS(:) )
+
     !- Initialize the tendency of physical processes
 
     call this%PHYTENDS_manager%Init()
@@ -387,10 +394,11 @@ contains
     call this%restart_file%Final()
 
     call this%PROGVARS_comm%Final()
-    call this%PROGVARS_manager%Final()
-    call this%PHYTENDS_manager%Final()
-    call this%AUXVARS_manager%Final()
+    call this%AUXVARS_comm%Final()
 
+    call this%PROGVARS_manager%Final()
+    call this%AUXVARS_manager%Final()
+    call this%PHYTENDS_manager%Final()
 
     deallocate( this%DIAGVARS_HISTID )
 
@@ -400,7 +408,7 @@ contains
   subroutine AtmosVars_history( this )
     use scale_file_history_meshfield, only: FILE_HISTORY_meshfield_put
     implicit none
-    class(AtmosVars), intent(in) :: this
+    class(AtmosVars), intent(inout) :: this
   
     integer :: n
     integer :: v
@@ -417,6 +425,7 @@ contains
       if ( hst_id > 0 ) call FILE_HISTORY_meshfield_put( hst_id, this%PROG_VARS(v) )
     end do
 
+    call this%Clac_diagnostics()
     do v = 1, ATMOS_AUXVARS_NUM
       hst_id = this%AUX_VARS(v)%hist_id
       if ( hst_id > 0 ) call FILE_HISTORY_meshfield_put( hst_id, this%AUX_VARS(v) )
@@ -450,9 +459,6 @@ contains
     class(AtmosMesh), intent(in) :: atmos_mesh
 
     integer :: v
-
-    type(MeshFieldCommCubeDom3D) :: auxvars_comm
-    type(MeshFieldContainer) :: auxvars_comm_list(ATMOS_AUXVARS_NUM)
     !---------------------------------------
 
     LOG_NEWLINE
@@ -466,7 +472,7 @@ contains
       call this%restart_file%Read_var( DIMTYPE_XYZ, this%PROG_VARS(v)%varname, &
         this%PROG_VARS(v)                                                      )
     end do
-    do v=1, ATMOS_AUXVARS_NUM
+    do v=1, ATMOS_AUXVARS_DENSHYDRO_ID
       call this%restart_file%Read_var( DIMTYPE_XYZ, this%AUX_VARS(v)%varname, &
         this%AUX_VARS(v)                                                      )
     end do
@@ -478,16 +484,11 @@ contains
     !-- Check read data
     call this%Check( force = .true. )
 
-    !- Communicate halo data of hydrostatic variables
+    !-- Calculate diagnostic variables
+    call this%Clac_diagnostics()   
 
-    call auxvars_comm%Init( ATMOS_AUXVARS_NUM, 0, atmos_mesh%mesh )
-    do v=1, ATMOS_AUXVARS_NUM
-      auxvars_comm_list(v)%field3d => this%AUX_VARS(v)
-    end do
-    call auxvars_comm%Put( auxvars_comm_list, 1 )
-    call auxvars_comm%Exchange()
-    call auxvars_comm%Get( auxvars_comm_list, 1 )
-    call auxvars_comm%Final()
+    !-- Communicate halo data of hydrostatic & diagnostic variables
+    call this%AUXVARS_manager%MeshFieldComm_Exchange()
 
     return
   end subroutine AtmosVar_Read_restart_file
@@ -515,7 +516,7 @@ contains
       call this%restart_file%Def_var( this%PROG_VARS(v),  &
         ATMOS_PROGVARS_VINFO(v)%DESC, rf_vid, DIMTYPE_XYZ )
     end do
-    do v=1, ATMOS_AUXVARS_NUM
+    do v=1, ATMOS_AUXVARS_DENSHYDRO_ID
       rf_vid = ATMOS_PROGVARS_NUM + v
       call this%restart_file%Def_var( this%AUX_VARS(v),   &
         ATMOS_AUXVARS_VINFO(v)%DESC, rf_vid, DIMTYPE_XYZ  )
@@ -527,7 +528,7 @@ contains
       rf_vid = v
       call this%restart_file%Write_var(rf_vid, this%PROG_VARS(v) )
     end do
-    do v=1, ATMOS_AUXVARS_NUM
+    do v=1, ATMOS_AUXVARS_DENSHYDRO_ID
       rf_vid = ATMOS_PROGVARS_NUM + v
      call this%restart_file%Write_var(rf_vid, this%AUX_VARS(v) )
     end do
@@ -758,6 +759,49 @@ contains
     return
   end subroutine AtmosVars_GetLocalMeshPrgVars
 
+  subroutine AtmosVars_GetLocalMeshPhyAuxVars( domID, mesh, phyauxvars_list, &
+    PRES, PT,                                                                &
+    lcmesh3D                                                                 &
+    )
+
+    use scale_mesh_base, only: MeshBase
+    use scale_meshfield_base, only: MeshFieldBase
+    use scale_localmesh_base, only: LocalMeshBase
+    use scale_localmesh_3d, only: LocalMesh3D
+
+    implicit none
+    integer, intent(in) :: domID
+    class(MeshBase), intent(in) :: mesh
+    class(ModelVarManager), intent(inout) :: phyauxvars_list
+    class(LocalMeshFieldBase), pointer, intent(out) :: PRES, PT
+    class(LocalMesh3D), pointer, intent(out), optional :: lcmesh3D
+
+    class(MeshFieldBase), pointer :: field
+    class(LocalMeshBase), pointer :: lcmesh
+    !-------------------------------------------------------
+
+    !--    
+    call phyauxvars_list%Get(ATMOS_AUXVARS_PRES_ID, field)
+    call field%GetLocalMeshField(domID, PRES)
+
+    call phyauxvars_list%Get(ATMOS_AUXVARS_PT_ID, field)
+    call field%GetLocalMeshField(domID, PT)
+
+    !---
+    
+    if (present(lcmesh3D)) then
+      call mesh%GetLocalMesh( domID, lcmesh )
+      nullify( lcmesh3D )
+
+      select type(lcmesh)
+      type is (LocalMesh3D)
+        if (present(lcmesh3D)) lcmesh3D => lcmesh
+      end select
+    end if
+
+    return
+  end subroutine AtmosVars_GetLocalMeshPhyAuxVars
+
   subroutine AtmosVars_GetLocalMeshPhyTends( domID, mesh, phytends_list,  &
     DENS_tp, MOMX_tp, MOMY_tp, MOMZ_tp, RHOT_tp, RHOH_p,                  &
     lcmesh3D                                                              )
@@ -806,6 +850,39 @@ contains
 
     return
   end subroutine AtmosVars_GetLocalMeshPhyTends
+
+  !-----------------------------------------------------------------------------
+  !> Calculate diagnostic variables  
+  subroutine AtmosVars_CalculateDiagnostics( this )
+    implicit none
+    class(AtmosVars), intent(inout), target :: this
+
+    type(LocalMesh3D), pointer :: lcmesh3D
+    integer :: n
+    integer :: varid
+
+    class(MeshField3D), pointer :: field
+    !-------------------------------------------------------
+
+    do varid=ATMOS_AUXVARS_DENSHYDRO_ID+1, ATMOS_AUXVARS_NUM
+      field => this%AUX_VARS(varid)
+      do n=1, field%mesh%LOCAL_MESH_NUM
+        lcmesh3D => field%mesh%lcmesh_list(n)
+        call vars_calc_diagnoseVar( &
+          field%varname, field%local(n)%val,                              &
+          this%PROG_VARS(ATMOS_PROGVARS_DDENS_ID)%local(n)%val,           &
+          this%PROG_VARS(ATMOS_PROGVARS_MOMX_ID)%local(n)%val,            &
+          this%PROG_VARS(ATMOS_PROGVARS_MOMY_ID)%local(n)%val,            &
+          this%PROG_VARS(ATMOS_PROGVARS_MOMZ_ID)%local(n)%val,            &
+          this%PROG_VARS(ATMOS_PROGVARS_DRHOT_ID)%local(n)%val,           &
+          this%AUX_VARS(ATMOS_AUXVARS_DENSHYDRO_ID)%local(n)%val,         & 
+          this%AUX_VARS(ATMOS_AUXVARS_PRESHYDRO_ID)%local(n)%val,         &
+          lcmesh3D, lcmesh3D%refElem3D )
+      end do
+    end do
+
+    return
+  end subroutine AtmosVars_CalculateDiagnostics
 
 !-- private -----------------------------------------------------------------------
     
