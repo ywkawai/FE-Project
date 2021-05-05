@@ -1,3 +1,17 @@
+= 2021-05-06 (0.4.0)
+* New features
+  * Enhance the 3D nonhydrostatic atmospheric model
+    * Support sub-grid scale turbulent process for LES
+  * Add a test case forthe 3D nonhydrostatic atmospheric model
+    * PBL boundary layer turbulence
+    * Rising thermal bubble
+  * Add modules to treat 2D cubed sphere mesh (experimental)
+  * Add simplified sample programs using our library
+    * 2D linear advection equation using 2D cubed sphere mesh (experimental)
+  * Add a regrid tool to convert data in 2D cubed sphere mesh into that in lon-lat mesh (experimental)
+* Fix many bugs
+  * Fix a bug in the code of sponge layer in dynamical process
+
 = 2021-01-07 (0.3.0)
 * New features
   * Add some Runge-Kutta scheme

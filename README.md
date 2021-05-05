@@ -28,6 +28,7 @@ Futhermore, some dynamical cores of atmospheric and oceanic model with DGM will 
 ### 2D problems 
   - linear advection equation in a rectangle domain
     - various profiles of advected quantity and flow
+  - linear advection equation in a cubed sphere domain
 
 ### 3D problems 
   - linear advection equation in a cubic domain
