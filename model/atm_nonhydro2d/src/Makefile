@@ -117,3 +117,5 @@ $(BUILD_DIR)/mod_exp.o: \
 $(BUILD_DIR)/mod_atmos_vars.o: \
 	$(BUILD_DIR)/mod_atmos_mesh.o
 
+$(BUILD_DIR)/mod_atmos_bnd.o: \
+	$(BUILD_DIR)/mod_atmos_mesh.o
