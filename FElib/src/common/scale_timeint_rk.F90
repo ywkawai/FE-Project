@@ -580,6 +580,13 @@ contains
 
     tintbuf_ind = this%tend_buf_indmap(nowstage)
 
+    if ( this%nstage == 1 ) then
+      !$omp parallel do
+      do i=is, ie
+        this%varTmp_1d(i,varID) = q(i)
+      end do
+    end if
+
     if ( nowstage ==  this%nstage ) then
       if ( this%imex_flag ) then
 
@@ -714,6 +721,15 @@ contains
     call PROF_rapstart( 'rk_advance_generall2D', 3)
 
     tintbuf_ind = this%tend_buf_indmap(nowstage)
+
+    if ( this%nstage == 1 ) then
+      !$omp parallel do
+      do j=js, je
+      do i=is, ie
+        this%varTmp_2d(i,j,varID) = q(i,j)
+      end do
+      end do
+    end if
 
     if ( nowstage ==  this%nstage ) then
       if ( this%imex_flag ) then
@@ -869,6 +885,17 @@ contains
     call PROF_rapstart( 'rk_advance_generall3D', 3)
 
     tintbuf_ind = this%tend_buf_indmap(nowstage)
+
+    if ( this%nstage == 1 ) then
+      !$omp parallel do collapse(2)
+      do k=ks, ke
+      do j=js, je
+      do i=is, ie
+        this%varTmp_3d(i,j,k,varID) = q(i,j,k)
+      end do
+      end do
+      end do
+    end if
 
     if ( nowstage ==  this%nstage ) then
       if ( this%imex_flag ) then

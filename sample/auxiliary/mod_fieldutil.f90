@@ -25,6 +25,9 @@ module mod_fieldutil
   public :: fieldutil_get_profile2d_tracer
   public :: fieldutil_get_profile2d_flow
 
+  public :: fieldutil_get_profile2dGlobal_tracer
+  public :: fieldutil_get_profile2dGlobal_flow
+
   public :: fieldutil_get_profile3d_tracer
   public :: fieldutil_get_profile3d_flow
 
@@ -196,6 +199,99 @@ subroutine fieldutil_get_profile2d_flow( flow_x, flow_y, &
 
   return
 end subroutine fieldutil_get_profile2d_flow
+
+!-- 2d Global--------------------------------------------------------------
+
+!> Get 2D data whose value is set based on specified pattern. 
+!
+! Assume that range of domain is 0 <= x,y <= 1.
+! If the profile_name is 'sin', param1 and param2 are the wavenumbers in x- and y- directions, respectively. 
+! If the profile_name is 'gaussian-hill', (param1,param2) is the coordinate of center position, param3 is the half of width. The shape is isotropic about the center of domain. 
+! If the profile_name is 'cosine-bell', (param1,param2) is the coordinate of center position, param3 is the half of width. The shape is isotropic about the center of domain. 
+! If the profile_name is 'top-hat', (param1,param2) is the coordinate of center position, param3 and param4 are the half of width in x- and y- directions, respectively. 
+!
+subroutine fieldutil_get_profile2dGlobal_tracer( profile, &
+  profile_name, lon, lat, RPlanet, params, N )
+  implicit none
+  !--------------------------------
+  integer, intent(in) :: N
+  real(RP), intent(out) :: profile(N)
+  character(*), intent(in) :: profile_name
+  real(RP), intent(in) :: lon(N)
+  real(RP), intent(in) :: lat(N)
+  real(RP), intent(in) :: RPlanet
+  real(RP), intent(in) :: params(:)
+
+  real(RP) :: dist(N)
+  !------------------------------------------------------------------------
+
+  profile(:) = 0.0_RP
+
+  select case(profile_name)
+  ! case ('constant')
+  !   profile(:) = params(1)
+  ! case ('sin')
+  !   profile(:) = sin( params(1)*2.0_RP*PI*x(:) ) * sin( params(2)*2.0_RP*PI*y(:) )
+  ! case ('gaussian-hill')
+  !   profile(:) = exp( - 0.5_RP * ((x(:) - params(1))**2 + (y(:) - params(2))**2)/params(3)**2 )
+  case ('cosine-bell')
+    dist(:) = RPlanet * acos( &
+      sin(params(2))*sin(lat(:)) + cos(params(2))*cos(lat(:))*cos(lon(:) - params(1)) ) 
+    where( dist <= params(3) )
+      profile(:) = (1.0_RP + cos(PI*dist(:)/params(3)))*0.5_RP
+    end where
+  ! case ('top-hat')
+  !   where( abs(x-params(1)) <= params(3) .and. abs(y-params(2)) <= params(4) )
+  !     profile(:) = 1.0_RP
+  !   end where
+  case default
+    LOG_ERROR('fieldutil_get_profile2dGlobal',*) trim(profile_name)//' is not supported. Check!'
+    call PRC_abort
+  end select
+
+  return
+end subroutine fieldutil_get_profile2dGlobal_tracer
+
+!-------------------------------
+
+subroutine fieldutil_get_profile2dGlobal_flow( flow_lon, flow_lat, &
+  profile_name, lon, lat, params, N)
+
+  implicit none
+  !--------------------------------
+  integer, intent(in) :: N
+  real(RP), intent(out) :: flow_lon(N)
+  real(RP), intent(out) :: flow_lat(N)
+  character(*), intent(in) :: profile_name
+  real(RP), intent(in) :: lon(N)
+  real(RP), intent(in) :: lat(N)
+  real(RP), intent(in) :: params(:)
+
+  real(RP) :: dist(N)
+  real(RP) :: fac
+  !------------------------------------------------------------------------
+
+  flow_lon(:) = 0.0_RP
+  flow_lat(:) = 0.0_RP
+
+  select case(profile_name)
+  ! case ('constant')
+  !   flow_x(:) = params(1)
+  !   flow_y(:) = params(2)
+  case ('rigid-body-rot')
+    flow_lon(:) =   params(1) * ( cos(params(2)) * cos(lat(:)) + sin(params(2)) * cos(lon(:)) * sin(lat(:)) )
+    flow_lat(:) = - params(1) * sin(params(2)) * sin(lon(:)) 
+  ! case ('swirling')
+  !   fac = cos(PI*params(4)/params(3))
+  !   flow_x(:) = + sin(PI*x(:))**2 * sin(2.0_RP*PI*y(:)) * fac
+  !   flow_y(:) = - sin(PI*y(:))**2 * sin(2.0_RP*PI*x(:)) * fac
+  case default
+    LOG_ERROR('fieldutil_get_flow2dGlobal',*) trim(profile_name)//' is not supported. Check!'
+    call PRC_abort
+  end select
+
+  return
+end subroutine fieldutil_get_profile2dGlobal_flow
 
 !-- 3d--------------------------------------------------------------
 

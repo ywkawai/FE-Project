@@ -2,8 +2,7 @@
 !> module Atmosphere / Dynamics common
 !!
 !! @par Description
-!!      Modal filter for Atmospheric dynamical process. 
-!!      The modal filter surpresses the numerical instability due to the aliasing errors. 
+!!      Sponge layer for Atmospheric dynamical process. 
 !!
 !! @author Team SCALE
 !<
@@ -111,7 +110,7 @@ contains
     do p_z=1, Nnode_v
       wdamp_coef(:,p_z) = 0.25_RP * r_wdamp_tau                                        &
         * ( 1.0_RP + sign( 1.0_RP, z(:,p_z) - wdamp_height )                         ) &
-        * ( 1.0_RP - cos( PI * (z(:,p_z) - wdamp_height)/(zTop(p_z) - wdamp_height)) )
+        * ( 1.0_RP - cos( PI * (z(:,p_z) - wdamp_height)/(zTop(:) - wdamp_height) )  )
     end do
 
     return

@@ -19,6 +19,39 @@ module mod_mkinit
   use scale_prof
   use scale_prc
 
+  use scale_const, only: &
+    PI => CONST_PI,          &
+    GRAV => CONST_GRAV,      &
+    RPlanet => CONST_RADIUS, &
+    OHM => CONST_OHM,        &
+    Rdry => CONST_Rdry,      &
+    CPdry => CONST_CPdry,    &
+    CVdry => CONST_CVdry,    &
+    PRES00 => CONST_PRE00,   &
+    Pstd   => CONST_Pstd  
+
+
+  use scale_element_base, only: ElementBase3D
+  use scale_element_hexahedral, only: HexahedralElement
+  use scale_localmesh_3d, only: LocalMesh3D
+  use scale_mesh_cubedom3d, only: MeshCubeDom3D  
+  use scale_localmeshfield_base, only: LocalMeshFieldBase
+  use scale_atm_dyn_dgm_hydrostatic, only: &
+    hydrostaic_build_rho_XYZ
+
+  use mod_atmos_component, only: &
+    AtmosComponent
+    
+  use mod_mkinit_util, only: &
+    gen_GPMat => mkinitutil_gen_GPMat,                                     &
+    gen_Vm1Mat => mkinitutil_gen_Vm1Mat,                                   &
+    calc_cosinebell => mkinitutil_calc_cosinebell
+
+  use scale_atm_dyn_dgm_hydrostatic, only: &
+    calc_basicstate_constPT => hydrostatic_calc_basicstate_constPT,         &
+    calc_basicstate_constBVFreq => hydrostatic_calc_basicstate_constBVFreq, & 
+    calc_basicstate_constPTLAPS => hydrostatic_calc_basicstate_constPTLAPS
+    
   !-----------------------------------------------------------------------------
   implicit none
   private
@@ -29,12 +62,14 @@ module mod_mkinit
   public :: MKINIT_setup
   public :: MKINIT
 
-
   !-----------------------------------------------------------------------------
   !
   !++ Public parameters & variables
   !
   
+  integer, public :: MKINIT_TYPE   = -1
+  integer, public :: I_IGNORE      = 0
+
   !-----------------------------------------------------------------------------
   !
   !++ Private procedure
@@ -69,26 +104,74 @@ contains
     endif
     LOG_NML(PARAM_MKINIT)
 
+    select case(trim(initname))
+    case('NONE')
+      MKINIT_TYPE = I_IGNORE
+    end select
+    
+    return
   end subroutine MKINIT_setup
 
   !-----------------------------------------------------------------------------
   !> Driver
-  subroutine MKINIT( output )
+  subroutine MKINIT( output,                             &
+    model_mesh, atm_prgvars_manager, atm_auxvars_manager )
+  
+    use scale_model_var_manager, only: ModelVarManager
+    use mod_atmos_mesh, only: AtmosMesh
+    use mod_atmos_vars, only: &
+      AtmosVars_GetLocalMeshPrgVars
+
     implicit none
+
     logical, intent(out) :: output
+    class(AtmosMesh), target, intent(in) :: model_mesh
+    class(ModelVarManager), intent(inout) :: atm_prgvars_manager
+    class(ModelVarManager), intent(inout) :: atm_auxvars_manager
+
+    class(LocalMeshFieldBase), pointer :: DDENS, MOMX, MOMY, MOMZ, DRHOT
+    class(LocalMeshFieldBase), pointer :: DENS_hyd, PRES_hyd
+
+    integer :: n
+    integer :: ke
+    class(LocalMesh3D), pointer :: lcmesh3D
+    class(MeshCubeDom3D), pointer :: mesh
     !---------------------------------------------------------------------------
 
+    mesh => model_mesh%mesh
 
-    LOG_NEWLINE
-    LOG_PROGRESS(*) 'start making initial data'
+    if ( MKINIT_TYPE == I_IGNORE ) then
+      LOG_NEWLINE
+      LOG_PROGRESS(*) 'skip  making initial data'
+      output = .false.
+    else
+      LOG_NEWLINE
+      LOG_PROGRESS(*) 'start making initial data'
 
-    call PROF_rapstart('_MkInit_main',3)    
-    call PROF_rapend  ('_MkInit_main',3)
+      ! call PROF_rapstart('_MkInit_main',3)   
+      
+      do n=1, mesh%LOCAL_MESH_NUM
+        call AtmosVars_GetLocalMeshPrgVars( n, mesh, atm_prgvars_manager, atm_auxvars_manager, &
+           DDENS, MOMX, MOMY, MOMZ, DRHOT,                                                     &
+           DENS_hyd, PRES_hyd, lcmesh3D                                                        )
+
+        !$omp parallel do
+        do ke=lcmesh3D%NeS, lcmesh3D%NeE
+          MOMX %val(:,ke) = 0.0_RP
+          MOMY %val(:,ke) = 0.0_RP
+          MOMZ %val(:,ke) = 0.0_RP
+          DDENS%val(:,ke) = 0.0_RP
+          DRHOT%val(:,ke) = 0.0_RP
+        end do
+      end do
+      ! call PROF_rapend  ('_MkInit_main',3)
         
-    LOG_PROGRESS(*) 'end   making initial data'
-
-    output = .true.
+      ! LOG_PROGRESS(*) 'end   making initial data'
+      output = .true.
+    end if
 
     return
   end subroutine MKINIT
+
+  !-- private---------------------------------------------------------------------
 end module mod_mkinit

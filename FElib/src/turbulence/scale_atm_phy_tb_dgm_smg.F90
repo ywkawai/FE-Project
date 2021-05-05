@@ -148,11 +148,13 @@ contains
 
 !OCL SERIAL  
   subroutine atm_phy_tb_dgm_smg_cal_grad( &
-    S11, S12, S22, S23, S31, S33, TKE,                         &
-    dPTdx, dPTdy, dPTdz,                                       &
-    Nu, Kh,                                                    &
-    DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd,   &
-    Dx, Dy, Dz, Sx, Sy, Sz, Lift, lmesh, elem, lmesh2D, elem2D )
+    S11, S12, S22, S23, S31, S33, TKE,                          & ! (out)
+    dPTdx, dPTdy, dPTdz,                                        & ! (out)
+    Nu, Kh,                                                     & ! (out)
+    DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd,    & ! (in)
+    PRES, PT,                                                   & ! (in)
+    Dx, Dy, Dz, Sx, Sy, Sz, Lift, lmesh, elem, lmesh2D, elem2D, & ! (in)
+    is_bound                                                    ) ! (in)
 
     implicit none
 
@@ -179,13 +181,15 @@ contains
     real(RP), intent(in)  :: DRHOT_(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: DENS_hyd(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: PRES_hyd(elem%Np,lmesh%NeA)
+    real(RP), intent(in)  :: PRES(elem%Np,lmesh%NeA)
+    real(RP), intent(in)  :: PT(elem%Np,lmesh%NeA)
     type(SparseMat), intent(in) :: Dx, Dy, Dz
     type(SparseMat), intent(in) :: Sx, Sy, Sz
     type(SparseMat), intent(in) :: Lift
+    logical, intent(in) :: is_bound(elem%NfpTot,lmesh%Ne)
 
     real(RP) :: Fx(elem%Np), Fy(elem%Np), Fz(elem%Np), LiftDelFlx(elem%Np)
-    real(RP) :: DENS(elem%Np), RHOT(elem%Np)
-    real(RP) :: u(elem%Np), v(elem%Np), w(elem%Np), pt(elem%Np)
+    real(RP) :: DENS(elem%Np), RDENS(elem%Np), RHOT(elem%Np), Q(elem%Np)
     real(RP) :: DdensDxi(elem%Np,3)
     real(RP) :: DVelDxi(elem%Np,3,3)
     real(RP) :: del_flux_rho (elem%NfpTot,lmesh%Ne,3)
@@ -208,79 +212,99 @@ contains
     !--------------------------------------------------------------------
 
     call cal_del_flux_grad( del_flux_rho, del_flux_mom, del_flux_rhot,        & ! (out)
-      DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd,                & ! (in)
+      DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd, PT,            & ! (in)
       lmesh%normal_fn(:,:,1), lmesh%normal_fn(:,:,2), lmesh%normal_fn(:,:,3), & ! (in)
       lmesh%vmapM, lmesh%vmapP,                                               & ! (in)
-      lmesh, elem )                                                             ! (in)
+      lmesh, elem, is_bound )                                                   ! (in)
 
     call calculate_lambda( lambda, & ! (out)
       lmesh, elem, lmesh2D, elem2D ) ! (in)
-    
+  
     !$omp parallel do private( &
     !$omp Fx, Fy, Fz, LiftDelFlx,                     &
-    !$omp DENS, RHOT, u, v, w, pt, DdensDxi, DVelDxi, & 
+    !$omp DENS, RHOT, RDENS, Q, DdensDxi, DVelDxi,    & 
     !$omp p, Ri, S2, fm, Pr, lambda_r, E, C1          )
     do ke=lmesh%NeS, lmesh%NeE
-      DENS(:) = DENS_hyd(:,ke) + DDENS_(:,ke)
-      RHOT(:) = PRES00/Rdry * (PRES_hyd(:,ke)/PRES00)**(CVdry/CPdry) + DRHOT_(:,ke)
-      u(:)  = MOMX_(:,ke) / DENS(:)
-      v(:)  = MOMY_(:,ke) / DENS(:)
-      w(:)  = MOMZ_(:,ke) / DENS(:)
-      pt(:) = RHOT(:)     / DENS(:)
+      !---
+      DENS (:) = DENS_hyd(:,ke) + DDENS_(:,ke)
+      RDENS(:) = 1.0_RP / DENS(:)
+      RHOT(:) = DENS(:) * PT(:,ke)
 
       ! gradient of density
       call sparsemat_matmul( Dx, DENS, Fx )
-      call sparsemat_matmul( Lift, lmesh%Fscale(:,ke)*del_flux_rho(:,ke,1), LiftDelFlx )
+      call sparsemat_matmul( Lift, lmesh%Fscale(:,ke) * del_flux_rho(:,ke,1), LiftDelFlx )
       DdensDxi(:,1) = lmesh%Escale(:,ke,1,1) * Fx(:) + LiftDelFlx(:)
 
       call sparsemat_matmul( Dy, DENS, Fy )
-      call sparsemat_matmul( Lift, lmesh%Fscale(:,ke)*del_flux_rho(:,ke,2), LiftDelFlx )
+      call sparsemat_matmul( Lift, lmesh%Fscale(:,ke) * del_flux_rho(:,ke,2), LiftDelFlx )
       DdensDxi(:,2) = lmesh%Escale(:,ke,2,2) * Fy(:) + LiftDelFlx(:)
 
       call sparsemat_matmul( Dz, DENS, Fz )
-      call sparsemat_matmul( Lift, lmesh%Fscale(:,ke)*del_flux_rho(:,ke,3), LiftDelFlx )
+      call sparsemat_matmul( Lift, lmesh%Fscale(:,ke) * del_flux_rho(:,ke,3), LiftDelFlx )
       DdensDxi(:,3) = lmesh%Escale(:,ke,3,3) * Fz(:) + LiftDelFlx(:)
       
       ! gradient of u
+      Q(:) = MOMX_(:,ke) * RDENS(:)
+
       call sparsemat_matmul( Dx, MOMX_(:,ke), Fx )
-      call sparsemat_matmul( Lift, lmesh%Fscale(:,ke)*del_flux_mom(:,ke,1,1), LiftDelFlx )
-      DVelDxi(:,1,1) = ( lmesh%Escale(:,ke,1,1) * Fx(:) + LiftDelFlx(:) - u(:) * DdensDxi(:,1) ) / DENS(:)
+      call sparsemat_matmul( Lift, lmesh%Fscale(:,ke) * del_flux_mom(:,ke,1,1), LiftDelFlx )
+      DVelDxi(:,1,1) = ( lmesh%Escale(:,ke,1,1) * Fx(:) + LiftDelFlx(:) - Q(:) * DdensDxi(:,1) ) * RDENS(:)
 
       call sparsemat_matmul( Dy, MOMX_(:,ke), Fy )
-      call sparsemat_matmul( Lift, lmesh%Fscale(:,ke)*del_flux_mom(:,ke,2,1), LiftDelFlx )
-      DVelDxi(:,2,1) = ( lmesh%Escale(:,ke,2,2) * Fy(:) + LiftDelFlx(:) - u(:) * DdensDxi(:,2) ) / DENS(:)
+      call sparsemat_matmul( Lift, lmesh%Fscale(:,ke) * del_flux_mom(:,ke,2,1), LiftDelFlx )
+      DVelDxi(:,2,1) = ( lmesh%Escale(:,ke,2,2) * Fy(:) + LiftDelFlx(:) - Q(:) * DdensDxi(:,2) ) * RDENS(:)
 
       call sparsemat_matmul( Dz, MOMX_(:,ke), Fz )
-      call sparsemat_matmul( Lift, lmesh%Fscale(:,ke)*del_flux_mom(:,ke,3,1), LiftDelFlx )
-      DVelDxi(:,3,1) = ( lmesh%Escale(:,ke,3,3) * Fz(:) + LiftDelFlx(:) - u(:) * DdensDxi(:,3) ) / DENS(:)
+      call sparsemat_matmul( Lift, lmesh%Fscale(:,ke) * del_flux_mom(:,ke,3,1), LiftDelFlx )
+      DVelDxi(:,3,1) = ( lmesh%Escale(:,ke,3,3) * Fz(:) + LiftDelFlx(:) - Q(:) * DdensDxi(:,3) ) * RDENS(:)
 
       ! gradient of v
+      Q(:) = MOMY_(:,ke) * RDENS(:)
+
       call sparsemat_matmul( Dx, MOMY_(:,ke), Fx )
-      call sparsemat_matmul( Lift, lmesh%Fscale(:,ke)*del_flux_mom(:,ke,1,2), LiftDelFlx )
-      DVelDxi(:,1,2) = ( lmesh%Escale(:,ke,1,1) * Fx(:) + LiftDelFlx(:) - v(:) * DdensDxi(:,1) ) / DENS(:)
+      call sparsemat_matmul( Lift, lmesh%Fscale(:,ke) * del_flux_mom(:,ke,1,2), LiftDelFlx )
+      DVelDxi(:,1,2) = ( lmesh%Escale(:,ke,1,1) * Fx(:) + LiftDelFlx(:) - Q(:) * DdensDxi(:,1) ) * RDENS(:)
 
       call sparsemat_matmul( Dy, MOMY_(:,ke), Fy )
-      call sparsemat_matmul( Lift, lmesh%Fscale(:,ke)*del_flux_mom(:,ke,2,2), LiftDelFlx )
-      DVelDxi(:,2,2) = ( lmesh%Escale(:,ke,2,2) * Fy(:) + LiftDelFlx(:) - v(:) * DdensDxi(:,2) ) / DENS(:)
+      call sparsemat_matmul( Lift, lmesh%Fscale(:,ke) * del_flux_mom(:,ke,2,2), LiftDelFlx )
+      DVelDxi(:,2,2) = ( lmesh%Escale(:,ke,2,2) * Fy(:) + LiftDelFlx(:) - Q(:) * DdensDxi(:,2) ) * RDENS(:)
 
       call sparsemat_matmul( Dz, MOMY_(:,ke), Fz )
-      call sparsemat_matmul( Lift, lmesh%Fscale(:,ke)*del_flux_mom(:,ke,3,2), LiftDelFlx )
-      DVelDxi(:,3,2) = ( lmesh%Escale(:,ke,3,3) * Fz(:) + LiftDelFlx(:) - v(:) * DdensDxi(:,3) ) / DENS(:)
+      call sparsemat_matmul( Lift, lmesh%Fscale(:,ke) * del_flux_mom(:,ke,3,2), LiftDelFlx )
+      DVelDxi(:,3,2) = ( lmesh%Escale(:,ke,3,3) * Fz(:) + LiftDelFlx(:) - Q(:) * DdensDxi(:,3) ) * RDENS(:)
 
       ! gradient of w
+      Q(:) = MOMZ_(:,ke) * RDENS(:)
+
       call sparsemat_matmul( Dx, MOMZ_(:,ke), Fx )
-      call sparsemat_matmul( Lift, lmesh%Fscale(:,ke)*del_flux_mom(:,ke,1,3), LiftDelFlx )
-      DVelDxi(:,1,3) = ( lmesh%Escale(:,ke,1,1) * Fx(:) + LiftDelFlx(:) - w(:) * DdensDxi(:,1) ) / DENS(:)
+      call sparsemat_matmul( Lift, lmesh%Fscale(:,ke) *del_flux_mom(:,ke,1,3), LiftDelFlx )
+      DVelDxi(:,1,3) = ( lmesh%Escale(:,ke,1,1) * Fx(:) + LiftDelFlx(:) - Q(:) * DdensDxi(:,1) ) * RDENS(:)
 
       call sparsemat_matmul( Dy, MOMZ_(:,ke), Fy )
-      call sparsemat_matmul( Lift, lmesh%Fscale(:,ke)*del_flux_mom(:,ke,2,3), LiftDelFlx )
-      DVelDxi(:,2,3) = ( lmesh%Escale(:,ke,2,2) * Fy(:) + LiftDelFlx(:) - w(:) * DdensDxi(:,2) ) / DENS(:)
+      call sparsemat_matmul( Lift, lmesh%Fscale(:,ke) * del_flux_mom(:,ke,2,3), LiftDelFlx )
+      DVelDxi(:,2,3) = ( lmesh%Escale(:,ke,2,2) * Fy(:) + LiftDelFlx(:) - Q(:) * DdensDxi(:,2) ) * RDENS(:)
 
       call sparsemat_matmul( Dz, MOMZ_(:,ke), Fz )
-      call sparsemat_matmul( Lift, lmesh%Fscale(:,ke)*del_flux_mom(:,ke,3,3), LiftDelFlx )
-      DVelDxi(:,3,3) = ( lmesh%Escale(:,ke,3,3) * Fz(:) + LiftDelFlx(:) - w(:) * DdensDxi(:,3) ) / DENS(:)
+      call sparsemat_matmul( Lift, lmesh%Fscale(:,ke) * del_flux_mom(:,ke,3,3), LiftDelFlx )
+      DVelDxi(:,3,3) = ( lmesh%Escale(:,ke,3,3) * Fz(:) + LiftDelFlx(:) - Q(:) * DdensDxi(:,3) ) * RDENS(:)
 
-      ! calculate the component of strain velocity tensor
+      ! gradient of pt
+      Q(:) = RHOT(:) * RDENS(:)
+
+      call sparsemat_matmul( Dx, RHOT, Fx )
+      call sparsemat_matmul( Lift, lmesh%Fscale(:,ke) * del_flux_rhot(:,ke,1), LiftDelFlx )
+      dPTdx(:,ke) = ( lmesh%Escale(:,ke,1,1) * Fx(:) + LiftDelFlx(:) - Q(:) * DdensDxi(:,1) ) * RDENS(:)
+
+      call sparsemat_matmul( Dy, RHOT, Fy )
+      call sparsemat_matmul( Lift, lmesh%Fscale(:,ke) * del_flux_rhot(:,ke,2), LiftDelFlx )
+      dPTdy(:,ke) = ( lmesh%Escale(:,ke,2,2) * Fy(:) + LiftDelFlx(:) - Q(:) * DdensDxi(:,2) ) * RDENS(:)
+
+      call sparsemat_matmul( Dz, RHOT, Fz )
+      call sparsemat_matmul( Lift, lmesh%Fscale(:,ke) * del_flux_rhot(:,ke,3), LiftDelFlx )
+      dPTdz(:,ke) = ( lmesh%Escale(:,ke,3,3) * Fz(:) + LiftDelFlx(:) - Q(:) * DdensDxi(:,3) ) * RDENS(:)
+
+
+      ! Calculate the component of strain velocity tensor
       S11(:,ke) = DVelDxi(:,1,1)
       S12(:,ke) = 0.5_RP * ( DVelDxi(:,1,2) + DVelDxi(:,2,1) )
       S22(:,ke) = DVelDxi(:,2,2)
@@ -288,26 +312,13 @@ contains
       S31(:,ke) = 0.5_RP * ( DVelDxi(:,1,3) + DVelDxi(:,3,1) )
       S33(:,ke) = DVelDxi(:,3,3)
 
-      ! gradient of pt
-      call sparsemat_matmul( Dx, RHOT, Fx )
-      call sparsemat_matmul( Lift, lmesh%Fscale(:,ke)*del_flux_rhot(:,ke,1), LiftDelFlx )
-      dPTdx(:,ke) = ( lmesh%Escale(:,ke,1,1) * Fx(:) + LiftDelFlx(:) - pt(:) * DdensDxi(:,1) ) / DENS(:)
-
-      call sparsemat_matmul( Dy, RHOT, Fy )
-      call sparsemat_matmul( Lift, lmesh%Fscale(:,ke)*del_flux_rhot(:,ke,2), LiftDelFlx )
-      dPTdy(:,ke) = ( lmesh%Escale(:,ke,2,2) * Fy(:) + LiftDelFlx(:) - pt(:) * DdensDxi(:,2) ) / DENS(:)
-
-      call sparsemat_matmul( Dz, RHOT, Fz )
-      call sparsemat_matmul( Lift, lmesh%Fscale(:,ke)*del_flux_rhot(:,ke,3), LiftDelFlx )
-      dPTdz(:,ke) = ( lmesh%Escale(:,ke,3,3) * Fz(:) + 0.0_RP*LiftDelFlx(:) - pt(:) * DdensDxi(:,3) ) / DENS(:)
-
-      ! eddy viscosity & eddy diffusivity
+      ! Caclulate eddy viscosity & eddy diffusivity
 
       do p=1, elem%Np
         S2 = 2.0_RP * ( S11(p,ke)**2 + S22(p,ke)**2 + S33(p,ke)**2 ) &
            + 4.0_RP * ( S31(p,ke)**2 + S12(p,ke)**2 + S23(p,ke)**2 )
         
-        Ri = Grav * DENS(p) / RHOT(p) * dPTdz(p,ke) / max( S2, EPS )
+        Ri = Grav / PT(p,ke) * dPTdz(p,ke) / max( S2, EPS )
 
         ! The Stability functions fm and fh are given by the appendix A of Brown et al. (1994). 
         if (Ri < 0.0_RP ) then ! unstable
@@ -328,6 +339,7 @@ contains
         if ( Ri < RiC ) then
           Kh(p,ke) = max( min( Nu(p,ke) / Pr, NU_MAX ), EPS )
           Nu(p,ke) = max( min( Nu(p,ke), NU_MAX ), EPS )
+          Pr = Nu(p,ke) / Kh(p,ke)
           lambda_r(p) = lambda(p,ke) * sqrt( fm / sqrt( 1.0_RP - Ri/Pr ) )
         else
           lambda_r(p) = 0.0_RP
@@ -348,9 +360,9 @@ contains
   end subroutine atm_phy_tb_dgm_smg_cal_grad
 
 !OCL SERIAL  
-  subroutine cal_del_flux_grad( del_flux_rho, del_flux_mom, del_flux_rhot, &
-    DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd,               &
-    nx, ny, nz, vmapM, vmapP, lmesh, elem                                  )
+  subroutine cal_del_flux_grad( del_flux_rho, del_flux_mom, del_flux_rhot,  & ! (out)
+    DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd, PT_,           & ! (in)
+    nx, ny, nz, vmapM, vmapP, lmesh, elem, is_bound                         ) ! (in)
 
     implicit none
 
@@ -366,58 +378,70 @@ contains
     real(RP), intent(in) ::  DRHOT_(elem%Np*lmesh%NeA)  
     real(RP), intent(in) ::  DENS_hyd(elem%Np*lmesh%NeA)
     real(RP), intent(in) ::  PRES_hyd(elem%Np*lmesh%NeA)
+    real(RP), intent(in) ::  PT_(elem%Np*lmesh%NeA)
     real(RP), intent(in) :: nx(elem%NfpTot*lmesh%Ne)
     real(RP), intent(in) :: ny(elem%NfpTot*lmesh%Ne)
     real(RP), intent(in) :: nz(elem%NfpTot*lmesh%Ne)
     integer, intent(in) :: vmapM(elem%NfpTot*lmesh%Ne)
     integer, intent(in) :: vmapP(elem%NfpTot*lmesh%Ne)
+    logical, intent(in) :: is_bound(elem%NfpTot*lmesh%Ne)
     
     integer :: i, iP, iM
-    real(RP) :: densM, densP, rhotM, rhotP, rhot_hyd_M, rhot_hyd_P
+    real(RP) :: densM, densP
     real(RP) :: del
-    real(RP) :: rgamm
-    !------------------------------------------------------------------------
+    real(RP) :: facx, facy, facz
 
-    rgamm = CVdry / CPdry
+    real(RP) :: MOMZ_P
+    !------------------------------------------------------------------------
     
-    !$omp parallel do private ( iM, iP,                       &
-    !$omp densM, densP, rhot_hyd_M, rhot_hyd_P, rhotM, rhotP, &
-    !$omp del                                                 )
+    !$omp parallel do private ( iM, iP,   &
+    !$omp densM, densP,                   &
+    !$omp del, facx, facy, facz, MOMZ_P   )
     do i=1, elem%NfpTot * lmesh%Ne
       iM = vmapM(i); iP = vmapP(i)
 
       densM = DDENS_(iM) + DENS_hyd(iM)
       densP = DDENS_(iP) + DENS_hyd(iP)
 
-      rhot_hyd_M = PRES00 / Rdry * (PRES_hyd(iM) / PRES00)**rgamm
-      rhot_hyd_P = PRES00 / Rdry * (PRES_hyd(iP) / PRES00)**rgamm
-      rhotM = rhot_hyd_M + DRHOT_(iM)
-      rhotP = rhot_hyd_P + DRHOT_(iP) 
+      if ( is_bound(i) ) then
+        facx = 1.0_RP
+        facy = 1.0_RP 
+        facz = 1.0_RP
+        MOMZ_P = - MOMZ_(iM)
+      else
+        ! facx = 1.0_RP - sign(1.0_RP,nx(i))
+        ! facy = 1.0_RP - sign(1.0_RP,ny(i))
+        ! facz = 1.0_RP - sign(1.0_RP,nz(i))
+        facx = 1.0_RP
+        facy = 1.0_RP
+        facz = 1.0_RP
+        MOMZ_P = MOMZ_(iP)
+      end if
 
       del = 0.5_RP * ( densP - densM )
-      del_flux_rho(i,1) = del * nx(i)
-      del_flux_rho(i,2) = del * ny(i)
-      del_flux_rho(i,3) = del * nz(i)
+      del_flux_rho(i,1) = facx * del * nx(i)
+      del_flux_rho(i,2) = facy * del * ny(i)
+      del_flux_rho(i,3) = facz * del * nz(i)
 
       del = 0.5_RP * ( MOMX_(iP) - MOMX_(iM) )
-      del_flux_mom(i,1,1) = del * nx(i)
-      del_flux_mom(i,2,1) = del * ny(i)
-      del_flux_mom(i,3,1) = del * nz(i)
+      del_flux_mom(i,1,1) = facx * del * nx(i)
+      del_flux_mom(i,2,1) = facy * del * ny(i)
+      del_flux_mom(i,3,1) = facz * del * nz(i)
 
       del = 0.5_RP * ( MOMY_(iP) - MOMY_(iM) )
-      del_flux_mom(i,1,2) = del * nx(i)
-      del_flux_mom(i,2,2) = del * ny(i)
-      del_flux_mom(i,3,2) = del * nz(i)
+      del_flux_mom(i,1,2) = facx * del * nx(i)
+      del_flux_mom(i,2,2) = facy * del * ny(i)
+      del_flux_mom(i,3,2) = facz * del * nz(i)
 
-      del = 0.5_RP * ( MOMZ_(iP) - MOMZ_(iM) )
-      del_flux_mom(i,1,3) = del * nx(i)
-      del_flux_mom(i,2,3) = del * ny(i)
-      del_flux_mom(i,3,3) = del * nz(i)
+      del = 0.5_RP * ( MOMZ_P - MOMZ_(iM) )
+      del_flux_mom(i,1,3) = facx * del * nx(i)
+      del_flux_mom(i,2,3) = facy * del * ny(i)
+      del_flux_mom(i,3,3) = facz * del * nz(i)
 
-      del = 0.5_RP * ( rhotP - rhotM )
-      del_flux_rhot(i,1) = del * nx(i)
-      del_flux_rhot(i,2) = del * ny(i)
-      del_flux_rhot(i,3) = del * nz(i)
+      del = 0.5_RP * ( densP * PT_(iP) - densM * PT_(iM) )
+      del_flux_rhot(i,1) = facx * del * nx(i)
+      del_flux_rhot(i,2) = facy * del * ny(i)
+      del_flux_rhot(i,3) = facz * del * nz(i)
     end do
 
     return
@@ -425,12 +449,14 @@ contains
 
 !OCL SERIAL  
   subroutine atm_phy_tb_dgm_smg_cal_tend( &
-    MOMX_t, MOMY_t, MOMZ_t, RHOT_t,                            &
-    S11, S12, S22, S23, S31, S33, TKE,                         &
-    dPTdx, dPTdy, dPTdz,                                       &
-    Nu, Kh,                                                    &
-    DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd,   &
-    Dx, Dy, Dz, Sx, Sy, Sz, Lift, lmesh, elem, lmesh2D, elem2D )
+    MOMX_t, MOMY_t, MOMZ_t, RHOT_t,                             & ! (out)
+    S11, S12, S22, S23, S31, S33, TKE,                          & ! (in)
+    dPTdx, dPTdy, dPTdz,                                        & ! (in)
+    Nu, Kh,                                                     & ! (in)
+    DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_,                        & ! (in)
+    DENS_hyd, PRES_hyd,  PRES_, PT_,                            & ! (in)
+    Dx, Dy, Dz, Sx, Sy, Sz, Lift, lmesh, elem, lmesh2D, elem2D, & ! (in)
+    is_bound                                                    ) ! (in)
 
     implicit none
 
@@ -455,15 +481,18 @@ contains
     real(RP), intent(in)  :: Nu   (elem%Np,lmesh%NeA) ! Eddy viscosity
     real(RP), intent(in)  :: Kh   (elem%Np,lmesh%NeA) ! Eddy diffusivity
     real(RP), intent(in)  :: DDENS_(elem%Np,lmesh%NeA)
-    real(RP), intent(in)  :: MOMX_(elem%Np,lmesh%NeA)
-    real(RP), intent(in)  :: MOMY_(elem%Np,lmesh%NeA)
-    real(RP), intent(in)  :: MOMZ_(elem%Np,lmesh%NeA)
+    real(RP), intent(in)  :: MOMX_ (elem%Np,lmesh%NeA)
+    real(RP), intent(in)  :: MOMY_ (elem%Np,lmesh%NeA)
+    real(RP), intent(in)  :: MOMZ_ (elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: DRHOT_(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: DENS_hyd(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: PRES_hyd(elem%Np,lmesh%NeA)
+    real(RP), intent(in)  :: PRES_(elem%Np,lmesh%NeA)
+    real(RP), intent(in)  :: PT_  (elem%Np,lmesh%NeA)
     type(SparseMat), intent(in) :: Dx, Dy, Dz
     type(SparseMat), intent(in) :: Sx, Sy, Sz
     type(SparseMat), intent(in) :: Lift
+    logical, intent(in) :: is_bound(elem%NfpTot,lmesh%Ne)
 
     integer :: ke
 
@@ -483,7 +512,7 @@ contains
       DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd,                & ! (in)
       lmesh%normal_fn(:,:,1), lmesh%normal_fn(:,:,2), lmesh%normal_fn(:,:,3), & ! (in)
       lmesh%vmapM, lmesh%vmapP,                                               & ! (in)
-      lmesh, elem )                                                             ! (in)
+      lmesh, elem, is_bound )                                                   ! (in)
 
     !$omp parallel do private( &
     !$omp Fx, Fy, Fz, LiftDelFlx,                    &
@@ -491,7 +520,7 @@ contains
     !$omp TwoMulNu, SkkOvThree, TKEMulTwoOvThree     )
     do ke=lmesh%NeS, lmesh%NeE
       DENS(:) = DENS_hyd(:,ke) + DDENS_(:,ke)
-      RHOT(:) = PRES00/Rdry * (PRES_hyd(:,ke)/PRES00)**(CVdry/CPdry) + DRHOT_(:,ke)
+      RHOT(:) = DENS(:) * PT_(:,ke)
 
       TwoMulNu(:)         = 2.0_RP * Nu(:,ke) 
       SkkOvThree(:)       = ( S11(:,ke) + S22(:,ke) + S33(:,ke) ) * OneOverThree
@@ -542,12 +571,12 @@ contains
   end subroutine atm_phy_tb_dgm_smg_cal_tend
 
 !OCL SERIAL  
-  subroutine cal_del_flux( del_flux_mom, del_flux_rhot,                &
-    S11, S12, S22, S23, S31, S33, TKE,                                 &
-    dPTdx, dPTdy, dPTdz,                                               &
-    Nu, Kh,                                                            &
-    DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd,           &
-    nx, ny, nz, vmapM, vmapP, lmesh, elem                              )
+  subroutine cal_del_flux( del_flux_mom, del_flux_rhot,                & ! (out)
+    S11, S12, S22, S23, S31, S33, TKE,                                 & ! (in)
+    dPTdx, dPTdy, dPTdz,                                               & ! (in)
+    Nu, Kh,                                                            & ! (in)
+    DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd,           & ! (in)
+    nx, ny, nz, vmapM, vmapP, lmesh, elem, is_bound                    ) ! (in)
 
     implicit none
 
@@ -579,6 +608,7 @@ contains
     real(RP), intent(in) :: nz(elem%NfpTot*lmesh%Ne)
     integer, intent(in) :: vmapM(elem%NfpTot*lmesh%Ne)
     integer, intent(in) :: vmapP(elem%NfpTot*lmesh%Ne)
+    logical, intent(in) :: is_bound(elem%NfpTot*lmesh%Ne)
     
     integer :: i, iP, iM
     real(RP) :: densM, densP
@@ -587,12 +617,12 @@ contains
     real(RP) :: TauM_x, TauP_x
     real(RP) :: TauM_y, TauP_y
     real(RP) :: TauM_z, TauP_z
-    
+    real(RP) :: nx_, ny_, nz_
     !------------------------------------------------------------------------
 
     !$omp parallel do private( iM, iP, &
     !$omp densM, densP, SkkOvThreeM, SkkOvThreeP, TKEMulTwoOvThreeM, TKEMulTwoOvThreeP, &
-    !$omp TauM_x, TauP_x, TauM_y, TauP_y, TauM_z, TauP_z                                )
+    !$omp TauM_x, TauP_x, TauM_y, TauP_y, TauM_z, TauP_z, nx_, ny_, nz_                 )
     do i=1, elem%NfpTot * lmesh%Ne
       iM = vmapM(i); iP = vmapP(i)
 
@@ -605,32 +635,45 @@ contains
       TKEMulTwoOvThreeM = twoOverThree * TKE(iM) * tke_fac
       TKEMulTwoOvThreeP = twoOverThree * TKE(iP) * tke_fac
 
-      TauM_x = Nu(iM) * 2.0_RP * ( ( S11(iM) - SkkOvThreeM ) * nx(i) + S12(iM) * ny(i) + S31(iM) * nz(i) ) &
-             - TKEMulTwoOvThreeM * nx(i)
-      TauP_x = Nu(iP) * 2.0_RP * ( ( S11(iP) - SkkOvThreeP ) * nx(i) + S12(iP) * ny(i) + S31(iP) * nz(i) ) &
-             - TKEMulTwoOvThreeP * nx(i)
+      if ( iP > elem%Np * lmesh%Ne .and. abs(nz(i)) > EPS ) then ! Tentative implementation for the treatmnet of lower/upper boundary. 
+        nx_ = nx(i)
+        ny_ = ny(i)
+        nz_ = nz(i)
+      else
+        ! nx_ = ( 1.0_RP + sign(1.0_RP,nx(i)) ) * nx(i)
+        ! ny_ = ( 1.0_RP + sign(1.0_RP,ny(i)) ) * ny(i)
+        ! nz_ = ( 1.0_RP + sign(1.0_RP,nz(i)) ) * nz(i)
+        nx_ = nx(i)
+        ny_ = ny(i)
+        nz_ = nz(i)
+      end if
+
+      TauM_x = Nu(iM) * 2.0_RP * ( ( S11(iM) - SkkOvThreeM ) * nx_ + S12(iM) * ny_ + S31(iM) * nz_ ) &
+             - TKEMulTwoOvThreeM * nx_
+      TauP_x = Nu(iP) * 2.0_RP * ( ( S11(iP) - SkkOvThreeP ) * nx_ + S12(iP) * ny_ + S31(iP) * nz_ ) &
+             - TKEMulTwoOvThreeP * nx_
       
-      TauM_y = Nu(iM) * 2.0_RP * ( S12(iM) * nx(i) + ( S22(iM) - SkkOvThreeM ) * ny(i) + S23(iM) * nz(i) ) &
-             - TKEMulTwoOvThreeM * ny(i)
-      TauP_y = Nu(iP) * 2.0_RP * ( S12(iP) * nx(i) + ( S22(iP) - SkkOvThreeP ) * ny(i) + S23(iP) * nz(i) ) &
-             - TKEMulTwoOvThreeP * ny(i)
+      TauM_y = Nu(iM) * 2.0_RP * ( S12(iM) * nx_ + ( S22(iM) - SkkOvThreeM ) * ny_ + S23(iM) * nz_ ) &
+             - TKEMulTwoOvThreeM * ny_
+      TauP_y = Nu(iP) * 2.0_RP * ( S12(iP) * nx_ + ( S22(iP) - SkkOvThreeP ) * ny_ + S23(iP) * nz_ ) &
+             - TKEMulTwoOvThreeP * ny_
 
-      TauM_z = Nu(iM) * 2.0_RP * ( S31(iM) * nx(i) + S23(iM) * ny(i) + ( S33(iM) - SkkOvThreeM ) * nz(i) ) &
-             - TKEMulTwoOvThreeM * nz(i)
-      TauP_z = Nu(iP) * 2.0_RP * ( S31(iP) * nx(i) + S23(iP) * ny(i) + ( S33(iP) - SkkOvThreeP ) * nz(i) ) &
-             - TKEMulTwoOvThreeP * nz(i)
+      TauM_z = Nu(iM) * 2.0_RP * ( S31(iM) * nx_ + S23(iM) * ny_ + ( S33(iM) - SkkOvThreeM ) * nz_ ) &
+             - TKEMulTwoOvThreeM * nz_
+      TauP_z = Nu(iP) * 2.0_RP * ( S31(iP) * nx_ + S23(iP) * ny_ + ( S33(iP) - SkkOvThreeP ) * nz_ ) &
+             - TKEMulTwoOvThreeP * nz_
 
-      if ( iM == iP ) then ! Tentative implementation for the treatmnet of lower/upper boundary. 
+      if ( is_bound(i) )  then
         del_flux_mom(i,1) = - densM * TauM_x
         del_flux_mom(i,2) = - densM * TauM_y
-        del_flux_mom(i,3) = - densM * TauM_z
+        del_flux_mom(i,3) = 0.5_RP * ( densP * TauP_z - densM * TauM_z )
         del_flux_rhot(i)  = - densM * Kh(iM) * ( dPTdx(iM) * nx(i) + dPTdy(iM) * ny(i) + dPTdz(iM) * nz(i) )
       else        
         del_flux_mom(i,1) = 0.5_RP * ( densP * TauP_x - densM * TauM_x )
         del_flux_mom(i,2) = 0.5_RP * ( densP * TauP_y - densM * TauM_y )
         del_flux_mom(i,3) = 0.5_RP * ( densP * TauP_z - densM * TauM_z )
-        del_flux_rhot(i)  = 0.5_RP * ( densP * Kh(iP) * ( dPTdx(iP) * nx(i) + dPTdy(iP) * ny(i) + dPTdz(iP) * nz(i) ) &
-                                     - densM * Kh(iM) * ( dPTdx(iM) * nx(i) + dPTdy(iM) * ny(i) + dPTdz(iM) * nz(i) ) )
+        del_flux_rhot(i)  = 0.5_RP * ( densP * Kh(iP) * ( dPTdx(iP) * nx_ + dPTdy(iP) * ny_ + dPTdz(iP) * nz_ ) &
+                                     - densM * Kh(iM) * ( dPTdx(iM) * nx_ + dPTdy(iM) * ny_ + dPTdz(iM) * nz_ ) )
       end if
     end do
 
@@ -662,12 +705,14 @@ contains
     !$omp vol, lambda0, Zs, dz )
     do ke=lmesh%NeS, lmesh%NeE
       vol = sum( elem%IntWeight_lgl(:) * lmesh%J(:,ke) )
-      lambda0 = Cs * filter_fac * ( vol / ( dble(elem%PolyOrder_h)**2 * dble(elem%PolyOrder_v) ) )**OneOverThree
+      lambda0 = Cs * filter_fac &
+              * ( vol / ( dble(elem%PolyOrder_h+1)**2 * dble(elem%PolyOrder_v+1) ) )**OneOverThree
 
       Zs(:) = lmesh%pos_en(elem%Hslice(:,1),lmesh%EMap3Dto2D(ke),3)
       dz(:) = lmesh%pos_en(:,ke,3) - Zs(elem%IndexH2Dto3D(:))
 
-      lambda(:,ke) = sqrt( 1.0_RP / (1.0_RP / lambda0**2 + 1.0_RP / ( KARMAN * max( dz(:), EPS ) )**2 ) )
+      !lambda(:,ke) = sqrt( 1.0_RP / (1.0_RP / lambda0**2 + 1.0_RP / ( KARMAN * max( dz(:), EPS ) )**2 ) )
+      lambda(:,ke) = sqrt( 1.0_RP / (1.0_RP / lambda0**2 + 1.0_RP / ( KARMAN * ( dz(:) + 1.0E-4_RP ) )**2 ) )    
     end do
 
     return

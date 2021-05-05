@@ -100,11 +100,12 @@ contains
       tend_buf_size = 1
       low_storage_flag = .true.
       imex_flag = .false.
-    case( 'IMEX_ARK232' )
+    case( 'IMEX_ARK232' ) ! Giraldo et al. (2013): Implicit-Explicit Formulations of a Three-Dimensional Nonhydrostatic Unified Model
+                          ! of the Atmosphere (NUMA), SIAM J. Sci. Comp.
       nstage = 3
       tend_buf_size = 3
       imex_flag = .true.      
-    case( 'IMEX_ARK324' )
+    case( 'IMEX_ARK324' ) ! Kennedy and Carpenter, 2003: Additive Runge-Kutta schemes for convection-diffusion-reaction equations, Appl. Numer. Math.
       nstage = 4
       tend_buf_size = 4
       imex_flag = .true.
@@ -140,6 +141,7 @@ contains
     integer :: n
     real(RP) :: alp, gam, del
     logical :: call_ShuOsher2Butcher
+    
     !-----------------------------------------------------------
 
     coef_a_ex(:,:) = 0.0_RP
@@ -266,7 +268,7 @@ contains
 
       coef_a_ex(2,1) = 1767732205903.0_RP/2027836641118.0_RP
       coef_a_ex(3,1) = 5535828885825.0_RP/10492691773637.0_RP
-      coef_a_ex(3,2) = 788022342437.0_RP/10882634858940.0_RP
+      coef_a_ex(3,2) =  788022342437.0_RP/10882634858940.0_RP
       coef_a_ex(4,1) = 6485989280629.0_RP/16251701735622.0_RP
       coef_a_ex(4,2) = -4246266847089.0_RP/9704473918619.0_RP
       coef_a_ex(4,3) = 10755448449292.0_RP/10357097424841.0_RP

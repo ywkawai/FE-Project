@@ -137,11 +137,14 @@ contains
   end subroutine AtmosPhySfc_setup
 
 
-  subroutine AtmosPhySfc_calc_tendency( this, model_mesh, prgvars_list, auxvars_list, forcing_list, is_update )
+  subroutine AtmosPhySfc_calc_tendency( &
+    this, model_mesh, prgvars_list,       &
+    auxvars_list, forcing_list, is_update )
 
     use mod_atmos_vars, only: &
-      AtmosVars_GetLocalMeshPrgVars, &
-      AtmosVars_GetLocalMeshPhyTends
+      AtmosVars_GetLocalMeshPrgVars,   &
+      AtmosVars_GetLocalMeshPhyTends,  &
+      AtmosVars_GetLocalMeshPhyAuxVars
     use mod_atmos_phy_sfc_vars, only: &
       AtmosPhySfcVars_GetLocalMeshFields
     
@@ -160,6 +163,7 @@ contains
 
     class(LocalMeshFieldBase), pointer :: DDENS, MOMX, MOMY, MOMZ, DRHOT
     class(LocalMeshFieldBase), pointer :: DENS_hyd, PRES_hyd
+    class(LocalMeshFieldBase), pointer :: PRES, PT
     class(LocalMeshFieldBase), pointer :: DENS_tp, MOMX_tp, MOMY_tp, MOMZ_tp, RHOT_tp, RHOH_p
     class(LocalMeshFieldBase), pointer :: SFLX_MU, SFLX_MV, SFLX_MW, SFLX_SH, SFLX_LH
 
@@ -181,6 +185,9 @@ contains
         mesh, forcing_list,                          &
         DENS_tp, MOMX_tp, MOMY_tp, MOMZ_tp, RHOT_tp, &
         RHOH_p  )
+      call AtmosVars_GetLocalMeshPhyAuxVars( n,      &
+        mesh, auxvars_list,                          &
+        PRES, PT )
 
       call AtmosPhySfcVars_GetLocalMeshFields( n,    &
         mesh, this%vars%SFCFLX_manager,              &
@@ -193,6 +200,7 @@ contains
         SFLX_MU%val, SFLX_MV%val, SFLX_MW%val, SFLX_SH%val, SFLX_LH%val,        &
         DDENS%val, MOMX%val, MOMY%val, MOMZ%val, DRHOT%val,                     &
         DENS_hyd%val, PRES_hyd%val,                                             &
+        PRES%val, PT%val,                                                       &
         model_mesh%DOptrMat(3), model_mesh%SOptrMat(3), model_mesh%LiftOptrMat, &
         lcmesh, lcmesh%refElem3D, lcmesh%lcmesh2D, lcmesh%lcmesh2D%refElem2D    )
       call PROF_rapend( 'ATM_PHY_SFC_cal_tend', 2)
@@ -235,6 +243,7 @@ contains
     SFLX_MU, SFLX_MV, SFLX_MW, SFLX_SH, SFLX_LH,         &
     DDENS, MOMX, MOMY, MOMZ, DRHOT,                      &
     DENS_hyd, PRES_hyd,                                  &
+    PRES, PT,                                            &
     Dz, Sz, Lift,                                        &
     lcmesh, elem, lcmesh2D, elem2D )
 
@@ -261,12 +270,12 @@ contains
     real(RP), intent(inout) :: MOMX_tp(elem%Np,lcmesh%NeA)
     real(RP), intent(inout) :: MOMY_tp(elem%Np,lcmesh%NeA)
     real(RP), intent(inout) :: MOMZ_tp(elem%Np,lcmesh%NeA)
-    real(RP), intent(inout) :: RHOH_p   (elem%Np,lcmesh%NeA)
-    real(RP), intent(inout) :: SFLX_MU(elem%Np,lcmesh%NeA)
-    real(RP), intent(inout) :: SFLX_MV(elem%Np,lcmesh%NeA)
-    real(RP), intent(inout) :: SFLX_MW(elem%Np,lcmesh%NeA)
-    real(RP), intent(inout) :: SFLX_SH(elem%Np,lcmesh%NeA)
-    real(RP), intent(inout) :: SFLX_LH(elem%Np,lcmesh%NeA)
+    real(RP), intent(inout) :: RHOH_p (elem%Np,lcmesh%NeA)
+    real(RP), intent(inout) :: SFLX_MU(elem2D%Np,lcmesh2D%NeA)
+    real(RP), intent(inout) :: SFLX_MV(elem2D%Np,lcmesh2D%NeA)
+    real(RP), intent(inout) :: SFLX_MW(elem2D%Np,lcmesh2D%NeA)
+    real(RP), intent(inout) :: SFLX_SH(elem2D%Np,lcmesh2D%NeA)
+    real(RP), intent(inout) :: SFLX_LH(elem2D%Np,lcmesh2D%NeA)
     real(RP), intent(in) :: DDENS(elem%Np,lcmesh%NeA)
     real(RP), intent(in) :: MOMX(elem%Np,lcmesh%NeA)
     real(RP), intent(in) :: MOMY(elem%Np,lcmesh%NeA)
@@ -274,25 +283,26 @@ contains
     real(RP), intent(in) :: DRHOT(elem%Np,lcmesh%NeA)
     real(RP), intent(in) :: PRES_hyd(elem%Np,lcmesh%NeA)
     real(RP), intent(in) :: DENS_hyd(elem%Np,lcmesh%NeA)
+    real(RP), intent(in) :: PRES(elem%Np,lcmesh%NeA)
+    real(RP), intent(in) :: PT(elem%Np,lcmesh%NeA)
     type(SparseMat), intent(in) :: Dz, Sz, Lift
 
-    real(RP) :: ATM_W   (elem2D%Np,lcmesh2D%Ne)
-    real(RP) :: ATM_U   (elem2D%Np,lcmesh2D%Ne)
-    real(RP) :: ATM_V   (elem2D%Np,lcmesh2D%Ne)
-    real(RP) :: Z1      (elem2D%Np,lcmesh2D%Ne)
-    real(RP) :: SFC_TEMP(elem2D%Np,lcmesh2D%Ne)
-    real(RP) :: SFC_DENS(elem2D%Np,lcmesh2D%Ne)
+    real(RP) :: ATM_W   (elem2D%Np,lcmesh2D%NeA)
+    real(RP) :: ATM_U   (elem2D%Np,lcmesh2D%NeA)
+    real(RP) :: ATM_V   (elem2D%Np,lcmesh2D%NeA)
+    real(RP) :: Z1      (elem2D%Np,lcmesh2D%NeA)
+    real(RP) :: SFC_TEMP(elem2D%Np,lcmesh2D%NeA)
+    real(RP) :: SFC_DENS(elem2D%Np,lcmesh2D%NeA)
 
     ! dummy
-    real(RP) :: SFLX_QV(elem2D%Np,lcmesh2D%Ne)
-    real(RP) :: U10(elem2D%Np,lcmesh2D%Ne)
-    real(RP) :: V10(elem2D%Np,lcmesh2D%Ne)
+    real(RP) :: SFLX_QV(elem2D%Np,lcmesh2D%NeA)
+    real(RP) :: U10(elem2D%Np,lcmesh2D%NeA)
+    real(RP) :: V10(elem2D%Np,lcmesh2D%NeA)
 
     integer :: ke
     integer :: ke2D
     integer :: hsliceZ0, hsliceZ1
     integer :: ij
-    real(RP) :: pres, rhot
     real(RP) :: dens
     real(RP) :: LiftDelFlx(elem%Np)
     real(RP) :: del_flux(elem%NfpTot,lcmesh%Ne,4)
@@ -302,7 +312,7 @@ contains
     if (is_update_sflx) then
       !$omp parallel do collapse(2) private( &
       !$omp ke, hSliceZ0, hsliceZ1,          &
-      !$omp pres, rhot, dens                 )
+      !$omp dens                             )
       do ke2D=lcmesh2D%NeS, lcmesh2D%NeE
       do ij=1, elem2D%Np
 
@@ -313,12 +323,10 @@ contains
         dens = DENS_hyd(hsliceZ1,ke) + DDENS(hsliceZ1,ke)
         ATM_U(ij,ke2D) = MOMX(hsliceZ1,ke) / dens
         ATM_V(ij,ke2D) = MOMY(hsliceZ1,ke) / dens
-        ATM_W(ij,ke2D) = MOMZ(hsliceZ1,ke) / dens
+        ATM_W(ij,ke2D) = 0.0_RP
 
-        rhot = PRES00/Rdry * (PRES_hyd(hsliceZ0,ke)/PRES00)**(CVdry/CPdry) + DRHOT(hsliceZ0,ke)
-        pres = PRES00 * (Rdry*rhot/PRES00)**(CPdry/Cvdry)      
         SFC_DENS(ij,ke2D) = DENS_hyd(hsliceZ0,ke) + DDENS(hsliceZ0,ke)
-        SFC_TEMP(ij,ke2D) = pres / ( Rdry * SFC_DENS(ij,ke2D) )
+        SFC_TEMP(ij,ke2D) = PRES(hsliceZ0,ke) / ( Rdry * SFC_DENS(ij,ke2D) )
 
         Z1(ij,ke2D) = lcmesh%pos_en(hsliceZ1,ke,3)
       end do
@@ -327,12 +335,12 @@ contains
       select case ( this%SFCFLX_TYPEID )
       case ( SFCFLX_TYPEID_CONST )
         call ATMOS_PHY_SF_const_flux( &
-          elem2D%Np, 1, elem2D%Np, lcmesh2D%Ne, 1, lcmesh2D%Ne, & ! [IN]
-          ATM_W(:,:), ATM_U(:,:), ATM_V(:,:), SFC_TEMP(:,:),    & ! [IN]
-          Z1(:,:), SFC_DENS(:,:),                               & ! [IN]
-          SFLX_MW(:,:), SFLX_MU(:,:), SFLX_MV(:,:),             & ! [OUT]
-          SFLX_SH(:,:), SFLX_LH(:,:), SFLX_QV(:,:),             & ! [OUT]
-          U10(:,:), V10(:,:)                                    ) ! [OUT]
+          elem2D%Np, 1, elem2D%Np, lcmesh2D%NeA, 1, lcmesh2D%Ne, & ! [IN]
+          ATM_W(:,:), ATM_U(:,:), ATM_V(:,:), SFC_TEMP(:,:),     & ! [IN]
+          Z1(:,:), SFC_DENS(:,:),                                & ! [IN]
+          SFLX_MW(:,:), SFLX_MU(:,:), SFLX_MV(:,:),              & ! [OUT]
+          SFLX_SH(:,:), SFLX_LH(:,:), SFLX_QV(:,:),              & ! [OUT]
+          U10(:,:), V10(:,:)                                     ) ! [OUT]
       end select
 
     end if
@@ -376,10 +384,10 @@ contains
     class(LocalMesh2D), intent(in) :: lmesh2D
     class(elementbase2D), intent(in) :: elem2D   
     real(RP), intent(out) ::  del_flux(elem%NfpTot*lmesh%Ne,4)
-    real(RP), intent(in) :: sflx_mu(elem2D%Np,lmesh2D%Ne)
-    real(RP), intent(in) :: sflx_mv(elem2D%Np,lmesh2D%Ne)
-    real(RP), intent(in) :: sflx_mw(elem2D%Np,lmesh2D%Ne)
-    real(RP), intent(in) :: sflx_sh(elem2D%Np,lmesh2D%Ne)
+    real(RP), intent(in) :: sflx_mu(elem2D%Np,lmesh2D%NeA)
+    real(RP), intent(in) :: sflx_mv(elem2D%Np,lmesh2D%NeA)
+    real(RP), intent(in) :: sflx_mw(elem2D%Np,lmesh2D%NeA)
+    real(RP), intent(in) :: sflx_sh(elem2D%Np,lmesh2D%NeA)
     real(RP), intent(in) :: nz(elem%NfpTot*lmesh%Ne)
 
     integer :: ke2D, p

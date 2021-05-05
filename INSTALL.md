@@ -7,23 +7,23 @@ This FE library requires following libraries:
   - MPI library
   - LAPACK
   - NetCDF
-  - SCALE library (http://r-ccs-climate.riken.jp/scale/ja/index.html). 
+  - SCALE library (https://scale.riken.jp). 
 
 We confirm that building our codes has succeeded in the following environments:
   - macOS Mojave
-    - GNU Fortran 9.3.0
-    - OpenMPI 4.0.3
-    - LAPACK 3.9.0
-    - NetCDF 4.6.3
-    - SCALE library 5.4.2
+    - GNU Fortran 10.2.0
+    - OpenMPI 4.1.1
+    - LAPACK 3.9.1
+    - NetCDF 4.7.4
+    - SCALE library 5.4.3
   - Ubuntu 20.04 LTS
     - GNU Fortran 9.3.0
     - OpenMPI 4.0.3
     - LAPACK 3.7.1
     - NetCDF 4.7.3
-    - SCALE library 5.4.2
+    - SCALE library 5.4.3
 
-We also validate the codes in Oakbridge-CX(intel compiler) and Fugaku. 
+Our codes are verified in Oakbridge-CX (intel compiler) and Fugaku. 
 
 ## Build FE-library 
 
@@ -34,10 +34,14 @@ We also validate the codes in Oakbridge-CX(intel compiler) and Fugaku.
 
   - set a directory in which SCALE library is contained
 
-  `% export SCALE="~/workspace/scale-5.4.2/"`   (for example)
+  `% export SCALE="~/workspace/scale-5.4.3/"`   (for example)
+
+  - If you use the develop version of SCALE library, set a variable as
+
+  `% export SCALE_DEVELOP=T`
 
   - set a directory in which NetCDF library is contained (if necessary).
-    
+
   `% export NETCDF="/ap/netcdf4-fortran/4.7.3/"`   (for example)
 
 2. build the library in the directory of FElib

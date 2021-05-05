@@ -103,7 +103,7 @@ contains
       NeGX, NeGZ,                             &
       dom_xmin, dom_xmax, dom_zmin, dom_zmax, &
       isPeriodicX, isPeriodicZ,               &
-      refElem, NLocalMeshPerPrc )
+      refElem, NLocalMeshPerPrc, 1, 1 )
     
     call mesh%Generate()
 

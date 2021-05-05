@@ -321,7 +321,7 @@ contains
 
     delx = (dom_xmax - dom_xmin)/dble(NprcX)
     dely = (dom_ymax - dom_ymin)/dble(NprcY)
-    FZ_lc(:) = Fz((k-1)*NeZ+1:k*NeZ)
+    FZ_lc(:) = Fz((k-1)*NeZ+1:k*NeZ+1)
     lcmesh%xmin = dom_xmin + (i-1)*delx
     lcmesh%xmax = dom_xmin +  i   *delx
     lcmesh%ymin = dom_ymin + (j-1)*dely
@@ -433,9 +433,9 @@ contains
           js_lc = pj_table(tileID); jlc_count = 1
           ks_lc = pk_table(tileID); klc_count = 1
         end if
-        if(ilc_count > pi_table(tileID)) ilc_count = ilc_count + 1
-        if(jlc_count > pj_table(tileID)) jlc_count = jlc_count + 1
-        if(klc_count > pk_table(tileID)) klc_count = klc_count + 1
+        if(is_lc < pi_table(tileID)) ilc_count = ilc_count + 1
+        if(js_lc < pj_table(tileID)) jlc_count = jlc_count + 1
+        if(ks_lc < pk_table(tileID)) klc_count = klc_count + 1
       end if 
     end do
     end do

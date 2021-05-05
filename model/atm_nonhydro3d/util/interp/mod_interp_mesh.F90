@@ -78,6 +78,7 @@ module mod_interp_mesh
   type(HexahedralElement), private :: out_elem3D
 
 contains
+!OCL SERIAL
   subroutine interp_mesh_Init()
     implicit none
 
@@ -162,13 +163,13 @@ contains
     return
   end subroutine interp_mesh_Init
 
+!OCL SERIAL
   subroutine interp_mesh_Final()
     implicit none
 
     integer :: n
     !-------------------------------------------
 
-!    call in_mesh%Final()
     call in_elem3D%Final()
 
     call out_mesh%Final()
@@ -181,20 +182,9 @@ contains
     return
   end subroutine interp_mesh_Final
 
-  subroutine interp_mesh_Interpolate_field()
-    implicit none
-    !-------------------------------------------
-
-    call in_elem3D%Final()
-
-    call out_mesh%Final()
-    call out_elem3D%Final()
-
-    return
-  end subroutine interp_mesh_Interpolate_field
-
   !- private -------------------------------------
 
+!OCL SERIAL
   subroutine construct_map( in_Fz )
     implicit none
 
@@ -226,6 +216,7 @@ contains
     return
   end subroutine construct_map
 
+!OCL SERIAL
   subroutine NodeMappingInfo_Init( this, lcmesh, elem, tile_x, tile_y, in_Fz )
     use scale_prc
     implicit none
@@ -393,6 +384,7 @@ contains
     return
   end subroutine NodeMappingInfo_Init
 
+!OCL SERIAL
   subroutine NodeMappingInfo_Final( this )
     implicit none
     class(NodeMappingInfo), intent(inout) :: this
@@ -415,6 +407,7 @@ contains
   end subroutine NodeMappingInfo_Final
 
   !> Check whether the point is located inside a polyngon
+!OCL SERIAL
   function inpoly( pt_x, pt_y, num_node, v_x, v_y ) result(ret)
     implicit none
     real(RP), intent(in) :: pt_x

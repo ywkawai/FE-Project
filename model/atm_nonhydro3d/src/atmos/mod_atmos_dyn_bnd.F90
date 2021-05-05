@@ -61,6 +61,7 @@ module mod_atmos_dyn_bnd
     procedure :: ApplyBC_PROGVARS_lc => ATMOS_dyn_bnd_applyBC_prgvars_lc
     procedure :: ApplyBC_numdiff_odd_lc => ATMOS_dyn_bnd_applyBC_numdiff_odd_lc
     procedure :: ApplyBC_numdiff_even_lc => ATMOS_dyn_bnd_applyBC_numdiff_even_lc
+    procedure :: Inquire_bound_flag => ATMOS_dyn_bnd_inquire_bound_flag
   end type
 
   !-----------------------------------------------------------------------------
@@ -403,6 +404,46 @@ contains
 
     return
   end subroutine ATMOS_dyn_bnd_applyBC_numdiff_even_lc
+
+  subroutine ATMOS_dyn_bnd_inquire_bound_flag(  this,      & ! (in)
+    is_bound,                                              & ! (out)
+    domID, vmapM, vmapP, vmapB, lmesh, elem                ) ! (in)
+
+    use scale_mesh_bndinfo, only: &
+      BND_TYPE_SLIP_ID, BND_TYPE_NOSLIP_ID, &
+      BND_TYPE_ADIABAT_ID
+    implicit none
+
+    class(AtmosDynBnd), intent(in) :: this
+    class(LocalMesh3D), intent(in) :: lmesh
+    class(elementbase3D), intent(in) :: elem    
+    logical, intent(out) :: is_bound(elem%NfpTot*lmesh%Ne)
+    integer, intent(in) :: domID
+    integer, intent(in) :: vmapM(elem%NfpTot*lmesh%Ne)
+    integer, intent(in) :: vmapP(elem%NfpTot*lmesh%Ne)
+    integer, intent(in) :: vmapB(:)
+
+    integer :: i, i_, iM, iP
+    !-----------------------------------------------
+
+    do i=1, elem%NfpTot*lmesh%Ne
+      iP = vmapP(i)
+      i_ = iP - elem%Np*lmesh%NeE
+      is_bound(i) = .false.
+
+      if (i_ > 0) then  
+        iM = vmapM(i)
+        if ( this%VelBC_list(domID)%list(i_) == BND_TYPE_SLIP_ID ) then
+          is_bound(i) = .true.
+        else if ( this%VelBC_list(domID)%list(i_) == BND_TYPE_NOSLIP_ID ) then          
+          is_bound(i) = .true.
+        end if
+
+      end if
+    end do
+
+    return
+  end subroutine ATMOS_dyn_bnd_inquire_bound_flag
 
   !---------------------------------------------------------
 

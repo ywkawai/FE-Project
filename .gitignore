@@ -1,4 +1,6 @@
 bin/
+doc/reference/html
+doc/reference/latex
 .libs/
 *.o
 *.lst
@@ -17,6 +19,11 @@ bin/
 *.blg
 *.fls
 *.out
+*.png
+*.html
+*.js
+*.css
+*.dox
 
 #
 scale-dg_init

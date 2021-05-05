@@ -80,7 +80,7 @@ LDFLAGS = $(FFLAGS)
 # export SCALE_NETCDF_LIBS="-L/home/user/tool/cross-K/lib -lnetcdff -lnetcdf -lhdf5_hl -lhdf5 -lsz -lz"
 
 export SCALE_NETCDF_INCLUDE=`nf-config --fflags` `nc-config --cflags`
-export SCALE_NETCDF_LIBS=-L`echo ${SPACK_LD_LIBRARY_PATH} | sed s/:/\ -L/g` -lnetcdff -lnetcdf -lhdf5_hl -lhdf5
+export SCALE_NETCDF_LIBS= -L`echo ${SPACK_LD_LIBRARY_PATH} | sed s/:/\ -L/g` -lpnetcdf -lnetcdff -lnetcdf -lhdf5_hl -lhdf5  -lfjprofmpi -lmpi_cxx
 
 ###### Math library
 # Default settings

@@ -58,7 +58,7 @@ contains
       NeGX, NeGY,                             &
       dom_xmin, dom_xmax, dom_ymin, dom_ymax, &
       .true., .true.,                         &
-      refElem, NLocalMeshPerPrc )
+      refElem, NLocalMeshPerPrc, 1, 1 )
     
     call mesh%Generate()
     

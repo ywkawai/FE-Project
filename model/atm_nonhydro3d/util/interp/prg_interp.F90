@@ -93,6 +93,7 @@ program interp
    call finalize()
 
 contains
+!OCL SERIAL
    subroutine initialize()
       use scale_prc, only: &
          PRC_MPIstart,        &
@@ -177,11 +178,14 @@ contains
     
       LOG_INFO("INTERP",*) 'Setup has been finished.'
 
+      if( IO_L ) call flush(IO_FID_LOG)      
+
       call PROF_rapend ('Initialize', 0)
 
       return
    end subroutine initialize
 
+!OCL SERIAL
    subroutine finalize
       use scale_prc, only: &
          PRC_mpibarrier, &

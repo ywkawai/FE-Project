@@ -62,20 +62,21 @@ module mod_dg_driver
   type(AtmosComponent) :: atmos
 
 contains
-  subroutine dg_driver( &
-    comm_world, intercomm_parent, intercomm_child, cnf_fname )
+  subroutine dg_driver(     &
+    comm_world, cnf_fname,  &
+    path, add_path          )
 
     use scale_time_manager, only: &
-      TIME_manager_checkstate, TIME_manager_advance,      &
+      TIME_manager_checkstate, TIME_manager_advance,          &
       TIME_NOWDATE, TIME_NOWSUBSEC, TIME_NOWSTEP, TIME_NSTEP, &
       TIME_DOresume, TIME_DOend
 
     implicit none
 
     integer,          intent(in) :: comm_world
-    integer,          intent(in) :: intercomm_parent
-    integer,          intent(in) :: intercomm_child
     character(len=*), intent(in) :: cnf_fname
+    character(len=*), intent(in) :: path
+    logical,          intent(in) :: add_path
 
     integer :: myrank
     integer :: fpm_counter
@@ -85,7 +86,17 @@ contains
 
     !########## Initial setup ##########
 
+#ifdef SCALE_DEVELOP
     ! setup standard I/O
+    if ( add_path .and. path /= "" ) then
+      call IO_setup( MODELNAME, trim(path)//cnf_fname, prefix=path )
+    else
+#endif
+      call IO_setup( MODELNAME, trim(path)//cnf_fname )
+#ifdef SCALE_DEVELOP
+    end if
+#endif
+
     call IO_setup( MODELNAME, cnf_fname )
 
     ! setup MPI
