@@ -43,6 +43,7 @@ module mod_atmos_phy_tb
     atm_phy_tb_dgm_smg_cal_grad, &
     atm_phy_tb_dgm_smg_cal_tend
 
+  use mod_atmos_dyn_bnd, only: AtmosDynBnd
   use mod_atmos_phy_tb_vars, only: AtmosPhyTbVars
 
   !-----------------------------------------------------------------------------
@@ -55,11 +56,13 @@ module mod_atmos_phy_tb
   type, extends(ModelComponentProc), public :: AtmosPhyTb
     integer :: TB_TYPEID
     type(AtmosPhyTbVars) :: vars
+    type(AtmosDynBnd), pointer :: dyn_bnd
   contains
     procedure, public :: setup => AtmosPhyTb_setup 
     procedure, public :: calc_tendency => AtmosPhyTb_calc_tendency
     procedure, public :: update => AtmosPhyTb_update
     procedure, public :: finalize => AtmosPhyTb_finalize
+    procedure, public :: SetDynBC => AtmosPhyTB_SetDynBC
   end type AtmosPhyTb
 
   !-----------------------------------------------------------------------------
@@ -147,14 +150,20 @@ contains
       call PRC_abort
     end select
 
+    !--
+    this%dyn_bnd => null()
+
     return
   end subroutine AtmosPhyTb_setup
 
 
-  subroutine AtmosPhyTb_calc_tendency( this, model_mesh, prgvars_list, auxvars_list, forcing_list, is_update )
+  subroutine AtmosPhyTb_calc_tendency( &
+    this, model_mesh, prgvars_list,       &
+    auxvars_list, forcing_list, is_update )
 
     use mod_atmos_vars, only: &
-      AtmosVars_GetLocalMeshPrgVars, &
+      AtmosVars_GetLocalMeshPrgVars,    &
+      AtmosVars_GetLocalMeshPhyAuxVars, &
       AtmosVars_GetLocalMeshPhyTends
     use mod_atmos_phy_tb_vars, only:          &
       AtmosPhyTbVars_GetLocalMeshFields_tend, &
@@ -175,6 +184,7 @@ contains
 
     class(LocalMeshFieldBase), pointer :: DDENS, MOMX, MOMY, MOMZ, DRHOT
     class(LocalMeshFieldBase), pointer :: DENS_hyd, PRES_hyd
+    class(LocalMeshFieldBase), pointer :: PRES, PT
     class(LocalMeshFieldBase), pointer :: DENS_tp, MOMX_tp, MOMY_tp, MOMZ_tp, RHOT_tp, RHOH_P
     class(LocalMeshFieldBase), pointer :: tb_MOMX_t, tb_MOMY_t, tb_MOMZ_t, tb_RHOT_t, tb_RHOQ_t
     class(LocalMeshFieldBase), pointer :: S11, S12, S22, S23, S31, S33, TKE
@@ -183,7 +193,10 @@ contains
 
     integer :: n
     integer :: ke
+
+    logical, allocatable :: is_bound(:,:)
     !--------------------------------------------------
+
     if (.not. this%IsActivated()) return
 
     !LOG_INFO('AtmosDyn_tendency',*)
@@ -196,13 +209,22 @@ contains
       call AtmosVars_GetLocalMeshPrgVars( n,  &
         mesh, prgvars_list, auxvars_list,     &
         DDENS, MOMX, MOMY, MOMZ, DRHOT,       &
-        DENS_hyd, PRES_hyd, lcmesh            )
-      
+        DENS_hyd, PRES_hyd, lcmesh            )      
+      call AtmosVars_GetLocalMeshPhyAuxVars( n,      &
+        mesh, auxvars_list,                          &
+        PRES, PT )
       call AtmosPhyTbVars_GetLocalMeshFields_aux( n, &
         mesh, this%vars%auxvars_manager,             &
         S11, S12, S22, S23, S31, S33, TKE,           &
         dPTdx, dPTdy, dPTdz, Nu, Kh                  )
       call PROF_rapend('ATM_PHY_TB_get_localmesh_ptr', 2)   
+
+      call PROF_rapstart('ATM_PHY_TB_inquire_bnd', 2)
+      allocate( is_bound(lcmesh%refElem%NfpTot,lcmesh%Ne) )
+      call this%dyn_bnd%Inquire_bound_flag( is_bound, &
+        n, lcmesh%VMapM, lcmesh%VMapP, lcmesh%VMapB,  &
+        lcmesh, lcmesh%refElem3D                      )
+      call PROF_rapend('ATM_PHY_TB_inquire_bnd', 2)
 
       call PROF_rapstart('ATM_PHY_TB_cal_grad', 2)
       if (is_update) then
@@ -212,14 +234,17 @@ contains
               S11%val, S12%val, S22%val, S23%val, S31%val, S33%val, TKE%val,          &
               dPTdx%val, dPTdy%val, dPTdz%val, Nu%val, Kh%val,                        &
               DDENS%val, MOMX%val, MOMY%val, MOMZ%val, DRHOT%val,                     &
-              DENS_hyd%val, PRES_hyd%val,                                             &
+              DENS_hyd%val, PRES_hyd%val, PRES%val, PT%val,                           &
               model_mesh%DOptrMat(1), model_mesh%DOptrMat(2), model_mesh%DOptrMat(3), &
               model_mesh%SOptrMat(1), model_mesh%SOptrMat(2), model_mesh%SOptrMat(3), &
               model_mesh%LiftOptrMat,                                                 &
-              lcmesh, lcmesh%refElem3D, lcmesh%lcmesh2D, lcmesh%lcmesh2D%refElem2D    )
+              lcmesh, lcmesh%refElem3D, lcmesh%lcmesh2D, lcmesh%lcmesh2D%refElem2D,   &
+              is_bound                                                                )
         end select
       end if
       call PROF_rapend('ATM_PHY_TB_cal_grad', 2)
+
+      deallocate( is_bound )
     end do
 
     if (is_update) then
@@ -235,6 +260,9 @@ contains
         mesh, prgvars_list, auxvars_list,     &
         DDENS, MOMX, MOMY, MOMZ, DRHOT,       &
         DENS_hyd, PRES_hyd, lcmesh            )
+      call AtmosVars_GetLocalMeshPhyAuxVars( n,      &
+        mesh, auxvars_list,                          &
+        PRES, PT )
       
       call AtmosVars_GetLocalMeshPhyTends( n,        &
         mesh, forcing_list,                          &
@@ -253,6 +281,14 @@ contains
 
       call PROF_rapstart('ATM_PHY_TB_cal_tend', 2)
       if (is_update) then
+
+        call PROF_rapstart('ATM_PHY_TB_inquire_bnd', 2)
+        allocate( is_bound(lcmesh%refElem%NfpTot,lcmesh%Ne) )
+        call this%dyn_bnd%Inquire_bound_flag( is_bound, &
+          n, lcmesh%VMapM, lcmesh%VMapP, lcmesh%VMapB,  &
+          lcmesh, lcmesh%refElem3D                      )
+        call PROF_rapend('ATM_PHY_TB_inquire_bnd', 2)
+  
         select case( this%TB_TYPEID )
         case (TB_TYPEID_SMAGORINSKY)
           call atm_phy_tb_dgm_smg_cal_tend( &
@@ -260,12 +296,15 @@ contains
               S11%val, S12%val, S22%val, S23%val, S31%val, S33%val, TKE%val,             &
               dPTdx%val, dPTdy%val, dPTdz%val, Nu%val, Kh%val,                           &
               DDENS%val, MOMX%val, MOMY%val, MOMZ%val, DRHOT%val,                        &
-              DENS_hyd%val, PRES_hyd%val,                                                &
+              DENS_hyd%val, PRES_hyd%val, PRES%val, PT%val,                              &
               model_mesh%DOptrMat(1), model_mesh%DOptrMat(2), model_mesh%DOptrMat(3),    &
               model_mesh%SOptrMat(1), model_mesh%SOptrMat(2), model_mesh%SOptrMat(3),    &
               model_mesh%LiftOptrMat,                                                    &
-              lcmesh, lcmesh%refElem3D, lcmesh%lcmesh2D, lcmesh%lcmesh2D%refElem2D       )
+              lcmesh, lcmesh%refElem3D, lcmesh%lcmesh2D, lcmesh%lcmesh2D%refElem2D,      &
+              is_bound                                                                   )
         end select
+
+        deallocate( is_bound )
       end if
       
       !$omp parallel do
@@ -312,6 +351,17 @@ contains
     return
   end subroutine AtmosPhyTb_finalize
 
+  subroutine AtmosPhyTb_setDynBC( this, dyn_bnd )
+    implicit none
+    class(AtmosPhyTb), intent(inout) :: this
+    type(AtmosDynBnd), intent(in), target :: dyn_bnd
+    !--------------------------------------------------
+
+    this%dyn_bnd => dyn_bnd
+
+    return
+  end subroutine AtmosPhyTb_setDynBC
+  
 !- private ------------------------------------------------
 
 end module mod_atmos_phy_tb

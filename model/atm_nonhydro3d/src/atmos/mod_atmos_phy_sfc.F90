@@ -137,11 +137,14 @@ contains
   end subroutine AtmosPhySfc_setup
 
 
-  subroutine AtmosPhySfc_calc_tendency( this, model_mesh, prgvars_list, auxvars_list, forcing_list, is_update )
+  subroutine AtmosPhySfc_calc_tendency( &
+    this, model_mesh, prgvars_list,       &
+    auxvars_list, forcing_list, is_update )
 
     use mod_atmos_vars, only: &
-      AtmosVars_GetLocalMeshPrgVars, &
-      AtmosVars_GetLocalMeshPhyTends
+      AtmosVars_GetLocalMeshPrgVars,   &
+      AtmosVars_GetLocalMeshPhyTends,  &
+      AtmosVars_GetLocalMeshPhyAuxVars
     use mod_atmos_phy_sfc_vars, only: &
       AtmosPhySfcVars_GetLocalMeshFields
     
@@ -160,6 +163,7 @@ contains
 
     class(LocalMeshFieldBase), pointer :: DDENS, MOMX, MOMY, MOMZ, DRHOT
     class(LocalMeshFieldBase), pointer :: DENS_hyd, PRES_hyd
+    class(LocalMeshFieldBase), pointer :: PRES, PT
     class(LocalMeshFieldBase), pointer :: DENS_tp, MOMX_tp, MOMY_tp, MOMZ_tp, RHOT_tp, RHOH_p
     class(LocalMeshFieldBase), pointer :: SFLX_MU, SFLX_MV, SFLX_MW, SFLX_SH, SFLX_LH
 
@@ -181,6 +185,9 @@ contains
         mesh, forcing_list,                          &
         DENS_tp, MOMX_tp, MOMY_tp, MOMZ_tp, RHOT_tp, &
         RHOH_p  )
+      call AtmosVars_GetLocalMeshPhyAuxVars( n,      &
+        mesh, auxvars_list,                          &
+        PRES, PT )
 
       call AtmosPhySfcVars_GetLocalMeshFields( n,    &
         mesh, this%vars%SFCFLX_manager,              &
@@ -193,6 +200,7 @@ contains
         SFLX_MU%val, SFLX_MV%val, SFLX_MW%val, SFLX_SH%val, SFLX_LH%val,        &
         DDENS%val, MOMX%val, MOMY%val, MOMZ%val, DRHOT%val,                     &
         DENS_hyd%val, PRES_hyd%val,                                             &
+        PRES%val, PT%val,                                                       &
         model_mesh%DOptrMat(3), model_mesh%SOptrMat(3), model_mesh%LiftOptrMat, &
         lcmesh, lcmesh%refElem3D, lcmesh%lcmesh2D, lcmesh%lcmesh2D%refElem2D    )
       call PROF_rapend( 'ATM_PHY_SFC_cal_tend', 2)
@@ -235,6 +243,7 @@ contains
     SFLX_MU, SFLX_MV, SFLX_MW, SFLX_SH, SFLX_LH,         &
     DDENS, MOMX, MOMY, MOMZ, DRHOT,                      &
     DENS_hyd, PRES_hyd,                                  &
+    PRES, PT,                                            &
     Dz, Sz, Lift,                                        &
     lcmesh, elem, lcmesh2D, elem2D )
 
@@ -274,6 +283,8 @@ contains
     real(RP), intent(in) :: DRHOT(elem%Np,lcmesh%NeA)
     real(RP), intent(in) :: PRES_hyd(elem%Np,lcmesh%NeA)
     real(RP), intent(in) :: DENS_hyd(elem%Np,lcmesh%NeA)
+    real(RP), intent(in) :: PRES(elem%Np,lcmesh%NeA)
+    real(RP), intent(in) :: PT(elem%Np,lcmesh%NeA)
     type(SparseMat), intent(in) :: Dz, Sz, Lift
 
     real(RP) :: ATM_W   (elem2D%Np,lcmesh2D%NeA)
@@ -292,7 +303,6 @@ contains
     integer :: ke2D
     integer :: hsliceZ0, hsliceZ1
     integer :: ij
-    real(RP) :: pres, rhot
     real(RP) :: dens
     real(RP) :: LiftDelFlx(elem%Np)
     real(RP) :: del_flux(elem%NfpTot,lcmesh%Ne,4)
@@ -302,7 +312,7 @@ contains
     if (is_update_sflx) then
       !$omp parallel do collapse(2) private( &
       !$omp ke, hSliceZ0, hsliceZ1,          &
-      !$omp pres, rhot, dens                 )
+      !$omp dens                             )
       do ke2D=lcmesh2D%NeS, lcmesh2D%NeE
       do ij=1, elem2D%Np
 
@@ -315,10 +325,8 @@ contains
         ATM_V(ij,ke2D) = MOMY(hsliceZ1,ke) / dens
         ATM_W(ij,ke2D) = 0.0_RP
 
-        rhot = PRES00/Rdry * (PRES_hyd(hsliceZ0,ke)/PRES00)**(CVdry/CPdry) + DRHOT(hsliceZ0,ke)
-        pres = PRES00 * (Rdry*rhot/PRES00)**(CPdry/Cvdry)      
         SFC_DENS(ij,ke2D) = DENS_hyd(hsliceZ0,ke) + DDENS(hsliceZ0,ke)
-        SFC_TEMP(ij,ke2D) = pres / ( Rdry * SFC_DENS(ij,ke2D) )
+        SFC_TEMP(ij,ke2D) = PRES(hsliceZ0,ke) / ( Rdry * SFC_DENS(ij,ke2D) )
 
         Z1(ij,ke2D) = lcmesh%pos_en(hsliceZ1,ke,3)
       end do

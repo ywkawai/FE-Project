@@ -98,7 +98,7 @@ contains
     real(RP), intent(in)  :: DENS_hyd(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: diffcoef_h
     real(RP), intent(in)  :: diffcoef_v
-    logical, intent(in) :: is_bound(elem%Np,lmesh%Ne)
+    logical, intent(in) :: is_bound(elem%NfpTot,lmesh%Ne)
     logical, intent(in) :: mul_dens_flag
 
     real(RP) ::  del_flux(elem%NfpTot,lmesh%Ne)
@@ -166,7 +166,7 @@ contains
     real(RP), intent(in) :: nz(elem%NfpTot*lmesh%Ne)
     integer, intent(in) :: vmapM(elem%NfpTot*lmesh%Ne)
     integer, intent(in) :: vmapP(elem%NfpTot*lmesh%Ne)
-    logical, intent(in) :: is_bound(elem%Np*lmesh%Ne)
+    logical, intent(in) :: is_bound(elem%NfpTot*lmesh%Ne)
     logical, intent(in) :: mul_dens_flag
     
     integer :: i, iP, iM
@@ -220,7 +220,7 @@ contains
     real(RP), intent(in)  :: GxV_(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: GyV_(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: GzV_(elem%Np,lmesh%NeA)
-    logical, intent(in) :: is_bound(elem%Np,lmesh%Ne)
+    logical, intent(in) :: is_bound(elem%NfpTot,lmesh%Ne)
 
     real(RP) ::  del_flux_h(elem%NfpTot,lmesh%Ne)
     real(RP) ::  del_flux_v(elem%NfpTot,lmesh%Ne)
@@ -279,7 +279,7 @@ contains
     real(RP), intent(in) :: nz(elem%NfpTot*lmesh%Ne)
     integer, intent(in) :: vmapM(elem%NfpTot*lmesh%Ne)
     integer, intent(in) :: vmapP(elem%NfpTot*lmesh%Ne)
-    logical, intent(in) :: is_bound(elem%Np*lmesh%Ne)
+    logical, intent(in) :: is_bound(elem%NfpTot*lmesh%Ne)
     
     integer :: i, iP, iM
     !------------------------------------------------------------------------
@@ -323,7 +323,7 @@ contains
     real(RP), intent(in)  :: Varv_(elem%Np,lmesh%NeA)
     real(RP), intent(in) :: DDENS_(elem%Np,lmesh%NeA)
     real(RP), intent(in) :: DENS_hyd_(elem%Np,lmesh%NeA)
-    logical, intent(in) :: is_bound(elem%Np,lmesh%Ne)
+    logical, intent(in) :: is_bound(elem%NfpTot,lmesh%Ne)
     logical, intent(in) :: divide_dens_flag
 
     real(RP) :: Fx(elem%Np), Fy(elem%Np), Fz(elem%Np), LiftDelFlx(elem%Np)
@@ -387,7 +387,7 @@ contains
     real(RP), intent(in) :: nz(elem%NfpTot*lmesh%Ne)
     integer, intent(in) :: vmapM(elem%NfpTot*lmesh%Ne)
     integer, intent(in) :: vmapP(elem%NfpTot*lmesh%Ne)
-    logical, intent(in) :: is_bound(elem%Np*lmesh%Ne)
+    logical, intent(in) :: is_bound(elem%NfpTot*lmesh%Ne)
     logical, intent(in) :: divide_dens_flag
     
     integer :: i, iP, iM
