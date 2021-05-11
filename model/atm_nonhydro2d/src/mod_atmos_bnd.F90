@@ -45,7 +45,6 @@ module mod_atmos_bnd
   !
   !++ Public parameters & variables
   !
-
   
   !-----------------------------------------------------------------------------
   !
@@ -54,7 +53,7 @@ module mod_atmos_bnd
   !-------------------
 
   type(MeshBndInfo), allocatable :: VelBC_list(:)
-  type(MeshBndInfo), allocatable :: ThermalBC_list(:)
+  type(MeshBndInfo), allocatable :: MassBC_list(:)
 
   integer, parameter :: domBnd_Btm_ID   = 1
   integer, parameter :: domBnd_Right_ID = 2
@@ -63,7 +62,7 @@ module mod_atmos_bnd
   integer, parameter :: DOM_BND_NUM     = 4
 
   integer :: velBC_ids(DOM_BND_NUM)
-  integer :: thermalBC_ids(DOM_BND_NUM)
+  integer :: massBC_ids(DOM_BND_NUM)
 
   logical, save :: is_initialized = .false.
 
@@ -109,10 +108,10 @@ contains
     velBC_ids(domBnd_Left_ID) = BndType_NameToID(left_vel_bc)
     velBC_ids(domBnd_Right_ID) = BndType_NameToID(right_vel_bc)
 
-    thermalBC_ids(domBnd_Btm_ID) = BndType_NameToID(btm_thermal_bc)
-    thermalBC_ids(domBnd_Top_ID) = BndType_NameToID(top_thermal_bc)
-    thermalBC_ids(domBnd_Left_ID) = BndType_NameToID(left_thermal_bc)
-    thermalBC_ids(domBnd_Right_ID) = BndType_NameToID(right_thermal_bc)    
+    massBC_ids(domBnd_Btm_ID) = BndType_NameToID(btm_thermal_bc)
+    massBC_ids(domBnd_Top_ID) = BndType_NameToID(top_thermal_bc)
+    massBC_ids(domBnd_Left_ID) = BndType_NameToID(left_thermal_bc)
+    massBC_ids(domBnd_Right_ID) = BndType_NameToID(right_thermal_bc)    
     !------
 
     is_initialized = .false.
@@ -128,9 +127,9 @@ contains
     if (is_initialized) then
       do n=1, size(VelBC_list)
         call VelBC_list(n)%Final()
-        call ThermalBC_list(n)%Final()
+        call MassBC_list(n)%Final()
       end do
-      deallocate( VelBC_list, ThermalBC_list )
+      deallocate( VelBC_list, MassBC_list )
     end if
 
     is_initialized = .false.
@@ -148,12 +147,12 @@ contains
 
 
     allocate( VelBC_list(mesh%LOCAL_MESH_NUM) )
-    allocate( ThermalBC_list(mesh%LOCAL_MESH_NUM) )
+    allocate( MassBC_list(mesh%LOCAL_MESH_NUM) )
 
     do n=1, mesh%LOCAL_MESH_NUM
       lcmesh => mesh%lcmesh_list(n)
       call bnd_Init_lc( &
-        VelBC_list(n), ThermalBC_list(n),                       & ! (inout)
+        VelBC_list(n), MassBC_list(n),                       & ! (inout)
         lcmesh%VMapB, mesh,  lcmesh, lcmesh%refElem2D )           ! (in)
     end do
 
@@ -184,7 +183,7 @@ contains
       call applyBC_prgvars_lc( &
         DDENS%local(n)%val, MOMX%local(n)%val, MOMZ%local(n)%val, DRHOT%local(n)%val,               & ! (inout)
         DENS_hydro%local(n)%val, PRES_hydro%local(n)%val,                                           & ! (in)
-        VelBC_list(n), ThermalBC_list(n),                                                           & ! (in)
+        VelBC_list(n), MassBC_list(n),                                                           & ! (in)
         lcmesh%normal_fn(:,:,1), lcmesh%normal_fn(:,:,2), lcmesh%VMapM, lcmesh%VMapP, lcmesh%VMapB, & ! (in)
         lcmesh, lcmesh%refElem2D )                                                                    ! (in)
     end do
@@ -222,7 +221,7 @@ contains
         GxPT%local(n)%val, GzPT%local(n)%val,                                                       & ! (inout)
         DENS_hydro%local(n)%val, PRES_hydro%local(n)%val,                                           & ! (in)
         viscCoef_h, viscCoef_v, diffCoef_h, diffCoef_v,                                             & ! (in)
-        VelBC_list(n), ThermalBC_list(n),                                                           & ! (in)
+        VelBC_list(n), MassBC_list(n),                                                           & ! (in)
         lcmesh%normal_fn(:,:,1), lcmesh%normal_fn(:,:,2), lcmesh%VMapM, lcmesh%VMapP, lcmesh%VMapB, & ! (in)
         lcmesh, lcmesh%refElem2D )                                                                    ! (in)
     end do
@@ -269,7 +268,7 @@ contains
       if ( mesh%tileID_globalMap(b,tileID) == tileID      &
            .and. mesh%tileFaceID_globalMap(b,tileID) == b ) then
         call velBCInfo%Set(is_, ie_, velbc_ids(b))
-        call thermalBCInfo%Set(is_, ie_, thermalbc_ids(b))
+        call thermalBCInfo%Set(is_, ie_, massBC_ids(b))
       end if
       is_ = ie_ + 1
     end do
