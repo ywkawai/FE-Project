@@ -163,11 +163,10 @@ module mod_sw_vars
 
   ! for monitor
 
-  integer, private, parameter   :: IM_QDRY         =  1
-  integer, private, parameter   :: IM_ENGT         =  2
-  integer, private, parameter   :: IM_ENGP         =  3
-  integer, private, parameter   :: IM_ENGK         =  4
-  integer, private, parameter   :: DVM_nmax        =  4
+  integer, private, parameter   :: IM_ENGT         =  1
+  integer, private, parameter   :: IM_ENGP         =  2
+  integer, private, parameter   :: IM_ENGK         =  3
+  integer, private, parameter   :: DVM_nmax        =  3
   integer, private              :: DV_MONIT_id(DVM_nmax)
 
 contains
@@ -211,6 +210,7 @@ contains
     integer :: ierr
     logical :: is_specified
 
+    logical :: monitor_flag(SW_PROGVARS_NUM)
     integer :: DV_id
     !--------------------------------------------------
 
@@ -232,13 +232,16 @@ contains
     call this%PROGVARS_manager%Init()
     allocate( this%PROG_VARS(SW_PROGVARS_NUM) )
 
-    reg_file_hist = .true.    
+    reg_file_hist = .true.  
+    monitor_flag(:) = .false.  
+    monitor_flag(SW_PROGVARS_h_ID) = .true.
+
     do iv = 1, SW_PROGVARS_NUM
 
-      call this%PROGVARS_manager%Regist(         &
-        SW_PROGVARS_VINFO(iv), sw_mesh%mesh,     & ! (in) 
-        this%PROG_VARS(iv),                      & ! (inout)
-        reg_file_hist,  monitor_flag=.true.      ) ! (out)
+      call this%PROGVARS_manager%Regist( &
+        SW_PROGVARS_VINFO(iv), sw_mesh%mesh, & ! (in) 
+        this%PROG_VARS(iv),                  & ! (inout)
+        reg_file_hist, monitor_flag(iv)      ) ! (in)
 
       do n = 1, sw_mesh%mesh%LOCAL_MESH_NUM
         this%PROG_VARS(iv)%local(n)%val(:,:) = 0.0_RP
@@ -338,20 +341,15 @@ contains
 
     !-----< monitor output setup >-----
     
-    ! call MONITOR_reg( 'QDRY',         'fluid mass',            'kg', & ! (in)
-    !                   DV_MONIT_id(IM_QDRY),                          & ! (out)
-    !                   dim_type='ATM2D', is_tendency=.false.          ) ! (in)
-    
-    ! call MONITOR_reg( 'ENGT',         'total     energy',       'J', & ! (in)
-    !                   DV_MONIT_id(IM_ENGT),                          & ! (out)
-    !                   dim_type='ATM2D', is_tendency=.false.          ) ! (in)
-    ! call MONITOR_reg( 'ENGP',         'potential energy',       'J', & ! (in)
-    !                   DV_MONIT_id(IM_ENGP),                          & ! (out)
-    !                   dim_type='ATM2D', is_tendency=.false.          ) ! (in)
-    ! call MONITOR_reg( 'ENGK',         'kinetic   energy',       'J', & ! (in)
-    !                   DV_MONIT_id(IM_ENGK),                          & ! (out)
-    !                   dim_type='ATM2D', is_tendency=.false.          ) ! (in)
-
+    call MONITOR_reg( 'ENGT',         'total     energy',       'J', & ! (in)
+                      DV_MONIT_id(IM_ENGT),                          & ! (out)
+                      dim_type='ATM2D', is_tendency=.false.          ) ! (in)
+    call MONITOR_reg( 'ENGP',         'potential energy',       'J', & ! (in)
+                      DV_MONIT_id(IM_ENGP),                          & ! (out)
+                      dim_type='ATM2D', is_tendency=.false.          ) ! (in)
+    call MONITOR_reg( 'ENGK',         'kinetic   energy',       'J', & ! (in)
+                      DV_MONIT_id(IM_ENGK),                          & ! (out)
+                      dim_type='ATM2D', is_tendency=.false.          ) ! (in)
 
     !-----< check the range of values >-----
 
@@ -361,7 +359,7 @@ contains
     LOG_INFO("SW_vars_setup",*) 'Check total value of variables?     : ', CHECK_TOTAL
       
     PROGVARS_check_min(:) = (/ -10000.0_RP, -1.0_RP, -1.0_RP  /)
-    PROGVARS_check_max(:) = (/  10000.0_RP,  1.0_RP,  1.0_RP  /)
+    PROGVARS_check_max(:) = (/  15000.0_RP,  1.0_RP,  1.0_RP  /)
 
     return
   end subroutine SWVars_Init
@@ -605,32 +603,28 @@ contains
     type(MeshField2D) :: work
     !--------------------------------------------------------------------------
 
-    ! do iv=1, SW_PROGVARS_NUM
-    !   call FILE_monitor_meshfield_put( this%PROG_VARS(iv)%monitor_id, this%PROG_VARS(iv) )
-    ! end do
+    do iv=1, SW_PROGVARS_h_ID
+      call FILE_monitor_meshfield_put( this%PROG_VARS(iv)%monitor_id, this%PROG_VARS(iv) )
+    end do
   
     !##### Energy Budget #####
-    ! mesh2D => this%PROG_VARS(1)%mesh
-    ! call work%Init("tmp", "", mesh2D)
+    mesh2D => this%PROG_VARS(1)%mesh
+    call work%Init("tmp", "", mesh2D)
 
-    ! if ( DV_MONIT_id(IM_ENGT) > 0 ) then
-    !   call vars_calc_diagvar( this, 'ENGT', work )
-    !   call FILE_monitor_meshfield_put( DV_MONIT_id(IM_ENGT), work )
-    ! end if
-    ! if ( DV_MONIT_id(IM_ENGP) > 0 ) then
-    !   call vars_calc_diagvar( this, 'ENGP', work )
-    !   call FILE_monitor_meshfield_put( DV_MONIT_id(IM_ENGP), work )
-    ! end if
-    ! if ( DV_MONIT_id(IM_ENGK) > 0 ) then
-    !   call vars_calc_diagvar( this, 'ENGK', work )
-    !   call FILE_monitor_meshfield_put( DV_MONIT_id(IM_ENGK), work )
-    ! end if
-    ! if ( DV_MONIT_id(IM_ENGI) > 0 ) then
-    !   call vars_calc_diagvar( this, 'ENGI', work )
-    !   call FILE_monitor_meshfield_put( DV_MONIT_id(IM_ENGI), work )
-    ! end if
+    if ( DV_MONIT_id(IM_ENGT) > 0 ) then
+      call vars_calc_diagvar( this, 'ENGT', work )
+      call FILE_monitor_meshfield_put( DV_MONIT_id(IM_ENGT), work )
+    end if
+    if ( DV_MONIT_id(IM_ENGP) > 0 ) then
+      call vars_calc_diagvar( this, 'ENGP', work )
+      call FILE_monitor_meshfield_put( DV_MONIT_id(IM_ENGP), work )
+    end if
+    if ( DV_MONIT_id(IM_ENGK) > 0 ) then
+      call vars_calc_diagvar( this, 'ENGK', work )
+      call FILE_monitor_meshfield_put( DV_MONIT_id(IM_ENGK), work )
+    end if
 
-    ! call work%Final()
+    call work%Final()
 
     return
   end subroutine SWVars_Monitor

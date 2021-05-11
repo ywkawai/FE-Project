@@ -21,11 +21,13 @@ program global_shallow_water
   use scale_prof
   use scale_file_history, only: &
     FILE_HISTORY_set_nowdate
+  use scale_file_monitor_meshfield, only: &
+    FILE_monitor_meshfield_write  
   
   use scale_time_manager, only: &
     TIME_manager_checkstate, TIME_manager_advance,          &
     TIME_NOWDATE, TIME_NOWSUBSEC, TIME_NOWSTEP, TIME_NSTEP, &
-    TIME_DOresume, TIME_DOend
+    TIME_DOresume, TIME_DOend, TIME_DTSEC
 
   use scale_file_history_meshfield, only:   &
     FILE_HISTORY_meshfield_write
@@ -75,9 +77,9 @@ program global_shallow_water
     call USER_update
 
     !* restart and monitor output *******************
-    ! if ( swmodel%IsActivated() ) call swmodel%vars%Monitor()
-    ! call restart_write
-    ! call FILE_MONITOR_meshfield_write('MAIN', TIME_NOWSTEP)
+    if ( swmodel%IsActivated() ) call swmodel%vars%Monitor()
+    call restart_write
+    call FILE_MONITOR_meshfield_write('MAIN', TIME_NOWSTEP)
 
     !* calc tendencies and diagnostices *************
     if ( swmodel%IsActivated() .and. swmodel%time_manager%do_step ) then
@@ -118,10 +120,21 @@ contains
 
     !- History & Monitor 
     call swmodel%vars%History()
-    !call swmodel%vars%Monitor()
+    call swmodel%vars%Monitor()
 
     return
   end subroutine restart_read
+
+  subroutine restart_write
+    implicit none    
+    !----------------------------------------
+
+    if ( swmodel%isActivated() .and. swmodel%time_manager%do_restart) then
+      call swmodel%vars%Write_restart_file()
+    end if
+
+    return
+  end subroutine restart_write
 
   subroutine update()
     use mod_user, only: USER_update
@@ -148,7 +161,7 @@ contains
     end if
 
     !########## Calculate diagnostic variables ##########  
-    !call this%vars%Clac_diagnostics()
+    call swmodel%vars%Clac_diagnostics()
     call swmodel%vars%AUXVARS_manager%MeshFieldComm_Exchange()
       
     !#### Check values #################################
@@ -245,6 +258,12 @@ contains
     call TIME_manager_Init( &
       setup_TimeIntegration = .true.,                   &
       restart_in_basename   =  restart_file%in_basename )
+
+    ! setup statistics
+    call MeshField_statistics_setup
+
+    ! setup monitor
+    call FILE_monitor_meshfield_setup( TIME_DTSEC )
 
     ! setup submodels
     call  swmodel%setup()

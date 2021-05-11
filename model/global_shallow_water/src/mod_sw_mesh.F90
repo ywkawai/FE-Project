@@ -120,7 +120,7 @@ contains
     call this%LiftOptrMat%Init( this%element%Lift, storage_format=SpMV_storage_format )
 
     !-
-!    call FILE_monitor_meshfield_set_dim( this%mesh, 'SW2D' )
+    call FILE_monitor_meshfield_set_dim( this%mesh, 'ATM2D' )
 
     return
   end subroutine SWMesh_Init

@@ -17,11 +17,13 @@ module scale_file_monitor_meshfield
   use scale_precision
   use scale_io
   use scale_prof
+  use scale_monitor, only: MONITOR_set_dim
+  use scale_monitor, only: MONITOR_put
 
-  use scale_meshfield_base, only: MeshField3D
+  use scale_mesh_base2d, only: MeshBase2D
   use scale_mesh_base3d, only: MeshBase3D
-  use scale_localmesh_3d, only: LocalMesh3D
-  use scale_element_base, only: ElementBase3D
+  use scale_meshfield_base, only: MeshField2D
+  use scale_meshfield_base, only: MeshField3D
 
   use scale_monitor, only: &
     FILE_monitor_meshfield_setup => MONITOR_setup,   &
@@ -38,10 +40,23 @@ module scale_file_monitor_meshfield
   !++ Public type & procedures
   !
   !-----------------------------------------------------------------------------
+
   public :: FILE_monitor_meshfield_setup
+
+  interface FILE_monitor_meshfield_set_dim
+    module procedure FILE_monitor_meshfield_set_dim2D
+    module procedure FILE_monitor_meshfield_set_dim3D
+  end interface
   public :: FILE_monitor_meshfield_set_dim
+
   public :: FILE_monitor_meshfield_reg
+
+  interface FILE_monitor_meshfield_put
+    module procedure FILE_monitor_meshfield_put2D
+    module procedure FILE_monitor_meshfield_put3D
+  end interface
   public :: FILE_monitor_meshfield_put
+  
   public :: FILE_monitor_meshfield_write
   public :: FILE_monitor_meshfield_final
 
@@ -56,8 +71,32 @@ module scale_file_monitor_meshfield
   !
 
 contains
-  subroutine FILE_monitor_meshfield_set_dim( mesh3D, dim_type )
-    use scale_monitor, only: MONITOR_set_dim
+  subroutine FILE_monitor_meshfield_set_dim2D( mesh2D, dim_type )
+    implicit none
+
+    class(MeshBase2D), intent(in) :: mesh2D
+    character(*), intent(in) :: dim_type
+    
+    real(RP) :: area(1,1)
+    real(RP) :: total_area, total_area_lc
+
+    integer :: n
+    integer :: ke
+    !---------------------------------------------------------------------------
+
+    total_area = 0.0_RP
+    do n=1, mesh2D%LOCAL_MESH_NUM
+      total_area = total_area + cal_total_lc( mesh2D%lcmesh_list(n) )
+    end do
+    area(1,1) = 1.0_RP
+
+    call MONITOR_set_dim( 1, 1, 1, 1, 1, 1, 1, 1, 1,     &
+      dim_type, 2, area=area(:,:), total_area=total_area )
+    
+    return
+  end subroutine FILE_monitor_meshfield_set_dim2D
+
+  subroutine FILE_monitor_meshfield_set_dim3D( mesh3D, dim_type )
     implicit none
 
     class(MeshBase3D), intent(in) :: mesh3D
@@ -68,74 +107,94 @@ contains
 
     integer :: n
     integer :: ke
-    type(LocalMesh3D), pointer :: lcmesh
-    type(ElementBase3D), pointer :: elem3D
     !---------------------------------------------------------------------------
 
-    total_area = cal_total_lc( mesh3D )
+    total_area = 0.0_RP
+    do n=1, mesh3D%LOCAL_MESH_NUM
+      total_area = total_area + cal_total_lc( mesh3D%lcmesh_list(n) )
+    end do
     area(1,1) = 1.0_RP
 
     call MONITOR_set_dim( 1, 1, 1, 1, 1, 1, 1, 1, 1,     &
       dim_type, 2, area=area(:,:), total_area=total_area )
     
     return
-  end subroutine FILE_monitor_meshfield_set_dim
+  end subroutine FILE_monitor_meshfield_set_dim3D
 
-  subroutine FILE_monitor_meshfield_put( itemid, field )
-    use scale_monitor, only: MONITOR_put
+  subroutine FILE_monitor_meshfield_put2D( itemid, field )
+    implicit none
+
+    class(MeshField2D), intent(in) :: field
+    integer, intent(in) :: itemid
+
+    real(RP) :: total_lc(1,1)
+    integer :: n
+    !---------------------------------------------------------------------------
+
+    if ( itemid <= 0 ) return
+
+    total_lc(1,1) = 0.0_RP
+    do n=1, field%mesh%LOCAL_MESH_NUM
+      total_lc(1,1) = total_lc(1,1) &
+                    + cal_total_lc( field%mesh%lcmesh_list(n), field%local(n)%val )
+    end do
+    call MONITOR_put( itemid, total_lc(:,:) )
+
+    return
+  end subroutine FILE_monitor_meshfield_put2D
+
+  subroutine FILE_monitor_meshfield_put3D( itemid, field )
     implicit none
 
     class(MeshField3D), intent(in) :: field
     integer, intent(in) :: itemid
 
     real(RP) :: total_lc(1,1)
+    integer :: n
     !---------------------------------------------------------------------------
 
     if ( itemid <= 0 ) return
 
-    total_lc(1,1) = cal_total_lc( field%mesh, field )
+    total_lc(1,1) = 0.0_RP
+    do n=1, field%mesh%LOCAL_MESH_NUM
+      total_lc(1,1) = total_lc(1,1) &
+                    + cal_total_lc( field%mesh%lcmesh_list(n), field%local(n)%val )
+    end do
     call MONITOR_put( itemid, total_lc(:,:) )
 
     return
-  end subroutine FILE_monitor_meshfield_put
+  end subroutine FILE_monitor_meshfield_put3D
 
 !-- private----------------------
 
-  function cal_total_lc( mesh3D, field ) result(total)
+  function cal_total_lc( lcmesh, field_val ) result(total)
+    use scale_localmesh_base, only: LocalMeshBase
+    use scale_element_base, only: ElementBase
     implicit none
 
-    class(MeshBase3D), intent(in), target :: mesh3D
-    class(MeshField3D), intent(in), optional :: field
+    class(LocalMeshBase), intent(in) :: lcmesh
+    real(RP), intent(in), optional :: field_val(lcmesh%refElem%Np,lcmesh%NeA)
     real(RP) :: total
 
-    integer :: n
+    class(ElementBase), pointer :: elem
     integer :: ke
-    class(LocalMesh3D), pointer :: lcmesh
-    class(ElementBase3D), pointer :: elem3D
-
-    real(RP) :: total_lc
     !---------------------------------------------------------------------------
 
     total = 0.0_RP
-    do n=1, mesh3D%LOCAL_MESH_NUM
-      lcmesh => mesh3D%lcmesh_list(n)
-      elem3D => lcmesh%refElem3D
+    elem => lcmesh%refElem
 
-      total_lc = 0.0_RP
-      if ( present(field) ) then
-        !$omp parallel do reduction(+:total_lc)
-        do ke=lcmesh%NeS, lcmesh%NeE
-          total_lc = total_lc &
-            + sum( elem3D%IntWeight_lgl(:) * lcmesh%J(:,ke) * field%local(n)%val(:,ke) )
-        end do
-      else
-        !$omp parallel do reduction(+:total_lc)
-        do ke=lcmesh%NeS, lcmesh%NeE
-          total_lc = total_lc + sum( elem3D%IntWeight_lgl(:) * lcmesh%J(:,ke) )
-        end do
-      end if
-      total = total + total_lc
-    end do
+    if ( present(field_val) ) then
+      !$omp parallel do reduction(+:total)
+      do ke=lcmesh%NeS, lcmesh%NeE
+        total = total &
+              + sum( elem%IntWeight_lgl(:) * lcmesh%J(:,ke) * lcmesh%Gsqrt(:,ke) * field_val(:,ke) )
+      end do
+    else
+      !$omp parallel do reduction(+:total)
+      do ke=lcmesh%NeS, lcmesh%NeE
+        total = total + sum( elem%IntWeight_lgl(:) * lcmesh%J(:,ke) * lcmesh%Gsqrt(:,ke) )
+      end do
+    end if
 
     return
   end function cal_total_lc
