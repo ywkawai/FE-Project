@@ -52,9 +52,8 @@ module mod_cs2lonlat_interp_file
 contains
   subroutine interp_file_Init( in_basename, out_vinfo, mesh2D )
     use scale_file_h
-    use scale_file_common_meshfield, only: &
-      DIMTYPE2D_XYT  => FILE_COMMON_MESHFILED2D_DIMTYPEID_XYT, &
-      DIMTYPE3D_XYZT => FILE_COMMON_MESHFILED3D_DIMTYPEID_XYZT
+    use scale_mesh_base2d, only: &
+      DIMTYPE2D_XYT  => MeshBase2D_DIMTYPEID_XYT
     use mod_cs2lonlat_interp_field, only: OutVarInfo
     implicit none
 
