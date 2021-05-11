@@ -54,6 +54,13 @@ module scale_mesh_base3d
   !
   !++ Public parameters & variables
   !
+  integer, public :: MeshBase3D_DIMTYPE_NUM    = 6
+  integer, public :: MeshBase3D_DIMTYPEID_X    = 1
+  integer, public :: MeshBase3D_DIMTYPEID_Y    = 2
+  integer, public :: MeshBase3D_DIMTYPEID_Z    = 3
+  integer, public :: MeshBase3D_DIMTYPEID_XYZ  = 4
+  integer, public :: MeshBase3D_DIMTYPEID_XYZT = 5
+  integer, public :: MeshBase3D_DIMTYPEID_ZT   = 6
   
   !-----------------------------------------------------------------------------
   !
@@ -83,12 +90,21 @@ contains
     !-----------------------------------------------------------------------------
     
     this%refElem3D => refElem
-    call MeshBase_Init( this, refElem, NLocalMeshPerPrc, NsideTile, nproc )
+    call MeshBase_Init( this,            &
+      MeshBase3D_DIMTYPE_NUM, refElem,   &
+      NLocalMeshPerPrc, NsideTile, nproc )
 
     allocate( this%lcmesh_list(this%LOCAL_MESH_NUM) )
     do n=1, this%LOCAL_MESH_NUM
       call LocalMesh3D_Init( this%lcmesh_list(n), refElem, myrank )
     end do
+
+    call this%SetDimInfo( MeshBase3D_DIMTYPEID_X, "x", "m", "X-coordinate" )
+    call this%SetDimInfo( MeshBase3D_DIMTYPEID_Y, "y", "m", "Y-coordinate" )
+    call this%SetDimInfo( MeshBase3D_DIMTYPEID_Z, "z", "m", "Z-coordinate" )
+    call this%SetDimInfo( MeshBase3D_DIMTYPEID_ZT, "z", "m", "Z-coordinate" )
+    call this%SetDimInfo( MeshBase3D_DIMTYPEID_XYZ, "xyz", "m", "XYZ-coordinate" )
+    call this%SetDimInfo( MeshBase3D_DIMTYPEID_XYZT, "xyzt", "m", "XYZ-coordinate" )
 
     return
   end subroutine MeshBase3D_Init

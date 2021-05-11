@@ -45,7 +45,12 @@ module scale_mesh_base2d
   !
   !++ Public parameters & variables
   !
-  
+  integer, public :: MeshBase2D_DIMTYPE_NUM   = 4
+  integer, public :: MeshBase2D_DIMTYPEID_X   = 1
+  integer, public :: MeshBase2D_DIMTYPEID_Y   = 2
+  integer, public :: MeshBase2D_DIMTYPEID_XY  = 3
+  integer, public :: MeshBase2D_DIMTYPEID_XYT = 4
+
   !-----------------------------------------------------------------------------
   !
   !++ Private procedure
@@ -73,13 +78,20 @@ contains
     !-----------------------------------------------------------------------------
     
     this%refElem2D => refElem
-    call MeshBase_Init( this, refElem, NLocalMeshPerPrc, 4, &
-      nprocs                                                )
+    call MeshBase_Init( this, &
+      MeshBase2D_DIMTYPE_NUM, refElem, &
+      NLocalMeshPerPrc, 4,             &
+      nprocs                           )
 
     allocate( this%lcmesh_list(this%LOCAL_MESH_NUM) )
     do n=1, this%LOCAL_MESH_NUM
       call LocalMesh2D_Init( this%lcmesh_list(n), refElem, myrank )
     end do
+
+    call this%SetDimInfo( MeshBase2D_DIMTYPEID_X, "x", "m", "X-coordinate" )
+    call this%SetDimInfo( MeshBase2D_DIMTYPEID_Y, "y", "m", "Y-coordinate" )
+    call this%SetDimInfo( MeshBase2D_DIMTYPEID_XY, "xy", "m", "XY-coordinate" )
+    call this%SetDimInfo( MeshBase2D_DIMTYPEID_XYT, "xyt", "m", "XY-coordinate" )
 
     return
   end subroutine MeshBase2D_Init

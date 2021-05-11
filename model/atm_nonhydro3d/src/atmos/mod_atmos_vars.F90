@@ -13,7 +13,10 @@ module mod_atmos_vars
   use scale_element_base, only: &
     ElementBase, ElementBase3D
   use scale_mesh_base, only: MeshBase
-  use scale_mesh_base3d, only: MeshBase3D
+  use scale_mesh_base3d, only: &
+    MeshBase3D,                              &
+    DIMTYPE_XYZ  => MeshBase3D_DIMTYPEID_XYZ
+
   use scale_localmesh_base, only: LocalMeshBase
   use scale_localmesh_3d, only: LocalMesh3D
   use scale_localmeshfield_base, only: LocalMeshFieldBase
@@ -21,8 +24,6 @@ module mod_atmos_vars
   
   use scale_file_restart_meshfield, only: &
     FILE_restart_meshfield_component
-  use scale_file_common_meshfield, only: &
-    DIMTYPE_XYZ  => FILE_COMMON_MESHFILED3D_DIMTYPEID_XYZ
   
   use scale_meshfieldcomm_cubedom3d, only: MeshFieldCommCubeDom3D
   use scale_meshfieldcomm_base, only: MeshFieldContainer

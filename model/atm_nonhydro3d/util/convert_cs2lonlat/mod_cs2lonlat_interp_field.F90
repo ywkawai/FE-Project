@@ -244,8 +244,8 @@ contains
       PI => CONST_PI
     use scale_file_base_meshfield, only: &
       FILE_base_meshfield
-    use scale_file_common_meshfield, only: &
-      MF2D_XYT => FILE_COMMON_MESHFILED2D_DIMTYPEID_XYT
+    use scale_mesh_base2d, only: &
+      MF2D_XYT => MeshBase2D_DIMTYPEID_XYT
     use scale_polynominal, only: &
       polynominal_genLegendrePoly
     use mod_cs2lonlat_interp_mesh, only: &
@@ -294,17 +294,14 @@ contains
       allocate( in_val_list(in_prc)%spectral_coef(in_lcmesh%refElem2D%Np,in_lcmesh%NeX,in_lcmesh%NeY,in_csmesh%LOCAL_MESH_NUM) )
 
       call tmp_field2D%Init( varname, "", in_csmesh )
-      call in_file_list(out_domID)%in_files(in_prc)%Read_Var_cubedsphere( &
-        MF2D_XYT, varname, tmp_field2D, step=istep                        )
+      call in_file_list(out_domID)%in_files(in_prc)%Read_Var( &
+        MF2D_XYT, varname, tmp_field2D, step=istep            )
 
       !$omp parallel do collapse(2) private(in_ke2D,ii,jj) 
       do in_domID=1, in_csmesh%LOCAL_MESH_NUM
       do jj=1, in_lcmesh%NeY
       do ii=1, in_lcmesh%NeX
         in_ke2D = ii + (jj-1)*in_lcmesh%NeX
-        !tmp_field2D%local(in_domID)%val(:,in_ke2D) = in_csmesh%lcmesh_list(in_domID)%panelID! lon(:,in_ke2D)
-        ! write(*,*) in_prc, in_domID, ii, jj, ":::", &
-        !   tmp_field2D%local(in_domID)%val(1:1,in_ke2D), in_csmesh%lcmesh_list(in_domID)%PRC_myrank
         in_val_list(in_prc)%spectral_coef(:,ii,jj,in_domID) = &
           matmul( in_elem2D%invV, tmp_field2D%local(in_domID)%val(:,in_ke2D) )
       end do

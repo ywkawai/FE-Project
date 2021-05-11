@@ -234,6 +234,6 @@ contains
     if ( atmos%isActivated() ) call atmos%vars%Write_restart_file()
 
     return
-  end subroutine 
+  end subroutine restart_write
 
 end module mod_dg_prep

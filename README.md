@@ -14,10 +14,12 @@ Futhermore, some dynamical cores of atmospheric and oceanic model with DGM will 
 
 
 ## Models with FE library
+### Shallow water model
+- Global shallow water model using cubed-sphere mesh
+
 ### Nonhydrostatic atmospheric model
 - Simple 2D model with only dynamical process
 - 3D model with dynamical process and some physical processes
-
 
 ## Simple samples for intrduction to DGM. 
 ### 1D problems 

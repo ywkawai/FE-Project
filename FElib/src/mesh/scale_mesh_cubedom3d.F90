@@ -307,7 +307,6 @@ contains
     lcmesh%panelID = panelID
     
     !--
-
     lcmesh%Ne   = NeX * NeY * NeZ
     lcmesh%Ne2D = NeX * NeY
     lcmesh%Nv  = (NeX + 1)*(NeY + 1)*(NeZ + 1)
@@ -319,6 +318,7 @@ contains
     lcmesh%NeY = NeY
     lcmesh%NeZ = NeZ
 
+    !--
     delx = (dom_xmax - dom_xmin)/dble(NprcX)
     dely = (dom_ymax - dom_ymin)/dble(NprcY)
     FZ_lc(:) = Fz((k-1)*NeZ+1:k*NeZ+1)
@@ -329,6 +329,7 @@ contains
     lcmesh%zmin = FZ_lc(1)
     lcmesh%zmax = FZ_lc(NeZ+1)
     
+    !-
     allocate( lcmesh%pos_ev(lcmesh%Nv,3) )
     allocate( lcmesh%EToV(lcmesh%Ne,elem%Nv) )
     allocate( lcmesh%EToE(lcmesh%Ne,elem%Nfaces) )

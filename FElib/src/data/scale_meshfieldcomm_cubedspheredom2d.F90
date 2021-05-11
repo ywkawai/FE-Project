@@ -28,14 +28,20 @@ module scale_meshfieldcomm_cubedspheredom2d
   !++ Public type & procedure
   ! 
 
+  type :: VecCovariantComp
+    type(MeshField2D), pointer :: u1 => null()
+    type(MeshField2D), pointer :: u2 => null()
+  end type    
 
   type, public, extends(MeshFieldCommBase) :: MeshFieldCommCubedSphereDom2D
     class(MeshCubedSphereDom2D), pointer :: mesh2d
+    type(VecCovariantComp), allocatable :: vec_covariant_comp_ptrlist(:)
   contains
-    procedure, public :: Init => MeshFieldCommCubedSphereDom2D_Init
-    procedure, public :: Put => MeshFieldCommCubedSphereDom2D_put
-    procedure, public :: Get => MeshFieldCommCubedSphereDom2D_get
+    procedure, public :: Init   => MeshFieldCommCubedSphereDom2D_Init
+    procedure, public :: Put    => MeshFieldCommCubedSphereDom2D_put
+    procedure, public :: Get    => MeshFieldCommCubedSphereDom2D_get
     procedure, public :: Exchange => MeshFieldCommCubedSphereDom2D_exchange  
+    procedure, public :: SetCovariantVec => MeshFieldCommCubedSphereDom2D_set_covariantvec
     procedure, public :: Final => MeshFieldCommCubedSphereDom2D_Final
   end type MeshFieldCommCubedSphereDom2D
 
@@ -46,9 +52,9 @@ module scale_meshfieldcomm_cubedspheredom2d
   
   !-----------------------------------------------------------------------------
   !
-  !++ Private procedure
+  !++ Private type & procedure
   !
-  
+
   !-----------------------------------------------------------------------------
   !
   !++ Private parameters & variables
@@ -72,8 +78,12 @@ contains
     this%mesh2d => mesh2d
     lcmesh => mesh2d%lcmesh_list(1)
     bufsize_per_field = 2*(lcmesh%NeX + lcmesh%NeY)*lcmesh%refElem2D%Nfp
-    call MeshFieldCommBase_Init( this, sfield_num, hvfield_num, bufsize_per_field, 4, mesh2d)  
+    call MeshFieldCommBase_Init( this, sfield_num, hvfield_num, bufsize_per_field, 4, mesh2d )  
   
+    if (hvfield_num > 0) then
+      allocate( this%vec_covariant_comp_ptrlist(hvfield_num) )
+    end if
+
     return
   end subroutine MeshFieldCommCubedSphereDom2D_Init
 
@@ -84,10 +94,29 @@ contains
     class(MeshFieldCommCubedSphereDom2D), intent(inout) :: this
     !-----------------------------------------------------------------------------
 
+    if ( this%hvfield_num > 0 ) then
+      deallocate( this%vec_covariant_comp_ptrlist )
+    end if
+
     call MeshFieldCommBase_Final( this )
 
     return
   end subroutine MeshFieldCommCubedSphereDom2D_Final
+
+  subroutine MeshFieldCommCubedSphereDom2D_set_covariantvec( &
+    this, hvfield_ID, u1, u2  )
+    implicit none
+    class(MeshFieldCommCubedSphereDom2D), intent(inout) :: this
+    integer, intent(in) :: hvfield_ID
+    type(MeshField2D), intent(in), target :: u1
+    type(MeshField2D), intent(in), target :: u2
+    !--------------------------------------------------------------
+
+    this%vec_covariant_comp_ptrlist(hvfield_ID)%u1 => u1
+    this%vec_covariant_comp_ptrlist(hvfield_ID)%u2 => u2
+
+    return
+  end subroutine MeshFieldCommCubedSphereDom2D_set_covariantvec
 
   subroutine MeshFieldCommCubedSphereDom2D_put(this, field_list, varid_s)
     implicit none
@@ -121,15 +150,43 @@ contains
     integer :: i
     integer :: n
     type(Localmesh2d), pointer :: lcmesh
+
+    integer :: varnum
+    integer :: varid_e
+    integer :: varid_vec_s
+    type(MeshField2D), pointer :: u1, u2
     !-----------------------------------------------------------------------------
 
-    do i=1, size(field_list) 
+    varnum = size(field_list) 
+
+    do i=1, varnum
     do n=1, this%mesh2d%LOCAL_MESH_NUM
       lcmesh => this%mesh2d%lcmesh_list(n)
       call MeshFieldCommBase_set_bounddata( this%recv_buf(:,varid_s+i-1,n), lcmesh%refElem, lcmesh, & !(in)
-         field_list(i)%field2d%local(n)%val )                                                         !(out)
+         field_list(i)%field2d%local(n)%val )  !(out)
     end do
     end do
+
+    varid_e = varid_s + varnum - 1
+    if ( varid_e > this%sfield_num ) then
+      do i=1, this%hvfield_num
+
+        varid_vec_s = this%sfield_num + 2*i - 1 
+        if ( varid_vec_s > varid_e ) exit
+
+        if (       associated(this%vec_covariant_comp_ptrlist(i)%u1 ) &
+            .and.  associated(this%vec_covariant_comp_ptrlist(i)%u2 ) ) then
+        
+          do n=1, this%mesh2d%LOCAL_MESH_NUM
+            call set_boundary_data2D_u1u2( &
+              this%recv_buf(:,varid_vec_s,n), this%recv_buf(:,varid_vec_s+1,n), & ! (in)
+              lcmesh%refElem2D, lcmesh, lcmesh%G_ij,                            & ! (in)
+              this%vec_covariant_comp_ptrlist(i)%u1%local(n)%val,               & ! (out)
+              this%vec_covariant_comp_ptrlist(i)%u2%local(n)%val                ) ! (out)
+          end do
+       end if
+      end do
+    end if
 
     return
   end subroutine MeshFieldCommCubedSphereDom2D_get
@@ -255,7 +312,6 @@ contains
               fpos2D, f, is_f(f), Nnode_LCMeshFace(f), 2 )
 
             ire = irs + commdata%Nnode_LCMeshFace - 1
-            this%recv_buf(irs:ire,:,n) = 1.0_RP
             do varid=this%sfield_num+1, this%field_num_tot-1, 2
               call CubedSphereCnv_LonLat2CSVec( &
                 lcmesh%panelID, lcfpos2D(:,1), lcfpos2D(:,2), Nnode_LCMeshFace(f),   &
@@ -314,5 +370,28 @@ contains
 
     return
   end subroutine extract_boundary_data2D
+
+  subroutine set_boundary_data2D_u1u2( buf_U, buf_V, &
+    elem, mesh, G_ij,                             &
+    u1, u2)
+  
+    implicit none
+  
+    type(ElementBase2D), intent(in) :: elem
+    type(LocalMesh2D), intent(in) :: mesh
+    real(DP), intent(in) :: buf_U(elem%Nfp * mesh%NeX * 4)
+    real(DP), intent(in) :: buf_V(elem%Nfp * mesh%NeX * 4)
+    real(DP), intent(in) :: G_ij(elem%Np * mesh%Ne,2,2)
+    real(DP), intent(inout) :: u1(elem%Np * mesh%NeA)
+    real(DP), intent(inout) :: u2(elem%Np * mesh%NeA)
+    !------------------------------------------------------------
+
+    u1(elem%Np*mesh%NeE+1:elem%Np*mesh%NeE+size(buf_U)) &
+      = G_ij(mesh%VmapB,1,1) * buf_U(:) + G_ij(mesh%VmapB,1,2) * buf_V(:)
+    u2(elem%Np*mesh%NeE+1:elem%Np*mesh%NeE+size(buf_U)) &
+      = G_ij(mesh%VmapB,2,1) * buf_U(:) + G_ij(mesh%VmapB,2,2) * buf_V(:)
+  
+    return
+  end subroutine set_boundary_data2D_u1u2
 
 end module scale_meshfieldcomm_cubedspheredom2d

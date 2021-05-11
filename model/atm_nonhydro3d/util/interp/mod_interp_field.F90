@@ -250,8 +250,8 @@ contains
       UNDEF8 => CONST_UNDEF8
     use scale_file_base_meshfield, only: &
       FILE_base_meshfield
-    use scale_file_common_meshfield, only: &
-      MF3D_XYZT => FILE_COMMON_MESHFILED3D_DIMTYPEID_XYZT
+    use scale_mesh_base3d, only: &
+      MF3D_XYZT => MeshBase3D_DIMTYPEID_XYZT
     use scale_polynominal, only: &
       polynominal_genLegendrePoly
     use mod_interp_mesh, only: &

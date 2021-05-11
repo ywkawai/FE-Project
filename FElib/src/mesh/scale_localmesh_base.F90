@@ -6,6 +6,8 @@ module scale_localmesh_base
   !++ used modules
   !
   use scale_precision
+  use scale_io
+
   use scale_element_base, only: elementbase
 
   !-----------------------------------------------------------------------------
@@ -16,7 +18,7 @@ module scale_localmesh_base
   !
   !++ Public type & procedure
   ! 
-
+  
   type, public :: LocalMeshBase
     integer :: Ne
     integer :: NeS
@@ -58,7 +60,7 @@ module scale_localmesh_base
   
     real(DP), allocatable :: G_ij(:,:,:,:)
     real(DP), allocatable :: GIJ(:,:,:,:)
-    real(DP), allocatable :: Gsqrt(:,:)    
+    real(DP), allocatable :: Gsqrt(:,:)
   end type LocalMeshBase
 
   public :: LocalMeshBase_Init
@@ -86,14 +88,14 @@ module scale_localmesh_base
   !
 
 contains
-  subroutine LocalMeshBase_Init( this, refElem, dims, myrank )
+  subroutine LocalMeshBase_Init( this, refElem, ndim, myrank )
     
     use scale_prc, only: PRC_myrank
     implicit none
 
     class(LocalMeshBase), intent(inout) :: this
     class(ElementBase), intent(in), target :: refElem
-    integer, intent(in) :: dims
+    integer, intent(in) :: ndim
     integer, intent(in), optional :: myrank
     !-----------------------------------------------------------------------------
 
@@ -134,8 +136,7 @@ contains
         deallocate( this%G_ij, this%GIJ, this%Gsqrt )
       end if
     end if
-
+    
     return
   end subroutine LocalMeshBase_Final
-
 end module scale_localmesh_base

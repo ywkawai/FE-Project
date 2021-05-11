@@ -31,13 +31,19 @@ module scale_file_restart_meshfield
 
   use scale_file_base_meshfield, only: &
     FILE_base_meshfield
-  use scale_file_common_meshfield, only: &
-    MF1D_DTYPE_NUM => FILE_COMMON_MESHFILED1D_DIMTYPE_NUM, &
-    MF2D_DTYPE_NUM => FILE_COMMON_MESHFILED2D_DIMTYPE_NUM, &
-    MF3D_DTYPE_NUM => FILE_COMMON_MESHFILED3D_DIMTYPE_NUM, &
-    MF3D_DIMTYPE_X => FILE_COMMON_MESHFILED3D_DIMTYPEID_X, &
-    MF3D_DIMTYPE_Y => FILE_COMMON_MESHFILED3D_DIMTYPEID_Y, &
-    MF3D_DIMTYPE_Z => FILE_COMMON_MESHFILED3D_DIMTYPEID_Z
+
+  use scale_mesh_base1d, only: &
+    MF1D_DIMTYPE_X => MeshBase1D_DIMTYPEID_X, &
+    MF1D_DTYPE_NUM => MeshBase1D_DIMTYPE_NUM 
+  use scale_mesh_base2d, only: &
+    MF2D_DIMTYPE_X => MeshBase2D_DIMTYPEID_X, &
+    MF2D_DIMTYPE_Y => MeshBase2D_DIMTYPEID_Y, &
+    MF2D_DTYPE_NUM => MeshBase2D_DIMTYPE_NUM 
+  use scale_mesh_base3d, only: &
+    MF3D_DIMTYPE_X => MeshBase3D_DIMTYPEID_X, &
+    MF3D_DIMTYPE_Y => MeshBase3D_DIMTYPEID_Y, &
+    MF3D_DIMTYPE_Z => MeshBase3D_DIMTYPEID_Z, &
+    MF3D_DTYPE_NUM => MeshBase3D_DIMTYPE_NUM    
   
   !-----------------------------------------------------------------------------
   implicit none
@@ -75,11 +81,17 @@ module scale_file_restart_meshfield
     procedure :: FILE_restart_meshfield_component_def_var
     generic :: Def_var => FILE_restart_meshfield_component_def_var
     procedure :: End_def => FILE_restart_meshfield_component_enddef
+    procedure :: FILE_restart_meshfield_component_write_var2d
     procedure :: FILE_restart_meshfield_component_write_var3d
-    generic :: Write_var => FILE_restart_meshfield_component_write_var3d
+    generic :: Write_var => &
+      FILE_restart_meshfield_component_write_var2d, &
+      FILE_restart_meshfield_component_write_var3d
     procedure :: Close => FILE_restart_meshfield_component_close
+    procedure :: FILE_restart_meshfield_component_read_var2d
     procedure :: FILE_restart_meshfield_component_read_var3d
-    generic :: Read_Var => FILE_restart_meshfield_component_read_var3d
+    generic :: Read_Var => &
+      FILE_restart_meshfield_component_read_var2d, &
+      FILE_restart_meshfield_component_read_var3d
     procedure :: Final => FILE_restart_meshfield_component_Final
   end type
 
@@ -327,6 +339,22 @@ contains
     return
   end subroutine FILE_restart_meshfield_component_enddef
 
+  subroutine FILE_restart_meshfield_component_write_var2d( this, &
+    vid, field2d )
+    
+    use scale_time, only: TIME_NOWDAYSEC
+    implicit none
+
+    class(FILE_restart_meshfield_component), intent(inout) :: this
+    integer, intent(in) :: vid
+    class(MeshField2D), intent(in) :: field2d
+    !--------------------------------------------------
+
+    call this%base%Write_var2D( vid, field2d, TIME_NOWDAYSEC, TIME_NOWDAYSEC )
+
+    return
+  end subroutine FILE_restart_meshfield_component_write_var2d
+
   subroutine FILE_restart_meshfield_component_write_var3d( this, &
     vid, field3d )
     
@@ -342,6 +370,26 @@ contains
 
     return
   end subroutine FILE_restart_meshfield_component_write_var3d
+
+  subroutine FILE_restart_meshfield_component_read_var2d( this,  &
+    dim_typeid, varname, field2d, step, allow_missing  )
+  
+  
+    implicit none
+  
+    class(FILE_restart_meshfield_component), intent(inout) :: this
+    integer, intent(in) :: dim_typeid
+    character(*), intent(in) :: varname
+    class(MeshField2D), intent(inout) :: field2d
+    integer, intent(in), optional :: step
+    logical, intent(in), optional :: allow_missing
+    !------------------------------------------------------
+
+    call this%base%Read_Var( &
+          dim_typeid, varname, field2d, step, allow_missing  )
+    
+    return
+  end subroutine FILE_restart_meshfield_component_read_var2d
 
   subroutine FILE_restart_meshfield_component_read_var3d( this,  &
     dim_typeid, varname, field3d, step, allow_missing  )

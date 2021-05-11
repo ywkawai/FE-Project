@@ -9,8 +9,11 @@ module scale_mesh_cubedspheredom2d
   use scale_precision
 
   use scale_mesh_base2d, only: &
-    MeshBase2D, MeshBase2D_Init, MeshBase2D_Final, &
-    MeshBase2D_setGeometricInfo
+    MeshBase2D, MeshBase2D_Init, MeshBase2D_Final,    &
+    MeshBase2D_setGeometricInfo,                      &
+    MeshBase2D_DIMTYPE_NUM,                           &
+    MeshBase2D_DIMTYPEID_X, MeshBase2D_DIMTYPEID_Y,   &
+    MeshBase2D_DIMTYPEID_XY, MeshBase2D_DIMTYPEID_XYT
 
   use scale_localmesh_2d, only: &
     LocalMesh2D
@@ -90,6 +93,11 @@ contains
     call MeshBase2D_Init( this, refElem, NLocalMeshPerPrc, &
       nproc, myrank )
 
+    call this%SetDimInfo( MeshBase2D_DIMTYPEID_X, "x", "1", "X-coordinate" )
+    call this%SetDimInfo( MeshBase2D_DIMTYPEID_Y, "y", "1", "Y-coordinate" )
+    call this%SetDimInfo( MeshBase2D_DIMTYPEID_XY, "xy", "1", "XY-coordinate" )
+    call this%SetDimInfo( MeshBase2D_DIMTYPEID_XYT, "xyt", "1", "XY-coordinate" )
+  
     return
   end subroutine MeshCubedSphereDom2D_Init
 
@@ -265,9 +273,8 @@ contains
     elem => lcmesh%refElem2D
     lcmesh%tileID = tileID
     lcmesh%panelID = panelID
-    
+        
     !--
-
     lcmesh%Ne  = NeX * NeY
     lcmesh%Nv  = (NeX + 1)*(NeY + 1)
     lcmesh%NeS = 1
@@ -277,6 +284,7 @@ contains
     lcmesh%NeX = NeX
     lcmesh%NeY = NeY
 
+    !--
     delx = ( dom_xmax - dom_xmin ) / dble(NprcX)
     dely = ( dom_ymax - dom_ymin ) / dble(NprcY)
 
@@ -285,6 +293,7 @@ contains
     lcmesh%ymin = dom_ymin + (j-1)*dely
     lcmesh%ymax = dom_ymin +  j   *dely
 
+    !--
     allocate( lcmesh%pos_ev(lcmesh%Nv,2) )
     allocate( lcmesh%EToV(lcmesh%Ne,elem%Nv) )
     allocate( lcmesh%EToE(lcmesh%Ne,elem%Nfaces) )

@@ -125,6 +125,9 @@ jobs:
         export SCALE_FE_SYS=Linux64-gnu-ompi
         export SCALE=${GITHUB_WORKSPACE}/../scale
 
+        echo "Build global shallow water model"
+        make -C global_shallow_water/src
+
         echo "Build 2D nonhydrostatic atmospheric model"
         make -C atm_nonhydro2d/src
 

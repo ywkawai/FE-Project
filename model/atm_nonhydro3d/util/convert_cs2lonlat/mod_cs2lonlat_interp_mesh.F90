@@ -83,6 +83,9 @@ module mod_cs2lonlat_interp_mesh
 
 contains
   subroutine interp_mesh_Init()
+    use scale_mesh_base2d, only: &
+      MeshBase2D_DIMTYPEID_X, MeshBase2D_DIMTYPEID_Y,   &
+      MeshBase2D_DIMTYPEID_XY, MeshBase2D_DIMTYPEID_XYT
     implicit none
 
   
@@ -125,10 +128,14 @@ contains
     call out_elem2D%Init( out_PolyOrder_h, .false. )
 
     call out_mesh2D%Init( out_NprcX * out_NeX, out_NprcY * out_NeY, &
-       0.0_RP, 2.0_RP*PI, -0.5_RP*PI, 0.5_RP*PI,                    &
+       0.0_RP, 360.0_RP, -90.0_RP, 90.0_RP,                         &
        .true., .false., out_elem2D, 1,                              &
        out_NprcX, out_NprcY          )
-    
+    call out_mesh2D%SetDimInfo( MeshBase2D_DIMTYPEID_X, 'lon', 'degree_east', 'longitude' )
+    call out_mesh2D%SetDimInfo( MeshBase2D_DIMTYPEID_Y, 'lat', 'degree_north', 'latitude' )
+    call out_mesh2D%SetDimInfo( MeshBase2D_DIMTYPEID_XY, 'lonlat', 'degree', 'longitude,latitude' )
+    call out_mesh2D%SetDimInfo( MeshBase2D_DIMTYPEID_XYT, 'lonlatt', 'degree', 'longitude,latitude' )
+
     call out_mesh2D%Generate()
 
     !-
@@ -301,7 +308,8 @@ contains
     in_prc2lcprc_tmp(:) = -1
 
     call get_panelID( this%inCSPanelID(:,:),      &
-      lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2), &
+      lcmesh%pos_en(:,:,1) * PI / 180.0_RP,       &
+      lcmesh%pos_en(:,:,2) * PI / 180.0_RP,       &
       elem2D%Nfp**2 * lcmesh%NeX*lcmesh%NeY       )
     
     in_tile_num = 0
@@ -315,8 +323,8 @@ contains
         this%lcprc(p_h,ke_h) = -1
 
         out_cspanel = this%inCSPanelID(p_h,ke_h)
-        out_lon(1) = lcmesh%pos_en(p_h,ke_h,1)
-        out_lat(1) = lcmesh%pos_en(p_h,ke_h,2)
+        out_lon(1) = lcmesh%pos_en(p_h,ke_h,1) * PI / 180.0_RP
+        out_lat(1) = lcmesh%pos_en(p_h,ke_h,2) * PI / 180.0_RP
         call CubedSphereCnv_LonLat2CSPos( &
           out_cspanel, out_lon, out_lat, 1, &
           out_x, out_y )
@@ -373,8 +381,8 @@ contains
         prcID = in_lcprc2prc_tmp( this%lcprc(p_h,ke_h) )
 
         out_cspanel = this%inCSPanelID(p_h,ke_h)
-        out_lon(1) = lcmesh%pos_en(p_h,ke_h,1)
-        out_lat(1) = lcmesh%pos_en(p_h,ke_h,2)
+        out_lon(1) = lcmesh%pos_en(p_h,ke_h,1) * PI / 180.0_RP
+        out_lat(1) = lcmesh%pos_en(p_h,ke_h,2) * PI / 180.0_RP
         call CubedSphereCnv_LonLat2CSPos( &
           out_cspanel, out_lon, out_lat, 1, &
           out_x, out_y )

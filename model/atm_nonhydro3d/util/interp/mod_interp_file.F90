@@ -53,8 +53,8 @@ contains
 !OCL SERIAL
   subroutine interp_file_Init( in_basename, out_vinfo, mesh3D )
     use scale_file_h
-    use scale_file_common_meshfield, only: &
-      DIMTYPE_XYZT => FILE_COMMON_MESHFILED3D_DIMTYPEID_XYZT
+    use scale_mesh_base3d, only: &
+      DIMTYPE_XYZT => MeshBase3D_DIMTYPEID_XYZT
     use mod_interp_field, only: OutVarInfo
     implicit none
 

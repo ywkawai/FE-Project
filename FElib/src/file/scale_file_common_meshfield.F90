@@ -9,9 +9,19 @@ module scale_file_common_meshfield
   use scale_io
 
   use scale_element_base, only: elementbase1D, elementbase2D, elementbase3D
-  use scale_mesh_base1d, only: MeshBase1D
-  use scale_mesh_base2d, only: MeshBase2D
-  use scale_mesh_base3d, only: MeshBase3D
+  use scale_mesh_base, only: MeshDimInfo
+  use scale_mesh_base1d, only: MeshBase1D, &
+    MeshBase1D_DIMTYPEID_X, MeshBase1D_DIMTYPEID_XT, &
+    MeshBase1D_DIMTYPE_NUM 
+  use scale_mesh_base2d, only: MeshBase2D, &
+    MeshBase2D_DIMTYPEID_X, MeshBase2D_DIMTYPEID_Y,    &
+    MeshBase2D_DIMTYPEID_XY, MeshBase2D_DIMTYPEID_XYT, &
+    MeshBase2D_DIMTYPE_NUM 
+  use scale_mesh_base3d, only: MeshBase3D, &
+    MeshBase3D_DIMTYPEID_X, MeshBase3D_DIMTYPEID_Y, MeshBase3D_DIMTYPEID_Z,       &
+    MeshBase3D_DIMTYPEID_ZT, MeshBase3D_DIMTYPEID_XYZ, MeshBase3D_DIMTYPEID_XYZT, &
+    MeshBase3D_DIMTYPE_NUM
+
   use scale_mesh_rectdom2d, only: MeshRectDom2D
   use scale_mesh_cubedom3d, only: MeshCubeDom3D
   use scale_mesh_cubedspheredom2d, only: MeshCubedSphereDom2D
@@ -85,26 +95,6 @@ module scale_file_common_meshfield
   !
   !-----------------------------------------------------------------------------
 
-  ! 1D
-  integer, public :: FILE_COMMON_MESHFILED1D_DIMTYPE_NUM   = 2
-  integer, public :: FILE_COMMON_MESHFILED1D_DIMTYPEID_X   = 1
-  integer, public :: FILE_COMMON_MESHFILED1D_DIMTYPEID_XT  = 2
-
-  ! 2D
-  integer, public :: FILE_COMMON_MESHFILED2D_DIMTYPE_NUM   = 4
-  integer, public :: FILE_COMMON_MESHFILED2D_DIMTYPEID_X   = 1
-  integer, public :: FILE_COMMON_MESHFILED2D_DIMTYPEID_Y   = 2
-  integer, public :: FILE_COMMON_MESHFILED2D_DIMTYPEID_XY  = 3
-  integer, public :: FILE_COMMON_MESHFILED2D_DIMTYPEID_XYT = 4
-
-  integer, public :: FILE_COMMON_MESHFILED3D_DIMTYPE_NUM    = 6
-  integer, public :: FILE_COMMON_MESHFILED3D_DIMTYPEID_X    = 1
-  integer, public :: FILE_COMMON_MESHFILED3D_DIMTYPEID_Y    = 2
-  integer, public :: FILE_COMMON_MESHFILED3D_DIMTYPEID_Z    = 3
-  integer, public :: FILE_COMMON_MESHFILED3D_DIMTYPEID_XYZ  = 4
-  integer, public :: FILE_COMMON_MESHFILED3D_DIMTYPEID_XYZT = 5
-  integer, public :: FILE_COMMON_MESHFILED3D_DIMTYPEID_ZT   = 6
-
   !--------------------
   !
   !++ Private procedures
@@ -120,16 +110,21 @@ contains
     implicit none
 
     class(MeshBase1D), target, intent(in) :: mesh1D
-    type(FILE_common_meshfield_diminfo), intent(out) :: dimsinfo(FILE_COMMON_MESHFILED1D_DIMTYPE_NUM)
+    type(FILE_common_meshfield_diminfo), intent(out) :: dimsinfo(MeshBase1D_DIMTYPE_NUM)
 
     integer :: i_size
+    type(MeshDimInfo), pointer :: diminfo
     !-------------------------------------------------
 
     i_size = mesh1D%NeG * mesh1D%refElem1D%Np
-    call set_dimension( dimsinfo(FILE_COMMON_MESHFILED1D_DIMTYPEID_X),  &
-      "x", "X-coordinate", "X", 1, (/ "x" /), (/ i_size /)              )
-    call set_dimension( dimsinfo(FILE_COMMON_MESHFILED1D_DIMTYPEID_XT), &
-      "xt", "X-coordinate", "XT", 1, (/ "x" /), (/ i_size  /)           )
+
+    dimInfo => mesh1D%dimInfo(MeshBase1D_DIMTYPEID_X)
+    call set_dimension( dimsinfo(MeshBase1D_DIMTYPEID_X),  &
+      dimInfo, "X", 1, (/ dimInfo%name /), (/ i_size /)    )
+
+    dimInfo => mesh1D%dimInfo(MeshBase1D_DIMTYPEID_XT)
+    call set_dimension( dimsinfo(MeshBase1D_DIMTYPEID_XT), &
+      dimInfo, "XT", 1, (/ dimInfo%name /), (/ i_size  /)  )
 
     return
   end subroutine File_common_meshfield_get_dims1D
@@ -139,8 +134,8 @@ contains
     implicit none
 
     class(MeshBase1D), target, intent(in) :: mesh1D
-    type(FILE_common_meshfield_diminfo), intent(in) :: dimsinfo(FILE_COMMON_MESHFILED1D_DIMTYPE_NUM)
-    real(DP), intent(out) :: x(dimsinfo(FILE_COMMON_MESHFILED1D_DIMTYPEID_X)%size)
+    type(FILE_common_meshfield_diminfo), intent(in) :: dimsinfo(MeshBase1D_DIMTYPE_NUM)
+    real(DP), intent(out) :: x(dimsinfo(MeshBase1D_DIMTYPEID_X)%size)
     logical, intent(in), optional :: force_uniform_grid
 
     integer :: n
@@ -318,13 +313,16 @@ contains
     implicit none
 
     class(MeshRectDom2D), target, intent(in) :: mesh2D
-    type(FILE_common_meshfield_diminfo), intent(out) :: dimsinfo(FILE_COMMON_MESHFILED2D_DIMTYPE_NUM)
+    type(FILE_common_meshfield_diminfo), intent(out) :: dimsinfo(MeshBase2D_DIMTYPE_NUM)
 
     type(ElementBase2D), pointer :: refElem
     type(LocalMesh2D), pointer :: lcmesh
     integer :: i, j, n
 
     integer :: i_size, j_size
+    type(MeshDimInfo), pointer :: diminfo
+    type(MeshDimInfo), pointer :: diminfo_x
+    type(MeshDimInfo), pointer :: diminfo_y
     !-------------------------------------------------
     
     i_size = 0
@@ -341,16 +339,24 @@ contains
       j_size = j_size + lcmesh%NeY * lcmesh%refElem2D%Nfp
     end do
   
-    call set_dimension( dimsinfo(FILE_COMMON_MESHFILED2D_DIMTYPEID_X),  &
-      "x", "X-coordinate", "X", 1, (/ "x" /), (/ i_size /)              )
-    call set_dimension( dimsinfo(FILE_COMMON_MESHFILED2D_DIMTYPEID_Y),  &
-      "y", "Y-coordinate", "Y", 1, (/ "y" /), (/ j_size /)              )
+    diminfo_x => mesh2D%dimInfo(MeshBase2D_DIMTYPEID_X)
+    call set_dimension( dimsinfo(MeshBase2D_DIMTYPEID_X),   &
+      dimInfo_x, "X", 1, (/ diminfo_x%name /), (/ i_size /) )
 
-    call set_dimension( dimsinfo(FILE_COMMON_MESHFILED2D_DIMTYPEID_XY),    &
-      "xy", "XY-coordinate", "XY", 2, (/ "x", "y" /), (/ i_size, j_size /) )
-    call set_dimension( dimsinfo(FILE_COMMON_MESHFILED2D_DIMTYPEID_XYT),  &
-      "xyt", "XY-coordinate", "XYT", 2, (/ "x", "y" /), (/ i_size, j_size /) )
+    diminfo_y => mesh2D%dimInfo(MeshBase2D_DIMTYPEID_Y)
+    call set_dimension( dimsinfo(MeshBase2D_DIMTYPEID_Y),   &
+      diminfo_y, "Y", 1, (/ diminfo_y%name /), (/ j_size /) )
 
+    diminfo => mesh2D%dimInfo(MeshBase2D_DIMTYPEID_XY)
+    call set_dimension( dimsinfo(MeshBase2D_DIMTYPEID_XY),    &
+      diminfo, "XY", 2, (/ diminfo_x%name, diminfo_y%name /), &
+      (/ i_size, j_size /) )
+
+    diminfo => mesh2D%dimInfo(MeshBase2D_DIMTYPEID_XYT)
+    call set_dimension( dimsinfo(MeshBase2D_DIMTYPEID_XYT),    &
+      diminfo, "XYT", 2, (/ diminfo_x%name, diminfo_y%name /), &
+      (/ i_size, j_size /) )
+  
     return
   end subroutine File_common_meshfield_get_dims2D
 
@@ -358,13 +364,17 @@ contains
     implicit none
 
     class(MeshCubedSphereDom2D), target, intent(in) :: mesh2D
-    type(FILE_common_meshfield_diminfo), intent(out) :: dimsinfo(FILE_COMMON_MESHFILED2D_DIMTYPE_NUM)
+    type(FILE_common_meshfield_diminfo), intent(out) :: dimsinfo(MeshBase2D_DIMTYPE_NUM)
 
     type(ElementBase2D), pointer :: refElem
     type(LocalMesh2D), pointer :: lcmesh
     integer :: i, j, n
 
     integer :: i_size, j_size
+
+    type(MeshDimInfo), pointer :: diminfo
+    type(MeshDimInfo), pointer :: diminfo_x
+    type(MeshDimInfo), pointer :: diminfo_y
     !-------------------------------------------------
     
     i_size = 0
@@ -383,15 +393,23 @@ contains
 
     j_size = j_size * size(mesh2D%rcdomIJP2LCMeshID,3)
   
-    call set_dimension( dimsinfo(FILE_COMMON_MESHFILED2D_DIMTYPEID_X),  &
-      "x", "X-coordinate", "X", 1, (/ "x" /), (/ i_size /)              )
-    call set_dimension( dimsinfo(FILE_COMMON_MESHFILED2D_DIMTYPEID_Y),  &
-      "y", "Y-coordinate", "Y", 1, (/ "y" /), (/ j_size /)              )
+    diminfo_x => mesh2D%dimInfo(MeshBase2D_DIMTYPEID_X)
+    call set_dimension( dimsinfo(MeshBase2D_DIMTYPEID_X),   &
+      dimInfo_x, "X", 1, (/ diminfo_x%name /), (/ i_size /) )
 
-    call set_dimension( dimsinfo(FILE_COMMON_MESHFILED2D_DIMTYPEID_XY),    &
-      "xy", "XY-coordinate", "XY", 2, (/ "x", "y" /), (/ i_size, j_size /) )
-    call set_dimension( dimsinfo(FILE_COMMON_MESHFILED2D_DIMTYPEID_XYT),  &
-      "xyt", "XY-coordinate", "XYT", 2, (/ "x", "y" /), (/ i_size, j_size /) )
+    diminfo_y => mesh2D%dimInfo(MeshBase2D_DIMTYPEID_Y)
+    call set_dimension( dimsinfo(MeshBase2D_DIMTYPEID_Y),   &
+      diminfo_y, "Y", 1, (/ diminfo_y%name /), (/ j_size /) )
+
+    diminfo => mesh2D%dimInfo(MeshBase2D_DIMTYPEID_XY)
+    call set_dimension( dimsinfo(MeshBase2D_DIMTYPEID_XY),    &
+      diminfo, "XY", 2, (/ diminfo_x%name, diminfo_y%name /), &
+      (/ i_size, j_size /) )
+
+    diminfo => mesh2D%dimInfo(MeshBase2D_DIMTYPEID_XYT)
+    call set_dimension( dimsinfo(MeshBase2D_DIMTYPEID_XYT),    &
+      diminfo, "XYT", 2, (/ diminfo_x%name, diminfo_y%name /), &
+      (/ i_size, j_size /) )
 
     return
   end subroutine File_common_meshfield_get_dims2D_cubedsphere
@@ -401,9 +419,9 @@ contains
     implicit none
 
     class(MeshRectDom2D), target, intent(in) :: mesh2D  
-    type(FILE_common_meshfield_diminfo), intent(in) :: dimsinfo(FILE_COMMON_MESHFILED2D_DIMTYPE_NUM)
-    real(DP), intent(out) :: x(dimsinfo(FILE_COMMON_MESHFILED2D_DIMTYPEID_X)%size)
-    real(DP), intent(out) :: y(dimsinfo(FILE_COMMON_MESHFILED2D_DIMTYPEID_Y)%size)
+    type(FILE_common_meshfield_diminfo), intent(in) :: dimsinfo(MeshBase2D_DIMTYPE_NUM)
+    real(DP), intent(out) :: x(dimsinfo(MeshBase2D_DIMTYPEID_X)%size)
+    real(DP), intent(out) :: y(dimsinfo(MeshBase2D_DIMTYPEID_Y)%size)
     logical, intent(in), optional :: force_uniform_grid
 
     integer :: n
@@ -470,9 +488,9 @@ contains
     implicit none
 
     class(MeshCubedSphereDom2D), target, intent(in) :: mesh2D  
-    type(FILE_common_meshfield_diminfo), intent(in) :: dimsinfo(FILE_COMMON_MESHFILED2D_DIMTYPE_NUM)
-    real(DP), intent(out) :: x(dimsinfo(FILE_COMMON_MESHFILED2D_DIMTYPEID_X)%size)
-    real(DP), intent(out) :: y(dimsinfo(FILE_COMMON_MESHFILED2D_DIMTYPEID_Y)%size)
+    type(FILE_common_meshfield_diminfo), intent(in) :: dimsinfo(MeshBase2D_DIMTYPE_NUM)
+    real(DP), intent(out) :: x(dimsinfo(MeshBase2D_DIMTYPEID_X)%size)
+    real(DP), intent(out) :: y(dimsinfo(MeshBase2D_DIMTYPEID_Y)%size)
 
     integer :: ni, nj, np, n
     integer :: k
@@ -805,13 +823,18 @@ contains
     implicit none
 
     class(MeshCubeDom3D), target, intent(in) :: mesh3D
-    type(FILE_common_meshfield_diminfo), intent(out) :: dimsinfo(FILE_COMMON_MESHFILED3D_DIMTYPE_NUM)
+    type(FILE_common_meshfield_diminfo), intent(out) :: dimsinfo(MeshBase3D_DIMTYPE_NUM)
 
     type(LocalMesh3D), pointer :: lcmesh
     integer :: i, j, k, n
     integer :: icount, jcount, kcount
 
     integer :: i_size, j_size, k_size
+
+    type(MeshDimInfo), pointer :: dimInfo
+    type(MeshDimInfo), pointer :: dimInfo_x
+    type(MeshDimInfo), pointer :: dimInfo_y
+    type(MeshDimInfo), pointer :: dimInfo_z
     !-------------------------------------------------
     
     i_size = 0
@@ -835,22 +858,31 @@ contains
       k_size = k_size + lcmesh%NeZ * lcmesh%refElem3D%Nnode_v
     end do  
 
-    call set_dimension( dimsinfo(FILE_COMMON_MESHFILED3D_DIMTYPEID_X),  &
-      "x", "X-coordinate", "X", 1, (/ "x" /), (/ i_size /)              )
-    
-    call set_dimension( dimsinfo(FILE_COMMON_MESHFILED3D_DIMTYPEID_Y),  &
-      "y", "Y-coordinate", "Y", 1, (/ "y" /), (/ j_size /)              )
-    
-    call set_dimension( dimsinfo(FILE_COMMON_MESHFILED3D_DIMTYPEID_Z),  &
-      "z", "Z-coordinate", "Z", 1, (/ "z" /), (/ k_size /)              )
-    call set_dimension( dimsinfo(FILE_COMMON_MESHFILED3D_DIMTYPEID_ZT), &
-      "zt", "Z-coordinate", "ZT", 1, (/ "z" /), (/ k_size /)            )
+    diminfo_x => mesh3D%dimInfo(MeshBase3D_DIMTYPEID_X)
+    call set_dimension( dimsinfo(MeshBase3D_DIMTYPEID_X),   &
+      dimInfo_x, "X", 1, (/ diminfo_x%name /), (/ i_size /) )
 
-    call set_dimension( dimsinfo(FILE_COMMON_MESHFILED3D_DIMTYPEID_XYZ),                   &
-      "xyz", "XYZ-coordinate", "XYZ", 3, (/ "x", "y", "z" /), (/ i_size, j_size, k_size /) )
-    call set_dimension( dimsinfo(FILE_COMMON_MESHFILED3D_DIMTYPEID_XYZT),                &
-      "xyzt", "XYZ-coordinate", "XYZT", 3, (/ "x", "y", "z" /), (/ i_size, j_size, k_size /) )
+    diminfo_y => mesh3D%dimInfo(MeshBase3D_DIMTYPEID_Y)
+    call set_dimension( dimsinfo(MeshBase3D_DIMTYPEID_Y),   &
+      diminfo_y, "Y", 1, (/ diminfo_y%name /), (/ j_size /) )
 
+    diminfo_z => mesh3D%dimInfo(MeshBase3D_DIMTYPEID_Z)
+    call set_dimension( dimsinfo(MeshBase3D_DIMTYPEID_Z),   &
+      diminfo_z, "Z", 1, (/ diminfo_z%name /), (/ k_size /) )
+  
+    diminfo => mesh3D%dimInfo(MeshBase3D_DIMTYPEID_ZT)
+    call set_dimension( dimsinfo(MeshBase3D_DIMTYPEID_ZT), &
+      diminfo, "ZT", 1, (/ diminfo_z%name /), (/ k_size /) )
+
+    diminfo => mesh3D%dimInfo(MeshBase3D_DIMTYPEID_XYZ)
+    call set_dimension( dimsinfo(MeshBase3D_DIMTYPEID_XYZ), &
+      diminfo, "XYZ", 3, (/ diminfo_x%name, diminfo_y%name, diminfo_z%name /), &
+      (/ i_size, j_size, k_size /) )
+  
+    diminfo => mesh3D%dimInfo(MeshBase3D_DIMTYPEID_XYZT)
+    call set_dimension( dimsinfo(MeshBase3D_DIMTYPEID_XYZT), &
+      diminfo, "XYZT", 3, (/ diminfo_x%name, diminfo_y%name, diminfo_z%name /), &
+      (/ i_size, j_size, k_size /) )
 
     return
   end subroutine File_common_meshfield_get_dims3D
@@ -860,10 +892,10 @@ contains
     implicit none
 
     class(MeshCubeDom3D), target, intent(in) :: mesh3D  
-    type(FILE_common_meshfield_diminfo), intent(in) :: dimsinfo(FILE_COMMON_MESHFILED3D_DIMTYPE_NUM)
-    real(DP), intent(out) :: x(dimsinfo(FILE_COMMON_MESHFILED3D_DIMTYPEID_X)%size)
-    real(DP), intent(out) :: y(dimsinfo(FILE_COMMON_MESHFILED3D_DIMTYPEID_Y)%size)
-    real(DP), intent(out) :: z(dimsinfo(FILE_COMMON_MESHFILED3D_DIMTYPEID_Z)%size)
+    type(FILE_common_meshfield_diminfo), intent(in) :: dimsinfo(MeshBase3D_DIMTYPE_NUM)
+    real(DP), intent(out) :: x(dimsinfo(MeshBase3D_DIMTYPEID_X)%size)
+    real(DP), intent(out) :: y(dimsinfo(MeshBase3D_DIMTYPEID_Y)%size)
+    real(DP), intent(out) :: z(dimsinfo(MeshBase3D_DIMTYPEID_Z)%size)
     logical, intent(in), optional :: force_uniform_grid
 
     integer :: n, kelem
@@ -1197,12 +1229,11 @@ contains
     return
   end subroutine get_uniform_grid1D
 
-  subroutine set_dimension( dim, name, desc, dim_type, ndims, dims, count )
+  subroutine set_dimension( dim, diminfo, dim_type, ndims, dims, count )
     implicit none
 
     type(FILE_common_meshfield_diminfo), intent(out) :: dim
-    character(*), intent(in) :: name
-    character(*), intent(in) :: desc
+    type(MeshDimInfo), intent(in) :: diminfo
     character(*), intent(in) :: dim_type
     integer, intent(in) :: ndims
     character(len=*), intent(in) :: dims(ndims)
@@ -1211,9 +1242,9 @@ contains
     integer :: d
     !----------------------------------------------------
 
-    dim%name = name
-    dim%unit = "m"
-    dim%desc = desc
+    dim%name = diminfo%name
+    dim%unit = diminfo%unit
+    dim%desc = diminfo%desc
     dim%type = dim_type
     dim%ndim = ndims
     dim%size = 1
