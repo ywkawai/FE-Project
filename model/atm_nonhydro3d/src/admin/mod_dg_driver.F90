@@ -319,12 +319,11 @@ contains
     implicit none    
     !----------------------------------------
 
-
     if ( atmos%isActivated() .and. atmos%time_manager%do_restart) then
       call atmos%vars%Write_restart_file()
     end if
 
     return
-  end subroutine 
+  end subroutine restart_write
 
 end module mod_dg_driver
