@@ -5,7 +5,9 @@ module scale_mesh_base
   !
   !++ used modules
   !
-  use scale_precision  
+  use scale_precision 
+  use scale_io 
+  
   use scale_element_base, only: ElementBase
   use scale_localmesh_base, only: LocalMeshBase
 
@@ -17,6 +19,13 @@ module scale_mesh_base
   !
   !++ Public type & procedure
   ! 
+
+  type, public :: MeshDimInfo
+    character(len=H_SHORT) :: name
+    character(len=H_MID) :: desc
+    character(len=H_SHORT) :: unit
+  end type MeshDimInfo
+
   type, abstract, public :: Meshbase
     integer :: LOCAL_MESH_NUM
     integer :: PRC_NUM
@@ -29,9 +38,12 @@ module scale_mesh_base
     integer, allocatable :: PRCrank_globalMap(:)
 
     class(ElementBase), pointer :: refElem
+    type(MeshDimInfo), allocatable :: dimInfo(:)
+
     logical :: isGenerated
   contains
     procedure(MeshBase_get_localmesh), deferred :: GetLocalMesh
+    procedure :: SetDimInfo => MeshBase_SetDimInfo
   end type MeshBase
 
   interface 
@@ -63,15 +75,16 @@ module scale_mesh_base
   !
 
 contains
-  subroutine MeshBase_Init(this, &
-     refElem, NLocalMeshPerPrc, NsideTile, &
-     nprocs                                )
+  subroutine MeshBase_Init( this, &
+     ndimtype, refElem, NLocalMeshPerPrc, NsideTile, &
+     nprocs                                          )
     
     use scale_prc, only: &
       PRC_nprocs
     implicit none
 
     class(MeshBase), intent(inout) :: this
+    integer, intent(in) :: ndimtype
     class(ElementBase), intent(in), target :: refElem
     integer, intent(in) :: NLocalMeshPerPrc
     integer, intent(in) :: NsideTile
@@ -96,6 +109,7 @@ contains
     allocate( this%tilePanelID_globalMap(NsideTile, this%LOCAL_MESH_NUM_global) )
     allocate( this%tileID_global2localMap(this%LOCAL_MESH_NUM_global) )
     allocate( this%PRCRank_globalMap(this%LOCAL_MESH_NUM_global) )
+    allocate( this%dimInfo(ndimtype) )
     
     this%isGenerated = .false.
 
@@ -114,6 +128,7 @@ contains
     deallocate( this%tilePanelID_globalMap )
     deallocate( this%tileID_global2localMap )
     deallocate( this%PRCRank_globalMap )
+    deallocate( this%dimInfo )
 
     return
   end subroutine MeshBase_Final
@@ -143,5 +158,24 @@ contains
 
     return
   end subroutine MeshBase_setGeometricInfo
+
+
+  subroutine MeshBase_SetDimInfo( this, &
+      dimID, name, unit, desc )
+    implicit none
+    class(MeshBase), intent(inout) :: this
+    integer, intent(in) :: dimId
+    character(len=*), intent(in) :: name
+    character(len=*), intent(in) :: unit
+    character(len=*), intent(in) :: desc
+
+    !-----------------------------------------------
+
+    this%dimInfo(dimId)%name = name
+    this%dimInfo(dimId)%unit = unit
+    this%dimInfo(dimID)%desc = desc
+
+    return
+  end subroutine MeshBase_SetDimInfo
 
 end module scale_mesh_base
