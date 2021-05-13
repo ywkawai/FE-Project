@@ -150,7 +150,7 @@ module mod_sw_vars
   DATA SW_DIAGVARS_VINFO / &
     VariableInfo( SW_DIAGVARS_Vellon_ID, 'Vel_lon', 'velocity u'    , 'm/s'  , 2, 'XY', 'lon_wind' ), &
     VariableInfo( SW_DIAGVARS_Vellat_ID, 'Vel_lat', 'velocity v'    , 'm/s'  , 2, 'XY', 'lat_wind' ), &  
-    VariableInfo( SW_DIAGVARS_Vellat_ID,  'Height', 'Height'        , 'm'    , 2, 'XY', 'height'   ), &  
+    VariableInfo( SW_DIAGVARS_Height_ID,  'Height', 'Height'        , 'm'    , 2, 'XY', 'height'   ), &  
     Variableinfo( SW_DIAGVARS_ENGT   , 'ENGT', 'total energy'          , 'J/m3' , 2, 'XY', ''      ), &
     Variableinfo( SW_DIAGVARS_ENGP   , 'ENGP', 'potential energy'      , 'J/m3' , 2, 'XY', ''      ), &
     Variableinfo( SW_DIAGVARS_ENGK   , 'ENGK', 'kinetic energy'        , 'J/m3' , 2, 'XY', ''      )  /
@@ -406,7 +406,6 @@ contains
       if ( hst_id > 0 ) call FILE_HISTORY_meshfield_put( hst_id, this%PROG_VARS(v) )
     end do
 
-    call this%Clac_diagnostics()
     do v = 1, SW_AUXVARS_NUM
       hst_id = this%AUX_VARS(v)%hist_id
       if ( hst_id > 0 ) call FILE_HISTORY_meshfield_put( hst_id, this%AUX_VARS(v) )
@@ -466,7 +465,7 @@ contains
     call this%Check( force = .true. )
 
     !-- Calculate diagnostic variables
-    call this%Clac_diagnostics()   
+    call this%Clac_diagnostics( sw_mesh )   
 
     !-- Communicate halo data of hydrostatic & diagnostic variables
     call this%AUXVARS_manager%MeshFieldComm_Exchange()
@@ -731,9 +730,10 @@ contains
 
   !-----------------------------------------------------------------------------
   !> Calculate diagnostic variables  
-  subroutine SWVars_CalculateDiagnostics( this )
+  subroutine SWVars_CalculateDiagnostics( this, model_mesh )
     implicit none
     class(SWVars), intent(inout), target :: this
+    class(SWMesh), intent(in) :: model_mesh
 
     type(LocalMesh2D), pointer :: lcmesh2D
     integer :: n
@@ -741,6 +741,8 @@ contains
 
     class(MeshField2D), pointer :: field
     !-------------------------------------------------------
+
+    call this%PROGVARS_manager%MeshFieldComm_Exchange()
 
     do varid=SW_AUXVARS_VOR_ID+1, SW_AUXVARS_NUM
       field => this%AUX_VARS(varid)
@@ -758,19 +760,27 @@ contains
       end do
     end do
 
+    ! VOR
+    field => this%AUX_VARS(SW_AUXVARS_VOR_ID)    
+    do n=1, field%mesh%LOCAL_MESH_NUM
+      lcmesh2D => field%mesh%lcmesh_list(n)
+
+      call vars_eval_vor_lc( field%local(n)%val, &
+        this%PROG_VARS(SW_PROGVARS_U_ID)%local(n)%val, this%PROG_VARS(SW_PROGVARS_V_ID)%local(n)%val, &
+        this%AUX_VARS(SW_AUXVARS_u1_ID )%local(n)%val, this%AUX_VARS(SW_AUXVARS_u2_ID )%local(n)%val, &
+        model_mesh%DOptrMat(1), model_mesh%DOptrMat(2), model_mesh%LiftOptrMat,                       &
+        lcmesh2D, lcmesh2D%refElem2D )
+    end do
+
     return
   end subroutine SWVars_CalculateDiagnostics
 
 !-- private -----------------------------------------------------------------------
     
+!OCL SERIAL
   subroutine vars_calc_diagvar( this, field_name, field_work ) 
-    use scale_const, only: &
-      Rdry => CONST_Rdry,      &
-      CPdry => CONST_CPdry,    &
-      CVdry => CONST_CVdry,    &
-      PRES00 => CONST_PRE00
-
     implicit none
+    
     class(SWVars), intent(in) :: this
     character(*), intent(in) :: field_name
     type(MeshField2D), intent(inout) :: field_work
@@ -797,6 +807,84 @@ contains
     return
   end subroutine vars_calc_diagvar
 
+!OCL SERIAL
+  subroutine vars_eval_vor_lc( vor,           &
+    U, V, u1, u2, Dx, Dy, Lift, lcmesh, elem  )
+      
+    use scale_sparsemat, only: sparsemat, &
+      sparsemat_matmul
+    implicit none
+
+    type(LocalMesh2D), intent(in) :: lcmesh
+    type(ElementBase2D), intent(in) :: elem
+    real(RP), intent(out) :: vor(elem%Np,lcmesh%NeA)
+    real(RP), intent(in) :: U(elem%Np,lcmesh%NeA)
+    real(RP), intent(in) :: V(elem%Np,lcmesh%NeA)
+    real(RP), intent(in) :: u1(elem%Np,lcmesh%NeA)
+    real(RP), intent(in) :: u2(elem%Np,lcmesh%NeA)
+    type(SparseMat), intent(in) :: Dx, Dy
+    type(SparseMat), intent(in) :: Lift
+
+    integer :: ke
+    real(RP) :: del_flux(elem%NfpTot,lcmesh%Ne,1)
+    real(RP) :: Fx(elem%Np), Fy(elem%Np), LiftDelFlx(elem%Np)
+    !----------------------------------------------------
+
+    call eval_vor_del_flux( del_flux, &
+      U, V, u1, u2, lcmesh%Gsqrt, lcmesh%normal_fn(:,:,1), lcmesh%normal_fn(:,:,2), &
+      lcmesh%VMapM, lcmesh%VMapP, lcmesh, lcmesh%refElem2D )
+    
+    !$omp parallel do private(Fx, Fy, LiftDelFlx)
+    do ke=lcmesh%NeS, lcmesh%NeE
+      call sparsemat_matmul(Dx, u2(:,ke), Fx)
+      call sparsemat_matmul(Dy, u1(:,ke), Fy)
+      call sparsemat_matmul(Lift, lcmesh%Fscale(:,ke) * del_flux(:,ke,1), LiftDelFlx)
+
+      vor(:,ke) = ( lcmesh%Escale(:,ke,1,1) * Fx(:) &
+                  - lcmesh%Escale(:,ke,2,2) * Fy(:) &
+                  + LiftDelFlx(:) ) / lcmesh%Gsqrt(:,ke)
+    end do
+
+    return
+  end subroutine vars_eval_vor_lc
+
+!OCL SERIAL
+  subroutine eval_vor_del_flux( del_flux_aux,  &
+    U_, V_, u1_, u2_,                          &
+    Gsqrt_, nx, ny, vmapM, vmapP, lmesh, elem  )
+
+    implicit none
+
+    class(LocalMesh2D), intent(in) :: lmesh
+    class(elementbase2D), intent(in) :: elem  
+    real(RP), intent(out) ::  del_flux_aux(elem%NfpTot,lmesh%Ne,1)
+    real(RP), intent(in) ::  U_(elem%Np*lmesh%NeA)  
+    real(RP), intent(in) ::  V_(elem%Np*lmesh%NeA)  
+    real(RP), intent(in) ::  u1_(elem%Np*lmesh%NeA)  
+    real(RP), intent(in) ::  u2_(elem%Np*lmesh%NeA)
+    real(RP), intent(in) ::  Gsqrt_(elem%Np*lmesh%Ne) 
+    real(RP), intent(in) :: nx(elem%NfpTot,lmesh%Ne)
+    real(RP), intent(in) :: ny(elem%NfpTot,lmesh%Ne)
+    integer, intent(in) :: vmapM(elem%NfpTot,lmesh%Ne)
+    integer, intent(in) :: vmapP(elem%NfpTot,lmesh%Ne)
+    
+    integer :: ke, iP(elem%NfpTot), iM(elem%NfpTot)
+    !------------------------------------------------------------------------
+
+
+    !$omp parallel do private( iM, iP )
+    do ke=lmesh%NeS, lmesh%NeE
+      iM(:) = vmapM(:,ke); iP(:) = vmapP(:,ke)
+
+      del_flux_aux(:,ke,1) = 0.5_RP * ( &
+                     ( u2_(iP) - u2_(iM) ) * nx(:,ke) &
+                   - ( u1_(iP) - u1_(iM) ) * ny(:,ke) )
+    end do
+
+    return
+  end subroutine eval_vor_del_flux
+
+!OCL SERIAL
   subroutine vars_calc_diagnoseVar( field_name, var_out,  &
     h_, U_, V_, hs_, u1_, u2_,                            &
     lcmesh, elem )
@@ -832,6 +920,10 @@ contains
         lcmesh%panelID, lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2), elem%Np * lcmesh%Ne, RPlanet, & ! (in)
         U_(:,lcmesh%NeS:lcmesh%NeE), V_(:,lcmesh%NeS:lcmesh%NeE),                                 & ! (in)
         var_out(:,lcmesh%NeS:lcmesh%NeE), dummy(:,lcmesh%NeS:lcmesh%NeE)                          ) ! (out)
+       !$omp parallel do
+        do ke=1, lcmesh%Ne
+          var_out(:,ke) = var_out(:,ke) * cos(lcmesh%lat(:,ke))
+        end do        
     case('Vel_lat')
       call CubedSphereCnv_CS2LonLatVec( &
         lcmesh%panelID, lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2), elem%Np * lcmesh%Ne, RPlanet, & ! (in)
