@@ -161,7 +161,7 @@ contains
     end if
 
     !########## Calculate diagnostic variables ##########  
-    call swmodel%vars%Clac_diagnostics()
+    call swmodel%vars%Clac_diagnostics( swmodel%mesh )
     call swmodel%vars%AUXVARS_manager%MeshFieldComm_Exchange()
       
     !#### Check values #################################
