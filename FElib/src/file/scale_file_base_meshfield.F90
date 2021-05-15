@@ -334,6 +334,7 @@ contains
     return
   end subroutine FILE_base_meshfield_enddef
   
+!OCL_SERIAL
   subroutine FILE_base_meshfield_write_var1d( this, & ! (inout)
     vid, field1d, sec_str, sec_end                  ) ! (in)
 
@@ -369,6 +370,7 @@ contains
     return
   end subroutine FILE_base_meshfield_write_var1d
 
+!OCL_SERIAL
   subroutine FILE_base_meshfield_write_var2d( this, & ! (inout)
     vid, field2d, sec_str, sec_end                  ) ! (in)
 
@@ -411,6 +413,7 @@ contains
     return
   end subroutine FILE_base_meshfield_write_var2d
 
+!OCL_SERIAL
   subroutine FILE_base_meshfield_write_var3d( this, & ! (inout)
       vid, field3d, sec_str, sec_end                ) ! (in)
   
@@ -419,6 +422,7 @@ contains
         FILE_Write 
     use scale_file_common_meshfield, only: &
       File_common_meshfield_put_field3D_cartesbuf
+    use scale_prof
     implicit none
 
     class(FILE_base_meshfield), intent(inout) :: this
@@ -438,11 +442,16 @@ contains
       dims(2) = this%dimsinfo(MF3D_DIMTYPE_Y)%size
       dims(3) = this%dimsinfo(MF3D_DIMTYPE_Z)%size
       allocate( buf(dims(1),dims(2),dims(3)) )
+
+      call PROF_rapstart('FILE_base_meshfield_write_putbuf', 0)
+
       call File_common_meshfield_put_field3D_cartesbuf( this%mesh3D, field3d, buf(:,:,:), &
         this%force_uniform_grid )
-  
+      call PROF_rapend('FILE_base_meshfield_write_putbuf', 0)
+      call PROF_rapstart('FILE_base_meshfield_FILE_write', 0)
       call FILE_Write( this%vars_ncid(vid), buf(:,:,:),     & ! (in)
         sec_str, sec_end, start                             ) ! (in)
+      call PROF_rapend('FILE_base_meshfield_FILE_write', 0)
     end if
   
     return
@@ -510,6 +519,7 @@ contains
     return
   end subroutine FILE_base_meshfield_get_dataInfo
 
+!OCL_SERIAL
   subroutine FILE_base_meshfield_read_var1d( this,    & ! (inout)
     dim_typeid, varname,                              & ! (in)
     field1d,                                          & ! (inout)
@@ -550,6 +560,7 @@ contains
     return
   end subroutine FILE_base_meshfield_read_var1d
 
+!OCL_SERIAL
   subroutine FILE_base_meshfield_read_var1d_local( this, & ! (inout)
     dim_typeid, varname, lcmesh, i0_s,                   & ! (in)
     val,                                                 & ! (out)
@@ -593,6 +604,7 @@ contains
     return
   end subroutine FILE_base_meshfield_read_var1d_local 
 
+!OCL_SERIAL
   subroutine FILE_base_meshfield_read_var2d( this, & ! (inout)
     dim_typeid, varname,                           & ! (in)
     field2d,                                       & ! (inout)
@@ -641,6 +653,7 @@ contains
     return
   end subroutine FILE_base_meshfield_read_var2d
 
+!OCL_SERIAL
   subroutine FILE_base_meshfield_read_var2d_local( this, & ! (inout)
     dim_typeid, varname, lcmesh, i0_s, j0_s,             & ! (in)
     val,                                                 & ! (out)
@@ -685,6 +698,7 @@ contains
     return
   end subroutine FILE_base_meshfield_read_var2d_local
 
+!OCL_SERIAL
   subroutine FILE_base_meshfield_read_var3d( this, & ! (inout)
     dim_typeid, varname,                           & ! (in)
     field3d,                                       & ! (inout)
@@ -727,6 +741,7 @@ contains
     return
   end subroutine FILE_base_meshfield_read_var3d
 
+!OCL_SERIAL
   subroutine FILE_base_meshfield_read_var3d_local( this, & ! (inout)
     dim_typeid, varname, lcmesh, i0_s, j0_s, k0_s,       & ! (in)
     val,                                                 & ! (out)

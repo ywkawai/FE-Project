@@ -247,7 +247,7 @@ contains
     use scale_mesh_base2d, only: &
       MF2D_XYT => MeshBase2D_DIMTYPEID_XYT
     use scale_polynominal, only: &
-      polynominal_genLegendrePoly
+      Polynominal_GenLegendrePoly_sub
     use mod_cs2lonlat_interp_mesh, only: &
       nodeMap_list, &
       in_Nprc, in_elem2D, in_NLocalMeshPerPrc
@@ -276,7 +276,7 @@ contains
     type(MeshCubedSphereDom2D), pointer :: in_csmesh
     real(RP) :: P1D_ori_x(1,in_elem2D%Nfp)
     real(RP) :: P1D_ori_y(1,in_elem2D%Nfp)
-    real(RP) :: ox, oy
+    real(RP) :: ox(1), oy(1)
     real(RP) :: vx(in_elem2D%Nv), vy(in_elem2D%Nv)
     integer :: node_ids(in_elem2D%Nv)
     type(MeshField2D) :: tmp_field2D
@@ -344,15 +344,11 @@ contains
             vx(:) = in_lcmesh%pos_ev(node_ids(:),1)
             vy(:) = in_lcmesh%pos_ev(node_ids(:),2)
 
-            ox = - 1.0_RP + 2.0_RP * (mappingInfo%elem_x(p,ke2D) - vx(1)) / (vx(2) - vx(1))
-            oy = - 1.0_RP + 2.0_RP * (mappingInfo%elem_y(p,ke2D) - vy(1)) / (vy(3) - vy(1))
+            ox(1) = - 1.0_RP + 2.0_RP * (mappingInfo%elem_x(p,ke2D) - vx(1)) / (vx(2) - vx(1))
+            oy(1) = - 1.0_RP + 2.0_RP * (mappingInfo%elem_y(p,ke2D) - vy(1)) / (vy(3) - vy(1))
 
-            if ( abs(ox) > 1.001_RP .or. abs(oy) > 1.001_RP ) then
-              write(*,*) ii,jj,px,py,":",ox,oy
-              stop
-            end if
-            P1D_ori_x(:,:) = polynominal_genLegendrePoly( in_elem2D%PolyOrder, (/ ox /) )
-            P1D_ori_y(:,:) = polynominal_genLegendrePoly( in_elem2D%PolyOrder, (/ oy /) )
+            call Polynominal_GenLegendrePoly_sub( in_elem2D%PolyOrder, ox, P1D_ori_x(:,:) )
+            call Polynominal_GenLegendrePoly_sub( in_elem2D%PolyOrder, oy, P1D_ori_y(:,:) )
 
             out_val(p,ke2D) = 0.0_RP
             do p2=1, in_elem2D%Nfp

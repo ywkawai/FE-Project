@@ -174,7 +174,7 @@ contains
   subroutine File_common_meshfield_put_field1D_cartesbuf( mesh1D, field1D, &
     buf, force_uniform_grid )
     use scale_polynominal, only: &
-      polynominal_genLegendrePoly
+      Polynominal_GenLegendrePoly_sub
     implicit none
     class(MeshBase1D), target, intent(in) :: mesh1D
     class(MeshField1D), intent(in) :: field1d
@@ -191,7 +191,7 @@ contains
     integer :: Np
     real(RP), allocatable :: x_local(:)
     real(RP) :: x_local0, delx
-    real(RP) :: ox
+    real(RP) :: ox(1)
     real(RP), allocatable :: spectral_coef(:)
     real(RP), allocatable :: P1D_ori_x(:,:)
     !------------------------------------------------
@@ -219,7 +219,7 @@ contains
           spectral_coef(:) = matmul(refElem%invV(:,:), field1d%local(n)%val(:,kelem1))
           do i2=1, Np
             ox = - 1.0_RP + 2.0_RP * (x_local(i2) - x_local0) / delx  
-            P1D_ori_x(:,:) = polynominal_genLegendrePoly( refElem%PolyOrder, (/ ox /) )
+            call Polynominal_GenLegendrePoly_sub( refElem%PolyOrder, ox, P1D_ori_x(:,:) )
   
             i = i0_s + i2 + (kelem1-1)*Np 
             buf(i) = 0.0_RP 
@@ -550,7 +550,7 @@ contains
   subroutine File_common_meshfield_put_field2D_cartesbuf( mesh2D, field2D, &
     buf, force_uniform_grid )
     use scale_polynominal, only: &
-      polynominal_genLegendrePoly
+      Polynominal_GenLegendrePoly_sub
     implicit none
     class(MeshRectDom2D), target, intent(in) :: mesh2D
     class(MeshField2D), intent(in) :: field2d
@@ -569,7 +569,7 @@ contains
     real(RP) :: x_local0, delx
     real(RP), allocatable :: y_local(:)
     real(RP) :: y_local0, dely
-    real(RP) :: ox, oy
+    real(RP) :: ox(1), oy(1)
     real(RP), allocatable :: spectral_coef(:)
     real(RP), allocatable :: P1D_ori_x(:,:)
     real(RP), allocatable :: P1D_ori_y(:,:)
@@ -609,11 +609,11 @@ contains
           spectral_coef(:) = matmul(refElem%invV(:,:), field2d%local(n)%val(:,kelem1))
           do j2=1, Nfp
           do i2=1, Nfp
-            ox = - 1.0_RP + 2.0_RP * (x_local(i2) - x_local0) / delx
-            oy = - 1.0_RP + 2.0_RP * (y_local(j2) - y_local0) / dely
+            ox(1) = - 1.0_RP + 2.0_RP * (x_local(i2) - x_local0) / delx
+            oy(1) = - 1.0_RP + 2.0_RP * (y_local(j2) - y_local0) / dely
   
-            P1D_ori_x(:,:) = polynominal_genLegendrePoly( refElem%PolyOrder, (/ ox /) )
-            P1D_ori_y(:,:) = polynominal_genLegendrePoly( refElem%PolyOrder, (/ oy /) )
+            call Polynominal_GenLegendrePoly_sub( refElem%PolyOrder, ox, P1D_ori_x(:,:) ) 
+            call Polynominal_GenLegendrePoly_sub( refElem%PolyOrder, oy, P1D_ori_y(:,:) ) 
   
             i = i0_s + i2 + (i1-1)*Nfp
             j = j0_s + j2 + (j1-1)*Nfp
@@ -966,10 +966,11 @@ contains
     return
   end subroutine File_common_meshfield_get_axis3D
 
+!OCL_SERIAL
   subroutine File_common_meshfield_put_field3D_cartesbuf( mesh3D, field3D, &
     buf, force_uniform_grid )
     use scale_polynominal, only: &
-      polynominal_genLegendrePoly    
+      Polynominal_GenLegendrePoly_sub
     implicit none
     class(MeshCubeDom3D), target, intent(in) :: mesh3D
     class(MeshField3D), intent(in) :: field3d
@@ -990,7 +991,7 @@ contains
     real(RP) :: y_local0, dely
     real(RP), allocatable :: z_local(:)
     real(RP) :: z_local0, delz
-    real(RP) :: ox, oy, oz
+    real(RP) :: ox(1), oy(1), oz(1)
     real(RP), allocatable :: spectral_coef(:)
     real(RP), allocatable :: P1D_ori_x(:,:)
     real(RP), allocatable :: P1D_ori_y(:,:)
@@ -1020,12 +1021,12 @@ contains
         allocate( P1D_ori_z(1,Nnode_v) )     
       end if
 
-    !$omp parallel do collapse(2) private( kelem1, &
-    !$omp i, i1, i2, j, j2, k, k2, indx,                               &
-    !$omp x_local, x_local0, y_local, y_local0, z_local, z_local0,     &
-    !$omp delx, dely, delz, ox, oy, oz,                                &
-    !$omp spectral_coef, P1D_ori_x, P1D_ori_y, P1D_ori_z,              &
-    !$omp p1, p2, p3, l                                                )        
+      !$omp parallel do collapse(2) private( kelem1, &
+      !$omp i, i1, i2, j, j2, k, k2, indx,                               &
+      !$omp x_local, x_local0, y_local, y_local0, z_local, z_local0,     &
+      !$omp delx, dely, delz, ox, oy, oz,                                &
+      !$omp spectral_coef, P1D_ori_x, P1D_ori_y, P1D_ori_z,              &
+      !$omp p1, p2, p3, l                                                )        
       do k1=1, lcmesh%NeZ
       do j1=1, lcmesh%NeY
       do i1=1, lcmesh%NeX
@@ -1046,14 +1047,14 @@ contains
           do k2=1, Nnode_v
           do j2=1, Nnode_h1D
           do i2=1, Nnode_h1D
-            ox = - 1.0_RP + 2.0_RP * (x_local(i2) - x_local0) / delx
-            oy = - 1.0_RP + 2.0_RP * (y_local(j2) - y_local0) / dely
-            oz = - 1.0_RP + 2.0_RP * (z_local(k2) - z_local0) / delz
+            ox(1) = - 1.0_RP + 2.0_RP * (x_local(i2) - x_local0) / delx
+            oy(1) = - 1.0_RP + 2.0_RP * (y_local(j2) - y_local0) / dely
+            oz(1) = - 1.0_RP + 2.0_RP * (z_local(k2) - z_local0) / delz
   
-            P1D_ori_x(:,:) = polynominal_genLegendrePoly( refElem%PolyOrder_h, (/ ox /) )
-            P1D_ori_y(:,:) = polynominal_genLegendrePoly( refElem%PolyOrder_h, (/ oy /) )
-            P1D_ori_z(:,:) = polynominal_genLegendrePoly( refElem%PolyOrder_v, (/ oz /) )
-  
+            call Polynominal_GenLegendrePoly_sub( refElem%PolyOrder_h, ox, P1D_ori_x )
+            call Polynominal_GenLegendrePoly_sub( refElem%PolyOrder_h, oy, P1D_ori_y )
+            call Polynominal_GenLegendrePoly_sub( refElem%PolyOrder_v, oz, P1D_ori_z )
+
             i = i0_s + i2 + (i1-1)*Nnode_h1D
             j = j0_s + j2 + (j1-1)*Nnode_h1D
             k = k0_s + k2 + (k1-1)*Nnode_v

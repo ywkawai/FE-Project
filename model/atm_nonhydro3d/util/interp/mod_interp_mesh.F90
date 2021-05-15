@@ -77,9 +77,14 @@ module mod_interp_mesh
   integer, private :: out_NprcY        = 1        ! y length of 2D processor topology (output)
   type(HexahedralElement), private :: out_elem3D
 
+  real(RP), private :: dom_zmin        = 0.0_RP
+  real(RP), private :: dom_zmax        = 0.0_RP
+
 contains
 !OCL SERIAL
   subroutine interp_mesh_Init()
+    use scale_const, only: &
+      UNDEF => CONST_UNDEF
     implicit none
 
     integer :: out_NeX          = 1
@@ -95,8 +100,8 @@ contains
     real(RP) :: dom_ymin        = 0.0_RP
     real(RP) :: dom_ymax        = 0.0_RP
     logical  :: isPeriodicY     = .false.
-    real(RP) :: dom_zmin        = 0.0_RP
-    real(RP) :: dom_zmax        = 0.0_RP
+    real(RP) :: out_dom_zmin
+    real(RP) :: out_dom_zmax
     logical  :: isPeriodicZ     = .false.
  
     integer, parameter :: FZ_nmax = 1000
@@ -123,6 +128,8 @@ contains
       dom_ymin, dom_ymax, &
       isPeriodicY,        &
       dom_zmin, dom_zmax, &
+      out_dom_zmin,       &
+      out_dom_zmax,       &
       isPeriodicZ,        &
       in_Fz, out_Fz
 
@@ -132,6 +139,9 @@ contains
     LOG_NEWLINE
     LOG_INFO("interp_mesh",*) 'Setup'
   
+    out_dom_zmin = UNDEF
+    out_dom_zmax = UNDEF
+
     !--- read namelist
     rewind(IO_FID_CONF)
     read(IO_FID_CONF,nml=PARAM_INTERP_MESH,iostat=ierr)
@@ -143,22 +153,25 @@ contains
     endif
     LOG_NML(PARAM_INTERP_MESH)
 
-    
+    if ( out_dom_zmin == UNDEF ) out_dom_zmin = dom_zmin
+    if ( out_dom_zmax == UNDEF ) out_dom_zmax = dom_zmax
+
     !-
+
     call in_elem3D%Init( in_PolyOrder_h, in_PolyOrder_v, .true. )
     call out_elem3D%Init( out_PolyOrder_h, out_PolyOrder_v, .true. )
 
     call out_mesh%Init( out_NprcX * out_NeX, out_NprcY * out_NeY, out_NeZ,             &
-       dom_xmin, dom_xmax, dom_ymin, dom_ymax, dom_zmin, dom_zmax,                     &
+       dom_xmin, dom_xmax, dom_ymin, dom_ymax, out_dom_zmin, out_dom_zmax,             &
        isPeriodicX, isPeriodicY, isPeriodicZ, out_elem3D, ATMOS_MESH_NLocalMeshPerPrc, &
        out_NprcX, out_NprcY,                                                           &
        FZ=out_FZ(1:out_NeZ+1) )
     
     call out_mesh%Generate()
 
+
     !-
     call construct_map( in_FZ(1:in_NeZ+1) )
-
 
     return
   end subroutine interp_mesh_Init
@@ -199,6 +212,7 @@ contains
 
     delx = ( out_mesh%xmax_gl - out_mesh%xmin_gl ) / dble(in_NprcX)
     dely = ( out_mesh%ymax_gl - out_mesh%ymin_gl ) / dble(in_NprcY)
+    !$omp parallel do private(i)
     do j=1, in_NprcY
     do i=1, in_NprcX
       in_tiles_x(:,i,j) = out_mesh%xmin_gl + delx * dble( (/ i-1, i, i, i-1 /) )
@@ -263,6 +277,7 @@ contains
     this%prcXY2inListID(:,:) = -1
 
     in_tile_num = 0
+
     do ke_h=1, lcmesh%NeX * lcmesh%NeY
       do p_h_y=1, elem%Nnode_h1D
       do p_h_x=1, elem%Nnode_h1D
@@ -298,6 +313,9 @@ contains
     allocate( this%in_tileID_list(in_tile_num) )
     this%in_tileID_list(:) = in_tileID_tmp(1:in_tile_num)
 
+    !$omp parallel do collapse(3) private( &
+    !$omp p_h, out_x, out_y, prc_i, prc_j,                       &
+    !$omp delx, dely, i, j, in_elem_x, in_elem_y, is_inside_elem )
     do ke_h=1, lcmesh%NeX * lcmesh%NeY
       do p_h_y=1, elem%Nnode_h1D
       do p_h_x=1, elem%Nnode_h1D
@@ -338,7 +356,7 @@ contains
       in_rank = this%in_tileID_list(i) - 1
       call this%in_mesh_list(i)%Init( in_NprcX*in_NeX, in_NprcY*in_NeY, in_NeZ,  &
         out_mesh%xmin_gl, out_mesh%xmax_gl, out_mesh%ymin_gl, out_mesh%ymax_gl,  &
-        out_mesh%zmin_gl, out_mesh%zmax_gl,                                      &
+        dom_zmin, dom_zmax,                                                      &
         out_mesh%isPeriodicX, out_mesh%isPeriodicY, out_mesh%isPeriodicZ,        &
         in_elem3D, 1, in_NprcX, in_NprcY,                                        &
         nproc=in_NprcX*in_NprcY, myrank=in_rank,                                 &
@@ -348,8 +366,15 @@ contains
     end do
 
     !--
-    this%elem_k(:,:) = -1
+    !$omp parallel private( &
+    !$omp ke_h, p_h, prc_i, prc_j, in_lcmesh,            &
+    !$omp ke_z, ke_z2, p_z, ke, p, in_ke3D, in_Z0, in_Z1 )
 
+    !$omp workshare
+    this%elem_k(:,:) = -1
+    !$omp end workshare
+
+    !$omp do collapse(2)
     do ke_h=1, lcmesh%NeX * lcmesh%NeY
     do p_h=1, elem%Nnode_h1D**2
       prc_i = this%prc_x(p_h,ke_h)
@@ -379,7 +404,8 @@ contains
 
     end do
     end do
-
+    !$omp end do
+    !$omp end parallel
 
     return
   end subroutine NodeMappingInfo_Init

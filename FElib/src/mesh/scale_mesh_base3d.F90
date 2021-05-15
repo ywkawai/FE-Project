@@ -218,6 +218,9 @@ contains
     end do
     end do
 
+    !$omp parallel do private( ke, node_ids, vx, vy, vz, &
+    !$omp xX, xY, xZ, yX, yY, yZ, zX, zY, zZ,            &
+    !$omp i, j, Escale_f, d                              )
     do ke=1, lcmesh%Ne
       node_ids(:) = lcmesh%EToV(ke,:)
       vx(:) = lcmesh%pos_ev(node_ids(:),1)

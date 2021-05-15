@@ -253,7 +253,7 @@ contains
     use scale_mesh_base3d, only: &
       MF3D_XYZT => MeshBase3D_DIMTYPEID_XYZT
     use scale_polynominal, only: &
-      polynominal_genLegendrePoly
+      Polynominal_GenLegendrePoly_sub
     use mod_interp_mesh, only: &
       in_NprcX, in_NprcY, in_NeX, in_NeY, in_NeZ,  &
       in_elem3D,                                   &
@@ -287,11 +287,12 @@ contains
     real(RP) :: P1D_ori_x(1,in_elem3D%Nnode_h1D)
     real(RP) :: P1D_ori_y(1,in_elem3D%Nnode_h1D)
     real(RP) :: P1D_ori_z(1,in_elem3D%Nnode_v)
-    real(RP) :: ox, oy, oz
+    real(RP) :: ox(1), oy(1), oz(1)
     real(RP) :: vx(in_elem3D%Nv), vy(in_elem3D%Nv), vz(in_elem3D%Nv) 
     integer :: node_ids(in_elem3D%Nv)
 
-    !---------------------------------------------
+    real(RP) :: normalization_coef(in_elem3D%PolyOrder_h+1,in_elem3D%PolyOrder_h+1,in_elem3D%PolyOrder_v+1)
+    !-----------------------------------------------------------------------------
 
     in_tile_num = size(mappingInfo%in_tileID_list)
     do i=1, in_tile_num
@@ -308,9 +309,11 @@ contains
       do jj = 1, size(in_mesh%rcdomIJK2LCMeshID,2)
       do ii = 1, size(in_mesh%rcdomIJK2LCMeshID,1)
         if ( in_mesh%rcdomIJK2LCMeshID(ii,jj,kk) == n ) then
+          call PROF_rapstart('INTERP_field_interpolate_readvar', 0)
           call in_file_list(out_domID)%in_files(i)%Read_Var( &
             MF3D_XYZT, varname, in_lcmesh, &
             i0_s, j0_s, k0_s, in_val_list(i)%val(:,:), step=istep )
+          call PROF_rapend('INTERP_field_interpolate_readvar', 0)
         end if
         i0_s = i0_s + in_lcmesh%NeX * in_lcmesh%refElem3D%Nnode_h1D
         j0_s = j0_s + in_lcmesh%NeY * in_lcmesh%refElem3D%Nnode_h1D
@@ -328,8 +331,19 @@ contains
       end do
       end do
       end do    
+
     end do
 
+    !$omp parallel do collapse(2)
+    do p3=1, in_elem3D%Nnode_v
+    do p2=1, in_elem3D%Nnode_h1D
+    do p1=1, in_elem3D%Nnode_h1D
+      normalization_coef(p1,p2,p3) = sqrt(  ( dble(p1-1) + 0.5_RP ) &
+                                          * ( dble(p2-1) + 0.5_RP ) &
+                                          * ( dble(p3-1) + 0.5_RP ) )
+    end do
+    end do
+    end do
 
     !$omp parallel do collapse(3) private( ke_h, ke3D, &
     !$omp pX, pY, pZ, p_h, p, in_px, in_py,            &
@@ -352,7 +366,7 @@ contains
 
         in_px = mappingInfo%prc_x(p_h,ke_h)
         in_py = mappingInfo%prc_y(p_h,ke_h)
-        if (in_px > 0 .and. in_py > 0) then
+        if (in_px > 0 .and. in_py > 0 ) then
           in_ex = mappingInfo%elem_i(p_h,ke_h)
           in_ey = mappingInfo%elem_j(p_h,ke_h)
           in_ez = mappingInfo%elem_k(p,ke3D)
@@ -367,13 +381,13 @@ contains
             vy(:) = in_lcmesh%pos_ev(node_ids(:),2)
             vz(:) = in_lcmesh%pos_ev(node_ids(:),3)
 
-            ox = - 1.0_RP + 2.0_RP * (out_lcmesh%pos_en(p,ke3D,1) - vx(1)) / (vx(2) - vx(1))
-            oy = - 1.0_RP + 2.0_RP * (out_lcmesh%pos_en(p,ke3D,2) - vy(1)) / (vy(3) - vy(1))
-            oz = - 1.0_RP + 2.0_RP * (out_lcmesh%pos_en(p,ke3D,3) - vz(1)) / (vz(5) - vz(1))
+            ox(1) = - 1.0_RP + 2.0_RP * (out_lcmesh%pos_en(p,ke3D,1) - vx(1)) / (vx(2) - vx(1))
+            oy(1) = - 1.0_RP + 2.0_RP * (out_lcmesh%pos_en(p,ke3D,2) - vy(1)) / (vy(3) - vy(1))
+            oz(1) = - 1.0_RP + 2.0_RP * (out_lcmesh%pos_en(p,ke3D,3) - vz(1)) / (vz(5) - vz(1))
 
-            P1D_ori_x(:,:) = polynominal_genLegendrePoly( in_elem3D%PolyOrder_h, (/ ox /) )
-            P1D_ori_y(:,:) = polynominal_genLegendrePoly( in_elem3D%PolyOrder_h, (/ oy /) )
-            P1D_ori_z(:,:) = polynominal_genLegendrePoly( in_elem3D%PolyOrder_v, (/ oz /) )
+            call Polynominal_GenLegendrePoly_sub( in_elem3D%PolyOrder_h, ox, P1D_ori_x )
+            call Polynominal_GenLegendrePoly_sub( in_elem3D%PolyOrder_h, oy, P1D_ori_y )
+            call Polynominal_GenLegendrePoly_sub( in_elem3D%PolyOrder_v, oz, P1D_ori_z )
 
             out_val(p,ke3D) = 0.0_RP
             do p3=1, in_elem3D%Nnode_v
@@ -382,7 +396,7 @@ contains
               l = p1 + (p2-1)*in_elem3D%Nnode_h1D + (p3-1)*in_elem3D%Nnode_h1D**2
               out_val(p,ke3D) = out_val(p,ke3D) + &
                   ( P1D_ori_x(1,p1) * P1D_ori_y(1,p2) * P1D_ori_z(1,p3) )                 &
-                * sqrt((dble(p1-1) + 0.5_RP)*(dble(p2-1) + 0.5_RP)*(dble(p3-1) + 0.5_RP)) &
+                * normalization_coef(p1,p2,p3)                                            &
                 * in_val_list(in_listID)%spectral_coef(l,in_ex,in_ey,in_ez)
             end do
             end do
