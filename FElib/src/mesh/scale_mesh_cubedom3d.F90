@@ -267,6 +267,7 @@ contains
 
   !- private ------------------------------------------------------
 
+!OCL SERIAL
   subroutine MeshCubeDom3D_setupLocalDom( lcmesh, &
     tileID, panelID,                                            &
     i, j, k, NprcX, NprcY, NprcZ,                               &
@@ -274,6 +275,7 @@ contains
     NeX, NeY, NeZ,                                              &
     FZ                                                          )
 
+    use scale_prof
     use scale_meshutil_3d, only: &
       MeshUtil3D_genConnectivity,   &
       MeshUtil3D_genCubeDomain,     &
@@ -350,9 +352,8 @@ contains
         & lcmesh%NeX, lcmesh%xmin, lcmesh%xmax,                    & ! (in)
         & lcmesh%NeY, lcmesh%ymin, lcmesh%ymax,                    & ! (in) 
         & lcmesh%NeZ, lcmesh%zmin, lcmesh%zmax, FZ=FZ_lc           ) ! (in) 
-
-    !---
     
+    !---
     call MeshBase3D_setGeometricInfo( lcmesh, MeshCubeDom3D_coord_conv, MeshCubeDom3D_calc_normal )
  
     !---
@@ -371,6 +372,7 @@ contains
       elem%Nfaces_h, elem%Nfaces_v, elem%Nfaces )                                                         ! (in)
     
     !---
+    !$omp parallel do collapse(2) private(ii,ke)
     do kk=1, lcmesh%NeZ
     do jj=1, lcmesh%NeY
     do ii=1, lcmesh%NeX
@@ -383,6 +385,7 @@ contains
     return
   end subroutine MeshCubeDom3D_setupLocalDom
 
+!OCL SERIAL
   subroutine MesshCubeDom3D_assignDomID( this, &
     tileID_table, panelID_table,               &
     pi_table, pj_table, pk_table )
@@ -453,6 +456,7 @@ contains
     return
   end subroutine MesshCubeDom3D_assignDomID
   
+!OCL SERIAL
   subroutine MeshCubeDom3D_coord_conv( x, y, z, xX, xY, xZ, yX, yY, yZ, zX, zY, zZ, &
     vx, vy, vz, elem )
 
@@ -484,6 +488,7 @@ contains
     return
   end subroutine MeshCubeDom3D_coord_conv  
 
+!OCL SERIAL
   subroutine MeshCubeDom3D_calc_normal( normal_fn, &
     Escale_f, fid_h, fid_v, elem )
 

@@ -22,6 +22,7 @@ module scale_meshutil_3d
 
 contains
 
+!OCL SERIAL
   subroutine MeshUtil3D_genCubeDomain( pos_v, EToV,        &
     Ke_x, xmin, xmax, Ke_y, ymin, ymax, Ke_z, zmin, zmax,  &
     Fz )
@@ -49,6 +50,9 @@ contains
     NvY = Ke_Y + 1
     NvZ = Ke_Z + 1
 
+    !$omp parallel private(i,j,k,n)
+
+    !$omp do collapse(2) 
     do k=1, NvZ
     do j=1, NvY
     do i=1, NvX
@@ -64,6 +68,7 @@ contains
     end do
     end do
 
+    !$omp do collapse(2)
     do k=1, Ke_z
     do j=1, Ke_y
     do i=1, Ke_x
@@ -78,6 +83,8 @@ contains
     end do
     end do
 
+    !$omp end parallel
+    
     !---
   !!$
   !!$    write(*,*) "-- vx, vy --"
@@ -99,7 +106,7 @@ contains
     return
   end subroutine MeshUtil3D_genCubeDomain
 
-
+!OCL SERIAL
   subroutine MeshUtil3D_genConnectivity( EToE, EToF, &
     EToV, Ne, Nfaces )
     
@@ -221,6 +228,7 @@ contains
     return
   end subroutine MeshUtil3D_genConnectivity
 
+!OCL SERIAL
   subroutine bubbleSort( array )
     implicit none
     real(RP), intent(inout) :: array(:)
@@ -243,6 +251,7 @@ contains
     return
   end subroutine bubbleSort
 
+!OCL SERIAL
   subroutine MeshUtil3D_BuildInteriorMap( VMapM, VMapP, MapM, MapP, &
     pos_en, pos_ev, EtoE, EtoF, EtoV, Fmask_h, Fmask_v,             &
     Ne, Nv, Np, Nfp_h, Nfp_v, NfpTot, Nfaces_h, Nfaces_v, Nfaces)
@@ -297,6 +306,9 @@ contains
     integer :: MapP_v(Nfp_v,Nfaces_v,Ne)
     !-----------------------------------------------------------------------------
 
+    !$omp parallel private(k,f,p,n)
+
+    !$omp do
     do k=1, Ne
     do p=1, Np
       n = p + (k-1)*Np
@@ -306,7 +318,9 @@ contains
       z(n) = pos_en(p,k,3)
     end do
     end do
+    !$omp end do
 
+    !$omp do
     do k=1, Ne
       do f=1, Nfaces_h
       do p=1, Nfp_h
@@ -325,8 +339,19 @@ contains
       end do
       end do    
     end do
+    !$omp end do
 
+    !$omp workshare
     VMapP_h(:,:,:) = -1
+    VMapP_v(:,:,:) = -1
+    !$omp end workshare
+    !$omp end parallel
+
+    !$omp parallel private( &
+    !$omp k1, f1, k2, f2, v1, v2, refd2,      &
+    !$omp r_h, r_v, dist_h, dist_v, idP, idM  )
+
+    !$omp do
     do k1=1, Ne
     do f1=1, Nfaces_h
       k2 = EToE(k1,f1); f2 = EToF(k1,f1)
@@ -357,8 +382,9 @@ contains
       end do
     end do
     end do
+    !omp end do
 
-    VMapP_v(:,:,:) = -1
+    !$omp do
     do k1=1, Ne
     do f1=1, Nfaces_v
       k2 = EToE(k1,Nfaces_h+f1); f2 = EToF(k1,Nfaces_h+f1) - Nfaces_h
@@ -386,7 +412,10 @@ contains
       end do
     end do
     end do
+    !omp end do
+    !$omp end parallel
 
+    !$omp parallel do private(k,f,n,i)
     do k=1, Ne
       do f=1, Nfaces_h
       do n=1, Nfp_h
@@ -407,6 +436,7 @@ contains
       end do
       end do
     end do
+
     !-----
   !    mapB_counter = 0
   !    do k=1,mesh%Ne
@@ -443,6 +473,7 @@ contains
     return
   end subroutine MeshUtil3D_BuildInteriorMap
 
+!OCL SERIAL
   subroutine MeshUtil3D_genPatchBoundaryMap(  VMapB, MapB, VMapP,                  &
     pos_en, xmin, xmax, ymin, ymax, zmin, zmax,                                    &
     Fmask_h, Fmask_v, Ne, Nv, Np, Nfp_h, Nfp_v, NfpTot, Nfaces_h, Nfaces_v, Nfaces )
@@ -579,6 +610,7 @@ contains
     return
 
   contains
+!OCL SERIAL
     subroutine eval_domain_boundary( &
         elemIDs, ordInfo, faceIDs, counterB,              &
         domb_id, r, rbc, ord_info, k_, f_, normalized_fac )
@@ -607,6 +639,7 @@ contains
     end subroutine eval_domain_boundary
   end subroutine MeshUtil3D_genPatchBoundaryMap
 
+!OCL SERIAL
   subroutine MeshUtil3D_buildGlobalMap( &
     panelID_table, pi_table, pj_table, pk_table,    &
     tileID_map, tileFaceID_map, tilePanelID_map,    &
