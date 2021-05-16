@@ -184,7 +184,7 @@ contains
             .and.  associated(this%vec_covariant_comp_ptrlist(i)%u2 ) ) then
         
           do n=1, this%mesh3d%LOCAL_MESH_NUM
-            call set_boundary_data2D_u1u2( &
+            call set_boundary_data3D_u1u2( &
               this%recv_buf(:,varid_vec_s,n), this%recv_buf(:,varid_vec_s+1,n), & ! (in)
               lcmesh%refElem3D, lcmesh, lcmesh%G_ij,                            & ! (in)
               this%vec_covariant_comp_ptrlist(i)%u1%local(n)%val,               & ! (out)

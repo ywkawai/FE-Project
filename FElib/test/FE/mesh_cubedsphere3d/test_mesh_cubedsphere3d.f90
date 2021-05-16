@@ -27,10 +27,11 @@ program test_mesh_cubedsphere3d
 
   !-------------------------------------------------
   call init()
-  stop
+
   do n=1, mesh%LOCAL_MESH_NUM
     call check_connectivity( mesh%lcmesh_list(n), refElem )
   end do  
+
   call final()
   
 contains
@@ -59,7 +60,7 @@ contains
     call mesh%Init( NeGX, NeGY, NeGZ, RPlanet, dom_zmin, dom_zmax, refElem, NLocalMeshPerPrc )
 
     call mesh%Generate()
-    stop
+
     return
   end subroutine init
 
