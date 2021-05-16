@@ -492,10 +492,8 @@ contains
 
 !OCL SERIAL
   subroutine File_common_meshfield_get_axis2D_cubedsphere( mesh2D, dimsinfo, x, y  )
-
     use scale_const, only: &
       PI => CONST_PI
-    use scale_prc
     implicit none
 
     class(MeshCubedSphereDom2D), target, intent(in) :: mesh2D  
@@ -671,7 +669,6 @@ contains
 !OCL SERIAL
   subroutine File_common_meshfield_put_field2D_cubedsphere_cartesbuf( mesh2D, field2D, &
     buf )
-    use scale_prc, only: PRC_abort
     use scale_polynominal, only: &
       polynominal_genLegendrePoly
     implicit none
@@ -1051,10 +1048,6 @@ contains
 
 !OCL SERIAL
   subroutine File_common_meshfield_get_axis3D_cubedsphere( mesh3D, dimsinfo, x, y, z )
-
-    use scale_const, only: &
-      PI => CONST_PI
-    use scale_prc
     implicit none
 
     class(MeshCubedSphereDom3D), target, intent(in) :: mesh3D  
@@ -1109,9 +1102,9 @@ contains
         end if
         if ( i==1 .and. ni == 1 .and. j == 1 .and. nj == 1 ) then
           z_local(:) = lcmesh%pos_en(refElem%Colmask(:,1),kelem,3) &
-                     + ( lcmesh%panelID - 1.0_RP ) * ( mesh3D%zmin_gl - mesh3D%zmin_gl )
+                     + ( lcmesh%panelID - 1.0_RP ) * ( mesh3D%zmax_gl - mesh3D%zmin_gl )
 
-          ks = kgs + 1 + (j-1)*refElem%Nnode_v
+          ks = kgs + 1 + (k-1)*refElem%Nnode_v
           ke = ks + refElem%Nnode_v - 1
           z(ks:ke) = z_local(:)
         end if
@@ -1271,9 +1264,6 @@ contains
 !OCL SERIAL
   subroutine File_common_meshfield_put_field3D_cubedsphere_cartesbuf( mesh3D, field3D, &
     buf )
-    use scale_prc, only: PRC_abort
-    use scale_polynominal, only: &
-      polynominal_genLegendrePoly
     implicit none
     class(MeshCubedSphereDom3D), target, intent(in) :: mesh3D
     class(MeshField3D), intent(in) :: field3d
@@ -1451,9 +1441,11 @@ contains
   end subroutine File_common_meshfield_set_cartesbuf_field3D_local
 
   function File_common_meshfield_get_dtype( datatype ) result( dtype )
-
     use scale_file_h, only: &
       FILE_REAL8, FILE_REAL4
+    use scale_prc, &
+      only: PRC_abort
+
     implicit none
 
     character(*), intent(in) :: datatype
