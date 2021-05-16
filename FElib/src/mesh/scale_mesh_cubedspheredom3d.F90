@@ -184,7 +184,8 @@ contains
     use scale_mesh_cubedspheredom2d, only: &
       MeshCubedSphereDom2D_check_division_params
     use scale_cubedsphere_cnv, only: &
-      CubedSphereCnv_CS2LonLatCoord
+      CubedSphereCnv_CS2LonLatCoord, &
+      CubedSphereCnv_GetMetric
     implicit none
 
     class(MeshCubedSphereDom3D), intent(inout), target :: this
@@ -192,6 +193,8 @@ contains
     integer :: n
     type(LocalMesh3D), pointer :: mesh
     type(LocalMesh2D), pointer :: lcmesh2D
+    type(ElementBase3D), pointer :: elem3D
+    type(ElementBase2D), pointer :: elem2D
 
     integer :: tileID_table(this%LOCAL_MESH_NUM, this%PRC_NUM)
     integer :: panelID_table(this%LOCAL_MESH_NUM*this%PRC_NUM)
@@ -202,6 +205,8 @@ contains
     integer :: NprcX_lc, NprcY_lc, NprcZ_lc
     integer :: tileID
    
+    real(RP), allocatable :: Gsqrt_tmp(:,:)
+    integer :: ke, ke2D
     !-----------------------------------------------------------------------------
 
     call MeshCubedSphereDom2D_check_division_params( &
@@ -220,6 +225,7 @@ contains
 
     do n=1, this%LOCAL_MESH_NUM
       mesh => this%lcmesh_list(n)
+      elem3D => mesh%refElem3D
       tileID = tileID_table(n, mesh%PRC_myrank+1)
 
       call MeshCubedSphereDom3D_setupLocalDom( mesh, &
@@ -240,10 +246,23 @@ contains
       call mesh%SetLocalMesh2D( this%mesh2D%lcmesh_list(n) )
 
       lcmesh2D => this%mesh2D%lcmesh_list(n)
+      elem2D => lcmesh2D%refElem2D
       call CubedSphereCnv_CS2LonLatCoord( &
         lcmesh2D%panelID, lcmesh2D%pos_en(:,:,1), lcmesh2D%pos_en(:,:,2), &
-        lcmesh2D%Ne * lcmesh2D%refElem2D%Np, this%RPlanet,                &
+        lcmesh2D%Ne * elem2D%Np, this%RPlanet,                            &
         mesh%lon2D(:,:), mesh%lat2D(:,:)                                  )
+
+      allocate( Gsqrt_tmp(lcmesh2D%refElem2D%Np,lcmesh2D%Ne) )
+      call CubedSphereCnv_GetMetric( &
+        lcmesh2D%pos_en(:,:,1), lcmesh2D%pos_en(:,:,2), elem2D%Np * lcmesh2D%Ne, this%RPlanet, & ! (in)
+        mesh%G_ij, mesh%GIJ, Gsqrt_tmp(:,:)                                                    ) ! (out)
+  
+      !$omp parallel do private(ke2D)
+      do ke=mesh%NeS, mesh%NeE
+        ke2D = mesh%EMap3Dto2D(ke)
+        mesh%Gsqrt(:,ke) = Gsqrt_tmp(elem3D%IndexH2Dto3D(:),ke2D)
+      end do
+      deallocate( Gsqrt_tmp )
 
       !---
       ! write(*,*) "** my_rank=", mesh%PRC_myrank
@@ -280,9 +299,6 @@ contains
       MeshUtilCubedSphere3D_genCubeDomain,     &
       MeshUtilCubedSphere3D_BuildInteriorMap,  &
       MeshUtilCubedSphere3D_genPatchBoundaryMap
-
-    use scale_cubedsphere_cnv, only: &
-      CubedSphereCnv_GetMetric
     
     use scale_localmesh_base, only: BCTYPE_INTERIOR
 
@@ -351,22 +367,15 @@ contains
     lcmesh%BCType(:,:) = BCTYPE_INTERIOR
 
     !----
-
     call MeshUtilCubedSphere3D_genCubeDomain( lcmesh%pos_ev, lcmesh%EToV, & ! (out)
       lcmesh%NeX, lcmesh%xmin, lcmesh%xmax,                               & ! (in)
       lcmesh%NeY, lcmesh%ymin, lcmesh%ymax,                               & ! (in) 
       lcmesh%NeZ, lcmesh%zmin, lcmesh%zmax, FZ=FZ_lc                      ) ! (in) 
     
     !---
-
     call MeshBase3D_setGeometricInfo(lcmesh, MeshCubedSphereDom3D_coord_conv, MeshCubedSphereDom3D_calc_normal )
     
-    call CubedSphereCnv_GetMetric( &
-      lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2), elem%Np * lcmesh%Ne, planet_radius, & ! (in)
-      lcmesh%G_ij, lcmesh%GIJ, lcmesh%Gsqrt                                           ) ! (out)
-    return
     !---
-
     call MeshUtilCubedSphere3D_genConnectivity( lcmesh%EToE, lcmesh%EToF, & ! (out)
       lcmesh%EToV, lcmesh%Ne, elem%Nfaces )                                 ! (in)
     
@@ -422,7 +431,6 @@ contains
     integer :: is_lc, js_lc, ks_lc, ps_lc
     integer :: ilc_count, jlc_count, klc_count, plc_count
     integer :: ilc, jlc, klc, plc
-    integer :: Npanel_lc
     
     type(LocalMesh3D), pointer :: lcmesh
     !-----------------------------------------------------------------------------
