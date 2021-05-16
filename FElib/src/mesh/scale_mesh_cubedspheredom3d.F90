@@ -1,5 +1,5 @@
 #include "scaleFElib.h"
-module scale_mesh_cubedom3d
+module scale_mesh_cubedspheredom3d
 
   !-----------------------------------------------------------------------------
   !
@@ -7,25 +7,25 @@ module scale_mesh_cubedom3d
   !
   use scale_io
   use scale_precision
-  use scale_prc
 
   use scale_mesh_base3d, only: &
-    MeshBase3D, MeshBase3D_Init, MeshBase3D_Final, &
-    MeshBase3D_setGeometricInfo
+    MeshBase3D, MeshBase3D_Init, MeshBase3D_Final,                               &
+    MeshBase3D_setGeometricInfo,                                                 &
+    MeshBase3D_DIMTYPE_NUM,                                                      &
+    MeshBase3D_DIMTYPEID_X, MeshBase3D_DIMTYPEID_Y, MeshBase3D_DIMTYPEID_Z,      &
+    MeshBase3D_DIMTYPEID_XYZ, MeshBase3D_DIMTYPEID_ZT, MeshBase3D_DIMTYPEID_XYZT
+  use scale_localmesh_3d, only: LocalMesh3D
+  use scale_element_hexahedral, only: HexahedralElement
 
   use scale_mesh_base2d, only: &
     MeshBase2D, MeshBase2D_Init, MeshBase2D_Final, &
     MeshBase2D_setGeometricInfo
-
-  use scale_localmesh_3d, only: &
-    LocalMesh3D
-  use scale_element_base, only: elementbase3D
-  use scale_element_hexahedral, only: HexahedralElement
-
   use scale_mesh_rectdom2d, only: &
     MeshRectDom2D, MeshRectDom2D_setupLocalDom
-  
+  use scale_localmesh_2d, only: LocalMesh2D
   use scale_element_quadrilateral, only: QuadrilateralElement
+
+  use scale_element_base, only: ElementBase2D, ElementBase3D
 
   !-----------------------------------------------------------------------------
   implicit none
@@ -35,37 +35,30 @@ module scale_mesh_cubedom3d
   !
   !++ Public type & procedure
   ! 
-  type, extends(MeshBase3D), public :: MeshCubeDom3D
+  type, extends(MeshBase3D), public :: MeshCubedSphereDom3D
     integer :: NeGX
     integer :: NeGY
     integer :: NeGZ
-
-    integer :: NprcX
-    integer :: NprcY
-    integer :: NprcZ
     
     real(RP), public :: xmin_gl, xmax_gl
-    real(RP), public :: ymin_gl, ymax_gl    
+    real(RP), public :: ymin_gl, ymax_gl
     real(RP), public :: zmin_gl, zmax_gl
 
     real(RP), allocatable :: FZ(:)
 
-    integer, allocatable :: rcdomIJK2LCMeshID(:,:,:)
+    integer, allocatable :: rcdomIJKP2LCMeshID(:,:,:,:)
 
-    logical :: isPeriodicX
-    logical :: isPeriodicY
-    logical :: isPeriodicZ
+    real(RP) :: RPlanet
 
     type(MeshRectDom2D) :: mesh2D
     type(QuadrilateralElement) :: refElem2D
   contains
-    procedure :: Init => MeshCubeDom3D_Init
-    procedure :: Final => MeshCubeDom3D_Final
-    procedure :: Generate => MeshCubeDom3D_generate
-    procedure :: GetMesh2D => MeshCubeDom3D_getMesh2D
-  end type MeshCubeDom3D
-
-  public :: MeshCubeDom3D_coord_conv
+    procedure :: Init => MeshCubedSphereDom3D_Init
+    procedure :: Final => MeshCubedSphereDom3D_Final
+    procedure :: Generate => MeshCubedSphereDom3D_generate
+    procedure :: AssignDomID => MesshCubedSphereDom3D_assignDomID
+    procedure :: GetMesh2D => MeshCubedSphereDom3D_getMesh2D
+  end type MeshCubedSphereDom3D
 
   !-----------------------------------------------------------------------------
   !
@@ -83,33 +76,26 @@ module scale_mesh_cubedom3d
   !
 
 contains
-  subroutine MeshCubeDom3D_Init( this,                          &
-    NeGX, NeGY, NeGZ,                                           &
-    dom_xmin, dom_xmax, dom_ymin, dom_ymax, dom_zmin, dom_zmax, &
-    isPeriodicX, isPeriodicY, isPeriodicZ,                      &
-    refElem, NLocalMeshPerPrc, NprcX, NprcY,                    &
-    nproc, myrank,                                              &
-    FZ                                                          )
+  subroutine MeshCubedSphereDom3D_Init( this, &
+    NeGX, NeGY, NeGZ, RPlanet,                &
+    dom_zmin, dom_zmax,                       &
+    refElem, NLocalMeshPerPrc,                &
+    nproc, myrank,                            &
+    FZ                                        )
     
+    use scale_const, only: &
+      PI => CONST_PI
     implicit none
 
-    class(MeshCubeDom3D), intent(inout) :: this
+    class(MeshCubedSphereDom3D), intent(inout) :: this
     integer, intent(in) :: NeGX
     integer, intent(in) :: NeGY
     integer, intent(in) :: NeGZ
-    real(RP), intent(in) :: dom_xmin
-    real(RP), intent(in) :: dom_xmax
-    real(RP), intent(in) :: dom_ymin
-    real(RP), intent(in) :: dom_ymax
+    real(RP), intent(in) :: RPlanet
     real(RP), intent(in) :: dom_Zmin
     real(RP), intent(in) :: dom_zmax
-    logical, intent(in) :: isPeriodicX
-    logical, intent(in) :: isPeriodicY
-    logical, intent(in) :: isPeriodicZ
     type(HexahedralElement), intent(in), target :: refElem
     integer, intent(in) :: NLocalMeshPerPrc
-    integer, intent(in) :: NprcX
-    integer, intent(in) :: NprcY
     integer, intent(in), optional :: nproc
     integer, intent(in), optional :: myrank
     real(RP), intent(in), optional :: FZ(NeGZ+1)
@@ -117,25 +103,18 @@ contains
     integer :: k
     real(RP) :: dz
     !-----------------------------------------------------------------------------
-    
+
     this%NeGX = NeGX
     this%NeGY = NeGY
     this%NeGZ = NeGZ
 
-    this%xmin_gl       = dom_xmin
-    this%xmax_gl       = dom_xmax
-    this%ymin_gl       = dom_ymin
-    this%ymax_gl       = dom_ymax
-    this%zmin_gl       = dom_zmin
-    this%zmax_gl       = dom_zmax
-
-    this%isPeriodicX = isPeriodicX
-    this%isPeriodicY = isPeriodicY
-    this%isPeriodicZ = isPeriodicZ
-
-    this%NprcX = NprcX
-    this%NprcY = NprcY
-    this%NprcZ = 1
+    this%xmin_gl = - 0.25_RP * PI 
+    this%xmax_gl = + 0.25_RP * PI 
+    this%ymin_gl = - 0.25_RP * PI 
+    this%ymax_gl = + 0.25_RP * PI 
+    this%zmin_gl = dom_zmin
+    this%zmax_gl = dom_zmax
+    this%RPlanet = RPlanet
 
     !- Fz
     allocate( this%FZ(this%NeGZ+1) )
@@ -152,28 +131,33 @@ contains
 
     !--
     call MeshBase3D_Init( this, refElem, NLocalMeshPerPrc, 6, &
-                          nproc, myrank                       )
+      nproc, myrank )
 
     !---
-
     call this%refElem2D%Init( this%refElem3D%PolyOrder_h, refElem%IsLumpedMatrix() )
     call MeshBase2D_Init( this%mesh2D, this%refElem2D, NLocalMeshPerPrc,           &
                           nproc, myrank                                            )
-
+  
+    !-- Modify the information of dimension for the cubed sphere mesh
+    call this%SetDimInfo( MeshBase3D_DIMTYPEID_X, "x", "1", "X-coordinate" )
+    call this%SetDimInfo( MeshBase3D_DIMTYPEID_Y, "y", "1", "Y-coordinate" )
+    call this%SetDimInfo( MeshBase3D_DIMTYPEID_Z, "z", "m", "Z-coordinate" )
+    call this%SetDimInfo( MeshBase3D_DIMTYPEID_XYZ, "xyz", "1", "XYZ-coordinate" )
+    call this%SetDimInfo( MeshBase3D_DIMTYPEID_ZT, "zt", "1", "XYZ-coordinate" )
+    call this%SetDimInfo( MeshBase3D_DIMTYPEID_XYZT, "xyzt", "1", "XYZ-coordinate" )
+  
     return
-  end subroutine MeshCubeDom3D_Init
+  end subroutine MeshCubedSphereDom3D_Init
 
-  subroutine MeshCubeDom3D_Final( this )
-    use scale_prc
+  subroutine MeshCubedSphereDom3D_Final( this )
     implicit none
-
-    class(MeshCubeDom3D), intent(inout) :: this
-
-    integer :: n
+    class(MeshCubedSphereDom3D), intent(inout) :: this
     !-----------------------------------------------------------------------------
   
     if (this%isGenerated) then
-      deallocate( this%rcdomIJK2LCMeshID )
+      if ( allocated(this%rcdomIJKP2LCMeshID) ) then
+        deallocate( this%rcdomIJKP2LCMeshID )
+      end if
     else
       deallocate( this%FZ )
     end if
@@ -181,29 +165,33 @@ contains
     call this%mesh2D%Final()
     call this%refElem2D%Final()
 
-    call MeshBase3D_Final(this)
+    call MeshBase3D_Final( this )
 
     return
-  end subroutine MeshCubeDom3D_Final
-  
-  subroutine MeshCubeDom3D_getMesh2D( this, ptr_mesh2D )
+  end subroutine MeshCubedSphereDom3D_Final
+
+  subroutine MeshCubedSphereDom3D_getMesh2D( this, ptr_mesh2D )
     implicit none
-    class(MeshCubeDom3D), intent(in), target :: this
+    class(MeshCubedSphereDom3D), intent(in), target :: this
     class(MeshBase2D), pointer, intent(out) :: ptr_mesh2D
     !-------------------------------------------------------
 
     ptr_mesh2D => this%mesh2D
     return
-  end subroutine MeshCubeDom3D_getMesh2D
+  end subroutine MeshCubedSphereDom3D_getMesh2D
 
-  subroutine MeshCubeDom3D_generate( this )
+  subroutine MeshCubedSphereDom3D_generate( this )
+    use scale_mesh_cubedspheredom2d, only: &
+      MeshCubedSphereDom2D_check_division_params
+    use scale_cubedsphere_cnv, only: &
+      CubedSphereCnv_CS2LonLatCoord
     implicit none
 
-    class(MeshCubeDom3D), intent(inout), target :: this
-            
+    class(MeshCubedSphereDom3D), intent(inout), target :: this
+
     integer :: n
-    integer :: p
     type(LocalMesh3D), pointer :: mesh
+    type(LocalMesh2D), pointer :: lcmesh2D
 
     integer :: tileID_table(this%LOCAL_MESH_NUM, this%PRC_NUM)
     integer :: panelID_table(this%LOCAL_MESH_NUM*this%PRC_NUM)
@@ -211,39 +199,52 @@ contains
     integer :: pj_table(this%LOCAL_MESH_NUM*this%PRC_NUM)
     integer :: pk_table(this%LOCAL_MESH_NUM*this%PRC_NUM)
 
-    integer :: TILE_NUM_PER_PANEL
-    real(RP) :: delx, dely, delz
+    integer :: NprcX_lc, NprcY_lc, NprcZ_lc
     integer :: tileID
+   
     !-----------------------------------------------------------------------------
 
-    TILE_NUM_PER_PANEL = this%LOCAL_MESH_NUM_global / 1
-    
-    
+    call MeshCubedSphereDom2D_check_division_params( &
+      NprcX_lc, NprcY_lc,                            &
+      this%PRC_NUM, this%LOCAL_MESH_NUM_global,      &
+      .true. )
+
+    NprcZ_lc = 1
+
     !--- Construct the connectivity of patches  (only master node)
 
-    call MesshCubeDom3D_assignDomID( this,    & ! (in)
-        & tileID_table, panelID_table,        & ! (out)
-        & pi_table, pj_table, pk_table )        ! (out)
-    
-    !--- Setup local meshes managed by my process
+    call this%AssignDomID( & 
+      NprcX_lc, NprcY_lc, NprcZ_lc,  & ! (in)
+      tileID_table, panelID_table,   & ! (out)
+      pi_table, pj_table, pk_table   ) ! (out)
 
     do n=1, this%LOCAL_MESH_NUM
       mesh => this%lcmesh_list(n)
       tileID = tileID_table(n, mesh%PRC_myrank+1)
 
-      call MeshCubeDom3D_setupLocalDom( mesh, &
-        tileID,  panelID_table(tileID),                                                           &
-        pi_table(tileID), pj_table(tileID), pk_table(tileID), this%NprcX, this%NprcY, this%NprcZ, &
-        this%xmin_gl, this%xmax_gl, this%ymin_gl, this%ymax_gl, this%zmin_gl, this%zmax_gl,       &
-        this%NeGX/this%NprcX, this%NeGY/this%NprcY, this%NeGZ/this%NprcZ, this%FZ(:)              )
-
-      call MeshRectDom2D_setupLocalDom( this%mesh2D%lcmesh_list(n), &
+      call MeshCubedSphereDom3D_setupLocalDom( mesh, &
         tileID,  panelID_table(tileID),                             &
-        pi_table(tileID), pj_table(tileID), this%NprcX, this%NprcY, &
+        pi_table(tileID), pj_table(tileID), pk_table(tileID),       &
+        NprcX_lc, NprcY_lc, NprcZ_lc,                               &
         this%xmin_gl, this%xmax_gl, this%ymin_gl, this%ymax_gl,     &
-        this%NeGX/this%NprcX, this%NeGY/this%NprcY )
+        this%zmin_gl, this%zmax_gl, this%RPlanet,                   &
+        this%NeGX/NprcX_lc, this%NeGY/NprcY_lc, this%NeGZ/NprcZ_lc, &
+        this%FZ(:) )
+
+      call MeshRectDom2D_setupLocalDom( this%mesh2D%lcmesh_list(n),   &
+        tileID,  panelID_table(tileID),                               &
+        pi_table(tileID), pj_table(tileID), NprcX_lc, NprcY_lc,       &
+        this%xmin_gl, this%xmax_gl, this%ymin_gl, this%ymax_gl,       &
+        this%NeGX/NprcX_lc, this%NeGY/NprcY_lc )
 
       call mesh%SetLocalMesh2D( this%mesh2D%lcmesh_list(n) )
+
+      lcmesh2D => this%mesh2D%lcmesh_list(n)
+      call CubedSphereCnv_CS2LonLatCoord( &
+        lcmesh2D%panelID, lcmesh2D%pos_en(:,:,1), lcmesh2D%pos_en(:,:,2), &
+        lcmesh2D%Ne * lcmesh2D%refElem2D%Np, this%RPlanet,                &
+        mesh%lon2D(:,:), mesh%lat2D(:,:)                                  )
+
       !---
       ! write(*,*) "** my_rank=", mesh%PRC_myrank
       ! write(*,*) " tileID:", mesh%tileID
@@ -261,28 +262,30 @@ contains
     this%mesh2D%isGenerated = .true.
     
     deallocate( this%FZ )
-
+    
     return
-  end subroutine MeshCubeDom3D_generate
+  end subroutine MeshCubedSphereDom3D_generate
 
-  !- private ------------------------------------------------------
+  !- private ------------------------------
 
-!OCL SERIAL
-  subroutine MeshCubeDom3D_setupLocalDom( lcmesh, &
+  subroutine MeshCubedSphereDom3D_setupLocalDom( lcmesh,        &
     tileID, panelID,                                            &
     i, j, k, NprcX, NprcY, NprcZ,                               &
     dom_xmin, dom_xmax, dom_ymin, dom_ymax, dom_zmin, dom_zmax, &
-    NeX, NeY, NeZ,                                              &
-    FZ                                                          )
+    planet_radius, NeX, NeY, NeZ,                               &
+    FZ )
 
-    use scale_prof
-    use scale_meshutil_3d, only: &
-      MeshUtil3D_genConnectivity,   &
-      MeshUtil3D_genCubeDomain,     &
-      MeshUtil3D_BuildInteriorMap,  &
-      MeshUtil3D_genPatchBoundaryMap
+    use scale_meshutil_cubedsphere3d, only: &
+      MeshUtilCubedSphere3D_genConnectivity,   &
+      MeshUtilCubedSphere3D_genCubeDomain,     &
+      MeshUtilCubedSphere3D_BuildInteriorMap,  &
+      MeshUtilCubedSphere3D_genPatchBoundaryMap
 
+    use scale_cubedsphere_cnv, only: &
+      CubedSphereCnv_GetMetric
+    
     use scale_localmesh_base, only: BCTYPE_INTERIOR
+
     implicit none
       
     type(LocalMesh3D), intent(inout) :: lcmesh
@@ -292,10 +295,11 @@ contains
     integer, intent(in) :: NprcX, NprcY, NprcZ
     real(RP), intent(in) :: dom_xmin, dom_xmax
     real(RP), intent(in) :: dom_ymin, dom_ymax
-    real(RP), intent(in) :: dom_Zmin, dom_zmax
+    real(RP), intent(in) :: dom_zmin, dom_zmax
+    real(RP), intent(in) :: planet_radius
     integer, intent(in) :: NeX, NeY, NeZ
     real(RP), intent(in) :: FZ(NeZ*NprcZ+1)
-    
+
     class(ElementBase3D), pointer :: elem
     real(RP) :: delx, dely
     real(RP) :: FZ_lc(NeZ+1)
@@ -307,7 +311,7 @@ contains
     elem => lcmesh%refElem3D
     lcmesh%tileID = tileID
     lcmesh%panelID = panelID
-    
+        
     !--
     lcmesh%Ne   = NeX * NeY * NeZ
     lcmesh%Ne2D = NeX * NeY
@@ -321,8 +325,8 @@ contains
     lcmesh%NeZ = NeZ
 
     !--
-    delx = (dom_xmax - dom_xmin)/dble(NprcX)
-    dely = (dom_ymax - dom_ymin)/dble(NprcY)
+    delx = ( dom_xmax - dom_xmin ) / dble(NprcX)
+    dely = ( dom_ymax - dom_ymin ) / dble(NprcY)
     FZ_lc(:) = Fz((k-1)*NeZ+1:k*NeZ+1)
     lcmesh%xmin = dom_xmin + (i-1)*delx
     lcmesh%xmax = dom_xmin +  i   *delx
@@ -330,8 +334,8 @@ contains
     lcmesh%ymax = dom_ymin +  j   *dely
     lcmesh%zmin = FZ_lc(1)
     lcmesh%zmax = FZ_lc(NeZ+1)
-    
-    !-
+
+    !--
     allocate( lcmesh%pos_ev(lcmesh%Nv,3) )
     allocate( lcmesh%EToV(lcmesh%Ne,elem%Nv) )
     allocate( lcmesh%EToE(lcmesh%Ne,elem%Nfaces) )
@@ -341,35 +345,42 @@ contains
     allocate( lcmesh%VMapP(elem%NfpTot, lcmesh%Ne) )
     allocate( lcmesh%MapM(elem%NfpTot, lcmesh%Ne) )
     allocate( lcmesh%MapP(elem%NfpTot, lcmesh%Ne) )
-    
+
     allocate( lcmesh%EMap3Dto2D(lcmesh%Ne) )
 
     lcmesh%BCType(:,:) = BCTYPE_INTERIOR
-    
+
     !----
 
-    call MeshUtil3D_genCubeDomain( lcmesh%pos_ev, lcmesh%EToV,     & ! (out)
-        & lcmesh%NeX, lcmesh%xmin, lcmesh%xmax,                    & ! (in)
-        & lcmesh%NeY, lcmesh%ymin, lcmesh%ymax,                    & ! (in) 
-        & lcmesh%NeZ, lcmesh%zmin, lcmesh%zmax, FZ=FZ_lc           ) ! (in) 
+    call MeshUtilCubedSphere3D_genCubeDomain( lcmesh%pos_ev, lcmesh%EToV, & ! (out)
+      lcmesh%NeX, lcmesh%xmin, lcmesh%xmax,                               & ! (in)
+      lcmesh%NeY, lcmesh%ymin, lcmesh%ymax,                               & ! (in) 
+      lcmesh%NeZ, lcmesh%zmin, lcmesh%zmax, FZ=FZ_lc                      ) ! (in) 
     
     !---
-    call MeshBase3D_setGeometricInfo( lcmesh, MeshCubeDom3D_coord_conv, MeshCubeDom3D_calc_normal )
- 
-    !---
-    call MeshUtil3D_genConnectivity( lcmesh%EToE, lcmesh%EToF, & ! (out)
-        lcmesh%EToV, lcmesh%Ne, elem%Nfaces )                    ! (in)
 
+    call MeshBase3D_setGeometricInfo(lcmesh, MeshCubedSphereDom3D_coord_conv, MeshCubedSphereDom3D_calc_normal )
+    
+    call CubedSphereCnv_GetMetric( &
+      lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2), elem%Np * lcmesh%Ne, planet_radius, & ! (in)
+      lcmesh%G_ij, lcmesh%GIJ, lcmesh%Gsqrt                                           ) ! (out)
+    return
     !---
-    call MeshUtil3D_BuildInteriorMap( lcmesh%VmapM, lcmesh%VMapP, lcmesh%MapM, lcmesh%MapP,           & ! (out)
-      lcmesh%pos_en, lcmesh%pos_ev, lcmesh%EToE, lcmesh%EtoF, lcmesh%EtoV,                            & ! (in)
-      elem%Fmask_h, elem%Fmask_v, lcmesh%Ne, lcmesh%Nv, elem%Np, elem%Nfp_h, elem%Nfp_v, elem%NfpTot, & ! (in)
-      elem%Nfaces_h, elem%Nfaces_v, elem%Nfaces )                                                       ! (in)
 
-    call MeshUtil3D_genPatchBoundaryMap( lcmesh%VMapB, lcmesh%MapB, lcmesh%VMapP,                       & !(out)
+    call MeshUtilCubedSphere3D_genConnectivity( lcmesh%EToE, lcmesh%EToF, & ! (out)
+      lcmesh%EToV, lcmesh%Ne, elem%Nfaces )                                 ! (in)
+    
+    !---
+    call MeshUtilCubedSphere3D_BuildInteriorMap( lcmesh%VmapM, lcmesh%VMapP, lcmesh%MapM, lcmesh%MapP,  & ! (out)
+      lcmesh%pos_en, lcmesh%pos_ev, lcmesh%EToE, lcmesh%EtoF, lcmesh%EtoV,                              & ! (in)
+      elem%Fmask_h, elem%Fmask_v, lcmesh%Ne, lcmesh%Nv, elem%Np, elem%Nfp_h, elem%Nfp_v, elem%NfpTot,   & ! (in)
+      elem%Nfaces_h, elem%Nfaces_v, elem%Nfaces ) 
+
+    
+    call MeshUtilCubedSphere3D_genPatchBoundaryMap( lcmesh%VMapB, lcmesh%MapB, lcmesh%VMapP,            & !(out)
       lcmesh%pos_en, lcmesh%xmin, lcmesh%xmax, lcmesh%ymin, lcmesh%ymax, lcmesh%zmin, lcmesh%zmax,      & ! (in)
       elem%Fmask_h, elem%Fmask_v, lcmesh%Ne, lcmesh%Nv, elem%Np, elem%Nfp_h, elem%Nfp_v, elem%NfpTot,   & ! (in)
-      elem%Nfaces_h, elem%Nfaces_v, elem%Nfaces )                                                         ! (in)
+      elem%Nfaces_h, elem%Nfaces_v, elem%Nfaces )  
     
     !---
     !$omp parallel do collapse(2) private(ii,ke)
@@ -381,20 +392,24 @@ contains
     end do
     end do
     end do
-
+    
     return
-  end subroutine MeshCubeDom3D_setupLocalDom
+  end subroutine MeshCubedSphereDom3D_setupLocalDom
 
-!OCL SERIAL
-  subroutine MesshCubeDom3D_assignDomID( this, &
-    tileID_table, panelID_table,               &
+  subroutine MesshCubedSphereDom3D_assignDomID( this, &
+    NprcX_lc, NprcY_lc, NprcZ_lc,                     &
+    tileID_table, panelID_table,                      &
     pi_table, pj_table, pk_table )
   
-    use scale_meshutil_3d, only: &       
-      MeshUtil3D_buildGlobalMap    
+    use scale_meshutil_cubedsphere3d, only: &       
+      MeshUtilCubedSphere3D_buildGlobalMap
+    
     implicit none
 
-    type(MeshCubeDom3D), target, intent(inout) :: this    
+    class(MeshCubedSphereDom3D), target, intent(inout) :: this    
+    integer, intent(in) :: NprcX_lc
+    integer, intent(in) :: NprcY_lc
+    integer, intent(in) :: NprcZ_lc
     integer, intent(out) :: tileID_table(this%LOCAL_MESH_NUM, this%PRC_NUM)
     integer, intent(out) :: panelID_table(this%LOCAL_MESH_NUM*this%PRC_NUM)
     integer, intent(out) :: pi_table(this%LOCAL_MESH_NUM*this%PRC_NUM)
@@ -402,33 +417,32 @@ contains
     integer, intent(out) :: pk_table(this%LOCAL_MESH_NUM*this%PRC_NUM)
     
     integer :: n
-    integer :: p
+    integer :: prc
     integer :: tileID
-    integer :: is_lc, js_lc, ks_lc
-    integer :: ilc_count, jlc_count, klc_count
-    integer :: ilc, jlc, klc
-
+    integer :: is_lc, js_lc, ks_lc, ps_lc
+    integer :: ilc_count, jlc_count, klc_count, plc_count
+    integer :: ilc, jlc, klc, plc
+    integer :: Npanel_lc
+    
     type(LocalMesh3D), pointer :: lcmesh
     !-----------------------------------------------------------------------------
-    
-    call MeshUtil3D_buildGlobalMap( &
-      panelID_table, pi_table, pj_table, pk_table,                                          & ! (out)
-      this%tileID_globalMap, this%tileFaceID_globalMap, this%tilePanelID_globalMap,         & ! (out)
-      this%LOCAL_MESH_NUM_global, 6, 8,                                                     & ! (in)
-      this%isPeriodicX, this%isPeriodicY, this%isPeriodicZ,                                 & ! (in)
-      this%NprcX, this%NprcY, this%NprcZ )                                                    ! (in)
+
+    call MeshUtilCubedSphere3D_buildGlobalMap( &
+      panelID_table, pi_table, pj_table, pk_table,                                  & ! (out)
+      this%tileID_globalMap, this%tileFaceID_globalMap, this%tilePanelID_globalMap, & ! (out)
+      this%LOCAL_MESH_NUM_global, NprcZ_lc )                                          ! (in)
 
     !----
     
-
-    do p=1, this%PRC_NUM
+    do prc=1, this%PRC_NUM
     do n=1, this%LOCAL_MESH_NUM
-      tileID = n + (p-1)*this%LOCAL_MESH_NUM
+      tileID = n + (prc-1)*this%LOCAL_MESH_NUM
       lcmesh => this%lcmesh_list(n)
+      
       !-
-      tileID_table(n,p)                   = tileID
+      tileID_table(n,prc)                 = tileID
       this%tileID_global2localMap(tileID) = n
-      this%PRCRank_globalMap(tileID)      = p - 1
+      this%PRCRank_globalMap(tileID)      = prc - 1
 
       !-
       if ( this%PRCRank_globalMap(tileID) == lcmesh%PRC_myrank ) then
@@ -436,33 +450,38 @@ contains
           is_lc = pi_table(tileID); ilc_count = 1
           js_lc = pj_table(tileID); jlc_count = 1
           ks_lc = pk_table(tileID); klc_count = 1
+          ps_lc = panelID_table(tileID); plc_count = 1
         end if
         if(is_lc < pi_table(tileID)) ilc_count = ilc_count + 1
         if(js_lc < pj_table(tileID)) jlc_count = jlc_count + 1
         if(ks_lc < pk_table(tileID)) klc_count = klc_count + 1
+        if(ps_lc < panelID_table(tileID)) plc_count = plc_count + 1
       end if 
     end do
     end do
 
-    allocate( this%rcdomIJK2LCMeshID(ilc_count,jlc_count,klc_count) )
+    allocate( this%rcdomIJKP2LCMeshID(ilc_count,jlc_count,klc_count,plc_count) )
+    do plc=1, plc_count
     do klc=1, klc_count
     do jlc=1, jlc_count
     do ilc=1, ilc_count
-      this%rcdomIJK2LCMeshID(ilc,jlc,klc) = ilc + (jlc - 1)*ilc_count + (klc - 1)*ilc_count*jlc_count
+      this%rcdomIJKP2LCMeshID(ilc,jlc,klc,plc) = ilc + (jlc - 1)*ilc_count + (klc - 1)*ilc_count*jlc_count &
+                                               + (plc-1)*ilc_count*jlc_count*klc_count
+    end do
     end do
     end do
     end do
 
     return
-  end subroutine MesshCubeDom3D_assignDomID
-  
+  end subroutine MesshCubedSphereDom3D_assignDomID
+
 !OCL SERIAL
-  subroutine MeshCubeDom3D_coord_conv( x, y, z, xX, xY, xZ, yX, yY, yZ, zX, zY, zZ, &
+  subroutine MeshCubedSphereDom3D_coord_conv( x, y, z, xX, xY, xZ, yX, yY, yZ, zX, zY, zZ, &
     vx, vy, vz, elem )
 
     implicit none
 
-    type(elementbase3D), intent(in) :: elem
+    type(ElementBase3D), intent(in) :: elem
     real(RP), intent(out) :: x(elem%Np), y(elem%Np), z(elem%Np)
     real(RP), intent(out) :: xX(elem%Np), xY(elem%Np), xZ(elem%Np)
     real(RP), intent(out) :: yX(elem%Np), yY(elem%Np), yZ(elem%Np)
@@ -486,15 +505,15 @@ contains
     zZ(:) = 0.5_RP*(vz(5) - vz(1)) !matmul(refElem%Dx3,mesh%x3(:,n))
 
     return
-  end subroutine MeshCubeDom3D_coord_conv  
+  end subroutine MeshCubedSphereDom3D_coord_conv  
 
 !OCL SERIAL
-  subroutine MeshCubeDom3D_calc_normal( normal_fn, &
+  subroutine MeshCubedSphereDom3D_calc_normal( normal_fn, &
     Escale_f, fid_h, fid_v, elem )
 
     implicit none
 
-    type(elementbase3D), intent(in) :: elem
+    type(ElementBase3D), intent(in) :: elem
     real(RP), intent(out) :: normal_fn(elem%NfpTot,3)
     integer, intent(in) :: fid_h(elem%Nfp_h,elem%Nfaces_h)
     integer, intent(in) :: fid_v(elem%Nfp_v,elem%Nfaces_v)        
@@ -514,6 +533,6 @@ contains
     end do
 
     return
-  end subroutine MeshCubeDom3D_calc_normal 
+  end subroutine MeshCubedSphereDom3D_calc_normal 
 
-end module scale_mesh_cubedom3d
+end module scale_mesh_cubedspheredom3d

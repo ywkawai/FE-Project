@@ -665,16 +665,15 @@ contains
     logical, intent(in) :: isPeriodicZ
     integer, intent(in) :: Ne_x
     integer, intent(in) :: Ne_y
+    integer, intent(in) :: Ne_z
 
     integer :: NtilePerPanel
-    integer :: Ne_z
     integer :: Nv_x, Nv_y, Nv_z
     integer, allocatable :: nodesID_3d(:,:,:)
     integer, allocatable :: EToV(:,:)
     integer, allocatable :: EToE(:,:)
     integer, allocatable :: EToF(:,:)
     integer :: i, j, k, f
-    integer :: panelID
     integer :: tileID, tileID_R
     integer :: counter
 

@@ -53,6 +53,7 @@ OBJS_NAME_MESH = \
 	scale_meshutil_2d.o            \
 	scale_meshutil_3d.o            \
 	scale_meshutil_cubedsphere2d.o \
+	scale_meshutil_cubedsphere3d.o \
 	scale_mesh_bndinfo.o           \
 	scale_localmesh_base.o         \
 	scale_localmesh_1d.o           \
@@ -65,7 +66,8 @@ OBJS_NAME_MESH = \
 	scale_mesh_linedom1d.o         \
 	scale_mesh_rectdom2d.o         \
 	scale_mesh_cubedom3d.o         \
-	scale_mesh_cubedspheredom2d.o
+	scale_mesh_cubedspheredom2d.o  \
+	scale_mesh_cubedspheredom3d.o
 
 OBJS_NAME_DATA = \
 	scale_variableinfo.o                    \
@@ -76,6 +78,7 @@ OBJS_NAME_DATA = \
 	scale_meshfieldcomm_rectdom2d.o         \
 	scale_meshfieldcomm_cubedspheredom2d.o  \
 	scale_meshfieldcomm_cubedom3d.o         \
+	scale_meshfieldcomm_cubedspheredom3d.o  \
 	scale_meshfield_statistics.o           
 
 OBJS_NAME_FILE = \
