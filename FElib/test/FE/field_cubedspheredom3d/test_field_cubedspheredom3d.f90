@@ -63,13 +63,13 @@ program test_field_cubedspheredom3d
   write(*,*) "* Check data communication.."
   call perform_comm()
 
-  do n=1, mesh%LOCAL_MESH_NUM
+  do n=1, 1!mesh%LOCAL_MESH_NUM
     lcmesh => mesh%lcmesh_list(n)
     
     write(*,*) "Check interior & halo data.."
     write(*,*) "tileID=", lcmesh%tileID
-    ! call check_interior_data(n, mesh%lcmesh_list(n), q%local(n)%val, q%local(n)%val)
-    ! call check_halo_data(n, mesh%lcmesh_list(n), q%local(n)%val, q%local(n)%val)
+    call check_interior_data(n, mesh%lcmesh_list(n), q%local(n)%val, q%local(n)%val)
+    call check_halo_data(n, mesh%lcmesh_list(n), q%local(n)%val, q%local(n)%val)
   end do
   !----
 
@@ -241,12 +241,14 @@ contains
     integer :: ans_by(refElem%Nfp_h,lcmesh_%NeY,lcmesh_%NeZ)    
     integer :: ans_bz(refElem%Nfp_v,lcmesh_%NeX,lcmesh_%NeY) 
     integer :: haloInd_s, haloInd_e
-    integer :: ke, f, fp
-    integer :: i, j, k
+    integer :: ke, f
+    integer :: i, j, k, fp, fph, fpv
     integer :: tileID
 
     integer :: Ne, NeX, NeY, NeZ
-    integer :: Np, Nfp_h, Nfp_v
+    integer :: Np, Nfp_h, Nfp_v, Nnode_h1D
+
+    integer :: s_face(6)
 
     !------------------------------
 
@@ -258,19 +260,24 @@ contains
     Np = refElem%Np
     Nfp_h = refElem%Nfp_h
     Nfp_v = refElem%Nfp_v
+    Nnode_h1D = refElem%Nnode_h1D
 
+    s_face(:) = mesh%tileFaceID_globalMap(:,tileID)
     write(*,*) "Check values in halo.."
     write(*,*) "tileID_globalMap=", mesh%tileID_globalMap(:,tileID)
-    write(*,*) "tileFaceID_globalMap=", mesh%tileFaceID_globalMap(:,tileID)
-
+    write(*,*) "tileFaceID_globalMap=", s_face(:)
 
     haloInd_s = Np*Ne + 1    
     haloInd_e = haloInd_s + Nfp_h*NeX*NeZ - 1
     do k=1, NeZ
     do i=1, NeX
-      ke = i + (NeY-1)*NeX  + (k-1)*NeX*NeY
-      do fp=1, Nfp_h
-        ans_bx(fp,i,k) = get_field_val(mesh%tileID_globalMap(1,tileID), ke, refElem%Fmask_h(fp,3))
+      do fpv=1, refElem%Nnode_v
+      do fph=1, refElem%Nnode_h1D 
+        call get_index( s_face(1), NeX, Nnode_h1D, i, k, fph, fpv, &
+          ke, fp )
+        ans_bx(fph+(fpv-1)*Nnode_h1D,i,k) = &
+          get_field_val(mesh%tileID_globalMap(1,tileID), ke, refElem%Fmask_h(fp,abs(s_face(1))))
+      end do
       end do
     end do
     end do
@@ -281,9 +288,13 @@ contains
     haloInd_e = haloInd_s + Nfp_h*NeY*NeZ - 1
     do k=1, NeZ
     do j=1, NeY
-      ke = 1 + (j-1)*NeX + (k-1)*NeX*NeY
-      do fp=1, Nfp_h
-        ans_by(fp,j,k) = get_field_val(mesh%tileID_globalMap(2,tileID), ke, refElem%Fmask_h(fp,4))
+      do fpv=1, refElem%Nnode_v
+      do fph=1, refElem%Nnode_h1D 
+        call get_index( s_face(2), NeY, Nnode_h1D, j, k, fph, fpv, &
+          ke, fp )
+        ans_by(fph+(fpv-1)*Nnode_h1D,j,k) = &
+          get_field_val(mesh%tileID_globalMap(2,tileID), ke, refElem%Fmask_h(fp,abs(s_face(2))))
+      end do
       end do
     end do
     end do
@@ -294,9 +305,13 @@ contains
     haloInd_e = haloInd_s + Nfp_h*NeX*NeZ - 1    
     do k=1, NeZ
     do i=1, NeX
-      ke = i + (k-1)*NeX*NeY
-      do fp=1, Nfp_h
-        ans_bx(fp,i,k) = get_field_val(mesh%tileID_globalMap(3,tileID), ke, refElem%Fmask_h(fp,1))
+      do fpv=1, refElem%Nnode_v
+      do fph=1, refElem%Nnode_h1D 
+        call get_index( s_face(3), NeX, Nnode_h1D, i, k, fph, fpv, &
+          ke, fp )
+        ans_bx(fph+(fpv-1)*Nnode_h1D,i,k) = &
+          get_field_val(mesh%tileID_globalMap(3,tileID), ke, refElem%Fmask_h(fp,abs(s_face(3))))
+      end do
       end do
     end do
     end do
@@ -304,12 +319,16 @@ contains
                  'check_halo_data', 'q_halo_north', Nfp_h*NeX*NeZ )
 
     haloInd_s = haloInd_e + 1    
-    haloInd_e = haloInd_s + Nfp_h*NeY*NeZ - 1    
+    haloInd_e = haloInd_s + Nfp_h*NeY*NeZ - 1
     do k=1, NeZ
     do j=1, NeY
-      ke = NeX + (j-1)*NeX + (k-1)*NeX*NeY
-      do fp=1, Nfp_h
-        ans_by(fp,j,k) = get_field_val(mesh%tileID_globalMap(4,tileID), ke, refElem%Fmask_h(fp,2))
+      do fpv=1, refElem%Nnode_v
+      do fph=1, refElem%Nnode_h1D 
+        call get_index( s_face(4), NeY, Nnode_h1D, j, k, fph, fpv, &
+          ke, fp )
+        ans_by(fph+(fpv-1)*Nnode_h1D,j,k) = &
+          get_field_val(mesh%tileID_globalMap(4,tileID), ke, refElem%Fmask_h(fp,abs(s_face(4))))
+      end do
       end do
     end do
     end do
@@ -320,9 +339,9 @@ contains
     haloInd_e = haloInd_s + Nfp_v*NeX*NeY - 1
     do j=1, NeY
     do i=1, NeX
-      ke = i + (j-1)*NeX + (NeZ-1)*NeX*NeY
+     ke = i + (j-1)*NeX
       do fp=1, Nfp_v
-        ans_bz(fp,i,j) = get_field_val(mesh%tileID_globalMap(5,tileID), ke, refElem%Fmask_v(fp,2))
+        ans_bz(fp,i,j) = get_field_val(mesh%tileID_globalMap(5,tileID), ke, refElem%Fmask_v(fp,1))
       end do
     end do
     end do
@@ -333,9 +352,9 @@ contains
     haloInd_e = haloInd_s + Nfp_v*NeX*NeY - 1
     do j=1, NeY
     do i=1, NeX
-      ke = i + (j-1)*NeX
+      ke = i + (j-1)*NeX + (NeZ-1)*NeX*NeY
       do fp=1, Nfp_v
-        ans_bz(fp,i,j) = get_field_val(mesh%tileID_globalMap(6,tileID), ke, refElem%Fmask_v(fp,1))
+        ans_bz(fp,i,j) = get_field_val(mesh%tileID_globalMap(6,tileID), ke, refElem%Fmask_v(fp,2))
       end do
     end do
     end do
@@ -344,6 +363,48 @@ contains
 
     return
   end subroutine check_halo_data
+
+  subroutine get_index( s_face, Ne1D, Nnode_h1D, &
+    i1D, k, fph, fpv, &
+    ke, fp )
+    implicit none
+    integer, intent(in) :: s_face
+    integer, intent(in) :: Ne1D
+    integer, intent(in) :: Nnode_h1D
+    integer, intent(in) ::i1D, k
+    integer, intent(in) :: fph, fpv
+    integer, intent(out) :: ke, fp
+    !-----------------------------------
+
+    select case( s_face )
+    case(1)
+      ke = i1D + (k-1)*Ne1D**2
+      fp = fph + (fpv-1)*Nnode_h1D
+    case(-1)
+      ke = Ne1D - i1D + 1 + (k-1)*Ne1D**2
+      fp = Nnode_h1D - fph + 1 + (fpv-1)*Nnode_h1D
+    case(2)
+      ke = Ne1D + (i1D-1)*Ne1D + (k-1)*Ne1D**2
+      fp = fph + (fpv-1)*Nnode_h1D
+    case(-2)
+      ke = Ne1D + (Ne1D-i1D)*Ne1D + (k-1)*Ne1D**2
+      fp = Nnode_h1D - fph + 1 + (fpv-1)*Nnode_h1D
+    case(3)
+      ke = i1D + (Ne1D-1)*Ne1D + (k-1)*Ne1D**2
+      fp = fph + (fpv-1)*Nnode_h1D
+    case(-3)
+      ke = Ne1D - i1D + 1 + (Ne1D-1)*Ne1D + (k-1)*Ne1D**2
+      fp = Nnode_h1D - fph + 1 + (fpv-1)*Nnode_h1D
+    case(4)
+      ke = 1 + (i1D-1)*Ne1D + (k-1)*Ne1D**2
+      fp = fph + (fpv-1)*Nnode_h1D
+    case(-4)
+      ke = 1 + (Ne1D-i1D)*Ne1D + (k-1)*Ne1D**2
+      fp = Nnode_h1D - fph + 1 + (fpv-1)*Nnode_h1D
+    end select
+
+    return
+  end subroutine get_index
 
   subroutine assert(k, vals, ans, assert_name, var_name, val_size)
     integer, intent(in) :: val_size
@@ -356,8 +417,7 @@ contains
     real(RP), parameter :: EPS = 1.0E-15_RP
     !--------------------------------------
 
-    write(*,*) trim(var_name), "=", vals(:)
-    if ( sum((vals(:) - ans(:))**2) > EPS ) then
+    if ( sum( abs(vals(:) - ans(:)) ) > EPS ) then
       LOG_ERROR(assert_name,*) 'The value of '//trim(var_name)//' is unexcepted!', &
         ' k=', k, ": val=", vals(:), " ans=", ans(:)
       call PRC_abort
