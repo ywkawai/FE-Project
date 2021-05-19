@@ -25,6 +25,7 @@ module scale_file_common_meshfield
   use scale_mesh_rectdom2d, only: MeshRectDom2D
   use scale_mesh_cubedom3d, only: MeshCubeDom3D
   use scale_mesh_cubedspheredom2d, only: MeshCubedSphereDom2D
+  use scale_mesh_cubedspheredom3d, only: MeshCubedSphereDom3D
   use scale_localmesh_1d, only: LocalMesh1D
   use scale_localmesh_2d, only: LocalMesh2D
   use scale_localmesh_3d, only: LocalMesh3D
@@ -47,6 +48,7 @@ module scale_file_common_meshfield
     module procedure File_common_meshfield_get_dims2D
     module procedure File_common_meshfield_get_dims2D_cubedsphere
     module procedure File_common_meshfield_get_dims3D
+    module procedure File_common_meshfield_get_dims3D_cubedsphere
   end interface
   public :: FILE_common_meshfield_get_dims
 
@@ -59,6 +61,7 @@ module scale_file_common_meshfield
     module procedure File_common_meshfield_get_axis2D
     module procedure File_common_meshfield_get_axis2D_cubedsphere
     module procedure File_common_meshfield_get_axis3D
+    module procedure File_common_meshfield_get_axis3D_cubedsphere
   end interface
   public :: FILE_common_meshfield_get_axis
 
@@ -66,11 +69,13 @@ module scale_file_common_meshfield
   public :: File_common_meshfield_put_field2D_cartesbuf
   public :: File_common_meshfield_put_field2D_cubedsphere_cartesbuf  
   public :: File_common_meshfield_put_field3D_cartesbuf
+  public :: File_common_meshfield_put_field3D_cubedsphere_cartesbuf  
 
   public :: File_common_meshfield_set_cartesbuf_field1D
   public :: File_common_meshfield_set_cartesbuf_field2D
   public :: File_common_meshfield_set_cartesbuf_field2D_cubedsphere
   public :: File_common_meshfield_set_cartesbuf_field3D
+  public :: File_common_meshfield_set_cartesbuf_field3D_cubedsphere
 
   public :: File_common_meshfield_set_cartesbuf_field1D_local
   public :: File_common_meshfield_set_cartesbuf_field2D_local
@@ -106,6 +111,7 @@ contains
 
   !- 1D ---------------
 
+!OCL SERIAL
   subroutine File_common_meshfield_get_dims1D( mesh1D, dimsinfo )
     implicit none
 
@@ -129,6 +135,7 @@ contains
     return
   end subroutine File_common_meshfield_get_dims1D
 
+!OCL SERIAL  
   subroutine File_common_meshfield_get_axis1D( mesh1D, dimsinfo, x, &
     force_uniform_grid )
     implicit none
@@ -171,6 +178,7 @@ contains
     return
   end subroutine File_common_meshfield_get_axis1D
 
+!OCL SERIAL
   subroutine File_common_meshfield_put_field1D_cartesbuf( mesh1D, field1D, &
     buf, force_uniform_grid )
     use scale_polynominal, only: &
@@ -182,7 +190,7 @@ contains
     logical, intent(in), optional :: force_uniform_grid
 
     integer :: n, kelem1, p
-    integer :: i0, i1, i2, i
+    integer :: i, i2
     type(LocalMesh1D), pointer :: lcmesh
     type(elementbase1D), pointer :: refElem
     integer :: i0_s
@@ -247,6 +255,7 @@ contains
     return
   end subroutine File_common_meshfield_put_field1D_cartesbuf
 
+!OCL SERIAL
   subroutine File_common_meshfield_set_cartesbuf_field1D( mesh1D, buf, &
     field1D )
     implicit none
@@ -278,6 +287,7 @@ contains
     return
   end subroutine File_common_meshfield_set_cartesbuf_field1D
 
+!OCL SERIAL
   subroutine File_common_meshfield_set_cartesbuf_field1D_local( &
     lcmesh, buf, i0_s,                                          &
     val )
@@ -287,7 +297,7 @@ contains
     integer, intent(in) :: i0_s
     real(RP), intent(inout) :: val(lcmesh%refElem1D%Np,lcmesh%NeA)
 
-    integer :: n, kelem1, p
+    integer :: kelem1
     integer :: i, i1, i2
     type(elementbase1D), pointer :: refElem
     integer :: indx
@@ -309,13 +319,13 @@ contains
 
   !- 2D ---------------
 
+!OCL SERIAL
   subroutine File_common_meshfield_get_dims2D( mesh2D, dimsinfo )
     implicit none
 
     class(MeshRectDom2D), target, intent(in) :: mesh2D
     type(FILE_common_meshfield_diminfo), intent(out) :: dimsinfo(MeshBase2D_DIMTYPE_NUM)
 
-    type(ElementBase2D), pointer :: refElem
     type(LocalMesh2D), pointer :: lcmesh
     integer :: i, j, n
 
@@ -360,13 +370,13 @@ contains
     return
   end subroutine File_common_meshfield_get_dims2D
 
+!OCL SERIAL
   subroutine File_common_meshfield_get_dims2D_cubedsphere( mesh2D, dimsinfo )
     implicit none
 
     class(MeshCubedSphereDom2D), target, intent(in) :: mesh2D
     type(FILE_common_meshfield_diminfo), intent(out) :: dimsinfo(MeshBase2D_DIMTYPE_NUM)
 
-    type(ElementBase2D), pointer :: refElem
     type(LocalMesh2D), pointer :: lcmesh
     integer :: i, j, n
 
@@ -414,6 +424,7 @@ contains
     return
   end subroutine File_common_meshfield_get_dims2D_cubedsphere
 
+!OCL SERIAL
   subroutine File_common_meshfield_get_axis2D( mesh2D, dimsinfo, x, y, &
     force_uniform_grid  )
     implicit none
@@ -428,7 +439,6 @@ contains
     integer :: ni, nj
     integer :: k
     integer :: i, j 
-    integer :: i2, j2
     type(ElementBase2D), pointer :: refElem
     type(LocalMesh2D), pointer :: lcmesh
 
@@ -480,11 +490,10 @@ contains
     return
   end subroutine File_common_meshfield_get_axis2D
 
+!OCL SERIAL
   subroutine File_common_meshfield_get_axis2D_cubedsphere( mesh2D, dimsinfo, x, y  )
-
     use scale_const, only: &
       PI => CONST_PI
-    use scale_prc
     implicit none
 
     class(MeshCubedSphereDom2D), target, intent(in) :: mesh2D  
@@ -494,8 +503,7 @@ contains
 
     integer :: ni, nj, np, n
     integer :: k
-    integer :: i, j, p
-    integer :: i2, j2, p2
+    integer :: i, j
     type(ElementBase2D), pointer :: refElem
     type(LocalMesh2D), pointer :: lcmesh
 
@@ -547,6 +555,7 @@ contains
     return
   end subroutine File_common_meshfield_get_axis2D_cubedsphere
 
+!OCL SERIAL
   subroutine File_common_meshfield_put_field2D_cartesbuf( mesh2D, field2D, &
     buf, force_uniform_grid )
     use scale_polynominal, only: &
@@ -557,7 +566,7 @@ contains
     real(RP), intent(inout) :: buf(:,:)
     logical, intent(in), optional :: force_uniform_grid
 
-    integer :: n, kelem1, p
+    integer :: n, kelem1
     integer :: i0, j0, i1, j1, i2, j2, i, j
     type(LocalMesh2D), pointer :: lcmesh
     type(elementbase2D), pointer :: refElem
@@ -657,9 +666,9 @@ contains
     return
   end subroutine File_common_meshfield_put_field2D_cartesbuf
 
+!OCL SERIAL
   subroutine File_common_meshfield_put_field2D_cubedsphere_cartesbuf( mesh2D, field2D, &
     buf )
-    use scale_prc, only: PRC_abort
     use scale_polynominal, only: &
       polynominal_genLegendrePoly
     implicit none
@@ -667,7 +676,7 @@ contains
     class(MeshField2D), intent(in) :: field2d
     real(RP), intent(inout) :: buf(:,:)
 
-    integer :: n, kelem1, p
+    integer :: n, kelem1
     integer :: i0, j0, p0, i1, j1, i2, j2, i, j
     type(LocalMesh2D), pointer :: lcmesh
     type(elementbase2D), pointer :: refElem
@@ -711,7 +720,7 @@ contains
     return
   end subroutine File_common_meshfield_put_field2D_cubedsphere_cartesbuf
 
-
+!OCL SERIAL
   subroutine File_common_meshfield_set_cartesbuf_field2D( mesh2D, buf, &
     field2D )
     implicit none
@@ -746,6 +755,7 @@ contains
     return
   end subroutine File_common_meshfield_set_cartesbuf_field2D
 
+!OCL SERIAL
   subroutine File_common_meshfield_set_cartesbuf_field2D_local( &
     lcmesh, buf, i0_s, j0_s,                                    &
     val )
@@ -755,7 +765,7 @@ contains
     integer, intent(in) :: i0_s, j0_s
     real(RP), intent(inout) :: val(lcmesh%refElem2D%Np,lcmesh%NeA)
 
-    integer :: n, kelem1, p
+    integer :: kelem1
     integer :: i1, j1, i2, j2, i, j
     type(elementbase2D), pointer :: refElem
     integer :: indx
@@ -780,6 +790,7 @@ contains
     return
   end subroutine File_common_meshfield_set_cartesbuf_field2D_local
 
+!OCL SERIAL
   subroutine File_common_meshfield_set_cartesbuf_field2D_cubedsphere( mesh2D, buf, &
     field2D )
     implicit none
@@ -819,6 +830,7 @@ contains
 
   !- 3D ------------
 
+!OCL SERIAL
   subroutine File_common_meshfield_get_dims3D( mesh3D, dimsinfo )
     implicit none
 
@@ -827,8 +839,6 @@ contains
 
     type(LocalMesh3D), pointer :: lcmesh
     integer :: i, j, k, n
-    integer :: icount, jcount, kcount
-
     integer :: i_size, j_size, k_size
 
     type(MeshDimInfo), pointer :: dimInfo
@@ -887,6 +897,77 @@ contains
     return
   end subroutine File_common_meshfield_get_dims3D
 
+!OCL SERIAL
+  subroutine File_common_meshfield_get_dims3D_cubedsphere( mesh3D, dimsinfo )
+    implicit none
+
+    class(MeshCubedSphereDom3D), target, intent(in) :: mesh3D
+    type(FILE_common_meshfield_diminfo), intent(out) :: dimsinfo(MeshBase3D_DIMTYPE_NUM)
+
+    type(LocalMesh3D), pointer :: lcmesh
+    integer :: i, j, k, n
+
+    integer :: i_size, j_size, k_size
+
+    type(MeshDimInfo), pointer :: diminfo
+    type(MeshDimInfo), pointer :: diminfo_x
+    type(MeshDimInfo), pointer :: diminfo_y
+    type(MeshDimInfo), pointer :: diminfo_z
+    !-------------------------------------------------
+    
+    i_size = 0
+    do i=1, size(mesh3D%rcdomIJKP2LCMeshID,1)
+      n = mesh3D%rcdomIJKP2LCMeshID(i,1,1,1)
+      lcmesh => mesh3D%lcmesh_list(n)
+      i_size =i_size + lcmesh%NeX * lcmesh%refElem3D%Nnode_h1D
+    end do
+
+    j_size = 0
+    do j=1, size(mesh3D%rcdomIJKP2LCMeshID,2)
+      n = mesh3D%rcdomIJKP2LCMeshID(1,j,1,1)
+      lcmesh => mesh3D%lcmesh_list(n)
+      j_size = j_size + lcmesh%NeY * lcmesh%refElem3D%Nnode_h1D
+    end do
+
+    k_size = 0
+    do k=1, size(mesh3D%rcdomIJKP2LCMeshID,3)
+      n = mesh3D%rcdomIJKP2LCMeshID(1,1,k,1)
+      lcmesh => mesh3D%lcmesh_list(n)
+      k_size = k_size + lcmesh%NeZ * lcmesh%refElem3D%Nnode_v
+    end do
+
+    k_size = k_size * size(mesh3D%rcdomIJKP2LCMeshID,4)
+  
+    diminfo_x => mesh3D%dimInfo(MeshBase3D_DIMTYPEID_X)
+    call set_dimension( dimsinfo(MeshBase3D_DIMTYPEID_X),   &
+      dimInfo_x, "X", 1, (/ diminfo_x%name /), (/ i_size /) )
+
+    diminfo_y => mesh3D%dimInfo(MeshBase3D_DIMTYPEID_Y)
+    call set_dimension( dimsinfo(MeshBase3D_DIMTYPEID_Y),   &
+      diminfo_y, "Y", 1, (/ diminfo_y%name /), (/ j_size /) )
+
+    diminfo_z => mesh3D%dimInfo(MeshBase3D_DIMTYPEID_Z)
+    call set_dimension( dimsinfo(MeshBase3D_DIMTYPEID_Z),   &
+      diminfo_z, "Z", 1, (/ diminfo_z%name /), (/ k_size /) )
+  
+    diminfo => mesh3D%dimInfo(MeshBase3D_DIMTYPEID_ZT)
+    call set_dimension( dimsinfo(MeshBase3D_DIMTYPEID_ZT), &
+      diminfo, "ZT", 1, (/ diminfo_z%name /), (/ k_size /) )
+
+    diminfo => mesh3D%dimInfo(MeshBase3D_DIMTYPEID_XYZ)
+    call set_dimension( dimsinfo(MeshBase3D_DIMTYPEID_XYZ), &
+      diminfo, "XYZ", 3, (/ diminfo_x%name, diminfo_y%name, diminfo_z%name /), &
+      (/ i_size, j_size, k_size /) )
+  
+    diminfo => mesh3D%dimInfo(MeshBase3D_DIMTYPEID_XYZT)
+    call set_dimension( dimsinfo(MeshBase3D_DIMTYPEID_XYZT), &
+      diminfo, "XYZT", 3, (/ diminfo_x%name, diminfo_y%name, diminfo_z%name /), &
+      (/ i_size, j_size, k_size /) )
+
+    return
+  end subroutine File_common_meshfield_get_dims3D_cubedsphere
+
+!OCL SERIAL
   subroutine File_common_meshfield_get_axis3D( mesh3D, dimsinfo, x, y, z, &
     force_uniform_grid )
     implicit none
@@ -900,7 +981,6 @@ contains
 
     integer :: n, kelem
     integer :: i, j, k
-    integer :: i2, j2, k2
     type(ElementBase3D), pointer :: refElem
     type(LocalMesh3D), pointer :: lcmesh
 
@@ -966,6 +1046,82 @@ contains
     return
   end subroutine File_common_meshfield_get_axis3D
 
+!OCL SERIAL
+  subroutine File_common_meshfield_get_axis3D_cubedsphere( mesh3D, dimsinfo, x, y, z )
+    implicit none
+
+    class(MeshCubedSphereDom3D), target, intent(in) :: mesh3D  
+    type(FILE_common_meshfield_diminfo), intent(in) :: dimsinfo(MeshBase3D_DIMTYPE_NUM)
+    real(DP), intent(out) :: x(dimsinfo(MeshBase3D_DIMTYPEID_X)%size)
+    real(DP), intent(out) :: y(dimsinfo(MeshBase3D_DIMTYPEID_Y)%size)
+    real(DP), intent(out) :: z(dimsinfo(MeshBase3D_DIMTYPEID_Z)%size)
+
+    integer :: n, ni, nj, nk, np
+    integer :: kelem
+    integer :: i, j, k
+    type(ElementBase3D), pointer :: refElem
+    type(LocalMesh3D), pointer :: lcmesh
+
+    integer :: is, js, ks, ie, je, ke, igs, jgs, kgs
+
+    logical :: uniform_grid = .false.
+    real(RP), allocatable :: x_local(:)
+    real(RP), allocatable :: y_local(:)
+    real(RP), allocatable :: z_local(:)
+    !-------------------------------------------------
+    
+    igs = 0; jgs = 0; kgs = 0
+    
+    do np=1, size(mesh3D%rcdomIJKP2LCMeshID,4) 
+    do nk=1, size(mesh3D%rcdomIJKP2LCMeshID,3) 
+    do nj=1, size(mesh3D%rcdomIJKP2LCMeshID,2) 
+    do ni=1, size(mesh3D%rcdomIJKP2LCMeshID,1)
+      n = mesh3D%rcdomIJKP2LCMeshID(ni,nj,nk,np)
+      lcmesh => mesh3D%lcmesh_list(n)
+      refElem => lcmesh%refElem3D
+
+      allocate( x_local(refElem%Nnode_h1D), y_local(refElem%Nnode_h1D), z_local(refElem%Nnode_v) )
+
+      do k=1, lcmesh%NeZ
+      do j=1, lcmesh%NeY
+      do i=1, lcmesh%NeX
+        kelem = i + (j-1) * lcmesh%NeX + (k-1) * lcmesh%NeX * lcmesh%NeY
+        if ( j==1 .and. nj == 1 .and. k==1 .and. nk == 1 .and. np == 1) then
+          x_local(:) = lcmesh%pos_en(refElem%Fmask_h(1:refElem%Nnode_h1D,1),kelem,1)
+
+          is = igs + 1 + (i-1)*refElem%Nnode_h1D
+          ie = is + refElem%Nnode_h1D - 1
+          x(is:ie) = x_local(:)
+        end if
+        if ( i==1 .and. ni == 1 .and. k==1 .and. nk == 1 .and. np == 1 ) then
+          y_local(:) = lcmesh%pos_en(refElem%Fmask_h(1:refElem%Nnode_h1D,4),kelem,2) 
+
+          js = jgs + 1 + (j-1)*refElem%Nnode_h1D
+          je = js + refElem%Nnode_h1D - 1
+          y(js:je) = y_local(:)
+        end if
+        if ( i==1 .and. ni == 1 .and. j == 1 .and. nj == 1 ) then
+          z_local(:) = lcmesh%pos_en(refElem%Colmask(:,1),kelem,3) &
+                     + ( lcmesh%panelID - 1.0_RP ) * ( mesh3D%zmax_gl - mesh3D%zmin_gl )
+
+          ks = kgs + 1 + (k-1)*refElem%Nnode_v
+          ke = ks + refElem%Nnode_v - 1
+          z(ks:ke) = z_local(:)
+        end if
+      end do
+      end do
+      end do
+
+      igs = ie; jgs = je; kgs = ke
+      deallocate( x_local, y_local, z_local )
+    end do
+    end do
+    end do
+    end do
+
+    return
+  end subroutine File_common_meshfield_get_axis3D_cubedsphere
+
 !OCL_SERIAL
   subroutine File_common_meshfield_put_field3D_cartesbuf( mesh3D, field3D, &
     buf, force_uniform_grid )
@@ -977,7 +1133,7 @@ contains
     real(RP), intent(inout) :: buf(:,:,:)
     logical, intent(in), optional :: force_uniform_grid
 
-    integer :: n, kelem1, p
+    integer :: n, kelem1
     integer :: i0, j0, k0, i1, j1, k1, i2, j2, k2, i, j, k
     type(LocalMesh3D), pointer :: lcmesh
     type(elementbase3D), pointer :: refElem
@@ -1105,6 +1261,68 @@ contains
     return
   end subroutine File_common_meshfield_put_field3D_cartesbuf
 
+!OCL SERIAL
+  subroutine File_common_meshfield_put_field3D_cubedsphere_cartesbuf( mesh3D, field3D, &
+    buf )
+    implicit none
+    class(MeshCubedSphereDom3D), target, intent(in) :: mesh3D
+    class(MeshField3D), intent(in) :: field3d
+    real(RP), intent(inout) :: buf(:,:,:)
+
+    integer :: kelem1
+    integer :: n, i0, j0, k0, p0
+    integer :: i1, j1, k1, i2, j2, k2, i, j, k
+    type(LocalMesh3D), pointer :: lcmesh
+    type(elementbase3D), pointer :: refElem
+    integer :: i0_s, j0_s, k0_s
+    integer :: Nnode_h1D
+    integer :: Nnode_v
+    !------------------------------------------------
+
+    i0_s = 0; j0_s = 0; k0_s = 0
+
+    do p0=1, size(mesh3D%rcdomIJKP2LCMeshID,4)    
+      do k0=1, size(mesh3D%rcdomIJKP2LCMeshID,3)
+      do j0=1, size(mesh3D%rcdomIJKP2LCMeshID,2)
+      do i0=1, size(mesh3D%rcdomIJKP2LCMeshID,1)
+        n = mesh3D%rcdomIJKP2LCMeshID(i0,j0,k0,p0)
+
+        lcmesh => mesh3D%lcmesh_list(n)
+        refElem => lcmesh%refElem3D
+        Nnode_h1D = refElem%Nnode_h1D
+        Nnode_v = refElem%Nnode_v
+            
+        do k1=1, lcmesh%NeZ
+        do j1=1, lcmesh%NeY
+        do i1=1, lcmesh%NeX
+          kelem1 = i1 + (j1-1)*lcmesh%NeX + (k1-1)*lcmesh%NeX*lcmesh%NeY
+
+          do k2=1, Nnode_v
+          do j2=1, Nnode_h1D
+          do i2=1, Nnode_h1D
+            i = i0_s + i2 + (i1-1)*Nnode_h1D
+            j = j0_s + j2 + (j1-1)*Nnode_h1D
+            k = k0_s + k2 + (k1-1)*Nnode_v
+            buf(i,j,k) = field3d%local(n)%val(i2+(j2-1)*Nnode_h1D+(k2-1)*Nnode_h1D**2,kelem1)
+          end do
+          end do
+          end do
+        end do
+        end do
+        end do 
+        
+        i0_s = i0_s + lcmesh%NeX * refElem%Nnode_h1D
+        j0_s = j0_s + lcmesh%NeY * refElem%Nnode_h1D
+        k0_s = k0_s + lcmesh%NeZ * refElem%Nnode_v
+      end do
+      end do
+      end do
+      i0_s = 0; j0_s = 0
+    end do
+    
+    return
+  end subroutine File_common_meshfield_put_field3D_cubedsphere_cartesbuf
+
   subroutine File_common_meshfield_set_cartesbuf_field3D( mesh3D, buf, &
     field3D )
     implicit none
@@ -1142,6 +1360,47 @@ contains
     return
   end subroutine File_common_meshfield_set_cartesbuf_field3D
 
+!OCL SERIAL
+  subroutine File_common_meshfield_set_cartesbuf_field3D_cubedsphere( mesh3D, buf, &
+    field3D )
+    implicit none
+    class(MeshCubedSphereDom3D), target, intent(in) :: mesh3D
+    real(RP), intent(in) :: buf(:,:,:)
+    class(MeshField3D), intent(inout) :: field3d
+
+    integer :: n
+    integer :: i0, j0, k0, p0
+    type(LocalMesh3D), pointer :: lcmesh
+    type(elementbase3D), pointer :: refElem
+    integer :: i0_s, j0_s, k0_s, p0_s
+    !----------------------------------------------------
+
+    i0_s = 0; j0_s = 0; k0_s = 0; p0_s = 0
+
+    do p0=1, size(mesh3D%rcdomIJKP2LCMeshID,4)
+      do k0=1, size(mesh3D%rcdomIJKP2LCMeshID,3)
+      do j0=1, size(mesh3D%rcdomIJKP2LCMeshID,2)
+      do i0=1, size(mesh3D%rcdomIJKP2LCMeshID,1)
+        n = mesh3D%rcdomIJKP2LCMeshID(i0,j0,k0,p0)
+        lcmesh => mesh3D%lcmesh_list(n)
+        refElem => lcmesh%refElem3D
+
+        call File_common_meshfield_set_cartesbuf_field3D_local(  &
+          lcmesh, buf(:,:,:), i0_s, j0_s, k0_s,                  &
+          field3d%local(n)%val(:,:)                              )
+
+        i0_s = i0_s + lcmesh%NeX * refElem%Nnode_h1D
+        j0_s = j0_s + lcmesh%NeY * refElem%Nnode_h1D
+        k0_s = k0_s + lcmesh%NeZ * refElem%Nnode_v
+      end do
+      end do
+      end do
+      i0_s = 0; j0_s = 0
+    end do
+
+    return
+  end subroutine File_common_meshfield_set_cartesbuf_field3D_cubedsphere
+
   subroutine File_common_meshfield_set_cartesbuf_field3D_local( &
     lcmesh, buf, i0_s, j0_s, k0_s,                              &
     val )
@@ -1151,7 +1410,7 @@ contains
     integer, intent(in) :: i0_s, j0_s, k0_s
     real(RP), intent(inout) :: val(lcmesh%refElem3D%Np,lcmesh%NeA)
 
-    integer :: n, kelem1, p
+    integer :: kelem1
     integer :: i1, j1, k1, i2, j2, k2, i, j, k
     type(elementbase3D), pointer :: refElem
     integer :: indx
@@ -1182,9 +1441,11 @@ contains
   end subroutine File_common_meshfield_set_cartesbuf_field3D_local
 
   function File_common_meshfield_get_dtype( datatype ) result( dtype )
-
     use scale_file_h, only: &
       FILE_REAL8, FILE_REAL4
+    use scale_prc, &
+      only: PRC_abort
+
     implicit none
 
     character(*), intent(in) :: datatype

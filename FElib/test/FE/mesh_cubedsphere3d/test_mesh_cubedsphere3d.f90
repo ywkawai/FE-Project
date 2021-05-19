@@ -1,48 +1,45 @@
 #include "scalelib.h"
-program test_mesh_cubedom3d_hexahedral
+program test_mesh_cubedsphere3d
   use scale_precision
   use scale_prc
   use scale_io  
   use scale
   use scale_element_hexahedral
-  use scale_mesh_cubedom3d
+  use scale_mesh_cubedspheredom3d
   use scale_localmesh_3d
 
   implicit none
 
-  integer, parameter :: NeGX = 3
-  integer, parameter :: NeGY = 3
-  integer, parameter :: NeGZ = 3
-  integer, parameter :: NLocalMeshPerPrc = 1
-
-  real(RP), parameter :: dom_xmin = -1.0_RP
-  real(RP), parameter :: dom_xmax = +1.0_RP
-  real(RP), parameter :: dom_ymin = -1.0_RP
-  real(RP), parameter :: dom_ymax = +1.0_RP
-  real(RP), parameter :: dom_zmin = -1.0_RP
-  real(RP), parameter :: dom_zmax = +1.0_RP
-
   type(HexahedralElement) :: refElem
   integer, parameter :: PolyOrder_h = 2
   integer, parameter :: PolyOrder_v = 2
-  
-  type(MeshCubeDom3D) :: mesh
-  integer :: lmeshID
+  integer, parameter :: NeGX = 3
+  integer, parameter :: NeGY = 3
+  integer, parameter :: NeGZ = 2
+  integer, parameter :: NLocalMeshPerPrc = 6
+  real(RP), parameter :: RPlanet = 6.327E6_RP
+
+  real(RP), parameter :: dom_zmin = 0.0_RP
+  real(RP), parameter :: dom_zmax = 1.0_RP
+
+  type(MeshCubedSphereDom3D) :: mesh
+  integer :: n
 
   !-------------------------------------------------
-
   call init()
-  do lmeshID=1, mesh%LOCAL_MESH_NUM
-    call check_connectivity( mesh%lcmesh_list(lmeshID), refElem )
-  end do  
-  call final()
 
+  do n=1, mesh%LOCAL_MESH_NUM
+    call check_connectivity( mesh%lcmesh_list(n), refElem )
+  end do  
+
+  call final()
+  
 contains
   subroutine init()
+    implicit none
     integer :: comm, myrank, nprocs
     logical :: ismaster
-
-    !----------------------------------------------
+    !-------------------------------
 
     call PRC_MPIstart( comm )
     
@@ -58,33 +55,26 @@ contains
     call IO_LOG_setup( myrank, ismaster )   
     
     !------
-    LOG_INFO("init",*)  'Initialize HexahedralElement ..'
     call refElem%Init(PolyOrder_h, PolyOrder_v, .true.)
 
-    LOG_INFO("init",*)  'Initialzie MeshCubeDom3D ..'
-    call mesh%Init( &
-      NeGX, NeGY, NeGZ,                                           &
-      dom_xmin, dom_xmax, dom_ymin, dom_ymax, dom_zmin, dom_zmax, &
-      .true., .true., .true.,                                     &
-      refElem, NLocalMeshPerPrc, nprocs, 1 )
-    
-    LOG_INFO("init",*)  'Generate MeshCubeDom3D ..'    
-    call mesh%Generate()
+    call mesh%Init( NeGX, NeGY, NeGZ, RPlanet, dom_zmin, dom_zmax, refElem, NLocalMeshPerPrc )
 
-    LOG_INFO("init",*) 'Initialization has succeeded.'
+    call mesh%Generate()
 
     return
   end subroutine init
 
   subroutine final()
-    LOG_INFO("init",*) 'Finalize ...'
-
+    implicit none
+    !-------------------------------
+    
     call mesh%Final()
     call refElem%Final()
     
     call PRC_MPIfinish()
+
     return
-  end subroutine final
+  end subroutine final  
 
   subroutine check_connectivity( lcmesh, elem )
     type(LocalMesh3D), intent(in) :: lcmesh
@@ -235,13 +225,11 @@ contains
     !--------------------------------------
 
     write(*,*) trim(name), "=", vals(:)
-    if ( sum(dble(vals(:) - ans(:))**2) > EPS ) then
+    if ( sum((vals(:) - ans(:))**2) > EPS ) then
       LOG_ERROR('chechk_connectivity',*) 'The value of '//trim(name)//' is unexcepted!', &
         ' k=', k, ": val=", vals(:), " ans=", ans(:)
       call PRC_abort
     end if    
-
-    return
   end subroutine assert
 
   function elemID(lmesh, i, j, k) result(eid)
@@ -263,5 +251,5 @@ contains
   end function nodeID
 
   !--------------------------
-  
-end program test_mesh_cubedom3d_hexahedral
+
+end program test_mesh_cubedsphere3d

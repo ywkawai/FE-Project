@@ -22,6 +22,7 @@ module scale_file_restart_meshfield
   use scale_mesh_rectdom2d, only: MeshRectDom2D
   use scale_mesh_cubedspheredom2d, only: MeshCubedSphereDom2D
   use scale_mesh_cubedom3d, only: MeshCubeDom3D
+  use scale_mesh_cubedspheredom3d, only: MeshCubedSphereDom3D
   use scale_localmesh_1d, only: LocalMesh1D
   use scale_localmesh_2d, only: LocalMesh2D
   use scale_localmesh_3d, only: LocalMesh3D
@@ -194,7 +195,10 @@ contains
       in_basename, in_postfix_timelabel,                    &
       out_basename, out_postfix_timelabel,                  &
       out_dtype, out_title,                                 &
-      var_num, mesh1D, mesh2D, meshCubedSphere2D, mesh3D )
+      var_num,                                              &
+      mesh1D,                                               &
+      mesh2D, meshCubedSphere2D,                            &
+      mesh3D, meshCubedSphere3D                             )
 
     implicit none
 
@@ -211,6 +215,7 @@ contains
     class(MeshRectDom2D), target, optional, intent(in) :: mesh2D
     class(MeshCubedSphereDom2D), target, optional, intent(in) :: meshCubedSphere2D
     class(MeshCubeDom3D), target, optional, intent(in) :: mesh3D
+    class(MeshCubedSphereDom3D), target, optional, intent(in) :: meshCubedSphere3D
     !--------------------------------------------------
     this%comp_name = comp_name
 
@@ -223,7 +228,7 @@ contains
     this%out_dtype = out_dtype
 
     !-
-    call this%base%Init( var_num, mesh1D, mesh2D, meshCubedSphere2D, mesh3D )
+    call this%base%Init( var_num, mesh1D, mesh2D, meshCubedSphere2D, mesh3D, meshCubedSphere3D )
 
     return
   end subroutine FILE_restart_meshfield_component_Init2

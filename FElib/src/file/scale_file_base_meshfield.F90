@@ -36,6 +36,7 @@ module scale_file_base_meshfield
   use scale_mesh_rectdom2d, only: MeshRectDom2D
   use scale_mesh_cubedspheredom2d, only: MeshCubedSphereDom2D
   use scale_mesh_cubedom3d, only: MeshCubeDom3D
+  use scale_mesh_cubedspheredom3d, only: MeshCubedSphereDom3D
   use scale_localmesh_1d, only: LocalMesh1D
   use scale_localmesh_2d, only: LocalMesh2D
   use scale_localmesh_3d, only: LocalMesh3D
@@ -62,6 +63,7 @@ module scale_file_base_meshfield
     class(MeshRectDom2D), pointer :: mesh2D
     class(MeshCubedSphereDom2D), pointer :: meshCS2D
     class(MeshCubeDom3D), pointer :: mesh3D  
+    class(MeshCubedSphereDom3D), pointer :: meshCS3D
     type(FILE_common_meshfield_diminfo), allocatable :: dimsinfo(:)
 
     logical :: force_uniform_grid
@@ -105,9 +107,12 @@ module scale_file_base_meshfield
 
 contains
 
-  subroutine FILE_base_meshfield_Init( this,            & ! (inout)
-    var_num, mesh1D, mesh2D, meshCubedSphere2D, mesh3D, & ! (in)
-    force_uniform_grid )                                  ! (in)
+  subroutine FILE_base_meshfield_Init( this, & ! (inout)
+    var_num,                                 & ! (in)
+    mesh1D,                                  & ! (in)
+    mesh2D, meshCubedSphere2D,               & ! (in)
+    mesh3D, meshCubedSphere3D,               & ! (in)
+    force_uniform_grid )                       ! (in)
 
     use scale_file_common_meshfield, only: &
       File_common_meshfield_get_dims  
@@ -120,6 +125,7 @@ contains
     class(MeshRectDom2D), target, optional, intent(in) :: mesh2D
     class(MeshCubedSphereDom2D), target, optional, intent(in) :: meshCubedSphere2D    
     class(MeshCubeDom3D), target, optional, intent(in) :: mesh3D
+    class(MeshCubedSphereDom3D), target, optional, intent(in) :: meshCubedSphere3D
     logical, intent(in), optional :: force_uniform_grid
 
     logical :: check_specify_mesh
@@ -133,6 +139,7 @@ contains
     !-
     check_specify_mesh = .false.
     nullify( this%mesh1D, this%mesh2D, this%mesh3D )
+    nullify( this%meshCS2D, this%meshCS3D )
   
     if (present(mesh1D)) then
       this%mesh1D => mesh1D
@@ -162,7 +169,14 @@ contains
       allocate( this%dimsinfo(MF3D_DTYPE_NUM) )
       call File_common_meshfield_get_dims( mesh3D, this%dimsinfo(:) )
     end if
+    if (present(meshCubedSphere3D)) then
+      this%meshCS3D => meshCubedSphere3D
+      check_specify_mesh = .true.
   
+      allocate( this%dimsinfo(MF3D_DTYPE_NUM) )
+      call File_common_meshfield_get_dims( meshCubedSphere3D, this%dimsinfo(:) )
+    end if
+
     if ( present(force_uniform_grid) ) then
       this%force_uniform_grid = force_uniform_grid
     else
@@ -421,7 +435,8 @@ contains
         FILE_opened, &
         FILE_Write 
     use scale_file_common_meshfield, only: &
-      File_common_meshfield_put_field3D_cartesbuf
+      File_common_meshfield_put_field3D_cartesbuf,            &
+      File_common_meshfield_put_field3D_cubedsphere_cartesbuf
     use scale_prof
     implicit none
 
@@ -443,15 +458,16 @@ contains
       dims(3) = this%dimsinfo(MF3D_DIMTYPE_Z)%size
       allocate( buf(dims(1),dims(2),dims(3)) )
 
-      call PROF_rapstart('FILE_base_meshfield_write_putbuf', 0)
+      if ( associated(this%mesh3D) ) then
+        call File_common_meshfield_put_field3D_cartesbuf( this%mesh3D, field3d, buf(:,:,:), &
+          this%force_uniform_grid )
+      else if ( associated(this%meshCS3D) ) then
+        call File_common_meshfield_put_field3D_cubedsphere_cartesbuf( &
+          this%meshCS3D, field3d, buf(:,:,:)                          )
+      end if
 
-      call File_common_meshfield_put_field3D_cartesbuf( this%mesh3D, field3d, buf(:,:,:), &
-        this%force_uniform_grid )
-      call PROF_rapend('FILE_base_meshfield_write_putbuf', 0)
-      call PROF_rapstart('FILE_base_meshfield_FILE_write', 0)
       call FILE_Write( this%vars_ncid(vid), buf(:,:,:),     & ! (in)
         sec_str, sec_end, start                             ) ! (in)
-      call PROF_rapend('FILE_base_meshfield_FILE_write', 0)
     end if
   
     return
@@ -707,7 +723,9 @@ contains
     use scale_file, only: &
       FILE_Read
     use scale_file_common_meshfield, only: &
-      File_common_meshfield_set_cartesbuf_field3D
+      File_common_meshfield_set_cartesbuf_field3D,            &
+      File_common_meshfield_set_cartesbuf_field3D_cubedsphere
+
   
     implicit none
   
@@ -734,8 +752,14 @@ contains
         buf(:,:,:),                                            & ! (out)
         step=step, allow_missing=allow_missing                 ) ! (in)
   
-      call File_common_meshfield_set_cartesbuf_field3D( this%mesh3D, buf(:,:,:), &
-        field3d )
+      if ( associated(this%meshCS3D) ) then
+        call File_common_meshfield_set_cartesbuf_field3D_cubedsphere( &
+          this%meshCS3D, buf(:,:,:),                                  &
+          field3d )
+      else if ( associated(this%mesh3D) ) then
+        call File_common_meshfield_set_cartesbuf_field3D( this%mesh3D, buf(:,:,:), &
+          field3d )
+      end if
     end if
   
     return
@@ -854,7 +878,8 @@ contains
       end do
     end if
 
-    if ( associated(this%mesh3D) ) then
+    if (      associated(this%mesh3D)   &
+         .or. associated(this%meshCS3D) ) then
       do d=1, 3
         call FILE_Def_Axis( this%fid, &
           this%dimsinfo(d)%name, this%dimsinfo(d)%desc, this%dimsinfo(d)%unit, &
@@ -909,6 +934,15 @@ contains
     if ( associated(this%mesh3D) ) then
       allocate( x(this%dimsinfo(1)%size), y(this%dimsinfo(2)%size), z(this%dimsinfo(3)%size) )
       call File_common_meshfield_get_axis( this%mesh3D, this%dimsinfo, x(:), y(:), z(:), this%force_uniform_grid )
+
+      call FILE_Write_Axis( this%fid, this%dimsinfo(1)%name, x(:), start(1:1) )
+      call FILE_Write_Axis( this%fid, this%dimsinfo(2)%name, y(:), start(2:2) )
+      call FILE_Write_Axis( this%fid, this%dimsinfo(3)%name, z(:), start(3:3) )
+    end if  
+
+    if ( associated(this%meshCS3D) ) then
+      allocate( x(this%dimsinfo(1)%size), y(this%dimsinfo(2)%size), z(this%dimsinfo(3)%size) )
+      call File_common_meshfield_get_axis( this%meshCS3D, this%dimsinfo, x(:), y(:), z(:) )
 
       call FILE_Write_Axis( this%fid, this%dimsinfo(1)%name, x(:), start(1:1) )
       call FILE_Write_Axis( this%fid, this%dimsinfo(2)%name, y(:), start(2:2) )

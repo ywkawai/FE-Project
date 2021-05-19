@@ -200,10 +200,10 @@ contains
     allocate( lcmesh%zS(refElem%Np,lcmesh%Ne) )
     allocate( lcmesh%Sz(refElem%Np,lcmesh%Ne) )
     allocate( lcmesh%Gsqrt(refElem%Np,lcmesh%Ne) )
-    allocate( lcmesh%G_ij(refElem%Np,lcmesh%Ne2D,2,2) )
-    allocate( lcmesh%GIJ (refElem%Np,lcmesh%Ne2D,2,2) )
-    allocate( lcmesh%lon2D(refElem%Np,lcmesh%Ne2D) )
-    allocate( lcmesh%lat2D(refElem%Np,lcmesh%Ne2D) )
+    allocate( lcmesh%G_ij(refElem%Nfp_v,lcmesh%Ne2D,2,2) )
+    allocate( lcmesh%GIJ (refElem%Nfp_v,lcmesh%Ne2D,2,2) )
+    allocate( lcmesh%lon2D(refElem%Nfp_v,lcmesh%Ne2D) )
+    allocate( lcmesh%lat2D(refElem%Nfp_v,lcmesh%Ne2D) )
     
     do f=1, refElem%Nfaces_h
     do i=1, refElem%Nfp_h
