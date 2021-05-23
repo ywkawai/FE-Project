@@ -590,77 +590,78 @@ contains
     i0_s = 0; j0_s = 0
     
     do j0=1, size(mesh2D%rcdomIJ2LCMeshID,2)
-    do i0=1, size(mesh2D%rcdomIJ2LCMeshID,1)
-      n =  mesh2D%rcdomIJ2LCMeshID(i0,j0)
+      do i0=1, size(mesh2D%rcdomIJ2LCMeshID,1)
+        n =  mesh2D%rcdomIJ2LCMeshID(i0,j0)
 
-      lcmesh => mesh2D%lcmesh_list(n)
-      refElem => lcmesh%refElem2D
-      Nfp = refElem%Nfp
-      
-      if ( uniform_grid ) then
-        allocate( x_local(Nfp), y_local(Nfp) )
-        allocate( spectral_coef(refElem%Np) )
-        allocate( P1D_ori_x(1,Nfp), P1D_ori_y(1,Nfp) )
-      end if
-  
-      do j1=1, lcmesh%NeY
-      do i1=1, lcmesh%NeX
-        kelem1 = i1 + (j1-1)*lcmesh%NeX
-
+        lcmesh => mesh2D%lcmesh_list(n)
+        refElem => lcmesh%refElem2D
+        Nfp = refElem%Nfp
+        
         if ( uniform_grid ) then
-          x_local(:) = lcmesh%pos_en(refElem%Fmask(1:Nfp,1),kelem1,1)
-          x_local0 = x_local(1); delx = x_local(Nfp) - x_local0
-          y_local(:) = lcmesh%pos_en(refElem%Fmask(1:Nfp,4),kelem1,2)
-          y_local0 = y_local(1); dely = y_local(Nfp) - y_local0
-          call get_uniform_grid1D( x_local, Nfp )
-          call get_uniform_grid1D( y_local, Nfp )
-  
-          spectral_coef(:) = matmul(refElem%invV(:,:), field2d%local(n)%val(:,kelem1))
-          do j2=1, Nfp
-          do i2=1, Nfp
-            ox(1) = - 1.0_RP + 2.0_RP * (x_local(i2) - x_local0) / delx
-            oy(1) = - 1.0_RP + 2.0_RP * (y_local(j2) - y_local0) / dely
-  
-            call Polynominal_GenLegendrePoly_sub( refElem%PolyOrder, ox, P1D_ori_x(:,:) ) 
-            call Polynominal_GenLegendrePoly_sub( refElem%PolyOrder, oy, P1D_ori_y(:,:) ) 
-  
-            i = i0_s + i2 + (i1-1)*Nfp
-            j = j0_s + j2 + (j1-1)*Nfp
-            buf(i,j) = 0.0_RP 
-            do p2=1, Nfp
-            do p1=1, Nfp
-              l = p1 + (p2-1)*Nfp
-              buf(i,j) = buf(i,j) + &
-                  ( P1D_ori_x(1,p1) * P1D_ori_y(1,p2) )             &
-                * sqrt((dble(p1-1) + 0.5_RP)*(dble(p2-1) + 0.5_RP)) &
-                * spectral_coef(l)
-            end do
-            end do
-          end do
-          end do
-        
-        else
-
-          do j2=1, Nfp
-          do i2=1, Nfp
-            i = i0_s + i2 + (i1-1)*Nfp 
-            j = j0_s + j2 + (j1-1)*Nfp
-            buf(i,j) = field2d%local(n)%val(i2+(j2-1)*Nfp,kelem1)
-          end do
-          end do
-        
+          allocate( x_local(Nfp), y_local(Nfp) )
+          allocate( spectral_coef(refElem%Np) )
+          allocate( P1D_ori_x(1,Nfp), P1D_ori_y(1,Nfp) )
         end if
+    
+        do j1=1, lcmesh%NeY
+        do i1=1, lcmesh%NeX
+          kelem1 = i1 + (j1-1)*lcmesh%NeX
+
+          if ( uniform_grid ) then
+            x_local(:) = lcmesh%pos_en(refElem%Fmask(1:Nfp,1),kelem1,1)
+            x_local0 = x_local(1); delx = x_local(Nfp) - x_local0
+            y_local(:) = lcmesh%pos_en(refElem%Fmask(1:Nfp,4),kelem1,2)
+            y_local0 = y_local(1); dely = y_local(Nfp) - y_local0
+            call get_uniform_grid1D( x_local, Nfp )
+            call get_uniform_grid1D( y_local, Nfp )
+    
+            spectral_coef(:) = matmul(refElem%invV(:,:), field2d%local(n)%val(:,kelem1))
+            do j2=1, Nfp
+            do i2=1, Nfp
+              ox(1) = - 1.0_RP + 2.0_RP * (x_local(i2) - x_local0) / delx
+              oy(1) = - 1.0_RP + 2.0_RP * (y_local(j2) - y_local0) / dely
+    
+              call Polynominal_GenLegendrePoly_sub( refElem%PolyOrder, ox, P1D_ori_x(:,:) ) 
+              call Polynominal_GenLegendrePoly_sub( refElem%PolyOrder, oy, P1D_ori_y(:,:) ) 
+    
+              i = i0_s + i2 + (i1-1)*Nfp
+              j = j0_s + j2 + (j1-1)*Nfp
+              buf(i,j) = 0.0_RP 
+              do p2=1, Nfp
+              do p1=1, Nfp
+                l = p1 + (p2-1)*Nfp
+                buf(i,j) = buf(i,j) + &
+                    ( P1D_ori_x(1,p1) * P1D_ori_y(1,p2) )             &
+                  * sqrt((dble(p1-1) + 0.5_RP)*(dble(p2-1) + 0.5_RP)) &
+                  * spectral_coef(l)
+              end do
+              end do
+            end do
+            end do
+          
+          else
+
+            do j2=1, Nfp
+            do i2=1, Nfp
+              i = i0_s + i2 + (i1-1)*Nfp 
+              j = j0_s + j2 + (j1-1)*Nfp
+              buf(i,j) = field2d%local(n)%val(i2+(j2-1)*Nfp,kelem1)
+            end do
+            end do
+          
+          end if
+        end do
+        end do
+        
+        if ( uniform_grid ) then
+          deallocate( x_local, y_local  )
+          deallocate( spectral_coef )
+          deallocate( P1D_ori_x, P1D_ori_y )
+        end if
+
+        i0_s = i0_s + lcmesh%NeX * refElem%Nfp
       end do
-      end do
-      
-      i0_s = i0_s + lcmesh%NeX * refElem%Nfp
       j0_s = j0_s + lcmesh%NeY * refElem%Nfp
-      if ( uniform_grid ) then
-        deallocate( x_local, y_local  )
-        deallocate( spectral_coef )
-        deallocate( P1D_ori_x, P1D_ori_y )
-      end if
-    end do
     end do
 
     return
@@ -688,31 +689,31 @@ contains
 
     do p0=1, size(mesh2D%rcdomIJP2LCMeshID,3)    
       do j0=1, size(mesh2D%rcdomIJP2LCMeshID,2)
-      do i0=1, size(mesh2D%rcdomIJP2LCMeshID,1)
-        n = mesh2D%rcdomIJP2LCMeshID(i0,j0,p0)
+        do i0=1, size(mesh2D%rcdomIJP2LCMeshID,1)
+          n = mesh2D%rcdomIJP2LCMeshID(i0,j0,p0)
 
-        lcmesh => mesh2D%lcmesh_list(n)
-        refElem => lcmesh%refElem2D
-        Nfp = refElem%Nfp
+          lcmesh => mesh2D%lcmesh_list(n)
+          refElem => lcmesh%refElem2D
+          Nfp = refElem%Nfp
+              
+          do j1=1, lcmesh%NeY
+          do i1=1, lcmesh%NeX
+            kelem1 = i1 + (j1-1)*lcmesh%NeX
+
+            do j2=1, Nfp
+            do i2=1, Nfp
+              i = i0_s + i2 + (i1-1)*Nfp
+              j = j0_s + j2 + (j1-1)*Nfp
+              buf(i,j) = field2d%local(n)%val(i2+(j2-1)*Nfp,kelem1)
+            end do
+            end do
             
-        do j1=1, lcmesh%NeY
-        do i1=1, lcmesh%NeX
-          kelem1 = i1 + (j1-1)*lcmesh%NeX
-
-          do j2=1, Nfp
-          do i2=1, Nfp
-            i = i0_s + i2 + (i1-1)*Nfp
-            j = j0_s + j2 + (j1-1)*Nfp
-            buf(i,j) = field2d%local(n)%val(i2+(j2-1)*Nfp,kelem1)
           end do
           end do
           
+          i0_s = i0_s + lcmesh%NeX * refElem%Nfp
         end do
-        end do
-        
-        i0_s = i0_s + lcmesh%NeX * refElem%Nfp
         j0_s = j0_s + lcmesh%NeY * refElem%Nfp
-      end do
       end do
       i0_s = 0
     end do
@@ -738,18 +739,19 @@ contains
     i0_s = 0; j0_s = 0
 
     do j0=1, size(mesh2D%rcdomIJ2LCMeshID,2)
-    do i0=1, size(mesh2D%rcdomIJ2LCMeshID,1)
-      n = mesh2D%rcdomIJ2LCMeshID(i0,j0)
-      lcmesh => mesh2D%lcmesh_list(n)
-      refElem => lcmesh%refElem2D
+      do i0=1, size(mesh2D%rcdomIJ2LCMeshID,1)
+        n = mesh2D%rcdomIJ2LCMeshID(i0,j0)
+        lcmesh => mesh2D%lcmesh_list(n)
+        refElem => lcmesh%refElem2D
 
-      call File_common_meshfield_set_cartesbuf_field2D_local(  &
-        lcmesh, buf(:,:), i0_s, j0_s,                          &
-        field2d%local(n)%val(:,:)                              )
+        call File_common_meshfield_set_cartesbuf_field2D_local(  &
+          lcmesh, buf(:,:), i0_s, j0_s,                          &
+          field2d%local(n)%val(:,:)                              )
 
-      i0_s = i0_s + lcmesh%NeX * refElem%Nfp
+        i0_s = i0_s + lcmesh%NeX * refElem%Nfp
+      end do
       j0_s = j0_s + lcmesh%NeY * refElem%Nfp
-    end do
+      i0_s = 0
     end do
 
     return
@@ -809,20 +811,20 @@ contains
 
     do p0=1, size(mesh2D%rcdomIJP2LCMeshID,3)
       do j0=1, size(mesh2D%rcdomIJP2LCMeshID,2)
-      do i0=1, size(mesh2D%rcdomIJP2LCMeshID,1)
-        n = mesh2D%rcdomIJP2LCMeshID(i0,j0,p0)
-        lcmesh => mesh2D%lcmesh_list(n)
-        refElem => lcmesh%refElem2D
+        do i0=1, size(mesh2D%rcdomIJP2LCMeshID,1)
+          n = mesh2D%rcdomIJP2LCMeshID(i0,j0,p0)
+          lcmesh => mesh2D%lcmesh_list(n)
+          refElem => lcmesh%refElem2D
 
-        call File_common_meshfield_set_cartesbuf_field2D_local(  &
-          lcmesh, buf(:,:), i0_s, j0_s,                          &
-          field2d%local(n)%val(:,:)                              )
+          call File_common_meshfield_set_cartesbuf_field2D_local(  &
+            lcmesh, buf(:,:), i0_s, j0_s,                          &
+            field2d%local(n)%val(:,:)                              )
 
-        i0_s = i0_s + lcmesh%NeX * refElem%Nfp
+          i0_s = i0_s + lcmesh%NeX * refElem%Nfp
+        end do
         j0_s = j0_s + lcmesh%NeY * refElem%Nfp
+        i0_s = 0
       end do
-      end do
-      i0_s = 0
     end do
 
     return
@@ -1160,102 +1162,105 @@ contains
     i0_s = 0; j0_s = 0; k0_s = 0
 
     do k0=1, size(mesh3D%rcdomIJK2LCMeshID,3)  
-    do j0=1, size(mesh3D%rcdomIJK2LCMeshID,2)
-    do i0=1, size(mesh3D%rcdomIJK2LCMeshID,1)
-      n =  mesh3D%rcdomIJK2LCMeshID(i0,j0,k0)
+      do j0=1, size(mesh3D%rcdomIJK2LCMeshID,2)
+        do i0=1, size(mesh3D%rcdomIJK2LCMeshID,1)
+          n =  mesh3D%rcdomIJK2LCMeshID(i0,j0,k0)
 
-      lcmesh => mesh3D%lcmesh_list(n)
-      refElem => lcmesh%refElem3D
-      Nnode_h1D = refElem%Nnode_h1D
-      Nnode_v   = refElem%Nnode_v
+          lcmesh => mesh3D%lcmesh_list(n)
+          refElem => lcmesh%refElem3D
+          Nnode_h1D = refElem%Nnode_h1D
+          Nnode_v   = refElem%Nnode_v
 
-      if ( uniform_grid ) then
-        allocate( x_local(Nnode_h1D), y_local(Nnode_h1D) )
-        allocate( z_local(Nnode_v) ) 
-        allocate( spectral_coef(refElem%Np) )
-        allocate( P1D_ori_x(1,Nnode_h1D), P1D_ori_y(1,Nnode_h1D) )
-        allocate( P1D_ori_z(1,Nnode_v) )     
-      end if
+          if ( uniform_grid ) then
+            allocate( x_local(Nnode_h1D), y_local(Nnode_h1D) )
+            allocate( z_local(Nnode_v) ) 
+            allocate( spectral_coef(refElem%Np) )
+            allocate( P1D_ori_x(1,Nnode_h1D), P1D_ori_y(1,Nnode_h1D) )
+            allocate( P1D_ori_z(1,Nnode_v) )     
+          end if
 
-      !$omp parallel do collapse(2) private( kelem1, &
-      !$omp i, i1, i2, j, j2, k, k2, indx,                               &
-      !$omp x_local, x_local0, y_local, y_local0, z_local, z_local0,     &
-      !$omp delx, dely, delz, ox, oy, oz,                                &
-      !$omp spectral_coef, P1D_ori_x, P1D_ori_y, P1D_ori_z,              &
-      !$omp p1, p2, p3, l                                                )        
-      do k1=1, lcmesh%NeZ
-      do j1=1, lcmesh%NeY
-      do i1=1, lcmesh%NeX
-        kelem1 = i1 + (j1-1)*lcmesh%NeX + (k1-1)*lcmesh%NeX*lcmesh%NeY
+          !$omp parallel do collapse(2) private( kelem1, &
+          !$omp i, i1, i2, j, j2, k, k2, indx,                               &
+          !$omp x_local, x_local0, y_local, y_local0, z_local, z_local0,     &
+          !$omp delx, dely, delz, ox, oy, oz,                                &
+          !$omp spectral_coef, P1D_ori_x, P1D_ori_y, P1D_ori_z,              &
+          !$omp p1, p2, p3, l                                                )        
+          do k1=1, lcmesh%NeZ
+          do j1=1, lcmesh%NeY
+          do i1=1, lcmesh%NeX
+            kelem1 = i1 + (j1-1)*lcmesh%NeX + (k1-1)*lcmesh%NeX*lcmesh%NeY
 
-        if ( uniform_grid ) then
-          x_local(:) = lcmesh%pos_en(refElem%Fmask_h(1:Nnode_h1D,1),kelem1,1)
-          x_local0 = x_local(1); delx = x_local(Nnode_h1D) - x_local0
-          y_local(:) = lcmesh%pos_en(refElem%Fmask_h(1:Nnode_h1D,4),kelem1,2)
-          y_local0 = y_local(1); dely = y_local(Nnode_h1D) - y_local0
-          z_local(:) = lcmesh%pos_en(refElem%Colmask(:,1),kelem1,3)
-          z_local0 = z_local(1); delz = z_local(Nnode_v  ) - z_local0
-          call get_uniform_grid1D( x_local, Nnode_h1D )
-          call get_uniform_grid1D( y_local, Nnode_h1D )
-          call get_uniform_grid1D( z_local, Nnode_v   )
+            if ( uniform_grid ) then
+              x_local(:) = lcmesh%pos_en(refElem%Fmask_h(1:Nnode_h1D,1),kelem1,1)
+              x_local0 = x_local(1); delx = x_local(Nnode_h1D) - x_local0
+              y_local(:) = lcmesh%pos_en(refElem%Fmask_h(1:Nnode_h1D,4),kelem1,2)
+              y_local0 = y_local(1); dely = y_local(Nnode_h1D) - y_local0
+              z_local(:) = lcmesh%pos_en(refElem%Colmask(:,1),kelem1,3)
+              z_local0 = z_local(1); delz = z_local(Nnode_v  ) - z_local0
+              call get_uniform_grid1D( x_local, Nnode_h1D )
+              call get_uniform_grid1D( y_local, Nnode_h1D )
+              call get_uniform_grid1D( z_local, Nnode_v   )
 
-          spectral_coef(:) = matmul(refElem%invV(:,:), field3d%local(n)%val(:,kelem1))
-          do k2=1, Nnode_v
-          do j2=1, Nnode_h1D
-          do i2=1, Nnode_h1D
-            ox(1) = - 1.0_RP + 2.0_RP * (x_local(i2) - x_local0) / delx
-            oy(1) = - 1.0_RP + 2.0_RP * (y_local(j2) - y_local0) / dely
-            oz(1) = - 1.0_RP + 2.0_RP * (z_local(k2) - z_local0) / delz
-  
-            call Polynominal_GenLegendrePoly_sub( refElem%PolyOrder_h, ox, P1D_ori_x )
-            call Polynominal_GenLegendrePoly_sub( refElem%PolyOrder_h, oy, P1D_ori_y )
-            call Polynominal_GenLegendrePoly_sub( refElem%PolyOrder_v, oz, P1D_ori_z )
+              spectral_coef(:) = matmul(refElem%invV(:,:), field3d%local(n)%val(:,kelem1))
+              do k2=1, Nnode_v
+              do j2=1, Nnode_h1D
+              do i2=1, Nnode_h1D
+                ox(1) = - 1.0_RP + 2.0_RP * (x_local(i2) - x_local0) / delx
+                oy(1) = - 1.0_RP + 2.0_RP * (y_local(j2) - y_local0) / dely
+                oz(1) = - 1.0_RP + 2.0_RP * (z_local(k2) - z_local0) / delz
+      
+                call Polynominal_GenLegendrePoly_sub( refElem%PolyOrder_h, ox, P1D_ori_x )
+                call Polynominal_GenLegendrePoly_sub( refElem%PolyOrder_h, oy, P1D_ori_y )
+                call Polynominal_GenLegendrePoly_sub( refElem%PolyOrder_v, oz, P1D_ori_z )
 
-            i = i0_s + i2 + (i1-1)*Nnode_h1D
-            j = j0_s + j2 + (j1-1)*Nnode_h1D
-            k = k0_s + k2 + (k1-1)*Nnode_v
-            buf(i,j,k) = 0.0_RP 
-            do p3=1, Nnode_v
-            do p2=1, Nnode_h1D
-            do p1=1, Nnode_h1D
-              l = p1 + (p2-1)*Nnode_h1D + (p3-1)*Nnode_h1D**2
-              buf(i,j,k) = buf(i,j,k) + &
-                  ( P1D_ori_x(1,p1) * P1D_ori_y(1,p2) * P1D_ori_z(1,p3) )                 &
-                * sqrt((dble(p1-1) + 0.5_RP)*(dble(p2-1) + 0.5_RP)*(dble(p3-1) + 0.5_RP)) &
-                * spectral_coef(l)
-            end do
-            end do
-            end do            
+                i = i0_s + i2 + (i1-1)*Nnode_h1D
+                j = j0_s + j2 + (j1-1)*Nnode_h1D
+                k = k0_s + k2 + (k1-1)*Nnode_v
+                buf(i,j,k) = 0.0_RP 
+                do p3=1, Nnode_v
+                do p2=1, Nnode_h1D
+                do p1=1, Nnode_h1D
+                  l = p1 + (p2-1)*Nnode_h1D + (p3-1)*Nnode_h1D**2
+                  buf(i,j,k) = buf(i,j,k) + &
+                      ( P1D_ori_x(1,p1) * P1D_ori_y(1,p2) * P1D_ori_z(1,p3) )                 &
+                    * sqrt((dble(p1-1) + 0.5_RP)*(dble(p2-1) + 0.5_RP)*(dble(p3-1) + 0.5_RP)) &
+                    * spectral_coef(l)
+                end do
+                end do
+                end do            
+              end do
+              end do
+              end do
+            else
+              do k2=1, Nnode_v
+              do j2=1, Nnode_h1D
+              do i2=1, Nnode_h1D
+                i = i0_s + i2 + (i1-1)*Nnode_h1D
+                j = j0_s + j2 + (j1-1)*Nnode_h1D
+                k = k0_s + k2 + (k1-1)*Nnode_v
+                indx = i2 + (j2-1)*Nnode_h1D + (k2-1)*Nnode_h1D**2
+                buf(i,j,k) = field3d%local(n)%val(indx,kelem1)
+              end do
+              end do
+              end do
+            end if
           end do
           end do
           end do
-        else
-          do k2=1, Nnode_v
-          do j2=1, Nnode_h1D
-          do i2=1, Nnode_h1D
-            i = i0_s + i2 + (i1-1)*Nnode_h1D
-            j = j0_s + j2 + (j1-1)*Nnode_h1D
-            k = k0_s + k2 + (k1-1)*Nnode_v
-            indx = i2 + (j2-1)*Nnode_h1D + (k2-1)*Nnode_h1D**2
-            buf(i,j,k) = field3d%local(n)%val(indx,kelem1)
-          end do
-          end do
-          end do
-        end if
+
+          if ( uniform_grid ) then
+            deallocate( x_local, y_local )
+            deallocate( z_local )
+            deallocate( spectral_coef )
+          end if
+
+          i0_s = i0_s + lcmesh%NeX * refElem%Nnode_h1D
+        end do
+        j0_s = j0_s + lcmesh%NeY * refElem%Nnode_h1D
+        i0_s = 0
       end do
-      end do
-      end do
-
-      i0_s = i0_s + lcmesh%NeX * refElem%Nnode_h1D
-      j0_s = j0_s + lcmesh%NeY * refElem%Nnode_h1D
       k0_s = k0_s + lcmesh%NeZ * refElem%Nnode_v
-      if ( uniform_grid ) then
-        deallocate( x_local, y_local )
-        deallocate( z_local )
-        deallocate( spectral_coef )
-      end if
-    end do
-    end do
+      j0_s = 0
     end do
 
     return
@@ -1283,41 +1288,42 @@ contains
 
     do p0=1, size(mesh3D%rcdomIJKP2LCMeshID,4)    
       do k0=1, size(mesh3D%rcdomIJKP2LCMeshID,3)
-      do j0=1, size(mesh3D%rcdomIJKP2LCMeshID,2)
-      do i0=1, size(mesh3D%rcdomIJKP2LCMeshID,1)
-        n = mesh3D%rcdomIJKP2LCMeshID(i0,j0,k0,p0)
+        do j0=1, size(mesh3D%rcdomIJKP2LCMeshID,2)
+          do i0=1, size(mesh3D%rcdomIJKP2LCMeshID,1)
+            n = mesh3D%rcdomIJKP2LCMeshID(i0,j0,k0,p0)
 
-        lcmesh => mesh3D%lcmesh_list(n)
-        refElem => lcmesh%refElem3D
-        Nnode_h1D = refElem%Nnode_h1D
-        Nnode_v = refElem%Nnode_v
+            lcmesh => mesh3D%lcmesh_list(n)
+            refElem => lcmesh%refElem3D
+            Nnode_h1D = refElem%Nnode_h1D
+            Nnode_v = refElem%Nnode_v
+                
+            do k1=1, lcmesh%NeZ
+            do j1=1, lcmesh%NeY
+            do i1=1, lcmesh%NeX
+              kelem1 = i1 + (j1-1)*lcmesh%NeX + (k1-1)*lcmesh%NeX*lcmesh%NeY
+
+              do k2=1, Nnode_v
+              do j2=1, Nnode_h1D
+              do i2=1, Nnode_h1D
+                i = i0_s + i2 + (i1-1)*Nnode_h1D
+                j = j0_s + j2 + (j1-1)*Nnode_h1D
+                k = k0_s + k2 + (k1-1)*Nnode_v
+                buf(i,j,k) = field3d%local(n)%val(i2+(j2-1)*Nnode_h1D+(k2-1)*Nnode_h1D**2,kelem1)
+              end do
+              end do
+              end do
+            end do
+            end do
+            end do 
             
-        do k1=1, lcmesh%NeZ
-        do j1=1, lcmesh%NeY
-        do i1=1, lcmesh%NeX
-          kelem1 = i1 + (j1-1)*lcmesh%NeX + (k1-1)*lcmesh%NeX*lcmesh%NeY
-
-          do k2=1, Nnode_v
-          do j2=1, Nnode_h1D
-          do i2=1, Nnode_h1D
-            i = i0_s + i2 + (i1-1)*Nnode_h1D
-            j = j0_s + j2 + (j1-1)*Nnode_h1D
-            k = k0_s + k2 + (k1-1)*Nnode_v
-            buf(i,j,k) = field3d%local(n)%val(i2+(j2-1)*Nnode_h1D+(k2-1)*Nnode_h1D**2,kelem1)
+            i0_s = i0_s + lcmesh%NeX * refElem%Nnode_h1D
           end do
-          end do
-          end do
+          j0_s = j0_s + lcmesh%NeY * refElem%Nnode_h1D
+          i0_s = 0
         end do
-        end do
-        end do 
-        
-        i0_s = i0_s + lcmesh%NeX * refElem%Nnode_h1D
-        j0_s = j0_s + lcmesh%NeY * refElem%Nnode_h1D
         k0_s = k0_s + lcmesh%NeZ * refElem%Nnode_v
+        j0_s = 0
       end do
-      end do
-      end do
-      i0_s = 0; j0_s = 0
     end do
     
     return
@@ -1340,21 +1346,23 @@ contains
     i0_s = 0; j0_s = 0; k0_s = 0
 
     do k0=1, size(mesh3D%rcdomIJK2LCMeshID,3)  
-    do j0=1, size(mesh3D%rcdomIJK2LCMeshID,2)
-    do i0=1, size(mesh3D%rcdomIJK2LCMeshID,1)
-      n = mesh3D%rcdomIJK2LCMeshID(i0,j0,k0)
-      lcmesh => mesh3D%lcmesh_list(n)
-      refElem => lcmesh%refElem3D
+      do j0=1, size(mesh3D%rcdomIJK2LCMeshID,2)
+        do i0=1, size(mesh3D%rcdomIJK2LCMeshID,1)
+          n = mesh3D%rcdomIJK2LCMeshID(i0,j0,k0)
+          lcmesh => mesh3D%lcmesh_list(n)
+          refElem => lcmesh%refElem3D
 
-      call File_common_meshfield_set_cartesbuf_field3D_local(  &
-        lcmesh, buf(:,:,:), i0_s, j0_s, k0_s,                  &
-        field3d%local(n)%val(:,:)                              )
+          call File_common_meshfield_set_cartesbuf_field3D_local(  &
+            lcmesh, buf(:,:,:), i0_s, j0_s, k0_s,                  &
+            field3d%local(n)%val(:,:)                              )
 
-      i0_s = i0_s + lcmesh%NeX * refElem%Nnode_h1D
-      j0_s = j0_s + lcmesh%NeY * refElem%Nnode_h1D
+          i0_s = i0_s + lcmesh%NeX * refElem%Nnode_h1D
+        end do
+        j0_s = j0_s + lcmesh%NeY * refElem%Nnode_h1D
+        i0_s = 0
+      end do
       k0_s = k0_s + lcmesh%NeZ * refElem%Nnode_v
-    end do
-    end do
+      j0_s = 0
     end do
 
     return
@@ -1379,28 +1387,30 @@ contains
 
     do p0=1, size(mesh3D%rcdomIJKP2LCMeshID,4)
       do k0=1, size(mesh3D%rcdomIJKP2LCMeshID,3)
-      do j0=1, size(mesh3D%rcdomIJKP2LCMeshID,2)
-      do i0=1, size(mesh3D%rcdomIJKP2LCMeshID,1)
-        n = mesh3D%rcdomIJKP2LCMeshID(i0,j0,k0,p0)
-        lcmesh => mesh3D%lcmesh_list(n)
-        refElem => lcmesh%refElem3D
+        do j0=1, size(mesh3D%rcdomIJKP2LCMeshID,2)
+          do i0=1, size(mesh3D%rcdomIJKP2LCMeshID,1)
+            n = mesh3D%rcdomIJKP2LCMeshID(i0,j0,k0,p0)
+            lcmesh => mesh3D%lcmesh_list(n)
+            refElem => lcmesh%refElem3D
 
-        call File_common_meshfield_set_cartesbuf_field3D_local(  &
-          lcmesh, buf(:,:,:), i0_s, j0_s, k0_s,                  &
-          field3d%local(n)%val(:,:)                              )
+            call File_common_meshfield_set_cartesbuf_field3D_local(  &
+              lcmesh, buf(:,:,:), i0_s, j0_s, k0_s,                  &
+              field3d%local(n)%val(:,:)                              )
 
-        i0_s = i0_s + lcmesh%NeX * refElem%Nnode_h1D
-        j0_s = j0_s + lcmesh%NeY * refElem%Nnode_h1D
+            i0_s = i0_s + lcmesh%NeX * refElem%Nnode_h1D
+          end do
+          j0_s = j0_s + lcmesh%NeY * refElem%Nnode_h1D
+          i0_s = 0
+        end do
         k0_s = k0_s + lcmesh%NeZ * refElem%Nnode_v
+        j0_s = 0
       end do
-      end do
-      end do
-      i0_s = 0; j0_s = 0
     end do
 
     return
   end subroutine File_common_meshfield_set_cartesbuf_field3D_cubedsphere
 
+!OCL SERIAL
   subroutine File_common_meshfield_set_cartesbuf_field3D_local( &
     lcmesh, buf, i0_s, j0_s, k0_s,                              &
     val )
@@ -1418,6 +1428,8 @@ contains
 
     refElem => lcmesh%refElem3D
 
+    !$omp parallel do collapse(3) private( &
+    !$omp kelem1, k2,j2,i2, i,j,k, indx    )
     do k1=1, lcmesh%NeZ
     do j1=1, lcmesh%NeY
     do i1=1, lcmesh%NeX

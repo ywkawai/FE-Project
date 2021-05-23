@@ -222,8 +222,8 @@ contains
     !--- Construct the connectivity of patches  (only master node)
 
     call MesshCubeDom3D_assignDomID( this,    & ! (in)
-        & tileID_table, panelID_table,        & ! (out)
-        & pi_table, pj_table, pk_table )        ! (out)
+      tileID_table, panelID_table,            & ! (out)
+       pi_table, pj_table, pk_table )           ! (out)
     
     !--- Setup local meshes managed by my process
 
@@ -419,7 +419,6 @@ contains
       this%NprcX, this%NprcY, this%NprcZ )                                                    ! (in)
 
     !----
-    
 
     do p=1, this%PRC_NUM
     do n=1, this%LOCAL_MESH_NUM

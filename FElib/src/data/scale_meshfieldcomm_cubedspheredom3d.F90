@@ -156,11 +156,16 @@ contains
 
     integer :: i
     integer :: n
+    integer :: ke
+    integer :: ke2D
     type(Localmesh3D), pointer :: lcmesh
+    type(ElementBase3D), pointer :: elem
 
     integer :: varnum
     integer :: varid_e
     integer :: varid_vec_s
+
+    real(RP), allocatable :: G_ij(:,:,:,:)
     !-----------------------------------------------------------------------------
 
     varnum = size(field_list) 
@@ -184,9 +189,22 @@ contains
             .and.  associated(this%vec_covariant_comp_ptrlist(i)%u2 ) ) then
         
           do n=1, this%mesh3d%LOCAL_MESH_NUM
+            lcmesh => this%mesh3d%lcmesh_list(n)
+            elem => lcmesh%refElem3D
+
+            allocate( G_ij(elem%Np,lcmesh%Ne,2,2) )
+            !$omp parallel do private(ke2D)
+            do ke=lcmesh%NeS, lcmesh%NeE
+              ke2D = lcmesh%EMap3Dto2D(ke)
+              G_ij(:,ke,1,1) = lcmesh%G_ij(elem%IndexH2Dto3D(:),ke2D,1,1)
+              G_ij(:,ke,2,1) = lcmesh%G_ij(elem%IndexH2Dto3D(:),ke2D,2,1)
+              G_ij(:,ke,1,2) = lcmesh%G_ij(elem%IndexH2Dto3D(:),ke2D,1,2)
+              G_ij(:,ke,2,2) = lcmesh%G_ij(elem%IndexH2Dto3D(:),ke2D,2,2)
+            end do
+
             call set_boundary_data3D_u1u2( &
               this%recv_buf(:,varid_vec_s,n), this%recv_buf(:,varid_vec_s+1,n), & ! (in)
-              lcmesh%refElem3D, lcmesh, lcmesh%G_ij,                            & ! (in)
+              lcmesh%refElem3D, lcmesh, G_ij(:,:,:,:),                          & ! (in)
               this%vec_covariant_comp_ptrlist(i)%u1%local(n)%val,               & ! (out)
               this%vec_covariant_comp_ptrlist(i)%u2%local(n)%val                ) ! (out)
           end do
@@ -271,13 +289,14 @@ contains
             do varid=this%sfield_num+1, this%field_num_tot-1,2
               tmp_svec3D(:,1) = commdata%send_buf(:,varid  )
               tmp_svec3D(:,2) = commdata%send_buf(:,varid+1)
+  
               call CubedSphereCnv_CS2LonLatVec( &
                 lcmesh%panelID, lcfpos3D(:,1), lcfpos3D(:,2), Nnode_LCMeshFace(f), &
                 this%mesh3d%RPlanet,                                               &
                 tmp_svec3D(:,1), tmp_svec3D(:,2),                                  &
                 commdata%send_buf(:,varid), commdata%send_buf(:,varid+1)           )
-            end do
 
+            end do
             deallocate( lcfpos3D, tmp_svec3D )
           end if
         end if
@@ -346,6 +365,7 @@ contains
 
 !----------------------------
 
+!OCL SERIAL
   subroutine push_localsendbuf( lc_send_buf, send_buf, s_faceID, is, Nnode_LCMeshFace, var_num, &
       mesh3D, elem3D )
     implicit none
@@ -400,10 +420,11 @@ contains
     end subroutine revert_hori
   end subroutine push_localsendbuf
 
+!OCL SERIAL
   subroutine extract_boundary_data3D( var, elem, mesh, buf )
     implicit none
   
-    type(elementbase3D), intent(in) :: elem
+    type(ElementBase3D), intent(in) :: elem
     type(LocalMesh3D), intent(in) :: mesh
     real(DP), intent(in) :: var(elem%Np * mesh%Ne)
     real(DP), intent(inout) :: buf( 2*(mesh%NeX + mesh%NeY)*mesh%NeZ*elem%Nfp_h &
@@ -415,6 +436,7 @@ contains
     return
   end subroutine extract_boundary_data3D
 
+!OCL SERIAL
   subroutine set_boundary_data3D_u1u2( buf_U, buf_V, &
     elem, mesh, G_ij,                                &
     u1, u2)
