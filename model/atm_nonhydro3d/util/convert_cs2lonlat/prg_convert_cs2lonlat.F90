@@ -22,12 +22,14 @@ program convert_cs2lonlat
    use scale_prc, only: PRC_abort
 
    use mod_cs2lonlat_interp_mesh, only: &
-      out_mesh2D,               &
+      out_mesh2D, out_mesh3D,           &
+      is_mesh3D,                        &
       nodeMap_list  
    use mod_cs2lonlat_interp_field, only: &
       OutVarInfo,              &
-      out_var2D_num,           &
+      out_var_num,             &
       out_var2D,               &
+      out_var3D,               &
       out_vinfo,               &
       interp_field_Interpolate
    use mod_cs2lonlat_interp_file, only: &
@@ -70,17 +72,23 @@ program convert_cs2lonlat
    LOG_NEWLINE
    LOG_PROGRESS(*) 'START LOOP'
 
-   do vid =1, out_var2D_num
+   do vid =1, out_var_num
       vinfo => out_vinfo(vid)
       do istep=1, vinfo%num_step, vinfo%out_tintrv
          start_sec = vinfo%start_sec + (istep - 1) * vinfo%dt
 
          LOG_INFO("INTERP",'(a,i4)') 'Interpolate :' // trim(out_vinfo(vid)%varname) // " step=", istep
-         call interp_field_Interpolate( istep, vinfo%varname, &
-            out_mesh2D, out_var2D, nodeMap_list               )
-         call interp_file_write_var( vid, out_var2D,          &
-            start_sec, start_sec + vinfo%dt )
-         
+         if (is_mesh3D) then
+            call interp_field_Interpolate( istep, vinfo%varname, &
+               out_mesh3D, out_var3D, nodeMap_list               )
+            call interp_file_write_var( vid, out_var3D,          &
+               start_sec, start_sec + vinfo%dt )
+         else
+            call interp_field_Interpolate( istep, vinfo%varname, &
+               out_mesh2D, out_var2D, nodeMap_list               )
+            call interp_file_write_var( vid, out_var2D,          &
+               start_sec, start_sec + vinfo%dt )
+         end if
          if( IO_L ) call flush(IO_FID_LOG)      
       end do
    end do
@@ -169,9 +177,9 @@ contains
       LOG_NML(PARAM_INTERP)
     
       !
-      call interp_mesh_Init
-      call interp_field_Init( out_mesh2D, nodeMap_list )
-      call interp_file_Init( in_basename, out_vinfo, out_mesh2D )
+      call interp_mesh_Init()
+      call interp_field_Init( out_mesh2D, out_mesh3D, is_mesh3D, nodeMap_list )
+      call interp_file_Init( in_basename, out_vinfo, out_mesh2D, out_mesh3D, is_mesh3D )
 
       !-
       do_output = .true.
@@ -201,7 +209,7 @@ contains
       call PROF_rapstart ('Finalize', 0)
 
       call interp_file_Final
-      call interp_field_Final
+      call interp_field_Final(is_mesh3D)
       call interp_mesh_Final
 
       !
