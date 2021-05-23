@@ -1,0 +1,35 @@
+&PARAM_IO
+ IO_LOG_BASENAME = "cs2lonlat_LOG"
+ IO_LOG_ALLNODE = .true., 
+/
+&PARAM_INTERP_FIELD
+  !- input --------------------
+  in_basename="./history",     
+  vars = "q", "Vellon", "Vellat", "W", 
+  !out_tinterval = 5,
+/
+&PARAM_INTERP_FILE
+  !-- output ----------------
+  out_basename="./outdata/history", 
+  out_UniformGrid=.false., 
+/    
+&PARAM_INTERP_MESH
+  !-- input ----------------
+  in_Nprc             = 2,
+  in_NeGX             = 7, 
+  in_NeGY             = 7, 
+  in_NeGZ             = 8, 
+  in_PolyOrder_h      = 4, 
+  in_PolyOrder_v      = 4, 
+  in_NLocalMeshPerPrc = 3, 
+  dom_zmin         = 0.0D0, 
+  dom_zmax         = 12.0D3, 
+  !-- output ----------------      
+  out_NprcX = 2,       
+  out_NeX   = 16,         
+  out_NprcY = 2,       
+  out_NeY   = 8,  
+  out_NeZ   = 8, 
+  out_PolyOrder_h =4, 
+  out_PolyOrder_v =4, 
+/

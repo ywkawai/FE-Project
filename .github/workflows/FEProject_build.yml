@@ -117,6 +117,7 @@ jobs:
         make -C advect2dGlobal
         make -C advect2d_fvm
         make -C advect3d
+        make -C advect3dGlobal
         make -C advect3d_hevi
         make -C euler3d_hevi
 

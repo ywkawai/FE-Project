@@ -23,18 +23,19 @@ Futhermore, some dynamical cores of atmospheric and oceanic model with DGM will 
 
 ## Simple samples for intrduction to DGM. 
 ### 1D problems 
-  - linear advection equation
+  - Linear advection equation
     - various profiles of advected quantity
   - linear advection-diffusion equation
 
 ### 2D problems 
-  - linear advection equation in a rectangle domain
+  - Linear advection equation in a rectangle domain
     - various profiles of advected quantity and flow
-  - linear advection equation in a cubed sphere domain
+  - Linear advection equation in a cubed sphere domain
 
 ### 3D problems 
-  - linear advection equation in a cubic domain
+  - Linear advection equation in a cubic domain
     - various profiles of advected quantity
+  - Linear advection equation in a cubed sphere domain
   - Euler equation in a cubic domain
     - Test the propagation of sound waves with HEVI temporal methods
 
