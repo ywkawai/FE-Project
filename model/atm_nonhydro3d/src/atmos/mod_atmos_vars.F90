@@ -25,7 +25,6 @@ module mod_atmos_vars
   use scale_file_restart_meshfield, only: &
     FILE_restart_meshfield_component
   
-  use scale_meshfieldcomm_cubedom3d, only: MeshFieldCommCubeDom3D
   use scale_meshfieldcomm_base, only: MeshFieldContainer
 
   use scale_model_var_manager, only: &
@@ -44,14 +43,15 @@ module mod_atmos_vars
   type, public :: AtmosVars
     type(MeshField3D), allocatable :: PROG_VARS(:)
     type(ModelVarManager) :: PROGVARS_manager
-    type(MeshFieldCommCubeDom3D) :: PROGVARS_comm
+    integer :: PROG_VARS_commID
     
     type(MeshField3D), allocatable :: AUX_VARS(:)
     type(ModelVarManager) :: AUXVARS_manager 
-    type(MeshFieldCommCubeDom3D) :: AUXVARS_comm
+    integer :: AUX_VARS_commID
     
     type(MeshField3D), allocatable :: PHY_TEND(:)
     type(ModelVarManager) :: PHYTENDS_manager 
+    integer :: PHYTENDS_commID
 
     type(ModelVarManager) :: DIAGVARS_manager    
     integer, allocatable :: DIAGVARS_HISTID(:)
@@ -200,7 +200,7 @@ contains
     implicit none
 
     class(AtmosVars), target, intent(inout) :: this
-    class(AtmosMesh), intent(in) :: atm_mesh
+    class(AtmosMesh), intent(inout) :: atm_mesh
 
     integer :: iv
     integer :: n
@@ -234,6 +234,8 @@ contains
     logical :: is_specified
 
     integer :: DV_id
+
+    class(MeshBase3D), pointer :: mesh3D
     !--------------------------------------------------
 
     LOG_INFO('AtmosVars_Init',*)
@@ -249,6 +251,9 @@ contains
     endif
     LOG_NML(PARAM_ATMOS_VARS)
 
+    !- Set the pointer of mesh
+    mesh3D => atm_mesh%ptr_mesh
+
     !- Initialize prognostic variables
 
     call this%PROGVARS_manager%Init()
@@ -257,18 +262,21 @@ contains
     reg_file_hist = .true.    
     do iv = 1, ATMOS_PROGVARS_NUM
 
-      call this%PROGVARS_manager%Regist(         &
-        ATMOS_PROGVARS_VINFO(iv), atm_mesh%mesh, & ! (in) 
-        this%PROG_VARS(iv),                      & ! (inout)
-        reg_file_hist,  monitor_flag=.true.      ) ! (out)
+      call this%PROGVARS_manager%Regist(  &
+        ATMOS_PROGVARS_VINFO(iv), mesh3D,   & ! (in) 
+        this%PROG_VARS(iv),                 & ! (inout)
+        reg_file_hist,  monitor_flag=.true. ) ! (out)
 
-      do n = 1, atm_mesh%mesh%LOCAL_MESH_NUM
+      do n = 1, mesh3D%LOCAL_MESH_NUM
         this%PROG_VARS(iv)%local(n)%val(:,:) = 0.0_RP
       end do         
     end do
 
-    call this%PROGVARS_comm%Init(ATMOS_PROGVARS_NUM, 0, atm_mesh%mesh)
-    call this%PROGVARS_manager%MeshFieldComm_Prepair( this%PROGVARS_comm, this%PROG_VARS(:) )
+    call atm_mesh%Create_communicator( &
+      ATMOS_PROGVARS_NUM, 0,           & ! (in)
+      this%PROGVARS_manager,           & ! (inout)
+      this%PROG_VARS(:),               & ! (in)
+      this%PROG_VARS_commID            ) ! (out)
 
     LOG_NEWLINE
     LOG_INFO("ATMOS_vars_setup",*) 'List of prognostic variables (ATMOS) '
@@ -287,17 +295,21 @@ contains
     
     reg_file_hist = .true.
     do iv = 1, ATMOS_AUXVARS_NUM
-      call this%AUXVARS_manager%Regist(        &
-        ATMOS_AUXVARS_VINFO(iv), atm_mesh%mesh, & ! (in) 
-        this%AUX_VARS(iv), reg_file_hist        ) ! (out)
-      do n = 1, atm_mesh%mesh%LOCAL_MESH_NUM
+      call this%AUXVARS_manager%Regist(    &
+        ATMOS_AUXVARS_VINFO(iv), mesh3D,   & ! (in) 
+        this%AUX_VARS(iv), reg_file_hist   ) ! (out)
+      do n = 1, mesh3D%LOCAL_MESH_NUM
         this%AUX_VARS(iv)%local(n)%val(:,:) = 1.0_RP
       end do             
     end do
 
-    call this%AUXVARS_comm%Init(ATMOS_AUXVARS_NUM, 0, atm_mesh%mesh)
-    call this%AUXVARS_manager%MeshFieldComm_Prepair( this%AUXVARS_comm, this%AUX_VARS(:) )
+    call atm_mesh%Create_communicator( &
+      ATMOS_AUXVARS_NUM, 0,            & ! (in)
+      this%AUXVARS_manager,            & ! (inout)
+      this%AUX_VARS(:),                & ! (in)
+      this%AUX_VARS_commID             ) ! (out)
 
+    
     !- Initialize the tendency of physical processes
 
     call this%PHYTENDS_manager%Init()
@@ -305,10 +317,10 @@ contains
     
     reg_file_hist = .true.
     do iv = 1, ATMOS_PHYTEND_NUM
-      call this%PHYTENDS_manager%Regist(       &
-        ATMOS_PHYTEND_VINFO(iv), atm_mesh%mesh, & ! (in) 
-        this%PHY_TEND(iv), reg_file_hist        ) ! (out)
-      do n = 1, atm_mesh%mesh%LOCAL_MESH_NUM
+      call this%PHYTENDS_manager%Regist( &
+        ATMOS_PHYTEND_VINFO(iv), mesh3D, & ! (in) 
+        this%PHY_TEND(iv), reg_file_hist ) ! (out)
+      do n = 1, mesh3D%LOCAL_MESH_NUM
         this%PHY_TEND(iv)%local(n)%val(:,:) = 0.0_RP
       end do             
     end do
@@ -319,9 +331,9 @@ contains
 
     reg_file_hist = .true.
     do iv = 1, ATMOS_DIAGVARS_NUM
-      call this%DIAGVARS_manager%Regist(        &
-        ATMOS_DIAGVARS_VINFO(iv), atm_mesh%mesh, & ! (in) 
-        diag_vars(iv), reg_file_hist             ) ! (out)
+      call this%DIAGVARS_manager%Regist(             &
+        ATMOS_DIAGVARS_VINFO(iv), atm_mesh%ptr_mesh, & ! (in) 
+        diag_vars(iv), reg_file_hist                 ) ! (out)
       
       this%DIAGVARS_HISTID(iv) = diag_vars(iv)%hist_id
     end do
@@ -343,15 +355,13 @@ contains
     LOG_NML(PARAM_ATMOS_VARS_RESTART)
 
     if (is_specified) then
-      call this%restart_file%Init('ATMOS',                          &
+      call atm_mesh%Setup_restartfile( this%restart_file,           &
         IN_BASENAME, IN_POSTFIX_TIMELABEL,                          &
         OUT_BASENAME, OUT_POSTFIX_TIMELABEL, OUT_DTYPE, OUT_TITLE,  &
-        ATMOS_PROGVARS_NUM + ATMOS_AUXVARS_NUM,                     &
-        mesh3D=atm_mesh%mesh                    )
+        ATMOS_PROGVARS_NUM + ATMOS_AUXVARS_NUM                      )
     else
-      call this%restart_file%Init('ATMOS',      &
-        ATMOS_PROGVARS_NUM + ATMOS_AUXVARS_NUM, &
-        mesh3D=atm_mesh%mesh                    )
+      call atm_mesh%Setup_restartfile( this%restart_file, &
+        ATMOS_PROGVARS_NUM + ATMOS_AUXVARS_NUM            )
     end if
 
     !-----< monitor output setup >-----
@@ -393,9 +403,6 @@ contains
     LOG_INFO('AtmosVars_Final',*)
 
     call this%restart_file%Final()
-
-    call this%PROGVARS_comm%Final()
-    call this%AUXVARS_comm%Final()
 
     call this%PROGVARS_manager%Final()
     call this%AUXVARS_manager%Final()

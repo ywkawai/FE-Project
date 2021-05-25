@@ -6,6 +6,8 @@ module scale_model_mesh_manager
   !
   use scale_precision
   use scale_io
+  use scale_prc, only: &
+    PRC_abort
 
   use scale_mesh_base, only: MeshBase
   use scale_mesh_base1d, only: MeshBase1D
@@ -27,9 +29,12 @@ module scale_model_mesh_manager
     type(SparseMat), allocatable :: DOptrMat(:)
     type(SparseMat), allocatable :: SOptrMat(:)
     type(SparseMat) :: LiftOptrMat
+
+    integer :: communicator_num
   contains
     procedure :: ModelMeshBase_Init
     procedure :: ModelMeshBase_Final
+    procedure :: Get_communicatorID => ModelMeshBase_get_communicatorID
     procedure(ModelMeshBase_get_modelmesh), public, deferred :: GetModelMesh
   end type ModelMeshBase
   
@@ -86,10 +91,29 @@ contains
     integer :: d
     !--------------------------------------------
 
+    this%communicator_num = 0    
     allocate( this%SOptrMat(nDim), this%DOptrMat(nDim) )
 
     return
   end subroutine ModelMeshBase_Init
+
+  function ModelMeshBase_get_communicatorID( this, max_communicator_num ) result(commid)
+    implicit none
+    class(ModelMeshBase), intent(inout) :: this
+    integer, intent(in) :: max_communicator_num
+    integer :: commid
+    !--------------------------------------------
+
+    this%communicator_num = this%communicator_num + 1
+    commid = this%communicator_num
+
+    if ( commid > max_communicator_num ) then
+      LOG_ERROR('ModelMeshBase_get_communicatorID',*) 'The number of communicator exceeds expectation. Check!' 
+      call PRC_abort
+    end if
+
+    return
+  end function ModelMeshBase_get_communicatorID
 
   subroutine ModelMeshBase_Final( this )
     implicit none

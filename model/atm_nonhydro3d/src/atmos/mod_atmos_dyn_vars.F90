@@ -19,7 +19,6 @@ module mod_atmos_dyn_vars
   use scale_meshfield_base, only: MeshField3D, MeshField2D
   use scale_localmeshfield_base, only: LocalMeshFieldBase
 
-  use scale_meshfieldcomm_cubedom3d, only: MeshFieldCommCubeDom3D
   use scale_meshfieldcomm_base, only: MeshFieldContainer
   
   use scale_model_var_manager, only: &
@@ -42,11 +41,11 @@ module mod_atmos_dyn_vars
 
     type(MeshField3D), allocatable :: NUMDIFF_FLUX_VARS3D(:)
     type(ModelVarManager) :: NUMDIFF_FLUX_manager
-    type(MeshFieldCommCubeDom3D) :: NUMDIFF_FLUX_comm
+    integer :: NUMDIFF_FLUX_commid
 
     type(MeshField3D), allocatable :: NUMDIFF_TEND_VARS3D(:)
     type(ModelVarManager) :: NUMDIFF_TEND_manager
-    type(MeshFieldCommCubeDom3D) :: NUMDIFF_TEND_comm
+    integer :: NUMDIFF_TEND_commid
 
     type(MeshField3D), allocatable :: ANALYSIS_VARS3D(:)
     type(ModelVarManager) :: ANALYSISVARS_manager
@@ -131,6 +130,8 @@ module mod_atmos_dyn_vars
 
 contains
   subroutine AtmosDynVars_Init( this, model_mesh )
+    use mod_atmos_mesh_gm, only: AtmosMeshGM
+    use mod_atmos_mesh_rm, only: AtmosMeshRM
     implicit none
     class(AtmosDynVars), target, intent(inout) :: this
     class(ModelMeshBase), target, intent(in) :: model_mesh
@@ -151,12 +152,12 @@ contains
 
     nullify( atm_mesh )
     select type(model_mesh)
-    type is (AtmosMesh)
+    class is (AtmosMesh)
       atm_mesh => model_mesh
     end select
+    mesh3D => atm_mesh%ptr_mesh
     
-    mesh3D => atm_mesh%mesh
-    call atm_mesh%mesh%GetMesh2D( mesh2D )
+    call mesh3D%GetMesh2D( mesh2D )
 
     !-
     call this%AUXVARS2D_manager%Init()
@@ -168,7 +169,7 @@ contains
         ATMOS_DYN_AUXVARS2D_VINFO(v), mesh2D,               & ! (in) 
         this%AUX_VARS2D(v), reg_file_hist                   ) ! (out)
       
-      do n = 1, atm_mesh%mesh%LOCAL_MESH_NUM
+      do n = 1, mesh3D%LOCAL_MESH_NUM
         this%AUX_VARS2D(v)%local(n)%val(:,:) = 0.0_RP
       end do         
     end do
@@ -183,12 +184,16 @@ contains
         ATMOS_DYN_NUMDIFF_FLUX_VINFO(v), mesh3D,            & ! (in) 
         this%NUMDIFF_FLUX_VARS3D(v), reg_file_hist          ) ! (out)
       
-      do n = 1, atm_mesh%mesh%LOCAL_MESH_NUM
+      do n = 1, mesh3D%LOCAL_MESH_NUM
         this%NUMDIFF_FLUX_VARS3D(v)%local(n)%val(:,:) = 0.0_RP
       end do         
     end do
-    call this%NUMDIFF_FLUX_comm%Init( ATMOS_DYN_NUMDIFF_FLUX_NUM, 0, atm_mesh%mesh )
-    call this%NUMDIFF_FLUX_manager%MeshFieldComm_Prepair( this%NUMDIFF_FLUX_comm, this%NUMDIFF_FLUX_VARS3D(:) )
+
+    call atm_mesh%Create_communicator( &
+      ATMOS_DYN_NUMDIFF_FLUX_NUM, 0,   & ! (in)
+      this%NUMDIFF_FLUX_manager,       & ! (inout)
+      this%NUMDIFF_FLUX_VARS3D(:),     & ! (in)
+      this%NUMDIFF_FLUX_commid         ) ! (out)
 
     !-
     call this%NUMDIFF_TEND_manager%Init()
@@ -200,13 +205,16 @@ contains
         ATMOS_DYN_NUMDIFF_TEND_VINFO(v), mesh3D,            & ! (in) 
         this%NUMDIFF_TEND_VARS3D(v), reg_file_hist          ) ! (out)
       
-      do n = 1, atm_mesh%mesh%LOCAL_MESH_NUM
+      do n = 1,  mesh3D%LOCAL_MESH_NUM
         this%NUMDIFF_TEND_VARS3D(v)%local(n)%val(:,:) = 0.0_RP
       end do         
     end do
-    call this%NUMDIFF_TEND_comm%Init( ATMOS_DYN_NUMDIFF_TEND_NUM, 0, atm_mesh%mesh )
-    call this%NUMDIFF_TEND_manager%MeshFieldComm_Prepair( this%NUMDIFF_TEND_comm, this%NUMDIFF_TEND_VARS3D(:) )
 
+    call atm_mesh%Create_communicator( &
+      ATMOS_DYN_NUMDIFF_TEND_NUM, 0,   & ! (in)
+      this%NUMDIFF_TEND_manager,       & ! (inout)
+      this%NUMDIFF_TEND_VARS3D(:),     & ! (in)
+      this%NUMDIFF_TEND_commid         ) ! (out)
 
     !-
     ! call this%ANALYSISVARS_manager%Init()
@@ -231,11 +239,7 @@ contains
     LOG_INFO('AtmosDynVars_Final',*)
 
     call this%AUXVARS2D_manager%Final()
-
-    call this%NUMDIFF_FLUX_comm%Final()
     call this%NUMDIFF_FLUX_manager%Final()
-
-    call this%NUMDIFF_TEND_comm%Final()
     call this%NUMDIFF_TEND_manager%Final()
 
     !call this%ANALYSISVARS_manager%Final()

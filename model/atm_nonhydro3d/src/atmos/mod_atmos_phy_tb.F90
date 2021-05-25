@@ -144,7 +144,7 @@ contains
     select case( TB_TYPE )
     case ('SMAGORINSKY')
       this%TB_TYPEID = TB_TYPEID_SMAGORINSKY
-      call atm_phy_tb_dgm_smg_Init( atm_mesh%mesh )
+      call atm_phy_tb_dgm_smg_Init( atm_mesh%ptr_mesh )
     case default
       LOG_ERROR("ATMOS_PHY_TB_setup",*) 'Not appropriate names of TB_TYPE in namelist PARAM_ATMOS_PHY_TB. Check!'
       call PRC_abort

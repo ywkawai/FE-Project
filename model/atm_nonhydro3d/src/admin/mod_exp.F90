@@ -16,15 +16,18 @@ module mod_exp
     CPdry => CONST_CPdry, &
     CVdry => CONST_CVdry, &
     PRES00 => CONST_PRE00
-    
-  use scale_meshfield_base, only: MeshField3D
+
+  use scale_mesh_base3d, only: MeshBase3D    
   use scale_mesh_cubedom3d, only: MeshCubeDom3D
+  use scale_mesh_cubedspheredom3d, only: MeshCubedSphereDom3D
+  use scale_meshfieldcomm_base, only: MeshFieldCommBase
+  use scale_meshfieldcomm_cubedom3d, only: MeshFieldCommCubeDom3D  
+  use scale_meshfieldcomm_cubedspheredom3d, only: MeshFieldCommCubedSphereDom3D
+  use scale_meshfield_base, only: MeshField3D
   use scale_element_base, only: ElementBase3D
   use scale_element_hexahedral, only: HexahedralElement
   use scale_localmesh_3d, only: LocalMesh3D
-
   use scale_localmeshfield_base, only: LocalMeshFieldBase
-  use scale_meshfieldcomm_cubedom3d, only: MeshFieldCommCubeDom3D
 
   !-----------------------------------------------------------------------------
   implicit none
@@ -154,36 +157,56 @@ contains
 
     integer :: n
     class(LocalMesh3D), pointer :: lcmesh3D
-    class(MeshCubeDom3D), pointer :: mesh
+    class(MeshBase3D), pointer :: mesh
 
-    type(MeshFieldCommCubeDom3D) :: hydvars_comm
+    type(MeshFieldCommCubeDom3D), target :: hydvars_comm_rm
+    type(MeshFieldCommCubedSphereDom3D), target :: hydvars_comm_gm
+    class(MeshFieldCommBase), pointer :: hydvars_comm
     type(MeshFieldContainer) :: hydvars_comm_list(1)
     class(MeshFieldBase), pointer :: field_ptr
     !----------------------------------------------------------------------
     
-    mesh => model_mesh%mesh
+    mesh => model_mesh%ptr_mesh
     
     do n=1, mesh%LOCAL_MESH_NUM
       call AtmosVars_GetLocalMeshPrgVars( n, mesh, atm_prgvars_manager, atm_auxvars_manager, &
         DDENS, MOMX, MOMY, MOMZ, DRHOT,                                                     &
         DENS_hyd, PRES_hyd, lcmesh3D                                                        )
 
-      call this%setInitCond_lc( &
-        DENS_hyd%val, PRES_hyd%val,                                                         & ! (out)
-        DDENS%val, MOMX%val, MOMY%val, MOMZ%val, DRHOT%val,                                 & ! (out)
-        lcmesh3D%pos_en(:,:,1), lcmesh3D%pos_en(:,:,2), lcmesh3D%pos_en(:,:,3),             & ! (in)
-        mesh%xmin_gl, mesh%xmax_gl, mesh%ymin_gl, mesh%ymax_gl, mesh%zmin_gl, mesh%zmax_gl, & ! (in)
-        lcmesh3D, lcmesh3D%refElem3D )                                                        ! (in) 
+      select type (mesh)
+      type is (MeshCubeDom3D)
+        call this%setInitCond_lc( &
+          DENS_hyd%val, PRES_hyd%val,                                                         & ! (out)
+          DDENS%val, MOMX%val, MOMY%val, MOMZ%val, DRHOT%val,                                 & ! (out)
+          lcmesh3D%pos_en(:,:,1), lcmesh3D%pos_en(:,:,2), lcmesh3D%pos_en(:,:,3),             & ! (in)
+          mesh%xmin_gl, mesh%xmax_gl, mesh%ymin_gl, mesh%ymax_gl, mesh%zmin_gl, mesh%zmax_gl, & ! (in)
+          lcmesh3D, lcmesh3D%refElem3D )                                                        ! (in) 
+      type is (MeshCubedSphereDom3D)
+        call this%setInitCond_lc( &
+          DENS_hyd%val, PRES_hyd%val,                                                         & ! (out)
+          DDENS%val, MOMX%val, MOMY%val, MOMZ%val, DRHOT%val,                                 & ! (out)
+          lcmesh3D%pos_en(:,:,1), lcmesh3D%pos_en(:,:,2), lcmesh3D%pos_en(:,:,3),             & ! (in)
+          mesh%xmin_gl, mesh%xmax_gl, mesh%ymin_gl, mesh%ymax_gl, mesh%zmin_gl, mesh%zmax_gl, & ! (in)
+          lcmesh3D, lcmesh3D%refElem3D )                                                        ! (in)   
+      end select
     end do
 
     !------------------------------------------------------
-    call hydvars_comm%Init(1, 0, mesh)
 
     call atm_auxvars_manager%Get(ATMOS_AUXVARS_PRESHYDRO_ID, field_ptr)
     select type(field_ptr) 
     type is (MeshField3D)
       hydvars_comm_list(1)%field3d => field_ptr
     end select
+    select type (mesh)
+    type is (MeshCubeDom3D)
+      call hydvars_comm_rm%Init(1, 0, mesh)
+      hydvars_comm => hydvars_comm_rm
+    type is (MeshCubedSphereDom3D)
+      call hydvars_comm_gm%Init(1, 0, mesh)
+      hydvars_comm => hydvars_comm_gm
+    end select
+
     call hydvars_comm%Put(hydvars_comm_list, 1)
     call hydvars_comm%Exchange()
     call hydvars_comm%Get(hydvars_comm_list, 1)
@@ -208,7 +231,13 @@ contains
     call hydvars_comm%Put(hydvars_comm_list, 1)
     call hydvars_comm%Exchange()
     call hydvars_comm%Get(hydvars_comm_list, 1)
-    call hydvars_comm%Final()
+
+    select type (mesh)
+    type is (MeshCubeDom3D)
+      call hydvars_comm_rm%Final()
+    type is (MeshCubedSphereDom3D)
+      call hydvars_comm_gm%Final()
+    end select    
 
     return
   end subroutine exp_SetInitCond

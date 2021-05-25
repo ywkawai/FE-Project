@@ -163,7 +163,8 @@ contains
 
   subroutine FILE_restart_meshfield_component_Init1( this,  &
     comp_name,                                              &
-    var_num, mesh1D, mesh2D, meshCubedSphere2D, mesh3D )
+    var_num, mesh1D, mesh2D, meshCubedSphere2D,             &
+    mesh3D, meshCubedSphere3D                               )
 
   use scale_file_common_meshfield, only: &
     File_common_meshfield_get_dims  
@@ -177,15 +178,16 @@ contains
     class(MeshRectDom2D), target, optional, intent(in) :: mesh2D
     class(MeshCubedSphereDom2D), target, optional, intent(in) :: meshCubedSphere2D
     class(MeshCubeDom3D), target, optional, intent(in) :: mesh3D
+    class(MeshCubedSphereDom3D), target, optional, intent(in) :: meshCubedSphere3D
 
     !--------------------------------------------------
 
     call this%Init2( &
-      comp_name,                                                     &
-      restart_file%in_basename, restart_file%in_postfix_timelabel,   &
-      restart_file%out_basename, restart_file%out_postfix_timelabel, &
-      restart_file%out_dtype, restart_file%out_title,                &
-      var_num, mesh1D, mesh2D, meshCubedSphere2D, mesh3D )
+      comp_name,                                                            &
+      restart_file%in_basename, restart_file%in_postfix_timelabel,          &
+      restart_file%out_basename, restart_file%out_postfix_timelabel,        &
+      restart_file%out_dtype, restart_file%out_title,                       &
+      var_num, mesh1D, mesh2D, meshCubedSphere2D, mesh3D, meshCubedSphere3D )
 
     return
   end subroutine FILE_restart_meshfield_component_Init1

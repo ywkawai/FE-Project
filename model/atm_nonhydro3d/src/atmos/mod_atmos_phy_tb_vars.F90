@@ -24,7 +24,6 @@ module mod_atmos_phy_tb_vars
   use scale_file_restart_meshfield, only: &
     FILE_restart_meshfield_component
   
-  use scale_meshfieldcomm_cubedom3d, only: MeshFieldCommCubeDom3D
   use scale_meshfieldcomm_base, only: MeshFieldContainer
   
   use scale_model_var_manager, only: &
@@ -48,7 +47,7 @@ module mod_atmos_phy_tb_vars
 
     type(MeshField3D), allocatable :: auxvars(:)
     type(ModelVarManager) :: auxvars_manager
-    type(MeshFieldCommCubeDom3D) :: auxvars_comm
+    integer :: auxvars_commid
 
   contains
     procedure :: Init => AtmosPhyTbVars_Init
@@ -151,8 +150,8 @@ contains
       atm_mesh => model_mesh
     end select
     
-    mesh3D => atm_mesh%mesh
-    call atm_mesh%mesh%GetMesh2D( mesh2D )
+    mesh3D => atm_mesh%ptr_mesh
+    call mesh3D%GetMesh2D( mesh2D )
 
     !----
     call this%tends_manager%Init()
@@ -166,7 +165,7 @@ contains
         ATMOS_PHY_TB_TEND_VINFO(v), mesh3D,     & ! (in) 
         this%tends(v), reg_file_hist            ) ! (out)
       
-      do n = 1, atm_mesh%mesh%LOCAL_MESH_NUM
+      do n = 1, mesh3D%LOCAL_MESH_NUM
         this%tends(v)%local(n)%val(:,:) = 0.0_RP
       end do         
     end do
@@ -180,13 +179,16 @@ contains
         ATMOS_PHY_TB_AUX_VINFO(v), mesh3D,      & ! (in) 
         this%auxvars(v), reg_file_hist          ) ! (out)
       
-      do n = 1, atm_mesh%mesh%LOCAL_MESH_NUM
+      do n = 1, mesh3D%LOCAL_MESH_NUM
         this%auxvars(v)%local(n)%val(:,:) = 0.0_RP
       end do         
     end do
 
-    call this%auxvars_comm%Init( ATMOS_PHY_TB_AUX_NUM, 0, atm_mesh%mesh )
-    call this%auxvars_manager%MeshFieldComm_Prepair( this%auxvars_comm, this%auxvars )
+    call atm_mesh%Create_communicator( &
+      ATMOS_PHY_TB_AUX_NUM, 0,         & ! (in)
+      this%auxvars_manager,            & ! (inout)
+      this%auxvars(:),                 & ! (in)
+      this%auxvars_commid              ) ! (out)
 
     return
   end subroutine AtmosPhyTbVars_Init
@@ -199,7 +201,6 @@ contains
 
     LOG_INFO('AtmosPhyTbVars_Final',*)
 
-    call this%auxvars_comm%Final()
     call this%tends_manager%Final()
     call this%auxvars_manager%Final()
 

@@ -43,7 +43,7 @@ subroutine Atmos_setup( this )
   use scale_const, only: &
     UNDEF8 => CONST_UNDEF8
   implicit none
-  class(AtmosComponent), intent(inout) :: this
+  class(AtmosComponent), intent(inout), target :: this
 
   integer :: n
   !--------------------------------------------------

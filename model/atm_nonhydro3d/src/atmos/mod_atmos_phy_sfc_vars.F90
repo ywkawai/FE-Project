@@ -100,8 +100,8 @@ contains
       atm_mesh => model_mesh
     end select
     
-    mesh3D => atm_mesh%mesh
-    call atm_mesh%mesh%GetMesh2D( mesh2D )
+    mesh3D => atm_mesh%ptr_mesh
+    call mesh3D%GetMesh2D( mesh2D )
 
     !----
     call this%SFCFLX_manager%Init()
@@ -113,7 +113,7 @@ contains
         ATMOS_PHY_SF_SFLX_VINFO(v), mesh2D,       & ! (in) 
         this%SFC_FLX(v), reg_file_hist            ) ! (out)
       
-      do n = 1, atm_mesh%mesh%LOCAL_MESH_NUM
+      do n = 1, mesh3D%LOCAL_MESH_NUM
         this%SFC_FLX(v)%local(n)%val(:,:) = 0.0_RP
       end do         
     end do
