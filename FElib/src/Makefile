@@ -94,6 +94,7 @@ OBJS_NAME_FLUID_DYN_SOLVER = \
 	scale_atm_dyn_dgm_hydrostatic.o               \
 	scale_atm_dyn_dgm_nonhydro3d_numdiff.o        \
 	scale_atm_dyn_dgm_nonhydro2d.o                \
+	scale_atm_dyn_dgm_globalnonhydro3d_heve.o     \
 	scale_atm_dyn_dgm_nonhydro3d_heve.o           \
 	scale_atm_dyn_dgm_nonhydro3d_hevi.o           \
 	scale_atm_dyn_dgm_nonhydro3d_splitform_heve.o \
