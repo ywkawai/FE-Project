@@ -46,6 +46,11 @@ module mod_atmos_dyn
     atm_dyn_dgm_nonhydro3d_heve_Final,         &
     atm_dyn_dgm_nonhydro3d_heve_cal_tend
 
+  use scale_atm_dyn_dgm_globalnonhydro3d_heve, only: &
+    atm_dyn_dgm_globalnonhydro3d_heve_Init,          &
+    atm_dyn_dgm_globalnonhydro3d_heve_Final,         &
+    atm_dyn_dgm_globalnonhydro3d_heve_cal_tend
+
   use scale_atm_dyn_dgm_nonhydro3d_hevi, only: &
     atm_dyn_dgm_nonhydro3d_hevi_Init,          &
     atm_dyn_dgm_nonhydro3d_hevi_Final,         &
@@ -211,9 +216,10 @@ module mod_atmos_dyn
   !-----------------------------------------------------------------------------
   
   integer, public, parameter :: EQS_TYPEID_NONHYD3D_HEVE           = 1
-  integer, public, parameter :: EQS_TYPEID_NONHYD3D_SPLITFORM_HEVE = 2
-  integer, public, parameter :: EQS_TYPEID_NONHYD3D_HEVI           = 3
-  integer, public, parameter :: EQS_TYPEID_NONHYD3D_SPLITFORM_HEVI = 4
+  integer, public, parameter :: EQS_TYPEID_GLOBALNONHYD3D_HEVE     = 2
+  integer, public, parameter :: EQS_TYPEID_NONHYD3D_SPLITFORM_HEVE = 3
+  integer, public, parameter :: EQS_TYPEID_NONHYD3D_HEVI           = 4
+  integer, public, parameter :: EQS_TYPEID_NONHYD3D_SPLITFORM_HEVI = 5
 
 
   !-----------------------------------------------------------------------------
@@ -331,6 +337,11 @@ contains
       call atm_dyn_dgm_nonhydro3d_heve_Init( mesh3D )
       this%cal_tend_ex => atm_dyn_dgm_nonhydro3d_heve_cal_tend
       this%cal_vi => null()
+    case("GLOBALNONHYDRO3D_HEVE")
+      this%EQS_TYPEID = EQS_TYPEID_GLOBALNONHYD3D_HEVE
+      call atm_dyn_dgm_globalnonhydro3d_heve_Init( mesh3D )
+      this%cal_tend_ex => atm_dyn_dgm_globalnonhydro3d_heve_cal_tend
+      this%cal_vi => null()
     case("NONHYDRO3D_SPLITFORM_HEVE")
       this%EQS_TYPEID = EQS_TYPEID_NONHYD3D_SPLITFORM_HEVE
       call atm_dyn_dgm_nonhydro3d_heve_splitform_Init( mesh3D )
@@ -401,7 +412,6 @@ contains
     integer :: tintbuf_ind
 
     class(MeshBase), pointer :: mesh
-    class(MeshBase2D), pointer :: mesh2D    
     class(LocalMesh3D), pointer :: lcmesh
     integer :: n
     integer :: ke
@@ -414,7 +424,6 @@ contains
     integer :: v
     real(RP) :: implicit_fac
     real(RP) :: dt
-    character(len=H_SHORT) :: labl
     !--------------------------------------------------
     
     call PROF_rapstart( 'ATM_DYN_update', 1)   
@@ -742,7 +751,6 @@ contains
     class(MeshBase), pointer :: mesh
     class(LocalMesh3D), pointer :: lcmesh
     integer :: n
-    integer :: ke
     integer :: nd_itr
     real(RP) :: nd_sign
     logical :: dens_weight_flag

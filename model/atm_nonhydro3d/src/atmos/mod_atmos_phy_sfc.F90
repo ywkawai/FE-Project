@@ -158,7 +158,6 @@ contains
     logical, intent(in) :: is_update
 
     class(MeshBase), pointer :: mesh
-    class(MeshBase2D), pointer :: mesh2D    
     class(LocalMesh3D), pointer :: lcmesh
 
     class(LocalMeshFieldBase), pointer :: DDENS, MOMX, MOMY, MOMZ, DRHOT

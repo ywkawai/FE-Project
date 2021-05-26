@@ -96,11 +96,11 @@ contains
 
     nullify( atm_mesh )
     select type(model_mesh)
-    type is (AtmosMesh)
+    class is (AtmosMesh)
       atm_mesh => model_mesh
     end select
-    
     mesh3D => atm_mesh%ptr_mesh
+
     call mesh3D%GetMesh2D( mesh2D )
 
     !----

@@ -13,6 +13,7 @@ module mod_atmos_dyn_vars
   use scale_localmesh_base, only: LocalMeshBase
   use scale_localmesh_2d, only: LocalMesh2D
   use scale_localmesh_3d, only: LocalMesh3D
+  use scale_mesh_base, only: MeshBase
   use scale_mesh_base2d, only: MeshBase2D  
   use scale_mesh_base3d, only: MeshBase3D
 
@@ -130,8 +131,6 @@ module mod_atmos_dyn_vars
 
 contains
   subroutine AtmosDynVars_Init( this, model_mesh )
-    use mod_atmos_mesh_gm, only: AtmosMeshGM
-    use mod_atmos_mesh_rm, only: AtmosMeshRM
     implicit none
     class(AtmosDynVars), target, intent(inout) :: this
     class(ModelMeshBase), target, intent(in) :: model_mesh
@@ -252,8 +251,8 @@ contains
     implicit none
     class(AtmosDynVars), intent(in) :: this
 
-    integer :: v
-    integer :: hst_id
+    ! integer :: v
+    ! integer :: hst_id
     !-------------------------------------------------------------------------
 
     ! do v = 1, ATMOS_DYN_ANALYSISVARS_NUM

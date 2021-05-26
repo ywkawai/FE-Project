@@ -233,8 +233,6 @@ contains
     integer :: ierr
     logical :: is_specified
 
-    integer :: DV_id
-
     class(MeshBase3D), pointer :: mesh3D
     !--------------------------------------------------
 
@@ -418,13 +416,10 @@ contains
     implicit none
     class(AtmosVars), intent(inout) :: this
   
-    integer :: n
     integer :: v
-    class(MeshBase3D), pointer :: mesh3D
-    class(LocalMesh3D), pointer :: lcmesh
     integer :: hst_id
-
     type(MeshField3D) :: tmp_field
+    class(MeshBase3D), pointer :: mesh3D
     !-------------------------------------------------------------------------
 
     mesh3D => this%PROG_VARS(1)%mesh
@@ -953,7 +948,7 @@ contains
     real(RP), intent(in) :: PRES_hyd(elem%Np,lcmesh%NeA)
 
     integer :: ke
-    real(RP) :: RHOT(elem%Np), DENS(elem%Np), PRES(elem%Np), THETA(elem%Np), TEMP(elem%Np)
+    real(RP) :: RHOT(elem%Np), DENS(elem%Np), PRES(elem%Np)
 
     !-------------------------------------------------------------------------
 
