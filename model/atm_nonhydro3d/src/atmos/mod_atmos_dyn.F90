@@ -45,12 +45,7 @@ module mod_atmos_dyn
     atm_dyn_dgm_nonhydro3d_heve_Init,          &
     atm_dyn_dgm_nonhydro3d_heve_Final,         &
     atm_dyn_dgm_nonhydro3d_heve_cal_tend
-
-  use scale_atm_dyn_dgm_globalnonhydro3d_heve, only: &
-    atm_dyn_dgm_globalnonhydro3d_heve_Init,          &
-    atm_dyn_dgm_globalnonhydro3d_heve_Final,         &
-    atm_dyn_dgm_globalnonhydro3d_heve_cal_tend
-
+    
   use scale_atm_dyn_dgm_nonhydro3d_hevi, only: &
     atm_dyn_dgm_nonhydro3d_hevi_Init,          &
     atm_dyn_dgm_nonhydro3d_hevi_Final,         &
@@ -67,6 +62,18 @@ module mod_atmos_dyn
     atm_dyn_dgm_nonhydro3d_hevi_splitform_Final,         &
     atm_dyn_dgm_nonhydro3d_hevi_splitform_cal_tend,      &
     atm_dyn_dgm_nonhydro3d_hevi_splitform_cal_vi    
+  
+  use scale_atm_dyn_dgm_globalnonhydro3d_heve, only: &
+    atm_dyn_dgm_globalnonhydro3d_heve_Init,          &
+    atm_dyn_dgm_globalnonhydro3d_heve_Final,         &
+    atm_dyn_dgm_globalnonhydro3d_heve_cal_tend    
+  
+  use scale_atm_dyn_dgm_globalnonhydro3d_hevi, only: &
+    atm_dyn_dgm_globalnonhydro3d_hevi_Init,          &
+    atm_dyn_dgm_globalnonhydro3d_hevi_Final,         &
+    atm_dyn_dgm_globalnonhydro3d_hevi_cal_tend,      &
+    atm_dyn_dgm_globalnonhydro3d_hevi_cal_vi
+
   
   use scale_atm_dyn_dgm_nonhydro3d_numdiff, only: &
     atm_dyn_dgm_nonhydro3d_numdiff_Init,          &
@@ -217,9 +224,10 @@ module mod_atmos_dyn
   
   integer, public, parameter :: EQS_TYPEID_NONHYD3D_HEVE           = 1
   integer, public, parameter :: EQS_TYPEID_GLOBALNONHYD3D_HEVE     = 2
-  integer, public, parameter :: EQS_TYPEID_NONHYD3D_SPLITFORM_HEVE = 3
-  integer, public, parameter :: EQS_TYPEID_NONHYD3D_HEVI           = 4
-  integer, public, parameter :: EQS_TYPEID_NONHYD3D_SPLITFORM_HEVI = 5
+  integer, public, parameter :: EQS_TYPEID_GLOBALNONHYD3D_HEVI     = 3
+  integer, public, parameter :: EQS_TYPEID_NONHYD3D_SPLITFORM_HEVE = 4
+  integer, public, parameter :: EQS_TYPEID_NONHYD3D_HEVI           = 5
+  integer, public, parameter :: EQS_TYPEID_NONHYD3D_SPLITFORM_HEVI = 6
 
 
   !-----------------------------------------------------------------------------
@@ -342,6 +350,11 @@ contains
       call atm_dyn_dgm_globalnonhydro3d_heve_Init( mesh3D )
       this%cal_tend_ex => atm_dyn_dgm_globalnonhydro3d_heve_cal_tend
       this%cal_vi => null()
+    case("GLOBALNONHYDRO3D_HEVI")
+      this%EQS_TYPEID = EQS_TYPEID_GLOBALNONHYD3D_HEVI
+      call atm_dyn_dgm_globalnonhydro3d_hevi_Init( mesh3D )
+      this%cal_tend_ex => atm_dyn_dgm_globalnonhydro3d_hevi_cal_tend
+      this%cal_vi => atm_dyn_dgm_globalnonhydro3d_hevi_cal_vi
     case("NONHYDRO3D_SPLITFORM_HEVE")
       this%EQS_TYPEID = EQS_TYPEID_NONHYD3D_SPLITFORM_HEVE
       call atm_dyn_dgm_nonhydro3d_heve_splitform_Init( mesh3D )
@@ -628,6 +641,10 @@ contains
     select case(this%EQS_TYPEID)
     case(EQS_TYPEID_NONHYD3D_HEVE)
       call atm_dyn_dgm_nonhydro3d_heve_Final()
+    case(EQS_TYPEID_GLOBALNONHYD3D_HEVE)
+      call atm_dyn_dgm_globalnonhydro3d_heve_Final()
+    case(EQS_TYPEID_GLOBALNONHYD3D_HEVI)
+      call atm_dyn_dgm_globalnonhydro3d_hevi_Final()
     case(EQS_TYPEID_NONHYD3D_HEVI)  
       call atm_dyn_dgm_nonhydro3d_hevi_Final()
     case(EQS_TYPEID_NONHYD3D_SPLITFORM_HEVI)  
