@@ -20,8 +20,12 @@ module scale_quicksort
   !  
 
   interface QUICKSORT_exec_with_idx
-    module procedure QUICKSORT_exec_with_idx_int
-    module procedure QUICKSORT_exec_with_idx_real_RP
+    module procedure QUICKSORT_exec_with_idx4_int4
+    module procedure QUICKSORT_exec_with_idx4_int8
+    module procedure QUICKSORT_exec_with_idx4_real_RP
+    module procedure QUICKSORT_exec_with_idx8_int4
+    module procedure QUICKSORT_exec_with_idx8_int8
+    module procedure QUICKSORT_exec_with_idx8_real_RP
   end interface QUICKSORT_exec_with_idx
   
   public :: QUICKSORT_exec_with_idx
@@ -30,34 +34,67 @@ contains
   
   !- private routines -------------------------------------
 
-  subroutine QUICKSORT_exec_with_idx_int( npoints, val, indx )
+  subroutine QUICKSORT_exec_with_idx4_int4( npoints, val, indx )
     integer, intent(in) :: npoints
-    integer, intent(inout) :: val(npoints)
-    integer, intent(inout) :: indx(npoints)
+    integer(kind=4), intent(inout) :: val(npoints)
+    integer(kind=4), intent(inout) :: indx(npoints)
 
     !-------------------------------
-    call quicksort_core_int(val, indx, 1, npoints)
-  end subroutine QUICKSORT_exec_with_idx_int
-  subroutine QUICKSORT_exec_with_idx_real_RP( npoints, val, indx )
+    call quicksort_core_idx4_int4(val, indx, 1, npoints)
+  end subroutine QUICKSORT_exec_with_idx4_int4
+  subroutine QUICKSORT_exec_with_idx4_int8( npoints, val, indx )
+    integer, intent(in) :: npoints
+    integer(kind=8), intent(inout) :: val(npoints)
+    integer(kind=4), intent(inout) :: indx(npoints)
+
+    !-------------------------------
+    call quicksort_core_idx4_int8(val, indx, 1, npoints)
+  end subroutine QUICKSORT_exec_with_idx4_int8
+  subroutine QUICKSORT_exec_with_idx4_real_RP( npoints, val, indx )
     integer, intent(in) :: npoints
     real(RP), intent(inout) :: val(npoints)
-    integer, intent(inout) :: indx(npoints)
+    integer(kind=4), intent(inout) :: indx(npoints)
 
     !-------------------------------
-    call quicksort_core_real_RP(val, indx, 1, npoints)
-  end subroutine QUICKSORT_exec_with_idx_real_RP
+    call quicksort_core_idx4_real_RP(val, indx, 1, npoints)
+  end subroutine QUICKSORT_exec_with_idx4_real_RP
+  subroutine QUICKSORT_exec_with_idx8_int4( npoints, val, indx )
+    integer, intent(in) :: npoints
+    integer(kind=4), intent(inout) :: val(npoints)
+    integer(kind=8), intent(inout) :: indx(npoints)
+
+    !-------------------------------
+    call quicksort_core_idx8_int4(val, indx, 1, npoints)
+  end subroutine QUICKSORT_exec_with_idx8_int4
+  subroutine QUICKSORT_exec_with_idx8_int8( npoints, val, indx )
+    integer, intent(in) :: npoints
+    integer(kind=8), intent(inout) :: val(npoints)
+    integer(kind=8), intent(inout) :: indx(npoints)
+
+    !-------------------------------
+    call quicksort_core_idx8_int8(val, indx, 1, npoints)
+  end subroutine QUICKSORT_exec_with_idx8_int8
+  subroutine QUICKSORT_exec_with_idx8_real_RP( npoints, val, indx )
+    integer, intent(in) :: npoints
+    real(RP), intent(inout) :: val(npoints)
+    integer(kind=8), intent(inout) :: indx(npoints)
+
+    !-------------------------------
+    call quicksort_core_idx8_real_RP(val, indx, 1, npoints)
+  end subroutine QUICKSORT_exec_with_idx8_real_RP
 
   !-- private ------------------------------------------------
 
-  recursive subroutine quicksort_core_int(key, ind, first, last)
+  recursive subroutine quicksort_core_idx4_int4(key, ind, first, last)
     implicit none
     
-    integer, intent(inout) :: key(:)
-    integer, intent(inout) :: ind(:)
+    integer(kind=4), intent(inout) :: key(:)
+    integer(kind=4), intent(inout) :: ind(:)
     integer, intent(in) :: first, last
 
-    integer :: x, tmp
-    integer :: i, j, tmp_i
+    integer(kind=4) :: x, tmp
+    integer :: i, j
+    integer(kind=4) :: tmp_ind
     !-------------------------------
 
     x = key( (first + last)/2 )
@@ -75,25 +112,63 @@ contains
       
       ! swap
       tmp = key(i); key(i) = key(j); key(j) = tmp
-      tmp_i = ind(i); ind(i) = ind(j); ind(j) = tmp_i
+      tmp_ind = ind(i); ind(i) = ind(j); ind(j) = tmp_ind
 
       i = i + 1; j = j - 1
     end do
 
-    if ( first < i-1 ) call quicksort_core_int(key, ind, first, i-1)
-    if ( j+1 < last )  call quicksort_core_int(key, ind, j+1, last)
+    if ( first < i-1 ) call quicksort_core_idx4_int4(key, ind, first, i-1)
+    if ( j+1 < last )  call quicksort_core_idx4_int4(key, ind, j+1, last)
 
     return
-  end subroutine quicksort_core_int
-  recursive subroutine quicksort_core_real_RP(key, ind, first, last)
+  end subroutine quicksort_core_idx4_int4
+  recursive subroutine quicksort_core_idx4_int8(key, ind, first, last)
+    implicit none
+    
+    integer(kind=8), intent(inout) :: key(:)
+    integer(kind=4), intent(inout) :: ind(:)
+    integer, intent(in) :: first, last
+
+    integer(kind=8) :: x, tmp
+    integer :: i, j
+    integer(kind=4) :: tmp_ind
+    !-------------------------------
+
+    x = key( (first + last)/2 )
+    i = first
+    j = last
+
+    do 
+      do while ( key(i) < x )
+        i = i + 1
+      end do
+      do while ( x < key(j) )
+        j = j - 1
+      end do
+      if ( i >= j ) exit
+      
+      ! swap
+      tmp = key(i); key(i) = key(j); key(j) = tmp
+      tmp_ind = ind(i); ind(i) = ind(j); ind(j) = tmp_ind
+
+      i = i + 1; j = j - 1
+    end do
+
+    if ( first < i-1 ) call quicksort_core_idx4_int8(key, ind, first, i-1)
+    if ( j+1 < last )  call quicksort_core_idx4_int8(key, ind, j+1, last)
+
+    return
+  end subroutine quicksort_core_idx4_int8
+  recursive subroutine quicksort_core_idx4_real_RP(key, ind, first, last)
     implicit none
     
     real(RP), intent(inout) :: key(:)
-    integer, intent(inout) :: ind(:)
+    integer(kind=4), intent(inout) :: ind(:)
     integer, intent(in) :: first, last
 
     real(RP) :: x, tmp
-    integer :: i, j, tmp_i
+    integer :: i, j
+    integer(kind=4) :: tmp_ind
     !-------------------------------
 
     x = key( (first + last)/2 )
@@ -111,14 +186,125 @@ contains
       
       ! swap
       tmp = key(i); key(i) = key(j); key(j) = tmp
-      tmp_i = ind(i); ind(i) = ind(j); ind(j) = tmp_i
+      tmp_ind = ind(i); ind(i) = ind(j); ind(j) = tmp_ind
 
       i = i + 1; j = j - 1
     end do
 
-    if ( first < i-1 ) call quicksort_core_real_RP(key, ind, first, i-1)
-    if ( j+1 < last )  call quicksort_core_real_RP(key, ind, j+1, last)
+    if ( first < i-1 ) call quicksort_core_idx4_real_RP(key, ind, first, i-1)
+    if ( j+1 < last )  call quicksort_core_idx4_real_RP(key, ind, j+1, last)
 
     return
-  end subroutine quicksort_core_real_RP
+  end subroutine quicksort_core_idx4_real_RP
+  recursive subroutine quicksort_core_idx8_int4(key, ind, first, last)
+    implicit none
+    
+    integer(kind=4), intent(inout) :: key(:)
+    integer(kind=8), intent(inout) :: ind(:)
+    integer, intent(in) :: first, last
+
+    integer(kind=4) :: x, tmp
+    integer :: i, j
+    integer(kind=8) :: tmp_ind
+    !-------------------------------
+
+    x = key( (first + last)/2 )
+    i = first
+    j = last
+
+    do 
+      do while ( key(i) < x )
+        i = i + 1
+      end do
+      do while ( x < key(j) )
+        j = j - 1
+      end do
+      if ( i >= j ) exit
+      
+      ! swap
+      tmp = key(i); key(i) = key(j); key(j) = tmp
+      tmp_ind = ind(i); ind(i) = ind(j); ind(j) = tmp_ind
+
+      i = i + 1; j = j - 1
+    end do
+
+    if ( first < i-1 ) call quicksort_core_idx8_int4(key, ind, first, i-1)
+    if ( j+1 < last )  call quicksort_core_idx8_int4(key, ind, j+1, last)
+
+    return
+  end subroutine quicksort_core_idx8_int4
+  recursive subroutine quicksort_core_idx8_int8(key, ind, first, last)
+    implicit none
+    
+    integer(kind=8), intent(inout) :: key(:)
+    integer(kind=8), intent(inout) :: ind(:)
+    integer, intent(in) :: first, last
+
+    integer(kind=8) :: x, tmp
+    integer :: i, j
+    integer(kind=8) :: tmp_ind
+    !-------------------------------
+
+    x = key( (first + last)/2 )
+    i = first
+    j = last
+
+    do 
+      do while ( key(i) < x )
+        i = i + 1
+      end do
+      do while ( x < key(j) )
+        j = j - 1
+      end do
+      if ( i >= j ) exit
+      
+      ! swap
+      tmp = key(i); key(i) = key(j); key(j) = tmp
+      tmp_ind = ind(i); ind(i) = ind(j); ind(j) = tmp_ind
+
+      i = i + 1; j = j - 1
+    end do
+
+    if ( first < i-1 ) call quicksort_core_idx8_int8(key, ind, first, i-1)
+    if ( j+1 < last )  call quicksort_core_idx8_int8(key, ind, j+1, last)
+
+    return
+  end subroutine quicksort_core_idx8_int8
+  recursive subroutine quicksort_core_idx8_real_RP(key, ind, first, last)
+    implicit none
+    
+    real(RP), intent(inout) :: key(:)
+    integer(kind=8), intent(inout) :: ind(:)
+    integer, intent(in) :: first, last
+
+    real(RP) :: x, tmp
+    integer :: i, j
+    integer(kind=8) :: tmp_ind
+    !-------------------------------
+
+    x = key( (first + last)/2 )
+    i = first
+    j = last
+
+    do 
+      do while ( key(i) < x )
+        i = i + 1
+      end do
+      do while ( x < key(j) )
+        j = j - 1
+      end do
+      if ( i >= j ) exit
+      
+      ! swap
+      tmp = key(i); key(i) = key(j); key(j) = tmp
+      tmp_ind = ind(i); ind(i) = ind(j); ind(j) = tmp_ind
+
+      i = i + 1; j = j - 1
+    end do
+
+    if ( first < i-1 ) call quicksort_core_idx8_real_RP(key, ind, first, i-1)
+    if ( j+1 < last )  call quicksort_core_idx8_real_RP(key, ind, j+1, last)
+
+    return
+  end subroutine quicksort_core_idx8_real_RP
 end module scale_quicksort
