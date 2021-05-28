@@ -129,17 +129,18 @@ contains
     lcmesh, elem )
     
     use scale_const, only: &
-      PI => CONST_PI,       &
-      GRAV => CONST_GRAV,   &
-      Rdry => CONST_Rdry,   &
-      CPdry => CONST_CPdry, &
-      CVdry => CONST_CVdry, &
-      PRES00 => CONST_PRE00
+      PI => CONST_PI,        &
+      GRAV => CONST_GRAV,    &
+      Rdry => CONST_Rdry,    &
+      CPdry => CONST_CPdry,  &
+      CVdry => CONST_CVdry,  &
+      PRES00 => CONST_PRE00, &
+      RPlanet => CONST_RADIUS
     
     use scale_atm_dyn_dgm_hydrostatic, only: &
-      hydrostatic_calc_basicstate_constPT
+      hydrostatic_calc_basicstate_constT
     use mod_mkinit_util, only: &
-      mkinitutil_calc_cosinebell
+      mkinitutil_calc_cosinebell_global
   
     implicit none
 
@@ -161,18 +162,19 @@ contains
     real(RP), intent(in) :: dom_zmin, dom_zmax
     
     real(RP) :: TEMP0 = 300.0_RP
-    real(RP) :: DPRES = 1.0_RP
-    real(RP) :: x_c, y_c, z_c
-    real(RP) :: r_x, r_y, r_z
-
+    real(RP) :: DPRES = 100.0_RP
+    real(RP) :: lonc, latc
+    real(RP) :: rh
+    integer :: nv
+    real(RP) :: Zt
     namelist /PARAM_EXP/ &
       TEMP0, DPRES,             &
-      x_c, y_c, z_c,            &
-      r_x, r_y, r_z
-
-    integer, parameter :: IntrpPolyOrder_h = 6
-    integer, parameter :: IntrpPolyOrder_v = 6
+      lonc, latc, rh,           &
+      nv
+    integer, parameter :: IntrpPolyOrder_h = 8
+    integer, parameter :: IntrpPolyOrder_v = 8
     real(RP), allocatable :: PRES_purtub(:,:)
+    real(RP) :: pres(elem%Np)
   
     real(RP) :: rgamm
 
@@ -180,13 +182,10 @@ contains
     integer :: ierr
     !-----------------------------------------------------------------------------
 
-    x_c = 0.5_RP * (dom_xmax + dom_xmin)
-    y_c = 0.5_RP * (dom_ymax + dom_ymin)
-    z_c = 0.5_RP * (dom_zmax + dom_zmin)
-
-    r_x = 0.1_RP * (dom_xmax - dom_xmin)
-    r_y = 0.1_RP * (dom_ymax - dom_ymin)
-    r_z = 0.1_RP * (dom_zmax - dom_zmin)
+    rh = RPlanet / 3.0_RP
+    lonc = 0.0_RP
+    latc = 0.0_RP
+    nv   = 1
 
     rewind(IO_FID_CONF)
     read(IO_FID_CONF,nml=PARAM_EXP,iostat=ierr)
@@ -201,24 +200,26 @@ contains
     !---
 
     allocate( PRES_purtub(elem%Np,lcmesh%NeA) )
-    ! call mkinitutil_calc_cosinebell( &
-    !   PRES_purtub,                           &
-    !   DPRES, r_x, r_y, r_z, x_c, y_c, z_c,   &
-    !   x, y, z, lcmesh, elem,                 &
-    !   IntrpPolyOrder_h, IntrpPolyOrder_v     )  
+    call mkinitutil_calc_cosinebell_global( &
+      PRES_purtub,                           &
+      DPRES, rh, lonc, latc, RPlanet,        &
+      x, y, z, lcmesh, elem,                 &
+      IntrpPolyOrder_h, IntrpPolyOrder_v     )  
     
-    call hydrostatic_calc_basicstate_constPT( DENS_hyd, PRES_hyd,                      &
+    call hydrostatic_calc_basicstate_constT( DENS_hyd, PRES_hyd,                       &
       TEMP0, PRES00, lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2), lcmesh%pos_en(:,:,3), &
       lcmesh, elem )
     
     !---
     rgamm = CvDry / CpDry
+    Zt = dom_zmax - dom_zmin
 
-    !$omp parallel do
+    !$omp parallel do private(pres)
     do ke=lcmesh%NeS, lcmesh%NeE
-      DRHOT(:,ke) = 0.0_RP!PRES00/Rdry * ( &
-!          ( ( PRES_hyd(:,ke) + PRES_purtub(:,ke) ) / PRES00 )**rgamm &
-!        - ( PRES_hyd(:,ke) / PRES00 )*rgamm                          )
+      pres(:) = PRES_hyd(:,ke) + PRES_purtub(:,ke) * sin( dble(nv) * PI * z(:,ke) / Zt )
+      DRHOT(:,ke) = PRES00/Rdry * ( &
+         ( pres(:) / PRES00 )**rgamm          &
+       - ( PRES_hyd(:,ke) / PRES00 )**rgamm   )
     end do
 
     return

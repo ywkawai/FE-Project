@@ -218,7 +218,7 @@ contains
     do ke=lcmesh%NeS, lcmesh%NeE
       DRHOT(:,ke) = PRES00/Rdry * ( &
           ( ( PRES_hyd(:,ke) + PRES_purtub(:,ke) ) / PRES00 )**rgamm &
-        - ( PRES_hyd(:,ke) / PRES00 )*rgamm                          )
+        - ( PRES_hyd(:,ke) / PRES00 )**rgamm                         )
     end do
 
     return
