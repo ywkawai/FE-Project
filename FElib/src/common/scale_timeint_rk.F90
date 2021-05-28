@@ -131,9 +131,9 @@ contains
     
     allocate ( this%coef_a_ex(this%nstage,this%nstage), this%coef_b_ex(this%nstage), this%coef_c_ex(this%nstage) )
     allocate ( this%coef_sig_ex(this%nstage+1,this%nstage), this%coef_gam_ex(this%nstage+1,this%nstage) )
-    if (this%imex_flag) then
+!    if (this%imex_flag) then
       allocate ( this%coef_a_im(this%nstage,this%nstage), this%coef_b_im(this%nstage), this%coef_c_im(this%nstage) )
-    end if
+!    end if
 
     select case(this%ndim)
     case(1)
@@ -176,9 +176,9 @@ contains
     !----------------------------------------
     
     deallocate( this%coef_a_ex, this%coef_b_ex, this%coef_c_ex )
-    if (this%imex_flag) then
+!    if (this%imex_flag) then
       deallocate( this%coef_a_im, this%coef_b_im, this%coef_c_im )
-    end if
+!    end if
 
     select case(this%ndim)
     case(1)
