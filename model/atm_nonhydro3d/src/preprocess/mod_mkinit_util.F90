@@ -39,6 +39,7 @@ module mod_mkinit_util
   public :: mkinitutil_gen_GPMat 
   public :: mkinitutil_gen_Vm1Mat 
   public :: mkinitutil_calc_cosinebell
+  public :: mkinitutil_calc_cosinebell_global
 
 contains
 
@@ -170,6 +171,80 @@ contains
     return
   end subroutine mkinitutil_calc_cosinebell
 
+  subroutine mkinitutil_calc_cosinebell_global( &
+    q,                                          &
+    qmax, rh, lonc, latc, rplanet,              &
+    x, y, z, lcmesh3D, elem,                    &
+    IntrpPolyOrder_h, IntrpPolyOrder_v          )
+
+    use scale_cubedsphere_cnv, only: &
+      CubedSphereCnv_CS2LonLatCoord
+    implicit none
+
+    class(LocalMesh3D), intent(in) :: lcmesh3D
+    class(ElementBase3D), intent(in) :: elem
+    real(RP), intent(out) :: q(elem%Np,lcmesh3D%NeA)
+    real(RP), intent(in) :: qmax
+    real(RP), intent(in) :: rh
+    real(RP), intent(in) :: lonc, latc
+    real(RP), intent(in) :: rplanet
+    real(RP), intent(in) :: x(elem%Np,lcmesh3D%Ne)
+    real(RP), intent(in) :: y(elem%Np,lcmesh3D%Ne)
+    real(RP), intent(in) :: z(elem%Np,lcmesh3D%Ne)
+    integer, intent(in) :: IntrpPolyOrder_h
+    integer, intent(in) :: IntrpPolyOrder_v
+
+    integer :: ke
+
+    type(HexahedralElement) :: elem_intrp
+    real(RP), allocatable :: x_intrp(:,:), y_intrp(:,:), z_intrp(:,:)
+    real(RP), allocatable :: lon_intrp(:,:), lat_intrp(:,:)
+    real(RP), allocatable :: r_intrp(:)
+    real(RP) :: vx(elem%Nv), vy(elem%Nv), vz(elem%Nv)
+
+    real(RP), allocatable :: IntrpMat(:,:)
+    real(RP), allocatable :: q_intrp(:)
+    !-----------------------------------------------
+
+    call elem_intrp%Init( IntrpPolyOrder_h, IntrpPolyOrder_v, .false. )
+
+    allocate( IntrpMat(elem%Np,elem_intrp%Np) )
+    call mkinitutil_gen_GPMat( IntrpMat, elem_intrp, elem )
+
+    allocate( x_intrp(elem_intrp%Np,lcmesh3D%Ne), y_intrp(elem_intrp%Np,lcmesh3D%Ne), z_intrp(elem_intrp%Np,lcmesh3D%Ne) )
+    allocate( lon_intrp(elem_intrp%Np,lcmesh3D%Ne), lat_intrp(elem_intrp%Np,lcmesh3D%Ne) )
+    allocate( r_intrp(elem_intrp%Np) )
+    allocate( q_intrp(elem_intrp%Np) )
+
+
+    !$omp parallel do private(vx, vy, vz)
+    do ke=lcmesh3D%NeS, lcmesh3D%NeE
+      vx(:) = lcmesh3D%pos_ev(lcmesh3D%EToV(ke,:),1)
+      vy(:) = lcmesh3D%pos_ev(lcmesh3D%EToV(ke,:),2)
+      vz(:) = lcmesh3D%pos_ev(lcmesh3D%EToV(ke,:),3)
+      x_intrp(:,ke) = vx(1) + 0.5_RP * ( elem_intrp%x1(:) + 1.0_RP ) * ( vx(2) - vx(1) ) 
+      y_intrp(:,ke) = vy(1) + 0.5_RP * ( elem_intrp%x2(:) + 1.0_RP ) * ( vy(4) - vy(1) )
+      z_intrp(:,ke) = vz(1) + 0.5_RP * ( elem_intrp%x3(:) + 1.0_RP ) * ( vz(5) - vz(1) )      
+    end do
+
+    call CubedSphereCnv_CS2LonLatCoord( lcmesh3D%panelID, x_intrp, y_intrp, elem_intrp%Np * lcmesh3D%Ne, &
+      rplanet, lon_intrp(:,:), lat_intrp(:,:) )
+
+    !$omp parallel do private( r_intrp, q_intrp )
+    do ke=lcmesh3D%NeS, lcmesh3D%NeE
+      r_intrp(:) = rplanet / rh * acos( sin(latc) * sin(lat_intrp(:,ke)) + cos(latc) * cos(lat_intrp(:,ke)) * cos(lon_intrp(:,ke) - lonc) )
+      where( r_intrp(:) <= 1.0_RP ) 
+        q_intrp(:) = qmax * cos( 0.5_RP * PI * r_intrp(:) )
+      elsewhere
+        q_intrp(:) = 0.0_RP
+      end where
+      q(:,ke) = matmul(IntrpMat, q_intrp)
+    end do
+
+    call elem_intrp%Final()
+
+    return
+  end subroutine mkinitutil_calc_cosinebell_global
 
   !------------------------------------------
 

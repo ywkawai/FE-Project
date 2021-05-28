@@ -44,6 +44,7 @@ module scale_atm_dyn_dgm_hydrostatic
   !
   !++ Public procedures
   !
+  public :: hydrostatic_calc_basicstate_constT
   public :: hydrostatic_calc_basicstate_constPT
   public :: hydrostatic_calc_basicstate_constPTLAPS
   public :: hydrostatic_calc_basicstate_constBVFreq
@@ -60,6 +61,37 @@ module scale_atm_dyn_dgm_hydrostatic
   !
 
 contains
+  subroutine hydrostatic_calc_basicstate_constT( &
+    DENS_hyd, PRES_hyd,                          &
+    Temp0, PRES_sfc, x, y, z, lcmesh3D, elem     )
+
+    implicit none
+
+    class(LocalMesh3D), intent(in) :: lcmesh3D
+    class(ElementBase3D), intent(in) :: elem
+    real(RP), intent(out) :: DENS_hyd(elem%Np,lcmesh3D%NeA)
+    real(RP), intent(out) :: PRES_hyd(elem%Np,lcmesh3D%NeA)
+    real(RP), intent(in) :: x(elem%Np,lcmesh3D%Ne)
+    real(RP), intent(in) :: y(elem%Np,lcmesh3D%Ne)
+    real(RP), intent(in) :: z(elem%Np,lcmesh3D%Ne)
+    real(RP), intent(in) :: Temp0
+    real(RP), intent(in) :: PRES_sfc
+
+    integer :: ke
+    real(RP) :: H0
+    !-----------------------------------------------
+
+    H0 = Rdry * Temp0 / Grav
+
+    !$omp parallel do
+    do ke=lcmesh3D%NeS, lcmesh3D%NeE
+      PRES_hyd(:,ke) = PRES_sfc * exp( - z(:,ke) / H0 )
+      DENS_hyd(:,ke) = PRES_hyd(:,ke) / ( Rdry * Temp0 )
+    end do
+
+    return
+  end subroutine hydrostatic_calc_basicstate_constT
+
   subroutine hydrostatic_calc_basicstate_constPT( &
     DENS_hyd, PRES_hyd,                         &
     PotTemp0, PRES_sfc, x, y, z, lcmesh3D, elem )
