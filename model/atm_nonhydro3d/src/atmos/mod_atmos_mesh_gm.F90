@@ -174,7 +174,7 @@ contains
     !-----------------------------------------------------
 
     commid = this%Get_communicatorID( ATM_MESH_MAX_COMMNUICATOR_NUM )
-    call this%comm_list(commid)%Init( hvfield_num, sfield_num, this%mesh )
+    call this%comm_list(commid)%Init( sfield_num, hvfield_num, this%mesh )
     call var_manager%MeshFieldComm_Prepair( this%comm_list(commid), field_list )
 
     return

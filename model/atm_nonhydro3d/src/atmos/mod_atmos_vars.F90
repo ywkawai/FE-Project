@@ -83,29 +83,31 @@ module mod_atmos_vars
 
   ! Prognostic variables in dynamical process  
 
-  integer, public, parameter :: ATMOS_PROGVARS_DDENS_ID = 1
-  integer, public, parameter :: ATMOS_PROGVARS_MOMX_ID  = 2
-  integer, public, parameter :: ATMOS_PROGVARS_MOMY_ID  = 3
-  integer, public, parameter :: ATMOS_PROGVARS_MOMZ_ID  = 4
-  integer, public, parameter :: ATMOS_PROGVARS_DRHOT_ID = 5
-  integer, public, parameter :: ATMOS_PROGVARS_NUM      = 5
+  integer, public, parameter :: ATMOS_PROGVARS_DDENS_ID   = 1
+  integer, public, parameter :: ATMOS_PROGVARS_DRHOT_ID   = 2
+  integer, public, parameter :: ATMOS_PROGVARS_MOMZ_ID    = 3
+  integer, public, parameter :: ATMOS_PROGVARS_MOMX_ID    = 4
+  integer, public, parameter :: ATMOS_PROGVARS_MOMY_ID    = 5  
+  integer, public, parameter :: ATMOS_PROGVARS_SCALAR_NUM = 3
+  integer, public, parameter :: ATMOS_PROGVARS_HVEC_NUM   = 1
+  integer, public, parameter :: ATMOS_PROGVARS_NUM        = 5
 
   type(VariableInfo), public :: ATMOS_PROGVARS_VINFO(ATMOS_PROGVARS_NUM)
 
   DATA ATMOS_PROGVARS_VINFO / &
     VariableInfo( ATMOS_PROGVARS_DDENS_ID, 'DDENS', 'deviation of density',       &
                   'kg/m3',  3, 'XYZ',  'air_density'                           ), &
+    VariableInfo( ATMOS_PROGVARS_DRHOT_ID, 'DRHOT', 'deviation of rho * theta',   &
+                  'kg/m3*K', 3, 'XYZ',  ''                                     ), &
+    VariableInfo( ATMOS_PROGVARS_MOMZ_ID , 'MOMZ', 'momentum z',                  &
+                  'kg/m2/s', 3, 'XYZ', 'northward_mass_flux_of_air'            ), &
     VariableInfo( ATMOS_PROGVARS_MOMX_ID , 'MOMX', 'momentum x',                  &
                   'kg/m2/s', 3, 'XYZ', 'upward_mass_flux_of_air'               ), &
     VariableInfo( ATMOS_PROGVARS_MOMY_ID , 'MOMY', 'momentum y',                  &
-                  'kg/m2/s', 3, 'XYZ', 'eastward_mass_flux_of_air'             ), &
-    VariableInfo( ATMOS_PROGVARS_MOMZ_ID , 'MOMZ', 'momentum z',                  &
-                  'kg/m2/s', 3, 'XYZ', 'northward_mass_flux_of_air'            ), &
-    VariableInfo( ATMOS_PROGVARS_DRHOT_ID, 'DRHOT', 'deviation of rho * theta',   &
-                  'kg/m3*K', 3, 'XYZ',  ''                                    )   /
+                  'kg/m2/s', 3, 'XYZ', 'eastward_mass_flux_of_air'             )  /
 
-  real(RP), parameter :: PROGVARS_check_min(ATMOS_PROGVARS_NUM) = (/ -1.0_RP, -200.0_RP, -200.0_RP, -200.0_RP, -100.0_RP /)
-  real(RP), parameter :: PROGVARS_check_max(ATMOS_PROGVARS_NUM) = (/  1.0_RP,  200.0_RP,  200.0_RP,  200.0_RP,  100.0_RP /)
+  real(RP), parameter :: PROGVARS_check_min(ATMOS_PROGVARS_NUM) = (/ -1.0_RP, -100.0_RP, -200.0_RP, -200.0_RP, -200.0_RP /)
+  real(RP), parameter :: PROGVARS_check_max(ATMOS_PROGVARS_NUM) = (/  1.0_RP,   100.0_RP, 200.0_RP,  200.0_RP,  200.0_RP /)
               
   ! Reference state
   
@@ -271,10 +273,10 @@ contains
     end do
 
     call atm_mesh%Create_communicator( &
-      ATMOS_PROGVARS_NUM, 0,           & ! (in)
-      this%PROGVARS_manager,           & ! (inout)
-      this%PROG_VARS(:),               & ! (in)
-      this%PROG_VARS_commID            ) ! (out)
+      ATMOS_PROGVARS_SCALAR_NUM, ATMOS_PROGVARS_HVEC_NUM, & ! (in)
+      this%PROGVARS_manager,                              & ! (inout)
+      this%PROG_VARS(:),                                  & ! (in)
+      this%PROG_VARS_commID                               ) ! (out)
 
     LOG_NEWLINE
     LOG_INFO("ATMOS_vars_setup",*) 'List of prognostic variables (ATMOS) '
