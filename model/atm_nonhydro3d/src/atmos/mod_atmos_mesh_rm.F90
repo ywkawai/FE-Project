@@ -41,6 +41,7 @@ module mod_atmos_mesh_rm
     procedure :: Create_communicator => AtmosMeshRM_Create_communicator
     procedure :: Setup_restartfile1 => AtmosMeshRM_setup_restartfile1
     procedure :: Setup_restartfile2 => AtmosMeshRM_setup_restartfile2
+    procedure :: Calc_UVmet => AtmosMeshRM_calc_UVmet
   end type AtmosMeshRM
 
   !-----------------------------------------------------------------------------
@@ -224,6 +225,33 @@ contains
       out_basename, out_postfix_timelabel, out_dtype, out_title, var_num, &
       mesh3D=this%mesh )
 
+    return
   end subroutine AtmosMeshRM_setup_restartfile2
+
+  subroutine AtmosMeshRM_calc_UVMet( this, U, V, &
+    Umet, Vmet )
+    implicit none
+    class(AtmosMeshRM), target, intent(in) :: this
+    type(MeshField3D), intent(in) :: U
+    type(MeshField3D), intent(in) :: V
+    type(MeshField3D), intent(inout) :: Umet
+    type(MeshField3D), intent(inout) :: Vmet
+
+    integer :: n
+    integer :: ke
+    type(LocalMesh3D), pointer :: lcmesh
+    !------------------------------------------
+
+    do n=1, this%mesh%LOCAL_MESH_NUM
+      lcmesh => this%mesh%lcmesh_list(n)
+      !$omp parallel do
+      do ke=lcmesh%NeS, lcmesh%NeE
+        Umet%local(n)%val(:,ke) = U%local(n)%val(:,ke)
+        Vmet%local(n)%val(:,ke) = V%local(n)%val(:,ke)
+      end do
+    end do
+
+    return
+end subroutine AtmosMeshRM_calc_UVMet
 
 end module mod_atmos_mesh_rm

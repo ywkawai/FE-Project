@@ -41,6 +41,8 @@ module mod_atmos_vars
   !++ Public type & procedures
   !
   type, public :: AtmosVars
+    class(AtmosMesh), pointer :: mesh
+
     type(MeshField3D), allocatable :: PROG_VARS(:)
     type(ModelVarManager) :: PROGVARS_manager
     integer :: PROG_VARS_commID
@@ -63,7 +65,8 @@ module mod_atmos_vars
   contains
     procedure :: Init => AtmosVars_Init
     procedure :: Final => AtmosVars_Final
-    procedure :: Clac_diagnostics => AtmosVars_CalculateDiagnostics
+    procedure :: Calc_diagnostics => AtmosVars_CalculateDiagnostics
+    procedure :: Calc_diagVar => AtmosVars_CalcDiagvar
     procedure :: History => AtmosVars_History
     procedure :: Check   => AtmosVars_Check
     procedure :: Monitor => AtmosVars_Monitor
@@ -159,24 +162,28 @@ module mod_atmos_vars
   integer, public, parameter :: ATMOS_DIAGVARS_V_ID      = 2
   integer, public, parameter :: ATMOS_DIAGVARS_W_ID      = 3
   integer, public, parameter :: ATMOS_DIAGVARS_T_ID      = 4  
-  integer, public, parameter :: ATMOS_DIAGVARS_QDRY      = 5
-  integer, public, parameter :: ATMOS_DIAGVARS_ENGT      = 6
-  integer, public, parameter :: ATMOS_DIAGVARS_ENGP      = 7
-  integer, public, parameter :: ATMOS_DIAGVARS_ENGK      = 8
-  integer, public, parameter :: ATMOS_DIAGVARS_ENGI      = 9 
-  integer, public, parameter :: ATMOS_DIAGVARS_NUM       = 9
+  integer, public, parameter :: ATMOS_DIAGVARS_Umet_ID   = 5
+  integer, public, parameter :: ATMOS_DIAGVARS_Vmet_ID   = 6
+  integer, public, parameter :: ATMOS_DIAGVARS_QDRY      = 7
+  integer, public, parameter :: ATMOS_DIAGVARS_ENGT      = 8
+  integer, public, parameter :: ATMOS_DIAGVARS_ENGP      = 9
+  integer, public, parameter :: ATMOS_DIAGVARS_ENGK      = 10
+  integer, public, parameter :: ATMOS_DIAGVARS_ENGI      = 11
+  integer, public, parameter :: ATMOS_DIAGVARS_NUM       = 11
 
   type(VariableInfo), public :: ATMOS_DIAGVARS_VINFO(ATMOS_DIAGVARS_NUM)
   DATA ATMOS_DIAGVARS_VINFO / &
-    VariableInfo( ATMOS_DIAGVARS_U_ID    , 'U'   , 'velocity u'           , 'm/s'  , 3, 'XYZ', 'x_wind'               ), &
-    VariableInfo( ATMOS_DIAGVARS_V_ID    , 'V'   , 'velocity v'           , 'm/s'  , 3, 'XYZ', 'y_wind'               ), &  
-    VariableInfo( ATMOS_DIAGVARS_W_ID    , 'W'   , 'velocity w'           , 'm/s'  , 3, 'XYZ', 'upward_air_velocity'  ), &
-    VariableInfo( ATMOS_DIAGVARS_T_ID    , 'T'   , 'temperature'          , 'K'    , 3, 'XYZ', 'air_temperature'      ), &
-    Variableinfo( ATMOS_DIAGVARS_QDRY    , 'QDRY', 'dry air'              , 'kg/kg', 3, 'XYZ', ''                     ), &
-    Variableinfo( ATMOS_DIAGVARS_ENGT    , 'ENGT', 'total energy'         , 'J/m3' , 3, 'XYZ', ''                     ), &
-    Variableinfo( ATMOS_DIAGVARS_ENGP    , 'ENGP', 'potential energy'     , 'J/m3' , 3, 'XYZ', ''                     ), &
-    Variableinfo( ATMOS_DIAGVARS_ENGK    , 'ENGK', 'kinetic energy'       , 'J/m3' , 3, 'XYZ', ''                     ), &
-    Variableinfo( ATMOS_DIAGVARS_ENGI    , 'ENGI',  'internal energy'     , 'J/m3' , 3, 'XYZ', ''                    )  /
+    VariableInfo( ATMOS_DIAGVARS_U_ID   , 'U'   , 'velocity u'           , 'm/s'  , 3, 'XYZ', 'x_wind'               ), &
+    VariableInfo( ATMOS_DIAGVARS_V_ID   , 'V'   , 'velocity v'           , 'm/s'  , 3, 'XYZ', 'y_wind'               ), &  
+    VariableInfo( ATMOS_DIAGVARS_W_ID   , 'W'   , 'velocity w'           , 'm/s'  , 3, 'XYZ', 'upward_air_velocity'  ), &
+    VariableInfo( ATMOS_DIAGVARS_T_ID   , 'T'   , 'temperature'          , 'K'    , 3, 'XYZ', 'air_temperature'      ), &
+    VariableInfo( ATMOS_DIAGVARS_Umet_ID, 'Umet', 'eastward velocity'    , 'm/s'  , 3, 'XYZ', 'x_wind'               ), &
+    VariableInfo( ATMOS_DIAGVARS_Vmet_ID, 'Vmet', 'northward velocity'   , 'm/s'  , 3, 'XYZ', 'y_wind'               ), &  
+    Variableinfo( ATMOS_DIAGVARS_QDRY   , 'QDRY', 'dry air'              , 'kg/kg', 3, 'XYZ', ''                     ), &
+    Variableinfo( ATMOS_DIAGVARS_ENGT   , 'ENGT', 'total energy'         , 'J/m3' , 3, 'XYZ', ''                     ), &
+    Variableinfo( ATMOS_DIAGVARS_ENGP   , 'ENGP', 'potential energy'     , 'J/m3' , 3, 'XYZ', ''                     ), &
+    Variableinfo( ATMOS_DIAGVARS_ENGK   , 'ENGK', 'kinetic energy'       , 'J/m3' , 3, 'XYZ', ''                     ), &
+    Variableinfo( ATMOS_DIAGVARS_ENGI   , 'ENGI',  'internal energy'     , 'J/m3' , 3, 'XYZ', ''                    )  /
 
   !-----------------------------------------------------------------------------
   !
@@ -202,7 +209,7 @@ contains
     implicit none
 
     class(AtmosVars), target, intent(inout) :: this
-    class(AtmosMesh), intent(inout) :: atm_mesh
+    class(AtmosMesh), target, intent(inout) :: atm_mesh
 
     integer :: iv
     integer :: n
@@ -252,6 +259,7 @@ contains
     LOG_NML(PARAM_ATMOS_VARS)
 
     !- Set the pointer of mesh
+    this%mesh => atm_mesh
     mesh3D => atm_mesh%ptr_mesh
 
     !- Initialize prognostic variables
@@ -430,7 +438,7 @@ contains
       if ( hst_id > 0 ) call FILE_HISTORY_meshfield_put( hst_id, this%PROG_VARS(v) )
     end do
 
-    call this%Clac_diagnostics()
+    call this%Calc_diagnostics()
     do v = 1, ATMOS_AUXVARS_NUM
       hst_id = this%AUX_VARS(v)%hist_id
       if ( hst_id > 0 ) call FILE_HISTORY_meshfield_put( hst_id, this%AUX_VARS(v) )
@@ -445,7 +453,7 @@ contains
     do v = 1, ATMOS_DIAGVARS_NUM
       hst_id = this%DIAGVARS_HISTID(v)
       if ( hst_id > 0 ) then
-        call vars_calc_diagvar( this, ATMOS_DIAGVARS_VINFO(v)%NAME, tmp_field )
+        call AtmosVars_CalcDiagvar( this, ATMOS_DIAGVARS_VINFO(v)%NAME, tmp_field )
         call FILE_HISTORY_meshfield_put( hst_id, tmp_field )
       end if
     end do
@@ -490,7 +498,7 @@ contains
     call this%Check( force = .true. )
 
     !-- Calculate diagnostic variables
-    call this%Clac_diagnostics()   
+    call this%Calc_diagnostics()   
 
     !-- Communicate halo data of hydrostatic & diagnostic variables
     call this%AUXVARS_manager%MeshFieldComm_Exchange()
@@ -593,7 +601,7 @@ contains
       do iv=1, 3
         iv_diag = ATMOS_DIAGVARS_U_ID + iv - 1
         call vel_fields(iv)%Init( ATMOS_DIAGVARS_VINFO(iv_diag)%NAME, "",  mesh3D )
-        call vars_calc_diagvar( this, vel_fields(iv)%varname, vel_fields(iv) )
+        call AtmosVars_CalcDiagvar( this, vel_fields(iv)%varname, vel_fields(iv) )
       end do
       call MeshField_statistics_detail( vel_fields(:) )
       do iv=1, 3
@@ -636,19 +644,19 @@ contains
     call work%Init("tmp", "", mesh3D)
 
     if ( DV_MONIT_id(IM_ENGT) > 0 ) then
-      call vars_calc_diagvar( this, 'ENGT', work )
+      call AtmosVars_CalcDiagvar( this, 'ENGT', work )
       call FILE_monitor_meshfield_put( DV_MONIT_id(IM_ENGT), work )
     end if
     if ( DV_MONIT_id(IM_ENGP) > 0 ) then
-      call vars_calc_diagvar( this, 'ENGP', work )
+      call AtmosVars_CalcDiagvar( this, 'ENGP', work )
       call FILE_monitor_meshfield_put( DV_MONIT_id(IM_ENGP), work )
     end if
     if ( DV_MONIT_id(IM_ENGK) > 0 ) then
-      call vars_calc_diagvar( this, 'ENGK', work )
+      call AtmosVars_CalcDiagvar( this, 'ENGK', work )
       call FILE_monitor_meshfield_put( DV_MONIT_id(IM_ENGK), work )
     end if
     if ( DV_MONIT_id(IM_ENGI) > 0 ) then
-      call vars_calc_diagvar( this, 'ENGI', work )
+      call AtmosVars_CalcDiagvar( this, 'ENGI', work )
       call FILE_monitor_meshfield_put( DV_MONIT_id(IM_ENGI), work )
     end if
 
@@ -873,7 +881,7 @@ contains
       field => this%AUX_VARS(varid)
       do n=1, field%mesh%LOCAL_MESH_NUM
         lcmesh3D => field%mesh%lcmesh_list(n)
-        call vars_calc_diagnoseVar( &
+        call vars_calc_diagnoseVar_lc( &
           field%varname, field%local(n)%val,                              &
           this%PROG_VARS(ATMOS_PROGVARS_DDENS_ID)%local(n)%val,           &
           this%PROG_VARS(ATMOS_PROGVARS_MOMX_ID)%local(n)%val,            &
@@ -889,9 +897,7 @@ contains
     return
   end subroutine AtmosVars_CalculateDiagnostics
 
-!-- private -----------------------------------------------------------------------
-    
-  subroutine vars_calc_diagvar( this, field_name, field_work ) 
+  subroutine AtmosVars_CalcDiagvar( this, field_name, field_work ) 
     use scale_const, only: &
       Rdry => CONST_Rdry,      &
       CPdry => CONST_CPdry,    &
@@ -905,27 +911,57 @@ contains
 
     type(LocalMesh3D), pointer :: lcmesh3D
     integer :: n
+    integer :: ke
+
+    type(MeshField3D) :: field_work_UVmet(2)
+    logical :: is_UVmet
+    integer :: UVmet_i
     !--------------------------------------------------
+
+    is_UVmet = .false.
+    if ( field_name == 'Umet' ) then
+      is_UVmet = .true.; UVmet_i = 1
+    else if ( field_name == 'Vmet' ) then      
+      is_UVmet = .true.; UVmet_i = 2
+    end if
 
     field_work%varname = field_name
 
     do n=1, field_work%mesh%LOCAL_MESH_NUM
       lcmesh3D => field_work%mesh%lcmesh_list(n)
-      call vars_calc_diagnoseVar( field_name, field_work%local(n)%val,  &
-        this%PROG_VARS(ATMOS_PROGVARS_DDENS_ID)%local(n)%val,           &
-        this%PROG_VARS(ATMOS_PROGVARS_MOMX_ID)%local(n)%val,            &
-        this%PROG_VARS(ATMOS_PROGVARS_MOMY_ID)%local(n)%val,            &
-        this%PROG_VARS(ATMOS_PROGVARS_MOMZ_ID)%local(n)%val,            &
-        this%PROG_VARS(ATMOS_PROGVARS_DRHOT_ID)%local(n)%val,           &
-        this%AUX_VARS(ATMOS_AUXVARS_DENSHYDRO_ID)%local(n)%val,         & 
-        this%AUX_VARS(ATMOS_AUXVARS_PRESHYDRO_ID)%local(n)%val,         &
-        lcmesh3D, lcmesh3D%refElem3D )
+      if ( .not. is_UVmet ) then
+        call vars_calc_diagnoseVar_lc( field_name, field_work%local(n)%val,  &
+          this%PROG_VARS(ATMOS_PROGVARS_DDENS_ID)%local(n)%val,              &
+          this%PROG_VARS(ATMOS_PROGVARS_MOMX_ID)%local(n)%val,               &
+          this%PROG_VARS(ATMOS_PROGVARS_MOMY_ID)%local(n)%val,               &
+          this%PROG_VARS(ATMOS_PROGVARS_MOMZ_ID)%local(n)%val,               &
+          this%PROG_VARS(ATMOS_PROGVARS_DRHOT_ID)%local(n)%val,              &
+          this%AUX_VARS(ATMOS_AUXVARS_DENSHYDRO_ID)%local(n)%val,            & 
+          this%AUX_VARS(ATMOS_AUXVARS_PRESHYDRO_ID)%local(n)%val,            &
+          lcmesh3D, lcmesh3D%refElem3D )
+      else
+        call field_work_UVmet(1)%Init( 'Umet', '', field_work%mesh )
+        call field_work_UVmet(2)%Init( 'Vmet', '', field_work%mesh )
+        call this%mesh%Calc_UVmet( &
+          this%PROG_VARS(ATMOS_PROGVARS_MOMX_ID), this%PROG_VARS(ATMOS_PROGVARS_MOMY_ID), & ! (in)
+          field_work_UVmet(1), field_work_UVmet(2)                                        ) ! (inout)
+        !$omp parallel do
+        do ke=lcmesh3D%NeS, lcmesh3D%NeE
+          field_work%local(n)%val(:,ke) = field_work_UVmet(UVmet_i)%local(n)%val(:,ke) &
+            / ( this%AUX_VARS (ATMOS_AUXVARS_DENSHYDRO_ID)%local(n)%val(:,ke)          &
+              + this%PROG_VARS(ATMOS_PROGVARS_DDENS_ID   )%local(n)%val(:,ke)          )
+        end do
+        call field_work_UVmet(1)%Final()
+        call field_work_UVmet(2)%Final()
+      end if
     end do
 
     return
-  end subroutine vars_calc_diagvar
+  end subroutine AtmosVars_CalcDiagvar
 
-  subroutine vars_calc_diagnoseVar( field_name, var_out,        &
+!-- private -----------------------------------------------------------------------
+    
+  subroutine vars_calc_diagnoseVar_lc( field_name, var_out,        &
     DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd,    &
     lcmesh, elem )
 
@@ -979,6 +1015,12 @@ contains
         RHOT(:) = PRES00/Rdry * (PRES_hyd(:,ke)/PRES00)**(CVdry/CPdry) + DRHOT_(:,ke)
         var_out(:,ke) = PRES00 * (Rdry*RHOT(:)/PRES00)**(CPdry/Cvdry)
       end do
+    case('PRES_diff')  
+      !$omp parallel do private (RHOT)
+      do ke=1, lcmesh%Ne
+        RHOT(:) = PRES00/Rdry * (PRES_hyd(:,ke)/PRES00)**(CVdry/CPdry) + DRHOT_(:,ke)
+        var_out(:,ke) = PRES00 * (Rdry*RHOT(:)/PRES00)**(CPdry/Cvdry) - PRES_hyd(:,ke)
+      end do
     case('T')
       !$omp parallel do private (RHOT, PRES)
       do ke=1, lcmesh%Ne
@@ -986,11 +1028,26 @@ contains
         PRES(:) = PRES00 * (Rdry*RHOT(:)/PRES00)**(CPdry/Cvdry)
         var_out(:,ke) = PRES(:) / (Rdry * (DDENS_(:,ke) + DENS_hyd(:,ke)) )
       end do
+    case('T_diff')
+      !$omp parallel do private (RHOT, PRES)
+      do ke=1, lcmesh%Ne
+        RHOT(:) = PRES00/Rdry * (PRES_hyd(:,ke)/PRES00)**(CVdry/CPdry) + DRHOT_(:,ke)
+        PRES(:) = PRES00 * (Rdry*RHOT(:)/PRES00)**(CPdry/Cvdry)
+        var_out(:,ke) = PRES(:) / (Rdry * (DDENS_(:,ke) + DENS_hyd(:,ke)) ) &
+                      - PRES_hyd(:,ke) / ( Rdry * DENS_hyd(:,ke) )
+      end do
     case('PT')
       !$omp parallel do private (RHOT)
       do ke=1, lcmesh%Ne
         RHOT(:) = PRES00/Rdry * (PRES_hyd(:,ke)/PRES00)**(CVdry/CPdry) + DRHOT_(:,ke)
         var_out(:,ke) = RHOT(:) / (DDENS_(:,ke) + DENS_hyd(:,ke))
+      end do 
+    case('PT_diff')
+      !$omp parallel do private (RHOT)
+      do ke=1, lcmesh%Ne
+        RHOT(:) = PRES00/Rdry * (PRES_hyd(:,ke)/PRES00)**(CVdry/CPdry) + DRHOT_(:,ke)
+        var_out(:,ke) = RHOT(:) / (DDENS_(:,ke) + DENS_hyd(:,ke)) &
+                      - PRES00/Rdry * (PRES_hyd(:,ke)/PRES00)**(CVdry/CPdry) / DENS_hyd(:,ke)
       end do 
     case('ENGK')
       !$omp parallel do private (DENS)
@@ -1022,8 +1079,11 @@ contains
           + PRES(:) * CvDry / Rdry                                                   & ! ENGI
           + DENS(:) * Grav * lcmesh%pos_en(:,ke,3)                                     ! ENGP
       end do
+    case default
+      LOG_ERROR("AtmosVars_calc_diagnoseVar_lc",*) 'The name of diagnostic variable is not suported. Check!', field_name
+      call PRC_abort
     end select
 
     return
-  end subroutine vars_calc_diagnoseVar  
+  end subroutine vars_calc_diagnoseVar_lc  
 end module mod_atmos_vars

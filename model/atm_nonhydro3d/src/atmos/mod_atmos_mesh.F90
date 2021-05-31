@@ -36,6 +36,7 @@ module mod_atmos_mesh
     procedure(AtmosMesh_create_communicator), public, deferred :: Create_communicator
     procedure(AtmosMesh_setup_restartfile1), public, deferred ::  Setup_restartfile1
     procedure(AtmosMesh_setup_restartfile2), public, deferred ::  Setup_restartfile2
+    procedure(AtmosMesh_calc_UVMet), public, deferred :: Calc_UVmet
     generic :: Setup_restartfile => Setup_restartfile1, Setup_restartfile2
     procedure :: Construct_ModalFilter3D => AtmosMesh_construct_ModalFilter3D
     procedure :: Construct_ModalFilterHV => AtmosMesh_construct_ModalFilterHV
@@ -80,6 +81,18 @@ module mod_atmos_mesh
       character(*), intent(in) :: out_dtype  
       integer, intent(in) :: var_num  
     end subroutine AtmosMesh_setup_restartfile2
+  end interface
+  interface
+    subroutine AtmosMesh_calc_UVMet( this, U, V, &
+        Umet, Vmet )
+        import AtmosMesh
+        import MeshField3D
+        class(AtmosMesh), target, intent(in) :: this
+        type(MeshField3D), intent(in) :: U
+        type(MeshField3D), intent(in) :: V
+        type(MeshField3D), intent(inout) :: Umet
+        type(MeshField3D), intent(inout) :: Vmet
+    end subroutine AtmosMesh_calc_UVMet
   end interface
 
   integer, parameter, public :: ATM_MESH_MAX_COMMNUICATOR_NUM = 10

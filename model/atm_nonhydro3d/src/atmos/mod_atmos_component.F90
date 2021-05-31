@@ -291,7 +291,7 @@ subroutine Atmos_update( this )
   
   !########## Calculate diagnostic variables ##########  
 
-  call this%vars%Clac_diagnostics()
+  call this%vars%Calc_diagnostics()
   call this%vars%AUXVARS_manager%MeshFieldComm_Exchange()
 
   !########## Adjustment ##########
