@@ -27,6 +27,7 @@ module mod_user
   use scale_element_base, only: ElementBase3D
   use scale_element_hexahedral, only: HexahedralElement
   use scale_localmesh_3d, only: LocalMesh3D   
+  use scale_meshfield_base, only: MeshField3D
 
   !-----------------------------------------------------------------------------
   implicit none
@@ -61,6 +62,8 @@ module mod_user
   type(Exp_sound_wave_global), private :: exp_manager
 
   logical, private :: USER_do                   = .false. !< do user step?
+
+  type(MeshField3D), private :: PRES_diff
 
   !-----------------------------------------------------------------------------
 contains
@@ -105,18 +108,30 @@ contains
     LOG_NML(PARAM_USER)
 
     !-
+    if ( USER_do ) call PRES_diff%Init( 'PRES_diff', 'Pa', atm%mesh%ptr_mesh )
+
     return
   end subroutine USER_setup
 
-  subroutine USER_calc_tendency
+  subroutine USER_calc_tendency( atm )
+    use scale_file_history_meshfield, only: &
+      FILE_HISTORY_meshfield_in
     implicit none
+
+    class(AtmosComponent), intent(inout) :: atm
     !------------------------------------------
+
+    if ( USER_do ) then
+      call atm%vars%Calc_diagVar( 'PRES_diff', PRES_diff )
+      call FILE_HISTORY_meshfield_in( PRES_diff, "perturbation of PRES" )
+    end if
 
     return
   end subroutine USER_calc_tendency
 
-  subroutine USER_update
+  subroutine USER_update( atm )
     implicit none
+    class(AtmosComponent), intent(inout) :: atm
     !------------------------------------------
 
     return
@@ -163,9 +178,10 @@ contains
     
     real(RP) :: TEMP0 = 300.0_RP
     real(RP) :: DPRES = 100.0_RP
-    real(RP) :: lonc, latc
+    real(RP) :: lonc  = 0.0_RP
+    real(RP) :: latc  = 0.0_RP
+    integer  :: nv     = 1
     real(RP) :: rh
-    integer :: nv
     real(RP) :: Zt
     namelist /PARAM_EXP/ &
       TEMP0, DPRES,             &
@@ -174,7 +190,6 @@ contains
     integer, parameter :: IntrpPolyOrder_h = 8
     integer, parameter :: IntrpPolyOrder_v = 8
     real(RP), allocatable :: PRES_purtub(:,:)
-    real(RP) :: pres(elem%Np)
   
     real(RP) :: rgamm
 
@@ -183,9 +198,6 @@ contains
     !-----------------------------------------------------------------------------
 
     rh = RPlanet / 3.0_RP
-    lonc = 0.0_RP
-    latc = 0.0_RP
-    nv   = 1
 
     rewind(IO_FID_CONF)
     read(IO_FID_CONF,nml=PARAM_EXP,iostat=ierr)
@@ -200,26 +212,23 @@ contains
     !---
 
     allocate( PRES_purtub(elem%Np,lcmesh%NeA) )
-    call mkinitutil_calc_cosinebell_global( &
-      PRES_purtub,                           &
-      DPRES, rh, lonc, latc, RPlanet,        &
-      x, y, z, lcmesh, elem,                 &
-      IntrpPolyOrder_h, IntrpPolyOrder_v     )  
+    call mkinitutil_calc_cosinebell_global( PRES_purtub,  & ! (out)
+      DPRES, rh, lonc, latc, RPlanet,                     & ! (in)
+      x, y, z, lcmesh, elem,                              & ! (in)
+      IntrpPolyOrder_h, IntrpPolyOrder_v,                 & ! (in)
+      'sin', (/ real(nv,kind=RP), dom_zmax - dom_zmin /)  ) ! (in)
     
-    call hydrostatic_calc_basicstate_constT( DENS_hyd, PRES_hyd,                       &
-      TEMP0, PRES00, lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2), lcmesh%pos_en(:,:,3), &
-      lcmesh, elem )
+    call hydrostatic_calc_basicstate_constT( DENS_hyd, PRES_hyd, & ! (out)
+      TEMP0, PRES00, x, y, z, lcmesh, elem                       ) ! (in)
     
     !---
     rgamm = CvDry / CpDry
-    Zt = dom_zmax - dom_zmin
 
-    !$omp parallel do private(pres)
+    !$omp parallel do
     do ke=lcmesh%NeS, lcmesh%NeE
-      pres(:) = PRES_hyd(:,ke) + PRES_purtub(:,ke) * sin( dble(nv) * PI * z(:,ke) / Zt )
       DRHOT(:,ke) = PRES00/Rdry * ( &
-         ( pres(:) / PRES00 )**rgamm          &
-       - ( PRES_hyd(:,ke) / PRES00 )**rgamm   )
+         ( ( PRES_hyd(:,ke) + PRES_purtub(:,ke) ) / PRES00 )**rgamm  &
+       - ( PRES_hyd(:,ke) / PRES00 )**rgamm                          )
     end do
 
     return

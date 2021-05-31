@@ -159,7 +159,7 @@ contains
         + ( (z_intrp(:) - zc) / rz )**2 )
       
       where( r_intrp(:) <= 1.0_RP ) 
-        q_intrp(:) = qmax * cos( 0.5_RP * PI * r_intrp(:) )
+        q_intrp(:) = qmax * 0.5_RP * (1.0_RP + cos( PI * r_intrp(:) ) )
       elsewhere
         q_intrp(:) = 0.0_RP
       end where
@@ -171,11 +171,19 @@ contains
     return
   end subroutine mkinitutil_calc_cosinebell
 
+  !>
+  !! Calculate the distribution function of a cosine bell.
+  !! 
+  !! If the vertical dependence is considered, specify z_func_type and z_func_params.
+  !!  For z_func_type = 'sin', the values of z_func_params is
+  !!   1:  the vertical model, 2: the half of wavelength
+  !! 
   subroutine mkinitutil_calc_cosinebell_global( &
     q,                                          &
     qmax, rh, lonc, latc, rplanet,              &
     x, y, z, lcmesh3D, elem,                    &
-    IntrpPolyOrder_h, IntrpPolyOrder_v          )
+    IntrpPolyOrder_h, IntrpPolyOrder_v,         &
+    z_func_type, z_func_params                  )
 
     use scale_cubedsphere_cnv, only: &
       CubedSphereCnv_CS2LonLatCoord
@@ -193,12 +201,15 @@ contains
     real(RP), intent(in) :: z(elem%Np,lcmesh3D%Ne)
     integer, intent(in) :: IntrpPolyOrder_h
     integer, intent(in) :: IntrpPolyOrder_v
+    character(len=*), optional, intent(in) :: z_func_type
+    real(RP), optional, intent(in) :: z_func_params(:)
 
     integer :: ke
 
     type(HexahedralElement) :: elem_intrp
     real(RP), allocatable :: x_intrp(:,:), y_intrp(:,:), z_intrp(:,:)
     real(RP), allocatable :: lon_intrp(:,:), lat_intrp(:,:)
+    real(RP), allocatable :: z_func(:,:)
     real(RP), allocatable :: r_intrp(:)
     real(RP) :: vx(elem%Nv), vy(elem%Nv), vz(elem%Nv)
 
@@ -213,6 +224,7 @@ contains
 
     allocate( x_intrp(elem_intrp%Np,lcmesh3D%Ne), y_intrp(elem_intrp%Np,lcmesh3D%Ne), z_intrp(elem_intrp%Np,lcmesh3D%Ne) )
     allocate( lon_intrp(elem_intrp%Np,lcmesh3D%Ne), lat_intrp(elem_intrp%Np,lcmesh3D%Ne) )
+    allocate( z_func(elem_intrp%Np,lcmesh3D%Ne) )
     allocate( r_intrp(elem_intrp%Np) )
     allocate( q_intrp(elem_intrp%Np) )
 
@@ -224,21 +236,38 @@ contains
       vz(:) = lcmesh3D%pos_ev(lcmesh3D%EToV(ke,:),3)
       x_intrp(:,ke) = vx(1) + 0.5_RP * ( elem_intrp%x1(:) + 1.0_RP ) * ( vx(2) - vx(1) ) 
       y_intrp(:,ke) = vy(1) + 0.5_RP * ( elem_intrp%x2(:) + 1.0_RP ) * ( vy(4) - vy(1) )
-      z_intrp(:,ke) = vz(1) + 0.5_RP * ( elem_intrp%x3(:) + 1.0_RP ) * ( vz(5) - vz(1) )      
+      z_intrp(:,ke) = vz(1) + 0.5_RP * ( elem_intrp%x3(:) + 1.0_RP ) * ( vz(5) - vz(1) )
+      
+      z_func(:,ke) = 1.0_RP
     end do
 
     call CubedSphereCnv_CS2LonLatCoord( lcmesh3D%panelID, x_intrp, y_intrp, elem_intrp%Np * lcmesh3D%Ne, &
       rplanet, lon_intrp(:,:), lat_intrp(:,:) )
 
+    ! Calculate the vertical function
+    if ( present(z_func_type) ) then
+      select case(z_func_type)
+      case ('sin')
+        !$omp parallel do
+        do ke=lcmesh3D%NeS, lcmesh3D%NeE
+          z_func(:,ke) = sin( z_func_params(1) * PI * z_intrp(:,ke) / z_func_params(2) )
+        end do
+      end select
+    end if
+
     !$omp parallel do private( r_intrp, q_intrp )
     do ke=lcmesh3D%NeS, lcmesh3D%NeE
+
+      ! Calculate the horizontal function
       r_intrp(:) = rplanet / rh * acos( sin(latc) * sin(lat_intrp(:,ke)) + cos(latc) * cos(lat_intrp(:,ke)) * cos(lon_intrp(:,ke) - lonc) )
       where( r_intrp(:) <= 1.0_RP ) 
-        q_intrp(:) = qmax * cos( 0.5_RP * PI * r_intrp(:) )
+        q_intrp(:) = qmax * 0.5_RP * (1.0_RP + cos( PI * r_intrp(:) ) )
       elsewhere
         q_intrp(:) = 0.0_RP
       end where
-      q(:,ke) = matmul(IntrpMat, q_intrp)
+
+      ! Perform Galerkin projection
+      q(:,ke) = matmul(IntrpMat, q_intrp * z_func(:,ke))
     end do
 
     call elem_intrp%Final()

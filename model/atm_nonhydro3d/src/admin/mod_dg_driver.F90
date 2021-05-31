@@ -136,7 +136,7 @@ contains
 
       call TIME_manager_advance
       call FILE_HISTORY_set_nowdate( TIME_NOWDATE, TIME_NOWSUBSEC, TIME_NOWSTEP )
-
+      
       !* change to next state *************************
 
       !- ATMOS
@@ -145,7 +145,7 @@ contains
       end if
 
       !- USER
-      call USER_update
+      call USER_update( atmos )
 
       !* restart and monitor output *******************
       if ( atmos%IsActivated() ) call atmos%vars%Monitor()
@@ -160,7 +160,7 @@ contains
       end if
 
       !- USER 
-      call USER_calc_tendency
+      call USER_calc_tendency( atmos )
   
       !* output history files *************************
 
