@@ -423,7 +423,8 @@ contains
       ke2D = lmesh%EMap3Dto2D(ke)
       G1n_M(:)  = G11(iM2Dto3D(:),ke2D) * nx(:,ke) + G12(iM2Dto3D(:),ke2D) * ny(:,ke)
       G2n_M(:)  = G12(iM2Dto3D(:),ke2D) * nx(:,ke) + G22(iM2Dto3D(:),ke2D) * ny(:,ke)
-      Gnn_M(:)  = G11(iM2Dto3D(:),ke2D) * abs( nx(:,ke) ) + G22(iM2Dto3D(:),ke2D) * abs( ny(:,ke) )
+      Gnn_M(:)  = G11(iM2Dto3D(:),ke2D) * abs( nx(:,ke) ) + G22(iM2Dto3D(:),ke2D) * abs( ny(:,ke) ) &
+                + abs( nz(:,ke) )
 
       densM(:) = DDENS_M(:) + DENS_hyd(iM)
       densP(:) = DDENS_P(:) + DENS_hyd(iP)
@@ -449,16 +450,16 @@ contains
 
       del_flux(:,ke,VARS_MOMX_ID) = 0.5_RP * Gsqrt_M(:) * (        &
                     ( MOMX_P(:) * VelP(:) - MOMX_M(:) * VelM(:) )  &
-                    + G1n_M(:) * dpres(:)                   &
+                    + G1n_M(:) * dpres(:)                          &
                     - alpha(:) * ( MOMX_P(:) - MOMX_M(:) )         )
       
       del_flux(:,ke,VARS_MOMY_ID) = 0.5_RP * Gsqrt_M(:) * (        &
                     ( MOMY_P(:) * VelP(:) - MOMY_M(:) * VelM(:) )  &
-                    + G2n_M(:) * dpres(:)                   &
+                    + G2n_M(:) * dpres(:)                          &
                     - alpha(:) * ( MOMY_P(:) - MOMY_M(:) )         )               
       
       del_flux(:,ke,VARS_MOMZ_ID) = 0.5_RP * Gsqrt_M(:) * (        &
-                    ( MOMZ_P(:) * VelP(:) - MOMZ_M(:) * VelM(:))   &
+                    ( MOMZ_P(:) * VelP(:) - MOMZ_M(:) * VelM(:) )  &
                     + dpres(:) * nz(:,ke)                          &                   
                     - alpha(:) * ( MOMZ_P(:) - MOMZ_M(:) )         )
       

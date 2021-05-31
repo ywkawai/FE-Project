@@ -164,9 +164,9 @@ contains
     !$omp parallel do private(PT, exner)
     do ke=lcmesh3D%NeS, lcmesh3D%NeE
       ! d exner / dz = - g / ( Cp * PT0 ) * exp (- N2/g * z)
-      ! exner = exner(zs) - g^2 / (Cp * N2) [ 1/PT (z) - 1/PT(zs) ] 
+      ! exner = exner(zs) - g^2 / (Cp * N^2) [ 1/PT (z) - 1/PT(zs) ] 
       PT(:) = PotTemp0 * exp( BruntVaisalaFreq**2 / Grav * z(:,ke) )
-      exner(:) = exner_sfc + Grav**2 / ( CpDry * BruntVaisalaFreq ) * ( 1.0_RP / PT(:) - 1.0_RP / PotTemp0 )
+      exner(:) = exner_sfc + Grav**2 / ( CpDry * BruntVaisalaFreq**2 ) * ( 1.0_RP / PT(:) - 1.0_RP / PotTemp0 )
 
       PRES_hyd(:,ke) = PRES00 * exner(:)**CPovR
       DENS_hyd(:,ke) =  PRES_hyd(:,ke) / ( Rdry * exner(:) * PT(:) )

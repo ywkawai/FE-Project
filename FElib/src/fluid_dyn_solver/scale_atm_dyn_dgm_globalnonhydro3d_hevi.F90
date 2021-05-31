@@ -178,7 +178,7 @@ contains
 
     real(RP) :: Fx(elem%Np), Fy(elem%Np), Fz(elem%Np), LiftDelFlx(elem%Np)
     real(RP) :: del_flux(elem%NfpTot,lmesh%Ne,PROG_VARS_NUM)
-    real(RP) :: PRES_(elem%Np)
+    real(RP) :: DPRES_(elem%Np)
     real(RP) :: RHOT_(elem%Np)
     real(RP) :: rdens_(elem%Np), u_(elem%Np), v_(elem%Np), w_(elem%Np)
 
@@ -220,10 +220,10 @@ contains
       s = - 1.0_RP
     end if
 
-    !$omp parallel do private(                    &
-    !$omp RHOT_, PRES_, rdens_, u_, v_, w_, ke2d, &
-    !$omp Fx, Fy, Fz, LiftDelFlx,                 &
-    !$omp GIJ, X, Y, twoOVdel2, CORI              )
+    !$omp parallel do private(                     &
+    !$omp RHOT_, DPRES_, rdens_, u_, v_, w_, ke2d, &
+    !$omp Fx, Fy, Fz, LiftDelFlx,                  &
+    !$omp GIJ, X, Y, twoOVdel2, CORI               )
     do ke = lmesh%NeS, lmesh%NeE
       !--
       X(:) = lmesh%pos_en(:,ke,1)
@@ -231,7 +231,8 @@ contains
       twoOVdel2(:) = 2.0_RP / ( 1.0_RP + X(:)**2 + Y(:)**2 )
   
       RHOT_(:) = P0ovR * ( PRES_hyd(:,ke) * rP0 )**rgamm + DRHOT_(:,ke)
-      PRES_(:) = PRES00 * ( RovP0 * RHOT_(:) )**gamm
+      DPRES_(:) = PRES00 * ( RovP0 * RHOT_(:) )**gamm &
+                - PRES_hyd(:,ke)
 
       rdens_(:) = 1.0_RP / ( DDENS_(:,ke) + DENS_hyd(:,ke) )
       u_ (:) = MOMX_(:,ke) * rdens_(:)
@@ -262,9 +263,9 @@ contains
           + LiftDelFlx(:) ) / lmesh%Gsqrt(:,ke)
       
       !-- MOMX
-      call sparsemat_matmul(Dx, lmesh%Gsqrt(:,ke) * ( u_(:) * MOMX_(:,ke) + GIJ(:,1,1) * PRES_(:) ), Fx)
-      call sparsemat_matmul(Dy, lmesh%Gsqrt(:,ke) * ( v_(:) * MOMX_(:,ke) + GIJ(:,1,2) * PRES_(:) ), Fy)
-      call sparsemat_matmul(Dz, lmesh%Gsqrt(:,ke) *   w_(:) * MOMX_(:,ke)                          , Fz)
+      call sparsemat_matmul(Dx, lmesh%Gsqrt(:,ke) * ( u_(:) * MOMX_(:,ke) + GIJ(:,1,1) * DPRES_(:) ), Fx)
+      call sparsemat_matmul(Dy, lmesh%Gsqrt(:,ke) * ( v_(:) * MOMX_(:,ke) + GIJ(:,1,2) * DPRES_(:) ), Fy)
+      call sparsemat_matmul(Dz, lmesh%Gsqrt(:,ke) *   w_(:) * MOMX_(:,ke)                           , Fz)
       call sparsemat_matmul(Lift, lmesh%Fscale(:,ke) * del_flux(:,ke,MOMX_VID), LiftDelFlx)
 
       MOMX_dt(:,ke) = &
@@ -277,8 +278,8 @@ contains
           + CORI(:,1)              
 
       !-- MOMY
-      call sparsemat_matmul(Dx, lmesh%Gsqrt(:,ke) * ( u_(:) * MOMY_(:,ke) + GIJ(:,2,1) * PRES_(:) ), Fx)
-      call sparsemat_matmul(Dy, lmesh%Gsqrt(:,ke) * ( v_(:) * MOMY_(:,ke) + GIJ(:,2,2) * PRES_(:) ), Fy)
+      call sparsemat_matmul(Dx, lmesh%Gsqrt(:,ke) * ( u_(:) * MOMY_(:,ke) + GIJ(:,2,1) * DPRES_(:) ), Fx)
+      call sparsemat_matmul(Dy, lmesh%Gsqrt(:,ke) * ( v_(:) * MOMY_(:,ke) + GIJ(:,2,2) * DPRES_(:) ), Fy)
       call sparsemat_matmul(Dz, lmesh%Gsqrt(:,ke) *   w_(:) * MOMY_(:,ke)                          , Fz)
       call sparsemat_matmul(Lift, lmesh%Fscale(:,ke) * del_flux(:,ke,MOMY_VID), LiftDelFlx)
 
@@ -430,11 +431,11 @@ contains
       presP(:) = PRES00 * (RovP0 * rhotP(:))**gamm
 
       dpres(:)  =  presP(:) - presM(:)                           &
-             - ( PRES_hyd_P(:) - PRES_hyd_M(:) ) * abs( nz(:,ke) )
-
+             - ( PRES_hyd_P(:) - PRES_hyd_M(:) )
+      
       alpha(:) = swV(:) * max( sqrt( Gnn_M(:) * gamm * presM(:) / densM(:) ) + abs(VelM(:)), &
                                sqrt( Gnn_M(:) * gamm * presP(:) / densP(:) ) + abs(VelP(:))  )
-      
+
       del_flux(:,ke,DDENS_VID) = 0.5_RP * Gsqrt_M(:) * (                &
                    swV(:) * ( densP(:) * VelP(:) - densM(:) * VelM(:) ) &
                     - alpha(:) * ( DDENS_P(:) - DDENS_M(:) )            )
@@ -859,7 +860,7 @@ contains
       
       if (iM==iP .and. (ke_z == 1 .or. ke_z == lmesh%NeZ)) then
         MOMZ_P = - MOMZ_(iM)
-        alpha0 = 0.0_RP
+        !alpha0 = 0.0_RP
       else
         MOMZ_P = MOMZ_(iP)
       end if
@@ -1053,7 +1054,7 @@ contains
 
         tmp1 = fac * elem%Lift(FmV,fp) * lmesh%Fscale(fp,ke) * max(alphaM, alphaP)
         if (bc_flag) then
-          !PmatD(pv1,pv1,MOMZ_VID,MOMZ_VID) = PmatD(pv1,pv1,MOMZ_VID,MOMZ_VID) + 2.0_RP * tmp1
+          PmatD(pv1,pv1,MOMZ_VID,MOMZ_VID) = PmatD(pv1,pv1,MOMZ_VID,MOMZ_VID) + 2.0_RP * tmp1
         else 
           do v=1, PROG_VARS_NUM
             PmatD(pv1,pv1,v,v) = PmatD(pv1,pv1,v,v) + tmp1            
