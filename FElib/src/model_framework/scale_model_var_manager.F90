@@ -1,3 +1,13 @@
+!-------------------------------------------------------------------------------
+!> module model_var_manager
+!!
+!! @par Description
+!!           managing data of variables used in models
+!!
+!! @author Team SCALE
+!!
+!<
+!-------------------------------------------------------------------------------
 #include "scaleFElib.h"
 module scale_model_var_manager
   !-----------------------------------------------------------------------------
@@ -122,7 +132,7 @@ contains
 
     call field%Init( varinfo%NAME, varinfo%UNIT, mesh )
     if (reg_file_history_flag) then
-      call FILE_HISTORY_reg( varinfo%NAME, varinfo%DESC, varinfo%UNIT, field%hist_id, dim_type=varinfo%dim_type)
+      call FILE_HISTORY_reg( varinfo%NAME, varinfo%DESC, varinfo%UNIT, field%hist_id, dim_type=varinfo%dim_type )
     end if
     if ( present(monitor_flag) ) then
       if (monitor_flag) then
@@ -140,7 +150,7 @@ contains
 
   subroutine ModelVarManager_Regist2D( this,     &
     varinfo, mesh, field, reg_file_history_flag, &
-    monitor_flag  )
+    monitor_flag                                 )
     use scale_mesh_base2d, only: Meshbase2d
     implicit none
 

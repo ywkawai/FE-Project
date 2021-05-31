@@ -1,4 +1,13 @@
 !-------------------------------------------------------------------------------
+!> module file_history_meshfield
+!!
+!! @par Description
+!!           managing file history 
+!!
+!! @author Team SCALE
+!!
+!<
+!-------------------------------------------------------------------------------
 #include "scaleFElib.h"
 module scale_file_history_meshfield
   !-----------------------------------------------------------------------------
@@ -32,7 +41,9 @@ module scale_file_history_meshfield
   use scale_localmesh_2d, only: LocalMesh2D
   use scale_localmesh_3d, only: LocalMesh3D
 
-  use scale_meshfield_base, only: MeshField1D, MeshField2D, MeshField3D
+  use scale_meshfield_base, only: &
+    MeshFieldBase,                        &
+    MeshField1D, MeshField2D, MeshField3D    
 
   !-----------------------------------------------------------------------------
   implicit none
@@ -43,6 +54,7 @@ module scale_file_history_meshfield
   !
   public :: FILE_HISTORY_meshfield_setup
   public :: FILE_HISTORY_meshfield_put
+  public :: FILE_HISTORY_meshfield_in
   public :: FILE_HISTORY_meshfield_write  
   public :: FILE_HISTORY_meshfield_finalize
 
@@ -52,6 +64,12 @@ module scale_file_history_meshfield
     module procedure FILE_HISTORY_meshfield_put3D
   end interface
   
+  interface FILE_HISTORY_meshfield_in
+    module procedure FILE_HISTORY_meshfield_in1D
+    module procedure FILE_HISTORY_meshfield_in2D
+    module procedure FILE_HISTORY_meshfield_in3D
+  end interface
+
   !-----------------------------------------------------------------------------
   !
   !++ Public parameters & variables
@@ -60,8 +78,11 @@ module scale_file_history_meshfield
   !
   !++ Private procedures
   !
+  !-----------------------------------------------------------------------------
+  !
+  !++ Private variables
+  !
   !-------------------
-
   integer,          parameter :: nzs = 1
   character(len=8), parameter :: zs(nzs) = (/  "model   " /)
 
@@ -77,6 +98,8 @@ module scale_file_history_meshfield
   integer :: dims1D_size(1)
   integer :: dims2D_size(2)
   integer :: dims3D_size(3,nzs)
+
+  logical, private :: FILE_HISTORY_FILEMESHFILED_DISABLE = .true.
 
 contains
 
@@ -170,6 +193,8 @@ contains
       call PRC_abort
     end if
 
+    FILE_HISTORY_FILEMESHFILED_DISABLE = .false. 
+
     return
   end subroutine FILE_HISTORY_meshfield_setup
 
@@ -189,6 +214,8 @@ contains
     return
   end subroutine FILE_HISTORY_meshfield_finalize
 
+  !-- 1D
+
   subroutine FILE_HISTORY_meshfield_put1D(hstid, field1d)
     use scale_file_common_meshfield, only: &
       File_common_meshfield_put_field1D_cartesbuf
@@ -206,6 +233,26 @@ contains
 
     return
   end subroutine FILE_HISTORY_meshfield_put1D
+
+  subroutine FILE_HISTORY_meshfield_in1D( field1d, desc, standard_name )
+    implicit none
+    class(MeshField1D), intent(in) :: field1d
+    character(len=*), intent(in) :: desc                     !< description of the item
+    character(len=*), intent(in), optional :: standard_name
+
+    integer :: hstid
+    logical :: do_put
+    !-------------------------------------------------
+
+    call history_in_regvar( hstid, do_put,    & ! (out)
+      field1d, desc, 1, standard_name, 'XYZ'  ) ! (in)
+
+    if ( do_put ) call FILE_HISTORY_meshfield_put( hstid, field1d )
+
+    return
+  end subroutine FILE_HISTORY_meshfield_in1D
+  
+  !-- 2D
 
   subroutine FILE_HISTORY_meshfield_put2D(hstid, field2d)
     use scale_file_common_meshfield, only: &
@@ -232,6 +279,26 @@ contains
     return
   end subroutine FILE_HISTORY_meshfield_put2D
 
+  subroutine FILE_HISTORY_meshfield_in2D( field2d, desc, standard_name )
+    implicit none
+    class(MeshField2D), intent(in) :: field2d
+    character(len=*), intent(in) :: desc                     !< description of the item
+    character(len=*), intent(in), optional :: standard_name
+
+    integer :: hstid
+    logical :: do_put
+    !-------------------------------------------------
+
+    call history_in_regvar( hstid, do_put,  & ! (out)
+      field2d, desc, 2, standard_name, 'XY' ) ! (in)
+
+    if ( do_put ) call FILE_HISTORY_meshfield_put( hstid, field2d )
+
+    return
+  end subroutine FILE_HISTORY_meshfield_in2D
+
+  !-- 3D
+
   subroutine FILE_HISTORY_meshfield_put3D(hstid, field3d)
     use scale_file_common_meshfield, only: &
       File_common_meshfield_put_field3D_cartesbuf,            &
@@ -256,8 +323,67 @@ contains
 
     return
   end subroutine FILE_HISTORY_meshfield_put3D
+  
+  subroutine FILE_HISTORY_meshfield_in3D( field3d, desc, standard_name )
+    implicit none
+    class(MeshField3D), intent(in) :: field3d
+    character(len=*), intent(in) :: desc                     !< description of the item
+    character(len=*), intent(in), optional :: standard_name
+
+    integer :: hstid
+    logical :: do_put
+    !-------------------------------------------------
+
+    call history_in_regvar( hstid, do_put,   & ! (out)
+      field3d, desc, 3, standard_name, 'XYZ' ) ! (in)
+
+    if ( do_put ) call FILE_HISTORY_meshfield_put( hstid, field3d )
+
+    return
+  end subroutine FILE_HISTORY_meshfield_in3D
 
 !----------------
+
+  subroutine history_in_regvar( hstid, do_put,  &
+    field, desc, ndim, standard_name, dim_type  )
+
+    use scale_file_history, only: &
+      FILE_HISTORY_reg,           &
+      FILE_HISTORY_query
+    
+    implicit none
+
+    integer, intent(out) :: hstid
+    logical, intent(out) :: do_put
+    class(MeshFieldBase), intent(in) :: field  
+    character(len=*), intent(in) :: desc       !< description of the item
+    integer, intent(in)          :: ndim
+    character(len=*), intent(in), optional :: standard_name
+    character(len=*), intent(in), optional :: dim_type
+
+    logical, parameter     :: fill_halo = .false.
+    !------------------------------------------------------
+
+    hstid = -1
+    do_put = .false.
+
+    if ( FILE_HISTORY_FILEMESHFILED_DISABLE ) return
+
+    ! Check whether the item has been already registered
+    call FILE_HISTORY_reg( field%varname, desc, field%unit, & ! [IN]
+                           hstid,                           & ! [OUT]
+                           standard_name=standard_name,     & ! [IN]
+                           ndims=ndim,                      & ! [IN]
+                           dim_type=dim_type,               & ! [IN]
+                           fill_halo=fill_halo              ) ! [IN]
+    
+    if ( hstid < 0 ) return
+
+    ! Check whether it is time to input the item
+    call FILE_HISTORY_query( hstid, do_put ) ! [IN], [OUT]
+    
+    return
+  end subroutine history_in_regvar
 
   subroutine set_dim_axis1D()
     use scale_file_common_meshfield, only: &
