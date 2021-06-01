@@ -123,7 +123,7 @@ contains
 
     if ( USER_do ) then
       call atm%vars%Calc_diagVar( 'PT_diff', PT_diff )
-      call FILE_HISTORY_meshfield_in( PT_diff, "perturbation of T" )
+      call FILE_HISTORY_meshfield_in( PT_diff, "perturbation of potential temperature" )
     end if
 
     return

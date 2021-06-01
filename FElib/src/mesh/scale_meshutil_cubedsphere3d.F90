@@ -13,9 +13,9 @@ module scale_meshutil_cubedsphere3d
   use scale_prc
 
   use scale_meshutil_3d, only: &
-    MeshUtilCubedSphere3D_genCubeDomain    => MeshUtil3D_genCubeDomain,    &
-    MeshUtilCubedSphere3D_genConnectivity  => MeshUtil3D_genConnectivity,  &
-    MeshUtilCubedSphere3D_BuildInteriorMap => MeshUtil3D_BuildInteriorMap, &
+    MeshUtilCubedSphere3D_genCubeDomain    => MeshUtil3D_genCubeDomain,        &
+    MeshUtilCubedSphere3D_genConnectivity  => MeshUtil3D_genConnectivity,      &
+    MeshUtilCubedSphere3D_BuildInteriorMap => MeshUtil3D_BuildInteriorMap,     &
     MeshUtilCubedSphere3D_genPatchBoundaryMap => MeshUtil3D_genPatchBoundaryMap
   !-----------------------------------------------------------------------------
   implicit none
@@ -42,7 +42,7 @@ contains
     use scale_meshutil_3d, only: &
       MeshUtil3D_genConnectivity
     use scale_meshutil_cubedsphere2d, only: &
-      MeshUtilCubedSphere2D_getPanelConnectivity
+      MeshUtilCubedSphere2D_modifyConnectivity
     implicit none
 
     integer, intent(in) :: Ntile
@@ -65,9 +65,6 @@ contains
     integer :: panelID
     integer :: tileID, tileID_R
     integer :: counter
-
-    integer :: panel_connectivity(4,6)
-    integer :: face_connectivity (4,6)
     
     integer :: pi_, pj_
     !-----------------------------------------------------------------------------
@@ -116,9 +113,6 @@ contains
       EToV, Ntile, 6 )
     tileID_map(:,:) = transpose(EToE)
     tileFaceID_map(:,:) = transpose(EToF)
-
-    call MeshUtilCubedSphere2D_getPanelConnectivity( &
-      panel_connectivity, face_connectivity )
     
     do tileID=1, Ntile
     do f=1, 6
@@ -127,42 +121,10 @@ contains
     end do
     end do
 
-    !-
-    do tileID=1, Ntile
-      panelID = panelID_table(tileID)
-
-      do f=1, 4
-        if ( tileFaceID_map(f,tileID) /= f ) cycle ! Does the face correspond the boundary of panel of cubed sphere?
-
-        pi_ = pi_table(tileID)          
-        pj_ = pj_table(tileID)  
+    call MeshUtilCubedSphere2D_modifyConnectivity( &
+      tilePanelID_map, tileID_map, tileFaceID_map,          & ! (inout)
+      panelID_table, pi_table, pj_table, NeX, NeY, Ntile, 6 ) ! (in)
         
-        select case( panelID )
-        case ( 1, 2, 3, 4 )
-          if ( pi_table(tileID) == 1   ) pi_ = NeX
-          if ( pi_table(tileID) == NeX ) pi_ = 1
-          if ( pj_table(tileID) == 1   ) pj_ = NeY
-          if ( pj_table(tileID) == NeY ) pj_ = 1          
-        case ( 5 )
-          pj_ = NeY
-          if ( pi_table(tileID) == 1   ) pi_ = NeY - pj_table(tileID) + 1  ! West
-          if ( pi_table(tileID) == NeX ) pi_ = pj_table(tileID)            ! East
-          if ( pj_table(tileID) == 1   ) pi_ = pi_table(tileID)            ! South
-          if ( pj_table(tileID) == NeY ) pi_ = NeX - pi_table(tileID) + 1  ! North
-        case ( 6 )
-          pj_ = 1
-          if ( pi_table(tileID) == 1   ) pi_ = pj_table(tileID)            ! West
-          if ( pi_table(tileID) == NeX ) pi_ = NeY - pj_table(tileID) + 1  ! East
-          if ( pj_table(tileID) == 1   ) pi_ = NeX - pi_table(tileID) + 1  ! South
-          if ( pj_table(tileID) == NeY ) pi_ = pi_table(tileID)            ! North
-        end select
-
-        tilePanelID_map(f,tileID) = panel_connectivity(f,panelID)
-        tileID_map(f,tileID) = pi_ + (pj_ - 1) * NeX + (tilePanelID_map(f,tileID) - 1) * NeX * NeY
-        tileFaceID_map(f,tileID) = face_connectivity(f,panelID)
-      end do ! loop for f
-    end do ! loop for tile
-
     return
   end subroutine MeshUtilCubedSphere3D_buildGlobalMap
 

@@ -5,7 +5,7 @@
 &PARAM_INTERP_FIELD
   !- input --------------------
   in_basename="./history",     
-  vars = "W", "DDENS", "DRHOT", 
+  vars = "W", "PRES_diff", 
   !out_tinterval = 5,
 /
 &PARAM_INTERP_FILE
