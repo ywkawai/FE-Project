@@ -30,6 +30,7 @@ module scale_meshutil_cubedsphere2d
   public :: MeshUtilCubedSphere2D_buildInteriorMap
   public :: MeshUtilCubedSphere2D_buildGlobalMap
   public :: MeshUtilCubedSphere2D_genPatchBoundaryMap
+  public :: MeshUtilCubedSphere2D_modifyConnectivity
   public :: MeshUtilCubedSphere2D_GetPanelConnectivity
   
 contains
@@ -38,7 +39,6 @@ contains
     tileID_map, tileFaceID_map, tilePanelID_map,    &
     Ntile  )
     
-    ! use scale_prc, only: PRC_isMaster
     use scale_meshutil_2d, only: &
       MeshUtil2D_genConnectivity
     implicit none
@@ -61,11 +61,6 @@ contains
     integer :: panelID
     integer :: tileID, tileID_R
     integer :: counter
-
-    integer :: panel_connectivity(4,6)
-    integer :: face_connectivity (4,6)
-    
-    integer :: pi_, pj_
     !-----------------------------------------------------------------------------
 
     NtilePerPanel = Ntile / 6
@@ -105,9 +100,6 @@ contains
       EToV, Ntile, 4 )
     tileID_map(:,:) = transpose(EToE)
     tileFaceID_map(:,:) = transpose(EToF)
-
-    call MeshUtilCubedSphere2D_getPanelConnectivity( &
-      panel_connectivity, face_connectivity )
     
     do tileID=1, Ntile
     do f=1, 4
@@ -116,7 +108,40 @@ contains
     end do
     end do
 
-    !-
+    call MeshUtilCubedSphere2D_modifyConnectivity( &
+      tilePanelID_map, tileID_map, tileFaceID_map,          & ! (inout)
+      panelID_table, pi_table, pj_table, NeX, NeY, Ntile, 4 ) ! (in)
+
+    return
+  end subroutine MeshUtilCubedSphere2D_buildGlobalMap
+
+  !----
+  subroutine MeshUtilCubedSphere2D_modifyConnectivity( tilePanelID_map, tileID_map, tileFaceID_map, &
+    panelID_table, pi_table, pj_table, NeX, NeY, Ntile, Nface )
+
+    integer, intent(in) :: Ntile
+    integer, intent(in) :: Nface
+    integer, intent(out) :: tileID_map(Nface,Ntile)
+    integer, intent(out) :: tileFaceID_map(Nface,Ntile)
+    integer, intent(out) :: tilePanelID_map(Nface,Ntile)
+    integer, intent(in) :: panelID_table(Ntile)
+    integer, intent(in) :: pi_table(Ntile)
+    integer, intent(in) :: pj_table(Ntile)
+    integer, intent(in) :: NeX, NeY
+
+    integer :: panel_connectivity(4,6)
+    integer :: face_connectivity (4,6)
+
+    integer :: tileID
+    integer :: panelID
+    integer :: f
+    integer :: pi_, pj_    
+    !-----------------------------------------------------------------------------
+
+    call MeshUtilCubedSphere2D_getPanelConnectivity( &
+      panel_connectivity, face_connectivity )
+
+    
     do tileID=1, Ntile
       panelID = panelID_table(tileID)
 
@@ -127,23 +152,68 @@ contains
         pj_ = pj_table(tileID)  
         
         select case( panelID )
-        case ( 1, 2, 3, 4 )
-          if ( pi_table(tileID) == 1   ) pi_ = NeX
-          if ( pi_table(tileID) == NeX ) pi_ = 1
-          if ( pj_table(tileID) == 1   ) pj_ = NeY
-          if ( pj_table(tileID) == NeY ) pj_ = 1          
+        case ( 1 )
+          if ( mod(f,2) == 0 ) then ! West / East
+            if ( pi_table(tileID) == 1   ) pi_ = NeX
+            if ( pi_table(tileID) == NeX ) pi_ = 1
+          else                      ! North / South
+            if ( pj_table(tileID) == 1   ) pj_ = NeY
+            if ( pj_table(tileID) == NeY ) pj_ = 1  
+          end if
+        case ( 2 )
+          if ( mod(f,2) == 0 ) then ! West / East
+            if ( pi_table(tileID) == 1   ) pi_ = NeX
+            if ( pi_table(tileID) == NeX ) pi_ = 1
+          else                      ! North / South
+            if ( pj_table(tileID) == 1   ) then
+              pi_ = NeX; pj_ = NeY - pi_table(tileID) + 1
+            end if
+            if ( pj_table(tileID) == NeY ) then
+              pi_ = NeX ; pj_ = pi_table(tileID)
+            end if
+          end if
+        case ( 3 )
+          if ( mod(f,2) == 0 ) then ! West / East
+            if ( pi_table(tileID) == 1   ) pi_ = NeX
+            if ( pi_table(tileID) == NeX ) pi_ = 1
+          else                      ! North / South
+            if ( pj_table(tileID) == 1   ) then
+              pi_ = NeX - pi_table(tileID) + 1; pj_ = 1
+            end if
+            if ( pj_table(tileID) == NeY ) then
+              pi_ = NeX - pi_table(tileID) + 1; pj_ = NeY
+            end if
+          end if
+        case ( 4 )
+          if ( mod(f,2) == 0 ) then ! West / East
+            if ( pi_table(tileID) == 1   ) pi_ = NeX
+            if ( pi_table(tileID) == NeX ) pi_ = 1
+          else                      ! North / South 
+            if ( pj_table(tileID) == 1   ) then
+              pi_ = 1; pj_ = pi_table(tileID)
+            end if
+            if ( pj_table(tileID) == NeY ) then
+              pi_ = 1; pj_ = NeY - pi_table(tileID) + 1; 
+            end if
+          end if          
         case ( 5 )
           pj_ = NeY
-          if ( pi_table(tileID) == 1   ) pi_ = NeY - pj_table(tileID) + 1  ! West
-          if ( pi_table(tileID) == NeX ) pi_ = pj_table(tileID)            ! East
-          if ( pj_table(tileID) == 1   ) pi_ = pi_table(tileID)            ! South
-          if ( pj_table(tileID) == NeY ) pi_ = NeX - pi_table(tileID) + 1  ! North
+          if ( mod(f,2) == 0 ) then 
+            if ( pi_table(tileID) == 1   ) pi_ = NeY - pj_table(tileID) + 1  ! West            
+            if ( pi_table(tileID) == NeX ) pi_ = pj_table(tileID)            ! East
+          else
+            if ( pj_table(tileID) == 1   ) pi_ = pi_table(tileID)            ! South            
+            if ( pj_table(tileID) == NeY ) pi_ = NeX - pi_table(tileID) + 1  ! North
+          end if
         case ( 6 )
           pj_ = 1
-          if ( pi_table(tileID) == 1   ) pi_ = pj_table(tileID)            ! West
-          if ( pi_table(tileID) == NeX ) pi_ = NeY - pj_table(tileID) + 1  ! East
-          if ( pj_table(tileID) == 1   ) pi_ = NeX - pi_table(tileID) + 1  ! South
-          if ( pj_table(tileID) == NeY ) pi_ = pi_table(tileID)            ! North
+          if ( mod(f,2) == 0 ) then 
+            if ( pi_table(tileID) == 1   ) pi_ = pj_table(tileID)            ! West            
+            if ( pi_table(tileID) == NeX ) pi_ = NeY - pj_table(tileID) + 1  ! East
+          else
+            if ( pj_table(tileID) == 1   ) pi_ = NeX - pi_table(tileID) + 1  ! South            
+            if ( pj_table(tileID) == NeY ) pi_ = pi_table(tileID)            ! North
+          end if
         end select
 
         tilePanelID_map(f,tileID) = panel_connectivity(f,panelID)
@@ -152,8 +222,18 @@ contains
       end do ! loop for f
     end do ! loop for tile
 
+    ! if (PRC_myrank==0) then
+    !   write(*,*) " MeshUtilCubedSphere2D_modifyConnectivity"
+    !   do tileID=1, Ntile
+    !     write(*,'(a,i3,a,2i3)') "tileID=", tileID, ":", pi_table(tileID), pj_table(tileID)
+    !     write(*,'(a,6i4)') "map_tile:", tileID_map(:,tileID)
+    !     write(*,'(a,6i4)') "map_panel:", tilePanelID_map(:,tileID)
+    !     write(*,'(a,6i4)') "mac_face:", tileFaceID_map(:,tileID)
+    !   end do
+    ! end if
+
     return
-  end subroutine MeshUtilCubedSphere2D_buildGlobalMap
+  end subroutine MeshUtilCubedSphere2D_modifyConnectivity
 
   subroutine MeshUtilCubedSphere2D_getPanelConnectivity( panel_connectivity, face_connectivity )
 

@@ -348,14 +348,14 @@ contains
     
     !----
 
-    call MeshUtil3D_genCubeDomain( lcmesh%pos_ev, lcmesh%EToV,     & ! (out)
-        & lcmesh%NeX, lcmesh%xmin, lcmesh%xmax,                    & ! (in)
-        & lcmesh%NeY, lcmesh%ymin, lcmesh%ymax,                    & ! (in) 
-        & lcmesh%NeZ, lcmesh%zmin, lcmesh%zmax, FZ=FZ_lc           ) ! (in) 
+    call MeshUtil3D_genCubeDomain( lcmesh%pos_ev, lcmesh%EToV,   & ! (out)
+        lcmesh%NeX, lcmesh%xmin, lcmesh%xmax,                    & ! (in)
+        lcmesh%NeY, lcmesh%ymin, lcmesh%ymax,                    & ! (in) 
+        lcmesh%NeZ, lcmesh%zmin, lcmesh%zmax, FZ=FZ_lc           ) ! (in) 
     
     !---
     call MeshBase3D_setGeometricInfo( lcmesh, MeshCubeDom3D_coord_conv, MeshCubeDom3D_calc_normal )
- 
+
     !---
     call MeshUtil3D_genConnectivity( lcmesh%EToE, lcmesh%EToF, & ! (out)
         lcmesh%EToV, lcmesh%Ne, elem%Nfaces )                    ! (in)

@@ -19,7 +19,7 @@ Futhermore, some dynamical cores of atmospheric and oceanic model with DGM will 
 
 ### Nonhydrostatic atmospheric model
 - Simple 2D model with only dynamical process
-- 3D model with dynamical process and some physical processes
+- Regional/Global model with dynamical process and some physical processes
 
 ## Simple samples for intrduction to DGM. 
 ### 1D problems 

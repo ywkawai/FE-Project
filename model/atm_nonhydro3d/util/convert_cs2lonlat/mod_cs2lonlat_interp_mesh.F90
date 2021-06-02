@@ -214,10 +214,9 @@ contains
       call construct_map()
     else
       is_mesh3D = .true.
-
       call in_elem3D%Init( in_PolyOrder_h, in_PolyOrder_v, .false. )
       call out_elem3D%Init( out_PolyOrder_h, out_PolyOrder_v, .false. )
-  
+      
       if ( is_spec_out_FZ ) then
         call out_mesh3D%Init( out_NprcX * out_NeX, out_NprcY * out_NeY, out_NeZ,          &
           0.0_RP, 360.0_RP, -90.0_RP, 90.0_RP, out_dom_zmin, out_dom_zmax,                &
@@ -236,7 +235,7 @@ contains
       call out_mesh3D%SetDimInfo( MeshBase3D_DIMTYPEID_Z, 'z', 'm', 'altitude' )
       call out_mesh3D%SetDimInfo( MeshBase3D_DIMTYPEID_XYZ, 'lonlatz', 'degree', 'longitude,latitude,altitude' )
       call out_mesh3D%SetDimInfo( MeshBase3D_DIMTYPEID_XYZT, 'lonlatzt', 'degree', 'longitude,latitude,altitude' )
-  
+
       call out_mesh3D%Generate()
       call construct_map( in_FZ(1:in_NeGZ+1), is_spec_in_FZ )
     end if

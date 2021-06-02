@@ -210,7 +210,7 @@ contains
     do n=1, mesh%LOCAL_MESH_NUM
       lcmesh => mesh%lcmesh_list(n)
 
-      call vars_calc_diagnoseVar( &
+      call vars_calc_diagnoseVar_lc( &
         U%local(n)%val, W%local(n)%val, DPRES%local(n)%val, TEMP%local(n)%val, DTHETA%local(n)%val,   &
         DDENS%local(n)%val, MOMX%local(n)%val, MOMZ%local(n)%val, DRHOT%local(n)%val,                 &
         PRES_hydro%local(n)%val, DENS_hydro%local(n)%val,                                             &
@@ -227,7 +227,7 @@ contains
     return
   end subroutine ATMOS_VARS_history
 
-  subroutine vars_calc_diagnoseVar( &
+  subroutine vars_calc_diagnoseVar_lc( &
     U_, W_, DPRES_, TEMP_, DTHETA_,                      &
     DDENS_, MOMX_, MOMZ_, DRHOT_, PRES_hyd, DENS_hyd,    &
     lcmesh, elem )
@@ -277,6 +277,6 @@ contains
     end do
 
     return
-  end subroutine vars_calc_diagnoseVar
+  end subroutine vars_calc_diagnoseVar_lc
 
 end module mod_atmos_vars

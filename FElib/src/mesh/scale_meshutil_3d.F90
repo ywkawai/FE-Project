@@ -120,7 +120,7 @@ contains
     integer, intent(in) :: EToV(Ne,8)
 
     integer :: nodes(Ne*Nfaces,4)
-    integer :: face_ids(Ne*Nfaces)
+    integer(kind=8) :: face_ids(Ne*Nfaces)
     integer :: k
     integer :: f
     integer :: n
@@ -128,23 +128,23 @@ contains
     integer :: Nnodes
     integer :: tmp
     integer :: Nnodes_row
-    integer :: matchL(2,4), matchR(2,4)
+    integer :: matchL(2,3), matchR(2,3)
 
     real(RP) :: EToE_1d(Ne*Nfaces)
     real(RP) :: EToF_1d(Ne*Nfaces)
 
-    integer :: spNodeToNode(4,Ne*Nfaces)
-    integer :: spNodeToNodeRowTmp(4,Ne*Nfaces)
+    integer :: spNodeToNode(3,Ne*Nfaces)
+    integer :: spNodeToNodeRowTmp(3,Ne*Nfaces)
     integer :: sort_indx(Ne*Nfaces)
-    integer :: sort_val(Ne*Nfaces)
+    integer(kind=8) :: sorted_faceid(Ne*Nfaces)
 
     real(RP) :: vtmp(4)
-
+    
     !-----------------------------------------------------------------------------
 
     Nnodes = maxval( EToV )
     Nnodes_row = size(nodes,1)
-
+    
     !---------
     do n=1, Ne
        nodes(n     ,:) = EToV(n,(/ 1, 2, 6, 5 /))
@@ -171,36 +171,36 @@ contains
     end do
 
     face_ids(:) =   nodes(:,1)*Nnodes**3 + nodes(:,2)*Nnodes**2 &
-                  + nodes(:,3)*Nnodes + nodes(:,4) + 1
+                + nodes(:,3)*Nnodes + nodes(:,4) + 1
 
     do f=1, Nfaces
     do k=1, Ne
-       n = k + (f-1)*Ne
-       spNodeToNode(:,n) = (/ face_ids(n), n, EToE(k,f), EToF(k,f) /)
-       sort_val(n) = face_ids(n)
-       sort_indx(n) = n
+      n = k + (f-1)*Ne
+      spNodeToNode(:,n) = (/ n, EToE(k,f), EToF(k,f) /)
+      sorted_faceid(n)  = face_ids(n)
+      sort_indx(n)      = n
        ! write(*,*) "face_id, n, EToE, EToF:", spNodeToNode(:,n)
     end do
     end do
-
     
     !- sort row
-    call QUICKSORT_exec_with_idx( Ne*Nfaces, sort_val, sort_indx )
+    call QUICKSORT_exec_with_idx( Ne*Nfaces, sorted_faceid, sort_indx )
     spNodeToNodeRowTmp(:,:) = spNodeToNode(:,:)
+
     do n=1, Nnodes_row
       spNodeToNode(:,n) = spNodeToNodeRowTmp(:,sort_indx(n))
-      ! write(*,'(a,4i10)') "(sorted) face_id, n, EToE, EToF:", spNodeToNode(:,n)
+      !  write(*,'(a,4i10)') "(sorted) face_id, n, EToE, EToF:", spNodeToNode(:,n)
     end do
 
     EToE_1d(:) = -1
     EToF_1d(:) = -1
     do n=1, Nnodes_row-1
-       if ( spNodeToNode(1,n) - spNodeToNode(1,n+1) == 0 ) then
+       if ( sorted_faceid(n) - sorted_faceid(n+1) == 0 ) then
           matchL(:,:) = transpose( spNodeToNode(:,(/ n, n+1 /)) )
           matchR(:,:) = transpose( spNodeToNode(:,(/ n+1, n /)) )
 
-          EToE_1d(matchL(:,2)) = matchR(:,3)
-          EToF_1d(matchL(:,2)) = matchR(:,4)
+          EToE_1d(matchL(:,1)) = matchR(:,2)
+          EToF_1d(matchL(:,1)) = matchR(:,3)
        end if
     end do
 

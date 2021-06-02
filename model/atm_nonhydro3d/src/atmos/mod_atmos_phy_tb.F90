@@ -126,10 +126,10 @@ contains
     !- get mesh --------------------------------------------------
 
     call model_mesh%GetModelMesh( ptr_mesh )
-    select type(model_mesh)
-    type is (AtmosMesh)
-      atm_mesh => model_mesh
-    end select
+    ! select type(model_mesh)
+    ! class is (AtmosMesh)
+    !   atm_mesh => model_mesh
+    ! end select
 
     !--- Regist this compoent in the time manager
     
@@ -144,7 +144,7 @@ contains
     select case( TB_TYPE )
     case ('SMAGORINSKY')
       this%TB_TYPEID = TB_TYPEID_SMAGORINSKY
-      call atm_phy_tb_dgm_smg_Init( atm_mesh%mesh )
+      call atm_phy_tb_dgm_smg_Init( atm_mesh%ptr_mesh )
     case default
       LOG_ERROR("ATMOS_PHY_TB_setup",*) 'Not appropriate names of TB_TYPE in namelist PARAM_ATMOS_PHY_TB. Check!'
       call PRC_abort
@@ -179,7 +179,6 @@ contains
     logical, intent(in) :: is_update
 
     class(MeshBase), pointer :: mesh
-    class(MeshBase2D), pointer :: mesh2D    
     class(LocalMesh3D), pointer :: lcmesh
 
     class(LocalMeshFieldBase), pointer :: DDENS, MOMX, MOMY, MOMZ, DRHOT

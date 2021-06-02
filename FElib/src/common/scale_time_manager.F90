@@ -102,6 +102,8 @@ module scale_time_manager
   integer, public  :: TIME_ENDDAY
   real(DP), public :: TIME_ENDSEC
 
+  real(DP), public :: TIME_DURATIONSEC
+
   logical, public :: TIME_DOresume
   logical, public :: TIME_DOend
 
@@ -190,7 +192,6 @@ contains
     real(DP)             :: cftime(1)
     character(len=H_MID) :: cfunits
    
-    real(DP)          :: TIME_DURATIONSEC
     character(len=27) :: startchardate
     character(len=27) :: endchardate
    
@@ -526,6 +527,9 @@ contains
     character(*), intent(in) :: dt_unit
     real(DP), intent(in) :: dt_restart
     character(*), intent(in) :: dt_restart_unit
+
+    real(RP) :: start_sec, end_sec
+    real(RP) :: absday, absdaysec, abssec
     !------------------------------------------------------------------------
 
     this%process_num = 0
@@ -555,7 +559,7 @@ contains
 
     if (dt_restart == UNDEF8) then
       LOG_INFO_CONT(*) 'Not found TIME_DT_'//trim(comp_name)//'_RESTART.       TIME_DURATION is used.'
-      this%dtsec_restart = TIME_ENDSEC - TIME_STARTSEC
+      this%dtsec_restart = TIME_DURATIONSEC
     else 
       call CALENDAR_unit2sec( this%dtsec_restart, dt_restart, dt_restart_unit )
     end if
@@ -733,5 +737,7 @@ contains
 
     return
   end subroutine TIME_manager_process_checkstate
+
+!--
 
 end module scale_time_manager

@@ -85,7 +85,7 @@ contains
 
     allocate( this%lcmesh_list(this%LOCAL_MESH_NUM) )
     do n=1, this%LOCAL_MESH_NUM
-      call LocalMesh2D_Init( this%lcmesh_list(n), refElem, myrank )
+      call LocalMesh2D_Init( this%lcmesh_list(n), n, refElem, myrank )
     end do
 
     call this%SetDimInfo( MeshBase2D_DIMTYPEID_X, "x", "m", "X-coordinate" )

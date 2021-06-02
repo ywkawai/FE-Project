@@ -59,10 +59,11 @@ module scale_localmesh_3d
 contains
 
   subroutine LocalMesh3D_Init( this, &
-    refElem, myrank )
+    lcdomID, refElem, myrank )
     implicit none
 
     class(LocalMesh3D), intent(inout) :: this
+    integer, intent(in) :: lcdomID
     class(ElementBase3D), intent(in), target :: refElem
     integer, intent(in), optional :: myrank
     !-------------------------------------------------
@@ -70,7 +71,7 @@ contains
     this%refElem3D    => refElem
     nullify( this%lcmesh2D )
 
-    call LocalMeshBase_Init( this, refElem, 3, myrank )
+    call LocalMeshBase_Init( this, lcdomID, refElem, 3, myrank )
 
     return
   end subroutine LocalMesh3D_Init

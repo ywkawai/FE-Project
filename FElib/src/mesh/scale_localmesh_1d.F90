@@ -43,17 +43,18 @@ module scale_localmesh_1d
 
 contains
   subroutine LocalMesh1D_Init( this, &
-    refElem, myrank )
+    lcdomID, refElem, myrank )
     
     implicit none
 
     type(LocalMesh1D), intent(inout) :: this
+    integer, intent(in) :: lcdomID
     class(elementbase1D), intent(in), target :: refElem
     integer, intent(in), optional :: myrank
     !-------------------------------------------------
 
     this%refElem1D => refElem
-    call LocalMeshBase_Init(this, refElem, 1, myrank)
+    call LocalMeshBase_Init(this, lcdomID, refElem, 1, myrank)
 
     return
   end subroutine LocalMesh1D_Init

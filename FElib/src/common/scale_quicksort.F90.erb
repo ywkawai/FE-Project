@@ -20,8 +20,10 @@ module scale_quicksort
   !  
 
   interface QUICKSORT_exec_with_idx
-% for t in ["int", "real_RP"]
-    module procedure QUICKSORT_exec_with_idx_<%=t%>
+% for indx_intkind in [ "4", "8" ]
+% for t in ["int4", "int8", "real_RP"]
+    module procedure QUICKSORT_exec_with_idx<%=indx_intkind%>_<%=t%>
+% end
 % end
   end interface QUICKSORT_exec_with_idx
   
@@ -31,29 +33,33 @@ contains
   
   !- private routines -------------------------------------
 
-% for t in [["integer", "int"], ["real(RP)", "real_RP"]]
-  subroutine QUICKSORT_exec_with_idx_<%=t[1]%>( npoints, val, indx )
+% for indx_intkind in [ "4", "8" ]
+% for t in [["integer(kind=4)", "int4"], ["integer(kind=8)", "int8"], ["real(RP)", "real_RP"]]
+  subroutine QUICKSORT_exec_with_idx<%=indx_intkind%>_<%=t[1]%>( npoints, val, indx )
     integer, intent(in) :: npoints
     <%=t[0]%>, intent(inout) :: val(npoints)
-    integer, intent(inout) :: indx(npoints)
+    integer(kind=<%=indx_intkind%>), intent(inout) :: indx(npoints)
 
     !-------------------------------
-    call quicksort_core_<%=t[1]%>(val, indx, 1, npoints)
-  end subroutine QUICKSORT_exec_with_idx_<%=t[1]%>
+    call quicksort_core_idx<%=indx_intkind%>_<%=t[1]%>(val, indx, 1, npoints)
+  end subroutine QUICKSORT_exec_with_idx<%=indx_intkind%>_<%=t[1]%>
+% end
 % end
 
   !-- private ------------------------------------------------
 
-% for t in [["integer", "int"], ["real(RP)", "real_RP"]] 
-  recursive subroutine quicksort_core_<%=t[1]%>(key, ind, first, last)
+% for indx_intkind in [ "4", "8" ]
+% for t in [["integer(kind=4)", "int4"], ["integer(kind=8)", "int8"], ["real(RP)", "real_RP"]] 
+  recursive subroutine quicksort_core_idx<%=indx_intkind%>_<%=t[1]%>(key, ind, first, last)
     implicit none
     
     <%=t[0]%>, intent(inout) :: key(:)
-    integer, intent(inout) :: ind(:)
+    integer(kind=<%=indx_intkind%>), intent(inout) :: ind(:)
     integer, intent(in) :: first, last
 
     <%=t[0]%> :: x, tmp
-    integer :: i, j, tmp_i
+    integer :: i, j
+    integer(kind=<%=indx_intkind%>) :: tmp_ind
     !-------------------------------
 
     x = key( (first + last)/2 )
@@ -71,15 +77,16 @@ contains
       
       ! swap
       tmp = key(i); key(i) = key(j); key(j) = tmp
-      tmp_i = ind(i); ind(i) = ind(j); ind(j) = tmp_i
+      tmp_ind = ind(i); ind(i) = ind(j); ind(j) = tmp_ind
 
       i = i + 1; j = j - 1
     end do
 
-    if ( first < i-1 ) call quicksort_core_<%=t[1]%>(key, ind, first, i-1)
-    if ( j+1 < last )  call quicksort_core_<%=t[1]%>(key, ind, j+1, last)
+    if ( first < i-1 ) call quicksort_core_idx<%=indx_intkind%>_<%=t[1]%>(key, ind, first, i-1)
+    if ( j+1 < last )  call quicksort_core_idx<%=indx_intkind%>_<%=t[1]%>(key, ind, j+1, last)
 
     return
-  end subroutine quicksort_core_<%=t[1]%>
+  end subroutine quicksort_core_idx<%=indx_intkind%>_<%=t[1]%>
+% end
 % end
 end module scale_quicksort

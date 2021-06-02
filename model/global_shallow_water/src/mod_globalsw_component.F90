@@ -73,7 +73,7 @@ subroutine SW_setup( this )
 
   implicit none
 
-  class(GlobalSWComponent), intent(inout) :: this
+  class(GlobalSWComponent), intent(inout), target :: this
 
   logical :: ACTIVATE_FLAG = .true.
 

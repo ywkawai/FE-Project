@@ -218,7 +218,7 @@ contains
   subroutine MeshFieldCommCubedSphereDom3D_exchange( this )
 
     use scale_prc, only: &
-      PRC_LOCAL_COMM_WORLD, PRC_abort, PRC_MPIbarrier
+      PRC_LOCAL_COMM_WORLD, PRC_abort, PRC_MPIbarrier, PRC_myrank
     
     use scale_meshfieldcomm_base, only: &
       MeshFieldCommBase_exchange_core,  &
@@ -332,6 +332,7 @@ contains
       irs = 1
       do f=1, this%nfaces_comm
         commdata => commdata_list(f,n)
+        ire = irs + commdata%Nnode_LCMeshFace - 1
 
         if ( commdata%s_panelID /= lcmesh%panelID ) then
           if ( this%hvfield_num > 0 ) then
@@ -340,8 +341,7 @@ contains
             call push_localsendbuf( lcfpos3D,             &
               fpos3D, f, is_f(f), Nnode_LCMeshFace(f), 2, &
               lcmesh, elem )
-
-            ire = irs + commdata%Nnode_LCMeshFace - 1
+            
             do varid=this%sfield_num+1, this%field_num_tot-1, 2
               call CubedSphereCnv_LonLat2CSVec( &
                 lcmesh%panelID, lcfpos3D(:,1), lcfpos3D(:,2), Nnode_LCMeshFace(f),   &

@@ -23,9 +23,13 @@ module mod_atmos_component
   use scale_localmesh_3d, only: LocalMesh3D
   use scale_localmeshfield_base, only: LocalMeshFieldBase
   use scale_model_component, only: ModelComponent
+  use scale_model_mesh_manager, only: ModelMesh3D
+
+  use mod_atmos_mesh, only: AtmosMesh
+  use mod_atmos_mesh_rm, only: AtmosMeshRM
+  use mod_atmos_mesh_gm, only: AtmosMeshGM
 
   use mod_atmos_vars, only: AtmosVars
-  use mod_atmos_mesh, only: AtmosMesh
 
   use mod_atmos_dyn, only: AtmosDyn
   use mod_atmos_phy_sfc, only: AtmosPhySfc
@@ -40,11 +44,16 @@ module mod_atmos_component
   !
   type, extends(ModelComponent), public :: AtmosComponent
     type(AtmosVars) :: vars
-    type(AtmosMesh) :: mesh
+
+    character(len=H_SHORT) :: mesh_type
+    class(AtmosMesh), pointer :: mesh
+    type(AtmosMeshRM) :: mesh_rm
+    type(AtmosMeshGM) :: mesh_gm
 
     type(AtmosDyn) :: dyn_proc
     type(AtmosPhySfc) :: phy_sfc_proc
     type(AtmosPhyTb ) :: phy_tb_proc
+
   contains
     procedure, public :: setup => Atmos_setup 
     procedure, public :: calc_tendency => Atmos_calc_tendency
@@ -79,7 +88,7 @@ subroutine Atmos_setup( this )
 
   implicit none
 
-  class(AtmosComponent), intent(inout) :: this
+  class(AtmosComponent), intent(inout), target :: this
 
   logical :: ACTIVATE_FLAG = .true.
 
@@ -91,6 +100,7 @@ subroutine Atmos_setup( this )
   logical :: ATMOS_DYN_DO    = .true.
   logical :: ATMOS_PHY_SF_DO = .false.
   logical :: ATMOS_PHY_TB_DO = .false.
+  character(len=H_SHORT) :: ATMOS_MESH_TYPE = 'REGIONAL' ! 'REGIONAL' or 'GLOBAL'
 
   namelist / PARAM_ATMOS / &
     ACTIVATE_FLAG,         &
@@ -98,6 +108,7 @@ subroutine Atmos_setup( this )
     TIME_DT_UNIT,          &
     TIME_DT_RESTART,       &
     TIME_DT_RESTART_UNIT,  &
+    ATMOS_MESH_TYPE,       &
     ATMOS_DYN_DO,          &
     ATMOS_PHY_SF_DO,       &
     ATMOS_PHY_TB_DO
@@ -130,13 +141,22 @@ subroutine Atmos_setup( this )
   
   call TIME_manager_Regist_component( this%time_manager )
   
-  !- Setup mesh
+  !- Setup mesh & file I/O for atmospheric component
 
-  call this%mesh%Init()
-
-  !- Setup file I/O for atmospheric component
-
-  call FILE_HISTORY_meshfield_setup( mesh3d_=this%mesh%mesh )  
+  this%mesh_type = ATMOS_MESH_TYPE
+  select case( this%mesh_type )
+  case('REGIONAL')
+    call this%mesh_rm%Init()
+    call FILE_HISTORY_meshfield_setup( mesh3d_=this%mesh_rm%mesh )
+    this%mesh => this%mesh_rm
+  case('GLOBAL')
+    call this%mesh_gm%Init()
+    call FILE_HISTORY_meshfield_setup( meshCubedSphere3D_=this%mesh_gm%mesh )
+    this%mesh => this%mesh_gm
+  case default
+    LOG_ERROR("ATM_setup",*) 'Unsupported type of mesh is specified. Check!', this%mesh_type
+    call PRC_abort    
+  end select
   
   !- Setup variables
 
@@ -271,7 +291,7 @@ subroutine Atmos_update( this )
   
   !########## Calculate diagnostic variables ##########  
 
-  call this%vars%Clac_diagnostics()
+  call this%vars%Calc_diagnostics()
   call this%vars%AUXVARS_manager%MeshFieldComm_Exchange()
 
   !########## Adjustment ##########
@@ -302,7 +322,15 @@ subroutine Atmos_finalize( this )
   call this%phy_tb_proc%finalize()
   
   call this%vars%Final()
-  call this%mesh%Final()
+
+  select case( this%mesh_type )
+  case('REGIONAL')
+    call this%mesh_rm%Final()
+  case('GLOBAL')
+    call this%mesh_gm%Final()
+  end select  
+  this%mesh => null()
+
   call this%time_manager%Final()
 
   return  

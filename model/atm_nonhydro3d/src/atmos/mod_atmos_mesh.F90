@@ -10,14 +10,15 @@ module mod_atmos_mesh
   use scale_prc
 
   use scale_meshfield_base, only: MeshField3D
-  use scale_mesh_cubedom3d, only: MeshCubeDom3D
+  use scale_mesh_base3d, only: MeshBase3D
   use scale_element_base, only: ElementBase3D
   use scale_element_hexahedral, only: HexahedralElement
   use scale_localmesh_3d, only: LocalMesh3D
-  use scale_meshfieldcomm_cubedom3d, only: MeshFieldCommCubeDom3D
   use scale_sparsemat, only: sparsemat
-  use scale_model_mesh_manager, only: &
-    ModelMesh3D
+
+  use scale_file_restart_meshfield, only: FILE_restart_meshfield_component
+  use scale_model_var_manager, only: ModelVarManager
+  use scale_model_mesh_manager, only: ModelMesh3D
   
   !-----------------------------------------------------------------------------
   implicit none
@@ -26,22 +27,80 @@ module mod_atmos_mesh
   !
   !++ Public type & procedures
   !
-  type, extends(ModelMesh3D), public :: AtmosMesh
-    type(MeshCubeDom3D) :: mesh
+  type, abstract, extends(ModelMesh3D), public :: AtmosMesh
     type(HexahedralElement) :: element
+
   contains
-    procedure :: Init => AtmosMesh_Init
-    procedure :: Final => AtmosMesh_Final
+    procedure :: AtmosMesh_Init
+    procedure :: AtmosMesh_Final
+    procedure(AtmosMesh_create_communicator), public, deferred :: Create_communicator
+    procedure(AtmosMesh_setup_restartfile1), public, deferred ::  Setup_restartfile1
+    procedure(AtmosMesh_setup_restartfile2), public, deferred ::  Setup_restartfile2
+    procedure(AtmosMesh_calc_UVMet), public, deferred :: Calc_UVmet
+    generic :: Setup_restartfile => Setup_restartfile1, Setup_restartfile2
     procedure :: Construct_ModalFilter3D => AtmosMesh_construct_ModalFilter3D
     procedure :: Construct_ModalFilterHV => AtmosMesh_construct_ModalFilterHV
   end type AtmosMesh
-  
+  interface
+    subroutine AtmosMesh_create_communicator( this, sfield_num, hvfield_num, var_manager, field_list, commid )
+      import AtmosMesh
+      import MeshBase3D
+      import ModelVarManager
+      import MeshField3D
+      class(AtmosMesh), target, intent(inout) :: this
+      integer, intent(in) :: sfield_num
+      integer, intent(in) :: hvfield_num
+      class(ModelVarManager), intent(inout) :: var_manager
+      class(MeshField3D), intent(in) :: field_list(:)
+      integer, intent(out) :: commid
+    end subroutine AtmosMesh_create_communicator
+  end interface
+  interface
+    subroutine AtmosMesh_setup_restartfile1( this, restart_file, var_num )
+      import AtmosMesh
+      import FILE_restart_meshfield_component
+      class(AtmosMesh), target, intent(inout) :: this
+      class(FILE_restart_meshfield_component), intent(inout) :: restart_file
+      integer, intent(in) :: var_num  
+    end subroutine AtmosMesh_setup_restartfile1
+  end interface
+  interface
+    subroutine AtmosMesh_setup_restartfile2( this, restart_file, &
+      in_basename, in_postfix_timelabel,                         &
+      out_basename, out_postfix_timelabel,                       &
+      out_dtype, out_title, var_num                              )
+      import AtmosMesh
+      import FILE_restart_meshfield_component
+      class(AtmosMesh), target, intent(inout) :: this
+      class(FILE_restart_meshfield_component), intent(inout) :: restart_file
+      character(*), intent(in) :: in_basename
+      logical, intent(in) :: in_postfix_timelabel
+      character(*), intent(in) :: out_basename
+      logical, intent(in) :: out_postfix_timelabel
+      character(*), intent(in) :: out_title
+      character(*), intent(in) :: out_dtype  
+      integer, intent(in) :: var_num  
+    end subroutine AtmosMesh_setup_restartfile2
+  end interface
+  interface
+    subroutine AtmosMesh_calc_UVMet( this, U, V, &
+        Umet, Vmet )
+        import AtmosMesh
+        import MeshField3D
+        class(AtmosMesh), target, intent(in) :: this
+        type(MeshField3D), intent(in) :: U
+        type(MeshField3D), intent(in) :: V
+        type(MeshField3D), intent(inout) :: Umet
+        type(MeshField3D), intent(inout) :: Vmet
+    end subroutine AtmosMesh_calc_UVMet
+  end interface
+
+  integer, parameter, public :: ATM_MESH_MAX_COMMNUICATOR_NUM = 10
+
   !-----------------------------------------------------------------------------
   !
   !++ Public parameters & variables
   !
-
-  integer, public, parameter :: ATMOS_MESH_NLocalMeshPerPrc = 1
   
   !-----------------------------------------------------------------------------
   !
@@ -55,119 +114,33 @@ module mod_atmos_mesh
   !
 
 contains
-  subroutine AtmosMesh_Init( this )
+
+  subroutine AtmosMesh_Init( this, mesh )
 
     use scale_FILE_monitor_meshfield, only: &
       FILE_monitor_meshfield_set_dim
     
     implicit none
     class(AtmosMesh), target, intent(inout) :: this
+    class(MeshBase3D), intent(in) :: mesh
 
-    real(RP) :: dom_xmin         = 0.0_RP 
-    real(RP) :: dom_xmax         = 100.0E3_RP
-    real(RP) :: dom_ymin         = 0.0_RP 
-    real(RP) :: dom_ymax         = 100.0E3_RP
-    real(RP) :: dom_zmin         = 0.0_RP
-    real(RP) :: dom_zmax         = 10.0E3_RP
-    logical  :: isPeriodicX       = .true.
-    logical  :: isPeriodicY       = .true.
-    logical  :: isPeriodicZ       = .false.
-  
-    integer  :: NeX               = 2
-    integer  :: NeY               = 2
-    integer  :: NeZ               = 2
-    integer  :: NprcX             = 1
-    integer  :: NprcY             = 1 
-    integer  :: PolyOrder_h       = 2
-    integer  :: PolyOrder_v       = 2
-    logical  :: LumpedMassMatFlag = .false.
-
-    integer, parameter :: FZ_nmax = 1000
-    real(RP) :: FZ(FZ_nmax)
-
-    namelist / PARAM_ATMOS_MESH / &
-      dom_xmin, dom_xmax,                          &
-      dom_ymin, dom_ymax,                          &
-      dom_zmin, dom_zmax,                          &
-      FZ,                                          &
-      isPeriodicX, isPeriodicY, isPeriodicZ,       &
-      NeX, NeY, NeZ,                               &
-      PolyOrder_h, PolyOrder_v, LumpedMassMatFlag, &
-      NprcX, NprcY
-    
-    integer :: n
-    character(len=H_SHORT) :: dim_type
-    class(LocalMesh3D), pointer :: lcmesh 
-
-    integer :: k
-    logical :: is_spec_FZ
-    
     character(len=H_SHORT) :: SpMV_storage_format = 'ELL' ! CSR or ELL
-
-    integer :: ierr
     !-------------------------------------------
 
-    LOG_NEWLINE
-    LOG_INFO("ATMOS_MESH_setup",*) 'Setup'
+    call this%ModelMesh3D_Init( mesh )
 
-    FZ(:) = -1.0_RP
+    call this%DOptrMat(1)%Init( mesh%refElem3D%Dx1, storage_format=SpMV_storage_format )
+    call this%DOptrMat(2)%Init( mesh%refElem3D%Dx2, storage_format=SpMV_storage_format )
+    call this%DOptrMat(3)%Init( mesh%refElem3D%Dx3, storage_format=SpMV_storage_format )
 
-    rewind(IO_FID_CONF)
-    read(IO_FID_CONF,nml=PARAM_ATMOS_MESH,iostat=ierr)
-    if( ierr < 0 ) then !--- missing
-        LOG_INFO("ATMOS_MESH_setup",*) 'Not found namelist. Default used.'
-    elseif( ierr > 0 ) then !--- fatal error
-        LOG_ERROR("ATMOS_MESH_setup",*) 'Not appropriate names in namelist PARAM_ATM_MESH. Check!'
-        call PRC_abort
-    endif
-    LOG_NML(PARAM_ATMOS_MESH)
+    call this%SOptrMat(1)%Init( mesh%refElem3D%Sx1, storage_format=SpMV_storage_format )
+    call this%SOptrMat(2)%Init( mesh%refElem3D%Sx2, storage_format=SpMV_storage_format )
+    call this%SOptrMat(3)%Init( mesh%refElem3D%Sx3, storage_format=SpMV_storage_format )
 
-    !----
-
-    ! Setup the element
-
-    call this%element%Init( PolyOrder_h, PolyOrder_v, LumpedMassMatFlag )
-
-    ! Setup the mesh
-    
-    is_spec_FZ = .true.
-    do k=1, NeZ+1
-      if (FZ(k) < 0.0_RP) then
-        is_spec_FZ = .false.
-      end if
-    end do
-    if (is_spec_FZ) then
-      call this%mesh%Init( &
-        NprcX*NeX, NprcY*NeY, NeZ,                                 &
-        dom_xmin, dom_xmax,dom_ymin, dom_ymax, dom_zmin, dom_zmax, &
-        isPeriodicX, isPeriodicY, isPeriodicZ,                     &
-        this%element, ATMOS_MESH_NLocalMeshPerPrc, NprcX, NprcY,   &
-        FZ=FZ(1:NeZ+1)    )
-    else
-      call this%mesh%Init( &
-        NprcX*NeX, NprcY*NeY, NeZ,                                 &
-        dom_xmin, dom_xmax,dom_ymin, dom_ymax, dom_zmin, dom_zmax, &
-        isPeriodicX, isPeriodicY, isPeriodicZ,                     &
-        this%element, ATMOS_MESH_NLocalMeshPerPrc, NprcX, NprcY    )
-    end if
-    
-    call this%mesh%Generate()
-    
-    !-
-    call this%ModelMesh3D_Init( this%mesh )
-
-    call this%DOptrMat(1)%Init( this%element%Dx1, storage_format=SpMV_storage_format )
-    call this%DOptrMat(2)%Init( this%element%Dx2, storage_format=SpMV_storage_format )
-    call this%DOptrMat(3)%Init( this%element%Dx3, storage_format=SpMV_storage_format )
-
-    call this%SOptrMat(1)%Init( this%element%Sx1, storage_format=SpMV_storage_format )
-    call this%SOptrMat(2)%Init( this%element%Sx2, storage_format=SpMV_storage_format )
-    call this%SOptrMat(3)%Init( this%element%Sx3, storage_format=SpMV_storage_format )
-
-    call this%LiftOptrMat%Init( this%element%Lift, storage_format=SpMV_storage_format )
+    call this%LiftOptrMat%Init( mesh%refElem3D%Lift, storage_format=SpMV_storage_format )
 
     !-
-    call FILE_monitor_meshfield_set_dim( this%mesh, 'ATM3D' )
+    call FILE_monitor_meshfield_set_dim( mesh, 'ATM3D' )
 
     return
   end subroutine AtmosMesh_Init
@@ -178,7 +151,6 @@ contains
     class(AtmosMesh), intent(inout) :: this
     !-------------------------------------------
 
-    call this%mesh%Final()
     call this%ModelMesh3D_Final()
 
     return

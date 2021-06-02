@@ -325,8 +325,7 @@ contains
     use scale_polynominal, only: &
       Polynominal_GenLegendrePoly_sub
     use mod_cs2lonlat_interp_mesh, only: &
-      nodeMap_list, &
-      in_Nprc, in_elem2D, in_NLocalMeshPerPrc
+      in_elem2D
 
     implicit none
     class(LocalMesh2D), intent(in) :: out_lcmesh
@@ -338,6 +337,7 @@ contains
     type(NodeMappingInfo), intent(in), target :: mappingInfo
     class(MeshRectDom2D), intent(in) :: out_mesh2D
 
+    integer :: nprc_local
     integer :: ke2D, ke_h
     integer :: p, p_h, pX, pY
     integer :: p1, p2, l
@@ -359,9 +359,10 @@ contains
 
     !---------------------------------------------
 
-    allocate( in_val_list(in_Nprc) )
+    nprc_local = size(mappingInfo%in_mesh3D_list)
+    allocate( in_val_list(nprc_local) )
 
-    do in_prc=1, in_Nprc
+    do in_prc=1, nprc_local
       in_rank = in_prc - 1
       in_csmesh => mappingInfo%in_mesh2D_list(in_prc)
 
@@ -444,7 +445,7 @@ contains
     end do
     end do
 
-    do in_prc=1, in_Nprc
+    do in_prc=1, nprc_local
      deallocate( in_val_list(in_prc)%spectral_coef2D )
     end do
 
@@ -466,9 +467,7 @@ contains
     use scale_polynominal, only: &
       Polynominal_GenLegendrePoly_sub
     use mod_cs2lonlat_interp_mesh, only: &
-      nodeMap_list, &
-      in_Nprc, in_elem3D, in_NLocalMeshPerPrc
-
+      in_elem3D
     implicit none
     class(LocalMesh3D), intent(in) :: out_lcmesh
     class(ElementBase3D), intent(in) :: out_elem3D
@@ -479,6 +478,7 @@ contains
     type(NodeMappingInfo), intent(in), target :: mappingInfo
     class(MeshCubeDom3D), intent(in) :: out_mesh3D
 
+    integer :: nprc_local
     integer :: ke3D, ke_h
     integer :: p, p_h, pX, pY, pZ
     integer :: p1, p2, p3, l
@@ -498,12 +498,13 @@ contains
     real(RP) :: vx(in_elem3D%Nv), vy(in_elem3D%Nv), vz(in_elem3D%Nv)
     integer :: node_ids(in_elem3D%Nv)
     type(MeshField3D) :: tmp_field3D
-
     !---------------------------------------------
 
-    allocate( in_val_list(in_Nprc) )
+    nprc_local = size(mappingInfo%in_mesh3D_list)
 
-    do in_prc=1, in_Nprc
+    allocate( in_val_list(nprc_local) )
+
+    do in_prc=1, nprc_local
       in_rank = in_prc - 1
       in_csmesh => mappingInfo%in_mesh3D_list(in_prc)
 
@@ -530,7 +531,7 @@ contains
 
       call tmp_field3D%Final()
     end do
-
+    
     !$omp parallel do collapse(3) private( ke_h, ke3D, &
     !$omp pX, pY, pZ, p_h, p, in_domID, in_prc,        &
     !$omp in_ex, in_ey, in_ez, in_ke3D,                &
@@ -598,7 +599,7 @@ contains
     end do
     end do
 
-    do in_prc=1, in_Nprc
+    do in_prc=1, nprc_local
       deallocate( in_val_list(in_prc)%spectral_coef3D )
     end do
 

@@ -303,6 +303,7 @@ contains
       irs = 1
       do f=1, this%nfaces_comm
         commdata => commdata_list(f,n)
+        ire = irs + commdata%Nnode_LCMeshFace - 1
 
         if ( commdata%s_panelID /= lcmesh%panelID ) then
           if ( this%hvfield_num > 0 ) then
@@ -311,7 +312,6 @@ contains
             call push_localsendbuf( lcfpos2D,            &
               fpos2D, f, is_f(f), Nnode_LCMeshFace(f), 2 )
 
-            ire = irs + commdata%Nnode_LCMeshFace - 1
             do varid=this%sfield_num+1, this%field_num_tot-1, 2
               call CubedSphereCnv_LonLat2CSVec( &
                 lcmesh%panelID, lcfpos2D(:,1), lcfpos2D(:,2), Nnode_LCMeshFace(f),   &
