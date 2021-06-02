@@ -228,7 +228,7 @@ contains
     type(MeshField3D), intent(inout) :: Vmet
 
     integer :: n
-    integer :: ke
+    integer :: ke, ke2D
     type(LocalMesh3D), pointer :: lcmesh
     class(ElementBase3D), pointer :: elem
     !------------------------------------------
@@ -243,6 +243,12 @@ contains
         V%local(n)%val(:,lcmesh%NeS:lcmesh%NeE),                    &
         Umet%local(n)%val(:,lcmesh%NeS:lcmesh%NeE),                 &
         Vmet%local(n)%val(:,lcmesh%NeS:lcmesh%NeE)                  )
+      
+      !$omp parallel do private(ke2D)
+      do ke=lcmesh%NeS, lcmesh%NeE
+        ke2D = lcmesh%EMap3Dto2D(ke)
+        Umet%local(n)%val(:,ke) = Umet%local(n)%val(:,ke) * cos(lcmesh%lat2D(elem%IndexH2Dto3D(:),ke2D)) 
+      end do
     end do
 
     return

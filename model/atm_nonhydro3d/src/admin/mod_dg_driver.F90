@@ -141,7 +141,7 @@ contains
 
       !- ATMOS
       if ( atmos%IsActivated() .and. atmos%time_manager%do_step ) then
-        call atmos%update()
+       call atmos%update()
       end if
 
       !- USER
@@ -303,7 +303,8 @@ contains
     if ( atmos%IsActivated() ) then
       call atmos%calc_tendency()
     end if
-
+    
+    call USER_calc_tendency( atmos )
 
     !- History & Monitor 
 

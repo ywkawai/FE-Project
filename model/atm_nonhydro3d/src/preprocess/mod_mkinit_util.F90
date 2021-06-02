@@ -22,8 +22,10 @@ module mod_mkinit_util
   use scale_const, only: &
     PI => CONST_PI
 
-  use scale_element_base, only: ElementBase3D
+  use scale_element_base, only: ElementBase2D, ElementBase3D
+  use scale_element_quadrilateral, only: QuadrilateralElement
   use scale_element_hexahedral, only: HexahedralElement
+  use scale_localmesh_2d, only: LocalMesh2D
   use scale_localmesh_3d, only: LocalMesh3D
   use scale_mesh_cubedom3d, only: MeshCubeDom3D  
   use scale_localmeshfield_base, only: LocalMeshFieldBase
@@ -40,6 +42,7 @@ module mod_mkinit_util
   public :: mkinitutil_gen_Vm1Mat 
   public :: mkinitutil_calc_cosinebell
   public :: mkinitutil_calc_cosinebell_global
+  public :: mkinitutil_GalerkinProjection_global
 
 contains
 
@@ -276,5 +279,83 @@ contains
   end subroutine mkinitutil_calc_cosinebell_global
 
   !------------------------------------------
+
+  subroutine mkinitutil_GalerkinProjection_global( q, &
+      func, IntrpPolyOrder_h, IntrpPolyOrder_v,      &
+      lcmesh3D, elem, rplanet )
+
+    use scale_cubedsphere_cnv, only: &
+      CubedSphereCnv_CS2LonLatCoord
+    
+    implicit none
+    class(LocalMesh3D), intent(in) :: lcmesh3D
+    class(ElementBase3D), intent(in) :: elem
+    real(RP), intent(out) :: q(elem%Np,lcmesh3D%NeA)
+    integer, intent(in) :: IntrpPolyOrder_h
+    integer, intent(in) :: IntrpPolyOrder_v
+    real(RP), intent(in) :: rplanet
+
+    interface
+      subroutine func( q_intrp,             &
+          lon, lat, z, elem_intrp, rplanet_ )
+        import ElementBase3D
+        import RP
+        class(ElementBase3D), intent(in) :: elem_intrp
+        real(RP), intent(out) :: q_intrp(elem_intrp%Np)
+        real(RP), intent(in) :: lon(elem_intrp%Np)
+        real(RP), intent(in) :: lat(elem_intrp%Np)
+        real(RP), intent(in) :: z(elem_intrp%Np)
+        real(RP), intent(in) :: rplanet_
+      end subroutine func
+    end interface
+
+    type(HexahedralElement) :: elem_intrp
+    real(RP), allocatable :: x_intrp(:,:), y_intrp(:,:), z_intrp(:,:)
+    real(RP), allocatable :: lon_intrp(:,:), lat_intrp(:,:)
+    real(RP) :: vx(elem%Nv), vy(elem%Nv), vz(elem%Nv)
+
+    real(RP), allocatable :: IntrpMat(:,:)
+    real(RP), allocatable :: q_intrp(:)
+
+    integer :: ke
+    !-----------------------------------------------
+
+    call elem_intrp%Init( IntrpPolyOrder_h, IntrpPolyOrder_v, .false. )
+
+    allocate( IntrpMat(elem%Np,elem_intrp%Np) )
+    call mkinitutil_gen_GPMat( IntrpMat, elem_intrp, elem )
+
+    allocate( x_intrp(elem_intrp%Np,lcmesh3D%Ne), y_intrp(elem_intrp%Np,lcmesh3D%Ne), z_intrp(elem_intrp%Np,lcmesh3D%Ne) )
+    allocate( lon_intrp(elem_intrp%Np,lcmesh3D%Ne), lat_intrp(elem_intrp%Np,lcmesh3D%Ne) )
+    allocate( q_intrp(elem_intrp%Np) )
+
+    !$omp parallel do private(vx, vy, vz)
+    do ke=lcmesh3D%NeS, lcmesh3D%NeE
+      vx(:) = lcmesh3D%pos_ev(lcmesh3D%EToV(ke,:),1)
+      vy(:) = lcmesh3D%pos_ev(lcmesh3D%EToV(ke,:),2)
+      vz(:) = lcmesh3D%pos_ev(lcmesh3D%EToV(ke,:),3)
+      x_intrp(:,ke) = vx(1) + 0.5_RP * ( elem_intrp%x1(:) + 1.0_RP ) * ( vx(2) - vx(1) ) 
+      y_intrp(:,ke) = vy(1) + 0.5_RP * ( elem_intrp%x2(:) + 1.0_RP ) * ( vy(4) - vy(1) )
+      z_intrp(:,ke) = vz(1) + 0.5_RP * ( elem_intrp%x3(:) + 1.0_RP ) * ( vz(5) - vz(1) )
+    end do
+
+    call CubedSphereCnv_CS2LonLatCoord( lcmesh3D%panelID, x_intrp, y_intrp, elem_intrp%Np * lcmesh3D%Ne, &
+      rplanet, lon_intrp(:,:), lat_intrp(:,:) )
+
+    !$omp parallel do private( q_intrp )
+    do ke=lcmesh3D%NeS, lcmesh3D%NeE
+
+      call func( q_intrp,                                & ! (out)
+        lon_intrp(:,ke), lat_intrp(:,ke), z_intrp(:,ke), & ! (in)
+        elem_intrp, rplanet                              ) ! (in)
+      
+      ! Perform Galerkin projection
+      q(:,ke) = matmul( IntrpMat, q_intrp )
+    end do
+
+    call elem_intrp%Final()
+  
+    return
+  end subroutine mkinitutil_GalerkinProjection_global
 
 end module mod_mkinit_util

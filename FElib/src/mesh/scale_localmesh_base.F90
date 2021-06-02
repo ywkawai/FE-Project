@@ -57,6 +57,7 @@ module scale_localmesh_base
     integer :: tileID
     integer :: panelID
     integer :: PRC_myrank
+    integer :: lcdomID
   
     real(DP), allocatable :: G_ij(:,:,:,:)
     real(DP), allocatable :: GIJ(:,:,:,:)
@@ -88,17 +89,19 @@ module scale_localmesh_base
   !
 
 contains
-  subroutine LocalMeshBase_Init( this, refElem, ndim, myrank )
+  subroutine LocalMeshBase_Init( this, lcdomID, refElem, ndim, myrank )
     
     use scale_prc, only: PRC_myrank
     implicit none
 
     class(LocalMeshBase), intent(inout) :: this
+    integer, intent(in) :: lcdomID
     class(ElementBase), intent(in), target :: refElem
     integer, intent(in) :: ndim
     integer, intent(in), optional :: myrank
     !-----------------------------------------------------------------------------
 
+    this%lcdomID = lcdomID
     this%refElem => refElem
 
     if (present(myrank)) then
