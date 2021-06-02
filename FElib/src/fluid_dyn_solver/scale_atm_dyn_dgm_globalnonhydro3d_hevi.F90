@@ -177,26 +177,30 @@ contains
     real(RP), intent(in) :: wdamp_height
 
     real(RP) :: Fx(elem%Np), Fy(elem%Np), Fz(elem%Np), LiftDelFlx(elem%Np)
+    real(RP) :: GradPhyd_x(elem%Np), GradPhyd_y(elem%Np)
     real(RP) :: del_flux(elem%NfpTot,lmesh%Ne,PROG_VARS_NUM)
+    real(RP) :: del_flux_hyd(elem%NfpTot,lmesh%Ne,2)
     real(RP) :: DPRES_(elem%Np)
     real(RP) :: RHOT_(elem%Np)
     real(RP) :: rdens_(elem%Np), u_(elem%Np), v_(elem%Np), w_(elem%Np)
 
+    real(RP) :: GIJ(elem%Np,2,2)
+    real(RP) :: X2D(elem%Np,lmesh2D%Ne), Y2D(elem%Np,lmesh2D%Ne)
+    real(RP) :: X(elem%Np), Y(elem%Np), twoOVdel2(elem%Np)
+    real(RP) :: CORI(elem%Np,2)
+    logical :: is_panel1to4
+    real(RP) :: s
+
     integer :: ke, ke2d
+    integer :: p, p12, p3
 
     real(RP) :: gamm, rgamm    
     real(RP) :: rP0
     real(RP) :: RovP0, P0ovR
-    real(RP) :: GIJ(elem%Np,2,2)
-    real(RP) :: X(elem%Np), Y(elem%Np), twoOVdel2(elem%Np)
-    real(RP) :: CORI(elem%Np,2)
-    real(RP) :: s
-    logical :: is_panel1to4
-
     !------------------------------------------------------------------------
 
     call PROF_rapstart('cal_dyn_tend_bndflux', 3)
-    call cal_del_flux_dyn( del_flux,                                           & ! (out)
+    call cal_del_flux_dyn( del_flux, del_flux_hyd,                             & ! (out)
       DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd,                 & ! (in)
       lmesh%Gsqrt, lmesh%GIJ(:,:,1,1), lmesh%GIJ(:,:,1,2), lmesh%GIJ(:,:,2,2), & ! (in)
       lmesh%normal_fn(:,:,1), lmesh%normal_fn(:,:,2), lmesh%normal_fn(:,:,3),  & ! (in)
@@ -220,20 +224,26 @@ contains
       s = - 1.0_RP
     end if
 
-    !$omp parallel do private(                     &
-    !$omp RHOT_, DPRES_, rdens_, u_, v_, w_, ke2d, &
+    !$omp parallel private(                        &
+    !$omp RHOT_, DPRES_, rdens_, u_, v_, w_,       &
     !$omp Fx, Fy, Fz, LiftDelFlx,                  &
-    !$omp GIJ, X, Y, twoOVdel2, CORI               )
+    !$omp GradPhyd_x, GradPhyd_y,                  &
+    !$omp GIJ, X, Y, twoOVdel2,                    &
+    !$omp CORI, ke, ke2D                           )
+
+    !$omp do
+    do ke2D = lmesh2D%NeS, lmesh2D%NeE
+      X2D(:,ke2d) = tan(lmesh2D%pos_en(:,ke2d,1))
+      Y2D(:,ke2d) = tan(lmesh2D%pos_en(:,ke2d,2))
+    end do
+
+    !$omp do
     do ke = lmesh%NeS, lmesh%NeE
       !--
-      X(:) = lmesh%pos_en(:,ke,1)
-      Y(:) = lmesh%pos_en(:,ke,2)
-      twoOVdel2(:) = 2.0_RP / ( 1.0_RP + X(:)**2 + Y(:)**2 )
-  
       RHOT_(:) = P0ovR * ( PRES_hyd(:,ke) * rP0 )**rgamm + DRHOT_(:,ke)
       DPRES_(:) = PRES00 * ( RovP0 * RHOT_(:) )**gamm &
                 - PRES_hyd(:,ke)
-
+      
       rdens_(:) = 1.0_RP / ( DDENS_(:,ke) + DENS_hyd(:,ke) )
       u_ (:) = MOMX_(:,ke) * rdens_(:)
       v_ (:) = MOMY_(:,ke) * rdens_(:)
@@ -245,13 +255,26 @@ contains
       GIJ(:,1,2) = lmesh%GIJ(elem%IndexH2Dto3D,ke2d,1,2)
       GIJ(:,2,2) = lmesh%GIJ(elem%IndexH2Dto3D,ke2d,2,2)
 
+      X(:) = X2D(elem%IndexH2Dto3D,ke2d)
+      Y(:) = Y2D(elem%IndexH2Dto3D,ke2d)
+      twoOVdel2(:) = 2.0_RP / ( 1.0_RP + X(:)**2 + Y(:)**2 )
+
       CORI(:,1) = s * OHM * twoOVdel2(:) * ( - X(:) * Y(:)        * MOMX_(:,ke) + (1.0_RP + Y(:)**2) * MOMY_(:,ke) )
       CORI(:,2) = s * OHM * twoOVdel2(:) * ( - (1.0_RP + X(:)**2) * MOMX_(:,ke) +  X(:) * Y(:)       * MOMY_(:,ke) )
       if ( is_panel1to4 ) then
-        CORI(:,1) = Y(:) * CORI(:,1)
-        CORI(:,2) = Y(:) * CORI(:,2)
+        CORI(:,1) = s * Y(:) * CORI(:,1)
+        CORI(:,2) = s * Y(:) * CORI(:,2)
       end if
+      
+      !-- Gradient hydrostatic pressure
+      call sparsemat_matmul(Dx, PRES_hyd(:,ke), Fx)
+      call sparsemat_matmul(Lift, lmesh%Fscale(:,ke) * del_flux_hyd(:,ke,1), LiftDelFlx)
+      GradPhyd_x(:) = lmesh%Escale(:,ke,1,1) * Fx(:) + LiftDelFlx(:)
 
+      call sparsemat_matmul(Dy, PRES_hyd(:,ke), Fy)
+      call sparsemat_matmul(Lift, lmesh%Fscale(:,ke) * del_flux_hyd(:,ke,2), LiftDelFlx)
+      GradPhyd_y(:) = lmesh%Escale(:,ke,2,2) * Fy(:) + LiftDelFlx(:)
+      
       !-- DENS
       call sparsemat_matmul(Dx, lmesh%Gsqrt(:,ke) * MOMX_(:,ke), Fx)
       call sparsemat_matmul(Dy, lmesh%Gsqrt(:,ke) * MOMY_(:,ke), Fy)
@@ -275,12 +298,13 @@ contains
             + LiftDelFlx(:)                   ) / lmesh%Gsqrt(:,ke)              &
           + twoOVdel2(:) * Y(:) *                                                &
             ( - X(:) * Y(:) * u_(:) + (1.0_RP + Y(:)**2) * v_(:) ) * MOMX_(:,ke) &
+          - ( GIJ(:,1,1) * GradPhyd_x(:) + GIJ(:,1,2) * GradPhyd_y(:) )          &
           + CORI(:,1)              
-
+      
       !-- MOMY
       call sparsemat_matmul(Dx, lmesh%Gsqrt(:,ke) * ( u_(:) * MOMY_(:,ke) + GIJ(:,2,1) * DPRES_(:) ), Fx)
       call sparsemat_matmul(Dy, lmesh%Gsqrt(:,ke) * ( v_(:) * MOMY_(:,ke) + GIJ(:,2,2) * DPRES_(:) ), Fy)
-      call sparsemat_matmul(Dz, lmesh%Gsqrt(:,ke) *   w_(:) * MOMY_(:,ke)                          , Fz)
+      call sparsemat_matmul(Dz, lmesh%Gsqrt(:,ke) *   w_(:) * MOMY_(:,ke)                           , Fz)
       call sparsemat_matmul(Lift, lmesh%Fscale(:,ke) * del_flux(:,ke,MOMY_VID), LiftDelFlx)
 
       MOMY_dt(:,ke) = &
@@ -290,8 +314,9 @@ contains
               + LiftDelFlx(:)                  ) / lmesh%Gsqrt(:,ke)             &
             + twoOVdel2(:) * X(:) *                                              &
               ( (1.0_RP + X(:)**2) * u_(:) - X(:) * Y(:) * v_(:) ) * MOMY_(:,ke) &
+            - ( GIJ(:,2,1) * GradPhyd_x(:) + GIJ(:,2,2) * GradPhyd_y(:) )        &
             + CORI(:,2) 
-
+      
       !-- MOMZ
       call sparsemat_matmul(Dx, lmesh%Gsqrt(:,ke) * u_(:) * MOMZ_(:,ke), Fx)
       call sparsemat_matmul(Dy, lmesh%Gsqrt(:,ke) * v_(:) * MOMZ_(:,ke), Fy)
@@ -314,6 +339,7 @@ contains
             + lmesh%Escale(:,ke,2,2) * Fy(:)      &
             + LiftDelFlx(:) ) / lmesh%Gsqrt(:,ke)
     end do
+    !$omp end parallel
     call PROF_rapend('cal_dyn_tend_interior', 3)
 
     !- Sponge layer
@@ -330,7 +356,7 @@ contains
   !------
 
 !OCL SERIAL
-  subroutine cal_del_flux_dyn( del_flux, &
+  subroutine cal_del_flux_dyn( del_flux, del_flux_hyd,             &
     DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd,       &
     Gsqrt, G11, G12, G22, nx, ny, nz,                              &
     vmapM, vmapP, lmesh, elem, lmesh2D, elem2D                     )
@@ -342,6 +368,7 @@ contains
     class(LocalMesh2D), intent(in) :: lmesh2D
     class(elementbase2D), intent(in) :: elem2D
     real(RP), intent(out) ::  del_flux(elem%NfpTot,lmesh%Ne,PROG_VARS_NUM)
+    real(RP), intent(out) ::  del_flux_hyd(elem%NfpTot,lmesh%Ne,2)
     real(RP), intent(in) ::  DDENS_(elem%Np*lmesh%NeA)
     real(RP), intent(in) ::  MOMX_(elem%Np*lmesh%NeA)  
     real(RP), intent(in) ::  MOMY_(elem%Np*lmesh%NeA)  
@@ -457,6 +484,9 @@ contains
       del_flux(:,ke,DRHOT_VID) = 0.5_RP * Gsqrt_M(:) * (                &
                    swV(:) * ( rhotP(:) * VelP(:) - rhotM(:) * VelM(:) ) &
                     - alpha(:) * ( DRHOT_P(:) - DRHOT_M(:) )            )
+      
+      del_flux_hyd(:,ke,1) = 0.5_RP * ( PRES_hyd_P(:) - PRES_hyd_M(:) ) * nx(:,ke)
+      del_flux_hyd(:,ke,2) = 0.5_RP * ( PRES_hyd_P(:) - PRES_hyd_M(:) ) * ny(:,ke)
     end do
 
     return
