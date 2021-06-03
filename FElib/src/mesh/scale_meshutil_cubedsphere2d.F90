@@ -34,6 +34,7 @@ module scale_meshutil_cubedsphere2d
   public :: MeshUtilCubedSphere2D_GetPanelConnectivity
   
 contains
+!OCL SERIAL
   subroutine MeshUtilCubedSphere2D_buildGlobalMap( &
     panelID_table, pi_table, pj_table,              &
     tileID_map, tileFaceID_map, tilePanelID_map,    &
@@ -116,6 +117,7 @@ contains
   end subroutine MeshUtilCubedSphere2D_buildGlobalMap
 
   !----
+!OCL SERIAL
   subroutine MeshUtilCubedSphere2D_modifyConnectivity( tilePanelID_map, tileID_map, tileFaceID_map, &
     panelID_table, pi_table, pj_table, NeX, NeY, Ntile, Nface )
 
@@ -235,6 +237,7 @@ contains
     return
   end subroutine MeshUtilCubedSphere2D_modifyConnectivity
 
+!OCL SERIAL
   subroutine MeshUtilCubedSphere2D_getPanelConnectivity( panel_connectivity, face_connectivity )
 
     implicit none
