@@ -186,6 +186,8 @@ contains
     VecAlpha, VecBeta,                      & ! (in)
     VecLon, VecLat                          ) ! (out)
 
+    use scale_const, only: &
+      EPS => CONST_EPS
     implicit none
 
     integer, intent(in) :: panelID
@@ -233,9 +235,9 @@ contains
         del2 = 1.0_RP + X**2 + Y**2
 
         VecLon(p) = (- Y * ( 1.0 + X**2 ) * VecAlpha(p) + X * ( 1.0_RP + Y**2 ) * VecBeta(p) ) &
-                  * s / ( X**2 + Y**2 )
+                  * s / ( X**2 + Y**2 + EPS )
         VecLat(p) = (- X * ( 1.0 + X**2 ) * VecAlpha(p) - Y * ( 1.0_RP + Y**2 ) * VecBeta(p) ) &
-                  * s / ( del2 * sqrt( X**2 + Y**2 ) )
+                  * s / ( del2 * sqrt( X**2 + Y**2 ) + EPS )
       end do
     end select
 
@@ -356,7 +358,7 @@ contains
       !$omp parallel
       if ( panelID == 1 ) then
         !$omp workshare
-        where (lon(:) > 2.0_RP * PI - 0.25_RP * PI )
+        where (lon(:) >= 2.0_RP * PI - 0.25_RP * PI )
           lon_(:) = lon(:) - 2.0_RP * PI
         elsewhere
           lon_(:) = lon(:)
