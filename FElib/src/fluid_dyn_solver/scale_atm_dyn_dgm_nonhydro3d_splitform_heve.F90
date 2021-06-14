@@ -140,7 +140,7 @@ contains
   subroutine atm_dyn_dgm_nonhydro3d_heve_splitform_cal_tend( &
     DENS_dt, MOMX_dt, MOMY_dt, MOMZ_dt, RHOT_dt,                                & ! (out)
     DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd, CORIOLIS,          & ! (in)
-    SL_flag, wdamp_tau, wdamp_height,                                           & ! (in)
+    SL_flag, wdamp_tau, wdamp_height, hveldamp_flag,                            & ! (in)
     Dx, Dy, Dz, Sx, Sy, Sz, Lift, lmesh, elem, lmesh2D, elem2D )
 
     use scale_atm_dyn_dgm_spongelayer, only: &
@@ -169,6 +169,7 @@ contains
     logical, intent(in) :: SL_flag
     real(RP), intent(in) :: wdamp_tau
     real(RP), intent(in) :: wdamp_height
+    logical, intent(in) :: hveldamp_flag
 
     real(RP) :: Fx(elem%Np), Fy(elem%Np), Fz(elem%Np), LiftDelFlx(elem%Np)
     real(RP) :: Fx_sp(elem%Np), Fy_sp(elem%Np), Fz_sp(elem%Np)    
@@ -290,8 +291,10 @@ contains
     !- Sponge layer
     if (SL_flag) then
       call PROF_rapstart( 'cal_dyn_tend_sponge', 3)
-      call atm_dyn_dgm_spongelayer_add_tend( MOMZ_dt, &
-        MOMZ_, wdamp_tau, wdamp_height, lmesh, elem   )
+      call atm_dyn_dgm_spongelayer_add_tend( &
+        MOMX_dt, MOMY_dt, MOMZ_dt,                    & ! (out)
+        MOMX_, MOMY_, MOMZ_, wdamp_tau, wdamp_height, & ! (in)
+        hveldamp_flag, lmesh, elem                    ) ! (in)
       call PROF_rapend( 'cal_dyn_tend_sponge', 3)
     end if
 

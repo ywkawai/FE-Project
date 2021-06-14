@@ -36,7 +36,7 @@ module scale_atm_dyn_dgm_globalnonhydro3d_hevi
   use scale_localmeshfield_base, only: LocalMeshField3D
   use scale_meshfield_base, only: MeshField3D
 
-
+  use, intrinsic :: ieee_arithmetic
   !-----------------------------------------------------------------------------
   implicit none
   private
@@ -145,7 +145,7 @@ contains
   subroutine atm_dyn_dgm_globalnonhydro3d_hevi_cal_tend( &
     DENS_dt, MOMX_dt, MOMY_dt, MOMZ_dt, RHOT_dt,                                & ! (out)
     DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd, CORIOLIS,          & ! (in)
-    SL_flag, wdamp_tau, wdamp_height,                                           & ! (in)
+    SL_flag, wdamp_tau, wdamp_height, hveldamp_flag,                            & ! (in)
     Dx, Dy, Dz, Sx, Sy, Sz, Lift, lmesh, elem, lmesh2D, elem2D )
 
     use scale_atm_dyn_dgm_spongelayer, only: &
@@ -175,6 +175,7 @@ contains
     logical, intent(in) :: SL_flag
     real(RP), intent(in) :: wdamp_tau
     real(RP), intent(in) :: wdamp_height
+    logical, intent(in) :: hveldamp_flag
 
     real(RP) :: Fx(elem%Np), Fy(elem%Np), Fz(elem%Np), LiftDelFlx(elem%Np)
     real(RP) :: GradPhyd_x(elem%Np), GradPhyd_y(elem%Np)
@@ -345,8 +346,10 @@ contains
     !- Sponge layer
     if (SL_flag) then
       call PROF_rapstart('cal_dyn_tend_sponge', 3)
-      call atm_dyn_dgm_spongelayer_add_tend( MOMZ_dt, &
-        MOMZ_, wdamp_tau, wdamp_height, lmesh, elem   )
+      call atm_dyn_dgm_spongelayer_add_tend( &
+        MOMX_dt, MOMY_dt, MOMZ_dt,                    & ! (out)
+        MOMX_, MOMY_, MOMZ_, wdamp_tau, wdamp_height, & ! (in)
+        hveldamp_flag, lmesh, elem                    ) ! (in)
       call PROF_rapend('cal_dyn_tend_sponge', 3)
     end if
 
@@ -652,6 +655,20 @@ contains
             end do
             end do
 
+            ! if ( lmesh%PRC_myrank==11 .and. ke_x==3 .and. ke_y==3 .and. ij == 1) then
+            !   LOG_INFO("check_check_vi",*) "V1", PROG_VARS(elem%Colmask(:,ij),1,:)
+            !   LOG_INFO("check_check_vi",*) "V2", PROG_VARS(elem%Colmask(:,ij),2,:)
+            !   LOG_INFO("check_check_vi",*) "V3", PROG_VARS(elem%Colmask(:,ij),3,:)
+            !   LOG_INFO("check_check_vi",*) "V4", PROG_VARS(elem%Colmask(:,ij),4,:)
+            !   LOG_INFO("check_check_vi",*) "V5", PROG_VARS(elem%Colmask(:,ij),5,:)
+            !   LOG_INFO("check_check_vi",*) "b1D1", b1D(:,1,:,ij)
+            !   LOG_INFO("check_check_vi",*) "b1D2", b1D(:,2,:,ij)
+            !   LOG_INFO("check_check_vi",*) "b1D3", b1D(:,3,:,ij)
+            !   LOG_INFO("check_check_vi",*) "b1D4", b1D(:,4,:,ij)
+            !   LOG_INFO("check_check_vi",*) "b1D5", b1D(:,5,:,ij)
+            !   LOG_INFO("check_check_vi",*) "PmatBand", PmatBnd(:,:,ij)
+            ! end if
+
             call dgbsv( nz_1D, kl, ku, 1, PmatBnd(:,:,ij), 2*kl+ku+1, ipiv(:,ij), b1D(:,:,:,ij), nz_1D, info)
 
             do ke_z=1, lmesh%NeZ
@@ -686,6 +703,18 @@ contains
           lmesh, elem,                                     & ! (in)
           nz, vmapM, vmapP, ke_x, ke_y, .true. )             ! (in)
       end if
+
+!      if (lmesh%PRC_myrank==11) then
+      ! do ke_z=1, lmesh%NeZ
+      !   ke = Ke_x + (Ke_y-1)*lmesh%NeX + (ke_z-1)*lmesh%NeX*lmesh%NeY
+      !   do p=1, elem%Np
+      !       if ( IEEE_IS_NAN(tend(p,DDENS_VID,ke_z)) .and. ke_x==3 .and. ke_y==3 .and. p==1 .and. ke_z == 1) then
+      !         LOG_INFO("check_nan_vi",*) impl_fac, lmesh%PRC_myrank, "Nan:", lmesh%pos_en(p,ke,:), ":", MOMX_(p,ke), MOMY_(p,ke), MOMZ_(p,ke), DRHOT_(p,ke)
+      !         LOG_INFO("check_nan_vi",*) p, ke_x, ke_y, " Nan_tend:", tend(p,:,ke_z)
+      !       end if
+      !     end do
+      !   end do
+!      end if
 
       !$omp parallel do private(ke)
       do ke_z=1, lmesh%NeZ
@@ -900,7 +929,7 @@ contains
                     - alpha0 * ( DDENS_(iP) - DDENS_(iM) ) )
       
       del_flux(i,MOMX_VID) = 0.5_RP * (                   &
-                    - alpha0 * (  MOMX_(iP) - MOMX_(iM) ) )
+                    - alpha0 * ( MOMX_(iP) - MOMX_(iM) )  )
       
       del_flux(i,MOMY_VID) = 0.5_RP * (                   &  
                     - alpha0 * ( MOMY_(iP) - MOMY_(iM) )  )               
