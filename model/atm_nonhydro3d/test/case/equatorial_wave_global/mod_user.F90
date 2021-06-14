@@ -119,7 +119,8 @@ contains
 
   subroutine USER_calc_tendency( atm )
     use scale_const, only: &
-      Rdry => CONST_Rdry
+      Rdry => CONST_Rdry,  &
+      CpDry => CONST_CPdry
     use scale_file_history_meshfield, only: &
       FILE_HISTORY_meshfield_in
     use mod_atmos_vars, only: &
@@ -173,7 +174,7 @@ contains
 
         atm%vars%PHY_TEND(RHOH_p)%local(n)%val(:,ke) = atm%vars%PHY_TEND(RHOH_p)%local(n)%val(:,ke)   &
           + DENS(:) * ( q_heat%local(n)%val(:,ke)                                                             &
-                      - rtau * ( PRES%val(:,ke) / DENS(:) - PRES_hyd%val(:,ke) / DENS_hyd%val(:,ke) ) / Rdry  )
+                      - rtau * CpDry * ( PRES%val(:,ke) / DENS(:) - PRES_hyd%val(:,ke) / DENS_hyd%val(:,ke) ) / Rdry  )
       end do
 
       deallocate( DENS )
