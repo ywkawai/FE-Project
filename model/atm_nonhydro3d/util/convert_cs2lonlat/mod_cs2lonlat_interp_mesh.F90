@@ -501,7 +501,13 @@ contains
             in_elem_y(:) = tile_y(1,lc_domID,prcID) + dely * dble( (/ j-1, j-1, j, j /) )
             is_inside_elem  = inpoly( out_x(1), out_y(1),           &
                                       4, in_elem_x(:), in_elem_y(:) )
-                            
+            if (i==in_NeX) then
+              in_elem_x(2:3) = in_elem_x(2:3) + 1.0E-12_RP * delx       
+            end if
+            if (j==in_NeY) then
+              in_elem_y(3:4) = in_elem_y(3:4) + 1.0E-12_RP * dely
+            end if
+                                                            
             if (is_inside_elem) then
               this%elem_i(p_h,ke_h) = i
               this%elem_j(p_h,ke_h) = j
@@ -618,7 +624,7 @@ contains
       do p_h_x=1, elem3D%Nnode_h1D
         p_h = p_h_x + (p_h_y-1)*elem3D%Nnode_h1D
         this%local_domID(p_h,ke_h) = -1
-        this%lcprc(p_h,ke_h) = -1
+        this%lcprc(p_h,ke_h)       = -1
 
         out_cspanel = this%inCSPanelID(p_h,ke_h)
         out_lon(1) = lcmesh%pos_en(p_h,ke_h,1) * PI / 180.0_RP
@@ -653,10 +659,8 @@ contains
 
             exit loop_prc
           end if
-
         end do
         end do loop_prc
-
       end do
       end do
 
@@ -683,7 +687,7 @@ contains
         call CubedSphereCnv_LonLat2CSPos( &
           out_cspanel, out_lon, out_lat, 1, &
           out_x, out_y )
-
+  
         this%elem_i(p_h,ke_h) = -1
         this%elem_j(p_h,ke_h) = -1
         if ( lc_domID > 0 .and. prcID > 0 ) then
@@ -694,6 +698,14 @@ contains
           do i=1, in_NeX        
             in_elem_x(:) = tile_x(1,lc_domID,prcID) + delx * dble( (/ i-1, i, i, i-1 /) )
             in_elem_y(:) = tile_y(1,lc_domID,prcID) + dely * dble( (/ j-1, j-1, j, j /) )
+
+            if (i==in_NeX) then
+              in_elem_x(2:3) = in_elem_x(2:3) + 1.0E-12_RP * delx       
+            end if
+            if (j==in_NeY) then
+              in_elem_y(3:4) = in_elem_y(3:4) + 1.0E-12_RP * dely
+            end if
+
             is_inside_elem  = inpoly( out_x(1), out_y(1),           &
                                       4, in_elem_x(:), in_elem_y(:) )
                             
@@ -707,6 +719,7 @@ contains
           end do  
           end do loop_ne
         end if
+
       end do
       end do
     end do
@@ -862,14 +875,15 @@ contains
     real(RP), parameter :: EPS = 1.0E-64_RP
     !------------------------------------------
 
+    !$omp parallel do
     do p=1, Np
-      if ( abs(lon(p)) < EPS ) then
+      if ( abs(cos(lon(p))) < EPS ) then
         lon_(p) = lon(p) + EPS
       else
         lon_(p) = lon(p)
       end if
-      if ( abs(lat(p)) < EPS ) then
-        lat_(p) = lat(p) + EPS
+      if ( abs( lat(p) - 0.5_RP * PI ) < EPS ) then
+        lat_(p) = lat(p) - sign(EPS, lat(p))
       else
         lat_(p) = lat(p)
       end if
