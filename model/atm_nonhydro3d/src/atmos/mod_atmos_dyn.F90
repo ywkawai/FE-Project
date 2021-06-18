@@ -108,7 +108,7 @@ module mod_atmos_dyn
     subroutine atm_dyn_nonhydro3d_cal_tend_ex( &
       DENS_dt, MOMX_dt, MOMY_dt, MOMZ_dt, RHOT_dt,                                & ! (out)
       DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd, CORIOLIS,          & ! (in)
-      SL_flag, wdamp_tau, wdamp_height,                                           & ! (in)
+      SL_flag, wdamp_tau, wdamp_height, hveldamp_flag,                            & ! (in)
       Dx, Dy, Dz, Sx, Sy, Sz, Lift, lmesh, elem, lmesh2D, elem2D )
 
       import RP
@@ -140,7 +140,7 @@ module mod_atmos_dyn
       logical, intent(in)   :: SL_flag
       real(RP), intent(in)  :: wdamp_tau
       real(RP), intent(in)  :: wdamp_height
-  
+      logical, intent(in) :: hveldamp_flag
     end subroutine atm_dyn_nonhydro3d_cal_tend_ex
   end interface
 
@@ -210,6 +210,7 @@ module mod_atmos_dyn
     logical :: SPONGELAYER_FLAG
     real(RP) :: wdamp_tau
     real(RP) :: wdamp_height
+    logical  :: hvel_damp_flag
 
   contains
     procedure, public :: setup => AtmosDyn_setup 
@@ -542,6 +543,7 @@ contains
           DENS_hyd%val, PRES_hyd%val,                                             &
           Coriolis%val,                                                           &
           this%SPONGELAYER_FLAG, this%wdamp_tau, this%wdamp_height,               &
+          this%hvel_damp_flag,                                                    &
           model_mesh%DOptrMat(1), model_mesh%DOptrMat(2), model_mesh%DOptrMat(3), &
           model_mesh%SOptrMat(1), model_mesh%SOptrMat(2), model_mesh%SOptrMat(3), &
           model_mesh%LiftOptrMat,                                                 &
@@ -984,14 +986,16 @@ contains
     class(AtmosMesh), target, intent(in) :: atm_mesh
     real(RP), intent(in) :: dtsec
 
-    real(RP) :: SL_WDAMP_TAU    = -1.0_RP ! the maximum tau for Rayleigh damping of w [s]
-    real(RP) :: SL_WDAMP_HEIGHT = -1.0_RP ! the height to start apply Rayleigh damping [m]
-    integer  :: SL_WDAMP_LAYER  = -1      ! the vertical number of finite element to start apply Rayleigh damping [num]
+    real(RP) :: SL_WDAMP_TAU        = -1.0_RP ! the maximum tau for Rayleigh damping of w [s]
+    real(RP) :: SL_WDAMP_HEIGHT     = -1.0_RP ! the height to start apply Rayleigh damping [m]
+    integer  :: SL_WDAMP_LAYER      = -1      ! the vertical number of finite element to start apply Rayleigh damping [num]
+    logical  :: SL_HORIVELDAMP_FLAG = .false. ! Is the horizontal velocity damped? 
     
     namelist /PARAM_ATMOS_DYN_SPONGELAYER/ &
       SL_WDAMP_TAU,                        &                
       SL_WDAMP_HEIGHT,                     &
-      SL_WDAMP_LAYER
+      SL_WDAMP_LAYER,                      &
+      SL_HORIVELDAMP_FLAG
     
     class(MeshBase3D), pointer :: mesh3D
     class(LocalMesh3D), pointer :: lcmesh3D
@@ -1038,6 +1042,8 @@ contains
       call PRC_abort
     end if
     
+    this%hvel_damp_flag = SL_HORIVELDAMP_FLAG
+
     return
   end subroutine setup_spongelayer
 

@@ -32,6 +32,7 @@ module scale_meshutil_cubedsphere3d
   public :: MeshUtilCubedSphere3D_genPatchBoundaryMap
   
 contains
+!OCL SERIAL
   subroutine MeshUtilCubedSphere3D_buildGlobalMap( &
     panelID_table, pi_table, pj_table, pk_table,    &
     tileID_map, tileFaceID_map, tilePanelID_map,    &
