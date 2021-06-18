@@ -59,9 +59,10 @@ module scale_localmesh_base
     integer :: PRC_myrank
     integer :: lcdomID
   
-    real(DP), allocatable :: G_ij(:,:,:,:)
-    real(DP), allocatable :: GIJ(:,:,:,:)
-    real(DP), allocatable :: Gsqrt(:,:)
+    real(RP), allocatable :: G_ij(:,:,:,:) !< The covariant component of metric tensor with horizontal general curvilinear coordinate 
+    real(RP), allocatable :: GIJ(:,:,:,:)  !< The contravariant component of metric tensor with horizontal general curvilinear coordinate 
+    real(RP), allocatable :: GsqrtH(:,:)   !< The Jacobian of horizontal transformation in the computational coordinate
+    real(RP), allocatable :: Gsqrt(:,:)    !< The Jacobian of 3D transformation in the computational coordinate (=GsqrtH * GsqrtV)
   end type LocalMeshBase
 
   public :: LocalMeshBase_Init
@@ -136,7 +137,8 @@ contains
         deallocate( this%VMapB, this%MapB )
       end if
       if ( allocated(this%G_ij) ) then
-        deallocate( this%G_ij, this%GIJ, this%Gsqrt )
+        deallocate( this%G_ij, this%GIJ )
+        deallocate( this%Gsqrt, this%GsqrtH )
       end if
     end if
     

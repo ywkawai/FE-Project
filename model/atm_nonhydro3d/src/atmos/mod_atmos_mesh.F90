@@ -10,11 +10,15 @@ module mod_atmos_mesh
   use scale_prc
 
   use scale_meshfield_base, only: MeshField3D
+  use scale_mesh_base2d, only: MeshBase2D
   use scale_mesh_base3d, only: MeshBase3D
   use scale_element_base, only: ElementBase3D
   use scale_element_hexahedral, only: HexahedralElement
+  use scale_localmesh_2d, only: LocalMesh2D
   use scale_localmesh_3d, only: LocalMesh3D
   use scale_sparsemat, only: sparsemat
+  use scale_meshfield_base, only: MeshField2D
+  use scale_mesh_topography, only: MeshTopography
 
   use scale_file_restart_meshfield, only: FILE_restart_meshfield_component
   use scale_model_var_manager, only: ModelVarManager
@@ -29,7 +33,7 @@ module mod_atmos_mesh
   !
   type, abstract, extends(ModelMesh3D), public :: AtmosMesh
     type(HexahedralElement) :: element
-
+    type(MeshTopography) :: topography
   contains
     procedure :: AtmosMesh_Init
     procedure :: AtmosMesh_Final
@@ -40,6 +44,7 @@ module mod_atmos_mesh
     generic :: Setup_restartfile => Setup_restartfile1, Setup_restartfile2
     procedure :: Construct_ModalFilter3D => AtmosMesh_construct_ModalFilter3D
     procedure :: Construct_ModalFilterHV => AtmosMesh_construct_ModalFilterHV
+    procedure :: Setup_vcoordinate =>  AtmosMesh_setup_vcoordinate
   end type AtmosMesh
   interface
     subroutine AtmosMesh_create_communicator( this, sfield_num, hvfield_num, var_manager, field_list, commid )
@@ -125,6 +130,7 @@ contains
     class(MeshBase3D), intent(in) :: mesh
 
     character(len=H_SHORT) :: SpMV_storage_format = 'ELL' ! CSR or ELL
+    class(MeshBase2D), pointer :: mesh2D
     !-------------------------------------------
 
     call this%ModelMesh3D_Init( mesh )
@@ -141,6 +147,10 @@ contains
 
     !-
     call FILE_monitor_meshfield_set_dim( mesh, 'ATM3D' )
+    
+    !-
+    call mesh%GetMesh2D( mesh2D )
+    call this%topography%Init( mesh2D )
 
     return
   end subroutine AtmosMesh_Init
@@ -151,10 +161,42 @@ contains
     class(AtmosMesh), intent(inout) :: this
     !-------------------------------------------
 
+    call this%topography%Final()
     call this%ModelMesh3D_Final()
 
     return
   end subroutine AtmosMesh_Final
+
+  subroutine AtmosMesh_setup_vcoordinate( this, &
+    vcoord_name, zTop,                          &
+    file_topo, in_basename, in_varname,         &
+    comm3D, comm2D                              )
+
+    use scale_file_base_meshfield, only: FILE_base_meshfield
+    use scale_mesh_base2d, only: &
+      MFTYPE2D_XY => MeshBase2D_DIMTYPEID_XY
+    use scale_meshfieldcomm_base, only: MeshFieldCommBase
+    implicit none
+
+    class(AtmosMesh), intent(inout), target :: this
+    character(len=*), intent(in) :: vcoord_name
+    real(RP), intent(in) :: zTop
+    type(FILE_base_meshfield), intent(inout) :: file_topo
+    character(len=*), intent(in) :: in_basename
+    character(len=*), intent(in) :: in_varname
+    class(MeshFieldCommBase) :: comm3D
+    class(MeshFieldCommBase) :: comm2D
+    !-------------------------------------------
+
+    call file_topo%Open( in_basename )
+    call file_topo%Read_Var( MFTYPE2D_XY, in_varname, this%topo )
+    call file_topo%Close()
+
+    call this%topography%SetVCoordinate( this%ptr_mesh, &
+      vcoord_name, zTop, comm3D, comm2D )
+
+    return
+  end subroutine AtmosMesh_setup_vcoordinate
 
   subroutine AtmosMesh_construct_ModalFilter3D( this, &
     filter,                                           &

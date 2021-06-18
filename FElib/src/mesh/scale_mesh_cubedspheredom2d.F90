@@ -45,6 +45,7 @@ module scale_mesh_cubedspheredom2d
   end type MeshCubedSphereDom2D
 
   public :: MeshCubedSphereDom2D_check_division_params
+  public :: MeshCubedSphereDom2D_setupLocalDom
   
   !-----------------------------------------------------------------------------
   !
@@ -233,8 +234,6 @@ contains
     return
   end subroutine MeshCubedSphereDom2D_check_division_params
 
-  !- private ------------------------------
-
   subroutine MeshCubedSphereDom2D_setupLocalDom( lcmesh,   &
     tileID, panelID,                                       &
     i, j, NprcX, NprcY,                                    &
@@ -342,6 +341,8 @@ contains
     
     return
   end subroutine MeshCubedSphereDom2D_setupLocalDom
+
+  !- private ------------------------------
 
   subroutine MesshCubedSphereDom2D_assignDomID( this, &
     NprcX_lc, NprcY_lc,                               &

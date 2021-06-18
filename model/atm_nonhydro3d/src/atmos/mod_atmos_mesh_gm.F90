@@ -66,6 +66,8 @@ contains
   subroutine AtmosMeshGM_Init( this )    
     use scale_const, only: &
       RPlanet => CONST_RADIUS
+    use scale_file_base_meshfield, only: FILE_base_meshfield
+    use scale_meshfieldcomm_cubedspheredom2d, only: MeshFieldCommCubedSphereDom2D
     
     implicit none
     class(AtmosMeshGM), target, intent(inout) :: this
@@ -86,17 +88,26 @@ contains
     integer  :: PolyOrder_h        = 2
     integer  :: PolyOrder_v        = 2
     logical  :: LumpedMassMatFlag  = .false.
+    character(len=H_LONG) :: TOPO_IN_BASENAME    = ''                   !< basename of the input file
+    character(len=H_MID)  :: TOPO_IN_VARNAME     = 'topo'               !< variable name of topo in the input file
+    character(len=H_MID)  :: VERTICAL_COORD_NAME = "TERRAIN_FOLLOWING"
 
     namelist / PARAM_ATMOS_MESH / &
       dom_zmin, dom_zmax,                          &
       FZ, isPeriodicZ,                             &
       NeGX, NeGY, NeZ, NLocalMeshPerPrc, Nprc,     &
-      PolyOrder_h, PolyOrder_v, LumpedMassMatFlag    
+      PolyOrder_h, PolyOrder_v, LumpedMassMatFlag, &
+      TOPO_IN_BASENAME, TOPO_IN_VARNAME,           &
+      VERTICAL_COORD_NAME
 
     integer :: k
     logical :: is_spec_FZ
     
     integer :: ierr
+
+    type(FILE_base_meshfield) :: file_topo
+    type(MeshFieldCommCubedSphereDom3D) :: comm3D
+    type(MeshFieldCommCubedSphereDom2D) :: comm2D
     !-------------------------------------------
 
     LOG_NEWLINE
@@ -143,6 +154,23 @@ contains
     
     !-
     call this%AtmosMesh_Init( this%mesh )
+
+    !- Set topography & vertical coordinate
+
+    if ( TOPO_IN_VARNAME /= '' ) then
+      call file_topo%Init(1, meshcubedsphere2D=this%mesh%mesh2D )
+      call comm2D%Init( 1, 0, this%mesh%mesh2D )
+      call comm3D%Init( 1, 1, this%mesh )
+
+      call this%Setup_vcoordinate( &
+        VERTICAL_COORD_NAME, dom_zmax,                &
+        file_topo, TOPO_IN_BASENAME, TOPO_IN_VARNAME, &
+        comm3D, comm2D                                )
+
+      call comm2D%Final()
+      call comm3D%Final()
+      call file_topo%Final()
+    end if
 
     return
   end subroutine AtmosMeshGM_Init

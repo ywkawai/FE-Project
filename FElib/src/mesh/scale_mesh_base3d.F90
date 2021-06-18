@@ -9,7 +9,8 @@ module scale_mesh_base3d
 
   use scale_localmesh_3d, only: &
     LocalMesh3D, LocalMesh3D_Init, LocalMesh3D_Final
-
+  use scale_localmesh_2d, only: &
+    LocalMesh2D
   use scale_mesh_base, only: &
     MeshBase, MeshBase_Init, MeshBase_Final
   use scale_mesh_base2d, only: &
@@ -31,6 +32,7 @@ module scale_mesh_base3d
     procedure(MeshBase3D_generate), deferred :: Generate 
     procedure(MeshBase3D_getMesh2D), deferred  :: GetMesh2D
     procedure :: GetLocalMesh => MeshBase3D_get_localmesh
+    procedure :: SetVCoordinate_lcdom => MeshBase3D_set_vcoordinate_lcdom
   end type MeshBase3D
 
   interface 
@@ -117,7 +119,7 @@ contains
 
     integer :: n
     !-----------------------------------------------------------------------------
-  
+      
     do n=1, this%LOCAL_MESH_NUM
       call LocalMesh3D_Final( this%lcmesh_list(n), this%isGenerated )
     end do
@@ -140,6 +142,36 @@ contains
     ptr_lcmesh => this%lcmesh_list(id)
     return
   end subroutine MeshBase3D_get_localmesh
+
+  subroutine MeshBase3D_set_vcoordinate_lcdom( this,     &
+      vcoord_name, domid, topo, zTop, Dx2D, Dy2D, Lift2D )
+    
+    use scale_sparsemat, only: SparseMat
+    use scale_meshutil_vcoord, only: MeshUtil_VCoord_GetMetric
+    implicit none
+
+    class(MeshBase3D), target, intent(in) :: this
+    character(len=*), intent(in) :: vcoord_name
+    integer, intent(in) :: domid
+    real(RP), intent(in) :: topo(this%lcmesh_list(domid)%refElem3D%Nfp_v,this%lcmesh_list(domid)%lcmesh2D%NeA)
+    real(RP), intent(in) :: zTop
+    type(SparseMat), intent(in) :: Dx2D, Dy2D, Lift2D
+
+    class(LocalMesh3D), pointer :: lcmesh
+    class(LocalMesh2D), pointer :: lcmesh2D
+    integer :: n
+    !-------------------------------------------------------------
+
+    lcmesh => this%lcmesh_list(domid)
+    lcmesh2D => lcmesh%lcmesh2D
+    call MeshUtil_VCoord_GetMetric( &
+      lcmesh%GI3(:,:,1), lcmesh%GI3(:,:,2), lcmesh%zlev(:,:),                               & ! (out)
+      lcmesh%Gsqrt(:,:),                                                                    & ! (inout)
+      topo(:,:), zTop, vcoord_name, lcmesh, lcmesh%refElem3D, lcmesh2D, lcmesh2D%refElem2D, & ! (in
+      Dx2D, Dy2D, Lift2D                                                                    ) ! (in)
+
+    return
+  end subroutine MeshBase3D_set_vcoordinate_lcdom
 
   subroutine MeshBase3D_setGeometricInfo( lcmesh, coord_conv, calc_normal )
     implicit none
@@ -170,7 +202,7 @@ contains
     end interface
 
     class(ElementBase3D), pointer :: refElem
-    integer :: ke
+    integer :: ke, ke2D
     integer :: f
     integer :: i, j
     integer :: d
@@ -184,7 +216,6 @@ contains
     real(RP) :: xX(lcmesh%refElem%Np), xY(lcmesh%refElem%Np), xZ(lcmesh%refElem%Np)
     real(RP) :: yX(lcmesh%refElem%Np), yY(lcmesh%refElem%Np), yZ(lcmesh%refElem%Np)
     real(RP) :: zX(lcmesh%refElem%Np), zY(lcmesh%refElem%Np), zZ(lcmesh%refElem%Np)
-
     !-----------------------------------------------------------------------------
 
     refElem => lcmesh%refElem3D
@@ -199,9 +230,12 @@ contains
     allocate( lcmesh%Escale(refElem%Np,lcmesh%Ne,3,3) )
     allocate( lcmesh%zS(refElem%Np,lcmesh%Ne) )
     allocate( lcmesh%Sz(refElem%Np,lcmesh%Ne) )
-    allocate( lcmesh%Gsqrt(refElem%Np,lcmesh%Ne) )
+    allocate( lcmesh%Gsqrt(refElem%Np,lcmesh%NeA) )
+    allocate( lcmesh%GsqrtH(refElem%Nfp_v,lcmesh%Ne2D) )
     allocate( lcmesh%G_ij(refElem%Nfp_v,lcmesh%Ne2D,2,2) )
     allocate( lcmesh%GIJ (refElem%Nfp_v,lcmesh%Ne2D,2,2) )
+    allocate( lcmesh%GI3 (refElem%Np,lcmesh%NeA,2) )
+    allocate( lcmesh%zlev(refElem%Np,lcmesh%Ne) )
     allocate( lcmesh%lon2D(refElem%Nfp_v,lcmesh%Ne2D) )
     allocate( lcmesh%lat2D(refElem%Nfp_v,lcmesh%Ne2D) )
     
@@ -218,9 +252,11 @@ contains
     end do
     end do
 
-    !$omp parallel do private( ke, node_ids, vx, vy, vz, &
+    !$omp parallel private( ke, node_ids, vx, vy, vz,    &
     !$omp xX, xY, xZ, yX, yY, yZ, zX, zY, zZ,            &
     !$omp i, j, Escale_f, d                              )
+
+    !$omp do
     do ke=1, lcmesh%Ne
       node_ids(:) = lcmesh%EToV(ke,:)
       vx(:) = lcmesh%pos_ev(node_ids(:),1)
@@ -270,8 +306,18 @@ contains
       lcmesh%sJ(:,ke) = lcmesh%sJ(:,ke)*lcmesh%J(fmask(:),ke)
 
       lcmesh%Fscale(:,ke) = lcmesh%sJ(:,ke)/lcmesh%J(fmask(:),ke)
-      lcmesh%Gsqrt(:,ke) = 1.0_RP
+      lcmesh%zlev(:,ke) = lcmesh%pos_en(:,ke,3)
     end do
+    !$omp end do
+
+    !$omp workshare
+    lcmesh%Gsqrt (:,:)   = 1.0_RP
+    lcmesh%GI3   (:,:,1) = 0.0_RP
+    lcmesh%GI3   (:,:,2) = 0.0_RP
+    lcmesh%GsqrtH(:,:)   = 1.0_RP
+    !$omp end workshare
+
+    !$omp end parallel
 
     return
   end subroutine MeshBase3D_setGeometricInfo

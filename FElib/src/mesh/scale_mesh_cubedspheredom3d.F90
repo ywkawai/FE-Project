@@ -20,8 +20,8 @@ module scale_mesh_cubedspheredom3d
   use scale_mesh_base2d, only: &
     MeshBase2D, MeshBase2D_Init, MeshBase2D_Final, &
     MeshBase2D_setGeometricInfo
-  use scale_mesh_rectdom2d, only: &
-    MeshRectDom2D, MeshRectDom2D_setupLocalDom
+  use scale_mesh_cubedspheredom2d, only: &
+    MeshCubedSphereDom2D, MeshCubedSphereDom2D_setupLocalDom
   use scale_localmesh_2d, only: LocalMesh2D
   use scale_element_quadrilateral, only: QuadrilateralElement
 
@@ -50,7 +50,7 @@ module scale_mesh_cubedspheredom3d
 
     real(RP) :: RPlanet
 
-    type(MeshRectDom2D) :: mesh2D
+    type(MeshCubedSphereDom2D) :: mesh2D
     type(QuadrilateralElement) :: refElem2D
   contains
     procedure :: Init => MeshCubedSphereDom3D_Init
@@ -205,7 +205,6 @@ contains
     integer :: NprcX_lc, NprcY_lc, NprcZ_lc
     integer :: tileID
    
-    real(RP), allocatable :: Gsqrt_tmp(:,:)
     integer :: ke, ke2D
     !-----------------------------------------------------------------------------
 
@@ -237,11 +236,11 @@ contains
         this%NeGX/NprcX_lc, this%NeGY/NprcY_lc, this%NeGZ/NprcZ_lc, &
         this%FZ(:) )
 
-      call MeshRectDom2D_setupLocalDom( this%mesh2D%lcmesh_list(n),   &
-        tileID,  panelID_table(tileID),                               &
-        pi_table(tileID), pj_table(tileID), NprcX_lc, NprcY_lc,       &
-        this%xmin_gl, this%xmax_gl, this%ymin_gl, this%ymax_gl,       &
-        this%NeGX/NprcX_lc, this%NeGY/NprcY_lc )
+      call MeshCubedSphereDom2D_setupLocalDom( this%mesh2D%lcmesh_list(n),   &
+        tileID,  panelID_table(tileID),                                      &
+        pi_table(tileID), pj_table(tileID), NprcX_lc, NprcY_lc,              &
+        this%xmin_gl, this%xmax_gl, this%ymin_gl, this%ymax_gl,              &
+        this%RPlanet, this%NeGX/NprcX_lc, this%NeGY/NprcY_lc                 )
 
       call mesh%SetLocalMesh2D( this%mesh2D%lcmesh_list(n) )
 
@@ -252,17 +251,15 @@ contains
         lcmesh2D%Ne * elem2D%Np, this%RPlanet,                            &
         mesh%lon2D(:,:), mesh%lat2D(:,:)                                  )
 
-      allocate( Gsqrt_tmp(lcmesh2D%refElem2D%Np,lcmesh2D%Ne) )
       call CubedSphereCnv_GetMetric( &
         lcmesh2D%pos_en(:,:,1), lcmesh2D%pos_en(:,:,2), elem2D%Np * lcmesh2D%Ne, this%RPlanet, & ! (in)
-        mesh%G_ij, mesh%GIJ, Gsqrt_tmp(:,:)                                                    ) ! (out)
+        mesh%G_ij, mesh%GIJ, mesh%GsqrtH                                                       ) ! (out)
   
       !$omp parallel do private(ke2D)
       do ke=mesh%NeS, mesh%NeE
         ke2D = mesh%EMap3Dto2D(ke)
-        mesh%Gsqrt(:,ke) = Gsqrt_tmp(elem3D%IndexH2Dto3D(:),ke2D)
+        mesh%Gsqrt(:,ke) = mesh%GsqrtH(elem3D%IndexH2Dto3D(:),ke2D)
       end do
-      deallocate( Gsqrt_tmp )
 
       !---
       ! write(*,*) "** my_rank=", mesh%PRC_myrank
@@ -330,7 +327,6 @@ contains
         
     !--
     lcmesh%Ne   = NeX * NeY * NeZ
-    lcmesh%Ne2D = NeX * NeY
     lcmesh%Nv  = (NeX + 1)*(NeY + 1)*(NeZ + 1)
     lcmesh%NeS = 1
     lcmesh%NeE = lcmesh%Ne
@@ -339,6 +335,9 @@ contains
     lcmesh%NeX = NeX
     lcmesh%NeY = NeY
     lcmesh%NeZ = NeZ
+
+    lcmesh%Ne2D  = NeX * NeY
+    lcmesh%Ne2DA = NeX * NeY + 2*(NeX + NeY)
 
     !--
     delx = ( dom_xmax - dom_xmin ) / dble(NprcX)

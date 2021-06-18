@@ -310,7 +310,6 @@ contains
     
     !--
     lcmesh%Ne   = NeX * NeY * NeZ
-    lcmesh%Ne2D = NeX * NeY
     lcmesh%Nv  = (NeX + 1)*(NeY + 1)*(NeZ + 1)
     lcmesh%NeS = 1
     lcmesh%NeE = lcmesh%Ne
@@ -319,6 +318,9 @@ contains
     lcmesh%NeX = NeX
     lcmesh%NeY = NeY
     lcmesh%NeZ = NeZ
+
+    lcmesh%Ne2D  = NeX * NeY
+    lcmesh%Ne2DA = NeX * NeY + 2*(NeX + NeY)
 
     !--
     delx = (dom_xmax - dom_xmin)/dble(NprcX)
