@@ -308,12 +308,6 @@ contains
             + lmesh%Escale(:,ke,2,2) * Fy(:)      &
             + lmesh%Escale(:,ke,3,3) * Fz(:)      &
             + LiftDelFlx(:) ) / lmesh%Gsqrt(:,ke)
-
-      ! DENS_dt(:,ke) = 0.0_RP
-      ! MOMX_dt(:,ke) = 0.0_RP
-      ! MOMY_dt(:,ke) = 0.0_RP
-      ! MOMZ_dt(:,ke) = 0.0_RP
-      ! RHOT_dt(:,ke) = 0.0_RP
     end do
     !$omp end parallel
     call PROF_rapend('cal_dyn_tend_interior', 3)
