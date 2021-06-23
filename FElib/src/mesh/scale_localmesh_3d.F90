@@ -34,6 +34,7 @@ module scale_localmesh_3d
     real(DP), allocatable :: Sz(:,:)
     real(DP), allocatable :: zS(:,:)
     real(RP), allocatable :: GI3(:,:,:)    !< The contravariant component of metric tensor with vertical general coordinate 
+    real(RP), allocatable :: GsqrtH(:,:)   !< The Jacobian of horizontal transformation in the computational coordinate
     real(RP), allocatable :: zlev(:,:)
 
     class(LocalMesh2D), pointer :: lcmesh2D
@@ -91,7 +92,7 @@ contains
     call LocalMeshBase_Final( this, is_generated )
     if (is_generated) then
       deallocate( this%zS, this%Sz )
-      deallocate( this%GI3, this%Gsqrt )
+      deallocate( this%GI3, this%GsqrtH )
       deallocate( this%zlev )
       deallocate( this%lon2D, this%lat2D )
       deallocate( this%EMap3Dto2D )

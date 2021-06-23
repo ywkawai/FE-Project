@@ -154,9 +154,15 @@ contains
     call MeshBase3D_Init( this, refElem, NLocalMeshPerPrc, 6, &
                           nproc, myrank                       )
 
-    !---
+    !--- 2D mesh
 
     call this%refElem2D%Init( this%refElem3D%PolyOrder_h, refElem%IsLumpedMatrix() )
+    
+    this%mesh2D%isPeriodicX = isPeriodicX
+    this%mesh2D%isPeriodicY = isPeriodicY
+    this%mesh2D%NprcX = NprcX
+    this%mesh2D%NprcY = NprcY
+
     call MeshBase2D_Init( this%mesh2D, this%refElem2D, NLocalMeshPerPrc,           &
                           nproc, myrank                                            )
 
@@ -223,7 +229,7 @@ contains
 
     call MesshCubeDom3D_assignDomID( this,    & ! (in)
       tileID_table, panelID_table,            & ! (out)
-       pi_table, pj_table, pk_table )           ! (out)
+      pi_table, pj_table, pk_table )            ! (out)
     
     !--- Setup local meshes managed by my process
 
@@ -256,6 +262,11 @@ contains
       ! write(*,*) "   NeX, NeY:", mesh%NeX, mesh%NeY
       ! write(*,*) "   [X], [Y]:",  mesh%xmin, mesh%xmax, ":", mesh%ymin, mesh%ymax
     end do
+
+    ! To set rcdomIJP2LCMeshID, call AssignDomID for 2D mesh
+    call this%mesh2D%AssignDomID( & 
+      tileID_table, panelID_table,   & ! (out)
+      pi_table, pj_table             ) ! (out)
 
     this%isGenerated = .true.
     this%mesh2D%isGenerated = .true.

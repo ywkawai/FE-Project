@@ -25,7 +25,7 @@ module scale_mesh_topography
   !
   !++ Public type & procedure
   ! 
-  type, abstract, public :: MeshTopography
+  type, public :: MeshTopography
     type(MeshField2D) :: topo
   contains
     procedure :: Init => MeshTopography_Init
@@ -49,14 +49,21 @@ module scale_mesh_topography
   !
 
 contains
-  subroutine MeshTopography_Init( this, mesh )
+  subroutine MeshTopography_Init( this, varname, mesh )
     implicit none
 
     class(MeshTopography), intent(inout) :: this
+    character(len=*), intent(in) :: varname
     class(MeshBase2D), intent(in), target :: mesh
+
+    integer :: n
     !-----------------------------------------------------------------------------
 
-    call this%topo%Init( "TOPO", "m", mesh )
+    call this%topo%Init( varname, "m", mesh )
+
+    do n=1, mesh%LOCAL_MESH_NUM
+      this%topo%local(n)%val(:,:) = 0.0_RP
+    end do
 
     return
   end subroutine MeshTopography_Init
@@ -73,18 +80,18 @@ contains
   end subroutine MeshTopography_Final
   
   subroutine MeshTopography_set_vcoordinate( this, mesh3D, &
-      vcoord_name, zTop, comm3D, comm2D                    )
+      vcoord_id, zTop, comm3D, comm2D                      )
     
     use scale_sparsemat, only: SparseMat
     use scale_meshutil_vcoord, only: MeshUtil_VCoord_GetMetric
     implicit none
 
-    class(MeshTopography), target, intent(in) :: this
+    class(MeshTopography), target, intent(inout) :: this
     class(MeshBase3D), intent(inout), target :: mesh3D
-    character(len=*), intent(in) :: vcoord_name
+    integer, intent(in) :: vcoord_id
     real(RP), intent(in) :: zTop
-    class(MeshFieldCommBase) :: comm3D
-    class(MeshFieldCommBase) :: comm2D
+    class(MeshFieldCommBase), intent(inout) :: comm3D
+    class(MeshFieldCommBase), intent(inout) :: comm2D
 
     type(SparseMat) :: Dx2D, Dy2D, Lift2D
     class(LocalMesh3D), pointer :: lcmesh
@@ -105,7 +112,15 @@ contains
     call Dy2D  %Init( lcmesh2D%refElem2D%Dx2  )
     call Lift2D%Init( lcmesh2D%refElem2D%Lift )
 
-    !--
+    ! Exchange topography data to fill halo
+
+    comm2d_varlist(1)%field2d => this%topo
+    call comm2D%Put(comm2d_varlist, 1)
+    call comm2D%Exchange()
+    call comm2D%Get(comm2d_varlist, 1)
+
+    ! Calculate metric factors associated with general vertical coordinates
+
     call Gsqrt%Init( "Gsqrt", "", mesh3D )
     call G13%Init( "G13", "", mesh3D )
     call G23%Init( "G23", "", mesh3D )
@@ -118,21 +133,13 @@ contains
       call MeshUtil_VCoord_GetMetric( &
         G13%local(n)%val, G23%local(n)%val, lcmesh%zlev(:,:),   & ! (out)
         Gsqrt%local(n)%val,                                     & ! (inout)
-        this%topo%local(n)%val(:,:), zTop, vcoord_name,         & ! (in)
+        this%topo%local(n)%val(:,:), zTop, vcoord_id,           & ! (in)
         lcmesh, lcmesh%refElem3D, lcmesh2D, lcmesh2D%refElem2D, & ! (in)
         Dx2D, Dy2D, Lift2D                                      ) ! (in)
     end do
 
-    !-- Communicate halo data
+    ! Exchange metric data to fill halo
 
-    ! 2D
-
-    comm2d_varlist(1)%field2d => this%topo
-    call comm2D%Put(comm2d_varlist, 1)
-    call comm2D%Exchange()
-    call comm2D%Get(comm2d_varlist, 1)
-
-    ! 3D 
     comm3d_varlist(1)%field3d => Gsqrt
     comm3d_varlist(2)%field3d => G13
     comm3d_varlist(3)%field3d => G23
@@ -140,6 +147,8 @@ contains
     call comm3D%Put(comm3d_varlist, 1)
     call comm3D%Exchange()
     call comm3D%Get(comm3d_varlist, 1)
+
+    ! Update metric data managed by local mesh
 
     do n=1, mesh3D%LOCAL_MESH_NUM
       lcmesh => mesh3D%lcmesh_list(n)
@@ -152,6 +161,10 @@ contains
     end do
 
     !---
+    call Gsqrt%Final()
+    call G13%Final()
+    call G23%Final()
+
     call Dx2D%Final()
     call Dy2D%Final()
     call Lift2D%Final()

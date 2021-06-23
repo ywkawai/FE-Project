@@ -91,18 +91,22 @@ OBJS_NAME_FILE = \
 	scale_file_monitor_meshfield.o
 
 OBJS_NAME_FLUID_DYN_SOLVER = \
-	scale_atm_dyn_dgm_modalfilter.o               \
-	scale_atm_dyn_dgm_spongelayer.o               \
-	scale_atm_dyn_dgm_hydrostatic.o               \
-	scale_atm_dyn_dgm_nonhydro3d_numdiff.o        \
-	scale_atm_dyn_dgm_nonhydro2d.o                \
-	scale_atm_dyn_dgm_globalnonhydro3d_heve.o     \
-	scale_atm_dyn_dgm_globalnonhydro3d_hevi.o     \
-	scale_atm_dyn_dgm_nonhydro3d_heve.o           \
-	scale_atm_dyn_dgm_nonhydro3d_hevi.o           \
-	scale_atm_dyn_dgm_nonhydro3d_splitform_heve.o \
-	scale_atm_dyn_dgm_nonhydro3d_splitform_hevi.o \
-	scale_atm_dyn_dgm_nonhydro3d_hevi_gmres.o     \
+	scale_atm_dyn_dgm_modalfilter.o                  \
+	scale_atm_dyn_dgm_spongelayer.o                  \
+	scale_atm_dyn_dgm_hydrostatic.o                  \
+	scale_atm_dyn_dgm_nonhydro3d_numdiff.o           \
+	scale_atm_dyn_dgm_nonhydro2d.o                   \
+	scale_atm_dyn_dgm_nonhydro3d_common.o            \
+	scale_atm_dyn_dgm_nonhydro3d_heve_numflux.o      \
+	scale_atm_dyn_dgm_nonhydro3d_heve.o              \
+	scale_atm_dyn_dgm_nonhydro3d_hevi_common.o       \
+	scale_atm_dyn_dgm_nonhydro3d_hevi_numflux.o      \
+	scale_atm_dyn_dgm_nonhydro3d_hevi.o              \
+	scale_atm_dyn_dgm_nonhydro3d_splitform_heve.o    \
+	scale_atm_dyn_dgm_nonhydro3d_splitform_hevi.o    \
+	scale_atm_dyn_dgm_nonhydro3d_hevi_gmres.o        \
+	scale_atm_dyn_dgm_globalnonhydro3d_heve.o        \
+	scale_atm_dyn_dgm_globalnonhydro3d_hevi.o        \
 	scale_atm_dyn_dgm_globalsw.o
 
 OBJS_NAME_TURBULENCE = \

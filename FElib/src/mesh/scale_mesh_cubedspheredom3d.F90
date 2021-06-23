@@ -69,7 +69,12 @@ module scale_mesh_cubedspheredom3d
   !
   !++ Private procedure
   !
-  
+
+  private :: MeshCubedSphereDom3D_calc_normal
+  private :: MeshCubedSphereDom3D_coord_conv
+  private :: MeshCubedSphereDom3D_set_metric
+  private :: fill_halo_metric
+
   !-----------------------------------------------------------------------------
   !
   !++ Private parameters & variables
@@ -183,18 +188,12 @@ contains
   subroutine MeshCubedSphereDom3D_generate( this )
     use scale_mesh_cubedspheredom2d, only: &
       MeshCubedSphereDom2D_check_division_params
-    use scale_cubedsphere_cnv, only: &
-      CubedSphereCnv_CS2LonLatCoord, &
-      CubedSphereCnv_GetMetric
     implicit none
 
     class(MeshCubedSphereDom3D), intent(inout), target :: this
 
     integer :: n
     type(LocalMesh3D), pointer :: mesh
-    type(LocalMesh2D), pointer :: lcmesh2D
-    type(ElementBase3D), pointer :: elem3D
-    type(ElementBase2D), pointer :: elem2D
 
     integer :: tileID_table(this%LOCAL_MESH_NUM, this%PRC_NUM)
     integer :: panelID_table(this%LOCAL_MESH_NUM*this%PRC_NUM)
@@ -203,9 +202,7 @@ contains
     integer :: pk_table(this%LOCAL_MESH_NUM*this%PRC_NUM)
 
     integer :: NprcX_lc, NprcY_lc, NprcZ_lc
-    integer :: tileID
-   
-    integer :: ke, ke2D
+    integer :: tileID   
     !-----------------------------------------------------------------------------
 
     call MeshCubedSphereDom2D_check_division_params( &
@@ -224,7 +221,6 @@ contains
 
     do n=1, this%LOCAL_MESH_NUM
       mesh => this%lcmesh_list(n)
-      elem3D => mesh%refElem3D
       tileID = tileID_table(n, mesh%PRC_myrank+1)
 
       call MeshCubedSphereDom3D_setupLocalDom( mesh, &
@@ -244,23 +240,6 @@ contains
 
       call mesh%SetLocalMesh2D( this%mesh2D%lcmesh_list(n) )
 
-      lcmesh2D => this%mesh2D%lcmesh_list(n)
-      elem2D => lcmesh2D%refElem2D
-      call CubedSphereCnv_CS2LonLatCoord( &
-        lcmesh2D%panelID, lcmesh2D%pos_en(:,:,1), lcmesh2D%pos_en(:,:,2), &
-        lcmesh2D%Ne * elem2D%Np, this%RPlanet,                            &
-        mesh%lon2D(:,:), mesh%lat2D(:,:)                                  )
-
-      call CubedSphereCnv_GetMetric( &
-        lcmesh2D%pos_en(:,:,1), lcmesh2D%pos_en(:,:,2), elem2D%Np * lcmesh2D%Ne, this%RPlanet, & ! (in)
-        mesh%G_ij, mesh%GIJ, mesh%GsqrtH                                                       ) ! (out)
-  
-      !$omp parallel do private(ke2D)
-      do ke=mesh%NeS, mesh%NeE
-        ke2D = mesh%EMap3Dto2D(ke)
-        mesh%Gsqrt(:,ke) = mesh%GsqrtH(elem3D%IndexH2Dto3D(:),ke2D)
-      end do
-
       !---
       ! write(*,*) "** my_rank=", mesh%PRC_myrank
       ! write(*,*) " tileID:", mesh%tileID
@@ -273,6 +252,15 @@ contains
       ! write(*,*) "   NeX, NeY:", mesh%NeX, mesh%NeY
       ! write(*,*) "   [X], [Y]:",  mesh%xmin, mesh%xmax, ":", mesh%ymin, mesh%ymax
     end do
+
+    ! Set lon&lat position and metrics with the cubed sphere mesh
+    call MeshCubedSphereDom3D_set_metric( this )
+
+    ! To set rcdomIJP2LCMeshID, call AssignDomID for 2D mesh
+    call this%mesh2D%AssignDomID( & 
+      NprcX_lc, NprcY_lc,            & ! (in)
+      tileID_table, panelID_table,   & ! (out)
+      pi_table, pj_table             ) ! (out)
 
     this%isGenerated = .true.
     this%mesh2D%isGenerated = .true.
@@ -541,5 +529,71 @@ contains
 
     return
   end subroutine MeshCubedSphereDom3D_calc_normal 
+
+  !--
+
+!OCL SERIAL
+  subroutine MeshCubedSphereDom3D_set_metric( this )
+    use scale_cubedsphere_cnv, only: &
+      CubedSphereCnv_CS2LonLatCoord, &
+      CubedSphereCnv_GetMetric
+        
+    implicit none
+    class(MeshCubedSphereDom3D), intent(inout), target :: this
+
+    integer :: n
+    integer :: ke, ke2D
+
+    class(LocalMesh3D), pointer :: lcmesh
+    class(LocalMesh2D), pointer :: lcmesh2D
+    class(ElementBase2D), pointer :: elem2D
+    !----------------------------------------------------
+
+    do n=1, this%mesh2D%LOCAL_MESH_NUM
+      lcmesh => this%lcmesh_list(n)
+      lcmesh2D => this%mesh2D%lcmesh_list(n)
+      elem2D => lcmesh2D%refElem2D
+      call CubedSphereCnv_CS2LonLatCoord( &
+        lcmesh2D%panelID, lcmesh2D%pos_en(:,:,1), lcmesh2D%pos_en(:,:,2), & ! (in)
+        lcmesh2D%Ne * elem2D%Np, this%RPlanet,                            & ! (in)
+        lcmesh%lon2D(:,:), lcmesh%lat2D(:,:)                              ) ! (out)
+
+      call CubedSphereCnv_GetMetric( &
+        lcmesh2D%pos_en(:,:,1), lcmesh2D%pos_en(:,:,2), elem2D%Np * lcmesh2D%Ne, this%RPlanet, & ! (in)
+        lcmesh%G_ij, lcmesh%GIJ, lcmesh%GsqrtH                                                 ) ! (out)
+
+      !$omp parallel do private(ke2D)
+      do ke=lcmesh%NeS, lcmesh%NeE
+        ke2D = lcmesh%EMap3Dto2D(ke)
+        lcmesh%Gsqrt(:,ke) = lcmesh%GsqrtH(lcmesh%refElem3D%IndexH2Dto3D(:),ke2D)        
+      end do
+
+      call fill_halo_metric( lcmesh%Gsqrt, lcmesh%VMapM, lcmesh%VMapP, lcmesh, lcmesh%refElem3D )
+    end do
+
+    return
+  end subroutine MeshCubedSphereDom3D_set_metric
+
+!OCL SERIAL
+  subroutine fill_halo_metric( Gsqrt, vmapM, vmapP, lmesh, elem )
+    implicit none
+    class(LocalMesh3D), intent(in) :: lmesh
+    class(ElementBase3D), intent(in) :: elem
+    integer, intent(in) :: vmapM(elem%NfpTot*lmesh%Ne)
+    integer, intent(in) :: vmapP(elem%NfpTot*lmesh%Ne)
+    real(RP), intent(inout) :: Gsqrt(elem%Np*lmesh%NeA)
+
+    integer :: i, iM, iP
+    !------------------------------------------------
+
+    !$omp parallel do private(i, iM, iP)
+    do i=1, elem%NfpTot*lmesh%Ne
+      iM = vmapM(i); iP = vmapP(i)
+      if ( iP > elem%Np * lmesh%Ne ) then
+        Gsqrt(iP) = Gsqrt(iM)
+      end if
+    end do  
+    return
+  end subroutine fill_halo_metric
 
 end module scale_mesh_cubedspheredom3d

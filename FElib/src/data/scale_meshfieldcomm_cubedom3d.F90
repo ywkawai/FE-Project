@@ -76,7 +76,7 @@ contains
 
     bufsize_per_field =  2*(lcmesh%NeX + lcmesh%NeY)*lcmesh%NeZ*elem%Nfp_h &
                        + 2*lcmesh%NeX*lcmesh%NeY*elem%Nfp_v
-    call MeshFieldCommBase_Init( this, sfield_num, hvfield_num, bufsize_per_field, 6, mesh3d)  
+    call MeshFieldCommBase_Init( this, sfield_num, hvfield_num, bufsize_per_field, 6, mesh3d )  
   
     return
   end subroutine MeshFieldCommCubeDom3D_Init

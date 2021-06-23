@@ -32,7 +32,6 @@ module scale_mesh_base3d
     procedure(MeshBase3D_generate), deferred :: Generate 
     procedure(MeshBase3D_getMesh2D), deferred  :: GetMesh2D
     procedure :: GetLocalMesh => MeshBase3D_get_localmesh
-    procedure :: SetVCoordinate_lcdom => MeshBase3D_set_vcoordinate_lcdom
   end type MeshBase3D
 
   interface 
@@ -142,36 +141,6 @@ contains
     ptr_lcmesh => this%lcmesh_list(id)
     return
   end subroutine MeshBase3D_get_localmesh
-
-  subroutine MeshBase3D_set_vcoordinate_lcdom( this,     &
-      vcoord_name, domid, topo, zTop, Dx2D, Dy2D, Lift2D )
-    
-    use scale_sparsemat, only: SparseMat
-    use scale_meshutil_vcoord, only: MeshUtil_VCoord_GetMetric
-    implicit none
-
-    class(MeshBase3D), target, intent(in) :: this
-    character(len=*), intent(in) :: vcoord_name
-    integer, intent(in) :: domid
-    real(RP), intent(in) :: topo(this%lcmesh_list(domid)%refElem3D%Nfp_v,this%lcmesh_list(domid)%lcmesh2D%NeA)
-    real(RP), intent(in) :: zTop
-    type(SparseMat), intent(in) :: Dx2D, Dy2D, Lift2D
-
-    class(LocalMesh3D), pointer :: lcmesh
-    class(LocalMesh2D), pointer :: lcmesh2D
-    integer :: n
-    !-------------------------------------------------------------
-
-    lcmesh => this%lcmesh_list(domid)
-    lcmesh2D => lcmesh%lcmesh2D
-    call MeshUtil_VCoord_GetMetric( &
-      lcmesh%GI3(:,:,1), lcmesh%GI3(:,:,2), lcmesh%zlev(:,:),                               & ! (out)
-      lcmesh%Gsqrt(:,:),                                                                    & ! (inout)
-      topo(:,:), zTop, vcoord_name, lcmesh, lcmesh%refElem3D, lcmesh2D, lcmesh2D%refElem2D, & ! (in
-      Dx2D, Dy2D, Lift2D                                                                    ) ! (in)
-
-    return
-  end subroutine MeshBase3D_set_vcoordinate_lcdom
 
   subroutine MeshBase3D_setGeometricInfo( lcmesh, coord_conv, calc_normal )
     implicit none
