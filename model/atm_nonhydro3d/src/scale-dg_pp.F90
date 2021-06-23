@@ -1,5 +1,5 @@
 !-------------------------------------------------------------------------------
-!> Program SCALE-DG_init (a launcher of main routine)
+!> Program SCALE-DG_pp (a launcher of main routine)
 !!
 !! @par Description
 !!          SCALE: Scalable Computing by Advanced Library and Environment
@@ -9,7 +9,7 @@
 !!
 !<
 !-------------------------------------------------------------------------------
-program scaledg_init
+program scaledg_pp
   !-----------------------------------------------------------------------------
   !
   !++ used modules
@@ -37,4 +37,4 @@ program scaledg_init
                  EXECUTE_MODEL       ) ! (in)
 
   stop
-end program scaledg_init
+end program scaledg_pp

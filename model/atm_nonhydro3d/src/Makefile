@@ -14,9 +14,11 @@ include $(TOPDIR)/Mkinclude
 
 BINNAME  = scale-dg
 INITNAME = scale-dg_init
+PPNAME = scale-dg_pp
 
 BINS = $(BINDIR)/$(BINNAME)$(POSTFIX)  \
-       $(BINDIR)/$(INITNAME)$(POSTFIX) 
+       $(BINDIR)/$(INITNAME)$(POSTFIX) \
+       $(BINDIR)/$(PPNAME)$(POSTFIX) 
 LIBS = $(LIBDIR)/libScaleFECore.a
 
 VERSION = $(shell git rev-parse --short HEAD 2> /dev/null)
@@ -52,6 +54,7 @@ OBJS = \
 	mod_exp.o                    \
 	\
 	mod_dg_prep.o                \
+	mod_mktopo.o                 \
 	mod_mkinit_util.o            \
 	mod_mkinit.o
 
@@ -65,7 +68,7 @@ build:
 	$(MAKE) makelib
 	@echo;echo "Entering scale-dg...";echo "Current version is " $(VERSION)
 	mkdir -p $(BUILD_DIR)
-	$(MAKE) $(subst $(BINDIR),$(BUILD_DIR),$(BINS))
+	$(MAKE) makebin
 	@echo "Complete making scale-dg."
 
 install:
@@ -81,26 +84,32 @@ info:
 makelib:
 	$(MAKE) -C $(SCALEFELIBDIR)/src
 
+makebin:  $(BUILD_DIR)/$(BINNAME)$(POSTFIX) $(BUILD_DIR)/$(PPNAME)$(POSTFIX)
 
 $(BUILD_DIR)/$(BINNAME)$(POSTFIX)  : $(BUILD_DIR)/$(BINNAME).o  $(patsubst %,$(BUILD_DIR)/%,$(OBJS)) $(BUILD_DIR)/mod_user.o $(LIBS)
 	$(LD) $(LDFLAGS) $(ADDITIONAL_FFLAGS) -o $@ $^ $(LIBS) $(CONTRIB_LIBS) $(SCALE_NETCDF_LIBS) $(SCALE_MATHLIB_LIBS) $(SCALE_PAPI_LIBS)
 
-$(BUILD_DIR)/$(INITNAME)$(POSTFIX) : $(BUILD_DIR)/$(INITNAME).o $(patsubst %,$(BUILD_DIR)/%,$(OBJS)) $(BUILD_DIR)/mod_user.o $(LIBS)
+$(BUILD_DIR)/$(PPNAME)$(POSTFIX) : $(BUILD_DIR)/$(PPNAME).o $(patsubst %,$(BUILD_DIR)/%,$(OBJS)) $(BUILD_DIR)/mod_user.o $(LIBS)
 	$(LD) $(LDFLAGS) $(ADDITIONAL_FFLAGS) -o $@ $^ $(LIBS) $(CONTRIB_LIBS) $(SCALE_NETCDF_LIBS) $(SCALE_MATHLIB_LIBS) $(SCALE_PAPI_LIBS)
 
 $(BUILD_DIR)/$(BINNAME).o  : $(LIBS) $(patsubst %,$(BUILD_DIR)/%,$(OBJS)) $(BUILD_DIR)/mod_user.o
-$(BUILD_DIR)/$(INITNAME).o : $(LIBS) $(patsubst %,$(BUILD_DIR)/%,$(OBJS)) $(BUILD_DIR)/mod_user.o
+$(BUILD_DIR)/$(PPNAME).o : $(LIBS) $(patsubst %,$(BUILD_DIR)/%,$(OBJS)) $(BUILD_DIR)/mod_user.o
 $(BUILD_DIR)/mod_user.o    : $(LIBS) $(patsubst %,$(BUILD_DIR)/%,$(SUB_OBJS)) $(BUILD_DIR)/mod_exp.o $(BUILD_DIR)/mod_mkinit_util.o
 
 $(BINDIR)/$(BINNAME)$(POSTFIX)  : $(BUILD_DIR)/$(BINNAME)$(POSTFIX)
 	install $< $@
 
-$(BINDIR)/$(INITNAME)$(POSTFIX) : $(BUILD_DIR)/$(INITNAME)$(POSTFIX)
+$(BINDIR)/$(PPNAME)$(POSTFIX)   : $(BUILD_DIR)/$(PPNAME)$(POSTFIX)
 	install $< $@
+
+$(BINDIR)/$(INITNAME)$(POSTFIX) : $(BINDIR)/$(PPNAME)$(POSTFIX)
+	(cd $(BINDIR); ln -sf `basename $<` $@)
+
 
 distclean: clean
 	rm -f $(BINDIR)/$(BINNAME)$(POSTFIX)
 	rm -f $(BINDIR)/$(INITNAME)$(POSTFIX)
+	rm -f $(BINDIR)/$(PPNAME)$(POSTFIX)
 	rm -rf ./.libs*
 
 clean:

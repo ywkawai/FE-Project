@@ -33,18 +33,20 @@ module mod_atmos_mesh
   !
   type, abstract, extends(ModelMesh3D), public :: AtmosMesh
     type(HexahedralElement) :: element
+
     type(MeshTopography) :: topography
+    integer :: vcoord_type_id
   contains
     procedure :: AtmosMesh_Init
     procedure :: AtmosMesh_Final
     procedure(AtmosMesh_create_communicator), public, deferred :: Create_communicator
-    procedure(AtmosMesh_setup_restartfile1), public, deferred ::  Setup_restartfile1
-    procedure(AtmosMesh_setup_restartfile2), public, deferred ::  Setup_restartfile2
+    procedure(AtmosMesh_setup_restartfile1), public, deferred :: Setup_restartfile1
+    procedure(AtmosMesh_setup_restartfile2), public, deferred :: Setup_restartfile2
     procedure(AtmosMesh_calc_UVMet), public, deferred :: Calc_UVmet
     generic :: Setup_restartfile => Setup_restartfile1, Setup_restartfile2
+    procedure(AtmosMesh_setup_vcoord), public, deferred :: Setup_vcoordinate
     procedure :: Construct_ModalFilter3D => AtmosMesh_construct_ModalFilter3D
     procedure :: Construct_ModalFilterHV => AtmosMesh_construct_ModalFilterHV
-    procedure :: Setup_vcoordinate =>  AtmosMesh_setup_vcoordinate
   end type AtmosMesh
   interface
     subroutine AtmosMesh_create_communicator( this, sfield_num, hvfield_num, var_manager, field_list, commid )
@@ -99,7 +101,12 @@ module mod_atmos_mesh
         type(MeshField3D), intent(inout) :: Vmet
     end subroutine AtmosMesh_calc_UVMet
   end interface
-
+  interface 
+    subroutine AtmosMesh_setup_vcoord( this )
+      import AtmosMesh
+      class(AtmosMesh), target, intent(inout) :: this
+    end subroutine AtmosMesh_setup_vcoord
+  end interface
   integer, parameter, public :: ATM_MESH_MAX_COMMNUICATOR_NUM = 10
 
   !-----------------------------------------------------------------------------
@@ -150,7 +157,7 @@ contains
     
     !-
     call mesh%GetMesh2D( mesh2D )
-    call this%topography%Init( mesh2D )
+    call this%topography%Init( "topo", mesh2D )
 
     return
   end subroutine AtmosMesh_Init
@@ -166,37 +173,6 @@ contains
 
     return
   end subroutine AtmosMesh_Final
-
-  subroutine AtmosMesh_setup_vcoordinate( this, &
-    vcoord_name, zTop,                          &
-    file_topo, in_basename, in_varname,         &
-    comm3D, comm2D                              )
-
-    use scale_file_base_meshfield, only: FILE_base_meshfield
-    use scale_mesh_base2d, only: &
-      MFTYPE2D_XY => MeshBase2D_DIMTYPEID_XY
-    use scale_meshfieldcomm_base, only: MeshFieldCommBase
-    implicit none
-
-    class(AtmosMesh), intent(inout), target :: this
-    character(len=*), intent(in) :: vcoord_name
-    real(RP), intent(in) :: zTop
-    type(FILE_base_meshfield), intent(inout) :: file_topo
-    character(len=*), intent(in) :: in_basename
-    character(len=*), intent(in) :: in_varname
-    class(MeshFieldCommBase) :: comm3D
-    class(MeshFieldCommBase) :: comm2D
-    !-------------------------------------------
-
-    call file_topo%Open( in_basename )
-    call file_topo%Read_Var( MFTYPE2D_XY, in_varname, this%topo )
-    call file_topo%Close()
-
-    call this%topography%SetVCoordinate( this%ptr_mesh, &
-      vcoord_name, zTop, comm3D, comm2D )
-
-    return
-  end subroutine AtmosMesh_setup_vcoordinate
 
   subroutine AtmosMesh_construct_ModalFilter3D( this, &
     filter,                                           &

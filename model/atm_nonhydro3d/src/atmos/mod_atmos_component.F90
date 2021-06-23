@@ -112,7 +112,7 @@ subroutine Atmos_setup( this )
     ATMOS_DYN_DO,          &
     ATMOS_PHY_SF_DO,       &
     ATMOS_PHY_TB_DO
-
+  
   integer :: ierr
   !--------------------------------------------------
   call PROF_rapstart( 'ATM_setup', 1)

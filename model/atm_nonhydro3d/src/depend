@@ -12,10 +12,11 @@ $(BUILD_DIR)/mod_atmos_phy_tb_vars.o: atmos/mod_atmos_phy_tb_vars.F90 $(DEPENDLI
 $(BUILD_DIR)/mod_atmos_vars.o: atmos/mod_atmos_vars.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_mesh.o
 $(BUILD_DIR)/mod_dg_driver.o: admin/mod_dg_driver.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_component.o $(BUILD_DIR)/mod_user.o
 $(BUILD_DIR)/mod_dg_launcher.o: admin/mod_dg_launcher.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_dg_driver.o $(BUILD_DIR)/mod_dg_prep.o
-$(BUILD_DIR)/mod_dg_prep.o: admin/mod_dg_prep.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_component.o $(BUILD_DIR)/mod_mkinit.o $(BUILD_DIR)/mod_user.o
+$(BUILD_DIR)/mod_dg_prep.o: admin/mod_dg_prep.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_component.o $(BUILD_DIR)/mod_mkinit.o $(BUILD_DIR)/mod_mktopo.o $(BUILD_DIR)/mod_user.o
 $(BUILD_DIR)/mod_exp.o: admin/mod_exp.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_mesh.o $(BUILD_DIR)/mod_atmos_vars.o
 $(BUILD_DIR)/mod_mkinit.o: preprocess/mod_mkinit.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_component.o $(BUILD_DIR)/mod_atmos_mesh.o $(BUILD_DIR)/mod_atmos_vars.o
 $(BUILD_DIR)/mod_mkinit_util.o: preprocess/mod_mkinit_util.F90 $(DEPENDLIB)
+$(BUILD_DIR)/mod_mktopo.o: preprocess/mod_mktopo.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_component.o $(BUILD_DIR)/mod_atmos_mesh.o
 $(BUILD_DIR)/mod_user.o: user/mod_user.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_component.o
 
 MODS =	\
@@ -37,4 +38,5 @@ MODS =	\
 	mod_exp.mod	\
 	mod_mkinit.mod	\
 	mod_mkinit_util.mod	\
+	mod_mktopo.mod	\
 	mod_user.mod
