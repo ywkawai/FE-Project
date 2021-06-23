@@ -44,15 +44,15 @@ else
 endif
 
 ifeq ($(origin PPNAME), undefined)
-   PPNAME = scale-rm_pp
+   PPNAME = scale-dg_pp
 endif
 
 ifeq ($(origin INITNAME), undefined)
-   INITNAME = scale-rm_init
+   INITNAME = scale-dg_init
 endif
 
 ifeq ($(origin BINNAME), undefined)
-   BINNAME = atm_nonhydro3d
+   BINNAME = scale-dg
 endif
 
 ifeq ($(origin N2GNAME), undefined)

@@ -41,10 +41,11 @@ module scale_mesh_cubedspheredom2d
     procedure :: Init => MeshCubedSphereDom2D_Init
     procedure :: Final => MeshCubedSphereDom2D_Final
     procedure :: Generate => MeshCubedSphereDom2D_generate
-    procedure :: AssignDomID => MesshCubedSphereDom2D_assignDomID
+    procedure :: AssignDomID => MeshCubedSphereDom2D_assignDomID
   end type MeshCubedSphereDom2D
 
   public :: MeshCubedSphereDom2D_check_division_params
+  public :: MeshCubedSphereDom2D_setupLocalDom
   
   !-----------------------------------------------------------------------------
   !
@@ -233,8 +234,6 @@ contains
     return
   end subroutine MeshCubedSphereDom2D_check_division_params
 
-  !- private ------------------------------
-
   subroutine MeshCubedSphereDom2D_setupLocalDom( lcmesh,   &
     tileID, panelID,                                       &
     i, j, NprcX, NprcY,                                    &
@@ -343,7 +342,9 @@ contains
     return
   end subroutine MeshCubedSphereDom2D_setupLocalDom
 
-  subroutine MesshCubedSphereDom2D_assignDomID( this, &
+  !- private ------------------------------
+
+  subroutine MeshCubedSphereDom2D_assignDomID( this, &
     NprcX_lc, NprcY_lc,                               &
     tileID_table, panelID_table,                      &
     pi_table, pj_table )
@@ -413,7 +414,7 @@ contains
     end do
 
     return
-  end subroutine MesshCubedSphereDom2D_assignDomID
+  end subroutine MeshCubedSphereDom2D_assignDomID
 
   subroutine MeshCubedSphereDom2D_coord_conv( x, y, xr, xs, yr, ys, &
     vx, vy, elem )

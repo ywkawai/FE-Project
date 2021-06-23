@@ -9,7 +9,8 @@ module scale_mesh_base3d
 
   use scale_localmesh_3d, only: &
     LocalMesh3D, LocalMesh3D_Init, LocalMesh3D_Final
-
+  use scale_localmesh_2d, only: &
+    LocalMesh2D
   use scale_mesh_base, only: &
     MeshBase, MeshBase_Init, MeshBase_Final
   use scale_mesh_base2d, only: &
@@ -117,7 +118,7 @@ contains
 
     integer :: n
     !-----------------------------------------------------------------------------
-  
+      
     do n=1, this%LOCAL_MESH_NUM
       call LocalMesh3D_Final( this%lcmesh_list(n), this%isGenerated )
     end do
@@ -170,7 +171,7 @@ contains
     end interface
 
     class(ElementBase3D), pointer :: refElem
-    integer :: ke
+    integer :: ke, ke2D
     integer :: f
     integer :: i, j
     integer :: d
@@ -184,7 +185,6 @@ contains
     real(RP) :: xX(lcmesh%refElem%Np), xY(lcmesh%refElem%Np), xZ(lcmesh%refElem%Np)
     real(RP) :: yX(lcmesh%refElem%Np), yY(lcmesh%refElem%Np), yZ(lcmesh%refElem%Np)
     real(RP) :: zX(lcmesh%refElem%Np), zY(lcmesh%refElem%Np), zZ(lcmesh%refElem%Np)
-
     !-----------------------------------------------------------------------------
 
     refElem => lcmesh%refElem3D
@@ -199,9 +199,12 @@ contains
     allocate( lcmesh%Escale(refElem%Np,lcmesh%Ne,3,3) )
     allocate( lcmesh%zS(refElem%Np,lcmesh%Ne) )
     allocate( lcmesh%Sz(refElem%Np,lcmesh%Ne) )
-    allocate( lcmesh%Gsqrt(refElem%Np,lcmesh%Ne) )
+    allocate( lcmesh%Gsqrt(refElem%Np,lcmesh%NeA) )
+    allocate( lcmesh%GsqrtH(refElem%Nfp_v,lcmesh%Ne2D) )
     allocate( lcmesh%G_ij(refElem%Nfp_v,lcmesh%Ne2D,2,2) )
     allocate( lcmesh%GIJ (refElem%Nfp_v,lcmesh%Ne2D,2,2) )
+    allocate( lcmesh%GI3 (refElem%Np,lcmesh%NeA,2) )
+    allocate( lcmesh%zlev(refElem%Np,lcmesh%Ne) )
     allocate( lcmesh%lon2D(refElem%Nfp_v,lcmesh%Ne2D) )
     allocate( lcmesh%lat2D(refElem%Nfp_v,lcmesh%Ne2D) )
     
@@ -218,9 +221,11 @@ contains
     end do
     end do
 
-    !$omp parallel do private( ke, node_ids, vx, vy, vz, &
+    !$omp parallel private( ke, node_ids, vx, vy, vz,    &
     !$omp xX, xY, xZ, yX, yY, yZ, zX, zY, zZ,            &
     !$omp i, j, Escale_f, d                              )
+
+    !$omp do
     do ke=1, lcmesh%Ne
       node_ids(:) = lcmesh%EToV(ke,:)
       vx(:) = lcmesh%pos_ev(node_ids(:),1)
@@ -270,8 +275,18 @@ contains
       lcmesh%sJ(:,ke) = lcmesh%sJ(:,ke)*lcmesh%J(fmask(:),ke)
 
       lcmesh%Fscale(:,ke) = lcmesh%sJ(:,ke)/lcmesh%J(fmask(:),ke)
-      lcmesh%Gsqrt(:,ke) = 1.0_RP
+      lcmesh%zlev(:,ke) = lcmesh%pos_en(:,ke,3)
     end do
+    !$omp end do
+
+    !$omp workshare
+    lcmesh%Gsqrt (:,:)   = 1.0_RP
+    lcmesh%GI3   (:,:,1) = 0.0_RP
+    lcmesh%GI3   (:,:,2) = 0.0_RP
+    lcmesh%GsqrtH(:,:)   = 1.0_RP
+    !$omp end workshare
+
+    !$omp end parallel
 
     return
   end subroutine MeshBase3D_setGeometricInfo

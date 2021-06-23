@@ -42,6 +42,7 @@ module mod_atmos_mesh_rm
     procedure :: Setup_restartfile1 => AtmosMeshRM_setup_restartfile1
     procedure :: Setup_restartfile2 => AtmosMeshRM_setup_restartfile2
     procedure :: Calc_UVmet => AtmosMeshRM_calc_UVmet
+    procedure :: Setup_vcoordinate => AtmosMeshRM_setup_vcoordinate
   end type AtmosMeshRM
 
   !-----------------------------------------------------------------------------
@@ -64,7 +65,13 @@ contains
 
   !- AtmosMesh RM -----------------------------------------
 
-  subroutine AtmosMeshRM_Init( this )    
+  subroutine AtmosMeshRM_Init( this )
+    use scale_file_base_meshfield, only: FILE_base_meshfield
+    use scale_mesh_base2d, only: &
+      MFTYPE2D_XY => MeshBase2D_DIMTYPEID_XY
+    use scale_meshutil_vcoord, only: &
+      MeshUtil_get_VCoord_TypeID
+
     implicit none
     class(AtmosMeshRM), target, intent(inout) :: this
 
@@ -86,6 +93,9 @@ contains
     integer  :: PolyOrder_h       = 2
     integer  :: PolyOrder_v       = 2
     logical  :: LumpedMassMatFlag = .false.
+    character(len=H_LONG) :: TOPO_IN_BASENAME    = ''     !< basename of the input file
+    character(len=H_MID)  :: TOPO_IN_VARNAME     = 'topo' !< variable name of topo in the input file
+    character(len=H_MID)  :: VERTICAL_COORD_NAME = "TERRAIN_FOLLOWING"
 
     integer, parameter :: ATMOS_MESH_NLocalMeshPerPrc = 1
 
@@ -100,12 +110,16 @@ contains
       isPeriodicX, isPeriodicY, isPeriodicZ,       &
       NeX, NeY, NeZ,                               &
       PolyOrder_h, PolyOrder_v, LumpedMassMatFlag, &
-      NprcX, NprcY
+      NprcX, NprcY,                                &
+      TOPO_IN_BASENAME, TOPO_IN_VARNAME,           &
+      VERTICAL_COORD_NAME
     
     integer :: k
     logical :: is_spec_FZ
 
     integer :: ierr
+
+    type(FILE_base_meshfield) :: file_topo
     !-------------------------------------------
 
     LOG_NEWLINE
@@ -156,6 +170,21 @@ contains
     
     !-
     call this%AtmosMesh_Init( this%mesh )
+
+    !- Set topography & vertical coordinate
+
+    if ( TOPO_IN_BASENAME /= '' ) then
+      LOG_INFO("ATMOS_MESH_setup",*) 'Read topography data'
+
+      call file_topo%Init(1, mesh2D=this%mesh%mesh2D )
+      call file_topo%Open( TOPO_IN_BASENAME, myrank=PRC_myrank )
+      call file_topo%Read_Var( MFTYPE2D_XY, TOPO_IN_VARNAME, this%topography%topo )
+      call file_topo%Close()
+      call file_topo%Final()
+    end if
+
+    this%vcoord_type_id = MeshUtil_get_VCoord_TypeID( VERTICAL_COORD_NAME )
+    call this%Setup_vcoordinate()
 
     return
   end subroutine AtmosMeshRM_Init
@@ -252,6 +281,27 @@ contains
     end do
 
     return
-end subroutine AtmosMeshRM_calc_UVMet
+  end subroutine AtmosMeshRM_calc_UVMet
+
+  subroutine AtmosMeshRM_setup_vcoordinate( this )
+    use scale_meshfieldcomm_rectdom2d, only: MeshFieldCommRectDom2D
+    implicit none
+    class(AtmosMeshRM), TARGET, INTENT(INOUT) :: this
+
+    type(MeshFieldCommCubeDom3D) :: comm3D
+    type(MeshFieldCommRectDom2D) :: comm2D
+    !-------------------------------------------------
+
+    call comm2D%Init( 1, 0, this%mesh%mesh2D )
+    call comm3D%Init( 1, 1, this%mesh )
+
+    call this%topography%SetVCoordinate( this%ptr_mesh,   &
+      this%vcoord_type_id, this%mesh%zmax_gl, comm3D, comm2D )
+
+    call comm2D%Final()
+    call comm3D%Final()
+
+    return
+  end SUBROUTINE AtmosMeshRM_setup_vcoordinate
 
 end module mod_atmos_mesh_rm

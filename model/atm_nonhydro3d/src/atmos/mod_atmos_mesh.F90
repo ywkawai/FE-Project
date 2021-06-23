@@ -10,11 +10,15 @@ module mod_atmos_mesh
   use scale_prc
 
   use scale_meshfield_base, only: MeshField3D
+  use scale_mesh_base2d, only: MeshBase2D
   use scale_mesh_base3d, only: MeshBase3D
   use scale_element_base, only: ElementBase3D
   use scale_element_hexahedral, only: HexahedralElement
+  use scale_localmesh_2d, only: LocalMesh2D
   use scale_localmesh_3d, only: LocalMesh3D
   use scale_sparsemat, only: sparsemat
+  use scale_meshfield_base, only: MeshField2D
+  use scale_mesh_topography, only: MeshTopography
 
   use scale_file_restart_meshfield, only: FILE_restart_meshfield_component
   use scale_model_var_manager, only: ModelVarManager
@@ -30,14 +34,17 @@ module mod_atmos_mesh
   type, abstract, extends(ModelMesh3D), public :: AtmosMesh
     type(HexahedralElement) :: element
 
+    type(MeshTopography) :: topography
+    integer :: vcoord_type_id
   contains
     procedure :: AtmosMesh_Init
     procedure :: AtmosMesh_Final
     procedure(AtmosMesh_create_communicator), public, deferred :: Create_communicator
-    procedure(AtmosMesh_setup_restartfile1), public, deferred ::  Setup_restartfile1
-    procedure(AtmosMesh_setup_restartfile2), public, deferred ::  Setup_restartfile2
+    procedure(AtmosMesh_setup_restartfile1), public, deferred :: Setup_restartfile1
+    procedure(AtmosMesh_setup_restartfile2), public, deferred :: Setup_restartfile2
     procedure(AtmosMesh_calc_UVMet), public, deferred :: Calc_UVmet
     generic :: Setup_restartfile => Setup_restartfile1, Setup_restartfile2
+    procedure(AtmosMesh_setup_vcoord), public, deferred :: Setup_vcoordinate
     procedure :: Construct_ModalFilter3D => AtmosMesh_construct_ModalFilter3D
     procedure :: Construct_ModalFilterHV => AtmosMesh_construct_ModalFilterHV
   end type AtmosMesh
@@ -94,7 +101,12 @@ module mod_atmos_mesh
         type(MeshField3D), intent(inout) :: Vmet
     end subroutine AtmosMesh_calc_UVMet
   end interface
-
+  interface 
+    subroutine AtmosMesh_setup_vcoord( this )
+      import AtmosMesh
+      class(AtmosMesh), target, intent(inout) :: this
+    end subroutine AtmosMesh_setup_vcoord
+  end interface
   integer, parameter, public :: ATM_MESH_MAX_COMMNUICATOR_NUM = 10
 
   !-----------------------------------------------------------------------------
@@ -125,6 +137,7 @@ contains
     class(MeshBase3D), intent(in) :: mesh
 
     character(len=H_SHORT) :: SpMV_storage_format = 'ELL' ! CSR or ELL
+    class(MeshBase2D), pointer :: mesh2D
     !-------------------------------------------
 
     call this%ModelMesh3D_Init( mesh )
@@ -141,6 +154,10 @@ contains
 
     !-
     call FILE_monitor_meshfield_set_dim( mesh, 'ATM3D' )
+    
+    !-
+    call mesh%GetMesh2D( mesh2D )
+    call this%topography%Init( "topo", mesh2D )
 
     return
   end subroutine AtmosMesh_Init
@@ -151,6 +168,7 @@ contains
     class(AtmosMesh), intent(inout) :: this
     !-------------------------------------------
 
+    call this%topography%Final()
     call this%ModelMesh3D_Final()
 
     return
