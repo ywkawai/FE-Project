@@ -147,13 +147,7 @@ contains
               lmesh%Escale(:,ke,1,1) * Fx(:) &
             + lmesh%Escale(:,ke,2,2) * Fy(:) &
             + LiftDelFlx(:) ) / lmesh%Gsqrt(:,ke)
-      ! if (lmesh%panelID==1 .and. ke==1 )then
-      !   write(*,*) "Gsqrt:", lmesh%Gsqrt(:,ke)
-      !   write(*,*) "Fx:", Fx(:)
-      !   write(*,*) "Fy:", Fy(:)
-      !   write(*,*) "Lift:", LiftDelFlx(:)
-      !   write(*,*) "ht:", h_dt(:,ke)
-      ! end if
+      
       !-- u1
       call sparsemat_matmul(Dx, E(:), Fx)
       call sparsemat_matmul(Lift, lmesh%Fscale(:,ke) * del_flux(:,ke,VARS_u1_ID), LiftDelFlx)
