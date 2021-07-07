@@ -330,12 +330,11 @@ contains
     modalFilterFlag, VModalFilter,                           & ! (in)
     impl_fac, dt,                                            & ! (in)
     lmesh, elem, lmesh2D, elem2D                             ) ! (in)
-
     use scale_atm_dyn_dgm_nonhydro3d_hevi_common, only: &
-      vi_gen_vmap => atm_dyn_dgm_nonhydro3d_hevi_common_gen_vmap,                &
-      vi_eval_Ax => atm_dyn_dgm_nonhydro3d_hevi_common_eval_Ax,                  &
-      vi_construct_matbnd => atm_dyn_dgm_nonhydro3d_hevi_common_construct_matbnd
-
+      vi_gen_vmap => atm_dyn_dgm_nonhydro3d_hevi_common_gen_vmap,                  &
+      vi_eval_Ax => atm_dyn_dgm_nonhydro3d_hevi_common_eval_Ax_2,                  &
+      vi_construct_matbnd => atm_dyn_dgm_nonhydro3d_hevi_common_construct_matbnd_2
+  
     implicit none
 
     class(LocalMesh3D), intent(in) :: lmesh
@@ -362,8 +361,10 @@ contains
 
     real(RP) :: PROG_VARS (elem%Np,lmesh%NeZ,PROG_VARS_NUM,lmesh%NeX*lmesh%NeY)
     real(RP) :: PROG_VARS0(elem%Np,lmesh%NeZ,PROG_VARS_NUM,lmesh%NeX*lmesh%NeY)
-    real(RP) :: b1D(elem%Nnode_v,PROG_VARS_NUM,lmesh%NeZ,elem%Nnode_h1D**2,lmesh%NeX*lmesh%NeY)
-    integer :: ipiv(elem%Nnode_v*PROG_VARS_NUM*lmesh%NeZ,elem%Nnode_h1D**2)
+    real(RP) :: b1D(elem%Nnode_v,3,lmesh%NeZ,elem%Nnode_h1D**2,lmesh%NeX*lmesh%NeY)
+    integer :: ipiv(elem%Nnode_v*3*lmesh%NeZ,elem%Nnode_h1D**2)
+    real(RP) :: b1D_uv(elem%Nnode_v,lmesh%NeZ,2,elem%Nnode_h1D**2,lmesh%NeX*lmesh%NeY)
+    integer :: ipiv_uv(elem%Nnode_v*1*lmesh%NeZ,elem%Nnode_h1D**2)
     real(RP) :: alph(elem%NfpTot,lmesh%NeZ,lmesh%NeX*lmesh%NeY)
     real(RP) :: DENS_hyd_z(elem%Np,lmesh%NeZ,lmesh%NeX*lmesh%NeY)
     real(RP) :: PRES_hyd_z(elem%Np,lmesh%NeZ,lmesh%NeX*lmesh%NeY)
@@ -378,18 +379,24 @@ contains
     integer :: ke_xy, ke_z, ke, ke2D, v
     integer :: itr_nlin
     integer :: kl, ku, nz_1D
+    integer :: kl_uv, ku_uv, nz_1D_uv
     integer :: ij, info
     logical :: is_converged
 
     real(RP), allocatable :: PmatBnd(:,:,:)
+    real(RP), allocatable :: PmatBnd_uv(:,:,:)
     !------------------------------------------------------------------------
-    
+
     call PROF_rapstart( 'hevi_cal_vi_prep', 3)
 
-    nz_1D = elem%Nnode_v * PROG_VARS_NUM * lmesh%NeZ
-    kl = 2 * elem%Nnode_v * PROG_VARS_NUM - 1
+    nz_1D = elem%Nnode_v * 3 * lmesh%NeZ
+    kl = 2 * elem%Nnode_v * 3 - 1
     ku = kl
-    allocate( PmatBnd(2*kl+ku+1,nz_1D,elem%Nnode_h1D**2) )
+    nz_1D_uv = elem%Nnode_v * 1 * lmesh%NeZ
+    kl_uv = 2 * elem%Nnode_v * 1 - 1
+    ku_uv = kl_uv
+    allocate( PmatBnd   (2*kl+ku+1,nz_1D,elem%Nnode_h1D**2) )
+    allocate( PmatBnd_uv(2*kl_uv+ku_uv+1,nz_1D_uv,elem%Nnode_h1D**2) )
 
     call vi_gen_vmap( vmapM, vmapP, & ! (out)
       lmesh, elem                   ) ! (in)
@@ -417,9 +424,8 @@ contains
       G23_z   (:,ke_z,ke_xy) = lmesh%GI3(:,ke,2)
       GsqrtV_z(:,ke_z,ke_xy) = lmesh%Gsqrt(:,ke) / lmesh%GsqrtH(elem%IndexH2Dto3D,ke2D)
 
-      GnnM_z(:,ke_z,ke_xy) = ( &
-          1.0_RP / GsqrtV_z(:,ke_z,ke_xy)**2                 &
-        + G13_z(:,ke_z,ke_xy) **2 + G23_z(:,ke_z,ke_xy) **2  )
+      GnnM_z(:,ke_z,ke_xy) = ( 1.0_RP / GsqrtV_z(:,ke_z,ke_xy)**2          &
+                           + G13_z(:,ke_z,ke_xy)**2 + G23_z(:,ke_z,ke_xy)  )
     end do
     end do
     !$omp end do
@@ -429,7 +435,9 @@ contains
     !$omp end parallel
       
     call PROF_rapend( 'hevi_cal_vi_prep', 3)
-    
+
+    !--
+
     if ( abs(impl_fac) > 0.0_RP ) then
       call PROF_rapstart( 'hevi_cal_vi_itr', 3)
 
@@ -449,23 +457,23 @@ contains
           modalFilterFlag, VModalFilter%FilterMat,                              & ! (in)
           impl_fac, dt,                                                         & ! (in) 
           lmesh, elem, nz, vmapM, vmapP,                                        & ! (in)
-          b1D(:,:,:,:,:)                                                        ) ! (out)
+          b1D(:,:,:,:,:), b1D_uv(:,:,:,:,:)                                     ) ! (out)
 
         call PROF_rapend( 'hevi_cal_vi_ax', 3)
 
         do ke_xy=1, lmesh%NeX * lmesh%NeY
           call PROF_rapstart( 'hevi_cal_vi_matbnd', 3)
 
-          call vi_construct_matbnd( PmatBnd(:,:,:),                  & ! (out)
-            kl, ku, nz_1D,                                           & ! (in)
-            PROG_VARS0(:,:,:,ke_xy),                                 & ! (in)
-            DENS_hyd_z(:,:,ke_xy), PRES_hyd_z(:,:,ke_xy),            & ! (in)
-            G13_z(:,:,ke_xy), G23_z(:,:,ke_xy), GsqrtV_z(:,:,ke_xy), & ! (in)
-            alph(:,:,ke_xy),                                         & ! (in)
-            Dz, Lift, IntrpMat_VPOrdM1,                              & ! (in)
-            modalFilterFlag, VModalFilter%FilterMat,                 & ! (in)
-            impl_fac, dt,                                            & ! (in)
-            lmesh, elem, nz(:,:,ke_xy), vmapM, vmapP, ke_xy, 1       ) ! (in)
+          call vi_construct_matbnd( PmatBnd(:,:,:), PmatBnd_uv(:,:,:), & ! (out)
+            kl, ku, nz_1D, kl_uv, ku_uv, nz_1D,                        & ! (in)
+            PROG_VARS0(:,:,:,ke_xy),                                   & ! (in)
+            DENS_hyd_z(:,:,ke_xy), PRES_hyd_z(:,:,ke_xy),              & ! (in)
+            G13_z(:,:,ke_xy), G23_z(:,:,ke_xy), GsqrtV_z(:,:,ke_xy),   & ! (in)
+            alph(:,:,ke_xy),                                           & ! (in)
+            Dz, Lift, IntrpMat_VPOrdM1,                                & ! (in)
+            modalFilterFlag, VModalFilter%FilterMat,                   & ! (in)
+            impl_fac, dt,                                              & ! (in)
+            lmesh, elem, nz(:,:,ke_xy), vmapM, vmapP, ke_xy, 1         ) ! (in)
 
           call PROF_rapend( 'hevi_cal_vi_matbnd', 3)
           
@@ -474,13 +482,15 @@ contains
           !$omp do
           do ij=1, elem%Nnode_h1D**2
             call dgbsv( nz_1D, kl, ku, 1, PmatBnd(:,:,ij), 2*kl+ku+1, ipiv(:,ij), b1D(:,:,:,ij,ke_xy), nz_1D, info)
+            call dgbsv( nz_1D_uv, kl_uv, ku_uv, 2, PmatBnd_uv(:,:,ij), 2*kl_uv+ku_uv+1, ipiv_uv(:,ij), b1D_uv(:,:,:,ij,ke_xy), nz_1D_uv, info)
 
             ColMask(:) = elem%Colmask(:,ij)
             do ke_z=1, lmesh%NeZ
-            do v=1, PROG_VARS_NUM
-              PROG_VARS(ColMask(:),ke_z,v,ke_xy) = PROG_VARS(Colmask(:),ke_z,v,ke_xy) &
-                                                 + b1D(:,v,ke_z,ij,ke_xy)
-            end do
+              PROG_VARS(ColMask(:),ke_z,DENS_VID,ke_xy) = PROG_VARS(Colmask(:),ke_z,DENS_VID,ke_xy) + b1D(:,1,ke_z,ij,ke_xy)
+              PROG_VARS(ColMask(:),ke_z,MOMZ_VID,ke_xy) = PROG_VARS(Colmask(:),ke_z,MOMZ_VID,ke_xy) + b1D(:,2,ke_z,ij,ke_xy)
+              PROG_VARS(ColMask(:),ke_z,RHOT_VID,ke_xy) = PROG_VARS(Colmask(:),ke_z,RHOT_VID,ke_xy) + b1D(:,3,ke_z,ij,ke_xy)
+              PROG_VARS(ColMask(:),ke_z,MOMX_VID,ke_xy) = PROG_VARS(Colmask(:),ke_z,MOMX_VID,ke_xy) + b1D_uv(:,ke_z,1,ij,ke_xy)
+              PROG_VARS(ColMask(:),ke_z,MOMY_VID,ke_xy) = PROG_VARS(Colmask(:),ke_z,MOMY_VID,ke_xy) + b1D_uv(:,ke_z,2,ij,ke_xy)
             end do
           end do ! for ij
           !$omp end do
