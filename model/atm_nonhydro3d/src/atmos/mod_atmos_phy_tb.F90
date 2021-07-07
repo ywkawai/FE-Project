@@ -126,10 +126,10 @@ contains
     !- get mesh --------------------------------------------------
 
     call model_mesh%GetModelMesh( ptr_mesh )
-    ! select type(model_mesh)
-    ! class is (AtmosMesh)
-    !   atm_mesh => model_mesh
-    ! end select
+    select type(model_mesh)
+    class is (AtmosMesh)
+      atm_mesh => model_mesh
+    end select
 
     !--- Regist this compoent in the time manager
     

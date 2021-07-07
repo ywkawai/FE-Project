@@ -141,7 +141,7 @@ contains
     class(LocalMeshFieldBase), pointer :: DENS_hyd, PRES_hyd
     class(LocalMeshFieldBase), pointer :: PRES, PT
 
-    real(RP), parameter :: rtau = 1.0_RP / ( 10.0_RP * 864000.0_RP ) ! (10 day)^-1
+    real(RP), parameter :: rtau = 1.0_RP / ( 10.0_RP * 86400.0_RP ) ! (10 day)^-1
 
     integer :: n
     integer :: ke
@@ -284,11 +284,14 @@ contains
       real(RP), intent(in) :: lat(elem_intrp%Np)
       real(RP), intent(in) :: zlev(elem_intrp%Np)
       real(RP), intent(in) :: rplanet_
+
+      real(RP) :: lon_(elem_intrp%Np)
       !------------------------------------------
 
-      where ( abs(lon(:)) < DLon .and. abs(lat(:)) < DLat )
-        q_intrp(:) = CpDry * Q0 * cos(0.5_RP * PI * lon(:) / DLon)**2       &
-                                * cos(0.5_RP * PI * lat(:) / DLat)**2       &
+      lon_(:) = PI - lon(:)
+      where ( abs(lon_(:)) < DLon .and. abs(lat(:)) < DLat )
+        q_intrp(:) = CpDry * Q0 * cos(0.5_RP * PI * lon_(:) / DLon)**2       &
+                                * cos(0.5_RP * PI * lat (:) / DLat)**2       &
                                 * sin( real(nv,kind=RP) * PI * zlev(:) / Zt )
       elsewhere
         q_intrp(:) = 0.0_RP
