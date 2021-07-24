@@ -87,13 +87,12 @@ module mod_cs2lonlat_interp_field
 
 contains
 !OCL SERIAL
-  subroutine interp_field_Init( out_mesh2D, out_mesh3D, is_mesh3D, nodeMap_list )
+  subroutine interp_field_Init( out_mesh2D, out_mesh3D, is_mesh3D )
     use scale_file_h
     implicit none
     class(MeshRectDom2D), intent(in) :: out_mesh2D
     class(MeshCubeDom3D), intent(in) :: out_mesh3D
     logical, intent(in) :: is_mesh3D
-    type(NodeMappingInfo), intent(in) :: nodeMap_list(:)
 
     integer :: nn
     character(len=H_SHORT)  :: vars(ITEM_MAX_NUM) = ''       ! name of variables

@@ -23,7 +23,10 @@ program interp
 
    use mod_interp_mesh, only: &
       out_mesh,               &
-      nodeMap_list  
+      nodeMap_list
+   use mod_interp_vcoord, only: &
+      interp_vcoord,            &
+      INTERP_VCOORD_MODEL_ID       
    use mod_interp_field, only: &
       OutVarInfo,              &
       out_var3D_num,           &
@@ -53,12 +56,12 @@ program interp
    integer                 :: myrank                      ! my rank                           (execution)
    logical                 :: ismaster                    ! master process?                   (execution)
 
-   logical :: do_output
    integer :: vid
    integer :: istep
    real(DP) :: start_sec
 
    type(OutVarInfo), pointer :: vinfo
+   type(interp_vcoord) :: vintrp   
    !-----------------------------------------------------------------------------
 
    call initialize()
@@ -78,8 +81,17 @@ program interp
          LOG_INFO("INTERP",'(a,i4)') 'Interpolate :' // trim(out_vinfo(vid)%varname) // " step=", istep
          call interp_field_Interpolate( istep, vinfo%varname, &
             out_mesh, out_var3D, nodeMap_list                 )
-         call interp_file_write_var( vid, out_var3D,          &
-            start_sec, start_sec + vinfo%dt )
+
+         if ( vintrp%vintrp_typeid == INTERP_VCOORD_MODEL_ID ) then
+            call interp_file_write_var( vid, out_var3D,          &
+               start_sec, start_sec + vinfo%dt )
+         else
+            call vintrp%Update_weight( istep, out_mesh, nodeMap_list )               
+            call vintrp%Interpolate( istep, out_mesh, out_var3D )
+
+            call interp_file_write_var( vid, vintrp%vintrp_var3D, &
+               start_sec, start_sec + vinfo%dt )               
+         end if
          
          if( IO_L ) call flush(IO_FID_LOG)      
       end do
@@ -169,13 +181,12 @@ contains
       LOG_NML(PARAM_INTERP)
     
       !
-      call interp_mesh_Init
+      call interp_mesh_Init()
       call interp_field_Init( out_mesh, nodeMap_list )
-      call interp_file_Init( in_basename, out_vinfo, out_mesh )
+      call vintrp%Init( out_mesh, nodeMap_list )      
+      call interp_file_Init( in_basename, out_vinfo, vintrp%out_mesh )
 
       !-
-      do_output = .true.
-    
       LOG_INFO("INTERP",*) 'Setup has been finished.'
 
       if( IO_L ) call flush(IO_FID_LOG)      

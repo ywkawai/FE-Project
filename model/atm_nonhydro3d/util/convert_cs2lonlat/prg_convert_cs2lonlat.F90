@@ -24,7 +24,10 @@ program convert_cs2lonlat
    use mod_cs2lonlat_interp_mesh, only: &
       out_mesh2D, out_mesh3D,           &
       is_mesh3D,                        &
-      nodeMap_list  
+      NodeMappingInfo, nodeMap_list
+   use mod_cs2lonlat_interp_vcoord, only: &
+      interp_vcoord,           &
+      INTERP_VCOORD_MODEL_ID 
    use mod_cs2lonlat_interp_field, only: &
       OutVarInfo,              &
       out_var_num,             &
@@ -61,6 +64,7 @@ program convert_cs2lonlat
    real(DP) :: start_sec
 
    type(OutVarInfo), pointer :: vinfo
+   type(interp_vcoord) :: vintrp
    !-----------------------------------------------------------------------------
 
    call initialize()
@@ -81,8 +85,18 @@ program convert_cs2lonlat
          if (is_mesh3D) then
             call interp_field_Interpolate( istep, vinfo%varname, &
                out_mesh3D, out_var3D, nodeMap_list               )
-            call interp_file_write_var( vid, out_var3D,          &
-               start_sec, start_sec + vinfo%dt )
+
+            if ( vintrp%vintrp_typeid == INTERP_VCOORD_MODEL_ID ) then
+               call interp_file_write_var( vid, out_var3D,          &
+                  start_sec, start_sec + vinfo%dt )
+            else
+               call vintrp%Update_weight( istep, out_mesh3D, nodeMap_list )               
+               call vintrp%Interpolate( istep, out_mesh3D, out_var3D )
+
+               call interp_file_write_var( vid, vintrp%vintrp_var3D, &
+                 start_sec, start_sec + vinfo%dt )               
+            end if
+
          else
             call interp_field_Interpolate( istep, vinfo%varname, &
                out_mesh2D, out_var2D, nodeMap_list               )
@@ -129,6 +143,8 @@ contains
 
       integer :: ierr
       integer :: comm     ! communicator                      (execution)
+
+      integer :: n
       !-----------------------------------------------------------------------
    
       ! start MPI
@@ -177,9 +193,10 @@ contains
       LOG_NML(PARAM_INTERP)
     
       !
-      call interp_mesh_Init()
-      call interp_field_Init( out_mesh2D, out_mesh3D, is_mesh3D, nodeMap_list )
-      call interp_file_Init( in_basename, out_vinfo, out_mesh2D, out_mesh3D, is_mesh3D )
+      call interp_mesh_Init()   
+      call interp_field_Init( out_mesh2D, out_mesh3D, is_mesh3D )
+      if ( is_mesh3D ) call vintrp%Init( out_mesh3D, nodeMap_list )
+      call interp_file_Init( in_basename, out_vinfo, out_mesh2D, vintrp%out_mesh3D_ptr, is_mesh3D )
 
       !-
       do_output = .true.
@@ -209,7 +226,8 @@ contains
       call PROF_rapstart ('Finalize', 0)
 
       call interp_file_Final
-      call interp_field_Final(is_mesh3D)
+      call interp_field_Final( is_mesh3D )
+      if ( is_mesh3D ) call vintrp%Final()
       call interp_mesh_Final
 
       !

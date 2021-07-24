@@ -58,13 +58,14 @@ $(OBJ_DIR)/scale_meshfieldcomm_rectdom2d.o: data/scale_meshfieldcomm_rectdom2d.F
 $(OBJ_DIR)/scale_meshutil_1d.o: mesh/scale_meshutil_1d.F90 $(DEPENDLIB)
 $(OBJ_DIR)/scale_meshutil_2d.o: mesh/scale_meshutil_2d.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_quicksort.o
 $(OBJ_DIR)/scale_meshutil_3d.o: mesh/scale_meshutil_3d.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_quicksort.o
-$(OBJ_DIR)/scale_meshutil_cubedsphere2d.o: mesh/scale_meshutil_cubedsphere2d.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_meshutil_2d.o
+$(OBJ_DIR)/scale_meshutil_cubedsphere2d.o: mesh/scale_meshutil_cubedsphere2d.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_cubedsphere_cnv.o $(OBJ_DIR)/scale_meshutil_2d.o
 $(OBJ_DIR)/scale_meshutil_cubedsphere3d.o: mesh/scale_meshutil_cubedsphere3d.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_meshutil_3d.o $(OBJ_DIR)/scale_meshutil_cubedsphere2d.o
 $(OBJ_DIR)/scale_meshutil_vcoord.o: mesh/scale_meshutil_vcoord.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_element_base.o $(OBJ_DIR)/scale_localmesh_2d.o $(OBJ_DIR)/scale_localmesh_3d.o $(OBJ_DIR)/scale_sparsemat.o
 $(OBJ_DIR)/scale_model_component.o: model_framework/scale_model_component.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_time_manager.o
 $(OBJ_DIR)/scale_model_component_proc.o: model_framework/scale_model_component_proc.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_model_mesh_manager.o $(OBJ_DIR)/scale_model_var_manager.o $(OBJ_DIR)/scale_time_manager.o
 $(OBJ_DIR)/scale_model_mesh_manager.o: model_framework/scale_model_mesh_manager.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_mesh_base.o $(OBJ_DIR)/scale_mesh_base1d.o $(OBJ_DIR)/scale_mesh_base2d.o $(OBJ_DIR)/scale_mesh_base3d.o $(OBJ_DIR)/scale_sparsemat.o
 $(OBJ_DIR)/scale_model_var_manager.o: model_framework/scale_model_var_manager.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_file_monitor_meshfield.o $(OBJ_DIR)/scale_linkedlist.o $(OBJ_DIR)/scale_mesh_base1d.o $(OBJ_DIR)/scale_mesh_base2d.o $(OBJ_DIR)/scale_mesh_base3d.o $(OBJ_DIR)/scale_meshfield_base.o $(OBJ_DIR)/scale_meshfieldcomm_base.o $(OBJ_DIR)/scale_variableinfo.o
+$(OBJ_DIR)/scale_polygon.o: common/scale_polygon.F90 $(DEPENDLIB)
 $(OBJ_DIR)/scale_polynominal.o: common/scale_polynominal.F90 $(DEPENDLIB)
 $(OBJ_DIR)/scale_quicksort.o: common/scale_quicksort.F90 $(DEPENDLIB)
 $(OBJ_DIR)/scale_sparsemat.o: common/scale_sparsemat.F90 $(DEPENDLIB)
@@ -141,6 +142,7 @@ MODS =	\
 	$(OBJ_DIR)/scale_model_component_proc.mod	\
 	$(OBJ_DIR)/scale_model_mesh_manager.mod	\
 	$(OBJ_DIR)/scale_model_var_manager.mod	\
+	$(OBJ_DIR)/scale_polygon.mod	\
 	$(OBJ_DIR)/scale_polynominal.mod	\
 	$(OBJ_DIR)/scale_quicksort.mod	\
 	$(OBJ_DIR)/scale_sparsemat.mod	\
