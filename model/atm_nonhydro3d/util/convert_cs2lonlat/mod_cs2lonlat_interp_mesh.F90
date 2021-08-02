@@ -512,15 +512,17 @@ contains
           do i=1, in_NeX        
             in_elem_x(:) = tile_x(1,lc_domID,prcID) + delx * dble( (/ i-1, i, i, i-1 /) )
             in_elem_y(:) = tile_y(1,lc_domID,prcID) + dely * dble( (/ j-1, j-1, j, j /) )
-            is_inside_elem  = polygon_inpoly( out_x(1), out_y(1),           &
-                                              4, in_elem_x(:), in_elem_y(:) )
+
             if (i==in_NeX) then
               in_elem_x(2:3) = in_elem_x(2:3) + 1.0E-12_RP * delx       
             end if
             if (j==in_NeY) then
               in_elem_y(3:4) = in_elem_y(3:4) + 1.0E-12_RP * dely
             end if
-                                                            
+                 
+            is_inside_elem  = polygon_inpoly( out_x(1), out_y(1),           &
+                                              4, in_elem_x(:), in_elem_y(:) )
+                        
             if (is_inside_elem) then
               this%elem_i(p_h,ke_h) = i
               this%elem_j(p_h,ke_h) = j

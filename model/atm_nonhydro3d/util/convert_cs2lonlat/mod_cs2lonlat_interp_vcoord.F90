@@ -455,15 +455,19 @@ contains
         p_sfc_ref = p_xy
         p_top_ref = p_xy + (elem_ref%Nnode_v -1) * elem%Nnode_h1D**2
 
-        if ( this%extrapolate .and. height(p,ke) < height_ref(p_sfc_ref,ke_sfc_ref) - EPS ) then
-          indx_k(p,1) = ke_sfc_ref; indx_p(p,1) = p_sfc_ref
-          vfact(p) = 1.0_RP
+        if ( height(p,ke) < height_ref(p_sfc_ref,ke_sfc_ref) - EPS ) then
+          if ( this%extrapolate ) then
+            indx_k(p,1) = ke_sfc_ref; indx_p(p,1) = p_sfc_ref
+            vfact(p) = 1.0_RP
+          end if
         else if ( height(p,ke) < height_ref(p_sfc_ref,ke_sfc_ref) ) then
           indx_k(p,1) = ke_sfc_ref; indx_p(p,1) = p_sfc_ref
           vfact(p) = 1.0_RP          
-        else if ( this%extrapolate .and. height(p,ke) > height_ref(p_top_ref,ke_top_ref) + EPS ) then
-          indx_k(p,1) = ke_top_ref; indx_p(p,1) = p_top_ref
-          vfact(p) = 1.0_RP          
+        else if ( height(p,ke) > height_ref(p_top_ref,ke_top_ref) + EPS ) then
+          if ( this%extrapolate ) then
+            indx_k(p,1) = ke_top_ref; indx_p(p,1) = p_top_ref
+            vfact(p) = 1.0_RP          
+          end if
         else if ( height(p,ke) >= height_ref(p_top_ref,ke_top_ref) ) then 
           indx_k(p,1) = ke_top_ref; indx_p(p,1) = p_top_ref
           vfact(p) = 1.0_RP          

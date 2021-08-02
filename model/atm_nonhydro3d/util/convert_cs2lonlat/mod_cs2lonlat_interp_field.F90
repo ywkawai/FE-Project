@@ -88,6 +88,8 @@ module mod_cs2lonlat_interp_field
 contains
 !OCL SERIAL
   subroutine interp_field_Init( out_mesh2D, out_mesh3D, is_mesh3D )
+    use scale_const, only: &
+      EPS => CONST_EPS
     use scale_file_h
     implicit none
     class(MeshRectDom2D), intent(in) :: out_mesh2D
@@ -154,7 +156,18 @@ contains
       
       out_vinfo(nn)%dt = time_endsec - out_vinfo(nn)%start_sec
       out_vinfo(nn)%out_tintrv = out_tinterval(nn)
+
+      if (       abs(out_vinfo(nn)%dt) < EPS &
+           .and. out_vinfo(nn)%num_step == 0 ) then
+        out_vinfo(nn)%num_step   = 1
+        out_vinfo(nn)%out_tintrv = 1
+      end if
+
+      LOG_INFO("interp_field_Init", '(3a,i4,a,i4)') &
+        " Regist: name=", trim(vars(nn)), ", out_nstep=", out_vinfo(nn)%num_step, &
+        ", out_tinterval=", out_vinfo(nn)%out_tintrv
     end do
+    
     call in_file%Close()
     call in_file%Final()
 
@@ -358,7 +371,8 @@ contains
 
     !---------------------------------------------
 
-    nprc_local = size(mappingInfo%in_mesh3D_list)
+    nprc_local = size(mappingInfo%in_mesh2D_list)
+
     allocate( in_val_list(nprc_local) )
 
     do in_prc=1, nprc_local
