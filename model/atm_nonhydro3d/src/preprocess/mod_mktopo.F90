@@ -177,13 +177,18 @@ contains
   end subroutine MKTOPO
 
   subroutine MKTOPO_write( model_mesh, topography )
-    use scale_time, only: TIME_NOWDAYSEC
+
+    use scale_time, only: &
+      NOWDATE   => TIME_NOWDATE,   &
+      NOWSUBSEC => TIME_NOWSUBSEC, &
+      NOWDAYSEC => TIME_NOWDAYSEC
+    use scale_prc, only: PRC_myrank
+
     use scale_file_base_meshfield, only: FILE_base_meshfield
     use scale_mesh_rectdom2d, only: MeshRectDom2D
     use scale_mesh_cubedspheredom2d, only: MeshCubedSphereDom2D
     use scale_mesh_base2d, only: &
       MFTYPE2D_XY => MeshBase2D_DIMTYPEID_XY
-    use scale_prc, only: PRC_myrank
 
     implicit none
     class(AtmosMesh), target, intent(in) :: model_mesh
@@ -192,8 +197,8 @@ contains
     type(FILE_base_meshfield) :: file
     class(MeshBase2D), pointer :: mesh
 
-    integer :: vid
     logical :: file_existed
+    integer, parameter :: vid_topo = 1
     !--------------------------------------------------
    
     nullify( mesh )
@@ -204,13 +209,18 @@ contains
     class is (MeshRectDom2D)      
       call file%Init( 1, mesh2D=mesh )
     end select
-
+       
     call file%Create( OUT_BASENAME, OUT_TITLE, OUT_DTYPE, &
                       file_existed,                       &
                       myrank=PRC_myrank                   )
-    call file%Def_Var( topography%topo, "TOPOGRAPHY", vid, MFTYPE2D_XY, 'XY' )
+
+    if ( .not. file_existed ) then
+      call file%Put_GlobalAttribute_time( NOWDATE, NOWSUBSEC )
+    end if
+
+    call file%Def_Var( topography%topo, "TOPOGRAPHY", vid_topo, MFTYPE2D_XY, 'XY' )
     call file%End_def()
-    call file%Write_var2D(vid, topography%topo, TIME_NOWDAYSEC, TIME_NOWDAYSEC)
+    call file%Write_var2D( vid_topo, topography%topo, NOWDAYSEC, NOWDAYSEC )
     call file%Close()
     call file%Final()
 

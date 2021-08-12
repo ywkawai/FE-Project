@@ -41,6 +41,7 @@ module mod_interp_mesh
     integer, allocatable :: elem_i(:,:)
     integer, allocatable :: elem_j(:,:)
     integer, allocatable :: elem_k(:,:)
+    real(RP), allocatable :: elem_z(:,:)    
 
     type(MeshCubeDom3D), allocatable :: in_mesh_list(:)
     integer, allocatable :: in_tileID_list(:)
@@ -233,6 +234,7 @@ contains
 !OCL SERIAL
   subroutine NodeMappingInfo_Init( this, lcmesh, elem, tile_x, tile_y, in_Fz )
     use scale_prc
+    use scale_polygon, only: polygon_inpoly
     implicit none
 
     class(NodeMappingInfo), intent(inout), target :: this
@@ -272,6 +274,7 @@ contains
     allocate( this%elem_i(elem%Nnode_h1D**2, lcmesh%NeX*lcmesh%NeY) )
     allocate( this%elem_j(elem%Nnode_h1D**2, lcmesh%NeX*lcmesh%NeY) )
     allocate( this%elem_k(elem%Np, lcmesh%NeX*lcmesh%NeY*lcmesh%NeZ) )
+    allocate( this%elem_z(elem%Np, lcmesh%NeX*lcmesh%NeY*lcmesh%NeZ) )
 
     target_tile_flag(:,:) = .false.
     this%prcXY2inListID(:,:) = -1
@@ -290,8 +293,8 @@ contains
 
         loop_prc: do prc_j=1, in_NprcY
         do prc_i=1, in_NprcX
-          is_inside_tile(p_h) = inpoly( out_x, out_y,                                  &
-                                        4, tile_x(:,prc_i,prc_j), tile_y(:,prc_i,prc_j))
+          is_inside_tile(p_h) = polygon_inpoly( out_x, out_y,                                   &
+                                                4, tile_x(:,prc_i,prc_j), tile_y(:,prc_i,prc_j) )
           if ( is_inside_tile(p_h) ) then
             this%prc_x(p_h,ke_h) =  prc_i
             this%prc_y(p_h,ke_h) =  prc_j
@@ -335,8 +338,8 @@ contains
           do i=1, in_NeX        
             in_elem_x(:) = tile_x(1,prc_i,prc_j) + delx * dble( (/ i-1, i, i, i-1 /) )
             in_elem_y(:) = tile_y(1,prc_i,prc_j) + dely * dble( (/ j-1, j-1, j, j /) )
-            is_inside_elem  = inpoly( out_x, out_y,                 &
-                                      4, in_elem_x(:), in_elem_y(:) )
+            is_inside_elem  = polygon_inpoly( out_x, out_y,                 &
+                                              4, in_elem_x(:), in_elem_y(:) )
             if (is_inside_elem) then
               this%elem_i(p_h,ke_h) = i
               this%elem_j(p_h,ke_h) = j
@@ -421,6 +424,7 @@ contains
     if ( allocated(this%prc_x) ) then
       deallocate( this%prc_x, this%prc_y )
       deallocate( this%elem_i, this%elem_j )
+      if ( allocated(this%elem_k) ) deallocate( this%elem_k )      
       deallocate( this%in_tileID_list )
 
       do i=1, size(this%in_mesh_list)
@@ -431,44 +435,4 @@ contains
 
     return
   end subroutine NodeMappingInfo_Final
-
-  !> Check whether the point is located inside a polyngon
-!OCL SERIAL
-  function inpoly( pt_x, pt_y, num_node, v_x, v_y ) result(ret)
-    implicit none
-    real(RP), intent(in) :: pt_x
-    real(RP), intent(in) :: pt_y
-    integer, intent(in) :: num_node
-    real(RP), intent(in) :: v_x(num_node)
-    real(RP), intent(in) :: v_y(num_node)
-    logical :: ret
-
-    integer :: wn
-    integer :: i, ii
-    !------------------------------------------
-
-    wn = 0
-    do i=1, num_node
-      ii = mod(i, num_node) + 1
-      if ( v_y(i) <= pt_y .and. pt_y < v_y(ii)) then
-        if( pt_x < v_x(i) + (pt_y - v_y(i)) * (v_x(ii) - v_x(i))/(v_y(ii) - v_y(i)) ) then
-          wn = wn + 1
-        end if
-      else if ( v_y(i) > pt_y .and. v_y(ii) <= pt_y ) then
-        if( pt_x < v_x(i) + (pt_y - v_y(i)) * (v_x(ii) - v_x(i))/(v_y(ii) - v_y(i)) ) then
-          wn = wn - 1
-        end if
-      end if
-    end do
-
-    if (wn == 0) then
-      ret = .false.
-    else
-      ret = .true.
-    end if
-
-    return
-  end function inpoly
-
-
 end module mod_interp_mesh

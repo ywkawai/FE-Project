@@ -32,6 +32,7 @@ module scale_meshutil_cubedsphere2d
   public :: MeshUtilCubedSphere2D_genPatchBoundaryMap
   public :: MeshUtilCubedSphere2D_modifyConnectivity
   public :: MeshUtilCubedSphere2D_GetPanelConnectivity
+  public :: MeshUtilCubedSphere2D_getPanelID
   
 contains
 !OCL SERIAL
@@ -278,5 +279,70 @@ contains
     face_connectivity(:,6) = (/ -1, -1, 1, 1 /)
 
   end subroutine MeshUtilCubedSphere2D_getPanelConnectivity
+
+!OCL SERIAL
+  subroutine MeshUtilCubedSphere2D_getPanelID( panelID, lon, lat, Np )
+    use scale_cubedsphere_cnv, only: &
+      CubedSphereCnv_LonLat2CSPos
+    implicit none
+
+    integer, intent(in) :: Np
+    integer, intent(out) :: panelID(Np)
+    real(RP), intent(in) :: lon(Np)
+    real(RP), intent(in) :: lat(Np)
+
+    integer :: p
+    integer :: pnl
+    real(RP) :: alph(Np), beta(Np)
+    real(RP) :: lon_(Np), lat_(Np)
+
+    real(RP), parameter :: EPS = 1.0E-64_RP
+    !------------------------------------------
+
+    !$omp parallel do
+    do p=1, Np
+      if ( abs(cos(lon(p))) < EPS ) then
+        lon_(p) = lon(p) + EPS
+      else
+        lon_(p) = lon(p)
+      end if
+      if ( abs( lat(p) - 0.5_RP * PI ) < EPS ) then
+        lat_(p) = lat(p) - sign(EPS, lat(p))
+      else
+        lat_(p) = lat(p)
+      end if
+    end do
+
+    panelID(:) = -1
+    do pnl=1, 6
+      call CubedSphereCnv_LonLat2CSPos( pnl, lon_, lat_, Np, &
+        alph, beta )
+    
+      select case(pnl)
+      case (5)
+        where ( lat(:) > 0.0_RP .and. abs(alph(:)) <= 0.25_RP * PI .and. abs(beta(:)) <= 0.25_RP * PI  )
+          panelID(:) = pnl
+        end where
+      case (6)
+        where ( lat(:) < 0.0_RP .and. abs(alph(:)) <= 0.25_RP * PI .and. abs(beta(:)) <= 0.25_RP * PI  )
+          panelID(:) = pnl
+        end where
+      case default 
+        where ( abs(alph(:)) <= 0.25_RP * PI .and. abs(beta(:)) <= 0.25_RP * PI  )
+          panelID(:) = pnl
+        end where
+      end select     
+    end do
+
+    do p=1, Np
+      if (panelID(p) <  0) then
+        LOG_ERROR("MeshUtilCubedSphere2D_getPanelID",*) 'Fail to search a panel ID of cubed sphere grid!'
+        write(*,*) "p=", p, ": (lon,lat)=", lon(p), lat(p), "(alpha,beta)=", alph(p), beta(p) 
+        call PRC_abort
+      end if 
+    end do
+
+    return
+  end subroutine MeshUtilCubedSphere2D_getPanelID
 
 end module scale_meshutil_cubedsphere2d

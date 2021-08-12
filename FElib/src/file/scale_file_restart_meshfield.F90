@@ -304,15 +304,13 @@ contains
 
     LOG_INFO(trim(this%comp_name)//"_vars_restart_create",*) 'basename: ', trim(basename)
 
-    call get_tunits_and_calendarname( NOWDATE, &
-      tunits, calendar )
     
     call this%base%Create( basename, this%out_title, this%out_dtype,           & ! (in)
                            fileexisted,                                        & ! (out)
                            myrank=PRC_myrank, tunits=tunits, calendar=calendar ) ! (in)
     
     if ( .not. fileexisted ) then
-      call put_global_attribute( this%base%fid, NOWSUBSEC, tunits, calendar )
+      call this%base%Put_GlobalAttribute_time( NOWDATE, NOWSUBSEC )
     end if
 
     return
@@ -444,57 +442,6 @@ contains
     return
   end subroutine FILE_restart_meshfield_component_Final
 
-
-  subroutine put_global_attribute( &
-    fid, time, tunits, calendar  )
-
-    use scale_file, only: &
-    FILE_Set_Attribute
-    implicit none
-
-    integer, intent(in) :: fid
-    real(DP), intent(in)     :: time
-    character(*), intent(in) :: tunits
-    character(*), intent(in) :: calendar
-
-    !------------------------------------
-
-    call FILE_Set_Attribute( fid, "global", "Conventions", "CF-1.6" ) ! [IN]
-    call FILE_Set_Attribute( fid, "global", "grid_name", "hoge" ) ! [IN]
-
-    if ( calendar /= "" ) call FILE_Set_Attribute( fid, "global", "calendar", calendar )
-    call FILE_Set_Attribute( fid, "global", "time_units", tunits )
-    call FILE_Set_Attribute( fid, "global", "time_start", (/time/) )
-
-    return
-  end subroutine put_global_attribute
-
   !------------
-
-
-  subroutine get_tunits_and_calendarname( date, &
-      tunits, calendar_name )
-
-    use scale_file, only: &
-      FILE_get_CFtunits
-    use scale_calendar, only: &
-      CALENDAR_get_name    
-    implicit none
-
-    integer, intent(in) :: date(6)
-    character(len=34), intent(out) :: tunits
-    character(len=H_SHORT), intent(out) :: calendar_name
-    !--------------------------------------------------
-
-    if ( date(1) > 0 ) then
-      call FILE_get_CFtunits( date(:), tunits )
-      call CALENDAR_get_name( calendar_name )
-    else
-      tunits        = 'seconds'
-      calendar_name = ''
-    endif
-
-    return
-  end subroutine get_tunits_and_calendarname
 
 end module scale_file_restart_meshfield

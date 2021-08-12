@@ -90,6 +90,7 @@ module scale_file_common_meshfield
     character(len=H_SHORT) :: unit
     integer :: count(3)
     integer :: size
+    logical :: positive_down(3)
   end type FILE_common_meshfield_diminfo
 
   public :: File_common_meshfield_get_dtype
@@ -879,8 +880,9 @@ contains
       diminfo_y, "Y", 1, (/ diminfo_y%name /), (/ j_size /) )
 
     diminfo_z => mesh3D%dimInfo(MeshBase3D_DIMTYPEID_Z)
-    call set_dimension( dimsinfo(MeshBase3D_DIMTYPEID_Z),   &
-      diminfo_z, "Z", 1, (/ diminfo_z%name /), (/ k_size /) )
+    call set_dimension( dimsinfo(MeshBase3D_DIMTYPEID_Z),    &
+      diminfo_z, "Z", 1, (/ diminfo_z%name /), (/ k_size /), &
+      positive_down=(/ dimInfo_z%positive_down /)            )
   
     diminfo => mesh3D%dimInfo(MeshBase3D_DIMTYPEID_ZT)
     call set_dimension( dimsinfo(MeshBase3D_DIMTYPEID_ZT), &
@@ -949,8 +951,9 @@ contains
       diminfo_y, "Y", 1, (/ diminfo_y%name /), (/ j_size /) )
 
     diminfo_z => mesh3D%dimInfo(MeshBase3D_DIMTYPEID_Z)
-    call set_dimension( dimsinfo(MeshBase3D_DIMTYPEID_Z),   &
-      diminfo_z, "Z", 1, (/ diminfo_z%name /), (/ k_size /) )
+    call set_dimension( dimsinfo(MeshBase3D_DIMTYPEID_Z),    &
+      diminfo_z, "Z", 1, (/ diminfo_z%name /), (/ k_size /), &
+      positive_down=(/ dimInfo_z%positive_down /)            )
   
     diminfo => mesh3D%dimInfo(MeshBase3D_DIMTYPEID_ZT)
     call set_dimension( dimsinfo(MeshBase3D_DIMTYPEID_ZT), &
@@ -1503,7 +1506,7 @@ contains
     return
   end subroutine get_uniform_grid1D
 
-  subroutine set_dimension( dim, diminfo, dim_type, ndims, dims, count )
+  subroutine set_dimension( dim, diminfo, dim_type, ndims, dims, count, positive_down )
     implicit none
 
     type(FILE_common_meshfield_diminfo), intent(out) :: dim
@@ -1512,6 +1515,7 @@ contains
     integer, intent(in) :: ndims
     character(len=*), intent(in) :: dims(ndims)
     integer, intent(in) :: count(ndims)
+    logical, intent(in), optional :: positive_down(ndims)
 
     integer :: d
     !----------------------------------------------------
@@ -1526,6 +1530,11 @@ contains
       dim%dims(d) = dims(d)
       dim%count(d) = count(d)
       dim%size = dim%size * count(d)
+      if ( present(positive_down) ) then
+        dim%positive_down(d) = positive_down(d)
+      else
+        dim%positive_down(d) = .false.        
+      end if
     end do
 
     return

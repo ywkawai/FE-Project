@@ -137,6 +137,9 @@ jobs:
         echo "Build 3D nonhydrostatic atmospheric model"
         make -C atm_nonhydro3d/src
       
+        echo "Build 3D nonhydrostatic atmospheric model / utils"
+        make -C atm_nonhydro3d/util/interp
+        make -C atm_nonhydro3d/util/convert_cs2lonlat      
       
 
       

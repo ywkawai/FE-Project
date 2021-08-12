@@ -85,6 +85,8 @@ module scale_file_base_meshfield
     procedure :: FILE_base_meshfield_write_var3d
     generic :: Write_var3D => FILE_base_meshfield_write_var3d
     !-
+    procedure :: Put_GlobalAttribute_time => FILE_base_meshfield_put_global_attribute_time
+    !-
     procedure :: FILE_base_meshfield_read_var1d
     procedure :: FILE_base_meshfield_read_var1d_local
     procedure :: FILE_base_meshfield_read_var2d
@@ -839,6 +841,46 @@ contains
     return
   end subroutine FILE_base_meshfield_Final
 
+  subroutine FILE_base_meshfield_put_global_attribute_time( &
+    this, date, subsec  )
+
+    use scale_file, only: &
+      FILE_Set_Attribute, &
+      FILE_get_CFtunits
+    use scale_calendar, only: &
+      CALENDAR_get_name
+       
+    implicit none
+
+    class(FILE_base_meshfield), intent(inout) :: this 
+    integer, intent(in) :: date(6)
+    real(DP), intent(in) :: subsec
+
+    character(34) :: tunits
+    character(len=H_SHORT) :: calendar_name
+    !------------------------------------
+
+    call FILE_Set_Attribute( this%fid, "global", "Conventions", "CF-1.6" ) ! [IN]
+    call FILE_Set_Attribute( this%fid, "global", "grid_name", "hoge"     ) ! [IN]
+
+    !- time
+
+    if ( date(1) > 0 ) then
+      call FILE_get_CFtunits( date(:), tunits )
+      call CALENDAR_get_name( calendar_name )
+    else
+      tunits        = 'seconds'
+      calendar_name = ''
+    endif
+        
+    if ( calendar_name /= "" ) &
+      call FILE_Set_Attribute( this%fid, "global", "calendar", calendar_name )
+    call FILE_Set_Attribute( this%fid, "global", "time_units", tunits )
+    call FILE_Set_Attribute( this%fid, "global", "time_start", (/ subsec /) )
+
+    return
+  end subroutine FILE_base_meshfield_put_global_attribute_time
+
   !- private -----------------------------------------
 
   subroutine def_axes( this, & ! (in)
@@ -895,7 +937,8 @@ contains
     use scale_const, only: &
       UNDEF => CONST_UNDEF
     use scale_file, only: &
-      FILE_Write_Axis
+      FILE_Write_Axis, &
+      FILE_Set_Attribute
     use scale_file_common_meshfield, only: &
       File_common_meshfield_get_axis
     implicit none
@@ -938,6 +981,8 @@ contains
       call FILE_Write_Axis( this%fid, this%dimsinfo(1)%name, x(:), start(1:1) )
       call FILE_Write_Axis( this%fid, this%dimsinfo(2)%name, y(:), start(2:2) )
       call FILE_Write_Axis( this%fid, this%dimsinfo(3)%name, z(:), start(3:3) )
+      if ( this%dimsinfo(3)%positive_down(1) ) &
+        call FILE_Set_Attribute( this%fid, this%dimsinfo(3)%name, "positive", "down" )
     end if  
 
     if ( associated(this%meshCS3D) ) then
@@ -947,6 +992,8 @@ contains
       call FILE_Write_Axis( this%fid, this%dimsinfo(1)%name, x(:), start(1:1) )
       call FILE_Write_Axis( this%fid, this%dimsinfo(2)%name, y(:), start(2:2) )
       call FILE_Write_Axis( this%fid, this%dimsinfo(3)%name, z(:), start(3:3) )
+      if ( this%dimsinfo(3)%positive_down(1) ) &
+        call FILE_Set_Attribute( this%fid, this%dimsinfo(3)%name, "positive", "down" )
     end if  
 
     return

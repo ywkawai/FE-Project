@@ -21,10 +21,12 @@ module mod_cs2lonlat_interp_mesh
   use scale_mesh_rectdom2d, only: MeshRectDom2D
   use scale_mesh_cubedom3d, only: MeshCubeDom3D
   use scale_mesh_cubedspheredom2d, only: &
-    MeshCubedSphereDom2D,                       &
+    MeshCubedSphereDom2D,                &
     MeshCubedSphereDom2D_check_division_params
   use scale_mesh_cubedspheredom3d, only: &
     MeshCubedSphereDom3D
+  use scale_mesh_topography, only: MeshTopography    
+  
   !-----------------------------------------------------------------------------
   implicit none
   private
@@ -76,9 +78,11 @@ module mod_cs2lonlat_interp_mesh
   integer, public :: in_NeGY             = 1
   integer, public :: in_NeGZ             = 1
   integer, public :: in_NLocalMeshPerPrc = 6  
+  integer, public :: in_NprcX_lc
+  integer, public :: in_NprcY_lc  
   type(QuadrilateralElement), public :: in_elem2D
   type(HexahedralElement), public :: in_elem3D
-  
+
   logical, public :: is_mesh3D
 
   !-----------------------------------------------------------------------------
@@ -211,7 +215,8 @@ contains
       call out_mesh2D%SetDimInfo( MeshBase2D_DIMTYPEID_XYT, 'lonlatt', 'degree', 'longitude,latitude' )
   
       call out_mesh2D%Generate()  
-      call construct_map()
+      call construct_map( in_NprcX_lc, in_NprcY_lc )
+
     else
       is_mesh3D = .true.
       call in_elem3D%Init( in_PolyOrder_h, in_PolyOrder_v, .false. )
@@ -235,11 +240,12 @@ contains
       call out_mesh3D%SetDimInfo( MeshBase3D_DIMTYPEID_Z, 'z', 'm', 'altitude' )
       call out_mesh3D%SetDimInfo( MeshBase3D_DIMTYPEID_XYZ, 'lonlatz', 'degree', 'longitude,latitude,altitude' )
       call out_mesh3D%SetDimInfo( MeshBase3D_DIMTYPEID_XYZT, 'lonlatzt', 'degree', 'longitude,latitude,altitude' )
-
+      
       call out_mesh3D%Generate()
-      call construct_map( in_FZ(1:in_NeGZ+1), is_spec_in_FZ )
+      call construct_map( in_NprcX_lc, in_NprcY_lc, & ! (out)
+        in_FZ(1:in_NeGZ+1), is_spec_in_FZ           ) ! (in)
     end if
-
+    
     return
   end subroutine interp_mesh_Init
 
@@ -255,7 +261,7 @@ contains
       call in_elem3D%Final()
 
       call out_mesh3D%Final()
-      call out_elem3D%Final()  
+      call out_elem3D%Final()
     else
       call out_mesh2D%Final()
       call out_elem2D%Final()  
@@ -271,9 +277,12 @@ contains
   !- private -------------------------------------
 
 !OCL SERIAL  
-  subroutine construct_map( in_Fz, is_spec_in_Fz )
+  subroutine construct_map( NprcX_lc, NprcY_lc, &
+      in_Fz, is_spec_in_Fz )
     implicit none
 
+    integer, intent(out) :: NprcX_lc
+    integer, intent(out) :: NprcY_lc
     real(RP), intent(in), optional :: in_Fz(1:in_NeGZ+1)
     logical, intent(in), optional :: is_spec_in_Fz
 
@@ -286,7 +295,6 @@ contains
     type(LocalMesh2D), pointer :: lcmesh2D
     type(LocalMesh3D), pointer :: lcmesh3D
 
-    integer :: NprcX_lc, NprcY_lc
     integer :: tileID_table(in_NLocalMeshPerPrc,in_Nprc)
     integer :: panelID_table(in_NLocalMeshPerPrc*in_Nprc)
     integer :: pi_table(in_NLocalMeshPerPrc*in_Nprc)
@@ -353,8 +361,12 @@ contains
       lcmesh, elem2D, tile_x, tile_y, tileID_table, panelID_table, &
       NprcX_lc, NprcY_lc )
     use scale_prc
+    use scale_polygon, only: &
+      polygon_inpoly    
     use scale_cubedsphere_cnv, only: &
       CubedSphereCnv_LonLat2CSPos
+    use scale_meshutil_cubedsphere2d, only: &
+      MeshUtilCubedSphere2D_getPanelID      
     implicit none
 
     class(NodeMappingInfo), intent(inout), target :: this
@@ -409,10 +421,11 @@ contains
     in_lcprc2prc_tmp(:) = -1
     in_prc2lcprc_tmp(:) = -1
 
-    call get_panelID( this%inCSPanelID(:,:),      &
-      lcmesh%pos_en(:,:,1) * PI / 180.0_RP,       &
-      lcmesh%pos_en(:,:,2) * PI / 180.0_RP,       &
-      elem2D%Nfp**2 * lcmesh%NeX*lcmesh%NeY       )
+    call MeshUtilCubedSphere2D_getPanelID ( &
+      this%inCSPanelID(:,:),                      & ! (out)
+      lcmesh%pos_en(:,:,1) * PI / 180.0_RP,       & ! (in)
+      lcmesh%pos_en(:,:,2) * PI / 180.0_RP,       & ! (in)
+      elem2D%Nfp**2 * lcmesh%NeX*lcmesh%NeY       ) ! (in)
     
     in_tile_num = 0
     in_prc_num = 0
@@ -436,8 +449,8 @@ contains
           
           if ( out_cspanel /= panelID_table(in_n,in_prc) ) cycle
 
-          is_inside_tile(p_h) = inpoly( out_x(1), out_y(1),                             &
-                                        4, tile_x(:,in_n,in_prc), tile_y(:,in_n,in_prc) )
+          is_inside_tile(p_h) = polygon_inpoly( out_x(1), out_y(1),                             &
+                                                4, tile_x(:,in_n,in_prc), tile_y(:,in_n,in_prc) )
 
           if ( is_inside_tile(p_h) ) then
             this%local_domID(p_h,ke_h) = in_n
@@ -499,15 +512,17 @@ contains
           do i=1, in_NeX        
             in_elem_x(:) = tile_x(1,lc_domID,prcID) + delx * dble( (/ i-1, i, i, i-1 /) )
             in_elem_y(:) = tile_y(1,lc_domID,prcID) + dely * dble( (/ j-1, j-1, j, j /) )
-            is_inside_elem  = inpoly( out_x(1), out_y(1),           &
-                                      4, in_elem_x(:), in_elem_y(:) )
+
             if (i==in_NeX) then
               in_elem_x(2:3) = in_elem_x(2:3) + 1.0E-12_RP * delx       
             end if
             if (j==in_NeY) then
               in_elem_y(3:4) = in_elem_y(3:4) + 1.0E-12_RP * dely
             end if
-                                                            
+                 
+            is_inside_elem  = polygon_inpoly( out_x(1), out_y(1),           &
+                                              4, in_elem_x(:), in_elem_y(:) )
+                        
             if (is_inside_elem) then
               this%elem_i(p_h,ke_h) = i
               this%elem_j(p_h,ke_h) = j
@@ -543,8 +558,12 @@ contains
     tileID_table, panelID_table,            &
     NprcX_lc, NprcY_lc, is_spec_in_FZ )
     use scale_prc
+    use scale_polygon, only: &
+      polygon_inpoly
     use scale_cubedsphere_cnv, only: &
       CubedSphereCnv_LonLat2CSPos
+    use scale_meshutil_cubedsphere2d, only: &
+      MeshUtilCubedSphere2D_getPanelID
     implicit none
 
     class(NodeMappingInfo), intent(inout), target :: this
@@ -563,7 +582,6 @@ contains
     integer :: p, ke
     integer :: ke_h
     integer :: p_h, p_h_x, p_h_y
-    integer :: ke_z, ke_z2, p_z, p_z2
     logical :: is_inside_tile(elem3D%Nnode_h1D**2)
     logical :: is_inside_elem
     real(RP) :: in_elem_x(4)
@@ -576,16 +594,12 @@ contains
     integer :: in_lcprc2prc_tmp(in_Nprc)
     integer :: in_tile_num
     integer :: in_prc_num
-    type(LocalMesh3D), pointer :: in_lcmesh
-    real(RP) :: in_Z0, in_Z1
-    integer :: in_ke3D
 
     real(RP) :: out_lon(1), out_lat(1)
     real(RP) :: out_x(1), out_y(1)
     integer :: out_cspanel
     real(RP) :: out_x0, del_x
     real(RP) :: out_y0, del_y
-
     integer :: in_NeX, in_NeY
 
     real(RP) :: out_lon2D(elem3D%Nnode_h1D**2,lcmesh%NeX*lcmesh%NeY)
@@ -612,9 +626,9 @@ contains
       out_lon2D(:,ke_h) = lcmesh%pos_en(elem3D%Hslice(:,1),ke_h,1) * PI / 180.0_RP
       out_lat2D(:,ke_h) = lcmesh%pos_en(elem3D%Hslice(:,1),ke_h,2) * PI / 180.0_RP
     end do
-    call get_panelID( this%inCSPanelID(:,:),      &
-      out_lon2D, out_lat2D,                       &
-      elem3D%Nnode_h1D**2 * lcmesh%NeX*lcmesh%NeY )
+
+    call MeshUtilCubedSphere2D_getPanelID( this%inCSPanelID(:,:),       & ! (out)
+      out_lon2D, out_lat2D, elem3D%Nnode_h1D**2 * lcmesh%NeX*lcmesh%NeY ) ! (in)
 
     in_tile_num = 0
     in_prc_num = 0
@@ -638,8 +652,8 @@ contains
           
           if ( out_cspanel /= panelID_table(in_n,in_prc) ) cycle
 
-          is_inside_tile(p_h) = inpoly( out_x(1), out_y(1),                             &
-                                        4, tile_x(:,in_n,in_prc), tile_y(:,in_n,in_prc) )
+          is_inside_tile(p_h) = polygon_inpoly( out_x(1), out_y(1),                             &
+                                                4, tile_x(:,in_n,in_prc), tile_y(:,in_n,in_prc) )
 
           if ( is_inside_tile(p_h) ) then
             this%local_domID(p_h,ke_h) = in_n
@@ -706,8 +720,8 @@ contains
               in_elem_y(3:4) = in_elem_y(3:4) + 1.0E-12_RP * dely
             end if
 
-            is_inside_elem  = inpoly( out_x(1), out_y(1),           &
-                                      4, in_elem_x(:), in_elem_y(:) )
+            is_inside_elem  = polygon_inpoly( out_x(1), out_y(1),           &
+                                              4, in_elem_x(:), in_elem_y(:) )
                             
             if (is_inside_elem) then
               this%elem_i(p_h,ke_h) = i
@@ -740,50 +754,6 @@ contains
       end if
       call this%in_mesh3D_list(i)%Generate()
     end do
-
-    !--
-    !$omp parallel private( &
-    !$omp ke_h, p_h, in_lcmesh, in_prc, in_n,            &
-    !$omp ke_z, ke_z2, p_z, ke, p, in_ke3D, in_Z0, in_Z1 )
-
-    !$omp workshare
-    this%elem_k(:,:) = -1
-    !$omp end workshare
-
-    !$omp do collapse(2)
-    do ke_h=1, lcmesh%NeX * lcmesh%NeY
-    do p_h=1, elem3D%Nnode_h1D**2
-
-      in_n   = this%local_domID(p_h,ke_h)
-      in_prc = this%lcprc(p_h,ke_h)
-
-      if ( in_n > 0 .and. in_prc > 0 .and.                           &
-           this%elem_i(p_h,ke_h) > 0 .and. this%elem_j(p_h,ke_h) > 0 ) then
-        
-        in_lcmesh => this%in_mesh3D_list(in_prc)%lcmesh_list(in_n)
-        do ke_z=1, lcmesh%NeZ
-        do p_z=1, out_elem3D%Nnode_v
-          ke = ke_h + (ke_z-1)*lcmesh%NeX*lcmesh%NeY
-          p = p_h + (p_z-1)*elem3D%Nnode_h1D**2
-          do ke_z2=1, in_NeGZ
-            in_ke3D = this%elem_i(p_h,ke_h) + (this%elem_j(p_h,ke_h)-1)*in_NeX &
-                    + (ke_z2-1)*in_NeX*in_NeY
-            in_Z0 = in_lcmesh%pos_ev(in_lcmesh%EToV(in_ke3D,1),3)
-            in_Z1 = in_lcmesh%pos_ev(in_lcmesh%EToV(in_ke3D,5),3)
-            if ( in_Z0 <= lcmesh%pos_en(p,ke,3) .and. lcmesh%pos_en(p,ke,3) <= in_Z1 ) then
-              this%elem_k(p,ke) = ke_z2
-              this%elem_z(p,ke) = lcmesh%pos_en(p,ke,3)
-              exit
-            end if
-          end do
-        end do
-        end do
-      end if
-
-    end do
-    end do
-    !$omp end do
-    !$omp end parallel
 
     return
   end subroutine NodeMappingInfo_Init_3D
@@ -818,107 +788,5 @@ contains
 
     return
   end subroutine NodeMappingInfo_Final
-
-  !> Check whether the point is located inside a polyngon
-!OCL SERIAL
-  function inpoly( pt_x, pt_y, num_node, v_x, v_y ) result(ret)
-    implicit none
-    real(RP), intent(in) :: pt_x
-    real(RP), intent(in) :: pt_y
-    integer, intent(in) :: num_node
-    real(RP), intent(in) :: v_x(num_node)
-    real(RP), intent(in) :: v_y(num_node)
-    logical :: ret
-
-    integer :: wn
-    integer :: i, ii
-    !------------------------------------------
-
-    wn = 0
-    do i=1, num_node
-      ii = mod(i, num_node) + 1
-      if ( v_y(i) <= pt_y .and. pt_y < v_y(ii)) then
-        if( pt_x < v_x(i) + (pt_y - v_y(i)) * (v_x(ii) - v_x(i))/(v_y(ii) - v_y(i)) ) then
-          wn = wn + 1
-        end if
-      else if ( v_y(i) > pt_y .and. v_y(ii) <= pt_y ) then
-        if( pt_x < v_x(i) + (pt_y - v_y(i)) * (v_x(ii) - v_x(i))/(v_y(ii) - v_y(i)) ) then
-          wn = wn - 1
-        end if
-      end if
-    end do
-
-    if (wn == 0) then
-      ret = .false.
-    else
-      ret = .true.
-    end if
-
-    return
-  end function inpoly
-
-!OCL SERIAL
-  subroutine get_panelID( panelID, lon, lat, Np )
-    use scale_cubedsphere_cnv, only: &
-      CubedSphereCnv_LonLat2CSPos
-    implicit none
-
-    integer, intent(in) :: Np
-    integer, intent(out) :: panelID(Np)
-    real(RP), intent(in) :: lon(Np)
-    real(RP), intent(in) :: lat(Np)
-
-    integer :: p
-    integer :: pnl
-    real(RP) :: alph(Np), beta(Np)
-    real(RP) :: lon_(Np), lat_(Np)
-    real(RP), parameter :: EPS = 1.0E-64_RP
-    !------------------------------------------
-
-    !$omp parallel do
-    do p=1, Np
-      if ( abs(cos(lon(p))) < EPS ) then
-        lon_(p) = lon(p) + EPS
-      else
-        lon_(p) = lon(p)
-      end if
-      if ( abs( lat(p) - 0.5_RP * PI ) < EPS ) then
-        lat_(p) = lat(p) - sign(EPS, lat(p))
-      else
-        lat_(p) = lat(p)
-      end if
-    end do
-
-    panelID(:) = -1
-    do pnl=1, 6
-      call CubedSphereCnv_LonLat2CSPos( pnl, lon_, lat_, Np, &
-        alph, beta )
-    
-      select case(pnl)
-      case (5)
-        where ( lat(:) > 0.0_RP .and. abs(alph(:)) <= 0.25_RP * PI .and. abs(beta(:)) <= 0.25_RP * PI  )
-          panelID(:) = pnl
-        end where
-      case (6)
-        where ( lat(:) < 0.0_RP .and. abs(alph(:)) <= 0.25_RP * PI .and. abs(beta(:)) <= 0.25_RP * PI  )
-          panelID(:) = pnl
-        end where
-      case default 
-        where ( abs(alph(:)) <= 0.25_RP * PI .and. abs(beta(:)) <= 0.25_RP * PI  )
-          panelID(:) = pnl
-        end where
-      end select     
-    end do
-
-    do p=1, Np
-      if (panelID(p) <  0) then
-        LOG_ERROR("get_panelID",*) 'Fail to search a panel ID of cubed sphere grid!'
-        write(*,*) "p=", p, ": (lon,lat)=", lon(p), lat(p), "(alpha,beta)=", alph(p), beta(p) 
-        call PRC_abort
-      end if 
-    end do
-
-    return
-  end subroutine get_panelID
 
 end module mod_cs2lonlat_interp_mesh

@@ -18,8 +18,9 @@ LIBS = $(LIBDIR)/libScaleFECore.a
 VPATH = plugin:
 
 OBJS = \
-	mod_interp_mesh.o \
-	mod_interp_file.o \
+	mod_interp_mesh.o   \
+	mod_interp_vcoord.o \
+	mod_interp_file.o   \
 	mod_interp_field.o	
 
 
@@ -40,14 +41,14 @@ $(OBJECT): $(MODS)
 	@mv *.mod inc/; mv *.o inc/;
 
 $(BUILD_DIR)/$(BINNAME) : $(BUILD_DIR)/prg_$(BINNAME).o  $(patsubst %,$(BUILD_DIR)/%,$(OBJS))
-	$(LD) $(LDFLAGS) $(ADDITIONAL_FFLAGS) -o $@ $^ $(LIBS) $(SCALE_NETCDF_LIBS) $(SCALE_MATHLIB_LIBS) $(SCALE_PAPI_LIBS) $(CONTRIB_LIBS)
+	$(LD) $(LDFLAGS) $(ADDITIONAL_FFLAGS) -o $@ $^ $(LIBS) $(CONTRIB_LIBS) $(SCALE_NETCDF_LIBS) $(SCALE_MATHLIB_LIBS) $(SCALE_PAPI_LIBS)
 
 $(BUILD_DIR)/prg_$(BINNAME).o : prg_$(BINNAME).F90 $(patsubst %,$(BUILD_DIR)/%,$(OBJS))
 
 $(BUILD_DIR)/mod_interp_mesh.o     : mod_interp_mesh.F90
 $(BUILD_DIR)/mod_interp_file.o     : $(BUILD_DIR)/mod_interp_field.o mod_interp_file.F90
 $(BUILD_DIR)/mod_interp_field.o    : $(BUILD_DIR)/mod_interp_mesh.o mod_interp_field.F90
-
+$(BUILD_DIR)/mod_interp_vcoord.o   : $(BUILD_DIR)/mod_interp_field.o $(BUILD_DIR)/mod_interp_mesh.o mod_interp_vcoord.F90
 
 distclean: clean
 	rm -f $(BINDIR)/$(BINNAME)

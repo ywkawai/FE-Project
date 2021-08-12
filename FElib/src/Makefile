@@ -30,6 +30,7 @@ endif
 
 OBJS_NAME_COMMON = \
 	scale_polynominal.o            \
+	scale_polygon.o                \
 	scale_sparsemat.o              \
 	scale_linalgebra.o             \
 	scale_time_manager.o           \
