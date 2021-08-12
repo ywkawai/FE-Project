@@ -77,7 +77,7 @@ module mod_cs2lonlat_interp_vcoord
   integer, public, parameter :: INTERP_VCOORD_MODEL_ID  = 1
   integer, public, parameter :: INTERP_VCOORD_HEIGHT_ID = 2
   integer, public, parameter :: INTERP_VCOORD_PRESS_ID  = 3
-
+  integer, public, parameter :: INTERP_VCOORD_SIGMA_ID  = 4
   
   !-----------------------------------------------------------------------------
   !
@@ -175,6 +175,8 @@ contains
       this%vintrp_typeid = INTERP_VCOORD_HEIGHT_ID   
     case( 'PRESSURE' )
       this%vintrp_typeid = INTERP_VCOORD_PRESS_ID
+    case( 'SIGMA' )
+      this%vintrp_typeid = INTERP_VCOORD_SIGMA_ID      
     case default
       LOG_ERROR("interp_vcoord_Init",*) 'Not appropriate vintrp_type. Check!', vintrp_name
       call PRC_abort
@@ -237,7 +239,12 @@ contains
       call this%out_mesh%Generate()
 
       if ( this%vintrp_typeid == INTERP_VCOORD_PRESS_ID ) then
-        call this%out_mesh%SetDimInfo( MeshBase3D_DIMTYPEID_Z, 'p', 'Pa', 'altitude (preesure coordinate)' )
+        call this%out_mesh%SetDimInfo( MeshBase3D_DIMTYPEID_Z, 'p', 'Pa', 'altitude (preesure coordinate)', &
+          positive_down = .true. )
+        call this%pres%Init( "PRES", "Pa", out_mesh3D )
+      else if ( this%vintrp_typeid == INTERP_VCOORD_SIGMA_ID ) then
+        call this%out_mesh%SetDimInfo( MeshBase3D_DIMTYPEID_Z, 'sig', '1', 'altitude (sigma coordinate)', &
+          positive_down = .true. )
         call this%pres%Init( "PRES", "Pa", out_mesh3D )
       else if ( this%vintrp_typeid == INTERP_VCOORD_HEIGHT_ID ) then
         call this%out_mesh%SetDimInfo( MeshBase3D_DIMTYPEID_Z, 'z', 'm', 'altitude (height coordinate)' )        
@@ -309,7 +316,7 @@ contains
     select case( this%vintrp_typeid )
     case ( INTERP_VCOORD_MODEL_ID )
       return      
-    case ( INTERP_VCOORD_PRESS_ID )
+    case ( INTERP_VCOORD_PRESS_ID, INTERP_VCOORD_SIGMA_ID )
       call interp_field_Interpolate( istep, this%pres%varname, &
         out_mesh, this%pres, nodeMap_list                      )  
     end select
@@ -392,7 +399,7 @@ contains
 
     class(interp_vcoord), intent(inout) :: this    
     integer, intent(in) :: domID    
-    class(LocalMesh3D), intent(in) :: lcmesh_ref
+    class(LocalMesh3D), intent(in), target :: lcmesh_ref
     class(ElementBase3D), intent(in) :: elem_ref
     class(LocalMesh3D), intent(in) :: lcmesh   
     class(ElementBase3D), intent(in) :: elem
@@ -409,6 +416,10 @@ contains
     integer :: indx_k(elem%Np,2)
     integer :: indx_p(elem%Np,2)
     real(RP) :: vfact(elem%Np)
+
+    class(LocalMesh2D), pointer :: lcmesh2D
+    real(RP), allocatable :: SfcPres(:,:)
+
     !-------------------------------------------------------------
     
     if ( this%vintrp_typeid == INTERP_VCOORD_PRESS_ID ) then
@@ -422,6 +433,26 @@ contains
        height(:,ke) = - log( lcmesh%pos_en(:,ke,3) )
       end do      
       !$omp end parallel
+    else if ( this%vintrp_typeid == INTERP_VCOORD_SIGMA_ID ) then
+      lcmesh2D => lcmesh_ref%lcmesh2D
+      allocate( SfcPres(lcmesh2D%refElem2D%Np,lcmesh2D%NeA) )
+      !$omp parallel private(ke, ke_xy)
+      !$omp do
+      do ke_xy=lcmesh2D%NeS, lcmesh2D%NeE
+        SfcPres(:,ke_xy) = this%pres%local(domID)%val(elem_ref%Hslice(:,1),ke_xy)
+      end do
+      !$omp do
+      do ke=lcmesh_ref%NeS, lcmesh_ref%NeE
+        ke_xy = lcmesh_ref%EMap3Dto2D(ke)
+        height_ref(:,ke) = - log( this%pres%local(domID)%val(:,ke) )      &
+                           + log( SfcPres(elem_ref%IndexH2Dto3D(:),ke_xy) )
+      end do
+      !$omp do
+      do ke=lcmesh%NeS, lcmesh%NeE
+        ke_xy = lcmesh%EMap3Dto2D(ke)
+        height(:,ke) = - log( lcmesh%pos_en(:,ke,3) )
+      end do      
+      !$omp end parallel      
     else if ( this%vintrp_typeid == INTERP_VCOORD_HEIGHT_ID ) then
       !$omp parallel
       !$omp do

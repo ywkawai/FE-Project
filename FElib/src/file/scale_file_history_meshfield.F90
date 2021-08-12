@@ -506,9 +506,10 @@ contains
       call FILE_HISTORY_Set_Dim ( dimsinfo(n)%type, ndim, 1, dims(1:ndim,:), zs(:), start(1:ndim,:), count(1:ndim,:))
     end do
     
-    call FILE_HISTORY_Set_Axis( dimsinfo(DIMTYPE_X)%name, dimsinfo(DIMTYPE_X)%desc, dimsinfo(DIMTYPE_X)%unit, dimsinfo(DIMTYPE_X)%name, x(:))
-    call FILE_HISTORY_Set_Axis( dimsinfo(DIMTYPE_Y)%name, dimsinfo(DIMTYPE_Y)%desc, dimsinfo(DIMTYPE_Y)%unit, dimsinfo(DIMTYPE_Y)%name, y(:))
-    call FILE_HISTORY_Set_Axis( dimsinfo(DIMTYPE_Z)%name, dimsinfo(DIMTYPE_Z)%desc, dimsinfo(DIMTYPE_Z)%unit, dimsinfo(DIMTYPE_Z)%name, z(:))
+    call FILE_HISTORY_Set_Axis( dimsinfo(DIMTYPE_X)%name, dimsinfo(DIMTYPE_X)%desc, dimsinfo(DIMTYPE_X)%unit, dimsinfo(DIMTYPE_X)%name, x(:) )
+    call FILE_HISTORY_Set_Axis( dimsinfo(DIMTYPE_Y)%name, dimsinfo(DIMTYPE_Y)%desc, dimsinfo(DIMTYPE_Y)%unit, dimsinfo(DIMTYPE_Y)%name, y(:) )
+    call FILE_HISTORY_Set_Axis( dimsinfo(DIMTYPE_Z)%name, dimsinfo(DIMTYPE_Z)%desc, dimsinfo(DIMTYPE_Z)%unit, dimsinfo(DIMTYPE_Z)%name, z(:), &
+      down=dimsinfo(DIMTYPE_Z)%positive_down(1) )
 
     return
   end subroutine set_dim_axis3D
@@ -596,9 +597,10 @@ contains
       call FILE_HISTORY_Set_Dim ( dimsinfo(n)%type, ndim, 1, dims(1:ndim,:), zs(:), start(1:ndim,:), count(1:ndim,:))
     end do
     
-    call FILE_HISTORY_Set_Axis( dimsinfo(DIMTYPE_X)%name, dimsinfo(DIMTYPE_X)%desc, dimsinfo(DIMTYPE_X)%unit, dimsinfo(DIMTYPE_X)%name, x(:))
-    call FILE_HISTORY_Set_Axis( dimsinfo(DIMTYPE_Y)%name, dimsinfo(DIMTYPE_Y)%desc, dimsinfo(DIMTYPE_Y)%unit, dimsinfo(DIMTYPE_Y)%name, y(:))
-    call FILE_HISTORY_Set_Axis( dimsinfo(DIMTYPE_Z)%name, dimsinfo(DIMTYPE_Z)%desc, dimsinfo(DIMTYPE_Z)%unit, dimsinfo(DIMTYPE_Z)%name, z(:))
+    call FILE_HISTORY_Set_Axis( dimsinfo(DIMTYPE_X)%name, dimsinfo(DIMTYPE_X)%desc, dimsinfo(DIMTYPE_X)%unit, dimsinfo(DIMTYPE_X)%name, x(:) )
+    call FILE_HISTORY_Set_Axis( dimsinfo(DIMTYPE_Y)%name, dimsinfo(DIMTYPE_Y)%desc, dimsinfo(DIMTYPE_Y)%unit, dimsinfo(DIMTYPE_Y)%name, y(:) )
+    call FILE_HISTORY_Set_Axis( dimsinfo(DIMTYPE_Z)%name, dimsinfo(DIMTYPE_Z)%desc, dimsinfo(DIMTYPE_Z)%unit, dimsinfo(DIMTYPE_Z)%name, z(:), &
+      down=dimsinfo(DIMTYPE_Z)%positive_down(1) )
       
     return
   end subroutine set_dim_axis3D_cubedsphere

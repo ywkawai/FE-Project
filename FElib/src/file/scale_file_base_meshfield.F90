@@ -937,7 +937,8 @@ contains
     use scale_const, only: &
       UNDEF => CONST_UNDEF
     use scale_file, only: &
-      FILE_Write_Axis
+      FILE_Write_Axis, &
+      FILE_Set_Attribute
     use scale_file_common_meshfield, only: &
       File_common_meshfield_get_axis
     implicit none
@@ -980,6 +981,8 @@ contains
       call FILE_Write_Axis( this%fid, this%dimsinfo(1)%name, x(:), start(1:1) )
       call FILE_Write_Axis( this%fid, this%dimsinfo(2)%name, y(:), start(2:2) )
       call FILE_Write_Axis( this%fid, this%dimsinfo(3)%name, z(:), start(3:3) )
+      if ( this%dimsinfo(3)%positive_down(1) ) &
+        call FILE_Set_Attribute( this%fid, this%dimsinfo(3)%name, "positive", "down" )
     end if  
 
     if ( associated(this%meshCS3D) ) then
@@ -989,6 +992,8 @@ contains
       call FILE_Write_Axis( this%fid, this%dimsinfo(1)%name, x(:), start(1:1) )
       call FILE_Write_Axis( this%fid, this%dimsinfo(2)%name, y(:), start(2:2) )
       call FILE_Write_Axis( this%fid, this%dimsinfo(3)%name, z(:), start(3:3) )
+      if ( this%dimsinfo(3)%positive_down(1) ) &
+        call FILE_Set_Attribute( this%fid, this%dimsinfo(3)%name, "positive", "down" )
     end if  
 
     return

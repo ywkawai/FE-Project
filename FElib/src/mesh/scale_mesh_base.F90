@@ -24,6 +24,7 @@ module scale_mesh_base
     character(len=H_SHORT) :: name
     character(len=H_MID) :: desc
     character(len=H_SHORT) :: unit
+    logical :: positive_down
   end type MeshDimInfo
 
   type, abstract, public :: Meshbase
@@ -161,19 +162,25 @@ contains
 
 
   subroutine MeshBase_SetDimInfo( this, &
-      dimID, name, unit, desc )
+      dimID, name, unit, desc, positive_down )
     implicit none
     class(MeshBase), intent(inout) :: this
-    integer, intent(in) :: dimId
+    integer, intent(in) :: dimID
     character(len=*), intent(in) :: name
     character(len=*), intent(in) :: unit
     character(len=*), intent(in) :: desc
+    logical, intent(in), optional :: positive_down
 
     !-----------------------------------------------
 
-    this%dimInfo(dimId)%name = name
-    this%dimInfo(dimId)%unit = unit
+    this%dimInfo(dimID)%name = name
+    this%dimInfo(dimID)%unit = unit
     this%dimInfo(dimID)%desc = desc
+    if ( present(positive_down) ) then
+      this%dimInfo(dimID)%positive_down = positive_down      
+    else
+      this%dimInfo(dimID)%positive_down = .false.      
+    end if
 
     return
   end subroutine MeshBase_SetDimInfo
