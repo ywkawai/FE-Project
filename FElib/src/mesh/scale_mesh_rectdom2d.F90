@@ -67,7 +67,8 @@ contains
     NeGX, NeGY,                             &
     dom_xmin, dom_xmax, dom_ymin, dom_ymax, &
     isPeriodicX, isPeriodicY,               &
-    refElem, NLocalMeshPerPrc, NprcX, NprcY )
+    refElem, NLocalMeshPerPrc,              &
+    NprcX, NprcY, myrank )
     
     implicit none
 
@@ -84,6 +85,7 @@ contains
     integer, intent(in) :: NLocalMeshPerPrc
     integer, intent(in) :: NprcX
     integer, intent(in) :: NprcY
+    integer, intent(in), optional :: myrank
 
     !-----------------------------------------------------------------------------
     
@@ -101,7 +103,8 @@ contains
     this%NprcX = NprcX
     this%NprcY = NprcY
 
-    call MeshBase2D_Init(this, refElem, NLocalMeshPerPrc)
+    call MeshBase2D_Init( this, refElem, NLocalMeshPerPrc, &
+      NeGX * NeGY, myrank )
 
     return
   end subroutine MeshRectDom2D_Init
