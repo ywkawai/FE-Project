@@ -120,16 +120,16 @@ contains
   subroutine MeshBase_Final( this )
     implicit none
     class(MeshBase), intent(inout) :: this
-
-    integer :: n
     !-----------------------------------------------------------------------------
   
-    deallocate( this%tileID_globalMap )
-    deallocate( this%tileFaceID_globalMap )
-    deallocate( this%tilePanelID_globalMap )
-    deallocate( this%tileID_global2localMap )
-    deallocate( this%PRCRank_globalMap )
-    deallocate( this%dimInfo )
+    if ( allocated(this%tileID_globalMap) ) then
+      deallocate( this%tileID_globalMap )
+      deallocate( this%tileFaceID_globalMap )
+      deallocate( this%tilePanelID_globalMap )
+      deallocate( this%tileID_global2localMap )
+      deallocate( this%PRCRank_globalMap )
+      deallocate( this%dimInfo )
+    end if
 
     return
   end subroutine MeshBase_Final

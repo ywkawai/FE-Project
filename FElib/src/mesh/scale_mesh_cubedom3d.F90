@@ -181,7 +181,7 @@ contains
     if (this%isGenerated) then
       deallocate( this%rcdomIJK2LCMeshID )
     else
-      deallocate( this%FZ )
+      if ( allocated( this%FZ ) ) deallocate( this%FZ )
     end if
 
     call this%mesh2D%Final()
