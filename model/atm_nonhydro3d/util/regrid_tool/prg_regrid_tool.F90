@@ -21,6 +21,20 @@ program regrid_tool
   use scale_prof
   use scale_prc, only: PRC_abort
 
+  use mod_regrid_mesh, only: &
+    out_mesh, nodemap
+  use mod_regrid_interp_field, only: &
+    OutVarInfo,                      &
+    out_vinfo, out_var_num,          &
+    out_var3D, out_var2D,            &
+    regrid_interp_field_Interpolate
+  use mod_regrid_interp_vcoord, only: &
+    regrid_interp_vcoord,             &
+    INTERP_VCOORD_MODEL_ID
+  use mod_regrid_file, only: &
+    regrid_file_write_var
+
+  
   !-----------------------------------------------------------------------------
   implicit none
   !-----------------------------------------------------------------------------
@@ -46,7 +60,10 @@ program regrid_tool
   integer :: istep
   real(DP) :: start_sec
 
-   !-----------------------------------------------------------------------------
+  type(regrid_interp_vcoord) :: vintrp
+  type(OutVarInfo), pointer :: vinfo
+
+  !-----------------------------------------------------------------------------
 
   call initialize()
    
@@ -57,36 +74,36 @@ program regrid_tool
   LOG_NEWLINE
   LOG_PROGRESS(*) 'START LOOP'
 
-  ! do vid =1, out_var_num
-  !   vinfo => out_vinfo(vid)
-  !   do istep=1, vinfo%num_step, vinfo%out_tintrv
-  !       start_sec = vinfo%start_sec + (istep - 1) * vinfo%dt
+  do vid =1, out_var_num
+    vinfo => out_vinfo(vid)
+    do istep=1, vinfo%num_step, vinfo%out_tintrv
+      start_sec = vinfo%start_sec + (istep - 1) * vinfo%dt
 
-  !       LOG_INFO("INTERP",'(a,i4)') 'Interpolate :' // trim(out_vinfo(vid)%varname) // " step=", istep
-  !       if (is_mesh3D) then
-  !         call interp_field_Interpolate( istep, vinfo%varname, &
-  !             out_mesh3D, out_var3D, nodeMap_list               )
+      LOG_INFO("INTERP",'(a,i4)') 'Interpolate :' // trim(out_vinfo(vid)%varname) // " step=", istep
+      if ( associated( out_mesh%ptr_mesh3D ) ) then
+        call regrid_interp_field_Interpolate( istep, vinfo%varname, &
+            out_mesh, out_var3D, nodemap                            )
 
-  !         if ( vintrp%vintrp_typeid == INTERP_VCOORD_MODEL_ID ) then
-  !             call interp_file_write_var( vid, out_var3D,          &
-  !               start_sec, start_sec + vinfo%dt )
-  !         else
-  !             call vintrp%Update_weight( istep, out_mesh3D, nodeMap_list )               
-  !             call vintrp%Interpolate( istep, out_mesh3D, out_var3D )
+        if ( vintrp%vintrp_typeid == INTERP_VCOORD_MODEL_ID ) then
+            call regrid_file_write_var( vid, out_var3D,          &
+              start_sec, start_sec + vinfo%dt )
+        else
+            call vintrp%Update_weight( istep, out_mesh, nodemap )               
+            call vintrp%Interpolate( istep, out_mesh%ptr_mesh3D, out_var3D )
 
-  !             call interp_file_write_var( vid, vintrp%vintrp_var3D, &
-  !               start_sec, start_sec + vinfo%dt )               
-  !         end if
+            call regrid_file_write_var( vid, vintrp%vintrp_var3D, &
+              start_sec, start_sec + vinfo%dt )               
+        end if
 
-  !       else
-  !         call interp_field_Interpolate( istep, vinfo%varname, &
-  !             out_mesh2D, out_var2D, nodeMap_list               )
-  !         call interp_file_write_var( vid, out_var2D,          &
-  !             start_sec, start_sec + vinfo%dt )
-  !       end if
-  !       if( IO_L ) call flush(IO_FID_LOG)      
-  !   end do
-  ! end do
+      else
+        call regrid_interp_field_Interpolate( istep, vinfo%varname, &
+            out_mesh, out_var2D, nodemap                            )
+        call regrid_file_write_var( vid, out_var2D,          &
+            start_sec, start_sec + vinfo%dt )
+      end if
+      if( IO_L ) call flush(IO_FID_LOG)      
+    end do
+  end do
 
   LOG_PROGRESS(*) 'END LOOP'
   LOG_NEWLINE
@@ -112,11 +129,11 @@ contains
     
     use mod_regrid_mesh, only: &
         regrid_mesh_Init
-    ! use mod_cs2lonlat_interp_field, only: &
-    !     interp_field_Init, &
-    !     in_basename
-    ! use mod_cs2lonlat_interp_file, only: &
-    !     interp_file_Init
+    use mod_regrid_interp_field, only: &
+        regrid_interp_field_Init, &
+        in_basename
+    use mod_regrid_file, only: &
+        regrid_file_Init
     
     implicit none
 
@@ -176,9 +193,9 @@ contains
 
     !
     call regrid_mesh_Init()
-    ! call interp_field_Init( out_mesh2D, out_mesh3D, is_mesh3D )
-    ! if ( is_mesh3D ) call vintrp%Init( out_mesh3D, nodeMap_list )
-    ! call interp_file_Init( in_basename, out_vinfo, out_mesh2D, vintrp%out_mesh3D_ptr, is_mesh3D )
+    call regrid_interp_field_Init( out_mesh )
+    if ( associated(out_mesh%ptr_mesh3D) ) call vintrp%Init( out_mesh, nodemap )
+    call regrid_file_Init( in_basename, out_vinfo, out_mesh )
 
     !-
     do_output = .true.
@@ -198,18 +215,18 @@ contains
     use scale_file, only: &
         FILE_close_all
 
-    ! use mod_cs2lonlat_interp_field, only: interp_field_Final
+    use mod_regrid_interp_field, only: regrid_interp_field_Final
     use mod_regrid_mesh, only: regrid_mesh_Final
-    ! use mod_cs2lonlat_interp_file, only: interp_file_Final
+    use mod_regrid_file, only: regrid_file_Final
 
     implicit none
     !--------------------------------------
 
     call PROF_rapstart ('Finalize', 0)
 
-    ! call interp_file_Final
-    ! call interp_field_Final( is_mesh3D )
-    ! if ( is_mesh3D ) call vintrp%Final()
+    call regrid_file_Final
+    call regrid_interp_field_Final( out_mesh )
+    if ( associated(out_mesh%ptr_mesh3D) ) call vintrp%Final()
     call regrid_mesh_Final()
 
     !

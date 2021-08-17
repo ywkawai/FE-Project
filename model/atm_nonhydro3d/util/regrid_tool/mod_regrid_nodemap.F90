@@ -63,22 +63,87 @@ contains
 
     integer :: n
     class(LocalMesh2D), pointer :: lcmesh2D
+    class(LocalMesh3D), pointer :: lcmesh3D
+
+    real(RP), allocatable :: in_tiles_x(:,:,:) 
+    real(RP), allocatable :: in_tiles_y(:,:,:) 
+    integer, allocatable  :: tileID_table(:,:) 
+    integer, allocatable  :: panelID_table(:,:) 
+    integer, allocatable :: pi_table(:)
+    integer, allocatable :: pj_table(:)
+    
+    integer :: in_p, in_n
+    integer :: i, j
+    integer :: tileID    
+
+    real(RP) :: delx, dely
     !------------------------------------
 
     call inmesh_dummy%Init( MESH_INID, inmesh_type )
 
+    allocate( in_tiles_x(4,inmesh_dummy%NLocalMeshPerPrc,inmesh_dummy%Nprc) )
+    allocate( in_tiles_y(4,inmesh_dummy%NLocalMeshPerPrc,inmesh_dummy%Nprc) )
+    allocate( tileID_table(inmesh_dummy%NLocalMeshPerPrc,inmesh_dummy%Nprc) )
+    allocate( panelID_table(inmesh_dummy%NLocalMeshPerPrc,inmesh_dummy%Nprc) )
+    allocate( pi_table(inmesh_dummy%NLocalMeshPerPrc*inmesh_dummy%Nprc) )
+    allocate( pj_table(inmesh_dummy%NLocalMeshPerPrc*inmesh_dummy%Nprc) )
+
+    return
+    !---
+
+    call inmesh_dummy%Get_inmesh_hmapinfo( &
+      tileID_table, panelID_table, pi_table, pj_table ) ! (out)
+
+    delx = ( inmesh_dummy%dom_xmax - inmesh_dummy%dom_xmin ) / dble(inmesh_dummy%NprcX)
+    dely = ( inmesh_dummy%dom_ymax - inmesh_dummy%dom_ymin ) / dble(inmesh_dummy%NprcY)
+
+    do in_p=1, inmesh_dummy%Nprc
+    do in_n=1, inmesh_dummy%NLocalMeshPerPRC
+      tileID = tileID_table(in_n,in_p)
+      i = pi_table(tileID); j = pj_table(tileID)
+
+      in_tiles_x(:,in_n,in_p) = inmesh_dummy%dom_xmin + delx * dble( (/ i-1, i, i, i-1 /) )
+      in_tiles_y(:,in_n,in_p) = inmesh_dummy%dom_ymin * dble( (/ j-1, j-1, j, j /) )
+
+      if (i==inmesh_dummy%NprcX) then
+        in_tiles_x(2:3,in_n,in_p) = in_tiles_x(2:3,in_n,in_p) + 1.0E-12_RP * delx       
+      end if
+      if (j==inmesh_dummy%NprcY) then
+        in_tiles_y(3:4,in_n,in_p) = in_tiles_y(3:4,in_n,in_p) + 1.0E-12_RP * dely
+      end if
+    end do
+    end do
+
     if ( associated(out_mesh%ptr_mesh2D ) ) then
+
       do n=1, out_mesh%ptr_mesh2D%LOCAL_MESH_NUM
         lcmesh2D => out_mesh%ptr_mesh2D%lcmesh_list(n)
         call NodeMap_construct_nodemap_2D( this, &
           inmesh_dummy%mesh_type_id, out_mesh%mesh_type_id,                  &
+          inmesh_type,                                                       &
           lcmesh2D%refElem2D%Nfp, lcmesh2D%NeX * lcmesh2D%NeY, lcmesh2D,     &
+          in_tiles_x, in_tiles_y, tileID_table, panelID_table,               &
           inmesh_dummy%Nprc, inmesh_dummy%NprcX, inmesh_dummy%NprcY,         &
-          inmesh_dummy%NeX, inmesh_dummy%NeY, inmesh_dummy%NLocalMeshPerPRC  )
+          inmesh_dummy%NeX, inmesh_dummy%NeY, inmesh_dummy%NLocalMeshPerPRC, &
+          .true.  )
       end do
 
     end if
+
     if ( associated(out_mesh%ptr_mesh3D ) ) then
+
+      do n=1, out_mesh%ptr_mesh3D%LOCAL_MESH_NUM
+        lcmesh3D => out_mesh%ptr_mesh3D%lcmesh_list(n)
+        call NodeMap_construct_nodemap_3D( this, &
+          inmesh_dummy%mesh_type_id, out_mesh%mesh_type_id,                    &
+          inmesh_type,                                                         &
+          lcmesh3D%refElem3D%Nnode_h1D, lcmesh3D%NeX * lcmesh3D%NeY, lcmesh2D, &
+          lcmesh3D%refElem3D%Np, lcmesh3D%Ne, lcmesh3D,                        &
+          in_tiles_x, in_tiles_y, tileID_table, panelID_table,                 &
+          inmesh_dummy%Nprc, inmesh_dummy%NprcX, inmesh_dummy%NprcY,           &
+          inmesh_dummy%NeX, inmesh_dummy%NeY, inmesh_dummy%NLocalMeshPerPRC    )
+      end do
+
     end if
 
     call inmesh_dummy%Final()
@@ -100,9 +165,13 @@ contains
 !OCL SERIAL  
   subroutine NodeMap_construct_nodemap_2D( this, &
     in_meshtype_id, out_meshtype_id,             &
+    in_meshtype_name,                            &
     Np1D, Ne2D, lcmesh,                          &
+    tile_x, tile_y, tileID_table, panelID_table, &
     in_Nprc, in_NprcX, in_NprcY, in_NeX, in_NeY, &   
-    in_NLocalMeshPerPrc                 )
+    in_NLocalMeshPerPrc,                         &
+    do_mesh_generation,                          &
+    in_lcprc2prc, in_prcnum_out                  )
 
     use scale_polygon, only: &
       polygon_inpoly    
@@ -115,18 +184,21 @@ contains
     class(LocalMesh2D), intent(in) :: lcmesh
     integer, intent(in) :: in_meshtype_id
     integer, intent(in) :: out_meshtype_id
+    character(len=*), intent(in) :: in_meshtype_name
     integer, intent(in) :: in_Nprc
     integer, intent(in) :: in_NprcX
     integer, intent(in) :: in_NprcY
     integer, intent(in) :: in_NeX
     integer, intent(in) :: in_NeY
     integer, intent(in) :: in_NLocalMeshPerPrc
+    real(RP), intent(in) :: tile_x(4,in_NLocalMeshPerPrc,in_Nprc)
+    real(RP), intent(in) :: tile_y(4,in_NLocalMeshPerPrc,in_Nprc)
+    integer, intent(in) :: tileID_table(in_NLocalMeshPerPrc,in_Nprc)
+    integer, intent(in) :: panelID_table(in_NLocalMeshPerPrc,in_Nprc)
+    logical, intent(in) :: do_mesh_generation
+    integer, intent(out), optional :: in_lcprc2prc(in_Nprc)
+    integer, intent(out), optional :: in_prcnum_out
 
-    real(RP) :: tile_x(4,in_NLocalMeshPerPrc,in_Nprc)
-    real(RP) :: tile_y(4,in_NLocalMeshPerPrc,in_Nprc)
-    integer  :: tileID_table(in_NLocalMeshPerPrc,in_Nprc)
-    integer  :: panelID_table(in_NLocalMeshPerPrc,in_Nprc)
-    
     integer :: lc_domID, prcID, in_prc, in_n
     integer :: i, j
     integer :: p, ke
@@ -282,22 +354,85 @@ contains
 
     !-- prepair mesh for input data --------------------------------
 
+    if ( .not. do_mesh_generation ) return
+
+    allocate( this%in_mesh_list(in_prc_num)  )
+    do i=1, in_prc_num
+      call this%in_mesh_list(i)%Init( MESH_INID, in_meshtype_name )
+      call this%in_mesh_list(i)%Generate( myrank=in_lcprc2prc_tmp(i)-1 )
+    end do
+
+    if ( present(in_lcprc2prc) ) in_lcprc2prc(:) = in_lcprc2prc_tmp(i)
+    if ( present(in_prcnum_out) ) in_prcnum_out = in_prc_num
 
     return
   end subroutine NodeMap_construct_nodemap_2D
 
-!OCL SERIAL
-  subroutine get_inmesh_mapinfo( &
-    in_meshtype_id, in_Nprc, in_NLocalMeshPerPrc )
+
+!OCL SERIAL  
+  subroutine NodeMap_construct_nodemap_3D( this, &
+    in_meshtype_id, out_meshtype_id,             &
+    in_meshtype_name,                            &
+    Np1D, Ne2D, lcmesh2D,                        &
+    Np3D, Ne3D, lcmesh3D,                        &
+    tile_x, tile_y, tileID_table, panelID_table, &
+    in_Nprc, in_NprcX, in_NprcY, in_NeX, in_NeY, &   
+    in_NLocalMeshPerPrc                          )
+
+    use scale_polygon, only: &
+      polygon_inpoly    
+        
     implicit none
 
+    class(regrid_nodemap), intent(inout) :: this
+    integer, intent(in) :: Np1D
+    integer, intent(in) :: Ne2D
+    class(LocalMesh2D), intent(in) :: lcmesh2D    
+    integer, intent(in) :: Np3D
+    integer, intent(in) :: Ne3D
+    class(LocalMesh3D), intent(in) :: lcmesh3D    
     integer, intent(in) :: in_meshtype_id
+    character(len=*), intent(in) :: in_meshtype_name
+    integer, intent(in) :: out_meshtype_id
     integer, intent(in) :: in_Nprc
+    integer, intent(in) :: in_NprcX
+    integer, intent(in) :: in_NprcY
+    integer, intent(in) :: in_NeX
+    integer, intent(in) :: in_NeY
     integer, intent(in) :: in_NLocalMeshPerPrc
-    !-----------------------------------------------------
-    
+    real(RP), intent(in) :: tile_x(4,in_NLocalMeshPerPrc,in_Nprc)
+    real(RP), intent(in) :: tile_y(4,in_NLocalMeshPerPrc,in_Nprc)
+    integer, intent(in) :: tileID_table(in_NLocalMeshPerPrc,in_Nprc)
+    integer, intent(in) :: panelID_table(in_NLocalMeshPerPrc,in_Nprc)
+ 
+    integer :: in_lcprc2prc(in_Nprc)
+    integer :: in_prc_num
+    integer :: i
+    !-----------------------------------------------------------------
+
+    allocate( this%elem_k(Np3D, Ne3D) )
+    allocate( this%elem_z(Np3D, Ne3D) )
+
+    call NodeMap_construct_nodemap_2D( this, &
+      in_meshtype_id, out_meshtype_id,             &
+      in_meshtype_name,                            &
+      Np1D, Ne2D, lcmesh2D,                        &
+      tile_x, tile_y, tileID_table, panelID_table, &
+      in_Nprc, in_NprcX, in_NprcY, in_NeX, in_NeY, &   
+      in_NLocalMeshPerPrc, .false.,                &
+      in_lcprc2prc=in_lcprc2prc,                   &
+      in_prcnum_out=in_prc_num                     )    
+
+    !-- prepair mesh for input data --------------------------------
+
+    allocate( this%in_mesh_list(in_prc_num) )
+    do i=1, in_prc_num
+      call this%in_mesh_list(i)%Init( MESH_INID, in_meshtype_name )
+      call this%in_mesh_list(i)%Generate( myrank=in_lcprc2prc(i)-1 )
+    end do
+
     return
-  end subroutine get_inmesh_mapinfo
+  end subroutine NodeMap_construct_nodemap_3D  
 
 !OCL SERIAL  
   subroutine get_panelID( inPanelID, &

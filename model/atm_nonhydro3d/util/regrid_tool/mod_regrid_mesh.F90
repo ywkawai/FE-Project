@@ -42,13 +42,13 @@ module mod_regrid_mesh
   !
 
   type(regrid_mesh_base), public :: out_mesh
+  type(regrid_nodemap), public, allocatable :: nodemap(:)
 
   !-----------------------------------------------------------------------------
   !
   !++ Private parameters & variables
   !
 
-  type(regrid_nodemap), allocatable :: nodemap(:)
 
 
 contains
@@ -88,7 +88,7 @@ contains
 
     allocate( nodemap( out_mesh%NLocalMeshPerPRC ) )
     do n=1, size(nodemap)
-      call nodemap(n)%Init(in_meshType)
+      call nodemap(n)%Init( in_meshType, out_mesh )
     end do
 
     return

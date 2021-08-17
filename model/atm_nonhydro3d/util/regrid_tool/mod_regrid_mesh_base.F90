@@ -82,6 +82,7 @@ module mod_regrid_mesh_base
     procedure :: Init => regrid_mesh_base_init
     procedure :: Final => regrid_mesh_base_final
     procedure :: Generate => regrid_mesh_base_generate
+    procedure :: Get_inmesh_hmapinfo => regrid_mesh_base_get_inmesh_hmapinfo
   end type regrid_mesh_base
 
   !-----------------------------------------------------------------------------
@@ -173,8 +174,10 @@ contains
   end subroutine regrid_mesh_base_final
 
 !OCL SERIAL  
-  subroutine regrid_mesh_base_generate( this )
-
+  subroutine regrid_mesh_base_generate( this, myrank )
+    use scale_prc, only: &
+      PRC_myrank 
+    
     use scale_mesh_base2d, only: &
       MeshBase2D_DIMTYPEID_X, MeshBase2D_DIMTYPEID_Y,   &
       MeshBase2D_DIMTYPEID_XY, MeshBase2D_DIMTYPEID_XYT
@@ -184,7 +187,16 @@ contains
 
     implicit none
     class(regrid_mesh_base), intent(inout), target :: this
+    integer, intent(in), optional :: myrank
+
+    integer :: myrank_
     !-----------------------------------------------
+
+    if ( present(myrank) ) then
+      myrank_ = myrank
+    else
+      myrank_ = PRC_myrank
+    end if
 
     select case( this%mesh_type_id )
     case( REGRID_MESHTYPE_STRUCTURED2D_ID )
@@ -192,7 +204,7 @@ contains
       call this%mesh2D%Init( this%NeGX, this%NeGY, &
         this%dom_xmin, this%dom_xmax, this%dom_ymin, this%dom_ymax,             &
         this%isPeriodicX, this%isPeriodicY, this%elem2D, this%NLocalMeshPerPrc, &
-        this%NprcX, this%NprcY )
+        this%NprcX, this%NprcY, myrank=myrank_  )
       
       this%ptr_mesh2D => this%mesh2D
 
@@ -201,7 +213,7 @@ contains
       call this%mesh2D%Init( this%NeGX, this%NeGY, &
         this%dom_xmin, this%dom_xmax, this%dom_ymin, this%dom_ymax,             &
         this%isPeriodicX, .false., this%elem2D, this%NLocalMeshPerPrc,          &
-        this%NprcX, this%NprcY )
+        this%NprcX, this%NprcY, myrank=myrank_ )
 
       call this%mesh2D%SetDimInfo( MeshBase2D_DIMTYPEID_X, 'lon', 'degree_east', 'longitude' )
       call this%mesh2D%SetDimInfo( MeshBase2D_DIMTYPEID_Y, 'lat', 'degree_north', 'latitude' )
@@ -216,12 +228,12 @@ contains
         call this%mesh3D%Init( this%NeGX, this%NeGY, this%NeGZ,                                     &
           this%dom_xmin, this%dom_xmax, this%dom_ymin, this%dom_ymax, this%dom_zmin, this%dom_zmax, &
           this%isPeriodicX, this%isPeriodicY, this%isPeriodicY, this%elem3D, this%NLocalMeshPerPrc, &
-          this%NprcX, this%NprcY, nproc=this%Nprc, FZ=this%FZ )
+          this%NprcX, this%NprcY, nproc=this%Nprc, myrank=myrank_, FZ=this%FZ )
       else
         call this%mesh3D%Init( this%NeGX, this%NeGY, this%NeGZ,                                     &
           this%dom_xmin, this%dom_xmax, this%dom_ymin, this%dom_ymax, this%dom_zmin, this%dom_zmax, &
           this%isPeriodicX, .false., .false., this%elem3D, this%NLocalMeshPerPrc,                   &
-          this%NprcX, this%NprcY, nproc=this%Nprc )
+          this%NprcX, this%NprcY, nproc=this%Nprc, myrank=myrank_ )
       end if
 
       this%ptr_mesh3D => this%mesh3D
@@ -232,12 +244,12 @@ contains
         call this%mesh3D%Init( this%NeGX, this%NeGY, this%NeGZ,                                     &
           this%dom_xmin, this%dom_xmax, this%dom_ymin, this%dom_ymax, this%dom_zmin, this%dom_zmax, &
           this%isPeriodicX, .false., .false., this%elem3D, this%NLocalMeshPerPrc,                   &
-          this%NprcX, this%NprcY, nproc=this%Nprc, FZ=this%FZ )
+          this%NprcX, this%NprcY, nproc=this%Nprc, myrank=myrank_, FZ=this%FZ )
       else
         call this%mesh3D%Init( this%NeGX, this%NeGY, this%NeGZ,                                     &
           this%dom_xmin, this%dom_xmax, this%dom_ymin, this%dom_ymax, this%dom_zmin, this%dom_zmax, &
           this%isPeriodicX, .false., .false., this%elem3D, this%NLocalMeshPerPrc,                   &
-          this%NprcX, this%NprcY, nproc=this%Nprc )
+          this%NprcX, this%NprcY, nproc=this%Nprc, myrank=myrank_ )
       end if
       call this%mesh3D%SetDimInfo( MeshBase3D_DIMTYPEID_X, 'lon', 'degree_east', 'longitude' )
       call this%mesh3D%SetDimInfo( MeshBase3D_DIMTYPEID_Y, 'lat', 'degree_north', 'latitude' )
@@ -248,8 +260,8 @@ contains
 
     case( REGRID_MESHTYPE_CUBEDSPHERE2D_ID )
       
-      call this%csmesh2D%Init( this%NeGX, this%NeGY, RPlanet, &
-        this%elem2D, this%NLocalMeshPerPrc, nproc=this%Nprc    )
+      call this%csmesh2D%Init( this%NeGX, this%NeGY, RPlanet,               &
+        this%elem2D, this%NLocalMeshPerPrc, nproc=this%Nprc, myrank=myrank_ )
       
       this%ptr_mesh2D => this%csmesh2D
 
@@ -258,21 +270,67 @@ contains
       if ( allocated( this%FZ ) ) then
         call this%csmesh3D%Init( this%NeGX, this%NeGY, this%NeGZ, RPlanet,  &
           this%dom_zmin, this%dom_zmax, this%elem3D, this%NLocalMeshPerPrc, &
-          nproc=this%Nprc, FZ=this%FZ )
+          nproc=this%Nprc, myrank=myrank_, FZ=this%FZ )
       else
         call this%csmesh3D%Init( this%NeGX, this%NeGY, this%NeGZ, RPlanet,  &
           this%dom_zmin, this%dom_zmax, this%elem3D, this%NLocalMeshPerPrc, &
-          nproc=this%Nprc )        
+          nproc=this%Nprc, myrank=myrank_ )        
       end if
       
       this%ptr_mesh3D => this%csmesh3D
 
     end select
 
+    if ( associated( this%ptr_mesh2D ) ) call this%ptr_mesh2D%Generate()
+    if ( associated( this%ptr_mesh3D ) ) call this%ptr_mesh3D%Generate()
+
     return
   end subroutine regrid_mesh_base_generate
 
-  !-- private --------------------------------
+  subroutine regrid_mesh_base_get_inmesh_hmapinfo( this, &
+    tileID_table, panelID_table, pi_table, pj_table       )
+
+    implicit none
+    class(regrid_mesh_base), intent(inout) :: this
+    integer, intent(out)  :: tileID_table(this%NLocalMeshPerPrc,this%Nprc)
+    integer, intent(out)  :: panelID_table(this%NLocalMeshPerPrc,this%Nprc) 
+    integer, intent(out) :: pi_table(this%NLocalMeshPerPrc*this%Nprc)
+    integer, intent(out) :: pj_table(this%NLocalMeshPerPrc*this%Nprc)
+    
+    type(MeshCubedSphereDom2D) :: csmesh_dummy
+    type(MeshRectDom2D) :: mesh_dummy
+    !----------------------------------------
+
+    select case( this%mesh_type_id )
+    case ( REGRID_MESHTYPE_CUBEDSPHERE2D_ID, REGRID_MESHTYPE_CUBEDSPHERE3D_ID )
+
+      call csmesh_dummy%Init( this%NeGX, this%NeGY, RPlanet,          &
+        this%elem2D, this%NLocalMeshPerPRC, nproc=this%Nprc, myrank=0 )
+          
+      call csmesh_dummy%AssignDomID( this%NprcX, this%NprcY,  & ! (in)
+        tileID_table, panelID_table, pi_table, pj_table       ) ! (out)
+      
+      call csmesh_dummy%Final()
+
+    case ( REGRID_MESHTYPE_STRUCTURED2D_ID, REGRID_MESHTYPE_STRUCTURED3D_ID, &
+           REGRID_MESHTYPE_LONLAT2D_ID, REGRID_MESHTYPE_LONLAT3D_ID          )
+
+      call mesh_dummy%Init( this%NeGX, this%NeGY, &
+        this%dom_xmin, this%dom_xmax, this%dom_ymin, this%dom_ymax, &
+        this%isPeriodicX, this%isPeriodicY, this%elem2D,            &
+        this%NLocalMeshPerPRC, this%NprcX, this%NprcY )
+
+      call mesh_dummy%AssignDomID( &
+        tileID_table, panelID_table, pi_table, pj_table )
+      
+      call mesh_dummy%Final()
+
+    end select
+
+    return
+  end subroutine regrid_mesh_base_get_inmesh_hmapinfo
+
+!-- private --------------------------------
 
 !OCL SERIAL  
   subroutine regrid_mesh_base_init_mesh2D( this )
@@ -431,6 +489,10 @@ contains
     
     this%NeX = NeGX / this%NprcX
     this%NeY = NeGY / this%NprcY
+    this%dom_xmin = csmesh2D_dummy%xmin_gl
+    this%dom_xmax = csmesh2D_dummy%xmax_gl
+    this%dom_ymin = csmesh2D_dummy%ymin_gl
+    this%dom_ymax = csmesh2D_dummy%ymax_gl
   
    call csmesh2D_dummy%Final()
 
@@ -647,7 +709,12 @@ contains
       Nprc, NLocalMeshPerPrc * Nprc                   ) ! (in)
     
     this%NeX = NeGX / this%NprcX
-    this%NeY = NeGY / this%NprcY      
+    this%NeY = NeGY / this%NprcY   
+    this%dom_xmin = csmesh2D_dummy%xmin_gl
+    this%dom_xmax = csmesh2D_dummy%xmax_gl
+    this%dom_ymin = csmesh2D_dummy%ymin_gl
+    this%dom_ymax = csmesh2D_dummy%ymax_gl
+         
     call csmesh2D_dummy%Final()
 
     is_spec_FZ = .true.    
