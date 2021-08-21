@@ -79,11 +79,15 @@ module mod_regrid_mesh_base
 
     real(RP), allocatable :: FZ(:)
   contains
-    procedure :: Init => regrid_mesh_base_init
+    procedure :: Init1 => regrid_mesh_base_init_1
+    procedure :: Init2 => regrid_mesh_base_init_2
+    generic :: Init => Init1, Init2
     procedure :: Final => regrid_mesh_base_final
     procedure :: Generate => regrid_mesh_base_generate
     procedure :: Get_inmesh_hmapinfo => regrid_mesh_base_get_inmesh_hmapinfo
   end type regrid_mesh_base
+
+  public :: regrid_mesh_base_meshtype_name2id
 
   !-----------------------------------------------------------------------------
   !
@@ -103,13 +107,14 @@ module mod_regrid_mesh_base
 contains
 
 !OCL SERIAL
-  subroutine regrid_mesh_base_init( this, & ! (inout)
-    mesh_inout_id, mesh_type_name         ) ! (in)
+  subroutine regrid_mesh_base_init_1( this, & ! (inout)
+    mesh_inout_id, mesh_type_id             ) ! (in)
 
     implicit none
     class(regrid_mesh_base), intent(inout) :: this
     integer, intent(in) :: mesh_inout_id
-    character(len=*), intent(in) :: mesh_type_name
+    integer, intent(in) :: mesh_type_id
+
     !----------------------------------------
 
     select case( mesh_inout_id )
@@ -120,34 +125,76 @@ contains
       call PRC_abort
     end select
 
-    select case(trim(mesh_type_name))
-    case( "STRUCTURED2D" )
-      this%mesh_type_id = REGRID_MESHTYPE_STRUCTURED2D_ID
+    this%mesh_type_id = mesh_type_id
+
+    select case (this%mesh_type_id)
+    case( REGRID_MESHTYPE_STRUCTURED2D_ID )
       call regrid_mesh_base_init_mesh2D( this )
-    case( "STRUCTURED3D" )
-      this%mesh_type_id = REGRID_MESHTYPE_STRUCTURED3D_ID
+    case( REGRID_MESHTYPE_STRUCTURED3D_ID )
       call regrid_mesh_base_init_mesh3D( this )
-    case( "LONLAT2D" )
-      this%mesh_type_id = REGRID_MESHTYPE_LONLAT2D_ID
+    case( REGRID_MESHTYPE_LONLAT2D_ID )
       call regrid_mesh_base_init_mesh2D( this )
-    case( "LONLAT3D" )
-      this%mesh_type_id = REGRID_MESHTYPE_LONLAT3D_ID
+    case( REGRID_MESHTYPE_LONLAT3D_ID )
       call regrid_mesh_base_init_mesh3D( this )
-    case( "CUBEDSPHERE2D" )
-      this%mesh_type_id = REGRID_MESHTYPE_CUBEDSPHERE2D_ID
+    case( REGRID_MESHTYPE_CUBEDSPHERE2D_ID )
       call regrid_mesh_base_init_csmesh2D( this )
-    case( "CUBEDSPHERE3D" )
-      this%mesh_type_id = REGRID_MESHTYPE_CUBEDSPHERE3D_ID
+    case( REGRID_MESHTYPE_CUBEDSPHERE3D_ID )
       call regrid_mesh_base_init_csmesh3D( this )
     case default
-      LOG_ERROR("regrid_mesh_base",*) 'Not supported type of mesh. Check! ', trim(mesh_type_name)
+      LOG_ERROR("regrid_mesh_base_init",*) 'Not supported type id of mesh. Check! ', mesh_type_id
       call PRC_abort
     end select
 
     nullify( this%ptr_mesh2D, this%ptr_mesh3D )
 
     return
-  end subroutine regrid_mesh_base_init
+  end subroutine regrid_mesh_base_init_1
+
+!OCL SERIAL
+  subroutine regrid_mesh_base_init_2( this, & ! (inout)
+    mesh_inout_id, mesh_type_name           ) ! (in)
+
+    implicit none
+    class(regrid_mesh_base), intent(inout) :: this
+    integer, intent(in) :: mesh_inout_id
+    character(len=*), intent(in) :: mesh_type_name
+
+    integer :: mesh_type_id
+    !----------------------------------------
+    
+    mesh_type_id = regrid_mesh_base_meshtype_name2id( mesh_type_name )
+    call this%Init1( mesh_inout_id, mesh_type_id )
+
+    return
+  end subroutine regrid_mesh_base_init_2
+
+!OCL SERIAL
+  function regrid_mesh_base_meshtype_name2id( mesh_type_name ) result(mesh_type_id)
+    implicit none
+    character(len=*), intent(in) :: mesh_type_name
+    integer :: mesh_type_id
+    !----------------------------------------
+    
+    select case(trim(mesh_type_name))
+    case( "STRUCTURED2D" )
+      mesh_type_id = REGRID_MESHTYPE_STRUCTURED2D_ID
+    case( "STRUCTURED3D" )
+      mesh_type_id = REGRID_MESHTYPE_STRUCTURED3D_ID
+    case( "LONLAT2D" )
+      mesh_type_id = REGRID_MESHTYPE_LONLAT2D_ID
+    case( "LONLAT3D" )
+      mesh_type_id = REGRID_MESHTYPE_LONLAT3D_ID
+    case( "CUBEDSPHERE2D" )
+      mesh_type_id = REGRID_MESHTYPE_CUBEDSPHERE2D_ID
+    case( "CUBEDSPHERE3D" )
+      mesh_type_id = REGRID_MESHTYPE_CUBEDSPHERE3D_ID
+    case default
+      LOG_ERROR("regrid_mesh_meshtype_name2id",*) 'Not supported type of mesh. Check! ', trim(mesh_type_name)
+      call PRC_abort
+    end select
+
+    return    
+  end function regrid_mesh_base_meshtype_name2id
 
 !OCL SERIAL  
   subroutine regrid_mesh_base_final( this )
@@ -526,7 +573,7 @@ contains
 
     integer :: PolyOrder_h  = 1
     integer :: PolyOrder_v  = 1
-
+    
     logical :: is_spec_FZ         
     integer, parameter :: FZ_nmax = 1000
     real(RP) :: FZ(FZ_nmax)
@@ -535,19 +582,18 @@ contains
       NprcX, NprcY, NprcZ, NeX, NeY, NeGZ, NLocalMeshPerPrc,           &
       dom_xmin, dom_xmax, dom_ymin, dom_ymax, dom_zmin, dom_zmax,      &
       PolyOrder_h, PolyOrder_v, isPeriodicX, isPeriodicY, isPeriodicZ, &
-      is_spec_FZ, FZ
+      FZ
    
     namelist / PARAM_REGRID_OUTMESH3D_STRUCTURED / &
       NprcX, NprcY, NprcZ, NeX, NeY, NeGZ, NLocalMeshPerPrc,           &
       dom_xmin, dom_xmax, dom_ymin, dom_ymax, dom_zmin, dom_zmax,      &
       PolyOrder_h, PolyOrder_v, isPeriodicX, isPeriodicY, isPeriodicZ, &
-      is_spec_FZ, FZ
+      FZ
 
     integer :: ierr
     integer :: k
     !----------------------------------------
 
-    is_spec_FZ = .false.    
     NeGZ       = -1
     FZ(:)      = UNDEF
 
@@ -633,6 +679,8 @@ contains
     integer :: NeGY             = 1
     integer :: NeGZ             = 1
     integer :: NLocalMeshPerPrc = 1
+    real(RP) :: dom_zmin        = 0.0_RP
+    real(RP) :: dom_zmax        = 0.0_RP    
 
     integer :: PolyOrder_h      = 1
     integer :: PolyOrder_v      = 1
@@ -644,12 +692,14 @@ contains
     namelist / PARAM_REGRID_INMESH3D_CUBEDSPHERE / &
       Nprc, NeGX, NeGY, NeGZ, NLocalMeshPerPrc,    &
       PolyOrder_h, PolyOrder_v,                    &
-      is_spec_FZ, FZ
+      dom_zmin, dom_zmax,                          &
+      FZ
    
     namelist / PARAM_REGRID_OUTMESH3D_CUBEDSPHERE / &
       Nprc, NeGX, NeGY, NeGZ, NLocalMeshPerPrc,     &
       PolyOrder_h, PolyOrder_v,                     &
-      is_spec_FZ, FZ
+      dom_zmin, dom_zmax,                           &
+      FZ
 
     integer :: ierr
     integer :: k
@@ -657,7 +707,6 @@ contains
     type(MeshCubedSphereDom2D) :: csmesh2D_dummy
     !----------------------------------------
 
-    is_spec_FZ = .false.    
     NeGZ       = -1
     FZ(:)      = UNDEF
 
@@ -692,7 +741,7 @@ contains
 
     this%NeGX = NeGX
     this%NeGY = NeGY
-    this%NeZ  = NeGZ / this%NprcZ
+    this%NeGZ = NeGZ        
     this%NLocalMeshPerPRC = NLocalMeshPerPrc
 
     this%polyorder_h = PolyOrder_h
@@ -709,11 +758,15 @@ contains
       Nprc, NLocalMeshPerPrc * Nprc                   ) ! (in)
     
     this%NeX = NeGX / this%NprcX
-    this%NeY = NeGY / this%NprcY   
+    this%NeY = NeGY / this%NprcY
+    this%NeZ = NeGZ / this%NprcZ
+
     this%dom_xmin = csmesh2D_dummy%xmin_gl
     this%dom_xmax = csmesh2D_dummy%xmax_gl
     this%dom_ymin = csmesh2D_dummy%ymin_gl
     this%dom_ymax = csmesh2D_dummy%ymax_gl
+    this%dom_zmin = dom_zmin
+    this%dom_zmax = dom_zmax
          
     call csmesh2D_dummy%Final()
 

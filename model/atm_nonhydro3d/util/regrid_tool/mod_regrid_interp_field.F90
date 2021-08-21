@@ -41,8 +41,8 @@ module mod_regrid_interp_field
   public :: regrid_interp_field_Init
   public :: regrid_interp_field_Final
   interface regrid_interp_field_Interpolate
-    module procedure :: interp_field_Interpolate_2D
-    module procedure :: interp_field_Interpolate_3D
+    module procedure :: regrid_field_Interpolate_2D
+    module procedure :: regrid_field_Interpolate_3D
   end interface
   public :: regrid_interp_field_Interpolate
 
@@ -115,7 +115,7 @@ contains
     !-------------------------------------------
 
     LOG_NEWLINE
-    LOG_INFO("regrid_field",*) 'Setup'
+    LOG_INFO("regrid_interp_field",*) 'Setup'
   
     out_tinterval(:) = 1
 
@@ -123,9 +123,9 @@ contains
     rewind(IO_FID_CONF)
     read(IO_FID_CONF,nml=PARAM_REGRID_INTERP_FIELD,iostat=ierr)
     if ( ierr < 0 ) then !--- missing
-        LOG_INFO("regrid_field",*) 'Not found namelist. Default used.'
+        LOG_INFO("regrid_interp_field",*) 'Not found namelist. Default used.'
     elseif( ierr > 0 ) then !--- fatal error
-        LOG_ERROR("regrid_field",*) 'Not appropriate names in namelist PARAM_REGRID_INTERP_FIELD. Check!'
+        LOG_ERROR("regrid_interp_field",*) 'Not appropriate names in namelist PARAM_REGRID_INTERP_FIELD. Check!'
         call PRC_abort
     endif
     LOG_NML(PARAM_REGRID_INTERP_FIELD)
@@ -185,7 +185,7 @@ contains
         out_vinfo(nn)%out_tintrv = 1
       end if
 
-      LOG_INFO("regrid_field_Init", '(3a,i4,a,i4)') &
+      LOG_INFO("regrid_interp_field_Init", '(3a,i4,a,i4)') &
         " Regist: name=", trim(vars(nn)), ", out_nstep=", out_vinfo(nn)%num_step, &
         ", out_tinterval=", out_vinfo(nn)%out_tintrv
     end do
@@ -233,7 +233,7 @@ contains
   end subroutine regrid_interp_field_Final
 
 !OCL SERIAL
-  subroutine interp_field_Interpolate_2D( istep, varname, out_mesh, out_field, nodeMap_list )
+  subroutine regrid_field_Interpolate_2D( istep, varname, out_mesh, out_field, nodeMap_list )
     use scale_mesh_rectdom2d, only: MeshRectDom2D
     implicit none
 
@@ -256,7 +256,7 @@ contains
     class(MeshBase2D), pointer :: ptr_inmesh2D
     !-------------------------------------------
 
-    call PROF_rapstart('INTERP_field_interpolate_2D', 0)
+    call PROF_rapstart('regrid_field_interpolate_2D', 0)
 
     ptr_outmesh2D => out_mesh%ptr_mesh2D
 
@@ -269,12 +269,12 @@ contains
           in_file_ptr => in_file_list(domID)%in_files(in_ii)
           ptr_inmesh2D => nodeMap_list(domID)%in_mesh_list(in_ii)%ptr_mesh2D
           in_rank = ptr_inmesh2D%lcmesh_list(1)%PRC_myrank
-          LOG_INFO("interp_field",'(a,i4,a,a,i6)') 'domID=', domID, ', Open in_file:', trim(in_basename), in_rank        
+          LOG_INFO("regrid_field",'(a,i4,a,a,i6)') 'domID=', domID, ', Open in_file:', trim(in_basename), in_rank        
 
           select type( ptr_inmesh2D )
           class is (MeshRectDom2D)
             call in_file_ptr%Init( out_var_num, mesh2D=ptr_inmesh2D )
-          class is (MeshCubedSphereDom2D)
+          class is ( MeshCubedSphereDom2D )
             call in_file_ptr%Init( out_var_num, meshCubedSphere2D=ptr_inmesh2D )
           end select
           call in_file_ptr%Open( in_basename, in_rank )
@@ -290,13 +290,13 @@ contains
         nodeMap_list(n)  )
     end do
 
-    call PROF_rapend('INTERP_field_interpolate_2D', 0)
+    call PROF_rapend('regrid_field_interpolate_2D', 0)
 
     return
-  end subroutine interp_field_interpolate_2D
+  end subroutine regrid_field_Interpolate_2D
 
 !OCL SERIAL
-  subroutine interp_field_Interpolate_3D( istep, varname, out_mesh, out_field, nodeMap_list )
+  subroutine regrid_field_Interpolate_3D( istep, varname, out_mesh, out_field, nodeMap_list )
     use scale_mesh_cubedom3d, only: MeshCubeDom3D
     implicit none
 
@@ -319,7 +319,7 @@ contains
     class(MeshBase3D), pointer :: ptr_inmesh3D
     !-------------------------------------------
 
-    call PROF_rapstart('INTERP_field_interpolate_3D', 0)
+    call PROF_rapstart('regrid_field_interpolate_3D', 0)
 
     ptr_outmesh3D => out_mesh%ptr_mesh3D
 
@@ -333,12 +333,12 @@ contains
           ptr_inmesh3D => nodeMap_list(domID)%in_mesh_list(in_ii)%ptr_mesh3D
           in_rank = ptr_inmesh3D%lcmesh_list(1)%PRC_myrank
 
-          LOG_INFO("interp_field",'(a,i4,a,a,i6)') 'domID=', domID, ', Open in_file:', trim(in_basename), in_rank
+          LOG_INFO("regrid_interp_field",'(a,i4,a,a,i6)') 'domID=', domID, ', Open in_file:', trim(in_basename), in_rank
 
           select type( ptr_inmesh3D )
           class is (MeshCubeDom3D)
             call in_file_ptr%Init( out_var_num, mesh3D=ptr_inmesh3D )
-          class is (MeshCubedSphereDom3D)
+          class is ( MeshCubedSphereDom3D )
             call in_file_ptr%Init( out_var_num, meshCubedSphere3D=ptr_inmesh3D )
           end select
           call in_file_ptr%Open( in_basename, in_rank )
@@ -354,10 +354,10 @@ contains
         nodeMap_list(n)  )
     end do
 
-    call PROF_rapend('INTERP_field_interpolate_3D', 0)
+    call PROF_rapend('regrid_field_interpolate_3D', 0)
 
     return
-  end subroutine interp_field_interpolate_3D
+  end subroutine regrid_field_Interpolate_3D
 
 !------------------------
 
@@ -533,12 +533,11 @@ contains
     integer :: ke3D, ke_h
     integer :: p, p_h, pX, pY, pZ
     integer :: p1, p2, p3, l
-    integer :: elem_i, elem_j
     integer :: in_ke3D, in_ex, in_ey, in_ez, in_domID, in_prc
     integer :: in_rank
     type(LocalMesh3D), pointer :: in_lcmesh
     integer :: n
-    integer :: ii, jj, kk, pp, i0_s, j0_s, k0_s, p0_s
+    integer :: ii, jj, kk
 
     type(in_local_val), allocatable :: in_val_list(:)
     class(MeshBase3D), pointer :: in_mesh

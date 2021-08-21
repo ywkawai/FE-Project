@@ -64,7 +64,9 @@ module mod_regrid_interp_vcoord
     type(MeshField3D) :: pres
     type(HexahedralElement) :: elem   
 
-    class(MeshBase3D), pointer :: out_mesh3D_ptr
+    class(regrid_mesh_base), pointer :: out_mesh_ptr
+    type(regrid_mesh_base) :: out_mesh
+
     type(MeshCubeDom3D) :: mesh3D
     type(MeshCubedSphereDom3D) :: csmesh3D
 
@@ -82,10 +84,10 @@ module mod_regrid_interp_vcoord
   !
   !++ Public parameters & variables
   !
-  integer, public, parameter :: INTERP_VCOORD_MODEL_ID  = 1
-  integer, public, parameter :: INTERP_VCOORD_HEIGHT_ID = 2
-  integer, public, parameter :: INTERP_VCOORD_PRESS_ID  = 3
-  integer, public, parameter :: INTERP_VCOORD_SIGMA_ID  = 4
+  integer, public, parameter :: REGRID_VCOORD_MODEL_ID  = 1
+  integer, public, parameter :: REGRID_VCOORD_HEIGHT_ID = 2
+  integer, public, parameter :: REGRID_VCOORD_PRESS_ID  = 3
+  integer, public, parameter :: REGRID_VCOORD_SIGMA_ID  = 4
   
   !-----------------------------------------------------------------------------
   !
@@ -134,7 +136,7 @@ contains
     real(RP) :: out_FZ(FZ_nmax)
     logical :: extrapolate
 
-    namelist / PARAM_INTERP_VCOORD / &
+    namelist / PARAM_REGRID_VCOORD / &
       vintrp_name,          &
       in_topofile_basename, &
       topo_varname,         &
@@ -160,37 +162,40 @@ contains
 
     class(MeshBase2D), pointer :: ptr_mesh2D
     class(regrid_mesh_base), pointer :: in_mesh
+
+    class(MeshBase3D), pointer :: vintrp_ptr_outmesh3D
     !-------------------------------------------
 
     LOG_NEWLINE
-    LOG_INFO("interp_vcoord_Init",*) 'Setup'
+    LOG_INFO("regrid_vcoord_Init",*) 'Setup'
 
     vintrp_name = 'MODEL'
+    out_FZ(:)   = UNDEF
     extrapolate = .false.
 
     !--- read namelist
     rewind(IO_FID_CONF)
-    read(IO_FID_CONF,nml=PARAM_INTERP_VCOORD,iostat=ierr)
+    read(IO_FID_CONF,nml=PARAM_REGRID_VCOORD,iostat=ierr)
     if ( ierr < 0 ) then !--- missing
-        LOG_INFO("interp_vcoord",*) 'Not found namelist. Default used.'
+        LOG_INFO("regrid_vcoord",*) 'Not found namelist. Default used.'
     elseif( ierr > 0 ) then !--- fatal error
-        LOG_ERROR("interp_vcoord",*) 'Not appropriate names in namelist PARAM_INTERP_VCOORD. Check!'
+        LOG_ERROR("regrid_vcoord",*) 'Not appropriate names in namelist PARAM_REGRID_VCOORD. Check!'
         call PRC_abort
     endif
-    LOG_NML(PARAM_INTERP_VCOORD)
+    LOG_NML(PARAM_REGRID_VCOORD)
     
     select case( vintrp_name )
     case( 'MODEL' )
-      this%vintrp_typeid= INTERP_VCOORD_MODEL_ID
-      this%out_mesh3D_ptr => out_mesh%ptr_mesh3D
+      this%vintrp_typeid= REGRID_VCOORD_MODEL_ID
+      this%out_mesh_ptr => out_mesh
     case( 'HEIGHT' )
-      this%vintrp_typeid = INTERP_VCOORD_HEIGHT_ID   
+      this%vintrp_typeid = REGRID_VCOORD_HEIGHT_ID   
     case( 'PRESSURE' )
-      this%vintrp_typeid = INTERP_VCOORD_PRESS_ID
+      this%vintrp_typeid = REGRID_VCOORD_PRESS_ID
     case( 'SIGMA' )
-      this%vintrp_typeid = INTERP_VCOORD_SIGMA_ID      
+      this%vintrp_typeid = REGRID_VCOORD_SIGMA_ID      
     case default
-      LOG_ERROR("interp_vcoord_Init",*) 'Not appropriate vintrp_type. Check!', vintrp_name
+      LOG_ERROR("regrid_vcoord_Init",*) 'Not appropriate vintrp_type. Check!', vintrp_name
       call PRC_abort
     end select
 
@@ -251,9 +256,12 @@ contains
 
     !--
 
-    if ( this%vintrp_typeid /= INTERP_VCOORD_MODEL_ID ) then  
+    if ( this%vintrp_typeid /= REGRID_VCOORD_MODEL_ID ) then  
   
       call this%elem%Init( out_mesh%elem3D%PolyOrder_h, out_PolyOrder_v, .true. )
+
+      call this%out_mesh%Init( OUTMESH_ID, out_mesh%mesh_type_id )
+      this%out_mesh_ptr => this%out_mesh
 
       select type( ptr_mesh2D )
       class is (MeshRectDom2D)
@@ -266,14 +274,14 @@ contains
           out_mesh%NprcX, out_mesh%NprcY,                                             &
           FZ=out_FZ(1:out_NeZ+1) ) 
 
-        this%out_mesh3D_ptr => this%mesh3D
-
         if ( out_mesh%mesh_type_id == REGRID_MESHTYPE_LONLAT3D_ID ) then
-          call this%out_mesh3D_ptr%SetDimInfo( MeshBase3D_DIMTYPEID_X, 'lon', 'degree_east', 'longitude' )
-          call this%out_mesh3D_ptr%SetDimInfo( MeshBase3D_DIMTYPEID_Y, 'lat', 'degree_north', 'latitude' )
-          call this%out_mesh3D_ptr%SetDimInfo( MeshBase3D_DIMTYPEID_XYZ, 'lonlatv', 'degree', 'longitude,latitude,altitude' )
-          call this%out_mesh3D_ptr%SetDimInfo( MeshBase3D_DIMTYPEID_XYZT, 'lonlatzv', 'degree', 'longitude,latitude,altitude' )    
+          call this%mesh3D%SetDimInfo( MeshBase3D_DIMTYPEID_X, 'lon', 'degree_east', 'longitude' )
+          call this%mesh3D%SetDimInfo( MeshBase3D_DIMTYPEID_Y, 'lat', 'degree_north', 'latitude' )
+          call this%mesh3D%SetDimInfo( MeshBase3D_DIMTYPEID_XYZ, 'lonlatv', 'degree', 'longitude,latitude,altitude' )
+          call this%mesh3D%SetDimInfo( MeshBase3D_DIMTYPEID_XYZT, 'lonlatzv', 'degree', 'longitude,latitude,altitude' )    
         end if
+
+        this%out_mesh_ptr%ptr_mesh3D => this%mesh3D
 
       class is (MeshCubedSphereDom2D)
 
@@ -282,30 +290,31 @@ contains
           this%elem, out_mesh%NLocalMeshPerPRC,                                       &
           nproc=out_mesh%Nprc, FZ=out_FZ(1:out_NeZ+1) ) 
 
-        this%out_mesh3D_ptr => this%csmesh3D
+          this%out_mesh_ptr%ptr_mesh3D => this%csmesh3D
 
       end select
             
-      call this%out_mesh3D_ptr%Generate()
+      vintrp_ptr_outmesh3D => this%out_mesh_ptr%ptr_mesh3D
+      call vintrp_ptr_outmesh3D%Generate()
 
-      if ( this%vintrp_typeid == INTERP_VCOORD_PRESS_ID ) then
-        call this%out_mesh3D_ptr%SetDimInfo( MeshBase3D_DIMTYPEID_Z, 'p', 'Pa', 'altitude (preesure coordinate)', &
+      if ( this%vintrp_typeid == REGRID_VCOORD_PRESS_ID ) then
+        call vintrp_ptr_outmesh3D%SetDimInfo( MeshBase3D_DIMTYPEID_Z, 'p', 'Pa', 'altitude (preesure coordinate)', &
           positive_down = .true. )
         call this%pres%Init( "PRES", "Pa", out_mesh%ptr_mesh3D )
-      else if ( this%vintrp_typeid == INTERP_VCOORD_SIGMA_ID ) then
-        call this%out_mesh3D_ptr%SetDimInfo( MeshBase3D_DIMTYPEID_Z, 'sig', '1', 'altitude (sigma coordinate)', &
+      else if ( this%vintrp_typeid == REGRID_VCOORD_SIGMA_ID ) then
+        call vintrp_ptr_outmesh3D%SetDimInfo( MeshBase3D_DIMTYPEID_Z, 'sig', '1', 'altitude (sigma coordinate)', &
           positive_down = .true. )
         call this%pres%Init( "PRES", "Pa", out_mesh%ptr_mesh3D )
-      else if ( this%vintrp_typeid == INTERP_VCOORD_HEIGHT_ID ) then
-        call this%out_mesh3D_ptr%SetDimInfo( MeshBase3D_DIMTYPEID_Z, 'z', 'm', 'altitude (height coordinate)' )        
+      else if ( this%vintrp_typeid == REGRID_VCOORD_HEIGHT_ID ) then
+        call vintrp_ptr_outmesh3D%SetDimInfo( MeshBase3D_DIMTYPEID_Z, 'z', 'm', 'altitude (height coordinate)' )        
       end if   
 
       !------------------------
 
-      allocate( this%vintrp_info(this%out_mesh3D_ptr%LOCAL_MESH_NUM) ) 
+      allocate( this%vintrp_info(vintrp_ptr_outmesh3D%LOCAL_MESH_NUM) ) 
 
-      do n=1, this%out_mesh3D_ptr%LOCAL_MESH_NUM        
-        lcmesh => this%out_mesh3D_ptr%lcmesh_list(n)
+      do n=1, vintrp_ptr_outmesh3D%LOCAL_MESH_NUM        
+        lcmesh => vintrp_ptr_outmesh3D%lcmesh_list(n)
         elem => lcmesh%refElem3D 
         allocate( this%vintrp_info(n)%xi2v_coef(elem%Np,lcmesh%Ne) )
         allocate( this%vintrp_info(n)%xi2v_idx_k(elem%Np,lcmesh%Ne,2) ) 
@@ -314,7 +323,7 @@ contains
     
     end if
 
-    call this%vintrp_var3D%Init( 'regrid_vintrp_var3D', '', this%out_mesh3D_ptr )
+    call this%vintrp_var3D%Init( 'vintrp_var3D', '', this%out_mesh_ptr%ptr_mesh3D )
 
     return
   end subroutine regrid_interp_vcoord_Init
@@ -330,7 +339,8 @@ contains
 
     call this%vintrp_var3D%Final()
     call this%topography%Final()
-    if ( this%vintrp_typeid == INTERP_VCOORD_PRESS_ID ) &
+
+    if ( this%vintrp_typeid == REGRID_VCOORD_PRESS_ID ) &
       call this%pres%Final()
     
     if ( allocated(this%vintrp_info) ) then
@@ -342,17 +352,12 @@ contains
       deallocate( this%vintrp_info )      
     end if
 
-    if (this%vintrp_typeid /= INTERP_VCOORD_MODEL_ID ) then
-      select type( mesh3D => this%out_mesh3D_ptr )
-      class is (MeshCubeDom3D)
-        call mesh3D%Final()
-      class is (MeshCubedSphereDom3D)
-        call mesh3D%Final()
-      end select
+    if (this%vintrp_typeid /= REGRID_VCOORD_MODEL_ID ) then
+      call this%out_mesh%Final()
       call this%elem%Final()
     end if
 
-    nullify( this%out_mesh3D_ptr )
+    nullify( this%out_mesh_ptr )
 
     return
   end subroutine regrid_interp_vcoord_Final
@@ -372,18 +377,18 @@ contains
     !---------------------------------------------------------------
 
     select case( this%vintrp_typeid )
-    case ( INTERP_VCOORD_MODEL_ID )
+    case ( REGRID_VCOORD_MODEL_ID )
       return      
-    case ( INTERP_VCOORD_PRESS_ID, INTERP_VCOORD_SIGMA_ID )
+    case ( REGRID_VCOORD_PRESS_ID, REGRID_VCOORD_SIGMA_ID )
       call regrid_interp_field_Interpolate( istep, this%pres%varname, &
         out_mesh, this%pres, nodeMap_list                             )  
     end select
     
     mesh3D => out_mesh%ptr_mesh3D
     do n=1, mesh3D%LOCAL_MESH_NUM
-      call interp_vcoord_update_weight_core( this, n,  &
-        mesh3D%lcmesh_list(n), mesh3D%refElem3D,       &
-        this%out_mesh3D_ptr%lcmesh_list(n), this%elem  )
+      call interp_vcoord_update_weight_core( this, n,           &
+        mesh3D%lcmesh_list(n), mesh3D%refElem3D,                &
+        this%out_mesh_ptr%ptr_mesh3D%lcmesh_list(n), this%elem  )
     end do
 
     return
@@ -400,13 +405,13 @@ contains
     integer :: n
     !---------------------------------------------------------------
 
-    if ( this%vintrp_typeid == INTERP_VCOORD_MODEL_ID ) return
+    if ( this%vintrp_typeid == REGRID_VCOORD_MODEL_ID ) return
 
-    do n=1, this%out_mesh3D_ptr%LOCAL_MESH_NUM
+    do n=1, this%out_mesh_ptr%ptr_mesh3D%LOCAL_MESH_NUM
       call interp_vcoord_interpolate_core( this%vintrp_info(n), n,   &
         this%vintrp_var3D%local(n)%val, field_ref%local(n)%val,      &
         mesh_ref%lcmesh_list(n), mesh_ref%lcmesh_list(n)%refElem3D,  &
-        this%out_mesh3D_ptr%lcmesh_list(n), this%elem )
+        this%out_mesh_ptr%ptr_mesh3D%lcmesh_list(n), this%elem       )
     end do
        
     return
@@ -481,7 +486,7 @@ contains
 
     !-------------------------------------------------------------
     
-    if ( this%vintrp_typeid == INTERP_VCOORD_PRESS_ID ) then
+    if ( this%vintrp_typeid == REGRID_VCOORD_PRESS_ID ) then
       !$omp parallel
       !$omp do
       do ke=lcmesh_ref%NeS, lcmesh_ref%NeE
@@ -492,7 +497,7 @@ contains
        height(:,ke) = - log( lcmesh%pos_en(:,ke,3) )
       end do      
       !$omp end parallel
-    else if ( this%vintrp_typeid == INTERP_VCOORD_SIGMA_ID ) then
+    else if ( this%vintrp_typeid == REGRID_VCOORD_SIGMA_ID ) then
       lcmesh2D => lcmesh_ref%lcmesh2D
       allocate( SfcPres(lcmesh2D%refElem2D%Np,lcmesh2D%NeA) )
       !$omp parallel private(ke, ke_xy)
@@ -512,7 +517,7 @@ contains
         height(:,ke) = - log( lcmesh%pos_en(:,ke,3) )
       end do      
       !$omp end parallel      
-    else if ( this%vintrp_typeid == INTERP_VCOORD_HEIGHT_ID ) then
+    else if ( this%vintrp_typeid == REGRID_VCOORD_HEIGHT_ID ) then
       !$omp parallel
       !$omp do
       do ke=lcmesh_ref%NeS, lcmesh_ref%NeE
@@ -541,7 +546,7 @@ contains
       vfact(:)    = UNDEF     
       do p_z=1, elem%Nnode_v      
       do p_xy=1, elem%Nnode_h1D**2
-        p = p_xy + (p_z -1) * elem%Nnode_h1D**2
+        p = p_xy + (p_z - 1) * elem%Nnode_h1D**2
         p_sfc_ref = p_xy
         p_top_ref = p_xy + (elem_ref%Nnode_v -1) * elem%Nnode_h1D**2
 
@@ -571,15 +576,17 @@ contains
               pp_ref = p_xy + p_zz * elem%Nnode_h1D**2
               kke_ref = ke_ref
             else
-              pp_ref = 2
+              pp_ref = p_xy + elem%Nnode_h1D**2
               kke_ref = ke_xy + ke_zz * lcmesh%NeX * lcmesh%NeY
             end if
-            if ( height(p,ke) >= height_ref(p_ref,ke_ref)       &
+            if (      height(p,ke) >= height_ref(p_ref,ke_ref)  &
                 .and. height(p,ke) < height_ref(pp_ref,kke_ref) ) then
+              
               indx_k(p,1) = ke_ref; indx_k(p,2) = kke_ref;
-              indx_p(p,1) = p_ref; indx_p(p,2) = pp_ref;
-              vfact(p) = ( height_ref(pp_ref,kke_ref) - height    (p,ke)       )  &
+              indx_p(p,1) =  p_ref; indx_p(p,2) =  pp_ref;
+              vfact(p) = ( height_ref(pp_ref,kke_ref) - height    (p,ke)       ) &
                        / ( height_ref(pp_ref,kke_ref) - height_ref(p_ref,ke_ref) )
+              
               exit search
             end if
           end do
@@ -606,6 +613,7 @@ contains
     in_mesh_list, in_NeGZ, in_NeX, in_NeY                            )
  
     implicit none
+
     type(regrid_interp_vcoord), intent(in) :: this
     type(LocalMesh3D), intent(in) :: lcmesh
     type(ElementBase3D), intent(in) :: elem3D
@@ -631,7 +639,7 @@ contains
     real(RP) :: in_Z0, in_Z1
     integer :: in_ke3D  
     !-------------------------------------------
-
+        
     !$omp parallel private( &
     !$omp ke_h, p_h, in_lcmesh, in_prc, in_n,            &
     !$omp ke_z, ke_z2, p_z, ke, p, in_ke3D, in_Z0, in_Z1 )
@@ -643,6 +651,7 @@ contains
     !$omp do collapse(2)
     do ke_h=1, lcmesh%NeX * lcmesh%NeY
     do p_h=1, elem3D%Nnode_h1D**2
+
       in_n   = local_domID(p_h,ke_h)
       in_prc = lcprc(p_h,ke_h)
       
@@ -650,6 +659,7 @@ contains
            elem_i(p_h,ke_h) > 0 .and. elem_j(p_h,ke_h) > 0 ) then
 
         in_lcmesh => in_mesh_list(in_prc)%ptr_mesh3D%lcmesh_list(in_n)
+
         do ke_z=1, lcmesh%NeZ
         do p_z=1, elem3D%Nnode_v
           ke = ke_h + (ke_z-1)*lcmesh%NeX*lcmesh%NeY
@@ -671,8 +681,8 @@ contains
 
     end do
     end do
-    !$omp end do
-    !$omp end parallel
+   !$omp end do
+   !$omp end parallel
 
     return
   end subroutine regrid_vcoord_search_pos_model

@@ -51,6 +51,7 @@ module mod_regrid_nodemap
   end type
 
 contains
+
 !OCL SERIAL
   subroutine NodeMap_Init( this, &
       inmesh_type, out_mesh      )
@@ -88,7 +89,6 @@ contains
     allocate( pi_table(inmesh_dummy%NLocalMeshPerPrc*inmesh_dummy%Nprc) )
     allocate( pj_table(inmesh_dummy%NLocalMeshPerPrc*inmesh_dummy%Nprc) )
 
-    return
     !---
 
     call inmesh_dummy%Get_inmesh_hmapinfo( &
@@ -103,7 +103,7 @@ contains
       i = pi_table(tileID); j = pj_table(tileID)
 
       in_tiles_x(:,in_n,in_p) = inmesh_dummy%dom_xmin + delx * dble( (/ i-1, i, i, i-1 /) )
-      in_tiles_y(:,in_n,in_p) = inmesh_dummy%dom_ymin * dble( (/ j-1, j-1, j, j /) )
+      in_tiles_y(:,in_n,in_p) = inmesh_dummy%dom_ymin + dely * dble( (/ j-1, j-1, j, j /) )
 
       if (i==inmesh_dummy%NprcX) then
         in_tiles_x(2:3,in_n,in_p) = in_tiles_x(2:3,in_n,in_p) + 1.0E-12_RP * delx       
@@ -117,7 +117,9 @@ contains
     if ( associated(out_mesh%ptr_mesh2D ) ) then
 
       do n=1, out_mesh%ptr_mesh2D%LOCAL_MESH_NUM
+
         lcmesh2D => out_mesh%ptr_mesh2D%lcmesh_list(n)
+
         call NodeMap_construct_nodemap_2D( this, &
           inmesh_dummy%mesh_type_id, out_mesh%mesh_type_id,                  &
           inmesh_type,                                                       &
@@ -126,6 +128,7 @@ contains
           inmesh_dummy%Nprc, inmesh_dummy%NprcX, inmesh_dummy%NprcY,         &
           inmesh_dummy%NeX, inmesh_dummy%NeY, inmesh_dummy%NLocalMeshPerPRC, &
           .true.  )
+        
       end do
 
     end if
@@ -133,7 +136,10 @@ contains
     if ( associated(out_mesh%ptr_mesh3D ) ) then
 
       do n=1, out_mesh%ptr_mesh3D%LOCAL_MESH_NUM
+        
         lcmesh3D => out_mesh%ptr_mesh3D%lcmesh_list(n)
+        lcmesh2D => lcmesh3D%lcmesh2D
+
         call NodeMap_construct_nodemap_3D( this, &
           inmesh_dummy%mesh_type_id, out_mesh%mesh_type_id,                    &
           inmesh_type,                                                         &
@@ -142,6 +148,7 @@ contains
           in_tiles_x, in_tiles_y, tileID_table, panelID_table,                 &
           inmesh_dummy%Nprc, inmesh_dummy%NprcX, inmesh_dummy%NprcY,           &
           inmesh_dummy%NeX, inmesh_dummy%NeY, inmesh_dummy%NLocalMeshPerPRC    )
+        
       end do
 
     end if
@@ -155,7 +162,23 @@ contains
   subroutine NodeMap_Final( this )
     implicit none
     class(regrid_nodemap), intent(inout) :: this
+
+    integer :: n
     !------------------------------------
+    
+    deallocate( this%local_domID )
+    deallocate( this%lcprc )
+    deallocate( this%inPanelID )
+    deallocate( this%elem_i, this%elem_j )
+    deallocate( this%elem_x, this%elem_y )
+    if ( allocated(this%elem_k) ) deallocate( this%elem_k, this%elem_z )
+
+    do n=1, size(this%in_mesh_list)
+      call this%in_mesh_list(n)%Final()
+    end do
+    deallocate( this%in_mesh_list )
+
+    deallocate( this%in_tileID_list )
 
     return
   end subroutine NodeMap_Final
@@ -201,10 +224,8 @@ contains
 
     integer :: lc_domID, prcID, in_prc, in_n
     integer :: i, j
-    integer :: p, ke
     integer :: ke_h
     integer :: p_h, p_h_x, p_h_y
-    integer :: ke_z, ke_z2, p_z, p_z2
     logical :: is_inside_tile(Np1D**2)
     logical :: is_inside_elem
     real(RP) :: in_elem_x(4)
@@ -217,15 +238,11 @@ contains
     integer :: in_lcprc2prc_tmp(in_Nprc)
     integer :: in_tile_num
     integer :: in_prc_num    
-    type(LocalMesh2D), pointer :: in_lcmesh
 
     real(RP), allocatable :: out_x(:,:)
     real(RP), allocatable :: out_y(:,:)
 
     integer :: out_panel
-    real(RP) :: out_x0, del_x
-    real(RP) :: out_y0, del_y
-
     integer :: Np2D
     !-----------------------------------------------------------------
 
@@ -253,7 +270,7 @@ contains
       in_meshtype_id, out_meshtype_id,   & ! (in)
       this%inPanelID,                    & ! (in)
       Np1D, Ne2D, lcmesh )                 ! (in)
-
+   
     in_tile_num = 0
     in_prc_num  = 0
     do ke_h=1, Ne2D
@@ -301,8 +318,7 @@ contains
       end do
 
     end do
-
-
+    
     allocate( this%in_tileID_list(in_tile_num) )
     this%in_tileID_list(:) = in_tileID_tmp(1:in_tile_num)
   
@@ -352,18 +368,20 @@ contains
       end do
     end do
 
+    if ( present(in_lcprc2prc) ) in_lcprc2prc(:) = in_lcprc2prc_tmp(:)
+    if ( present(in_prcnum_out) ) in_prcnum_out  = in_prc_num
+
     !-- prepair mesh for input data --------------------------------
 
-    if ( .not. do_mesh_generation ) return
+    if ( do_mesh_generation ) then
 
-    allocate( this%in_mesh_list(in_prc_num)  )
-    do i=1, in_prc_num
-      call this%in_mesh_list(i)%Init( MESH_INID, in_meshtype_name )
-      call this%in_mesh_list(i)%Generate( myrank=in_lcprc2prc_tmp(i)-1 )
-    end do
+      allocate( this%in_mesh_list(in_prc_num)  )
+      do i=1, in_prc_num
+        call this%in_mesh_list(i)%Init( MESH_INID, in_meshtype_name )
+        call this%in_mesh_list(i)%Generate( myrank=in_lcprc2prc_tmp(i)-1 )
+      end do
 
-    if ( present(in_lcprc2prc) ) in_lcprc2prc(:) = in_lcprc2prc_tmp(i)
-    if ( present(in_prcnum_out) ) in_prcnum_out = in_prc_num
+    end if
 
     return
   end subroutine NodeMap_construct_nodemap_2D
@@ -440,7 +458,8 @@ contains
     Np1D, Ne2D, lcmesh ) 
 
     use scale_meshutil_cubedsphere2d, only: &
-      MeshUtilCubedSphere2D_getPanelID     
+      MeshUtilCubedSphere2D_getPanelID
+      
     implicit none
 
     integer, intent(in) :: Np1D
@@ -456,12 +475,31 @@ contains
         .or. (       in_meshtype_id == REGRID_MESHTYPE_CUBEDSPHERE3D_ID    &
               .and. out_meshtype_id == REGRID_MESHTYPE_LONLAT3D_ID      )  ) then
       
-
       call MeshUtilCubedSphere2D_getPanelID ( &
         inPanelID(:,:),                             & ! (out)
         lcmesh%pos_en(:,:,1) * PI / 180.0_RP,       & ! (in)
         lcmesh%pos_en(:,:,2) * PI / 180.0_RP,       & ! (in)
-        Np1D**2 * Ne2D                              ) ! (in)     
+        Np1D**2 * Ne2D                              ) ! (in)
+        
+    else if (     (       in_meshtype_id == REGRID_MESHTYPE_CUBEDSPHERE2D_ID    &
+                   .and. out_meshtype_id == REGRID_MESHTYPE_CUBEDSPHERE2D_ID )  &
+             .or. (       in_meshtype_id == REGRID_MESHTYPE_CUBEDSPHERE3D_ID    &
+                   .and. out_meshtype_id == REGRID_MESHTYPE_CUBEDSPHERE3D_ID )  ) then
+        
+      ! We assume that panelID of input local mesh is equal to that of the corresponding local mesh. 
+      inPanelID(:,:) = lcmesh%panelID
+
+      ! Memo: 
+      ! If we allow the panelID of input local mesh to be different from that of the corresponding local mesh, 
+      ! the procedure should be the following. In addition, vector quantities in cubed sphere mesh need to be 
+      ! temporally converted to that in a coordinate system that is commonly used between input and output local meshes.
+      !-----
+      ! call MeshUtilCubedSphere2D_getPanelID ( &
+      !   inPanelID(:,:),                       & ! (out)
+      !   lcmesh%lon(:,:), lcmesh%lat(:,:),     & ! (in)
+      !   Np1D**2 * Ne2D                        ) ! (in)
+      !------
+
     else
       inPanelID(:,:) = 1
     end if
@@ -511,6 +549,7 @@ contains
           out_x(p_h,ke_h), out_y(p_h,ke_h)           ) ! (out)
       end do
       end do
+
     else
       !$omp parallel do private(p_h)
       do ke_h=1, Ne2D

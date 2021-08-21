@@ -30,7 +30,7 @@ program regrid_tool
     regrid_interp_field_Interpolate
   use mod_regrid_interp_vcoord, only: &
     regrid_interp_vcoord,             &
-    INTERP_VCOORD_MODEL_ID
+    REGRID_VCOORD_MODEL_ID
   use mod_regrid_file, only: &
     regrid_file_write_var
 
@@ -79,12 +79,12 @@ program regrid_tool
     do istep=1, vinfo%num_step, vinfo%out_tintrv
       start_sec = vinfo%start_sec + (istep - 1) * vinfo%dt
 
-      LOG_INFO("INTERP",'(a,i4)') 'Interpolate :' // trim(out_vinfo(vid)%varname) // " step=", istep
+      LOG_INFO("regrid_tool",'(a,i4)') ' interpolate :' // trim(out_vinfo(vid)%varname) // " step=", istep
       if ( associated( out_mesh%ptr_mesh3D ) ) then
         call regrid_interp_field_Interpolate( istep, vinfo%varname, &
             out_mesh, out_var3D, nodemap                            )
 
-        if ( vintrp%vintrp_typeid == INTERP_VCOORD_MODEL_ID ) then
+        if ( vintrp%vintrp_typeid == REGRID_VCOORD_MODEL_ID ) then
             call regrid_file_write_var( vid, out_var3D,          &
               start_sec, start_sec + vinfo%dt )
         else
@@ -143,7 +143,6 @@ contains
     integer :: ierr
     integer :: comm     ! communicator                      (execution)
 
-    integer :: n
     !-----------------------------------------------------------------------
 
     ! start MPI
@@ -195,12 +194,13 @@ contains
     call regrid_mesh_Init()
     call regrid_interp_field_Init( out_mesh )
     if ( associated(out_mesh%ptr_mesh3D) ) call vintrp%Init( out_mesh, nodemap )
-    call regrid_file_Init( in_basename, out_vinfo, out_mesh )
+    call regrid_file_Init( in_basename, out_vinfo, vintrp%out_mesh_ptr )
 
     !-
     do_output = .true.
 
     LOG_INFO("regrid_tool",*) 'Setup has been finished.'
+    if( IO_L ) call flush(IO_FID_LOG)
 
     call PROF_rapend ('Initialize', 0)
 
@@ -224,9 +224,12 @@ contains
 
     call PROF_rapstart ('Finalize', 0)
 
+    LOG_NEWLINE
+    LOG_INFO("regrid_tool",*) 'Shutdown'
+
     call regrid_file_Final
-    call regrid_interp_field_Final( out_mesh )
     if ( associated(out_mesh%ptr_mesh3D) ) call vintrp%Final()
+    call regrid_interp_field_Final( out_mesh )
     call regrid_mesh_Final()
 
     !

@@ -20,7 +20,7 @@ module mod_regrid_mesh
   use mod_regrid_mesh_base, only: &
     regrid_mesh_base,                    &
     MESHIN_ID => REGRID_MESH_BASE_IN_ID, &
-    MESHOUT_ID => REGRID_MESH_BASE_IN_ID
+    MESHOUT_ID => REGRID_MESH_BASE_OUT_ID
 
   use mod_regrid_nodemap, only: &
     regrid_nodemap
