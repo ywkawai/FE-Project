@@ -134,10 +134,13 @@ contains
     integer :: n
     !-----------------------------------------------------------------------------
   
-    do n=1, this%LOCAL_MESH_NUM
-      call LocalMesh1D_Final( this%lcmesh_list(n), this%isGenerated )
-    end do
-    deallocate( this%lcmesh_list )
+    if ( allocated ( this%lcmesh_list ) ) then 
+      do n=1, this%LOCAL_MESH_NUM
+        call LocalMesh1D_Final( this%lcmesh_list(n), this%isGenerated )
+      end do
+  
+      deallocate( this%lcmesh_list )
+    end if
     
     call MeshBase_Final(this)
 

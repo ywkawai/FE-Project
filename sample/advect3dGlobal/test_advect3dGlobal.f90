@@ -105,7 +105,7 @@ program test_advect3dGlobal
 
   call init()
   call set_initcond()
-
+  
   prgvars_comm_vars(1)%field3d => q
   auxvars_comm_vars(1)%field3d => W
   auxvars_comm_vars(2)%field3d => U
@@ -175,6 +175,7 @@ program test_advect3dGlobal
     call FILE_HISTORY_meshfield_put(HST_ID(7), Vellat)
     call FILE_HISTORY_meshfield_write()
 
+    if( IO_L ) call flush(IO_FID_LOG)
   end do
 
   call final()

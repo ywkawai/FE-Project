@@ -158,13 +158,13 @@ contains
     implicit none
     class(MeshCubedSphereDom3D), intent(inout) :: this
     !-----------------------------------------------------------------------------
-  
+    
     if (this%isGenerated) then
       if ( allocated(this%rcdomIJKP2LCMeshID) ) then
         deallocate( this%rcdomIJKP2LCMeshID )
       end if
     else
-      deallocate( this%FZ )
+      if ( allocated( this%FZ ) ) deallocate( this%FZ )
     end if
 
     call this%mesh2D%Final()
