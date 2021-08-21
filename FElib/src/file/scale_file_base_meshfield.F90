@@ -247,6 +247,7 @@ contains
     
     if ( .not. fileexisted ) then
       call def_axes( this, dtype )
+      this%File_axes_written = .false.      
     end if
 
     return
