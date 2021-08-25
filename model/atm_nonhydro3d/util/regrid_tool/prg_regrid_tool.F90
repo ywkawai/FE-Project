@@ -81,6 +81,7 @@ program regrid_tool
 
       LOG_INFO("regrid_tool",'(a,i4)') ' interpolate :' // trim(out_vinfo(vid)%varname) // " step=", istep
       if ( associated( out_mesh%ptr_mesh3D ) ) then
+
         call regrid_interp_field_Interpolate( istep, vinfo%varname, &
             out_mesh, out_var3D, nodemap                            )
 
@@ -96,11 +97,14 @@ program regrid_tool
         end if
 
       else
+
         call regrid_interp_field_Interpolate( istep, vinfo%varname, &
             out_mesh, out_var2D, nodemap                            )
         call regrid_file_write_var( vid, out_var2D,          &
             start_sec, start_sec + vinfo%dt )
+        
       end if
+
       if( IO_L ) call flush(IO_FID_LOG)      
     end do
   end do
@@ -193,8 +197,13 @@ contains
     !
     call regrid_mesh_Init()
     call regrid_interp_field_Init( out_mesh )
-    if ( associated(out_mesh%ptr_mesh3D) ) call vintrp%Init( out_mesh, nodemap )
-    call regrid_file_Init( in_basename, out_vinfo, vintrp%out_mesh_ptr )
+    
+    if ( associated(out_mesh%ptr_mesh3D) ) then
+      call vintrp%Init( out_mesh, nodemap )
+      call regrid_file_Init( in_basename, out_vinfo, vintrp%out_mesh_ptr )
+    else
+      call regrid_file_Init( in_basename, out_vinfo, out_mesh )      
+    end if
 
     !-
     do_output = .true.

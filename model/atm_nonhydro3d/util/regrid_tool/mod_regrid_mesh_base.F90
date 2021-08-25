@@ -441,12 +441,15 @@ contains
 
     this%NprcX = NprcX
     this%NprcY = NprcY
+    this%NprcZ = 1
     this%Nprc = NprcX * NprcY
 
     this%NeX = NeX
     this%NeY = NeY
+    this%NeZ = 1
     this%NeGX = NeX * NprcX
     this%NeGY = NeY * NprcY
+    this%NeGZ = 1
     this%NLocalMeshPerPRC = NLocalMeshPerPrc
     
     this%dom_xmin = dom_xmin
@@ -521,6 +524,7 @@ contains
 
     this%NeGX = NeGX
     this%NeGY = NeGY
+    this%NeGZ = 1    
     this%NLocalMeshPerPRC = NLocalMeshPerPrc
 
     this%polyorder_h = PolyOrder_h
@@ -536,6 +540,7 @@ contains
     
     this%NeX = NeGX / this%NprcX
     this%NeY = NeGY / this%NprcY
+    this%NeZ = 1
     this%dom_xmin = csmesh2D_dummy%xmin_gl
     this%dom_xmax = csmesh2D_dummy%xmax_gl
     this%dom_ymin = csmesh2D_dummy%ymin_gl
