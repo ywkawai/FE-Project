@@ -114,9 +114,20 @@ contains
   end subroutine USER_setup
 
   subroutine USER_calc_tendency( atm )
+    implicit none
+
+    class(AtmosComponent), intent(inout) :: atm
+    !------------------------------------------
+
+    return
+  end subroutine USER_calc_tendency
+
+  subroutine USER_update( atm )
+
     use scale_const, only: &
       Rdry => CONST_Rdry,   &
       CPdry => CONST_CPdry, & 
+      CVdry => CONST_CVdry, &      
       PRES00 => CONST_PRE00
     use scale_file_history_meshfield, only: &
       FILE_HISTORY_meshfield_in
@@ -142,7 +153,7 @@ contains
     integer :: n
     integer :: ke, ke2D
 
-    real(RP), allocatable :: DENS(:), Teq(:), sig(:), PRES_sfc(:)
+    real(RP), allocatable :: DENS(:), T(:), Teq(:), sig(:), PRES_sfc(:)
     real(RP), allocatable :: rtauT(:), rtauV(:)
     real(RP), allocatable :: lat(:)
     real(RP), parameter :: kf = 1.0_RP / ( 86400.0_RP * 1.0_RP  )
@@ -152,8 +163,12 @@ contains
     real(RP), parameter :: DelPT_z = 10.0_RP
     real(RP), parameter :: sigb = 0.7_RP
 
-    real(RP) :: dt
-    !------------------------------------------
+    real(DP) :: dt
+    real(RP) :: Gamm
+    !----------------------------------------------------------
+
+    dt = atm%time_manager%dtsec
+    gamm = CpDry / CvDry 
 
     do n=1, atm%mesh%ptr_mesh%LOCAL_MESH_NUM
       call AtmosVars_GetLocalMeshPrgVars( n, atm%mesh%ptr_mesh,  &
@@ -166,18 +181,18 @@ contains
       
       elem3D => lcmesh%refElem3D
 
-      allocate( DENS(elem3D%Np), Teq(elem3D%Np), sig(elem3D%Np) )
+      allocate( DENS(elem3D%Np), T(elem3D%Np), Teq(elem3D%Np), sig(elem3D%Np) )
       allocate( PRES_sfc(elem3D%Nnode_h1D**2) )
       allocate( rtauT(elem3D%Np), rtauV(elem3D%Np) )
       allocate( lat(elem3D%Np) )
 
-      !$omp parallel do private(DENS, Teq, PRES_sfc, sig, lat, rtauT, rtauV, ke2D)
+      !$omp parallel do private(DENS, T, Teq, PRES_sfc, sig, lat, rtauT, rtauV, ke2D)
       do ke=lcmesh%NeS, lcmesh%NeE
         ke2D = lcmesh%EMap3Dto2D(ke)
 
         PRES_sfc(:) = PRES%val(elem3D%Hslice(:,1),ke2D)
-        !sig(:) = PRES%val(:,ke) / PRES_sfc(elem3D%IndexH2Dto3D)
-        sig(:) = PRES%val(:,ke) / PRES00
+        sig(:) = PRES%val(:,ke) / PRES_sfc(elem3D%IndexH2Dto3D)
+        sig(:) = PRES%val(:,ke) / PRES00        
         lat(:) = lcmesh%lat2D(elem3D%IndexH2Dto3D,ke2D)
 
         rtauT(:) = ka + (ks - ka) * max( 0.0_RP, (sig(:) - sigb)/(1.0_RP - sigb) ) * cos(lat(:))**4
@@ -186,30 +201,21 @@ contains
         Teq(:) = max(200.0_RP, &
           ( 315.0_RP - DelT_y * sin(lat(:))**2 - DelPT_z * log(PRES%val(:,ke)/PRES00) * cos(lat(:))**2 ) &
           * (PRES%val(:,ke)/PRES00)**(Rdry/CPDry)                                                        )
+        
         DENS(:) = DENS_hyd%val(:,ke) + DDENS%val(:,ke)
+        T(:) =  PRES%val(:,ke) / ( Rdry * DENS(:) )
 
-        atm%vars%PHY_TEND(MOMX_p)%local(n)%val(:,ke) = atm%vars%PHY_TEND(MOMX_p)%local(n)%val(:,ke)   &
-          - rtauV(:) * MOMX%val(:,ke)
-        atm%vars%PHY_TEND(MOMY_p)%local(n)%val(:,ke) = atm%vars%PHY_TEND(MOMY_p)%local(n)%val(:,ke)   &
-          - rtauV(:) * MOMY%val(:,ke)
-
-        atm%vars%PHY_TEND(RHOH_p)%local(n)%val(:,ke) = atm%vars%PHY_TEND(RHOH_p)%local(n)%val(:,ke)   &
-          - DENS(:) * CpDry * rtauT(:) * ( PRES%val(:,ke) / (Rdry * DENS(:)) - Teq(:) )  
+        MOMX%val(:,ke) = MOMX%val(:,ke) / ( 1.0_RP + dt * rtauV )
+        MOMY%val(:,ke) = MOMY%val(:,ke) / ( 1.0_RP + dt * rtauV )
+        DRHOT%val(:,ke) = DRHOT%val(:,ke) &
+                        - dt * rtauT(:) / gamm * ( 1.0_RP - Teq(:) / T(:) ) * DENS(:) * PT%val(:,ke)     &
+                        / ( 1.0_RP + dt * rtauT(:) / gamm * ( 1.0_RP + (gamm - 1.0_RP) * Teq(:) / T(:) ) ) 
       end do
 
-      deallocate( DENS, Teq, sig, PRES_sfc )
+      deallocate( DENS, T, Teq, sig, PRES_sfc )
       deallocate( rtauT, rtauV )
       deallocate( lat )
     end do
-
-    return
-  end subroutine USER_calc_tendency
-
-  subroutine USER_update( atm )
-    implicit none
-
-    class(AtmosComponent), intent(inout) :: atm
-    !------------------------------------------
     
     return
   end subroutine USER_update
