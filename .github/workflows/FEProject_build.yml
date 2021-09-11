@@ -120,6 +120,7 @@ jobs:
         make -C advect3dGlobal
         make -C advect3d_hevi
         make -C euler3d_hevi
+        make -C eigen_analysis
 
     - name: Build model
       run: |
