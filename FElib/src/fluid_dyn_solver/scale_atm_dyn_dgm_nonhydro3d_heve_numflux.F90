@@ -309,7 +309,7 @@ contains
     !$omp GsqrtDDENS_M, GsqrtDDENS_P, GsqrtDRHOT_M, GsqrtDRHOT_P,                       &
     !$omp Phyd_M, Phyd_P,                                                               &
     !$omp Gsqrt_P, Gsqrt_M, GsqrtV_P, GsqrtV_M, G13_P, G13_M, G23_P, G23_M,             &
-    !$omp Gxz_P, Gxz_M, Gyz_P, Gyz_M, G1n_M, G2n_M, Gnn_P, Gnn_M                         )
+    !$omp Gxz_P, Gxz_M, Gyz_P, Gyz_M, G1n_M, G2n_M, Gnn_P, Gnn_M                        )
     do ke=lmesh%NeS, lmesh%NeE
       iM(:) = vmapM(:,ke); iP(:) = vmapP(:,ke)
       ke2D = lmesh%EMap3Dto2D(ke)
@@ -366,12 +366,6 @@ contains
                     + G13_P(:) * GsqrtMOMX_P(:) + G23_P(:) * GsqrtMOMY_P(:) ) * nz(:,ke) ) &
                 ) / GsqrtDensP(:)
 
-      ! Tentative treatment
-      where( abs(1.0_RP-nz(:,ke)**2) < 1.0E-10_RP .and. iP(:) > lmesh%Ne * elem%Np )
-        VelP(:) = - VelM(:)
-        GsqrtMOMZ_P(:) = - GsqrtMOMZ_M(:) - 2.0_RP * ( G13_M(:) * GsqrtMOMX_M(:) + G23_M(:) * GsqrtMOMY_M(:) )
-      end where
-        
       dpresM(:) = PRES00 * ( RovP0 * GsqrtRhotM(:) / Gsqrt_M(:) )**gamm &
                 - Phyd_M(:)
       dpresP(:) = PRES00 * ( RovP0 * GsqrtRhotP(:) / Gsqrt_P(:) )**gamm &
