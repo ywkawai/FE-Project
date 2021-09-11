@@ -36,6 +36,8 @@ program test_eigen_analysis
   real(RP), parameter :: BETA_CENTRAL   = 0.0_RP
   real(RP), parameter :: Helem          = 1.0_RP
   real(RP), parameter :: COURANT_NUMBER_fac = 0.5_RP
+  real(RP), parameter :: MF_alph        = 18.0_RP
+  character(*), parameter :: MF_alph_lbl = "18.0"
 
   integer, parameter :: nout = 10
   complex(RP), parameter :: ei = (0.0_RP, 1.0_RP)
@@ -55,8 +57,10 @@ program test_eigen_analysis
   call eigen_analysis( 2, BETA_UPWIND, 'modal', 'weak', 'RK3', COURANT_NUMBER_fac * 0.205_RP )
   ! p=2, RK4
   call eigen_analysis( 2, BETA_UPWIND, 'modal', 'weak', 'RK4', COURANT_NUMBER_fac * 0.235_RP )
-  ! p=5, RK5
+  ! p=5, RK4
   call eigen_analysis( 5, BETA_UPWIND, 'modal', 'weak', 'RK4', COURANT_NUMBER_fac * 0.073_RP )
+  ! p=7, RK4
+  call eigen_analysis( 7, BETA_UPWIND, 'modal', 'weak', 'RK4', 5.0E-3_RP )
 
 contains
 
@@ -64,6 +68,8 @@ contains
       porder, beta, basis_type, form_type, &
       tscheme_name, courant_num )
 
+    use scale_element_modalfilter, only: &
+      ModalFilter
     implicit none
     integer, intent(in) :: porder
     real(RP), intent(in) :: beta
@@ -83,6 +89,7 @@ contains
     real(RP) :: phiP1(porder+1)
     real(RP) :: P1D_ (porder+1,porder+1)
     real(RP) :: DP1D_(porder+1,porder+1)
+    type(ModalFilter) :: MFilter
 
     integer :: p1, p2
 
@@ -172,6 +179,13 @@ contains
     call cosntruct_mat( KC, KP, KM,           & ! (out)
       Stiff, Minv, phiM1, phiP1, porder, beta ) ! (in)
 
+    call MFilter%Init( elem, 0.0_RP, MF_alph, 16 )
+    MFilter%FilterMat(:,:) = 0.0_RP
+    do p1=1, porder+1
+      MFilter%FilterMat(p1,p1) = exp( - MF_alph * ( ((dble(p1-1)/dble(porder) - 0.0_RP)/(1.0_RP - 0.0_RP))**32 ) )
+      write(*,*) MFilter%FilterMat(p1,:)
+    end do
+
     !-- Calculate eigenvalues
 
     ! Use routine workspace query to get optimal workspace.    
@@ -209,6 +223,8 @@ contains
       if ( present(tscheme_name) ) then
         call construct_full_discrete_mat( Mat, & ! (inout)
           tscheme_name, courant_num, porder   )  ! (in)
+        
+        Mat(:,:) = matmul(MFilter%FilterMat(:,:), Mat(:,:))
       end if
 
       call zgeevx( 'Balance', 'Vectors (left)', 'Vectors (right)', 'Both reciprocal condition numbers', &
@@ -271,7 +287,12 @@ contains
 
     do p1=1, porder+1
       if ( present( tscheme_name ) ) then 
-        write(filename,'(a,a,a,a,a,i2.2,a,i2.2,a)') './data/eigenval_', trim(basis_type), '_', trim(form_type), '_P', porder, '_Mode', p1, '_'//trim(tscheme_name)//'.dat'
+        write(filename,'(a,a,a,a,a,i2.2,a,i2.2,a)') './data/eigenval_', trim(basis_type), '_', trim(form_type), '_P', porder, '_Mode', p1, '_'//trim(tscheme_name)
+        if ( MF_alph > 0.0_RP ) then
+          write(filename,'(3a)') trim(filename), '_MF'//MF_alph_lbl, '.dat' 
+        else
+          filename = trim(filename)//".dat"
+        end if        
       else
         write(filename,'(a,a,a,a,a,i2.2,a,i2.2,a)') './data/eigenval_', trim(basis_type), '_', trim(form_type), '_P', porder, '_Mode', p1, '.dat'
       end if
@@ -285,7 +306,13 @@ contains
 
     !-- output the results for combined mode
     if ( present( tscheme_name ) ) then 
-      write(filename,'(a,a,a,a,a,i2.2,a)') './data/eigenval_', trim(basis_type), '_', trim(form_type), '_P', porder, '_combinedmode_'//trim(tscheme_name)//'.dat'
+      write(filename,'(a,a,a,a,a,i2.2,a)') './data/eigenval_', trim(basis_type), '_', trim(form_type), '_P', porder, '_combinedmode_'//trim(tscheme_name)
+      if ( MF_alph > 0.0_RP ) then
+        write(filename,'(3a)') trim(filename), '_MF'//MF_alph_lbl, '.dat' 
+      else
+        filename = trim(filename) // ".dat"
+      end if
+
       open( nout, file=trim(filename), status='replace' )
       write( nout, '(a)') "# K G(n=1) phi(n=1) G(n=10) phi(n=10)  G(n=100) phi(n=100)"
       do k=1, kmax
@@ -296,6 +323,8 @@ contains
       close( nout )
     end if
     !-
+
+    call MFilter%Final()
     call elem%Final()  
 
     return
