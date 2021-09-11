@@ -80,6 +80,7 @@ contains
       polynominal_genGaussLobattoPt, Polynominal_GenGaussLobattoPtIntWeight,   &
       polynominal_genLegendrePoly, Polynominal_genDLegendrePoly,               &
       polynominal_genLagrangePoly, polynominal_genDLagrangePoly_lglpt
+    use scale_element_quadrilateral, only: QuadrilateralElement
 
     implicit none
     
@@ -110,6 +111,11 @@ contains
     integer :: n, l, f
     integer :: Nord
     integer :: is, ie
+
+    integer :: f_h, f_v
+    integer :: fp, fp_h1, fp_h2, fp_v
+
+    type(QuadrilateralElement) :: elem2D
     !-----------------------------------------------------------------------------
 
     lglPts1D_h(:)      = polynominal_genGaussLobattoPt( elem%PolyOrder_h )
@@ -142,6 +148,8 @@ contains
     elem%Fmask_v(:,1) = reshape(nodes_ijk(:,:,1), (/ elem%Nfp_v /))
     elem%Fmask_v(:,2) = reshape(nodes_ijk(:,:,elem%Nnode_v), (/ elem%Nfp_v /))
     
+    !- ColMask
+
     do j=1, elem%Nnode_h1D
     do i=1, elem%Nnode_h1D
       n = i + (j-1)*elem%Nnode_h1D
@@ -149,9 +157,13 @@ contains
     end do
     end do
     
+    != Hslice
+
     do k=1, elem%Nnode_v
       elem%Hslice(:,k) = reshape(nodes_ijk(:,:,k), (/ elem%Nfp_v /))
     end do
+
+    !- IndexH2Dto3D
 
     do k=1, elem%Nnode_v    
     do j=1, elem%Nnode_h1D
@@ -161,6 +173,33 @@ contains
     end do
     end do    
     end do
+
+    !- IndexH2Dto3D_bnd
+
+    call elem2D%Init( elem%PolyOrder_h, .false. )
+
+    do f_h=1, 4
+      do fp_v=1, elem%Nnode_v
+      do fp_h1=1, elem%Nnode_h1D
+        fp = fp_h1 + (fp_v-1)*elem%Nnode_h1D + (f_h-1)*elem%Nfp_h
+        elem%IndexH2Dto3D_bnd(fp) = elem2D%Fmask(fp_h1,f_h)
+      end do  
+      end do
+    end do
+    do f_v=1, 2
+      do fp_h2=1, elem%Nnode_h1D
+      do fp_h1=1, elem%Nnode_h1D
+        fp = fp_h1 + (fp_h2-1)*elem%Nnode_h1D    &
+           + (f_v-1) * elem%Nfp_v                &
+           + 4 * elem%Nnode_h1D * elem%Nnode_v
+          elem%IndexH2Dto3D_bnd(fp) = fp_h1 + (fp_h2-1)*elem%Nnode_h1D
+      end do  
+      end do
+    end do
+
+    call elem2D%Final()
+
+    !- IndexZ1Dto3D
 
     do k=1, elem%Nnode_v    
     do j=1, elem%Nnode_h1D

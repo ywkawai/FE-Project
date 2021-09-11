@@ -101,8 +101,8 @@ module scale_element_base
     integer, allocatable :: Colmask(:,:)
     integer, allocatable :: Hslice(:,:)
     integer, allocatable :: IndexH2Dto3D(:)
+    integer, allocatable :: IndexH2Dto3D_bnd(:)    
     integer, allocatable :: IndexZ1Dto3D(:)
-
 
     real(RP), allocatable :: x1(:)
     real(RP), allocatable :: x2(:)
@@ -270,6 +270,7 @@ contains
     allocate( elem%Colmask(elem%Nnode_v,elem%Nfp_v))
     allocate( elem%Hslice(elem%Nfp_v,elem%Nnode_v) )
     allocate( elem%IndexH2Dto3D(elem%Np) )
+    allocate( elem%IndexH2Dto3D_bnd(elem%NfpTot) )
     allocate( elem%IndexZ1Dto3D(elem%Np) )
   
     return
@@ -287,7 +288,8 @@ contains
       deallocate( elem%Sx1, elem%Sx2, elem%Sx3 )
       deallocate( elem%Fmask_h, elem%Fmask_v )
       deallocate( elem%Colmask, elem%Hslice )
-      deallocate( elem%IndexH2Dto3D, elem%IndexZ1Dto3D )
+      deallocate( elem%IndexH2Dto3D, elem%IndexH2Dto3D_bnd )
+      deallocate( elem%IndexZ1Dto3D )
     end if
 
     call ElementBase_Final( elem )    
