@@ -176,7 +176,8 @@ contains
         ke2D = lcmesh%EMap3Dto2D(ke)
 
         PRES_sfc(:) = PRES%val(elem3D%Hslice(:,1),ke2D)
-        sig(:) = PRES%val(:,ke) / PRES_sfc(elem3D%IndexH2Dto3D)
+        !sig(:) = PRES%val(:,ke) / PRES_sfc(elem3D%IndexH2Dto3D)
+        sig(:) = PRES%val(:,ke) / PRES00
         lat(:) = lcmesh%lat2D(elem3D%IndexH2Dto3D,ke2D)
 
         rtauT(:) = ka + (ks - ka) * max( 0.0_RP, (sig(:) - sigb)/(1.0_RP - sigb) ) * cos(lat(:))**4
