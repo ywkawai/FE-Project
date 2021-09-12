@@ -81,7 +81,6 @@ module mod_atmos_dyn_bnd
   integer, parameter :: domBnd_Top_ID   = 6
   integer, parameter :: DOM_BND_NUM     = 6
 
-
 contains
   subroutine ATMOS_dyn_bnd_setup( this )
     use scale_mesh_bndinfo, only: &
@@ -170,6 +169,7 @@ contains
     return
   end subroutine ATMOS_dyn_bnd_finalize  
 
+  !OCL SERIAL
   subroutine ATMOS_dyn_bnd_setBCInfo( this, mesh )
 
     implicit none
@@ -232,10 +232,10 @@ contains
     real(RP), intent(inout) :: DRHOT(elem%Np*lmesh%NeA)
     real(RP), intent(in) :: DENS_hyd(elem%Np*lmesh%NeA)
     real(RP), intent(in) :: PRES_hyd(elem%Np*lmesh%NeA)
-    real(RP), intent(in) :: Gsqrt(elem%Np*lmesh%Ne)
+    real(RP), intent(in) :: Gsqrt(elem%Np*lmesh%NeA)
     real(RP), intent(in) :: GsqrtH(elem2D%Np,lmesh2D%Ne)
-    real(RP), intent(in) ::  G13(elem%Np*lmesh%Ne)
-    real(RP), intent(in) ::  G23(elem%Np*lmesh%Ne)    
+    real(RP), intent(in) ::  G13(elem%Np*lmesh%NeA)
+    real(RP), intent(in) ::  G23(elem%Np*lmesh%NeA)    
     real(RP), intent(in) :: nx(elem%NfpTot*lmesh%Ne)
     real(RP), intent(in) :: ny(elem%NfpTot*lmesh%Ne)
     real(RP), intent(in) :: nz(elem%NfpTot*lmesh%Ne)
@@ -286,7 +286,7 @@ contains
     
     return
   end  subroutine ATMOS_dyn_bnd_applyBC_prgvars_lc
-
+  
   subroutine ATMOS_dyn_bnd_applyBC_numdiff_odd_lc(  this, & ! (in)
     GxVar, GyVar, GzVar,                                  & ! (inout)
     is_bound,                                             & ! (out)

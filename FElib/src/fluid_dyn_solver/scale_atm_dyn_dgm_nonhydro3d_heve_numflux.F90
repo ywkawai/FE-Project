@@ -180,12 +180,6 @@ contains
                 + ( ( GsqrtMOMZ_P(:) / GsqrtV_P(:)                                         &
                     + G13_P(:) * GsqrtMOMX_P(:) + G23_P(:) * GsqrtMOMY_P(:) ) * nz(:,ke) ) &
                 ) / GsqrtDensP(:)
-
-      ! Tentative treatment
-      where( abs(1.0_RP-nz(:,ke)**2) < 1.0E-10_RP .and. iP(:) > lmesh%Ne * elem%Np )
-        VelP(:) = - VelM(:)
-        GsqrtMOMZ_P(:) = - GsqrtMOMZ_M(:) - 2.0_RP * ( G13_M(:) * GsqrtMOMX_M(:) + G23_M(:) * GsqrtMOMY_M(:) )
-      end where
         
       dpresM(:) = PRES00 * ( RovP0 * GsqrtRhotM(:) / Gsqrt_M(:) )**gamm &
                 - Phyd_M(:)
