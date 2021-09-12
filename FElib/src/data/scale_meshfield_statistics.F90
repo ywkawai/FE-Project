@@ -329,10 +329,12 @@ contains
       refElem => lcmesh%refElem
       do v=1, VA
         call field_list(v)%GetLocalMeshField(n, lcfield)
-        statval_l(  v,:) = lcfield%val(1,lcmesh%NeS)
-        statidx_l(1,v,:) = 1
-        statidx_l(2,v,:) = lcmesh%NeS
-        statidx_l(3,v,:) = n
+        if (n==1) then
+          statval_l(  v,:) = lcfield%val(1,lcmesh%NeS)
+          statidx_l(1,v,:) = 1
+          statidx_l(2,v,:) = lcmesh%NeS
+          statidx_l(3,v,:) = n
+        end if
         do ke=lcmesh%NeS, lcmesh%NeE
         do p =1, refElem%Np
           if ( lcfield%val(p,ke) > statval_l(v,1) ) then

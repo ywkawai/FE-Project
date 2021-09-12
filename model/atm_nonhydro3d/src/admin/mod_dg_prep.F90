@@ -33,6 +33,8 @@ module mod_dg_prep
     USER_setup, &
     USER_mkinit
 
+  use mod_mktopo, only: &
+    MKTOPO, MKTOPO_write
   use mod_mkinit, only: &
     MKINIT
   
@@ -87,6 +89,7 @@ contains
     logical :: ismaster
 
     logical :: output
+    logical :: output_topo
     !---------------------------------------------------------------------------
 
     !########## Initial setup ##########
@@ -121,11 +124,17 @@ contains
     !- Execute preprocess
 
     !- Execute mktopo
+    call PROF_rapstart('MkTopo',1)
+    call MKTOPO( output_topo,           &
+      atmos%mesh, atmos%mesh%topography )
+    call PROF_rapend  ('MkTopo',1)
 
     !- Re-setup
+    call atmos%mesh%Setup_vcoordinate()
 
     !- Execute mkinit
     call PROF_rapstart('MkInit',1)
+    
     call MKINIT( output, &
       atmos%mesh, atmos%vars%PROGVARS_manager, atmos%vars%AUXVARS_manager )
     call USER_mkinit( atmos )
@@ -134,9 +143,9 @@ contains
 
     !- Output
 
-    ! call TOPOGRAPHY_write
+    if ( output_topo ) call MKTOPO_write( atmos%mesh, atmos%mesh%topography )
 
-    if (output) then
+    if ( output ) then
       call PROF_rapstart('MkInit_restart',1)
       call restart_write()
       call PROF_rapend  ('MkInit_restart',1)
@@ -161,6 +170,7 @@ contains
     use scale_time_manager, only: TIME_manager_Init
 
     use mod_user, only: USER_setup    
+    use mod_mktopo, only: MKTOPO_setup
     use mod_mkinit, only: MKINIT_setup
 
     implicit none
@@ -190,7 +200,10 @@ contains
     call FILE_restart_meshfield_setup
 
     ! setup submodels
-    call  atmos%setup()
+    call atmos%setup()
+
+    ! setup mktopo
+    call MKTOPO_setup
 
     ! setup mkinit
     call MKINIT_setup()
@@ -234,6 +247,6 @@ contains
     if ( atmos%isActivated() ) call atmos%vars%Write_restart_file()
 
     return
-  end subroutine 
+  end subroutine restart_write
 
 end module mod_dg_prep

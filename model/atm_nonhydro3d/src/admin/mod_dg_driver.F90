@@ -136,16 +136,16 @@ contains
 
       call TIME_manager_advance
       call FILE_HISTORY_set_nowdate( TIME_NOWDATE, TIME_NOWSUBSEC, TIME_NOWSTEP )
-
+      
       !* change to next state *************************
 
       !- ATMOS
       if ( atmos%IsActivated() .and. atmos%time_manager%do_step ) then
-        call atmos%update()
+       call atmos%update()
       end if
 
       !- USER
-      call USER_update
+      call USER_update( atmos )
 
       !* restart and monitor output *******************
       if ( atmos%IsActivated() ) call atmos%vars%Monitor()
@@ -160,7 +160,7 @@ contains
       end if
 
       !- USER 
-      call USER_calc_tendency
+      call USER_calc_tendency( atmos )
   
       !* output history files *************************
 
@@ -303,7 +303,8 @@ contains
     if ( atmos%IsActivated() ) then
       call atmos%calc_tendency()
     end if
-
+    
+    call USER_calc_tendency( atmos )
 
     !- History & Monitor 
 
@@ -319,12 +320,11 @@ contains
     implicit none    
     !----------------------------------------
 
-
     if ( atmos%isActivated() .and. atmos%time_manager%do_restart) then
       call atmos%vars%Write_restart_file()
     end if
 
     return
-  end subroutine 
+  end subroutine restart_write
 
 end module mod_dg_driver

@@ -52,6 +52,9 @@ module scale_mesh_base1d
   !
   !++ Public parameters & variables
   !
+  integer, public :: MeshBase1D_DIMTYPE_NUM   = 2
+  integer, public :: MeshBase1D_DIMTYPEID_X   = 1
+  integer, public :: MeshBase1D_DIMTYPEID_XT  = 2
   
   !-----------------------------------------------------------------------------
   !
@@ -106,16 +109,20 @@ contains
     end if
 
     this%refElem1D => refElem
-    call MeshBase_Init( this,       &
-      refElem, NLocalMeshPerPrc, 2, &
-      nprocs                        )
+    call MeshBase_Init( this,          &
+      MeshBase1D_DIMTYPE_NUM, refElem, &
+      NLocalMeshPerPrc, 2,             &
+      nprocs                           )
 
     this%Nprc = this%PRC_NUM
          
     allocate( this%lcmesh_list(this%LOCAL_MESH_NUM) )
     do n=1, this%LOCAL_MESH_NUM
-      call LocalMesh1D_Init( this%lcmesh_list(n), refElem, myrank )
+      call LocalMesh1D_Init( this%lcmesh_list(n), n, refElem, myrank )
     end do
+
+    call this%SetDimInfo( MeshBase1D_DIMTYPEID_X, "x", "m", "X-coordinate" )
+    call this%SetDimInfo( MeshBase1D_DIMTYPEID_XT, "xt", "m", "X-coordinate" )
 
     return
   end subroutine Meshbase1d_Init
@@ -127,10 +134,13 @@ contains
     integer :: n
     !-----------------------------------------------------------------------------
   
-    do n=1, this%LOCAL_MESH_NUM
-      call LocalMesh1D_Final( this%lcmesh_list(n), this%isGenerated )
-    end do
-    deallocate( this%lcmesh_list )
+    if ( allocated ( this%lcmesh_list ) ) then 
+      do n=1, this%LOCAL_MESH_NUM
+        call LocalMesh1D_Final( this%lcmesh_list(n), this%isGenerated )
+      end do
+  
+      deallocate( this%lcmesh_list )
+    end if
     
     call MeshBase_Final(this)
 
@@ -242,7 +252,7 @@ contains
     return
   end subroutine Meshbase1D_assignDomID
 
-  subroutine MeshBase1D_setupLocalDom( mesh,    &
+  subroutine MeshBase1D_setupLocalDom( lcmesh,  &
     tileID, panelID,                            &
     i, Nprc,                                    &
     dom_xmin, dom_xmax,                         &
@@ -257,7 +267,7 @@ contains
     use scale_localmesh_base, only: BCTYPE_INTERIOR
     implicit none
       
-    type(LocalMesh1D), intent(inout) :: mesh
+    type(LocalMesh1D), intent(inout) :: lcmesh
     integer, intent(in) :: tileID
     integer, intent(in) :: panelID
     integer, intent(in) :: i
@@ -271,57 +281,57 @@ contains
     real(RP) :: FX_lc(Ne+1)    
     !-----------------------------------------------------------------------------
 
-    elem => mesh%refElem1D
-    mesh%tileID = tileID
-    mesh%panelID = panelID
+    elem => lcmesh%refElem1D
+    lcmesh%tileID = tileID
+    lcmesh%panelID = panelID
     
     !--
 
-    mesh%Ne  = Ne
-    mesh%Nv  = Ne + 1
-    mesh%NeS = 1
-    mesh%NeE = mesh%Ne
-    mesh%NeA = mesh%Ne + 2
+    lcmesh%Ne  = Ne
+    lcmesh%Nv  = Ne + 1
+    lcmesh%NeS = 1
+    lcmesh%NeE = lcmesh%Ne
+    lcmesh%NeA = lcmesh%Ne + 2
 
     !delx = (dom_xmax - dom_xmin)/dble(Nprc)
     FX_lc(:) = Fx((i-1)*Ne+1:i*Ne)
-    mesh%xmin = FX_lc(1)
-    mesh%xmax = FX_lc(Ne+1)
+    lcmesh%xmin = FX_lc(1)
+    lcmesh%xmax = FX_lc(Ne+1)
 
-    allocate(mesh%pos_ev(mesh%Nv,1))
-    allocate( mesh%EToV(mesh%Ne,2) )
-    allocate( mesh%EToE(mesh%Ne,elem%Nfaces) )
-    allocate( mesh%EToF(mesh%Ne,elem%Nfaces) )
-    allocate( mesh%BCType(mesh%refElem%Nfaces,mesh%Ne) )
-    allocate( mesh%VMapM(elem%NfpTot, mesh%Ne) )
-    allocate( mesh%VMapP(elem%NfpTot, mesh%Ne) )
-    allocate( mesh%MapM(elem%NfpTot, mesh%Ne) )
-    allocate( mesh%MapP(elem%NfpTot, mesh%Ne) )
+    allocate(lcmesh%pos_ev(lcmesh%Nv,1))
+    allocate( lcmesh%EToV(lcmesh%Ne,2) )
+    allocate( lcmesh%EToE(lcmesh%Ne,elem%Nfaces) )
+    allocate( lcmesh%EToF(lcmesh%Ne,elem%Nfaces) )
+    allocate( lcmesh%BCType(lcmesh%refElem%Nfaces,lcmesh%Ne) )
+    allocate( lcmesh%VMapM(elem%NfpTot, lcmesh%Ne) )
+    allocate( lcmesh%VMapP(elem%NfpTot, lcmesh%Ne) )
+    allocate( lcmesh%MapM(elem%NfpTot, lcmesh%Ne) )
+    allocate( lcmesh%MapP(elem%NfpTot, lcmesh%Ne) )
 
-    mesh%BCType(:,:) = BCTYPE_INTERIOR
+    lcmesh%BCType(:,:) = BCTYPE_INTERIOR
 
     !----
 
-    call MeshUtil1D_genLineDomain( mesh%pos_ev, mesh%EToV,   & ! (out)
-        mesh%Ne, mesh%xmin, mesh%xmax, FX=FX_lc   )            ! (in)
+    call MeshUtil1D_genLineDomain( lcmesh%pos_ev, lcmesh%EToV,   & ! (out)
+        lcmesh%Ne, lcmesh%xmin, lcmesh%xmax, FX=FX_lc   )            ! (in)
 
 
     !---
-    call MeshBase1D_setGeometricInfo( mesh )
+    call MeshBase1D_setGeometricInfo( lcmesh )
     
     !---
 
-    call MeshUtil1D_genConnectivity( mesh%EToE, mesh%EToF, & ! (out)
-        & mesh%EToV, mesh%Ne, elem%Nfaces )                  ! (in)
+    call MeshUtil1D_genConnectivity( lcmesh%EToE, lcmesh%EToF, & ! (out)
+        & lcmesh%EToV, lcmesh%Ne, elem%Nfaces )                  ! (in)
 
     !---
-    call MeshUtil1D_BuildInteriorMap( mesh%VmapM, mesh%VMapP, mesh%MapM, mesh%MapP,  &
-      & mesh%pos_en, mesh%pos_ev, mesh%EToE, mesh%EtoF, mesh%EtoV,                   &
-      & elem%Fmask, mesh%Ne, elem%Np, elem%Nfp, elem%Nfaces, mesh%Nv )
+    call MeshUtil1D_BuildInteriorMap( lcmesh%VmapM, lcmesh%VMapP, lcmesh%MapM, lcmesh%MapP,  &
+      & lcmesh%pos_en, lcmesh%pos_ev, lcmesh%EToE, lcmesh%EtoF, lcmesh%EtoV,                   &
+      & elem%Fmask, lcmesh%Ne, elem%Np, elem%Nfp, elem%Nfaces, lcmesh%Nv )
 
-    call MeshUtil1D_genPatchBoundaryMap( mesh%VMapB, mesh%MapB, mesh%VMapP, &
-      & mesh%pos_en, mesh%xmin, mesh%xmax,                                  &
-      & elem%Fmask, mesh%Ne, elem%Np, elem%Nfp, elem%Nfaces, mesh%Nv)
+    call MeshUtil1D_genPatchBoundaryMap( lcmesh%VMapB, lcmesh%MapB, lcmesh%VMapP, &
+      & lcmesh%pos_en, lcmesh%xmin, lcmesh%xmax,                                  &
+      & elem%Fmask, lcmesh%Ne, elem%Np, elem%Nfp, elem%Nfaces, lcmesh%Nv)
     
     return
   end subroutine MeshBase1D_setupLocalDom

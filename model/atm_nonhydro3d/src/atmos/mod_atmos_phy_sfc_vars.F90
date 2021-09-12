@@ -12,7 +12,9 @@ module mod_atmos_phy_sfc_vars
   use scale_element_base, only: ElementBase3D
   use scale_mesh_base, only: MeshBase
   use scale_mesh_base2d, only: MeshBase2D
-  use scale_mesh_base3d, only: MeshBase3D
+  use scale_mesh_base3d, only: &
+    MeshBase3D,                              &
+    DIMTYPE_XYZ  => MeshBase3D_DIMTYPEID_XYZ
   use scale_localmesh_base, only: LocalMeshBase
   use scale_localmesh_3d, only: LocalMesh3D
   use scale_localmeshfield_base, only: LocalMeshFieldBase
@@ -21,8 +23,6 @@ module mod_atmos_phy_sfc_vars
 
   use scale_file_restart_meshfield, only: &
     FILE_restart_meshfield_component
-  use scale_file_common_meshfield, only: &
-    DIMTYPE_XYZ  => FILE_COMMON_MESHFILED3D_DIMTYPEID_XYZ
   
   use scale_model_var_manager, only: &
     ModelVarManager, VariableInfo
@@ -96,12 +96,12 @@ contains
 
     nullify( atm_mesh )
     select type(model_mesh)
-    type is (AtmosMesh)
+    class is (AtmosMesh)
       atm_mesh => model_mesh
     end select
-    
-    mesh3D => atm_mesh%mesh
-    call atm_mesh%mesh%GetMesh2D( mesh2D )
+    mesh3D => atm_mesh%ptr_mesh
+
+    call mesh3D%GetMesh2D( mesh2D )
 
     !----
     call this%SFCFLX_manager%Init()
@@ -113,7 +113,7 @@ contains
         ATMOS_PHY_SF_SFLX_VINFO(v), mesh2D,       & ! (in) 
         this%SFC_FLX(v), reg_file_hist            ) ! (out)
       
-      do n = 1, atm_mesh%mesh%LOCAL_MESH_NUM
+      do n = 1, mesh3D%LOCAL_MESH_NUM
         this%SFC_FLX(v)%local(n)%val(:,:) = 0.0_RP
       end do         
     end do

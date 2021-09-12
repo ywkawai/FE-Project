@@ -110,15 +110,17 @@ contains
     return
   end subroutine USER_setup
 
-  subroutine USER_calc_tendency
+  subroutine USER_calc_tendency( atm )
     implicit none
+    class(AtmosComponent), intent(inout) :: atm
     !------------------------------------------
 
     return
   end subroutine USER_calc_tendency
 
-  subroutine USER_update
+  subroutine USER_update( atm )
     implicit none
+    class(AtmosComponent), intent(inout) :: atm
     !------------------------------------------
 
     return
@@ -215,10 +217,8 @@ contains
 
     allocate( x_intrp(elem_intrp%Np), y_intrp(elem_intrp%Np), z_intrp(elem_intrp%Np) )
     
-    call hydrostatic_calc_basicstate_constBVFreq( DENS_hyd, PRES_hyd,     &
-      BruntVaisalaFreq, THETA0, PRES00,                                   &
-      lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2), lcmesh%pos_en(:,:,3),   &
-      lcmesh, elem )
+    call hydrostatic_calc_basicstate_constBVFreq( DENS_hyd, PRES_hyd, & ! (out)
+      BruntVaisalaFreq, THETA0, PRES00, x, y, z, lcmesh, elem         ) ! (in)
     
     !---
     RovCp = Rdry / CpDry
@@ -247,8 +247,8 @@ contains
     return
   end subroutine exp_SetInitCond_inertia_gravity_wave
 
-  subroutine exp_geostrophic_balance_correction( this,                              &
-    DENS_hyd, PRES_hyd, DDENS, MOMX, MOMY, MOMZ, DRHOT,                  &
+  subroutine exp_geostrophic_balance_correction( this,    &
+    DENS_hyd, PRES_hyd, DDENS, MOMX, MOMY, MOMZ, DRHOT,   &
     lcmesh, elem )
     
     implicit none

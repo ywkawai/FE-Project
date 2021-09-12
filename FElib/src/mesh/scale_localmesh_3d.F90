@@ -25,10 +25,17 @@ module scale_localmesh_3d
     real(DP) :: xmin, xmax
     real(DP) :: ymin, ymax
     real(DP) :: zmin, zmax
-    integer :: NeX, NeY, Ne2D, NeZ
+    integer :: NeX
+    integer :: NeY
+    integer :: NeZ
+    integer :: Ne2D
+    integer :: Ne2DA
 
     real(DP), allocatable :: Sz(:,:)
     real(DP), allocatable :: zS(:,:)
+    real(RP), allocatable :: GI3(:,:,:)    !< The contravariant component of metric tensor with vertical general coordinate 
+    real(RP), allocatable :: GsqrtH(:,:)   !< The Jacobian of horizontal transformation in the computational coordinate
+    real(RP), allocatable :: zlev(:,:)
 
     class(LocalMesh2D), pointer :: lcmesh2D
     real(DP), allocatable :: lon2D(:,:)     
@@ -59,10 +66,11 @@ module scale_localmesh_3d
 contains
 
   subroutine LocalMesh3D_Init( this, &
-    refElem, myrank )
+    lcdomID, refElem, myrank )
     implicit none
 
     class(LocalMesh3D), intent(inout) :: this
+    integer, intent(in) :: lcdomID
     class(ElementBase3D), intent(in), target :: refElem
     integer, intent(in), optional :: myrank
     !-------------------------------------------------
@@ -70,7 +78,7 @@ contains
     this%refElem3D    => refElem
     nullify( this%lcmesh2D )
 
-    call LocalMeshBase_Init( this, refElem, 3, myrank )
+    call LocalMeshBase_Init( this, lcdomID, refElem, 3, myrank )
 
     return
   end subroutine LocalMesh3D_Init
@@ -84,6 +92,8 @@ contains
     call LocalMeshBase_Final( this, is_generated )
     if (is_generated) then
       deallocate( this%zS, this%Sz )
+      deallocate( this%GI3, this%GsqrtH )
+      deallocate( this%zlev )
       deallocate( this%lon2D, this%lat2D )
       deallocate( this%EMap3Dto2D )
     end if

@@ -22,6 +22,7 @@ module scale_meshutil_3d
 
 contains
 
+!OCL SERIAL
   subroutine MeshUtil3D_genCubeDomain( pos_v, EToV,        &
     Ke_x, xmin, xmax, Ke_y, ymin, ymax, Ke_z, zmin, zmax,  &
     Fz )
@@ -49,6 +50,9 @@ contains
     NvY = Ke_Y + 1
     NvZ = Ke_Z + 1
 
+    !$omp parallel private(i,j,k,n)
+
+    !$omp do collapse(2) 
     do k=1, NvZ
     do j=1, NvY
     do i=1, NvX
@@ -64,6 +68,7 @@ contains
     end do
     end do
 
+    !$omp do collapse(2)
     do k=1, Ke_z
     do j=1, Ke_y
     do i=1, Ke_x
@@ -78,6 +83,8 @@ contains
     end do
     end do
 
+    !$omp end parallel
+    
     !---
   !!$
   !!$    write(*,*) "-- vx, vy --"
@@ -99,7 +106,7 @@ contains
     return
   end subroutine MeshUtil3D_genCubeDomain
 
-
+!OCL SERIAL
   subroutine MeshUtil3D_genConnectivity( EToE, EToF, &
     EToV, Ne, Nfaces )
     
@@ -113,7 +120,7 @@ contains
     integer, intent(in) :: EToV(Ne,8)
 
     integer :: nodes(Ne*Nfaces,4)
-    integer :: face_ids(Ne*Nfaces)
+    integer(kind=8) :: face_ids(Ne*Nfaces)
     integer :: k
     integer :: f
     integer :: n
@@ -121,23 +128,23 @@ contains
     integer :: Nnodes
     integer :: tmp
     integer :: Nnodes_row
-    integer :: matchL(2,4), matchR(2,4)
+    integer :: matchL(2,3), matchR(2,3)
 
     real(RP) :: EToE_1d(Ne*Nfaces)
     real(RP) :: EToF_1d(Ne*Nfaces)
 
-    integer :: spNodeToNode(4,Ne*Nfaces)
-    integer :: spNodeToNodeRowTmp(4,Ne*Nfaces)
+    integer :: spNodeToNode(3,Ne*Nfaces)
+    integer :: spNodeToNodeRowTmp(3,Ne*Nfaces)
     integer :: sort_indx(Ne*Nfaces)
-    integer :: sort_val(Ne*Nfaces)
+    integer(kind=8) :: sorted_faceid(Ne*Nfaces)
 
     real(RP) :: vtmp(4)
-
+    
     !-----------------------------------------------------------------------------
 
     Nnodes = maxval( EToV )
     Nnodes_row = size(nodes,1)
-
+    
     !---------
     do n=1, Ne
        nodes(n     ,:) = EToV(n,(/ 1, 2, 6, 5 /))
@@ -164,36 +171,36 @@ contains
     end do
 
     face_ids(:) =   nodes(:,1)*Nnodes**3 + nodes(:,2)*Nnodes**2 &
-                  + nodes(:,3)*Nnodes + nodes(:,4) + 1
+                + nodes(:,3)*Nnodes + nodes(:,4) + 1
 
     do f=1, Nfaces
     do k=1, Ne
-       n = k + (f-1)*Ne
-       spNodeToNode(:,n) = (/ face_ids(n), n, EToE(k,f), EToF(k,f) /)
-       sort_val(n) = face_ids(n)
-       sort_indx(n) = n
+      n = k + (f-1)*Ne
+      spNodeToNode(:,n) = (/ n, EToE(k,f), EToF(k,f) /)
+      sorted_faceid(n)  = face_ids(n)
+      sort_indx(n)      = n
        ! write(*,*) "face_id, n, EToE, EToF:", spNodeToNode(:,n)
     end do
     end do
-
     
     !- sort row
-    call QUICKSORT_exec_with_idx( Ne*Nfaces, sort_val, sort_indx )
+    call QUICKSORT_exec_with_idx( Ne*Nfaces, sorted_faceid, sort_indx )
     spNodeToNodeRowTmp(:,:) = spNodeToNode(:,:)
+
     do n=1, Nnodes_row
       spNodeToNode(:,n) = spNodeToNodeRowTmp(:,sort_indx(n))
-      ! write(*,'(a,4i10)') "(sorted) face_id, n, EToE, EToF:", spNodeToNode(:,n)
+      !  write(*,'(a,4i10)') "(sorted) face_id, n, EToE, EToF:", spNodeToNode(:,n)
     end do
 
     EToE_1d(:) = -1
     EToF_1d(:) = -1
     do n=1, Nnodes_row-1
-       if ( spNodeToNode(1,n) - spNodeToNode(1,n+1) == 0 ) then
+       if ( sorted_faceid(n) - sorted_faceid(n+1) == 0 ) then
           matchL(:,:) = transpose( spNodeToNode(:,(/ n, n+1 /)) )
           matchR(:,:) = transpose( spNodeToNode(:,(/ n+1, n /)) )
 
-          EToE_1d(matchL(:,2)) = matchR(:,3)
-          EToF_1d(matchL(:,2)) = matchR(:,4)
+          EToE_1d(matchL(:,1)) = matchR(:,2)
+          EToF_1d(matchL(:,1)) = matchR(:,3)
        end if
     end do
 
@@ -221,6 +228,7 @@ contains
     return
   end subroutine MeshUtil3D_genConnectivity
 
+!OCL SERIAL
   subroutine bubbleSort( array )
     implicit none
     real(RP), intent(inout) :: array(:)
@@ -243,6 +251,7 @@ contains
     return
   end subroutine bubbleSort
 
+!OCL SERIAL
   subroutine MeshUtil3D_BuildInteriorMap( VMapM, VMapP, MapM, MapP, &
     pos_en, pos_ev, EtoE, EtoF, EtoV, Fmask_h, Fmask_v,             &
     Ne, Nv, Np, Nfp_h, Nfp_v, NfpTot, Nfaces_h, Nfaces_v, Nfaces)
@@ -297,6 +306,9 @@ contains
     integer :: MapP_v(Nfp_v,Nfaces_v,Ne)
     !-----------------------------------------------------------------------------
 
+    !$omp parallel private(k,f,p,n)
+
+    !$omp do
     do k=1, Ne
     do p=1, Np
       n = p + (k-1)*Np
@@ -306,7 +318,9 @@ contains
       z(n) = pos_en(p,k,3)
     end do
     end do
+    !$omp end do
 
+    !$omp do
     do k=1, Ne
       do f=1, Nfaces_h
       do p=1, Nfp_h
@@ -325,8 +339,19 @@ contains
       end do
       end do    
     end do
+    !$omp end do
 
+    !$omp workshare
     VMapP_h(:,:,:) = -1
+    VMapP_v(:,:,:) = -1
+    !$omp end workshare
+    !$omp end parallel
+
+    !$omp parallel private( &
+    !$omp k1, f1, k2, f2, v1, v2, refd2,      &
+    !$omp r_h, r_v, dist_h, dist_v, idP, idM  )
+
+    !$omp do
     do k1=1, Ne
     do f1=1, Nfaces_h
       k2 = EToE(k1,f1); f2 = EToF(k1,f1)
@@ -357,8 +382,9 @@ contains
       end do
     end do
     end do
+    !omp end do
 
-    VMapP_v(:,:,:) = -1
+    !$omp do
     do k1=1, Ne
     do f1=1, Nfaces_v
       k2 = EToE(k1,Nfaces_h+f1); f2 = EToF(k1,Nfaces_h+f1) - Nfaces_h
@@ -386,7 +412,10 @@ contains
       end do
     end do
     end do
+    !omp end do
+    !$omp end parallel
 
+    !$omp parallel do private(k,f,n,i)
     do k=1, Ne
       do f=1, Nfaces_h
       do n=1, Nfp_h
@@ -407,6 +436,7 @@ contains
       end do
       end do
     end do
+
     !-----
   !    mapB_counter = 0
   !    do k=1,mesh%Ne
@@ -443,6 +473,7 @@ contains
     return
   end subroutine MeshUtil3D_BuildInteriorMap
 
+!OCL SERIAL
   subroutine MeshUtil3D_genPatchBoundaryMap(  VMapB, MapB, VMapP,                  &
     pos_en, xmin, xmax, ymin, ymax, zmin, zmax,                                    &
     Fmask_h, Fmask_v, Ne, Nv, Np, Nfp_h, Nfp_v, NfpTot, Nfaces_h, Nfaces_v, Nfaces )
@@ -579,6 +610,7 @@ contains
     return
 
   contains
+!OCL SERIAL
     subroutine eval_domain_boundary( &
         elemIDs, ordInfo, faceIDs, counterB,              &
         domb_id, r, rbc, ord_info, k_, f_, normalized_fac )
@@ -607,6 +639,7 @@ contains
     end subroutine eval_domain_boundary
   end subroutine MeshUtil3D_genPatchBoundaryMap
 
+!OCL SERIAL
   subroutine MeshUtil3D_buildGlobalMap( &
     panelID_table, pi_table, pj_table, pk_table,    &
     tileID_map, tileFaceID_map, tilePanelID_map,    &
@@ -632,16 +665,15 @@ contains
     logical, intent(in) :: isPeriodicZ
     integer, intent(in) :: Ne_x
     integer, intent(in) :: Ne_y
+    integer, intent(in) :: Ne_z
 
     integer :: NtilePerPanel
-    integer :: Ne_z
     integer :: Nv_x, Nv_y, Nv_z
     integer, allocatable :: nodesID_3d(:,:,:)
     integer, allocatable :: EToV(:,:)
     integer, allocatable :: EToE(:,:)
     integer, allocatable :: EToF(:,:)
     integer :: i, j, k, f
-    integer :: panelID
     integer :: tileID, tileID_R
     integer :: counter
 

@@ -1,3 +1,11 @@
+!-------------------------------------------------------------------------------
+!> module common / Coordinate conversion with a cubed-sphere 
+!!
+!! @par Description
+!!      Coordinate conversion with a cubed-sphere 
+!!
+!! @author Team SCALE
+!!
 #include "scaleFElib.h"
 module scale_cubedsphere_cnv
   !-----------------------------------------------------------------------------
@@ -63,7 +71,7 @@ contains
     !-----------------------------------------------------------------------------
 
     select case( panelID )
-    case(1, 2, 3, 4)
+    case( 1, 2, 3, 4 )
       !$omp parallel 
       !$omp do
       do p=1, Np
@@ -182,10 +190,12 @@ contains
   end subroutine CubedSphereCnv_LonLat2CSVec
 
   subroutine CubedSphereCnv_CS2LonLatVec( &
-    panelID, alpha, beta, Np, radius,       & ! (in)
-    VecAlpha, VecBeta,                      & ! (in)
-    VecLon, VecLat                          ) ! (out)
+    panelID, alpha, beta, Np, radius,     & ! (in)
+    VecAlpha, VecBeta,                    & ! (in)
+    VecLon, VecLat                        ) ! (out)
 
+    use scale_const, only: &
+      EPS => CONST_EPS
     implicit none
 
     integer, intent(in) :: panelID
@@ -233,9 +243,9 @@ contains
         del2 = 1.0_RP + X**2 + Y**2
 
         VecLon(p) = (- Y * ( 1.0 + X**2 ) * VecAlpha(p) + X * ( 1.0_RP + Y**2 ) * VecBeta(p) ) &
-                  * s / ( X**2 + Y**2 )
+                  * s / ( X**2 + Y**2 + EPS )
         VecLat(p) = (- X * ( 1.0 + X**2 ) * VecAlpha(p) - Y * ( 1.0_RP + Y**2 ) * VecBeta(p) ) &
-                  * s / ( del2 * sqrt( X**2 + Y**2 ) )
+                  * s / ( del2 * sqrt( X**2 + Y**2 ) + EPS )
       end do
     end select
 
@@ -243,8 +253,8 @@ contains
   end subroutine CubedSphereCnv_CS2LonLatVec
 
   subroutine CubedSphereCnv_CS2CartCoord( &
-    panelID, alpha, beta, Np, radius, &
-    X, Y, Z )
+    panelID, alpha, beta, Np, radius,     & ! (in)
+    X, Y, Z                               ) ! (out)
 
     implicit none
     integer, intent(in) :: panelID
@@ -356,7 +366,7 @@ contains
       !$omp parallel
       if ( panelID == 1 ) then
         !$omp workshare
-        where (lon(:) > 2.0_RP * PI - 0.25_RP * PI )
+        where (lon(:) >= 2.0_RP * PI - 0.25_RP * PI )
           lon_(:) = lon(:) - 2.0_RP * PI
         elsewhere
           lon_(:) = lon(:)
@@ -405,7 +415,7 @@ contains
 
   subroutine CubedSphereCnv_GetMetric( &
     alpha, beta, Np, radius,            & ! (in)
-    G_ij, GIJ, Gsqrt )                    ! (out)
+    G_ij, GIJ, Gsqrt                    ) ! (out)
 
     implicit none
 

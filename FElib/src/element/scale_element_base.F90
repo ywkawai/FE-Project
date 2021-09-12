@@ -101,8 +101,8 @@ module scale_element_base
     integer, allocatable :: Colmask(:,:)
     integer, allocatable :: Hslice(:,:)
     integer, allocatable :: IndexH2Dto3D(:)
+    integer, allocatable :: IndexH2Dto3D_bnd(:)    
     integer, allocatable :: IndexZ1Dto3D(:)
-
 
     real(RP), allocatable :: x1(:)
     real(RP), allocatable :: x2(:)
@@ -137,14 +137,13 @@ contains
     logical, intent(in) :: lumpedmat_flag
     !-----------------------------------------------------------------------------
 
-    allocate( elem%IntWeight_lgl(elem%Np) )  
-
     allocate( elem%M(elem%Np, elem%Np) )
     allocate( elem%invM(elem%Np, elem%Np) )
     allocate( elem%V(elem%Np, elem%Np) )
     allocate( elem%invV(elem%Np, elem%Np) )
     allocate( elem%Lift(elem%Np, elem%NfpTot) )    
     
+    allocate( elem%IntWeight_lgl(elem%Np) )  
     allocate( elem%Filter(elem%Np, elem%Np))
 
     elem%LumpedMatFlag = lumpedmat_flag
@@ -158,13 +157,15 @@ contains
     class(ElementBase), intent(inout) :: elem
     !-----------------------------------------------------------------------------
     
-    deallocate( elem%M )
-    deallocate( elem%invM )
-    deallocate( elem%V )
-    deallocate( elem%invV )
-    deallocate( elem%Lift )
-    deallocate( elem%IntWeight_lgl )
-    deallocate( elem%Filter )
+    if ( allocated(elem%M) ) then
+      deallocate( elem%M )
+      deallocate( elem%invM )
+      deallocate( elem%V )
+      deallocate( elem%invV )
+      deallocate( elem%Lift )
+      deallocate( elem%IntWeight_lgl )
+      deallocate( elem%Filter )
+    end if
 
     return
   end subroutine ElementBase_Final
@@ -204,10 +205,12 @@ contains
     class(ElementBase1D), intent(inout) :: elem
     !-----------------------------------------------------------------------------
 
-    deallocate( elem%x1 )
-    deallocate( elem%Dx1 )
-    deallocate( elem%Sx1 )
-    deallocate( elem%Fmask )
+    if ( allocated( elem%x1 ) )  then
+      deallocate( elem%x1 )
+      deallocate( elem%Dx1 )
+      deallocate( elem%Sx1 )
+      deallocate( elem%Fmask )
+    end if
 
     call ElementBase_Final( elem )
 
@@ -238,11 +241,13 @@ contains
     class(ElementBase2D), intent(inout) :: elem
     !-----------------------------------------------------------------------------
 
-    deallocate( elem%x1, elem%x2 )
-    deallocate( elem%Fmask )
+    if ( allocated( elem%x1 ) )  then
+      deallocate( elem%x1, elem%x2 )
+      deallocate( elem%Fmask )
 
-    deallocate( elem%Dx1, elem%Dx2 )
-    deallocate( elem%Sx1, elem%Sx2 )
+      deallocate( elem%Dx1, elem%Dx2 )
+      deallocate( elem%Sx1, elem%Sx2 )
+    end if
 
     call ElementBase_Final( elem )
 
@@ -265,6 +270,7 @@ contains
     allocate( elem%Colmask(elem%Nnode_v,elem%Nfp_v))
     allocate( elem%Hslice(elem%Nfp_v,elem%Nnode_v) )
     allocate( elem%IndexH2Dto3D(elem%Np) )
+    allocate( elem%IndexH2Dto3D_bnd(elem%NfpTot) )
     allocate( elem%IndexZ1Dto3D(elem%Np) )
   
     return
@@ -276,12 +282,15 @@ contains
     class(ElementBase3D), intent(inout) :: elem
     !-----------------------------------------------------------------------------
 
-    deallocate( elem%x1, elem%x2, elem%x3 )
-    deallocate( elem%Dx1, elem%Dx2, elem%Dx3 )
-    deallocate( elem%Sx1, elem%Sx2, elem%Sx3 )
-    deallocate( elem%Fmask_h, elem%Fmask_v )
-    deallocate( elem%Colmask, elem%Hslice )
-    deallocate( elem%IndexH2Dto3D, elem%IndexZ1Dto3D )
+    if ( allocated( elem%x1 ) )  then
+      deallocate( elem%x1, elem%x2, elem%x3 )
+      deallocate( elem%Dx1, elem%Dx2, elem%Dx3 )
+      deallocate( elem%Sx1, elem%Sx2, elem%Sx3 )
+      deallocate( elem%Fmask_h, elem%Fmask_v )
+      deallocate( elem%Colmask, elem%Hslice )
+      deallocate( elem%IndexH2Dto3D, elem%IndexH2Dto3D_bnd )
+      deallocate( elem%IndexZ1Dto3D )
+    end if
 
     call ElementBase_Final( elem )    
 

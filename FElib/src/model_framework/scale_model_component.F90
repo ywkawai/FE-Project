@@ -37,7 +37,7 @@ module scale_model_component
   interface
     subroutine ModelComponent_setup( this )
       import ModelComponent
-      class(ModelComponent), intent(inout) :: this
+      class(ModelComponent), intent(inout), target :: this
     end subroutine ModelComponent_setup
 
     subroutine ModelComponent_calc_tendency( this )

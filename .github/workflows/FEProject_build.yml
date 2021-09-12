@@ -85,10 +85,12 @@ jobs:
         make -C mesh_rectdom2d_quadrilateral
         make -C mesh_cubedsphere2d
         make -C mesh_cubedom3d_hexahedral
+        make -C mesh_cubedsphere3d
         make -C field_linedom1d
         make -C field_rectdom2d_quadrilateral
         make -C field_cubedspheredom2d
         make -C field_cubedom3d_hexahedral
+        make -C field_cubedspheredom3d
     
     - name: unit test for framework
       run: | 
@@ -115,8 +117,10 @@ jobs:
         make -C advect2dGlobal
         make -C advect2d_fvm
         make -C advect3d
+        make -C advect3dGlobal
         make -C advect3d_hevi
         make -C euler3d_hevi
+        make -C eigen_analysis
 
     - name: Build model
       run: |
@@ -125,17 +129,15 @@ jobs:
         export SCALE_FE_SYS=Linux64-gnu-ompi
         export SCALE=${GITHUB_WORKSPACE}/../scale
 
+        echo "Build global shallow water model"
+        make -C global_shallow_water/src
+
         echo "Build 2D nonhydrostatic atmospheric model"
         make -C atm_nonhydro2d/src
 
         echo "Build 3D nonhydrostatic atmospheric model"
         make -C atm_nonhydro3d/src
       
+        echo "Build 3D nonhydrostatic atmospheric model / utils"
+        make -C atm_nonhydro3d/util/regrid_tool           
       
-
-      
-
-      
-
-
-

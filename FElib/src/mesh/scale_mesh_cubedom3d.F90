@@ -154,9 +154,15 @@ contains
     call MeshBase3D_Init( this, refElem, NLocalMeshPerPrc, 6, &
                           nproc, myrank                       )
 
-    !---
+    !--- 2D mesh
 
     call this%refElem2D%Init( this%refElem3D%PolyOrder_h, refElem%IsLumpedMatrix() )
+    
+    this%mesh2D%isPeriodicX = isPeriodicX
+    this%mesh2D%isPeriodicY = isPeriodicY
+    this%mesh2D%NprcX = NprcX
+    this%mesh2D%NprcY = NprcY
+
     call MeshBase2D_Init( this%mesh2D, this%refElem2D, NLocalMeshPerPrc,           &
                           nproc, myrank                                            )
 
@@ -175,7 +181,7 @@ contains
     if (this%isGenerated) then
       deallocate( this%rcdomIJK2LCMeshID )
     else
-      deallocate( this%FZ )
+      if ( allocated( this%FZ ) ) deallocate( this%FZ )
     end if
 
     call this%mesh2D%Final()
@@ -222,8 +228,8 @@ contains
     !--- Construct the connectivity of patches  (only master node)
 
     call MesshCubeDom3D_assignDomID( this,    & ! (in)
-        & tileID_table, panelID_table,        & ! (out)
-        & pi_table, pj_table, pk_table )        ! (out)
+      tileID_table, panelID_table,            & ! (out)
+      pi_table, pj_table, pk_table )            ! (out)
     
     !--- Setup local meshes managed by my process
 
@@ -232,16 +238,16 @@ contains
       tileID = tileID_table(n, mesh%PRC_myrank+1)
 
       call MeshCubeDom3D_setupLocalDom( mesh, &
-         & tileID,  panelID_table(tileID),                                                           &
-         & pi_table(tileID), pj_table(tileID), pk_table(tileID), this%NprcX, this%NprcY, this%NprcZ, &
-         & this%xmin_gl, this%xmax_gl, this%ymin_gl, this%ymax_gl, this%zmin_gl, this%zmax_gl,       &
-         & this%NeGX/this%NprcX, this%NeGY/this%NprcY, this%NeGZ/this%NprcZ, this%FZ(:)              )
+        tileID,  panelID_table(tileID),                                                           &
+        pi_table(tileID), pj_table(tileID), pk_table(tileID), this%NprcX, this%NprcY, this%NprcZ, &
+        this%xmin_gl, this%xmax_gl, this%ymin_gl, this%ymax_gl, this%zmin_gl, this%zmax_gl,       &
+        this%NeGX/this%NprcX, this%NeGY/this%NprcY, this%NeGZ/this%NprcZ, this%FZ(:)              )
 
-      call MeshRectDom2D_setupLocalDom( this%mesh2D%lcmesh_list(n),   &
-        & tileID,  panelID_table(tileID),                             &
-        & pi_table(tileID), pj_table(tileID), this%NprcX, this%NprcY, &
-        & this%xmin_gl, this%xmax_gl, this%ymin_gl, this%ymax_gl,     &
-        & this%NeGX/this%NprcX, this%NeGY/this%NprcY )
+      call MeshRectDom2D_setupLocalDom( this%mesh2D%lcmesh_list(n), &
+        tileID,  panelID_table(tileID),                             &
+        pi_table(tileID), pj_table(tileID), this%NprcX, this%NprcY, &
+        this%xmin_gl, this%xmax_gl, this%ymin_gl, this%ymax_gl,     &
+        this%NeGX/this%NprcX, this%NeGY/this%NprcY )
 
       call mesh%SetLocalMesh2D( this%mesh2D%lcmesh_list(n) )
       !---
@@ -257,6 +263,11 @@ contains
       ! write(*,*) "   [X], [Y]:",  mesh%xmin, mesh%xmax, ":", mesh%ymin, mesh%ymax
     end do
 
+    ! To set rcdomIJP2LCMeshID, call AssignDomID for 2D mesh
+    call this%mesh2D%AssignDomID( & 
+      tileID_table, panelID_table,   & ! (out)
+      pi_table, pj_table             ) ! (out)
+
     this%isGenerated = .true.
     this%mesh2D%isGenerated = .true.
     
@@ -267,6 +278,7 @@ contains
 
   !- private ------------------------------------------------------
 
+!OCL SERIAL
   subroutine MeshCubeDom3D_setupLocalDom( lcmesh, &
     tileID, panelID,                                            &
     i, j, k, NprcX, NprcY, NprcZ,                               &
@@ -274,6 +286,7 @@ contains
     NeX, NeY, NeZ,                                              &
     FZ                                                          )
 
+    use scale_prof
     use scale_meshutil_3d, only: &
       MeshUtil3D_genConnectivity,   &
       MeshUtil3D_genCubeDomain,     &
@@ -307,9 +320,7 @@ contains
     lcmesh%panelID = panelID
     
     !--
-
     lcmesh%Ne   = NeX * NeY * NeZ
-    lcmesh%Ne2D = NeX * NeY
     lcmesh%Nv  = (NeX + 1)*(NeY + 1)*(NeZ + 1)
     lcmesh%NeS = 1
     lcmesh%NeE = lcmesh%Ne
@@ -319,6 +330,10 @@ contains
     lcmesh%NeY = NeY
     lcmesh%NeZ = NeZ
 
+    lcmesh%Ne2D  = NeX * NeY
+    lcmesh%Ne2DA = NeX * NeY + 2*(NeX + NeY)
+
+    !--
     delx = (dom_xmax - dom_xmin)/dble(NprcX)
     dely = (dom_ymax - dom_ymin)/dble(NprcY)
     FZ_lc(:) = Fz((k-1)*NeZ+1:k*NeZ+1)
@@ -329,6 +344,7 @@ contains
     lcmesh%zmin = FZ_lc(1)
     lcmesh%zmax = FZ_lc(NeZ+1)
     
+    !-
     allocate( lcmesh%pos_ev(lcmesh%Nv,3) )
     allocate( lcmesh%EToV(lcmesh%Ne,elem%Nv) )
     allocate( lcmesh%EToE(lcmesh%Ne,elem%Nfaces) )
@@ -345,15 +361,14 @@ contains
     
     !----
 
-    call MeshUtil3D_genCubeDomain( lcmesh%pos_ev, lcmesh%EToV,     & ! (out)
-        & lcmesh%NeX, lcmesh%xmin, lcmesh%xmax,                    & ! (in)
-        & lcmesh%NeY, lcmesh%ymin, lcmesh%ymax,                    & ! (in) 
-        & lcmesh%NeZ, lcmesh%zmin, lcmesh%zmax, FZ=FZ_lc           ) ! (in) 
-
-    !---
+    call MeshUtil3D_genCubeDomain( lcmesh%pos_ev, lcmesh%EToV,   & ! (out)
+        lcmesh%NeX, lcmesh%xmin, lcmesh%xmax,                    & ! (in)
+        lcmesh%NeY, lcmesh%ymin, lcmesh%ymax,                    & ! (in) 
+        lcmesh%NeZ, lcmesh%zmin, lcmesh%zmax, FZ=FZ_lc           ) ! (in) 
     
+    !---
     call MeshBase3D_setGeometricInfo( lcmesh, MeshCubeDom3D_coord_conv, MeshCubeDom3D_calc_normal )
- 
+
     !---
     call MeshUtil3D_genConnectivity( lcmesh%EToE, lcmesh%EToF, & ! (out)
         lcmesh%EToV, lcmesh%Ne, elem%Nfaces )                    ! (in)
@@ -370,6 +385,7 @@ contains
       elem%Nfaces_h, elem%Nfaces_v, elem%Nfaces )                                                         ! (in)
     
     !---
+    !$omp parallel do collapse(2) private(ii,ke)
     do kk=1, lcmesh%NeZ
     do jj=1, lcmesh%NeY
     do ii=1, lcmesh%NeX
@@ -382,6 +398,7 @@ contains
     return
   end subroutine MeshCubeDom3D_setupLocalDom
 
+!OCL SERIAL
   subroutine MesshCubeDom3D_assignDomID( this, &
     tileID_table, panelID_table,               &
     pi_table, pj_table, pk_table )
@@ -415,7 +432,6 @@ contains
       this%NprcX, this%NprcY, this%NprcZ )                                                    ! (in)
 
     !----
-    
 
     do p=1, this%PRC_NUM
     do n=1, this%LOCAL_MESH_NUM
@@ -452,6 +468,7 @@ contains
     return
   end subroutine MesshCubeDom3D_assignDomID
   
+!OCL SERIAL
   subroutine MeshCubeDom3D_coord_conv( x, y, z, xX, xY, xZ, yX, yY, yZ, zX, zY, zZ, &
     vx, vy, vz, elem )
 
@@ -483,6 +500,7 @@ contains
     return
   end subroutine MeshCubeDom3D_coord_conv  
 
+!OCL SERIAL
   subroutine MeshCubeDom3D_calc_normal( normal_fn, &
     Escale_f, fid_h, fid_v, elem )
 

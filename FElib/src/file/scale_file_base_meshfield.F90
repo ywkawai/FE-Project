@@ -14,17 +14,20 @@ module scale_file_base_meshfield
     FILE_FILE_MAX
   
   use scale_file_common_meshfield, only: &
-    FILE_common_meshfield_diminfo,                         &
-    MF1D_DTYPE_NUM => FILE_COMMON_MESHFILED1D_DIMTYPE_NUM, &
-    MF2D_DTYPE_NUM => FILE_COMMON_MESHFILED2D_DIMTYPE_NUM, &
-    MF3D_DTYPE_NUM => FILE_COMMON_MESHFILED3D_DIMTYPE_NUM, &
-    MF1D_DIMTYPE_X => FILE_COMMON_MESHFILED1D_DIMTYPEID_X, &
-    MF2D_DIMTYPE_X => FILE_COMMON_MESHFILED2D_DIMTYPEID_X, &
-    MF2D_DIMTYPE_Y => FILE_COMMON_MESHFILED2D_DIMTYPEID_Y, &
-    MF3D_DIMTYPE_X => FILE_COMMON_MESHFILED3D_DIMTYPEID_X, &
-    MF3D_DIMTYPE_Y => FILE_COMMON_MESHFILED3D_DIMTYPEID_Y, &
-    MF3D_DIMTYPE_Z => FILE_COMMON_MESHFILED3D_DIMTYPEID_Z, &
+    FILE_common_meshfield_diminfo,               &
     get_dtype => File_common_meshfield_get_dtype
+  use scale_mesh_base1d, only: &
+    MF1D_DIMTYPE_X => MeshBase1D_DIMTYPEID_X, &
+    MF1D_DTYPE_NUM => MeshBase1D_DIMTYPE_NUM 
+  use scale_mesh_base2d, only: &
+    MF2D_DIMTYPE_X => MeshBase2D_DIMTYPEID_X, &
+    MF2D_DIMTYPE_Y => MeshBase2D_DIMTYPEID_Y, &
+    MF2D_DTYPE_NUM => MeshBase2D_DIMTYPE_NUM 
+  use scale_mesh_base3d, only: &
+    MF3D_DIMTYPE_X => MeshBase3D_DIMTYPEID_X, &
+    MF3D_DIMTYPE_Y => MeshBase3D_DIMTYPEID_Y, &
+    MF3D_DIMTYPE_Z => MeshBase3D_DIMTYPEID_Z, &
+    MF3D_DTYPE_NUM => MeshBase3D_DIMTYPE_NUM
 
   use scale_element_base, only: elementbase1D, elementbase2D, elementbase3D
   use scale_mesh_base1d, only: MeshBase1D
@@ -33,6 +36,7 @@ module scale_file_base_meshfield
   use scale_mesh_rectdom2d, only: MeshRectDom2D
   use scale_mesh_cubedspheredom2d, only: MeshCubedSphereDom2D
   use scale_mesh_cubedom3d, only: MeshCubeDom3D
+  use scale_mesh_cubedspheredom3d, only: MeshCubedSphereDom3D
   use scale_localmesh_1d, only: LocalMesh1D
   use scale_localmesh_2d, only: LocalMesh2D
   use scale_localmesh_3d, only: LocalMesh3D
@@ -59,6 +63,7 @@ module scale_file_base_meshfield
     class(MeshRectDom2D), pointer :: mesh2D
     class(MeshCubedSphereDom2D), pointer :: meshCS2D
     class(MeshCubeDom3D), pointer :: mesh3D  
+    class(MeshCubedSphereDom3D), pointer :: meshCS3D
     type(FILE_common_meshfield_diminfo), allocatable :: dimsinfo(:)
 
     logical :: force_uniform_grid
@@ -80,19 +85,18 @@ module scale_file_base_meshfield
     procedure :: FILE_base_meshfield_write_var3d
     generic :: Write_var3D => FILE_base_meshfield_write_var3d
     !-
+    procedure :: Put_GlobalAttribute_time => FILE_base_meshfield_put_global_attribute_time
+    !-
     procedure :: FILE_base_meshfield_read_var1d
     procedure :: FILE_base_meshfield_read_var1d_local
     procedure :: FILE_base_meshfield_read_var2d
     procedure :: FILE_base_meshfield_read_var2d_local
-    procedure :: FILE_base_meshfield_read_var2d_cubedsphere
     procedure :: FILE_base_meshfield_read_var3d
     procedure :: FILE_base_meshfield_read_var3d_local
     generic :: Read_Var => &
       FILE_base_meshfield_read_var1d, FILE_base_meshfield_read_var1d_local, &
       FILE_base_meshfield_read_var2d, FILE_base_meshfield_read_var2d_local, &
       FILE_base_meshfield_read_var3d, FILE_base_meshfield_read_var3d_local
-    generic :: Read_Var_cubedsphere => &
-      FILE_base_meshfield_read_var2d_cubedsphere
     
     !-  
     procedure :: Get_commonInfo => FILE_base_meshfield_get_commonInfo
@@ -105,9 +109,12 @@ module scale_file_base_meshfield
 
 contains
 
-  subroutine FILE_base_meshfield_Init( this,            & ! (inout)
-    var_num, mesh1D, mesh2D, meshCubedSphere2D, mesh3D, & ! (in)
-    force_uniform_grid )                                  ! (in)
+  subroutine FILE_base_meshfield_Init( this, & ! (inout)
+    var_num,                                 & ! (in)
+    mesh1D,                                  & ! (in)
+    mesh2D, meshCubedSphere2D,               & ! (in)
+    mesh3D, meshCubedSphere3D,               & ! (in)
+    force_uniform_grid )                       ! (in)
 
     use scale_file_common_meshfield, only: &
       File_common_meshfield_get_dims  
@@ -118,8 +125,9 @@ contains
     integer, intent(in) :: var_num
     class(MeshBase1D), target, optional, intent(in) :: mesh1D
     class(MeshRectDom2D), target, optional, intent(in) :: mesh2D
-    class(MeshCubedSphereDom2D), target, optional, intent(in) :: meshCubedSPhere2D    
+    class(MeshCubedSphereDom2D), target, optional, intent(in) :: meshCubedSphere2D    
     class(MeshCubeDom3D), target, optional, intent(in) :: mesh3D
+    class(MeshCubedSphereDom3D), target, optional, intent(in) :: meshCubedSphere3D
     logical, intent(in), optional :: force_uniform_grid
 
     logical :: check_specify_mesh
@@ -133,6 +141,7 @@ contains
     !-
     check_specify_mesh = .false.
     nullify( this%mesh1D, this%mesh2D, this%mesh3D )
+    nullify( this%meshCS2D, this%meshCS3D )
   
     if (present(mesh1D)) then
       this%mesh1D => mesh1D
@@ -148,12 +157,12 @@ contains
       allocate( this%dimsinfo(MF2D_DTYPE_NUM) )
       call File_common_meshfield_get_dims( mesh2D, this%dimsinfo(:) )
     end if
-    if (present(meshCubedSPhere2D)) then
-      this%meshCS2D => meshCubedSPhere2D
+    if (present(meshCubedSphere2D)) then
+      this%meshCS2D => meshCubedSphere2D
       check_specify_mesh = .true.
   
       allocate( this%dimsinfo(MF2D_DTYPE_NUM) )
-      call File_common_meshfield_get_dims( meshCubedSPhere2D, this%dimsinfo(:) )
+      call File_common_meshfield_get_dims( meshCubedSphere2D, this%dimsinfo(:) )
     end if
     if (present(mesh3D)) then
       this%mesh3D => mesh3D
@@ -162,7 +171,14 @@ contains
       allocate( this%dimsinfo(MF3D_DTYPE_NUM) )
       call File_common_meshfield_get_dims( mesh3D, this%dimsinfo(:) )
     end if
+    if (present(meshCubedSphere3D)) then
+      this%meshCS3D => meshCubedSphere3D
+      check_specify_mesh = .true.
   
+      allocate( this%dimsinfo(MF3D_DTYPE_NUM) )
+      call File_common_meshfield_get_dims( meshCubedSphere3D, this%dimsinfo(:) )
+    end if
+
     if ( present(force_uniform_grid) ) then
       this%force_uniform_grid = force_uniform_grid
     else
@@ -231,6 +247,7 @@ contains
     
     if ( .not. fileexisted ) then
       call def_axes( this, dtype )
+      this%File_axes_written = .false.      
     end if
 
     return
@@ -334,6 +351,7 @@ contains
     return
   end subroutine FILE_base_meshfield_enddef
   
+!OCL_SERIAL
   subroutine FILE_base_meshfield_write_var1d( this, & ! (inout)
     vid, field1d, sec_str, sec_end                  ) ! (in)
 
@@ -369,6 +387,7 @@ contains
     return
   end subroutine FILE_base_meshfield_write_var1d
 
+!OCL_SERIAL
   subroutine FILE_base_meshfield_write_var2d( this, & ! (inout)
     vid, field2d, sec_str, sec_end                  ) ! (in)
 
@@ -376,7 +395,8 @@ contains
         FILE_opened, &
         FILE_Write 
     use scale_file_common_meshfield, only: &
-      File_common_meshfield_put_field2D_cartesbuf
+      File_common_meshfield_put_field2D_cartesbuf,             &
+      File_common_meshfield_put_field2D_cubedsphere_cartesbuf
     implicit none
 
     class(FILE_base_meshfield), intent(inout) :: this
@@ -395,8 +415,13 @@ contains
       dims(1) = this%dimsinfo(MF2D_DIMTYPE_X)%size
       dims(2) = this%dimsinfo(MF2D_DIMTYPE_Y)%size
       allocate( buf(dims(1),dims(2)) )
-      call File_common_meshfield_put_field2D_cartesbuf( this%mesh2D, field2d, buf(:,:), &
-        this%force_uniform_grid )
+      if ( associated(this%mesh2D) ) then
+        call File_common_meshfield_put_field2D_cartesbuf( this%mesh2D, field2d, buf(:,:), &
+          this%force_uniform_grid )
+      else if ( associated(this%meshCS2D) ) then
+        call File_common_meshfield_put_field2D_cubedsphere_cartesbuf( &
+          this%meshCS2D, field2d, buf(:,:)                            )
+      end if
 
       call FILE_Write( this%vars_ncid(vid), buf(:,:),   & ! (in)
         sec_str, sec_end, start=start                   ) ! (in)
@@ -405,6 +430,7 @@ contains
     return
   end subroutine FILE_base_meshfield_write_var2d
 
+!OCL_SERIAL
   subroutine FILE_base_meshfield_write_var3d( this, & ! (inout)
       vid, field3d, sec_str, sec_end                ) ! (in)
   
@@ -412,7 +438,9 @@ contains
         FILE_opened, &
         FILE_Write 
     use scale_file_common_meshfield, only: &
-      File_common_meshfield_put_field3D_cartesbuf
+      File_common_meshfield_put_field3D_cartesbuf,            &
+      File_common_meshfield_put_field3D_cubedsphere_cartesbuf
+    use scale_prof
     implicit none
 
     class(FILE_base_meshfield), intent(inout) :: this
@@ -432,9 +460,15 @@ contains
       dims(2) = this%dimsinfo(MF3D_DIMTYPE_Y)%size
       dims(3) = this%dimsinfo(MF3D_DIMTYPE_Z)%size
       allocate( buf(dims(1),dims(2),dims(3)) )
-      call File_common_meshfield_put_field3D_cartesbuf( this%mesh3D, field3d, buf(:,:,:), &
-        this%force_uniform_grid )
-  
+
+      if ( associated(this%mesh3D) ) then
+        call File_common_meshfield_put_field3D_cartesbuf( this%mesh3D, field3d, buf(:,:,:), &
+          this%force_uniform_grid )
+      else if ( associated(this%meshCS3D) ) then
+        call File_common_meshfield_put_field3D_cubedsphere_cartesbuf( &
+          this%meshCS3D, field3d, buf(:,:,:)                          )
+      end if
+
       call FILE_Write( this%vars_ncid(vid), buf(:,:,:),     & ! (in)
         sec_str, sec_end, start                             ) ! (in)
     end if
@@ -504,6 +538,7 @@ contains
     return
   end subroutine FILE_base_meshfield_get_dataInfo
 
+!OCL_SERIAL
   subroutine FILE_base_meshfield_read_var1d( this,    & ! (inout)
     dim_typeid, varname,                              & ! (in)
     field1d,                                          & ! (inout)
@@ -544,6 +579,7 @@ contains
     return
   end subroutine FILE_base_meshfield_read_var1d
 
+!OCL_SERIAL
   subroutine FILE_base_meshfield_read_var1d_local( this, & ! (inout)
     dim_typeid, varname, lcmesh, i0_s,                   & ! (in)
     val,                                                 & ! (out)
@@ -587,6 +623,7 @@ contains
     return
   end subroutine FILE_base_meshfield_read_var1d_local 
 
+!OCL_SERIAL
   subroutine FILE_base_meshfield_read_var2d( this, & ! (inout)
     dim_typeid, varname,                           & ! (in)
     field2d,                                       & ! (inout)
@@ -595,48 +632,7 @@ contains
     use scale_file, only: &
       FILE_Read
     use scale_file_common_meshfield, only: &
-      File_common_meshfield_set_cartesbuf_field2D
-  
-    implicit none
-  
-    class(FILE_base_meshfield), intent(inout) :: this
-    integer, intent(in) :: dim_typeid
-    character(*), intent(in) :: varname
-    class(MeshField2D), intent(inout) :: field2d
-    integer, intent(in), optional :: step
-    logical, intent(in), optional :: allow_missing
-  
-    real(RP), allocatable :: buf(:,:)
-    integer :: dims(2)
-    integer :: start(2)   ! start offset of globale variable
-    !-------------------------------------------------
-  
-    if ( this%fid /= -1 ) then
-      start(:) = 1
-      dims(1) = this%dimsinfo(MF2D_DIMTYPE_X)%size
-      dims(2) = this%dimsinfo(MF2D_DIMTYPE_Y)%size
-      allocate( buf(dims(1),dims(2)) )
-  
-      call FILE_Read( this%fid, varname,                       & ! (in)
-        buf(:,:),                                              & ! (out)
-        step=step, allow_missing=allow_missing                 ) ! (in)
-  
-      call File_common_meshfield_set_cartesbuf_field2D( this%mesh2D, buf(:,:), &
-        field2d )
-    end if
-  
-    return
-  end subroutine FILE_base_meshfield_read_var2d
-
-  subroutine FILE_base_meshfield_read_var2d_cubedsphere( &
-    this,                                                & ! (inout)
-    dim_typeid, varname,                                 & ! (in)
-    field2d,                                             & ! (inout)
-    step, allow_missing                                  ) ! (in)
-  
-    use scale_file, only: &
-      FILE_Read
-    use scale_file_common_meshfield, only: &
+      File_common_meshfield_set_cartesbuf_field2D,           &
       File_common_meshfield_set_cartesbuf_field2D_cubedsphere
   
     implicit none
@@ -663,14 +659,20 @@ contains
         buf(:,:),                                              & ! (out)
         step=step, allow_missing=allow_missing                 ) ! (in)
   
-      call File_common_meshfield_set_cartesbuf_field2D_cubedsphere( &
-        this%meshCS2D, buf(:,:),                                    &
-        field2d )
+      if ( associated( this%meshCS2D) ) then
+        call File_common_meshfield_set_cartesbuf_field2D_cubedsphere( &
+          this%meshCS2D, buf(:,:),                                    &
+          field2d )
+      else if ( associated( this%mesh2D) ) then
+        call File_common_meshfield_set_cartesbuf_field2D( this%mesh2D, buf(:,:),   &
+          field2d )
+      end if
     end if
   
     return
-  end subroutine FILE_base_meshfield_read_var2d_cubedsphere
+  end subroutine FILE_base_meshfield_read_var2d
 
+!OCL_SERIAL
   subroutine FILE_base_meshfield_read_var2d_local( this, & ! (inout)
     dim_typeid, varname, lcmesh, i0_s, j0_s,             & ! (in)
     val,                                                 & ! (out)
@@ -715,6 +717,7 @@ contains
     return
   end subroutine FILE_base_meshfield_read_var2d_local
 
+!OCL_SERIAL
   subroutine FILE_base_meshfield_read_var3d( this, & ! (inout)
     dim_typeid, varname,                           & ! (in)
     field3d,                                       & ! (inout)
@@ -723,7 +726,9 @@ contains
     use scale_file, only: &
       FILE_Read
     use scale_file_common_meshfield, only: &
-      File_common_meshfield_set_cartesbuf_field3D
+      File_common_meshfield_set_cartesbuf_field3D,            &
+      File_common_meshfield_set_cartesbuf_field3D_cubedsphere
+
   
     implicit none
   
@@ -750,13 +755,20 @@ contains
         buf(:,:,:),                                            & ! (out)
         step=step, allow_missing=allow_missing                 ) ! (in)
   
-      call File_common_meshfield_set_cartesbuf_field3D( this%mesh3D, buf(:,:,:), &
-        field3d )
+      if ( associated(this%meshCS3D) ) then
+        call File_common_meshfield_set_cartesbuf_field3D_cubedsphere( &
+          this%meshCS3D, buf(:,:,:),                                  &
+          field3d )
+      else if ( associated(this%mesh3D) ) then
+        call File_common_meshfield_set_cartesbuf_field3D( this%mesh3D, buf(:,:,:), &
+          field3d )
+      end if
     end if
   
     return
   end subroutine FILE_base_meshfield_read_var3d
 
+!OCL_SERIAL
   subroutine FILE_base_meshfield_read_var3d_local( this, & ! (inout)
     dim_typeid, varname, lcmesh, i0_s, j0_s, k0_s,       & ! (in)
     val,                                                 & ! (out)
@@ -830,6 +842,46 @@ contains
     return
   end subroutine FILE_base_meshfield_Final
 
+  subroutine FILE_base_meshfield_put_global_attribute_time( &
+    this, date, subsec  )
+
+    use scale_file, only: &
+      FILE_Set_Attribute, &
+      FILE_get_CFtunits
+    use scale_calendar, only: &
+      CALENDAR_get_name
+       
+    implicit none
+
+    class(FILE_base_meshfield), intent(inout) :: this 
+    integer, intent(in) :: date(6)
+    real(DP), intent(in) :: subsec
+
+    character(34) :: tunits
+    character(len=H_SHORT) :: calendar_name
+    !------------------------------------
+
+    call FILE_Set_Attribute( this%fid, "global", "Conventions", "CF-1.6" ) ! [IN]
+    call FILE_Set_Attribute( this%fid, "global", "grid_name", "hoge"     ) ! [IN]
+
+    !- time
+
+    if ( date(1) > 0 ) then
+      call FILE_get_CFtunits( date(:), tunits )
+      call CALENDAR_get_name( calendar_name )
+    else
+      tunits        = 'seconds'
+      calendar_name = ''
+    endif
+        
+    if ( calendar_name /= "" ) &
+      call FILE_Set_Attribute( this%fid, "global", "calendar", calendar_name )
+    call FILE_Set_Attribute( this%fid, "global", "time_units", tunits )
+    call FILE_Set_Attribute( this%fid, "global", "time_start", (/ subsec /) )
+
+    return
+  end subroutine FILE_base_meshfield_put_global_attribute_time
+
   !- private -----------------------------------------
 
   subroutine def_axes( this, & ! (in)
@@ -860,7 +912,8 @@ contains
       end do
     end if
 
-    if ( associated(this%mesh2D) ) then
+    if (      associated(this%mesh2D)   &
+         .or. associated(this%meshCS2D) ) then
       do d=1, 2
         call FILE_Def_Axis( this%fid, &
           this%dimsinfo(d)%name, this%dimsinfo(d)%desc, this%dimsinfo(d)%unit, &
@@ -868,7 +921,8 @@ contains
       end do
     end if
 
-    if ( associated(this%mesh3D) ) then
+    if (      associated(this%mesh3D)   &
+         .or. associated(this%meshCS3D) ) then
       do d=1, 3
         call FILE_Def_Axis( this%fid, &
           this%dimsinfo(d)%name, this%dimsinfo(d)%desc, this%dimsinfo(d)%unit, &
@@ -884,7 +938,8 @@ contains
     use scale_const, only: &
       UNDEF => CONST_UNDEF
     use scale_file, only: &
-      FILE_Write_Axis
+      FILE_Write_Axis, &
+      FILE_Set_Attribute
     use scale_file_common_meshfield, only: &
       File_common_meshfield_get_axis
     implicit none
@@ -904,9 +959,17 @@ contains
       call FILE_Write_Axis( this%fid, this%dimsinfo(1)%name, x(:), start(1:1) )
     end if
 
-    if ( associated(this%mesh2D) ) then
+    if ( associated(this%mesh2D)  ) then
       allocate( x(this%dimsinfo(1)%size), y(this%dimsinfo(2)%size) )
       call File_common_meshfield_get_axis( this%mesh2D, this%dimsinfo, x(:), y(:), this%force_uniform_grid )
+
+      call FILE_Write_Axis( this%fid, this%dimsinfo(1)%name, x(:), start(1:1) )
+      call FILE_Write_Axis( this%fid, this%dimsinfo(2)%name, y(:), start(2:2) )
+    end if
+
+    if ( associated(this%meshCS2D)  ) then
+      allocate( x(this%dimsinfo(1)%size), y(this%dimsinfo(2)%size) )
+      call File_common_meshfield_get_axis( this%meshCS2D, this%dimsinfo, x(:), y(:) )
 
       call FILE_Write_Axis( this%fid, this%dimsinfo(1)%name, x(:), start(1:1) )
       call FILE_Write_Axis( this%fid, this%dimsinfo(2)%name, y(:), start(2:2) )
@@ -919,6 +982,19 @@ contains
       call FILE_Write_Axis( this%fid, this%dimsinfo(1)%name, x(:), start(1:1) )
       call FILE_Write_Axis( this%fid, this%dimsinfo(2)%name, y(:), start(2:2) )
       call FILE_Write_Axis( this%fid, this%dimsinfo(3)%name, z(:), start(3:3) )
+      if ( this%dimsinfo(3)%positive_down(1) ) &
+        call FILE_Set_Attribute( this%fid, this%dimsinfo(3)%name, "positive", "down" )
+    end if  
+
+    if ( associated(this%meshCS3D) ) then
+      allocate( x(this%dimsinfo(1)%size), y(this%dimsinfo(2)%size), z(this%dimsinfo(3)%size) )
+      call File_common_meshfield_get_axis( this%meshCS3D, this%dimsinfo, x(:), y(:), z(:) )
+
+      call FILE_Write_Axis( this%fid, this%dimsinfo(1)%name, x(:), start(1:1) )
+      call FILE_Write_Axis( this%fid, this%dimsinfo(2)%name, y(:), start(2:2) )
+      call FILE_Write_Axis( this%fid, this%dimsinfo(3)%name, z(:), start(3:3) )
+      if ( this%dimsinfo(3)%positive_down(1) ) &
+        call FILE_Set_Attribute( this%fid, this%dimsinfo(3)%name, "positive", "down" )
     end if  
 
     return

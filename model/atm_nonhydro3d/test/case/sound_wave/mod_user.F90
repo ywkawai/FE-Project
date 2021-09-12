@@ -108,15 +108,17 @@ contains
     return
   end subroutine USER_setup
 
-  subroutine USER_calc_tendency
+  subroutine USER_calc_tendency( atm )
     implicit none
+    class(AtmosComponent), intent(inout) :: atm
     !------------------------------------------
 
     return
   end subroutine USER_calc_tendency
 
-  subroutine USER_update
+  subroutine USER_update( atm )
     implicit none
+    class(AtmosComponent), intent(inout) :: atm
     !------------------------------------------
 
     return
@@ -218,7 +220,7 @@ contains
     do ke=lcmesh%NeS, lcmesh%NeE
       DRHOT(:,ke) = PRES00/Rdry * ( &
           ( ( PRES_hyd(:,ke) + PRES_purtub(:,ke) ) / PRES00 )**rgamm &
-        - ( PRES_hyd(:,ke) / PRES00 )*rgamm                          )
+        - ( PRES_hyd(:,ke) / PRES00 )**rgamm                         )
     end do
 
     return

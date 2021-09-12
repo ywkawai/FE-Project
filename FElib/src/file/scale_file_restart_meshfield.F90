@@ -22,6 +22,7 @@ module scale_file_restart_meshfield
   use scale_mesh_rectdom2d, only: MeshRectDom2D
   use scale_mesh_cubedspheredom2d, only: MeshCubedSphereDom2D
   use scale_mesh_cubedom3d, only: MeshCubeDom3D
+  use scale_mesh_cubedspheredom3d, only: MeshCubedSphereDom3D
   use scale_localmesh_1d, only: LocalMesh1D
   use scale_localmesh_2d, only: LocalMesh2D
   use scale_localmesh_3d, only: LocalMesh3D
@@ -31,13 +32,19 @@ module scale_file_restart_meshfield
 
   use scale_file_base_meshfield, only: &
     FILE_base_meshfield
-  use scale_file_common_meshfield, only: &
-    MF1D_DTYPE_NUM => FILE_COMMON_MESHFILED1D_DIMTYPE_NUM, &
-    MF2D_DTYPE_NUM => FILE_COMMON_MESHFILED2D_DIMTYPE_NUM, &
-    MF3D_DTYPE_NUM => FILE_COMMON_MESHFILED3D_DIMTYPE_NUM, &
-    MF3D_DIMTYPE_X => FILE_COMMON_MESHFILED3D_DIMTYPEID_X, &
-    MF3D_DIMTYPE_Y => FILE_COMMON_MESHFILED3D_DIMTYPEID_Y, &
-    MF3D_DIMTYPE_Z => FILE_COMMON_MESHFILED3D_DIMTYPEID_Z
+
+  use scale_mesh_base1d, only: &
+    MF1D_DIMTYPE_X => MeshBase1D_DIMTYPEID_X, &
+    MF1D_DTYPE_NUM => MeshBase1D_DIMTYPE_NUM 
+  use scale_mesh_base2d, only: &
+    MF2D_DIMTYPE_X => MeshBase2D_DIMTYPEID_X, &
+    MF2D_DIMTYPE_Y => MeshBase2D_DIMTYPEID_Y, &
+    MF2D_DTYPE_NUM => MeshBase2D_DIMTYPE_NUM 
+  use scale_mesh_base3d, only: &
+    MF3D_DIMTYPE_X => MeshBase3D_DIMTYPEID_X, &
+    MF3D_DIMTYPE_Y => MeshBase3D_DIMTYPEID_Y, &
+    MF3D_DIMTYPE_Z => MeshBase3D_DIMTYPEID_Z, &
+    MF3D_DTYPE_NUM => MeshBase3D_DIMTYPE_NUM    
   
   !-----------------------------------------------------------------------------
   implicit none
@@ -75,11 +82,17 @@ module scale_file_restart_meshfield
     procedure :: FILE_restart_meshfield_component_def_var
     generic :: Def_var => FILE_restart_meshfield_component_def_var
     procedure :: End_def => FILE_restart_meshfield_component_enddef
+    procedure :: FILE_restart_meshfield_component_write_var2d
     procedure :: FILE_restart_meshfield_component_write_var3d
-    generic :: Write_var => FILE_restart_meshfield_component_write_var3d
+    generic :: Write_var => &
+      FILE_restart_meshfield_component_write_var2d, &
+      FILE_restart_meshfield_component_write_var3d
     procedure :: Close => FILE_restart_meshfield_component_close
+    procedure :: FILE_restart_meshfield_component_read_var2d
     procedure :: FILE_restart_meshfield_component_read_var3d
-    generic :: Read_Var => FILE_restart_meshfield_component_read_var3d
+    generic :: Read_Var => &
+      FILE_restart_meshfield_component_read_var2d, &
+      FILE_restart_meshfield_component_read_var3d
     procedure :: Final => FILE_restart_meshfield_component_Final
   end type
 
@@ -150,7 +163,8 @@ contains
 
   subroutine FILE_restart_meshfield_component_Init1( this,  &
     comp_name,                                              &
-    var_num, mesh1D, mesh2D, meshCubedSphere2D, mesh3D )
+    var_num, mesh1D, mesh2D, meshCubedSphere2D,             &
+    mesh3D, meshCubedSphere3D                               )
 
   use scale_file_common_meshfield, only: &
     File_common_meshfield_get_dims  
@@ -164,15 +178,16 @@ contains
     class(MeshRectDom2D), target, optional, intent(in) :: mesh2D
     class(MeshCubedSphereDom2D), target, optional, intent(in) :: meshCubedSphere2D
     class(MeshCubeDom3D), target, optional, intent(in) :: mesh3D
+    class(MeshCubedSphereDom3D), target, optional, intent(in) :: meshCubedSphere3D
 
     !--------------------------------------------------
 
     call this%Init2( &
-      comp_name,                                                     &
-      restart_file%in_basename, restart_file%in_postfix_timelabel,   &
-      restart_file%out_basename, restart_file%out_postfix_timelabel, &
-      restart_file%out_dtype, restart_file%out_title,                &
-      var_num, mesh1D, mesh2D, meshCubedSphere2D, mesh3D )
+      comp_name,                                                            &
+      restart_file%in_basename, restart_file%in_postfix_timelabel,          &
+      restart_file%out_basename, restart_file%out_postfix_timelabel,        &
+      restart_file%out_dtype, restart_file%out_title,                       &
+      var_num, mesh1D, mesh2D, meshCubedSphere2D, mesh3D, meshCubedSphere3D )
 
     return
   end subroutine FILE_restart_meshfield_component_Init1
@@ -182,7 +197,10 @@ contains
       in_basename, in_postfix_timelabel,                    &
       out_basename, out_postfix_timelabel,                  &
       out_dtype, out_title,                                 &
-      var_num, mesh1D, mesh2D, meshCubedSphere2D, mesh3D )
+      var_num,                                              &
+      mesh1D,                                               &
+      mesh2D, meshCubedSphere2D,                            &
+      mesh3D, meshCubedSphere3D                             )
 
     implicit none
 
@@ -199,6 +217,7 @@ contains
     class(MeshRectDom2D), target, optional, intent(in) :: mesh2D
     class(MeshCubedSphereDom2D), target, optional, intent(in) :: meshCubedSphere2D
     class(MeshCubeDom3D), target, optional, intent(in) :: mesh3D
+    class(MeshCubedSphereDom3D), target, optional, intent(in) :: meshCubedSphere3D
     !--------------------------------------------------
     this%comp_name = comp_name
 
@@ -211,7 +230,7 @@ contains
     this%out_dtype = out_dtype
 
     !-
-    call this%base%Init( var_num, mesh1D, mesh2D, meshCubedSphere2D, mesh3D )
+    call this%base%Init( var_num, mesh1D, mesh2D, meshCubedSphere2D, mesh3D, meshCubedSphere3D )
 
     return
   end subroutine FILE_restart_meshfield_component_Init2
@@ -285,15 +304,13 @@ contains
 
     LOG_INFO(trim(this%comp_name)//"_vars_restart_create",*) 'basename: ', trim(basename)
 
-    call get_tunits_and_calendarname( NOWDATE, &
-      tunits, calendar )
     
     call this%base%Create( basename, this%out_title, this%out_dtype,           & ! (in)
                            fileexisted,                                        & ! (out)
                            myrank=PRC_myrank, tunits=tunits, calendar=calendar ) ! (in)
     
     if ( .not. fileexisted ) then
-      call put_global_attribute( this%base%fid, NOWSUBSEC, tunits, calendar )
+      call this%base%Put_GlobalAttribute_time( NOWDATE, NOWSUBSEC )
     end if
 
     return
@@ -327,6 +344,22 @@ contains
     return
   end subroutine FILE_restart_meshfield_component_enddef
 
+  subroutine FILE_restart_meshfield_component_write_var2d( this, &
+    vid, field2d )
+    
+    use scale_time, only: TIME_NOWDAYSEC
+    implicit none
+
+    class(FILE_restart_meshfield_component), intent(inout) :: this
+    integer, intent(in) :: vid
+    class(MeshField2D), intent(in) :: field2d
+    !--------------------------------------------------
+
+    call this%base%Write_var2D( vid, field2d, TIME_NOWDAYSEC, TIME_NOWDAYSEC )
+
+    return
+  end subroutine FILE_restart_meshfield_component_write_var2d
+
   subroutine FILE_restart_meshfield_component_write_var3d( this, &
     vid, field3d )
     
@@ -342,6 +375,26 @@ contains
 
     return
   end subroutine FILE_restart_meshfield_component_write_var3d
+
+  subroutine FILE_restart_meshfield_component_read_var2d( this,  &
+    dim_typeid, varname, field2d, step, allow_missing  )
+  
+  
+    implicit none
+  
+    class(FILE_restart_meshfield_component), intent(inout) :: this
+    integer, intent(in) :: dim_typeid
+    character(*), intent(in) :: varname
+    class(MeshField2D), intent(inout) :: field2d
+    integer, intent(in), optional :: step
+    logical, intent(in), optional :: allow_missing
+    !------------------------------------------------------
+
+    call this%base%Read_Var( &
+          dim_typeid, varname, field2d, step, allow_missing  )
+    
+    return
+  end subroutine FILE_restart_meshfield_component_read_var2d
 
   subroutine FILE_restart_meshfield_component_read_var3d( this,  &
     dim_typeid, varname, field3d, step, allow_missing  )
@@ -389,57 +442,6 @@ contains
     return
   end subroutine FILE_restart_meshfield_component_Final
 
-
-  subroutine put_global_attribute( &
-    fid, time, tunits, calendar  )
-
-    use scale_file, only: &
-    FILE_Set_Attribute
-    implicit none
-
-    integer, intent(in) :: fid
-    real(DP), intent(in)     :: time
-    character(*), intent(in) :: tunits
-    character(*), intent(in) :: calendar
-
-    !------------------------------------
-
-    call FILE_Set_Attribute( fid, "global", "Conventions", "CF-1.6" ) ! [IN]
-    call FILE_Set_Attribute( fid, "global", "grid_name", "hoge" ) ! [IN]
-
-    if ( calendar /= "" ) call FILE_Set_Attribute( fid, "global", "calendar", calendar )
-    call FILE_Set_Attribute( fid, "global", "time_units", tunits )
-    call FILE_Set_Attribute( fid, "global", "time_start", (/time/) )
-
-    return
-  end subroutine put_global_attribute
-
   !------------
-
-
-  subroutine get_tunits_and_calendarname( date, &
-      tunits, calendar_name )
-
-    use scale_file, only: &
-      FILE_get_CFtunits
-    use scale_calendar, only: &
-      CALENDAR_get_name    
-    implicit none
-
-    integer, intent(in) :: date(6)
-    character(len=34), intent(out) :: tunits
-    character(len=H_SHORT), intent(out) :: calendar_name
-    !--------------------------------------------------
-
-    if ( date(1) > 0 ) then
-      call FILE_get_CFtunits( date(:), tunits )
-      call CALENDAR_get_name( calendar_name )
-    else
-      tunits        = 'seconds'
-      calendar_name = ''
-    endif
-
-    return
-  end subroutine get_tunits_and_calendarname
 
 end module scale_file_restart_meshfield

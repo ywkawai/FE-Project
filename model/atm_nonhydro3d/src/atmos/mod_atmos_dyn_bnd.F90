@@ -25,12 +25,14 @@ module mod_atmos_dyn_bnd
     PRES00 => CONST_PRE00
 
   use scale_element_base, only: &
-    ElementBase, ElementBase3D
+    ElementBase, ElementBase2D, ElementBase3D
   use scale_mesh_base, only: MeshBase
   use scale_localmesh_base, only: LocalMeshBase
 
   use scale_mesh_base3d, only: MeshBase3D
+  use scale_mesh_base2d, only: MeshBase2D  
   use scale_localmesh_3d, only: LocalMesh3D
+  use scale_localmesh_2d, only: LocalMesh2D  
 
   use scale_localmeshfield_base, only: LocalMeshField3D
   use scale_meshfield_base, only: MeshField3D
@@ -78,7 +80,6 @@ module mod_atmos_dyn_bnd
   integer, parameter :: domBnd_Btm_ID   = 5
   integer, parameter :: domBnd_Top_ID   = 6
   integer, parameter :: DOM_BND_NUM     = 6
-
 
 contains
   subroutine ATMOS_dyn_bnd_setup( this )
@@ -168,6 +169,7 @@ contains
     return
   end subroutine ATMOS_dyn_bnd_finalize  
 
+  !OCL SERIAL
   subroutine ATMOS_dyn_bnd_setBCInfo( this, mesh )
 
     implicit none
@@ -203,11 +205,13 @@ contains
     return
   end subroutine ATMOS_dyn_bnd_setBCInfo
 
-  subroutine ATMOS_dyn_bnd_applyBC_prgvars_lc( this, &
-    domID,                                           & ! (in)
-    DDENS, MOMX, MOMY, MOMZ, DRHOT,                  & ! (inout)
-    DENS_hyd, PRES_hyd,                              & ! (in)
-    nx, ny, nz, vmapM, vmapP, vmapB, lmesh, elem )     ! (in)
+!OCL SERIAL
+  subroutine ATMOS_dyn_bnd_applyBC_prgvars_lc( this,  &
+    domID,                                            & ! (in)
+    DDENS, MOMX, MOMY, MOMZ, DRHOT,                   & ! (inout)
+    DENS_hyd, PRES_hyd,                               & ! (in)
+    Gsqrt, GsqrtH, G13, G23, nx, ny, nz,              & ! (in)
+    vmapM, vmapP, vmapB, lmesh, elem, lmesh2D, elem2D ) ! (in)
 
     use scale_mesh_bndinfo, only: &
       BND_TYPE_SLIP_ID, BND_TYPE_NOSLIP_ID, &
@@ -218,7 +222,9 @@ contains
     class(AtmosDynBnd), intent(in) :: this    
     integer, intent(in) :: domID
     class(LocalMesh3D), intent(in) :: lmesh
-    class(elementbase3D), intent(in) :: elem    
+    class(ElementBase3D), intent(in) :: elem
+    class(LocalMesh2D), intent(in) :: lmesh2D
+    class(ElementBase2D), intent(in) :: elem2D
     real(RP), intent(inout) :: DDENS(elem%Np*lmesh%NeA)
     real(RP), intent(inout) :: MOMX(elem%Np*lmesh%NeA)
     real(RP), intent(inout) :: MOMY(elem%Np*lmesh%NeA)
@@ -226,6 +232,10 @@ contains
     real(RP), intent(inout) :: DRHOT(elem%Np*lmesh%NeA)
     real(RP), intent(in) :: DENS_hyd(elem%Np*lmesh%NeA)
     real(RP), intent(in) :: PRES_hyd(elem%Np*lmesh%NeA)
+    real(RP), intent(in) :: Gsqrt(elem%Np*lmesh%NeA)
+    real(RP), intent(in) :: GsqrtH(elem2D%Np,lmesh2D%Ne)
+    real(RP), intent(in) ::  G13(elem%Np*lmesh%NeA)
+    real(RP), intent(in) ::  G23(elem%Np*lmesh%NeA)    
     real(RP), intent(in) :: nx(elem%NfpTot*lmesh%Ne)
     real(RP), intent(in) :: ny(elem%NfpTot*lmesh%Ne)
     real(RP), intent(in) :: nz(elem%NfpTot*lmesh%Ne)
@@ -233,19 +243,34 @@ contains
     integer, intent(in) :: vmapP(elem%NfpTot*lmesh%Ne)
     integer, intent(in) :: vmapB(:)
 
+    integer :: p, ke, ke2D
     integer :: i, i_, iM, iP
     real(RP) :: mom_normal
+
+    real(RP) :: MOMW
     !-----------------------------------------------
 
-    do i=1, elem%NfpTot*lmesh%Ne
+    !$omp parallel do collapse(2) private( &
+    !$omp ke, p, ke2D, i, i_, iM, iP,      &
+    !$omp mom_normal, MOMW                 )
+    do ke=lmesh%NeS, lmesh%NeE
+    do p=1, elem%NfpTot
+      i = p + (ke-1)*elem%NfpTot
       iP = vmapP(i)
       i_ = iP - elem%Np*lmesh%NeE
-
+      
       if (i_ > 0) then
         iM = vmapM(i)
+
         select case( this%VelBC_list(domID)%list(i_) )
         case ( BND_TYPE_SLIP_ID)
-          mom_normal = MOMX(iM) * nx(i) + MOMY(iM) * ny(i) + MOMZ(iM) * nz(i)
+          ke2D = lmesh%EMap3Dto2D(ke)
+
+          MOMW = MOMZ(iM) &
+               + Gsqrt(iM) / GsqrtH(elem%IndexH2Dto3D_bnd(p),ke2D) &
+                  * ( G13(iM) * MOMX(iM) + G23(iM) * MOMY(iM) )
+          mom_normal = MOMX(iM) * nx(i) + MOMY(iM) * ny(i) + MOMW * nz(i)
+
           MOMX(iP) = MOMX(iM) - 2.0_RP * mom_normal * nx(i)
           MOMY(iP) = MOMY(iM) - 2.0_RP * mom_normal * ny(i)
           MOMZ(iP) = MOMZ(iM) - 2.0_RP * mom_normal * nz(i)
@@ -255,11 +280,13 @@ contains
           MOMZ(iP) = - MOMZ(iM)          
         end select
       end if
-    end do 
-   
+
+    end do
+    end do
+    
     return
   end  subroutine ATMOS_dyn_bnd_applyBC_prgvars_lc
-
+  
   subroutine ATMOS_dyn_bnd_applyBC_numdiff_odd_lc(  this, & ! (in)
     GxVar, GyVar, GzVar,                                  & ! (inout)
     is_bound,                                             & ! (out)

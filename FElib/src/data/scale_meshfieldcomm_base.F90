@@ -86,19 +86,6 @@ module scale_meshfieldcomm_base
       integer, intent(in) :: varid_s
     end subroutine MeshFieldCommBase_get
 
-    subroutine MeshFieldComm_get_vec( this, &
-      & varid_s, U, V, u1, u2 )
-
-      import MeshFieldCommBase
-      import MeshFieldBase      
-      class(MeshFieldCommBase), intent(in) :: this
-      integer, intent(in) :: varid_s
-      class(MeshFieldBase), intent(inout) :: U
-      class(MeshFieldBase), intent(inout) :: V
-      class(MeshFieldBase), intent(inout), optional :: u1
-      class(MeshFieldBase), intent(inout), optional :: u2
-    end subroutine MeshFieldComm_get_vec
-
     subroutine MeshFieldCommBase_Exchange(this)
         import MeshFieldCommBase
         class(MeshFieldCommBase), intent(inout) :: this

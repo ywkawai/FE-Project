@@ -34,24 +34,14 @@ module mod_mkinit
   use scale_element_base, only: ElementBase3D
   use scale_element_hexahedral, only: HexahedralElement
   use scale_localmesh_3d, only: LocalMesh3D
-  use scale_mesh_cubedom3d, only: MeshCubeDom3D  
+  use scale_mesh_base3d, only: MeshBase3D
   use scale_localmeshfield_base, only: LocalMeshFieldBase
   use scale_atm_dyn_dgm_hydrostatic, only: &
     hydrostaic_build_rho_XYZ
 
   use mod_atmos_component, only: &
     AtmosComponent
-    
-  use mod_mkinit_util, only: &
-    gen_GPMat => mkinitutil_gen_GPMat,                                     &
-    gen_Vm1Mat => mkinitutil_gen_Vm1Mat,                                   &
-    calc_cosinebell => mkinitutil_calc_cosinebell
-
-  use scale_atm_dyn_dgm_hydrostatic, only: &
-    calc_basicstate_constPT => hydrostatic_calc_basicstate_constPT,         &
-    calc_basicstate_constBVFreq => hydrostatic_calc_basicstate_constBVFreq, & 
-    calc_basicstate_constPTLAPS => hydrostatic_calc_basicstate_constPTLAPS
-    
+      
   !-----------------------------------------------------------------------------
   implicit none
   private
@@ -135,10 +125,10 @@ contains
     integer :: n
     integer :: ke
     class(LocalMesh3D), pointer :: lcmesh3D
-    class(MeshCubeDom3D), pointer :: mesh
+    class(MeshBase3D), pointer :: mesh
     !---------------------------------------------------------------------------
 
-    mesh => model_mesh%mesh
+    mesh => model_mesh%ptr_mesh
 
     if ( MKINIT_TYPE == I_IGNORE ) then
       LOG_NEWLINE

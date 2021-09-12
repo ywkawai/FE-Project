@@ -44,6 +44,7 @@ module scale_atm_dyn_dgm_hydrostatic
   !
   !++ Public procedures
   !
+  public :: hydrostatic_calc_basicstate_constT
   public :: hydrostatic_calc_basicstate_constPT
   public :: hydrostatic_calc_basicstate_constPTLAPS
   public :: hydrostatic_calc_basicstate_constBVFreq
@@ -60,6 +61,37 @@ module scale_atm_dyn_dgm_hydrostatic
   !
 
 contains
+  subroutine hydrostatic_calc_basicstate_constT( &
+    DENS_hyd, PRES_hyd,                          &
+    Temp0, PRES_sfc, x, y, z, lcmesh3D, elem     )
+
+    implicit none
+
+    class(LocalMesh3D), intent(in) :: lcmesh3D
+    class(ElementBase3D), intent(in) :: elem
+    real(RP), intent(out) :: DENS_hyd(elem%Np,lcmesh3D%NeA)
+    real(RP), intent(out) :: PRES_hyd(elem%Np,lcmesh3D%NeA)
+    real(RP), intent(in) :: x(elem%Np,lcmesh3D%Ne)
+    real(RP), intent(in) :: y(elem%Np,lcmesh3D%Ne)
+    real(RP), intent(in) :: z(elem%Np,lcmesh3D%Ne)
+    real(RP), intent(in) :: Temp0
+    real(RP), intent(in) :: PRES_sfc
+
+    integer :: ke
+    real(RP) :: H0
+    !-----------------------------------------------
+
+    H0 = Rdry * Temp0 / Grav
+
+    !$omp parallel do
+    do ke=lcmesh3D%NeS, lcmesh3D%NeE
+      PRES_hyd(:,ke) = PRES_sfc * exp( - z(:,ke) / H0 )
+      DENS_hyd(:,ke) = PRES_hyd(:,ke) / ( Rdry * Temp0 )
+    end do
+
+    return
+  end subroutine hydrostatic_calc_basicstate_constT
+
   subroutine hydrostatic_calc_basicstate_constPT( &
     DENS_hyd, PRES_hyd,                         &
     PotTemp0, PRES_sfc, x, y, z, lcmesh3D, elem )
@@ -132,9 +164,9 @@ contains
     !$omp parallel do private(PT, exner)
     do ke=lcmesh3D%NeS, lcmesh3D%NeE
       ! d exner / dz = - g / ( Cp * PT0 ) * exp (- N2/g * z)
-      ! exner = exner(zs) - g^2 / (Cp * N2) [ 1/PT (z) - 1/PT(zs) ] 
+      ! exner = exner(zs) - g^2 / (Cp * N^2) [ 1/PT (z) - 1/PT(zs) ] 
       PT(:) = PotTemp0 * exp( BruntVaisalaFreq**2 / Grav * z(:,ke) )
-      exner(:) = exner_sfc + Grav**2 / ( CpDry * BruntVaisalaFreq ) * ( 1.0_RP / PT(:) - 1.0_RP / PotTemp0 )
+      exner(:) = exner_sfc + Grav**2 / ( CpDry * BruntVaisalaFreq**2 ) * ( 1.0_RP / PT(:) - 1.0_RP / PotTemp0 )
 
       PRES_hyd(:,ke) = PRES00 * exner(:)**CPovR
       DENS_hyd(:,ke) =  PRES_hyd(:,ke) / ( Rdry * exner(:) * PT(:) )

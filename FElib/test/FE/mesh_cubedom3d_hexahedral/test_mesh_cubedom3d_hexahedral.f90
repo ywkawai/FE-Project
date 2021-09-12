@@ -251,7 +251,7 @@ contains
     !--------------------------------------
     eid = i + (j-1)*lmesh%NeX + (k-1)*lmesh%NeX*lmesh%NeY
     return
-  end function
+  end function elemID
 
   function nodeID(elem, i, j, k) result(nid)
     type(HexahedralElement), intent(in) :: elem
@@ -260,7 +260,7 @@ contains
     !--------------------------------------
     nid = i + (j-1)*elem%Nnode_h1D + (k-1)*elem%Nnode_h1D**2
     return
-  end function
+  end function nodeID
 
   !--------------------------
   

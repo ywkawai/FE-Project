@@ -9,8 +9,11 @@ module scale_mesh_cubedspheredom2d
   use scale_precision
 
   use scale_mesh_base2d, only: &
-    MeshBase2D, MeshBase2D_Init, MeshBase2D_Final, &
-    MeshBase2D_setGeometricInfo
+    MeshBase2D, MeshBase2D_Init, MeshBase2D_Final,    &
+    MeshBase2D_setGeometricInfo,                      &
+    MeshBase2D_DIMTYPE_NUM,                           &
+    MeshBase2D_DIMTYPEID_X, MeshBase2D_DIMTYPEID_Y,   &
+    MeshBase2D_DIMTYPEID_XY, MeshBase2D_DIMTYPEID_XYT
 
   use scale_localmesh_2d, only: &
     LocalMesh2D
@@ -38,10 +41,11 @@ module scale_mesh_cubedspheredom2d
     procedure :: Init => MeshCubedSphereDom2D_Init
     procedure :: Final => MeshCubedSphereDom2D_Final
     procedure :: Generate => MeshCubedSphereDom2D_generate
-    procedure :: AssignDomID => MesshCubedSphereDom2D_assignDomID
+    procedure :: AssignDomID => MeshCubedSphereDom2D_assignDomID
   end type MeshCubedSphereDom2D
 
   public :: MeshCubedSphereDom2D_check_division_params
+  public :: MeshCubedSphereDom2D_setupLocalDom
   
   !-----------------------------------------------------------------------------
   !
@@ -90,6 +94,11 @@ contains
     call MeshBase2D_Init( this, refElem, NLocalMeshPerPrc, &
       nproc, myrank )
 
+    call this%SetDimInfo( MeshBase2D_DIMTYPEID_X, "x", "1", "X-coordinate" )
+    call this%SetDimInfo( MeshBase2D_DIMTYPEID_Y, "y", "1", "Y-coordinate" )
+    call this%SetDimInfo( MeshBase2D_DIMTYPEID_XY, "xy", "1", "XY-coordinate" )
+    call this%SetDimInfo( MeshBase2D_DIMTYPEID_XYT, "xyt", "1", "XY-coordinate" )
+  
     return
   end subroutine MeshCubedSphereDom2D_Init
 
@@ -225,8 +234,6 @@ contains
     return
   end subroutine MeshCubedSphereDom2D_check_division_params
 
-  !- private ------------------------------
-
   subroutine MeshCubedSphereDom2D_setupLocalDom( lcmesh,   &
     tileID, panelID,                                       &
     i, j, NprcX, NprcY,                                    &
@@ -265,9 +272,8 @@ contains
     elem => lcmesh%refElem2D
     lcmesh%tileID = tileID
     lcmesh%panelID = panelID
-    
+        
     !--
-
     lcmesh%Ne  = NeX * NeY
     lcmesh%Nv  = (NeX + 1)*(NeY + 1)
     lcmesh%NeS = 1
@@ -277,6 +283,7 @@ contains
     lcmesh%NeX = NeX
     lcmesh%NeY = NeY
 
+    !--
     delx = ( dom_xmax - dom_xmin ) / dble(NprcX)
     dely = ( dom_ymax - dom_ymin ) / dble(NprcY)
 
@@ -285,6 +292,7 @@ contains
     lcmesh%ymin = dom_ymin + (j-1)*dely
     lcmesh%ymax = dom_ymin +  j   *dely
 
+    !--
     allocate( lcmesh%pos_ev(lcmesh%Nv,2) )
     allocate( lcmesh%EToV(lcmesh%Ne,elem%Nv) )
     allocate( lcmesh%EToE(lcmesh%Ne,elem%Nfaces) )
@@ -334,7 +342,9 @@ contains
     return
   end subroutine MeshCubedSphereDom2D_setupLocalDom
 
-  subroutine MesshCubedSphereDom2D_assignDomID( this, &
+  !- private ------------------------------
+
+  subroutine MeshCubedSphereDom2D_assignDomID( this, &
     NprcX_lc, NprcY_lc,                               &
     tileID_table, panelID_table,                      &
     pi_table, pj_table )
@@ -404,7 +414,7 @@ contains
     end do
 
     return
-  end subroutine MesshCubedSphereDom2D_assignDomID
+  end subroutine MeshCubedSphereDom2D_assignDomID
 
   subroutine MeshCubedSphereDom2D_coord_conv( x, y, xr, xs, yr, ys, &
     vx, vy, elem )

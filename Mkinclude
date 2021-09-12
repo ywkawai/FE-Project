@@ -17,6 +17,7 @@ endif
 
 DCUTILSDIR  = $(TOPDIR)/dc_utils
 SCALEFELIBDIR    = $(TOPDIR)/FElib
+GLOBALSWDIR = $(TOPDIR)/model/global_shallow_water
 ATMNONHYDRO2DDIR = $(TOPDIR)/model/atm_nonhydro2d
 ATMNONHYDRO3DDIR = $(TOPDIR)/model/atm_nonhydro3d
 

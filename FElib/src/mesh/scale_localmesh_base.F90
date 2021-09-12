@@ -6,6 +6,8 @@ module scale_localmesh_base
   !++ used modules
   !
   use scale_precision
+  use scale_io
+
   use scale_element_base, only: elementbase
 
   !-----------------------------------------------------------------------------
@@ -16,7 +18,7 @@ module scale_localmesh_base
   !
   !++ Public type & procedure
   ! 
-
+  
   type, public :: LocalMeshBase
     integer :: Ne
     integer :: NeS
@@ -55,10 +57,11 @@ module scale_localmesh_base
     integer :: tileID
     integer :: panelID
     integer :: PRC_myrank
+    integer :: lcdomID
   
-    real(DP), allocatable :: G_ij(:,:,:,:)
-    real(DP), allocatable :: GIJ(:,:,:,:)
-    real(DP), allocatable :: Gsqrt(:,:)    
+    real(RP), allocatable :: G_ij(:,:,:,:) !< The covariant component of metric tensor with horizontal general curvilinear coordinate 
+    real(RP), allocatable :: GIJ(:,:,:,:)  !< The contravariant component of metric tensor with horizontal general curvilinear coordinate 
+    real(RP), allocatable :: Gsqrt(:,:)    !< The Jacobian of 3D transformation in the computational coordinate (=GsqrtH * GsqrtV)
   end type LocalMeshBase
 
   public :: LocalMeshBase_Init
@@ -86,17 +89,19 @@ module scale_localmesh_base
   !
 
 contains
-  subroutine LocalMeshBase_Init( this, refElem, dims, myrank )
+  subroutine LocalMeshBase_Init( this, lcdomID, refElem, ndim, myrank )
     
     use scale_prc, only: PRC_myrank
     implicit none
 
     class(LocalMeshBase), intent(inout) :: this
+    integer, intent(in) :: lcdomID
     class(ElementBase), intent(in), target :: refElem
-    integer, intent(in) :: dims
+    integer, intent(in) :: ndim
     integer, intent(in), optional :: myrank
     !-----------------------------------------------------------------------------
 
+    this%lcdomID = lcdomID
     this%refElem => refElem
 
     if (present(myrank)) then
@@ -131,11 +136,11 @@ contains
         deallocate( this%VMapB, this%MapB )
       end if
       if ( allocated(this%G_ij) ) then
-        deallocate( this%G_ij, this%GIJ, this%Gsqrt )
+        deallocate( this%G_ij, this%GIJ )
+        deallocate( this%Gsqrt )
       end if
     end if
-
+    
     return
   end subroutine LocalMeshBase_Final
-
 end module scale_localmesh_base

@@ -19,7 +19,10 @@
 !! @par Reference
 !!  - Vogl et al. 2019:
 !!    Evaluation of implicit-explicit additive Runge-Kutta integrators for the HOMME-NH dynamical core. 
-!!    Journal of Advances in Modeling Earth Systems, 11, 4228–4244.                  
+!!    Journal of Advances in Modeling Earth Systems, 11, 4228–4244. 
+!!  - Higueras and Roldan, 2019:
+!!    New third order low-storage SSP explicit Runge–Kutta methods. 
+!!    Journal of Scientific Computing, 79(3), 1882-1906.
 !<
 #include "scaleFElib.h"
 module scale_timeint_rk_butcher_tab
@@ -53,6 +56,7 @@ module scale_timeint_rk_butcher_tab
   
   !-----------------------------------------------------------------------------
 contains
+!OCL SERIAL
   subroutine timeint_rk_butcher_tab_get_info( rk_scheme_name, &
     nstage, tend_buf_size, low_storage_flag, imex_flag        )
     implicit none
@@ -117,6 +121,7 @@ contains
     return
   end subroutine timeint_rk_butcher_tab_get_info
 
+!OCL SERIAL
   subroutine timeint_rk_butcher_tab_get( &
     rk_scheme_name, nstage, imex_flag,         & ! (in)
     coef_a_ex, coef_b_ex, coef_c_ex,           & ! (in)
@@ -316,6 +321,9 @@ contains
 
   !- private --------------------------------------------
 
+  !> Convert Shu-Osher matrix to Butcher matrix
+  !! For detail of the strategy, see Higueras and Roldan (2019).
+!OCL SERIAL
   subroutine ShuOsher2Butcher( &
     coef_sig, coef_gam, nstage, &
     coef_a, coef_b )

@@ -41,6 +41,7 @@ module scale_mesh_rectdom2d
     procedure :: Init => MeshRectDom2D_Init
     procedure :: Final => MeshRectDom2D_Final
     procedure :: Generate => MeshRectDom2D_generate
+    procedure :: AssignDomID => MeshRectDom2D_assignDomID
   end type MeshRectDom2D
 
   public :: MeshRectDom2D_coord_conv
@@ -66,7 +67,8 @@ contains
     NeGX, NeGY,                             &
     dom_xmin, dom_xmax, dom_ymin, dom_ymax, &
     isPeriodicX, isPeriodicY,               &
-    refElem, NLocalMeshPerPrc, NprcX, NprcY )
+    refElem, NLocalMeshPerPrc,              &
+    NprcX, NprcY, myrank )
     
     implicit none
 
@@ -83,6 +85,7 @@ contains
     integer, intent(in) :: NLocalMeshPerPrc
     integer, intent(in) :: NprcX
     integer, intent(in) :: NprcY
+    integer, intent(in), optional :: myrank
 
     !-----------------------------------------------------------------------------
     
@@ -100,7 +103,8 @@ contains
     this%NprcX = NprcX
     this%NprcY = NprcY
 
-    call MeshBase2D_Init(this, refElem, NLocalMeshPerPrc)
+    call MeshBase2D_Init( this, refElem, NLocalMeshPerPrc, &
+      NeGX * NeGY, myrank )
 
     return
   end subroutine MeshRectDom2D_Init
@@ -140,7 +144,6 @@ contains
     integer :: pj_table(this%LOCAL_MESH_NUM*this%PRC_NUM)
 
     integer :: TILE_NUM_PER_PANEL
-    integer :: NprcX, NprcY
     real(RP) :: delx, dely
     integer :: tileID
     
@@ -151,10 +154,9 @@ contains
     
     !--- Construct the connectivity of patches  (only master node)
 
-    call MesshRectDom2D_assignDomID( this,    & ! (in)
-        & NprcX, NprcY,                & ! (out)
-        & tileID_table, panelID_table, & ! (out)
-        & pi_table, pj_table )           ! (out)
+    call this%AssignDomID(  &
+      tileID_table, panelID_table, & ! (out)
+      pi_table, pj_table )           ! (out)
   
     !--- Setup local meshes managed by my process
 
@@ -163,10 +165,10 @@ contains
       tileID = tileID_table(n, mesh%PRC_myrank+1)
 
       call MeshRectDom2D_setupLocalDom( mesh, &
-         & tileID,  panelID_table(tileID),                     &
-         & pi_table(tileID), pj_table(tileID), NprcX, NprcY,       &
-         & this%xmin_gl, this%xmax_gl, this%ymin_gl, this%ymax_gl, &
-         & this%NeGX/NprcX, this%NeGY/NprcY )
+        tileID,  panelID_table(tileID),                             &
+        pi_table(tileID), pj_table(tileID), this%NprcX, this%NprcY, &
+        this%xmin_gl, this%xmax_gl, this%ymin_gl, this%ymax_gl,     &
+        this%NeGX/this%NprcX, this%NeGY/this%NprcY                  )
 
       !---
       ! write(*,*) "** my_rank=", mesh%PRC_myrank
@@ -278,8 +280,7 @@ contains
     return
   end subroutine MeshRectDom2D_setupLocalDom
 
-  subroutine MesshRectDom2D_assignDomID( this, &
-    NprcX, NprcY,                       &
+  subroutine MeshRectDom2D_assignDomID( this, &
     tileID_table, panelID_table,        &
     pi_table, pj_table )
   
@@ -288,9 +289,7 @@ contains
     
     implicit none
 
-    type(MeshRectDom2D), target, intent(inout) :: this    
-    integer, intent(out) :: NprcX
-    integer, intent(out) :: NprcY
+    class(MeshRectDom2D), target, intent(inout) :: this    
     integer, intent(out) :: tileID_table(this%LOCAL_MESH_NUM, this%PRC_NUM)
     integer, intent(out) :: panelID_table(this%LOCAL_MESH_NUM*this%PRC_NUM)
     integer, intent(out) :: pi_table(this%LOCAL_MESH_NUM*this%PRC_NUM)
@@ -309,10 +308,8 @@ contains
     call MeshUtil2D_buildGlobalMap( &
       panelID_table, pi_table, pj_table,                                            & ! (out)
       this%tileID_globalMap, this%tileFaceID_globalMap, this%tilePanelID_globalMap, & ! (out)
-      this%LOCAL_MESH_NUM_global, this%isPeriodicX, this%isPeriodicY )                ! (in)                                        ! (in)
-
-    NprcX = maxval(pi_table)
-    NprcY = maxval(pj_table)
+      this%LOCAL_MESH_NUM_global, this%isPeriodicX, this%isPeriodicY,               & ! (in)
+      this%NprcX, this%NprcY )                                                        ! (in)
     
     !----
     
@@ -345,7 +342,7 @@ contains
     end do
 
     return
-  end subroutine MesshRectDom2D_assignDomID
+  end subroutine MeshRectDom2D_assignDomID
   
   subroutine MeshRectDom2D_coord_conv( x, y, xr, xs, yr, ys, &
     vx, vy, elem )

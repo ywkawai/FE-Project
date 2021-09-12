@@ -30,6 +30,7 @@ endif
 
 OBJS_NAME_COMMON = \
 	scale_polynominal.o            \
+	scale_polygon.o                \
 	scale_sparsemat.o              \
 	scale_linalgebra.o             \
 	scale_time_manager.o           \
@@ -52,7 +53,9 @@ OBJS_NAME_MESH = \
 	scale_meshutil_1d.o            \
 	scale_meshutil_2d.o            \
 	scale_meshutil_3d.o            \
+	scale_meshutil_vcoord.o        \
 	scale_meshutil_cubedsphere2d.o \
+	scale_meshutil_cubedsphere3d.o \
 	scale_mesh_bndinfo.o           \
 	scale_localmesh_base.o         \
 	scale_localmesh_1d.o           \
@@ -65,7 +68,9 @@ OBJS_NAME_MESH = \
 	scale_mesh_linedom1d.o         \
 	scale_mesh_rectdom2d.o         \
 	scale_mesh_cubedom3d.o         \
-	scale_mesh_cubedspheredom2d.o
+	scale_mesh_cubedspheredom2d.o  \
+	scale_mesh_cubedspheredom3d.o  \
+	scale_mesh_topography.o
 
 OBJS_NAME_DATA = \
 	scale_variableinfo.o                    \
@@ -76,6 +81,7 @@ OBJS_NAME_DATA = \
 	scale_meshfieldcomm_rectdom2d.o         \
 	scale_meshfieldcomm_cubedspheredom2d.o  \
 	scale_meshfieldcomm_cubedom3d.o         \
+	scale_meshfieldcomm_cubedspheredom3d.o  \
 	scale_meshfield_statistics.o           
 
 OBJS_NAME_FILE = \
@@ -86,16 +92,23 @@ OBJS_NAME_FILE = \
 	scale_file_monitor_meshfield.o
 
 OBJS_NAME_FLUID_DYN_SOLVER = \
-	scale_atm_dyn_dgm_modalfilter.o               \
-	scale_atm_dyn_dgm_spongelayer.o               \
-	scale_atm_dyn_dgm_hydrostatic.o               \
-	scale_atm_dyn_dgm_nonhydro3d_numdiff.o        \
-	scale_atm_dyn_dgm_nonhydro2d.o                \
-	scale_atm_dyn_dgm_nonhydro3d_heve.o           \
-	scale_atm_dyn_dgm_nonhydro3d_hevi.o           \
-	scale_atm_dyn_dgm_nonhydro3d_splitform_heve.o \
-	scale_atm_dyn_dgm_nonhydro3d_splitform_hevi.o \
-	scale_atm_dyn_dgm_nonhydro3d_hevi_gmres.o 
+	scale_atm_dyn_dgm_modalfilter.o                  \
+	scale_atm_dyn_dgm_spongelayer.o                  \
+	scale_atm_dyn_dgm_hydrostatic.o                  \
+	scale_atm_dyn_dgm_nonhydro3d_numdiff.o           \
+	scale_atm_dyn_dgm_nonhydro2d.o                   \
+	scale_atm_dyn_dgm_nonhydro3d_common.o            \
+	scale_atm_dyn_dgm_nonhydro3d_heve_numflux.o      \
+	scale_atm_dyn_dgm_nonhydro3d_heve.o              \
+	scale_atm_dyn_dgm_nonhydro3d_hevi_common.o       \
+	scale_atm_dyn_dgm_nonhydro3d_hevi_numflux.o      \
+	scale_atm_dyn_dgm_nonhydro3d_hevi.o              \
+	scale_atm_dyn_dgm_nonhydro3d_splitform_heve.o    \
+	scale_atm_dyn_dgm_nonhydro3d_splitform_hevi.o    \
+	scale_atm_dyn_dgm_nonhydro3d_hevi_gmres.o        \
+	scale_atm_dyn_dgm_globalnonhydro3d_heve.o        \
+	scale_atm_dyn_dgm_globalnonhydro3d_hevi.o        \
+	scale_atm_dyn_dgm_globalsw.o
 
 OBJS_NAME_TURBULENCE = \
 	scale_atm_phy_tb_dgm_smg.o

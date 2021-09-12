@@ -35,6 +35,7 @@ scale-dg
 LOG.pe*
 history.pe*.nc
 restart_*.pe*.nc
+*.dat
 
 #
 interp_LOG.pe*

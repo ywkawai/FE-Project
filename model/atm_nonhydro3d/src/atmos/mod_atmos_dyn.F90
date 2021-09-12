@@ -45,7 +45,7 @@ module mod_atmos_dyn
     atm_dyn_dgm_nonhydro3d_heve_Init,          &
     atm_dyn_dgm_nonhydro3d_heve_Final,         &
     atm_dyn_dgm_nonhydro3d_heve_cal_tend
-
+    
   use scale_atm_dyn_dgm_nonhydro3d_hevi, only: &
     atm_dyn_dgm_nonhydro3d_hevi_Init,          &
     atm_dyn_dgm_nonhydro3d_hevi_Final,         &
@@ -62,6 +62,18 @@ module mod_atmos_dyn
     atm_dyn_dgm_nonhydro3d_hevi_splitform_Final,         &
     atm_dyn_dgm_nonhydro3d_hevi_splitform_cal_tend,      &
     atm_dyn_dgm_nonhydro3d_hevi_splitform_cal_vi    
+  
+  use scale_atm_dyn_dgm_globalnonhydro3d_heve, only: &
+    atm_dyn_dgm_globalnonhydro3d_heve_Init,          &
+    atm_dyn_dgm_globalnonhydro3d_heve_Final,         &
+    atm_dyn_dgm_globalnonhydro3d_heve_cal_tend    
+  
+  use scale_atm_dyn_dgm_globalnonhydro3d_hevi, only: &
+    atm_dyn_dgm_globalnonhydro3d_hevi_Init,          &
+    atm_dyn_dgm_globalnonhydro3d_hevi_Final,         &
+    atm_dyn_dgm_globalnonhydro3d_hevi_cal_tend,      &
+    atm_dyn_dgm_globalnonhydro3d_hevi_cal_vi
+
   
   use scale_atm_dyn_dgm_nonhydro3d_numdiff, only: &
     atm_dyn_dgm_nonhydro3d_numdiff_Init,          &
@@ -96,7 +108,7 @@ module mod_atmos_dyn
     subroutine atm_dyn_nonhydro3d_cal_tend_ex( &
       DENS_dt, MOMX_dt, MOMY_dt, MOMZ_dt, RHOT_dt,                                & ! (out)
       DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd, CORIOLIS,          & ! (in)
-      SL_flag, wdamp_tau, wdamp_height,                                           & ! (in)
+      SL_flag, wdamp_tau, wdamp_height, hveldamp_flag,                            & ! (in)
       Dx, Dy, Dz, Sx, Sy, Sz, Lift, lmesh, elem, lmesh2D, elem2D )
 
       import RP
@@ -128,7 +140,7 @@ module mod_atmos_dyn
       logical, intent(in)   :: SL_flag
       real(RP), intent(in)  :: wdamp_tau
       real(RP), intent(in)  :: wdamp_height
-  
+      logical, intent(in) :: hveldamp_flag
     end subroutine atm_dyn_nonhydro3d_cal_tend_ex
   end interface
 
@@ -198,6 +210,7 @@ module mod_atmos_dyn
     logical :: SPONGELAYER_FLAG
     real(RP) :: wdamp_tau
     real(RP) :: wdamp_height
+    logical  :: hvel_damp_flag
 
   contains
     procedure, public :: setup => AtmosDyn_setup 
@@ -211,9 +224,11 @@ module mod_atmos_dyn
   !-----------------------------------------------------------------------------
   
   integer, public, parameter :: EQS_TYPEID_NONHYD3D_HEVE           = 1
-  integer, public, parameter :: EQS_TYPEID_NONHYD3D_SPLITFORM_HEVE = 2
-  integer, public, parameter :: EQS_TYPEID_NONHYD3D_HEVI           = 3
-  integer, public, parameter :: EQS_TYPEID_NONHYD3D_SPLITFORM_HEVI = 4
+  integer, public, parameter :: EQS_TYPEID_GLOBALNONHYD3D_HEVE     = 2
+  integer, public, parameter :: EQS_TYPEID_GLOBALNONHYD3D_HEVI     = 3
+  integer, public, parameter :: EQS_TYPEID_NONHYD3D_SPLITFORM_HEVE = 4
+  integer, public, parameter :: EQS_TYPEID_NONHYD3D_HEVI           = 5
+  integer, public, parameter :: EQS_TYPEID_NONHYD3D_SPLITFORM_HEVI = 6
 
 
   !-----------------------------------------------------------------------------
@@ -272,6 +287,8 @@ contains
     integer :: n
     real(DP) :: dtsec
 
+    class(MeshBase3D), pointer :: mesh3D
+
     integer :: ierr
     !--------------------------------------------------
 
@@ -293,9 +310,10 @@ contains
 
     call model_mesh%GetModelMesh( ptr_mesh )
     select type(model_mesh)
-    type is (AtmosMesh)
+    class is (AtmosMesh)
       atm_mesh => model_mesh
     end select
+    mesh3D => atm_mesh%ptr_mesh
 
     !- Setup the temporal integrator
 
@@ -317,6 +335,7 @@ contains
 
     !- initialize the variables 
     call this%dyn_vars%Init( model_mesh )
+
     call setup_coriolis_parameter( this%dyn_vars, atm_mesh )
 
     !- Initialize a module for 3D dynamical core 
@@ -324,22 +343,32 @@ contains
     select case(EQS_TYPE)
     case("NONHYDRO3D_HEVE")
       this%EQS_TYPEID = EQS_TYPEID_NONHYD3D_HEVE
-      call atm_dyn_dgm_nonhydro3d_heve_Init( atm_mesh%mesh )
+      call atm_dyn_dgm_nonhydro3d_heve_Init( mesh3D )
       this%cal_tend_ex => atm_dyn_dgm_nonhydro3d_heve_cal_tend
       this%cal_vi => null()
+    case("GLOBALNONHYDRO3D_HEVE")
+      this%EQS_TYPEID = EQS_TYPEID_GLOBALNONHYD3D_HEVE
+      call atm_dyn_dgm_globalnonhydro3d_heve_Init( mesh3D )
+      this%cal_tend_ex => atm_dyn_dgm_globalnonhydro3d_heve_cal_tend
+      this%cal_vi => null()
+    case("GLOBALNONHYDRO3D_HEVI")
+      this%EQS_TYPEID = EQS_TYPEID_GLOBALNONHYD3D_HEVI
+      call atm_dyn_dgm_globalnonhydro3d_hevi_Init( mesh3D )
+      this%cal_tend_ex => atm_dyn_dgm_globalnonhydro3d_hevi_cal_tend
+      this%cal_vi => atm_dyn_dgm_globalnonhydro3d_hevi_cal_vi
     case("NONHYDRO3D_SPLITFORM_HEVE")
       this%EQS_TYPEID = EQS_TYPEID_NONHYD3D_SPLITFORM_HEVE
-      call atm_dyn_dgm_nonhydro3d_heve_splitform_Init( atm_mesh%mesh )
+      call atm_dyn_dgm_nonhydro3d_heve_splitform_Init( mesh3D )
       this%cal_tend_ex => atm_dyn_dgm_nonhydro3d_heve_splitform_cal_tend
       this%cal_vi => null()
     case("NONHYDRO3D_HEVI")
       this%EQS_TYPEID = EQS_TYPEID_NONHYD3D_HEVI
-      call atm_dyn_dgm_nonhydro3d_hevi_Init( atm_mesh%mesh )
+      call atm_dyn_dgm_nonhydro3d_hevi_Init( mesh3D )
       this%cal_tend_ex => atm_dyn_dgm_nonhydro3d_hevi_cal_tend
       this%cal_vi => atm_dyn_dgm_nonhydro3d_hevi_cal_vi      
     case("NONHYDRO3D_SPLITFORM_HEVI")
       this%EQS_TYPEID = EQS_TYPEID_NONHYD3D_SPLITFORM_HEVI
-      call atm_dyn_dgm_nonhydro3d_hevi_splitform_Init( atm_mesh%mesh )
+      call atm_dyn_dgm_nonhydro3d_hevi_splitform_Init( mesh3D )
       this%cal_tend_ex => atm_dyn_dgm_nonhydro3d_hevi_splitform_cal_tend
       this%cal_vi => atm_dyn_dgm_nonhydro3d_hevi_splitform_cal_vi
     case default
@@ -397,7 +426,6 @@ contains
     integer :: tintbuf_ind
 
     class(MeshBase), pointer :: mesh
-    class(MeshBase2D), pointer :: mesh2D    
     class(LocalMesh3D), pointer :: lcmesh
     integer :: n
     integer :: ke
@@ -410,7 +438,6 @@ contains
     integer :: v
     real(RP) :: implicit_fac
     real(RP) :: dt
-    character(len=H_SHORT) :: labl
     !--------------------------------------------------
     
     call PROF_rapstart( 'ATM_DYN_update', 1)   
@@ -482,11 +509,13 @@ contains
         
         !* Apply boundary conditions
         call PROF_rapstart( 'ATM_DYN_applyBC_prgv', 2)
-        call this%boundary_cond%ApplyBC_PROGVARS_lc( n,                              & ! (in)
-          DDENS%val, MOMX%val, MOMY%val, MOMZ%val, DRHOT%val,                        & ! (inout)
-          DENS_hyd%val, PRES_hyd%val,                                                & ! (in)
-          lcmesh%normal_fn(:,:,1), lcmesh%normal_fn(:,:,2), lcmesh%normal_fn(:,:,3), & ! (in)
-          lcmesh%vmapM, lcmesh%vmapP, lcmesh%vmapB, lcmesh, lcmesh%refElem3D         ) ! (in)
+        call this%boundary_cond%ApplyBC_PROGVARS_lc( n,                                & ! (in)
+          DDENS%val, MOMX%val, MOMY%val, MOMZ%val, DRHOT%val,                          & ! (inout)
+          DENS_hyd%val, PRES_hyd%val,                                                  & ! (in)
+          lcmesh%Gsqrt(:,:), lcmesh%GsqrtH(:,:), lcmesh%GI3(:,:,1), lcmesh%GI3(:,:,2), & ! (in)
+          lcmesh%normal_fn(:,:,1), lcmesh%normal_fn(:,:,2), lcmesh%normal_fn(:,:,3),   & ! (in)
+          lcmesh%vmapM, lcmesh%vmapP, lcmesh%vmapB,                                    & ! (in)
+          lcmesh, lcmesh%refElem3D, lcmesh%lcmesh2D, lcmesh%lcmesh2D%refElem2D         ) ! (in)
         call PROF_rapend( 'ATM_DYN_applyBC_prgv', 2)
       end do
 
@@ -516,6 +545,7 @@ contains
           DENS_hyd%val, PRES_hyd%val,                                             &
           Coriolis%val,                                                           &
           this%SPONGELAYER_FLAG, this%wdamp_tau, this%wdamp_height,               &
+          this%hvel_damp_flag,                                                    &
           model_mesh%DOptrMat(1), model_mesh%DOptrMat(2), model_mesh%DOptrMat(3), &
           model_mesh%SOptrMat(1), model_mesh%SOptrMat(2), model_mesh%SOptrMat(3), &
           model_mesh%LiftOptrMat,                                                 &
@@ -615,6 +645,10 @@ contains
     select case(this%EQS_TYPEID)
     case(EQS_TYPEID_NONHYD3D_HEVE)
       call atm_dyn_dgm_nonhydro3d_heve_Final()
+    case(EQS_TYPEID_GLOBALNONHYD3D_HEVE)
+      call atm_dyn_dgm_globalnonhydro3d_heve_Final()
+    case(EQS_TYPEID_GLOBALNONHYD3D_HEVI)
+      call atm_dyn_dgm_globalnonhydro3d_hevi_Final()
     case(EQS_TYPEID_NONHYD3D_HEVI)  
       call atm_dyn_dgm_nonhydro3d_hevi_Final()
     case(EQS_TYPEID_NONHYD3D_SPLITFORM_HEVI)  
@@ -738,7 +772,6 @@ contains
     class(MeshBase), pointer :: mesh
     class(LocalMesh3D), pointer :: lcmesh
     integer :: n
-    integer :: ke
     integer :: nd_itr
     real(RP) :: nd_sign
     logical :: dens_weight_flag
@@ -939,7 +972,7 @@ contains
     this%ND_LAPLACIAN_NUM = ND_LAPLACIAN_NUM
     this%ND_COEF_H = ND_COEF_h
     this%ND_COEF_v = ND_COEF_v
-    call atm_dyn_dgm_nonhydro3d_numdiff_Init( atm_mesh%mesh )
+    call atm_dyn_dgm_nonhydro3d_numdiff_Init( atm_mesh%ptr_mesh )
 
     return
   end subroutine setup_numdiff
@@ -947,24 +980,30 @@ contains
   !-- Setup sponge layer
 !OCL SERIAL
   subroutine setup_spongelayer( this, atm_mesh, dtsec )
+    use scale_mesh_cubedom3d, only: MeshCubeDom3D
+    use scale_mesh_cubedspheredom3d, only: MeshCubedSphereDom3D
     implicit none
 
     class(AtmosDyn), target, intent(inout) :: this
     class(AtmosMesh), target, intent(in) :: atm_mesh
     real(RP), intent(in) :: dtsec
 
-    real(RP) :: SL_WDAMP_TAU    = -1.0_RP ! the maximum tau for Rayleigh damping of w [s]
-    real(RP) :: SL_WDAMP_HEIGHT = -1.0_RP ! the height to start apply Rayleigh damping [m]
-    integer  :: SL_WDAMP_LAYER  = -1      ! the vertical number of finite element to start apply Rayleigh damping [num]
+    real(RP) :: SL_WDAMP_TAU        = -1.0_RP ! the maximum tau for Rayleigh damping of w [s]
+    real(RP) :: SL_WDAMP_HEIGHT     = -1.0_RP ! the height to start apply Rayleigh damping [m]
+    integer  :: SL_WDAMP_LAYER      = -1      ! the vertical number of finite element to start apply Rayleigh damping [num]
+    logical  :: SL_HORIVELDAMP_FLAG = .false. ! Is the horizontal velocity damped? 
     
     namelist /PARAM_ATMOS_DYN_SPONGELAYER/ &
       SL_WDAMP_TAU,                        &                
       SL_WDAMP_HEIGHT,                     &
-      SL_WDAMP_LAYER
+      SL_WDAMP_LAYER,                      &
+      SL_HORIVELDAMP_FLAG
     
+    class(MeshBase3D), pointer :: mesh3D
     class(LocalMesh3D), pointer :: lcmesh3D
     class(ElementBase3D), pointer :: elem3D
   
+    integer :: NeGZ
     integer :: ierr
     !---------------------------------------------------------------
 
@@ -981,10 +1020,18 @@ contains
     this%wdamp_tau    = SL_WDAMP_TAU 
     this%wdamp_height = SL_WDAMP_HEIGHT
 
-    lcmesh3D => atm_mesh%mesh%lcmesh_list(1)
+    mesh3D => atm_mesh%ptr_mesh
+    lcmesh3D => mesh3D%lcmesh_list(1)
     elem3D => lcmesh3D%refElem3D
 
-    if ( SL_WDAMP_LAYER > atm_mesh%mesh%NeGZ ) then
+    select type(mesh3D)
+    type is (MeshCubeDom3D)
+      NeGZ = mesh3D%NeGZ
+    type is (MeshCubedSphereDom3D)
+      NeGZ = mesh3D%NeGZ
+    end select
+
+    if ( SL_WDAMP_LAYER > NeGZ ) then
       LOG_ERROR("ATMOS_DYN_setup_spongelayer",*) 'SL_wdamp_layer should be less than total of vertical elements (NeGZ). Check!'
       call PRC_abort
     else if( SL_WDAMP_LAYER > 0 ) then
@@ -997,6 +1044,8 @@ contains
       call PRC_abort
     end if
     
+    this%hvel_damp_flag = SL_HORIVELDAMP_FLAG
+
     return
   end subroutine setup_spongelayer
 
@@ -1005,8 +1054,8 @@ contains
 !OCL SERIAL
   subroutine setup_coriolis_parameter( this, atm_mesh )
 
-    use scale_coriolis_param, only: &
-      get_coriolis_parameter
+    use scale_coriolis_param, only: get_coriolis_parameter
+    use scale_mesh_cubedom3d, only: MeshCubeDom3D
     implicit none
 
     class(AtmosDynVars), target, intent(inout) :: this
@@ -1026,11 +1075,19 @@ contains
       CORIOLIS_type,                         &                
       CORIOLIS_f0, CORIOLIS_beta, CORIOLIS_y0
         
+    class(MeshBase3D), pointer :: mesh3D
+    class(MeshCubeDom3D), pointer :: meshCube
     integer :: ierr
     !---------------------------------------------------------------
 
+    mesh3D => atm_mesh%ptr_mesh
+
     CORIOLIS_type = 'NONE'
-    CORIOLIS_y0 = 0.5_RP*(atm_mesh%mesh%ymax_gl +  atm_mesh%mesh%ymin_gl)
+
+    select type(mesh3D)
+    type is (MeshCubeDom3D)
+      CORIOLIS_y0 = 0.5_RP*(mesh3D%ymax_gl +  mesh3D%ymin_gl)
+    end select
 
     rewind(IO_FID_CONF)
     read(IO_FID_CONF,nml=PARAM_ATMOS_DYN_CORIOLIS,iostat=ierr)
@@ -1042,8 +1099,8 @@ contains
     end if
     LOG_NML(PARAM_ATMOS_DYN_CORIOLIS)
 
-    do n = 1, atm_mesh%mesh%LOCAL_MESH_NUM
-      call AtmosDynAuxVars_GetLocalMeshFields( n, atm_mesh%mesh, this%AUXVARS2D_manager, &
+    do n = 1, mesh3D%LOCAL_MESH_NUM
+      call AtmosDynAuxVars_GetLocalMeshFields( n, mesh3D, this%AUXVARS2D_manager, &
         coriolis, lcmesh3D )
       lcmesh2D => lcmesh3D%lcmesh2D
 
