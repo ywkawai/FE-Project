@@ -11,17 +11,17 @@ This FE library requires following libraries:
 
 We confirm that building our codes has succeeded in the following environments:
   - macOS Mojave
-    - GNU Fortran 10.2.0
+    - GNU Fortran 11.1.0
     - OpenMPI 4.1.1
-    - LAPACK 3.9.1
-    - NetCDF 4.7.4
-    - SCALE library 5.4.3
+    - LAPACK 3.10.0
+    - NetCDF 4.8.0
+    - SCALE library 5.4.4
   - Ubuntu 20.04 LTS
     - GNU Fortran 9.3.0
     - OpenMPI 4.0.3
     - LAPACK 3.7.1
     - NetCDF 4.7.3
-    - SCALE library 5.4.3
+    - SCALE library 5.4.4
 
 Our codes are verified in Oakbridge-CX (intel compiler) and Fugaku. 
 
@@ -34,7 +34,7 @@ Our codes are verified in Oakbridge-CX (intel compiler) and Fugaku.
 
   - set a directory in which SCALE library is contained
 
-  `% export SCALE="~/workspace/scale-5.4.3/"`   (for example)
+  `% export SCALE="~/workspace/scale-5.4.4/"`   (for example)
 
   - If you use the develop version of SCALE library, set a variable as
 
