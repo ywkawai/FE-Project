@@ -77,8 +77,6 @@ contains
     type(ElementBase3D), pointer :: elem
     real(RP) :: invV_VPOrdM1(mesh%refElem3D%Np,mesh%refElem3D%Np)
 
-    integer :: f_h, f_v
-    integer :: fp, fp_h1, fp_h2, fp_v
     type(ElementBase2D), pointer :: elem2D
     class(MeshBase2D), pointer :: mesh2D    
     !--------------------------------------------
@@ -95,30 +93,6 @@ contains
     end do
     IntrpMat_VPOrdM1(:,:) = matmul(elem%V, invV_VPOrdM1)
 
-    !--
-
-    allocate( iM2Dto3D(elem%NfpTot) )
-    call mesh%GetMesh2D( mesh2D ) 
-    elem2D => mesh2D%refElem2D
-
-    do f_h=1, 4
-      do fp_v=1, elem%Nnode_v
-      do fp_h1=1, elem%Nnode_h1D
-        fp = fp_h1 + (fp_v-1)*elem%Nnode_h1D + (f_h-1)*elem%Nfp_h
-        iM2Dto3D(fp) = elem2D%Fmask(fp_h1,f_h)
-      end do  
-      end do
-    end do
-    do f_v=1, 2
-      do fp_h2=1, elem%Nnode_h1D
-      do fp_h1=1, elem%Nnode_h1D
-        fp = fp_h1 + (fp_h2-1)*elem%Nnode_h1D    &
-           + (f_v-1) * elem%Nfp_v                &
-           + 4 * elem%Nnode_h1D * elem%Nnode_v
-        iM2Dto3D(fp) = fp_h1 + (fp_h2-1)*elem%Nnode_h1D
-      end do  
-      end do
-    end do
 
     return
   end subroutine atm_dyn_dgm_nonhydro3d_common_Init
@@ -129,7 +103,6 @@ contains
     !--------------------------------------------
     
     deallocate( IntrpMat_VPOrdM1 )
-    deallocate( iM2Dto3D )
     
     return
   end subroutine atm_dyn_dgm_nonhydro3d_common_Final  

@@ -509,11 +509,13 @@ contains
         
         !* Apply boundary conditions
         call PROF_rapstart( 'ATM_DYN_applyBC_prgv', 2)
-        call this%boundary_cond%ApplyBC_PROGVARS_lc( n,                              & ! (in)
-          DDENS%val, MOMX%val, MOMY%val, MOMZ%val, DRHOT%val,                        & ! (inout)
-          DENS_hyd%val, PRES_hyd%val,                                                & ! (in)
-          lcmesh%normal_fn(:,:,1), lcmesh%normal_fn(:,:,2), lcmesh%normal_fn(:,:,3), & ! (in)
-          lcmesh%vmapM, lcmesh%vmapP, lcmesh%vmapB, lcmesh, lcmesh%refElem3D         ) ! (in)
+        call this%boundary_cond%ApplyBC_PROGVARS_lc( n,                                & ! (in)
+          DDENS%val, MOMX%val, MOMY%val, MOMZ%val, DRHOT%val,                          & ! (inout)
+          DENS_hyd%val, PRES_hyd%val,                                                  & ! (in)
+          lcmesh%Gsqrt(:,:), lcmesh%GsqrtH(:,:), lcmesh%GI3(:,:,1), lcmesh%GI3(:,:,2), & ! (in)
+          lcmesh%normal_fn(:,:,1), lcmesh%normal_fn(:,:,2), lcmesh%normal_fn(:,:,3),   & ! (in)
+          lcmesh%vmapM, lcmesh%vmapP, lcmesh%vmapB,                                    & ! (in)
+          lcmesh, lcmesh%refElem3D, lcmesh%lcmesh2D, lcmesh%lcmesh2D%refElem2D         ) ! (in)
         call PROF_rapend( 'ATM_DYN_applyBC_prgv', 2)
       end do
 

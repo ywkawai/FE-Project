@@ -178,11 +178,6 @@ contains
 
       VelM(:) = VelhM(:) + GsqrtMOMZ_M(:) / ( GsqrtV_M(:) * GsqrtDensM(:) ) * nz(:,ke)
       VelP(:) = VelhP(:) + GsqrtMOMZ_P(:) / ( GsqrtV_P(:) * GsqrtDensP(:) ) * nz(:,ke)
-
-      ! Tentative treatment
-      where( abs(1.0_RP-nz(:,ke)**2) < 1.0E-10_RP .and. iP(:) > lmesh%Ne * elem%Np )
-        VelP(:) = - VelM(:)
-      end where
         
       dpresM(:) = PRES00 * ( RovP0 * GsqrtRhotM(:) / Gsqrt_M(:) )**gamm &
                 - Phyd_M(:)
@@ -364,11 +359,6 @@ contains
 
       VelM(:) = VelhM(:) + GsqrtMOMZ_M(:) / ( GsqrtV_M(:) * GsqrtDensM(:) ) * nz(:,ke)
       VelP(:) = VelhP(:) + GsqrtMOMZ_P(:) / ( GsqrtV_P(:) * GsqrtDensP(:) ) * nz(:,ke)
-
-      ! Tentative treatment
-      where( abs(1.0_RP-nz(:,ke)**2) < 1.0E-10_RP .and. iP(:) > lmesh%Ne * elem%Np )
-        VelP(:) = - VelM(:)
-      end where
         
       dpresM(:) = PRES00 * ( RovP0 * GsqrtRhotM(:) / Gsqrt_M(:) )**gamm &
                 - Phyd_M(:)

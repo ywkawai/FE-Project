@@ -19,7 +19,7 @@ $(OBJ_DIR)/scale_atm_phy_tb_dgm_smg.o: turbulence/scale_atm_phy_tb_dgm_smg.F90 $
 $(OBJ_DIR)/scale_coriolis_param.o: common/scale_coriolis_param.F90 $(DEPENDLIB)
 $(OBJ_DIR)/scale_cubedsphere_cnv.o: common/scale_cubedsphere_cnv.F90 $(DEPENDLIB)
 $(OBJ_DIR)/scale_element_base.o: element/scale_element_base.F90 $(DEPENDLIB)
-$(OBJ_DIR)/scale_element_hexahedral.o: element/scale_element_hexahedral.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_element_base.o $(OBJ_DIR)/scale_linalgebra.o $(OBJ_DIR)/scale_polynominal.o
+$(OBJ_DIR)/scale_element_hexahedral.o: element/scale_element_hexahedral.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_element_base.o $(OBJ_DIR)/scale_element_quadrilateral.o $(OBJ_DIR)/scale_linalgebra.o $(OBJ_DIR)/scale_polynominal.o
 $(OBJ_DIR)/scale_element_line.o: element/scale_element_line.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_element_base.o $(OBJ_DIR)/scale_linalgebra.o $(OBJ_DIR)/scale_polynominal.o
 $(OBJ_DIR)/scale_element_modalfilter.o: element/scale_element_modalfilter.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_element_base.o $(OBJ_DIR)/scale_element_hexahedral.o $(OBJ_DIR)/scale_element_line.o $(OBJ_DIR)/scale_element_quadrilateral.o
 $(OBJ_DIR)/scale_element_quadrilateral.o: element/scale_element_quadrilateral.F90 $(DEPENDLIB) $(OBJ_DIR)/scale_element_base.o $(OBJ_DIR)/scale_linalgebra.o $(OBJ_DIR)/scale_polynominal.o
