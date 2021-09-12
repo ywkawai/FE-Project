@@ -123,7 +123,6 @@ contains
     return
   end subroutine USER_setup
 
-!OCL SERIAL
   subroutine USER_calc_tendency( atm )
     use scale_file_history_meshfield, only: &
       FILE_HISTORY_meshfield_in
