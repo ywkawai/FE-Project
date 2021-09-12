@@ -114,6 +114,7 @@ contains
     return
   end subroutine USER_setup
 
+!OCL SERIAL  
   subroutine USER_calc_tendency( atm )
     use scale_file_history_meshfield, only: &
       FILE_HISTORY_meshfield_in
@@ -222,6 +223,8 @@ contains
   end subroutine USER_update
 
   !------
+
+!OCL SERIAL  
   subroutine exp_SetInitCond_mountain_wave( this,                 &
     DENS_hyd, PRES_hyd, DDENS, MOMX, MOMY, MOMZ, DRHOT,                  &
     x, y, z, dom_xmin, dom_xmax, dom_ymin, dom_ymax, dom_zmin, dom_zmax, &
