@@ -65,6 +65,7 @@ module mod_user
   logical, private :: USER_do                   = .false. !< do user step?
 
   type(MeshField3D), private :: q_heat
+  logical :: is_Qheat_calculated
 
   !-----------------------------------------------------------------------------
 contains
@@ -110,9 +111,7 @@ contains
 
     !-
     call q_heat%Init( 'Qheat', 'J/kg.s-1', atm%mesh%ptr_mesh )
-
-    call exp_manager%SetInitCond( &
-      atm%mesh, atm%vars%PROGVARS_manager, atm%vars%AUXVARS_manager )
+    is_Qheat_calculated = .false.
 
     return
   end subroutine USER_setup
@@ -148,6 +147,10 @@ contains
 
     real(RP), allocatable :: DENS(:)
     !------------------------------------------
+
+    if ( is_Qheat_calculated ) then
+      call exp_manager%SetInitCond( atm%mesh, atm%vars%PROGVARS_manager, atm%vars%AUXVARS_manager )
+    end if
 
     call FILE_HISTORY_meshfield_in( q_heat, "heating source" )
 
