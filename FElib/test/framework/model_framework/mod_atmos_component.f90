@@ -71,7 +71,7 @@ subroutine Atmos_calc_tendency( this )
   LOG_INFO('AtmosComponent_calc_tendency',*)
 
   call this%dyn_proc%calc_tendency( &
-    this%mesh, this%vars%prgvars_list, this%vars%auxvars_list, this%vars%forcing_list, .true. )
+    this%mesh, this%vars%prgvars_list, this%vars%trcvars_list, this%vars%auxvars_list, this%vars%forcing_list, .true. )
 
   return  
 end subroutine Atmos_calc_tendency
@@ -84,7 +84,7 @@ subroutine Atmos_update( this )
   LOG_INFO('AtmosComponent_update',*)
 
   call this%dyn_proc%update( &
-   this%mesh, this%vars%prgvars_list, this%vars%auxvars_list, this%vars%forcing_list, .true. )
+   this%mesh, this%vars%prgvars_list, this%vars%trcvars_list, this%vars%auxvars_list, this%vars%forcing_list, .true. )
 
   return  
 end subroutine Atmos_update
