@@ -1,4 +1,13 @@
 !-------------------------------------------------------------------------------
+!> module Atmosphere / Physics turbulence
+!!
+!! @par Description
+!!          Container for mod_atmos_phy_mp
+!!
+!! @author Team SCALE
+!!
+!<
+!-------------------------------------------------------------------------------
 #include "scaleFElib.h"
 module mod_atmos_phy_tb_vars
   !-----------------------------------------------------------------------------

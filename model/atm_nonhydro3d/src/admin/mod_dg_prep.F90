@@ -164,6 +164,7 @@ contains
     use scale_const, only: CONST_setup
     use scale_calendar, only: CALENDAR_setup
     use scale_random, only: RANDOM_setup
+    use scale_atmos_hydrometeor, only: ATMOS_HYDROMETEOR_setup    
 
     use scale_file_restart_meshfield, only: &
       FILE_restart_meshfield_setup
@@ -196,20 +197,23 @@ contains
     ! setup random number
     call RANDOM_setup
 
+    ! setup tracer index
+    call ATMOS_HYDROMETEOR_setup
+
     ! setup a module for restart file
     call FILE_restart_meshfield_setup
 
     ! setup submodels
-    call atmos%setup()
+    call  atmos%setup()
+    call USER_setup( atmos )
+
+    call atmos%setup_vars()
 
     ! setup mktopo
     call MKTOPO_setup
 
     ! setup mkinit
     call MKINIT_setup()
-
-    ! setup mod_user
-    call USER_setup( atmos )
 
     call PROF_rapend('Initialize', 0)
 

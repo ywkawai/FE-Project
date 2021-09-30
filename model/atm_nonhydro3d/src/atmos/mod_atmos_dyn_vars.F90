@@ -40,6 +40,10 @@ module mod_atmos_dyn_vars
     type(MeshField2D), allocatable :: AUX_VARS2D(:)
     type(ModelVarManager) :: AUXVARS2D_manager
 
+    type(MeshField3D), allocatable :: MASS_FLUX_VARS3D(:)
+    type(ModelVarManager) :: MASS_FLUX_manager
+    integer :: MASS_FLUX_commid
+
     type(MeshField3D), allocatable :: NUMDIFF_FLUX_VARS3D(:)
     type(ModelVarManager) :: NUMDIFF_FLUX_manager
     integer :: NUMDIFF_FLUX_commid
@@ -57,6 +61,7 @@ module mod_atmos_dyn_vars
   end type AtmosDynVars
 
   public :: AtmosDynAuxVars_GetLocalMeshFields
+  public :: AtmosDynMassFlux_GetLocalMeshFields
   public :: AtmosDynNumDiffFlux_GetLocalMeshFields
   public :: AtmosDynNumDiffTend_GetLocalMeshFields
   !public :: AtmosDynVars_GetLocalMeshFields_analysis
@@ -74,14 +79,24 @@ module mod_atmos_dyn_vars
     VariableInfo( ATMOS_DYN_AUXVARS2D_CORIOLIS_ID, 'CORIOLIS', 'coriolis parameter',  &
                   's-1',  2, 'XY',  ''                                             )  / 
 
+  integer, public, parameter :: ATMOS_DYN_MASS_FLUX_NUM   = 3
+  integer, public, parameter :: ATMOS_DYN_MASSFLX_X_ID    = 1
+  integer, public, parameter :: ATMOS_DYN_MASSFLX_Y_ID    = 2
+  integer, public, parameter :: ATMOS_DYN_MASSFLX_Z_ID    = 3
+
+  type(VariableInfo), public :: ATMOS_DYN_MASS_FLUX_VINFO(ATMOS_DYN_MASS_FLUX_NUM)
+  DATA ATMOS_DYN_MASS_FLUX_VINFO / &
+    VariableInfo( ATMOS_DYN_MASSFLX_X_ID, 'MASSFLX_X', 'flux in x-direction',  &
+                  'kg/s/m2',  3, 'XYZ',  ''                                    ),   & 
+    VariableInfo( ATMOS_DYN_MASSFLX_Y_ID, 'MASSFLX_Y', 'flux in y-direction',  &
+                  'kg/s/m2',  3, 'XYZ',  ''                                    ),   & 
+    VariableInfo( ATMOS_DYN_MASSFLX_Z_ID, 'MASSFLX_Z', 'flux in z-direction',  &
+                  'kg/s/m2',  3, 'XYZ',  ''                                    )    / 
+
   integer, public, parameter :: ATMOS_DYN_NUMDIFF_FLUX_NUM   = 3
   integer, public, parameter :: ATMOS_DYN_NUMDIFFFLX_X_ID    = 1
   integer, public, parameter :: ATMOS_DYN_NUMDIFFFLX_Y_ID    = 2
   integer, public, parameter :: ATMOS_DYN_NUMDIFFFLX_Z_ID    = 3
-
-  integer, public, parameter :: ATMOS_DYN_NUMDIFF_TEND_NUM   = 2
-  integer, public, parameter :: ATMOS_DYN_NUMDIFF_LAPLAH_ID  = 1
-  integer, public, parameter :: ATMOS_DYN_NUMDIFF_LAPLAV_ID  = 2
 
   type(VariableInfo), public :: ATMOS_DYN_NUMDIFF_FLUX_VINFO(ATMOS_DYN_NUMDIFF_FLUX_NUM)
   DATA ATMOS_DYN_NUMDIFF_FLUX_VINFO / &
@@ -92,6 +107,10 @@ module mod_atmos_dyn_vars
     VariableInfo( ATMOS_DYN_NUMDIFFFLX_Z_ID, 'DIFFFLX_Z', 'flux in z-direction',  &
                   '?.m/s',  3, 'XYZ',  ''                                           )    / 
                 
+  integer, public, parameter :: ATMOS_DYN_NUMDIFF_TEND_NUM   = 2
+  integer, public, parameter :: ATMOS_DYN_NUMDIFF_LAPLAH_ID  = 1
+  integer, public, parameter :: ATMOS_DYN_NUMDIFF_LAPLAV_ID  = 2
+
   type(VariableInfo), public :: ATMOS_DYN_NUMDIFF_TEND_VINFO(ATMOS_DYN_NUMDIFF_TEND_NUM)
   DATA ATMOS_DYN_NUMDIFF_TEND_VINFO / &
     VariableInfo( ATMOS_DYN_NUMDIFF_LAPLAH_ID, 'NUMDIFF_LAPLAH', 'tendency due to nundiff',  &
@@ -130,6 +149,7 @@ module mod_atmos_dyn_vars
   !-------------------
 
 contains
+!OCL SERIAL
   subroutine AtmosDynVars_Init( this, model_mesh )
     implicit none
     class(AtmosDynVars), target, intent(inout) :: this
@@ -173,6 +193,27 @@ contains
       end do         
     end do
 
+    !-
+    call this%MASS_FLUX_manager%Init()
+    allocate( this%MASS_FLUX_VARS3D(ATMOS_DYN_MASS_FLUX_NUM) )
+    
+    reg_file_hist = .false.    
+    do v = 1, ATMOS_DYN_MASS_FLUX_NUM
+      call this%MASS_FLUX_manager%Regist(                   &
+        ATMOS_DYN_MASS_FLUX_VINFO(v), mesh3D,               & ! (in) 
+        this%MASS_FLUX_VARS3D(v), reg_file_hist             ) ! (out)
+      
+      do n = 1, mesh3D%LOCAL_MESH_NUM
+        this%MASS_FLUX_VARS3D(v)%local(n)%val(:,:) = 0.0_RP
+      end do      
+    end do
+
+    call atm_mesh%Create_communicator( &
+      0, ATMOS_DYN_MASS_FLUX_NUM,      & ! (in) 
+      this%MASS_FLUX_manager,          & ! (in)
+      this%MASS_FLUX_VARS3D(:),        & ! (in)
+      this%MASS_FLUX_commid            ) ! (out)
+    
     !-
     call this%NUMDIFF_FLUX_manager%Init()
     allocate( this%NUMDIFF_FLUX_VARS3D(ATMOS_DYN_NUMDIFF_FLUX_NUM) )
@@ -238,6 +279,7 @@ contains
     LOG_INFO('AtmosDynVars_Final',*)
 
     call this%AUXVARS2D_manager%Final()
+    call this%MASS_FLUX_manager%Final()
     call this%NUMDIFF_FLUX_manager%Final()
     call this%NUMDIFF_TEND_manager%Final()
 
@@ -299,6 +341,51 @@ contains
 
     return
   end subroutine AtmosDynAuxVars_GetLocalMeshFields
+
+  subroutine AtmosDynMassFlux_GetLocalMeshFields( domID, mesh, massflx_list, &
+    MASSFLX_X, MASSFLX_Y, MASSFLX_Z,                                         &
+    lcmesh3D                                                                 &
+    )
+
+    use scale_mesh_base, only: MeshBase
+    use scale_meshfield_base, only: MeshFieldBase
+    implicit none
+
+    integer, intent(in) :: domID
+    class(MeshBase), intent(in) :: mesh
+    class(ModelVarManager), intent(inout) :: massflx_list
+    class(LocalMeshFieldBase), pointer, intent(out) :: MASSFLX_X
+    class(LocalMeshFieldBase), pointer, intent(out) :: MASSFLX_Y
+    class(LocalMeshFieldBase), pointer, intent(out) :: MASSFLX_Z        
+    class(LocalMesh3D), pointer, intent(out), optional :: lcmesh3D
+
+    class(MeshFieldBase), pointer :: field   
+    class(LocalMeshBase), pointer :: lcmesh
+    !-------------------------------------------------------
+
+    !--
+    call massflx_list%Get(ATMOS_DYN_MASSFLX_X_ID, field)
+    call field%GetLocalMeshField(domID, MASSFLX_X)
+
+    call massflx_list%Get(ATMOS_DYN_MASSFLX_Y_ID, field)
+    call field%GetLocalMeshField(domID, MASSFLX_Y)    
+
+    call massflx_list%Get(ATMOS_DYN_MASSFLX_Z_ID, field)
+    call field%GetLocalMeshField(domID, MASSFLX_Z)    
+    !---
+    
+    if (present(lcmesh3D)) then
+      call mesh%GetLocalMesh( domID, lcmesh )
+      nullify( lcmesh3D )
+
+      select type(lcmesh)
+      type is (LocalMesh3D)
+        if (present(lcmesh3D)) lcmesh3D => lcmesh
+      end select
+    end if
+
+    return
+  end subroutine AtmosDynMassFlux_GetLocalMeshFields  
 
   subroutine AtmosDynNumDiffFlux_GetLocalMeshFields( domID, mesh, auxvars_list, &
     NUMDIFF_FLUX_X, NUMDIFF_FLUX_Y, NUMDIFF_FLUX_Z,                             &

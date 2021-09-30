@@ -62,6 +62,7 @@ module mod_dg_driver
   type(AtmosComponent) :: atmos
 
 contains
+!OCL SERIAL
   subroutine dg_driver(     &
     comm_world, cnf_fname,  &
     path, add_path          )
@@ -116,7 +117,7 @@ contains
     LOG_PROGRESS(*) 'START TIMESTEP'
     call PROF_setprefx('MAIN')
     call PROF_rapstart('Main_Loop', 0)
-
+ 
     do
 
       !*******************************************
@@ -130,7 +131,7 @@ contains
         ! history & monitor file output 
         call FILE_MONITOR_meshfield_write('MAIN', TIME_NOWSTEP)
         call FILE_HISTORY_meshfield_write
-      end if
+      end if   
 
       !* Advance time *********************************
 
@@ -192,6 +193,7 @@ contains
     use scale_const, only: CONST_setup
     use scale_calendar, only: CALENDAR_setup
     use scale_random, only: RANDOM_setup
+    use scale_atmos_hydrometeor, only: ATMOS_HYDROMETEOR_setup
     use scale_time_manager, only: TIME_DTSEC
 
     use scale_time_manager, only:           &
@@ -228,6 +230,9 @@ contains
     ! setup random number
     call RANDOM_setup
 
+    ! setup tracer index
+    call ATMOS_HYDROMETEOR_setup
+
     ! setup a module for restart file
     call FILE_restart_meshfield_setup
     call TIME_manager_Init( &
@@ -242,17 +247,21 @@ contains
 
     ! setup submodels
     call  atmos%setup()
-
     call USER_setup( atmos )
 
-    !
+    call atmos%setup_vars()
+
+    ! report information of time intervals
     call TIME_manager_report_timeintervals
+
+    !----------------------------------------
 
     call PROF_rapend('Initialize', 0)
 
     return
   end subroutine initialize
 
+!OCL SERIAL  
   subroutine finalize()
     use scale_file, only: &
       FILE_Close_All

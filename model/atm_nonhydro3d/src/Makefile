@@ -44,6 +44,8 @@ OBJS = \
 	mod_atmos_dyn_bnd.o          \
 	mod_atmos_phy_sfc.o          \
 	mod_atmos_phy_sfc_vars.o     \
+	mod_atmos_phy_mp.o           \
+	mod_atmos_phy_mp_vars.o      \
 	mod_atmos_phy_tb.o           \
 	mod_atmos_phy_tb_vars.o      \
 	mod_atmos_mesh.o             \
