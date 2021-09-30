@@ -121,8 +121,6 @@ contains
     endif
     LOG_NML(PARAM_USER)
 
-    !-
-
     return
   end subroutine USER_setup
 
@@ -146,6 +144,7 @@ contains
 
   !------
 
+!OCL SERIAL
   subroutine exp_SetInitCond_baroclinicwave( this,                       &
     DENS_hyd, PRES_hyd, DDENS, MOMX, MOMY, MOMZ, DRHOT,                  &
     x, y, z, dom_xmin, dom_xmax, dom_ymin, dom_ymax, dom_zmin, dom_zmax, &
