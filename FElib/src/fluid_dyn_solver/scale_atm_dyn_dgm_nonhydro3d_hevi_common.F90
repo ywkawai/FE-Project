@@ -642,7 +642,7 @@ contains
         PmatD(:,p,MOMZ_VID,DENS_VID) = impl_fac * Grav * IntrpMat_VPOrdM1(Colmask(:),Colmask(p))
         PmatD(:,p,MOMZ_VID,RHOT_VID) = fac_dz_p(:) * DPDRHOT0(p,ke_z,ij)
 
-        !DRHOT
+        ! DRHOT
         PmatD(:,p,RHOT_VID,DENS_VID) = - fac_dz_p(:) * POT0(p,ke_z,ij) * W0(p,ke_z,ij)
         PmatD(:,p,RHOT_VID,MOMZ_VID ) =   fac_dz_p(:) * POT0(p,ke_z,ij)
         PmatD(:,p,RHOT_VID,RHOT_VID) = Dd(:) + fac_dz_p(:) * W0(p,ke_z,ij)
