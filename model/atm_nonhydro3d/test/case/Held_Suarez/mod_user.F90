@@ -18,13 +18,21 @@ module mod_user
   use scale_precision
   use scale_io
   use scale_prof
-  use scale_prc, only: PRC_abort  
+  use scale_prc, only: PRC_abort 
+  use scale_const, only: &
+    Rdry => CONST_Rdry,    &
+    CPdry => CONST_CPdry,  & 
+    CVdry => CONST_CVdry,  &      
+    PRES00 => CONST_PRE00, &
+    Grav => CONST_GRAV  
+  
   use mod_exp, only: experiment
 
   use mod_atmos_component, only: &
     AtmosComponent
 
   use scale_element_base, only: ElementBase3D
+  use scale_element_line, only: LineElement
   use scale_element_hexahedral, only: HexahedralElement
   use scale_mesh_base3d, only: MeshBase3D
   use scale_localmesh_3d, only: LocalMesh3D  
@@ -63,6 +71,13 @@ module mod_user
   type(Exp_Held_Suarez), private :: exp_manager
 
   logical, private :: USER_do                   = .false. !< do user step?
+
+  real(RP), private, parameter :: kf = 1.0_RP / ( 86400.0_RP * 1.0_RP  )
+  real(RP), private, parameter :: ka = 1.0_RP / ( 86400.0_RP * 40.0_RP )
+  real(RP), private, parameter :: ks = 1.0_RP / ( 86400.0_RP * 4.0_RP  )
+  real(RP), private, parameter :: DelT_y  = 60.0_RP
+  real(RP), private, parameter :: DelPT_z = 10.0_RP
+  real(RP), private, parameter :: sigb = 0.7_RP
 
   !-----------------------------------------------------------------------------
 contains
@@ -106,10 +121,6 @@ contains
     endif
     LOG_NML(PARAM_USER)
 
-    !-
-    call exp_manager%SetInitCond( &
-      atm%mesh, atm%vars%PROGVARS_manager, atm%vars%AUXVARS_manager )
-
     return
   end subroutine USER_setup
 
@@ -122,13 +133,8 @@ contains
     return
   end subroutine USER_calc_tendency
 
+!OCL SERIAL
   subroutine USER_update( atm )
-
-    use scale_const, only: &
-      Rdry => CONST_Rdry,   &
-      CPdry => CONST_CPdry, & 
-      CVdry => CONST_CVdry, &      
-      PRES00 => CONST_PRE00
     use scale_file_history_meshfield, only: &
       FILE_HISTORY_meshfield_in
     use mod_atmos_vars, only: &
@@ -156,12 +162,6 @@ contains
     real(RP), allocatable :: DENS(:), T(:), Teq(:), sig(:), PRES_sfc(:)
     real(RP), allocatable :: rtauT(:), rtauV(:)
     real(RP), allocatable :: lat(:)
-    real(RP), parameter :: kf = 1.0_RP / ( 86400.0_RP * 1.0_RP  )
-    real(RP), parameter :: ka = 1.0_RP / ( 86400.0_RP * 40.0_RP )
-    real(RP), parameter :: ks = 1.0_RP / ( 86400.0_RP * 4.0_RP  )
-    real(RP), parameter :: DelT_y  = 60.0_RP
-    real(RP), parameter :: DelPT_z = 10.0_RP
-    real(RP), parameter :: sigb = 0.7_RP
 
     real(DP) :: dt
     real(RP) :: Gamm
@@ -191,8 +191,8 @@ contains
         ke2D = lcmesh%EMap3Dto2D(ke)
 
         PRES_sfc(:) = PRES%val(elem3D%Hslice(:,1),ke2D)
-        !sig(:) = PRES%val(:,ke) / PRES_sfc(elem3D%IndexH2Dto3D)
-        sig(:) = PRES%val(:,ke) / PRES00        
+        sig(:) = PRES%val(:,ke) / PRES_sfc(elem3D%IndexH2Dto3D)
+        !sig(:) = PRES%val(:,ke) / PRES00        
         lat(:) = lcmesh%lat2D(elem3D%IndexH2Dto3D,ke2D)
 
         rtauT(:) = ka + (ks - ka) * max( 0.0_RP, (sig(:) - sigb)/(1.0_RP - sigb) ) * cos(lat(:))**4
@@ -221,17 +221,15 @@ contains
   end subroutine USER_update
 
   !------
+
+!OCL SERIAL
   subroutine exp_SetInitCond_Held_Suarez( this,                          &
     DENS_hyd, PRES_hyd, DDENS, MOMX, MOMY, MOMZ, DRHOT,                  &
     x, y, z, dom_xmin, dom_xmax, dom_ymin, dom_ymax, dom_zmin, dom_zmax, &
     lcmesh, elem )
     
     use scale_const, only: &
-      PI => CONST_PI,        &
-      Rdry => CONST_Rdry,    &
-      CPdry => CONST_CPdry,  &
-      PRES00 => CONST_PRE00, &
-      RPlanet => CONST_RADIUS
+      PRES00 => CONST_PRE00
     
     use scale_atm_dyn_dgm_hydrostatic, only: &
       hydrostatic_calc_basicstate_constT
@@ -261,8 +259,10 @@ contains
     integer, parameter :: IntrpPolyOrder_h = 8
     integer, parameter :: IntrpPolyOrder_v = 8
 
-    integer :: ke
+    integer :: ke, ke2D
+    integer :: p, p_h, p_v   
     integer :: ierr
+
     !-----------------------------------------------------------------------------
 
     rewind(IO_FID_CONF)
@@ -280,8 +280,151 @@ contains
       TEMP0, PRES00,                                             & ! (in)
       x, y, z, lcmesh, elem                                      ) ! (in)
 
+    !$omp parallel do collapse(3) private(ke2D, p_h, p_v, p)
+    do ke=lcmesh%NeS, lcmesh%NeE
+    do p_v=1, elem%Nnode_v
+    do p_h=1, elem%Nnode_h1D**2
+      p = p_h + (p_v-1)*elem%Nnode_h1D**2
+      ke2D = lcmesh%EMap3Dto2D(ke)
+
+      call calc_hydrostatic_state_1pt( DENS_hyd(p,ke), PRES_hyd(p,ke),    & ! (out)
+        lcmesh%zlev(p,ke), lcmesh%lon2D(p_h,ke2D), lcmesh%lat2D(p_h,ke2D) ) ! (in)
+    end do
+    end do
+    end do
+
     return
   end subroutine exp_SetInitCond_Held_Suarez
+
+!OCL SERIAL
+  subroutine calc_hydrostatic_state_1pt( dens, pres, z, lon, lat )
+    implicit none 
+    real(RP), intent(inout) :: dens    
+    real(RP), intent(inout) :: pres
+    real(RP), intent(in)  :: z
+    real(RP), intent(in) :: lon    
+    real(RP), intent(in) :: lat
+
+    real(RP) :: geopot
+    real(RP) :: temp
+    real(RP) :: C1_temp
+    real(RP) :: C2_temp
+    real(RP) :: eta
+    real(RP) :: ln_eta    
+    real(RP) :: del_eta
+    real(RP) :: exner
+    real(RP) :: ln_exner
+    real(RP) :: RdryOvCpDry
+    real(RP) :: exner_T200
+    real(RP) :: ln_exner_T200    
+    real(RP) :: geopot_T200
+
+    integer :: itr
+    integer,  parameter :: ITRMAX = 1000
+    real(RP), parameter :: CONV_EPS = 1E-15_RP 
+    !------------------------------------------------
+
+    C1_temp = 315.0_RP - DelT_y * sin(lat)**2
+    C2_temp = - CpDry / Rdry * DelPT_z * cos(lat)**2
+
+    call calc_exner_at_T200( exner_T200, & ! (out)
+      lon, lat, C1_temp, C2_temp         ) ! (in)
+    
+    ln_exner_T200 = log(exner_T200)
+
+    geopot_T200 = - CpDry * (  &
+                      C2_temp * exner_T200 * ln_exner_T200            &
+                    + ( exner_T200 - 1.0_RP ) * ( C1_temp - C2_temp ) &
+                  )
+
+    RdryOvCpDry = Rdry / CPDry
+
+    !-- The loop for iteration
+    itr = 0
+    eta = 1.0E-8_RP ! Set first guess of eta
+    del_eta = 1.0_RP
+
+    do while( abs(del_eta) > CONV_EPS )
+      ln_eta = log(eta)
+      exner = eta**RdryOvCpDry
+      ln_exner = log(exner)
+
+      temp = ( C1_temp + C2_temp * ln_exner ) * exner  
+
+      if ( temp <= 200.0_RP ) then
+        geopot = geopot_T200 + CpDry * 200.0_RP * ( ln_exner_T200 - ln_exner )
+        temp = 200.0_RP
+      else
+      ! Pi = eta^(R/Cp)
+      ! ln Pi = R/Cp ln eta
+      ! d Phi / d Pi = - Cp PT
+      ! = - Cp (C1_temp + C2_temp * ln_PI )
+        geopot = - CpDry * (  &
+                      C2_temp * exner * ln_exner                 &
+                    + ( exner - 1.0_RP ) * ( C1_temp - C2_temp ) &
+                   )
+      end if
+
+      del_eta = -  ( - Grav * z + geopot )        & ! <- F
+                 * ( - eta / ( Rdry * temp ) )      ! <- (dF/deta)^-1
+
+      eta = eta + del_eta
+      itr = itr + 1
+
+      if ( itr > ITRMAX ) then
+        LOG_ERROR("Held_Suarez_setup_calc_hydrostatic_state_1pt",*) "Fail the convergence of iteration. Check!"
+        LOG_ERROR_CONT(*) "* (lon,lat,z)=", lon, lat, z
+        LOG_ERROR_CONT(*) "itr=", itr, "del_eta=", del_eta, "eta=", eta, "temp=", temp
+        call PRC_abort
+      end if                                   
+    end do  !- End of loop for iteration ----------------------------
+
+    pres = eta * PRES00
+    dens = pres / ( Rdry * temp )
+
+    return
+  end subroutine calc_hydrostatic_state_1pt
+
+!OCL SERIAL
+  subroutine calc_exner_at_T200( exner, lon, lat, C1, C2 )
+    implicit none 
+    real(RP), intent(out) :: exner 
+    real(RP), intent(in) :: lon    
+    real(RP), intent(in) :: lat
+    real(RP), intent(in) :: C1
+    real(RP), intent(in) :: C2
+
+    integer :: itr
+    integer,  parameter :: ITRMAX = 1000
+    real(RP), parameter :: CONV_EPS = 1E-15_RP
+
+    real(RP) :: del_exner
+    real(RP) :: ln_exner
+    !-----------------------------------------
+
+    !-- The loop for iteration
+    itr = 0
+    exner     = 1.0E-1_RP ! Set first guess of exner
+    del_exner = 1.0_RP
+
+    do while( abs(del_exner) > CONV_EPS )
+      ln_exner = log(exner)
+      del_exner = -  ( exner * ( C1 + C2 * ln_exner ) - 200.0_RP )  & ! <- F
+                   / ( C2 * ln_exner + C1 + C2 )                      ! <- (dF/dexner)^-1
+
+      exner = exner + del_exner
+      itr = itr + 1
+
+      if ( itr > ITRMAX ) then
+        LOG_ERROR("Held_Suarez_setup_calc_eta_at_T200",*) "Fail the convergence of iteration. Check!"
+        LOG_ERROR_CONT(*) "* (lon,lat,z)=", lon, lat
+        LOG_ERROR_CONT(*) "itr=", itr, "del_exner=", del_exner, "eta=", exner
+        call PRC_abort
+      end if                                   
+    end do  !- End of loop for iteration ----------------------------
+
+    return
+  end subroutine calc_exner_at_T200
 
   subroutine exp_geostrophic_balance_correction( this,  &
     DENS_hyd, PRES_hyd, DDENS, MOMX, MOMY, MOMZ, DRHOT, &
