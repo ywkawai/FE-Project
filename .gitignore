@@ -33,20 +33,28 @@ init_*.pe*.nc
 #
 scale-dg
 LOG.pe*
+init_LOG.pe*
+monitor.pe*
 history.pe*.nc
 restart_*.pe*.nc
 *.dat
 
 #
 interp_LOG.pe*
+cs2lonlat_LOG.pe*
+regrid_LOG.pe*
+regrid_LOG_topo.pe*
 
 #
 job_init.sh
 job_run.sh
+job_regrid.sh
 *.out
 *.err
 *.stats
 STDOUT.*
+stdout.*
+stderr.*
 
 #
 model/atm_nonhydro3d/test/case/**/*.nc
