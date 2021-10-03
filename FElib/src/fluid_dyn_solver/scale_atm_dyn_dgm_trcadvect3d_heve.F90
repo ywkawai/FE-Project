@@ -112,7 +112,8 @@ contains
     !$omp momwt_, Fx, Fy, Fz, LiftDelFlx,  &    
     !$omp ke, ke2d                         )  
     do ke=lmesh%NeS, lmesh%NeE
-
+      ke2d = lmesh%EMap3Dto2D(ke)
+      
       momwt_(:) = MOMZ_(:,ke) * lmesh%GsqrtH(elem%IndexH2Dto3D,ke2d) / lmesh%Gsqrt(:,ke) &
                 + lmesh%GI3(:,ke,1) * MOMX_(:,ke) + lmesh%GI3(:,ke,2) * MOMY_(:,ke)
 
@@ -203,11 +204,11 @@ contains
       GsqrtMOMZ_M (:) = Gsqrt_M(:) * MOMZ_ (iM)
       GsqrtMOMZ_P (:) = Gsqrt_P(:) * MOMZ_ (iP)
 
-      MomFlxM(:) = ( GsqrtMOMX_M(:) * nx(:,ke) + GsqrtMOMY_M(:) * ny(:,ke)                    &
+      MomFlxM(:) = ( GsqrtMOMX_M(:) * nx(:,ke) + GsqrtMOMY_M(:) * ny(:,ke)                  &
                  + ( ( GsqrtMOMZ_M(:) / GsqrtV_M(:)                                         &
                      + G13_M(:) * GsqrtMOMX_M(:) + G23_M(:) * GsqrtMOMY_M(:) ) * nz(:,ke) ) &
                  ) 
-      MomFlxP(:) = ( GsqrtMOMX_P(:) * nx(:,ke) + GsqrtMOMY_P(:) * ny(:,ke)                    &
+      MomFlxP(:) = ( GsqrtMOMX_P(:) * nx(:,ke) + GsqrtMOMY_P(:) * ny(:,ke)                  &
                  + ( ( GsqrtMOMZ_P(:) / GsqrtV_P(:)                                         &
                      + G13_P(:) * GsqrtMOMX_P(:) + G23_P(:) * GsqrtMOMY_P(:) ) * nz(:,ke) ) &
                  ) 
