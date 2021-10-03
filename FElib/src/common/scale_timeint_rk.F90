@@ -20,6 +20,7 @@ module scale_timeint_rk
   use scale_io
   use scale_prc
   use scale_prof
+  use scale_prc
 
   !-----------------------------------------------------------------------------
   implicit none
@@ -59,17 +60,17 @@ module scale_timeint_rk
     real(RP), public, allocatable :: var_buf1D_ex(:,:,:)
     real(RP), public, allocatable :: tend_buf1D_ex(:,:,:)
     real(RP), public, allocatable :: tend_buf1D_im(:,:,:)
-    real(RP), private, allocatable :: var0_1D(:,:)
+    real(RP), public, allocatable :: var0_1D(:,:)
     real(RP), private, allocatable :: varTmp_1D(:,:)    
     real(RP), public, allocatable :: var_buf2D_ex(:,:,:,:)
     real(RP), public, allocatable :: tend_buf2D_ex(:,:,:,:)
     real(RP), public, allocatable :: tend_buf2D_im(:,:,:,:)
-    real(RP), private, allocatable :: var0_2D(:,:,:)
+    real(RP), public, allocatable :: var0_2D(:,:,:)
     real(RP), private, allocatable :: varTmp_2D(:,:,:)    
     real(RP), public, allocatable :: var_buf3D_ex(:,:,:,:,:)
     real(RP), public, allocatable :: tend_buf3D_ex(:,:,:,:,:)
     real(RP), public, allocatable :: tend_buf3D_im(:,:,:,:,:)
-    real(RP), private, allocatable :: var0_3D(:,:,:,:)
+    real(RP), public, allocatable :: var0_3D(:,:,:,:)
     real(RP), private, allocatable :: varTmp_3D(:,:,:,:)    
 
     logical, private :: low_storage_flag
@@ -81,12 +82,16 @@ module scale_timeint_rk
     procedure, public :: Get_implicit_diagfac => timeint_rk_Get_implicit_diagfac 
     procedure, public :: Get_deltime => timeint_rk_Get_deltime
     procedure, public :: Advance1D => timeint_rk_advance1D
+    procedure, public :: Advance_trcvar_1D => timeint_rk_advance_trcvar1D
     procedure, public :: StoreImplicit1D => timeint_rk_storeimpl1D
     procedure, public :: Advance2D => timeint_rk_advance2D
+    procedure, public :: Advance_trcvar_2D => timeint_rk_advance_trcvar2D
     procedure, public :: StoreImplicit2D => timeint_rk_storeimpl2D
     procedure, public :: Advance3D => timeint_rk_advance3D
+    procedure, public :: Advance_trcvar_3D => timeint_rk_advance_trcvar3D
     procedure, public :: StoreImplicit3D => timeint_rk_storeimpl3D
     generic, public :: Advance => Advance1D, Advance2D, Advance3D
+    generic, public :: Advance_trcvar => Advance_trcvar_1D, Advance_trcvar_2D, Advance_trcvar_3D
     generic, public :: StoreImplicit => StoreImplicit1D, StoreImplicit2D, StoreImplicit3D
   end type timeint_rk
 
@@ -171,7 +176,7 @@ contains
   end subroutine timeint_rk_Init
 
   subroutine timeint_rk_Final( this )
-
+    implicit none
     class(timeint_rk), intent(inout) :: this
     !----------------------------------------
     
@@ -227,12 +232,12 @@ contains
 
 
   subroutine timeint_rk_advance1D( this, nowstage, q, varID, is, ie )
+    implicit none  
     class(timeint_rk), intent(inout) :: this
     integer, intent(in) :: nowstage
     real(RP), intent(inout) :: q(:)
     integer, intent(in) :: varID
     integer, intent(in) :: is, ie 
-
     !----------------------------------------    
  
     if (this%low_storage_flag) then
@@ -244,7 +249,37 @@ contains
     return
   end subroutine timeint_rk_advance1D
 
+  subroutine timeint_rk_advance_trcvar1D( this, nowstage, q, varID, is, ie , &
+      DENS, DENS0, DENS_hyd )
+    implicit none
+    class(timeint_rk), intent(inout) :: this
+    integer, intent(in) :: nowstage
+    real(RP), intent(inout) :: q(:)
+    integer, intent(in) :: varID
+    integer, intent(in) :: is, ie 
+    real(RP), intent(in) :: DENS (:)
+    real(RP), intent(in) :: DENS0(:)
+    real(RP), intent(in) :: DENS_hyd(:)
+    !----------------------------------------    
+ 
+    if ( this%imex_flag ) then
+      if ( PRC_ismaster ) write(*,*) "timeint_rk_advence_trcvar: IMEX is not supported. Check!"
+      call PRC_abort
+    end if
+
+    if (this%low_storage_flag) then
+      call rk_advance_trcvar_low_storage1D( this, nowstage, q, varID, is, ie , &
+        DENS, DENS0, DENS_hyd )
+    else
+      call rk_advance_trcvar_general1D( this, nowstage, q, varID, is, ie , &
+        DENS, DENS0, DENS_hyd )
+    end if
+
+    return
+  end subroutine timeint_rk_advance_trcvar1D
+
   subroutine timeint_rk_storeimpl1D( this, nowstage, q, varID, is, ie )
+    implicit none
     class(timeint_rk), intent(inout) :: this
     integer, intent(in) :: nowstage
     real(RP), intent(inout) :: q(:)
@@ -259,12 +294,12 @@ contains
   end subroutine timeint_rk_storeimpl1D
 
   subroutine timeint_rk_advance2D( this, nowstage, q, varID, is, ie ,js, je )
+    implicit none  
     class(timeint_rk), intent(inout) :: this
     integer, intent(in) :: nowstage
     real(RP), intent(inout) :: q(:,:)
     integer, intent(in) :: varID
     integer, intent(in) :: is, ie ,js, je 
-
     !----------------------------------------    
  
     if (this%low_storage_flag) then
@@ -276,7 +311,37 @@ contains
     return
   end subroutine timeint_rk_advance2D
 
+  subroutine timeint_rk_advance_trcvar2D( this, nowstage, q, varID, is, ie ,js, je , &
+      DENS, DENS0, DENS_hyd )
+    implicit none
+    class(timeint_rk), intent(inout) :: this
+    integer, intent(in) :: nowstage
+    real(RP), intent(inout) :: q(:,:)
+    integer, intent(in) :: varID
+    integer, intent(in) :: is, ie ,js, je 
+    real(RP), intent(in) :: DENS (:,:)
+    real(RP), intent(in) :: DENS0(:,:)
+    real(RP), intent(in) :: DENS_hyd(:,:)
+    !----------------------------------------    
+ 
+    if ( this%imex_flag ) then
+      if ( PRC_ismaster ) write(*,*) "timeint_rk_advence_trcvar: IMEX is not supported. Check!"
+      call PRC_abort
+    end if
+
+    if (this%low_storage_flag) then
+      call rk_advance_trcvar_low_storage2D( this, nowstage, q, varID, is, ie ,js, je , &
+        DENS, DENS0, DENS_hyd )
+    else
+      call rk_advance_trcvar_general2D( this, nowstage, q, varID, is, ie ,js, je , &
+        DENS, DENS0, DENS_hyd )
+    end if
+
+    return
+  end subroutine timeint_rk_advance_trcvar2D
+
   subroutine timeint_rk_storeimpl2D( this, nowstage, q, varID, is, ie ,js, je )
+    implicit none
     class(timeint_rk), intent(inout) :: this
     integer, intent(in) :: nowstage
     real(RP), intent(inout) :: q(:,:)
@@ -291,12 +356,12 @@ contains
   end subroutine timeint_rk_storeimpl2D
 
   subroutine timeint_rk_advance3D( this, nowstage, q, varID, is, ie ,js, je ,ks, ke )
+    implicit none  
     class(timeint_rk), intent(inout) :: this
     integer, intent(in) :: nowstage
     real(RP), intent(inout) :: q(:,:,:)
     integer, intent(in) :: varID
     integer, intent(in) :: is, ie ,js, je ,ks, ke 
-
     !----------------------------------------    
  
     if (this%low_storage_flag) then
@@ -308,7 +373,37 @@ contains
     return
   end subroutine timeint_rk_advance3D
 
+  subroutine timeint_rk_advance_trcvar3D( this, nowstage, q, varID, is, ie ,js, je ,ks, ke , &
+      DENS, DENS0, DENS_hyd )
+    implicit none
+    class(timeint_rk), intent(inout) :: this
+    integer, intent(in) :: nowstage
+    real(RP), intent(inout) :: q(:,:,:)
+    integer, intent(in) :: varID
+    integer, intent(in) :: is, ie ,js, je ,ks, ke 
+    real(RP), intent(in) :: DENS (:,:,:)
+    real(RP), intent(in) :: DENS0(:,:,:)
+    real(RP), intent(in) :: DENS_hyd(:,:,:)
+    !----------------------------------------    
+ 
+    if ( this%imex_flag ) then
+      if ( PRC_ismaster ) write(*,*) "timeint_rk_advence_trcvar: IMEX is not supported. Check!"
+      call PRC_abort
+    end if
+
+    if (this%low_storage_flag) then
+      call rk_advance_trcvar_low_storage3D( this, nowstage, q, varID, is, ie ,js, je ,ks, ke , &
+        DENS, DENS0, DENS_hyd )
+    else
+      call rk_advance_trcvar_general3D( this, nowstage, q, varID, is, ie ,js, je ,ks, ke , &
+        DENS, DENS0, DENS_hyd )
+    end if
+
+    return
+  end subroutine timeint_rk_advance_trcvar3D
+
   subroutine timeint_rk_storeimpl3D( this, nowstage, q, varID, is, ie ,js, je ,ks, ke )
+    implicit none
     class(timeint_rk), intent(inout) :: this
     integer, intent(in) :: nowstage
     real(RP), intent(inout) :: q(:,:,:)
@@ -330,6 +425,7 @@ contains
   subroutine rk_advance_low_storage1D( this, nowstage, q, varID, is, ie  )
     use scale_const, only: &
       EPS => CONST_EPS
+    implicit none      
     class(timeint_rk), intent(inout) :: this
     integer, intent(in) :: nowstage
     real(RP), intent(inout) :: q(:)
@@ -396,11 +492,103 @@ contains
     return
   end subroutine rk_advance_low_storage1D
 
+  !OCL SERIAL
+  subroutine rk_advance_trcvar_low_storage1D( this, nowstage, q, varID, is, ie , &
+    DDENS, DDENS0, DENS_hyd )
+    use scale_const, only: &
+      EPS => CONST_EPS
+    implicit none
+    class(timeint_rk), intent(inout) :: this
+    integer, intent(in) :: nowstage
+    real(RP), intent(inout) :: q(:)
+    integer, intent(in) :: varID
+    integer, intent(in) :: is, ie 
+    real(RP), intent(in) :: DDENS (:)
+    real(RP), intent(in) :: DDENS0(:)
+    real(RP), intent(in) :: DENS_hyd(:)
+
+    integer :: i
+    real(RP) :: sig_ss
+    real(RP) :: gam_ss
+    real(RP) :: one_Minus_sig_ss
+    real(RP) :: sig_Ns
+    real(RP) :: gam_Ns
+    real(RP) :: c_ssm1
+    real(RP) :: c_ss
+
+    real(RP) :: dens_ssm1
+    real(RP) :: dens_ss
+   
+    !----------------------------------------    
+
+    call PROF_rapstart( 'rk_advance_trcvar_low_storage1D', 3) 
+
+    sig_ss = this%coef_sig_ex(nowstage+1,nowstage)
+    sig_Ns = this%coef_sig_ex(this%nstage+1,nowstage)
+    one_Minus_sig_ss = 1.0_RP - sig_ss
+    gam_ss = this%dt * this%coef_gam_ex(nowstage+1,nowstage)
+    gam_Ns = this%dt * this%coef_gam_ex(this%nstage+1,nowstage)   
+    c_ssm1 = this%coef_c_ex(nowstage)
+
+    if ( nowstage == this%nstage ) then
+      !$omp parallel private(i)
+      !$omp do
+      do i=is, ie
+        dens_ssm1 = DENS_hyd(i) + DDENS0(i) + c_ssm1 * ( DDENS(i) - DDENS0(i) )
+        q(i) =  ( this%varTmp_1d(i,varID)                                              &
+                + sig_ss * q(i) * dens_ssm1 + gam_ss * this%tend_buf1D_ex(i,varID,1) ) &
+                / ( DENS_hyd(i) + DDENS(i) )
+      end do
+      !$omp end parallel
+      call PROF_rapend( 'rk_advance_trcvar_low_storage1D', 3)
+
+      return
+    end if
+
+    c_ss   = this%coef_c_ex(nowstage+1) 
+
+    !$omp parallel private(i,dens_ss,dens_ssm1)
+    if (nowstage == 1) then
+      !$omp do
+      do i=is, ie
+        this%var0_1D(i,varID)   = q(i) * ( DENS_hyd(i) + DDENS0(i) )
+        this%varTmp_1D(i,varID) = 0.0_RP
+      end do
+    end if
+
+    if ( abs(sig_Ns) > EPS .or. abs(gam_Ns) > EPS ) then
+      !$omp do
+      do i=is, ie
+        dens_ssm1 = DENS_hyd(i) + DDENS0(i) + c_ssm1 * ( DDENS(i) - DDENS0(i) )
+        this%varTmp_1d(i,varID) = this%varTmp_1d(i,varID)                 &
+            + sig_Ns * q(i) * dens_ssm1 + gam_Ns * this%tend_buf1D_ex(i,varID,1)
+      end do
+    end if
+
+    !$omp do
+    do i=is, ie
+      dens_ssm1 = DENS_hyd(i) + DDENS0(i) + c_ssm1 * ( DDENS(i) - DDENS0(i) )
+      dens_ss   = DENS_hyd(i) + DDENS0(i) + c_ss   * ( DDENS(i) - DDENS0(i) )
+
+      q(i) = ( one_Minus_sig_ss * this%var0_1d(i,varID)                                &
+              + sig_ss * q(i) * dens_ssm1 + gam_ss * this%tend_buf1D_ex(i,varID,1) )   &
+              / dens_ss
+    end do
+
+    !$omp end parallel
+
+    call PROF_rapend( 'rk_advance_trcvar_low_storage1D', 3)
+
+    return
+  end subroutine rk_advance_trcvar_low_storage1D
+  
+
 
 !OCL SERIAL
   subroutine rk_advance_low_storage2D( this, nowstage, q, varID, is, ie ,js, je  )
     use scale_const, only: &
       EPS => CONST_EPS
+    implicit none      
     class(timeint_rk), intent(inout) :: this
     integer, intent(in) :: nowstage
     real(RP), intent(inout) :: q(:,:)
@@ -475,11 +663,111 @@ contains
     return
   end subroutine rk_advance_low_storage2D
 
+  !OCL SERIAL
+  subroutine rk_advance_trcvar_low_storage2D( this, nowstage, q, varID, is, ie ,js, je , &
+    DDENS, DDENS0, DENS_hyd )
+    use scale_const, only: &
+      EPS => CONST_EPS
+    implicit none
+    class(timeint_rk), intent(inout) :: this
+    integer, intent(in) :: nowstage
+    real(RP), intent(inout) :: q(:,:)
+    integer, intent(in) :: varID
+    integer, intent(in) :: is, ie ,js, je 
+    real(RP), intent(in) :: DDENS (:,:)
+    real(RP), intent(in) :: DDENS0(:,:)
+    real(RP), intent(in) :: DENS_hyd(:,:)
+
+    integer :: i,j
+    real(RP) :: sig_ss
+    real(RP) :: gam_ss
+    real(RP) :: one_Minus_sig_ss
+    real(RP) :: sig_Ns
+    real(RP) :: gam_Ns
+    real(RP) :: c_ssm1
+    real(RP) :: c_ss
+
+    real(RP) :: dens_ssm1
+    real(RP) :: dens_ss
+   
+    !----------------------------------------    
+
+    call PROF_rapstart( 'rk_advance_trcvar_low_storage2D', 3) 
+
+    sig_ss = this%coef_sig_ex(nowstage+1,nowstage)
+    sig_Ns = this%coef_sig_ex(this%nstage+1,nowstage)
+    one_Minus_sig_ss = 1.0_RP - sig_ss
+    gam_ss = this%dt * this%coef_gam_ex(nowstage+1,nowstage)
+    gam_Ns = this%dt * this%coef_gam_ex(this%nstage+1,nowstage)   
+    c_ssm1 = this%coef_c_ex(nowstage)
+
+    if ( nowstage == this%nstage ) then
+      !$omp parallel private(i,j)
+      !$omp do
+      do j=js, je
+      do i=is, ie
+        dens_ssm1 = DENS_hyd(i,j) + DDENS0(i,j) + c_ssm1 * ( DDENS(i,j) - DDENS0(i,j) )
+        q(i,j) =  ( this%varTmp_2d(i,j,varID)                                              &
+                + sig_ss * q(i,j) * dens_ssm1 + gam_ss * this%tend_buf2D_ex(i,j,varID,1) ) &
+                / ( DENS_hyd(i,j) + DDENS(i,j) )
+      end do
+      end do
+      !$omp end parallel
+      call PROF_rapend( 'rk_advance_trcvar_low_storage2D', 3)
+
+      return
+    end if
+
+    c_ss   = this%coef_c_ex(nowstage+1) 
+
+    !$omp parallel private(i,j,dens_ss,dens_ssm1)
+    if (nowstage == 1) then
+      !$omp do
+      do j=js, je
+      do i=is, ie
+        this%var0_2D(i,j,varID)   = q(i,j) * ( DENS_hyd(i,j) + DDENS0(i,j) )
+        this%varTmp_2D(i,j,varID) = 0.0_RP
+      end do
+      end do
+    end if
+
+    if ( abs(sig_Ns) > EPS .or. abs(gam_Ns) > EPS ) then
+      !$omp do
+      do j=js, je
+      do i=is, ie
+        dens_ssm1 = DENS_hyd(i,j) + DDENS0(i,j) + c_ssm1 * ( DDENS(i,j) - DDENS0(i,j) )
+        this%varTmp_2d(i,j,varID) = this%varTmp_2d(i,j,varID)                 &
+            + sig_Ns * q(i,j) * dens_ssm1 + gam_Ns * this%tend_buf2D_ex(i,j,varID,1)
+      end do
+      end do
+    end if
+
+    !$omp do
+    do j=js, je
+    do i=is, ie
+      dens_ssm1 = DENS_hyd(i,j) + DDENS0(i,j) + c_ssm1 * ( DDENS(i,j) - DDENS0(i,j) )
+      dens_ss   = DENS_hyd(i,j) + DDENS0(i,j) + c_ss   * ( DDENS(i,j) - DDENS0(i,j) )
+
+      q(i,j) = ( one_Minus_sig_ss * this%var0_2d(i,j,varID)                                &
+              + sig_ss * q(i,j) * dens_ssm1 + gam_ss * this%tend_buf2D_ex(i,j,varID,1) )   &
+              / dens_ss
+    end do
+    end do
+
+    !$omp end parallel
+
+    call PROF_rapend( 'rk_advance_trcvar_low_storage2D', 3)
+
+    return
+  end subroutine rk_advance_trcvar_low_storage2D
+  
+
 
 !OCL SERIAL
   subroutine rk_advance_low_storage3D( this, nowstage, q, varID, is, ie ,js, je ,ks, ke  )
     use scale_const, only: &
       EPS => CONST_EPS
+    implicit none      
     class(timeint_rk), intent(inout) :: this
     integer, intent(in) :: nowstage
     real(RP), intent(inout) :: q(:,:,:)
@@ -562,9 +850,117 @@ contains
     return
   end subroutine rk_advance_low_storage3D
 
+  !OCL SERIAL
+  subroutine rk_advance_trcvar_low_storage3D( this, nowstage, q, varID, is, ie ,js, je ,ks, ke , &
+    DDENS, DDENS0, DENS_hyd )
+    use scale_const, only: &
+      EPS => CONST_EPS
+    implicit none
+    class(timeint_rk), intent(inout) :: this
+    integer, intent(in) :: nowstage
+    real(RP), intent(inout) :: q(:,:,:)
+    integer, intent(in) :: varID
+    integer, intent(in) :: is, ie ,js, je ,ks, ke 
+    real(RP), intent(in) :: DDENS (:,:,:)
+    real(RP), intent(in) :: DDENS0(:,:,:)
+    real(RP), intent(in) :: DENS_hyd(:,:,:)
+
+    integer :: i,j,k
+    real(RP) :: sig_ss
+    real(RP) :: gam_ss
+    real(RP) :: one_Minus_sig_ss
+    real(RP) :: sig_Ns
+    real(RP) :: gam_Ns
+    real(RP) :: c_ssm1
+    real(RP) :: c_ss
+
+    real(RP) :: dens_ssm1
+    real(RP) :: dens_ss
+   
+    !----------------------------------------    
+
+    call PROF_rapstart( 'rk_advance_trcvar_low_storage3D', 3) 
+
+    sig_ss = this%coef_sig_ex(nowstage+1,nowstage)
+    sig_Ns = this%coef_sig_ex(this%nstage+1,nowstage)
+    one_Minus_sig_ss = 1.0_RP - sig_ss
+    gam_ss = this%dt * this%coef_gam_ex(nowstage+1,nowstage)
+    gam_Ns = this%dt * this%coef_gam_ex(this%nstage+1,nowstage)   
+    c_ssm1 = this%coef_c_ex(nowstage)
+
+    if ( nowstage == this%nstage ) then
+      !$omp parallel private(i,j,k)
+      !$omp do collapse(2)
+      do k=ks, ke
+      do j=js, je
+      do i=is, ie
+        dens_ssm1 = DENS_hyd(i,j,k) + DDENS0(i,j,k) + c_ssm1 * ( DDENS(i,j,k) - DDENS0(i,j,k) )
+        q(i,j,k) =  ( this%varTmp_3d(i,j,k,varID)                                              &
+                + sig_ss * q(i,j,k) * dens_ssm1 + gam_ss * this%tend_buf3D_ex(i,j,k,varID,1) ) &
+                / ( DENS_hyd(i,j,k) + DDENS(i,j,k) )
+      end do
+      end do
+      end do
+      !$omp end parallel
+      call PROF_rapend( 'rk_advance_trcvar_low_storage3D', 3)
+
+      return
+    end if
+
+    c_ss   = this%coef_c_ex(nowstage+1) 
+
+    !$omp parallel private(i,j,k,dens_ss,dens_ssm1)
+    if (nowstage == 1) then
+      !$omp do collapse(2)
+      do k=ks, ke
+      do j=js, je
+      do i=is, ie
+        this%var0_3D(i,j,k,varID)   = q(i,j,k) * ( DENS_hyd(i,j,k) + DDENS0(i,j,k) )
+        this%varTmp_3D(i,j,k,varID) = 0.0_RP
+      end do
+      end do
+      end do
+    end if
+
+    if ( abs(sig_Ns) > EPS .or. abs(gam_Ns) > EPS ) then
+      !$omp do collapse(2)
+      do k=ks, ke
+      do j=js, je
+      do i=is, ie
+        dens_ssm1 = DENS_hyd(i,j,k) + DDENS0(i,j,k) + c_ssm1 * ( DDENS(i,j,k) - DDENS0(i,j,k) )
+        this%varTmp_3d(i,j,k,varID) = this%varTmp_3d(i,j,k,varID)                 &
+            + sig_Ns * q(i,j,k) * dens_ssm1 + gam_Ns * this%tend_buf3D_ex(i,j,k,varID,1)
+      end do
+      end do
+      end do
+    end if
+
+    !$omp do collapse(2)
+    do k=ks, ke
+    do j=js, je
+    do i=is, ie
+      dens_ssm1 = DENS_hyd(i,j,k) + DDENS0(i,j,k) + c_ssm1 * ( DDENS(i,j,k) - DDENS0(i,j,k) )
+      dens_ss   = DENS_hyd(i,j,k) + DDENS0(i,j,k) + c_ss   * ( DDENS(i,j,k) - DDENS0(i,j,k) )
+
+      q(i,j,k) = ( one_Minus_sig_ss * this%var0_3d(i,j,k,varID)                                &
+              + sig_ss * q(i,j,k) * dens_ssm1 + gam_ss * this%tend_buf3D_ex(i,j,k,varID,1) )   &
+              / dens_ss
+    end do
+    end do
+    end do
+
+    !$omp end parallel
+
+    call PROF_rapend( 'rk_advance_trcvar_low_storage3D', 3)
+
+    return
+  end subroutine rk_advance_trcvar_low_storage3D
+  
+
 
 !OCL SERIAL
   subroutine rk_advance_general1D( this, nowstage, q, varID, is, ie  )
+    implicit none
     class(timeint_rk), intent(inout) :: this
     integer, intent(in) :: nowstage
     real(RP), intent(inout) :: q(:)
@@ -576,7 +972,7 @@ contains
     integer :: tintbuf_ind
     !----------------------------------------    
 
-    call PROF_rapstart( 'rk_advance_generall1D', 3)
+    call PROF_rapstart( 'rk_advance_general1D', 3)
 
     tintbuf_ind = this%tend_buf_indmap(nowstage)
 
@@ -604,7 +1000,7 @@ contains
                   + this%dt * this%coef_b_ex(nowstage) * this%tend_buf1D_ex(i,varID,tintbuf_ind)
         end do
       end if    
-      call PROF_rapend( 'rk_advance_generall1D', 3)
+      call PROF_rapend( 'rk_advance_general1D', 3)
 
       return
     end if 
@@ -663,13 +1059,108 @@ contains
     end if
 
     !$omp end parallel
-    call PROF_rapend( 'rk_advance_generall1D', 3)
+    call PROF_rapend( 'rk_advance_general1D', 3)
 
     return
   end subroutine rk_advance_general1D
 
+  !OCL SERIAL
+  subroutine rk_advance_trcvar_general1D( this, nowstage, q, varID, is, ie , &
+      DDENS, DDENS0, DENS_hyd )
+    implicit none
+    class(timeint_rk), intent(inout) :: this
+    integer, intent(in) :: nowstage
+    real(RP), intent(inout) :: q(:)
+    integer, intent(in) :: varID
+    integer, intent(in) :: is, ie 
+    real(RP), intent(in) :: DDENS (:)
+    real(RP), intent(in) :: DDENS0(:)
+    real(RP), intent(in) :: DENS_hyd(:)
+
+    integer :: i
+    integer :: s
+    integer :: tintbuf_ind
+
+    real(RP) :: dens_
+    real(RP) :: c_ss
+    !----------------------------------------    
+
+    call PROF_rapstart( 'rk_advance_trcvar_general1D', 3)
+
+    tintbuf_ind = this%tend_buf_indmap(nowstage)
+
+    if ( this%nstage == 1 ) then
+      !$omp parallel do
+      do i=is, ie
+        this%varTmp_1d(i,varID) = q(i) * ( DENS_hyd(i) + DDENS0(i) )
+      end do
+    end if
+
+    if ( nowstage ==  this%nstage ) then
+      !$omp parallel do
+      do i=is, ie
+        q(i) =  ( this%varTmp_1d(i,varID)                                          &
+            + this%dt * this%coef_b_ex(nowstage) * this%tend_buf1D_ex(i,varID,tintbuf_ind)  ) &
+            / ( DENS_hyd(i) + DDENS(i) )
+      end do
+      call PROF_rapend( 'rk_advance_trcvar_general1D', 3)
+
+      return
+    end if 
+
+    c_ss = this%coef_c_ex(nowstage+1) 
+
+    !$omp parallel private( s, dens_ ) &
+    !$omp private( i )
+
+    if ( nowstage == 1 .and. (.not. this%imex_flag) ) then
+      !$omp do
+      do i=is, ie
+        this%var0_1D(i,varID) = q(i) * ( DENS_hyd(i) + DDENS0(i) )
+        this%varTmp_1D(i,varID) = this%var0_1D(i,varID)
+      end do
+    end if 
+
+    !$omp do
+    do i=is, ie
+      q(i) = this%var0_1d(i,varID)
+      this%varTmp_1d(i,varID) =  this%varTmp_1d(i,varID)                                             &
+            + this%dt * this%coef_b_ex(nowstage) * this%tend_buf1D_ex(i,varID,tintbuf_ind)
+    end do
+
+    if ( this%tend_buf_size == 1 .and. (.not. this%imex_flag) ) then
+      !$omp do
+      do i=is, ie
+        dens_ = ( DENS_hyd(i) + DDENS0(i) ) &
+            + this%coef_a_ex(nowstage+1,nowstage)*( DDENS(i) - DDENS0(i) )
+        q(i) = ( this%var0_1d(i,varID)                                           &
+            + this%dt * this%coef_a_ex(nowstage+1,nowstage)*this%tend_buf1D_ex(i,varID,1) ) &
+            / dens_
+      end do
+    else if ( .not. this%imex_flag ) then      
+      do s=1, nowstage
+      !$omp do
+      do i=is, ie
+        q(i) = q(i)                                  &
+            + this%dt * this%coef_a_ex(nowstage+1,s)*this%tend_buf1D_ex(i,varID,s)
+      end do
+      end do
+      !$omp do
+      do i=is, ie
+        dens_ = DENS_hyd(i) + DDENS0(i) + c_ss * ( DDENS(i) - DDENS0(i) )
+        q(i) = q(i) / dens_
+      end do
+    end if
+
+    !$omp end parallel
+    call PROF_rapend( 'rk_advance_trcvar_generall1D', 3)
+
+    return
+  end subroutine rk_advance_trcvar_general1D
+
 !OCL SERIAL
   subroutine rk_storeimpl_general1D( this, nowstage, q, varID, is, ie  )
+    implicit none
     class(timeint_rk), intent(inout) :: this
     integer, intent(in) :: nowstage
     real(RP), intent(inout) :: q(:)
@@ -707,6 +1198,7 @@ contains
 
 !OCL SERIAL
   subroutine rk_advance_general2D( this, nowstage, q, varID, is, ie ,js, je  )
+    implicit none
     class(timeint_rk), intent(inout) :: this
     integer, intent(in) :: nowstage
     real(RP), intent(inout) :: q(:,:)
@@ -718,7 +1210,7 @@ contains
     integer :: tintbuf_ind
     !----------------------------------------    
 
-    call PROF_rapstart( 'rk_advance_generall2D', 3)
+    call PROF_rapstart( 'rk_advance_general2D', 3)
 
     tintbuf_ind = this%tend_buf_indmap(nowstage)
 
@@ -752,7 +1244,7 @@ contains
         end do
         end do
       end if    
-      call PROF_rapend( 'rk_advance_generall2D', 3)
+      call PROF_rapend( 'rk_advance_general2D', 3)
 
       return
     end if 
@@ -823,13 +1315,122 @@ contains
     end if
 
     !$omp end parallel
-    call PROF_rapend( 'rk_advance_generall2D', 3)
+    call PROF_rapend( 'rk_advance_general2D', 3)
 
     return
   end subroutine rk_advance_general2D
 
+  !OCL SERIAL
+  subroutine rk_advance_trcvar_general2D( this, nowstage, q, varID, is, ie ,js, je , &
+      DDENS, DDENS0, DENS_hyd )
+    implicit none
+    class(timeint_rk), intent(inout) :: this
+    integer, intent(in) :: nowstage
+    real(RP), intent(inout) :: q(:,:)
+    integer, intent(in) :: varID
+    integer, intent(in) :: is, ie ,js, je 
+    real(RP), intent(in) :: DDENS (:,:)
+    real(RP), intent(in) :: DDENS0(:,:)
+    real(RP), intent(in) :: DENS_hyd(:,:)
+
+    integer :: i,j
+    integer :: s
+    integer :: tintbuf_ind
+
+    real(RP) :: dens_
+    real(RP) :: c_ss
+    !----------------------------------------    
+
+    call PROF_rapstart( 'rk_advance_trcvar_general2D', 3)
+
+    tintbuf_ind = this%tend_buf_indmap(nowstage)
+
+    if ( this%nstage == 1 ) then
+      !$omp parallel do
+      do j=js, je
+      do i=is, ie
+        this%varTmp_2d(i,j,varID) = q(i,j) * ( DENS_hyd(i,j) + DDENS0(i,j) )
+      end do
+      end do
+    end if
+
+    if ( nowstage ==  this%nstage ) then
+      !$omp parallel do
+      do j=js, je
+      do i=is, ie
+        q(i,j) =  ( this%varTmp_2d(i,j,varID)                                          &
+            + this%dt * this%coef_b_ex(nowstage) * this%tend_buf2D_ex(i,j,varID,tintbuf_ind)  ) &
+            / ( DENS_hyd(i,j) + DDENS(i,j) )
+      end do
+      end do
+      call PROF_rapend( 'rk_advance_trcvar_general2D', 3)
+
+      return
+    end if 
+
+    c_ss = this%coef_c_ex(nowstage+1) 
+
+    !$omp parallel private( s, dens_ ) &
+    !$omp private( i,j )
+
+    if ( nowstage == 1 .and. (.not. this%imex_flag) ) then
+      !$omp do
+      do j=js, je
+      do i=is, ie
+        this%var0_2D(i,j,varID) = q(i,j) * ( DENS_hyd(i,j) + DDENS0(i,j) )
+        this%varTmp_2D(i,j,varID) = this%var0_2D(i,j,varID)
+      end do
+      end do
+    end if 
+
+    !$omp do
+    do j=js, je
+    do i=is, ie
+      q(i,j) = this%var0_2d(i,j,varID)
+      this%varTmp_2d(i,j,varID) =  this%varTmp_2d(i,j,varID)                                             &
+            + this%dt * this%coef_b_ex(nowstage) * this%tend_buf2D_ex(i,j,varID,tintbuf_ind)
+    end do
+    end do
+
+    if ( this%tend_buf_size == 1 .and. (.not. this%imex_flag) ) then
+      !$omp do
+      do j=js, je
+      do i=is, ie
+        dens_ = ( DENS_hyd(i,j) + DDENS0(i,j) ) &
+            + this%coef_a_ex(nowstage+1,nowstage)*( DDENS(i,j) - DDENS0(i,j) )
+        q(i,j) = ( this%var0_2d(i,j,varID)                                           &
+            + this%dt * this%coef_a_ex(nowstage+1,nowstage)*this%tend_buf2D_ex(i,j,varID,1) ) &
+            / dens_
+      end do
+      end do
+    else if ( .not. this%imex_flag ) then      
+      do s=1, nowstage
+      !$omp do
+      do j=js, je
+      do i=is, ie
+        q(i,j) = q(i,j)                                  &
+            + this%dt * this%coef_a_ex(nowstage+1,s)*this%tend_buf2D_ex(i,j,varID,s)
+      end do
+      end do
+      end do
+      !$omp do
+      do j=js, je
+      do i=is, ie
+        dens_ = DENS_hyd(i,j) + DDENS0(i,j) + c_ss * ( DDENS(i,j) - DDENS0(i,j) )
+        q(i,j) = q(i,j) / dens_
+      end do
+      end do
+    end if
+
+    !$omp end parallel
+    call PROF_rapend( 'rk_advance_trcvar_generall2D', 3)
+
+    return
+  end subroutine rk_advance_trcvar_general2D
+
 !OCL SERIAL
   subroutine rk_storeimpl_general2D( this, nowstage, q, varID, is, ie ,js, je  )
+    implicit none
     class(timeint_rk), intent(inout) :: this
     integer, intent(in) :: nowstage
     real(RP), intent(inout) :: q(:,:)
@@ -871,6 +1472,7 @@ contains
 
 !OCL SERIAL
   subroutine rk_advance_general3D( this, nowstage, q, varID, is, ie ,js, je ,ks, ke  )
+    implicit none
     class(timeint_rk), intent(inout) :: this
     integer, intent(in) :: nowstage
     real(RP), intent(inout) :: q(:,:,:)
@@ -882,7 +1484,7 @@ contains
     integer :: tintbuf_ind
     !----------------------------------------    
 
-    call PROF_rapstart( 'rk_advance_generall3D', 3)
+    call PROF_rapstart( 'rk_advance_general3D', 3)
 
     tintbuf_ind = this%tend_buf_indmap(nowstage)
 
@@ -922,7 +1524,7 @@ contains
         end do
         end do
       end if    
-      call PROF_rapend( 'rk_advance_generall3D', 3)
+      call PROF_rapend( 'rk_advance_general3D', 3)
 
       return
     end if 
@@ -1005,13 +1607,136 @@ contains
     end if
 
     !$omp end parallel
-    call PROF_rapend( 'rk_advance_generall3D', 3)
+    call PROF_rapend( 'rk_advance_general3D', 3)
 
     return
   end subroutine rk_advance_general3D
 
+  !OCL SERIAL
+  subroutine rk_advance_trcvar_general3D( this, nowstage, q, varID, is, ie ,js, je ,ks, ke , &
+      DDENS, DDENS0, DENS_hyd )
+    implicit none
+    class(timeint_rk), intent(inout) :: this
+    integer, intent(in) :: nowstage
+    real(RP), intent(inout) :: q(:,:,:)
+    integer, intent(in) :: varID
+    integer, intent(in) :: is, ie ,js, je ,ks, ke 
+    real(RP), intent(in) :: DDENS (:,:,:)
+    real(RP), intent(in) :: DDENS0(:,:,:)
+    real(RP), intent(in) :: DENS_hyd(:,:,:)
+
+    integer :: i,j,k
+    integer :: s
+    integer :: tintbuf_ind
+
+    real(RP) :: dens_
+    real(RP) :: c_ss
+    !----------------------------------------    
+
+    call PROF_rapstart( 'rk_advance_trcvar_general3D', 3)
+
+    tintbuf_ind = this%tend_buf_indmap(nowstage)
+
+    if ( this%nstage == 1 ) then
+      !$omp parallel do collapse(2)
+      do k=ks, ke
+      do j=js, je
+      do i=is, ie
+        this%varTmp_3d(i,j,k,varID) = q(i,j,k) * ( DENS_hyd(i,j,k) + DDENS0(i,j,k) )
+      end do
+      end do
+      end do
+    end if
+
+    if ( nowstage ==  this%nstage ) then
+      !$omp parallel do collapse(2)
+      do k=ks, ke
+      do j=js, je
+      do i=is, ie
+        q(i,j,k) =  ( this%varTmp_3d(i,j,k,varID)                                          &
+            + this%dt * this%coef_b_ex(nowstage) * this%tend_buf3D_ex(i,j,k,varID,tintbuf_ind)  ) &
+            / ( DENS_hyd(i,j,k) + DDENS(i,j,k) )
+      end do
+      end do
+      end do
+      call PROF_rapend( 'rk_advance_trcvar_general3D', 3)
+
+      return
+    end if 
+
+    c_ss = this%coef_c_ex(nowstage+1) 
+
+    !$omp parallel private( s, dens_ ) &
+    !$omp private( i,j,k )
+
+    if ( nowstage == 1 .and. (.not. this%imex_flag) ) then
+      !$omp do collapse(2)
+      do k=ks, ke
+      do j=js, je
+      do i=is, ie
+        this%var0_3D(i,j,k,varID) = q(i,j,k) * ( DENS_hyd(i,j,k) + DDENS0(i,j,k) )
+        this%varTmp_3D(i,j,k,varID) = this%var0_3D(i,j,k,varID)
+      end do
+      end do
+      end do
+    end if 
+
+    !$omp do collapse(2)
+    do k=ks, ke
+    do j=js, je
+    do i=is, ie
+      q(i,j,k) = this%var0_3d(i,j,k,varID)
+      this%varTmp_3d(i,j,k,varID) =  this%varTmp_3d(i,j,k,varID)                                             &
+            + this%dt * this%coef_b_ex(nowstage) * this%tend_buf3D_ex(i,j,k,varID,tintbuf_ind)
+    end do
+    end do
+    end do
+
+    if ( this%tend_buf_size == 1 .and. (.not. this%imex_flag) ) then
+      !$omp do collapse(2)
+      do k=ks, ke
+      do j=js, je
+      do i=is, ie
+        dens_ = ( DENS_hyd(i,j,k) + DDENS0(i,j,k) ) &
+            + this%coef_a_ex(nowstage+1,nowstage)*( DDENS(i,j,k) - DDENS0(i,j,k) )
+        q(i,j,k) = ( this%var0_3d(i,j,k,varID)                                           &
+            + this%dt * this%coef_a_ex(nowstage+1,nowstage)*this%tend_buf3D_ex(i,j,k,varID,1) ) &
+            / dens_
+      end do
+      end do
+      end do
+    else if ( .not. this%imex_flag ) then      
+      do s=1, nowstage
+      !$omp do collapse(2)
+      do k=ks, ke
+      do j=js, je
+      do i=is, ie
+        q(i,j,k) = q(i,j,k)                                  &
+            + this%dt * this%coef_a_ex(nowstage+1,s)*this%tend_buf3D_ex(i,j,k,varID,s)
+      end do
+      end do
+      end do
+      end do
+      !$omp do collapse(2)
+      do k=ks, ke
+      do j=js, je
+      do i=is, ie
+        dens_ = DENS_hyd(i,j,k) + DDENS0(i,j,k) + c_ss * ( DDENS(i,j,k) - DDENS0(i,j,k) )
+        q(i,j,k) = q(i,j,k) / dens_
+      end do
+      end do
+      end do
+    end if
+
+    !$omp end parallel
+    call PROF_rapend( 'rk_advance_trcvar_generall3D', 3)
+
+    return
+  end subroutine rk_advance_trcvar_general3D
+
 !OCL SERIAL
   subroutine rk_storeimpl_general3D( this, nowstage, q, varID, is, ie ,js, je ,ks, ke  )
+    implicit none
     class(timeint_rk), intent(inout) :: this
     integer, intent(in) :: nowstage
     real(RP), intent(inout) :: q(:,:,:)
