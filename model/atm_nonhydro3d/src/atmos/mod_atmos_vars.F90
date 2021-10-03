@@ -1,4 +1,13 @@
 !-------------------------------------------------------------------------------
+!> module ATMOSPHERIC Variables
+!!
+!! @par Description
+!!          Container for atmospheric variables
+!!
+!! @author Team SCALE
+!!
+!<
+!-------------------------------------------------------------------------------
 #include "scaleFElib.h"
 module mod_atmos_vars
   !-----------------------------------------------------------------------------
@@ -69,6 +78,7 @@ module mod_atmos_vars
     
     logical :: check_range
     logical :: check_total
+
   contains
     procedure :: Init => AtmosVars_Init
     procedure :: Final => AtmosVars_Final
@@ -295,7 +305,42 @@ contains
       this%PROGVARS_manager,                              & ! (inout)
       this%PROG_VARS(:),                                  & ! (in)
       this%PROG_VARS_commID                               ) ! (out)
+
+    !- Initialize tracer variables
     
+    call this%QTRCVARS_manager%Init()
+    allocate( this%QTRC_VARS(max(1, QA)) )
+
+    if ( QA > 0 ) then
+      reg_file_hist = .true.
+      qtrc_vinfo_tmp%ndims    = 3
+      qtrc_vinfo_tmp%dim_type = 'XYZ'
+      qtrc_vinfo_tmp%STDNAME  = ''
+
+      do iv = 1, QA
+        qtrc_vinfo_tmp%keyID = iv
+        qtrc_vinfo_tmp%NAME  = TRACER_NAME(iv)
+        qtrc_vinfo_tmp%DESC  = TRACER_DESC(iv)
+        qtrc_vinfo_tmp%UNIT  = TRACER_UNIT(iv)
+       
+        call this%QTRCVARS_manager%Regist(   &
+          qtrc_vinfo_tmp, mesh3D,            & ! (in) 
+          this%QTRC_VARS(iv), reg_file_hist  ) ! (out)
+        do n = 1, mesh3D%LOCAL_MESH_NUM
+          this%QTRC_VARS(iv)%local(n)%val(:,:) = 0.0_RP
+        end do             
+      end do
+     
+      call this%QTRC_dummy(1)%Init( "QTRC_dummy", "1", mesh3D )
+      call atm_mesh%Create_communicator( &
+        1, 0,                            & ! (in)
+        this%QTRCVARS_manager,           & ! (inout)
+        this%QTRC_dummy(:),              & ! (in)
+        this%QTRC_VARS_commID            ) ! (out)
+    end if
+
+    !- Output list of prognostic variables
+
     LOG_NEWLINE
     LOG_INFO("ATMOS_vars_setup",*) 'List of prognostic variables (ATMOS) '
     LOG_INFO_CONT('(1x,A,A24,A,A48,A,A12,A)') &
@@ -305,58 +350,11 @@ contains
       LOG_INFO_CONT('(1x,A,I3,A,A24,A,A48,A,A12,A)') &
       'NO.',iv,'|',ATMOS_PROGVARS_VINFO(iv)%NAME,'|', ATMOS_PROGVARS_VINFO(iv)%DESC,'[', ATMOS_PROGVARS_VINFO(iv)%UNIT,']'
     end do
-
-    !- Initialize tracer variables
-    
-    call this%QTRCVARS_manager%Init()
-    allocate( this%QTRC_VARS(max(1, QA)) )
-
-    LOG_INFO("ATMOS_vars_setup check0",*)  QA
-    call PRC_mpibarrier()
-    call flush()
-    call PRC_mpibarrier()
-
-    if ( QA > 0 ) then
-      reg_file_hist = .true.
-      qtrc_vinfo_tmp%ndims    = 3
-      qtrc_vinfo_tmp%dim_type = 'XYZ'
-
-      do iv = 1, QA
-        LOG_INFO("ATMOS_vars_setup check1",*) trim(TRACER_NAME(iv))
-        call PRC_mpibarrier()
-        call flush()
-        call PRC_mpibarrier()        
-        qtrc_vinfo_tmp%NAME = TRACER_NAME(iv)
-        qtrc_vinfo_tmp%DESC = TRACER_DESC(iv)
-        qtrc_vinfo_tmp%UNIT = TRACER_UNIT(iv)
-        LOG_INFO("ATMOS_vars_setup check",*)  trim(qtrc_vinfo_tmp%NAME)
-        call PRC_mpibarrier()
-        call flush()
-        call PRC_mpibarrier()
-
-        call this%QTRCVARS_manager%Regist(   &
-          qtrc_vinfo_tmp, mesh3D,            & ! (in) 
-          this%QTRC_VARS(iv), reg_file_hist  ) ! (out)
-        do n = 1, mesh3D%LOCAL_MESH_NUM
-          this%QTRC_VARS(iv)%local(n)%val(:,:) = 0.0_RP
-        end do             
-      end do
-
-      call this%QTRC_dummy(1)%Init( "QTRC_dummy", "1", mesh3D )
-      call atm_mesh%Create_communicator( &
-        1, 0,                            & ! (in)
-        this%QTRCVARS_manager,           & ! (inout)
-        this%QTRC_dummy(:),              & ! (in)
-        this%QTRC_VARS_commID            ) ! (out)
-
-      LOG_INFO_CONT('(1x,A,A24,A,A48,A,A12,A)') &
-                '      |', 'VARNAME                 ','|', &
-                'DESCRIPTION                                     ', '[', 'UNIT        ', ']'
-      do iv = 1, QA
-        LOG_INFO_CONT('(1x,A,I3,A,A24,A,A48,A,A12,A)') &
-        'NO.',iv,'|',TRACER_NAME(iv),'|', TRACER_DESC(iv),'[', TRACER_UNIT(iv),']'
-      end do
-    end if
+    do iv = 1, QA
+      LOG_INFO_CONT('(1x,A,I3,A,A24,A,A48,A,A12,A)') &
+      'NO.',ATMOS_PROGVARS_NUM+iv,'|',TRACER_NAME(iv),'|', TRACER_DESC(iv),'[', TRACER_UNIT(iv),']'
+    end do
+    LOG_NEWLINE
 
     !- Initialize auxiliary variables
 
@@ -502,6 +500,11 @@ contains
     do v = 1, ATMOS_PROGVARS_NUM
       hst_id = this%PROG_VARS(v)%hist_id
       if ( hst_id > 0 ) call FILE_HISTORY_meshfield_put( hst_id, this%PROG_VARS(v) )
+    end do
+
+    do v = 1, QA
+      hst_id = this%QTRC_VARS(v)%hist_id
+      if ( hst_id > 0 ) call FILE_HISTORY_meshfield_put( hst_id, this%QTRC_VARS(v) )
     end do
 
     call this%Calc_diagnostics()
@@ -801,13 +804,7 @@ contains
 !OCL SERIAL
   subroutine AtmosVars_GetLocalMeshPrgVars( domID, mesh, prgvars_list, auxvars_list, &
     DDENS, MOMX, MOMY, MOMZ, DRHOT,                                                  &
-    DENS_hyd, PRES_hyd, lcmesh3D                                                     &
-    )
-
-    use scale_mesh_base, only: MeshBase
-    use scale_meshfield_base, only: MeshFieldBase
-    use scale_localmesh_base, only: LocalMeshBase
-    use scale_localmesh_3d, only: LocalMesh3D
+    DENS_hyd, PRES_hyd, lcmesh3D                                                     )
 
     implicit none
     integer, intent(in) :: domID
@@ -897,13 +894,7 @@ contains
 !OCL SERIAL
   subroutine AtmosVars_GetLocalMeshPhyAuxVars( domID, mesh, phyauxvars_list, &
     PRES, PT,                                                                &
-    lcmesh3D                                                                 &
-    )
-
-    use scale_mesh_base, only: MeshBase
-    use scale_meshfield_base, only: MeshFieldBase
-    use scale_localmesh_base, only: LocalMeshBase
-    use scale_localmesh_3d, only: LocalMesh3D
+    lcmesh3D                                                                 )
 
     implicit none
     integer, intent(in) :: domID

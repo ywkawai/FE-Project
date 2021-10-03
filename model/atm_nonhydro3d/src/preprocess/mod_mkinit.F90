@@ -104,8 +104,9 @@ contains
 
   !-----------------------------------------------------------------------------
   !> Driver
-  subroutine MKINIT( output,                             &
-    model_mesh, atm_prgvars_manager, atm_auxvars_manager )
+  subroutine MKINIT( output,                                      & ! (out)
+    model_mesh,                                                   & ! (in)
+    atm_prgvars_manager, atm_auxvars_manager, atm_trcvars_manager )
   
     use scale_model_var_manager, only: ModelVarManager
     use mod_atmos_mesh, only: AtmosMesh
@@ -118,6 +119,7 @@ contains
     class(AtmosMesh), target, intent(in) :: model_mesh
     class(ModelVarManager), intent(inout) :: atm_prgvars_manager
     class(ModelVarManager), intent(inout) :: atm_auxvars_manager
+    class(ModelVarManager), intent(inout) :: atm_trcvars_manager
 
     class(LocalMeshFieldBase), pointer :: DDENS, MOMX, MOMY, MOMZ, DRHOT
     class(LocalMeshFieldBase), pointer :: DENS_hyd, PRES_hyd

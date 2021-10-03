@@ -80,17 +80,17 @@ module mod_atmos_dyn_vars
                   's-1',  2, 'XY',  ''                                             )  / 
 
   integer, public, parameter :: ATMOS_DYN_MASS_FLUX_NUM   = 3
-  integer, public, parameter :: ATMOS_DYN_MASSFLX_X_ID    = 1
-  integer, public, parameter :: ATMOS_DYN_MASSFLX_Y_ID    = 2
-  integer, public, parameter :: ATMOS_DYN_MASSFLX_Z_ID    = 3
+  integer, public, parameter :: ATMOS_DYN_MASSFLX_Z_ID    = 1  
+  integer, public, parameter :: ATMOS_DYN_MASSFLX_X_ID    = 2
+  integer, public, parameter :: ATMOS_DYN_MASSFLX_Y_ID    = 3
 
   type(VariableInfo), public :: ATMOS_DYN_MASS_FLUX_VINFO(ATMOS_DYN_MASS_FLUX_NUM)
   DATA ATMOS_DYN_MASS_FLUX_VINFO / &
+    VariableInfo( ATMOS_DYN_MASSFLX_Z_ID, 'MASSFLX_Z', 'flux in z-direction',  &
+                  'kg/s/m2',  3, 'XYZ',  ''                                    ),   &
     VariableInfo( ATMOS_DYN_MASSFLX_X_ID, 'MASSFLX_X', 'flux in x-direction',  &
                   'kg/s/m2',  3, 'XYZ',  ''                                    ),   & 
     VariableInfo( ATMOS_DYN_MASSFLX_Y_ID, 'MASSFLX_Y', 'flux in y-direction',  &
-                  'kg/s/m2',  3, 'XYZ',  ''                                    ),   & 
-    VariableInfo( ATMOS_DYN_MASSFLX_Z_ID, 'MASSFLX_Z', 'flux in z-direction',  &
                   'kg/s/m2',  3, 'XYZ',  ''                                    )    / 
 
   integer, public, parameter :: ATMOS_DYN_NUMDIFF_FLUX_NUM   = 3
@@ -167,8 +167,6 @@ contains
 
     LOG_INFO('AtmosDynVars_Init',*)
 
-    !- Initialize auxiliary and diagnostic variables
-
     nullify( atm_mesh )
     select type(model_mesh)
     class is (AtmosMesh)
@@ -178,7 +176,8 @@ contains
     
     call mesh3D%GetMesh2D( mesh2D )
 
-    !-
+    !- Initialize 2D auxiliary variables
+
     call this%AUXVARS2D_manager%Init()
     allocate( this%AUX_VARS2D(ATMOS_DYN_AUXVARS2D_NUM) )
 
@@ -193,7 +192,8 @@ contains
       end do         
     end do
 
-    !-
+    !- Initialize variables to store time-averaged 3D mass flux
+
     call this%MASS_FLUX_manager%Init()
     allocate( this%MASS_FLUX_VARS3D(ATMOS_DYN_MASS_FLUX_NUM) )
     
@@ -209,12 +209,13 @@ contains
     end do
 
     call atm_mesh%Create_communicator( &
-      0, ATMOS_DYN_MASS_FLUX_NUM,      & ! (in) 
+      1, 1,                            & ! (in) 
       this%MASS_FLUX_manager,          & ! (in)
       this%MASS_FLUX_VARS3D(:),        & ! (in)
       this%MASS_FLUX_commid            ) ! (out)
-    
-    !-
+
+    !- Initialize variables to store diffusive fluxes with explicit numerical diffusion
+
     call this%NUMDIFF_FLUX_manager%Init()
     allocate( this%NUMDIFF_FLUX_VARS3D(ATMOS_DYN_NUMDIFF_FLUX_NUM) )
 

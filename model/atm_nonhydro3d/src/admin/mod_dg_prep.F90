@@ -136,8 +136,13 @@ contains
     call PROF_rapstart('MkInit',1)
     
     call MKINIT( output, &
-      atmos%mesh, atmos%vars%PROGVARS_manager, atmos%vars%AUXVARS_manager )
+      atmos%mesh,                  &
+      atmos%vars%PROGVARS_manager, &
+      atmos%vars%AUXVARS_manager,  &
+      atmos%vars%QTRCVARS_manager  )
+    
     call USER_mkinit( atmos )
+ 
     call PROF_rapend  ('MkInit',1)
     call PROF_rapend('Main_prep', 0)
 

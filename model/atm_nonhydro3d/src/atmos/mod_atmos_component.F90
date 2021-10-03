@@ -79,6 +79,7 @@ module mod_atmos_component
   !-----------------------------------------------------------------------------
 contains
 
+!OCL SERIAL
   subroutine Atmos_setup( this )
     use scale_const, only: &
       UNDEF8 => CONST_UNDEF8
@@ -205,6 +206,7 @@ contains
     return
   end subroutine Atmos_setup
 
+!OCL SERIAL
   subroutine Atmos_setup_vars( this )
     implicit none
 
@@ -220,6 +222,7 @@ contains
     return
   end subroutine Atmos_setup_vars
 
+!OCL SERIAL
   subroutine Atmos_calc_tendency( this )
 
     use mod_atmos_vars, only: &
@@ -347,6 +350,7 @@ contains
     return  
   end subroutine Atmos_update
 
+!OCL SERIAL
   subroutine Atmos_finalize( this )
     implicit none
     class(AtmosComponent), intent(inout) :: this

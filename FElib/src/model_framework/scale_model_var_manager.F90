@@ -70,17 +70,20 @@ module scale_model_var_manager
   !------------------
 
 contains
+
+!OCL SERIAL
   subroutine ModelVarManager_Init( this )
     implicit none
     class(ModelVarManager), intent(inout) :: this
-
     !------------------------------------------------
+
     call this%list%Init()
     nullify( this%ptr_comm )
 
     return
   end subroutine ModelVarManager_Init
 
+!OCL SERIAL
   subroutine ModelVarManager_Final( this )
     implicit none
     class(ModelVarManager), intent(inout) :: this
@@ -95,11 +98,14 @@ contains
 
     return
   end subroutine ModelVarManager_Final
+
+!OCL SERIAL
   subroutine field_release( key, pField, done)
     implicit none
     class(*), intent(in) :: key
     class(*), pointer    :: pField
     logical, intent(out) :: done
+    !------------------------------------------------
 
     select type( pField )
     type is ( MeshField1D )
@@ -113,6 +119,7 @@ contains
     return
   end subroutine field_release
 
+!OCL SERIAL
   subroutine ModelVarManager_Regist1D( this,       &
       varinfo, mesh, field, reg_file_history_flag, &
       monitor_flag )
@@ -148,6 +155,7 @@ contains
     return
   end subroutine ModelVarManager_Regist1D
 
+!OCL SERIAL
   subroutine ModelVarManager_Regist2D( this,     &
     varinfo, mesh, field, reg_file_history_flag, &
     monitor_flag                                 )
@@ -182,6 +190,7 @@ contains
     return
   end subroutine ModelVarManager_Regist2D
 
+!OCL SERIAL
   subroutine ModelVarManager_Regist3D( this,    &
     varinfo, mesh, field, reg_file_history_flag, &
     monitor_flag  )
@@ -217,6 +226,7 @@ contains
     return
   end subroutine ModelVarManager_Regist3D
 
+!OCL SERIAL
   subroutine ModelVarManager_Get( this, keyID, pField )
     use scale_meshfield_base, only: MeshFieldBase
     implicit none
@@ -239,10 +249,11 @@ contains
     type is (MeshField3D)
       pField => ptr_field          
     end select
-    
+
     return
   end subroutine ModelVarManager_Get
 
+!OCL SERIAL
   subroutine ModelVarManager_meshfiled_comm_prepare( this, &
       comm,  fields )
     implicit none
@@ -275,6 +286,7 @@ contains
     return
   end subroutine ModelVarManager_meshfiled_comm_prepare
 
+!OCL SERIAL  
   subroutine ModelVarManager_meshfiled_comm_exchange( this )
     implicit none
     class(ModelVarManager), intent(inout) :: this
