@@ -1,4 +1,13 @@
 !-------------------------------------------------------------------------------
+!> module ATMOSPHERIC Variables
+!!
+!! @par Description
+!!          Container for atmospheric variables
+!!
+!! @author Team SCALE
+!!
+!<
+!-------------------------------------------------------------------------------
 #include "scaleFElib.h"
 module mod_atmos_vars
   !-----------------------------------------------------------------------------
@@ -9,6 +18,8 @@ module mod_atmos_vars
   use scale_io
   use scale_prc
   use scale_debug
+  use scale_tracer, only: &
+    QA, TRACER_NAME, TRACER_DESC, TRACER_UNIT
 
   use scale_element_base, only: &
     ElementBase, ElementBase3D
@@ -46,6 +57,11 @@ module mod_atmos_vars
     type(MeshField3D), allocatable :: PROG_VARS(:)
     type(ModelVarManager) :: PROGVARS_manager
     integer :: PROG_VARS_commID
+
+    type(MeshField3D), allocatable :: QTRC_VARS(:)
+    type(MeshField3D) :: QTRC_dummy(1)
+    type(ModelVarManager) :: QTRCVARS_manager
+    integer :: QTRC_VARS_commID 
     
     type(MeshField3D), allocatable :: AUX_VARS(:)
     type(ModelVarManager) :: AUXVARS_manager 
@@ -62,6 +78,7 @@ module mod_atmos_vars
     
     logical :: check_range
     logical :: check_total
+
   contains
     procedure :: Init => AtmosVars_Init
     procedure :: Final => AtmosVars_Final
@@ -76,6 +93,7 @@ module mod_atmos_vars
 
   public :: AtmosVars_GetLocalMeshPrgVar
   public :: AtmosVars_GetLocalMeshPrgVars
+  public :: AtmosVars_GetLocalMeshQTRCVar  
   public :: AtmosVars_GetLocalMeshPhyAuxVars
   public :: AtmosVars_GetLocalMeshPhyTends
 
@@ -202,9 +220,10 @@ module mod_atmos_vars
   integer, private              :: DV_MONIT_id(DVM_nmax)
 
 contains
-  subroutine AtmosVars_Init( this, atm_mesh )
 
-    use scale_file_monitor_meshfield, only:     &
+!OCL SERIAL
+  subroutine AtmosVars_Init( this, atm_mesh )
+    use scale_file_monitor_meshfield, only:    &
       MONITOR_reg => FILE_monitor_meshfield_reg
     implicit none
 
@@ -243,6 +262,7 @@ contains
     logical :: is_specified
 
     class(MeshBase3D), pointer :: mesh3D
+    type(VariableInfo) :: qtrc_vinfo_tmp
     !--------------------------------------------------
 
     LOG_INFO('AtmosVars_Init',*)
@@ -286,6 +306,41 @@ contains
       this%PROG_VARS(:),                                  & ! (in)
       this%PROG_VARS_commID                               ) ! (out)
 
+    !- Initialize tracer variables
+    
+    call this%QTRCVARS_manager%Init()
+    allocate( this%QTRC_VARS(max(1, QA)) )
+
+    if ( QA > 0 ) then
+      reg_file_hist = .true.
+      qtrc_vinfo_tmp%ndims    = 3
+      qtrc_vinfo_tmp%dim_type = 'XYZ'
+      qtrc_vinfo_tmp%STDNAME  = ''
+
+      do iv = 1, QA
+        qtrc_vinfo_tmp%keyID = iv
+        qtrc_vinfo_tmp%NAME  = TRACER_NAME(iv)
+        qtrc_vinfo_tmp%DESC  = TRACER_DESC(iv)
+        qtrc_vinfo_tmp%UNIT  = TRACER_UNIT(iv)
+       
+        call this%QTRCVARS_manager%Regist(   &
+          qtrc_vinfo_tmp, mesh3D,            & ! (in) 
+          this%QTRC_VARS(iv), reg_file_hist  ) ! (out)
+        do n = 1, mesh3D%LOCAL_MESH_NUM
+          this%QTRC_VARS(iv)%local(n)%val(:,:) = 0.0_RP
+        end do             
+      end do
+     
+      call this%QTRC_dummy(1)%Init( "QTRC_dummy", "1", mesh3D )
+      call atm_mesh%Create_communicator( &
+        1, 0,                            & ! (in)
+        this%QTRCVARS_manager,           & ! (inout)
+        this%QTRC_dummy(:),              & ! (in)
+        this%QTRC_VARS_commID            ) ! (out)
+    end if
+
+    !- Output list of prognostic variables
+
     LOG_NEWLINE
     LOG_INFO("ATMOS_vars_setup",*) 'List of prognostic variables (ATMOS) '
     LOG_INFO_CONT('(1x,A,A24,A,A48,A,A12,A)') &
@@ -295,6 +350,11 @@ contains
       LOG_INFO_CONT('(1x,A,I3,A,A24,A,A48,A,A12,A)') &
       'NO.',iv,'|',ATMOS_PROGVARS_VINFO(iv)%NAME,'|', ATMOS_PROGVARS_VINFO(iv)%DESC,'[', ATMOS_PROGVARS_VINFO(iv)%UNIT,']'
     end do
+    do iv = 1, QA
+      LOG_INFO_CONT('(1x,A,I3,A,A24,A,A48,A,A12,A)') &
+      'NO.',ATMOS_PROGVARS_NUM+iv,'|',TRACER_NAME(iv),'|', TRACER_DESC(iv),'[', TRACER_UNIT(iv),']'
+    end do
+    LOG_NEWLINE
 
     !- Initialize auxiliary variables
 
@@ -398,10 +458,11 @@ contains
     this%check_total = CHECK_TOTAL
     LOG_INFO("ATMOS_vars_setup",*) 'Check value range of variables?     : ', CHECK_RANGE
     LOG_INFO("ATMOS_vars_setup",*) 'Check total value of variables?     : ', CHECK_TOTAL
-      
+
     return
   end subroutine AtmosVars_Init
 
+!OCL SERIAL
   subroutine AtmosVars_Final( this )
     implicit none
     class(AtmosVars), intent(inout) :: this
@@ -413,6 +474,8 @@ contains
     call this%restart_file%Final()
 
     call this%PROGVARS_manager%Final()
+    call this%QTRCVARS_manager%Final()
+    if ( QA > 0 ) call this%QTRC_dummy(1)%Final()
     call this%AUXVARS_manager%Final()
     call this%PHYTENDS_manager%Final()
 
@@ -421,6 +484,7 @@ contains
     return
   end subroutine AtmosVars_Final
 
+!OCL SERIAL
   subroutine AtmosVars_history( this )
     use scale_file_history_meshfield, only: FILE_HISTORY_meshfield_put
     implicit none
@@ -436,6 +500,11 @@ contains
     do v = 1, ATMOS_PROGVARS_NUM
       hst_id = this%PROG_VARS(v)%hist_id
       if ( hst_id > 0 ) call FILE_HISTORY_meshfield_put( hst_id, this%PROG_VARS(v) )
+    end do
+
+    do v = 1, QA
+      hst_id = this%QTRC_VARS(v)%hist_id
+      if ( hst_id > 0 ) call FILE_HISTORY_meshfield_put( hst_id, this%QTRC_VARS(v) )
     end do
 
     call this%Calc_diagnostics()
@@ -462,6 +531,7 @@ contains
     return
   end subroutine AtmosVars_history
 
+!OCL SERIAL
   subroutine AtmosVar_Read_restart_file( this, atmos_mesh )
 
     use scale_meshfieldcomm_cubedom3d, only: MeshFieldCommCubeDom3D
@@ -471,7 +541,7 @@ contains
     class(AtmosVars), intent(inout), target :: this
     class(AtmosMesh), intent(in) :: atmos_mesh
 
-    integer :: v
+    integer :: iv
     !---------------------------------------
 
     LOG_NEWLINE
@@ -481,13 +551,18 @@ contains
     call this%restart_file%Open()
 
     !- Read restart file
-    do v=1, ATMOS_PROGVARS_NUM
-      call this%restart_file%Read_var( DIMTYPE_XYZ, this%PROG_VARS(v)%varname, &
-        this%PROG_VARS(v)                                                      )
+    
+    do iv=1, ATMOS_PROGVARS_NUM
+      call this%restart_file%Read_var( DIMTYPE_XYZ, this%PROG_VARS(iv)%varname, &
+        this%PROG_VARS(iv)                                                      )
     end do
-    do v=1, ATMOS_AUXVARS_DENSHYDRO_ID
-      call this%restart_file%Read_var( DIMTYPE_XYZ, this%AUX_VARS(v)%varname, &
-        this%AUX_VARS(v)                                                      )
+    do iv=1, ATMOS_AUXVARS_DENSHYDRO_ID
+      call this%restart_file%Read_var( DIMTYPE_XYZ, this%AUX_VARS(iv)%varname, &
+        this%AUX_VARS(iv)                                                      )
+    end do
+    do iv=1, QA
+      call this%restart_file%Read_var( DIMTYPE_XYZ, this%QTRC_VARS(iv)%varname, &
+        this%QTRC_VARS(iv)                                                      )
     end do
 
     !- Close restart file
@@ -506,12 +581,13 @@ contains
     return
   end subroutine AtmosVar_Read_restart_file
 
+!OCL SERIAL
   subroutine AtmosVar_write_restart_file( this )
 
     implicit none
     class(AtmosVars), intent(inout) :: this
 
-    integer :: v, rf_vid
+    integer :: iv, rf_vid 
     !---------------------------------------
     
     LOG_NEWLINE
@@ -524,26 +600,37 @@ contains
     call this%restart_file%Create()
 
     !- Define variables
-    do v=1, ATMOS_PROGVARS_NUM
-      rf_vid = v
-      call this%restart_file%Def_var( this%PROG_VARS(v),  &
-        ATMOS_PROGVARS_VINFO(v)%DESC, rf_vid, DIMTYPE_XYZ )
+
+    do iv=1, ATMOS_PROGVARS_NUM
+      rf_vid = iv
+      call this%restart_file%Def_var( this%PROG_VARS(iv),  &
+        ATMOS_PROGVARS_VINFO(iv)%DESC, rf_vid, DIMTYPE_XYZ )
     end do
-    do v=1, ATMOS_AUXVARS_DENSHYDRO_ID
-      rf_vid = ATMOS_PROGVARS_NUM + v
-      call this%restart_file%Def_var( this%AUX_VARS(v),   &
-        ATMOS_AUXVARS_VINFO(v)%DESC, rf_vid, DIMTYPE_XYZ  )
+    do iv=1, ATMOS_AUXVARS_DENSHYDRO_ID
+      rf_vid = ATMOS_PROGVARS_NUM + iv
+      call this%restart_file%Def_var( this%AUX_VARS(iv),   &
+        ATMOS_AUXVARS_VINFO(iv)%DESC, rf_vid, DIMTYPE_XYZ  )
     end do
+    do iv=1, QA
+      rf_vid = rf_vid + 1
+      call this%restart_file%Def_var( this%QTRC_VARS(iv), &
+        TRACER_DESC(iv), rf_vid, DIMTYPE_XYZ              )    
+    end do
+
     call this%restart_file%End_def()
 
     !- Write restart file
-    do v=1, ATMOS_PROGVARS_NUM
-      rf_vid = v
-      call this%restart_file%Write_var(rf_vid, this%PROG_VARS(v) )
+    do iv=1, ATMOS_PROGVARS_NUM
+      rf_vid = iv
+      call this%restart_file%Write_var(rf_vid, this%PROG_VARS(iv) )
     end do
-    do v=1, ATMOS_AUXVARS_DENSHYDRO_ID
-      rf_vid = ATMOS_PROGVARS_NUM + v
-     call this%restart_file%Write_var(rf_vid, this%AUX_VARS(v) )
+    do iv=1, ATMOS_AUXVARS_DENSHYDRO_ID
+      rf_vid = ATMOS_PROGVARS_NUM + iv
+      call this%restart_file%Write_var(rf_vid, this%AUX_VARS(iv) )
+    end do
+    do iv=1, QA
+      rf_vid = rf_vid + 1
+      call this%restart_file%Write_var(rf_vid, this%QTRC_VARS(iv) )
     end do
 
     !- Close restart file
@@ -553,6 +640,7 @@ contains
     return
   end subroutine AtmosVar_write_restart_file
 
+!OCL SERIAL
   subroutine AtmosVars_Check( this, force )
 
     use scale_meshfield_statistics, only: &
@@ -623,6 +711,7 @@ contains
     return
   end subroutine AtmosVars_Check
 
+!OCL SERIAL
   subroutine AtmosVars_Monitor( this )
     use scale_file_monitor_meshfield, only: &
       FILE_monitor_meshfield_put
@@ -667,6 +756,7 @@ contains
 
   !----  Getter ---------------------------------------------------------------------------
 
+!OCL SERIAL
   subroutine AtmosVars_GetLocalMeshPrgVar( domID, mesh, prgvars_list, auxvars_list, &
      varid,                                                                         &
      var, DENS_hyd, PRES_hyd, lcmesh3D                                              )
@@ -711,15 +801,10 @@ contains
     return
   end subroutine AtmosVars_GetLocalMeshPrgVar
 
+!OCL SERIAL
   subroutine AtmosVars_GetLocalMeshPrgVars( domID, mesh, prgvars_list, auxvars_list, &
     DDENS, MOMX, MOMY, MOMZ, DRHOT,                                                  &
-    DENS_hyd, PRES_hyd, lcmesh3D                                                     &
-    )
-
-    use scale_mesh_base, only: MeshBase
-    use scale_meshfield_base, only: MeshFieldBase
-    use scale_localmesh_base, only: LocalMeshBase
-    use scale_localmesh_3d, only: LocalMesh3D
+    DENS_hyd, PRES_hyd, lcmesh3D                                                     )
 
     implicit none
     integer, intent(in) :: domID
@@ -772,15 +857,44 @@ contains
     return
   end subroutine AtmosVars_GetLocalMeshPrgVars
 
+!OCL SERIAL
+  subroutine AtmosVars_GetLocalMeshQTRCVar( domID, mesh, trcvars_list,  &
+    varid,                                                              &
+    var, lcmesh3D                                                       )
+
+   implicit none
+   integer, intent(in) :: domID
+   class(MeshBase), intent(in) :: mesh
+   class(ModelVarManager), intent(inout) :: trcvars_list
+   integer, intent(in) :: varid
+   class(LocalMeshFieldBase), pointer, intent(out) :: var
+   class(LocalMesh3D), pointer, intent(out), optional :: lcmesh3D
+
+   class(MeshFieldBase), pointer :: field
+   class(LocalMeshBase), pointer :: lcmesh
+   !-------------------------------------------------------
+
+   !--
+   call trcvars_list%Get(varid, field)
+   call field%GetLocalMeshField(domID, var)
+
+   if (present(lcmesh3D)) then
+     call mesh%GetLocalMesh( domID, lcmesh )
+     nullify( lcmesh3D )
+
+     select type(lcmesh)
+     type is (LocalMesh3D)
+       if (present(lcmesh3D)) lcmesh3D => lcmesh
+     end select
+   end if
+
+   return
+  end subroutine AtmosVars_GetLocalMeshQTRCVar
+
+!OCL SERIAL
   subroutine AtmosVars_GetLocalMeshPhyAuxVars( domID, mesh, phyauxvars_list, &
     PRES, PT,                                                                &
-    lcmesh3D                                                                 &
-    )
-
-    use scale_mesh_base, only: MeshBase
-    use scale_meshfield_base, only: MeshFieldBase
-    use scale_localmesh_base, only: LocalMeshBase
-    use scale_localmesh_3d, only: LocalMesh3D
+    lcmesh3D                                                                 )
 
     implicit none
     integer, intent(in) :: domID
@@ -815,6 +929,7 @@ contains
     return
   end subroutine AtmosVars_GetLocalMeshPhyAuxVars
 
+!OCL SERIAL
   subroutine AtmosVars_GetLocalMeshPhyTends( domID, mesh, phytends_list,  &
     DENS_tp, MOMX_tp, MOMY_tp, MOMZ_tp, RHOT_tp, RHOH_p,                  &
     lcmesh3D                                                              )
@@ -865,7 +980,8 @@ contains
   end subroutine AtmosVars_GetLocalMeshPhyTends
 
   !-----------------------------------------------------------------------------
-  !> Calculate diagnostic variables  
+  !> Calculate diagnostic variables
+!OCL SERIAL  
   subroutine AtmosVars_CalculateDiagnostics( this )
     implicit none
     class(AtmosVars), intent(inout), target :: this
@@ -897,6 +1013,7 @@ contains
     return
   end subroutine AtmosVars_CalculateDiagnostics
 
+!OCL SERIAL
   subroutine AtmosVars_CalcDiagvar( this, field_name, field_work ) 
     use scale_const, only: &
       Rdry => CONST_Rdry,      &
@@ -961,6 +1078,7 @@ contains
 
 !-- private -----------------------------------------------------------------------
     
+!OCL SERIAL
   subroutine vars_calc_diagnoseVar_lc( field_name, var_out,        &
     DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd,    &
     lcmesh, elem )
@@ -1085,5 +1203,6 @@ contains
     end select
 
     return
-  end subroutine vars_calc_diagnoseVar_lc  
+  end subroutine vars_calc_diagnoseVar_lc
+
 end module mod_atmos_vars

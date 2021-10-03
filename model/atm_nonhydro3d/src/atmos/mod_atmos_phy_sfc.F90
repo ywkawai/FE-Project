@@ -138,8 +138,8 @@ contains
 
 
   subroutine AtmosPhySfc_calc_tendency( &
-    this, model_mesh, prgvars_list,       &
-    auxvars_list, forcing_list, is_update )
+    this, model_mesh, prgvars_list, trcvars_list, &
+    auxvars_list, forcing_list, is_update         )
 
     use mod_atmos_vars, only: &
       AtmosVars_GetLocalMeshPrgVars,   &
@@ -153,6 +153,7 @@ contains
     class(AtmosPhySfc), intent(inout) :: this
     class(ModelMeshBase), intent(in) :: model_mesh
     class(ModelVarManager), intent(inout) :: prgvars_list
+    class(ModelVarManager), intent(inout) :: trcvars_list    
     class(ModelVarManager), intent(inout) :: auxvars_list
     class(ModelVarManager), intent(inout) :: forcing_list
     logical, intent(in) :: is_update
@@ -208,12 +209,15 @@ contains
     return  
   end subroutine AtmosPhySfc_calc_tendency
 
-  subroutine AtmosPhySfc_update( this, model_mesh, prgvars_list, auxvars_list, forcing_list, is_update )
+  subroutine AtmosPhySfc_update( this, model_mesh,           &
+    prgvars_list, trcvars_list, auxvars_list,  forcing_list, &
+    is_update )
     implicit none
 
     class(AtmosPhySfc), intent(inout) :: this
     class(ModelMeshBase), intent(in) :: model_mesh
     class(ModelVarManager), intent(inout) :: prgvars_list
+    class(ModelVarManager), intent(inout) :: trcvars_list    
     class(ModelVarManager), intent(inout) :: auxvars_list
     class(ModelVarManager), intent(inout) :: forcing_list
     logical, intent(in) :: is_update

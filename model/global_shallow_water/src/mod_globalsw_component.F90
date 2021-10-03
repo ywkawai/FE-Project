@@ -163,14 +163,14 @@ subroutine SW_update( this )
     LOG_PROGRESS(*) 'shallow water / dynamics'   
     do inner_itr=1, this%time_manager%Get_process_inner_itr_num( tm_process_id )
       call this%dyn_proc%update( &
-        this%mesh, this%vars%PROGVARS_manager, this%vars%AUXVARS_manager, &
-        this%vars%PHYTENDS_manager, is_update                             )
+        this%mesh, this%vars%PROGVARS_manager, this%vars%TRCVARS_manager, &
+        this%vars%AUXVARS_manager, this%vars%PHYTENDS_manager, is_update  )
     end do
     call PROF_rapend('GlobalSW_dynamics', 1)  
   end if
 
   !########## Calculate diagnostic variables ##########  
-  call this%vars%Clac_diagnostics( this%mesh )
+  call this%vars%Calc_diagnostics( this%mesh )
   call this%vars%AUXVARS_manager%MeshFieldComm_Exchange()
     
   !#### Check values #################################

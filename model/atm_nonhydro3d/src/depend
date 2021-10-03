@@ -1,10 +1,12 @@
-$(BUILD_DIR)/mod_atmos_component.o: atmos/mod_atmos_component.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_dyn.o $(BUILD_DIR)/mod_atmos_mesh.o $(BUILD_DIR)/mod_atmos_mesh_gm.o $(BUILD_DIR)/mod_atmos_mesh_rm.o $(BUILD_DIR)/mod_atmos_phy_sfc.o $(BUILD_DIR)/mod_atmos_phy_tb.o $(BUILD_DIR)/mod_atmos_vars.o
+$(BUILD_DIR)/mod_atmos_component.o: atmos/mod_atmos_component.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_dyn.o $(BUILD_DIR)/mod_atmos_mesh.o $(BUILD_DIR)/mod_atmos_mesh_gm.o $(BUILD_DIR)/mod_atmos_mesh_rm.o $(BUILD_DIR)/mod_atmos_phy_mp.o $(BUILD_DIR)/mod_atmos_phy_sfc.o $(BUILD_DIR)/mod_atmos_phy_tb.o $(BUILD_DIR)/mod_atmos_vars.o
 $(BUILD_DIR)/mod_atmos_dyn.o: atmos/mod_atmos_dyn.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_dyn_bnd.o $(BUILD_DIR)/mod_atmos_dyn_vars.o $(BUILD_DIR)/mod_atmos_mesh.o $(BUILD_DIR)/mod_atmos_vars.o
 $(BUILD_DIR)/mod_atmos_dyn_bnd.o: atmos/mod_atmos_dyn_bnd.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_vars.o
 $(BUILD_DIR)/mod_atmos_dyn_vars.o: atmos/mod_atmos_dyn_vars.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_mesh.o
 $(BUILD_DIR)/mod_atmos_mesh.o: atmos/mod_atmos_mesh.F90 $(DEPENDLIB)
 $(BUILD_DIR)/mod_atmos_mesh_gm.o: atmos/mod_atmos_mesh_gm.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_mesh.o
 $(BUILD_DIR)/mod_atmos_mesh_rm.o: atmos/mod_atmos_mesh_rm.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_mesh.o
+$(BUILD_DIR)/mod_atmos_phy_mp.o: atmos/mod_atmos_phy_mp.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_mesh.o $(BUILD_DIR)/mod_atmos_phy_mp_vars.o $(BUILD_DIR)/mod_atmos_phy_tb_vars.o $(BUILD_DIR)/mod_atmos_vars.o
+$(BUILD_DIR)/mod_atmos_phy_mp_vars.o: atmos/mod_atmos_phy_mp_vars.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_mesh.o
 $(BUILD_DIR)/mod_atmos_phy_sfc.o: atmos/mod_atmos_phy_sfc.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_mesh.o $(BUILD_DIR)/mod_atmos_phy_sfc_vars.o $(BUILD_DIR)/mod_atmos_vars.o
 $(BUILD_DIR)/mod_atmos_phy_sfc_vars.o: atmos/mod_atmos_phy_sfc_vars.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_mesh.o
 $(BUILD_DIR)/mod_atmos_phy_tb.o: atmos/mod_atmos_phy_tb.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_dyn_bnd.o $(BUILD_DIR)/mod_atmos_mesh.o $(BUILD_DIR)/mod_atmos_phy_tb_vars.o $(BUILD_DIR)/mod_atmos_vars.o
@@ -27,6 +29,8 @@ MODS =	\
 	mod_atmos_mesh.mod	\
 	mod_atmos_mesh_gm.mod	\
 	mod_atmos_mesh_rm.mod	\
+	mod_atmos_phy_mp.mod	\
+	mod_atmos_phy_mp_vars.mod	\
 	mod_atmos_phy_sfc.mod	\
 	mod_atmos_phy_sfc_vars.mod	\
 	mod_atmos_phy_tb.mod	\

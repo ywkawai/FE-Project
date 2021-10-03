@@ -40,7 +40,7 @@ module scale_atm_dyn_dgm_globalnonhydro3d_heve
     atm_dyn_dgm_nonhydro3d_common_Final,              &
     DENS_VID, MOMX_VID, MOMY_VID, MOMZ_VID, RHOT_VID, &
     PROG_VARS_NUM,                                    &
-    IntrpMat_VPOrdM1, iM2Dto3D
+    IntrpMat_VPOrdM1
   
   !-----------------------------------------------------------------------------
   implicit none
@@ -155,7 +155,8 @@ contains
       lmesh%Gsqrt, lmesh%GIJ(:,:,1,1), lmesh%GIJ(:,:,1,2), lmesh%GIJ(:,:,2,2), & ! (in)
       lmesh%GsqrtH, lmesh%GI3(:,:,1), lmesh%GI3(:,:,2),                        & ! (in)    
       lmesh%normal_fn(:,:,1), lmesh%normal_fn(:,:,2), lmesh%normal_fn(:,:,3),  & ! (in)
-      lmesh%vmapM, lmesh%vmapP, iM2Dto3D, lmesh, elem, lmesh2D, elem2D         ) ! (in)
+      lmesh%vmapM, lmesh%vmapP, elem%IndexH2Dto3D_bnd,                         & ! (in)
+      lmesh, elem, lmesh2D, elem2D                                             ) ! (in)
     call PROF_rapend('cal_dyn_tend_bndflux', 3)
  
     !-----

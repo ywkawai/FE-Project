@@ -93,15 +93,19 @@ contains
     return
   end subroutine USER_setup
 
-  subroutine USER_calc_tendency
+  subroutine USER_calc_tendency( swmodel )
     implicit none
+
+    class(GlobalSWComponent), intent(inout) :: swmodel    
     !------------------------------------------
 
     return
   end subroutine USER_calc_tendency
 
-  subroutine USER_update
+  subroutine USER_update( swmodel )
     implicit none
+
+    class(GlobalSWComponent), intent(inout) :: swmodel
     !------------------------------------------
 
     return

@@ -230,7 +230,7 @@ contains
       
       alpha(:) = max( sqrt( Gii(:) * Grav * (h_M(:) + hs_(iM)) ) + abs(VelM(:)), &
                       sqrt( Gii(:) * Grav * (h_P(:) + hs_(iP)) ) + abs(VelP(:))  )
-      alpha(:) = 0.0_RP
+      
       del_flux(:,ke,VARS_h_ID) = 0.5_RP * Gsqrt_(iM) * (     &
                       (h_P(:) * VelP(:) - h_M(:) * VelM(:) ) &
                     - alpha(:) * ( h_P(:) - h_M(:) )         )

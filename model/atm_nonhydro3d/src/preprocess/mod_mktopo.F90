@@ -54,11 +54,12 @@ module mod_mktopo
   !++ Public parameters & variables
   !
   
-  integer, public :: MKTOPO_TYPE                   = -1
-  integer, parameter, public :: I_IGNORE           = 0
-  integer, parameter, public :: I_FLAT             = 1
-  integer, parameter, public :: I_BELLSHAPE        = 2
-  integer, parameter, public :: I_BELLSHAPE_GLOBAL = 3
+  integer, public :: MKTOPO_TYPE                          = -1
+  integer, parameter, public :: I_IGNORE                  = 0
+  integer, parameter, public :: I_FLAT                    = 1
+  integer, parameter, public :: I_BELLSHAPE               = 2
+  integer, parameter, public :: I_BELLSHAPE_GLOBAL        = 3
+  integer, parameter, public :: I_BAROCWAVE_GLOBAL_JW2004 = 4  
 
   !-----------------------------------------------------------------------------
   !
@@ -117,6 +118,8 @@ contains
       MKTOPO_TYPE = I_BELLSHAPE
     case('BELLSHAPE_GLOBAL')
       MKTOPO_TYPE = I_BELLSHAPE_GLOBAL 
+    case('BAROCWAVE_GLOBAL_JW2004')
+      MKTOPO_TYPE = I_BAROCWAVE_GLOBAL_JW2004      
     case default
       LOG_ERROR("MKTOPO_setup",*) 'Not appropriate toponame. Check!', toponame
       call PRC_abort      
@@ -128,10 +131,9 @@ contains
   !-----------------------------------------------------------------------------
   !> Driver
   subroutine MKTOPO( output, model_mesh, topography )
-  
     use scale_model_var_manager, only: ModelVarManager
-
     implicit none
+
     logical, intent(out) :: output
     class(AtmosMesh), target, intent(in) :: model_mesh
     class(MeshTopography), intent(inout) :: topography
@@ -165,6 +167,8 @@ contains
         call MKTOPO_bellshape( mesh2D, topography%topo )
       case ( I_BELLSHAPE_GLOBAL )
         call MKTOPO_bellshape_global( mesh2D, topography%topo )
+      case ( I_BAROCWAVE_GLOBAL_JW2004 )
+        call MKTOPO_barocwave_global_JW2006( mesh2D, topography%topo )
       end select
 
       ! call PROF_rapend  ('_MkTOPO_main',3)
@@ -345,8 +349,6 @@ contains
   !-----------------------------------------------------------------------------
   !> Make mountain with bell shape (global)
   subroutine MKTOPO_bellshape_global( mesh, topo )
-    use scale_const, only: &
-      RPlanet => CONST_RADIUS
     implicit none
 
     class(MeshBase2D), intent(in), target :: mesh
@@ -402,5 +404,74 @@ contains
     
     return
   end subroutine MKTOPO_bellshape_global
+
+
+  !-----------------------------------------------------------------------------
+  !> Make mountain with bell shape (global)
+  subroutine MKTOPO_barocwave_global_JW2006( mesh, topo )
+    use scale_const, only: &
+      OHM => CONST_OHM,   &
+      Grav => CONST_GRAV
+
+    implicit none
+
+    class(MeshBase2D), intent(in), target :: mesh
+    class(MeshField2D), intent(inout) :: topo
+
+    ! parameters of baroclinic wave test case in JW2006
+    real(RP) :: ETA0        = 0.252_RP  ! The value of η at a reference level (position of the jet)
+    real(RP) :: U0 = 35.E0_RP           ! The parameter associated with zonal jet maximum amplitude  [m/s]
+
+    namelist / PARAM_MKTOPO_BAROCWAVE_GLOBAL_JW2006 / &
+      ETA0, U0
+    
+    integer :: ierr    
+    integer :: n
+    integer :: ke2d
+    type(LocalMesh2D), pointer :: lmesh2D
+    class(ElementBase2D), pointer :: elem
+
+    real(RP), allocatable :: cosLat(:)
+    real(RP), allocatable :: sinLat(:)
+    real(RP) :: tmp
+    !--------------------------------
+
+    LOG_INFO("MKTOPO_barocwave_JW2006",*) 'Setup'
+
+    !--- read namelist
+    rewind(IO_FID_CONF)
+    read(IO_FID_CONF, nml=PARAM_MKTOPO_BAROCWAVE_GLOBAL_JW2006, iostat=ierr)
+    if( ierr < 0 ) then !--- missing
+       LOG_INFO("MKTOPO_barocwave_JW2006",*) 'Not found namelist. Default used.'
+    elseif( ierr > 0 ) then !--- fatal error
+       LOG_ERROR("MKTOPO_barocwave_JW2006",*) 'Not appropriate names in namelist PARAM_MKTOPO_BAROCWAVE_GLOBAL_JW2006. Check!'
+       call PRC_abort
+    endif
+    LOG_NML(PARAM_MKTOPO_BAROCWAVE_GLOBAL_JW2006)
+
+    do n=1, mesh%LOCAL_MESH_NUM
+      lmesh2D => mesh%lcmesh_list(n)
+      elem => lmesh2D%refElem2D
+
+      allocate( cosLat(elem%Np), sinLat(elem%Np) )
+      
+      !$omp parallel do private( cosLat, sinLat, tmp )
+      do ke2D=lmesh2D%NeS, lmesh2D%NeE
+        cosLat(:) = cos(lmesh2D%lat(:,ke2d))
+        sinLat(:) = sin(lmesh2D%lat(:,ke2d))
+        tmp = cos( (1.0_RP - ETA0) * 0.5_RP * PI )
+        tmp = U0 * tmp * sqrt(tmp)
+
+        topo%local(n)%val(:,ke2d) = tmp * &
+          (   ( - 2.0_RP * sinLat(:)**6 * ( cosLat(:)**2 + 1.0_RP / 3.0_RP ) + 10.0_RP / 63.0_RP ) * tmp         &
+            + ( 8.0_RP / 5.0_RP * cosLat**3 * ( sinLat**2 + 2.0_RP / 3.0_RP ) - 0.25_RP * PI ) * RPlanet * OHM   &
+          ) / Grav  
+      end do
+
+      deallocate( cosLat, sinLat )
+    end do
+    
+    return
+  end subroutine MKTOPO_barocwave_global_JW2006
 
 end module mod_mktopo

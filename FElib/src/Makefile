@@ -108,7 +108,8 @@ OBJS_NAME_FLUID_DYN_SOLVER = \
 	scale_atm_dyn_dgm_nonhydro3d_hevi_gmres.o        \
 	scale_atm_dyn_dgm_globalnonhydro3d_heve.o        \
 	scale_atm_dyn_dgm_globalnonhydro3d_hevi.o        \
-	scale_atm_dyn_dgm_globalsw.o
+	scale_atm_dyn_dgm_globalsw.o                     \
+	scale_atm_dyn_dgm_trcadvect3d_heve.o	
 
 OBJS_NAME_TURBULENCE = \
 	scale_atm_phy_tb_dgm_smg.o

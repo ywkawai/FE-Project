@@ -35,6 +35,13 @@ module scale_meshfield_statistics
   end interface
   public :: MeshField_statistics_detail
 
+  interface MeshField_statistics_maxmin
+    module procedure :: MeshField_statistics_maxmin_1D
+    module procedure :: MeshField_statistics_maxmin_2D
+    module procedure :: MeshField_statistics_maxmin_3D
+  end interface
+  public :: MeshField_statistics_maxmin  
+
   interface MeshField_statistics_total
     module procedure :: MeshField_statistics_total_1D
     module procedure :: MeshField_statistics_total_2D
@@ -66,6 +73,7 @@ contains
 
   !-----------------------------------------------------------------------------
   !> Setup
+!OCL SERIAL
   subroutine MeshField_statistics_setup()
     use scale_prc, only: &
       PRC_abort
@@ -114,16 +122,11 @@ contains
 
   !-----------------------------------------------------------------------------
   !> Calculate domain sum and area-weighted mean for 1D field
+!OCL SERIAL  
   subroutine MeshField_statistics_total_1D( field, & ! (in)
     log_suppress, global,                          & ! (in)
     mean, sum                                      ) ! (out)
 
-    use scale_prc, only: &
-        PRC_myrank, &
-        PRC_abort
-    use scale_const, only: &
-        EPS   => CONST_EPS, &
-        UNDEF => CONST_UNDEF
     implicit none
 
     class(MeshField1D), intent(in) :: field
@@ -149,16 +152,11 @@ contains
 
   !-----------------------------------------------------------------------------
   !> Calculate domain sum and area-weighted mean for 2D field
+!OCL SERIAL  
   subroutine MeshField_statistics_total_2D( field, & ! (in)
     log_suppress, global,                          & ! (in)
     mean, sum                                      ) ! (out)
 
-    use scale_prc, only: &
-        PRC_myrank, &
-        PRC_abort
-    use scale_const, only: &
-        EPS   => CONST_EPS, &
-        UNDEF => CONST_UNDEF
     implicit none
 
     class(MeshField2D), intent(in) :: field
@@ -184,16 +182,11 @@ contains
 
   !-----------------------------------------------------------------------------
   !> Calculate domain sum and area-weighted mean for 3D field
+!OCL SERIAL  
   subroutine MeshField_statistics_total_3D( field, & ! (in)
     log_suppress, global,                          & ! (in)
     mean, sum                                      ) ! (out)
 
-    use scale_prc, only: &
-        PRC_myrank, &
-        PRC_abort
-    use scale_const, only: &
-        EPS   => CONST_EPS, &
-        UNDEF => CONST_UNDEF
     implicit none
 
     class(MeshField3D), intent(in) :: field
@@ -217,8 +210,42 @@ contains
     return
   end subroutine MeshField_statistics_total_3D
 
+
   !-----------------------------------------------------------------------------
   !> Search global maximum & minimum value for 1D field
+  !-----------------------------------------------------------------------------
+
+  !> Calculate  max and min of 1D field
+  subroutine MeshField_statistics_maxmin_1D( field_list, & ! (in)
+    log_suppress, global,                                & ! (in)
+    maxval, minval                                       ) ! (out)
+
+    implicit none
+
+    class(MeshField1D), intent(in) :: field_list(:)
+    logical,  intent(in),  optional :: log_suppress             !< suppress log output    
+    logical,  intent(in),  optional :: global                   !< global or local
+    real(RP), intent(out), optional :: maxval(size(field_list))
+    real(RP), intent(out), optional :: minval(size(field_list))
+
+    real(RP) :: statval_l(  size(field_list),2)
+    integer  :: statidx_l(3,size(field_list),2)
+    integer :: VA
+    !---------------------------------------------------------------------------
+
+    VA = size(field_list)
+    call search_maxmin_local( &
+      VA, field_list, field_list(1)%mesh%lcmesh_list, & ! (in)
+      statval_l, statidx_l                            ) ! (out)
+
+    call statistics_detail_core( &
+      VA, field_list, statval_l, statidx_l, .not. global, log_suppress, & ! (in)
+      maxval, minval                                                    ) ! (out)
+    
+    return
+  end subroutine MeshField_statistics_maxmin_1D
+
+!OCL SERIAL  
   subroutine MeshField_statistics_detail_1D( field_list, local )
     implicit none
 
@@ -248,6 +275,36 @@ contains
 
   !-----------------------------------------------------------------------------
   !> Search global maximum & minimum value for 2D field
+  subroutine MeshField_statistics_maxmin_2D( field_list, & ! (in)
+    log_suppress, global,                                & ! (in)
+    maxval, minval                                       ) ! (out)
+
+    implicit none
+
+    class(MeshField2D), intent(in) :: field_list(:)
+    logical,  intent(in),  optional :: log_suppress             !< suppress log output    
+    logical,  intent(in),  optional :: global                   !< global or local
+    real(RP), intent(out), optional :: maxval(size(field_list))
+    real(RP), intent(out), optional :: minval(size(field_list))
+
+    real(RP) :: statval_l(  size(field_list),2)
+    integer  :: statidx_l(3,size(field_list),2)
+    integer :: VA
+    !---------------------------------------------------------------------------
+
+    VA = size(field_list)
+    call search_maxmin_local( &
+      VA, field_list, field_list(1)%mesh%lcmesh_list, & ! (in)
+      statval_l, statidx_l                            ) ! (out)
+
+    call statistics_detail_core( &
+      VA, field_list, statval_l, statidx_l, .not. global, log_suppress, & ! (in)
+      maxval, minval                                                    ) ! (out)
+    
+    return
+  end subroutine MeshField_statistics_maxmin_2D
+
+!OCL SERIAL  
   subroutine MeshField_statistics_detail_2D( field_list, local )
     implicit none
 
@@ -273,9 +330,41 @@ contains
     LOG_NEWLINE
 
     return
-  end subroutine MeshField_statistics_detail_2D  
+  end subroutine MeshField_statistics_detail_2D 
+
   !-----------------------------------------------------------------------------
   !> Search global maximum & minimum value for 3D field
+!OCL SERIAL  
+  subroutine MeshField_statistics_maxmin_3D( field_list, & ! (in)
+    log_suppress, global,                                & ! (in)
+    maxval, minval                                       ) ! (out)
+
+    implicit none
+
+    class(MeshField3D), intent(in) :: field_list(:)
+    logical,  intent(in),  optional :: log_suppress             !< suppress log output    
+    logical,  intent(in),  optional :: global                   !< global or local
+    real(RP), intent(out), optional :: maxval(size(field_list))
+    real(DP), intent(out), optional :: minval(size(field_list))
+
+    real(RP) :: statval_l(  size(field_list),2)
+    integer  :: statidx_l(3,size(field_list),2)
+    integer :: VA
+    !---------------------------------------------------------------------------
+
+    VA = size(field_list)
+    call search_maxmin_local( &
+      VA, field_list, field_list(1)%mesh%lcmesh_list, & ! (in)
+      statval_l, statidx_l                            ) ! (out)
+
+    call statistics_detail_core( &
+      VA, field_list, statval_l, statidx_l, .not. global, log_suppress, & ! (in)
+      maxval, minval                                                    ) ! (out)
+    
+    return
+  end subroutine MeshField_statistics_maxmin_3D
+
+!OCL SERIAL  
   subroutine MeshField_statistics_detail_3D( field_list, local )
     implicit none
 
@@ -305,6 +394,7 @@ contains
 
 !-- private --------------------------------------------------------------------
 
+!OCL SERIAL  
   subroutine search_maxmin_local( VA, field_list, lcmesh_list, &
     statval_l, statidx_l )
 
@@ -353,9 +443,11 @@ contains
     return
   end subroutine search_maxmin_local
 
+!OCL SERIAL  
   subroutine statistics_detail_core(      &
-    VA, field_list, statval_l, statidx_l, &
-    local )
+    VA, field_list, statval_l, statidx_l, & ! (in)
+    local, log_supress,                   & ! (in)
+    maxval, minval                        ) ! (out)
 
     use scale_prc, only: &
        PRC_nprocs
@@ -366,6 +458,9 @@ contains
     real(DP), intent(in) :: statval_l(  VA,2)
     integer,  intent(in) :: statidx_l(3,VA,2)
     logical,  intent(in), optional :: local  !< calculate in local node
+    logical, intent(in), optional :: log_supress
+    real(RP), intent(out), optional :: maxval(VA)
+    real(RP), intent(out), optional :: minval(VA)
 
     real(RP) :: statval   (  VA,2,0:PRC_nprocs-1)
     integer  :: statidx   (3,VA,2,0:PRC_nprocs-1)
@@ -376,10 +471,18 @@ contains
     integer :: v
     integer :: p
     integer :: ierr
+
+    logical :: supress_
     !---------------------------------------------------------------------------
 
     do_globalcomm = base%use_globalcomm
     if ( present(local) ) do_globalcomm = ( .not. local )
+
+    if ( present(log_supress) ) then
+      supress_ = log_supress
+    else
+      supress_ = .false.
+    end if
 
     if ( do_globalcomm ) then
       call PROF_rapstart('COMM_Bcast', 2)
@@ -418,34 +521,43 @@ contains
               allstatidx(v,2) = p
             end if
         end do
-        LOG_INFO_CONT(*) '[', trim(field_list(v)%varname), ']'
-        LOG_INFO_CONT('(1x,A,ES17.10,A,4(I5,A))') '  MAX =', &
-                                                      allstatval(v,1), ' (rank=', &
-                                                      allstatidx(v,1), '; ', &
-                                        statidx(1,v,1,allstatidx(v,1)),',', &
-                                        statidx(2,v,1,allstatidx(v,1)),',', &
-                                        statidx(3,v,1,allstatidx(v,1)),')'
-        LOG_INFO_CONT('(1x,A,ES17.10,A,4(I5,A))') '  MIN =', &
-                                                      allstatval(v,2), ' (rank=', &
-                                                      allstatidx(v,2), '; ', &
-                                        statidx(1,v,2,allstatidx(v,2)),',', &
-                                        statidx(2,v,2,allstatidx(v,2)),',', &
-                                        statidx(3,v,2,allstatidx(v,2)),')'
+        if ( .not. supress_ ) then
+          LOG_INFO_CONT(*) '[', trim(field_list(v)%varname), ']'
+          LOG_INFO_CONT('(1x,A,ES17.10,A,4(I5,A))') '  MAX =', &
+                                                        allstatval(v,1), ' (rank=', &
+                                                        allstatidx(v,1), '; ', &
+                                          statidx(1,v,1,allstatidx(v,1)),',', &
+                                          statidx(2,v,1,allstatidx(v,1)),',', &
+                                          statidx(3,v,1,allstatidx(v,1)),')'
+          LOG_INFO_CONT('(1x,A,ES17.10,A,4(I5,A))') '  MIN =', &
+                                                        allstatval(v,2), ' (rank=', &
+                                                        allstatidx(v,2), '; ', &
+                                          statidx(1,v,2,allstatidx(v,2)),',', &
+                                          statidx(2,v,2,allstatidx(v,2)),',', &
+                                          statidx(3,v,2,allstatidx(v,2)),')'
+        end if
+
+        if ( present(maxval) ) maxval(v) = allstatval(v,1)
+        if ( present(minval) ) minval(v) = allstatval(v,2)
       enddo
     else
         ! statistics on each node
         do v = 1, VA
-          LOG_INFO_CONT(*) '[', trim(field_list(v)%varname), ']'
-          LOG_INFO_CONT('(1x,A,ES17.10,A,3(I5,A))') 'MAX = ', &
-                                                statval_l(  v,1),' (', &
-                                                statidx_l(1,v,1),',', &
-                                                statidx_l(2,v,1),',', &
-                                                statidx_l(3,v,1),')'
-          LOG_INFO_CONT('(1x,A,ES17.10,A,3(I5,A))') 'MIN = ', &
-                                                statval_l(  v,2),' (', &
-                                                statidx_l(1,v,2),',', &
-                                                statidx_l(2,v,2),',', &
-                                                statidx_l(3,v,2),')'
+          if ( .not. supress_ ) then
+            LOG_INFO_CONT(*) '[', trim(field_list(v)%varname), ']'
+            LOG_INFO_CONT('(1x,A,ES17.10,A,3(I5,A))') 'MAX = ', &
+                                                  statval_l(  v,1),' (', &
+                                                  statidx_l(1,v,1),',', &
+                                                  statidx_l(2,v,1),',', &
+                                                  statidx_l(3,v,1),')'
+            LOG_INFO_CONT('(1x,A,ES17.10,A,3(I5,A))') 'MIN = ', &
+                                                  statval_l(  v,2),' (', &
+                                                  statidx_l(1,v,2),',', &
+                                                  statidx_l(2,v,2),',', &
+                                                  statidx_l(3,v,2),')'
+          end if
+          if ( present(maxval) ) maxval(v) = statval_l(v,1)
+          if ( present(minval) ) minval(v) = statval_l(v,2)          
         enddo
     endif
 
@@ -454,6 +566,7 @@ contains
 
   !-----
 
+!OCL SERIAL
   subroutine calculate_statval( field, lcmesh_list, &                   
     statval, total )
     
@@ -488,7 +601,7 @@ contains
       !$omp parallel do private(p, weight) reduction(+:total_lc, statval_lc)
       do ke=lcmesh%NeS, lcmesh%NeE
       do p=1, refElem%Np
-        weight = lcmesh%J(p,ke) * refElem%IntWeight_lgl(p)
+        weight = lcmesh%J(p,ke) * lcmesh%Gsqrt(p,ke) * refElem%IntWeight_lgl(p)
         total_lc = total_lc + weight
         statval_lc = statval_lc + weight * lcfield%val(p,ke)
       end do
@@ -500,6 +613,7 @@ contains
     return
   end subroutine calculate_statval
   
+!OCL SERIAL  
   subroutine statistics_total_core( &
     varname, statval, total,        &
     log_suppress, &

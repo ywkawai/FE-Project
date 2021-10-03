@@ -46,6 +46,7 @@ module mod_mkinit_util
 
 contains
 
+!OCL SERIAL
   subroutine mkinitutil_gen_GPMat( GPMat, &
     elem_intrp, elem )
     implicit none
@@ -75,6 +76,7 @@ contains
     return
   end subroutine mkinitutil_gen_GPMat
 
+!OCL SERIAL  
   subroutine mkinitutil_gen_Vm1Mat( Vm1Mat, &
     elem_intrp, elem )
     implicit none
@@ -104,6 +106,7 @@ contains
     return
   end subroutine mkinitutil_gen_Vm1Mat
 
+!OCL SERIAL  
   subroutine mkinitutil_calc_cosinebell( &
     q,                                   &
     qmax, rx, ry, rz, xc, yc, zc,        &
@@ -181,6 +184,7 @@ contains
   !!  For z_func_type = 'sin', the values of z_func_params is
   !!   1:  the vertical model, 2: the half of wavelength
   !! 
+!OCL SERIAL
   subroutine mkinitutil_calc_cosinebell_global( &
     q,                                          &
     qmax, rh, lonc, latc, rplanet,              &
@@ -280,8 +284,9 @@ contains
 
   !------------------------------------------
 
+!OCL SERIAL  
   subroutine mkinitutil_GalerkinProjection_global( q, &
-      func, IntrpPolyOrder_h, IntrpPolyOrder_v,      &
+      func, IntrpPolyOrder_h, IntrpPolyOrder_v,       &
       lcmesh3D, elem, rplanet )
 
     use scale_cubedsphere_cnv, only: &

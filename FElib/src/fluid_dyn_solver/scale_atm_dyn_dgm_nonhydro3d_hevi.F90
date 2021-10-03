@@ -40,7 +40,7 @@ module scale_atm_dyn_dgm_nonhydro3d_hevi
     atm_dyn_dgm_nonhydro3d_common_Final,              &
     DENS_VID, MOMX_VID, MOMY_VID, MOMZ_VID, RHOT_VID, &
     PROG_VARS_NUM,                                    &
-    IntrpMat_VPOrdM1, iM2Dto3D
+    IntrpMat_VPOrdM1
 
   !-----------------------------------------------------------------------------
   implicit none
