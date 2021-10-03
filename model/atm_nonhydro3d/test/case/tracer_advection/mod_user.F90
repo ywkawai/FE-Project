@@ -204,8 +204,8 @@ contains
       x_c, y_c, z_c, &
       r_x, r_y, r_z          
 
-    integer, parameter :: IntrpPolyOrder_h = 6
-    integer, parameter :: IntrpPolyOrder_v = 6
+    integer, parameter :: IntrpPolyOrder_h = 8
+    integer, parameter :: IntrpPolyOrder_v = 8
 
     integer :: ke
     integer :: ierr
@@ -232,14 +232,14 @@ contains
        call PRC_abort
     endif
     LOG_NML(PARAM_EXP)
-  
+
     !---
     
     TEMP0 = SFC_THETA * ( SFC_PRES / PRES00 )**(Rdry/CpDry)      
     call hydrostatic_calc_basicstate_constPT( DENS_hyd, PRES_hyd,                      &
       TEMP0, SFC_PRES, lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2), lcmesh%pos_en(:,:,3), &
       lcmesh, elem )
-    
+
     !---
 
     !$omp parallel do
@@ -255,7 +255,7 @@ contains
     call mkinitutil_calc_cosinebell( &
       tracer_field_list(iq)%ptr%val(:,:),    & ! (out)
       BBL_PTracer,                           & ! (in)
-       r_x, r_y, r_z, x_c, y_c, z_c,         & ! (in)
+      r_x, r_y, r_z, x_c, y_c, z_c,          & ! (in)
       x, y, z, lcmesh, elem,                 & ! (in)
       IntrpPolyOrder_h, IntrpPolyOrder_v     ) ! (in)  
         
