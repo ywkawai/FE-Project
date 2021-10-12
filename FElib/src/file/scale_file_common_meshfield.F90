@@ -169,7 +169,7 @@ contains
         if ( uniform_grid ) call get_uniform_grid1D( x_local, refElem%Nfp )
 
         is = 1 + (i-1)*refElem%Np + (n-1)*refElem%Np*lcmesh%Ne
-        ie = is + refElem%Np
+        ie = is + refElem%Np -1 
         x(is:ie) = x_local(:)
       end do
 
@@ -240,7 +240,7 @@ contains
         else
           do i2=1, Np
             i = i0_s + i2 + (kelem1-1)*Np 
-            buf(i) =  field1d%local(n)%val(i2,kelem1)
+            buf(i) = field1d%local(n)%val(i2,kelem1)
           end do
         end if
       end do
