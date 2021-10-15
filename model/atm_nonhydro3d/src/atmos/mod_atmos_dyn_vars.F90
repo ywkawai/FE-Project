@@ -44,6 +44,10 @@ module mod_atmos_dyn_vars
     type(ModelVarManager) :: MASS_FLUX_manager
     integer :: MASS_FLUX_commid
 
+    type(MeshField3D), allocatable :: AUX_TRCVARS3D(:)
+    type(ModelVarManager) :: AUXTRCVAR3D_manager
+    integer :: AUXTRCVAR3D_commid
+
     type(MeshField3D), allocatable :: NUMDIFF_FLUX_VARS3D(:)
     type(ModelVarManager) :: NUMDIFF_FLUX_manager
     integer :: NUMDIFF_FLUX_commid
@@ -54,6 +58,7 @@ module mod_atmos_dyn_vars
 
     type(MeshField3D), allocatable :: ANALYSIS_VARS3D(:)
     type(ModelVarManager) :: ANALYSISVARS_manager
+
   contains
     procedure :: Init => AtmosDynVars_Init
     procedure :: Final => AtmosDynVars_Final
@@ -71,6 +76,7 @@ module mod_atmos_dyn_vars
   !++ Public parameters & variables
   !
 
+  !-
   integer, public, parameter :: ATMOS_DYN_AUXVARS2D_NUM          = 1
   integer, public, parameter :: ATMOS_DYN_AUXVARS2D_CORIOLIS_ID  = 1
 
@@ -79,6 +85,16 @@ module mod_atmos_dyn_vars
     VariableInfo( ATMOS_DYN_AUXVARS2D_CORIOLIS_ID, 'CORIOLIS', 'coriolis parameter',  &
                   's-1',  2, 'XY',  ''                                             )  / 
 
+  !-
+  integer, public, parameter :: ATMOS_DYN_AUXTRCVARS3D_NUM        = 1
+  integer, public, parameter :: ATMOS_DYN_AUXTRCVARS3D_TRCADV_ID  = 1
+
+  type(VariableInfo), public :: ATMOS_DYN_AUXTRCVARS3D_VINFO(ATMOS_DYN_AUXTRCVARS3D_NUM)
+  DATA ATMOS_DYN_AUXTRCVARS3D_VINFO / &
+    VariableInfo( ATMOS_DYN_AUXTRCVARS3D_TRCADV_ID, 'TRCADV_TMPVAR', '',  &
+                  '1',  3, 'XYZ',  ''                                  )  / 
+  
+  !-
   integer, public, parameter :: ATMOS_DYN_MASS_FLUX_NUM   = 3
   integer, public, parameter :: ATMOS_DYN_MASSFLX_Z_ID    = 1  
   integer, public, parameter :: ATMOS_DYN_MASSFLX_X_ID    = 2
@@ -93,6 +109,7 @@ module mod_atmos_dyn_vars
     VariableInfo( ATMOS_DYN_MASSFLX_Y_ID, 'MASSFLX_Y', 'flux in y-direction',  &
                   'kg/s/m2',  3, 'XYZ',  ''                                    )    / 
 
+  !-
   integer, public, parameter :: ATMOS_DYN_NUMDIFF_FLUX_NUM   = 3
   integer, public, parameter :: ATMOS_DYN_NUMDIFFFLX_X_ID    = 1
   integer, public, parameter :: ATMOS_DYN_NUMDIFFFLX_Y_ID    = 2
@@ -106,7 +123,8 @@ module mod_atmos_dyn_vars
                   '?.m/s',  3, 'XYZ',  ''                                           ),   &
     VariableInfo( ATMOS_DYN_NUMDIFFFLX_Z_ID, 'DIFFFLX_Z', 'flux in z-direction',  &
                   '?.m/s',  3, 'XYZ',  ''                                           )    / 
-                
+       
+  !-
   integer, public, parameter :: ATMOS_DYN_NUMDIFF_TEND_NUM   = 2
   integer, public, parameter :: ATMOS_DYN_NUMDIFF_LAPLAH_ID  = 1
   integer, public, parameter :: ATMOS_DYN_NUMDIFF_LAPLAV_ID  = 2
@@ -192,6 +210,27 @@ contains
       end do         
     end do
 
+    !- Initialize 3D auxiliary variables for tracer advection with preserving nonnegativity
+
+    call this%AUXTRCVAR3D_manager%Init()
+    allocate( this%AUX_TRCVARS3D(ATMOS_DYN_AUXTRCVARS3D_NUM) )
+    reg_file_hist = .false.    
+    do v = 1, ATMOS_DYN_AUXTRCVARS3D_NUM
+      call this%AUXTRCVAR3D_manager%Regist(                &
+        ATMOS_DYN_AUXTRCVARS3D_VINFO(v), mesh3D,           & ! (in) 
+        this%AUX_TRCVARS3D(v), reg_file_hist               ) ! (out)
+      
+      do n = 1, mesh3D%LOCAL_MESH_NUM
+        this%AUX_TRCVARS3D(v)%local(n)%val(:,:) = 0.0_RP
+      end do         
+    end do
+
+    call atm_mesh%Create_communicator( &
+      1, 0,                            & ! (in) 
+      this%AUXTRCVAR3D_manager,        & ! (in)
+      this%AUX_TRCVARS3D(:),           & ! (in)
+      this%AUXTRCVAR3D_commid          ) ! (out)
+        
     !- Initialize variables to store time-averaged 3D mass flux
 
     call this%MASS_FLUX_manager%Init()
