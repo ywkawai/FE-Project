@@ -323,9 +323,10 @@ contains
         qtrc_vinfo_tmp%DESC  = TRACER_DESC(iv)
         qtrc_vinfo_tmp%UNIT  = TRACER_UNIT(iv)
        
-        call this%QTRCVARS_manager%Regist(   &
-          qtrc_vinfo_tmp, mesh3D,            & ! (in) 
-          this%QTRC_VARS(iv), reg_file_hist  ) ! (out)
+        call this%QTRCVARS_manager%Regist( &
+          qtrc_vinfo_tmp, mesh3D,             & ! (in) 
+          this%QTRC_VARS(iv),                 & ! (in)
+          reg_file_hist, monitor_flag=.true.  ) ! (out)
         do n = 1, mesh3D%LOCAL_MESH_NUM
           this%QTRC_VARS(iv)%local(n)%val(:,:) = 0.0_RP
         end do             
@@ -722,15 +723,35 @@ contains
     integer :: iv
     class(MeshBase3D), pointer :: mesh3D
     type(MeshField3D) :: work
+
+    integer :: n
+    integer :: ke
+    class(LocalMesh3D), pointer :: lcmesh
     !--------------------------------------------------------------------------
+
+    mesh3D => this%PROG_VARS(1)%mesh
+    call work%Init("tmp", "", mesh3D)
 
     do iv=1, ATMOS_PROGVARS_NUM
       call FILE_monitor_meshfield_put( this%PROG_VARS(iv)%monitor_id, this%PROG_VARS(iv) )
     end do
   
+    do iv=1, QA
+      if ( this%QTRC_VARS(iv)%monitor_id > 0 ) then
+        do n=1, mesh3D%LOCAL_MESH_NUM
+          lcmesh => mesh3D%lcmesh_list(n)
+          !$omp parallel do
+          do ke=lcmesh%NeS, lcmesh%NeE
+            work%local(n)%val(:,ke) = (  this%AUX_VARS(ATMOS_AUXVARS_DENSHYDRO_ID)%local(n)%val(:,ke) &
+                                      + this%PROG_VARS(ATMOS_PROGVARS_DDENS_ID)%local(n)%val(:,ke)   &
+                                      ) * this%QTRC_VARS(iv)%local(n)%val(:,ke)
+          end do
+        end do
+        call FILE_monitor_meshfield_put( this%QTRC_VARS(iv)%monitor_id, work )
+      end if
+    end do
+
     !##### Energy Budget #####
-    mesh3D => this%PROG_VARS(1)%mesh
-    call work%Init("tmp", "", mesh3D)
 
     if ( DV_MONIT_id(IM_ENGT) > 0 ) then
       call AtmosVars_CalcDiagvar( this, 'ENGT', work )

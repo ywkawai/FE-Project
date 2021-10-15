@@ -82,8 +82,10 @@ module mod_atmos_dyn
 
   use scale_atm_dyn_dgm_trcadvect3d_heve, only: &
     atm_dyn_dgm_trcadvect3d_heve_Init,          &
+    atm_dyn_dgm_trcadvect3d_heve_Final,         &    
+    atm_dyn_dgm_trcadvect3d_heve_calc_fct_coef, &
     atm_dyn_dgm_trcadvect3d_heve_cal_tend,      &
-    atm_dyn_dgm_trcadvect3d_heve_Final
+    atm_dyn_dgm_trcadvect3d_TMAR    
 
   use mod_atmos_mesh, only: AtmosMesh
   use mod_atmos_vars, only: &
@@ -219,7 +221,10 @@ module mod_atmos_dyn
     real(RP) :: wdamp_height
     logical  :: hvel_damp_flag
 
+    ! tracer advection
     logical :: ONLY_TRACERADV_FLAG
+    logical :: TRACERADV_disable_limiter
+
   contains
     procedure, public :: setup => AtmosDyn_setup 
     procedure, public :: calc_tendency => AtmosDyn_calc_tendency
@@ -281,6 +286,7 @@ contains
     logical :: NUMDIFF_FLAG        = .false.
     logical :: SPONGELAYER_FLAG    = .false.
     logical :: ONLY_TRACERADV_FLAG = .false.
+    logical :: TRACERADV_DISABLE_LIMITER = .false.
 
     namelist / PARAM_ATMOS_DYN /       &
       EQS_TYPE,                        &
@@ -291,7 +297,8 @@ contains
       MODALFILTER_FLAG,                &
       NUMDIFF_FLAG,                    &
       SPONGELAYER_FLAG,                &
-      ONLY_TRACERADV_FLAG
+      ONLY_TRACERADV_FLAG,             &
+      TRACERADV_DISABLE_LIMITER
     
     class(AtmosMesh), pointer     :: atm_mesh
     class(MeshBase), pointer      :: ptr_mesh
@@ -410,8 +417,9 @@ contains
     this%SPONGELAYER_FLAG = SPONGELAYER_FLAG
     if ( SPONGELAYER_FLAG ) call setup_spongelayer( this, atm_mesh, dtsec )
 
-    !-
+    !- Setup flags associated with tracer advection
     this%ONLY_TRACERADV_FLAG = ONLY_TRACERADV_FLAG
+    this%TRACERADV_disable_limiter = TRACERADV_DISABLE_LIMITER
 
     return
   end subroutine AtmosDyn_setup
@@ -469,6 +477,7 @@ contains
     integer :: nRKstage
     real(RP) :: implicit_fac
     real(RP) :: dt
+    real(RP) :: dttmp_trc
 
     real(RP) :: tavg_coef_MFLXZ(this%tint(1)%nstage)
     !--------------------------------------------------
@@ -621,7 +630,7 @@ contains
             end if
             MFLX_x_tavg%val(:,ke) = MFLX_x_tavg%val(:,ke) + this%tint(n)%coef_b_ex(rkstage) * MOMX%val(:,ke)
             MFLX_y_tavg%val(:,ke) = MFLX_y_tavg%val(:,ke) + this%tint(n)%coef_b_ex(rkstage) * MOMY%val(:,ke)
-            MFLX_z_tavg%val(:,ke) = MFLX_z_tavg%val(:,ke) + tavg_coef_MFLXZ                 * MOMZ%val(:,ke)            
+            MFLX_z_tavg%val(:,ke) = MFLX_z_tavg%val(:,ke) + tavg_coef_MFLXZ(rkstage)        * MOMZ%val(:,ke)            
           end do
           call PROF_rapend( 'ATM_DYN_tavg_mflx', 2)
         end if
@@ -775,6 +784,31 @@ contains
           call PROF_rapend( 'ATM_DYN_exchange_qtrc', 3)
 
           do n=1, mesh%LOCAL_MESH_NUM
+            call AtmosVars_GetLocalMeshPrgVar( n, &
+              mesh, prgvars_list, auxvars_list,   &
+              DDENS_ID, DDENS, DENS_hyd           )  
+                        
+            dt = this%tint_qtrc(n)%Get_deltime()
+            dttmp_trc = dt * this%tint_qtrc(n)%coef_gam_ex(rkstage+1,rkstage) &
+                           / this%tint_qtrc(n)%coef_sig_ex(rkstage+1,rkstage)
+            call atm_dyn_dgm_trcadvect3d_heve_calc_fct_coef( &
+              this%dyn_vars%AUX_TRCVARS3D(1)%local(n)%val,                            & ! (out)
+              trcvars_list%comm_list(1)%field3d%local(n)%val,                         & ! (in)
+              MFLX_x_tavg%val, MFLX_y_tavg%val, MFLX_z_tavg%val,                      & ! (in)
+              DENS_hyd%val(:,:), DDENS%val(:,:), this%tint(n)%var0_2D(:,:,DDENS_ID),  & ! (in)
+              this%tint_qtrc(n)%coef_c_ex(rkstage), dttmp_trc,                        & ! (in) 
+              model_mesh%DOptrMat(1), model_mesh%DOptrMat(2), model_mesh%DOptrMat(3), & ! (in)
+              model_mesh%SOptrMat(1), model_mesh%SOptrMat(2), model_mesh%SOptrMat(3), & ! (in)
+              model_mesh%LiftOptrMat,                                                 & ! (in)
+              lcmesh, lcmesh%refElem3D, lcmesh%lcmesh2D, lcmesh%lcmesh2D%refElem2D,   & ! (in)
+              this%TRACERADV_disable_limiter                                          ) ! (in)          
+          end do
+
+          call PROF_rapstart( 'ATM_DYN_exchange_qtrc', 3)
+          call this%dyn_vars%AUXTRCVAR3D_manager%MeshFieldComm_Exchange()
+          call PROF_rapend( 'ATM_DYN_exchange_qtrc', 3)
+
+          do n=1, mesh%LOCAL_MESH_NUM
             tintbuf_ind = this%tint_qtrc(n)%tend_buf_indmap(rkstage)
 
             call PROF_rapstart( 'ATM_DYN_get_localmesh_ptr', 3)              
@@ -784,7 +818,7 @@ contains
               lcmesh                                     )
             call AtmosVars_GetLocalMeshPrgVar( n, &
               mesh, prgvars_list, auxvars_list,   &
-              DDENS_ID, DDENS, DENS_hyd, PRES_hyd )  
+              DDENS_ID, DDENS, DENS_hyd           )  
             call PROF_rapend( 'ATM_DYN_get_localmesh_ptr', 3)
 
             call PROF_rapstart( 'ATM_DYN_update_caltend_ex_qtrc', 3)            
@@ -792,6 +826,7 @@ contains
               this%tint_qtrc(n)%tend_buf2D_ex(:,:,1,tintbuf_ind),                     & ! (out)
               trcvars_list%comm_list(1)%field3d%local(n)%val,                         & ! (in)
               MFLX_x_tavg%val, MFLX_y_tavg%val, MFLX_z_tavg%val,                      & ! (in)
+              this%dyn_vars%AUX_TRCVARS3D(1)%local(n)%val,                            & ! (in) 
               model_mesh%DOptrMat(1), model_mesh%DOptrMat(2), model_mesh%DOptrMat(3), & ! (in)
               model_mesh%SOptrMat(1), model_mesh%SOptrMat(2), model_mesh%SOptrMat(3), & ! (in)
               model_mesh%LiftOptrMat,                                                 & ! (in)
@@ -803,7 +838,18 @@ contains
               rkstage, trcvars_list%comm_list(1)%field3d%local(n)%val, 1,           &
               1, lcmesh%refElem%Np, lcmesh%NeS, lcmesh%NeE,                         &
               DDENS%val(:,:), this%tint(n)%var0_2D(:,:,DDENS_ID), DENS_hyd%val(:,:) ) 
-            call PROF_rapend( 'ATM_DYN_update_advance_qtrc', 3)              
+            call PROF_rapend( 'ATM_DYN_update_advance_qtrc', 3)
+            
+            if ( rkstage == this%tint_qtrc(1)%nstage         &
+              .and. ( .not. this%TRACERADV_disable_limiter ) ) then
+              call PROF_rapstart( 'ATM_DYN_update_qtrc_TMAR', 3)             
+              call atm_dyn_dgm_trcadvect3d_TMAR( &
+                trcvars_list%comm_list(1)%field3d%local(n)%val(:,:),                 & ! (inout)
+                DENS_hyd%val(:,:), DDENS%val(:,:),                                   & ! (in)
+                lcmesh, lcmesh%refElem3D, lcmesh%lcmesh2D, lcmesh%lcmesh2D%refElem2D ) ! (in)
+              call PROF_rapend( 'ATM_DYN_update_qtrc_TMAR', 3)  
+            end if
+
           end do
         end do
 
