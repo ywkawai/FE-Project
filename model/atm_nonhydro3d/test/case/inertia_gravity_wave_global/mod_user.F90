@@ -2,7 +2,7 @@
 !> module USER
 !!
 !! @par Description
-!!          User defined module
+!!          User defined module for a test case of mountain wave
 !!
 !! @author Team SCALE
 !!
@@ -67,6 +67,7 @@ module mod_user
 
   !-----------------------------------------------------------------------------
 contains
+!OCL SERIAL
   subroutine USER_mkinit ( atm )
     implicit none
 
@@ -74,13 +75,17 @@ contains
     !------------------------------------------
 
     call exp_manager%Init('inertia_gravity_wave_global')
-    call exp_manager%SetInitCond( &
-      atm%mesh, atm%vars%PROGVARS_manager, atm%vars%AUXVARS_manager )
+
+    call exp_manager%SetInitCond( atm%mesh,                &
+      atm%vars%PROGVARS_manager, atm%vars%AUXVARS_manager, &
+      atm%vars%QTRCVARS_manager                            )
+    
     call exp_manager%Final()
 
     return
   end subroutine USER_mkinit
 
+!OCL SERIAL
   subroutine USER_setup( atm )
     implicit none
     
@@ -113,6 +118,7 @@ contains
     return
   end subroutine USER_setup
 
+!OCL SERIAL
   subroutine USER_calc_tendency( atm )
     use scale_file_history_meshfield, only: &
       FILE_HISTORY_meshfield_in
@@ -139,9 +145,10 @@ contains
   end subroutine USER_update
 
   !------
+!OCL SERIAL  
   subroutine exp_SetInitCond_inertia_gravity_wave( this,                 &
-    DENS_hyd, PRES_hyd, DDENS, MOMX, MOMY, MOMZ, DRHOT,                  &
-    x, y, z, dom_xmin, dom_xmax, dom_ymin, dom_ymax, dom_zmin, dom_zmax, &
+    DENS_hyd, PRES_hyd, DDENS, MOMX, MOMY, MOMZ, DRHOT, tracer_field_list, &
+    x, y, z, dom_xmin, dom_xmax, dom_ymin, dom_ymax, dom_zmin, dom_zmax,   &
     lcmesh, elem )
     
     use scale_const, only: &
@@ -156,7 +163,9 @@ contains
       hydrostatic_calc_basicstate_constBVFreq
     use mod_mkinit_util, only: &
       mkinitutil_calc_cosinebell_global
-  
+    use mod_exp, only: &
+      TracerLocalMeshField_ptr
+    
     implicit none
 
     class(Exp_inertia_gravity_wave_global), intent(inout) :: this
@@ -169,6 +178,7 @@ contains
     real(RP), intent(out) :: MOMY(elem%Np,lcmesh%NeA)    
     real(RP), intent(out) :: MOMZ(elem%Np,lcmesh%NeA)
     real(RP), intent(out) :: DRHOT(elem%Np,lcmesh%NeA)
+    type(TracerLocalMeshField_ptr), intent(inout) :: tracer_field_list(:)    
     real(RP), intent(in) :: x(elem%Np,lcmesh%Ne)
     real(RP), intent(in) :: y(elem%Np,lcmesh%Ne)
     real(RP), intent(in) :: z(elem%Np,lcmesh%Ne)
