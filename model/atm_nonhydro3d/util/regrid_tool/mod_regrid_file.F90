@@ -18,6 +18,8 @@ module mod_regrid_file
   
   use mod_regrid_mesh_base, only: &
     regrid_mesh_base
+  use mod_regrid_outvar_info, only: &
+    OutVarInfoList, OutVarInfo
   
   !-----------------------------------------------------------------------------
   implicit none
@@ -55,13 +57,14 @@ module mod_regrid_file
   logical, private  :: out_UniformGrid = .false. 
 
 contains
-  subroutine regrid_file_Init( in_basename, out_vinfo, out_mesh )
+  subroutine regrid_file_Init( in_basename, out_vinfo, out_vinfo_oper, out_mesh )
     use scale_file_h
-    use mod_regrid_interp_field, only: OutVarInfo
+    use mod_regrid_outvar_info, only: OutVarInfoList
     implicit none
 
     character(*), intent(in) :: in_basename
-    type(OutVarInfo), intent(in) :: out_vinfo(:)
+    type(OutVarInfoList), intent(inout) :: out_vinfo
+    type(OutVarInfoList), intent(inout) :: out_vinfo_oper
     class(regrid_mesh_base), intent(in) :: out_mesh
 
     character(len=H_LONG )   :: out_basename     = ''       ! Basename of the output file
@@ -105,17 +108,16 @@ contains
 
 
     !--
-    var_num = size(out_vinfo)
+    var_num = out_vinfo%item_num + out_vinfo_oper%item_num
 
-
-    call file_init( in_file, dimtype_id, var_num, out_mesh )
+    call file_init( in_file, dimtype_id, 1, out_mesh )
     call in_file%Open( in_basename, myrank=0 )
     if (out_title=='') then
       call in_file%Get_commonInfo( title=out_title ) ! (out)
     end if
 
-    call in_file%Get_dataInfo( out_vinfo(1)%varname, 1,     & ! (in)
-      time_units=tunits, calendar=calendar                  ) ! (out)
+    call in_file%Get_dataInfo( out_vinfo%items(1)%varname, 1,     & ! (in)
+      time_units=tunits, calendar=calendar                        ) ! (out)
 
     call file_init( out_file, dimtype_id, var_num, out_mesh, out_UniformGrid )
 
@@ -123,12 +125,9 @@ contains
                           fileexisted,                                        & ! (out)
                           myrank=PRC_myrank, calendar=calendar, tunits=tunits ) ! (in)
 
-    do nn=1, var_num      
-      call out_file%Def_Var( out_vinfo(nn)%varname, out_vinfo(nn)%units, &
-        desc, nn, dimtype_id, out_dtype,                                 &
-        standard_name=standard_name,                                     &
-        timeinv=out_vinfo(nn)%dt * dble(out_vinfo(nn)%out_tintrv)        )
-    end do
+    call out_vinfo%DefVarForNetCDF( out_file, dimtype_id, out_dtype, 0 )
+    call out_vinfo_oper%DefVarForNetCDF( out_file, dimtype_id, out_dtype, out_vinfo%item_num )
+
     call out_file%End_def()
 
     call in_file%Close()
@@ -137,34 +136,42 @@ contains
     return
   end subroutine regrid_file_Init
 
-  subroutine regrid_file_write_var2D( vid, field, start_sec, end_sec )
+  subroutine regrid_file_write_var2D( vinfo, field, istep )
     implicit none
-    integer, intent(in) :: vid
+    type(OutVarInfo), intent(in) :: vinfo
     class(MeshField2D), intent(in) :: field
-    real(DP), intent(in) :: start_sec
-    real(DP), intent(in) :: end_sec
+    integer, intent(in) :: istep
+
+    real(DP) :: start_sec
     !-------------------------------------------
 
     call PROF_rapstart('regrid_file_write_var2D', 0)
     
-    call out_file%Write_var2D( vid, field, start_sec, end_sec )
+    start_sec = vinfo%start_sec + dble(istep - 1) * vinfo%dt
+
+    call out_file%Write_var2D( vinfo%vidForOutput, field, &
+      start_sec, start_sec + vinfo%dt )
 
     call PROF_rapend('regrid_file_write_var2D', 0)
 
     return
   end subroutine regrid_file_write_var2D
 
-  subroutine regrid_file_write_var3D( vid, field, start_sec, end_sec )
+  subroutine regrid_file_write_var3D(  vinfo, field, istep )
     implicit none
-    integer, intent(in) :: vid
+    type(OutVarInfo), intent(in) :: vinfo
     class(MeshField3D), intent(in) :: field
-    real(DP), intent(in) :: start_sec
-    real(DP), intent(in) :: end_sec
+    integer, intent(in) :: istep
+
+    real(DP) :: start_sec
     !-------------------------------------------
 
     call PROF_rapstart('regrid_file_write_var3D', 0)
     
-    call out_file%Write_var3D( vid, field, start_sec, end_sec )
+    start_sec = vinfo%start_sec + dble(istep - 1) * vinfo%dt
+
+    call out_file%Write_var3D( vinfo%vidForOutput, field, &
+      start_sec, start_sec + vinfo%dt )
 
     call PROF_rapend('regrid_file_write_var3D', 0)
     
