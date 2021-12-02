@@ -7,7 +7,6 @@ module mod_regrid_interp_field
   !
   use scale_precision
   use scale_io
-  use scale_file_h
   use scale_prof
   use scale_prc, only: &
     PRC_myrank, PRC_abort
@@ -22,13 +21,15 @@ module mod_regrid_interp_field
   use scale_localmesh_3d, only: LocalMesh3D
   use scale_element_base, only: ElementBase2D, ElementBase3D
   use scale_meshfield_base, only: MeshField2D, MeshField3D
-  use scale_file_base_meshfield, only: &
-    FILE_base_meshfield
+  use scale_file_base_meshfield, only: FILE_base_meshfield
   
   use mod_regrid_mesh_base, only: &
     regrid_mesh_base
   use mod_regrid_nodemap, only: &
     regrid_nodemap
+  use mod_regrid_outvar_info, only: &
+    OutVarInfoList
+  
   
   !-----------------------------------------------------------------------------
   implicit none
@@ -40,6 +41,8 @@ module mod_regrid_interp_field
 
   public :: regrid_interp_field_Init
   public :: regrid_interp_field_Final
+  public :: regrid_interp_field_open_infile0
+
   interface regrid_interp_field_Interpolate
     module procedure :: regrid_field_Interpolate_2D
     module procedure :: regrid_field_Interpolate_3D
@@ -52,16 +55,7 @@ module mod_regrid_interp_field
   !
   type(MeshField2D), public :: out_var2D
   type(MeshField3D), public :: out_var3D
-  type, public :: OutVarInfo
-    character(FILE_HSHORT) :: varname
-    character(FILE_HSHORT) :: units
-    integer :: num_step
-    real(DP) :: dt
-    real(DP) :: start_sec
-    integer :: out_tintrv
-  end type OutVarInfo
-  integer, public :: out_var_num
-  type(OutVarInfo), public, allocatable, target :: out_vinfo(:)
+  type(OutVarInfoList), public, target :: out_vinfo
   
   character(len=H_LONG), public   :: in_basename      = ''       ! Basename of the input  file 
 
@@ -75,8 +69,6 @@ module mod_regrid_interp_field
   !
   !++ Private parameters & variables
   !
-  integer, private, parameter :: ITEM_MAX_NUM = 128
-
   type :: in_local_val
     real(RP), allocatable :: spectral_coef2D(:,:,:,:)
     real(RP), allocatable :: spectral_coef3D(:,:,:,:,:)
@@ -91,15 +83,14 @@ module mod_regrid_interp_field
 contains
 !OCL SERIAL
   subroutine regrid_interp_field_Init( out_mesh )
-    use scale_const, only: &
-      EPS => CONST_EPS
-    use scale_file_h
+    use mod_regrid_outvar_info, only: &
+      OUTVARINFO_ITEM_MAX_NUM
+
     implicit none
     class(regrid_mesh_base), intent(in), target :: out_mesh
 
-    integer :: nn
-    character(len=H_SHORT)  :: vars(ITEM_MAX_NUM) = ''       ! name of variables
-    integer :: out_tinterval(ITEM_MAX_NUM)
+    character(len=H_SHORT)  :: vars(OUTVARINFO_ITEM_MAX_NUM) = ''       ! name of variables
+    integer :: out_tinterval(OUTVARINFO_ITEM_MAX_NUM)
 
     namelist /PARAM_REGRID_INTERP_FIELD/ &
       in_basename,     &
@@ -108,10 +99,6 @@ contains
     integer :: ierr
 
     type(FILE_base_meshfield) :: in_file
-    real(DP) :: time_endsec
-
-    class(MeshBase2D), pointer :: ptr_mesh2D
-    class(MeshBase3D), pointer :: ptr_mesh3D
     !-------------------------------------------
 
     LOG_NEWLINE
@@ -130,74 +117,61 @@ contains
     endif
     LOG_NML(PARAM_REGRID_INTERP_FIELD)
 
-    out_var_num = 0
-    do nn= 1, ITEM_MAX_NUM
-      if ( vars(nn) == '' ) then
-        exit
-      else
-        out_var_num = out_var_num + 1
-      end if
-    end do
-    allocate( out_vinfo(out_var_num) )
+
+    !-
+    call regrid_interp_field_open_infile0( out_mesh, in_file )
+
+    call out_vinfo%Init( vars, out_tinterval, in_file )
+
+    call in_file%Close()
+    call in_file%Final()
 
     !--
+    if ( associated( out_mesh%ptr_mesh2D ) ) then
+      call out_var2D%Init( "tmp", "1", out_mesh%ptr_mesh2D )
+    else if ( associated( out_mesh%ptr_mesh3D ) ) then
+      call out_var3D%Init( "tmp", "1", out_mesh%ptr_mesh3D )
+    end if
+
+    is_cached_in_files = .false.
+
+    return
+  end subroutine regrid_interp_field_Init
+
+  subroutine regrid_interp_field_open_infile0( out_mesh, &
+    in_file )
+    implicit none
+    class(regrid_mesh_base), intent(in), target :: out_mesh
+    type(FILE_base_meshfield), intent(inout) :: in_file
+
+    class(MeshBase2D), pointer :: ptr_mesh2D
+    class(MeshBase3D), pointer :: ptr_mesh3D
+    !-------------------------------------------
 
     if ( associated( out_mesh%ptr_mesh2D ) ) then
 
       select type( ptr_mesh2D => out_mesh%ptr_mesh2D  )
       class is ( MeshRectDom2D )
-        call in_file%Init( out_var_num, mesh2D=ptr_mesh2D )
+        call in_file%Init( 1, mesh2D=ptr_mesh2D )
       class is ( MeshCubedSphereDom2D )
-        call in_file%Init( out_var_num, meshCubedSphere2D=ptr_mesh2D )
+        call in_file%Init( 1, meshCubedSphere2D=ptr_mesh2D )
       end select
-
-      call out_var2D%Init( "tmp", "1", out_mesh%ptr_mesh2D )
 
     else if ( associated( out_mesh%ptr_mesh3D ) ) then
 
       select type( ptr_mesh3D => out_mesh%ptr_mesh3D  )
       class is ( MeshCubeDom3D )
-        call in_file%Init( out_var_num, mesh3D=ptr_mesh3D )
+        call in_file%Init( 1, mesh3D=ptr_mesh3D )
       class is ( MeshCubedSphereDom3D )
-        call in_file%Init( out_var_num, meshCubedSphere3D=ptr_mesh3D )
+        call in_file%Init( 1, meshCubedSphere3D=ptr_mesh3D )
       end select
-
-      call out_var3D%Init( "tmp", "1", out_mesh%ptr_mesh3D )
+    
     end if
 
     call in_file%Open( in_basename, myrank=0 )
-    do nn = 1, out_var_num
-      out_vinfo(nn)%varname = vars(nn)
-      call in_file%Get_dataInfo( vars(nn), istep=1, & ! (in)
-        units=out_vinfo(nn)%units,                  & ! (out)
-        time_start=out_vinfo(nn)%start_sec,         & ! (out)
-        time_end=time_endsec                        ) ! (out)
-
-      call in_file%Get_VarStepSize( vars(nn), & ! (in)
-        out_vinfo(nn)%num_step                ) ! (out)
-      
-      out_vinfo(nn)%dt = time_endsec - out_vinfo(nn)%start_sec
-      out_vinfo(nn)%out_tintrv = out_tinterval(nn)
-
-      if (       abs(out_vinfo(nn)%dt) < EPS &
-           .and. out_vinfo(nn)%num_step == 0 ) then
-        out_vinfo(nn)%num_step   = 1
-        out_vinfo(nn)%out_tintrv = 1
-      end if
-
-      LOG_INFO("regrid_interp_field_Init", '(3a,i4,a,i4)') &
-        " Regist: name=", trim(vars(nn)), ", out_nstep=", out_vinfo(nn)%num_step, &
-        ", out_tinterval=", out_vinfo(nn)%out_tintrv
-    end do
-    
-    call in_file%Close()
-    call in_file%Final()
-
-    !--
-    is_cached_in_files = .false.
 
     return
-  end subroutine regrid_interp_field_Init
+  end subroutine regrid_interp_field_open_infile0
 
 !OCL SERIAL
   subroutine regrid_interp_field_Final( out_mesh )
@@ -273,9 +247,9 @@ contains
 
           select type( ptr_inmesh2D )
           class is (MeshRectDom2D)
-            call in_file_ptr%Init( out_var_num, mesh2D=ptr_inmesh2D )
+            call in_file_ptr%Init( out_vinfo%item_num, mesh2D=ptr_inmesh2D )
           class is ( MeshCubedSphereDom2D )
-            call in_file_ptr%Init( out_var_num, meshCubedSphere2D=ptr_inmesh2D )
+            call in_file_ptr%Init( out_vinfo%item_num, meshCubedSphere2D=ptr_inmesh2D )
           end select
           call in_file_ptr%Open( in_basename, in_rank )
         end do
@@ -337,9 +311,9 @@ contains
 
           select type( ptr_inmesh3D )
           class is (MeshCubeDom3D)
-            call in_file_ptr%Init( out_var_num, mesh3D=ptr_inmesh3D )
+            call in_file_ptr%Init( out_vinfo%item_num, mesh3D=ptr_inmesh3D )
           class is ( MeshCubedSphereDom3D )
-            call in_file_ptr%Init( out_var_num, meshCubedSphere3D=ptr_inmesh3D )
+            call in_file_ptr%Init( out_vinfo%item_num, meshCubedSphere3D=ptr_inmesh3D )
           end select
           call in_file_ptr%Open( in_basename, in_rank )
         end do
