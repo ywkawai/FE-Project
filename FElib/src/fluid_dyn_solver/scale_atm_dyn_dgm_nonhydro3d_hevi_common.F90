@@ -356,7 +356,7 @@ contains
     real(RP), intent(in) :: nz(elem%NfpTot,lmesh%NeZ,lmesh%NeX*lmesh%NeY)
     integer, intent(in) :: vmapM(elem%NfpTot,lmesh%NeZ)
     integer, intent(in) :: vmapP(elem%NfpTot,lmesh%NeZ)    
-    real(RP), intent(out), optional :: b1D_ij(elem%Nnode_v,3,lmesh%NeZ,elem%Nnode_h1D**2,lmesh%NeX*lmesh%NeY)
+    real(RP), intent(out), optional :: b1D_ij(3,elem%Nnode_v,lmesh%NeZ,elem%Nnode_h1D**2,lmesh%NeX*lmesh%NeY)
     real(RP), intent(out), optional :: b1D_ij_uv(elem%Nnode_v,lmesh%NeZ,2,elem%Nnode_h1D**2,lmesh%NeX*lmesh%NeY)
 
     real(RP) :: RGsqrtV(elem%Np)
@@ -475,13 +475,13 @@ contains
     
         do ij=1, elem%Nnode_h1D**2          
           ColMask(:) = elem%Colmask(:,ij)
-          b1D_ij(:,1,ke_z,ij,ke_xy) = impl_fac * DENS_t(ColMask(:),ke)             &
+          b1D_ij(1,:,ke_z,ij,ke_xy) = impl_fac * DENS_t(ColMask(:),ke)            &
                                     - PROG_VARS  (ColMask(:),ke_z,DENS_VID,ke_xy) &
                                     + DDENS00(ColMask(:),ke)
-          b1D_ij(:,2,ke_z,ij,ke_xy) = impl_fac * MOMZ_t(ColMask(:),ke)           &
+          b1D_ij(2,:,ke_z,ij,ke_xy) = impl_fac * MOMZ_t(ColMask(:),ke)            &
                                     - PROG_VARS  (ColMask(:),ke_z,MOMZ_VID,ke_xy) &
                                     + MOMZ00(ColMask(:),ke)
-          b1D_ij(:,3,ke_z,ij,ke_xy) = impl_fac * RHOT_t(ColMask(:),ke)            &
+          b1D_ij(3,:,ke_z,ij,ke_xy) = impl_fac * RHOT_t(ColMask(:),ke)            &
                                     - PROG_VARS  (ColMask(:),ke_z,RHOT_VID,ke_xy) &
                                     + DRHOT00(ColMask(:),ke)
           b1D_ij_uv(:,ke_z,1,ij,ke_xy) = impl_fac * MOMX_t(ColMask(:),ke)            &
@@ -768,7 +768,7 @@ contains
     class(LocalMesh3D), intent(in) :: lmesh
     class(elementbase3D), intent(in) :: elem
     integer, intent(in) :: kl, ku, nz_1D
-    real(RP), intent(out) :: PmatBnd(2*kl+ku+1,elem%Nnode_v,3,lmesh%NeZ,elem%Nnode_h1D**2)
+    real(RP), intent(out) :: PmatBnd(2*kl+ku+1,3,elem%Nnode_v,lmesh%NeZ,elem%Nnode_h1D**2)
     integer, intent(in) :: kl_uv, ku_uv, nz_1D_uv
     real(RP), intent(out) :: PmatBnd_uv(2*kl_uv+ku_uv+1,elem%Nnode_v,1,lmesh%NeZ,elem%Nnode_h1D**2)
     real(RP), intent(in)  :: PROG_VARS0(elem%Np,lmesh%NeZ,PROG_VARS_NUM)
@@ -810,7 +810,6 @@ contains
     real(RP) :: Dd(elem%Nnode_v)
     real(RP) :: tmp1
     real(RP) :: fac
-
     integer :: ij, v1, v2, pv1, pv2,  g_kj, g_kjp1, g_kjm1, pb1
     logical :: bc_flag
     logical :: eval_flag(3,3)
@@ -992,18 +991,19 @@ contains
       do v1=1, 3
         if ( eval_flag(v1,v2) ) then
           do pv2=1, elem%Nnode_v
-            g_kj   = pv2 + (v2-1)*elem%Nnode_v + (ke_z-1)*elem%Nnode_v*3
-            g_kjm1 = pv2 + (v2-1)*elem%Nnode_v + (ke_z-2)*elem%Nnode_v*3
-            g_kjp1 = pv2 + (v2-1)*elem%Nnode_v + (ke_z  )*elem%Nnode_v*3
+            g_kj   = v2 + (pv2-1)*3 + (ke_z-1)*elem%Nnode_v*3
+            g_kjm1 = v2 + (pv2-1)*3 + (ke_z-2)*elem%Nnode_v*3
+            g_kjp1 = v2 + (pv2-1)*3 + (ke_z  )*elem%Nnode_v*3
 
             do pv1=1, elem%Nnode_v            
-              pb1 = pv1 + (v1-1)*elem%Nnode_v + (ke_z-1)*elem%Nnode_v*3
-              if (ke_z > 1) then
-                PmatBnd(kl+ku+1+pb1-g_kjm1, pv2,v2,ke_z-1, ij) = PmatL(pv1,pv2,v1,v2)
+              pb1 = v1 + (pv1-1)*3 + (ke_z-1)*elem%Nnode_v*3
+
+              if (ke_z > 1 .and. pv2 == elem%Nnode_v ) then
+                PmatBnd(kl+ku+1+pb1-g_kjm1, v2,pv2,ke_z-1, ij) = PmatL(pv1,pv2,v1,v2)
               end if
-              PmatBnd(kl+ku+1+pb1-g_kj, pv2,v2,ke_z, ij) = PmatD(pv1,pv2,v1,v2)
-              if (ke_z < lmesh%NeZ) then
-                PmatBnd(kl+ku+1+pb1-g_kjp1, pv2,v2,ke_z+1, ij) = PmatU(pv1,pv2,v1,v2)
+              PmatBnd(kl+ku+1+pb1-g_kj, v2,pv2,ke_z, ij) = PmatD(pv1,pv2,v1,v2)
+              if (ke_z < lmesh%NeZ .and. pv2 == 1 ) then
+                PmatBnd(kl+ku+1+pb1-g_kjp1, v2,pv2,ke_z+1, ij) = PmatU(pv1,pv2,v1,v2)
               end if
             end do
           end do            
@@ -1019,11 +1019,11 @@ contains
 
         do pv1=1, elem%Nnode_v            
           pb1 = pv1 + (ke_z-1)*elem%Nnode_v
-          if (ke_z > 1) then
+          if (ke_z > 1 .and. pv2 == elem%Nnode_v ) then
             PmatBnd_uv(kl_uv+ku_uv+1+pb1-g_kjm1, pv2,1,ke_z-1, ij) = PmatL_uv(pv1,pv2)
           end if
           PmatBnd_uv(kl_uv+ku_uv+1+pb1-g_kj, pv2,1,ke_z, ij) = PmatD_uv(pv1,pv2)
-          if (ke_z < lmesh%NeZ) then
+          if (ke_z < lmesh%NeZ .and. pv2 == 1) then
             PmatBnd_uv(kl_uv+ku_uv+1+pb1-g_kjp1, pv2,1,ke_z+1, ij) = PmatU_uv(pv1,pv2)
           end if
         end do
