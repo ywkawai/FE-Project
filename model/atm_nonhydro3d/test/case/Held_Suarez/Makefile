@@ -30,5 +30,5 @@ include $(TESTDIR)/Makefile.common
 
 # Make dirs
 make_expdir:
-	mkdir -p run_{spinup1,spinup2,1,2}/outdata_p
+	mkdir -p run{_spinup1,_spinup2,1,2}/outdata_p
 
