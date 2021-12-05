@@ -594,8 +594,8 @@ contains
       Colmask(:) = elem%Colmask(:,ij)
       RHOT_hyd(:) = PRES00/Rdry * (PRES_hyd(Colmask(:),ke_z)/PRES00)**rgamm
 
-      DPDRHOT0(:,ke_z,ij) = gamm * PRES_hyd(Colmask(:),ke_z) / RHOT_hyd(:)                      &
-                  * ( 1.0_RP + PROG_VARS0(Colmask(:),ke_z,RHOT_VID) / RHOT_hyd(:) )**(gamm-1) 
+      DPDRHOT0(:,ke_z,ij) = gamm * PRES_hyd(Colmask(:),ke_z) / RHOT_hyd(:)                         &
+                  * ( 1.0_RP + PROG_VARS0(Colmask(:),ke_z,RHOT_VID) / RHOT_hyd(:) )**(gamm-1.0_RP) 
 
       DENS0(:,ke_z,ij) = DENS_hyd(Colmask(:),ke_z) + PROG_VARS0(Colmask(:),ke_z,DENS_VID)
       POT0(:,ke_z,ij) = ( RHOT_hyd(:) + PROG_VARS0(Colmask(:),ke_z,RHOT_VID) ) / DENS0(:,ke_z,ij)
@@ -858,8 +858,8 @@ contains
       Colmask(:) = elem%Colmask(:,ij)
       RHOT_hyd(:) = PRES00/Rdry * (PRES_hyd(Colmask(:),ke_z)/PRES00)**rgamm
 
-      DPDRHOT0(:,ke_z,ij) = gamm * PRES_hyd(Colmask(:),ke_z) / RHOT_hyd(:)                      &
-                  * ( 1.0_RP + PROG_VARS0(Colmask(:),ke_z,RHOT_VID) / RHOT_hyd(:) )**(gamm-1) 
+      DPDRHOT0(:,ke_z,ij) = gamm * PRES_hyd(Colmask(:),ke_z) / RHOT_hyd(:)                         &
+                  * ( 1.0_RP + PROG_VARS0(Colmask(:),ke_z,RHOT_VID) / RHOT_hyd(:) )**(gamm-1.0_RP) 
 
       DENS0(:,ke_z,ij) = DENS_hyd(Colmask(:),ke_z) + PROG_VARS0(Colmask(:),ke_z,DENS_VID)
       POT0(:,ke_z,ij) = ( RHOT_hyd(:) + PROG_VARS0(Colmask(:),ke_z,RHOT_VID) ) / DENS0(:,ke_z,ij)

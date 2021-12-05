@@ -80,21 +80,27 @@ module mod_user
   real(RP), private, parameter :: sigb = 0.7_RP
 
   !-----------------------------------------------------------------------------
+
 contains
+!OCL SERIAL
   subroutine USER_mkinit ( atm )
     implicit none
 
     class(AtmosComponent), intent(inout) :: atm
     !------------------------------------------
 
-    call exp_manager%Init('Held_Suarez_global')
-    call exp_manager%SetInitCond( &
-      atm%mesh, atm%vars%PROGVARS_manager, atm%vars%AUXVARS_manager )
+    call exp_manager%Init('Held_Suarez')
+
+    call exp_manager%SetInitCond( atm%mesh,                &
+      atm%vars%PROGVARS_manager, atm%vars%AUXVARS_manager, &
+      atm%vars%QTRCVARS_manager                            )
+    
     call exp_manager%Final()
 
     return
   end subroutine USER_mkinit
 
+!OCL SERIAL  
   subroutine USER_setup( atm )
     implicit none
     
@@ -124,7 +130,8 @@ contains
     return
   end subroutine USER_setup
 
-  subroutine USER_calc_tendency( atm )
+!OCL SERIAL  
+  subroutine USER_calc_tendency( atm )  
     implicit none
 
     class(AtmosComponent), intent(inout) :: atm
@@ -192,7 +199,6 @@ contains
 
         PRES_sfc(:) = PRES%val(elem3D%Hslice(:,1),ke2D)
         sig(:) = PRES%val(:,ke) / PRES_sfc(elem3D%IndexH2Dto3D)
-        !sig(:) = PRES%val(:,ke) / PRES00        
         lat(:) = lcmesh%lat2D(elem3D%IndexH2Dto3D,ke2D)
 
         rtauT(:) = ka + (ks - ka) * max( 0.0_RP, (sig(:) - sigb)/(1.0_RP - sigb) ) * cos(lat(:))**4
@@ -207,9 +213,17 @@ contains
 
         MOMX%val(:,ke) = MOMX%val(:,ke) / ( 1.0_RP + dt * rtauV )
         MOMY%val(:,ke) = MOMY%val(:,ke) / ( 1.0_RP + dt * rtauV )
+
+        !-- For the case of d DRHOT / dt = dens * Cv * ( Teq - T ) / tauT <- ( Ullrich and Jablonowski (2012, JCP) )
+        ! DRHOT%val(:,ke) = DRHOT%val(:,ke) &
+        !                 - dt * rtauT(:) / gamm * ( 1.0_RP - Teq(:) / T(:) ) * DENS(:) * PT%val(:,ke)     &
+        !                 / ( 1.0_RP + dt * rtauT(:) / gamm * ( 1.0_RP + (gamm - 1.0_RP) * Teq(:) / T(:) ) )
+
+        !- For the case of d DRHOT /dt = dens * Cp * ( Teq - T ) / tauT     
+        !  <- It is based on the forcing form in Held and Surez in which the temperature evolution equation is assumed to be dT/dt = R/Cp * T/p * dp/dt + (Teq - T) / tauT
         DRHOT%val(:,ke) = DRHOT%val(:,ke) &
-                        - dt * rtauT(:) / gamm * ( 1.0_RP - Teq(:) / T(:) ) * DENS(:) * PT%val(:,ke)     &
-                        / ( 1.0_RP + dt * rtauT(:) / gamm * ( 1.0_RP + (gamm - 1.0_RP) * Teq(:) / T(:) ) ) 
+                        - dt * rtauT(:) * ( 1.0_RP - Teq(:) / T(:) ) * DENS(:) * PT%val(:,ke)     &
+                        / ( 1.0_RP + dt * rtauT(:) * ( 1.0_RP + (gamm - 1.0_RP) * Teq(:) / T(:) ) )  
       end do
 
       deallocate( DENS, T, Teq, sig, PRES_sfc )
@@ -223,14 +237,20 @@ contains
   !------
 
 !OCL SERIAL
-  subroutine exp_SetInitCond_Held_Suarez( this,                          &
-    DENS_hyd, PRES_hyd, DDENS, MOMX, MOMY, MOMZ, DRHOT,                  &
-    x, y, z, dom_xmin, dom_xmax, dom_ymin, dom_ymax, dom_zmin, dom_zmax, &
+  subroutine exp_SetInitCond_Held_Suarez( this,                            &
+    DENS_hyd, PRES_hyd, DDENS, MOMX, MOMY, MOMZ, DRHOT, tracer_field_list, &
+    x, y, z, dom_xmin, dom_xmax, dom_ymin, dom_ymax, dom_zmin, dom_zmax,   &
     lcmesh, elem )
     
+    use mod_exp, only: &
+      TracerLocalMeshField_ptr
+
     use scale_const, only: &
-      PRES00 => CONST_PRE00
-    
+      PRES00 => CONST_PRE00, &
+      RPlanet => CONST_Radius, &
+      CPdry => CONST_CPdry, &     
+      CVdry => CONST_CVdry
+
     use scale_atm_dyn_dgm_hydrostatic, only: &
       hydrostatic_calc_basicstate_constT
   
@@ -246,6 +266,7 @@ contains
     real(RP), intent(out) :: MOMY(elem%Np,lcmesh%NeA)    
     real(RP), intent(out) :: MOMZ(elem%Np,lcmesh%NeA)
     real(RP), intent(out) :: DRHOT(elem%Np,lcmesh%NeA)
+    type(TracerLocalMeshField_ptr), intent(inout) :: tracer_field_list(:)
     real(RP), intent(in) :: x(elem%Np,lcmesh%Ne)
     real(RP), intent(in) :: y(elem%Np,lcmesh%Ne)
     real(RP), intent(in) :: z(elem%Np,lcmesh%Ne)
@@ -256,13 +277,13 @@ contains
     real(RP) :: TEMP0           = 280.0_RP
     namelist /PARAM_EXP/ &
       TEMP0
-    integer, parameter :: IntrpPolyOrder_h = 8
-    integer, parameter :: IntrpPolyOrder_v = 8
 
     integer :: ke, ke2D
     integer :: p, p_h, p_v   
     integer :: ierr
 
+    real(RP) :: DENS_ini(elem%Np)
+    real(RP) :: PRES_ini(elem%Np)
     !-----------------------------------------------------------------------------
 
     rewind(IO_FID_CONF)
@@ -280,17 +301,22 @@ contains
       TEMP0, PRES00,                                             & ! (in)
       x, y, z, lcmesh, elem                                      ) ! (in)
 
-    !$omp parallel do collapse(3) private(ke2D, p_h, p_v, p)
+    !$omp parallel do private( p_h, p_v, p, ke2D, &
+    !$omp DENS_ini, PRES_ini                      )
     do ke=lcmesh%NeS, lcmesh%NeE
-    do p_v=1, elem%Nnode_v
-    do p_h=1, elem%Nnode_h1D**2
-      p = p_h + (p_v-1)*elem%Nnode_h1D**2
       ke2D = lcmesh%EMap3Dto2D(ke)
+      do p_v=1, elem%Nnode_v
+      do p_h=1, elem%Nnode_h1D**2
+        p = p_h + (p_v-1)*elem%Nnode_h1D**2
 
-      call calc_hydrostatic_state_1pt( DENS_hyd(p,ke), PRES_hyd(p,ke),    & ! (out)
-        lcmesh%zlev(p,ke), lcmesh%lon2D(p_h,ke2D), lcmesh%lat2D(p_h,ke2D) ) ! (in)
-    end do
-    end do
+        call calc_hydrostatic_state_1pt( DENS_ini(p), PRES_ini(p),          & ! (out)
+          lcmesh%zlev(p,ke), lcmesh%lon2D(p_h,ke2D), lcmesh%lat2D(p_h,ke2D) ) ! (in)
+      end do
+      end do
+
+      DDENS(:,ke) = DENS_ini(:) - DENS_hyd(:,ke)
+      DRHOT(:,ke) = PRES00 / Rdry * (  ( PRES_ini   (:) / PRES00 )**(CVdry/CPdry) &
+                                     - ( PRES_hyd(:,ke) / PRES00 )**(CVdry/CPdry) )
     end do
 
     return
@@ -320,7 +346,7 @@ contains
     real(RP) :: geopot_T200
 
     integer :: itr
-    integer,  parameter :: ITRMAX = 1000
+    integer,  parameter :: ITRMAX   = 1000
     real(RP), parameter :: CONV_EPS = 1E-15_RP 
     !------------------------------------------------
 
@@ -426,6 +452,7 @@ contains
     return
   end subroutine calc_exner_at_T200
 
+!OCL SERIAL
   subroutine exp_geostrophic_balance_correction( this,  &
     DENS_hyd, PRES_hyd, DDENS, MOMX, MOMY, MOMZ, DRHOT, &
     lcmesh, elem )

@@ -80,6 +80,7 @@ module mod_user
 
   !-----------------------------------------------------------------------------
 contains
+!OCL SERIAL
   subroutine USER_mkinit( atm )
     implicit none
 
@@ -88,13 +89,17 @@ contains
     !------------------------------------------
 
     call exp_manager%Init('baroclinic_wave')
-    call exp_manager%SetInitCond( &
-      atm%mesh, atm%vars%PROGVARS_manager, atm%vars%AUXVARS_manager )
+
+    call exp_manager%SetInitCond( atm%mesh,                &
+      atm%vars%PROGVARS_manager, atm%vars%AUXVARS_manager, &
+      atm%vars%QTRCVARS_manager                            )
+    
     call exp_manager%Final()
 
     return
   end subroutine USER_mkinit
 
+!OCL SERIAL
   subroutine USER_setup( atm )
     implicit none
     
@@ -146,8 +151,8 @@ contains
 
 !OCL SERIAL
   subroutine exp_SetInitCond_baroclinicwave( this,                       &
-    DENS_hyd, PRES_hyd, DDENS, MOMX, MOMY, MOMZ, DRHOT,                  &
-    x, y, z, dom_xmin, dom_xmax, dom_ymin, dom_ymax, dom_zmin, dom_zmax, &
+    DENS_hyd, PRES_hyd, DDENS, MOMX, MOMY, MOMZ, DRHOT, tracer_field_list, &
+    x, y, z, dom_xmin, dom_xmax, dom_ymin, dom_ymax, dom_zmin, dom_zmax,   &
     lcmesh, elem )
     
     use scale_cubedsphere_cnv, only: &
@@ -157,7 +162,9 @@ contains
     use mod_mkinit_util, only: &
       mkinitutil_gen_GPMat,    &
       mkinitutil_gen_Vm1Mat
-
+    use mod_exp, only: &
+      TracerLocalMeshField_ptr
+    
     implicit none
 
     class(Exp_baroclinic_wave_global), intent(inout) :: this
@@ -170,6 +177,7 @@ contains
     real(RP), intent(out) :: MOMY(elem%Np,lcmesh%NeA)    
     real(RP), intent(out) :: MOMZ(elem%Np,lcmesh%NeA)
     real(RP), intent(out) :: DRHOT(elem%Np,lcmesh%NeA)
+    type(TracerLocalMeshField_ptr), intent(inout) :: tracer_field_list(:)    
     real(RP), intent(in) :: x(elem%Np,lcmesh%Ne)
     real(RP), intent(in) :: y(elem%Np,lcmesh%Ne)
     real(RP), intent(in) :: z(elem%Np,lcmesh%Ne)
