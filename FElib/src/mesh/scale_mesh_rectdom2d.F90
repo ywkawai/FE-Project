@@ -1,3 +1,12 @@
+!-------------------------------------------------------------------------------
+!> module Mesh / Rectangle 2D domain
+!!
+!! @par Description
+!!      Mangage mesh data of rectangle 2D domain for element-based methods
+!!
+!! @author Team SCALE
+!<
+!-------------------------------------------------------------------------------
 #include "scaleFElib.h"
 module scale_mesh_rectdom2d
 
@@ -68,7 +77,8 @@ contains
     dom_xmin, dom_xmax, dom_ymin, dom_ymax, &
     isPeriodicX, isPeriodicY,               &
     refElem, NLocalMeshPerPrc,              &
-    NprcX, NprcY, myrank )
+    NprcX, NprcY,                           &
+    nproc, myrank                           )
     
     implicit none
 
@@ -85,6 +95,7 @@ contains
     integer, intent(in) :: NLocalMeshPerPrc
     integer, intent(in) :: NprcX
     integer, intent(in) :: NprcY
+    integer, intent(in), optional :: nproc
     integer, intent(in), optional :: myrank
 
     !-----------------------------------------------------------------------------
@@ -104,7 +115,7 @@ contains
     this%NprcY = NprcY
 
     call MeshBase2D_Init( this, refElem, NLocalMeshPerPrc, &
-      NeGX * NeGY, myrank )
+      nproc, myrank )
 
     return
   end subroutine MeshRectDom2D_Init
@@ -281,12 +292,12 @@ contains
   end subroutine MeshRectDom2D_setupLocalDom
 
   subroutine MeshRectDom2D_assignDomID( this, &
-    tileID_table, panelID_table,        &
+    tileID_table, panelID_table,              &
     pi_table, pj_table )
   
     use scale_meshutil_2d, only: &       
       MeshUtil2D_buildGlobalMap
-    
+    use scale_io
     implicit none
 
     class(MeshRectDom2D), target, intent(inout) :: this    
@@ -296,7 +307,7 @@ contains
     integer, intent(out) :: pj_table(this%LOCAL_MESH_NUM*this%PRC_NUM)
     
     integer :: n
-    integer :: p
+    integer :: prc
     integer :: tileID
     integer :: is_lc, js_lc
     integer :: ilc_count, jlc_count
@@ -310,17 +321,17 @@ contains
       this%tileID_globalMap, this%tileFaceID_globalMap, this%tilePanelID_globalMap, & ! (out)
       this%LOCAL_MESH_NUM_global, this%isPeriodicX, this%isPeriodicY,               & ! (in)
       this%NprcX, this%NprcY )                                                        ! (in)
-    
+
     !----
     
-    do p=1, this%PRC_NUM
+    do prc=1, this%PRC_NUM
     do n=1, this%LOCAL_MESH_NUM
-      tileID = n + (p-1)*this%LOCAL_MESH_NUM
+      tileID = n + (prc-1)*this%LOCAL_MESH_NUM
       lcmesh => this%lcmesh_list(n)      
       !-
-      tileID_table(n,p)                   = tileID
+      tileID_table(n,prc)                 = tileID
       this%tileID_global2localMap(tileID) = n
-      this%PRCRank_globalMap(tileID)      = p - 1
+      this%PRCRank_globalMap(tileID)      = prc - 1
 
       !-
       if ( this%PRCRank_globalMap(tileID) == lcmesh%PRC_myrank ) then
