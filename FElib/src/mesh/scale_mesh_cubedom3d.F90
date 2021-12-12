@@ -1,6 +1,13 @@
+!-------------------------------------------------------------------------------
+!> module Mesh / Cubic 3D domain
+!!
+!! @par Description
+!!      Mangage mesh data of cubic 3D domain for element-based methods
+!!
+!! @author Team SCALE
+!<
 #include "scaleFElib.h"
 module scale_mesh_cubedom3d
-
   !-----------------------------------------------------------------------------
   !
   !++ used modules
@@ -179,7 +186,9 @@ contains
     !-----------------------------------------------------------------------------
   
     if (this%isGenerated) then
-      deallocate( this%rcdomIJK2LCMeshID )
+      if ( allocated(this%rcdomIJK2LCMeshID) ) then
+        deallocate( this%rcdomIJK2LCMeshID )
+      end if
     else
       if ( allocated( this%FZ ) ) deallocate( this%FZ )
     end if

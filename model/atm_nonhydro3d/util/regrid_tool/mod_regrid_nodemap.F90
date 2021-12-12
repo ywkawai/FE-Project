@@ -136,7 +136,7 @@ contains
     if ( associated(out_mesh%ptr_mesh3D ) ) then
 
       do n=1, out_mesh%ptr_mesh3D%LOCAL_MESH_NUM
-        
+            
         lcmesh3D => out_mesh%ptr_mesh3D%lcmesh_list(n)
         lcmesh2D => lcmesh3D%lcmesh2D
 
@@ -246,6 +246,7 @@ contains
     integer :: Np2D
     !-----------------------------------------------------------------
 
+    LOG_INFO("regrid_nodemap",*) "NodeMap_construct_nodemap_2D_prep"    
     Np2D = Np1D**2
     allocate( this%local_domID(Np2D, Ne2D) )
     allocate( this%lcprc(Np2D, Ne2D) )
@@ -271,6 +272,8 @@ contains
       this%inPanelID,                    & ! (in)
       Np1D, Ne2D, lcmesh )                 ! (in)
    
+    LOG_INFO("regrid_nodemap",*) "NodeMap_construct_nodemap_2D_mapping"    
+
     in_tile_num = 0
     in_prc_num  = 0
     do ke_h=1, Ne2D
@@ -372,6 +375,7 @@ contains
     if ( present(in_prcnum_out) ) in_prcnum_out  = in_prc_num
 
     !-- prepair mesh for input data --------------------------------
+    LOG_INFO("regrid_nodemap",*) "NodeMap_construct_nodemap_2D_mesh_gen"    
 
     if ( do_mesh_generation ) then
 
@@ -431,6 +435,8 @@ contains
     allocate( this%elem_k(Np3D, Ne3D) )
     allocate( this%elem_z(Np3D, Ne3D) )
 
+    LOG_INFO("regrid_nodemap",*) "NodeMap_construct_nodemap_2D"
+
     call NodeMap_construct_nodemap_2D( this, &
       in_meshtype_id, out_meshtype_id,             &
       in_meshtype_name,                            &
@@ -442,6 +448,8 @@ contains
       in_prcnum_out=in_prc_num                     )    
 
     !-- prepair mesh for input data --------------------------------
+
+    LOG_INFO("regrid_nodemap",*) "NodeMap_construct_nodemap_3D"
 
     allocate( this%in_mesh_list(in_prc_num) )
     do i=1, in_prc_num

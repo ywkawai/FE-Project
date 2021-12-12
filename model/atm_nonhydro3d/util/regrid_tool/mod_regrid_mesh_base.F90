@@ -274,12 +274,12 @@ contains
       if ( allocated( this%FZ ) ) then
         call this%mesh3D%Init( this%NeGX, this%NeGY, this%NeGZ,                                     &
           this%dom_xmin, this%dom_xmax, this%dom_ymin, this%dom_ymax, this%dom_zmin, this%dom_zmax, &
-          this%isPeriodicX, this%isPeriodicY, this%isPeriodicY, this%elem3D, this%NLocalMeshPerPrc, &
+          this%isPeriodicX, this%isPeriodicY, .false., this%elem3D, this%NLocalMeshPerPrc,          &
           this%NprcX, this%NprcY, nproc=this%Nprc, myrank=myrank_, FZ=this%FZ )
       else
         call this%mesh3D%Init( this%NeGX, this%NeGY, this%NeGZ,                                     &
           this%dom_xmin, this%dom_xmax, this%dom_ymin, this%dom_ymax, this%dom_zmin, this%dom_zmax, &
-          this%isPeriodicX, .false., .false., this%elem3D, this%NLocalMeshPerPrc,                   &
+          this%isPeriodicX, this%isPeriodicY, .false., this%elem3D, this%NLocalMeshPerPrc,          &
           this%NprcX, this%NprcY, nproc=this%Nprc, myrank=myrank_ )
       end if
 
@@ -351,8 +351,9 @@ contains
     select case( this%mesh_type_id )
     case ( REGRID_MESHTYPE_CUBEDSPHERE2D_ID, REGRID_MESHTYPE_CUBEDSPHERE3D_ID )
 
-      call csmesh_dummy%Init( this%NeGX, this%NeGY, RPlanet,          &
-        this%elem2D, this%NLocalMeshPerPRC, nproc=this%Nprc, myrank=0 )
+      call csmesh_dummy%Init( this%NeGX, this%NeGY, RPlanet,  & ! (in)
+        this%elem2D, this%NLocalMeshPerPRC,                   & ! (in)
+        nproc=this%Nprc, myrank=0                             ) ! (in)
           
       call csmesh_dummy%AssignDomID( this%NprcX, this%NprcY,  & ! (in)
         tileID_table, panelID_table, pi_table, pj_table       ) ! (out)
@@ -362,10 +363,11 @@ contains
     case ( REGRID_MESHTYPE_STRUCTURED2D_ID, REGRID_MESHTYPE_STRUCTURED3D_ID, &
            REGRID_MESHTYPE_LONLAT2D_ID, REGRID_MESHTYPE_LONLAT3D_ID          )
 
-      call mesh_dummy%Init( this%NeGX, this%NeGY, &
-        this%dom_xmin, this%dom_xmax, this%dom_ymin, this%dom_ymax, &
-        this%isPeriodicX, this%isPeriodicY, this%elem2D,            &
-        this%NLocalMeshPerPRC, this%NprcX, this%NprcY )
+      call mesh_dummy%Init( this%NeGX, this%NeGY,                   & ! (in)
+        this%dom_xmin, this%dom_xmax, this%dom_ymin, this%dom_ymax, & ! (in)
+        this%isPeriodicX, this%isPeriodicY, this%elem2D,            & ! (in)
+        this%NLocalMeshPerPRC, this%NprcX, this%NprcY,              & ! (in)
+        nproc=this%Nprc, myrank=0                                   ) ! (in)
 
       call mesh_dummy%AssignDomID( &
         tileID_table, panelID_table, pi_table, pj_table )

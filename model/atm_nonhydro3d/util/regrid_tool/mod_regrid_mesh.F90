@@ -67,7 +67,7 @@ contains
     !-------------------------------
 
     LOG_NEWLINE
-    LOG_INFO("regrid_mesh",*) 'Setup'
+    LOG_INFO("regrid_mesh",*) 'Setup .. '
     
     !--- read namelist (PARAM_REGRID_MESH)
     rewind(IO_FID_CONF)
@@ -81,11 +81,12 @@ contains
     LOG_NML(PARAM_REGRID_MESH)
 
     !--
+    LOG_INFO("regrid_mesh",*) 'Initialize mesh for output data..'
     call out_mesh%Init( MESHOUT_ID, out_meshType )
     call out_mesh%Generate()
     
     !--
-
+    LOG_INFO("regrid_mesh",*) 'Initialize node mapping ..'        
     allocate( nodemap( out_mesh%NLocalMeshPerPRC ) )
     do n=1, size(nodemap)
       call nodemap(n)%Init( in_meshType, out_mesh )
