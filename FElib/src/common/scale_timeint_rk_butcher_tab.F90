@@ -352,7 +352,7 @@ contains
 
     ! b = GAM_N,: + SIG_N,: * A
     do n=1, nstage
-      coef_b(n) = coef_gam(nstage,n) + sum( coef_sig(nstage,:) * coef_a(:,n) )
+      coef_b(n) = coef_gam(nstage+1,n) + sum( coef_sig(nstage+1,:) * coef_a(:,n) )
     end do 
   
     return

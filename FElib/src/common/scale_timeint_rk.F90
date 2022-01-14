@@ -181,9 +181,12 @@ contains
     !----------------------------------------
     
     deallocate( this%coef_a_ex, this%coef_b_ex, this%coef_c_ex )
+    deallocate( this%coef_sig_ex, this%coef_gam_ex )
 !    if (this%imex_flag) then
       deallocate( this%coef_a_im, this%coef_b_im, this%coef_c_im )
 !    end if
+
+    deallocate( this%size_each_var, this%tend_buf_indmap )    
 
     select case(this%ndim)
     case(1)
@@ -202,7 +205,7 @@ contains
       if (this%imex_flag) deallocate( this%tend_buf3D_im )
       deallocate( this%varTmp_3d )
     end select
-    
+
     return
   end subroutine timeint_rk_Final
 
