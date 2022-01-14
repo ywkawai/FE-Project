@@ -42,6 +42,9 @@ program test_timeint_rk
   call check_tscheme_imex( 'IMEX_ARK232', 1.98_RP )
   call check_tscheme_imex( 'IMEX_ARK324', 2.98_RP )
 
+  ! Check conversion betweem Shu-Osher and Butcher forms
+  call check_ShuOsher2Butcher()
+
   call final()
   write(*,*) 'test_timeint_rk has been succeeded!'
 
@@ -262,6 +265,84 @@ contains
 
     return
   end subroutine calc_sol_imex
+
+  subroutine check_ShuOsher2Butcher()
+    implicit none
+
+    type(timeint_rk) :: tint
+    real(RP) :: A_3s3o(3,3), b_3s3o(3)
+    real(RP) :: A_4s3o(4,4), b_4s3o(4)
+    !------------------------------
+
+    !* ERK_SSP_3s3o
+
+    call tint%Init( 'ERK_SSP_3s3o', &
+      1.0_RP, 1, 1, (/ 1, 1 /) )
+
+    A_3s3o(:,:) = 0.0_RP
+    A_3s3o(2,1) = 1.0_RP
+    A_3s3o(3,1:2) = 1.0_RP / 4.0_RP
+    b_3s3o(:) = (/ 1.0_RP, 1.0_RP, 4.0_RP /) / 6.0_RP
+    call check_ButcherMat( 'ERK_SSP_3s3o', tint, A_3s3o, b_3s3o )
+
+    call tint%Final()
+
+    !* ERK_SSP_4s3o
+
+    call tint%Init( 'ERK_SSP_4s3o', &
+      1.0_RP, 1, 1, (/ 1, 1 /) )
+
+    A_4s3o(:,:) = 0.0_RP
+    A_4s3o(2,1) = 1.0_RP / 2.0_RP
+    A_4s3o(3,1:2) = 1.0_RP / 2.0_RP
+    A_4s3o(4,1:3) = 1.0_RP / 6.0_RP
+    b_4s3o(:) = (/ 1.0_RP, 1.0_RP, 1.0_RP, 3.0_RP /) / 6.0_RP
+    call check_ButcherMat( 'ERK_SSP_4s3o', tint, A_4s3o, b_4s3o )
+
+    call tint%Final()
+
+    return
+  end subroutine check_ShuOsher2Butcher
+
+  subroutine check_ButcherMat( tint_label, &
+    tint, a_ans, b_ans )
+    implicit none
+
+    character(len=*), intent(in) :: tint_label
+    type(timeint_rk), intent(in) :: tint
+    real(RP), intent(in) :: a_ans(tint%nstage,tint%nstage)
+    real(RP), intent(in) :: b_ans(tint%nstage)
+    integer :: i
+    !---------------------------------
+
+    write(*,*) 'check_ShuOsher2Butcher: ', trim(tint_label), ".."
+
+    if ( sqrt( sum( ( a_ans(:,:) - tint%coef_a_ex(:,:) )**2 ) ) > 1.0E-14_RP * dble(tint%nstage**2) ) then
+      write(*,*) "Fail to convert Shu-Osher form into Bucher form. Check!"
+      write(*,*) "a: "
+      do i=1, tint%nstage
+        write(*,*) tint%coef_a_ex(i,:)
+      end do
+      write(*,*) "a_ans: "
+      do i=1, tint%nstage
+        write(*,*) a_ans(i,:)
+      end do
+      call PRC_abort      
+    end if
+
+    if ( sqrt( sum( ( b_ans(:) - tint%coef_b_ex(:) )**2 ) ) > 1.0E-14_RP * dble(tint%nstage) ) then
+      write(*,*) "Fail to convert Shu-Osher form into Bucher form. Check!"
+      write(*,*) "b: ", tint%coef_b_ex(:)
+      write(*,*) "b_ans: ", b_ans(:)
+      call PRC_abort
+    end if
+
+    write(*,*) "Correct!"
+    return
+  end subroutine check_ButcherMat
+  
+
+  !---------------------------------------------------------------------------------
 
   subroutine init()
     implicit none
