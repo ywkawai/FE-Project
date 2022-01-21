@@ -76,10 +76,12 @@ module scale_timeint_rk
 % for d in 1..3    
     procedure, public :: Advance<%=d%>D => timeint_rk_advance<%=d%>D
     procedure, public :: Advance_trcvar_<%=d%>D => timeint_rk_advance_trcvar<%=d%>D
+    procedure, public :: StoreVar0_<%=d%>D => timeint_rk_store_Var0_<%=d%>D
     procedure, public :: StoreImplicit<%=d%>D => timeint_rk_storeimpl<%=d%>D
 % end
     generic, public :: Advance => Advance1D, Advance2D, Advance3D
     generic, public :: Advance_trcvar => Advance_trcvar_1D, Advance_trcvar_2D, Advance_trcvar_3D
+    generic, public :: StoreVar0 => StoreVar0_1D, StoreVar0_2D, StoreVar0_3D
     generic, public :: StoreImplicit => StoreImplicit1D, StoreImplicit2D, StoreImplicit3D
   end type timeint_rk
 
@@ -162,9 +164,12 @@ contains
     !----------------------------------------
     
     deallocate( this%coef_a_ex, this%coef_b_ex, this%coef_c_ex )
+    deallocate( this%coef_sig_ex, this%coef_gam_ex )
 !    if (this%imex_flag) then
       deallocate( this%coef_a_im, this%coef_b_im, this%coef_c_im )
 !    end if
+
+    deallocate( this%size_each_var, this%tend_buf_indmap )    
 
     select case(this%ndim)
 % for d in 1..3      
@@ -175,7 +180,7 @@ contains
       deallocate( this%varTmp_<%=d%>d )
 %end
     end select
-    
+
     return
   end subroutine timeint_rk_Final
 
@@ -206,11 +211,15 @@ contains
 % for d in 1..3
 
 % ind_range_list = ["is, ie", "js, je", "ks, ke"]
+% ind_name = ["i", "j", "k"]
 % ind_arg = ""
+% ind_ary = ""
 % for i in 1..d
 %   ind_arg << ind_range_list[i-1] << " ,"
+%   ind_ary << ind_name[i-1] << ","
 % end
 % ind_arg.chop!
+% ind_ary.chop!
   subroutine timeint_rk_advance<%=d%>D( this, nowstage, q, varID, <%=ind_arg%>)
     implicit none  
     class(timeint_rk), intent(inout) :: this
@@ -258,6 +267,34 @@ contains
     return
   end subroutine timeint_rk_advance_trcvar<%=d%>D
 
+  subroutine timeint_rk_store_var0_<%=d%>D( this, q, varID, <%=ind_arg%> )
+    implicit none
+    class(timeint_rk), intent(inout) :: this
+    real(RP), intent(inout) :: q(<%=(":,"*d).chop%>)
+    integer, intent(in) :: varID
+    integer, intent(in) :: <%=ind_arg%>
+
+    integer :: <%=ind_ary%>
+    !----------------------------------------    
+ 
+    !$omp parallel private(<%=ind_ary%>)
+% if (d > 2) then
+    !$omp do collapse(<%=(d-1)%>)
+%else
+    !$omp do
+%end        
+%for i in 1..d
+    do <%=ind_name[d-i]%>=<%=ind_range_list[d-i]%>
+%end
+      this%var0_<%=d%>D(<%=ind_ary%>,varID) = q(<%=ind_ary%>)
+% for i in 1..d
+    end do
+% end
+      !$omp end parallel
+
+    return
+  end subroutine timeint_rk_store_var0_<%=d%>D
+  
   subroutine timeint_rk_storeimpl<%=d%>D( this, nowstage, q, varID, <%=ind_arg%>)
     implicit none
     class(timeint_rk), intent(inout) :: this

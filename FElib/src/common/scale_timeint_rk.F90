@@ -83,15 +83,19 @@ module scale_timeint_rk
     procedure, public :: Get_deltime => timeint_rk_Get_deltime
     procedure, public :: Advance1D => timeint_rk_advance1D
     procedure, public :: Advance_trcvar_1D => timeint_rk_advance_trcvar1D
+    procedure, public :: StoreVar0_1D => timeint_rk_store_Var0_1D
     procedure, public :: StoreImplicit1D => timeint_rk_storeimpl1D
     procedure, public :: Advance2D => timeint_rk_advance2D
     procedure, public :: Advance_trcvar_2D => timeint_rk_advance_trcvar2D
+    procedure, public :: StoreVar0_2D => timeint_rk_store_Var0_2D
     procedure, public :: StoreImplicit2D => timeint_rk_storeimpl2D
     procedure, public :: Advance3D => timeint_rk_advance3D
     procedure, public :: Advance_trcvar_3D => timeint_rk_advance_trcvar3D
+    procedure, public :: StoreVar0_3D => timeint_rk_store_Var0_3D
     procedure, public :: StoreImplicit3D => timeint_rk_storeimpl3D
     generic, public :: Advance => Advance1D, Advance2D, Advance3D
     generic, public :: Advance_trcvar => Advance_trcvar_1D, Advance_trcvar_2D, Advance_trcvar_3D
+    generic, public :: StoreVar0 => StoreVar0_1D, StoreVar0_2D, StoreVar0_3D
     generic, public :: StoreImplicit => StoreImplicit1D, StoreImplicit2D, StoreImplicit3D
   end type timeint_rk
 
@@ -181,9 +185,12 @@ contains
     !----------------------------------------
     
     deallocate( this%coef_a_ex, this%coef_b_ex, this%coef_c_ex )
+    deallocate( this%coef_sig_ex, this%coef_gam_ex )
 !    if (this%imex_flag) then
       deallocate( this%coef_a_im, this%coef_b_im, this%coef_c_im )
 !    end if
+
+    deallocate( this%size_each_var, this%tend_buf_indmap )    
 
     select case(this%ndim)
     case(1)
@@ -202,7 +209,7 @@ contains
       if (this%imex_flag) deallocate( this%tend_buf3D_im )
       deallocate( this%varTmp_3d )
     end select
-    
+
     return
   end subroutine timeint_rk_Final
 
@@ -278,6 +285,26 @@ contains
     return
   end subroutine timeint_rk_advance_trcvar1D
 
+  subroutine timeint_rk_store_var0_1D( this, q, varID, is, ie  )
+    implicit none
+    class(timeint_rk), intent(inout) :: this
+    real(RP), intent(inout) :: q(:)
+    integer, intent(in) :: varID
+    integer, intent(in) :: is, ie 
+
+    integer :: i
+    !----------------------------------------    
+ 
+    !$omp parallel private(i)
+    !$omp do
+    do i=is, ie
+      this%var0_1D(i,varID) = q(i)
+    end do
+      !$omp end parallel
+
+    return
+  end subroutine timeint_rk_store_var0_1D
+  
   subroutine timeint_rk_storeimpl1D( this, nowstage, q, varID, is, ie )
     implicit none
     class(timeint_rk), intent(inout) :: this
@@ -340,6 +367,28 @@ contains
     return
   end subroutine timeint_rk_advance_trcvar2D
 
+  subroutine timeint_rk_store_var0_2D( this, q, varID, is, ie ,js, je  )
+    implicit none
+    class(timeint_rk), intent(inout) :: this
+    real(RP), intent(inout) :: q(:,:)
+    integer, intent(in) :: varID
+    integer, intent(in) :: is, ie ,js, je 
+
+    integer :: i,j
+    !----------------------------------------    
+ 
+    !$omp parallel private(i,j)
+    !$omp do
+    do j=js, je
+    do i=is, ie
+      this%var0_2D(i,j,varID) = q(i,j)
+    end do
+    end do
+      !$omp end parallel
+
+    return
+  end subroutine timeint_rk_store_var0_2D
+  
   subroutine timeint_rk_storeimpl2D( this, nowstage, q, varID, is, ie ,js, je )
     implicit none
     class(timeint_rk), intent(inout) :: this
@@ -402,6 +451,30 @@ contains
     return
   end subroutine timeint_rk_advance_trcvar3D
 
+  subroutine timeint_rk_store_var0_3D( this, q, varID, is, ie ,js, je ,ks, ke  )
+    implicit none
+    class(timeint_rk), intent(inout) :: this
+    real(RP), intent(inout) :: q(:,:,:)
+    integer, intent(in) :: varID
+    integer, intent(in) :: is, ie ,js, je ,ks, ke 
+
+    integer :: i,j,k
+    !----------------------------------------    
+ 
+    !$omp parallel private(i,j,k)
+    !$omp do collapse(2)
+    do k=ks, ke
+    do j=js, je
+    do i=is, ie
+      this%var0_3D(i,j,k,varID) = q(i,j,k)
+    end do
+    end do
+    end do
+      !$omp end parallel
+
+    return
+  end subroutine timeint_rk_store_var0_3D
+  
   subroutine timeint_rk_storeimpl3D( this, nowstage, q, varID, is, ie ,js, je ,ks, ke )
     implicit none
     class(timeint_rk), intent(inout) :: this
