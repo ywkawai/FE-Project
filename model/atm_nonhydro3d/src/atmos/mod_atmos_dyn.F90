@@ -156,6 +156,7 @@ module mod_atmos_dyn
     subroutine atm_dyn_nonhydro3d_cal_vi( &
       DENS_dt, MOMX_dt, MOMY_dt, MOMZ_dt, RHOT_dt,             & ! (out)
       DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd, & ! (in)
+      DDENS0_, MOMX0_, MOMY0_, MOMZ0_, DRHOT0_,                & ! (in) 
       Dz, Lift,                                                & ! (in)
       modalFilterFlag, VModalFilter,                           & ! (in)
       impl_fac, dt,                                            & ! (in)
@@ -186,6 +187,11 @@ module mod_atmos_dyn
       real(RP), intent(in)  :: DRHOT_(elem%Np,lmesh%NeA)
       real(RP), intent(in)  :: DENS_hyd(elem%Np,lmesh%NeA)
       real(RP), intent(in)  :: PRES_hyd(elem%Np,lmesh%NeA)
+      real(RP), intent(in)  :: DDENS0_(elem%Np,lmesh%NeA)
+      real(RP), intent(in)  :: MOMX0_(elem%Np,lmesh%NeA)
+      real(RP), intent(in)  :: MOMY0_(elem%Np,lmesh%NeA)
+      real(RP), intent(in)  :: MOMZ0_(elem%Np,lmesh%NeA)
+      real(RP), intent(in)  :: DRHOT0_(elem%Np,lmesh%NeA)      
       class(SparseMat), intent(in) :: Dz, Lift
       logical, intent(in) :: modalFilterFlag
       class(ModalFilter), intent(in) :: VModalFilter
@@ -504,18 +510,34 @@ contains
             DENS_hyd, PRES_hyd, lcmesh                                      )
           call PROF_rapend( 'ATM_DYN_get_localmesh_ptr', 2)   
 
+          if (rkstage==1) then
+            call this%tint(n)%StoreVar0( DDENS%val, DDENS_ID,    &
+                    1, lcmesh%refElem%Np, lcmesh%NeS, lcmesh%NeE )
+            call this%tint(n)%StoreVar0( MOMX%val, MOMX_ID,      &
+                    1, lcmesh%refElem%Np, lcmesh%NeS, lcmesh%NeE )
+            call this%tint(n)%StoreVar0( MOMY%val, MOMY_ID,      &
+                    1, lcmesh%refElem%Np, lcmesh%NeS, lcmesh%NeE )
+            call this%tint(n)%StoreVar0( MOMZ%val, MOMZ_ID,      &
+                    1, lcmesh%refElem%Np, lcmesh%NeS, lcmesh%NeE )
+            call this%tint(n)%StoreVar0( DRHOT%val, DRHOT_ID,    &
+                    1, lcmesh%refElem%Np, lcmesh%NeS, lcmesh%NeE )
+          end if
+
           call PROF_rapstart( 'ATM_DYN_cal_vi', 2)
           implicit_fac = this%tint(n)%Get_implicit_diagfac(rkstage)
           tintbuf_ind = this%tint(n)%tend_buf_indmap(rkstage)
           dt = this%tint(n)%Get_deltime()
           call this%cal_vi( &
-            this%tint(n)%tend_buf2D_im(:,:,DDENS_ID,tintbuf_ind),    & ! (out)
-            this%tint(n)%tend_buf2D_im(:,:,MOMX_ID ,tintbuf_ind),    & ! (out)
-            this%tint(n)%tend_buf2D_im(:,:,MOMY_ID ,tintbuf_ind),    & ! (out)
-            this%tint(n)%tend_buf2D_im(:,:,MOMZ_ID ,tintbuf_ind),    & ! (out)
-            this%tint(n)%tend_buf2D_im(:,:,DRHOT_ID,tintbuf_ind),    & ! (out)
+            this%tint(n)%tend_buf2D_im(:,:,DDENS_ID,tintbuf_ind),                   & ! (out)
+            this%tint(n)%tend_buf2D_im(:,:,MOMX_ID ,tintbuf_ind),                   & ! (out)
+            this%tint(n)%tend_buf2D_im(:,:,MOMY_ID ,tintbuf_ind),                   & ! (out)
+            this%tint(n)%tend_buf2D_im(:,:,MOMZ_ID ,tintbuf_ind),                   & ! (out)
+            this%tint(n)%tend_buf2D_im(:,:,DRHOT_ID,tintbuf_ind),                   & ! (out)
             DDENS%val, MOMX%val, MOMY%val, MOMZ%val, DRHOT%val,                     & ! (in)
             DENS_hyd%val, PRES_hyd%val,                                             & ! (in)
+            this%tint(n)%var0_2D(:,:,DDENS_ID), this%tint(n)%var0_2D(:,:,MOMX_ID),  & ! (in)
+            this%tint(n)%var0_2D(:,:,MOMY_ID ), this%tint(n)%var0_2D(:,:,MOMZ_ID),  & ! (in)
+            this%tint(n)%var0_2D(:,:,DRHOT_ID ),                                    & ! (in)
             model_mesh%DOptrMat(3), model_mesh%LiftOptrMat,                         & ! (in)
             this%MODALFILTER_FLAG, this%modal_filter_v1D,                           & ! (in)
             implicit_fac, dt,                                                       & ! (in)

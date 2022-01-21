@@ -326,6 +326,7 @@ contains
   subroutine atm_dyn_dgm_nonhydro3d_hevi_splitform_cal_vi( &
     DENS_dt, MOMX_dt, MOMY_dt, MOMZ_dt, RHOT_dt,             & ! (out)
     DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd, & ! (in)
+    DDENS0_, MOMX0_, MOMY0_, MOMZ0_, DRHOT0_,                & ! (in)
     Dz, Lift,                                                & ! (in)
     modalFilterFlag, VModalFilter,                           & ! (in)
     impl_fac, dt,                                            & ! (in)
@@ -353,6 +354,11 @@ contains
     real(RP), intent(in)  :: DRHOT_(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: DENS_hyd(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: PRES_hyd(elem%Np,lmesh%NeA)
+    real(RP), intent(in)  :: DDENS0_(elem%Np,lmesh%NeA)
+    real(RP), intent(in)  :: MOMX0_(elem%Np,lmesh%NeA)
+    real(RP), intent(in)  :: MOMY0_(elem%Np,lmesh%NeA)
+    real(RP), intent(in)  :: MOMZ0_(elem%Np,lmesh%NeA)
+    real(RP), intent(in)  :: DRHOT0_(elem%Np,lmesh%NeA)        
     class(SparseMat), intent(in) :: Dz, Lift
     logical, intent(in) :: modalFilterFlag
     class(ModalFilter), intent(in) :: VModalFilter
@@ -410,11 +416,11 @@ contains
       ke = ke_xy + (ke_z-1)*lmesh%NeX*lmesh%NeY
       ke2D = lmesh%EMap3Dto2D(ke)
 
-      PROG_VARS(:,ke_z,DENS_VID,ke_xy) = DDENS_(:,ke)
-      PROG_VARS(:,ke_z,MOMX_VID,ke_xy) = MOMX_ (:,ke)
-      PROG_VARS(:,ke_z,MOMY_VID,ke_xy) = MOMY_ (:,ke)
-      PROG_VARS(:,ke_z,MOMZ_VID,ke_xy) = MOMZ_ (:,ke)
-      PROG_VARS(:,ke_z,RHOT_VID,ke_xy) = DRHOT_(:,ke)
+      PROG_VARS(:,ke_z,DENS_VID,ke_xy) = DDENS0_(:,ke)
+      PROG_VARS(:,ke_z,MOMX_VID,ke_xy) = MOMX0_ (:,ke)
+      PROG_VARS(:,ke_z,MOMY_VID,ke_xy) = MOMY0_ (:,ke)
+      PROG_VARS(:,ke_z,MOMZ_VID,ke_xy) = MOMZ0_ (:,ke)
+      PROG_VARS(:,ke_z,RHOT_VID,ke_xy) = DRHOT0_(:,ke)
 
       DENS_hyd_z(:,ke_z,ke_xy) = DENS_hyd(:,ke)
       PRES_hyd_z(:,ke_z,ke_xy) = PRES_hyd(:,ke)
@@ -466,7 +472,7 @@ contains
 
           call vi_construct_matbnd( PmatBnd(:,:,:), PmatBnd_uv(:,:,:), & ! (out)
             kl, ku, nz_1D, kl_uv, ku_uv, nz_1D,                        & ! (in)
-            PROG_VARS0(:,:,:,ke_xy),                                   & ! (in)
+            PROG_VARS(:,:,:,ke_xy),                                    & ! (in)
             DENS_hyd_z(:,:,ke_xy), PRES_hyd_z(:,:,ke_xy),              & ! (in)
             G13_z(:,:,ke_xy), G23_z(:,:,ke_xy), GsqrtV_z(:,:,ke_xy),   & ! (in)
             alph(:,:,ke_xy),                                           & ! (in)
@@ -494,9 +500,6 @@ contains
             end do
           end do ! for ij
           !$omp end do
-          !$omp workshare
-          PROG_VARS0(:,:,:,ke_xy) = PROG_VARS(:,:,:,ke_xy)
-          !$omp end workshare
           !$omp end parallel
           call PROF_rapend( 'hevi_cal_vi_lin', 3)
 
