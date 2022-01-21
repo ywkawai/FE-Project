@@ -241,6 +241,8 @@ contains
       DRHOT(:,ke) = PRES00/Rdry * ( &
          ( ( PRES_hyd(:,ke) + PRES_purtub(:,ke) ) / PRES00 )**rgamm  &
        - ( PRES_hyd(:,ke) / PRES00 )**rgamm                          )
+
+      DDENS(:,ke) = PRES_purtub(:,ke) / ( Rdry * TEMP0 )      
     end do
 
     return
