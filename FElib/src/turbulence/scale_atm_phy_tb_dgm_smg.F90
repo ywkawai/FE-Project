@@ -14,6 +14,9 @@
 !!  - Scotti et al., 1993:
 !!    Generalized Smagorinsky model for anisotropic grids.
 !!    Phys. Fluids A, 5, 2306-2308
+!!  - Nishizawa et al., 2015:
+!!    Influence of grid aspect ratio on planetary boundary layer turbulence in large-eddy simulations
+!!    Geosci. Model Dev., 8, 3393–3419
 !<
 !-------------------------------------------------------------------------------
 #include "scaleFElib.h"
@@ -80,7 +83,7 @@ module scale_atm_phy_tb_dgm_smg
   real(RP), private, parameter   :: FhB           = 40.0_RP ! fuh = sqrt(1 - b*Ri)/PrN
   real(RP), private              :: RPrN                    ! 1 / PrN
   real(RP), private              :: RRiC                    ! 1 / RiC
-  real(RP), private              :: OnemPrNovRiC                ! PrN / RiC
+  real(RP), private              :: OnemPrNovRiC            ! PrN / RiC
   
   ! for backscatter
   real(RP), private, parameter   :: CB   = 1.4_RP
@@ -649,19 +652,19 @@ contains
       end if
 
       TauM_x = Nu(iM) * 2.0_RP * ( ( S11(iM) - SkkOvThreeM ) * nx_ + S12(iM) * ny_ + S31(iM) * nz_ ) &
-             - TKEMulTwoOvThreeM * nx_
+             - TKEMulTwoOvThreeM * nx(i)
       TauP_x = Nu(iP) * 2.0_RP * ( ( S11(iP) - SkkOvThreeP ) * nx_ + S12(iP) * ny_ + S31(iP) * nz_ ) &
-             - TKEMulTwoOvThreeP * nx_
+             - TKEMulTwoOvThreeP * nx(i)
       
       TauM_y = Nu(iM) * 2.0_RP * ( S12(iM) * nx_ + ( S22(iM) - SkkOvThreeM ) * ny_ + S23(iM) * nz_ ) &
-             - TKEMulTwoOvThreeM * ny_
+             - TKEMulTwoOvThreeM * ny(i)
       TauP_y = Nu(iP) * 2.0_RP * ( S12(iP) * nx_ + ( S22(iP) - SkkOvThreeP ) * ny_ + S23(iP) * nz_ ) &
-             - TKEMulTwoOvThreeP * ny_
+             - TKEMulTwoOvThreeP * ny(i)
 
       TauM_z = Nu(iM) * 2.0_RP * ( S31(iM) * nx_ + S23(iM) * ny_ + ( S33(iM) - SkkOvThreeM ) * nz_ ) &
-             - TKEMulTwoOvThreeM * nz_
+             - TKEMulTwoOvThreeM * nz(i)
       TauP_z = Nu(iP) * 2.0_RP * ( S31(iP) * nx_ + S23(iP) * ny_ + ( S33(iP) - SkkOvThreeP ) * nz_ ) &
-             - TKEMulTwoOvThreeP * nz_
+             - TKEMulTwoOvThreeP * nz(i)
 
       if ( is_bound(i) )  then
         del_flux_mom(i,1) = - densM * TauM_x
@@ -696,20 +699,28 @@ contains
     integer :: ke
 
     real(RP) :: vol
+    real(RP) :: he
     real(RP) :: lambda0
     real(RP) :: Zs(elem2D%Np)
+    real(RP) :: Z1(elem2D%Np)
     real(RP) :: dz(elem  %Np)
+    real(RP) :: FZ
+    real(RP) :: elem_aspect_eff
     !--------------------------------------------------------------------
 
     !$omp parallel do private( &
-    !$omp vol, lambda0, Zs, dz )
+    !$omp vol, lambda0, Zs, Z1, dz, he, FZ, elem_aspect_eff )
     do ke=lmesh%NeS, lmesh%NeE
       vol = sum( elem%IntWeight_lgl(:) * lmesh%J(:,ke) )
-      lambda0 = Cs * filter_fac &
-              * ( vol / ( dble(elem%PolyOrder_h+1)**2 * dble(elem%PolyOrder_v+1) ) )**OneOverThree
+      he = ( vol / ( dble(elem%PolyOrder_h+1)**2 * dble(elem%PolyOrder_v+1) ) )**OneOverThree
+
+      FZ = ( lmesh%pos_en(elem%Colmask(elem%Nnode_v,1),ke,3) - lmesh%pos_en(elem%Colmask(1,1),ke,3) )      
+      elem_aspect_eff = fact( FZ/dble(elem%PolyOrder_v+1), sqrt(vol/FZ)/dble(elem%PolyOrder_h+1), sqrt(vol/FZ)/dble(elem%PolyOrder_h+1) )
+      lambda0 = elem_aspect_eff * Cs * filter_fac * he
 
       Zs(:) = lmesh%pos_en(elem%Hslice(:,1),lmesh%EMap3Dto2D(ke),3)
-      dz(:) = lmesh%pos_en(:,ke,3) - Zs(elem%IndexH2Dto3D(:))
+      Z1(:) = lmesh%pos_en(elem%Hslice(:,2),lmesh%EMap3Dto2D(ke),3)
+      dz(:) = max( lmesh%pos_en(:,ke,3) - Zs(elem%IndexH2Dto3D(:)), he )
 
       !lambda(:,ke) = sqrt( 1.0_RP / (1.0_RP / lambda0**2 + 1.0_RP / ( KARMAN * max( dz(:), EPS ) )**2 ) )
       lambda(:,ke) = sqrt( 1.0_RP / (1.0_RP / lambda0**2 + 1.0_RP / ( KARMAN * ( dz(:) + 1.0E-4_RP ) )**2 ) )    
@@ -717,5 +728,70 @@ contains
 
     return
   end subroutine calculate_lambda
+!OCL SERIAL
+  elemental function fact(dz, dx, dy)
+    implicit none
+    real(RP), intent(in) :: dz
+    real(RP), intent(in) :: dx
+    real(RP), intent(in) :: dy
+    real(RP) :: fact ! (out)
+
+    real(RP), parameter :: oot = -1.0_RP/3.0_RP
+    real(RP), parameter :: fot =  5.0_RP/3.0_RP
+    real(RP), parameter :: eot = 11.0_RP/3.0_RP
+    real(RP), parameter :: tof = -3.0_RP/4.0_RP
+    real(RP) :: a1, a2, b1, b2, dmax
+    !--------------------------------------------------------------------
+
+    dmax = max(dz, dx, dy)
+    if ( dz == dmax ) then
+       a1 = dx / dmax
+       a2 = dy / dmax
+    else if ( dx == dmax ) then
+       a1 = dz / dmax
+       a2 = dy / dmax
+    else ! dy == dmax
+       a1 = dz / dmax
+       a2 = dx / dmax
+    end if
+    b1 = atan( a1/a2 )
+    b2 = atan( a2/a1 )
+
+   fact = 1.736_RP * (a1*a2)**oot &
+         * ( 4.0_RP*p1(b1)*a1**oot + 0.222_RP*p2(b1)*a1**fot + 0.077*p3(b1)*a1**eot - 3.0_RP*b1 &
+           + 4.0_RP*p1(b2)*a2**oot + 0.222_RP*p2(b2)*a2**fot + 0.077*p3(b2)*a2**eot - 3.0_RP*b2 &
+           )**tof
+   return
+  end function fact
+!OCL SERIAL
+  elemental function p1(z)
+    implicit none
+    real(RP), intent(in) :: z
+    real(RP) :: p1 ! (out)
+    !--------------------------------------------------------------------
+
+    p1 = 2.5_RP * p2(z) - 1.5_RP * sin(z) * cos(z)**TwoOverThree
+    return
+  end function p1
+!OCL SERIAL
+  elemental function p2(z)
+    implicit none
+    real(RP), intent(in) :: z
+    real(RP) :: p2 ! (out)
+    !--------------------------------------------------------------------
+
+    p2 = 0.986_RP * z + 0.073_RP * z**2 - 0.418_RP * z**3 + 0.120_RP * z**4
+    return
+  end function p2
+!OCL SERIAL
+  elemental function p3(z)
+    implicit none
+    real(RP), intent(in) :: z
+    real(RP) :: p3 ! (out)
+    !--------------------------------------------------------------------
+
+    p3 = 0.976_RP * z + 0.188_RP * z**2 - 1.169_RP * z**3 + 0.755_RP * z**4 - 0.151_RP * z**5
+    return
+  end function p3
 
 end module scale_atm_phy_tb_dgm_smg
