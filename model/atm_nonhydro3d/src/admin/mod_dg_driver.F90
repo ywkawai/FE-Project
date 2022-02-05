@@ -166,6 +166,8 @@ contains
       !* output history files *************************
 
       if ( atmos%IsActivated() ) call atmos%vars%History()
+      if ( atmos%phy_tb_proc%IsActivated() ) call atmos%phy_tb_proc%vars%History()
+
 
       call FILE_HISTORY_meshfield_write
       
@@ -319,6 +321,8 @@ contains
 
     if ( atmos%isActivated() ) then
       call atmos%vars%History()
+      if ( atmos%phy_tb_proc%IsActivated() ) &
+        call atmos%phy_tb_proc%vars%History()
       call atmos%vars%Monitor()
     end if
 

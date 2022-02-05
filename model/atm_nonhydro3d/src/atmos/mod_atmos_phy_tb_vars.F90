@@ -61,6 +61,7 @@ module mod_atmos_phy_tb_vars
   contains
     procedure :: Init => AtmosPhyTbVars_Init
     procedure :: Final => AtmosPhyTbVars_Final
+    procedure :: History => AtmosPhyTbVars_history
   end type AtmosPhyTbVars
 
   integer, public, parameter :: ATMOS_PHY_TB_MOMX_t_ID  = 1
@@ -168,7 +169,7 @@ contains
     !-
     allocate( this%tends(ATMOS_PHY_TB_TENDS_NUM) )
 
-    reg_file_hist = .false.    
+    reg_file_hist = .true.    
     do v = 1, ATMOS_PHY_TB_TENDS_NUM
       call this%tends_manager%Regist(           &
         ATMOS_PHY_TB_TEND_VINFO(v), mesh3D,     & ! (in) 
@@ -182,7 +183,7 @@ contains
     !-
     allocate( this%auxvars(ATMOS_PHY_TB_AUX_NUM) )
 
-    reg_file_hist = .false.    
+    reg_file_hist = .true.    
     do v = 1, ATMOS_PHY_TB_AUX_NUM
       call this%auxvars_manager%Regist(         &
         ATMOS_PHY_TB_AUX_VINFO(v), mesh3D,      & ! (in) 
@@ -343,5 +344,32 @@ contains
 
     return
   end subroutine AtmosPhyTbVars_GetLocalMeshFields_aux
+
+!OCL SERIAL
+  subroutine AtmosPhyTbVars_history( this )
+    use scale_file_history_meshfield, only: FILE_HISTORY_meshfield_put
+    implicit none
+    class(AtmosPhyTbVars), intent(inout) :: this
+  
+    integer :: v
+    integer :: hst_id
+    type(MeshField3D) :: tmp_field
+    class(MeshBase3D), pointer :: mesh3D
+    !-------------------------------------------------------------------------
+
+    mesh3D => this%auxvars(1)%mesh
+
+    do v = 1, ATMOS_PHY_TB_TENDS_NUM
+      hst_id = this%tends(v)%hist_id
+      if ( hst_id > 0 ) call FILE_HISTORY_meshfield_put( hst_id, this%tends(v) )
+    end do
+
+    do v = 1, ATMOS_PHY_TB_AUX_NUM
+      hst_id = this%auxvars(v)%hist_id
+      if ( hst_id > 0 ) call FILE_HISTORY_meshfield_put( hst_id, this%auxvars(v) )
+    end do
+
+    return
+  end subroutine AtmosPhyTbVars_history
 
 end  module mod_atmos_phy_tb_vars
