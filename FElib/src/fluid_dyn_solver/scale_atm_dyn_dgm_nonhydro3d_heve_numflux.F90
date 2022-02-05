@@ -63,6 +63,12 @@ module scale_atm_dyn_dgm_nonhydro3d_heve_numflux
   integer, private, parameter :: VARS_DRHOT_ID  = 5
   integer, private, parameter :: PROG_VARS_NUM  = 5
 
+  logical :: numflx_flag_print = .true.
+  real(RP) :: NUMFLX_STAB_CsFact      = 1.0_RP
+  real(RP) :: NUMFLX_STAB_VelFact     = 1.0_RP
+  real(RP) :: NUMFLX_STAB_CsFact_MOM  = 1.0_RP
+  real(RP) :: NUMFLX_STAB_VelFact_MOM = 1.0_RP
+
 contains
  
 !OCL SERIAL
@@ -98,7 +104,7 @@ contains
     
     integer :: ke, i, iP(elem%NfpTot), iM(elem%NfpTot)
     integer :: ke2D
-    real(RP) :: VelP(elem%NfpTot), VelM(elem%NfpTot), alpha(elem%NfpTot)
+    real(RP) :: VelP(elem%NfpTot), VelM(elem%NfpTot), alpha(elem%NfpTot), alpha_v(elem%NfpTot)
     real(RP) :: dpresP(elem%NfpTot), dpresM(elem%NfpTot)
     real(RP) :: GsqrtDensM(elem%NfpTot), GsqrtDensP(elem%NfpTot)
     real(RP) :: GsqrtRhotM(elem%NfpTot), GsqrtRhotP(elem%NfpTot)
@@ -116,8 +122,30 @@ contains
 
     real(RP) :: gamm, rgamm    
     real(RP) :: rP0
-    real(RP) :: RovP0, P0ovR     
+    real(RP) :: RovP0, P0ovR    
+    
+    namelist / PARAM_ATMOS_DYN_DGM_NONHYDRO3D_HEVE_NUMFLUX / &
+      NUMFLX_STAB_CsFact_MOM, NUMFLX_STAB_VelFact_MOM, &
+      NUMFLX_STAB_CsFact, NUMFLX_STAB_VelFact
+    integer :: ierr
+
     !------------------------------------------------------------------------
+
+    if (numflx_flag_print) then
+      LOG_INFO('heve_numflux_get_generalvc',*) 'numflux_mod'
+      !--- read namelist
+      rewind(IO_FID_CONF)
+      read(IO_FID_CONF,nml=PARAM_ATMOS_DYN_DGM_NONHYDRO3D_HEVE_NUMFLUX,iostat=ierr)
+      if( ierr < 0 ) then !--- missing
+         LOG_INFO("ATMOS_DYN_DGM_NONHYDRO3D_HEVE_NUMFLUX",*) 'Not found namelist. Default used.'
+      elseif( ierr > 0 ) then !--- fatal error
+         LOG_ERROR("ATMOS_DYN_DGM_NONHYDRO3D_HEVE_NUMFLUX",*) 'Not appropriate names in namelist PARAM_ATMOS_DYN_DGM_NONHYDRO3D_HEVE_NUMFLUX. Check!'
+         call PRC_abort
+      endif
+      LOG_NML(PARAM_ATMOS_DYN_DGM_NONHYDRO3D_HEVE_NUMFLUX)
+  
+      numflx_flag_print = .false.
+    end if
 
     gamm  = CPDry / CvDry
     rgamm = CvDry / CpDry
@@ -127,7 +155,7 @@ contains
 
     !$omp parallel do private( &
     !$omp ke, iM, iP, ke2D,                                                             &
-    !$omp alpha, VelM, VelP,                                                            &
+    !$omp alpha, alpha_v, VelM, VelP,                                                            &
     !$omp dpresM, dpresP, GsqrtDensM, GsqrtDensP, GsqrtRhotM, GsqrtRhotP,               &
     !$omp GsqrtMOMX_M, GsqrtMOMX_P, GsqrtMOMY_M, GsqrtMOMY_P, GsqrtMOMZ_M, GsqrtMOMZ_P, &
     !$omp GsqrtDDENS_M, GsqrtDDENS_P, GsqrtDRHOT_M, GsqrtDRHOT_P,                       &
@@ -186,8 +214,20 @@ contains
       dpresP(:) = PRES00 * ( RovP0 * GsqrtRhotP(:) / Gsqrt_P(:) )**gamm &
                 - Phyd_P(:)
 
-      alpha(:) = max( sqrt( Gnn_M(:) * gamm * ( Phyd_M(:) + dpresM(:) ) * Gsqrt_M(:) / GsqrtDensM(:) ) + abs(VelM(:)), &
-                      sqrt( Gnn_P(:) * gamm * ( Phyd_P(:) + dpresP(:) ) * Gsqrt_P(:) / GsqrtDensP(:) ) + abs(VelP(:))  )
+      alpha(:)    = max( NUMFLX_STAB_CsFact * sqrt( Gnn_M(:) * gamm * ( Phyd_M(:) + dpresM(:) ) * Gsqrt_M(:) / GsqrtDensM(:) ) &
+                      + NUMFLX_STAB_VelFact * abs(VelM(:)), &
+                         NUMFLX_STAB_CsFact * sqrt( Gnn_P(:) * gamm * ( Phyd_P(:) + dpresP(:) ) * Gsqrt_P(:) / GsqrtDensP(:) ) &
+                      + NUMFLX_STAB_VelFact * abs(VelP(:))  )
+      alpha_v(:) = max( NUMFLX_STAB_CsFact_MOM * sqrt( Gnn_M(:) * gamm * ( Phyd_M(:) + dpresM(:) ) * Gsqrt_M(:) / GsqrtDensM(:) ) &
+                      + NUMFLX_STAB_VelFact_MOM * abs(VelM(:)), &
+                        NUMFLX_STAB_CsFact_MOM * sqrt( Gnn_P(:) * gamm * ( Phyd_P(:) + dpresP(:) ) * Gsqrt_P(:) / GsqrtDensP(:) ) &
+                      + NUMFLX_STAB_VelFact_MOM * abs(VelP(:))  )
+
+      where ( abs(nz(:,ke)) > 1.0E-12 .and. iP(:) > lmesh%Ne * elem%np  )
+        alpha(:)    = max( sqrt( Gnn_M(:) * gamm * ( Phyd_M(:) + dpresM(:) ) * Gsqrt_M(:) / GsqrtDensM(:) ) + abs(VelM(:)), &
+                           sqrt( Gnn_P(:) * gamm * ( Phyd_P(:) + dpresP(:) ) * Gsqrt_P(:) / GsqrtDensP(:) ) + abs(VelP(:))  )
+        alpha_v(:) = alpha(:)
+      end where
       
       del_flux(:,ke,VARS_DDENS_ID) = 0.5_RP * ( &
                     ( GsqrtDensP(:) * VelP(:) - GsqrtDensM(:) * VelM(:) )  &
@@ -197,19 +237,19 @@ contains
                     ( GsqrtMOMX_P(:) * VelP(:) - GsqrtMOMX_M(:) * VelM(:) )           &
                     + (  Gsqrt_P(:) * ( nx(:,ke) + G13_P(:) * nz(:,ke)) * dpresP(:)   &
                        - Gsqrt_M(:) * ( nx(:,ke) + G13_M(:) * nz(:,ke)) * dpresM(:) ) &
-                    - alpha(:) * ( GsqrtMOMX_P(:) - GsqrtMOMX_M(:) )                  )
+                    - alpha_v(:) * ( GsqrtMOMX_P(:) - GsqrtMOMX_M(:) )                  )
 
       del_flux(:,ke,VARS_MOMY_ID ) = 0.5_RP * ( &
                     ( GsqrtMOMY_P(:) * VelP(:) - GsqrtMOMY_M(:) * VelM(:) ) &
                     + (  Gsqrt_P(:) * ( ny(:,ke) + G23_P(:) * nz(:,ke)) * dpresP(:)   &
                        - Gsqrt_M(:) * ( ny(:,ke) + G23_M(:) * nz(:,ke)) * dpresM(:) ) &
-                    - alpha(:) * ( GsqrtMOMY_P(:) - GsqrtMOMY_M(:) )        )
+                    - alpha_v(:) * ( GsqrtMOMY_P(:) - GsqrtMOMY_M(:) )        )
 
       del_flux(:,ke,VARS_MOMZ_ID ) = 0.5_RP * ( &
                     ( GsqrtMOMZ_P(:) * VelP(:) - GsqrtMOMZ_M(:) * VelM(:) ) &
                     + (  Gsqrt_P(:) * dpresP(:) / GsqrtV_P(:)               &
                        - Gsqrt_M(:) * dpresM(:) / GsqrtV_M(:) ) * nz(:,ke)  &
-                    - alpha(:) * ( GsqrtMOMZ_P(:) - GsqrtMOMZ_M(:) )        )
+                    - alpha_v(:) * ( GsqrtMOMZ_P(:) - GsqrtMOMZ_M(:) )        )
                     
       del_flux(:,ke,VARS_DRHOT_ID) = 0.5_RP * ( &
                     ( GsqrtRhotP(:) * VelP(:) - GsqrtRhotM(:) * VelM(:) )   &
