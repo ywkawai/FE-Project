@@ -1,3 +1,11 @@
+!> module file_restart_meshfield
+!!
+!! @par Description
+!!           module for outputing data to restart simulations
+!!
+!! @author Team SCALE
+!!
+!<
 !-------------------------------------------------------------------------------
 #include "scaleFElib.h"
 module scale_file_restart_meshfield
