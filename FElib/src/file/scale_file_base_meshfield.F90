@@ -107,6 +107,19 @@ module scale_file_base_meshfield
     procedure :: Final => FILE_base_meshfield_Final
   end type FILE_base_meshfield
 
+  !-----------------------------------------------------------------------------
+  !
+  !++ Public parameters & variables
+  !
+  !-----------------------------------------------------------------------------
+  !
+  !++ Private procedures
+  !
+  !-------------------
+  
+  private :: def_axes
+  private :: write_axes
+  
 contains
 
   subroutine FILE_base_meshfield_Init( this, & ! (inout)
