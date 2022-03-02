@@ -82,11 +82,15 @@ contains
 
     !--
     LOG_INFO("regrid_mesh",*) 'Initialize mesh for output data..'
+    if( IO_L ) call flush(IO_FID_LOG)
+
     call out_mesh%Init( MESHOUT_ID, out_meshType )
     call out_mesh%Generate()
     
     !--
     LOG_INFO("regrid_mesh",*) 'Initialize node mapping ..'        
+    if( IO_L ) call flush(IO_FID_LOG)
+
     allocate( nodemap( out_mesh%NLocalMeshPerPRC ) )
     do n=1, size(nodemap)
       call nodemap(n)%Init( in_meshType, out_mesh )

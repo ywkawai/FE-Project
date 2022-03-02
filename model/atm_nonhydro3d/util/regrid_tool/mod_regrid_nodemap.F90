@@ -247,6 +247,8 @@ contains
     !-----------------------------------------------------------------
 
     LOG_INFO("regrid_nodemap",*) "NodeMap_construct_nodemap_2D_prep"    
+    if( IO_L ) call flush(IO_FID_LOG)
+
     Np2D = Np1D**2
     allocate( this%local_domID(Np2D, Ne2D) )
     allocate( this%lcprc(Np2D, Ne2D) )
@@ -273,6 +275,7 @@ contains
       Np1D, Ne2D, lcmesh )                 ! (in)
    
     LOG_INFO("regrid_nodemap",*) "NodeMap_construct_nodemap_2D_mapping"    
+    if( IO_L ) call flush(IO_FID_LOG)
 
     in_tile_num = 0
     in_prc_num  = 0
@@ -376,6 +379,7 @@ contains
 
     !-- prepair mesh for input data --------------------------------
     LOG_INFO("regrid_nodemap",*) "NodeMap_construct_nodemap_2D_mesh_gen"    
+    if( IO_L ) call flush(IO_FID_LOG)
 
     if ( do_mesh_generation ) then
 
@@ -436,6 +440,7 @@ contains
     allocate( this%elem_z(Np3D, Ne3D) )
 
     LOG_INFO("regrid_nodemap",*) "NodeMap_construct_nodemap_2D"
+    if( IO_L ) call flush(IO_FID_LOG)
 
     call NodeMap_construct_nodemap_2D( this, &
       in_meshtype_id, out_meshtype_id,             &
@@ -450,10 +455,17 @@ contains
     !-- prepair mesh for input data --------------------------------
 
     LOG_INFO("regrid_nodemap",*) "NodeMap_construct_nodemap_3D"
+    LOG_INFO("regrid_nodemap",*) "in_prc_num=", in_prc_num
+    if( IO_L ) call flush(IO_FID_LOG)
 
     allocate( this%in_mesh_list(in_prc_num) )
     do i=1, in_prc_num
+      LOG_INFO("regrid_nodemap",*) "i=", i
+      if( IO_L ) call flush(IO_FID_LOG)
+  
+      LOG_INFO("regrid_nodemap",*) "Init in_mesh .."
       call this%in_mesh_list(i)%Init( MESH_INID, in_meshtype_name )
+      LOG_INFO("regrid_nodemap",*) "Generate in_mesh .."
       call this%in_mesh_list(i)%Generate( myrank=in_lcprc2prc(i)-1 )
     end do
 

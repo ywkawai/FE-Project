@@ -197,11 +197,17 @@ contains
         call PRC_abort
     endif
     LOG_NML(PARAM_REGRID_TOOL)
+    if( IO_L ) call flush(IO_FID_LOG)
 
     !
     call regrid_mesh_Init()
+    if( IO_L ) call flush(IO_FID_LOG)
+
     call regrid_interp_field_Init( out_mesh )
+    if( IO_L ) call flush(IO_FID_LOG)
+
     call regrid_operate_field_Init( out_mesh )
+    if( IO_L ) call flush(IO_FID_LOG)
     
     if ( associated(out_mesh%ptr_mesh3D) ) then
       call vintrp%Init( out_mesh, nodemap )

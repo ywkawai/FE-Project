@@ -271,6 +271,9 @@ contains
 
     case( REGRID_MESHTYPE_STRUCTURED3D_ID )
 
+      LOG_INFO("regrid_nodemap",*) "Generate STRUCTURED3D mesh.."
+      if( IO_L ) call flush(IO_FID_LOG)
+
       if ( allocated( this%FZ ) ) then
         call this%mesh3D%Init( this%NeGX, this%NeGY, this%NeGZ,                                     &
           this%dom_xmin, this%dom_xmax, this%dom_ymin, this%dom_ymax, this%dom_zmin, this%dom_zmax, &
@@ -657,7 +660,12 @@ contains
     this%isPeriodicY = isPeriodicY
     this%isPeriodicZ = isPeriodicZ
 
+    LOG_INFO("regrid_nodemap",*) "setup FE 2D element.."
+    if( IO_L ) call flush(IO_FID_LOG)
     call this%elem2D%Init( PolyOrder_h, .true. )
+
+    LOG_INFO("regrid_nodemap",*) "setup FE 3D element.."
+    if( IO_L ) call flush(IO_FID_LOG)
     call this%elem3D%Init( PolyOrder_h, PolyOrder_v, .true. )
    
     is_spec_FZ = .true.    
