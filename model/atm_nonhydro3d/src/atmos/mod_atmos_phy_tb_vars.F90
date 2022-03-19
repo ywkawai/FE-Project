@@ -212,7 +212,10 @@ contains
     LOG_INFO('AtmosPhyTbVars_Final',*)
 
     call this%tends_manager%Final()
+    deallocate( this%tends )
+
     call this%auxvars_manager%Final()
+    deallocate( this%auxvars )
 
     return
   end subroutine AtmosPhyTbVars_Final

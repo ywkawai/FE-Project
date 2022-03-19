@@ -123,6 +123,7 @@ contains
 
     class(LocalMeshFieldBase), pointer :: DDENS, MOMX, MOMY, MOMZ, DRHOT
     class(LocalMeshFieldBase), pointer :: DENS_hyd, PRES_hyd
+    class(LocalMeshFieldBase), pointer :: Rtot, CPtot, CVtot
 
     integer :: n
     integer :: ke
@@ -143,9 +144,11 @@ contains
       ! call PROF_rapstart('_MkInit_main',3)   
       
       do n=1, mesh%LOCAL_MESH_NUM
-        call AtmosVars_GetLocalMeshPrgVars( n, mesh, atm_prgvars_manager, atm_auxvars_manager, &
-           DDENS, MOMX, MOMY, MOMZ, DRHOT,                                                     &
-           DENS_hyd, PRES_hyd, lcmesh3D                                                        )
+        call AtmosVars_GetLocalMeshPrgVars( n, &
+          mesh, atm_prgvars_manager, atm_auxvars_manager, &
+          DDENS, MOMX, MOMY, MOMZ, DRHOT,                 &
+          DENS_hyd, PRES_hyd, Rtot, CVtot, CPtot,         &
+          lcmesh3D                                        )
 
         !$omp parallel do
         do ke=lcmesh3D%NeS, lcmesh3D%NeE

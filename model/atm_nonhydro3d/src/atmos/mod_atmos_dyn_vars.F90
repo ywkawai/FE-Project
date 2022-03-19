@@ -319,10 +319,17 @@ contains
     LOG_INFO('AtmosDynVars_Final',*)
 
     call this%AUXVARS2D_manager%Final()
-    call this%MASS_FLUX_manager%Final()
-    call this%NUMDIFF_FLUX_manager%Final()
-    call this%NUMDIFF_TEND_manager%Final()
+    deallocate( this%AUX_VARS2D )
 
+    call this%MASS_FLUX_manager%Final()
+    deallocate( this%MASS_FLUX_VARS3D )
+
+    call this%NUMDIFF_FLUX_manager%Final()
+    deallocate( this%NUMDIFF_FLUX_VARS3D )
+
+    call this%NUMDIFF_TEND_manager%Final()
+    deallocate( this%NUMDIFF_TEND_VARS3D )
+    
     !call this%ANALYSISVARS_manager%Final()
 
     return

@@ -130,6 +130,7 @@ contains
     LOG_INFO('AtmosPhySfcVars_Final',*)
 
     call this%SFCFLX_manager%Final()
+    deallocate( this%SFC_FLX )
 
     return
   end subroutine AtmosPhySfcVars_Final

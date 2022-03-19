@@ -124,7 +124,7 @@ contains
 
       ! report current time
       call TIME_manager_checkstate
-  
+
       if (TIME_DOresume) then
         ! set state from restart file
         call restart_read
@@ -132,7 +132,7 @@ contains
         call FILE_MONITOR_meshfield_write('MAIN', TIME_NOWSTEP)
         call FILE_HISTORY_meshfield_write
       end if   
-
+      
       !* Advance time *********************************
 
       call TIME_manager_advance
@@ -308,7 +308,7 @@ contains
     if ( atmos%isActivated() ) then
       call atmos%vars%Read_restart_file( atmos%mesh )
     end if
-      
+    
     !- Calculate the tendencies
 
     if ( atmos%IsActivated() ) then

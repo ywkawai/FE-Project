@@ -21,7 +21,8 @@ module mod_atmos_component
 
   use scale_mesh_base, only: MeshBase
   use scale_localmesh_3d, only: LocalMesh3D
-  use scale_localmeshfield_base, only: LocalMeshFieldBase
+  use scale_localmeshfield_base, only: &
+    LocalMeshFieldBase, LocalMeshFieldBaseList
   use scale_model_component, only: ModelComponent
   use scale_model_mesh_manager, only: ModelMesh3D
 
@@ -83,9 +84,14 @@ contains
   subroutine Atmos_setup( this )
     use scale_const, only: &
       UNDEF8 => CONST_UNDEF8
+    
     use scale_atmos_hydrometeor, only: &
       ATMOS_HYDROMETEOR_dry,   &
       ATMOS_HYDROMETEOR_regist    
+    use scale_atmos_thermodyn, only: &
+      ATMOS_THERMODYN_setup
+    use scale_atmos_saturation, only: &
+      ATMOS_SATURATION_setup
 
     use scale_file_history_meshfield, only: &
       FILE_HISTORY_meshfield_setup  
@@ -169,6 +175,11 @@ contains
       call PRC_abort    
     end select
     
+    !- setup common tools for atmospheric model
+
+    call ATMOS_THERMODYN_setup
+    call ATMOS_SATURATION_setup
+
     !- Setup each processes in atmospheric model ------------------------------------
       
     !- Setup the module for atmosphere / dynamics 
@@ -201,6 +212,9 @@ contains
       this%phy_mp_proc%vars%QE = this%phy_mp_proc%vars%QS    
     end if
 
+    LOG_NEWLINE
+    LOG_INFO('AtmosComponent_setup',*) 'Finish setup of each atmospheric components.'
+
     call PROF_rapend( 'ATM_setup', 1)
 
     return
@@ -224,10 +238,10 @@ contains
 
 !OCL SERIAL
   subroutine Atmos_calc_tendency( this )
-
+    use scale_tracer, only: QA
     use mod_atmos_vars, only: &
       AtmosVars_GetLocalMeshPhyTends, &
-      ATMOS_PHYTEND_NUM,                &
+      ATMOS_PHYTEND_NUM1,               &
       DENS_tp => ATMOS_PHYTEND_DENS_ID, &
       MOMX_tp => ATMOS_PHYTEND_MOMX_ID, &
       MOMY_tp => ATMOS_PHYTEND_MOMY_ID, &
@@ -241,21 +255,23 @@ contains
 
     class(MeshBase), pointer :: mesh
     class(LocalMesh3D), pointer :: lcmesh
-    type :: PhysTendPtrList
-      class(LocalMeshFieldBase), pointer :: ptr => null()
-    end type PhysTendPtrList
-    type(PhysTendPtrList) :: tp_list(ATMOS_PHYTEND_NUM)
+    type(LocalMeshFieldBaseList) :: tp_list(ATMOS_PHYTEND_NUM1)
+    type(LocalMeshFieldBaseList) :: tp_qtrc(QA)
 
     integer :: tm_process_id
     logical :: is_update
     integer :: n
     integer :: v
+    integer :: iq
     integer :: ke
     !------------------------------------------------------------------
     
     call PROF_rapstart( 'ATM_tendency', 1)
     !LOG_INFO('AtmosComponent_calc_tendency',*)
 
+    !########## Get Surface Boundary from coupler ##########
+    
+    
     !########## calculate tendency ##########
 
     !* Exchange halo data ( for physics )
@@ -267,30 +283,45 @@ contains
 
     call this%mesh%GetModelMesh( mesh )  
     do n=1, mesh%LOCAL_MESH_NUM
-      call AtmosVars_GetLocalMeshPhyTends( n, mesh, this%vars%PHYTENDS_manager ,  & ! (in)
-        tp_list(DENS_tp)%ptr, tp_list(MOMX_tp)%ptr, tp_list(MOMY_tp)%ptr,         & ! (out)
-        tp_list(MOMZ_tp)%ptr, tp_list(RHOT_tp)%ptr, tp_list(RHOH_p )%ptr, lcmesh  ) ! (out)
+      call AtmosVars_GetLocalMeshPhyTends( n, mesh, this%vars%PHYTENDS_manager ,   & ! (in)
+        tp_list(DENS_tp)%ptr, tp_list(MOMX_tp)%ptr, tp_list(MOMY_tp)%ptr,          & ! (out)
+        tp_list(MOMZ_tp)%ptr, tp_list(RHOT_tp)%ptr, tp_list(RHOH_p )%ptr, tp_qtrc, & ! (out)
+        lcmesh                                                                     ) ! (out)
       
-      !$omp parallel do collapse(2)
-      do v=1, ATMOS_PHYTEND_NUM
+      !$omp parallel private(v,iq,ke)
+      !$omp do collapse(2)
+      do v=1, ATMOS_PHYTEND_NUM1
       do ke=lcmesh%NeS, lcmesh%NeE
         tp_list(v)%ptr%val(:,ke) = 0.0_RP
       end do
       end do
+      !$omp do collapse(2)
+      do iq=1, QA
+      do ke=lcmesh%NeS, lcmesh%NeE
+        tp_qtrc(iq)%ptr%val(:,ke) = 0.0_RP
+      end do
+      end do
+      !$omp end do
+      !$omp end parallel
     end do
 
-    ! Surface flux
-    if ( this%phy_sfc_proc%IsActivated() ) then
-      call PROF_rapstart('ATM_SurfaceFlux', 1)
-      tm_process_id = this%phy_sfc_proc%tm_process_id
+    ! Cloud Microphysics
+
+    if ( this%phy_mp_proc%IsActivated() ) then
+      call PROF_rapstart('ATM_Microphysics', 1)
+      tm_process_id = this%phy_mp_proc%tm_process_id
       is_update = this%time_manager%Do_process(tm_process_id)
-      call this%phy_sfc_proc%calc_tendency( &
+      call this%phy_mp_proc%calc_tendency( &
           this%mesh, this%vars%PROGVARS_manager, this%vars%QTRCVARS_manager, &
           this%vars%AUXVARS_manager, this%vars%PHYTENDS_manager, is_update   )
-      call PROF_rapend('ATM_SurfaceFlux', 1)
+      call PROF_rapend('ATM_Microphysics', 1)
     end if
     
+    ! Radiation
+
+
     ! Turbulence
+
     if ( this%phy_tb_proc%IsActivated() ) then
       call PROF_rapstart('ATM_Turbulence', 1)
       tm_process_id = this%phy_tb_proc%tm_process_id
@@ -301,10 +332,32 @@ contains
       call PROF_rapend('ATM_Turbulence', 1)
     end if
 
+    ! Cumulus
+
+
+!    if ( .not. CPL_sw ) then    
+    
+    ! Surface flux
+    
+    if ( this%phy_sfc_proc%IsActivated() ) then
+      call PROF_rapstart('ATM_SurfaceFlux', 1)
+      tm_process_id = this%phy_sfc_proc%tm_process_id
+      is_update = this%time_manager%Do_process(tm_process_id)
+      call this%phy_sfc_proc%calc_tendency( &
+          this%mesh, this%vars%PROGVARS_manager, this%vars%QTRCVARS_manager, &
+          this%vars%AUXVARS_manager, this%vars%PHYTENDS_manager, is_update   )
+      call PROF_rapend('ATM_SurfaceFlux', 1)
+    end if
+    
+    ! Planetary Boundary layer
+
+!   end if
+
     call PROF_rapend( 'ATM_tendency', 1)
     return  
   end subroutine Atmos_calc_tendency
 
+!OCL SERIAL
   subroutine Atmos_update( this )
     implicit none
     class(AtmosComponent), intent(inout) :: this

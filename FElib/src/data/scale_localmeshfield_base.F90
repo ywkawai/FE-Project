@@ -32,6 +32,10 @@ module scale_localmeshfield_base
     real(RP), allocatable :: val(:,:)
   end type LocalMeshFieldBase
 
+  type, public :: LocalMeshFieldBaseList
+    class(LocalMeshFieldBase), pointer :: ptr
+  end type LocalMeshFieldBaseList
+
   type, extends(LocalMeshFieldBase), public :: LocalMeshField1D
     type(LocalMesh1D), pointer :: mesh => null()
   contains

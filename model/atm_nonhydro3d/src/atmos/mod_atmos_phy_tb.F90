@@ -185,6 +185,7 @@ contains
     class(LocalMeshFieldBase), pointer :: DDENS, MOMX, MOMY, MOMZ, DRHOT
     class(LocalMeshFieldBase), pointer :: DENS_hyd, PRES_hyd
     class(LocalMeshFieldBase), pointer :: PRES, PT
+    class(LocalMeshFieldBase), pointer :: Rtot, CVtot, CPtot
     class(LocalMeshFieldBase), pointer :: DENS_tp, MOMX_tp, MOMY_tp, MOMZ_tp, RHOT_tp, RHOH_P
     class(LocalMeshFieldBase), pointer :: tb_MOMX_t, tb_MOMY_t, tb_MOMZ_t, tb_RHOT_t, tb_RHOQ_t
     class(LocalMeshFieldBase), pointer :: S11, S12, S22, S23, S31, S33, TKE
@@ -206,10 +207,11 @@ contains
     call model_mesh%GetModelMesh( mesh )
     do n=1, mesh%LOCAL_MESH_NUM
       call PROF_rapstart('ATM_PHY_TB_get_localmesh_ptr', 2)         
-      call AtmosVars_GetLocalMeshPrgVars( n,  &
-        mesh, prgvars_list, auxvars_list,     &
-        DDENS, MOMX, MOMY, MOMZ, DRHOT,       &
-        DENS_hyd, PRES_hyd, lcmesh            )      
+      call AtmosVars_GetLocalMeshPrgVars( n, &
+        mesh, prgvars_list, auxvars_list,       &
+        DDENS, MOMX, MOMY, MOMZ, DRHOT,         &
+        DENS_hyd, PRES_hyd, Rtot, CVtot, CPtot, &
+        lcmesh                                  )      
       call AtmosVars_GetLocalMeshPhyAuxVars( n,      &
         mesh, auxvars_list,                          &
         PRES, PT )
@@ -256,10 +258,11 @@ contains
 
     do n=1, mesh%LOCAL_MESH_NUM
       call PROF_rapstart('ATM_PHY_TB_get_localmesh_ptr', 2)         
-      call AtmosVars_GetLocalMeshPrgVars( n,  &
-        mesh, prgvars_list, auxvars_list,     &
-        DDENS, MOMX, MOMY, MOMZ, DRHOT,       &
-        DENS_hyd, PRES_hyd, lcmesh            )
+      call AtmosVars_GetLocalMeshPrgVars( n, &
+        mesh, prgvars_list, auxvars_list,       &
+        DDENS, MOMX, MOMY, MOMZ, DRHOT,         &
+        DENS_hyd, PRES_hyd, Rtot, CVtot, CPtot, &
+        lcmesh                                  )
       call AtmosVars_GetLocalMeshPhyAuxVars( n,      &
         mesh, auxvars_list,                          &
         PRES, PT )

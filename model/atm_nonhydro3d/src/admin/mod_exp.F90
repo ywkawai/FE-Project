@@ -166,6 +166,7 @@ contains
 
     class(LocalMeshFieldBase), pointer :: DDENS, MOMX, MOMY, MOMZ, DRHOT
     class(LocalMeshFieldBase), pointer :: DENS_hyd, PRES_hyd
+    class(LocalMeshFieldBase), pointer :: Rtot, CVtot, CPtot
 
     integer :: n
     class(LocalMesh3D), pointer :: lcmesh3D
@@ -184,9 +185,11 @@ contains
     mesh => model_mesh%ptr_mesh
     
     do n=1, mesh%LOCAL_MESH_NUM
-      call AtmosVars_GetLocalMeshPrgVars( n, mesh, atm_prgvars_manager, atm_auxvars_manager, &
-        DDENS, MOMX, MOMY, MOMZ, DRHOT,                                                      &
-        DENS_hyd, PRES_hyd, lcmesh3D                                                         )
+      call AtmosVars_GetLocalMeshPrgVars( n, &
+        mesh, atm_prgvars_manager, atm_auxvars_manager, &
+        DDENS, MOMX, MOMY, MOMZ, DRHOT,                 &
+        DENS_hyd, PRES_hyd, Rtot, CVtot, CPtot,         &
+        lcmesh3D                                        )
       
       do iq=1, QA
         call AtmosVars_GetLocalMeshQTRCVar( n, mesh, atm_trcvars_manager, &
@@ -235,9 +238,11 @@ contains
 
     !--------------------------------
     do n=1, mesh%LOCAL_MESH_NUM
-      call AtmosVars_GetLocalMeshPrgVars( n, mesh, atm_prgvars_manager, atm_auxvars_manager, &
-        DDENS, MOMX, MOMY, MOMZ, DRHOT,                                                     &
-        DENS_hyd, PRES_hyd, lcmesh3D                                                        )
+      call AtmosVars_GetLocalMeshPrgVars( n, &
+        mesh, atm_prgvars_manager, atm_auxvars_manager, &
+        DDENS, MOMX, MOMY, MOMZ, DRHOT,                 &
+        DENS_hyd, PRES_hyd, Rtot, CVtot, CPtot,         &
+        lcmesh3D                                        )
 
       call this%geostrophic_balance_correction_lc( &
         DENS_hyd%val, PRES_hyd%val,                                                         & ! (out)

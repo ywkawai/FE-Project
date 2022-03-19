@@ -141,6 +141,7 @@ contains
     QTRC_dt,                                                   & ! (out)
     QTRC_, MOMX_, MOMY_, MOMZ_,                                & ! (in)
     fct_coef,                                                  & ! (in)
+    RHOQ_tp,                                                   & ! (in)
     Dx, Dy, Dz, Sx, Sy, Sz, Lift, lmesh, elem, lmesh2D, elem2D ) ! (in)
 
     class(LocalMesh3D), intent(in) :: lmesh
@@ -155,6 +156,7 @@ contains
     real(RP), intent(in) :: MOMY_(elem%Np,lmesh%NeA)    
     real(RP), intent(in) :: MOMZ_(elem%Np,lmesh%NeA)    
     real(RP), intent(in) :: fct_coef(elem%Np,lmesh%NeA)
+    real(RP), intent(in) :: RHOQ_tp(elem%Np,lmesh%NeA)
 
     real(RP) :: Fx(elem%Np), Fy(elem%Np), Fz(elem%Np), LiftDelFlx(elem%Np)    
     real(RP) :: del_flux(elem%NfpTot,lmesh%Ne)
@@ -163,6 +165,7 @@ contains
     integer :: ke, ke2d 
 
     real(RP) :: Q0, Q1, vol
+    integer :: p
     !---------------------------------------------------------------------------
     
     call PROF_rapstart('cal_trcadv_tend_bndflux', 3)
@@ -191,11 +194,13 @@ contains
       call sparsemat_matmul(Dz, lmesh%Gsqrt(:,ke) * momwt_(:) * QTRC_(:,ke)  , Fz)
       call sparsemat_matmul(Lift, lmesh%Fscale(:,ke) * del_flux(:,ke), LiftDelFlx)
 
-      QTRC_dt(:,ke) = - ( &
-            lmesh%Escale(:,ke,1,1) * Fx(:)     &
-          + lmesh%Escale(:,ke,2,2) * Fy(:)     &
-          + lmesh%Escale(:,ke,3,3) * Fz(:)     &
-          + LiftDelFlx(:) ) / lmesh%Gsqrt(:,ke)
+      QTRC_dt(:,ke) = ( &
+          - lmesh%Escale(:,ke,1,1) * Fx(:)     &
+          - lmesh%Escale(:,ke,2,2) * Fy(:)     &
+          - lmesh%Escale(:,ke,3,3) * Fz(:)     &
+          - LiftDelFlx(:)                   )  &
+          / lmesh%Gsqrt(:,ke)                  &
+          + RHOQ_tp(:,ke)                   
     end do
     call PROF_rapend('cal_trcadv_tend_interior', 3)
 
@@ -320,9 +325,9 @@ contains
     implicit none
 
     class(LocalMesh3D), intent(in) :: lmesh
-    class(elementbase3D), intent(in) :: elem  
+    class(ElementBase3D), intent(in) :: elem  
     class(LocalMesh2D), intent(in) :: lmesh2D
-    class(elementbase2D), intent(in) :: elem2D
+    class(ElementBase2D), intent(in) :: elem2D
     real(RP), intent(out) ::  del_flux(elem%NfpTot,lmesh%Ne)
     real(RP), intent(in) ::  QTRC_(elem%Np*lmesh%NeA)
     real(RP), intent(in) ::  MOMX_(elem%Np*lmesh%NeA)  
@@ -410,14 +415,14 @@ contains
         do p=1, elem%Nfp_h
           fp = p + (f-1)*elem%Nfp_h
           del_flux(fp,ke) = numflux(fp) * 0.5_RP * ( R_P(fp) + R_M(fp) - ( R_P(fp) - R_M(fp) ) * sign( 1.0_RP, outward_flux_tmp(f) ) ) &
-                      - QTRC_M(fp) * MomFlxM(fp)    
+                          - QTRC_M(fp) * MomFlxM(fp)    
         end do
       end do 
       do f=1, elem%Nfaces_v
         do p=1, elem%Nfp_v
           fp = p + (f-1)*elem%Nfp_v + elem%Nfaces_h * elem%Nfp_h
           del_flux(fp,ke) = numflux(fp) * 0.5_RP * ( R_P(fp) + R_M(fp) - ( R_P(fp) - R_M(fp) ) * sign( 1.0_RP, outward_flux_tmp(elem%Nfaces_h+f) ) ) &
-                      - QTRC_M(fp) * MomFlxM(fp) 
+                          - QTRC_M(fp) * MomFlxM(fp) 
         end do
       end do                     
     end do

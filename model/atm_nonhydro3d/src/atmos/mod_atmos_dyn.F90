@@ -35,7 +35,8 @@ module mod_atmos_dyn
     ElementBase, ElementBase2D, ElementBase3D
     
   use scale_meshfield_base, only: MeshFieldBase
-  use scale_localmeshfield_base, only: LocalMeshFieldBase
+  use scale_localmeshfield_base, only: &
+    LocalMeshFieldBase, LocalMeshFieldBaseList
 
   use scale_model_mesh_manager, only: ModelMeshBase
   use scale_model_var_manager, only: ModelVarManager
@@ -92,6 +93,7 @@ module mod_atmos_dyn
     AtmosVars_GetLocalMeshPrgVar,        &
     AtmosVars_GetLocalMeshPrgVars,       &
     AtmosVars_GetLocalMeshQTRCVar,       &
+    AtmosVars_GetLocalMeshQTRCPhyTend,   &
     ATMOS_PROGVARS_NUM,                  &
     DDENS_ID => ATMOS_PROGVARS_DDENS_ID, &
     DRHOT_ID => ATMOS_PROGVARS_DRHOT_ID, &
@@ -116,6 +118,7 @@ module mod_atmos_dyn
     subroutine atm_dyn_nonhydro3d_cal_tend_ex( &
       DENS_dt, MOMX_dt, MOMY_dt, MOMZ_dt, RHOT_dt,                                & ! (out)
       DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd, CORIOLIS,          & ! (in)
+      Rtot, CVtot, CPtot,                                                         & ! (in)
       SL_flag, wdamp_tau, wdamp_height, hveldamp_flag,                            & ! (in)
       Dx, Dy, Dz, Sx, Sy, Sz, Lift, lmesh, elem, lmesh2D, elem2D )
 
@@ -145,6 +148,9 @@ module mod_atmos_dyn
       real(RP), intent(in)  :: DENS_hyd(elem%Np,lmesh%NeA)
       real(RP), intent(in)  :: PRES_hyd(elem%Np,lmesh%NeA)
       real(RP), intent(in)  :: CORIOLIS(elem2D%Np,lmesh2D%NeA)
+      real(RP), intent(in)  :: Rtot(elem%Np,lmesh%NeA)
+      real(RP), intent(in)  :: CVtot(elem%Np,lmesh%NeA)
+      real(RP), intent(in)  :: CPtot(elem%Np,lmesh%NeA)
       logical, intent(in)   :: SL_flag
       real(RP), intent(in)  :: wdamp_tau
       real(RP), intent(in)  :: wdamp_height
@@ -157,6 +163,7 @@ module mod_atmos_dyn
       DENS_dt, MOMX_dt, MOMY_dt, MOMZ_dt, RHOT_dt,             & ! (out)
       DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd, & ! (in)
       DDENS0_, MOMX0_, MOMY0_, MOMZ0_, DRHOT0_,                & ! (in) 
+      Rtot, CVtot, CPtot,                                      & ! (in)
       Dz, Lift,                                                & ! (in)
       modalFilterFlag, VModalFilter,                           & ! (in)
       impl_fac, dt,                                            & ! (in)
@@ -191,7 +198,10 @@ module mod_atmos_dyn
       real(RP), intent(in)  :: MOMX0_(elem%Np,lmesh%NeA)
       real(RP), intent(in)  :: MOMY0_(elem%Np,lmesh%NeA)
       real(RP), intent(in)  :: MOMZ0_(elem%Np,lmesh%NeA)
-      real(RP), intent(in)  :: DRHOT0_(elem%Np,lmesh%NeA)      
+      real(RP), intent(in)  :: DRHOT0_(elem%Np,lmesh%NeA)
+      real(RP), intent(in)  :: Rtot(elem%Np,lmesh%NeA)
+      real(RP), intent(in)  :: CVtot(elem%Np,lmesh%NeA)
+      real(RP), intent(in)  :: CPtot(elem%Np,lmesh%NeA)
       class(SparseMat), intent(in) :: Dz, Lift
       logical, intent(in) :: modalFilterFlag
       class(ModalFilter), intent(in) :: VModalFilter
@@ -475,11 +485,15 @@ contains
     class(LocalMeshFieldBase), pointer :: DDENS, MOMX, MOMY, MOMZ, DRHOT
     class(LocalMeshFieldBase), pointer :: DENS_hyd, PRES_hyd
     class(LocalMeshFieldBase), pointer :: Coriolis
+    class(LocalMeshFieldBase), pointer :: Rtot, CVtot, CPtot
     class(LocalMeshFieldBase), pointer :: MFLX_x_tavg, MFLX_y_tavg, MFLX_z_tavg
     class(LocalMeshFieldBase), pointer :: QTRC
+    class(LocalMeshFieldBase), pointer :: RHOQ_tp
+
 
 !    class(LocalMeshFieldBase), pointer :: MOMZ_t, MOMZ_t_advx, MOMZ_t_advY, MOMZ_t_advZ, MOMZ_t_lift, MOMZ_t_buoy
     integer :: v
+    integer :: iq
     integer :: nRKstage
     real(RP) :: implicit_fac
     real(RP) :: dt
@@ -507,7 +521,7 @@ contains
           call AtmosVars_GetLocalMeshPrgVars( n, &
             mesh, prgvars_list, auxvars_list,                               &
             DDENS, MOMX, MOMY, MOMZ, DRHOT,                                 &
-            DENS_hyd, PRES_hyd, lcmesh                                      )
+            DENS_hyd, PRES_hyd, Rtot, CVtot, CPtot, lcmesh                  )
           call PROF_rapend( 'ATM_DYN_get_localmesh_ptr', 2)   
 
           if (rkstage==1) then
@@ -538,6 +552,7 @@ contains
             this%tint(n)%var0_2D(:,:,DDENS_ID), this%tint(n)%var0_2D(:,:,MOMX_ID),  & ! (in)
             this%tint(n)%var0_2D(:,:,MOMY_ID ), this%tint(n)%var0_2D(:,:,MOMZ_ID),  & ! (in)
             this%tint(n)%var0_2D(:,:,DRHOT_ID ),                                    & ! (in)
+            Rtot%val, CVtot%val, CPtot%val,                                         & ! (in)
             model_mesh%DOptrMat(3), model_mesh%LiftOptrMat,                         & ! (in)
             this%MODALFILTER_FLAG, this%modal_filter_v1D,                           & ! (in)
             implicit_fac, dt,                                                       & ! (in)
@@ -572,9 +587,10 @@ contains
       do n=1, mesh%LOCAL_MESH_NUM
         call PROF_rapstart( 'ATM_DYN_get_localmesh_ptr', 2)         
         call AtmosVars_GetLocalMeshPrgVars( n, &
-          mesh, prgvars_list, auxvars_list,                               &
-          DDENS, MOMX, MOMY, MOMZ, DRHOT,                                 &
-          DENS_hyd, PRES_hyd, lcmesh                                      )
+          mesh, prgvars_list, auxvars_list,           &
+          DDENS, MOMX, MOMY, MOMZ, DRHOT,             &
+          DENS_hyd, PRES_hyd, Rtot, CPtot, CVtot,     &
+          lcmesh                                      )
         call PROF_rapend( 'ATM_DYN_get_localmesh_ptr', 2)         
         
         !* Apply boundary conditions
@@ -595,9 +611,10 @@ contains
 
         call PROF_rapstart( 'ATM_DYN_get_localmesh_ptr', 2)         
         call AtmosVars_GetLocalMeshPrgVars( n, &
-          mesh, prgvars_list, auxvars_list,    &
-          DDENS, MOMX, MOMY, MOMZ, DRHOT,      &
-          DENS_hyd, PRES_hyd, lcmesh           )
+          mesh, prgvars_list, auxvars_list,        &
+          DDENS, MOMX, MOMY, MOMZ, DRHOT,          &
+          DENS_hyd, PRES_hyd, Rtot, CVtot, CPtot,  &
+          lcmesh                                   )
         
         call AtmosDynAuxVars_GetLocalMeshFields( n,      &
           mesh, this%dyn_vars%AUXVARS2D_manager,         &
@@ -614,6 +631,7 @@ contains
           DDENS%val, MOMX%val, MOMY%val, MOMZ%val, DRHOT%val,                     &
           DENS_hyd%val, PRES_hyd%val,                                             &
           Coriolis%val,                                                           &
+          Rtot%val, CVtot%val, CPtot%val,                                         & 
           this%SPONGELAYER_FLAG, this%wdamp_tau, this%wdamp_height,               &
           this%hvel_damp_flag,                                                    &
           model_mesh%DOptrMat(1), model_mesh%DOptrMat(2), model_mesh%DOptrMat(3), &
@@ -625,7 +643,9 @@ contains
         call PROF_rapstart( 'ATM_DYN_update_add_tp', 2)
         call add_phy_tend( &
           this, this%tint(n)%tend_buf2D_ex(:,:,:,tintbuf_ind), & ! (inout)
-          DRHOT%val, PRES_hyd%val, forcing_list,               & ! (in)
+          DRHOT%val, PRES_hyd%val,                             & ! (in)
+          Rtot%val, CVtot%val, CPtot%val,                      & ! (in)
+          forcing_list,                                        & ! (in)
           mesh, n, lcmesh, lcmesh%refElem3D                    ) ! (in)
         call PROF_rapend( 'ATM_DYN_update_add_tp', 2)
 
@@ -685,7 +705,7 @@ contains
         call AtmosVars_GetLocalMeshPrgVars( n, &
           mesh, prgvars_list, auxvars_list,                               &
           DDENS, MOMX, MOMY, MOMZ, DRHOT,                                 &
-          DENS_hyd, PRES_hyd, lcmesh                                      )
+          DENS_hyd, PRES_hyd, Rtot, CVtot, CPtot, lcmesh                  )
         call PROF_rapend( 'ATM_DYN_get_localmesh_ptr', 2)
 
         call PROF_rapstart( 'ATM_DYN_update_expfilter', 2)
@@ -713,9 +733,10 @@ contains
         dt = this%tint(n)%Get_deltime()
 
         call AtmosVars_GetLocalMeshPrgVars( n, &
-          mesh, prgvars_list, auxvars_list,    &
-          DDENS, MOMX, MOMY, MOMZ, DRHOT,      &
-          DENS_hyd, PRES_hyd, lcmesh           )
+          mesh, prgvars_list, auxvars_list,       &
+          DDENS, MOMX, MOMY, MOMZ, DRHOT,         &
+          DENS_hyd, PRES_hyd, Rtot, CVtot, CPtot, &
+          lcmesh                                  )
         !$omp parallel do
         do ke=1, lcmesh%Ne
          DDENS%val(:,ke) = DDENS%val(:,ke) + dt * this%tint(n)%tend_buf2D_ex(:,ke,DDENS_ID,1)
@@ -738,9 +759,10 @@ contains
         do n=1, mesh%LOCAL_MESH_NUM
           call PROF_rapstart( 'ATM_DYN_get_localmesh_ptr', 3) 
           call AtmosVars_GetLocalMeshPrgVars( n, &
-            mesh, prgvars_list, auxvars_list,                               &
-            DDENS, MOMX, MOMY, MOMZ, DRHOT,                                 &
-            DENS_hyd, PRES_hyd, lcmesh                                      )  
+            mesh, prgvars_list, auxvars_list,       &
+            DDENS, MOMX, MOMY, MOMZ, DRHOT,         &
+            DENS_hyd, PRES_hyd, Rtot, CVtot, CPtot, &
+            lcmesh                                  )
                        
           call AtmosDynMassFlux_GetLocalMeshFields( n, &
             mesh, this%dyn_vars%MASS_FLUX_manager,     &
@@ -765,10 +787,11 @@ contains
       do n=1, mesh%LOCAL_MESH_NUM
         call PROF_rapstart( 'ATM_DYN_get_localmesh_ptr', 3) 
         call AtmosVars_GetLocalMeshPrgVars( n, &
-          mesh, prgvars_list, auxvars_list,                               &
-          DDENS, MOMX, MOMY, MOMZ, DRHOT,                                 &
-          DENS_hyd, PRES_hyd, lcmesh                                      )  
-                     
+          mesh, prgvars_list, auxvars_list,       &
+          DDENS, MOMX, MOMY, MOMZ, DRHOT,         &
+          DENS_hyd, PRES_hyd, Rtot, CVtot, CPtot, &
+          lcmesh                                  )
+                   
         call AtmosDynMassFlux_GetLocalMeshFields( n, &
           mesh, this%dyn_vars%MASS_FLUX_manager,     &
           MFLX_x_tavg, MFLX_y_tavg, MFLX_z_tavg,     &          
@@ -786,11 +809,11 @@ contains
         call PROF_rapend( 'ATM_DYN_applyBC_mflux', 3)
       end do
 
-      do v=1, QA
+      do iq=1, QA
         do n=1, mesh%LOCAL_MESH_NUM
           call PROF_rapstart( 'ATM_DYN_get_localmesh_qtrc', 3)
           call AtmosVars_GetLocalMeshQTRCVar( n,       &
-            mesh, trcvars_list, v,                     &
+            mesh, trcvars_list, iq,                    &
             QTRC, lcmesh                               )
           !$omp parallel do
           do ke=lcmesh%NeS, lcmesh%NeE
@@ -840,7 +863,11 @@ contains
               lcmesh                                     )
             call AtmosVars_GetLocalMeshPrgVar( n, &
               mesh, prgvars_list, auxvars_list,   &
-              DDENS_ID, DDENS, DENS_hyd           )  
+              DDENS_ID, DDENS, DENS_hyd           )
+
+            call AtmosVars_GetLocalMeshQTRCPhyTend( n, &
+              mesh, forcing_list, iq,                  &
+              RHOQ_tp                                  )
             call PROF_rapend( 'ATM_DYN_get_localmesh_ptr', 3)
 
             call PROF_rapstart( 'ATM_DYN_update_caltend_ex_qtrc', 3)            
@@ -848,7 +875,8 @@ contains
               this%tint_qtrc(n)%tend_buf2D_ex(:,:,1,tintbuf_ind),                     & ! (out)
               trcvars_list%comm_list(1)%field3d%local(n)%val,                         & ! (in)
               MFLX_x_tavg%val, MFLX_y_tavg%val, MFLX_z_tavg%val,                      & ! (in)
-              this%dyn_vars%AUX_TRCVARS3D(1)%local(n)%val,                            & ! (in) 
+              this%dyn_vars%AUX_TRCVARS3D(1)%local(n)%val,                            & ! (in)
+              RHOQ_tp%val,                                                            & ! (in) 
               model_mesh%DOptrMat(1), model_mesh%DOptrMat(2), model_mesh%DOptrMat(3), & ! (in)
               model_mesh%SOptrMat(1), model_mesh%SOptrMat(2), model_mesh%SOptrMat(3), & ! (in)
               model_mesh%LiftOptrMat,                                                 & ! (in)
@@ -878,7 +906,7 @@ contains
         do n=1, mesh%LOCAL_MESH_NUM
           call PROF_rapstart( 'ATM_DYN_get_localmesh_qtrc', 3)
           call AtmosVars_GetLocalMeshQTRCVar( n,       &
-            mesh, trcvars_list, v,                     &
+            mesh, trcvars_list, iq,                    &
             QTRC, lcmesh                               )
           !$omp parallel do
           do ke=lcmesh%NeS, lcmesh%NeE
@@ -953,6 +981,7 @@ contains
   subroutine add_phy_tend( this,      & ! (in)
     dyn_tends,                        & ! (inout)
     DRHOT, PRES_hyd,                  & ! (in)
+    Rtot, CVtot, CPtot,               & ! (in)
     phytends_list,                    & ! (in)
     mesh, domID, lcmesh, elem3D       ) ! (in)
 
@@ -973,26 +1002,29 @@ contains
     real(RP), intent(inout) :: dyn_tends(elem3D%Np,lcmesh%NeA,ATMOS_PROGVARS_NUM)
     real(RP), intent(in) :: DRHOT(elem3D%Np,lcmesh%NeA)
     real(RP), intent(in) :: PRES_hyd(elem3D%Np,lcmesh%NeA)
+    real(RP), intent(in) :: Rtot(elem3D%Np,lcmesh%NeA)
+    real(RP), intent(in) :: CVtot(elem3D%Np,lcmesh%NeA)
+    real(RP), intent(in) :: CPtot(elem3D%Np,lcmesh%NeA)
     class(ModelVarManager), intent(inout) :: phytends_list
     class(MeshBase), intent(in) :: mesh
     integer, intent(in) :: domID
 
     class(LocalMeshFieldBase), pointer :: DENS_tp, MOMX_tp, MOMY_tp, MOMZ_tp, RHOT_tp, RHOH_p
+
     integer :: ke
+    integer :: iq
 
     real(RP) :: RHOT(elem3D%Np)
     real(RP) :: EXNER(elem3D%Np)
 
     real(RP) :: rgamm    
     real(RP) :: rP0
-    real(RP) :: RovP0, P0ovR, RovCv     
+    real(RP) :: P0ovR
     !---------------------------------------------------------------------------------
 
     rgamm = CvDry / CpDry
     rP0   = 1.0_RP / PRES00
-    RovP0 = Rdry * rP0
     P0ovR = PRES00 / Rdry 
-    RovCv = Rdry/Cvdry   
 
     call AtmosVars_GetLocalMeshPhyTends( domID, mesh, phytends_list, & ! (in)
       DENS_tp, MOMX_tp, MOMY_tp, MOMZ_tp, RHOT_tp, RHOH_p            ) ! (out)
@@ -1001,14 +1033,14 @@ contains
     !$Omp private( RHOT, EXNER )
     do ke=lcmesh%NeS, lcmesh%NeE
       RHOT(:) = P0ovR * (PRES_hyd(:,ke) * rP0)**rgamm + DRHOT(:,ke)
-      EXNER(:) = (RovP0 * RHOT(:))**RovCv
+      EXNER(:) = ( Rtot(:,ke) * rP0 * RHOT(:))**( Rtot(:,ke) / CVtot(:,ke) )
 
       dyn_tends(:,ke,DDENS_ID) = dyn_tends(:,ke,DDENS_ID) + DENS_tp%val(:,ke)
       dyn_tends(:,ke,MOMX_ID ) = dyn_tends(:,ke,MOMX_ID ) + MOMX_tp%val(:,ke)
       dyn_tends(:,ke,MOMY_ID ) = dyn_tends(:,ke,MOMY_ID ) + MOMY_tp%val(:,ke)
       dyn_tends(:,ke,MOMZ_ID ) = dyn_tends(:,ke,MOMZ_ID ) + MOMZ_tp%val(:,ke)
       dyn_tends(:,ke,DRHOT_ID) = dyn_tends(:,ke,DRHOT_ID) + RHOT_tp%val(:,ke) &
-                               + RHOH_p %val(:,ke) / ( CpDry * EXNER(:) )
+                               + RHOH_p %val(:,ke) / ( CPtot(:,ke) * EXNER(:) )
     end do
 
     return
@@ -1040,6 +1072,7 @@ contains
     class(LocalMeshFieldBase), pointer :: ND_lapla_h, ND_lapla_v
     class(LocalMeshFieldBase), pointer :: DDENS, MOMX, MOMY, MOMZ, DRHOT
     class(LocalMeshFieldBase), pointer :: DENS_hyd, PRES_hyd
+    class(LocalMeshFieldBase), pointer :: Rtot, CVtot, CPtot
 
     class(MeshBase), pointer :: mesh
     class(LocalMesh3D), pointer :: lcmesh
@@ -1062,7 +1095,7 @@ contains
         DENS_hyd, PRES_hyd, lcmesh                                            )
       call AtmosVars_GetLocalMeshPrgVars( n, mesh, prgvars_list, auxvars_list, &
         DDENS, MOMX, MOMY, MOMZ, DRHOT,                                        &
-        DENS_hyd, PRES_hyd                                                     )
+        DENS_hyd, PRES_hyd, Rtot, CVtot, CPtot                                 )
       call AtmosDynNumDiffFlux_GetLocalMeshFields( n, mesh, this%dyn_vars%NUMDIFF_FLUX_manager, &
         ND_flx_x, ND_flx_y, ND_flx_z )
       
@@ -1115,7 +1148,7 @@ contains
           ND_lapla_h, ND_lapla_v )    
         call AtmosVars_GetLocalMeshPrgVars( n, mesh, prgvars_list, auxvars_list, &
           DDENS, MOMX, MOMY, MOMZ, DRHOT,                                        &
-          DENS_hyd, PRES_hyd                                                     )
+          DENS_hyd, PRES_hyd, Rtot, CPtot, CVtot                                 )
           
         allocate( is_bound(lcmesh%refElem%NfpTot,lcmesh%Ne) )
         call this%boundary_cond%ApplyBC_numdiff_even_lc( &
