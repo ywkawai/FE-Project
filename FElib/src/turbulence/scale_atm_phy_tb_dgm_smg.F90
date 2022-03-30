@@ -541,12 +541,12 @@ contains
         facy = 1.0_RP 
         facz = 1.0_RP
       else
-        ! facx = 1.0_RP - sign(1.0_RP,nx(i))
-        ! facy = 1.0_RP - sign(1.0_RP,ny(i))
-        ! facz = 1.0_RP - sign(1.0_RP,nz(i))
-        facx = 1.0_RP
-        facy = 1.0_RP
-        facz = 1.0_RP
+        facx = 1.0_RP - sign(1.0_RP,nx(i))
+        facy = 1.0_RP - sign(1.0_RP,ny(i))
+        facz = 1.0_RP - sign(1.0_RP,nz(i))
+        ! facx = 1.0_RP
+        ! facy = 1.0_RP
+        ! facz = 1.0_RP
       end if
 
       del = 0.5_RP * ( QTRC_(iP) - QTRC_(iM) )
@@ -895,12 +895,12 @@ contains
         ny_ = ny(i)
         nz_ = nz(i)
       else
-        ! nx_ = ( 1.0_RP + sign(1.0_RP,nx(i)) ) * nx(i)
-        ! ny_ = ( 1.0_RP + sign(1.0_RP,ny(i)) ) * ny(i)
-        ! nz_ = ( 1.0_RP + sign(1.0_RP,nz(i)) ) * nz(i)
-        nx_ = nx(i)
-        ny_ = ny(i)
-        nz_ = nz(i)
+        nx_ = ( 1.0_RP + sign(1.0_RP,nx(i)) ) * nx(i)
+        ny_ = ( 1.0_RP + sign(1.0_RP,ny(i)) ) * ny(i)
+        nz_ = ( 1.0_RP + sign(1.0_RP,nz(i)) ) * nz(i)
+        ! nx_ = nx(i)
+        ! ny_ = ny(i)
+        ! nz_ = nz(i)
       end if
 
       if ( is_bound(i) )  then
