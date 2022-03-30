@@ -60,7 +60,6 @@ module mod_atmos_vars
     integer :: PROG_VARS_commID
 
     type(MeshField3D), allocatable :: QTRC_VARS(:)
-    type(MeshField3D) :: QTRC_dummy(1)
     type(ModelVarManager) :: QTRCVARS_manager
     integer :: QTRC_VARS_commID 
     
@@ -188,7 +187,7 @@ module mod_atmos_vars
     VariableInfo( ATMOS_PHYTEND_RHOT_ID, 'RHOT_tp', 'RHOT_tp',                        &
                   'kg/m3.K/s',  3, 'XYZ',  'tendency of physical process for RHOT' ), &
     VariableInfo( ATMOS_PHYTEND_RHOH_ID,  'RHOH_p',  'RHOH_p',                        &
-                  'kg/m3.K/s',  3, 'XYZ',  'heating of physical process for RHOT' )   /
+                  'kg/m3.J/s',  3, 'XYZ',  'heating of physical process for RHOT' )   /
 
   type(VariableInfo), public, allocatable :: ATMOS_PHYTEND_VINFO_Q(:)
 
@@ -351,11 +350,10 @@ contains
         end do             
       end do
      
-      call this%QTRC_dummy(1)%Init( "QTRC_dummy", "1", mesh3D )
       call atm_mesh%Create_communicator( &
-        1, 0,                            & ! (in)
+        QA, 0,                           & ! (in)
         this%QTRCVARS_manager,           & ! (inout)
-        this%QTRC_dummy(:),              & ! (in)
+        this%QTRC_VARS(:),               & ! (in)
         this%QTRC_VARS_commID            ) ! (out)
     end if
 
@@ -522,7 +520,6 @@ contains
 
     call this%QTRCVARS_manager%Final()
     deallocate( this%QTRC_VARS )
-    if ( QA > 0 ) call this%QTRC_dummy(1)%Final()
 
     call this%AUXVARS_manager%Final()
     deallocate( this%AUX_VARS )

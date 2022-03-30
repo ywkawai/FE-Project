@@ -44,6 +44,14 @@ module mod_atmos_dyn_vars
     type(ModelVarManager) :: MASS_FLUX_manager
     integer :: MASS_FLUX_commid
 
+    type(MeshField3D), allocatable :: AUXTRC_FLUX_VARS3D(:)
+    type(ModelVarManager) :: AUXTRC_FLUX_VAR3D_manager
+    integer :: AUXTRC_FLUX_VAR3D_commid
+
+    type(MeshField3D), allocatable :: TRCVARS3D(:)
+    type(ModelVarManager) :: TRCVAR3D_manager
+    integer :: TRCVAR3D_commid
+
     type(MeshField3D), allocatable :: AUX_TRCVARS3D(:)
     type(ModelVarManager) :: AUXTRCVAR3D_manager
     integer :: AUXTRCVAR3D_commid
@@ -86,22 +94,34 @@ module mod_atmos_dyn_vars
                   's-1',  2, 'XY',  ''                                             )  / 
 
   !-
-  integer, public, parameter :: ATMOS_DYN_AUXTRCVARS3D_NUM        = 1
-  integer, public, parameter :: ATMOS_DYN_AUXTRCVARS3D_TRCADV_ID  = 1
+  integer, public, parameter :: ATMOS_DYN_TRCVARS3D_NUM         = 1
+  integer, public, parameter :: ATMOS_DYN_TRCVARS3D_TRCADV_ID   = 1
+
+  type(VariableInfo), public :: ATMOS_DYN_TRCVARS3D_VINFO(ATMOS_DYN_TRCVARS3D_NUM )
+  DATA ATMOS_DYN_TRCVARS3D_VINFO / &
+    VariableInfo( ATMOS_DYN_TRCVARS3D_TRCADV_ID, 'TRCADV', '',  &
+                  '1',  3, 'XYZ',  ''                        )  / 
+                
+  !-
+  integer, public, parameter :: ATMOS_DYN_AUXTRCVARS3D_NUM         = 1
+  integer, public, parameter :: ATMOS_DYN_AUXTRCVARS3D_FCTCOEF_ID  = 1
 
   type(VariableInfo), public :: ATMOS_DYN_AUXTRCVARS3D_VINFO(ATMOS_DYN_AUXTRCVARS3D_NUM)
   DATA ATMOS_DYN_AUXTRCVARS3D_VINFO / &
-    VariableInfo( ATMOS_DYN_AUXTRCVARS3D_TRCADV_ID, 'TRCADV_TMPVAR', '',  &
-                  '1',  3, 'XYZ',  ''                                  )  / 
+    VariableInfo( ATMOS_DYN_AUXTRCVARS3D_FCTCOEF_ID, 'TRCADV_FCTCOEF', '',  &
+                  '1',  3, 'XYZ',  ''                                    )  / 
   
   !-
-  integer, public, parameter :: ATMOS_DYN_MASS_FLUX_NUM   = 3
-  integer, public, parameter :: ATMOS_DYN_MASSFLX_Z_ID    = 1  
-  integer, public, parameter :: ATMOS_DYN_MASSFLX_X_ID    = 2
-  integer, public, parameter :: ATMOS_DYN_MASSFLX_Y_ID    = 3
+  integer, public, parameter :: ATMOS_DYN_MASS_FLUX_NUM   = 4
+  integer, public, parameter :: ATMOS_DYN_ALPHDENS_ID     = 1  
+  integer, public, parameter :: ATMOS_DYN_MASSFLX_Z_ID    = 2  
+  integer, public, parameter :: ATMOS_DYN_MASSFLX_X_ID    = 3
+  integer, public, parameter :: ATMOS_DYN_MASSFLX_Y_ID    = 4
 
   type(VariableInfo), public :: ATMOS_DYN_MASS_FLUX_VINFO(ATMOS_DYN_MASS_FLUX_NUM)
   DATA ATMOS_DYN_MASS_FLUX_VINFO / &
+    VariableInfo( ATMOS_DYN_ALPHDENS_ID, 'ALPHDENS', 'alphaXdens',  &
+          'kg/m3',  3, 'XYZ',  ''                                              ),   &
     VariableInfo( ATMOS_DYN_MASSFLX_Z_ID, 'MASSFLX_Z', 'flux in z-direction',  &
                   'kg/s/m2',  3, 'XYZ',  ''                                    ),   &
     VariableInfo( ATMOS_DYN_MASSFLX_X_ID, 'MASSFLX_X', 'flux in x-direction',  &
@@ -210,7 +230,28 @@ contains
       end do         
     end do
 
-    !- Initialize 3D auxiliary variables for tracer advection with preserving nonnegativity
+    !- Initialize 3D auxiliary variables for tracer advection
+
+    call this%TRCVAR3D_manager%Init()
+    allocate( this%TRCVARS3D(ATMOS_DYN_TRCVARS3D_NUM) )
+    reg_file_hist = .false.    
+    do v = 1, ATMOS_DYN_TRCVARS3D_NUM
+      call this%TRCVAR3D_manager%Regist(               &
+        ATMOS_DYN_TRCVARS3D_VINFO(v), mesh3D,          & ! (in) 
+        this%TRCVARS3D(v), reg_file_hist               ) ! (out)
+      
+      do n = 1, mesh3D%LOCAL_MESH_NUM
+        this%TRCVARS3D(v)%local(n)%val(:,:) = 0.0_RP
+      end do         
+    end do
+
+    call atm_mesh%Create_communicator( &
+      1, 0,                            & ! (in) 
+      this%TRCVAR3D_manager,           & ! (in)
+      this%TRCVARS3D(:),               & ! (in)
+      this%TRCVAR3D_commid             ) ! (out)
+
+    !- Initialize 3D auxiliary variables for preserving nonnegativity in tracer advection
 
     call this%AUXTRCVAR3D_manager%Init()
     allocate( this%AUX_TRCVARS3D(ATMOS_DYN_AUXTRCVARS3D_NUM) )
@@ -248,7 +289,7 @@ contains
     end do
 
     call atm_mesh%Create_communicator( &
-      1, 1,                            & ! (in) 
+      2, 1,                            & ! (in) 
       this%MASS_FLUX_manager,          & ! (in)
       this%MASS_FLUX_VARS3D(:),        & ! (in)
       this%MASS_FLUX_commid            ) ! (out)
@@ -321,6 +362,12 @@ contains
     call this%AUXVARS2D_manager%Final()
     deallocate( this%AUX_VARS2D )
 
+    call this%TRCVAR3D_manager%Final()
+    deallocate( this%TRCVARS3D )
+
+    call this%AUXTRCVAR3D_manager%Final()
+    deallocate( this%AUX_TRCVARS3D )
+
     call this%MASS_FLUX_manager%Final()
     deallocate( this%MASS_FLUX_VARS3D )
 
@@ -390,7 +437,7 @@ contains
   end subroutine AtmosDynAuxVars_GetLocalMeshFields
 
   subroutine AtmosDynMassFlux_GetLocalMeshFields( domID, mesh, massflx_list, &
-    MASSFLX_X, MASSFLX_Y, MASSFLX_Z,                                         &
+    ALPH_DENS, MASSFLX_X, MASSFLX_Y, MASSFLX_Z,                              &
     lcmesh3D                                                                 &
     )
 
@@ -401,6 +448,7 @@ contains
     integer, intent(in) :: domID
     class(MeshBase), intent(in) :: mesh
     class(ModelVarManager), intent(inout) :: massflx_list
+    class(LocalMeshFieldBase), pointer, intent(out) :: ALPH_DENS
     class(LocalMeshFieldBase), pointer, intent(out) :: MASSFLX_X
     class(LocalMeshFieldBase), pointer, intent(out) :: MASSFLX_Y
     class(LocalMeshFieldBase), pointer, intent(out) :: MASSFLX_Z        
@@ -411,6 +459,9 @@ contains
     !-------------------------------------------------------
 
     !--
+    call massflx_list%Get(ATMOS_DYN_ALPHDENS_ID, field)
+    call field%GetLocalMeshField(domID, ALPH_DENS)
+
     call massflx_list%Get(ATMOS_DYN_MASSFLX_X_ID, field)
     call field%GetLocalMeshField(domID, MASSFLX_X)
 

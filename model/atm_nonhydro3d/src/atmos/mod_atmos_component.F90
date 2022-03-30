@@ -181,23 +181,23 @@ contains
     call ATMOS_SATURATION_setup
 
     !- Setup each processes in atmospheric model ------------------------------------
-      
-    !- Setup the module for atmosphere / dynamics 
-    call this%dyn_proc%ModelComponentProc_Init( 'AtmosDyn', ATMOS_DYN_DO )
-    call this%dyn_proc%setup( this%mesh, this%time_manager )
 
     !- Setup the module for atmosphere / physics / surface
     call this%phy_sfc_proc%ModelComponentProc_Init( 'AtmosPhysSfc', ATMOS_PHY_SF_DO )
     call this%phy_sfc_proc%setup( this%mesh, this%time_manager )
+    
+    !- Setup the module for atmosphere / physics / cloud microphysics
+    call this%phy_mp_proc%ModelComponentProc_Init( 'AtmosPhysMp', ATMOS_PHY_MP_DO )
+    call this%phy_mp_proc%setup( this%mesh, this%time_manager )
+    
+    !- Setup the module for atmosphere / dynamics 
+    call this%dyn_proc%ModelComponentProc_Init( 'AtmosDyn', ATMOS_DYN_DO )
+    call this%dyn_proc%setup( this%mesh, this%time_manager )
 
     !- Setup the module for atmosphere / physics / turbulence
     call this%phy_tb_proc%ModelComponentProc_Init( 'AtmosPhysTb', ATMOS_PHY_TB_DO )
     call this%phy_tb_proc%setup( this%mesh, this%time_manager )
     call this%phy_tb_proc%SetDynBC( this%dyn_proc%boundary_cond )
-    
-    !- Setup the module for atmosphere / physics / cloud microphysics
-    call this%phy_mp_proc%ModelComponentProc_Init( 'AtmosPhysMp', ATMOS_PHY_MP_DO )
-    call this%phy_mp_proc%setup( this%mesh, this%time_manager )
 
     !-- Regist qv if needed
     if ( ATMOS_HYDROMETEOR_dry .and. ATMOS_USE_QV ) then
@@ -277,6 +277,7 @@ contains
     !* Exchange halo data ( for physics )
     call PROF_rapstart( 'ATM_exchange_prgv', 2)
     call this%vars%PROGVARS_manager%MeshFieldComm_Exchange()
+    if ( QA > 0 ) call this%vars%QTRCVARS_manager%MeshFieldComm_Exchange()
     call PROF_rapend( 'ATM_exchange_prgv', 2)
 
     ! reset tendencies of physics

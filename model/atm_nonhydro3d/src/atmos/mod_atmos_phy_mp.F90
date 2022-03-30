@@ -337,18 +337,18 @@ contains
       !$omp parallel private(ke, iq)
       !$omp do
       do ke = lcmesh%NeS, lcmesh%NeE
-        DENS_tp%val(:,ke) = DENS_tp%val(:,ke) !+ mp_DENS_t%val(:,ke)
-        MOMX_tp%val(:,ke) = MOMX_tp%val(:,ke) !+ mp_MOMX_t%val(:,ke)
-        MOMY_tp%val(:,ke) = MOMY_tp%val(:,ke) !+ mp_MOMY_t%val(:,ke)
-        MOMZ_tp%val(:,ke) = MOMZ_tp%val(:,ke) !+ mp_MOMZ_t%val(:,ke)
-        RHOH_p %val(:,ke) = RHOH_p %val(:,ke) !+ mp_RHOH  %val(:,ke)
+        DENS_tp%val(:,ke) = DENS_tp%val(:,ke) + mp_DENS_t%val(:,ke)
+        MOMX_tp%val(:,ke) = MOMX_tp%val(:,ke) + mp_MOMX_t%val(:,ke)
+        MOMY_tp%val(:,ke) = MOMY_tp%val(:,ke) + mp_MOMY_t%val(:,ke)
+        MOMZ_tp%val(:,ke) = MOMZ_tp%val(:,ke) + mp_MOMZ_t%val(:,ke)
+        RHOH_p %val(:,ke) = RHOH_p %val(:,ke) + mp_RHOH  %val(:,ke)
       end do
       !$omp end do
       !$omp do collapse(2)
       do iq = this%vars%QS, this%vars%QE
       do ke = lcmesh%NeS, lcmesh%NeE
-        RHOQ_tp(iq)%ptr%val(:,ke) = RHOQ_tp(iq)%ptr%val(:,ke)   !&
-                                  !+ mp_RHOQ_t(iq)%ptr%val(:,ke)
+        RHOQ_tp(iq)%ptr%val(:,ke) = RHOQ_tp(iq)%ptr%val(:,ke)  &
+                                  + mp_RHOQ_t(iq)%ptr%val(:,ke)
       end do
       end do 
       !$omp end do
@@ -433,12 +433,12 @@ contains
     class(ElementBase3D), intent(in) :: elem3D
     class(LocalMesh2D), intent(in) :: lcmesh2D
     class(ElementBase2D), intent(in) :: elem2D
-    real(RP), intent(out) :: RHOH_MP(elem3D%Np,lcmesh%NeA)
     real(RP), intent(out) :: DENS_t_MP(elem3D%Np,lcmesh%NeA)
     real(RP), intent(out) :: RHOU_t_MP(elem3D%Np,lcmesh%NeA)
     real(RP), intent(out) :: RHOV_t_MP(elem3D%Np,lcmesh%NeA)
     real(RP), intent(out) :: MOMZ_t_MP(elem3D%Np,lcmesh%NeA)
     type(LocalMeshFieldBaseList), intent(inout) :: RHOQ_t_MP(this%vars%QS:this%vars%QE)
+    real(RP), intent(out) :: RHOH_MP(elem3D%Np,lcmesh%NeA)
     real(RP), intent(out) :: EVAPORATE(elem3D%Np,lcmesh%NeA)
     real(RP), intent(out) :: SFLX_rain(elem2D%Np,lcmesh2D%NeA) 
     real(RP), intent(out) :: SFLX_snow(elem2D%Np,lcmesh2D%NeA) 
