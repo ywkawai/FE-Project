@@ -659,10 +659,10 @@ contains
     RdOvP00 = Rdry / PRES00
     rP0 = 1.0_RP / PRES00
 
-    call cal_del_flux( del_flux,       & ! (out)
-      DDENS, POT,Rtot, CPtot_ov_CVtot, & ! (in)
-      DENS_hyd, PRES_hyd,              & ! (in)        
-      nz, vmapM, vmapP, lmesh, elem    ) ! (in)
+    call cal_del_flux( del_flux,        & ! (out)
+      DDENS, POT, Rtot, CPtot_ov_CVtot, & ! (in)
+      DENS_hyd, PRES_hyd,               & ! (in)        
+      nz, vmapM, vmapP, lmesh, elem     ) ! (in)
 
     !$omp parallel do private(ke, DPRES, DENS, Fz, LiftDelFlx)
     do ke_z=1, lmesh%NeZ
@@ -674,6 +674,8 @@ contains
       call sparsemat_matmul(Dz, DPRES, Fz)
       call sparsemat_matmul(Lift, lmesh%Fscale(:,ke)*del_flux(:,ke_z), LiftDelFlx)
 
+      ! Ax(:,ke_z) = lmesh%Escale(:,ke,3,3) * Fz(:) + LiftDelFlx(:) &
+      !            + Grav * matmul(IntrpMat_VPOrdM1, DDENS(:,ke_z))
       Ax(:,ke_z) = lmesh%Escale(:,ke,3,3) * Fz(:) + LiftDelFlx(:) &
                  + Grav * matmul(IntrpMat_VPOrdM1, DENS(:))!DDENS(:,ke_z))
     end do
@@ -723,7 +725,7 @@ contains
 
       dpresM = PRES00 *  ( RtotOvP00M * (DENS_hyd(iM) + DDENS_(iM)) * POT_(iM) )**CPtot_ov_CVtot_(iM) !- PRES_hyd(iM)
       dpresP = PRES00 *  ( RtotOvP00P * (DENS_hyd(iP) + DDENS_(iP)) * POT_(iP) )**CPtot_ov_CVtot_(iP) !- PRES_hyd(iP)
-      if (ke_z==1.and. iM==iP) dpresP = PRES_hyd(iP)!0.0_RP
+      if (ke_z==1.and. iM==iP) dpresP = PRES_hyd(iP) !* 0.0_RP
 
       del_flux(i) = 0.5_RP * (dpresP - dpresM) * nz(i)
     end do
@@ -773,7 +775,7 @@ contains
     gamm = CpDry/CvDry
     rP0 = 1.0_RP / PRES00
 
-    call cal_del_flux_lin( del_flux,    & ! (out)
+    call cal_del_flux_lin( del_flux,            & ! (out)
       DDENS, DDENS0, POT, Rtot, CPtot_ov_CVtot, & ! (in) 
       DENS_hyd, PRES_hyd,                       & ! (in)        
       nz, vmapM, vmapP, lmesh, elem             ) ! (in)
