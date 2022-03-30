@@ -29,6 +29,7 @@ module scale_atm_dyn_dgm_modalfilter
   !++ Public procedures
   !
   public :: atm_dyn_dgm_modalfilter_apply
+  public :: atm_dyn_dgm_tracer_modalfilter_apply
 
   !-----------------------------------------------------------------------------
   !
@@ -125,5 +126,48 @@ contains
 
     return
   end subroutine atm_dyn_dgm_modalfilter_apply
+
+!OCL SERIAL
+  subroutine atm_dyn_dgm_tracer_modalfilter_apply(  &
+    QTRC_,                                   & ! (inout)
+    DENS_hyd_, DDENS_,                       & ! (inout)
+    lmesh, elem, filter                      ) ! (in)
+
+    implicit none
+
+    class(LocalMeshBase), intent(in) :: lmesh
+    class(ElementBase), intent(in) :: elem    
+    real(RP), intent(inout)  :: QTRC_(elem%Np,lmesh%NeA)
+    real(RP), intent(inout)  :: DENS_hyd_(elem%Np,lmesh%NeA)
+    real(RP), intent(in)  :: DDENS_(elem%Np,lmesh%NeA)
+    class(ModalFilter), intent(in) :: filter
+
+    integer :: ke
+    real(RP) :: tmp(elem%Np)
+    integer :: ii, kk
+    real(RP) :: Mik
+    logical :: do_weight_Gsqrt_
+    real(RP) :: RGsqrt(elem%Np)
+    !------------------------------------
+
+    !$omp parallel do private( tmp, ii, kk, Mik, RGsqrt )
+    do ke=lmesh%NeS, lmesh%NeE
+
+      tmp(:) = 0.0_RP
+      do ii=1, elem%Np
+      do kk=1, elem%Np
+        Mik = filter%FilterMat(ii,kk) * lmesh%Gsqrt(kk,ke) &
+              * ( DENS_hyd_(kk,ke) + DDENS_(kk,ke) )
+
+        tmp(ii) = tmp(ii) + Mik * QTRC_(kk,ke)
+      end do
+      end do
+
+      RGsqrt(:) = 1.0_RP / lmesh%Gsqrt(:,ke)
+      QTRC_(:,ke) = tmp(:) * RGsqrt(:) / ( DENS_hyd_(:,ke) + DDENS_(:,ke) )
+    end do    
+
+    return
+  end subroutine atm_dyn_dgm_tracer_modalfilter_apply
 
 end module scale_atm_dyn_dgm_modalfilter
