@@ -196,11 +196,11 @@ contains
     RovP0 = Rdry * rP0
     P0ovR = PRES00 / Rdry
 
-    !$omp parallel do private( ke2d, Cori,            &
-    !$omp RHOT_, DPRES_, GsqrtDens_, rdens_, u_, v_, w_, wt_, &
-    !$omp GradPhyd_x, GradPhyd_y, drho,               &
-    !$omp GsqrtV, RGsqrtV,                            &
-    !$omp Fx, Fy, Fz, Fx_sp, Fy_sp, Fz_sp, LiftDelFlx )
+    !$omp parallel do private( ke2d, Cori,                          &
+    !$omp RHOT_, DPRES_, GsqrtDens_, rdens_, u_, v_, w_, wt_, pot_, &
+    !$omp GradPhyd_x, GradPhyd_y, drho,                             &
+    !$omp GsqrtV, RGsqrtV,                                          &
+    !$omp Fx, Fy, Fz, Fx_sp, Fy_sp, Fz_sp, LiftDelFlx               )
     do ke = lmesh%NeS, lmesh%NeE
       !--
       ke2d = lmesh%EMap3Dto2D(ke)
