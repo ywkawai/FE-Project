@@ -197,7 +197,7 @@ contains
 
     class(LocalMesh3D), intent(in) :: lcmesh
     class(ElementBase3D), intent(in) :: elem
-    integer, intent(in) :: QHA
+    integer, intent(in) :: QHA                   !< hydrometeor (water + ice)
     real(RP), intent(inout) :: DENS (elem%Np,lcmesh%NeZ,lcmesh%Ne2D)
     real(RP), intent(inout) :: RHOQ (elem%Np,lcmesh%NeZ,lcmesh%Ne2D,QHA)
     real(RP), intent(inout) :: CPtot(elem%Np,lcmesh%NeZ,lcmesh%Ne2D)
@@ -265,13 +265,13 @@ contains
     end do
 
     do iq = 1, QHA
-      
       call atm_phy_mp_dgm_netOutwardFlux( &
-        netOutwardFlux(:,:),                                                 & ! (out)
-        RHOQ(:,:,:,iq), vterm(:,:,:,iq), lcmesh%J(:,:), lcmesh%Fscale(:,:),  & ! (in)
-        nz(:,:,:), vmapM(:,:), vmapP(:,:), lcmesh%VMapM(:,:), IntWeight(:,:),  & ! (in)
-        lcmesh, elem                                                         ) ! (in)
+        netOutwardFlux(:,:),                                                  & ! (out)
+        RHOQ(:,:,:,iq), vterm(:,:,:,iq), lcmesh%J(:,:), lcmesh%Fscale(:,:),   & ! (in)
+        nz(:,:,:), vmapM(:,:), vmapP(:,:), lcmesh%VMapM(:,:), IntWeight(:,:), & ! (in)
+        lcmesh, elem                                                          ) ! (in)
       
+      !$omp parallel do collapse(2) private(ke, Q)
       do ke2D = 1, lcmesh%Ne2D
       do ke_z = 1, lcmesh%NeZ
         ke = ke2D + (ke_z-1)*lcmesh%Ne2D
@@ -289,6 +289,10 @@ contains
         vmapM(:,:), vmapP(:,:), lcmesh%vmapM(:,:), IntWeight(:,:), & ! (in)
         lcmesh, elem                                               ) ! (in)
 
+      !$omp parallel do collapse(2) private( &
+      !$omp ke2D, ke_z, ke,                      &
+      !$omp qflx, dDENS, RHOQ_tmp, RHOQ0, RHOQ1, &
+      !$omp Fz, LiftDelFlx                       )
       do ke2D = 1, lcmesh%Ne2D
       do ke_z = 1, lcmesh%NeZ
         ke = ke2D + (ke_z-1)*lcmesh%Ne2D
@@ -296,7 +300,7 @@ contains
         !--- update falling tracer 
         qflx(:) = vterm(:,ke_z,ke2D,iq) * RHOQ(:,ke_z,ke2D,iq)
         call sparsemat_matmul( Dz, qflx(:), Fz )
-        call sparsemat_matmul( Dz, lcmesh%Fscale(:,ke) * del_flux(:,ke_z,ke2D,1), LiftDelFlx )
+        call sparsemat_matmul( Lift, lcmesh%Fscale(:,ke) * del_flux(:,ke_z,ke2D,1), LiftDelFlx )
         
         dDENS(:) =  - dt * ( &
           lcmesh%Escale(:,ke,3,3) * Fz(:) + LiftDelFlx(:) )
@@ -329,15 +333,15 @@ contains
   
         !--- update internal energy   
         call sparsemat_matmul( Dz, qflx(:) * TEMP(:,ke_z,ke2D) * CV(iq), Fz )
-        call sparsemat_matmul( Dz, lcmesh%Fscale(:,ke) * del_flux(:,ke_z,ke2D,2), LiftDelFlx )
+        call sparsemat_matmul( Lift, lcmesh%Fscale(:,ke) * del_flux(:,ke_z,ke2D,2), LiftDelFlx )
 
         RHOE(:,ke_z,ke2D) = RHOE(:,ke_z,ke2D) - dt * ( &
           + lcmesh%Escale(:,ke,3,3) * Fz(:) + LiftDelFlx(:) &
           + qflx(:) * Grav                                  )
 
-          if ( ke_z == 1 ) &
-            esflx(:,ke2D) = esflx(:,ke2D) &
-                          + qflx(elem%Hslice(:,1)) * TEMP(elem%Hslice(:,1),ke_z,ke2D) * CV(iq)
+        if ( ke_z == 1 ) &
+          esflx(:,ke2D) = esflx(:,ke2D) &
+                        + qflx(elem%Hslice(:,1)) * TEMP(elem%Hslice(:,1),ke_z,ke2D) * CV(iq)
 
       end do ! end loop for ke_z
       end do ! end loop for ke2D
@@ -367,7 +371,6 @@ contains
     real(RP), intent(out) :: MOMU_t(elem%Np,lcmesh%NeA)
     real(RP), intent(out) :: MOMV_t(elem%Np,lcmesh%NeA)
     real(RP), intent(out) :: MOMZ_t(elem%Np,lcmesh%NeA)
-
     real(RP), intent(in) :: DENS(elem%Np,lcmesh%NeZ,lcmesh%Ne2D)
     real(RP), intent(in) :: MOMU(elem%Np,lcmesh%NeZ,lcmesh%Ne2D)
     real(RP), intent(in) :: MOMV(elem%Np,lcmesh%NeZ,lcmesh%Ne2D)
@@ -396,21 +399,23 @@ contains
       nz(:,:,:), vmapM(:,:), vmapP(:,:),                  & ! (in)
       lcmesh, elem                                        ) ! (in)
 
+    !$omp parallel do collapse(2) private( &
+    !$omp ke2D, ke_z, ke, RDENS, Fz, LiftDelFlx )
     do ke2D = 1, lcmesh%Ne2D
     do ke_z = 1, lcmesh%NeZ
       ke = ke2D + (ke_z-1)*lcmesh%Ne2D
       RDENS(:) = 1.0_RP / DENS(:,ke_z,ke2D)
 
       call sparsemat_matmul( Dz, mflx(:,ke_z,ke2D) * MOMU(:,ke_z,ke2D) * RDENS(:), Fz )
-      call sparsemat_matmul( Dz, lcmesh%Fscale(:,ke) * del_flux(:,ke_z,ke2D,1), LiftDelFlx )
+      call sparsemat_matmul( Lift, lcmesh%Fscale(:,ke) * del_flux(:,ke_z,ke2D,1), LiftDelFlx )
       MOMU_t(:,ke) = - ( lcmesh%Escale(:,ke,3,3) * Fz(:) + LiftDelFlx(:) )
 
       call sparsemat_matmul( Dz, mflx(:,ke_z,ke2D) * MOMV(:,ke_z,ke2D) * RDENS(:), Fz )
-      call sparsemat_matmul( Dz, lcmesh%Fscale(:,ke) * del_flux(:,ke_z,ke2D,2), LiftDelFlx )
+      call sparsemat_matmul( Lift, lcmesh%Fscale(:,ke) * del_flux(:,ke_z,ke2D,2), LiftDelFlx )
       MOMV_t(:,ke) = - ( lcmesh%Escale(:,ke,3,3) * Fz(:) + LiftDelFlx(:) )
 
       call sparsemat_matmul( Dz, mflx(:,ke_z,ke2D) * MOMZ(:,ke_z,ke2D) * RDENS(:), Fz )
-      call sparsemat_matmul( Dz, lcmesh%Fscale(:,ke) * del_flux(:,ke_z,ke2D,3), LiftDelFlx )
+      call sparsemat_matmul( Lift, lcmesh%Fscale(:,ke) * del_flux(:,ke_z,ke2D,3), LiftDelFlx )
       MOMZ_t(:,ke) = - ( lcmesh%Escale(:,ke,3,3) * Fz(:) + LiftDelFlx(:) )
     end do
     end do
@@ -433,7 +438,7 @@ contains
     real(RP), intent(out) :: net_outward_flux(lmesh%NeZ,lmesh%Ne2D)
     real(RP), intent(in) :: RHOQ_(elem%Np*lmesh%NeZ,lmesh%Ne2D)
     real(RP), intent(in) :: vterm_(elem%Np*lmesh%NeZ,lmesh%Ne2D)
-    real(RP), intent(in) :: J(elem%Np,lmesh%Ne)
+    real(RP), intent(in) :: J(elem%Np*lmesh%Ne)
     real(RP), intent(in) :: Fscale(elem%NfpTot,lmesh%Ne)
     real(RP), intent(in) :: nz(elem%NfpTot,lmesh%NeZ,lmesh%Ne2D)
     integer, intent(in) :: vmapM(elem%NfpTot,lmesh%NeZ)
@@ -454,6 +459,10 @@ contains
     integer :: iM3D(elem%NfpTot)
     !------------------------------------------------------------------------
 
+    !$omp parallel do collapse(2) private( &
+    !$omp ke2D, ke_z, ke, iM3D, iM, iP,      &
+    !$omp RHOQ_M, RHOQ_P, velM, velP, alpha, &
+    !$omp numflux, outward_flux_tmp          )
     do ke2D=1, lmesh%Ne2D
     do ke_z=1, lmesh%NeZ
       ke = ke2D + (ke_z-1)*lmesh%Ne2D
@@ -470,7 +479,7 @@ contains
       numflux(:) = 0.5_RP * (  RHOQ_P(:) * velP(:) + RHOQ_M(:) * velM(:) &
                              - alpha(:) * ( RHOQ_P(:) - RHOQ_M(:) )      )
 
-      outward_flux_tmp(:) = matmul( IntWeight(:,:), J(iM3D(:),ke) * Fscale(:,ke) * numflux(:) )
+      outward_flux_tmp(:) = matmul( IntWeight(:,:), J(iM3D(:)) * Fscale(:,ke) * numflux(:) )
       net_outward_flux(ke_z,ke2D) = sum( max( 0.0_RP, outward_flux_tmp(:) ) )
     end do
     end do
@@ -495,7 +504,7 @@ contains
     real(RP), intent(in) :: vterm_(elem%Np*lmesh%NeZ,lmesh%Ne2D)
     real(RP), intent(in) :: fct_coef_(elem%Np*lmesh%NeZ,lmesh%Ne2D)
     real(RP), intent(in) :: CV
-    real(RP), intent(in) :: J(elem%Np,lmesh%Ne)
+    real(RP), intent(in) :: J(elem%Np*lmesh%Ne)
     real(RP), intent(in) :: Fscale(elem%NfpTot,lmesh%Ne)
     real(RP), intent(in) :: nz(elem%NfpTot,lmesh%NeZ,lmesh%Ne2D)
     integer, intent(in) :: vmapM(elem%NfpTot,lmesh%NeZ)
@@ -521,6 +530,12 @@ contains
     real(RP) :: mflxM
     !-----------------------------------------
 
+    !$omp parallel do collapse(2) private( &
+    !$omp ke2D, ke_z, ke, iM3D, iM, iP,                 &
+    !$omp R_M, R_P, RHOQ_M, RHOQ_P, TEMP_M, TEMP_P,     &
+    !$omp velM, velP, alpha, numflux, numflux_ei,       &
+    !$omp outward_flux_tmp,                             &
+    !$omp f, p, fp, R, mflxM                            )
     do ke2D=1, lmesh%Ne2D
     do ke_z=1, lmesh%NeZ
       ke = ke2D + (ke_z-1)*lmesh%Ne2D
@@ -548,7 +563,7 @@ contains
 
       del_flux(:,ke_z,ke2D,1) = 0.0_RP
       del_flux(:,ke_z,ke2D,2) = 0.0_RP  
-      outward_flux_tmp(:) = matmul( IntWeight(:,:), J(iM3D(:),ke) * Fscale(:,ke) * numflux(:) )
+      outward_flux_tmp(:) = matmul( IntWeight(:,:), J(iM3D(:)) * Fscale(:,ke) * numflux(:) )
       do f=1, elem%Nfaces_v
       do p=1, elem%Nfp_v
         fp = p + (f-1)*elem%Nfp_v + elem%Nfaces_h * elem%Nfp_h
@@ -575,49 +590,47 @@ contains
     
     class(LocalMesh3D), intent(in) :: lmesh
     class(ElementBase3D), intent(in) :: elem
-    real(RP), intent(out) :: del_flux(elem%NfpTot*lmesh%NeZ,lmesh%Ne2D,3)
+    real(RP), intent(out) :: del_flux(elem%NfpTot,lmesh%NeZ,lmesh%Ne2D,3)
     real(RP), intent(in) :: DENS_(elem%Np*lmesh%NeZ,lmesh%Ne2D)
     real(RP), intent(in) :: MOMU_(elem%Np*lmesh%NeZ,lmesh%Ne2D)
     real(RP), intent(in) :: MOMV_(elem%Np*lmesh%NeZ,lmesh%Ne2D)
     real(RP), intent(in) :: MOMZ_(elem%Np*lmesh%NeZ,lmesh%Ne2D)
     real(RP), intent(in) :: mflx_(elem%Np*lmesh%NeZ,lmesh%Ne2D)
-    real(RP), intent(in) :: nz(elem%NfpTot*lmesh%NeZ,lmesh%Ne2D)
+    real(RP), intent(in) :: nz(elem%NfpTot,lmesh%NeZ,lmesh%Ne2D)
     integer, intent(in) :: vmapM(elem%NfpTot,lmesh%NeZ)
     integer, intent(in) :: vmapP(elem%NfpTot,lmesh%NeZ)
 
-    integer :: ke
     integer :: ke_z, ke2D
-    integer :: p, i
-    integer :: iP, iM
-    real(RP) :: alpha
-    real(RP) :: densM, densP
-    real(RP) :: VelM, VelP
+    integer :: iP(elem%NfpTot), iM(elem%NfpTot)
+    real(RP) :: alpha(elem%NfpTot)
+    real(RP) :: densM(elem%NfpTot), densP(elem%NfpTot)
+    real(RP) :: VelM(elem%NfpTot), VelP(elem%NfpTot)
     !-----------------------------------------
 
+    !$omp parallel do collapse(2) private( &
+    !$omp ke2D, ke_z, iM, iP, alpha,       &
+    !$omp densM, densP, VelM, VelP         )
     do ke2D=1, lmesh%Ne2D
     do ke_z=1, lmesh%NeZ
-    do p=1, elem%NfpTot
-      i = p + (ke_z-1)*elem%NfpTot
-      iM = vmapM(i,ke_z); iP = vmapP(i,ke_z)
+      iM(:) = vmapM(:,ke_z); iP(:) = vmapP(:,ke_z)
 
-      densM = DENS_(iM,ke2D)
-      densP = DENS_(iP,ke2D)
-      VelM = mflx_(iM,ke2D) * nz(i,ke2D) / densM
-      VelP = mflx_(iP,ke2D) * nz(i,ke2D) / densP
-      alpha = nz(i,ke2D)**2 * max( abs(VelM), abs(VelP) )
+      densM(:) = DENS_(iM(:),ke2D)
+      densP(:) = DENS_(iP(:),ke2D)
+      VelM(:) = mflx_(iM(:),ke2D) * nz(:,ke_z,ke2D) / densM(:)
+      VelP(:) = mflx_(iP(:),ke2D) * nz(:,ke_z,ke2D) / densP(:)
+      alpha(:) = nz(:,ke_z,ke2D)**2 * max( abs(VelM(:)), abs(VelP(:)) )
 
-      del_flux(i,ke2D,1) = 0.5_RP * ( &
-        + ( MOMU_(iP,ke2D) * VelP - MOMU_(iM,ke2D) * VelM ) &
-        - alpha * ( MOMU_(iP,ke2D) - MOMU_(iM,ke2D) )       )
+      del_flux(:,ke_z,ke2D,1) = 0.5_RP * ( &
+        + ( MOMU_(iP(:),ke2D) * VelP - MOMU_(iM(:),ke2D) * VelM ) &
+        - alpha(:) * ( MOMU_(iP(:),ke2D) - MOMU_(iM(:),ke2D) )       )
       
-      del_flux(i,ke2D,2) = 0.5_RP * ( &
-        + ( MOMV_(iP,ke2D) * VelP - MOMV_(iM,ke2D) * VelM ) &
-        - alpha * ( MOMV_(iP,ke2D) - MOMV_(iM,ke2D) )       )
+      del_flux(:,ke_z,ke2D,2) = 0.5_RP * ( &
+        + ( MOMV_(iP(:),ke2D) * VelP - MOMV_(iM(:),ke2D) * VelM ) &
+        - alpha * ( MOMV_(iP(:),ke2D) - MOMV_(iM(:),ke2D) )       )
 
-      del_flux(i,ke2D,1) = 0.5_RP * ( &
-        + ( MOMZ_(iP,ke2D) * VelP - MOMZ_(iM,ke2D) * VelM ) &
-        - alpha * ( MOMZ_(iP,ke2D) - MOMZ_(iM,ke2D) )       )
-    end do  
+      del_flux(:,ke_z,ke2D,3) = 0.5_RP * ( &
+        + ( MOMZ_(iP(:),ke2D) * VelP - MOMZ_(iM(:),ke2D) * VelM ) &
+        - alpha * ( MOMZ_(iP(:),ke2D) - MOMZ_(iM(:),ke2D) )       )
     end do
     end do
 
