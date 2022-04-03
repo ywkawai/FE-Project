@@ -63,9 +63,12 @@ module mod_atmos_phy_mp_vars
     integer :: QA
 
     integer :: TENDS_NUM_TOT 
+    integer, allocatable :: vterm_hist_id(:)
+    type(MeshField3D), allocatable :: vterm_hist(:)
   contains
     procedure :: Init => AtmosPhyMpVars_Init
     procedure :: Final => AtmosPhyMpVars_Final
+    procedure :: History => AtmosPhyMpVars_history
   end type AtmosPhyMpVars
 
   public :: AtmosPhyMpVars_GetLocalMeshFields_tend
@@ -125,11 +128,14 @@ module mod_atmos_phy_mp_vars
   !-------------------
 
 contains
+!OCL SERIAL
   subroutine AtmosPhyMpVars_Init( this, model_mesh, &
     QS_MP, QE_MP, QA_MP )
 
     use scale_tracer, only: &
       TRACER_NAME, TRACER_DESC, TRACER_UNIT
+    use scale_file_history, only: &
+      FILE_HISTORY_reg
 
     implicit none
     class(AtmosPhyMpVars), target, intent(inout) :: this
@@ -192,7 +198,7 @@ contains
       iv = ATMOS_PHY_MP_TENDS_NUM1 + iq 
       qtrc_vinfo_tmp%keyID = iv
       qtrc_vinfo_tmp%NAME  = 'MP_'//trim(TRACER_NAME(this%QS+iq-1))//'_t'
-      qtrc_vinfo_tmp%DESC  = 'tendency of '//trim(TRACER_DESC(this%QS+iq-1))//' in MP process'
+      qtrc_vinfo_tmp%DESC  = 'tendency of '//trim(TRACER_NAME(this%QS+iq-1))//' in MP process'
       qtrc_vinfo_tmp%UNIT  = trim(TRACER_UNIT(this%QS+iq-1))//'/s'
 
       call this%tends_manager%Regist( &
@@ -203,6 +209,17 @@ contains
         this%tends(iv)%local(n)%val(:,:) = 0.0_RP
       end do         
     end do    
+
+    allocate( this%vterm_hist_id(this%QS+1:this%QE) )
+    allocate( this%vterm_hist   (this%QS+1:this%QE) )
+    do iq = this%QS+1, this%QE
+      qtrc_vinfo_tmp%NAME = 'Vterm_'//trim(TRACER_NAME(this%QS+iq-1))
+      qtrc_vinfo_tmp%DESC = 'terminal velocity of '//trim(TRACER_NAME(this%QS+iq-1))
+      qtrc_vinfo_tmp%UNIT = 'm/s'
+      call FILE_HISTORY_reg( qtrc_vinfo_tmp%NAME, qtrc_vinfo_tmp%DESC, qtrc_vinfo_tmp%UNIT, &
+        this%vterm_hist_id(iq), dim_type='XYZ'                                              )
+      if ( this%vterm_hist_id(iq) > 0 ) call this%vterm_hist(iq)%Init( qtrc_vinfo_tmp%NAME, qtrc_vinfo_tmp%UNIT, mesh3D )
+    end do
 
     !--
     
@@ -223,10 +240,12 @@ contains
     return
   end subroutine AtmosPhyMpVars_Init
 
+!OCL SERIAL
   subroutine AtmosPhyMpVars_Final( this )
     implicit none
     class(AtmosPhyMpVars), intent(inout) :: this
 
+    integer :: iq
     !--------------------------------------------------
 
     LOG_INFO('AtmosPhyMpVars_Final',*)
@@ -236,11 +255,16 @@ contains
 
     call this%auxvars2D_manager%Final()
     deallocate( this%auxvars2D )
-    
+
+    do iq = this%QS+1, this%QE
+      if ( this%vterm_hist_id(iq) > 0 ) call this%vterm_hist(iq)%Final()
+    end do
+    deallocate( this%vterm_hist_id )
+
     return
   end subroutine AtmosPhyMpVars_Final
 
-
+!OCL SERIAL
   subroutine AtmosPhyMpVars_GetLocalMeshFields_tend( domID, mesh, mp_tends_list, &
     mp_DENS_t, mp_MOMX_t, mp_MOMY_t, mp_MOMZ_t, mp_RHOT_t, mp_RHOH, mp_EVAP,     &
     mp_RHOQ_t,                                                                   &
@@ -312,6 +336,7 @@ contains
     return
   end subroutine AtmosPhyMpVars_GetLocalMeshFields_tend
 
+!OCL SERIAL
   subroutine AtmosPhyMpVars_GetLocalMeshFields_sfcflx( domID, mesh, sfcflx_list, &
     SFLX_rain, SFLX_snow, SFLX_engi                                              )
     
@@ -340,5 +365,38 @@ contains
     
     return
   end subroutine AtmosPhyMpVars_GetLocalMeshFields_sfcflx
+
+!OCL SERIAL
+  subroutine AtmosPhyMpVars_history( this )
+    use scale_file_history_meshfield, only: FILE_HISTORY_meshfield_put
+    implicit none
+    class(AtmosPhyMpVars), intent(inout) :: this
+  
+    integer :: v
+    integer :: iq
+    integer :: hst_id
+    type(MeshField3D) :: tmp_field
+    class(MeshBase3D), pointer :: mesh3D
+    !-------------------------------------------------------------------------
+
+    mesh3D => this%tends(1)%mesh
+
+    do v = 1, this%TENDS_NUM_TOT
+      hst_id = this%tends(v)%hist_id
+      if ( hst_id > 0 ) call FILE_HISTORY_meshfield_put( hst_id, this%tends(v) )
+    end do
+
+    do v = 1, ATMOS_PHY_MP_AUX2D_NUM
+      hst_id = this%auxvars2D(v)%hist_id
+      if ( hst_id > 0 ) call FILE_HISTORY_meshfield_put( hst_id, this%auxvars2D(v) )
+    end do
+
+    do iq = this%QS+1, this%QE
+      hst_id = this%vterm_hist_id(iq)
+      if ( hst_id > 0 ) call FILE_HISTORY_meshfield_put( hst_id, this%vterm_hist(iq) )
+    end do
+
+    return
+  end subroutine AtmosPhyMpVars_history
 
 end  module mod_atmos_phy_mp_vars
