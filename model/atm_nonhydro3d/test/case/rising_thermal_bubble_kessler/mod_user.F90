@@ -27,6 +27,7 @@ module mod_user
   use scale_element_base, only: ElementBase3D
   use scale_element_hexahedral, only: HexahedralElement
   use scale_localmesh_3d, only: LocalMesh3D  
+  use scale_meshfield_base, only: MeshField3D
   
   
   !-----------------------------------------------------------------------------
@@ -109,8 +110,6 @@ contains
        call PRC_abort
     endif
     LOG_NML(PARAM_USER)
-
-    !-
 
     return
   end subroutine USER_setup
@@ -311,10 +310,10 @@ contains
 
     ! calc QV from RH
 
-    call ATMOS_SATURATION_psat_all( SFC_THETA, & ! [IN]
-                                    psat_sfc   ) ! [OUT]
-    qsat_sfc = EPSvap * psat_sfc / ( PRES00 - ( 1.0_RP - EPSvap ) * psat_sfc )
-    qv_sfc = ENV_RH * 1.0E-2_RP * qsat_sfc
+    ! call ATMOS_SATURATION_psat_all( tempxxxxx, & ! [IN]
+    !                                 psat_sfc   ) ! [OUT]
+    ! qsat_sfc = EPSvap * psat_sfc / ( SFC_PRES - ( 1.0_RP - EPSvap ) * psat_sfc )
+    ! qv_sfc = ENV_RH * 1.0E-2_RP * qsat_sfc
     do ke_z = 1, lcmesh%NeZ
     do p3=1, elem%Nnode_v
       ke = 1 + (ke_z - 1)*lcmesh%Ne2D
