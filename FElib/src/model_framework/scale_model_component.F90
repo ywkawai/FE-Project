@@ -40,9 +40,10 @@ module scale_model_component
       class(ModelComponent), intent(inout), target :: this
     end subroutine ModelComponent_setup
 
-    subroutine ModelComponent_calc_tendency( this )
+    subroutine ModelComponent_calc_tendency( this, force )
       import ModelComponent
       class(ModelComponent), intent(inout) :: this
+      logical, intent(in) :: force
     end subroutine ModelComponent_calc_tendency
 
     subroutine ModelComponent_update( this )

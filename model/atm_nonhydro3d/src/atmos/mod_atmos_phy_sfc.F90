@@ -172,7 +172,7 @@ contains
     !--------------------------------------------------
     if (.not. this%IsActivated()) return
 
-    !LOG_INFO('AtmosDyn_tendency',*)
+    LOG_PROGRESS(*) 'atmosphere / physics / surface / Smagorinsky'
 
     call model_mesh%GetModelMesh( mesh )
     do n=1, mesh%LOCAL_MESH_NUM

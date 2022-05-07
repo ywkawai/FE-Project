@@ -153,11 +153,15 @@ contains
       call restart_write
       call FILE_MONITOR_meshfield_write('MAIN', TIME_NOWSTEP)
 
+
+      !* setup surface condition
+      if ( atmos%IsActivated() ) call atmos%set_surface()
+
       !* calc tendencies and diagnostices *************
 
       !- ATMOS 
       if ( atmos%IsActivated() .and. atmos%time_manager%do_step ) then
-        call atmos%calc_tendency()
+        call atmos%calc_tendency( force=.false. )
       end if
 
       !- USER 
@@ -313,7 +317,7 @@ contains
     !- Calculate the tendencies
 
     if ( atmos%IsActivated() ) then
-      call atmos%calc_tendency()
+      call atmos%calc_tendency( force= .true. )
     end if
     
     call USER_calc_tendency( atmos )
