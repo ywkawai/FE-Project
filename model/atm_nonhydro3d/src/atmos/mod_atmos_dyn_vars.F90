@@ -94,13 +94,14 @@ module mod_atmos_dyn_vars
                   's-1',  2, 'XY',  ''                                             )  / 
 
   !-
-  integer, public, parameter :: ATMOS_DYN_TRCVARS3D_NUM         = 1
+  integer, public, parameter :: ATMOS_DYN_TRCVARS3D_NUM         = 2
   integer, public, parameter :: ATMOS_DYN_TRCVARS3D_TRCADV_ID   = 1
+  integer, public, parameter :: ATMOS_DYN_TRCVARS3D_DENS_ID     = 2
 
   type(VariableInfo), public :: ATMOS_DYN_TRCVARS3D_VINFO(ATMOS_DYN_TRCVARS3D_NUM )
   DATA ATMOS_DYN_TRCVARS3D_VINFO / &
-    VariableInfo( ATMOS_DYN_TRCVARS3D_TRCADV_ID, 'TRCADV', '',  &
-                  '1',  3, 'XYZ',  ''                        )  / 
+    VariableInfo( ATMOS_DYN_TRCVARS3D_TRCADV_ID, 'TRCADV', '',     '1',  3, 'XYZ',  '' ), &
+    VariableInfo( ATMOS_DYN_TRCVARS3D_DENS_ID  ,   'DENS', '', 'kg/m3',  3, 'XYZ',  '' )  / 
                 
   !-
   integer, public, parameter :: ATMOS_DYN_AUXTRCVARS3D_NUM         = 1
@@ -120,8 +121,8 @@ module mod_atmos_dyn_vars
 
   type(VariableInfo), public :: ATMOS_DYN_MASS_FLUX_VINFO(ATMOS_DYN_MASS_FLUX_NUM)
   DATA ATMOS_DYN_MASS_FLUX_VINFO / &
-    VariableInfo( ATMOS_DYN_ALPHDENS_ID, 'ALPHDENS', 'alphaXdens',  &
-          'kg/m3',  3, 'XYZ',  ''                                              ),   &
+    VariableInfo( ATMOS_DYN_ALPHDENS_ID, 'ALPHDENS', 'alphaXdens',             &
+                    'kg/m3',  3, 'XYZ',  ''                                    ),   &
     VariableInfo( ATMOS_DYN_MASSFLX_Z_ID, 'MASSFLX_Z', 'flux in z-direction',  &
                   'kg/s/m2',  3, 'XYZ',  ''                                    ),   &
     VariableInfo( ATMOS_DYN_MASSFLX_X_ID, 'MASSFLX_X', 'flux in x-direction',  &
@@ -245,10 +246,11 @@ contains
       end do         
     end do
 
+    v = ATMOS_DYN_TRCVARS3D_TRCADV_ID
     call atm_mesh%Create_communicator( &
       1, 0,                            & ! (in) 
       this%TRCVAR3D_manager,           & ! (in)
-      this%TRCVARS3D(:),               & ! (in)
+      this%TRCVARS3D(v:v),             & ! (in)
       this%TRCVAR3D_commid             ) ! (out)
 
     !- Initialize 3D auxiliary variables for preserving nonnegativity in tracer advection
