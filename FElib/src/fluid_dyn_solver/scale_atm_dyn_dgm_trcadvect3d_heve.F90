@@ -192,7 +192,7 @@ contains
 
       call sparsemat_matmul(Dx, lmesh%Gsqrt(:,ke) * MOMX_(:,ke) * QTRC_(:,ke), Fx)
       call sparsemat_matmul(Dy, lmesh%Gsqrt(:,ke) * MOMY_(:,ke) * QTRC_(:,ke), Fy)
-      call sparsemat_matmul(Dz, lmesh%Gsqrt(:,ke) * momwt_(:) * QTRC_(:,ke)  , Fz)
+      call sparsemat_matmul(Dz, lmesh%Gsqrt(:,ke) * momwt_(:)   * QTRC_(:,ke), Fz)
       call sparsemat_matmul(Lift, lmesh%Fscale(:,ke) * del_flux(:,ke), LiftDelFlx)
 
       QTRC_dt(:,ke) = ( &
@@ -201,7 +201,7 @@ contains
           - lmesh%Escale(:,ke,3,3) * Fz(:)     &
           - LiftDelFlx(:)                   )  &
           / lmesh%Gsqrt(:,ke)                  &
-          + RHOQ_tp(:,ke)                   
+          + RHOQ_tp(:,ke)
     end do
     call PROF_rapend('cal_trcadv_tend_interior', 3)
 
@@ -211,7 +211,7 @@ contains
 !OCL SERIAL
   subroutine atm_dyn_dgm_trcadvect3d_heve_calc_fct_coef( &
     fct_coef,                                                   & ! (out)
-    QTRC_, MOMX_, MOMY_, MOMZ_, AlphDens_,                      & ! (in)
+    QTRC_, MOMX_, MOMY_, MOMZ_, RHOQ_tp_, AlphDens_,            & ! (in)
     DENS_hyd, DDENS_, DDENS0_, rk_c_ssm1, dt,                   & ! (in)
     Dx, Dy, Dz, Sx, Sy, Sz, Lift, lmesh, elem, lmesh2D, elem2D, & ! (in)
     disable_limiter                                             ) ! (in)
@@ -227,7 +227,8 @@ contains
     real(RP), intent(in) :: QTRC_(elem%Np,lmesh%NeA)
     real(RP), intent(in) :: MOMX_(elem%Np,lmesh%NeA)
     real(RP), intent(in) :: MOMY_(elem%Np,lmesh%NeA)    
-    real(RP), intent(in) :: MOMZ_(elem%Np,lmesh%NeA)   
+    real(RP), intent(in) :: MOMZ_(elem%Np,lmesh%NeA)
+    real(RP), intent(in) :: RHOQ_tp_(elem%Np,lmesh%NeA)
     real(RP), intent(in) :: AlphDens_(elem%NfpTot,lmesh%Ne,2) 
     real(RP), intent(in) :: DENS_hyd(elem%Np,lmesh%NeA)     
     real(RP), intent(in) :: DDENS_ (elem%Np,lmesh%NeA)
@@ -266,7 +267,7 @@ contains
 
     call PROF_rapstart('cal_trcadv_fct_coef', 3)
 
-    !$omp parallel do private( Q, ke, dens_ssm1 )  
+    !$omp parallel do private( ke, Q, dens_ssm1 )  
     do ke=lmesh%NeS, lmesh%NeE
 
       dens_ssm1(:) = DENS_hyd(:,ke) &
@@ -434,7 +435,7 @@ contains
           del_flux(fp,ke) = numflux(fp) * 0.5_RP * ( R_P(fp) + R_M(fp) - ( R_P(fp) - R_M(fp) ) * sign( 1.0_RP, outward_flux_tmp(elem%Nfaces_h+f) ) ) &
                           - QTRC_M(fp) * MomFlxM(fp) 
         end do
-      end do                     
+      end do
     end do
 
     return
