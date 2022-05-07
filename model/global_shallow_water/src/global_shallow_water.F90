@@ -83,7 +83,7 @@ program global_shallow_water
 
     !* calc tendencies and diagnostices *************
     if ( swmodel%IsActivated() .and. swmodel%time_manager%do_step ) then
-      call swmodel%calc_tendency()
+      call swmodel%calc_tendency( force=.false. )
     end if
 
     !- USER 
@@ -121,7 +121,7 @@ contains
 
     !- Calculate the tendencies
 
-    call swmodel%calc_tendency()
+    call swmodel%calc_tendency( force=.true. )
     
     call USER_calc_tendency( swmodel )
 

@@ -179,9 +179,10 @@ subroutine SW_update( this )
   return
 end subroutine SW_update
 
-subroutine SW_calc_tendency( this )
+subroutine SW_calc_tendency( this, force )
   implicit none
   class(GlobalSWComponent), intent(inout) :: this
+  logical, intent(in) :: force
   !------------------------------------------------------------------------
   
   call PROF_rapstart( 'GlobalSW_tendency', 1)
