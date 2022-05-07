@@ -181,11 +181,11 @@ contains
 
 !OCL SERIAL
   subroutine atm_phy_mp_dgm_precipitation( &
-    DENS, RHOQ, CPtot, CVtot, RHOE,        &
-    mflx, sflx_rain, sflx_snow, esflx,     &
-    TEMP, vterm, dt, rnstep,               &
-    Dz, Lift, nz, vmapM, vmapP, IntWeight, &
-    QHA, QLA, QIA, lcmesh, elem  )
+    DENS, RHOQ, CPtot, CVtot, RHOE,         & ! (inout)
+    FLX_hydro, sflx_rain, sflx_snow, esflx, & ! (inout)
+    TEMP, vterm, dt, rnstep,                & ! (in)
+    Dz, Lift, nz, vmapM, vmapP, IntWeight,  & ! (in)
+    QHA, QLA, QIA, lcmesh, elem             ) ! (in)
     
     use scale_atmos_hydrometeor, only: &
        CV_WATER, &
@@ -203,7 +203,7 @@ contains
     real(RP), intent(inout) :: CPtot(elem%Np,lcmesh%NeZ,lcmesh%Ne2D)
     real(RP), intent(inout) :: CVtot(elem%Np,lcmesh%NeZ,lcmesh%Ne2D)
     real(RP), intent(inout) :: RHOE (elem%Np,lcmesh%NeZ,lcmesh%Ne2D)
-    real(RP), intent(out) :: mflx(elem%Np,lcmesh%NeZ,lcmesh%Ne2D)
+    real(RP), intent(inout) :: FLX_hydro(elem%Np,lcmesh%NeZ,lcmesh%Ne2D)
     real(RP), intent(inout) :: sflx_rain(elem%Nfp_v,lcmesh%Ne2DA)
     real(RP), intent(inout) :: sflx_snow(elem%Nfp_v,lcmesh%Ne2DA)
     real(RP), intent(inout) :: esflx    (elem%Nfp_v,lcmesh%Ne2DA)
@@ -221,8 +221,12 @@ contains
 
     real(RP) :: qflx(elem%Np)
     real(RP) :: eflx(elem%Np)
+    real(RP) :: DENS0(elem%Np,lcmesh%NeZ,lcmesh%Ne2D)
     real(RP) :: RHOCP(elem%Np,lcmesh%NeZ,lcmesh%Ne2D)
     real(RP) :: RHOCV(elem%Np,lcmesh%NeZ,lcmesh%Ne2D)
+    real(RP) :: NDcoefEuler(elem%Np,lcmesh%NeZ,lcmesh%Ne2D)
+    real(RP) :: DzRHOQ(elem%Np,lcmesh%NeZ,lcmesh%Ne2D)
+    real(RP) :: DzRHOE(elem%Np,lcmesh%NeZ,lcmesh%Ne2D)
     real(RP) :: dDENS(elem%Np)
     real(RP) :: CP(QHA)
     real(RP) :: CV(QHA)
@@ -233,6 +237,7 @@ contains
     real(RP) :: del_flux(elem%NfpTot,lcmesh%NeZ,lcmesh%Ne2D,2)
 
     real(RP) :: Fz(elem%Np), LiftDelFlx(elem%Np)
+    real(RP) :: RHOQ_save(elem%Np)
 
     integer :: ke2D
     integer :: ke_z
@@ -240,6 +245,7 @@ contains
     integer :: iq
 
     real(RP) :: Q
+    real(RP) :: delz
     !-------------------------------------------------------
 
     do iq = 1, QHA
@@ -258,16 +264,41 @@ contains
     !$omp parallel do collapse(2)
     do ke2D = 1, lcmesh%Ne2D
     do ke_z = 1, lcmesh%NeZ
-      mflx(:,ke_z,ke2D) = 0.0_RP
+      DENS0(:,ke_z,ke2D) = DENS(:,ke_z,ke2D)
       RHOCP(:,ke_z,ke2D) = CPtot(:,ke_z,ke2D) * DENS(:,ke_z,ke2D)
       RHOCV(:,ke_z,ke2D) = CVtot(:,ke_z,ke2D) * DENS(:,ke_z,ke2D)
     end do
     end do
 
     do iq = 1, QHA
+      call atm_phy_mp_dgm_precipitation_get_delflux_dq( &
+        del_flux(:,:,:,:),                                                      & ! (out)
+        DENS0(:,:,:), RHOQ(:,:,:,iq), TEMP(:,:,:), CV(iq), nz(:,:,:), vmapM(:,:), vmapP(:,:), & ! (in)
+        lcmesh, elem                                                            ) ! (in)
+      
+      !$omp parallel do private( &
+      !$omp ke2D, ke_z, ke, delz, Fz, LiftDelFlx )
+      do ke2D = 1, lcmesh%Ne2D
+      do ke_z = 1, lcmesh%NeZ
+        ke = ke2D + (ke_z-1)*lcmesh%Ne2D
+        delz = ( lcmesh%pos_ev(lcmesh%EToV(ke,5),3) - lcmesh%pos_ev(lcmesh%EToV(ke,1),3) ) / dble( elem%Nnode_v )
+
+        call sparsemat_matmul( Dz, RHOQ(:,ke_z,ke2D,iq), Fz )
+        call sparsemat_matmul( Lift, lcmesh%Fscale(:,ke) * del_flux(:,ke_z,ke2D,1), LiftDelFlx )
+        DzRHOQ(:,ke_z,ke2D) = lcmesh%Escale(:,ke,3,3) * Fz(:) + LiftDelFlx(:)
+
+        call sparsemat_matmul( Dz, RHOQ(:,ke_z,ke2D,iq) * CV(iq) * TEMP(:,ke_z,ke2D), Fz )
+        call sparsemat_matmul( Lift, lcmesh%Fscale(:,ke) * del_flux(:,ke_z,ke2D,2), LiftDelFlx )
+        DzRHOE(:,ke_z,ke2D) = lcmesh%Escale(:,ke,3,3) * Fz(:) + LiftDelFlx(:)
+        
+        NDcoefEuler(:,ke_z,ke2D) = 0.5_RP * delz * abs(vterm(:,ke_z,ke2D,iq))
+      end do
+      end do
+
       call atm_phy_mp_dgm_netOutwardFlux( &
         netOutwardFlux(:,:),                                                  & ! (out)
-        RHOQ(:,:,:,iq), vterm(:,:,:,iq), lcmesh%J(:,:), lcmesh%Fscale(:,:),   & ! (in)
+        RHOQ(:,:,:,iq), vterm(:,:,:,iq), DzRHOQ(:,:,:), NDcoefEuler(:,:,:),   & ! (in) 
+        lcmesh%J(:,:), lcmesh%Fscale(:,:),                                    & ! (in)
         nz(:,:,:), vmapM(:,:), vmapP(:,:), lcmesh%VMapM(:,:), IntWeight(:,:), & ! (in)
         lcmesh, elem                                                          ) ! (in)
       
@@ -282,40 +313,51 @@ contains
       end do ! end loop for ke2D
 
       call atm_phy_mp_dgm_precipitation_get_delflux( &
-        del_flux(:,:,:,:),                                         & ! (out)
-        RHOQ(:,:,:,iq), TEMP(:,:,:), vterm(:,:,:,iq),              & ! (in)
-        fct_coef(:,:,:),                                           & ! (in)
-        CV(iq), lcmesh%J(:,:), lcmesh%Fscale(:,:), nz(:,:,:),      & ! (in)
-        vmapM(:,:), vmapP(:,:), lcmesh%vmapM(:,:), IntWeight(:,:), & ! (in)
-        lcmesh, elem                                               ) ! (in)
+        del_flux(:,:,:,:),                                           & ! (out)
+        DENS0(:,:,:), RHOQ(:,:,:,iq), TEMP(:,:,:), vterm(:,:,:,iq),  & ! (in)
+        DzRHOQ(:,:,:), DzRHOE(:,:,:), NDcoefEuler(:,:,:),            & ! (in)
+        fct_coef(:,:,:),                                             & ! (in)
+        CV(iq), lcmesh%J(:,:), lcmesh%Fscale(:,:), nz(:,:,:),        & ! (in)
+        vmapM(:,:), vmapP(:,:), lcmesh%vmapM(:,:), IntWeight(:,:),   & ! (in)
+        lcmesh, elem                                                 ) ! (in)
 
       !$omp parallel do collapse(2) private( &
-      !$omp ke2D, ke_z, ke,                      &
-      !$omp qflx, dDENS, RHOQ_tmp, RHOQ0, RHOQ1, &
-      !$omp Fz, LiftDelFlx                       )
+      !$omp ke2D, ke_z, ke,                            &
+      !$omp qflx, eflx, dDENS, RHOQ_tmp, RHOQ0, RHOQ1, &
+      !$omp RHOQ_save, &
+      !$omp Fz, LiftDelFlx )
       do ke2D = 1, lcmesh%Ne2D
       do ke_z = 1, lcmesh%NeZ
         ke = ke2D + (ke_z-1)*lcmesh%Ne2D
 
         !--- update falling tracer 
-        qflx(:) = vterm(:,ke_z,ke2D,iq) * RHOQ(:,ke_z,ke2D,iq)
+
+        RHOQ_save(:) = RHOQ(:,ke_z,ke2D,iq)
+        qflx(:) = vterm(:,ke_z,ke2D,iq) * RHOQ(:,ke_z,ke2D,iq)   &
+                - NDcoefEuler(:,ke_z,ke2D) * DzRHOQ(:,ke_z,ke2D)
+
         call sparsemat_matmul( Dz, qflx(:), Fz )
         call sparsemat_matmul( Lift, lcmesh%Fscale(:,ke) * del_flux(:,ke_z,ke2D,1), LiftDelFlx )
         
         dDENS(:) =  - dt * ( &
           lcmesh%Escale(:,ke,3,3) * Fz(:) + LiftDelFlx(:) )
         RHOQ_tmp(:) = max( 0.0_RP, RHOQ(:,ke_z,ke2D,iq) + dDENS(:) )
+!        RHOQ_tmp(:) = RHOQ(:,ke_z,ke2D,iq) + dDENS(:)
 
         !
-        RHOQ0 = sum( lcmesh%Gsqrt(:,ke) * lcmesh%J(:,ke) * elem%IntWeight_lgl(:) * RHOQ(:,ke_z,ke2D,iq) )
+        RHOQ0 = sum( lcmesh%Gsqrt(:,ke) * lcmesh%J(:,ke) * elem%IntWeight_lgl(:) * ( RHOQ(:,ke_z,ke2D,iq) + dDENS(:) ) )
         RHOQ1 = sum( lcmesh%Gsqrt(:,ke) * lcmesh%J(:,ke) * elem%IntWeight_lgl(:) * RHOQ_tmp(:)          )
-        RHOQ(:,ke_z,ke2D,iq) = RHOQ0 / ( RHOQ1 + 1.0E-32_RP ) * RHOQ_tmp(:)
+
+        dDENS(:) = RHOQ0 / ( RHOQ1 + 1.0E-32_RP ) * RHOQ_tmp(:) &
+                 - RHOQ(:,ke_z,ke2D,iq)
+        RHOQ(:,ke_z,ke2D,iq) = RHOQ(:,ke_z,ke2D,iq) + dDENS(:)
 
 
         ! QTRC(iq; iq>QLA+QLI) is not mass tracer, such as number density
         if ( iq > QLA + QIA ) cycle
 
-        mflx(:,ke_z,ke2D) = mflx(:,ke_z,ke2D) + qflx(:)
+        FLX_hydro(:,ke_z,ke2D) = FLX_hydro(:,ke_z,ke2D) &
+                               + qflx(:) * rnstep
         if ( ke_z == 1 ) then
           if ( iq > QLA ) then ! ice water
               sflx_snow(:,ke2D) = sflx_snow(:,ke2D)               &
@@ -326,22 +368,28 @@ contains
           end if
         end if
 
-        !--- update density     
+        !--- update density
+
         RHOCP(:,ke_z,ke2D) = RHOCP(:,ke_z,ke2D) + CP(iq) * dDENS(:)
         RHOCV(:,ke_z,ke2D) = RHOCV(:,ke_z,ke2D) + CV(iq) * dDENS(:)
         DENS (:,ke_z,ke2D) = DENS(:,ke_z,ke2D) + dDENS(:)
   
         !--- update internal energy   
-        call sparsemat_matmul( Dz, qflx(:) * TEMP(:,ke_z,ke2D) * CV(iq), Fz )
+
+        eflx(:) = vterm(:,ke_z,ke2D,iq) * RHOQ_save(:) * TEMP(:,ke_z,ke2D) * CV(iq)  &
+                - NDcoefEuler(:,ke_z,ke2D) * DzRHOE(:,ke_z,ke2D)
+        
+        call sparsemat_matmul( Dz, eflx(:), Fz )
         call sparsemat_matmul( Lift, lcmesh%Fscale(:,ke) * del_flux(:,ke_z,ke2D,2), LiftDelFlx )
 
         RHOE(:,ke_z,ke2D) = RHOE(:,ke_z,ke2D) - dt * ( &
           + lcmesh%Escale(:,ke,3,3) * Fz(:) + LiftDelFlx(:) &
           + qflx(:) * Grav                                  )
 
-        if ( ke_z == 1 ) &
+        if ( ke_z == 1 ) then
           esflx(:,ke2D) = esflx(:,ke2D) &
-                        + qflx(elem%Hslice(:,1)) * TEMP(elem%Hslice(:,1),ke_z,ke2D) * CV(iq)
+                        + eflx(elem%Hslice(:,1)) * rnstep
+        end if
 
       end do ! end loop for ke_z
       end do ! end loop for ke2D
@@ -428,7 +476,9 @@ contains
 !OCL SERIAL
   subroutine atm_phy_mp_dgm_netOutwardFlux( &
     net_outward_flux,                     &
-    RHOQ_, vterm_, J, Fscale,             &
+    RHOQ_, vterm_,                        &
+    DzRHOQ_, NDcoefEuler_,                &
+    J, Fscale,                            &
     nz, vmapM, vmapP, vmapM3D, IntWeight, &
     lmesh, elem                           )
     implicit none
@@ -438,6 +488,8 @@ contains
     real(RP), intent(out) :: net_outward_flux(lmesh%NeZ,lmesh%Ne2D)
     real(RP), intent(in) :: RHOQ_(elem%Np*lmesh%NeZ,lmesh%Ne2D)
     real(RP), intent(in) :: vterm_(elem%Np*lmesh%NeZ,lmesh%Ne2D)
+    real(RP), intent(in) :: DzRHOQ_(elem%Np*lmesh%NeZ,lmesh%Ne2D)
+    real(RP), intent(in) :: NDcoefEuler_(elem%Np*lmesh%NeZ,lmesh%Ne2D)
     real(RP), intent(in) :: J(elem%Np*lmesh%Ne)
     real(RP), intent(in) :: Fscale(elem%NfpTot,lmesh%Ne)
     real(RP), intent(in) :: nz(elem%NfpTot,lmesh%NeZ,lmesh%Ne2D)
@@ -476,8 +528,9 @@ contains
       velP(:) = vterm_(iP(:),ke2D) * nz(:,ke_z,ke2D)
       alpha(:) = nz(:,ke_z,ke2D)**2 * max( abs(velM(:)), abs(velP(:)) )
 
-      numflux(:) = 0.5_RP * (  RHOQ_P(:) * velP(:) + RHOQ_M(:) * velM(:) &
-                             - alpha(:) * ( RHOQ_P(:) - RHOQ_M(:) )      )
+      numflux(:) = 0.5_RP * (  RHOQ_P(:) * velP(:) + RHOQ_M(:) * velM(:)                                                        &
+        - ( NDcoefEuler_(iP(:),ke2D) * DzRHOQ_(iP(:),ke2D) + NDcoefEuler_(iM(:),ke2D) * DzRHOQ_(iM(:),ke2D) ) * nz(:,ke_z,ke2D) &
+        - alpha(:) * ( RHOQ_P(:) - RHOQ_M(:) )                                                                                  )
 
       outward_flux_tmp(:) = matmul( IntWeight(:,:), J(iM3D(:)) * Fscale(:,ke) * numflux(:) )
       net_outward_flux(ke_z,ke2D) = sum( max( 0.0_RP, outward_flux_tmp(:) ) )
@@ -488,9 +541,54 @@ contains
   end subroutine atm_phy_mp_dgm_netOutwardFlux
 
 !OCL SERIAL
+  subroutine atm_phy_mp_dgm_precipitation_get_delflux_dq( &
+    del_flux,                                             &
+    DENS_, RHOQ_,TEMP_, CV, nz, vmapM, vmapP,             &
+    lmesh, elem                                           )
+    
+    implicit none
+    
+    class(LocalMesh3D), intent(in) :: lmesh
+    class(ElementBase3D), intent(in) :: elem
+    real(RP), intent(out) :: del_flux(elem%NfpTot,lmesh%NeZ,lmesh%Ne2D,2)
+    real(RP), intent(in) :: DENS_(elem%Np*lmesh%NeZ,lmesh%Ne2D)
+    real(RP), intent(in) :: RHOQ_(elem%Np*lmesh%NeZ,lmesh%Ne2D)
+    real(RP), intent(in) :: TEMP_(elem%Np*lmesh%NeZ,lmesh%Ne2D)
+    real(RP), intent(in) :: CV
+    real(RP), intent(in) :: nz(elem%NfpTot,lmesh%NeZ,lmesh%Ne2D)
+    integer, intent(in) :: vmapM(elem%NfpTot,lmesh%NeZ)
+    integer, intent(in) :: vmapP(elem%NfpTot,lmesh%NeZ)
+
+    integer :: ke
+    integer :: ke_z, ke2D
+    real(RP) :: RHOQ_P(elem%NfpTot), RHOQ_M(elem%NfpTot)
+    integer :: iM(elem%NfpTot), iP(elem%NfpTot)
+    !-----------------------------------------
+
+    !$omp parallel do collapse(2) private(       &
+    !$omp ke2D, ke_z, ke, iM, iP, RHOQ_M, RHOQ_P )
+    do ke2D=1, lmesh%Ne2D
+    do ke_z=1, lmesh%NeZ
+      ke = ke2D + (ke_z-1)*lmesh%Ne2D
+      iM(:) = vmapM(:,ke_z); iP(:) = vmapP(:,ke_z)
+
+      RHOQ_M(:) = RHOQ_(iM(:),ke2D) 
+      RHOQ_P(:) = RHOQ_(iP(:),ke2D) 
+      del_flux(:,ke_z,ke2D,1) = 0.5_RP * ( RHOQ_P(:) - RHOQ_M(:) ) * nz(:,ke_z,ke2D)
+      del_flux(:,ke_z,ke2D,2) = 0.5_RP * CV * ( RHOQ_P(:) * TEMP_(iP(:),ke2D) - RHOQ_M(:) * TEMP_(iM(:),ke2D) ) * nz(:,ke_z,ke2D)
+    end do
+    end do
+    
+    return
+  end subroutine atm_phy_mp_dgm_precipitation_get_delflux_dq
+
+
+!OCL SERIAL
   subroutine atm_phy_mp_dgm_precipitation_get_delflux( &
     del_flux,                                          &
-    RHOQ_, TEMP_, vterm_, fct_coef_, CV,               &
+    DENS_, RHOQ_, TEMP_, vterm_,                       &
+    DzRHOQ_, DzRHOE_, NDcoefEuler_,                    &
+    fct_coef_, CV,                                     &
     J, Fscale, nz, vmapM, vmapP, vmapM3D, IntWeight,   &
     lmesh, elem                                        )
 
@@ -499,9 +597,13 @@ contains
     class(LocalMesh3D), intent(in) :: lmesh
     class(ElementBase3D), intent(in) :: elem
     real(RP), intent(out) :: del_flux(elem%NfpTot,lmesh%NeZ,lmesh%Ne2D,2)
+    real(RP), intent(in) :: DENS_(elem%Np*lmesh%NeZ,lmesh%Ne2D)
     real(RP), intent(in) :: RHOQ_(elem%Np*lmesh%NeZ,lmesh%Ne2D)
     real(RP), intent(in) :: TEMP_(elem%Np*lmesh%NeZ,lmesh%Ne2D)
     real(RP), intent(in) :: vterm_(elem%Np*lmesh%NeZ,lmesh%Ne2D)
+    real(RP), intent(in) :: DzRHOQ_(elem%Np*lmesh%NeZ,lmesh%Ne2D)
+    real(RP), intent(in) :: DzRHOE_(elem%Np*lmesh%NeZ,lmesh%Ne2D)
+    real(RP), intent(in) :: NDcoefEuler_(elem%Np*lmesh%NeZ,lmesh%Ne2D)
     real(RP), intent(in) :: fct_coef_(elem%Np*lmesh%NeZ,lmesh%Ne2D)
     real(RP), intent(in) :: CV
     real(RP), intent(in) :: J(elem%Np*lmesh%Ne)
@@ -523,19 +625,20 @@ contains
 
     integer :: iM3D(elem%NfpTot)
     real(RP) :: R_M(elem%NfpTot), R_P(elem%NfpTot)
+    real(RP) :: NDcoef_M(elem%NfpTot), NDcoef_P(elem%NfpTot)
     real(RP) :: numflux   (elem%NfpTot)
     real(RP) :: numflux_ei(elem%NfpTot)
     real(RP) :: outward_flux_tmp(elem%Nfaces)
     real(RP) :: R
-    real(RP) :: mflxM
     !-----------------------------------------
 
     !$omp parallel do collapse(2) private( &
     !$omp ke2D, ke_z, ke, iM3D, iM, iP,                 &
     !$omp R_M, R_P, RHOQ_M, RHOQ_P, TEMP_M, TEMP_P,     &
     !$omp velM, velP, alpha, numflux, numflux_ei,       &
+    !$omp NDcoef_M, NDcoef_P,                           &
     !$omp outward_flux_tmp,                             &
-    !$omp f, p, fp, R, mflxM                            )
+    !$omp f, p, fp, R                                   )
     do ke2D=1, lmesh%Ne2D
     do ke_z=1, lmesh%NeZ
       ke = ke2D + (ke_z-1)*lmesh%Ne2D
@@ -554,11 +657,16 @@ contains
       velP(:) = vterm_(iP(:),ke2D) * nz(:,ke_z,ke2D)
       alpha(:) = nz(:,ke_z,ke2D)**2 * max( abs(velM(:)), abs(velP(:)) )
 
-      numflux(:) = 0.5_RP * (  RHOQ_P(:) * velP(:) + RHOQ_M(:) * velM(:) &
-        - alpha(:) * ( RHOQ_P(:) - RHOQ_M(:) )                           )
+      NDcoef_M(:) = NDcoefEuler_(iM(:),ke2D)
+      NDcoef_P(:) = NDcoefEuler_(iP(:),ke2D)
 
-      numflux_ei(:) = 0.5_RP * (  RHOQ_P(:) * TEMP_P(:) * velP(:) + RHOQ_M(:) * TEMP_M(:) * velM(:) &
-        - alpha(:) * ( RHOQ_P(:) * TEMP_P(:) - RHOQ_M(:) * TEMP_M(:) )                              )
+      numflux(:) = 0.5_RP * (  RHOQ_P(:) * velP(:) + RHOQ_M(:) * velM(:)                              &
+        - ( NDcoef_P(:) * DzRHOQ_(iP(:),ke2D) + NDcoef_M(:) * DzRHOQ_(iM(:),ke2D) ) * nz(:,ke_z,ke2D) &
+        - alpha(:) * ( RHOQ_P(:) - RHOQ_M(:) )                                                        )
+
+      numflux_ei(:) = 0.5_RP * ( CV * ( RHOQ_P(:) * TEMP_P(:) * velP(:) + RHOQ_M(:) * TEMP_M(:) * velM(:) ) &
+        - ( NDcoef_P(:) * DzRHOE_(iP(:),ke2D) + NDcoef_M(:) * DzRHOE_(iM(:),ke2D) ) * nz(:,ke_z,ke2D)       &
+        - alpha(:) * CV * ( RHOQ_P(:) * TEMP_P(:) - RHOQ_M(:) * TEMP_M(:) )                                 )
 
 
       del_flux(:,ke_z,ke2D,1) = 0.0_RP
@@ -568,9 +676,12 @@ contains
       do p=1, elem%Nfp_v
         fp = p + (f-1)*elem%Nfp_v + elem%Nfaces_h * elem%Nfp_h
         R = 0.5_RP * ( R_P(fp) + R_M(fp) - ( R_P(fp) - R_M(fp) ) * sign( 1.0_RP, outward_flux_tmp(elem%Nfaces_h+f) ) )
-        mflxM = RHOQ_M(fp) * velM(fp)
-        del_flux(fp,ke_z,ke2D,1) = numflux   (fp) * R - mflxM
-        del_flux(fp,ke_z,ke2D,2) = numflux_ei(fp) * R - mflxM * CV * TEMP_M(fp)
+        del_flux(fp,ke_z,ke2D,1) = numflux   (fp) * R  &
+                                 - RHOQ_M(fp) * velM(fp)                                  &
+                                 + NDcoef_M(fp) * DzRHOQ_(iM(fp),ke2D) * nz(fp,ke_z,ke2D)
+        del_flux(fp,ke_z,ke2D,2) = numflux_ei(fp) * R  &
+                                 - RHOQ_M(fp) * velM(fp) * CV * TEMP_M(fp)                &
+                                 + NDcoef_M(fp) * DzRHOE_(iM(fp),ke2D) * nz(fp,ke_z,ke2D)
       end do
       end do                     
 
@@ -622,15 +733,15 @@ contains
 
       del_flux(:,ke_z,ke2D,1) = 0.5_RP * ( &
         + ( MOMU_(iP(:),ke2D) * VelP - MOMU_(iM(:),ke2D) * VelM ) &
-        - alpha(:) * ( MOMU_(iP(:),ke2D) - MOMU_(iM(:),ke2D) )       )
+        - alpha(:) * ( MOMU_(iP(:),ke2D) - MOMU_(iM(:),ke2D) )    )
       
       del_flux(:,ke_z,ke2D,2) = 0.5_RP * ( &
         + ( MOMV_(iP(:),ke2D) * VelP - MOMV_(iM(:),ke2D) * VelM ) &
-        - alpha * ( MOMV_(iP(:),ke2D) - MOMV_(iM(:),ke2D) )       )
+        - alpha(:) * ( MOMV_(iP(:),ke2D) - MOMV_(iM(:),ke2D) )    )
 
       del_flux(:,ke_z,ke2D,3) = 0.5_RP * ( &
         + ( MOMZ_(iP(:),ke2D) * VelP - MOMZ_(iM(:),ke2D) * VelM ) &
-        - alpha * ( MOMZ_(iP(:),ke2D) - MOMZ_(iM(:),ke2D) )       )
+        - alpha(:) * ( MOMZ_(iP(:),ke2D) - MOMZ_(iM(:),ke2D) )    )
     end do
     end do
 

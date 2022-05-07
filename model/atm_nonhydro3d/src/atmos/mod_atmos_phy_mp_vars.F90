@@ -91,7 +91,7 @@ module mod_atmos_phy_mp_vars
   type(VariableInfo), public :: ATMOS_PHY_MP_TEND_VINFO(ATMOS_PHY_MP_TENDS_NUM1)
   DATA ATMOS_PHY_MP_TEND_VINFO / &
     VariableInfo( ATMOS_PHY_MP_DENS_t_ID, 'MP_DENS_t', 'tendency of x-momentum in MP process',           &
-                  'kg/m2/s2',  3, 'XYZ',  ''                                                          ), &
+                   'kg/m3/s',  3, 'XYZ',  ''                                                          ), &
     VariableInfo( ATMOS_PHY_MP_MOMX_t_ID, 'MP_MOMX_t', 'tendency of x-momentum in MP process',           &
                   'kg/m2/s2',  3, 'XYZ',  ''                                                          ), &
     VariableInfo( ATMOS_PHY_MP_MOMY_t_ID, 'MP_MOMY_t', 'tendency of y-momentum in MP process',           &
@@ -118,7 +118,7 @@ module mod_atmos_phy_mp_vars
     VariableInfo( ATMOS_PHY_MP_AUX2D_SFLX_SNOW_ID, 'MP_SFLX_SNOW', 'precipitation flux (solid) in MP process',     &
                   'kg/m2/s',  2, 'XY',  ''                                                                      ), &
     VariableInfo( ATMOS_PHY_MP_AUX2D_SFLX_ENGI_ID, 'MP_SFLX_ENGI', 'internal energy flux flux in MP process',      &
-                  'J/m2/s',  2, 'XY',  ''                                                                       )  /
+                  'J/m2/s',   2, 'XY',  ''                                                                      )  /
 
   
   !-----------------------------------------------------------------------------
@@ -179,7 +179,7 @@ contains
     call this%tends_manager%Init()
     allocate( this%tends(this%TENDS_NUM_TOT) )
 
-    reg_file_hist = .false.    
+    reg_file_hist = .true.    
     do iv = 1, ATMOS_PHY_MP_TENDS_NUM1
       call this%tends_manager%Regist(           &
         ATMOS_PHY_MP_TEND_VINFO(iv), mesh3D,    & ! (in) 
@@ -198,8 +198,8 @@ contains
       iv = ATMOS_PHY_MP_TENDS_NUM1 + iq 
       qtrc_vinfo_tmp%keyID = iv
       qtrc_vinfo_tmp%NAME  = 'MP_'//trim(TRACER_NAME(this%QS+iq-1))//'_t'
-      qtrc_vinfo_tmp%DESC  = 'tendency of '//trim(TRACER_NAME(this%QS+iq-1))//' in MP process'
-      qtrc_vinfo_tmp%UNIT  = trim(TRACER_UNIT(this%QS+iq-1))//'/s'
+      qtrc_vinfo_tmp%DESC  = 'tendency of rho*'//trim(TRACER_NAME(this%QS+iq-1))//' in MP process'
+      qtrc_vinfo_tmp%UNIT  = 'kg/m3/s'
 
       call this%tends_manager%Regist( &
         qtrc_vinfo_tmp, mesh3D,                 & ! (in) 
@@ -226,7 +226,7 @@ contains
     call this%auxvars2D_manager%Init()
     allocate( this%auxvars2D(ATMOS_PHY_MP_AUX2D_NUM) )
 
-    reg_file_hist = .false.    
+    reg_file_hist = .true.    
     do iv = 1, ATMOS_PHY_MP_AUX2D_NUM
       call this%auxvars2D_manager%Regist( &
         ATMOS_PHY_MP_AUX2D_VINFO(iv), mesh2D,    & ! (in) 
@@ -235,8 +235,8 @@ contains
       do n = 1, mesh3D%LOCAL_MESH_NUM
         this%auxvars2D(iv)%local(n)%val(:,:) = 0.0_RP
       end do         
-    end do    
-
+    end do
+    
     return
   end subroutine AtmosPhyMpVars_Init
 

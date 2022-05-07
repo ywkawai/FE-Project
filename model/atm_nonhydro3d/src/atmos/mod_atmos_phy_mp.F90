@@ -21,6 +21,9 @@ module mod_atmos_phy_mp
     UNDEF8 => CONST_UNDEF8
   use scale_tracer, only: QA
 
+  use scale_sparsemat, only: sparsemat
+  use scale_element_hexahedral, only: HexahedralElement
+
   use scale_mesh_base, only: MeshBase
   use scale_mesh_base2d, only: MeshBase2D
   use scale_mesh_base3d, only: MeshBase3D
@@ -41,6 +44,7 @@ module mod_atmos_phy_mp
   use scale_model_component_proc, only:  ModelComponentProc
   
   use mod_atmos_phy_mp_vars, only: AtmosPhyMpVars
+
 
   !-----------------------------------------------------------------------------
   implicit none
@@ -64,6 +68,9 @@ module mod_atmos_phy_mp
     integer, private :: nstep_sedmientation
     real(RP), private :: rnstep_sedmientation
     real(DP), private :: dtsec_sedmientation
+
+    type(sparsemat) :: Dz, Lift
+    type(HexahedralElement) :: elem
 
   contains
     procedure, public :: setup => AtmosPhyMp_setup 
@@ -200,7 +207,7 @@ contains
 
     this%nstep_sedmientation = ntmax_sedimentation
     this%rnstep_sedmientation = 1.0_RP / real(ntmax_sedimentation,kind=RP)
-    this%dtsec_sedmientation  = tm_parent_comp%dtsec * this%rnstep_sedmientation
+    this%dtsec_sedmientation  = this%dtsec * this%rnstep_sedmientation
   
     LOG_NEWLINE
     LOG_INFO("ATMOS_PHY_MP_setup",*) 'Enable negative fixer?                    : ', this%do_negative_fixer
@@ -239,6 +246,11 @@ contains
     case( MP_TYPEID_KESSLER )
       call ATMOS_PHY_MP_kessler_setup()
     end select
+
+    !
+    call this%elem%Init( atm_mesh%ptr_mesh%refElem3D%PolyOrder_h, atm_mesh%ptr_mesh%refElem3D%PolyOrder_v, .true. )
+    call this%Dz%Init( this%elem%Dx3, storage_format='ELL' )
+    call this%Lift%Init( this%elem%Lift, storage_format='ELL' )
 
     return
   end subroutine AtmosPhyMp_setup
@@ -325,10 +337,9 @@ contains
 
       call PROF_rapstart('ATM_PHY_MP_cal_tend', 2)
       if (is_update) then
-        call AtmosPhyMp_calc_tendency_core( this, &
+        call this%calc_tendency_core( &
           mp_DENS_t%val, mp_MOMX_t%val, mp_MOMY_t%val, mp_MOMZ_t%val, mp_RHOQ_t,  & ! (out)
-          mp_RHOH%val, mp_EVAP%val,                                               & ! (out)
-          SFLX_rain%val, SFLX_snow%val, SFLX_ENGI%val,                            & ! (out)
+          mp_RHOH%val, mp_EVAP%val, SFLX_rain%val, SFLX_snow%val, SFLX_ENGI%val,  & ! (out)
           DDENS%val, MOMX%val, MOMY%val, MOMZ%val, PT%val, QTRC,                  & ! (in)
           PRES%val, PRES_hyd%val, DENS_hyd%val, Rtot%val, CVtot%val, CPtot%val,   & ! (in)
           model_mesh%DOptrMat(3), model_mesh%LiftOptrMat,                         & ! (in)
@@ -354,6 +365,7 @@ contains
       end do 
       !$omp end do
       !$omp end parallel
+
       call PROF_rapend('ATM_PHY_MP_cal_tend', 2)
     end do
 
@@ -398,14 +410,13 @@ contains
 !- private ------------------------------------------------
 
 !OCL SERIAL
-  subroutine AtmosPhyMp_calc_tendency_core( this,          &
-    DENS_t_MP, RHOU_t_MP, RHOV_t_MP, MOMZ_t_MP, RHOQ_t_MP, &
-    RHOH_MP, EVAPORATE,                                    &
-    SFLX_rain, SFLX_snow, SFLX_ENGI,                       &
-    DDENS, RHOU, RHOV, MOMZ, PT, QTRC,                     &
-    PRES, PRES_hyd, DENS_hyd, Rtot, CVtot, CPtot,          &
-    Dz, Lift,                                              &
-    lcmesh, elem3D, lcmesh2D, elem2D                       )
+  subroutine AtmosPhyMp_calc_tendency_core( this, &
+    DENS_t_MP, RHOU_t_MP, RHOV_t_MP, MOMZ_t_MP, RHOQ_t_MP, & ! (out)
+    RHOH_MP, EVAPORATE, SFLX_rain, SFLX_snow, SFLX_ENGI,   & ! (out)
+    DDENS, RHOU, RHOV, MOMZ, PT, QTRC,                     & ! (in)
+    PRES, PRES_hyd, DENS_hyd, Rtot, CVtot, CPtot,          & ! (in)
+    Dz, Lift,                                              & ! (in)
+    lcmesh, elem3D, lcmesh2D, elem2D                       ) ! (in)
 
     use scale_const, only: &
       PRE00 => CONST_PRE00
@@ -415,18 +426,17 @@ contains
     use scale_atmos_hydrometeor, only: & 
       LHF,                             &
       QHA, QLA, QIA
-    use scale_atmos_phy_mp_kessler, only: &
-      ATMOS_PHY_MP_KESSLER_adjustment, &
+    use scale_atmos_phy_mp_kessler, only:    &
+      ATMOS_PHY_MP_KESSLER_adjustment,       &
       ATMOS_PHY_MP_KESSLER_terminal_velocity
 
     use scale_sparsemat, only: SparseMat
-    use scale_atm_phy_mp_dgm_common, only: &
+    use scale_atm_phy_mp_dgm_common, only:  &
       atm_phy_mp_dgm_common_gen_vmap,       &
       atm_phy_mp_dgm_common_gen_intweight,  &
       atm_phy_mp_dgm_precipitation,         &
       atm_phy_mp_dgm_precipitation_momentum
 
-    use scale_atmos_saturation
     implicit none
 
     class(AtmosPhyMp), intent(inout) :: this
@@ -489,7 +499,6 @@ contains
     real(RP) :: DENS2_tmp(elem3D%Nnode_v,lcmesh%NeZ)
     real(RP) :: REF_DENS_tmp(elem3D%Nnode_v,lcmesh%NeZ)
     real(RP) :: vterm_tmp(elem3D%Nnode_v,lcmesh%NeZ,this%vars%QS+1:this%vars%QE)
-    real(RP) :: mflux(elem3D%Np,lcmesh%NeZ,lcmesh%Ne2D)
     real(RP) :: FLX_hydro(elem3D%Np,lcmesh%NeZ,lcmesh%Ne2D)
     real(RP) :: CP_t(elem3D%Np), CV_t(elem3D%Np)
 
@@ -507,7 +516,6 @@ contains
     integer :: vmapP(elem3D%NfpTot,lcmesh%NeZ)
     real(RP) :: IntWeight(elem3D%Nfaces,elem3D%NfpTot)
     real(RP) :: nz(elem3D%NfpTot,lcmesh%NeZ,lcmesh%Ne2D)
-
     !----------------------------------------------
 
     rdt_MP = 1.0_RP / this%dtsec
@@ -628,35 +636,39 @@ contains
 
       do step = 1, this%nstep_sedmientation
 
-        ! calculate terminal velocity 
+        !- Calculate terminal velocity 
 
         select case( this%MP_TYPEID )
         case( MP_TYPEID_KESSLER )
-          !$omp do private(ke2D, p2D, ke_z, iq, vterm_tmp, RHOQ2_tmp, DENS2_tmp, REF_DENS_tmp) collapse(2)
           do ke2D = 1, lcmesh%Ne2D
-          do p2D = 1, elem3D%Nnode_h1D**2
-            do ke_z = 1, lcmesh%NeZ
-              DENS2_tmp(:,ke_z) = DENS2(elem3D%Colmask(:,p2D),ke_z,ke2D)
-              REF_DENS_tmp(:,ke_z) = REF_DENS(elem3D%Colmask(:,p2D),ke_z,ke2D)
-            end do
-            do iq = this%vars%QS+1, this%vars%QE
-            do ke_z = 1, lcmesh%NeZ            
-              RHOQ2_tmp(:,ke_z,iq) = RHOQ2(elem3D%Colmask(:,p2D),ke_z,ke2D,iq)
-            end do
-            end do
+            !$omp parallel do private( &
+            !$omp p2D, ke_z, iq, ColMask,                       &
+            !$omp DENS2_tmp, REF_DENS_tmp, RHOQ2_tmp, vterm_tmp ) 
+            do p2D = 1, elem3D%Nnode_h1D**2
+              ColMask(:) = elem3D%Colmask(:,p2D)
+              do ke_z = 1, lcmesh%NeZ
+                DENS2_tmp   (:,ke_z) = DENS2   (ColMask(:),ke_z,ke2D)
+                REF_DENS_tmp(:,ke_z) = REF_DENS(ColMask(:),ke_z,ke2D)
+              end do
+              do iq = this%vars%QS+1, this%vars%QE
+              do ke_z = 1, lcmesh%NeZ            
+                RHOQ2_tmp(:,ke_z,iq) = RHOQ2(ColMask(:),ke_z,ke2D,iq)
+              end do
+              end do
 
-            call ATMOS_PHY_MP_kessler_terminal_velocity( &
-              elem3D%Nnode_v*lcmesh%NeZ, 1, elem3D%Nnode_v*lcmesh%NeZ,   & ! (in)
-              DENS2_tmp(:,:), RHOQ2_tmp(:,:,:), REF_DENS_tmp(:,:),       & ! (in)
-              vterm_tmp(:,:,:)                                           ) ! (out)
+              call ATMOS_PHY_MP_kessler_terminal_velocity( &
+                elem3D%Nnode_v*lcmesh%NeZ, 1, elem3D%Nnode_v*lcmesh%NeZ,   & ! (in)
+                DENS2_tmp(:,:), RHOQ2_tmp(:,:,:), REF_DENS_tmp(:,:),       & ! (in)
+                vterm_tmp(:,:,:)                                           ) ! (out)
 
-            do iq = this%vars%QS+1, this%vars%QE
-            do ke_z = 1, lcmesh%NeZ            
-              vterm(elem3D%Colmask(:,p2D),ke_z,ke2D,iq) = vterm_tmp(:,ke_z,iq)
-            end do
+              do iq = this%vars%QS+1, this%vars%QE
+              do ke_z = 1, lcmesh%NeZ            
+                vterm(ColMask(:),ke_z,ke2D,iq) = vterm_tmp(:,ke_z,iq)
+              end do
+              end do
             end do
           end do
-          end do
+
         end select   
         
         do iq = this%vars%QS+1, this%vars%QE
@@ -672,15 +684,15 @@ contains
           end if
         end do 
 
-        ! precipiation 
+        !- precipiation of hydrometers
 
         call atm_phy_mp_dgm_precipitation( &
           DENS2, RHOQ2, CPtot2, CVtot2, RHOE2,                 & ! (inout)
-          mflux,                                               & ! (out)
-          SFLX_rain, SFLX_snow, SFLX_ENGI,                     & ! (inout)
+          FLX_hydro, SFLX_rain, SFLX_snow, SFLX_ENGI,          & ! (inout)
           TEMP2, vterm,                                        & ! (in)
           this%dtsec_sedmientation, this%rnstep_sedmientation, & ! (in)
-          Dz, Lift, nz, vmapM, vmapP, IntWeight,               & ! (in)
+!          Dz, Lift, nz, vmapM, vmapP, IntWeight,               & ! (in)
+          this%Dz, this%Lift, nz, vmapM, vmapP, IntWeight,               & ! (in)
           this%vars%QE - this%vars%QS, QLA, QIA,               & ! (in)
           lcmesh, elem3D )
 
@@ -689,7 +701,6 @@ contains
         do ke_z = 1, lcmesh%NeZ
           ke = ke2D + (ke_z-1)*lcmesh%Ne2D
           TEMP2(:,ke_z,ke2D) = RHOE2(:,ke_z,ke2D) / ( DENS2(:,ke_z,ke2D) * CVtot2(:,ke_z,ke2D) )
-          FLX_hydro(:,ke_z,ke2D) = FLX_hydro(:,ke_z,ke2D) + mflux(:,ke_z,ke2D) * this%rnstep_sedmientation
         end do
         end do 
         
@@ -728,12 +739,13 @@ contains
       !$omp end do
       !$omp end parallel
 
-      ! precipiation momentum
+      !- precipiation of momentum
 
       call atm_phy_mp_dgm_precipitation_momentum( &
         RHOU_t_MP, RHOV_t_MP, MOMZ_t_MP,          & ! (out)
         DENS0, RHOU2, RHOV2, MOMZ2, FLX_hydro,    & ! (in)
-        Dz, Lift, nz, vmapM, vmapP,               & ! (in)
+!        Dz, Lift, nz, vmapM, vmapP,               & ! (in)
+        this%Dz, this%Lift, nz, vmapM, vmapP,     & ! (in)
         lcmesh, elem3D                            ) ! (in)
 
     end if ! end if do_precipitation
