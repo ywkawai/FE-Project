@@ -75,8 +75,7 @@ module mod_atmos_phy_tb_vars
   integer, public, parameter :: ATMOS_PHY_TB_MOMY_t_ID  = 2
   integer, public, parameter :: ATMOS_PHY_TB_MOMZ_t_ID  = 3
   integer, public, parameter :: ATMOS_PHY_TB_RHOT_t_ID  = 4
-  integer, public, parameter :: ATMOS_PHY_TB_RHOQ_t_ID  = 5
-  integer, public, parameter :: ATMOS_PHY_TB_TENDS_NUM1 = 5
+  integer, public, parameter :: ATMOS_PHY_TB_TENDS_NUM1 = 4
 
   type(VariableInfo), public :: ATMOS_PHY_TB_TEND_VINFO(ATMOS_PHY_TB_TENDS_NUM1)
   DATA ATMOS_PHY_TB_TEND_VINFO / &
@@ -87,9 +86,7 @@ module mod_atmos_phy_tb_vars
     VariableInfo( ATMOS_PHY_TB_MOMZ_t_ID, 'TB_MOMZ_t', 'tendency of z-momentum in TB process',    &
                   'kg/m2/s2',  3, 'XYZ',  ''                                                   ), &
     VariableInfo( ATMOS_PHY_TB_RHOT_t_ID, 'TB_RHOT_t', 'tendency of rho*PT in TB process',        &
-                  'kg/m3.K/s', 3, 'XYZ',  ''                                                   ), &
-    VariableInfo( ATMOS_PHY_TB_RHOQ_t_ID, 'TB_RHOQ_t', 'tendency of rho*QTRC in TB process',      &
-                  'kg/m3/s',   3, 'XYZ',  ''                                                   )  / 
+                  'kg/m3.K/s', 3, 'XYZ',  ''                                                   )  / 
 
 
   integer, public, parameter :: ATMOS_PHY_TB_AUX_S11_ID   = 1
@@ -294,7 +291,7 @@ contains
     return
   end subroutine AtmosPhyTbVars_Final
 
-
+!OCL SERIAL
   subroutine AtmosPhyTbVars_GetLocalMeshFields_tend( domID, mesh, tb_tends_list, &
     tb_MOMX_t, tb_MOMY_t, tb_MOMZ_t, tb_RHOT_t, tb_RHOQ_t,                       &
     lcmesh3D                                                                     &
@@ -354,6 +351,7 @@ contains
     return
   end subroutine AtmosPhyTbVars_GetLocalMeshFields_tend
 
+!OCL SERIAL
   subroutine AtmosPhyTbVars_GetLocalMeshFields_aux( domID, mesh, tb_aux_list, &
     S11, S12, S22, S23, S31, S33, TKE,                                        &
     dPTdx, dPTdy, dPTdz,                                                      &
@@ -428,6 +426,7 @@ contains
     return
   end subroutine AtmosPhyTbVars_GetLocalMeshFields_aux
 
+!OCL SERIAL
   subroutine AtmosPhyTbVars_GetLocalMeshFields_aux_qtrc( domID, mesh, tb_aux_list, tb_auxtrc_list, &
     dQTdx, dQTdy, dQTdz, Kh,                                                                       &
     tb_tends_list, iq, tb_RHOQ_t,                                                                  &

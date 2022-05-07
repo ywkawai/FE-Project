@@ -221,7 +221,7 @@ contains
 
     !LOG_INFO('AtmosDyn_tendency',*)
 
-    LOG_PROGRESS(*) 'atmosphere / physics / turbulence / Smagorinsky'
+    LOG_PROGRESS(*) 'atmosphere / physics / turbulence'
 
     call model_mesh%GetModelMesh( mesh )
 
@@ -252,21 +252,19 @@ contains
         call PROF_rapend('ATM_PHY_TB_inquire_bnd', 2)
 
         call PROF_rapstart('ATM_PHY_TB_cal_grad', 2)
-        if (is_update) then
-          select case( this%TB_TYPEID )
-          case (TB_TYPEID_SMAGORINSKY)
-            call atm_phy_tb_dgm_smg_cal_grad( &
-                S11%val, S12%val, S22%val, S23%val, S31%val, S33%val, TKE%val,          &
-                dPTdx%val, dPTdy%val, dPTdz%val, Nu%val, Kh%val,                        &
-                DDENS%val, MOMX%val, MOMY%val, MOMZ%val, DRHOT%val,                     &
-                DENS_hyd%val, PRES_hyd%val, PRES%val, PT%val,                           &
-                model_mesh%DOptrMat(1), model_mesh%DOptrMat(2), model_mesh%DOptrMat(3), &
-                model_mesh%SOptrMat(1), model_mesh%SOptrMat(2), model_mesh%SOptrMat(3), &
-                model_mesh%LiftOptrMat,                                                 &
-                lcmesh, lcmesh%refElem3D, lcmesh%lcmesh2D, lcmesh%lcmesh2D%refElem2D,   &
-                bnd_info(n)%is_bound                                                    )
-          end select
-        end if
+        select case( this%TB_TYPEID )
+        case (TB_TYPEID_SMAGORINSKY)
+          call atm_phy_tb_dgm_smg_cal_grad( &
+              S11%val, S12%val, S22%val, S23%val, S31%val, S33%val, TKE%val,          &
+              dPTdx%val, dPTdy%val, dPTdz%val, Nu%val, Kh%val,                        &
+              DDENS%val, MOMX%val, MOMY%val, MOMZ%val, DRHOT%val,                     &
+              DENS_hyd%val, PRES_hyd%val, PRES%val, PT%val,                           &
+              model_mesh%DOptrMat(1), model_mesh%DOptrMat(2), model_mesh%DOptrMat(3), &
+              model_mesh%SOptrMat(1), model_mesh%SOptrMat(2), model_mesh%SOptrMat(3), &
+              model_mesh%LiftOptrMat,                                                 &
+              lcmesh, lcmesh%refElem3D, lcmesh%lcmesh2D, lcmesh%lcmesh2D%refElem2D,   &
+              bnd_info(n)%is_bound                                                    )
+        end select
         call PROF_rapend('ATM_PHY_TB_cal_grad', 2)
       end do
 
@@ -396,14 +394,15 @@ contains
         RHOT_tp%val(:,ke) = RHOT_tp%val(:,ke) + tb_RHOT_t%val(:,ke)
       end do
       !$omp end do    
-      !$omp do collapse(2)
       do iq = 1, QA
-      do ke = lcmesh%NeS, lcmesh%NeE
-        RHOQ_tp(iq)%ptr%val(:,ke) = RHOQ_tp(iq)%ptr%val(:,ke)        &
-                                  + tb_RHOQ_t_list(iq)%ptr%val(:,ke)
+        if ( .not. TRACER_ADVC(iq) ) cycle
+        !$omp do
+        do ke = lcmesh%NeS, lcmesh%NeE
+          RHOQ_tp(iq)%ptr%val(:,ke) = RHOQ_tp(iq)%ptr%val(:,ke)        &
+                                    + tb_RHOQ_t_list(iq)%ptr%val(:,ke)
+        end do
+        !$omp end do
       end do
-      end do 
-      !$omp end do
       !$omp end parallel
     end do
     call PROF_rapend('ATM_PHY_TB_add_tend', 2)

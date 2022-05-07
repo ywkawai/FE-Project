@@ -400,6 +400,7 @@ contains
       lmesh%vmapM, lmesh%vmapP,                                               & ! (in)
       lmesh, elem, is_bound )                                                   ! (in)
 
+    !$omp parallel do private( Fx, Fy, Fz, LiftDelFlx )
     do ke=lmesh%NeS, lmesh%NeE
       !---
       call sparsemat_matmul( Dx, QTRC(:,ke), Fx )
@@ -904,7 +905,7 @@ contains
       end if
 
       if ( is_bound(i) )  then
-       del_flux(i)  = - densM * Kh(iM) * ( dQTdx(iM) * nx(i) + dQTdy(iM) * ny(i) + dQTdz(iM) * nz(i) )
+        del_flux(i)  = - densM * Kh(iM) * ( dQTdx(iM) * nx(i) + dQTdy(iM) * ny(i) + dQTdz(iM) * nz(i) )
       else        
         del_flux(i)  = 0.5_RP * ( densP * Kh(iP) * ( dQTdx(iP) * nx_ + dQTdy(iP) * ny_ + dQTdz(iP) * nz_ ) &
                                 - densM * Kh(iM) * ( dQTdx(iM) * nx_ + dQTdy(iM) * ny_ + dQTdz(iM) * nz_ ) )
