@@ -20,6 +20,8 @@ module mod_atmos_vars
   use scale_debug
   use scale_tracer, only: &
     QA, TRACER_NAME, TRACER_DESC, TRACER_UNIT
+  use scale_atmos_hydrometeor, only: &
+    ATMOS_HYDROMETEOR_dry
 
   use scale_element_base, only: &
     ElementBase, ElementBase2D, ElementBase3D
@@ -764,42 +766,42 @@ contains
 
     !- Define variables
 
-    ! do iv=1, ATMOS_PROGVARS_NUM
-    !   rf_vid = iv
-    !   call this%restart_file%Def_var( this%PROG_VARS(iv),  &
-    !     ATMOS_PROGVARS_VINFO(iv)%DESC, rf_vid, DIMTYPE_XYZ )
-    ! end do
-    ! do iv=1, ATMOS_AUXVARS_DENSHYDRO_ID
-    !   rf_vid = ATMOS_PROGVARS_NUM + iv
-    !   call this%restart_file%Def_var( this%AUX_VARS(iv),   &
-    !     ATMOS_AUXVARS_VINFO(iv)%DESC, rf_vid, DIMTYPE_XYZ  )
-    ! end do
-    ! do iv=1, QA
-    !   rf_vid = rf_vid + 1
-    !   call this%restart_file%Def_var( this%QTRC_VARS(iv), &
-    !     TRACER_DESC(iv), rf_vid, DIMTYPE_XYZ              )    
-    ! end do
+    do iv=1, ATMOS_PROGVARS_NUM
+      rf_vid = iv
+      call this%restart_file%Def_var( this%PROG_VARS(iv),  &
+        ATMOS_PROGVARS_VINFO(iv)%DESC, rf_vid, DIMTYPE_XYZ )
+    end do
+    do iv=1, ATMOS_AUXVARS_DENSHYDRO_ID
+      rf_vid = ATMOS_PROGVARS_NUM + iv
+      call this%restart_file%Def_var( this%AUX_VARS(iv),   &
+        ATMOS_AUXVARS_VINFO(iv)%DESC, rf_vid, DIMTYPE_XYZ  )
+    end do
+    do iv=1, QA
+      rf_vid = rf_vid + 1
+      call this%restart_file%Def_var( this%QTRC_VARS(iv), &
+        TRACER_DESC(iv), rf_vid, DIMTYPE_XYZ              )    
+    end do
 
-    ! call this%restart_file%End_def()
+    call this%restart_file%End_def()
 
-    ! !- Write restart file
-    ! do iv=1, ATMOS_PROGVARS_NUM
-    !   rf_vid = iv
-    !   call this%restart_file%Write_var(rf_vid, this%PROG_VARS(iv) )
-    ! end do
-    ! do iv=1, ATMOS_AUXVARS_DENSHYDRO_ID
-    !   rf_vid = ATMOS_PROGVARS_NUM + iv
-    !   call this%restart_file%Write_var(rf_vid, this%AUX_VARS(iv) )
-    ! end do
-    ! do iv=1, QA
-    !   rf_vid = rf_vid + 1
-    !   call this%restart_file%Write_var(rf_vid, this%QTRC_VARS(iv) )
-    ! end do
+    !- Write restart file
+    do iv=1, ATMOS_PROGVARS_NUM
+      rf_vid = iv
+      call this%restart_file%Write_var(rf_vid, this%PROG_VARS(iv) )
+    end do
+    do iv=1, ATMOS_AUXVARS_DENSHYDRO_ID
+      rf_vid = ATMOS_PROGVARS_NUM + iv
+      call this%restart_file%Write_var(rf_vid, this%AUX_VARS(iv) )
+    end do
+    do iv=1, QA
+      rf_vid = rf_vid + 1
+      call this%restart_file%Write_var(rf_vid, this%QTRC_VARS(iv) )
+    end do
 
     !- Close restart file
     LOG_INFO("ATMOSVar_write_restart_file",*) 'Close restart file (ATMOS) '
-    !call this%restart_file%Close()
-    call PRC_mpibarrier()
+    call this%restart_file%Close()
+
     return
   end subroutine AtmosVar_write_restart_file
 
@@ -1528,36 +1530,42 @@ contains
       do ke=1, lcmesh%Ne
         var_out(:,ke) = DDENS_(:,ke) + DENS_hyd(:,ke)
       end do
+    
     case('U')
       !$omp parallel do private (DENS)
       do ke=1, lcmesh%Ne
         DENS(:) = DDENS_(:,ke) + DENS_hyd(:,ke)
         var_out(:,ke) = MOMX_(:,ke) / DENS(:)
       end do
+    
     case('V')
       !$omp parallel do private (DENS)
       do ke=1, lcmesh%Ne
         DENS(:) = DDENS_(:,ke) + DENS_hyd(:,ke)
         var_out(:,ke) = MOMY_(:,ke) / DENS(:)
-      end do        
+      end do  
+          
     case('W')
       !$omp parallel do private (DENS)
       do ke=1, lcmesh%Ne
         DENS(:) = DDENS_(:,ke) + DENS_hyd(:,ke)
         var_out(:,ke) = MOMZ_(:,ke) / DENS(:)
       end do
+    
     case('PRES')  
       !$omp parallel do private (RHOT)
       do ke=1, lcmesh%Ne
         RHOT(:) = PRES00/Rdry * (PRES_hyd(:,ke)/PRES00)**(CVdry/CPdry) + DRHOT_(:,ke)
         var_out(:,ke) = PRES00 * ( Rtot(:,ke) * RHOT(:) / PRES00 )**( CPtot(:,ke)/CVtot(:,ke) )
       end do
+    
     case('PRES_diff')  
       !$omp parallel do private (RHOT)
       do ke=1, lcmesh%Ne
         RHOT(:) = PRES00/Rdry * (PRES_hyd(:,ke)/PRES00)**(CVdry/CPdry) + DRHOT_(:,ke)
         var_out(:,ke) = PRES00 * ( Rtot(:,ke) * RHOT(:) / PRES00 )**( CPtot(:,ke)/CVtot(:,ke) ) - PRES_hyd(:,ke)
       end do
+    
     case('T')
       !$omp parallel do private (RHOT, PRES)
       do ke=1, lcmesh%Ne
@@ -1565,6 +1573,7 @@ contains
         PRES(:) = PRES00 * ( Rtot(:,ke) * RHOT(:) / PRES00 )**( CPtot(:,ke)/CVtot(:,ke) )
         var_out(:,ke) = PRES(:) / (Rtot(:,ke) * (DDENS_(:,ke) + DENS_hyd(:,ke)) )
       end do
+    
     case('T_diff')
       !$omp parallel do private (RHOT, PRES)
       do ke=1, lcmesh%Ne
@@ -1573,12 +1582,14 @@ contains
         var_out(:,ke) = PRES(:) / ( Rtot(:,ke) * (DDENS_(:,ke) + DENS_hyd(:,ke)) ) &
                       - PRES_hyd(:,ke) / ( Rdry * DENS_hyd(:,ke) )
       end do
+    
     case('PT')
       !$omp parallel do private (RHOT)
       do ke=1, lcmesh%Ne
         RHOT(:) = PRES00/Rdry * (PRES_hyd(:,ke)/PRES00)**(CVdry/CPdry) + DRHOT_(:,ke)
         var_out(:,ke) = RHOT(:) / ( DDENS_(:,ke) + DENS_hyd(:,ke) )
       end do 
+    
     case('PT_diff')
       !$omp parallel do private (RHOT)
       do ke=1, lcmesh%Ne
@@ -1586,35 +1597,42 @@ contains
         var_out(:,ke) = RHOT(:) / ( DDENS_(:,ke) + DENS_hyd(:,ke) ) &
                       - PRES00/Rdry * (PRES_hyd(:,ke)/PRES00)**(CVdry/CPdry) / DENS_hyd(:,ke)
       end do 
+    
     case( 'RH', 'RHL' )
-      call TRACER_inq_id( "QV", iq_QV )
+      if ( ATMOS_HYDROMETEOR_dry ) then
+        var_out(:,ke) = 0.0_RP
+      else
+        call TRACER_inq_id( "QV", iq_QV )
 
-      !$omp parallel do private (RHOT, PRES, TEMP, PSAT)
-      do ke=1, lcmesh%Ne
+        !$omp parallel do private (RHOT, PRES, TEMP, PSAT)
+        do ke=1, lcmesh%Ne
+          RHOT(:) = PRES00/Rdry * (PRES_hyd(:,ke)/PRES00)**(CVdry/CPdry) + DRHOT_(:,ke)
+          PRES(:) = PRES00 * ( Rtot(:,ke) * RHOT(:) / PRES00 )**( CPtot(:,ke)/CVtot(:,ke) )
+          TEMP(:) = PRES(:) / (Rtot(:,ke) * (DDENS_(:,ke) + DENS_hyd(:,ke)) )
 
-        RHOT(:) = PRES00/Rdry * (PRES_hyd(:,ke)/PRES00)**(CVdry/CPdry) + DRHOT_(:,ke)
-        PRES(:) = PRES00 * ( Rtot(:,ke) * RHOT(:) / PRES00 )**( CPtot(:,ke)/CVtot(:,ke) )
-        TEMP(:) = PRES(:) / (Rtot(:,ke) * (DDENS_(:,ke) + DENS_hyd(:,ke)) )
+          call ATMOS_SATURATION_psat_liq( &
+            elem%Np, 1, elem%Np, TEMP(:),     & ! (in)
+            PSAT(:)                           ) ! (out)
 
-        call  ATMOS_SATURATION_psat_liq( &
-          elem%Np, 1, elem%Np, TEMP(:),     & ! (in)
-          PSAT(:)                           ) ! (out)
-
-        var_out(:,ke) = ( DDENS_(:,ke) + DENS_hyd(:,ke) ) * QTRC(iq_QV)%ptr%val(:,ke) &
-                      / PSAT(:) * Rvap * TEMP(:) * 100.0_RP
-      end do 
+          var_out(:,ke) = ( DDENS_(:,ke) + DENS_hyd(:,ke) ) * QTRC(iq_QV)%ptr%val(:,ke) &
+                        / PSAT(:) * Rvap * TEMP(:) * 100.0_RP
+        end do 
+      end if
+    
     case('ENGK')
       !$omp parallel do private (DENS)
       do ke=1, lcmesh%Ne
         DENS(:) = DDENS_(:,ke) + DENS_hyd(:,ke)
         var_out(:,ke) = 0.5_RP * ( MOMX_(:,ke)**2 + MOMY_(:,ke)**2 + MOMZ_(:,ke)**2 ) / DENS(:)
       end do
+    
     case('ENGP')
       !$omp parallel do private (DENS)
       do ke=1, lcmesh%Ne
         DENS(:) = DDENS_(:,ke) + DENS_hyd(:,ke)
         var_out(:,ke) = DENS(:) * Grav * lcmesh%pos_en(:,ke,3)
       end do
+    
     case('ENGI')
       !$omp parallel do private (RHOT, PRES, DENS, iq)
       do ke=1, lcmesh%Ne
@@ -1627,6 +1645,7 @@ contains
             + QTRC(iq)%ptr%val(:,ke) * ( PRES(:) / Rtot(:,ke) * TRACER_CV(iq) + DENS(:) * TRACER_ENGI0(iq) )
         end do
       end do
+    
     case('ENGT')
       !$omp parallel do private (RHOT, PRES, DENS, iq)
       do ke=1, lcmesh%Ne
@@ -1646,9 +1665,11 @@ contains
           + var_out(:,ke)                                                            & ! ENGI
           + DENS(:) * Grav * lcmesh%pos_en(:,ke,3)                                     ! ENGP
       end do
+    
     case default
       LOG_ERROR("AtmosVars_calc_diagnoseVar_lc",*) 'The name of diagnostic variable is not suported. Check!', field_name
       call PRC_abort
+    
     end select
 
     return
