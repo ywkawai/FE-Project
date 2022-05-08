@@ -493,6 +493,8 @@ contains
     call File_common_meshfield_get_dims3D( mesh3D, & ! (in)
       dimsinfo(:) )                                  ! (out)
   
+    dims2D_size(1) = dimsinfo(DIMTYPE_X)%size
+    dims2D_size(2) = dimsinfo(DIMTYPE_Y)%size  
     dims3D_size(1,1) = dimsinfo(DIMTYPE_X)%size
     dims3D_size(2,1) = dimsinfo(DIMTYPE_Y)%size
     dims3D_size(3,1) = dimsinfo(DIMTYPE_Z)%size
@@ -583,7 +585,9 @@ contains
     
     call File_common_meshfield_get_dims( meshCubedSphere3D, & ! (in)
       dimsinfo(:) )                                           ! (out)
-    
+
+    dims2D_size(1) = dimsinfo(DIMTYPE_X)%size
+    dims2D_size(2) = dimsinfo(DIMTYPE_Y)%size
     dims3D_size(1,1) = dimsinfo(DIMTYPE_X)%size
     dims3D_size(2,1) = dimsinfo(DIMTYPE_Y)%size
     dims3D_size(3,1) = dimsinfo(DIMTYPE_Z)%size
