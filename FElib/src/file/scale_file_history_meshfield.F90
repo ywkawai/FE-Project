@@ -181,12 +181,14 @@ contains
       call set_dim_axis2D()
     else if ( present(mesh3D_) ) then
       mesh3D => mesh3D_
+      mesh2D => mesh3D%mesh2D
       call set_dim_axis3D()
     else if ( present(meshCubedsphere2D_) ) then
       meshCubedSphere2D => meshCubedsphere2D_
       call set_dim_axis2D_cubedsphere()
     else if ( present(meshCubedsphere3D_) ) then
       meshCubedSphere3D => meshCubedsphere3D_
+      meshCubedSphere2D => meshCubedSphere3D%mesh2D
       call set_dim_axis3D_cubedsphere()
     else
       LOG_ERROR("FILE_HISTORY_meshfield_setup",*)   "Any mesh (mesh1d/2d/3d) are not specified."
@@ -491,6 +493,8 @@ contains
     call File_common_meshfield_get_dims3D( mesh3D, & ! (in)
       dimsinfo(:) )                                  ! (out)
   
+    dims2D_size(1) = dimsinfo(DIMTYPE_X)%size
+    dims2D_size(2) = dimsinfo(DIMTYPE_Y)%size  
     dims3D_size(1,1) = dimsinfo(DIMTYPE_X)%size
     dims3D_size(2,1) = dimsinfo(DIMTYPE_Y)%size
     dims3D_size(3,1) = dimsinfo(DIMTYPE_Z)%size
@@ -581,7 +585,9 @@ contains
     
     call File_common_meshfield_get_dims( meshCubedSphere3D, & ! (in)
       dimsinfo(:) )                                           ! (out)
-    
+
+    dims2D_size(1) = dimsinfo(DIMTYPE_X)%size
+    dims2D_size(2) = dimsinfo(DIMTYPE_Y)%size
     dims3D_size(1,1) = dimsinfo(DIMTYPE_X)%size
     dims3D_size(2,1) = dimsinfo(DIMTYPE_Y)%size
     dims3D_size(3,1) = dimsinfo(DIMTYPE_Z)%size

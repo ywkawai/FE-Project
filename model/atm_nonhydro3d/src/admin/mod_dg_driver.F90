@@ -124,7 +124,7 @@ contains
 
       ! report current time
       call TIME_manager_checkstate
-  
+
       if (TIME_DOresume) then
         ! set state from restart file
         call restart_read
@@ -132,7 +132,7 @@ contains
         call FILE_MONITOR_meshfield_write('MAIN', TIME_NOWSTEP)
         call FILE_HISTORY_meshfield_write
       end if   
-
+      
       !* Advance time *********************************
 
       call TIME_manager_advance
@@ -153,11 +153,15 @@ contains
       call restart_write
       call FILE_MONITOR_meshfield_write('MAIN', TIME_NOWSTEP)
 
+
+      !* setup surface condition
+      if ( atmos%IsActivated() ) call atmos%set_surface()
+
       !* calc tendencies and diagnostices *************
 
       !- ATMOS 
       if ( atmos%IsActivated() .and. atmos%time_manager%do_step ) then
-        call atmos%calc_tendency()
+        call atmos%calc_tendency( force=.false. )
       end if
 
       !- USER 
@@ -167,6 +171,7 @@ contains
 
       if ( atmos%IsActivated() ) call atmos%vars%History()
       if ( atmos%phy_tb_proc%IsActivated() ) call atmos%phy_tb_proc%vars%History()
+      if ( atmos%phy_mp_proc%IsActivated() ) call atmos%phy_mp_proc%vars%History()
 
 
       call FILE_HISTORY_meshfield_write
@@ -308,11 +313,11 @@ contains
     if ( atmos%isActivated() ) then
       call atmos%vars%Read_restart_file( atmos%mesh )
     end if
-      
+
     !- Calculate the tendencies
 
     if ( atmos%IsActivated() ) then
-      call atmos%calc_tendency()
+      call atmos%calc_tendency( force= .true. )
     end if
     
     call USER_calc_tendency( atmos )
@@ -323,6 +328,8 @@ contains
       call atmos%vars%History()
       if ( atmos%phy_tb_proc%IsActivated() ) &
         call atmos%phy_tb_proc%vars%History()
+      if ( atmos%phy_mp_proc%IsActivated() ) &
+        call atmos%phy_mp_proc%vars%History()
       call atmos%vars%Monitor()
     end if
 

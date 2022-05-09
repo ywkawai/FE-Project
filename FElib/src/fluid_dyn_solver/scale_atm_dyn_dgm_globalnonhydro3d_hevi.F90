@@ -91,6 +91,7 @@ contains
   subroutine atm_dyn_dgm_globalnonhydro3d_hevi_cal_tend( &
     DENS_dt, MOMX_dt, MOMY_dt, MOMZ_dt, RHOT_dt,                                & ! (out)
     DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd, CORIOLIS,          & ! (in)
+    Rtot, CVtot, CPtot,                                                         & ! (in)
     SL_flag, wdamp_tau, wdamp_height, hveldamp_flag,                            & ! (in)
     Dx, Dy, Dz, Sx, Sy, Sz, Lift, lmesh, elem, lmesh2D, elem2D )
 
@@ -120,6 +121,9 @@ contains
     real(RP), intent(in)  :: DENS_hyd(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: PRES_hyd(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: CORIOLIS(elem2D%Np,lmesh2D%NeA)
+    real(RP), intent(in) ::  Rtot (elem%Np,lmesh%NeA)
+    real(RP), intent(in) ::  CVtot(elem%Np,lmesh%NeA)
+    real(RP), intent(in) ::  CPtot(elem%Np,lmesh%NeA)
     logical, intent(in) :: SL_flag
     real(RP), intent(in) :: wdamp_tau
     real(RP), intent(in) :: wdamp_height
@@ -152,6 +156,7 @@ contains
     call atm_dyn_dgm_nonhydro3d_hevi_numflux_get_generalhvc( &
       del_flux, del_flux_hyd,                                                  & ! (out)
       DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd,                 & ! (in)
+      Rtot, CVtot, CPtot,                                                      & ! (in)
       lmesh%Gsqrt, lmesh%GIJ(:,:,1,1), lmesh%GIJ(:,:,1,2), lmesh%GIJ(:,:,2,2), & ! (in)
       lmesh%GsqrtH, lmesh%GI3(:,:,1), lmesh%GI3(:,:,2),                        & ! (in)    
       lmesh%normal_fn(:,:,1), lmesh%normal_fn(:,:,2), lmesh%normal_fn(:,:,3),  & ! (in)
@@ -202,7 +207,7 @@ contains
 
       !--
       RHOT_(:) = P0ovR * ( PRES_hyd(:,ke) * rP0 )**rgamm + DRHOT_(:,ke)
-      DPRES_(:) = PRES00 * ( RovP0 * RHOT_(:) )**gamm &
+      DPRES_(:) = PRES00 * ( Rtot(:,ke) * rP0 * RHOT_(:) )**( CPtot(:,ke) / CVtot(:,ke) ) &
                 - PRES_hyd(:,ke)
       
       rdens_(:) = 1.0_RP / ( DDENS_(:,ke) + DENS_hyd(:,ke) )
@@ -330,6 +335,7 @@ contains
     DENS_dt, MOMX_dt, MOMY_dt, MOMZ_dt, RHOT_dt,             & ! (out)
     DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd, & ! (in)
     DDENS0_, MOMX0_, MOMY0_, MOMZ0_, DRHOT0_,                & ! (in)
+    Rtot, CVtot, CPtot,                                      & ! (in)
     Dz, Lift,                                                & ! (in)
     modalFilterFlag, VModalFilter,                           & ! (in)
     impl_fac, dt,                                            & ! (in)
@@ -363,6 +369,9 @@ contains
     real(RP), intent(in)  :: MOMY0_(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: MOMZ0_(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: DRHOT0_(elem%Np,lmesh%NeA)
+    real(RP), intent(in)  :: Rtot(elem%Np,lmesh%NeA)
+    real(RP), intent(in)  :: CVtot(elem%Np,lmesh%NeA)
+    real(RP), intent(in)  :: CPtot(elem%Np,lmesh%NeA)
     class(SparseMat), intent(in) :: Dz, Lift
     logical, intent(in) :: modalFilterFlag
     class(ModalFilter), intent(in) :: VModalFilter
@@ -376,6 +385,8 @@ contains
     real(RP) :: b1D_uv(elem%Nnode_v,lmesh%NeZ,2,elem%Nnode_h1D**2,lmesh%NeX*lmesh%NeY)
     integer :: ipiv_uv(elem%Nnode_v*1*lmesh%NeZ,elem%Nnode_h1D**2)
     real(RP) :: alph(elem%NfpTot,lmesh%NeZ,lmesh%NeX*lmesh%NeY)
+    real(RP) :: Rtot_z(elem%Np,lmesh%NeZ,lmesh%NeX*lmesh%NeY)
+    real(RP) :: CPtot_ov_CVtot(elem%Np,lmesh%NeZ,lmesh%NeX*lmesh%NeY)
     real(RP) :: DENS_hyd_z(elem%Np,lmesh%NeZ,lmesh%NeX*lmesh%NeY)
     real(RP) :: PRES_hyd_z(elem%Np,lmesh%NeZ,lmesh%NeX*lmesh%NeY)
     real(RP) :: GnnM_z(elem%Np,lmesh%NeZ,lmesh%NeX*lmesh%NeY)
@@ -429,6 +440,9 @@ contains
 
       DENS_hyd_z(:,ke_z,ke_xy) = DENS_hyd(:,ke)
       PRES_hyd_z(:,ke_z,ke_xy) = PRES_hyd(:,ke)
+
+      Rtot_z(:,ke_z,ke_xy) = Rtot(:,ke)
+      CPtot_ov_CVtot(:,ke_z,ke_xy) = CPtot(:,ke) / CVtot(:,ke)
       
       nz(:,ke_z,ke_xy) = lmesh%normal_fn(:,ke,3)
       G13_z   (:,ke_z,ke_xy) = lmesh%GI3(:,ke,1)
@@ -467,6 +481,7 @@ contains
           PROG_VARS, PROG_VARS0,                                                & ! (in)
           DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_,                                  & ! (in)
           DENS_hyd_z, PRES_hyd_z,                                               & ! (in)
+          Rtot_z, CPtot_ov_CVtot,                                               & ! (in)
           Dz, Lift, IntrpMat_VPOrdM1,                                           & ! (in)
           GnnM_z, G13_z, G23_z, GsqrtV_z,                                       & ! (in)
           modalFilterFlag, VModalFilter%FilterMat,                              & ! (in)
@@ -483,6 +498,7 @@ contains
             kl, ku, nz_1D, kl_uv, ku_uv, nz_1D_uv,                     & ! (in)
             PROG_VARS(:,:,:,ke_xy),                                    & ! (in)
             DENS_hyd_z(:,:,ke_xy), PRES_hyd_z(:,:,ke_xy),              & ! (in)
+            Rtot_z(:,:,ke_xy), CPtot_ov_CVtot(:,:,ke_xy),              & ! (in)
             G13_z(:,:,ke_xy), G23_z(:,:,ke_xy), GsqrtV_z(:,:,ke_xy),   & ! (in)
             alph(:,:,ke_xy),                                           & ! (in)
             Dz, Lift, IntrpMat_VPOrdM1,                                & ! (in)
@@ -493,8 +509,8 @@ contains
           call PROF_rapend( 'hevi_cal_vi_matbnd', 3)
           
           call PROF_rapstart( 'hevi_cal_vi_lin', 3)
-         !$omp parallel private(ij, v, ke_z, info, info_uv, ColMask)
-         !$omp do
+          !$omp parallel private(ij, v, ke_z, info, info_uv, ColMask)
+          !$omp do
           do ij=1, elem%Nnode_h1D**2
             call dgbsv( nz_1D, kl, ku, 1, PmatBnd(:,:,ij), 2*kl+ku+1, ipiv(:,ij), b1D(:,:,:,ij,ke_xy), nz_1D, info)
             call dgbsv( nz_1D_uv, kl_uv, ku_uv, 2, PmatBnd_uv(:,:,ij), 2*kl_uv+ku_uv+1, ipiv_uv(:,ij), b1D_uv(:,:,:,ij,ke_xy), nz_1D_uv, info_uv)
@@ -538,6 +554,7 @@ contains
         PROG_VARS, PROG_VARS0,                                                & ! (in)
         DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_,                                  & ! (in)
         DENS_hyd_z, PRES_hyd_z,                                               & ! (in)
+        Rtot_z, CPtot_ov_CVtot,                                               & ! (in)
         Dz, Lift, IntrpMat_VPOrdM1,                                           & ! (in)
         GnnM_z, G13_z, G23_z, GsqrtV_z,                                       & ! (in)
         modalFilterFlag, VModalFilter%FilterMat,                              & ! (in)

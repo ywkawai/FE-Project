@@ -26,8 +26,10 @@ module scale_file_common_meshfield
     MeshBase2D_DIMTYPEID_XY, MeshBase2D_DIMTYPEID_XYT, &
     MeshBase2D_DIMTYPE_NUM 
   use scale_mesh_base3d, only: MeshBase3D, &
-    MeshBase3D_DIMTYPEID_X, MeshBase3D_DIMTYPEID_Y, MeshBase3D_DIMTYPEID_Z,       &
-    MeshBase3D_DIMTYPEID_ZT, MeshBase3D_DIMTYPEID_XYZ, MeshBase3D_DIMTYPEID_XYZT, &
+    MeshBase3D_DIMTYPEID_X, MeshBase3D_DIMTYPEID_Y, MeshBase3D_DIMTYPEID_Z,  &
+    MeshBase3D_DIMTYPEID_ZT,                                                 &
+    MeshBase3D_DIMTYPEID_XY, MeshBase3D_DIMTYPEID_XYT,                       &
+    MeshBase3D_DIMTYPEID_XYZ, MeshBase3D_DIMTYPEID_XYZT,                     &
     MeshBase3D_DIMTYPE_NUM
 
   use scale_mesh_rectdom2d, only: MeshRectDom2D
@@ -899,6 +901,16 @@ contains
     call set_dimension( dimsinfo(MeshBase3D_DIMTYPEID_ZT), &
       diminfo, "ZT", 1, (/ diminfo_z%name /), (/ k_size /) )
 
+    diminfo => mesh3D%dimInfo(MeshBase3D_DIMTYPEID_XY)
+    call set_dimension( dimsinfo(MeshBase3D_DIMTYPEID_XY),     &
+      diminfo, "XY", 2, (/ diminfo_x%name, diminfo_y%name  /), &
+      (/ i_size, j_size /) )
+  
+    diminfo => mesh3D%dimInfo(MeshBase3D_DIMTYPEID_XYT)
+    call set_dimension( dimsinfo(MeshBase3D_DIMTYPEID_XYT),     &
+      diminfo, "XY", 2, (/ diminfo_x%name, diminfo_y%name  /),  &
+      (/ i_size, j_size /) )
+    
     diminfo => mesh3D%dimInfo(MeshBase3D_DIMTYPEID_XYZ)
     call set_dimension( dimsinfo(MeshBase3D_DIMTYPEID_XYZ), &
       diminfo, "XYZ", 3, (/ diminfo_x%name, diminfo_y%name, diminfo_z%name /), &
@@ -970,6 +982,16 @@ contains
     call set_dimension( dimsinfo(MeshBase3D_DIMTYPEID_ZT), &
       diminfo, "ZT", 1, (/ diminfo_z%name /), (/ k_size /) )
 
+    diminfo => mesh3D%dimInfo(MeshBase3D_DIMTYPEID_XY)
+    call set_dimension( dimsinfo(MeshBase3D_DIMTYPEID_XY),     &
+      diminfo, "XY", 2, (/ diminfo_x%name, diminfo_y%name  /), &
+      (/ i_size, j_size /) )
+  
+    diminfo => mesh3D%dimInfo(MeshBase3D_DIMTYPEID_XYT)
+    call set_dimension( dimsinfo(MeshBase3D_DIMTYPEID_XYT),     &
+      diminfo, "XY", 2, (/ diminfo_x%name, diminfo_y%name  /),  &
+      (/ i_size, j_size /) )
+  
     diminfo => mesh3D%dimInfo(MeshBase3D_DIMTYPEID_XYZ)
     call set_dimension( dimsinfo(MeshBase3D_DIMTYPEID_XYZ), &
       diminfo, "XYZ", 3, (/ diminfo_x%name, diminfo_y%name, diminfo_z%name /), &

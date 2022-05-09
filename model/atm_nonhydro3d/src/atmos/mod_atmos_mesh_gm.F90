@@ -132,6 +132,7 @@ contains
     ! Setup the element
 
     call this%element%Init( PolyOrder_h, PolyOrder_v, LumpedMassMatFlag )
+    call this%element_v1D%Init( PolyOrder_v, LumpedMassMatFlag )
 
     ! Setup the mesh
 

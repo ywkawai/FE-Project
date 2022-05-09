@@ -62,9 +62,10 @@ subroutine Atmos_setup( this )
   return
 end subroutine Atmos_setup
 
-subroutine Atmos_calc_tendency( this )
+subroutine Atmos_calc_tendency( this, force )
   implicit none
   class(AtmosComponent), intent(inout) :: this
+  logical, intent(in) :: force
 
   !--------------------------------------------------
 

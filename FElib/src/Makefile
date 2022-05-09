@@ -18,6 +18,7 @@ VPATH = \
 	file:             \
 	fluid_dyn_solver: \
 	turbulence:       \
+	microphysics:     \
 	model_framework:
 
 LIBVERSION = $(shell git rev-parse --short HEAD 2> /dev/null)
@@ -114,6 +115,9 @@ OBJS_NAME_FLUID_DYN_SOLVER = \
 OBJS_NAME_TURBULENCE = \
 	scale_atm_phy_tb_dgm_smg.o
 
+OBJS_NAME_MICROPHYS = \
+	scale_atm_phy_mp_dgm_common.o
+
 OBJS_NAME_MODEL_FRAMEWORK = \
 	scale_model_mesh_manager.o   \
 	scale_model_component.o      \
@@ -128,6 +132,7 @@ OBJS_NAME = \
 	$(OBJS_NAME_FILE)             \
 	$(OBJS_NAME_FLUID_DYN_SOLVER) \
 	$(OBJS_NAME_TURBULENCE)       \
+	$(OBJS_NAME_MICROPHYS)        \
 	$(OBJS_NAME_MODEL_FRAMEWORK)
 	
 
