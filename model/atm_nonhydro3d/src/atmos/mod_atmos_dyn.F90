@@ -86,7 +86,8 @@ module mod_atmos_dyn
     atm_dyn_dgm_trcadvect3d_heve_Final,         &    
     atm_dyn_dgm_trcadvect3d_heve_calc_fct_coef, &
     atm_dyn_dgm_trcadvect3d_heve_cal_tend,      &
-    atm_dyn_dgm_trcadvect3d_TMAR    
+    atm_dyn_dgm_trcadvect3d_TMAR,               &
+    atm_dyn_dgm_trcadvect3d_save_massflux
 
   use mod_atmos_mesh, only: AtmosMesh
   use mod_atmos_vars, only: &
@@ -244,6 +245,7 @@ module mod_atmos_dyn
     logical :: ONLY_TRACERADV_FLAG
     logical :: TRACERADV_disable_limiter
     logical :: TRACERADV_MODALFILTER_FLAG
+    type(SparseMat) :: FaceIntMat    
 
   contains
     procedure, public :: setup => AtmosDyn_setup 
@@ -425,7 +427,7 @@ contains
     end select    
 
     !- Initialize a module for tracer equations
-    call atm_dyn_dgm_trcadvect3d_heve_Init( mesh3D ) 
+    call atm_dyn_dgm_trcadvect3d_heve_Init( mesh3D, this%FaceIntMat ) 
 
     !- Setup the numerical diffusion
     this%CALC_NUMDIFF_FLAG = NUMDIFF_FLAG
@@ -496,7 +498,7 @@ contains
     class(LocalMeshFieldBase), pointer :: DENS_hyd, PRES_hyd
     class(LocalMeshFieldBase), pointer :: Coriolis
     class(LocalMeshFieldBase), pointer :: Rtot, CVtot, CPtot
-    class(LocalMeshFieldBase), pointer :: ALPH_DENS_tavg, MFLX_x_tavg, MFLX_y_tavg, MFLX_z_tavg
+    class(LocalMeshFieldBase), pointer :: ALPH_DENS_M_tavg, ALPH_DENS_P_tavg, MFLX_x_tavg, MFLX_y_tavg, MFLX_z_tavg
     class(LocalMeshFieldBase), pointer :: QTRC
     class(LocalMeshFieldBase), pointer :: RHOQ_tp
 
@@ -510,7 +512,6 @@ contains
     real(RP) :: dttmp_trc
 
     real(RP) :: tavg_coef_MFLXZ(this%tint(1)%nstage)
-    real(RP), allocatable :: alphDENS_(:,:,:)
     !--------------------------------------------------
     
     call PROF_rapstart( 'ATM_DYN_update', 1)   
@@ -522,12 +523,6 @@ contains
     else
       nRKstage = this%tint(1)%nstage
     end if
-
-    call AtmosVars_GetLocalMeshPrgVars( 1, &
-      mesh, prgvars_list, auxvars_list,                               &
-      DDENS, MOMX, MOMY, MOMZ, DRHOT,                                 &
-      DENS_hyd, PRES_hyd, Rtot, CVtot, CPtot, lcmesh                  )
-    allocate( alphDENS_(lcmesh%refElem3D%NfpTot,lcmesh%Ne,2) )
 
     !-
     do rkstage=1, nRKstage
@@ -668,9 +663,8 @@ contains
 
         if ( QA > 0 ) then
           call PROF_rapstart( 'ATM_DYN_get_localmesh_ptr', 2)         
-          call AtmosDynMassFlux_GetLocalMeshFields( n, &
-            mesh, this%dyn_vars%MASS_FLUX_manager,                 &
-            ALPH_DENS_tavg, MFLX_x_tavg, MFLX_y_tavg, MFLX_z_tavg  )
+          call AtmosDynMassFlux_GetLocalMeshFields( n, mesh, this%dyn_vars,            &
+            ALPH_DENS_M_tavg, ALPH_DENS_P_tavg, MFLX_x_tavg, MFLX_y_tavg, MFLX_z_tavg  )
           call PROF_rapend( 'ATM_DYN_get_localmesh_ptr', 2)  
 
           call PROF_rapstart( 'ATM_DYN_tavg_mflx', 2)
@@ -679,27 +673,14 @@ contains
           else
             tavg_coef_MFLXZ(:) = this%tint(n)%coef_b_ex(:)
           end if
-
-          !$omp parallel do          
-          do ke=lcmesh%NeS, lcmesh%NeE
-            if (rkstage == 1) then
-              MFLX_x_tavg%val(:,ke) = 0.0_RP
-              MFLX_y_tavg%val(:,ke) = 0.0_RP
-              MFLX_z_tavg%val(:,ke) = 0.0_RP
-              alphDENS_(:,ke,1) = 0.0_RP
-              alphDENS_(:,ke,2) = 0.0_RP
-            end if
-            MFLX_x_tavg%val(:,ke) = MFLX_x_tavg%val(:,ke) + this%tint(n)%coef_b_ex(rkstage) * MOMX%val(:,ke)
-            MFLX_y_tavg%val(:,ke) = MFLX_y_tavg%val(:,ke) + this%tint(n)%coef_b_ex(rkstage) * MOMY%val(:,ke)
-            MFLX_z_tavg%val(:,ke) = MFLX_z_tavg%val(:,ke) + tavg_coef_MFLXZ(rkstage)        * MOMZ%val(:,ke)  
-          end do
-          call cal_alphdens_dyn( alphDENS_(:,:,1), alphDENS_(:,:,2), &
-            DDENS%val, MOMX%val, MOMY%val, MOMZ%val, DRHOT%val, &
-            DENS_hyd%val, PRES_hyd%val,                                                &
-            Rtot%val, CVtot%val, CPtot%val,                                            &
-            lcmesh%normal_fn(:,:,1), lcmesh%normal_fn(:,:,2), lcmesh%normal_fn(:,:,3), &
-            lcmesh%vmapM, lcmesh%vmapP, lcmesh, lcmesh%refElem3D, &
-            this%tint(n)%coef_b_ex(rkstage), tavg_coef_MFLXZ(rkstage) )          
+          call atm_dyn_dgm_trcadvect3d_save_massflux( &
+            MFLX_x_tavg%val, MFLX_y_tavg%val, MFLX_z_tavg%val,                 & ! (inout)
+            ALPH_DENS_M_tavg%face_val, ALPH_DENS_P_tavg%face_val,              & ! (inout)
+            DDENS%val, MOMX%val, MOMY%val, MOMZ%val, DRHOT%val,                & ! (in)
+            DENS_hyd%val, PRES_hyd%val,                                        & ! (in)
+            Rtot%val, CVtot%val, CPtot%val,                                    & ! (in)
+            lcmesh, lcmesh%refElem3D,                                          & ! (in)
+            rkstage, this%tint(n)%coef_b_ex(rkstage), tavg_coef_MFLXZ(rkstage) ) ! (in)
           call PROF_rapend( 'ATM_DYN_tavg_mflx', 2)
         end if
         
@@ -738,10 +719,8 @@ contains
             DENS_hyd, PRES_hyd, Rtot, CVtot, CPtot, &
             lcmesh                                  )
                        
-          call AtmosDynMassFlux_GetLocalMeshFields( n, &
-            mesh, this%dyn_vars%MASS_FLUX_manager,     &
-            ALPH_DENS_tavg, MFLX_x_tavg, MFLX_y_tavg, MFLX_z_tavg,     &          
-            lcmesh                                                     )
+          call AtmosDynMassFlux_GetLocalMeshFields( n, mesh, this%dyn_vars,            &
+            ALPH_DENS_M_tavg, ALPH_DENS_P_tavg, MFLX_x_tavg, MFLX_y_tavg, MFLX_z_tavg  )
           call PROF_rapend( 'ATM_DYN_get_localmesh_ptr', 3)
           !$omp parallel do
           do ke=lcmesh%NeS, lcmesh%NeE
@@ -755,7 +734,7 @@ contains
       !* Exchange halo data of mass flux
 
       call PROF_rapstart( 'ATM_DYN_exchange_mflx', 3)
-      call this%dyn_vars%MASS_FLUX_manager%MeshFieldComm_Exchange()
+      call this%dyn_vars%AUXTRC_FLUX_VAR3D_manager%MeshFieldComm_Exchange()
       call PROF_rapend( 'ATM_DYN_exchange_mflx', 3)
 
       do n=1, mesh%LOCAL_MESH_NUM
@@ -766,10 +745,8 @@ contains
           DENS_hyd, PRES_hyd, Rtot, CVtot, CPtot, &
           lcmesh                                  )
                    
-        call AtmosDynMassFlux_GetLocalMeshFields( n, &
-          mesh, this%dyn_vars%MASS_FLUX_manager,                 &
-          ALPH_DENS_tavg, MFLX_x_tavg, MFLX_y_tavg, MFLX_z_tavg, &          
-          lcmesh                                                 )
+        call AtmosDynMassFlux_GetLocalMeshFields( n, mesh, this%dyn_vars,            &
+          ALPH_DENS_M_tavg, ALPH_DENS_P_tavg, MFLX_x_tavg, MFLX_y_tavg, MFLX_z_tavg  )
         call PROF_rapend( 'ATM_DYN_get_localmesh_ptr', 3)
 
         call PROF_rapstart( 'ATM_DYN_applyBC_mflux', 3)
@@ -845,33 +822,36 @@ contains
                 mesh, prgvars_list, auxvars_list,   &
                 DDENS_ID, DDENS, DENS_hyd           )  
 
-              call AtmosDynMassFlux_GetLocalMeshFields( n, &
-                mesh, this%dyn_vars%MASS_FLUX_manager,     &
-                ALPH_DENS_tavg, MFLX_x_tavg, MFLX_y_tavg, MFLX_z_tavg,     &          
-                lcmesh                                                     )
-    
+              call AtmosDynMassFlux_GetLocalMeshFields( n, mesh, this%dyn_vars,            &
+                ALPH_DENS_M_tavg, ALPH_DENS_P_tavg, MFLX_x_tavg, MFLX_y_tavg, MFLX_z_tavg  )
+        
               call AtmosVars_GetLocalMeshQTRCPhyTend( n, &
                 mesh, forcing_list, iq,                  &
                 RHOQ_tp                                  )
   
               call PROF_rapend( 'ATM_DYN_get_localmesh_ptr', 3)              
 
-              !---                          
+              !---
+              call PROF_rapstart( 'ATM_DYN_calc_fct_coef', 3)  
+
               dt = this%tint_qtrc(n)%Get_deltime()
               dttmp_trc = dt * this%tint_qtrc(n)%coef_gam_ex(rkstage+1,rkstage) &
                             / this%tint_qtrc(n)%coef_sig_ex(rkstage+1,rkstage)
               call atm_dyn_dgm_trcadvect3d_heve_calc_fct_coef( &
                 this%dyn_vars%AUX_TRCVARS3D(1)  %local(n)%val,                             & ! (out)
                 this%dyn_vars%TRCVARS3D(TRCQ_ID)%local(n)%val,                             & ! (in)
-                MFLX_x_tavg%val, MFLX_y_tavg%val, MFLX_z_tavg%val, RHOQ_tp%val, alphDENS_, & ! (in)
+                MFLX_x_tavg%val, MFLX_y_tavg%val, MFLX_z_tavg%val, RHOQ_tp%val,            & ! (in)
+                ALPH_DENS_M_tavg%face_val, ALPH_DENS_P_tavg%face_val,                      & ! (in)
                 DENS_hyd%val(:,:), this%dyn_vars%TRCVARS3D(TRCDDENS_ID)%local(n)%val(:,:), & ! (in)
                 this%tint(n)%var0_2D(:,:,DDENS_ID),                                        & ! (in)
                 this%tint_qtrc(n)%coef_c_ex(rkstage), dttmp_trc,                           & ! (in) 
                 model_mesh%DOptrMat(1), model_mesh%DOptrMat(2), model_mesh%DOptrMat(3),    & ! (in)
                 model_mesh%SOptrMat(1), model_mesh%SOptrMat(2), model_mesh%SOptrMat(3),    & ! (in)
-                model_mesh%LiftOptrMat,                                                    & ! (in)
+                model_mesh%LiftOptrMat, this%FaceIntMat,                                   & ! (in)
                 lcmesh, lcmesh%refElem3D, lcmesh%lcmesh2D, lcmesh%lcmesh2D%refElem2D,      & ! (in)
-                this%TRACERADV_disable_limiter                                             ) ! (in)          
+                this%TRACERADV_disable_limiter                                             ) ! (in)
+
+              call PROF_rapend( 'ATM_DYN_calc_fct_coef', 3)  
             end do
 
             call PROF_rapstart( 'ATM_DYN_exchange_qtrc', 3)
@@ -882,10 +862,9 @@ contains
             tintbuf_ind = this%tint_qtrc(n)%tend_buf_indmap(rkstage)
 
             call PROF_rapstart( 'ATM_DYN_get_localmesh_ptr', 3)              
-            call AtmosDynMassFlux_GetLocalMeshFields( n, &
-              mesh, this%dyn_vars%MASS_FLUX_manager,                 &
-              ALPH_DENS_tavg, MFLX_x_tavg, MFLX_y_tavg, MFLX_z_tavg, &          
-              lcmesh                                                 )
+            call AtmosDynMassFlux_GetLocalMeshFields( n, mesh, this%dyn_vars,            &
+              ALPH_DENS_M_tavg, ALPH_DENS_P_tavg, MFLX_x_tavg, MFLX_y_tavg, MFLX_z_tavg  )
+            
             call AtmosVars_GetLocalMeshPrgVar( n, &
               mesh, prgvars_list, auxvars_list,   &
               DDENS_ID, DDENS, DENS_hyd           )
@@ -900,12 +879,14 @@ contains
               call atm_dyn_dgm_trcadvect3d_heve_cal_tend( &        
                 this%tint_qtrc(n)%tend_buf2D_ex(:,:,1,tintbuf_ind),                     & ! (out)
                 this%dyn_vars%TRCVARS3D(TRCQ_ID)%local(n)%val,                          & ! (in)
-                MFLX_x_tavg%val, MFLX_y_tavg%val, MFLX_z_tavg%val, alphDENS_,           & ! (in)
+                MFLX_x_tavg%val, MFLX_y_tavg%val, MFLX_z_tavg%val,                      & ! (in)
+                this%dyn_vars%alphaDensM%local(n)%face_val,                             & ! (in)
+                this%dyn_vars%alphaDensP%local(n)%face_val,                             & ! (in)
                 this%dyn_vars%AUX_TRCVARS3D(1)%local(n)%val,                            & ! (in)
                 RHOQ_tp%val,                                                            & ! (in) 
                 model_mesh%DOptrMat(1), model_mesh%DOptrMat(2), model_mesh%DOptrMat(3), & ! (in)
                 model_mesh%SOptrMat(1), model_mesh%SOptrMat(2), model_mesh%SOptrMat(3), & ! (in)
-                model_mesh%LiftOptrMat,                                                 & ! (in)
+                model_mesh%LiftOptrMat, this%FaceIntMat,                                & ! (in)
                 lcmesh, lcmesh%refElem3D, lcmesh%lcmesh2D, lcmesh%lcmesh2D%refElem2D    ) ! (in)
             else
               !$omp parallel do
@@ -1686,85 +1667,5 @@ contains
 
 !    return
 !  end subroutine cal_del_flux_dyn
-
-!OCL SERIAL
- subroutine cal_alphdens_dyn( alph_dens_M, alph_dens_P, &
-   DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd,   &
-   Rtot, CVtot, CPtot,                                        &
-   nx, ny, nz, vmapM, vmapP, lmesh, elem,                     &
-   tavg_weight_h, tavg_weight_v )
-
-   use scale_const, only: &
-    GRAV => CONST_GRAV,  &
-    Rdry => CONST_Rdry,  &
-    CPdry => CONST_CPdry, &
-    CVdry => CONST_CVdry, &
-    PRES00 => CONST_PRE00
-  
-   implicit none
-
-   class(LocalMesh3D), intent(in) :: lmesh
-   class(elementbase3D), intent(in) :: elem  
-   real(RP), intent(inout) ::  alph_dens_M(elem%NfpTot*lmesh%Ne)
-   real(RP), intent(inout) ::  alph_dens_P(elem%NfpTot*lmesh%Ne)
-   real(RP), intent(in) ::  DDENS_(elem%Np*lmesh%NeA)
-   real(RP), intent(in) ::  MOMX_(elem%Np*lmesh%NeA)  
-   real(RP), intent(in) ::  MOMY_(elem%Np*lmesh%NeA)  
-   real(RP), intent(in) ::  MOMZ_(elem%Np*lmesh%NeA)  
-   real(RP), intent(in) ::  DRHOT_(elem%Np*lmesh%NeA)
-   real(RP), intent(in) ::  DENS_hyd(elem%Np*lmesh%NeA)
-   real(RP), intent(in) ::  PRES_hyd(elem%Np*lmesh%NeA)
-   real(RP), intent(in) ::  Rtot(elem%Np*lmesh%NeA)
-   real(RP), intent(in) ::  CVtot(elem%Np*lmesh%NeA)
-   real(RP), intent(in) ::  CPtot(elem%Np*lmesh%NeA)
-   real(RP), intent(in) :: nx(elem%NfpTot*lmesh%Ne)
-   real(RP), intent(in) :: ny(elem%NfpTot*lmesh%Ne)
-   real(RP), intent(in) :: nz(elem%NfpTot*lmesh%Ne)
-   integer, intent(in) :: vmapM(elem%NfpTot*lmesh%Ne)
-   integer, intent(in) :: vmapP(elem%NfpTot*lmesh%Ne)
-   real(RP), intent(in) :: tavg_weight_h
-   real(RP), intent(in) :: tavg_weight_v
-   
-   integer :: i, iP, iM
-   real(RP) :: VelP, VelM, alpha
-   real(RP) :: uM, uP, vM, vP, wM, wP, presM, presP, dpresM, dpresP, densM, densP, rhotM, rhotP, rhot_hyd_M, rhot_hyd_P
-   real(RP) :: gamm, rgamm
-   !------------------------------------------------------------------------
-
-   gamm = CpDry/CvDry
-   rgamm = CvDry/CpDry
-
-   !$omp parallel do private( &
-   !$omp iM, iP, uM, VelP, VelM, alpha, &
-   !$omp uP, vM, vP, wM, wP, presM, presP, dpresM, dpresP, densM, densP, rhotM, rhotP, rhot_hyd_M, rhot_hyd_P)
-   do i=1, elem%NfpTot*lmesh%Ne
-     iM = vmapM(i); iP = vmapP(i)
-
-     rhot_hyd_M = PRES00/Rdry * (PRES_hyd(iM)/PRES00)**rgamm
-     rhot_hyd_P = PRES00/Rdry * (PRES_hyd(iP)/PRES00)**rgamm
-     
-     rhotM = rhot_hyd_M + DRHOT_(iM)
-     presM = PRES00 * (Rtot(iM)*rhotM/PRES00)**(CPtot(iM)/CVtot(iM))
-     dpresM = presM - PRES_hyd(iM)*abs(nz(i))
-
-     rhotP = rhot_hyd_P + DRHOT_(iP) 
-     presP = PRES00 * (Rtot(iP)*rhotP/PRES00)**(CPtot(iP)/CVtot(iP))
-     dpresP = presP - PRES_hyd(iP)*abs(nz(i))
-
-     densM = DDENS_(iM) + DENS_hyd(iM)
-     densP = DDENS_(iP) + DENS_hyd(iP)
-
-     VelM = (MOMX_(iM)*nx(i) + MOMY_(iM)*ny(i) + MOMZ_(iM)*nz(i))/densM
-     VelP = (MOMX_(iP)*nx(i) + MOMY_(iP)*ny(i) + MOMZ_(iP)*nz(i))/densP
-
-     alpha = max( sqrt(gamm*presM/densM) + abs(VelM), sqrt(gamm*presP/densP) + abs(VelP)  )
-
-     !alph_dens_(iM) = alph_dens_(iM) + tavg_weight_h * alpha * densM
-     alph_dens_M(i) = alph_dens_M(i) + tavg_weight_h * alpha * densM
-     alph_dens_P(i) = alph_dens_P(i) + tavg_weight_h * alpha * densP
-   end do
-
-   return
- end subroutine cal_alphdens_dyn
 
 end module mod_atmos_dyn

@@ -5,8 +5,8 @@
 ################################################################################
 
 PWD         = $(shell pwd)
-TOPDIR      = $(abspath ../../../../..)
-TESTDIR     = ../..
+TOPDIR      = $(abspath ../../../../../..)
+TESTDIR     = ../../..
 
 
 # user-defined source files

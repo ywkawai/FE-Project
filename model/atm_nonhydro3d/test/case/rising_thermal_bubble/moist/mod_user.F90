@@ -2,7 +2,7 @@
 !> module USER
 !!
 !! @par Description
-!!          User defined module for a test case of rising warm bubble
+!!          User defined module for a test case of rising warm bubble with moist process
 !!
 !! @author Team SCALE
 !!
@@ -55,12 +55,12 @@ module mod_user
   !++ Private parameters & variables
   !
 
-  type, private, extends(experiment) :: Exp_rising_therm_bubble
+  type, private, extends(experiment) :: Exp_rising_therm_bubble_moist
   contains 
     procedure :: setInitCond_lc => exp_SetInitCond_rising_therm_bubble
     procedure :: geostrophic_balance_correction_lc => exp_geostrophic_balance_correction
   end type
-  type(Exp_rising_therm_bubble), private :: exp_manager
+  type(Exp_rising_therm_bubble_moist), private :: exp_manager
 
   logical, private :: USER_do                   = .false. !< do user step?
 
@@ -168,7 +168,7 @@ contains
     
     implicit none
 
-    class(Exp_rising_therm_bubble), intent(inout) :: this
+    class(Exp_rising_therm_bubble_moist), intent(inout) :: this
     type(LocalMesh3D), intent(in) :: lcmesh
     class(ElementBase3D), intent(in) :: elem
     real(RP), intent(out) :: DENS_hyd(elem%Np,lcmesh%NeA)
@@ -392,7 +392,7 @@ contains
     
     implicit none
 
-    class(Exp_rising_therm_bubble), intent(inout) :: this
+    class(Exp_rising_therm_bubble_moist), intent(inout) :: this
     type(LocalMesh3D), intent(in) :: lcmesh
     class(ElementBase3D), intent(in) :: elem
     real(RP), intent(inout) :: DENS_hyd(elem%Np,lcmesh%NeA)

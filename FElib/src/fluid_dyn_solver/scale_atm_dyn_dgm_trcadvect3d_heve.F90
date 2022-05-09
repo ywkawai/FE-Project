@@ -26,7 +26,8 @@ module scale_atm_dyn_dgm_trcadvect3d_heve
   use scale_prc
   use scale_prof
 
-  use scale_sparsemat  
+  use scale_sparsemat, only: &
+    SparseMat, sparsemat_matmul
   use scale_element_base, only: &
     ElementBase2D, ElementBase3D
   use scale_element_hexahedral, only: HexahedralElement
@@ -49,6 +50,7 @@ module scale_atm_dyn_dgm_trcadvect3d_heve
   public :: atm_dyn_dgm_trcadvect3d_heve_calc_fct_coef  
   public :: atm_dyn_dgm_trcadvect3d_heve_cal_tend
   public :: atm_dyn_dgm_trcadvect3d_TMAR
+  public :: atm_dyn_dgm_trcadvect3d_save_massflux
 
   !-----------------------------------------------------------------------------
   !
@@ -61,17 +63,18 @@ module scale_atm_dyn_dgm_trcadvect3d_heve
   !
   !-------------------
 
+  private :: atm_dyn_dgm_trcadvect3d_heve_cal_alphdens_dyn
+  private :: atm_dyn_dgm_trcadvect3d_heve_get_netOutwardFlux_generalhvc
   private :: atm_dyn_dgm_trcadvect3d_heve_get_delflux_generalhvc
-
-  real(RP), allocatable, private :: IntWeight(:,:)
 
 contains
 
 !OCL SERIAL
-  subroutine atm_dyn_dgm_trcadvect3d_heve_Init(mesh)
+  subroutine atm_dyn_dgm_trcadvect3d_heve_Init( mesh, FaceIntMat )
     use scale_polynominal, only: Polynominal_GenGaussLobattoPtIntWeight
     implicit none
     class(MeshBase3D), intent(in), target :: mesh
+    type(SparseMat), intent(inout) :: FaceIntMat
 
     class(LocalMesh3D), pointer :: lcmesh
     class(ElementBase3D), pointer :: elem
@@ -83,7 +86,9 @@ contains
     integer :: f
     integer :: i, j, k, l
     integer :: is, ie
-    !--------------------------------------------
+
+    real(RP), allocatable :: IntWeight(:,:)
+    !-------------------------------------------------------------
 
     lcmesh => mesh%lcmesh_list(1)
     elem => lcmesh%refElem3D
@@ -124,6 +129,8 @@ contains
       IntWeight(elem%Nfaces_h+f,is:ie) = intWeight_v(:)
     end do
 
+    call FaceIntMat%Init( IntWeight )
+
     return
   end subroutine atm_dyn_dgm_trcadvect3d_heve_Init
   
@@ -138,24 +145,26 @@ contains
 
 !OCL SERIAL
   subroutine atm_dyn_dgm_trcadvect3d_heve_cal_tend( &
-    QTRC_dt,                                                    & ! (out)
-    QTRC_, MOMX_, MOMY_, MOMZ_,                                 & ! (in)
-    alphDENS_, fct_coef,                                        & ! (in)
-    RHOQ_tp,                                                    & ! (in)
-    Dx, Dy, Dz, Sx, Sy, Sz, Lift, lmesh, elem, lmesh2D, elem2D  ) ! (in)
+    QTRC_dt,                                        & ! (out)
+    QTRC_, MOMX_, MOMY_, MOMZ_,                     & ! (in)
+    alphDENS_M, alphDENS_P, fct_coef,               & ! (in)
+    RHOQ_tp,                                        & ! (in)
+    Dx, Dy, Dz, Sx, Sy, Sz, Lift, FaceIntMat,       & ! (in) 
+    lmesh, elem, lmesh2D, elem2D                    ) ! (in)
 
     class(LocalMesh3D), intent(in) :: lmesh
     class(elementbase3D), intent(in) :: elem
     class(LocalMesh2D), intent(in) :: lmesh2D
     class(elementbase2D), intent(in) :: elem2D
-    type(SparseMat), intent(in) :: Dx, Dy, Dz, Sx, Sy, Sz, Lift   
+    type(SparseMat), intent(in) :: Dx, Dy, Dz, Sx, Sy, Sz, Lift, FaceIntMat
     
     real(RP), intent(out) :: QTRC_dt(elem%Np,lmesh%NeA)
     real(RP), intent(in) :: QTRC_(elem%Np,lmesh%NeA)
     real(RP), intent(in) :: MOMX_(elem%Np,lmesh%NeA)
     real(RP), intent(in) :: MOMY_(elem%Np,lmesh%NeA)    
     real(RP), intent(in) :: MOMZ_(elem%Np,lmesh%NeA)    
-    real(RP), intent(in) :: alphDENS_(elem%NfpTot,lmesh%Ne,2)    
+    real(RP), intent(in) :: alphDENS_M(elem%NfpTot,lmesh%Ne)
+    real(RP), intent(in) :: alphDENS_P(elem%NfpTot,lmesh%Ne)
     real(RP), intent(in) :: fct_coef(elem%Np,lmesh%NeA)
     real(RP), intent(in) :: RHOQ_tp(elem%Np,lmesh%NeA)
 
@@ -172,11 +181,11 @@ contains
     call PROF_rapstart('cal_trcadv_tend_bndflux', 3)
     call atm_dyn_dgm_trcadvect3d_heve_get_delflux_generalhvc( &
       del_flux,                                                                & ! (out)
-      QTRC_, MOMX_, MOMY_, MOMZ_, alphDens_, fct_coef,                         & ! (in)
+      QTRC_, MOMX_, MOMY_, MOMZ_, alphDens_M, alphDens_P, fct_coef,            & ! (in)
       lmesh%Gsqrt, lmesh%GsqrtH, lmesh%GI3(:,:,1), lmesh%GI3(:,:,2),           & ! (in)    
       lmesh%normal_fn(:,:,1), lmesh%normal_fn(:,:,2), lmesh%normal_fn(:,:,3),  & ! (in)
       lmesh%J(:,:), lmesh%Fscale(:,:),                                         & ! (in) 
-      lmesh%vmapM, lmesh%vmapP, elem%IndexH2Dto3D_bnd,                         & ! (in)
+      lmesh%vmapM, lmesh%vmapP, elem%IndexH2Dto3D_bnd, FaceIntMat,             & ! (in)
       lmesh, elem, lmesh2D, elem2D                                             ) ! (in)
     call PROF_rapend('cal_trcadv_tend_bndflux', 3)
 
@@ -210,18 +219,19 @@ contains
 
 !OCL SERIAL
   subroutine atm_dyn_dgm_trcadvect3d_heve_calc_fct_coef( &
-    fct_coef,                                                   & ! (out)
-    QTRC_, MOMX_, MOMY_, MOMZ_, RHOQ_tp_, AlphDens_,            & ! (in)
-    DENS_hyd, DDENS_, DDENS0_, rk_c_ssm1, dt,                   & ! (in)
-    Dx, Dy, Dz, Sx, Sy, Sz, Lift, lmesh, elem, lmesh2D, elem2D, & ! (in)
-    disable_limiter                                             ) ! (in)
+    fct_coef,                                                     & ! (out)
+    QTRC_, MOMX_, MOMY_, MOMZ_, RHOQ_tp_, AlphDens_M, AlphDens_P, & ! (in)
+    DENS_hyd, DDENS_, DDENS0_, rk_c_ssm1, dt,                     & ! (in)
+    Dx, Dy, Dz, Sx, Sy, Sz, Lift, FaceIntMat,                     & ! (in)
+    lmesh, elem, lmesh2D, elem2D,                                 & ! (in)
+    disable_limiter                                               ) ! (in)
 
     implicit none
     class(LocalMesh3D), intent(in) :: lmesh
     class(elementbase3D), intent(in) :: elem
     class(LocalMesh2D), intent(in) :: lmesh2D
     class(elementbase2D), intent(in) :: elem2D
-    type(SparseMat), intent(in) :: Dx, Dy, Dz, Sx, Sy, Sz, Lift  
+    type(SparseMat), intent(in) :: Dx, Dy, Dz, Sx, Sy, Sz, Lift, FaceIntMat
     
     real(RP), intent(out) :: fct_coef(elem%Np,lmesh%NeA)
     real(RP), intent(in) :: QTRC_(elem%Np,lmesh%NeA)
@@ -229,7 +239,8 @@ contains
     real(RP), intent(in) :: MOMY_(elem%Np,lmesh%NeA)    
     real(RP), intent(in) :: MOMZ_(elem%Np,lmesh%NeA)
     real(RP), intent(in) :: RHOQ_tp_(elem%Np,lmesh%NeA)
-    real(RP), intent(in) :: AlphDens_(elem%NfpTot,lmesh%Ne,2) 
+    real(RP), intent(in) :: alphDENS_M(elem%NfpTot,lmesh%Ne)
+    real(RP), intent(in) :: alphDENS_P(elem%NfpTot,lmesh%Ne)
     real(RP), intent(in) :: DENS_hyd(elem%Np,lmesh%NeA)     
     real(RP), intent(in) :: DDENS_ (elem%Np,lmesh%NeA)
     real(RP), intent(in) :: DDENS0_(elem%Np,lmesh%NeA)
@@ -258,10 +269,11 @@ contains
     call PROF_rapstart('cal_trcadv_fct_coef_bndflux', 3)
     call atm_dyn_dgm_trcadvect3d_heve_get_netOutwardFlux_generalhvc( &
       netOutwardFlux,                                                                   & ! (out)
-      QTRC_, MOMX_, MOMY_, MOMZ_, AlphDens_,                                            & ! (in)
+      QTRC_, MOMX_, MOMY_, MOMZ_, AlphDens_M, AlphDens_P,                               & ! (in)
       lmesh%Gsqrt, lmesh%GsqrtH, lmesh%GI3(:,:,1), lmesh%GI3(:,:,2),                    & ! (in)    
       lmesh%normal_fn(:,:,1), lmesh%normal_fn(:,:,2), lmesh%normal_fn(:,:,3),           & ! (in)
       lmesh%J(:,:), lmesh%Fscale(:,:), lmesh%vmapM, lmesh%vmapP, elem%IndexH2Dto3D_bnd, & ! (in)
+      FaceIntMat,                                                                       & ! (in)
       lmesh, elem, lmesh2D, elem2D                                                      ) ! (in)
     call PROF_rapend('cal_trcadv_fct_coef_bndflux', 3)
 
@@ -316,14 +328,152 @@ contains
     return
   end subroutine atm_dyn_dgm_trcadvect3d_TMAR
 
+!OCL SERIAL
+  subroutine atm_dyn_dgm_trcadvect3d_save_massflux( &
+    MFLX_x_tavg, MFLX_y_tavg, MFLX_z_tavg, alph_dens_M, alph_dens_P, &
+    DDENS, MOMX, MOMY, MOMZ, DRHOT, DENS_hyd, PRES_hyd,              &
+    Rtot, CVtot, CPtot,                                              &
+    lmesh, elem, rkstage, tavg_weight_h, tavg_weight_v               ) 
+   
+    implicit none
+    class(LocalMesh3D), intent(in) :: lmesh
+    class(elementbase3D), intent(in) :: elem
+    real(RP), intent(inout) ::  MFLX_x_tavg(elem%Np,lmesh%NeA)
+    real(RP), intent(inout) ::  MFLX_y_tavg(elem%Np,lmesh%NeA)
+    real(RP), intent(inout) ::  MFLX_z_tavg(elem%Np,lmesh%NeA)
+    real(RP), intent(inout) ::  alph_dens_M(elem%NfpTot,lmesh%Ne)
+    real(RP), intent(inout) ::  alph_dens_P(elem%NfpTot,lmesh%Ne)
+    real(RP), intent(in) ::  DDENS(elem%Np,lmesh%NeA)
+    real(RP), intent(in) ::  MOMX(elem%Np,lmesh%NeA)  
+    real(RP), intent(in) ::  MOMY(elem%Np,lmesh%NeA)  
+    real(RP), intent(in) ::  MOMZ(elem%Np,lmesh%NeA)  
+    real(RP), intent(in) ::  DRHOT(elem%Np,lmesh%NeA)
+    real(RP), intent(in) ::  DENS_hyd(elem%Np,lmesh%NeA)
+    real(RP), intent(in) ::  PRES_hyd(elem%Np,lmesh%NeA)
+    real(RP), intent(in) ::  Rtot(elem%Np,lmesh%NeA)
+    real(RP), intent(in) ::  CVtot(elem%Np,lmesh%NeA)
+    real(RP), intent(in) ::  CPtot(elem%Np,lmesh%NeA)
+    integer, intent(in) :: rkstage
+    real(RP), intent(in) :: tavg_weight_h
+    real(RP), intent(in) :: tavg_weight_v
+
+    integer :: ke
+    !--------------------------------------------------------------
+
+    !$omp parallel do private(ke)
+    do ke=lmesh%NeS, lmesh%NeE
+      if (rkstage == 1) then
+        MFLX_x_tavg(:,ke) = tavg_weight_h * MOMX(:,ke)
+        MFLX_y_tavg(:,ke) = tavg_weight_h * MOMY(:,ke)
+        MFLX_z_tavg(:,ke) = tavg_weight_v * MOMZ(:,ke)
+        alph_dens_M(:,ke) = 0.0_RP
+        alph_dens_P(:,ke) = 0.0_RP
+      else
+        MFLX_x_tavg(:,ke) = MFLX_x_tavg(:,ke) + tavg_weight_h * MOMX(:,ke)
+        MFLX_y_tavg(:,ke) = MFLX_y_tavg(:,ke) + tavg_weight_h * MOMY(:,ke)
+        MFLX_z_tavg(:,ke) = MFLX_z_tavg(:,ke) + tavg_weight_v * MOMZ(:,ke)
+      end if  
+    end do
+
+    call atm_dyn_dgm_trcadvect3d_heve_cal_alphdens_dyn( &
+      alph_dens_M, alph_dens_P,                                               & ! (out)
+      DDENS, MOMX, MOMY, MOMZ, DRHOT, DENS_hyd, PRES_hyd,                     & ! (in)
+      Rtot, CVtot, CPtot,                                                     & ! (in)
+      lmesh%normal_fn(:,:,1), lmesh%normal_fn(:,:,2), lmesh%normal_fn(:,:,3), & ! (in)
+      lmesh%vmapM, lmesh%vmapP, lmesh, lmesh%refElem3D,                       & ! (in)
+      tavg_weight_h, tavg_weight_v                                            ) ! (in)
+    
+    return
+  end subroutine atm_dyn_dgm_trcadvect3d_save_massflux
+
 !-- private ---
 
 !OCL SERIAL
+  subroutine atm_dyn_dgm_trcadvect3d_heve_cal_alphdens_dyn( alph_dens_M, alph_dens_P, &
+    DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd,   &
+    Rtot, CVtot, CPtot,                                        &
+    nx, ny, nz, vmapM, vmapP, lmesh, elem,                     &
+    tavg_weight_h, tavg_weight_v )
+ 
+    use scale_const, only: &
+     GRAV => CONST_GRAV,  &
+     Rdry => CONST_Rdry,  &
+     CPdry => CONST_CPdry, &
+     CVdry => CONST_CVdry, &
+     PRES00 => CONST_PRE00
+   
+    implicit none
+ 
+    class(LocalMesh3D), intent(in) :: lmesh
+    class(elementbase3D), intent(in) :: elem  
+    real(RP), intent(inout) ::  alph_dens_M(elem%NfpTot*lmesh%Ne)
+    real(RP), intent(inout) ::  alph_dens_P(elem%NfpTot*lmesh%Ne)
+    real(RP), intent(in) ::  DDENS_(elem%Np*lmesh%NeA)
+    real(RP), intent(in) ::  MOMX_(elem%Np*lmesh%NeA)  
+    real(RP), intent(in) ::  MOMY_(elem%Np*lmesh%NeA)  
+    real(RP), intent(in) ::  MOMZ_(elem%Np*lmesh%NeA)  
+    real(RP), intent(in) ::  DRHOT_(elem%Np*lmesh%NeA)
+    real(RP), intent(in) ::  DENS_hyd(elem%Np*lmesh%NeA)
+    real(RP), intent(in) ::  PRES_hyd(elem%Np*lmesh%NeA)
+    real(RP), intent(in) ::  Rtot(elem%Np*lmesh%NeA)
+    real(RP), intent(in) ::  CVtot(elem%Np*lmesh%NeA)
+    real(RP), intent(in) ::  CPtot(elem%Np*lmesh%NeA)
+    real(RP), intent(in) :: nx(elem%NfpTot*lmesh%Ne)
+    real(RP), intent(in) :: ny(elem%NfpTot*lmesh%Ne)
+    real(RP), intent(in) :: nz(elem%NfpTot*lmesh%Ne)
+    integer, intent(in) :: vmapM(elem%NfpTot*lmesh%Ne)
+    integer, intent(in) :: vmapP(elem%NfpTot*lmesh%Ne)
+    real(RP), intent(in) :: tavg_weight_h
+    real(RP), intent(in) :: tavg_weight_v
+    
+    integer :: i, iP, iM
+    real(RP) :: VelP, VelM, alpha
+    real(RP) :: uM, uP, vM, vP, wM, wP, presM, presP, dpresM, dpresP, densM, densP, rhotM, rhotP, rhot_hyd_M, rhot_hyd_P
+    real(RP) :: gamm, rgamm
+    !------------------------------------------------------------------------
+ 
+    gamm = CpDry/CvDry
+    rgamm = CvDry/CpDry
+ 
+    !$omp parallel do private( &
+    !$omp iM, iP, uM, VelP, VelM, alpha, &
+    !$omp uP, vM, vP, wM, wP, presM, presP, dpresM, dpresP, densM, densP, rhotM, rhotP, rhot_hyd_M, rhot_hyd_P)
+    do i=1, elem%NfpTot*lmesh%Ne
+      iM = vmapM(i); iP = vmapP(i)
+ 
+      rhot_hyd_M = PRES00/Rdry * (PRES_hyd(iM)/PRES00)**rgamm
+      rhot_hyd_P = PRES00/Rdry * (PRES_hyd(iP)/PRES00)**rgamm
+      
+      rhotM = rhot_hyd_M + DRHOT_(iM)
+      presM = PRES00 * (Rtot(iM)*rhotM/PRES00)**(CPtot(iM)/CVtot(iM))
+      dpresM = presM - PRES_hyd(iM)*abs(nz(i))
+ 
+      rhotP = rhot_hyd_P + DRHOT_(iP) 
+      presP = PRES00 * (Rtot(iP)*rhotP/PRES00)**(CPtot(iP)/CVtot(iP))
+      dpresP = presP - PRES_hyd(iP)*abs(nz(i))
+ 
+      densM = DDENS_(iM) + DENS_hyd(iM)
+      densP = DDENS_(iP) + DENS_hyd(iP)
+ 
+      VelM = (MOMX_(iM)*nx(i) + MOMY_(iM)*ny(i) + MOMZ_(iM)*nz(i))/densM
+      VelP = (MOMX_(iP)*nx(i) + MOMY_(iP)*ny(i) + MOMZ_(iP)*nz(i))/densP
+ 
+      alpha = max( sqrt(gamm*presM/densM) + abs(VelM), sqrt(gamm*presP/densP) + abs(VelP)  )
+ 
+      alph_dens_M(i) = alph_dens_M(i) + tavg_weight_h * alpha * densM
+      alph_dens_P(i) = alph_dens_P(i) + tavg_weight_h * alpha * densP
+    end do
+ 
+    return
+  end subroutine atm_dyn_dgm_trcadvect3d_heve_cal_alphdens_dyn
+
+!OCL SERIAL
   subroutine atm_dyn_dgm_trcadvect3d_heve_get_delflux_generalhvc( &
-    del_flux,                                                    & ! (out)
-    QTRC_, MOMX_, MOMY_, MOMZ_, AlphDens_, fct_coef,             & ! (in)
-    Gsqrt, GsqrtH, G13, G23, nx, ny, nz, J, Fscale,              & ! (in)
-    vmapM, vmapP, iM2Dto3D, lmesh, elem, lmesh2D, elem2D         ) ! (in)
+    del_flux,                                                      & ! (out)
+    QTRC_, MOMX_, MOMY_, MOMZ_, AlphDens_M, AlphDens_P, fct_coef,  & ! (in)
+    Gsqrt, GsqrtH, G13, G23, nx, ny, nz, J, Fscale,                & ! (in)
+    vmapM, vmapP, iM2Dto3D, FaceIntMat,                            & ! (in)
+    lmesh, elem, lmesh2D, elem2D                                   ) ! (in)
 
     implicit none
 
@@ -336,7 +486,8 @@ contains
     real(RP), intent(in) ::  MOMX_(elem%Np*lmesh%NeA)  
     real(RP), intent(in) ::  MOMY_(elem%Np*lmesh%NeA)  
     real(RP), intent(in) ::  MOMZ_(elem%Np*lmesh%NeA)
-    real(RP), intent(in) :: AlphDens_(elem%NfpTot,lmesh%Ne,2)
+    real(RP), intent(in) :: AlphDens_M(elem%NfpTot,lmesh%Ne)
+    real(RP), intent(in) :: AlphDens_P(elem%NfpTot,lmesh%Ne)
     real(RP), intent(in) :: fct_coef(elem%Np*lmesh%NeA)
     real(RP), intent(in) ::  Gsqrt(elem%Np*lmesh%NeA)
     real(RP), intent(in) ::  GsqrtH(elem2D%Np,lmesh2D%Ne)
@@ -350,6 +501,7 @@ contains
     integer, intent(in) :: vmapM(elem%NfpTot,lmesh%Ne)
     integer, intent(in) :: vmapP(elem%NfpTot,lmesh%Ne)
     integer, intent(in) :: iM2Dto3D(elem%NfpTot)
+    type(SparseMat), intent(in) :: FaceIntMat
     
     integer :: ke, i, iP(elem%NfpTot), iM(elem%NfpTot)
     integer :: ke2D
@@ -367,13 +519,11 @@ contains
     real(RP) :: numflux(elem%NfpTot)
     real(RP) :: outward_flux_tmp(elem%Nfaces)   
     integer :: f, p, fp, is, ie
-
-    real(RP) :: alphDENS_P(elem%NfpTot), alphDENS_M(elem%NfpTot)
     !------------------------------------------------------------------------
 
     !$omp parallel do private( &
     !$omp ke, iM, iP, ke2D,                                                                     &
-    !$omp alpha, alphDENS_M, alphDENS_P, MomFlxM, MomFlxP, R_M, R_P, numflux, outward_flux_tmp, &
+    !$omp alpha, MomFlxM, MomFlxP, R_M, R_P, numflux, outward_flux_tmp,                         &
     !$omp f, p, fp,                                                                             &
     !$omp GsqrtMOMX_M, GsqrtMOMX_P, GsqrtMOMY_M, GsqrtMOMY_P, GsqrtMOMZ_M, GsqrtMOMZ_P,         &
     !$omp QTRC_M, QTRC_P, Gsqrt_P, Gsqrt_M, GsqrtV_P, GsqrtV_M, G13_P, G13_M, G23_P, G23_M      )
@@ -412,16 +562,13 @@ contains
                      + G13_P(:) * GsqrtMOMX_P(:) + G23_P(:) * GsqrtMOMY_P(:) ) * nz(:,ke) ) &
                  ) 
 
-      alpha(:) = max( abs(MomFlxM(:)), abs(MomFlxP(:)) )
-      alphDENS_M(:) = AlphDens_(:,ke,1)
-      alphDENS_P(:) = AlphDens_(:,ke,2)
-
-      numflux(:) =  0.5_RP * ( ( QTRC_P(:) * MomFlxP(:) + QTRC_M(:) * MomFlxM(:) )      &
-                              - alphDENS_P(:) * QTRC_P(:) + alphDENS_M(:) * QTRC_M(:)   )        
+      numflux(:) =  0.5_RP * ( ( QTRC_P(:) * MomFlxP(:) + QTRC_M(:) * MomFlxM(:) )           &
+                              - AlphDENS_P(:,ke) * QTRC_P(:) + AlphDENS_M(:,ke) * QTRC_M(:)  ) 
+      ! alpha(:) = max( abs(MomFlxM(:)), abs(MomFlxP(:)) )       
       ! numflux(:) =  0.5_RP * ( ( QTRC_P(:) * MomFlxP(:) + QTRC_M(:) * MomFlxM(:) )    &
       !                         - alpha(:) * (QTRC_P(:) - QTRC_M(:) )                   )  
 
-      outward_flux_tmp(:) = matmul( IntWeight(:,:), J(iM) * Fscale(:,ke) * numflux(:) )
+      call sparsemat_matmul( FaceIntMat, J(iM) * Fscale(:,ke) * numflux(:), outward_flux_tmp )
       do f=1, elem%Nfaces_h
         do p=1, elem%Nfp_h
           fp = p + (f-1)*elem%Nfp_h
@@ -444,10 +591,11 @@ contains
 
 !OCL SERIAL
   subroutine atm_dyn_dgm_trcadvect3d_heve_get_netOutwardFlux_generalhvc( &
-    net_outward_flux,                                            & ! (out)
-    QTRC_, MOMX_, MOMY_, MOMZ_, AlphDens_,                       & ! (in)
-    Gsqrt, GsqrtH, G13, G23, nx, ny, nz, J, Fscale,              & ! (in)
-    vmapM, vmapP, iM2Dto3D, lmesh, elem, lmesh2D, elem2D         ) ! (in)
+    net_outward_flux,                                                    & ! (out)
+    QTRC_, MOMX_, MOMY_, MOMZ_, AlphDens_M, AlphDens_P,                  & ! (in)
+    Gsqrt, GsqrtH, G13, G23, nx, ny, nz, J, Fscale,                      & ! (in)
+    vmapM, vmapP, iM2Dto3D, FaceIntMat,                                  & ! (in)
+    lmesh, elem, lmesh2D, elem2D                                         ) ! (in)
 
     implicit none
 
@@ -460,7 +608,8 @@ contains
     real(RP), intent(in) ::  MOMX_(elem%Np*lmesh%NeA)  
     real(RP), intent(in) ::  MOMY_(elem%Np*lmesh%NeA)  
     real(RP), intent(in) ::  MOMZ_(elem%Np*lmesh%NeA)  
-    real(RP), intent(in) ::  AlphDens_(elem%NfpTot,lmesh%Ne,2) 
+    real(RP), intent(in) ::  AlphDens_M(elem%NfpTot,lmesh%Ne)
+    real(RP), intent(in) ::  AlphDens_P(elem%NfpTot,lmesh%Ne)
     real(RP), intent(in) ::  Gsqrt(elem%Np*lmesh%NeA)
     real(RP), intent(in) ::  GsqrtH(elem2D%Np,lmesh2D%Ne)
     real(RP), intent(in) ::  G13(elem%Np*lmesh%NeA)
@@ -473,6 +622,7 @@ contains
     integer, intent(in) :: vmapM(elem%NfpTot,lmesh%Ne)
     integer, intent(in) :: vmapP(elem%NfpTot,lmesh%Ne)
     integer, intent(in) :: iM2Dto3D(elem%NfpTot)
+    type(SparseMat), intent(in) :: FaceIntMat
     
     integer :: ke, i, iP(elem%NfpTot), iM(elem%NfpTot)
     integer :: ke2D
@@ -488,13 +638,11 @@ contains
 
     real(RP) :: numflux(elem%NfpTot)
     real(RP) :: outward_flux_tmp(elem%Nfaces)
-
-    real(RP) :: alphDENS_P(elem%NfpTot), alphDENS_M(elem%NfpTot)
     !------------------------------------------------------------------------
 
     !$omp parallel do private( &
     !$omp ke, iM, iP, ke2D,                                                                 &
-    !$omp alpha, alphDENS_M, alphDENS_P, MomFlxM, MomFlxP, numflux, outward_flux_tmp,       &
+    !$omp alpha, MomFlxM, MomFlxP, numflux, outward_flux_tmp,                               &
     !$omp GsqrtMOMX_M, GsqrtMOMX_P, GsqrtMOMY_M, GsqrtMOMY_P, GsqrtMOMZ_M, GsqrtMOMZ_P,     &
     !$omp QTRC_M, QTRC_P, Gsqrt_P, Gsqrt_M, GsqrtV_P, GsqrtV_M, G13_P, G13_M, G23_P, G23_M  )
     do ke=lmesh%NeS, lmesh%NeE
@@ -530,14 +678,13 @@ contains
                  ) 
 
       alpha(:) = max( abs(MomFlxM(:)), abs(MomFlxP(:)) )
-      alphDENS_M(:) = AlphDens_(:,ke,1)
-      alphDENS_P(:) = AlphDens_(:,ke,2)
 
-      numflux(:) = 0.5_RP * ( ( QTRC_P(:) * MomFlxP(:) + QTRC_M(:) * MomFlxM(:) ) &
-                            - alphDENS_P(:) * QTRC_P(:) + alphDENS_M(:) * QTRC_M(:) )                
+      numflux(:) = 0.5_RP * ( ( QTRC_P(:) * MomFlxP(:) + QTRC_M(:) * MomFlxM(:) )          &
+                            - AlphDENS_P(:,ke) * QTRC_P(:) + AlphDENS_M(:,ke) * QTRC_M(:)  )        
       ! numflux(:) = 0.5_RP * ( ( QTRC_P(:) * MomFlxP(:) + QTRC_M(:) * MomFlxM(:) ) &
       !                       - alpha(:) * ( QTRC_P(:) - QTRC_M(:) )                )
-      outward_flux_tmp(:) = matmul( IntWeight(:,:), J(iM) * Fscale(:,ke) * numflux(:) )
+
+      call sparsemat_matmul( FaceIntMat, J(iM) * Fscale(:,ke) * numflux(:), outward_flux_tmp )
       net_outward_flux(ke) = sum( max( 0.0_RP, outward_flux_tmp(:) ) )
     end do
 
