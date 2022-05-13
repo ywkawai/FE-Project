@@ -18,6 +18,8 @@ jobs:
 
     - name: Install Fortran compiler & NetCDF  & OpenMPI & lapack & openssh
       run: |
+        sudo apt-get update
+
         echo "Update information of package list.."
         sudo apt-get update
 

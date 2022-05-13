@@ -13,6 +13,8 @@ jobs:
 
     - name: Install Fortran compiler & NetCDF & OpenMPI & openssh
       run: |
+        sudo apt-get update
+
         echo "Install Fortran compiler .."
         sudo apt-get install -y gfortran
         
@@ -38,8 +40,8 @@ jobs:
         mkdir -p ${SCALE_INST_DIR} && cd ${SCALE_INST_DIR}
 
         echo "Download SCALE library .."
-        wget -q https://scale.riken.jp/archives/scale-5.4.4.tar.gz
-        tar xzf scale-5.4.4.tar.gz --strip-components 1
+        wget -q https://scale.riken.jp/archives/scale-5.4.5.tar.gz
+        tar xzf scale-5.4.5.tar.gz --strip-components 1
 
         echo "Build SCALE library .."
         export SCALE_SYS=Linux64-gnu-ompi
