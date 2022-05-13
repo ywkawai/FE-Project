@@ -13,6 +13,8 @@ jobs:
 
     - name: Install Fortran compiler & NetCDF & OpenMPI & openssh
       run: |
+        sudo apt-get update
+
         echo "Install Fortran compiler .."
         sudo apt-get install -y gfortran
         
