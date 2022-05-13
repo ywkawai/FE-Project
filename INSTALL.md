@@ -15,13 +15,13 @@ We confirm that building our codes has succeeded in the following environments:
     - OpenMPI 4.1.1
     - LAPACK 3.10.0
     - NetCDF 4.8.0
-    - SCALE library 5.4.4
+    - SCALE library 5.4.5
   - Ubuntu 20.04 LTS
     - GNU Fortran 9.3.0
     - OpenMPI 4.0.3
-    - LAPACK 3.7.1
+    - LAPACK 3.9.0
     - NetCDF 4.7.3
-    - SCALE library 5.4.4
+    - SCALE library 5.4.5
 
 Our codes are verified in Oakbridge-CX (intel compiler) and Fugaku. 
 
@@ -34,7 +34,7 @@ Our codes are verified in Oakbridge-CX (intel compiler) and Fugaku.
 
   - set a directory in which SCALE library is contained
 
-  `% export SCALE="~/workspace/scale-5.4.4/"`   (for example)
+  `% export SCALE="~/workspace/scale-5.4.5/"`   (for example)
 
   - If you use the develop version of SCALE library, set a variable as
 
