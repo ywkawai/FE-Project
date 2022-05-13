@@ -389,11 +389,11 @@ contains
       ke = ke_xy + (ke_z-1)*lmesh%NeX*lmesh%NeY
       ke2D = lmesh%EMap3Dto2D(ke)
 
-      PROG_VARS(:,ke_z,DENS_VID,ke_xy) = DDENS_(:,ke)
-      PROG_VARS(:,ke_z,MOMX_VID,ke_xy) = MOMX_ (:,ke)
-      PROG_VARS(:,ke_z,MOMY_VID,ke_xy) = MOMY_ (:,ke)
-      PROG_VARS(:,ke_z,MOMZ_VID,ke_xy) = MOMZ_ (:,ke)
-      PROG_VARS(:,ke_z,RHOT_VID,ke_xy) = DRHOT_(:,ke)
+      PROG_VARS(:,ke_z,DENS_VID,ke_xy) = DDENS0_(:,ke)
+      PROG_VARS(:,ke_z,MOMX_VID,ke_xy) = MOMX0_ (:,ke)
+      PROG_VARS(:,ke_z,MOMY_VID,ke_xy) = MOMY0_ (:,ke)
+      PROG_VARS(:,ke_z,MOMZ_VID,ke_xy) = MOMZ0_ (:,ke)
+      PROG_VARS(:,ke_z,RHOT_VID,ke_xy) = DRHOT0_(:,ke)
 
       DENS_hyd_z(:,ke_z,ke_xy) = DENS_hyd(:,ke)
       PRES_hyd_z(:,ke_z,ke_xy) = PRES_hyd(:,ke)
