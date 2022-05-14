@@ -297,7 +297,6 @@ contains
     real(RP), parameter :: EPS  = 1.0E-12_RP
 
     type(SparseMat) :: Dz, Lift
-    type(HexahedralElement) :: elem3D
 
     type(GMRES) :: gmres_hydro
     real(RP), allocatable :: wj(:)
@@ -329,6 +328,7 @@ contains
 
     N = elem%Np * lcmesh%NeZ
     m = min(N / elem%Nnode_h1D**2, 30)
+!    m = min(N / elem%Nnode_h1D**2, 256)
     call gmres_hydro%Init( N, m, EPS, EPS )
     allocate( wj(N), pinv_v(N) )
 
@@ -346,8 +346,6 @@ contains
     end do
     end do
     IntrpMat_VPOrdM1(:,:) = matmul(elem%V, invV_POrdM1)
-
-    call elem3D%Init( elem%PolyOrder_h, elem%PolyOrder_v, .false. )
 
     !-----------
     do ke_y=1, lcmesh%NeY
@@ -380,8 +378,12 @@ contains
           b(:,ke_z) = - Ax(:,ke_z)
         end do
         if (lcmesh%tileID==1) then
-          LOG_PROGRESS(*) ke_x, ke_y, "itr:", itr_nlin, 0, ": VAR", VARS(elem%Colmask(:,1),1)
-          LOG_PROGRESS(*) ke_x, ke_y, "itr:", itr_nlin, 0, ": b", b(elem%Colmask(:,1),1)
+          if (itr_nlin > 1) then
+            LOG_PROGRESS(*) ke_x, ke_y, "itr_lin=", itr_lin
+            LOG_PROGRESS(*) "-------------------------------------"
+          end if
+          LOG_PROGRESS(*) ke_x, ke_y, "itr_nlin:", itr_nlin, 0, ": VAR", VARS(elem%Colmask(:,1),1)
+          LOG_PROGRESS(*) ke_x, ke_y, "itr_nlin:", itr_nlin, 0, ": b", b(elem%Colmask(:,1),1)
           if( IO_L ) call flush(IO_FID_LOG)
         end if
 
@@ -725,7 +727,7 @@ contains
 
       dpresM = PRES00 *  ( RtotOvP00M * (DENS_hyd(iM) + DDENS_(iM)) * POT_(iM) )**CPtot_ov_CVtot_(iM) !- PRES_hyd(iM)
       dpresP = PRES00 *  ( RtotOvP00P * (DENS_hyd(iP) + DDENS_(iP)) * POT_(iP) )**CPtot_ov_CVtot_(iP) !- PRES_hyd(iP)
-      if (ke_z==1.and. iM==iP) dpresP = PRES_hyd(iP) !* 0.0_RP
+!      if (ke_z==1.and. iM==iP) dpresP = PRES_hyd(iP) !* 0.0_RP
 
       del_flux(i) = 0.5_RP * (dpresP - dpresM) * nz(i)
     end do
@@ -848,7 +850,7 @@ contains
 
       dpresM = CPtot_ov_CVtot_(iM) * pres0M / (DENS_hyd_(iM) + DDENS0_(iM)) * DDENS_(iM)
       dpresP = CPtot_ov_CVtot_(iP) * pres0P / (DENS_hyd_(iP) + DDENS0_(iP)) * DDENS_(iP)
-      if (ke_z==1.and. iM==iP) dpresP = 0.0_RP
+!      if (ke_z==1.and. iM==iP) dpresP = 0.0_RP
 
       del_flux(i) = 0.5_RP * (dpresP - dpresM) * nz(i)
     end do
@@ -961,7 +963,7 @@ contains
 
         !----        
         if ( (ke_z == 1 .and. f1==1) ) then
-          PmatD(:,:) = PmatD(:,:) - fac * lift_(:,:)
+!          PmatD(:,:) = PmatD(:,:) - fac * lift_(:,:)
         else if ( (ke_z == lmesh%NeZ .and. f1==elem%Nfaces_v) ) then
         else
           PmatD(:,:) = PmatD(:,:) - fac * lift_(:,:)

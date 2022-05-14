@@ -2,7 +2,7 @@
 !> module USER
 !!
 !! @par Description
-!!          User defined module
+!!          User defined module for a test case of tracer advection
 !!
 !! @author Team SCALE
 !!

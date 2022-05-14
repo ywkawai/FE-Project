@@ -2,7 +2,10 @@
 !> module USER
 !!
 !! @par Description
-!!          User defined module for a test case of Held-Suarez (1994)
+!!          User defined module for a benchmark test of dynamical core described in Menou & Rauscher (2009) for Earth-like atmospheric simulation. 
+!!          This is a simplified variant of the Held & Suarez (1994) test. Different from the HS test, relaxation timescales in the radiative forcing and 
+!!          is constant values and the level of tropopause is explicity specified. This experimental setup is considered to be useful to explore qualitative features 
+!!          of atmospheric flows on generalized Earth-like planet. 
 !!
 !! @author Team SCALE
 !!
@@ -24,7 +27,8 @@ module mod_user
     CPdry => CONST_CPdry,  & 
     CVdry => CONST_CVdry,  &      
     PRES00 => CONST_PRE00, &
-    Grav => CONST_GRAV  
+    Grav => CONST_GRAV,    &
+    PI =>   CONST_PI
   
   use mod_exp, only: experiment
 
@@ -63,25 +67,29 @@ module mod_user
   !++ Private parameters & variables
   !
 
-  type, private, extends(experiment) :: Exp_Held_Suarez
+  type, private, extends(experiment) :: Exp_MR2009_EarthLike
   contains 
-    procedure :: setInitCond_lc => exp_SetInitCond_Held_Suarez
+    procedure :: setInitCond_lc => exp_SetInitCond_MR2009_EarthLike
     procedure :: geostrophic_balance_correction_lc => exp_geostrophic_balance_correction
   end type
-  type(Exp_Held_Suarez), private :: exp_manager
+  type(Exp_MR2009_EarthLike), private :: exp_manager
 
   logical, private :: USER_do                   = .false. !< do user step?
 
-  real(RP), private, parameter :: kf = 1.0_RP / ( 86400.0_RP * 1.0_RP  )
-  real(RP), private, parameter :: ka = 1.0_RP / ( 86400.0_RP * 40.0_RP )
-  real(RP), private, parameter :: ks = 1.0_RP / ( 86400.0_RP * 4.0_RP  )
-  real(RP), private, parameter :: DelT_y  = 60.0_RP
-  real(RP), private, parameter :: DelPT_z = 10.0_RP
-  real(RP), private, parameter :: sigb = 0.7_RP
+  real(RP), private, parameter :: kf              = 1.0_RP / ( 86400.0_RP * 1.0_RP  )
+  real(RP), private, parameter :: krad            = 1.0_RP / ( 86400.0_RP * 15.0_RP )
+  real(RP), private, parameter :: LAPSE_RATE_trop = 6.5E-3_RP !< Lapse rate of troposphere
+  real(RP), private, parameter :: Zstrato         = 1.2E4_RP  !< Specified height of tropopause 
+  real(RP), private, parameter :: TEMP_strato     = 212.0_RP  !< Surface temperature at equator associated with radiative forcing
+  real(RP), private, parameter :: DTEMP_strato    =   2.0_RP  !< Tropopause temperature increment
+  real(RP), private, parameter :: SFCTEMP_eq      = 288.0_RP  !< Surface temperature at equator associated with radiative forcing
+  real(RP), private, parameter :: DelT_y          = 60.0_RP   !< Equator-to-pole temperature difference associated with radiative forcing
+  real(RP), private, parameter :: sigb            = 0.7_RP
 
   !-----------------------------------------------------------------------------
 
 contains
+
 !OCL SERIAL
   subroutine USER_mkinit ( atm )
     implicit none
@@ -89,7 +97,7 @@ contains
     class(AtmosComponent), intent(inout) :: atm
     !------------------------------------------
 
-    call exp_manager%Init('Held_Suarez')
+    call exp_manager%Init('Earth-like atmosphere')
 
     call exp_manager%SetInitCond( atm%mesh,                &
       atm%vars%PROGVARS_manager, atm%vars%AUXVARS_manager, &
@@ -161,27 +169,41 @@ contains
     class(LocalMeshFieldBase), pointer :: DDENS, MOMX, MOMY, MOMZ, DRHOT
     class(LocalMeshFieldBase), pointer :: DENS_hyd, PRES_hyd
     class(LocalMeshFieldBase), pointer :: PRES, PT
+    class(LocalMeshFieldBase), pointer :: Rtot, CVtot, CPtot
     type(ElementBase3D), pointer :: elem3D
 
     integer :: n
-    integer :: ke, ke2D
+    integer :: ke, ke1, ke2
+    integer :: ke2D, ke_z
+    integer :: p2D, p_z
 
     real(RP), allocatable :: DENS(:), T(:), Teq(:), sig(:), PRES_sfc(:)
-    real(RP), allocatable :: rtauT(:), rtauV(:)
-    real(RP), allocatable :: lat(:)
+    real(RP), allocatable :: rtauV(:)
+    real(RP), allocatable :: lat(:), z(:)
+    real(RP), allocatable :: Tvert(:), Beta_trop(:)
+    real(RP), allocatable :: sig_strat(:)
+
+    integer :: ke_z2, p_z2
+    real(RP) :: w1_zstrat
+    integer :: ke1_zstrat, p1_zstrat 
+    integer :: ke2_zstrat, p2_zstrat
+    real(RP), allocatable :: sig_strat2D(:,:)
+    real(RP), allocatable :: zlev_col(:,:)
 
     real(DP) :: dt
     real(RP) :: Gamm
+    real(RP) :: SFCTEMP0
     !----------------------------------------------------------
 
     dt = atm%time_manager%dtsec
     gamm = CpDry / CvDry 
+    SFCTEMP0 = TEMP_strato + Zstrato * LAPSE_RATE_trop - DTEMP_strato
 
     do n=1, atm%mesh%ptr_mesh%LOCAL_MESH_NUM
       call AtmosVars_GetLocalMeshPrgVars( n, atm%mesh%ptr_mesh,  &
         atm%vars%PROGVARS_manager, atm%vars%AUXVARS_manager,     &
         DDENS, MOMX, MOMY, MOMZ, DRHOT,                          &
-        DENS_hyd, PRES_hyd, lcmesh                               )      
+        DENS_hyd, PRES_hyd, Rtot, CVtot, CPtot, lcmesh           )      
 
       call AtmosVars_GetLocalMeshPhyAuxVars( n, atm%mesh%ptr_mesh, &
         atm%vars%AUXVARS_manager, PRES, PT                         )
@@ -190,45 +212,103 @@ contains
 
       allocate( DENS(elem3D%Np), T(elem3D%Np), Teq(elem3D%Np), sig(elem3D%Np) )
       allocate( PRES_sfc(elem3D%Nnode_h1D**2) )
-      allocate( rtauT(elem3D%Np), rtauV(elem3D%Np) )
-      allocate( lat(elem3D%Np) )
+      allocate( rtauV(elem3D%Np) )
+      allocate( lat(elem3D%Np), z(elem3D%Np) )
+      allocate( Tvert(elem3D%Np), Beta_trop(elem3D%Np) )
+      allocate( sig_strat(elem3D%Np) )
+      allocate( sig_strat2D(elem3D%Nnode_h1D**2,lcmesh%Ne2D) )
+      allocate( zlev_col(elem3D%Nnode_v,lcmesh%NeZ) )
+      
+      !--
 
-      !$omp parallel do private(DENS, T, Teq, PRES_sfc, sig, lat, rtauT, rtauV, ke2D)
+      do ke2D=1, 1
+      do p2D=1, 1
+        do ke_z=1, lcmesh%NeZ
+          ke = ke2D + (ke_z-1)*lcmesh%Ne2D
+          zlev_col(:,ke_z) = lcmesh%zlev(elem3D%Colmask(:,p2D),ke)
+        end do
+        zloop: do ke_z=1, lcmesh%NeZ
+          p_z2 = 2; ke_z2 = ke_z
+          do p_z=1, elem3D%Nnode_v
+            if ( ( zlev_col(p_z,ke_z) - Zstrato ) * ( zlev_col(p_z2,ke_z2) - Zstrato ) <= 0.0_RP )  then
+              ke1_zstrat = ke_z; ke2_zstrat = ke_z2
+              p1_zstrat = p_z; p2_zstrat = p_z2
+              w1_zstrat = ( zlev_col(p_z2,ke_z2) - Zstrato ) / ( zlev_col(p_z2,ke_z2) - zlev_col(p_z,ke_z) )
+              exit zloop
+            end if
+          end do
+
+          p_z2 = p_z2 + 1
+          if ( p_z2 == elem3D%Nnode_v ) then
+            p_z2 = 2; ke_z2 = ke_z + 1
+          end if
+          if ( ke_z2 > lcmesh%NeZ ) then
+            LOG_ERROR("USER_update",*) 'Altitidue of Zstrato is outside the vertical computational domain. Check!'
+            call PRC_abort
+          end if
+        end do zloop
+      end do
+      end do
+
+      !$omp parallel do private(ke2D, ke1, ke2)
+      do ke2D=1, lcmesh%Ne2D
+        ke1 = ke2D +(ke1_zstrat - 1)*lcmesh%Ne2D
+        ke2 = ke2D +(ke2_zstrat - 1)*lcmesh%Ne2D
+        sig_strat2D(:,ke2D) = &
+        (              w1_zstrat   * PRES%val(elem3D%Hslice(:,p1_zstrat),ke1)   &
+          + ( 1.0_RP - w1_zstrat ) * PRES%val(elem3D%Hslice(:,p2_zstrat),ke2) ) &
+        / PRES%val(elem3D%Hslice(:,1),ke2D)
+      end do
+
+      !$omp parallel do private( &
+      !$omp DENS, T, Teq, PRES_sfc, sig, lat, z, rtauV, ke2D, &
+      !$omp Tvert, Beta_trop, sig_strat )
       do ke=lcmesh%NeS, lcmesh%NeE
         ke2D = lcmesh%EMap3Dto2D(ke)
 
         PRES_sfc(:) = PRES%val(elem3D%Hslice(:,1),ke2D)
         sig(:) = PRES%val(:,ke) / PRES_sfc(elem3D%IndexH2Dto3D)
         lat(:) = lcmesh%lat2D(elem3D%IndexH2Dto3D,ke2D)
+        z(:) = lcmesh%zlev(:,ke)
 
-        rtauT(:) = ka + (ks - ka) * max( 0.0_RP, (sig(:) - sigb)/(1.0_RP - sigb) ) * cos(lat(:))**4
-        rtauV(:) = kf * max( 0.0_RP, (sig(:) - sigb)/(1.0_RP - sigb) )
+        ! Calculate radiative equilirbium temperature
 
-        Teq(:) = max(200.0_RP, &
-          ( 315.0_RP - DelT_y * sin(lat(:))**2 - DelPT_z * log(PRES%val(:,ke)/PRES00) * cos(lat(:))**2 ) &
-          * (PRES%val(:,ke)/PRES00)**(Rdry/CPDry)                                                        )
-        
+        where ( z(:) <= Zstrato )
+          Tvert(:) = &
+                SFCTEMP0 - LAPSE_RATE_trop * ( Zstrato + 0.5_RP * (z(:) - Zstrato) )       &
+              + sqrt( ( 0.5_RP * LAPSE_RATE_trop * (z(:) - Zstrato) )**2 + DTEMP_strato**2 )
+        elsewhere
+          Tvert(:) = TEMP_strato 
+        end where
+
+        sig_strat(:) = sig_strat2D(elem3D%IndexH2Dto3D(:),ke2D)
+        Beta_trop(:) = max( 0.0_RP, sin( 0.5_RP * PI * (sig(:) - sig_strat(:))/(1.0_RP - sig_strat(:)) ) )
+
+        Teq(:) = Tvert(:) + Beta_trop(:) * DelT_y * ( 1.0_RP / 3.0_RP - sin(lat(:))**2 )
+
+
+        ! Adjust momentum and temperature
+
         DENS(:) = DENS_hyd%val(:,ke) + DDENS%val(:,ke)
         T(:) =  PRES%val(:,ke) / ( Rdry * DENS(:) )
 
+        rtauV(:) = kf * max( 0.0_RP, (sig(:) - sigb)/(1.0_RP - sigb) )
         MOMX%val(:,ke) = MOMX%val(:,ke) / ( 1.0_RP + dt * rtauV )
         MOMY%val(:,ke) = MOMY%val(:,ke) / ( 1.0_RP + dt * rtauV )
-
-        !-- For the case of d DRHOT / dt = dens * Cv * ( Teq - T ) / tauT <- ( Ullrich and Jablonowski (2012, JCP) )
-        ! DRHOT%val(:,ke) = DRHOT%val(:,ke) &
-        !                 - dt * rtauT(:) / gamm * ( 1.0_RP - Teq(:) / T(:) ) * DENS(:) * PT%val(:,ke)     &
-        !                 / ( 1.0_RP + dt * rtauT(:) / gamm * ( 1.0_RP + (gamm - 1.0_RP) * Teq(:) / T(:) ) )
 
         !- For the case of d DRHOT /dt = dens * Cp * ( Teq - T ) / tauT     
         !  <- It is based on the forcing form in Held and Surez in which the temperature evolution equation is assumed to be dT/dt = R/Cp * T/p * dp/dt + (Teq - T) / tauT
         DRHOT%val(:,ke) = DRHOT%val(:,ke) &
-                        - dt * rtauT(:) * ( 1.0_RP - Teq(:) / T(:) ) * DENS(:) * PT%val(:,ke)     &
-                        / ( 1.0_RP + dt * rtauT(:) * ( 1.0_RP + (gamm - 1.0_RP) * Teq(:) / T(:) ) )  
+                        - dt * krad * ( 1.0_RP - Teq(:) / T(:) ) * DENS(:) * PT%val(:,ke)     &
+                        / ( 1.0_RP + dt * krad * ( 1.0_RP + (gamm - 1.0_RP) * Teq(:) / T(:) ) )  
       end do
 
       deallocate( DENS, T, Teq, sig, PRES_sfc )
-      deallocate( rtauT, rtauV )
-      deallocate( lat )
+      deallocate( rtauV )
+      deallocate( lat, z )
+      deallocate( Tvert, Beta_trop )
+      deallocate( sig_strat, sig_strat2D )
+      deallocate( zlev_col )
     end do
     
     return
@@ -237,7 +317,7 @@ contains
   !------
 
 !OCL SERIAL
-  subroutine exp_SetInitCond_Held_Suarez( this,                            &
+  subroutine exp_SetInitCond_MR2009_EarthLike( this,                            &
     DENS_hyd, PRES_hyd, DDENS, MOMX, MOMY, MOMZ, DRHOT, tracer_field_list, &
     x, y, z, dom_xmin, dom_xmax, dom_ymin, dom_ymax, dom_zmin, dom_zmax,   &
     lcmesh, elem )
@@ -256,7 +336,7 @@ contains
   
     implicit none
 
-    class(Exp_Held_Suarez), intent(inout) :: this
+    class(Exp_MR2009_EarthLike), intent(inout) :: this
     type(LocalMesh3D), intent(in) :: lcmesh
     class(ElementBase3D), intent(in) :: elem
     real(RP), intent(out) :: DENS_hyd(elem%Np,lcmesh%NeA)
@@ -274,16 +354,11 @@ contains
     real(RP), intent(in) :: dom_ymin, dom_ymax
     real(RP), intent(in) :: dom_zmin, dom_zmax
     
-    real(RP) :: TEMP0           = 280.0_RP
+    real(RP) :: TEMP0           = 264.0_RP !< Temperature of initial isothermal atmosphere based on Table 1 of Heng et al. (2011,  Monthly Notices of the Royal Astronomical Society)
     namelist /PARAM_EXP/ &
       TEMP0
 
-    integer :: ke, ke2D
-    integer :: p, p_h, p_v   
     integer :: ierr
-
-    real(RP) :: DENS_ini(elem%Np)
-    real(RP) :: PRES_ini(elem%Np)
     !-----------------------------------------------------------------------------
 
     rewind(IO_FID_CONF)
@@ -301,156 +376,8 @@ contains
       TEMP0, PRES00,                                             & ! (in)
       x, y, z, lcmesh, elem                                      ) ! (in)
 
-    !$omp parallel do private( p_h, p_v, p, ke2D, &
-    !$omp DENS_ini, PRES_ini                      )
-    do ke=lcmesh%NeS, lcmesh%NeE
-      ke2D = lcmesh%EMap3Dto2D(ke)
-      do p_v=1, elem%Nnode_v
-      do p_h=1, elem%Nnode_h1D**2
-        p = p_h + (p_v-1)*elem%Nnode_h1D**2
-
-        call calc_hydrostatic_state_1pt( DENS_ini(p), PRES_ini(p),          & ! (out)
-          lcmesh%zlev(p,ke), lcmesh%lon2D(p_h,ke2D), lcmesh%lat2D(p_h,ke2D) ) ! (in)
-      end do
-      end do
-
-      DDENS(:,ke) = DENS_ini(:) - DENS_hyd(:,ke)
-      DRHOT(:,ke) = PRES00 / Rdry * (  ( PRES_ini   (:) / PRES00 )**(CVdry/CPdry) &
-                                     - ( PRES_hyd(:,ke) / PRES00 )**(CVdry/CPdry) )
-    end do
-
     return
-  end subroutine exp_SetInitCond_Held_Suarez
-
-!OCL SERIAL
-  subroutine calc_hydrostatic_state_1pt( dens, pres, z, lon, lat )
-    implicit none 
-    real(RP), intent(inout) :: dens    
-    real(RP), intent(inout) :: pres
-    real(RP), intent(in)  :: z
-    real(RP), intent(in) :: lon    
-    real(RP), intent(in) :: lat
-
-    real(RP) :: geopot
-    real(RP) :: temp
-    real(RP) :: C1_temp
-    real(RP) :: C2_temp
-    real(RP) :: eta
-    real(RP) :: ln_eta    
-    real(RP) :: del_eta
-    real(RP) :: exner
-    real(RP) :: ln_exner
-    real(RP) :: RdryOvCpDry
-    real(RP) :: exner_T200
-    real(RP) :: ln_exner_T200    
-    real(RP) :: geopot_T200
-
-    integer :: itr
-    integer,  parameter :: ITRMAX   = 1000
-    real(RP), parameter :: CONV_EPS = 1E-15_RP 
-    !------------------------------------------------
-
-    C1_temp = 315.0_RP - DelT_y * sin(lat)**2
-    C2_temp = - CpDry / Rdry * DelPT_z * cos(lat)**2
-
-    call calc_exner_at_T200( exner_T200, & ! (out)
-      lon, lat, C1_temp, C2_temp         ) ! (in)
-    
-    ln_exner_T200 = log(exner_T200)
-
-    geopot_T200 = - CpDry * (  &
-                      C2_temp * exner_T200 * ln_exner_T200            &
-                    + ( exner_T200 - 1.0_RP ) * ( C1_temp - C2_temp ) &
-                  )
-
-    RdryOvCpDry = Rdry / CPDry
-
-    !-- The loop for iteration
-    itr = 0
-    eta = 1.0E-8_RP ! Set first guess of eta
-    del_eta = 1.0_RP
-
-    do while( abs(del_eta) > CONV_EPS )
-      ln_eta = log(eta)
-      exner = eta**RdryOvCpDry
-      ln_exner = log(exner)
-
-      temp = ( C1_temp + C2_temp * ln_exner ) * exner  
-
-      if ( temp <= 200.0_RP ) then
-        geopot = geopot_T200 + CpDry * 200.0_RP * ( ln_exner_T200 - ln_exner )
-        temp = 200.0_RP
-      else
-      ! Pi = eta^(R/Cp)
-      ! ln Pi = R/Cp ln eta
-      ! d Phi / d Pi = - Cp PT
-      ! = - Cp (C1_temp + C2_temp * ln_PI )
-        geopot = - CpDry * (  &
-                      C2_temp * exner * ln_exner                 &
-                    + ( exner - 1.0_RP ) * ( C1_temp - C2_temp ) &
-                   )
-      end if
-
-      del_eta = -  ( - Grav * z + geopot )        & ! <- F
-                 * ( - eta / ( Rdry * temp ) )      ! <- (dF/deta)^-1
-
-      eta = eta + del_eta
-      itr = itr + 1
-
-      if ( itr > ITRMAX ) then
-        LOG_ERROR("Held_Suarez_setup_calc_hydrostatic_state_1pt",*) "Fail the convergence of iteration. Check!"
-        LOG_ERROR_CONT(*) "* (lon,lat,z)=", lon, lat, z
-        LOG_ERROR_CONT(*) "itr=", itr, "del_eta=", del_eta, "eta=", eta, "temp=", temp
-        call PRC_abort
-      end if                                   
-    end do  !- End of loop for iteration ----------------------------
-
-    pres = eta * PRES00
-    dens = pres / ( Rdry * temp )
-
-    return
-  end subroutine calc_hydrostatic_state_1pt
-
-!OCL SERIAL
-  subroutine calc_exner_at_T200( exner, lon, lat, C1, C2 )
-    implicit none 
-    real(RP), intent(out) :: exner 
-    real(RP), intent(in) :: lon    
-    real(RP), intent(in) :: lat
-    real(RP), intent(in) :: C1
-    real(RP), intent(in) :: C2
-
-    integer :: itr
-    integer,  parameter :: ITRMAX = 1000
-    real(RP), parameter :: CONV_EPS = 1E-15_RP
-
-    real(RP) :: del_exner
-    real(RP) :: ln_exner
-    !-----------------------------------------
-
-    !-- The loop for iteration
-    itr = 0
-    exner     = 1.0E-1_RP ! Set first guess of exner
-    del_exner = 1.0_RP
-
-    do while( abs(del_exner) > CONV_EPS )
-      ln_exner = log(exner)
-      del_exner = -  ( exner * ( C1 + C2 * ln_exner ) - 200.0_RP )  & ! <- F
-                   / ( C2 * ln_exner + C1 + C2 )                      ! <- (dF/dexner)^-1
-
-      exner = exner + del_exner
-      itr = itr + 1
-
-      if ( itr > ITRMAX ) then
-        LOG_ERROR("Held_Suarez_setup_calc_eta_at_T200",*) "Fail the convergence of iteration. Check!"
-        LOG_ERROR_CONT(*) "* (lon,lat,z)=", lon, lat
-        LOG_ERROR_CONT(*) "itr=", itr, "del_exner=", del_exner, "eta=", exner
-        call PRC_abort
-      end if                                   
-    end do  !- End of loop for iteration ----------------------------
-
-    return
-  end subroutine calc_exner_at_T200
+  end subroutine exp_SetInitCond_MR2009_EarthLike
 
 !OCL SERIAL
   subroutine exp_geostrophic_balance_correction( this,  &
@@ -459,7 +386,7 @@ contains
     
     implicit none
 
-    class(Exp_Held_Suarez), intent(inout) :: this
+    class(Exp_MR2009_EarthLike), intent(inout) :: this
     type(LocalMesh3D), intent(in) :: lcmesh
     class(ElementBase3D), intent(in) :: elem
     real(RP), intent(inout) :: DENS_hyd(elem%Np,lcmesh%NeA)
