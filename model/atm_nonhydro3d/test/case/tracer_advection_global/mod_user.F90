@@ -2,7 +2,7 @@
 !> module USER
 !!
 !! @par Description
-!!          User defined module
+!!          User defined module for a test case of tracer advection in global domain
 !!
 !! @author Team SCALE
 !!
@@ -143,6 +143,7 @@ contains
     class(LocalMeshFieldBase), pointer :: DDENS, MOMX, MOMY, MOMZ, DRHOT
     class(LocalMeshFieldBase), pointer :: DENS_hyd, PRES_hyd
     class(LocalMeshFieldBase), pointer :: PRES, PT
+    class(LocalMeshFieldBase), pointer :: Rtot, CVtot, CPtot
     type(ElementBase3D), pointer :: elem3D
 
     integer :: n
@@ -162,7 +163,7 @@ contains
       call AtmosVars_GetLocalMeshPrgVars( n, atm%mesh%ptr_mesh,  &
         atm%vars%PROGVARS_manager, atm%vars%AUXVARS_manager,     &
         DDENS, MOMX, MOMY, MOMZ, DRHOT,                          &
-        DENS_hyd, PRES_hyd, lcmesh                               )
+        DENS_hyd, PRES_hyd, Rtot, CVtot, CPtot, lcmesh           )      
       elem3D => lcmesh%refElem3D
 
       allocate( svec(elem3D%Np,lcmesh%Ne,2), W(elem3D%Np) )
