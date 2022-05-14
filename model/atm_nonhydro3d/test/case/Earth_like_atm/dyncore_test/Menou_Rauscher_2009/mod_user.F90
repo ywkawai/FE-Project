@@ -79,7 +79,7 @@ module mod_user
   real(RP), private, parameter :: kf              = 1.0_RP / ( 86400.0_RP * 1.0_RP  )
   real(RP), private, parameter :: krad            = 1.0_RP / ( 86400.0_RP * 15.0_RP )
   real(RP), private, parameter :: LAPSE_RATE_trop = 6.5E-3_RP !< Lapse rate of troposphere
-  real(RP), private, parameter :: Zstrato        = 1.2E4_RP  !< Specified height of tropopause 
+  real(RP), private, parameter :: Zstrato         = 1.2E4_RP  !< Specified height of tropopause 
   real(RP), private, parameter :: TEMP_strato     = 212.0_RP  !< Surface temperature at equator associated with radiative forcing
   real(RP), private, parameter :: DTEMP_strato    =   2.0_RP  !< Tropopause temperature increment
   real(RP), private, parameter :: SFCTEMP_eq      = 288.0_RP  !< Surface temperature at equator associated with radiative forcing
@@ -169,6 +169,7 @@ contains
     class(LocalMeshFieldBase), pointer :: DDENS, MOMX, MOMY, MOMZ, DRHOT
     class(LocalMeshFieldBase), pointer :: DENS_hyd, PRES_hyd
     class(LocalMeshFieldBase), pointer :: PRES, PT
+    class(LocalMeshFieldBase), pointer :: Rtot, CVtot, CPtot
     type(ElementBase3D), pointer :: elem3D
 
     integer :: n
@@ -202,7 +203,7 @@ contains
       call AtmosVars_GetLocalMeshPrgVars( n, atm%mesh%ptr_mesh,  &
         atm%vars%PROGVARS_manager, atm%vars%AUXVARS_manager,     &
         DDENS, MOMX, MOMY, MOMZ, DRHOT,                          &
-        DENS_hyd, PRES_hyd, lcmesh                               )      
+        DENS_hyd, PRES_hyd, Rtot, CVtot, CPtot, lcmesh           )      
 
       call AtmosVars_GetLocalMeshPhyAuxVars( n, atm%mesh%ptr_mesh, &
         atm%vars%AUXVARS_manager, PRES, PT                         )
