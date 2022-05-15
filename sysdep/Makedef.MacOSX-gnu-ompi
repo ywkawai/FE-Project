@@ -60,14 +60,14 @@ LDFLAGS = $(FFLAGS)
 
 
 ##### Lapack
-LAPACK_LIBS    ?= -L/usr/local/lib -llapack
+LAPACK_LIBS    ?= -L/usr/local/opt/lapack/lib -llapack
 
 ##### NetCDF
-SCALE_NETCDF_INCLUDE = -I$(NETCDF)/include
-SCALE_NETCDF_LIBS    = -L$(NETCDF)/lib  -lnetcdff -lnetcdf -lm -lz
+#SCALE_NETCDF_INCLUDE = -I$(NETCDF)/include
+#SCALE_NETCDF_LIBS    = -L$(NETCDF)/lib  -lnetcdff -lnetcdf -lm -lz
 
 ##### MathLib
-SCALE_MATHLIB_LIBS=-L/usr/lib -llapack
+SCALE_MATHLIB_LIBS=-L/usr/local/opt/lapack/lib -llapack
 
 ##### SCALE
 SCALEORI_INCLUDE  ?= -I$(SCALE)/include -I$(SCALE)/scalelib/include
