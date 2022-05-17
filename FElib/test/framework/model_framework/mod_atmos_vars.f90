@@ -22,10 +22,12 @@ module mod_atmos_vars
   type, public :: AtmosVars
     type(MeshField1D) :: V
     type(MeshField1D) :: T
+    type(MeshField1D) :: QV    
     type(MeshField1D) :: P
     type(MeshField1D) :: F_V
     type(MeshField1D) :: F_T
     type(ModelVarManager) :: prgvars_list
+    type(ModelVarManager) :: trcvars_list    
     type(ModelVarManager) :: auxvars_list
     type(ModelVarManager) :: forcing_list
   contains
@@ -33,10 +35,12 @@ module mod_atmos_vars
     procedure :: Final => AtmosVars_Final
   end type AtmosVars
 
-  integer, public, parameter :: ATMOSVARS_V_ID = 1
-  integer, public, parameter :: ATMOSVARS_T_ID = 2
+  integer, public, parameter :: ATMOSVARS_V_ID  = 1
+  integer, public, parameter :: ATMOSVARS_T_ID  = 2
+
+  integer, public, parameter :: ATMOSVARS_QV_ID = 1  
   
-  integer, public, parameter :: ATMOSVARS_P_ID = 1
+  integer, public, parameter :: ATMOSVARS_P_ID  = 1
 
   integer, public, parameter :: ATMOSVARS_F_V_ID = 1
   integer, public, parameter :: ATMOSVARS_F_T_ID = 2
@@ -53,6 +57,10 @@ subroutine AtmosVars_Init( this, mesh )
   DATA VINFO_PRG / &
   VariableInfo( ATMOSVARS_V_ID, "V", "velocity",    "m/s", 1, "X", ""), &
   VariableInfo( ATMOSVARS_T_ID, "T", "temperature", "K"  , 1, "X", "")  /
+
+  type(VariableInfo) :: VINFO_TRC(1)
+  DATA VINFO_TRC / &
+  VariableInfo( ATMOSVARS_QV_ID, "QV", "specific humidity", "kg/kg", 1, "X", "") /  
   
   type(VariableInfo) :: VINFO_AUX(1)
   DATA VINFO_AUX / &
@@ -71,6 +79,8 @@ subroutine AtmosVars_Init( this, mesh )
   call this%prgvars_list%Regist( VINFO_PRG(ATMOSVARS_V_ID), mesh%mesh, this%V, .false. )
   call this%prgvars_list%Regist( VINFO_PRG(ATMOSVARS_T_ID), mesh%mesh, this%T, .false. )
 
+  call this%trcvars_list%Init()
+  call this%trcvars_list%Regist( VINFO_TRC(ATMOSVARS_QV_ID), mesh%mesh, this%QV, .false. )
   call this%auxvars_list%Init()
   call this%auxvars_list%Regist( VINFO_AUX(ATMOSVARS_P_ID), mesh%mesh, this%P, .false. )
 

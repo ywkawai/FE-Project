@@ -2,7 +2,7 @@
 !> module USER
 !!
 !! @par Description
-!!          User defined module
+!!          User defined module for a test case of rising warm bubble
 !!
 !! @author Team SCALE
 !!
@@ -54,32 +54,36 @@ module mod_user
   !++ Private parameters & variables
   !
 
-  type, private, extends(experiment) :: Exp_rising_therm_bubble
+  type, private, extends(experiment) :: Exp_rising_therm_bubble_dry
   contains 
     procedure :: setInitCond_lc => exp_SetInitCond_rising_therm_bubble
     procedure :: geostrophic_balance_correction_lc => exp_geostrophic_balance_correction
   end type
-  type(Exp_rising_therm_bubble), private :: exp_manager
+  type(Exp_rising_therm_bubble_dry), private :: exp_manager
 
   logical, private :: USER_do                   = .false. !< do user step?
 
   !-----------------------------------------------------------------------------
 contains
+!OCL SERIAL
   subroutine USER_mkinit( atm )
     implicit none
 
     class(AtmosComponent), intent(inout) :: atm
     !------------------------------------------
 
-    call exp_manager%Init('rising_therm_bubble')
-    call exp_manager%SetInitCond( &
-      atm%mesh, atm%vars%PROGVARS_manager, atm%vars%AUXVARS_manager )
+    call exp_manager%Init('rising_therm_bubble_dry')
+
+    call exp_manager%SetInitCond( atm%mesh,                &
+      atm%vars%PROGVARS_manager, atm%vars%AUXVARS_manager, &
+      atm%vars%QTRCVARS_manager                            )
+    
     call exp_manager%Final()
 
     return
   end subroutine USER_mkinit
 
-
+!OCL SERIAL
   subroutine USER_setup( atm )
     implicit none
     
@@ -111,24 +115,28 @@ contains
     return
   end subroutine USER_setup
 
-  subroutine USER_calc_tendency
+  subroutine USER_calc_tendency( atm )
     implicit none
+    class(AtmosComponent), intent(inout) :: atm
     !------------------------------------------
 
     return
   end subroutine USER_calc_tendency
 
-  subroutine USER_update
+  subroutine USER_update( atm )
     implicit none
+    class(AtmosComponent), intent(inout) :: atm
     !------------------------------------------
 
     return
   end subroutine USER_update
 
   !------
-  subroutine exp_SetInitCond_rising_therm_bubble( this,                  &
-    DENS_hyd, PRES_hyd, DDENS, MOMX, MOMY, MOMZ, DRHOT,                  &
-    x, y, z, dom_xmin, dom_xmax, dom_ymin, dom_ymax, dom_zmin, dom_zmax, &
+
+!OCL SERIAL  
+  subroutine exp_SetInitCond_rising_therm_bubble( this,                    &
+    DENS_hyd, PRES_hyd, DDENS, MOMX, MOMY, MOMZ, DRHOT, tracer_field_list, &
+    x, y, z, dom_xmin, dom_xmax, dom_ymin, dom_ymax, dom_zmin, dom_zmax,   &
     lcmesh, elem )
     
     use scale_const, only: &
@@ -141,12 +149,15 @@ contains
     
     use scale_atm_dyn_dgm_hydrostatic, only: &
       hydrostatic_calc_basicstate_constPT
+    
     use mod_mkinit_util, only: &
       mkinitutil_calc_cosinebell
-
+    use mod_exp, only: &
+      TracerLocalMeshField_ptr
+    
     implicit none
 
-    class(Exp_rising_therm_bubble), intent(inout) :: this
+    class(Exp_rising_therm_bubble_dry), intent(inout) :: this
     type(LocalMesh3D), intent(in) :: lcmesh
     class(ElementBase3D), intent(in) :: elem
     real(RP), intent(out) :: DENS_hyd(elem%Np,lcmesh%NeA)
@@ -156,6 +167,7 @@ contains
     real(RP), intent(out) :: MOMY(elem%Np,lcmesh%NeA)    
     real(RP), intent(out) :: MOMZ(elem%Np,lcmesh%NeA)
     real(RP), intent(out) :: DRHOT(elem%Np,lcmesh%NeA)
+    type(TracerLocalMeshField_ptr), intent(inout) :: tracer_field_list(:)    
     real(RP), intent(in) :: x(elem%Np,lcmesh%Ne)
     real(RP), intent(in) :: y(elem%Np,lcmesh%Ne)
     real(RP), intent(in) :: z(elem%Np,lcmesh%Ne)
@@ -227,13 +239,14 @@ contains
     return
   end subroutine exp_SetInitCond_rising_therm_bubble
 
+!OCL SERIAL
   subroutine exp_geostrophic_balance_correction( this,                              &
     DENS_hyd, PRES_hyd, DDENS, MOMX, MOMY, MOMZ, DRHOT,                  &
     lcmesh, elem )
     
     implicit none
 
-    class(Exp_rising_therm_bubble), intent(inout) :: this
+    class(Exp_rising_therm_bubble_dry), intent(inout) :: this
     type(LocalMesh3D), intent(in) :: lcmesh
     class(ElementBase3D), intent(in) :: elem
     real(RP), intent(inout) :: DENS_hyd(elem%Np,lcmesh%NeA)

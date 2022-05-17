@@ -50,6 +50,11 @@ module scale_atm_dyn_dgm_hydrostatic
   public :: hydrostatic_calc_basicstate_constBVFreq
   public :: hydrostaic_build_rho_XYZ
 
+  interface hydrostaic_build_rho_XYZ
+    module procedure hydrostaic_build_rho_XYZ_dry
+    module procedure hydrostaic_build_rho_XYZ_moist
+  end interface
+  
   !-----------------------------------------------------------------------------
   !
   !++ Public parameters & variables
@@ -61,6 +66,7 @@ module scale_atm_dyn_dgm_hydrostatic
   !
 
 contains
+!OCL SERIAL
   subroutine hydrostatic_calc_basicstate_constT( &
     DENS_hyd, PRES_hyd,                          &
     Temp0, PRES_sfc, x, y, z, lcmesh3D, elem     )
@@ -92,6 +98,7 @@ contains
     return
   end subroutine hydrostatic_calc_basicstate_constT
 
+!OCL SERIAL
   subroutine hydrostatic_calc_basicstate_constPT( &
     DENS_hyd, PRES_hyd,                         &
     PotTemp0, PRES_sfc, x, y, z, lcmesh3D, elem )
@@ -131,6 +138,7 @@ contains
     return
   end subroutine hydrostatic_calc_basicstate_constPT
 
+!OCL SERIAL
   subroutine hydrostatic_calc_basicstate_constBVFreq( &
     DENS_hyd, PRES_hyd,                                           &
     BruntVaisalaFreq, PotTemp0, PRES_sfc, x, y, z, lcmesh3D, elem )
@@ -175,6 +183,7 @@ contains
     return
   end subroutine hydrostatic_calc_basicstate_constBVFreq
 
+!OCL SERIAL
   subroutine hydrostatic_calc_basicstate_constPTLAPS( &
     DENS_hyd, PRES_hyd,                                 &
     PTLAPS, PotTemp0, PRES_sfc, x, y, z, lcmesh3D, elem )
@@ -219,10 +228,12 @@ contains
     return
   end subroutine hydrostatic_calc_basicstate_constPTLAPS
 
-  subroutine hydrostaic_build_rho_XYZ( &
-    DDENS,                               &
-    DENS_hyd, PRES_hyd,                  &
-    POT, x, y, z, lcmesh, elem           )
+!OCL SERIAL
+  subroutine hydrostaic_build_rho_XYZ_dry(   &
+    DDENS,                                   &
+    DENS_hyd, PRES_hyd,                      &
+    POT,                                     &
+    x, y, z, lcmesh, elem                    )
 
     implicit none
 
@@ -236,16 +247,56 @@ contains
     real(RP), intent(in) :: z(elem%Np,lcmesh%Ne)
     real(RP), intent(in) :: POT(elem%Np,lcmesh%NeZ,lcmesh%NeX,lcmesh%NeY)
 
+    real(RP) :: Rtot          (elem%Np,lcmesh%NeZ,lcmesh%NeX,lcmesh%NeY)
+    real(RP) :: CPtot_ov_CVtot(elem%Np,lcmesh%NeZ,lcmesh%NeX,lcmesh%NeY)
+    !-----------------------------------------------
+
+    !$omp parallel 
+    !$omp workshare
+    Rtot(:,:,:,:) = Rdry
+    CPtot_ov_CVtot(:,:,:,:) = CPdry / CVdry
+    !$omp end workshare
+    !$omp end parallel
+
+    call hydrostaic_build_rho_XYZ_moist(   &
+      DDENS,                                   &
+      DENS_hyd, PRES_hyd,                      &
+      POT, Rtot, CPtot_ov_CVtot,               &
+      x, y, z, lcmesh, elem                    )
+    
+    return
+  end subroutine hydrostaic_build_rho_XYZ_dry
+
+!OCL SERIAL
+  subroutine hydrostaic_build_rho_XYZ_moist( &
+    DDENS,                                   &
+    DENS_hyd, PRES_hyd,                      &
+    POT, Rtot, CPtot_ov_CVtot,               &
+    x, y, z, lcmesh, elem                    )
+
+    implicit none
+
+    class(LocalMesh3D), intent(in) :: lcmesh
+    class(ElementBase3D), intent(in) :: elem
+    real(RP), intent(out) :: DDENS(elem%Np,lcmesh%NeA)
+    real(RP), intent(in) :: DENS_hyd(elem%Np,lcmesh%NeA)
+    real(RP), intent(in) :: PRES_hyd(elem%Np,lcmesh%NeA)
+    real(RP), intent(in) :: x(elem%Np,lcmesh%Ne)
+    real(RP), intent(in) :: y(elem%Np,lcmesh%Ne)
+    real(RP), intent(in) :: z(elem%Np,lcmesh%Ne)
+    real(RP), intent(in) :: POT(elem%Np,lcmesh%NeZ,lcmesh%NeX,lcmesh%NeY)
+    real(RP), intent(in) :: Rtot(elem%Np,lcmesh%NeZ,lcmesh%NeX,lcmesh%NeY)
+    real(RP), intent(in) :: CPtot_ov_CVtot(elem%Np,lcmesh%NeZ,lcmesh%NeX,lcmesh%NeY)
+
     integer :: ke
     integer :: ke_x, ke_y, ke_z
     integer :: itr_lin
     integer :: itr_nlin
 
     real(RP), parameter :: EPS0 = 1.0E-12_RP
-    real(RP), parameter :: EPS = 1.0E-12_RP
+    real(RP), parameter :: EPS  = 1.0E-12_RP
 
     type(SparseMat) :: Dz, Lift
-    type(HexahedralElement) :: elem3D
 
     type(GMRES) :: gmres_hydro
     real(RP), allocatable :: wj(:)
@@ -277,6 +328,7 @@ contains
 
     N = elem%Np * lcmesh%NeZ
     m = min(N / elem%Nnode_h1D**2, 30)
+!    m = min(N / elem%Nnode_h1D**2, 256)
     call gmres_hydro%Init( N, m, EPS, EPS )
     allocate( wj(N), pinv_v(N) )
 
@@ -294,8 +346,6 @@ contains
     end do
     end do
     IntrpMat_VPOrdM1(:,:) = matmul(elem%V, invV_POrdM1)
-
-    call elem3D%Init( elem%PolyOrder_h, elem%PolyOrder_v, .false. )
 
     !-----------
     do ke_y=1, lcmesh%NeY
@@ -319,23 +369,29 @@ contains
         end do
 
         call eval_Ax( Ax(:,:), &
-          VARS, VARS0, POT(:,:,ke_x,ke_y), DENS_hyd_z, PRES_hyd_z,  &
-          Dz, Lift, IntrpMat_VPOrdM1, lcmesh, elem,                 &
-          nz, vmapM_z1D, vmapP_z1D, ke_x, ke_y )
+          VARS, VARS0, POT(:,:,ke_x,ke_y), Rtot(:,:,ke_x,ke_y),  &
+          CPtot_ov_CVtot(:,:,ke_x,ke_y), DENS_hyd_z, PRES_hyd_z, &
+          Dz, Lift, IntrpMat_VPOrdM1, lcmesh, elem,              &
+          nz, vmapM_z1D, vmapP_z1D, ke_x, ke_y                   )
         
         do ke_z=1, lcmesh%NeZ
           b(:,ke_z) = - Ax(:,ke_z)
         end do
         if (lcmesh%tileID==1) then
-          LOG_PROGRESS(*) ke_x, ke_y, "itr:", itr_nlin, 0, ": VAR", VARS(elem%Colmask(:,1),1)
-          LOG_PROGRESS(*) ke_x, ke_y, "itr:", itr_nlin, 0, ": b", b(elem%Colmask(:,1),1)
+          if (itr_nlin > 1) then
+            LOG_PROGRESS(*) ke_x, ke_y, "itr_lin=", itr_lin
+            LOG_PROGRESS(*) "-------------------------------------"
+          end if
+          LOG_PROGRESS(*) ke_x, ke_y, "itr_nlin:", itr_nlin, 0, ": VAR", VARS(elem%Colmask(:,1),1)
+          LOG_PROGRESS(*) ke_x, ke_y, "itr_nlin:", itr_nlin, 0, ": b", b(elem%Colmask(:,1),1)
           if( IO_L ) call flush(IO_FID_LOG)
         end if
 
         if ( maxval(abs(b(:,:))) < 1.0E-10_RP ) exit
         
         call construct_pmatInv( PmatDlu, PmatDlu_ipiv, PmatL, PmatU,  & ! (out)
-          VARS0, POT(:,:,ke_x,ke_y), DENS_hyd_z, PRES_hyd_z,          & ! (in)
+          VARS0, POT(:,:,ke_x,ke_y), Rtot(:,:,ke_x,ke_y),             & ! (in)
+          CPtot_ov_CVtot(:,:,ke_x,ke_y), DENS_hyd_z, PRES_hyd_z,      & ! (in)
           Dz, Lift, IntrpMat_VPOrdM1, lcmesh, elem,                   & ! (in)
           nz, vmapM_z1D, vmapP_z1D, ke_x, ke_y  )
 
@@ -344,8 +400,9 @@ contains
           call GMRES_hydro_core( gmres_hydro, VAR_DEL, wj, is_converged, &
             VARS, b, N, m,                                               &
             PmatDlu,  PmatDlu_ipiv,  PmatL, PmatU, pinv_v,               & ! (in)
-            POT(:,:,ke_x,ke_y), DENS_hyd_z, PRES_hyd_z,                  &
-            Dz, Lift, IntrpMat_VPOrdM1, lcmesh, elem,                    &
+            POT(:,:,ke_x,ke_y), Rtot(:,:,ke_x,ke_y),                     & ! (in)
+            CPtot_ov_CVtot(:,:,ke_x,ke_y), DENS_hyd_z, PRES_hyd_z,       & ! (in)
+            Dz, Lift, IntrpMat_VPOrdM1, lcmesh, elem,                    & ! (in)
             nz, vmapM_z1D, vmapP_z1D, ke_x, ke_y )
           
           if (is_converged) exit            
@@ -369,11 +426,11 @@ contains
     call Lift%Final()
 
     return
-  end subroutine hydrostaic_build_rho_XYZ
+  end subroutine hydrostaic_build_rho_XYZ_moist
 
 !-- private ---------------------------------
 
-
+!OCL SERIAL
   subroutine set_vmapZ1D( vmapM, vmapP, &
     elem, lmesh )
 
@@ -420,9 +477,9 @@ contains
 !OCL SERIAL
   subroutine GMRES_hydro_core( gmres_hydro, x, wj, is_converged, &
     x0, b, N, m,                                        &
-    PmatDlu, PmatDlu_ipiv, PmatL, PmatU, pinv_v,                 & ! (in)    
-    POT, DENS_hyd, PRES_hyd,                            &
-    Dz, Lift, IntrpMat_VPOrdM1, lmesh, elem,            &
+    PmatDlu, PmatDlu_ipiv, PmatL, PmatU, pinv_v,        & ! (in)    
+    POT, Rtot, CPtot_ov_CVtot, DENS_hyd, PRES_hyd,      & ! (in)
+    Dz, Lift, IntrpMat_VPOrdM1, lmesh, elem,            & ! (in)
     nz, vmapM, vmapP, ke_x, ke_y )
 
     implicit none
@@ -445,6 +502,8 @@ contains
     real(RP), intent(inout) :: pinv_v(N)
     !---
     real(RP), intent(in) :: POT(elem%Np,lmesh%NeZ)
+    real(RP), intent(in) :: Rtot(elem%Np,lmesh%NeZ)
+    real(RP), intent(in) :: CPtot_ov_CVtot(elem%Np,lmesh%NeZ)
     real(RP), intent(in) :: DENS_hyd(elem%Np,lmesh%NeZ)
     real(RP), intent(in) :: PRES_hyd(elem%Np,lmesh%NeZ)
     class(SparseMat), intent(in) :: Dz, Lift
@@ -458,7 +517,8 @@ contains
     !-------------------------------------------------------
 
     call eval_Ax_lin( wj(:),                   & ! (out)
-      x, x0, POT, DENS_hyd, PRES_hyd,          & ! (in)
+      x, x0, POT, Rtot, CPtot_ov_CVtot,        & ! (in)
+      DENS_hyd, PRES_hyd,                      & ! (in)
       Dz, Lift, IntrpMat_VPOrdM1, lmesh, elem, & ! (in)
       nz, vmapM, vmapP, ke_x, ke_y             ) ! (in)
 
@@ -469,7 +529,8 @@ contains
       call matmul_pinv_v( pinv_v, PmatDlu, PmatDlu_ipiv, PmatL, PmatU, gmres_hydro%v(:,j) )
 
       call eval_Ax_lin( wj(:),                   & ! (out)
-        pinv_v, x0, POT, DENS_hyd, PRES_hyd,     & ! (in)
+        pinv_v, x0, POT, Rtot, CPtot_ov_CVtot,   & ! (in)
+        DENS_hyd, PRES_hyd,                      & ! (in)
         Dz, Lift, IntrpMat_VPOrdM1, lmesh, elem, & ! (in)
         nz, vmapM, vmapP, ke_x, ke_y             ) ! (in)
       
@@ -559,7 +620,8 @@ contains
 
 !OCL SERIAL
   subroutine eval_Ax( Ax, &
-      DDENS, DENS0, POT, DENS_hyd, PRES_hyd,      & ! (in)
+      DDENS, DENS0, POT, Rtot, CPtot_ov_CVtot,    & ! (in)
+      DENS_hyd, PRES_hyd,                         & ! (in)
       Dz, Lift, IntrpMat_VPOrdM1, lmesh, elem,    & ! (in)
       nz, vmapM, vmapP, ke_x, ke_y )
    
@@ -571,6 +633,8 @@ contains
     real(RP), intent(in) :: DDENS (elem%Np,lmesh%NeZ)
     real(RP), intent(in) :: DENS0(elem%Np,lmesh%NeZ)
     real(RP), intent(in) :: POT(elem%Np,lmesh%NeZ)
+    real(RP), intent(in) :: Rtot(elem%Np,lmesh%NeZ)
+    real(RP), intent(in) :: CPtot_ov_CVtot(elem%Np,lmesh%NeZ)
     real(RP), intent(in) :: DENS_hyd(elem%Np,lmesh%NeZ)
     real(RP), intent(in) :: PRES_hyd(elem%Np,lmesh%NeZ)
     class(SparseMat), intent(in) :: Dz, Lift    
@@ -590,25 +654,30 @@ contains
 
     real(RP) :: gamm
     real(RP) :: RdOvP00
+    real(RP) :: rP0
     !-------------------------------------------
 
     gamm = CpDry / CvDry
     RdOvP00 = Rdry / PRES00
+    rP0 = 1.0_RP / PRES00
 
-    call cal_del_flux( del_flux,    & ! (out)
-      DDENS, POT, DENS_hyd, PRES_hyd,                   & ! (in)        
-      nz, vmapM, vmapP, lmesh, elem ) ! (in)
+    call cal_del_flux( del_flux,        & ! (out)
+      DDENS, POT, Rtot, CPtot_ov_CVtot, & ! (in)
+      DENS_hyd, PRES_hyd,               & ! (in)        
+      nz, vmapM, vmapP, lmesh, elem     ) ! (in)
 
     !$omp parallel do private(ke, DPRES, DENS, Fz, LiftDelFlx)
     do ke_z=1, lmesh%NeZ
       ke = Ke_x + (Ke_y-1)*lmesh%NeX + (ke_z-1)*lmesh%NeX*lmesh%NeY
 
       DENS(:) = DENS_hyd(:,ke_z) + DDENS(:,ke_z)
-      DPRES(:) = PRES00 * ( RdOvP00 * DENS(:) * POT(:,ke_z) )**gamm !&
+      DPRES(:) = PRES00 * ( Rtot(:,ke_z) * rP0 * DENS(:) * POT(:,ke_z) )**CPtot_ov_CVtot(:,ke_z) !&
                !- PRES_hyd(:,ke_z)
       call sparsemat_matmul(Dz, DPRES, Fz)
       call sparsemat_matmul(Lift, lmesh%Fscale(:,ke)*del_flux(:,ke_z), LiftDelFlx)
 
+      ! Ax(:,ke_z) = lmesh%Escale(:,ke,3,3) * Fz(:) + LiftDelFlx(:) &
+      !            + Grav * matmul(IntrpMat_VPOrdM1, DDENS(:,ke_z))
       Ax(:,ke_z) = lmesh%Escale(:,ke,3,3) * Fz(:) + LiftDelFlx(:) &
                  + Grav * matmul(IntrpMat_VPOrdM1, DENS(:))!DDENS(:,ke_z))
     end do
@@ -618,8 +687,9 @@ contains
 
 !OCL SERIAL
   subroutine cal_del_flux( del_flux, &
-    DDENS_, POT_, DENS_hyd, PRES_hyd, &
-    nz, vmapM, vmapP, lmesh, elem )
+    DDENS_, POT_, Rtot_, CPtot_ov_CVtot_, &
+    DENS_hyd, PRES_hyd,                   &
+    nz, vmapM, vmapP, lmesh, elem         )
 
     implicit none
 
@@ -628,6 +698,8 @@ contains
     real(RP), intent(out) ::  del_flux(elem%NfpTot*lmesh%NeZ)
     real(RP), intent(in) ::  DDENS_(elem%Np*lmesh%NeZ)
     real(RP), intent(in) ::  POT_(elem%Np*lmesh%NeZ)
+    real(RP), intent(in) :: Rtot_(elem%Np*lmesh%NeZ)
+    real(RP), intent(in) :: CPtot_ov_CVtot_(elem%Np*lmesh%NeZ)
     real(RP), intent(in) :: DENS_hyd(elem%Np*lmesh%NeZ)
     real(RP), intent(in) :: PRES_hyd(elem%Np*lmesh%NeZ)
     real(RP), intent(in) :: nz(elem%NfpTot*lmesh%NeZ)
@@ -638,22 +710,24 @@ contains
     integer :: p, ke_z
 
     real(RP) :: dpresP, dpresM
-    real(RP) :: gamm
-    real(RP) :: RdOvP00
+    real(RP) :: RtotOvP00M, RtotOvP00P
+    real(RP) :: rP0
     !-------------------------------
 
-    gamm = CpDry/CvDry
-    RdOvP00 = Rdry / PRES00
+    rP0 = 1.0_RP / PRES00
 
-    !$omp parallel do private(p, i, iM, iP, dpresM, dpresP)
+    !$omp parallel do private(p, i, iM, iP, dpresM, dpresP, RtotOvP00M, RtotOvP00P)
     do ke_z=1, lmesh%NeZ
     do p=1, elem%NfpTot
       i = p + (ke_z-1)*elem%NfpTot
       iM = vmapM(i); iP = vmapP(i)
-  
-      dpresM = PRES00 *  ( RdOvP00 * (DENS_hyd(iM) + DDENS_(iM)) * POT_(iM) )**gamm !- PRES_hyd(iM)
-      dpresP = PRES00 *  ( RdOvP00 * (DENS_hyd(iP) + DDENS_(iP)) * POT_(iP) )**gamm !- PRES_hyd(iP)
-      if (ke_z==1.and. iM==iP) dpresP = PRES_hyd(iP)!0.0_RP
+
+      RtotOvP00M = Rtot_(iM) * rP0
+      RtotOvP00P = Rtot_(iP) * rP0
+
+      dpresM = PRES00 *  ( RtotOvP00M * (DENS_hyd(iM) + DDENS_(iM)) * POT_(iM) )**CPtot_ov_CVtot_(iM) !- PRES_hyd(iM)
+      dpresP = PRES00 *  ( RtotOvP00P * (DENS_hyd(iP) + DDENS_(iP)) * POT_(iP) )**CPtot_ov_CVtot_(iP) !- PRES_hyd(iP)
+!      if (ke_z==1.and. iM==iP) dpresP = PRES_hyd(iP) !* 0.0_RP
 
       del_flux(i) = 0.5_RP * (dpresP - dpresM) * nz(i)
     end do
@@ -664,7 +738,8 @@ contains
 
 !OCL SERIAL
   subroutine eval_Ax_lin( Ax, &
-    DDENS, DDENS0, POT, DENS_hyd, PRES_hyd,                      & ! (in)
+    DDENS, DDENS0, POT, Rtot, CPtot_ov_CVtot, & ! (in) 
+    DENS_hyd, PRES_hyd,                       & ! (in)
     Dz, Lift, IntrpMat_VPOrdM1, lmesh, elem,  & ! (in)
     nz, vmapM, vmapP, ke_x, ke_y )
  
@@ -676,6 +751,8 @@ contains
     real(RP), intent(in) :: DDENS (elem%Np,lmesh%NeZ)
     real(RP), intent(in) :: DDENS0(elem%Np,lmesh%NeZ)
     real(RP), intent(in) :: POT(elem%Np,lmesh%NeZ)
+    real(RP), intent(in) :: Rtot(elem%Np,lmesh%NeZ)
+    real(RP), intent(in) :: CPtot_ov_CVtot(elem%Np,lmesh%NeZ)
     real(RP), intent(in) :: DENS_hyd(elem%Np,lmesh%NeZ)
     real(RP), intent(in) :: PRES_hyd(elem%Np,lmesh%NeZ)
     class(SparseMat), intent(in) :: Dz, Lift
@@ -694,22 +771,23 @@ contains
     integer :: ke
 
     real(RP) :: gamm
-    real(RP) :: RdOvP00
+    real(RP) :: rP0
     !-------------------------------------------
 
     gamm = CpDry/CvDry
-    RdOvP00 = Rdry / PRES00
+    rP0 = 1.0_RP / PRES00
 
-    call cal_del_flux_lin( del_flux,    & ! (out)
-      DDENS, DDENS0, POT, DENS_hyd, PRES_hyd,               & ! (in)        
-      nz, vmapM, vmapP, lmesh, elem     ) ! (in)
+    call cal_del_flux_lin( del_flux,            & ! (out)
+      DDENS, DDENS0, POT, Rtot, CPtot_ov_CVtot, & ! (in) 
+      DENS_hyd, PRES_hyd,                       & ! (in)        
+      nz, vmapM, vmapP, lmesh, elem             ) ! (in)
 
     !$omp parallel do private(ke, PRES, PRES0, DPRES, Fz, LiftDelFlx)
     do ke_z=1, lmesh%NeZ
       ke = Ke_x + (Ke_y-1)*lmesh%NeX + (ke_z-1)*lmesh%NeX*lmesh%NeY
 
-      PRES0(:) = PRES00 * ( RdOvP00 * (DENS_hyd(:,ke_z) + DDENS0(:,ke_z)) * POT(:,ke_z) )**gamm
-      DPRES(:) = gamm * PRES0(:) / (DENS_hyd(:,ke_z) + DDENS0(:,ke_z)) * DDENS(:,ke_z)
+      PRES0(:) = PRES00 * ( Rtot(:,ke_z) * rP0 * (DENS_hyd(:,ke_z) + DDENS0(:,ke_z)) * POT(:,ke_z) )**CPtot_ov_CVtot(:,ke_z)
+      DPRES(:) = CPtot_ov_CVtot(:,ke_z) * PRES0(:) / (DENS_hyd(:,ke_z) + DDENS0(:,ke_z)) * DDENS(:,ke_z)
 
       call sparsemat_matmul(Dz, DPRES(:), Fz)
       call sparsemat_matmul(Lift, lmesh%Fscale(:,ke)*del_flux(:,ke_z), LiftDelFlx)
@@ -723,7 +801,8 @@ contains
 
 !OCL SERIAL
   subroutine cal_del_flux_lin( del_flux, &
-    DDENS_, DDENS0_, POT_, DENS_hyd_, PRES_hyd_, &
+    DDENS_, DDENS0_, POT_, Rtot_, CPtot_ov_CVtot_, &
+    DENS_hyd_, PRES_hyd_,                          &
     nz, vmapM, vmapP, lmesh, elem )
 
     implicit none
@@ -733,6 +812,8 @@ contains
     real(RP), intent(out) ::  del_flux(elem%NfpTot*lmesh%NeZ)
     real(RP), intent(in) ::  DDENS_(elem%Np*lmesh%NeZ)
     real(RP), intent(in) ::  DDENS0_(elem%Np*lmesh%NeZ)
+    real(RP), intent(in) ::  Rtot_(elem%Np*lmesh%NeZ)
+    real(RP), intent(in) ::  CPtot_ov_CVtot_(elem%Np*lmesh%NeZ)
     real(RP), intent(in) ::  DENS_hyd_(elem%Np*lmesh%NeZ)
     real(RP), intent(in) ::  PRES_hyd_(elem%Np*lmesh%NeZ)
     real(RP), intent(in) ::  POT_(elem%Np*lmesh%NeZ)
@@ -746,25 +827,30 @@ contains
     real(RP) :: dpresP, dpresM
     real(RP) :: pres0P, pres0M
     real(RP) :: gamm
-    real(RP) :: RdOvP00
+    real(RP) :: rP0
+    real(RP) :: RtotOvP00M
+    real(RP) :: RtotOvP00P
     !-------------------------------
 
     gamm = CpDry/CvDry
-    RdOvP00 = Rdry / PRES00
+    rP0 = 1.0_RP / PRES00
 
     !$omp parallel do private(p, i, iM, iP, &
-    !$omp dpresM, dpresP, pres0M, pres0P )
+    !$omp dpresM, dpresP, pres0M, pres0P, RtotOvP00M, RtotOvP00P )
     do ke_z=1, lmesh%NeZ
     do p=1, elem%NfpTot
       i = p + (ke_z-1)*elem%NfpTot
       iM = vmapM(i); iP = vmapP(i)
 
-      pres0M = PRES00 *  ( RdOvP00 * (DENS_hyd_(iM) + DDENS0_(iM)) * POT_(iM) )**gamm
-      pres0P = PRES00 *  ( RdOvP00 * (DENS_hyd_(iP) + DDENS0_(iP)) * POT_(iP) )**gamm
+      RtotOvP00M = Rtot_(iM) * rP0
+      RtotOvP00P = Rtot_(iP) * rP0
 
-      dpresM = gamm * pres0M / (DENS_hyd_(iM) + DDENS0_(iM)) * DDENS_(iM)
-      dpresP = gamm * pres0P / (DENS_hyd_(iP) + DDENS0_(iP)) * DDENS_(iP)
-      if (ke_z==1.and. iM==iP) dpresP = 0.0_RP
+      pres0M = PRES00 * ( RtotOvP00M * (DENS_hyd_(iM) + DDENS0_(iM)) * POT_(iM) )**CPtot_ov_CVtot_(iM)
+      pres0P = PRES00 * ( RtotOvP00P * (DENS_hyd_(iP) + DDENS0_(iP)) * POT_(iP) )**CPtot_ov_CVtot_(iP)
+
+      dpresM = CPtot_ov_CVtot_(iM) * pres0M / (DENS_hyd_(iM) + DDENS0_(iM)) * DDENS_(iM)
+      dpresP = CPtot_ov_CVtot_(iP) * pres0P / (DENS_hyd_(iP) + DDENS0_(iP)) * DDENS_(iP)
+!      if (ke_z==1.and. iM==iP) dpresP = 0.0_RP
 
       del_flux(i) = 0.5_RP * (dpresP - dpresM) * nz(i)
     end do
@@ -775,8 +861,8 @@ contains
 
 !OCL SERIAL
   subroutine construct_pmatInv( PmatDlu, PmatDlu_ipiv, PmatL, PmatU, &
-    DDENS0, POT, DENS_hyd, PRES_hyd,                   & ! (in)
-    Dz, Lift, IntrpMat_VPOrdM1, lmesh, elem,                            & ! (in)
+    DDENS0, POT, Rtot, CPtot_ov_CVtot, DENS_hyd, PRES_hyd,           & ! (in)
+    Dz, Lift, IntrpMat_VPOrdM1, lmesh, elem,                         & ! (in)
     nz, vmapM, vmapP, ke_x, ke_y )
 
     use scale_linalgebra, only: linalgebra_LU
@@ -790,6 +876,8 @@ contains
     real(RP), intent(out) :: PmatU(elem%Np,elem%Np,lmesh%NeZ)
     real(RP), intent(in)  :: DDENS0(elem%Np,lmesh%NeZ)
     real(RP), intent(in)  :: POT(elem%Np,lmesh%NeZ)
+    real(RP), intent(in)  :: Rtot(elem%Np,lmesh%NeZ)
+    real(RP), intent(in)  :: CPtot_ov_CVtot(elem%Np,lmesh%NeZ)
     real(RP), intent(in)  :: DENS_hyd(elem%Np,lmesh%NeZ)
     real(RP), intent(in)  :: PRES_hyd(elem%Np,lmesh%NeZ)
     class(SparseMat), intent(in) :: Dz, Lift
@@ -803,7 +891,7 @@ contains
     real(RP) :: PRES0(elem%Np,lmesh%NeZ)
     integer :: ke_z, ke_z2
     integer :: ke, p, fp, v
-    real(RP) :: gamm, rgamm
+    real(RP) :: gamm, rgamm, rP0
     real(RP) :: dz_p(elem%Np)
     real(RP) :: PmatD(elem%Np,elem%Np)
 
@@ -819,13 +907,14 @@ contains
 
     gamm = CpDry/CvDry
     rgamm = CvDry/CpDry
+    rP0 = 1.0_RP / PRES00
 
     lift_op(:,:) = elem%Lift
 
     !$omp parallel do   
     do ke_z=1, lmesh%NeZ
       DENS0(:,ke_z) = DENS_hyd(:,ke_z) + DDENS0(:,ke_z)
-      PRES0(:,ke_z) = PRES00 * ( Rdry / PRES00 * DENS0(:,ke_z) * POT(:,ke_z) )**gamm
+      PRES0(:,ke_z) = PRES00 * ( Rtot(:,ke_z) * rP0 * DENS0(:,ke_z) * POT(:,ke_z) )**CPtot_ov_CVtot(:,ke_z)
     end do
 
 !   !$omp parallel do private(ke, p, fp, v, f1, f2, ke_z2, dz_p, &
@@ -841,7 +930,7 @@ contains
 
       do p=1, elem%Np
         dz_p(:) = lmesh%Escale(p,ke,3,3) * elem%Dx3(p,:) 
-        PmatD(p,:) = dz_p(:) * gamm * PRES0(:,ke_z ) / DENS0(:,ke_z) &
+        PmatD(p,:) = dz_p(:) * CPtot_ov_CVtot(:,ke_z) * PRES0(:,ke_z) / DENS0(:,ke_z) &
                    + Grav * IntrpMat_VPOrdM1(p,:)
       end do
 
@@ -868,13 +957,13 @@ contains
         do fp=fp_s, fp_e
           p = fp-fp_s+1
           tmp(:) = lift_op(FmV,fp) * lmesh%Fscale(fp,ke) * nz(fp,ke_z)
-          lift_ (FmV,FmV (p)) = tmp(:) * gamm * PRES0(FmV (p),ke_z ) / DENS0(FmV (p),ke_z )
-          lift_2(FmV,FmV2(p)) = tmp(:) * gamm * PRES0(FmV2(p),ke_z2) / DENS0(FmV2(p),ke_z2)
+          lift_ (FmV,FmV (p)) = tmp(:) * CPtot_ov_CVtot(FmV (p),ke_z ) * PRES0(FmV (p),ke_z ) / DENS0(FmV (p),ke_z )
+          lift_2(FmV,FmV2(p)) = tmp(:) * CPtot_ov_CVtot(FmV2(p),ke_z2) * PRES0(FmV2(p),ke_z2) / DENS0(FmV2(p),ke_z2)
         end do
 
         !----        
         if ( (ke_z == 1 .and. f1==1) ) then
-          PmatD(:,:) = PmatD(:,:) - fac * lift_(:,:)
+!          PmatD(:,:) = PmatD(:,:) - fac * lift_(:,:)
         else if ( (ke_z == lmesh%NeZ .and. f1==elem%Nfaces_v) ) then
         else
           PmatD(:,:) = PmatD(:,:) - fac * lift_(:,:)

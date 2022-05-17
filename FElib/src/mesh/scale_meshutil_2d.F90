@@ -21,7 +21,7 @@ module scale_meshutil_2d
   public :: MeshUtil2D_buildGlobalMap
 
 contains
-
+!OCL SERIAL
   subroutine MeshUtil2D_genRectDomain( pos_v, EToV, &
     Ke_x, xmin, xmax, Ke_y, ymin, ymax )
 
@@ -81,7 +81,7 @@ contains
     return
   end subroutine MeshUtil2D_genRectDomain
 
-
+!OCL SERIAL
   subroutine MeshUtil2D_genConnectivity( EToE, EToF, &
     EToV, Ne, Nfaces )
     
@@ -199,6 +199,7 @@ contains
     return
   end subroutine MeshUtil2D_genConnectivity
 
+!OCL SERIAL
   subroutine MeshUtil2D_BuildInteriorMap( VMapM, VMapP, MapM, MapP, &
     pos_en, pos_ev, EtoE, EtoF, EtoV, Fmask, Ne, Np, Nfp, Nfaces, Nv)
 
@@ -318,6 +319,7 @@ contains
 
   end subroutine MeshUtil2D_BuildInteriorMap
 
+!OCL SERIAL
   subroutine MeshUtil2D_genPatchBoundaryMap(  VMapB, MapB, VMapP, &
     pos_en, xmin, xmax, ymin, ymax, Fmask, Ne, Np, Nfp, Nfaces, Nv)
 
@@ -427,6 +429,7 @@ contains
      
   end subroutine MeshUtil2D_genPatchBoundaryMap
 
+!OCL SERIAL
   subroutine MeshUtil2D_buildGlobalMap( &
     panelID_table, pi_table, pj_table,           &
     tileID_map, tileFaceID_map, tilePanelID_map, &

@@ -13,6 +13,7 @@ module mod_atmos_mesh
   use scale_mesh_base2d, only: MeshBase2D
   use scale_mesh_base3d, only: MeshBase3D
   use scale_element_base, only: ElementBase3D
+  use scale_element_line, only: LineElement
   use scale_element_hexahedral, only: HexahedralElement
   use scale_localmesh_2d, only: LocalMesh2D
   use scale_localmesh_3d, only: LocalMesh3D
@@ -33,6 +34,7 @@ module mod_atmos_mesh
   !
   type, abstract, extends(ModelMesh3D), public :: AtmosMesh
     type(HexahedralElement) :: element
+    type(LineElement) :: element_v1D
 
     type(MeshTopography) :: topography
     integer :: vcoord_type_id
@@ -170,6 +172,9 @@ contains
 
     call this%topography%Final()
     call this%ModelMesh3D_Final()
+
+    call this%element%Final()
+    call this%element_v1D%Final()
 
     return
   end subroutine AtmosMesh_Final

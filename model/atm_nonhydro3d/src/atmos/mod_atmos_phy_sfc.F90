@@ -138,8 +138,8 @@ contains
 
 
   subroutine AtmosPhySfc_calc_tendency( &
-    this, model_mesh, prgvars_list,       &
-    auxvars_list, forcing_list, is_update )
+    this, model_mesh, prgvars_list, trcvars_list, &
+    auxvars_list, forcing_list, is_update         )
 
     use mod_atmos_vars, only: &
       AtmosVars_GetLocalMeshPrgVars,   &
@@ -153,6 +153,7 @@ contains
     class(AtmosPhySfc), intent(inout) :: this
     class(ModelMeshBase), intent(in) :: model_mesh
     class(ModelVarManager), intent(inout) :: prgvars_list
+    class(ModelVarManager), intent(inout) :: trcvars_list    
     class(ModelVarManager), intent(inout) :: auxvars_list
     class(ModelVarManager), intent(inout) :: forcing_list
     logical, intent(in) :: is_update
@@ -162,6 +163,7 @@ contains
 
     class(LocalMeshFieldBase), pointer :: DDENS, MOMX, MOMY, MOMZ, DRHOT
     class(LocalMeshFieldBase), pointer :: DENS_hyd, PRES_hyd
+    class(LocalMeshFieldBase), pointer :: Rtot, CVtot, CPtot
     class(LocalMeshFieldBase), pointer :: PRES, PT
     class(LocalMeshFieldBase), pointer :: DENS_tp, MOMX_tp, MOMY_tp, MOMZ_tp, RHOT_tp, RHOH_p
     class(LocalMeshFieldBase), pointer :: SFLX_MU, SFLX_MV, SFLX_MW, SFLX_SH, SFLX_LH
@@ -170,15 +172,16 @@ contains
     !--------------------------------------------------
     if (.not. this%IsActivated()) return
 
-    !LOG_INFO('AtmosDyn_tendency',*)
+    LOG_PROGRESS(*) 'atmosphere / physics / surface / Smagorinsky'
 
     call model_mesh%GetModelMesh( mesh )
     do n=1, mesh%LOCAL_MESH_NUM
       call PROF_rapstart( 'ATM_PHY_SFC_get_localmesh_ptr', 2)         
       call AtmosVars_GetLocalMeshPrgVars( n,  &
-        mesh, prgvars_list, auxvars_list,     &
-        DDENS, MOMX, MOMY, MOMZ, DRHOT,       &
-        DENS_hyd, PRES_hyd, lcmesh            )
+        mesh, prgvars_list, auxvars_list,       &
+        DDENS, MOMX, MOMY, MOMZ, DRHOT,         &
+        DENS_hyd, PRES_hyd, Rtot, CVtot, CPtot, &
+        lcmesh                                  )
       
       call AtmosVars_GetLocalMeshPhyTends( n,        &
         mesh, forcing_list,                          &
@@ -199,7 +202,7 @@ contains
         SFLX_MU%val, SFLX_MV%val, SFLX_MW%val, SFLX_SH%val, SFLX_LH%val,        &
         DDENS%val, MOMX%val, MOMY%val, MOMZ%val, DRHOT%val,                     &
         DENS_hyd%val, PRES_hyd%val,                                             &
-        PRES%val, PT%val,                                                       &
+        PRES%val, PT%val, Rtot%val,                                             &
         model_mesh%DOptrMat(3), model_mesh%SOptrMat(3), model_mesh%LiftOptrMat, &
         lcmesh, lcmesh%refElem3D, lcmesh%lcmesh2D, lcmesh%lcmesh2D%refElem2D    )
       call PROF_rapend( 'ATM_PHY_SFC_cal_tend', 2)
@@ -208,12 +211,15 @@ contains
     return  
   end subroutine AtmosPhySfc_calc_tendency
 
-  subroutine AtmosPhySfc_update( this, model_mesh, prgvars_list, auxvars_list, forcing_list, is_update )
+  subroutine AtmosPhySfc_update( this, model_mesh,           &
+    prgvars_list, trcvars_list, auxvars_list,  forcing_list, &
+    is_update )
     implicit none
 
     class(AtmosPhySfc), intent(inout) :: this
     class(ModelMeshBase), intent(in) :: model_mesh
     class(ModelVarManager), intent(inout) :: prgvars_list
+    class(ModelVarManager), intent(inout) :: trcvars_list    
     class(ModelVarManager), intent(inout) :: auxvars_list
     class(ModelVarManager), intent(inout) :: forcing_list
     logical, intent(in) :: is_update
@@ -242,7 +248,7 @@ contains
     SFLX_MU, SFLX_MV, SFLX_MW, SFLX_SH, SFLX_LH,         &
     DDENS, MOMX, MOMY, MOMZ, DRHOT,                      &
     DENS_hyd, PRES_hyd,                                  &
-    PRES, PT,                                            &
+    PRES, PT, Rtot,                                      &
     Dz, Sz, Lift,                                        &
     lcmesh, elem, lcmesh2D, elem2D )
 
@@ -284,6 +290,7 @@ contains
     real(RP), intent(in) :: DENS_hyd(elem%Np,lcmesh%NeA)
     real(RP), intent(in) :: PRES(elem%Np,lcmesh%NeA)
     real(RP), intent(in) :: PT(elem%Np,lcmesh%NeA)
+    real(RP), intent(in) :: Rtot(elem%Np,lcmesh%NeA)
     type(SparseMat), intent(in) :: Dz, Sz, Lift
 
     real(RP) :: ATM_W   (elem2D%Np,lcmesh2D%NeA)
@@ -325,7 +332,7 @@ contains
         ATM_W(ij,ke2D) = 0.0_RP
 
         SFC_DENS(ij,ke2D) = DENS_hyd(hsliceZ0,ke) + DDENS(hsliceZ0,ke)
-        SFC_TEMP(ij,ke2D) = PRES(hsliceZ0,ke) / ( Rdry * SFC_DENS(ij,ke2D) )
+        SFC_TEMP(ij,ke2D) = PRES(hsliceZ0,ke) / ( Rtot(hsliceZ0,ke) * SFC_DENS(ij,ke2D) )
 
         Z1(ij,ke2D) = lcmesh%pos_en(hsliceZ1,ke,3)
       end do

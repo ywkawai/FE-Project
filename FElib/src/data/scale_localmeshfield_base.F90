@@ -8,6 +8,9 @@ module scale_localmeshfield_base
   use scale_precision
   use scale_io
 
+  use scale_localmesh_base, only: &
+    LocalMeshBase
+  
   use scale_localmesh_1d, only: &
     LocalMesh1D, LocalMesh1D_Init, LocalMesh1D_Final
 
@@ -30,7 +33,12 @@ module scale_localmeshfield_base
 
   type, public :: LocalMeshFieldBase
     real(RP), allocatable :: val(:,:)
+    real(RP), allocatable :: face_val(:,:)  
   end type LocalMeshFieldBase
+
+  type, public :: LocalMeshFieldBaseList
+    class(LocalMeshFieldBase), pointer :: ptr
+  end type LocalMeshFieldBaseList
 
   type, extends(LocalMeshFieldBase), public :: LocalMeshField1D
     type(LocalMesh1D), pointer :: mesh => null()
@@ -57,7 +65,9 @@ module scale_localmeshfield_base
   !
   !++ Public parameters & variables
   !
-  
+  integer, public, parameter :: LOCAL_MESHFIELD_TYPE_NODES_VAL     = 1
+  integer, public, parameter :: LOCAL_MESHFIELD_TYPE_NODES_FACEVAL = 2
+
   !-----------------------------------------------------------------------------
   !
   !++ Private procedure
@@ -68,76 +78,129 @@ module scale_localmeshfield_base
   !++ Private parameters & variables
   !
 
+  private :: LocalMeshFieldBase_Init
+  private :: LocalMeshFieldBase_Final
+
 contains
-  subroutine LocalMeshField1D_Init(this, mesh)
+
+!OCL SERIAL
+  subroutine LocalMeshFieldBase_Init( this, lcmesh, data_type )
+    use scale_prc, only: PRC_abort
+    implicit none
+    class(LocalMeshFieldBase), intent(inout) :: this
+    class(LocalMeshBase), intent(in) :: lcmesh
+    integer, intent(in), optional :: data_type
+
+    integer :: data_type_
+    !-----------------------------------------------------------------------------
+
+    if ( present(data_type) ) then
+      data_type_ = data_type
+    else
+      data_type_ = LOCAL_MESHFIELD_TYPE_NODES_VAL
+    end if
+
+    select case( data_type_ )
+    case (LOCAL_MESHFIELD_TYPE_NODES_VAL)
+      allocate( this%val(lcmesh%refElem%Np,lcmesh%NeA) )
+    case (LOCAL_MESHFIELD_TYPE_NODES_FACEVAL)
+      allocate( this%face_val(lcmesh%refElem%NfpTot,lcmesh%Ne) )
+    case default
+      LOG_ERROR("LocalMeshFieldBase_Init",*) "Unexcepted data_type", data_type_
+      call PRC_abort        
+    end select
+
+    return
+  end subroutine LocalMeshFieldBase_Init
+
+!OCL SERIAL
+  subroutine LocalMeshFieldBase_Final( this )
+    implicit none
+    class(LocalMeshFieldBase), intent(inout) :: this
+    !-----------------------------------------------------------------------------
+
+    if ( allocated(this%val) ) deallocate( this%val )
+    if ( allocated(this%face_val) ) deallocate( this%face_val )
+
+    return
+  end subroutine LocalMeshFieldBase_Final
+
+  !* 1D *********
+
+!OCL SERIAL
+  subroutine LocalMeshField1D_Init( this, mesh, data_type )
     implicit none
     class(LocalMeshField1D), intent(inout) :: this
     class(LocalMesh1D), target, intent(in) :: mesh
-
+    integer, optional, intent(in) :: data_type
     !-----------------------------------------------------------------------------
 
     this%mesh => mesh
-    allocate( this%val(mesh%refElem%Np, mesh%NeA) )
+    call LocalMeshFieldBase_Init( this, mesh, data_type )
 
     return
   end subroutine LocalMeshField1D_Init
 
+!OCL SERIAL
   subroutine LocalMeshField1D_Final( this )
     implicit none
     class(LocalMeshField1D), intent(inout) :: this
     !-----------------------------------------------------------------------------
 
-    if (allocated(this%val)) deallocate( this%val )
+    call LocalMeshFieldBase_Final( this )
 
     return
   end subroutine LocalMeshField1D_Final
 
-  !**********
+  !* 2D *********
   
-  subroutine LocalMeshField2D_Init(this, mesh)
+!OCL SERIAL
+  subroutine LocalMeshField2D_Init( this, mesh, data_type )
     implicit none
     class(LocalMeshField2D), intent(inout) :: this
     class(LocalMesh2D), target, intent(in) :: mesh
-
+    integer, optional, intent(in) :: data_type
     !-----------------------------------------------------------------------------
 
     this%mesh => mesh
-    allocate( this%val(mesh%refElem%Np, mesh%NeA) )
+    call LocalMeshFieldBase_Init( this, mesh, data_type )
 
     return
   end subroutine LocalMeshField2D_Init
 
+!OCL SERIAL
   subroutine LocalMeshField2D_Final( this )
     implicit none
     class(LocalMeshField2D), intent(inout) :: this
     !-----------------------------------------------------------------------------
 
-    if (allocated(this%val)) deallocate( this%val )
-
+    call LocalMeshFieldBase_Final( this )
     return
   end subroutine LocalMeshField2D_Final
 
-  !**********
+  !* 3D *********
   
-  subroutine LocalMeshField3D_Init(this, mesh)
+!OCL SERIAL
+  subroutine LocalMeshField3D_Init( this, mesh, data_type )
     implicit none
     class(LocalMeshField3D), intent(inout) :: this
     class(LocalMesh3D), target, intent(in) :: mesh
+    integer, optional, intent(in) :: data_type
     !-----------------------------------------------------------------------------
 
     this%mesh => mesh
-    allocate( this%val(mesh%refElem%Np, mesh%NeA) )
+    call LocalMeshFieldBase_Init( this, mesh, data_type )
 
     return
   end subroutine LocalMeshField3D_Init
 
+!OCL SERIAL
   subroutine LocalMeshField3D_Final( this )
     implicit none
     class(LocalMeshField3D), intent(inout) :: this
     !-----------------------------------------------------------------------------
 
-    if (allocated(this%val)) deallocate( this%val )
-
+    call LocalMeshFieldBase_Final( this )
     return
   end subroutine LocalMeshField3D_Final
 

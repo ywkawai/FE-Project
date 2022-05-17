@@ -59,7 +59,6 @@ module scale_atm_dyn_dgm_nonhydro3d_common
   integer, public, parameter :: PROG_VARS_NUM  = 5
 
   real(RP), public, allocatable :: IntrpMat_VPOrdM1(:,:)
-  integer, public, allocatable :: iM2Dto3D(:)
 
   !-----------------------------------------------------------------------------
   !
@@ -92,7 +91,6 @@ contains
     end do
     end do
     IntrpMat_VPOrdM1(:,:) = matmul(elem%V, invV_VPOrdM1)
-
 
     return
   end subroutine atm_dyn_dgm_nonhydro3d_common_Init

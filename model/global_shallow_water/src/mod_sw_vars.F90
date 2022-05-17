@@ -48,6 +48,8 @@ module mod_sw_vars
     type(ModelVarManager) :: PROGVARS_manager
     type(MeshFieldCommCubedSphereDom2D) :: PROGVARS_comm
     
+    type(ModelVarManager) :: TRCVARS_manager ! Dummy
+
     type(MeshField2D), allocatable :: AUX_VARS(:)
     type(ModelVarManager) :: AUXVARS_manager 
     type(MeshFieldCommCubedSphereDom2D) :: AUXVARS_comm
@@ -65,7 +67,8 @@ module mod_sw_vars
   contains
     procedure :: Init => SWVars_Init
     procedure :: Final => SWVars_Final
-    procedure :: Clac_diagnostics => SWVars_CalculateDiagnostics
+    procedure :: Calc_diagnostics => SWVars_CalculateDiagnostics
+    procedure :: Calc_Vorticity => SWVars_CalculateVor
     procedure :: History => SWVars_History
     procedure :: Check   => SWVars_Check
     procedure :: Monitor => SWVars_Monitor
@@ -465,7 +468,7 @@ contains
     call this%Check( force = .true. )
 
     !-- Calculate diagnostic variables
-    call this%Clac_diagnostics( sw_mesh )   
+    call this%Calc_diagnostics( sw_mesh )   
 
     !-- Communicate halo data of hydrostatic & diagnostic variables
     call this%AUXVARS_manager%MeshFieldComm_Exchange()
@@ -761,11 +764,25 @@ contains
     end do
 
     ! VOR
-    field => this%AUX_VARS(SW_AUXVARS_VOR_ID)    
-    do n=1, field%mesh%LOCAL_MESH_NUM
-      lcmesh2D => field%mesh%lcmesh_list(n)
+    call this%Calc_Vorticity( this%AUX_VARS(SW_AUXVARS_VOR_ID), model_mesh )
 
-      call vars_eval_vor_lc( field%local(n)%val, &
+    return
+  end subroutine SWVars_CalculateDiagnostics
+
+  subroutine SWVars_CalculateVor( this, vor, model_mesh )
+    implicit none
+    class(SWVars), intent(in) :: this
+    class(SWMesh), intent(in) :: model_mesh    
+    class(MeshField2D), intent(inout) :: vor
+
+    type(LocalMesh2D), pointer :: lcmesh2D    
+    integer :: n
+    !-------------------------------------
+
+    do n=1, vor%mesh%LOCAL_MESH_NUM
+      lcmesh2D => vor%mesh%lcmesh_list(n)
+
+      call vars_eval_vor_lc( vor%local(n)%val, &
         this%PROG_VARS(SW_PROGVARS_U_ID)%local(n)%val, this%PROG_VARS(SW_PROGVARS_V_ID)%local(n)%val, &
         this%AUX_VARS(SW_AUXVARS_u1_ID )%local(n)%val, this%AUX_VARS(SW_AUXVARS_u2_ID )%local(n)%val, &
         model_mesh%DOptrMat(1), model_mesh%DOptrMat(2), model_mesh%LiftOptrMat,                       &
@@ -773,7 +790,7 @@ contains
     end do
 
     return
-  end subroutine SWVars_CalculateDiagnostics
+  end subroutine SWVars_CalculateVor
 
 !-- private -----------------------------------------------------------------------
     
@@ -870,7 +887,6 @@ contains
     
     integer :: ke, iP(elem%NfpTot), iM(elem%NfpTot)
     !------------------------------------------------------------------------
-
 
     !$omp parallel do private( iM, iP )
     do ke=lmesh%NeS, lmesh%NeE

@@ -3,27 +3,33 @@
 ## Dependency & Environment
 
 This FE library requires following libraries: 
-  - Fortran compiler supporting Fortran 2008. 
+  - Fortran compiler supporting Fortran 2008
   - MPI library
   - LAPACK
   - NetCDF
   - SCALE library (https://scale.riken.jp). 
 
 We confirm that building our codes has succeeded in the following environments:
-  - macOS Mojave
-    - GNU Fortran 11.1.0
-    - OpenMPI 4.1.1
-    - LAPACK 3.10.0
-    - NetCDF 4.8.0
-    - SCALE library 5.4.4
-  - Ubuntu 20.04 LTS
+  - Ubuntu 20.04 LTS (for case of GNU compiler)
     - GNU Fortran 9.3.0
     - OpenMPI 4.0.3
-    - LAPACK 3.7.1
+    - LAPACK 3.9.0
     - NetCDF 4.7.3
-    - SCALE library 5.4.4
+    - SCALE library 5.4.5
+  - Ubuntu 20.04 LTS (for case of Intel oneAPI HPC Toolkit 2022.1)
+    - Intel® Fortran Compiler
+    - Intel MPI Library
+    - Intel oneAPI Math Kernel Library
+    - NetCDF 4.8.0
+    - SCALE library develop version
+  - macOS Monterey
+    - GNU Fortran 11.3.0
+    - OpenMPI 4.1.3
+    - LAPACK 3.10.1
+    - NetCDF 4.8.1
+    - SCALE library develop version
 
-Our codes are verified in Oakbridge-CX (intel compiler) and Fugaku. 
+Our codes are also verified in Oakbridge-CX (Intel compiler) and Fugaku (Fujitsu compiler). 
 
 ## Build FE-library 
 
@@ -34,7 +40,7 @@ Our codes are verified in Oakbridge-CX (intel compiler) and Fugaku.
 
   - set a directory in which SCALE library is contained
 
-  `% export SCALE="~/workspace/scale-5.4.4/"`   (for example)
+  `% export SCALE="~/workspace/scale-5.4.5/"`   (for example)
 
   - If you use the develop version of SCALE library, set a variable as
 
@@ -58,9 +64,9 @@ Our codes are verified in Oakbridge-CX (intel compiler) and Fugaku.
 
  `% make`
 
-## Compile and run dynamical core
+## Compile and run atmospheric models
 
- If you want to build a 3-dimensional nonhydrostatic atmospheric model, 
+ If you want to build a three-dimensional nonhydrostatic atmospheric model, 
  and conduct a idealized test case, such as density current, using it, 
  
  `% cd rootdir/model/atm_nonhydro3d/test/case/density_current`

@@ -14,6 +14,9 @@
 !!  - Scotti et al., 1993:
 !!    Generalized Smagorinsky model for anisotropic grids.
 !!    Phys. Fluids A, 5, 2306-2308
+!!  - Nishizawa et al., 2015:
+!!    Influence of grid aspect ratio on planetary boundary layer turbulence in large-eddy simulations
+!!    Geosci. Model Dev., 8, 3393–3419
 !<
 !-------------------------------------------------------------------------------
 #include "scaleFElib.h"
@@ -55,13 +58,16 @@ module scale_atm_phy_tb_dgm_smg
   public :: atm_phy_tb_dgm_smg_Init
   public :: atm_phy_tb_dgm_smg_Final
   public :: atm_phy_tb_dgm_smg_cal_grad
+  public :: atm_phy_tb_dgm_smg_cal_grad_qtrc
   public :: atm_phy_tb_dgm_smg_cal_tend
+  public :: atm_phy_tb_dgm_smg_cal_tend_qtrc
 
   !-----------------------------------------------------------------------------
   !
   !++ Private procedure
   !
   private :: cal_del_flux_grad
+  private :: cal_del_flux_grad_qtrc
   private :: cal_del_flux
   private :: calculate_lambda
 
@@ -80,13 +86,13 @@ module scale_atm_phy_tb_dgm_smg
   real(RP), private, parameter   :: FhB           = 40.0_RP ! fuh = sqrt(1 - b*Ri)/PrN
   real(RP), private              :: RPrN                    ! 1 / PrN
   real(RP), private              :: RRiC                    ! 1 / RiC
-  real(RP), private              :: OnemPrNovRiC                ! PrN / RiC
+  real(RP), private              :: OnemPrNovRiC            ! PrN / RiC
   
   ! for backscatter
   real(RP), private, parameter   :: CB   = 1.4_RP
   real(RP), private, parameter   :: CBt  = 0.45_RP
   real(RP), private, parameter   :: aN   = 0.47958315233127197_RP ! a_N = sqrt(0.23)
-  real(RP), private, parameter   :: atN4 = 0.09_RP                 ! a_{\theta N}^4 = 0.3**2
+  real(RP), private, parameter   :: atN4 = 0.09_RP                ! a_{\theta N}^4 = 0.3**2
   real(RP), private, parameter   :: C1o  = aN**3
   real(RP), private, parameter   :: D1o  = PrN * atN4 / aN
 
@@ -360,6 +366,60 @@ contains
   end subroutine atm_phy_tb_dgm_smg_cal_grad
 
 !OCL SERIAL  
+  subroutine atm_phy_tb_dgm_smg_cal_grad_qtrc( &
+    dQTdx, dQTdy, dQTdz,                                        & ! (out)
+    QTRC,                                                       & ! (out)
+    Dx, Dy, Dz, Sx, Sy, Sz, Lift, lmesh, elem, lmesh2D, elem2D, & ! (in)
+    is_bound                                                    ) ! (in)
+
+    implicit none
+
+    class(LocalMesh3D), intent(in) :: lmesh
+    class(elementbase3D), intent(in) :: elem
+    class(LocalMesh2D), intent(in) :: lmesh2D
+    class(elementbase2D), intent(in) :: elem2D
+    real(RP), intent(out) :: dQTdx(elem%Np,lmesh%NeA)
+    real(RP), intent(out) :: dQTdy(elem%Np,lmesh%NeA)
+    real(RP), intent(out) :: dQTdz(elem%Np,lmesh%NeA)
+    real(RP), intent(in)  :: QTRC(elem%Np,lmesh%NeA)
+    type(SparseMat), intent(in) :: Dx, Dy, Dz
+    type(SparseMat), intent(in) :: Sx, Sy, Sz
+    type(SparseMat), intent(in) :: Lift
+    logical, intent(in) :: is_bound(elem%NfpTot,lmesh%Ne)
+
+    real(RP) :: Fx(elem%Np), Fy(elem%Np), Fz(elem%Np), LiftDelFlx(elem%Np)
+    real(RP) :: del_flux(elem%NfpTot,lmesh%Ne,3)
+    
+    integer :: ke
+    integer :: p
+    !--------------------------------------------------------------------
+
+    call cal_del_flux_grad_qtrc( del_flux,                                    & ! (out)
+      QTRC,                                                                   & ! (in)
+      lmesh%normal_fn(:,:,1), lmesh%normal_fn(:,:,2), lmesh%normal_fn(:,:,3), & ! (in)
+      lmesh%vmapM, lmesh%vmapP,                                               & ! (in)
+      lmesh, elem, is_bound )                                                   ! (in)
+
+    !$omp parallel do private( Fx, Fy, Fz, LiftDelFlx )
+    do ke=lmesh%NeS, lmesh%NeE
+      !---
+      call sparsemat_matmul( Dx, QTRC(:,ke), Fx )
+      call sparsemat_matmul( Lift, lmesh%Fscale(:,ke) * del_flux(:,ke,1), LiftDelFlx )
+      dQTdx(:,ke) = lmesh%Escale(:,ke,1,1) * Fx(:) + LiftDelFlx(:)
+
+      call sparsemat_matmul( Dy, QTRC(:,ke), Fy )
+      call sparsemat_matmul( Lift, lmesh%Fscale(:,ke) * del_flux(:,ke,2), LiftDelFlx )
+      dQTdy(:,ke) = lmesh%Escale(:,ke,2,2) * Fy(:) + LiftDelFlx(:)
+
+      call sparsemat_matmul( Dz, QTRC(:,ke), Fz )
+      call sparsemat_matmul( Lift, lmesh%Fscale(:,ke) * del_flux(:,ke,3), LiftDelFlx )
+      dQTdz(:,ke) = lmesh%Escale(:,ke,3,3) * Fz(:) + LiftDelFlx(:)
+    end do
+
+    return
+  end subroutine atm_phy_tb_dgm_smg_cal_grad_qtrc
+
+!OCL SERIAL  
   subroutine cal_del_flux_grad( del_flux_rho, del_flux_mom, del_flux_rhot,  & ! (out)
     DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd, PT_,           & ! (in)
     nx, ny, nz, vmapM, vmapP, lmesh, elem, is_bound                         ) ! (in)
@@ -446,6 +506,58 @@ contains
 
     return
   end subroutine cal_del_flux_grad
+
+!OCL SERIAL  
+  subroutine cal_del_flux_grad_qtrc( del_flux,  & ! (out)
+    QTRC_,                                             & ! (in)
+    nx, ny, nz, vmapM, vmapP, lmesh, elem, is_bound    ) ! (in)
+
+    implicit none
+
+    class(LocalMesh3D), intent(in) :: lmesh
+    class(elementbase3D), intent(in) :: elem  
+    real(RP), intent(out) ::  del_flux(elem%NfpTot*lmesh%Ne,3)
+    real(RP), intent(in) ::  QTRC_(elem%Np*lmesh%NeA)
+    real(RP), intent(in) :: nx(elem%NfpTot*lmesh%Ne)
+    real(RP), intent(in) :: ny(elem%NfpTot*lmesh%Ne)
+    real(RP), intent(in) :: nz(elem%NfpTot*lmesh%Ne)
+    integer, intent(in) :: vmapM(elem%NfpTot*lmesh%Ne)
+    integer, intent(in) :: vmapP(elem%NfpTot*lmesh%Ne)
+    logical, intent(in) :: is_bound(elem%NfpTot*lmesh%Ne)
+    
+    integer :: i, iP, iM
+    real(RP) :: del
+    real(RP) :: facx, facy, facz
+
+    !------------------------------------------------------------------------
+    
+    !$omp parallel do private ( iM, iP,   &
+    !$omp del, facx, facy, facz           )
+    do i=1, elem%NfpTot * lmesh%Ne
+      iM = vmapM(i); iP = vmapP(i)
+
+
+      if ( is_bound(i) ) then
+        facx = 1.0_RP
+        facy = 1.0_RP 
+        facz = 1.0_RP
+      else
+        facx = 1.0_RP - sign(1.0_RP,nx(i))
+        facy = 1.0_RP - sign(1.0_RP,ny(i))
+        facz = 1.0_RP - sign(1.0_RP,nz(i))
+        ! facx = 1.0_RP
+        ! facy = 1.0_RP
+        ! facz = 1.0_RP
+      end if
+
+      del = 0.5_RP * ( QTRC_(iP) - QTRC_(iM) )
+      del_flux(i,1) = facx * del * nx(i)
+      del_flux(i,2) = facy * del * ny(i)
+      del_flux(i,3) = facz * del * nz(i)
+    end do
+
+    return
+  end subroutine cal_del_flux_grad_qtrc
 
 !OCL SERIAL  
   subroutine atm_phy_tb_dgm_smg_cal_tend( &
@@ -570,6 +682,68 @@ contains
     return
   end subroutine atm_phy_tb_dgm_smg_cal_tend
 
+
+!OCL SERIAL  
+  subroutine atm_phy_tb_dgm_smg_cal_tend_qtrc( &
+    RHOQ_t,                                                     & ! (out)
+    dQTdx, dQTdy, dQTdz,                                        & ! (in)
+    Kh, DDENS_,DENS_hyd,                                        & ! (in)
+    Dx, Dy, Dz, Sx, Sy, Sz, Lift, lmesh, elem, lmesh2D, elem2D, & ! (in)
+    is_bound                                                    ) ! (in)
+
+    implicit none
+
+    class(LocalMesh3D), intent(in) :: lmesh
+    class(elementbase3D), intent(in) :: elem
+    class(LocalMesh2D), intent(in) :: lmesh2D
+    class(elementbase2D), intent(in) :: elem2D
+    real(RP), intent(out) :: RHOQ_t(elem%Np,lmesh%NeA)
+    real(RP), intent(in)  :: dQTdx(elem%Np,lmesh%NeA)
+    real(RP), intent(in)  :: dQTdy(elem%Np,lmesh%NeA)
+    real(RP), intent(in)  :: dQTdz(elem%Np,lmesh%NeA)
+    real(RP), intent(in)  :: Kh   (elem%Np,lmesh%NeA) ! Eddy diffusivity
+    real(RP), intent(in)  :: DDENS_(elem%Np,lmesh%NeA)
+    real(RP), intent(in)  :: DENS_hyd(elem%Np,lmesh%NeA)
+    type(SparseMat), intent(in) :: Dx, Dy, Dz
+    type(SparseMat), intent(in) :: Sx, Sy, Sz
+    type(SparseMat), intent(in) :: Lift
+    logical, intent(in) :: is_bound(elem%NfpTot,lmesh%Ne)
+
+    integer :: ke
+
+    real(RP) :: Fx(elem%Np), Fy(elem%Np), Fz(elem%Np), LiftDelFlx(elem%Np)
+    real(RP) :: DENS(elem%Np), RHOT(elem%Np)
+    real(RP) :: del_flux(elem%NfpTot,lmesh%Ne)
+    !--------------------------------------------------------------------
+
+    call cal_del_flux_qtrc( del_flux,                                         & ! (out)
+      dQTdx, dQTdy, dQTdz,                                                    & ! (in)
+      Kh, DDENS_, DENS_hyd,                                                   & ! (in)
+      lmesh%normal_fn(:,:,1), lmesh%normal_fn(:,:,2), lmesh%normal_fn(:,:,3), & ! (in)
+      lmesh%vmapM, lmesh%vmapP,                                               & ! (in)
+      lmesh, elem, is_bound )                                                   ! (in)
+
+    !$omp parallel do private( &
+    !$omp Fx, Fy, Fz, LiftDelFlx,            &
+    !$omp DENS                               )
+    do ke=lmesh%NeS, lmesh%NeE
+      DENS(:) = DENS_hyd(:,ke) + DDENS_(:,ke)
+
+      ! RHOQ
+      call sparsemat_matmul( Dx, DENS(:) * Kh(:,ke) * dQTdx(:,ke), Fx )
+      call sparsemat_matmul( Dy, DENS(:) * Kh(:,ke) * dQTdy(:,ke), Fy )
+      call sparsemat_matmul( Dz, DENS(:) * Kh(:,ke) * dQTdz(:,ke), Fz )
+      call sparsemat_matmul( Lift, lmesh%Fscale(:,ke) * del_flux(:,ke), LiftDelFlx )
+
+      RHOQ_t(:,ke) = lmesh%Escale(:,ke,1,1) * Fx(:) + lmesh%Escale(:,ke,2,2) * Fy(:) &
+                   + lmesh%Escale(:,ke,3,3) * Fz(:) + LiftDelFlx(:)
+    end do
+
+    return
+  end subroutine atm_phy_tb_dgm_smg_cal_tend_qtrc
+
+!-- private --------------------------------------------------------
+
 !OCL SERIAL  
   subroutine cal_del_flux( del_flux_mom, del_flux_rhot,                & ! (out)
     S11, S12, S22, S23, S31, S33, TKE,                                 & ! (in)
@@ -649,19 +823,19 @@ contains
       end if
 
       TauM_x = Nu(iM) * 2.0_RP * ( ( S11(iM) - SkkOvThreeM ) * nx_ + S12(iM) * ny_ + S31(iM) * nz_ ) &
-             - TKEMulTwoOvThreeM * nx_
+             - TKEMulTwoOvThreeM * nx(i)
       TauP_x = Nu(iP) * 2.0_RP * ( ( S11(iP) - SkkOvThreeP ) * nx_ + S12(iP) * ny_ + S31(iP) * nz_ ) &
-             - TKEMulTwoOvThreeP * nx_
+             - TKEMulTwoOvThreeP * nx(i)
       
       TauM_y = Nu(iM) * 2.0_RP * ( S12(iM) * nx_ + ( S22(iM) - SkkOvThreeM ) * ny_ + S23(iM) * nz_ ) &
-             - TKEMulTwoOvThreeM * ny_
+             - TKEMulTwoOvThreeM * ny(i)
       TauP_y = Nu(iP) * 2.0_RP * ( S12(iP) * nx_ + ( S22(iP) - SkkOvThreeP ) * ny_ + S23(iP) * nz_ ) &
-             - TKEMulTwoOvThreeP * ny_
+             - TKEMulTwoOvThreeP * ny(i)
 
       TauM_z = Nu(iM) * 2.0_RP * ( S31(iM) * nx_ + S23(iM) * ny_ + ( S33(iM) - SkkOvThreeM ) * nz_ ) &
-             - TKEMulTwoOvThreeM * nz_
+             - TKEMulTwoOvThreeM * nz(i)
       TauP_z = Nu(iP) * 2.0_RP * ( S31(iP) * nx_ + S23(iP) * ny_ + ( S33(iP) - SkkOvThreeP ) * nz_ ) &
-             - TKEMulTwoOvThreeP * nz_
+             - TKEMulTwoOvThreeP * nz(i)
 
       if ( is_bound(i) )  then
         del_flux_mom(i,1) = - densM * TauM_x
@@ -680,7 +854,66 @@ contains
     return
   end subroutine cal_del_flux
 
-  !--- private ------------------
+!OCL SERIAL  
+  subroutine cal_del_flux_qtrc( del_flux,             & ! (out)
+    dQTdx, dQTdy, dQTdz,                              & ! (in)
+    Kh, DDENS_, DENS_hyd,                             & ! (in)
+    nx, ny, nz, vmapM, vmapP, lmesh, elem, is_bound   ) ! (in)
+
+    implicit none
+
+    class(LocalMesh3D), intent(in) :: lmesh
+    class(elementbase3D), intent(in) :: elem  
+    real(RP), intent(out) ::  del_flux(elem%NfpTot*lmesh%Ne) 
+    real(RP), intent(in)  :: dQTdx(elem%Np*lmesh%NeA)
+    real(RP), intent(in)  :: dQTdy(elem%Np*lmesh%NeA)
+    real(RP), intent(in)  :: dQTdz(elem%Np*lmesh%NeA)
+    real(RP), intent(in)  :: Kh   (elem%Np*lmesh%NeA) ! Eddy diffusivity
+    real(RP), intent(in) ::  DDENS_(elem%Np*lmesh%NeA)
+    real(RP), intent(in) ::  DENS_hyd(elem%Np*lmesh%NeA)
+    real(RP), intent(in) :: nx(elem%NfpTot*lmesh%Ne)
+    real(RP), intent(in) :: ny(elem%NfpTot*lmesh%Ne)
+    real(RP), intent(in) :: nz(elem%NfpTot*lmesh%Ne)
+    integer, intent(in) :: vmapM(elem%NfpTot*lmesh%Ne)
+    integer, intent(in) :: vmapP(elem%NfpTot*lmesh%Ne)
+    logical, intent(in) :: is_bound(elem%NfpTot*lmesh%Ne)
+    
+    integer :: i, iP, iM
+    real(RP) :: densM, densP
+    real(RP) :: nx_, ny_, nz_
+    !------------------------------------------------------------------------
+
+    !$omp parallel do private( iM, iP, &
+    !$omp densM, densP, nx_, ny_, nz_  )
+    do i=1, elem%NfpTot * lmesh%Ne
+      iM = vmapM(i); iP = vmapP(i)
+
+      densM = DDENS_(iM) + DENS_hyd(iM)
+      densP = DDENS_(iP) + DENS_hyd(iP)
+
+      if ( iP > elem%Np * lmesh%Ne .and. abs(nz(i)) > EPS ) then ! Tentative implementation for the treatmnet of lower/upper boundary. 
+        nx_ = nx(i)
+        ny_ = ny(i)
+        nz_ = nz(i)
+      else
+        nx_ = ( 1.0_RP + sign(1.0_RP,nx(i)) ) * nx(i)
+        ny_ = ( 1.0_RP + sign(1.0_RP,ny(i)) ) * ny(i)
+        nz_ = ( 1.0_RP + sign(1.0_RP,nz(i)) ) * nz(i)
+        ! nx_ = nx(i)
+        ! ny_ = ny(i)
+        ! nz_ = nz(i)
+      end if
+
+      if ( is_bound(i) )  then
+        del_flux(i)  = - densM * Kh(iM) * ( dQTdx(iM) * nx(i) + dQTdy(iM) * ny(i) + dQTdz(iM) * nz(i) )
+      else        
+        del_flux(i)  = 0.5_RP * ( densP * Kh(iP) * ( dQTdx(iP) * nx_ + dQTdy(iP) * ny_ + dQTdz(iP) * nz_ ) &
+                                - densM * Kh(iM) * ( dQTdx(iM) * nx_ + dQTdy(iM) * ny_ + dQTdz(iM) * nz_ ) )
+      end if
+    end do
+
+    return
+  end subroutine cal_del_flux_qtrc
 
 !OCL SERIAL  
   subroutine calculate_lambda( lambda, &
@@ -696,20 +929,28 @@ contains
     integer :: ke
 
     real(RP) :: vol
+    real(RP) :: he
     real(RP) :: lambda0
     real(RP) :: Zs(elem2D%Np)
+    real(RP) :: Z1(elem2D%Np)
     real(RP) :: dz(elem  %Np)
+    real(RP) :: FZ
+    real(RP) :: elem_aspect_eff
     !--------------------------------------------------------------------
 
     !$omp parallel do private( &
-    !$omp vol, lambda0, Zs, dz )
+    !$omp vol, lambda0, Zs, Z1, dz, he, FZ, elem_aspect_eff )
     do ke=lmesh%NeS, lmesh%NeE
       vol = sum( elem%IntWeight_lgl(:) * lmesh%J(:,ke) )
-      lambda0 = Cs * filter_fac &
-              * ( vol / ( dble(elem%PolyOrder_h+1)**2 * dble(elem%PolyOrder_v+1) ) )**OneOverThree
+      he = ( vol / ( dble(elem%PolyOrder_h+1)**2 * dble(elem%PolyOrder_v+1) ) )**OneOverThree
+
+      FZ = ( lmesh%pos_en(elem%Colmask(elem%Nnode_v,1),ke,3) - lmesh%pos_en(elem%Colmask(1,1),ke,3) )      
+      elem_aspect_eff = fact( FZ/dble(elem%PolyOrder_v+1), sqrt(vol/FZ)/dble(elem%PolyOrder_h+1), sqrt(vol/FZ)/dble(elem%PolyOrder_h+1) )
+      lambda0 = elem_aspect_eff * Cs * filter_fac * he
 
       Zs(:) = lmesh%pos_en(elem%Hslice(:,1),lmesh%EMap3Dto2D(ke),3)
-      dz(:) = lmesh%pos_en(:,ke,3) - Zs(elem%IndexH2Dto3D(:))
+      Z1(:) = lmesh%pos_en(elem%Hslice(:,2),lmesh%EMap3Dto2D(ke),3)
+      dz(:) = max( lmesh%pos_en(:,ke,3) - Zs(elem%IndexH2Dto3D(:)), he )
 
       !lambda(:,ke) = sqrt( 1.0_RP / (1.0_RP / lambda0**2 + 1.0_RP / ( KARMAN * max( dz(:), EPS ) )**2 ) )
       lambda(:,ke) = sqrt( 1.0_RP / (1.0_RP / lambda0**2 + 1.0_RP / ( KARMAN * ( dz(:) + 1.0E-4_RP ) )**2 ) )    
@@ -717,5 +958,70 @@ contains
 
     return
   end subroutine calculate_lambda
+!OCL SERIAL
+  elemental function fact(dz, dx, dy)
+    implicit none
+    real(RP), intent(in) :: dz
+    real(RP), intent(in) :: dx
+    real(RP), intent(in) :: dy
+    real(RP) :: fact ! (out)
+
+    real(RP), parameter :: oot = -1.0_RP/3.0_RP
+    real(RP), parameter :: fot =  5.0_RP/3.0_RP
+    real(RP), parameter :: eot = 11.0_RP/3.0_RP
+    real(RP), parameter :: tof = -3.0_RP/4.0_RP
+    real(RP) :: a1, a2, b1, b2, dmax
+    !--------------------------------------------------------------------
+
+    dmax = max(dz, dx, dy)
+    if ( dz == dmax ) then
+       a1 = dx / dmax
+       a2 = dy / dmax
+    else if ( dx == dmax ) then
+       a1 = dz / dmax
+       a2 = dy / dmax
+    else ! dy == dmax
+       a1 = dz / dmax
+       a2 = dx / dmax
+    end if
+    b1 = atan( a1/a2 )
+    b2 = atan( a2/a1 )
+
+   fact = 1.736_RP * (a1*a2)**oot &
+         * ( 4.0_RP*p1(b1)*a1**oot + 0.222_RP*p2(b1)*a1**fot + 0.077*p3(b1)*a1**eot - 3.0_RP*b1 &
+           + 4.0_RP*p1(b2)*a2**oot + 0.222_RP*p2(b2)*a2**fot + 0.077*p3(b2)*a2**eot - 3.0_RP*b2 &
+           )**tof
+   return
+  end function fact
+!OCL SERIAL
+  elemental function p1(z)
+    implicit none
+    real(RP), intent(in) :: z
+    real(RP) :: p1 ! (out)
+    !--------------------------------------------------------------------
+
+    p1 = 2.5_RP * p2(z) - 1.5_RP * sin(z) * cos(z)**TwoOverThree
+    return
+  end function p1
+!OCL SERIAL
+  elemental function p2(z)
+    implicit none
+    real(RP), intent(in) :: z
+    real(RP) :: p2 ! (out)
+    !--------------------------------------------------------------------
+
+    p2 = 0.986_RP * z + 0.073_RP * z**2 - 0.418_RP * z**3 + 0.120_RP * z**4
+    return
+  end function p2
+!OCL SERIAL
+  elemental function p3(z)
+    implicit none
+    real(RP), intent(in) :: z
+    real(RP) :: p3 ! (out)
+    !--------------------------------------------------------------------
+
+    p3 = 0.976_RP * z + 0.188_RP * z**2 - 1.169_RP * z**3 + 0.755_RP * z**4 - 0.151_RP * z**5
+    return
+  end function p3
 
 end module scale_atm_phy_tb_dgm_smg

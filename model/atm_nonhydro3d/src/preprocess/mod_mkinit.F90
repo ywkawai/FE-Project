@@ -104,8 +104,9 @@ contains
 
   !-----------------------------------------------------------------------------
   !> Driver
-  subroutine MKINIT( output,                             &
-    model_mesh, atm_prgvars_manager, atm_auxvars_manager )
+  subroutine MKINIT( output,                                      & ! (out)
+    model_mesh,                                                   & ! (in)
+    atm_prgvars_manager, atm_auxvars_manager, atm_trcvars_manager )
   
     use scale_model_var_manager, only: ModelVarManager
     use mod_atmos_mesh, only: AtmosMesh
@@ -118,9 +119,11 @@ contains
     class(AtmosMesh), target, intent(in) :: model_mesh
     class(ModelVarManager), intent(inout) :: atm_prgvars_manager
     class(ModelVarManager), intent(inout) :: atm_auxvars_manager
+    class(ModelVarManager), intent(inout) :: atm_trcvars_manager
 
     class(LocalMeshFieldBase), pointer :: DDENS, MOMX, MOMY, MOMZ, DRHOT
     class(LocalMeshFieldBase), pointer :: DENS_hyd, PRES_hyd
+    class(LocalMeshFieldBase), pointer :: Rtot, CPtot, CVtot
 
     integer :: n
     integer :: ke
@@ -141,9 +144,11 @@ contains
       ! call PROF_rapstart('_MkInit_main',3)   
       
       do n=1, mesh%LOCAL_MESH_NUM
-        call AtmosVars_GetLocalMeshPrgVars( n, mesh, atm_prgvars_manager, atm_auxvars_manager, &
-           DDENS, MOMX, MOMY, MOMZ, DRHOT,                                                     &
-           DENS_hyd, PRES_hyd, lcmesh3D                                                        )
+        call AtmosVars_GetLocalMeshPrgVars( n, &
+          mesh, atm_prgvars_manager, atm_auxvars_manager, &
+          DDENS, MOMX, MOMY, MOMZ, DRHOT,                 &
+          DENS_hyd, PRES_hyd, Rtot, CVtot, CPtot,         &
+          lcmesh3D                                        )
 
         !$omp parallel do
         do ke=lcmesh3D%NeS, lcmesh3D%NeE

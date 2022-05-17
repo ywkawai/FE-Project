@@ -23,9 +23,10 @@ program regrid_tool
 
   use mod_regrid_mesh, only: &
     out_mesh, nodemap
+  use mod_regrid_outvar_info, only: &
+    OutVarInfo
   use mod_regrid_interp_field, only: &
-    OutVarInfo,                      &
-    out_vinfo, out_var_num,          &
+    out_vinfo,                       &
     out_var3D, out_var2D,            &
     regrid_interp_field_Interpolate
   use mod_regrid_interp_vcoord, only: &
@@ -33,7 +34,9 @@ program regrid_tool
     REGRID_VCOORD_MODEL_ID
   use mod_regrid_file, only: &
     regrid_file_write_var
-
+  use mod_regrid_operate_field, only: &
+    out_vinfo_oper => out_vinfo,      &
+    regrid_operate_field_do
   
   !-----------------------------------------------------------------------------
   implicit none
@@ -58,7 +61,6 @@ program regrid_tool
   logical :: do_output
   integer :: vid
   integer :: istep
-  real(DP) :: start_sec
 
   type(regrid_interp_vcoord) :: vintrp
   type(OutVarInfo), pointer :: vinfo
@@ -74,40 +76,40 @@ program regrid_tool
   LOG_NEWLINE
   LOG_PROGRESS(*) 'START LOOP'
 
-  do vid =1, out_var_num
-    vinfo => out_vinfo(vid)
+  !-----
+  do vid =1, out_vinfo%item_num
+    vinfo => out_vinfo%items(vid)
     do istep=1, vinfo%num_step, vinfo%out_tintrv
-      start_sec = vinfo%start_sec + (istep - 1) * vinfo%dt
 
-      LOG_INFO("regrid_tool",'(a,i4)') ' interpolate :' // trim(out_vinfo(vid)%varname) // " step=", istep
+      LOG_INFO("regrid_tool",'(a,i4)') ' interpolate :' // trim(vinfo%varname) // " step=", istep
       if ( associated( out_mesh%ptr_mesh3D ) ) then
 
         call regrid_interp_field_Interpolate( istep, vinfo%varname, &
             out_mesh, out_var3D, nodemap                            )
 
         if ( vintrp%vintrp_typeid == REGRID_VCOORD_MODEL_ID ) then
-            call regrid_file_write_var( vid, out_var3D,          &
-              start_sec, start_sec + vinfo%dt )
+            call regrid_file_write_var( vinfo, out_var3D, istep )
         else
             call vintrp%Update_weight( istep, out_mesh, nodemap )               
             call vintrp%Interpolate( istep, out_mesh%ptr_mesh3D, out_var3D )
 
-            call regrid_file_write_var( vid, vintrp%vintrp_var3D, &
-              start_sec, start_sec + vinfo%dt )               
+            call regrid_file_write_var( vinfo, vintrp%vintrp_var3D, istep )               
         end if
 
       else
 
         call regrid_interp_field_Interpolate( istep, vinfo%varname, &
             out_mesh, out_var2D, nodemap                            )
-        call regrid_file_write_var( vid, out_var2D,          &
-            start_sec, start_sec + vinfo%dt )
+        call regrid_file_write_var( vinfo, out_var2D, istep )
         
       end if
 
       if( IO_L ) call flush(IO_FID_LOG)      
     end do
   end do
+
+  !---
+  call regrid_operate_field_do( out_mesh, nodemap, vintrp )
 
   LOG_PROGRESS(*) 'END LOOP'
   LOG_NEWLINE
@@ -132,13 +134,15 @@ contains
         FILE_setup
     
     use mod_regrid_mesh, only: &
-        regrid_mesh_Init
+      regrid_mesh_Init
     use mod_regrid_interp_field, only: &
-        regrid_interp_field_Init, &
-        in_basename
+      regrid_interp_field_Init, &
+      in_basename
     use mod_regrid_file, only: &
-        regrid_file_Init
-    
+      regrid_file_Init
+    use mod_regrid_operate_field, only: &
+      regrid_operate_field_Init
+        
     implicit none
 
     namelist / PARAM_REGRID_TOOL / &
@@ -197,12 +201,13 @@ contains
     !
     call regrid_mesh_Init()
     call regrid_interp_field_Init( out_mesh )
+    call regrid_operate_field_Init( out_mesh )
     
     if ( associated(out_mesh%ptr_mesh3D) ) then
       call vintrp%Init( out_mesh, nodemap )
-      call regrid_file_Init( in_basename, out_vinfo, vintrp%out_mesh_ptr )
+      call regrid_file_Init( in_basename, out_vinfo, out_vinfo_oper, vintrp%out_mesh_ptr )
     else
-      call regrid_file_Init( in_basename, out_vinfo, out_mesh )      
+      call regrid_file_Init( in_basename, out_vinfo, out_vinfo_oper, out_mesh )      
     end if
 
     !-
@@ -227,6 +232,7 @@ contains
     use mod_regrid_interp_field, only: regrid_interp_field_Final
     use mod_regrid_mesh, only: regrid_mesh_Final
     use mod_regrid_file, only: regrid_file_Final
+    use mod_regrid_operate_field, only: regrid_operate_field_Final  
 
     implicit none
     !--------------------------------------
@@ -237,8 +243,11 @@ contains
     LOG_INFO("regrid_tool",*) 'Shutdown'
 
     call regrid_file_Final
-    if ( associated(out_mesh%ptr_mesh3D) ) call vintrp%Final()
+    if ( associated(out_mesh%ptr_mesh3D) ) then
+      call vintrp%Final()
+    end if
     call regrid_interp_field_Final( out_mesh )
+    call regrid_operate_field_Final()
     call regrid_mesh_Final()
 
     !

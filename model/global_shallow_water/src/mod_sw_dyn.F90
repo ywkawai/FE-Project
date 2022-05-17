@@ -253,12 +253,13 @@ contains
     return
   end subroutine SWDyn_setup
 
-  subroutine SWDyn_calc_tendency( this, model_mesh, prgvars_list, auxvars_list, forcing_list, is_update )
+  subroutine SWDyn_calc_tendency( this, model_mesh, prgvars_list, trcvars_list, auxvars_list, forcing_list, is_update )
     implicit none
     
     class(SWDyn), intent(inout) :: this
     class(ModelMeshBase), intent(in) :: model_mesh
     class(ModelVarManager), intent(inout) :: prgvars_list
+    class(ModelVarManager), intent(inout) :: trcvars_list    
     class(ModelVarManager), intent(inout) :: auxvars_list
     class(ModelVarManager), intent(inout) :: forcing_list
     logical, intent(in) :: is_update
@@ -270,7 +271,7 @@ contains
   end subroutine SWDyn_calc_tendency
 
 !OCL SERIAL
-  subroutine SWDyn_update( this, model_mesh, prgvars_list, auxvars_list, forcing_list, is_update )
+  subroutine SWDyn_update( this, model_mesh, prgvars_list, trcvars_list, auxvars_list, forcing_list, is_update )
 
     use scale_atm_dyn_dgm_modalfilter, only: &
       atm_dyn_dgm_modalfilter_apply
@@ -280,6 +281,7 @@ contains
     class(SWDyn), intent(inout) :: this
     class(ModelMeshBase), intent(in) :: model_mesh
     class(ModelVarManager), intent(inout) :: prgvars_list
+    class(ModelVarManager), intent(inout) :: trcvars_list    
     class(ModelVarManager), intent(inout) :: auxvars_list
     class(ModelVarManager), intent(inout) :: forcing_list
     logical, intent(in) :: is_update

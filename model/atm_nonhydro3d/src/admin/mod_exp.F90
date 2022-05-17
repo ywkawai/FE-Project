@@ -46,15 +46,21 @@ module mod_exp
     procedure(exp_geostrophic_balance_correction_lc), deferred :: geostrophic_balance_correction_lc
   end type
 
+  type, public :: TracerLocalMeshField_ptr
+    class(LocalMeshFieldBase), pointer :: ptr
+  end type
+
   abstract interface
     subroutine exp_SetInitCond_lc( &
       this, DENS_hyd, PRES_hyd, DDENS, MOMX, MOMY, MOMZ, DRHOT,  &
+      tracer_field_list,                                         &
       x, y, z, dom_xmin, dom_xmax, dom_ymin, dom_ymax, dom_zmin, &
       dom_zmax, lcmesh, elem )
 
       import experiment
       import LocalMesh3D 
       import ElementBase3D
+      import TracerLocalMeshField_ptr
       import RP
 
       class(experiment), intent(inout) :: this
@@ -67,6 +73,7 @@ module mod_exp
       real(RP), intent(out) :: MOMY(elem%Np,lcmesh%NeA)
       real(RP), intent(out) :: MOMZ(elem%Np,lcmesh%NeA)
       real(RP), intent(out) :: DRHOT(elem%Np,lcmesh%NeA)
+      type(TracerLocalMeshField_ptr), intent(inout) :: tracer_field_list(:)
       real(RP), intent(in) :: x(elem%Np,lcmesh%Ne)
       real(RP), intent(in) :: y(elem%Np,lcmesh%Ne)
       real(RP), intent(in) :: z(elem%Np,lcmesh%Ne)
@@ -75,7 +82,7 @@ module mod_exp
       real(RP), intent(in) :: dom_zmin, dom_zmax
     end subroutine exp_SetInitCond_lc
 
-    subroutine exp_geostrophic_balance_correction_lc( this,                              &
+    subroutine exp_geostrophic_balance_correction_lc( this,                &
       DENS_hyd, PRES_hyd, DDENS, MOMX, MOMY, MOMZ, DRHOT,                  &
       lcmesh, elem )
     
@@ -134,13 +141,17 @@ contains
   end subroutine exp_Final
 
   subroutine exp_SetInitCond( this, &
-    model_mesh, atm_prgvars_manager, atm_auxvars_manager )
+    model_mesh, atm_prgvars_manager, atm_auxvars_manager, atm_trcvars_manager )
     
+    use scale_tracer, only: QA
+
     use scale_meshfield_base, only: MeshFieldBase
     use scale_model_var_manager, only: ModelVarManager
-    use scale_meshfieldcomm_base, only: MeshFieldContainer  
+    use scale_meshfieldcomm_base, only: MeshFieldContainer 
+
     use mod_atmos_vars, only: &
       AtmosVars_GetLocalMeshPrgVars, &
+      AtmosVars_GetLocalMeshQTRCVar, &
       ATMOS_AUXVARS_PRESHYDRO_ID, &
       ATMOS_AUXVARS_DENSHYDRO_ID
     use mod_atmos_mesh, only: AtmosMesh
@@ -151,9 +162,11 @@ contains
     class(AtmosMesh), target, intent(in) :: model_mesh
     class(ModelVarManager), intent(inout) :: atm_prgvars_manager
     class(ModelVarManager), intent(inout) :: atm_auxvars_manager
+    class(ModelVarManager), intent(inout) :: atm_trcvars_manager
 
     class(LocalMeshFieldBase), pointer :: DDENS, MOMX, MOMY, MOMZ, DRHOT
     class(LocalMeshFieldBase), pointer :: DENS_hyd, PRES_hyd
+    class(LocalMeshFieldBase), pointer :: Rtot, CVtot, CPtot
 
     integer :: n
     class(LocalMesh3D), pointer :: lcmesh3D
@@ -164,20 +177,31 @@ contains
     class(MeshFieldCommBase), pointer :: hydvars_comm
     type(MeshFieldContainer) :: hydvars_comm_list(1)
     class(MeshFieldBase), pointer :: field_ptr
+
+    type(TracerLocalMeshField_ptr) :: tracer_field_list(max(1,QA))
+    integer :: iq
     !----------------------------------------------------------------------
     
     mesh => model_mesh%ptr_mesh
     
     do n=1, mesh%LOCAL_MESH_NUM
-      call AtmosVars_GetLocalMeshPrgVars( n, mesh, atm_prgvars_manager, atm_auxvars_manager, &
-        DDENS, MOMX, MOMY, MOMZ, DRHOT,                                                     &
-        DENS_hyd, PRES_hyd, lcmesh3D                                                        )
+      call AtmosVars_GetLocalMeshPrgVars( n, &
+        mesh, atm_prgvars_manager, atm_auxvars_manager, &
+        DDENS, MOMX, MOMY, MOMZ, DRHOT,                 &
+        DENS_hyd, PRES_hyd, Rtot, CVtot, CPtot,         &
+        lcmesh3D                                        )
+      
+      do iq=1, QA
+        call AtmosVars_GetLocalMeshQTRCVar( n, mesh, atm_trcvars_manager, &
+          iq, tracer_field_list(iq)%ptr )
+      end do
 
       select type (mesh)
       type is (MeshCubeDom3D)
         call this%setInitCond_lc( &
           DENS_hyd%val, PRES_hyd%val,                                                         & ! (out)
           DDENS%val, MOMX%val, MOMY%val, MOMZ%val, DRHOT%val,                                 & ! (out)
+          tracer_field_list,                                                                  & ! (inout)
           lcmesh3D%pos_en(:,:,1), lcmesh3D%pos_en(:,:,2), lcmesh3D%pos_en(:,:,3),             & ! (in)
           mesh%xmin_gl, mesh%xmax_gl, mesh%ymin_gl, mesh%ymax_gl, mesh%zmin_gl, mesh%zmax_gl, & ! (in)
           lcmesh3D, lcmesh3D%refElem3D )                                                        ! (in) 
@@ -185,6 +209,7 @@ contains
         call this%setInitCond_lc( &
           DENS_hyd%val, PRES_hyd%val,                                                         & ! (out)
           DDENS%val, MOMX%val, MOMY%val, MOMZ%val, DRHOT%val,                                 & ! (out)
+          tracer_field_list,                                                                  & ! (inout)          
           lcmesh3D%pos_en(:,:,1), lcmesh3D%pos_en(:,:,2), lcmesh3D%pos_en(:,:,3),             & ! (in)
           mesh%xmin_gl, mesh%xmax_gl, mesh%ymin_gl, mesh%ymax_gl, mesh%zmin_gl, mesh%zmax_gl, & ! (in)
           lcmesh3D, lcmesh3D%refElem3D )                                                        ! (in)   
@@ -213,9 +238,11 @@ contains
 
     !--------------------------------
     do n=1, mesh%LOCAL_MESH_NUM
-      call AtmosVars_GetLocalMeshPrgVars( n, mesh, atm_prgvars_manager, atm_auxvars_manager, &
-        DDENS, MOMX, MOMY, MOMZ, DRHOT,                                                     &
-        DENS_hyd, PRES_hyd, lcmesh3D                                                        )
+      call AtmosVars_GetLocalMeshPrgVars( n, &
+        mesh, atm_prgvars_manager, atm_auxvars_manager, &
+        DDENS, MOMX, MOMY, MOMZ, DRHOT,                 &
+        DENS_hyd, PRES_hyd, Rtot, CVtot, CPtot,         &
+        lcmesh3D                                        )
 
       call this%geostrophic_balance_correction_lc( &
         DENS_hyd%val, PRES_hyd%val,                                                         & ! (out)

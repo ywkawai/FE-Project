@@ -1,7 +1,8 @@
-# FE-project 
+# FE-project
 
-## What is FE-project?
-In this project, we develop a library for fluid simulations with the discontinuous Galerkin method. 
+## What is this project?
+In [FE-Project](https://ywkawai.github.io/FE-Project_web/), 
+we develop a library for fluid simulations with the discontinuous Galerkin method. 
 We also provide sample programs and atmospheric models for meteorological simulations. 
 
 - Example of simulation results by nonhydrostatic atmospheric models with nodal DGM
@@ -42,5 +43,3 @@ We also provide sample programs and atmospheric models for meteorological simula
 
 ## Build FE library
 Please see ``INSTALL.md''.  
-
-

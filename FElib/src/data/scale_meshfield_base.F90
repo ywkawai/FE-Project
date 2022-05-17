@@ -98,12 +98,15 @@ module scale_meshfield_base
 
 contains
   !**** 1D **********************************************************************
-  subroutine MeshField1D_Init(this, varname, units, mesh)
+
+!OCL SERIAL
+  subroutine MeshField1D_Init( this, varname, units, mesh, data_type )
     implicit none
     class(MeshField1D), intent(inout) :: this
     character(len=*), intent(in) :: varname
     character(len=*), intent(in) :: units    
     class(MeshBase1D), target, intent(in) :: mesh
+    integer, intent(in), optional :: data_type
 
     integer :: n
     !-----------------------------------------------------------------------------
@@ -116,12 +119,13 @@ contains
     
     allocate( this%local(mesh%LOCAL_MESH_NUM) )  
     do n=1, mesh%LOCAL_MESH_NUM
-      call this%local(n)%Init( mesh%lcmesh_list(n) )
+      call this%local(n)%Init( mesh%lcmesh_list(n), data_type )
     end do
 
     return
   end subroutine MeshField1D_Init
 
+!OCL SERIAL
   subroutine MeshField1D_Final(this)
     implicit none
     class(MeshField1D), intent(inout) :: this
@@ -137,6 +141,7 @@ contains
     return
   end subroutine MeshField1D_Final
 
+!OCL SERIAL
   subroutine MeshField1D_get_LocalMeshField( this, domID, ptr_lcmeshField )
     implicit none
 
@@ -151,13 +156,15 @@ contains
 
   !**** 2D **********************************************************************
 
-  subroutine MeshField2D_Init(this, varname, units, mesh)
+!OCL SERIAL
+  subroutine MeshField2D_Init( this, varname, units, mesh, data_type )
     implicit none
 
     class(MeshField2D), intent(inout) :: this
     character(len=*), intent(in) :: varname
     character(len=*), intent(in) :: units    
     class(MeshBase2D), target, intent(in) :: mesh
+    integer, intent(in), optional :: data_type
 
     integer :: n
     !-----------------------------------------------------------------------------
@@ -169,12 +176,13 @@ contains
 
     allocate( this%local(mesh%LOCAL_MESH_NUM) )  
     do n=1, mesh%LOCAL_MESH_NUM
-      call this%local(n)%Init( mesh%lcmesh_list(n) )
+      call this%local(n)%Init( mesh%lcmesh_list(n), data_type )
     end do
 
     return
   end subroutine MeshField2D_Init
   
+!OCL SERIAL
   subroutine MeshField2D_Final(this)
     implicit none
 
@@ -191,6 +199,7 @@ contains
     return
   end subroutine MeshField2D_Final
 
+!OCL SERIAL
   subroutine MeshField2D_get_LocalMeshField( this, domID, ptr_lcmeshField )
     implicit none
 
@@ -205,13 +214,15 @@ contains
 
   !**** 3D **********************************************************************
 
-  subroutine MeshField3D_Init(this, varname, units, mesh)
+!OCL SERIAL
+  subroutine MeshField3D_Init( this, varname, units, mesh, data_type )
     implicit none
 
     class(MeshField3D), intent(inout) :: this
     character(len=*), intent(in) :: varname
     character(len=*), intent(in) :: units    
     class(MeshBase3D), target, intent(in) :: mesh
+    integer, intent(in), optional :: data_type
 
     integer :: n
     !-----------------------------------------------------------------------------
@@ -223,12 +234,13 @@ contains
     
     allocate( this%local(mesh%LOCAL_MESH_NUM) )  
     do n=1, mesh%LOCAL_MESH_NUM
-      call this%local(n)%Init( mesh%lcmesh_list(n) )
+      call this%local(n)%Init( mesh%lcmesh_list(n), data_type )
     end do
 
     return
   end subroutine MeshField3D_Init
   
+!OCL SERIAL
   subroutine MeshField3D_Final(this)
     implicit none
 

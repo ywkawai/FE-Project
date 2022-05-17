@@ -20,6 +20,7 @@ module scale_timeint_rk
   use scale_io
   use scale_prc
   use scale_prof
+  use scale_prc
 
   !-----------------------------------------------------------------------------
   implicit none
@@ -60,7 +61,7 @@ module scale_timeint_rk
     real(RP), public, allocatable :: var_buf<%=d%>D_ex(<%=(":,"*(d+2)).chop%>)
     real(RP), public, allocatable :: tend_buf<%=d%>D_ex(<%=(":,"*(d+2)).chop%>)
     real(RP), public, allocatable :: tend_buf<%=d%>D_im(<%=(":,"*(d+2)).chop%>)
-    real(RP), private, allocatable :: var0_<%=d%>D(<%=(":,"*(d+1)).chop%>)
+    real(RP), public, allocatable :: var0_<%=d%>D(<%=(":,"*(d+1)).chop%>)
     real(RP), private, allocatable :: varTmp_<%=d%>D(<%=(":,"*(d+1)).chop%>)    
 % end
 
@@ -74,9 +75,13 @@ module scale_timeint_rk
     procedure, public :: Get_deltime => timeint_rk_Get_deltime
 % for d in 1..3    
     procedure, public :: Advance<%=d%>D => timeint_rk_advance<%=d%>D
+    procedure, public :: Advance_trcvar_<%=d%>D => timeint_rk_advance_trcvar<%=d%>D
+    procedure, public :: StoreVar0_<%=d%>D => timeint_rk_store_Var0_<%=d%>D
     procedure, public :: StoreImplicit<%=d%>D => timeint_rk_storeimpl<%=d%>D
 % end
     generic, public :: Advance => Advance1D, Advance2D, Advance3D
+    generic, public :: Advance_trcvar => Advance_trcvar_1D, Advance_trcvar_2D, Advance_trcvar_3D
+    generic, public :: StoreVar0 => StoreVar0_1D, StoreVar0_2D, StoreVar0_3D
     generic, public :: StoreImplicit => StoreImplicit1D, StoreImplicit2D, StoreImplicit3D
   end type timeint_rk
 
@@ -154,14 +159,17 @@ contains
   end subroutine timeint_rk_Init
 
   subroutine timeint_rk_Final( this )
-
+    implicit none
     class(timeint_rk), intent(inout) :: this
     !----------------------------------------
     
     deallocate( this%coef_a_ex, this%coef_b_ex, this%coef_c_ex )
+    deallocate( this%coef_sig_ex, this%coef_gam_ex )
 !    if (this%imex_flag) then
       deallocate( this%coef_a_im, this%coef_b_im, this%coef_c_im )
 !    end if
+
+    deallocate( this%size_each_var, this%tend_buf_indmap )    
 
     select case(this%ndim)
 % for d in 1..3      
@@ -172,7 +180,7 @@ contains
       deallocate( this%varTmp_<%=d%>d )
 %end
     end select
-    
+
     return
   end subroutine timeint_rk_Final
 
@@ -203,18 +211,22 @@ contains
 % for d in 1..3
 
 % ind_range_list = ["is, ie", "js, je", "ks, ke"]
+% ind_name = ["i", "j", "k"]
 % ind_arg = ""
+% ind_ary = ""
 % for i in 1..d
 %   ind_arg << ind_range_list[i-1] << " ,"
+%   ind_ary << ind_name[i-1] << ","
 % end
 % ind_arg.chop!
+% ind_ary.chop!
   subroutine timeint_rk_advance<%=d%>D( this, nowstage, q, varID, <%=ind_arg%>)
+    implicit none  
     class(timeint_rk), intent(inout) :: this
     integer, intent(in) :: nowstage
     real(RP), intent(inout) :: q(<%=(":,"*d).chop%>)
     integer, intent(in) :: varID
     integer, intent(in) :: <%=ind_arg%>
-
     !----------------------------------------    
  
     if (this%low_storage_flag) then
@@ -226,7 +238,65 @@ contains
     return
   end subroutine timeint_rk_advance<%=d%>D
 
+  subroutine timeint_rk_advance_trcvar<%=d%>D( this, nowstage, q, varID, <%=ind_arg%>, &
+      DENS, DENS0, DENS_hyd )
+    implicit none
+    class(timeint_rk), intent(inout) :: this
+    integer, intent(in) :: nowstage
+    real(RP), intent(inout) :: q(<%=(":,"*d).chop%>)
+    integer, intent(in) :: varID
+    integer, intent(in) :: <%=ind_arg%>
+    real(RP), intent(in) :: DENS (<%=(":,"*d).chop%>)
+    real(RP), intent(in) :: DENS0(<%=(":,"*d).chop%>)
+    real(RP), intent(in) :: DENS_hyd(<%=(":,"*d).chop%>)
+    !----------------------------------------    
+ 
+    if ( this%imex_flag ) then
+      if ( PRC_ismaster ) write(*,*) "timeint_rk_advence_trcvar: IMEX is not supported. Check!"
+      call PRC_abort
+    end if
+
+    if (this%low_storage_flag) then
+      call rk_advance_trcvar_low_storage<%=d%>D( this, nowstage, q, varID, <%=ind_arg%>, &
+        DENS, DENS0, DENS_hyd )
+    else
+      call rk_advance_trcvar_general<%=d%>D( this, nowstage, q, varID, <%=ind_arg%>, &
+        DENS, DENS0, DENS_hyd )
+    end if
+
+    return
+  end subroutine timeint_rk_advance_trcvar<%=d%>D
+
+  subroutine timeint_rk_store_var0_<%=d%>D( this, q, varID, <%=ind_arg%> )
+    implicit none
+    class(timeint_rk), intent(inout) :: this
+    real(RP), intent(inout) :: q(<%=(":,"*d).chop%>)
+    integer, intent(in) :: varID
+    integer, intent(in) :: <%=ind_arg%>
+
+    integer :: <%=ind_ary%>
+    !----------------------------------------    
+ 
+    !$omp parallel private(<%=ind_ary%>)
+% if (d > 2) then
+    !$omp do collapse(<%=(d-1)%>)
+%else
+    !$omp do
+%end        
+%for i in 1..d
+    do <%=ind_name[d-i]%>=<%=ind_range_list[d-i]%>
+%end
+      this%var0_<%=d%>D(<%=ind_ary%>,varID) = q(<%=ind_ary%>)
+% for i in 1..d
+    end do
+% end
+      !$omp end parallel
+
+    return
+  end subroutine timeint_rk_store_var0_<%=d%>D
+  
   subroutine timeint_rk_storeimpl<%=d%>D( this, nowstage, q, varID, <%=ind_arg%>)
+    implicit none
     class(timeint_rk), intent(inout) :: this
     integer, intent(in) :: nowstage
     real(RP), intent(inout) :: q(<%=(":,"*d).chop%>)
@@ -260,6 +330,7 @@ contains
   subroutine rk_advance_low_storage<%=d%>D( this, nowstage, q, varID, <%=ind_arg%> )
     use scale_const, only: &
       EPS => CONST_EPS
+    implicit none      
     class(timeint_rk), intent(inout) :: this
     integer, intent(in) :: nowstage
     real(RP), intent(inout) :: q(<%=(":,"*d).chop%>)
@@ -357,6 +428,129 @@ contains
 
     return
   end subroutine rk_advance_low_storage<%=d%>D
+
+  !OCL SERIAL
+  subroutine rk_advance_trcvar_low_storage<%=d%>D( this, nowstage, q, varID, <%=ind_arg%>, &
+    DDENS, DDENS0, DENS_hyd )
+    use scale_const, only: &
+      EPS => CONST_EPS
+    implicit none
+    class(timeint_rk), intent(inout) :: this
+    integer, intent(in) :: nowstage
+    real(RP), intent(inout) :: q(<%=(":,"*d).chop%>)
+    integer, intent(in) :: varID
+    integer, intent(in) :: <%=ind_arg%>
+    real(RP), intent(in) :: DDENS (<%=(":,"*d).chop%>)
+    real(RP), intent(in) :: DDENS0(<%=(":,"*d).chop%>)
+    real(RP), intent(in) :: DENS_hyd(<%=(":,"*d).chop%>)
+
+    integer :: <%=ind_ary%>
+    real(RP) :: sig_ss
+    real(RP) :: gam_ss
+    real(RP) :: one_Minus_sig_ss
+    real(RP) :: sig_Ns
+    real(RP) :: gam_Ns
+    real(RP) :: c_ssm1
+    real(RP) :: c_ss
+
+    real(RP) :: dens_ssm1
+    real(RP) :: dens_ss
+   
+    !----------------------------------------    
+
+    call PROF_rapstart( 'rk_advance_trcvar_low_storage<%=d%>D', 3) 
+
+    sig_ss = this%coef_sig_ex(nowstage+1,nowstage)
+    sig_Ns = this%coef_sig_ex(this%nstage+1,nowstage)
+    one_Minus_sig_ss = 1.0_RP - sig_ss
+    gam_ss = this%dt * this%coef_gam_ex(nowstage+1,nowstage)
+    gam_Ns = this%dt * this%coef_gam_ex(this%nstage+1,nowstage)   
+    c_ssm1 = this%coef_c_ex(nowstage)
+
+    if ( nowstage == this%nstage ) then
+      !$omp parallel private(<%=ind_ary%>)
+% if (d > 2) then
+      !$omp do collapse(<%=(d-1)%>)
+% else
+      !$omp do
+% end        
+% for i in 1..d
+      do <%=ind_name[d-i]%>=<%=ind_range_list[d-i]%>
+% end 
+        dens_ssm1 = DENS_hyd(<%=ind_ary%>) + DDENS0(<%=ind_ary%>) + c_ssm1 * ( DDENS(<%=ind_ary%>) - DDENS0(<%=ind_ary%>) )
+        q(<%=ind_ary%>) =  ( this%varTmp_<%=d%>d(<%=ind_ary%>,varID)                                              &
+                + sig_ss * q(<%=ind_ary%>) * dens_ssm1 + gam_ss * this%tend_buf<%=d%>D_ex(<%=ind_ary%>,varID,1) ) &
+                / ( DENS_hyd(<%=ind_ary%>) + DDENS(<%=ind_ary%>) )
+% for i in 1..d
+      end do
+% end
+      !$omp end parallel
+      call PROF_rapend( 'rk_advance_trcvar_low_storage<%=d%>D', 3)
+
+      return
+    end if
+
+    c_ss   = this%coef_c_ex(nowstage+1) 
+
+    !$omp parallel private(<%=ind_ary%>,dens_ss,dens_ssm1)
+    if (nowstage == 1) then
+% if (d > 2) then
+      !$omp do collapse(<%=(d-1)%>)
+%else
+      !$omp do
+%end        
+%for i in 1..d
+      do <%=ind_name[d-i]%>=<%=ind_range_list[d-i]%>
+%end
+        this%var0_<%=d%>D(<%=ind_ary%>,varID)   = q(<%=ind_ary%>) * ( DENS_hyd(<%=ind_ary%>) + DDENS0(<%=ind_ary%>) )
+        this%varTmp_<%=d%>D(<%=ind_ary%>,varID) = 0.0_RP
+% for i in 1..d
+      end do
+% end
+    end if
+
+    if ( abs(sig_Ns) > EPS .or. abs(gam_Ns) > EPS ) then
+% if (d > 2) then
+      !$omp do collapse(<%=(d-1)%>)
+% else
+      !$omp do
+% end        
+% for i in 1..d
+      do <%=ind_name[d-i]%>=<%=ind_range_list[d-i]%>
+% end
+        dens_ssm1 = DENS_hyd(<%=ind_ary%>) + DDENS0(<%=ind_ary%>) + c_ssm1 * ( DDENS(<%=ind_ary%>) - DDENS0(<%=ind_ary%>) )
+        this%varTmp_<%=d%>d(<%=ind_ary%>,varID) = this%varTmp_<%=d%>d(<%=ind_ary%>,varID)                 &
+            + sig_Ns * q(<%=ind_ary%>) * dens_ssm1 + gam_Ns * this%tend_buf<%=d%>D_ex(<%=ind_ary%>,varID,1)
+% for i in 1..d
+      end do
+% end        
+    end if
+
+%if (d > 2) then
+    !$omp do collapse(<%=(d-1)%>)
+%else
+    !$omp do
+%end        
+% for i in 1..d
+    do <%=ind_name[d-i]%>=<%=ind_range_list[d-i]%>
+%end
+      dens_ssm1 = DENS_hyd(<%=ind_ary%>) + DDENS0(<%=ind_ary%>) + c_ssm1 * ( DDENS(<%=ind_ary%>) - DDENS0(<%=ind_ary%>) )
+      dens_ss   = DENS_hyd(<%=ind_ary%>) + DDENS0(<%=ind_ary%>) + c_ss   * ( DDENS(<%=ind_ary%>) - DDENS0(<%=ind_ary%>) )
+
+      q(<%=ind_ary%>) = ( one_Minus_sig_ss * this%var0_<%=d%>d(<%=ind_ary%>,varID)                                &
+              + sig_ss * q(<%=ind_ary%>) * dens_ssm1 + gam_ss * this%tend_buf<%=d%>D_ex(<%=ind_ary%>,varID,1) )   &
+              / dens_ss
+% for i in 1..d
+    end do
+% end
+
+    !$omp end parallel
+
+    call PROF_rapend( 'rk_advance_trcvar_low_storage<%=d%>D', 3)
+
+    return
+  end subroutine rk_advance_trcvar_low_storage<%=d%>D
+  
 % end
 
 % for d in 1..3
@@ -373,6 +567,7 @@ contains
 % ind_ary.chop!
 !OCL SERIAL
   subroutine rk_advance_general<%=d%>D( this, nowstage, q, varID, <%=ind_arg%> )
+    implicit none
     class(timeint_rk), intent(inout) :: this
     integer, intent(in) :: nowstage
     real(RP), intent(inout) :: q(<%=(":,"*d).chop%>)
@@ -384,7 +579,7 @@ contains
     integer :: tintbuf_ind
     !----------------------------------------    
 
-    call PROF_rapstart( 'rk_advance_generall<%=d%>D', 3)
+    call PROF_rapstart( 'rk_advance_general<%=d%>D', 3)
 
     tintbuf_ind = this%tend_buf_indmap(nowstage)
 
@@ -436,7 +631,7 @@ contains
         end do
 % end    
       end if    
-      call PROF_rapend( 'rk_advance_generall<%=d%>D', 3)
+      call PROF_rapend( 'rk_advance_general<%=d%>D', 3)
 
       return
     end if 
@@ -543,13 +738,164 @@ contains
     end if
 
     !$omp end parallel
-    call PROF_rapend( 'rk_advance_generall<%=d%>D', 3)
+    call PROF_rapend( 'rk_advance_general<%=d%>D', 3)
 
     return
   end subroutine rk_advance_general<%=d%>D
 
+  !OCL SERIAL
+  subroutine rk_advance_trcvar_general<%=d%>D( this, nowstage, q, varID, <%=ind_arg%>, &
+      DDENS, DDENS0, DENS_hyd )
+    implicit none
+    class(timeint_rk), intent(inout) :: this
+    integer, intent(in) :: nowstage
+    real(RP), intent(inout) :: q(<%=(":,"*d).chop%>)
+    integer, intent(in) :: varID
+    integer, intent(in) :: <%=ind_arg%>
+    real(RP), intent(in) :: DDENS (<%=(":,"*d).chop%>)
+    real(RP), intent(in) :: DDENS0(<%=(":,"*d).chop%>)
+    real(RP), intent(in) :: DENS_hyd(<%=(":,"*d).chop%>)
+
+    integer :: <%=ind_ary%>
+    integer :: s
+    integer :: tintbuf_ind
+
+    real(RP) :: dens_
+    real(RP) :: c_ss
+    !----------------------------------------    
+
+    call PROF_rapstart( 'rk_advance_trcvar_general<%=d%>D', 3)
+
+    tintbuf_ind = this%tend_buf_indmap(nowstage)
+
+    if ( this%nstage == 1 ) then
+% if (d > 2) then
+      !$omp parallel do collapse(<%=(d-1)%>)
+% else
+      !$omp parallel do
+% end   
+% for i in 1..d
+      do <%=ind_name[d-i]%>=<%=ind_range_list[d-i]%>
+% end
+        this%varTmp_<%=d%>d(<%=ind_ary%>,varID) = q(<%=ind_ary%>) * ( DENS_hyd(<%=ind_ary%>) + DDENS0(<%=ind_ary%>) )
+% for i in 1..d
+      end do
+% end      
+    end if
+
+    if ( nowstage ==  this%nstage ) then
+% if (d > 2) then
+      !$omp parallel do collapse(<%=(d-1)%>)
+% else
+      !$omp parallel do
+% end   
+% for i in 1..d
+      do <%=ind_name[d-i]%>=<%=ind_range_list[d-i]%>
+% end
+        q(<%=ind_ary%>) =  ( this%varTmp_<%=d%>d(<%=ind_ary%>,varID)                                          &
+            + this%dt * this%coef_b_ex(nowstage) * this%tend_buf<%=d%>D_ex(<%=ind_ary%>,varID,tintbuf_ind)  ) &
+            / ( DENS_hyd(<%=ind_ary%>) + DDENS(<%=ind_ary%>) )
+% for i in 1..d
+      end do
+% end     
+      call PROF_rapend( 'rk_advance_trcvar_general<%=d%>D', 3)
+
+      return
+    end if 
+
+    c_ss = this%coef_c_ex(nowstage+1) 
+
+    !$omp parallel private( s, dens_ ) &
+    !$omp private( <%=ind_ary%> )
+
+    if ( nowstage == 1 .and. (.not. this%imex_flag) ) then
+% if (d > 2) then
+      !$omp do collapse(<%=(d-1)%>)
+% else
+      !$omp do
+% end
+% for i in 1..d
+      do <%=ind_name[d-i]%>=<%=ind_range_list[d-i]%>
+% end      
+        this%var0_<%=d%>D(<%=ind_ary%>,varID) = q(<%=ind_ary%>) * ( DENS_hyd(<%=ind_ary%>) + DDENS0(<%=ind_ary%>) )
+        this%varTmp_<%=d%>D(<%=ind_ary%>,varID) = this%var0_<%=d%>D(<%=ind_ary%>,varID)
+% for i in 1..d
+      end do
+% end
+    end if 
+
+% if (d > 2) then
+    !$omp do collapse(<%=(d-1)%>)
+% else
+    !$omp do
+% end 
+% for i in 1..d
+    do <%=ind_name[d-i]%>=<%=ind_range_list[d-i]%>
+% end 
+      q(<%=ind_ary%>) = this%var0_<%=d%>d(<%=ind_ary%>,varID)
+      this%varTmp_<%=d%>d(<%=ind_ary%>,varID) =  this%varTmp_<%=d%>d(<%=ind_ary%>,varID)                                             &
+            + this%dt * this%coef_b_ex(nowstage) * this%tend_buf<%=d%>D_ex(<%=ind_ary%>,varID,tintbuf_ind)
+% for i in 1..d
+    end do
+% end
+
+    if ( this%tend_buf_size == 1 .and. (.not. this%imex_flag) ) then
+% if (d > 2) then
+      !$omp do collapse(<%=(d-1)%>)
+% else
+      !$omp do
+% end  
+% for i in 1..d
+      do <%=ind_name[d-i]%>=<%=ind_range_list[d-i]%>
+% end
+        dens_ = ( DENS_hyd(<%=ind_ary%>) + DDENS0(<%=ind_ary%>) ) &
+            + this%coef_a_ex(nowstage+1,nowstage)*( DDENS(<%=ind_ary%>) - DDENS0(<%=ind_ary%>) )
+        q(<%=ind_ary%>) = ( this%var0_<%=d%>d(<%=ind_ary%>,varID)                                           &
+            + this%dt * this%coef_a_ex(nowstage+1,nowstage)*this%tend_buf<%=d%>D_ex(<%=ind_ary%>,varID,1) ) &
+            / dens_
+% for i in 1..d
+      end do
+% end
+    else if ( .not. this%imex_flag ) then      
+      do s=1, nowstage
+% if (d > 2) then
+      !$omp do collapse(<%=(d-1)%>)
+% else
+      !$omp do
+% end     
+% for i in 1..d
+      do <%=ind_name[d-i]%>=<%=ind_range_list[d-i]%>
+% end 
+        q(<%=ind_ary%>) = q(<%=ind_ary%>)                                  &
+            + this%dt * this%coef_a_ex(nowstage+1,s)*this%tend_buf<%=d%>D_ex(<%=ind_ary%>,varID,s)
+% for i in 1..d
+      end do
+% end    
+      end do
+% if (d > 2) then
+      !$omp do collapse(<%=(d-1)%>)
+% else
+      !$omp do
+% end     
+% for i in 1..d
+      do <%=ind_name[d-i]%>=<%=ind_range_list[d-i]%>
+% end 
+        dens_ = DENS_hyd(<%=ind_ary%>) + DDENS0(<%=ind_ary%>) + c_ss * ( DDENS(<%=ind_ary%>) - DDENS0(<%=ind_ary%>) )
+        q(<%=ind_ary%>) = q(<%=ind_ary%>) / dens_
+% for i in 1..d
+      end do
+% end
+    end if
+
+    !$omp end parallel
+    call PROF_rapend( 'rk_advance_trcvar_generall<%=d%>D', 3)
+
+    return
+  end subroutine rk_advance_trcvar_general<%=d%>D
+
 !OCL SERIAL
   subroutine rk_storeimpl_general<%=d%>D( this, nowstage, q, varID, <%=ind_arg%> )
+    implicit none
     class(timeint_rk), intent(inout) :: this
     integer, intent(in) :: nowstage
     real(RP), intent(inout) :: q(<%=(":,"*d).chop%>)

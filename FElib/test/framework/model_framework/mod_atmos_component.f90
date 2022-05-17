@@ -62,16 +62,17 @@ subroutine Atmos_setup( this )
   return
 end subroutine Atmos_setup
 
-subroutine Atmos_calc_tendency( this )
+subroutine Atmos_calc_tendency( this, force )
   implicit none
   class(AtmosComponent), intent(inout) :: this
+  logical, intent(in) :: force
 
   !--------------------------------------------------
 
   LOG_INFO('AtmosComponent_calc_tendency',*)
 
   call this%dyn_proc%calc_tendency( &
-    this%mesh, this%vars%prgvars_list, this%vars%auxvars_list, this%vars%forcing_list, .true. )
+    this%mesh, this%vars%prgvars_list, this%vars%trcvars_list, this%vars%auxvars_list, this%vars%forcing_list, .true. )
 
   return  
 end subroutine Atmos_calc_tendency
@@ -84,7 +85,7 @@ subroutine Atmos_update( this )
   LOG_INFO('AtmosComponent_update',*)
 
   call this%dyn_proc%update( &
-   this%mesh, this%vars%prgvars_list, this%vars%auxvars_list, this%vars%forcing_list, .true. )
+   this%mesh, this%vars%prgvars_list, this%vars%trcvars_list, this%vars%auxvars_list, this%vars%forcing_list, .true. )
 
   return  
 end subroutine Atmos_update

@@ -18,12 +18,15 @@ LIBS = $(LIBDIR)/libScaleFECore.a
 VPATH = plugin:
 
 OBJS = \
-	mod_regrid_mesh.o          \
-	mod_regrid_mesh_base.o     \
-	mod_regrid_nodemap.o       \
-	mod_regrid_interp_vcoord.o \
-	mod_regrid_interp_field.o  \
-	mod_regrid_file.o
+	mod_regrid_mesh.o           \
+	mod_regrid_mesh_base.o      \
+	mod_regrid_nodemap.o        \
+	mod_regrid_interp_vcoord.o  \
+	mod_regrid_operate_field.o  \
+	mod_regrid_vec_conversion.o \
+	mod_regrid_interp_field.o   \
+	mod_regrid_file.o           \
+	mod_regrid_outvar_info.o
 
 
 all:
@@ -47,12 +50,15 @@ $(BUILD_DIR)/$(BINNAME) : $(BUILD_DIR)/prg_$(BINNAME).o  $(patsubst %,$(BUILD_DI
 
 $(BUILD_DIR)/prg_$(BINNAME).o : prg_$(BINNAME).F90 $(patsubst %,$(BUILD_DIR)/%,$(OBJS))
 
+$(BUILD_DIR)/mod_regrid_outvar_info.o : mod_regrid_outvar_info.F90
+$(BUILD_DIR)/mod_regrid_mesh_base.o : mod_regrid_mesh_base.F90
 $(BUILD_DIR)/mod_regrid_mesh.o : $(BUILD_DIR)/mod_regrid_nodemap.o $(BUILD_DIR)/mod_regrid_mesh_base.o mod_regrid_mesh.F90
 $(BUILD_DIR)/mod_regrid_nodemap.o : $(BUILD_DIR)/mod_regrid_mesh_base.o mod_regrid_nodemap.F90
-$(BUILD_DIR)/mod_regrid_mesh_base.o : mod_regrid_mesh_base.F90
 $(BUILD_DIR)/mod_regrid_file.o     : $(BUILD_DIR)/mod_regrid_interp_field.o $(BUILD_DIR)/mod_regrid_mesh_base.o mod_regrid_file.F90
-$(BUILD_DIR)/mod_regrid_interp_field.o    : $(BUILD_DIR)/mod_regrid_mesh_base.o $(BUILD_DIR)/mod_regrid_nodemap.o mod_regrid_interp_field.F90
+$(BUILD_DIR)/mod_regrid_interp_field.o    : $(BUILD_DIR)/mod_regrid_outvar_info.o $(BUILD_DIR)/mod_regrid_mesh_base.o $(BUILD_DIR)/mod_regrid_nodemap.o mod_regrid_interp_field.F90
 $(BUILD_DIR)/mod_regrid_interp_vcoord.o : $(BUILD_DIR)/mod_regrid_interp_field.o $(BUILD_DIR)/mod_regrid_mesh_base.o $(BUILD_DIR)/mod_regrid_nodemap.o mod_regrid_interp_vcoord.F90
+$(BUILD_DIR)/mod_regrid_vec_conversion.o   : $(BUILD_DIR)/mod_regrid_interp_field.o mod_regrid_vec_conversion.F90
+$(BUILD_DIR)/mod_regrid_operate_field.o    : $(BUILD_DIR)/mod_regrid_interp_vcoord.o $(BUILD_DIR)/mod_regrid_file.o $(BUILD_DIR)/mod_regrid_interp_vcoord.o $(BUILD_DIR)/mod_regrid_vec_conversion.o $(BUILD_DIR)/mod_regrid_interp_field.o $(BUILD_DIR)/mod_regrid_outvar_info.o $(BUILD_DIR)/mod_regrid_mesh_base.o $(BUILD_DIR)/mod_regrid_nodemap.o mod_regrid_operate_field.F90
 
 distclean: clean
 	rm -f $(BINDIR)/$(BINNAME)

@@ -55,13 +55,15 @@ module scale_mesh_base3d
   !
   !++ Public parameters & variables
   !
-  integer, public :: MeshBase3D_DIMTYPE_NUM    = 6
+  integer, public :: MeshBase3D_DIMTYPE_NUM    = 8
   integer, public :: MeshBase3D_DIMTYPEID_X    = 1
   integer, public :: MeshBase3D_DIMTYPEID_Y    = 2
   integer, public :: MeshBase3D_DIMTYPEID_Z    = 3
-  integer, public :: MeshBase3D_DIMTYPEID_XYZ  = 4
-  integer, public :: MeshBase3D_DIMTYPEID_XYZT = 5
-  integer, public :: MeshBase3D_DIMTYPEID_ZT   = 6
+  integer, public :: MeshBase3D_DIMTYPEID_ZT   = 4
+  integer, public :: MeshBase3D_DIMTYPEID_XY   = 5
+  integer, public :: MeshBase3D_DIMTYPEID_XYT  = 6
+  integer, public :: MeshBase3D_DIMTYPEID_XYZ  = 7
+  integer, public :: MeshBase3D_DIMTYPEID_XYZT = 8
   
   !-----------------------------------------------------------------------------
   !
@@ -104,6 +106,8 @@ contains
     call this%SetDimInfo( MeshBase3D_DIMTYPEID_Y, "y", "m", "Y-coordinate" )
     call this%SetDimInfo( MeshBase3D_DIMTYPEID_Z, "z", "m", "Z-coordinate" )
     call this%SetDimInfo( MeshBase3D_DIMTYPEID_ZT, "z", "m", "Z-coordinate" )
+    call this%SetDimInfo( MeshBase3D_DIMTYPEID_XY, "xy", "m", "XY-coordinate" )
+    call this%SetDimInfo( MeshBase3D_DIMTYPEID_XYT, "xyt", "m", "XY-coordinate" )
     call this%SetDimInfo( MeshBase3D_DIMTYPEID_XYZ, "xyz", "m", "XYZ-coordinate" )
     call this%SetDimInfo( MeshBase3D_DIMTYPEID_XYZT, "xyzt", "m", "XYZ-coordinate" )
 

@@ -74,20 +74,20 @@ program global_shallow_water
     end if
 
     !- USER
-    call USER_update
+    call USER_update( swmodel )
 
     !* restart and monitor output *******************
     if ( swmodel%IsActivated() ) call swmodel%vars%Monitor()
-    call restart_write
+    call restart_write()
     call FILE_MONITOR_meshfield_write('MAIN', TIME_NOWSTEP)
 
     !* calc tendencies and diagnostices *************
     if ( swmodel%IsActivated() .and. swmodel%time_manager%do_step ) then
-      call swmodel%calc_tendency()
+      call swmodel%calc_tendency( force=.false. )
     end if
 
     !- USER 
-    call USER_calc_tendency
+    call USER_calc_tendency( swmodel )
   
     !* output history files *************************
 
@@ -116,7 +116,14 @@ contains
     implicit none
     !--------------------------------------------
 
+    !- read restart data    
     call swmodel%vars%Read_restart_file( swmodel%mesh )
+
+    !- Calculate the tendencies
+
+    call swmodel%calc_tendency( force=.true. )
+    
+    call USER_calc_tendency( swmodel )
 
     !- History & Monitor 
     call swmodel%vars%History()
@@ -135,66 +142,6 @@ contains
 
     return
   end subroutine restart_write
-
-  subroutine update()
-    use mod_user, only: USER_update
-    implicit none
-
-    integer :: tm_process_id
-    logical :: is_update
-    integer :: inner_itr  
-    !------------------------------------------------------------------------
-    
-    !- ATMOS
-    if ( swmodel%dyn_proc%IsActivated() ) then
-      call PROF_start('GlobalSW_dynamics', 1)  
-      tm_process_id = swmodel%dyn_proc%tm_process_id
-      is_update = swmodel%time_manager%Do_process( tm_process_id )
-  
-      LOG_PROGRESS(*) 'shallow water / dynamics'   
-      do inner_itr=1, swmodel%time_manager%Get_process_inner_itr_num( tm_process_id )
-        call swmodel%dyn_proc%update( &
-          swmodel%mesh, swmodel%vars%PROGVARS_manager, swmodel%vars%AUXVARS_manager, &
-          swmodel%vars%PHYTENDS_manager, is_update                                   )
-      end do
-      call PROF_rapend('GlobalSW_dynamics', 1)  
-    end if
-
-    !########## Calculate diagnostic variables ##########  
-    call swmodel%vars%Clac_diagnostics( swmodel%mesh )
-    call swmodel%vars%AUXVARS_manager%MeshFieldComm_Exchange()
-      
-    !#### Check values #################################
-    call swmodel%vars%Check()
-
-    call USER_update()
-
-    return
-  end subroutine update
-
-  subroutine calc_tendency()
-    use mod_user, only: USER_calc_tendency
-    implicit none
-    !------------------------------------------------------------------------
-    
-    call PROF_rapstart( 'GlobalSW_tendency', 1)
-  
-    !########## calculate tendency ##########
-  
-    !* Exchange halo data ( for physics )
-    call PROF_rapstart( 'ATM_exchange_prgv', 2)
-    call swmodel%vars%PROGVARS_manager%MeshFieldComm_Exchange()
-    call PROF_rapend( 'ATM_exchange_prgv', 2)
-  
-    !- ATMOS
-
-    !- USER
-    call USER_calc_tendency()
-
-    call PROF_rapend( 'GlobalSW_tendency', 1)
-
-    return
-  end subroutine calc_tendency
 
   subroutine init()
     use scale_const, only: CONST_setup

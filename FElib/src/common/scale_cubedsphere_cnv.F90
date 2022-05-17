@@ -242,9 +242,9 @@ contains
         Y = tan( beta (p) )
         del2 = 1.0_RP + X**2 + Y**2
 
-        VecLon(p) = (- Y * ( 1.0 + X**2 ) * VecAlpha(p) + X * ( 1.0_RP + Y**2 ) * VecBeta(p) ) &
+        VecLon(p) = (- Y * ( 1.0_RP + X**2 ) * VecAlpha(p) + X * ( 1.0_RP + Y**2 ) * VecBeta(p) ) &
                   * s / ( X**2 + Y**2 + EPS )
-        VecLat(p) = (- X * ( 1.0 + X**2 ) * VecAlpha(p) - Y * ( 1.0_RP + Y**2 ) * VecBeta(p) ) &
+        VecLat(p) = (- X * ( 1.0_RP + X**2 ) * VecAlpha(p) - Y * ( 1.0_RP + Y**2 ) * VecBeta(p) ) &
                   * s / ( del2 * sqrt( X**2 + Y**2 ) + EPS )
       end do
     end select
