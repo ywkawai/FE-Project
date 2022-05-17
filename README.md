@@ -1,4 +1,4 @@
-# FE-project 
+# FE-project
 
 ## What is this project?
 In [FE-Project](https://ywkawai.github.io/FE-Project_web/), 
@@ -43,5 +43,3 @@ We also provide sample programs and atmospheric models for meteorological simula
 
 ## Build FE library
 Please see ``INSTALL.md''.  
-
-
