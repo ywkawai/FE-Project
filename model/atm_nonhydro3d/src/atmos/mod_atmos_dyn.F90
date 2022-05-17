@@ -82,12 +82,13 @@ module mod_atmos_dyn
   use scale_element_modalfilter, only: ModalFilter
 
   use scale_atm_dyn_dgm_trcadvect3d_heve, only: &
-    atm_dyn_dgm_trcadvect3d_heve_Init,          &
-    atm_dyn_dgm_trcadvect3d_heve_Final,         &    
-    atm_dyn_dgm_trcadvect3d_heve_calc_fct_coef, &
-    atm_dyn_dgm_trcadvect3d_heve_cal_tend,      &
-    atm_dyn_dgm_trcadvect3d_TMAR,               &
-    atm_dyn_dgm_trcadvect3d_save_massflux
+    atm_dyn_dgm_trcadvect3d_heve_Init,                 &
+    atm_dyn_dgm_trcadvect3d_heve_Final,                &    
+    atm_dyn_dgm_trcadvect3d_heve_calc_fct_coef,        &
+    atm_dyn_dgm_trcadvect3d_heve_cal_tend,             &
+    atm_dyn_dgm_trcadvect3d_TMAR,                      &
+    atm_dyn_dgm_trcadvect3d_save_massflux,             &
+    atm_dyn_dgm_trcadvect3d_heve_cal_alphdens_advtest
 
   use mod_atmos_mesh, only: AtmosMesh
   use mod_atmos_vars, only: &
@@ -728,7 +729,12 @@ contains
             MFLX_y_tavg%val(:,ke) = MOMY%val(:,ke)
             MFLX_z_tavg%val(:,ke) = MOMZ%val(:,ke)
           end do
-        end do        
+          call atm_dyn_dgm_trcadvect3d_heve_cal_alphdens_advtest( &
+            ALPH_DENS_M_tavg%face_val, ALPH_DENS_P_tavg%face_val,                      & ! (inout)
+            DDENS%val, MOMX%val, MOMY%val, MOMz%val, DENS_hyd%val,                     & ! (in)
+            lcmesh%normal_fn(:,:,1), lcmesh%normal_fn(:,:,2), lcmesh%normal_fn(:,:,3), & ! (in)
+            lcmesh%VMapM, lcmesh%VMapP, lcmesh, lcmesh%refElem3D                       ) ! (in)
+        end do
       end if
 
       !* Exchange halo data of mass flux

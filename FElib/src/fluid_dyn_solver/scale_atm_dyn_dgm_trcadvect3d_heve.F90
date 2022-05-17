@@ -51,6 +51,7 @@ module scale_atm_dyn_dgm_trcadvect3d_heve
   public :: atm_dyn_dgm_trcadvect3d_heve_cal_tend
   public :: atm_dyn_dgm_trcadvect3d_TMAR
   public :: atm_dyn_dgm_trcadvect3d_save_massflux
+  public :: atm_dyn_dgm_trcadvect3d_heve_cal_alphdens_advtest
 
   !-----------------------------------------------------------------------------
   !
@@ -386,6 +387,59 @@ contains
     return
   end subroutine atm_dyn_dgm_trcadvect3d_save_massflux
 
+!OCL SERIAL
+  subroutine atm_dyn_dgm_trcadvect3d_heve_cal_alphdens_advtest( alph_dens_M, alph_dens_P, &
+    DDENS_, MOMX_, MOMY_, MOMZ_, DENS_hyd,                     &
+    nx, ny, nz, vmapM, vmapP, lmesh, elem                      )
+ 
+    use scale_const, only: &
+     GRAV => CONST_GRAV,  &
+     Rdry => CONST_Rdry,  &
+     CPdry => CONST_CPdry, &
+     CVdry => CONST_CVdry, &
+     PRES00 => CONST_PRE00
+   
+    implicit none
+ 
+    class(LocalMesh3D), intent(in) :: lmesh
+    class(elementbase3D), intent(in) :: elem  
+    real(RP), intent(inout) ::  alph_dens_M(elem%NfpTot*lmesh%Ne)
+    real(RP), intent(inout) ::  alph_dens_P(elem%NfpTot*lmesh%Ne)
+    real(RP), intent(in) ::  DDENS_(elem%Np*lmesh%NeA)
+    real(RP), intent(in) ::  MOMX_(elem%Np*lmesh%NeA)  
+    real(RP), intent(in) ::  MOMY_(elem%Np*lmesh%NeA)  
+    real(RP), intent(in) ::  MOMZ_(elem%Np*lmesh%NeA)  
+    real(RP), intent(in) ::  DENS_hyd(elem%Np*lmesh%NeA)
+    real(RP), intent(in) :: nx(elem%NfpTot*lmesh%Ne)
+    real(RP), intent(in) :: ny(elem%NfpTot*lmesh%Ne)
+    real(RP), intent(in) :: nz(elem%NfpTot*lmesh%Ne)
+    integer, intent(in) :: vmapM(elem%NfpTot*lmesh%Ne)
+    integer, intent(in) :: vmapP(elem%NfpTot*lmesh%Ne)
+    
+    integer :: i, iP, iM
+    real(RP) :: VelP, VelM, alpha, densM, densP
+    !------------------------------------------------------------------------
+ 
+ 
+    !$omp parallel do private( &
+    !$omp iM, iP, VelP, VelM, alpha, densM, densP )
+    do i=1, elem%NfpTot*lmesh%Ne
+      iM = vmapM(i); iP = vmapP(i)
+  
+      densM = DDENS_(iM) + DENS_hyd(iM)
+      densP = DDENS_(iP) + DENS_hyd(iP)
+ 
+      VelM = (MOMX_(iM)*nx(i) + MOMY_(iM)*ny(i) + MOMZ_(iM)*nz(i))/densM
+      VelP = (MOMX_(iP)*nx(i) + MOMY_(iP)*ny(i) + MOMZ_(iP)*nz(i))/densP
+ 
+      alpha = max( abs(VelM), abs(VelP)  )
+      alph_dens_M(i) = alpha * densM
+      alph_dens_P(i) = alpha * densP
+    end do
+ 
+    return
+  end subroutine atm_dyn_dgm_trcadvect3d_heve_cal_alphdens_advtest
+
 !-- private ---
 
 !OCL SERIAL
@@ -428,16 +482,18 @@ contains
     
     integer :: i, iP, iM
     real(RP) :: VelP, VelM, alpha
-    real(RP) :: uM, uP, vM, vP, wM, wP, presM, presP, dpresM, dpresP, densM, densP, rhotM, rhotP, rhot_hyd_M, rhot_hyd_P
+    real(RP) :: presM, presP, dpresM, dpresP, densM, densP, rhotM, rhotP, rhot_hyd_M, rhot_hyd_P
     real(RP) :: gamm, rgamm
+    real(RP) :: tavg_weight 
     !------------------------------------------------------------------------
  
     gamm = CpDry/CvDry
     rgamm = CvDry/CpDry
  
     !$omp parallel do private( &
-    !$omp iM, iP, uM, VelP, VelM, alpha, &
-    !$omp uP, vM, vP, wM, wP, presM, presP, dpresM, dpresP, densM, densP, rhotM, rhotP, rhot_hyd_M, rhot_hyd_P)
+    !$omp iM, iP, VelP, VelM, alpha, &
+    !$omp presM, presP, dpresM, dpresP, densM, densP, rhotM, rhotP, rhot_hyd_M, rhot_hyd_P, &
+    !$omp tavg_weight )
     do i=1, elem%NfpTot*lmesh%Ne
       iM = vmapM(i); iP = vmapP(i)
  
@@ -459,9 +515,10 @@ contains
       VelP = (MOMX_(iP)*nx(i) + MOMY_(iP)*ny(i) + MOMZ_(iP)*nz(i))/densP
  
       alpha = max( sqrt(gamm*presM/densM) + abs(VelM), sqrt(gamm*presP/densP) + abs(VelP)  )
- 
-      alph_dens_M(i) = alph_dens_M(i) + tavg_weight_h * alpha * densM
-      alph_dens_P(i) = alph_dens_P(i) + tavg_weight_h * alpha * densP
+      tavg_weight = tavg_weight_h * ( abs(nx(i)) + abs(ny(i)) ) + tavg_weight_v * abs(nz(i))
+
+      alph_dens_M(i) = alph_dens_M(i) + tavg_weight * alpha * densM
+      alph_dens_P(i) = alph_dens_P(i) + tavg_weight * alpha * densP
     end do
  
     return
