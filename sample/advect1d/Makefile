@@ -13,7 +13,7 @@ include $(SYSDEP_DIR)/Makedef.$(SCALE_FE_SYS)
 include $(TOPDIR)/Mkinclude
 
 BINNAME = test_advect1d
-OBJS = 
+OBJS = mod_advect1d_numerror.o
 
 LIBS = $(LIBDIR)/libScaleFECore.a
 
@@ -50,6 +50,7 @@ $(BUILD_DIR)/$(BINNAME).o: $(BINNAME).f90 $(patsubst %,$(BUILD_DIR)/%,$(OBJS))
 
 distclean: clean
 	rm -f $(BINNAME)
+	rm -f analysis
 
 clean:
 	rm -rf $(BUILD_DIR)
@@ -66,3 +67,5 @@ $(BUILD_DIR)/%.o: %.f90
 .PHONY : clean distclean allclean
 
 include $(TOPDIR)/utils/make/Make_environments
+
+$(BUILD_DIR)/test_advect1d.o : $(BUILD_DIR)/mod_advect1d_numerror.o
