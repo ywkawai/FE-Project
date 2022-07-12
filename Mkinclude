@@ -27,6 +27,7 @@ CONTRIB_INCLUDE = $(SCALEORI_INCLUDE)
 ifeq ($(SCALE_DEBUG),T)
    FFLAGS = $(FFLAGS_DEBUG) $(FFLAGS_SYSDEPEND) -DDEBUG $(SCALEORI_INCLUDE)
    CFLAGS = $(CFLAGS_DEBUG) $(CFLAGS_SYSDEPEND)
+   POSTFIX = _debug
 else
    FFLAGS = $(FFLAGS_FAST)  $(FFLAGS_SYSDEPEND) $(SCALEORI_INCLUDE)
    CFLAGS = $(CFLAGS_FAST)  $(CFLAGS_SYSDEPEND)
@@ -37,6 +38,10 @@ else
    ifeq ($(SCALE_QUICKDEBUG),T)
       FFLAGS += $(FFLAGS_QUICKDEBUG) -DQUICKDEBUG
    endif
+endif
+
+ifeq ($(findstring undefined, $(origin BUILD_DIR) $(BUILD_DIR)), undefined)
+   BUILD_DIR = $(abspath ./.libs$(POSTFIX))
 endif
 
 ifeq ($(SCALE_USE_SINGLEFP),T)

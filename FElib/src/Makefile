@@ -7,8 +7,11 @@
 TOPDIR      =../../
 SYSDEP_DIR :=../../sysdep
 
+BUILD_DIR = "undefined"
 include $(SYSDEP_DIR)/Makedef.$(SCALE_FE_SYS)
 include $(TOPDIR)/Mkinclude
+
+LIBNAME=libScaleFECore$(POSTFIX).a
 
 VPATH = \
 	common:           \
@@ -62,10 +65,10 @@ OBJS_NAME_MESH = \
 	scale_localmesh_1d.o           \
 	scale_localmesh_2d.o           \
 	scale_localmesh_3d.o           \
-	scale_mesh_base.o	             \
-	scale_mesh_base1d.o	           \
-	scale_mesh_base2d.o	           \
-	scale_mesh_base3d.o	           \
+	scale_mesh_base.o	            \
+	scale_mesh_base1d.o	          \
+	scale_mesh_base2d.o	          \
+	scale_mesh_base3d.o	          \
 	scale_mesh_linedom1d.o         \
 	scale_mesh_rectdom2d.o         \
 	scale_mesh_cubedom3d.o         \
@@ -134,28 +137,23 @@ OBJS_NAME = \
 	$(OBJS_NAME_TURBULENCE)       \
 	$(OBJS_NAME_MICROPHYS)        \
 	$(OBJS_NAME_MODEL_FRAMEWORK)
-	
-
-
-OBJ_DIR= .
-MOD_DIR=$(TOPDIR)/include/
-LIBNAME=libScaleFECore.a
 
 #------------------------------------------
-OBJS=$(patsubst %, $(OBJ_DIR)/%, $(OBJS_NAME))
+OBJS=$(patsubst %, $(BUILD_DIR)/%, $(OBJS_NAME))
 
 all:
-	$(MAKE) makedir
-	@echo;echo "Entering scaleFElib..."; echo "Current version is " $(LIBVERSION)
-	$(MAKE) $(LIBDIR)/$(LIBNAME)
-	$(MAKE) modules
-	@echo "Complete making scaleFElib."
-	make modules
+	$(MAKE) build
+	$(MAKE) install
 
-makedir:
-	mkdir -p $(OBJ_DIR)
-	mkdir -p $(MODDIR)
-	mkdir -p $(LIBDIR)
+build:
+	@echo;echo "Entering scaleFElib..."; echo "Current version is " $(LIBVERSION)
+	mkdir -p ${BUILD_DIR}
+	$(MAKE) $(LIBNAME)
+	@echo "Complete making scaleFElib."
+
+install:
+	$(MAKE) modules
+	$(MAKE) $(LIBDIR)/$(LIBNAME)
 
 
 info:
@@ -166,18 +164,21 @@ info:
 
 
 $(LIBDIR)/$(LIBNAME): $(LIBNAME)
+	mkdir -p $(LIBDIR)
 	install $< $@
 
 $(LIBNAME): $(OBJS)
 	echo "build $(LIBNAME).."
-	ar -r $@ $?
-	ranlib $@
+	$(AR) $(ARFLAGS) $@ $?
+	$(RANLIB) $@
 
 modules: $(OBJS)
-	install $(MODS) $(MOD_DIR)
+	mkdir -p $(MODDIR)
+	install $(MODS) $(MODDIR)
 
 clean:
-	rm -rf $(OBJS) *.mod
+	rm -rf $(BUILD_DIR)
+	rm -f *.o *.mod *.lst
 
 distclean: clean
 	rm -rf $(LIBNAME)
@@ -197,8 +198,8 @@ dependency:
 common/scale_quicksort.F90: scale_quicksort.F90.erb
 common/scale_timeint_rk.F90: scale_timeint_rk.F90.erb
 
-$(OBJ_DIR)/%.o : %.F90
-	$(FC) $(FFLAGS) $(SCALE_INCLUDE) $(INCLUDE) -I$(SCALEFELIBDIR)/include -o $@ -c $<
+$(BUILD_DIR)/%.o : %.F90
+	$(FC) $(FFLAGS) $(SCALE_INCLUDE) $(INCLUDE) -I$(SCALEFELIBDIR)/include -I$(BUILD_DIR) $(MODDIROPT) $(BUILD_DIR) -o $@ -c $<
 
 .PHONY : clean distclean allclean depend modules dependency
 

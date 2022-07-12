@@ -14,12 +14,12 @@ include $(TOPDIR)/Mkinclude
 
 BINNAME  = scale-dg
 INITNAME = scale-dg_init
-PPNAME = scale-dg_pp
+PPNAME   = scale-dg_pp
 
 BINS = $(BINDIR)/$(BINNAME)$(POSTFIX)  \
        $(BINDIR)/$(INITNAME)$(POSTFIX) \
        $(BINDIR)/$(PPNAME)$(POSTFIX) 
-LIBS = $(LIBDIR)/libScaleFECore.a
+LIBS = $(LIBDIR)/libScaleFECore$(POSTFIX).a
 
 VERSION = $(shell git rev-parse --short HEAD 2> /dev/null)
 ifeq ($(VERSION),)
