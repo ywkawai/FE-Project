@@ -98,8 +98,6 @@ contains
     end if
 #endif
 
-    call IO_setup( MODELNAME, cnf_fname )
-
     ! setup MPI
     call PRC_LOCAL_setup( comm_world, & ! [IN]
                           myrank,     & ! [OUT]

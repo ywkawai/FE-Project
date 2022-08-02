@@ -528,6 +528,10 @@ contains
       velP(:) = vterm_(iP(:),ke2D) * nz(:,ke_z,ke2D)
       alpha(:) = nz(:,ke_z,ke2D)**2 * max( abs(velM(:)), abs(velP(:)) )
 
+      where (nz(:,ke_z,ke2D) > 1.0E-10 .and. iP(:) == iM(:) )
+        velP(:) = - velM(:)
+      end where      
+
       numflux(:) = 0.5_RP * (  RHOQ_P(:) * velP(:) + RHOQ_M(:) * velM(:)                                                        &
         - ( NDcoefEuler_(iP(:),ke2D) * DzRHOQ_(iP(:),ke2D) + NDcoefEuler_(iM(:),ke2D) * DzRHOQ_(iM(:),ke2D) ) * nz(:,ke_z,ke2D) &
         - alpha(:) * ( RHOQ_P(:) - RHOQ_M(:) )                                                                                  )
@@ -656,6 +660,10 @@ contains
       velM(:) = vterm_(iM(:),ke2D) * nz(:,ke_z,ke2D)
       velP(:) = vterm_(iP(:),ke2D) * nz(:,ke_z,ke2D)
       alpha(:) = nz(:,ke_z,ke2D)**2 * max( abs(velM(:)), abs(velP(:)) )
+
+      where (nz(:,ke_z,ke2D) > 1.0E-10 .and. iP(:) == iM(:) )
+        velP(:) = - velM(:)
+      end where      
 
       NDcoef_M(:) = NDcoefEuler_(iM(:),ke2D)
       NDcoef_P(:) = NDcoefEuler_(iP(:),ke2D)

@@ -728,6 +728,7 @@ contains
             MFLX_x_tavg%val(:,ke) = MOMX%val(:,ke)
             MFLX_y_tavg%val(:,ke) = MOMY%val(:,ke)
             MFLX_z_tavg%val(:,ke) = MOMZ%val(:,ke)
+            this%tint(n)%var0_2D(:,ke,DDENS_ID) = DDENS%val(:,ke)           
           end do
           call atm_dyn_dgm_trcadvect3d_heve_cal_alphdens_advtest( &
             ALPH_DENS_M_tavg%face_val, ALPH_DENS_P_tavg%face_val,                      & ! (inout)
