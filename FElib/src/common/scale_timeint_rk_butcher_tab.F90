@@ -169,8 +169,11 @@ contains
     select case(rk_scheme_name)
     case( 'ERK_1s1o', 'ERK_Euler' )
 
-      coef_a_ex(1,1) = 1.0_RP
+      coef_a_ex(1,1) = 0.0_RP
       coef_b_ex(:) = (/ 1.0_RP /)
+
+      coef_sig_ex(2,1  ) = 1.0_RP
+      coef_gam_ex(2,1  ) = 1.0_RP      
 
       tend_buf_indmap(:) = 1
       
