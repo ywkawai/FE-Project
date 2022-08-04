@@ -106,12 +106,16 @@ contains
     return
   end subroutine mkinitutil_gen_Vm1Mat
 
+  !>
+  !! Calculate the distribution function of a cosine bell in regional domain
+  !! 
 !OCL SERIAL  
   subroutine mkinitutil_calc_cosinebell( &
     q,                                   &
     qmax, rx, ry, rz, xc, yc, zc,        &
     x, y, z, lcmesh3D, elem,             &
-    IntrpPolyOrder_h, IntrpPolyOrder_v   )
+    IntrpPolyOrder_h, IntrpPolyOrder_v,  &
+    cosbell_exponent                     )
 
     implicit none
 
@@ -126,6 +130,7 @@ contains
     real(RP), intent(in) :: z(elem%Np,lcmesh3D%Ne)
     integer, intent(in) :: IntrpPolyOrder_h
     integer, intent(in) :: IntrpPolyOrder_v
+    integer, intent(in), optional :: cosbell_exponent  !< parameter to ensure 2*cosbell_exponent-1 continuous derivatives
 
     integer :: ke
 
@@ -136,7 +141,15 @@ contains
 
     real(RP), allocatable :: IntrpMat(:,:)
     real(RP), allocatable :: q_intrp(:)
+
+    integer :: exponent    
     !-----------------------------------------------
+
+    if ( present(cosbell_exponent) ) then
+      exponent = cosbell_exponent
+    else
+      exponent = 1
+    end if
 
     call elem_intrp%Init( IntrpPolyOrder_h, IntrpPolyOrder_v, .false. )
 
@@ -165,7 +178,7 @@ contains
         + ( (z_intrp(:) - zc) / rz )**2 )
       
       where( r_intrp(:) <= 1.0_RP ) 
-        q_intrp(:) = qmax * 0.5_RP * (1.0_RP + cos( PI * r_intrp(:) ) )
+        q_intrp(:) = qmax * ( 0.5_RP * (1.0_RP + cos( PI * r_intrp(:) ) ) )**exponent
       elsewhere
         q_intrp(:) = 0.0_RP
       end where
@@ -178,7 +191,7 @@ contains
   end subroutine mkinitutil_calc_cosinebell
 
   !>
-  !! Calculate the distribution function of a cosine bell.
+  !! Calculate the distribution function of a cosine bell in global domain
   !! 
   !! If the vertical dependence is considered, specify z_func_type and z_func_params.
   !!  For z_func_type = 'sin', the values of z_func_params is
@@ -186,11 +199,11 @@ contains
   !! 
 !OCL SERIAL
   subroutine mkinitutil_calc_cosinebell_global( &
-    q,                                          &
-    qmax, rh, lonc, latc, rplanet,              &
-    x, y, z, lcmesh3D, elem,                    &
-    IntrpPolyOrder_h, IntrpPolyOrder_v,         &
-    z_func_type, z_func_params                  )
+    q,                                           & 
+    qmax, rh, lonc, latc, rplanet,               &
+    x, y, z, lcmesh3D, elem,                     &
+    IntrpPolyOrder_h, IntrpPolyOrder_v,          &
+    z_func_type, z_func_params, cosbell_exponent )
 
     use scale_cubedsphere_cnv, only: &
       CubedSphereCnv_CS2LonLatCoord
@@ -210,6 +223,7 @@ contains
     integer, intent(in) :: IntrpPolyOrder_v
     character(len=*), optional, intent(in) :: z_func_type
     real(RP), optional, intent(in) :: z_func_params(:)
+    integer, intent(in), optional :: cosbell_exponent      !< parameter to ensure 2*cosbell_exponent-1 continuous derivatives
 
     integer :: ke
 
@@ -222,7 +236,16 @@ contains
 
     real(RP), allocatable :: IntrpMat(:,:)
     real(RP), allocatable :: q_intrp(:)
+
+    integer :: exponent
+
     !-----------------------------------------------
+
+    if ( present(cosbell_exponent) ) then
+      exponent = cosbell_exponent
+    else
+      exponent = 1
+    end if
 
     call elem_intrp%Init( IntrpPolyOrder_h, IntrpPolyOrder_v, .false. )
 
@@ -268,7 +291,7 @@ contains
       ! Calculate the horizontal function
       r_intrp(:) = rplanet / rh * acos( sin(latc) * sin(lat_intrp(:,ke)) + cos(latc) * cos(lat_intrp(:,ke)) * cos(lon_intrp(:,ke) - lonc) )
       where( r_intrp(:) <= 1.0_RP ) 
-        q_intrp(:) = qmax * 0.5_RP * (1.0_RP + cos( PI * r_intrp(:) ) )
+        q_intrp(:) = qmax * ( 0.5_RP * (1.0_RP + cos( PI * r_intrp(:) ) ) )**exponent
       elsewhere
         q_intrp(:) = 0.0_RP
       end where
