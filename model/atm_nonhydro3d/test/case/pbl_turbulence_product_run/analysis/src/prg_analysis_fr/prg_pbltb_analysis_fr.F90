@@ -32,6 +32,8 @@ program prg_pbltb_analysis
     FILE_base_meshfield
   
   use mod_common, only: &
+    get_reconstructed_flux, &
+    get_del_flux_cent,      &  
     global_horizontal_mean
   
   use mod_diag_tb, only: &
@@ -81,6 +83,8 @@ program prg_pbltb_analysis
   type(MeshField1D) :: HEAT_TOTFLX_V1D
   type(MeshField1D) :: HEAT_MEANFLX_V1D
   type(MeshField1D) :: HEAT_EDDYFLX_V1D
+  type(MeshField1D) :: MOMZ_TOTFLX_V1D
+  type(MeshField1D) :: MOMZ_MEANFLX_V1D
   type(MeshField1D) :: MOMZ_EDDYFLX_V1D
   integer, parameter :: DIAGVID_DENS = 1
   integer, parameter :: DIAGVID_RHOT = 2
@@ -91,7 +95,9 @@ program prg_pbltb_analysis
   integer, parameter :: DIAGVID_HEAT_TOTFLX  = 7
   integer, parameter :: DIAGVID_HEAT_MEANFLX = 8
   integer, parameter :: DIAGVID_HEAT_EDDYFLX = 9
-  integer, parameter :: DIAGVID_MOMZ_EDDYFLX = 10
+  integer, parameter :: DIAGVID_MOMZ_TOTFLX  = 10
+  integer, parameter :: DIAGVID_MOMZ_MEANFLX = 11
+  integer, parameter :: DIAGVID_MOMZ_EDDYFLX = 12
 
 
   type(FILE_base_meshfield) :: in_file
@@ -111,7 +117,6 @@ program prg_pbltb_analysis
   real(RP) :: harea
 
   real(RP) :: start_time, end_time
-
   !-----------------------------------------------------------------------------
 
 
@@ -165,18 +170,20 @@ program prg_pbltb_analysis
         PT_V1D%local(1)%val, W_V1D%local(1)%val,                                           &
         W_PRIM3_V1D%local(1)%val,                                                          &
         HEAT_TOTFLX_V1D%local(1)%val, HEAT_MEANFLX_V1D%local(1)%val, HEAT_EDDYFLX_V1D%local(1)%val, &
-        MOMZ_EDDYFLX_V1D%local(1)%val,                      &
+        MOMZ_TOTFLX_V1D%local(1)%val, MOMZ_MEANFLX_V1D%local(1)%val, MOMZ_EDDYFLX_V1D%local(1)%val, &
         DDENS%local(n)%val, PT%local(n)%val, W%local(n)%val,                               &
         DENS_V1D%local(1)%val, RHOT_V1D%local(1)%val, MOMZ_V1D%local(1)%val,               &
         DENS_hyd%local(n)%val,                                                             &
         n, lcmesh3D, refElem3D, lcmesh3D%lcmesh2D, lcmesh3D%lcmesh2D%refElem2D,            &
         meshV1D%lcmesh_list(1), refElemV1D )
     end do
-
+    
     call global_horizontal_mean( W_PRIM3_V1D )
     call global_horizontal_mean( HEAT_TOTFLX_V1D )
     call global_horizontal_mean( HEAT_MEANFLX_V1D )
     call global_horizontal_mean( HEAT_EDDYFLX_V1D )
+    call global_horizontal_mean( MOMZ_TOTFLX_V1D )
+    call global_horizontal_mean( MOMZ_MEANFLX_V1D )
     call global_horizontal_mean( MOMZ_EDDYFLX_V1D )
 
     call diag_tb_process( istep, start_time, end_time, &
@@ -193,6 +200,8 @@ program prg_pbltb_analysis
       call out_file_V1D%Write_var1D( DIAGVID_HEAT_TOTFLX, HEAT_TOTFLX_V1D, start_time, end_time )
       call out_file_V1D%Write_var1D( DIAGVID_HEAT_MEANFLX, HEAT_MEANFLX_V1D, start_time, end_time )
       call out_file_V1D%Write_var1D( DIAGVID_HEAT_EDDYFLX, HEAT_EDDYFLX_V1D, start_time, end_time )
+      call out_file_V1D%Write_var1D( DIAGVID_MOMZ_TOTFLX, MOMZ_TOTFLX_V1D, start_time, end_time )
+      call out_file_V1D%Write_var1D( DIAGVID_MOMZ_MEANFLX, MOMZ_MEANFLX_V1D, start_time, end_time )
       call out_file_V1D%Write_var1D( DIAGVID_MOMZ_EDDYFLX, MOMZ_EDDYFLX_V1D, start_time, end_time )
     end if
   end do
@@ -275,6 +284,14 @@ contains
     real(RP) :: DENS_lc(elem%Np)
     integer :: hSliceID(elem%Nnode_h1D**2)
     real(RP) :: int_w(elem%Nnode_h1D**2)
+
+    real(RP) :: DENS_z(elem%Np,lmesh%NeZ,lmesh%Ne2D)
+    real(RP) :: DENS_reconst(elem%Np,lmesh%NeA)
+    real(RP) :: MOMZ_z(elem%Np,lmesh%NeZ,lmesh%Ne2D)
+    real(RP) :: MOMZ_reconst(elem%Np,lmesh%NeA)
+    real(RP) :: del_flux_momz(elem%NfpTot,lmesh%Ne)
+
+    real(RP) :: sfc_nonormal_flux(elem%Nfp_v,lmesh%Ne2D)
     !---------------------------------------------------------------------
 
     if (domID==1) then
@@ -286,6 +303,31 @@ contains
       end do
       harea = 0.0_RP
     end if
+
+    !$omp parallel private( ke_x, ke_y, p, ke2D, ke, DENS_lc )
+    !$omp do
+    do ke_z=1, lmesh%NeZ
+      do ke_y=1, lmesh%NeY
+      do ke_x=1, lmesh%NeX
+        ke2D = ke_x + (ke_y-1)*lmesh%NeX 
+        ke = ke2D + (ke_z-1)*lmesh%NeX*lmesh%NeY
+        DENS_lc(:) = DENS_hyd_(:,ke) + DDENS_(:,ke)
+
+        DENS_z(:,ke_z,ke2D) = DENS_lc(:)
+        MOMZ_z(:,ke_z,ke2D) = DENS_lc(:) * W_(:,ke)
+      end do
+      end do
+    end do
+    !$omp end do
+    !$omp workshare
+    sfc_nonormal_flux(:,:) = 0.0_RP
+    !$omp end workshare
+    !$omp end parallel
+
+    call get_del_flux_cent( del_flux_momz,              &
+      MOMZ_z, lmesh, lmesh%refElem3D, sfc_nonormal_flux )
+    call get_reconstructed_flux( MOMZ_reconst, & 
+      MOMZ_z, del_flux_momz, lmesh, lmesh%refElem3D    )
 
     !$omp parallel do private( ke_x, ke_y, p, ke2D, ke, hSliceID, &
     !$omp int_w, DENS_lc )
@@ -304,8 +346,10 @@ contains
                             + sum( int_w(:) * DENS_lc(hSliceID(:)) )
           RHOT_V1D_(p,ke_z) = RHOT_V1D_(p,ke_z) &
                             + sum( int_w(:) * DENS_lc(hSliceID(:)) * PT_(hSliceID(:),ke) )
+          ! MOMZ_V1D_(p,ke_z) = MOMZ_V1D_(p,ke_z) &
+          !                   + sum( int_w(:) * DENS_lc(hSliceID(:)) * W_ (hSliceID(:),ke) )
           MOMZ_V1D_(p,ke_z) = MOMZ_V1D_(p,ke_z) &
-                            + sum( int_w(:) * DENS_lc(hSliceID(:)) * W_ (hSliceID(:),ke) )
+                            + sum( int_w(:) * MOMZ_reconst(hSliceID(:),ke) )
         end do
       end do    
       end do  
@@ -335,7 +379,7 @@ contains
     PT_V1D_, W_V1D_,                                         &
     W_PRIM3_V1D_,                                            &
     HEAT_TOTFLX_V1D_, HEAT_MEANFLX_V1D_, HEAT_EDDYFLX_V1D_,  &
-    MOMZ_EDDYFLX_V1D_,                                       &
+    MOMZ_TOTFLX_V1D_, MOMZ_MEANFLX_V1D_, MOMZ_EDDYFLX_V1D_,  &
     DDENS_, PT_, W_,                                         &
     DENS_V1D_, RHOT_V1D_, MOMZ_V1D_,                         &    
     DENS_hyd_,                                               &
@@ -356,6 +400,8 @@ contains
     real(RP), intent(inout) :: HEAT_TOTFLX_V1D_(elemV1D%Np,lmeshV1D%NeA)
     real(RP), intent(inout) :: HEAT_MEANFLX_V1D_(elemV1D%Np,lmeshV1D%NeA)
     real(RP), intent(inout) :: HEAT_EDDYFLX_V1D_(elemV1D%Np,lmeshV1D%NeA)
+    real(RP), intent(inout) :: MOMZ_TOTFLX_V1D_(elemV1D%Np,lmeshV1D%NeA)
+    real(RP), intent(inout) :: MOMZ_MEANFLX_V1D_(elemV1D%Np,lmeshV1D%NeA)
     real(RP), intent(inout) :: MOMZ_EDDYFLX_V1D_(elemV1D%Np,lmeshV1D%NeA)
     real(RP), intent(in) :: DDENS_   (elem%Np,lmesh%NeA)
     real(RP), intent(in) :: PT_      (elem%Np,lmesh%NeA)
@@ -374,6 +420,16 @@ contains
     integer :: hSliceID(elem%Nnode_h1D**2)
     real(RP) :: int_w(elem%Nnode_h1D**2)
 
+    real(RP) :: HEATTOTFLX_z(elem%Np,lmesh%NeZ,lmesh%Ne2D)
+    real(RP) :: HEATTOTFLX_reconst(elem%Np,lmesh%NeA)
+    real(RP) :: del_flux_rhotw(elem%NfpTot,lmesh%Ne)
+
+    real(RP) :: MOMZTOTFLX_z(elem%Np,lmesh%NeZ,lmesh%Ne2D)
+    real(RP) :: MOMZTOTFLX_reconst(elem%Np,lmesh%NeA)    
+    real(RP) :: del_flux_momzw(elem%NfpTot,lmesh%Ne)
+
+    real(RP) :: sfc_nonormal_flux(elem%Nfp_v,lmesh%Ne2D)
+
     real(RP) :: W_hm_V1D
     !---------------------------------------------------------------------
 
@@ -386,11 +442,42 @@ contains
         HEAT_TOTFLX_V1D_(:,ke_z) = 0.0_RP
         HEAT_MEANFLX_V1D_(:,ke_z) = 0.0_RP
         HEAT_EDDYFLX_V1D_(:,ke_z) = 0.0_RP
+        MOMZ_TOTFLX_V1D_(:,ke_z) = 0.0_RP
+        MOMZ_MEANFLX_V1D_(:,ke_z) = 0.0_RP
         MOMZ_EDDYFLX_V1D_(:,ke_z) = 0.0_RP
       end do
       harea = 0.0_RP
     end if
 
+    !$omp parallel private( ke_x, ke_y, p, ke2D, ke, DENS_lc )
+    !$omp do
+    do ke_z=1, lmesh%NeZ
+      do ke_y=1, lmesh%NeY
+      do ke_x=1, lmesh%NeX
+        ke2D = ke_x + (ke_y-1)*lmesh%NeX 
+        ke = ke2D + (ke_z-1)*lmesh%NeX*lmesh%NeY
+        DENS_lc(:) = DENS_hyd_(:,ke) + DDENS_(:,ke)
+
+        HEATTOTFLX_z(:,ke_z,ke2D) = DENS_lc(:) * W_(:,ke) * PT_(:,ke)
+        MOMZTOTFLX_z(:,ke_z,ke2D) = DENS_lc(:) * W_(:,ke) * W_ (:,ke)
+      end do
+      end do
+    end do
+    !$omp end do
+    !$omp workshare
+    sfc_nonormal_flux(:,:) = 0.0_RP
+    !$omp end workshare
+    !$omp end parallel
+    call get_del_flux_cent( del_flux_rhotw,                   &
+      HEATTOTFLX_z, lmesh, lmesh%refElem3D, sfc_nonormal_flux )
+    call get_reconstructed_flux( HEATTOTFLX_reconst, & 
+      HEATTOTFLX_z, del_flux_rhotw, lmesh, lmesh%refElem3D )
+    
+    call get_del_flux_cent( del_flux_momzw,                   &
+      MOMZTOTFLX_z, lmesh, lmesh%refElem3D, sfc_nonormal_flux )
+    call get_reconstructed_flux( MOMZTOTFLX_reconst, & 
+      MOMZTOTFLX_z, del_flux_momzw, lmesh, lmesh%refElem3D )
+    
     !$omp parallel do private( ke_x, ke_y, p, ke2D, ke, hSliceID, &
     !$omp int_w, DENS_lc, W_hm_V1D )
     do ke_z=1, lmesh%NeZ
@@ -407,14 +494,16 @@ contains
           W_hm_V1D = MOMZ_V1D_(p,ke_z) / DENS_V1D_(p,ke_z)
 
           HEAT_TOTFLX_V1D_(p,ke_z) = HEAT_TOTFLX_V1D_(p,ke_z) &
-                            + sum( int_w(:) * DENS_lc(hSliceID(:))          &
-                               * W_ (hSliceID(:),ke) * PT_ (hSliceID(:),ke) )
+                            + sum( int_w(:) * HEATTOTFLX_reconst(hSliceID(:),ke)  )
 
           HEAT_EDDYFLX_V1D_(p,ke_z) = HEAT_EDDYFLX_V1D_(p,ke_z) &
                             + sum( int_w(:) * DENS_lc(hSliceID(:))                              &
                               * ( W_ (hSliceID(:),ke) - W_hm_V1D                              ) &
                               * ( PT_(hSliceID(:),ke) - RHOT_V1D_(p,ke_z) / DENS_V1D_(p,ke_z) ) )
           
+          MOMZ_TOTFLX_V1D_(p,ke_z) = MOMZ_TOTFLX_V1D_(p,ke_z) &
+                              + sum( int_w(:) * MOMZTOTFLX_reconst(hSliceID(:),ke)  )  
+                                      
           MOMZ_EDDYFLX_V1D_(p,ke_z) = MOMZ_EDDYFLX_V1D_(p,ke_z) &
                             + sum( int_w(:) * DENS_lc(hSliceID(:))                              &
                               * ( W_ (hSliceID(:),ke) - W_hm_V1D                              ) &
@@ -443,9 +532,11 @@ contains
       do ke_z=1, lmesh%NeZ
         PT_V1D_(:,ke_z) = RHOT_V1D_(:,ke_z) / DENS_V1D_(:,ke_z)
         W_V1D_ (:,ke_z) = MOMZ_V1D_(:,ke_z) / DENS_V1D_(:,ke_z)
-        HEAT_TOTFLX_V1D_ (:,ke_z) = CpDry * HEAT_TOTFLX_V1D_(:,ke_z) / harea
+        HEAT_TOTFLX_V1D_(:,ke_z)  = CpDry * HEAT_TOTFLX_V1D_(:,ke_z) / harea
         HEAT_MEANFLX_V1D_(:,ke_z) = CpDry * MOMZ_V1D_(:,ke_z) * PT_V1D_(:,ke_z)
         HEAT_EDDYFLX_V1D_(:,ke_z) = CpDry * HEAT_EDDYFLX_V1D_(:,ke_z) / harea
+        MOMZ_TOTFLX_V1D_(:,ke_z)  = MOMZ_TOTFLX_V1D_(:,ke_z) / harea
+        MOMZ_MEANFLX_V1D_(:,ke_z) = MOMZ_V1D_(:,ke_z) * W_V1D_(:,ke_z)        
         MOMZ_EDDYFLX_V1D_(:,ke_z) = MOMZ_EDDYFLX_V1D_(:,ke_z) / DENS_V1D_(:,ke_z) / harea
         W_PRIM3_V1D_(:,ke_z) = W_PRIM3_V1D_(:,ke_z) / DENS_V1D_(:,ke_z) / harea
       end do
@@ -469,7 +560,7 @@ contains
     use mod_diag_tb, only: &
       diag_tb_Init
     use mod_common, only: &
-      common_Init        
+      common_Init
     use scale_mesh_base1d, only: &
       DIMTYPEID_ZT => MeshBase1D_DIMTYPEID_XT
     implicit none
@@ -635,6 +726,8 @@ contains
     call HEAT_TOTFLX_V1D%Init("HEAT_TOTFLX", "J.m-2.s-1", meshV1D)
     call HEAT_MEANFLX_V1D%Init("HEAT_MEANFLX", "J.m-2.s-1", meshV1D)
     call HEAT_EDDYFLX_V1D%Init("HEAT_EDDYFLX", "J.m-2.s-1", meshV1D)
+    call MOMZ_TOTFLX_V1D%Init("MOMZ_TOTFLX", "m/s.kg.m-2.s-1", meshV1D)
+    call MOMZ_MEANFLX_V1D%Init("MOMZ_MEANFLX", "m/s.kg.m-2.s-1", meshV1D)
     call MOMZ_EDDYFLX_V1D%Init("MOMZ_EDDYFLX", "m/s.kg.m-2.s-1", meshV1D)
 
     ! Input & Output   
@@ -650,7 +743,7 @@ contains
     if (ismaster) then
       LOG_INFO("PBLTB_ANALYSIS",*) 'Setup output file for vertical 1D data..'
 
-      call out_file_V1D%Init(10, mesh1D=meshV1D)
+      call out_file_V1D%Init(12, mesh1D=meshV1D)
       call out_file_V1D%Create( out_filebase_V1D, 'PBL turbulence analysis', &
         dtype, fileexist, myrank=myrank )
       call out_file_V1D%Def_Var(DENS_V1D, "horizontal averaged density", DIAGVID_DENS, DIMTYPEID_ZT, dtype, &
@@ -666,10 +759,14 @@ contains
       call out_file_V1D%Def_Var( HEAT_TOTFLX_V1D, "horizontal averaged heat flux", DIAGVID_HEAT_TOTFLX, DIMTYPEID_ZT, dtype, &
         timeinv=output_tintrv )
       call out_file_V1D%Def_Var( HEAT_MEANFLX_V1D, "horizontal averaged mean heat flux", DIAGVID_HEAT_MEANFLX, DIMTYPEID_ZT, dtype, &
-        timeinv=output_tintrv )
+        timeinv=output_tintrv )      
       call out_file_V1D%Def_Var( HEAT_EDDYFLX_V1D, "horizontal averaged eddy heat flux", DIAGVID_HEAT_EDDYFLX, DIMTYPEID_ZT, dtype, &
         timeinv=output_tintrv )
-      call out_file_V1D%Def_Var( MOMZ_EDDYFLX_V1D, "horizontal averaged eddy momentum flux in z-direction", &
+      call out_file_V1D%Def_Var( MOMZ_TOTFLX_V1D, "horizontal averaged momentum flux", DIAGVID_MOMZ_TOTFLX, DIMTYPEID_ZT, dtype, &
+        timeinv=output_tintrv )
+      call out_file_V1D%Def_Var( MOMZ_MEANFLX_V1D, "horizontal averaged momentum flux", DIAGVID_MOMZ_MEANFLX, DIMTYPEID_ZT, dtype, &
+        timeinv=output_tintrv )          
+      call out_file_V1D%Def_Var(MOMZ_EDDYFLX_V1D, "horizontal averaged eddy momentum flux in z-direction", &
         DIAGVID_MOMZ_EDDYFLX, DIMTYPEID_ZT, dtype, timeinv=output_tintrv )      
       call out_file_V1D%End_def()
     end if
@@ -691,7 +788,6 @@ contains
     call diag_tb_Init( mesh3D, meshV1D, &
       out_filebase_tb, dtype, output_tintrv, &
       myrank, ismaster, NLocalMeshPerPrc )
-
 
     LOG_INFO("PBLTB_ANALYSIS",*) 'Setup has been finished.'
 
