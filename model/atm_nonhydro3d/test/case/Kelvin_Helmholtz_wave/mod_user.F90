@@ -209,7 +209,6 @@ contains
     integer :: ierr
     !-----------------------------------------------------------------------------
 
-    SFC_THETA = 300.0_RP
     SFC_PRES  = Pstd
 
     rewind(IO_FID_CONF)
@@ -223,6 +222,7 @@ contains
     LOG_NML(PARAM_EXP)
 
     !---
+    SFC_THETA = ENV_L1_THETA
     
     call hydrostatic_calc_basicstate_constPT( DENS_hyd, PRES_hyd, &
       SFC_THETA, SFC_PRES, x, y, z,  lcmesh, elem                 )
@@ -232,9 +232,9 @@ contains
     do ke_x=1, lcmesh%NeX
     do ke_z=1, lcmesh%NeZ
 
-      ke = ke_x + (ke_y-1)*lcmesh%NeX + (ke_z-1) * lcmesh%Ne2D
+      ke = ke_x + (ke_y-1)*lcmesh%NeX + (ke_z-1)*lcmesh%Ne2D
       fact(:) = ( lcmesh%zlev(:,ke) - ENV_L1_ZTOP ) / ( ENV_L3_ZBOTTOM - ENV_L1_ZTOP )
-      fact(:) = max( min(fact(:), 1.0_RP ),  0.0_RP )
+      fact(:) = max( min( fact(:), 1.0_RP ),  0.0_RP )
 
       PT_tmp(:,ke_z,ke_x,ke_y) = ENV_L1_THETA * ( 1.0_RP - fact(:) ) &
                                + ENV_L3_THETA * (          fact(:) )
@@ -250,7 +250,7 @@ contains
     do ke_y=1, lcmesh%NeY
     do ke_x=1, lcmesh%NeX
     do ke_z=1, lcmesh%NeZ
-      ke = ke_x + (ke_y-1)*lcmesh%NeX + (ke_z-1) * lcmesh%Ne2D
+      ke = ke_x + (ke_y-1)*lcmesh%NeX + (ke_z-1)*lcmesh%Ne2D
 
       DENS(:) = DENS_hyd(:,ke) + DDENS(:,ke)
       PRES_hyd(:,ke) = PRES00 * ( Rdry / PRES00 * DENS(:) * PT_tmp(:,ke_z,ke_x,ke_y) )**(CpDry/CvDry)
@@ -260,14 +260,16 @@ contains
     end do
     end do
 
-    !$omp parallel do private(fact, rndm)
+    !$omp parallel do private(fact, rndm, DENS)
     do ke=lcmesh%NeS, lcmesh%NeE
       fact(:) = ( lcmesh%zlev(:,ke) - ENV_L1_ZTOP ) / ( ENV_L3_ZBOTTOM - ENV_L1_ZTOP )
       fact(:) = max( min(fact(:), 1.0_RP ),  0.0_RP )
 
       ! 
+      DENS(:) = DENS_hyd(:,ke) + DDENS(:,ke)
+
       call RANDOM_uniform( rndm )
-      MOMX(:,ke) = DENS_hyd(:,ke) * ( &
+      MOMX(:,ke) = DENS(:) * ( &
                ENV_L1_U * ( 1.0_RP - fact(:) )       &
              + ENV_L3_U * (          fact(:) )       &
              + ( rndm(:) * 2.0_RP - 1.0_RP ) * RANDOM_U  )
