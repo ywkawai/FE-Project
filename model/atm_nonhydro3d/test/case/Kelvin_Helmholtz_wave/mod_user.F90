@@ -2,7 +2,7 @@
 !> module USER
 !!
 !! @par Description
-!!          User defined module for a test case of planetary boudary layer turbulence
+!!          User defined module for a Kelvin-Helmholtz wave experiment
 !!
 !! @author Team SCALE
 !!
@@ -21,28 +21,14 @@ module mod_user
   use scale_prc, only: PRC_abort  
   use mod_exp, only: experiment
 
-  use scale_const, only: &
-    PI => CONST_PI,        &
-    GRAV => CONST_GRAV,    &
-    Rdry => CONST_Rdry,    &
-    CPdry => CONST_CPdry,  &
-    CVdry => CONST_CVdry,  &
-    PRES00 => CONST_PRE00, &
-    Pstd   => CONST_Pstd  
-  
   use mod_atmos_component, only: &
     AtmosComponent
 
-  use scale_element_base, only: &
-    ElementBase3D, ElementBase2D
+  use scale_element_base, only: ElementBase3D
   use scale_element_hexahedral, only: HexahedralElement
-  use scale_localmesh_3d, only: LocalMesh3D
-  use scale_localmesh_2d, only: LocalMesh2D  
-
-  use scale_sparsemat, only: &
-    SparseMat, SparseMat_matmul
-  use scale_gmres, only: &
-    GMRES
+  use scale_localmesh_3d, only: LocalMesh3D  
+  use scale_meshfield_base, only: MeshField3D
+  
   
   !-----------------------------------------------------------------------------
   implicit none
@@ -69,12 +55,12 @@ module mod_user
   !++ Private parameters & variables
   !
 
-  type, private, extends(experiment) :: Exp_pbl_turblence
+  type, private, extends(experiment) :: Exp_Kelvin_Helmholtz_wave
   contains 
-    procedure :: setInitCond_lc => exp_SetInitCond_pbl_turblence
+    procedure :: setInitCond_lc => exp_SetInitCond_Kelvin_Helmholtz_wave
     procedure :: geostrophic_balance_correction_lc => exp_geostrophic_balance_correction
   end type
-  type(Exp_pbl_turblence), private :: exp_manager
+  type(Exp_Kelvin_Helmholtz_wave), private :: exp_manager
 
   logical, private :: USER_do                   = .false. !< do user step?
 
@@ -87,7 +73,7 @@ contains
     class(AtmosComponent), intent(inout) :: atm
     !------------------------------------------
 
-    call exp_manager%Init('idealized_pbl_turbulence')
+    call exp_manager%Init('Kelvin_Helmholtz_wave')
 
     call exp_manager%SetInitCond( atm%mesh,                &
       atm%vars%PROGVARS_manager, atm%vars%AUXVARS_manager, &
@@ -125,8 +111,6 @@ contains
     endif
     LOG_NML(PARAM_USER)
 
-    !-
-
     return
   end subroutine USER_setup
 
@@ -148,24 +132,32 @@ contains
 
   !------
 
-!OCL SERIAL
-  subroutine exp_SetInitCond_pbl_turblence( this,                          &
+!OCL SERIAL  
+  subroutine exp_SetInitCond_Kelvin_Helmholtz_wave( this,                  &
     DENS_hyd, PRES_hyd, DDENS, MOMX, MOMY, MOMZ, DRHOT, tracer_field_list, &
     x, y, z, dom_xmin, dom_xmax, dom_ymin, dom_ymax, dom_zmin, dom_zmax,   &
     lcmesh, elem )
     
+    use scale_const, only: &
+      PI => CONST_PI,        &
+      GRAV => CONST_GRAV,    &
+      Rdry => CONST_Rdry,    &
+      Rvap => CONST_Rvap,    &      
+      CPdry => CONST_CPdry,  &
+      CVdry => CONST_CVdry,  &
+      PRES00 => CONST_PRE00, &
+      Pstd   => CONST_Pstd
     use scale_random, only: &
-      RANDOM_uniform
-    use scale_atm_dyn_dgm_hydrostatic, only:  &
-      hydrostatic_calc_basicstate_constPTLAPS, &
-      hydrostaic_build_rho_XYZ 
-    
+      RANDOM_uniform      
+    use scale_atm_dyn_dgm_hydrostatic, only: &
+      hydrostatic_calc_basicstate_constPT, &
+      hydrostaic_build_rho_XYZ
     use mod_exp, only: &
-      TracerLocalMeshField_ptr 
-         
+      TracerLocalMeshField_ptr
+    
     implicit none
 
-    class(Exp_pbl_turblence), intent(inout) :: this
+    class(Exp_Kelvin_Helmholtz_wave), intent(inout) :: this
     type(LocalMesh3D), intent(in) :: lcmesh
     class(ElementBase3D), intent(in) :: elem
     real(RP), intent(out) :: DENS_hyd(elem%Np,lcmesh%NeA)
@@ -183,109 +175,117 @@ contains
     real(RP), intent(in) :: dom_ymin, dom_ymax
     real(RP), intent(in) :: dom_zmin, dom_zmax
     
-    real(RP) :: ENV_PRES_SFC    
-    real(RP) :: ENV_U          = 5.0_RP
-    real(RP) :: ENV_V          = 0.0_RP
-    real(RP) :: ENV_THETA_SFC  = 298.0_RP 
-    real(RP) :: ENV_THETA_LAPS = 4.0E-3_RP
-    real(RP) :: RANDOM_THETA   = 1.0_RP
-    real(RP) :: RANDOM_U       = 0.0_RP
-    real(RP) :: RANDOM_V       = 0.0_RP        
+    ! Surface state
+    real(RP) :: SFC_THETA
+    real(RP) :: SFC_PRES
+    ! Environment state
+    real(RP) :: ENV_L1_ZTOP    = 1.9E3_RP ! top height of the layer1 (low THETA)  [m]
+    real(RP) :: ENV_L3_ZBOTTOM = 2.1E3_RP ! bottom height of the layer3 (high THETA) [m]
+    real(RP) :: ENV_L1_THETA   = 300.0_RP ! THETA in the layer1 (small THETA)     [K]
+    real(RP) :: ENV_L3_THETA   = 301.0_RP ! THETA in the layer3 (large THETA)     [K]
+    real(RP) :: ENV_L1_U       =   0.0_RP ! velocity u in the layer1 (low  THETA) [K]
+    real(RP) :: ENV_L3_U       =  20.0_RP ! velocity u in the layer3 (high THETA) [K]    
+    ! Disturbance
+    real(RP) :: RANDOM_U     = 0.0_RP   ! amplitude of random disturbance of U [m]
 
     namelist /PARAM_EXP/ &
-      ENV_U,            &
-      ENV_THETA_SFC,    &
-      ENV_THETA_LAPS,   &
-      ENV_PRES_SFC,     &
-      RANDOM_THETA
+      SFC_PRES,          &      
+      ENV_L1_ZTOP,       &
+      ENV_L3_ZBOTTOM,    &
+      ENV_L1_THETA,      &
+      ENV_L3_THETA,      &
+      ENV_L1_U,          &
+      ENV_L3_U,          &
+      RANDOM_U
 
-    real(RP) :: rndm(elem%Np) 
-    real(RP) :: POT (elem%Np,lcmesh%NeZ,lcmesh%NeX,lcmesh%NeY)
+
+    real(RP) :: fact(elem%Np)
+    real(RP) :: rndm(elem%Np)   
+    real(RP) :: PT_tmp(elem%Np,lcmesh%NeZ,lcmesh%NeX,lcmesh%NeY)
     real(RP) :: DENS(elem%Np)
 
-    integer :: ke, ke2D
+    integer :: ke, p
     integer :: ke_x, ke_y, ke_z
     integer :: ierr
-
-    real(RP), allocatable :: bnd_SFC_PRES(:,:)
-    real(RP) :: sfc_rhot(elem%Nfp_v)
-
     !-----------------------------------------------------------------------------
 
-    ENV_PRES_SFC = Pstd
+    SFC_PRES  = Pstd
 
     rewind(IO_FID_CONF)
     read(IO_FID_CONF,nml=PARAM_EXP,iostat=ierr)
     if( ierr < 0 ) then !--- missing
-       LOG_INFO("PBL_TURBULENCE_setup",*) 'Not found namelist. Default used.'
+       LOG_INFO("Kelvin_Helmholtz_setup",*) 'Not found namelist. Default used.'
     elseif( ierr > 0 ) then !--- fatal error
-       LOG_ERROR("PBL_TURBULENCE_setup",*) 'Not appropriate names in namelist PARAM_EXP. Check!'
+       LOG_ERROR("Kelvin_Helmholtz_setup",*) 'Not appropriate names in namelist PARAM_EXP. Check!'
        call PRC_abort
     endif
     LOG_NML(PARAM_EXP)
 
     !---
+    SFC_THETA = ENV_L1_THETA
     
-    call hydrostatic_calc_basicstate_constPTLAPS( DENS_hyd, PRES_hyd,     &
-      ENV_THETA_LAPS, ENV_THETA_SFC, ENV_PRES_SFC,                        &
-      lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2), lcmesh%pos_en(:,:,3),   &
-      lcmesh, elem )
+    call hydrostatic_calc_basicstate_constPT( DENS_hyd, PRES_hyd, &
+      SFC_THETA, SFC_PRES, x, y, z,  lcmesh, elem                 )
     
-    !---
-
-    allocate( bnd_SFC_PRES(elem%Nfp_v,lcmesh%Ne2DA) )
-
-    !$omp parallel do private( ke, ke2D, rndm, sfc_rhot )
-    do ke_z=1, lcmesh%NeZ
+    !$omp parallel do collapse(3) private(ke,ke_x,ke_y,ke_z, fact)
     do ke_y=1, lcmesh%NeY
     do ke_x=1, lcmesh%NeX
-      ke2D = ke_x + (ke_y-1)*lcmesh%NeX
-      ke = ke2D + (ke_z-1)*lcmesh%NeX*lcmesh%NeY
-
-      call RANDOM_uniform( rndm )
-      POT(:,ke_z,ke_x,ke_y) = ENV_THETA_SFC + ENV_THETA_LAPS * z(:,ke)    &
-                            + ( rndm(:) * 2.0_RP - 1.0_RP ) * RANDOM_THETA
-      
-      if ( ke_z == 1 ) then
-        sfc_rhot(:) = DENS_hyd(elem%Hslice(:,1),ke2D) * POT(elem%Hslice(:,1),ke_z,ke_x,ke_y)        
-        bnd_SFC_PRES(:,ke2D) = PRES00 * ( Rdry * sfc_rhot(:) / PRES00 )**( CPdry/CVdry )
-      end if
-    end do
-    end do
-    end do
-    
-    call hydrostaic_build_rho_XYZ( DDENS, &
-      DENS_hyd, PRES_hyd, POT,                                            &
-      lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2), lcmesh%pos_en(:,:,3),   &
-      lcmesh, elem, bnd_SFC_PRES=bnd_SFC_PRES                             )
-
-    !$parallel do private( ke, DENS, rndm, ke_x, ke_y )
     do ke_z=1, lcmesh%NeZ
+
+      ke = ke_x + (ke_y-1)*lcmesh%NeX + (ke_z-1)*lcmesh%Ne2D
+      fact(:) = ( lcmesh%zlev(:,ke) - ENV_L1_ZTOP ) / ( ENV_L3_ZBOTTOM - ENV_L1_ZTOP )
+      fact(:) = max( min( fact(:), 1.0_RP ),  0.0_RP )
+
+      PT_tmp(:,ke_z,ke_x,ke_y) = ENV_L1_THETA * ( 1.0_RP - fact(:) ) &
+                               + ENV_L3_THETA * (          fact(:) )
+    end do
+    end do
+    end do
+
+    call hydrostaic_build_rho_XYZ( DDENS, & ! (out)
+      DENS_hyd, PRES_hyd, PT_tmp,         & ! (in)
+      x, y, z, lcmesh, elem               ) ! (in)
+      
+    !$omp parallel do collapse(3) private(DENS, ke,ke_x,ke_y,ke_z)
     do ke_y=1, lcmesh%NeY
-    do ke_x=1, lcmesh%NeX  
-      ke = ke_x + (ke_y-1)*lcmesh%NeX + (ke_z-1)*lcmesh%NeX*lcmesh%NeY
+    do ke_x=1, lcmesh%NeX
+    do ke_z=1, lcmesh%NeZ
+      ke = ke_x + (ke_y-1)*lcmesh%NeX + (ke_z-1)*lcmesh%Ne2D
 
       DENS(:) = DENS_hyd(:,ke) + DDENS(:,ke)
-      DRHOT(:,ke) = DENS(:) * POT(:,ke_z,ke_x,ke_y)                             &
-                  - DENS_hyd(:,ke) * ( ENV_THETA_SFC + ENV_THETA_LAPS * z(:,ke) )
+      PRES_hyd(:,ke) = PRES00 * ( Rdry / PRES00 * DENS(:) * PT_tmp(:,ke_z,ke_x,ke_y) )**(CpDry/CvDry)
+      DENS_hyd(:,ke) = DENS(:)
+      DDENS(:,ke) = 0.0_RP
+    end do
+    end do
+    end do
+
+    !$omp parallel do private(fact, rndm, DENS)
+    do ke=lcmesh%NeS, lcmesh%NeE
+      fact(:) = ( lcmesh%zlev(:,ke) - ENV_L1_ZTOP ) / ( ENV_L3_ZBOTTOM - ENV_L1_ZTOP )
+      fact(:) = max( min(fact(:), 1.0_RP ),  0.0_RP )
+
+      ! 
+      DENS(:) = DENS_hyd(:,ke) + DDENS(:,ke)
 
       call RANDOM_uniform( rndm )
-      MOMX(:,ke) = DENS(:) * (ENV_U + (rndm(:) * 2.0_RP - 1.0_RP ) * RANDOM_U )
-      MOMY(:,ke) = DENS(:) * (ENV_V + (rndm(:) * 2.0_RP - 1.0_RP ) * RANDOM_V )    
-    end do
-    end do
+      MOMX(:,ke) = DENS(:) * ( &
+               ENV_L1_U * ( 1.0_RP - fact(:) )       &
+             + ENV_L3_U * (          fact(:) )       &
+             + ( rndm(:) * 2.0_RP - 1.0_RP ) * RANDOM_U  )
     end do
 
     return
-  end subroutine exp_SetInitCond_pbl_turblence
+  end subroutine exp_SetInitCond_Kelvin_Helmholtz_wave
 
+!OCL SERIAL
   subroutine exp_geostrophic_balance_correction( this,                   &
     DENS_hyd, PRES_hyd, DDENS, MOMX, MOMY, MOMZ, DRHOT,                  &
     lcmesh, elem )
     
     implicit none
 
-    class(Exp_pbl_turblence), intent(inout) :: this
+    class(Exp_Kelvin_Helmholtz_wave), intent(inout) :: this
     type(LocalMesh3D), intent(in) :: lcmesh
     class(ElementBase3D), intent(in) :: elem
     real(RP), intent(inout) :: DENS_hyd(elem%Np,lcmesh%NeA)
