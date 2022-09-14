@@ -230,12 +230,15 @@ contains
     real(RP) :: qsat_z(elem%Nnode_v,lcmesh%NeZ)
     real(RP) :: psat_sfc, qsat_sfc, qv_sfc
 
-    integer :: ke, p
+    integer :: ke, ke2D
     integer :: ke_x, ke_y, ke_z
-    integer :: p3, p2D
+    integer :: p, p3, p2D
     integer :: ierr
 
     integer :: iq_QV, iq_QC
+
+    real(RP), allocatable :: bnd_SFC_PRES(:,:)
+    real(RP) :: sfc_rhot(elem%Nfp_v)
     !-----------------------------------------------------------------------------
 
     SFC_THETA = 300.0_RP
@@ -267,13 +270,17 @@ contains
     call hydrostatic_calc_basicstate_constPT( DENS_hyd, PRES_hyd,                            &
       SFC_THETA, SFC_PRES, lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2), lcmesh%pos_en(:,:,3), &
       lcmesh, elem )
+
     
-    !$omp parallel do collapse(3) private(ke,ke_x,ke_y,ke_z)
+    allocate( bnd_SFC_PRES(elem%Nfp_v,lcmesh%Ne2DA) )
+
+    !$omp parallel do collapse(3) private( ke, ke2D, ke_x, ke_y, ke_z, sfc_rhot )
     do ke_y=1, lcmesh%NeY
     do ke_x=1, lcmesh%NeX
     do ke_z=1, lcmesh%NeZ
+      ke2D = ke_x + (ke_y-1)*lcmesh%NeX
+      ke = ke2D + (ke_z-1)*lcmesh%NeX*lcmesh%NeY
 
-      ke = ke_x + (ke_y-1)*lcmesh%NeX + (ke_z-1) * lcmesh%Ne2D
       where ( lcmesh%zlev(:,ke) <= ENV_L1_ZTOP )
         PT_tmp(:,ke_z,ke_x,ke_y) = SFC_THETA
       elsewhere ( lcmesh%zlev(:,ke) < ENV_L2_ZTOP  )
@@ -282,6 +289,7 @@ contains
         PT_tmp(:,ke_z,ke_x,ke_y) = SFC_THETA + ( ENV_L2_ZTOP - ENV_L1_ZTOP ) * ENV_L2_TLAPS       &
                                  + ( lcmesh%zlev(:,ke) - ENV_L2_ZTOP ) * ENV_L3_TLAPS
       end where
+
     end do
     end do
     end do
@@ -330,11 +338,13 @@ contains
       temp_z, pres_z, qdry_z,                                   & ! [IN]
       qsat_z                                                    ) ! [OUT]
 
-    !$omp parallel do collapse(3) private(ke_z,ke_x,ke_y,ke,p3,p2D,p, QV)
+    !$omp parallel do collapse(3) private(ke_z,ke_x,ke_y,ke,ke2D,p3,p2D,p, QV, sfc_rhot)
     do ke_y=1, lcmesh%NeY
     do ke_x=1, lcmesh%NeX
     do ke_z=1, lcmesh%NeZ
-      ke = ke_x + (ke_y-1)*lcmesh%NeX + (ke_z-1) * lcmesh%Ne2D
+      ke2D = ke_x + (ke_y-1)*lcmesh%NeX
+      ke = ke2D + (ke_z-1)*lcmesh%NeX*lcmesh%NeY
+
       do p3=1, elem%Nnode_v
       do p2D=1, elem%Nnode_h1D**2
         p = p2D + (p3 - 1)*elem%Nnode_h1D**2
@@ -351,6 +361,10 @@ contains
       CPtot         (:,ke_z,ke_x,ke_y) = CPdry * ( 1.0_RP - QV(:) ) + CP_VAPOR * QV(:)
       CPtot_ov_CVtot(:,ke_z,ke_x,ke_y) = CPtot(:,ke_z,ke_x,ke_y)                         &
                                        / ( CVdry * ( 1.0_RP - QV(:) ) + CV_VAPOR * QV(:) ) 
+      if ( ke_z == 1 ) then
+        sfc_rhot(:) = DENS_hyd(elem%Hslice(:,1),ke2D) * PT_tmp(elem%Hslice(:,1),ke_z,ke_x,ke_y)        
+        bnd_SFC_PRES(:,ke2D) = PRES00 * ( Rtot(:,ke_z,ke_x,ke_y) * sfc_rhot(:) / PRES00 )**( CPtot_ov_CVtot(:,ke_z,ke_x,ke_y) )
+      end if                              
     end do
     end do
     end do
@@ -358,7 +372,7 @@ contains
     call hydrostaic_build_rho_XYZ( DDENS, & ! (out)
       DENS_hyd, PRES_hyd, PT_tmp,         & ! (in)
       Rtot, CPtot_ov_CVtot,               & ! (in)
-      x, y, z, lcmesh, elem               ) ! (in)
+      x, y, z, lcmesh, elem, bnd_SFC_PRES ) ! (in)
 
 
     !$omp parallel do collapse(3) private(PT, DENS, DENS2, PRES, ke,ke_x,ke_y,ke_z)
@@ -377,7 +391,6 @@ contains
       DDENS(:,ke) = DENS(:) - DENS_hyd(:,ke)
       DRHOT(:,ke) = DENS(:) * PT(:) &
                   - PRES00 / Rdry * ( PRES_hyd(:,ke) / PRES00 )**(CVdry/CPdry)
-      tracer_field_list(iq_QC)%ptr%val(:,ke) = 0.0E-5_RP
     end do
     end do
     end do

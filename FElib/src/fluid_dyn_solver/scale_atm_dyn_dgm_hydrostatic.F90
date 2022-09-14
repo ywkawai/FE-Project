@@ -429,10 +429,10 @@ contains
             CPtot_ov_CVtot(:,:,ke_x,ke_y), DENS_hyd_z, PRES_hyd_z,       & ! (in)
             Dz, Lift, IntrpMat_VPOrdM1, lcmesh, elem,                    & ! (in)
             nz, vmapM_z1D, vmapP_z1D, ke_x, ke_y )
-          
-          if (is_converged) exit            
+
+          if (is_converged) exit
         end do ! itr_lin
-        do ke_z=1, lcmesh%NeZ
+        do ke_z=1, lcmesh%NeZ  
           VARS (:,ke_z) = VARS(:,ke_z) + VAR_DEL(:,ke_z)
           VARS0(:,ke_z) = VARS(:,ke_z)
         end do
@@ -560,7 +560,12 @@ contains
         nz, vmapM, vmapP, ke_x, ke_y             ) ! (in)
       
       call gmres_hydro%Iterate_step_j( j, wj, is_converged )
-      if (is_converged) exit
+      
+      if ( is_converged .and. j==1 ) then
+        x(:) = pinv_v(:) * gmres_hydro%g(1)
+        return
+      end if
+      if ( is_converged ) exit
     end do
 
     do j=1, N
