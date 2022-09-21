@@ -288,9 +288,17 @@ contains
 
     !$omp workshare
     lcmesh%Gsqrt (:,:)   = 1.0_RP
-    lcmesh%GI3   (:,:,1) = 0.0_RP
-    lcmesh%GI3   (:,:,2) = 0.0_RP
     lcmesh%GsqrtH(:,:)   = 1.0_RP
+    lcmesh%GIJ   (:,:,1,1) = 1.0_RP
+    lcmesh%GIJ   (:,:,2,1) = 0.0_RP
+    lcmesh%GIJ   (:,:,1,2) = 0.0_RP
+    lcmesh%GIJ   (:,:,2,2) = 1.0_RP
+    lcmesh%G_ij  (:,:,1,1) = 1.0_RP
+    lcmesh%G_ij  (:,:,2,1) = 0.0_RP
+    lcmesh%G_ij  (:,:,1,2) = 0.0_RP
+    lcmesh%G_ij  (:,:,2,2) = 1.0_RP
+    lcmesh%GI3   (:,:,1)   = 0.0_RP
+    lcmesh%GI3   (:,:,2)   = 0.0_RP
     !$omp end workshare
 
     !$omp end parallel
