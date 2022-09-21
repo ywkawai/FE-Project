@@ -56,8 +56,9 @@ module scale_atm_dyn_dgm_nonhydro3d_common
   integer, public, parameter :: MOMY_VID       = 3
   integer, public, parameter :: MOMZ_VID       = 4
   integer, public, parameter :: RHOT_VID       = 5
+  integer, public, parameter :: ETOT_VID       = 5
   integer, public, parameter :: PROG_VARS_NUM  = 5
-
+  
   real(RP), public, allocatable :: IntrpMat_VPOrdM1(:,:)
 
   !-----------------------------------------------------------------------------
