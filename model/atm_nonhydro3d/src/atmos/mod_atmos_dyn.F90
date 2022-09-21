@@ -67,13 +67,24 @@ module mod_atmos_dyn
   use scale_atm_dyn_dgm_globalnonhydro3d_heve, only: &
     atm_dyn_dgm_globalnonhydro3d_heve_Init,          &
     atm_dyn_dgm_globalnonhydro3d_heve_Final,         &
-    atm_dyn_dgm_globalnonhydro3d_heve_cal_tend    
-  
-  use scale_atm_dyn_dgm_globalnonhydro3d_hevi, only: &
-    atm_dyn_dgm_globalnonhydro3d_hevi_Init,          &
-    atm_dyn_dgm_globalnonhydro3d_hevi_Final,         &
-    atm_dyn_dgm_globalnonhydro3d_hevi_cal_tend,      &
+    atm_dyn_dgm_globalnonhydro3d_heve_cal_tend
+
+  use scale_atm_dyn_dgm_globalnonhydro3d_etot_heve, only: &
+    atm_dyn_dgm_globalnonhydro3d_etot_heve_Init,          &
+    atm_dyn_dgm_globalnonhydro3d_etot_heve_Final,         &
+    atm_dyn_dgm_globalnonhydro3d_etot_heve_cal_tend
+
+  use scale_atm_dyn_dgm_globalnonhydro3d_hevi, only:  &
+    atm_dyn_dgm_globalnonhydro3d_hevi_Init,           &
+    atm_dyn_dgm_globalnonhydro3d_hevi_Final,          &
+    atm_dyn_dgm_globalnonhydro3d_hevi_cal_tend,       &
     atm_dyn_dgm_globalnonhydro3d_hevi_cal_vi
+
+  use scale_atm_dyn_dgm_globalnonhydro3d_etot_hevi, only:  &
+    atm_dyn_dgm_globalnonhydro3d_etot_hevi_Init,           &
+    atm_dyn_dgm_globalnonhydro3d_etot_hevi_Final,          &
+    atm_dyn_dgm_globalnonhydro3d_etot_hevi_cal_tend,       &
+    atm_dyn_dgm_globalnonhydro3d_etot_hevi_cal_vi
 
   use scale_atm_dyn_dgm_nonhydro3d_numdiff, only: &
     atm_dyn_dgm_nonhydro3d_numdiff_Init,          &
@@ -99,6 +110,8 @@ module mod_atmos_dyn
     ATMOS_PROGVARS_NUM,                  &
     DDENS_ID => ATMOS_PROGVARS_DDENS_ID, &
     DRHOT_ID => ATMOS_PROGVARS_DRHOT_ID, &
+    EnTot_ID => ATMOS_PROGVARS_EnTot_ID, &
+    THERM_ID => ATMOS_PROGVARS_THERM_ID, &
     MOMX_ID  => ATMOS_PROGVARS_MOMX_ID,  &
     MOMY_ID  => ATMOS_PROGVARS_MOMY_ID,  &
     MOMZ_ID  => ATMOS_PROGVARS_MOMZ_ID
@@ -248,6 +261,9 @@ module mod_atmos_dyn
     logical :: TRACERADV_MODALFILTER_FLAG
     type(SparseMat) :: FaceIntMat    
 
+    ! 
+    logical :: ENTOT_CONSERVE_SCHEME_FLAG
+
   contains
     procedure, public :: setup => AtmosDyn_setup 
     procedure, public :: calc_tendency => AtmosDyn_calc_tendency
@@ -259,12 +275,14 @@ module mod_atmos_dyn
   !++ Public parameters & variables
   !-----------------------------------------------------------------------------
   
-  integer, public, parameter :: EQS_TYPEID_NONHYD3D_HEVE           = 1
-  integer, public, parameter :: EQS_TYPEID_GLOBALNONHYD3D_HEVE     = 2
-  integer, public, parameter :: EQS_TYPEID_GLOBALNONHYD3D_HEVI     = 3
-  integer, public, parameter :: EQS_TYPEID_NONHYD3D_SPLITFORM_HEVE = 4
-  integer, public, parameter :: EQS_TYPEID_NONHYD3D_HEVI           = 5
-  integer, public, parameter :: EQS_TYPEID_NONHYD3D_SPLITFORM_HEVI = 6
+  integer, public, parameter :: EQS_TYPEID_NONHYD3D_HEVE             = 1
+  integer, public, parameter :: EQS_TYPEID_GLOBALNONHYD3D_HEVE       = 2
+  integer, public, parameter :: EQS_TYPEID_GLOBALNONHYD3D_HEVE_ENTOT = 3
+  integer, public, parameter :: EQS_TYPEID_GLOBALNONHYD3D_HEVI       = 4
+  integer, public, parameter :: EQS_TYPEID_GLOBALNONHYD3D_HEVI_ENTOT = 5
+  integer, public, parameter :: EQS_TYPEID_NONHYD3D_SPLITFORM_HEVE   = 6
+  integer, public, parameter :: EQS_TYPEID_NONHYD3D_HEVI             = 7
+  integer, public, parameter :: EQS_TYPEID_NONHYD3D_SPLITFORM_HEVI   = 8
 
 
   !-----------------------------------------------------------------------------
@@ -391,6 +409,7 @@ contains
 
     !- Initialize a module for 3D dynamical core 
 
+    this%ENTOT_CONSERVE_SCHEME_FLAG = .false.
     select case(EQS_TYPE)
     case("NONHYDRO3D_HEVE")
       this%EQS_TYPEID = EQS_TYPEID_NONHYD3D_HEVE
@@ -402,11 +421,23 @@ contains
       call atm_dyn_dgm_globalnonhydro3d_heve_Init( mesh3D )
       this%cal_tend_ex => atm_dyn_dgm_globalnonhydro3d_heve_cal_tend
       this%cal_vi => null()
+    case("GLOBALNONHYDRO3D_HEVE_ENTOT")
+      this%EQS_TYPEID = EQS_TYPEID_GLOBALNONHYD3D_HEVE_ENTOT
+      call atm_dyn_dgm_globalnonhydro3d_heve_Init( mesh3D )
+      this%cal_tend_ex => atm_dyn_dgm_globalnonhydro3d_heve_cal_tend
+      this%cal_vi => null()
+      this%ENTOT_CONSERVE_SCHEME_FLAG = .true.
     case("GLOBALNONHYDRO3D_HEVI")
       this%EQS_TYPEID = EQS_TYPEID_GLOBALNONHYD3D_HEVI
       call atm_dyn_dgm_globalnonhydro3d_hevi_Init( mesh3D )
       this%cal_tend_ex => atm_dyn_dgm_globalnonhydro3d_hevi_cal_tend
       this%cal_vi => atm_dyn_dgm_globalnonhydro3d_hevi_cal_vi
+    case("GLOBALNONHYDRO3D_HEVI_ENTOT")
+      this%EQS_TYPEID = EQS_TYPEID_GLOBALNONHYD3D_HEVI_ENTOT
+      call atm_dyn_dgm_globalnonhydro3d_hevi_Init( mesh3D )
+      this%cal_tend_ex => atm_dyn_dgm_globalnonhydro3d_hevi_cal_tend
+      this%cal_vi => atm_dyn_dgm_globalnonhydro3d_hevi_cal_vi
+      this%ENTOT_CONSERVE_SCHEME_FLAG = .true.
     case("NONHYDRO3D_SPLITFORM_HEVE")
       this%EQS_TYPEID = EQS_TYPEID_NONHYD3D_SPLITFORM_HEVE
       call atm_dyn_dgm_nonhydro3d_heve_splitform_Init( mesh3D )
@@ -476,7 +507,12 @@ contains
     use scale_atm_dyn_dgm_modalfilter, only: &
       atm_dyn_dgm_modalfilter_apply,       &
       atm_dyn_dgm_tracer_modalfilter_apply
-
+    use scale_const, only: &
+      GRAV => CONST_GRAV,  &
+      Rdry => CONST_Rdry,  &
+      CPdry => CONST_CPdry, &
+      CVdry => CONST_CVdry, &
+      PRES00 => CONST_PRE00
     implicit none
 
     class(AtmosDyn), intent(inout) :: this
@@ -493,7 +529,7 @@ contains
     class(MeshBase), pointer :: mesh
     class(LocalMesh3D), pointer :: lcmesh
     integer :: n
-    integer :: ke, p
+    integer :: ke, ke2D, p
 
     class(LocalMeshFieldBase), pointer :: DDENS, MOMX, MOMY, MOMZ, DRHOT
     class(LocalMeshFieldBase), pointer :: DENS_hyd, PRES_hyd
@@ -502,6 +538,7 @@ contains
     class(LocalMeshFieldBase), pointer :: ALPH_DENS_M_tavg, ALPH_DENS_P_tavg, MFLX_x_tavg, MFLX_y_tavg, MFLX_z_tavg
     class(LocalMeshFieldBase), pointer :: QTRC
     class(LocalMeshFieldBase), pointer :: RHOQ_tp
+    class(LocalMeshFieldBase), pointer :: ThermodynVar
 
 
 !    class(LocalMeshFieldBase), pointer :: MOMZ_t, MOMZ_t_advx, MOMZ_t_advY, MOMZ_t_advZ, MOMZ_t_lift, MOMZ_t_buoy
@@ -528,6 +565,20 @@ contains
     !-
     do rkstage=1, nRKstage
 
+      if ( this%ENTOT_CONSERVE_SCHEME_FLAG ) then
+        do n=1, mesh%LOCAL_MESH_NUM
+          call AtmosVars_GetLocalMeshPrgVars( n, &
+            mesh, prgvars_list, auxvars_list,                               &
+            DDENS, MOMX, MOMY, MOMZ, DRHOT,                                 &
+            DENS_hyd, PRES_hyd, Rtot, CVtot, CPtot, lcmesh                  )
+  
+          call cal_DRHOT2Entot( this%dyn_vars%EnTot%local(n)%val, &
+            DDENS%val, MOMX%val, MOMY%val, MOMZ%val, DRHOT%val,             &
+            PRES_hyd%val, DENS_hyd%val, CPtot%val, CVtot%val, Rtot%val,     &
+            lcmesh, lcmesh%refElem3D                                        ) 
+        end do
+      end if
+
       if (this%tint(1)%imex_flag) then        
         do n=1, mesh%LOCAL_MESH_NUM
           call PROF_rapstart( 'ATM_DYN_get_localmesh_ptr', 2)         
@@ -537,6 +588,11 @@ contains
             DENS_hyd, PRES_hyd, Rtot, CVtot, CPtot, lcmesh                  )
           call PROF_rapend( 'ATM_DYN_get_localmesh_ptr', 2)   
 
+          if ( this%ENTOT_CONSERVE_SCHEME_FLAG ) then
+            call this%dyn_vars%EnTot%GetLocalMeshField( n, ThermodynVar )
+          else
+            ThermodynVar => DRHOT
+          end if
           if (rkstage==1) then
             call this%tint(n)%StoreVar0( DDENS%val, DDENS_ID,    &
                     1, lcmesh%refElem%Np, lcmesh%NeS, lcmesh%NeE )
@@ -546,8 +602,8 @@ contains
                     1, lcmesh%refElem%Np, lcmesh%NeS, lcmesh%NeE )
             call this%tint(n)%StoreVar0( MOMZ%val, MOMZ_ID,      &
                     1, lcmesh%refElem%Np, lcmesh%NeS, lcmesh%NeE )
-            call this%tint(n)%StoreVar0( DRHOT%val, DRHOT_ID,    &
-                    1, lcmesh%refElem%Np, lcmesh%NeS, lcmesh%NeE )
+            call this%tint(n)%StoreVar0( ThermodynVar%val, THERM_ID, &
+                      1, lcmesh%refElem%Np, lcmesh%NeS, lcmesh%NeE   )
           end if
 
           call PROF_rapstart( 'ATM_DYN_cal_vi', 2)
@@ -560,7 +616,8 @@ contains
             this%tint(n)%tend_buf2D_im(:,:,MOMY_ID ,tintbuf_ind),                   & ! (out)
             this%tint(n)%tend_buf2D_im(:,:,MOMZ_ID ,tintbuf_ind),                   & ! (out)
             this%tint(n)%tend_buf2D_im(:,:,DRHOT_ID,tintbuf_ind),                   & ! (out)
-            DDENS%val, MOMX%val, MOMY%val, MOMZ%val, DRHOT%val,                     & ! (in)
+            DDENS%val, MOMX%val, MOMY%val, MOMZ%val,                                & ! (in)
+            ThermodynVar%val,                                                       & ! (in)
             DENS_hyd%val, PRES_hyd%val,                                             & ! (in)
             this%tint(n)%var0_2D(:,:,DDENS_ID), this%tint(n)%var0_2D(:,:,MOMX_ID),  & ! (in)
             this%tint(n)%var0_2D(:,:,MOMY_ID ), this%tint(n)%var0_2D(:,:,MOMZ_ID),  & ! (in)
@@ -588,6 +645,16 @@ contains
 
           call this%tint(n)%StoreImplicit( rkstage, DRHOT%val, DRHOT_ID,  &
                              1, lcmesh%refElem%Np, lcmesh%NeS, lcmesh%NeE )
+
+          call this%tint(n)%StoreImplicit( rkstage, ThermodynVar%val, THERM_ID, &
+                             1, lcmesh%refElem%Np, lcmesh%NeS, lcmesh%NeE )
+
+          if (this%ENTOT_CONSERVE_SCHEME_FLAG) then
+            call cal_EnTot2DRHOT( DRHOT%val, &
+              DDENS%val, MOMX%val, MOMY%val, MOMZ%val, this%dyn_vars%EnTot%local(n)%val,  &
+              PRES_hyd%val, DENS_hyd%val, CPtot%val, CVtot%val, Rtot%val,                 &
+              lcmesh, lcmesh%refElem3D                                                    ) 
+          end if
           call PROF_rapend( 'ATM_DYN_store_impl', 2) 
         end do
       end if
@@ -632,6 +699,12 @@ contains
         call AtmosDynAuxVars_GetLocalMeshFields( n,      &
           mesh, this%dyn_vars%AUXVARS2D_manager,         &
           Coriolis )
+
+        if ( this%ENTOT_CONSERVE_SCHEME_FLAG ) then
+          call this%dyn_vars%EnTot%GetLocalMeshField( n, ThermodynVar )
+        else
+          ThermodynVar => DRHOT
+        end if          
         call PROF_rapend( 'ATM_DYN_get_localmesh_ptr', 2)
 
         call PROF_rapstart( 'ATM_DYN_update_caltend_ex', 2)
@@ -698,8 +771,15 @@ contains
         call this%tint(n)%Advance( rkstage, MOMZ%val, MOMZ_ID,   &
                     1, lcmesh%refElem%Np, lcmesh%NeS, lcmesh%NeE )
 
-        call this%tint(n)%Advance( rkstage, DRHOT%val, DRHOT_ID, &
-                    1, lcmesh%refElem%Np, lcmesh%NeS, lcmesh%NeE )
+        call this%tint(n)%Advance( rkstage, ThermodynVar%val, THERM_ID, &
+                    1, lcmesh%refElem%Np, lcmesh%NeS, lcmesh%NeE        )
+
+        if (this%ENTOT_CONSERVE_SCHEME_FLAG) then
+          call cal_EnTot2DRHOT( DRHOT%val, &
+            DDENS%val, MOMX%val, MOMY%val, MOMZ%val, this%dyn_vars%EnTot%local(n)%val, &
+            PRES_hyd%val, DENS_hyd%val, CPtot%val, CVtot%val, Rtot%val,                &
+            lcmesh, lcmesh%refElem3D                                                   ) 
+        end if
         call PROF_rapend( 'ATM_DYN_update_advance', 2)
       end do
     end do
@@ -1267,6 +1347,114 @@ contains
 
     return
   end subroutine cal_numfilter_tend
+
+!OCL SERIAL
+  subroutine cal_DRHOT2Entot( EnTot,  &
+    DDENS, MOMX, MOMY, MOMZ, DRHOT,         &
+    PRES_hyd, DENS_hyd, CPtot, CVtot, Rtot, &
+    lcmesh, elem3D )
+
+    use scale_const, only: &
+      GRAV => CONST_GRAV,  &
+      Rdry => CONST_Rdry,  &
+      CPdry => CONST_CPdry, &
+      CVdry => CONST_CVdry, &
+      PRES00 => CONST_PRE00
+
+    implicit none
+    class(LocalMesh3D), intent(in) :: lcmesh
+    class(elementbase3D), intent(in) :: elem3D
+    real(RP), intent(out) :: EnTot(elem3D%Np,lcmesh%NeA)
+    real(RP), intent(in) :: DDENS(elem3D%Np,lcmesh%NeA)
+    real(RP), intent(in) :: MOMX(elem3D%Np,lcmesh%NeA)
+    real(RP), intent(in) :: MOMY(elem3D%Np,lcmesh%NeA)
+    real(RP), intent(in) :: MOMZ(elem3D%Np,lcmesh%NeA)
+    real(RP), intent(in) :: DRHOT(elem3D%Np,lcmesh%NeA)
+    real(RP), intent(in) :: PRES_hyd(elem3D%Np,lcmesh%NeA)
+    real(RP), intent(in) :: DENS_hyd(elem3D%Np,lcmesh%NeA)
+    real(RP), intent(in) :: CPtot(elem3D%Np,lcmesh%NeA)
+    real(RP), intent(in) :: CVtot(elem3D%Np,lcmesh%NeA)
+    real(RP), intent(in) :: Rtot(elem3D%Np,lcmesh%NeA)
+
+    integer :: ke, ke2D
+
+    real(RP) :: DENS(elem3D%Np)
+    real(RP) :: mom_u1(elem3D%Np), mom_u2(elem3D%Np)
+    real(RP) :: RHOT(elem3D%Np), PRES(elem3D%Np)
+    !---------------------------------------------------------------
+
+    !$omp parallel do private( ke2D, DENS, mom_u1, mom_u2, RHOT, PRES )
+    do ke=lcmesh%NeS, lcmesh%NeE
+      ke2D = lcmesh%EMap3Dto2D(ke)
+
+      DENS(:) = DENS_hyd(:,ke) + DDENS(:,ke)
+      mom_u1(:) = lcmesh%G_ij(lcmesh%refElem3D%IndexH2Dto3D,ke2D,1,1) * MOMX(:,ke) + lcmesh%G_ij(lcmesh%refElem3D%IndexH2Dto3D,ke2D,2,1) * MOMY(:,ke)
+      mom_u2(:) = lcmesh%G_ij(lcmesh%refElem3D%IndexH2Dto3D,ke2D,2,1) * MOMX(:,ke) + lcmesh%G_ij(lcmesh%refElem3D%IndexH2Dto3D,ke2D,2,2) * MOMY(:,ke)
+
+      RHOT(:) = PRES00 / Rdry * ( PRES_hyd(:,ke) / PRES00 )**(CvDry/CpDry) + DRHOT(:,ke)
+      PRES(:) = PRES00 * ( Rtot(:,ke) / PRES00 * RHOT(:) )**( CPtot(:,ke) / CVtot(:,ke) ) 
+  
+      EnTot(:,ke) = &
+          Grav * DENS(:) * lcmesh%zlev(:,ke)                                                     &
+        + CVtot(:,ke) * PRES(:) / Rtot(:,ke)                                                     &
+        + 0.5_RP * ( MOMX(:,ke) * mom_u1(:) + MOMY(:,ke) * mom_u2(:) + MOMZ(:,ke)**2 ) / DENS(:)
+    end do
+    
+    return
+  end subroutine cal_DRHOT2Entot
+
+!OCL SERIAL
+  subroutine cal_EnTot2DRHOT( DRHOT, &
+    DDENS, MOMX, MOMY, MOMZ, EnTot,         &
+    PRES_hyd, DENS_hyd, CPtot, CVtot, Rtot, &
+    lcmesh, elem3D )
+
+    use scale_const, only: &
+      GRAV => CONST_GRAV,  &
+      Rdry => CONST_Rdry,  &
+      CPdry => CONST_CPdry, &
+      CVdry => CONST_CVdry, &
+      PRES00 => CONST_PRE00
+    
+    implicit none
+    class(LocalMesh3D), intent(in) :: lcmesh
+    class(elementbase3D), intent(in) :: elem3D
+    real(RP), intent(out) :: DRHOT(elem3D%Np,lcmesh%NeA)
+    real(RP), intent(in) :: DDENS(elem3D%Np,lcmesh%NeA)
+    real(RP), intent(in) :: MOMX(elem3D%Np,lcmesh%NeA)
+    real(RP), intent(in) :: MOMY(elem3D%Np,lcmesh%NeA)
+    real(RP), intent(in) :: MOMZ(elem3D%Np,lcmesh%NeA)
+    real(RP), intent(in) :: EnTot(elem3D%Np,lcmesh%NeA)
+    real(RP), intent(in) :: PRES_hyd(elem3D%Np,lcmesh%NeA)
+    real(RP), intent(in) :: DENS_hyd(elem3D%Np,lcmesh%NeA)
+    real(RP), intent(in) :: CPtot(elem3D%Np,lcmesh%NeA)
+    real(RP), intent(in) :: CVtot(elem3D%Np,lcmesh%NeA)
+    real(RP), intent(in) :: Rtot(elem3D%Np,lcmesh%NeA)
+
+    integer :: ke, ke2D
+
+    real(RP) :: DENS(elem3D%Np)
+    real(RP) :: mom_u1(elem3D%Np), mom_u2(elem3D%Np)
+    real(RP) :: PRES(elem3D%Np)
+    !---------------------------------------------------------------
+
+    !$omp parallel do private( ke2D, DENS, mom_u1, mom_u2, PRES )
+    do ke=lcmesh%NeS, lcmesh%NeE
+      ke2D = lcmesh%EMap3Dto2D(ke)
+
+      DENS(:) = DENS_hyd(:,ke) + DDENS(:,ke)
+      mom_u1(:) = lcmesh%G_ij(lcmesh%refElem3D%IndexH2Dto3D,ke2D,1,1) * MOMX(:,ke) + lcmesh%G_ij(lcmesh%refElem3D%IndexH2Dto3D,ke2D,2,1) * MOMY(:,ke)
+      mom_u2(:) = lcmesh%G_ij(lcmesh%refElem3D%IndexH2Dto3D,ke2D,2,1) * MOMX(:,ke) + lcmesh%G_ij(lcmesh%refElem3D%IndexH2Dto3D,ke2D,2,2) * MOMY(:,ke)
+
+      PRES(:) = (  EnTot(:,ke) - Grav * DENS(:) * lcmesh%zlev(:,ke)                                        &
+                  - 0.5_RP * ( MOMX(:,ke) * mom_u1(:) + MOMY(:,ke) * mom_u2(:) + MOMZ(:,ke)**2 ) / DENS(:) &
+                ) * Rtot(:,ke) / CVtot(:,ke)
+      DRHOT(:,ke) = PRES00 / Rtot(:,ke) * ( PRES(:) / PRES00 )**( CVtot(:,ke) / CPtot(:,ke) ) &
+                  - PRES00 / Rdry * ( PRES_hyd(:,ke) / PRES00 )**(CvDry/CpDry)
+    end do
+    
+    return
+  end subroutine cal_EnTot2DRHOT
 
   !-- Setup modal filter
 !OCL SERIAL
