@@ -587,7 +587,7 @@ contains
       GsqrtEnthalpyP(:) = GsqrtEnTotP(:) + Gsqrt_P(:) * ( Phyd_P(:) + dpresP(:) )
 
 !      alpha(:) = swV(:) * max( sqrt( Gnn_M(:) * gamm * ( Phyd_M(:) + dpresM(:) ) * Gsqrt_M(:) / GsqrtDensM(:) ) + abs(VelM(:)), &
-      alpha(:) = max( sqrt( Gnn_M(:) * gamm * ( Phyd_M(:) + dpresM(:) ) * Gsqrt_M(:) / GsqrtDensM(:) ) + abs(VelM(:)), &
+      alpha(:) = swV(:) * max( sqrt( Gnn_M(:) * gamm * ( Phyd_M(:) + dpresM(:) ) * Gsqrt_M(:) / GsqrtDensM(:) ) + abs(VelM(:)), &
                                sqrt( Gnn_P(:) * gamm * ( Phyd_P(:) + dpresP(:) ) * Gsqrt_P(:) / GsqrtDensP(:) ) + abs(VelP(:))  )
 
       del_flux(:,ke,VARS_DDENS_ID) = 0.5_RP * ( &

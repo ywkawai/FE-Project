@@ -467,7 +467,7 @@ contains
       PROG_VARS(:,ke_z,MOMX_VID,ke_xy) = MOMX0_ (:,ke)
       PROG_VARS(:,ke_z,MOMY_VID,ke_xy) = MOMY0_ (:,ke)
       PROG_VARS(:,ke_z,MOMZ_VID,ke_xy) = MOMZ0_ (:,ke)
-      PROG_VARS(:,ke_z,ETOT_VID,ke_xy) = ETOT_ (:,ke)
+      PROG_VARS(:,ke_z,ETOT_VID,ke_xy) = ETOT0_ (:,ke)
 
       DENS_hyd_z(:,ke_z,ke_xy) = DENS_hyd(:,ke)
       PRES_hyd_z(:,ke_z,ke_xy) = PRES_hyd(:,ke)
@@ -490,7 +490,7 @@ contains
       nz(:,ke_z,ke_xy) = lmesh%normal_fn(:,ke,3)
       G13_z   (:,ke_z,ke_xy) = lmesh%GI3(:,ke,1)
       G23_z   (:,ke_z,ke_xy) = lmesh%GI3(:,ke,2)
-      GsqrtV_z(:,ke_z,ke_xy) = lmesh%Gsqrt(:,ke) / lmesh%GsqrtH(elem%IndexH2Dto3D,ke2D)
+      GsqrtV_z(:,ke_z,ke_xy) = 1.0_RP !lmesh%Gsqrt(:,ke) / lmesh%GsqrtH(elem%IndexH2Dto3D,ke2D)
 
       GnnM_z(:,ke_z,ke_xy) = ( &
           1.0_RP / GsqrtV_z(:,ke_z,ke_xy)**2                                                    &
@@ -516,7 +516,7 @@ contains
 
       ! G = (q^n+1 - q^n*) + impl_fac * A(q^n+1) = 0
       ! dG/dq^n+1 del[q] = - G(q^n*)
-      do itr_nlin = 1, -1
+      do itr_nlin = 1, 1
         call PROF_rapstart( 'hevi_cal_vi_ax', 3)
 
         call vi_eval_Ax( &
@@ -589,19 +589,19 @@ contains
     end if
 
     call PROF_rapstart( 'hevi_cal_vi_retrun_var', 3)
-    ! if ( abs(impl_fac) > 0.0_RP) then
-    !   !$omp parallel do collapse(2) private(ke_xy, ke_z, ke)
-    !   do ke_xy=1, lmesh%NeX * lmesh%NeY
-    !   do ke_z=1, lmesh%NeZ
-    !     ke = ke_xy + (ke_z-1)*lmesh%NeX*lmesh%NeY
-    !     DENS_dt(:,ke) = ( PROG_VARS(:,ke_z,DENS_VID,ke_xy) - DDENS_(:,ke) ) / impl_fac
-    !     MOMX_dt(:,ke) = ( PROG_VARS(:,ke_z,MOMX_VID,ke_xy) - MOMX_ (:,ke) ) / impl_fac
-    !     MOMY_dt(:,ke) = ( PROG_VARS(:,ke_z,MOMY_VID,ke_xy) - MOMY_ (:,ke) ) / impl_fac
-    !     MOMZ_dt(:,ke) = ( PROG_VARS(:,ke_z,MOMZ_VID,ke_xy) - MOMZ_ (:,ke) ) / impl_fac
-    !     ETOT_dt(:,ke) = ( PROG_VARS(:,ke_z,ETOT_VID,ke_xy) - ETOT_ (:,ke) ) / impl_fac
-    !   end do
-    !   end do
-    ! else
+    if ( abs(impl_fac) > 0.0_RP) then
+      !$omp parallel do collapse(2) private(ke_xy, ke_z, ke)
+      do ke_xy=1, lmesh%NeX * lmesh%NeY
+      do ke_z=1, lmesh%NeZ
+        ke = ke_xy + (ke_z-1)*lmesh%NeX*lmesh%NeY
+        DENS_dt(:,ke) = ( PROG_VARS(:,ke_z,DENS_VID,ke_xy) - DDENS_(:,ke) ) / impl_fac
+        MOMX_dt(:,ke) = ( PROG_VARS(:,ke_z,MOMX_VID,ke_xy) - MOMX_ (:,ke) ) / impl_fac
+        MOMY_dt(:,ke) = ( PROG_VARS(:,ke_z,MOMY_VID,ke_xy) - MOMY_ (:,ke) ) / impl_fac
+        MOMZ_dt(:,ke) = ( PROG_VARS(:,ke_z,MOMZ_VID,ke_xy) - MOMZ_ (:,ke) ) / impl_fac
+        ETOT_dt(:,ke) = ( PROG_VARS(:,ke_z,ETOT_VID,ke_xy) - ETOT_ (:,ke) ) / impl_fac
+      end do
+      end do
+    else
       call vi_eval_Ax( & 
         DENS_dt(:,:), MOMX_dt(:,:), MOMY_dt(:,:), MOMZ_dt(:,:), ETOT_dt(:,:), & ! (out) 
         alph(:,:,:),                                                          & ! (out, dummy)
@@ -614,7 +614,7 @@ contains
         modalFilterFlag, VModalFilter%FilterMat,                              & ! (in)
         impl_fac, dt,                                                         & ! (in) 
         lmesh, elem, nz, vmapM, vmapP                                         ) ! (in)
-    !end if
+    end if
     call PROF_rapend( 'hevi_cal_vi_retrun_var', 3)
 
     return

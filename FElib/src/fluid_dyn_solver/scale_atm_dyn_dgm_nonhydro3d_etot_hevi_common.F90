@@ -196,9 +196,8 @@ contains
     rP0 = 1.0_RP / PRES00
 
     call vi_cal_del_flux_dyn( del_flux, alph,      & ! (out)
-      PROG_VARS, DPRES, PROG_VARS0, DPRES0,        & ! (in)
+      PROG_VARS, PROG_VARS0, DPRES, DPRES0,        & ! (in)
       DENS_hyd, PRES_hyd,                          & ! (in)
-      Rtot, CPtot_ov_CVtot,                        & ! (in)
       GnnM, G13, G23, GsqrtV, nz, vmapM, vmapP,    & ! (in)
       lmesh, elem )                                  ! (in)
 
@@ -248,12 +247,7 @@ contains
       call sparsemat_matmul(Dz, ENTHALPY(:) * MOMZ(:) / ( DENS_hyd(:,ke_z,ke_xy) + DDENS(:) ), Fz)
       call sparsemat_matmul(Lift, Fscale(:) * del_flux(:,ke_z,ke_xy,ETOT_VID), LiftDelFlx)
       ETOT_t(:,ke) = - ( Escale33(:) * Fz(:) + LiftDelFlx(:) ) * RGsqrtV(:)
-
-      !DENS_t(:,ke) = 0.0_RP
-      !MOMX_t(:,ke) = 0.0_RP
-      !MOMY_t(:,ke) = 0.0_RP
-      !MOMZ_t(:,ke) = 0.0_RP
-      !ETOT_t(:,ke) = 0.0_RP
+      
     end do
     end do
     !$omp end do
@@ -640,8 +634,8 @@ contains
 
 !OCL SERIAL  
   subroutine vi_cal_del_flux_dyn( del_flux, alph,             & ! (out)
-    PVARS_, DPRES_, PVARS0_, DPRES0_,                         & ! (in)
-    DENS_hyd, PRES_hyd, Rtot, CPtot_ov_CVtot,                 & ! (in)
+    PVARS_, PVARS0_, DPRES_, DPRES0_,                         & ! (in)
+    DENS_hyd, PRES_hyd,             & ! (in)
     Gnn_, G13_, G23_, GsqrtV_, nz, vmapM, vmapP, lmesh, elem  ) ! (in)
 
     implicit none
@@ -651,13 +645,11 @@ contains
     real(RP), intent(out) ::  del_flux(elem%NfpTot*lmesh%NeZ,lmesh%NeX*lmesh%NeY,PROG_VARS_NUM)
     real(RP), intent(out) :: alph(elem%NfpTot*lmesh%NeZ,lmesh%NeX*lmesh%NeY)
     real(RP), intent(in) ::  PVARS_ (elem%Np*lmesh%NeZ,PROG_VARS_NUM,lmesh%NeX*lmesh%NeY)
-    real(RP), intent(in) ::  DPRES_ (elem%Np*lmesh%NeZ,lmesh%NeX*lmesh%NeY)
     real(RP), intent(in) ::  PVARS0_(elem%Np*lmesh%NeZ,PROG_VARS_NUM,lmesh%NeX*lmesh%NeY)
+    real(RP), intent(in) ::  DPRES_ (elem%Np*lmesh%NeZ,lmesh%NeX*lmesh%NeY)
     real(RP), intent(in) ::  DPRES0_(elem%Np*lmesh%NeZ,lmesh%NeX*lmesh%NeY)
     real(RP), intent(in) ::  DENS_hyd(elem%Np*lmesh%NeZ,lmesh%NeX*lmesh%NeY)
     real(RP), intent(in) ::  PRES_hyd(elem%Np*lmesh%NeZ,lmesh%NeX*lmesh%NeY)
-    real(RP), intent(in) ::  Rtot(elem%Np*lmesh%NeZ,lmesh%NeX*lmesh%NeY)
-    real(RP), intent(in) ::  CPtot_ov_CVtot(elem%Np*lmesh%NeZ,lmesh%NeX*lmesh%NeY)
     real(RP), intent(in) ::  Gnn_(elem%Np*lmesh%NeZ,lmesh%NeX*lmesh%NeY)
     real(RP), intent(in) ::  G13_(elem%Np*lmesh%NeZ,lmesh%NeX*lmesh%NeY)
     real(RP), intent(in) ::  G23_(elem%Np*lmesh%NeZ,lmesh%NeX*lmesh%NeY)
@@ -668,15 +660,14 @@ contains
     
     integer :: i, p, ke_z, iP, iM
     integer :: ij
-    integer :: ke
     real(RP) :: MOMZ_P
     real(RP) :: wt0M, wt0P
-    real(RP) :: rhot_hyd_M, rhot_hyd_P
     real(RP) :: dpresM, dpresP, densM, densP
     real(RP) :: pres0M, pres0P, dens0M, dens0P
     real(RP) :: EnthalpyOvDENSM, EnthalpyOvDENSP
 
     real(RP) :: gamm, rgamm, PRES0ovRdry, rP0
+    real(RP) :: GsqrtV_M, GsqrtV_P
     !------------------------------------------------------------------------
 
     gamm = CpDry / CvDry
@@ -684,12 +675,16 @@ contains
     PRES0ovRdry = PRES00 / Rdry
     rP0 = 1.0_RP / PRES00
     
-    !$omp parallel private( ij, ke_z, ke, p, i, iM, iP,               &
-    !$omp rhot_hyd_M, rhot_hyd_P, densM, densP, EnthalpyOvDENSM, EnthalpyOvDENSP, &
-    !$omp dpresM, dpresP, MOMZ_P, wt0M, wt0P,                         &
-    !$omp dens0M, dens0P, pres0M, pres0P                              )  
+!   !$omp parallel default(none) &
+!   !$omp shared( gamm, rgamm, PRES0ovRdry, rP0, &
+!   !$omp del_flux, alph, PVARS_, DPRES_, PVARS0_, DPRES0_, &
+!   !$omp DENS_hyd, PRES_hyd, Gnn_, G13_, G23_, GsqrtV_, nz, vmapM, vmapP, lmesh, elem ) &
+!   !$omp private( ij, ke_z, p, i, iM, iP,               &
+!   !$omp densM, densP, EnthalpyOvDENSM, EnthalpyOvDENSP,             &
+!   !$omp dpresM, dpresP, MOMZ_P, wt0M, wt0P,                         &
+!   !$omp dens0M, dens0P, pres0M, pres0P, GsqrtV_M, GsqrtV_P                          )  
 
-    !$omp do collapse(2)
+!    !$omp do
     do ij=1, lmesh%NeX*lmesh%NeY  
     do ke_z=1, lmesh%NeZ  
       do p=1, elem%NfpTot
@@ -717,7 +712,7 @@ contains
         wt0P = ( PVARS0_(iP,MOMZ_VID,ij) / GsqrtV_(iP,ij) + G13_(iP,ij) * PVARS0_(iP,MOMX_VID,ij)  &
                                                           + G23_(iP,ij) * PVARS0_(iP,MOMY_VID,ij)  ) / dens0P 
         
-        alph(i,ij) = 0D0*nz(i,ij)**2 * max( abs( wt0M ) + sqrt( Gnn_(iM,ij) * gamm * pres0M / dens0M ), &
+        alph(i,ij) = nz(i,ij)**2 * max( abs( wt0M ) + sqrt( Gnn_(iM,ij) * gamm * pres0M / dens0M ), &
                                         abs( wt0P ) + sqrt( Gnn_(iP,ij) * gamm * pres0P / dens0P )  )
         
         !----                                
@@ -753,8 +748,8 @@ contains
       end do
     end do
     end do
-    !$omp end do
-    !$omp end parallel
+!   !$omp end do
+!   !$omp end parallel
 
     return
   end subroutine vi_cal_del_flux_dyn

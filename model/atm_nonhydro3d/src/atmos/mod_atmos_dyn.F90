@@ -423,8 +423,8 @@ contains
       this%cal_vi => null()
     case("GLOBALNONHYDRO3D_HEVE_ENTOT")
       this%EQS_TYPEID = EQS_TYPEID_GLOBALNONHYD3D_HEVE_ENTOT
-      call atm_dyn_dgm_globalnonhydro3d_heve_Init( mesh3D )
-      this%cal_tend_ex => atm_dyn_dgm_globalnonhydro3d_heve_cal_tend
+      call atm_dyn_dgm_globalnonhydro3d_etot_heve_Init( mesh3D )
+      this%cal_tend_ex => atm_dyn_dgm_globalnonhydro3d_etot_heve_cal_tend
       this%cal_vi => null()
       this%ENTOT_CONSERVE_SCHEME_FLAG = .true.
     case("GLOBALNONHYDRO3D_HEVI")
@@ -434,9 +434,9 @@ contains
       this%cal_vi => atm_dyn_dgm_globalnonhydro3d_hevi_cal_vi
     case("GLOBALNONHYDRO3D_HEVI_ENTOT")
       this%EQS_TYPEID = EQS_TYPEID_GLOBALNONHYD3D_HEVI_ENTOT
-      call atm_dyn_dgm_globalnonhydro3d_hevi_Init( mesh3D )
-      this%cal_tend_ex => atm_dyn_dgm_globalnonhydro3d_hevi_cal_tend
-      this%cal_vi => atm_dyn_dgm_globalnonhydro3d_hevi_cal_vi
+      call atm_dyn_dgm_globalnonhydro3d_etot_hevi_Init( mesh3D )
+      this%cal_tend_ex => atm_dyn_dgm_globalnonhydro3d_etot_hevi_cal_tend
+      this%cal_vi => atm_dyn_dgm_globalnonhydro3d_etot_hevi_cal_vi
       this%ENTOT_CONSERVE_SCHEME_FLAG = .true.
     case("NONHYDRO3D_SPLITFORM_HEVE")
       this%EQS_TYPEID = EQS_TYPEID_NONHYD3D_SPLITFORM_HEVE
@@ -615,13 +615,13 @@ contains
             this%tint(n)%tend_buf2D_im(:,:,MOMX_ID ,tintbuf_ind),                   & ! (out)
             this%tint(n)%tend_buf2D_im(:,:,MOMY_ID ,tintbuf_ind),                   & ! (out)
             this%tint(n)%tend_buf2D_im(:,:,MOMZ_ID ,tintbuf_ind),                   & ! (out)
-            this%tint(n)%tend_buf2D_im(:,:,DRHOT_ID,tintbuf_ind),                   & ! (out)
+            this%tint(n)%tend_buf2D_im(:,:,THERM_ID,tintbuf_ind),                   & ! (out)
             DDENS%val, MOMX%val, MOMY%val, MOMZ%val,                                & ! (in)
             ThermodynVar%val,                                                       & ! (in)
             DENS_hyd%val, PRES_hyd%val,                                             & ! (in)
             this%tint(n)%var0_2D(:,:,DDENS_ID), this%tint(n)%var0_2D(:,:,MOMX_ID),  & ! (in)
             this%tint(n)%var0_2D(:,:,MOMY_ID ), this%tint(n)%var0_2D(:,:,MOMZ_ID),  & ! (in)
-            this%tint(n)%var0_2D(:,:,DRHOT_ID ),                                    & ! (in)
+            this%tint(n)%var0_2D(:,:,THERM_ID ),                                    & ! (in)
             Rtot%val, CVtot%val, CPtot%val,                                         & ! (in)
             model_mesh%DOptrMat(3), model_mesh%LiftOptrMat,                         & ! (in)
             this%MODALFILTER_FLAG, this%modal_filter_v1D,                           & ! (in)
@@ -641,9 +641,6 @@ contains
                              1, lcmesh%refElem%Np, lcmesh%NeS, lcmesh%NeE )
 
           call this%tint(n)%StoreImplicit( rkstage, MOMZ%val, MOMZ_ID,    &
-                             1, lcmesh%refElem%Np, lcmesh%NeS, lcmesh%NeE )
-
-          call this%tint(n)%StoreImplicit( rkstage, DRHOT%val, DRHOT_ID,  &
                              1, lcmesh%refElem%Np, lcmesh%NeS, lcmesh%NeE )
 
           call this%tint(n)%StoreImplicit( rkstage, ThermodynVar%val, THERM_ID, &
