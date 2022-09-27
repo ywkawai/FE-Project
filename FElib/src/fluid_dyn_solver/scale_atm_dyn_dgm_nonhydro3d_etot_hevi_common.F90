@@ -195,7 +195,7 @@ contains
     rdt = 1.0_RP / dt
     rP0 = 1.0_RP / PRES00
 
-    call vi_cal_del_flux_dyn( del_flux, alph,      & ! (out)
+    call vi_cal_del_flux_dyn2( del_flux, alph,      & ! (out)
       PROG_VARS, PROG_VARS0, DPRES, DPRES0,        & ! (in)
       DENS_hyd, PRES_hyd,                          & ! (in)
       GnnM, G13, G23, GsqrtV, nz, vmapM, vmapP,    & ! (in)
@@ -632,7 +632,7 @@ contains
 
 !-- private ----------------
 
-!OCL SERIAL  
+!OCL SERIAL
   subroutine vi_cal_del_flux_dyn( del_flux, alph,             & ! (out)
     PVARS_, PVARS0_, DPRES_, DPRES0_,                         & ! (in)
     DENS_hyd, PRES_hyd,             & ! (in)
@@ -675,16 +675,16 @@ contains
     PRES0ovRdry = PRES00 / Rdry
     rP0 = 1.0_RP / PRES00
     
-!   !$omp parallel default(none) &
-!   !$omp shared( gamm, rgamm, PRES0ovRdry, rP0, &
-!   !$omp del_flux, alph, PVARS_, DPRES_, PVARS0_, DPRES0_, &
-!   !$omp DENS_hyd, PRES_hyd, Gnn_, G13_, G23_, GsqrtV_, nz, vmapM, vmapP, lmesh, elem ) &
-!   !$omp private( ij, ke_z, p, i, iM, iP,               &
-!   !$omp densM, densP, EnthalpyOvDENSM, EnthalpyOvDENSP,             &
-!   !$omp dpresM, dpresP, MOMZ_P, wt0M, wt0P,                         &
-!   !$omp dens0M, dens0P, pres0M, pres0P, GsqrtV_M, GsqrtV_P                          )  
+  !$omp parallel default(none) &
+  !$omp shared( gamm, rgamm, PRES0ovRdry, rP0, &
+  !$omp del_flux, alph, PVARS_, DPRES_, PVARS0_, DPRES0_, &
+  !$omp DENS_hyd, PRES_hyd, Gnn_, G13_, G23_, GsqrtV_, nz, vmapM, vmapP, lmesh, elem ) &
+  !$omp private( ij, ke_z, p, i, iM, iP,               &
+  !$omp densM, densP, EnthalpyOvDENSM, EnthalpyOvDENSP,             &
+  !$omp dpresM, dpresP, MOMZ_P, wt0M, wt0P,                         &
+  !$omp dens0M, dens0P, pres0M, pres0P, GsqrtV_M, GsqrtV_P                          )  
 
-!    !$omp do
+   !$omp do
     do ij=1, lmesh%NeX*lmesh%NeY  
     do ke_z=1, lmesh%NeZ  
       do p=1, elem%NfpTot
@@ -748,10 +748,141 @@ contains
       end do
     end do
     end do
-!   !$omp end do
-!   !$omp end parallel
+  !$omp end do
+  !$omp end parallel
 
     return
   end subroutine vi_cal_del_flux_dyn
 
+
+!OCL SERIAL
+  subroutine vi_cal_del_flux_dyn2( del_flux, alph,             & ! (out)
+    PVARS_, PVARS0_, DPRES_, DPRES0_,                         & ! (in)
+    DENS_hyd, PRES_hyd,             & ! (in)
+    Gnn_, G13_, G23_, GsqrtV_, nz, vmapM, vmapP, lmesh, elem  ) ! (in)
+
+    implicit none
+
+    class(LocalMesh3D), intent(in) :: lmesh
+    class(elementbase3D), intent(in) :: elem  
+    real(RP), intent(out) ::  del_flux(elem%NfpTot*lmesh%NeZ,lmesh%NeX*lmesh%NeY,PROG_VARS_NUM)
+    real(RP), intent(out) :: alph(elem%NfpTot*lmesh%NeZ,lmesh%NeX*lmesh%NeY)
+    real(RP), intent(in) ::  PVARS_ (elem%Np*lmesh%NeZ,PROG_VARS_NUM,lmesh%NeX*lmesh%NeY)
+    real(RP), intent(in) ::  PVARS0_(elem%Np*lmesh%NeZ,PROG_VARS_NUM,lmesh%NeX*lmesh%NeY)
+    real(RP), intent(in) ::  DPRES_ (elem%Np*lmesh%NeZ,lmesh%NeX*lmesh%NeY)
+    real(RP), intent(in) ::  DPRES0_(elem%Np*lmesh%NeZ,lmesh%NeX*lmesh%NeY)
+    real(RP), intent(in) ::  DENS_hyd(elem%Np*lmesh%NeZ,lmesh%NeX*lmesh%NeY)
+    real(RP), intent(in) ::  PRES_hyd(elem%Np*lmesh%NeZ,lmesh%NeX*lmesh%NeY)
+    real(RP), intent(in) ::  Gnn_(elem%Np*lmesh%NeZ,lmesh%NeX*lmesh%NeY)
+    real(RP), intent(in) ::  G13_(elem%Np*lmesh%NeZ,lmesh%NeX*lmesh%NeY)
+    real(RP), intent(in) ::  G23_(elem%Np*lmesh%NeZ,lmesh%NeX*lmesh%NeY)
+    real(RP), intent(in) ::  GsqrtV_(elem%Np*lmesh%NeZ,lmesh%NeX*lmesh%NeY)
+    real(RP), intent(in) :: nz(elem%NfpTot*lmesh%NeZ,lmesh%NeX*lmesh%NeY)
+    integer, intent(in) :: vmapM(elem%NfpTot*lmesh%NeZ)
+    integer, intent(in) :: vmapP(elem%NfpTot*lmesh%NeZ)
+    
+    integer :: i, p, ke_z, iP, iM
+    integer :: ij
+    real(RP) :: MOMZ_P
+    real(RP) :: wt0M, wt0P
+    real(RP) :: dpresM, dpresP, densM, densP
+    real(RP) :: pres0M, pres0P, dens0M, dens0P
+    real(RP) :: EnthalpyOvDENSM, EnthalpyOvDENSP
+
+    real(RP) :: gamm, rgamm, PRES0ovRdry, rP0
+    real(RP) :: GsqrtV_M, GsqrtV_P
+    !------------------------------------------------------------------------
+
+    gamm = CpDry / CvDry
+    rgamm = CvDry / CpDry
+    PRES0ovRdry = PRES00 / Rdry
+    rP0 = 1.0_RP / PRES00
+    
+   !$omp parallel &
+   !$omp private( ij, ke_z, p, i, iM, iP,                   &
+   !$omp densM, densP, EnthalpyOvDENSM, EnthalpyOvDENSP,    &
+   !$omp dpresM, dpresP, MOMZ_P, wt0M, wt0P,                &
+   !$omp dens0M, dens0P, pres0M, pres0P, GsqrtV_M, GsqrtV_P )  
+
+   !$omp do collapse(2)
+    do ij=1, lmesh%NeX*lmesh%NeY  
+      do ke_z=1, lmesh%NeZ  
+        do p=1, elem%NfpTot
+          i = p + (ke_z-1)*elem%NfpTot
+          iM = vmapM(i); iP = vmapP(i)
+  
+          !-
+          dens0M = DENS_hyd(iM,ij) + PVARS0_(iM,DENS_VID,ij)
+          dens0P = DENS_hyd(iP,ij) + PVARS0_(iP,DENS_VID,ij)
+  
+          pres0M = PRES_hyd(iM,ij) + DPRES0_(iM,ij)
+          pres0P = PRES_hyd(iP,ij) + DPRES0_(iP,ij)
+  
+          wt0M = ( PVARS0_(iM,MOMZ_VID,ij) / GsqrtV_(iM,ij) + G13_(iM,ij) * PVARS0_(iM,MOMX_VID,ij)  &
+                                                            + G23_(iM,ij) * PVARS0_(iM,MOMY_VID,ij)  ) / dens0M      
+          wt0P = ( PVARS0_(iP,MOMZ_VID,ij) / GsqrtV_(iP,ij) + G13_(iP,ij) * PVARS0_(iP,MOMX_VID,ij)  &
+                                                            + G23_(iP,ij) * PVARS0_(iP,MOMY_VID,ij)  ) / dens0P 
+          
+          alph(i,ij) = nz(i,ij)**2 * max( abs( wt0M ) + sqrt( Gnn_(iM,ij) * gamm * pres0M / dens0M ), &
+                                          abs( wt0P ) + sqrt( Gnn_(iP,ij) * gamm * pres0P / dens0P )  )
+          
+        end do
+      end do
+      end do
+    !$omp end do
+
+    !$omp do collapse(2)
+    do ij=1, lmesh%NeX*lmesh%NeY  
+    do ke_z=1, lmesh%NeZ  
+      do p=1, elem%NfpTot
+        i = p + (ke_z-1)*elem%NfpTot
+        iM = vmapM(i); iP = vmapP(i)
+
+        !-
+        densM = DENS_hyd(iM,ij) + PVARS_(iM,DENS_VID,ij)
+        densP = DENS_hyd(iP,ij) + PVARS_(iP,DENS_VID,ij)
+    
+        dpresM = DPRES_(iM,ij)
+        dpresP = DPRES_(iP,ij)
+        EnthalpyOvDENSM = ( PVARS_(iM,ETOT_VID,ij) + PRES_hyd(iM,ij) + dpresM ) / densM
+        EnthalpyOvDENSP = ( PVARS_(iP,ETOT_VID,ij) + PRES_hyd(iP,ij) + dpresP ) / densP
+
+        !----                                
+        if ( iM==iP .and. (ke_z == 1 .or. ke_z == lmesh%NeZ) ) then
+          ! MOMZ_P = - GsqrtV_(iM,ij) * ( dens0M * wt0M + G13_(iM,ij) * PVARS0_(iM,MOMX_VID,ij) &
+          !                                             + G23_(iM,ij) * PVARS0_(iM,MOMY_VID,ij) )
+          MOMZ_P = - PVARS_(iM,MOMZ_VID,ij) &
+                  - 2.0_RP * GsqrtV_(iM,ij) * (  G13_(iM,ij) * PVARS0_(iM,MOMX_VID,ij) &
+                                               + G23_(iM,ij) * PVARS0_(iM,MOMY_VID,ij) )
+          ! alph(i,ij) =  0.0_RP
+        else
+          MOMZ_P = PVARS_(iP,MOMZ_VID,ij)
+        end if
+
+        del_flux(i,ij,DENS_VID) = 0.5_RP * ( &
+                  + ( MOMZ_P - PVARS_(iM,MOMZ_VID,ij) ) * nz(i,ij)                   &
+                  - alph(i,ij) * ( PVARS_(iP,DENS_VID,ij) - PVARS_(iM,DENS_VID,ij) ) )
+        
+        del_flux(i,ij,MOMX_VID) = 0.5_RP * ( &
+                  - alph(i,ij) * ( PVARS_(iP,MOMX_VID,ij) - PVARS_(iM,MOMX_VID,ij) ) )
+        
+        del_flux(i,ij,MOMY_VID) = 0.5_RP * ( &  
+                  - alph(i,ij) * ( PVARS_(iP,MOMY_VID,ij) - PVARS_(iM,MOMY_VID,ij) ) )               
+        
+        del_flux(i,ij,MOMZ_VID) = 0.5_RP * ( &
+  !                + ( MOMZ_P * MOMZ_P / densP - PVARS_(iM,MOMZ_VID,ij) * PVARS_(iM,MOMZ_VID,ij) / densM ) * nz(i,ij) & [<- MOMZ x MOMZ / DENS ]
+                  + ( dpresP - dpresM ) * nz(i,ij)                                   &                    
+                  - alph(i,ij) * ( MOMZ_P                 - PVARS_(iM,MOMZ_VID,ij) ) )
+        
+        del_flux(i,ij,ETOT_VID) = 0.5_RP * ( &
+                  + ( EnthalpyOvDENSP * MOMZ_P - EnthalpyOvDENSM * PVARS_(iM,MOMZ_VID,ij) ) * nz(i,ij) &
+                  - alph(i,ij) * ( PVARS_(iP,ETOT_VID,ij) - PVARS_(iM,ETOT_VID,ij) )                   )
+      end do
+    end do
+    end do
+    !$omp end do
+    !$omp end parallel
+
+    return
+  end subroutine vi_cal_del_flux_dyn2
 end module scale_atm_dyn_dgm_nonhydro3d_etot_hevi_common
