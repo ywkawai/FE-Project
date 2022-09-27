@@ -108,7 +108,7 @@ OBJS_NAME_FLUID_DYN_SOLVER = \
 	scale_atm_dyn_dgm_nonhydro3d_rhot_heve.o         \
 	scale_atm_dyn_dgm_nonhydro3d_etot_hevi_common.o  \
 	scale_atm_dyn_dgm_nonhydro3d_rhot_hevi_common.o  \
-	scale_atm_dyn_dgm_nonhydro3d_etot_hevi_common.o  \
+	scale_atm_dyn_dgm_nonhydro3d_etot_hevi_numflux.o \
 	scale_atm_dyn_dgm_nonhydro3d_rhot_hevi_numflux.o \
 	scale_atm_dyn_dgm_nonhydro3d_etot_hevi.o         \
 	scale_atm_dyn_dgm_nonhydro3d_rhot_hevi.o         \

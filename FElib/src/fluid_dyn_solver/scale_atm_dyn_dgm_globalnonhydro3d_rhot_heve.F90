@@ -8,7 +8,7 @@
 !<
 !-------------------------------------------------------------------------------
 #include "scaleFElib.h"
-module scale_atm_dyn_dgm_globalnonhydro3d_heve
+module scale_atm_dyn_dgm_globalnonhydro3d_rhot_heve
   !-----------------------------------------------------------------------------
   !
   !++ Used modules
@@ -49,9 +49,9 @@ module scale_atm_dyn_dgm_globalnonhydro3d_heve
   !
   !++ Public procedures
   !
-  public :: atm_dyn_dgm_globalnonhydro3d_heve_Init
-  public :: atm_dyn_dgm_globalnonhydro3d_heve_Final
-  public :: atm_dyn_dgm_globalnonhydro3d_heve_cal_tend
+  public :: atm_dyn_dgm_globalnonhydro3d_rhot_heve_Init
+  public :: atm_dyn_dgm_globalnonhydro3d_rhot_heve_Final
+  public :: atm_dyn_dgm_globalnonhydro3d_rhot_heve_cal_tend
 
   !-----------------------------------------------------------------------------
   !
@@ -65,7 +65,7 @@ module scale_atm_dyn_dgm_globalnonhydro3d_heve
   !-------------------
 
 contains
-  subroutine atm_dyn_dgm_globalnonhydro3d_heve_Init( mesh )
+  subroutine atm_dyn_dgm_globalnonhydro3d_rhot_heve_Init( mesh )
 
     implicit none
     class(MeshBase3D), intent(in) :: mesh
@@ -73,21 +73,21 @@ contains
 
     call atm_dyn_dgm_nonhydro3d_common_Init( mesh )
     return
-  end subroutine atm_dyn_dgm_globalnonhydro3d_heve_Init
+  end subroutine atm_dyn_dgm_globalnonhydro3d_rhot_heve_Init
 
 
-  subroutine atm_dyn_dgm_globalnonhydro3d_heve_Final()
+  subroutine atm_dyn_dgm_globalnonhydro3d_rhot_heve_Final()
     implicit none
     !--------------------------------------------
     
     call atm_dyn_dgm_nonhydro3d_common_Final()    
     return
-  end subroutine atm_dyn_dgm_globalnonhydro3d_heve_Final  
+  end subroutine atm_dyn_dgm_globalnonhydro3d_rhot_heve_Final  
 
   !-------------------------------
 
 !OCL SERIAL
-  subroutine atm_dyn_dgm_globalnonhydro3d_heve_cal_tend( &
+  subroutine atm_dyn_dgm_globalnonhydro3d_rhot_heve_cal_tend( &
     DENS_dt, MOMX_dt, MOMY_dt, MOMZ_dt, RHOT_dt,                                & ! (out)
     DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd, CORIOLIS,          & ! (in)
     Rtot, CVtot, CPtot,                                                         & ! (in)
@@ -332,6 +332,6 @@ contains
     end if
 
     return
-  end subroutine atm_dyn_dgm_globalnonhydro3d_heve_cal_tend
+  end subroutine atm_dyn_dgm_globalnonhydro3d_rhot_heve_cal_tend
 
-end module scale_atm_dyn_dgm_globalnonhydro3d_heve
+end module scale_atm_dyn_dgm_globalnonhydro3d_rhot_heve

@@ -86,8 +86,8 @@ $(BUILD_DIR)/scale_variableinfo.o: data/scale_variableinfo.F90 $(DEPENDLIB)
 MODS =	\
 	$(BUILD_DIR)/scale_atm_dyn_dgm_globalnonhydro3d_etot_heve.mod	\
 	$(BUILD_DIR)/scale_atm_dyn_dgm_globalnonhydro3d_etot_hevi.mod	\
-	$(BUILD_DIR)/scale_atm_dyn_dgm_globalnonhydro3d_heve.mod	\
-	$(BUILD_DIR)/scale_atm_dyn_dgm_globalnonhydro3d_hevi.mod	\
+	$(BUILD_DIR)/scale_atm_dyn_dgm_globalnonhydro3d_rhot_heve.mod	\
+	$(BUILD_DIR)/scale_atm_dyn_dgm_globalnonhydro3d_rhot_hevi.mod	\
 	$(BUILD_DIR)/scale_atm_dyn_dgm_globalsw.mod	\
 	$(BUILD_DIR)/scale_atm_dyn_dgm_hydrostatic.mod	\
 	$(BUILD_DIR)/scale_atm_dyn_dgm_modalfilter.mod	\

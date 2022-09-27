@@ -8,7 +8,7 @@
 !<
 !-------------------------------------------------------------------------------
 #include "scaleFElib.h"
-module scale_atm_dyn_dgm_globalnonhydro3d_hevi
+module scale_atm_dyn_dgm_globalnonhydro3d_rhot_hevi
   !-----------------------------------------------------------------------------
   !
   !++ Used modules
@@ -51,10 +51,10 @@ module scale_atm_dyn_dgm_globalnonhydro3d_hevi
   !
   !++ Public procedures
   !
-  public :: atm_dyn_dgm_globalnonhydro3d_hevi_Init
-  public :: atm_dyn_dgm_globalnonhydro3d_hevi_Final
-  public :: atm_dyn_dgm_globalnonhydro3d_hevi_cal_tend
-  public :: atm_dyn_dgm_globalnonhydro3d_hevi_cal_vi
+  public :: atm_dyn_dgm_globalnonhydro3d_rhot_hevi_Init
+  public :: atm_dyn_dgm_globalnonhydro3d_rhot_hevi_Final
+  public :: atm_dyn_dgm_globalnonhydro3d_rhot_hevi_cal_tend
+  public :: atm_dyn_dgm_globalnonhydro3d_rhot_hevi_cal_vi
 
   !-----------------------------------------------------------------------------
   !
@@ -69,28 +69,28 @@ module scale_atm_dyn_dgm_globalnonhydro3d_hevi
 
 contains
 !OCL SERIAL
-  subroutine atm_dyn_dgm_globalnonhydro3d_hevi_Init( mesh )
+  subroutine atm_dyn_dgm_globalnonhydro3d_rhot_hevi_Init( mesh )
     implicit none
     class(MeshBase3D), intent(in) :: mesh
     !--------------------------------------------
 
     call atm_dyn_dgm_nonhydro3d_common_Init( mesh )
     return
-  end subroutine atm_dyn_dgm_globalnonhydro3d_hevi_Init
+  end subroutine atm_dyn_dgm_globalnonhydro3d_rhot_hevi_Init
 
 !OCL SERIAL
-  subroutine atm_dyn_dgm_globalnonhydro3d_hevi_Final()
+  subroutine atm_dyn_dgm_globalnonhydro3d_rhot_hevi_Final()
     implicit none
     !--------------------------------------------
     
     call atm_dyn_dgm_nonhydro3d_common_Final()    
     return
-  end subroutine atm_dyn_dgm_globalnonhydro3d_hevi_Final  
+  end subroutine atm_dyn_dgm_globalnonhydro3d_rhot_hevi_Final  
 
   !-------------------------------
 
 !OCL SERIAL
-  subroutine atm_dyn_dgm_globalnonhydro3d_hevi_cal_tend( &
+  subroutine atm_dyn_dgm_globalnonhydro3d_rhot_hevi_cal_tend( &
     DENS_dt, MOMX_dt, MOMY_dt, MOMZ_dt, RHOT_dt,                                & ! (out)
     DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd, CORIOLIS,          & ! (in)
     Rtot, CVtot, CPtot,                                                         & ! (in)
@@ -330,10 +330,10 @@ contains
     end if
 
     return
-  end subroutine atm_dyn_dgm_globalnonhydro3d_hevi_cal_tend
+  end subroutine atm_dyn_dgm_globalnonhydro3d_rhot_hevi_cal_tend
 
 !OCL SERIAL  
-  subroutine atm_dyn_dgm_globalnonhydro3d_hevi_cal_vi( &
+  subroutine atm_dyn_dgm_globalnonhydro3d_rhot_hevi_cal_vi( &
     DENS_dt, MOMX_dt, MOMY_dt, MOMZ_dt, RHOT_dt,             & ! (out)
     DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd, & ! (in)
     DDENS0_, MOMX0_, MOMY0_, MOMZ0_, DRHOT0_,                & ! (in)
@@ -566,6 +566,6 @@ contains
     call PROF_rapend( 'hevi_cal_vi_retrun_var', 3)
 
     return
-  end subroutine atm_dyn_dgm_globalnonhydro3d_hevi_cal_vi
+  end subroutine atm_dyn_dgm_globalnonhydro3d_rhot_hevi_cal_vi
 
-end module scale_atm_dyn_dgm_globalnonhydro3d_hevi
+end module scale_atm_dyn_dgm_globalnonhydro3d_rhot_hevi
