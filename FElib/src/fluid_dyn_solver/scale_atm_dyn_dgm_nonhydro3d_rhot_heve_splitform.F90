@@ -10,7 +10,7 @@
 !<
 !-------------------------------------------------------------------------------
 #include "scaleFElib.h"
-module scale_atm_dyn_dgm_nonhydro3d_splitform_heve
+module scale_atm_dyn_dgm_nonhydro3d_rhot_heve_splitform
   !-----------------------------------------------------------------------------
   !
   !++ Used modules
@@ -51,9 +51,9 @@ module scale_atm_dyn_dgm_nonhydro3d_splitform_heve
   !
   !++ Public procedures
   !
-  public :: atm_dyn_dgm_nonhydro3d_heve_splitform_Init
-  public :: atm_dyn_dgm_nonhydro3d_heve_splitform_Final
-  public :: atm_dyn_dgm_nonhydro3d_heve_splitform_cal_tend
+  public :: atm_dyn_dgm_nonhydro3d_rhot_heve_splitform_Init
+  public :: atm_dyn_dgm_nonhydro3d_rhot_heve_splitform_Final
+  public :: atm_dyn_dgm_nonhydro3d_rhot_heve_splitform_cal_tend
 
   !-----------------------------------------------------------------------------
   !
@@ -74,7 +74,7 @@ module scale_atm_dyn_dgm_nonhydro3d_splitform_heve
   private :: dx_abc, dy_abc, dz_abc
 
 contains
-  subroutine atm_dyn_dgm_nonhydro3d_heve_splitform_Init( mesh )
+  subroutine atm_dyn_dgm_nonhydro3d_rhot_heve_splitform_Init( mesh )
     implicit none
     class(MeshBase3D), intent(in) :: mesh
 
@@ -104,10 +104,10 @@ contains
     end do
 
     return
-  end subroutine atm_dyn_dgm_nonhydro3d_heve_splitform_Init
+  end subroutine atm_dyn_dgm_nonhydro3d_rhot_heve_splitform_Init
 
 
-  subroutine atm_dyn_dgm_nonhydro3d_heve_splitform_Final()
+  subroutine atm_dyn_dgm_nonhydro3d_rhot_heve_splitform_Final()
     implicit none
     !--------------------------------------------
 
@@ -115,19 +115,19 @@ contains
     call atm_dyn_dgm_nonhydro3d_common_Final()
     
     return
-  end subroutine atm_dyn_dgm_nonhydro3d_heve_splitform_Final  
+  end subroutine atm_dyn_dgm_nonhydro3d_rhot_heve_splitform_Final  
 
   !-------------------------------
 
-  subroutine atm_dyn_dgm_nonhydro3d_heve_splitform_cal_tend( &
+  subroutine atm_dyn_dgm_nonhydro3d_rhot_heve_splitform_cal_tend( &
     DENS_dt, MOMX_dt, MOMY_dt, MOMZ_dt, RHOT_dt,                                & ! (out)
     DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd, CORIOLIS,          & ! (in)
     Rtot, CVtot, CPtot,                                                         & ! (in)
     SL_flag, wdamp_tau, wdamp_height, hveldamp_flag,                            & ! (in)
     Dx, Dy, Dz, Sx, Sy, Sz, Lift, lmesh, elem, lmesh2D, elem2D )
 
-    use scale_atm_dyn_dgm_nonhydro3d_heve_numflux, only: &
-      atm_dyn_dgm_nonhydro3d_heve_numflux_get_generalvc
+    use scale_atm_dyn_dgm_nonhydro3d_rhot_heve_numflux, only: &
+      get_ebnd_flux => atm_dyn_dgm_nonhydro3d_rhot_heve_numflux_get_generalvc
 
     use scale_atm_dyn_dgm_spongelayer, only: &
       atm_dyn_dgm_spongelayer_add_tend
@@ -178,7 +178,7 @@ contains
     !------------------------------------------------------------------------
 
     call PROF_rapstart( 'cal_dyn_tend_bndflux', 3)
-    call atm_dyn_dgm_nonhydro3d_heve_numflux_get_generalvc( &
+    call get_ebnd_flux( &
       del_flux, del_flux_hyd,                                                 & ! (out)
       DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd,                & ! (in)
       Rtot, CVtot, CPtot,                                                     & ! (in)
@@ -324,7 +324,7 @@ contains
     end if
 
     return
-  end subroutine atm_dyn_dgm_nonhydro3d_heve_splitform_cal_tend
+  end subroutine atm_dyn_dgm_nonhydro3d_rhot_heve_splitform_cal_tend
 
 !-----------------------------------------
 
@@ -463,4 +463,4 @@ contains
     return
   end subroutine dz_abc
 
-end module scale_atm_dyn_dgm_nonhydro3d_splitform_heve
+end module scale_atm_dyn_dgm_nonhydro3d_rhot_heve_splitform

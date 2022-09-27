@@ -97,7 +97,7 @@ contains
     Dx, Dy, Dz, Sx, Sy, Sz, Lift, lmesh, elem, lmesh2D, elem2D )
 
     use scale_atm_dyn_dgm_nonhydro3d_etot_hevi_numflux, only: &
-      atm_dyn_dgm_nonhydro3d_etot_hevi_numflux_get_generalvc
+      get_ebnd_flux => atm_dyn_dgm_nonhydro3d_etot_hevi_numflux_get_generalvc
 
     use scale_atm_dyn_dgm_spongelayer, only: &
       atm_dyn_dgm_spongelayer_add_tend
@@ -150,7 +150,7 @@ contains
     !------------------------------------------------------------------------
 
     call PROF_rapstart( 'cal_dyn_tend_bndflux', 3)
-    call atm_dyn_dgm_nonhydro3d_etot_hevi_numflux_get_generalvc( &
+    call get_ebnd_flux( &
       del_flux, del_flux_hyd,                                                 & ! (out)
       DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd,                & ! (in)
       Rtot, CVtot, CPtot,                                                     & ! (in)

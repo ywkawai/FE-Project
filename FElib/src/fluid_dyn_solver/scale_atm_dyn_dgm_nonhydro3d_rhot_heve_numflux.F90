@@ -8,7 +8,7 @@
 !<
 !-------------------------------------------------------------------------------
 #include "scaleFElib.h"
-module scale_atm_dyn_dgm_nonhydro3d_heve_numflux
+module scale_atm_dyn_dgm_nonhydro3d_rhot_heve_numflux
   !-----------------------------------------------------------------------------
   !
   !++ Used modules
@@ -42,8 +42,8 @@ module scale_atm_dyn_dgm_nonhydro3d_heve_numflux
   !
   !++ Public procedures
   !
-  public :: atm_dyn_dgm_nonhydro3d_heve_numflux_get_generalvc
-  public :: atm_dyn_dgm_nonhydro3d_heve_numflux_get_generalhvc
+  public :: atm_dyn_dgm_nonhydro3d_rhot_heve_numflux_get_generalvc
+  public :: atm_dyn_dgm_nonhydro3d_rhot_heve_numflux_get_generalhvc
 
   !-----------------------------------------------------------------------------
   !
@@ -67,7 +67,7 @@ module scale_atm_dyn_dgm_nonhydro3d_heve_numflux
 contains
  
 !OCL SERIAL
-  subroutine atm_dyn_dgm_nonhydro3d_heve_numflux_get_generalvc( &
+  subroutine atm_dyn_dgm_nonhydro3d_rhot_heve_numflux_get_generalvc( &
     del_flux, del_flux_hyd,                                     & ! (out)
     DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd,    & ! (in)
     Rtot, CVtot, CPtot,                                         & ! (in)
@@ -231,10 +231,10 @@ contains
     end do
 
     return
-  end subroutine atm_dyn_dgm_nonhydro3d_heve_numflux_get_generalvc
+  end subroutine atm_dyn_dgm_nonhydro3d_rhot_heve_numflux_get_generalvc
 
 !OCL SERIAL
-  subroutine atm_dyn_dgm_nonhydro3d_heve_numflux_get_generalhvc( &
+  subroutine atm_dyn_dgm_nonhydro3d_rhot_heve_numflux_get_generalhvc( &
     del_flux, del_flux_hyd,                                        & ! (out)
     DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd,       & ! (in)
     Rtot, CVtot, CPtot,                                            & ! (in)
@@ -415,6 +415,6 @@ contains
     end do
 
     return
-  end subroutine atm_dyn_dgm_nonhydro3d_heve_numflux_get_generalhvc
+  end subroutine atm_dyn_dgm_nonhydro3d_rhot_heve_numflux_get_generalhvc
 
-end module scale_atm_dyn_dgm_nonhydro3d_heve_numflux
+end module scale_atm_dyn_dgm_nonhydro3d_rhot_heve_numflux

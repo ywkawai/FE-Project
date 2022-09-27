@@ -8,7 +8,7 @@
 !<
 !-------------------------------------------------------------------------------
 #include "scaleFElib.h"
-module scale_atm_dyn_dgm_nonhydro3d_hevi_common
+module scale_atm_dyn_dgm_nonhydro3d_rhot_hevi_common
   !-----------------------------------------------------------------------------
   !
   !++ Used modules
@@ -49,9 +49,9 @@ module scale_atm_dyn_dgm_nonhydro3d_hevi_common
 
 
   
-  public :: atm_dyn_dgm_nonhydro3d_hevi_common_gen_vmap
-  public :: atm_dyn_dgm_nonhydro3d_hevi_common_eval_Ax_2
-  public :: atm_dyn_dgm_nonhydro3d_hevi_common_construct_matbnd_2
+  public :: atm_dyn_dgm_nonhydro3d_rhot_hevi_common_gen_vmap
+  public :: atm_dyn_dgm_nonhydro3d_rhot_hevi_common_eval_Ax_2
+  public :: atm_dyn_dgm_nonhydro3d_rhot_hevi_common_construct_matbnd_2
 
   !-----------------------------------------------------------------------------
   !
@@ -70,7 +70,7 @@ contains
   !------------------------------------------------
 
 !OCL SERIAL
-  subroutine atm_dyn_dgm_nonhydro3d_hevi_common_gen_vmap( &
+  subroutine atm_dyn_dgm_nonhydro3d_rhot_hevi_common_gen_vmap( &
     vmapM, vmapP, & ! (out)
     lmesh, elem   ) ! (in)
     implicit none
@@ -114,10 +114,10 @@ contains
     !$omp end parallel
 
     return
-  end subroutine atm_dyn_dgm_nonhydro3d_hevi_common_gen_vmap
+  end subroutine atm_dyn_dgm_nonhydro3d_rhot_hevi_common_gen_vmap
 
 !OCL SERIAL  
-  subroutine atm_dyn_dgm_nonhydro3d_hevi_common_eval_Ax_2( &
+  subroutine atm_dyn_dgm_nonhydro3d_rhot_hevi_common_eval_Ax_2( &
     DENS_t, MOMX_t, MOMY_t, MOMZ_t, RHOT_t,                  & ! (out)
     alph,                                                    & ! (out)
     PROG_VARS, PROG_VARS0,                                   & ! (in)
@@ -312,10 +312,10 @@ contains
     !$omp end parallel
 
     return
-  end subroutine atm_dyn_dgm_nonhydro3d_hevi_common_eval_Ax_2
+  end subroutine atm_dyn_dgm_nonhydro3d_rhot_hevi_common_eval_Ax_2
 
 !OCL SERIAL  
-  subroutine atm_dyn_dgm_nonhydro3d_hevi_common_construct_matbnd_2( &
+  subroutine atm_dyn_dgm_nonhydro3d_rhot_hevi_common_construct_matbnd_2( &
     PmatBnd, PmatBnd_uv,                    & ! (out)
     kl, ku, nz_1D,                          & ! (in)
     kl_uv, ku_uv, nz_1D_uv,                 & ! (in)
@@ -621,7 +621,7 @@ contains
     !$omp end parallel
     
     return
-  end subroutine atm_dyn_dgm_nonhydro3d_hevi_common_construct_matbnd_2
+  end subroutine atm_dyn_dgm_nonhydro3d_rhot_hevi_common_construct_matbnd_2
 
 !-- private ----------------
 
@@ -751,4 +751,4 @@ contains
     return
   end subroutine vi_cal_del_flux_dyn
 
-end module scale_atm_dyn_dgm_nonhydro3d_hevi_common
+end module scale_atm_dyn_dgm_nonhydro3d_rhot_hevi_common

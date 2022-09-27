@@ -97,8 +97,8 @@ contains
     SL_flag, wdamp_tau, wdamp_height, hveldamp_flag,                            & ! (in)
     Dx, Dy, Dz, Sx, Sy, Sz, Lift, lmesh, elem, lmesh2D, elem2D )
 
-    use scale_atm_dyn_dgm_nonhydro3d_hevi_numflux, only: &
-      atm_dyn_dgm_nonhydro3d_hevi_numflux_get_generalhvc
+    use scale_atm_dyn_dgm_nonhydro3d_rhot_hevi_numflux, only: &
+      get_ebnd_flux => atm_dyn_dgm_nonhydro3d_rhot_hevi_numflux_get_generalhvc
     use scale_atm_dyn_dgm_spongelayer, only: &
       atm_dyn_dgm_spongelayer_add_tend
     use scale_const, only: &
@@ -155,7 +155,7 @@ contains
     !------------------------------------------------------------------------
 
     call PROF_rapstart('cal_dyn_tend_bndflux', 3)
-    call atm_dyn_dgm_nonhydro3d_hevi_numflux_get_generalhvc( &
+    call get_ebnd_flux( &
       del_flux, del_flux_hyd,                                                  & ! (out)
       DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd,                 & ! (in)
       Rtot, CVtot, CPtot,                                                      & ! (in)
@@ -343,10 +343,10 @@ contains
     impl_fac, dt,                                            & ! (in)
     lmesh, elem, lmesh2D, elem2D                             ) ! (in)
 
-    use scale_atm_dyn_dgm_nonhydro3d_hevi_common, only: &
-      vi_gen_vmap => atm_dyn_dgm_nonhydro3d_hevi_common_gen_vmap,                  &
-      vi_eval_Ax => atm_dyn_dgm_nonhydro3d_hevi_common_eval_Ax_2,                  &
-      vi_construct_matbnd => atm_dyn_dgm_nonhydro3d_hevi_common_construct_matbnd_2
+    use scale_atm_dyn_dgm_nonhydro3d_rhot_hevi_common, only: &
+      vi_gen_vmap => atm_dyn_dgm_nonhydro3d_rhot_hevi_common_gen_vmap,                  &
+      vi_eval_Ax => atm_dyn_dgm_nonhydro3d_rhot_hevi_common_eval_Ax_2,                  &
+      vi_construct_matbnd => atm_dyn_dgm_nonhydro3d_rhot_hevi_common_construct_matbnd_2
   
     implicit none
 
