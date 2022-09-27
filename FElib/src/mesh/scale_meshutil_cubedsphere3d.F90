@@ -77,7 +77,7 @@ contains
     NvY = NeY + 1
     NvZ = NeZ + 1
     allocate( nodesID_3d(NvX,NvY,NvZ,6) )
-    allocate( EToV(Ntile,8), EToE(Ntile,8), EToF(Ntile,8) )
+    allocate( EToV(Ntile,8), EToE(Ntile,6), EToF(Ntile,6) )
 
     counter = 0
     do panelID = 1, 6
