@@ -24,6 +24,7 @@ doc/reference/latex
 *.js
 *.css
 *.dox
+*.i90
 
 #
 scale-dg_init

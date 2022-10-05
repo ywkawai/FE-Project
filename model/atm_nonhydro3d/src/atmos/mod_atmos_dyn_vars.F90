@@ -76,6 +76,7 @@ module mod_atmos_dyn_vars
 
     type(MeshField3D) :: alphaDensM, alphaDensP ! coeffcient with stabilizion terms in numerical flux (element boundary data)
 
+    type(MeshField3D) :: EnTot
   contains
     procedure :: Init => AtmosDynVars_Init
     procedure :: Final => AtmosDynVars_Final
@@ -361,6 +362,8 @@ contains
     !     this%ANALYSIS_VARS3D(v), reg_file_hist )
     ! end do
 
+    call this%EnTot%Init( "EnTot", "", mesh3D )
+    
     return
   end subroutine AtmosDynVars_Init
 

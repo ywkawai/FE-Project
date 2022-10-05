@@ -8,7 +8,7 @@
 !<
 !-------------------------------------------------------------------------------
 #include "scaleFElib.h"
-module scale_atm_dyn_dgm_nonhydro3d_hevi_numflux
+module scale_atm_dyn_dgm_nonhydro3d_rhot_hevi_numflux
   !-----------------------------------------------------------------------------
   !
   !++ Used modules
@@ -42,8 +42,8 @@ module scale_atm_dyn_dgm_nonhydro3d_hevi_numflux
   !
   !++ Public procedures
   !
-  public :: atm_dyn_dgm_nonhydro3d_hevi_numflux_get_generalvc
-  public :: atm_dyn_dgm_nonhydro3d_hevi_numflux_get_generalhvc
+  public :: atm_dyn_dgm_nonhydro3d_rhot_hevi_numflux_get_generalvc
+  public :: atm_dyn_dgm_nonhydro3d_rhot_hevi_numflux_get_generalhvc
 
   !-----------------------------------------------------------------------------
   !
@@ -61,12 +61,13 @@ module scale_atm_dyn_dgm_nonhydro3d_hevi_numflux
   integer, private, parameter :: VARS_MOMY_ID   = 3
   integer, private, parameter :: VARS_MOMZ_ID   = 4
   integer, private, parameter :: VARS_DRHOT_ID  = 5
+  integer, private, parameter :: VARS_EnTot_ID  = 5
   integer, private, parameter :: PROG_VARS_NUM  = 5
 
 contains
  
 !OCL SERIAL
-  subroutine atm_dyn_dgm_nonhydro3d_hevi_numflux_get_generalvc( &
+  subroutine atm_dyn_dgm_nonhydro3d_rhot_hevi_numflux_get_generalvc( &
     del_flux, del_flux_hyd,                                     & ! (out)
     DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd,    & ! (in)
     Rtot, CVtot, CPtot,                                         & ! (in)
@@ -225,10 +226,10 @@ contains
     end do
 
     return
-  end subroutine atm_dyn_dgm_nonhydro3d_hevi_numflux_get_generalvc
+  end subroutine atm_dyn_dgm_nonhydro3d_rhot_hevi_numflux_get_generalvc
 
 !OCL SERIAL
-  subroutine atm_dyn_dgm_nonhydro3d_hevi_numflux_get_generalhvc( &
+  subroutine atm_dyn_dgm_nonhydro3d_rhot_hevi_numflux_get_generalhvc( &
     del_flux, del_flux_hyd,                                        & ! (out)
     DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd,       & ! (in)
     Rtot, CVtot, CPtot,                                            & ! (in)
@@ -410,6 +411,6 @@ contains
     end do
 
     return
-  end subroutine atm_dyn_dgm_nonhydro3d_hevi_numflux_get_generalhvc
+  end subroutine atm_dyn_dgm_nonhydro3d_rhot_hevi_numflux_get_generalhvc
 
-end module scale_atm_dyn_dgm_nonhydro3d_hevi_numflux
+end module scale_atm_dyn_dgm_nonhydro3d_rhot_hevi_numflux

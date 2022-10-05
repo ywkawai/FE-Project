@@ -8,7 +8,7 @@
 !<
 !-------------------------------------------------------------------------------
 #include "scaleFElib.h"
-module scale_atm_dyn_dgm_nonhydro3d_hevi_common
+module scale_atm_dyn_dgm_nonhydro3d_etot_hevi_common
   !-----------------------------------------------------------------------------
   !
   !++ Used modules
@@ -36,7 +36,7 @@ module scale_atm_dyn_dgm_nonhydro3d_hevi_common
   use scale_meshfield_base, only: MeshField3D
 
   use scale_atm_dyn_dgm_nonhydro3d_common, only: &
-    DENS_VID, MOMX_VID, MOMY_VID, MOMZ_VID, RHOT_VID, &
+    DENS_VID, MOMX_VID, MOMY_VID, MOMZ_VID, ETOT_VID, &
     PROG_VARS_NUM
   
   !-----------------------------------------------------------------------------
@@ -49,9 +49,9 @@ module scale_atm_dyn_dgm_nonhydro3d_hevi_common
 
 
   
-  public :: atm_dyn_dgm_nonhydro3d_hevi_common_gen_vmap
-  public :: atm_dyn_dgm_nonhydro3d_hevi_common_eval_Ax_2
-  public :: atm_dyn_dgm_nonhydro3d_hevi_common_construct_matbnd_2
+  public :: atm_dyn_dgm_nonhydro3d_etot_hevi_common_gen_vmap
+  public :: atm_dyn_dgm_nonhydro3d_etot_hevi_common_eval_Ax_2
+  public :: atm_dyn_dgm_nonhydro3d_etot_hevi_common_construct_matbnd_2
 
   !-----------------------------------------------------------------------------
   !
@@ -70,7 +70,7 @@ contains
   !------------------------------------------------
 
 !OCL SERIAL
-  subroutine atm_dyn_dgm_nonhydro3d_hevi_common_gen_vmap( &
+  subroutine atm_dyn_dgm_nonhydro3d_etot_hevi_common_gen_vmap( &
     vmapM, vmapP, & ! (out)
     lmesh, elem   ) ! (in)
     implicit none
@@ -114,14 +114,14 @@ contains
     !$omp end parallel
 
     return
-  end subroutine atm_dyn_dgm_nonhydro3d_hevi_common_gen_vmap
+  end subroutine atm_dyn_dgm_nonhydro3d_etot_hevi_common_gen_vmap
 
 !OCL SERIAL  
-  subroutine atm_dyn_dgm_nonhydro3d_hevi_common_eval_Ax_2( &
-    DENS_t, MOMX_t, MOMY_t, MOMZ_t, RHOT_t,                  & ! (out)
+  subroutine atm_dyn_dgm_nonhydro3d_etot_hevi_common_eval_Ax_2( &
+    DENS_t, MOMX_t, MOMY_t, MOMZ_t, ETOT_t,                  & ! (out)
     alph,                                                    & ! (out)
-    PROG_VARS, PROG_VARS0,                                   & ! (in)
-    DDENS00, MOMX00, MOMY00, MOMZ00, DRHOT00,                & ! (in)
+    PROG_VARS, DPRES, PROG_VARS0, DPRES0,                    & ! (in)
+    DDENS00, MOMX00, MOMY00, MOMZ00, EnTot00,                & ! (in)
     DENS_hyd, PRES_hyd,                                      & ! (in)
     Rtot, CPtot_ov_CVtot,                                    & ! (in)
     Dz, Lift, IntrpMat_VPOrdM1,                              & ! (in)
@@ -140,15 +140,17 @@ contains
     real(RP), intent(out) :: MOMX_t(elem%Np,lmesh%NeA)
     real(RP), intent(out) :: MOMY_t(elem%Np,lmesh%NeA)
     real(RP), intent(out) :: MOMZ_t(elem%Np,lmesh%NeA)
-    real(RP), intent(out) :: RHOT_t(elem%Np,lmesh%NeA)
+    real(RP), intent(out) :: ETOT_t(elem%Np,lmesh%NeA)
     real(RP), intent(out) :: alph(elem%NfpTot,lmesh%NeZ,lmesh%NeX*lmesh%NeY)
     real(RP), intent(in)  :: PROG_VARS  (elem%Np,lmesh%NeZ,PROG_VARS_NUM,lmesh%NeX*lmesh%NeY)
+    real(RP), intent(in)  :: DPRES      (elem%Np,lmesh%NeZ,lmesh%NeX*lmesh%NeY)
     real(RP), intent(in)  :: PROG_VARS0 (elem%Np,lmesh%NeZ,PROG_VARS_NUM,lmesh%NeX*lmesh%NeY)
+    real(RP), intent(in)  :: DPRES0     (elem%Np,lmesh%NeZ,lmesh%NeX*lmesh%NeY)
     real(RP), intent(in)  :: DDENS00(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: MOMX00 (elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: MOMY00 (elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: MOMZ00 (elem%Np,lmesh%NeA)
-    real(RP), intent(in)  :: DRHOT00(elem%Np,lmesh%NeA)
+    real(RP), intent(in)  :: EnTot00(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: DENS_hyd(elem%Np,lmesh%NeZ,lmesh%NeX*lmesh%NeY)
     real(RP), intent(in)  :: PRES_hyd(elem%Np,lmesh%NeZ,lmesh%NeX*lmesh%NeY)
     real(RP), intent(in)  :: Rtot(elem%Np,lmesh%NeZ,lmesh%NeX*lmesh%NeY)
@@ -173,7 +175,7 @@ contains
     real(RP) :: Fscale(elem%NfpTot), Escale33(elem%Np)
     real(RP) :: Fz(elem%Np), LiftDelFlx(elem%Np)
     real(RP) :: del_flux(elem%NfpTot,lmesh%NeZ,lmesh%NeX*lmesh%NeY,PROG_VARS_NUM)
-    real(RP) :: MOMZ(elem%Np), DDENS(elem%Np), DPRES(elem%Np), RHOT(elem%Np)
+    real(RP) :: MOMZ(elem%Np), DDENS(elem%Np), ENTHALPY(elem%Np)
     integer :: ke_xy, ke_z
     integer :: ke, ke2d
     integer :: v
@@ -193,15 +195,14 @@ contains
     rdt = 1.0_RP / dt
     rP0 = 1.0_RP / PRES00
 
-    call vi_cal_del_flux_dyn( del_flux, alph,      & ! (out)
-      PROG_VARS, PROG_VARS0,                       & ! (in)
+    call vi_cal_del_flux_dyn2( del_flux, alph,      & ! (out)
+      PROG_VARS, PROG_VARS0, DPRES, DPRES0,        & ! (in)
       DENS_hyd, PRES_hyd,                          & ! (in)
-      Rtot, CPtot_ov_CVtot,                        & ! (in)
       GnnM, G13, G23, GsqrtV, nz, vmapM, vmapP,    & ! (in)
       lmesh, elem )                                  ! (in)
 
     !$omp parallel private( ke_xy, ke_z, ke, ke2d, ij, v,     &
-    !$omp MOMZ, DDENS, DPRES, RHOT, Fz, LiftDelFlx,           &
+    !$omp MOMZ, DDENS, ENTHALPY, Fz, LiftDelFlx,              &
     !$omp RGsqrtV, ColMask, Fscale, Escale33, drho,           &
     !$omp kk, p, kkk, vmf_v, pp                               )
 
@@ -215,14 +216,10 @@ contains
       drho(:) = matmul(IntrpMat_VPOrdM1, DDENS(:))
 
       MOMZ (:) = PROG_VARS(:,ke_z,MOMZ_VID,ke_xy)
+      ENTHALPY(:) = PROG_VARS(:,ke_z,ETOT_VID,ke_xy) &
+                  + PRES_hyd(:,ke_z,ke_xy) + DPRES(:,ke_z,ke_xy)
 
-      RHOT(:) = PRES00/Rdry * (PRES_hyd(:,ke_z,ke_xy)/PRES00)**rgamm &
-              + PROG_VARS(:,ke_z,RHOT_VID,ke_xy)
-      DPRES(:) = PRES00 * ( Rtot(:,ke_z,ke_xy) * rP0 * RHOT(:) )**CPtot_ov_CVtot(:,ke_z,ke_xy) &
-               - PRES_hyd(:,ke_z,ke_xy)
-!      DPRES(:) = PRES_hyd(:,ke_z,ke_xy) * ( ( RHOT(:) / RHOT_hyd(:) )**gamm - 1.0_RP )
-
-      RGsqrtV(:)  = 1.0_RP / GsqrtV(:,ke_z,ke_xy) 
+      RGsqrtV(:) = 1.0_RP / GsqrtV(:,ke_z,ke_xy) 
       Fscale(:) = lmesh%Fscale(:,ke)
       Escale33(:) = lmesh%Escale(:,ke,3,3)
 
@@ -241,16 +238,16 @@ contains
 
       !-MOMZ
 !      call sparsemat_matmul(Dz, MOMZ(:)**2 / ( DENS_hyd(:,ke_z,ke_xy) + DDENS(:) ) + DPRES(:), Fz) ! [<- MOMZ x MOMZ / DENS + DPRES ]
-      call sparsemat_matmul(Dz, DPRES(:), Fz)
+      call sparsemat_matmul(Dz, DPRES(:,ke_z,ke_xy), Fz)
       call sparsemat_matmul(Lift, Fscale(:) * del_flux(:,ke_z,ke_xy,MOMZ_VID), LiftDelFlx)
       MOMZ_t(:,ke)  = - ( Escale33(:) * Fz(:) + LiftDelFlx(:) ) * RGsqrtV(:) &
                       - Grav * drho(:) 
 
-      !-RHOT
-      call sparsemat_matmul(Dz, RHOT(:) * MOMZ(:) / ( DENS_hyd(:,ke_z,ke_xy) + DDENS(:) ), Fz)
-      call sparsemat_matmul(Lift, Fscale(:) * del_flux(:,ke_z,ke_xy,RHOT_VID), LiftDelFlx)
-      RHOT_t(:,ke) = - ( Escale33(:) * Fz(:) + LiftDelFlx(:) ) * RGsqrtV(:)
-
+      !-EnTot
+      call sparsemat_matmul(Dz, ENTHALPY(:) * MOMZ(:) / ( DENS_hyd(:,ke_z,ke_xy) + DDENS(:) ), Fz)
+      call sparsemat_matmul(Lift, Fscale(:) * del_flux(:,ke_z,ke_xy,ETOT_VID), LiftDelFlx)
+      ETOT_t(:,ke) = - ( Escale33(:) * Fz(:) + LiftDelFlx(:) ) * RGsqrtV(:)
+      
     end do
     end do
     !$omp end do
@@ -272,7 +269,7 @@ contains
               MOMX_t(p,ke) = MOMX_t(p,ke) + vmf_v * PROG_VARS(pp,ke_z,MOMX_VID,ke_xy)
               MOMY_t(p,ke) = MOMY_t(p,ke) + vmf_v * PROG_VARS(pp,ke_z,MOMY_VID,ke_xy)
               MOMZ_t(p,ke) = MOMZ_t(p,ke) + vmf_v * PROG_VARS(pp,ke_z,MOMZ_VID,ke_xy)
-              RHOT_t(p,ke) = RHOT_t(p,ke) + vmf_v * PROG_VARS(pp,ke_z,RHOT_VID,ke_xy)
+              ETOT_t(p,ke) = ETOT_t(p,ke) + vmf_v * PROG_VARS(pp,ke_z,ETOT_VID,ke_xy)
             end do
           end do
           end do
@@ -295,9 +292,9 @@ contains
           b1D_ij(2,:,ke_z,ij,ke_xy) = impl_fac * MOMZ_t(ColMask(:),ke)            &
                                     - PROG_VARS  (ColMask(:),ke_z,MOMZ_VID,ke_xy) &
                                     + MOMZ00(ColMask(:),ke)
-          b1D_ij(3,:,ke_z,ij,ke_xy) = impl_fac * RHOT_t(ColMask(:),ke)            &
-                                    - PROG_VARS  (ColMask(:),ke_z,RHOT_VID,ke_xy) &
-                                    + DRHOT00(ColMask(:),ke)
+          b1D_ij(3,:,ke_z,ij,ke_xy) = impl_fac * ETOT_t(ColMask(:),ke)            &
+                                    - PROG_VARS  (ColMask(:),ke_z,ETOT_VID,ke_xy) &
+                                    + EnTot00(ColMask(:),ke)
           b1D_ij_uv(:,ke_z,1,ij,ke_xy) = impl_fac * MOMX_t(ColMask(:),ke)            &
                                        - PROG_VARS  (ColMask(:),ke_z,MOMX_VID,ke_xy) &
                                        + MOMX00(ColMask(:),ke)
@@ -312,16 +309,16 @@ contains
     !$omp end parallel
 
     return
-  end subroutine atm_dyn_dgm_nonhydro3d_hevi_common_eval_Ax_2
+  end subroutine atm_dyn_dgm_nonhydro3d_etot_hevi_common_eval_Ax_2
 
 !OCL SERIAL  
-  subroutine atm_dyn_dgm_nonhydro3d_hevi_common_construct_matbnd_2( &
+  subroutine atm_dyn_dgm_nonhydro3d_etot_hevi_common_construct_matbnd_2( &
     PmatBnd, PmatBnd_uv,                    & ! (out)
     kl, ku, nz_1D,                          & ! (in)
     kl_uv, ku_uv, nz_1D_uv,                 & ! (in)
-    PROG_VARS0, DENS_hyd, PRES_hyd,         & ! (in)
+    PROG_VARS0, KinHovDENS00, DENS_hyd, PRES_hyd, & ! (in)
     G13, G23, GsqrtV, alph,                 & ! (in)
-    Rtot, CPtot_ov_CVtot,                   & ! (in)
+    Rtot, CPtot_ov_CVtot, GeoPot,           & ! (in)
     Dz, Lift, IntrpMat_VPOrdM1,             & ! (in)
     modalFilterFlag, VModalFilter,          & ! (in)
     impl_fac, dt,                           & ! (in)
@@ -337,6 +334,7 @@ contains
     integer, intent(in) :: kl_uv, ku_uv, nz_1D_uv
     real(RP), intent(out) :: PmatBnd_uv(2*kl_uv+ku_uv+1,elem%Nnode_v,1,lmesh%NeZ,elem%Nnode_h1D**2)
     real(RP), intent(in)  :: PROG_VARS0(elem%Np,lmesh%NeZ,PROG_VARS_NUM)
+    real(RP), intent(in)  :: KinHovDENS00(elem%Np,lmesh%NeZ)
     real(RP), intent(in)  :: DENS_hyd(elem%Np,lmesh%NeZ)
     real(RP), intent(in)  :: PRES_hyd(elem%Np,lmesh%NeZ)
     real(RP), intent(in) ::  G13(elem%Np,lmesh%NeZ)
@@ -345,6 +343,7 @@ contains
     real(RP), intent(in) :: alph(elem%NfpTot,lmesh%NeZ)
     real(RP), intent(in) ::  Rtot(elem%Np,lmesh%NeZ)
     real(RP), intent(in) ::  CPtot_ov_CVtot(elem%Np,lmesh%NeZ)
+    real(RP), intent(in) ::  GeoPot(elem%Np,lmesh%NeZ)
     class(SparseMat), intent(in) :: Dz, Lift
     real(RP), intent(in) :: IntrpMat_VPOrdM1(elem%Np,elem%Np)
     logical, intent(in) :: modalFilterFlag
@@ -356,11 +355,16 @@ contains
     integer, intent(in) :: vmapP(elem%NfpTot,lmesh%NeZ)    
     integer, intent(in) :: ke_x, ke_y
 
-    real(RP) :: RHOT_hyd(elem%Nnode_v)
-    real(RP) :: POT0(elem%Nnode_v,lmesh%NeZ,elem%Nnode_h1D**2)
+    real(RP) :: Gamm_minus_One(elem%Nnode_v)
+    real(RP) :: EnthalpyOvDens0(elem%Nnode_v,lmesh%NeZ,elem%Nnode_h1D**2)
+    real(RP) :: DPresDEtot0(elem%Nnode_v,lmesh%NeZ,elem%Nnode_h1D**2)
+    real(RP) :: DpresDDENS0(elem%Nnode_v,lmesh%NeZ,elem%Nnode_h1D**2)
+    real(RP) :: DpresDMOMZ0(elem%Nnode_v,lmesh%NeZ,elem%Nnode_h1D**2)
     real(RP) :: W0(elem%Nnode_v,lmesh%NeZ,elem%Nnode_h1D**2)
     real(RP) :: DENS0(elem%Nnode_v,lmesh%NeZ,elem%Nnode_h1D**2)
-    real(RP) :: DPDRHOT0(elem%Nnode_v,lmesh%NeZ,elem%Nnode_h1D**2)
+
+    real(RP) :: GeoPot0(elem%Nnode_v,lmesh%NeZ,elem%Nnode_h1D**2)
+
     integer :: ke_z, ke_z2
     integer :: v, ke, p, f1, f2, fp, fp2, FmV
     real(RP) :: gamm, rgamm
@@ -381,9 +385,9 @@ contains
     logical :: bc_flag
     logical :: eval_flag(3,3)
 
-    integer, parameter :: DENS_VID_LC = 1
-    integer, parameter :: MOMZ_VID_LC = 2
-    integer, parameter :: RHOT_VID_LC = 3
+    integer, parameter :: DENS_VID_LC  = 1
+    integer, parameter :: MOMZ_VID_LC  = 2
+    integer, parameter :: EnTot_VID_LC = 3
 
     !--------------------------------------------------------
 
@@ -396,16 +400,16 @@ contains
     end do
     eval_flag(DENS_VID_LC,MOMZ_VID_LC) = .true.
     eval_flag(MOMZ_VID_LC,DENS_VID_LC) = .true.
-    eval_flag(MOMZ_VID_LC,RHOT_VID_LC) = .true.
-    eval_flag(RHOT_VID_LC,MOMZ_VID_LC) = .true.
-    eval_flag(RHOT_VID_LC,DENS_VID_LC) = .true.
+    eval_flag(MOMZ_VID_LC,EnTot_VID_LC) = .true.
+    eval_flag(EnTot_VID_LC,MOMZ_VID_LC) = .true.
+    eval_flag(EnTot_VID_LC,DENS_VID_LC) = .true.
 
     Id(:,:) = 0.0_RP
     do p=1, elem%Nnode_v
       Id(p,p) = 1.0_RP
     end do
 
-    !$omp parallel private(RHOT_hyd, Colmask)
+    !$omp parallel private(Gamm_minus_One, Colmask)
     !$omp workshare
     PmatD(:,:,:,:) = 0.0_RP
     PmatL(:,:,:,:) = 0.0_RP
@@ -424,16 +428,19 @@ contains
     do ke_z=1, lmesh%NeZ
       Colmask(:) = elem%Colmask(:,ij)
 
-      RHOT_hyd(:) = PRES00/Rdry * (PRES_hyd(Colmask(:),ke_z)/PRES00)**rgamm
-      DENS0(:,ke_z,ij) = DENS_hyd(Colmask(:),ke_z) + PROG_VARS0(Colmask(:),ke_z,DENS_VID)
-      POT0(:,ke_z,ij) = ( RHOT_hyd(:) + PROG_VARS0(Colmask(:),ke_z,RHOT_VID) ) / DENS0(:,ke_z,ij)
-      W0(:,ke_z,ij) = PROG_VARS0(Colmask(:),ke_z,MOMZ_VID) / DENS0(:,ke_z,ij)
+      Gamm_minus_One(:) = CPtot_ov_CVtot(Colmask(:),ke_z) - 1.0_RP
 
-      ! DPDRHOT0(:,ke_z,ij) = gamm * PRES_hyd(Colmask(:),ke_z) / RHOT_hyd(:)                         &
-      !             * ( 1.0_RP + PROG_VARS0(Colmask(:),ke_z,RHOT_VID) / RHOT_hyd(:) )**(gamm-1.0_RP) 
-      DPDRHOT0(:,ke_z,ij) = CPtot_ov_CVtot(ColMask(:),ke_z) &
-                          * PRES00 * ( Rtot(ColMask(:),ke_z) / PRES00 * ( DENS0(:,ke_z,ij) * POT0(:,ke_z,ij) ) )**CPtot_ov_CVtot(ColMask(:),ke_z) &
-                          / ( DENS0(:,ke_z,ij) * POT0(:,ke_z,ij) )
+      DENS0(:,ke_z,ij) = DENS_hyd(Colmask(:),ke_z) + PROG_VARS0(Colmask(:),ke_z,DENS_VID)
+      W0(:,ke_z,ij) = PROG_VARS0(Colmask(:),ke_z,MOMZ_VID) / DENS0(:,ke_z,ij)
+      EnthalpyOvDens0(:,ke_z,ij) =&
+          PROG_VARS0(Colmask(:),ke_z,ETOT_VID) / DENS0(:,ke_z,ij) &
+        + Gamm_minus_One(:) * ( PROG_VARS0(Colmask(:),ke_z,ETOT_VID) / DENS0(:,ke_z,ij)       &
+                              - ( KinHOvDENS00(Colmask(:),ke_z) + 0.5_RP * W0(:,ke_z,ij)**2 ) &
+                              - GeoPot(Colmask(:),ke_z) )
+      
+      DPresDEtot0 (:,ke_z,ij) = Gamm_minus_One(:) 
+      DPresDDENS0 (:,ke_z,ij) = Gamm_minus_One(:) * ( ( KinHOvDENS00(Colmask(:),ke_z) + 0.5_RP * W0(:,ke_z,ij)**2 ) - GeoPot(Colmask(:),ke_z) ) 
+      DpresDMOMZ0 (:,ke_z,ij) = Gamm_minus_One(:) * ( - W0(:,ke_z,ij) ) 
     end do
     end do
     !$omp end parallel
@@ -469,16 +476,16 @@ contains
         PmatD_uv(:,p) = Dd(:)
 
         ! MOMZ
-        PmatD(:,p,MOMZ_VID_LC,MOMZ_VID_LC) = Dd(:) !&
-                                           !+ fac_dz_p(:) * 2.0_RP * W0(p,ke_z,ij)  [ <- d_MOMZ ( MOMZ x MOMZ / DENS ) ]
-        PmatD(:,p,MOMZ_VID_LC,DENS_VID_LC) = impl_fac * Grav * IntrpMat_VPOrdM1(Colmask(:),Colmask(p)) !&
-                                           !- fac_dz_p(:) * W0(p,ke_z,ij)**2        [ <- d_DENS ( MOMZ x MOMZ / DENS ) ]
-        PmatD(:,p,MOMZ_VID_LC,RHOT_VID_LC) = fac_dz_p(:) * DPDRHOT0(p,ke_z,ij)
+        PmatD(:,p,MOMZ_VID_LC,MOMZ_VID_LC) = Dd(:) & 
+                                           + fac_dz_p(:) * DpresDMOMZ0(p,ke_z,ij)
+        PmatD(:,p,MOMZ_VID_LC,DENS_VID_LC) = impl_fac * Grav * IntrpMat_VPOrdM1(Colmask(:),Colmask(p)) &
+                                           + fac_dz_p(:) * DpresDDENS0(p,ke_z,ij) 
+        PmatD(:,p,MOMZ_VID_LC,EnTot_VID_LC) = fac_dz_p(:) * DPresDEtot0(p,ke_z,ij)
 
-        !DRHOT
-        PmatD(:,p,RHOT_VID_LC,DENS_VID_LC) = - fac_dz_p(:) * POT0(p,ke_z,ij) * W0(p,ke_z,ij)
-        PmatD(:,p,RHOT_VID_LC,MOMZ_VID_LC) =   fac_dz_p(:) * POT0(p,ke_z,ij)
-        PmatD(:,p,RHOT_VID_LC,RHOT_VID_LC) = Dd(:) + fac_dz_p(:) * W0(p,ke_z,ij)
+        ! EnTot
+        PmatD(:,p,EnTot_VID_LC,DENS_VID_LC)  = fac_dz_p(:) * ( DpresDDENS0(p,ke_z,ij) - EnthalpyOvDens0(p,ke_z,ij) ) * W0(p,ke_z,ij) ! [ <- d_DENS ( ( EnTot + p ) * MOMZ / DENS ) ]
+        PmatD(:,p,EnTot_VID_LC,MOMZ_VID_LC)  = fac_dz_p(:) * ( EnthalpyOvDens0(p,ke_z,ij) + DpresDMOMZ0(p,ke_z,ij) * W0(p,ke_z,ij) ) ! [ <- d_MOMZ ( ( EnTot + p ) * MOMZ / DENS ) ]
+        PmatD(:,p,EnTot_VID_LC,EnTot_VID_LC) = Dd(:) + fac_dz_p(:) * ( 1.0_RP + DPresDEtot0(p,ke_z,ij) ) * W0(p,ke_z,ij)             ! [ <- d_MOMZ ( ( EnTot + p ) * MOMZ / DENS ) ]
       end do
 
       do f1=1, 2
@@ -530,45 +537,45 @@ contains
         tmp1 = fac * elem%Lift(FmV,fp) * lmesh%Fscale(fp,ke) * nz(fp,ke_z)
 
         if (bc_flag) then
-          PmatD(pv1,pv1,DENS_VID_LC,MOMZ_VID_LC) = PmatD(pv1,pv1,DENS_VID_LC,MOMZ_VID_LC) - 2.0_RP * tmp1
-          PmatD(pv1,pv1,RHOT_VID_LC,MOMZ_VID_LC) = PmatD(pv1,pv1,RHOT_VID_LC,MOMZ_VID_LC) - 2.0_RP * tmp1 * POT0(pv1,ke_z,ij)
-          PmatD(pv1,pv1,RHOT_VID_LC,DENS_VID_LC) = PmatD(pv1,pv1,RHOT_VID_LC,DENS_VID_LC) + 2.0_RP * tmp1 * POT0(pv1,ke_z,ij) * W0(pv1,ke_z,ij)
-          PmatD(pv1,pv1,RHOT_VID_LC,RHOT_VID_LC) = PmatD(pv1,pv1,RHOT_VID_LC,RHOT_VID_LC) - 2.0_RP * tmp1 * W0(pv1,ke_z,ij)
+          PmatD(pv1,pv1,DENS_VID_LC,MOMZ_VID_LC  ) = PmatD(pv1,pv1,DENS_VID_LC,MOMZ_VID_LC  ) - 2.0_RP * tmp1
+          PmatD(pv1,pv1,EnTot_VID_LC,MOMZ_VID_LC ) = PmatD(pv1,pv1,EnTot_VID_LC,MOMZ_VID_LC ) - 2.0_RP * tmp1 * ( EnthalpyOvDens0(pv1,ke_z,ij) + DpresDMOMZ0(pv1,ke_z,ij) * W0(pv1,ke_z,ij) )
+          PmatD(pv1,pv1,EnTot_VID_LC,DENS_VID_LC ) = PmatD(pv1,pv1,EnTot_VID_LC,DENS_VID_LC ) - 2.0_RP * tmp1 * ( DpresDDENS0(pv1,ke_z,ij) - EnthalpyOvDens0(pv1,ke_z,ij) ) * W0(pv1,ke_z,ij)
+          PmatD(pv1,pv1,EnTot_VID_LC,EnTot_VID_LC) = PmatD(pv1,pv1,EnTot_VID_LC,EnTot_VID_LC) - 2.0_RP * tmp1 * ( 1.0_RP + DPresDEtot0(pv1,ke_z,ij) ) * W0(pv1,ke_z,ij)
         else 
           PmatD(pv1,pv1,DENS_VID_LC,MOMZ_VID_LC) = PmatD(pv1,pv1,DENS_VID_LC,MOMZ_VID_LC) - tmp1
 
-          ! PmatD(pv1,pv1,MOMZ_VID_LC,MOMZ_VID_LC) = PmatD(pv1,pv1,MOMZ_VID_LC,MOMZ_VID_LC) - tmp1 * 2.0_RP * W0(pv1,ke_z,ij) [ <- d_MOMZ ( MOMZ x MOMZ / DENS ) ]
-          ! PmatD(pv1,pv1,MOMZ_VID_LC,DENS_VID_LC) = PmatD(pv1,pv1,MOMZ_VID_LC,DENS_VID_LC) + tmp1 * W0(pv1,ke_z,ij)**2       [ <- d_DENS ( MOMZ x MOMZ / DENS ) ]
-          PmatD(pv1,pv1,MOMZ_VID_LC,RHOT_VID_LC) = PmatD(pv1,pv1,MOMZ_VID_LC,RHOT_VID_LC) - tmp1 * DPDRHOT0(pv1,ke_z,ij)
+          PmatD(pv1,pv1,MOMZ_VID_LC,DENS_VID_LC ) = PmatD(pv1,pv1,MOMZ_VID_LC,DENS_VID_LC ) - tmp1 * DpresDDENS0(pv1,ke_z,ij)
+          PmatD(pv1,pv1,MOMZ_VID_LC,MOMZ_VID_LC ) = PmatD(pv1,pv1,MOMZ_VID_LC,MOMZ_VID_LC ) - tmp1 * DpresDMOMZ0(pv1,ke_z,ij)
+          PmatD(pv1,pv1,MOMZ_VID_LC,EnTot_VID_LC) = PmatD(pv1,pv1,MOMZ_VID_LC,EnTot_VID_LC) - tmp1 * DpresDEtot0(pv1,ke_z,ij)
 
-          PmatD(pv1,pv1,RHOT_VID_LC,MOMZ_VID_LC) = PmatD(pv1,pv1,RHOT_VID_LC,MOMZ_VID_LC) - tmp1 * POT0(pv1,ke_z,ij)
-          PmatD(pv1,pv1,RHOT_VID_LC,DENS_VID_LC) = PmatD(pv1,pv1,RHOT_VID_LC,DENS_VID_LC) + tmp1 * POT0(pv1,ke_z,ij) * W0(pv1,ke_z,ij)
-          PmatD(pv1,pv1,RHOT_VID_LC,RHOT_VID_LC) = PmatD(pv1,pv1,RHOT_VID_LC,RHOT_VID_LC) - tmp1 * W0(pv1,ke_z,ij)
+          PmatD(pv1,pv1,EnTot_VID_LC,MOMZ_VID_LC ) = PmatD(pv1,pv1,EnTot_VID_LC,MOMZ_VID_LC ) - tmp1 * ( EnthalpyOvDens0(pv1,ke_z,ij) + DpresDMOMZ0(pv1,ke_z,ij) * W0(pv1,ke_z,ij) )
+          PmatD(pv1,pv1,EnTot_VID_LC,DENS_VID_LC ) = PmatD(pv1,pv1,EnTot_VID_LC,DENS_VID_LC ) - tmp1 * ( DpresDDENS0(pv1,ke_z,ij) - EnthalpyOvDens0(pv1,ke_z,ij) ) * W0(pv1,ke_z,ij)
+          PmatD(pv1,pv1,EnTot_VID_LC,EnTot_VID_LC) = PmatD(pv1,pv1,EnTot_VID_LC,EnTot_VID_LC) - tmp1 * ( 1.0_RP + DPresDEtot0(pv1,ke_z,ij) ) * W0(pv1,ke_z,ij)
 
           if (f1 == 1) then
             PmatL(pv1,pv2,DENS_VID_LC,MOMZ_VID_LC) = + tmp1
 
-            ! PmatL(pv1,pv2,MOMZ_VID_LC,MOMZ_VID_LC) = PmatL(pv1,pv2,MOMZ_VID_LC,MOMZ_VID_LC) &     [ <- d_MOMZ ( MOMZ x MOMZ / DENS ) ]
-            !                                      + tmp1 * 2.0_RP * W0(pv2,ke_z2,ij)
-            ! PmatL(pv1,pv2,MOMZ_VID_LC,DENS_VID_LC) = - tmp1 * W0(pv2,ke_z2,ij) * W0(pv2,ke_z2,ij) [ <- d_DENS ( MOMZ x MOMZ / DENS ) ]      
-            PmatL(pv1,pv2,MOMZ_VID_LC,RHOT_VID_LC) = + tmp1 * DPDRHOT0(pv2,ke_z2,ij) 
+            PmatL(pv1,pv2,MOMZ_VID_LC,DENS_VID_LC ) = + tmp1 * DpresDDENS0(pv2,ke_z2,ij) 
+            PmatL(pv1,pv2,MOMZ_VID_LC,MOMZ_VID_LC ) = PmatL(pv1,pv2,MOMZ_VID_LC,MOMZ_VID_LC ) &
+                                                    + tmp1 * DpresDMOMZ0(pv2,ke_z2,ij) 
+            PmatL(pv1,pv2,MOMZ_VID_LC,EnTot_VID_LC) = + tmp1 * DPresDEtot0(pv2,ke_z2,ij) 
 
-            PmatL(pv1,pv2,RHOT_VID_LC,MOMZ_VID_LC) = + tmp1 * POT0(pv2,ke_z2,ij)
-            PmatL(pv1,pv2,RHOT_VID_LC,DENS_VID_LC) = - tmp1 * POT0(pv2,ke_z2,ij) * W0(pv2,ke_z2,ij)
-            PmatL(pv1,pv2,RHOT_VID_LC,RHOT_VID_LC) = PmatL(pv1,pv2,RHOT_VID_LC,RHOT_VID_LC) &
-                                                   + tmp1 * W0(pv2,ke_z2,ij)
+            PmatL(pv1,pv2,EnTot_VID_LC,MOMZ_VID_LC)  = tmp1 * ( EnthalpyOvDens0(pv2,ke_z2,ij) + DpresDMOMZ0(pv2,ke_z2,ij) * W0(pv2,ke_z2,ij) )
+            PmatL(pv1,pv2,EnTot_VID_LC,DENS_VID_LC)  = tmp1 * ( DpresDDENS0(pv2,ke_z2,ij) - EnthalpyOvDens0(pv2,ke_z2,ij) ) * W0(pv2,ke_z2,ij)
+            PmatL(pv1,pv2,EnTot_VID_LC,EnTot_VID_LC) = PmatL(pv1,pv2,EnTot_VID_LC,EnTot_VID_LC) &
+                                                     + tmp1 * ( 1.0_RP + DPresDEtot0(pv2,ke_z2,ij) ) * W0(pv2,ke_z2,ij)
           else
             PmatU(pv1,pv2,DENS_VID_LC,MOMZ_VID_LC) = + tmp1
 
-            ! PmatU(pv1,pv2,MOMZ_VID_LC,MOMZ_VID_LC) = PmatU(pv1,pv2,MOMZ_VID_LC,MOMZ_VID_LC ) &    [ <- d_MOMZ ( MOMZ x MOMZ / DENS ) ]
-            !                                     + tmp1 * 2.0_RP * W0(pv2,ke_z2,ij)
-            ! PmatU(pv1,pv2,MOMZ_VID_LC,DENS_VID_LC) = - tmp1 * W0(pv2,ke_z2,ij) * W0(pv2,ke_z2,ij) [ <- d_DENS ( MOMZ x MOMZ / DENS ) ]  
-            PmatU(pv1,pv2,MOMZ_VID_LC,RHOT_VID_LC) = + tmp1 * DPDRHOT0(pv2,ke_z2,ij)
+            PmatU(pv1,pv2,MOMZ_VID_LC,DENS_VID_LC ) = tmp1 * DpresDDENS0(pv2,ke_z2,ij) 
+            PmatU(pv1,pv2,MOMZ_VID_LC,MOMZ_VID_LC ) = PmatU(pv1,pv2,MOMZ_VID_LC,MOMZ_VID_LC ) &
+                                                    + tmp1 * DpresDMOMZ0(pv2,ke_z2,ij) 
+            PmatU(pv1,pv2,MOMZ_VID_LC,EnTot_VID_LC) = + tmp1 * DPresDEtot0(pv2,ke_z2,ij) 
 
-            PmatU(pv1,pv2,RHOT_VID_LC,MOMZ_VID_LC) = + tmp1 * POT0(pv2,ke_z2,ij)
-            PmatU(pv1,pv2,RHOT_VID_LC,DENS_VID_LC) = - tmp1 * POT0(pv2,ke_z2,ij) * W0(pv2,ke_z2,ij)
-            PmatU(pv1,pv2,RHOT_VID_LC,RHOT_VID_LC) = PmatU(pv1,pv2,RHOT_VID_LC,RHOT_VID_LC) &
-                                                   + tmp1 * W0(pv2,ke_z2,ij)
+            PmatU(pv1,pv2,EnTot_VID_LC,MOMZ_VID_LC ) = tmp1 * ( EnthalpyOvDens0(pv2,ke_z2,ij) + DpresDMOMZ0(pv2,ke_z2,ij) * W0(pv2,ke_z2,ij) )
+            PmatU(pv1,pv2,EnTot_VID_LC,DENS_VID_LC ) = tmp1 * ( DpresDDENS0(pv2,ke_z2,ij) - EnthalpyOvDens0(pv2,ke_z2,ij) ) * W0(pv2,ke_z2,ij)
+            PmatU(pv1,pv2,EnTot_VID_LC,EnTot_VID_LC) = PmatU(pv1,pv2,EnTot_VID_LC,EnTot_VID_LC) &
+                                                     + tmp1 * ( 1.0_RP + DPresDEtot0(pv2,ke_z2,ij) ) * W0(pv2,ke_z2,ij)
           end if
         end if
       end do
@@ -621,14 +628,14 @@ contains
     !$omp end parallel
     
     return
-  end subroutine atm_dyn_dgm_nonhydro3d_hevi_common_construct_matbnd_2
+  end subroutine atm_dyn_dgm_nonhydro3d_etot_hevi_common_construct_matbnd_2
 
 !-- private ----------------
 
-!OCL SERIAL  
+!OCL SERIAL
   subroutine vi_cal_del_flux_dyn( del_flux, alph,             & ! (out)
-    PVARS_, PVARS0_,                                          & ! (in)
-    DENS_hyd, PRES_hyd, Rtot, CPtot_ov_CVtot,                 & ! (in)
+    PVARS_, PVARS0_, DPRES_, DPRES0_,                         & ! (in)
+    DENS_hyd, PRES_hyd,             & ! (in)
     Gnn_, G13_, G23_, GsqrtV_, nz, vmapM, vmapP, lmesh, elem  ) ! (in)
 
     implicit none
@@ -639,10 +646,10 @@ contains
     real(RP), intent(out) :: alph(elem%NfpTot*lmesh%NeZ,lmesh%NeX*lmesh%NeY)
     real(RP), intent(in) ::  PVARS_ (elem%Np*lmesh%NeZ,PROG_VARS_NUM,lmesh%NeX*lmesh%NeY)
     real(RP), intent(in) ::  PVARS0_(elem%Np*lmesh%NeZ,PROG_VARS_NUM,lmesh%NeX*lmesh%NeY)
+    real(RP), intent(in) ::  DPRES_ (elem%Np*lmesh%NeZ,lmesh%NeX*lmesh%NeY)
+    real(RP), intent(in) ::  DPRES0_(elem%Np*lmesh%NeZ,lmesh%NeX*lmesh%NeY)
     real(RP), intent(in) ::  DENS_hyd(elem%Np*lmesh%NeZ,lmesh%NeX*lmesh%NeY)
     real(RP), intent(in) ::  PRES_hyd(elem%Np*lmesh%NeZ,lmesh%NeX*lmesh%NeY)
-    real(RP), intent(in) ::  Rtot(elem%Np*lmesh%NeZ,lmesh%NeX*lmesh%NeY)
-    real(RP), intent(in) ::  CPtot_ov_CVtot(elem%Np*lmesh%NeZ,lmesh%NeX*lmesh%NeY)
     real(RP), intent(in) ::  Gnn_(elem%Np*lmesh%NeZ,lmesh%NeX*lmesh%NeY)
     real(RP), intent(in) ::  G13_(elem%Np*lmesh%NeZ,lmesh%NeX*lmesh%NeY)
     real(RP), intent(in) ::  G23_(elem%Np*lmesh%NeZ,lmesh%NeX*lmesh%NeY)
@@ -653,14 +660,14 @@ contains
     
     integer :: i, p, ke_z, iP, iM
     integer :: ij
-    integer :: ke
     real(RP) :: MOMZ_P
     real(RP) :: wt0M, wt0P
-    real(RP) :: rhot_hyd_M, rhot_hyd_P
-    real(RP) :: dpresM, dpresP, densM, densP,  pottM, pottP
+    real(RP) :: dpresM, dpresP, densM, densP
     real(RP) :: pres0M, pres0P, dens0M, dens0P
+    real(RP) :: EnthalpyOvDENSM, EnthalpyOvDENSP
 
     real(RP) :: gamm, rgamm, PRES0ovRdry, rP0
+    real(RP) :: GsqrtV_M, GsqrtV_P
     !------------------------------------------------------------------------
 
     gamm = CpDry / CvDry
@@ -668,12 +675,16 @@ contains
     PRES0ovRdry = PRES00 / Rdry
     rP0 = 1.0_RP / PRES00
     
-    !$omp parallel private( ij, ke_z, ke, p, i, iM, iP,       &
-    !$omp rhot_hyd_M, rhot_hyd_P, densM, densP, pottM, pottP, &
-    !$omp dpresM, dpresP, MOMZ_P, wt0M, wt0P,                 &
-    !$omp dens0M, dens0P, pres0M, pres0P                      )  
+  !$omp parallel default(none) &
+  !$omp shared( gamm, rgamm, PRES0ovRdry, rP0, &
+  !$omp del_flux, alph, PVARS_, DPRES_, PVARS0_, DPRES0_, &
+  !$omp DENS_hyd, PRES_hyd, Gnn_, G13_, G23_, GsqrtV_, nz, vmapM, vmapP, lmesh, elem ) &
+  !$omp private( ij, ke_z, p, i, iM, iP,               &
+  !$omp densM, densP, EnthalpyOvDENSM, EnthalpyOvDENSP,             &
+  !$omp dpresM, dpresP, MOMZ_P, wt0M, wt0P,                         &
+  !$omp dens0M, dens0P, pres0M, pres0P, GsqrtV_M, GsqrtV_P                          )  
 
-    !$omp do collapse(2)
+   !$omp do
     do ij=1, lmesh%NeX*lmesh%NeY  
     do ke_z=1, lmesh%NeZ  
       do p=1, elem%NfpTot
@@ -681,28 +692,20 @@ contains
         iM = vmapM(i); iP = vmapP(i)
 
         !-
-        rhot_hyd_M = PRES0ovRdry * (PRES_hyd(iM,ij)/PRES00)**rgamm
-        rhot_hyd_P = PRES0ovRdry * (PRES_hyd(iP,ij)/PRES00)**rgamm
-
         densM = DENS_hyd(iM,ij) + PVARS_(iM,DENS_VID,ij)
         densP = DENS_hyd(iP,ij) + PVARS_(iP,DENS_VID,ij)
-        
-        pottM = ( rhot_hyd_M + PVARS_(iM,RHOT_VID,ij) ) / densM
-        pottP = ( rhot_hyd_P + PVARS_(iP,RHOT_VID,ij) ) / densP
     
-        dpresM = PRES00 * ( Rtot(iM,ij) * rP0 * densM * pottM )**CPtot_ov_CVtot(iM,ij) &
-               - PRES_hyd(iM,ij) 
-        dpresP = PRES00 * ( Rtot(iP,ij) * rP0 * densP * pottP )**CPtot_ov_CVtot(iP,ij) &
-               - PRES_hyd(iP,ij)
-        
+        dpresM = DPRES_(iM,ij)
+        dpresP = DPRES_(iP,ij)
+        EnthalpyOvDENSM = ( PVARS_(iM,ETOT_VID,ij) + PRES_hyd(iM,ij) + dpresM ) / densM
+        EnthalpyOvDENSP = ( PVARS_(iP,ETOT_VID,ij) + PRES_hyd(iP,ij) + dpresP ) / densP
+
         !-
         dens0M = DENS_hyd(iM,ij) + PVARS0_(iM,DENS_VID,ij)
         dens0P = DENS_hyd(iP,ij) + PVARS0_(iP,DENS_VID,ij)
 
-        pres0M = PRES00 * ( Rtot(iM,ij) * rP0 * ( rhot_hyd_M + PVARS0_(iM,RHOT_VID,ij) ) )**CPtot_ov_CVtot(iM,ij)        
-        pres0P = PRES00 * ( Rtot(iP,ij) * rP0 * ( rhot_hyd_P + PVARS0_(iP,RHOT_VID,ij) ) )**CPtot_ov_CVtot(iP,ij)        
-        ! pres0M = PRES_hyd(iM,ij) * (1.0_RP + PVARS0_(iM,RHOT_VID,ij) / rhot_hyd_M)**gamm
-        ! pres0P = PRES_hyd(iP,ij) * (1.0_RP + PVARS0_(iP,RHOT_VID,ij) / rhot_hyd_P)**gamm
+        pres0M = PRES_hyd(iM,ij) + DPRES0_(iM,ij)
+        pres0P = PRES_hyd(iP,ij) + DPRES0_(iP,ij)
 
         wt0M = ( PVARS0_(iM,MOMZ_VID,ij) / GsqrtV_(iM,ij) + G13_(iM,ij) * PVARS0_(iM,MOMX_VID,ij)  &
                                                           + G23_(iM,ij) * PVARS0_(iM,MOMY_VID,ij)  ) / dens0M      
@@ -739,9 +742,141 @@ contains
                   + ( dpresP - dpresM ) * nz(i,ij)                                   &                    
                   - alph(i,ij) * ( MOMZ_P                 - PVARS_(iM,MOMZ_VID,ij) ) )
         
-        del_flux(i,ij,RHOT_VID) = 0.5_RP * ( &
-                  + ( pottP * MOMZ_P  - pottM * PVARS_(iM,MOMZ_VID,ij) ) * nz(i,ij)  &
-                  - alph(i,ij) * ( PVARS_(iP,RHOT_VID,ij) - PVARS_(iM,RHOT_VID,ij) ) )
+        del_flux(i,ij,ETOT_VID) = 0.5_RP * ( &
+                  + ( EnthalpyOvDENSP * MOMZ_P - EnthalpyOvDENSM * PVARS_(iM,MOMZ_VID,ij) ) * nz(i,ij) &
+                  - alph(i,ij) * ( PVARS_(iP,ETOT_VID,ij) - PVARS_(iM,ETOT_VID,ij) )                   )
+      end do
+    end do
+    end do
+  !$omp end do
+  !$omp end parallel
+
+    return
+  end subroutine vi_cal_del_flux_dyn
+
+
+!OCL SERIAL
+  subroutine vi_cal_del_flux_dyn2( del_flux, alph,             & ! (out)
+    PVARS_, PVARS0_, DPRES_, DPRES0_,                         & ! (in)
+    DENS_hyd, PRES_hyd,             & ! (in)
+    Gnn_, G13_, G23_, GsqrtV_, nz, vmapM, vmapP, lmesh, elem  ) ! (in)
+
+    implicit none
+
+    class(LocalMesh3D), intent(in) :: lmesh
+    class(elementbase3D), intent(in) :: elem  
+    real(RP), intent(out) ::  del_flux(elem%NfpTot*lmesh%NeZ,lmesh%NeX*lmesh%NeY,PROG_VARS_NUM)
+    real(RP), intent(out) :: alph(elem%NfpTot*lmesh%NeZ,lmesh%NeX*lmesh%NeY)
+    real(RP), intent(in) ::  PVARS_ (elem%Np*lmesh%NeZ,PROG_VARS_NUM,lmesh%NeX*lmesh%NeY)
+    real(RP), intent(in) ::  PVARS0_(elem%Np*lmesh%NeZ,PROG_VARS_NUM,lmesh%NeX*lmesh%NeY)
+    real(RP), intent(in) ::  DPRES_ (elem%Np*lmesh%NeZ,lmesh%NeX*lmesh%NeY)
+    real(RP), intent(in) ::  DPRES0_(elem%Np*lmesh%NeZ,lmesh%NeX*lmesh%NeY)
+    real(RP), intent(in) ::  DENS_hyd(elem%Np*lmesh%NeZ,lmesh%NeX*lmesh%NeY)
+    real(RP), intent(in) ::  PRES_hyd(elem%Np*lmesh%NeZ,lmesh%NeX*lmesh%NeY)
+    real(RP), intent(in) ::  Gnn_(elem%Np*lmesh%NeZ,lmesh%NeX*lmesh%NeY)
+    real(RP), intent(in) ::  G13_(elem%Np*lmesh%NeZ,lmesh%NeX*lmesh%NeY)
+    real(RP), intent(in) ::  G23_(elem%Np*lmesh%NeZ,lmesh%NeX*lmesh%NeY)
+    real(RP), intent(in) ::  GsqrtV_(elem%Np*lmesh%NeZ,lmesh%NeX*lmesh%NeY)
+    real(RP), intent(in) :: nz(elem%NfpTot*lmesh%NeZ,lmesh%NeX*lmesh%NeY)
+    integer, intent(in) :: vmapM(elem%NfpTot*lmesh%NeZ)
+    integer, intent(in) :: vmapP(elem%NfpTot*lmesh%NeZ)
+    
+    integer :: i, p, ke_z, iP, iM
+    integer :: ij
+    real(RP) :: MOMZ_P
+    real(RP) :: wt0M, wt0P
+    real(RP) :: dpresM, dpresP, densM, densP
+    real(RP) :: pres0M, pres0P, dens0M, dens0P
+    real(RP) :: EnthalpyOvDENSM, EnthalpyOvDENSP
+
+    real(RP) :: gamm, rgamm, PRES0ovRdry, rP0
+    real(RP) :: GsqrtV_M, GsqrtV_P
+    !------------------------------------------------------------------------
+
+    gamm = CpDry / CvDry
+    rgamm = CvDry / CpDry
+    PRES0ovRdry = PRES00 / Rdry
+    rP0 = 1.0_RP / PRES00
+    
+   !$omp parallel &
+   !$omp private( ij, ke_z, p, i, iM, iP,                   &
+   !$omp densM, densP, EnthalpyOvDENSM, EnthalpyOvDENSP,    &
+   !$omp dpresM, dpresP, MOMZ_P, wt0M, wt0P,                &
+   !$omp dens0M, dens0P, pres0M, pres0P, GsqrtV_M, GsqrtV_P )  
+
+   !$omp do collapse(2)
+    do ij=1, lmesh%NeX*lmesh%NeY  
+      do ke_z=1, lmesh%NeZ  
+        do p=1, elem%NfpTot
+          i = p + (ke_z-1)*elem%NfpTot
+          iM = vmapM(i); iP = vmapP(i)
+  
+          !-
+          dens0M = DENS_hyd(iM,ij) + PVARS0_(iM,DENS_VID,ij)
+          dens0P = DENS_hyd(iP,ij) + PVARS0_(iP,DENS_VID,ij)
+  
+          pres0M = PRES_hyd(iM,ij) + DPRES0_(iM,ij)
+          pres0P = PRES_hyd(iP,ij) + DPRES0_(iP,ij)
+  
+          wt0M = ( PVARS0_(iM,MOMZ_VID,ij) / GsqrtV_(iM,ij) + G13_(iM,ij) * PVARS0_(iM,MOMX_VID,ij)  &
+                                                            + G23_(iM,ij) * PVARS0_(iM,MOMY_VID,ij)  ) / dens0M      
+          wt0P = ( PVARS0_(iP,MOMZ_VID,ij) / GsqrtV_(iP,ij) + G13_(iP,ij) * PVARS0_(iP,MOMX_VID,ij)  &
+                                                            + G23_(iP,ij) * PVARS0_(iP,MOMY_VID,ij)  ) / dens0P 
+          
+          alph(i,ij) = nz(i,ij)**2 * max( abs( wt0M ) + sqrt( Gnn_(iM,ij) * gamm * pres0M / dens0M ), &
+                                          abs( wt0P ) + sqrt( Gnn_(iP,ij) * gamm * pres0P / dens0P )  )
+          
+        end do
+      end do
+      end do
+    !$omp end do
+
+    !$omp do collapse(2)
+    do ij=1, lmesh%NeX*lmesh%NeY  
+    do ke_z=1, lmesh%NeZ  
+      do p=1, elem%NfpTot
+        i = p + (ke_z-1)*elem%NfpTot
+        iM = vmapM(i); iP = vmapP(i)
+
+        !-
+        densM = DENS_hyd(iM,ij) + PVARS_(iM,DENS_VID,ij)
+        densP = DENS_hyd(iP,ij) + PVARS_(iP,DENS_VID,ij)
+    
+        dpresM = DPRES_(iM,ij)
+        dpresP = DPRES_(iP,ij)
+        EnthalpyOvDENSM = ( PVARS_(iM,ETOT_VID,ij) + PRES_hyd(iM,ij) + dpresM ) / densM
+        EnthalpyOvDENSP = ( PVARS_(iP,ETOT_VID,ij) + PRES_hyd(iP,ij) + dpresP ) / densP
+
+        !----                                
+        if ( iM==iP .and. (ke_z == 1 .or. ke_z == lmesh%NeZ) ) then
+          ! MOMZ_P = - GsqrtV_(iM,ij) * ( dens0M * wt0M + G13_(iM,ij) * PVARS0_(iM,MOMX_VID,ij) &
+          !                                             + G23_(iM,ij) * PVARS0_(iM,MOMY_VID,ij) )
+          MOMZ_P = - PVARS_(iM,MOMZ_VID,ij) &
+                  - 2.0_RP * GsqrtV_(iM,ij) * (  G13_(iM,ij) * PVARS0_(iM,MOMX_VID,ij) &
+                                               + G23_(iM,ij) * PVARS0_(iM,MOMY_VID,ij) )
+          ! alph(i,ij) =  0.0_RP
+        else
+          MOMZ_P = PVARS_(iP,MOMZ_VID,ij)
+        end if
+
+        del_flux(i,ij,DENS_VID) = 0.5_RP * ( &
+                  + ( MOMZ_P - PVARS_(iM,MOMZ_VID,ij) ) * nz(i,ij)                   &
+                  - alph(i,ij) * ( PVARS_(iP,DENS_VID,ij) - PVARS_(iM,DENS_VID,ij) ) )
+        
+        del_flux(i,ij,MOMX_VID) = 0.5_RP * ( &
+                  - alph(i,ij) * ( PVARS_(iP,MOMX_VID,ij) - PVARS_(iM,MOMX_VID,ij) ) )
+        
+        del_flux(i,ij,MOMY_VID) = 0.5_RP * ( &  
+                  - alph(i,ij) * ( PVARS_(iP,MOMY_VID,ij) - PVARS_(iM,MOMY_VID,ij) ) )               
+        
+        del_flux(i,ij,MOMZ_VID) = 0.5_RP * ( &
+  !                + ( MOMZ_P * MOMZ_P / densP - PVARS_(iM,MOMZ_VID,ij) * PVARS_(iM,MOMZ_VID,ij) / densM ) * nz(i,ij) & [<- MOMZ x MOMZ / DENS ]
+                  + ( dpresP - dpresM ) * nz(i,ij)                                   &                    
+                  - alph(i,ij) * ( MOMZ_P                 - PVARS_(iM,MOMZ_VID,ij) ) )
+        
+        del_flux(i,ij,ETOT_VID) = 0.5_RP * ( &
+                  + ( EnthalpyOvDENSP * MOMZ_P - EnthalpyOvDENSM * PVARS_(iM,MOMZ_VID,ij) ) * nz(i,ij) &
+                  - alph(i,ij) * ( PVARS_(iP,ETOT_VID,ij) - PVARS_(iM,ETOT_VID,ij) )                   )
       end do
     end do
     end do
@@ -749,6 +884,5 @@ contains
     !$omp end parallel
 
     return
-  end subroutine vi_cal_del_flux_dyn
-
-end module scale_atm_dyn_dgm_nonhydro3d_hevi_common
+  end subroutine vi_cal_del_flux_dyn2
+end module scale_atm_dyn_dgm_nonhydro3d_etot_hevi_common

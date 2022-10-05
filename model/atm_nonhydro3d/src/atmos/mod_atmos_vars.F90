@@ -122,7 +122,9 @@ module mod_atmos_vars
   ! Prognostic variables in dynamical process  
 
   integer, public, parameter :: ATMOS_PROGVARS_DDENS_ID   = 1
+  integer, public, parameter :: ATMOS_PROGVARS_THERM_ID   = 2 ! Variable associated with energy equation
   integer, public, parameter :: ATMOS_PROGVARS_DRHOT_ID   = 2
+  integer, public, parameter :: ATMOS_PROGVARS_ENTOT_ID   = 2
   integer, public, parameter :: ATMOS_PROGVARS_MOMZ_ID    = 3
   integer, public, parameter :: ATMOS_PROGVARS_MOMX_ID    = 4
   integer, public, parameter :: ATMOS_PROGVARS_MOMY_ID    = 5  
@@ -334,7 +336,7 @@ contains
     if( ierr < 0 ) then !--- missing
        LOG_INFO("ATMOS_vars_setup",*) 'Not found namelist. Default used.'
     elseif( ierr > 0 ) then !--- fatal error
-       LOG_ERROR("ATMOS_vars_setup",*) 'Not appropriate names in namelist PARAM_ATMOS_VARS. Check!'
+       LOG_ERROR("ATMOS_vars_setup",*) 'Invalid names in namelist PARAM_ATMOS_VARS. Check!'
        call PRC_abort
     endif
     LOG_NML(PARAM_ATMOS_VARS)
@@ -1516,9 +1518,10 @@ contains
     real(RP), intent(in) :: CVtot(elem%Np,lcmesh%NeA)
     real(RP), intent(in) :: CPtot(elem%Np,lcmesh%NeA)
 
-    integer :: ke
+    integer :: ke, ke2D
     integer :: iq
     real(RP) :: RHOT(elem%Np), DENS(elem%Np), PRES(elem%Np), TEMP(elem%Np)
+    real(RP) :: mom_u1(elem%Np), mom_u2(elem%Np), G_11(elem%Np), G_12(elem%Np), G_22(elem%Np)
     real(RP) :: PSAT(elem%Np)
 
     integer :: iq_QV
@@ -1620,17 +1623,26 @@ contains
       end if
     
     case('ENGK')
-      !$omp parallel do private (DENS)
+      !$omp parallel do private (ke2D, DENS, mom_u1, mom_u2, G_11, G_12, G_22)
       do ke=1, lcmesh%Ne
+        ke2D = lcmesh%EMap3Dto2D(ke)
+
         DENS(:) = DDENS_(:,ke) + DENS_hyd(:,ke)
-        var_out(:,ke) = 0.5_RP * ( MOMX_(:,ke)**2 + MOMY_(:,ke)**2 + MOMZ_(:,ke)**2 ) / DENS(:)
+        G_11(:) = lcmesh%G_ij(elem%IndexH2Dto3D,ke2D,1,1)
+        G_12(:) = lcmesh%G_ij(elem%IndexH2Dto3D,ke2D,1,2)
+        G_22(:) = lcmesh%G_ij(elem%IndexH2Dto3D,ke2D,2,2)
+
+        mom_u1(:) = G_11(:) * MOMX_(:,ke) + G_12(:) * MOMY_(:,ke)
+        mom_u2(:) = G_12(:) * MOMX_(:,ke) + G_22(:) * MOMY_(:,ke)
+
+        var_out(:,ke) = 0.5_RP * ( MOMX_(:,ke) * mom_u1(:) + MOMY_(:,ke) * mom_u2(:) + MOMZ_(:,ke)**2 ) / DENS(:)
       end do
     
     case('ENGP')
       !$omp parallel do private (DENS)
       do ke=1, lcmesh%Ne
         DENS(:) = DDENS_(:,ke) + DENS_hyd(:,ke)
-        var_out(:,ke) = DENS(:) * Grav * lcmesh%pos_en(:,ke,3)
+        var_out(:,ke) = DENS(:) * Grav * lcmesh%zlev(:,ke)
       end do
     
     case('ENGI')
@@ -1647,11 +1659,19 @@ contains
       end do
     
     case('ENGT')
-      !$omp parallel do private (RHOT, PRES, DENS, iq)
+      !$omp parallel do private (ke2D, RHOT, PRES, DENS, mom_u1, mom_u2, iq, G_11, G_12, G_22)
       do ke=1, lcmesh%Ne
+        ke2D = lcmesh%EMap3Dto2D(ke)
+
         RHOT(:) = PRES00/Rdry * (PRES_hyd(:,ke)/PRES00)**(CVdry/CPdry) + DRHOT_(:,ke)
         PRES(:) = PRES00 * ( Rtot(:,ke) * RHOT(:) / PRES00 )**( CPtot(:,ke)/CVtot(:,ke) )
         DENS(:) = DDENS_(:,ke) + DENS_hyd(:,ke)
+
+        G_11(:) = lcmesh%G_ij(elem%IndexH2Dto3D,ke2D,1,1)
+        G_12(:) = lcmesh%G_ij(elem%IndexH2Dto3D,ke2D,1,2)
+        G_22(:) = lcmesh%G_ij(elem%IndexH2Dto3D,ke2D,2,2)
+        mom_u1(:) = G_11(:) * MOMX_(:,ke) + G_12(:) * MOMY_(:,ke)
+        mom_u2(:) = G_12(:) * MOMX_(:,ke) + G_22(:) * MOMY_(:,ke)
 
         ! ENGI
         var_out(:,ke) = QDRY_(:,ke) * PRES(:) / Rtot(:,ke) * CVdry
@@ -1661,9 +1681,9 @@ contains
         end do
         ! ENGT
         var_out(:,ke) = &
-            0.5_RP * ( MOMX_(:,ke)**2 + MOMY_(:,ke)**2 + MOMZ_(:,ke)**2 ) / DENS(:)  & ! ENGK       
-          + var_out(:,ke)                                                            & ! ENGI
-          + DENS(:) * Grav * lcmesh%pos_en(:,ke,3)                                     ! ENGP
+            0.5_RP * ( MOMX_(:,ke) * mom_u1(:) + MOMY_(:,ke) * mom_u2(:) + MOMZ_(:,ke)**2 ) / DENS(:) & ! ENGK       
+          + var_out(:,ke)                                                                             & ! ENGI
+          + DENS(:) * Grav * lcmesh%pos_en(:,ke,3)                                                      ! ENGP
       end do
     
     case default

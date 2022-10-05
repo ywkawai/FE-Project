@@ -8,7 +8,7 @@
 !<
 !-------------------------------------------------------------------------------
 #include "scaleFElib.h"
-module scale_atm_dyn_dgm_nonhydro3d_heve
+module scale_atm_dyn_dgm_nonhydro3d_etot_heve
   !-----------------------------------------------------------------------------
   !
   !++ Used modules
@@ -37,7 +37,8 @@ module scale_atm_dyn_dgm_nonhydro3d_heve
   use scale_atm_dyn_dgm_nonhydro3d_common, only: &
     atm_dyn_dgm_nonhydro3d_common_Init,               &
     atm_dyn_dgm_nonhydro3d_common_Final,              &
-    DENS_VID, MOMX_VID, MOMY_VID, MOMZ_VID, RHOT_VID, &
+    DENS_VID, MOMX_VID, MOMY_VID, MOMZ_VID, ETOT_VID, &
+    RHOT_VID,                                         &
     PROG_VARS_NUM,                                    &
     IntrpMat_VPOrdM1
 
@@ -48,9 +49,9 @@ module scale_atm_dyn_dgm_nonhydro3d_heve
   !
   !++ Public procedures
   !
-  public :: atm_dyn_dgm_nonhydro3d_heve_Init
-  public :: atm_dyn_dgm_nonhydro3d_heve_Final
-  public :: atm_dyn_dgm_nonhydro3d_heve_cal_tend
+  public :: atm_dyn_dgm_nonhydro3d_etot_heve_Init
+  public :: atm_dyn_dgm_nonhydro3d_etot_heve_Final
+  public :: atm_dyn_dgm_nonhydro3d_etot_heve_cal_tend
 
   !-----------------------------------------------------------------------------
   !
@@ -64,36 +65,36 @@ module scale_atm_dyn_dgm_nonhydro3d_heve
   !-------------------
 
 contains
-  subroutine atm_dyn_dgm_nonhydro3d_heve_Init( mesh )
+  subroutine atm_dyn_dgm_nonhydro3d_etot_heve_Init( mesh )
     implicit none
     class(MeshBase3D), intent(in) :: mesh
     !--------------------------------------------
 
     call atm_dyn_dgm_nonhydro3d_common_Init( mesh )
     return
-  end subroutine atm_dyn_dgm_nonhydro3d_heve_Init
+  end subroutine atm_dyn_dgm_nonhydro3d_etot_heve_Init
 
 
-  subroutine atm_dyn_dgm_nonhydro3d_heve_Final()
+  subroutine atm_dyn_dgm_nonhydro3d_etot_heve_Final()
     implicit none
     !--------------------------------------------
     
     call atm_dyn_dgm_nonhydro3d_common_Final()
     return
-  end subroutine atm_dyn_dgm_nonhydro3d_heve_Final  
+  end subroutine atm_dyn_dgm_nonhydro3d_etot_heve_Final  
 
   !-------------------------------
 
 !OCL SERIAL
-  subroutine atm_dyn_dgm_nonhydro3d_heve_cal_tend( &
-    DENS_dt, MOMX_dt, MOMY_dt, MOMZ_dt, RHOT_dt,                                & ! (out)
+  subroutine atm_dyn_dgm_nonhydro3d_etot_heve_cal_tend( &
+    DENS_dt, MOMX_dt, MOMY_dt, MOMZ_dt, ETOT_dt,                                & ! (out)
     DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd, CORIOLIS,          & ! (in)
     Rtot, CVtot, CPtot,                                                         & ! (in)
     SL_flag, wdamp_tau, wdamp_height, hveldamp_flag,                            & ! (in)
     Dx, Dy, Dz, Sx, Sy, Sz, Lift, lmesh, elem, lmesh2D, elem2D )
 
-    use scale_atm_dyn_dgm_nonhydro3d_heve_numflux, only: &
-      atm_dyn_dgm_nonhydro3d_heve_numflux_get_generalvc
+    use scale_atm_dyn_dgm_nonhydro3d_etot_heve_numflux, only: &
+      get_ebnd_flux => atm_dyn_dgm_nonhydro3d_etot_heve_numflux_get_generalvc
 
     use scale_atm_dyn_dgm_spongelayer, only: &
       atm_dyn_dgm_spongelayer_add_tend
@@ -101,15 +102,15 @@ contains
     implicit none
 
     class(LocalMesh3D), intent(in) :: lmesh
-    class(elementbase3D), intent(in) :: elem
+    class(ElementBase3D), intent(in) :: elem
     class(LocalMesh2D), intent(in) :: lmesh2D
-    class(elementbase2D), intent(in) :: elem2D
+    class(ElementBase2D), intent(in) :: elem2D
     type(SparseMat), intent(in) :: Dx, Dy, Dz, Sx, Sy, Sz, Lift
     real(RP), intent(out) :: DENS_dt(elem%Np,lmesh%NeA)
     real(RP), intent(out) :: MOMX_dt(elem%Np,lmesh%NeA)
     real(RP), intent(out) :: MOMY_dt(elem%Np,lmesh%NeA)
     real(RP), intent(out) :: MOMZ_dt(elem%Np,lmesh%NeA)
-    real(RP), intent(out) :: RHOT_dt(elem%Np,lmesh%NeA)
+    real(RP), intent(out) :: ETOT_dt(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: DDENS_(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: MOMX_(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: MOMY_(elem%Np,lmesh%NeA)
@@ -141,15 +142,17 @@ contains
 
     real(RP) :: gamm, rgamm    
     real(RP) :: rP0
-    real(RP) :: RovP0, P0ovR       
+    real(RP) :: RovP0, P0ovR      
+    
+    real(RP) :: enthalpy_(elem%Np)    
     !------------------------------------------------------------------------
 
     call PROF_rapstart('cal_dyn_tend_bndflux', 3)
-    call atm_dyn_dgm_nonhydro3d_heve_numflux_get_generalvc( &
+    call get_ebnd_flux( &
       del_flux, del_flux_hyd,                                                 & ! (out)
       DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd,                & ! (in)
       Rtot, CVtot, CPtot,                                                     & ! (in)
-      lmesh%Gsqrt, lmesh%GI3(:,:,1), lmesh%GI3(:,:,2),                        & ! (in)    
+      lmesh%Gsqrt, lmesh%GI3(:,:,1), lmesh%GI3(:,:,2), lmesh%zlev(:,:),       & ! (in)    
       lmesh%normal_fn(:,:,1), lmesh%normal_fn(:,:,2), lmesh%normal_fn(:,:,3), & ! (in)
       lmesh%vmapM, lmesh%vmapP,                                               & ! (in)
       lmesh, elem, lmesh2D, elem2D )                                            ! (in)
@@ -165,7 +168,7 @@ contains
 
     !$omp parallel do private( ke, ke2d, Cori,     &
     !$omp RHOT_, DPRES_, rdens_, u_, v_, w_, wt_,  &
-    !$omp drho, GradPhyd_x, GradPhyd_y,            &
+    !$omp enthalpy_, drho, GradPhyd_x, GradPhyd_y, &
     !$omp GsqrtV, RGsqrtV,                         &
     !$omp Fx, Fy, Fz, LiftDelFlx )
     do ke = lmesh%NeS, lmesh%NeE
@@ -186,6 +189,11 @@ contains
       v_ (:) = MOMY_(:,ke) * rdens_(:)
       w_ (:) = MOMZ_(:,ke) * rdens_(:)
       wt_(:) = w_(:) * RGsqrtV(:) + lmesh%GI3(:,ke,1) * u_(:) + lmesh%GI3(:,ke,2) * v_(:) 
+
+      enthalpy_(:) = &
+          CPtot(:,ke) * ( PRES_hyd(:,ke) + DPRES_(:) ) / Rtot(:,ke)                    &
+        + Grav * ( DDENS_(:,ke) + DENS_hyd(:,ke) ) * lmesh%zlev(:,ke)                  &
+        + 0.5_RP * ( MOMX_(:,ke) * u_(:) + MOMY_(:,ke) * v_(:) + MOMZ_(:,ke) * w_(:) )
 
       drho(:) = matmul(IntrpMat_VPOrdM1, DDENS_(:,ke))
 
@@ -261,13 +269,13 @@ contains
             + LiftDelFlx(:) ) / lmesh%Gsqrt(:,ke)  &
           - Grav * drho(:)
 
-      !-- RHOT
-      call sparsemat_matmul(Dx, lmesh%Gsqrt(:,ke) * u_ (:) * RHOT_(:), Fx)
-      call sparsemat_matmul(Dy, lmesh%Gsqrt(:,ke) * v_ (:) * RHOT_(:), Fy)
-      call sparsemat_matmul(Dz, lmesh%Gsqrt(:,ke) * wt_(:) * RHOT_(:), Fz)
-      call sparsemat_matmul(Lift, lmesh%Fscale(:,ke) * del_flux(:,ke,RHOT_VID), LiftDelFlx)
-      
-      RHOT_dt(:,ke) = &
+      !-- ETOT
+      call sparsemat_matmul(Dx, lmesh%Gsqrt(:,ke) * u_ (:) * enthalpy_(:), Fx)
+      call sparsemat_matmul(Dy, lmesh%Gsqrt(:,ke) * v_ (:) * enthalpy_(:), Fy)
+      call sparsemat_matmul(Dz, lmesh%Gsqrt(:,ke) * wt_(:) * enthalpy_(:), Fz)
+      call sparsemat_matmul(Lift, lmesh%Fscale(:,ke) * del_flux(:,ke,ETOT_VID), LiftDelFlx)
+          
+      ETOT_dt(:,ke) = &
           - ( lmesh%Escale(:,ke,1,1) * Fx(:)      &
             + lmesh%Escale(:,ke,2,2) * Fy(:)      &
             + lmesh%Escale(:,ke,3,3) * Fz(:)      &
@@ -287,6 +295,6 @@ contains
     end if
 
     return
-  end subroutine atm_dyn_dgm_nonhydro3d_heve_cal_tend
+  end subroutine atm_dyn_dgm_nonhydro3d_etot_heve_cal_tend
 
-end module scale_atm_dyn_dgm_nonhydro3d_heve
+end module scale_atm_dyn_dgm_nonhydro3d_etot_heve
