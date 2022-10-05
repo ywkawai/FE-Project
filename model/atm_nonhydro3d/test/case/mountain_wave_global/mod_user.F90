@@ -173,7 +173,7 @@ contains
       call AtmosVars_GetLocalMeshPrgVars( n, atm%mesh%ptr_mesh,  &
         atm%vars%PROGVARS_manager, atm%vars%AUXVARS_manager,     &
         DDENS, MOMX, MOMY, MOMZ, DRHOT,                          &
-        DENS_hyd, PRES_hyd, lcmesh                               )      
+        DENS_hyd, PRES_hyd, Rtot, CVtot, CPtot, lcmesh           )     
       
       call AtmosVars_GetLocalMeshPhyAuxVars( n,  atm%mesh%ptr_mesh, &
         atm%vars%AUXVARS_manager, PRES, PT                          )
@@ -309,7 +309,7 @@ contains
 
     call hydrostatic_calc_basicstate_constBVFreq( DENS_hyd, PRES_hyd, & ! (out)
       BruntVaisalaFreq, THETA0, PRES00,                               & ! (in)
-      x, y, z, lcmesh, elem                                           ) ! (in)
+      x, y, lcmesh%zlev, lcmesh, elem                                 ) ! (in)
     
     !---
 
