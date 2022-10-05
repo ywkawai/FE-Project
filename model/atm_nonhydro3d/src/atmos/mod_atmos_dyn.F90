@@ -497,7 +497,7 @@ contains
       this%cal_vi => atm_dyn_dgm_nonhydro3d_rhot_hevi_splitform_cal_vi
       this%dynsolver_final => atm_dyn_dgm_nonhydro3d_rhot_hevi_splitform_Final
     case default
-      LOG_ERROR("ATMOS_DYN_setup",*) 'Inappropriate names in namelist PARAM_ATMOS_DYN. Check!'
+      LOG_ERROR("ATMOS_DYN_setup",*) 'Invalid EQS_TYPE in namelist PARAM_ATMOS_DYN. Check!'
       call PRC_abort
     end select    
 
@@ -753,7 +753,7 @@ contains
           this%tint(n)%tend_buf2D_ex(:,:,MOMX_ID ,tintbuf_ind),                   &
           this%tint(n)%tend_buf2D_ex(:,:,MOMY_ID ,tintbuf_ind),                   &
           this%tint(n)%tend_buf2D_ex(:,:,MOMZ_ID ,tintbuf_ind),                   &
-          this%tint(n)%tend_buf2D_ex(:,:,DRHOT_ID,tintbuf_ind),                   &
+          this%tint(n)%tend_buf2D_ex(:,:,THERM_ID,tintbuf_ind),                   &
           DDENS%val, MOMX%val, MOMY%val, MOMZ%val, DRHOT%val,                     &
           DENS_hyd%val, PRES_hyd%val,                                             &
           Coriolis%val,                                                           &
@@ -908,11 +908,25 @@ contains
         call PROF_rapend( 'ATM_DYN_get_localmesh_ptr', 2)
 
         call PROF_rapstart( 'ATM_DYN_update_modalfilter', 2)
+        if ( this%ENTOT_CONSERVE_SCHEME_FLAG ) then
+          call this%dyn_vars%EnTot%GetLocalMeshField( n, ThermodynVar )
+        else
+          ThermodynVar => DRHOT
+        end if
+
         call atm_dyn_dgm_modalfilter_apply(  & 
-          DDENS%val, MOMX%val, MOMY%val, MOMZ%val, DRHOT%val, & ! (inout)
-          lcmesh, lcmesh%refElem3D, this%modal_filter_3d,     & ! (in)
-!          do_weight_Gsqrt = .false.                          ) ! (in)          
-          do_weight_Gsqrt = .true.                            ) ! (in)
+          DDENS%val, MOMX%val, MOMY%val, MOMZ%val, ThermodynVar%val, & ! (inout)
+          lcmesh, lcmesh%refElem3D, this%modal_filter_3d,            & ! (in)
+!          do_weight_Gsqrt = .false.                                 ) ! (in)          
+          do_weight_Gsqrt = .true.                                   ) ! (in)
+        
+        if (this%ENTOT_CONSERVE_SCHEME_FLAG) then
+          call cal_EnTot2DRHOT( DRHOT%val, &
+            DDENS%val, MOMX%val, MOMY%val, MOMZ%val, this%dyn_vars%EnTot%local(n)%val, &
+            PRES_hyd%val, DENS_hyd%val, CPtot%val, CVtot%val, Rtot%val,                &
+            lcmesh, lcmesh%refElem3D                                                   ) 
+        end if
+          
         call PROF_rapend( 'ATM_DYN_update_modalfilter', 2)
       end do
     end if  
@@ -1207,20 +1221,39 @@ contains
     call AtmosVars_GetLocalMeshPhyTends( domID, mesh, phytends_list, & ! (in)
       DENS_tp, MOMX_tp, MOMY_tp, MOMZ_tp, RHOT_tp, RHOH_p            ) ! (out)
 
-    !$omp parallel do          &
-    !$omp private( RHOT, EXNER )
+    !$omp parallel private( RHOT, EXNER )
+    
+    !$omp do
     do ke=lcmesh%NeS, lcmesh%NeE
-      RHOT(:) = P0ovR * (PRES_hyd(:,ke) * rP0)**rgamm + DRHOT(:,ke)
-      EXNER(:) = ( Rtot(:,ke) * rP0 * RHOT(:) )**( Rtot(:,ke) / CVtot(:,ke) )
-
       dyn_tends(:,ke,DDENS_ID) = dyn_tends(:,ke,DDENS_ID) + DENS_tp%val(:,ke)
       dyn_tends(:,ke,MOMX_ID ) = dyn_tends(:,ke,MOMX_ID ) + MOMX_tp%val(:,ke)
       dyn_tends(:,ke,MOMY_ID ) = dyn_tends(:,ke,MOMY_ID ) + MOMY_tp%val(:,ke)
       dyn_tends(:,ke,MOMZ_ID ) = dyn_tends(:,ke,MOMZ_ID ) + MOMZ_tp%val(:,ke)
-      dyn_tends(:,ke,DRHOT_ID) = dyn_tends(:,ke,DRHOT_ID) + RHOT_tp%val(:,ke) &
-                               + RHOH_p %val(:,ke) / ( CPtot(:,ke) * EXNER(:) )
     end do
+    !$omp end do
 
+    if ( this%ENTOT_CONSERVE_SCHEME_FLAG ) then
+      !$omp do
+      do ke=lcmesh%NeS, lcmesh%NeE
+        RHOT(:) = P0ovR * (PRES_hyd(:,ke) * rP0)**rgamm + DRHOT(:,ke)
+        EXNER(:) = ( Rtot(:,ke) * rP0 * RHOT(:) )**( Rtot(:,ke) / CVtot(:,ke) )
+
+        dyn_tends(:,ke,DRHOT_ID) = dyn_tends(:,ke,DRHOT_ID) + RHOT_tp%val(:,ke) &
+                                + RHOH_p %val(:,ke) / ( CPtot(:,ke) * EXNER(:) )
+      end do
+      !$omp end do
+    else
+      !$omp do
+      do ke=lcmesh%NeS, lcmesh%NeE
+        RHOT(:) = P0ovR * (PRES_hyd(:,ke) * rP0)**rgamm + DRHOT(:,ke)
+        EXNER(:) = ( Rtot(:,ke) * rP0 * RHOT(:) )**( Rtot(:,ke) / CVtot(:,ke) )
+
+        dyn_tends(:,ke,ENTOT_ID) = dyn_tends(:,ke,ENTOT_ID) + RHOH_p %val(:,ke) &
+                                 + ( CPtot(:,ke) * EXNER(:) ) * RHOT_tp%val(:,ke)
+      end do
+      !$omp end do
+    end if
+    !$omp end parallel
     return
   end subroutine add_phy_tend
 

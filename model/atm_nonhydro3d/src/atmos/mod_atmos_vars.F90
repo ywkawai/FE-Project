@@ -336,7 +336,7 @@ contains
     if( ierr < 0 ) then !--- missing
        LOG_INFO("ATMOS_vars_setup",*) 'Not found namelist. Default used.'
     elseif( ierr > 0 ) then !--- fatal error
-       LOG_ERROR("ATMOS_vars_setup",*) 'Not appropriate names in namelist PARAM_ATMOS_VARS. Check!'
+       LOG_ERROR("ATMOS_vars_setup",*) 'Invalid names in namelist PARAM_ATMOS_VARS. Check!'
        call PRC_abort
     endif
     LOG_NML(PARAM_ATMOS_VARS)
