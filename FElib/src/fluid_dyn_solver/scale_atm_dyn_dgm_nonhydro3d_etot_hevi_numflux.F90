@@ -34,6 +34,11 @@ module scale_atm_dyn_dgm_nonhydro3d_etot_hevi_numflux
   use scale_localmeshfield_base, only: LocalMeshField3D
   use scale_meshfield_base, only: MeshField3D
 
+  use scale_atm_dyn_dgm_nonhydro3d_common, only: &
+    DENS_VID => PRGVAR_DDENS_ID, ETOT_VID => PRGVAR_ETOT_ID, &
+    MOMX_VID => PRGVAR_MOMX_ID, MOMY_VID => PRGVAR_MOMY_ID,  &
+    MOMZ_VID => PRGVAR_MOMZ_ID,                              &
+    PRGVAR_NUM  
 
   !-----------------------------------------------------------------------------
   implicit none
@@ -56,20 +61,12 @@ module scale_atm_dyn_dgm_nonhydro3d_etot_hevi_numflux
   !
   !-------------------
 
-  integer, private, parameter :: VARS_DDENS_ID  = 1
-  integer, private, parameter :: VARS_MOMX_ID   = 2
-  integer, private, parameter :: VARS_MOMY_ID   = 3
-  integer, private, parameter :: VARS_MOMZ_ID   = 4
-  integer, private, parameter :: VARS_DRHOT_ID  = 5
-  integer, private, parameter :: VARS_EnTot_ID  = 5
-  integer, private, parameter :: PROG_VARS_NUM  = 5
-
 contains
  
 !OCL SERIAL
   subroutine atm_dyn_dgm_nonhydro3d_etot_hevi_numflux_get_generalvc( &
     del_flux, del_flux_hyd,                                     & ! (out)
-    DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd,    & ! (in)
+    DDENS_, MOMX_, MOMY_, MOMZ_, ETOT_, DENS_hyd, PRES_hyd,     & ! (in)
     Rtot, CVtot, CPtot,                                         & ! (in)
     Gsqrt, G13, G23, zlev, nx, ny, nz,                          & ! (in)
     vmapM, vmapP, lmesh, elem, lmesh2D, elem2D                  ) ! (in)
@@ -80,13 +77,13 @@ contains
     class(elementbase3D), intent(in) :: elem  
     class(LocalMesh2D), intent(in) :: lmesh2D
     class(elementbase2D), intent(in) :: elem2D
-    real(RP), intent(out) ::  del_flux(elem%NfpTot,lmesh%Ne,PROG_VARS_NUM)
+    real(RP), intent(out) ::  del_flux(elem%NfpTot,lmesh%Ne,PRGVAR_NUM)
     real(RP), intent(out) ::  del_flux_hyd(elem%NfpTot,lmesh%Ne,2)
     real(RP), intent(in) ::  DDENS_(elem%Np*lmesh%NeA)
     real(RP), intent(in) ::  MOMX_(elem%Np*lmesh%NeA)  
     real(RP), intent(in) ::  MOMY_(elem%Np*lmesh%NeA)  
     real(RP), intent(in) ::  MOMZ_(elem%Np*lmesh%NeA)  
-    real(RP), intent(in) ::  DRHOT_(elem%Np*lmesh%NeA)  
+    real(RP), intent(in) ::  ETOT_(elem%Np*lmesh%NeA)  
     real(RP), intent(in) ::  DENS_hyd(elem%Np*lmesh%NeA)
     real(RP), intent(in) ::  PRES_hyd(elem%Np*lmesh%NeA)
     real(RP), intent(in) ::  Rtot (elem%Np*lmesh%NeA)  
@@ -108,14 +105,12 @@ contains
     real(RP) :: VelhP(elem%NfpTot), VelhM(elem%NfpTot)
     real(RP) :: dpresP(elem%NfpTot), dpresM(elem%NfpTot)
     real(RP) :: GsqrtDensM(elem%NfpTot), GsqrtDensP(elem%NfpTot)
-    real(RP) :: GsqrtRhotM(elem%NfpTot), GsqrtRhotP(elem%NfpTot)
-    real(RP) :: GsqrtEnTotM(elem%NfpTot), GsqrtEnTotP(elem%NfpTot)
     real(RP) :: GsqrtEnthalpyM(elem%NfpTot), GsqrtEnthalpyP(elem%NfpTot)
     real(RP) :: GsqrtDDENS_P(elem%NfpTot), GsqrtDDENS_M(elem%NfpTot)
     real(RP) :: GsqrtMOMX_P(elem%NfpTot), GsqrtMOMX_M(elem%NfpTot)
     real(RP) :: GsqrtMOMY_P(elem%NfpTot), GsqrtMOMY_M(elem%NfpTot)
     real(RP) :: GsqrtMOMZ_P(elem%NfpTot), GsqrtMOMZ_M(elem%NfpTot)
-    real(RP) :: GsqrtDRHOT_P(elem%NfpTot), GsqrtDRHOT_M(elem%NfpTot)
+    real(RP) :: GsqrtETOT_P(elem%NfpTot), GsqrtETOT_M(elem%NfpTot)
     real(RP) :: Phyd_P(elem%NfpTot), Phyd_M(elem%NfpTot)
     real(RP) :: Gsqrt_P(elem%NfpTot), Gsqrt_M(elem%NfpTot)
     real(RP) :: GsqrtV_P(elem%NfpTot), GsqrtV_M(elem%NfpTot)
@@ -137,10 +132,10 @@ contains
     !$omp parallel do private( &
     !$omp ke, iM, iP, ke2d,                                                             &
     !$omp alpha, VelM, VelP, VelhM, VelhP,                                              &
-    !$omp dpresM, dpresP, GsqrtDensM, GsqrtDensP, GsqrtRhotM, GsqrtRhotP,               &
+    !$omp dpresM, dpresP, GsqrtDensM, GsqrtDensP,                                       &
     !$omp GsqrtMOMX_M, GsqrtMOMX_P, GsqrtMOMY_M, GsqrtMOMY_P, GsqrtMOMZ_M, GsqrtMOMZ_P, &
-    !$omp GsqrtDDENS_M, GsqrtDDENS_P, GsqrtDRHOT_M, GsqrtDRHOT_P,                       &
-    !$omp GsqrtEnTotM, GsqrtEnTotP, GsqrtEnthalpyM, GsqrtEnthalpyP,                     &
+    !$omp GsqrtDDENS_M, GsqrtDDENS_P, GsqrtETOT_M, GsqrtETOT_P,                         &
+    !$omp GsqrtEnthalpyM, GsqrtEnthalpyP,                                               &
     !$omp Phyd_M, Phyd_P,                                                               &
     !$omp Gsqrt_P, Gsqrt_M, GsqrtV_P, GsqrtV_M, G13_P, G13_M, G23_P, G23_M,             &
     !$omp swV                                                                           )
@@ -166,17 +161,14 @@ contains
       GsqrtMOMY_P (:) = Gsqrt_P(:) * MOMY_ (iP)
       GsqrtMOMZ_M (:) = Gsqrt_M(:) * MOMZ_ (iM)
       GsqrtMOMZ_P (:) = Gsqrt_P(:) * MOMZ_ (iP)
-      GsqrtDRHOT_M(:) = Gsqrt_M(:) * DRHOT_(iM)
-      GsqrtDRHOT_P(:) = Gsqrt_P(:) * DRHOT_(iP)
+      GsqrtETOT_M (:) = Gsqrt_M(:) * ETOT_ (iM)
+      GsqrtETOT_P (:) = Gsqrt_P(:) * ETOT_ (iP)
       Phyd_M(:) = PRES_hyd(iM)
       Phyd_P(:) = PRES_hyd(iP)
       swV(:) = 1.0_RP - nz(:,ke)**2
 
       GsqrtDensM(:) = GsqrtDDENS_M(:) + Gsqrt_M(:) * DENS_hyd(iM)
       GsqrtDensP(:) = GsqrtDDENS_P(:) + Gsqrt_P(:) * DENS_hyd(iP)
-
-      GsqrtRhotM(:) = Gsqrt_M(:) * P0ovR * (Phyd_M(:) * rP0)**rgamm + GsqrtDRHOT_M(:)
-      GsqrtRhotP(:) = Gsqrt_P(:) * P0ovR * (Phyd_P(:) * rP0)**rgamm + GsqrtDRHOT_P(:)
 
       VelhM(:) = ( GsqrtMOMX_M(:) * nx(:,ke) + GsqrtMOMY_M(:) * ny(:,ke)                  &
                  + ( G13_M(:) * GsqrtMOMX_M(:) + G23_M(:) * GsqrtMOMY_M(:) ) * nz(:,ke) ) &
@@ -188,48 +180,45 @@ contains
       VelM(:) = VelhM(:) + GsqrtMOMZ_M(:) / ( GsqrtV_M(:) * GsqrtDensM(:) ) * nz(:,ke)
       VelP(:) = VelhP(:) + GsqrtMOMZ_P(:) / ( GsqrtV_P(:) * GsqrtDensP(:) ) * nz(:,ke)
         
-      dpresM(:) = PRES00 * ( Rtot(iM) * rP0 * GsqrtRhotM(:) / Gsqrt_M(:) )**( CPtot(iM) / CVtot(iM) ) &
+
+      dpresM(:) = ( CPtot(iM) / CVtot(iM) - 1.0_RP ) &
+                * ( GsqrtETOT_M(:) - GsqrtDensM(:) * Grav * zlev(iM)                                         &
+                  - 0.5_RP * ( GsqrtMOMX_M(:)**2 + GsqrtMOMY_M(:)**2 + GsqrtMOMZ_M(:)**2 ) / GsqrtDENSM(:) ) &
                 - Phyd_M(:)
-      dpresP(:) = PRES00 * ( Rtot(iP) * rP0 * GsqrtRhotP(:) / Gsqrt_P(:) )**( CPtot(iP) / CVtot(iP) ) &
+      dpresP(:) = ( CPtot(iP) / CVtot(iP) - 1.0_RP ) &
+                * ( GsqrtETOT_P(:) - GsqrtDensP(:) * Grav * zlev(iM)                                         &
+                  - 0.5_RP * ( GsqrtMOMX_P(:)**2 + GsqrtMOMY_P(:)**2 + GsqrtMOMZ_P(:)**2 ) / GsqrtDENSP(:) ) &
                 - Phyd_P(:)
-
-
-      GsqrtEnTotM(:) = GsqrtDensM(:) * Grav * zlev(iM)                                &
-                      + Gsqrt_M(:) * CVtot(iM) * ( Phyd_M(:) + dpresM(:) ) / Rtot(iM) &
-                      + 0.5_RP * ( GsqrtMOMX_M(:)**2 + GsqrtMOMY_M(:)**2 + GsqrtMOMZ_M(:)**2 ) / GsqrtDENSM(:)
-      GsqrtEnTotP(:) = GsqrtDensP(:) * Grav * zlev(iM)                                &
-                      + Gsqrt_P(:) * CVtot(iP) * ( Phyd_P(:) + dpresP(:) ) / Rtot(iP) &
-                      + 0.5_RP * ( GsqrtMOMX_P(:)**2 + GsqrtMOMY_P(:)**2 + GsqrtMOMZ_P(:)**2 ) / GsqrtDENSP(:)
       
-      GsqrtEnthalpyM(:) = GsqrtEnTotM(:) + Gsqrt_M(:) * ( Phyd_M(:) + dpresM(:) )
-      GsqrtEnthalpyP(:) = GsqrtEnTotP(:) + Gsqrt_P(:) * ( Phyd_P(:) + dpresP(:) )
+      GsqrtEnthalpyM(:) = GsqrtETOT_M(:) + Gsqrt_M(:) * ( Phyd_M(:) + dpresM(:) )
+      GsqrtEnthalpyP(:) = GsqrtETOT_P(:) + Gsqrt_P(:) * ( Phyd_P(:) + dpresP(:) )
 
       alpha(:) = swV(:) * max( sqrt( gamm * ( Phyd_M(:) + dpresM(:) ) * Gsqrt_M(:) / GsqrtDensM(:) ) + abs(VelM(:)), &
                                sqrt( gamm * ( Phyd_P(:) + dpresP(:) ) * Gsqrt_P(:) / GsqrtDensP(:) ) + abs(VelP(:))  )
       
-      del_flux(:,ke,VARS_DDENS_ID) = 0.5_RP * ( &
+      del_flux(:,ke,DENS_VID) = 0.5_RP * ( &
                     ( GsqrtDensP(:) * VelhP(:) - GsqrtDensM(:) * VelhM(:) )  &
                     - alpha(:) * ( GsqrtDDENS_P(:) - GsqrtDDENS_M(:) )       )
 
-      del_flux(:,ke,VARS_MOMX_ID ) = 0.5_RP * ( &
+      del_flux(:,ke,MOMX_VID ) = 0.5_RP * ( &
                     ( GsqrtMOMX_P(:) * VelP(:) - GsqrtMOMX_M(:) * VelM(:) )           &
                     + (  Gsqrt_P(:) * ( nx(:,ke) + G13_P(:) * nz(:,ke)) * dpresP(:)   &
                        - Gsqrt_M(:) * ( nx(:,ke) + G13_M(:) * nz(:,ke)) * dpresM(:) ) &
                     - alpha(:) * ( GsqrtMOMX_P(:) - GsqrtMOMX_M(:) )                  )
 
-      del_flux(:,ke,VARS_MOMY_ID ) = 0.5_RP * ( &
+      del_flux(:,ke,MOMY_VID ) = 0.5_RP * ( &
                     ( GsqrtMOMY_P(:) * VelP(:) - GsqrtMOMY_M(:) * VelM(:) ) &
                     + (  Gsqrt_P(:) * ( ny(:,ke) + G23_P(:) * nz(:,ke)) * dpresP(:)   &
                        - Gsqrt_M(:) * ( ny(:,ke) + G23_M(:) * nz(:,ke)) * dpresM(:) ) &
                     - alpha(:) * ( GsqrtMOMY_P(:) - GsqrtMOMY_M(:) )        )
 
-      del_flux(:,ke,VARS_MOMZ_ID ) = 0.5_RP * ( &
+      del_flux(:,ke,MOMZ_VID ) = 0.5_RP * ( &
                     ( GsqrtMOMZ_P(:) * VelP(:) - GsqrtMOMZ_M(:) * VelM(:) ) &
                     - alpha(:) * ( GsqrtMOMZ_P(:) - GsqrtMOMZ_M(:) )        )
                     
-      del_flux(:,ke,VARS_EnTot_ID) = 0.5_RP * ( &
+      del_flux(:,ke,ETOT_VID) = 0.5_RP * ( &
                     ( GsqrtEnthalpyP(:) * VelP(:) - GsqrtEnthalpyM(:) * VelM(:) ) &
-                    - alpha(:) * ( GsqrtEnTotP(:) - GsqrtEnTotM(:) )              )
+                    - alpha(:) * ( GsqrtETot_P(:) - GsqrtETot_M(:) )              )
 
       del_flux_hyd(:,ke,1) = 0.5_RP * ( &
           GsqrtV_P(:) * ( nx(:,ke) + G13_P(:) * nz(:,ke) ) * Phyd_P(:) &
@@ -247,7 +236,7 @@ contains
 !OCL SERIAL
   subroutine atm_dyn_dgm_nonhydro3d_etot_hevi_numflux_get_generalhvc( &
     del_flux, del_flux_hyd,                                          & ! (out)
-    DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd,         & ! (in)
+    DDENS_, MOMX_, MOMY_, MOMZ_, ETOT_, DENS_hyd, PRES_hyd,          & ! (in)
     Rtot, CVtot, CPtot,                                              & ! (in)
     Gsqrt, G11, G12, G22, G_11, G_12, G_22, GsqrtH, G13, G23, zlev,  & ! (in)
     nx, ny, nz, vmapM, vmapP, iM2Dto3D, lmesh, elem, lmesh2D, elem2D ) ! (in)
@@ -258,13 +247,13 @@ contains
     class(elementbase3D), intent(in) :: elem
     class(LocalMesh2D), intent(in) :: lmesh2D
     class(elementbase2D), intent(in) :: elem2D
-    real(RP), intent(out) ::  del_flux(elem%NfpTot,lmesh%Ne,PROG_VARS_NUM)
+    real(RP), intent(out) ::  del_flux(elem%NfpTot,lmesh%Ne,PRGVAR_NUM)
     real(RP), intent(out) ::  del_flux_hyd(elem%NfpTot,lmesh%Ne,2)
     real(RP), intent(in) ::  DDENS_(elem%Np*lmesh%NeA)
     real(RP), intent(in) ::  MOMX_(elem%Np*lmesh%NeA)  
     real(RP), intent(in) ::  MOMY_(elem%Np*lmesh%NeA)  
     real(RP), intent(in) ::  MOMZ_(elem%Np*lmesh%NeA)  
-    real(RP), intent(in) ::  DRHOT_(elem%Np*lmesh%NeA)  
+    real(RP), intent(in) ::  ETOT_(elem%Np*lmesh%NeA)  
     real(RP), intent(in) ::  DENS_hyd(elem%Np*lmesh%NeA)
     real(RP), intent(in) ::  PRES_hyd(elem%Np*lmesh%NeA)
     real(RP), intent(in) ::  Rtot (elem%Np*lmesh%NeA)
@@ -294,14 +283,12 @@ contains
     real(RP) :: VelhP(elem%NfpTot), VelhM(elem%NfpTot)
     real(RP) :: dpresP(elem%NfpTot), dpresM(elem%NfpTot)
     real(RP) :: GsqrtDensM(elem%NfpTot), GsqrtDensP(elem%NfpTot)
-    real(RP) :: GsqrtRhotM(elem%NfpTot), GsqrtRhotP(elem%NfpTot)
-    real(RP) :: GsqrtEnTotM(elem%NfpTot), GsqrtEnTotP(elem%NfpTot)
     real(RP) :: GsqrtEnthalpyM(elem%NfpTot), GsqrtEnthalpyP(elem%NfpTot)
     real(RP) :: GsqrtDDENS_P(elem%NfpTot), GsqrtDDENS_M(elem%NfpTot)
     real(RP) :: GsqrtMOMX_P(elem%NfpTot), GsqrtMOMX_M(elem%NfpTot)
     real(RP) :: GsqrtMOMY_P(elem%NfpTot), GsqrtMOMY_M(elem%NfpTot)
     real(RP) :: GsqrtMOMZ_P(elem%NfpTot), GsqrtMOMZ_M(elem%NfpTot)
-    real(RP) :: GsqrtDRHOT_P(elem%NfpTot), GsqrtDRHOT_M(elem%NfpTot)
+    real(RP) :: GsqrtETOT_P(elem%NfpTot), GsqrtETOT_M(elem%NfpTot)
     real(RP) :: Phyd_P(elem%NfpTot), Phyd_M(elem%NfpTot)
     real(RP) :: Gsqrt_P(elem%NfpTot), Gsqrt_M(elem%NfpTot)
     real(RP) :: GsqrtV_P(elem%NfpTot), GsqrtV_M(elem%NfpTot)
@@ -331,10 +318,10 @@ contains
     !$omp parallel do private( &
     !$omp ke, iM, iP, ke2d,                                                             &
     !$omp alpha, VelM, VelP, VelhM, VelhP,                                              &
-    !$omp dpresM, dpresP, GsqrtDensM, GsqrtDensP, GsqrtRhotM, GsqrtRhotP,               &
+    !$omp dpresM, dpresP, GsqrtDensM, GsqrtDensP,                                       &
     !$omp GsqrtMOMX_M, GsqrtMOMX_P, GsqrtMOMY_M, GsqrtMOMY_P, GsqrtMOMZ_M, GsqrtMOMZ_P, &
-    !$omp GsqrtDDENS_M, GsqrtDDENS_P, GsqrtDRHOT_M, GsqrtDRHOT_P,                       &
-    !$omp GsqrtEnTotM, GsqrtEnTotP, GsqrtEnthalpyM, GsqrtEnthalpyP,                     &
+    !$omp GsqrtDDENS_M, GsqrtDDENS_P, GsqrtETOT_M, GsqrtETOT_P,                         &
+    !$omp GsqrtEnthalpyM, GsqrtEnthalpyP,                                               &
     !$omp Gsqrt_u1M, Gsqrt_u2M, Gsqrt_u1P, Gsqrt_u2P,                                   &
     !$omp Phyd_M, Phyd_P,                                                               &
     !$omp Gsqrt_P, Gsqrt_M, GsqrtV_P, GsqrtV_M, G13_P, G13_M, G23_P, G23_M,             &
@@ -361,8 +348,8 @@ contains
       GsqrtMOMY_P (:) = Gsqrt_P(:) * MOMY_ (iP)
       GsqrtMOMZ_M (:) = Gsqrt_M(:) * MOMZ_ (iM)
       GsqrtMOMZ_P (:) = Gsqrt_P(:) * MOMZ_ (iP)
-      GsqrtDRHOT_M(:) = Gsqrt_M(:) * DRHOT_(iM)
-      GsqrtDRHOT_P(:) = Gsqrt_P(:) * DRHOT_(iP)
+      GsqrtETOT_M (:) = Gsqrt_M(:) * ETOT_ (iM)
+      GsqrtETOT_P (:) = Gsqrt_P(:) * ETOT_ (iP)
       Phyd_M(:) = PRES_hyd(iM)
       Phyd_P(:) = PRES_hyd(iP)
       swV(:) = 1.0_RP - nz(:,ke)**2
@@ -384,65 +371,62 @@ contains
       GsqrtDensM(:) = GsqrtDDENS_M(:) + Gsqrt_M(:) * DENS_hyd(iM)
       GsqrtDensP(:) = GsqrtDDENS_P(:) + Gsqrt_P(:) * DENS_hyd(iP)
 
-      GsqrtRhotM(:) = Gsqrt_M(:) * P0ovR * (Phyd_M(:) * rP0)**rgamm + GsqrtDRHOT_M(:)
-      GsqrtRhotP(:) = Gsqrt_P(:) * P0ovR * (Phyd_P(:) * rP0)**rgamm + GsqrtDRHOT_P(:)
-
-      VelhM(:) = ( GsqrtMOMX_M(:) * nx(:,ke) + GsqrtMOMY_M(:) * ny(:,ke)                  &
-                 + ( G13_M(:) * GsqrtMOMX_M(:) + G23_M(:) * GsqrtMOMY_M(:) ) * nz(:,ke) ) &
-                 / GsqrtDensM(:)
-      VelhP(:) = ( GsqrtMOMX_P(:) * nx(:,ke) + GsqrtMOMY_P(:) * ny(:,ke)                  &
-                 + ( G13_P(:) * GsqrtMOMX_P(:) + G23_P(:) * GsqrtMOMY_P(:) ) * nz(:,ke) ) &
-                 / GsqrtDensP(:)
+      VelM(:) = ( GsqrtMOMX_M(:) * nx(:,ke) + GsqrtMOMY_M(:) * ny(:,ke)                    &
+                + ( ( GsqrtMOMZ_M(:) / GsqrtV_M(:)                                         &
+                    + G13_M(:) * GsqrtMOMX_M(:) + G23_M(:) * GsqrtMOMY_M(:) ) * nz(:,ke) ) &
+                ) / GsqrtDensM(:)
+      VelP(:) = ( GsqrtMOMX_P(:) * nx(:,ke) + GsqrtMOMY_P(:) * ny(:,ke)                    &
+                + ( ( GsqrtMOMZ_P(:) / GsqrtV_P(:)                                         &
+                    + G13_P(:) * GsqrtMOMX_P(:) + G23_P(:) * GsqrtMOMY_P(:) ) * nz(:,ke) ) &
+                ) / GsqrtDensP(:)
 
       VelM(:) = VelhM(:) + GsqrtMOMZ_M(:) / ( GsqrtV_M(:) * GsqrtDensM(:) ) * nz(:,ke)
       VelP(:) = VelhP(:) + GsqrtMOMZ_P(:) / ( GsqrtV_P(:) * GsqrtDensP(:) ) * nz(:,ke)
 
-      dpresM(:) = PRES00 * ( Rtot(iM) * rP0 * GsqrtRhotM(:) / Gsqrt_M(:) )**( CPtot(iM) / CVtot(iM) ) &
-                - Phyd_M(:)
-      dpresP(:) = PRES00 * ( Rtot(iP) * rP0 * GsqrtRhotP(:) / Gsqrt_P(:) )**( CPtot(iP) / CVtot(iP) ) &
-                - Phyd_P(:)
 
       Gsqrt_u1M(:) = ( G_11(iM2Dto3D(:),ke2D) * GsqrtMOMX_M(:) + G_12(iM2Dto3D(:),ke2D) * GsqrtMOMY_M(:) )
       Gsqrt_u2M(:) = ( G_12(iM2Dto3D(:),ke2D) * GsqrtMOMX_M(:) + G_22(iM2Dto3D(:),ke2D) * GsqrtMOMY_M(:) )
       Gsqrt_u1P(:) = ( G_11(iM2Dto3D(:),ke2D) * GsqrtMOMX_P(:) + G_12(iM2Dto3D(:),ke2D) * GsqrtMOMY_P(:) )
       Gsqrt_u2P(:) = ( G_12(iM2Dto3D(:),ke2D) * GsqrtMOMX_P(:) + G_22(iM2Dto3D(:),ke2D) * GsqrtMOMY_P(:) )
 
-      GsqrtEnTotM(:) = GsqrtDensM(:) * Grav * zlev(iM)                                &
-                      + Gsqrt_M(:) * CVtot(iM) * ( Phyd_M(:) + dpresM(:) ) / Rtot(iM) &
-                      + 0.5_RP * ( GsqrtMOMX_M(:) * Gsqrt_u1M(:) + GsqrtMOMY_M(:) * Gsqrt_u2M(:) + GsqrtMOMZ_M(:)**2 ) / GsqrtDENSM(:)
-      GsqrtEnTotP(:) = GsqrtDensP(:) * Grav * zlev(iM)                                &
-                      + Gsqrt_P(:) * CVtot(iP) * ( Phyd_P(:) + dpresP(:) ) / Rtot(iP) &
-                      + 0.5_RP * ( GsqrtMOMX_P(:) * Gsqrt_u1P(:) + GsqrtMOMY_P(:) * Gsqrt_u2P(:) + GsqrtMOMZ_P(:)**2 ) / GsqrtDENSP(:)
-      
-      GsqrtEnthalpyM(:) = GsqrtEnTotM(:) + Gsqrt_M(:) * ( Phyd_M(:) + dpresM(:) )
-      GsqrtEnthalpyP(:) = GsqrtEnTotP(:) + Gsqrt_P(:) * ( Phyd_P(:) + dpresP(:) )
+      dpresM(:) = ( CPtot(iM) / CVtot(iM) - 1.0_RP ) &
+                * ( GsqrtETOT_M(:) - GsqrtDensM(:) * Grav * zlev(iM)                                                                 &
+                  - 0.5_RP * ( GsqrtMOMX_M(:) * Gsqrt_u1M(:) + GsqrtMOMY_M(:) * Gsqrt_u2M(:) + GsqrtMOMZ_M(:)**2 ) / GsqrtDENSM(:) ) &
+                - Phyd_M(:)
+      dpresP(:) = ( CPtot(iP) / CVtot(iP) - 1.0_RP ) &
+                * ( GsqrtETOT_P(:) - GsqrtDensP(:) * Grav * zlev(iM)                                                                 &
+                  - 0.5_RP * ( GsqrtMOMX_P(:) * Gsqrt_u1P(:) + GsqrtMOMY_P(:) * Gsqrt_u2P(:) + GsqrtMOMZ_P(:)**2 ) / GsqrtDENSP(:) ) &
+                - Phyd_P(:)
+
+      GsqrtEnthalpyM(:) = GsqrtETOT_M(:) + Gsqrt_M(:) * ( Phyd_M(:) + dpresM(:) )
+      GsqrtEnthalpyP(:) = GsqrtETOT_P(:) + Gsqrt_P(:) * ( Phyd_P(:) + dpresP(:) )
 
       alpha(:) = swV(:) * max( sqrt( Gnn_M(:) * gamm * ( Phyd_M(:) + dpresM(:) ) * Gsqrt_M(:) / GsqrtDensM(:) ) + abs(VelM(:)), &
                                sqrt( Gnn_P(:) * gamm * ( Phyd_P(:) + dpresP(:) ) * Gsqrt_P(:) / GsqrtDensP(:) ) + abs(VelP(:))  )
 
-      del_flux(:,ke,VARS_DDENS_ID) = 0.5_RP * ( &
+      del_flux(:,ke,DENS_VID) = 0.5_RP * ( &
                     ( GsqrtDensP(:) * VelhP(:) - GsqrtDensM(:) * VelhM(:) ) &
                     - alpha(:) * ( GsqrtDDENS_P(:) - GsqrtDDENS_M(:) )      )
 
-      del_flux(:,ke,VARS_MOMX_ID ) = 0.5_RP * ( &
+      del_flux(:,ke,MOMX_VID ) = 0.5_RP * ( &
                     ( GsqrtMOMX_P(:) * VelP(:) - GsqrtMOMX_M(:) * VelM(:) )           &
                     + (  Gsqrt_P(:) * ( G1n_M(:) + Gxz_P(:) * nz(:,ke)) * dpresP(:)   &
                        - Gsqrt_M(:) * ( G1n_M(:) + Gxz_M(:) * nz(:,ke)) * dpresM(:) ) &
                     - alpha(:) * ( GsqrtMOMX_P(:) - GsqrtMOMX_M(:) )                  )
 
-      del_flux(:,ke,VARS_MOMY_ID ) = 0.5_RP * ( &
+      del_flux(:,ke,MOMY_VID ) = 0.5_RP * ( &
                     ( GsqrtMOMY_P(:) * VelP(:) - GsqrtMOMY_M(:) * VelM(:) )            &
                     + (  Gsqrt_P(:) * ( G2n_M(:) + Gyz_P(:) * nz(:,ke) ) * dpresP(:)   &
                        - Gsqrt_M(:) * ( G2n_M(:) + Gyz_M(:) * nz(:,ke) ) * dpresM(:) ) &
                     - alpha(:) * ( GsqrtMOMY_P(:) - GsqrtMOMY_M(:) )        )
 
-      del_flux(:,ke,VARS_MOMZ_ID ) = 0.5_RP * ( &
+      del_flux(:,ke,MOMZ_VID ) = 0.5_RP * ( &
                     ( GsqrtMOMZ_P(:) * VelP(:) - GsqrtMOMZ_M(:) * VelM(:) ) &
                     - alpha(:) * ( GsqrtMOMZ_P(:) - GsqrtMOMZ_M(:) )        )
                     
-      del_flux(:,ke,VARS_EnTot_ID) = 0.5_RP * ( &
+      del_flux(:,ke,ETOT_VID) = 0.5_RP * ( &
                     ( GsqrtEnthalpyP(:) * VelhP(:) - GsqrtEnthalpyM(:) * VelhM(:) ) &
-                    - alpha(:) * ( GsqrtEnTotP(:) - GsqrtEnTotM(:) )                )
+                    - alpha(:) * ( GsqrtETOT_P(:) - GsqrtETot_M(:) )                )
 
       del_flux_hyd(:,ke,1) = 0.5_RP * ( &
           GsqrtV_P(:) * ( nx(:,ke) + G13_P(:) * nz(:,ke) ) * Phyd_P(:) &

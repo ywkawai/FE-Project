@@ -149,11 +149,13 @@ contains
     use scale_model_var_manager, only: ModelVarManager
     use scale_meshfieldcomm_base, only: MeshFieldContainer 
 
+    use scale_atm_dyn_dgm_nonhydro3d_common, only: &
+      AUXVAR_PRESHYDRO_ID, &
+      AUXVAR_DENSHYDRO_ID
+
     use mod_atmos_vars, only: &
       AtmosVars_GetLocalMeshPrgVars, &
-      AtmosVars_GetLocalMeshQTRCVar, &
-      ATMOS_AUXVARS_PRESHYDRO_ID, &
-      ATMOS_AUXVARS_DENSHYDRO_ID
+      AtmosVars_GetLocalMeshQTRCVar
     use mod_atmos_mesh, only: AtmosMesh
     
     implicit none
@@ -218,7 +220,7 @@ contains
 
     !------------------------------------------------------
 
-    call atm_auxvars_manager%Get(ATMOS_AUXVARS_PRESHYDRO_ID, field_ptr)
+    call atm_auxvars_manager%Get(AUXVAR_PRESHYDRO_ID, field_ptr)
     select type(field_ptr) 
     type is (MeshField3D)
       hydvars_comm_list(1)%field3d => field_ptr
@@ -245,12 +247,12 @@ contains
         lcmesh3D                                        )
 
       call this%geostrophic_balance_correction_lc( &
-        DENS_hyd%val, PRES_hyd%val,                                                         & ! (out)
-        DDENS%val, MOMX%val, MOMY%val, MOMZ%val, DRHOT%val,                                 & ! (out)
-        lcmesh3D, lcmesh3D%refElem3D )                                                        ! (in) 
+        DENS_hyd%val, PRES_hyd%val,                          & ! (out)
+        DDENS%val, MOMX%val, MOMY%val, MOMZ%val, DRHOT%val,  & ! (out)
+        lcmesh3D, lcmesh3D%refElem3D )                         ! (in) 
     end do
 
-    call atm_auxvars_manager%Get(ATMOS_AUXVARS_DENSHYDRO_ID, field_ptr)
+    call atm_auxvars_manager%Get(AUXVAR_DENSHYDRO_ID, field_ptr)
     select type(field_ptr) 
     type is (MeshField3D)
       hydvars_comm_list(1)%field3d => field_ptr

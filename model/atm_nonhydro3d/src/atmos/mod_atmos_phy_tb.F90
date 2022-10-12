@@ -38,6 +38,8 @@ module mod_atmos_phy_tb
   use scale_model_mesh_manager, only: ModelMeshBase
   use scale_model_var_manager, only: ModelVarManager
   use scale_model_component_proc, only:  ModelComponentProc
+
+  use scale_atm_dyn_dgm_bnd, only: AtmDynBnd
   
   use scale_atm_phy_tb_dgm_smg, only: &
     atm_phy_tb_dgm_smg_Init,          &
@@ -47,7 +49,6 @@ module mod_atmos_phy_tb
     atm_phy_tb_dgm_smg_cal_grad_qtrc, &
     atm_phy_tb_dgm_smg_cal_tend_qtrc
 
-  use mod_atmos_dyn_bnd, only: AtmosDynBnd
   use mod_atmos_phy_tb_vars, only: AtmosPhyTbVars
 
   !-----------------------------------------------------------------------------
@@ -60,7 +61,7 @@ module mod_atmos_phy_tb
   type, extends(ModelComponentProc), public :: AtmosPhyTb
     integer :: TB_TYPEID
     type(AtmosPhyTbVars) :: vars
-    type(AtmosDynBnd), pointer :: dyn_bnd
+    type(AtmDynBnd), pointer :: dyn_bnd
   contains
     procedure, public :: setup => AtmosPhyTb_setup 
     procedure, public :: calc_tendency => AtmosPhyTb_calc_tendency
@@ -88,7 +89,6 @@ module mod_atmos_phy_tb
 contains
   subroutine AtmosPhyTb_setup( this, model_mesh, tm_parent_comp )
     use mod_atmos_mesh, only: AtmosMesh
-    use mod_atmos_vars, only: ATMOS_PROGVARS_NUM
     use scale_time_manager, only: TIME_manager_component
 
     implicit none
@@ -445,7 +445,7 @@ contains
   subroutine AtmosPhyTb_setDynBC( this, dyn_bnd )
     implicit none
     class(AtmosPhyTb), intent(inout) :: this
-    type(AtmosDynBnd), intent(in), target :: dyn_bnd
+    type(AtmDynBnd), intent(in), target :: dyn_bnd
     !--------------------------------------------------
 
     this%dyn_bnd => dyn_bnd

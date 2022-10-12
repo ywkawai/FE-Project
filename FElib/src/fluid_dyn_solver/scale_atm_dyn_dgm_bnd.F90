@@ -1,5 +1,5 @@
 !-------------------------------------------------------------------------------
-!> module ATMOSPHERE boundary
+!> module Atmosphere / Dynamics / boundary
 !!
 !! @par Description
 !!          A module for setting halo data based on boundary conditions. 
@@ -8,7 +8,7 @@
 !<
 !-------------------------------------------------------------------------------
 #include "scaleFElib.h"
-module mod_atmos_dyn_bnd
+module scale_atm_dyn_dgm_bnd
   !-----------------------------------------------------------------------------
   !
   !++ Used modules
@@ -40,7 +40,10 @@ module mod_atmos_dyn_bnd
   use scale_mesh_bndinfo, only: MeshBndInfo
 
   use scale_atm_dyn_dgm_nonhydro3d_common, only: &
-    PRGVAR_NUM, PRGVAR_DDENS_ID, PRGVAR_THERM_ID, PRGVAR_MOMZ_ID, PRGVAR_MOMX_ID, PRGVAR_MOMY_ID
+    DENS_VID => PRGVAR_DDENS_ID, RHOT_VID => PRGVAR_DRHOT_ID, &
+    MOMX_VID => PRGVAR_MOMX_ID, MOMY_VID => PRGVAR_MOMY_ID,   &
+    MOMZ_VID => PRGVAR_MOMZ_ID,                               &
+    PRGVAR_NUM
 
   !-----------------------------------------------------------------------------
   implicit none
@@ -49,7 +52,7 @@ module mod_atmos_dyn_bnd
   !
   !++ Public parameter & type & procedures
   !
-  type, public :: AtmosDynBnd
+  type, public :: AtmDynBnd
     type(MeshBndInfo), allocatable :: VelBC_list(:)
     type(MeshBndInfo), allocatable :: ThermalBC_list(:)
 
@@ -88,7 +91,7 @@ contains
       BndType_NameToID
     implicit none
     
-    class(AtmosDynBnd), intent(inout) :: this
+    class(AtmDynBnd), intent(inout) :: this
 
     character(len=H_SHORT) :: btm_vel_bc, top_vel_bc
     character(len=H_SHORT) :: north_vel_bc, south_vel_bc
@@ -150,7 +153,7 @@ contains
 
   subroutine ATMOS_dyn_bnd_finalize( this )
     implicit none
-    class(AtmosDynBnd), intent(inout) :: this
+    class(AtmDynBnd), intent(inout) :: this
 
     integer :: n
     !--------------------------------------
@@ -173,7 +176,7 @@ contains
 
     implicit none
 
-    class(AtmosDynBnd), intent(inout) :: this
+    class(AtmDynBnd), intent(inout) :: this
     class(MeshBase), target, intent(in) :: mesh
     
     integer :: n
@@ -218,7 +221,7 @@ contains
         
     implicit none
 
-    class(AtmosDynBnd), intent(in) :: this    
+    class(AtmDynBnd), intent(in) :: this    
     integer, intent(in) :: domID
     class(LocalMesh3D), intent(in) :: lmesh
     class(ElementBase3D), intent(in) :: elem
@@ -298,7 +301,7 @@ contains
     
     implicit none
 
-    class(AtmosDynBnd), intent(in) :: this
+    class(AtmDynBnd), intent(in) :: this
     class(LocalMesh3D), intent(in) :: lmesh
     class(elementbase3D), intent(in) :: elem    
     real(RP), intent(inout) :: GxVar(elem%Np*lmesh%NeA)
@@ -329,13 +332,13 @@ contains
 
         if ( this%VelBC_list(domID)%list(i_) == BND_TYPE_SLIP_ID ) then
           select case(VarID)
-          case(PRGVAR_MOMX_ID)
+          case(MOMX_VID)
             GyVar(iP) = GyVar(iM) - 2.0_RP * grad_normal * ny(i)
             GzVar(iP) = GzVar(iM) - 2.0_RP * grad_normal * nz(i)
-          case(PRGVAR_MOMY_ID)          
+          case(MOMY_VID)          
             GxVar(iP) = GxVar(iM) - 2.0_RP * grad_normal * nx(i)
             GzVar(iP) = GzVar(iM) - 2.0_RP * grad_normal * nz(i)
-          case(PRGVAR_MOMZ_ID)          
+          case(MOMZ_VID)          
             GxVar(iP) = GxVar(iM) - 2.0_RP * grad_normal * nx(i)
             GyVar(iP) = GyVar(iM) - 2.0_RP * grad_normal * ny(i)
           end select
@@ -344,7 +347,7 @@ contains
         end if
         if ( this%ThermalBC_list(domID)%list(i_) == BND_TYPE_ADIABAT_ID ) then
           select case(VarID)
-          case(PRGVAR_DDENS_ID, PRGVAR_THERM_ID)
+          case(DENS_VID, RHOT_VID)
             GxVar(iP) = GxVar(iM) - 2.0_RP * grad_normal * nx(i)
             GyVar(iP) = GyVar(iM) - 2.0_RP * grad_normal * ny(i)
             GzVar(iP) = GzVar(iM) - 2.0_RP * grad_normal * nz(i)
@@ -372,7 +375,7 @@ contains
       BND_TYPE_ADIABAT_ID
     implicit none
 
-    class(AtmosDynBnd), intent(in) :: this
+    class(AtmDynBnd), intent(in) :: this
     class(LocalMesh3D), intent(in) :: lmesh
     class(elementbase3D), intent(in) :: elem    
     real(RP), intent(inout) :: Var(elem%Np*lmesh%NeA)
@@ -405,13 +408,13 @@ contains
 
         if ( this%VelBC_list(domID)%list(i_) == BND_TYPE_SLIP_ID ) then
           select case(VarID)
-          case(PRGVAR_MOMX_ID)
+          case(MOMX_VID)
             grad_normal = Var(iM) * nx(i)         
             Var(iP) = Var(iM) - 2.0_RP * grad_normal * nx(i)
-          case(PRGVAR_MOMY_ID) 
+          case(MOMY_VID) 
             grad_normal = Var(iM) * ny(i)         
             Var(iP) = Var(iM) - 2.0_RP * grad_normal * ny(i)
-          case(PRGVAR_MOMZ_ID)          
+          case(MOMZ_VID)          
             grad_normal = Var(iM) * nz(i)         
             Var(iP) = Var(iM) - 2.0_RP * grad_normal * nz(i)
           end select
@@ -419,7 +422,7 @@ contains
 
         else if ( this%VelBC_list(domID)%list(i_) == BND_TYPE_NOSLIP_ID ) then          
           select case(VarID)
-          case(PRGVAR_MOMX_ID, PRGVAR_MOMY_ID, PRGVAR_MOMZ_ID)
+          case( MOMX_VID, MOMY_VID, MOMZ_VID )
             Var(iP) = - Var(iM)
           end select
           is_bound(i) = .true.
@@ -440,7 +443,7 @@ contains
       BND_TYPE_ADIABAT_ID
     implicit none
 
-    class(AtmosDynBnd), intent(in) :: this
+    class(AtmDynBnd), intent(in) :: this
     class(LocalMesh3D), intent(in) :: lmesh
     class(elementbase3D), intent(in) :: elem    
     logical, intent(out) :: is_bound(elem%NfpTot*lmesh%Ne)
@@ -523,4 +526,4 @@ contains
     return
   end  subroutine bnd_Init_lc
 
-end module mod_atmos_dyn_bnd
+end module scale_atm_dyn_dgm_bnd

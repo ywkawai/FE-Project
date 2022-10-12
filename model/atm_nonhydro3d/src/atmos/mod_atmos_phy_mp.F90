@@ -113,7 +113,6 @@ contains
     !------------------------------
     use scale_time_manager, only: TIME_manager_component    
     use mod_atmos_mesh, only: AtmosMesh
-    use mod_atmos_vars, only: ATMOS_PROGVARS_NUM
 
     implicit none
     class(AtmosPhyMp), intent(inout) :: this

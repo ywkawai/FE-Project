@@ -309,7 +309,7 @@ contains
 
     !- read restart data
     if ( atmos%isActivated() ) then
-      call atmos%vars%Read_restart_file( atmos%mesh )
+      call atmos%vars%Read_restart_file( atmos%mesh, atmos%dyn_proc%dyncore_driver )
     end if
 
     !- Calculate the tendencies

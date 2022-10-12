@@ -104,14 +104,16 @@ module mod_atmos_dyn_vars
                   's-1',  2, 'XY',  ''                                             )  / 
 
   !-
-  integer, public, parameter :: ATMOS_DYN_TRCVARS3D_NUM         = 2
+  integer, public, parameter :: ATMOS_DYN_TRCVARS3D_NUM         = 3
   integer, public, parameter :: ATMOS_DYN_TRCVARS3D_TRCADV_ID   = 1
   integer, public, parameter :: ATMOS_DYN_TRCVARS3D_DENS_ID     = 2
+  integer, public, parameter :: ATMOS_DYN_TRCVARS3D_DENS0_ID    = 3
 
   type(VariableInfo), public :: ATMOS_DYN_TRCVARS3D_VINFO(ATMOS_DYN_TRCVARS3D_NUM )
   DATA ATMOS_DYN_TRCVARS3D_VINFO / &
     VariableInfo( ATMOS_DYN_TRCVARS3D_TRCADV_ID, 'TRCADV', '',     '1',  3, 'XYZ',  '' ), &
-    VariableInfo( ATMOS_DYN_TRCVARS3D_DENS_ID  ,   'DENS', '', 'kg/m3',  3, 'XYZ',  '' )  / 
+    VariableInfo( ATMOS_DYN_TRCVARS3D_DENS_ID  ,   'DENS', '', 'kg/m3',  3, 'XYZ',  '' ), & 
+    VariableInfo( ATMOS_DYN_TRCVARS3D_DENS0_ID  ,  'DENS0', '', 'kg/m3',  3, 'XYZ',  '' ) / 
                 
   !-
   integer, public, parameter :: ATMOS_DYN_AUXTRCVARS3D_NUM         = 1

@@ -36,8 +36,10 @@ module scale_atm_dyn_dgm_nonhydro3d_rhot_hevi_common
   use scale_meshfield_base, only: MeshField3D
 
   use scale_atm_dyn_dgm_nonhydro3d_common, only: &
-    DENS_VID, MOMX_VID, MOMY_VID, MOMZ_VID, RHOT_VID, &
-    PROG_VARS_NUM
+    DENS_VID => PRGVAR_DDENS_ID, RHOT_VID => PRGVAR_DRHOT_ID, &
+    MOMX_VID => PRGVAR_MOMX_ID, MOMY_VID => PRGVAR_MOMY_ID,   &
+    MOMZ_VID => PRGVAR_MOMZ_ID,                               &
+    PRGVAR_NUM
   
   !-----------------------------------------------------------------------------
   implicit none
@@ -142,8 +144,8 @@ contains
     real(RP), intent(out) :: MOMZ_t(elem%Np,lmesh%NeA)
     real(RP), intent(out) :: RHOT_t(elem%Np,lmesh%NeA)
     real(RP), intent(out) :: alph(elem%NfpTot,lmesh%NeZ,lmesh%NeX*lmesh%NeY)
-    real(RP), intent(in)  :: PROG_VARS  (elem%Np,lmesh%NeZ,PROG_VARS_NUM,lmesh%NeX*lmesh%NeY)
-    real(RP), intent(in)  :: PROG_VARS0 (elem%Np,lmesh%NeZ,PROG_VARS_NUM,lmesh%NeX*lmesh%NeY)
+    real(RP), intent(in)  :: PROG_VARS  (elem%Np,lmesh%NeZ,PRGVAR_NUM,lmesh%NeX*lmesh%NeY)
+    real(RP), intent(in)  :: PROG_VARS0 (elem%Np,lmesh%NeZ,PRGVAR_NUM,lmesh%NeX*lmesh%NeY)
     real(RP), intent(in)  :: DDENS00(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: MOMX00 (elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: MOMY00 (elem%Np,lmesh%NeA)
@@ -172,7 +174,7 @@ contains
     real(RP) :: RGsqrtV(elem%Np)
     real(RP) :: Fscale(elem%NfpTot), Escale33(elem%Np)
     real(RP) :: Fz(elem%Np), LiftDelFlx(elem%Np)
-    real(RP) :: del_flux(elem%NfpTot,lmesh%NeZ,lmesh%NeX*lmesh%NeY,PROG_VARS_NUM)
+    real(RP) :: del_flux(elem%NfpTot,lmesh%NeZ,lmesh%NeX*lmesh%NeY,PRGVAR_NUM)
     real(RP) :: MOMZ(elem%Np), DDENS(elem%Np), DPRES(elem%Np), RHOT(elem%Np)
     integer :: ke_xy, ke_z
     integer :: ke, ke2d
@@ -336,7 +338,7 @@ contains
     real(RP), intent(out) :: PmatBnd(2*kl+ku+1,3,elem%Nnode_v,lmesh%NeZ,elem%Nnode_h1D**2)
     integer, intent(in) :: kl_uv, ku_uv, nz_1D_uv
     real(RP), intent(out) :: PmatBnd_uv(2*kl_uv+ku_uv+1,elem%Nnode_v,1,lmesh%NeZ,elem%Nnode_h1D**2)
-    real(RP), intent(in)  :: PROG_VARS0(elem%Np,lmesh%NeZ,PROG_VARS_NUM)
+    real(RP), intent(in)  :: PROG_VARS0(elem%Np,lmesh%NeZ,PRGVAR_NUM)
     real(RP), intent(in)  :: DENS_hyd(elem%Np,lmesh%NeZ)
     real(RP), intent(in)  :: PRES_hyd(elem%Np,lmesh%NeZ)
     real(RP), intent(in) ::  G13(elem%Np,lmesh%NeZ)
@@ -635,10 +637,10 @@ contains
 
     class(LocalMesh3D), intent(in) :: lmesh
     class(elementbase3D), intent(in) :: elem  
-    real(RP), intent(out) ::  del_flux(elem%NfpTot*lmesh%NeZ,lmesh%NeX*lmesh%NeY,PROG_VARS_NUM)
+    real(RP), intent(out) ::  del_flux(elem%NfpTot*lmesh%NeZ,lmesh%NeX*lmesh%NeY,PRGVAR_NUM)
     real(RP), intent(out) :: alph(elem%NfpTot*lmesh%NeZ,lmesh%NeX*lmesh%NeY)
-    real(RP), intent(in) ::  PVARS_ (elem%Np*lmesh%NeZ,PROG_VARS_NUM,lmesh%NeX*lmesh%NeY)
-    real(RP), intent(in) ::  PVARS0_(elem%Np*lmesh%NeZ,PROG_VARS_NUM,lmesh%NeX*lmesh%NeY)
+    real(RP), intent(in) ::  PVARS_ (elem%Np*lmesh%NeZ,PRGVAR_NUM,lmesh%NeX*lmesh%NeY)
+    real(RP), intent(in) ::  PVARS0_(elem%Np*lmesh%NeZ,PRGVAR_NUM,lmesh%NeX*lmesh%NeY)
     real(RP), intent(in) ::  DENS_hyd(elem%Np*lmesh%NeZ,lmesh%NeX*lmesh%NeY)
     real(RP), intent(in) ::  PRES_hyd(elem%Np*lmesh%NeZ,lmesh%NeX*lmesh%NeY)
     real(RP), intent(in) ::  Rtot(elem%Np*lmesh%NeZ,lmesh%NeX*lmesh%NeY)

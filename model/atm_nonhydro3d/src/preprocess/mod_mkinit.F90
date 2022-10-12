@@ -157,6 +157,10 @@ contains
           MOMZ %val(:,ke) = 0.0_RP
           DDENS%val(:,ke) = 0.0_RP
           DRHOT%val(:,ke) = 0.0_RP
+
+          CPtot%val(:,ke) = CPdry
+          CVtot%val(:,ke) = CVdry
+          Rtot%val(:,ke) = Rdry
         end do
       end do
       ! call PROF_rapend  ('_MkInit_main',3)
