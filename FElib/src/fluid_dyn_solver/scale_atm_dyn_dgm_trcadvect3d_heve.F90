@@ -231,9 +231,7 @@ contains
     class(LocalMesh3D), intent(in) :: lmesh
     class(elementbase3D), intent(in) :: elem
     class(LocalMesh2D), intent(in) :: lmesh2D
-    class(elementbase2D), intent(in) :: elem2D
-    type(SparseMat), intent(in) :: Dx, Dy, Dz, Sx, Sy, Sz, Lift, FaceIntMat
-    
+    class(elementbase2D), intent(in) :: elem2D    
     real(RP), intent(out) :: fct_coef(elem%Np,lmesh%NeA)
     real(RP), intent(in) :: QTRC_(elem%Np,lmesh%NeA)
     real(RP), intent(in) :: MOMX_(elem%Np,lmesh%NeA)
@@ -247,6 +245,7 @@ contains
     real(RP), intent(in) :: DDENS0_(elem%Np,lmesh%NeA)
     real(RP), intent(in) :: rk_c_ssm1
     real(RP), intent(in) :: dt
+    type(SparseMat), intent(in) :: Dx, Dy, Dz, Sx, Sy, Sz, Lift, FaceIntMat
     logical, intent(in), optional :: disable_limiter
 
     real(RP) :: netOutwardFlux(lmesh%Ne)
