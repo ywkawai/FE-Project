@@ -25,10 +25,22 @@ module scale_atm_dyn_dgm_nonhydro3d_numdiff
   use scale_element_hexahedral, only: HexahedralElement
   use scale_localmesh_2d, only: LocalMesh2D  
   use scale_localmesh_3d, only: LocalMesh3D
+  use scale_mesh_base, only: MeshBase
   use scale_mesh_base3d, only: MeshBase3D
   use scale_localmeshfield_base, only: LocalMeshField3D
   use scale_meshfield_base, only: MeshField3D
 
+  use scale_model_var_manager, only: &
+    ModelVarManager, VariableInfo
+  use scale_model_mesh_manager, only: ModelMesh3D
+    
+  use scale_atm_dyn_dgm_nonhydro3d_common, only: &
+    PRGVAR_NUM, &
+    DENS_VID => PRGVAR_DDENS_ID, THERM_VID => PRGVAR_THERM_ID,&
+    MOMX_VID => PRGVAR_MOMX_ID, MOMY_VID => PRGVAR_MOMY_ID,   &
+    MOMZ_VID => PRGVAR_MOMZ_ID, DENSHYD_VID => AUXVAR_DENSHYDRO_ID
+  
+  use scale_atm_dyn_dgm_bnd, only: AtmDynBnd
 
   !-----------------------------------------------------------------------------
   implicit none
@@ -37,49 +49,336 @@ module scale_atm_dyn_dgm_nonhydro3d_numdiff
   !
   !++ Public procedures
   !
-  public :: atm_dyn_dgm_nonhydro3d_numdiff_Init
-  public :: atm_dyn_dgm_nonhydro3d_numdiff_Final
-  public :: atm_dyn_dgm_nonhydro3d_numdiff_tend 
-  public :: atm_dyn_dgm_nonhydro3d_numdiff_cal_laplacian 
-  public :: atm_dyn_dgm_nonhydro3d_numdiff_cal_flx
+
+  type, public :: AtmDyn_Nonhydro3D_Numdiff
+    integer ::  ND_LAPLACIAN_NUM
+    real(RP) :: ND_COEF_h
+    real(RP) :: ND_COEF_v
+    real(RP) :: dtsec
+
+    type(MeshField3D), allocatable :: NUMDIFF_FLUX_VARS3D(:)
+    type(ModelVarManager) :: NUMDIFF_FLUX_manager
+    integer :: NUMDIFF_FLUX_commid
+
+    type(MeshField3D), allocatable :: NUMDIFF_TEND_VARS3D(:)
+    type(ModelVarManager) :: NUMDIFF_TEND_manager
+    integer :: NUMDIFF_TEND_commid
+
+  contains
+    procedure :: Init => atm_dyn_dgm_nonhydro3d_numdiff_Init
+    procedure :: Final => atm_dyn_dgm_nonhydro3d_numdiff_Final
+    procedure :: Apply => atm_dyn_dgm_nonhydro3d_numdiff_Apply
+  end type AtmDyn_Nonhydro3D_Numdiff
   
   !-----------------------------------------------------------------------------
   !
   !++ Public parameters & variables
   !
+  integer, public, parameter :: NUMDIFF_FLUX_NUM   = 3
+  integer, public, parameter :: NUMDIFFFLX_X_ID    = 1
+  integer, public, parameter :: NUMDIFFFLX_Y_ID    = 2
+  integer, public, parameter :: NUMDIFFFLX_Z_ID    = 3
+
+  type(VariableInfo), public :: ATMOS_DYN_NUMDIFF_FLUX_VINFO(NUMDIFF_FLUX_NUM)
+  DATA ATMOS_DYN_NUMDIFF_FLUX_VINFO / &
+    VariableInfo( NUMDIFFFLX_X_ID, 'DIFFFLX_X', 'flux in x-direction',  &
+                  '?.m/s',  3, 'XYZ',  ''                                           ),   & 
+    VariableInfo( NUMDIFFFLX_Y_ID, 'DIFFFLX_Y', 'flux in y-direction',  &
+                  '?.m/s',  3, 'XYZ',  ''                                           ),   &
+    VariableInfo( NUMDIFFFLX_Z_ID, 'DIFFFLX_Z', 'flux in z-direction',  &
+                  '?.m/s',  3, 'XYZ',  ''                                           )    /
+    
+  !-
+  integer, public, parameter :: NUMDIFF_TEND_NUM   = 2
+  integer, public, parameter :: NUMDIFF_LAPLAH_ID  = 1
+  integer, public, parameter :: NUMDIFF_LAPLAV_ID  = 2
   
+  type(VariableInfo), public :: ATMOS_DYN_NUMDIFF_TEND_VINFO(NUMDIFF_TEND_NUM)
+  DATA ATMOS_DYN_NUMDIFF_TEND_VINFO / &
+    VariableInfo( NUMDIFF_LAPLAH_ID, 'NUMDIFF_LAPLAH', 'tendency due to nundiff',  &
+                  '?/s',  3, 'XYZ',  ''                                                   ), &
+    VariableInfo( NUMDIFF_LAPLAV_ID, 'NUMDIFF_LAPLAV', 'tendency due to nundiff',  &
+                  '?/s',  3, 'XYZ',  ''                                                   )  /
+
   !-----------------------------------------------------------------------------
   !
   !++ Private procedures & variables
   !
   !-------------------
 
+  private :: numdiff_tend 
+  private :: numdiff_cal_laplacian 
+  private :: numdiff_cal_flx
+
   private :: cal_del_flux_lap
   private :: cal_del_flux_lap_with_coef
   private :: cal_del_gradDiffVar
 
 contains
-  subroutine atm_dyn_dgm_nonhydro3d_numdiff_Init( mesh )
-    
+  subroutine atm_dyn_dgm_nonhydro3d_numdiff_Init( this, model_mesh3D, dtsec )
+    use scale_prc, only: PRC_abort
     implicit none
-    class(MeshBase3D), intent(in) :: mesh
+    class(AtmDyn_Nonhydro3D_Numdiff), intent(inout) :: this
+    class(ModelMesh3D), intent(inout), target :: model_mesh3D
+    real(RP), intent(in) :: dtsec
+
+    class(MeshBase3D), pointer :: mesh3D
     !--------------------------------------------
+
+    integer ::  ND_LAPLACIAN_NUM = 1
+    real(RP) :: ND_COEF_h        = 0.0_RP
+    real(RP) :: ND_COEF_v        = 0.0_RP
+
+    namelist /PARAM_ATMOS_DYN_NUMDIFF/ &
+      ND_LAPLACIAN_NUM,                &
+      ND_COEF_h, ND_COEF_v
+
+    integer :: ierr
+
+    integer :: v
+    logical :: reg_file_hist
+    !---------------------------------------------------------------
+
+    rewind(IO_FID_CONF)
+    read(IO_FID_CONF,nml=PARAM_ATMOS_DYN_NUMDIFF,iostat=ierr)
+    if( ierr < 0 ) then !--- missing
+      LOG_INFO("ATMOS_DYN_setup_numdiff",*) 'Not found namelist. Default used.'
+    elseif( ierr > 0 ) then !--- fatal error
+      LOG_ERROR("ATMOS_DYN_setup_numdiff",*) 'Not appropriate names in namelist PARAM_ATMOS_DYN_NUMDIFF. Check!'
+      call PRC_abort
+    endif
+    LOG_NML(PARAM_ATMOS_DYN_NUMDIFF)      
+
+    this%ND_LAPLACIAN_NUM = ND_LAPLACIAN_NUM
+    this%ND_COEF_H = ND_COEF_h
+    this%ND_COEF_v = ND_COEF_v
+
+    this%dtsec = dtsec
+
+    !------------
+    mesh3D => model_mesh3D%ptr_mesh
+
+    call this%NUMDIFF_FLUX_manager%Init()
+    allocate( this%NUMDIFF_FLUX_VARS3D(NUMDIFF_FLUX_NUM) )
+
+    reg_file_hist = .false.    
+    do v = 1, NUMDIFF_FLUX_NUM
+      call this%NUMDIFF_FLUX_manager%Regist(  &
+        ATMOS_DYN_NUMDIFF_FLUX_VINFO(v), mesh3D, & ! (in) 
+        this%NUMDIFF_FLUX_VARS3D(v),             & ! (inout) 
+        reg_file_hist, fill_zero=.true.          ) ! (in)
+    end do
+
+    call model_mesh3D%Create_communicator( &
+      NUMDIFF_FLUX_NUM, 0,             & ! (in)
+      this%NUMDIFF_FLUX_manager,       & ! (inout)
+      this%NUMDIFF_FLUX_VARS3D(:),     & ! (in)
+      this%NUMDIFF_FLUX_commid         ) ! (out)
+
+    !-
+    call this%NUMDIFF_TEND_manager%Init()
+    allocate( this%NUMDIFF_TEND_VARS3D(NUMDIFF_TEND_NUM) )
+
+    reg_file_hist = .false.    
+    do v = 1, NUMDIFF_TEND_NUM
+      call this%NUMDIFF_TEND_manager%Regist( &
+        ATMOS_DYN_NUMDIFF_TEND_VINFO(v), mesh3D, & ! (in) 
+        this%NUMDIFF_TEND_VARS3D(v),             & ! (inout)
+        reg_file_hist, fill_zero=.true.          ) ! (in)      
+    end do
+
+    call model_mesh3D%Create_communicator( &
+      NUMDIFF_TEND_NUM, 0,             & ! (in)
+      this%NUMDIFF_TEND_manager,       & ! (inout)
+      this%NUMDIFF_TEND_VARS3D(:),     & ! (in)
+      this%NUMDIFF_TEND_commid         ) ! (out)
 
     return
   end subroutine atm_dyn_dgm_nonhydro3d_numdiff_Init
 
 
-  subroutine atm_dyn_dgm_nonhydro3d_numdiff_Final()
+  subroutine atm_dyn_dgm_nonhydro3d_numdiff_Final( this )
     implicit none
+
+    class(AtmDyn_Nonhydro3D_Numdiff), intent(inout) :: this
     !--------------------------------------------
     
+    call this%NUMDIFF_FLUX_manager%Final()
+    deallocate( this%NUMDIFF_FLUX_VARS3D )
+
+    call this%NUMDIFF_TEND_manager%Final()
+    deallocate( this%NUMDIFF_TEND_VARS3D )
+
     return
   end subroutine atm_dyn_dgm_nonhydro3d_numdiff_Final  
 
-  !-------------------------------
+  subroutine atm_dyn_dgm_nonhydro3d_numdiff_Apply( this, &
+    PROG_VARS, AUX_VARS, boundary_cond, &
+    Dx, Dy, Dz, Lift, mesh )
+
+    implicit none
+
+    class(AtmDyn_Nonhydro3D_Numdiff), intent(inout) :: this
+    class(ModelVarManager), intent(inout) :: PROG_VARS
+    class(ModelVarManager), intent(inout) :: AUX_VARS
+    class(AtmDynBnd), intent(in) :: boundary_cond
+    type(SparseMat), intent(in) :: Dx, Dy, Dz, Lift
+    class(MeshBase3D), intent(in), target :: mesh
+
+    class(MeshField3D), pointer :: DDENS, DENS_hyd
+    !--------------------------------------------
+
+    call PROG_VARS%Get3D(DENS_VID, DDENS)    
+    call AUX_VARS%Get3D(DENSHYD_VID, DENS_hyd)
+
+    call PROG_VARS%MeshFieldComm_Exchange()
+
+    call apply_numfilter( this, THERM_VID, PROG_VARS, boundary_cond, DDENS, DENS_hyd, Dx, Dy, Dz, Lift, mesh )
+    call apply_numfilter( this, MOMZ_VID, PROG_VARS, boundary_cond, DDENS, DENS_hyd, Dx, Dy, Dz, Lift, mesh )
+    call apply_numfilter( this, MOMX_VID, PROG_VARS, boundary_cond, DDENS, DENS_hyd, Dx, Dy, Dz, Lift, mesh )
+    call apply_numfilter( this, MOMY_VID, PROG_VARS, boundary_cond, DDENS, DENS_hyd, Dx, Dy, Dz, Lift, mesh )
+    call apply_numfilter( this, DENS_VID, PROG_VARS, boundary_cond, DDENS, DENS_hyd, Dx, Dy, Dz, Lift, mesh )
+
+    return
+  end subroutine atm_dyn_dgm_nonhydro3d_numdiff_Apply
+
+  !- private ------------------------------
+
+!OCL SERIAL
+  subroutine apply_numfilter( this, varid, prgvars_list, boundary_cond, DDENS, DENS_hyd, &
+    Dx, Dy, Dz, Lift, mesh )
+
+    use scale_atm_dyn_dgm_nonhydro3d_common, only: &
+      PRGVAR_DDENS_ID
+        
+    implicit none
+          
+    class(AtmDyn_Nonhydro3D_Numdiff), intent(inout) :: this
+    integer, intent(in) :: varid
+    class(ModelVarManager), intent(inout) :: prgvars_list
+    class(AtmDynBnd), intent(in) :: boundary_cond
+    class(MeshField3D), intent(in) :: DDENS
+    class(MeshField3D), intent(in) :: DENS_hyd
+    type(SparseMat), intent(in) :: Dx, Dy, Dz, Lift
+    class(MeshBase3D), intent(in), target :: mesh
+
+    class(MeshField3D), pointer :: var
+    class(MeshField3D), pointer :: ND_flx_x, ND_flx_y, ND_flx_z
+    class(MeshField3D), pointer :: ND_lapla_h, ND_lapla_v
+
+    class(LocalMesh3D), pointer :: lcmesh
+    integer :: n
+    integer :: ke
+
+    integer :: nd_itr
+    real(RP) :: nd_sign
+    logical :: dens_weight_flag
+    logical, allocatable :: is_bound(:,:)
+
+    real(RP), allocatable :: tmp_tend(:,:)
+    !-----------------------------------------
+
+    nd_sign = (-1)**(mod(this%ND_LAPLACIAN_NUM+1,2))
+    dens_weight_flag = (varid /= PRGVAR_DDENS_ID)
+
+    call prgvars_list%Get3D(varid, var)
+    call this%NUMDIFF_FLUX_manager%Get3D(NUMDIFFFLX_X_ID, ND_flx_x)
+    call this%NUMDIFF_FLUX_manager%Get3D(NUMDIFFFLX_Y_ID, ND_flx_y)
+    call this%NUMDIFF_FLUX_manager%Get3D(NUMDIFFFLX_Z_ID, ND_flx_z)
+
+    call this%NUMDIFF_TEND_manager%Get3D(NUMDIFF_LAPLAH_ID, ND_lapla_h)
+    call this%NUMDIFF_TEND_manager%Get3D(NUMDIFF_LAPLAV_ID, ND_lapla_v)
+
+    do n=1, mesh%LOCAL_MESH_NUM
+      lcmesh => mesh%lcmesh_list(n)
+
+      allocate( is_bound(lcmesh%refElem%NfpTot,lcmesh%Ne) )
+      call boundary_cond%ApplyBC_numdiff_even_lc( var%local(n)%val, is_bound, varid, n, &
+        lcmesh%normal_fn(:,:,1), lcmesh%normal_fn(:,:,2), lcmesh%normal_fn(:,:,3),      &
+        lcmesh%vmapM, lcmesh%vmapP, lcmesh%vmapB, lcmesh, lcmesh%refElem3D )
+      
+      call numdiff_cal_flx( &
+        ND_flx_x%local(n)%val, ND_flx_y%local(n)%val, ND_flx_z%local(n)%val,             &
+        var%local(n)%val, var%local(n)%val, DDENS%local(n)%val, DENS_hyd%local(n)%val,   &
+        Dx, Dy, Dz, Lift, lcmesh, lcmesh%refElem3D, is_bound, dens_weight_flag           ) 
+
+      deallocate( is_bound )
+    end do
+
+    !* Exchange halo data
+    call this%NUMDIFF_FLUX_manager%MeshFieldComm_Exchange()
+
+    do nd_itr=1, this%ND_LAPLACIAN_NUM-1
+      do n = 1, mesh%LOCAL_MESH_NUM
+        lcmesh => mesh%lcmesh_list(n)
+          
+        allocate( is_bound(lcmesh%refElem%NfpTot,lcmesh%Ne) )
+        call boundary_cond%ApplyBC_numdiff_odd_lc( &
+          ND_flx_x%local(n)%val, ND_flx_y%local(n)%val, ND_flx_z%local(n)%val, is_bound, varid, n, &
+          lcmesh%normal_fn(:,:,1), lcmesh%normal_fn(:,:,2), lcmesh%normal_fn(:,:,3),               &
+          lcmesh%vmapM, lcmesh%vmapP, lcmesh%vmapB, lcmesh, lcmesh%refElem3D )
+
+        call numdiff_cal_laplacian( &
+          ND_lapla_h%local(n)%val, ND_lapla_v%local(n)%val,                    &
+          ND_flx_x%local(n)%val, ND_flx_y%local(n)%val, ND_flx_z%local(n)%val, &
+          Dx, Dy, Dz, Lift, lcmesh, lcmesh%refElem3D, is_bound                 )
+        
+        deallocate( is_bound )
+      end do
+      !* Exchange halo data
+      call this%NUMDIFF_TEND_manager%MeshFieldComm_Exchange()
+
+      do n = 1, mesh%LOCAL_MESH_NUM
+        lcmesh => mesh%lcmesh_list(n)
+          
+        allocate( is_bound(lcmesh%refElem%NfpTot,lcmesh%Ne) )
+        call boundary_cond%ApplyBC_numdiff_even_lc( &
+          ND_lapla_h%local(n)%val, is_bound, varid, n,                               &
+          lcmesh%normal_fn(:,:,1), lcmesh%normal_fn(:,:,2), lcmesh%normal_fn(:,:,3), &
+          lcmesh%vmapM, lcmesh%vmapP, lcmesh%vmapB, lcmesh, lcmesh%refElem3D         )
+          
+        call numdiff_cal_flx( &
+          ND_flx_x%local(n)%val, ND_flx_y%local(n)%val, ND_flx_z%local(n)%val, &
+          ND_lapla_h%local(n)%val, ND_lapla_v%local(n)%val,                    &
+          DDENS%local(n)%val, DENS_hyd%local(n)%val,                           &
+          Dx, Dy, Dz, Lift, lcmesh, lcmesh%refElem3D, is_bound, .false. ) 
+
+        deallocate( is_bound )
+      end do
+      !* Exchange halo data
+      call this%NUMDIFF_FLUX_manager%MeshFieldComm_Exchange()
+    end do
+    
+    do n = 1, mesh%LOCAL_MESH_NUM
+
+      allocate( is_bound(lcmesh%refElem%NfpTot,lcmesh%Ne), tmp_tend(lcmesh%refElem3D%Np,lcmesh%NeA) )
+
+      call boundary_cond%ApplyBC_numdiff_odd_lc( &
+        ND_flx_x%local(n)%val, ND_flx_y%local(n)%val, ND_flx_z%local(n)%val,       &
+        is_bound, varid, n,                                                        &
+        lcmesh%normal_fn(:,:,1), lcmesh%normal_fn(:,:,2), lcmesh%normal_fn(:,:,3), &
+        lcmesh%vmapM, lcmesh%vmapP, lcmesh%vmapB, lcmesh, lcmesh%refElem3D )
+
+      call numdiff_tend( tmp_tend(:,:),  &
+        ND_flx_x%local(n)%val, ND_flx_y%local(n)%val, ND_flx_z%local(n)%val,   &
+        DDENS%local(n)%val, DENS_hyd%local(n)%val,                             &
+        nd_sign * this%ND_COEF_H, nd_sign * this%ND_COEF_V,                    &
+        Dx, Dy, Dz, Lift, lcmesh, lcmesh%refElem3D, is_bound, dens_weight_flag ) 
+
+      !$omp parallel do
+      do ke=lcmesh%NeS, lcmesh%NeE
+        var%local(n)%val(:,ke) = var%local(n)%val(:,ke) + this%dtsec * tmp_tend(:,ke)
+      end do
+
+      deallocate( is_bound, tmp_tend )
+    end do
+
+    return
+  end subroutine apply_numfilter
+
 
 !OCL SERIAL  
-  subroutine atm_dyn_dgm_nonhydro3d_numdiff_tend( &
+  subroutine numdiff_tend( &
     tend_,                                                     & ! (out)
     GxV_, GyV_, GzV_,                                          & ! (in)
     DDENS_, DENS_hyd, diffcoef_h, diffcoef_v,                  & ! (in)
@@ -140,7 +439,7 @@ contains
     end do
 
     return
-  end subroutine atm_dyn_dgm_nonhydro3d_numdiff_tend
+  end subroutine numdiff_tend
 
 !OCL SERIAL  
   subroutine cal_del_flux_lap_with_coef( del_flux, & ! (out)
@@ -205,7 +504,7 @@ contains
   !--
 
 !OCL SERIAL  
-  subroutine atm_dyn_dgm_nonhydro3d_numdiff_cal_laplacian( &
+  subroutine numdiff_cal_laplacian( &
     lapla_h, lapla_v,                                  & ! (out)
     GxV_, GyV_, GzV_,                                  & ! (in)
     Dx, Dy, Dz, Lift, lmesh, elem, is_bound            ) ! (in)
@@ -258,7 +557,7 @@ contains
     end do
 
     return
-  end subroutine atm_dyn_dgm_nonhydro3d_numdiff_cal_laplacian 
+  end subroutine numdiff_cal_laplacian 
 
 !OCL SERIAL
   subroutine cal_del_flux_lap( del_flux_h, del_flux_v, & ! (out)
@@ -306,7 +605,7 @@ contains
   !-------------------------------------------------------
 
 !OCL SERIAL  
-  subroutine atm_dyn_dgm_nonhydro3d_numdiff_cal_flx( &
+  subroutine numdiff_cal_flx( &
     GxV_, GyV_, GzV_,                                         & ! (out)
     Varh_, Varv_, DDENS_, DENS_hyd_,                          & ! (in)
     Dx, Dy, Dz, Lift, lmesh, elem, is_bound, divide_dens_flag ) ! (in)
@@ -365,7 +664,7 @@ contains
     end do
 
     return
-  end subroutine atm_dyn_dgm_nonhydro3d_numdiff_cal_flx
+  end subroutine numdiff_cal_flx
 
 !OCL SERIAL  
   subroutine cal_del_gradDiffVar( del_flux, & ! (out)

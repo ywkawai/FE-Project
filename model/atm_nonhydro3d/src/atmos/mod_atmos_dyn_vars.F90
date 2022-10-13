@@ -33,7 +33,7 @@ module mod_atmos_dyn_vars
   
   use scale_model_var_manager, only: &
     ModelVarManager, VariableInfo
-  use scale_model_mesh_manager, only: ModelMeshBase
+  use scale_model_meshbase_manager, only: ModelMeshBase
 
   use mod_atmos_mesh, only: AtmosMesh
     
@@ -62,15 +62,6 @@ module mod_atmos_dyn_vars
     type(ModelVarManager) :: AUXTRC_FLUX_VAR3D_manager
     integer :: AUXTRC_FLUX_VAR3D_commid
 
-    ! Numerical diffusion
-    type(MeshField3D), allocatable :: NUMDIFF_FLUX_VARS3D(:)
-    type(ModelVarManager) :: NUMDIFF_FLUX_manager
-    integer :: NUMDIFF_FLUX_commid
-
-    type(MeshField3D), allocatable :: NUMDIFF_TEND_VARS3D(:)
-    type(ModelVarManager) :: NUMDIFF_TEND_manager
-    integer :: NUMDIFF_TEND_commid
-
     type(MeshField3D), allocatable :: ANALYSIS_VARS3D(:)
     type(ModelVarManager) :: ANALYSISVARS_manager
 
@@ -85,8 +76,6 @@ module mod_atmos_dyn_vars
 
   public :: AtmosDynAuxVars_GetLocalMeshFields
   public :: AtmosDynMassFlux_GetLocalMeshFields
-  public :: AtmosDynNumDiffFlux_GetLocalMeshFields
-  public :: AtmosDynNumDiffTend_GetLocalMeshFields
   !public :: AtmosDynVars_GetLocalMeshFields_analysis
 
   !-----------------------------------------------------------------------------
@@ -138,33 +127,6 @@ module mod_atmos_dyn_vars
                   'kg/s/m2',  3, 'XYZ',  ''                                    ),   & 
     VariableInfo( ATMOS_DYN_MASSFLX_Y_ID, 'MASSFLX_Y', 'flux in y-direction',  &
                   'kg/s/m2',  3, 'XYZ',  ''                                    )    / 
-
-  !-
-  integer, public, parameter :: ATMOS_DYN_NUMDIFF_FLUX_NUM   = 3
-  integer, public, parameter :: ATMOS_DYN_NUMDIFFFLX_X_ID    = 1
-  integer, public, parameter :: ATMOS_DYN_NUMDIFFFLX_Y_ID    = 2
-  integer, public, parameter :: ATMOS_DYN_NUMDIFFFLX_Z_ID    = 3
-
-  type(VariableInfo), public :: ATMOS_DYN_NUMDIFF_FLUX_VINFO(ATMOS_DYN_NUMDIFF_FLUX_NUM)
-  DATA ATMOS_DYN_NUMDIFF_FLUX_VINFO / &
-    VariableInfo( ATMOS_DYN_NUMDIFFFLX_X_ID, 'DIFFFLX_X', 'flux in x-direction',  &
-                  '?.m/s',  3, 'XYZ',  ''                                           ),   & 
-    VariableInfo( ATMOS_DYN_NUMDIFFFLX_Y_ID, 'DIFFFLX_Y', 'flux in y-direction',  &
-                  '?.m/s',  3, 'XYZ',  ''                                           ),   &
-    VariableInfo( ATMOS_DYN_NUMDIFFFLX_Z_ID, 'DIFFFLX_Z', 'flux in z-direction',  &
-                  '?.m/s',  3, 'XYZ',  ''                                           )    / 
-       
-  !-
-  integer, public, parameter :: ATMOS_DYN_NUMDIFF_TEND_NUM   = 2
-  integer, public, parameter :: ATMOS_DYN_NUMDIFF_LAPLAH_ID  = 1
-  integer, public, parameter :: ATMOS_DYN_NUMDIFF_LAPLAV_ID  = 2
-
-  type(VariableInfo), public :: ATMOS_DYN_NUMDIFF_TEND_VINFO(ATMOS_DYN_NUMDIFF_TEND_NUM)
-  DATA ATMOS_DYN_NUMDIFF_TEND_VINFO / &
-    VariableInfo( ATMOS_DYN_NUMDIFF_LAPLAH_ID, 'NUMDIFF_LAPLAH', 'tendency due to nundiff',  &
-                  '?/s',  3, 'XYZ',  ''                                                   ), &
-    VariableInfo( ATMOS_DYN_NUMDIFF_LAPLAV_ID, 'NUMDIFF_LAPLAV', 'tendency due to nundiff',  &
-                  '?/s',  3, 'XYZ',  ''                                                   )  /
 
   ! integer, public, parameter :: ATMOS_DYN_ANALYSISVARS_NUM          = 6
   ! integer, public, parameter :: ATMOS_DYN_ANALYSISVAR_MOMZ_t        = 1
@@ -306,49 +268,6 @@ contains
       this%AUXTRC_FLUX_VARS3D(:),        & ! (in)
       this%AUXTRC_FLUX_VAR3D_commid      ) ! (out)
 
-    !- Initialize variables to store diffusive fluxes with explicit numerical diffusion
-
-    call this%NUMDIFF_FLUX_manager%Init()
-    allocate( this%NUMDIFF_FLUX_VARS3D(ATMOS_DYN_NUMDIFF_FLUX_NUM) )
-
-    reg_file_hist = .false.    
-    do v = 1, ATMOS_DYN_NUMDIFF_FLUX_NUM
-      call this%NUMDIFF_FLUX_manager%Regist(                &
-        ATMOS_DYN_NUMDIFF_FLUX_VINFO(v), mesh3D,            & ! (in) 
-        this%NUMDIFF_FLUX_VARS3D(v), reg_file_hist          ) ! (out)
-      
-      do n = 1, mesh3D%LOCAL_MESH_NUM
-        this%NUMDIFF_FLUX_VARS3D(v)%local(n)%val(:,:) = 0.0_RP
-      end do         
-    end do
-
-    call atm_mesh%Create_communicator( &
-      ATMOS_DYN_NUMDIFF_FLUX_NUM, 0,   & ! (in)
-      this%NUMDIFF_FLUX_manager,       & ! (inout)
-      this%NUMDIFF_FLUX_VARS3D(:),     & ! (in)
-      this%NUMDIFF_FLUX_commid         ) ! (out)
-
-    !-
-    call this%NUMDIFF_TEND_manager%Init()
-    allocate( this%NUMDIFF_TEND_VARS3D(ATMOS_DYN_NUMDIFF_TEND_NUM) )
-
-    reg_file_hist = .false.    
-    do v = 1, ATMOS_DYN_NUMDIFF_TEND_NUM
-      call this%NUMDIFF_TEND_manager%Regist(                &
-        ATMOS_DYN_NUMDIFF_TEND_VINFO(v), mesh3D,            & ! (in) 
-        this%NUMDIFF_TEND_VARS3D(v), reg_file_hist          ) ! (out)
-      
-      do n = 1,  mesh3D%LOCAL_MESH_NUM
-        this%NUMDIFF_TEND_VARS3D(v)%local(n)%val(:,:) = 0.0_RP
-      end do         
-    end do
-
-    call atm_mesh%Create_communicator( &
-      ATMOS_DYN_NUMDIFF_TEND_NUM, 0,   & ! (in)
-      this%NUMDIFF_TEND_manager,       & ! (inout)
-      this%NUMDIFF_TEND_VARS3D(:),     & ! (in)
-      this%NUMDIFF_TEND_commid         ) ! (out)
-
     !-
     call this%alphaDensM%Init( "alphaDensM", "kg/m3.m/s", mesh3D, LOCAL_MESHFIELD_TYPE_NODES_FACEVAL )
     call this%alphaDensP%Init( "alphaDensP", "kg/m3.m/s", mesh3D, LOCAL_MESHFIELD_TYPE_NODES_FACEVAL )
@@ -388,12 +307,6 @@ contains
 
     call this%AUXTRC_FLUX_VAR3D_manager%Final()
     deallocate( this%AUXTRC_FLUX_VARS3D )
-
-    call this%NUMDIFF_FLUX_manager%Final()
-    deallocate( this%NUMDIFF_FLUX_VARS3D )
-
-    call this%NUMDIFF_TEND_manager%Final()
-    deallocate( this%NUMDIFF_TEND_VARS3D )
     
     call this%alphaDensM%Final()
     call this%alphaDensP%Final()
@@ -507,92 +420,6 @@ contains
     return
   end subroutine AtmosDynMassFlux_GetLocalMeshFields  
 
-  subroutine AtmosDynNumDiffFlux_GetLocalMeshFields( domID, mesh, auxvars_list, &
-    NUMDIFF_FLUX_X, NUMDIFF_FLUX_Y, NUMDIFF_FLUX_Z,                             &
-    lcmesh3D                                                                    &
-    )
-
-    use scale_mesh_base, only: MeshBase
-    use scale_meshfield_base, only: MeshFieldBase
-    implicit none
-
-    integer, intent(in) :: domID
-    class(MeshBase), intent(in) :: mesh
-    class(ModelVarManager), intent(inout) :: auxvars_list
-    class(LocalMeshFieldBase), pointer, intent(out) :: NUMDIFF_FLUX_X
-    class(LocalMeshFieldBase), pointer, intent(out) :: NUMDIFF_FLUX_Y
-    class(LocalMeshFieldBase), pointer, intent(out) :: NUMDIFF_FLUX_Z
-    class(LocalMesh3D), pointer, intent(out), optional :: lcmesh3D
-
-    class(MeshFieldBase), pointer :: field   
-    class(LocalMeshBase), pointer :: lcmesh
-    !-------------------------------------------------------
-
-    !--
-    call auxvars_list%Get(ATMOS_DYN_NUMDIFFFLX_X_ID, field)
-    call field%GetLocalMeshField(domID, NUMDIFF_FLUX_X)
-
-    call auxvars_list%Get(ATMOS_DYN_NUMDIFFFLX_Y_ID, field)
-    call field%GetLocalMeshField(domID, NUMDIFF_FLUX_Y)
-
-    call auxvars_list%Get(ATMOS_DYN_NUMDIFFFLX_Z_ID, field)
-    call field%GetLocalMeshField(domID, NUMDIFF_FLUX_Z)
-    !---
-    
-    if (present(lcmesh3D)) then
-      call mesh%GetLocalMesh( domID, lcmesh )
-      nullify( lcmesh3D )
-
-      select type(lcmesh)
-      type is (LocalMesh3D)
-        if (present(lcmesh3D)) lcmesh3D => lcmesh
-      end select
-    end if
-
-    return
-  end subroutine AtmosDynNumDiffFlux_GetLocalMeshFields
-
-  subroutine AtmosDynNumDiffTend_GetLocalMeshFields( domID, mesh, auxvars_list, &
-    NUMDIFF_LAPLAH, NUMDIFF_LAPLAV,                                             &
-    lcmesh3D                                                                    &
-    )
-
-    use scale_mesh_base, only: MeshBase
-    use scale_meshfield_base, only: MeshFieldBase
-    implicit none
-
-    integer, intent(in) :: domID
-    class(MeshBase), intent(in) :: mesh
-    class(ModelVarManager), intent(inout) :: auxvars_list
-    class(LocalMeshFieldBase), pointer, intent(out) :: NUMDIFF_LAPLAH
-    class(LocalMeshFieldBase), pointer, intent(out) :: NUMDIFF_LAPLAV
-    class(LocalMesh3D), pointer, intent(out), optional :: lcmesh3D
-
-    class(MeshFieldBase), pointer :: field   
-    class(LocalMeshBase), pointer :: lcmesh
-    !-------------------------------------------------------
-
-    !--
-    call auxvars_list%Get(ATMOS_DYN_NUMDIFF_LAPLAH_ID, field)
-    call field%GetLocalMeshField(domID, NUMDIFF_LAPLAH)
-
-    call auxvars_list%Get(ATMOS_DYN_NUMDIFF_LAPLAV_ID, field)
-    call field%GetLocalMeshField(domID, NUMDIFF_LAPLAV) 
-    !---
-    
-    if (present(lcmesh3D)) then
-      call mesh%GetLocalMesh( domID, lcmesh )
-      nullify( lcmesh3D )
-
-      select type(lcmesh)
-      type is (LocalMesh3D)
-        if (present(lcmesh3D)) lcmesh3D => lcmesh
-      end select
-    end if
-
-    return
-  end subroutine AtmosDynNumDiffTend_GetLocalMeshFields
-  
   ! subroutine AtmosDynVars_GetLocalMeshFields_analysis( domID, mesh, analysis_list, &
   !   MOMZ_t, MOMZ_t_advx, MOMZ_t_advY, MOMZ_t_advZ, MOMZ_t_lift, MOMZ_t_buoy,       &
   !   lcmesh3D                                                             &

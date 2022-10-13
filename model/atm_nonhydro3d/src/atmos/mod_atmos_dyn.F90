@@ -42,12 +42,8 @@ module mod_atmos_dyn
   use scale_model_var_manager, only: ModelVarManager
   use scale_model_component_proc, only:  ModelComponentProc
 
-  use scale_atm_dyn_dgm_driver_nonhydro3d, only: &
-    AtmDynDGMDriver_nonhydro3d
-  
-  use scale_atm_dyn_dgm_nonhydro3d_numdiff, only: &
-    atm_dyn_dgm_nonhydro3d_numdiff_Init,          &
-    atm_dyn_dgm_nonhydro3d_numdiff_Final
+  use scale_atm_dyn_dgm_driver_nonhydro3d, only: AtmDynDGMDriver_nonhydro3d
+  use scale_atm_dyn_dgm_nonhydro3d_numdiff, only: AtmDyn_Nonhydro3D_Numdiff
   
   use scale_element_modalfilter, only: ModalFilter
 
@@ -89,9 +85,7 @@ module mod_atmos_dyn
 
     ! explicit numerical diffusion
     logical :: CALC_NUMDIFF_FLAG
-    integer  :: ND_LAPLACIAN_NUM
-    real(RP) :: ND_COEF_H
-    real(RP) :: ND_COEF_V
+    type(AtmDyn_Nonhydro3D_Numdiff) :: numdiff
 
     ! element-wise modal filter
     logical :: MODALFILTER_FLAG
@@ -120,10 +114,7 @@ module mod_atmos_dyn
   !
   !++ Private procedure
   !
-  private :: cal_numfilter_tend
-
   private :: setup_modalfilter
-  private :: setup_numdiff
   private :: setup_coriolis_parameter
 
   !-----------------------------------------------------------------------------
@@ -236,7 +227,7 @@ contains
 
     !- Setup the numerical diffusion
     this%CALC_NUMDIFF_FLAG = NUMDIFF_FLAG
-    if( NUMDIFF_FLAG ) call setup_numdiff( this, atm_mesh )
+    call this%numdiff%Init( atm_mesh, dtsec )
 
     !- Setup the modal filter
     this%MODALFILTER_FLAG = MODALFILTER_FLAG
@@ -586,35 +577,14 @@ contains
 
     !-- numerical diffusion for dynamical variables -----------------------------
 
-    ! if ( this%CALC_NUMDIFF_FLAG ) then
-      
-    !   call PROF_rapstart( 'ATM_DYN_numfilter', 2)
-    !   call prgvars_list%MeshFieldComm_Exchange()
-
-    !   do v = 1, PRGVAR_NUM
-    !     call cal_numfilter_tend( this, model_mesh, prgvars_list, auxvars_list, v )
-    !   end do
-
-    !   do n=1, mesh%LOCAL_MESH_NUM
-    !     dt = this%tint(n)%Get_deltime()
-
-    !     call AtmosVars_GetLocalMeshPrgVars( n, &
-    !       mesh, prgvars_list, auxvars_list,       &
-    !       DDENS, MOMX, MOMY, MOMZ, DRHOT,         &
-    !       DENS_hyd, PRES_hyd, Rtot, CVtot, CPtot, &
-    !       lcmesh                                  )
-    !     !$omp parallel do
-    !     do ke=1, lcmesh%Ne
-!         DDENS%val(:,ke) = DDENS%val(:,ke) + dt * this%tint(n)%tend_buf2D_ex(:,ke,DDENS_ID,1)
-!         MOMX %val(:,ke) = MOMX %val(:,ke) + dt * this%tint(n)%tend_buf2D_ex(:,ke,MOMX_ID ,1)
-!         MOMY %val(:,ke) = MOMY %val(:,ke) + dt * this%tint(n)%tend_buf2D_ex(:,ke,MOMY_ID ,1)
-!         MOMZ %val(:,ke) = MOMZ %val(:,ke) + dt * this%tint(n)%tend_buf2D_ex(:,ke,MOMZ_ID ,1)
-!         DRHOT%val(:,ke) = DRHOT%val(:,ke) + dt * this%tint(n)%tend_buf2D_ex(:,ke,DRHOT_ID,1)
-    !     end do
-    !   end do
-
-    !   call PROF_rapend( 'ATM_DYN_numfilter', 2)
-    ! end if
+    if ( this%CALC_NUMDIFF_FLAG ) then      
+      call PROF_rapstart( 'ATM_DYN_numfilter', 2)
+      call this%numdiff%Apply( prgvars_list, &
+        auxvars_list, this%dyncore_driver%boundary_cond, &
+        model_mesh%DOptrMat(1), model_mesh%DOptrMat(2), model_mesh%DOptrMat(3),    & ! (in)
+        model_mesh%LiftOptrMat, mesh3D                                             ) ! (in)
+      call PROF_rapend( 'ATM_DYN_numfilter', 2)
+    end if
 
     !---------------------------
     call PROF_rapend( 'ATM_DYN_update', 1)
@@ -635,9 +605,7 @@ contains
     call this%dyncore_driver%Final()
     call atm_dyn_dgm_trcadvect3d_heve_Final()
 
-    if (this%CALC_NUMDIFF_FLAG) then
-      call atm_dyn_dgm_nonhydro3d_numdiff_Final()
-    end if
+    if (this%CALC_NUMDIFF_FLAG) call this%numdiff%Final()
 
     if (this%MODALFILTER_FLAG) then
       call this%modal_filter_3d%Final()
@@ -655,161 +623,6 @@ contains
   end subroutine AtmosDyn_finalize  
 
   !--- private ---------------
-
-!OCL SERIAL
-  subroutine cal_numfilter_tend( this, model_mesh, prgvars_list, auxvars_list, varid )
-
-    use scale_atm_dyn_dgm_nonhydro3d_common, only: &
-      PRGVAR_DDENS_ID
-
-    use mod_atmos_dyn_vars, only: &
-      AtmosDynAuxVars_GetLocalMeshFields,     &
-      AtmosDynNumDiffFlux_GetLocalMeshFields, &
-      AtmosDynNumDiffTend_GetLocalMeshFields
-    
-    use scale_atm_dyn_dgm_nonhydro3d_numdiff, only: &
-      atm_dyn_dgm_nonhydro3d_numdiff_tend,          &
-      atm_dyn_dgm_nonhydro3d_numdiff_cal_laplacian, &
-      atm_dyn_dgm_nonhydro3d_numdiff_cal_flx
-
-    implicit none
-          
-    class(AtmosDyn), intent(inout) :: this
-    class(ModelMeshBase), intent(in) :: model_mesh
-    class(ModelVarManager), intent(inout) :: prgvars_list
-    class(ModelVarManager), intent(inout) :: auxvars_list
-    integer, intent(in) :: varid
-
-    class(LocalMeshFieldBase), pointer :: var
-    class(LocalMeshFieldBase), pointer :: ND_flx_x, ND_flx_y, ND_flx_z
-    class(LocalMeshFieldBase), pointer :: ND_lapla_h, ND_lapla_v
-    class(LocalMeshFieldBase), pointer :: DDENS, MOMX, MOMY, MOMZ, THERM
-    class(LocalMeshFieldBase), pointer :: DENS_hyd, PRES_hyd
-    class(LocalMeshFieldBase), pointer :: Rtot, CVtot, CPtot
-
-    class(MeshBase), pointer :: mesh
-    class(LocalMesh3D), pointer :: lcmesh
-    integer :: n
-    integer :: nd_itr
-    real(RP) :: nd_sign
-    logical :: dens_weight_flag
-    logical, allocatable :: is_bound(:,:)
-
-    !-----------------------------------------
-
-    nd_sign = (-1)**(mod(this%ND_LAPLACIAN_NUM+1,2))
-    dens_weight_flag = (varid /= PRGVAR_DDENS_ID)
-
-    call model_mesh%GetModelMesh( mesh )
-
-    do n=1, mesh%LOCAL_MESH_NUM
-      call AtmosVars_GetLocalMeshPrgVar( n, mesh, prgvars_list, auxvars_list, &
-        varid, var,                                                           &
-        DENS_hyd, PRES_hyd, lcmesh                                            )
-      call AtmosVars_GetLocalMeshPrgVars( n, mesh, prgvars_list, auxvars_list, &
-        DDENS, MOMX, MOMY, MOMZ, THERM,                                        &
-        DENS_hyd, PRES_hyd, Rtot, CVtot, CPtot                                 )
-      call AtmosDynNumDiffFlux_GetLocalMeshFields( n, mesh, this%dyn_vars%NUMDIFF_FLUX_manager, &
-        ND_flx_x, ND_flx_y, ND_flx_z )
-      
-      allocate( is_bound(lcmesh%refElem%NfpTot,lcmesh%Ne) )
-      call this%dyncore_driver%boundary_cond%ApplyBC_numdiff_even_lc( var%val, is_bound, varid, n, &
-        MOMX%val, MOMY%val, MOMZ%val, DENS_hyd%val, PRES_hyd%val,                    &
-        lcmesh%normal_fn(:,:,1), lcmesh%normal_fn(:,:,2), lcmesh%normal_fn(:,:,3),   &
-        lcmesh%vmapM, lcmesh%vmapP, lcmesh%vmapB, lcmesh, lcmesh%refElem3D )
-      
-      call atm_dyn_dgm_nonhydro3d_numdiff_cal_flx( ND_flx_x%val, ND_flx_y%val, ND_flx_z%val, &
-        var%val, var%val, DDENS%val, DENS_hyd%val,                                       &
-        model_mesh%DOptrMat(1), model_mesh%DOptrMat(2), model_mesh%DOptrMat(3),          &
-        model_mesh%LiftOptrMat,                                                          &
-        lcmesh, lcmesh%refElem3D, is_bound, dens_weight_flag ) 
-
-      deallocate( is_bound )
-    end do
-
-    !* Exchange halo data
-    call this%dyn_vars%NUMDIFF_FLUX_manager%MeshFieldComm_Exchange()
-
-    do nd_itr=1, this%ND_LAPLACIAN_NUM-1
-      do n = 1, mesh%LOCAL_MESH_NUM
-        call AtmosDynNumDiffFlux_GetLocalMeshFields( n, mesh, this%dyn_vars%NUMDIFF_FLUX_manager, &
-          ND_flx_x, ND_flx_y, ND_flx_z, lcmesh)
-        call AtmosDynNumDiffTend_GetLocalMeshFields( n, mesh, this%dyn_vars%NUMDIFF_TEND_manager, &
-          ND_lapla_h, ND_lapla_v )
-          
-        allocate( is_bound(lcmesh%refElem%NfpTot,lcmesh%Ne) )
-        call this%dyncore_driver%boundary_cond%ApplyBC_numdiff_odd_lc( &
-          ND_flx_x%val, ND_flx_y%val, ND_flx_z%val, is_bound, varid, n,              &
-          lcmesh%normal_fn(:,:,1), lcmesh%normal_fn(:,:,2), lcmesh%normal_fn(:,:,3), &
-          lcmesh%vmapM, lcmesh%vmapP, lcmesh%vmapB, lcmesh, lcmesh%refElem3D )
-
-        call atm_dyn_dgm_nonhydro3d_numdiff_cal_laplacian( ND_lapla_h%val, ND_lapla_v%val, &
-          ND_flx_x%val, ND_flx_y%val, ND_flx_z%val,                                        &
-          model_mesh%DOptrMat(1), model_mesh%DOptrMat(2), model_mesh%DOptrMat(3),          &
-          model_mesh%LiftOptrMat,                                                          &
-          lcmesh, lcmesh%refElem3D, is_bound )
-        
-        deallocate( is_bound )
-      end do
-      !* Exchange halo data
-      call this%dyn_vars%NUMDIFF_TEND_manager%MeshFieldComm_Exchange()
-
-      do n = 1, mesh%LOCAL_MESH_NUM
-        call AtmosDynNumDiffFlux_GetLocalMeshFields( n, mesh, this%dyn_vars%NUMDIFF_FLUX_manager, &
-          ND_flx_x, ND_flx_y, ND_flx_z, lcmesh)
-        call AtmosDynNumDiffTend_GetLocalMeshFields( n, mesh, this%dyn_vars%NUMDIFF_TEND_manager, &
-          ND_lapla_h, ND_lapla_v )    
-        call AtmosVars_GetLocalMeshPrgVars( n, mesh, prgvars_list, auxvars_list, &
-          DDENS, MOMX, MOMY, MOMZ, THERM,                                        &
-          DENS_hyd, PRES_hyd, Rtot, CPtot, CVtot                                 )
-          
-        allocate( is_bound(lcmesh%refElem%NfpTot,lcmesh%Ne) )
-        call this%dyncore_driver%boundary_cond%ApplyBC_numdiff_even_lc( &
-          ND_lapla_h%val, is_bound, varid, n,                                        &
-          MOMX%val, MOMY%val, MOMZ%val, DENS_hyd%val, PRES_hyd%val,                  &
-          lcmesh%normal_fn(:,:,1), lcmesh%normal_fn(:,:,2), lcmesh%normal_fn(:,:,3), &
-          lcmesh%vmapM, lcmesh%vmapP, lcmesh%vmapB, lcmesh, lcmesh%refElem3D )
-          
-        call atm_dyn_dgm_nonhydro3d_numdiff_cal_flx( ND_flx_x%val, ND_flx_y%val, ND_flx_z%val, &
-          ND_lapla_h%val, ND_lapla_v%val, DDENS%val, DENS_hyd%val,                             &
-          model_mesh%DOptrMat(1), model_mesh%DOptrMat(2), model_mesh%DOptrMat(3),              &
-          model_mesh%LiftOptrMat,                                                              &
-          lcmesh, lcmesh%refElem3D, is_bound, .false. ) 
-
-        deallocate( is_bound )
-      end do
-      !* Exchange halo data
-      call this%dyn_vars%NUMDIFF_FLUX_manager%MeshFieldComm_Exchange()
-    end do
-    
-    do n = 1, mesh%LOCAL_MESH_NUM
-
-      call AtmosDynNumDiffFlux_GetLocalMeshFields( n, mesh, this%dyn_vars%NUMDIFF_FLUX_manager, &
-        ND_flx_x, ND_flx_y, ND_flx_z, lcmesh)  
-      call AtmosVars_GetLocalMeshPrgVar( n, mesh, prgvars_list, auxvars_list,  &
-        varid, var,                                                            &
-        DENS_hyd, PRES_hyd, lcmesh                                             )
-      call AtmosVars_GetLocalMeshPrgVar( n, mesh, prgvars_list, auxvars_list,  &
-        PRGVAR_DDENS_ID, DDENS                                                 )
-
-      allocate( is_bound(lcmesh%refElem%NfpTot,lcmesh%Ne) )
-      call this%dyncore_driver%boundary_cond%ApplyBC_numdiff_odd_lc(                              &
-        ND_flx_x%val, ND_flx_y%val, ND_flx_z%val, is_bound, varid, n,              &
-        lcmesh%normal_fn(:,:,1), lcmesh%normal_fn(:,:,2), lcmesh%normal_fn(:,:,3), &
-        lcmesh%vmapM, lcmesh%vmapP, lcmesh%vmapB, lcmesh, lcmesh%refElem3D )
-
-      ! call atm_dyn_dgm_nonhydro3d_numdiff_tend( this%tint(n)%tend_buf2D_ex(:,:,varid,1),  &
-      !   ND_flx_x%val, ND_flx_y%val, ND_flx_z%val,                                         &
-      !   DDENS%val, DENS_hyd%val, nd_sign * this%ND_COEF_H, nd_sign * this%ND_COEF_V,      &
-      !   model_mesh%DOptrMat(1), model_mesh%DOptrMat(2), model_mesh%DOptrMat(3),           &
-      !   model_mesh%LiftOptrMat,                                                           &
-      !   lcmesh, lcmesh%refElem3D, is_bound, dens_weight_flag ) 
-
-      deallocate( is_bound )
-    end do
-
-    return
-  end subroutine cal_numfilter_tend
 
   !-- Setup modal filter
 !OCL SERIAL
@@ -881,43 +694,6 @@ contains
 
     return
   end subroutine setup_modalfilter
-
-  !-- Setup explicit numerical diffusion
-!OCL SERIAL
-  subroutine setup_numdiff( this, atm_mesh )
-    implicit none
-
-    class(AtmosDyn), target, intent(inout) :: this
-    class(AtmosMesh), target, intent(in) :: atm_mesh
-
-    integer ::  ND_LAPLACIAN_NUM = 1
-    real(RP) :: ND_COEF_h        = 0.0_RP
-    real(RP) :: ND_COEF_v        = 0.0_RP
-
-    namelist /PARAM_ATMOS_DYN_NUMDIFF/ &
-      ND_LAPLACIAN_NUM,                &
-      ND_COEF_h, ND_COEF_v
-
-    integer :: ierr
-    !---------------------------------------------------------------
-
-    rewind(IO_FID_CONF)
-    read(IO_FID_CONF,nml=PARAM_ATMOS_DYN_NUMDIFF,iostat=ierr)
-    if( ierr < 0 ) then !--- missing
-      LOG_INFO("ATMOS_DYN_setup_numdiff",*) 'Not found namelist. Default used.'
-    elseif( ierr > 0 ) then !--- fatal error
-      LOG_ERROR("ATMOS_DYN_setup_numdiff",*) 'Not appropriate names in namelist PARAM_ATMOS_DYN_NUMDIFF. Check!'
-      call PRC_abort
-    endif
-    LOG_NML(PARAM_ATMOS_DYN_NUMDIFF)      
-
-    this%ND_LAPLACIAN_NUM = ND_LAPLACIAN_NUM
-    this%ND_COEF_H = ND_COEF_h
-    this%ND_COEF_v = ND_COEF_v
-    call atm_dyn_dgm_nonhydro3d_numdiff_Init( atm_mesh%ptr_mesh )
-
-    return
-  end subroutine setup_numdiff
 
   !-- Setup Coriolis parameter
 

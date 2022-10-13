@@ -367,7 +367,6 @@ contains
     Var,                                                   & ! (inout)
     is_bound,                                              & ! (out)
     VarID, domID,                                          & ! (in)
-    MOMX, MOMY, MOMZ, DENS_hyd, PRES_hyd,                  & ! (in)
     nx, ny, nz, vmapM, vmapP, vmapB, lmesh, elem )           ! (in)
 
     use scale_mesh_bndinfo, only: &
@@ -382,11 +381,6 @@ contains
     logical, intent(out) :: is_bound(elem%NfpTot*lmesh%Ne)
     integer, intent(in) :: VarID
     integer, intent(in) :: domID
-    real(RP), intent(in) :: MOMX(elem%Np*lmesh%NeA)
-    real(RP), intent(in) :: MOMY(elem%Np*lmesh%NeA)
-    real(RP), intent(in) :: MOMZ(elem%Np*lmesh%NeA)
-    real(RP), intent(in) :: DENS_hyd(elem%Np*lmesh%NeA)
-    real(RP), intent(in) :: PRES_hyd(elem%Np*lmesh%NeA)
     real(RP), intent(in) :: nx(elem%NfpTot*lmesh%Ne)
     real(RP), intent(in) :: ny(elem%NfpTot*lmesh%Ne)
     real(RP), intent(in) :: nz(elem%NfpTot*lmesh%Ne)

@@ -132,9 +132,10 @@ OBJS_NAME_MICROPHYS = \
 	scale_atm_phy_mp_dgm_common.o
 
 OBJS_NAME_MODEL_FRAMEWORK = \
-	scale_model_mesh_manager.o   \
-	scale_model_component.o      \
-	scale_model_component_proc.o \
+	scale_model_meshbase_manager.o \
+	scale_model_mesh_manager.o     \
+	scale_model_component.o        \
+	scale_model_component_proc.o   \
 	scale_model_var_manager.o
 
 OBJS_NAME = \
