@@ -41,7 +41,6 @@ module mod_atmos_mesh
   contains
     procedure :: AtmosMesh_Init
     procedure :: AtmosMesh_Final
-    procedure(AtmosMesh_create_communicator), public, deferred :: Create_communicator
     procedure(AtmosMesh_setup_restartfile1), public, deferred :: Setup_restartfile1
     procedure(AtmosMesh_setup_restartfile2), public, deferred :: Setup_restartfile2
     procedure(AtmosMesh_calc_UVMet), public, deferred :: Calc_UVmet
@@ -50,20 +49,7 @@ module mod_atmos_mesh
     procedure :: Construct_ModalFilter3D => AtmosMesh_construct_ModalFilter3D
     procedure :: Construct_ModalFilterHV => AtmosMesh_construct_ModalFilterHV
   end type AtmosMesh
-  interface
-    subroutine AtmosMesh_create_communicator( this, sfield_num, hvfield_num, var_manager, field_list, commid )
-      import AtmosMesh
-      import MeshBase3D
-      import ModelVarManager
-      import MeshField3D
-      class(AtmosMesh), target, intent(inout) :: this
-      integer, intent(in) :: sfield_num
-      integer, intent(in) :: hvfield_num
-      class(ModelVarManager), intent(inout) :: var_manager
-      class(MeshField3D), intent(in) :: field_list(:)
-      integer, intent(out) :: commid
-    end subroutine AtmosMesh_create_communicator
-  end interface
+
   interface
     subroutine AtmosMesh_setup_restartfile1( this, restart_file, var_num )
       import AtmosMesh
