@@ -1,8 +1,8 @@
 !-------------------------------------------------------------------------------
-!> module Atmosphere / Dynamics / DGM driver (nonydro3d)
+!> module Atmosphere / Dynamics / DGM driver (tracer advection)
 !!
 !! @par Description
-!!      Driver module for dynamical core based on DGM 
+!!      Driver module for tracer advection based on DGM 
 !!
 !! @author Team SCALE
 !<

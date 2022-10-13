@@ -139,16 +139,19 @@ contains
       RPlanet => CONST_RADIUS, &
       PI => CONST_PI
 
+    use scale_localmeshfield_base, only: LocalMeshFieldBase
+  
     use scale_file_history_meshfield, only: &
       FILE_HISTORY_meshfield_in
+    use scale_atm_dyn_dgm_nonhydro3d_common, only: &
+      MOMX_p  => PHYTEND_MOMX_ID, &
+      MOMY_p  => PHYTEND_MOMY_ID, &
+      MOMZ_p  => PHYTEND_MOMZ_ID, &
+      RHOH_p  => PHYTEND_RHOH_ID
+
     use mod_atmos_vars, only: &
       AtmosVars_GetLocalMeshPrgVars,    &
-      AtmosVars_GetLocalMeshPhyAuxVars, &
-      MOMX_p  => ATMOS_PHYTEND_MOMX_ID, &
-      MOMY_p  => ATMOS_PHYTEND_MOMY_ID, &
-      MOMZ_p  => ATMOS_PHYTEND_MOMZ_ID, &
-      RHOH_p  => ATMOS_PHYTEND_RHOH_ID
-    use scale_localmeshfield_base, only: LocalMeshFieldBase
+      AtmosVars_GetLocalMeshPhyAuxVars
 
     implicit none
 
