@@ -111,6 +111,11 @@ contains
     !###########################################################################
  
     !########## main ##########
+
+#ifdef FIPP
+    call fipp_start
+#endif
+
     LOG_NEWLINE
     LOG_PROGRESS(*) 'START TIMESTEP'
     call PROF_setprefx('MAIN')
@@ -184,6 +189,10 @@ contains
 
     LOG_PROGRESS(*) 'END TIMESTEP'
     LOG_NEWLINE
+
+#ifdef FIPP
+    call fipp_stop
+#endif
 
     !########## Finalize ##########
     call finalize
