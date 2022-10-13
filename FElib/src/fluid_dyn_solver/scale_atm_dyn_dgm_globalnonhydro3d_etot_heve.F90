@@ -167,7 +167,7 @@ contains
       lmesh%vmapM, lmesh%vmapP, elem%IndexH2Dto3D_bnd,                         & ! (in)
       lmesh, elem, lmesh2D, elem2D                                             ) ! (in)
     call PROF_rapend('cal_dyn_tend_bndflux', 3)
- 
+
     !-----
     call PROF_rapstart('cal_dyn_tend_interior', 3)
     gamm  = CPDry / CvDry
@@ -326,7 +326,6 @@ contains
             + lmesh%Escale(:,ke,2,2) * Fy(:)      &
             + lmesh%Escale(:,ke,3,3) * Fz(:)      &
             + LiftDelFlx(:) ) / lmesh%Gsqrt(:,ke) 
-
     end do
     !$omp end do
     !$omp end parallel

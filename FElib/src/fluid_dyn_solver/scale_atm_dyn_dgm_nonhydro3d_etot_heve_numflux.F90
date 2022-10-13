@@ -184,12 +184,12 @@ contains
                 ) / GsqrtDensP(:)
       
       dpresM(:) = ( CPtot(iM) / CVtot(iM) - 1.0_RP ) &
-                * ( GsqrtETOT_M(:) - GsqrtDensM(:) * Grav * zlev(iM)                                         &
-                  - 0.5_RP * ( GsqrtMOMX_M(:)**2 + GsqrtMOMY_M(:)**2 + GsqrtMOMZ_M(:)**2 ) / GsqrtDENSM(:) ) &
+                * ( GsqrtETOT_M(:) - GsqrtDensM(:) * Grav * zlev(iM)                                                      &
+                  - 0.5_RP * ( GsqrtMOMX_M(:)**2 + GsqrtMOMY_M(:)**2 + GsqrtMOMZ_M(:)**2 ) / GsqrtDENSM(:) ) / Gsqrt_M(:) &
                 - Phyd_M(:)
       dpresP(:) = ( CPtot(iP) / CVtot(iP) - 1.0_RP ) &
-                * ( GsqrtETOT_P(:) - GsqrtDensP(:) * Grav * zlev(iM)                                         &
-                  - 0.5_RP * ( GsqrtMOMX_P(:)**2 + GsqrtMOMY_P(:)**2 + GsqrtMOMZ_P(:)**2 ) / GsqrtDENSP(:) ) &
+                * ( GsqrtETOT_P(:) - GsqrtDensP(:) * Grav * zlev(iM)                                                      &
+                  - 0.5_RP * ( GsqrtMOMX_P(:)**2 + GsqrtMOMY_P(:)**2 + GsqrtMOMZ_P(:)**2 ) / GsqrtDENSP(:) ) / Gsqrt_P(:) &
                 - Phyd_P(:)
       
       GsqrtEnthalpyM(:) = GsqrtETOT_M(:) + Gsqrt_M(:) * ( Phyd_M(:) + dpresM(:) )
@@ -249,9 +249,9 @@ contains
     implicit none
 
     class(LocalMesh3D), intent(in) :: lmesh
-    class(elementbase3D), intent(in) :: elem
+    class(ElementBase3D), intent(in) :: elem
     class(LocalMesh2D), intent(in) :: lmesh2D
-    class(elementbase2D), intent(in) :: elem2D
+    class(ElementBase2D), intent(in) :: elem2D
     real(RP), intent(out) ::  del_flux(elem%NfpTot,lmesh%Ne,PRGVAR_NUM)
     real(RP), intent(out) ::  del_flux_hyd(elem%NfpTot,lmesh%Ne,2)
     real(RP), intent(in) ::  DDENS_(elem%Np*lmesh%NeA)
@@ -387,12 +387,12 @@ contains
       Gsqrt_u2P(:) = ( G_12(iM2Dto3D(:),ke2D) * GsqrtMOMX_P(:) + G_22(iM2Dto3D(:),ke2D) * GsqrtMOMY_P(:) )
           
       dpresM(:) = ( CPtot(iM) / CVtot(iM) - 1.0_RP ) &
-                * ( GsqrtETOT_M(:) - GsqrtDensM(:) * Grav * zlev(iM)                                                                 &
-                  - 0.5_RP * ( GsqrtMOMX_M(:) * Gsqrt_u1M(:) + GsqrtMOMY_M(:) * Gsqrt_u2M(:) + GsqrtMOMZ_M(:)**2 ) / GsqrtDENSM(:) ) &
+                * ( GsqrtETOT_M(:) - GsqrtDensM(:) * Grav * zlev(iM)                                                                              &
+                  - 0.5_RP * ( GsqrtMOMX_M(:) * Gsqrt_u1M(:) + GsqrtMOMY_M(:) * Gsqrt_u2M(:) + GsqrtMOMZ_M(:)**2 ) / GsqrtDENSM(:) ) / Gsqrt_M(:) &
                 - Phyd_M(:)
       dpresP(:) = ( CPtot(iP) / CVtot(iP) - 1.0_RP ) &
-                * ( GsqrtETOT_P(:) - GsqrtDensP(:) * Grav * zlev(iM)                                                                 &
-                  - 0.5_RP * ( GsqrtMOMX_P(:) * Gsqrt_u1P(:) + GsqrtMOMY_P(:) * Gsqrt_u2P(:) + GsqrtMOMZ_P(:)**2 ) / GsqrtDENSP(:) ) &
+                * ( GsqrtETOT_P(:) - GsqrtDensP(:) * Grav * zlev(iM)                                                                              &
+                  - 0.5_RP * ( GsqrtMOMX_P(:) * Gsqrt_u1P(:) + GsqrtMOMY_P(:) * Gsqrt_u2P(:) + GsqrtMOMZ_P(:)**2 ) / GsqrtDENSP(:) ) / Gsqrt_P(:) &
                 - Phyd_P(:)
 
       GsqrtEnthalpyM(:) = GsqrtETOT_M(:) + Gsqrt_M(:) * ( Phyd_M(:) + dpresM(:) )
@@ -415,7 +415,7 @@ contains
                     ( GsqrtMOMY_P(:) * VelP(:) - GsqrtMOMY_M(:) * VelM(:) )            &
                     + (  Gsqrt_P(:) * ( G2n_M(:) + Gyz_P(:) * nz(:,ke) ) * dpresP(:)   &
                        - Gsqrt_M(:) * ( G2n_M(:) + Gyz_M(:) * nz(:,ke) ) * dpresM(:) ) &
-                    - alpha(:) * ( GsqrtMOMY_P(:) - GsqrtMOMY_M(:) )        )
+                    - alpha(:) * ( GsqrtMOMY_P(:) - GsqrtMOMY_M(:) )                   )
 
       del_flux(:,ke,MOMZ_VID ) = 0.5_RP * ( &
                     ( GsqrtMOMZ_P(:) * VelP(:) - GsqrtMOMZ_M(:) * VelM(:) ) &

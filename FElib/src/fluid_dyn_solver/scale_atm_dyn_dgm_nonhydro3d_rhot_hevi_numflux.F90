@@ -74,9 +74,9 @@ contains
     implicit none
 
     class(LocalMesh3D), intent(in) :: lmesh
-    class(elementbase3D), intent(in) :: elem  
+    class(ElementBase3D), intent(in) :: elem  
     class(LocalMesh2D), intent(in) :: lmesh2D
-    class(elementbase2D), intent(in) :: elem2D
+    class(ElementBase2D), intent(in) :: elem2D
     real(RP), intent(out) ::  del_flux(elem%NfpTot,lmesh%Ne,PRGVAR_NUM)
     real(RP), intent(out) ::  del_flux_hyd(elem%NfpTot,lmesh%Ne,2)
     real(RP), intent(in) ::  DDENS_(elem%Np*lmesh%NeA)
@@ -236,9 +236,9 @@ contains
     implicit none
 
     class(LocalMesh3D), intent(in) :: lmesh
-    class(elementbase3D), intent(in) :: elem
+    class(ElementBase3D), intent(in) :: elem
     class(LocalMesh2D), intent(in) :: lmesh2D
-    class(elementbase2D), intent(in) :: elem2D
+    class(ElementBase2D), intent(in) :: elem2D
     real(RP), intent(out) ::  del_flux(elem%NfpTot,lmesh%Ne,PRGVAR_NUM)
     real(RP), intent(out) ::  del_flux_hyd(elem%NfpTot,lmesh%Ne,2)
     real(RP), intent(in) ::  DDENS_(elem%Np*lmesh%NeA)

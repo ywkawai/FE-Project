@@ -374,6 +374,7 @@ contains
       this%cal_tend_ex => atm_dyn_dgm_globalnonhydro3d_rhot_hevi_cal_tend
       this%cal_vi => atm_dyn_dgm_globalnonhydro3d_rhot_hevi_cal_vi
       this%dynsolver_final => atm_dyn_dgm_globalnonhydro3d_rhot_hevi_Final
+      this%hevi_flag = .true.
     case("GLOBALNONHYDRO3D_ETOT_HEVI")
       this%EQS_TYPEID = EQS_TYPEID_GLOBALNONHYD3D_HEVI_ENTOT
       call atm_dyn_dgm_globalnonhydro3d_etot_hevi_Init( mesh3D )
@@ -486,7 +487,7 @@ contains
     call PHYTENDS%Get3D( PHYTEND_RHOT_ID, RHOT_tp )
     call PHYTENDS%Get3D( PHYTEND_RHOH_ID, RHOH_p )
 
-    if (this%tint(1)%imex_flag) then 
+    if (this%hevi_flag) then 
       do n=1, mesh3D%LOCAL_MESH_NUM
         lcmesh3D => mesh3D%lcmesh_list(n)
         
