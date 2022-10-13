@@ -782,6 +782,8 @@ contains
 
     if (check) then
       do iv=1, PRGVAR_NUM
+        if ( iv == PRGVAR_THERM_ID ) cycle
+        
         mesh3D => this%PROG_VARS(iv)%mesh
         do n=1, mesh3D%LOCAL_MESH_NUM
           lcmesh => mesh3D%lcmesh_list(n)
