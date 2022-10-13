@@ -312,9 +312,6 @@ contains
     use scale_atm_dyn_dgm_modalfilter, only: &
       atm_dyn_dgm_tracer_modalfilter_apply
 
-    use scale_atm_dyn_dgm_trcadvect3d_heve, only: &
-      atm_dyn_dgm_trcadvect3d_heve_cal_alphdens_advtest
-
     implicit none
 
     class(AtmDynDGMDriver_trcadv3d), intent(inout) :: this
@@ -360,27 +357,28 @@ contains
     call AUX_VARS%Get3D( CPTOT_VID, CPtot )
 
     call this%TRCVAR3D_manager%Get3D( TRCVARS3D_TRCADV_ID, QTRC_tmp )
-    call this%TRCVAR3D_manager%Get3D( TRCVARS3D_DENS_ID, DDENS_TRC )
+    call this%TRCVAR3D_manager%Get3D(  TRCVARS3D_DENS_ID,  DDENS_TRC )
     call this%TRCVAR3D_manager%Get3D( TRCVARS3D_DENS0_ID, DDENS0_TRC )
 
+    call this%AUXTRC_FLUX_VAR3D_manager%Get3D( MASSFLX_Z_ID, MFLX_z_tavg )
     call this%AUXTRC_FLUX_VAR3D_manager%Get3D( MASSFLX_X_ID, MFLX_x_tavg )
     call this%AUXTRC_FLUX_VAR3D_manager%Get3D( MASSFLX_Y_ID, MFLX_y_tavg )
-    call this%AUXTRC_FLUX_VAR3D_manager%Get3D( MASSFLX_Z_ID, MFLX_z_tavg )
 
     if ( this%ONLY_TRACERADV_FLAG ) then
+      call PROG_VARS%Get3D(MOMZ_VID , MOMZ)
       call PROG_VARS%Get3D(MOMX_VID , MOMX)
       call PROG_VARS%Get3D(MOMY_VID , MOMY)
-      call PROG_VARS%Get3D(MOMZ_VID , MOMZ)
 
       do n=1, mesh3D%LOCAL_MESH_NUM
         lcmesh3D => mesh3D%lcmesh_list(n)
 
         !$omp parallel do
         do ke=lcmesh3D%NeS, lcmesh3D%NeE
-          MFLX_x_tavg%local(n)%val(:,ke)  = MOMX%local(n)%val(:,ke)
-          MFLX_y_tavg%local(n)%val(:,ke)  = MOMY%local(n)%val(:,ke)
-          MFLX_z_tavg%local(n)%val(:,ke)  = MOMZ%local(n)%val(:,ke)
-          DDENS0_TRC  %local(n)%val(:,ke) = DDENS%local(n)%val(:,ke) 
+          DDENS0_TRC %local(n)%val(:,ke) = DDENS%local(n)%val(:,ke) 
+          DDENS_TRC  %local(n)%val(:,ke) = DDENS%local(n)%val(:,ke)
+          MFLX_z_tavg%local(n)%val(:,ke) = MOMZ%local(n)%val(:,ke)
+          MFLX_x_tavg%local(n)%val(:,ke) = MOMX%local(n)%val(:,ke)
+          MFLX_y_tavg%local(n)%val(:,ke) = MOMY%local(n)%val(:,ke)
         end do
         call atm_dyn_dgm_trcadvect3d_heve_cal_alphdens_advtest( &
           this%alphaDensM%local(n)%face_val, this%alphaDensP%local(n)%face_val,            & ! (inout)
@@ -439,12 +437,13 @@ contains
           call this%TRCVAR3D_manager%MeshFieldComm_Exchange()
           call PROF_rapend( 'ATM_DYN_exchange_trc', 3)
 
-          dt = this%tint(n)%Get_deltime()
-          dttmp_trc = dt * this%tint(n)%coef_gam_ex(rkstage+1,rkstage) &
-                       / this%tint(n)%coef_sig_ex(rkstage+1,rkstage)
 
           do n=1, mesh3D%LOCAL_MESH_NUM
             lcmesh3D => mesh3D%lcmesh_list(n)
+
+            dt = this%tint(n)%Get_deltime()
+            dttmp_trc = dt * this%tint(n)%coef_gam_ex(rkstage+1,rkstage) &
+                         / this%tint(n)%coef_sig_ex(rkstage+1,rkstage)
 
             call atm_dyn_dgm_trcadvect3d_heve_calc_fct_coef( &
               this%AUX_TRCVARS3D(AUXTRCVARS3D_FCTCOEF_ID)%local(n)%val,                     & ! (out)
@@ -456,7 +455,7 @@ contains
               this%tint(n)%coef_c_ex(rkstage), dttmp_trc,                                   & ! (in) 
               Dx, Dy, Dz, Sx, Sy, Sz, Lift, this%FaceIntMat,                                & ! (in)
               lcmesh3D, lcmesh3D%refElem3D, lcmesh3D%lcmesh2D, lcmesh3D%lcmesh2D%refElem2D, & ! (in)
-              this%disable_limiter                                                ) ! (in)
+              this%disable_limiter                                                          ) ! (in)
           end do
 
           call PROF_rapstart( 'ATM_DYN_exchange_trc', 3)
@@ -475,7 +474,7 @@ contains
               this%tint(n)%tend_buf2D_ex(:,:,1,tintbuf_ind),                                & ! (out)
               QTRC_tmp%local(n)%val,                                                        & ! (in)
               MFLX_x_tavg%local(n)%val, MFLX_y_tavg%local(n)%val, MFLX_z_tavg%local(n)%val, & ! (in) 
-              this%alphaDensM%local(n)%face_val, this%alphaDensP%local(n)%face_val,       & ! (in)
+              this%alphaDensM%local(n)%face_val, this%alphaDensP%local(n)%face_val,         & ! (in)
               this%AUX_TRCVARS3D(AUXTRCVARS3D_FCTCOEF_ID)%local(n)%val,                     & ! (out)
               RHOQ_tp%local(n)%val,                                                         & ! (in)
               Dx, Dy, Dz, Sx, Sy, Sz, Lift, this%FaceIntMat,                                & ! (in)
@@ -562,6 +561,7 @@ contains
       call this%modal_filter_3d%Final()
     end if
     
+    call this%FaceIntMat%Final()
     call AtmDynDGMDriver_base3D_Final( this )   
 
     return
