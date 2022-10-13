@@ -89,9 +89,7 @@ module mod_atmos_dyn
 
     ! element-wise modal filter
     logical :: MODALFILTER_FLAG
-    type(ModalFilter) :: modal_filter_3d
     type(ModalFilter) :: modal_filter_tracer_3d
-    type(ModalFilter) :: modal_filter_v1D
 
     ! tracer advection
     logical :: ONLY_TRACERADV_FLAG
@@ -220,18 +218,16 @@ contains
     call setup_coriolis_parameter( this%dyn_vars, atm_mesh )
 
     !- Initialize a module for 3D dynamical core 
-    call this%dyncore_driver%Init( EQS_TYPE, TINTEG_TYPE, dtsec, SPONGELAYER_FLAG, mesh3D )
+    call this%dyncore_driver%Init( EQS_TYPE, &
+      TINTEG_TYPE, dtsec,                        &
+      SPONGELAYER_FLAG, MODALFILTER_FLAG, mesh3D )
 
     !- Initialize a module for tracer equations
     call atm_dyn_dgm_trcadvect3d_heve_Init( mesh3D, this%FaceIntMat ) 
 
     !- Setup the numerical diffusion
     this%CALC_NUMDIFF_FLAG = NUMDIFF_FLAG
-    call this%numdiff%Init( atm_mesh, dtsec )
-
-    !- Setup the modal filter
-    this%MODALFILTER_FLAG = MODALFILTER_FLAG
-    if ( MODALFILTER_FLAG ) call setup_modalfilter( this, atm_mesh, 'dyn' )
+    if (this%CALC_NUMDIFF_FLAG) call this%numdiff%Init( atm_mesh, dtsec )
 
     !- Setup flags associated with tracer advection
     this%ONLY_TRACERADV_FLAG = ONLY_TRACERADV_FLAG
@@ -344,8 +340,7 @@ contains
         this%dyn_vars%AUX_VARS2D(ATMOS_DYN_AUXVARS2D_CORIOLIS_ID),                 & ! (in)
         model_mesh%DOptrMat(1), model_mesh%DOptrMat(2), model_mesh%DOptrMat(3),    & ! (in)
         model_mesh%SOptrMat(1), model_mesh%SOptrMat(2), model_mesh%SOptrMat(3),    & ! (in)
-        model_mesh%LiftOptrMat, mesh3D,                                            & ! (in)
-        this%MODALFILTER_FLAG, this%modal_filter_3d                                ) ! (in)
+        model_mesh%LiftOptrMat, mesh3D                                             ) ! (in)
             
     end if
 
@@ -607,11 +602,6 @@ contains
 
     if (this%CALC_NUMDIFF_FLAG) call this%numdiff%Final()
 
-    if (this%MODALFILTER_FLAG) then
-      call this%modal_filter_3d%Final()
-      if ( this%dyncore_driver%hevi_flag ) call this%modal_filter_v1D%Final()
-    end if
-
     do n = 1, size(this%tint_qtrc)
       call this%tint_qtrc(n)%Final()
     end do
@@ -640,10 +630,6 @@ contains
     real(RP) :: MF_ALPHA_v = 36.0_RP
     integer  :: MF_ORDER_v = 16
 
-    namelist /PARAM_ATMOS_DYN_MODALFILTER/ &
-      MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h,   &
-      MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v    
-
     namelist /PARAM_ATMOS_DYN_TRACER_MODALFILTER/ &
       MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h,   &
       MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v    
@@ -654,9 +640,6 @@ contains
 
     rewind(IO_FID_CONF)
     select case(read_type)
-    case ('dyn')
-      read(IO_FID_CONF,nml=PARAM_ATMOS_DYN_MODALFILTER,iostat=ierr)
-      lbl_readtype = ''
     case ('tracer')
       read(IO_FID_CONF,nml=PARAM_ATMOS_DYN_TRACER_MODALFILTER,iostat=ierr)
       lbl_readtype = 'TRACER_'
@@ -669,20 +652,6 @@ contains
     endif
 
     select case(read_type)
-    case ('dyn')
-      LOG_NML(PARAM_ATMOS_DYN_MODALFILTER)
-
-      if ( this%dyncore_driver%hevi_flag ) then
-        call atm_mesh%Construct_ModalFilter3D( &
-          this%modal_filter_3d,                & ! (inout)
-          MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h,   & ! (in)
-          MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v    ) ! (in)
-      else
-        call atm_mesh%Construct_ModalFilterHV( &
-          this%modal_filter_3d, this%modal_filter_v1D, & ! (inout)
-          MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h,           & ! (in)
-          MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v            ) ! (in)
-      end if  
     case ('tracer')
       LOG_NML(PARAM_ATMOS_DYN_TRACER_MODALFILTER)
 

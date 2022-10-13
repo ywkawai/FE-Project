@@ -115,6 +115,7 @@ module scale_atm_dyn_dgm_nonhydro3d_numdiff
   private :: cal_del_gradDiffVar
 
 contains
+!OCL SERIAL
   subroutine atm_dyn_dgm_nonhydro3d_numdiff_Init( this, model_mesh3D, dtsec )
     use scale_prc, only: PRC_abort
     implicit none
@@ -196,7 +197,7 @@ contains
     return
   end subroutine atm_dyn_dgm_nonhydro3d_numdiff_Init
 
-
+!OCL SERIAL
   subroutine atm_dyn_dgm_nonhydro3d_numdiff_Final( this )
     implicit none
 
@@ -212,6 +213,7 @@ contains
     return
   end subroutine atm_dyn_dgm_nonhydro3d_numdiff_Final  
 
+!OCL SERIAL
   subroutine atm_dyn_dgm_nonhydro3d_numdiff_Apply( this, &
     PROG_VARS, AUX_VARS, boundary_cond, &
     Dx, Dy, Dz, Lift, mesh )
@@ -375,7 +377,6 @@ contains
 
     return
   end subroutine apply_numfilter
-
 
 !OCL SERIAL  
   subroutine numdiff_tend( &

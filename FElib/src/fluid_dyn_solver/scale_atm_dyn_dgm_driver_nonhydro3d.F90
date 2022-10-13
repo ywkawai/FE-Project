@@ -32,7 +32,8 @@ module scale_atm_dyn_dgm_driver_nonhydro3d
   use scale_localmesh_2d, only: LocalMesh2D
   use scale_localmesh_3d, only: LocalMesh3D
   use scale_element_base, only: &
-    ElementBase2D, ElementBase3D
+    ElementBase, ElementBase2D, ElementBase3D
+  use scale_element_hexahedral, only: HexahedralElement
   use scale_meshfield_base, only: &
     MeshFieldBase, MeshField2D, MeshField3D
 
@@ -227,7 +228,6 @@ module scale_atm_dyn_dgm_driver_nonhydro3d
     ! element-wise modal filter
     logical :: MODALFILTER_FLAG
     type(ModalFilter) :: modal_filter_3d
-    type(ModalFilter) :: modal_filter_tracer_3d
     type(ModalFilter) :: modal_filter_v1D
 
     ! sponge layer
@@ -280,14 +280,13 @@ module scale_atm_dyn_dgm_driver_nonhydro3d
   !
   !-------------------
 
-  private :: AtmDynDGMDriver_nonhydro3d_Init
-  private :: AtmDynDGMDriver_nonhydro3d_Final  
+  private :: setup_modalfilter
 
 contains
 !OCL SERIAL  
   subroutine AtmDynDGMDriver_nonhydro3d_Init( this, &
     eqs_type_name, tint_type_name, dtsec,           &
-    sponge_layer_flag,                              &
+    sponge_layer_flag, modal_filter_flag,           &
     mesh3D )
     implicit none
 
@@ -296,11 +295,14 @@ contains
     character(len=*), intent(in) :: tint_type_name
     real(DP), intent(in) :: dtsec
     logical, intent(in) :: sponge_layer_flag
+    logical, intent(in) :: modal_filter_flag
     class(MeshBase3D), intent(in), target :: mesh3D
 
 
     class(LocalMesh3D), pointer :: lcmesh
     integer :: domID
+    class(HexahedralElement), pointer :: refElem3D
+    class(ElementBase), pointer :: refElem
 
     integer :: iv
     logical :: reg_file_hist
@@ -405,6 +407,17 @@ contains
       call this%sponge_layer%Init( mesh3D, dtsec )
     end if
 
+    this%MODALFILTER_FLAG = modal_filter_flag
+    if (this%MODALFILTER_FLAG) then
+      refElem => mesh3D%refElem
+      select type(refElem)
+      class is (HexahedralElement)
+        refElem3D => refElem
+      end select
+
+      call setup_modalfilter( this, refElem3D )
+    end if
+
     return
   end subroutine AtmDynDGMDriver_nonhydro3d_Init
 
@@ -415,8 +428,7 @@ contains
     MFLX_x_tavg, MFLX_y_tavg, MFLX_z_tavg,               &
     ALPH_DENS_M_tavg, ALPH_DENS_P_tavg,                  &
     Coriolis,                                            &
-    Dx, Dy, Dz, Sx, Sy, Sz, Lift, mesh3D,                &
-    MODALFILTER_FLAG, modal_filter_3d                    )
+    Dx, Dy, Dz, Sx, Sy, Sz, Lift, mesh3D                 )
 
     use scale_tracer, only: &
       QA, TRACER_ADVC, TRACER_NAME
@@ -447,8 +459,6 @@ contains
     type(SparseMat), intent(in) :: Dx, Dy, Dz
     type(SparseMat), intent(in) :: Sx, Sy, Sz
     type(SparseMat), intent(in) :: Lift
-    logical, intent(in) :: MODALFILTER_FLAG
-    class(ModalFilter), intent(in) :: modal_filter_3d
 
     integer :: rkstage
     integer :: tintbuf_ind
@@ -661,12 +671,12 @@ contains
     end if
     call PROF_rapend( 'ATM_DYN_update_post', 2)      
 
-    if ( MODALFILTER_FLAG ) then
+    if ( this%MODALFILTER_FLAG ) then
       do n=1, mesh3D%LOCAL_MESH_NUM
         call PROF_rapstart( 'ATM_DYN_update_modalfilter', 2)
         call atm_dyn_dgm_modalfilter_apply(  & 
           DDENS%local(n)%val, MOMX%local(n)%val, MOMY%local(n)%val, MOMZ%local(n)%val, THERM%local(n)%val, & ! (inout)
-          lcmesh3D, lcmesh3D%refElem3D, modal_filter_3d,            & ! (in)
+          lcmesh3D, lcmesh3D%refElem3D, this%modal_filter_3d,        & ! (in)
 !          do_weight_Gsqrt = .false.                                 ) ! (in)          
           do_weight_Gsqrt = .true.                                   ) ! (in)        
         call PROF_rapend( 'ATM_DYN_update_modalfilter', 2)
@@ -691,8 +701,14 @@ contains
 
     call this%dynsolver_final()
     call this%boundary_cond%Final()
-    if (this%SPONGELAYER_FLAG) call this%sponge_layer%Final()
+    
+    if ( this%SPONGELAYER_FLAG ) call this%sponge_layer%Final()
 
+    if ( this%MODALFILTER_FLAG ) then
+      call this%modal_filter_3d%Final()
+      if ( this%hevi_flag ) call this%modal_filter_v1D%Final()
+    end if
+    
     call this%DPRES%Final()
     call AtmDynDGMDriver_base3D_Final( this )   
 
@@ -857,5 +873,64 @@ contains
 
     return
   end subroutine calc_pressure
+
+  !-- Setup modal filter
+!OCL SERIAL
+  subroutine setup_modalfilter( this, refElem3D )
+    use scale_element_line, only: LineElement
+    implicit none
+
+    class(AtmDynDGMDriver_nonhydro3d), target, intent(inout) :: this
+    class(HexahedralElement), target, intent(in) :: refElem3D
+
+    real(RP) :: MF_ETAC_h  = 2.0_RP/3.0_RP
+    real(RP) :: MF_ALPHA_h = 36.0_RP
+    integer  :: MF_ORDER_h = 16
+    real(RP) :: MF_ETAC_v  = 2.0_RP/3.0_RP
+    real(RP) :: MF_ALPHA_v = 36.0_RP
+    integer  :: MF_ORDER_v = 16
+
+    namelist /PARAM_ATMOS_DYN_MODALFILTER/ &
+      MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h,   &
+      MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v    
+
+    integer :: ierr
+
+    type(LineElement) :: elemV1D
+    !---------------------------------------------------------------
+
+    rewind(IO_FID_CONF)
+    read(IO_FID_CONF,nml=PARAM_ATMOS_DYN_MODALFILTER,iostat=ierr)
+    if( ierr < 0 ) then !--- missing
+      LOG_INFO("ATMOS_DYN_setup_modalfilter",*) 'Not found namelist. Default used.'
+    elseif( ierr > 0 ) then !--- fatal error
+      LOG_ERROR("ATMOS_DYN_setup_modalfilter",*) 'Invalid names in namelist PARAM_ATMOS_DYN_MODALFILTER. Check!'
+      call PRC_abort
+    endif
+
+    LOG_NML(PARAM_ATMOS_DYN_MODALFILTER)
+
+    if ( this%hevi_flag ) then
+
+      call this%modal_filter_3d%Init( &
+        refElem3D,                           & ! (in)
+        MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h,   & ! (in)
+        MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v    ) ! (in)
+    else
+      call this%modal_filter_3d%Init( &
+        refElem3D,                    & ! (in)
+        MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h,   & ! (in)
+        1.0_RP, 0.0_RP, MF_ORDER_v           ) ! (in)
+
+      call elemV1D%Init( refElem3D%PolyOrder_v, refElem3D%IsLumpedMatrix() )      
+      call this%modal_filter_v1D%Init( elemV1D, &
+        MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v,      &
+        tend_flag = .true.                      )
+      
+      call elemV1D%Final()
+    end if  
+
+    return
+  end subroutine setup_modalfilter
 
 end module scale_atm_dyn_dgm_driver_nonhydro3d
