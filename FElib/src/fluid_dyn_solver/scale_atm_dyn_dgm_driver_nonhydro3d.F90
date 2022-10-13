@@ -767,7 +767,6 @@ contains
     PRES, Rtot, CPtot,                                   & ! (in)
     domID, lcmesh, elem3D                                ) ! (in)
 
-
     implicit none
 
     class(AtmDynDGMDriver_nonhydro3d), intent(inout) :: this
@@ -912,14 +911,8 @@ contains
     LOG_NML(PARAM_ATMOS_DYN_MODALFILTER)
 
     if ( this%hevi_flag ) then
-
       call this%modal_filter_3d%Init( &
         refElem3D,                           & ! (in)
-        MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h,   & ! (in)
-        MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v    ) ! (in)
-    else
-      call this%modal_filter_3d%Init( &
-        refElem3D,                    & ! (in)
         MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h,   & ! (in)
         1.0_RP, 0.0_RP, MF_ORDER_v           ) ! (in)
 
@@ -929,6 +922,11 @@ contains
         tend_flag = .true.                      )
       
       call elemV1D%Final()
+    else
+      call this%modal_filter_3d%Init( &
+        refElem3D,                           & ! (in)
+        MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h,   & ! (in)
+        MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v    ) ! (in)
     end if  
 
     return
