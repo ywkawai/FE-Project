@@ -34,7 +34,12 @@ module scale_atm_dyn_dgm_nonhydro3d_rhot_hevi_numflux
   use scale_localmeshfield_base, only: LocalMeshField3D
   use scale_meshfield_base, only: MeshField3D
 
-
+  use scale_atm_dyn_dgm_nonhydro3d_common, only: &
+    DENS_VID => PRGVAR_DDENS_ID, RHOT_VID => PRGVAR_DRHOT_ID, &
+    MOMX_VID => PRGVAR_MOMX_ID, MOMY_VID => PRGVAR_MOMY_ID,   &
+    MOMZ_VID => PRGVAR_MOMZ_ID,                               &
+    PRGVAR_NUM
+  
   !-----------------------------------------------------------------------------
   implicit none
   private
@@ -56,14 +61,6 @@ module scale_atm_dyn_dgm_nonhydro3d_rhot_hevi_numflux
   !
   !-------------------
 
-  integer, private, parameter :: VARS_DDENS_ID  = 1
-  integer, private, parameter :: VARS_MOMX_ID   = 2
-  integer, private, parameter :: VARS_MOMY_ID   = 3
-  integer, private, parameter :: VARS_MOMZ_ID   = 4
-  integer, private, parameter :: VARS_DRHOT_ID  = 5
-  integer, private, parameter :: VARS_EnTot_ID  = 5
-  integer, private, parameter :: PROG_VARS_NUM  = 5
-
 contains
  
 !OCL SERIAL
@@ -77,10 +74,10 @@ contains
     implicit none
 
     class(LocalMesh3D), intent(in) :: lmesh
-    class(elementbase3D), intent(in) :: elem  
+    class(ElementBase3D), intent(in) :: elem  
     class(LocalMesh2D), intent(in) :: lmesh2D
-    class(elementbase2D), intent(in) :: elem2D
-    real(RP), intent(out) ::  del_flux(elem%NfpTot,lmesh%Ne,PROG_VARS_NUM)
+    class(ElementBase2D), intent(in) :: elem2D
+    real(RP), intent(out) ::  del_flux(elem%NfpTot,lmesh%Ne,PRGVAR_NUM)
     real(RP), intent(out) ::  del_flux_hyd(elem%NfpTot,lmesh%Ne,2)
     real(RP), intent(in) ::  DDENS_(elem%Np*lmesh%NeA)
     real(RP), intent(in) ::  MOMX_(elem%Np*lmesh%NeA)  
@@ -192,27 +189,27 @@ contains
       alpha(:) = swV(:) * max( sqrt( gamm * ( Phyd_M(:) + dpresM(:) ) * Gsqrt_M(:) / GsqrtDensM(:) ) + abs(VelM(:)), &
                                sqrt( gamm * ( Phyd_P(:) + dpresP(:) ) * Gsqrt_P(:) / GsqrtDensP(:) ) + abs(VelP(:))  )
       
-      del_flux(:,ke,VARS_DDENS_ID) = 0.5_RP * ( &
+      del_flux(:,ke,DENS_VID) = 0.5_RP * ( &
                     ( GsqrtDensP(:) * VelhP(:) - GsqrtDensM(:) * VelhM(:) )  &
                     - alpha(:) * ( GsqrtDDENS_P(:) - GsqrtDDENS_M(:) )       )
 
-      del_flux(:,ke,VARS_MOMX_ID ) = 0.5_RP * ( &
+      del_flux(:,ke,MOMX_VID ) = 0.5_RP * ( &
                     ( GsqrtMOMX_P(:) * VelP(:) - GsqrtMOMX_M(:) * VelM(:) )           &
                     + (  Gsqrt_P(:) * ( nx(:,ke) + G13_P(:) * nz(:,ke)) * dpresP(:)   &
                        - Gsqrt_M(:) * ( nx(:,ke) + G13_M(:) * nz(:,ke)) * dpresM(:) ) &
                     - alpha(:) * ( GsqrtMOMX_P(:) - GsqrtMOMX_M(:) )                  )
 
-      del_flux(:,ke,VARS_MOMY_ID ) = 0.5_RP * ( &
+      del_flux(:,ke,MOMY_VID ) = 0.5_RP * ( &
                     ( GsqrtMOMY_P(:) * VelP(:) - GsqrtMOMY_M(:) * VelM(:) ) &
                     + (  Gsqrt_P(:) * ( ny(:,ke) + G23_P(:) * nz(:,ke)) * dpresP(:)   &
                        - Gsqrt_M(:) * ( ny(:,ke) + G23_M(:) * nz(:,ke)) * dpresM(:) ) &
                     - alpha(:) * ( GsqrtMOMY_P(:) - GsqrtMOMY_M(:) )        )
 
-      del_flux(:,ke,VARS_MOMZ_ID ) = 0.5_RP * ( &
+      del_flux(:,ke,MOMZ_VID ) = 0.5_RP * ( &
                     ( GsqrtMOMZ_P(:) * VelP(:) - GsqrtMOMZ_M(:) * VelM(:) ) &
                     - alpha(:) * ( GsqrtMOMZ_P(:) - GsqrtMOMZ_M(:) )        )
                     
-      del_flux(:,ke,VARS_DRHOT_ID) = 0.5_RP * ( &
+      del_flux(:,ke,RHOT_VID) = 0.5_RP * ( &
                     ( GsqrtRhotP(:) * VelhP(:) - GsqrtRhotM(:) * VelhM(:) ) &
                     - alpha(:) * ( GsqrtDRHOT_P(:) - GsqrtDRHOT_M(:) )      )
 
@@ -239,10 +236,10 @@ contains
     implicit none
 
     class(LocalMesh3D), intent(in) :: lmesh
-    class(elementbase3D), intent(in) :: elem
+    class(ElementBase3D), intent(in) :: elem
     class(LocalMesh2D), intent(in) :: lmesh2D
-    class(elementbase2D), intent(in) :: elem2D
-    real(RP), intent(out) ::  del_flux(elem%NfpTot,lmesh%Ne,PROG_VARS_NUM)
+    class(ElementBase2D), intent(in) :: elem2D
+    real(RP), intent(out) ::  del_flux(elem%NfpTot,lmesh%Ne,PRGVAR_NUM)
     real(RP), intent(out) ::  del_flux_hyd(elem%NfpTot,lmesh%Ne,2)
     real(RP), intent(in) ::  DDENS_(elem%Np*lmesh%NeA)
     real(RP), intent(in) ::  MOMX_(elem%Np*lmesh%NeA)  
@@ -377,27 +374,27 @@ contains
       alpha(:) = swV(:) * max( sqrt( Gnn_M(:) * gamm * ( Phyd_M(:) + dpresM(:) ) * Gsqrt_M(:) / GsqrtDensM(:) ) + abs(VelM(:)), &
                                sqrt( Gnn_P(:) * gamm * ( Phyd_P(:) + dpresP(:) ) * Gsqrt_P(:) / GsqrtDensP(:) ) + abs(VelP(:))  )
       
-      del_flux(:,ke,VARS_DDENS_ID) = 0.5_RP * ( &
+      del_flux(:,ke,DENS_VID) = 0.5_RP * ( &
                     ( GsqrtDensP(:) * VelhP(:) - GsqrtDensM(:) * VelhM(:) )  &
                     - alpha(:) * ( GsqrtDDENS_P(:) - GsqrtDDENS_M(:) )       )
 
-      del_flux(:,ke,VARS_MOMX_ID ) = 0.5_RP * ( &
+      del_flux(:,ke,MOMX_VID ) = 0.5_RP * ( &
                     ( GsqrtMOMX_P(:) * VelP(:) - GsqrtMOMX_M(:) * VelM(:) )            &
                     + (  Gsqrt_P(:) * ( G1n_M(:) + Gxz_P(:) * nz(:,ke) ) * dpresP(:)   &
                        - Gsqrt_M(:) * ( G1n_M(:) + Gxz_M(:) * nz(:,ke) ) * dpresM(:) ) &
                     - alpha(:) * ( GsqrtMOMX_P(:) - GsqrtMOMX_M(:) )                   )
 
-      del_flux(:,ke,VARS_MOMY_ID ) = 0.5_RP * ( &
+      del_flux(:,ke,MOMY_VID ) = 0.5_RP * ( &
                     ( GsqrtMOMY_P(:) * VelP(:) - GsqrtMOMY_M(:) * VelM(:) ) &
                     + (  Gsqrt_P(:) * ( G2n_M(:) + Gyz_P(:) * nz(:,ke)) * dpresP(:)   &
                        - Gsqrt_M(:) * ( G2n_M(:) + Gyz_M(:) * nz(:,ke)) * dpresM(:) ) &
                     - alpha(:) * ( GsqrtMOMY_P(:) - GsqrtMOMY_M(:) )        )
 
-      del_flux(:,ke,VARS_MOMZ_ID ) = 0.5_RP * ( &
+      del_flux(:,ke,MOMZ_VID ) = 0.5_RP * ( &
                     ( GsqrtMOMZ_P(:) * VelP(:) - GsqrtMOMZ_M(:) * VelM(:) ) &
                     - alpha(:) * ( GsqrtMOMZ_P(:) - GsqrtMOMZ_M(:) )        )
                     
-      del_flux(:,ke,VARS_DRHOT_ID) = 0.5_RP * ( &
+      del_flux(:,ke,RHOT_VID) = 0.5_RP * ( &
                     ( GsqrtRhotP(:) * VelhP(:) - GsqrtRhotM(:) * VelhM(:) )   &
                     - alpha(:) * ( GsqrtDRHOT_P(:) - GsqrtDRHOT_M(:) )        )
 

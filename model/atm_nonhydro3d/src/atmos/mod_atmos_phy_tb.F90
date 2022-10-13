@@ -38,6 +38,8 @@ module mod_atmos_phy_tb
   use scale_model_mesh_manager, only: ModelMeshBase
   use scale_model_var_manager, only: ModelVarManager
   use scale_model_component_proc, only:  ModelComponentProc
+
+  use scale_atm_dyn_dgm_bnd, only: AtmDynBnd
   
   use scale_atm_phy_tb_dgm_smg, only: &
     atm_phy_tb_dgm_smg_Init,          &
@@ -47,7 +49,6 @@ module mod_atmos_phy_tb
     atm_phy_tb_dgm_smg_cal_grad_qtrc, &
     atm_phy_tb_dgm_smg_cal_tend_qtrc
 
-  use mod_atmos_dyn_bnd, only: AtmosDynBnd
   use mod_atmos_phy_tb_vars, only: AtmosPhyTbVars
 
   !-----------------------------------------------------------------------------
@@ -60,7 +61,7 @@ module mod_atmos_phy_tb
   type, extends(ModelComponentProc), public :: AtmosPhyTb
     integer :: TB_TYPEID
     type(AtmosPhyTbVars) :: vars
-    type(AtmosDynBnd), pointer :: dyn_bnd
+    type(AtmDynBnd), pointer :: dyn_bnd
   contains
     procedure, public :: setup => AtmosPhyTb_setup 
     procedure, public :: calc_tendency => AtmosPhyTb_calc_tendency
@@ -88,7 +89,6 @@ module mod_atmos_phy_tb
 contains
   subroutine AtmosPhyTb_setup( this, model_mesh, tm_parent_comp )
     use mod_atmos_mesh, only: AtmosMesh
-    use mod_atmos_vars, only: ATMOS_PROGVARS_NUM
     use scale_time_manager, only: TIME_manager_component
 
     implicit none
@@ -192,7 +192,7 @@ contains
     class(MeshBase), pointer :: mesh
     class(LocalMesh3D), pointer :: lcmesh
 
-    class(LocalMeshFieldBase), pointer :: DDENS, MOMX, MOMY, MOMZ, DRHOT, QTRC
+    class(LocalMeshFieldBase), pointer :: DDENS, MOMX, MOMY, MOMZ, THERM, QTRC
     class(LocalMeshFieldBase), pointer :: DENS_hyd, PRES_hyd
     class(LocalMeshFieldBase), pointer :: PRES, PT
     class(LocalMeshFieldBase), pointer :: Rtot, CVtot, CPtot
@@ -232,7 +232,7 @@ contains
         call PROF_rapstart('ATM_PHY_TB_get_localmesh_ptr', 2)         
         call AtmosVars_GetLocalMeshPrgVars( n, &
           mesh, prgvars_list, auxvars_list,       &
-          DDENS, MOMX, MOMY, MOMZ, DRHOT,         &
+          DDENS, MOMX, MOMY, MOMZ, THERM,         &
           DENS_hyd, PRES_hyd, Rtot, CVtot, CPtot, &
           lcmesh                                  )      
         call AtmosVars_GetLocalMeshPhyAuxVars( n,      &
@@ -257,7 +257,7 @@ contains
           call atm_phy_tb_dgm_smg_cal_grad( &
               S11%val, S12%val, S22%val, S23%val, S31%val, S33%val, TKE%val,          &
               dPTdx%val, dPTdy%val, dPTdz%val, Nu%val, Kh%val,                        &
-              DDENS%val, MOMX%val, MOMY%val, MOMZ%val, DRHOT%val,                     &
+              DDENS%val, MOMX%val, MOMY%val, MOMZ%val, THERM%val,                     &
               DENS_hyd%val, PRES_hyd%val, PRES%val, PT%val,                           &
               model_mesh%DOptrMat(1), model_mesh%DOptrMat(2), model_mesh%DOptrMat(3), &
               model_mesh%SOptrMat(1), model_mesh%SOptrMat(2), model_mesh%SOptrMat(3), &
@@ -277,7 +277,7 @@ contains
         call PROF_rapstart('ATM_PHY_TB_get_localmesh_ptr', 2)         
         call AtmosVars_GetLocalMeshPrgVars( n, &
           mesh, prgvars_list, auxvars_list,       &
-          DDENS, MOMX, MOMY, MOMZ, DRHOT,         &
+          DDENS, MOMX, MOMY, MOMZ, THERM,         &
           DENS_hyd, PRES_hyd, Rtot, CVtot, CPtot, &
           lcmesh                                  )
         call AtmosVars_GetLocalMeshPhyAuxVars( n,      &
@@ -301,7 +301,7 @@ contains
               tb_MOMX_t%val, tb_MOMY_t%val, tb_MOMZ_t%val, tb_RHOT_t%val,                &
               S11%val, S12%val, S22%val, S23%val, S31%val, S33%val, TKE%val,             &
               dPTdx%val, dPTdy%val, dPTdz%val, Nu%val, Kh%val,                           &
-              DDENS%val, MOMX%val, MOMY%val, MOMZ%val, DRHOT%val,                        &
+              DDENS%val, MOMX%val, MOMY%val, MOMZ%val, THERM%val,                        &
               DENS_hyd%val, PRES_hyd%val, PRES%val, PT%val,                              &
               model_mesh%DOptrMat(1), model_mesh%DOptrMat(2), model_mesh%DOptrMat(3),    &
               model_mesh%SOptrMat(1), model_mesh%SOptrMat(2), model_mesh%SOptrMat(3),    &
@@ -344,7 +344,7 @@ contains
           call PROF_rapstart('ATM_PHY_TB_get_localmesh_ptr', 2)         
           call AtmosVars_GetLocalMeshPrgVars( n, &
             mesh, prgvars_list, auxvars_list,       &
-            DDENS, MOMX, MOMY, MOMZ, DRHOT,         &
+            DDENS, MOMX, MOMY, MOMZ, THERM,         &
             DENS_hyd, PRES_hyd, Rtot, CVtot, CPtot, &
             lcmesh                                  )
           call AtmosPhyTbVars_GetLocalMeshFields_aux_qtrc( n, &
@@ -445,7 +445,7 @@ contains
   subroutine AtmosPhyTb_setDynBC( this, dyn_bnd )
     implicit none
     class(AtmosPhyTb), intent(inout) :: this
-    type(AtmosDynBnd), intent(in), target :: dyn_bnd
+    type(AtmDynBnd), intent(in), target :: dyn_bnd
     !--------------------------------------------------
 
     this%dyn_bnd => dyn_bnd

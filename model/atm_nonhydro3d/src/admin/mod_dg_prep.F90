@@ -134,7 +134,6 @@ contains
 
     !- Execute mkinit
     call PROF_rapstart('MkInit',1)
-    
     call MKINIT( output, &
       atmos%mesh,                  &
       atmos%vars%PROGVARS_manager, &
@@ -142,6 +141,10 @@ contains
       atmos%vars%QTRCVARS_manager  )
     
     call USER_mkinit( atmos )
+    if ( atmos%dyn_proc%dyncore_driver%ENTOT_CONSERVE_SCHEME_FLAG ) then
+      call set_total_energy( atmos%vars%PROGVARS_manager, &
+        atmos%vars%AUXVARS_manager, atmos%mesh )      
+    end if
  
     call PROF_rapend  ('MkInit',1)
     call PROF_rapend('Main_prep', 0)
@@ -248,6 +251,63 @@ contains
 
     return
   end subroutine finalize
+
+  subroutine set_total_energy( atm_prgvars_manager, & ! (inout)
+      atm_auxvars_manager, model_mesh               ) 
+  
+    use scale_mesh_base3d, only: MeshBase3D
+    use scale_localmesh_3d, only: LocalMesh3D
+    use scale_localmeshfield_base, only: LocalMeshFieldBase
+    use scale_model_var_manager, only: ModelVarManager
+    use scale_atm_dyn_dgm_nonhydro3d_common, only: &
+      atm_dyn_dgm_nonhydro3d_common_DRHOT2EnTot
+
+    use mod_atmos_mesh, only: AtmosMesh
+    use mod_atmos_vars, only: &
+      AtmosVars_GetLocalMeshPrgVars
+
+    implicit none
+
+    class(ModelVarManager), intent(inout) :: atm_prgvars_manager
+    class(ModelVarManager), intent(inout) :: atm_auxvars_manager
+    class(AtmosMesh), target, intent(in) :: model_mesh
+
+    class(LocalMeshFieldBase), pointer :: DDENS, MOMX, MOMY, MOMZ, THERM
+    class(LocalMeshFieldBase), pointer :: DENS_hyd, PRES_hyd
+    class(LocalMeshFieldBase), pointer :: Rtot, CPtot, CVtot
+
+    integer :: n
+    integer :: ke
+    class(LocalMesh3D), pointer :: lcmesh3D
+    class(MeshBase3D), pointer :: mesh
+
+    real(RP), allocatable :: DRHOT_save(:,:)
+    !---------------------------------------------------------------------------
+
+    mesh => model_mesh%ptr_mesh
+    do n=1, mesh%LOCAL_MESH_NUM
+      call AtmosVars_GetLocalMeshPrgVars( n, &
+        mesh, atm_prgvars_manager, atm_auxvars_manager, &
+        DDENS, MOMX, MOMY, MOMZ, THERM,                 &
+        DENS_hyd, PRES_hyd, Rtot, CVtot, CPtot,         &
+        lcmesh3D                                        )
+      
+      allocate( DRHOT_save(lcmesh3D%refElem3D%Np,lcmesh3D%NeA) )
+      !$omp parallel do
+      do ke=lcmesh3D%NeS, lcmesh3D%NeE
+        DRHOT_save(:,ke) = THERM%val(:,ke)
+      end do
+
+      call atm_dyn_dgm_nonhydro3d_common_DRHOT2EnTot( THERM%val, &
+        DDENS%val, MOMX%val, MOMY%val, MOMZ%val, DRHOT_save,        &
+        DENS_hyd%val, PRES_hyd%val, Rtot%val, CVtot%val, CPtot%val, &
+        lcmesh3D, lcmesh3D%refElem3D                                )
+  
+      deallocate( DRHOT_save )
+    end do
+
+    return
+  end subroutine set_total_energy
 
   subroutine restart_write
     implicit none    

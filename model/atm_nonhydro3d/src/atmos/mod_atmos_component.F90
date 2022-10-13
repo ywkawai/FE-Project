@@ -201,7 +201,7 @@ contains
     !- Setup the module for atmosphere / physics / turbulence
     call this%phy_tb_proc%ModelComponentProc_Init( 'AtmosPhysTb', ATMOS_PHY_TB_DO )
     call this%phy_tb_proc%setup( this%mesh, this%time_manager )
-    call this%phy_tb_proc%SetDynBC( this%dyn_proc%boundary_cond )
+    call this%phy_tb_proc%SetDynBC( this%dyn_proc%dyncore_driver%boundary_cond )
 
     !-- Regist qv if needed
     if ( ATMOS_HYDROMETEOR_dry .and. ATMOS_USE_QV ) then
@@ -245,15 +245,16 @@ contains
 !OCL SERIAL
   subroutine Atmos_calc_tendency( this, force )
     use scale_tracer, only: QA
+    use scale_atm_dyn_dgm_nonhydro3d_common, only: &
+      PHYTEND_NUM1 => PHYTEND_NUM, &
+      DENS_tp => PHYTEND_DENS_ID,  &
+      MOMX_tp => PHYTEND_MOMX_ID,  &
+      MOMY_tp => PHYTEND_MOMY_ID,  &
+      MOMZ_tp => PHYTEND_MOMZ_ID,  &
+      RHOT_tp =>  PHYTEND_RHOT_ID, &
+      RHOH_p => PHYTEND_RHOH_ID    
     use mod_atmos_vars, only: &
-      AtmosVars_GetLocalMeshPhyTends, &
-      ATMOS_PHYTEND_NUM1,               &
-      DENS_tp => ATMOS_PHYTEND_DENS_ID, &
-      MOMX_tp => ATMOS_PHYTEND_MOMX_ID, &
-      MOMY_tp => ATMOS_PHYTEND_MOMY_ID, &
-      MOMZ_tp => ATMOS_PHYTEND_MOMZ_ID, &
-      RHOT_tp => ATMOS_PHYTEND_RHOT_ID, &
-      RHOH_p  => ATMOS_PHYTEND_RHOH_ID
+      AtmosVars_GetLocalMeshPhyTends
 
     implicit none
     class(AtmosComponent), intent(inout) :: this
@@ -262,7 +263,7 @@ contains
 
     class(MeshBase), pointer :: mesh
     class(LocalMesh3D), pointer :: lcmesh
-    type(LocalMeshFieldBaseList) :: tp_list(ATMOS_PHYTEND_NUM1)
+    type(LocalMeshFieldBaseList) :: tp_list(PHYTEND_NUM1)
     type(LocalMeshFieldBaseList) :: tp_qtrc(QA)
 
     integer :: tm_process_id
@@ -299,7 +300,7 @@ contains
       
       !$omp parallel private(v,iq,ke)
       !$omp do collapse(2)
-      do v=1, ATMOS_PHYTEND_NUM1
+      do v=1, PHYTEND_NUM1
       do ke=lcmesh%NeS, lcmesh%NeE
         tp_list(v)%ptr%val(:,ke) = 0.0_RP
       end do

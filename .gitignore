@@ -37,6 +37,8 @@ LOG.pe*
 init_LOG.pe*
 monitor.pe*
 history.pe*.nc
+topo.pe*.nc
+TOPO.pe*.nc
 restart_*.pe*.nc
 *.dat
 

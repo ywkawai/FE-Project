@@ -38,11 +38,12 @@ module scale_atm_dyn_dgm_nonhydro3d_rhot_hevi_splitform
   use scale_meshfield_base, only: MeshField3D
 
   use scale_atm_dyn_dgm_nonhydro3d_common, only: &
-    atm_dyn_dgm_nonhydro3d_common_Init,               &
-    atm_dyn_dgm_nonhydro3d_common_Final,              &
-    DENS_VID, MOMX_VID, MOMY_VID, MOMZ_VID, RHOT_VID, &
-    PROG_VARS_NUM,                                    &
-    IntrpMat_VPOrdM1
+    atm_dyn_dgm_nonhydro3d_common_Init,                       &
+    atm_dyn_dgm_nonhydro3d_common_Final,                      &
+    DENS_VID => PRGVAR_DDENS_ID, RHOT_VID => PRGVAR_DRHOT_ID, &
+    MOMX_VID => PRGVAR_MOMX_ID, MOMY_VID => PRGVAR_MOMY_ID,   &
+    MOMZ_VID => PRGVAR_MOMZ_ID,                               &
+    PRGVAR_NUM, IntrpMat_VPOrdM1
 
   !-----------------------------------------------------------------------------
   implicit none
@@ -127,21 +128,17 @@ contains
     DENS_dt, MOMX_dt, MOMY_dt, MOMZ_dt, RHOT_dt,                                & ! (out)
     DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd, CORIOLIS,          & ! (in)
     Rtot, CVtot, CPtot,                                                         & ! (in)
-    SL_flag, wdamp_tau, wdamp_height, hveldamp_flag,                            & ! (in)
     Dx, Dy, Dz, Sx, Sy, Sz, Lift, lmesh, elem, lmesh2D, elem2D )
 
     use scale_atm_dyn_dgm_nonhydro3d_rhot_hevi_numflux, only: &
       atm_dyn_dgm_nonhydro3d_rhot_hevi_numflux_get_generalvc
 
-    use scale_atm_dyn_dgm_spongelayer, only: &
-      atm_dyn_dgm_spongelayer_add_tend
-    
     implicit none
 
     class(LocalMesh3D), intent(in) :: lmesh
-    class(elementbase3D), intent(in) :: elem
+    class(ElementBase3D), intent(in) :: elem
     class(LocalMesh2D), intent(in) :: lmesh2D
-    class(elementbase2D), intent(in) :: elem2D
+    class(ElementBase2D), intent(in) :: elem2D
     type(SparseMat), intent(in) :: Dx, Dy, Dz, Sx, Sy, Sz, Lift
     real(RP), intent(out) :: DENS_dt(elem%Np,lmesh%NeA)
     real(RP), intent(out) :: MOMX_dt(elem%Np,lmesh%NeA)
@@ -159,15 +156,11 @@ contains
     real(RP), intent(in)  :: Rtot(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: CVtot(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: CPtot(elem%Np,lmesh%NeA)
-    logical, intent(in) :: SL_flag
-    real(RP), intent(in) :: wdamp_tau
-    real(RP), intent(in) :: wdamp_height
-    logical, intent(in) :: hveldamp_flag
 
     real(RP) :: Fx(elem%Np), Fy(elem%Np), Fz(elem%Np), LiftDelFlx(elem%Np)
     real(RP) :: Fx_sp(elem%Np), Fy_sp(elem%Np), Fz_sp(elem%Np)  
     real(RP) :: GradPhyd_x(elem%Np), GradPhyd_y(elem%Np)
-    real(RP) :: del_flux(elem%NfpTot,lmesh%Ne,PROG_VARS_NUM)
+    real(RP) :: del_flux(elem%NfpTot,lmesh%Ne,PRGVAR_NUM)
     real(RP) :: del_flux_hyd(elem%NfpTot,lmesh%Ne,2)
     real(RP) :: GsqrtDens_(elem%Np), rdens_(elem%Np), RHOT_hyd(elem%Np), RHOT_(elem%Np)
     real(RP) :: dpres_(elem%Np), u_(elem%Np), v_(elem%Np), w_(elem%Np), wt_(elem%Np), pot_(elem%Np)
@@ -313,16 +306,6 @@ contains
     end do
     call PROF_rapend( 'cal_dyn_tend_interior', 3)
 
-    !- Sponge layer
-    if (SL_flag) then
-      call PROF_rapstart( 'cal_dyn_tend_sponge', 3)
-      call atm_dyn_dgm_spongelayer_add_tend( &
-        MOMX_dt, MOMY_dt, MOMZ_dt,                    & ! (out)
-        MOMX_, MOMY_, MOMZ_, wdamp_tau, wdamp_height, & ! (in)
-        hveldamp_flag, lmesh, elem                    ) ! (in)
-      call PROF_rapend( 'cal_dyn_tend_sponge', 3)
-    end if
-
     return
   end subroutine atm_dyn_dgm_nonhydro3d_rhot_hevi_splitform_cal_tend
 
@@ -345,9 +328,9 @@ contains
     implicit none
 
     class(LocalMesh3D), intent(in) :: lmesh
-    class(elementbase3D), intent(in) :: elem
+    class(ElementBase3D), intent(in) :: elem
     class(LocalMesh2D), intent(in) :: lmesh2D
-    class(elementbase2D), intent(in) :: elem2D
+    class(ElementBase2D), intent(in) :: elem2D
     real(RP), intent(out) :: DENS_dt(elem%Np,lmesh%NeA)
     real(RP), intent(out) :: MOMX_dt(elem%Np,lmesh%NeA)
     real(RP), intent(out) :: MOMY_dt(elem%Np,lmesh%NeA)
@@ -374,8 +357,8 @@ contains
     real(RP), intent(in) :: impl_fac
     real(RP), intent(in) :: dt
 
-    real(RP) :: PROG_VARS (elem%Np,lmesh%NeZ,PROG_VARS_NUM,lmesh%NeX*lmesh%NeY)
-    real(RP) :: PROG_VARS0(elem%Np,lmesh%NeZ,PROG_VARS_NUM,lmesh%NeX*lmesh%NeY)
+    real(RP) :: PROG_VARS (elem%Np,lmesh%NeZ,PRGVAR_NUM,lmesh%NeX*lmesh%NeY)
+    real(RP) :: PROG_VARS0(elem%Np,lmesh%NeZ,PRGVAR_NUM,lmesh%NeX*lmesh%NeY)
     real(RP) :: b1D(elem%Nnode_v,3,lmesh%NeZ,elem%Nnode_h1D**2,lmesh%NeX*lmesh%NeY)
     integer :: ipiv(elem%Nnode_v*3*lmesh%NeZ,elem%Nnode_h1D**2)
     real(RP) :: b1D_uv(elem%Nnode_v,lmesh%NeZ,2,elem%Nnode_h1D**2,lmesh%NeX*lmesh%NeY)

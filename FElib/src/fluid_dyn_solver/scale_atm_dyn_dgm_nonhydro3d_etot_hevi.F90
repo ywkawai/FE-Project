@@ -36,12 +36,12 @@ module scale_atm_dyn_dgm_nonhydro3d_etot_hevi
   use scale_meshfield_base, only: MeshField3D
 
   use scale_atm_dyn_dgm_nonhydro3d_common, only: &
-    atm_dyn_dgm_nonhydro3d_common_Init,               &
-    atm_dyn_dgm_nonhydro3d_common_Final,              &
-    DENS_VID, MOMX_VID, MOMY_VID, MOMZ_VID, ETOT_VID, &
-    RHOT_VID,                                         &
-    PROG_VARS_NUM,                                    &
-    IntrpMat_VPOrdM1
+    atm_dyn_dgm_nonhydro3d_common_Init,                       &
+    atm_dyn_dgm_nonhydro3d_common_Final,                      &
+    DENS_VID => PRGVAR_DDENS_ID, ETOT_VID => PRGVAR_ETOT_ID,  &
+    MOMX_VID => PRGVAR_MOMX_ID, MOMY_VID => PRGVAR_MOMY_ID,   &
+    MOMZ_VID => PRGVAR_MOMZ_ID,                               &
+    PRGVAR_NUM, IntrpMat_VPOrdM1
 
   !-----------------------------------------------------------------------------
   implicit none
@@ -91,16 +91,12 @@ contains
 !OCL SERIAL  
   subroutine atm_dyn_dgm_nonhydro3d_etot_hevi_cal_tend( &
     DENS_dt, MOMX_dt, MOMY_dt, MOMZ_dt, ETOT_dt,                                & ! (out)
-    DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd, CORIOLIS,          & ! (in)
+    DDENS_, MOMX_, MOMY_, MOMZ_, ETOT_, DENS_hyd, PRES_hyd, CORIOLIS,           & ! (in)
     Rtot, CVtot, CPtot,                                                         & ! (in)
-    SL_flag, wdamp_tau, wdamp_height, hveldamp_flag,                            & ! (in)
     Dx, Dy, Dz, Sx, Sy, Sz, Lift, lmesh, elem, lmesh2D, elem2D )
 
     use scale_atm_dyn_dgm_nonhydro3d_etot_hevi_numflux, only: &
       get_ebnd_flux => atm_dyn_dgm_nonhydro3d_etot_hevi_numflux_get_generalvc
-
-    use scale_atm_dyn_dgm_spongelayer, only: &
-      atm_dyn_dgm_spongelayer_add_tend
 
     implicit none
 
@@ -118,24 +114,19 @@ contains
     real(RP), intent(in)  :: MOMX_(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: MOMY_(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: MOMZ_(elem%Np,lmesh%NeA)
-    real(RP), intent(in)  :: DRHOT_(elem%Np,lmesh%NeA)
+    real(RP), intent(in)  :: ETOT_(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: DENS_hyd(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: PRES_hyd(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: CORIOLIS(elem2D%Np,lmesh2D%NeA)
     real(RP), intent(in)  :: Rtot(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: CVtot(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: CPtot(elem%Np,lmesh%NeA)
-    logical, intent(in) :: SL_flag
-    real(RP), intent(in) :: wdamp_tau
-    real(RP), intent(in) :: wdamp_height
-    logical, intent(in) :: hveldamp_flag
 
     real(RP) :: Fx(elem%Np), Fy(elem%Np), Fz(elem%Np), LiftDelFlx(elem%Np)
     real(RP) :: GradPhyd_x(elem%Np), GradPhyd_y(elem%Np)
-    real(RP) :: del_flux(elem%NfpTot,lmesh%Ne,PROG_VARS_NUM)
+    real(RP) :: del_flux(elem%NfpTot,lmesh%Ne,PRGVAR_NUM)
     real(RP) :: del_flux_hyd(elem%NfpTot,lmesh%Ne,2)
     real(RP) :: DPRES_(elem%Np)
-    real(RP) :: RHOT_(elem%Np)
     real(RP) :: rdens_(elem%Np), u_(elem%Np), v_(elem%Np), w_(elem%Np), wt_(elem%Np)
     real(RP) :: GsqrtV(elem%Np), RGsqrtV(elem%Np)
     real(RP) :: Cori(elem%Np)
@@ -152,7 +143,7 @@ contains
     call PROF_rapstart( 'cal_dyn_tend_bndflux', 3)
     call get_ebnd_flux( &
       del_flux, del_flux_hyd,                                                 & ! (out)
-      DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd,                & ! (in)
+      DDENS_, MOMX_, MOMY_, MOMZ_, ETOT_, DENS_hyd, PRES_hyd,                 & ! (in)
       Rtot, CVtot, CPtot,                                                     & ! (in)
       lmesh%Gsqrt, lmesh%GI3(:,:,1), lmesh%GI3(:,:,2), lmesh%zlev(:,:),       & ! (in)    
       lmesh%normal_fn(:,:,1), lmesh%normal_fn(:,:,2), lmesh%normal_fn(:,:,3), & ! (in)
@@ -169,7 +160,7 @@ contains
     P0ovR = PRES00 / Rdry
 
     !$omp parallel do private( ke2d, Cori,         &
-    !$omp RHOT_, DPRES_, rdens_, u_, v_, w_, wt_,  &
+    !$omp DPRES_, rdens_, u_, v_, w_, wt_,         &
     !$omp enthalpy_, GradPhyd_x, GradPhyd_y,       &
     !$omp GsqrtV, RGsqrtV,                         &
     !$omp Fx, Fy, Fz, LiftDelFlx )
@@ -182,20 +173,18 @@ contains
       RGsqrtV(:) = 1.0_RP / GsqrtV(:)
 
       !--
-      RHOT_(:) = P0ovR * (PRES_hyd(:,ke) * rP0)**rgamm + DRHOT_(:,ke)
-      DPRES_(:) = PRES00 * ( Rtot(:,ke) * rP0 * RHOT_(:) )**( CPtot(:,ke) / CVtot(:,ke) ) &
-                - PRES_hyd(:,ke)
-
       rdens_(:) = 1.0_RP / (DDENS_(:,ke) + DENS_hyd(:,ke))
       u_ (:) = MOMX_(:,ke) * rdens_(:)
       v_ (:) = MOMY_(:,ke) * rdens_(:)
       w_ (:) = MOMZ_(:,ke) * rdens_(:)
       wt_(:) = w_(:) * RGsqrtV(:) + lmesh%GI3(:,ke,1) * u_(:) + lmesh%GI3(:,ke,2) * v_(:) 
 
-      enthalpy_(:) = &
-          CPtot(:,ke) * ( PRES_hyd(:,ke) + DPRES_(:) ) / Rtot(:,ke)                    &
-        + Grav * ( DDENS_(:,ke) + DENS_hyd(:,ke) ) * lmesh%zlev(:,ke)                  &
-        + 0.5_RP * ( MOMX_(:,ke) * u_(:) + MOMY_(:,ke) * v_(:) + MOMZ_(:,ke) * w_(:) )
+      DPRES_(:) = ( CPtot(:,ke) / CVtot(:,ke) - 1.0_RP ) &
+                * (   ETOT_(:,ke) - Grav * ( DDENS_(:,ke) + DENS_hyd(:,ke) ) * lmesh%zlev(:,ke)      &
+                    - 0.5_RP * ( MOMX_(:,ke) * u_(:) + MOMY_(:,ke) * v_(:) + MOMZ_(:,ke) * w_(:) ) ) &
+                - PRES_hyd(:,ke)
+      
+      enthalpy_(:) = ETOT_(:,ke) + PRES_hyd(:,ke) + DPRES_(:)
 
       !-- Gradient hydrostatic pressure
       
@@ -282,16 +271,6 @@ contains
     end do
     call PROF_rapend( 'cal_dyn_tend_interior', 3)
 
-    !- Sponge layer
-    if (SL_flag) then
-      call PROF_rapstart( 'cal_dyn_tend_sponge', 3)
-      call atm_dyn_dgm_spongelayer_add_tend( &
-        MOMX_dt, MOMY_dt, MOMZ_dt,                    & ! (out)
-        MOMX_, MOMY_, MOMZ_, wdamp_tau, wdamp_height, & ! (in)
-        hveldamp_flag, lmesh, elem                    ) ! (in)
-      call PROF_rapend( 'cal_dyn_tend_sponge', 3)
-    end if
-
     return
   end subroutine atm_dyn_dgm_nonhydro3d_etot_hevi_cal_tend
 
@@ -344,9 +323,9 @@ contains
     real(RP), intent(in) :: impl_fac
     real(RP), intent(in) :: dt
 
-    real(RP) :: PROG_VARS (elem%Np,lmesh%NeZ,PROG_VARS_NUM,lmesh%NeX*lmesh%NeY)
+    real(RP) :: PROG_VARS (elem%Np,lmesh%NeZ,PRGVAR_NUM,lmesh%NeX*lmesh%NeY)
     real(RP) :: DPRES     (elem%Np,lmesh%NeZ,lmesh%NeX*lmesh%NeY)
-    real(RP) :: PROG_VARS0(elem%Np,lmesh%NeZ,PROG_VARS_NUM,lmesh%NeX*lmesh%NeY)
+    real(RP) :: PROG_VARS0(elem%Np,lmesh%NeZ,PRGVAR_NUM,lmesh%NeX*lmesh%NeY)
     real(RP) :: DPRES0    (elem%Np,lmesh%NeZ,lmesh%NeX*lmesh%NeY)
     real(RP) :: b1D(3,elem%Nnode_v,lmesh%NeZ,elem%Nnode_h1D**2,lmesh%NeX*lmesh%NeY)
     real(RP) :: GeoPot    (elem%Np,lmesh%NeZ,lmesh%NeX*lmesh%NeY)

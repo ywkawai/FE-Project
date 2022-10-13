@@ -13,9 +13,16 @@ module scale_model_mesh_manager
   use scale_mesh_base1d, only: MeshBase1D
   use scale_mesh_base2d, only: MeshBase2D
   use scale_mesh_base3d, only: MeshBase3D
+  use scale_meshfield_base, only: MeshField3D
 
   use scale_sparsemat, only: sparsemat
 
+  use scale_model_meshbase_manager, only: &
+    ModelMeshBase, &
+    ModelMeshBase1D, ModelMeshBase2D, ModelMeshBase3D
+
+  use scale_model_var_manager, only: ModelVarManager
+  
   !-----------------------------------------------------------------------------
   implicit none
   private
@@ -24,52 +31,43 @@ module scale_model_mesh_manager
   !
   !++ Public type & procedures
   !
-
-  type, abstract, public :: ModelMeshBase
-    type(SparseMat), allocatable :: DOptrMat(:)
-    type(SparseMat), allocatable :: SOptrMat(:)
-    type(SparseMat) :: LiftOptrMat
-
-    integer :: communicator_num
-  contains
-    procedure :: ModelMeshBase_Init
-    procedure :: ModelMeshBase_Final
-    procedure :: Get_communicatorID => ModelMeshBase_get_communicatorID
-    procedure(ModelMeshBase_get_modelmesh), public, deferred :: GetModelMesh
-  end type ModelMeshBase
   
-  interface
-    subroutine ModelMeshBase_get_modelmesh( this, ptr_mesh )
-      import ModelMeshBase
-      import MeshBase
-      class(ModelMeshBase), target, intent(in) :: this
-      class(MeshBase), pointer, intent(out) :: ptr_mesh
-    end subroutine ModelMeshBase_get_modelmesh
-  end interface
-
-  type, extends(ModelMeshBase), public :: ModelMesh1D
-    class(MeshBase1D), pointer :: ptr_mesh
+  type, extends(ModelMeshBase1D), public :: ModelMesh1D
   contains
     procedure, public :: ModelMesh1D_Init
     procedure, public :: ModelMesh1D_Final
-    procedure, public :: GetModelMesh => ModelMesh1D_get_modelmesh
   end type ModelMesh1D
 
-  type, extends(ModelMeshBase), public :: ModelMesh2D
-    class(MeshBase2D), pointer :: ptr_mesh
+  type, extends(ModelMeshBase2D), public :: ModelMesh2D
   contains
     procedure, public :: ModelMesh2D_Init
     procedure, public :: ModelMesh2D_Final
-    procedure, public :: GetModelMesh => ModelMesh2D_get_modelmesh
   end type ModelMesh2D
 
-  type, extends(ModelMeshBase), public :: ModelMesh3D
-    class(MeshBase3D), pointer :: ptr_mesh
+  type, abstract, extends(ModelMeshBase3D), public :: ModelMesh3D
   contains
     procedure, public :: ModelMesh3D_Init
     procedure, public :: ModelMesh3D_Final
-    procedure, public :: GetModelMesh => ModelMesh3D_get_modelmesh
+    procedure(ModelMesh3D_create_communicator), public, deferred :: Create_communicator
   end type ModelMesh3D
+
+  interface
+    subroutine ModelMesh3D_create_communicator( this, sfield_num, hvfield_num, var_manager, field_list, commid )
+      import ModelMesh3D
+      import MeshBase3D
+      import ModelVarManager
+      import MeshField3D
+      class(ModelMesh3D), target, intent(inout) :: this
+      integer, intent(in) :: sfield_num
+      integer, intent(in) :: hvfield_num
+      class(ModelVarManager), intent(inout) :: var_manager
+      class(MeshField3D), intent(in) :: field_list(:)
+      integer, intent(out) :: commid
+    end subroutine ModelMesh3D_create_communicator
+  end interface
+
+  ! Cascade
+  public :: ModelMeshBase
 
   !-----------------------------------------------------------------------------
   !
@@ -83,55 +81,6 @@ module scale_model_mesh_manager
   !------------------
 
 contains
-  subroutine ModelMeshBase_Init( this, nDim )
-    implicit none
-    class(ModelMeshBase), intent(inout) :: this
-    integer, intent(in) :: nDim
-
-    integer :: d
-    !--------------------------------------------
-
-    this%communicator_num = 0    
-    allocate( this%SOptrMat(nDim), this%DOptrMat(nDim) )
-
-    return
-  end subroutine ModelMeshBase_Init
-
-  function ModelMeshBase_get_communicatorID( this, max_communicator_num ) result(commid)
-    implicit none
-    class(ModelMeshBase), intent(inout) :: this
-    integer, intent(in) :: max_communicator_num
-    integer :: commid
-    !--------------------------------------------
-
-    this%communicator_num = this%communicator_num + 1
-    commid = this%communicator_num
-
-    if ( commid > max_communicator_num ) then
-      LOG_ERROR('ModelMeshBase_get_communicatorID',*) 'The number of communicator exceeds expectation. Check!' 
-      call PRC_abort
-    end if
-
-    return
-  end function ModelMeshBase_get_communicatorID
-
-  subroutine ModelMeshBase_Final( this )
-    implicit none
-    class(ModelMeshBase), intent(inout) :: this
-
-    integer :: d
-    !--------------------------------------------
-
-    do d = 1, size(this%DOptrMat)
-      call this%DOptrMat(d)%Final()
-      call this%SOptrMat(d)%Final()
-    end do
-    deallocate( this%SOptrMat, this%DOptrMat )
-
-    call this%LiftOptrMat%Final()
-
-    return
-  end subroutine ModelMeshBase_Final
 
   !* 1D *************************************************************
 
@@ -141,8 +90,7 @@ contains
     class(MeshBase1D), target, intent(in) :: mesh
     !-----------------------------------------------------
 
-    this%ptr_mesh => mesh
-    call this%ModelMeshBase_Init(1)
+    call this%ModelMeshBase1D_Init(mesh)
 
     return
   end subroutine ModelMesh1D_Init
@@ -151,25 +99,12 @@ contains
     implicit none
     class(ModelMesh1D), target, intent(inout) :: this
 
-    integer :: d
     !-----------------------------------------------------
 
-    nullify( this%ptr_mesh )
-    call this%ModelMeshBase_Final()
+    call this%ModelMeshBase1D_Final()
 
     return
   end subroutine ModelMesh1D_Final
-
-  subroutine ModelMesh1D_get_modelmesh( this, ptr_mesh )
-    implicit none
-    class(ModelMesh1D), target, intent(in) :: this
-    class(MeshBase), pointer, intent(out) :: ptr_mesh
-    !-----------------------------------------------------
-
-    ptr_mesh => this%ptr_mesh
-
-    return
-  end subroutine ModelMesh1D_get_modelmesh
 
   !* 2D *************************************************************
 
@@ -179,8 +114,7 @@ contains
     class(MeshBase2D), target, intent(in) :: mesh
     !-----------------------------------------------------
 
-    this%ptr_mesh => mesh
-    call this%ModelMeshBase_Init(2)
+    call this%ModelMeshBase2D_Init(mesh)
 
     return
   end subroutine ModelMesh2D_Init
@@ -190,21 +124,10 @@ contains
     class(ModelMesh2D), target, intent(inout) :: this  
     !-----------------------------------------------------
 
-    nullify( this%ptr_mesh )
-    call this%ModelMeshBase_Final()
+    call this%ModelMeshBase2D_Final()
 
     return
   end subroutine ModelMesh2D_Final
-
-  subroutine ModelMesh2D_get_modelmesh( this, ptr_mesh )
-    implicit none
-    class(ModelMesh2D), target, intent(in) :: this
-    class(MeshBase), pointer, intent(out) :: ptr_mesh
-    !-----------------------------------------------------
-
-    ptr_mesh => this%ptr_mesh
-    return
-  end subroutine ModelMesh2D_get_modelmesh
 
   !* 3D *************************************************************
 
@@ -215,7 +138,7 @@ contains
     !-----------------------------------------------------
 
     this%ptr_mesh => mesh
-    call this%ModelMeshBase_Init(3)
+    call this%ModelMeshBase3D_Init(mesh)
 
     return
   end subroutine ModelMesh3D_Init  
@@ -226,19 +149,9 @@ contains
     !-----------------------------------------------------
 
     nullify( this%ptr_mesh )
-    call this%ModelMeshBase_Final()
+    call this%ModelMeshBase3D_Final()
 
     return
   end subroutine ModelMesh3D_Final
-
-  subroutine ModelMesh3D_get_modelmesh( this, ptr_mesh )
-    implicit none
-    class(ModelMesh3D), target, intent(in) :: this
-    class(MeshBase), pointer, intent(out) :: ptr_mesh
-    !-----------------------------------------------------
-
-    ptr_mesh => this%ptr_mesh
-    return
-  end subroutine ModelMesh3D_get_modelmesh
 
 end module scale_model_mesh_manager

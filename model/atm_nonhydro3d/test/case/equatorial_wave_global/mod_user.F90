@@ -126,16 +126,19 @@ contains
     use scale_const, only: &
       Rdry => CONST_Rdry,  &
       CpDry => CONST_CPdry
+    use scale_localmeshfield_base, only: LocalMeshFieldBase
+
     use scale_file_history_meshfield, only: &
       FILE_HISTORY_meshfield_in
+    use scale_atm_dyn_dgm_nonhydro3d_common, only: &
+      MOMX_p  => PHYTEND_MOMX_ID, &
+      MOMY_p  => PHYTEND_MOMY_ID, &
+      MOMZ_p  => PHYTEND_MOMZ_ID, &
+      RHOH_p  => PHYTEND_RHOH_ID
+
     use mod_atmos_vars, only: &
       AtmosVars_GetLocalMeshPrgVars,    &
-      AtmosVars_GetLocalMeshPhyAuxVars, &
-      MOMX_p  => ATMOS_PHYTEND_MOMX_ID, &
-      MOMY_p  => ATMOS_PHYTEND_MOMY_ID, &
-      MOMZ_p  => ATMOS_PHYTEND_MOMZ_ID, &
-      RHOH_p  => ATMOS_PHYTEND_RHOH_ID
-    use scale_localmeshfield_base, only: LocalMeshFieldBase
+      AtmosVars_GetLocalMeshPhyAuxVars
 
     implicit none
 
@@ -144,6 +147,7 @@ contains
     class(LocalMesh3D), pointer :: lcmesh
     class(LocalMeshFieldBase), pointer :: DDENS, MOMX, MOMY, MOMZ, DRHOT
     class(LocalMeshFieldBase), pointer :: DENS_hyd, PRES_hyd
+    class(LocalMeshFieldBase), pointer :: Rtot, CVtot, CPtot
     class(LocalMeshFieldBase), pointer :: PRES, PT
 
     real(RP), parameter :: rtau = 1.0_RP / ( 10.0_RP * 86400.0_RP ) ! (10 day)^-1
@@ -166,10 +170,10 @@ contains
       call AtmosVars_GetLocalMeshPrgVars( n, atm%mesh%ptr_mesh,  &
         atm%vars%PROGVARS_manager, atm%vars%AUXVARS_manager,     &
         DDENS, MOMX, MOMY, MOMZ, DRHOT,                          &
-        DENS_hyd, PRES_hyd, lcmesh                               )      
+        DENS_hyd, PRES_hyd, Rtot, CVtot, CPtot, lcmesh           )      
 
-      call AtmosVars_GetLocalMeshPhyAuxVars( n,  atm%mesh%ptr_mesh, &
-        atm%vars%AUXVARS_manager, PRES, PT                          )
+      call AtmosVars_GetLocalMeshPhyAuxVars( n, atm%mesh%ptr_mesh, &
+        atm%vars%AUXVARS_manager, PRES, PT                         )
       
       allocate( DENS(lcmesh%refElem3D%Np) )
       !$omp parallel do private(DENS)

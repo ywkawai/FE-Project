@@ -41,29 +41,13 @@ module mod_atmos_mesh
   contains
     procedure :: AtmosMesh_Init
     procedure :: AtmosMesh_Final
-    procedure(AtmosMesh_create_communicator), public, deferred :: Create_communicator
     procedure(AtmosMesh_setup_restartfile1), public, deferred :: Setup_restartfile1
     procedure(AtmosMesh_setup_restartfile2), public, deferred :: Setup_restartfile2
     procedure(AtmosMesh_calc_UVMet), public, deferred :: Calc_UVmet
     generic :: Setup_restartfile => Setup_restartfile1, Setup_restartfile2
     procedure(AtmosMesh_setup_vcoord), public, deferred :: Setup_vcoordinate
-    procedure :: Construct_ModalFilter3D => AtmosMesh_construct_ModalFilter3D
-    procedure :: Construct_ModalFilterHV => AtmosMesh_construct_ModalFilterHV
   end type AtmosMesh
-  interface
-    subroutine AtmosMesh_create_communicator( this, sfield_num, hvfield_num, var_manager, field_list, commid )
-      import AtmosMesh
-      import MeshBase3D
-      import ModelVarManager
-      import MeshField3D
-      class(AtmosMesh), target, intent(inout) :: this
-      integer, intent(in) :: sfield_num
-      integer, intent(in) :: hvfield_num
-      class(ModelVarManager), intent(inout) :: var_manager
-      class(MeshField3D), intent(in) :: field_list(:)
-      integer, intent(out) :: commid
-    end subroutine AtmosMesh_create_communicator
-  end interface
+
   interface
     subroutine AtmosMesh_setup_restartfile1( this, restart_file, var_num )
       import AtmosMesh
@@ -178,63 +162,5 @@ contains
 
     return
   end subroutine AtmosMesh_Final
-
-  subroutine AtmosMesh_construct_ModalFilter3D( this, &
-    filter,                                           &
-    etac_h, alpha_h, ord_h,                           & 
-    etac_v, alpha_v, ord_v                            )
-    
-    use scale_element_modalfilter, only: ModalFilter
-    implicit none
-    class(AtmosMesh), intent(in) :: this
-    class(ModalFilter), intent(inout) :: filter
-    real(RP), intent(in) :: etac_h
-    real(RP), intent(in) :: alpha_h
-    integer, intent(in) :: ord_h
-    real(RP), intent(in) :: etac_v
-    real(RP), intent(in) :: alpha_v
-    integer, intent(in) :: ord_v
-    !-------------------------------------------
-
-    call filter%Init( this%element, &
-      etac_h, alpha_h, ord_h,       & 
-      etac_v, alpha_v, ord_v        )
-
-    return
-  end subroutine AtmosMesh_construct_ModalFilter3D
-
-  subroutine AtmosMesh_construct_ModalFilterHV( this, &
-    filterH3D, filterV1D,                             &
-    etac_h, alpha_h, ord_h,                           & 
-    etac_v, alpha_v, ord_v                            )
-    
-    use scale_element_modalfilter, only: ModalFilter
-    use scale_element_line, only: LineElement
-    implicit none
-    class(AtmosMesh), intent(in) :: this
-    class(ModalFilter), intent(inout) :: filterH3D
-    class(ModalFilter), intent(inout) :: filterV1D
-    real(RP), intent(in) :: etac_h
-    real(RP), intent(in) :: alpha_h
-    integer, intent(in) :: ord_h
-    real(RP), intent(in) :: etac_v
-    real(RP), intent(in) :: alpha_v
-    integer, intent(in) :: ord_v
-
-    type(LineElement) :: elemV1D
-    !-------------------------------------------
-
-    call filterH3D%Init( this%element, &
-      etac_h, alpha_h, ord_h,          & 
-      1.0_RP,  0.0_RP, ord_v           )
-
-    call elemV1D%Init( this%element%PolyOrder_v, this%element%IsLumpedMatrix() )      
-    call filterV1D%Init( elemV1D, &
-      etac_v, alpha_v, ord_v,     &
-      tend_flag = .true.          )
-    call elemV1D%Final()
-
-    return
-  end subroutine AtmosMesh_construct_ModalFilterHV
 
 end module mod_atmos_mesh

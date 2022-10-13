@@ -82,13 +82,10 @@ contains
     h_, U_, V_, hs_, u1_, u2_, CORIOLIS,    & ! (in)
     Dx, Dy, Sx, Sy, Lift, lmesh, elem  )
 
-    use scale_atm_dyn_dgm_spongelayer, only: &
-      atm_dyn_dgm_spongelayer_add_tend
-
     implicit none
 
     class(LocalMesh2D), intent(in) :: lmesh
-    class(elementbase2D), intent(in) :: elem
+    class(ElementBase2D), intent(in) :: elem
     type(SparseMat), intent(in) :: Dx, Dy, Sx, Sy, Lift
     real(RP), intent(out) :: h_dt(elem%Np,lmesh%NeA)
     real(RP), intent(out) :: U_dt(elem%Np,lmesh%NeA)
@@ -186,7 +183,7 @@ contains
     implicit none
 
     class(LocalMesh2D), intent(in) :: lmesh
-    class(elementbase2D), intent(in) :: elem  
+    class(ElementBase2D), intent(in) :: elem  
     real(RP), intent(out) ::  del_flux(elem%NfpTot,lmesh%Ne,PROG_VARS_NUM)
     real(RP), intent(out) ::  del_flux_aux(elem%NfpTot,lmesh%Ne,1)
     real(RP), intent(in) ::  h_(elem%Np*lmesh%NeA)
