@@ -99,20 +99,11 @@ module mod_atmos_dyn
     type(ModalFilter) :: modal_filter_tracer_3d
     type(ModalFilter) :: modal_filter_v1D
 
-    ! sponge layer
-    logical :: SPONGELAYER_FLAG
-    real(RP) :: wdamp_tau
-    real(RP) :: wdamp_height
-    logical  :: hvel_damp_flag
-
     ! tracer advection
     logical :: ONLY_TRACERADV_FLAG
     logical :: TRACERADV_disable_limiter
     logical :: TRACERADV_MODALFILTER_FLAG
     type(SparseMat) :: FaceIntMat    
-
-    ! 
-    logical :: ENTOT_CONSERVE_SCHEME_FLAG
 
   contains
     procedure, public :: setup => AtmosDyn_setup 
@@ -133,7 +124,6 @@ module mod_atmos_dyn
 
   private :: setup_modalfilter
   private :: setup_numdiff
-  private :: setup_spongelayer
   private :: setup_coriolis_parameter
 
   !-----------------------------------------------------------------------------
@@ -239,7 +229,7 @@ contains
     call setup_coriolis_parameter( this%dyn_vars, atm_mesh )
 
     !- Initialize a module for 3D dynamical core 
-    call this%dyncore_driver%Init( EQS_TYPE, TINTEG_TYPE, dtsec, mesh3D )
+    call this%dyncore_driver%Init( EQS_TYPE, TINTEG_TYPE, dtsec, SPONGELAYER_FLAG, mesh3D )
 
     !- Initialize a module for tracer equations
     call atm_dyn_dgm_trcadvect3d_heve_Init( mesh3D, this%FaceIntMat ) 
@@ -251,10 +241,6 @@ contains
     !- Setup the modal filter
     this%MODALFILTER_FLAG = MODALFILTER_FLAG
     if ( MODALFILTER_FLAG ) call setup_modalfilter( this, atm_mesh, 'dyn' )
-
-    !- Setup the sponge layer
-    this%SPONGELAYER_FLAG = SPONGELAYER_FLAG
-    if ( SPONGELAYER_FLAG ) call setup_spongelayer( this, atm_mesh, dtsec )
 
     !- Setup flags associated with tracer advection
     this%ONLY_TRACERADV_FLAG = ONLY_TRACERADV_FLAG
@@ -932,78 +918,6 @@ contains
 
     return
   end subroutine setup_numdiff
-
-  !-- Setup sponge layer
-!OCL SERIAL
-  subroutine setup_spongelayer( this, atm_mesh, dtsec )
-    use scale_mesh_cubedom3d, only: MeshCubeDom3D
-    use scale_mesh_cubedspheredom3d, only: MeshCubedSphereDom3D
-    implicit none
-
-    class(AtmosDyn), target, intent(inout) :: this
-    class(AtmosMesh), target, intent(in) :: atm_mesh
-    real(RP), intent(in) :: dtsec
-
-    real(RP) :: SL_WDAMP_TAU        = -1.0_RP ! the maximum tau for Rayleigh damping of w [s]
-    real(RP) :: SL_WDAMP_HEIGHT     = -1.0_RP ! the height to start apply Rayleigh damping [m]
-    integer  :: SL_WDAMP_LAYER      = -1      ! the vertical number of finite element to start apply Rayleigh damping [num]
-    logical  :: SL_HORIVELDAMP_FLAG = .false. ! Is the horizontal velocity damped? 
-    
-    namelist /PARAM_ATMOS_DYN_SPONGELAYER/ &
-      SL_WDAMP_TAU,                        &                
-      SL_WDAMP_HEIGHT,                     &
-      SL_WDAMP_LAYER,                      &
-      SL_HORIVELDAMP_FLAG
-    
-    class(MeshBase3D), pointer :: mesh3D
-    class(LocalMesh3D), pointer :: lcmesh3D
-    class(ElementBase3D), pointer :: elem3D
-  
-    integer :: NeGZ
-    integer :: ierr
-    !---------------------------------------------------------------
-
-    rewind(IO_FID_CONF)
-    read(IO_FID_CONF,nml=PARAM_ATMOS_DYN_SPONGELAYER,iostat=ierr)
-    if( ierr < 0 ) then !--- missing
-      LOG_INFO("ATMOS_DYN_setup_spongelayer",*) 'Not found namelist. Default used.'
-    else if( ierr > 0 ) then !--- fatal error
-      LOG_ERROR("ATMOS_DYN_setup_spongelayer",*) 'Not appropriate names in namelist PARAM_ATMOS_DYN_SPONGELAYER. Check!'
-      call PRC_abort
-    end if
-    LOG_NML(PARAM_ATMOS_DYN_SPONGELAYER)
-
-    this%wdamp_tau    = SL_WDAMP_TAU 
-    this%wdamp_height = SL_WDAMP_HEIGHT
-
-    mesh3D => atm_mesh%ptr_mesh
-    lcmesh3D => mesh3D%lcmesh_list(1)
-    elem3D => lcmesh3D%refElem3D
-
-    select type(mesh3D)
-    type is (MeshCubeDom3D)
-      NeGZ = mesh3D%NeGZ
-    type is (MeshCubedSphereDom3D)
-      NeGZ = mesh3D%NeGZ
-    end select
-
-    if ( SL_WDAMP_LAYER > NeGZ ) then
-      LOG_ERROR("ATMOS_DYN_setup_spongelayer",*) 'SL_wdamp_layer should be less than total of vertical elements (NeGZ). Check!'
-      call PRC_abort
-    else if( SL_WDAMP_LAYER > 0 ) then
-      this%wdamp_height = lcmesh3D%pos_en(1,1+(SL_WDAMP_LAYER-1)*lcmesh3D%NeX*lcmesh3D%NeY,3)
-    end if
-    if ( this%wdamp_tau < 0.0_RP ) then
-      this%wdamp_tau = dtsec * 10.0_RP
-    else if ( this%wdamp_tau < dtsec ) then
-      LOG_ERROR("ATMOS_DYN_setup_spongelayer",*) 'SL_wdamp_tau should be larger than TIME_DT (ATMOS_DYN). Check!'
-      call PRC_abort
-    end if
-    
-    this%hvel_damp_flag = SL_HORIVELDAMP_FLAG
-
-    return
-  end subroutine setup_spongelayer
 
   !-- Setup Coriolis parameter
 

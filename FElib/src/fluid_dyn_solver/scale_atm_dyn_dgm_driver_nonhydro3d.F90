@@ -114,7 +114,8 @@ module scale_atm_dyn_dgm_driver_nonhydro3d
     atm_dyn_dgm_globalnonhydro3d_etot_hevi_cal_vi
   
   use scale_atm_dyn_dgm_bnd, only: AtmDynBnd
-  
+  use scale_atm_dyn_dgm_spongelayer, only: AtmDynSpongeLayer
+
   !-----------------------------------------------------------------------------
   implicit none
   private
@@ -128,8 +129,7 @@ module scale_atm_dyn_dgm_driver_nonhydro3d
       DENS_dt, MOMX_dt, MOMY_dt, MOMZ_dt, RHOT_dt,                        & ! (out)
       DDENS_, MOMX_, MOMY_, MOMZ_, THERM_, DENS_hyd, PRES_hyd, CORIOLIS,  & ! (in)
       Rtot, CVtot, CPtot,                                                 & ! (in)
-      SL_flag, wdamp_tau, wdamp_height, hveldamp_flag,                    & ! (in)
-      Dx, Dy, Dz, Sx, Sy, Sz, Lift, lmesh, elem, lmesh2D, elem2D )
+      Dx, Dy, Dz, Sx, Sy, Sz, Lift, lmesh, elem, lmesh2D, elem2D )          ! (in)
 
       import RP
       import LocalMesh3D
@@ -160,10 +160,6 @@ module scale_atm_dyn_dgm_driver_nonhydro3d
       real(RP), intent(in)  :: Rtot(elem%Np,lmesh%NeA)
       real(RP), intent(in)  :: CVtot(elem%Np,lmesh%NeA)
       real(RP), intent(in)  :: CPtot(elem%Np,lmesh%NeA)
-      logical, intent(in)   :: SL_flag
-      real(RP), intent(in)  :: wdamp_tau
-      real(RP), intent(in)  :: wdamp_height
-      logical, intent(in) :: hveldamp_flag
     end subroutine atm_dyn_nonhydro3d_cal_tend_ex
   end interface
 
@@ -235,10 +231,8 @@ module scale_atm_dyn_dgm_driver_nonhydro3d
     type(ModalFilter) :: modal_filter_v1D
 
     ! sponge layer
+    type(AtmDynSpongeLayer) :: sponge_layer
     logical :: SPONGELAYER_FLAG
-    real(RP) :: wdamp_tau
-    real(RP) :: wdamp_height
-    logical  :: hvel_damp_flag
 
     ! prognositc variables
 
@@ -293,6 +287,7 @@ contains
 !OCL SERIAL  
   subroutine AtmDynDGMDriver_nonhydro3d_Init( this, &
     eqs_type_name, tint_type_name, dtsec,           &
+    sponge_layer_flag,                              &
     mesh3D )
     implicit none
 
@@ -300,6 +295,7 @@ contains
     character(len=*), intent(in) :: eqs_type_name
     character(len=*), intent(in) :: tint_type_name
     real(DP), intent(in) :: dtsec
+    logical, intent(in) :: sponge_layer_flag
     class(MeshBase3D), intent(in), target :: mesh3D
 
 
@@ -402,6 +398,12 @@ contains
     !- initialize an object to manage boundary conditions
     call this%boundary_cond%Init()
     call this%boundary_cond%SetBCInfo( mesh3D )
+
+    !- initialize an object to manage sponge layer
+    this%SPONGELAYER_FLAG = sponge_layer_flag
+    if (this%SPONGELAYER_FLAG) then
+      call this%sponge_layer%Init( mesh3D, dtsec )
+    end if
 
     return
   end subroutine AtmDynDGMDriver_nonhydro3d_Init
@@ -578,10 +580,21 @@ contains
           THERM%local(n)%val,                                                              & ! (in)
           DENS_hyd%local(n)%val, PRES_hyd%local(n)%val, Coriolis%local(n)%val,             & ! (in)
           Rtot%local(n)%val, CVtot%local(n)%val, CPtot%local(n)%val,                       & ! (in)
-          this%SPONGELAYER_FLAG, this%wdamp_tau, this%wdamp_height, this%hvel_damp_flag,   & ! (in)                                                           &
           Dx, Dy, Dz, Sx, Sy, Sz, Lift,                                                    & ! (in)
           lcmesh3D, lcmesh3D%refElem3D, lcmesh3D%lcmesh2D, lcmesh3D%lcmesh2D%refElem2D     ) 
         call PROF_rapend( 'ATM_DYN_update_caltend_ex', 2)
+
+        !- Sponge layer
+        if (this%SPONGELAYER_FLAG) then
+          call PROF_rapstart('ATM_DYN_caltend_sponge', 2)
+          call this%sponge_layer%AddTend( &
+            this%tint(n)%tend_buf2D_ex(:,:,MOMX_VID ,tintbuf_ind),   & ! (inout)
+            this%tint(n)%tend_buf2D_ex(:,:,MOMY_VID ,tintbuf_ind),   & ! (inout)
+            this%tint(n)%tend_buf2D_ex(:,:,MOMZ_VID ,tintbuf_ind),   & ! (inout)
+            MOMX%local(n)%val, MOMY%local(n)%val, MOMZ%local(n)%val, & ! (in)
+            lcmesh3D, lcmesh3D%refElem3D                             ) ! (in)
+          call PROF_rapend('ATM_DYN_caltend_sponge', 2)
+        end if
       end do
       
       call PROF_rapstart( 'ATM_DYN_update_add_tp', 2)      
@@ -677,6 +690,8 @@ contains
     !-----------------------------------------------------------------------------
 
     call this%dynsolver_final()
+    call this%boundary_cond%Final()
+    if (this%SPONGELAYER_FLAG) call this%sponge_layer%Final()
 
     call this%DPRES%Final()
     call AtmDynDGMDriver_base3D_Final( this )   
