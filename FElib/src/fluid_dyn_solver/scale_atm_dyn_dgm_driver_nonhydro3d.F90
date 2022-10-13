@@ -50,7 +50,7 @@ module scale_atm_dyn_dgm_driver_nonhydro3d
     PRGVAR_NUM, &
     DENS_VID => PRGVAR_DDENS_ID, THERM_VID => PRGVAR_THERM_ID,&
     MOMX_VID => PRGVAR_MOMX_ID, MOMY_VID => PRGVAR_MOMY_ID,   &
-    MOMZ_VID => PRGVAR_MOMZ_ID, PRGVAR_NUM,                   &
+    MOMZ_VID => PRGVAR_MOMZ_ID,                               &
     AUXVAR_NUM, &
     PRESHYD_VID => AUXVAR_PRESHYDRO_ID, DENSHYD_VID => AUXVAR_DENSHYDRO_ID,                 &
     CPTOT_VID => AUXVAR_CPtot_ID, CVTOT_VID => AUXVAR_CVtot_ID, RTOT_VID => AUXVAR_Rtot_ID, &
@@ -407,6 +407,7 @@ contains
       call this%sponge_layer%Init( mesh3D, dtsec )
     end if
 
+    !- initialize an object to manage modal filter
     this%MODALFILTER_FLAG = modal_filter_flag
     if (this%MODALFILTER_FLAG) then
       refElem => mesh3D%refElem
@@ -433,14 +434,14 @@ contains
     use scale_tracer, only: &
       QA, TRACER_ADVC, TRACER_NAME
     
-      use scale_atm_dyn_dgm_trcadvect3d_heve, only: &
+    use scale_atm_dyn_dgm_trcadvect3d_heve, only: &
       atm_dyn_dgm_trcadvect3d_save_massflux
-    
-      use scale_model_var_manager, only: ModelVarManager
+  
+    use scale_model_var_manager, only: ModelVarManager
 
     use scale_atm_dyn_dgm_modalfilter, only: &
-      atm_dyn_dgm_modalfilter_apply,       &
-      atm_dyn_dgm_tracer_modalfilter_apply    
+      atm_dyn_dgm_modalfilter_apply
+    
     implicit none
 
     class(AtmDynDGMDriver_nonhydro3d), intent(inout) :: this

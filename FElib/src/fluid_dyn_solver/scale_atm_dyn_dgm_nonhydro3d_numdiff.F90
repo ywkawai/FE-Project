@@ -148,7 +148,7 @@ contains
       LOG_ERROR("ATMOS_DYN_setup_numdiff",*) 'Not appropriate names in namelist PARAM_ATMOS_DYN_NUMDIFF. Check!'
       call PRC_abort
     endif
-    LOG_NML(PARAM_ATMOS_DYN_NUMDIFF)      
+    LOG_NML(PARAM_ATMOS_DYN_NUMDIFF)
 
     this%ND_LAPLACIAN_NUM = ND_LAPLACIAN_NUM
     this%ND_COEF_H = ND_COEF_h
