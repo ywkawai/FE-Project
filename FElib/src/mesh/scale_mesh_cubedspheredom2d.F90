@@ -90,6 +90,8 @@ contains
     this%ymin_gl = - 0.25_RP * PI 
     this%ymax_gl = + 0.25_RP * PI 
     this%RPlanet = RPlanet
+    this%dom_vol = 4.0_RP * PI * RPlanet**2
+
 
     call MeshBase2D_Init( this, refElem, NLocalMeshPerPrc, &
       nproc, myrank )
