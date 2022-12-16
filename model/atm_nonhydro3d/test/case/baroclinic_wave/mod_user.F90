@@ -30,14 +30,15 @@ module mod_user
   RPlanet => CONST_RADIUS, &
   OHM     => CONST_OHM
  
-  use mod_exp, only: experiment
-
   use mod_atmos_component, only: &
     AtmosComponent
 
   use scale_element_base, only: ElementBase3D
   use scale_element_hexahedral, only: HexahedralElement
   use scale_localmesh_3d, only: LocalMesh3D  
+
+  use mod_user_base, only: UserBase
+  use mod_experiment, only: Experiment
 
   !-----------------------------------------------------------------------------
   implicit none
@@ -46,10 +47,13 @@ module mod_user
   !
   !++ Public procedure
   !
-  public :: USER_mkinit
-  public :: USER_setup
-  public :: USER_calc_tendency
-  public :: USER_update
+  type, public, extends(UserBase) :: User
+  contains
+    procedure :: mkinit_ => USER_mkinit
+    generic :: mkinit => mkinit_
+    procedure :: setup_ => USER_setup
+    generic :: setup => setup_
+  end type User
 
   !-----------------------------------------------------------------------------
   !
@@ -68,41 +72,34 @@ module mod_user
   !++ Private parameters & variables
   !
 
-  type, private, extends(experiment) :: Exp_baroclinic_wave
-  contains 
-    procedure :: setInitCond_lc => exp_SetInitCond_baroclinicwave
-    procedure :: geostrophic_balance_correction_lc => exp_geostrophic_balance_correction
-  end type
-  type(Exp_baroclinic_wave), private :: exp_manager
-
-  logical, private :: USER_do                   = .false. !< do user step?
-
   !-----------------------------------------------------------------------------
 contains
 !OCL SERIAL
-  subroutine USER_mkinit( atm )
+  subroutine USER_mkinit( this, atm )
     implicit none
-
+    class(User), intent(inout) :: this
     class(AtmosComponent), intent(inout) :: atm
 
+    type(Experiment) :: exp_manager
     !------------------------------------------
 
-    call exp_manager%Init('baroclinic_wave')
- 
-    call exp_manager%SetInitCond( atm%mesh,                &
-      atm%vars%PROGVARS_manager, atm%vars%AUXVARS_manager, &
-      atm%vars%QTRCVARS_manager                            )
-    
+    call exp_manager%Init( 'baroclinic_wave' )
+    call exp_manager%Regist_SetInitCond( exp_SetInitCond_baroclinicwave )
+    call exp_manager%Regist_geostrophic_balance_correction( exp_geostrophic_balance_correction )
+    call this%UserBase%mkinit( atm, exp_manager )
     call exp_manager%Final()
 
     return
   end subroutine USER_mkinit
 
 !OCL SERIAL
-  subroutine USER_setup( atm )
+  subroutine USER_setup( this, atm )
     implicit none
     
+    class(User), intent(inout) :: this
     class(AtmosComponent), intent(inout) :: atm
+
+    logical :: USER_do                   = .false. !< do user step?
 
     namelist / PARAM_USER / &
        USER_do
@@ -126,27 +123,10 @@ contains
     LOG_NML(PARAM_USER)
 
     !-
+    call this%UserBase%Setup( atm, USER_do )
 
     return
   end subroutine USER_setup
-
-  subroutine USER_calc_tendency( atm )
-    implicit none
-
-    class(AtmosComponent), intent(inout) :: atm
-    !------------------------------------------
-
-    return
-  end subroutine USER_calc_tendency
-
-  subroutine USER_update( atm )
-    implicit none
-
-    class(AtmosComponent), intent(inout) :: atm
-    !------------------------------------------
-
-    return
-  end subroutine USER_update
 
   !------
 
@@ -159,11 +139,11 @@ contains
     use mod_mkinit_util, only: &
       mkinitutil_gen_GPMat,    &
       mkinitutil_gen_Vm1Mat
-    use mod_exp, only: &
-      TracerLocalMeshField_ptr      
+    use mod_experiment, only: &
+      TracerLocalMeshField_ptr
     implicit none
 
-    class(Exp_baroclinic_wave), intent(inout) :: this
+    class(Experiment), intent(inout) :: this
     type(LocalMesh3D), intent(in) :: lcmesh
     class(ElementBase3D), intent(in) :: elem
     real(RP), intent(out) :: DENS_hyd(elem%Np,lcmesh%NeA)
@@ -472,7 +452,7 @@ contains
     
     implicit none
 
-    class(Exp_baroclinic_wave), intent(inout) :: this
+    class(Experiment), intent(inout) :: this
     type(LocalMesh3D), intent(in) :: lcmesh
     class(ElementBase3D), intent(in) :: elem
     real(RP), intent(inout) :: DENS_hyd(elem%Np,lcmesh%NeA)

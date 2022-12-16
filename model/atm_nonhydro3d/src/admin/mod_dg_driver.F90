@@ -29,7 +29,7 @@ module mod_dg_driver
   use mod_atmos_component, only: &
     AtmosComponent
   use mod_user, only: &
-    USER_update, USER_calc_tendency
+    User
 
   !-----------------------------------------------------------------------------
   implicit none
@@ -60,6 +60,7 @@ module mod_dg_driver
   character(len=H_MID), private, parameter :: MODELNAME = "SCALE-DG ver. "//VERSION
 
   type(AtmosComponent) :: atmos
+  type(User) :: user_
 
 contains
 !OCL SERIAL
@@ -149,7 +150,7 @@ contains
       end if
 
       !- USER
-      call USER_update( atmos )
+      call user_%update( atmos )
 
       !* restart and monitor output *******************
       if ( atmos%IsActivated() ) call atmos%vars%Monitor()
@@ -167,8 +168,8 @@ contains
         call atmos%calc_tendency( force=.false. )
       end if
 
-      !- USER 
-      call USER_calc_tendency( atmos )
+      !- USER
+      call user_%calc_tendency( atmos )
   
       !* output history files *************************
 
@@ -220,8 +221,6 @@ contains
       FILE_restart_meshfield_setup
     use scale_file_monitor_meshfield, only: &
       FILE_monitor_meshfield_setup  
-    
-    use mod_user, only: USER_setup    
     implicit none
 
     !----------------------------------------------
@@ -261,7 +260,7 @@ contains
 
     ! setup submodels
     call  atmos%setup()
-    call USER_setup( atmos )
+    call user_%setup( atmos )
 
     call atmos%setup_vars()
 
@@ -302,6 +301,7 @@ contains
 
     ! finalization submodels
     call  atmos%finalize()
+    call user_%final()
 
     !-
     call TIME_manager_Final
@@ -327,7 +327,7 @@ contains
       call atmos%calc_tendency( force= .true. )
     end if
     
-    call USER_calc_tendency( atmos )
+    call user_%calc_tendency( atmos )
 
     !- History & Monitor 
 

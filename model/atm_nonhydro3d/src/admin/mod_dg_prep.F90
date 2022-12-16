@@ -30,9 +30,7 @@ module mod_dg_prep
     FILE_HISTORY_set_nowdate
 
   use mod_user, only: &
-    USER_setup, &
-    USER_mkinit
-
+    USER
   use mod_mktopo, only: &
     MKTOPO, MKTOPO_write
   use mod_mkinit, only: &
@@ -67,6 +65,7 @@ module mod_dg_prep
   character(len=H_MID), private, parameter :: MODELNAME = "SCALE-DG ver. "//VERSION
 
   type(AtmosComponent) :: atmos
+  type(User) :: user_
 
 contains
   subroutine dg_prep(                     &
@@ -140,7 +139,8 @@ contains
       atmos%vars%AUXVARS_manager,  &
       atmos%vars%QTRCVARS_manager  )
     
-    call USER_mkinit( atmos )
+!    call USER_mkinit( atmos )
+    call user_%mkinit( atmos )
     if ( atmos%dyn_proc%dyncore_driver%ENTOT_CONSERVE_SCHEME_FLAG ) then
       call set_total_energy( atmos%vars%PROGVARS_manager, &
         atmos%vars%AUXVARS_manager, atmos%mesh )      
@@ -160,6 +160,7 @@ contains
     end if
 
     !########## Finalize ##########
+    call user_%mkfinal()
     call finalize()    
 
     return
@@ -178,7 +179,6 @@ contains
       FILE_restart_meshfield_setup
     use scale_time_manager, only: TIME_manager_Init
 
-    use mod_user, only: USER_setup    
     use mod_mktopo, only: MKTOPO_setup
     use mod_mkinit, only: MKINIT_setup
 
@@ -213,7 +213,7 @@ contains
 
     ! setup submodels
     call  atmos%setup()
-    call USER_setup( atmos )
+    call user_%setup( atmos )
 
     call atmos%setup_vars()
 
