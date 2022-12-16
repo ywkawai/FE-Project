@@ -51,8 +51,9 @@ OBJS = \
 	mod_atmos_mesh_rm.o          \
 	mod_atmos_mesh_gm.o          \
 	mod_atmos_vars.o             \
+	mod_user_base.o              \
 	mod_user.o                   \
-	mod_exp.o                    \
+	mod_experiment.o             \
 	\
 	mod_dg_prep.o                \
 	mod_mktopo.o                 \
@@ -95,7 +96,7 @@ $(BUILD_DIR)/$(PPNAME)$(POSTFIX) : $(BUILD_DIR)/$(PPNAME).o $(patsubst %,$(BUILD
 
 $(BUILD_DIR)/$(BINNAME).o  : $(LIBS) $(patsubst %,$(BUILD_DIR)/%,$(OBJS)) $(BUILD_DIR)/mod_user.o
 $(BUILD_DIR)/$(PPNAME).o : $(LIBS) $(patsubst %,$(BUILD_DIR)/%,$(OBJS)) $(BUILD_DIR)/mod_user.o
-$(BUILD_DIR)/mod_user.o    : $(LIBS) $(patsubst %,$(BUILD_DIR)/%,$(SUB_OBJS)) $(BUILD_DIR)/mod_exp.o $(BUILD_DIR)/mod_mkinit_util.o
+$(BUILD_DIR)/mod_user.o    : $(LIBS) $(patsubst %,$(BUILD_DIR)/%,$(SUB_OBJS)) $(BUILD_DIR)/mod_experiment.o $(BUILD_DIR)/mod_mkinit_util.o
 
 $(BINDIR)/$(BINNAME)$(POSTFIX)  : $(BUILD_DIR)/$(BINNAME)$(POSTFIX)
 	install $< $@

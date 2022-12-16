@@ -19,7 +19,6 @@ module mod_user
   use scale_io
   use scale_prof
   use scale_prc, only: PRC_abort  
-  use mod_exp, only: experiment
 
   use mod_atmos_component, only: &
     AtmosComponent
@@ -30,6 +29,9 @@ module mod_user
   use scale_localmesh_3d, only: LocalMesh3D  
   use scale_meshfield_base, only: MeshField3D
 
+  use mod_user_base, only: UserBase
+  use mod_experiment, only: Experiment
+
   !-----------------------------------------------------------------------------
   implicit none
   private
@@ -37,10 +39,15 @@ module mod_user
   !
   !++ Public procedure
   !
-  public :: USER_mkinit
-  public :: USER_setup
-  public :: USER_calc_tendency
-  public :: USER_update
+  type, public, extends(UserBase) :: User
+  contains
+    procedure :: mkinit_ => USER_mkinit
+    generic :: mkinit => mkinit_
+    procedure :: setup_ => USER_setup
+    generic :: setup => setup_
+    procedure :: calc_tendency => USER_calc_tendency
+  end type User
+
 
   !-----------------------------------------------------------------------------
   !
@@ -55,43 +62,34 @@ module mod_user
   !++ Private parameters & variables
   !
 
-  type, private, extends(experiment) :: Exp_mountain_wave_global
-  contains 
-    procedure :: setInitCond_lc => exp_SetInitCond_mountain_wave
-    procedure :: geostrophic_balance_correction_lc => exp_geostrophic_balance_correction
-  end type
-  type(Exp_mountain_wave_global), private :: exp_manager
-
-  logical, private :: USER_do                   = .false. !< do user step?
-
   type(MeshField3D), private :: PT_diff
 
   !-----------------------------------------------------------------------------
 contains
 !OCL SERIAL
-  subroutine USER_mkinit ( atm )
+  subroutine USER_mkinit ( this, atm )
     implicit none
-
+    class(User), intent(inout) :: this
     class(AtmosComponent), intent(inout) :: atm
+
+    type(Experiment) :: exp_manager
     !------------------------------------------
 
     call exp_manager%Init('mountain_wave_global')
-
-    call exp_manager%SetInitCond( atm%mesh,                &
-      atm%vars%PROGVARS_manager, atm%vars%AUXVARS_manager, &
-      atm%vars%QTRCVARS_manager                            )
-    
+    call exp_manager%Regist_SetInitCond( exp_SetInitCond_mountain_wave )
+    call this%UserBase%mkinit( atm, exp_manager )
     call exp_manager%Final()
 
     return
   end subroutine USER_mkinit
 
 !OCL SERIAL
-  subroutine USER_setup( atm )
+  subroutine USER_setup( this, atm )
     implicit none
-    
+    class(User), intent(inout) :: this    
     class(AtmosComponent), intent(inout) :: atm
 
+    logical :: USER_do                   = .false. !< do user step?
     namelist / PARAM_USER / &
        USER_do
 
@@ -113,14 +111,16 @@ contains
     endif
     LOG_NML(PARAM_USER)
 
+    call this%UserBase%Setup( atm, USER_do )
+
     !-
-    if ( USER_do ) call PT_diff%Init( 'PT_diff', 'K', atm%mesh%ptr_mesh )
+    if ( this%USER_do ) call PT_diff%Init( 'PT_diff', 'K', atm%mesh%ptr_mesh )
 
     return
   end subroutine USER_setup
 
 !OCL SERIAL  
-  subroutine USER_calc_tendency( atm )
+  subroutine USER_calc_tendency( this, atm )
     use scale_file_history_meshfield, only: &
       FILE_HISTORY_meshfield_in
 
@@ -146,7 +146,7 @@ contains
       AtmosVars_GetLocalMeshPhyAuxVars
 
     implicit none
-
+    class(User), intent(inout) :: this
     class(AtmosComponent), intent(inout) :: atm
 
     class(LocalMesh3D), pointer :: lcmesh
@@ -154,6 +154,7 @@ contains
     class(LocalMeshFieldBase), pointer :: DDENS, MOMX, MOMY, MOMZ, DRHOT
     class(LocalMeshFieldBase), pointer :: DENS_hyd, PRES_hyd
     class(LocalMeshFieldBase), pointer :: PRES, PT
+    class(LocalMeshFieldBase), pointer :: Rtot, CVtot, CPtot
 
     real(RP), parameter :: rtau = 1.0_RP / 1800.0_RP
 
@@ -166,7 +167,7 @@ contains
     real(RP), allocatable :: U0(:,:), V0(:,:)
     !------------------------------------------
 
-    if ( USER_do ) then
+    if ( this%USER_do ) then
       call atm%vars%Calc_diagVar( 'PT_diff', PT_diff )
       call FILE_HISTORY_meshfield_in( PT_diff, "perturbation of potential temperature" )
     end if
@@ -220,15 +221,6 @@ contains
     return
   end subroutine USER_calc_tendency
 
-  subroutine USER_update( atm )
-    implicit none
-
-    class(AtmosComponent), intent(inout) :: atm
-    !------------------------------------------
-
-    return
-  end subroutine USER_update
-
   !------
 
 !OCL SERIAL  
@@ -251,12 +243,12 @@ contains
     use scale_cubedsphere_cnv, only: &
       CubedSphereCnv_LonLat2CSVec
   
-    use mod_exp, only: &
+    use mod_experiment, only: &
       TracerLocalMeshField_ptr   
        
     implicit none
 
-    class(Exp_mountain_wave_global), intent(inout) :: this
+    class(Experiment), intent(inout) :: this
     type(LocalMesh3D), intent(in) :: lcmesh
     class(ElementBase3D), intent(in) :: elem
     real(RP), intent(out) :: DENS_hyd(elem%Np,lcmesh%NeA)
@@ -379,26 +371,5 @@ contains
       return
     end subroutine 
   end subroutine exp_SetInitCond_mountain_wave
-
-  subroutine exp_geostrophic_balance_correction( this,  &
-    DENS_hyd, PRES_hyd, DDENS, MOMX, MOMY, MOMZ, DRHOT, &
-    lcmesh, elem )
-    
-    implicit none
-
-    class(Exp_mountain_wave_global), intent(inout) :: this
-    type(LocalMesh3D), intent(in) :: lcmesh
-    class(ElementBase3D), intent(in) :: elem
-    real(RP), intent(inout) :: DENS_hyd(elem%Np,lcmesh%NeA)
-    real(RP), intent(in) :: PRES_hyd(elem%Np,lcmesh%NeA)
-    real(RP), intent(inout) :: DDENS(elem%Np,lcmesh%NeA)
-    real(RP), intent(inout) :: MOMX(elem%Np,lcmesh%NeA)
-    real(RP), intent(inout) :: MOMY(elem%Np,lcmesh%NeA)    
-    real(RP), intent(inout) :: MOMZ(elem%Np,lcmesh%NeA)
-    real(RP), intent(inout) :: DRHOT(elem%Np,lcmesh%NeA)
-
-    !---------------------------------------------------
-    return
-  end subroutine exp_geostrophic_balance_correction 
 
 end module mod_user
