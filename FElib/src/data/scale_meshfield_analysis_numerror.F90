@@ -156,9 +156,11 @@ contains
     varid = this%var_num
 
     if ( PRC_ismaster ) then
-      write(this%log_fid,'(A25)',advance='no') 'L1_error ('//trim(varname)//')'
-      write(this%log_fid,'(A25)',advance='no') 'L2_error ('//trim(varname)//')'
+      write(this%log_fid,'(A25)',advance='no') 'L1_error   ('//trim(varname)//')'
+      write(this%log_fid,'(A25)',advance='no') 'L2_error   ('//trim(varname)//')'
       write(this%log_fid,'(A25)',advance='no') 'Linf_error ('//trim(varname)//')'
+      write(this%log_fid,'(A25)',advance='no') 'Ediss      ('//trim(varname)//')'
+      write(this%log_fid,'(A25)',advance='no') 'Edisp      ('//trim(varname)//')'
     end if
 
     return
@@ -166,7 +168,7 @@ contains
 
 !OCL SERIAL
   subroutine meshfield_analysis_numerror_base_evaluate( &
-    this, tstep, tsec, dom_vol, evaluate_error          )
+    this, tstep, tsec, dom_vol, evaluate_error, calc_covariance )
     use mpi
     use scale_prc, only: &
       PRC_LOCAL_COMM_WORLD
@@ -176,24 +178,49 @@ contains
     real(RP) :: tsec
     real(RP), intent(in) :: dom_vol
     interface 
-      subroutine evaluate_error( this_, num_error_l1_lc_, num_error_l2_lc_, num_error_linf_lc_ )
+      subroutine evaluate_error( this_, &
+        num_error_l1_lc_, num_error_l2_lc_, num_error_linf_lc_, &
+        numsol_mean, exactsol_mean )
         import RP
         import MeshFieldAnalysisNumerrorBase
         class(MeshFieldAnalysisNumerrorBase), intent(in) :: this_
         real(RP), intent(inout) :: num_error_l1_lc_(this_%var_num)
         real(RP), intent(inout) :: num_error_l2_lc_(this_%var_num)
         real(RP), intent(inout) :: num_error_linf_lc_(this_%var_num)    
+        real(RP), intent(inout) :: numsol_mean(this_%var_num) 
+        real(RP), intent(inout) :: exactsol_mean(this_%var_num) 
       end subroutine evaluate_error
+
+      subroutine calc_covariance( this_, &
+        cov_numsol_numsol_lc, cov_numsol_exactsol_lc, cov_exactsol_exactsol_lc, &
+        numsol_mean, exactsol_mean                      )
+        import RP
+        import MeshFieldAnalysisNumerrorBase
+        class(MeshFieldAnalysisNumerrorBase), intent(in) :: this_
+        real(RP), intent(inout) :: cov_numsol_numsol_lc(this_%var_num)
+        real(RP), intent(inout) :: cov_numsol_exactsol_lc(this_%var_num)
+        real(RP), intent(inout) :: cov_exactsol_exactsol_lc(this_%var_num)
+        real(RP), intent(in) :: numsol_mean(this_%var_num) 
+        real(RP), intent(in) :: exactsol_mean(this_%var_num)   
+      end subroutine calc_covariance   
     end interface
 
     logical :: do_check_numerror
 
-    real(RP) :: num_error_l1_lc(this%var_num)
-    real(RP) :: num_error_l2_lc(this%var_num)
+    integer, parameter :: SUM_BUF_L1_ID = 1
+    integer, parameter :: SUM_BUF_L2_ID = 2
+    integer, parameter :: SUM_BUF_MEAN_NUMSOL_ID   = 3
+    integer, parameter :: SUM_BUF_MEAN_EXACTSOL_ID = 4
+    integer, parameter :: SUM_BUF_NUM   = 4
+
     real(RP) :: num_error_linf_lc(this%var_num)
-    real(RP) :: num_error_l1(this%var_num)
-    real(RP) :: num_error_l2(this%var_num)
+    real(RP) :: sum_buf_lc(this%var_num,SUM_BUF_NUM)
     real(RP) :: num_error_linf(this%var_num)
+    real(RP) :: sum_buf(this%var_num,SUM_BUF_NUM)
+
+    real(RP) :: covariance_lc(this%var_num,3)
+    real(RP) :: covariance(this%var_num,3)
+    real(RP) :: Ediss(this%var_num), Edisp(this%var_num)
 
     integer :: iv
     integer :: ierr
@@ -211,37 +238,58 @@ contains
     end if
 
     !---
-    num_error_l1_lc(:)   = 0.0_RP
-    num_error_l2_lc(:)   = 0.0_RP
     num_error_linf_lc(:) = 0.0_RP
-    call evaluate_error( this, num_error_l1_lc, num_error_l2_lc, num_error_linf_lc )
+    sum_buf_lc(:,:)      = 0.0_RP
 
-    call MPI_Allreduce( num_error_l1_lc(:), num_error_l1(:), &
-      this%var_num,           &
+    call evaluate_error( this, &
+      sum_buf_lc(:,SUM_BUF_L1_ID), sum_buf_lc(:,SUM_BUF_L2_ID), num_error_linf_lc(:), &
+      sum_buf_lc(:,SUM_BUF_MEAN_NUMSOL_ID), sum_buf_lc(:,SUM_BUF_MEAN_EXACTSOL_ID)    )
+
+    call MPI_Allreduce( sum_buf_lc(:,:), sum_buf(:,:), &
+      this%var_num * SUM_BUF_NUM,                      &
       MPI_DOUBLE_PRECISION,   &
       MPI_SUM,                &
       PRC_LOCAL_COMM_WORLD,   &
       ierr                    )
-   call MPI_Allreduce( num_error_l2_lc(:), num_error_l2(:), &
-      this%var_num,           &
-      MPI_DOUBLE_PRECISION,   &
-      MPI_SUM,                &
-      PRC_LOCAL_COMM_WORLD,   &
-      ierr                    )
-
     call MPI_Allreduce( num_error_linf_lc(:), num_error_linf(:), &
       this%var_num,           &
       MPI_DOUBLE_PRECISION,   &
       MPI_MAX,                &
       PRC_LOCAL_COMM_WORLD,   &
       ierr                    )
-        
+
+    sum_buf(:,SUM_BUF_MEAN_NUMSOL_ID) = sum_buf(:,SUM_BUF_MEAN_NUMSOL_ID) / dom_vol
+    sum_buf(:,SUM_BUF_MEAN_EXACTSOL_ID) = sum_buf(:,SUM_BUF_MEAN_EXACTSOL_ID) / dom_vol
+  
+    !--
+    covariance_lc(:,:) = 0.0_RP
+
+    call calc_covariance( this, &
+      covariance_lc(:,1), covariance_lc(:,2), covariance_lc(:,3),            &
+      sum_buf(:,SUM_BUF_MEAN_NUMSOL_ID), sum_buf(:,SUM_BUF_MEAN_EXACTSOL_ID) )
+    
+    call MPI_Allreduce( covariance_lc(:,:), covariance(:,:), &
+      this%var_num * 3,                                      &
+      MPI_DOUBLE_PRECISION,   &
+      MPI_SUM,                &
+      PRC_LOCAL_COMM_WORLD,   &
+      ierr                    )
+
     if ( PRC_ismaster ) then
+      
+      Ediss(:) = ( sqrt(covariance(:,1) / dom_vol) -  sqrt(covariance(:,3) / dom_vol) )**2      &
+               + ( sum_buf(:,SUM_BUF_MEAN_NUMSOL_ID) - sum_buf(:,SUM_BUF_MEAN_EXACTSOL_ID) )**2
+      
+      Edisp(:) = 2.0_RP * (   sqrt( covariance(:,1)  *  covariance(:,3) ) &
+                            - covariance(:,2)                             ) / dom_vol
+
       write(this%log_fid,'(A,ES18.8)',advance='no') 'tsec=', tsec
       do iv=1, this%var_num
-       write(this%log_fid,'(A,ES18.8)',advance='no') ' ', num_error_l1(iv) / dom_vol
-       write(this%log_fid,'(A,ES18.8)',advance='no') ' ', sqrt(num_error_l2(iv) / dom_vol)
+       write(this%log_fid,'(A,ES18.8)',advance='no') ' ', sum_buf(iv,SUM_BUF_L1_ID) / dom_vol
+       write(this%log_fid,'(A,ES18.8)',advance='no') ' ', sqrt(sum_buf(iv,SUM_BUF_L2_ID) / dom_vol)
        write(this%log_fid,'(A,ES18.8)',advance='no') ' ', num_error_linf(iv)
+       write(this%log_fid,'(A,ES18.8)',advance='no') ' ', Ediss(iv)
+       write(this%log_fid,'(A,ES18.8)',advance='no') ' ', Edisp(iv)
       end do
       write(this%log_fid,*)
 
@@ -303,16 +351,21 @@ contains
     end interface
     !---------------------------------------------------------------------------
 
-    call this%Evaluate_base( tstep, tsec, mesh%dom_vol, evaluate_error_core )
+    call this%Evaluate_base( tstep, tsec, mesh%dom_vol, evaluate_error_core, calc_covariance_core )
 
     return
   contains 
-    subroutine evaluate_error_core( base, num_error_l1_lc, num_error_l2_lc, num_error_linf_lc )
+!OCL SERIAL
+    subroutine evaluate_error_core( base, &
+      num_error_l1_lc, num_error_l2_lc, num_error_linf_lc, &
+      numsol_mean_lc, exactsol_mean_lc                     )
       implicit none
       class(MeshFieldAnalysisNumerrorBase), intent(in) :: base
       real(RP), intent(inout) :: num_error_l1_lc(base%var_num)
       real(RP), intent(inout) :: num_error_l2_lc(base%var_num)
       real(RP), intent(inout) :: num_error_linf_lc(base%var_num)
+      real(RP), intent(inout) :: numsol_mean_lc(base%var_num) 
+      real(RP), intent(inout) :: exactsol_mean_lc(base%var_num) 
 
       integer :: lcdomid
       integer :: iv
@@ -338,7 +391,7 @@ contains
           lcmesh, lcmesh%refElem3D, base%epos_intrp            ) ! (out)
   
         do iv=1, this%var_num
-          !$omp parallel do private(ke, q_intrp, JGsqrtxIntw_intrp) reduction(+: num_error_l1_lc, num_error_l2_lc )
+          !$omp parallel do private(ke, q_intrp, JGsqrtxIntw_intrp) reduction(+: num_error_l1_lc, num_error_l2_lc, numsol_mean_lc, exactsol_mean_lc )
           do ke=lcmesh%NeS, lcmesh%NeE
             q_intrp(:) = matmul( this%IntrpMat, q(:,ke,iv) )
             JGsqrtxIntw_intrp(:) = matmul( this%IntrpMat, lcmesh%J(:,ke) * lcmesh%Gsqrt(:,ke) )
@@ -347,14 +400,71 @@ contains
             num_error_l1_lc(iv) = num_error_l1_lc(iv) + sum( JGsqrtxIntw_intrp(:) * abs( q_intrp(:) - qexact_intrp(:,ke,iv) ) )
             num_error_l2_lc(iv) = num_error_l2_lc(iv) + sum( JGsqrtxIntw_intrp(:) * ( q_intrp(:) - qexact_intrp(:,ke,iv) )**2 )
             linf_max_tmp(ke,iv) = maxval(abs(q(:,ke,iv) - qexact(:,ke,iv)))
+
+            numsol_mean_lc(iv) = numsol_mean_lc(iv) + sum( JGsqrtxIntw_intrp(:) * q_intrp(:) )
+            exactsol_mean_lc(iv) = exactsol_mean_lc(iv) + sum( JGsqrtxIntw_intrp(:) * qexact_intrp(:,ke,iv) )
           end do
           
           num_error_linf_lc(iv) = max( num_error_linf_lc(iv), maxval( linf_max_tmp(:,iv) ) )
         end do
   
         deallocate( q, qexact, qexact_intrp, linf_max_tmp )
-      end do    
+      end do
+      return
     end subroutine evaluate_error_core
+
+!OCL SERIAL
+    subroutine calc_covariance_core( base, &
+      cov_numsol_numsol_lc, cov_numsol_exactsol_lc, cov_exactsol_exactsol_lc, &
+      numsol_mean, exactsol_mean                      )
+      implicit none
+      class(MeshFieldAnalysisNumerrorBase), intent(in) :: base
+      real(RP), intent(inout) :: cov_numsol_numsol_lc(base%var_num)
+      real(RP), intent(inout) :: cov_numsol_exactsol_lc(base%var_num)
+      real(RP), intent(inout) :: cov_exactsol_exactsol_lc(base%var_num)
+      real(RP), intent(in) :: numsol_mean(base%var_num) 
+      real(RP), intent(in) :: exactsol_mean(base%var_num) 
+
+      integer :: lcdomid
+      integer :: iv
+      integer :: ke
+      
+      class(LocalMesh3D), pointer :: lcmesh
+      real(RP), allocatable :: q(:,:,:)
+      real(RP), allocatable :: qexact(:,:,:)
+      real(RP), allocatable :: qexact_intrp(:,:,:)
+      real(RP) :: dq_intrp(base%intrp_np)
+      real(RP) :: JGsqrtxIntw_intrp(base%intrp_np)
+      real(RP) :: dq_exact_intrp(base%intrp_np)
+     !---------------------------------------------------------------------------
+
+      do lcdomid=1, mesh%LOCAL_MESH_NUM
+        lcmesh => mesh%lcmesh_list(lcdomid)
+        allocate( q(lcmesh%refElem3D%Np,lcmesh%Ne,base%var_num) )
+        allocate( qexact(lcmesh%refElem3D%Np,lcmesh%Ne,base%var_num) )
+        allocate( qexact_intrp(base%intrp_np,lcmesh%Ne,base%var_num) )
+  
+        call evaluate_error_lc( this, q, qexact, qexact_intrp, & ! (in)
+          lcmesh, lcmesh%refElem3D, base%epos_intrp            ) ! (out)
+  
+        do iv=1, this%var_num
+          !$omp parallel do private(ke, dq_intrp, dq_exact_intrp, JGsqrtxIntw_intrp) reduction(+: cov_numsol_numsol_lc, cov_numsol_exactsol_lc, cov_exactsol_exactsol_lc )
+          do ke=lcmesh%NeS, lcmesh%NeE
+            dq_intrp(:) = matmul( this%IntrpMat, q(:,ke,iv) ) - numsol_mean(iv)
+            dq_exact_intrp(:) = qexact_intrp(:,ke,iv)- exactsol_mean(iv)
+            JGsqrtxIntw_intrp(:) = matmul( this%IntrpMat, lcmesh%J(:,ke) * lcmesh%Gsqrt(:,ke) )
+            JGsqrtxIntw_intrp(:) = JGsqrtxIntw_intrp(:) * this%intw_intrp(:)
+
+            cov_numsol_numsol_lc(iv)   = cov_numsol_numsol_lc(iv) + sum( JGsqrtxIntw_intrp(:) * dq_intrp(:) * dq_intrp(:) )
+            cov_numsol_exactsol_lc(iv) = cov_numsol_exactsol_lc(iv) + sum( JGsqrtxIntw_intrp(:) * dq_intrp(:) * dq_exact_intrp(:) )
+            cov_exactsol_exactsol_lc(iv) = cov_exactsol_exactsol_lc(iv) + sum( JGsqrtxIntw_intrp(:) * dq_exact_intrp(:) * dq_exact_intrp(:) )
+          end do
+        end do
+  
+        deallocate( q, qexact, qexact_intrp )
+      end do
+      return
+    end subroutine calc_covariance_core    
   end subroutine meshfield_analysis_numerror_3D_evaluate
 
 !--- private
