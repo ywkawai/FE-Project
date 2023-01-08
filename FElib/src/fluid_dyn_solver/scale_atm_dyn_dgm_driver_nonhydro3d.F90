@@ -252,6 +252,7 @@ module scale_atm_dyn_dgm_driver_nonhydro3d
     procedure :: Init => AtmDynDGMDriver_nonhydro3d_Init
     procedure :: Final => AtmDynDGMDriver_nonhydro3d_Final
     procedure :: Update => AtmDynDGMDriver_nonhydro3d_update
+    procedure :: Is_THERMVAR_RHOT => AtmDynDGMDriver_nonhydro3d_Is_THERMVAR_RHOT    
     procedure :: calc_pressure => AtmDynDGMDriver_nonhydro3d_calc_pressure
   end type AtmDynDGMDriver_nonhydro3d
 
@@ -421,6 +422,23 @@ contains
 
     return
   end subroutine AtmDynDGMDriver_nonhydro3d_Init
+
+!OCL SERIAL  
+  function AtmDynDGMDriver_nonhydro3d_Is_THERMVAR_RHOT( this ) result(ret)
+    implicit none
+
+    class(AtmDynDGMDriver_nonhydro3d), intent(inout) :: this
+    logical :: ret
+    !-----------------------------------------------------------------------------
+
+    if ( this%ENTOT_CONSERVE_SCHEME_FLAG ) then
+      ret = .false.
+    else
+      ret = .true.
+    end if
+
+    return
+  end function AtmDynDGMDriver_nonhydro3d_Is_THERMVAR_RHOT
 
 !OCL SERIAL
   subroutine AtmDynDGMDriver_nonhydro3d_update( this, &

@@ -431,10 +431,10 @@ contains
 
     use scale_sparsemat, only: SparseMat
     use scale_atm_phy_mp_dgm_common, only:  &
-      atm_phy_mp_dgm_common_gen_vmap,       &
-      atm_phy_mp_dgm_common_gen_intweight,  &
-      atm_phy_mp_dgm_precipitation,         &
-      atm_phy_mp_dgm_precipitation_momentum
+      atm_phy_mp_dgm_common_gen_vmap,              &
+      atm_phy_mp_dgm_common_gen_intweight,         &
+      atm_phy_mp_dgm_common_precipitation,         &
+      atm_phy_mp_dgm_common_precipitation_momentum
 
     implicit none
 
@@ -685,7 +685,7 @@ contains
 
         !- precipiation of hydrometers
 
-        call atm_phy_mp_dgm_precipitation( &
+        call atm_phy_mp_dgm_common_precipitation( &
           DENS2, RHOQ2, CPtot2, CVtot2, RHOE2,                 & ! (inout)
           FLX_hydro, SFLX_rain, SFLX_snow, SFLX_ENGI,          & ! (inout)
           TEMP2, vterm,                                        & ! (in)
@@ -740,10 +740,10 @@ contains
 
       !- precipiation of momentum
 
-      call atm_phy_mp_dgm_precipitation_momentum( &
+      call atm_phy_mp_dgm_common_precipitation_momentum( &
         RHOU_t_MP, RHOV_t_MP, MOMZ_t_MP,          & ! (out)
         DENS0, RHOU2, RHOV2, MOMZ2, FLX_hydro,    & ! (in)
-!        Dz, Lift, nz, vmapM, vmapP,               & ! (in)
+!        Dz, Lift, nz, vmapM, vmapP,              & ! (in)
         this%Dz, this%Lift, nz, vmapM, vmapP,     & ! (in)
         lcmesh, elem3D                            ) ! (in)
 

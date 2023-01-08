@@ -52,6 +52,8 @@ module scale_model_var_manager
     procedure, public :: Get => ModelVarManager_Get
     procedure, public :: Get2D => ModelVarManager_Get2D
     procedure, public :: Get3D => ModelVarManager_Get3D
+    procedure, public :: GetLocalMeshField => ModelVarManager_GetLocalMeshField
+    procedure, public :: GetLocalMeshFieldList => ModelVarManager_GetLocalMeshFieldList
 
     !--
     procedure, public :: MeshFieldComm_Prepair => ModelVarManager_meshfiled_comm_prepare
@@ -325,7 +327,7 @@ contains
     !------------------------------------------------
 
     call this%list%Get(keyID, ptr_field)
-
+    
     nullify( pField )
     select type( ptr_field )
     type is (MeshField2D)
@@ -358,6 +360,52 @@ contains
     return
   end subroutine ModelVarManager_Get3D
 
+!OCL SERIAL
+  subroutine ModelVarManager_GetLocalMeshField( this, keyID, domID, pField_lc )
+    use scale_meshfield_base, only: MeshFieldBase
+    use scale_localmeshfield_base, only: LocalMeshFieldBase
+    implicit none
+
+    class(ModelVarManager), intent(inout) :: this
+    integer, intent(in) :: keyID
+    integer, intent(in) :: domID
+    class(LocalMeshFieldBase), pointer, intent(out) :: pField_lc
+
+    class(MeshFieldBase), pointer :: pField
+    !------------------------------------------------
+
+    call this%Get(keyID, pField)
+    call pField%GetLocalMeshField(domID, pField_lc)
+
+    return
+  end subroutine ModelVarManager_GetLocalMeshField
+
+!OCL SERIAL
+  subroutine ModelVarManager_GetLocalMeshFieldList( this, keyID_list, domID, lcfield_list )
+    use scale_meshfield_base, only: MeshFieldBase
+    use scale_localmeshfield_base, only: LocalMeshFieldBaseList
+    implicit none
+
+    class(ModelVarManager), intent(inout) :: this
+    integer, intent(in) :: keyID_list(:)
+    integer, intent(in) :: domID
+    type(LocalMeshFieldBaseList), intent(out) :: lcfield_list(size(keyID_list))
+
+    integer :: i
+    integer :: keyID
+
+    class(MeshFieldBase), pointer :: pField
+    !------------------------------------------------
+
+    do i=1, size(keyID_list)
+      keyID = keyID_list(i)
+      call this%Get(keyID, pField)
+      call pField%GetLocalMeshField( domID, lcfield_list(i)%ptr )
+    end do
+
+    return
+  end subroutine ModelVarManager_GetLocalMeshFieldList
+  
 !OCL SERIAL
   subroutine ModelVarManager_meshfiled_comm_prepare( this, &
       comm,  fields )

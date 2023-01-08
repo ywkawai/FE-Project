@@ -284,7 +284,7 @@ contains
 
       dens_ssm1(:) = DENS_hyd(:,ke) &
                     + ( 1.0_RP - rk_c_ssm1 ) * DDENS0_(:,ke) + rk_c_ssm1 * DDENS_(:,ke)
-      Q = sum( lmesh%Gsqrt(:,ke) * lmesh%J(:,ke) * elem%IntWeight_lgl(:) * dens_ssm1(:) * QTRC_(:,ke) ) / dt
+      Q = sum( lmesh%Gsqrt(:,ke) * lmesh%J(:,ke) * elem%IntWeight_lgl(:) * ( dens_ssm1(:) *  QTRC_(:,ke) / dt + RHOQ_tp_(:,ke) ) )      
       
       fct_coef(:,ke) = max( 0.0_RP, min( 1.0_RP, Q / ( netOutwardFlux(ke) + 1.0E-10_RP ) ) )
     end do

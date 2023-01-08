@@ -187,8 +187,6 @@ contains
     logical, intent(in) :: ONLY_TRACERADV_FLAG
 
     class(MeshBase3D), pointer :: mesh3D
-    class(LocalMesh3D), pointer :: lcmesh
-    integer :: domID
     class(HexahedralElement), pointer :: refElem3D
     class(ElementBase), pointer :: refElem
 
@@ -302,16 +300,19 @@ contains
 !OCL SERIAL
   subroutine AtmDynDGMDriver_trcadv3d_update( this, &
     TRC_VARS, PROG_VARS, AUX_VARS, PHYTENDS,             &
-    Dx, Dy, Dz, Sx, Sy, Sz, Lift, mesh3D                 )
+    Dx, Dy, Dz, Sx, Sy, Sz, Lift, mesh3D,                &
+    IS_THERMVAR_RHOT                                     )
 
     use scale_tracer, only: &
       QA, TRACER_ADVC, TRACER_NAME
-    
+    use scale_atmos_hydrometeor, only: &
+      QLA, QIA      
+    use scale_localmeshfield_base, only: LocalMeshFieldBaseList    
     use scale_model_var_manager, only: ModelVarManager
-
     use scale_atm_dyn_dgm_modalfilter, only: &
       atm_dyn_dgm_tracer_modalfilter_apply
-
+    use scale_atm_phy_mp_dgm_common, only: &
+      atm_phy_mp_dgm_common_negative_fixer
     implicit none
 
     class(AtmDynDGMDriver_trcadv3d), intent(inout) :: this
@@ -323,6 +324,7 @@ contains
     type(SparseMat), intent(in) :: Dx, Dy, Dz
     type(SparseMat), intent(in) :: Sx, Sy, Sz
     type(SparseMat), intent(in) :: Lift
+    logical, intent(in) :: IS_THERMVAR_RHOT
 
     integer :: rkstage
     integer :: tintbuf_ind
@@ -340,7 +342,10 @@ contains
     class(MeshField3D), pointer :: QTRC_tmp, DDENS_TRC, DDENS0_TRC
     class(MeshField3D), pointer :: MFLX_x_tavg, MFLX_y_tavg, MFLX_z_tavg
 
-    integer :: iq
+    integer :: trcid_list(QA)
+    type(LocalMeshFieldBaseList) :: lc_qtrc(QA)    
+
+    integer :: iq    
     !-----------------------------------------------------------------------------
     
     !-- prepairation
@@ -505,6 +510,7 @@ contains
 
           if ( TRACER_ADVC(iq)                   &
             .and. rkstage == this%tint(1)%nstage &
+            .and. this%ONLY_TRACERADV_FLAG       &            
             .and. ( .not. this%disable_limiter ) ) then
 
             call PROF_rapstart( 'ATM_DYN_update_trc_TMAR', 3)             
@@ -528,6 +534,34 @@ contains
       end do
 
     end do ! end do for iq
+
+    if (         .not. this%disable_limiter       & 
+         .and. ( .not. this%ONLY_TRACERADV_FLAG ) ) then
+      
+      do iq=1, QA 
+        trcid_list(iq) = iq
+      end do
+
+      do n=1, mesh3D%LOCAL_MESH_NUM
+        call TRC_VARS%GetLocalMeshFieldList( trcid_list, n, lc_qtrc )
+        lcmesh3D => mesh3D%lcmesh_list(n)
+
+        if ( IS_THERMVAR_RHOT ) then
+          call atm_phy_mp_dgm_common_negative_fixer( &
+            lc_qtrc, DDENS%local(n)%val, PRES%local(n)%val,            & ! (inout)
+            CVtot%local(n)%val, CPtot%local(n)%val, Rtot%local(n)%val, & ! (inout)
+            DENS_hyd%local(n)%val, PRES_hyd%local(n)%val,              & ! (in)
+            dt, lcmesh3D, lcmesh3D%refElem3D, QA, QLA, QIA,            & ! (in)
+            DRHOT=THERM%local(n)%val                                   ) ! (inout)
+        else
+          call atm_phy_mp_dgm_common_negative_fixer( &
+            lc_qtrc, DDENS%local(n)%val, PRES%local(n)%val,            & ! (inout)
+            CVtot%local(n)%val, CPtot%local(n)%val, Rtot%local(n)%val, & ! (inout)
+            DENS_hyd%local(n)%val, PRES_hyd%local(n)%val,              & ! (in)
+            dt, lcmesh3D, lcmesh3D%refElem3D, QA, QLA, QIA             ) ! (in)
+        end if     
+      end do
+    end if
 
     call PROF_rapend( 'ATM_DYN_trc_update', 2)
 

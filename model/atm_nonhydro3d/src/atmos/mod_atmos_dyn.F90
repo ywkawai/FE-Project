@@ -318,7 +318,8 @@ contains
         trcvars_list, prgvars_list, auxvars_list, forcing_list,                 & ! (inout)
         model_mesh%DOptrMat(1), model_mesh%DOptrMat(2), model_mesh%DOptrMat(3), & ! (in)
         model_mesh%SOptrMat(1), model_mesh%SOptrMat(2), model_mesh%SOptrMat(3), & ! (in)
-        model_mesh%LiftOptrMat, mesh3D                                          ) ! (in)
+        model_mesh%LiftOptrMat, mesh3D,                                         & ! (in)
+        this%dyncore_driver%Is_THERMVAR_RHOT()                                  ) ! (in)
       
       call PROF_rapend( 'ATM_DYN_qtracer', 2)     
     end if
