@@ -146,25 +146,26 @@ contains
     real(RP) :: tmp(elem%Np)
     integer :: ii, kk
     real(RP) :: Mik
-    logical :: do_weight_Gsqrt_
-    real(RP) :: RGsqrt(elem%Np)
+
+    real(RP) :: weight(elem%Np)
     !------------------------------------
 
-    !$omp parallel do private( tmp, ii, kk, Mik, RGsqrt )
+    !$omp parallel do private( tmp, ii, kk, Mik, weight )
     do ke=lmesh%NeS, lmesh%NeE
 
       tmp(:) = 0.0_RP
+      weight(:) = lmesh%Gsqrt(:,ke) &
+                * ( DENS_hyd_(:,ke) + DDENS_(:,ke) )
+
       do ii=1, elem%Np
       do kk=1, elem%Np
-        Mik = filter%FilterMat(ii,kk) * lmesh%Gsqrt(kk,ke) &
-              * ( DENS_hyd_(kk,ke) + DDENS_(kk,ke) )
+        Mik = filter%FilterMat(ii,kk) * weight(kk)
 
         tmp(ii) = tmp(ii) + Mik * QTRC_(kk,ke)
       end do
       end do
 
-      RGsqrt(:) = 1.0_RP / lmesh%Gsqrt(:,ke)
-      QTRC_(:,ke) = tmp(:) * RGsqrt(:) / ( DENS_hyd_(:,ke) + DDENS_(:,ke) )
+      QTRC_(:,ke) = tmp(:) / weight(:)
     end do    
 
     return
