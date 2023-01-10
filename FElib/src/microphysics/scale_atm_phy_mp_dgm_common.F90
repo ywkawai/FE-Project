@@ -484,14 +484,12 @@ contains
     use scale_const, only: &
       CVdry => CONST_CVdry,  &
       CPdry => CONST_CPdry,  &
-      Rdry => CONST_CPdry
+      Rdry => CONST_Rdry
     use scale_tracer, only: &
       TRACER_MASS, TRACER_R, TRACER_CV, TRACER_CP
     use scale_atmos_thermodyn, only: &
       ATMOS_THERMODYN_specific_heat
     use scale_localmeshfield_base, only: LocalMeshFieldBaseList
-    ! use mpi
-    ! use scale_prc
     implicit none
 
     class(LocalMesh3D), intent(in) :: lmesh
@@ -525,23 +523,8 @@ contains
     real(RP) :: CVtot_old(elem%Np), CPtot_old(elem%Np), Rtot_old(elem%Np)
     real(RP) :: InternalEn0(elem%Np)
 
-    ! real(RP) :: QV_MASS0, QV_MASS, MASS0, MASS
-    ! integer :: ierr
-    ! real(RP) :: mass_lc(2), mass_gl(2)
-    ! real(RP) :: qv_lc(2), qv_gl(2)
-
     real(RP) :: m, vol    
     !------------------------------------------------
-
-    ! QV_MASS0 = 0.0_RP
-    ! MASS0 = 0.0_RP
-    ! do ke = lmesh%NeS, lmesh%NeE
-    !   DENS(:) = DENS_hyd(:,ke) + DDENS(:,ke)
-    !   MASS0 = MASS0 &
-    !     + sum( lmesh%Gsqrt(:,ke) * lmesh%J(:,ke) * elem%IntWeight_lgl(:) * DDENS(:,ke) )
-    !   QV_MASS0 = QV_MASS0 &
-    !     + sum( lmesh%Gsqrt(:,ke) * lmesh%J(:,ke) * elem%IntWeight_lgl(:) * DENS(:)* QTRC(2)%ptr%val(:,ke) )
-    ! end do
 
     !$omp parallel do private( &
     !$omp ke, iq, DENS, DDENS0, InternalEn0, QTRC_tmp,           &
@@ -561,7 +544,6 @@ contains
       DENS(:) = DENS_hyd(:,ke) + DDENS(:,ke)
       DDENS0(:) = DDENS(:,ke)
       
-      ! ( Internal energy ) = Cvtot * RHO * T = CVtot * RHO * ( PT * EXNER )
       InternalEn0(:) = CVtot_old(:) * PRES(:,ke) / Rtot_old(:)
 
       vol = sum( lmesh%Gsqrt(:,ke) * lmesh%J(:,ke) * elem%IntWeight_lgl(:) )
@@ -574,16 +556,6 @@ contains
         MASS1_elem = sum( lmesh%Gsqrt(:,ke) * lmesh%J(:,ke) * elem%IntWeight_lgl(:) * TRCMASS1(:,iq) )
 !        TRCMASS1(:,iq) = max(MASS0_elem, 0.0E0_RP) / MASS1_elem * TRCMASS1(:,iq)
         TRCMASS1(:,iq) = MASS0_elem / MASS1_elem * TRCMASS1(:,iq)
-
-        ! MASS0_elem = MASS0_elem / vol
-        ! m = minval( TRCMASS0(:) )
-        ! TRCMASS1(:,iq) = MASS0_elem + min( abs(MASS0_elem) / abs(MASS0_elem - m), 1.0_RP ) * ( TRCMASS0(:) - MASS0_elem )
-        ! int_w(:) = lmesh%Gsqrt(:,ke) * lmesh%J(:,ke) * elem%IntWeight_lgl(:)
-        ! do pv1D=1, elem%Nnode_v
-        !   MASS0_elem = sum( int_w(elem%Hslice(:,pv1D)) * TRCMASS0(elem%Hslice(:,pv1D))    )
-        !   MASS1_elem = sum( int_w(elem%Hslice(:,pv1D)) * TRCMASS1(elem%Hslice(:,pv1D),iq) )
-        !   TRCMASS1(elem%Hslice(:,pv1D),iq) = max(MASS0_elem, 0.0E0_RP) / MASS1_elem * TRCMASS1(elem%Hslice(:,pv1D),iq)      
-        ! end do
 
         DDENS(:,ke) = DDENS(:,ke) + ( TRCMASS1(:,iq) - TRCMASS0(:) )
       end do
@@ -606,34 +578,6 @@ contains
                     - PRES00 / Rdry * ( PRES_hyd(:,ke) / PRES00 )**( CVdry / CPdry )
       end if
     end do
-
-    ! QV_MASS = 0.0_RP
-    ! MASS = 0.0_RP
-    ! do ke = lmesh%NeS, lmesh%NeE
-    !   DENS(:) = DENS_hyd(:,ke) + DDENS(:,ke)
-    !   QV_MASS = QV_MASS &
-    !     + sum( lmesh%Gsqrt(:,ke) * lmesh%J(:,ke) * elem%IntWeight_lgl(:) * DENS(:)* QTRC(2)%ptr%val(:,ke) )
-    !   MASS = MASS &
-    !     + sum( lmesh%Gsqrt(:,ke) * lmesh%J(:,ke) * elem%IntWeight_lgl(:) * DDENS(:,ke) )
-    ! end do
-
-    ! LOG_INFO("CHECK (local) MASS, QVMASS=",*) MASS0, MASS, ":", QV_MASS0, QV_MASS
-    ! mass_lc(:) = (/ MASS0, MASS /)
-    ! call MPI_Allreduce( mass_lc(:), mass_gl(:), &
-    !   2,                      &
-    !   MPI_DOUBLE_PRECISION,   &
-    !   MPI_SUM,                &
-    !   PRC_LOCAL_COMM_WORLD,   &
-    !   ierr                    )
-    
-    ! QV_lc(:) = (/QV_MASS0, QV_MASS /)
-    ! call MPI_Allreduce( QV_lc(:), QV_gl(:), &
-    !   2,                      &
-    !   MPI_DOUBLE_PRECISION,   &
-    !   MPI_SUM,                &
-    !   PRC_LOCAL_COMM_WORLD,   &
-    !   ierr                    )
-    ! LOG_INFO("CHECK (global) MASS, QVMASS=",*) mass_gl, ":", qv_gl
 
     return
   end subroutine atm_phy_mp_dgm_common_negative_fixer
