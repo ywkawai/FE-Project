@@ -126,7 +126,7 @@ contains
 
   subroutine atm_dyn_dgm_nonhydro3d_rhot_hevi_splitform_cal_tend( &
     DENS_dt, MOMX_dt, MOMY_dt, MOMZ_dt, RHOT_dt,                                & ! (out)
-    DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd, CORIOLIS,          & ! (in)
+    DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DPRES_, DENS_hyd, PRES_hyd, CORIOLIS,  & ! (in)
     Rtot, CVtot, CPtot,                                                         & ! (in)
     Dx, Dy, Dz, Sx, Sy, Sz, Lift, lmesh, elem, lmesh2D, elem2D )
 
@@ -150,6 +150,7 @@ contains
     real(RP), intent(in)  :: MOMY_(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: MOMZ_(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: DRHOT_(elem%Np,lmesh%NeA)
+    real(RP), intent(in)  :: DPRES_(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: DENS_hyd(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: PRES_hyd(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: CORIOLIS(elem2D%Np,lmesh2D%NeA)
@@ -163,7 +164,7 @@ contains
     real(RP) :: del_flux(elem%NfpTot,lmesh%Ne,PRGVAR_NUM)
     real(RP) :: del_flux_hyd(elem%NfpTot,lmesh%Ne,2)
     real(RP) :: GsqrtDens_(elem%Np), rdens_(elem%Np), RHOT_hyd(elem%Np), RHOT_(elem%Np)
-    real(RP) :: dpres_(elem%Np), u_(elem%Np), v_(elem%Np), w_(elem%Np), wt_(elem%Np), pot_(elem%Np)
+    real(RP) :: u_(elem%Np), v_(elem%Np), w_(elem%Np), wt_(elem%Np), pot_(elem%Np)
     real(RP) :: Cori(elem%Np)
     real(RP) :: GsqrtV(elem%Np), RGsqrtV(elem%Np)
 
@@ -177,7 +178,7 @@ contains
     call PROF_rapstart( 'cal_dyn_tend_bndflux', 3)
     call atm_dyn_dgm_nonhydro3d_rhot_hevi_numflux_get_generalvc( &
       del_flux, del_flux_hyd,                                                 & ! (out)
-      DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd,                & ! (in)
+      DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DPRES_, DENS_hyd, PRES_hyd,        & ! (in)
       Rtot, CVtot, CPtot,                                                     & ! (in)
       lmesh%Gsqrt, lmesh%GI3(:,:,1), lmesh%GI3(:,:,2),                        & ! (in)    
       lmesh%normal_fn(:,:,1), lmesh%normal_fn(:,:,2), lmesh%normal_fn(:,:,3), & ! (in)
@@ -194,7 +195,7 @@ contains
     P0ovR = PRES00 / Rdry
 
     !$omp parallel do private( ke2d, Cori,                          &
-    !$omp RHOT_, DPRES_, GsqrtDens_, rdens_, u_, v_, w_, wt_, pot_, &
+    !$omp RHOT_, GsqrtDens_, rdens_, u_, v_, w_, wt_, pot_,         &
     !$omp GradPhyd_x, GradPhyd_y,                                   &
     !$omp GsqrtV, RGsqrtV,                                          &
     !$omp Fx, Fy, Fz, Fx_sp, Fy_sp, Fz_sp, LiftDelFlx               )
@@ -208,8 +209,8 @@ contains
 
       !--
       RHOT_(:) = P0ovR * (PRES_hyd(:,ke) * rP0)**rgamm + DRHOT_(:,ke)
-      DPRES_(:) = PRES00 * ( Rtot(:,ke) * rP0 * RHOT_(:) )**( CPtot(:,ke) / CVtot(:,ke) ) &
-                - PRES_hyd(:,ke)
+      ! DPRES_(:) = PRES00 * ( Rtot(:,ke) * rP0 * RHOT_(:) )**( CPtot(:,ke) / CVtot(:,ke) ) &
+      !           - PRES_hyd(:,ke)
 
       GsqrtDens_(:) = lmesh%Gsqrt(:,ke) * ( DDENS_(:,ke) + DENS_hyd(:,ke) )
       rdens_(:) = 1.0_RP / GsqrtDens_(:)
@@ -254,7 +255,7 @@ contains
       call dx_abc( DxT1D_, GsqrtDens_, u_,  u_, elem%Nnode_h1D, elem%Nnode_v, Fx_sp )
       call dy_abc( DyT1D_, GsqrtDens_, u_,  v_, elem%Nnode_h1D, elem%Nnode_v, Fy_sp )
       call dz_abc( DzT1D_, GsqrtDens_, u_, wt_, elem%Nnode_h1D, elem%Nnode_v, Fz_sp )
-      call sparsemat_matmul(Dx, lmesh%Gsqrt(:,ke) * dpres_(:)               , Fx)
+      call sparsemat_matmul(Dx, lmesh%Gsqrt(:,ke) * DPRES_(:,ke)              , Fx)
       call sparsemat_matmul(Lift, lmesh%Fscale(:,ke) * del_flux(:,ke,MOMX_VID), LiftDelFlx)
 
       MOMX_dt(:,ke) = &
@@ -269,7 +270,7 @@ contains
       call dx_abc( DxT1D_, GsqrtDens_, v_,  u_, elem%Nnode_h1D, elem%Nnode_v, Fx_sp )
       call dy_abc( DyT1D_, GsqrtDens_, v_,  v_, elem%Nnode_h1D, elem%Nnode_v, Fy_sp )  
       call dz_abc( DzT1D_, GsqrtDens_, v_, wt_, elem%Nnode_h1D, elem%Nnode_v, Fz_sp )
-      call sparsemat_matmul(Dy, lmesh%Gsqrt(:,ke) * dpres_(:)               , Fy)
+      call sparsemat_matmul(Dy, lmesh%Gsqrt(:,ke) * DPRES_(:,ke)              , Fy)
       call sparsemat_matmul(Lift, lmesh%Fscale(:,ke) * del_flux(:,ke,MOMY_VID), LiftDelFlx)
 
       MOMY_dt(:,ke) = &

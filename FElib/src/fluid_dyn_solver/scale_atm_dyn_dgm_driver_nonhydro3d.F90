@@ -40,6 +40,7 @@ module scale_atm_dyn_dgm_driver_nonhydro3d
   use scale_element_modalfilter, only: &
     ModalFilter
 
+  use scale_model_mesh_manager, only: ModelMesh3D
   use scale_model_var_manager, only: &
     ModelVarManager, VariableInfo
 
@@ -127,10 +128,11 @@ module scale_atm_dyn_dgm_driver_nonhydro3d
 
   abstract interface    
     subroutine atm_dyn_nonhydro3d_cal_tend_ex( &
-      DENS_dt, MOMX_dt, MOMY_dt, MOMZ_dt, RHOT_dt,                        & ! (out)
-      DDENS_, MOMX_, MOMY_, MOMZ_, THERM_, DENS_hyd, PRES_hyd, CORIOLIS,  & ! (in)
-      Rtot, CVtot, CPtot,                                                 & ! (in)
-      Dx, Dy, Dz, Sx, Sy, Sz, Lift, lmesh, elem, lmesh2D, elem2D )          ! (in)
+      DENS_dt, MOMX_dt, MOMY_dt, MOMZ_dt, RHOT_dt,               & ! (out)
+      DDENS_, MOMX_, MOMY_, MOMZ_, THERM_, DPRES_,               & ! (in) 
+      DENS_hyd, PRES_hyd, CORIOLIS,                              & ! (in)
+      Rtot, CVtot, CPtot,                                        & ! (in)
+      Dx, Dy, Dz, Sx, Sy, Sz, Lift, lmesh, elem, lmesh2D, elem2D ) ! (in)
 
       import RP
       import LocalMesh3D
@@ -155,6 +157,7 @@ module scale_atm_dyn_dgm_driver_nonhydro3d
       real(RP), intent(in)  :: MOMY_(elem%Np,lmesh%NeA)
       real(RP), intent(in)  :: MOMZ_(elem%Np,lmesh%NeA)
       real(RP), intent(in)  :: THERM_(elem%Np,lmesh%NeA)
+      real(RP), intent(in)  :: DPRES_(elem%Np,lmesh%NeA)
       real(RP), intent(in)  :: DENS_hyd(elem%Np,lmesh%NeA)
       real(RP), intent(in)  :: PRES_hyd(elem%Np,lmesh%NeA)
       real(RP), intent(in)  :: CORIOLIS(elem2D%Np,lmesh2D%NeA)
@@ -234,10 +237,10 @@ module scale_atm_dyn_dgm_driver_nonhydro3d
     type(AtmDynSpongeLayer) :: sponge_layer
     logical :: SPONGELAYER_FLAG
 
-    ! prognositc variables
-
     ! diagnostic variables
-    type(MeshFIeld3D) :: DPRES
+    type(MeshField3D), allocatable :: AUX_DYNVARS3D(:)
+    type(ModelVarManager) :: AUXDYNVAR3D_manager
+    integer :: AUXDYNVAR3D_commid
 
     ! boundary condition
     type(AtmDynBnd) :: boundary_cond
@@ -275,6 +278,15 @@ module scale_atm_dyn_dgm_driver_nonhydro3d
   integer, public, parameter :: EQS_TYPEID_GLOBALNONHYD3D_HEVI_ENTOT = 9
   integer, public, parameter :: EQS_TYPEID_NONHYD3D_SPLITFORM_HEVI   = 10  
 
+  !-
+  integer, public, parameter :: AUXDYNVARS3D_NUM         = 1
+  integer, public, parameter :: AUXDYNVARS3D_DPRES_ID    = 1
+
+  type(VariableInfo), public :: ATMOS_DYN_AUXDYNVARS3D_VINFO(AUXDYNVARS3D_NUM)
+  DATA ATMOS_DYN_AUXDYNVARS3D_VINFO / &
+    VariableInfo( AUXDYNVARS3D_DPRES_ID, 'DPRES', '',  &
+                  '1',  3, 'XYZ',  ''                  )  / 
+
   !-----------------------------------------------------------------------------
   !
   !++ Private procedures & variables
@@ -282,13 +294,13 @@ module scale_atm_dyn_dgm_driver_nonhydro3d
   !-------------------
 
   private :: setup_modalfilter
-
+  
 contains
 !OCL SERIAL  
   subroutine AtmDynDGMDriver_nonhydro3d_Init( this, &
     eqs_type_name, tint_type_name, dtsec,           &
     sponge_layer_flag, modal_filter_flag,           &
-    mesh3D )
+    model_mesh3D )
     implicit none
 
     class(AtmDynDGMDriver_nonhydro3d), intent(inout) :: this
@@ -297,9 +309,9 @@ contains
     real(DP), intent(in) :: dtsec
     logical, intent(in) :: sponge_layer_flag
     logical, intent(in) :: modal_filter_flag
-    class(MeshBase3D), intent(in), target :: mesh3D
+    class(ModelMesh3D), intent(inout), target :: model_mesh3D
 
-
+    class(MeshBase3D), pointer :: mesh3D
     class(LocalMesh3D), pointer :: lcmesh
     integer :: domID
     class(HexahedralElement), pointer :: refElem3D
@@ -308,6 +320,8 @@ contains
     integer :: iv
     logical :: reg_file_hist
     !-----------------------------------------------------------------------------
+
+    mesh3D => model_mesh3D%ptr_mesh
 
     call AtmDynDGMDriver_base3D_Init( this, &
       PRGVAR_NUM,                           &
@@ -396,7 +410,23 @@ contains
     
     !- Initialize variables
 
-    call this%DPRES%Init( 'DPRES', 'Pa', mesh3D )
+    call this%AUXDYNVAR3D_manager%Init()
+    allocate( this%AUX_DYNVARS3D(AUXDYNVARS3D_NUM) )
+
+    reg_file_hist = .false.    
+    do iv = 1, AUXDYNVARS3D_NUM
+      call this%AUXDYNVAR3D_manager%Regist( &
+        ATMOS_DYN_AUXDYNVARS3D_VINFO(iv), mesh3D,  & ! (in) 
+        this%AUX_DYNVARS3D(iv),                    & ! (inout)
+        reg_file_hist, fill_zero=.true.            ) ! (in)
+    end do
+
+    call model_mesh3D%Create_communicator( &
+      AUXDYNVARS3D_NUM, 0,             & ! (in) 
+      this%AUXDYNVAR3D_manager,        & ! (in)
+      this%AUX_DYNVARS3D(:),           & ! (in)
+      this%AUXDYNVAR3D_commid          ) ! (out)
+
 
     !- initialize an object to manage boundary conditions
     call this%boundary_cond%Init()
@@ -493,6 +523,7 @@ contains
     class(MeshField3D), pointer :: DDENS, MOMX, MOMY, MOMZ, THERM
     class(MeshField3D), pointer :: PRES_hyd, DENS_hyd, Rtot, CVtot, CPtot, PRES
     class(MeshField3D), pointer :: DENS_tp, MOMX_tp, MOMY_tp, MOMZ_tp, RHOT_tp, RHOH_p
+    class(MeshField3D), pointer :: DPRES
 
     !-----------------------------------------------------------------------------
     
@@ -518,6 +549,8 @@ contains
     call PHYTENDS%Get3D( PHYTEND_RHOT_ID, RHOT_tp )
     call PHYTENDS%Get3D( PHYTEND_RHOH_ID, RHOH_p )
 
+    call this%AUXDYNVAR3D_manager%Get3D( AUXDYNVARS3D_DPRES_ID, DPRES )
+
     if (this%hevi_flag) then 
       do n=1, mesh3D%LOCAL_MESH_NUM
         lcmesh3D => mesh3D%lcmesh_list(n)
@@ -533,6 +566,7 @@ contains
 
     do rkstage=1, this%tint(1)%nstage
     
+      !- Calculate the tendency with the implicit part      
       if (this%hevi_flag) then        
         do n=1, mesh3D%LOCAL_MESH_NUM
           lcmesh3D => mesh3D%lcmesh_list(n)
@@ -572,15 +606,24 @@ contains
       
       end if
 
-      !* Exchange halo data
+      !- Calculate pressure perturbation
+
+      call PROF_rapstart( 'ATM_DYN_cal_pres', 2)
+      call calc_pressure( this, PRES, DPRES,           &
+        DDENS, MOMX, MOMY, MOMZ, THERM,                &
+        PRES_hyd, DENS_hyd, Rtot, CVtot, CPtot, mesh3D )
+      call PROF_rapend( 'ATM_DYN_cal_pres', 2)
+
+      !- Exchange halo data
       call PROF_rapstart( 'ATM_DYN_exchange_prgv', 2)
       call PROG_VARS%MeshFieldComm_Exchange()
+      call this%AUXDYNVAR3D_manager%MeshFieldComm_Exchange()
       call PROF_rapend( 'ATM_DYN_exchange_prgv', 2)
 
       do n=1, mesh3D%LOCAL_MESH_NUM
         lcmesh3D => mesh3D%lcmesh_list(n)
 
-        !* Apply boundary conditions
+        !- Apply boundary conditions
         call PROF_rapstart( 'ATM_DYN_applyBC_prgv', 2)
         call this%boundary_cond%ApplyBC_PROGVARS_lc( n,                                        & ! (in)
           DDENS%local(n)%val, MOMX%local(n)%val, MOMY%local(n)%val, MOMZ%local(n)%val,         & ! (inout)
@@ -593,7 +636,7 @@ contains
         call PROF_rapend( 'ATM_DYN_applyBC_prgv', 2)
       end do
 
-
+      !- Calculate the tendency with the explicit part
       do n=1, mesh3D%LOCAL_MESH_NUM
         lcmesh3D => mesh3D%lcmesh_list(n)
 
@@ -606,7 +649,7 @@ contains
           this%tint(n)%tend_buf2D_ex(:,:,MOMZ_VID ,tintbuf_ind),                           & ! (out)
           this%tint(n)%tend_buf2D_ex(:,:,THERM_VID,tintbuf_ind),                           & ! (out)
           DDENS%local(n)%val, MOMX%local(n)%val, MOMY%local(n)%val, MOMZ%local(n)%val,     & ! (in)
-          THERM%local(n)%val,                                                              & ! (in)
+          THERM%local(n)%val, DPRES%local(n)%val,                                          & ! (in)
           DENS_hyd%local(n)%val, PRES_hyd%local(n)%val, Coriolis%local(n)%val,             & ! (in)
           Rtot%local(n)%val, CVtot%local(n)%val, CPtot%local(n)%val,                       & ! (in)
           Dx, Dy, Dz, Sx, Sy, Sz, Lift,                                                    & ! (in)
@@ -626,11 +669,7 @@ contains
         end if
       end do
       
-      call PROF_rapstart( 'ATM_DYN_update_add_tp', 2)      
-      call calc_pressure( this, PRES, this%DPRES,      &
-        DDENS, MOMX, MOMY, MOMZ, THERM,                &
-        PRES_hyd, DENS_hyd, Rtot, CVtot, CPtot, mesh3D )
-
+      call PROF_rapstart( 'ATM_DYN_update_add_tp', 2)
       do n=1, mesh3D%LOCAL_MESH_NUM
         lcmesh3D => mesh3D%lcmesh_list(n)
         
@@ -658,7 +697,7 @@ contains
             MFLX_x_tavg%local(n)%val, MFLX_y_tavg%local(n)%val, MFLX_z_tavg%local(n)%val,   & ! (inout)
             ALPH_DENS_M_tavg%local(n)%face_val, ALPH_DENS_P_tavg%local(n)%face_val,         & ! (inout)
             DDENS%local(n)%val, MOMX%local(n)%val, MOMY%local(n)%val, MOMZ%local(n)%val,    & ! (in)
-            DENS_hyd%local(n)%val, PRES_hyd%local(n)%val, Coriolis%local(n)%val,            & ! (in)
+            DPRES%local(n)%val, DENS_hyd%local(n)%val, PRES_hyd%local(n)%val,               & ! (in)
             Rtot%local(n)%val, CVtot%local(n)%val, CPtot%local(n)%val,                      & ! (in)
             lcmesh3D, lcmesh3D%refElem3D,                                                   & ! (in)
             rkstage, this%tint(n)%coef_b_ex(rkstage), tavg_coef_MFLXZ(rkstage)              ) ! (in)
@@ -686,7 +725,7 @@ contains
           DENS0_TRC%local(n)%val(:,ke) = this%tint(n)%var0_2D(:,ke,DENS_VID)
           DENS_TRC %local(n)%val(:,ke) = DDENS%local(n)%val(:,ke)
         end do        
-      end do
+     end do
     end if
     call PROF_rapend( 'ATM_DYN_update_post', 2)      
 
@@ -703,7 +742,7 @@ contains
     end if
 
     call PROF_rapstart( 'ATM_DYN_update_post', 2)
-    call calc_pressure( this, PRES, this%DPRES,      &
+    call calc_pressure( this, PRES, DPRES,           &
       DDENS, MOMX, MOMY, MOMZ, THERM,                &
       PRES_hyd, DENS_hyd, Rtot, CVtot, CPtot, mesh3D )    
     call PROF_rapend( 'ATM_DYN_update_post', 2)      
@@ -728,7 +767,7 @@ contains
       if ( this%hevi_flag ) call this%modal_filter_v1D%Final()
     end if
     
-    call this%DPRES%Final()
+    call this%AUXDYNVAR3D_manager%Final()
     call AtmDynDGMDriver_base3D_Final( this )   
 
     return
@@ -836,7 +875,7 @@ contains
         EXNER(:) = ( PRES(:,ke) * rP0 )**( Rtot(:,ke) / CPtot(:,ke) )
 
         dyn_tends(:,ke,THERM_VID) = dyn_tends(:,ke,THERM_VID) &
-                                        + RHOT_tp(:,ke)                             &
+                                       + RHOT_tp(:,ke)                             &
                                        + RHOH_p  (:,ke) / ( CPtot(:,ke) * EXNER(:) )
       end do
       !$omp end do

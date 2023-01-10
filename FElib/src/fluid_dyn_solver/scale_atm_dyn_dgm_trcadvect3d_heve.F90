@@ -331,7 +331,7 @@ contains
 !OCL SERIAL
   subroutine atm_dyn_dgm_trcadvect3d_save_massflux( &
     MFLX_x_tavg, MFLX_y_tavg, MFLX_z_tavg, alph_dens_M, alph_dens_P, &
-    DDENS, MOMX, MOMY, MOMZ, DRHOT, DENS_hyd, PRES_hyd,              &
+    DDENS, MOMX, MOMY, MOMZ, DPRES, DENS_hyd, PRES_hyd,              &
     Rtot, CVtot, CPtot,                                              &
     lmesh, elem, rkstage, tavg_weight_h, tavg_weight_v               ) 
    
@@ -347,7 +347,7 @@ contains
     real(RP), intent(in) ::  MOMX(elem%Np,lmesh%NeA)  
     real(RP), intent(in) ::  MOMY(elem%Np,lmesh%NeA)  
     real(RP), intent(in) ::  MOMZ(elem%Np,lmesh%NeA)  
-    real(RP), intent(in) ::  DRHOT(elem%Np,lmesh%NeA)
+    real(RP), intent(in) ::  DPRES(elem%Np,lmesh%NeA)
     real(RP), intent(in) ::  DENS_hyd(elem%Np,lmesh%NeA)
     real(RP), intent(in) ::  PRES_hyd(elem%Np,lmesh%NeA)
     real(RP), intent(in) ::  Rtot(elem%Np,lmesh%NeA)
@@ -377,7 +377,7 @@ contains
 
     call atm_dyn_dgm_trcadvect3d_heve_cal_alphdens_dyn( &
       alph_dens_M, alph_dens_P,                                               & ! (out)
-      DDENS, MOMX, MOMY, MOMZ, DRHOT, DENS_hyd, PRES_hyd,                     & ! (in)
+      DDENS, MOMX, MOMY, MOMZ, DPRES, DENS_hyd, PRES_hyd,                     & ! (in)
       Rtot, CVtot, CPtot,                                                     & ! (in)
       lmesh%normal_fn(:,:,1), lmesh%normal_fn(:,:,2), lmesh%normal_fn(:,:,3), & ! (in)
       lmesh%vmapM, lmesh%vmapP, lmesh, lmesh%refElem3D,                       & ! (in)
@@ -443,9 +443,9 @@ contains
 
 !OCL SERIAL
   subroutine atm_dyn_dgm_trcadvect3d_heve_cal_alphdens_dyn( alph_dens_M, alph_dens_P, &
-    DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd,   &
-    Rtot, CVtot, CPtot,                                        &
-    nx, ny, nz, vmapM, vmapP, lmesh, elem,                     &
+    DDENS_, MOMX_, MOMY_, MOMZ_, DPRES_, DENS_hyd, PRES_hyd,    &
+    Rtot, CVtot, CPtot,                                         &
+    nx, ny, nz, vmapM, vmapP, lmesh, elem,                      &
     tavg_weight_h, tavg_weight_v )
  
     use scale_const, only: &
@@ -465,7 +465,7 @@ contains
     real(RP), intent(in) ::  MOMX_(elem%Np*lmesh%NeA)  
     real(RP), intent(in) ::  MOMY_(elem%Np*lmesh%NeA)  
     real(RP), intent(in) ::  MOMZ_(elem%Np*lmesh%NeA)  
-    real(RP), intent(in) ::  DRHOT_(elem%Np*lmesh%NeA)
+    real(RP), intent(in) ::  DPRES_(elem%Np*lmesh%NeA)
     real(RP), intent(in) ::  DENS_hyd(elem%Np*lmesh%NeA)
     real(RP), intent(in) ::  PRES_hyd(elem%Np*lmesh%NeA)
     real(RP), intent(in) ::  Rtot(elem%Np*lmesh%NeA)
@@ -481,7 +481,7 @@ contains
     
     integer :: i, iP, iM
     real(RP) :: VelP, VelM, alpha
-    real(RP) :: presM, presP, dpresM, dpresP, densM, densP, rhotM, rhotP, rhot_hyd_M, rhot_hyd_P
+    real(RP) :: densM, densP
     real(RP) :: gamm, rgamm
     real(RP) :: tavg_weight 
     !------------------------------------------------------------------------
@@ -490,30 +490,19 @@ contains
     rgamm = CvDry/CpDry
  
     !$omp parallel do private( &
-    !$omp iM, iP, VelP, VelM, alpha, &
-    !$omp presM, presP, dpresM, dpresP, densM, densP, rhotM, rhotP, rhot_hyd_M, rhot_hyd_P, &
-    !$omp tavg_weight )
+    !$omp iM, iP, VelP, VelM, alpha, densM, densP, tavg_weight )
     do i=1, elem%NfpTot*lmesh%Ne
       iM = vmapM(i); iP = vmapP(i)
- 
-      rhot_hyd_M = PRES00/Rdry * (PRES_hyd(iM)/PRES00)**rgamm
-      rhot_hyd_P = PRES00/Rdry * (PRES_hyd(iP)/PRES00)**rgamm
-      
-      rhotM = rhot_hyd_M + DRHOT_(iM)
-      presM = PRES00 * (Rtot(iM)*rhotM/PRES00)**(CPtot(iM)/CVtot(iM))
-      dpresM = presM - PRES_hyd(iM)*abs(nz(i))
- 
-      rhotP = rhot_hyd_P + DRHOT_(iP) 
-      presP = PRES00 * (Rtot(iP)*rhotP/PRES00)**(CPtot(iP)/CVtot(iP))
-      dpresP = presP - PRES_hyd(iP)*abs(nz(i))
+       
  
       densM = DDENS_(iM) + DENS_hyd(iM)
       densP = DDENS_(iP) + DENS_hyd(iP)
  
-      VelM = (MOMX_(iM)*nx(i) + MOMY_(iM)*ny(i) + MOMZ_(iM)*nz(i))/densM
-      VelP = (MOMX_(iP)*nx(i) + MOMY_(iP)*ny(i) + MOMZ_(iP)*nz(i))/densP
+      VelM = ( MOMX_(iM)*nx(i) + MOMY_(iM)*ny(i) + MOMZ_(iM)*nz(i) ) / densM
+      VelP = ( MOMX_(iP)*nx(i) + MOMY_(iP)*ny(i) + MOMZ_(iP)*nz(i) ) / densP
  
-      alpha = max( sqrt(gamm*presM/densM) + abs(VelM), sqrt(gamm*presP/densP) + abs(VelP)  )
+      alpha = max( sqrt( gamm * ( PRES_hyd(iM) + DPRES_(iM) ) / densM ) + abs(VelM), &
+                   sqrt( gamm * ( PRES_hyd(iP) + DPRES_(iP) ) / densP ) + abs(VelP)  )
       tavg_weight = tavg_weight_h * ( abs(nx(i)) + abs(ny(i)) ) + tavg_weight_v * abs(nz(i))
 
       alph_dens_M(i) = alph_dens_M(i) + tavg_weight * alpha * densM

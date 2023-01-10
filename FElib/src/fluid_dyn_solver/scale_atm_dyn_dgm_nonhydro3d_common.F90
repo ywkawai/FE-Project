@@ -231,7 +231,7 @@ contains
     do ke=lcmesh%NeS, lcmesh%NeE
       RHOT(:) = PRES00 / Rdry * ( PRES_hyd(:,ke) / PRES00 )**(CvDry/CpDry) + DRHOT(:,ke)
 
-      PRES(:,ke) = PRES00 * (Rtot(:,ke) * rP0 * RHOT(:))**( CPtot(:,ke) / CVtot(:,ke) )
+      PRES(:,ke) = PRES00 * ( Rtot(:,ke) * rP0 * RHOT(:) )**( CPtot(:,ke) / CVtot(:,ke) )
       DPRES(:,ke) = PRES(:,ke) - PRES_hyd(:,ke)
     end do
 
@@ -338,5 +338,7 @@ contains
     
     return
   end subroutine atm_dyn_dgm_nonhydro3d_common_EnTot2PRES
+
+!-- private
 
 end module scale_atm_dyn_dgm_nonhydro3d_common
