@@ -57,8 +57,8 @@ module scale_atm_dyn_dgm_driver_nonhydro3d
     CPTOT_VID => AUXVAR_CPtot_ID, CVTOT_VID => AUXVAR_CVtot_ID, RTOT_VID => AUXVAR_Rtot_ID, &
     PRES_VID => AUXVAR_PRES_ID,                                                             &
     PHYTEND_DENS_ID, PHYTEND_MOMX_ID, PHYTEND_MOMY_ID, PHYTEND_MOMZ_ID, PHYTEND_RHOT_ID,    &
-    PHYTEND_RHOH_ID    
-
+    PHYTEND_RHOH_ID,                                                                        &
+    atm_dyn_dgm_nonhydro3d_common_calc_pressure
 
   use scale_atm_dyn_dgm_nonhydro3d_rhot_heve, only: &
     atm_dyn_dgm_nonhydro3d_rhot_heve_Init,          &
@@ -609,9 +609,11 @@ contains
       !- Calculate pressure perturbation
 
       call PROF_rapstart( 'ATM_DYN_cal_pres', 2)
-      call calc_pressure( this, PRES, DPRES,           &
-        DDENS, MOMX, MOMY, MOMZ, THERM,                &
-        PRES_hyd, DENS_hyd, Rtot, CVtot, CPtot, mesh3D )
+      call atm_dyn_dgm_nonhydro3d_common_calc_pressure( &
+        PRES, DPRES,                                    & ! (inout) 
+        DDENS, MOMX, MOMY, MOMZ, THERM,                 & ! (in)
+        PRES_hyd, DENS_hyd, Rtot, CVtot, CPtot, mesh3D, & ! (in)
+        this%ENTOT_CONSERVE_SCHEME_FLAG )                 ! (in)
       call PROF_rapend( 'ATM_DYN_cal_pres', 2)
 
       !- Exchange halo data
@@ -731,6 +733,8 @@ contains
 
     if ( this%MODALFILTER_FLAG ) then
       do n=1, mesh3D%LOCAL_MESH_NUM
+        lcmesh3D => mesh3D%lcmesh_list(n)
+
         call PROF_rapstart( 'ATM_DYN_update_modalfilter', 2)
         call atm_dyn_dgm_modalfilter_apply(  & 
           DDENS%local(n)%val, MOMX%local(n)%val, MOMY%local(n)%val, MOMZ%local(n)%val, THERM%local(n)%val, & ! (inout)
@@ -742,9 +746,11 @@ contains
     end if
 
     call PROF_rapstart( 'ATM_DYN_update_post', 2)
-    call calc_pressure( this, PRES, DPRES,           &
-      DDENS, MOMX, MOMY, MOMZ, THERM,                &
-      PRES_hyd, DENS_hyd, Rtot, CVtot, CPtot, mesh3D )    
+    call atm_dyn_dgm_nonhydro3d_common_calc_pressure( &
+      PRES, DPRES,                                    & ! (inout) 
+      DDENS, MOMX, MOMY, MOMZ, THERM,                 & ! (in)
+      PRES_hyd, DENS_hyd, Rtot, CVtot, CPtot, mesh3D, & ! (in)
+      this%ENTOT_CONSERVE_SCHEME_FLAG )                 ! (in)
     call PROF_rapend( 'ATM_DYN_update_post', 2)      
 
     return
@@ -806,9 +812,11 @@ contains
     mesh3D => DDENS%mesh
     call DPRES%Init( "DPRES", "Pa", mesh3D )
 
-    call calc_pressure( this, PRES, DPRES,      &
-      DDENS, MOMX, MOMY, MOMZ, THERM,                &
-      PRES_hyd, DENS_hyd, Rtot, CVtot, CPtot, mesh3D )
+    call atm_dyn_dgm_nonhydro3d_common_calc_pressure( &
+      PRES, DPRES,                                    & ! (inout) 
+      DDENS, MOMX, MOMY, MOMZ, THERM,                 & ! (in)
+      PRES_hyd, DENS_hyd, Rtot, CVtot, CPtot, mesh3D, & ! (in)
+      this%ENTOT_CONSERVE_SCHEME_FLAG )                 ! (in)
 
     call DPRES%Final()
 
@@ -883,53 +891,6 @@ contains
     !$omp end parallel
     return
   end subroutine add_phy_tend
-
-!OCL SERIAL
-  subroutine calc_pressure( this, PRES, DPRES, & ! (inout)
-    DDENS, MOMX, MOMY, MOMZ, THERM,            & ! (in)
-    PRES_hyd, DENS_hyd, Rtot, CVtot, CPtot,    & ! (in)
-    mesh3D                                     ) ! (in)
-
-    use scale_atm_dyn_dgm_nonhydro3d_common, only: &
-      atm_dyn_dgm_nonhydro3d_common_DRHOT2PRES, &
-      atm_dyn_dgm_nonhydro3d_common_EnTot2PRES
-    implicit none
-    class(AtmDynDGMDriver_nonhydro3d), intent(inout) :: this
-    class(MeshField3D), intent(inout) :: PRES
-    class(MeshField3D), intent(inout) :: DPRES
-    class(MeshField3D), intent(in) :: DDENS
-    class(MeshField3D), intent(in) :: MOMX
-    class(MeshField3D), intent(in) :: MOMY
-    class(MeshField3D), intent(in) :: MOMZ
-    class(MeshField3D), intent(in) :: THERM
-    class(MeshField3D), intent(in) :: PRES_hyd
-    class(MeshField3D), intent(in) :: DENS_hyd
-    class(MeshField3D), intent(in) :: Rtot
-    class(MeshField3D), intent(in) :: CVtot
-    class(MeshField3D), intent(in) :: CPtot
-    class(MeshBase3D), intent(in), target :: mesh3D
-    
-    integer :: n
-    class(LocalMesh3D), pointer :: lcmesh3D
-    !---------------------------
-
-    do n=1, mesh3D%LOCAL_MESH_NUM
-      lcmesh3D => mesh3D%lcmesh_list(n)
-
-      if ( this%ENTOT_CONSERVE_SCHEME_FLAG ) then
-        call atm_dyn_dgm_nonhydro3d_common_EnTot2PRES( PRES%local(n)%val, DPRES%local(n)%val,                  &
-          DDENS%local(n)%val, MOMX%local(n)%val, MOMY%local(n)%val, MOMZ%local(n)%val, THERM%local(n)%val,     &
-          PRES_hyd%local(n)%val, DENS_hyd%local(n)%val, Rtot%local(n)%val, CVtot%local(n)%val,                 &
-          lcmesh3D, lcmesh3D%refElem3D )
-      else
-        call atm_dyn_dgm_nonhydro3d_common_DRHOT2PRES( PRES%local(n)%val, DPRES%local(n)%val,                   &
-          THERM%local(n)%val, PRES_hyd%local(n)%val, Rtot%local(n)%val, CVtot%local(n)%val, CPtot%local(n)%val, &
-          lcmesh3D, lcmesh3D%refElem3D )
-      end if
-    end do
-
-    return
-  end subroutine calc_pressure
 
   !-- Setup modal filter
 !OCL SERIAL
