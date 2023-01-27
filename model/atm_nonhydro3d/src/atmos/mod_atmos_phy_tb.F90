@@ -87,6 +87,7 @@ module mod_atmos_phy_tb
   !-----------------------------------------------------------------------------
     
 contains
+!OCL SERIAL
   subroutine AtmosPhyTb_setup( this, model_mesh, tm_parent_comp )
     use mod_atmos_mesh, only: AtmosMesh
     use scale_time_manager, only: TIME_manager_component
@@ -160,7 +161,7 @@ contains
     return
   end subroutine AtmosPhyTb_setup
 
-
+!OCL SERIAL
   subroutine AtmosPhyTb_calc_tendency( &
     this, model_mesh, prgvars_list, trcvars_list, &
     auxvars_list, forcing_list, is_update         )
@@ -168,9 +169,11 @@ contains
 
     use scale_tracer, only: &
       TRACER_ADVC   
-
+    use scale_atm_dyn_dgm_nonhydro3d_common, only: &
+      PRGVAR_DDENS_ID
     use mod_atmos_vars, only: &
       AtmosVars_GetLocalMeshPrgVars,    &
+      AtmosVars_GetLocalMeshPrgVar,     &
       AtmosVars_GetLocalMeshQTRCVar,    &
       AtmosVars_GetLocalMeshPhyAuxVars, &
       AtmosVars_GetLocalMeshPhyTends
@@ -215,6 +218,7 @@ contains
     end type
     type(DYN_BNDInfo), allocatable :: bnd_info(:)
 
+    logical :: cal_grad_flag
     !--------------------------------------------------
 
     if (.not. this%IsActivated()) return
@@ -312,15 +316,19 @@ contains
         call PROF_rapend('ATM_PHY_TB_cal_tend', 2)
       end do
 
+      cal_grad_flag = .true.
       do iq = 1, QA
         if ( .not. TRACER_ADVC(iq) ) cycle
         
         do n=1, mesh%LOCAL_MESH_NUM
 
-          call PROF_rapstart('ATM_PHY_TB_get_localmesh_ptr', 2)                 
+          call PROF_rapstart('ATM_PHY_TB_get_localmesh_ptr', 2)
+          call AtmosVars_GetLocalMeshPrgVar( n, &
+            mesh, prgvars_list, auxvars_list,                          &
+            PRGVAR_DDENS_ID, DDENS, DENS_hyd=DENS_hyd, lcmesh3D=lcmesh )
           call AtmosVars_GetLocalMeshQTRCVar( n,       &
             mesh, trcvars_list, iq,                    &
-            QTRC, lcmesh                               )
+            QTRC                                       )
           call AtmosPhyTbVars_GetLocalMeshFields_aux_qtrc( n, &
             mesh, this%vars%auxvars_manager, this%vars%auxtrcvars_manager, &
             dQTdx, dQTdy, dQTdz, Kh                                        )
@@ -329,24 +337,25 @@ contains
           call PROF_rapstart('ATM_PHY_TB_cal_grad_qtrc', 2)
           call atm_phy_tb_dgm_smg_cal_grad_qtrc( &
             dQTdx%val, dQTdy%val, dQTdz%val,                                           & ! (out)
-            QTRC%val,                                                                  & ! (in) 
+            this%vars%GRAD_DENS(1)%local(n)%val, this%vars%GRAD_DENS(2)%local(n)%val,  & ! (inout)
+            this%vars%GRAD_DENS(3)%local(n)%val,                                       & ! (inout)
+            QTRC%val, DDENS%val, DENS_hyd%val,                                         & ! (in) 
             model_mesh%DOptrMat(1), model_mesh%DOptrMat(2), model_mesh%DOptrMat(3),    & ! (in)
             model_mesh%SOptrMat(1), model_mesh%SOptrMat(2), model_mesh%SOptrMat(3),    & ! (in)
             model_mesh%LiftOptrMat,                                                    & ! (in)
             lcmesh, lcmesh%refElem3D, lcmesh%lcmesh2D, lcmesh%lcmesh2D%refElem2D,      & ! (in)
-            bnd_info(n)%is_bound )                                                       ! (in)
+            bnd_info(n)%is_bound, cal_grad_flag )                                      ! (in)
           call PROF_rapend('ATM_PHY_TB_cal_grad_qtrc', 2)
         end do
+        cal_grad_flag = .false.
 
         call this%vars%auxtrcvars_manager%MeshFieldComm_Exchange()
 
         do n=1, mesh%LOCAL_MESH_NUM
           call PROF_rapstart('ATM_PHY_TB_get_localmesh_ptr', 2)         
-          call AtmosVars_GetLocalMeshPrgVars( n, &
-            mesh, prgvars_list, auxvars_list,       &
-            DDENS, MOMX, MOMY, MOMZ, THERM,         &
-            DENS_hyd, PRES_hyd, Rtot, CVtot, CPtot, &
-            lcmesh                                  )
+          call AtmosVars_GetLocalMeshPrgVar( n, &
+            mesh, prgvars_list, auxvars_list,                          &
+            PRGVAR_DDENS_ID, DDENS, DENS_hyd=DENS_hyd, lcmesh3D=lcmesh )
           call AtmosPhyTbVars_GetLocalMeshFields_aux_qtrc( n, &
             mesh, this%vars%auxvars_manager, this%vars%auxtrcvars_manager, &
             dQTdx, dQTdy, dQTdz, Kh,                                       &
@@ -410,6 +419,7 @@ contains
     return  
   end subroutine AtmosPhyTb_calc_tendency
 
+!OCL SERIAL
   subroutine AtmosPhyTb_update( this, model_mesh, prgvars_list, trcvars_list, auxvars_list, forcing_list, is_update )
     implicit none
 
@@ -425,6 +435,7 @@ contains
     return
   end subroutine AtmosPhyTb_update
 
+!OCL SERIAL
   subroutine AtmosPhyTb_finalize( this )
     implicit none
     class(AtmosPhyTb), intent(inout) :: this
@@ -442,6 +453,7 @@ contains
     return
   end subroutine AtmosPhyTb_finalize
 
+!OCL SERIAL
   subroutine AtmosPhyTb_setDynBC( this, dyn_bnd )
     implicit none
     class(AtmosPhyTb), intent(inout) :: this

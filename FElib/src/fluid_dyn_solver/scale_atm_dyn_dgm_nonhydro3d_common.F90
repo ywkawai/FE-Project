@@ -47,6 +47,7 @@ module scale_atm_dyn_dgm_nonhydro3d_common
   public :: atm_dyn_dgm_nonhydro3d_common_Init
   public :: atm_dyn_dgm_nonhydro3d_common_Final
   public :: atm_dyn_dgm_nonhydro3d_common_get_varinfo
+  public :: atm_dyn_dgm_nonhydro3d_common_calc_pressure
   public :: atm_dyn_dgm_nonhydro3d_common_DRHOT2PRES
   public :: atm_dyn_dgm_nonhydro3d_common_EnTot2PRES
   public :: atm_dyn_dgm_nonhydro3d_common_DRHOT2EnTot
@@ -200,6 +201,51 @@ contains
   end subroutine atm_dyn_dgm_nonhydro3d_common_get_varinfo
 
 !OCL SERIAL
+  subroutine atm_dyn_dgm_nonhydro3d_common_calc_pressure( &
+    PRES, DPRES,                               & ! (inout)
+    DDENS, MOMX, MOMY, MOMZ, THERM,            & ! (in)
+    PRES_hyd, DENS_hyd, Rtot, CVtot, CPtot,    & ! (in)
+    mesh3D, ENTOT_CONSERVE_SCHEME_FLAG         ) ! (in)
+
+    implicit none
+    class(MeshField3D), intent(inout) :: PRES
+    class(MeshField3D), intent(inout) :: DPRES
+    class(MeshField3D), intent(in) :: DDENS
+    class(MeshField3D), intent(in) :: MOMX
+    class(MeshField3D), intent(in) :: MOMY
+    class(MeshField3D), intent(in) :: MOMZ
+    class(MeshField3D), intent(in) :: THERM
+    class(MeshField3D), intent(in) :: PRES_hyd
+    class(MeshField3D), intent(in) :: DENS_hyd
+    class(MeshField3D), intent(in) :: Rtot
+    class(MeshField3D), intent(in) :: CVtot
+    class(MeshField3D), intent(in) :: CPtot
+    class(MeshBase3D), intent(in), target :: mesh3D
+    logical, intent(in) :: ENTOT_CONSERVE_SCHEME_FLAG
+    
+    integer :: n
+    class(LocalMesh3D), pointer :: lcmesh3D
+    !---------------------------
+
+    do n=1, mesh3D%LOCAL_MESH_NUM
+      lcmesh3D => mesh3D%lcmesh_list(n)
+
+      if ( ENTOT_CONSERVE_SCHEME_FLAG ) then
+        call atm_dyn_dgm_nonhydro3d_common_EnTot2PRES( PRES%local(n)%val, DPRES%local(n)%val,                  &
+          DDENS%local(n)%val, MOMX%local(n)%val, MOMY%local(n)%val, MOMZ%local(n)%val, THERM%local(n)%val,     &
+          PRES_hyd%local(n)%val, DENS_hyd%local(n)%val, Rtot%local(n)%val, CVtot%local(n)%val,                 &
+          lcmesh3D, lcmesh3D%refElem3D )
+      else
+        call atm_dyn_dgm_nonhydro3d_common_DRHOT2PRES( PRES%local(n)%val, DPRES%local(n)%val,                   &
+          THERM%local(n)%val, PRES_hyd%local(n)%val, Rtot%local(n)%val, CVtot%local(n)%val, CPtot%local(n)%val, &
+          lcmesh3D, lcmesh3D%refElem3D )
+      end if
+    end do
+
+    return
+  end subroutine atm_dyn_dgm_nonhydro3d_common_calc_pressure
+
+!OCL SERIAL
   subroutine atm_dyn_dgm_nonhydro3d_common_DRHOT2PRES( PRES, DPRES, &
     DRHOT, PRES_hyd, Rtot, CVtot, CPtot,                            &
     lcmesh, elem3D                                                  )
@@ -231,7 +277,7 @@ contains
     do ke=lcmesh%NeS, lcmesh%NeE
       RHOT(:) = PRES00 / Rdry * ( PRES_hyd(:,ke) / PRES00 )**(CvDry/CpDry) + DRHOT(:,ke)
 
-      PRES(:,ke) = PRES00 * (Rtot(:,ke) * rP0 * RHOT(:))**( CPtot(:,ke) / CVtot(:,ke) )
+      PRES(:,ke) = PRES00 * ( Rtot(:,ke) * rP0 * RHOT(:) )**( CPtot(:,ke) / CVtot(:,ke) )
       DPRES(:,ke) = PRES(:,ke) - PRES_hyd(:,ke)
     end do
 
@@ -338,5 +384,7 @@ contains
     
     return
   end subroutine atm_dyn_dgm_nonhydro3d_common_EnTot2PRES
+
+!-- private
 
 end module scale_atm_dyn_dgm_nonhydro3d_common

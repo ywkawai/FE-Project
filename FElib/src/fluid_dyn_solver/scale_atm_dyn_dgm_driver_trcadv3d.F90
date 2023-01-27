@@ -23,6 +23,7 @@ module scale_atm_dyn_dgm_driver_trcadv3d
     CPdry => CONST_CPdry, &
     CVdry => CONST_CVdry, &
     PRES00 => CONST_PRE00  
+  use scale_tracer, only: QA
 
   use scale_timeint_rk, only: TimeInt_RK
   use scale_sparsemat, only: SparseMat
@@ -36,6 +37,8 @@ module scale_atm_dyn_dgm_driver_trcadv3d
   use scale_element_hexahedral, only: HexahedralElement
   use scale_meshfield_base, only: &
     MeshFieldBase, MeshField2D, MeshField3D
+  use scale_localmeshfield_base, only: &
+      LocalMeshFieldBaseList
 
   use scale_element_modalfilter, only: &
     ModalFilter
@@ -69,6 +72,9 @@ module scale_atm_dyn_dgm_driver_trcadv3d
     atm_dyn_dgm_trcadvect3d_save_massflux,             &
     atm_dyn_dgm_trcadvect3d_heve_cal_alphdens_advtest
 
+  use scale_atm_dyn_dgm_driver_nonhydro3d, only: &
+    AtmDynDGMDriver_nonhydro3d
+    
   !-----------------------------------------------------------------------------
   implicit none
   private
@@ -137,7 +143,7 @@ module scale_atm_dyn_dgm_driver_trcadv3d
   integer, public, parameter :: TRCVARS3D_DENS_ID     = 2
   integer, public, parameter :: TRCVARS3D_DENS0_ID    = 3
 
-  type(VariableInfo), public :: ATMOS_DYN_TRCVARS3D_VINFO(TRCVARS3D_NUM )
+  type(VariableInfo), public :: ATMOS_DYN_TRCVARS3D_VINFO(TRCVARS3D_NUM)
   DATA ATMOS_DYN_TRCVARS3D_VINFO / &
     VariableInfo( TRCVARS3D_TRCADV_ID, 'TRCADV', '',     '1',  3, 'XYZ',  '' ), &
     VariableInfo( TRCVARS3D_DENS_ID  ,   'DENS', '', 'kg/m3',  3, 'XYZ',  '' ), & 
@@ -187,8 +193,6 @@ contains
     logical, intent(in) :: ONLY_TRACERADV_FLAG
 
     class(MeshBase3D), pointer :: mesh3D
-    class(LocalMesh3D), pointer :: lcmesh
-    integer :: domID
     class(HexahedralElement), pointer :: refElem3D
     class(ElementBase), pointer :: refElem
 
@@ -237,7 +241,7 @@ contains
       this%TRCVAR3D_manager,           & ! (in)
       this%TRCVARS3D(iv:iv),           & ! (in)
       this%TRCVAR3D_commid             ) ! (out)
-
+      
     !- Initialize variables to store time-averaged 3D mass flux
 
     call this%AUXTRC_FLUX_VAR3D_manager%Init()
@@ -302,16 +306,13 @@ contains
 !OCL SERIAL
   subroutine AtmDynDGMDriver_trcadv3d_update( this, &
     TRC_VARS, PROG_VARS, AUX_VARS, PHYTENDS,             &
-    Dx, Dy, Dz, Sx, Sy, Sz, Lift, mesh3D                 )
+    Dx, Dy, Dz, Sx, Sy, Sz, Lift, mesh3D,                &
+    dyn_driver                                           )
 
     use scale_tracer, only: &
-      QA, TRACER_ADVC, TRACER_NAME
-    
-    use scale_model_var_manager, only: ModelVarManager
-
+      TRACER_ADVC, TRACER_NAME
     use scale_atm_dyn_dgm_modalfilter, only: &
       atm_dyn_dgm_tracer_modalfilter_apply
-
     implicit none
 
     class(AtmDynDGMDriver_trcadv3d), intent(inout) :: this
@@ -323,6 +324,7 @@ contains
     type(SparseMat), intent(in) :: Dx, Dy, Dz
     type(SparseMat), intent(in) :: Sx, Sy, Sz
     type(SparseMat), intent(in) :: Lift
+    class(AtmDynDGMDriver_nonhydro3d), intent(inout) :: dyn_driver
 
     integer :: rkstage
     integer :: tintbuf_ind
@@ -340,7 +342,7 @@ contains
     class(MeshField3D), pointer :: QTRC_tmp, DDENS_TRC, DDENS0_TRC
     class(MeshField3D), pointer :: MFLX_x_tavg, MFLX_y_tavg, MFLX_z_tavg
 
-    integer :: iq
+    integer :: iq    
     !-----------------------------------------------------------------------------
     
     !-- prepairation
@@ -505,6 +507,7 @@ contains
 
           if ( TRACER_ADVC(iq)                   &
             .and. rkstage == this%tint(1)%nstage &
+            .and. this%ONLY_TRACERADV_FLAG       &            
             .and. ( .not. this%disable_limiter ) ) then
 
             call PROF_rapstart( 'ATM_DYN_update_trc_TMAR', 3)             
@@ -519,7 +522,7 @@ contains
       end do ! end for RK loop
 
       do n=1, mesh3D%LOCAL_MESH_NUM
-       !$omp parallel do
+        !$omp parallel do
         do ke=lcmesh3D%NeS, lcmesh3D%NeE
           QTRC%local(n)%val(:,ke) = ( DENS_hyd%local(n)%val(:,ke) + DDENS_TRC%local(n)%val(:,ke) ) &
                                   / ( DENS_hyd%local(n)%val(:,ke) + DDENS%local(n)%val(:,ke) )     &
@@ -528,6 +531,21 @@ contains
       end do
 
     end do ! end do for iq
+
+    ! Update pressure
+    call update_pressure_specific_heat( PRES, Rtot, CVtot, CPtot, & ! (inout)
+      TRC_VARS, PROG_VARS, AUX_VARS, dyn_driver, mesh3D           ) ! (in)
+
+    ! Negative fixer
+    if (         .not. this%disable_limiter       & 
+         .and. ( .not. this%ONLY_TRACERADV_FLAG ) ) then
+
+      call PROF_rapstart( 'ATM_DYN_trc_negative_fixer', 2)          
+      call fix_negative_val( &
+        TRC_VARS, DDENS, THERM, PRES, CVtot, CPtot, Rtot,               & ! (inout)
+        DENS_hyd, PRES_hyd, dt, mesh3D, dyn_driver%Is_THERMVAR_RHOT()   ) ! (in)
+      call PROF_rapend( 'ATM_DYN_trc_negative_fixer', 2)
+    end if
 
     call PROF_rapend( 'ATM_DYN_trc_update', 2)
 
@@ -568,6 +586,128 @@ contains
   end subroutine AtmDynDGMDriver_trcadv3d_Final
 
 !-- private
+!OCL SERIAL
+  subroutine fix_negative_val( &
+    TRC_VARS, DDENS, THERM, PRES, CVtot, CPtot, Rtot, & ! (inout)
+    DENS_hyd, PRES_hyd, dt, mesh3D, IS_THERMVAR_RHOT  ) ! (in)
+    use scale_atmos_hydrometeor, only: &
+      QLA, QIA
+    use scale_atm_phy_mp_dgm_common, only: &
+      atm_phy_mp_dgm_common_negative_fixer
+    implicit none
+    class(ModelVarManager), intent(inout) :: TRC_VARS
+    class(MeshField3D), intent(inout) :: DDENS
+    class(MeshField3D), intent(inout) :: THERM
+    class(MeshField3D), intent(inout) :: PRES
+    class(MeshField3D), intent(inout) :: CVtot
+    class(MeshField3D), intent(inout) :: CPtot
+    class(MeshField3D), intent(inout) :: Rtot
+    class(MeshField3D), intent(inout) :: DENS_hyd
+    class(MeshField3D), intent(inout) :: PRES_hyd
+    real(RP), intent(in) :: dt
+    class(MeshBase3D), intent(in), target :: mesh3D
+    logical, intent(in) :: IS_THERMVAR_RHOT
+
+    class(LocalMesh3D), pointer :: lcmesh3D
+    integer :: n
+
+    integer :: iq
+
+    integer :: trcid_list(QA)
+    type(LocalMeshFieldBaseList) :: lc_qtrc(QA)
+    !---------------------------------------------------------------
+
+    do iq=1, QA 
+      trcid_list(iq) = iq
+    end do
+
+    do n=1, mesh3D%LOCAL_MESH_NUM
+      call TRC_VARS%GetLocalMeshFieldList( trcid_list, n, lc_qtrc )
+      lcmesh3D => mesh3D%lcmesh_list(n)
+
+      if ( IS_THERMVAR_RHOT ) then
+        call atm_phy_mp_dgm_common_negative_fixer( &
+          lc_qtrc, DDENS%local(n)%val, PRES%local(n)%val,            & ! (inout)
+          CVtot%local(n)%val, CPtot%local(n)%val, Rtot%local(n)%val, & ! (inout)
+          DENS_hyd%local(n)%val, PRES_hyd%local(n)%val,              & ! (in)
+          dt, lcmesh3D, lcmesh3D%refElem3D, QA, QLA, QIA,            & ! (in)
+          DRHOT=THERM%local(n)%val                                   ) ! (inout)
+      else
+        call atm_phy_mp_dgm_common_negative_fixer( &
+          lc_qtrc, DDENS%local(n)%val, PRES%local(n)%val,            & ! (inout)
+          CVtot%local(n)%val, CPtot%local(n)%val, Rtot%local(n)%val, & ! (inout)
+          DENS_hyd%local(n)%val, PRES_hyd%local(n)%val,              & ! (in)
+          dt, lcmesh3D, lcmesh3D%refElem3D, QA, QLA, QIA             ) ! (in)
+      end if     
+    end do
+
+    return
+  end subroutine fix_negative_val
+
+  subroutine update_pressure_specific_heat( &
+    PRES, Rtot, CVtot, CPtot,                         &
+    TRC_VARS, PROG_VARS, AUX_VARS, dyn_driver, mesh3D )
+
+    use scale_tracer, only: &
+      TRACER_MASS, TRACER_R, TRACER_CV, TRACER_CP    
+    use scale_atmos_thermodyn, only: &
+      ATMOS_THERMODYN_specific_heat
+    use scale_atm_dyn_dgm_nonhydro3d_common, only: &
+      atm_dyn_dgm_nonhydro3d_common_calc_pressure      
+    implicit none
+
+    class(MeshField3D), intent(inout) :: PRES
+    class(MeshField3D), intent(inout) :: Rtot
+    class(MeshField3D), intent(inout) :: CVtot
+    class(MeshField3D), intent(inout) :: CPtot
+    class(ModelVarManager), intent(inout) :: TRC_VARS
+    class(ModelVarManager), intent(inout) :: PROG_VARS
+    class(ModelVarManager), intent(inout) :: AUX_VARS
+    class(AtmDynDGMDriver_nonhydro3d), intent(inout) :: dyn_driver
+    class(MeshBase3D), intent(in), target :: mesh3D
+
+    integer :: n
+    integer :: ke
+    integer :: iq
+
+    class(LocalMesh3D), pointer :: lcmesh3D
+    class(ElementBase3D), pointer :: elem3D
+
+    real(RP), allocatable :: q_tmp(:,:)
+    real(RP), allocatable :: qdry(:)
+
+    integer :: trcid_list(QA)
+    type(LocalMeshFieldBaseList) :: lc_qtrc(QA)
+    !---------------------------------------------------------------
+
+    do iq=1, QA 
+      trcid_list(iq) = iq
+    end do
+
+    do n=1, mesh3D%LOCAL_MESH_NUM
+      call TRC_VARS%GetLocalMeshFieldList( trcid_list, n, lc_qtrc )
+      
+      lcmesh3D => mesh3D%lcmesh_list(n)
+      elem3D => lcmesh3D%refElem3D
+      allocate( q_tmp(elem3D%Np,QA), qdry(elem3D%Np) )
+
+      !$omp parallel do private(ke, iq, q_tmp, qdry)
+      do ke = lcmesh3D%NeS, lcmesh3D%NeE
+        do iq = 1, QA
+          q_tmp(:,iq) = lc_qtrc(iq)%ptr%val(:,ke)
+        end do
+        call ATMOS_THERMODYN_specific_heat( &
+          elem3D%Np, 1, elem3D%Np, QA,                                                      & ! (in)
+          q_tmp(:,:), TRACER_MASS(:), TRACER_R(:), TRACER_CV(:), TRACER_CP(:),              & ! (in)
+          qdry, Rtot%local(n)%val(:,ke), CVtot%local(n)%val(:,ke), CPtot%local(n)%val(:,ke) ) ! (out)
+      end do
+      deallocate(q_tmp, qdry)      
+    end do
+
+    call dyn_driver%calc_pressure( PRES, PROG_VARS, AUX_VARS )
+
+    return
+  end subroutine update_pressure_specific_heat
 
   !-- Setup modal filter
 !OCL SERIAL

@@ -65,11 +65,11 @@ contains
  
 !OCL SERIAL
   subroutine atm_dyn_dgm_nonhydro3d_rhot_hevi_numflux_get_generalvc( &
-    del_flux, del_flux_hyd,                                     & ! (out)
-    DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd,    & ! (in)
-    Rtot, CVtot, CPtot,                                         & ! (in)
-    Gsqrt, G13, G23, nx, ny, nz,                                & ! (in)
-    vmapM, vmapP, lmesh, elem, lmesh2D, elem2D                  ) ! (in)
+    del_flux, del_flux_hyd,                                          & ! (out)
+    DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DPRES_, DENS_hyd, PRES_hyd, & ! (in)
+    Rtot, CVtot, CPtot,                                              & ! (in)
+    Gsqrt, G13, G23, nx, ny, nz,                                     & ! (in)
+    vmapM, vmapP, lmesh, elem, lmesh2D, elem2D                       ) ! (in)
 
     implicit none
 
@@ -83,7 +83,8 @@ contains
     real(RP), intent(in) ::  MOMX_(elem%Np*lmesh%NeA)  
     real(RP), intent(in) ::  MOMY_(elem%Np*lmesh%NeA)  
     real(RP), intent(in) ::  MOMZ_(elem%Np*lmesh%NeA)  
-    real(RP), intent(in) ::  DRHOT_(elem%Np*lmesh%NeA)  
+    real(RP), intent(in) ::  DRHOT_(elem%Np*lmesh%NeA)
+    real(RP), intent(in) ::  DPRES_(elem%Np*lmesh%NeA)
     real(RP), intent(in) ::  DENS_hyd(elem%Np*lmesh%NeA)
     real(RP), intent(in) ::  PRES_hyd(elem%Np*lmesh%NeA)
     real(RP), intent(in) ::  Rtot (elem%Np*lmesh%NeA)  
@@ -181,10 +182,12 @@ contains
       VelM(:) = VelhM(:) + GsqrtMOMZ_M(:) / ( GsqrtV_M(:) * GsqrtDensM(:) ) * nz(:,ke)
       VelP(:) = VelhP(:) + GsqrtMOMZ_P(:) / ( GsqrtV_P(:) * GsqrtDensP(:) ) * nz(:,ke)
         
-      dpresM(:) = PRES00 * ( Rtot(iM) * rP0 * GsqrtRhotM(:) / Gsqrt_M(:) )**( CPtot(iM) / CVtot(iM) ) &
-                - Phyd_M(:)
-      dpresP(:) = PRES00 * ( Rtot(iP) * rP0 * GsqrtRhotP(:) / Gsqrt_P(:) )**( CPtot(iP) / CVtot(iP) ) &
-                - Phyd_P(:)
+      ! dpresM(:) = PRES00 * ( Rtot(iM) * rP0 * GsqrtRhotM(:) / Gsqrt_M(:) )**( CPtot(iM) / CVtot(iM) ) &
+      !           - Phyd_M(:)
+      ! dpresP(:) = PRES00 * ( Rtot(iP) * rP0 * GsqrtRhotP(:) / Gsqrt_P(:) )**( CPtot(iP) / CVtot(iP) ) &
+      !           - Phyd_P(:)
+      dpresM(:) = DPRES_(iM)
+      dpresP(:) = DPRES_(iP)
 
       alpha(:) = swV(:) * max( sqrt( gamm * ( Phyd_M(:) + dpresM(:) ) * Gsqrt_M(:) / GsqrtDensM(:) ) + abs(VelM(:)), &
                                sqrt( gamm * ( Phyd_P(:) + dpresP(:) ) * Gsqrt_P(:) / GsqrtDensP(:) ) + abs(VelP(:))  )
@@ -227,11 +230,11 @@ contains
 
 !OCL SERIAL
   subroutine atm_dyn_dgm_nonhydro3d_rhot_hevi_numflux_get_generalhvc( &
-    del_flux, del_flux_hyd,                                        & ! (out)
-    DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd,       & ! (in)
-    Rtot, CVtot, CPtot,                                            & ! (in)
-    Gsqrt, G11, G12, G22, GsqrtH, G13, G23, nx, ny, nz,            & ! (in)
-    vmapM, vmapP, iM2Dto3D, lmesh, elem, lmesh2D, elem2D           ) ! (in)
+    del_flux, del_flux_hyd,                                           & ! (out)
+    DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DPRES_, DENS_hyd, PRES_hyd,  & ! (in)
+    Rtot, CVtot, CPtot,                                               & ! (in)
+    Gsqrt, G11, G12, G22, GsqrtH, G13, G23, nx, ny, nz,               & ! (in)
+    vmapM, vmapP, iM2Dto3D, lmesh, elem, lmesh2D, elem2D              ) ! (in)
 
     implicit none
 
@@ -245,7 +248,8 @@ contains
     real(RP), intent(in) ::  MOMX_(elem%Np*lmesh%NeA)  
     real(RP), intent(in) ::  MOMY_(elem%Np*lmesh%NeA)  
     real(RP), intent(in) ::  MOMZ_(elem%Np*lmesh%NeA)  
-    real(RP), intent(in) ::  DRHOT_(elem%Np*lmesh%NeA)  
+    real(RP), intent(in) ::  DRHOT_(elem%Np*lmesh%NeA)
+    real(RP), intent(in) ::  DPRES_(elem%Np*lmesh%NeA)
     real(RP), intent(in) ::  DENS_hyd(elem%Np*lmesh%NeA)
     real(RP), intent(in) ::  PRES_hyd(elem%Np*lmesh%NeA)
     real(RP), intent(in) ::  Rtot (elem%Np*lmesh%NeA)  
@@ -366,10 +370,12 @@ contains
       VelM(:) = VelhM(:) + GsqrtMOMZ_M(:) / ( GsqrtV_M(:) * GsqrtDensM(:) ) * nz(:,ke)
       VelP(:) = VelhP(:) + GsqrtMOMZ_P(:) / ( GsqrtV_P(:) * GsqrtDensP(:) ) * nz(:,ke)
         
-      dpresM(:) = PRES00 * ( Rtot(iM) * rP0 * GsqrtRhotM(:) / Gsqrt_M(:) )**( CPtot(iM) / CVtot(iM) ) &
-                - Phyd_M(:)
-      dpresP(:) = PRES00 * ( Rtot(iP) * rP0 * GsqrtRhotP(:) / Gsqrt_P(:) )**( CPtot(iP) / CVtot(iP) ) &
-                - Phyd_P(:)
+      ! dpresM(:) = PRES00 * ( Rtot(iM) * rP0 * GsqrtRhotM(:) / Gsqrt_M(:) )**( CPtot(iM) / CVtot(iM) ) &
+      !           - Phyd_M(:)
+      ! dpresP(:) = PRES00 * ( Rtot(iP) * rP0 * GsqrtRhotP(:) / Gsqrt_P(:) )**( CPtot(iP) / CVtot(iP) ) &
+      !           - Phyd_P(:)
+      dpresM(:) = DPRES_(iM)
+      dpresP(:) = DPRES_(iP)
 
       alpha(:) = swV(:) * max( sqrt( Gnn_M(:) * gamm * ( Phyd_M(:) + dpresM(:) ) * Gsqrt_M(:) / GsqrtDensM(:) ) + abs(VelM(:)), &
                                sqrt( Gnn_P(:) * gamm * ( Phyd_P(:) + dpresP(:) ) * Gsqrt_P(:) / GsqrtDensP(:) ) + abs(VelP(:))  )

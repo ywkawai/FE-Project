@@ -270,13 +270,17 @@ contains
                                  + ( lcmesh%zlev(:,ke) - ENV_L2_ZTOP ) * ENV_L3_TLAPS
       end where
 
+      if ( ke_z == 1 ) then
+        sfc_rhot(:) = DENS_hyd(elem%Hslice(:,1),ke2D) * PT_tmp(elem%Hslice(:,1),ke_z,ke_x,ke_y)        
+        bnd_SFC_PRES(:,ke2D) = PRES00 * ( Rdry * sfc_rhot(:) / PRES00 )**( CpDry / CVdry )
+      end if      
     end do
     end do
     end do
 
-    call hydrostaic_build_rho_XYZ( DDENS, & ! (out)
-      DENS_hyd, PRES_hyd, PT_tmp,         & ! (in)
-      x, y, z, lcmesh, elem               ) ! (in)
+    call hydrostaic_build_rho_XYZ( DDENS,  & ! (out)
+      DENS_hyd, PRES_hyd, PT_tmp,          & ! (in)
+      x, y, z, lcmesh, elem, bnd_SFC_PRES  ) ! (in)
       
     !$omp parallel do collapse(3) private(PT, DENS, PRES, ke,ke_x,ke_y,ke_z)
     do ke_y=1, lcmesh%NeY
@@ -318,7 +322,7 @@ contains
       temp_z, pres_z, qdry_z,                                   & ! [IN]
       qsat_z                                                    ) ! [OUT]
 
-    !$omp parallel do collapse(3) private(ke_z,ke_x,ke_y,ke,ke2D,p3,p2D,p, QV, sfc_rhot)
+    !$omp parallel do collapse(3) private(ke_z,ke_x,ke_y,ke,ke2D,p3,p2D,p, QV)
     do ke_y=1, lcmesh%NeY
     do ke_x=1, lcmesh%NeX
     do ke_z=1, lcmesh%NeZ
@@ -341,10 +345,6 @@ contains
       CPtot         (:,ke_z,ke_x,ke_y) = CPdry * ( 1.0_RP - QV(:) ) + CP_VAPOR * QV(:)
       CPtot_ov_CVtot(:,ke_z,ke_x,ke_y) = CPtot(:,ke_z,ke_x,ke_y)                         &
                                        / ( CVdry * ( 1.0_RP - QV(:) ) + CV_VAPOR * QV(:) ) 
-      if ( ke_z == 1 ) then
-        sfc_rhot(:) = DENS_hyd(elem%Hslice(:,1),ke2D) * PT_tmp(elem%Hslice(:,1),ke_z,ke_x,ke_y)        
-        bnd_SFC_PRES(:,ke2D) = PRES00 * ( Rtot(:,ke_z,ke_x,ke_y) * sfc_rhot(:) / PRES00 )**( CPtot_ov_CVtot(:,ke_z,ke_x,ke_y) )
-      end if                              
     end do
     end do
     end do
@@ -352,7 +352,7 @@ contains
     call hydrostaic_build_rho_XYZ( DDENS, & ! (out)
       DENS_hyd, PRES_hyd, PT_tmp,         & ! (in)
       Rtot, CPtot_ov_CVtot,               & ! (in)
-      x, y, z, lcmesh, elem, bnd_SFC_PRES ) ! (in)
+      x, y, z, lcmesh, elem               ) ! (in)
 
 
     !$omp parallel do collapse(3) private(PT, DENS, DENS2, PRES, ke,ke_x,ke_y,ke_z)

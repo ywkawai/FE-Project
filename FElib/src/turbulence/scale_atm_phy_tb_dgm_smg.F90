@@ -368,9 +368,10 @@ contains
 !OCL SERIAL  
   subroutine atm_phy_tb_dgm_smg_cal_grad_qtrc( &
     dQTdx, dQTdy, dQTdz,                                        & ! (out)
-    QTRC,                                                       & ! (out)
+    dRdx, dRdy, dRdz,                                           & ! (inout)
+    QTRC, DDENS, DENS_hyd,                                      & ! (in)
     Dx, Dy, Dz, Sx, Sy, Sz, Lift, lmesh, elem, lmesh2D, elem2D, & ! (in)
-    is_bound                                                    ) ! (in)
+    is_bound, cal_grad_dens                                     ) ! (in)
 
     implicit none
 
@@ -381,40 +382,79 @@ contains
     real(RP), intent(out) :: dQTdx(elem%Np,lmesh%NeA)
     real(RP), intent(out) :: dQTdy(elem%Np,lmesh%NeA)
     real(RP), intent(out) :: dQTdz(elem%Np,lmesh%NeA)
+    real(RP), intent(inout) :: dRdx(elem%Np,lmesh%NeA)
+    real(RP), intent(inout) :: dRdy(elem%Np,lmesh%NeA)
+    real(RP), intent(inout) :: dRdz(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: QTRC(elem%Np,lmesh%NeA)
+    real(RP), intent(in)  :: DDENS(elem%Np,lmesh%NeA)
+    real(RP), intent(in)  :: DENS_hyd(elem%Np,lmesh%NeA)        
     type(SparseMat), intent(in) :: Dx, Dy, Dz
     type(SparseMat), intent(in) :: Sx, Sy, Sz
     type(SparseMat), intent(in) :: Lift
     logical, intent(in) :: is_bound(elem%NfpTot,lmesh%Ne)
+    logical, intent(in) :: cal_grad_dens
 
     real(RP) :: Fx(elem%Np), Fy(elem%Np), Fz(elem%Np), LiftDelFlx(elem%Np)
     real(RP) :: del_flux(elem%NfpTot,lmesh%Ne,3)
+    real(RP) :: del_flux_rho (elem%NfpTot,lmesh%Ne,3)    
     
+    real(RP) :: DENS(elem%Np), RDENS(elem%Np)
+    real(RP) :: RHOxQTRC(elem%Np)
+
     integer :: ke
     integer :: p
     !--------------------------------------------------------------------
 
-    call cal_del_flux_grad_qtrc( del_flux,                                    & ! (out)
-      QTRC,                                                                   & ! (in)
+    call cal_del_flux_grad_qtrc( del_flux, del_flux_rho,                      & ! (out)
+      QTRC, DDENS, DENS_hyd,                                                  & ! (in)
       lmesh%normal_fn(:,:,1), lmesh%normal_fn(:,:,2), lmesh%normal_fn(:,:,3), & ! (in)
       lmesh%vmapM, lmesh%vmapP,                                               & ! (in)
-      lmesh, elem, is_bound )                                                   ! (in)
+      lmesh, elem, is_bound, cal_grad_dens )                                    ! (in)
 
-    !$omp parallel do private( Fx, Fy, Fz, LiftDelFlx )
+    !$omp parallel private( ke, Fx, Fy, Fz, LiftDelFlx, RHOxQTRC, DENS, RDENS )
+
+    ! Calculate gradient of density
+    if ( cal_grad_dens ) then
+      !$omp do
+      do ke=lmesh%NeS, lmesh%NeE
+        DENS(:) = DENS_hyd(:,ke) + DDENS(:,ke)
+
+        call sparsemat_matmul( Dx, DENS, Fx )
+        call sparsemat_matmul( Lift, lmesh%Fscale(:,ke) * del_flux_rho(:,ke,1), LiftDelFlx )
+        dRdx(:,ke) = lmesh%Escale(:,ke,1,1) * Fx(:) + LiftDelFlx(:)
+  
+        call sparsemat_matmul( Dy, DENS, Fy )
+        call sparsemat_matmul( Lift, lmesh%Fscale(:,ke) * del_flux_rho(:,ke,2), LiftDelFlx )
+        dRdy(:,ke) = lmesh%Escale(:,ke,2,2) * Fy(:) + LiftDelFlx(:)
+  
+        call sparsemat_matmul( Dz, DENS, Fz )
+        call sparsemat_matmul( Lift, lmesh%Fscale(:,ke) * del_flux_rho(:,ke,3), LiftDelFlx )
+        dRdz(:,ke) = lmesh%Escale(:,ke,3,3) * Fz(:) + LiftDelFlx(:)        
+      end do
+    end if
+
+    ! Calculate gradient of tracer
+    !$omp do
     do ke=lmesh%NeS, lmesh%NeE
+      DENS(:) = DENS_hyd(:,ke) + DDENS(:,ke)
+      RDENS(:) = 1.0_RP / DENS(:)
+      RHOxQTRC(:) = DENS(:) * QTRC(:,ke)
+
       !---
-      call sparsemat_matmul( Dx, QTRC(:,ke), Fx )
+      call sparsemat_matmul( Dx, RHOxQTRC(:), Fx )
       call sparsemat_matmul( Lift, lmesh%Fscale(:,ke) * del_flux(:,ke,1), LiftDelFlx )
-      dQTdx(:,ke) = lmesh%Escale(:,ke,1,1) * Fx(:) + LiftDelFlx(:)
+      dQTdx(:,ke) = ( lmesh%Escale(:,ke,1,1) * Fx(:) + LiftDelFlx(:) - QTRC(:,ke) * dRdx(:,ke) ) * RDENS(:)
 
-      call sparsemat_matmul( Dy, QTRC(:,ke), Fy )
+      call sparsemat_matmul( Dy, RHOxQTRC(:), Fy )
       call sparsemat_matmul( Lift, lmesh%Fscale(:,ke) * del_flux(:,ke,2), LiftDelFlx )
-      dQTdy(:,ke) = lmesh%Escale(:,ke,2,2) * Fy(:) + LiftDelFlx(:)
+      dQTdy(:,ke) = ( lmesh%Escale(:,ke,2,2) * Fy(:) + LiftDelFlx(:) - QTRC(:,ke) * dRdy(:,ke) ) * RDENS(:)
 
-      call sparsemat_matmul( Dz, QTRC(:,ke), Fz )
+      call sparsemat_matmul( Dz, RHOxQTRC(:), Fz )
       call sparsemat_matmul( Lift, lmesh%Fscale(:,ke) * del_flux(:,ke,3), LiftDelFlx )
-      dQTdz(:,ke) = lmesh%Escale(:,ke,3,3) * Fz(:) + LiftDelFlx(:)
+      dQTdz(:,ke) = ( lmesh%Escale(:,ke,3,3) * Fz(:) + LiftDelFlx(:) - QTRC(:,ke) * dRdz(:,ke) ) * RDENS(:)
     end do
+
+    !$omp end parallel
 
     return
   end subroutine atm_phy_tb_dgm_smg_cal_grad_qtrc
@@ -508,31 +548,37 @@ contains
   end subroutine cal_del_flux_grad
 
 !OCL SERIAL  
-  subroutine cal_del_flux_grad_qtrc( del_flux,  & ! (out)
-    QTRC_,                                             & ! (in)
-    nx, ny, nz, vmapM, vmapP, lmesh, elem, is_bound    ) ! (in)
+  subroutine cal_del_flux_grad_qtrc( del_flux, del_flux_rho, & ! (out)
+    QTRC_, DDENS_, DENS_hyd_,                                & ! (in)
+    nx, ny, nz, vmapM, vmapP, lmesh, elem, is_bound,         & ! (in)
+    cal_grad_dens                                            ) ! (in)
 
     implicit none
 
     class(LocalMesh3D), intent(in) :: lmesh
     class(elementbase3D), intent(in) :: elem  
     real(RP), intent(out) ::  del_flux(elem%NfpTot*lmesh%Ne,3)
+    real(RP), intent(out) ::  del_flux_rho(elem%NfpTot*lmesh%Ne,3)
     real(RP), intent(in) ::  QTRC_(elem%Np*lmesh%NeA)
+    real(RP), intent(in) ::  DDENS_(elem%Np*lmesh%NeA)
+    real(RP), intent(in) ::  DENS_hyd_(elem%Np*lmesh%NeA)
     real(RP), intent(in) :: nx(elem%NfpTot*lmesh%Ne)
     real(RP), intent(in) :: ny(elem%NfpTot*lmesh%Ne)
     real(RP), intent(in) :: nz(elem%NfpTot*lmesh%Ne)
     integer, intent(in) :: vmapM(elem%NfpTot*lmesh%Ne)
     integer, intent(in) :: vmapP(elem%NfpTot*lmesh%Ne)
     logical, intent(in) :: is_bound(elem%NfpTot*lmesh%Ne)
+    logical, intent(in) :: cal_grad_dens
     
     integer :: i, iP, iM
     real(RP) :: del
     real(RP) :: facx, facy, facz
+    real(RP) :: densM, densP
 
     !------------------------------------------------------------------------
     
-    !$omp parallel do private ( iM, iP,   &
-    !$omp del, facx, facy, facz           )
+    !$omp parallel do private ( iM, iP,       &
+    !$omp del, facx, facy, facz, densM, densP )
     do i=1, elem%NfpTot * lmesh%Ne
       iM = vmapM(i); iP = vmapP(i)
 
@@ -542,15 +588,26 @@ contains
         facy = 1.0_RP 
         facz = 1.0_RP
       else
-        facx = 1.0_RP - sign(1.0_RP,nx(i))
-        facy = 1.0_RP - sign(1.0_RP,ny(i))
-        facz = 1.0_RP - sign(1.0_RP,nz(i))
-        ! facx = 1.0_RP
-        ! facy = 1.0_RP
-        ! facz = 1.0_RP
+        ! facx = 1.0_RP - sign(1.0_RP,nx(i))
+        ! facy = 1.0_RP - sign(1.0_RP,ny(i))
+        ! facz = 1.0_RP - sign(1.0_RP,nz(i))
+        facx = 1.0_RP
+        facy = 1.0_RP
+        facz = 1.0_RP
       end if
 
-      del = 0.5_RP * ( QTRC_(iP) - QTRC_(iM) )
+      densM = DDENS_(iM) + DENS_hyd_(iM)
+      densP = DDENS_(iP) + DENS_hyd_(iP)
+
+      if ( cal_grad_dens ) then
+        del = 0.5_RP * ( densP - densM )
+        ! del = 0.5_RP * ( sqrt_DENS_Kh_P - sqrt_DENS_Kh_M )
+        del_flux_rho(i,1) = facx * del * nx(i)
+        del_flux_rho(i,2) = facy * del * ny(i)
+        del_flux_rho(i,3) = facz * del * nz(i)
+      end if
+      
+      del = 0.5_RP * ( densP * QTRC_(iP) - densM * QTRC_(iM) )
       del_flux(i,1) = facx * del * nx(i)
       del_flux(i,2) = facy * del * ny(i)
       del_flux(i,3) = facz * del * nz(i)
@@ -896,12 +953,12 @@ contains
         ny_ = ny(i)
         nz_ = nz(i)
       else
-        nx_ = ( 1.0_RP + sign(1.0_RP,nx(i)) ) * nx(i)
-        ny_ = ( 1.0_RP + sign(1.0_RP,ny(i)) ) * ny(i)
-        nz_ = ( 1.0_RP + sign(1.0_RP,nz(i)) ) * nz(i)
-        ! nx_ = nx(i)
-        ! ny_ = ny(i)
-        ! nz_ = nz(i)
+        ! nx_ = ( 1.0_RP + sign(1.0_RP,nx(i)) ) * nx(i)
+        ! ny_ = ( 1.0_RP + sign(1.0_RP,ny(i)) ) * ny(i)
+        ! nz_ = ( 1.0_RP + sign(1.0_RP,nz(i)) ) * nz(i)
+        nx_ = nx(i)
+        ny_ = ny(i)
+        nz_ = nz(i)
       end if
 
       if ( is_bound(i) )  then

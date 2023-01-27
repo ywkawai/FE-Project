@@ -188,8 +188,8 @@ contains
 
     !- Initialize a module for 3D dynamical core 
     call this%dyncore_driver%Init( EQS_TYPE, &
-      TINTEG_TYPE, dtsec,                        &
-      SPONGELAYER_FLAG, MODALFILTER_FLAG, mesh3D )
+      TINTEG_TYPE, dtsec,                          &
+      SPONGELAYER_FLAG, MODALFILTER_FLAG, atm_mesh )
 
     !- Initialize a module for tracer equations
     call this%trcadv_driver%Init( "TRCADV3D_HEVE", &
@@ -294,8 +294,8 @@ contains
 
       call this%dyncore_driver%Update( &
         prgvars_list, auxvars_list, forcing_list,                                  & ! (inout)
-        this%trcadv_driver%AUX_TRCVARS3D(TRCDDENS_ID),                             & ! (inout)
-        this%trcadv_driver%AUX_TRCVARS3D(TRCDDENS0_ID),                            & ! (inout)
+        this%trcadv_driver%TRCVARS3D(TRCDDENS_ID),                                 & ! (inout)
+        this%trcadv_driver%TRCVARS3D(TRCDDENS0_ID),                                & ! (inout)
         this%trcadv_driver%AUXTRC_FLUX_VARS3D(MASSFLX_X_TAVG),                     & ! (inout)
         this%trcadv_driver%AUXTRC_FLUX_VARS3D(MASSFLX_Y_TAVG),                     & ! (inout)
         this%trcadv_driver%AUXTRC_FLUX_VARS3D(MASSFLX_Z_TAVG),                     & ! (inout)
@@ -318,7 +318,8 @@ contains
         trcvars_list, prgvars_list, auxvars_list, forcing_list,                 & ! (inout)
         model_mesh%DOptrMat(1), model_mesh%DOptrMat(2), model_mesh%DOptrMat(3), & ! (in)
         model_mesh%SOptrMat(1), model_mesh%SOptrMat(2), model_mesh%SOptrMat(3), & ! (in)
-        model_mesh%LiftOptrMat, mesh3D                                          ) ! (in)
+        model_mesh%LiftOptrMat, mesh3D,                                         & ! (in)
+        this%dyncore_driver                                                     ) ! (in)
       
       call PROF_rapend( 'ATM_DYN_qtracer', 2)     
     end if
