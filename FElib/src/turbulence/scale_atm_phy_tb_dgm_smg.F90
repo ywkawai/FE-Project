@@ -411,7 +411,7 @@ contains
       lmesh%vmapM, lmesh%vmapP,                                               & ! (in)
       lmesh, elem, is_bound, cal_grad_dens )                                    ! (in)
 
-    !$omp parallel private( Fx, Fy, Fz, LiftDelFlx, RHOxQTRC, DENS, RDENS )
+    !$omp parallel private( ke, Fx, Fy, Fz, LiftDelFlx, RHOxQTRC, DENS, RDENS )
 
     ! Calculate gradient of density
     if ( cal_grad_dens ) then
@@ -420,17 +420,14 @@ contains
         DENS(:) = DENS_hyd(:,ke) + DDENS(:,ke)
 
         call sparsemat_matmul( Dx, DENS, Fx )
-        ! call sparsemat_matmul( Dx, SQRT_Kh_DENS(:), Fx )
         call sparsemat_matmul( Lift, lmesh%Fscale(:,ke) * del_flux_rho(:,ke,1), LiftDelFlx )
         dRdx(:,ke) = lmesh%Escale(:,ke,1,1) * Fx(:) + LiftDelFlx(:)
   
         call sparsemat_matmul( Dy, DENS, Fy )
-        ! call sparsemat_matmul( Dy, SQRT_Kh_DENS(:), Fy )
         call sparsemat_matmul( Lift, lmesh%Fscale(:,ke) * del_flux_rho(:,ke,2), LiftDelFlx )
         dRdy(:,ke) = lmesh%Escale(:,ke,2,2) * Fy(:) + LiftDelFlx(:)
   
         call sparsemat_matmul( Dz, DENS, Fz )
-        ! call sparsemat_matmul( Dz, SQRT_Kh_DENS(:), Fz )
         call sparsemat_matmul( Lift, lmesh%Fscale(:,ke) * del_flux_rho(:,ke,3), LiftDelFlx )
         dRdz(:,ke) = lmesh%Escale(:,ke,3,3) * Fz(:) + LiftDelFlx(:)        
       end do
@@ -446,17 +443,14 @@ contains
       !---
       call sparsemat_matmul( Dx, RHOxQTRC(:), Fx )
       call sparsemat_matmul( Lift, lmesh%Fscale(:,ke) * del_flux(:,ke,1), LiftDelFlx )
-!      dQTdx(:,ke) = lmesh%Escale(:,ke,1,1) * Fx(:) + LiftDelFlx(:)
       dQTdx(:,ke) = ( lmesh%Escale(:,ke,1,1) * Fx(:) + LiftDelFlx(:) - QTRC(:,ke) * dRdx(:,ke) ) * RDENS(:)
 
       call sparsemat_matmul( Dy, RHOxQTRC(:), Fy )
       call sparsemat_matmul( Lift, lmesh%Fscale(:,ke) * del_flux(:,ke,2), LiftDelFlx )
-!      dQTdy(:,ke) = lmesh%Escale(:,ke,2,2) * Fy(:) + LiftDelFlx(:)
       dQTdy(:,ke) = ( lmesh%Escale(:,ke,2,2) * Fy(:) + LiftDelFlx(:) - QTRC(:,ke) * dRdy(:,ke) ) * RDENS(:)
 
       call sparsemat_matmul( Dz, RHOxQTRC(:), Fz )
       call sparsemat_matmul( Lift, lmesh%Fscale(:,ke) * del_flux(:,ke,3), LiftDelFlx )
-!      dQTdz(:,ke) = lmesh%Escale(:,ke,3,3) * Fz(:) + LiftDelFlx(:)
       dQTdz(:,ke) = ( lmesh%Escale(:,ke,3,3) * Fz(:) + LiftDelFlx(:) - QTRC(:,ke) * dRdz(:,ke) ) * RDENS(:)
     end do
 
