@@ -493,8 +493,7 @@ contains
     !$omp iM, iP, VelP, VelM, alpha, densM, densP, tavg_weight )
     do i=1, elem%NfpTot*lmesh%Ne
       iM = vmapM(i); iP = vmapP(i)
-       
- 
+
       densM = DDENS_(iM) + DENS_hyd(iM)
       densP = DDENS_(iP) + DENS_hyd(iP)
  
