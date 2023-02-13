@@ -172,6 +172,8 @@ contains
       call FILE_HISTORY_meshfield_in( PT_diff, "perturbation of potential temperature" )
     end if
 
+    return
+    
     do n=1, atm%mesh%ptr_mesh%LOCAL_MESH_NUM
       call AtmosVars_GetLocalMeshPrgVars( n, atm%mesh%ptr_mesh,  &
         atm%vars%PROGVARS_manager, atm%vars%AUXVARS_manager,     &

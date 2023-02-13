@@ -128,7 +128,7 @@ contains
   end subroutine USER_setup
 
 !OCL SERIAL
-  subroutine USER_calc_tendency( this, atm )
+  subroutine USER_update( this, atm )
     use scale_file_history_meshfield, only: &
       FILE_HISTORY_meshfield_in
 
@@ -140,8 +140,6 @@ contains
 
     use scale_localmeshfield_base, only: LocalMeshFieldBase
   
-    use scale_file_history_meshfield, only: &
-      FILE_HISTORY_meshfield_in
     use scale_atm_dyn_dgm_nonhydro3d_common, only: &
       MOMX_p  => PHYTEND_MOMX_ID, &
       MOMY_p  => PHYTEND_MOMY_ID, &
@@ -163,19 +161,20 @@ contains
     class(LocalMeshFieldBase), pointer :: PRES, PT
     class(LocalMeshFieldBase), pointer :: Rtot, CVtot, CPtot
 
-    real(RP), parameter :: rtau = 1.0_RP / 600.0_RP
+    real(RP) :: rtau
 
     integer :: n
     integer :: ke
 
     real(RP), allocatable :: DENS(:)
     real(RP), allocatable :: sfac(:)
-    !------------------------------------------
+    real(RP), allocatable :: rsfac(:)
 
-    if ( this%USER_do ) then
-      call atm%vars%Calc_diagVar( 'PT_diff', PT_diff )
-      call FILE_HISTORY_meshfield_in( PT_diff, "perturbation of potential temperature" )
-    end if
+    real(DP) :: dt
+    !------------------------------------------
+    
+    rtau = 1.0_RP / SPONGE_EFOLD_SEC
+    dt = atm%time_manager%dtsec
     
     do n=1, atm%mesh%ptr_mesh%LOCAL_MESH_NUM
       call AtmosVars_GetLocalMeshPrgVars( n, atm%mesh%ptr_mesh,  &
@@ -187,28 +186,42 @@ contains
         atm%vars%AUXVARS_manager, PRES, PT                          )
       
       elem => lcmesh%refElem3D
-      allocate( DENS(elem%Np), sfac(elem%Np) )
+      allocate( DENS(elem%Np), sfac(elem%Np), rsfac(elem%Np) )
 
-      !$omp parallel do private(DENS, sfac)
+      !$omp parallel do private(DENS, sfac, rsfac)
       do ke=lcmesh%NeS, lcmesh%NeE
         DENS(:) = DENS_hyd%val(:,ke) + DDENS%val(:,ke)
-        sfac(:) = rtau * 0.5_RP * ( 1.0_RP - cos( PI * ( lcmesh%pos_en(:,ke,3) - SPONGE_HEIGHT ) / ( zTop - SPONGE_HEIGHT ) ) ) 
+        sfac(:) = dt * rtau * 0.5_RP * ( 1.0_RP - cos( PI * ( lcmesh%pos_en(:,ke,3) - SPONGE_HEIGHT ) / ( zTop - SPONGE_HEIGHT ) ) )
+        rsfac(:) = 1.0_RP / ( 1.0_RP + sfac(:) )
 
-        where ( lcmesh%pos_en(:,ke,3) > SPONGE_HEIGHT ) 
-          atm%vars%PHY_TEND(MOMX_p)%local(n)%val(:,ke) = atm%vars%PHY_TEND(MOMX_p)%local(n)%val(:,ke)   &
-            - sfac(:) * ( MOMX%val(:,ke) - DENS(:) * U0 )
-          atm%vars%PHY_TEND(MOMY_p)%local(n)%val(:,ke) = atm%vars%PHY_TEND(MOMY_p)%local(n)%val(:,ke)   &
-            - sfac(:) * MOMY%val(:,ke)
-          atm%vars%PHY_TEND(MOMZ_p)%local(n)%val(:,ke) = atm%vars%PHY_TEND(MOMZ_p)%local(n)%val(:,ke)   &
-            - sfac(:) * MOMZ%val(:,ke)
-
-          atm%vars%PHY_TEND(RHOH_p)%local(n)%val(:,ke) = atm%vars%PHY_TEND(RHOH_p)%local(n)%val(:,ke)   &
-            - DENS(:) * sfac(:) * CpDry * ( PRES%val(:,ke) / DENS(:) - PRES_hyd%val(:,ke) / DENS_hyd%val(:,ke) ) / Rdry
+        where ( lcmesh%pos_en(:,ke,3) > SPONGE_HEIGHT )
+          MOMX%val(:,ke) = ( MOMX%val(:,ke) + sfac(:) * DENS(:) * U0 ) * rsfac(:)
+          MOMY%val(:,ke) = MOMY%val(:,ke) * rsfac(:)
+          MOMZ%val(:,ke) = MOMZ%val(:,ke) * rsfac(:)
+          DRHOT%val(:,ke) = DRHOT%val(:,ke) * rsfac(:)
         end where
       end do
-      deallocate( DENS, sfac )
+      deallocate( DENS, sfac, rsfac )
     end do
 
+    return
+  end subroutine USER_update
+
+!OCL SERIAL
+  subroutine USER_calc_tendency( this, atm )
+    use scale_file_history_meshfield, only: &
+      FILE_HISTORY_meshfield_in
+
+    implicit none
+    class(User), intent(inout) :: this
+    class(AtmosComponent), intent(inout) :: atm      
+    !------------------------------------------
+
+    if ( this%USER_do ) then
+      call atm%vars%Calc_diagVar( 'PT_diff', PT_diff )
+      call FILE_HISTORY_meshfield_in( PT_diff, "perturbation of potential temperature" )
+    end if
+    
     return
   end subroutine USER_calc_tendency
 
