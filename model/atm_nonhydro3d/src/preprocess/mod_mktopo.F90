@@ -58,8 +58,9 @@ module mod_mktopo
   integer, parameter, public :: I_IGNORE                  = 0
   integer, parameter, public :: I_FLAT                    = 1
   integer, parameter, public :: I_BELLSHAPE               = 2
-  integer, parameter, public :: I_BELLSHAPE_GLOBAL        = 3
-  integer, parameter, public :: I_BAROCWAVE_GLOBAL_JW2004 = 4  
+  integer, parameter, public :: I_SCAER                   = 3
+  integer, parameter, public :: I_BELLSHAPE_GLOBAL        = 4
+  integer, parameter, public :: I_BAROCWAVE_GLOBAL_JW2004 = 5  
 
   !-----------------------------------------------------------------------------
   !
@@ -116,6 +117,8 @@ contains
       MKTOPO_TYPE = I_FLAT  
     case('BELLSHAPE')
       MKTOPO_TYPE = I_BELLSHAPE
+    case('SCHAER')
+      MKTOPO_TYPE = I_SCAER
     case('BELLSHAPE_GLOBAL')
       MKTOPO_TYPE = I_BELLSHAPE_GLOBAL 
     case('BAROCWAVE_GLOBAL_JW2004')
@@ -156,7 +159,7 @@ contains
       LOG_NEWLINE
       LOG_PROGRESS(*) 'start making topography data'
 
-      ! call PROF_rapstart('_MkTOPO_main',3)   
+      call PROF_rapstart('_MkTOPO_main', 3)   
       
       call mesh%GetMesh2D( mesh2D )
 
@@ -165,14 +168,16 @@ contains
         call MKTOPO_flat( mesh2D, topography%topo )
       case ( I_BELLSHAPE )
         call MKTOPO_bellshape( mesh2D, topography%topo )
+      case ( I_SCAER )
+        call MKTOPO_Schaer_type_mountain( mesh2D, topography%topo )
       case ( I_BELLSHAPE_GLOBAL )
         call MKTOPO_bellshape_global( mesh2D, topography%topo )
       case ( I_BAROCWAVE_GLOBAL_JW2004 )
         call MKTOPO_barocwave_global_JW2006( mesh2D, topography%topo )
       end select
 
-      ! call PROF_rapend  ('_MkTOPO_main',3)
-      ! LOG_PROGRESS(*) 'end   making topography data'
+      call PROF_rapend  ('_MkTOPO_main', 3)
+      LOG_PROGRESS(*) 'end making topography data'
 
       output = .true.
     end if
@@ -279,7 +284,7 @@ contains
 
 
   !-----------------------------------------------------------------------------
-  !> Make mountain with bell shape (global)
+  !> Make mountain with bell shape
   subroutine MKTOPO_bellshape( mesh, topo )
     implicit none
 
@@ -345,6 +350,66 @@ contains
     
     return
   end subroutine MKTOPO_bellshape
+
+  !-----------------------------------------------------------------------------
+  !> Make Schaer-type mountain
+  !> References: Schaer et al, 2002, MWR, Vol.130, 2459-2480
+  !>             Klemp et al, 2003,  MWR, Vol.131, 1229-1239
+  subroutine MKTOPO_Schaer_type_mountain( mesh, topo )
+    implicit none
+
+    class(MeshBase2D), intent(in), target :: mesh
+    class(MeshField2D), intent(inout) :: topo
+
+    ! Schaer-type mountain parameter
+    real(RP) :: SCHAER_CX       =  25.E3_RP ! center location [m]: x
+    real(RP) :: SCHAER_RX       =   5.E3_RP ! bubble radius   [m]: x
+    real(RP) :: SCHAER_LAMBDA   =   4.E3_RP ! wavelength of wavelike perturbation [m]: x
+    real(RP) :: SCHAER_HEIGHT   =  250.0_RP ! height of mountain [m]
+    namelist / PARAM_MKTOPO_SCHAER / &
+       SCHAER_CX,     &
+       SCHAER_RX,     &
+       SCHAER_LAMBDA, &
+       SCHAER_HEIGHT
+
+    integer :: ierr    
+    integer :: n
+    integer :: ke2d
+    type(LocalMesh2D), pointer :: lmesh2D
+    class(ElementBase2D), pointer :: elem
+
+    real(RP), allocatable :: dist(:)
+    real(RP) :: fac_y_quasi2D
+    !--------------------------------
+
+    LOG_INFO("MKTOPO_Schaer",*) 'Setup'
+
+    !--- read namelist
+    rewind(IO_FID_CONF)
+    read(IO_FID_CONF,nml=PARAM_MKTOPO_SCHAER,iostat=ierr)
+    if( ierr < 0 ) then !--- missing
+       LOG_INFO("MKTOPO_Schaer",*) 'Not found namelist. Default used.'
+    elseif( ierr > 0 ) then !--- fatal error
+       LOG_ERROR("MKTOPO_Schaer",*) 'Not appropriate names in namelist PARAM_MKTOPO_SCAHER. Check!'
+       call PRC_abort
+    endif
+    LOG_NML(PARAM_MKTOPO_SCHAER)
+
+    do n=1, mesh%LOCAL_MESH_NUM
+      lmesh2D => mesh%lcmesh_list(n)
+      elem => lmesh2D%refElem2D
+
+      allocate( dist(elem%Np) )
+      !$omp parallel do private(dist)
+      do ke2D=lmesh2D%NeS, lmesh2D%NeE
+        dist(:) = exp( - ( lmesh2D%pos_en(:,ke2d,1) - SCHAER_CX )**2 / SCHAER_RX**2 )
+        topo%local(n)%val(:,ke2d) = SCHAER_HEIGHT * dist(:) * ( cos( PI * ( lmesh2D%pos_en(:,ke2d,1) - SCHAER_CX ) / SCHAER_LAMBDA ) )**2
+      end do
+      deallocate( dist )
+    end do
+    
+    return
+  end subroutine MKTOPO_Schaer_type_mountain
 
   !-----------------------------------------------------------------------------
   !> Make mountain with bell shape (global)
