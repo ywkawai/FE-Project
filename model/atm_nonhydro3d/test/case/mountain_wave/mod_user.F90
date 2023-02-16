@@ -2,7 +2,7 @@
 !> module USER
 !!
 !! @par Description
-!!          User defined module
+!!          User defined module for mountain wave experiments(linear hydrostatic case, nonhydrostatic case, Schaer case)
 !!
 !! @author Team SCALE
 !!
@@ -27,7 +27,9 @@ module mod_user
   use scale_element_hexahedral, only: HexahedralElement
   use scale_localmesh_2d, only: LocalMesh2D  
   use scale_localmesh_3d, only: LocalMesh3D  
+  use scale_mesh_base, only: MeshBase
   use scale_meshfield_base, only: MeshField3D
+  use scale_mesh_cubedom3d, only: MeshCubeDom3D  
 
   use mod_user_base, only: UserBase
   use mod_experiment, only: Experiment
@@ -46,6 +48,7 @@ module mod_user
     procedure :: setup_ => USER_setup
     generic :: setup => setup_
     procedure :: calc_tendency => USER_calc_tendency
+    procedure :: update => USER_update
   end type User
 
   !-----------------------------------------------------------------------------
@@ -63,6 +66,9 @@ module mod_user
   real(RP), private :: U0            
   real(RP), private :: zTop
   real(RP), private :: SPONGE_HEIGHT
+  real(RP), private :: SPONGE_LATERAL_WIDTH
+  real(RP), private :: SPONGE_EFOLD_SEC      = 600.0_RP
+  real(RP), private :: Lx
 
   type(MeshField3D), private :: PT_diff
 
@@ -93,9 +99,15 @@ contains
 
     logical :: USER_do        = .false. !< do user step?
     namelist / PARAM_USER / &
-       USER_do,             &
-       U0,                  &
-       zTop, Sponge_Height
+       USER_do,              &
+       U0,                   &
+       zTop,                 &
+       SPONGE_HEIGHT,        &
+       SPONGE_LATERAL_WIDTH, &
+       SPONGE_EFOLD_SEC
+
+    class(MeshBase), pointer :: ptr_mesh
+    class(MeshCubeDom3D), pointer :: mesh
 
     integer :: ierr    
     !------------------------------------------
@@ -104,9 +116,11 @@ contains
     LOG_NEWLINE
     LOG_INFO("USER_setup",*) 'Setup'
 
-    U0             = 10.0_RP
-    zTop           = 30.E3_RP
-    SPONGE_HEIGHT  = 15.E3_RP
+    U0                   = 10.0_RP
+    zTop                 = 30.E3_RP
+    SPONGE_HEIGHT        = 15.E3_RP
+    SPONGE_EFOLD_SEC     = 900.0_RP
+    SPONGE_LATERAL_WIDTH = 0.0_RP
 
     !--- read namelist
     rewind(IO_FID_CONF)
@@ -123,6 +137,14 @@ contains
 
     !-
     if ( this%USER_do ) call PT_diff%Init( 'PT_diff', 'K', atm%mesh%ptr_mesh )
+
+    call atm%mesh_rm%GetModelMesh( ptr_mesh )
+    select type( ptr_mesh )
+    type is (MeshCubeDom3D)
+      mesh => ptr_mesh
+    end select
+
+    Lx = mesh%xmax_gl
 
     return
   end subroutine USER_setup
@@ -171,10 +193,14 @@ contains
     real(RP), allocatable :: rsfac(:)
 
     real(DP) :: dt
+    real(RP) :: sponge_lateral_x00
+    real(RP) :: sponge_lateral_x0
     !------------------------------------------
     
     rtau = 1.0_RP / SPONGE_EFOLD_SEC
     dt = atm%time_manager%dtsec
+    sponge_lateral_x00 = Lx - SPONGE_LATERAL_WIDTH
+    sponge_lateral_x0 = sponge_lateral_x00 + 0.5_RP * SPONGE_LATERAL_WIDTH
     
     do n=1, atm%mesh%ptr_mesh%LOCAL_MESH_NUM
       call AtmosVars_GetLocalMeshPrgVars( n, atm%mesh%ptr_mesh,  &
@@ -191,15 +217,21 @@ contains
       !$omp parallel do private(DENS, sfac, rsfac)
       do ke=lcmesh%NeS, lcmesh%NeE
         DENS(:) = DENS_hyd%val(:,ke) + DDENS%val(:,ke)
-        sfac(:) = dt * rtau * 0.5_RP * ( 1.0_RP - cos( PI * ( lcmesh%pos_en(:,ke,3) - SPONGE_HEIGHT ) / ( zTop - SPONGE_HEIGHT ) ) )
+
+        sfac(:) = 0.0_RP 
+        where ( lcmesh%pos_en(:,ke,1) > sponge_lateral_x00 )
+          sfac(:) = dt * rtau * 0.5_RP * ( 1.0_RP - cos( 2.0_RP * PI * ( ( lcmesh%pos_en(:,ke,1) - sponge_lateral_x00 ) / SPONGE_LATERAL_WIDTH ) ) )
+        end where        
+        where ( lcmesh%pos_en(:,ke,3) > SPONGE_HEIGHT )
+          sfac(:) = sfac(:) + dt * rtau * 0.5_RP * ( 1.0_RP - cos( PI * ( lcmesh%pos_en(:,ke,3) - SPONGE_HEIGHT ) / ( zTop - SPONGE_HEIGHT ) ) )
+        end where
+
         rsfac(:) = 1.0_RP / ( 1.0_RP + sfac(:) )
 
-        where ( lcmesh%pos_en(:,ke,3) > SPONGE_HEIGHT )
-          MOMX%val(:,ke) = ( MOMX%val(:,ke) + sfac(:) * DENS(:) * U0 ) * rsfac(:)
-          MOMY%val(:,ke) = MOMY%val(:,ke) * rsfac(:)
-          MOMZ%val(:,ke) = MOMZ%val(:,ke) * rsfac(:)
-          DRHOT%val(:,ke) = DRHOT%val(:,ke) * rsfac(:)
-        end where
+        MOMX%val(:,ke) = ( MOMX%val(:,ke) + sfac(:) * DENS(:) * U0 ) * rsfac(:)
+        MOMY%val(:,ke) = MOMY%val(:,ke) * rsfac(:)
+        MOMZ%val(:,ke) = MOMZ%val(:,ke) * rsfac(:)
+        DRHOT%val(:,ke) = DRHOT%val(:,ke) * rsfac(:)
       end do
       deallocate( DENS, sfac, rsfac )
     end do
