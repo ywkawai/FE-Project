@@ -250,11 +250,12 @@ contains
     real(RP) :: mom_normal
 
     real(RP) :: MOMW
+    real(RP) :: nx_, ny_, nz_, r_nabs_
     !-----------------------------------------------
 
     !$omp parallel do collapse(2) private( &
     !$omp ke, p, ke2D, i, i_, iM, iP,      &
-    !$omp mom_normal, MOMW                 )
+    !$omp mom_normal, MOMW, nx_, ny_, nz_, r_nabs_       )
     do ke=lmesh%NeS, lmesh%NeE
     do p=1, elem%NfpTot
       i = p + (ke-1)*elem%NfpTot
@@ -273,9 +274,18 @@ contains
                   * ( G13(iM) * MOMX(iM) + G23(iM) * MOMY(iM) )
           mom_normal = MOMX(iM) * nx(i) + MOMY(iM) * ny(i) + MOMW * nz(i)
 
-          MOMX(iP) = MOMX(iM) - 2.0_RP * mom_normal * nx(i)
-          MOMY(iP) = MOMY(iM) - 2.0_RP * mom_normal * ny(i)
-          MOMZ(iP) = MOMZ(iM) - 2.0_RP * mom_normal * nz(i)
+          ! MOMX(iP) = MOMX(iM) - 2.0_RP * mom_normal * nx(i)
+          ! MOMY(iP) = MOMY(iM) - 2.0_RP * mom_normal * ny(i)
+          ! MOMZ(iP) = MOMZ(iM) - 2.0_RP * mom_normal * nz(i)
+
+          r_nabs_ = 1.0_RP / sqrt(1.0_RP + (Gsqrt(iM) * G13(iM))**2 + (Gsqrt(iM) * G23(iM))**2 )
+          nx_ = Gsqrt(iM) * G13(iM) * r_nabs_
+          ny_ = Gsqrt(iM) * G23(iM) * r_nabs_
+          nz_ = r_nabs_
+
+          MOMX(iP) = MOMX(iM) - 2.0_RP * MOMW * nx_
+          MOMY(iP) = MOMY(iM) - 2.0_RP * MOMW * ny_
+          MOMZ(iP) = MOMZ(iM) - 2.0_RP * MOMW * nz_
         case ( BND_TYPE_NOSLIP_ID )
           MOMX(iP) = - MOMX(iM)
           MOMY(iP) = - MOMY(iM)

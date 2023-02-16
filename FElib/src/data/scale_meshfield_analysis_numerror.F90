@@ -226,6 +226,8 @@ contains
     integer :: ierr
     !---------------------------------------------------------------------------
 
+    if ( this%var_num == 0 ) return
+    
     if ( this%output_error_first ) then
       if ( PRC_ismaster ) write(this%log_fid,*)
       this%output_error_first = .false.
