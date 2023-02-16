@@ -80,7 +80,7 @@ contains
     real(RP) :: delx, dely
     !------------------------------------
 
-    call inmesh_dummy%Init( MESH_INID, inmesh_type )
+    call inmesh_dummy%Init( MESH_INID, inmesh_type, .false. )
 
     allocate( in_tiles_x(4,inmesh_dummy%NLocalMeshPerPrc,inmesh_dummy%Nprc) )
     allocate( in_tiles_y(4,inmesh_dummy%NLocalMeshPerPrc,inmesh_dummy%Nprc) )
@@ -381,7 +381,7 @@ contains
 
       allocate( this%in_mesh_list(in_prc_num)  )
       do i=1, in_prc_num
-        call this%in_mesh_list(i)%Init( MESH_INID, in_meshtype_name )
+        call this%in_mesh_list(i)%Init( MESH_INID, in_meshtype_name, .false. )
         call this%in_mesh_list(i)%Generate( myrank=in_lcprc2prc_tmp(i)-1 )
       end do
 
@@ -453,7 +453,7 @@ contains
 
     allocate( this%in_mesh_list(in_prc_num) )
     do i=1, in_prc_num
-      call this%in_mesh_list(i)%Init( MESH_INID, in_meshtype_name )
+      call this%in_mesh_list(i)%Init( MESH_INID, in_meshtype_name, .false. )
       call this%in_mesh_list(i)%Generate( myrank=in_lcprc2prc(i)-1 )
     end do
 
