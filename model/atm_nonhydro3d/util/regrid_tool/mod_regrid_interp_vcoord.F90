@@ -260,7 +260,7 @@ contains
   
       call this%elem%Init( out_mesh%elem3D%PolyOrder_h, out_PolyOrder_v, .true. )
 
-      call this%out_mesh%Init( OUTMESH_ID, out_mesh%mesh_type_id )
+      call this%out_mesh%Init( OUTMESH_ID, out_mesh%mesh_type_id, .false. )
       this%out_mesh_ptr => this%out_mesh
 
       select type( ptr_mesh2D )
@@ -363,7 +363,10 @@ contains
   end subroutine regrid_interp_vcoord_Final
 
 !OCL SERIAL  
-  subroutine regrid_interp_vcoord_update_weight( this, istep, out_mesh, nodeMap_list )
+  subroutine regrid_interp_vcoord_update_weight( this, &
+    istep, out_mesh, nodeMap_list,                     &
+    GP_flag, out_mesh_GP, GPMat                        )
+
     use mod_regrid_interp_field, only: &
       regrid_interp_field_Interpolate
     implicit none
@@ -371,6 +374,9 @@ contains
     integer, intent(in) :: istep    
     class(regrid_mesh_base), intent(in), target :: out_mesh
     type(regrid_nodemap), intent(in) :: nodeMap_list(:)
+    logical, intent(in) :: GP_flag
+    class(regrid_mesh_base), intent(in), target :: out_mesh_GP
+    real(RP), intent(in) :: GPMat(:,:)
 
     integer :: n
     class(MeshBase3D), pointer :: mesh3D
@@ -380,8 +386,9 @@ contains
     case ( REGRID_VCOORD_MODEL_ID )
       return      
     case ( REGRID_VCOORD_PRESS_ID, REGRID_VCOORD_SIGMA_ID )
-      call regrid_interp_field_Interpolate( istep, this%pres%varname, &
-        out_mesh, this%pres, nodeMap_list                             )  
+      call regrid_interp_field_Interpolate( this%pres,     &
+        istep, this%pres%varname, out_mesh, nodeMap_list,  &
+        GP_flag, out_mesh_GP, GPMat                        )  
     end select
     
     mesh3D => out_mesh%ptr_mesh3D

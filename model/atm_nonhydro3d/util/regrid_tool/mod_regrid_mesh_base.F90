@@ -108,13 +108,13 @@ contains
 
 !OCL SERIAL
   subroutine regrid_mesh_base_init_1( this, & ! (inout)
-    mesh_inout_id, mesh_type_id             ) ! (in)
+    mesh_inout_id, mesh_type_id, GP_flag    ) ! (in)
 
     implicit none
     class(regrid_mesh_base), intent(inout) :: this
     integer, intent(in) :: mesh_inout_id
     integer, intent(in) :: mesh_type_id
-
+    logical, intent(in) :: GP_flag
     !----------------------------------------
 
     select case( mesh_inout_id )
@@ -129,17 +129,17 @@ contains
 
     select case (this%mesh_type_id)
     case( REGRID_MESHTYPE_STRUCTURED2D_ID )
-      call regrid_mesh_base_init_mesh2D( this )
+      call regrid_mesh_base_init_mesh2D( this, GP_flag )
     case( REGRID_MESHTYPE_STRUCTURED3D_ID )
-      call regrid_mesh_base_init_mesh3D( this )
+      call regrid_mesh_base_init_mesh3D( this, GP_flag )
     case( REGRID_MESHTYPE_LONLAT2D_ID )
-      call regrid_mesh_base_init_mesh2D( this )
+      call regrid_mesh_base_init_mesh2D( this, GP_flag )
     case( REGRID_MESHTYPE_LONLAT3D_ID )
-      call regrid_mesh_base_init_mesh3D( this )
+      call regrid_mesh_base_init_mesh3D( this, GP_flag )
     case( REGRID_MESHTYPE_CUBEDSPHERE2D_ID )
-      call regrid_mesh_base_init_csmesh2D( this )
+      call regrid_mesh_base_init_csmesh2D( this, GP_flag )
     case( REGRID_MESHTYPE_CUBEDSPHERE3D_ID )
-      call regrid_mesh_base_init_csmesh3D( this )
+      call regrid_mesh_base_init_csmesh3D( this, GP_flag )
     case default
       LOG_ERROR("regrid_mesh_base_init",*) 'Not supported type id of mesh. Check! ', mesh_type_id
       call PRC_abort
@@ -152,18 +152,19 @@ contains
 
 !OCL SERIAL
   subroutine regrid_mesh_base_init_2( this, & ! (inout)
-    mesh_inout_id, mesh_type_name           ) ! (in)
+    mesh_inout_id, mesh_type_name, GP_flag  ) ! (in)
 
     implicit none
     class(regrid_mesh_base), intent(inout) :: this
     integer, intent(in) :: mesh_inout_id
     character(len=*), intent(in) :: mesh_type_name
+    logical, intent(in) :: GP_flag
 
     integer :: mesh_type_id
     !----------------------------------------
     
     mesh_type_id = regrid_mesh_base_meshtype_name2id( mesh_type_name )
-    call this%Init1( mesh_inout_id, mesh_type_id )
+    call this%Init1( mesh_inout_id, mesh_type_id, GP_flag )
 
     return
   end subroutine regrid_mesh_base_init_2
@@ -382,10 +383,11 @@ contains
 !-- private --------------------------------
 
 !OCL SERIAL  
-  subroutine regrid_mesh_base_init_mesh2D( this )
+  subroutine regrid_mesh_base_init_mesh2D( this, GP_flag )
 
     implicit none
     class(regrid_mesh_base), intent(inout) :: this
+    logical, intent(in) :: GP_flag
 
     ! Structured mesh  
     integer :: NprcX         = 1    
@@ -400,17 +402,20 @@ contains
     logical  :: isPeriodicY  = .false.
     integer :: NLocalMeshPerPrc = 1
 
-    integer :: PolyOrder_h  = 1
+    integer :: PolyOrder_h     = 1
+    integer :: PolyOrder_h_GP  = 1
 
     namelist / PARAM_REGRID_INMESH2D_STRUCTURED / &
       NprcX, NprcY, NeX, NeY, NLocalMeshPerPrc,   &
       dom_xmin, dom_xmax, dom_ymin, dom_ymax,     &
-      PolyOrder_h, isPeriodicX, isPeriodicY
+      PolyOrder_h,                                &
+      isPeriodicX, isPeriodicY
     
     namelist / PARAM_REGRID_OUTMESH2D_STRUCTURED / &
       NprcX, NprcY, NeX, NeY, NLocalMeshPerPrc,    &
       dom_xmin, dom_xmax, dom_ymin, dom_ymax,      &
-      PolyOrder_h, isPeriodicX, isPeriodicY
+      PolyOrder_h, PolyOrder_h_GP,                 &
+      isPeriodicX, isPeriodicY
 
     integer :: ierr
     !----------------------------------------
@@ -460,6 +465,10 @@ contains
     this%dom_ymax = dom_ymax
 
     this%polyorder_h = PolyOrder_h
+    this%polyorder_v = -1
+    if ( this%inout_id == REGRID_MESH_BASE_OUT_ID .and. GP_flag ) then
+      this%polyorder_h = PolyOrder_h_GP
+    end if
 
     this%isPeriodicX = isPeriodicX
     this%isPeriodicY = isPeriodicY
@@ -470,10 +479,11 @@ contains
   end subroutine regrid_mesh_base_init_mesh2D
 
 !OCL SERIAL  
-  subroutine regrid_mesh_base_init_csmesh2D( this )
+  subroutine regrid_mesh_base_init_csmesh2D( this, GP_flag )
     implicit none
 
     class(regrid_mesh_base), intent(inout) :: this
+    logical, intent(in) :: GP_flag
 
     ! Structured mesh  
     integer :: Nprc             = 1    
@@ -482,6 +492,7 @@ contains
     integer :: NLocalMeshPerPrc = 1
 
     integer :: PolyOrder_h      = 1
+    integer :: PolyOrder_h_GP   = 1
 
     namelist / PARAM_REGRID_INMESH2D_CUBEDSPHERE / &
       Nprc, NeGX, NeGY, NLocalMeshPerPrc,          &
@@ -489,7 +500,7 @@ contains
    
     namelist / PARAM_REGRID_OUTMESH2D_CUBEDSPHERE / &
       Nprc, NeGX, NeGY, NLocalMeshPerPrc,          &
-      PolyOrder_h
+      PolyOrder_h, PolyOrder_h_GP
 
     integer :: ierr
 
@@ -530,6 +541,10 @@ contains
     this%NLocalMeshPerPRC = NLocalMeshPerPrc
 
     this%polyorder_h = PolyOrder_h
+    this%polyorder_v = -1
+    if ( this%inout_id == REGRID_MESH_BASE_OUT_ID .and. GP_flag ) then
+      this%polyorder_h = PolyOrder_h_GP
+    end if
 
     call this%elem2D%Init( PolyOrder_h, .true. )
 
@@ -554,11 +569,12 @@ contains
   end subroutine regrid_mesh_base_init_csmesh2D
 
 !OCL SERIAL  
-  subroutine regrid_mesh_base_init_mesh3D( this )
+  subroutine regrid_mesh_base_init_mesh3D( this, GP_flag )
     
     implicit none
 
     class(regrid_mesh_base), intent(inout) :: this
+    logical, intent(in) :: GP_flag
 
     ! Structured mesh  
     integer :: NprcX         = 1    
@@ -578,8 +594,10 @@ contains
     logical  :: isPeriodicZ  = .false.
     integer :: NLocalMeshPerPrc = 1
 
-    integer :: PolyOrder_h  = 1
-    integer :: PolyOrder_v  = 1
+    integer :: PolyOrder_h     = 1
+    integer :: PolyOrder_h_GP  = 1
+    integer :: PolyOrder_v     = 1
+    integer :: PolyOrder_v_GP  = 1
     
     logical :: is_spec_FZ         
     integer, parameter :: FZ_nmax = 1000
@@ -588,13 +606,16 @@ contains
     namelist / PARAM_REGRID_INMESH3D_STRUCTURED / &
       NprcX, NprcY, NprcZ, NeX, NeY, NeGZ, NLocalMeshPerPrc,           &
       dom_xmin, dom_xmax, dom_ymin, dom_ymax, dom_zmin, dom_zmax,      &
-      PolyOrder_h, PolyOrder_v, isPeriodicX, isPeriodicY, isPeriodicZ, &
+      PolyOrder_h, PolyOrder_v,                                        &
+      isPeriodicX, isPeriodicY, isPeriodicZ, &
       FZ
    
     namelist / PARAM_REGRID_OUTMESH3D_STRUCTURED / &
       NprcX, NprcY, NprcZ, NeX, NeY, NeGZ, NLocalMeshPerPrc,           &
       dom_xmin, dom_xmax, dom_ymin, dom_ymax, dom_zmin, dom_zmax,      &
-      PolyOrder_h, PolyOrder_v, isPeriodicX, isPeriodicY, isPeriodicZ, &
+      PolyOrder_h, PolyOrder_v,                                        &
+      PolyOrder_h_GP, PolyOrder_v_GP,                                  &
+      isPeriodicX, isPeriodicY, isPeriodicZ, &
       FZ
 
     integer :: ierr
@@ -652,6 +673,10 @@ contains
 
     this%polyorder_h = PolyOrder_h
     this%polyorder_v = PolyOrder_v
+    if ( this%inout_id == REGRID_MESH_BASE_OUT_ID .and. GP_flag ) then
+      this%polyorder_h = PolyOrder_h_GP
+      this%polyorder_v = PolyOrder_v_GP
+    end if
 
     this%isPeriodicX = isPeriodicX
     this%isPeriodicY = isPeriodicY
@@ -675,10 +700,11 @@ contains
   end subroutine regrid_mesh_base_init_mesh3D
 
 !OCL SERIAL  
-  subroutine regrid_mesh_base_init_csmesh3D( this )
+  subroutine regrid_mesh_base_init_csmesh3D( this, GP_flag )
     implicit none
 
     class(regrid_mesh_base), intent(inout) :: this
+    logical, intent(in) :: GP_flag
 
     ! Structured mesh  
     integer :: Nprc             = 1    
@@ -690,7 +716,9 @@ contains
     real(RP) :: dom_zmax        = 0.0_RP    
 
     integer :: PolyOrder_h      = 1
+    integer :: PolyOrder_h_GP   = 1
     integer :: PolyOrder_v      = 1
+    integer :: PolyOrder_v_GP   = 1
 
     logical :: is_spec_FZ
     integer, parameter :: FZ_nmax = 1000
@@ -705,6 +733,7 @@ contains
     namelist / PARAM_REGRID_OUTMESH3D_CUBEDSPHERE / &
       Nprc, NeGX, NeGY, NeGZ, NLocalMeshPerPrc,     &
       PolyOrder_h, PolyOrder_v,                     &
+      PolyOrder_h_GP, PolyOrder_v_GP,               &
       dom_zmin, dom_zmax,                           &
       FZ
 
@@ -753,6 +782,10 @@ contains
 
     this%polyorder_h = PolyOrder_h
     this%polyorder_v = PolyOrder_v
+    if ( this%inout_id == REGRID_MESH_BASE_OUT_ID .and. GP_flag ) then
+      this%polyorder_h = PolyOrder_h_GP
+      this%polyorder_v = PolyOrder_v_GP
+    end if
 
     call this%elem2D%Init( PolyOrder_h, .true. )
     call this%elem3D%Init( PolyOrder_h, PolyOrder_v, .true. )

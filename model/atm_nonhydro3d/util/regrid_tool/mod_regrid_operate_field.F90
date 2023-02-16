@@ -124,7 +124,10 @@ contains
   end subroutine regrid_operate_field_Init
 
 !OCL SERIAL
-  subroutine regrid_operate_field_do( out_mesh, nodeMap_list, vintrp )
+  subroutine regrid_operate_field_do( &
+    out_mesh, nodeMap_list, vintrp,   &
+    GP_flag, out_mesh_GP, GPMat        )
+
     use mod_regrid_interp_vcoord, only: &
       regrid_interp_vcoord, REGRID_VCOORD_MODEL_ID
     use mod_regrid_file, only: &
@@ -137,6 +140,9 @@ contains
     class(regrid_mesh_base), intent(in), target :: out_mesh
     type(regrid_nodemap), intent(in) :: nodeMap_list(:)
     type(regrid_interp_vcoord), intent(inout) :: vintrp
+    logical, intent(in) :: GP_flag
+    class(regrid_mesh_base), intent(in), target :: out_mesh_GP
+    real(RP), intent(in) :: GPMat(:,:)
 
     integer :: istep
     type(OutVarInfo), pointer :: vinfo_u, vinfo_v
@@ -149,13 +155,17 @@ contains
       do istep=1, vinfo_u%num_step
         LOG_INFO("regrid_tool",'(a,i4)') ' operate_field :' // "Umet, Vmet" // " step=", istep
 
-        call regrid_vec_conversion_Do( istep, out_mesh, nodeMap_list )
+        call regrid_vec_conversion_Do( &
+          istep, out_mesh, nodeMap_list, &
+          GP_flag, out_mesh_GP, GPMat    )
 
         if ( vintrp%vintrp_typeid == REGRID_VCOORD_MODEL_ID ) then
           call regrid_file_write_var( vinfo_u, out_veclon, istep )
           call regrid_file_write_var( vinfo_v, out_veclat, istep )
         else
-          call vintrp%Update_weight( istep, out_mesh, nodeMap_list )
+          call vintrp%Update_weight( &
+            istep, out_mesh, nodeMap_list, &
+            GP_flag, out_mesh_GP, GPMat    )
 
           call vintrp%Interpolate( istep, out_mesh%ptr_mesh3D, out_veclon )
           call regrid_file_write_var( vinfo_u, vintrp%vintrp_var3D, istep )
