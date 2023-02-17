@@ -10,23 +10,23 @@ This FE library requires following libraries:
   - SCALE library (https://scale.riken.jp). 
 
 We confirm that building our codes has succeeded in the following environments:
-  - Ubuntu 20.04 LTS (for case of GNU compiler)
-    - GNU Fortran 9.3.0
-    - OpenMPI 4.0.3
-    - LAPACK 3.9.0
-    - NetCDF 4.7.3
+  - Ubuntu 22.04 LTS (for case of GNU compiler)
+    - GNU Fortran 11.2.0
+    - OpenMPI 4.1.2
+    - LAPACK 3.10.0
+    - NetCDF 4.8.1
     - SCALE library 5.4.5
-  - Ubuntu 20.04 LTS (for case of Intel oneAPI HPC Toolkit 2022.1)
+  - Ubuntu 20.04 LTS (for case of Intel oneAPI HPC Toolkit 2023.0)
     - Intel® Fortran Compiler
     - Intel MPI Library
     - Intel oneAPI Math Kernel Library
     - NetCDF 4.8.0
     - SCALE library develop version
-  - macOS Monterey
-    - GNU Fortran 11.3.0
-    - OpenMPI 4.1.3
-    - LAPACK 3.10.1
-    - NetCDF 4.8.1
+  - macOS Ventura
+    - GNU Fortran 12.2.0
+    - OpenMPI 4.1.4
+    - LAPACK 3.11
+    - NetCDF 4.9.0
     - SCALE library develop version
 
 Our codes are also verified in Oakbridge-CX (Intel compiler) and Fugaku (Fujitsu compiler). 

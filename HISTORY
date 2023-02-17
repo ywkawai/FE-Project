@@ -1,3 +1,31 @@
+= 2023-02-16 (0.7.0)
+* New features
+  * Add a module useful for evaluating numerical errors
+  * Enhance utility subroutines in generating initial data
+    * Enhance a subroutine to provide a profile of cosine bell 
+    * Add a subroutine useful for preparing initial data using Galerkin projection
+  * Support the energy monitor in cubed-sphere mesh in atmospheric model
+  * Update a sample program of 1D advection test
+    * Enable to evaluate numerical errors and visualize the results
+  * Add fluid solvers in which total energy conservation is used as the energy equation (experimental)
+  * Add test suites for 3D regional atmospheric model
+    * Isentropic vortex
+    * Kelvin Helmholtz wave
+    * Mountai wave: linear nonhydrostatic case (Giraldo and Restelli 2008) and Schaer-type mountain case (Schär et al. 2002)
+* Improvements
+  * Modify mass and heat conservation in tracer negative fixer
+  * Available to specify surface pressure when initial hydrostatic state is generated
+  * Avoid the singularity of matrix to generate initial hydrostatic state
+  * Modify interfaces for user-defined module
+  * Refactor source codes of dynamical core
+  * Set the coefficients with Shu-Osher form when forward Euler scheme is used
+  * Create a Makefile to build all of the source files in the top of the directory
+* Fix many bugs
+  * Set density values before tracer advection process in the case of tracer advection tests
+  * Fix a bug in a precipitation scheme
+  * Fix a bug in allocating array which saves topology information of 3D cubed-sphere mesh
+  * Remove an extra call of IO_setup
+
 = 2022-05-17 (0.6.0)
 * New features
   * Add tracer advection scheme with a limiter to preserve the nonnegativity.
