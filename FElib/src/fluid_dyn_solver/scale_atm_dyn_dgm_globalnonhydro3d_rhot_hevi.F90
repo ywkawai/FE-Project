@@ -8,7 +8,7 @@
 !<
 !-------------------------------------------------------------------------------
 #include "scaleFElib.h"
-module scale_atm_dyn_dgm_globalnonhydro3d_hevi
+module scale_atm_dyn_dgm_globalnonhydro3d_rhot_hevi
   !-----------------------------------------------------------------------------
   !
   !++ Used modules
@@ -37,11 +37,12 @@ module scale_atm_dyn_dgm_globalnonhydro3d_hevi
   use scale_meshfield_base, only: MeshField3D
 
   use scale_atm_dyn_dgm_nonhydro3d_common, only: &
-    atm_dyn_dgm_nonhydro3d_common_Init,               &
-    atm_dyn_dgm_nonhydro3d_common_Final,              &
-    DENS_VID, MOMX_VID, MOMY_VID, MOMZ_VID, RHOT_VID, &
-    PROG_VARS_NUM,                                    &
-    IntrpMat_VPOrdM1
+    atm_dyn_dgm_nonhydro3d_common_Init,                       &
+    atm_dyn_dgm_nonhydro3d_common_Final,                      &
+    DENS_VID => PRGVAR_DDENS_ID, RHOT_VID => PRGVAR_DRHOT_ID, &
+    MOMX_VID => PRGVAR_MOMX_ID, MOMY_VID => PRGVAR_MOMY_ID,   &
+    MOMZ_VID => PRGVAR_MOMZ_ID,                               &
+    PRGVAR_NUM, IntrpMat_VPOrdM1
 
   !-----------------------------------------------------------------------------
   implicit none
@@ -50,10 +51,10 @@ module scale_atm_dyn_dgm_globalnonhydro3d_hevi
   !
   !++ Public procedures
   !
-  public :: atm_dyn_dgm_globalnonhydro3d_hevi_Init
-  public :: atm_dyn_dgm_globalnonhydro3d_hevi_Final
-  public :: atm_dyn_dgm_globalnonhydro3d_hevi_cal_tend
-  public :: atm_dyn_dgm_globalnonhydro3d_hevi_cal_vi
+  public :: atm_dyn_dgm_globalnonhydro3d_rhot_hevi_Init
+  public :: atm_dyn_dgm_globalnonhydro3d_rhot_hevi_Final
+  public :: atm_dyn_dgm_globalnonhydro3d_rhot_hevi_cal_tend
+  public :: atm_dyn_dgm_globalnonhydro3d_rhot_hevi_cal_vi
 
   !-----------------------------------------------------------------------------
   !
@@ -67,46 +68,44 @@ module scale_atm_dyn_dgm_globalnonhydro3d_hevi
   !-------------------
 
 contains
-  subroutine atm_dyn_dgm_globalnonhydro3d_hevi_Init( mesh )
+!OCL SERIAL
+  subroutine atm_dyn_dgm_globalnonhydro3d_rhot_hevi_Init( mesh )
     implicit none
     class(MeshBase3D), intent(in) :: mesh
     !--------------------------------------------
 
     call atm_dyn_dgm_nonhydro3d_common_Init( mesh )
     return
-  end subroutine atm_dyn_dgm_globalnonhydro3d_hevi_Init
+  end subroutine atm_dyn_dgm_globalnonhydro3d_rhot_hevi_Init
 
-
-  subroutine atm_dyn_dgm_globalnonhydro3d_hevi_Final()
+!OCL SERIAL
+  subroutine atm_dyn_dgm_globalnonhydro3d_rhot_hevi_Final()
     implicit none
     !--------------------------------------------
     
     call atm_dyn_dgm_nonhydro3d_common_Final()    
     return
-  end subroutine atm_dyn_dgm_globalnonhydro3d_hevi_Final  
+  end subroutine atm_dyn_dgm_globalnonhydro3d_rhot_hevi_Final  
 
   !-------------------------------
 
 !OCL SERIAL
-  subroutine atm_dyn_dgm_globalnonhydro3d_hevi_cal_tend( &
+  subroutine atm_dyn_dgm_globalnonhydro3d_rhot_hevi_cal_tend( &
     DENS_dt, MOMX_dt, MOMY_dt, MOMZ_dt, RHOT_dt,                                & ! (out)
-    DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd, CORIOLIS,          & ! (in)
+    DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DPRES_, DENS_hyd, PRES_hyd, CORIOLIS,  & ! (in)
     Rtot, CVtot, CPtot,                                                         & ! (in)
-    SL_flag, wdamp_tau, wdamp_height, hveldamp_flag,                            & ! (in)
-    Dx, Dy, Dz, Sx, Sy, Sz, Lift, lmesh, elem, lmesh2D, elem2D )
+    Dx, Dy, Dz, Sx, Sy, Sz, Lift, lmesh, elem, lmesh2D, elem2D )                  ! (in)
 
-    use scale_atm_dyn_dgm_nonhydro3d_hevi_numflux, only: &
-      atm_dyn_dgm_nonhydro3d_hevi_numflux_get_generalhvc
-    use scale_atm_dyn_dgm_spongelayer, only: &
-      atm_dyn_dgm_spongelayer_add_tend
+    use scale_atm_dyn_dgm_nonhydro3d_rhot_hevi_numflux, only: &
+      get_ebnd_flux => atm_dyn_dgm_nonhydro3d_rhot_hevi_numflux_get_generalhvc
     use scale_const, only: &
       OHM => CONST_OHM
     implicit none
 
     class(LocalMesh3D), intent(in) :: lmesh
-    class(elementbase3D), intent(in) :: elem
+    class(ElementBase3D), intent(in) :: elem
     class(LocalMesh2D), intent(in) :: lmesh2D
-    class(elementbase2D), intent(in) :: elem2D
+    class(ElementBase2D), intent(in) :: elem2D
     type(SparseMat), intent(in) :: Dx, Dy, Dz, Sx, Sy, Sz, Lift
     real(RP), intent(out) :: DENS_dt(elem%Np,lmesh%NeA)
     real(RP), intent(out) :: MOMX_dt(elem%Np,lmesh%NeA)
@@ -118,22 +117,18 @@ contains
     real(RP), intent(in)  :: MOMY_(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: MOMZ_(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: DRHOT_(elem%Np,lmesh%NeA)
+    real(RP), intent(in)  :: DPRES_(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: DENS_hyd(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: PRES_hyd(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: CORIOLIS(elem2D%Np,lmesh2D%NeA)
     real(RP), intent(in) ::  Rtot (elem%Np,lmesh%NeA)
     real(RP), intent(in) ::  CVtot(elem%Np,lmesh%NeA)
     real(RP), intent(in) ::  CPtot(elem%Np,lmesh%NeA)
-    logical, intent(in) :: SL_flag
-    real(RP), intent(in) :: wdamp_tau
-    real(RP), intent(in) :: wdamp_height
-    logical, intent(in) :: hveldamp_flag
 
     real(RP) :: Fx(elem%Np), Fy(elem%Np), Fz(elem%Np), LiftDelFlx(elem%Np)
     real(RP) :: GradPhyd_x(elem%Np), GradPhyd_y(elem%Np)
-    real(RP) :: del_flux(elem%NfpTot,lmesh%Ne,PROG_VARS_NUM)
+    real(RP) :: del_flux(elem%NfpTot,lmesh%Ne,PRGVAR_NUM)
     real(RP) :: del_flux_hyd(elem%NfpTot,lmesh%Ne,2)
-    real(RP) :: DPRES_(elem%Np)
     real(RP) :: RHOT_(elem%Np)
     real(RP) :: rdens_(elem%Np), u_(elem%Np), v_(elem%Np), w_(elem%Np), wt_(elem%Np)
 
@@ -153,9 +148,9 @@ contains
     !------------------------------------------------------------------------
 
     call PROF_rapstart('cal_dyn_tend_bndflux', 3)
-    call atm_dyn_dgm_nonhydro3d_hevi_numflux_get_generalhvc( &
+    call get_ebnd_flux( &
       del_flux, del_flux_hyd,                                                  & ! (out)
-      DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd,                 & ! (in)
+      DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DPRES_, DENS_hyd, PRES_hyd,         & ! (in)
       Rtot, CVtot, CPtot,                                                      & ! (in)
       lmesh%Gsqrt, lmesh%GIJ(:,:,1,1), lmesh%GIJ(:,:,1,2), lmesh%GIJ(:,:,2,2), & ! (in)
       lmesh%GsqrtH, lmesh%GI3(:,:,1), lmesh%GI3(:,:,2),                        & ! (in)    
@@ -182,7 +177,7 @@ contains
     end if
 
     !$omp parallel private(                        &
-    !$omp RHOT_, DPRES_, rdens_, u_, v_, w_, wt_,  &
+    !$omp RHOT_, rdens_, u_, v_, w_, wt_,          &
     !$omp Fx, Fy, Fz, LiftDelFlx,                  &
     !$omp GradPhyd_x, GradPhyd_y,                  &
     !$omp G11, G12, G22, GsqrtV, RGsqrtV,          &
@@ -207,8 +202,8 @@ contains
 
       !--
       RHOT_(:) = P0ovR * ( PRES_hyd(:,ke) * rP0 )**rgamm + DRHOT_(:,ke)
-      DPRES_(:) = PRES00 * ( Rtot(:,ke) * rP0 * RHOT_(:) )**( CPtot(:,ke) / CVtot(:,ke) ) &
-                - PRES_hyd(:,ke)
+      ! DPRES_(:) = PRES00 * ( Rtot(:,ke) * rP0 * RHOT_(:) )**( CPtot(:,ke) / CVtot(:,ke) ) &
+      !           - PRES_hyd(:,ke)
       
       rdens_(:) = 1.0_RP / ( DDENS_(:,ke) + DENS_hyd(:,ke) )
       u_ (:) = MOMX_(:,ke) * rdens_(:)
@@ -257,10 +252,10 @@ contains
           + LiftDelFlx(:) ) / lmesh%Gsqrt(:,ke)
       
       !-- MOMX
-      call sparsemat_matmul(Dx, lmesh%Gsqrt(:,ke) * ( u_ (:) * MOMX_(:,ke) + G11(:) * DPRES_(:) ), Fx)
-      call sparsemat_matmul(Dy, lmesh%Gsqrt(:,ke) * ( v_ (:) * MOMX_(:,ke) + G12(:) * DPRES_(:) ), Fy)
-      call sparsemat_matmul(Dz, lmesh%Gsqrt(:,ke) * ( wt_(:) * MOMX_(:,ke)                           &
-                                                    + ( lmesh%GI3(:,ke,1) * G11(:) + lmesh%GI3(:,ke,2) * G12(:) ) * DPRES_(:) ), Fz)
+      call sparsemat_matmul(Dx, lmesh%Gsqrt(:,ke) * ( u_ (:) * MOMX_(:,ke) + G11(:) * DPRES_(:,ke) ), Fx)
+      call sparsemat_matmul(Dy, lmesh%Gsqrt(:,ke) * ( v_ (:) * MOMX_(:,ke) + G12(:) * DPRES_(:,ke) ), Fy)
+      call sparsemat_matmul(Dz, lmesh%Gsqrt(:,ke) * ( wt_(:) * MOMX_(:,ke)                              &
+                                                    + ( lmesh%GI3(:,ke,1) * G11(:) + lmesh%GI3(:,ke,2) * G12(:) ) * DPRES_(:,ke) ), Fz)
       call sparsemat_matmul(Lift, lmesh%Fscale(:,ke) * del_flux(:,ke,MOMX_VID), LiftDelFlx)
 
       MOMX_dt(:,ke) = &
@@ -274,10 +269,10 @@ contains
           + CORI(:,1)              
       
       !-- MOMY
-      call sparsemat_matmul(Dx, lmesh%Gsqrt(:,ke) * ( u_ (:) * MOMY_(:,ke) + G12(:) * DPRES_(:) ), Fx)
-      call sparsemat_matmul(Dy, lmesh%Gsqrt(:,ke) * ( v_ (:) * MOMY_(:,ke) + G22(:) * DPRES_(:) ), Fy)
-      call sparsemat_matmul(Dz, lmesh%Gsqrt(:,ke) * ( wt_(:) * MOMY_(:,ke)                           &
-                                                    + ( lmesh%GI3(:,ke,1) * G12(:) + lmesh%GI3(:,ke,2) * G22(:) ) * DPRES_(:) ), Fz)
+      call sparsemat_matmul(Dx, lmesh%Gsqrt(:,ke) * ( u_ (:) * MOMY_(:,ke) + G12(:) * DPRES_(:,ke) ), Fx)
+      call sparsemat_matmul(Dy, lmesh%Gsqrt(:,ke) * ( v_ (:) * MOMY_(:,ke) + G22(:) * DPRES_(:,ke) ), Fy)
+      call sparsemat_matmul(Dz, lmesh%Gsqrt(:,ke) * ( wt_(:) * MOMY_(:,ke)                              &
+                                                    + ( lmesh%GI3(:,ke,1) * G12(:) + lmesh%GI3(:,ke,2) * G22(:) ) * DPRES_(:,ke) ), Fz)
       call sparsemat_matmul(Lift, lmesh%Fscale(:,ke) * del_flux(:,ke,MOMY_VID), LiftDelFlx)
 
       MOMY_dt(:,ke) = &
@@ -317,21 +312,11 @@ contains
     !$omp end parallel
     call PROF_rapend('cal_dyn_tend_interior', 3)
 
-    !- Sponge layer
-    if (SL_flag) then
-      call PROF_rapstart('cal_dyn_tend_sponge', 3)
-      call atm_dyn_dgm_spongelayer_add_tend( &
-        MOMX_dt, MOMY_dt, MOMZ_dt,                    & ! (out)
-        MOMX_, MOMY_, MOMZ_, wdamp_tau, wdamp_height, & ! (in)
-        hveldamp_flag, lmesh, elem                    ) ! (in)
-      call PROF_rapend('cal_dyn_tend_sponge', 3)
-    end if
-
     return
-  end subroutine atm_dyn_dgm_globalnonhydro3d_hevi_cal_tend
+  end subroutine atm_dyn_dgm_globalnonhydro3d_rhot_hevi_cal_tend
 
 !OCL SERIAL  
-  subroutine atm_dyn_dgm_globalnonhydro3d_hevi_cal_vi( &
+  subroutine atm_dyn_dgm_globalnonhydro3d_rhot_hevi_cal_vi( &
     DENS_dt, MOMX_dt, MOMY_dt, MOMZ_dt, RHOT_dt,             & ! (out)
     DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd, & ! (in)
     DDENS0_, MOMX0_, MOMY0_, MOMZ0_, DRHOT0_,                & ! (in)
@@ -341,17 +326,17 @@ contains
     impl_fac, dt,                                            & ! (in)
     lmesh, elem, lmesh2D, elem2D                             ) ! (in)
 
-    use scale_atm_dyn_dgm_nonhydro3d_hevi_common, only: &
-      vi_gen_vmap => atm_dyn_dgm_nonhydro3d_hevi_common_gen_vmap,                  &
-      vi_eval_Ax => atm_dyn_dgm_nonhydro3d_hevi_common_eval_Ax_2,                  &
-      vi_construct_matbnd => atm_dyn_dgm_nonhydro3d_hevi_common_construct_matbnd_2
+    use scale_atm_dyn_dgm_nonhydro3d_rhot_hevi_common, only: &
+      vi_gen_vmap => atm_dyn_dgm_nonhydro3d_rhot_hevi_common_gen_vmap,                  &
+      vi_eval_Ax => atm_dyn_dgm_nonhydro3d_rhot_hevi_common_eval_Ax_2,                  &
+      vi_construct_matbnd => atm_dyn_dgm_nonhydro3d_rhot_hevi_common_construct_matbnd_2
   
     implicit none
 
     class(LocalMesh3D), intent(in) :: lmesh
-    class(elementbase3D), intent(in) :: elem
+    class(ElementBase3D), intent(in) :: elem
     class(LocalMesh2D), intent(in) :: lmesh2D
-    class(elementbase2D), intent(in) :: elem2D
+    class(ElementBase2D), intent(in) :: elem2D
     real(RP), intent(out) :: DENS_dt(elem%Np,lmesh%NeA)
     real(RP), intent(out) :: MOMX_dt(elem%Np,lmesh%NeA)
     real(RP), intent(out) :: MOMY_dt(elem%Np,lmesh%NeA)
@@ -378,8 +363,8 @@ contains
     real(RP), intent(in) :: impl_fac
     real(RP), intent(in) :: dt
 
-    real(RP) :: PROG_VARS (elem%Np,lmesh%NeZ,PROG_VARS_NUM,lmesh%NeX*lmesh%NeY)
-    real(RP) :: PROG_VARS0(elem%Np,lmesh%NeZ,PROG_VARS_NUM,lmesh%NeX*lmesh%NeY)
+    real(RP) :: PROG_VARS (elem%Np,lmesh%NeZ,PRGVAR_NUM,lmesh%NeX*lmesh%NeY)
+    real(RP) :: PROG_VARS0(elem%Np,lmesh%NeZ,PRGVAR_NUM,lmesh%NeX*lmesh%NeY)
     real(RP) :: b1D(3,elem%Nnode_v,lmesh%NeZ,elem%Nnode_h1D**2,lmesh%NeX*lmesh%NeY)
     integer :: ipiv(elem%Nnode_v*3*lmesh%NeZ,elem%Nnode_h1D**2)
     real(RP) :: b1D_uv(elem%Nnode_v,lmesh%NeZ,2,elem%Nnode_h1D**2,lmesh%NeX*lmesh%NeY)
@@ -564,6 +549,6 @@ contains
     call PROF_rapend( 'hevi_cal_vi_retrun_var', 3)
 
     return
-  end subroutine atm_dyn_dgm_globalnonhydro3d_hevi_cal_vi
+  end subroutine atm_dyn_dgm_globalnonhydro3d_rhot_hevi_cal_vi
 
-end module scale_atm_dyn_dgm_globalnonhydro3d_hevi
+end module scale_atm_dyn_dgm_globalnonhydro3d_rhot_hevi

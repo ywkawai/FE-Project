@@ -207,18 +207,25 @@ contains
   end subroutine regrid_interp_field_Final
 
 !OCL SERIAL
-  subroutine regrid_field_Interpolate_2D( istep, varname, out_mesh, out_field, nodeMap_list )
+  subroutine regrid_field_Interpolate_2D( out_field, &
+    istep, varname, out_mesh, nodeMap_list,          &
+    GP_flag, out_mesh_GP, GPMat                      )
     use scale_mesh_rectdom2d, only: MeshRectDom2D
     implicit none
 
+    class(MeshField2D), intent(inout) :: out_field
     integer, intent(in) :: istep
     character(*), intent(in) :: varname
     class(regrid_mesh_base), intent(in), target :: out_mesh
-    class(MeshField2D), intent(inout) :: out_field
     type(regrid_nodemap), intent(in) :: nodeMap_list(:)
+    logical, intent(in) :: GP_flag
+    class(regrid_mesh_base), intent(in), target :: out_mesh_GP
+    real(RP), intent(in) :: GPMat(:,:)
 
     class(LocalMesh2D), pointer :: lcmesh
+    class(LocalMesh2D), pointer :: lcmesh_GP
     integer :: n
+    integer :: ke
 
     integer :: domID
     integer :: in_mesh_num
@@ -228,6 +235,8 @@ contains
 
     class(MeshBase2D), pointer :: ptr_outmesh2D
     class(MeshBase2D), pointer :: ptr_inmesh2D
+
+    real(RP), allocatable :: var_tmp(:,:)
     !-------------------------------------------
 
     call PROF_rapstart('regrid_field_interpolate_2D', 0)
@@ -259,9 +268,24 @@ contains
 
     do n=1, ptr_outmesh2D%LOCAL_MESH_NUM
       lcmesh => ptr_outmesh2D%lcmesh_list(n)
-      call interpolate_local_2D( out_field%local(n)%val(:,:),                                 &
-        n, istep, varname, lcmesh, lcmesh%refElem2D, nodeMap_list(n)%in_mesh_list(1)%elem2D,  &
-        nodeMap_list(n)  )
+
+      if ( GP_flag ) then
+        lcmesh_GP => out_mesh_GP%ptr_mesh2D%lcmesh_list(n)
+        allocate( var_tmp(lcmesh_GP%refElem2D%Np,lcmesh%NeA) )
+
+        call interpolate_local_2D( var_tmp(:,:),                                                   &
+          n, istep, varname, lcmesh, lcmesh_GP%refElem2D, nodeMap_list(n)%in_mesh_list(1)%elem2D,  &
+          nodeMap_list(n)  )
+        
+        !$omp parallel do
+        do ke=lcmesh%NeS, lcmesh%NeE
+          out_field%local(n)%val(:,ke) = matmul( GPMat(:,:), var_tmp(:,ke) )
+        end do
+      else
+        call interpolate_local_2D( out_field%local(n)%val(:,:),                                 &
+          n, istep, varname, lcmesh, lcmesh%refElem2D, nodeMap_list(n)%in_mesh_list(1)%elem2D,  &
+          nodeMap_list(n)  )
+      end if
     end do
 
     call PROF_rapend('regrid_field_interpolate_2D', 0)
@@ -270,7 +294,9 @@ contains
   end subroutine regrid_field_Interpolate_2D
 
 !OCL SERIAL
-  subroutine regrid_field_Interpolate_3D( istep, varname, out_mesh, out_field, nodeMap_list )
+  subroutine regrid_field_Interpolate_3D( out_field, &
+    istep, varname, out_mesh, nodeMap_list,          &
+    GP_flag, out_mesh_GP, GPMat                      )
     use scale_mesh_cubedom3d, only: MeshCubeDom3D
     implicit none
 
@@ -279,9 +305,14 @@ contains
     class(regrid_mesh_base), intent(in), target :: out_mesh
     class(MeshField3D), intent(inout) :: out_field
     type(regrid_nodemap), intent(in), target :: nodeMap_list(:)
+    logical, intent(in) :: GP_flag
+    class(regrid_mesh_base), intent(in), target :: out_mesh_GP
+    real(RP), intent(in) :: GPMat(:,:)
 
     class(LocalMesh3D), pointer :: lcmesh
+    class(LocalMesh3D), pointer :: lcmesh_GP
     integer :: n
+    integer :: ke
 
     integer :: domID
     integer :: in_mesh_num
@@ -291,6 +322,8 @@ contains
 
     class(MeshBase3D), pointer :: ptr_outmesh3D
     class(MeshBase3D), pointer :: ptr_inmesh3D
+
+    real(RP), allocatable :: var_tmp(:,:)
     !-------------------------------------------
 
     call PROF_rapstart('regrid_field_interpolate_3D', 0)
@@ -323,9 +356,24 @@ contains
 
     do n=1, ptr_outmesh3D%LOCAL_MESH_NUM
       lcmesh => ptr_outmesh3D%lcmesh_list(n)
-      call interpolate_local_3D( out_field%local(n)%val(:,:),                                &
-        n, istep, varname, lcmesh, lcmesh%refElem3D, nodeMap_list(n)%in_mesh_list(1)%elem3D, &
-        nodeMap_list(n)  )
+
+      if ( GP_flag ) then
+        lcmesh_GP => out_mesh_GP%ptr_mesh3D%lcmesh_list(n)
+        allocate( var_tmp(lcmesh_GP%refElem3D%Np,lcmesh%NeA) )
+
+        call interpolate_local_3D( var_tmp(:,:),                                                  &
+          n, istep, varname, lcmesh, lcmesh_GP%refElem3D, nodeMap_list(n)%in_mesh_list(1)%elem3D, &
+          nodeMap_list(n)  )
+
+        !$omp parallel do
+        do ke=lcmesh%NeS, lcmesh%NeE
+          out_field%local(n)%val(:,ke) = matmul( GPMat(:,:), var_tmp(:,ke) )
+        end do
+      else
+        call interpolate_local_3D( out_field%local(n)%val(:,:),                                &
+          n, istep, varname, lcmesh, lcmesh%refElem3D, nodeMap_list(n)%in_mesh_list(1)%elem3D, &
+          nodeMap_list(n)  )
+      end if
     end do
 
     call PROF_rapend('regrid_field_interpolate_3D', 0)

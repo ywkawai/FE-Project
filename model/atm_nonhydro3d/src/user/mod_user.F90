@@ -21,7 +21,8 @@ module mod_user
 
   use mod_atmos_component, only: &
     AtmosComponent
-    
+  use mod_user_base, only: &
+    UserBase
   !-----------------------------------------------------------------------------
   implicit none
   private
@@ -29,10 +30,13 @@ module mod_user
   !
   !++ Public procedure
   !
-  public :: USER_mkinit
-  public :: USER_setup
-  public :: USER_calc_tendency
-  public :: USER_update
+  type, public, extends(UserBase) :: User
+  contains
+    procedure :: mkinit_ => USER_mkinit
+    generic :: mkinit => mkinit_
+    procedure :: setup_ => USER_setup
+    generic :: setup => setup_
+  end type User
 
   !-----------------------------------------------------------------------------
   !
@@ -46,32 +50,32 @@ module mod_user
   !
   !++ Private parameters & variables
   !
-  logical, private :: USER_do = .false. !< do user step?
-
   !-----------------------------------------------------------------------------
 contains
-  subroutine USER_mkinit( atm )
+!OCL SERIAL
+  subroutine USER_mkinit( this, atm )
     implicit none
-
+    class(User), intent(inout) :: this
     class(AtmosComponent), intent(inout) :: atm
     !------------------------------------------
-
     return
   end subroutine USER_mkinit
 
-  subroutine USER_setup( atm )
+!OCL SERIAL  
+  subroutine USER_setup( this, atm )
     use scale_prc, only: &
        PRC_abort
     implicit none
 
+    class(User), intent(inout) :: this
     class(AtmosComponent), intent(inout) :: atm
     
+    logical :: USER_do = .false.
     namelist / PARAM_USER / &
        USER_do
 
     integer :: ierr    
     !------------------------------------------
-
 
     LOG_NEWLINE
     LOG_INFO("USER_setup",*) 'Setup'
@@ -89,26 +93,9 @@ contains
 
     LOG_NEWLINE
     LOG_INFO("USER_setup",*) 'This module is dummy.'
-        
+    
+    call this%UserBase%Setup( atm, USER_do )
+
     return
   end subroutine USER_setup
-
-  subroutine USER_calc_tendency( atm )
-    implicit none
-
-    class(AtmosComponent), intent(inout) :: atm
-    !------------------------------------------
-
-    return
-  end subroutine USER_calc_tendency
-
-  subroutine USER_update( atm )
-    implicit none
-
-    class(AtmosComponent), intent(inout) :: atm
-    !------------------------------------------
-
-    return
-  end subroutine USER_update
-
 end module mod_user

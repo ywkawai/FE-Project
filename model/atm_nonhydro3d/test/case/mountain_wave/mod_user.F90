@@ -2,7 +2,7 @@
 !> module USER
 !!
 !! @par Description
-!!          User defined module
+!!          User defined module for mountain wave experiments(linear hydrostatic case, nonhydrostatic case, Schaer case)
 !!
 !! @author Team SCALE
 !!
@@ -19,7 +19,6 @@ module mod_user
   use scale_io
   use scale_prof
   use scale_prc, only: PRC_abort  
-  use mod_exp, only: experiment
 
   use mod_atmos_component, only: &
     AtmosComponent
@@ -28,19 +27,29 @@ module mod_user
   use scale_element_hexahedral, only: HexahedralElement
   use scale_localmesh_2d, only: LocalMesh2D  
   use scale_localmesh_3d, only: LocalMesh3D  
+  use scale_mesh_base, only: MeshBase
   use scale_meshfield_base, only: MeshField3D
+  use scale_mesh_cubedom3d, only: MeshCubeDom3D  
+
+  use mod_user_base, only: UserBase
+  use mod_experiment, only: Experiment
 
   !-----------------------------------------------------------------------------
   implicit none
   private
   !-----------------------------------------------------------------------------
   !
-  !++ Public procedure
+  !++ Public type & procedure
   !
-  public :: USER_mkinit
-  public :: USER_setup
-  public :: USER_calc_tendency
-  public :: USER_update
+  type, public, extends(UserBase) :: User
+  contains
+    procedure :: mkinit_ => USER_mkinit
+    generic :: mkinit => mkinit_
+    procedure :: setup_ => USER_setup
+    generic :: setup => setup_
+    procedure :: calc_tendency => USER_calc_tendency
+    procedure :: update => USER_update
+  end type User
 
   !-----------------------------------------------------------------------------
   !
@@ -54,51 +63,51 @@ module mod_user
   !
   !++ Private parameters & variables
   !
-
-  type, private, extends(experiment) :: Exp_mountain_wave
-  contains 
-    procedure :: setInitCond_lc => exp_SetInitCond_mountain_wave
-    procedure :: geostrophic_balance_correction_lc => exp_geostrophic_balance_correction
-  end type
-  type(Exp_mountain_wave), private :: exp_manager
-
-  logical, private :: USER_do        = .false. !< do user step?
   real(RP), private :: U0            
   real(RP), private :: zTop
   real(RP), private :: SPONGE_HEIGHT
+  real(RP), private :: SPONGE_LATERAL_WIDTH
+  real(RP), private :: SPONGE_EFOLD_SEC      = 600.0_RP
+  real(RP), private :: Lx
 
   type(MeshField3D), private :: PT_diff
 
   !-----------------------------------------------------------------------------
 contains
 !OCL SERIAL
-  subroutine USER_mkinit ( atm )
+  subroutine USER_mkinit ( this, atm )
     implicit none
-
+    class(User), intent(inout) :: this
     class(AtmosComponent), intent(inout) :: atm
+
+    type(Experiment) :: exp_manager
     !------------------------------------------
 
-    call exp_manager%Init('mountain_wave')
-
-    call exp_manager%SetInitCond( atm%mesh,                &
-      atm%vars%PROGVARS_manager, atm%vars%AUXVARS_manager, &
-      atm%vars%QTRCVARS_manager                            )
-    
+    call exp_manager%Init( 'mountain_wave' )
+    call exp_manager%Regist_SetInitCond( exp_SetInitCond_mountain_wave )
+    call this%UserBase%mkinit( atm, exp_manager )
     call exp_manager%Final()
 
     return
   end subroutine USER_mkinit
 
 !OCL SERIAL  
-  subroutine USER_setup( atm )
+  subroutine USER_setup( this, atm )
     implicit none
-    
+    class(User), intent(inout) :: this    
     class(AtmosComponent), intent(inout) :: atm
 
+    logical :: USER_do        = .false. !< do user step?
     namelist / PARAM_USER / &
-       USER_do,             &
-       U0,                  &
-       zTop, Sponge_Height
+       USER_do,              &
+       U0,                   &
+       zTop,                 &
+       SPONGE_HEIGHT,        &
+       SPONGE_LATERAL_WIDTH, &
+       SPONGE_EFOLD_SEC
+
+    class(MeshBase), pointer :: ptr_mesh
+    class(MeshCubeDom3D), pointer :: mesh
 
     integer :: ierr    
     !------------------------------------------
@@ -107,9 +116,11 @@ contains
     LOG_NEWLINE
     LOG_INFO("USER_setup",*) 'Setup'
 
-    U0             = 10.0_RP
-    zTop           = 30.E3_RP
-    SPONGE_HEIGHT  = 15.E3_RP
+    U0                   = 10.0_RP
+    zTop                 = 30.E3_RP
+    SPONGE_HEIGHT        = 15.E3_RP
+    SPONGE_EFOLD_SEC     = 900.0_RP
+    SPONGE_LATERAL_WIDTH = 0.0_RP
 
     !--- read namelist
     rewind(IO_FID_CONF)
@@ -122,14 +133,24 @@ contains
     endif
     LOG_NML(PARAM_USER)
 
+    call this%UserBase%Setup( atm, USER_do )
+
     !-
-    if ( USER_do ) call PT_diff%Init( 'PT_diff', 'K', atm%mesh%ptr_mesh )
+    if ( this%USER_do ) call PT_diff%Init( 'PT_diff', 'K', atm%mesh%ptr_mesh )
+
+    call atm%mesh_rm%GetModelMesh( ptr_mesh )
+    select type( ptr_mesh )
+    type is (MeshCubeDom3D)
+      mesh => ptr_mesh
+    end select
+
+    Lx = mesh%xmax_gl
 
     return
   end subroutine USER_setup
 
 !OCL SERIAL
-  subroutine USER_calc_tendency( atm )
+  subroutine USER_update( this, atm )
     use scale_file_history_meshfield, only: &
       FILE_HISTORY_meshfield_in
 
@@ -139,19 +160,20 @@ contains
       RPlanet => CONST_RADIUS, &
       PI => CONST_PI
 
-    use scale_file_history_meshfield, only: &
-      FILE_HISTORY_meshfield_in
+    use scale_localmeshfield_base, only: LocalMeshFieldBase
+  
+    use scale_atm_dyn_dgm_nonhydro3d_common, only: &
+      MOMX_p  => PHYTEND_MOMX_ID, &
+      MOMY_p  => PHYTEND_MOMY_ID, &
+      MOMZ_p  => PHYTEND_MOMZ_ID, &
+      RHOH_p  => PHYTEND_RHOH_ID
+
     use mod_atmos_vars, only: &
       AtmosVars_GetLocalMeshPrgVars,    &
-      AtmosVars_GetLocalMeshPhyAuxVars, &
-      MOMX_p  => ATMOS_PHYTEND_MOMX_ID, &
-      MOMY_p  => ATMOS_PHYTEND_MOMY_ID, &
-      MOMZ_p  => ATMOS_PHYTEND_MOMZ_ID, &
-      RHOH_p  => ATMOS_PHYTEND_RHOH_ID
-    use scale_localmeshfield_base, only: LocalMeshFieldBase
+      AtmosVars_GetLocalMeshPhyAuxVars
 
     implicit none
-
+    class(User), intent(inout) :: this
     class(AtmosComponent), intent(inout) :: atm
 
     class(LocalMesh3D), pointer :: lcmesh
@@ -159,64 +181,81 @@ contains
     class(LocalMeshFieldBase), pointer :: DDENS, MOMX, MOMY, MOMZ, DRHOT
     class(LocalMeshFieldBase), pointer :: DENS_hyd, PRES_hyd
     class(LocalMeshFieldBase), pointer :: PRES, PT
+    class(LocalMeshFieldBase), pointer :: Rtot, CVtot, CPtot
 
-    real(RP), parameter :: rtau = 1.0_RP / 600.0_RP
+    real(RP) :: rtau
 
     integer :: n
     integer :: ke
 
     real(RP), allocatable :: DENS(:)
     real(RP), allocatable :: sfac(:)
-    !------------------------------------------
+    real(RP), allocatable :: rsfac(:)
 
-    if ( USER_do ) then
-      call atm%vars%Calc_diagVar( 'PT_diff', PT_diff )
-      call FILE_HISTORY_meshfield_in( PT_diff, "perturbation of potential temperature" )
-    end if
+    real(DP) :: dt
+    real(RP) :: sponge_lateral_x00
+    real(RP) :: sponge_lateral_x0
+    !------------------------------------------
+    
+    rtau = 1.0_RP / SPONGE_EFOLD_SEC
+    dt = atm%time_manager%dtsec
+    sponge_lateral_x00 = Lx - SPONGE_LATERAL_WIDTH
+    sponge_lateral_x0 = sponge_lateral_x00 + 0.5_RP * SPONGE_LATERAL_WIDTH
     
     do n=1, atm%mesh%ptr_mesh%LOCAL_MESH_NUM
       call AtmosVars_GetLocalMeshPrgVars( n, atm%mesh%ptr_mesh,  &
         atm%vars%PROGVARS_manager, atm%vars%AUXVARS_manager,     &
         DDENS, MOMX, MOMY, MOMZ, DRHOT,                          &
-        DENS_hyd, PRES_hyd, lcmesh                               )      
+        DENS_hyd, PRES_hyd, Rtot, CVtot, CPtot, lcmesh           )      
       
       call AtmosVars_GetLocalMeshPhyAuxVars( n,  atm%mesh%ptr_mesh, &
         atm%vars%AUXVARS_manager, PRES, PT                          )
       
       elem => lcmesh%refElem3D
-      allocate( DENS(elem%Np), sfac(elem%Np) )
+      allocate( DENS(elem%Np), sfac(elem%Np), rsfac(elem%Np) )
 
-      !$omp parallel do private(DENS, sfac)
+      !$omp parallel do private(DENS, sfac, rsfac)
       do ke=lcmesh%NeS, lcmesh%NeE
         DENS(:) = DENS_hyd%val(:,ke) + DDENS%val(:,ke)
-        sfac(:) = rtau * 0.5_RP * ( 1.0_RP - cos( PI * ( lcmesh%pos_en(:,ke,3) - SPONGE_HEIGHT ) / ( zTop - SPONGE_HEIGHT ) ) ) 
 
-        where ( lcmesh%pos_en(:,ke,3) > SPONGE_HEIGHT ) 
-          atm%vars%PHY_TEND(MOMX_p)%local(n)%val(:,ke) = atm%vars%PHY_TEND(MOMX_p)%local(n)%val(:,ke)   &
-            - sfac(:) * ( MOMX%val(:,ke) - DENS(:) * U0 )
-          atm%vars%PHY_TEND(MOMY_p)%local(n)%val(:,ke) = atm%vars%PHY_TEND(MOMY_p)%local(n)%val(:,ke)   &
-            - sfac(:) * MOMY%val(:,ke)
-          atm%vars%PHY_TEND(MOMZ_p)%local(n)%val(:,ke) = atm%vars%PHY_TEND(MOMZ_p)%local(n)%val(:,ke)   &
-            - sfac(:) * MOMZ%val(:,ke)
-
-          atm%vars%PHY_TEND(RHOH_p)%local(n)%val(:,ke) = atm%vars%PHY_TEND(RHOH_p)%local(n)%val(:,ke)   &
-            - DENS(:) * sfac(:) * CpDry * ( PRES%val(:,ke) / DENS(:) - PRES_hyd%val(:,ke) / DENS_hyd%val(:,ke) ) / Rdry
+        sfac(:) = 0.0_RP 
+        where ( lcmesh%pos_en(:,ke,1) > sponge_lateral_x00 )
+          sfac(:) = dt * rtau * 0.5_RP * ( 1.0_RP - cos( 2.0_RP * PI * ( ( lcmesh%pos_en(:,ke,1) - sponge_lateral_x00 ) / SPONGE_LATERAL_WIDTH ) ) )
+        end where        
+        where ( lcmesh%pos_en(:,ke,3) > SPONGE_HEIGHT )
+          sfac(:) = sfac(:) + dt * rtau * 0.5_RP * ( 1.0_RP - cos( PI * ( lcmesh%pos_en(:,ke,3) - SPONGE_HEIGHT ) / ( zTop - SPONGE_HEIGHT ) ) )
         end where
+
+        rsfac(:) = 1.0_RP / ( 1.0_RP + sfac(:) )
+
+        MOMX%val(:,ke) = ( MOMX%val(:,ke) + sfac(:) * DENS(:) * U0 ) * rsfac(:)
+        MOMY%val(:,ke) = MOMY%val(:,ke) * rsfac(:)
+        MOMZ%val(:,ke) = MOMZ%val(:,ke) * rsfac(:)
+        DRHOT%val(:,ke) = DRHOT%val(:,ke) * rsfac(:)
       end do
-      deallocate( DENS, sfac )
+      deallocate( DENS, sfac, rsfac )
     end do
 
     return
-  end subroutine USER_calc_tendency
+  end subroutine USER_update
 
-  subroutine USER_update( atm )
+!OCL SERIAL
+  subroutine USER_calc_tendency( this, atm )
+    use scale_file_history_meshfield, only: &
+      FILE_HISTORY_meshfield_in
+
     implicit none
-
-    class(AtmosComponent), intent(inout) :: atm
+    class(User), intent(inout) :: this
+    class(AtmosComponent), intent(inout) :: atm      
     !------------------------------------------
 
+    if ( this%USER_do ) then
+      call atm%vars%Calc_diagVar( 'PT_diff', PT_diff )
+      call FILE_HISTORY_meshfield_in( PT_diff, "perturbation of potential temperature" )
+    end if
+    
     return
-  end subroutine USER_update
+  end subroutine USER_calc_tendency
 
   !------
 
@@ -238,12 +277,12 @@ contains
     use scale_atm_dyn_dgm_hydrostatic, only: &
       hydrostatic_calc_basicstate_constBVFreq
     
-    use mod_exp, only: &
+    use mod_experiment, only: &
       TracerLocalMeshField_ptr
     
     implicit none
 
-    class(Exp_mountain_wave), intent(inout) :: this
+    class(Experiment), intent(inout) :: this
     type(LocalMesh3D), intent(in) :: lcmesh
     class(ElementBase3D), intent(in) :: elem
     real(RP), intent(out) :: DENS_hyd(elem%Np,lcmesh%NeA)
@@ -299,26 +338,5 @@ contains
 
     return
   end subroutine exp_SetInitCond_mountain_wave
-
-  subroutine exp_geostrophic_balance_correction( this,  &
-    DENS_hyd, PRES_hyd, DDENS, MOMX, MOMY, MOMZ, DRHOT, &
-    lcmesh, elem )
-    
-    implicit none
-
-    class(Exp_mountain_wave), intent(inout) :: this
-    type(LocalMesh3D), intent(in) :: lcmesh
-    class(ElementBase3D), intent(in) :: elem
-    real(RP), intent(inout) :: DENS_hyd(elem%Np,lcmesh%NeA)
-    real(RP), intent(in) :: PRES_hyd(elem%Np,lcmesh%NeA)
-    real(RP), intent(inout) :: DDENS(elem%Np,lcmesh%NeA)
-    real(RP), intent(inout) :: MOMX(elem%Np,lcmesh%NeA)
-    real(RP), intent(inout) :: MOMY(elem%Np,lcmesh%NeA)    
-    real(RP), intent(inout) :: MOMZ(elem%Np,lcmesh%NeA)
-    real(RP), intent(inout) :: DRHOT(elem%Np,lcmesh%NeA)
-
-    !---------------------------------------------------
-    return
-  end subroutine exp_geostrophic_balance_correction 
 
 end module mod_user

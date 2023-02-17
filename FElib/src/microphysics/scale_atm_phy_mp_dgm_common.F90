@@ -36,7 +36,7 @@ module scale_atm_phy_mp_dgm_common
   use scale_localmesh_3d, only: &
     LocalMesh3D
   use scale_mesh_base3d, only: MeshBase3D
-  
+
   !-----------------------------------------------------------------------------
   implicit none
   private
@@ -47,8 +47,9 @@ module scale_atm_phy_mp_dgm_common
 
   public :: atm_phy_mp_dgm_common_gen_intweight
   public :: atm_phy_mp_dgm_common_gen_vmap
-  public :: atm_phy_mp_dgm_precipitation
-  public :: atm_phy_mp_dgm_precipitation_momentum
+  public :: atm_phy_mp_dgm_common_precipitation
+  public :: atm_phy_mp_dgm_common_precipitation_momentum
+  public :: atm_phy_mp_dgm_common_negative_fixer
 
   !-----------------------------------------------------------------------------
   !++ Public parameters & variables
@@ -180,7 +181,7 @@ contains
   end subroutine atm_phy_mp_dgm_common_gen_vmap
 
 !OCL SERIAL
-  subroutine atm_phy_mp_dgm_precipitation( &
+  subroutine atm_phy_mp_dgm_common_precipitation( &
     DENS, RHOQ, CPtot, CVtot, RHOE,         & ! (inout)
     FLX_hydro, sflx_rain, sflx_snow, esflx, & ! (inout)
     TEMP, vterm, dt, rnstep,                & ! (in)
@@ -404,10 +405,10 @@ contains
     end do
 
     return
-  end subroutine atm_phy_mp_dgm_precipitation
+  end subroutine atm_phy_mp_dgm_common_precipitation
 
-  !OCL SERIAL
-  subroutine atm_phy_mp_dgm_precipitation_momentum( &
+!OCL SERIAL
+  subroutine atm_phy_mp_dgm_common_precipitation_momentum( &
     MOMU_t, MOMV_t, MOMZ_t,                & ! (out)
     DENS, MOMU, MOMV, MOMZ, mflx,         & ! (in)
     Dz, Lift, nz, vmapM, vmapP,            & ! (in)
@@ -469,7 +470,134 @@ contains
     end do
 
     return
-  end subroutine atm_phy_mp_dgm_precipitation_momentum
+  end subroutine atm_phy_mp_dgm_common_precipitation_momentum
+
+
+!OCL SERIAL
+  subroutine atm_phy_mp_dgm_common_negative_fixer( &
+    QTRC, DDENS, PRES,                       &
+    CVtot, CPtot, Rtot,                      &
+    DENS_hyd, PRES_hyd,                      &
+    dt, lmesh, elem, QA, QLA, QIA,           &
+    DRHOT                                    )
+
+    use scale_const, only: &
+      CVdry => CONST_CVdry,  &
+      CPdry => CONST_CPdry,  &
+      Rdry => CONST_Rdry
+
+    use scale_tracer, only: &
+      TRACER_MASS, TRACER_R, TRACER_CV, TRACER_CP
+    use scale_atmos_thermodyn, only: &
+      ATMOS_THERMODYN_specific_heat
+    use scale_localmeshfield_base, only: LocalMeshFieldBaseList
+    implicit none
+
+    class(LocalMesh3D), intent(in) :: lmesh
+    class(ElementBase3D), intent(in) :: elem
+    integer, intent(in) :: QA
+    type(LocalMeshFieldBaseList), intent(inout) :: QTRC(QA)
+    real(RP), intent(inout) :: DDENS(elem%Np,lmesh%NeA)
+    real(RP), intent(inout) :: PRES(elem%Np,lmesh%NeA)
+    real(RP), intent(inout) :: CVtot(elem%Np,lmesh%NeA)
+    real(RP), intent(inout) :: CPtot(elem%Np,lmesh%NeA)
+    real(RP), intent(inout) :: Rtot(elem%Np,lmesh%NeA)
+    real(RP), intent(in) :: DENS_hyd(elem%Np,lmesh%NeA)
+    real(RP), intent(in) :: PRES_hyd(elem%Np,lmesh%NeA)
+    real(RP), intent(in) :: dt
+    integer, intent(in) :: QLA, QIA
+    real(RP), intent(inout), optional :: DRHOT(elem%Np,lmesh%NeA)
+
+    integer :: ke
+    integer :: iq
+
+    real(RP) ::  int_w(elem%Np)
+
+    real(RP) :: DENS(elem%Np)
+    real(RP) :: DDENS0(elem%Np)
+
+    real(RP) :: TRCMASS0(elem%Np), TRCMASS1(elem%Np,QA)
+    real(RP) :: MASS0_elem, MASS1_elem
+    real(RP) :: IntEn0_elem, IntEn_elem
+
+    real(RP) :: QTRC_tmp(elem%Np,QA), Qdry(elem%Np)
+    real(RP) :: CVtot_old(elem%Np), CPtot_old(elem%Np), Rtot_old(elem%Np)
+    real(RP) :: InternalEn(elem%Np), InternalEn0(elem%Np), TEMP(elem%Np)
+    real(RP) :: RHOT_hyd(elem%Np)
+
+    real(RP) :: m    
+    !------------------------------------------------
+
+    !$omp parallel do private( &
+    !$omp ke, iq, DENS, DDENS0, InternalEn, InternalEn0, TEMP, QTRC_tmp, &
+    !$omp TRCMASS0, TRCMASS1, MASS0_elem, MASS1_elem, IntEn0_elem, IntEn_elem, &
+    !$omp Qdry, CVtot_old, CPtot_old, Rtot_old,                  &
+    !$omp int_w, m, RHOT_hyd )
+    do ke = lmesh%NeS, lmesh%NeE
+
+      do iq = 1, QA
+        QTRC_tmp(:,iq) = QTRC(iq)%ptr%val(:,ke)
+      end do
+      call ATMOS_THERMODYN_specific_heat( & 
+        elem%Np, 1, elem%Np, QA,                                           & ! (in)
+        QTRC_tmp, TRACER_MASS(:), TRACER_R(:), TRACER_CV(:), TRACER_CP(:), & ! (in)
+        Qdry, Rtot_old, CVtot_old, CPtot_old                               ) ! (out)
+
+      DENS(:) = DENS_hyd(:,ke) + DDENS(:,ke)
+      DDENS0(:) = DDENS(:,ke)
+      
+      ! RHOT_hyd(:) = PRES00 / Rdry * ( PRES_hyd(:,ke) / PRES00 )**( CVdry / CPdry )
+      ! ( Internal energy ) = Cvtot * RHO * T = CVtot * RHO * ( PT * EXNER )      
+      ! InternalEn0(:) = CVtot_old(:) * ( RHOT_hyd(:) + DRHOT(:,ke) ) &
+      !                * ( Rtot_old(:) * ( RHOT_hyd(:) + DRHOT(:,ke) ) / PRES00 )**( Rtot_old(:) / CVtot_old(:) ) 
+      !InternalEn0(:) = CVtot_old(:) * PRES(:,ke) / Rtot_old(:)
+      InternalEn0(:) = CVtot(:,ke) * PRES(:,ke) / Rtot(:,ke)
+      !TEMP(:) = InternalEn0(:) / ( DENS(:) * CVtot_old(:) )
+      TEMP(:) = InternalEn0(:) / ( DENS(:) * CVtot(:,ke) )
+      InternalEn(:) = InternalEn0(:)
+
+      int_w(:) = lmesh%Gsqrt(:,ke) * lmesh%J(:,ke) * elem%IntWeight_lgl(:)
+      do iq = 1, 1 + QLA + QIA  
+        TRCMASS0(:) = DENS(:) * QTRC_tmp(:,iq)
+        TRCMASS1(:,iq) = max( 1E-128_RP, TRCMASS0(:) )
+
+        MASS0_elem = sum( int_w(:) * TRCMASS0(:)    )
+        MASS1_elem = sum( int_w(:) * TRCMASS1(:,iq) )
+        TRCMASS1(:,iq) = max(MASS0_elem, 0.0E0_RP) / MASS1_elem * TRCMASS1(:,iq)
+!        TRCMASS1(:,iq) = MASS0_elem / MASS1_elem * TRCMASS1(:,iq)
+
+        DDENS(:,ke) = DDENS(:,ke) + ( TRCMASS1(:,iq) - TRCMASS0(:) )
+        InternalEn(:) = InternalEn(:) + ( TRCMASS1(:,iq) - TRCMASS0(:) ) * TRACER_CV(iq) * TEMP(:)
+      end do
+
+      !--
+
+      DENS(:) = DENS_hyd(:,ke) + DDENS(:,ke)
+      do iq = 1, QA
+        QTRC_tmp(:,iq) = TRCMASS1(:,iq) / DENS(:)
+        QTRC(iq)%ptr%val(:,ke) = QTRC_tmp(:,iq)
+      end do
+
+      IntEn0_elem = sum( int_w(:) * InternalEn0(:) )
+      IntEn_elem  = sum( int_w(:) * InternalEn (:) )
+      InternalEn(:) = IntEn0_elem / IntEn_elem * InternalEn(:)
+
+      call ATMOS_THERMODYN_specific_heat( &
+        elem%Np, 1, elem%Np, QA,                                           & ! (in)
+        QTRC_tmp, TRACER_MASS(:), TRACER_R(:), TRACER_CV(:), TRACER_CP(:), & ! (in)
+        Qdry, Rtot(:,ke), CVtot(:,ke), CPtot(:,ke)                         ) ! (out)
+
+      InternalEn(:) = InternalEn(:) - ( DDENS(:,ke) - DDENS0(:) ) * Grav * lmesh%zlev(:,ke)
+      PRES(:,ke) = InternalEn(:) * Rtot(:,ke) / CVtot(:,ke)
+
+      if ( present(DRHOT) ) then
+        DRHOT(:,ke) = PRES00 / Rtot(:,ke) * ( PRES(:,ke) / PRES00 )**( CVtot(:,ke) / CPtot(:,ke) ) &
+                    - PRES00 / Rdry * ( PRES_hyd(:,ke) / PRES00 )**( CVdry / CPdry )
+      end if
+    end do
+
+    return
+  end subroutine atm_phy_mp_dgm_common_negative_fixer
 
 !- private --------------------------------
 
@@ -506,7 +634,6 @@ contains
 
     integer :: ke
     integer :: ke_z, ke2D
-    integer :: p, i
     integer :: iP(elem%NfpTot), iM(elem%NfpTot)
     integer :: iM3D(elem%NfpTot)
     !------------------------------------------------------------------------
@@ -527,6 +654,10 @@ contains
       velM(:) = vterm_(iM(:),ke2D) * nz(:,ke_z,ke2D)
       velP(:) = vterm_(iP(:),ke2D) * nz(:,ke_z,ke2D)
       alpha(:) = nz(:,ke_z,ke2D)**2 * max( abs(velM(:)), abs(velP(:)) )
+
+      where (nz(:,ke_z,ke2D) > 1.0E-10 .and. iP(:) == iM(:) )
+        velP(:) = - velM(:)
+      end where      
 
       numflux(:) = 0.5_RP * (  RHOQ_P(:) * velP(:) + RHOQ_M(:) * velM(:)                                                        &
         - ( NDcoefEuler_(iP(:),ke2D) * DzRHOQ_(iP(:),ke2D) + NDcoefEuler_(iM(:),ke2D) * DzRHOQ_(iM(:),ke2D) ) * nz(:,ke_z,ke2D) &
@@ -656,6 +787,10 @@ contains
       velM(:) = vterm_(iM(:),ke2D) * nz(:,ke_z,ke2D)
       velP(:) = vterm_(iP(:),ke2D) * nz(:,ke_z,ke2D)
       alpha(:) = nz(:,ke_z,ke2D)**2 * max( abs(velM(:)), abs(velP(:)) )
+
+      where (nz(:,ke_z,ke2D) > 1.0E-10 .and. iP(:) == iM(:) )
+        velP(:) = - velM(:)
+      end where      
 
       NDcoef_M(:) = NDcoefEuler_(iM(:),ke2D)
       NDcoef_P(:) = NDcoefEuler_(iP(:),ke2D)

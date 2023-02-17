@@ -41,6 +41,8 @@ module scale_mesh_base
     class(ElementBase), pointer :: refElem
     type(MeshDimInfo), allocatable :: dimInfo(:)
 
+    real(RP) :: dom_vol
+
     logical :: isGenerated
   contains
     procedure(MeshBase_get_localmesh), deferred :: GetLocalMesh

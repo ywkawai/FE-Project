@@ -64,6 +64,8 @@ module mod_atmos_phy_tb_vars
     type(ModelVarManager) :: auxtrcvars_manager
     integer :: auxtrcvars_commid
 
+    type(MeshField3D) :: GRAD_DENS(3)
+
     integer :: TENDS_NUM_TOT 
   contains
     procedure :: Init => AtmosPhyTbVars_Init
@@ -165,6 +167,7 @@ contains
     integer :: iv
     integer :: iq
     integer :: n
+    integer :: dim
     logical :: reg_file_hist
 
     class(AtmosMesh), pointer :: atm_mesh
@@ -226,6 +229,12 @@ contains
       end do
     end do
 
+    if ( QA > 1 ) then
+      do dim=1, 3
+        call this%GRAD_DENS(dim)%Init( "Grad_DENS", "kg/m4", mesh3D )      
+      end do
+    end if
+
     !-
     allocate( this%auxvars(ATMOS_PHY_TB_AUX_NUM) )
 
@@ -275,6 +284,7 @@ contains
     implicit none
     class(AtmosPhyTbVars), intent(inout) :: this
 
+    integer :: dim
     !--------------------------------------------------
 
     LOG_INFO('AtmosPhyTbVars_Final',*)
@@ -287,6 +297,12 @@ contains
 
     call this%auxtrcvars_manager%Final()
     deallocate( this%auxtrcvars )
+
+    if ( QA > 0 ) then
+      do dim=1, 3
+        call this%GRAD_DENS(dim)%Final()
+      end do
+    end if
 
     return
   end subroutine AtmosPhyTbVars_Final

@@ -81,6 +81,10 @@ module scale_meshfield_base
     procedure :: GetLocalMeshField =>  MeshField3D_get_LocalMeshField
   end type MeshField3D
 
+  type, public :: MeshField3DList
+    class(MeshField3D), pointer :: ptr
+  end type MeshField3DList
+
   !-----------------------------------------------------------------------------
   !
   !++ Public parameters & variables

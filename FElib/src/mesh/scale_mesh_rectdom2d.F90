@@ -107,6 +107,7 @@ contains
     this%xmax_gl       = dom_xmax
     this%ymin_gl       = dom_ymin
     this%ymax_gl       = dom_ymax
+    this%dom_vol = (this%xmax_gl - this%xmin_gl) * (this%ymax_gl - this%ymin_gl)
 
     this%isPeriodicX = isPeriodicX
     this%isPeriodicY = isPeriodicY

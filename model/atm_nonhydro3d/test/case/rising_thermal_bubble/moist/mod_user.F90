@@ -19,7 +19,6 @@ module mod_user
   use scale_io
   use scale_prof
   use scale_prc, only: PRC_abort  
-  use mod_exp, only: experiment
 
   use mod_atmos_component, only: &
     AtmosComponent
@@ -29,18 +28,23 @@ module mod_user
   use scale_localmesh_3d, only: LocalMesh3D  
   use scale_meshfield_base, only: MeshField3D
   
+  use mod_user_base, only: UserBase
+  use mod_experiment, only: Experiment
   
   !-----------------------------------------------------------------------------
   implicit none
   private
   !-----------------------------------------------------------------------------
   !
-  !++ Public procedure
+  !++ Public type & procedure
   !
-  public :: USER_mkinit
-  public :: USER_setup
-  public :: USER_calc_tendency
-  public :: USER_update
+  type, public, extends(UserBase) :: User
+  contains
+    procedure :: mkinit_ => USER_mkinit
+    generic :: mkinit => mkinit_
+    procedure :: setup_ => USER_setup
+    generic :: setup => setup_
+  end type User
 
   !-----------------------------------------------------------------------------
   !
@@ -55,47 +59,37 @@ module mod_user
   !++ Private parameters & variables
   !
 
-  type, private, extends(experiment) :: Exp_rising_therm_bubble_moist
-  contains 
-    procedure :: setInitCond_lc => exp_SetInitCond_rising_therm_bubble
-    procedure :: geostrophic_balance_correction_lc => exp_geostrophic_balance_correction
-  end type
-  type(Exp_rising_therm_bubble_moist), private :: exp_manager
-
-  logical, private :: USER_do                   = .false. !< do user step?
-
   !-----------------------------------------------------------------------------
 contains
 !OCL SERIAL
-  subroutine USER_mkinit( atm )
+  subroutine USER_mkinit ( this, atm )
     implicit none
-
+    class(User), intent(inout) :: this
     class(AtmosComponent), intent(inout) :: atm
+
+    type(Experiment) :: exp_manager
     !------------------------------------------
 
-    call exp_manager%Init('rising_therm_bubble')
-
-    call exp_manager%SetInitCond( atm%mesh,                &
-      atm%vars%PROGVARS_manager, atm%vars%AUXVARS_manager, &
-      atm%vars%QTRCVARS_manager                            )
-    
+    call exp_manager%Init( 'rising_thermal_bubble' )
+    call exp_manager%Regist_SetInitCond( exp_SetInitCond_rising_therm_bubble )
+    call this%UserBase%mkinit( atm, exp_manager )
     call exp_manager%Final()
 
     return
   end subroutine USER_mkinit
 
 !OCL SERIAL
-  subroutine USER_setup( atm )
+  subroutine USER_setup( this, atm )
     implicit none
-    
+    class(User), intent(inout) :: this    
     class(AtmosComponent), intent(inout) :: atm
 
+    logical :: USER_do        = .false. !< do user step?
     namelist / PARAM_USER / &
        USER_do
 
     integer :: ierr    
     !------------------------------------------
-
 
     LOG_NEWLINE
     LOG_INFO("USER_setup",*) 'Setup'
@@ -111,24 +105,10 @@ contains
     endif
     LOG_NML(PARAM_USER)
 
+    call this%UserBase%Setup( atm, USER_do )
+
     return
   end subroutine USER_setup
-
-  subroutine USER_calc_tendency( atm )
-    implicit none
-    class(AtmosComponent), intent(inout) :: atm
-    !------------------------------------------
-
-    return
-  end subroutine USER_calc_tendency
-
-  subroutine USER_update( atm )
-    implicit none
-    class(AtmosComponent), intent(inout) :: atm
-    !------------------------------------------
-
-    return
-  end subroutine USER_update
 
   !------
 
@@ -163,12 +143,12 @@ contains
       hydrostaic_build_rho_XYZ
     use mod_mkinit_util, only: &
       mkinitutil_calc_cosinebell
-    use mod_exp, only: &
+    use mod_experiment, only: &
       TracerLocalMeshField_ptr
     
     implicit none
 
-    class(Exp_rising_therm_bubble_moist), intent(inout) :: this
+    class(Experiment), intent(inout) :: this
     type(LocalMesh3D), intent(in) :: lcmesh
     class(ElementBase3D), intent(in) :: elem
     real(RP), intent(out) :: DENS_hyd(elem%Np,lcmesh%NeA)
@@ -230,12 +210,15 @@ contains
     real(RP) :: qsat_z(elem%Nnode_v,lcmesh%NeZ)
     real(RP) :: psat_sfc, qsat_sfc, qv_sfc
 
-    integer :: ke, p
+    integer :: ke, ke2D
     integer :: ke_x, ke_y, ke_z
-    integer :: p3, p2D
+    integer :: p, p3, p2D
     integer :: ierr
 
     integer :: iq_QV, iq_QC
+
+    real(RP), allocatable :: bnd_SFC_PRES(:,:)
+    real(RP) :: sfc_rhot(elem%Nfp_v)
     !-----------------------------------------------------------------------------
 
     SFC_THETA = 300.0_RP
@@ -267,13 +250,17 @@ contains
     call hydrostatic_calc_basicstate_constPT( DENS_hyd, PRES_hyd,                            &
       SFC_THETA, SFC_PRES, lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2), lcmesh%pos_en(:,:,3), &
       lcmesh, elem )
+
     
-    !$omp parallel do collapse(3) private(ke,ke_x,ke_y,ke_z)
+    allocate( bnd_SFC_PRES(elem%Nfp_v,lcmesh%Ne2DA) )
+
+    !$omp parallel do collapse(3) private( ke, ke2D, ke_x, ke_y, ke_z, sfc_rhot )
     do ke_y=1, lcmesh%NeY
     do ke_x=1, lcmesh%NeX
     do ke_z=1, lcmesh%NeZ
+      ke2D = ke_x + (ke_y-1)*lcmesh%NeX
+      ke = ke2D + (ke_z-1)*lcmesh%NeX*lcmesh%NeY
 
-      ke = ke_x + (ke_y-1)*lcmesh%NeX + (ke_z-1) * lcmesh%Ne2D
       where ( lcmesh%zlev(:,ke) <= ENV_L1_ZTOP )
         PT_tmp(:,ke_z,ke_x,ke_y) = SFC_THETA
       elsewhere ( lcmesh%zlev(:,ke) < ENV_L2_ZTOP  )
@@ -282,13 +269,18 @@ contains
         PT_tmp(:,ke_z,ke_x,ke_y) = SFC_THETA + ( ENV_L2_ZTOP - ENV_L1_ZTOP ) * ENV_L2_TLAPS       &
                                  + ( lcmesh%zlev(:,ke) - ENV_L2_ZTOP ) * ENV_L3_TLAPS
       end where
+
+      if ( ke_z == 1 ) then
+        sfc_rhot(:) = DENS_hyd(elem%Hslice(:,1),ke2D) * PT_tmp(elem%Hslice(:,1),ke_z,ke_x,ke_y)        
+        bnd_SFC_PRES(:,ke2D) = PRES00 * ( Rdry * sfc_rhot(:) / PRES00 )**( CpDry / CVdry )
+      end if      
     end do
     end do
     end do
 
-    call hydrostaic_build_rho_XYZ( DDENS, & ! (out)
-      DENS_hyd, PRES_hyd, PT_tmp,         & ! (in)
-      x, y, z, lcmesh, elem               ) ! (in)
+    call hydrostaic_build_rho_XYZ( DDENS,  & ! (out)
+      DENS_hyd, PRES_hyd, PT_tmp,          & ! (in)
+      x, y, z, lcmesh, elem, bnd_SFC_PRES  ) ! (in)
       
     !$omp parallel do collapse(3) private(PT, DENS, PRES, ke,ke_x,ke_y,ke_z)
     do ke_y=1, lcmesh%NeY
@@ -330,11 +322,13 @@ contains
       temp_z, pres_z, qdry_z,                                   & ! [IN]
       qsat_z                                                    ) ! [OUT]
 
-    !$omp parallel do collapse(3) private(ke_z,ke_x,ke_y,ke,p3,p2D,p, QV)
+    !$omp parallel do collapse(3) private(ke_z,ke_x,ke_y,ke,ke2D,p3,p2D,p, QV)
     do ke_y=1, lcmesh%NeY
     do ke_x=1, lcmesh%NeX
     do ke_z=1, lcmesh%NeZ
-      ke = ke_x + (ke_y-1)*lcmesh%NeX + (ke_z-1) * lcmesh%Ne2D
+      ke2D = ke_x + (ke_y-1)*lcmesh%NeX
+      ke = ke2D + (ke_z-1)*lcmesh%NeX*lcmesh%NeY
+
       do p3=1, elem%Nnode_v
       do p2D=1, elem%Nnode_h1D**2
         p = p2D + (p3 - 1)*elem%Nnode_h1D**2
@@ -377,34 +371,11 @@ contains
       DDENS(:,ke) = DENS(:) - DENS_hyd(:,ke)
       DRHOT(:,ke) = DENS(:) * PT(:) &
                   - PRES00 / Rdry * ( PRES_hyd(:,ke) / PRES00 )**(CVdry/CPdry)
-      tracer_field_list(iq_QC)%ptr%val(:,ke) = 0.0E-5_RP
     end do
     end do
     end do
 
     return
   end subroutine exp_SetInitCond_rising_therm_bubble
-
-!OCL SERIAL
-  subroutine exp_geostrophic_balance_correction( this,                   &
-    DENS_hyd, PRES_hyd, DDENS, MOMX, MOMY, MOMZ, DRHOT,                  &
-    lcmesh, elem )
-    
-    implicit none
-
-    class(Exp_rising_therm_bubble_moist), intent(inout) :: this
-    type(LocalMesh3D), intent(in) :: lcmesh
-    class(ElementBase3D), intent(in) :: elem
-    real(RP), intent(inout) :: DENS_hyd(elem%Np,lcmesh%NeA)
-    real(RP), intent(in) :: PRES_hyd(elem%Np,lcmesh%NeA)
-    real(RP), intent(inout) :: DDENS(elem%Np,lcmesh%NeA)
-    real(RP), intent(inout) :: MOMX(elem%Np,lcmesh%NeA)
-    real(RP), intent(inout) :: MOMY(elem%Np,lcmesh%NeA)    
-    real(RP), intent(inout) :: MOMZ(elem%Np,lcmesh%NeA)
-    real(RP), intent(inout) :: DRHOT(elem%Np,lcmesh%NeA)
-
-    !---------------------------------------------------
-    return
-  end subroutine exp_geostrophic_balance_correction 
 
 end module mod_user

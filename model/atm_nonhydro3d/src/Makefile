@@ -14,12 +14,12 @@ include $(TOPDIR)/Mkinclude
 
 BINNAME  = scale-dg
 INITNAME = scale-dg_init
-PPNAME = scale-dg_pp
+PPNAME   = scale-dg_pp
 
 BINS = $(BINDIR)/$(BINNAME)$(POSTFIX)  \
        $(BINDIR)/$(INITNAME)$(POSTFIX) \
        $(BINDIR)/$(PPNAME)$(POSTFIX) 
-LIBS = $(LIBDIR)/libScaleFECore.a
+LIBS = $(LIBDIR)/libScaleFECore$(POSTFIX).a
 
 VERSION = $(shell git rev-parse --short HEAD 2> /dev/null)
 ifeq ($(VERSION),)
@@ -41,7 +41,6 @@ OBJS = \
 	mod_atmos_component.o        \
 	mod_atmos_dyn.o              \
 	mod_atmos_dyn_vars.o         \
-	mod_atmos_dyn_bnd.o          \
 	mod_atmos_phy_sfc.o          \
 	mod_atmos_phy_sfc_vars.o     \
 	mod_atmos_phy_mp.o           \
@@ -52,8 +51,9 @@ OBJS = \
 	mod_atmos_mesh_rm.o          \
 	mod_atmos_mesh_gm.o          \
 	mod_atmos_vars.o             \
+	mod_user_base.o              \
 	mod_user.o                   \
-	mod_exp.o                    \
+	mod_experiment.o             \
 	\
 	mod_dg_prep.o                \
 	mod_mktopo.o                 \
@@ -96,7 +96,7 @@ $(BUILD_DIR)/$(PPNAME)$(POSTFIX) : $(BUILD_DIR)/$(PPNAME).o $(patsubst %,$(BUILD
 
 $(BUILD_DIR)/$(BINNAME).o  : $(LIBS) $(patsubst %,$(BUILD_DIR)/%,$(OBJS)) $(BUILD_DIR)/mod_user.o
 $(BUILD_DIR)/$(PPNAME).o : $(LIBS) $(patsubst %,$(BUILD_DIR)/%,$(OBJS)) $(BUILD_DIR)/mod_user.o
-$(BUILD_DIR)/mod_user.o    : $(LIBS) $(patsubst %,$(BUILD_DIR)/%,$(SUB_OBJS)) $(BUILD_DIR)/mod_exp.o $(BUILD_DIR)/mod_mkinit_util.o
+$(BUILD_DIR)/mod_user.o    : $(LIBS) $(patsubst %,$(BUILD_DIR)/%,$(SUB_OBJS)) $(BUILD_DIR)/mod_experiment.o $(BUILD_DIR)/mod_mkinit_util.o
 
 $(BINDIR)/$(BINNAME)$(POSTFIX)  : $(BUILD_DIR)/$(BINNAME)$(POSTFIX)
 	install $< $@

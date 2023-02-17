@@ -1,6 +1,6 @@
 !-------------------------------------------------------------------------------
 #include "scaleFElib.h"
-module mod_exp
+module mod_experiment
   !-----------------------------------------------------------------------------
   !
   !++ Used modules
@@ -36,34 +36,39 @@ module mod_exp
   !
   !++ Public type & procedures
   !
-  type, abstract, public :: experiment
+
+  type, public :: Experiment
     character(len=H_SHORT) :: label
+    procedure(exp_SetInitCond_lc), pointer :: setInitCond_lc => null()
+    procedure(exp_geostrophic_balance_correction_lc), pointer :: geostrophic_balance_correction_lc => null()
   contains
-    procedure, public :: Init => exp_Init
-    procedure, public :: Final => exp_Final
-    procedure, public :: SetInitCond => exp_SetInitCond
-    procedure(exp_SetInitCond_lc), deferred :: setInitCond_lc
-    procedure(exp_geostrophic_balance_correction_lc), deferred :: geostrophic_balance_correction_lc
-  end type
+    procedure, public :: Init_Base => experiment_Init
+    generic :: Init => Init_Base
+    procedure, public :: Final_Base => experiment_Final
+    generic :: Final => Final_Base
+    procedure, public :: SetInitCond => experiment_SetInitCond
+    procedure, public :: Regist_SetInitCond => experiment_regist_set_initcond
+    procedure, public :: Regist_geostrophic_balance_correction => experiment_regist_geostrophic_balance_correction
+  end type Experiment
 
   type, public :: TracerLocalMeshField_ptr
     class(LocalMeshFieldBase), pointer :: ptr
   end type
 
-  abstract interface
+  interface
     subroutine exp_SetInitCond_lc( &
       this, DENS_hyd, PRES_hyd, DDENS, MOMX, MOMY, MOMZ, DRHOT,  &
       tracer_field_list,                                         &
       x, y, z, dom_xmin, dom_xmax, dom_ymin, dom_ymax, dom_zmin, &
       dom_zmax, lcmesh, elem )
 
-      import experiment
+      import Experiment
       import LocalMesh3D 
       import ElementBase3D
       import TracerLocalMeshField_ptr
       import RP
 
-      class(experiment), intent(inout) :: this
+      class(Experiment), intent(inout) :: this
       type(LocalMesh3D), intent(in) :: lcmesh
       class(ElementBase3D), intent(in) :: elem
       real(RP), intent(out) :: DENS_hyd(elem%Np,lcmesh%NeA)
@@ -86,12 +91,12 @@ module mod_exp
       DENS_hyd, PRES_hyd, DDENS, MOMX, MOMY, MOMZ, DRHOT,                  &
       lcmesh, elem )
     
-      import experiment
+      import Experiment
       import LocalMesh3D 
       import ElementBase3D
       import RP
 
-      class(experiment), intent(inout) :: this
+      class(Experiment), intent(inout) :: this
       type(LocalMesh3D), intent(in) :: lcmesh
       class(ElementBase3D), intent(in) :: elem
       real(RP), intent(inout) :: DENS_hyd(elem%Np,lcmesh%NeA)
@@ -102,7 +107,6 @@ module mod_exp
       real(RP), intent(inout) :: MOMZ(elem%Np,lcmesh%NeA)
       real(RP), intent(inout) :: DRHOT(elem%Np,lcmesh%NeA)
     end subroutine exp_geostrophic_balance_correction_lc
-
   end interface
 
   !-----------------------------------------------------------------------------
@@ -122,25 +126,102 @@ module mod_exp
   !
 
 contains
-  subroutine exp_Init( this, exp_name )
+  subroutine experiment_Init( this, exp_name )
     implicit none
-    class(experiment), intent(inout) :: this
+    class(Experiment), intent(inout) :: this
     character(len=*), intent(in) :: exp_name
     !----------------------------------------------------------------------
 
     this%label = exp_name
-    return
-  end subroutine exp_Init
 
-  subroutine exp_Final( this )
+    this%setInitCond_lc => experiment_SetInitCond_lc_dummy
+    this%geostrophic_balance_correction_lc => experiment_geostrophic_balance_correction_lc_dummy
+
+    return
+  end subroutine experiment_Init
+
+  subroutine experiment_Final( this )
     implicit none
-    class(experiment), intent(inout) :: this
+    class(Experiment), intent(inout) :: this
     !----------------------------------------------------------------------
 
     return
-  end subroutine exp_Final
+  end subroutine experiment_Final
 
-  subroutine exp_SetInitCond( this, &
+  subroutine experiment_regist_set_initcond( this, exp_SetInitCond_lc )
+    implicit none
+    class(Experiment), intent(inout) :: this
+    interface
+      subroutine exp_SetInitCond_lc( &
+        this, &
+        DENS_hyd, PRES_hyd, DDENS, MOMX, MOMY, MOMZ, DRHOT,  &
+        tracer_field_list,                                         &
+        x, y, z, dom_xmin, dom_xmax, dom_ymin, dom_ymax, dom_zmin, &
+        dom_zmax, lcmesh, elem )
+
+        import Experiment
+        import LocalMesh3D 
+        import ElementBase3D
+        import TracerLocalMeshField_ptr
+        import RP
+
+        class(Experiment), intent(inout) :: this
+        type(LocalMesh3D), intent(in) :: lcmesh
+        class(ElementBase3D), intent(in) :: elem
+        real(RP), intent(out) :: DENS_hyd(elem%Np,lcmesh%NeA)
+        real(RP), intent(out) :: PRES_hyd(elem%Np,lcmesh%NeA)
+        real(RP), intent(out) :: DDENS(elem%Np,lcmesh%NeA)
+        real(RP), intent(out) :: MOMX(elem%Np,lcmesh%NeA)
+        real(RP), intent(out) :: MOMY(elem%Np,lcmesh%NeA)
+        real(RP), intent(out) :: MOMZ(elem%Np,lcmesh%NeA)
+        real(RP), intent(out) :: DRHOT(elem%Np,lcmesh%NeA)
+        type(TracerLocalMeshField_ptr), intent(inout) :: tracer_field_list(:)
+        real(RP), intent(in) :: x(elem%Np,lcmesh%Ne)
+        real(RP), intent(in) :: y(elem%Np,lcmesh%Ne)
+        real(RP), intent(in) :: z(elem%Np,lcmesh%Ne)
+        real(RP), intent(in) :: dom_xmin, dom_xmax
+        real(RP), intent(in) :: dom_ymin, dom_ymax      
+        real(RP), intent(in) :: dom_zmin, dom_zmax
+      end subroutine exp_SetInitCond_lc
+    end interface    
+    !----------------------------------------------------------------------
+
+    this%setInitCond_lc => exp_SetInitCond_lc
+    return
+  end subroutine experiment_regist_set_initcond
+
+  subroutine experiment_regist_geostrophic_balance_correction( this, exp_geostrophic_balance_correction_lc )
+    implicit none
+    class(Experiment), intent(inout) :: this
+    interface
+      subroutine exp_geostrophic_balance_correction_lc( this,                &
+        DENS_hyd, PRES_hyd, DDENS, MOMX, MOMY, MOMZ, DRHOT,                  &
+        lcmesh, elem )
+      
+        import Experiment
+        import LocalMesh3D 
+        import ElementBase3D
+        import RP
+
+        class(Experiment), intent(inout) :: this
+        type(LocalMesh3D), intent(in) :: lcmesh
+        class(ElementBase3D), intent(in) :: elem
+        real(RP), intent(inout) :: DENS_hyd(elem%Np,lcmesh%NeA)
+        real(RP), intent(in) :: PRES_hyd(elem%Np,lcmesh%NeA)
+        real(RP), intent(inout) :: DDENS(elem%Np,lcmesh%NeA)
+        real(RP), intent(inout) :: MOMX(elem%Np,lcmesh%NeA)
+        real(RP), intent(inout) :: MOMY(elem%Np,lcmesh%NeA)    
+        real(RP), intent(inout) :: MOMZ(elem%Np,lcmesh%NeA)
+        real(RP), intent(inout) :: DRHOT(elem%Np,lcmesh%NeA)
+      end subroutine exp_geostrophic_balance_correction_lc
+    end interface
+    !----------------------------------------------------------------------
+
+    this%geostrophic_balance_correction_lc => exp_geostrophic_balance_correction_lc
+    return
+  end subroutine experiment_regist_geostrophic_balance_correction
+
+  subroutine experiment_SetInitCond( this, &
     model_mesh, atm_prgvars_manager, atm_auxvars_manager, atm_trcvars_manager )
     
     use scale_tracer, only: QA
@@ -149,16 +230,18 @@ contains
     use scale_model_var_manager, only: ModelVarManager
     use scale_meshfieldcomm_base, only: MeshFieldContainer 
 
+    use scale_atm_dyn_dgm_nonhydro3d_common, only: &
+      AUXVAR_PRESHYDRO_ID, &
+      AUXVAR_DENSHYDRO_ID
+
     use mod_atmos_vars, only: &
       AtmosVars_GetLocalMeshPrgVars, &
-      AtmosVars_GetLocalMeshQTRCVar, &
-      ATMOS_AUXVARS_PRESHYDRO_ID, &
-      ATMOS_AUXVARS_DENSHYDRO_ID
+      AtmosVars_GetLocalMeshQTRCVar
     use mod_atmos_mesh, only: AtmosMesh
     
     implicit none
 
-    class(experiment), intent(inout) :: this
+    class(Experiment), intent(inout) :: this
     class(AtmosMesh), target, intent(in) :: model_mesh
     class(ModelVarManager), intent(inout) :: atm_prgvars_manager
     class(ModelVarManager), intent(inout) :: atm_auxvars_manager
@@ -218,7 +301,7 @@ contains
 
     !------------------------------------------------------
 
-    call atm_auxvars_manager%Get(ATMOS_AUXVARS_PRESHYDRO_ID, field_ptr)
+    call atm_auxvars_manager%Get(AUXVAR_PRESHYDRO_ID, field_ptr)
     select type(field_ptr) 
     type is (MeshField3D)
       hydvars_comm_list(1)%field3d => field_ptr
@@ -245,12 +328,12 @@ contains
         lcmesh3D                                        )
 
       call this%geostrophic_balance_correction_lc( &
-        DENS_hyd%val, PRES_hyd%val,                                                         & ! (out)
-        DDENS%val, MOMX%val, MOMY%val, MOMZ%val, DRHOT%val,                                 & ! (out)
-        lcmesh3D, lcmesh3D%refElem3D )                                                        ! (in) 
+        DENS_hyd%val, PRES_hyd%val,                          & ! (out)
+        DDENS%val, MOMX%val, MOMY%val, MOMZ%val, DRHOT%val,  & ! (out)
+        lcmesh3D, lcmesh3D%refElem3D )                         ! (in) 
     end do
 
-    call atm_auxvars_manager%Get(ATMOS_AUXVARS_DENSHYDRO_ID, field_ptr)
+    call atm_auxvars_manager%Get(AUXVAR_DENSHYDRO_ID, field_ptr)
     select type(field_ptr) 
     type is (MeshField3D)
       hydvars_comm_list(1)%field3d => field_ptr
@@ -267,6 +350,55 @@ contains
     end select    
 
     return
-  end subroutine exp_SetInitCond
+  end subroutine experiment_SetInitCond
   
-end module mod_exp
+  !------
+!OCL SERIAL  
+  subroutine experiment_SetInitCond_lc_dummy( this,                   &
+    DENS_hyd, PRES_hyd, DDENS, MOMX, MOMY, MOMZ, DRHOT, tracer_field_list, &
+    x, y, z, dom_xmin, dom_xmax, dom_ymin, dom_ymax, dom_zmin, dom_zmax,   &
+    lcmesh, elem )
+    implicit none
+
+    class(Experiment), intent(inout) :: this
+    type(LocalMesh3D), intent(in) :: lcmesh
+    class(ElementBase3D), intent(in) :: elem
+    real(RP), intent(out) :: DENS_hyd(elem%Np,lcmesh%NeA)
+    real(RP), intent(out) :: PRES_hyd(elem%Np,lcmesh%NeA)
+    real(RP), intent(out) :: DDENS(elem%Np,lcmesh%NeA)
+    real(RP), intent(out) :: MOMX(elem%Np,lcmesh%NeA)
+    real(RP), intent(out) :: MOMY(elem%Np,lcmesh%NeA)    
+    real(RP), intent(out) :: MOMZ(elem%Np,lcmesh%NeA)
+    real(RP), intent(out) :: DRHOT(elem%Np,lcmesh%NeA)
+    type(TracerLocalMeshField_ptr), intent(inout) :: tracer_field_list(:)    
+    real(RP), intent(in) :: x(elem%Np,lcmesh%Ne)
+    real(RP), intent(in) :: y(elem%Np,lcmesh%Ne)
+    real(RP), intent(in) :: z(elem%Np,lcmesh%Ne)
+    real(RP), intent(in) :: dom_xmin, dom_xmax
+    real(RP), intent(in) :: dom_ymin, dom_ymax
+    real(RP), intent(in) :: dom_zmin, dom_zmax
+    !---------------------------------------------------
+
+    return
+  end subroutine experiment_SetInitCond_lc_dummy
+
+  subroutine experiment_geostrophic_balance_correction_lc_dummy( this,    &
+    DENS_hyd, PRES_hyd, DDENS, MOMX, MOMY, MOMZ, DRHOT,   &
+    lcmesh, elem )
+    
+    implicit none
+    class(Experiment), intent(inout) :: this
+    type(LocalMesh3D), intent(in) :: lcmesh
+    class(ElementBase3D), intent(in) :: elem
+    real(RP), intent(inout) :: DENS_hyd(elem%Np,lcmesh%NeA)
+    real(RP), intent(in) :: PRES_hyd(elem%Np,lcmesh%NeA)
+    real(RP), intent(inout) :: DDENS(elem%Np,lcmesh%NeA)
+    real(RP), intent(inout) :: MOMX(elem%Np,lcmesh%NeA)
+    real(RP), intent(inout) :: MOMY(elem%Np,lcmesh%NeA)    
+    real(RP), intent(inout) :: MOMZ(elem%Np,lcmesh%NeA)
+    real(RP), intent(inout) :: DRHOT(elem%Np,lcmesh%NeA)
+    !---------------------------------------------------
+    return
+  end subroutine experiment_geostrophic_balance_correction_lc_dummy
+
+end module mod_experiment

@@ -24,8 +24,10 @@ doc/reference/latex
 *.js
 *.css
 *.dox
+*.i90
 
 #
+scale-dg_pp
 scale-dg_init
 init_LOG.pe*
 init_*.pe*.nc
@@ -36,6 +38,9 @@ LOG.pe*
 init_LOG.pe*
 monitor.pe*
 history.pe*.nc
+bs.pe*.nc
+topo.pe*.nc
+TOPO.pe*.nc
 restart_*.pe*.nc
 *.dat
 

@@ -31,8 +31,6 @@ module mod_user
     RPlanet => CONST_RADIUS, &
     OHM     => CONST_OHM
  
-  use mod_exp, only: experiment
-
   use mod_atmos_component, only: &
     AtmosComponent
 
@@ -40,17 +38,23 @@ module mod_user
   use scale_element_hexahedral, only: HexahedralElement
   use scale_localmesh_3d, only: LocalMesh3D  
 
+  use mod_user_base, only: UserBase
+  use mod_experiment, only: Experiment
+
   !-----------------------------------------------------------------------------
   implicit none
   private
   !-----------------------------------------------------------------------------
   !
-  !++ Public procedure
+  !++ Public type & procedure
   !
-  public :: USER_mkinit
-  public :: USER_setup
-  public :: USER_calc_tendency
-  public :: USER_update
+  type, public, extends(UserBase) :: User
+  contains
+    procedure :: mkinit_ => USER_mkinit
+    generic :: mkinit => mkinit_
+    procedure :: setup_ => USER_setup
+    generic :: setup => setup_
+  end type User
 
   !-----------------------------------------------------------------------------
   !
@@ -69,42 +73,33 @@ module mod_user
   !++ Private parameters & variables
   !
 
-  type, private, extends(experiment) :: Exp_baroclinic_wave_global
-  contains 
-    procedure :: setInitCond_lc => exp_SetInitCond_baroclinicwave
-    procedure :: geostrophic_balance_correction_lc => exp_geostrophic_balance_correction
-  end type
-  type(Exp_baroclinic_wave_global), private :: exp_manager
-
-  logical, private :: USER_do                   = .false. !< do user step?
-
   !-----------------------------------------------------------------------------
 contains
 !OCL SERIAL
-  subroutine USER_mkinit( atm )
+  subroutine USER_mkinit( this, atm )
     implicit none
-
+    class(User), intent(inout) :: this
     class(AtmosComponent), intent(inout) :: atm
 
+    type(Experiment) :: exp_manager
     !------------------------------------------
 
-    call exp_manager%Init('baroclinic_wave')
-
-    call exp_manager%SetInitCond( atm%mesh,                &
-      atm%vars%PROGVARS_manager, atm%vars%AUXVARS_manager, &
-      atm%vars%QTRCVARS_manager                            )
-    
+    call exp_manager%Init( 'baroclinic_wave_global' )
+    call exp_manager%Regist_SetInitCond( exp_SetInitCond_baroclinicwave )
+    call this%UserBase%mkinit( atm, exp_manager )
     call exp_manager%Final()
-
+        
     return
   end subroutine USER_mkinit
 
 !OCL SERIAL
-  subroutine USER_setup( atm )
+  subroutine USER_setup( this, atm )
     implicit none
     
+    class(User), intent(inout) :: this
     class(AtmosComponent), intent(inout) :: atm
-
+    
+    logical :: USER_do                   = .false. !< do user step?
     namelist / PARAM_USER / &
        USER_do
 
@@ -126,26 +121,11 @@ contains
     endif
     LOG_NML(PARAM_USER)
 
+    !-
+    call this%UserBase%Setup( atm, USER_do )
+
     return
   end subroutine USER_setup
-
-  subroutine USER_calc_tendency( atm )
-    implicit none
-
-    class(AtmosComponent), intent(inout) :: atm
-    !------------------------------------------
-
-    return
-  end subroutine USER_calc_tendency
-
-  subroutine USER_update( atm )
-    implicit none
-
-    class(AtmosComponent), intent(inout) :: atm
-    !------------------------------------------
-
-    return
-  end subroutine USER_update
 
   !------
 
@@ -162,12 +142,12 @@ contains
     use mod_mkinit_util, only: &
       mkinitutil_gen_GPMat,    &
       mkinitutil_gen_Vm1Mat
-    use mod_exp, only: &
+    use mod_experiment, only: &
       TracerLocalMeshField_ptr
     
     implicit none
 
-    class(Exp_baroclinic_wave_global), intent(inout) :: this
+    class(Experiment), intent(inout) :: this
     type(LocalMesh3D), intent(in) :: lcmesh
     class(ElementBase3D), intent(in) :: elem
     real(RP), intent(out) :: DENS_hyd(elem%Np,lcmesh%NeA)
@@ -507,30 +487,5 @@ contains
 
     return
   end subroutine get_thermal_wind_balance_1point_itr
-
-  subroutine exp_geostrophic_balance_correction( this,                   &
-    DENS_hyd, PRES_hyd, DDENS, MOMX, MOMY, MOMZ, DRHOT,                  &
-    lcmesh, elem )
-    
-    implicit none
-
-    class(Exp_baroclinic_wave_global), intent(inout) :: this
-    type(LocalMesh3D), intent(in) :: lcmesh
-    class(ElementBase3D), intent(in) :: elem
-    real(RP), intent(inout) :: DENS_hyd(elem%Np,lcmesh%NeA)
-    real(RP), intent(in) :: PRES_hyd(elem%Np,lcmesh%NeA)
-    real(RP), intent(inout) :: DDENS(elem%Np,lcmesh%NeA)
-    real(RP), intent(inout) :: MOMX(elem%Np,lcmesh%NeA)
-    real(RP), intent(inout) :: MOMY(elem%Np,lcmesh%NeA)    
-    real(RP), intent(inout) :: MOMZ(elem%Np,lcmesh%NeA)
-    real(RP), intent(inout) :: DRHOT(elem%Np,lcmesh%NeA)
-
-    integer :: ke
-    real(RP) :: LiftDelFlx(elem%Np)
-    real(RP) :: del_flux(elem%NfpTot,lcmesh%Ne,5)
-    !---------------------------------------------------
- 
-    return
-  end subroutine exp_geostrophic_balance_correction
 
 end module mod_user

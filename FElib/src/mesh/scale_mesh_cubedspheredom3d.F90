@@ -120,6 +120,8 @@ contains
     this%zmin_gl = dom_zmin
     this%zmax_gl = dom_zmax
     this%RPlanet = RPlanet
+    this%dom_vol = 4.0_RP / 3.0_RP * PI * ( ( dom_zmax + RPlanet )**3 - ( dom_zmin + RPlanet )**3 )
+
 
     !- Fz
     allocate( this%FZ(this%NeGZ+1) )

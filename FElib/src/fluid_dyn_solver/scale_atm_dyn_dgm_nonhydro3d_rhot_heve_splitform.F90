@@ -10,7 +10,7 @@
 !<
 !-------------------------------------------------------------------------------
 #include "scaleFElib.h"
-module scale_atm_dyn_dgm_nonhydro3d_splitform_heve
+module scale_atm_dyn_dgm_nonhydro3d_rhot_heve_splitform
   !-----------------------------------------------------------------------------
   !
   !++ Used modules
@@ -38,11 +38,12 @@ module scale_atm_dyn_dgm_nonhydro3d_splitform_heve
   use scale_meshfield_base, only: MeshField3D
 
   use scale_atm_dyn_dgm_nonhydro3d_common, only: &
-    atm_dyn_dgm_nonhydro3d_common_Init,               &
-    atm_dyn_dgm_nonhydro3d_common_Final,              &
-    DENS_VID, MOMX_VID, MOMY_VID, MOMZ_VID, RHOT_VID, &
-    PROG_VARS_NUM,                                    &
-    IntrpMat_VPOrdM1
+    atm_dyn_dgm_nonhydro3d_common_Init,                       &
+    atm_dyn_dgm_nonhydro3d_common_Final,                      &
+    DENS_VID => PRGVAR_DDENS_ID, RHOT_VID => PRGVAR_DRHOT_ID, &
+    MOMX_VID => PRGVAR_MOMX_ID, MOMY_VID => PRGVAR_MOMY_ID,   &
+    MOMZ_VID => PRGVAR_MOMZ_ID,                               &
+    PRGVAR_NUM, IntrpMat_VPOrdM1
   
   !-----------------------------------------------------------------------------
   implicit none
@@ -51,9 +52,9 @@ module scale_atm_dyn_dgm_nonhydro3d_splitform_heve
   !
   !++ Public procedures
   !
-  public :: atm_dyn_dgm_nonhydro3d_heve_splitform_Init
-  public :: atm_dyn_dgm_nonhydro3d_heve_splitform_Final
-  public :: atm_dyn_dgm_nonhydro3d_heve_splitform_cal_tend
+  public :: atm_dyn_dgm_nonhydro3d_rhot_heve_splitform_Init
+  public :: atm_dyn_dgm_nonhydro3d_rhot_heve_splitform_Final
+  public :: atm_dyn_dgm_nonhydro3d_rhot_heve_splitform_cal_tend
 
   !-----------------------------------------------------------------------------
   !
@@ -74,7 +75,7 @@ module scale_atm_dyn_dgm_nonhydro3d_splitform_heve
   private :: dx_abc, dy_abc, dz_abc
 
 contains
-  subroutine atm_dyn_dgm_nonhydro3d_heve_splitform_Init( mesh )
+  subroutine atm_dyn_dgm_nonhydro3d_rhot_heve_splitform_Init( mesh )
     implicit none
     class(MeshBase3D), intent(in) :: mesh
 
@@ -104,10 +105,10 @@ contains
     end do
 
     return
-  end subroutine atm_dyn_dgm_nonhydro3d_heve_splitform_Init
+  end subroutine atm_dyn_dgm_nonhydro3d_rhot_heve_splitform_Init
 
 
-  subroutine atm_dyn_dgm_nonhydro3d_heve_splitform_Final()
+  subroutine atm_dyn_dgm_nonhydro3d_rhot_heve_splitform_Final()
     implicit none
     !--------------------------------------------
 
@@ -115,29 +116,25 @@ contains
     call atm_dyn_dgm_nonhydro3d_common_Final()
     
     return
-  end subroutine atm_dyn_dgm_nonhydro3d_heve_splitform_Final  
+  end subroutine atm_dyn_dgm_nonhydro3d_rhot_heve_splitform_Final  
 
   !-------------------------------
 
-  subroutine atm_dyn_dgm_nonhydro3d_heve_splitform_cal_tend( &
+  subroutine atm_dyn_dgm_nonhydro3d_rhot_heve_splitform_cal_tend( &
     DENS_dt, MOMX_dt, MOMY_dt, MOMZ_dt, RHOT_dt,                                & ! (out)
-    DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd, CORIOLIS,          & ! (in)
+    DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DPRES_, DENS_hyd, PRES_hyd, CORIOLIS,  & ! (in)
     Rtot, CVtot, CPtot,                                                         & ! (in)
-    SL_flag, wdamp_tau, wdamp_height, hveldamp_flag,                            & ! (in)
-    Dx, Dy, Dz, Sx, Sy, Sz, Lift, lmesh, elem, lmesh2D, elem2D )
+    Dx, Dy, Dz, Sx, Sy, Sz, Lift, lmesh, elem, lmesh2D, elem2D )                  ! (in)
 
-    use scale_atm_dyn_dgm_nonhydro3d_heve_numflux, only: &
-      atm_dyn_dgm_nonhydro3d_heve_numflux_get_generalvc
-
-    use scale_atm_dyn_dgm_spongelayer, only: &
-      atm_dyn_dgm_spongelayer_add_tend
+    use scale_atm_dyn_dgm_nonhydro3d_rhot_heve_numflux, only: &
+      get_ebnd_flux => atm_dyn_dgm_nonhydro3d_rhot_heve_numflux_get_generalvc
     
     implicit none
 
     class(LocalMesh3D), intent(in) :: lmesh
-    class(elementbase3D), intent(in) :: elem
+    class(ElementBase3D), intent(in) :: elem
     class(LocalMesh2D), intent(in) :: lmesh2D
-    class(elementbase2D), intent(in) :: elem2D
+    class(ElementBase2D), intent(in) :: elem2D
     type(SparseMat), intent(in) :: Dx, Dy, Dz, Sx, Sy, Sz, Lift
     real(RP), intent(out) :: DENS_dt(elem%Np,lmesh%NeA)
     real(RP), intent(out) :: MOMX_dt(elem%Np,lmesh%NeA)
@@ -149,24 +146,21 @@ contains
     real(RP), intent(in)  :: MOMY_(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: MOMZ_(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: DRHOT_(elem%Np,lmesh%NeA)
+    real(RP), intent(in)  :: DPRES_(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: DENS_hyd(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: PRES_hyd(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: CORIOLIS(elem2D%Np,lmesh2D%NeA)
     real(RP), intent(in)  :: Rtot(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: CVtot(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: CPtot(elem%Np,lmesh%NeA)
-    logical, intent(in) :: SL_flag
-    real(RP), intent(in) :: wdamp_tau
-    real(RP), intent(in) :: wdamp_height
-    logical, intent(in) :: hveldamp_flag
 
     real(RP) :: Fx(elem%Np), Fy(elem%Np), Fz(elem%Np), LiftDelFlx(elem%Np)
     real(RP) :: Fx_sp(elem%Np), Fy_sp(elem%Np), Fz_sp(elem%Np)  
     real(RP) :: GradPhyd_x(elem%Np), GradPhyd_y(elem%Np)
-    real(RP) :: del_flux(elem%NfpTot,lmesh%Ne,PROG_VARS_NUM)
+    real(RP) :: del_flux(elem%NfpTot,lmesh%Ne,PRGVAR_NUM)
     real(RP) :: del_flux_hyd(elem%NfpTot,lmesh%Ne,2)
-    real(RP) :: GsqrtDens_(elem%Np), rdens_(elem%Np), RHOT_hyd(elem%Np), RHOT_(elem%Np)
-    real(RP) :: dpres_(elem%Np), u_(elem%Np), v_(elem%Np), w_(elem%Np), wt_(elem%Np), pot_(elem%Np)
+    real(RP) :: GsqrtDens_(elem%Np), rdens_(elem%Np), RHOT_(elem%Np)
+    real(RP) :: u_(elem%Np), v_(elem%Np), w_(elem%Np), wt_(elem%Np), pot_(elem%Np)
     real(RP) :: drho(elem%Np), Cori(elem%Np)
     real(RP) :: GsqrtV(elem%Np), RGsqrtV(elem%Np)
 
@@ -178,9 +172,9 @@ contains
     !------------------------------------------------------------------------
 
     call PROF_rapstart( 'cal_dyn_tend_bndflux', 3)
-    call atm_dyn_dgm_nonhydro3d_heve_numflux_get_generalvc( &
+    call get_ebnd_flux( &
       del_flux, del_flux_hyd,                                                 & ! (out)
-      DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd,                & ! (in)
+      DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DPRES_, DENS_hyd, PRES_hyd,        & ! (in)
       Rtot, CVtot, CPtot,                                                     & ! (in)
       lmesh%Gsqrt, lmesh%GI3(:,:,1), lmesh%GI3(:,:,2),                        & ! (in)    
       lmesh%normal_fn(:,:,1), lmesh%normal_fn(:,:,2), lmesh%normal_fn(:,:,3), & ! (in)
@@ -197,7 +191,7 @@ contains
     P0ovR = PRES00 / Rdry
 
     !$omp parallel do private( ke2d, Cori,                          &
-    !$omp RHOT_, DPRES_, GsqrtDens_, rdens_, u_, v_, w_, wt_, pot_, &
+    !$omp RHOT_, GsqrtDens_, rdens_, u_, v_, w_, wt_, pot_,         &
     !$omp GradPhyd_x, GradPhyd_y, drho,                             &
     !$omp GsqrtV, RGsqrtV,                                          &
     !$omp Fx, Fy, Fz, Fx_sp, Fy_sp, Fz_sp, LiftDelFlx               )
@@ -211,8 +205,8 @@ contains
 
       !--
       RHOT_(:) = P0ovR * (PRES_hyd(:,ke) * rP0)**rgamm + DRHOT_(:,ke)
-      DPRES_(:) = PRES00 * ( Rtot(:,ke) * rP0 * RHOT_(:) )**( CPtot(:,ke) / CVtot(:,ke) ) &
-                - PRES_hyd(:,ke)
+      ! DPRES_(:) = PRES00 * ( Rtot(:,ke) * rP0 * RHOT_(:) )**( CPtot(:,ke) / CVtot(:,ke) ) &
+      !           - PRES_hyd(:,ke)
 
       GsqrtDens_(:) = lmesh%Gsqrt(:,ke) * ( DDENS_(:,ke) + DENS_hyd(:,ke) )
       rdens_(:) = 1.0_RP / GsqrtDens_(:)
@@ -259,7 +253,7 @@ contains
       call dx_abc( DxT1D_, GsqrtDens_, u_,  u_, elem%Nnode_h1D, elem%Nnode_v, Fx_sp )
       call dy_abc( DyT1D_, GsqrtDens_, u_,  v_, elem%Nnode_h1D, elem%Nnode_v, Fy_sp )
       call dz_abc( DzT1D_, GsqrtDens_, u_, wt_, elem%Nnode_h1D, elem%Nnode_v, Fz_sp )
-      call sparsemat_matmul(Dx, lmesh%Gsqrt(:,ke) * dpres_(:)               , Fx)
+      call sparsemat_matmul(Dx, lmesh%Gsqrt(:,ke) * DPRES_(:,ke)              , Fx)
       call sparsemat_matmul(Lift, lmesh%Fscale(:,ke) * del_flux(:,ke,MOMX_VID), LiftDelFlx)
 
       MOMX_dt(:,ke) = &
@@ -274,7 +268,7 @@ contains
       call dx_abc( DxT1D_, GsqrtDens_, v_,  u_, elem%Nnode_h1D, elem%Nnode_v, Fx_sp )
       call dy_abc( DyT1D_, GsqrtDens_, v_,  v_, elem%Nnode_h1D, elem%Nnode_v, Fy_sp )  
       call dz_abc( DzT1D_, GsqrtDens_, v_, wt_, elem%Nnode_h1D, elem%Nnode_v, Fz_sp )
-      call sparsemat_matmul(Dy, lmesh%Gsqrt(:,ke) * dpres_(:)               , Fy)
+      call sparsemat_matmul(Dy, lmesh%Gsqrt(:,ke) * DPRES_(:,ke)              , Fy)
       call sparsemat_matmul(Lift, lmesh%Fscale(:,ke) * del_flux(:,ke,MOMY_VID), LiftDelFlx)
 
       MOMY_dt(:,ke) = &
@@ -289,7 +283,7 @@ contains
       call dx_abc( DxT1D_, GsqrtDens_, w_,  u_, elem%Nnode_h1D, elem%Nnode_v, Fx_sp )
       call dy_abc( DyT1D_, GsqrtDens_, w_,  v_, elem%Nnode_h1D, elem%Nnode_v, Fy_sp )
       call dz_abc( DzT1D_, GsqrtDens_, w_, wt_, elem%Nnode_h1D, elem%Nnode_v, Fz_sp )
-      call sparsemat_matmul(Dz, lmesh%Gsqrt(:,ke) * RGsqrtV(:) * dpres_(:)  , Fz)
+      call sparsemat_matmul(Dz, lmesh%Gsqrt(:,ke) * RGsqrtV(:) * DPRES_(:,ke) , Fz)
       call sparsemat_matmul(Lift, lmesh%Fscale(:,ke) * del_flux(:,ke,MOMZ_VID), LiftDelFlx)
       
       MOMZ_dt(:,ke) = - ( &
@@ -313,18 +307,8 @@ contains
     end do
     call PROF_rapend( 'cal_dyn_tend_interior', 3)
 
-    !- Sponge layer
-    if (SL_flag) then
-      call PROF_rapstart( 'cal_dyn_tend_sponge', 3)
-      call atm_dyn_dgm_spongelayer_add_tend( &
-        MOMX_dt, MOMY_dt, MOMZ_dt,                    & ! (out)
-        MOMX_, MOMY_, MOMZ_, wdamp_tau, wdamp_height, & ! (in)
-        hveldamp_flag, lmesh, elem                    ) ! (in)
-      call PROF_rapend( 'cal_dyn_tend_sponge', 3)
-    end if
-
     return
-  end subroutine atm_dyn_dgm_nonhydro3d_heve_splitform_cal_tend
+  end subroutine atm_dyn_dgm_nonhydro3d_rhot_heve_splitform_cal_tend
 
 !-----------------------------------------
 
@@ -463,4 +447,4 @@ contains
     return
   end subroutine dz_abc
 
-end module scale_atm_dyn_dgm_nonhydro3d_splitform_heve
+end module scale_atm_dyn_dgm_nonhydro3d_rhot_heve_splitform

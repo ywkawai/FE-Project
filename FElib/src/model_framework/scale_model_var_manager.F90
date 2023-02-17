@@ -50,6 +50,10 @@ module scale_model_var_manager
     procedure, private :: Regist3D => ModelVarManager_regist3D
     generic, public :: Regist => Regist1D, Regist2D, Regist3D
     procedure, public :: Get => ModelVarManager_Get
+    procedure, public :: Get2D => ModelVarManager_Get2D
+    procedure, public :: Get3D => ModelVarManager_Get3D
+    procedure, public :: GetLocalMeshField => ModelVarManager_GetLocalMeshField
+    procedure, public :: GetLocalMeshFieldList => ModelVarManager_GetLocalMeshFieldList
 
     !--
     procedure, public :: MeshFieldComm_Prepair => ModelVarManager_meshfiled_comm_prepare
@@ -122,7 +126,7 @@ contains
 !OCL SERIAL
   subroutine ModelVarManager_Regist1D( this,       &
       varinfo, mesh, field, reg_file_history_flag, &
-      monitor_flag )
+      monitor_flag, fill_zero                      )
     
     use scale_mesh_base1d, only: Meshbase1d
     implicit none
@@ -133,9 +137,19 @@ contains
     class(MeshField1D), intent(inout), target :: field
     logical, intent(in) :: reg_file_history_flag
     logical, intent(in), optional :: monitor_flag
+    logical, intent(in), optional :: fill_zero
 
-    class(*), pointer :: ptr_field    
+    class(*), pointer :: ptr_field
+
+    integer :: domID, ke
+    logical :: fill_zero_
     !------------------------------------------------
+
+    if (present(fill_zero)) then
+      fill_zero_ = fill_zero
+    else
+      fill_zero_ = .true.
+    end if
 
     call field%Init( varinfo%NAME, varinfo%UNIT, mesh )
     if (reg_file_history_flag) then
@@ -148,9 +162,18 @@ contains
           field%monitor_id, dim_type='ATM1D', is_tendency=.false.      ) ! (in)
       end if
     end if
-
+     
     ptr_field => field
     call this%list%AddByPointer( varinfo%keyID, ptr_field )
+
+    if ( fill_zero_ ) then
+      do domID=1, mesh%LOCAL_MESH_NUM
+        !$omp parallel do
+        do ke=mesh%lcmesh_list(domID)%NeS, mesh%lcmesh_list(domID)%NeE
+          field%local(domID)%val(:,ke) = 0.0_RP
+        end do
+      end do
+    end if
 
     return
   end subroutine ModelVarManager_Regist1D
@@ -158,7 +181,7 @@ contains
 !OCL SERIAL
   subroutine ModelVarManager_Regist2D( this,     &
     varinfo, mesh, field, reg_file_history_flag, &
-    monitor_flag                                 )
+    monitor_flag, fill_zero                      )
     use scale_mesh_base2d, only: Meshbase2d
     implicit none
 
@@ -168,9 +191,19 @@ contains
     class(MeshField2D), intent(inout), target :: field
     logical, intent(in) :: reg_file_history_flag
     logical, intent(in), optional :: monitor_flag
+    logical, intent(in), optional :: fill_zero
 
     class(*), pointer :: ptr_field    
+
+    integer :: domID, ke
+    logical :: fill_zero_
     !------------------------------------------------
+
+    if (present(fill_zero)) then
+      fill_zero_ = fill_zero
+    else
+      fill_zero_ = .false.
+    end if
 
     call field%Init( varinfo%NAME, varinfo%UNIT, mesh )
     if (reg_file_history_flag) then
@@ -187,13 +220,22 @@ contains
     ptr_field => field
     call this%list%AddByPointer( varinfo%keyID, ptr_field )
 
+    if ( fill_zero_ ) then
+      do domID=1, mesh%LOCAL_MESH_NUM
+        !$omp parallel do
+        do ke=mesh%lcmesh_list(domID)%NeS, mesh%lcmesh_list(domID)%NeE
+          field%local(domID)%val(:,ke) = 0.0_RP
+        end do
+      end do
+    end if
+
     return
   end subroutine ModelVarManager_Regist2D
 
 !OCL SERIAL
-  subroutine ModelVarManager_Regist3D( this,    &
+  subroutine ModelVarManager_Regist3D( this,     &
     varinfo, mesh, field, reg_file_history_flag, &
-    monitor_flag  )
+    monitor_flag, fill_zero                      )
     use scale_mesh_base3d, only: MeshBase3D
     implicit none
 
@@ -203,9 +245,19 @@ contains
     class(MeshField3D), intent(inout), target :: field
     logical, intent(in) :: reg_file_history_flag
     logical, intent(in), optional :: monitor_flag
+    logical, intent(in), optional :: fill_zero
 
-    class(*), pointer :: ptr_field    
+    class(*), pointer :: ptr_field 
+    
+    integer :: domID, ke
+    logical :: fill_zero_    
     !------------------------------------------------
+
+    if (present(fill_zero)) then
+      fill_zero_ = fill_zero
+    else
+      fill_zero_ = .false.
+    end if
 
     call field%Init( varinfo%NAME, varinfo%UNIT, mesh )
     if (reg_file_history_flag) then
@@ -223,6 +275,15 @@ contains
     ptr_field => field
     call this%list%AddByPointer( varinfo%keyID, ptr_field )
 
+    if ( fill_zero_ ) then
+      do domID=1, mesh%LOCAL_MESH_NUM
+        !$omp parallel do
+        do ke=mesh%lcmesh_list(domID)%NeS, mesh%lcmesh_list(domID)%NeE
+          field%local(domID)%val(:,ke) = 0.0_RP
+        end do
+      end do
+    end if
+        
     return
   end subroutine ModelVarManager_Regist3D
 
@@ -253,6 +314,98 @@ contains
     return
   end subroutine ModelVarManager_Get
 
+!OCL SERIAL
+  subroutine ModelVarManager_Get2D( this, keyID, pField )
+    use scale_meshfield_base, only: MeshFieldBase
+    implicit none
+
+    class(ModelVarManager), intent(inout) :: this
+    integer, intent(in) :: keyID
+    class(MeshField2D), pointer, intent(out) :: pField
+
+    class(*), pointer :: ptr_field    
+    !------------------------------------------------
+
+    call this%list%Get(keyID, ptr_field)
+    
+    nullify( pField )
+    select type( ptr_field )
+    type is (MeshField2D)
+      pField => ptr_field          
+    end select
+
+    return
+  end subroutine ModelVarManager_Get2D
+
+!OCL SERIAL
+  subroutine ModelVarManager_Get3D( this, keyID, pField )
+    use scale_meshfield_base, only: MeshFieldBase
+    implicit none
+
+    class(ModelVarManager), intent(inout) :: this
+    integer, intent(in) :: keyID
+    class(MeshField3D), pointer, intent(out) :: pField
+
+    class(*), pointer :: ptr_field    
+    !------------------------------------------------
+
+    call this%list%Get(keyID, ptr_field)
+
+    nullify( pField )
+    select type( ptr_field )
+    type is (MeshField3D)
+      pField => ptr_field          
+    end select
+
+    return
+  end subroutine ModelVarManager_Get3D
+
+!OCL SERIAL
+  subroutine ModelVarManager_GetLocalMeshField( this, keyID, domID, pField_lc )
+    use scale_meshfield_base, only: MeshFieldBase
+    use scale_localmeshfield_base, only: LocalMeshFieldBase
+    implicit none
+
+    class(ModelVarManager), intent(inout) :: this
+    integer, intent(in) :: keyID
+    integer, intent(in) :: domID
+    class(LocalMeshFieldBase), pointer, intent(out) :: pField_lc
+
+    class(MeshFieldBase), pointer :: pField
+    !------------------------------------------------
+
+    call this%Get(keyID, pField)
+    call pField%GetLocalMeshField(domID, pField_lc)
+
+    return
+  end subroutine ModelVarManager_GetLocalMeshField
+
+!OCL SERIAL
+  subroutine ModelVarManager_GetLocalMeshFieldList( this, keyID_list, domID, lcfield_list )
+    use scale_meshfield_base, only: MeshFieldBase
+    use scale_localmeshfield_base, only: LocalMeshFieldBaseList
+    implicit none
+
+    class(ModelVarManager), intent(inout) :: this
+    integer, intent(in) :: keyID_list(:)
+    integer, intent(in) :: domID
+    type(LocalMeshFieldBaseList), intent(out) :: lcfield_list(size(keyID_list))
+
+    integer :: i
+    integer :: keyID
+
+    class(MeshFieldBase), pointer :: pField
+    !------------------------------------------------
+
+    do i=1, size(keyID_list)
+      keyID = keyID_list(i)
+      call this%Get(keyID, pField)
+      call pField%GetLocalMeshField( domID, lcfield_list(i)%ptr )
+    end do
+
+    return
+  end subroutine ModelVarManager_GetLocalMeshFieldList
+  
 !OCL SERIAL
   subroutine ModelVarManager_meshfiled_comm_prepare( this, &
       comm,  fields )

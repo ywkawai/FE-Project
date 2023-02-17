@@ -15,7 +15,7 @@ module scale_mesh_base3d
     MeshBase, MeshBase_Init, MeshBase_Final
   use scale_mesh_base2d, only: &
     MeshBase2D
-  use scale_element_base, only: elementbase3D
+  use scale_element_base, only: ElementBase3D
 
   !-----------------------------------------------------------------------------
   implicit none
@@ -27,7 +27,7 @@ module scale_mesh_base3d
   ! 
   type, abstract, public, extends(MeshBase) :: MeshBase3D
     type(LocalMesh3D), allocatable :: lcmesh_list(:)
-    type(elementbase3D), pointer :: refElem3D
+    type(ElementBase3D), pointer :: refElem3D
   contains
     procedure(MeshBase3D_generate), deferred :: Generate 
     procedure(MeshBase3D_getMesh2D), deferred  :: GetMesh2D
@@ -83,7 +83,7 @@ contains
     implicit none
 
     class(MeshBase3D), intent(inout) :: this
-    class(elementbase3D), intent(in), target :: refElem
+    class(ElementBase3D), intent(in), target :: refElem
     integer, intent(in) :: NLocalMeshPerPrc
     integer, intent(in) :: NsideTile
     integer, intent(in), optional :: nproc
@@ -156,9 +156,9 @@ contains
     interface
       subroutine coord_conv( x, y, z, xX, xY, xZ, yX, yY, yZ, zX, zY, zZ, &
         vx, vy, vz, elem )
-        import elementbase3D
+        import ElementBase3D
         import RP
-        type(elementbase3D), intent(in) :: elem
+        type(ElementBase3D), intent(in) :: elem
         real(RP), intent(out) :: x(elem%Np), y(elem%Np), z(elem%Np)
         real(RP), intent(out) :: xX(elem%Np), xY(elem%Np), xZ(elem%Np)
         real(RP), intent(out) :: yX(elem%Np), yY(elem%Np), yZ(elem%Np)
@@ -167,9 +167,9 @@ contains
       end subroutine coord_conv
       subroutine calc_normal( normal_fn, &
         Escale_f, fid_h, fid_v, elem )
-        import elementbase3D
+        import ElementBase3D
         import RP
-        type(elementbase3D), intent(in) :: elem
+        type(ElementBase3D), intent(in) :: elem
         real(RP), intent(out) :: normal_fn(elem%NfpTot,3)
         integer, intent(in) :: fid_h(elem%Nfp_h,elem%Nfaces_h)
         integer, intent(in) :: fid_v(elem%Nfp_v,elem%Nfaces_v)        
@@ -288,9 +288,17 @@ contains
 
     !$omp workshare
     lcmesh%Gsqrt (:,:)   = 1.0_RP
-    lcmesh%GI3   (:,:,1) = 0.0_RP
-    lcmesh%GI3   (:,:,2) = 0.0_RP
     lcmesh%GsqrtH(:,:)   = 1.0_RP
+    lcmesh%GIJ   (:,:,1,1) = 1.0_RP
+    lcmesh%GIJ   (:,:,2,1) = 0.0_RP
+    lcmesh%GIJ   (:,:,1,2) = 0.0_RP
+    lcmesh%GIJ   (:,:,2,2) = 1.0_RP
+    lcmesh%G_ij  (:,:,1,1) = 1.0_RP
+    lcmesh%G_ij  (:,:,2,1) = 0.0_RP
+    lcmesh%G_ij  (:,:,1,2) = 0.0_RP
+    lcmesh%G_ij  (:,:,2,2) = 1.0_RP
+    lcmesh%GI3   (:,:,1)   = 0.0_RP
+    lcmesh%GI3   (:,:,2)   = 0.0_RP
     !$omp end workshare
 
     !$omp end parallel

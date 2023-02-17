@@ -10,7 +10,7 @@ module scale_model_component_proc
 
   use scale_time_manager, only: &
     TIME_manager_component
-  use scale_model_mesh_manager, only: &
+  use scale_model_meshbase_manager, only: &
     ModelMeshBase
   use scale_model_var_manager, only: &
     ModelVarManager

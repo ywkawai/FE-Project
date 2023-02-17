@@ -22,7 +22,8 @@ program regrid_tool
   use scale_prc, only: PRC_abort
 
   use mod_regrid_mesh, only: &
-    out_mesh, nodemap
+    out_mesh, nodemap,                          &
+    out_GarlerkinProjection, out_mesh_GP, GPMat
   use mod_regrid_outvar_info, only: &
     OutVarInfo
   use mod_regrid_interp_field, only: &
@@ -84,13 +85,16 @@ program regrid_tool
       LOG_INFO("regrid_tool",'(a,i4)') ' interpolate :' // trim(vinfo%varname) // " step=", istep
       if ( associated( out_mesh%ptr_mesh3D ) ) then
 
-        call regrid_interp_field_Interpolate( istep, vinfo%varname, &
-            out_mesh, out_var3D, nodemap                            )
+        call regrid_interp_field_Interpolate( out_var3D, &
+          istep, vinfo%varname, out_mesh, nodemap,       &
+          out_GarlerkinProjection, out_mesh_GP, GPMat    )
 
         if ( vintrp%vintrp_typeid == REGRID_VCOORD_MODEL_ID ) then
             call regrid_file_write_var( vinfo, out_var3D, istep )
         else
-            call vintrp%Update_weight( istep, out_mesh, nodemap )               
+            call vintrp%Update_weight( istep, out_mesh, nodemap, &
+              out_GarlerkinProjection, out_mesh_GP, GPMat        )
+            
             call vintrp%Interpolate( istep, out_mesh%ptr_mesh3D, out_var3D )
 
             call regrid_file_write_var( vinfo, vintrp%vintrp_var3D, istep )               
@@ -98,10 +102,11 @@ program regrid_tool
 
       else
 
-        call regrid_interp_field_Interpolate( istep, vinfo%varname, &
-            out_mesh, out_var2D, nodemap                            )
-        call regrid_file_write_var( vinfo, out_var2D, istep )
+        call regrid_interp_field_Interpolate( out_var2D, &
+          istep, vinfo%varname, out_mesh, nodemap,       &
+          out_GarlerkinProjection, out_mesh_GP, GPMat    )
         
+        call regrid_file_write_var( vinfo, out_var2D, istep )
       end if
 
       if( IO_L ) call flush(IO_FID_LOG)      
@@ -109,7 +114,9 @@ program regrid_tool
   end do
 
   !---
-  call regrid_operate_field_do( out_mesh, nodemap, vintrp )
+  call regrid_operate_field_do( &
+    out_mesh, nodemap, vintrp,                  &
+    out_GarlerkinProjection, out_mesh_GP, GPMat )
 
   LOG_PROGRESS(*) 'END LOOP'
   LOG_NEWLINE

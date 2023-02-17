@@ -233,7 +233,8 @@ contains
     DDENS,                                   &
     DENS_hyd, PRES_hyd,                      &
     POT,                                     &
-    x, y, z, lcmesh, elem                    )
+    x, y, z, lcmesh, elem,                   &
+    bnd_SFC_PRES                             )
 
     implicit none
 
@@ -246,12 +247,14 @@ contains
     real(RP), intent(in) :: y(elem%Np,lcmesh%Ne)
     real(RP), intent(in) :: z(elem%Np,lcmesh%Ne)
     real(RP), intent(in) :: POT(elem%Np,lcmesh%NeZ,lcmesh%NeX,lcmesh%NeY)
+    real(RP), intent(in), optional :: bnd_SFC_PRES(lcmesh%lcmesh2D%refElem2D%Np,lcmesh%Ne2DA)
 
     real(RP) :: Rtot          (elem%Np,lcmesh%NeZ,lcmesh%NeX,lcmesh%NeY)
     real(RP) :: CPtot_ov_CVtot(elem%Np,lcmesh%NeZ,lcmesh%NeX,lcmesh%NeY)
+
     !-----------------------------------------------
 
-    !$omp parallel 
+    !$omp parallel
     !$omp workshare
     Rtot(:,:,:,:) = Rdry
     CPtot_ov_CVtot(:,:,:,:) = CPdry / CVdry
@@ -262,7 +265,8 @@ contains
       DDENS,                                   &
       DENS_hyd, PRES_hyd,                      &
       POT, Rtot, CPtot_ov_CVtot,               &
-      x, y, z, lcmesh, elem                    )
+      x, y, z, lcmesh, elem,                   &
+      bnd_SFC_PRES                             )
     
     return
   end subroutine hydrostaic_build_rho_XYZ_dry
@@ -272,7 +276,8 @@ contains
     DDENS,                                   &
     DENS_hyd, PRES_hyd,                      &
     POT, Rtot, CPtot_ov_CVtot,               &
-    x, y, z, lcmesh, elem                    )
+    x, y, z, lcmesh, elem,                   &
+    bnd_SFC_PRES                             )
 
     implicit none
 
@@ -287,8 +292,9 @@ contains
     real(RP), intent(in) :: POT(elem%Np,lcmesh%NeZ,lcmesh%NeX,lcmesh%NeY)
     real(RP), intent(in) :: Rtot(elem%Np,lcmesh%NeZ,lcmesh%NeX,lcmesh%NeY)
     real(RP), intent(in) :: CPtot_ov_CVtot(elem%Np,lcmesh%NeZ,lcmesh%NeX,lcmesh%NeY)
+    real(RP), intent(in), optional :: bnd_SFC_PRES(lcmesh%lcmesh2D%refElem2D%Np,lcmesh%Ne2DA)
 
-    integer :: ke
+    integer :: ke, ke2D
     integer :: ke_x, ke_y, ke_z
     integer :: itr_lin
     integer :: itr_nlin
@@ -324,11 +330,29 @@ contains
     real(RP) :: invV_POrdM1(elem%Np,elem%Np)
     real(RP) :: IntrpMat_VPOrdM1(elem%Np,elem%Np)
     integer :: p1, p2, p_
+
+    real(RP) :: bnd_SFC_PRES_tmp(lcmesh%lcmesh2D%refElem2D%Np,lcmesh%Ne2DA)
     !-----------------------------------------------
+
+    
+    if ( present(bnd_SFC_PRES) ) then
+      !$omp parallel do
+      do ke2D=lcmesh%lcmesh2D%NeS, lcmesh%lcmesh2D%NeE
+        bnd_SFC_PRES_tmp(:,ke2D) = bnd_SFC_PRES(:,ke2D)
+      end do
+    else
+      !$omp parallel do
+      do ke2D=lcmesh%lcmesh2D%NeS, lcmesh%lcmesh2D%NeE
+        bnd_SFC_PRES_tmp(:,ke2D) = PRES_hyd(elem%Hslice(:,1),ke2D)
+      end do      
+    end if
+
+    !--
 
     N = elem%Np * lcmesh%NeZ
     m = min(N / elem%Nnode_h1D**2, 30)
 !    m = min(N / elem%Nnode_h1D**2, 256)
+
     call gmres_hydro%Init( N, m, EPS, EPS )
     allocate( wj(N), pinv_v(N) )
 
@@ -345,14 +369,14 @@ contains
       invV_POrdM1(p_,:) = 0.0_RP
     end do
     end do
-    IntrpMat_VPOrdM1(:,:) = matmul(elem%V, invV_POrdM1)
-
+    IntrpMat_VPOrdM1(:,:) = matmul( elem%V, invV_POrdM1 )
+      
     !-----------
     do ke_y=1, lcmesh%NeY
     do ke_x=1, lcmesh%NeX
-
+      ke2D = ke_x + (ke_y-1)*lcmesh%NeX
       do ke_z=1, lcmesh%NeZ
-        ke = ke_x + (ke_y-1)*lcmesh%NeX + (ke_z-1)*lcmesh%NeX*lcmesh%NeY
+        ke = ke2D + (ke_z-1)*lcmesh%NeX*lcmesh%NeY
         VARS(:,ke_z) = 0.0_RP
 
         VARS0 (:,ke_z) = VARS(:,ke_z)
@@ -371,6 +395,7 @@ contains
         call eval_Ax( Ax(:,:), &
           VARS, VARS0, POT(:,:,ke_x,ke_y), Rtot(:,:,ke_x,ke_y),  &
           CPtot_ov_CVtot(:,:,ke_x,ke_y), DENS_hyd_z, PRES_hyd_z, &
+          bnd_SFC_PRES_tmp(:,ke2D),                              &
           Dz, Lift, IntrpMat_VPOrdM1, lcmesh, elem,              &
           nz, vmapM_z1D, vmapP_z1D, ke_x, ke_y                   )
         
@@ -404,10 +429,10 @@ contains
             CPtot_ov_CVtot(:,:,ke_x,ke_y), DENS_hyd_z, PRES_hyd_z,       & ! (in)
             Dz, Lift, IntrpMat_VPOrdM1, lcmesh, elem,                    & ! (in)
             nz, vmapM_z1D, vmapP_z1D, ke_x, ke_y )
-          
-          if (is_converged) exit            
+
+          if (is_converged) exit
         end do ! itr_lin
-        do ke_z=1, lcmesh%NeZ
+        do ke_z=1, lcmesh%NeZ  
           VARS (:,ke_z) = VARS(:,ke_z) + VAR_DEL(:,ke_z)
           VARS0(:,ke_z) = VARS(:,ke_z)
         end do
@@ -535,7 +560,12 @@ contains
         nz, vmapM, vmapP, ke_x, ke_y             ) ! (in)
       
       call gmres_hydro%Iterate_step_j( j, wj, is_converged )
-      if (is_converged) exit
+      
+      if ( is_converged .and. j==1 ) then
+        x(:) = pinv_v(:) * gmres_hydro%g(1)
+        return
+      end if
+      if ( is_converged ) exit
     end do
 
     do j=1, N
@@ -621,9 +651,9 @@ contains
 !OCL SERIAL
   subroutine eval_Ax( Ax, &
       DDENS, DENS0, POT, Rtot, CPtot_ov_CVtot,    & ! (in)
-      DENS_hyd, PRES_hyd,                         & ! (in)
+      DENS_hyd, PRES_hyd, bnd_SFC_PRES,           & ! (in)
       Dz, Lift, IntrpMat_VPOrdM1, lmesh, elem,    & ! (in)
-      nz, vmapM, vmapP, ke_x, ke_y )
+      nz, vmapM, vmapP, ke_x, ke_y                ) ! (in)
    
     implicit none
     class(LocalMesh3D), intent(in) :: lmesh
@@ -637,6 +667,7 @@ contains
     real(RP), intent(in) :: CPtot_ov_CVtot(elem%Np,lmesh%NeZ)
     real(RP), intent(in) :: DENS_hyd(elem%Np,lmesh%NeZ)
     real(RP), intent(in) :: PRES_hyd(elem%Np,lmesh%NeZ)
+    real(RP), intent(in) :: bnd_SFC_PRES(lmesh%lcmesh2D%refElem2D%Np)    
     class(SparseMat), intent(in) :: Dz, Lift    
     real(RP), intent(in) :: IntrpMat_VPOrdM1(elem%Np,elem%Np)
 
@@ -663,7 +694,7 @@ contains
 
     call cal_del_flux( del_flux,        & ! (out)
       DDENS, POT, Rtot, CPtot_ov_CVtot, & ! (in)
-      DENS_hyd, PRES_hyd,               & ! (in)        
+      DENS_hyd, PRES_hyd, bnd_SFC_PRES, & ! (in)        
       nz, vmapM, vmapP, lmesh, elem     ) ! (in)
 
     !$omp parallel do private(ke, DPRES, DENS, Fz, LiftDelFlx)
@@ -679,7 +710,7 @@ contains
       ! Ax(:,ke_z) = lmesh%Escale(:,ke,3,3) * Fz(:) + LiftDelFlx(:) &
       !            + Grav * matmul(IntrpMat_VPOrdM1, DDENS(:,ke_z))
       Ax(:,ke_z) = lmesh%Escale(:,ke,3,3) * Fz(:) + LiftDelFlx(:) &
-                 + Grav * matmul(IntrpMat_VPOrdM1, DENS(:))!DDENS(:,ke_z))
+                 + Grav * matmul(IntrpMat_VPOrdM1, DENS(:)) !DDENS(:,ke_z))
     end do
 
     return
@@ -688,7 +719,7 @@ contains
 !OCL SERIAL
   subroutine cal_del_flux( del_flux, &
     DDENS_, POT_, Rtot_, CPtot_ov_CVtot_, &
-    DENS_hyd, PRES_hyd,                   &
+    DENS_hyd, PRES_hyd, bnd_SFC_PRES,     &
     nz, vmapM, vmapP, lmesh, elem         )
 
     implicit none
@@ -702,37 +733,55 @@ contains
     real(RP), intent(in) :: CPtot_ov_CVtot_(elem%Np*lmesh%NeZ)
     real(RP), intent(in) :: DENS_hyd(elem%Np*lmesh%NeZ)
     real(RP), intent(in) :: PRES_hyd(elem%Np*lmesh%NeZ)
+    real(RP), intent(in) :: bnd_SFC_PRES(lmesh%lcmesh2D%refElem2D%Np)
     real(RP), intent(in) :: nz(elem%NfpTot*lmesh%NeZ)
     integer, intent(in) :: vmapM(elem%NfpTot*lmesh%NeZ)
     integer, intent(in) :: vmapP(elem%NfpTot*lmesh%NeZ)
 
     integer :: i, iP, iM
-    integer :: p, ke_z
+    integer :: p, p2D, f, ke_z
 
     real(RP) :: dpresP, dpresM
     real(RP) :: RtotOvP00M, RtotOvP00P
     real(RP) :: rP0
+    real(RP) :: fac
+
     !-------------------------------
 
     rP0 = 1.0_RP / PRES00
 
-    !$omp parallel do private(p, i, iM, iP, dpresM, dpresP, RtotOvP00M, RtotOvP00P)
+    !$omp parallel private( &
+    !$omp ke_z, p, p2D, f, i, iM, iP, fac,       &
+    !$omp dpresM, dpresP, RtotOvP00M, RtotOvP00P )
+    !$omp do
+    do i=1, elem%NfpTot*lmesh%NeZ
+      del_flux(i) = 0.0_RP
+    end do
+    !$omp end do
+    !$omp do collapse(3)
     do ke_z=1, lmesh%NeZ
-    do p=1, elem%NfpTot
+    do f=1, elem%Nfaces_v
+    do p2D=1, elem%Nfp_v 
+      p = p2D + (f-1)*elem%Nfp_v + elem%Nfaces_h * elem%Nfp_h
       i = p + (ke_z-1)*elem%NfpTot
       iM = vmapM(i); iP = vmapP(i)
 
       RtotOvP00M = Rtot_(iM) * rP0
       RtotOvP00P = Rtot_(iP) * rP0
 
+      fac = 0.5_RP * ( 1.0_RP - sign(1.0_RP,nz(i)) )
       dpresM = PRES00 *  ( RtotOvP00M * (DENS_hyd(iM) + DDENS_(iM)) * POT_(iM) )**CPtot_ov_CVtot_(iM) !- PRES_hyd(iM)
       dpresP = PRES00 *  ( RtotOvP00P * (DENS_hyd(iP) + DDENS_(iP)) * POT_(iP) )**CPtot_ov_CVtot_(iP) !- PRES_hyd(iP)
-!      if (ke_z==1.and. iM==iP) dpresP = PRES_hyd(iP) !* 0.0_RP
+      
+      if ( ke_z==1 .and. iM==iP ) dpresP = bnd_SFC_PRES(p2D)
 
-      del_flux(i) = 0.5_RP * (dpresP - dpresM) * nz(i)
+      del_flux(i) = fac * ( dpresP - dpresM ) * nz(i)
     end do
     end do
-
+    end do
+    !$omp end do
+    !$omp end parallel
+    
     return
   end subroutine cal_del_flux
 
@@ -822,7 +871,7 @@ contains
     integer, intent(in) :: vmapP(elem%NfpTot*lmesh%NeZ)
 
     integer :: i, iP, iM
-    integer :: p, ke_z
+    integer :: p, p2D, f, ke_z
 
     real(RP) :: dpresP, dpresM
     real(RP) :: pres0P, pres0M
@@ -830,16 +879,28 @@ contains
     real(RP) :: rP0
     real(RP) :: RtotOvP00M
     real(RP) :: RtotOvP00P
+
+    real(RP) :: fac
     !-------------------------------
 
     gamm = CpDry/CvDry
     rP0 = 1.0_RP / PRES00
 
-    !$omp parallel do private(p, i, iM, iP, &
+    !$omp parallel private( &
+    !$omp p, p2D, f, ke_z, i, iM, iP, fac,                           &
     !$omp dpresM, dpresP, pres0M, pres0P, RtotOvP00M, RtotOvP00P )
+    !$omp do
+    do i=1, elem%NfpTot*lmesh%NeZ
+      del_flux(i) = 0.0_RP
+    end do
+    !$omp end do
+    !$omp do collapse(3)
     do ke_z=1, lmesh%NeZ
-    do p=1, elem%NfpTot
+    do f=1, elem%Nfaces_v
+    do p2D=1, elem%Nfp_v 
+      p = p2D + (f-1)*elem%Nfp_v + elem%Nfaces_h * elem%Nfp_h
       i = p + (ke_z-1)*elem%NfpTot
+
       iM = vmapM(i); iP = vmapP(i)
 
       RtotOvP00M = Rtot_(iM) * rP0
@@ -848,13 +909,18 @@ contains
       pres0M = PRES00 * ( RtotOvP00M * (DENS_hyd_(iM) + DDENS0_(iM)) * POT_(iM) )**CPtot_ov_CVtot_(iM)
       pres0P = PRES00 * ( RtotOvP00P * (DENS_hyd_(iP) + DDENS0_(iP)) * POT_(iP) )**CPtot_ov_CVtot_(iP)
 
+      fac = 0.5_RP * ( 1.0_RP - sign(1.0_RP,nz(i)) )
       dpresM = CPtot_ov_CVtot_(iM) * pres0M / (DENS_hyd_(iM) + DDENS0_(iM)) * DDENS_(iM)
       dpresP = CPtot_ov_CVtot_(iP) * pres0P / (DENS_hyd_(iP) + DDENS0_(iP)) * DDENS_(iP)
-!      if (ke_z==1.and. iM==iP) dpresP = 0.0_RP
 
-      del_flux(i) = 0.5_RP * (dpresP - dpresM) * nz(i)
+      if ( ke_z == 1 .and. iM == iP ) dpresP = 0.0_RP
+
+      del_flux(i) = fac * ( dpresP - dpresM ) * nz(i)
     end do
     end do
+    end do
+    !$omp end do
+    !$omp end parallel
 
     return
   end subroutine cal_del_flux_lin
@@ -902,6 +968,7 @@ contains
     real(RP) :: lift_(elem%Np,elem%Np)
     real(RP) :: lift_2(elem%Np,elem%Np)
     real(RP) :: tmp(elem%Nfp_v)
+
     real(RP) :: fac
     !--------------------------------------------------------
 
@@ -918,7 +985,7 @@ contains
     end do
 
 !   !$omp parallel do private(ke, p, fp, v, f1, f2, ke_z2, dz_p, &
-!   !$omp fac, tmp, lift_, lift_2, &
+!   !$omp tmp, lift_, lift_2, fac, &
 !   !$omp PmatD, FmV, FmV2, fp_s, fp_e)
     do ke_z=1, lmesh%NeZ
       ke = Ke_x + (Ke_y-1)*lmesh%NeX + (ke_z-1)*lmesh%NeX*lmesh%NeY
@@ -940,7 +1007,6 @@ contains
         else
           f2 = 1; ke_z2 = min(ke_z+1, lmesh%NeZ)
         end if
-        fac  = 0.5_RP
         if ( (ke_z == 1 .and. f1==1) .or. (ke_z == lmesh%NeZ .and. f1==elem%Nfaces_v) ) then
           f2 = f1
         end if
@@ -956,21 +1022,24 @@ contains
         lift_2(:,:) = 0.0_RP
         do fp=fp_s, fp_e
           p = fp-fp_s+1
-          tmp(:) = lift_op(FmV,fp) * lmesh%Fscale(fp,ke) * nz(fp,ke_z)
+
+          fac = 0.5_RP * ( 1.0_RP - sign(1.0_RP,nz(fp,ke_z)) )
+          tmp(:) = lift_op(FmV,fp) * lmesh%Fscale(fp,ke) * nz(fp,ke_z) * fac
           lift_ (FmV,FmV (p)) = tmp(:) * CPtot_ov_CVtot(FmV (p),ke_z ) * PRES0(FmV (p),ke_z ) / DENS0(FmV (p),ke_z )
           lift_2(FmV,FmV2(p)) = tmp(:) * CPtot_ov_CVtot(FmV2(p),ke_z2) * PRES0(FmV2(p),ke_z2) / DENS0(FmV2(p),ke_z2)
         end do
 
-        !----        
-        if ( (ke_z == 1 .and. f1==1) ) then
-!          PmatD(:,:) = PmatD(:,:) - fac * lift_(:,:)
+        !----
+
+        if ( ke_z == 1 .and. f1==1 ) then
+          PmatD(:,:) = PmatD(:,:) - lift_(:,:)
         else if ( (ke_z == lmesh%NeZ .and. f1==elem%Nfaces_v) ) then
         else
-          PmatD(:,:) = PmatD(:,:) - fac * lift_(:,:)
+          PmatD(:,:) = PmatD(:,:) - lift_(:,:)
           if (f1 == 1) then
-            PmatL(:,:,ke_z) = fac * lift_2(:,:)
+            PmatL(:,:,ke_z) = lift_2(:,:)
           else
-            PmatU(:,:,ke_z) = fac * lift_2(:,:)
+            PmatU(:,:,ke_z) = lift_2(:,:)
           end if  
         end if
 

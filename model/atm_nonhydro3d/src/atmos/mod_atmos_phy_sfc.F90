@@ -73,9 +73,9 @@ module mod_atmos_phy_sfc
   !-----------------------------------------------------------------------------
     
 contains
+!OCL SERIAL
   subroutine AtmosPhySfc_setup( this, model_mesh, tm_parent_comp )
     use mod_atmos_mesh, only: AtmosMesh
-    use mod_atmos_vars, only: ATMOS_PROGVARS_NUM
     use scale_time_manager, only: TIME_manager_component
 
     use scale_atmos_phy_sf_const, only: &
@@ -136,7 +136,7 @@ contains
     return
   end subroutine AtmosPhySfc_setup
 
-
+!OCL SERIAL
   subroutine AtmosPhySfc_calc_tendency( &
     this, model_mesh, prgvars_list, trcvars_list, &
     auxvars_list, forcing_list, is_update         )
@@ -211,6 +211,7 @@ contains
     return  
   end subroutine AtmosPhySfc_calc_tendency
 
+!OCL SERIAL
   subroutine AtmosPhySfc_update( this, model_mesh,           &
     prgvars_list, trcvars_list, auxvars_list,  forcing_list, &
     is_update )
@@ -228,6 +229,7 @@ contains
     return
   end subroutine AtmosPhySfc_update
 
+!OCL SERIAL
   subroutine AtmosPhySfc_finalize( this )
     implicit none
     class(AtmosPhySfc), intent(inout) :: this

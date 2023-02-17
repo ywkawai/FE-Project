@@ -74,6 +74,8 @@ contains
       refElem, NLocalMeshPerPrc,              &
       nproc, myrank, FX )
 
+      this%dom_vol = (this%xmax_gl - this%xmin_gl)
+
   end subroutine MeshLineDom1D_Init
 
   subroutine MeshLineDom1D_Final( this ) ! (inout)

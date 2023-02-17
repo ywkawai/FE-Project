@@ -77,7 +77,10 @@ contains
     return
   end subroutine regrid_vec_conversion_Init
 
-  subroutine regrid_vec_conversion_Do( istep, out_mesh, nodeMap_list )
+  subroutine regrid_vec_conversion_Do( &
+    istep, out_mesh, nodeMap_list,     &
+    GP_flag, out_mesh_GP, GPMat        )
+
     use scale_meshutil_cubedsphere2d, only: &
       MeshUtilCubedSphere2D_getPanelID
     use mod_regrid_interp_field, only: &
@@ -96,6 +99,9 @@ contains
     integer, intent(in) :: istep
     class(regrid_mesh_base), intent(in), target :: out_mesh
     type(regrid_nodemap), intent(in) :: nodeMap_list(:)
+    logical, intent(in) :: GP_flag
+    class(regrid_mesh_base), intent(in), target :: out_mesh_GP
+    real(RP), intent(in) :: GPMat(:,:)
 
     class(LocalMesh3D), pointer :: lcmesh
     class(LocalMesh2D), pointer :: lcmesh2D
@@ -119,10 +125,12 @@ contains
     !----------------------------------------------
 
 
-    call regrid_interp_field_Interpolate( &
-      istep, "U", out_mesh, out_vec_comp1, nodeMap_list )
-    call regrid_interp_field_Interpolate( &
-      istep, "V", out_mesh, out_vec_comp2, nodeMap_list )
+    call regrid_interp_field_Interpolate( out_vec_comp1, &
+      istep, "U", out_mesh, nodeMap_list,                &
+      GP_flag, out_mesh_GP, GPMat                        )
+    call regrid_interp_field_Interpolate( out_vec_comp2, &
+      istep, "V", out_mesh, nodeMap_list,                &
+      GP_flag, out_mesh_GP, GPMat                        )
 
     do n=1, out_mesh%mesh3D%LOCAL_MESH_NUM
       lcmesh => out_mesh%mesh3D%lcmesh_list(n)

@@ -32,21 +32,27 @@ module mod_user
   use scale_cubedsphere_cnv, only: &
     CubedSphereCnv_LonLat2CSVec
   
-  use mod_exp, only: experiment    
   use mod_atmos_component, only: &
     AtmosComponent
+
+  use mod_user_base, only: UserBase
+  use mod_experiment, only: Experiment    
   
   !-----------------------------------------------------------------------------
   implicit none
   private
   !-----------------------------------------------------------------------------
   !
-  !++ Public procedure
+  !++ Public type & procedure
   !
-  public :: USER_mkinit
-  public :: USER_setup
-  public :: USER_calc_tendency
-  public :: USER_update
+  type, public, extends(UserBase) :: User
+  contains
+    procedure :: mkinit_ => USER_mkinit
+    generic :: mkinit => mkinit_
+    procedure :: setup_ => USER_setup
+    generic :: setup => setup_
+    procedure :: calc_tendency => USER_calc_tendency
+  end type User
 
   !-----------------------------------------------------------------------------
   !
@@ -61,41 +67,34 @@ module mod_user
   !++ Private parameters & variables
   !
 
-  type, private, extends(experiment) :: Exp_tracer_advection_global
-  contains 
-    procedure :: setInitCond_lc => exp_SetInitCond_tracer_advection
-    procedure :: geostrophic_balance_correction_lc => exp_geostrophic_balance_correction
-  end type
-  type(Exp_tracer_advection_global), private :: exp_manager
-
-  logical, private :: USER_do                   = .false. !< do user step?
-
   !-----------------------------------------------------------------------------
 contains
-  subroutine USER_mkinit ( atm )
+  subroutine USER_mkinit ( this, atm )
     implicit none
-
+    class(User), intent(inout) :: this
     class(AtmosComponent), intent(inout) :: atm
+
+    type(Experiment) :: exp_manager
     !------------------------------------------
 
     call exp_manager%Init('tracer_advection_global')
-
-    call exp_manager%SetInitCond( atm%mesh,                &
-      atm%vars%PROGVARS_manager, atm%vars%AUXVARS_manager, &
-      atm%vars%QTRCVARS_manager                            )
+    call exp_manager%Regist_SetInitCond( exp_SetInitCond_tracer_advection )
+    call this%UserBase%mkinit( atm, exp_manager )
+    call exp_manager%Final()
     
     call exp_manager%Final()
 
     return
   end subroutine USER_mkinit
 
-  subroutine USER_setup( atm )
+  subroutine USER_setup( this, atm )
     use scale_tracer, only: &
        TRACER_regist    
     implicit none
-    
+    class(User), intent(inout) :: this    
     class(AtmosComponent), intent(inout) :: atm
 
+    logical :: USER_do        = .false. !< do user step?
     namelist / PARAM_USER / &
        USER_do
 
@@ -118,6 +117,8 @@ contains
     endif
     LOG_NML(PARAM_USER)
 
+    call this%UserBase%Setup( atm, USER_do )
+
     !-
     call TRACER_REGIST( iq,                   & ! [OUT]
                         1,                    & ! [IN]
@@ -128,7 +129,7 @@ contains
     return
   end subroutine USER_setup
 
-  subroutine USER_calc_tendency( atm )
+  subroutine USER_calc_tendency( this, atm )
     use scale_time_manager, only:  TIME_NOWSTEP
     use scale_localmeshfield_base, only: LocalMeshFieldBase
     use mod_atmos_vars, only: &
@@ -137,6 +138,7 @@ contains
     use scale_prc 
     implicit none
 
+    class(User), intent(inout) :: this 
     class(AtmosComponent), intent(inout) :: atm
 
     class(LocalMesh3D), pointer :: lcmesh
@@ -197,14 +199,6 @@ contains
     return
   end subroutine USER_calc_tendency
 
-  subroutine USER_update( atm )
-    implicit none
-    class(AtmosComponent), intent(inout) :: atm
-    !------------------------------------------
-
-    return
-  end subroutine USER_update
-
   !------
 
   subroutine exp_SetInitCond_tracer_advection( this,                       &
@@ -225,12 +219,12 @@ contains
 
     use scale_atm_dyn_dgm_hydrostatic, only: &
       hydrostatic_calc_basicstate_constT
-    use mod_exp, only: &
+    use mod_experiment, only: &
       TracerLocalMeshField_ptr
   
     implicit none
 
-    class(Exp_tracer_advection_global), intent(inout) :: this
+    class(Experiment), intent(inout) :: this
     type(LocalMesh3D), intent(in) :: lcmesh
     class(ElementBase3D), intent(in) :: elem
     real(RP), intent(out) :: DENS_hyd(elem%Np,lcmesh%NeA)
@@ -317,27 +311,6 @@ contains
 
     return
   end subroutine exp_SetInitCond_tracer_advection
-
-  subroutine exp_geostrophic_balance_correction( this,  &
-    DENS_hyd, PRES_hyd, DDENS, MOMX, MOMY, MOMZ, DRHOT, &
-    lcmesh, elem )
-    
-    implicit none
-
-    class(Exp_tracer_advection_global), intent(inout) :: this
-    type(LocalMesh3D), intent(in) :: lcmesh
-    class(ElementBase3D), intent(in) :: elem
-    real(RP), intent(inout) :: DENS_hyd(elem%Np,lcmesh%NeA)
-    real(RP), intent(in) :: PRES_hyd(elem%Np,lcmesh%NeA)
-    real(RP), intent(inout) :: DDENS(elem%Np,lcmesh%NeA)
-    real(RP), intent(inout) :: MOMX(elem%Np,lcmesh%NeA)
-    real(RP), intent(inout) :: MOMY(elem%Np,lcmesh%NeA)    
-    real(RP), intent(inout) :: MOMZ(elem%Np,lcmesh%NeA)
-    real(RP), intent(inout) :: DRHOT(elem%Np,lcmesh%NeA)
-
-    !---------------------------------------------------
-    return
-  end subroutine exp_geostrophic_balance_correction 
 
 !- private --
 
