@@ -1,5 +1,5 @@
 #include "scaleFElib.h"
-program test_advect3d
+program test_advect3d_hevi
   !-----------------------------------------------------------------------------
   !
   !++ used modules
@@ -1033,4 +1033,4 @@ contains
 
     return
   end subroutine final
-end program test_advect3d
+end program test_advect3d_hevi
