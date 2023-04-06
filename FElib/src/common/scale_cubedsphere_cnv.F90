@@ -67,6 +67,7 @@ contains
     real(RP), intent(out) :: lon(Np)
     real(RP), intent(out) :: lat(Np)
 
+    real(RP) :: tmp
     integer :: p
     !-----------------------------------------------------------------------------
 
@@ -85,14 +86,24 @@ contains
       !$omp end workshare
       !$omp end parallel
     case(5)
-      !$omp parallel
+      !$omp parallel private(tmp)
       !$omp do
       do p=1, Np
-        lon(p) = - atan( tan( alpha(p) ) / tan( sign(max(abs(beta(p)),EPS), beta(p)) ) )
-        lat(p) = + atan( 1.0_RP / sqrt( max(tan(alpha(p))**2 + tan(beta(p))**2, EPS) ) )
+        tmp = tan(alpha(p))**2 + tan(beta(p))**2
+        lon(p) = - atan( tan( alpha(p) ) / tan( sign(max(abs(beta(p)),1.0E-32_RP), beta(p)) ) )
+!        lon(p) = - atan( tan( alpha(p) ) / tan( sign(max(abs(beta(p)),EPS), beta(p)) ) )
+        lat(p) = asin( 1.0_RP / sqrt( 1.0_RP + tan(alpha(p))**2 + tan(beta(p))**2 ) )
+        ! if ( abs(tmp) > 0.0_RP ) then
+        !   lat(p) = atan( sqrt( 1.0_RP / tmp ) )
+        ! else
+        !   lat(p) = 0.5_RP * PI
+        ! end if      
       end do
       !$omp end do
       !$omp workshare
+      ! where( beta(:) == 0.0_RP )
+      !   lon(:) = sign( - 0.5_RP * PI, alpha(:) )
+      ! end where      
       where( beta(:) >= 0.0_RP )
         lon(:) = lon(:) + PI
       end where
@@ -102,11 +113,16 @@ contains
       !$omp end workshare
       !$omp end parallel
     case(6)
-      !$omp parallel
+      !$omp parallel private(tmp)
       !$omp do
       do p=1, Np
+        tmp = tan(alpha(p))**2 + tan(beta(p))**2
         lon(p) = + atan( tan( alpha(p) ) / tan( sign(max(abs(beta(p)),EPS), beta(p)) ) )
-        lat(p) = - atan( 1.0_RP / sqrt( max(tan(alpha(p))**2 + tan(beta(p))**2, EPS) ) )
+        if ( abs(tmp) > 0.0_RP ) then
+          lat(p) = - atan( 1.0_RP / sqrt( tmp ) )
+        else
+          lat(p) = - 0.5_RP * PI
+        end if
       end do
       !$omp end do
       !$omp workshare
@@ -133,6 +149,8 @@ contains
     VecLon, VecLat,                        & ! (in)
     VecAlpha, VecBeta                      ) ! (out)
 
+    use scale_geographic_coord_cnv, only: &
+      GeographicCoordCnv_geo_to_orth_vec
     implicit none
 
     integer, intent(in) :: panelID
@@ -147,7 +165,12 @@ contains
 
     integer :: p
     real(RP) :: X ,Y, del2
+    real(RP) :: X2plusY2
     real(RP) :: s
+
+    real(RP) :: lon_p(1), lat_p(1)
+    real(RP) :: vec_orth(3,1)
+    real(RP) :: geo_p(3,1), geo_vec(3,1)
     !-----------------------------------------------------------------------------
 
     select case( panelID )
@@ -173,16 +196,33 @@ contains
 
     select case( panelID )
     case( 5, 6 )
-      !$omp parallel do private( X, Y, del2 )
+!      !$omp parallel do private( X, Y, del2, X2plusY2, vec_orth, geo_vec, geo_p, lon_p, lat_p )
       do p=1, Np
         X = tan( alpha(p) )
         Y = tan( beta (p) )
-        del2 = 1.0_RP + X**2 + Y**2
+        X2plusY2 = X**2 + Y**2
+        del2 = 1.0_RP + X2plusY2
 
-        VecAlpha(p) = (- Y * VecLon(p) - del2 * X / sqrt( max(del2 - 1.0_RP,EPS)) * VecLat(p)) * s &
-                    / ( radius * ( 1.0_RP + X**2 ) )
-        VecBeta (p) = (  X * VecLon(p) - del2 * Y / sqrt( max(del2 - 1.0_RP,EPS)) * VecLat(p)) * s &
-                    / ( radius * ( 1.0_RP + Y**2 ) )
+!        if ( abs(X2plusY2) > EPS ) then
+        if ( abs(X2plusY2) > 1.E-32_RP ) then
+          VecAlpha(p) = (- Y * VecLon(p) - del2 * X / sqrt(X2plusY2) * VecLat(p)) * s &
+                      / ( radius * ( 1.0_RP + X**2 ) )
+          VecBeta (p) = (  X * VecLon(p) - del2 * Y / sqrt(X2plusY2) * VecLat(p)) * s &
+                      / ( radius * ( 1.0_RP + Y**2 ) )
+        else
+          call CubedSphereCnv_CS2LonLatCoord( &
+            panelID, alpha(p), beta(p), 1, radius, & ! (in)
+            lon_p, lat_p )                           ! (out)
+
+          geo_p(:,1) = (/ lon_p(1), lat_p(1), radius /)
+          geo_vec(:,1) = (/ VecLon(p) * cos(lat_p(1)), VecLat(p), 0.0_RP /)
+          call GeographicCoordCnv_geo_to_orth_vec( vec_orth, &
+            geo_vec, geo_p, 1 )
+
+          VecAlpha(p) =       vec_orth(2,1) / radius
+          VecBeta (p) = - s * vec_orth(1,1) / radius
+        end if
+
       end do
     end select
 

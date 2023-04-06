@@ -43,6 +43,7 @@ OBJS_NAME_COMMON = \
 	scale_timeint_rk.o             \
 	scale_linkedlist.o             \
 	scale_gmres.o                  \
+	scale_geographic_coord_cnv.o   \
 	scale_cubedsphere_cnv.o        \
 	scale_coriolis_param.o
 
