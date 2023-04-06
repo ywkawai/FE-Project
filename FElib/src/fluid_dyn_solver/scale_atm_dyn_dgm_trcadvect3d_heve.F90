@@ -389,6 +389,7 @@ contains
 !OCL SERIAL
   subroutine atm_dyn_dgm_trcadvect3d_heve_cal_alphdens_advtest( alph_dens_M, alph_dens_P, &
     DDENS_, MOMX_, MOMY_, MOMZ_, DENS_hyd,                     &
+    Gsqrt,                                                     &
     nx, ny, nz, vmapM, vmapP, lmesh, elem                      )
  
     use scale_const, only: &
@@ -409,6 +410,7 @@ contains
     real(RP), intent(in) ::  MOMY_(elem%Np*lmesh%NeA)  
     real(RP), intent(in) ::  MOMZ_(elem%Np*lmesh%NeA)  
     real(RP), intent(in) ::  DENS_hyd(elem%Np*lmesh%NeA)
+    real(RP), intent(in) :: Gsqrt(elem%Np*lmesh%NeA)
     real(RP), intent(in) :: nx(elem%NfpTot*lmesh%Ne)
     real(RP), intent(in) :: ny(elem%NfpTot*lmesh%Ne)
     real(RP), intent(in) :: nz(elem%NfpTot*lmesh%Ne)
@@ -428,12 +430,12 @@ contains
       densM = DDENS_(iM) + DENS_hyd(iM)
       densP = DDENS_(iP) + DENS_hyd(iP)
  
-      VelM = (MOMX_(iM)*nx(i) + MOMY_(iM)*ny(i) + MOMZ_(iM)*nz(i))/densM
-      VelP = (MOMX_(iP)*nx(i) + MOMY_(iP)*ny(i) + MOMZ_(iP)*nz(i))/densP
+      VelM = ( MOMX_(iM) * nx(i) + MOMY_(iM) * ny(i) + MOMZ_(iM) * nz(i) ) / densM
+      VelP = ( MOMX_(iP) * nx(i) + MOMY_(iP) * ny(i) + MOMZ_(iP) * nz(i) ) / densP
  
       alpha = max( abs(VelM), abs(VelP)  )
-      alph_dens_M(i) = alpha * densM
-      alph_dens_P(i) = alpha * densP
+      alph_dens_M(i) = alpha * densM * Gsqrt(iM)
+      alph_dens_P(i) = alpha * densP * Gsqrt(iP)
     end do
  
     return
