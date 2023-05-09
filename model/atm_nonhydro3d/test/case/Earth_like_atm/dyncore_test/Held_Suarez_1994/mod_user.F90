@@ -53,7 +53,7 @@ module mod_user
     generic :: mkinit => mkinit_
     procedure :: setup_ => USER_setup
     generic :: setup => setup_
-    procedure :: calc_update => USER_update
+    procedure :: update => USER_update
   end type User
 
   !-----------------------------------------------------------------------------
