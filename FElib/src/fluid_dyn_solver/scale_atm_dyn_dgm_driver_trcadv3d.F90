@@ -386,6 +386,7 @@ contains
           this%alphaDensM%local(n)%face_val, this%alphaDensP%local(n)%face_val,            & ! (inout)
           DDENS%local(n)%val, MOMX%local(n)%val, MOMY%local(n)%val, MOMZ%local(n)%val,     & ! (in)
           DENS_hyd%local(n)%val,                                                           & ! (in)
+          lcmesh3D%Gsqrt,                                                                  & ! (in)
           lcmesh3D%normal_fn(:,:,1), lcmesh3D%normal_fn(:,:,2), lcmesh3D%normal_fn(:,:,3), & ! (in)
           lcmesh3D%VMapM, lcmesh3D%VMapP, lcmesh3D, lcmesh3D%refElem3D                     ) ! (in)
       end do
