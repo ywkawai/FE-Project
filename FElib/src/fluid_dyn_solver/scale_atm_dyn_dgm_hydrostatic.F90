@@ -46,6 +46,7 @@ module scale_atm_dyn_dgm_hydrostatic
   !
   public :: hydrostatic_calc_basicstate_constT
   public :: hydrostatic_calc_basicstate_constPT
+  public :: hydrostatic_calc_basicstate_constTLAPS
   public :: hydrostatic_calc_basicstate_constPTLAPS
   public :: hydrostatic_calc_basicstate_constBVFreq
   public :: hydrostaic_build_rho_XYZ
@@ -66,6 +67,7 @@ module scale_atm_dyn_dgm_hydrostatic
   !
 
 contains
+  !> Calculate density and pressure in hydrostatic balance with a constant temperature
 !OCL SERIAL
   subroutine hydrostatic_calc_basicstate_constT( &
     DENS_hyd, PRES_hyd,                          &
@@ -98,6 +100,7 @@ contains
     return
   end subroutine hydrostatic_calc_basicstate_constT
 
+  !> Calculate density and pressure in hydrostatic balance with a constant potential temperature
 !OCL SERIAL
   subroutine hydrostatic_calc_basicstate_constPT( &
     DENS_hyd, PRES_hyd,                         &
@@ -138,6 +141,7 @@ contains
     return
   end subroutine hydrostatic_calc_basicstate_constPT
 
+  !> Calculate density and pressure in hydrostatic balance with a constant Brunt–Väisälä frequency
 !OCL SERIAL
   subroutine hydrostatic_calc_basicstate_constBVFreq( &
     DENS_hyd, PRES_hyd,                                           &
@@ -183,6 +187,44 @@ contains
     return
   end subroutine hydrostatic_calc_basicstate_constBVFreq
 
+  !> Calculate density and pressure in hydrostatic balance with a constant lapse rate of temperature
+!OCL SERIAL
+  subroutine hydrostatic_calc_basicstate_constTLAPS( &
+    DENS_hyd, PRES_hyd,                              &
+    TLAPS, Temp0, PRES_sfc, x, y, z, lcmesh3D, elem )
+
+    implicit none
+
+    class(LocalMesh3D), intent(in) :: lcmesh3D
+    class(ElementBase3D), intent(in) :: elem
+    real(RP), intent(out) :: DENS_hyd(elem%Np,lcmesh3D%NeA)
+    real(RP), intent(out) :: PRES_hyd(elem%Np,lcmesh3D%NeA)
+    real(RP), intent(in) :: x(elem%Np,lcmesh3D%Ne)
+    real(RP), intent(in) :: y(elem%Np,lcmesh3D%Ne)
+    real(RP), intent(in) :: z(elem%Np,lcmesh3D%Ne)
+    real(RP), intent(in) :: TLAPS
+    real(RP), intent(in) :: Temp0
+    real(RP), intent(in) :: PRES_sfc
+
+    integer :: ke
+
+    real(RP) :: fac
+    real(RP) :: TEMP(elem%Np)
+    !-----------------------------------------------
+
+    fac = GRAV / ( Rdry * TLAPS )
+
+    !$omp parallel do private(TEMP)
+    do ke=lcmesh3D%NeS, lcmesh3D%NeE
+      TEMP(:) = Temp0 * ( 1.0_RP - TLAPS / Temp0 * z(:,ke) )
+      PRES_hyd(:,ke) = PRES00 * ( TEMP(:) / Temp0 )**fac
+      DENS_hyd(:,ke) =  PRES_hyd(:,ke) / ( Rdry * TEMP(:) )
+    end do
+
+    return
+  end subroutine hydrostatic_calc_basicstate_constTLAPS
+
+  !> Calculate density and pressure in hydrostatic balance with a constant lapse rate of potential temperature
 !OCL SERIAL
   subroutine hydrostatic_calc_basicstate_constPTLAPS( &
     DENS_hyd, PRES_hyd,                                 &
@@ -228,6 +270,7 @@ contains
     return
   end subroutine hydrostatic_calc_basicstate_constPTLAPS
 
+  !> Build density in hydrostatic balance state of dry atmosphere
 !OCL SERIAL
   subroutine hydrostaic_build_rho_XYZ_dry(   &
     DDENS,                                   &
@@ -271,6 +314,7 @@ contains
     return
   end subroutine hydrostaic_build_rho_XYZ_dry
 
+  !> Build density in hydrostatic balance state of moist atmosphere
 !OCL SERIAL
   subroutine hydrostaic_build_rho_XYZ_moist( &
     DDENS,                                   &
