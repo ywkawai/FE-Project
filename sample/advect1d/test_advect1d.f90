@@ -37,14 +37,13 @@ program test_advect1d
     FILE_HISTORY_set_nowdate
 
   use scale_time_manager, only: &
-    TIME_manager_advance,                              &
+    TIME_manager_checkstate, TIME_manager_advance,     &
     TIME_NOWDATE, TIME_NOWSUBSEC, TIME_NOWSTEP,        &
-    TIME_DTSEC, TIME_NSTEP 
+    TIME_DTSEC, TIME_NSTEP, TIME_DOresume, TIME_DOend
+  
   use scale_timeint_rk, only: timeint_rk  
 
-  use mod_advect1d_numerror, only: &
-    advect1d_numerror_do_step, &
-    advect1d_numerror_eval
+  use mod_advect1d_numerror, only: advect1d_numerror_eval
   !-----------------------------------------------------------------------------
   implicit none
 
@@ -71,12 +70,22 @@ program test_advect1d
   integer :: rkstage
   integer :: tintbuf_ind
   integer, parameter :: RKVAR_Q = 1
+
+  integer :: LOG_STEP_INTERVAL
   !-------------------------------------------------------
 
   call init()
-  call set_initcond()
 
-  do nowstep=1, TIME_NSTEP
+  do
+    !* Report current time
+    call TIME_manager_checkstate
+
+    if (TIME_DOresume) call set_initcond()
+
+    !* Advance time
+    call TIME_manager_advance()
+    call FILE_HISTORY_set_nowdate( TIME_NOWDATE, TIME_NOWSUBSEC, TIME_NOWSTEP )
+
     do rkstage=1, tinteg_lc(1)%nstage
 
       !* Exchange halo data
@@ -107,26 +116,19 @@ program test_advect1d
         call PROF_rapend('update_var', 1)
       end do
     end do
-    
-    !* Advance time
 
-    call TIME_manager_advance()
+    tsec_ = TIME_DTSEC * real(TIME_NOWSTEP-1, kind=RP)
+    call advect1d_numerror_eval( qexact, & ! (out)
+      q, TIME_NOWSTEP, tsec_, ADV_VEL, InitShapeName, InitShapeParams, & ! (in)
+      mesh, mesh%refElem1D                                             ) ! (in)
 
-    tsec_ = TIME_NOWDATE(6) + TIME_NOWSUBSEC
-    if ( advect1d_numerror_do_step( nowstep ) ) then
-      LOG_PROGRESS('(A,F13.5,A)') "t=", real(tsec_), "[s]"
-
-      call advect1d_numerror_eval( qexact, & ! (out)
-        q, tsec_, ADV_VEL, InitShapeName, InitShapeParams, & ! (in)
-        mesh, mesh%refElem1D                               ) ! (in)
-    end if
-    call FILE_HISTORY_set_nowdate( TIME_NOWDATE, TIME_NOWSUBSEC, TIME_NOWSTEP )
-
-    !* Output
+    !* Output history file
 
     call FILE_HISTORY_meshfield_put(HST_ID(1), q)
     call FILE_HISTORY_meshfield_put(HST_ID(2), qexact)
     call FILE_HISTORY_meshfield_write()
+
+    if (TIME_DOend) exit
   end do
 
   call final()
@@ -248,10 +250,9 @@ contains
       end do
     end do
   
-    LOG_PROGRESS('(A,F13.5,A)') "t=", real(0.0_RP), "[s]"
     call advect1d_numerror_eval( qexact, & ! (out)
-      q, 0.0_RP, ADV_VEL, InitShapeName, InitShapeParams, & ! (in)
-      mesh, mesh%refElem1D                                ) ! (in)
+      q, 1, 0.0_RP, ADV_VEL, InitShapeName, InitShapeParams, & ! (in)
+      mesh, mesh%refElem1D                                   ) ! (in)
 
     call FILE_HISTORY_meshfield_put( HST_ID(1), q )
     call FILE_HISTORY_meshfield_put( HST_ID(2), qexact )
@@ -263,7 +264,9 @@ contains
   !> Initialization
   subroutine init()
     use scale_calendar, only: CALENDAR_setup
-    use scale_time_manager, only: TIME_manager_Init 
+    use scale_time_manager, only:           &
+      TIME_manager_Init,                    &
+      TIME_manager_report_timeintervals
     use scale_file_history_meshfield, only: FILE_HISTORY_meshfield_setup  
     use scale_file_history, only: FILE_HISTORY_reg  
     use mod_advect1d_numerror, only: advect1d_numerror_Init     
@@ -282,7 +285,8 @@ contains
       TINTEG_SCHEME_TYPE,             &
       InitShapeName, InitShapeParams, &
       InitGPMatPolyOrder,             &
-      ADV_VEL
+      ADV_VEL,                        &
+      LOG_STEP_INTERVAL
         
     integer :: comm, myrank, nprocs
     logical :: ismaster
@@ -317,6 +321,7 @@ contains
     InitGPMatPolyOrder = 7
     ADV_VEL            = 1.0_RP
     TINTEG_SCHEME_TYPE = 'ERK_SSP_3s3o'
+    LOG_STEP_INTERVAL  = 5
     
     rewind(IO_FID_CONF)
     read(IO_FID_CONF,nml=PARAM_TEST,iostat=ierr)
@@ -380,6 +385,9 @@ contains
 
     !-- setup a module for evaluating numerical errors 
     call advect1d_numerror_Init( refElem )
+
+    !-- report information of time intervals
+    call TIME_manager_report_timeintervals
 
     call PROF_rapend( "init", 1 )
     return
