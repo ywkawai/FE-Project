@@ -39,19 +39,21 @@ jobs:
         sudo apt-get install -y openssh-client
 
     - name: Install SSH key
-      uses: shimataro/ssh-key-action@v1
+      uses: shimataro/ssh-key-action@v2
       with:
-        private-key: ${{ secrets.SSH_KEY }} 
-        public-key: ${{ secrets.SSH_KEY_PUBLIC }} 
+        key: ${{ secrets.SSH_KEY }} 
         name: id_rsa
-        
+        known_hosts: ${{ secrets.KNOWN_HOSTS }}
+        config: |
+          Host scalelib_host
+            HostName ${{ secrets.SCALELIB_SERVER_HOST }}
+            User ${{ secrets.SCALELIB_SERVER_USER }}
+            IdentityFile ~/.ssh/id_rsa
+
     - name: Install SCALE library
       run: |
-        sed -i -e "s#\\\\n#\n#g" ~/.ssh/id_rsa
-        chmod 600 ~/.ssh/id_rsa
-        ssh-keyscan -H www.gfd-dennou.org >> ~/.ssh/known_hosts
         cd ${GITHUB_WORKSPACE}/.. 
-        scp ykawai@www.gfd-dennou.org:FE-Project_GitActions/scalelib_ubuntu_latest.zip .
+        scp scalelib_host:FE-Project_GitActions/scalelib_ubuntu_latest.zip .
         unzip scalelib_ubuntu_latest.zip && mv scalelib_ubuntu_latest scale
   
     - name: Build FElib

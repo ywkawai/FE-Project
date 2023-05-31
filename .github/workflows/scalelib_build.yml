@@ -28,11 +28,16 @@ jobs:
         sudo apt-get install -y openssh-client rsync    
 
     - name: Install SSH key
-      uses: shimataro/ssh-key-action@v1
+      uses: shimataro/ssh-key-action@v2
       with:
-        private-key: ${{ secrets.SSH_KEY }} 
-        public-key: ${{ secrets.SSH_KEY_PUBLIC }} 
+        key: ${{ secrets.SSH_KEY }} 
         name: id_rsa
+        known_hosts: ${{ secrets.KNOWN_HOSTS }}
+        config: |
+          Host scalelib_host
+            HostName ${{ secrets.SCALELIB_SERVER_HOST }}
+            User ${{ secrets.SCALELIB_SERVER_USER }}
+            IdentityFile ~/.ssh/id_rsa
     
     - name: Build SCALE library & send it to a server
       run: |
@@ -57,10 +62,7 @@ jobs:
         cp -r scalelib/include/*.h ${tmp_dir}/scalelib/include/
         zip -r ${tmp_dir}.zip ${tmp_dir}
 
-        sed -i -e "s#\\\\n#\n#g" ~/.ssh/id_rsa
-        chmod 600 ~/.ssh/id_rsa
-        ssh-keyscan -H www.gfd-dennou.org >> ~/.ssh/known_hosts
-        rsync ${tmp_dir}.zip ykawai@www.gfd-dennou.org:FE-Project_GitActions/
+        rsync ${tmp_dir}.zip scalelib_host:FE-Project_GitActions/
 
 
 
