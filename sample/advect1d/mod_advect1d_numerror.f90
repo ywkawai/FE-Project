@@ -109,16 +109,16 @@ contains
 
   contains
 !OCL SERIAL
-    subroutine set_data_lc( this, q, qexact, qexact_intrp, lcmesh, elem3D, intrp_epos )
+    subroutine set_data_lc( this, q, qexact, qexact_intrp, lcmesh, elem1D, intrp_epos )
       use scale_localmeshfield_base, only: LocalMeshFieldBase
       implicit none
       class(MeshFieldAnalysisNumerror1D), intent(in) :: this
       class(LocalMesh1D), intent(in) :: lcmesh
-      class(ElementBase1D) :: elem3D
-      real(RP), intent(out) :: q(elem3D%Np,lcmesh%Ne,this%var_num)
-      real(RP), intent(out) :: qexact(elem3D%Np,lcmesh%Ne,this%var_num)
+      class(ElementBase1D) :: elem1D
+      real(RP), intent(out) :: q(elem1D%Np,lcmesh%Ne,this%var_num)
+      real(RP), intent(out) :: qexact(elem1D%Np,lcmesh%Ne,this%var_num)
       real(RP), intent(out) :: qexact_intrp(this%intrp_np,lcmesh%Ne,this%var_num)
-      real(RP), intent(in) :: intrp_epos(this%intrp_np,1)
+      real(RP), intent(in) :: intrp_epos(this%intrp_np,this%ndim)
 
       integer :: n
       integer :: ke
