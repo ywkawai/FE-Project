@@ -9,10 +9,11 @@ ylim_min = float(args[2])
 ylim_max = float(args[3])
 
 u = xr.open_mfdataset("history.pe000000.nc", decode_times=False, combine='by_coords')["q"]
+uex = xr.open_mfdataset("history.pe000000.nc", decode_times=False, combine='by_coords')["qexact"]
 x = u.coords["x"]
 time = u.coords["time"]
 
-fig, ax = plt.subplots(figsize=(6,4))
+fig, ax = plt.subplots(figsize=(7,4))
 
 ax.set_xlim(0.0, 1.0)
 ax.set_ylim(ylim_min , ylim_max)
@@ -21,13 +22,22 @@ ax.set_ylabel("u")
 ax.set_title("1D linear advection") 
 
 ims = []
-for n in range(0,len(time)):
+flag_legend = True
+
+for n in range(1,len(time)):
   print(f"n={n}")
-  im = plt.plot(x, u.isel(time=n), color="black")
+  im1 = plt.plot(x, uex.isel(time=n), color="gray", linestyle = "dotted", label="exact") 
+  im2 = plt.plot(x, u.isel(time=n), color="black", label="numsol")
+  
   time_txt = "{:.2f}".format(time.values[n])
-  title = ax.text(0.8, ylim_max*0.95, "time="+time_txt)
-  ims.append(im + [title])
+  title = ax.text(0.01, ylim_max*0.95, "time="+time_txt)
+  if flag_legend:
+    plt.legend(bbox_to_anchor=(1.01, 1), loc='upper left')
+    flag_legend = False
+  ims.append(im2 + im1 + [title])
 
 ani = animation.ArtistAnimation(fig, ims, interval=200)
 print( f'generate: {out_filename}' )
+
+fig.tight_layout()
 ani.save( out_filename, writer="ffmpeg" )
