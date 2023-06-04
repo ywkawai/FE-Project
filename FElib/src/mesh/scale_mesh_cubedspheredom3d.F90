@@ -142,9 +142,9 @@ contains
 
     !---
     call this%refElem2D%Init( this%refElem3D%PolyOrder_h, refElem%IsLumpedMatrix() )
-    call MeshBase2D_Init( this%mesh2D, this%refElem2D, NLocalMeshPerPrc,           &
-                          nproc, myrank                                            )
-  
+    call this%mesh2D%Init( NeGX, NeGY, RPlanet, this%refElem2D, NLocalMeshPerPrc, &
+      nproc, myrank )
+      
     !-- Modify the information of dimension for the cubed sphere mesh
     call this%SetDimInfo( MeshBase3D_DIMTYPEID_X, "x", "1", "X-coordinate" )
     call this%SetDimInfo( MeshBase3D_DIMTYPEID_Y, "y", "1", "Y-coordinate" )
