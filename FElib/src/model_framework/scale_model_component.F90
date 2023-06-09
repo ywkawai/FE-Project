@@ -1,3 +1,13 @@
+!-------------------------------------------------------------------------------
+!> FElib / model framework / model component
+!!
+!! @par Description
+!!          A module for managing model components
+!!
+!! @author Team SCALE
+!!
+!<
+!-------------------------------------------------------------------------------
 #include "scaleFElib.h"
 module scale_model_component
   !-----------------------------------------------------------------------------
@@ -72,6 +82,7 @@ module scale_model_component
   !-----------------------------------------------------------------------------
 
 contains
+!OCL SERIAL
   subroutine ModelComponent_Init( this, name, is_activated )
     implicit none
 
@@ -86,6 +97,7 @@ contains
     return
   end subroutine ModelComponent_Init
 
+!OCL SERIAL
   function ModelComponent_isActivated( this ) result( is_activated )
     implicit none
 
@@ -97,6 +109,7 @@ contains
     return
   end function ModelComponent_isActivated
 
+!OCL SERIAL
   function ModelComponent_getCompName( this ) result( model_name )
     implicit none
 

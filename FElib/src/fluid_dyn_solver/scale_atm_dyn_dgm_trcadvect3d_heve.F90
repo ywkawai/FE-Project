@@ -1,5 +1,5 @@
 !-------------------------------------------------------------------------------
-!> module Atmosphere / Dynamics HEVE
+!> module FElib / Fluid dyn solver / Atmosphere / Tracer advection
 !!
 !! @par Description
 !!      HEVE DGM scheme for tracer advection. 

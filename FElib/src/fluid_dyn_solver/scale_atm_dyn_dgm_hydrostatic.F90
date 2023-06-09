@@ -1,5 +1,5 @@
 !-------------------------------------------------------------------------------
-!> module Atmosphere / Dynamics common
+!> module FElib / Fluid dyn solver / Atmosphere / Common
 !!
 !! @par Description
 !!      Construct hydrostatic state for Atmospheric dynamical process. 

@@ -1,3 +1,11 @@
+!> module FElib / Element / Quadrilateral
+!!
+!! @par Description
+!!           A module for a quadrilateral finite element
+!!
+!! @author Team SCALE
+!!
+!<
 #include "scaleFElib.h"
 module scale_element_quadrilateral
 
@@ -19,7 +27,7 @@ module scale_element_quadrilateral
   !
   !++ Public type & procedure
   !  
-  type, public, extends(elementbase2D) :: QuadrilateralElement
+  type, public, extends(ElementBase2D) :: QuadrilateralElement
   contains
     procedure :: Init => QuadrilateralElement_Init
     procedure :: Final => QuadrilateralElement_Final
@@ -27,7 +35,7 @@ module scale_element_quadrilateral
   end type QuadrilateralElement
 
 contains
-
+!OCL SERIAL
   subroutine QuadrilateralElement_Init( &
       elem, elemOrder,             &
       LumpedMassMatFlag )
@@ -53,6 +61,7 @@ contains
     return
   end subroutine QuadrilateralElement_Init
 
+!OCL SERIAL
   subroutine QuadrilateralElement_Final(elem)
     implicit none
 
@@ -64,6 +73,7 @@ contains
     return
   end subroutine QuadrilateralElement_Final
 
+!OCL SERIAL
   subroutine construct_Element(elem)
 
     use scale_linalgebra, only: linalgebra_inv
@@ -227,6 +237,7 @@ contains
     return
   end subroutine construct_Element
 
+!OCL SERIAL
   function QuadrilateralElement_gen_IntGaussLegendreIntrpMat( this, IntrpPolyOrder, &
     intw_intrp, x_intrp, y_intrp ) result(IntrpMat)
 

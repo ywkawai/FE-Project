@@ -1,4 +1,4 @@
-!> module Atmosphere / Physics turbulence
+!> module FElib / Atmosphere / Physics turbulence
 !!
 !! @par Description
 !!      Sub-grid scale turbulnce process
@@ -102,6 +102,7 @@ module scale_atm_phy_tb_dgm_smg
   real(RP), private              :: tke_fac       
 
 contains
+!OCL SERIAL
   subroutine atm_phy_tb_dgm_smg_Init( mesh )
     implicit none    
     class(MeshBase3D), intent(in) :: mesh

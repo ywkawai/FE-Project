@@ -1,4 +1,12 @@
 !-------------------------------------------------------------------------------
+!> module FElib / File / Base
+!!
+!! @par Description
+!!          A base module for outputting data with MeshField type 
+!!
+!! @author Team SCALE
+!<
+!-------------------------------------------------------------------------------
 #include "scaleFElib.h"
 module scale_file_base_meshfield
   !-----------------------------------------------------------------------------

@@ -1,3 +1,13 @@
+!-------------------------------------------------------------------------------
+!> FElib / model framework / mesh manager
+!!
+!! @par Description
+!!          A module for managing mesh used in models
+!!
+!! @author Team SCALE
+!!
+!<
+!-------------------------------------------------------------------------------
 #include "scaleFElib.h"
 module scale_model_mesh_manager
   !-----------------------------------------------------------------------------
@@ -84,6 +94,7 @@ contains
 
   !* 1D *************************************************************
 
+!OCL SERIAL
   subroutine ModelMesh1D_Init( this, mesh )
     implicit none
     class(ModelMesh1D), target, intent(inout) :: this
@@ -95,6 +106,7 @@ contains
     return
   end subroutine ModelMesh1D_Init
 
+!OCL SERIAL
   subroutine ModelMesh1D_Final( this )
     implicit none
     class(ModelMesh1D), target, intent(inout) :: this
@@ -108,6 +120,7 @@ contains
 
   !* 2D *************************************************************
 
+!OCL SERIAL
   subroutine ModelMesh2D_Init( this, mesh )
     implicit none
     class(ModelMesh2D), target, intent(inout) :: this
@@ -119,6 +132,7 @@ contains
     return
   end subroutine ModelMesh2D_Init
 
+!OCL SERIAL
   subroutine ModelMesh2D_Final( this )
     implicit none
     class(ModelMesh2D), target, intent(inout) :: this  
@@ -131,6 +145,7 @@ contains
 
   !* 3D *************************************************************
 
+!OCL SERIAL
   subroutine ModelMesh3D_Init( this, mesh )
     implicit none
     class(ModelMesh3D), target, intent(inout) :: this
@@ -143,6 +158,7 @@ contains
     return
   end subroutine ModelMesh3D_Init  
 
+!OCL SERIAL
   subroutine ModelMesh3D_Final( this )
     implicit none
     class(ModelMesh3D), target, intent(inout) :: this

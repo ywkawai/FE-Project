@@ -1,5 +1,5 @@
 !-------------------------------------------------------------------------------
-!> module Atmosphere / Dynamics / boundary
+!> module FElib / Fluid dyn solver / Atmosphere / Boundary
 !!
 !! @par Description
 !!          A module for setting halo data based on boundary conditions. 

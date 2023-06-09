@@ -1,5 +1,5 @@
 !-------------------------------------------------------------------------------
-!> module Atmosphere / Dynamics HEVI numerical flux
+!> module FElib / Fluid dyn solver / Atmosphere / Nonhydrostatic model / HEVI / Numflux
 !!
 !! @par Description
 !!      HEVE DGM scheme for Atmospheric dynamical process. 

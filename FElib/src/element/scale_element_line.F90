@@ -1,3 +1,11 @@
+!> module FElib / Element / line
+!!
+!! @par Description
+!!           A module for a line finite element
+!!
+!! @author Team SCALE
+!!
+!<
 #include "scaleFElib.h"
 module scale_element_line
 
@@ -8,7 +16,7 @@ module scale_element_line
   use scale_precision
 
   use scale_element_base, only: &
-    elementbase1D, &
+    ElementBase1D, &
     ElementBase1D_Init, ElementBase1D_Final
   
   !-----------------------------------------------------------------------------
@@ -19,7 +27,7 @@ module scale_element_line
   !
   !++ Public type & procedure
   !  
-  type, public, extends(elementbase1D) :: LineElement
+  type, public, extends(ElementBase1D) :: LineElement
   contains
     procedure :: Init => LineElement_Init
     procedure :: Final => LineElement_Final
@@ -27,7 +35,7 @@ module scale_element_line
   end type LineElement
 
 contains
-
+!OCL SERIAL
   subroutine LineElement_Init( &
     elem, elemOrder,           &
     LumpedMassMatFlag )
@@ -53,6 +61,7 @@ contains
     return
   end subroutine LineElement_Init
 
+!OCL SERIAL  
   subroutine LineElement_Final(elem)
     implicit none
 
@@ -64,6 +73,7 @@ contains
     return
   end subroutine LineElement_Final
 
+!OCL SERIAL  
   subroutine construct_Element(elem)
 
     use scale_linalgebra, only: linalgebra_inv
@@ -163,6 +173,7 @@ contains
     return
   end subroutine construct_Element
 
+!OCL SERIAL  
   function LineElement_gen_IntGaussLegendreIntrpMat( this, IntrpPolyOrder, &
     intw_intrp, x_intrp ) result(IntrpMat)
 

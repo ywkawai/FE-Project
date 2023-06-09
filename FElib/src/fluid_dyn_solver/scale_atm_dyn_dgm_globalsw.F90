@@ -1,5 +1,5 @@
 !-------------------------------------------------------------------------------
-!> module Atmosphere / global shallow water
+!> module FElib / Fluid dyn solver / Atmosphere / Global shallow water
 !!
 !! @par Description
 !!      DGM scheme for Atmospheric dynamical process. 
