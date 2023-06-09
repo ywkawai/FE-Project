@@ -66,6 +66,7 @@ module scale_atm_dyn_dgm_globalnonhydro3d_rhot_heve
   !-------------------
 
 contains
+!OCL SERIAL
   subroutine atm_dyn_dgm_globalnonhydro3d_rhot_heve_Init( mesh )
 
     implicit none
@@ -76,7 +77,7 @@ contains
     return
   end subroutine atm_dyn_dgm_globalnonhydro3d_rhot_heve_Init
 
-
+!OCL SERIAL
   subroutine atm_dyn_dgm_globalnonhydro3d_rhot_heve_Final()
     implicit none
     !--------------------------------------------
@@ -132,7 +133,7 @@ contains
 
     real(RP) :: G11(elem%Np), G12(elem%Np), G22(elem%Np)
     real(RP) :: GsqrtV(elem%Np), RGsqrtV(elem%Np)
-    real(RP) :: X2D(elem%Np,lmesh2D%Ne), Y2D(elem%Np,lmesh2D%Ne)
+    real(RP) :: X2D(elem2D%Np,lmesh2D%Ne), Y2D(elem2D%Np,lmesh2D%Ne)
     real(RP) :: X(elem%Np), Y(elem%Np), twoOVdel2(elem%Np)
     real(RP) :: CORI(elem%Np,2)
     logical :: is_panel1to4

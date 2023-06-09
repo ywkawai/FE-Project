@@ -133,7 +133,7 @@ contains
 
     real(RP) :: G11(elem%Np), G12(elem%Np), G22(elem%Np)
     real(RP) :: GsqrtV(elem%Np), RGsqrtV(elem%Np)
-    real(RP) :: X2D(elem%Np,lmesh2D%Ne), Y2D(elem%Np,lmesh2D%Ne)
+    real(RP) :: X2D(elem2D%Np,lmesh2D%Ne), Y2D(elem2D%Np,lmesh2D%Ne)
     real(RP) :: X(elem%Np), Y(elem%Np), twoOVdel2(elem%Np)
     real(RP) :: CORI(elem%Np,2)
     logical :: is_panel1to4
