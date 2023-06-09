@@ -1,5 +1,5 @@
 !-------------------------------------------------------------------------------
-!> module Atmosphere / Dynamics HEVI common
+!> module FElib / Fluid dyn solver / Atmosphere / Nonhydrostatic model / HEVI / Common
 !!
 !! @par Description
 !!      HEVI DGM scheme for Atmospheric dynamical process

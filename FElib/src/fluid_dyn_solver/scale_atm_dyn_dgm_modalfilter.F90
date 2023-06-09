@@ -1,5 +1,5 @@
 !-------------------------------------------------------------------------------
-!> module Atmosphere / Dynamics common
+!> module FElib / Fluid dyn solver / Atmosphere / Common / Modal filter
 !!
 !! @par Description
 !!      Modal filter for Atmospheric dynamical process. 

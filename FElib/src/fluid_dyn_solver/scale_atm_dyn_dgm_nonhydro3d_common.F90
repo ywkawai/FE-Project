@@ -1,8 +1,8 @@
 !-------------------------------------------------------------------------------
-!> module Atmosphere / Dynamics common
+!> module FElib / Fluid dyn solver / Atmosphere / Nonhydrostatic model / Common
 !!
 !! @par Description
-!!      HEVE DGM scheme for Atmospheric dynamical process. 
+!!      A coomon model for atmospheric nonhydrostatic dynamical core 
 !!
 !! @author Team SCALE
 !<

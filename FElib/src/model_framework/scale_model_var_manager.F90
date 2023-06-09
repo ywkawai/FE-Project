@@ -1,8 +1,8 @@
 !-------------------------------------------------------------------------------
-!> module model_var_manager
+!> FElib / model framework / variable manager
 !!
 !! @par Description
-!!           managing data of variables used in models
+!!          A module for managing data of variables used in models
 !!
 !! @author Team SCALE
 !!

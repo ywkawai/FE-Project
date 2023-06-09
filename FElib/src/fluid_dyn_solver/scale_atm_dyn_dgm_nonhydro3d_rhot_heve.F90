@@ -1,8 +1,10 @@
 !-------------------------------------------------------------------------------
-!> module Atmosphere / Dynamics HEVE
+!> module FElib / Fluid dyn solver / Atmosphere / Regional nonhydrostatic model / HEVE
 !!
 !! @par Description
 !!      HEVE DGM scheme for Atmospheric dynamical process. 
+!!      The governing equations is a fully compressibile nonhydrostic equations, 
+!!      which consist of mass, momentum, and thermodynamics (density * potential temperature conservation) equations. 
 !!
 !! @author Team SCALE
 !<

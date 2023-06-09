@@ -1,7 +1,7 @@
-!> module file_common_meshfield
+!> module FElib / File / Common
 !!
 !! @par Description
-!!           common module for outputing field data 
+!!           A common module for outputing field data 
 !!
 !! @author Team SCALE
 !!

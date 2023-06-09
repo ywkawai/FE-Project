@@ -1,3 +1,13 @@
+!-------------------------------------------------------------------------------
+!> FElib / model framework / mesh manager (base)
+!!
+!! @par Description
+!!          A module for managing mesh used in models
+!!
+!! @author Team SCALE
+!!
+!<
+!-------------------------------------------------------------------------------
 #include "scaleFElib.h"
 module scale_model_meshbase_manager
   !-----------------------------------------------------------------------------
@@ -83,6 +93,7 @@ module scale_model_meshbase_manager
   !------------------
 
 contains
+!OCL SERIAL
   subroutine ModelMeshBase_Init( this, nDim )
     implicit none
     class(ModelMeshBase), intent(inout) :: this
@@ -97,6 +108,7 @@ contains
     return
   end subroutine ModelMeshBase_Init
 
+!OCL SERIAL
   function ModelMeshBase_get_communicatorID( this, max_communicator_num ) result(commid)
     implicit none
     class(ModelMeshBase), intent(inout) :: this
@@ -115,6 +127,7 @@ contains
     return
   end function ModelMeshBase_get_communicatorID
 
+!OCL SERIAL
   subroutine ModelMeshBase_Final( this )
     implicit none
     class(ModelMeshBase), intent(inout) :: this
@@ -147,6 +160,7 @@ contains
     return
   end subroutine ModelMeshBase1D_Init
 
+!OCL SERIAL
   subroutine ModelMeshBase1D_Final( this )
     implicit none
     class(ModelMeshBase1D), target, intent(inout) :: this
@@ -160,6 +174,7 @@ contains
     return
   end subroutine ModelMeshBase1D_Final
 
+!OCL SERIAL
   subroutine ModelMeshBase1D_get_modelmesh( this, ptr_mesh )
     implicit none
     class(ModelMeshBase1D), target, intent(in) :: this
@@ -173,6 +188,7 @@ contains
 
   !* 2D *************************************************************
 
+!OCL SERIAL
   subroutine ModelMeshBase2D_Init( this, mesh )
     implicit none
     class(ModelMeshBase2D), target, intent(inout) :: this
@@ -185,6 +201,7 @@ contains
     return
   end subroutine ModelMeshBase2D_Init
 
+!OCL SERIAL
   subroutine ModelMeshBase2D_Final( this )
     implicit none
     class(ModelMeshBase2D), target, intent(inout) :: this  
@@ -196,6 +213,7 @@ contains
     return
   end subroutine ModelMeshBase2D_Final
 
+!OCL SERIAL
   subroutine ModelMeshBase2D_get_modelmesh( this, ptr_mesh )
     implicit none
     class(ModelMeshBase2D), target, intent(in) :: this
@@ -208,6 +226,7 @@ contains
 
   !* 3D *************************************************************
 
+!OCL SERIAL
   subroutine ModelMeshBase3D_Init( this, mesh )
     implicit none
     class(ModelMeshBase3D), target, intent(inout) :: this
@@ -220,6 +239,7 @@ contains
     return
   end subroutine ModelMeshBase3D_Init  
 
+!OCL SERIAL
   subroutine ModelMeshBase3D_Final( this )
     implicit none
     class(ModelMeshBase3D), target, intent(inout) :: this
@@ -231,6 +251,7 @@ contains
     return
   end subroutine ModelMeshBase3D_Final
 
+!OCL SERIAL
   subroutine ModelMeshBase3D_get_modelmesh( this, ptr_mesh )
     implicit none
     class(ModelMeshBase3D), target, intent(in) :: this

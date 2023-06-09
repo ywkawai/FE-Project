@@ -1,3 +1,11 @@
+!> module FElib / Element / hexahedron
+!!
+!! @par Description
+!!           A module for a hexahedral finite element
+!!
+!! @author Team SCALE
+!!
+!<
 #include "scaleFElib.h"
 module scale_element_hexahedral
 
@@ -8,7 +16,7 @@ module scale_element_hexahedral
   use scale_precision
 
   use scale_element_base, only: &
-    elementbase3D, &
+    ElementBase3D, &
     ElementBase3D_Init, ElementBase3D_Final
   
   !-----------------------------------------------------------------------------
@@ -19,7 +27,7 @@ module scale_element_hexahedral
   !
   !++ Public type & procedure
   !  
-  type, public, extends(elementbase3D) :: HexahedralElement
+  type, public, extends(ElementBase3D) :: HexahedralElement
   contains
     procedure :: Init => HexhedralElement_Init
     procedure :: Final => HexhedralElement_Final
@@ -27,7 +35,7 @@ module scale_element_hexahedral
   end type HexahedralElement
 
 contains
-
+!OCL SERIAL
   subroutine HexhedralElement_Init( &
       elem, elemOrder_h, elemOrder_v,      &
       LumpedMassMatFlag )
@@ -62,6 +70,7 @@ contains
     return
   end subroutine HexhedralElement_Init
 
+!OCL SERIAL  
   subroutine HexhedralElement_Final(elem)
     implicit none
 
@@ -73,6 +82,7 @@ contains
     return
   end subroutine HexhedralElement_Final
 
+!OCL SERIAL  
   subroutine construct_Element(elem)
 
     use scale_linalgebra, only: linalgebra_inv
@@ -360,6 +370,7 @@ contains
     return
   end subroutine construct_Element
 
+!OCL SERIAL  
   function HexhedralElement_gen_IntGaussLegendreIntrpMat( this, IntrpPolyOrder, &
     intw_intrp, x_intrp, y_intrp, z_intrp ) result(IntrpMat)
 

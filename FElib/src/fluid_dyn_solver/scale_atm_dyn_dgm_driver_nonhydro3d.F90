@@ -1,5 +1,5 @@
 !-------------------------------------------------------------------------------
-!> module Atmosphere / Dynamics / DGM driver (nonydro3d)
+!> module FElib / Fluid dyn solver / Atmosphere / driver (3D nonhydrostatic model)
 !!
 !! @par Description
 !!      Driver module for dynamical core based on DGM 

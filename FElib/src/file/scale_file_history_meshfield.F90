@@ -1,11 +1,9 @@
 !-------------------------------------------------------------------------------
-!> module file_history_meshfield
+!> module FElib / File / History
 !!
 !! @par Description
-!!           managing file history 
-!!
+!!          A module for managing file history 
 !! @author Team SCALE
-!!
 !<
 !-------------------------------------------------------------------------------
 #include "scaleFElib.h"
@@ -78,6 +76,13 @@ module scale_file_history_meshfield
   !
   !++ Private procedures
   !
+  private :: history_in_regvar
+  private :: set_dim_axis1D
+  private :: set_dim_axis2D
+  private :: set_dim_axis3D
+  private :: set_dim_axis2D_cubedsphere
+  private :: set_dim_axis3D_cubedsphere
+
   !-----------------------------------------------------------------------------
   !
   !++ Private variables
@@ -105,6 +110,7 @@ contains
 
 !----------------
 
+!OCL SERIAL
   subroutine FILE_HISTORY_meshfield_setup( &
     mesh1D_, mesh2D_, mesh3D_,             &
     meshcubedsphere2D_, meshcubedsphere3D_ )
@@ -200,6 +206,7 @@ contains
     return
   end subroutine FILE_HISTORY_meshfield_setup
 
+!OCL SERIAL
   subroutine FILE_HISTORY_meshfield_write()
     implicit none
     !-------------------------------------------------
@@ -208,6 +215,7 @@ contains
     return
   end subroutine FILE_HISTORY_meshfield_write
 
+!OCL SERIAL
   subroutine FILE_HISTORY_meshfield_finalize()
     implicit none
     !-------------------------------------------------
@@ -218,6 +226,7 @@ contains
 
   !-- 1D
 
+!OCL SERIAL
   subroutine FILE_HISTORY_meshfield_put1D(hstid, field1d)
     use scale_file_common_meshfield, only: &
       File_common_meshfield_put_field1D_cartesbuf
@@ -236,6 +245,7 @@ contains
     return
   end subroutine FILE_HISTORY_meshfield_put1D
 
+!OCL SERIAL
   subroutine FILE_HISTORY_meshfield_in1D( field1d, desc, standard_name )
     implicit none
     class(MeshField1D), intent(in) :: field1d
@@ -256,6 +266,7 @@ contains
   
   !-- 2D
 
+!OCL SERIAL
   subroutine FILE_HISTORY_meshfield_put2D(hstid, field2d)
     use scale_file_common_meshfield, only: &
       File_common_meshfield_put_field2D_cartesbuf,            &
@@ -281,6 +292,7 @@ contains
     return
   end subroutine FILE_HISTORY_meshfield_put2D
 
+!OCL SERIAL
   subroutine FILE_HISTORY_meshfield_in2D( field2d, desc, standard_name )
     implicit none
     class(MeshField2D), intent(in) :: field2d
@@ -301,6 +313,7 @@ contains
 
   !-- 3D
 
+!OCL SERIAL
   subroutine FILE_HISTORY_meshfield_put3D(hstid, field3d)
     use scale_file_common_meshfield, only: &
       File_common_meshfield_put_field3D_cartesbuf,            &
@@ -326,6 +339,7 @@ contains
     return
   end subroutine FILE_HISTORY_meshfield_put3D
   
+!OCL SERIAL
   subroutine FILE_HISTORY_meshfield_in3D( field3d, desc, standard_name )
     implicit none
     class(MeshField3D), intent(in) :: field3d
@@ -346,6 +360,7 @@ contains
 
 !----------------
 
+!OCL SERIAL
   subroutine history_in_regvar( hstid, do_put,  &
     field, desc, ndim, standard_name, dim_type  )
 
@@ -387,6 +402,7 @@ contains
     return
   end subroutine history_in_regvar
 
+!OCL SERIAL
   subroutine set_dim_axis1D()
     use scale_file_common_meshfield, only: &
       FILE_common_meshfield_diminfo,    &
@@ -427,6 +443,7 @@ contains
     return
   end subroutine set_dim_axis1D
 
+!OCL SERIAL
   subroutine set_dim_axis2D()
     use scale_file_common_meshfield, only: &
       FILE_common_meshfield_diminfo,       &
@@ -470,6 +487,7 @@ contains
     return
   end subroutine set_dim_axis2D
 
+!OCL SERIAL
   subroutine set_dim_axis3D()
     use scale_file_common_meshfield, only: &
       FILE_common_meshfield_diminfo,       &
@@ -518,6 +536,7 @@ contains
     return
   end subroutine set_dim_axis3D
 
+!OCL SERIAL
   subroutine set_dim_axis2D_cubedsphere()
     use scale_file_common_meshfield, only: &
       FILE_common_meshfield_diminfo,  &
@@ -562,7 +581,7 @@ contains
     return
   end subroutine set_dim_axis2D_cubedsphere
 
-
+!OCL SERIAL
   subroutine set_dim_axis3D_cubedsphere()
     use scale_file_common_meshfield, only: &
       FILE_common_meshfield_diminfo,  &

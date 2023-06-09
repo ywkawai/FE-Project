@@ -1,5 +1,5 @@
 !-------------------------------------------------------------------------------
-!> module Atmosphere / Dynamics / DGM driver (tracer advection)
+!> module FElib / Fluid dyn solver / Atmosphere / DGM driver (tracer advection)
 !!
 !! @par Description
 !!      Driver module for tracer advection based on DGM 

@@ -1,8 +1,8 @@
 !-------------------------------------------------------------------------------
-!> module MONITOR
+!> module FElib / File / Monitor
 !!
 !! @par Description
-!!          Monitor output module
+!!          A module for monitoring model statistics
 !!
 !! @author Team SCALE
 !!
@@ -71,6 +71,8 @@ module scale_file_monitor_meshfield
   !
 
 contains
+
+!OCL SERIAL
   subroutine FILE_monitor_meshfield_set_dim2D( mesh2D, dim_type )
     implicit none
 
@@ -96,6 +98,7 @@ contains
     return
   end subroutine FILE_monitor_meshfield_set_dim2D
 
+!OCL SERIAL
   subroutine FILE_monitor_meshfield_set_dim3D( mesh3D, dim_type )
     implicit none
 
@@ -121,6 +124,7 @@ contains
     return
   end subroutine FILE_monitor_meshfield_set_dim3D
 
+!OCL SERIAL
   subroutine FILE_monitor_meshfield_put2D( itemid, field )
     implicit none
 
@@ -143,6 +147,7 @@ contains
     return
   end subroutine FILE_monitor_meshfield_put2D
 
+!OCL SERIAL
   subroutine FILE_monitor_meshfield_put3D( itemid, field )
     implicit none
 
@@ -167,6 +172,7 @@ contains
 
 !-- private----------------------
 
+!OCL SERIAL
   function cal_total_lc( lcmesh, field_val ) result(total)
     use scale_localmesh_base, only: LocalMeshBase
     use scale_element_base, only: ElementBase

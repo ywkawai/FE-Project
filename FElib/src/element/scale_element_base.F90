@@ -1,3 +1,12 @@
+!> module FElib/ Element / Base
+!!
+!! @par Description
+!!           A base module for finite element
+!!
+!! @author Team SCALE
+!!
+!<
+!-------------------------------------------------------------------------------
 #include "scaleFElib.h"
 module scale_element_base
 
@@ -14,7 +23,10 @@ module scale_element_base
   !
   !++ Public type & procedure
   !
-  type, public :: elementbase
+
+  !- Base
+
+  type, public :: ElementBase
     integer :: Np
     integer :: Nfaces
     integer :: NfpTot
@@ -30,11 +42,11 @@ module scale_element_base
     real(RP), allocatable :: IntWeight_lgl(:)
   contains
     procedure :: IsLumpedMatrix => ElementBase_isLumpedMatrix
-  end type elementbase
+  end type ElementBase
   
-  !-
+  !- 1D
 
-  type, public, extends(elementbase) :: elementbase1D
+  type, public, extends(ElementBase) :: ElementBase1D
     integer :: PolyOrder
     integer :: Nfp
     integer, allocatable :: Fmask(:,:)
@@ -44,13 +56,14 @@ module scale_element_base
     real(RP), allocatable :: Dx1(:,:)
 
     real(RP), allocatable :: Sx1(:,:) 
-  end type elementbase1D
+  end type ElementBase1D
   
   public :: ElementBase1D_Init
   public :: ElementBase1D_Final
 
-  !-
-  type, public, extends(elementbase) :: elementbase2D
+  !- 2D
+
+  type, public, extends(ElementBase) :: ElementBase2D
     integer :: PolyOrder
     integer :: Nfp
     integer, allocatable :: Fmask(:,:)
@@ -63,7 +76,7 @@ module scale_element_base
 
     real(RP), allocatable :: Sx1(:,:)
     real(RP), allocatable :: Sx2(:,:) 
-  end type elementbase2D
+  end type ElementBase2D
 
   public :: ElementBase2D_Init
   public :: ElementBase2D_Final
@@ -83,9 +96,9 @@ module scale_element_base
     end function ElementBase2D_GenIntGaussLegendreIntrpMat
   end interface
 
-  !-
+  !- 3D
 
-  type, public, extends(elementbase) :: elementbase3D    
+  type, public, extends(ElementBase) :: ElementBase3D    
     integer :: PolyOrder_h
     integer :: Nnode_h1D
     integer :: Nfaces_h
@@ -115,7 +128,7 @@ module scale_element_base
     real(RP), allocatable :: Sx1(:,:)
     real(RP), allocatable :: Sx2(:,:)    
     real(RP), allocatable :: Sx3(:,:)
-  end type elementbase3D
+  end type ElementBase3D
   
   public :: ElementBase3D_Init
   public :: ElementBase3D_Final
@@ -129,7 +142,7 @@ module scale_element_base
   private :: ElementBase_Final
 
 contains
-
+!OCL SERIAL
   subroutine ElementBase_Init( elem, lumpedmat_flag )
     implicit none
 
@@ -151,6 +164,7 @@ contains
     return
   end subroutine ElementBase_Init
 
+!OCL SERIAL
   subroutine ElementBase_Final( elem )
     implicit none
 
@@ -170,6 +184,7 @@ contains
     return
   end subroutine ElementBase_Final
 
+!OCL SERIAL
   function ElementBase_isLumpedMatrix( elem ) result(lumpedmat_flag)
     implicit none
     class(ElementBase), intent(in) :: elem
@@ -181,6 +196,7 @@ contains
   end function ElementBase_isLumpedMatrix
 
   !--------------------------------------------------------------------------------
+!OCL SERIAL
   subroutine ElementBase1D_Init( elem, lumpedmat_flag )
     implicit none
 
@@ -199,6 +215,7 @@ contains
     return
   end subroutine ElementBase1D_Init
 
+!OCL SERIAL
   subroutine ElementBase1D_Final( elem )
     implicit none
 
@@ -217,6 +234,7 @@ contains
     return
   end subroutine ElementBase1D_Final
 
+!OCL SERIAL
   subroutine ElementBase2D_Init( elem, lumpedmat_flag )
     implicit none
 
@@ -235,6 +253,7 @@ contains
     return
   end subroutine ElementBase2D_Init
 
+!OCL SERIAL
   subroutine ElementBase2D_Final( elem )
     implicit none
 
@@ -254,6 +273,7 @@ contains
     return
   end subroutine ElementBase2D_Final
 
+!OCL SERIAL
   subroutine ElementBase3D_Init( elem, lumpedmat_flag )
     implicit none
 
@@ -276,6 +296,7 @@ contains
     return
   end subroutine ElementBase3D_Init
 
+!OCL SERIAL
   subroutine ElementBase3D_Final( elem )
     implicit none
 

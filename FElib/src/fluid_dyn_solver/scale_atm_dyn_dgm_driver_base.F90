@@ -1,5 +1,5 @@
 !-------------------------------------------------------------------------------
-!> module Atmosphere / Dynamics / DGM driver (base)
+!> module FElib / Fluid dyn solver / Atmosphere / driver (base)
 !!
 !! @par Description
 !!      Driver module for dynamical core based on DGM 
