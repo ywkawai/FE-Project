@@ -127,6 +127,7 @@ contains
     character(len=H_SHORT) :: vintrp_name
     character(len=H_LONG ) :: in_topofile_basename = ''       ! Basename of the input  file 
     character(len=H_SHORT) :: topo_varname         = 'topo'  
+    character(len=H_SHORT) :: pres_varname         = 'PRES'  
 
     integer, parameter :: FZ_nmax  = 1000 
     integer :: out_NeZ             = -1    
@@ -140,6 +141,7 @@ contains
       vintrp_name,          &
       in_topofile_basename, &
       topo_varname,         &
+      pres_varname,         &
       out_NeZ,              &  
       out_PolyOrder_v,      &   
       out_dom_vmin,         &
@@ -300,11 +302,11 @@ contains
       if ( this%vintrp_typeid == REGRID_VCOORD_PRESS_ID ) then
         call vintrp_ptr_outmesh3D%SetDimInfo( MeshBase3D_DIMTYPEID_Z, 'p', 'Pa', 'altitude (preesure coordinate)', &
           positive_down = .true. )
-        call this%pres%Init( "PRES", "Pa", out_mesh%ptr_mesh3D )
+        call this%pres%Init( trim(pres_varname), "Pa", out_mesh%ptr_mesh3D )
       else if ( this%vintrp_typeid == REGRID_VCOORD_SIGMA_ID ) then
         call vintrp_ptr_outmesh3D%SetDimInfo( MeshBase3D_DIMTYPEID_Z, 'sig', '1', 'altitude (sigma coordinate)', &
           positive_down = .true. )
-        call this%pres%Init( "PRES", "Pa", out_mesh%ptr_mesh3D )
+        call this%pres%Init( trim(pres_varname), "Pa", out_mesh%ptr_mesh3D )
       else if ( this%vintrp_typeid == REGRID_VCOORD_HEIGHT_ID ) then
         call vintrp_ptr_outmesh3D%SetDimInfo( MeshBase3D_DIMTYPEID_Z, 'z', 'm', 'altitude (height coordinate)' )        
       end if   
