@@ -56,6 +56,7 @@ OBJS = \
 	mod_experiment.o             \
 	\
 	mod_dg_prep.o                \
+	mod_mktopo_util.o            \
 	mod_mktopo.o                 \
 	mod_mkinit_util.o            \
 	mod_mkinit.o
