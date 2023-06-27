@@ -131,7 +131,7 @@ contains
       PI => CONST_PI
 
     use scale_localmeshfield_base, only: LocalMeshFieldBase
-    use scale_cubedsphere_coord_cnv, only: CubedSphereCnv_LonLat2CSVec
+    use scale_cubedsphere_coord_cnv, only: CubedSphereCoordCnv_LonLat2CSVec
   
     use scale_file_history_meshfield, only: &
       FILE_HISTORY_meshfield_in
@@ -194,7 +194,7 @@ contains
         Vmet(:,ke)         = 0.0_RP
       end do
       
-      call CubedSphereCnv_LonLat2CSVec( &
+      call CubedSphereCoordCnv_LonLat2CSVec( &
         lcmesh%panelID, lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2), elem%Np * lcmesh%Ne, RPlanet, &
         UmetOvCosLat(:,:), Vmet(:,:),                                                             &
         U0(:,:), V0(:,:)                                                                          )
@@ -243,7 +243,7 @@ contains
     use scale_atm_dyn_dgm_hydrostatic, only: &
       hydrostatic_calc_basicstate_constBVFreq
     use scale_cubedsphere_coord_cnv, only: &
-      CubedSphereCnv_LonLat2CSVec
+      CubedSphereCoordCnv_LonLat2CSVec
   
     use mod_experiment, only: &
       TracerLocalMeshField_ptr   
@@ -337,7 +337,7 @@ contains
       MOMY_met(:,ke)           = 0.0_RP
     end do
 
-    call CubedSphereCnv_LonLat2CSVec( &
+    call CubedSphereCoordCnv_LonLat2CSVec( &
       lcmesh%panelID, lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2), elem%Np * lcmesh%Ne, RPlanet, &
       MOMX_met_ov_coslat(:,:), MOMY_met(:,:),                                                   &
       MOMX(:,lcmesh%NeS:lcmesh%NeE), MOMY(:,lcmesh%NeS:lcmesh%NeE)                              )

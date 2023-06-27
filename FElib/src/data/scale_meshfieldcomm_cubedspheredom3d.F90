@@ -225,8 +225,8 @@ contains
       LocalMeshCommData
 
     use scale_cubedsphere_coord_cnv, only: &
-      CubedSphereCnv_CS2LonLatVec, &
-      CubedSphereCnv_LonLat2CSVec
+      CubedSphereCoordCnv_CS2LonLatVec, &
+      CubedSphereCoordCnv_LonLat2CSVec
     
     implicit none
   
@@ -290,7 +290,7 @@ contains
               tmp_svec3D(:,1) = commdata%send_buf(:,varid  )
               tmp_svec3D(:,2) = commdata%send_buf(:,varid+1)
   
-              call CubedSphereCnv_CS2LonLatVec( &
+              call CubedSphereCoordCnv_CS2LonLatVec( &
                 lcmesh%panelID, lcfpos3D(:,1), lcfpos3D(:,2), Nnode_LCMeshFace(f), &
                 this%mesh3d%RPlanet,                                               &
                 tmp_svec3D(:,1), tmp_svec3D(:,2),                                  &
@@ -343,7 +343,7 @@ contains
               lcmesh, elem )
             
             do varid=this%sfield_num+1, this%field_num_tot-1, 2
-              call CubedSphereCnv_LonLat2CSVec( &
+              call CubedSphereCoordCnv_LonLat2CSVec( &
                 lcmesh%panelID, lcfpos3D(:,1), lcfpos3D(:,2), Nnode_LCMeshFace(f),   &
                 this%mesh3d%RPlanet,                                                 &
                 commdata%recv_buf(:,varid), commdata%recv_buf(:,varid+1),            &

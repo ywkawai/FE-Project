@@ -30,7 +30,7 @@ module mod_user
   use scale_element_hexahedral, only: HexahedralElement
   use scale_localmesh_3d, only: LocalMesh3D   
   use scale_cubedsphere_coord_cnv, only: &
-    CubedSphereCnv_LonLat2CSVec
+    CubedSphereCoordCnv_LonLat2CSVec
   
   use mod_atmos_component, only: &
     AtmosComponent
@@ -187,7 +187,7 @@ contains
         MOMZ%val(:,ke  ) = DENS_hyd%val(:,ke) * W(:)
       end do
 
-      call CubedSphereCnv_LonLat2CSVec( &
+      call CubedSphereCoordCnv_LonLat2CSVec( &
         lcmesh%panelID, lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2),          &
         lcmesh%Ne * elem3D%Np, RPlanet, svec(:,:,1), svec(:,:,2),            &
         MOMX%val(:,lcmesh%NeS:lcmesh%NeE), MOMY%val(:,lcmesh%NeS:lcmesh%NeE) )  
@@ -304,7 +304,7 @@ contains
       MOMZ(:,ke) = DENS_hyd(:,ke) * W(:)
     end do
         
-    call CubedSphereCnv_LonLat2CSVec( &
+    call CubedSphereCoordCnv_LonLat2CSVec( &
       lcmesh%panelID, lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2),  &
       lcmesh%Ne * elem%Np, RPlanet, svec(:,:,1), svec(:,:,2),      &
       MOMX(:,lcmesh%NeS:lcmesh%NeE), MOMY(:,lcmesh%NeS:lcmesh%NeE) )

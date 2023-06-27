@@ -18,8 +18,8 @@ program test_advect3dGlobal
   use scale_localmesh_3d
   use scale_mesh_cubedspheredom3d
   use scale_cubedsphere_coord_cnv, only: &
-    CubedSphereCnv_CS2LonLatCoord, &
-    CubedSphereCnv_LonLat2CSVec
+    CubedSphereCoordCnv_CS2LonLatPos, &
+    CubedSphereCoordCnv_LonLat2CSVec
   use scale_localmeshfield_base, only: LocalMeshField3D
   use scale_meshfield_base, only: &
     MeshField2D, MeshField3D
@@ -360,7 +360,7 @@ contains
       svec(:,ke_,1) = svec(:,ke_,1) / cos(lat3D(:))
     end do
 
-    call CubedSphereCnv_LonLat2CSVec( &
+    call CubedSphereCoordCnv_LonLat2CSVec( &
       lmesh%panelID, lmesh%pos_en(:,:,1), lmesh%pos_en(:,:,2),    &
       lmesh%Ne * elem%Np, RPlanet, svec(:,:,1), svec(:,:,2),      &
       U_(:,lmesh%NeS:lmesh%NeE), V_(:,lmesh%NeS:lmesh%NeE)        )

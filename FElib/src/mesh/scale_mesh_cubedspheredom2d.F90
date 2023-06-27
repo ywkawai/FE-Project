@@ -249,8 +249,8 @@ contains
       MeshUtilCubedSphere2D_genPatchBoundaryMap
 
     use scale_cubedsphere_coord_cnv, only: &
-      CubedSphereCnv_GetMetric,      &
-      CubedSphereCnv_CS2LonLatCoord
+      CubedSphereCoordCnv_GetMetric,      &
+      CubedSphereCoordCnv_CS2LonLatPos
     
     use scale_localmesh_base, only: BCTYPE_INTERIOR
 
@@ -316,11 +316,11 @@ contains
     !---
     call MeshBase2D_setGeometricInfo(lcmesh, MeshCubedSphereDom2D_coord_conv, MeshCubedSphereDom2D_calc_normal )
 
-    call CubedSphereCnv_GetMetric( &
+    call CubedSphereCoordCnv_GetMetric( &
       lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2), elem%Np * lcmesh%Ne, planet_radius, & ! (in)
       lcmesh%G_ij, lcmesh%GIJ, lcmesh%Gsqrt                                           ) ! (out)
 
-    call CubedSphereCnv_CS2LonLatCoord( &
+    call CubedSphereCoordCnv_CS2LonLatPos( &
       lcmesh%panelID, lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2), &
       lcmesh%Ne * lcmesh%refElem2D%Np, planet_radius,             &
       lcmesh%lon(:,:), lcmesh%lat(:,:)                            )

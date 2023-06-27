@@ -275,8 +275,8 @@ contains
       RPlanet => CONST_RADIUS, &
       EPS => CONST_EPS
     use scale_cubedsphere_coord_cnv, only: &
-      CubedSphereCnv_CS2LonLatCoord, &
-      CubedSphereCnv_LonLat2CSVec
+      CubedSphereCoordCnv_CS2LonLatPos, &
+      CubedSphereCoordCnv_LonLat2CSVec
     use mod_mktopo_util, only: &
       calc_topo => mktopoutil_barocwave_global_JW2006_calc_topo
     
@@ -326,7 +326,7 @@ contains
       eta(:,ke) = vz(1) + 0.5_RP * ( elem_x3(:) + 1.0_RP ) * ( vz(5) - vz(1) )
     end do
 
-    call CubedSphereCnv_CS2LonLatCoord( lcmesh3D%panelID, alpha, beta, Np * lcmesh3D%Ne, &
+    call CubedSphereCoordCnv_CS2LonLatPos( lcmesh3D%panelID, alpha, beta, Np * lcmesh3D%Ne, &
       rplanet, lon(:,:), lat(:,:) )
     
     if ( present(lat_) ) then
@@ -387,12 +387,12 @@ contains
     end do
     end do
 
-    call CubedSphereCnv_LonLat2CSVec( &
+    call CubedSphereCoordCnv_LonLat2CSVec( &
       lcmesh3D%panelID, alpha, beta,                                 &
       lcmesh3D%Ne * Np, RPlanet, VelLon(:,:), VelLat(:,:),           &
       U(:,lcmesh3D%NeS:lcmesh3D%NeE), V(:,lcmesh3D%NeS:lcmesh3D%NeE) )
 
-    call CubedSphereCnv_LonLat2CSVec( &
+    call CubedSphereCoordCnv_LonLat2CSVec( &
       lcmesh3D%panelID, alpha, beta,                                           &
       lcmesh3D%Ne * Np, RPlanet, VelLon_dash(:,:), VelLat_dash(:,:),           &
       U_dash(:,lcmesh3D%NeS:lcmesh3D%NeE), V_dash(:,lcmesh3D%NeS:lcmesh3D%NeE) )

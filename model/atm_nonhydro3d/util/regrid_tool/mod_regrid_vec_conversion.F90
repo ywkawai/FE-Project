@@ -90,7 +90,7 @@ contains
     use scale_localmesh_3d, only: LocalMesh3D
     use scale_element_base, only: ElementBase3D
     use scale_cubedsphere_coord_cnv, only: &
-      CubedSphereCnv_LonLat2CSPos
+      CubedSphereCoordCnv_LonLat2CSPos
     
     use scale_const, only: &
       PI => CONST_PI,         &
@@ -157,7 +157,7 @@ contains
         out_lon(1) = lcmesh2D%pos_en(p_h,ke_h,1) * PI / 180.0_RP
         out_lat(1) = lcmesh2D%pos_en(p_h,ke_h,2) * PI / 180.0_RP
 
-        call CubedSphereCnv_LonLat2CSPos( &
+        call CubedSphereCoordCnv_LonLat2CSPos( &
           inPanelID(p_h,ke_h),                       & ! (in)
           out_lon(1), out_lat(1), 1,                 & ! (in)
           out_x(p_h,ke_h), out_y(p_h,ke_h)           ) ! (out)

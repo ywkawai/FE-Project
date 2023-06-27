@@ -912,7 +912,7 @@ contains
       CVdry => CONST_CVdry, &
       PRES00 => CONST_PRE00
     use scale_cubedsphere_coord_cnv, only: &
-      CubedSphereCnv_CS2LonLatVec
+      CubedSphereCoordCnv_CS2LonLatVec
     implicit none
 
     type(LocalMesh2D), intent(in) :: lcmesh
@@ -932,7 +932,7 @@ contains
 
     select case(trim(field_name))
     case('Vel_lon')
-      call CubedSphereCnv_CS2LonLatVec( &
+      call CubedSphereCoordCnv_CS2LonLatVec( &
         lcmesh%panelID, lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2), elem%Np * lcmesh%Ne, RPlanet, & ! (in)
         U_(:,lcmesh%NeS:lcmesh%NeE), V_(:,lcmesh%NeS:lcmesh%NeE),                                 & ! (in)
         var_out(:,lcmesh%NeS:lcmesh%NeE), dummy(:,lcmesh%NeS:lcmesh%NeE)                          ) ! (out)
@@ -941,7 +941,7 @@ contains
           var_out(:,ke) = var_out(:,ke) * cos(lcmesh%lat(:,ke))
         end do        
     case('Vel_lat')
-      call CubedSphereCnv_CS2LonLatVec( &
+      call CubedSphereCoordCnv_CS2LonLatVec( &
         lcmesh%panelID, lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2), elem%Np * lcmesh%Ne, RPlanet, & ! (in)
         U_(:,lcmesh%NeS:lcmesh%NeE), V_(:,lcmesh%NeS:lcmesh%NeE),                                 & ! (in)
         dummy(:,lcmesh%NeS:lcmesh%NeE), var_out(:,lcmesh%NeS:lcmesh%NeE)                          ) ! (out)

@@ -248,7 +248,7 @@ contains
     Umet, Vmet )
 
     use scale_cubedsphere_coord_cnv, only: &
-      CubedSphereCnv_CS2LonLatVec
+      CubedSphereCoordCnv_CS2LonLatVec
     implicit none
     class(AtmosMeshGM), target, intent(in) :: this
     type(MeshField3D), intent(in) :: U
@@ -265,7 +265,7 @@ contains
     do n=1, this%mesh%LOCAL_MESH_NUM
       lcmesh => this%mesh%lcmesh_list(n)
       elem => lcmesh%refElem3D
-      call CubedSphereCnv_CS2LonLatVec( &
+      call CubedSphereCoordCnv_CS2LonLatVec( &
         lcmesh%panelID, lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2), &
         elem%Np * lcmesh%Ne, this%mesh%RPlanet,                     &
         U%local(n)%val(:,lcmesh%NeS:lcmesh%NeE),                    &

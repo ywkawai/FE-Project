@@ -364,7 +364,7 @@ contains
     use scale_polygon, only: &
       polygon_inpoly    
     use scale_cubedsphere_coord_cnv, only: &
-      CubedSphereCnv_LonLat2CSPos
+      CubedSphereCoordCnv_LonLat2CSPos
     use scale_meshutil_cubedsphere2d, only: &
       MeshUtilCubedSphere2D_getPanelID      
     implicit none
@@ -440,7 +440,7 @@ contains
         out_cspanel = this%inCSPanelID(p_h,ke_h)
         out_lon(1) = lcmesh%pos_en(p_h,ke_h,1) * PI / 180.0_RP
         out_lat(1) = lcmesh%pos_en(p_h,ke_h,2) * PI / 180.0_RP
-        call CubedSphereCnv_LonLat2CSPos( &
+        call CubedSphereCoordCnv_LonLat2CSPos( &
           out_cspanel, out_lon, out_lat, 1, &
           out_x, out_y )
 
@@ -498,7 +498,7 @@ contains
         out_cspanel = this%inCSPanelID(p_h,ke_h)
         out_lon(1) = lcmesh%pos_en(p_h,ke_h,1) * PI / 180.0_RP
         out_lat(1) = lcmesh%pos_en(p_h,ke_h,2) * PI / 180.0_RP
-        call CubedSphereCnv_LonLat2CSPos( &
+        call CubedSphereCoordCnv_LonLat2CSPos( &
           out_cspanel, out_lon, out_lat, 1, &
           out_x, out_y )
 
@@ -561,7 +561,7 @@ contains
     use scale_polygon, only: &
       polygon_inpoly
     use scale_cubedsphere_coord_cnv, only: &
-      CubedSphereCnv_LonLat2CSPos
+      CubedSphereCoordCnv_LonLat2CSPos
     use scale_meshutil_cubedsphere2d, only: &
       MeshUtilCubedSphere2D_getPanelID
     implicit none
@@ -643,7 +643,7 @@ contains
         out_cspanel = this%inCSPanelID(p_h,ke_h)
         out_lon(1) = lcmesh%pos_en(p_h,ke_h,1) * PI / 180.0_RP
         out_lat(1) = lcmesh%pos_en(p_h,ke_h,2) * PI / 180.0_RP
-        call CubedSphereCnv_LonLat2CSPos(   &
+        call CubedSphereCoordCnv_LonLat2CSPos(   &
           out_cspanel, out_lon, out_lat, 1, &
           out_x, out_y )
 
@@ -698,7 +698,7 @@ contains
         out_cspanel = this%inCSPanelID(p_h,ke_h)
         out_lon(1) = lcmesh%pos_en(p_h,ke_h,1) * PI / 180.0_RP
         out_lat(1) = lcmesh%pos_en(p_h,ke_h,2) * PI / 180.0_RP
-        call CubedSphereCnv_LonLat2CSPos( &
+        call CubedSphereCoordCnv_LonLat2CSPos( &
           out_cspanel, out_lon, out_lat, 1, &
           out_x, out_y )
   

@@ -132,7 +132,7 @@ contains
       RPlanet => CONST_RADIUS, &
       OMG => CONST_OHM 
     use scale_cubedsphere_coord_cnv, only: &
-      CubedSphereCnv_LonLat2CSVec
+      CubedSphereCoordCnv_LonLat2CSVec
     implicit none
 
     class(Exp_W92_case5), intent(inout) :: this
@@ -195,7 +195,7 @@ contains
 
     end do
 
-    call CubedSphereCnv_LonLat2CSVec( &
+    call CubedSphereCoordCnv_LonLat2CSVec( &
       lcmesh%panelID, lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2), elem%Np * lcmesh%Ne, RPlanet, &
       VelLon(:,:), VelLat(:,:), U(:,lcmesh%NeS:lcmesh%NeE), V(:,lcmesh%NeS:lcmesh%NeE)          )
     !$omp parallel do
