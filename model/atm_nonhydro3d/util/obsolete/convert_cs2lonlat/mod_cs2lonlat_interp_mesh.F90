@@ -363,7 +363,7 @@ contains
     use scale_prc
     use scale_polygon, only: &
       polygon_inpoly    
-    use scale_cubedsphere_cnv, only: &
+    use scale_cubedsphere_coord_cnv, only: &
       CubedSphereCnv_LonLat2CSPos
     use scale_meshutil_cubedsphere2d, only: &
       MeshUtilCubedSphere2D_getPanelID      
@@ -560,7 +560,7 @@ contains
     use scale_prc
     use scale_polygon, only: &
       polygon_inpoly
-    use scale_cubedsphere_cnv, only: &
+    use scale_cubedsphere_coord_cnv, only: &
       CubedSphereCnv_LonLat2CSPos
     use scale_meshutil_cubedsphere2d, only: &
       MeshUtilCubedSphere2D_getPanelID

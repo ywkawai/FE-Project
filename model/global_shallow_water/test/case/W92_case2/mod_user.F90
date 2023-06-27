@@ -131,7 +131,7 @@ contains
       GRAV => CONST_GRAV,      &
       RPlanet => CONST_RADIUS, &
       OMG => CONST_OHM 
-    use scale_cubedsphere_cnv, only: &
+    use scale_cubedsphere_coord_cnv, only: &
       CubedSphereCnv_LonLat2CSVec
     implicit none
 

@@ -7,7 +7,7 @@
 !! @author Team SCALE
 !!
 #include "scaleFElib.h"
-module scale_cubedsphere_cnv
+module scale_cubedsphere_coord_cnv
   !-----------------------------------------------------------------------------
   !
   !++ used modules
@@ -467,4 +467,4 @@ contains
     return
   end subroutine CubedSphereCnv_GetMetric
 
-end module scale_cubedsphere_cnv
+end module scale_cubedsphere_coord_cnv

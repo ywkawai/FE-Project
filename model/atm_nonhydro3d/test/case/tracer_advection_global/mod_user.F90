@@ -29,7 +29,7 @@ module mod_user
   use scale_element_base, only: ElementBase3D
   use scale_element_hexahedral, only: HexahedralElement
   use scale_localmesh_3d, only: LocalMesh3D   
-  use scale_cubedsphere_cnv, only: &
+  use scale_cubedsphere_coord_cnv, only: &
     CubedSphereCnv_LonLat2CSVec
   
   use mod_atmos_component, only: &

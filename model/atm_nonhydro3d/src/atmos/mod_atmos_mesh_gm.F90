@@ -247,7 +247,7 @@ contains
   subroutine AtmosMeshGM_calc_UVMet( this, U, V, &
     Umet, Vmet )
 
-    use scale_cubedsphere_cnv, only: &
+    use scale_cubedsphere_coord_cnv, only: &
       CubedSphereCnv_CS2LonLatVec
     implicit none
     class(AtmosMeshGM), target, intent(in) :: this

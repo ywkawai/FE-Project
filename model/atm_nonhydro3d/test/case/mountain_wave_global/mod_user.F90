@@ -131,7 +131,7 @@ contains
       PI => CONST_PI
 
     use scale_localmeshfield_base, only: LocalMeshFieldBase
-    use scale_cubedsphere_cnv, only: CubedSphereCnv_LonLat2CSVec
+    use scale_cubedsphere_coord_cnv, only: CubedSphereCnv_LonLat2CSVec
   
     use scale_file_history_meshfield, only: &
       FILE_HISTORY_meshfield_in
@@ -242,7 +242,7 @@ contains
     
     use scale_atm_dyn_dgm_hydrostatic, only: &
       hydrostatic_calc_basicstate_constBVFreq
-    use scale_cubedsphere_cnv, only: &
+    use scale_cubedsphere_coord_cnv, only: &
       CubedSphereCnv_LonLat2CSVec
   
     use mod_experiment, only: &

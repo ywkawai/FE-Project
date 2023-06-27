@@ -89,7 +89,7 @@ contains
     use scale_localmesh_2d, only: LocalMesh2D
     use scale_localmesh_3d, only: LocalMesh3D
     use scale_element_base, only: ElementBase3D
-    use scale_cubedsphere_cnv, only: &
+    use scale_cubedsphere_coord_cnv, only: &
       CubedSphereCnv_LonLat2CSPos
     
     use scale_const, only: &

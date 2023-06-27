@@ -911,7 +911,7 @@ contains
       CPdry => CONST_CPdry, &
       CVdry => CONST_CVdry, &
       PRES00 => CONST_PRE00
-    use scale_cubedsphere_cnv, only: &
+    use scale_cubedsphere_coord_cnv, only: &
       CubedSphereCnv_CS2LonLatVec
     implicit none
 

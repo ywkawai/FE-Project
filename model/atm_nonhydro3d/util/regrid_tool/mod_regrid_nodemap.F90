@@ -521,7 +521,7 @@ contains
     inPanelID,                         &
     Np1D, Ne2D, lcmesh ) 
 
-    use scale_cubedsphere_cnv, only: &
+    use scale_cubedsphere_coord_cnv, only: &
       CubedSphereCnv_LonLat2CSPos   
     implicit none
 

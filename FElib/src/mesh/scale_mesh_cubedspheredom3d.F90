@@ -536,7 +536,7 @@ contains
 
 !OCL SERIAL
   subroutine MeshCubedSphereDom3D_set_metric( this )
-    use scale_cubedsphere_cnv, only: &
+    use scale_cubedsphere_coord_cnv, only: &
       CubedSphereCnv_CS2LonLatCoord, &
       CubedSphereCnv_GetMetric
         

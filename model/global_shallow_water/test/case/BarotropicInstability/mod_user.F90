@@ -134,7 +134,7 @@ contains
     h, U, V, hs, u1, u2,                                 &
     x, y, lcmesh, elem                                   )
     
-    use scale_cubedsphere_cnv, only: &
+    use scale_cubedsphere_coord_cnv, only: &
       CubedSphereCnv_LonLat2CSVec
     implicit none
 

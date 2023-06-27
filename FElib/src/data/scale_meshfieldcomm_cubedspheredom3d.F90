@@ -224,7 +224,7 @@ contains
       MeshFieldCommBase_exchange_core,  &
       LocalMeshCommData
 
-    use scale_cubedsphere_cnv, only: &
+    use scale_cubedsphere_coord_cnv, only: &
       CubedSphereCnv_CS2LonLatVec, &
       CubedSphereCnv_LonLat2CSVec
     

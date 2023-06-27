@@ -248,7 +248,7 @@ contains
       MeshUtilCubedSphere2D_BuildInteriorMap,  &
       MeshUtilCubedSphere2D_genPatchBoundaryMap
 
-    use scale_cubedsphere_cnv, only: &
+    use scale_cubedsphere_coord_cnv, only: &
       CubedSphereCnv_GetMetric,      &
       CubedSphereCnv_CS2LonLatCoord
     

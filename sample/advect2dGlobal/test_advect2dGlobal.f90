@@ -16,7 +16,7 @@ program test_advect2dGlobal
   use scale_element_quadrilateral
   use scale_localmesh_2d
   use scale_mesh_cubedspheredom2d
-  use scale_cubedsphere_cnv, only: &
+  use scale_cubedsphere_coord_cnv, only: &
     CubedSphereCnv_CS2LonLatCoord, &
     CubedSphereCnv_LonLat2CSVec
   use scale_localmeshfield_base, only: LocalMeshField2D

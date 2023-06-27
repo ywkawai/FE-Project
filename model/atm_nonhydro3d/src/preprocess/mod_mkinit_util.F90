@@ -236,7 +236,7 @@ contains
     IntrpPolyOrder_h, IntrpPolyOrder_v,          &
     z_func_type, z_func_params, cosbell_exponent )
 
-    use scale_cubedsphere_cnv, only: &
+    use scale_cubedsphere_coord_cnv, only: &
       CubedSphereCnv_CS2LonLatCoord
     implicit none
 
@@ -345,7 +345,7 @@ contains
     func, IntrpPolyOrder_h, IntrpPolyOrder_v,  &
     lcmesh3D, elem                             )
 
-  use scale_cubedsphere_cnv, only: &
+  use scale_cubedsphere_coord_cnv, only: &
     CubedSphereCnv_CS2LonLatCoord
   
   implicit none
@@ -420,7 +420,7 @@ end subroutine mkinitutil_GalerkinProjection
       func, IntrpPolyOrder_h, IntrpPolyOrder_v,       &
       lcmesh3D, elem, rplanet )
 
-    use scale_cubedsphere_cnv, only: &
+    use scale_cubedsphere_coord_cnv, only: &
       CubedSphereCnv_CS2LonLatCoord
     
     implicit none

@@ -17,7 +17,7 @@ program test_advect3dGlobal
   use scale_element_hexahedral, only: HexahedralElement
   use scale_localmesh_3d
   use scale_mesh_cubedspheredom3d
-  use scale_cubedsphere_cnv, only: &
+  use scale_cubedsphere_coord_cnv, only: &
     CubedSphereCnv_CS2LonLatCoord, &
     CubedSphereCnv_LonLat2CSVec
   use scale_localmeshfield_base, only: LocalMeshField3D

@@ -274,7 +274,7 @@ contains
     use scale_const, only: &
       RPlanet => CONST_RADIUS, &
       EPS => CONST_EPS
-    use scale_cubedsphere_cnv, only: &
+    use scale_cubedsphere_coord_cnv, only: &
       CubedSphereCnv_CS2LonLatCoord, &
       CubedSphereCnv_LonLat2CSVec
     use mod_mktopo_util, only: &
