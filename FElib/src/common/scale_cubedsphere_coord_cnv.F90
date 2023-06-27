@@ -4,6 +4,17 @@
 !! @par Description
 !!      Coordinate conversion with a cubed-sphere 
 !!
+!!
+!! @par Reference
+!!  - Nair et al. 2015:
+!!    A Discontinuous Galerkin Transport Scheme on the Cubed Sphere. 
+!!    Monthly Weather Review, 133, 814–828. 
+!!    (Appendix A)
+!!  - Yin et al. 2017:
+!!    Parallel numerical simulation of the thermal convection in the Earth’s outer core on the cubed-sphere. 
+!!    Geophysical Journal International, 209, 1934–1954. 
+!!    (Appendix A)
+!!
 !! @author Team SCALE
 !!
 #include "scaleFElib.h"
@@ -28,12 +39,12 @@ module scale_cubedsphere_coord_cnv
   !
   !++ Public type & procedure
   !  
-  public :: CubedSphereCnv_CS2LonLatCoord
-  public :: CubedSphereCnv_CS2CartCoord
-  public :: CubedSphereCnv_CS2LonLatVec
-  public :: CubedSphereCnv_LonLat2CSPos
-  public :: CubedSphereCnv_LonLat2CSVec
-  public :: CubedSphereCnv_GetMetric
+  public :: CubedSphereCoordCnv_CS2LonLatPos
+  public :: CubedSphereCoordCnv_CS2CartPos
+  public :: CubedSphereCoordCnv_CS2LonLatVec
+  public :: CubedSphereCoordCnv_LonLat2CSPos
+  public :: CubedSphereCoordCnv_LonLat2CSVec
+  public :: CubedSphereCoordCnv_GetMetric
 
   !-----------------------------------------------------------------------------
   !
@@ -53,8 +64,8 @@ module scale_cubedsphere_coord_cnv
 
 
 contains
-
-  subroutine CubedSphereCnv_CS2LonLatCoord( &
+!OCL SERIAL
+  subroutine CubedSphereCoordCnv_CS2LonLatPos( &
     panelID, alpha, beta, Np, radius,        & ! (in)
     lon, lat )                                 ! (out)
     implicit none
@@ -124,11 +135,12 @@ contains
     end select
 
     return
-  end subroutine CubedSphereCnv_CS2LonLatCoord
+  end subroutine CubedSphereCoordCnv_CS2LonLatPos
 
   !
   !
-  subroutine CubedSphereCnv_LonLat2CSVec( &
+!OCL SERIAL
+  subroutine CubedSphereCoordCnv_LonLat2CSVec( &
     panelID, alpha, beta, Np,  radius,     & ! (in)
     VecLon, VecLat,                        & ! (in)
     VecAlpha, VecBeta                      ) ! (out)
@@ -187,9 +199,10 @@ contains
     end select
 
     return
-  end subroutine CubedSphereCnv_LonLat2CSVec
+  end subroutine CubedSphereCoordCnv_LonLat2CSVec
 
-  subroutine CubedSphereCnv_CS2LonLatVec( &
+!OCL SERIAL
+  subroutine CubedSphereCoordCnv_CS2LonLatVec( &
     panelID, alpha, beta, Np, radius,     & ! (in)
     VecAlpha, VecBeta,                    & ! (in)
     VecLon, VecLat                        ) ! (out)
@@ -250,9 +263,10 @@ contains
     end select
 
     return
-  end subroutine CubedSphereCnv_CS2LonLatVec
+  end subroutine CubedSphereCoordCnv_CS2LonLatVec
 
-  subroutine CubedSphereCnv_CS2CartCoord( &
+!OCL SERIAL
+  subroutine CubedSphereCoordCnv_CS2CartPos( &
     panelID, alpha, beta, Np, radius,     & ! (in)
     X, Y, Z                               ) ! (out)
 
@@ -261,18 +275,14 @@ contains
     integer, intent(in) :: Np
     real(RP), intent(in) :: alpha(Np)
     real(RP), intent(in) :: beta (Np)
-    real(RP), intent(in) :: radius
+    real(RP), intent(in) :: radius(Np)
     real(RP), intent(out) :: X(Np)
     real(RP), intent(out) :: Y(Np)
     real(RP), intent(out) :: Z(Np)
 
     integer :: p
-    real(DP) :: a
-    real(RP) :: x1, x2
-    real(RP) :: fac
+    real(RP) :: x1, x2, fac
     !-----------------------------------------------------------------------------
-
-    a = 1.0_RP / sqrt(3.0_RP)
 
     select case(panelID)
     case(1)
@@ -280,7 +290,7 @@ contains
       do p=1, Np
         x1 = tan( alpha(p) )
         x2 = tan( beta (p) )
-        fac = 1.0_RP / sqrt( a**2 + x1**2 + x2**2 )
+        fac = radius(p) / sqrt( 1.0_RP + x1**2 + x2**2 )
         X(p) = fac * a
         Y(p) = fac * x1
         Z(p) = fac * x2
@@ -290,9 +300,9 @@ contains
       do p=1, Np
         x1 = tan( alpha(p) )
         x2 = tan( beta (p) )
-        fac = 1.0_RP / sqrt( a**2 + x1**2 + x2**2 )
+        fac = radius(p) / sqrt( 1.0_RP + x1**2 + x2**2 )
         X(p) = - fac * x1 
-        Y(p) =   fac * a
+        Y(p) =   fac
         Z(p) =   fac * x2
       end do
     case(3)
@@ -300,8 +310,8 @@ contains
       do p=1, Np
         x1 = tan( alpha(p) )
         x2 = tan( beta (p) )
-        fac = 1.0_RP / sqrt( a**2 + x1**2 + x2**2 )
-        X(p) = - fac * a
+        fac = radius(p) / sqrt( 1.0_RP + x1**2 + x2**2 )
+        X(p) = - fac
         Y(p) = - fac * x1 
         Z(p) =   fac * x2
       end do
@@ -310,9 +320,9 @@ contains
       do p=1, Np
         x1 = tan( alpha(p) )
         x2 = tan( beta (p) )
-        fac = 1.0_RP / sqrt( a**2 + x1**2 + x2**2 )
+        fac = radius(p) / sqrt( 1.0_RP + x1**2 + x2**2 )
         X(p) =   fac * x1 
-        Y(p) = - fac * a
+        Y(p) = - fac
         Z(p) =   fac * x2
       end do
     case(5)
@@ -320,20 +330,20 @@ contains
       do p=1, Np
         x1 = tan( alpha(p) )
         x2 = tan( beta (p) )
-        fac = 1.0_RP / sqrt( a**2 + x1**2 + x2**2 )
+        fac = radius(p) / sqrt( 1.0_RP + x1**2 + x2**2 )
         X(p) = - fac * x2
         Y(p) =   fac * x1
-        Z(p) =   fac * a
+        Z(p) =   fac
       end do
     case(6)
       !$omp parallel do private(x1, x2, fac)
       do p=1, Np
         x1 = tan( alpha(p) )
         x2 = tan( beta (p) )
-        fac = 1.0_RP / sqrt( a**2 + x1**2 + x2**2 )
+        fac = radius(p) / sqrt( 1.0_RP + x1**2 + x2**2 )
         X(p) =   fac * x2
         Y(p) =   fac * x1
-        Z(p) = - fac * a
+        Z(p) = - fac
       end do
     case default
       LOG_ERROR("CubedSphereUtil_CS2CartCoord",'(a,i2,a)') "panelID ", panelID, " is invalid. Check!"
@@ -341,9 +351,10 @@ contains
     end select
 
     return
-  end subroutine CubedSphereCnv_CS2CartCoord
+  end subroutine CubedSphereCoordCnv_CS2CartPos
 
-  subroutine CubedSphereCnv_LonLat2CSPos(  &
+!OCL SERIAL
+  subroutine CubedSphereCoordCnv_LonLat2CSPos(  &
     panelID, lon, lat, Np,                 & ! (in)
     alpha, beta                            ) ! (out)
 
@@ -411,9 +422,10 @@ contains
     end select
 
     return
-  end subroutine CubedSphereCnv_LonLat2CSPos
+  end subroutine CubedSphereCoordCnv_LonLat2CSPos
 
-  subroutine CubedSphereCnv_GetMetric( &
+!OCL SERIAL  
+  subroutine CubedSphereCoordCnv_GetMetric( &
     alpha, beta, Np, radius,            & ! (in)
     G_ij, GIJ, Gsqrt                    ) ! (out)
 
@@ -465,6 +477,6 @@ contains
     end do
 
     return
-  end subroutine CubedSphereCnv_GetMetric
+  end subroutine CubedSphereCoordCnv_GetMetric
 
 end module scale_cubedsphere_coord_cnv
