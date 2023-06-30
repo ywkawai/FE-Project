@@ -370,8 +370,6 @@ contains
           REF_TEMP, REF_PRES, LAPSE_RATE,                                              &
           p, ke )
       end do
-
-      VelLon(:,ke) = VelLon(:,ke) / cos( lat(:,ke2D) )
       VelLat(:,ke) = 0.0_RP
 
       r_intrp(:) = RPlanet / Lp * acos( sin(Lat_c) * sin(lat(:,ke2D)) + cos(Lat_c) * cos(lat(:,ke2D)) * cos(lon(:,ke2D) - Lon_c) )

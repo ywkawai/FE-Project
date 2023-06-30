@@ -282,7 +282,7 @@ contains
 
     real(RP) :: cos_lat(elem%Np)
     real(RP) :: T(elem%Np)
-    real(RP) :: MOMX_met_ov_coslat(elem%Np,lcmesh%Ne)
+    real(RP) :: MOMX_met(elem%Np,lcmesh%Ne)
     real(RP) :: MOMY_met          (elem%Np,lcmesh%Ne)
 
     integer :: ke, ke2d
@@ -333,14 +333,14 @@ contains
       T(:) = H0_pres / Rdry * ( Grav - U0 * cos_lat * ( U0 * cos_lat / RPlanet + 2.0_RP * OHM * cos_lat ) )
       DENS_hyd(:,ke) = p_lat(elem%IndexH2Dto3D,ke2d) / ( Rdry * T(:) ) * exp( - lcmesh%zlev(:,ke) / H0_pres )
 
-      MOMX_met_ov_coslat(:,ke) = DENS_hyd(:,ke) * U0
-      MOMY_met(:,ke)           = 0.0_RP
+      MOMX_met(:,ke) = DENS_hyd(:,ke) * U0 * cos_lat(:)
+      MOMY_met(:,ke) = 0.0_RP
     end do
 
     call CubedSphereCoordCnv_LonLat2CSVec( &
-      lcmesh%panelID, lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2), elem%Np * lcmesh%Ne, RPlanet, &
-      MOMX_met_ov_coslat(:,:), MOMY_met(:,:),                                                   &
-      MOMX(:,lcmesh%NeS:lcmesh%NeE), MOMY(:,lcmesh%NeS:lcmesh%NeE)                              )
+      lcmesh%panelID, lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2), elem%Np * lcmesh%Ne, RPlanet, & ! (in)
+      MOMX_met(:,:), MOMY_met(:,:),                                                             & ! (in)
+      MOMX(:,lcmesh%NeS:lcmesh%NeE), MOMY(:,lcmesh%NeS:lcmesh%NeE)                              ) ! (out)
 
     return
   contains

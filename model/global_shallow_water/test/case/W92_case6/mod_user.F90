@@ -190,7 +190,7 @@ contains
       lat(:) = lcmesh%lat(:,ke)
 
       VelLon(:,ke) = RPlanet * ( OM &
-        - K_ * cos(lat(:))**2 * ( -4.0_RP * sin(lat(:))**2 + cos(lat(:))**2 ) * cos(4.0_RP*lon(:))  & ! * cos(lat(:))
+        - K_ * cos(lat(:))**2 * ( -4.0_RP * sin(lat(:))**2 + cos(lat(:))**2 ) * cos(4.0_RP*lon(:)) * cos(lat(:)) &
       )
       VelLat(:,ke) = - RPlanet * K_ * 4.0_RP * cos(lat(:))**3 * sin(lat(:)) * sin(4.0_RP*lon(:))      
 

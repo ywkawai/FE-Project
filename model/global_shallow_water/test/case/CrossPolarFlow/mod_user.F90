@@ -184,7 +184,7 @@ contains
       lon(:) = lcmesh%lon(:,ke)
       lat(:) = lcmesh%lat(:,ke)
 
-      VelLon(:,ke) = - V0 * sin(lon(:)) * sin(lat(:)) * ( 4.0_RP * cos(lat(:))**2 - 1.0_RP ) / cos(lat(:))
+      VelLon(:,ke) = - V0 * sin(lon(:)) * sin(lat(:)) * ( 4.0_RP * cos(lat(:))**2 - 1.0_RP )
       VelLat(:,ke) = V0 * sin(lat(:))**2 * cos(lon(:))     
                   
       h(:,ke) = ( PHI0 + 2.0_RP * OMG * RPlanet * V0 * sin(lat(:))**3 * cos(lat(:)) * sin(lon(:)) ) / Grav
@@ -192,8 +192,9 @@ contains
     end do
 
     call CubedSphereCoordCnv_LonLat2CSVec( &
-      lcmesh%panelID, lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2), elem%Np * lcmesh%Ne, RPlanet, &
-      VelLon(:,:), VelLat(:,:), U(:,lcmesh%NeS:lcmesh%NeE), V(:,lcmesh%NeS:lcmesh%NeE)          )
+      lcmesh%panelID, lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2), elem%Np * lcmesh%Ne, RPlanet, & ! (in)
+      VelLon(:,:), VelLat(:,:),                                                                 & ! (in)
+      U(:,lcmesh%NeS:lcmesh%NeE), V(:,lcmesh%NeS:lcmesh%NeE)                                    ) ! (out)
     !$omp parallel do
     do ke=lcmesh%NeS, lcmesh%NeE
       u1(:,ke) = lcmesh%G_ij(:,ke,1,1) * U(:,ke) + lcmesh%G_ij(:,ke,1,2) * V(:,ke)

@@ -204,8 +204,6 @@ contains
 
       call cal_zonal_vel( VelLon(:,ke),             &
         lcmesh%lat(:,ke), elem%Np, lat0, lat1, umax )
-      VelLon(:,ke) = VelLon(:,ke) / cos(lcmesh%lat(:,ke))
-
       VelLat(:,ke) = 0.0_RP    
                   
       do p=1, elem%Np
@@ -226,8 +224,9 @@ contains
     end do
 
     call CubedSphereCoordCnv_LonLat2CSVec( &
-      lcmesh%panelID, lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2), elem%Np * lcmesh%Ne, RPlanet, &
-      VelLon(:,:), VelLat(:,:), U(:,lcmesh%NeS:lcmesh%NeE), V(:,lcmesh%NeS:lcmesh%NeE)          )
+      lcmesh%panelID, lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2), elem%Np * lcmesh%Ne, RPlanet, & ! (in)
+      VelLon(:,:), VelLat(:,:),                                                                 & ! (in)
+      U(:,lcmesh%NeS:lcmesh%NeE), V(:,lcmesh%NeS:lcmesh%NeE)                                    ) ! (out)
     !$omp parallel do
     do ke=lcmesh%NeS, lcmesh%NeE
       u1(:,ke) = lcmesh%G_ij(:,ke,1,1) * U(:,ke) + lcmesh%G_ij(:,ke,1,2) * V(:,ke)

@@ -356,8 +356,6 @@ contains
       
       Vellon_(:,ke_) = svec(:,ke_,1)
       Vellat_(:,ke_) = svec(:,ke_,2)
-
-      svec(:,ke_,1) = svec(:,ke_,1) / cos(lat3D(:))
     end do
 
     call CubedSphereCoordCnv_LonLat2CSVec( &

@@ -182,15 +182,15 @@ contains
           lon3D(:), lat3D(:), lcmesh%zlev(:,ke),   &
           time, elem3D%Np                          )  
           
-        svec    (:,ke,1) = DENS_hyd%val(:,ke) * svec(:,ke,1) / cos(lat3D(:))
+        svec    (:,ke,1) = DENS_hyd%val(:,ke) * svec(:,ke,1)
         svec    (:,ke,2) = DENS_hyd%val(:,ke) * svec(:,ke,2)
         MOMZ%val(:,ke  ) = DENS_hyd%val(:,ke) * W(:)
       end do
 
       call CubedSphereCoordCnv_LonLat2CSVec( &
-        lcmesh%panelID, lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2),          &
-        lcmesh%Ne * elem3D%Np, RPlanet, svec(:,:,1), svec(:,:,2),            &
-        MOMX%val(:,lcmesh%NeS:lcmesh%NeE), MOMY%val(:,lcmesh%NeS:lcmesh%NeE) )  
+        lcmesh%panelID, lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2),          & ! (in)
+        lcmesh%Ne * elem3D%Np, RPlanet, svec(:,:,1), svec(:,:,2),            & ! (in)
+        MOMX%val(:,lcmesh%NeS:lcmesh%NeE), MOMY%val(:,lcmesh%NeS:lcmesh%NeE) ) ! (out)
         
       deallocate( svec )
       deallocate( lon3D, lat3D )

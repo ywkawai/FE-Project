@@ -322,14 +322,12 @@ contains
     do ke_=lmesh%NeS, lmesh%NeE
       call get_profile2d_flow( svec(:,ke_,1), svec(:,ke_,2),                    & ! (out)
         VelTypeName, lmesh%lon(:,ke_), lmesh%lat(:,ke_), VelTypeParams, elem%Np ) ! (in)
-      
-      svec(:,ke_,1) = svec(:,ke_,1) / cos(lmesh%lat(:,ke_))      
     end do
 
     call CubedSphereCoordCnv_LonLat2CSVec( &
-      lmesh%panelID, lmesh%pos_en(:,:,1), lmesh%pos_en(:,:,2),    &
-      lmesh%Ne * elem%Np, RPlanet, svec(:,:,1), svec(:,:,2),      &
-      U_(:,lmesh%NeS:lmesh%NeE), V_(:,lmesh%NeS:lmesh%NeE)        )
+      lmesh%panelID, lmesh%pos_en(:,:,1), lmesh%pos_en(:,:,2),    & ! (in)
+      lmesh%Ne * elem%Np, RPlanet, svec(:,:,1), svec(:,:,2),      & ! (in)
+      U_(:,lmesh%NeS:lmesh%NeE), V_(:,lmesh%NeS:lmesh%NeE)        ) ! (out)
 
     return
   end subroutine set_velocity_lc

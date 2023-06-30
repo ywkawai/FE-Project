@@ -190,7 +190,7 @@ contains
 
       h(:,ke) = h0 - hs(:,ke)                                                                 &
           - 0.5_RP * U0  * ( 2.0_RP * RPlanet * OMG + U0 )  * sin(lcmesh%lat(:,ke))**2 / Grav 
-      VelLon(:,ke) = U0
+      VelLon(:,ke) = U0 * cos(lcmesh%lat(:,ke))
       VelLat(:,ke) = 0.0_RP
 
     end do

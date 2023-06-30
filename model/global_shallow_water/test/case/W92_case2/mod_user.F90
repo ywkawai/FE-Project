@@ -185,13 +185,13 @@ contains
         ) / Grav
       hs(:,ke) = 0.0_RP
       VelLon(:,ke) =   U0 * ( cos(alpha) * cos(lcmesh%lat(:,ke)) + sin(alpha) * cos(lcmesh%lon(:,ke)) * sin(lcmesh%lat(:,ke)) )
-      VelLon(:,ke) = VelLon(:,ke) / cos(lcmesh%lat(:,ke))
       VelLat(:,ke) = - U0 * sin(alpha) * sin(lcmesh%lon(:,ke))
     end do
 
     call CubedSphereCoordCnv_LonLat2CSVec( &
-      lcmesh%panelID, lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2), elem%Np * lcmesh%Ne, RPlanet, &
-      VelLon(:,:), VelLat(:,:), U(:,lcmesh%NeS:lcmesh%NeE), V(:,lcmesh%NeS:lcmesh%NeE)          )
+      lcmesh%panelID, lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2), elem%Np * lcmesh%Ne, RPlanet, & ! (in)
+      VelLon(:,:), VelLat(:,:),                                                                 & ! (in)
+      U(:,lcmesh%NeS:lcmesh%NeE), V(:,lcmesh%NeS:lcmesh%NeE)                                    ) ! (out)
     !$omp parallel do
     do ke=lcmesh%NeS, lcmesh%NeE
       u1(:,ke) = lcmesh%G_ij(:,ke,1,1) * U(:,ke) + lcmesh%G_ij(:,ke,1,2) * V(:,ke)
