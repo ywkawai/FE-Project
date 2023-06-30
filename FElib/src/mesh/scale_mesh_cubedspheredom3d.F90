@@ -536,9 +536,9 @@ contains
 
 !OCL SERIAL
   subroutine MeshCubedSphereDom3D_set_metric( this )
-    use scale_cubedsphere_cnv, only: &
-      CubedSphereCnv_CS2LonLatCoord, &
-      CubedSphereCnv_GetMetric
+    use scale_cubedsphere_coord_cnv, only: &
+      CubedSphereCoordCnv_CS2LonLatPos, &
+      CubedSphereCoordCnv_GetMetric
         
     implicit none
     class(MeshCubedSphereDom3D), intent(inout), target :: this
@@ -555,12 +555,12 @@ contains
       lcmesh => this%lcmesh_list(n)
       lcmesh2D => this%mesh2D%lcmesh_list(n)
       elem2D => lcmesh2D%refElem2D
-      call CubedSphereCnv_CS2LonLatCoord( &
+      call CubedSphereCoordCnv_CS2LonLatPos( &
         lcmesh2D%panelID, lcmesh2D%pos_en(:,:,1), lcmesh2D%pos_en(:,:,2), & ! (in)
         lcmesh2D%Ne * elem2D%Np, this%RPlanet,                            & ! (in)
         lcmesh%lon2D(:,:), lcmesh%lat2D(:,:)                              ) ! (out)
 
-      call CubedSphereCnv_GetMetric( &
+      call CubedSphereCoordCnv_GetMetric( &
         lcmesh2D%pos_en(:,:,1), lcmesh2D%pos_en(:,:,2), elem2D%Np * lcmesh2D%Ne, this%RPlanet, & ! (in)
         lcmesh%G_ij, lcmesh%GIJ, lcmesh%GsqrtH                                                 ) ! (out)
 

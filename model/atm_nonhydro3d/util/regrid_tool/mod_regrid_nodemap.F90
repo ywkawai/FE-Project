@@ -521,8 +521,8 @@ contains
     inPanelID,                         &
     Np1D, Ne2D, lcmesh ) 
 
-    use scale_cubedsphere_cnv, only: &
-      CubedSphereCnv_LonLat2CSPos   
+    use scale_cubedsphere_coord_cnv, only: &
+      CubedSphereCoordCnv_LonLat2CSPos   
     implicit none
 
     integer, intent(in) :: Np1D
@@ -551,7 +551,7 @@ contains
         out_lon(1) = lcmesh%pos_en(p_h,ke_h,1) * PI / 180.0_RP
         out_lat(1) = lcmesh%pos_en(p_h,ke_h,2) * PI / 180.0_RP
 
-        call CubedSphereCnv_LonLat2CSPos( &
+        call CubedSphereCoordCnv_LonLat2CSPos( &
           inPanelID(p_h,ke_h),                       & ! (in)
           out_lon(1), out_lat(1), 1,                 & ! (in)
           out_x(p_h,ke_h), out_y(p_h,ke_h)           ) ! (out)

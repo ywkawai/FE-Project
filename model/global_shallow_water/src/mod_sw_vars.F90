@@ -173,6 +173,7 @@ module mod_sw_vars
   integer, private              :: DV_MONIT_id(DVM_nmax)
 
 contains
+!OCL SERIAL
   subroutine SWVars_Init( this, sw_mesh )
 
     use scale_file_monitor_meshfield, only:     &
@@ -367,6 +368,7 @@ contains
     return
   end subroutine SWVars_Init
 
+!OCL SERIAL
   subroutine SWVars_Final( this )
     implicit none
     class(SWVars), intent(inout) :: this
@@ -389,6 +391,7 @@ contains
     return
   end subroutine SWVars_Final
 
+!OCL SERIAL
   subroutine SWVars_history( this )
     use scale_file_history_meshfield, only: FILE_HISTORY_meshfield_put
     implicit none
@@ -432,6 +435,7 @@ contains
     return
   end subroutine SWVars_history
 
+!OCL SERIAL
   subroutine SWVar_Read_restart_file( this, sw_mesh )
 
     use scale_meshfieldcomm_cubedom3d, only: MeshFieldCommCubeDom3D
@@ -523,6 +527,7 @@ contains
     return
   end subroutine SWVar_write_restart_file
 
+!OCL SERIAL
   subroutine SWVars_Check( this, force )
 
     use scale_meshfield_statistics, only: &
@@ -593,6 +598,7 @@ contains
     return
   end subroutine SWVars_Check
 
+!OCL SERIAL
   subroutine SWVars_Monitor( this )
     use scale_file_monitor_meshfield, only: &
       FILE_monitor_meshfield_put
@@ -633,6 +639,7 @@ contains
 
   !----  Getter ---------------------------------------------------------------------------
 
+!OCL SERIAL
   subroutine SWVars_GetLocalMeshPrgVar( domID, mesh, prgvars_list, auxvars_list,    &
      varid,                                                                         &
      var, hs, lcmesh2D                                                              )
@@ -673,6 +680,7 @@ contains
     return
   end subroutine SWVars_GetLocalMeshPrgVar
 
+!OCL SERIAL
   subroutine SWVars_GetLocalMeshPrgVars( domID, mesh, prgvars_list, auxvars_list, &
     h, U, V,                                                                      &
     hs, u1, u2, lcmesh2D                                                          &
@@ -733,6 +741,7 @@ contains
 
   !-----------------------------------------------------------------------------
   !> Calculate diagnostic variables  
+!OCL SERIAL
   subroutine SWVars_CalculateDiagnostics( this, model_mesh )
     implicit none
     class(SWVars), intent(inout), target :: this
@@ -769,6 +778,7 @@ contains
     return
   end subroutine SWVars_CalculateDiagnostics
 
+!OCL SERIAL
   subroutine SWVars_CalculateVor( this, vor, model_mesh )
     implicit none
     class(SWVars), intent(in) :: this
@@ -911,8 +921,8 @@ contains
       CPdry => CONST_CPdry, &
       CVdry => CONST_CVdry, &
       PRES00 => CONST_PRE00
-    use scale_cubedsphere_cnv, only: &
-      CubedSphereCnv_CS2LonLatVec
+    use scale_cubedsphere_coord_cnv, only: &
+      CubedSphereCoordCnv_CS2LonLatVec
     implicit none
 
     type(LocalMesh2D), intent(in) :: lcmesh
@@ -932,16 +942,12 @@ contains
 
     select case(trim(field_name))
     case('Vel_lon')
-      call CubedSphereCnv_CS2LonLatVec( &
+      call CubedSphereCoordCnv_CS2LonLatVec( &
         lcmesh%panelID, lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2), elem%Np * lcmesh%Ne, RPlanet, & ! (in)
         U_(:,lcmesh%NeS:lcmesh%NeE), V_(:,lcmesh%NeS:lcmesh%NeE),                                 & ! (in)
         var_out(:,lcmesh%NeS:lcmesh%NeE), dummy(:,lcmesh%NeS:lcmesh%NeE)                          ) ! (out)
-       !$omp parallel do
-        do ke=1, lcmesh%Ne
-          var_out(:,ke) = var_out(:,ke) * cos(lcmesh%lat(:,ke))
-        end do        
     case('Vel_lat')
-      call CubedSphereCnv_CS2LonLatVec( &
+      call CubedSphereCoordCnv_CS2LonLatVec( &
         lcmesh%panelID, lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2), elem%Np * lcmesh%Ne, RPlanet, & ! (in)
         U_(:,lcmesh%NeS:lcmesh%NeE), V_(:,lcmesh%NeS:lcmesh%NeE),                                 & ! (in)
         dummy(:,lcmesh%NeS:lcmesh%NeE), var_out(:,lcmesh%NeS:lcmesh%NeE)                          ) ! (out)

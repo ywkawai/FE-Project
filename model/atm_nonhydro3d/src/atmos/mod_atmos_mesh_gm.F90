@@ -247,8 +247,8 @@ contains
   subroutine AtmosMeshGM_calc_UVMet( this, U, V, &
     Umet, Vmet )
 
-    use scale_cubedsphere_cnv, only: &
-      CubedSphereCnv_CS2LonLatVec
+    use scale_cubedsphere_coord_cnv, only: &
+      CubedSphereCoordCnv_CS2LonLatVec
     implicit none
     class(AtmosMeshGM), target, intent(in) :: this
     type(MeshField3D), intent(in) :: U
@@ -265,19 +265,13 @@ contains
     do n=1, this%mesh%LOCAL_MESH_NUM
       lcmesh => this%mesh%lcmesh_list(n)
       elem => lcmesh%refElem3D
-      call CubedSphereCnv_CS2LonLatVec( &
-        lcmesh%panelID, lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2), &
-        elem%Np * lcmesh%Ne, this%mesh%RPlanet,                     &
-        U%local(n)%val(:,lcmesh%NeS:lcmesh%NeE),                    &
-        V%local(n)%val(:,lcmesh%NeS:lcmesh%NeE),                    &
-        Umet%local(n)%val(:,lcmesh%NeS:lcmesh%NeE),                 &
-        Vmet%local(n)%val(:,lcmesh%NeS:lcmesh%NeE)                  )
-      
-      !$omp parallel do private(ke2D)
-      do ke=lcmesh%NeS, lcmesh%NeE
-        ke2D = lcmesh%EMap3Dto2D(ke)
-        Umet%local(n)%val(:,ke) = Umet%local(n)%val(:,ke) * cos(lcmesh%lat2D(elem%IndexH2Dto3D(:),ke2D)) 
-      end do
+      call CubedSphereCoordCnv_CS2LonLatVec( &
+        lcmesh%panelID, lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2), & ! (in)
+        elem%Np * lcmesh%Ne, this%mesh%RPlanet,                     & ! (in)
+        U%local(n)%val(:,lcmesh%NeS:lcmesh%NeE),                    & ! (in)
+        V%local(n)%val(:,lcmesh%NeS:lcmesh%NeE),                    & ! (in)
+        Umet%local(n)%val(:,lcmesh%NeS:lcmesh%NeE),                 & ! (out)
+        Vmet%local(n)%val(:,lcmesh%NeS:lcmesh%NeE)                  ) ! (out)
     end do
 
     return

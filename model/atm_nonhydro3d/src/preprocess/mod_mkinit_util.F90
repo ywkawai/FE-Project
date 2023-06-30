@@ -236,8 +236,8 @@ contains
     IntrpPolyOrder_h, IntrpPolyOrder_v,          &
     z_func_type, z_func_params, cosbell_exponent )
 
-    use scale_cubedsphere_cnv, only: &
-      CubedSphereCnv_CS2LonLatCoord
+    use scale_cubedsphere_coord_cnv, only: &
+      CubedSphereCoordCnv_CS2LonLatPos
     implicit none
 
     class(LocalMesh3D), intent(in) :: lcmesh3D
@@ -302,7 +302,7 @@ contains
       z_func(:,ke) = 1.0_RP
     end do
 
-    call CubedSphereCnv_CS2LonLatCoord( lcmesh3D%panelID, x_intrp, y_intrp, elem_intrp%Np * lcmesh3D%Ne, &
+    call CubedSphereCoordCnv_CS2LonLatPos( lcmesh3D%panelID, x_intrp, y_intrp, elem_intrp%Np * lcmesh3D%Ne, &
       rplanet, lon_intrp(:,:), lat_intrp(:,:) )
 
     ! Calculate the vertical function
@@ -345,8 +345,8 @@ contains
     func, IntrpPolyOrder_h, IntrpPolyOrder_v,  &
     lcmesh3D, elem                             )
 
-  use scale_cubedsphere_cnv, only: &
-    CubedSphereCnv_CS2LonLatCoord
+  use scale_cubedsphere_coord_cnv, only: &
+    CubedSphereCoordCnv_CS2LonLatPos
   
   implicit none
   class(LocalMesh3D), intent(in) :: lcmesh3D
@@ -420,8 +420,8 @@ end subroutine mkinitutil_GalerkinProjection
       func, IntrpPolyOrder_h, IntrpPolyOrder_v,       &
       lcmesh3D, elem, rplanet )
 
-    use scale_cubedsphere_cnv, only: &
-      CubedSphereCnv_CS2LonLatCoord
+    use scale_cubedsphere_coord_cnv, only: &
+      CubedSphereCoordCnv_CS2LonLatPos
     
     implicit none
     class(LocalMesh3D), intent(in) :: lcmesh3D
@@ -475,7 +475,7 @@ end subroutine mkinitutil_GalerkinProjection
       z_intrp(:,ke) = vz(1) + 0.5_RP * ( elem_intrp%x3(:) + 1.0_RP ) * ( vz(5) - vz(1) )
     end do
 
-    call CubedSphereCnv_CS2LonLatCoord( lcmesh3D%panelID, x_intrp, y_intrp, elem_intrp%Np * lcmesh3D%Ne, &
+    call CubedSphereCoordCnv_CS2LonLatPos( lcmesh3D%panelID, x_intrp, y_intrp, elem_intrp%Np * lcmesh3D%Ne, &
       rplanet, lon_intrp(:,:), lat_intrp(:,:) )
 
     !$omp parallel do private( q_intrp )

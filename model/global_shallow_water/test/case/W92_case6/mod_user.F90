@@ -132,8 +132,8 @@ contains
       GRAV => CONST_GRAV,      &
       RPlanet => CONST_RADIUS, &
       OMG => CONST_OHM 
-    use scale_cubedsphere_cnv, only: &
-      CubedSphereCnv_LonLat2CSVec
+    use scale_cubedsphere_coord_cnv, only: &
+      CubedSphereCoordCnv_LonLat2CSVec
     implicit none
 
     class(Exp_W92_case6), intent(inout) :: this
@@ -190,7 +190,7 @@ contains
       lat(:) = lcmesh%lat(:,ke)
 
       VelLon(:,ke) = RPlanet * ( OM &
-        - K_ * cos(lat(:))**2 * ( -4.0_RP * sin(lat(:))**2 + cos(lat(:))**2 ) * cos(4.0_RP*lon(:))  & ! * cos(lat(:))
+        - K_ * cos(lat(:))**2 * ( -4.0_RP * sin(lat(:))**2 + cos(lat(:))**2 ) * cos(4.0_RP*lon(:)) * cos(lat(:)) &
       )
       VelLat(:,ke) = - RPlanet * K_ * 4.0_RP * cos(lat(:))**3 * sin(lat(:)) * sin(4.0_RP*lon(:))      
 
@@ -212,7 +212,7 @@ contains
 
     end do
 
-    call CubedSphereCnv_LonLat2CSVec( &
+    call CubedSphereCoordCnv_LonLat2CSVec( &
       lcmesh%panelID, lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2), elem%Np * lcmesh%Ne, RPlanet, &
       VelLon(:,:), VelLat(:,:), U(:,lcmesh%NeS:lcmesh%NeE), V(:,lcmesh%NeS:lcmesh%NeE)          )
     !$omp parallel do
