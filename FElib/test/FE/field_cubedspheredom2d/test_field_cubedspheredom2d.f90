@@ -38,11 +38,13 @@ program test_field_cubedspheredom2d
   type(QuadrilateralElement) :: refElem  
   type(MeshCubedSphereDom2D), target :: mesh
 
+  type(MeshField2D), target :: lon
+  type(MeshField2D), target :: lat
   type(MeshField2D), target :: q
   character(len=H_short), parameter :: q_VARNAME = "q"
   character(len=H_short), parameter :: q_DESC    = "q"
   character(len=H_short), parameter :: q_UNITS   = "K"
-  integer :: HST_ID(1)
+  integer :: HST_ID(3)
 
   type(MeshFieldCommCubedSphereDom2D) :: fields_comm
   type(MeshFieldContainer) :: field_list(1)  
@@ -71,7 +73,7 @@ program test_field_cubedspheredom2d
   call final()
 
 contains
-
+!OCL SERIAL
   elemental function get_field_val(tileID, k, p) result(val)
     implicit none
     integer, intent(in) :: tileID, k, p
@@ -82,6 +84,7 @@ contains
     return
   end function get_field_val
 
+!OCL SERIAL
   subroutine init()
     use scale_calendar, only: CALENDAR_setup
     use scale_const, only: CONST_setup
@@ -90,7 +93,8 @@ contains
     integer :: comm, myrank, nprocs
     logical :: ismaster
     
-    integer :: k, p
+    integer :: domid
+    integer :: ke, p
     !---------
 
     call PRC_MPIstart( comm )
@@ -117,31 +121,39 @@ contains
     call refElem%Init(PolyOrder, .true.)
 
     call mesh%Init( &
-      NeGX, NeGY,                        &
-      RPlanet, refElem, NLocalMeshPerPrc )
+      NeGX, NeGY,                                        &
+      RPlanet, refElem, NLocalMeshPerPrc, nprocs, myrank )
     
     call mesh%Generate()
 
     !---
     call q%Init( q_VARNAME, q_UNITS, mesh )
+    call lon%Init( "lon", "rad", mesh )
+    call lat%Init( "lat", "rad", mesh )
     call fields_comm%Init(1, 0, mesh)
     
     call FILE_HISTORY_meshfield_setup( meshCubedSphere2D_ = mesh )
     call FILE_HISTORY_reg( q_VARNAME, q_DESC, q_UNITS, HST_ID(1), dim_type='XY')
+    call FILE_HISTORY_reg( lon%varname, "longitude", lon%unit, HST_ID(2), dim_type='XY')
+    call FILE_HISTORY_reg( lat%varname,  "latitude", lat%unit, HST_ID(3), dim_type='XY')
 
     !---
+    do domid=1, mesh%LOCAL_MESH_NUM
+      lcmesh => mesh%lcmesh_list(domid)
 
-    !---
-    do n=1, mesh%LOCAL_MESH_NUM
-      lcmesh => mesh%lcmesh_list(n)
-      do k=lcmesh%NeS, lcmesh%NeE
-      do p=1, refElem%Np
-        q%local(n)%val(p,k) = get_field_val(lcmesh%tileID, k, p)
-      end do
+      !$omp parallel do private(p)
+      do ke=lcmesh%NeS, lcmesh%NeE
+        do p=1, refElem%Np
+          q%local(domid)%val(p,ke) = get_field_val(lcmesh%tileID, ke, p)
+        end do
+        lon%local(domid)%val(:,ke) = lcmesh%lon(:,ke)
+        lat%local(domid)%val(:,ke) = lcmesh%lat(:,ke)
       end do
     end do
 
     call FILE_HISTORY_meshfield_put(HST_ID(1), q)
+    call FILE_HISTORY_meshfield_put(HST_ID(2), lon)
+    call FILE_HISTORY_meshfield_put(HST_ID(3), lat)
     call FILE_HISTORY_meshfield_write()    
 
     !---
@@ -149,12 +161,16 @@ contains
     return
   end subroutine init
 
+!OCL SERIAL
   subroutine final()
     implicit none
 
     call FILE_HISTORY_meshfield_finalize()
 
     call q%Final()
+    call lon%Final()
+    call lat%Final()
+    
     call fields_comm%Final()
     call mesh%Final()
     call refElem%Final()
@@ -165,6 +181,7 @@ contains
     return
   end subroutine final
 
+!OCL SERIAL
   subroutine perform_comm()
     type(MeshFieldContainer) :: field_list(1)
     !---------------------------
@@ -179,6 +196,7 @@ contains
 
   end subroutine perform_comm
     
+!OCL SERIAL
   subroutine check_interior_data(n, lcmesh_, lcfield, lcfield_fl)
     integer, intent(in) :: n
     type(LocalMesh2D), intent(in) :: lcmesh_
@@ -211,6 +229,7 @@ contains
 
   end subroutine check_interior_data
 
+!OCL SERIAL
   subroutine check_halo_data(n, lcmesh_, lcfield, lcfield_fl)
     implicit none
 
@@ -280,6 +299,7 @@ contains
 
   end subroutine check_halo_data
 
+!OCL SERIAL
   subroutine assert(k, vals, ans, assert_name, var_name, val_size)
     integer, intent(in) :: val_size
     integer, intent(in) :: k
