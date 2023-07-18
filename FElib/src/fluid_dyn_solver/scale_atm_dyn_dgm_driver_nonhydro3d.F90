@@ -908,9 +908,12 @@ contains
     real(RP) :: MF_ALPHA_v = 36.0_RP
     integer  :: MF_ORDER_v = 16
 
+    logical :: APPLY_MF_AFTER_VI = .true.
+
     namelist /PARAM_ATMOS_DYN_MODALFILTER/ &
       MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h,   &
-      MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v    
+      MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v,   &
+      APPLY_MF_AFTER_VI
 
     integer :: ierr
 
@@ -929,17 +932,31 @@ contains
     LOG_NML(PARAM_ATMOS_DYN_MODALFILTER)
 
     if ( this%hevi_flag ) then
-      call this%modal_filter_3d%Init( &
-        refElem3D,                           & ! (in)
-        MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h,   & ! (in)
-        1.0_RP, 0.0_RP, MF_ORDER_v           ) ! (in)
 
       call elemV1D%Init( refElem3D%PolyOrder_v, refElem3D%IsLumpedMatrix() )      
-      call this%modal_filter_v1D%Init( elemV1D, &
-        MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v,      &
-        tend_flag = .true.                      )
+
+      if ( APPLY_MF_AFTER_VI ) then
+        call this%modal_filter_3d%Init( &
+          refElem3D,                           & ! (in)
+          MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h,   & ! (in)
+          MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v    ) ! (in)
+
+        call this%modal_filter_v1D%Init( elemV1D, &
+          MF_ETAC_v, 0.0_RP, MF_ORDER_v,          &
+          tend_flag = .true.                      )
+      else
+        call this%modal_filter_3d%Init( &
+          refElem3D,                           & ! (in)
+          MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h,   & ! (in)
+          1.0_RP, 0.0_RP, MF_ORDER_v           ) ! (in)
+
+        call this%modal_filter_v1D%Init( elemV1D, &
+          MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v,      &
+          tend_flag = .true.                      )        
+      end if
       
       call elemV1D%Final()
+      
     else
       call this%modal_filter_3d%Init( &
         refElem3D,                           & ! (in)
