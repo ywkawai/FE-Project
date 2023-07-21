@@ -6,6 +6,11 @@
 !!          a test case proposed by Galewsky et al. (2004)
 !!          barotropic instability test
 !!
+!! @par Reference
+!!  - J. Galewsky, R.K. Scott, L.M. Polvani, 2004:
+!!    An initial-value problem for testing numerical models of the global shallow-water equations. 
+!!    Tellus, Series A: Dynamic Meteorology and Oceanography, 56(5), 429-440.
+!!
 !! @author Team SCALE
 !!
 !<
@@ -115,15 +120,17 @@ contains
     return
   end subroutine USER_setup
 
-  subroutine USER_calc_tendency
+  subroutine USER_calc_tendency( atm )
     implicit none
+    class(GlobalSWComponent), intent(inout) :: atm
     !------------------------------------------
 
     return
   end subroutine USER_calc_tendency
 
-  subroutine USER_update
+  subroutine USER_update( atm )
     implicit none
+    class(GlobalSWComponent), intent(inout) :: atm
     !------------------------------------------
 
     return

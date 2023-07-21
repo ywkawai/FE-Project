@@ -180,7 +180,7 @@ contains
     allocate( lcmesh%J(refElem%Np,lcmesh%Ne) )
     allocate( lcmesh%Fscale(refElem%NfpTot,lcmesh%Ne) )
     allocate( lcmesh%Escale(refElem%Np,lcmesh%Ne,2,2) )
-    allocate( lcmesh%Gsqrt(refElem%Np,lcmesh%Ne) )
+    allocate( lcmesh%Gsqrt(refElem%Np,lcmesh%NeA) )
     allocate( lcmesh%G_ij(refElem%Np,lcmesh%Ne, 2, 2) )
     allocate( lcmesh%GIJ (refElem%Np,lcmesh%Ne, 2, 2) )
     allocate( lcmesh%lon(refElem%Np,lcmesh%Ne) )

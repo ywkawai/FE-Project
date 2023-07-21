@@ -6,6 +6,11 @@
 !!          Test case 5 of Williamson et al. (1992)
 !!          Rossby–Haurwitz wave
 !!
+!! @par Reference
+!!  - Williamson et al. 1992: 
+!!    A Standard Test Set for Numerical Approximations to the Shallow Water Equations in Spherical Geometry.
+!!    Journal of Computational Physics, 102, 211-224.
+!!
 !! @author Team SCALE
 !!
 !<
@@ -108,15 +113,17 @@ contains
     return
   end subroutine USER_setup
 
-  subroutine USER_calc_tendency
+  subroutine USER_calc_tendency( atm )
     implicit none
+    class(GlobalSWComponent), intent(inout) :: atm
     !------------------------------------------
 
     return
   end subroutine USER_calc_tendency
 
-  subroutine USER_update
+  subroutine USER_update( atm )
     implicit none
+    class(GlobalSWComponent), intent(inout) :: atm
     !------------------------------------------
 
     return
@@ -189,8 +196,8 @@ contains
       lon(:) = lcmesh%lon(:,ke)
       lat(:) = lcmesh%lat(:,ke)
 
-      VelLon(:,ke) = RPlanet * ( OM &
-        - K_ * cos(lat(:))**2 * ( -4.0_RP * sin(lat(:))**2 + cos(lat(:))**2 ) * cos(4.0_RP*lon(:)) * cos(lat(:)) &
+      VelLon(:,ke) = RPlanet * cos(lat(:)) * ( OM &
+        - K_ * cos(lat(:))**2 * ( -4.0_RP * sin(lat(:))**2 + cos(lat(:))**2 ) * cos(4.0_RP*lon(:)) &
       )
       VelLat(:,ke) = - RPlanet * K_ * 4.0_RP * cos(lat(:))**3 * sin(lat(:)) * sin(4.0_RP*lon(:))      
 

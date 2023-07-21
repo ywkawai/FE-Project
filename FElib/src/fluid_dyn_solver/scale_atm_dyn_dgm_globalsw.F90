@@ -192,7 +192,7 @@ contains
     real(RP), intent(in) ::  hs_(elem%Np*lmesh%NeA)  
     real(RP), intent(in) ::  u1_(elem%Np*lmesh%NeA)  
     real(RP), intent(in) ::  u2_(elem%Np*lmesh%NeA)
-    real(RP), intent(in) ::  Gsqrt_(elem%Np*lmesh%Ne) 
+    real(RP), intent(in) ::  Gsqrt_(elem%Np*lmesh%NeA) 
     real(RP), intent(in) ::  G11_(elem%Np*lmesh%Ne) 
     real(RP), intent(in) ::  G22_(elem%Np*lmesh%Ne) 
     real(RP), intent(in) :: nx(elem%NfpTot,lmesh%Ne)
