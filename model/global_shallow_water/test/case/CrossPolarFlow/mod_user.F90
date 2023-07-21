@@ -3,8 +3,13 @@
 !!
 !! @par Description
 !!          User defined module
-!!          a test case proposed by Donald and Bates (1989)
+!!          a test case proposed by McDonald and Bates (1989)
 !!          cross-polar flow with a geostrophically balanced initial state
+!!
+!! @par Reference
+!!  - McDonald, A., and J. R. Bates, 1989: 
+!!    Semi-Lagrangian integration of a shallow water model on the sphere. 
+!!    Monthly Weather Review, 117, 130–137.
 !!
 !! @author Team SCALE
 !!
@@ -108,15 +113,17 @@ contains
     return
   end subroutine USER_setup
 
-  subroutine USER_calc_tendency
+  subroutine USER_calc_tendency( atm )
     implicit none
+    class(GlobalSWComponent), intent(inout) :: atm
     !------------------------------------------
 
     return
   end subroutine USER_calc_tendency
 
-  subroutine USER_update
+  subroutine USER_update( atm )
     implicit none
+    class(GlobalSWComponent), intent(inout) :: atm
     !------------------------------------------
 
     return

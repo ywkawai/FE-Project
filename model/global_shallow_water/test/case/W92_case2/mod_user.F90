@@ -5,6 +5,12 @@
 !!          User defined module
 !!          Test case 2 of Williamson et al. (1992)
 !!          Steady-state geostrophic flow
+!!
+!! @par Reference
+!!  - Williamson et al. 1992: 
+!!    A Standard Test Set for Numerical Approximations to the Shallow Water Equations in Spherical Geometry.
+!!    Journal of Computational Physics, 102, 211-224.
+!!
 !! @author Team SCALE
 !!
 !<
@@ -107,21 +113,24 @@ contains
     return
   end subroutine USER_setup
 
-  subroutine USER_calc_tendency
+  subroutine USER_calc_tendency( atm )
     implicit none
+    class(GlobalSWComponent), intent(inout) :: atm
     !------------------------------------------
 
     return
   end subroutine USER_calc_tendency
 
-  subroutine USER_update
+  subroutine USER_update( atm )
     implicit none
+    class(GlobalSWComponent), intent(inout) :: atm
     !------------------------------------------
 
     return
   end subroutine USER_update
 
   !------
+!OCL SERIAL
   subroutine exp_SetInitCond_W92_case2( this,  &
     h, U, V, hs, u1, u2,                       &
     x, y, lcmesh, elem                         )
