@@ -57,6 +57,10 @@ module scale_mesh_cubedspheredom2d
   !++ Private procedure
   !
   
+  private :: MeshCubedSphereDom2D_calc_normal
+  private :: MeshCubedSphereDom2D_coord_conv
+  private :: fill_halo_metric
+
   !-----------------------------------------------------------------------------
   !
   !++ Private parameters & variables
@@ -318,7 +322,7 @@ contains
 
     call CubedSphereCoordCnv_GetMetric( &
       lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2), elem%Np * lcmesh%Ne, planet_radius, & ! (in)
-      lcmesh%G_ij, lcmesh%GIJ, lcmesh%Gsqrt                                           ) ! (out)
+      lcmesh%G_ij, lcmesh%GIJ, lcmesh%Gsqrt(:,lcmesh%NeS:lcmesh%NeE)                  ) ! (out)
 
     call CubedSphereCoordCnv_CS2LonLatPos( &
       lcmesh%panelID, lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2), &
@@ -341,6 +345,10 @@ contains
       lcmesh%pos_en, lcmesh%xmin, lcmesh%xmax, lcmesh%ymin, lcmesh%ymax, &
       elem%Fmask, lcmesh%Ne, elem%Np, elem%Nfp, elem%Nfaces, lcmesh%Nv   )
     
+    !--
+    call fill_halo_metric( lcmesh%Gsqrt, &
+      lcmesh%VMapM, lcmesh%VMapP, lcmesh, elem )
+
     return
   end subroutine MeshCubedSphereDom2D_setupLocalDom
 
@@ -463,5 +471,29 @@ contains
 
     return
   end subroutine MeshCubedSphereDom2D_calc_normal 
+
+  !--
+
+!OCL SERIAL
+  subroutine fill_halo_metric( Gsqrt, vmapM, vmapP, lmesh, elem )
+    implicit none
+    class(LocalMesh2D), intent(in) :: lmesh
+    class(ElementBase2D), intent(in) :: elem
+    integer, intent(in) :: vmapM(elem%NfpTot*lmesh%Ne)
+    integer, intent(in) :: vmapP(elem%NfpTot*lmesh%Ne)
+    real(RP), intent(inout) :: Gsqrt(elem%Np*lmesh%NeA)
+
+    integer :: i, iM, iP
+    !------------------------------------------------
+
+    !$omp parallel do private(i, iM, iP)
+    do i=1, elem%NfpTot*lmesh%Ne
+      iM = vmapM(i); iP = vmapP(i)
+      if ( iP > elem%Np * lmesh%Ne ) then
+        Gsqrt(iP) = Gsqrt(iM)
+      end if
+    end do  
+    return
+  end subroutine fill_halo_metric
 
 end module scale_mesh_cubedspheredom2d
