@@ -2,7 +2,7 @@
 !> module INITIAL
 !!
 !! @par Description
-!!          subroutines for preparing topography data 
+!!          A module for preparing topography data 
 !!
 !! @author Team SCALE
 !!
@@ -56,12 +56,13 @@ module mod_mktopo
   
   integer, public :: MKTOPO_TYPE                          = -1
   integer, parameter, public :: I_IGNORE                  = 0
-  integer, parameter, public :: I_FLAT                    = 1
-  integer, parameter, public :: I_BELLSHAPE               = 2
-  integer, parameter, public :: I_SCAER                   = 3
-  integer, parameter, public :: I_BELLSHAPE_GLOBAL        = 4
-  integer, parameter, public :: I_SCAHER_GLOBAL           = 5
-  integer, parameter, public :: I_BAROCWAVE_GLOBAL_JW2006 = 6  
+  integer, parameter, public :: I_INPUT_FILE              = 1
+  integer, parameter, public :: I_FLAT                    = 2
+  integer, parameter, public :: I_BELLSHAPE               = 3
+  integer, parameter, public :: I_SCAER                   = 4
+  integer, parameter, public :: I_BELLSHAPE_GLOBAL        = 5
+  integer, parameter, public :: I_SCAHER_GLOBAL           = 6
+  integer, parameter, public :: I_BAROCWAVE_GLOBAL_JW2006 = 7  
 
   !-----------------------------------------------------------------------------
   !
@@ -118,6 +119,8 @@ contains
     select case(trim(toponame))
     case('NONE')
       MKTOPO_TYPE = I_IGNORE
+    case('INPUT_FILE')
+      MKTOPO_TYPE = I_INPUT_FILE
     case('FLAT')
       MKTOPO_TYPE = I_FLAT  
     case('BELLSHAPE')
@@ -172,6 +175,8 @@ contains
       call mesh%GetMesh2D( mesh2D )
 
       select case( MKTOPO_TYPE )
+      case ( I_INPUT_FILE )
+        call MKTOPO_input_file( mesh2D, topography%topo )
       case ( I_FLAT )
         call MKTOPO_flat( mesh2D, topography%topo )
       case ( I_BELLSHAPE )
@@ -250,6 +255,71 @@ contains
   end subroutine MKTOPO_write
 
   !-- private---------------------------------------------------------------------
+
+  !-----------------------------------------------------------------------------
+  !> Make topography from input file
+  !!
+!OCL SERIAL  
+  subroutine MKTOPO_input_file( mesh, topo )
+    use scale_file_base_meshfield, only: FILE_base_meshfield
+    use scale_mesh_rectdom2d, only: MeshRectDom2D
+    use scale_mesh_cubedspheredom2d, only: MeshCubedSphereDom2D
+    use scale_mesh_base2d, only: &
+      MFTYPE2D_XY => MeshBase2D_DIMTYPEID_XY
+
+    implicit none
+
+    class(MeshBase2D), intent(in), target :: mesh
+    class(MeshField2D), intent(inout) :: topo
+
+    character(len=H_LONG) :: IN_BASENAME
+    character(len=H_MID) :: VARNAME
+
+    namelist / PARAM_MKTOPO_INPUT_FILE / &
+      IN_BASENAME, &
+      VARNAME
+
+    integer :: ierr    
+    integer :: n
+    integer :: ke2d
+    type(LocalMesh2D), pointer :: lmesh2D
+
+    type(FILE_base_meshfield) :: file
+
+    logical :: file_existed
+    !--------------------------------
+
+    LOG_INFO("MKTOPO_input_file",*) 'Setup'
+
+    !--- read namelist
+    rewind(IO_FID_CONF)
+    read(IO_FID_CONF,nml=PARAM_MKTOPO_INPUT_FILE,iostat=ierr)
+    if( ierr < 0 ) then !--- missing
+       LOG_INFO("MKTOPO_input_file",*) 'Not found namelist. Default used.'
+    elseif( ierr > 0 ) then !--- fatal error
+       LOG_ERROR("MKTOPO_input_file",*) 'Not appropriate names in namelist PARAM_MKTOPO_INPUT_FILE. Check!'
+       call PRC_abort
+    endif
+    LOG_NML(PARAM_MKTOPO_INPUT_FILE)
+
+    !-- Read topography data
+
+    select type( mesh )
+    class is (MeshCubedSphereDom2D)
+      call file%Init( 1, meshcubedsphere2D=mesh )
+    class is (MeshRectDom2D)      
+      call file%Init( 1, mesh2D=mesh )
+    end select
+
+    call file%Open( IN_BASENAME, myrank=PRC_myrank)
+    call file%Read_Var( MFTYPE2D_XY, VARNAME, topo )
+
+    call file%Close()
+    call file%Final()
+
+    return
+  end subroutine MKTOPO_input_file
+
 
   !-----------------------------------------------------------------------------
   !> Make flat mountain  
