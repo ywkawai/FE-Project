@@ -47,6 +47,8 @@ module mod_regrid_file
   !++ Private procedures
   !
   !-------------------
+  private :: file_init
+  private :: convert_time_cf2date
 
   !-----------------------------------------------------------------------------
   !
@@ -89,6 +91,10 @@ contains
     character(len=FILE_HMID) :: desc
     character(len=FILE_HMID) :: standard_name
 
+    real(DP) :: time_start
+    integer :: date(6)
+    real(DP) :: subtsec
+
     integer :: dimtype_id
     !-------------------------------------------
 
@@ -117,13 +123,19 @@ contains
     end if
 
     call in_file%Get_dataInfo( out_vinfo%items(1)%varname, 1,     & ! (in)
-      time_units=tunits, calendar=calendar                        ) ! (out)
+      time_units=tunits, time_start=time_start, calendar=calendar ) ! (out)
 
     call file_init( out_file, dimtype_id, var_num, out_mesh, out_UniformGrid )
 
     call out_file%Create( out_basename, out_title, out_dtype,                 & ! (in)
                           fileexisted,                                        & ! (out)
                           myrank=PRC_myrank, calendar=calendar, tunits=tunits ) ! (in)
+
+    if ( .not. out_vinfo%HasTimeAxis() ) then
+      call convert_time_cf2date( (/ time_start /), tunits, & ! (in)
+        date, subtsec )                                      ! (out)
+      call out_file%Put_GlobalAttribute_time( date, subtsec )
+    end if
 
     call out_vinfo%DefVarForNetCDF( out_file, dimtype_id, out_dtype, 0 )
     call out_vinfo_oper%DefVarForNetCDF( out_file, dimtype_id, out_dtype, out_vinfo%item_num )
@@ -248,5 +260,36 @@ contains
 
     return
   end subroutine file_init
+
+!OCL SERAIL
+  subroutine convert_time_cf2date( cftime, cfunits, &
+    date, subtsec )
+    use scale_calendar, only: &
+      CALENDAR_CFunits2sec, CALENDAR_adjust_daysec, &
+      CALENDAR_daysec2date
+    
+    implicit none
+    real(DP), intent(in) :: cftime(1)
+    character(len=H_MID), intent(in) :: cfunits
+    integer :: date(6)
+    real(DP) :: subtsec
+
+    integer :: dateday
+    real(DP) :: datesec
+    !---------------------
+
+    dateday = 0
+    datesec = CALENDAR_CFunits2sec( cftime(1), cfunits, 0 )
+
+    call CALENDAR_adjust_daysec( dateday, datesec )
+
+    call CALENDAR_daysec2date( date,             & ! [OUT]
+                               subtsec,          & ! [OUT]
+                               dateday,          & ! [IN]
+                               datesec,          & ! [IN]
+                               0                 ) ! [IN]
+
+    return 
+  end subroutine convert_time_cf2date
 
 end module mod_regrid_file

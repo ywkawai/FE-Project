@@ -38,10 +38,12 @@ module mod_regrid_outvar_info
   type, public :: OutVarInfoList
     type(OutVarInfo), allocatable :: items(:)
     integer :: item_num
+    logical, private :: contain_taxis_flag
   contains
     procedure :: Init => OutVarInfoList_Init
     procedure :: Final => OutVarInfoList_Final
     procedure :: DefVarForNetCDF => OutVarInfoList_DefVarForNetCDF
+    procedure :: HasTimeAxis => OutVarInfoList_has_time_axis
   end type
 
   integer, public, parameter :: OUTVARINFO_ITEM_MAX_NUM = 128
@@ -100,6 +102,7 @@ contains
     this%item_num = size(this%items)
 
 
+    this%contain_taxis_flag = .false.
     do nn = 1, out_var_num
       this%items(nn)%varname = varname_list(nn)
       call in_file%Get_dataInfo( this%items(nn)%varname, istep=1,  & ! (in)
@@ -117,6 +120,8 @@ contains
            .and. this%items(nn)%num_step == 0 ) then
         this%items(nn)%num_step   = 1
         this%items(nn)%out_tintrv = 1
+      else
+        this%contain_taxis_flag = .true.
       end if
 
       this%items(nn)%standard_name = ''
@@ -140,6 +145,16 @@ contains
 
     return
   end subroutine OutVarInfoList_Final  
+
+  function OutVarInfoList_has_time_axis( this ) result(flag)
+    implicit none
+    class(OutVarInfoList), intent(in) :: this
+    logical :: flag
+    !-------------------------------------------------
+
+    flag = this%contain_taxis_flag
+    return
+  end function OutVarInfoList_has_time_axis
 
   subroutine OutVarInfoList_DefVarForNetCDF( this, out_file, &
     dim_typeid, out_dtype, vid_offset )
