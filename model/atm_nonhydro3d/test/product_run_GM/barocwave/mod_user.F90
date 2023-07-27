@@ -1,0 +1,686 @@
+!-------------------------------------------------------------------------------
+!> module USER
+!!
+!! @par Description
+!!    Set the initial data for baroclinic wave in a spherical domain
+!!
+!! @author Team SCALE
+!!
+!<
+!-------------------------------------------------------------------------------
+#include "scalelib.h"
+module mod_user
+
+  !-----------------------------------------------------------------------------
+  !
+  !++ used modules
+  !
+  use scale_precision
+  use scale_io
+  use scale_prof
+  use scale_prc, only: PRC_abort  
+
+  use scale_const, only: &
+    PI => CONST_PI,          &
+    GRAV => CONST_GRAV,      &
+    Rdry => CONST_Rdry,      &
+    CPdry => CONST_CPdry,    &
+    CVdry => CONST_CVdry,    &
+    PRES00 => CONST_PRE00,   &
+    RPlanet => CONST_RADIUS, &
+    OHM     => CONST_OHM
+ 
+  use mod_atmos_component, only: &
+    AtmosComponent
+
+  use scale_element_base, only: ElementBase3D
+  use scale_element_hexahedral, only: HexahedralElement
+  use scale_localmesh_2d, only: LocalMesh2D  
+  use scale_localmesh_3d, only: LocalMesh3D  
+  use scale_mesh_base, only: MeshBase
+  use scale_mesh_cubedspheredom3d, only: MeshCubedSphereDom3D
+  use scale_meshfield_base, only: MeshField3D
+  use scale_file_history_meshfield, only: FILE_HISTORY_meshfield_in
+
+  use scale_meshfield_analysis_numerror, only: MeshFieldAnalysisNumerror3D
+
+  use mod_user_base, only: UserBase
+  use mod_experiment, only: Experiment
+
+  !-----------------------------------------------------------------------------
+  implicit none
+  private
+  !-----------------------------------------------------------------------------
+  !
+  !++ Public procedure
+  !
+
+  !-----------------------------------------------------------------------------
+  !
+  !++ Public parameters & variables
+  !
+  !-----------------------------------------------------------------------------
+  !
+  !++ Private procedure
+  !
+
+  ! Parameters for inital stratification
+  real(RP), private :: REF_TEMP    = 288.E0_RP ! The reference temperature [K]
+  real(RP), private :: REF_PRES    = 1.E5_RP   ! The reference pressure [Pa]
+  real(RP), private :: LAPSE_RATE  = 5.E-3_RP  ! The lapse rate [K/m]
+
+  ! Parameters for background zonal jet
+  real(RP), private :: U0 = 35.E0_RP          ! The parameter associated with zonal jet maximum amplitude  [m/s]
+
+  ! Parameters for inital perturbation of zonal wind with a Gaussian profile
+  !
+  real(RP) :: Up     = 1.E0_RP         ! The maximum amplitude of zonal wind perturbation [m/s]
+  real(RP) :: Lp                       ! The width of Gaussian profile
+  real(RP) :: Lon_c                    ! The center point (x) of inital perturbation
+  real(RP) :: Lat_c                    ! The center point (y) of inital perturbation
+
+  real(RP), private :: ETA0 = 0.252_RP
+  real(RP), private :: ETAt = 0.2_RP
+  real(RP), private :: DELTAT = 4.8E5_RP
+
+  type(MeshFieldAnalysisNumerror3D) :: numerror_analysis
+  type(MeshFieldAnalysisNumerror3D) :: numerror_analysis_ini
+  integer :: numerror_vid(5)
+  integer :: numerror_vid_ini(6)
+
+  integer :: IniIntrpPolyOrder_h = 8
+  integer :: IniIntrpPolyOrder_v = 8
+
+  integer :: PolyOrderErrorCheck
+
+  real(RP) :: dom_zmax
+
+  ! SPONGE Layer
+  logical :: SPONGE_FLAG = .false.
+  real(RP) :: SPONGE_sigR = 0.7_RP
+  real(RP) :: SPONGE_TauR = 600.0_RP !86400.0_RP
+  
+  logical :: skip_topo = .false.
+
+  !-----------------------------------------------------------------------------
+  !
+  !++ Private parameters & variables
+  !
+
+  type, public, extends(UserBase) :: User
+    real(RP), allocatable :: q_exact(:,:,:)
+    real(RP), allocatable :: q_exact_ip(:,:,:)
+    type(MeshField3D) :: MOMX_exact, MOMY_exact, DENS_exact, PRES_exact
+    
+    logical :: cal_exactsol
+  contains
+    procedure :: mkinit_ => USER_mkinit
+    generic :: mkinit => mkinit_
+    procedure :: setup_ => USER_setup
+    generic :: setup => setup_
+    procedure :: calc_tendency => USER_calc_tendency
+    procedure :: final => User_final
+  end type User
+
+  !-----------------------------------------------------------------------------
+contains
+!OCL SERIAL
+  subroutine USER_mkinit( this, atm )
+    implicit none
+    class(User), intent(inout) :: this
+    class(AtmosComponent), intent(inout) :: atm
+
+    type(Experiment) :: exp_manager
+
+    class(MeshBase), pointer :: ptr_mesh
+    class(MeshCubedSphereDom3D), pointer :: mesh
+
+    class(ElementBase3D), pointer :: refElem
+    type(HexahedralElement) :: refElem3D
+    !------------------------------------------
+
+
+    call atm%mesh_gm%GetModelMesh( ptr_mesh )
+    select type( ptr_mesh )
+    type is (MeshCubedSphereDom3D)
+      mesh => ptr_mesh
+    end select
+    
+    !-
+
+    call exp_manager%Init('baroclinic_wave')
+    call exp_manager%Regist_SetInitCond( exp_SetInitCond_baroclinicwave )
+    call exp_manager%Regist_geostrophic_balance_correction( exp_geostrophic_balance_correction )
+    call this%UserBase%mkinit( atm, exp_manager )
+    call exp_manager%Final()
+
+    return
+  end subroutine USER_mkinit
+
+!OCL SERIAL
+  subroutine USER_setup( this, atm )
+    implicit none
+    
+    class(User), intent(inout) :: this
+    class(AtmosComponent), intent(inout) :: atm
+
+    logical :: USER_do = .false. !< do user step?
+
+    namelist / PARAM_USER / &
+       USER_do,              &
+       SPONGE_FLAG,          &
+       SPONGE_sigR,          &
+       SPONGE_tauR   
+
+
+    integer :: ierr    
+
+    class(MeshBase), pointer :: ptr_mesh
+    class(MeshCubedSphereDom3D), pointer :: mesh
+
+    class(ElementBase3D), pointer :: refElem
+    type(HexahedralElement) :: refElem3D
+    !------------------------------------------
+
+    LOG_NEWLINE
+    LOG_INFO("USER_setup",*) 'Setup'
+
+    !--- read namelist
+    rewind(IO_FID_CONF)
+    read(IO_FID_CONF,nml=PARAM_USER,iostat=ierr)
+    if( ierr < 0 ) then !--- missing
+       LOG_INFO("USER_setup",*) 'Not found namelist. Default used.'
+    elseif( ierr > 0 ) then !--- fatal error
+       LOG_ERROR("USER_setup",*) 'Not appropriate names in namelist PARAM_USER. Check!'
+       call PRC_abort
+    endif
+    LOG_NML(PARAM_USER)
+
+    call this%UserBase%Setup( atm, USER_do )
+
+    !-
+    call atm%mesh_gm%GetModelMesh( ptr_mesh )
+    select type( ptr_mesh )
+    type is (MeshCubedSphereDom3D)
+      mesh => ptr_mesh
+    end select
+    
+    dom_zmax = mesh%zmax_gl
+
+    !-
+    ! call this%DENS_exact%Init( "DENS_exact", "kg/m3", mesh )
+    ! call this%PRES_exact%Init( "PRES_exact", "Pa", mesh )
+    ! call this%MOMX_exact%Init( "MOMX_exact", "m/s", mesh )
+    ! call this%MOMY_exact%Init( "MOMY_exact", "m/s", mesh )
+
+    return
+  end subroutine USER_setup
+
+!OCL SERIAL
+  subroutine USER_final( this )
+    implicit none
+    class(User), intent(inout) :: this
+    !------------------------------------------
+    
+!    call numerror_analysis%Final()
+
+    return
+  end subroutine USER_final
+  
+  subroutine USER_calc_tendency( this, atm )
+    use mpi
+    use scale_time_manager, only: &
+      TIME_NOWSTEP, TIME_NSTEP
+    use scale_prc, only: &
+      PRC_LOCAL_COMM_WORLD
+    use scale_prof
+    use scale_file_history_meshfield, only: &
+      FILE_HISTORY_meshfield_in
+        
+    implicit none
+    class(User), intent(inout) :: this
+    class(AtmosComponent), intent(inout) :: atm
+
+    class(MeshBase), pointer :: ptr_mesh
+    class(MeshCubedSphereDom3D), pointer :: mesh
+    real(RP) :: tsec
+    !------------------------------------------
+
+    call this%UserBase%calc_tendency( atm )
+
+    if ( this%USER_do ) then
+    end if
+
+    tsec = atm%time_manager%dtsec * ( TIME_NOWSTEP - 1.0_RP )
+
+
+    call atm%mesh_gm%GetModelMesh( ptr_mesh )
+    select type( ptr_mesh )
+    type is (MeshCubedSphereDom3D)
+      mesh => ptr_mesh
+    end select
+
+    ! call FILE_HISTORY_meshfield_in( this%DENS_exact, "DENS_exact" )
+    ! call FILE_HISTORY_meshfield_in( this%MOMX_exact, "MOMX_exact" )
+    ! call FILE_HISTORY_meshfield_in( this%MOMY_exact, "MOMY_exact" )
+    ! call FILE_HISTORY_meshfield_in( this%PRES_exact, "PRES_exact" )
+
+    return
+  end subroutine USER_calc_tendency
+
+!OCL SERIAL  
+  subroutine exp_SetInitCond_baroclinicwave( this, &
+    DENS_hyd, PRES_hyd, DDENS, MOMX, MOMY, MOMZ, DRHOT, tracer_field_list, &
+    x, y, z, dom_xmin, dom_xmax, dom_ymin, dom_ymax, dom_zmin, dom_zmax,   &
+    lcmesh, elem )
+    
+    use mod_mkinit_util, only: &
+      mkinitutil_gen_GPMat,    &
+      mkinitutil_gen_Vm1Mat
+    use mod_experiment, only: &
+      TracerLocalMeshField_ptr      
+    implicit none
+
+    class(Experiment), intent(inout) :: this
+    type(LocalMesh3D), intent(in) :: lcmesh
+    class(ElementBase3D), intent(in) :: elem
+    real(RP), intent(out) :: DENS_hyd(elem%Np,lcmesh%NeA)
+    real(RP), intent(out) :: PRES_hyd(elem%Np,lcmesh%NeA)
+    real(RP), intent(out) :: DDENS(elem%Np,lcmesh%NeA)
+    real(RP), intent(out) :: MOMX(elem%Np,lcmesh%NeA)
+    real(RP), intent(out) :: MOMY(elem%Np,lcmesh%NeA)    
+    real(RP), intent(out) :: MOMZ(elem%Np,lcmesh%NeA)
+    real(RP), intent(out) :: DRHOT(elem%Np,lcmesh%NeA)
+    type(TracerLocalMeshField_ptr), intent(inout) :: tracer_field_list(:)    
+    real(RP), intent(in) :: x(elem%Np,lcmesh%Ne)
+    real(RP), intent(in) :: y(elem%Np,lcmesh%Ne)
+    real(RP), intent(in) :: z(elem%Np,lcmesh%Ne)
+    real(RP), intent(in) :: dom_xmin, dom_xmax
+    real(RP), intent(in) :: dom_ymin, dom_ymax
+    real(RP), intent(in) :: dom_zmin, dom_zmax
+    
+    
+    namelist /PARAM_EXP/ &
+      REF_TEMP, REF_PRES, LAPSE_RATE, &
+      U0,                             &
+      Up, Lp, Lon_c, Lat_c,           &
+      IniIntrpPolyOrder_h,            &
+      IniIntrpPolyOrder_v,            &
+      skip_topo
+
+    integer :: ke, ke2D
+    integer :: i, j, k
+    integer :: p1, p2, p3, p_, p2D_
+      
+    type(HexahedralElement) :: elem_intrp
+
+    real(RP), allocatable :: IntrpMat(:,:)
+    real(RP), allocatable :: IntrpVM1Mat(:,:)
+    integer :: p_intrp
+
+    real(RP) :: Gamm, RGamma
+    real(RP) :: Fy(elem%Np)
+
+    real(RP), allocatable :: PRES_balance(:,:)
+    real(RP), allocatable :: TEMP_balance(:,:)
+    real(RP), allocatable :: U_balance(:,:)
+    real(RP), allocatable :: V_balance(:,:)
+    real(RP), allocatable :: U_dash(:,:)
+    real(RP), allocatable :: V_dash(:,:)
+    real(RP), allocatable :: DENS_ip(:)
+    integer :: ierr
+    !-----------------------------------------------------------------------------
+
+    Lp = RPlanet / 10.0_RP
+    Lon_c = PI / 9.0_RP
+    Lat_c = 2.0_RP / 9.0_RP * PI
+
+    rewind(IO_FID_CONF)
+    read(IO_FID_CONF,nml=PARAM_EXP,iostat=ierr)
+    if( ierr < 0 ) then !--- missing
+       LOG_INFO("BAROCLINIC_WAVE_setup",*) 'Not found namelist. Default used.'
+    elseif( ierr > 0 ) then !--- fatal error
+       LOG_ERROR("BAROCLINIC_WAVE_setup",*) 'Not appropriate names in namelist PARAM_EXP. Check!'
+       call PRC_abort
+    endif
+    LOG_NML(PARAM_EXP)
+
+    !---
+    
+    call elem_intrp%Init( IniIntrpPolyOrder_h, IniIntrpPolyOrder_v, elem%IsLumpedMatrix() )
+
+    allocate( IntrpMat(elem%Np,elem_intrp%Np) )
+    call mkinitutil_gen_GPMat( IntrpMat, elem_intrp, elem )
+
+    allocate( IntrpVm1Mat(elem%Np,elem_intrp%Np) )
+    call mkinitutil_gen_Vm1Mat( IntrpVM1Mat, elem_intrp, elem )
+
+    !---
+
+    allocate( PRES_balance(elem_intrp%Np,lcmesh%Ne), TEMP_balance(elem_intrp%Np,lcmesh%Ne) ) 
+    allocate( U_balance(elem_intrp%Np,lcmesh%Ne), V_balance(elem_intrp%Np,lcmesh%Ne) ) 
+    allocate( U_dash(elem_intrp%Np,lcmesh%Ne), V_dash(elem_intrp%Np,lcmesh%Ne) ) 
+    allocate( DENS_ip(elem_intrp%Np) )
+
+    call calc_balanced_field( &
+      PRES_balance, TEMP_balance, U_balance, V_balance, U_dash, V_dash,                 &
+      lcmesh, elem_intrp%x1, elem_intrp%x2, elem_intrp%x3, elem_intrp%Np, elem_intrp%Nv )
+    
+    !$omp parallel do private( ke, DENS_ip )
+    do ke = lcmesh%NeS, lcmesh%NeE
+      DENS_ip(:) = PRES_balance(:,ke) / ( Rdry * TEMP_balance(:,ke) )
+
+      PRES_hyd(:,ke) = matmul( IntrpMat, PRES_balance(:,ke) )
+      DENS_hyd(:,ke) = matmul( IntrpMat, DENS_ip(:) )
+      ! PRES_hyd(:,ke) = PRES_balance(:,ke)
+      ! DENS_hyd(:,ke) = DENS_ip(:)
+
+      MOMX(:,ke) = matmul( IntrpMat, DENS_ip(:) * ( U_balance(:,ke) + U_dash(:,ke) ) )
+      MOMY(:,ke) = matmul( IntrpMat, DENS_ip(:) * ( V_balance(:,ke) + V_dash(:,ke) ) )
+    end do
+
+    !------
+    call elem_intrp%Final()
+
+    return
+  end subroutine exp_SetInitCond_baroclinicwave
+
+!OCL SERIAL    
+  subroutine calc_balanced_field( &
+    PRES, TEMP, U, V, U_dash, V_dash,                   & ! (out)
+    lcmesh3D, elem_x1, elem_x2, elem_x3, Np, Nv,        &
+    lat_         ) ! (in)
+    
+    use scale_const, only: &
+      RPlanet => CONST_RADIUS, &
+      EPS => CONST_EPS
+    use scale_cubedsphere_coord_cnv, only: &
+      CubedSphereCoordCnv_CS2LonLatPos, &
+      CubedSphereCoordCnv_LonLat2CSVec    
+    implicit none
+    class(LocalMesh3D), intent(in), target :: lcmesh3D
+    integer, intent(in) :: Np, Nv
+    real(RP), intent(out) :: PRES(Np,lcmesh3D%NeA)
+    real(RP), intent(out) :: TEMP(Np,lcmesh3D%NeA)
+    real(RP), intent(out) :: U(Np,lcmesh3D%NeA)
+    real(RP), intent(out) :: V(Np,lcmesh3D%NeA)
+    real(RP), intent(out) :: U_dash(Np,lcmesh3D%NeA)
+    real(RP), intent(out) :: V_dash(Np,lcmesh3D%NeA)
+    real(RP), intent(in) :: elem_x1(Np)
+    real(RP), intent(in) :: elem_x2(Np)
+    real(RP), intent(in) :: elem_x3(Np)
+    real(RP), intent(out), optional :: lat_(Np,lcmesh3D%Ne)
+
+    real(RP) :: vx(Nv), vy(Nv), vz(Nv)
+    real(RP) :: alpha(Np,lcmesh3D%Ne), beta(Np,lcmesh3D%Ne), eta(Np,lcmesh3D%Ne)
+    real(RP) :: zlev(Np,lcmesh3D%Ne)
+    real(RP) :: lon(Np,lcmesh3D%Ne), lat(Np,lcmesh3D%Ne)
+    real(RP) :: VelLon(Np,lcmesh3D%Ne), VelLat(Np,lcmesh3D%Ne)
+    real(RP) :: VelLon_dash(Np,lcmesh3D%Ne), VelLat_dash(Np,lcmesh3D%Ne)
+
+    real(RP) :: geopot_hvari1(Np,lcmesh3D%Ne2D), geopot_hvari2(Np,lcmesh3D%Ne2D)
+    real(RP) :: r_intrp(Np) 
+
+    real(RP) :: topo(Np,lcmesh3D%Ne2D)
+
+    integer :: ke, ke2D
+    integer :: i, j, k
+    integer :: p
+
+    class(LocalMesh2D), pointer :: lcmesh2D
+    !---------------------------------------------
+
+    lcmesh2D => lcmesh3D%lcmesh2D
+
+    !$omp parallel do private(vx, vy, vz)
+    do ke=lcmesh3D%NeS, lcmesh3D%NeE
+      vx(:) = lcmesh3D%pos_ev(lcmesh3D%EToV(ke,:),1)
+      vy(:) = lcmesh3D%pos_ev(lcmesh3D%EToV(ke,:),2)
+      vz(:) = lcmesh3D%pos_ev(lcmesh3D%EToV(ke,:),3)
+      alpha(:,ke) = vx(1) + 0.5_RP * ( elem_x1(:) + 1.0_RP ) * ( vx(2) - vx(1) ) 
+      beta(:,ke) = vy(1) + 0.5_RP * ( elem_x2(:) + 1.0_RP ) * ( vy(4) - vy(1) )
+      eta(:,ke) = vz(1) + 0.5_RP * ( elem_x3(:) + 1.0_RP ) * ( vz(5) - vz(1) )
+    end do
+
+    call CubedSphereCoordCnv_CS2LonLatPos( lcmesh3D%panelID, alpha, beta, Np * lcmesh3D%Ne, &
+      rplanet, lon(:,:), lat(:,:) )
+    
+    if ( present(lat_) ) then
+      do ke=lcmesh3D%NeS, lcmesh3D%NeE
+        lat_(:,ke) = lat(:,ke)
+      end do
+    end if
+    
+    !$omp parallel do private(ke2D)
+    do ke2D = lcmesh2D%NeS, lcmesh2D%NeE
+      call get_thermal_wind_balance_1point_geopot_hvari( geopot_hvari1(:,ke2D), geopot_hvari2(:,ke2D), &
+        lat(:,ke2D), Np )
+
+        if (skip_topo) then
+          topo(:,ke2D) = 0.0_RP
+        else
+          call get_topo( topo(:,ke2D), &
+            lat(:,ke2D), Np )
+        end if  
+    end do
+
+    !$omp parallel do private(ke2D)
+    do ke=lcmesh3D%NeS, lcmesh3D%NeE
+      ke2D = lcmesh3D%EMap3Dto2D(ke)
+
+      zlev(:,ke) = eta(:,ke) &
+                 + ( 1.0_RP - eta(:,ke) / dom_zmax ) * topo(:,ke2D)
+    end do
+
+    !$omp parallel do collapse(3) private(i,j,k,p,ke,ke2D, r_intrp)
+    do k = 1, lcmesh3D%NeZ
+    do j = 1, lcmesh3D%NeY
+    do i = 1, lcmesh3D%NeX
+      ke = i + (j-1)*lcmesh3D%NeX + (k-1)*lcmesh3D%NeX*lcmesh3D%NeY
+      ke2D = lcmesh3D%EMap3Dto2D(ke)
+
+      do p=1, Np
+        call get_thermal_wind_balance_1point_itr( &
+          pres(p,ke), temp(p,ke), VelLon(p,ke),                                        &
+          lon(p,ke), lat(p,ke), zlev(p,ke), geopot_hvari1(p,ke2D), geopot_hvari2(p,ke2D), &
+          REF_TEMP, REF_PRES, LAPSE_RATE,                                              &
+          p, ke )
+      end do
+
+      VelLat(:,ke) = 0.0_RP
+
+      r_intrp(:) = RPlanet / Lp * acos( sin(Lat_c) * sin(lat(:,ke2D)) + cos(Lat_c) * cos(lat(:,ke2D)) * cos(lon(:,ke2D) - Lon_c) )
+      VelLon_dash(:,ke) = Up * exp( - r_intrp(:)**2 )
+      VelLat_dash(:,ke) = 0.0_RP
+
+      do p=1, Np
+        if (k==1 .and. cos(lat(p,ke2D)) < EPS  ) then
+          LOG_INFO("calc_chceck:", *) lat(p,ke2D), ":", VelLon(p,ke)
+          VelLon(p,ke) = 0.0_RP
+        end if
+      end do
+    end do
+    end do
+    end do
+
+    call CubedSphereCoordCnv_LonLat2CSVec( &
+      lcmesh3D%panelID, alpha, beta,                                 &
+      lcmesh3D%Ne * Np, RPlanet, VelLon(:,:), VelLat(:,:),           &
+      U(:,lcmesh3D%NeS:lcmesh3D%NeE), V(:,lcmesh3D%NeS:lcmesh3D%NeE) )
+
+    call CubedSphereCoordCnv_LonLat2CSVec( &
+      lcmesh3D%panelID, alpha, beta,                                           &
+      lcmesh3D%Ne * Np, RPlanet, VelLon_dash(:,:), VelLat_dash(:,:),           &
+      U_dash(:,lcmesh3D%NeS:lcmesh3D%NeE), V_dash(:,lcmesh3D%NeS:lcmesh3D%NeE) )
+
+    return
+  end subroutine calc_balanced_field 
+
+!OCL SERIAL
+  subroutine get_thermal_wind_balance_1point_geopot_hvari( geopot_hvari1, geopot_hvari2, &
+    lat, Np )
+    implicit none
+
+    integer, intent(in) :: Np
+    real(RP), intent(out) :: geopot_hvari1(Np)
+    real(RP), intent(out) :: geopot_hvari2(Np)
+    real(RP), intent(in) :: lat(Np)
+
+    real(RP) :: sin_lat(Np)
+    real(RP) :: sin_lat_pow_6(Np)
+    real(RP) :: cos_lat(Np)
+    !-------------------------------------------
+
+    sin_lat(:) = sin(lat(:))
+!    sin_lat_pow_6(:) = sin_lat(:)**6
+    sin_lat_pow_6(:) = 0.0625_RP * ( 10.0_RP * sin_lat(:) - 5.0_RP * sin(3.0_RP * lat(:)) + sin(5.0_RP * lat(:)) ) * sin_lat(:)
+
+    cos_lat(:) = cos(lat(:))
+
+    ! Calc horizontal variation of geopotential height
+    geopot_hvari1(:) = U0 * ( - 2.0_RP * sin_lat_pow_6(:) * ( cos_lat(:)**2 + 1.0_RP / 3.0_RP ) + 10.0_RP / 63.0_RP )
+    geopot_hvari2(:) = RPlanet * OHM * ( 8.0_RP / 5.0_RP * cos_lat(:)**3 * ( sin_lat(:)**2 + 2.0_RP / 3.0_RP ) - 0.25_RP * PI )
+
+    return
+  end subroutine get_thermal_wind_balance_1point_geopot_hvari
+
+!OCL SERIAL
+  subroutine get_topo( topo, &
+    lat, Np )
+    implicit none
+
+    integer, intent(in) :: Np
+    real(RP), intent(out) :: topo(Np)
+    real(RP), intent(in) :: lat(Np)
+
+    real(RP) :: sin_lat(Np)
+    real(RP) :: sin_lat_pow_6(Np)
+    real(RP) :: cos_lat(Np)
+
+    real(RP ) :: tmp
+    !-------------------------------------------
+
+    sin_lat(:) = sin(lat(:))
+!    sin_lat_pow_6(:) = sin_lat(:)**6
+    sin_lat_pow_6(:) = 0.0625_RP * ( 10.0_RP * sin_lat(:) - 5.0_RP * sin(3.0_RP * lat(:)) + sin(5.0_RP * lat(:)) ) * sin_lat(:)
+    cos_lat(:) = cos(lat(:))
+
+    tmp = cos( (1.0_RP - ETA0) * 0.5_RP * PI )
+    tmp = U0 * tmp * sqrt(tmp)
+
+
+    ! Calc horizontal variation of geopotential height
+    topo(:) = tmp * & 
+      (   tmp * ( - 2.0_RP * sin_lat_pow_6(:) * ( cos_lat(:)**2 + 1.0_RP / 3.0_RP ) + 10.0_RP / 63.0_RP )          &
+        + RPlanet * OHM * ( 8.0_RP / 5.0_RP * cos_lat(:)**3 * ( sin_lat(:)**2 + 2.0_RP / 3.0_RP ) - 0.25_RP * PI ) &
+      ) / Grav
+
+    return
+  end subroutine get_topo
+
+  subroutine get_thermal_wind_balance_1point_itr( &
+    pres, temp, vel_lon,                          &
+    lon, lat, z, geopot_hvari1, geopot_hvari2,    &
+    REF_TEMP, REF_PRES, LAPSE_RATE,               &
+    p_, ke )
+
+    implicit none
+
+    real(RP), intent(out) :: pres
+    real(RP), intent(out) :: temp
+    real(RP), intent(out) :: vel_lon
+    real(RP), intent(in) :: lon
+    real(RP), intent(in) :: lat
+    real(RP), intent(in) :: z
+    real(RP), intent(in) :: geopot_hvari1
+    real(RP), intent(in) :: geopot_hvari2
+    real(RP), intent(in) :: REF_TEMP, REF_PRES, LAPSE_RATE
+    integer, intent(in) :: p_, ke
+
+    integer :: itr
+    real(RP) :: eta, eta_save, etav, del_eta
+    real(RP) :: ln_eta
+    real(RP) :: temp_vfunc
+    real(RP) :: temp_
+    real(RP) :: geopot
+    real(RP) :: cos_etav
+    real(RP) :: cos_1ov2_etav
+    real(RP) :: cos_3ov2_etav
+
+    integer,  parameter :: ITRMAX = 1000
+    real(RP), parameter :: CONV_EPS = 5E-15_RP    
+    !------------------------------------------------
+
+    del_eta = 1.0_RP
+
+    !-- The loop for iteration
+    itr = 0
+    eta = 1.0E-8_RP ! Set first guess of eta
+    do while( abs(del_eta) > CONV_EPS ) 
+      etav = 0.5_RP * PI * ( eta - ETA0 ) 
+      cos_etav = cos(etav)
+      cos_1ov2_etav = sqrt(cos_etav)
+      cos_3ov2_etav = cos_1ov2_etav**3
+
+      temp_ = REF_TEMP * eta**( Rdry * LAPSE_RATE / Grav )
+      geopot = GRAV / LAPSE_RATE * (  REF_TEMP  - temp_ )
+
+      if ( ETAt > eta ) then
+        temp_ = temp_ + DELTAT * ( ETAt - eta )**5
+        geopot = geopot &
+               - Rdry * DELTAT * (   ( log(eta/ETAt) + 137.0_RP / 60.0_RP ) * ETAt**5 - 5.0_RP * ETAt**4 * eta &
+                                   + 5.0_RP * ETAt**3 * eta**2 - 10.0_RP / 3.0_RP * ETAt**2 * eta**3           &
+                                   + 1.25_RP * ETAt * eta**4 - 0.2_RP * eta**5                                 ) 
+      end if
+
+      temp_  = temp_ &
+             + 0.75_RP * eta * PI * U0 / Rdry * sin(etav) * cos_1ov2_etav &
+                * ( geopot_hvari1 * 2.0_RP * cos_3ov2_etav + geopot_hvari2 )
+      
+      geopot = geopot  &
+             + U0 * cos_3ov2_etav * ( geopot_hvari1 * cos_3ov2_etav + geopot_hvari2 )
+      
+      del_eta = -  ( - Grav * z + geopot )         & ! <- F
+                 * ( - eta / ( Rdry * temp_ ) )      ! <- (dF/deta)^-1
+
+      eta_save = eta
+      eta = eta + del_eta
+      itr = itr + 1
+
+      if ( itr > ITRMAX ) then
+          LOG_ERROR("BAROCLINIC_WAVE_setup",*) "Fail the convergence of iteration. Check!"
+          LOG_ERROR_CONT(*) "* (lon,lat,z)=", lon, lat, z
+          LOG_ERROR_CONT(*) "itr=", itr, "del_eta=", del_eta, "eta=", eta, "temp=", temp_
+          call PRC_abort
+      end if                                   
+    end do  !- End of loop for iteration ----------------------------
+
+    pres = eta_save * REF_PRES
+    temp = temp_
+    vel_lon = U0 * cos_3ov2_etav * sin( 2.0_RP * lat )**2
+
+    return
+  end subroutine get_thermal_wind_balance_1point_itr
+
+  subroutine exp_geostrophic_balance_correction( this,                              &
+    DENS_hyd, PRES_hyd, DDENS, MOMX, MOMY, MOMZ, DRHOT,                  &
+    lcmesh, elem )
+    
+    implicit none
+
+    class(Experiment), intent(inout) :: this
+    type(LocalMesh3D), intent(in) :: lcmesh
+    class(ElementBase3D), intent(in) :: elem
+    real(RP), intent(inout) :: DENS_hyd(elem%Np,lcmesh%NeA)
+    real(RP), intent(in) :: PRES_hyd(elem%Np,lcmesh%NeA)
+    real(RP), intent(inout) :: DDENS(elem%Np,lcmesh%NeA)
+    real(RP), intent(inout) :: MOMX(elem%Np,lcmesh%NeA)
+    real(RP), intent(inout) :: MOMY(elem%Np,lcmesh%NeA)    
+    real(RP), intent(inout) :: MOMZ(elem%Np,lcmesh%NeA)
+    real(RP), intent(inout) :: DRHOT(elem%Np,lcmesh%NeA)
+    !---------------------------------------------------
+
+    return
+  end subroutine exp_geostrophic_balance_correction
+
+end module mod_user
