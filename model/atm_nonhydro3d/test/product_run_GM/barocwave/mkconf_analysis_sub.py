@@ -1,8 +1,8 @@
 import os
 import math
 
-REGRID_Nprc=384  
-REGRID_Eh=40
+REGRID_Nprc=1536  
+REGRID_Eh=80
 REGRID_Ez=3
 REGRID_Porder=7
 REGRID_FZ="0.00D0, 5116.68D0, 16455.20D0, 30000.00D0"
@@ -113,6 +113,9 @@ def get_job_header(job_name, nprc, elapse_time):
   node_num = math.ceil(nprc/4)
   if node_num > 384:
     rscgrp = "large"
+  if node_num == 384:
+    rscgrp = "large"
+    node_num = 385    
   else:
     rscgrp = "small"
   
