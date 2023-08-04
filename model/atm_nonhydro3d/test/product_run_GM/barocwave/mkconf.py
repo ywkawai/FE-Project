@@ -22,6 +22,12 @@ exp_list_p3 = {
                    "initgp_porder": 7, "elapse_time": "00:40:00",
                    "regrid_nprcx": 16, "regrid_Ex": 16, "regrid_nprcy": 16, "regrid_Ey": 8, "regrid_porder": 3, "regrid_elapse_time": "00:20:00",
                  },         
+    "Eh80Ez6P3": {"nprc": 384, "Eh": 80, "Ez":6, "porder": 3, "dt": 15, 
+                   "fz": "0.00D0, 1390.57D0, 5116.68D0, 10348.47D0, 16455.20D0, 23072.18D0, 30000.00D0", 
+                   "mf_alph": "2D-1", "mf_ordh": 16, "mf_alpv": "5D-2", "mf_ordv": 16, 
+                   "initgp_porder": 7, "elapse_time": "00:40:00",
+                   "regrid_nprcx": 16, "regrid_Ex": 32, "regrid_nprcy": 16, "regrid_Ey": 16, "regrid_porder": 3, "regrid_elapse_time": "00:20:00",
+                 },             
 }
 # p = 7
 exp_list_p7 = {

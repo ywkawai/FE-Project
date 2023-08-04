@@ -203,20 +203,23 @@ def mk_conf_sh( exp_name, exp_info ):
     refsol_dir_pref=f"../Eh{REGRID_Eh}Ez{REGRID_Ez}P{REGRID_Porder}"
     mkconf_run_analysis(f"{out_dir_pref}/analysis.conf", 
                 REGRID_Nprc, REGRID_Eh, REGRID_Ez, REGRID_Porder, 
-                f'{refsol_dir_pref}_1/history',
-                f'{refsol_dir_pref}_1/init_00000101-000000.000',
+                f'{refsol_dir_pref}/history',
+                f'{refsol_dir_pref}/init_00000101-000000.000',
                 0, OUTPUT_INT, OUTPUT_NSTEP, 
                 "outdata_analysis", "outdata_analysis", "analysis")        
                       
     mkconf_regrid(f"{out_dir_pref}/regrid_analysis.conf", 
                 nprc, eh, ez, porder, 
                 REGRID_Nprc, REGRID_Eh, REGRID_Ez, REGRID_Porder, 
-                "regrid_analysis_LOG", "history", """THERM""", "./outdata_analysis/history" )
+                "regrid_analysis_LOG", "history", "'DDENS', 'U', 'V', 'W', 'THERM'", "./outdata_analysis/history" )
 
     mkconf_regrid(f"{out_dir_pref}/regrid_bs_analysis.conf", 
                 nprc, eh, ez, porder, 
                 REGRID_Nprc, REGRID_Eh, REGRID_Ez, REGRID_Porder, 
                 "regrid_bs_analysis_LOG", "init_00000101-000000.000", "'PRES_hyd', 'DENS_hyd'", "./outdata_analysis/bs" )
+    
+    mksh_job_analysis( f"{out_dir_pref}/job_analysis.sh", f"ANL_E{eh}P{porder}", 
+                REGRID_Nprc, exp_info["regrid_elapse_time"], "analysis" )
     
     regrid_conf_list = [ "regrid_analysis.conf", "regrid_bs_analysis.conf" ]
     mksh_job_regrid(f"{out_dir_pref}/job_regrid_analysis.sh", f"REG_E{eh}P{porder}", 

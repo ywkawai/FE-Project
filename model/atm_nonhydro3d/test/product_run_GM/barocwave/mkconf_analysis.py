@@ -29,6 +29,10 @@ exp_list_p7 = {
                    "fz": "0.00D0, 5116.68D0, 16455.20D0, 30000.00D0", 
                    "regrid_elapse_time": "00:30:00",
                  },         
+    "Eh40Ez3P7": {"nprc": 384, "Eh": 40, "Ez":3, "porder": 7, 
+                   "fz": "0.00D0, 5116.68D0, 16455.20D0, 30000.00D0", 
+                   "regrid_elapse_time": "00:30:00",
+                 },             
 }
 exp_list = {  
             **exp_list_p3,              
