@@ -243,14 +243,11 @@ contains
       !-- DENS
       call sparsemat_matmul(Dx, lmesh%Gsqrt(:,ke) * MOMX_(:,ke), Fx)
       call sparsemat_matmul(Dy, lmesh%Gsqrt(:,ke) * MOMY_(:,ke), Fy)
-      call sparsemat_matmul(Dz, lmesh%Gsqrt(:,ke) * ( DDENS_(:,ke) + DENS_hyd(:,ke) )  &
-                                                  * ( wt_(:) - w_(:) * RGsqrtV(:) ), Fz)
       call sparsemat_matmul(Lift, lmesh%Fscale(:,ke) * del_flux(:,ke,DENS_VID), LiftDelFlx)
 
       DENS_dt(:,ke) = - ( &
             lmesh%Escale(:,ke,1,1) * Fx(:)     &
           + lmesh%Escale(:,ke,2,2) * Fy(:)     &
-          + lmesh%Escale(:,ke,3,3) * Fz(:)     &
           + LiftDelFlx(:) ) / lmesh%Gsqrt(:,ke)
       
       !-- MOMX
@@ -302,13 +299,11 @@ contains
       !-- RHOT
       call sparsemat_matmul(Dx, lmesh%Gsqrt(:,ke) * u_(:) * RHOT_(:), Fx)
       call sparsemat_matmul(Dy, lmesh%Gsqrt(:,ke) * v_(:) * RHOT_(:), Fy)
-      call sparsemat_matmul(Dz, lmesh%Gsqrt(:,ke) * ( wt_(:) - w_(:) * RGsqrtV(:) ) * RHOT_(:), Fz)
       call sparsemat_matmul(Lift, lmesh%Fscale(:,ke) * del_flux(:,ke,RHOT_VID), LiftDelFlx)
       
       RHOT_dt(:,ke) = &
           - ( lmesh%Escale(:,ke,1,1) * Fx(:)      &
             + lmesh%Escale(:,ke,2,2) * Fy(:)      &
-            + lmesh%Escale(:,ke,3,3) * Fz(:)      &
             + LiftDelFlx(:) ) / lmesh%Gsqrt(:,ke)
     end do
     !$omp end parallel
@@ -330,8 +325,10 @@ contains
 
     use scale_atm_dyn_dgm_nonhydro3d_rhot_hevi_common, only: &
       vi_gen_vmap => atm_dyn_dgm_nonhydro3d_rhot_hevi_common_gen_vmap,                  &
-      vi_eval_Ax => atm_dyn_dgm_nonhydro3d_rhot_hevi_common_eval_Ax_2,                  &
-      vi_construct_matbnd => atm_dyn_dgm_nonhydro3d_rhot_hevi_common_construct_matbnd_2
+      vi_eval_Ax => atm_dyn_dgm_nonhydro3d_rhot_hevi_common_eval_Ax,                  &
+      vi_eval_Ax_uv => atm_dyn_dgm_nonhydro3d_rhot_hevi_common_eval_Ax_uv,                  &
+      vi_construct_matbnd => atm_dyn_dgm_nonhydro3d_rhot_hevi_common_construct_matbnd, &
+      vi_construct_matbnd_uv => atm_dyn_dgm_nonhydro3d_rhot_hevi_common_construct_matbnd_uv
   
     implicit none
 
@@ -462,27 +459,26 @@ contains
       do itr_nlin = 1, 1
         call PROF_rapstart( 'hevi_cal_vi_ax', 3)
 
-        call vi_eval_Ax( &
-          DENS_dt(:,:), MOMX_dt(:,:), MOMY_dt(:,:), MOMZ_dt(:,:), RHOT_dt(:,:), & ! (out, dummy) 
-          alph(:,:,:),                                                          & ! (out)
-          PROG_VARS, PROG_VARS0,                                                & ! (in)
-          DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_,                                  & ! (in)
-          DENS_hyd_z, PRES_hyd_z,                                               & ! (in)
-          Rtot_z, CPtot_ov_CVtot,                                               & ! (in)
-          Dz, Lift, IntrpMat_VPOrdM1,                                           & ! (in)
-          GnnM_z, G13_z, G23_z, GsqrtV_z,                                       & ! (in)
-          modalFilterFlag, VModalFilter%FilterMat,                              & ! (in)
-          impl_fac, dt,                                                         & ! (in) 
-          lmesh, elem, nz, vmapM, vmapP,                                        & ! (in)
-          b1D(:,:,:,:,:), b1D_uv(:,:,:,:,:)                                     ) ! (out)
+        call vi_eval_Ax_uv( &
+          MOMX_dt(:,:), MOMY_dt(:,:), alph(:,:,:),        & ! (out)
+          PROG_VARS, PROG_VARS0,                          & ! (in)
+          DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_,            & ! (in)
+          DENS_hyd_z, PRES_hyd_z,                         & ! (in)
+          Rtot_z, CPtot_ov_CVtot,                         & ! (in)
+          Dz, Lift, IntrpMat_VPOrdM1,                     & ! (in)
+          GnnM_z, G13_z, G23_z, GsqrtV_z,                 & ! (in)
+          modalFilterFlag, VModalFilter%FilterMat,        & ! (in)
+          impl_fac, dt,                                   & ! (in) 
+          lmesh, elem, nz, vmapM, vmapP,                  & ! (in)
+          b1D_uv(:,:,:,:,:)                               ) ! (out)
 
         call PROF_rapend( 'hevi_cal_vi_ax', 3)
 
         do ke_xy=1, lmesh%NeX * lmesh%NeY
           call PROF_rapstart( 'hevi_cal_vi_matbnd', 3)
 
-          call vi_construct_matbnd( PmatBnd(:,:,:), PmatBnd_uv(:,:,:), & ! (out)
-            kl, ku, nz_1D, kl_uv, ku_uv, nz_1D_uv,                     & ! (in)
+          call vi_construct_matbnd_uv( PmatBnd_uv(:,:,:),              & ! (out)
+            kl_uv, ku_uv, nz_1D_uv,                                    & ! (in)
             PROG_VARS(:,:,:,ke_xy),                                    & ! (in)
             DENS_hyd_z(:,:,ke_xy), PRES_hyd_z(:,:,ke_xy),              & ! (in)
             G13_z(:,:,ke_xy), G23_z(:,:,ke_xy), GsqrtV_z(:,:,ke_xy),   & ! (in)
@@ -496,17 +492,13 @@ contains
           call PROF_rapend( 'hevi_cal_vi_matbnd', 3)
           
           call PROF_rapstart( 'hevi_cal_vi_lin', 3)
-          !$omp parallel private(ij, v, ke_z, info, info_uv, ColMask)
+          !$omp parallel private(ij, v, ke_z, info_uv, ColMask)
           !$omp do
           do ij=1, elem%Nnode_h1D**2
-            call dgbsv( nz_1D, kl, ku, 1, PmatBnd(:,:,ij), 2*kl+ku+1, ipiv(:,ij), b1D(:,:,:,ij,ke_xy), nz_1D, info)
             call dgbsv( nz_1D_uv, kl_uv, ku_uv, 2, PmatBnd_uv(:,:,ij), 2*kl_uv+ku_uv+1, ipiv_uv(:,ij), b1D_uv(:,:,:,ij,ke_xy), nz_1D_uv, info_uv)
 
             ColMask(:) = elem%Colmask(:,ij)
             do ke_z=1, lmesh%NeZ
-              PROG_VARS(ColMask(:),ke_z,DENS_VID,ke_xy) = PROG_VARS(Colmask(:),ke_z,DENS_VID,ke_xy) + b1D(1,:,ke_z,ij,ke_xy)
-              PROG_VARS(ColMask(:),ke_z,MOMZ_VID,ke_xy) = PROG_VARS(Colmask(:),ke_z,MOMZ_VID,ke_xy) + b1D(2,:,ke_z,ij,ke_xy)
-              PROG_VARS(ColMask(:),ke_z,RHOT_VID,ke_xy) = PROG_VARS(Colmask(:),ke_z,RHOT_VID,ke_xy) + b1D(3,:,ke_z,ij,ke_xy)
               PROG_VARS(ColMask(:),ke_z,MOMX_VID,ke_xy) = PROG_VARS(Colmask(:),ke_z,MOMX_VID,ke_xy) + b1D_uv(:,ke_z,1,ij,ke_xy)
               PROG_VARS(ColMask(:),ke_z,MOMY_VID,ke_xy) = PROG_VARS(Colmask(:),ke_z,MOMY_VID,ke_xy) + b1D_uv(:,ke_z,2,ij,ke_xy)
             end do
@@ -514,6 +506,56 @@ contains
          !$omp end do
          !$omp end parallel
           call PROF_rapend( 'hevi_cal_vi_lin', 3)
+        end do ! for ke_xy
+
+        call PROF_rapstart( 'hevi_cal_vi_ax', 3)
+        call vi_eval_Ax( &
+          DENS_dt(:,:), MOMZ_dt(:,:), RHOT_dt(:,:),                             & ! (out, dummy) 
+          alph(:,:,:),                                                          & ! (in)
+          PROG_VARS, PROG_VARS0,                                                & ! (in)
+          DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_,                                  & ! (in)
+          DENS_hyd_z, PRES_hyd_z,                                               & ! (in)
+          Rtot_z, CPtot_ov_CVtot,                                               & ! (in)
+          Dz, Lift, IntrpMat_VPOrdM1,                                           & ! (in)
+          GnnM_z, G13_z, G23_z, GsqrtV_z,                                       & ! (in)
+          modalFilterFlag, VModalFilter%FilterMat,                              & ! (in)
+          impl_fac, dt,                                                         & ! (in) 
+          lmesh, elem, nz, vmapM, vmapP,                                        & ! (in)
+          b1D(:,:,:,:,:)                                                        ) ! (out)
+        call PROF_rapend( 'hevi_cal_vi_ax', 3)
+
+        do ke_xy=1, lmesh%NeX * lmesh%NeY
+          call PROF_rapstart( 'hevi_cal_vi_matbnd', 3)
+          call vi_construct_matbnd( PmatBnd(:,:,:),                    & ! (out)
+            kl, ku, nz_1D,                                             & ! (in)
+            PROG_VARS(:,:,:,ke_xy),                                    & ! (in)
+            DENS_hyd_z(:,:,ke_xy), PRES_hyd_z(:,:,ke_xy),              & ! (in)
+            G13_z(:,:,ke_xy), G23_z(:,:,ke_xy), GsqrtV_z(:,:,ke_xy),   & ! (in)
+            alph(:,:,ke_xy),                                           & ! (in)
+            Rtot_z(:,:,ke_xy), CPtot_ov_CVtot(:,:,ke_xy),              & ! (in)
+            Dz, Lift, IntrpMat_VPOrdM1,                                & ! (in)
+            modalFilterFlag, VModalFilter%FilterMat,                   & ! (in)
+            impl_fac, dt,                                              & ! (in)
+            lmesh, elem, nz(:,:,ke_xy), vmapM, vmapP, ke_xy, 1         ) ! (in)
+
+          call PROF_rapend( 'hevi_cal_vi_matbnd', 3)
+          
+          call PROF_rapstart( 'hevi_cal_vi_lin', 3)
+          !$omp parallel private(ij, v, ke_z, info, ColMask)
+          !$omp do
+          do ij=1, elem%Nnode_h1D**2
+            call dgbsv( nz_1D, kl, ku, 1, PmatBnd(:,:,ij), 2*kl+ku+1, ipiv(:,ij), b1D(:,:,:,ij,ke_xy), nz_1D, info)
+
+            ColMask(:) = elem%Colmask(:,ij)
+            do ke_z=1, lmesh%NeZ
+              PROG_VARS(ColMask(:),ke_z,DENS_VID,ke_xy) = PROG_VARS(Colmask(:),ke_z,DENS_VID,ke_xy) + b1D(1,:,ke_z,ij,ke_xy)
+              PROG_VARS(ColMask(:),ke_z,MOMZ_VID,ke_xy) = PROG_VARS(Colmask(:),ke_z,MOMZ_VID,ke_xy) + b1D(2,:,ke_z,ij,ke_xy)
+              PROG_VARS(ColMask(:),ke_z,RHOT_VID,ke_xy) = PROG_VARS(Colmask(:),ke_z,RHOT_VID,ke_xy) + b1D(3,:,ke_z,ij,ke_xy)
+            end do
+          end do ! for ij
+         !$omp end do
+         !$omp end parallel          
+        call PROF_rapend( 'hevi_cal_vi_lin', 3)
 
         end do ! for ke_xy
       end do ! itr nlin
@@ -535,9 +577,22 @@ contains
       end do
       end do
     else
-      call vi_eval_Ax( & 
-        DENS_dt(:,:), MOMX_dt(:,:), MOMY_dt(:,:), MOMZ_dt(:,:), RHOT_dt(:,:), & ! (out) 
+      call vi_eval_ax_uv( & 
+        MOMX_dt(:,:), MOMY_dt(:,:),                                           & ! (out) 
         alph(:,:,:),                                                          & ! (out, dummy)
+        PROG_VARS, PROG_VARS0,                                                & ! (in)
+        DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_,                                  & ! (in)
+        DENS_hyd_z, PRES_hyd_z,                                               & ! (in)
+        Rtot_z, CPtot_ov_CVtot,                                               & ! (in)
+        Dz, Lift, IntrpMat_VPOrdM1,                                           & ! (in)
+        GnnM_z, G13_z, G23_z, GsqrtV_z,                                       & ! (in)
+        modalFilterFlag, VModalFilter%FilterMat,                              & ! (in)
+        impl_fac, dt,                                                         & ! (in) 
+        lmesh, elem, nz, vmapM, vmapP                                         ) ! (in)
+
+      call vi_eval_Ax( & 
+        DENS_dt(:,:), MOMZ_dt(:,:), RHOT_dt(:,:), & ! (out) 
+        alph(:,:,:),                                                          & ! (in, dummy)
         PROG_VARS, PROG_VARS0,                                                & ! (in)
         DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_,                                  & ! (in)
         DENS_hyd_z, PRES_hyd_z,                                               & ! (in)
@@ -552,5 +607,4 @@ contains
 
     return
   end subroutine atm_dyn_dgm_globalnonhydro3d_rhot_hevi_cal_vi
-
 end module scale_atm_dyn_dgm_globalnonhydro3d_rhot_hevi

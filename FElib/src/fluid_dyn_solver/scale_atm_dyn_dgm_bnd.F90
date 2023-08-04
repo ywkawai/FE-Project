@@ -273,8 +273,10 @@ contains
           ke2D = lmesh%EMap3Dto2D(ke)
 
           GsqrtV = Gsqrt(iM) / GsqrtH(elem%IndexH2Dto3D_bnd(p),ke2D) 
-          MOMW = MOMZ(iM) / GsqrtV &
-             + G13(iM) * MOMX(iM) + G23(iM) * MOMY(iM)
+          ! MOMW = MOMZ(iM) / GsqrtV &
+          !    + G13(iM) * MOMX(iM) + G23(iM) * MOMY(iM)
+          MOMW = MOMZ(iM) &
+             + GsqrtV * ( G13(iM) * MOMX(iM) + G23(iM) * MOMY(iM) )
 
           mom_normal = MOMX(iM) * nx(i) + MOMY(iM) * ny(i) + MOMW * nz(i)
           MOMX(iP) = MOMX(iM) - 2.0_RP * mom_normal * nx(i)
