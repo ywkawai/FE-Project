@@ -63,13 +63,14 @@ module scale_meshfieldcomm_cubedspheredom2d
 
 contains
   subroutine MeshFieldCommCubedSphereDom2D_Init( this, &
-    sfield_num, hvfield_num, mesh2d )
+    sfield_num, hvfield_num, htensorfield_num, mesh2d )
 
     implicit none
     
     class(MeshFieldCommCubedSphereDom2D), intent(inout) :: this
     integer, intent(in) :: sfield_num
     integer, intent(in) :: hvfield_num
+    integer, intent(in) :: htensorfield_num
     class(MeshCubedSphereDom2D), intent(in), target :: mesh2d
     
     type(LocalMesh2D), pointer :: lcmesh
@@ -78,7 +79,7 @@ contains
     this%mesh2d => mesh2d
     lcmesh => mesh2d%lcmesh_list(1)
     bufsize_per_field = 2*(lcmesh%NeX + lcmesh%NeY)*lcmesh%refElem2D%Nfp
-    call MeshFieldCommBase_Init( this, sfield_num, hvfield_num, bufsize_per_field, 4, mesh2d )  
+    call MeshFieldCommBase_Init( this, sfield_num, hvfield_num, htensorfield_num, bufsize_per_field, 4, mesh2d )  
   
     if (hvfield_num > 0) then
       allocate( this%vec_covariant_comp_ptrlist(hvfield_num) )
