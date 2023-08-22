@@ -118,7 +118,6 @@ subroutine GMRES_Iterate_pre( this, b, w0, is_converged )
   end do
 
   this%m_out = min(this%m, this%N)
-
   return
 end subroutine GMRES_Iterate_pre
 
@@ -140,13 +139,13 @@ subroutine GMRES_Iterate_step_j( this, j, wj, is_converged )
   end do
   this%hj(j+1) = sqrt( sum(wj(:)**2) )
 
-  if ( abs(this%hj(j+1)) < this%EPS0 ) then
-    this%m_out = j
-    is_converged = .true.
-    return
-  else
+  ! if ( abs(this%hj(j+1)) < this%EPS0 ) then
+  !   this%m_out = j
+  !   is_converged = .true.
+  !   return
+  ! else
     this%v(:,j+1) = wj(:) / this%hj(j+1)
-  end if
+  ! end if
 
   this%r(1,j) = this%hj(1)
   do i=1, j-1
@@ -166,7 +165,7 @@ subroutine GMRES_Iterate_step_j( this, j, wj, is_converged )
   this%r(j,j) = this%co(j) * this%r(j,j) + this%si(j) * this%hj(j+1)
   this%r(j+1,j) = 0.0_RP
 
-  if ( abs(this%si(j) * this%g(j)) < this%EPS ) then
+  if ( abs(this%g(j+1)) < this%EPS ) then
     this%m_out = j
     is_converged = .true.
   else
