@@ -41,6 +41,14 @@ module mod_atmos_phy_tb_vars
     ModelVarManager, VariableInfo
   use scale_model_mesh_manager, only: ModelMeshBase
     
+  use scale_atm_phy_tb_dgm_common, only: &
+    ATMOS_PHY_TB_AUX_NUM, ATMOS_PHY_TB_AUX_SCALAR_NUM, ATMOS_PHY_TB_AUX_HVEC_NUM, &
+    ATMOS_PHY_TB_AUX_HTENSOR_NUM,                                                    &
+    ATMOS_PHY_TB_DIAG_NUM,                                                           &
+    ATMOS_PHY_TB_TENDS_NUM1, &
+    TB_MOMX_t_VID => ATMOS_PHY_TB_MOMX_t_ID,TB_MOMY_t_VID => ATMOS_PHY_TB_MOMY_t_ID, &
+    TB_MOMZ_t_VID => ATMOS_PHY_TB_MOMZ_t_ID, TB_RHOT_t_VID => ATMOS_PHY_TB_RHOT_t_ID
+
   use mod_atmos_mesh, only: AtmosMesh
 
   !-----------------------------------------------------------------------------
@@ -60,11 +68,8 @@ module mod_atmos_phy_tb_vars
     type(ModelVarManager) :: auxvars_manager
     integer :: auxvars_commid
 
-    type(MeshField3D), allocatable :: auxtrcvars(:)
-    type(ModelVarManager) :: auxtrcvars_manager
-    integer :: auxtrcvars_commid
-
-    type(MeshField3D) :: GRAD_DENS(3)
+    type(MeshField3D), allocatable :: diagvars(:)
+    type(ModelVarManager) :: diagvars_manager
 
     integer :: TENDS_NUM_TOT 
   contains
@@ -73,80 +78,7 @@ module mod_atmos_phy_tb_vars
     procedure :: History => AtmosPhyTbVars_history
   end type AtmosPhyTbVars
 
-  integer, public, parameter :: ATMOS_PHY_TB_MOMX_t_ID  = 1
-  integer, public, parameter :: ATMOS_PHY_TB_MOMY_t_ID  = 2
-  integer, public, parameter :: ATMOS_PHY_TB_MOMZ_t_ID  = 3
-  integer, public, parameter :: ATMOS_PHY_TB_RHOT_t_ID  = 4
-  integer, public, parameter :: ATMOS_PHY_TB_TENDS_NUM1 = 4
-
-  type(VariableInfo), public :: ATMOS_PHY_TB_TEND_VINFO(ATMOS_PHY_TB_TENDS_NUM1)
-  DATA ATMOS_PHY_TB_TEND_VINFO / &
-    VariableInfo( ATMOS_PHY_TB_MOMX_t_ID, 'TB_MOMX_t', 'tendency of x-momentum in TB process',    &
-                  'kg/m2/s2',  3, 'XYZ',  ''                                                   ), &
-    VariableInfo( ATMOS_PHY_TB_MOMY_t_ID, 'TB_MOMY_t', 'tendency of y-momentum in TB process',    &
-                  'kg/m2/s2',  3, 'XYZ',  ''                                                   ), &
-    VariableInfo( ATMOS_PHY_TB_MOMZ_t_ID, 'TB_MOMZ_t', 'tendency of z-momentum in TB process',    &
-                  'kg/m2/s2',  3, 'XYZ',  ''                                                   ), &
-    VariableInfo( ATMOS_PHY_TB_RHOT_t_ID, 'TB_RHOT_t', 'tendency of rho*PT in TB process',        &
-                  'kg/m3.K/s', 3, 'XYZ',  ''                                                   )  / 
-
-
-  integer, public, parameter :: ATMOS_PHY_TB_AUX_S11_ID   = 1
-  integer, public, parameter :: ATMOS_PHY_TB_AUX_S12_ID   = 2
-  integer, public, parameter :: ATMOS_PHY_TB_AUX_S22_ID   = 3
-  integer, public, parameter :: ATMOS_PHY_TB_AUX_S23_ID   = 4
-  integer, public, parameter :: ATMOS_PHY_TB_AUX_S31_ID   = 5
-  integer, public, parameter :: ATMOS_PHY_TB_AUX_S33_ID   = 6
-  integer, public, parameter :: ATMOS_PHY_TB_AUX_TKE_ID   = 7
-  integer, public, parameter :: ATMOS_PHY_TB_AUX_DPTDX_ID = 8
-  integer, public, parameter :: ATMOS_PHY_TB_AUX_DPTDY_ID = 9
-  integer, public, parameter :: ATMOS_PHY_TB_AUX_DPTDZ_ID = 10
-  integer, public, parameter :: ATMOS_PHY_TB_AUX_NU_ID    = 11
-  integer, public, parameter :: ATMOS_PHY_TB_AUX_KH_ID    = 12
-  integer, public, parameter :: ATMOS_PHY_TB_AUX_NUM      = 12
-  type(VariableInfo), public :: ATMOS_PHY_TB_AUX_VINFO(ATMOS_PHY_TB_AUX_NUM)
-  DATA ATMOS_PHY_TB_AUX_VINFO / &
-    VariableInfo( ATMOS_PHY_TB_AUX_S11_ID, 'S11', 'strain velocity tensor (S11)',    &
-                  's-1',  3, 'XYZ',  ''                                           ), &
-    VariableInfo( ATMOS_PHY_TB_AUX_S12_ID, 'S12', 'strain velocity tensor (S12)',    &
-                  's-1',  3, 'XYZ',  ''                                           ), &
-    VariableInfo( ATMOS_PHY_TB_AUX_S22_ID, 'S22', 'strain velocity tensor (S22)',    &
-                  's-1',  3, 'XYZ',  ''                                           ), &
-    VariableInfo( ATMOS_PHY_TB_AUX_S23_ID, 'S23', 'strain velocity tensor (S23)',    &
-                  's-1',  3, 'XYZ',  ''                                           ), &
-    VariableInfo( ATMOS_PHY_TB_AUX_S31_ID, 'S31', 'strain velocity tensor (S31)',    &
-                  's-1',  3, 'XYZ',  ''                                           ), &
-    VariableInfo( ATMOS_PHY_TB_AUX_S33_ID, 'S33', 'strain velocity tensor (S33)',    &
-                  's-1',  3, 'XYZ',  ''                                           ), &
-    VariableInfo( ATMOS_PHY_TB_AUX_TKE_ID, 'TKE', 'SGS turbluence kinetic energy',   &
-                  'm2/s2',  3, 'XYZ',  ''                                         ), &
-    VariableInfo( ATMOS_PHY_TB_AUX_DPTDX_ID, 'DPTDX', 'gradient of PT (x)',          &
-                  'K/m',  3, 'XYZ',  ''                                           ), &
-    VariableInfo( ATMOS_PHY_TB_AUX_DPTDY_ID, 'DPTDY', 'gradient of PT (y)',          &
-                  'K/m',  3, 'XYZ',  ''                                           ), &
-    VariableInfo( ATMOS_PHY_TB_AUX_DPTDZ_ID, 'DPTDZ', 'gradient of PT (z)',          &
-                  'K/m',  3, 'XYZ',  ''                                           ), &
-    VariableInfo( ATMOS_PHY_TB_AUX_NU_ID, 'NU', 'eddy viscosity',                    &
-                  'm2/s',  3, 'XYZ',  ''                                          ), &
-    VariableInfo( ATMOS_PHY_TB_AUX_KH_ID, 'KH', 'eddy diffusion',                    &
-                  'm2/s',  3, 'XYZ',  ''                                          )  /
-
-  integer, public, parameter :: ATMOS_PHY_TB_AUXTRC_DQTDX_ID = 1
-  integer, public, parameter :: ATMOS_PHY_TB_AUXTRC_DQTDY_ID = 2
-  integer, public, parameter :: ATMOS_PHY_TB_AUXTRC_DQTDZ_ID = 3
-  integer, public, parameter :: ATMOS_PHY_TB_AUXTRC_NUM      = 3
-  type(VariableInfo), public :: ATMOS_PHY_TB_AUXTRC_VINFO(ATMOS_PHY_TB_AUXTRC_NUM)
-  DATA ATMOS_PHY_TB_AUXTRC_VINFO / &
-    VariableInfo( ATMOS_PHY_TB_AUXTRC_DQTDX_ID, 'DQTDX', 'gradient of QTRC (x)',        &
-                  'K/m',  3, 'XYZ',  ''                                           ), &
-    VariableInfo( ATMOS_PHY_TB_AUXTRC_DQTDY_ID, 'DQTDY', 'gradient of QTRC (y)',        &
-                  'K/m',  3, 'XYZ',  ''                                           ), &
-    VariableInfo( ATMOS_PHY_TB_AUXTRC_DQTDZ_ID, 'DQTDZ', 'gradient of QTRC (z)',        &
-                  'K/m',  3, 'XYZ',  ''                                           )  /
-
   public :: AtmosPhyTbVars_GetLocalMeshFields_tend
-  public :: AtmosPhyTbVars_GetLocalMeshFields_aux
-  public :: AtmosPhyTbVars_GetLocalMeshFields_aux_qtrc
 
   !-----------------------------------------------------------------------------
   !
@@ -155,10 +87,13 @@ module mod_atmos_phy_tb_vars
   !-------------------
 
 contains
+!OCL SERIAL
   subroutine AtmosPhyTbVars_Init( this, model_mesh )
 
     use scale_tracer, only: &
       TRACER_NAME, TRACER_DESC, TRACER_UNIT    
+    use scale_atm_phy_tb_dgm_common, only: &
+      atm_phy_tb_dgm_common_get_varinfo
     
     implicit none
     class(AtmosPhyTbVars), target, intent(inout) :: this
@@ -166,13 +101,15 @@ contains
 
     integer :: iv
     integer :: iq
-    integer :: n
-    integer :: dim
     logical :: reg_file_hist
 
     class(AtmosMesh), pointer :: atm_mesh
     class(MeshBase2D), pointer :: mesh2D
     class(MeshBase3D), pointer :: mesh3D
+
+    type(VariableInfo) :: auxvar_info(ATMOS_PHY_TB_AUX_NUM)
+    type(VariableInfo) :: diagvar_info(ATMOS_PHY_TB_DIAG_NUM)
+    type(VariableInfo) :: tbtend_info(ATMOS_PHY_TB_TENDS_NUM1)
 
     type(VariableInfo) :: qtrc_vinfo_tmp
     !--------------------------------------------------
@@ -192,21 +129,20 @@ contains
     
     call mesh3D%GetMesh2D( mesh2D )
 
-    !----
-    call this%tends_manager%Init()
+    !- Get variable information
+    call atm_phy_tb_dgm_common_get_varinfo( auxvar_info, diagvar_info, tbtend_info ) ! (out)
 
-    !-
+    !- Initialize an object to manage tendencies with turbulent model
+
+    call this%tends_manager%Init()
     allocate( this%tends(this%TENDS_NUM_TOT) )
 
     reg_file_hist = .true.    
     do iv = 1, ATMOS_PHY_TB_TENDS_NUM1
       call this%tends_manager%Regist(            &
-        ATMOS_PHY_TB_TEND_VINFO(iv), mesh3D,     & ! (in) 
-        this%tends(iv), reg_file_hist            ) ! (out)
-      
-      do n = 1, mesh3D%LOCAL_MESH_NUM
-        this%tends(iv)%local(n)%val(:,:) = 0.0_RP
-      end do         
+        tbtend_info(iv), mesh3D,                 & ! (in) 
+        this%tends(iv), reg_file_hist,           & ! (out)
+        fill_zero=.true.                         )
     end do
 
     qtrc_vinfo_tmp%ndims    = 3
@@ -222,69 +158,52 @@ contains
 
       call this%tends_manager%Regist(            &
         qtrc_vinfo_tmp, mesh3D,                  & ! (in) 
-        this%tends(iv), reg_file_hist            ) ! (out)
-
-      do n = 1, mesh3D%LOCAL_MESH_NUM
-        this%tends(iv)%local(n)%val(:,:) = 0.0_RP
-      end do
+        this%tends(iv), reg_file_hist,           & ! (out)
+        fill_zero=.true.                         )
     end do
 
-    if ( QA > 1 ) then
-      do dim=1, 3
-        call this%GRAD_DENS(dim)%Init( "Grad_DENS", "kg/m4", mesh3D )      
-      end do
-    end if
+    !- Initialize an object to manage auxiliary variables with turbulent model
 
-    !-
+    call this%auxvars_manager%Init()
     allocate( this%auxvars(ATMOS_PHY_TB_AUX_NUM) )
 
     reg_file_hist = .true.    
     do iv = 1, ATMOS_PHY_TB_AUX_NUM
       call this%auxvars_manager%Regist(          &
-        ATMOS_PHY_TB_AUX_VINFO(iv), mesh3D,      & ! (in) 
-        this%auxvars(iv), reg_file_hist          ) ! (out)
-      
-      do n = 1, mesh3D%LOCAL_MESH_NUM
-        this%auxvars(iv)%local(n)%val(:,:) = 0.0_RP
-      end do         
+        auxvar_info(iv), mesh3D,                 & ! (in) 
+        this%auxvars(iv), reg_file_hist,         & ! (out)
+        fill_zero=.true.                         )
     end do
 
-    !-
-    allocate( this%auxtrcvars(ATMOS_PHY_TB_AUXTRC_NUM) )
+    !- Initialize an object to manage diagnostic variables with turbulent model
+
+    call this%diagvars_manager%Init()
+    allocate( this%diagvars(ATMOS_PHY_TB_DIAG_NUM) )
 
     reg_file_hist = .true.    
-    do iv = 1, ATMOS_PHY_TB_AUXTRC_NUM
-      call this%auxtrcvars_manager%Regist(       &
-        ATMOS_PHY_TB_AUXTRC_VINFO(iv), mesh3D,   & ! (in) 
-        this%auxtrcvars(iv), reg_file_hist       ) ! (out)
-      
-      do n = 1, mesh3D%LOCAL_MESH_NUM
-        this%auxtrcvars(iv)%local(n)%val(:,:) = 0.0_RP
-      end do         
+    do iv = 1, ATMOS_PHY_TB_DIAG_NUM
+      call this%diagvars_manager%Regist(         &
+        diagvar_info(iv), mesh3D,                & ! (in) 
+        this%diagvars(iv), reg_file_hist,        & ! (out)
+        fill_zero=.true.                         )
     end do
 
-    !-
+    !- Setup communication
 
     call atm_mesh%Create_communicator( &
-      ATMOS_PHY_TB_AUX_NUM, 0,         & ! (in)
+      ATMOS_PHY_TB_AUX_SCALAR_NUM, ATMOS_PHY_TB_AUX_HVEC_NUM, & ! (in)
+      ATMOS_PHY_TB_AUX_HTENSOR_NUM,                           & ! (in)
       this%auxvars_manager,            & ! (inout)
       this%auxvars(:),                 & ! (in)
       this%auxvars_commid              ) ! (out)
 
-    call atm_mesh%Create_communicator( &
-      ATMOS_PHY_TB_AUXTRC_NUM, 0,      & ! (in)
-      this%auxtrcvars_manager,         & ! (inout)
-      this%auxtrcvars(:),              & ! (in)
-      this%auxtrcvars_commid           ) ! (out)
-
     return
   end subroutine AtmosPhyTbVars_Init
 
+!OCL SERIAL
   subroutine AtmosPhyTbVars_Final( this )
     implicit none
     class(AtmosPhyTbVars), intent(inout) :: this
-
-    integer :: dim
     !--------------------------------------------------
 
     LOG_INFO('AtmosPhyTbVars_Final',*)
@@ -295,14 +214,8 @@ contains
     call this%auxvars_manager%Final()
     deallocate( this%auxvars )
 
-    call this%auxtrcvars_manager%Final()
-    deallocate( this%auxtrcvars )
-
-    if ( QA > 0 ) then
-      do dim=1, 3
-        call this%GRAD_DENS(dim)%Final()
-      end do
-    end if
+    call this%diagvars_manager%Final()
+    deallocate( this%diagvars )
 
     return
   end subroutine AtmosPhyTbVars_Final
@@ -334,16 +247,16 @@ contains
     !-------------------------------------------------------
 
     !--
-    call tb_tends_list%Get(ATMOS_PHY_TB_MOMX_t_ID, field)
+    call tb_tends_list%Get(TB_MOMX_t_VID, field)
     call field%GetLocalMeshField(domID, tb_MOMX_t)
 
-    call tb_tends_list%Get(ATMOS_PHY_TB_MOMY_t_ID, field)
+    call tb_tends_list%Get(TB_MOMY_t_VID, field)
     call field%GetLocalMeshField(domID, tb_MOMY_t)
 
-    call tb_tends_list%Get(ATMOS_PHY_TB_MOMZ_t_ID, field)
+    call tb_tends_list%Get(TB_MOMZ_t_VID, field)
     call field%GetLocalMeshField(domID, tb_MOMZ_t)
 
-    call tb_tends_list%Get(ATMOS_PHY_TB_RHOT_t_ID, field)
+    call tb_tends_list%Get(TB_RHOT_t_VID, field)
     call field%GetLocalMeshField(domID, tb_RHOT_t)
 
     !---
@@ -368,141 +281,6 @@ contains
   end subroutine AtmosPhyTbVars_GetLocalMeshFields_tend
 
 !OCL SERIAL
-  subroutine AtmosPhyTbVars_GetLocalMeshFields_aux( domID, mesh, tb_aux_list, &
-    S11, S12, S22, S23, S31, S33, TKE,                                        &
-    dPTdx, dPTdy, dPTdz,                                                      &
-    Nu, Kh,                                                                   &
-    lcmesh3D                                                                  )
-
-    use scale_mesh_base, only: MeshBase
-    use scale_meshfield_base, only: MeshFieldBase
-    implicit none
-
-    integer, intent(in) :: domID
-    class(MeshBase), intent(in) :: mesh
-    class(ModelVarManager), intent(inout) :: tb_aux_list
-    class(LocalMeshFieldBase), pointer, intent(out) :: S11, S12, S22, S23, S31, S33, TKE
-    class(LocalMeshFieldBase), pointer, intent(out) :: dPTdx, DPTdy, DPTdz
-    class(LocalMeshFieldBase), pointer, intent(out) :: Nu, Kh
-    class(LocalMesh3D), pointer, intent(out), optional :: lcmesh3D
-
-    class(MeshFieldBase), pointer :: field   
-    class(LocalMeshBase), pointer :: lcmesh
-    !-------------------------------------------------------
-
-    !--
-    call tb_aux_list%Get(ATMOS_PHY_TB_AUX_S11_ID, field)
-    call field%GetLocalMeshField(domID, S11)
-
-    call tb_aux_list%Get(ATMOS_PHY_TB_AUX_S12_ID, field)
-    call field%GetLocalMeshField(domID, S12)
-
-    call tb_aux_list%Get(ATMOS_PHY_TB_AUX_S22_ID, field)
-    call field%GetLocalMeshField(domID, S22)
-
-    call tb_aux_list%Get(ATMOS_PHY_TB_AUX_S23_ID, field)
-    call field%GetLocalMeshField(domID, S23)
-
-    call tb_aux_list%Get(ATMOS_PHY_TB_AUX_S31_ID, field)
-    call field%GetLocalMeshField(domID, S31)
-
-    call tb_aux_list%Get(ATMOS_PHY_TB_AUX_S33_ID, field)
-    call field%GetLocalMeshField(domID, S33)
-
-    call tb_aux_list%Get(ATMOS_PHY_TB_AUX_TKE_ID, field)
-    call field%GetLocalMeshField(domID, TKE)
-
-    call tb_aux_list%Get(ATMOS_PHY_TB_AUX_DPTDX_ID, field)
-    call field%GetLocalMeshField(domID, dPTdx)
-
-    call tb_aux_list%Get(ATMOS_PHY_TB_AUX_DPTDY_ID, field)
-    call field%GetLocalMeshField(domID, dPTdy)
-
-    call tb_aux_list%Get(ATMOS_PHY_TB_AUX_DPTDZ_ID, field)
-    call field%GetLocalMeshField(domID, dPTdz)
-
-    call tb_aux_list%Get(ATMOS_PHY_TB_AUX_NU_ID, field)
-    call field%GetLocalMeshField(domID, Nu)
-
-    call tb_aux_list%Get(ATMOS_PHY_TB_AUX_KH_ID, field)
-    call field%GetLocalMeshField(domID, Kh)
-
-    !---
-    
-    if (present(lcmesh3D)) then
-      call mesh%GetLocalMesh( domID, lcmesh )
-      nullify( lcmesh3D )
-
-      select type(lcmesh)
-      type is (LocalMesh3D)
-        if (present(lcmesh3D)) lcmesh3D => lcmesh
-      end select
-    end if
-
-    return
-  end subroutine AtmosPhyTbVars_GetLocalMeshFields_aux
-
-!OCL SERIAL
-  subroutine AtmosPhyTbVars_GetLocalMeshFields_aux_qtrc( domID, mesh, tb_aux_list, tb_auxtrc_list, &
-    dQTdx, dQTdy, dQTdz, Kh,                                                                       &
-    tb_tends_list, iq, tb_RHOQ_t,                                                                  &
-    lcmesh3D                                                                                       )
-
-    use scale_mesh_base, only: MeshBase
-    use scale_meshfield_base, only: MeshFieldBase
-    implicit none
-
-    integer, intent(in) :: domID
-    class(MeshBase), intent(in) :: mesh
-    class(ModelVarManager), intent(inout) :: tb_aux_list
-    class(ModelVarManager), intent(inout) :: tb_auxtrc_list
-    class(LocalMeshFieldBase), pointer, intent(out) :: dQTdx, dQTdy, dQTdz
-    class(LocalMeshFieldBase), pointer, intent(out) :: Kh
-    class(ModelVarManager), intent(inout), optional :: tb_tends_list
-    integer, intent(in), optional :: iq
-    class(LocalMeshFieldBase), pointer, intent(out), optional :: tb_RHOQ_t
-    class(LocalMesh3D), pointer, intent(out), optional :: lcmesh3D
-
-    class(MeshFieldBase), pointer :: field   
-    class(LocalMeshBase), pointer :: lcmesh
-    !-------------------------------------------------------
-
-    !--
-    call tb_auxtrc_list%Get(ATMOS_PHY_TB_AUXTRC_DQTDX_ID, field)
-    call field%GetLocalMeshField(domID, dQTdx)
-
-    call tb_auxtrc_list%Get(ATMOS_PHY_TB_AUXTRC_DQTDY_ID, field)
-    call field%GetLocalMeshField(domID, dQTdy)
-
-    call tb_auxtrc_list%Get(ATMOS_PHY_TB_AUXTRC_DQTDZ_ID, field)
-    call field%GetLocalMeshField(domID, dQTdz)
-
-    call tb_aux_list%Get(ATMOS_PHY_TB_AUX_KH_ID, field)
-    call field%GetLocalMeshField(domID, Kh)
-
-    if (     present(iq)              &
-       .and. present(tb_RHOQ_t)       &
-       .and. present(tb_tends_list)   ) then
-      call tb_tends_list%Get(ATMOS_PHY_TB_TENDS_NUM1 + iq, field)
-      call field%GetLocalMeshField(domID, tb_RHOQ_t)
-    end if
-
-    !---
-    
-    if (present(lcmesh3D)) then
-      call mesh%GetLocalMesh( domID, lcmesh )
-      nullify( lcmesh3D )
-
-      select type(lcmesh)
-      type is (LocalMesh3D)
-        if (present(lcmesh3D)) lcmesh3D => lcmesh
-      end select
-    end if
-
-    return
-  end subroutine AtmosPhyTbVars_GetLocalMeshFields_aux_qtrc
-
-!OCL SERIAL
   subroutine AtmosPhyTbVars_history( this )
     use scale_file_history_meshfield, only: FILE_HISTORY_meshfield_put
     implicit none
@@ -524,6 +302,11 @@ contains
     do v = 1, ATMOS_PHY_TB_AUX_NUM
       hst_id = this%auxvars(v)%hist_id
       if ( hst_id > 0 ) call FILE_HISTORY_meshfield_put( hst_id, this%auxvars(v) )
+    end do
+
+    do v = 1, ATMOS_PHY_TB_DIAG_NUM
+      hst_id = this%diagvars(v)%hist_id
+      if ( hst_id > 0 ) call FILE_HISTORY_meshfield_put( hst_id, this%diagvars(v) )
     end do
 
     return
