@@ -422,7 +422,7 @@ contains
     end do
 
     call model_mesh3D%Create_communicator( &
-      AUXDYNVARS3D_NUM, 0,             & ! (in) 
+      AUXDYNVARS3D_NUM, 0, 0,          & ! (in) 
       this%AUXDYNVAR3D_manager,        & ! (in)
       this%AUX_DYNVARS3D(:),           & ! (in)
       this%AUXDYNVAR3D_commid          ) ! (out)

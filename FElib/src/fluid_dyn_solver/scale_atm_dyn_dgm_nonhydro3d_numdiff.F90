@@ -171,7 +171,7 @@ contains
     end do
 
     call model_mesh3D%Create_communicator( &
-      NUMDIFF_FLUX_NUM, 0,             & ! (in)
+      NUMDIFF_FLUX_NUM, 0, 0,          & ! (in)
       this%NUMDIFF_FLUX_manager,       & ! (inout)
       this%NUMDIFF_FLUX_VARS3D(:),     & ! (in)
       this%NUMDIFF_FLUX_commid         ) ! (out)
@@ -189,7 +189,7 @@ contains
     end do
 
     call model_mesh3D%Create_communicator( &
-      NUMDIFF_TEND_NUM, 0,             & ! (in)
+      NUMDIFF_TEND_NUM, 0, 0,          & ! (in)
       this%NUMDIFF_TEND_manager,       & ! (inout)
       this%NUMDIFF_TEND_VARS3D(:),     & ! (in)
       this%NUMDIFF_TEND_commid         ) ! (out)
