@@ -258,7 +258,8 @@ contains
       Rdry => CONST_Rdry,  &
       CPdry => CONST_CPdry, &
       CVdry => CONST_CVdry, &
-      PRES00 => CONST_PRE00
+      PRES00 => CONST_PRE00, &
+      RPlanet => CONST_RADIUS
     
     use scale_atmos_phy_sf_const, only: &
        ATMOS_PHY_SF_const_flux
@@ -315,12 +316,16 @@ contains
     real(RP) :: LiftDelFlx(elem%Np)
     real(RP) :: del_flux(elem%NfpTot,lcmesh%Ne,4)
 
+    real(RP) :: X, Y, del
+    real(RP) :: coef
+    real(RP) :: SFLX_MU1, SFLX_MV1
+
     !-------------------------------------------------
 
     if (is_update_sflx) then
       !$omp parallel do collapse(2) private( &
       !$omp ke, hSliceZ0, hsliceZ1,          &
-      !$omp dens                             )
+      !$omp dens, coef, X, Y, del            )
       do ke2D=lcmesh2D%NeS, lcmesh2D%NeE
       do ij=1, elem2D%Np
 
@@ -328,9 +333,16 @@ contains
         hsliceZ0 = elem%Hslice(ij,1)
         hsliceZ1 = elem%Hslice(ij,2)
 
+        X = lcmesh2D%pos_en(ij,ke2D,1)
+        Y = lcmesh2D%pos_en(ij,ke2D,2)
+        del = sqrt(1.0_RP + X**2 + Y**2)
+        coef = RPlanet * sqrt(1.0_RP + X**2) / del**2
+
         dens = DENS_hyd(hsliceZ1,ke) + DDENS(hsliceZ1,ke)
-        ATM_U(ij,ke2D) = MOMX(hsliceZ1,ke) / dens
-        ATM_V(ij,ke2D) = MOMY(hsliceZ1,ke) / dens
+!        ATM_U(ij,ke2D) = MOMX(hsliceZ1,ke) / dens
+!        ATM_V(ij,ke2D) = MOMY(hsliceZ1,ke) / dens
+        ATM_U(ij,ke2D) = coef * del * MOMX(hsliceZ1,ke) / dens
+        ATM_V(ij,ke2D) = coef * ( - X * Y * MOMX(hsliceZ1,ke) + (1.0_RP + X**2) * MOMY(hsliceZ1,ke) ) / dens
         ATM_W(ij,ke2D) = 0.0_RP
 
         SFC_DENS(ij,ke2D) = DENS_hyd(hsliceZ0,ke) + DDENS(hsliceZ0,ke)
@@ -351,6 +363,22 @@ contains
           U10(:,:), V10(:,:)                                     ) ! [OUT]
       end select
 
+      !$omp parallel do collapse(2) private( &
+      !$omp coef, X, Y, del, SFLX_MU1, SFLX_MV1 )
+      do ke2D=lcmesh2D%NeS, lcmesh2D%NeE
+      do ij=1, elem2D%Np
+
+        X = lcmesh2D%pos_en(ij,ke2D,1)
+        Y = lcmesh2D%pos_en(ij,ke2D,2)
+        del = sqrt(1.0_RP + X**2 + Y**2)
+        coef = del / ( RPlanet * (1.0_RP + Y**2) * sqrt(1.0_RP + X**2) )
+
+        SFLX_MU1 = SFLX_MU(ij,ke2D)
+        SFLX_MV1 = SFLX_MV(ij,ke2D)
+        SFLX_MU(ij,ke2D) = coef * ( 1.0_RP + Y**2 ) * SFLX_MU1
+        SFLX_MV(ij,ke2D) = coef * ( X * Y* SFLX_MU1 + del * SFLX_MV1 )
+      end do
+      end do      
     end if
 
     !- Add the tendency due to the surface flux
