@@ -28,6 +28,7 @@ module scale_meshfieldcomm_base
   type, abstract, public :: MeshFieldCommBase
     integer :: sfield_num
     integer :: hvfield_num
+    integer :: htensorfield_num
     integer :: field_num_tot
 
     class(MeshBase), pointer :: mesh
@@ -114,13 +115,14 @@ module scale_meshfieldcomm_base
 
 contains
   subroutine MeshFieldCommBase_Init( this, &
-    sfield_num, hvfield_num, bufsize_per_field, comm_face_num, mesh )
+    sfield_num, hvfield_num, htensorfield_num, bufsize_per_field, comm_face_num, mesh )
 
     implicit none
     
     class(MeshFieldCommBase), intent(inout) :: this
     integer, intent(in) :: sfield_num
     integer, intent(in) :: hvfield_num
+    integer, intent(in) :: htensorfield_num
     integer, intent(in) :: bufsize_per_field
     integer, intent(in) :: comm_face_num
     class(Meshbase), intent(in), target :: mesh
@@ -129,7 +131,8 @@ contains
     this%mesh => mesh
     this%sfield_num = sfield_num
     this%hvfield_num = hvfield_num
-    this%field_num_tot = sfield_num + hvfield_num*2
+    this%htensorfield_num = htensorfield_num
+    this%field_num_tot = sfield_num + hvfield_num*2 + htensorfield_num*4
     this%nfaces_comm = comm_face_num
 
     if (this%field_num_tot > 0) then

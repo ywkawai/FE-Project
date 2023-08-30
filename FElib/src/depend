@@ -28,7 +28,10 @@ $(BUILD_DIR)/scale_atm_dyn_dgm_nonhydro3d_rhot_hevi_splitform.o: fluid_dyn_solve
 $(BUILD_DIR)/scale_atm_dyn_dgm_spongelayer.o: fluid_dyn_solver/scale_atm_dyn_dgm_spongelayer.F90 $(DEPENDLIB) $(BUILD_DIR)/scale_element_base.o $(BUILD_DIR)/scale_localmesh_3d.o $(BUILD_DIR)/scale_localmesh_base.o $(BUILD_DIR)/scale_mesh_base3d.o $(BUILD_DIR)/scale_mesh_cubedom3d.o $(BUILD_DIR)/scale_mesh_cubedspheredom3d.o
 $(BUILD_DIR)/scale_atm_dyn_dgm_trcadvect3d_heve.o: fluid_dyn_solver/scale_atm_dyn_dgm_trcadvect3d_heve.F90 $(DEPENDLIB) $(BUILD_DIR)/scale_element_base.o $(BUILD_DIR)/scale_element_hexahedral.o $(BUILD_DIR)/scale_localmesh_2d.o $(BUILD_DIR)/scale_localmesh_3d.o $(BUILD_DIR)/scale_localmeshfield_base.o $(BUILD_DIR)/scale_mesh_base2d.o $(BUILD_DIR)/scale_mesh_base3d.o $(BUILD_DIR)/scale_meshfield_base.o $(BUILD_DIR)/scale_polynominal.o $(BUILD_DIR)/scale_sparsemat.o
 $(BUILD_DIR)/scale_atm_phy_mp_dgm_common.o: microphysics/scale_atm_phy_mp_dgm_common.F90 $(DEPENDLIB) $(BUILD_DIR)/scale_element_base.o $(BUILD_DIR)/scale_localmesh_3d.o $(BUILD_DIR)/scale_localmeshfield_base.o $(BUILD_DIR)/scale_mesh_base3d.o $(BUILD_DIR)/scale_polynominal.o $(BUILD_DIR)/scale_sparsemat.o
-$(BUILD_DIR)/scale_atm_phy_tb_dgm_smg.o: turbulence/scale_atm_phy_tb_dgm_smg.F90 $(DEPENDLIB) $(BUILD_DIR)/scale_element_base.o $(BUILD_DIR)/scale_element_hexahedral.o $(BUILD_DIR)/scale_localmesh_2d.o $(BUILD_DIR)/scale_localmesh_3d.o $(BUILD_DIR)/scale_localmeshfield_base.o $(BUILD_DIR)/scale_mesh_base3d.o $(BUILD_DIR)/scale_meshfield_base.o $(BUILD_DIR)/scale_sparsemat.o
+$(BUILD_DIR)/scale_atm_phy_tb_dgm_common.o: turbulence/scale_atm_phy_tb_dgm_common.F90 $(DEPENDLIB) $(BUILD_DIR)/scale_element_base.o $(BUILD_DIR)/scale_localmesh_2d.o $(BUILD_DIR)/scale_localmesh_3d.o $(BUILD_DIR)/scale_model_var_manager.o
+$(BUILD_DIR)/scale_atm_phy_tb_dgm_driver.o: turbulence/scale_atm_phy_tb_dgm_driver.F90 $(DEPENDLIB) $(BUILD_DIR)/scale_atm_dyn_dgm_bnd.o $(BUILD_DIR)/scale_atm_dyn_dgm_nonhydro3d_common.o $(BUILD_DIR)/scale_atm_phy_tb_dgm_common.o $(BUILD_DIR)/scale_atm_phy_tb_dgm_globalsmg.o $(BUILD_DIR)/scale_atm_phy_tb_dgm_smg.o $(BUILD_DIR)/scale_element_base.o $(BUILD_DIR)/scale_element_hexahedral.o $(BUILD_DIR)/scale_localmesh_2d.o $(BUILD_DIR)/scale_localmesh_3d.o $(BUILD_DIR)/scale_localmesh_base.o $(BUILD_DIR)/scale_mesh_base3d.o $(BUILD_DIR)/scale_meshfield_base.o $(BUILD_DIR)/scale_model_mesh_manager.o $(BUILD_DIR)/scale_model_var_manager.o $(BUILD_DIR)/scale_sparsemat.o
+$(BUILD_DIR)/scale_atm_phy_tb_dgm_globalsmg.o: turbulence/scale_atm_phy_tb_dgm_globalsmg.F90 $(DEPENDLIB) $(BUILD_DIR)/scale_atm_phy_tb_dgm_common.o $(BUILD_DIR)/scale_cubedsphere_coord_cnv.o $(BUILD_DIR)/scale_element_base.o $(BUILD_DIR)/scale_element_hexahedral.o $(BUILD_DIR)/scale_localmesh_2d.o $(BUILD_DIR)/scale_localmesh_3d.o $(BUILD_DIR)/scale_localmeshfield_base.o $(BUILD_DIR)/scale_mesh_base3d.o $(BUILD_DIR)/scale_meshfield_base.o $(BUILD_DIR)/scale_sparsemat.o
+$(BUILD_DIR)/scale_atm_phy_tb_dgm_smg.o: turbulence/scale_atm_phy_tb_dgm_smg.F90 $(DEPENDLIB) $(BUILD_DIR)/scale_atm_phy_tb_dgm_common.o $(BUILD_DIR)/scale_element_base.o $(BUILD_DIR)/scale_element_hexahedral.o $(BUILD_DIR)/scale_localmesh_2d.o $(BUILD_DIR)/scale_localmesh_3d.o $(BUILD_DIR)/scale_localmeshfield_base.o $(BUILD_DIR)/scale_mesh_base3d.o $(BUILD_DIR)/scale_meshfield_base.o $(BUILD_DIR)/scale_sparsemat.o
 $(BUILD_DIR)/scale_coriolis_param.o: common/scale_coriolis_param.F90 $(DEPENDLIB)
 $(BUILD_DIR)/scale_cubedsphere_coord_cnv.o: common/scale_cubedsphere_coord_cnv.F90 $(DEPENDLIB) $(BUILD_DIR)/scale_geographic_coord_cnv.o
 $(BUILD_DIR)/scale_element_base.o: element/scale_element_base.F90 $(DEPENDLIB)
@@ -122,6 +125,9 @@ MODS =	\
 	$(BUILD_DIR)/scale_atm_dyn_dgm_spongelayer.mod	\
 	$(BUILD_DIR)/scale_atm_dyn_dgm_trcadvect3d_heve.mod	\
 	$(BUILD_DIR)/scale_atm_phy_mp_dgm_common.mod	\
+	$(BUILD_DIR)/scale_atm_phy_tb_dgm_common.mod	\
+	$(BUILD_DIR)/scale_atm_phy_tb_dgm_driver.mod	\
+	$(BUILD_DIR)/scale_atm_phy_tb_dgm_globalsmg.mod	\
 	$(BUILD_DIR)/scale_atm_phy_tb_dgm_smg.mod	\
 	$(BUILD_DIR)/scale_coriolis_param.mod	\
 	$(BUILD_DIR)/scale_cubedsphere_coord_cnv.mod	\

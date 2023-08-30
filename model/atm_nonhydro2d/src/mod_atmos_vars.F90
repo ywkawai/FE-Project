@@ -130,13 +130,13 @@ contains
     call DENS_hydro%Init( "DENS_hydro", "kg/m3", mesh )
     call PRES_hydro%Init( "PRES_hydro", "kg.s-2.m-1", mesh )
 
-    call PROG_VARS_comm%Init(PROG_VARS_NUM, 0, mesh)
+    call PROG_VARS_comm%Init(PROG_VARS_NUM, 0, 0, mesh)
     PROG_VARS_list(VARS_DDENS_ID)%field2d => DDENS
     PROG_VARS_list(VARS_MOMX_ID)%field2d => MOMX
     PROG_VARS_list(VARS_MOMZ_ID)%field2d => MOMZ
     PROG_VARS_list(VARS_DRHOT_ID)%field2d => DRHOT
 
-    call AUX_DIFFVARS_comm%Init(AUX_DIFFVARS_NUM, 0, mesh)
+    call AUX_DIFFVARS_comm%Init(AUX_DIFFVARS_NUM, 0, 0, mesh)
     AUX_DIFFVARS_list(VARS_GxU_ID)%field2d => GxU
     AUX_DIFFVARS_list(VARS_GzU_ID)%field2d => GzU
     AUX_DIFFVARS_list(VARS_GxW_ID)%field2d => GxW

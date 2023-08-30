@@ -323,6 +323,8 @@ contains
     x, y, z, lcmesh, elem,                   &
     bnd_SFC_PRES                             )
 
+    use scale_const, only: &
+      EPS0 => CONST_EPS
     implicit none
 
     class(LocalMesh3D), intent(in) :: lcmesh
@@ -343,7 +345,6 @@ contains
     integer :: itr_lin
     integer :: itr_nlin
 
-    real(RP), parameter :: EPS0 = 1.0E-12_RP
     real(RP), parameter :: EPS  = 1.0E-12_RP
 
     type(SparseMat) :: Dz, Lift
@@ -397,7 +398,7 @@ contains
     m = min(N / elem%Nnode_h1D**2, 30)
 !    m = min(N / elem%Nnode_h1D**2, 256)
 
-    call gmres_hydro%Init( N, m, EPS, EPS )
+    call gmres_hydro%Init( N, m, EPS, EPS0 )
     allocate( wj(N), pinv_v(N) )
 
     call Dz%Init( elem%Dx3, storage_format='ELL' )
@@ -466,14 +467,16 @@ contains
 
         do itr_lin=1, 2*int(N/m)
           !
-          call GMRES_hydro_core( gmres_hydro, VAR_DEL, wj, is_converged, &
-            VARS, b, N, m,                                               &
+          call GMRES_hydro_core( gmres_hydro, VAR_DEL, wj, is_converged, & ! (out)
+            VARS, b, N, m,                                               & ! (in)
             PmatDlu,  PmatDlu_ipiv,  PmatL, PmatU, pinv_v,               & ! (in)
             POT(:,:,ke_x,ke_y), Rtot(:,:,ke_x,ke_y),                     & ! (in)
             CPtot_ov_CVtot(:,:,ke_x,ke_y), DENS_hyd_z, PRES_hyd_z,       & ! (in)
             Dz, Lift, IntrpMat_VPOrdM1, lcmesh, elem,                    & ! (in)
             nz, vmapM_z1D, vmapP_z1D, ke_x, ke_y )
 
+            ! LOG_PROGRESS(*) ke_x, ke_y, "itr_lin:", itr_lin, ": VAR_DEL", VAR_DEL(elem%Colmask(:,1),1)
+            ! if( IO_L ) call flush(IO_FID_LOG)
           if (is_converged) exit
         end do ! itr_lin
         do ke_z=1, lcmesh%NeZ  
@@ -604,11 +607,8 @@ contains
         nz, vmapM, vmapP, ke_x, ke_y             ) ! (in)
       
       call gmres_hydro%Iterate_step_j( j, wj, is_converged )
-      
-      if ( is_converged .and. j==1 ) then
-        x(:) = pinv_v(:) * gmres_hydro%g(1)
-        return
-      end if
+
+      LOG_INFO("GMRES check**:",*) "j=", j, "g:", gmres_hydro%g(j+1), "r:", gmres_hydro%r(j,j), "hj(j+1):", gmres_hydro%hj(j+1)      
       if ( is_converged ) exit
     end do
 

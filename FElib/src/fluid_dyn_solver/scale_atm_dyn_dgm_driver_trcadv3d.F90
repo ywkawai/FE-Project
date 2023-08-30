@@ -237,7 +237,7 @@ contains
 
     iv = TRCVARS3D_TRCADV_ID
     call model_mesh3D%Create_communicator( &
-      1, 0,                            & ! (in) 
+      1, 0, 0,                         & ! (in) 
       this%TRCVAR3D_manager,           & ! (in)
       this%TRCVARS3D(iv:iv),           & ! (in)
       this%TRCVAR3D_commid             ) ! (out)
@@ -256,7 +256,7 @@ contains
     end do
 
     call model_mesh3D%Create_communicator( &
-      1, 1,                              & ! (in) 
+      1, 1, 0,                           & ! (in) 
       this%AUXTRC_FLUX_VAR3D_manager,    & ! (in)
       this%AUXTRC_FLUX_VARS3D(:),        & ! (in)
       this%AUXTRC_FLUX_VAR3D_commid      ) ! (out)
@@ -275,7 +275,7 @@ contains
     end do
 
     call model_mesh3D%Create_communicator( &
-      1, 0,                            & ! (in) 
+      1, 0, 0,                         & ! (in) 
       this%AUXTRCVAR3D_manager,        & ! (in)
       this%AUX_TRCVARS3D(:),           & ! (in)
       this%AUXTRCVAR3D_commid          ) ! (out)

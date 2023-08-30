@@ -67,7 +67,7 @@ contains
     !-----------------------------------------------------------------------------
     
     this%mesh1d => mesh1d 
-    call MeshFieldCommBase_Init( this, sfield_num, hvfield_num, mesh1d%refElem1D%Nfp * 2, 2, mesh1d)  
+    call MeshFieldCommBase_Init( this, sfield_num, hvfield_num, 0, mesh1d%refElem1D%Nfp * 2, 2, mesh1d)  
   
     return
   end subroutine MeshFieldComm1D_Init

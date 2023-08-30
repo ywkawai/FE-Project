@@ -62,7 +62,7 @@ module scale_model_mesh_manager
   end type ModelMesh3D
 
   interface
-    subroutine ModelMesh3D_create_communicator( this, sfield_num, hvfield_num, var_manager, field_list, commid )
+    subroutine ModelMesh3D_create_communicator( this, sfield_num, hvfield_num, htensorfield_num, var_manager, field_list, commid )
       import ModelMesh3D
       import MeshBase3D
       import ModelVarManager
@@ -70,6 +70,7 @@ module scale_model_mesh_manager
       class(ModelMesh3D), target, intent(inout) :: this
       integer, intent(in) :: sfield_num
       integer, intent(in) :: hvfield_num
+      integer, intent(in) :: htensorfield_num
       class(ModelVarManager), intent(inout) :: var_manager
       class(MeshField3D), intent(in) :: field_list(:)
       integer, intent(out) :: commid

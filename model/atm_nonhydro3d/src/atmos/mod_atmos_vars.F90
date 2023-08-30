@@ -300,7 +300,7 @@ contains
     end do
 
     call atm_mesh%Create_communicator( &
-      PRGVAR_SCALAR_NUM, PRGVAR_HVEC_NUM,                 & ! (in)
+      PRGVAR_SCALAR_NUM, PRGVAR_HVEC_NUM, 0,              & ! (in)
       this%PROGVARS_manager,                              & ! (inout)
       this%PROG_VARS(:),                                  & ! (in)
       this%PROG_VARS_commID                               ) ! (out)
@@ -329,7 +329,7 @@ contains
       end do
      
       call atm_mesh%Create_communicator( &
-        QA, 0,                           & ! (in)
+        QA, 0, 0,                        & ! (in)
         this%QTRCVARS_manager,           & ! (inout)
         this%QTRC_VARS(:),               & ! (in)
         this%QTRC_VARS_commID            ) ! (out)
@@ -367,7 +367,7 @@ contains
     end do
 
     call atm_mesh%Create_communicator( &
-      AUXVAR_NUM, 0,                   & ! (in)
+      AUXVAR_NUM, 0, 0,                & ! (in)
       this%AUXVARS_manager,            & ! (inout)
       this%AUX_VARS(:),                & ! (in)
       this%AUX_VARS_commID             ) ! (out)

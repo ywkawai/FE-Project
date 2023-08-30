@@ -149,7 +149,7 @@ contains
         this%NUMDIFF_FLUX_VARS2D(v)%local(n)%val(:,:) = 0.0_RP
       end do         
     end do
-    call this%NUMDIFF_FLUX_comm%Init( SW_DYN_NUMDIFF_FLUX_NUM, 0, sw_mesh%mesh )
+    call this%NUMDIFF_FLUX_comm%Init( SW_DYN_NUMDIFF_FLUX_NUM, 0, 0, sw_mesh%mesh )
     call this%NUMDIFF_FLUX_manager%MeshFieldComm_Prepair( this%NUMDIFF_FLUX_comm, this%NUMDIFF_FLUX_VARS2D(:) )
 
     !-
@@ -166,7 +166,7 @@ contains
         this%NUMDIFF_TEND_VARS2D(v)%local(n)%val(:,:) = 0.0_RP
       end do         
     end do
-    call this%NUMDIFF_TEND_comm%Init( SW_DYN_NUMDIFF_TEND_NUM, 0, sw_mesh%mesh )
+    call this%NUMDIFF_TEND_comm%Init( SW_DYN_NUMDIFF_TEND_NUM, 0, 0, sw_mesh%mesh )
     call this%NUMDIFF_TEND_manager%MeshFieldComm_Prepair( this%NUMDIFF_TEND_comm, this%NUMDIFF_TEND_VARS2D(:) )
     
     return

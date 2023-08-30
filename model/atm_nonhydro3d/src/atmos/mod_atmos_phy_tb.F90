@@ -49,6 +49,8 @@ module mod_atmos_phy_tb
     atm_phy_tb_dgm_smg_cal_grad_qtrc, &
     atm_phy_tb_dgm_smg_cal_tend_qtrc
 
+  use scale_atm_phy_tb_dgm_driver, only: &
+    AtmPhyTbDGMDriver
   use mod_atmos_phy_tb_vars, only: AtmosPhyTbVars
 
   !-----------------------------------------------------------------------------
@@ -60,6 +62,8 @@ module mod_atmos_phy_tb
   !
   type, extends(ModelComponentProc), public :: AtmosPhyTb
     integer :: TB_TYPEID
+    type(AtmPhyTbDGMDriver) :: tb_driver
+
     type(AtmosPhyTbVars) :: vars
     type(AtmDynBnd), pointer :: dyn_bnd
   contains
@@ -73,8 +77,6 @@ module mod_atmos_phy_tb
   !-----------------------------------------------------------------------------
   !++ Public parameters & variables
   !-----------------------------------------------------------------------------
-
-  integer, parameter :: TB_TYPEID_SMAGORINSKY  = 1
 
   !-----------------------------------------------------------------------------
   !
@@ -108,6 +110,7 @@ contains
     
     class(AtmosMesh), pointer     :: atm_mesh
     class(MeshBase), pointer      :: ptr_mesh
+    real(DP) :: dtsec
 
     integer :: ierr
     !--------------------------------------------------
@@ -141,19 +144,13 @@ contains
     call tm_parent_comp%Regist_process( 'ATMOS_PHY_TB', TIME_DT, TIME_DT_UNIT, & ! (in)
       this%tm_process_id )                                                       ! (out)
 
+    dtsec = tm_parent_comp%process_list(this%tm_process_id)%dtsec
+
     !- initialize the variables 
     call this%vars%Init( model_mesh )      
 
-    !--- Set the type of turbulence scheme
-
-    select case( TB_TYPE )
-    case ('SMAGORINSKY')
-      this%TB_TYPEID = TB_TYPEID_SMAGORINSKY
-      call atm_phy_tb_dgm_smg_Init( atm_mesh%ptr_mesh )
-    case default
-      LOG_ERROR("ATMOS_PHY_TB_setup",*) 'Not appropriate names of TB_TYPE in namelist PARAM_ATMOS_PHY_TB. Check!'
-      call PRC_abort
-    end select
+    !- Initialize a module for turbulence model
+    call this%tb_driver%Init( TB_TYPE, dtsec, atm_mesh )
 
     !--
     this%dyn_bnd => null()
@@ -178,10 +175,8 @@ contains
       AtmosVars_GetLocalMeshPhyAuxVars, &
       AtmosVars_GetLocalMeshPhyTends
     use mod_atmos_phy_tb_vars, only:          &
-      AtmosPhyTbVars_GetLocalMeshFields_tend,    &
-      AtmosPhyTbVars_GetLocalMeshFields_aux,     &
-      AtmosPhyTbVars_GetLocalMeshFields_aux_qtrc
-    
+      AtmosPhyTbVars_GetLocalMeshFields_tend
+     
     implicit none
     
     class(AtmosPhyTb), intent(inout) :: this
@@ -193,32 +188,17 @@ contains
     logical, intent(in) :: is_update
 
     class(MeshBase), pointer :: mesh
+    class(MeshBase3D), pointer :: mesh3D
     class(LocalMesh3D), pointer :: lcmesh
+    integer :: n
+    integer :: ke
+    integer :: iq
 
-    class(LocalMeshFieldBase), pointer :: DDENS, MOMX, MOMY, MOMZ, THERM, QTRC
-    class(LocalMeshFieldBase), pointer :: DENS_hyd, PRES_hyd
-    class(LocalMeshFieldBase), pointer :: PRES, PT
-    class(LocalMeshFieldBase), pointer :: Rtot, CVtot, CPtot
     class(LocalMeshFieldBase), pointer :: DENS_tp, MOMX_tp, MOMY_tp, MOMZ_tp, RHOT_tp, RHOH_P
     type(LocalMeshFieldBaseList) :: RHOQ_tp(QA)
     class(LocalMeshFieldBase), pointer :: tb_MOMX_t, tb_MOMY_t, tb_MOMZ_t, tb_RHOT_t
     class(LocalMeshFieldBase), pointer :: tb_RHOQ_t
     type(LocalMeshFieldBaseList) :: tb_RHOQ_t_list(QA)
-    class(LocalMeshFieldBase), pointer :: S11, S12, S22, S23, S31, S33, TKE
-    class(LocalMeshFieldBase), pointer :: dPTdx, dPTdy, dPTdz
-    class(LocalMeshFieldBase), pointer :: dQTdx, dQTdy, dQTdz
-    class(LocalMeshFieldBase), pointer :: Nu, Kh
-
-    integer :: n
-    integer :: ke
-    integer :: iq
-
-    type DYN_BNDInfo
-      logical, allocatable :: is_bound(:,:)
-    end type
-    type(DYN_BNDInfo), allocatable :: bnd_info(:)
-
-    logical :: cal_grad_flag
     !--------------------------------------------------
 
     if (.not. this%IsActivated()) return
@@ -228,157 +208,19 @@ contains
     LOG_PROGRESS(*) 'atmosphere / physics / turbulence'
 
     call model_mesh%GetModelMesh( mesh )
+    select type(mesh)
+    class is (MeshBase3D)
+      mesh3D => mesh
+    end select
 
     if (is_update) then
-      allocate( bnd_info(mesh%LOCAL_MESH_NUM) )
-
-      do n=1, mesh%LOCAL_MESH_NUM
-        call PROF_rapstart('ATM_PHY_TB_get_localmesh_ptr', 2)         
-        call AtmosVars_GetLocalMeshPrgVars( n, &
-          mesh, prgvars_list, auxvars_list,       &
-          DDENS, MOMX, MOMY, MOMZ, THERM,         &
-          DENS_hyd, PRES_hyd, Rtot, CVtot, CPtot, &
-          lcmesh                                  )      
-        call AtmosVars_GetLocalMeshPhyAuxVars( n,      &
-          mesh, auxvars_list,                          &
-          PRES, PT )
-        call AtmosPhyTbVars_GetLocalMeshFields_aux( n, &
-          mesh, this%vars%auxvars_manager,             &
-          S11, S12, S22, S23, S31, S33, TKE,           &
-          dPTdx, dPTdy, dPTdz, Nu, Kh                  )
-        call PROF_rapend('ATM_PHY_TB_get_localmesh_ptr', 2)   
-
-        call PROF_rapstart('ATM_PHY_TB_inquire_bnd', 2)
-        allocate( bnd_info(n)%is_bound(lcmesh%refElem%NfpTot,lcmesh%Ne) )
-        call this%dyn_bnd%Inquire_bound_flag(  bnd_info(n)%is_bound, &
-          n, lcmesh%VMapM, lcmesh%VMapP, lcmesh%VMapB,               &
-          lcmesh, lcmesh%refElem3D                                   )
-        call PROF_rapend('ATM_PHY_TB_inquire_bnd', 2)
-
-        call PROF_rapstart('ATM_PHY_TB_cal_grad', 2)
-        select case( this%TB_TYPEID )
-        case (TB_TYPEID_SMAGORINSKY)
-          call atm_phy_tb_dgm_smg_cal_grad( &
-              S11%val, S12%val, S22%val, S23%val, S31%val, S33%val, TKE%val,          &
-              dPTdx%val, dPTdy%val, dPTdz%val, Nu%val, Kh%val,                        &
-              DDENS%val, MOMX%val, MOMY%val, MOMZ%val, THERM%val,                     &
-              DENS_hyd%val, PRES_hyd%val, PRES%val, PT%val,                           &
-              model_mesh%DOptrMat(1), model_mesh%DOptrMat(2), model_mesh%DOptrMat(3), &
-              model_mesh%SOptrMat(1), model_mesh%SOptrMat(2), model_mesh%SOptrMat(3), &
-              model_mesh%LiftOptrMat,                                                 &
-              lcmesh, lcmesh%refElem3D, lcmesh%lcmesh2D, lcmesh%lcmesh2D%refElem2D,   &
-              bnd_info(n)%is_bound                                                    )
-        end select
-        call PROF_rapend('ATM_PHY_TB_cal_grad', 2)
-      end do
-
-      !* Exchange halo data
-      call PROF_rapstart('ATM_PHY_TB_exchange_prgv', 2)
-      call this%vars%auxvars_manager%MeshFieldComm_Exchange()
-      call PROF_rapend('ATM_PHY_TB_exchange_prgv', 2)
-
-      do n=1, mesh%LOCAL_MESH_NUM
-        call PROF_rapstart('ATM_PHY_TB_get_localmesh_ptr', 2)         
-        call AtmosVars_GetLocalMeshPrgVars( n, &
-          mesh, prgvars_list, auxvars_list,       &
-          DDENS, MOMX, MOMY, MOMZ, THERM,         &
-          DENS_hyd, PRES_hyd, Rtot, CVtot, CPtot, &
-          lcmesh                                  )
-        call AtmosVars_GetLocalMeshPhyAuxVars( n,      &
-          mesh, auxvars_list,                          &
-          PRES, PT )
-
-        call AtmosPhyTbVars_GetLocalMeshFields_tend( n,          &
-          mesh, this%vars%tends_manager,                         &
-          tb_MOMX_t, tb_MOMY_t, tb_MOMZ_t, tb_RHOT_t             )
-
-        call AtmosPhyTbVars_GetLocalMeshFields_aux( n, &
-          mesh, this%vars%auxvars_manager,             &
-          S11, S12, S22, S23, S31, S33, TKE,           &
-          dPTdx, dPTdy, dPTdz, Nu, Kh                  )
-        call PROF_rapend('ATM_PHY_TB_get_localmesh_ptr', 2)   
-  
-        call PROF_rapstart('ATM_PHY_TB_cal_tend', 2)
-        select case( this%TB_TYPEID )
-        case (TB_TYPEID_SMAGORINSKY)
-          call atm_phy_tb_dgm_smg_cal_tend( &
-              tb_MOMX_t%val, tb_MOMY_t%val, tb_MOMZ_t%val, tb_RHOT_t%val,                &
-              S11%val, S12%val, S22%val, S23%val, S31%val, S33%val, TKE%val,             &
-              dPTdx%val, dPTdy%val, dPTdz%val, Nu%val, Kh%val,                           &
-              DDENS%val, MOMX%val, MOMY%val, MOMZ%val, THERM%val,                        &
-              DENS_hyd%val, PRES_hyd%val, PRES%val, PT%val,                              &
-              model_mesh%DOptrMat(1), model_mesh%DOptrMat(2), model_mesh%DOptrMat(3),    &
-              model_mesh%SOptrMat(1), model_mesh%SOptrMat(2), model_mesh%SOptrMat(3),    &
-              model_mesh%LiftOptrMat,                                                    &
-              lcmesh, lcmesh%refElem3D, lcmesh%lcmesh2D, lcmesh%lcmesh2D%refElem2D,      &
-              bnd_info(n)%is_bound                                                       )
-        end select
-        call PROF_rapend('ATM_PHY_TB_cal_tend', 2)
-      end do
-
-      cal_grad_flag = .true.
-      do iq = 1, QA
-        if ( .not. TRACER_ADVC(iq) ) cycle
-        
-        do n=1, mesh%LOCAL_MESH_NUM
-
-          call PROF_rapstart('ATM_PHY_TB_get_localmesh_ptr', 2)
-          call AtmosVars_GetLocalMeshPrgVar( n, &
-            mesh, prgvars_list, auxvars_list,                          &
-            PRGVAR_DDENS_ID, DDENS, DENS_hyd=DENS_hyd, lcmesh3D=lcmesh )
-          call AtmosVars_GetLocalMeshQTRCVar( n,       &
-            mesh, trcvars_list, iq,                    &
-            QTRC                                       )
-          call AtmosPhyTbVars_GetLocalMeshFields_aux_qtrc( n, &
-            mesh, this%vars%auxvars_manager, this%vars%auxtrcvars_manager, &
-            dQTdx, dQTdy, dQTdz, Kh                                        )
-          call PROF_rapend('ATM_PHY_TB_get_localmesh_ptr', 2)         
-
-          call PROF_rapstart('ATM_PHY_TB_cal_grad_qtrc', 2)
-          call atm_phy_tb_dgm_smg_cal_grad_qtrc( &
-            dQTdx%val, dQTdy%val, dQTdz%val,                                           & ! (out)
-            this%vars%GRAD_DENS(1)%local(n)%val, this%vars%GRAD_DENS(2)%local(n)%val,  & ! (inout)
-            this%vars%GRAD_DENS(3)%local(n)%val,                                       & ! (inout)
-            QTRC%val, DDENS%val, DENS_hyd%val,                                         & ! (in) 
-            model_mesh%DOptrMat(1), model_mesh%DOptrMat(2), model_mesh%DOptrMat(3),    & ! (in)
-            model_mesh%SOptrMat(1), model_mesh%SOptrMat(2), model_mesh%SOptrMat(3),    & ! (in)
-            model_mesh%LiftOptrMat,                                                    & ! (in)
-            lcmesh, lcmesh%refElem3D, lcmesh%lcmesh2D, lcmesh%lcmesh2D%refElem2D,      & ! (in)
-            bnd_info(n)%is_bound, cal_grad_flag )                                      ! (in)
-          call PROF_rapend('ATM_PHY_TB_cal_grad_qtrc', 2)
-        end do
-        cal_grad_flag = .false.
-
-        call this%vars%auxtrcvars_manager%MeshFieldComm_Exchange()
-
-        do n=1, mesh%LOCAL_MESH_NUM
-          call PROF_rapstart('ATM_PHY_TB_get_localmesh_ptr', 2)         
-          call AtmosVars_GetLocalMeshPrgVar( n, &
-            mesh, prgvars_list, auxvars_list,                          &
-            PRGVAR_DDENS_ID, DDENS, DENS_hyd=DENS_hyd, lcmesh3D=lcmesh )
-          call AtmosPhyTbVars_GetLocalMeshFields_aux_qtrc( n, &
-            mesh, this%vars%auxvars_manager, this%vars%auxtrcvars_manager, &
-            dQTdx, dQTdy, dQTdz, Kh,                                       &
-            this%vars%tends_manager, iq, tb_RHOQ_t,                        &
-            lcmesh                                                         )
-          call PROF_rapend('ATM_PHY_TB_get_localmesh_ptr', 2)
-
-          call PROF_rapstart('ATM_PHY_TB_cal_tend_qtrc', 2)
-          call atm_phy_tb_dgm_smg_cal_tend_qtrc( tb_RHOQ_t%val,                        & ! (out)
-            dQTdx%val, dQTdy%val, dQTdz%val,                                           & ! (in)
-            Kh%val, DDENS%val, DENS_hyd%val,                                           & ! (in) 
-            model_mesh%DOptrMat(1), model_mesh%DOptrMat(2), model_mesh%DOptrMat(3),    & ! (in)
-            model_mesh%SOptrMat(1), model_mesh%SOptrMat(2), model_mesh%SOptrMat(3),    & ! (in)
-            model_mesh%LiftOptrMat,                                                    & ! (in)
-            lcmesh, lcmesh%refElem3D, lcmesh%lcmesh2D, lcmesh%lcmesh2D%refElem2D,      & ! (in)
-            bnd_info(n)%is_bound )                                                       ! (in)
-          call PROF_rapend('ATM_PHY_TB_cal_tend_qtrc', 2)
-        end do        
-      end do
-
-      do n = 1, mesh%LOCAL_MESH_NUM
-        deallocate( bnd_info(n)%is_bound )
-      end do
+      call this%tb_driver%Tendency( this%vars%tends_manager, &
+        prgvars_list, trcvars_list, auxvars_list,                                  &
+        this%vars%auxvars_manager, this%vars%diagvars_manager,                     &
+        this%dyn_bnd,                                                              &
+        model_mesh%DOptrMat(1), model_mesh%DOptrMat(2), model_mesh%DOptrMat(3),    &
+        model_mesh%SOptrMat(1), model_mesh%SOptrMat(2), model_mesh%SOptrMat(3),    &
+        model_mesh%LiftOptrMat, mesh3D                                             )
     end if
       
     call PROF_rapstart('ATM_PHY_TB_add_tend', 2)
@@ -392,7 +234,6 @@ contains
         mesh, this%vars%tends_manager,                              &
         tb_MOMX_t, tb_MOMY_t, tb_MOMZ_t, tb_RHOT_t, tb_RHOQ_t_list, &
         lcmesh                                                      )
-
 
       !$omp parallel private(ke, iq)
       !$omp do
@@ -443,11 +284,7 @@ contains
     !--------------------------------------------------
     if (.not. this%IsActivated()) return
 
-    select case ( this%TB_TYPEID )
-    case( TB_TYPEID_SMAGORINSKY )
-      call atm_phy_tb_dgm_smg_Final()
-    end select
-
+    call this%tb_driver%Final()
     call this%vars%Final()
 
     return

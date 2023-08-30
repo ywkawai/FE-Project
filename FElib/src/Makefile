@@ -130,7 +130,10 @@ OBJS_NAME_FLUID_DYN_SOLVER = \
 	scale_atm_dyn_dgm_trcadvect3d_heve.o	
 
 OBJS_NAME_TURBULENCE = \
-	scale_atm_phy_tb_dgm_smg.o
+	scale_atm_phy_tb_dgm_driver.o    \
+	scale_atm_phy_tb_dgm_smg.o       \
+	scale_atm_phy_tb_dgm_globalsmg.o \
+	scale_atm_phy_tb_dgm_common.o 
 
 OBJS_NAME_MICROPHYS = \
 	scale_atm_phy_mp_dgm_common.o

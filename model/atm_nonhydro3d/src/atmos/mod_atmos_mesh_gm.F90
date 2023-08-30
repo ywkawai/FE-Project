@@ -64,7 +64,7 @@ module mod_atmos_mesh_gm
   !
 
 contains
-
+!OCL SERIAL
   subroutine AtmosMeshGM_Init( this )    
     use scale_const, only: &
       RPlanet => CONST_RADIUS
@@ -177,6 +177,7 @@ contains
     return
   end subroutine AtmosMeshGM_Init
 
+!OCL SERIAL
   subroutine AtmosMeshGM_Final(this)
     implicit none
 
@@ -194,23 +195,27 @@ contains
     return
   end subroutine AtmosMeshGM_Final
 
-  subroutine AtmosMeshGM_create_communicator( this, sfield_num, hvfield_num, var_manager, field_list, commid )
+!OCL SERIAL
+  subroutine AtmosMeshGM_create_communicator( this, sfield_num, hvfield_num, htensorfield_num, &
+    var_manager, field_list, commid )
     implicit none
     class(AtmosMeshGM), target, intent(inout) :: this
     integer, intent(in) :: sfield_num
     integer, intent(in) :: hvfield_num
+    integer, intent(in) :: htensorfield_num
     class(ModelVarManager), intent(inout) :: var_manager
     class(MeshField3D), intent(in) :: field_list(:)
     integer, intent(out) :: commid
     !-----------------------------------------------------
 
     commid = this%Get_communicatorID( ATM_MESH_MAX_COMMNUICATOR_NUM )
-    call this%comm_list(commid)%Init( sfield_num, hvfield_num, this%mesh )
+    call this%comm_list(commid)%Init( sfield_num, hvfield_num, htensorfield_num, this%mesh )
     call var_manager%MeshFieldComm_Prepair( this%comm_list(commid), field_list )
 
     return
   end subroutine AtmosMeshGM_create_communicator  
 
+!OCL SERIAL
   subroutine AtmosMeshGM_setup_restartfile1( this, restart_file, var_num )
     implicit none
     class(AtmosMeshGM), target, intent(inout) :: this
@@ -222,6 +227,7 @@ contains
     return
   end subroutine AtmosMeshGM_setup_restartfile1
 
+!OCL SERIAL
   subroutine AtmosMeshGM_setup_restartfile2( this, restart_file, &
     in_basename, in_postfix_timelabel,                         &
     out_basename, out_postfix_timelabel,                       &
@@ -244,6 +250,7 @@ contains
 
   end subroutine AtmosMeshGM_setup_restartfile2
 
+!OCL SERIAL
   subroutine AtmosMeshGM_calc_UVMet( this, U, V, &
     Umet, Vmet )
 
@@ -277,6 +284,7 @@ contains
     return
   end subroutine AtmosMeshGM_calc_UVMet
 
+!OCL SERIAL
   subroutine AtmosMeshGM_setup_vcoordinate( this )
     use scale_meshfieldcomm_cubedspheredom2d, only: MeshFieldCommCubedSphereDom2D
     implicit none
@@ -286,8 +294,8 @@ contains
     type(MeshFieldCommCubedSphereDom2D) :: comm2D
     !-------------------------------------------------
 
-    call comm2D%Init( 1, 0, this%mesh%mesh2D )
-    call comm3D%Init( 1, 1, this%mesh )
+    call comm2D%Init( 1, 0, 0, this%mesh%mesh2D )
+    call comm3D%Init( 1, 1, 0, this%mesh )
 
     call this%topography%SetVCoordinate( this%ptr_mesh,   &
       this%vcoord_type_id, this%mesh%zmax_gl, comm3D, comm2D )
