@@ -10,7 +10,7 @@ SCALE_DG_REGRID_BIN_PATH="../../../../../../../bin"
 def mkconf_init( conf_path,
                 nprc, neh, nez, porder, 
                 fz  ): 
-    conf_init_s = f"""#--- Configuration file for a test case of tracer advection  -------
+    conf_init_s = f"""#--- Configuration file for Held Suarez test -------
 &PARAM_IO
  IO_LOG_BASENAME = 'init_LOG',
 /
@@ -61,7 +61,7 @@ def mkconf_init( conf_path,
 def mkconf_run( conf_path, 
                 restart_in_basename, start_year, start_mon, start_day, time_duration_day, 
                 nprc, neh, nez, porder, 
-                fz, dt, mf_alph, mf_ordh, mf_alpv, mf_ordv,
+                fz, dt, dt_dyn, mf_alph, mf_ordh, mf_alpv, mf_ordv,
                 spinup1_flag ):
   
   if spinup1_flag:
@@ -90,7 +90,7 @@ def mkconf_run( conf_path,
   TIME_STARTMS         = 0.D0,
   TIME_DURATION        = {time_duration_day}D0, 
   TIME_DURATION_UNIT   = 'DAY', 
-  TIME_DT              = 600.0D0, 
+  TIME_DT              = {dt}D0, 
   TIME_DT_UNIT         = 'SEC', 
 /
 &PARAM_USER
@@ -100,7 +100,7 @@ def mkconf_run( conf_path,
 &PARAM_ATMOS
   ACTIVATE_FLAG       = .true., 
   ATMOS_MESH_TYPE     = 'GLOBAL',   
-  TIME_DT             = 600.0D0, 
+  TIME_DT             = {dt}D0, 
   TIME_DT_UNIT        = 'SEC', 
   ATMOS_DYN_DO        = .true.
 /
@@ -126,7 +126,7 @@ def mkconf_run( conf_path,
   EQS_TYPE         = "GLOBALNONHYDRO3D_RHOT_HEVI", 
   !-
   TINTEG_TYPE  = 'IMEX_ARK324', ! [IMEX_ARK_232, IMEX_ARK324, RK_TVD_3]
-  TIME_DT          = {dt}D0, 
+  TIME_DT          = {dt_dyn}D0, 
   TIME_DT_UNIT     = 'SEC', 
   !-
   MODALFILTER_FLAG  = .true.,
@@ -186,7 +186,7 @@ def mkconf_regrid( conf_path,
                 regrid_nprcx, regrid_nprcy, 
                 regrid_nex, regrid_ney, regrid_nez, 
                 regrid_porder ): 
-  conf_run_s = f"""#--- Configuration file for a test case of sound wave  -------
+  conf_run_s = f"""#--- Configuration file for Held Suarez test  -------
 &PARAM_IO
  IO_LOG_BASENAME = "regrid_LOG"
 ! IO_LOG_ALLNODE  = .true., 
@@ -317,6 +317,9 @@ def get_job_header(job_name, nprc, elapse_time):
   node_num = math.ceil(nprc/4)
   if node_num > 384:
     rscgrp = "large"
+  if node_num == 384:
+    rscgrp = "large"
+    node_num = 385    
   else:
     rscgrp = "small"
   
@@ -332,6 +335,7 @@ def get_job_header(job_name, nprc, elapse_time):
 #PJM --rsc-list "node={node_num}"
 #PJM --rsc-list "elapse={elapse_time}"
 #PJM --mpi "max-proc-per-node=4"
+#PJM -L eco_state=2
 #PJM -S
 
 
@@ -415,16 +419,37 @@ def mk_conf_sh( exp_name, exp_info ):
     
     mkconf_run(f"{out_dir_pref}/spinup1/run.conf", 
                "init_00000101-000000.000", 1, 1, 1, 50, 
-                nprc, eh, ez, porder, fz, exp_info["dt"], 
+                nprc, eh, ez, porder, fz, exp_info["dt"], exp_info["dt_dyn"],
                 exp_info["mf_alph_ini"], exp_info["mf_ordh"], exp_info["mf_alpv_ini"], exp_info["mf_ordv"], True) 
     
-    os.makedirs(out_dir_pref+"/spinup2", exist_ok=True)
-    mkconf_run(f"{out_dir_pref}/spinup2/run.conf", 
-               "../spinup1/restart_00010220-000000.000", 1, 2, 20, 150, 
-                nprc, eh, ez, porder, fz, exp_info["dt"], 
-                exp_info["mf_alph"], exp_info["mf_ordh"], exp_info["mf_alpv"], exp_info["mf_ordv"], False) 
+    if (porder + 1) * eh < 192:
+      os.makedirs(out_dir_pref+"/spinup2", exist_ok=True)
+      mkconf_run(f"{out_dir_pref}/spinup2/run.conf", 
+                "../spinup1/restart_00010220-000000.000", 1, 2, 20, 150, 
+                  nprc, eh, ez, porder, fz, exp_info["dt"], exp_info["dt_dyn"],
+                  exp_info["mf_alph"], exp_info["mf_ordh"], exp_info["mf_alpv"], exp_info["mf_ordv"], False)
+      spinup_run_num = 2
+    else:
+      os.makedirs(out_dir_pref+"/spinup2", exist_ok=True)
+      mkconf_run(f"{out_dir_pref}/spinup2/run.conf", 
+                "../spinup1/restart_00010220-000000.000", 1, 2, 20, 50, 
+                  nprc, eh, ez, porder, fz, exp_info["dt"], exp_info["dt_dyn"],
+                  exp_info["mf_alph"], exp_info["mf_ordh"], exp_info["mf_alpv"], exp_info["mf_ordv"], False) 
+      
+      os.makedirs(out_dir_pref+"/spinup3", exist_ok=True)
+      mkconf_run(f"{out_dir_pref}/spinup3/run.conf", 
+                "../spinup2/restart_00010411-000000.000", 1, 4, 11, 50, 
+                  nprc, eh, ez, porder, fz, exp_info["dt"], exp_info["dt_dyn"],
+                  exp_info["mf_alph"], exp_info["mf_ordh"], exp_info["mf_alpv"], exp_info["mf_ordv"], False) 
+
+      os.makedirs(out_dir_pref+"/spinup4", exist_ok=True)
+      mkconf_run(f"{out_dir_pref}/spinup4/run.conf", 
+                "../spinup3/restart_00010531-000000.000", 1, 5, 31, 50, 
+                  nprc, eh, ez, porder, fz, exp_info["dt"], exp_info["dt_dyn"],
+                  exp_info["mf_alph"], exp_info["mf_ordh"], exp_info["mf_alpv"], exp_info["mf_ordv"], False) 
+      spinup_run_num = 4
                      
-    for runno in [1, 2]:
+    for runno in range(1, spinup_run_num+1):
       mkconf_regrid(f"{out_dir_pref}/spinup{runno}/regrid.conf",
                   nprc, eh, ez, porder, fz, 
                   exp_info["regrid_nprcx"], exp_info["regrid_nprcy"], 
@@ -451,13 +476,13 @@ def mk_conf_sh( exp_name, exp_info ):
       if runno > 1:
         prev_run_dir = f"../run{runno-1}"
       else:
-        prev_run_dir = "../spinup2"
+        prev_run_dir = f"../spinup{spinup_run_num}"
       
       os.makedirs(out_dir_pref+f"/run{runno}", exist_ok=True)
       mkconf_run(f"{out_dir_pref}/run{runno}/run.conf", 
                 f"{prev_run_dir}/restart_{date_time.year:04}{date_time.month:02}{date_time.day:02}-000000.000", 
                 date_time.year, date_time.month, date_time.day, day_per_run, 
-                nprc, eh, ez, porder, fz, exp_info["dt"], 
+                nprc, eh, ez, porder, fz, exp_info["dt"], exp_info["dt_dyn"],
                 exp_info["mf_alph"], exp_info["mf_ordh"], exp_info["mf_alpv"], exp_info["mf_ordv"], False) 
       
       mkconf_regrid(f"{out_dir_pref}/run{runno}/regrid.conf",

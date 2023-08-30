@@ -326,6 +326,9 @@ def get_job_header(job_name, nprc, elapse_time):
   node_num = math.ceil(nprc/4)
   if node_num > 384:
     rscgrp = "large"
+  if node_num == 384:
+    node_num = 385
+    rscgrp = "large"    
   else:
     rscgrp = "small"
   

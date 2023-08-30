@@ -73,7 +73,7 @@ def mkconf_init( conf_path,
 def mkconf_run( conf_path, 
                 restart_in_basename, start_day, 
                 nprc, neh, nez, porder, 
-                dt, 
+                dt, dt_dyn, 
                 modal_filter_flag, mf_alph, mf_ordh, mf_alpv, mf_ordv ): 
   
   if modal_filter_flag:
@@ -104,7 +104,7 @@ def mkconf_run( conf_path,
   TIME_STARTMS         = 0.D0,
   TIME_DURATION        = 2.0D0, 
   TIME_DURATION_UNIT   = 'DAY', 
-  TIME_DT              = 120.0D0, 
+  TIME_DT              = {dt}D0, 
   TIME_DT_UNIT         = 'SEC', 
 /
 &PARAM_CONST
@@ -117,7 +117,7 @@ def mkconf_run( conf_path,
 &PARAM_ATMOS
   ACTIVATE_FLAG       = .true., 
   ATMOS_MESH_TYPE     = 'GLOBAL',   
-  TIME_DT             = 120.0D0, 
+  TIME_DT             = {dt}D0, 
   TIME_DT_UNIT        = 'SEC', 
   ATMOS_DYN_DO        = .true.
 /
@@ -131,7 +131,7 @@ def mkconf_run( conf_path,
   dom_zmax         = 10.0D3, 
   PolyOrder_h      = {porder},
   PolyOrder_v      = {porder},
-!  LumpedMassMatFlag = .true.,   
+  LumpedMassMatFlag = .true.,   
 /
 &PARAM_ATMOS_VARS
   CHECK_RANGE = .true. ,
@@ -142,7 +142,7 @@ def mkconf_run( conf_path,
   EQS_TYPE         = "GLOBALNONHYDRO3D_RHOT_HEVI", 
   !-
   TINTEG_TYPE      = 'IMEX_ARK324', ! [IMEX_ARK_232, IMEX_ARK324, ERK_SSP_3s3o]
-  TIME_DT          = {dt}D0, 
+  TIME_DT          = {dt_dyn}D0, 
   TIME_DT_UNIT     = 'SEC', 
   !-
   MODALFILTER_FLAG  = {mf_flag},
@@ -352,7 +352,7 @@ def mk_conf_sh( exp_name, exp_info ):
     mkconf_run(f"{out_dir_pref}/run.conf", 
                "init_00000101-000000.000", 1, 
                 nprc, eh, ez, porder, 
-                exp_info["dt"], 
+                exp_info["dt"], exp_info["dt_dyn"],
                 exp_info["modal_filter_flag"], exp_info["mf_alph"], exp_info["mf_ordh"], exp_info["mf_alpv"], exp_info["mf_ordv"])        
                     
     mkconf_regrid(f"{out_dir_pref}/regrid.conf", 
