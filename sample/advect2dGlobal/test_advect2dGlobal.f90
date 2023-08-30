@@ -519,8 +519,8 @@ contains
     call U%Init( "U", "s-1", mesh )
     call V%Init( "V", "s-1", mesh )
 
-    call prgvars_comm%Init(1, 0, mesh)
-    call auxvars_comm%Init(0, 1, mesh)
+    call prgvars_comm%Init(1, 0, 0, mesh)
+    call auxvars_comm%Init(0, 1, 0, mesh)
     
     call lon%Init( "lon", "rad", mesh )
     call lat%Init( "lat", "rad", mesh )

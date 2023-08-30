@@ -566,8 +566,8 @@ contains
     call V%Init( "V", "s-1", mesh )
     call W%Init( "W", "s-1", mesh )
 
-    call prgvars_comm%Init(1, 0, mesh)
-    call auxvars_comm%Init(1, 1, mesh)
+    call prgvars_comm%Init(1, 0, 0, mesh)
+    call auxvars_comm%Init(1, 1, 0, mesh)
     
     call Vellon%Init( "Vellon", "m/s", mesh )
     call Vellat%Init( "Vellat", "m/s", mesh )

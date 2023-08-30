@@ -467,7 +467,7 @@ contains
     call qexact%Init( "qexact", "1", mesh )
     call u%Init( "u", "m/s", mesh )
     call v%Init( "v", "m/s", mesh )
-    call fields_comm%Init(3, 0, mesh)
+    call fields_comm%Init(3, 0, 0, mesh)
 
     call FILE_HISTORY_meshfield_setup( mesh2d_=mesh )
     call FILE_HISTORY_reg( q%varname, "q", q%unit, HST_ID(1), dim_type='XY')

@@ -252,7 +252,7 @@ contains
       end do         
     end do
 
-    call this%PROGVARS_comm%Init( 1, 1, sw_mesh%mesh )
+    call this%PROGVARS_comm%Init( 1, 1, 0, sw_mesh%mesh )
     call this%PROGVARS_manager%MeshFieldComm_Prepair( this%PROGVARS_comm, this%PROG_VARS(:) )
 
     LOG_NEWLINE
@@ -280,7 +280,7 @@ contains
       end do             
     end do
 
-    call this%AUXVARS_comm%Init(SW_AUXVARS_NUM, 0, sw_mesh%mesh)
+    call this%AUXVARS_comm%Init(SW_AUXVARS_NUM, 0, 0, sw_mesh%mesh)
     call this%AUXVARS_manager%MeshFieldComm_Prepair( this%AUXVARS_comm, this%AUX_VARS(:) )
 
     call this%PROGVARS_comm%SetCovariantVec( 1, &
