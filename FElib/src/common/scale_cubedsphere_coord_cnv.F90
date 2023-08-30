@@ -44,14 +44,27 @@ module scale_cubedsphere_coord_cnv
   public :: CubedSphereCoordCnv_LonLat2CSPos
   public :: CubedSphereCoordCnv_LonLat2CSVec
   public :: CubedSphereCoordCnv_CS2CartPos
-  public :: CubedSphereCoordCnv_Cart2CSVec
+  public :: CubedSphereCoordCnv_Cart2CSVec  
   public :: CubedSphereCoordCnv_GetMetric
+
+  interface CubedSphereCoordCnv_CS2LocalOrthVec_alpha
+    module procedure :: CubedSphereCoordCnv_CS2LocalOrthVec_alpha_0
+    module procedure :: CubedSphereCoordCnv_CS2LocalOrthVec_alpha_1
+  end interface
+  public :: CubedSphereCoordCnv_CS2LocalOrthVec_alpha
+  
+  interface CubedSphereCoordCnv_LocalOrth2CSVec_alpha
+    module procedure :: CubedSphereCoordCnv_LocalOrth2CSVec_alpha_0
+    module procedure :: CubedSphereCoordCnv_LocalOrth2CSVec_alpha_1
+  end interface
+  public :: CubedSphereCoordCnv_LocalOrth2CSVec_alpha
 
   !-----------------------------------------------------------------------------
   !
   !++ Public parameters & variables
   !
   !-----------------------------------------------------------------------------
+
   !
   !++ Private type & procedure
   !
@@ -571,6 +584,134 @@ contains
 
     return
   end subroutine CubedSphereCoordCnv_Cart2CSVec
+
+!OCL SERIAL  
+  subroutine CubedSphereCoordCnv_CS2LocalOrthVec_alpha_0( &
+    alpha, beta, radius, Np,                      & ! (in)
+    VecOrth1, VecOrth2                            ) ! (inout)
+
+    implicit none
+    
+    integer, intent(in) :: Np
+    real(RP), intent(in) :: alpha(Np)
+    real(RP), intent(in) :: beta (Np)
+    real(RP), intent(in) :: radius(Np)
+    real(RP), intent(inout) :: VecOrth1(Np)
+    real(RP), intent(inout) :: VecOrth2(Np)
+
+    integer :: p
+    real(RP) :: x1, x2, del
+    real(RP) :: fac
+    real(RP) :: tmp
+    !-----------------------------------------------------------------------------
+
+    !$omp parallel do private(x1, x2, del, fac, tmp)
+    do p=1, Np
+      x1 = tan( alpha(p) )
+      x2 = tan( beta (p) )
+      del = sqrt(1.0_RP + x1**2 + x2**2)
+      fac = radius(p) * sqrt(1.0_RP + x1**2) / del**2
+
+      tmp = VecOrth1(p)
+      VecOrth1(p) = fac * del * tmp
+      VecOrth2(p) = fac * ( - x1 * x2 * tmp + (1.0_RP + x2**2) * VecOrth2(p) )
+    end do
+
+    return
+  end subroutine CubedSphereCoordCnv_CS2LocalOrthVec_alpha_0
+
+!OCL SERIAL  
+  subroutine CubedSphereCoordCnv_CS2LocalOrthVec_alpha_1( &
+    alpha, beta, radius, Np,                      & ! (in)
+    VecAlpha, VecBeta,                            & ! (in)
+    VecOrth1, VecOrth2                            ) ! (out)
+
+    implicit none
+    
+    integer, intent(in) :: Np
+    real(RP), intent(in) :: alpha(Np)
+    real(RP), intent(in) :: beta (Np)
+    real(RP), intent(in) :: radius(Np)
+    real(RP), intent(in) :: VecAlpha(Np)
+    real(RP), intent(in) :: VecBeta (Np)
+    real(RP), intent(out) :: VecOrth1(Np)
+    real(RP), intent(out) :: VecOrth2(Np)
+
+    !-----------------------------------------------------------------------------
+
+    !$omp parallel workshare
+    VecOrth1(:) = VecAlpha(:)
+    VecOrth2(:) = VecBeta(:)
+    !$omp end parallel workshare
+
+    call CubedSphereCoordCnv_CS2LocalOrthVec_alpha_0( &
+      alpha, beta, radius, Np,                      & ! (in)
+      VecOrth1, VecOrth2                            ) ! (inout)    
+
+    return
+  end subroutine CubedSphereCoordCnv_CS2LocalOrthVec_alpha_1
+
+!OCL SERIAL  
+  subroutine CubedSphereCoordCnv_LocalOrth2CSVec_alpha_0( &
+    alpha, beta, radius, Np,                      & ! (in)
+    VecAlpha, VecBeta                             ) ! (inout)
+
+    implicit none
+    
+    integer, intent(in) :: Np
+    real(RP), intent(in) :: alpha(Np)
+    real(RP), intent(in) :: beta (Np)
+    real(RP), intent(in) :: radius(Np)
+    real(RP), intent(inout) :: VecAlpha(Np)
+    real(RP), intent(inout) :: VecBeta (Np)    
+
+    integer :: p
+    real(RP) :: x1, x2, del
+    real(RP) :: fac
+    real(RP) :: tmp
+    !-----------------------------------------------------------------------------
+
+    !$omp parallel do private(x1, x2, del, fac, tmp)
+    do p=1, Np
+      x1 = tan( alpha(p) )
+      x2 = tan( beta (p) )
+      del = sqrt(1.0_RP + x1**2 + x2**2)
+      fac = del / ( radius(p) * ( 1.0_RP + x2**2 ) * sqrt( 1.0_RP + x1**2 ) )
+
+      tmp = VecAlpha(p)
+      VecAlpha(p) = fac * ( 1.0_RP + x2**2 ) * tmp
+      VecBeta (p) = fac * ( x1 * x2 * tmp + del * VecBeta(p) )
+    end do
+
+    return
+  end subroutine CubedSphereCoordCnv_LocalOrth2CSVec_alpha_0
+
+!OCL SERIAL  
+  subroutine CubedSphereCoordCnv_LocalOrth2CSVec_alpha_1( &
+    alpha, beta, radius, Np,                      & ! (in)
+    VecOrth1, VecOrth2,                           & ! (in)
+    VecAlpha, VecBeta                             ) ! (out)
+
+    implicit none
+    
+    integer, intent(in) :: Np
+    real(RP), intent(in) :: alpha(Np)
+    real(RP), intent(in) :: beta (Np)
+    real(RP), intent(in) :: radius(Np)
+    real(RP), intent(in) :: VecOrth1(Np)
+    real(RP), intent(in) :: VecOrth2(Np)
+    real(RP), intent(out) :: VecAlpha(Np)
+    real(RP), intent(out) :: VecBeta (Np)    
+    !-----------------------------------------------------------------------------
+
+    !$omp parallel workshare
+    VecAlpha(:) = VecOrth1(:)
+    VecBeta(:) = VecOrth2(:)
+    !$omp end parallel workshare
+
+
+    return
+  end subroutine CubedSphereCoordCnv_LocalOrth2CSVec_alpha_1
 
 !OCL SERIAL  
   subroutine CubedSphereCoordCnv_GetMetric( &

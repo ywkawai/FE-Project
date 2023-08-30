@@ -37,6 +37,7 @@ module mod_atmos_phy_sfc
   use scale_model_var_manager, only: ModelVarManager
   use scale_model_component_proc, only:  ModelComponentProc
   
+  use mod_atmos_mesh, only: AtmosMesh
   use mod_atmos_phy_sfc_vars, only: AtmosPhySfcVars
 
   !-----------------------------------------------------------------------------
@@ -47,6 +48,8 @@ module mod_atmos_phy_sfc
   !++ Public type & procedure
   !
   type, extends(ModelComponentProc), public :: AtmosPhySfc
+    class(AtmosMesh), pointer :: mesh
+
     integer :: SFCFLX_TYPEID
     type(AtmosPhySfcVars) :: vars
   contains
@@ -66,6 +69,12 @@ module mod_atmos_phy_sfc
   !
   !++ Private procedure
   !
+
+  private :: cal_tend_from_sfcflx
+  private :: cal_del_flux
+  private :: convert_UV2LocalOrthVec
+  private :: convert_LocalOrth2UVVec
+
   !-----------------------------------------------------------------------------
   !
   !++ Private parameters & variables
@@ -75,7 +84,6 @@ module mod_atmos_phy_sfc
 contains
 !OCL SERIAL
   subroutine AtmosPhySfc_setup( this, model_mesh, tm_parent_comp )
-    use mod_atmos_mesh, only: AtmosMesh
     use scale_time_manager, only: TIME_manager_component
 
     use scale_atmos_phy_sf_const, only: &
@@ -131,6 +139,12 @@ contains
     case default
       LOG_ERROR("ATMOS_PHY_SFC_setup",*) 'Not appropriate names of SFCFLX_TYPE in namelist PARAM_PHY_SFC. Check!'
       call PRC_abort
+    end select
+
+    !--
+    select type(model_mesh)
+    class is (AtmosMesh)
+      this%mesh => model_mesh
     end select
 
     return
@@ -264,15 +278,16 @@ contains
     use scale_atmos_phy_sf_const, only: &
        ATMOS_PHY_SF_const_flux
  
-    use scale_sparsemat  
-
+    use scale_sparsemat, only: &
+      SparseMat, &
+      sparsemat_matmul    
     implicit none
 
     class(AtmosPhySfc), intent(inout) :: this
     class(LocalMesh3D), intent(in) :: lcmesh
-    class(elementbase3D), intent(in) :: elem
+    class(ElementBase3D), intent(in) :: elem
     class(LocalMesh2D), intent(in) :: lcmesh2D
-    class(elementbase2D), intent(in) :: elem2D
+    class(ElementBase2D), intent(in) :: elem2D
     logical, intent(in) :: is_update_sflx
     real(RP), intent(inout) :: DENS_tp(elem%Np,lcmesh%NeA)
     real(RP), intent(inout) :: MOMX_tp(elem%Np,lcmesh%NeA)
@@ -296,17 +311,18 @@ contains
     real(RP), intent(in) :: Rtot(elem%Np,lcmesh%NeA)
     type(SparseMat), intent(in) :: Dz, Sz, Lift
 
-    real(RP) :: ATM_W   (elem2D%Np,lcmesh2D%NeA)
-    real(RP) :: ATM_U   (elem2D%Np,lcmesh2D%NeA)
-    real(RP) :: ATM_V   (elem2D%Np,lcmesh2D%NeA)
-    real(RP) :: Z1      (elem2D%Np,lcmesh2D%NeA)
-    real(RP) :: SFC_TEMP(elem2D%Np,lcmesh2D%NeA)
-    real(RP) :: SFC_DENS(elem2D%Np,lcmesh2D%NeA)
+    real(RP) :: ATM_W   (elem2D%Np,lcmesh2D%Ne)
+    real(RP) :: ATM_U   (elem2D%Np,lcmesh2D%Ne)
+    real(RP) :: ATM_V   (elem2D%Np,lcmesh2D%Ne)
+    real(RP) :: DZ1     (elem2D%Np,lcmesh2D%Ne)
+    real(RP) :: Z1      (elem2D%Np,lcmesh2D%Ne)
+    real(RP) :: SFC_TEMP(elem2D%Np,lcmesh2D%Ne)
+    real(RP) :: SFC_DENS(elem2D%Np,lcmesh2D%Ne)
 
     ! dummy
-    real(RP) :: SFLX_QV(elem2D%Np,lcmesh2D%NeA)
-    real(RP) :: U10(elem2D%Np,lcmesh2D%NeA)
-    real(RP) :: V10(elem2D%Np,lcmesh2D%NeA)
+    real(RP) :: SFLX_QV(elem2D%Np,lcmesh2D%Ne)
+    real(RP) :: U10(elem2D%Np,lcmesh2D%Ne)
+    real(RP) :: V10(elem2D%Np,lcmesh2D%Ne)
 
     integer :: ke
     integer :: ke2D
@@ -316,8 +332,6 @@ contains
     real(RP) :: LiftDelFlx(elem%Np)
     real(RP) :: del_flux(elem%NfpTot,lcmesh%Ne,4)
 
-    real(RP) :: X, Y, del
-    real(RP) :: coef
     real(RP) :: SFLX_MU1, SFLX_MV1
 
     !-------------------------------------------------
@@ -325,7 +339,7 @@ contains
     if (is_update_sflx) then
       !$omp parallel do collapse(2) private( &
       !$omp ke, hSliceZ0, hsliceZ1,          &
-      !$omp dens, coef, X, Y, del            )
+      !$omp dens                             )
       do ke2D=lcmesh2D%NeS, lcmesh2D%NeE
       do ij=1, elem2D%Np
 
@@ -333,52 +347,39 @@ contains
         hsliceZ0 = elem%Hslice(ij,1)
         hsliceZ1 = elem%Hslice(ij,2)
 
-        X = lcmesh2D%pos_en(ij,ke2D,1)
-        Y = lcmesh2D%pos_en(ij,ke2D,2)
-        del = sqrt(1.0_RP + X**2 + Y**2)
-        coef = RPlanet * sqrt(1.0_RP + X**2) / del**2
-
         dens = DENS_hyd(hsliceZ1,ke) + DDENS(hsliceZ1,ke)
-!        ATM_U(ij,ke2D) = MOMX(hsliceZ1,ke) / dens
-!        ATM_V(ij,ke2D) = MOMY(hsliceZ1,ke) / dens
-        ATM_U(ij,ke2D) = coef * del * MOMX(hsliceZ1,ke) / dens
-        ATM_V(ij,ke2D) = coef * ( - X * Y * MOMX(hsliceZ1,ke) + (1.0_RP + X**2) * MOMY(hsliceZ1,ke) ) / dens
+        ATM_U(ij,ke2D) = MOMX(hsliceZ1,ke) / dens
+        ATM_V(ij,ke2D) = MOMY(hsliceZ1,ke) / dens
         ATM_W(ij,ke2D) = 0.0_RP
 
         SFC_DENS(ij,ke2D) = DENS_hyd(hsliceZ0,ke) + DDENS(hsliceZ0,ke)
         SFC_TEMP(ij,ke2D) = PRES(hsliceZ0,ke) / ( Rtot(hsliceZ0,ke) * SFC_DENS(ij,ke2D) )
 
-        Z1(ij,ke2D) = lcmesh%pos_en(hsliceZ1,ke,3)
+        Z1(ij,ke2D) = lcmesh%zlev(hsliceZ1,ke)
+        DZ1(ij,ke2D) = Z1(ij,ke2D) - lcmesh%zlev(hsliceZ0,ke)
+        Z1(ij,ke2D) = Z1(ij,ke2D) + RPlanet
       end do
       end do
 
+      call convert_UV2LocalOrthVec( &
+        this%mesh%ptr_mesh, lcmesh2D%pos_en(:,:,1), lcmesh2D%pos_en(:,:,2), Z1(:,:), elem2D%Np*lcmesh2D%Ne, &
+        ATM_U, ATM_V ) ! (inout)
+      
+      !---
       select case ( this%SFCFLX_TYPEID )
       case ( SFCFLX_TYPEID_CONST )
         call ATMOS_PHY_SF_const_flux( &
           elem2D%Np, 1, elem2D%Np, lcmesh2D%NeA, 1, lcmesh2D%Ne, & ! [IN]
           ATM_W(:,:), ATM_U(:,:), ATM_V(:,:), SFC_TEMP(:,:),     & ! [IN]
-          Z1(:,:), SFC_DENS(:,:),                                & ! [IN]
+          DZ1(:,:), SFC_DENS(:,:),                                & ! [IN]
           SFLX_MW(:,:), SFLX_MU(:,:), SFLX_MV(:,:),              & ! [OUT]
           SFLX_SH(:,:), SFLX_LH(:,:), SFLX_QV(:,:),              & ! [OUT]
           U10(:,:), V10(:,:)                                     ) ! [OUT]
       end select
 
-      !$omp parallel do collapse(2) private( &
-      !$omp coef, X, Y, del, SFLX_MU1, SFLX_MV1 )
-      do ke2D=lcmesh2D%NeS, lcmesh2D%NeE
-      do ij=1, elem2D%Np
-
-        X = lcmesh2D%pos_en(ij,ke2D,1)
-        Y = lcmesh2D%pos_en(ij,ke2D,2)
-        del = sqrt(1.0_RP + X**2 + Y**2)
-        coef = del / ( RPlanet * (1.0_RP + Y**2) * sqrt(1.0_RP + X**2) )
-
-        SFLX_MU1 = SFLX_MU(ij,ke2D)
-        SFLX_MV1 = SFLX_MV(ij,ke2D)
-        SFLX_MU(ij,ke2D) = coef * ( 1.0_RP + Y**2 ) * SFLX_MU1
-        SFLX_MV(ij,ke2D) = coef * ( X * Y* SFLX_MU1 + del * SFLX_MV1 )
-      end do
-      end do      
+      call convert_LocalOrth2UVVec( &
+        this%mesh%ptr_mesh, lcmesh2D%pos_en(:,:,1), lcmesh2D%pos_en(:,:,2), Z1(:,:), elem2D%Np*lcmesh2D%Ne, &
+        SFLX_MU, SFLX_MV ) ! (inout)
     end if
 
     !- Add the tendency due to the surface flux
@@ -416,14 +417,14 @@ contains
     implicit none
 
     class(LocalMesh3D), intent(in) :: lmesh
-    class(elementbase3D), intent(in) :: elem  
+    class(ElementBase3D), intent(in) :: elem  
     class(LocalMesh2D), intent(in) :: lmesh2D
-    class(elementbase2D), intent(in) :: elem2D   
+    class(ElementBase2D), intent(in) :: elem2D   
     real(RP), intent(out) ::  del_flux(elem%NfpTot*lmesh%Ne,4)
-    real(RP), intent(in) :: sflx_mu(elem2D%Np,lmesh2D%NeA)
-    real(RP), intent(in) :: sflx_mv(elem2D%Np,lmesh2D%NeA)
-    real(RP), intent(in) :: sflx_mw(elem2D%Np,lmesh2D%NeA)
-    real(RP), intent(in) :: sflx_sh(elem2D%Np,lmesh2D%NeA)
+    real(RP), intent(in) :: sflx_mu(elem2D%Np,lmesh2D%Ne)
+    real(RP), intent(in) :: sflx_mv(elem2D%Np,lmesh2D%Ne)
+    real(RP), intent(in) :: sflx_mw(elem2D%Np,lmesh2D%Ne)
+    real(RP), intent(in) :: sflx_sh(elem2D%Np,lmesh2D%Ne)
     real(RP), intent(in) :: nz(elem%NfpTot*lmesh%Ne)
 
     integer :: ke2D, p
@@ -451,4 +452,53 @@ contains
     return
   end subroutine cal_del_flux
 
+!OCL SERIAL
+  subroutine convert_UV2LocalOrthVec( mesh, x1, x2, r, N, & ! (in)
+    U, V ) ! (inout)
+    use scale_cubedsphere_coord_cnv, only: &
+      CubedSphereCoordCnv_CS2LocalOrthVec_alpha
+    use scale_mesh_cubedspheredom3d, only: MeshCubedSphereDom3D
+
+    implicit none
+    integer, intent(in) :: N
+    class(MeshBase3D), intent(in) :: mesh
+    real(RP), intent(in) :: x1(N)
+    real(RP), intent(in) :: x2(N)
+    real(RP), intent(in) :: r(N)
+    real(RP), intent(inout) :: U(N)
+    real(RP), intent(inout) :: V(N)
+
+    select type(mesh)
+    type is (MeshCubedSphereDom3D)
+      call CubedSphereCoordCnv_CS2LocalOrthVec_alpha( &
+        x1, x2, r, N, & ! (in)
+        U, V          ) ! (inout)
+    end select
+    return
+  end subroutine convert_UV2LocalOrthVec
+
+!OCL SERIAL
+  subroutine convert_LocalOrth2UVVec( mesh, x1, x2, r, N, & ! (in)
+    U, V ) ! (inout)
+    use scale_cubedsphere_coord_cnv, only: &
+      CubedSphereCoordCnv_LocalOrth2CSVec_alpha
+    use scale_mesh_cubedspheredom3d, only: MeshCubedSphereDom3D
+
+    implicit none
+    integer, intent(in) :: N
+    class(MeshBase3D), intent(in) :: mesh
+    real(RP), intent(in) :: x1(N)
+    real(RP), intent(in) :: x2(N)
+    real(RP), intent(in) :: r(N)
+    real(RP), intent(inout) :: U(N)
+    real(RP), intent(inout) :: V(N)
+
+    select type(mesh)
+    type is (MeshCubedSphereDom3D)
+      call CubedSphereCoordCnv_LocalOrth2CSVec_alpha( &
+        x1, x2, r, N, & ! (in)
+        U, V          ) ! (inout)
+    end select
+    return
+  end subroutine convert_LocalOrth2UVVec 
 end module mod_atmos_phy_sfc
