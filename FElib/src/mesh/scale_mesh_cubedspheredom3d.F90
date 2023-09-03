@@ -632,6 +632,8 @@ contains
       end do
 
       call fill_halo_metric( lcmesh%Gsqrt, lcmesh%VMapM, lcmesh%VMapP, lcmesh, lcmesh%refElem3D )
+
+      deallocate( gam )
     end do
 
     return
