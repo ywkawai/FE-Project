@@ -296,7 +296,7 @@ contains
     !-------------------------------------------------
 
     call comm2D%Init( 1, 0, 0, this%mesh%mesh2D )
-    call comm3D%Init( 1, 1, 0, this%mesh )
+    call comm3D%Init( 2, 1, 0, this%mesh )
 
     call this%topography%SetVCoordinate( this%ptr_mesh,   &
       this%vcoord_type_id, this%mesh%zmax_gl, comm3D, comm2D )

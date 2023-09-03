@@ -181,6 +181,7 @@ program test_advect3dGlobal
   call final()
 
 contains
+!OCL SERIAL
   subroutine cal_dyn_tend( dqdt, q_, U_, V_, W_, lmesh, elem)
     implicit none
 
@@ -225,6 +226,7 @@ contains
     return
   end subroutine cal_dyn_tend
 
+!OCL SERIAL
   subroutine cal_del_flux_dyn( del_flux, q_, U_, V_, W_, Gsqrt_, nx, ny, nz, vmapM, vmapP, lmesh, elem )
     implicit none
 
@@ -265,6 +267,7 @@ contains
 
   !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+!OCL SERIAL
   subroutine evaluate_error(tsec)
 
     implicit none
@@ -324,6 +327,7 @@ contains
     return
   end subroutine evaluate_error
 
+!OCL SERIAL
   subroutine set_velocity_lc( U_, V_, W_, Vellon_, Vellat_, &
       tsec, lmesh, elem )
     implicit none
@@ -359,9 +363,10 @@ contains
     end do
 
     call CubedSphereCoordCnv_LonLat2CSVec( &
-      lmesh%panelID, lmesh%pos_en(:,:,1), lmesh%pos_en(:,:,2),    &
-      lmesh%Ne * elem%Np, RPlanet, svec(:,:,1), svec(:,:,2),      &
-      U_(:,lmesh%NeS:lmesh%NeE), V_(:,lmesh%NeS:lmesh%NeE)        )
+      lmesh%panelID, lmesh%pos_en(:,:,1), lmesh%pos_en(:,:,2),    & ! (in)
+      lmesh%gam(:,lmesh%NeS:lmesh%NeE), lmesh%Ne * elem%Np,       & ! (in)
+      svec(:,:,1), svec(:,:,2),                                   & ! (in)
+      U_(:,lmesh%NeS:lmesh%NeE), V_(:,lmesh%NeS:lmesh%NeE)        ) ! (out)
 
     return
   end subroutine set_velocity_lc

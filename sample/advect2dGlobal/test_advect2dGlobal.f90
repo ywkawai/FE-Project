@@ -303,6 +303,7 @@ contains
     return
   end subroutine evaluate_error
 
+!OCL SERIAL
   subroutine set_velocity_lc( U_, V_, tsec, lmesh, elem )
     implicit none
 
@@ -314,6 +315,7 @@ contains
 
     integer :: ke_
     real(RP) :: svec(elem%Np,lmesh%Ne,2)
+    real(RP) :: gam(elem%Np,lmesh%Ne)
     !----------------------------------------
 
     VelTypeParams(4) = tsec
@@ -324,10 +326,12 @@ contains
         VelTypeName, lmesh%lon(:,ke_), lmesh%lat(:,ke_), VelTypeParams, elem%Np ) ! (in)
     end do
 
+    gam(:,:) = 1.0_RP
     call CubedSphereCoordCnv_LonLat2CSVec( &
-      lmesh%panelID, lmesh%pos_en(:,:,1), lmesh%pos_en(:,:,2),    & ! (in)
-      lmesh%Ne * elem%Np, RPlanet, svec(:,:,1), svec(:,:,2),      & ! (in)
-      U_(:,lmesh%NeS:lmesh%NeE), V_(:,lmesh%NeS:lmesh%NeE)        ) ! (out)
+      lmesh%panelID, lmesh%pos_en(:,:,1), lmesh%pos_en(:,:,2), gam(:,:), & ! (in)
+      lmesh%Ne * elem%Np,                                                & ! (in)
+      svec(:,:,1), svec(:,:,2),                                          & ! (in)
+      U_(:,lmesh%NeS:lmesh%NeE), V_(:,lmesh%NeS:lmesh%NeE)               ) ! (out)
 
     return
   end subroutine set_velocity_lc

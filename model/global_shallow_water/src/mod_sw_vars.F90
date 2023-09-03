@@ -937,20 +937,23 @@ contains
     real(RP), intent(in) :: u2_(elem%Np,lcmesh%NeA)
 
     integer :: ke
+    real(RP) :: gam(elem%Np,lcmesh%Ne)
     real(RP) :: dummy(elem%Np,lcmesh%NeA)
     !-------------------------------------------------------------------------
 
     select case(trim(field_name))
     case('Vel_lon')
+      gam(:,:) = 1.0_RP
       call CubedSphereCoordCnv_CS2LonLatVec( &
-        lcmesh%panelID, lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2), elem%Np * lcmesh%Ne, RPlanet, & ! (in)
-        U_(:,lcmesh%NeS:lcmesh%NeE), V_(:,lcmesh%NeS:lcmesh%NeE),                                 & ! (in)
-        var_out(:,lcmesh%NeS:lcmesh%NeE), dummy(:,lcmesh%NeS:lcmesh%NeE)                          ) ! (out)
+        lcmesh%panelID, lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2), gam(:,:), elem%Np * lcmesh%Ne, & ! (in)
+        U_(:,lcmesh%NeS:lcmesh%NeE), V_(:,lcmesh%NeS:lcmesh%NeE),                                  & ! (in)
+        var_out(:,lcmesh%NeS:lcmesh%NeE), dummy(:,lcmesh%NeS:lcmesh%NeE)                           ) ! (out)
     case('Vel_lat')
+      gam(:,:) = 1.0_RP
       call CubedSphereCoordCnv_CS2LonLatVec( &
-        lcmesh%panelID, lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2), elem%Np * lcmesh%Ne, RPlanet, & ! (in)
-        U_(:,lcmesh%NeS:lcmesh%NeE), V_(:,lcmesh%NeS:lcmesh%NeE),                                 & ! (in)
-        dummy(:,lcmesh%NeS:lcmesh%NeE), var_out(:,lcmesh%NeS:lcmesh%NeE)                          ) ! (out)
+        lcmesh%panelID, lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2), gam(:,:), elem%Np * lcmesh%Ne, & ! (in)
+        U_(:,lcmesh%NeS:lcmesh%NeE), V_(:,lcmesh%NeS:lcmesh%NeE),                                  & ! (in)
+        dummy(:,lcmesh%NeS:lcmesh%NeE), var_out(:,lcmesh%NeS:lcmesh%NeE)                           ) ! (out)
     case('Height')
       !$omp parallel do
       do ke=1, lcmesh%Ne

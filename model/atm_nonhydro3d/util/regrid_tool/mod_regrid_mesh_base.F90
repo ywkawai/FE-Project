@@ -706,7 +706,8 @@ contains
     class(regrid_mesh_base), intent(inout) :: this
     logical, intent(in) :: GP_flag
 
-    ! Structured mesh  
+    ! Structured mesh
+    logical :: SHALLOW_ATM_APPROX_FLAG = .true.
     integer :: Nprc             = 1    
     integer :: NeGX             = 1
     integer :: NeGY             = 1
@@ -725,12 +726,14 @@ contains
     real(RP) :: FZ(FZ_nmax)
 
     namelist / PARAM_REGRID_INMESH3D_CUBEDSPHERE / &
+      SHALLOW_ATM_APPROX_FLAG,                     &
       Nprc, NeGX, NeGY, NeGZ, NLocalMeshPerPrc,    &
       PolyOrder_h, PolyOrder_v,                    &
       dom_zmin, dom_zmax,                          &
       FZ
    
     namelist / PARAM_REGRID_OUTMESH3D_CUBEDSPHERE / &
+      SHALLOW_ATM_APPROX_FLAG,                      &
       Nprc, NeGX, NeGY, NeGZ, NLocalMeshPerPrc,     &
       PolyOrder_h, PolyOrder_v,                     &
       PolyOrder_h_GP, PolyOrder_v_GP,               &
