@@ -70,6 +70,7 @@ module scale_mesh_cubedom3d
     procedure :: Final => MeshCubeDom3D_Final
     procedure :: Generate => MeshCubeDom3D_generate
     procedure :: GetMesh2D => MeshCubeDom3D_getMesh2D
+    procedure :: Set_geometric_with_vcoord => MeshCubeDom3D_set_geometric_with_vcoord
   end type MeshCubeDom3D
 
   public :: MeshCubeDom3D_coord_conv
@@ -90,6 +91,7 @@ module scale_mesh_cubedom3d
   !
 
 contains
+!OCL SERIAL
   subroutine MeshCubeDom3D_Init( this,                          &
     NeGX, NeGY, NeGZ,                                           &
     dom_xmin, dom_xmax, dom_ymin, dom_ymax, dom_zmin, dom_zmax, &
@@ -177,13 +179,12 @@ contains
     return
   end subroutine MeshCubeDom3D_Init
 
+!OCL SERIAL
   subroutine MeshCubeDom3D_Final( this )
     use scale_prc
     implicit none
 
     class(MeshCubeDom3D), intent(inout) :: this
-
-    integer :: n
     !-----------------------------------------------------------------------------
   
     if (this%isGenerated) then
@@ -202,6 +203,7 @@ contains
     return
   end subroutine MeshCubeDom3D_Final
   
+!OCL SERIAL
   subroutine MeshCubeDom3D_getMesh2D( this, ptr_mesh2D )
     implicit none
     class(MeshCubeDom3D), intent(in), target :: this
@@ -212,13 +214,13 @@ contains
     return
   end subroutine MeshCubeDom3D_getMesh2D
 
+!OCL SERIAL
   subroutine MeshCubeDom3D_generate( this )
     implicit none
 
     class(MeshCubeDom3D), intent(inout), target :: this
             
     integer :: n
-    integer :: p
     type(LocalMesh3D), pointer :: mesh
 
     integer :: tileID_table(this%LOCAL_MESH_NUM, this%PRC_NUM)
@@ -228,7 +230,6 @@ contains
     integer :: pk_table(this%LOCAL_MESH_NUM*this%PRC_NUM)
 
     integer :: TILE_NUM_PER_PANEL
-    real(RP) :: delx, dely, delz
     integer :: tileID
     !-----------------------------------------------------------------------------
 
@@ -285,6 +286,31 @@ contains
 
     return
   end subroutine MeshCubeDom3D_generate
+
+!OCL SERIAL
+  subroutine MeshCubeDom3D_set_geometric_with_vcoord(this, lcdomID, GsqrtV_lc, zlev_lc, G13_lc, G23_lc)
+    implicit none
+    class(MeshCubeDom3D), intent(inout), target :: this
+    integer, intent(in) :: lcdomID
+    real(RP), intent(in) :: GsqrtV_lc(this%refElem3D%Np,this%lcmesh_list(lcdomID)%NeA)
+    real(RP), intent(in) :: zlev_lc(this%refElem3D%Np,this%lcmesh_list(lcdomID)%NeA)
+    real(RP), intent(in) :: G13_lc(this%refElem3D%Np,this%lcmesh_list(lcdomID)%NeA)
+    real(RP), intent(in) :: G23_lc(this%refElem3D%Np,this%lcmesh_list(lcdomID)%NeA)
+
+    integer :: ke
+    class(LocalMesh3D), pointer :: lcmesh
+    !-------------------------------------------------------
+
+    lcmesh => this%lcmesh_list(lcdomID)
+    do ke=lcmesh%NeS, lcmesh%NeA
+      lcmesh%Gsqrt(:,ke) = GsqrtV_lc(:,ke)
+      lcmesh%zlev(:,ke) = zlev_lc(:,ke)
+      lcmesh%GI3(:,ke,1) = G13_lc(:,ke)
+      lcmesh%GI3(:,ke,2) = G23_lc(:,ke)
+    end do
+
+    return
+  end subroutine MeshCubeDom3D_set_geometric_with_vcoord
 
   !- private ------------------------------------------------------
 

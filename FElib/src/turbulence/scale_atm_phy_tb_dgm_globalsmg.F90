@@ -101,11 +101,16 @@ module scale_atm_phy_tb_dgm_globalsmg
   real(RP), private              :: NU_MAX        = 10000.0_RP
   real(RP), private              :: tke_fac       
 
+  !
+  logical, private :: shallow_atm_approx_flag
+  real(RP), private :: shapro_coef
+
 contains
 !OCL SERIAL
-  subroutine atm_phy_tb_dgm_globalsmg_Init( mesh )
+  subroutine atm_phy_tb_dgm_globalsmg_Init( mesh, shallow_atm_approx )
     implicit none    
     class(MeshBase3D), intent(in) :: mesh
+    logical, intent(in) :: shallow_atm_approx
 
     logical  :: consistent_tke = .true.
 
@@ -141,6 +146,14 @@ contains
       tke_fac = 1.0_RP
     else
       tke_fac = 0.0_RP
+    end if
+
+    !--
+    shallow_atm_approx_flag = shallow_atm_approx
+    if ( shallow_atm_approx_flag ) then
+      shapro_coef = 0.0_RP
+    else
+      shapro_coef = 1.0_RP
     end if
 
     return
@@ -229,6 +242,9 @@ contains
     real(RP) :: SIJ(elem%Np,3,3)
     real(RP) :: G_ij(elem%Np,3,3)
 
+    real(RP) :: rgam2(elem%Np)
+    real(RP) :: R(elem%Np)
+
     integer :: ke, ke2D
     integer :: p
     integer :: i, j
@@ -248,7 +264,7 @@ contains
     !$omp DENS, RHOT, RDENS, Q, DdensDxi, DqDxi_, DVelDxi,            & 
     !$omp S11, S12, S22, S23, S31, S33, DivOvThree, TKEMulTwoOvThree, &
     !$omp p, Ri, S2, fm, Pr, lambda_r, E, C1,                         &
-    !$omp Sabs_tmp, i, j, SIJ, G_ij, G11, G12, G22, G33,              &
+    !$omp Sabs_tmp, i, j, SIJ, G_ij, G11, G12, G22, G33, R, rgam2,    &
     !$omp X, Y, Rdel2  )
 
     !$omp do
@@ -262,16 +278,19 @@ contains
     do ke=lmesh%NeS, lmesh%NeE
       !---
       ke2d = lmesh%EMap3Dto2D(ke)
-      G11(:) = lmesh%GIJ(elem%IndexH2Dto3D,ke2d,1,1)
-      G12(:) = lmesh%GIJ(elem%IndexH2Dto3D,ke2d,1,2)
-      G22(:) = lmesh%GIJ(elem%IndexH2Dto3D,ke2d,2,2)
+
+      R(:) = RPlanet * lmesh%gam(:,ke)
+      rgam2(:) = 1.0_RP / lmesh%gam(:,ke)**2
+      G11(:) = lmesh%GIJ(elem%IndexH2Dto3D,ke2d,1,1) * rgam2(:)
+      G12(:) = lmesh%GIJ(elem%IndexH2Dto3D,ke2d,1,2) * rgam2(:)
+      G22(:) = lmesh%GIJ(elem%IndexH2Dto3D,ke2d,2,2) * rgam2(:)
       G33(:) = 1.0_RP
 
       G_ij(:,:,:) = 0.0_RP
-      G_ij(:,1,1) = lmesh%G_ij(elem%IndexH2Dto3D,ke2d,1,1)
-      G_ij(:,2,1) = lmesh%G_ij(elem%IndexH2Dto3D,ke2d,2,1)
+      G_ij(:,1,1) = lmesh%G_ij(elem%IndexH2Dto3D,ke2d,1,1) / rgam2(:)
+      G_ij(:,2,1) = lmesh%G_ij(elem%IndexH2Dto3D,ke2d,2,1) / rgam2(:)
       G_ij(:,1,2) = G_ij(:,2,1)
-      G_ij(:,2,2) = lmesh%G_ij(elem%IndexH2Dto3D,ke2d,2,2)
+      G_ij(:,2,2) = lmesh%G_ij(elem%IndexH2Dto3D,ke2d,2,2) / rgam2(:)
       G_ij(:,3,3) = 1.0_RP
 
       X(:) = X2D(elem%IndexH2Dto3D,ke2d)
@@ -300,22 +319,25 @@ contains
 
       call sparsemat_matmul( Dx, MOMX_(:,ke), Fx )
       call sparsemat_matmul( Lift, lmesh%Fscale(:,ke) * del_flux_mom(:,ke,1,1), LiftDelFlx )
-      DqDxi_(:,1) = (   lmesh%Escale(:,ke,1,1) * Fx(:) + LiftDelFlx(:) - Q(:) * DdensDxi(:,1)       &
-                         + Rdel2(:) * Y(:) *                                                           &
-                           ( 2.0_RP * X(:) * Y(:) * MOMX_(:,ke) - ( 1.0_RP + Y(:)**2 ) * MOMY_(:,ke) ) & ! u^r Gam^1_1r
-                        ) * RDENS(:)
+      DqDxi_(:,1) = (   lmesh%Escale(:,ke,1,1) * Fx(:) + LiftDelFlx(:) - Q(:) * DdensDxi(:,1)          &
+                      + Rdel2(:) * Y(:) *                                                              &
+                        ( 2.0_RP * X(:) * Y(:) * MOMX_(:,ke) - ( 1.0_RP + Y(:)**2 ) * MOMY_(:,ke) )    & !-> u^r Gam^1_1r
+                      + shapro_coef * MOMZ_(:,ke) / R(:)                                               &
+                    ) * RDENS(:)
       
       call sparsemat_matmul( Dy, MOMX_(:,ke), Fy )
       call sparsemat_matmul( Lift, lmesh%Fscale(:,ke) * del_flux_mom(:,ke,2,1), LiftDelFlx )
       DqDxi_(:,2) = (   lmesh%Escale(:,ke,2,2) * Fy(:) + LiftDelFlx(:) - Q(:) * DdensDxi(:,2)      &
-                         + Rdel2(:) * Y(:) *                                                        &
-                          ( - ( 1.0_RP + Y(:)**2 ) * MOMY_(:,ke) )                                  & ! u^r Gam^1_2r
-                        ) * RDENS(:)
+                      + Rdel2(:) * Y(:) *                                                          &
+                        ( - ( 1.0_RP + Y(:)**2 ) * MOMY_(:,ke) )                                   & ! u^r Gam^1_2r
+                    ) * RDENS(:)
 
       call sparsemat_matmul( Dz, MOMX_(:,ke), Fz )
       call sparsemat_matmul( Lift, lmesh%Fscale(:,ke) * del_flux_mom(:,ke,3,1), LiftDelFlx )
-      DVelDxi(:,3,1) = ( lmesh%Escale(:,ke,3,3) * Fz(:) + LiftDelFlx(:) - Q(:) * DdensDxi(:,3) ) * RDENS(:)
-                                                                                                 ! u^r Gam^1_3r = 0
+      DVelDxi(:,3,1) = (  lmesh%Escale(:,ke,3,3) * Fz(:) + LiftDelFlx(:) - Q(:) * DdensDxi(:,3)    &
+                        + shapro_coef * MOMX_(:,ke) / R(:)                                         & ! u^r Gam^1_3r
+                       ) * RDENS(:)
+                                                                                                
 
       DivOvThree(:) = DqDxi_(:,1)
       DVelDxi(:,1,1) = G11(:) * DqDxi_(:,1) + G12(:) * DqDxi_(:,2)
@@ -327,22 +349,23 @@ contains
       call sparsemat_matmul( Dx, MOMY_(:,ke), Fx )
       call sparsemat_matmul( Lift, lmesh%Fscale(:,ke) * del_flux_mom(:,ke,1,2), LiftDelFlx )
       DqDxi_(:,1) = (   lmesh%Escale(:,ke,1,1) * Fx(:) + LiftDelFlx(:) - Q(:) * DdensDxi(:,1) &
-                         + Rdel2(:) * X(:) *                                                   &
-                           ( - ( 1.0_RP + X(:)**2 ) * MOMY_(:,ke) )                            & ! u^r Gam^2_1r
-                        ) * RDENS(:)
+                      + Rdel2(:) * X(:) *                                                   &
+                        ( - ( 1.0_RP + X(:)**2 ) * MOMY_(:,ke) )                            & ! u^r Gam^2_1r
+                    ) * RDENS(:)
 
       call sparsemat_matmul( Dy, MOMY_(:,ke), Fy )
       call sparsemat_matmul( Lift, lmesh%Fscale(:,ke) * del_flux_mom(:,ke,2,2), LiftDelFlx )
       DqDxi_(:,2) = (   lmesh%Escale(:,ke,2,2) * Fy(:) + LiftDelFlx(:) - Q(:) * DdensDxi(:,2) &
-                         + Rdel2(:) * X(:) *                                                             &
-                           ( - ( 1.0_RP + X(:)**2 ) * MOMX_(:,ke) + 2.0_RP * X(:) * Y(:) * MOMY_(:,ke) ) & ! u^r Gam^2_2r
-                        ) * RDENS(:)
+                      + Rdel2(:) * X(:) *                                                             &
+                        ( - ( 1.0_RP + X(:)**2 ) * MOMX_(:,ke) + 2.0_RP * X(:) * Y(:) * MOMY_(:,ke) ) & ! u^r Gam^2_2r
+                      + shapro_coef * MOMZ_(:,ke) / R(:)                                              &
+                    ) * RDENS(:)
 
       call sparsemat_matmul( Dz, MOMY_(:,ke), Fz )
       call sparsemat_matmul( Lift, lmesh%Fscale(:,ke) * del_flux_mom(:,ke,3,2), LiftDelFlx )
-      DVelDxi(:,3,2) = ( lmesh%Escale(:,ke,3,3) * Fz(:) + LiftDelFlx(:) - Q(:) * DdensDxi(:,3) ) * RDENS(:)
-                                                                                                 ! u^r Gam^2_3r = 0
-
+      DVelDxi(:,3,2) = (   lmesh%Escale(:,ke,3,3) * Fz(:) + LiftDelFlx(:) - Q(:) * DdensDxi(:,3) &
+                         + shapro_coef * MOMY_(:,ke) / R(:)                                      & ! u^r Gam^2_3r
+                       ) * RDENS(:)
       DivOvThree(:) = DivOvThree(:) + DqDxi_(:,2)
       DVelDxi(:,1,2) = G11(:) * DqDxi_(:,1) + G12(:) * DqDxi_(:,2)
       DVelDxi(:,2,2) = G12(:) * DqDxi_(:,1) + G22(:) * DqDxi_(:,2)
@@ -352,13 +375,18 @@ contains
 
       call sparsemat_matmul( Dx, MOMZ_(:,ke), Fx )
       call sparsemat_matmul( Lift, lmesh%Fscale(:,ke) *del_flux_mom(:,ke,1,3), LiftDelFlx )
-      DqDxi_(:,1) = ( lmesh%Escale(:,ke,1,1) * Fx(:) + LiftDelFlx(:) - Q(:) * DdensDxi(:,1) ) * RDENS(:)
-                                                                                                 ! u^r Gam^3_1r = 0
+      DqDxi_(:,1) = (   lmesh%Escale(:,ke,1,1) * Fx(:) + LiftDelFlx(:) - Q(:) * DdensDxi(:,1)          &
+                      + shapro_coef * R(:) * Rdel2(:)**2 * ( 1.0_RP + X(:)**2 ) * ( 1.0_RP + Y(:)**2 ) & ! u^r Gam^3_1r
+                        * ( - ( 1.0_RP + X(:)**2 ) * MOMX_(:,ke) + X(:) * Y(:) * MOMY_(:,ke) )         &
+                    ) * RDENS(:)
+                                                                                                 
 
       call sparsemat_matmul( Dy, MOMZ_(:,ke), Fy )
       call sparsemat_matmul( Lift, lmesh%Fscale(:,ke) * del_flux_mom(:,ke,2,3), LiftDelFlx )
-      DqDxi_(:,2) = ( lmesh%Escale(:,ke,2,2) * Fy(:) + LiftDelFlx(:) - Q(:) * DdensDxi(:,2) ) * RDENS(:)
-                                                                                                 ! u^r Gam^3_2r = 0
+      DqDxi_(:,2) = ( lmesh%Escale(:,ke,2,2) * Fy(:) + LiftDelFlx(:) - Q(:) * DdensDxi(:,2)           &
+                     + shapro_coef * R(:) * Rdel2(:)**2 * ( 1.0_RP + X(:)**2 ) * ( 1.0_RP + Y(:)**2 ) & ! u^r Gam^3_2r
+                        * ( X(:) * Y(:) * MOMX_(:,ke) - ( 1.0_RP + Y(:)**2 ) * MOMY_(:,ke) )          &
+                    ) * RDENS(:)
 
       call sparsemat_matmul( Dz, MOMZ_(:,ke), Fz )
       call sparsemat_matmul( Lift, lmesh%Fscale(:,ke) * del_flux_mom(:,ke,3,3), LiftDelFlx )
@@ -758,8 +786,6 @@ contains
     Dx, Dy, Dz, Sx, Sy, Sz, Lift, lmesh, elem, lmesh2D, elem2D, & ! (in)
     is_bound                                                    ) ! (in)
 
-    use scale_cubedsphere_coord_cnv, only: &
-      CubedSphereCoordCnv_LonLat2CSVec
     implicit none
 
     class(LocalMesh3D), intent(in) :: lmesh
@@ -796,6 +822,7 @@ contains
 
     real(RP) :: X2D(elem2D%Np,lmesh2D%Ne), Y2D(elem2D%Np,lmesh2D%Ne)
     real(RP) :: X(elem%Np), Y(elem%Np), twoOVdel2(elem%Np)
+    real(RP) :: R(elem%Np)
 
     real(RP) :: Fx(elem%Np), Fy(elem%Np), Fz(elem%Np), LiftDelFlx(elem%Np)
     real(RP) :: GsqrtDENS(elem%Np), RHOT(elem%Np)
@@ -815,7 +842,7 @@ contains
 
     !$omp parallel private( ke, ke2D, &
     !$omp Fx, Fy, Fz, LiftDelFlx,          &
-    !$omp GsqrtDENS, X, Y, twoOVdel2       )
+    !$omp GsqrtDENS, X, Y, twoOVdel2, R    )
 
     !$omp do
     do ke2D = lmesh2D%NeS, lmesh2D%NeE
@@ -829,6 +856,7 @@ contains
       X(:) = X2D(elem%IndexH2Dto3D,ke2d)
       Y(:) = Y2D(elem%IndexH2Dto3D,ke2d)
       twoOVdel2(:) = 2.0_RP / ( 1.0_RP + X(:)**2 + Y(:)**2 )
+      R(:) = RPlanet * lmesh%gam(:,ke)
 
       GsqrtDENS(:) = lmesh%Gsqrt(:,ke) * ( DENS_hyd(:,ke) + DDENS_(:,ke) )
 
@@ -842,8 +870,10 @@ contains
                      + lmesh%Escale(:,ke,2,2) * Fy(:)       &
                      + lmesh%Escale(:,ke,3,3) * Fz(:)       &
                      + LiftDelFlx(:)  ) / lmesh%Gsqrt(:,ke) &
-                     + twoOVdel2(:) * Y(:) *                                        &
-                     ( X(:) * Y(:) * T11(:,ke) - (1.0_RP + Y(:)**2) * T12(:,ke) )                   
+                     + twoOVdel2(:) * Y(:) *                                          &
+                       ( X(:) * Y(:) * T11(:,ke) - ( 1.0_RP + Y(:)**2 ) * T12(:,ke) ) &
+                     + shapro_coef * 2.0_RP * T13(:,ke) / R(:)                                  
+
       
       ! MOMY
       call sparsemat_matmul( Dx, lmesh%Gsqrt(:,ke) * T21(:,ke), Fx )
@@ -851,12 +881,14 @@ contains
       call sparsemat_matmul( Dz, lmesh%Gsqrt(:,ke) * T23(:,ke), Fz )
       call sparsemat_matmul( Lift, lmesh%Fscale(:,ke) * del_flux_mom(:,ke,2), LiftDelFlx )
 
-      MOMY_t(:,ke)  = ( lmesh%Escale(:,ke,1,1) * Fx(:)       &
-                      + lmesh%Escale(:,ke,2,2) * Fy(:)       &
-                      + lmesh%Escale(:,ke,3,3) * Fz(:)       &
-                      + LiftDelFlx(:)  ) / lmesh%Gsqrt(:,ke) &
-                      + twoOVdel2(:) * X(:) *                                      &
-                        ( - (1.0_RP + X(:)**2) * T21(:,ke) + X(:) * Y(:) * T22(:,ke) )
+      MOMY_t(:,ke) = ( lmesh%Escale(:,ke,1,1) * Fx(:)       &
+                     + lmesh%Escale(:,ke,2,2) * Fy(:)       &
+                     + lmesh%Escale(:,ke,3,3) * Fz(:)       &
+                     + LiftDelFlx(:)  ) / lmesh%Gsqrt(:,ke) &
+                     + twoOVdel2(:) * X(:) *                                            &
+                       ( - ( 1.0_RP + X(:)**2 ) * T21(:,ke) + X(:) * Y(:) * T22(:,ke) ) &
+                     + shapro_coef * 2.0_RP * T23(:,ke) / R(:)                                  
+
  
       ! MOMZ
       call sparsemat_matmul( Dx, lmesh%Gsqrt(:,ke) * T31(:,ke), Fx )
@@ -867,7 +899,10 @@ contains
       MOMZ_t(:,ke)  = ( lmesh%Escale(:,ke,1,1) * Fx(:) &
                       + lmesh%Escale(:,ke,2,2) * Fy(:) &
                       + lmesh%Escale(:,ke,3,3) * Fz(:) &
-                      + LiftDelFlx(:) ) / lmesh%Gsqrt(:,ke)
+                      + LiftDelFlx(:) ) / lmesh%Gsqrt(:,ke)                                                        &
+                    + shapro_coef * 0.25_RP * R(:) * twoOVdel2(:)**2 * ( 1.0_RP * X(:)**2 ) * ( 1.0_RP * Y(:)**2 ) & !-> metric terms
+                      * ( - ( 1.0_RP + X(:)**2 ) * T11(:,ke) + 2.0_RP * X(:) * Y(:) * T12(:,ke)                    & !
+                          - ( 1.0_RP + Y(:)**2 ) * T22(:,ke) )                                                     
 
       ! RHOT
       call sparsemat_matmul( Dx, GsqrtDENS(:) * Kh(:,ke) * dPTdx(:,ke), Fx )

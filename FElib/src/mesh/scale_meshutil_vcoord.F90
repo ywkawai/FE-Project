@@ -68,8 +68,7 @@ contains
   end function MeshUtil_get_VCoord_TypeID
 
 !OCL SERIAL
-  subroutine MeshUtil_VCoord_GetMetric( G13, G23, zlev,         &
-    Gsqrt,                                                      &
+  subroutine MeshUtil_VCoord_GetMetric( G13, G23, zlev, GsqrtV, &
     topo, zTop, vcoord_id, lcmesh, elem, lcmesh2D, elem2D,      &
     Dx2D, Dy2D, Lift2D )
     implicit none
@@ -80,8 +79,8 @@ contains
     class(ElementBase2D), intent(in) :: elem2D
     real(RP), intent(out) :: G13(elem%Np,lcmesh%NeA)
     real(RP), intent(out) :: G23(elem%Np,lcmesh%NeA)
-    real(RP), intent(out) :: zlev(elem%Np,lcmesh%Ne)
-    real(RP), intent(inout) :: Gsqrt(elem%Np,lcmesh%NeA)
+    real(RP), intent(out) :: zlev(elem%Np,lcmesh%NeA)
+    real(RP), intent(inout) :: GsqrtV(elem%Np,lcmesh%NeA)
     real(RP), intent(in) :: topo(elem2D%Np,lcmesh2D%NeA)
     integer, intent(in) :: vcoord_id
     real(RP), intent(in) :: zTop
@@ -92,7 +91,6 @@ contains
     integer :: ke, ke2D
     real(RP) :: del_flux(elem2D%NfpTot,lcmesh2D%Ne,2)
     real(RP) :: Fx2D(elem2D%Np), Fy2D(elem2D%Np), LiftDelFlux2D(elem2D%Np)
-    real(RP) :: GsqrtV(elem2D%Np,lcmesh2D%Ne)
     real(RP) :: GradZs(elem2D%Np,lcmesh2D%Ne,2)
     real(RP) :: coef3D(elem%NP)
     !------------------------------------------------
@@ -114,8 +112,6 @@ contains
 
       !$omp do
       do ke2D=1, lcmesh2D%Ne
-        GsqrtV(:,ke2D) = 1.0_RP - topo(:,ke2D) / zTop ! dz/dzeta
-
         call sparsemat_matmul( Dx2D, topo(:,ke2D), Fx2D )
         call sparsemat_matmul( Lift2D, lcmesh2D%Fscale(:,ke2D) * del_flux(:,ke2D,1), LiftDelFlux2D)
         GradZs(:,ke2D,1) = lcmesh2D%Escale(:,ke2D,1,1) * Fx2D(:) + LiftDelFlux2D(:)
@@ -133,11 +129,10 @@ contains
         zlev(:,ke) = lcmesh%pos_en(:,ke,3)                  &
                    + coef3D(:) * topo(elem%IndexH2Dto3D,ke2D)
 
-        coef3D(:) = - coef3D(:) / GsqrtV(elem%IndexH2Dto3D(:),ke2D)
+        GsqrtV(:,ke) = 1.0_RP - topo(elem%IndexH2Dto3D,ke2D) / zTop ! dz/dzeta
+        coef3D(:) = - coef3D(:) / GsqrtV(:,ke)
         G13(:,ke) = coef3D(:) * GradZs(elem%IndexH2Dto3D(:),ke2D,1)
         G23(:,ke) = coef3D(:) * GradZs(elem%IndexH2Dto3D(:),ke2D,2)
-
-        Gsqrt(:,ke) = Gsqrt(:,ke) * GsqrtV(elem%IndexH2Dto3D(:),ke2D)
       end do
       !$omp end do
       !$omp end parallel

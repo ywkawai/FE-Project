@@ -130,7 +130,6 @@ contains
     class(MeshCubedSphereDom2D), intent(inout), target :: this
 
     integer :: n
-    integer :: p
     type(LocalMesh2D), pointer :: mesh
 
     integer :: tileID_table(this%LOCAL_MESH_NUM, this%PRC_NUM)
@@ -139,7 +138,6 @@ contains
     integer :: pj_table(this%LOCAL_MESH_NUM*this%PRC_NUM)
 
     integer :: NprcX_lc, NprcY_lc
-    real(RP) :: delx, dely
     integer :: tileID
    
     !-----------------------------------------------------------------------------
@@ -273,6 +271,8 @@ contains
     class(ElementBase2D), pointer :: elem
     real(RP) :: delx, dely
     integer :: ke
+
+    real(RP), allocatable :: gam(:,:)
     !-----------------------------------------------------------------------------
 
     elem => lcmesh%refElem2D
@@ -319,15 +319,19 @@ contains
     
     !---
     call MeshBase2D_setGeometricInfo(lcmesh, MeshCubedSphereDom2D_coord_conv, MeshCubedSphereDom2D_calc_normal )
-
+    
     call CubedSphereCoordCnv_GetMetric( &
       lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2), elem%Np * lcmesh%Ne, planet_radius, & ! (in)
       lcmesh%G_ij, lcmesh%GIJ, lcmesh%Gsqrt(:,lcmesh%NeS:lcmesh%NeE)                  ) ! (out)
 
+
+    allocate( gam(elem%Np,lcmesh%Ne) )
+    gam(:,:) = 1.0_RP
+
     call CubedSphereCoordCnv_CS2LonLatPos( &
-      lcmesh%panelID, lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2), &
-      lcmesh%Ne * lcmesh%refElem2D%Np, planet_radius,             &
-      lcmesh%lon(:,:), lcmesh%lat(:,:)                            )
+      lcmesh%panelID, lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2), gam(:,:), & ! (in)
+      lcmesh%Ne * lcmesh%refElem2D%Np,                                      & ! (in)
+      lcmesh%lon(:,:), lcmesh%lat(:,:)                                      ) ! (out)
     
     !---
 

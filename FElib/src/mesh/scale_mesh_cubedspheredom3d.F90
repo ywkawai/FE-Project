@@ -52,12 +52,15 @@ module scale_mesh_cubedspheredom3d
 
     type(MeshCubedSphereDom2D) :: mesh2D
     type(QuadrilateralElement) :: refElem2D
+
+    logical :: shallow_approx
   contains
     procedure :: Init => MeshCubedSphereDom3D_Init
     procedure :: Final => MeshCubedSphereDom3D_Final
     procedure :: Generate => MeshCubedSphereDom3D_generate
     procedure :: AssignDomID => MesshCubedSphereDom3D_assignDomID
     procedure :: GetMesh2D => MeshCubedSphereDom3D_getMesh2D
+    procedure :: Set_geometric_with_vcoord => MeshCubeDom3D_set_geometric_with_vcoord
   end type MeshCubedSphereDom3D
 
   !-----------------------------------------------------------------------------
@@ -81,12 +84,13 @@ module scale_mesh_cubedspheredom3d
   !
 
 contains
+!OCL SERIAL
   subroutine MeshCubedSphereDom3D_Init( this, &
     NeGX, NeGY, NeGZ, RPlanet,                &
     dom_zmin, dom_zmax,                       &
     refElem, NLocalMeshPerPrc,                &
     nproc, myrank,                            &
-    FZ                                        )
+    FZ, shallow_approx                        )
     
     use scale_const, only: &
       PI => CONST_PI
@@ -104,6 +108,7 @@ contains
     integer, intent(in), optional :: nproc
     integer, intent(in), optional :: myrank
     real(RP), intent(in), optional :: FZ(NeGZ+1)
+    logical, intent(in), optional :: shallow_approx
 
     integer :: k
     real(RP) :: dz
@@ -136,6 +141,13 @@ contains
       end do
     end if
 
+    !-
+    if ( present(shallow_approx) ) then
+      this%shallow_approx = shallow_approx
+    else
+      this%shallow_approx = .true.
+    end if
+
     !--
     call MeshBase3D_Init( this, refElem, NLocalMeshPerPrc, 6, &
       nproc, myrank )
@@ -156,6 +168,7 @@ contains
     return
   end subroutine MeshCubedSphereDom3D_Init
 
+!OCL SERIAL
   subroutine MeshCubedSphereDom3D_Final( this )
     implicit none
     class(MeshCubedSphereDom3D), intent(inout) :: this
@@ -177,6 +190,7 @@ contains
     return
   end subroutine MeshCubedSphereDom3D_Final
 
+!OCL SERIAL
   subroutine MeshCubedSphereDom3D_getMesh2D( this, ptr_mesh2D )
     implicit none
     class(MeshCubedSphereDom3D), intent(in), target :: this
@@ -187,6 +201,7 @@ contains
     return
   end subroutine MeshCubedSphereDom3D_getMesh2D
 
+!OCL SERIAL
   subroutine MeshCubedSphereDom3D_generate( this )
     use scale_mesh_cubedspheredom2d, only: &
       MeshCubedSphereDom2D_check_division_params
@@ -272,8 +287,47 @@ contains
     return
   end subroutine MeshCubedSphereDom3D_generate
 
+!OCL SERIAL
+  subroutine MeshCubeDom3D_set_geometric_with_vcoord(this, lcdomID, GsqrtV_lc, zlev_lc, G13_lc, G23_lc)
+    implicit none
+    class(MeshCubedSphereDom3D), intent(inout), target :: this
+    integer, intent(in) :: lcdomID
+    real(RP), intent(in) :: GsqrtV_lc(this%refElem3D%Np,this%lcmesh_list(lcdomID)%NeA)
+    real(RP), intent(in) :: zlev_lc(this%refElem3D%Np,this%lcmesh_list(lcdomID)%NeA)
+    real(RP), intent(in) :: G13_lc(this%refElem3D%Np,this%lcmesh_list(lcdomID)%NeA)
+    real(RP), intent(in) :: G23_lc(this%refElem3D%Np,this%lcmesh_list(lcdomID)%NeA)
+
+    integer :: ke
+    class(LocalMesh3D), pointer :: lcmesh
+    !-------------------------------------------------------
+
+    lcmesh => this%lcmesh_list(lcdomID)
+
+    !$omp parallel private(ke)
+    !$omp do
+    do ke=lcmesh%NeS, lcmesh%NeE
+      lcmesh%zlev(:,ke) = zlev_lc(:,ke)
+    end do
+    !$omp do
+    do ke=lcmesh%NeS, lcmesh%NeA   
+      if ( this%shallow_approx ) then
+        lcmesh%gam(:,ke) = 1.0_RP
+      else
+        lcmesh%gam(:,ke) = 1.0_RP + zlev_lc(:,ke) / this%RPlanet
+      end if
+
+      lcmesh%Gsqrt(:,ke) = GsqrtV_lc(:,ke) * lcmesh%gam(:,ke)**2 * lcmesh%Gsqrt(:,ke)
+      lcmesh%GI3(:,ke,1) = G13_lc(:,ke)
+      lcmesh%GI3(:,ke,2) = G23_lc(:,ke)
+    end do
+    !$omp end parallel
+
+    return
+  end subroutine MeshCubeDom3D_set_geometric_with_vcoord
+
   !- private ------------------------------
 
+!OCL SERIAL
   subroutine MeshCubedSphereDom3D_setupLocalDom( lcmesh,        &
     tileID, panelID,                                            &
     i, j, k, NprcX, NprcY, NprcZ,                               &
@@ -394,6 +448,7 @@ contains
     return
   end subroutine MeshCubedSphereDom3D_setupLocalDom
 
+!OCL SERIAL
   subroutine MesshCubedSphereDom3D_assignDomID( this, &
     NprcX_lc, NprcY_lc, NprcZ_lc,                     &
     tileID_table, panelID_table,                      &
@@ -549,16 +604,22 @@ contains
     class(LocalMesh3D), pointer :: lcmesh
     class(LocalMesh2D), pointer :: lcmesh2D
     class(ElementBase2D), pointer :: elem2D
+
+    real(RP), allocatable :: gam(:,:)
     !----------------------------------------------------
 
     do n=1, this%mesh2D%LOCAL_MESH_NUM
       lcmesh => this%lcmesh_list(n)
       lcmesh2D => this%mesh2D%lcmesh_list(n)
       elem2D => lcmesh2D%refElem2D
+
+      allocate( gam(elem2D%Np,lcmesh2D%Ne) )
+      gam(:,:) = 1.0_RP
+
       call CubedSphereCoordCnv_CS2LonLatPos( &
-        lcmesh2D%panelID, lcmesh2D%pos_en(:,:,1), lcmesh2D%pos_en(:,:,2), & ! (in)
-        lcmesh2D%Ne * elem2D%Np, this%RPlanet,                            & ! (in)
-        lcmesh%lon2D(:,:), lcmesh%lat2D(:,:)                              ) ! (out)
+        lcmesh2D%panelID, lcmesh2D%pos_en(:,:,1), lcmesh2D%pos_en(:,:,2), gam(:,:), & ! (in)
+        lcmesh2D%Ne * elem2D%Np,                                                    & ! (in)
+        lcmesh%lon2D(:,:), lcmesh%lat2D(:,:)                                        ) ! (out)
 
       call CubedSphereCoordCnv_GetMetric( &
         lcmesh2D%pos_en(:,:,1), lcmesh2D%pos_en(:,:,2), elem2D%Np * lcmesh2D%Ne, this%RPlanet, & ! (in)

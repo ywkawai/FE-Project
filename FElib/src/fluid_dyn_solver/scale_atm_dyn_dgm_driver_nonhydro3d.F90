@@ -94,9 +94,10 @@ module scale_atm_dyn_dgm_driver_nonhydro3d
     atm_dyn_dgm_nonhydro3d_rhot_hevi_splitform_cal_vi    
   
   use scale_atm_dyn_dgm_globalnonhydro3d_rhot_heve, only: &
-    atm_dyn_dgm_globalnonhydro3d_rhot_heve_Init,          &
-    atm_dyn_dgm_globalnonhydro3d_rhot_heve_Final,         &
-    atm_dyn_dgm_globalnonhydro3d_rhot_heve_cal_tend
+    atm_dyn_dgm_globalnonhydro3d_rhot_heve_Init,                 &
+    atm_dyn_dgm_globalnonhydro3d_rhot_heve_Final,                &
+    atm_dyn_dgm_globalnonhydro3d_rhot_heve_cal_tend_shallow_atm, &
+    atm_dyn_dgm_globalnonhydro3d_rhot_heve_cal_tend_deep_atm
 
   use scale_atm_dyn_dgm_globalnonhydro3d_etot_heve, only: &
     atm_dyn_dgm_globalnonhydro3d_etot_heve_Init,          &
@@ -301,6 +302,8 @@ contains
     eqs_type_name, tint_type_name, dtsec,           &
     sponge_layer_flag, modal_filter_flag,           &
     model_mesh3D )
+
+    use scale_mesh_cubedspheredom3d, only: MeshCubedSphereDom3D
     implicit none
 
     class(AtmDynDGMDriver_nonhydro3d), intent(inout) :: this
@@ -316,12 +319,17 @@ contains
     integer :: domID
     class(HexahedralElement), pointer :: refElem3D
     class(ElementBase), pointer :: refElem
+    class(MeshCubedSphereDom3D), pointer :: gm_mesh3D
 
     integer :: iv
     logical :: reg_file_hist
     !-----------------------------------------------------------------------------
 
     mesh3D => model_mesh3D%ptr_mesh
+    select type( mesh3D )
+    class is (MeshCubedSphereDom3D)
+      gm_mesh3D => mesh3D
+    end select
 
     call AtmDynDGMDriver_base3D_Init( this, &
       PRGVAR_NUM,                           &
@@ -349,12 +357,20 @@ contains
     case("GLOBALNONHYDRO3D_HEVE", "GLOBALNONHYDRO3D_RHOT_HEVE")
       this%EQS_TYPEID = EQS_TYPEID_GLOBALNONHYD3D_HEVE
       call atm_dyn_dgm_globalnonhydro3d_rhot_heve_Init( mesh3D )
-      this%cal_tend_ex => atm_dyn_dgm_globalnonhydro3d_rhot_heve_cal_tend
+      if ( gm_mesh3D%shallow_approx ) then
+        this%cal_tend_ex => atm_dyn_dgm_globalnonhydro3d_rhot_heve_cal_tend_shallow_atm
+      else
+        this%cal_tend_ex => atm_dyn_dgm_globalnonhydro3d_rhot_heve_cal_tend_deep_atm
+      end if
       this%cal_vi => null()
       this%dynsolver_final => atm_dyn_dgm_globalnonhydro3d_rhot_heve_Final
     case("GLOBALNONHYDRO3D_ETOT_HEVE")
       this%EQS_TYPEID = EQS_TYPEID_GLOBALNONHYD3D_HEVE_ENTOT
       call atm_dyn_dgm_globalnonhydro3d_etot_heve_Init( mesh3D )
+      if ( .not. gm_mesh3D%shallow_approx ) then
+        LOG_ERROR("AtmDynDGMDriver_nonhydro3d_Init",*) 'EQS Type:', eqs_type_name, 'Deep atmosphere is not supported. Check!'
+        call PRC_abort  
+      end if
       this%cal_tend_ex => atm_dyn_dgm_globalnonhydro3d_etot_heve_cal_tend
       this%cal_vi => null()
       this%dynsolver_final => atm_dyn_dgm_globalnonhydro3d_etot_heve_Final
@@ -384,6 +400,10 @@ contains
     case("GLOBALNONHYDRO3D_HEVI", "GLOBALNONHYDRO3D_RHOT_HEVI")
       this%EQS_TYPEID = EQS_TYPEID_GLOBALNONHYD3D_HEVI
       call atm_dyn_dgm_globalnonhydro3d_rhot_hevi_Init( mesh3D )
+      if ( .not. gm_mesh3D%shallow_approx ) then
+        LOG_ERROR("AtmDynDGMDriver_nonhydro3d_Init",*) 'EQS Type:', eqs_type_name, 'Deep atmosphere is not supported. Check!'
+        call PRC_abort  
+      end if
       this%cal_tend_ex => atm_dyn_dgm_globalnonhydro3d_rhot_hevi_cal_tend
       this%cal_vi => atm_dyn_dgm_globalnonhydro3d_rhot_hevi_cal_vi
       this%dynsolver_final => atm_dyn_dgm_globalnonhydro3d_rhot_hevi_Final
@@ -391,6 +411,10 @@ contains
     case("GLOBALNONHYDRO3D_ETOT_HEVI")
       this%EQS_TYPEID = EQS_TYPEID_GLOBALNONHYD3D_HEVI_ENTOT
       call atm_dyn_dgm_globalnonhydro3d_etot_hevi_Init( mesh3D )
+      if ( .not. gm_mesh3D%shallow_approx ) then
+        LOG_ERROR("AtmDynDGMDriver_nonhydro3d_Init",*) 'EQS Type:', eqs_type_name, 'Deep atmosphere is not supported. Check!'
+        call PRC_abort  
+      end if
       this%cal_tend_ex => atm_dyn_dgm_globalnonhydro3d_etot_hevi_cal_tend
       this%cal_vi => atm_dyn_dgm_globalnonhydro3d_etot_hevi_cal_vi
       this%dynsolver_final => atm_dyn_dgm_globalnonhydro3d_etot_hevi_Final
