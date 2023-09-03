@@ -84,6 +84,7 @@ contains
     real(RP) :: FZ(FZ_nmax)
 
     !* Global
+    logical :: SHALLOW_ATM_APPROX_FLAG = .true.
     integer  :: NeGX               = 2
     integer  :: NeGY               = 2
     integer  :: NeZ                = 2
@@ -97,6 +98,7 @@ contains
     character(len=H_MID)  :: TOPO_IN_VARNAME     = 'topo'   !< variable name of topo in the input file
     
     namelist / PARAM_ATMOS_MESH / &
+      SHALLOW_ATM_APPROX_FLAG,                     &
       dom_zmin, dom_zmax,                          &
       FZ, isPeriodicZ,                             &
       NeGX, NeGY, NeZ, NLocalMeshPerPrc, Nprc,     &
@@ -144,13 +146,14 @@ contains
     end do
     if (is_spec_FZ) then
       call this%mesh%Init( &
-        NeGX, NeGY, NeZ, RPlanet, dom_zmin, dom_zmax, &
-        this%element, NLocalMeshPerPrc, nproc=Nprc,   &
-        FZ=FZ(1:NeZ+1)    )
+        NeGX, NeGY, NeZ, RPlanet, dom_zmin, dom_zmax,          &
+        this%element, NLocalMeshPerPrc, nproc=Nprc,            &
+        FZ=FZ(1:NeZ+1), shallow_approx=SHALLOW_ATM_APPROX_FLAG )
     else
       call this%mesh%Init( &
         NeGX, NeGY, NeZ, RPlanet, dom_zmin, dom_zmax, &
-        this%element, NLocalMeshPerPrc, nproc=Nprc    )
+        this%element, NLocalMeshPerPrc, nproc=Nprc,   &
+        shallow_approx=SHALLOW_ATM_APPROX_FLAG        )
     end if
     
     call this%mesh%Generate()
@@ -274,7 +277,7 @@ contains
       elem => lcmesh%refElem3D
       call CubedSphereCoordCnv_CS2LonLatVec( &
         lcmesh%panelID, lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2), & ! (in)
-        elem%Np * lcmesh%Ne, this%mesh%RPlanet,                     & ! (in)
+        lcmesh%gam, elem%Np * lcmesh%Ne,                            & ! (in)
         U%local(n)%val(:,lcmesh%NeS:lcmesh%NeE),                    & ! (in)
         V%local(n)%val(:,lcmesh%NeS:lcmesh%NeE),                    & ! (in)
         Umet%local(n)%val(:,lcmesh%NeS:lcmesh%NeE),                 & ! (out)
@@ -295,7 +298,7 @@ contains
     !-------------------------------------------------
 
     call comm2D%Init( 1, 0, 0, this%mesh%mesh2D )
-    call comm3D%Init( 1, 1, 0, this%mesh )
+    call comm3D%Init( 2, 1, 0, this%mesh )
 
     call this%topography%SetVCoordinate( this%ptr_mesh,   &
       this%vcoord_type_id, this%mesh%zmax_gl, comm3D, comm2D )
