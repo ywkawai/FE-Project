@@ -305,9 +305,10 @@ contains
     end do
         
     call CubedSphereCoordCnv_LonLat2CSVec( &
-      lcmesh%panelID, lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2),  &
-      lcmesh%Ne * elem%Np, RPlanet, svec(:,:,1), svec(:,:,2),      &
-      MOMX(:,lcmesh%NeS:lcmesh%NeE), MOMY(:,lcmesh%NeS:lcmesh%NeE) )
+      lcmesh%panelID, lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2),  & ! (in)
+      lcmesh%gam(:,:,lcmesh%NeS:lcmesh%NeE), lcmesh%Ne * elem%Np,  & ! (in)
+      svec(:,:,1), svec(:,:,2),                                    & ! (in)
+      MOMX(:,lcmesh%NeS:lcmesh%NeE), MOMY(:,lcmesh%NeS:lcmesh%NeE) ) ! (out)
 
     return
   end subroutine exp_SetInitCond_tracer_advection

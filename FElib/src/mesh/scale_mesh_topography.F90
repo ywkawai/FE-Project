@@ -117,13 +117,12 @@ contains
     integer :: ke, ke2D
 
     type(MeshFieldContainer) :: comm2d_varlist(1)
-    type(MeshFieldContainer) :: comm3d_varlist(3)
+    type(MeshFieldContainer) :: comm3d_varlist(4)
 
-    type(MeshField3D), target :: Gsqrt, G13, G23
+    type(MeshField3D), target :: zlev, GsqrtV, G13, G23
     type(MeshField3D), target :: tmp_G13, tmp_G23
 
     logical :: flag_covariantvec
-    real(RP), allocatable :: G_ij(:,:,:,:)
     !-------------------------------------------------------------
 
     lcmesh => mesh3D%lcmesh_list(1)
@@ -141,7 +140,8 @@ contains
 
     ! Calculate metric factors associated with general vertical coordinates
 
-    call Gsqrt%Init( "Gsqrt", "", mesh3D )
+    call zlev%Init( "zlev", "", mesh3D )
+    call GsqrtV%Init( "GsqrtV", "", mesh3D )
     call G13%Init( "G13", "", mesh3D )
     call G23%Init( "G23", "", mesh3D )
 
@@ -153,10 +153,9 @@ contains
       lcmesh2D => lcmesh%lcmesh2D
       elem3D => lcmesh%refElem3D
 
-      Gsqrt%local(n)%val(:,:) = lcmesh%Gsqrt(:,:)
       call MeshUtil_VCoord_GetMetric( &
-        G13%local(n)%val, G23%local(n)%val, lcmesh%zlev(:,:),   & ! (out)
-        Gsqrt%local(n)%val,                                     & ! (inout)
+        G13%local(n)%val, G23%local(n)%val, zlev%local(n)%val,  & ! (out)
+        GsqrtV%local(n)%val,                                    & ! (out)
         this%topo%local(n)%val(:,:), zTop, vcoord_id,           & ! (in)
         lcmesh, lcmesh%refElem3D, lcmesh2D, lcmesh2D%refElem2D, & ! (in)
         Dx2D, Dy2D, Lift2D                                      ) ! (in)
@@ -175,9 +174,10 @@ contains
 
     ! Exchange metric data to fill halo
 
-    comm3d_varlist(1)%field3d => Gsqrt
-    comm3d_varlist(2)%field3d => tmp_G13
-    comm3d_varlist(3)%field3d => tmp_G23
+    comm3d_varlist(1)%field3d => zlev
+    comm3d_varlist(2)%field3d => GsqrtV
+    comm3d_varlist(3)%field3d => tmp_G13
+    comm3d_varlist(4)%field3d => tmp_G23
 
     flag_covariantvec = .false.
     select type(comm3D)
@@ -196,22 +196,18 @@ contains
       lcmesh => mesh3D%lcmesh_list(n)
       elem3D => lcmesh%refElem3D
 
-      !$omp parallel do
-      do ke=lcmesh%NeS, lcmesh%NeA
-        lcmesh%Gsqrt(:,ke) = Gsqrt%local(n)%val(:,ke)
-
-        if ( flag_covariantvec ) then
-          lcmesh%GI3(:,ke,1) = G13%local(n)%val(:,ke)
-          lcmesh%GI3(:,ke,2) = G23%local(n)%val(:,ke)
-        else
-          lcmesh%GI3(:,ke,1) = tmp_G13%local(n)%val(:,ke)
-          lcmesh%GI3(:,ke,2) = tmp_G23%local(n)%val(:,ke)
-        end if
-      end do
+      if ( flag_covariantvec ) then
+        call mesh3D%Set_geometric_with_vcoord( n, &
+          GsqrtV%local(n)%val, zlev%local(n)%val, G13%local(n)%val, G23%local(n)%val )
+      else
+        call mesh3D%Set_geometric_with_vcoord( n, &
+          GsqrtV%local(n)%val, zlev%local(n)%val, tmp_G13%local(n)%val, tmp_G23%local(n)%val )
+      end if
     end do
 
     !---
-    call Gsqrt%Final()
+    call zlev%Final()
+    call GsqrtV%Final()
     call G13%Final()
     call G23%Final()
     call tmp_G13%Final()

@@ -260,6 +260,7 @@ contains
 
     type(HexahedralElement) :: elem_intrp
     real(RP), allocatable :: x_intrp(:,:), y_intrp(:,:), z_intrp(:,:)
+    real(RP), allocatable :: gam_intrp(:,:)
     real(RP), allocatable :: lon_intrp(:,:), lat_intrp(:,:)
     real(RP), allocatable :: z_func(:,:)
     real(RP), allocatable :: r_intrp(:)
@@ -284,6 +285,7 @@ contains
     call mkinitutil_gen_GPMat( IntrpMat, elem_intrp, elem )
 
     allocate( x_intrp(elem_intrp%Np,lcmesh3D%Ne), y_intrp(elem_intrp%Np,lcmesh3D%Ne), z_intrp(elem_intrp%Np,lcmesh3D%Ne) )
+    allocate( gam_intrp(elem_intrp%Np,lcmesh3D%Ne) )
     allocate( lon_intrp(elem_intrp%Np,lcmesh3D%Ne), lat_intrp(elem_intrp%Np,lcmesh3D%Ne) )
     allocate( z_func(elem_intrp%Np,lcmesh3D%Ne) )
     allocate( r_intrp(elem_intrp%Np) )
@@ -298,12 +300,14 @@ contains
       x_intrp(:,ke) = vx(1) + 0.5_RP * ( elem_intrp%x1(:) + 1.0_RP ) * ( vx(2) - vx(1) ) 
       y_intrp(:,ke) = vy(1) + 0.5_RP * ( elem_intrp%x2(:) + 1.0_RP ) * ( vy(4) - vy(1) )
       z_intrp(:,ke) = vz(1) + 0.5_RP * ( elem_intrp%x3(:) + 1.0_RP ) * ( vz(5) - vz(1) )
-      
+      gam_intrp(:,ke) = 1.0_RP
+
       z_func(:,ke) = 1.0_RP
     end do
 
-    call CubedSphereCoordCnv_CS2LonLatPos( lcmesh3D%panelID, x_intrp, y_intrp, elem_intrp%Np * lcmesh3D%Ne, &
-      rplanet, lon_intrp(:,:), lat_intrp(:,:) )
+    call CubedSphereCoordCnv_CS2LonLatPos( lcmesh3D%panelID, x_intrp, y_intrp, gam_intrp, & ! (in)
+      elem_intrp%Np * lcmesh3D%Ne,                                                        & ! (in)
+      lon_intrp(:,:), lat_intrp(:,:) )                                                      ! (out)
 
     ! Calculate the vertical function
     if ( present(z_func_type) ) then
@@ -344,9 +348,6 @@ contains
   subroutine mkinitutil_GalerkinProjection( q, &
     func, IntrpPolyOrder_h, IntrpPolyOrder_v,  &
     lcmesh3D, elem                             )
-
-  use scale_cubedsphere_coord_cnv, only: &
-    CubedSphereCoordCnv_CS2LonLatPos
   
   implicit none
   class(LocalMesh3D), intent(in) :: lcmesh3D
@@ -447,6 +448,7 @@ end subroutine mkinitutil_GalerkinProjection
 
     type(HexahedralElement) :: elem_intrp
     real(RP), allocatable :: x_intrp(:,:), y_intrp(:,:), z_intrp(:,:)
+    real(RP), allocatable :: gam_intrp(:,:)
     real(RP), allocatable :: lon_intrp(:,:), lat_intrp(:,:)
     real(RP) :: vx(elem%Nv), vy(elem%Nv), vz(elem%Nv)
 
@@ -462,6 +464,7 @@ end subroutine mkinitutil_GalerkinProjection
     call mkinitutil_gen_GPMat( IntrpMat, elem_intrp, elem )
 
     allocate( x_intrp(elem_intrp%Np,lcmesh3D%Ne), y_intrp(elem_intrp%Np,lcmesh3D%Ne), z_intrp(elem_intrp%Np,lcmesh3D%Ne) )
+    allocate( gam_intrp(elem_intrp%Np,lcmesh3D%Ne) )
     allocate( lon_intrp(elem_intrp%Np,lcmesh3D%Ne), lat_intrp(elem_intrp%Np,lcmesh3D%Ne) )
     allocate( q_intrp(elem_intrp%Np) )
 
@@ -473,10 +476,13 @@ end subroutine mkinitutil_GalerkinProjection
       x_intrp(:,ke) = vx(1) + 0.5_RP * ( elem_intrp%x1(:) + 1.0_RP ) * ( vx(2) - vx(1) ) 
       y_intrp(:,ke) = vy(1) + 0.5_RP * ( elem_intrp%x2(:) + 1.0_RP ) * ( vy(4) - vy(1) )
       z_intrp(:,ke) = vz(1) + 0.5_RP * ( elem_intrp%x3(:) + 1.0_RP ) * ( vz(5) - vz(1) )
+
+      gam_intrp(:,ke) = 1.0_RP
     end do
 
-    call CubedSphereCoordCnv_CS2LonLatPos( lcmesh3D%panelID, x_intrp, y_intrp, elem_intrp%Np * lcmesh3D%Ne, &
-      rplanet, lon_intrp(:,:), lat_intrp(:,:) )
+    call CubedSphereCoordCnv_CS2LonLatPos( lcmesh3D%panelID, x_intrp, y_intrp, gam_intrp, & ! (in)
+      elem_intrp%Np * lcmesh3D%Ne,                                                        & ! (in)
+      lon_intrp(:,:), lat_intrp(:,:) )                                                      ! (out)
 
     !$omp parallel do private( q_intrp )
     do ke=lcmesh3D%NeS, lcmesh3D%NeE

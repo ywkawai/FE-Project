@@ -238,6 +238,7 @@ contains
 
     real(RP), allocatable :: fpos3D(:,:)
     real(RP), allocatable :: lcfpos3D(:,:)
+    real(RP), allocatable :: unity_fac(:)
     real(RP), allocatable :: tmp_svec3D(:,:)
     real(RP), allocatable :: tmp1_htensor3D(:,:,:)
     real(RP), allocatable :: tmp2_htensor3D(:,:,:)
@@ -280,33 +281,37 @@ contains
         if ( commdata%s_panelID /= lcmesh%panelID ) then
           if ( this%hvfield_num > 0 ) then
             
-            allocate( lcfpos3D(Nnode_LCMeshFace(f),2) )
+            allocate( lcfpos3D(Nnode_LCMeshFace(f),2), unity_fac(Nnode_LCMeshFace(f)) )
             allocate( tmp_svec3D(Nnode_LCMeshFace(f),2) )
+
             call push_localsendbuf( lcfpos3D,                             &
               fpos3D, commdata%s_faceID, is_f(f), Nnode_LCMeshFace(f), 2, &
               lcmesh, elem )
-            
+            unity_fac(:) = 1.0_RP
+
             do varid=this%sfield_num+1, this%sfield_num+2*this%hvfield_num-1, 2
               tmp_svec3D(:,1) = commdata%send_buf(:,varid  )
               tmp_svec3D(:,2) = commdata%send_buf(:,varid+1)
   
               call CubedSphereCoordCnv_CS2LonLatVec( &
-                lcmesh%panelID, lcfpos3D(:,1), lcfpos3D(:,2), Nnode_LCMeshFace(f), &
-                this%mesh3d%RPlanet,                                               &
+                lcmesh%panelID, lcfpos3D(:,1), lcfpos3D(:,2), unity_fac(:),        &
+                Nnode_LCMeshFace(f),                                               &
                 tmp_svec3D(:,1), tmp_svec3D(:,2),                                  &
                 commdata%send_buf(:,varid), commdata%send_buf(:,varid+1)           )
 
             end do
-            deallocate( lcfpos3D, tmp_svec3D )
+            deallocate( lcfpos3D, unity_fac, tmp_svec3D )
           end if
 
           if ( this%htensorfield_num > 0 ) then
-            allocate( lcfpos3D(Nnode_LCMeshFace(f),2) )
+            allocate( lcfpos3D(Nnode_LCMeshFace(f),2), unity_fac(Nnode_LCMeshFace(f)) )
             allocate( tmp1_htensor3D(Nnode_LCMeshFace(f),2,2) )
             allocate( tmp2_htensor3D(Nnode_LCMeshFace(f),2,2) )
+
             call push_localsendbuf( lcfpos3D,                             &
               fpos3D, commdata%s_faceID, is_f(f), Nnode_LCMeshFace(f), 2, &
               lcmesh, elem )
+            unity_fac(:) = 1.0_RP
             
             do varid=this%sfield_num+2*this%hvfield_num+1, this%field_num_tot-3, 4
               tmp1_htensor3D(:,1,1) = commdata%send_buf(:,varid  )
@@ -315,27 +320,27 @@ contains
               tmp1_htensor3D(:,2,2) = commdata%send_buf(:,varid+3)
   
               call CubedSphereCoordCnv_CS2LonLatVec( &
-                lcmesh%panelID, lcfpos3D(:,1), lcfpos3D(:,2), Nnode_LCMeshFace(f), &
-                this%mesh3d%RPlanet,                                               &
+                lcmesh%panelID, lcfpos3D(:,1), lcfpos3D(:,2), unity_fac(:),        &
+                Nnode_LCMeshFace(f),                                               &
                 tmp1_htensor3D(:,1,1), tmp1_htensor3D(:,2,1),                      &
                 tmp2_htensor3D(:,1,1), tmp2_htensor3D(:,2,1)                       )
               call CubedSphereCoordCnv_CS2LonLatVec( &
-                lcmesh%panelID, lcfpos3D(:,1), lcfpos3D(:,2), Nnode_LCMeshFace(f), &
-                this%mesh3d%RPlanet,                                               &
+                lcmesh%panelID, lcfpos3D(:,1), lcfpos3D(:,2), unity_fac(:),        &
+                Nnode_LCMeshFace(f),                                               &
                 tmp1_htensor3D(:,1,2), tmp1_htensor3D(:,2,2),                      &
                 tmp2_htensor3D(:,1,2), tmp2_htensor3D(:,2,2)                       )
               call CubedSphereCoordCnv_CS2LonLatVec( &
-                lcmesh%panelID, lcfpos3D(:,1), lcfpos3D(:,2), Nnode_LCMeshFace(f), &
-                this%mesh3d%RPlanet,                                               &
+                lcmesh%panelID, lcfpos3D(:,1), lcfpos3D(:,2), unity_fac(:),        &
+                Nnode_LCMeshFace(f),                                               &
                 tmp2_htensor3D(:,1,1), tmp2_htensor3D(:,1,2),                      &
                 commdata%send_buf(:,varid), commdata%send_buf(:,varid+2)           )
               call CubedSphereCoordCnv_CS2LonLatVec( &
-                lcmesh%panelID, lcfpos3D(:,1), lcfpos3D(:,2), Nnode_LCMeshFace(f), &
-                this%mesh3d%RPlanet,                                               &
+                lcmesh%panelID, lcfpos3D(:,1), lcfpos3D(:,2), unity_fac(:),        &
+                Nnode_LCMeshFace(f),                                               &
                 tmp2_htensor3D(:,2,1), tmp2_htensor3D(:,2,2),                      &
                 commdata%send_buf(:,varid+1), commdata%send_buf(:,varid+3)         )
             end do
-            deallocate( lcfpos3D, tmp1_htensor3D, tmp2_htensor3D )
+            deallocate( lcfpos3D, unity_fac, tmp1_htensor3D, tmp2_htensor3D )
           end if
 
         end if
@@ -375,24 +380,26 @@ contains
         if ( commdata%s_panelID /= lcmesh%panelID ) then
           if ( this%hvfield_num > 0 ) then
 
-            allocate( lcfpos3D(Nnode_LCMeshFace(f),2) )
+            allocate( lcfpos3D(Nnode_LCMeshFace(f),2), unity_fac(Nnode_LCMeshFace(f)) )
             call push_localsendbuf( lcfpos3D,             &
               fpos3D, f, is_f(f), Nnode_LCMeshFace(f), 2, &
               lcmesh, elem )
+            unity_fac(:) = 1.0_RP
             
             do varid=this%sfield_num+1, this%sfield_num+2*this%hvfield_num-1, 2
               call CubedSphereCoordCnv_LonLat2CSVec( &
-                lcmesh%panelID, lcfpos3D(:,1), lcfpos3D(:,2), Nnode_LCMeshFace(f),   &
-                this%mesh3d%RPlanet,                                                 &
+                lcmesh%panelID, lcfpos3D(:,1), lcfpos3D(:,2), unity_fac(:),          &
+                Nnode_LCMeshFace(f),                                                 &
                 commdata%recv_buf(:,varid), commdata%recv_buf(:,varid+1),            &
                 this%recv_buf(irs:ire,varid,n), this%recv_buf(irs:ire,varid+1,n)     )
             end do
-            deallocate( lcfpos3D )
+            deallocate( lcfpos3D, unity_fac )
           end if
 
           if ( this%htensorfield_num > 0 ) then
-            allocate( lcfpos3D(Nnode_LCMeshFace(f),2) )
+            allocate( lcfpos3D(Nnode_LCMeshFace(f),2), unity_fac(Nnode_LCMeshFace(f)) )
             allocate( tmp1_htensor3D(Nnode_LCMeshFace(f),2,2) )
+            unity_fac(:) = 1.0_RP
 
             call push_localsendbuf( lcfpos3D,             &
               fpos3D, f, is_f(f), Nnode_LCMeshFace(f), 2, &
@@ -400,27 +407,27 @@ contains
             
             do varid=this%sfield_num+2*this%hvfield_num+1, this%field_num_tot-3, 4
               call CubedSphereCoordCnv_LonLat2CSVec( &
-                lcmesh%panelID, lcfpos3D(:,1), lcfpos3D(:,2), Nnode_LCMeshFace(f),   &
-                this%mesh3d%RPlanet,                                                 &
+                lcmesh%panelID, lcfpos3D(:,1), lcfpos3D(:,2), unity_fac(:),          &
+                Nnode_LCMeshFace(f),                                                 &
                 commdata%recv_buf(:,varid), commdata%recv_buf(:,varid+1),            &
                 tmp1_htensor3D(:,1,1), tmp1_htensor3D(:,2,1)    )
               call CubedSphereCoordCnv_LonLat2CSVec( &
-                lcmesh%panelID, lcfpos3D(:,1), lcfpos3D(:,2), Nnode_LCMeshFace(f),   &
-                this%mesh3d%RPlanet,                                                 &
+                lcmesh%panelID, lcfpos3D(:,1), lcfpos3D(:,2), unity_fac(:),          &
+                Nnode_LCMeshFace(f),                                                 &
                 commdata%recv_buf(:,varid+2), commdata%recv_buf(:,varid+3),          &
                 tmp1_htensor3D(:,1,2), tmp1_htensor3D(:,2,2)    )
               call CubedSphereCoordCnv_LonLat2CSVec( &
-                lcmesh%panelID, lcfpos3D(:,1), lcfpos3D(:,2), Nnode_LCMeshFace(f),   &
-                this%mesh3d%RPlanet,                                                 &
+                lcmesh%panelID, lcfpos3D(:,1), lcfpos3D(:,2), unity_fac(:),          &
+                Nnode_LCMeshFace(f),                                                 &
                 tmp1_htensor3D(:,1,1), tmp1_htensor3D(:,1,2),                        &
                 this%recv_buf(irs:ire,varid,n), this%recv_buf(irs:ire,varid+2,n)     )
               call CubedSphereCoordCnv_LonLat2CSVec( &
-                lcmesh%panelID, lcfpos3D(:,1), lcfpos3D(:,2), Nnode_LCMeshFace(f),   &
-                this%mesh3d%RPlanet,                                                 &
+                lcmesh%panelID, lcfpos3D(:,1), lcfpos3D(:,2), unity_fac(:),          &
+                Nnode_LCMeshFace(f),                                                 &
                 tmp1_htensor3D(:,2,1), tmp1_htensor3D(:,2,2),                        &
                 this%recv_buf(irs:ire,varid+1,n), this%recv_buf(irs:ire,varid+3,n)   )
             end do
-            deallocate( lcfpos3D, tmp1_htensor3D )
+            deallocate( lcfpos3D, unity_fac, tmp1_htensor3D )
           end if          
         end if
 

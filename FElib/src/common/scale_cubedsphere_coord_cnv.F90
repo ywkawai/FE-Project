@@ -24,8 +24,9 @@ module scale_cubedsphere_coord_cnv
   !++ used modules
   !
   use scale_const, only: &
-    PI => CONST_PI,      &
-    EPS => CONST_EPS
+    PI => CONST_PI,         &
+    EPS => CONST_EPS,       &
+    RPlanet => CONST_RADIUS
   use scale_precision
   use scale_prc
   use scale_io
@@ -80,7 +81,7 @@ module scale_cubedsphere_coord_cnv
 contains
 !OCL SERIAL
   subroutine CubedSphereCoordCnv_CS2LonLatPos( &
-    panelID, alpha, beta, Np, radius,        & ! (in)
+    panelID, alpha, beta, gam, Np,             & ! (in)
     lon, lat )                                 ! (out)
     use scale_geographic_coord_cnv, only: &
       GeographicCoordCnv_orth_to_geo_pos
@@ -90,11 +91,10 @@ contains
     integer, intent(in) :: Np
     real(RP), intent(in) :: alpha(Np)
     real(RP), intent(in) :: beta (Np)
-    real(RP), intent(in) :: radius
+    real(RP), intent(in) :: gam(Np)
     real(RP), intent(out) :: lon(Np)
     real(RP), intent(out) :: lat(Np)
 
-    real(RP) :: radius_dummy(Np)
     real(RP) :: CartPos(Np,3)
     real(RP) :: GeogPos(Np,3)
 
@@ -116,12 +116,8 @@ contains
       !$omp end workshare
       !$omp end parallel
     case(5, 6)
-      !$omp parallel do
-      do p=1, Np
-        radius_dummy(p) = 1.0_RP
-      end do
-      call CubedSphereCoordCnv_CS2CartPos( panelID, alpha, beta, radius_dummy(:), Np, & ! (in)
-        CartPos(:,1), CartPos(:,2), CartPos(:,3) ) ! (out)
+      call CubedSphereCoordCnv_CS2CartPos( panelID, alpha, beta, gam, Np, & ! (in)
+        CartPos(:,1), CartPos(:,2), CartPos(:,3)                          ) ! (out)
       
       call GeographicCoordCnv_orth_to_geo_pos( CartPos(:,:), Np, & ! (in)
         GeogPos(:,:) ) ! (out)
@@ -148,7 +144,7 @@ contains
 
 !OCL SERIAL
   subroutine CubedSphereCoordCnv_CS2LonLatVec( &
-    panelID, alpha, beta, Np, radius,      & ! (in)
+    panelID, alpha, beta, gam, Np,         & ! (in)
     VecAlpha, VecBeta,                     & ! (in)
     VecLon, VecLat,                        & ! (out)
     lat                                    ) ! (in, optional)
@@ -161,7 +157,7 @@ contains
     integer, intent(in) :: Np
     real(RP), intent(in) :: alpha(Np)
     real(RP), intent(in) :: beta (Np)
-    real(RP), intent(in) :: radius
+    real(RP), intent(in) :: gam(Np)      ! RPlanet / r
     real(DP), intent(in) :: VecAlpha(Np)
     real(DP), intent(in) :: VecBeta (Np)
     real(RP), intent(out) :: VecLon(Np)
@@ -172,6 +168,7 @@ contains
     real(RP) :: X ,Y, del2
     real(RP) :: s
 
+    real(RP) :: radius
     real(RP) :: cos_Lat(Np)
     !-----------------------------------------------------------------------------
 
@@ -191,20 +188,21 @@ contains
         end do
       end if
 
-      !$omp parallel do private( X, Y, del2 )
+      !$omp parallel do private( X, Y, del2, radius )
       do p=1, Np
         X = tan( alpha(p) )
         Y = tan( beta (p) )
         del2 = 1.0_RP + X**2 + Y**2
+        radius = RPlanet * gam(p)
 
         VecLon(p) = VecAlpha(p) * cos_Lat(p) * radius
         VecLat(p) = ( - X * Y * VecAlpha(p) + ( 1.0_RP + Y**2 ) * VecBeta(p) ) &
                   * radius * sqrt( 1.0_RP + X**2 ) / del2 
       end do
     case ( 5 )
-      s = radius
+      s = 1.0_RP
     case ( 6 )
-      s = - radius
+      s = - 1.0_RP
     case default
       LOG_ERROR("CubedSphereCoordCnv_CS2LonLatVec",'(a,i2,a)') "panelID ", panelID, " is invalid. Check!"
       call PRC_abort
@@ -212,19 +210,21 @@ contains
 
     select case( panelID )
     case( 5, 6 )
-      !$omp parallel do private( X, Y, del2 )
+      !$omp parallel do private( X, Y, del2, radius )
       do p=1, Np
         X = tan( alpha(p) )
         Y = tan( beta (p) )
         del2 = 1.0_RP + X**2 + Y**2
+        radius = s * RPlanet * gam(p)
+
         if (.not. present(lat)) then
           cos_Lat(p) =  cos( atan( sign(1.0_RP, s) / max( sqrt( X**2 + Y**2 ), EPS ) ) )
         end if
 
         VecLon(p) = (- Y * ( 1.0_RP + X**2 ) * VecAlpha(p) + X * ( 1.0_RP + Y**2 ) * VecBeta(p) ) &
-                  * s / max( X**2 + Y**2, EPS ) * cos_Lat(p)
+                  * radius / max( X**2 + Y**2, EPS ) * cos_Lat(p)
         VecLat(p) = (- X * ( 1.0_RP + X**2 ) * VecAlpha(p) - Y * ( 1.0_RP + Y**2 ) * VecBeta(p) ) &
-                  * s / ( del2 * ( max( sqrt( X**2 + Y**2 ), EPS ) ) )
+                  * radius / ( del2 * ( max( sqrt( X**2 + Y**2 ), EPS ) ) )
       end do
     end select
 
@@ -306,7 +306,7 @@ contains
   !
 !OCL SERIAL
   subroutine CubedSphereCoordCnv_LonLat2CSVec( &
-    panelID, alpha, beta, Np, radius,      & ! (in)
+    panelID, alpha, beta, gam, Np,         & ! (in)
     VecLon, VecLat,                        & ! (in)
     VecAlpha, VecBeta,                     & ! (out)
     lat )                                    ! (in, optional)
@@ -317,7 +317,7 @@ contains
     integer, intent(in) :: Np
     real(RP), intent(in) :: alpha(Np)
     real(RP), intent(in) :: beta (Np)
-    real(RP), intent(in) :: radius
+    real(RP), intent(in) :: gam(Np)
     real(DP), intent(in) :: VecLon(Np)
     real(DP), intent(in) :: VecLat(Np)
     real(RP), intent(out) :: VecAlpha(Np)
@@ -328,6 +328,7 @@ contains
     real(RP) :: X ,Y, del2
     real(RP) :: s
 
+    real(RP) :: radius
     real(RP) :: cos_Lat(Np)
     real(RP) :: VecLon_ov_cosLat
     !-----------------------------------------------------------------------------
@@ -348,11 +349,12 @@ contains
         end do
       end if
   
-      !$omp parallel do private( X, Y, del2, VecLon_ov_cosLat )
+      !$omp parallel do private( X, Y, del2, radius, VecLon_ov_cosLat )
       do p=1, Np
         X = tan( alpha(p) )
         Y = tan( beta (p) )
         del2 = 1.0_RP + X**2 + Y**2
+        radius = RPlanet * gam(p)
         VecLon_ov_cosLat = VecLon(p) / cos_Lat(p)
 
         VecAlpha(p) = VecLon_ov_cosLat / radius
@@ -370,19 +372,21 @@ contains
 
     select case( panelID )
     case( 5, 6 )
-      !$omp parallel do private( X, Y, del2, VecLon_ov_cosLat )
+      !$omp parallel do private( X, Y, del2, radius, VecLon_ov_cosLat )
       do p=1, Np
         X = tan( alpha(p) )
         Y = tan( beta (p) )
         del2 = 1.0_RP + X**2 + Y**2
+        radius = s * RPlanet * gam(p)
+
         if (.not. present(lat)) then
           cos_Lat(p) =  cos( atan( s / sqrt(max(X**2 + Y**2, EPS)) ) )
         end if
         VecLon_ov_cosLat = VecLon(p) / cos_Lat(p)
 
-        VecAlpha(p) = (- Y * VecLon_ov_cosLat - del2 * X / sqrt( max(del2 - 1.0_RP,EPS)) * VecLat(p)) * s &
+        VecAlpha(p) = (- Y * VecLon_ov_cosLat - del2 * X / sqrt( max(del2 - 1.0_RP,EPS)) * VecLat(p)) &
                     / ( radius * ( 1.0_RP + X**2 ) )
-        VecBeta (p) = (  X * VecLon_ov_cosLat - del2 * Y / sqrt( max(del2 - 1.0_RP,EPS)) * VecLat(p)) * s &
+        VecBeta (p) = (  X * VecLon_ov_cosLat - del2 * Y / sqrt( max(del2 - 1.0_RP,EPS)) * VecLat(p)) &
                     / ( radius * ( 1.0_RP + Y**2 ) )
       end do
     end select
@@ -392,7 +396,7 @@ contains
 
 !OCL SERIAL
   subroutine CubedSphereCoordCnv_CS2CartPos( &
-    panelID, alpha, beta, radius, Np,        & ! (in)
+    panelID, alpha, beta, gam, Np,           & ! (in)
     X, Y, Z                                  ) ! (out)
 
     implicit none
@@ -400,13 +404,14 @@ contains
     integer, intent(in) :: Np
     real(RP), intent(in) :: alpha(Np)
     real(RP), intent(in) :: beta (Np)
-    real(RP), intent(in) :: radius(Np)
+    real(RP), intent(in) :: gam(Np)
     real(RP), intent(out) :: X(Np)
     real(RP), intent(out) :: Y(Np)
     real(RP), intent(out) :: Z(Np)
 
     integer :: p
     real(RP) :: x1, x2, fac
+
     !-----------------------------------------------------------------------------
 
     select case(panelID)
@@ -415,7 +420,7 @@ contains
       do p=1, Np
         x1 = tan( alpha(p) )
         x2 = tan( beta (p) )
-        fac = radius(p) / sqrt( 1.0_RP + x1**2 + x2**2 )
+        fac = RPlanet * gam(p) / sqrt( 1.0_RP + x1**2 + x2**2 )
         X(p) = fac
         Y(p) = fac * x1
         Z(p) = fac * x2
@@ -425,7 +430,7 @@ contains
       do p=1, Np
         x1 = tan( alpha(p) )
         x2 = tan( beta (p) )
-        fac = radius(p) / sqrt( 1.0_RP + x1**2 + x2**2 )
+        fac = RPlanet * gam(p) / sqrt( 1.0_RP + x1**2 + x2**2 )
         X(p) = - fac * x1 
         Y(p) =   fac
         Z(p) =   fac * x2
@@ -435,7 +440,7 @@ contains
       do p=1, Np
         x1 = tan( alpha(p) )
         x2 = tan( beta (p) )
-        fac = radius(p) / sqrt( 1.0_RP + x1**2 + x2**2 )
+        fac = RPlanet * gam(p) / sqrt( 1.0_RP + x1**2 + x2**2 )
         X(p) = - fac
         Y(p) = - fac * x1 
         Z(p) =   fac * x2
@@ -445,7 +450,7 @@ contains
       do p=1, Np
         x1 = tan( alpha(p) )
         x2 = tan( beta (p) )
-        fac = radius(p) / sqrt( 1.0_RP + x1**2 + x2**2 )
+        fac = RPlanet * gam(p) / sqrt( 1.0_RP + x1**2 + x2**2 )
         X(p) =   fac * x1 
         Y(p) = - fac
         Z(p) =   fac * x2
@@ -455,7 +460,7 @@ contains
       do p=1, Np
         x1 = tan( alpha(p) )
         x2 = tan( beta (p) )
-        fac = radius(p) / sqrt( 1.0_RP + x1**2 + x2**2 )
+        fac = RPlanet * gam(p) / sqrt( 1.0_RP + x1**2 + x2**2 )
         X(p) = - fac * x2
         Y(p) =   fac * x1
         Z(p) =   fac
@@ -465,7 +470,7 @@ contains
       do p=1, Np
         x1 = tan( alpha(p) )
         x2 = tan( beta (p) )
-        fac = radius(p) / sqrt( 1.0_RP + x1**2 + x2**2 )
+        fac = RPlanet * gam(p) / sqrt( 1.0_RP + x1**2 + x2**2 )
         X(p) =   fac * x2
         Y(p) =   fac * x1
         Z(p) = - fac
@@ -482,7 +487,7 @@ contains
   !
 !OCL SERIAL
   subroutine CubedSphereCoordCnv_Cart2CSVec( &
-    panelID, alpha, beta, radius, Np,      & ! (in)
+    panelID, alpha, beta, gam, Np,         & ! (in)
     Vec_x, Vec_y, Vec_z,                   & ! (in)
     VecAlpha, VecBeta                      ) ! (out)
 
@@ -492,7 +497,7 @@ contains
     integer, intent(in) :: Np
     real(RP), intent(in) :: alpha(Np)
     real(RP), intent(in) :: beta (Np)
-    real(RP), intent(in) :: radius(Np)
+    real(RP), intent(in) :: gam(Np)
     real(DP), intent(in) :: Vec_x(Np)
     real(DP), intent(in) :: Vec_y(Np)
     real(DP), intent(in) :: Vec_z(Np)
@@ -511,8 +516,8 @@ contains
         x1 = tan( alpha(p) )
         x2 = tan( beta (p) )
         r_sec2_alpha = cos(alpha(p))**2
-        r_sec2_beta = cos(beta(p))**2
-        fac = sqrt( 1.0_RP + x1**2 + x2**2 ) / radius(p)
+        r_sec2_beta  = cos(beta (p))**2
+        fac = sqrt( 1.0_RP + x1**2 + x2**2 ) / ( RPlanet * gam(p) )
 
         VecAlpha(p) = fac * r_sec2_alpha * ( - x1  * Vec_x(p) + Vec_y(p) )
         VecBeta (p) = fac * r_sec2_beta  * ( - x2  * Vec_x(p) + Vec_z(p) )
@@ -523,8 +528,8 @@ contains
         x1 = tan( alpha(p) )
         x2 = tan( beta (p) )
         r_sec2_alpha = cos(alpha(p))**2
-        r_sec2_beta = cos(beta(p))**2
-        fac = sqrt( 1.0_RP + x1**2 + x2**2 ) / radius(p)
+        r_sec2_beta  = cos(beta (p))**2
+        fac = sqrt( 1.0_RP + x1**2 + x2**2 ) / ( RPlanet * gam(p) )
 
         VecAlpha(p) = - fac * r_sec2_alpha * ( Vec_x(p) + x1 * Vec_y(p) )
         VecBeta (p) =   fac * r_sec2_beta  * ( - x2  * Vec_y(p) + Vec_z(p) )
@@ -535,8 +540,8 @@ contains
         x1 = tan( alpha(p) )
         x2 = tan( beta (p) )
         r_sec2_alpha = cos(alpha(p))**2
-        r_sec2_beta = cos(beta(p))**2
-        fac = sqrt( 1.0_RP + x1**2 + x2**2 ) / radius(p)
+        r_sec2_beta  = cos(beta (p))**2
+        fac = sqrt( 1.0_RP + x1**2 + x2**2 ) / ( RPlanet * gam(p) )
 
         VecAlpha(p) = fac * r_sec2_alpha * ( x1  * Vec_x(p) - Vec_y(p) )
         VecBeta (p) = fac * r_sec2_beta  * ( x2  * Vec_x(p) + Vec_z(p) )
@@ -547,8 +552,8 @@ contains
         x1 = tan( alpha(p) )
         x2 = tan( beta (p) )
         r_sec2_alpha = cos(alpha(p))**2
-        r_sec2_beta = cos(beta(p))**2
-        fac = sqrt( 1.0_RP + x1**2 + x2**2 ) / radius(p)
+        r_sec2_beta  = cos(beta (p))**2
+        fac = sqrt( 1.0_RP + x1**2 + x2**2 ) / ( RPlanet * gam(p) )
 
         VecAlpha(p) = fac * r_sec2_alpha * ( Vec_x(p) + x1 * Vec_y(p) )
         VecBeta (p) = fac * r_sec2_beta  * ( x2 * Vec_y(p) + Vec_z(p) )
@@ -559,8 +564,8 @@ contains
         x1 = tan( alpha(p) )
         x2 = tan( beta (p) )
         r_sec2_alpha = cos(alpha(p))**2
-        r_sec2_beta = cos(beta(p))**2
-        fac = sqrt( 1.0_RP + x1**2 + x2**2 ) / radius(p)
+        r_sec2_beta  = cos(beta (p))**2
+        fac = sqrt( 1.0_RP + x1**2 + x2**2 ) / ( RPlanet * gam(p) )
 
         VecAlpha(p) =   fac * r_sec2_alpha * ( Vec_y(p) - x1 * Vec_z(p) )
         VecBeta (p) = - fac * r_sec2_beta  * ( Vec_x(p) + x2 * Vec_z(p) )
@@ -571,8 +576,8 @@ contains
         x1 = tan( alpha(p) )
         x2 = tan( beta (p) )
         r_sec2_alpha = cos(alpha(p))**2
-        r_sec2_beta = cos(beta(p))**2
-        fac = sqrt( 1.0_RP + x1**2 + x2**2 ) / radius(p)
+        r_sec2_beta  = cos(beta (p))**2
+        fac = sqrt( 1.0_RP + x1**2 + x2**2 ) / ( RPlanet * gam(p) )
 
         VecAlpha(p) = fac * r_sec2_alpha * ( Vec_y(p) + x1 * Vec_z(p) )
         VecBeta (p) = fac * r_sec2_beta  * ( Vec_x(p) + x2 * Vec_z(p) )
@@ -709,6 +714,9 @@ contains
     VecBeta(:) = VecOrth2(:)
     !$omp end parallel workshare
 
+    call CubedSphereCoordCnv_LocalOrth2CSVec_alpha_0( &
+      alpha, beta, radius, Np,                        & ! (in)
+      VecAlpha, VecBeta                               ) ! (inout)    
 
     return
   end subroutine CubedSphereCoordCnv_LocalOrth2CSVec_alpha_1

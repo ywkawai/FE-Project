@@ -134,7 +134,7 @@ contains
     real(RP) :: RHOT_(elem%Np)
     real(RP) :: rdens_(elem%Np), u_(elem%Np), v_(elem%Np), w_(elem%Np), wt_(elem%Np)
 
-    real(RP) :: G11(elem%Np), G12(elem%Np), G22(elem%Np)
+    real(RP) :: G11(elem%Np), G12(elem%Np), G22(elem%Np), Rgam2(elem%Np)
     real(RP) :: GsqrtV(elem%Np), RGsqrtV(elem%Np)
     real(RP) :: X2D(elem2D%Np,lmesh2D%Ne), Y2D(elem2D%Np,lmesh2D%Ne)
     real(RP) :: X(elem%Np), Y(elem%Np), twoOVdel2(elem%Np)
@@ -182,7 +182,7 @@ contains
     !$omp RHOT_, rdens_, u_, v_, w_, wt_,          &
     !$omp Fx, Fy, Fz, LiftDelFlx,                  &
     !$omp GradPhyd_x, GradPhyd_y,                  &
-    !$omp G11, G12, G22, GsqrtV, RGsqrtV,          &
+    !$omp G11, G12, G22, Rgam2, GsqrtV, RGsqrtV,   &
     !$omp X, Y, twoOVdel2,                         &
     !$omp CORI, ke, ke2D                           )
 
@@ -196,10 +196,11 @@ contains
     do ke = lmesh%NeS, lmesh%NeE
       !--
       ke2d = lmesh%EMap3Dto2D(ke)
-      G11(:) = lmesh%GIJ(elem%IndexH2Dto3D,ke2d,1,1)
-      G12(:) = lmesh%GIJ(elem%IndexH2Dto3D,ke2d,1,2)
-      G22(:) = lmesh%GIJ(elem%IndexH2Dto3D,ke2d,2,2)
-      GsqrtV(:)  = lmesh%Gsqrt(:,ke) / lmesh%GsqrtH(elem%IndexH2Dto3D,ke2d)
+      Rgam2(:) = 1.0_RP / lmesh%gam(:,ke)**2
+      G11(:) = lmesh%GIJ(elem%IndexH2Dto3D,ke2d,1,1) * Rgam2(:)
+      G12(:) = lmesh%GIJ(elem%IndexH2Dto3D,ke2d,1,2) * Rgam2(:)
+      G22(:) = lmesh%GIJ(elem%IndexH2Dto3D,ke2d,2,2) * Rgam2(:)
+      GsqrtV(:)  = lmesh%Gsqrt(:,ke) * Rgam2(:) / lmesh%GsqrtH(elem%IndexH2Dto3D,ke2d)
       RGsqrtV(:) = 1.0_RP / GsqrtV(:)
 
       !--

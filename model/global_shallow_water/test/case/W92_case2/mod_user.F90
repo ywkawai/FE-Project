@@ -166,9 +166,11 @@ contains
     integer, parameter :: IntrpPolyOrder_v = 6
     real(RP), allocatable :: PRES_purtub(:,:)
   
+    real(RP) :: gam(elem%Np,lcmesh%Ne)
     real(RP) :: VelLon(elem%Np,lcmesh%Ne)
     real(RP) :: VelLat(elem%Np,lcmesh%Ne)
     integer :: ke
+
     integer :: ierr
     !-----------------------------------------------------------------------------
 
@@ -197,10 +199,13 @@ contains
       VelLat(:,ke) = - U0 * sin(alpha) * sin(lcmesh%lon(:,ke))
     end do
 
+    gam(:,:) = 1.0_RP
     call CubedSphereCoordCnv_LonLat2CSVec( &
-      lcmesh%panelID, lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2), elem%Np * lcmesh%Ne, RPlanet, & ! (in)
-      VelLon(:,:), VelLat(:,:),                                                                 & ! (in)
-      U(:,lcmesh%NeS:lcmesh%NeE), V(:,lcmesh%NeS:lcmesh%NeE)                                    ) ! (out)
+      lcmesh%panelID, lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2), & ! (in)
+      gam(:,:), elem%Np * lcmesh%Ne,                              & ! (in)
+      VelLon(:,:), VelLat(:,:),                                   & ! (in)
+      U(:,lcmesh%NeS:lcmesh%NeE), V(:,lcmesh%NeS:lcmesh%NeE)      ) ! (out)
+
     !$omp parallel do
     do ke=lcmesh%NeS, lcmesh%NeE
       u1(:,ke) = lcmesh%G_ij(:,ke,1,1) * U(:,ke) + lcmesh%G_ij(:,ke,1,2) * V(:,ke)

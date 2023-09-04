@@ -326,6 +326,7 @@ contains
   subroutine AtmPhyTbDGMDriver_Init( this, &
     tb_type_name, dtsec,                   &
     model_mesh3D )
+    use scale_mesh_cubedspheredom3d, only: MeshCubedSphereDom3D
     implicit none
 
     class(AtmPhyTbDGMDriver), intent(inout) :: this
@@ -334,6 +335,7 @@ contains
     class(ModelMesh3D), intent(inout), target :: model_mesh3D
 
     class(MeshBase3D), pointer :: mesh3D
+    class(MeshCubedSphereDom3D), pointer :: gm_mesh3D
 
     integer :: iv
     logical :: reg_file_hist
@@ -358,7 +360,11 @@ contains
     case ('SMAGORINSKY_GLOBAL')
       this%TB_TYPEID = TB_TYPEID_SMAGORINSKY_GLOBAL
 
-      call atm_phy_tb_dgm_globalsmg_Init( mesh3D )
+      select type(mesh3D)
+      class is (MeshCubedSphereDom3D)
+        gm_mesh3D => mesh3D
+      end select
+      call atm_phy_tb_dgm_globalsmg_Init( mesh3D, gm_mesh3D%shallow_approx )
       this%tbsolver_cal_grad => atm_phy_tb_dgm_globalsmg_cal_grad
       this%tbsolver_cal_grad_qtrc => atm_phy_tb_dgm_globalsmg_cal_grad_qtrc
       this%tbsolver_cal_tend => atm_phy_tb_dgm_globalsmg_cal_tend

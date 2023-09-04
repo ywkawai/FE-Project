@@ -386,14 +386,16 @@ contains
     end do
 
     call CubedSphereCoordCnv_LonLat2CSVec( &
-      lcmesh3D%panelID, alpha, beta,                                 &
-      lcmesh3D%Ne * Np, RPlanet, VelLon(:,:), VelLat(:,:),           &
-      U(:,lcmesh3D%NeS:lcmesh3D%NeE), V(:,lcmesh3D%NeS:lcmesh3D%NeE) )
+      lcmesh%panelID, lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2),    & ! (in)
+      lcmesh%gam(:,lcmesh%NeS:lcmesh%NeE), elem%Np * lcmesh%Ne,      & ! (in)
+      VelLon(:,:), VelLat(:,:),                                      & ! (in)
+      U(:,lcmesh3D%NeS:lcmesh3D%NeE), V(:,lcmesh3D%NeS:lcmesh3D%NeE) ) ! (out)
 
     call CubedSphereCoordCnv_LonLat2CSVec( &
-      lcmesh3D%panelID, alpha, beta,                                           &
-      lcmesh3D%Ne * Np, RPlanet, VelLon_dash(:,:), VelLat_dash(:,:),           &
-      U_dash(:,lcmesh3D%NeS:lcmesh3D%NeE), V_dash(:,lcmesh3D%NeS:lcmesh3D%NeE) )
+      lcmesh%panelID, lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2),              & ! (in)
+      lcmesh%gam(:,lcmesh%NeS:lcmesh%NeE), elem%Np * lcmesh%Ne,                & ! (in)
+      VelLon_dash(:,:), VelLat_dash(:,:),                                      & ! (in)
+      U_dash(:,lcmesh3D%NeS:lcmesh3D%NeE), V_dash(:,lcmesh3D%NeS:lcmesh3D%NeE) ) ! (out)
 
     return
   end subroutine calc_balanced_field 

@@ -162,18 +162,19 @@ contains
     namelist /PARAM_EXP/ &
       H00, K_
     
-
+    real(RP) :: gam(elem%Np,lcmesh%Ne)
     real(RP) :: VelLon(elem%Np,lcmesh%Ne)
     real(RP) :: VelLat(elem%Np,lcmesh%Ne)
+    
     real(RP) :: lon(elem%Np)
     real(RP) :: lat(elem%Np)
     real(RP) :: A(elem%Np)
     real(RP) :: B(elem%Np)    
     real(RP) :: C(elem%Np)    
-    integer :: ke
-    integer :: ierr
 
-    real(RP) :: r(elem%Np)
+    integer :: ke
+
+    integer :: ierr
     !-----------------------------------------------------------------------------
 
     H00 = 8000.0_RP
@@ -219,9 +220,13 @@ contains
 
     end do
 
+    gam(:,:) = 1.0_RP
     call CubedSphereCoordCnv_LonLat2CSVec( &
-      lcmesh%panelID, lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2), elem%Np * lcmesh%Ne, RPlanet, &
-      VelLon(:,:), VelLat(:,:), U(:,lcmesh%NeS:lcmesh%NeE), V(:,lcmesh%NeS:lcmesh%NeE)          )
+      lcmesh%panelID, lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2), & ! (in)
+      gam(:,:), elem%Np * lcmesh%Ne,                              & ! (in)
+      VelLon(:,:), VelLat(:,:),                                   & ! (in)
+      U(:,lcmesh%NeS:lcmesh%NeE), V(:,lcmesh%NeS:lcmesh%NeE)      ) ! (out)
+    
     !$omp parallel do
     do ke=lcmesh%NeS, lcmesh%NeE
       u1(:,ke) = lcmesh%G_ij(:,ke,1,1) * U(:,ke) + lcmesh%G_ij(:,ke,1,2) * V(:,ke)
