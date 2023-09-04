@@ -78,6 +78,8 @@ module mod_regrid_mesh_base
     integer :: mesh_type_id
 
     real(RP), allocatable :: FZ(:)
+
+    logical :: global_shallow_layer_approx_flag
   contains
     procedure :: Init1 => regrid_mesh_base_init_1
     procedure :: Init2 => regrid_mesh_base_init_2
@@ -318,11 +320,13 @@ contains
       if ( allocated( this%FZ ) ) then
         call this%csmesh3D%Init( this%NeGX, this%NeGY, this%NeGZ, RPlanet,  &
           this%dom_zmin, this%dom_zmax, this%elem3D, this%NLocalMeshPerPrc, &
-          nproc=this%Nprc, myrank=myrank_, FZ=this%FZ )
+          nproc=this%Nprc, myrank=myrank_, FZ=this%FZ,                      &
+          shallow_approx=this%global_shallow_layer_approx_flag              )
       else
         call this%csmesh3D%Init( this%NeGX, this%NeGY, this%NeGZ, RPlanet,  &
           this%dom_zmin, this%dom_zmax, this%elem3D, this%NLocalMeshPerPrc, &
-          nproc=this%Nprc, myrank=myrank_ )        
+          nproc=this%Nprc, myrank=myrank_,                                  &
+          shallow_approx=this%global_shallow_layer_approx_flag              )
       end if
       
       this%ptr_mesh3D => this%csmesh3D
@@ -577,6 +581,7 @@ contains
     logical, intent(in) :: GP_flag
 
     ! Structured mesh  
+    logical :: SHALLOW_ATM_APPROX_FLAG
     integer :: NprcX         = 1    
     integer :: NprcY         = 1       
     integer :: NprcZ         = 1      
@@ -611,6 +616,7 @@ contains
       FZ
    
     namelist / PARAM_REGRID_OUTMESH3D_STRUCTURED / &
+      SHALLOW_ATM_APPROX_FLAG,                                         & ! <- for lat lon coordinate
       NprcX, NprcY, NprcZ, NeX, NeY, NeGZ, NLocalMeshPerPrc,           &
       dom_xmin, dom_xmax, dom_ymin, dom_ymax, dom_zmin, dom_zmax,      &
       PolyOrder_h, PolyOrder_v,                                        &
@@ -624,6 +630,7 @@ contains
 
     NeGZ       = -1
     FZ(:)      = UNDEF
+    SHALLOW_ATM_APPROX_FLAG = .true.
 
     rewind(IO_FID_CONF)
 
@@ -650,6 +657,8 @@ contains
       LOG_NML(PARAM_REGRID_OUTMESH3D_STRUCTURED)
 
     end if
+
+    this%global_shallow_layer_approx_flag = SHALLOW_ATM_APPROX_FLAG
 
     this%NprcX = NprcX
     this%NprcY = NprcY
@@ -748,6 +757,7 @@ contains
 
     NeGZ       = -1
     FZ(:)      = UNDEF
+    SHALLOW_ATM_APPROX_FLAG = .true.
 
     rewind(IO_FID_CONF)
 
@@ -774,6 +784,8 @@ contains
       LOG_NML(PARAM_REGRID_OUTMESH3D_CUBEDSPHERE)
 
     end if
+
+    this%global_shallow_layer_approx_flag = SHALLOW_ATM_APPROX_FLAG
 
     this%Nprc  = Nprc
     this%NprcZ = 1

@@ -120,6 +120,7 @@ contains
     real(RP), allocatable :: out_y(:,:)
     real(RP), allocatable :: out_x3D(:,:)
     real(RP), allocatable :: out_y3D(:,:)
+    real(RP), allocatable :: gam(:,:)
 
     integer :: p_h, ke_h
     real(RP) :: out_lon(1)
@@ -147,9 +148,10 @@ contains
       allocate( out_x(Np1D**2,Ne2D), out_y(Np1D**2,Ne2D) )
       allocate( out_x3D(elem3D%Np,lcmesh%Ne) )
       allocate( out_y3D(elem3D%Np,lcmesh%Ne) )
+      allocate( gam(elem3D%Np,lcmesh%Ne) )
 
       call MeshUtilCubedSphere2D_getPanelID ( &
-        inPanelID(:,:),                             & ! (out)
+        inPanelID(:,:),                               & ! (out)
         lcmesh2D%pos_en(:,:,1) * PI / 180.0_RP,       & ! (in)
         lcmesh2D%pos_en(:,:,2) * PI / 180.0_RP,       & ! (in)
         Np1D**2 * Ne2D                              ) ! (in)      
@@ -172,14 +174,20 @@ contains
         inPanelID3D(:,ke) = inPanelID(elem3D%IndexH2Dto3D(:),ke2D)
         out_x3D(:,ke) = out_x(elem3D%IndexH2Dto3D(:),ke2D)
         out_y3D(:,ke) = out_y(elem3D%IndexH2Dto3D(:),ke2D)
+
+        if ( out_mesh%global_shallow_layer_approx_flag ) then
+          gam(:,ke) = 1.0_RP
+        else
+          gam(:,ke) = 1.0_RP + lcmesh%zlev(:,ke) / RPlanet
+        end if  
       end do
 
-      call CS2LonLatVec( inPanelID3D, out_x3D, out_y3D, lcmesh%gam, &
+      call CS2LonLatVec( inPanelID3D, out_x3D, out_y3D, gam, &
         elem3D%Np, lcmesh%Ne, lcmesh%NeA,               &
         out_vec_comp1%local(n)%val(:,:),                &
         out_vec_comp2%local(n)%val(:,:),                &
-        out_veclon%local(n)%val(:,:),             &
-        out_veclat%local(n)%val(:,:)              )
+        out_veclon%local(n)%val(:,:),                   &
+        out_veclat%local(n)%val(:,:)                    )
       
       !$omp parallel do private(ke2D)
       do ke=lcmesh%NeS, lcmesh%NeE
@@ -191,6 +199,7 @@ contains
       deallocate( inPanelID, inPanelID3D )
       deallocate( out_x, out_y )
       deallocate( out_x3D, out_y3D )
+      deallocate( gam )
     end do
 
     return

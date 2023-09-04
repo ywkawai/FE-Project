@@ -302,12 +302,19 @@ contains
     !-------------------------------------------------------
 
     lcmesh => this%lcmesh_list(lcdomID)
+
+    !$omp parallel private(ke)
+    !$omp do
+    do ke=lcmesh%NeS, lcmesh%NeE
+      lcmesh%zlev(:,ke) = zlev_lc(:,ke)
+    end do
+    !$omp do
     do ke=lcmesh%NeS, lcmesh%NeA
       lcmesh%Gsqrt(:,ke) = GsqrtV_lc(:,ke)
-      lcmesh%zlev(:,ke) = zlev_lc(:,ke)
       lcmesh%GI3(:,ke,1) = G13_lc(:,ke)
       lcmesh%GI3(:,ke,2) = G23_lc(:,ke)
     end do
+    !$omp end parallel
 
     return
   end subroutine MeshCubeDom3D_set_geometric_with_vcoord
