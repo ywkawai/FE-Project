@@ -318,8 +318,9 @@ contains
       end do
 
       call CubedSphereCoordCnv_LonLat2CSVec( &
-        lcmesh%panelID, lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2),          & ! (in)
-        lcmesh%Ne * elem3D%Np, RPlanet, svec(:,:,1), svec(:,:,2),            & ! (in)
+        lcmesh%panelID, lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2),    & ! (in)
+        lcmesh%gam(:,lcmesh%NeS:lcmesh%NeE), elem3D%Np * lcmesh%Ne,    & ! (in)
+        svec(:,:,1), svec(:,:,2),                                      & ! (in)
         MOMX%val(:,lcmesh%NeS:lcmesh%NeE), MOMY%val(:,lcmesh%NeS:lcmesh%NeE) ) ! (out)
         
       deallocate( svec )
@@ -575,16 +576,18 @@ contains
     case( 'SOLID_BODY_ROTATION_FLOW' )
       
       call CubedSphereCoordCnv_Cart2CSVec( &
-        lcmesh%panelID, lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2), radius_dummy(:,:), & ! (in)
-        lcmesh%Ne * elem%Np, Cart_vec(:,:,1), Cart_vec(:,:,2), Cart_vec(:,:,3),        & ! (in)
-        MOMX(:,lcmesh%NeS:lcmesh%NeE), MOMY(:,lcmesh%NeS:lcmesh%NeE) ) ! (out)
+        lcmesh%panelID, lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2),    & ! (in)
+        lcmesh%gam(:,lcmesh%NeS:lcmesh%NeE), elem%Np * lcmesh%Ne,      & ! (in)
+        Cart_vec(:,:,1), Cart_vec(:,:,2), Cart_vec(:,:,3),             & ! (in)
+        MOMX(:,lcmesh%NeS:lcmesh%NeE), MOMY(:,lcmesh%NeS:lcmesh%NeE) )   ! (out)
 
     case( 'DEFORMATION_FLOW' )
 
       call CubedSphereCoordCnv_LonLat2CSVec( &
-        lcmesh%panelID, lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2),  & ! (in)
-        lcmesh%Ne * elem%Np, RPlanet, svec(:,:,1), svec(:,:,2),      & ! (in)
-        MOMX(:,lcmesh%NeS:lcmesh%NeE), MOMY(:,lcmesh%NeS:lcmesh%NeE) ) ! (out)
+        lcmesh%panelID, lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2),    & ! (in)
+        lcmesh%gam(:,lcmesh%NeS:lcmesh%NeE), elem%Np * lcmesh%Ne,      & ! (in)
+        svec(:,:,1), svec(:,:,2),                                      & ! (in)
+        MOMX(:,lcmesh%NeS:lcmesh%NeE), MOMY(:,lcmesh%NeS:lcmesh%NeE) )   ! (out)
       
     end select
 
@@ -706,6 +709,7 @@ contains
 
     real(RP) :: vx(Nv), vy(Nv), vz(Nv)
     real(RP) :: alpha(Np,lcmesh3D%Ne), beta(Np,lcmesh3D%Ne), z(Np,lcmesh3D%Ne)
+    real(RP) :: gam(Np,lcmesh3D%Ne)
     real(RP) :: lon(Np,lcmesh3D%Ne), lat(Np,lcmesh3D%Ne)
 
     integer :: ke
@@ -719,9 +723,11 @@ contains
       alpha(:,ke) = vx(1) + 0.5_RP * ( elem_x1(:) + 1.0_RP ) * ( vx(2) - vx(1) ) 
       beta(:,ke) = vy(1) + 0.5_RP * ( elem_x2(:) + 1.0_RP ) * ( vy(4) - vy(1) )
       z(:,ke) = vz(1) + 0.5_RP * ( elem_x3(:) + 1.0_RP ) * ( vz(5) - vz(1) )
+      gam(:,ke) = 1.0_RP + z(:,ke) /  RPlanet
     end do
 
-    call CubedSphereCoordCnv_CS2LonLatPos( lcmesh3D%panelID, alpha, beta, Np * lcmesh3D%Ne, rplanet, & ! (in)
+    call CubedSphereCoordCnv_CS2LonLatPos( &
+      lcmesh3D%panelID, alpha, beta, gam, Np * lcmesh3D%Ne, & ! (in)
       lon(:,:), lat(:,:) ) ! (out)
     
     select case( trim(trc_prof_typename) )
