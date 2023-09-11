@@ -320,9 +320,10 @@ contains
       end do
 
       call CubedSphereCoordCnv_LonLat2CSVec( &
-        lcmesh%panelID, lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2), elem%Np * lcmesh%Ne, RPlanet, &
-        MOMX_met(:,:), MOMY_met(:,:),                                                   &
-        MOMX(:,lcmesh%NeS:lcmesh%NeE), MOMY(:,lcmesh%NeS:lcmesh%NeE)                              )
+        lcmesh%panelID, lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2),    & ! (in)
+        lcmesh%gam(:,lcmesh%NeS:lcmesh%NeE), elem%Np * lcmesh%Ne,      & ! (in)
+        MOMX_met(:,:), MOMY_met(:,:),                                  & ! (in)
+        MOMX(:,lcmesh%NeS:lcmesh%NeE), MOMY(:,lcmesh%NeS:lcmesh%NeE)   ) ! (out)
 
     case default
       LOG_ERROR("MOUNTAIN_WAVE_setup",*) 'Not appropriate DCMIP case. Check!'
