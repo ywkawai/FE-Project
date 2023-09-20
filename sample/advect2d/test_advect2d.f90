@@ -389,6 +389,8 @@ contains
       VelTypeName, VelTypeParams,     &
       nstep_eval_error
     
+    character(len=H_LONG) :: cnf_fname  ! config file for launcher
+
     integer :: comm, myrank, nprocs
     logical :: ismaster
     integer :: ierr
@@ -402,7 +404,8 @@ contains
     call PRC_ERRHANDLER_setup( .false., ismaster ) ! [IN]
     
     ! setup scale_io
-    call IO_setup( "test_advect2d", "test.conf" )
+    cnf_fname = IO_ARG_getfname( ismaster )
+    call IO_setup( "test_advect2d", cnf_fname )
     
     ! setup log
     call IO_LOG_setup( myrank, ismaster )   

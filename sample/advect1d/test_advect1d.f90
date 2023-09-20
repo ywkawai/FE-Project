@@ -308,8 +308,8 @@ contains
     call PRC_ERRHANDLER_setup( .false., ismaster ) ! [IN]
     
     !-- setup scale_io
-    call get_command_argument(1, conf_name)
-    call IO_setup( "test_advect1d", trim(conf_name) )
+    conf_name = IO_ARG_getfname( ismaster )
+    call IO_setup( "test_advect1d", conf_name )
     
     !-- setup log
     call IO_LOG_setup( myrank, ismaster )   
