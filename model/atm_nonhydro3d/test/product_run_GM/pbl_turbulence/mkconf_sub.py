@@ -9,8 +9,13 @@ SCALE_DG_REGRID_BIN_PATH="../../../../../../../../bin"
 #----------------------
 
 def mkconf_init( conf_path,
-                nprc, neh, nez, porder, fz, rplanet ): 
-    conf_init_s = f"""#--- Configuration file for a test case of PBL turbulence  -------
+                nprc, neh, nez, porder, fz, rplanet, shallow_atm_approx ): 
+  if shallow_atm_approx:
+    shallow_atm_approx_flag = ""
+  else:
+    shallow_atm_approx_flag = "SHALLOW_ATM_APPROX_FLAG = .false.,"
+  
+  conf_init_s = f"""#--- Configuration file for a test case of PBL turbulence  -------
 &PARAM_IO
  IO_LOG_BASENAME = 'init_LOG',
 /
@@ -51,6 +56,7 @@ def mkconf_init( conf_path,
   ATMOS_DYN_DO  = .true.
 /
 &PARAM_ATMOS_MESH
+  {shallow_atm_approx_flag}
   NLocalMeshPerPrc = 1, 
   Nprc             = {nprc}, 
   NeGX             = {neh},
@@ -67,10 +73,10 @@ def mkconf_init( conf_path,
   EQS_TYPE         = "NONHYDRO3D_HEVE", 
   TINTEG_TYPE      = 'ERK_SSP_3s3o',    
 /    
-    """
+  """
     
-    with open(conf_path, 'w') as f:
-        f.write(conf_init_s)
+  with open(conf_path, 'w') as f:
+      f.write(conf_init_s)
 
 #----------------
 
@@ -79,8 +85,12 @@ def mkconf_run( conf_path,
                 nprc, neh, nez, porder, 
                 dt, dt_dyn, 
                 mf_alph, mf_ordh, mf_alpv, mf_ordv, 
-                fz, rplanet, hist_int_sec ): 
+                fz, rplanet, hist_int_sec, shallow_atm_approx ): 
   
+  if shallow_atm_approx:
+    shallow_atm_approx_flag = ""
+  else:
+    shallow_atm_approx_flag = "SHALLOW_ATM_APPROX_FLAG = .false.,"
 
   conf_run_s = f"""#--- Configuration file for a test case of sound wave  -------
 &PARAM_RESTART
@@ -114,6 +124,7 @@ def mkconf_run( conf_path,
   ATMOS_PHY_TB_DO = .true.,   
 /
 &PARAM_ATMOS_MESH
+  {shallow_atm_approx_flag}
   NLocalMeshPerPrc = 1, 
   Nprc             = {nprc}, 
   NeGX             = {neh},
@@ -215,8 +226,14 @@ def mkconf_regrid( conf_path,
                 regrid_nprcx, regrid_nprcy, 
                 regrid_nex, regrid_ney, regrid_nez, 
                 regrid_porder, rplanet, 
-                out_dir, uniform_grid_flag ): 
-    conf_run_s = f"""#--- Configuration file for a test case of sound wave  -------
+                out_dir, uniform_grid_flag, shallow_atm_approx ): 
+  
+  if shallow_atm_approx:
+    shallow_atm_approx_flag = ""
+  else:
+    shallow_atm_approx_flag = "SHALLOW_ATM_APPROX_FLAG = .false.,"
+  
+  conf_run_s = f"""#--- Configuration file for a test case of sound wave  -------
 &PARAM_IO
  IO_LOG_BASENAME = "regrid_LOG"
 ! IO_LOG_ALLNODE  = .true., 
@@ -244,6 +261,7 @@ def mkconf_regrid( conf_path,
   uvmet_conversion_flag = .true., 
 /
 &PARAM_REGRID_INMESH3D_CUBEDSPHERE
+  {shallow_atm_approx_flag}
   NLocalMeshPerPrc = 1, 
   Nprc             = {nprc}, 
   NeGX             = {neh},
@@ -256,6 +274,7 @@ def mkconf_regrid( conf_path,
   PolyOrder_v      = {porder},
 /
 &PARAM_REGRID_OUTMESH3D_STRUCTURED
+  {shallow_atm_approx_flag}
   NprcX       = {regrid_nprcx},       
   NeX         = {regrid_nex},           
   NprcY       = {regrid_nprcy}, 
@@ -272,8 +291,8 @@ def mkconf_regrid( conf_path,
 /
     """
     
-    with open(conf_path, 'w') as f:
-        f.write(conf_run_s)
+  with open(conf_path, 'w') as f:
+      f.write(conf_run_s)
 
 #----------------
 def get_job_header(job_name, nprc, elapse_time):
@@ -298,6 +317,7 @@ def get_job_header(job_name, nprc, elapse_time):
 #PJM --rsc-list "node={node_num}"
 #PJM --rsc-list "elapse={elapse_time}"
 #PJM --mpi "max-proc-per-node=4"
+#PJM -L eco_state=2
 #PJM -S
 
 
@@ -366,6 +386,7 @@ def mk_conf_sh( exp_name, exp_info ):
     porder = exp_info["porder"]
     rplanet = exp_info["rplanet"]
     run_num = exp_info["run_num"]
+    shallow_atm_approx = exp_info["shallow_atm_approx"] 
 
     out_dir_pref0=f"./rp{int(rplanet/1000)}km/{exp_name}"
 
@@ -384,29 +405,30 @@ def mk_conf_sh( exp_name, exp_info ):
       if runno ==1:
         restart_in_basename = "init_00000101-000000.000"
         mkconf_init(f"{out_dir_pref0}/run1/init.conf", 
-                    nprc, eh, ez, porder, fz, rplanet )        
+                    nprc, eh, ez, porder, fz, rplanet, shallow_atm_approx ) 
+        mf_alph =  exp_info["mf_alph_ini"]; mf_alpv =  exp_info["mf_alpv_ini"]
       else:
-        restart_in_basename = f"../run{runno-1}/restart_{date_time.year:04}{date_time.month:02}{date_time.day:02}-{date_time.hour:02}{date_time.minute:02}00.000", 
+        restart_in_basename = f"../run{runno-1}/restart_0000{date_time.month:02}{date_time.day:02}-{date_time.hour:02}{date_time.minute:02}00.000" 
+        mf_alph =  exp_info["mf_alph"]; mf_alpv =  exp_info["mf_alpv"]
 
-        
       mkconf_run(f"{out_dir_pref}/run.conf", 
                 restart_in_basename, date_time.hour, date_time.minute, hr_per_run, 
                 nprc, eh, ez, porder, 
                 exp_info["dt"], exp_info["dt_dyn"],
-                exp_info["mf_alph"], exp_info["mf_ordh"], exp_info["mf_alpv"], exp_info["mf_ordv"], 
-                fz, rplanet, exp_info["hist_int_sec"] )        
+                mf_alph, exp_info["mf_ordh"], mf_alpv, exp_info["mf_ordv"], 
+                fz, rplanet, exp_info["hist_int_sec"], shallow_atm_approx )        
                       
       mkconf_regrid(f"{out_dir_pref}/regrid.conf", 
                       nprc, eh, ez, porder, fz, 
                       exp_info["regrid_nprcx"], exp_info["regrid_nprcy"], 
                       exp_info["regrid_Ex"], exp_info["regrid_Ey"], exp_info["Ez"], exp_info["regrid_porder"],
-                      rplanet, "./output/", ".false." )
+                      rplanet, "./output/", ".false.", shallow_atm_approx )
 
       mkconf_regrid(f"{out_dir_pref}/regrid_uniform.conf", 
                       nprc, eh, ez, porder, fz, 
                       exp_info["regrid_nprcx"], exp_info["regrid_nprcy"], 
                       exp_info["regrid_Ex"], exp_info["regrid_Ey"], exp_info["Ez"], exp_info["regrid_porder"],
-                      rplanet, "./output_uniform/", ".true." )
+                      rplanet, "./output_uniform/", ".true.", shallow_atm_approx )
       
                   
       mksh_job_run(f"{out_dir_pref}/job_run.sh", f"PBL_Eh{eh}P{porder}", 

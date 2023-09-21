@@ -201,7 +201,6 @@ def mkconf_regrid( conf_path,
 /
 &PARAM_CONST
   CONST_OHM = 0.0D0, 
-  CONST_RADIUS = 38219.67606478705D0, ! R_earth / 166.7
 /
 &PARAM_REGRID_MESH
  in_MeshType  = "CUBEDSPHERE3D", 
@@ -210,7 +209,7 @@ def mkconf_regrid( conf_path,
 &PARAM_REGRID_INTERP_FIELD
   !- input --------------------
   in_basename="history",      
-  vars = "W", "U", "V", "DDENS", 
+  vars = "W", "U", "V", "DDENS", "THERM", 
   !out_tinterval = 5,
 /
 &PARAM_REGRID_FILE
