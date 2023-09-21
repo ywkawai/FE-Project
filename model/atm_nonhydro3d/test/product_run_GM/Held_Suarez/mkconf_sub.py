@@ -246,8 +246,16 @@ def mkconf_regrid_p( conf_path,
                 nprc, neh, nez, porder, fz, 
                 regrid_nprcx, regrid_nprcy, 
                 regrid_nex, regrid_ney, regrid_nez, 
-                regrid_porder ): 
-    conf_run_s = f"""#--- Configuration file for a test case of sound wave  -------
+                regrid_porder, regrid_hori_uniform ):
+
+  if regrid_hori_uniform:
+    out_UniformGrid_flag=".true."
+    out_dir="./outdata_p_uniform"    
+  else:
+    out_dir="./outdata_p"    
+    out_UniformGrid_flag=".false."
+     
+  conf_run_s = f"""#--- Configuration file for a test case of sound wave  -------
 &PARAM_IO
  IO_LOG_BASENAME = "regrid_p_LOG"
 ! IO_LOG_ALLNODE  = .true., 
@@ -264,8 +272,8 @@ def mkconf_regrid_p( conf_path,
 /
 &PARAM_REGRID_FILE
   !-- output ----------------
-  out_basename="./outdata_p/history", 
-  out_UniformGrid=.false., 
+  out_basename="{out_dir}/history", 
+  out_UniformGrid={out_UniformGrid_flag}, 
 /
 &PARAM_REGRID_OPERATE_FIELD
   uvmet_conversion_flag = .true., 
@@ -309,8 +317,111 @@ def mkconf_regrid_p( conf_path,
 /
     """
     
-    with open(conf_path, 'w') as f:
-        f.write(conf_run_s)
+  with open(conf_path, 'w') as f:
+      f.write(conf_run_s)
+
+def mkconf_regrid_spectra_p( conf_path,
+                nprc, neh, nez, porder, fz ):
+
+  out_dir="./outdata_p_spectra"    
+     
+  conf_run_s = f"""#--- Configuration file for a test case of sound wave  -------
+&PARAM_IO
+ IO_LOG_BASENAME = "regrid_p_spectra_LOG"
+! IO_LOG_ALLNODE  = .true., 
+/
+&PARAM_REGRID_MESH
+ in_MeshType  = "CUBEDSPHERE3D", 
+ out_MeshType = "CUBEDSPHERE3D",  
+/
+&PARAM_REGRID_INTERP_FIELD
+  !- input --------------------
+  in_basename="history",      
+  vars = "U", "V", "W", "T", ! "PRES", 
+  !out_tinterval = 5,
+/
+&PARAM_REGRID_FILE
+  !-- output ----------------
+  out_basename="{out_dir}/history", 
+  out_UniformGrid=.false., 
+/
+&PARAM_REGRID_OPERATE_FIELD
+  uvmet_conversion_flag = .false., 
+/
+&PARAM_REGRID_INMESH3D_CUBEDSPHERE
+  NLocalMeshPerPrc = 1, 
+  Nprc             = {nprc}, 
+  NeGX             = {neh},
+  NeGY             = {neh},
+  NeGZ             = {nez},
+  dom_zmin         = 0.0D0, 
+  dom_zmax         = 30.0D3, 
+  PolyOrder_h      = {porder},
+  PolyOrder_v      = {porder},
+  FZ               = {fz},
+/
+&PARAM_REGRID_OUTMESH3D_CUBEDSPHERE
+  NLocalMeshPerPrc = 1, 
+  Nprc             = {nprc}, 
+  NeGX             = {neh},
+  NeGY             = {neh},
+  NeGZ             = {nez},
+  dom_zmin         = 0.0D0, 
+  dom_zmax         = 30.0D3, 
+  PolyOrder_h      = {porder},
+  PolyOrder_v      = {porder},
+  FZ               = {fz},
+/
+&PARAM_REGRID_VCOORD
+  vintrp_name     = 'PRESSURE', 
+  out_NeZ         = 10,                
+  out_PolyOrder_v = 3,         
+  out_dom_vmin    = 1000D0,         
+  out_dom_vmax    = 30D2,                  
+  out_Fz          = 1000D2, 950D2, 850D2, 790D2, 680D2, 550D2, 400D2, 250D2, 100D2, 50D2, 30D2,    
+  extrapolate     = .true.,
+/
+    """
+    
+  with open(conf_path, 'w') as f:
+      f.write(conf_run_s)
+
+def mkconf_sh_spectra( conf_path,
+                nprc, neh, porder, Mt ):
+
+  out_dir="./outdata_p_spectra"    
+     
+  conf_run_s = f"""#--- Configuration file for SH transform tools  -------
+&PARAM_IO
+ IO_LOG_BASENAME = "SH_LOG"
+! IO_LOG_ALLNODE  = .true., 
+/  
+&PARAM_SH_TRANSFORM
+  in_filebase="./outdata_p_spectra/history",  
+  out_filebase="./outdata_p_spectra/spectral_data",  
+  Mt                  = {Mt},
+  LevelNum            = 3, 
+  TARGET_LEVELS       = 850D2, 550D2, 250D2, 
+  LEVEL_UNITS         = "hPa",
+  VARS                = "U", "V", "W", "T", 
+  TARGET_PROC_NUM_TOT = {nprc},
+/
+&PARAM_SH_MESH
+  !---------------------
+  Nprc             = {nprc}, 
+  NeGX             = {neh},
+  NeGY             = {neh},
+  NeZ              = 10,
+  dom_zmin         = 0.0D0, 
+  dom_zmax         = 30.0D2,  
+  PolyOrder_h      = {porder},
+  PolyOrder_v      = 3,
+  FZ               = 1000D2, 950D2, 850D2, 790D2, 680D2, 550D2, 400D2, 250D2, 100D2, 50D2, 30D2,  
+/
+    """
+    
+  with open(conf_path, 'w') as f:
+      f.write(conf_run_s)
 
 #----------------
 def get_job_header(job_name, nprc, elapse_time):
@@ -356,6 +467,7 @@ export OMP_NUM_THREADS=12
 SCALE_DG_INIT_BIN={SCALE_DG_BIN_PATH}/scale-dg_init
 SCALE_DG_BIN={SCALE_DG_BIN_PATH}/scale-dg
 SCALE_DG_REGRID_BIN={SCALE_DG_REGRID_BIN_PATH}/regrid_tool
+SCALE_DG_SPECTRA_BIN={SCALE_DG_REGRID_BIN_PATH}/sh_transform
   """
   return jobshell_s  
 
@@ -398,6 +510,24 @@ mpiexec -np {nprc} -stdout-proc ./output.%j/%/1000r/stdout -stderr-proc ./output
   ${{SCALE_DG_REGRID_BIN}} {regrid_cnf} || exit 1
 
 llio_transfer --purge ${{SCALE_DG_REGRID_BIN}} *.conf 
+  """
+  
+  with open(conf_path, 'w') as f:
+      f.write(jobshell_header_s + jobshell_s)
+             
+#----------------
+def mksh_job_spectra( conf_path, job_name, spectra_cnf, 
+              nprc, elapse_time, outdir ):
+
+  jobshell_header_s = get_job_header(job_name, nprc, elapse_time)
+  jobshell_s = f"""
+mkdir -p {outdir}/
+llio_transfer ${{SCALE_DG_SPECTRA_BIN}} *.conf
+
+mpiexec -np {nprc} -stdout-proc ./output.%j/%/1000r/stdout -stderr-proc ./output.%j/%/1000r/stderr \\
+  ${{SCALE_DG_SPECTRA_BIN}} {spectra_cnf} || exit 1
+
+llio_transfer --purge ${{SCALE_DG_SPECTRA_BIN}} *.conf 
   """
   
   with open(conf_path, 'w') as f:
@@ -454,10 +584,6 @@ def mk_conf_sh( exp_name, exp_info ):
                   nprc, eh, ez, porder, fz, 
                   exp_info["regrid_nprcx"], exp_info["regrid_nprcy"], 
                   exp_info["regrid_Ex"], exp_info["regrid_Ey"], exp_info["Ez"], exp_info["regrid_porder"] )
-      mkconf_regrid_p(f"{out_dir_pref}/spinup{runno}/regrid_p.conf",
-                  nprc, eh, ez, porder, fz, 
-                  exp_info["regrid_nprcx"], exp_info["regrid_nprcy"], 
-                  exp_info["regrid_Ex"], exp_info["regrid_Ey"], exp_info["Ez"], exp_info["regrid_porder"] )
 
       mksh_job_run(f"{out_dir_pref}/spinup{runno}/job_run.sh", f"HS_Eh{eh}P{porder}_sp{runno}", 
                   nprc, exp_info["elapse_time"], (runno==1) ) 
@@ -492,8 +618,17 @@ def mk_conf_sh( exp_name, exp_info ):
       mkconf_regrid_p(f"{out_dir_pref}/run{runno}/regrid_p.conf",
                   nprc, eh, ez, porder, fz, 
                   exp_info["regrid_nprcx"], exp_info["regrid_nprcy"], 
-                  exp_info["regrid_Ex"], exp_info["regrid_Ey"], exp_info["Ez"], exp_info["regrid_porder"] )
-            
+                  exp_info["regrid_Ex"], exp_info["regrid_Ey"], exp_info["Ez"], exp_info["regrid_porder"], False )
+      mkconf_regrid_p(f"{out_dir_pref}/run{runno}/regrid_p_uniform.conf",
+                  nprc, eh, ez, porder, fz, 
+                  exp_info["regrid_nprcx"], exp_info["regrid_nprcy"], 
+                  exp_info["regrid_Ex"], exp_info["regrid_Ey"], exp_info["Ez"], exp_info["regrid_porder"], True )
+
+      mkconf_regrid_spectra_p( f"{out_dir_pref}/run{runno}/regrid_p_spectra.conf",
+                      nprc, eh, ez, porder, fz )
+      mkconf_sh_spectra( f"{out_dir_pref}/run{runno}/spectral_analysis.conf",
+                      nprc, eh, porder, exp_info["spectra_Mt"] )
+      
       mksh_job_run(f"{out_dir_pref}/run{runno}/job_run.sh", f"HS_Eh{eh}P{porder}_sp1", 
                   nprc, exp_info["elapse_time"], False) 
     
@@ -503,5 +638,14 @@ def mk_conf_sh( exp_name, exp_info ):
       mksh_job_regrid(f"{out_dir_pref}/run{runno}/job_regrid_p.sh", f"REG_E{eh}P{porder}_p_{runno}", "regrid_p.conf", 
                   exp_info["regrid_nprcx"]*exp_info["regrid_nprcy"], exp_info["regrid_elapse_time"], 
                   "outdata_p")             
+      mksh_job_regrid(f"{out_dir_pref}/run{runno}/job_regrid_p_uniform.sh", f"REGU_E{eh}P{porder}_p_{runno}", "regrid_p_uniform.conf", 
+                  exp_info["regrid_nprcx"]*exp_info["regrid_nprcy"], exp_info["regrid_elapse_time"], 
+                  "outdata_p_uniform")             
+      mksh_job_regrid(f"{out_dir_pref}/run{runno}/job_regrid_p_spectra.sh", f"REGS_E{eh}P{porder}_p_{runno}", "regrid_p_spectra.conf", 
+                  nprc, exp_info["regrid_elapse_time"], 
+                  "outdata_p_spectra")             
+      mksh_job_spectra(f"{out_dir_pref}/run{runno}/job_spectral_analysis.sh", f"SA_E{eh}P{porder}_p_{runno}", "spectral_analysis.conf", 
+                  exp_info["spectra_nprc"], exp_info["spectra_elapse_time"], 
+                  "outdata_p_spectra")             
   
 #---------------------------------

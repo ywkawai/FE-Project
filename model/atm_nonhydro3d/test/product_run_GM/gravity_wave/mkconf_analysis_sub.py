@@ -5,6 +5,7 @@ REGRID_Nprc=1536
 REGRID_Eh=64
 REGRID_Ez=48
 REGRID_Porder=7
+REFSOL_SUFFIX="_dtx0.25"
 
 OUTPUT_INT=4*3600
 OUTPUT_NSTEP=13
@@ -200,13 +201,13 @@ def mk_conf_sh( exp_name, exp_info ):
     print(out_dir_pref)
     os.makedirs(out_dir_pref, exist_ok=True)
         
-    refsol_dir_pref=f"../Eh{REGRID_Eh}Ez{REGRID_Ez}P{REGRID_Porder}"
+    refsol_dir_pref=f"../Eh{REGRID_Eh}Ez{REGRID_Ez}P{REGRID_Porder}{REFSOL_SUFFIX}"
     mkconf_run_analysis(f"{out_dir_pref}/analysis.conf", 
                 REGRID_Nprc, REGRID_Eh, REGRID_Ez, REGRID_Porder, 
                 f'{refsol_dir_pref}/history',
                 f'{refsol_dir_pref}/init_00000101-000000.000',
                 0, OUTPUT_INT, OUTPUT_NSTEP, 
-                "outdata_analysis", "outdata_analysis", "analysis")        
+                "outdata_analysis", "outdata_analysis", "analysis_3")        
                       
     mkconf_regrid(f"{out_dir_pref}/regrid_analysis.conf", 
                 nprc, eh, ez, porder, 
@@ -219,7 +220,7 @@ def mk_conf_sh( exp_name, exp_info ):
                 "regrid_bs_analysis_LOG", "init_00000101-000000.000", "'PRES_hyd', 'DENS_hyd'", "./outdata_analysis/bs" )
     
     mksh_job_analysis( f"{out_dir_pref}/job_analysis.sh", f"ANL_E{eh}P{porder}", 
-                REGRID_Nprc, exp_info["regrid_elapse_time"], "analysis" )
+                REGRID_Nprc, exp_info["regrid_elapse_time"], "analysis_3" )
     
     regrid_conf_list = [ "regrid_analysis.conf", "regrid_bs_analysis.conf" ]
     mksh_job_regrid(f"{out_dir_pref}/job_regrid_analysis.sh", f"REG_E{eh}P{porder}", 
