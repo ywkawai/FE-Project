@@ -528,8 +528,8 @@ contains
 
     rdomx = 1.0_RP/(xmax - xmin)
     rdomy = 1.0_RP/(ymax - ymin)
-    rdomz = 1.0_RP/(zmax - zmin)
-
+    rdomz = 1.0_RP/abs(zmax - zmin)
+    
     do k=1, Ne
       do f=1, Nfaces_h
         x = sum(pos_en(Fmask_h(:,f),k,1)) / dble(Nfp_h)
