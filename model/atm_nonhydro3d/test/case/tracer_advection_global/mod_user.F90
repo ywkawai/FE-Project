@@ -189,7 +189,8 @@ contains
 
       call CubedSphereCoordCnv_LonLat2CSVec( &
         lcmesh%panelID, lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2),          & ! (in)
-        lcmesh%Ne * elem3D%Np, RPlanet, svec(:,:,1), svec(:,:,2),            & ! (in)
+        lcmesh%gam(:,lcmesh%NeS:lcmesh%NeE), lcmesh%Ne * elem3D%Np,          & ! (in)
+        svec(:,:,1), svec(:,:,2),                                            & ! (in)
         MOMX%val(:,lcmesh%NeS:lcmesh%NeE), MOMY%val(:,lcmesh%NeS:lcmesh%NeE) ) ! (out)
         
       deallocate( svec )
@@ -306,7 +307,7 @@ contains
         
     call CubedSphereCoordCnv_LonLat2CSVec( &
       lcmesh%panelID, lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2),  & ! (in)
-      lcmesh%gam(:,:,lcmesh%NeS:lcmesh%NeE), lcmesh%Ne * elem%Np,  & ! (in)
+      lcmesh%gam(:,lcmesh%NeS:lcmesh%NeE), lcmesh%Ne * elem%Np,    & ! (in)
       svec(:,:,1), svec(:,:,2),                                    & ! (in)
       MOMX(:,lcmesh%NeS:lcmesh%NeE), MOMY(:,lcmesh%NeS:lcmesh%NeE) ) ! (out)
 

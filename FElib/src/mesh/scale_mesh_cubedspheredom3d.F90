@@ -605,7 +605,7 @@ contains
     class(LocalMesh2D), pointer :: lcmesh2D
     class(ElementBase2D), pointer :: elem2D
 
-    real(RP), allocatable :: gam(:,:)
+    real(RP), allocatable :: gam2D(:,:)
     !----------------------------------------------------
 
     do n=1, this%mesh2D%LOCAL_MESH_NUM
@@ -613,13 +613,13 @@ contains
       lcmesh2D => this%mesh2D%lcmesh_list(n)
       elem2D => lcmesh2D%refElem2D
 
-      allocate( gam(elem2D%Np,lcmesh2D%Ne) )
-      gam(:,:) = 1.0_RP
+      allocate( gam2D(elem2D%Np,lcmesh2D%Ne) )
+      gam2D(:,:) = 1.0_RP
 
       call CubedSphereCoordCnv_CS2LonLatPos( &
-        lcmesh2D%panelID, lcmesh2D%pos_en(:,:,1), lcmesh2D%pos_en(:,:,2), gam(:,:), & ! (in)
-        lcmesh2D%Ne * elem2D%Np,                                                    & ! (in)
-        lcmesh%lon2D(:,:), lcmesh%lat2D(:,:)                                        ) ! (out)
+        lcmesh2D%panelID, lcmesh2D%pos_en(:,:,1), lcmesh2D%pos_en(:,:,2), gam2D(:,:), & ! (in)
+        lcmesh2D%Ne * elem2D%Np,                                                      & ! (in)
+        lcmesh%lon2D(:,:), lcmesh%lat2D(:,:)                                          ) ! (out)
 
       call CubedSphereCoordCnv_GetMetric( &
         lcmesh2D%pos_en(:,:,1), lcmesh2D%pos_en(:,:,2), elem2D%Np * lcmesh2D%Ne, this%RPlanet, & ! (in)
@@ -628,25 +628,34 @@ contains
       !$omp parallel do private(ke2D)
       do ke=lcmesh%NeS, lcmesh%NeE
         ke2D = lcmesh%EMap3Dto2D(ke)
+
+        if ( this%shallow_approx ) then
+          lcmesh%gam(:,ke) = 1.0_RP
+        else
+          lcmesh%gam(:,ke) = 1.0_RP + lcmesh%pos_en(:,ke,3) / this%RPlanet
+        end if
         lcmesh%Gsqrt(:,ke) = lcmesh%GsqrtH(lcmesh%refElem3D%IndexH2Dto3D(:),ke2D)        
       end do
 
-      call fill_halo_metric( lcmesh%Gsqrt, lcmesh%VMapM, lcmesh%VMapP, lcmesh, lcmesh%refElem3D )
+      call fill_halo_metric( lcmesh%Gsqrt, lcmesh%gam, lcmesh%VMapM, lcmesh%VMapP, lcmesh, lcmesh%refElem3D )
 
-      deallocate( gam )
+      deallocate( gam2D )
+      !--
     end do
+
 
     return
   end subroutine MeshCubedSphereDom3D_set_metric
 
 !OCL SERIAL
-  subroutine fill_halo_metric( Gsqrt, vmapM, vmapP, lmesh, elem )
+  subroutine fill_halo_metric( Gsqrt, gam, vmapM, vmapP, lmesh, elem )
     implicit none
     class(LocalMesh3D), intent(in) :: lmesh
     class(ElementBase3D), intent(in) :: elem
     integer, intent(in) :: vmapM(elem%NfpTot*lmesh%Ne)
     integer, intent(in) :: vmapP(elem%NfpTot*lmesh%Ne)
     real(RP), intent(inout) :: Gsqrt(elem%Np*lmesh%NeA)
+    real(RP), intent(inout) :: gam(elem%Np*lmesh%NeA)
 
     integer :: i, iM, iP
     !------------------------------------------------
@@ -656,6 +665,7 @@ contains
       iM = vmapM(i); iP = vmapP(i)
       if ( iP > elem%Np * lmesh%Ne ) then
         Gsqrt(iP) = Gsqrt(iM)
+        gam(iP) = gam(iM)
       end if
     end do  
     return

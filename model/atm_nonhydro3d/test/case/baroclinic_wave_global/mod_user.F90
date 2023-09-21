@@ -299,6 +299,7 @@ contains
     real(RP) :: alpha(Np,lcmesh3D%Ne), beta(Np,lcmesh3D%Ne), eta(Np,lcmesh3D%Ne)
     real(RP) :: zlev(Np,lcmesh3D%Ne)
     real(RP) :: lon(Np,lcmesh3D%Ne), lat(Np,lcmesh3D%Ne)
+    real(RP) :: gam(Np,lcmesh3D%Ne)
     real(RP) :: VelLon(Np,lcmesh3D%Ne), VelLat(Np,lcmesh3D%Ne)
     real(RP) :: VelLon_dash(Np,lcmesh3D%Ne), VelLat_dash(Np,lcmesh3D%Ne)
 
@@ -324,10 +325,11 @@ contains
       alpha(:,ke) = vx(1) + 0.5_RP * ( elem_x1(:) + 1.0_RP ) * ( vx(2) - vx(1) ) 
       beta(:,ke) = vy(1) + 0.5_RP * ( elem_x2(:) + 1.0_RP ) * ( vy(4) - vy(1) )
       eta(:,ke) = vz(1) + 0.5_RP * ( elem_x3(:) + 1.0_RP ) * ( vz(5) - vz(1) )
+      gam(:,ke) = 1.0_RP
     end do
 
-    call CubedSphereCoordCnv_CS2LonLatPos( lcmesh3D%panelID, alpha, beta, Np * lcmesh3D%Ne, &
-      rplanet, lon(:,:), lat(:,:) )
+    call CubedSphereCoordCnv_CS2LonLatPos( lcmesh3D%panelID, alpha, beta, gam, Np * lcmesh3D%Ne, &
+      lon(:,:), lat(:,:) )
     
     if ( present(lat_) ) then
       do ke=lcmesh3D%NeS, lcmesh3D%NeE
@@ -386,14 +388,14 @@ contains
     end do
 
     call CubedSphereCoordCnv_LonLat2CSVec( &
-      lcmesh%panelID, lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2),    & ! (in)
-      lcmesh%gam(:,lcmesh%NeS:lcmesh%NeE), elem%Np * lcmesh%Ne,      & ! (in)
-      VelLon(:,:), VelLat(:,:),                                      & ! (in)
-      U(:,lcmesh3D%NeS:lcmesh3D%NeE), V(:,lcmesh3D%NeS:lcmesh3D%NeE) ) ! (out)
+      lcmesh3D%panelID, lcmesh3D%pos_en(:,:,1), lcmesh3D%pos_en(:,:,2), & ! (in)
+      lcmesh3D%gam(:,lcmesh3D%NeS:lcmesh3D%NeE), Np * lcmesh3D%Ne,      & ! (in)
+      VelLon(:,:), VelLat(:,:),                                         & ! (in)
+      U(:,lcmesh3D%NeS:lcmesh3D%NeE), V(:,lcmesh3D%NeS:lcmesh3D%NeE)    ) ! (out)
 
     call CubedSphereCoordCnv_LonLat2CSVec( &
-      lcmesh%panelID, lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2),              & ! (in)
-      lcmesh%gam(:,lcmesh%NeS:lcmesh%NeE), elem%Np * lcmesh%Ne,                & ! (in)
+      lcmesh3D%panelID, lcmesh3D%pos_en(:,:,1), lcmesh3D%pos_en(:,:,2),        & ! (in)
+      lcmesh3D%gam(:,lcmesh3D%NeS:lcmesh3D%NeE), Np * lcmesh3D%Ne,             & ! (in)
       VelLon_dash(:,:), VelLat_dash(:,:),                                      & ! (in)
       U_dash(:,lcmesh3D%NeS:lcmesh3D%NeE), V_dash(:,lcmesh3D%NeS:lcmesh3D%NeE) ) ! (out)
 
