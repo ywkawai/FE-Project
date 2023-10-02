@@ -255,7 +255,7 @@ def mkconf_regrid_p( conf_path,
     out_dir="./outdata_p"    
     out_UniformGrid_flag=".false."
      
-  conf_run_s = f"""#--- Configuration file for a test case of sound wave  -------
+  conf_run_s = f"""#--- Configuration file for Held Suarez test  -------
 &PARAM_IO
  IO_LOG_BASENAME = "regrid_p_LOG"
 ! IO_LOG_ALLNODE  = .true., 
@@ -325,7 +325,7 @@ def mkconf_regrid_spectra_p( conf_path,
 
   out_dir="./outdata_p_spectra"    
      
-  conf_run_s = f"""#--- Configuration file for a test case of sound wave  -------
+  conf_run_s = f"""#--- Configuration file for a test case of Held Suarez test  -------
 &PARAM_IO
  IO_LOG_BASENAME = "regrid_p_spectra_LOG"
 ! IO_LOG_ALLNODE  = .true., 
@@ -596,7 +596,7 @@ def mk_conf_sh( exp_name, exp_info ):
     date_time0 = datetime.datetime(1, 1, 1, 0, 0, 0, 0) + datetime.timedelta(days=200)
     day_per_run = exp_info["day_per_run"]
     
-    for runno in range(1,int(1000/day_per_run)+1):
+    for runno in range(1,int(2000/day_per_run)+1):
       date_time = date_time0 + datetime.timedelta(days=day_per_run*(runno-1))
       
       if runno > 1:
