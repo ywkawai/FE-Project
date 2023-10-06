@@ -20,9 +20,9 @@ module mod_spectral_transform
 
 contains
 !OCL SERIAL
-  subroutine spectral_tranform( g_var, lon, lat, Gsqrt, J,     &
-    mesh3D_list, varNum, levelNum, elem2D, Ne2D, Mt, mesh_num, &
-    s_var )
+  subroutine spectral_tranform( g_var, g_var2D, lon, lat, Gsqrt, J,     &
+    mesh3D_list, varNum, var2DNum, levelNum, elem2D, Ne2D, Mt, mesh_num, &
+    s_var, s_var2D )
     use mpi
     use scale_prc, only: &
       PRC_LOCAL_COMM_WORLD  
@@ -31,20 +31,24 @@ contains
     integer, intent(in) :: mesh_num
     integer, intent(in) :: Mt
     integer, intent(in) :: varNum
+    integer, intent(in) :: var2DNum
     integer, intent(in) :: levelNum
     class(MeshCubedSphereDom3D), intent(in) :: mesh3D_list(mesh_num)
     class(ElementBase2D), intent(in) :: elem2D
     real(RP), intent(in) :: g_var(varNum,levelNum,elem2D%Np,Ne2D,mesh_num)
+    real(RP), intent(in) :: g_var2D(var2DNum,elem2D%Np,Ne2D,mesh_num)
     real(RP), intent(in) :: lon(elem2D%Np,Ne2D,mesh_num)
     real(RP), intent(in) :: lat(elem2D%Np,Ne2D,mesh_num)
     real(RP), intent(in) :: Gsqrt(elem2D%Np,Ne2D,mesh_num)
     real(RP), intent(in) :: J(elem2D%Np,Ne2D,mesh_num)
     real(RP), intent(out) :: s_var(varNum,levelNum,0:Mt,0:Mt,2)
+    real(RP), intent(out) :: s_var2D(var2DNum,0:Mt,0:Mt,2)
 
     integer :: mesh_id
     integer :: m, l
 
     real(RP) :: s_local(varNum,levelNum,0:Mt,0:Mt,2)
+    real(RP) :: s_local_2d(var2DNum,0:Mt,0:Mt,2)
 
     real(RP) :: fact0
     integer :: ierr
@@ -55,6 +59,8 @@ contains
       do l=0, Mt
         s_local(:,:,l,m,1) = 0.0_RP
         s_local(:,:,l,m,2) = 0.0_RP
+        s_local_2d(:,l,m,1) = 0.0_RP
+        s_local_2d(:,l,m,2) = 0.0_RP
       end do
     end do
 
@@ -64,12 +70,21 @@ contains
         Gsqrt(:,:,mesh_id), J(:,:,mesh_id), elem2D%IntWeight_lgl,     &
         varNum, levelNum, elem2D%Np, Ne2D, Mt, &
         s_local(:,:,:,:,1), s_local(:,:,:,:,2) )
+
+      call spectral_inv_tranform_local( &
+        g_var2D(:,:,:,mesh_id), lon(:,:,mesh_id), lat(:,:,mesh_id),   &
+        Gsqrt(:,:,mesh_id), J(:,:,mesh_id), elem2D%IntWeight_lgl,     &
+        var2DNum, 1, elem2D%Np, Ne2D, Mt, &
+        s_local_2d(:,:,:,1), s_local_2d(:,:,:,2) )        
     end do
 
     ! global sum
     call MPI_AllReduce( s_local, s_var, varNum * levelNum * (Mt+1)**2 * 2, &
       MPI_DOUBLE_PRECISION, MPI_SUM, PRC_LOCAL_COMM_WORLD, ierr  )
-        
+
+    call MPI_AllReduce( s_local_2d, s_var2D, var2DNum * 1 * (Mt+1)**2 * 2, &
+      MPI_DOUBLE_PRECISION, MPI_SUM, PRC_LOCAL_COMM_WORLD, ierr  )
+      
     !-- Nomarization
 
     !$omp parallel do private(m,l,fact0)
@@ -80,6 +95,8 @@ contains
       fact0 = sqrt( 1.0_RP / (2.0_RP * PI) ) / RPlanet**2
       s_var(:,:,l,m,1) = fact0 * s_var(:,:,l,m,1)
       s_var(:,:,l,m,2) = fact0 * s_var(:,:,l,m,2)
+      s_var2D(:,l,m,1) = fact0 * s_var2D(:,l,m,1)
+      s_var2D(:,l,m,2) = fact0 * s_var2D(:,l,m,2)
     end do
     end do
 
