@@ -24,8 +24,9 @@ program prg_sh_transform
     lon2D, lat2D, Gsqrt2D, J2D, mesh3D_list, &
     Ne2D, refElem2D
   use mod_vars, only: &
-    vars_list, var_num_step, &
+    vars_list, vars2D_list, var_num_step, &
     vars_read, vars_write,   &
+    g_var3D, s_var3D,        &
     g_var2D, s_var2D
   implicit none
 
@@ -55,9 +56,9 @@ program prg_sh_transform
     call vars_read( istep, mesh3D_list, levels )
 
     LOG_INFO('SH_Transform',*) "Spectral transformation"
-    call spectral_tranform( g_var2D, lon2D, lat2D, Gsqrt2D, J2D, mesh3D_list, &
-      size(vars_list), LevelNum, refElem2D, Ne2D, Mt, target_proc_num,        &
-      s_var2D )
+    call spectral_tranform( g_var3D, g_var2D, lon2D, lat2D, Gsqrt2D, J2D, mesh3D_list,    &
+      size(vars_list), size(vars2D_list), LevelNum, refElem2D, Ne2D, Mt, target_proc_num, &
+      s_var3D, s_var2D )
 
     call vars_write( istep, Mt, LevelNum )
   end do
@@ -110,6 +111,10 @@ contains
 
     integer, parameter :: VarNum_nmax = 20
     character(len=H_SHORT)  :: vars(VarNum_nmax) = ''       ! name of variables
+
+    integer, parameter :: Var2DNum_nmax = 20
+    character(len=H_SHORT)  :: vars2D(VarNum_nmax) = ''       ! name of variables
+
     !-
     namelist / PARAM_SH_TRANSFORM / &
         in_filebase,              &
@@ -119,7 +124,7 @@ contains
         LevelNum,                 &
         TARGET_LEVELS,            &
         level_units,              &
-        VARS
+        VARS, VARS2D
     
     integer :: Ne2D
     class(LocalMesh2D), pointer :: lcmesh2D
@@ -172,10 +177,12 @@ contains
     LOG_NML(PARAM_SH_TRANSFORM)
 
     !-
-    allocate( levels(LevelNum) )
-    do k=1, LevelNum
-      levels(k) = TARGET_LEVELS(k)
-    end do
+    if ( LevelNum > 0 ) then
+      allocate( levels(LevelNum) )
+      do k=1, LevelNum
+        levels(k) = TARGET_LEVELS(k)
+      end do
+    end if
 
     !--
     target_proc_num = target_proc_num_tot / nprocs
@@ -190,7 +197,7 @@ contains
     elem2D => mesh3D_list(1)%refElem2D
     lcmesh2D => mesh3D_list(1)%mesh2D%lcmesh_list(1)
     Ne2D = lcmesh2D%Ne
-    call vars_init( vars, levels, level_units, elem2D%Np, Ne2D, Mt, mesh3D_list, target_proc_s, &
+    call vars_init( vars2D, vars, levels, level_units, elem2D%Np, Ne2D, Mt, mesh3D_list, target_proc_s, &
       in_filebase, out_filebase, myrank )
 
     !---
