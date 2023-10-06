@@ -51,7 +51,8 @@ module mod_atmos_vars
   use scale_atm_dyn_dgm_nonhydro3d_common, only: &
     PRGVAR_NUM, AUXVAR_NUM, PHYTEND_NUM1 => PHYTEND_NUM,                                        &
     PRGVAR_DDENS_ID, PRGVAR_THERM_ID, PRGVAR_MOMZ_ID, PRGVAR_MOMX_ID, PRGVAR_MOMY_ID,           &
-    AUXVAR_DENSHYDRO_ID, AUXVAR_PRESHYDRO_ID, AUXVAR_Rtot_ID, AUXVAR_CPtot_ID, AUXVAR_CVtot_ID, &
+    AUXVAR_DENSHYDRO_ID, AUXVAR_PRESHYDRO_ID, AUXVAR_PRESHYDRO_REF_ID,                          &
+    AUXVAR_Rtot_ID, AUXVAR_CPtot_ID, AUXVAR_CVtot_ID,                                           &
     AUXVAR_PRES_ID, AUXVAR_PT_ID, AUXVAR_Qdry_ID,                                               &
     PHYTEND_DENS_ID, PHYTEND_MOMX_ID, PHYTEND_MOMY_ID, PHYTEND_MOMZ_ID, PHYTEND_RHOT_ID,        &
     PHYTEND_RHOH_ID    
@@ -636,6 +637,11 @@ contains
     class(AtmDynDGMDriver_nonhydro3d), intent(inout) :: dyncore
 
     integer :: iv
+
+    type(MeshField3D), pointer :: var
+    integer :: domid
+    integer :: ke
+    class(LocalMesh3D), pointer :: lcmesh3D
     !---------------------------------------
 
     LOG_NEWLINE
@@ -668,6 +674,16 @@ contains
     
     call dyncore%calc_pressure( this%AUX_VARS(AUXVAR_PRES_ID), &
       this%PROGVARS_manager, this%AUXVARS_manager              )
+
+    ! Set reference value of hydrostatic pressure
+    var => this%AUX_VARS(AUXVAR_PRESHYDRO_REF_ID)
+    do domid=1, var%mesh%LOCAL_MESH_NUM
+      lcmesh3D => var%mesh%lcmesh_list(domid)
+      !$omp parallel do
+      do ke=lcmesh3D%NeS, lcmesh3D%NeE
+        var%local(domid)%val(:,ke) = 0.0_RP
+      end do
+    end do
 
     !-- Check read data
     call this%Check( force = .true. )

@@ -92,10 +92,10 @@ contains
 
 !OCL SERIAL  
   subroutine atm_dyn_dgm_nonhydro3d_etot_hevi_cal_tend( &
-    DENS_dt, MOMX_dt, MOMY_dt, MOMZ_dt, ETOT_dt,                                & ! (out)
-    DDENS_, MOMX_, MOMY_, MOMZ_, ETOT_, DPRES_, DENS_hyd, PRES_hyd, CORIOLIS,   & ! (in)
-    Rtot, CVtot, CPtot,                                                         & ! (in)
-    Dx, Dy, Dz, Sx, Sy, Sz, Lift, lmesh, elem, lmesh2D, elem2D )
+    DENS_dt, MOMX_dt, MOMY_dt, MOMZ_dt, ETOT_dt,                                  & ! (out)
+    DDENS_, MOMX_, MOMY_, MOMZ_, ETOT_, DPRES_, DENS_hyd, PRES_hyd, PRES_hyd_ref, & ! (in)
+    CORIOLIS, Rtot, CVtot, CPtot,                                                 & ! (in)
+    Dx, Dy, Dz, Sx, Sy, Sz, Lift, lmesh, elem, lmesh2D, elem2D )                    ! (in)
 
     use scale_atm_dyn_dgm_nonhydro3d_etot_hevi_numflux, only: &
       get_ebnd_flux => atm_dyn_dgm_nonhydro3d_etot_hevi_numflux_get_generalvc
@@ -120,13 +120,14 @@ contains
     real(RP), intent(in)  :: DPRES_(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: DENS_hyd(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: PRES_hyd(elem%Np,lmesh%NeA)
+    real(RP), intent(in)  :: PRES_hyd_ref(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: CORIOLIS(elem2D%Np,lmesh2D%NeA)
     real(RP), intent(in)  :: Rtot(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: CVtot(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: CPtot(elem%Np,lmesh%NeA)
 
     real(RP) :: Fx(elem%Np), Fy(elem%Np), Fz(elem%Np), LiftDelFlx(elem%Np)
-    real(RP) :: GradPhyd_x(elem%Np), GradPhyd_y(elem%Np)
+    real(RP) :: DPRES_hyd(elem%Np), GradPhyd_x(elem%Np), GradPhyd_y(elem%Np)
     real(RP) :: del_flux(elem%NfpTot,lmesh%Ne,PRGVAR_NUM)
     real(RP) :: del_flux_hyd(elem%NfpTot,lmesh%Ne,2)
     real(RP) :: rdens_(elem%Np), u_(elem%Np), v_(elem%Np), w_(elem%Np), wt_(elem%Np)
@@ -165,7 +166,8 @@ contains
 
     !$omp parallel do private( ke2d, Cori,         &
     !$omp rdens_, u_, v_, w_, wt_,                 &
-    !$omp enthalpy_, GradPhyd_x, GradPhyd_y,       &
+    !$omp enthalpy_,                               &
+    !$omp DPRES_hyd, GradPhyd_x, GradPhyd_y,       &
     !$omp GsqrtV, RGsqrtV,                         &
     !$omp Fx, Fy, Fz, LiftDelFlx )
     do ke = lmesh%NeS, lmesh%NeE
@@ -192,15 +194,17 @@ contains
 
       !-- Gradient hydrostatic pressure
       
-      call sparsemat_matmul(Dx, GsqrtV(:) * PRES_hyd(:,ke), Fx)
-      call sparsemat_matmul(Dz, GsqrtV(:) * lmesh%GI3(:,ke,1) * PRES_hyd(:,ke), Fz)
+      DPRES_hyd(:) = PRES_hyd(:,ke) - PRES_hyd_ref(:,ke)
+
+      call sparsemat_matmul(Dx, GsqrtV(:) * DPRES_hyd(:), Fx)
+      call sparsemat_matmul(Dz, GsqrtV(:) * lmesh%GI3(:,ke,1) * DPRES_hyd(:), Fz)
       call sparsemat_matmul(Lift, lmesh%Fscale(:,ke) * del_flux_hyd(:,ke,1), LiftDelFlx)
       GradPhyd_x(:) = lmesh%Escale(:,ke,1,1) * Fx(:) &
                     + lmesh%Escale(:,ke,3,3) * Fz(:) &
                     + LiftDelFlx(:)
 
-      call sparsemat_matmul(Dy, GsqrtV(:) * PRES_hyd(:,ke), Fy)
-      call sparsemat_matmul(Dz, GsqrtV(:) * lmesh%GI3(:,ke,2) * PRES_hyd(:,ke), Fz)
+      call sparsemat_matmul(Dy, GsqrtV(:) * DPRES_hyd(:), Fy)
+      call sparsemat_matmul(Dz, GsqrtV(:) * lmesh%GI3(:,ke,2) * DPRES_hyd(:), Fz)
       call sparsemat_matmul(Lift, lmesh%Fscale(:,ke) * del_flux_hyd(:,ke,2), LiftDelFlx)
       GradPhyd_y(:) = lmesh%Escale(:,ke,2,2) * Fy(:) &
                     + lmesh%Escale(:,ke,3,3) * Fz(:) &

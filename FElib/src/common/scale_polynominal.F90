@@ -97,12 +97,14 @@ contains
 
     integer :: n, k
     real(RP) :: P(Nord+1,Nord+1)
+    real(RP) :: lr_nn
 
     !---------------------------------------------------------------------------
 
     P(:,:)  = Polynominal_GenLegendrePoly(Nord, x_lgl)
 
     do n=1, Nord+1
+      lr_nn = 0.0_RP
       do k=1, Nord+1
         if (k==1 .and. n==1) then
           lr(k,n) = - 0.25_RP*dble(Nord*(Nord+1))
@@ -113,7 +115,12 @@ contains
         else
           lr(k,n) = P(n,Nord+1)/(P(k,Nord+1)*(x_lgl(n) - x_lgl(k)))
         end if
+
+        if ( k /= n ) then
+          lr_nn = lr_nn + lr(k,n)
+        end if        
       end do
+      lr(n,n) = - lr_nn
     end do
     
     return

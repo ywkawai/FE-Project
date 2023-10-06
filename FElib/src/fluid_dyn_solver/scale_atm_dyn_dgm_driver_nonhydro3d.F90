@@ -54,6 +54,7 @@ module scale_atm_dyn_dgm_driver_nonhydro3d
     MOMZ_VID => PRGVAR_MOMZ_ID,                               &
     AUXVAR_NUM, &
     PRESHYD_VID => AUXVAR_PRESHYDRO_ID, DENSHYD_VID => AUXVAR_DENSHYDRO_ID,                 &
+    PRESHYD_REF_VID => AUXVAR_PRESHYDRO_REF_ID,                                             &
     CPTOT_VID => AUXVAR_CPtot_ID, CVTOT_VID => AUXVAR_CVtot_ID, RTOT_VID => AUXVAR_Rtot_ID, &
     PRES_VID => AUXVAR_PRES_ID,                                                             &
     PHYTEND_DENS_ID, PHYTEND_MOMX_ID, PHYTEND_MOMY_ID, PHYTEND_MOMZ_ID, PHYTEND_RHOT_ID,    &
@@ -131,7 +132,7 @@ module scale_atm_dyn_dgm_driver_nonhydro3d
     subroutine atm_dyn_nonhydro3d_cal_tend_ex( &
       DENS_dt, MOMX_dt, MOMY_dt, MOMZ_dt, RHOT_dt,               & ! (out)
       DDENS_, MOMX_, MOMY_, MOMZ_, THERM_, DPRES_,               & ! (in) 
-      DENS_hyd, PRES_hyd, CORIOLIS,                              & ! (in)
+      DENS_hyd, PRES_hyd, PRES_hyd_ref, CORIOLIS,                & ! (in)
       Rtot, CVtot, CPtot,                                        & ! (in)
       Dx, Dy, Dz, Sx, Sy, Sz, Lift, lmesh, elem, lmesh2D, elem2D ) ! (in)
 
@@ -161,6 +162,7 @@ module scale_atm_dyn_dgm_driver_nonhydro3d
       real(RP), intent(in)  :: DPRES_(elem%Np,lmesh%NeA)
       real(RP), intent(in)  :: DENS_hyd(elem%Np,lmesh%NeA)
       real(RP), intent(in)  :: PRES_hyd(elem%Np,lmesh%NeA)
+      real(RP), intent(in)  :: PRES_hyd_ref(elem%Np,lmesh%NeA)
       real(RP), intent(in)  :: CORIOLIS(elem2D%Np,lmesh2D%NeA)
       real(RP), intent(in)  :: Rtot(elem%Np,lmesh%NeA)
       real(RP), intent(in)  :: CVtot(elem%Np,lmesh%NeA)
@@ -545,7 +547,7 @@ contains
     integer :: ke
 
     class(MeshField3D), pointer :: DDENS, MOMX, MOMY, MOMZ, THERM
-    class(MeshField3D), pointer :: PRES_hyd, DENS_hyd, Rtot, CVtot, CPtot, PRES
+    class(MeshField3D), pointer :: PRES_hyd, PRES_hyd_ref, DENS_hyd, Rtot, CVtot, CPtot, PRES
     class(MeshField3D), pointer :: DENS_tp, MOMX_tp, MOMY_tp, MOMZ_tp, RHOT_tp, RHOH_p
     class(MeshField3D), pointer :: DPRES
 
@@ -561,6 +563,7 @@ contains
 
     call AUX_VARS%Get3D( PRESHYD_VID, PRES_hyd )
     call AUX_VARS%Get3D( DENSHYD_VID, DENS_hyd )
+    call AUX_VARS%Get3D( PRESHYD_REF_VID, PRES_hyd_ref )
     call AUX_VARS%Get3D( PRES_VID, PRES )
     call AUX_VARS%Get3D( RTOT_VID, Rtot )
     call AUX_VARS%Get3D( CVTOT_VID, CVtot )
@@ -669,17 +672,17 @@ contains
         call PROF_rapstart( 'ATM_DYN_update_caltend_ex', 2)
         tintbuf_ind = this%tint(n)%tend_buf_indmap(rkstage)
         call this%cal_tend_ex( &
-          this%tint(n)%tend_buf2D_ex(:,:,DENS_VID,tintbuf_ind),                            & ! (out)
-          this%tint(n)%tend_buf2D_ex(:,:,MOMX_VID ,tintbuf_ind),                           & ! (out)
-          this%tint(n)%tend_buf2D_ex(:,:,MOMY_VID ,tintbuf_ind),                           & ! (out)
-          this%tint(n)%tend_buf2D_ex(:,:,MOMZ_VID ,tintbuf_ind),                           & ! (out)
-          this%tint(n)%tend_buf2D_ex(:,:,THERM_VID,tintbuf_ind),                           & ! (out)
-          DDENS%local(n)%val, MOMX%local(n)%val, MOMY%local(n)%val, MOMZ%local(n)%val,     & ! (in)
-          THERM%local(n)%val, DPRES%local(n)%val,                                          & ! (in)
-          DENS_hyd%local(n)%val, PRES_hyd%local(n)%val, Coriolis%local(n)%val,             & ! (in)
-          Rtot%local(n)%val, CVtot%local(n)%val, CPtot%local(n)%val,                       & ! (in)
-          Dx, Dy, Dz, Sx, Sy, Sz, Lift,                                                    & ! (in)
-          lcmesh3D, lcmesh3D%refElem3D, lcmesh3D%lcmesh2D, lcmesh3D%lcmesh2D%refElem2D     ) 
+          this%tint(n)%tend_buf2D_ex(:,:,DENS_VID,tintbuf_ind),                             & ! (out)
+          this%tint(n)%tend_buf2D_ex(:,:,MOMX_VID ,tintbuf_ind),                            & ! (out)
+          this%tint(n)%tend_buf2D_ex(:,:,MOMY_VID ,tintbuf_ind),                            & ! (out)
+          this%tint(n)%tend_buf2D_ex(:,:,MOMZ_VID ,tintbuf_ind),                            & ! (out)
+          this%tint(n)%tend_buf2D_ex(:,:,THERM_VID,tintbuf_ind),                            & ! (out)
+          DDENS%local(n)%val, MOMX%local(n)%val, MOMY%local(n)%val, MOMZ%local(n)%val,      & ! (in)
+          THERM%local(n)%val, DPRES%local(n)%val,                                           & ! (in)
+          DENS_hyd%local(n)%val, PRES_hyd%local(n)%val, PRES_hyd_ref%local(n)%val,          & ! (in)
+          Coriolis%local(n)%val, Rtot%local(n)%val, CVtot%local(n)%val, CPtot%local(n)%val, & ! (in)
+          Dx, Dy, Dz, Sx, Sy, Sz, Lift,                                                     & ! (in)
+          lcmesh3D, lcmesh3D%refElem3D, lcmesh3D%lcmesh2D, lcmesh3D%lcmesh2D%refElem2D      ) 
         call PROF_rapend( 'ATM_DYN_update_caltend_ex', 2)
 
         !- Sponge layer
