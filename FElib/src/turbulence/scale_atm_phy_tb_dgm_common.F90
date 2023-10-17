@@ -40,22 +40,22 @@ module scale_atm_phy_tb_dgm_common
   !
   !++ Public parameters & variables
   !
-  integer, public, parameter :: ATMOS_PHY_TB_AUX_T13_ID     = 1
-  integer, public, parameter :: ATMOS_PHY_TB_AUX_T23_ID     = 2
-  integer, public, parameter :: ATMOS_PHY_TB_AUX_T33_ID     = 3
-  integer, public, parameter :: ATMOS_PHY_TB_AUX_DPTDZ_ID   = 4
-  integer, public, parameter :: ATMOS_PHY_TB_AUX_T31_ID     = 5
-  integer, public, parameter :: ATMOS_PHY_TB_AUX_T32_ID     = 6
-  integer, public, parameter :: ATMOS_PHY_TB_AUX_DPTDX_ID   = 7
-  integer, public, parameter :: ATMOS_PHY_TB_AUX_DPTDY_ID   = 8
-  integer, public, parameter :: ATMOS_PHY_TB_AUX_T11_ID     = 9
-  integer, public, parameter :: ATMOS_PHY_TB_AUX_T12_ID     = 10
-  integer, public, parameter :: ATMOS_PHY_TB_AUX_T21_ID     = 11
-  integer, public, parameter :: ATMOS_PHY_TB_AUX_T22_ID     = 12
+  integer, public, parameter :: ATMOS_PHY_TB_AUX_T13_ID      = 1
+  integer, public, parameter :: ATMOS_PHY_TB_AUX_T23_ID      = 2
+  integer, public, parameter :: ATMOS_PHY_TB_AUX_T33_ID      = 3
+  integer, public, parameter :: ATMOS_PHY_TB_AUX_DIFFFLX3_ID = 4
+  integer, public, parameter :: ATMOS_PHY_TB_AUX_T31_ID      = 5
+  integer, public, parameter :: ATMOS_PHY_TB_AUX_T32_ID      = 6
+  integer, public, parameter :: ATMOS_PHY_TB_AUX_DIFFFLX1_ID = 7
+  integer, public, parameter :: ATMOS_PHY_TB_AUX_DIFFFLX2_ID = 8
+  integer, public, parameter :: ATMOS_PHY_TB_AUX_T11_ID      = 9
+  integer, public, parameter :: ATMOS_PHY_TB_AUX_T12_ID      = 10
+  integer, public, parameter :: ATMOS_PHY_TB_AUX_T21_ID      = 11
+  integer, public, parameter :: ATMOS_PHY_TB_AUX_T22_ID      = 12
   integer, public, parameter :: ATMOS_PHY_TB_AUX_SCALAR_NUM  = 4
   integer, public, parameter :: ATMOS_PHY_TB_AUX_HVEC_NUM    = 2
   integer, public, parameter :: ATMOS_PHY_TB_AUX_HTENSOR_NUM = 1
-  integer, public, parameter :: ATMOS_PHY_TB_AUX_NUM        = 12
+  integer, public, parameter :: ATMOS_PHY_TB_AUX_NUM         = 12
   
   integer, public, parameter :: ATMOS_PHY_TB_DIAG_TKE_ID     = 1
   integer, public, parameter :: ATMOS_PHY_TB_DIAG_NU_ID      = 2
@@ -90,30 +90,30 @@ contains
 
     type(VariableInfo) :: ATMOS_PHY_TB_AUX_VINFO(ATMOS_PHY_TB_AUX_NUM)
     DATA ATMOS_PHY_TB_AUX_VINFO / &
-      VariableInfo( ATMOS_PHY_TB_AUX_T13_ID, 'TB_T13', 'stress tensor (T13)',          & ! rho x nu x S : [kg/m3] x [m2/s] x [s-1]
-                    'kg.m-3.m2.s-2',  3, 'XYZ',  ''                                 ), &
-      VariableInfo( ATMOS_PHY_TB_AUX_T23_ID, 'TB_T23', 'stress tensor (T23)',          &
-                    'kg.m-3.m2.s-2',  3, 'XYZ',  ''                                 ), &
-      VariableInfo( ATMOS_PHY_TB_AUX_T33_ID, 'TB_T33', 'stress tensor (T33)',          &
-                    'kg.m-3.m2.s-2',  3, 'XYZ',  ''                                 ), &
-      VariableInfo( ATMOS_PHY_TB_AUX_DPTDZ_ID, 'DPTDZ', 'gradient of PT (z)',          &
-                    'K/m',  3, 'XYZ',  ''                                           ), &                                      
-      VariableInfo( ATMOS_PHY_TB_AUX_T31_ID, 'TB_T31', 'stress tensor (T31)',          &
-                    'kg.m-3.m2.s-2',  3, 'XYZ',  ''                                 ), &
-      VariableInfo( ATMOS_PHY_TB_AUX_T32_ID, 'TB_T32', 'stress tensor (T32)',          &
-                    'kg.m-3.m2.s-2',  3, 'XYZ',  ''                                 ), &
-      VariableInfo( ATMOS_PHY_TB_AUX_DPTDX_ID, 'DPTDX', 'gradient of PT (x)',          &
-                    'K/m',  3, 'XYZ',  ''                                           ), &
-      VariableInfo( ATMOS_PHY_TB_AUX_DPTDY_ID, 'DPTDY', 'gradient of PT (y)',          &
-                    'K/m',  3, 'XYZ',  ''                                           ), &
-      VariableInfo( ATMOS_PHY_TB_AUX_T11_ID, 'TB_T11', 'stress tensor (T11)',          &
-                    'kg.m-3.m2.s-2',  3, 'XYZ',  ''                                 ), &
-      VariableInfo( ATMOS_PHY_TB_AUX_T12_ID, 'TB_T12', 'stress tensor (T12)',          &
-                    'kg.m-3.m2.s-2',  3, 'XYZ',  ''                                 ), &
-      VariableInfo( ATMOS_PHY_TB_AUX_T21_ID, 'TB_T21', 'stress tensor (T21)',          &
-                    'kg.m-3.m2.s-2',  3, 'XYZ',  ''                                 ), &
-      VariableInfo( ATMOS_PHY_TB_AUX_T22_ID, 'TB_T22', 'stress tensor (T22)',          &
-                    'kg.m-3.m2.s-2',  3, 'XYZ',  ''                                 )  /
+      VariableInfo( ATMOS_PHY_TB_AUX_T13_ID, 'TB_T13', 'stress tensor (T13)',                         & ! rho x nu x S : [kg/m3] x [m2/s] x [s-1]
+                    'kg.m-3.m2.s-2',  3, 'XYZ',  ''                                                ), &
+      VariableInfo( ATMOS_PHY_TB_AUX_T23_ID, 'TB_T23', 'stress tensor (T23)',                         &
+                    'kg.m-3.m2.s-2',  3, 'XYZ',  ''                                                ), &
+      VariableInfo( ATMOS_PHY_TB_AUX_T33_ID, 'TB_T33', 'stress tensor (T33)',                         &
+                    'kg.m-3.m2.s-2',  3, 'XYZ',  ''                                                ), &
+      VariableInfo( ATMOS_PHY_TB_AUX_DIFFFLX3_ID, 'DIFF_FLX3', 'diffusive heat flux (z) / density',   &
+                    'm2/s.K/m',  3, 'XYZ',  ''                                                     ), &                                      
+      VariableInfo( ATMOS_PHY_TB_AUX_T31_ID, 'TB_T31', 'stress tensor (T31)',                         &
+                    'kg.m-3.m2.s-2',  3, 'XYZ',  ''                                                ), &
+      VariableInfo( ATMOS_PHY_TB_AUX_T32_ID, 'TB_T32', 'stress tensor (T32)',                         &
+                    'kg.m-3.m2.s-2',  3, 'XYZ',  ''                                                ), &
+      VariableInfo( ATMOS_PHY_TB_AUX_DIFFFLX1_ID, 'DIFF_FLX1', 'diffusive heat flux (x) / density',   &
+                    'm2/s.K/m',  3, 'XYZ',  ''                                                     ), &
+      VariableInfo( ATMOS_PHY_TB_AUX_DIFFFLX2_ID, 'DIFF_FLX2', 'diffusive heat flux (y) / density',   &
+                    'm2/s.K/m',  3, 'XYZ',  ''                                                     ), &
+      VariableInfo( ATMOS_PHY_TB_AUX_T11_ID, 'TB_T11', 'stress tensor (T11)',                         &
+                    'kg.m-3.m2.s-2',  3, 'XYZ',  ''                                                ), &
+      VariableInfo( ATMOS_PHY_TB_AUX_T12_ID, 'TB_T12', 'stress tensor (T12)',                         &
+                    'kg.m-3.m2.s-2',  3, 'XYZ',  ''                                                ), &
+      VariableInfo( ATMOS_PHY_TB_AUX_T21_ID, 'TB_T21', 'stress tensor (T21)',                         &
+                    'kg.m-3.m2.s-2',  3, 'XYZ',  ''                                                ), &
+      VariableInfo( ATMOS_PHY_TB_AUX_T22_ID, 'TB_T22', 'stress tensor (T22)',                         &
+                    'kg.m-3.m2.s-2',  3, 'XYZ',  ''                                                )  /
 
     type(VariableInfo) :: ATMOS_PHY_TB_DIAG_VINFO(ATMOS_PHY_TB_DIAG_NUM)
     DATA ATMOS_PHY_TB_DIAG_VINFO / &

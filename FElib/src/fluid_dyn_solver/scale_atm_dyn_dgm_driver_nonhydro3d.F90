@@ -191,7 +191,7 @@ module scale_atm_dyn_dgm_driver_nonhydro3d
       implicit none
   
       class(LocalMesh3D), intent(in) :: lmesh
-      class(elementbase3D), intent(in) :: elem
+      class(ElementBase3D), intent(in) :: elem
       class(LocalMesh2D), intent(in) :: lmesh2D
       class(ElementBase2D), intent(in) :: elem2D
       real(RP), intent(out) :: DENS_dt(elem%Np,lmesh%NeA)

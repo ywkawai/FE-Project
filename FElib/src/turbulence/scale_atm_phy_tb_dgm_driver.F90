@@ -77,9 +77,9 @@ module scale_atm_phy_tb_dgm_driver
     T11_VID => ATMOS_PHY_TB_AUX_T11_ID, T12_VID => ATMOS_PHY_TB_AUX_T12_ID, T13_VID => ATMOS_PHY_TB_AUX_T13_ID, &
     T21_VID => ATMOS_PHY_TB_AUX_T21_ID, T22_VID => ATMOS_PHY_TB_AUX_T22_ID, T23_VID => ATMOS_PHY_TB_AUX_T23_ID, &
     T31_VID => ATMOS_PHY_TB_AUX_T31_ID, T32_VID => ATMOS_PHY_TB_AUX_T32_ID, T33_VID => ATMOS_PHY_TB_AUX_T33_ID, &
-    DPTDX_VID => ATMOS_PHY_TB_AUX_DPTDX_ID, DPTDY_VID => ATMOS_PHY_TB_AUX_DPTDY_ID, &
-    DPTDZ_VID => ATMOS_PHY_TB_AUX_DPTDZ_ID,                                         &
-    NU_VID => ATMOS_PHY_TB_DIAG_NU_ID, KH_VID => ATMOS_PHY_TB_DIAG_KH_ID,           &
+    DF1_VID => ATMOS_PHY_TB_AUX_DIFFFLX1_ID, DF2_VID => ATMOS_PHY_TB_AUX_DIFFFLX2_ID,                           &
+    DF3_VID => ATMOS_PHY_TB_AUX_DIFFFLX3_ID,                                                                    &
+    NU_VID => ATMOS_PHY_TB_DIAG_NU_ID, KH_VID => ATMOS_PHY_TB_DIAG_KH_ID,                                       &
     TKE_VID => ATMOS_PHY_TB_DIAG_TKE_ID
   !-----------------------------------------------------------------------------
   implicit none
@@ -97,7 +97,7 @@ module scale_atm_phy_tb_dgm_driver
   abstract interface
     subroutine atm_phy_tb_cal_grad( &
       T11, T12, T13, T21, T22, T23, T31, T32, T33,                & ! (out)
-      dPTdx, dPTdy, dPTdz,                                        & ! (out)
+      DF1, DF2, DF3,                                              & ! (out)
       TKE, Nu, Kh,                                                & ! (out)
       DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd,    & ! (in)
       PRES, PT,                                                   & ! (in)
@@ -118,9 +118,9 @@ module scale_atm_phy_tb_dgm_driver
       real(RP), intent(out) :: T11(elem%Np,lmesh%NeA), T12(elem%Np,lmesh%NeA), T13(elem%Np,lmesh%NeA)
       real(RP), intent(out) :: T21(elem%Np,lmesh%NeA), T22(elem%Np,lmesh%NeA), T23(elem%Np,lmesh%NeA)
       real(RP), intent(out) :: T31(elem%Np,lmesh%NeA), T32(elem%Np,lmesh%NeA), T33(elem%Np,lmesh%NeA)
-      real(RP), intent(out) :: dPTdx(elem%Np,lmesh%NeA)
-      real(RP), intent(out) :: dPTdy(elem%Np,lmesh%NeA)
-      real(RP), intent(out) :: dPTdz(elem%Np,lmesh%NeA)
+      real(RP), intent(out) :: DF1(elem%Np,lmesh%NeA)
+      real(RP), intent(out) :: DF2(elem%Np,lmesh%NeA)
+      real(RP), intent(out) :: DF3(elem%Np,lmesh%NeA)
       real(RP), intent(out) :: TKE(elem%Np,lmesh%NeA)
       real(RP), intent(out) :: Nu(elem%Np,lmesh%NeA)
       real(RP), intent(out) :: Kh(elem%Np,lmesh%NeA)
@@ -142,9 +142,9 @@ module scale_atm_phy_tb_dgm_driver
 
   abstract interface
     subroutine atm_phy_tb_cal_grad_qtrc( &
-      dQTdx, dQTdy, dQTdz,                                        & ! (out)
+      DFQ1, DFQ2, DFQ3,                                           & ! (out)
       dRdx, dRdy, dRdz,                                           & ! (inout)
-      QTRC, DDENS, DENS_hyd,                                      & ! (in)
+      Kh, QTRC, DDENS, DENS_hyd,                                  & ! (in)
       Dx, Dy, Dz, Sx, Sy, Sz, Lift, lmesh, elem, lmesh2D, elem2D, & ! (in)
       is_bound, cal_grad_dens                                     ) ! (in)
       import RP
@@ -159,12 +159,13 @@ module scale_atm_phy_tb_dgm_driver
       class(elementbase3D), intent(in) :: elem
       class(LocalMesh2D), intent(in) :: lmesh2D
       class(elementbase2D), intent(in) :: elem2D
-      real(RP), intent(out) :: dQTdx(elem%Np,lmesh%NeA)
-      real(RP), intent(out) :: dQTdy(elem%Np,lmesh%NeA)
-      real(RP), intent(out) :: dQTdz(elem%Np,lmesh%NeA)
+      real(RP), intent(out) :: DFQ1(elem%Np,lmesh%NeA)
+      real(RP), intent(out) :: DFQ2(elem%Np,lmesh%NeA)
+      real(RP), intent(out) :: DFQ3(elem%Np,lmesh%NeA)
       real(RP), intent(inout) :: dRdx(elem%Np,lmesh%NeA)
       real(RP), intent(inout) :: dRdy(elem%Np,lmesh%NeA)
       real(RP), intent(inout) :: dRdz(elem%Np,lmesh%NeA)
+      real(RP), intent(in)  :: Kh(elem%Np,lmesh%NeA)
       real(RP), intent(in)  :: QTRC(elem%Np,lmesh%NeA)
       real(RP), intent(in)  :: DDENS(elem%Np,lmesh%NeA)
       real(RP), intent(in)  :: DENS_hyd(elem%Np,lmesh%NeA)        
@@ -180,7 +181,7 @@ module scale_atm_phy_tb_dgm_driver
     subroutine atm_phy_tb_cal_tend( &
       MOMX_t, MOMY_t, MOMZ_t, RHOT_t,                             & ! (out)
       T11, T12, T13, T21, T22, T23, T31, T32, T33,                & ! (in)
-      dPTdx, dPTdy, dPTdz,                                        & ! (in)
+      DF1, DF2, DF3,                                              & ! (in)
       Nu, Kh,                                                     & ! (in)
       DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_,                        & ! (in)
       DENS_hyd, PRES_hyd,  PRES_, PT_,                            & ! (in)
@@ -196,9 +197,9 @@ module scale_atm_phy_tb_dgm_driver
     implicit none
       
     class(LocalMesh3D), intent(in) :: lmesh
-    class(elementbase3D), intent(in) :: elem
+    class(ElementBase3D), intent(in) :: elem
     class(LocalMesh2D), intent(in) :: lmesh2D
-    class(elementbase2D), intent(in) :: elem2D
+    class(ElementBase2D), intent(in) :: elem2D
     real(RP), intent(out) :: MOMX_t(elem%Np,lmesh%NeA)
     real(RP), intent(out) :: MOMY_t(elem%Np,lmesh%NeA)
     real(RP), intent(out) :: MOMZ_t(elem%Np,lmesh%NeA)
@@ -206,9 +207,9 @@ module scale_atm_phy_tb_dgm_driver
     real(RP), intent(in)  :: T11(elem%Np,lmesh%NeA), T12(elem%Np,lmesh%NeA), T13(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: T21(elem%Np,lmesh%NeA), T22(elem%Np,lmesh%NeA), T23(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: T31(elem%Np,lmesh%NeA), T32(elem%Np,lmesh%NeA), T33(elem%Np,lmesh%NeA)
-    real(RP), intent(in)  :: dPTdx(elem%Np,lmesh%NeA)
-    real(RP), intent(in)  :: dPTdy(elem%Np,lmesh%NeA)
-    real(RP), intent(in)  :: dPTdz(elem%Np,lmesh%NeA)
+    real(RP), intent(in)  :: DF1(elem%Np,lmesh%NeA)
+    real(RP), intent(in)  :: DF2(elem%Np,lmesh%NeA)
+    real(RP), intent(in)  :: DF3(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: Nu   (elem%Np,lmesh%NeA) ! Eddy viscosity
     real(RP), intent(in)  :: Kh   (elem%Np,lmesh%NeA) ! Eddy diffusivity
     real(RP), intent(in)  :: DDENS_(elem%Np,lmesh%NeA)
@@ -231,7 +232,7 @@ module scale_atm_phy_tb_dgm_driver
   abstract interface 
     subroutine atm_phy_tb_cal_tend_qtrc( &
       RHOQ_t,                                                     & ! (out)
-      dQTdx, dQTdy, dQTdz,                                        & ! (in)
+      DFQ1, DFQ2, DFQ3,                                           & ! (in)
       Kh, DDENS_,DENS_hyd,                                        & ! (in)
       Dx, Dy, Dz, Sx, Sy, Sz, Lift, lmesh, elem, lmesh2D, elem2D, & ! (in)
       is_bound                                                    ) ! (in)
@@ -245,13 +246,13 @@ module scale_atm_phy_tb_dgm_driver
       implicit none
 
       class(LocalMesh3D), intent(in) :: lmesh
-      class(elementbase3D), intent(in) :: elem
+      class(ElementBase3D), intent(in) :: elem
       class(LocalMesh2D), intent(in) :: lmesh2D
-      class(elementbase2D), intent(in) :: elem2D
+      class(ElementBase2D), intent(in) :: elem2D
       real(RP), intent(out) :: RHOQ_t(elem%Np,lmesh%NeA)
-      real(RP), intent(in)  :: dQTdx(elem%Np,lmesh%NeA)
-      real(RP), intent(in)  :: dQTdy(elem%Np,lmesh%NeA)
-      real(RP), intent(in)  :: dQTdz(elem%Np,lmesh%NeA)
+      real(RP), intent(in)  :: DFQ1(elem%Np,lmesh%NeA)
+      real(RP), intent(in)  :: DFQ2(elem%Np,lmesh%NeA)
+      real(RP), intent(in)  :: DFQ3(elem%Np,lmesh%NeA)
       real(RP), intent(in)  :: Kh   (elem%Np,lmesh%NeA) ! Eddy diffusivity
       real(RP), intent(in)  :: DDENS_(elem%Np,lmesh%NeA)
       real(RP), intent(in)  :: DENS_hyd(elem%Np,lmesh%NeA)
@@ -306,20 +307,20 @@ module scale_atm_phy_tb_dgm_driver
   integer, parameter :: TB_TYPEID_SMAGORINSKY         = 1
   integer, parameter :: TB_TYPEID_SMAGORINSKY_GLOBAL  = 2
 
-  integer, public, parameter :: ATMOS_PHY_TB_AUXTRC_DQTDZ_ID   = 1  
-  integer, public, parameter :: ATMOS_PHY_TB_AUXTRC_DQTDX_ID   = 2
-  integer, public, parameter :: ATMOS_PHY_TB_AUXTRC_DQTDY_ID   = 3
+  integer, public, parameter :: ATMOS_PHY_TB_AUXTRC_DFQ1_ID    = 1  
+  integer, public, parameter :: ATMOS_PHY_TB_AUXTRC_DFQ2_ID    = 2
+  integer, public, parameter :: ATMOS_PHY_TB_AUXTRC_DFQ3_ID    = 3
   integer, public, parameter :: ATMOS_PHY_TB_AUXTRC_SCALAR_NUM = 1 
   integer, public, parameter :: ATMOS_PHY_TB_AUXTRC_HVEC_NUM   = 1
   integer, public, parameter :: ATMOS_PHY_TB_AUXTRC_NUM        = 3
   type(VariableInfo), public :: ATMOS_PHY_TB_AUXTRC_VINFO(ATMOS_PHY_TB_AUXTRC_NUM)
   DATA ATMOS_PHY_TB_AUXTRC_VINFO / &
-    VariableInfo( ATMOS_PHY_TB_AUXTRC_DQTDZ_ID, 'DQTDZ', 'gradient of QTRC (z)',      &
-                  'K/m',  3, 'XYZ',  ''                                           ),  &
-    VariableInfo( ATMOS_PHY_TB_AUXTRC_DQTDX_ID, 'DQTDX', 'gradient of QTRC (x)',      &
-                  'K/m',  3, 'XYZ',  ''                                           ),  &
-    VariableInfo( ATMOS_PHY_TB_AUXTRC_DQTDY_ID, 'DQTDY', 'gradient of QTRC (y)',      &
-                  'K/m',  3, 'XYZ',  ''                                           )   /
+    VariableInfo( ATMOS_PHY_TB_AUXTRC_DFQ1_ID, 'DFQ1', 'Kh * gradient of QTRC (z)',    &
+                  'm2/s',  3, 'XYZ',  ''                                           ),  &
+    VariableInfo( ATMOS_PHY_TB_AUXTRC_DFQ2_ID, 'DFQ2', 'Kh * gradient of QTRC (x)',    &
+                  'm2/s',  3, 'XYZ',  ''                                           ),  &
+    VariableInfo( ATMOS_PHY_TB_AUXTRC_DFQ3_ID, 'DFQ3', 'Kh * gradient of QTRC (y)',    &
+                  'm2/s',  3, 'XYZ',  ''                                           )   /
 
 contains
 !OCL SERIAL  
@@ -387,8 +388,10 @@ contains
         call this%auxtrcvars_manager%Regist( &
           ATMOS_PHY_TB_AUXTRC_VINFO(iv), mesh3D,  & ! (in) 
           this%auxtrcvars(iv),                    & ! (inout)
-          reg_file_hist, fill_zero=.true.            ) ! (in)
+          reg_file_hist, fill_zero=.true.         ) ! (in)
       end do
+
+      !- Setup communication
 
       call model_mesh3D%Create_communicator( &
         ATMOS_PHY_TB_AUXTRC_SCALAR_NUM, ATMOS_PHY_TB_AUXTRC_HVEC_NUM, 0, & ! (in) 
@@ -407,9 +410,9 @@ contains
 !OCL SERIAL
   subroutine AtmPhyTbDGMDriver_tendency( this, &
     TB_TENDS, PROG_VARS, TRC_VARS, AUX_VARS,   &
-    AUX_TB_VARS,  DIAG_TB_VARS,                            &
-    boundary_cond,                                         &
-    Dx, Dy, Dz, Sx, Sy, Sz, Lift, mesh3D                   )
+    AUX_TB_VARS,  DIAG_TB_VARS,                &
+    boundary_cond,                             &
+    Dx, Dy, Dz, Sx, Sy, Sz, Lift, mesh3D       )
 
     use scale_tracer, only: &
       QA, TRACER_ADVC, TRACER_NAME
@@ -437,8 +440,8 @@ contains
     class(MeshField3D), pointer :: DDENS, MOMX, MOMY, MOMZ, THERM
     class(MeshField3D), pointer :: PRES_hyd, DENS_hyd, PRES, PT
     class(MeshField3D), pointer :: T11, T12, T13, T21, T22, T23, T31, T32, T33
-    class(MeshField3D), pointer :: dPTdx, dPTdy, dPTdz
-    class(MeshField3D), pointer :: dQTdx, dQTdy, dQTdz
+    class(MeshField3D), pointer :: DF1, DF2, DF3
+    class(MeshField3D), pointer :: DFQ1, DFQ2, DFQ3
     class(MeshField3D), pointer :: Nu, Kh, TKE
     class(MeshField3D), pointer :: tb_MOMX_t, tb_MOMY_t, tb_MOMZ_t, tb_RHOT_t
     class(MeshField3D), pointer :: QTRC
@@ -475,9 +478,9 @@ contains
     call AUX_TB_VARS%Get3D( T31_VID, T31 )
     call AUX_TB_VARS%Get3D( T32_VID, T32 )
     call AUX_TB_VARS%Get3D( T33_VID, T33 )
-    call AUX_TB_VARS%Get3D( DPTDX_VID, dPTdx )
-    call AUX_TB_VARS%Get3D( DPTDY_VID, dPTdy )
-    call AUX_TB_VARS%Get3D( DPTDZ_VID, dPTdz )
+    call AUX_TB_VARS%Get3D( DF1_VID, DF1 )
+    call AUX_TB_VARS%Get3D( DF2_VID, DF2 )
+    call AUX_TB_VARS%Get3D( DF3_VID, DF3 )
 
     call DIAG_TB_VARS%Get3D( TKE_VID, TKE )
     call DIAG_TB_VARS%Get3D( NU_VID, Nu )
@@ -487,6 +490,12 @@ contains
     call TB_TENDS%Get3D( TB_MOMY_t_VID, tb_MOMY_t )
     call TB_TENDS%Get3D( TB_MOMZ_t_VID, tb_MOMZ_t )
     call TB_TENDS%Get3D( TB_RHOT_t_VID, tb_RHOT_t )
+
+    if ( QA > 0 ) then
+      call this%auxtrcvars_manager%Get3D( ATMOS_PHY_TB_AUXTRC_DFQ1_ID, DFQ1 )
+      call this%auxtrcvars_manager%Get3D( ATMOS_PHY_TB_AUXTRC_DFQ2_ID, DFQ2 )
+      call this%auxtrcvars_manager%Get3D( ATMOS_PHY_TB_AUXTRC_DFQ3_ID, DFQ3 )
+    end if
 
     allocate( bnd_info(mesh3D%LOCAL_MESH_NUM) )
     call PROF_rapend( 'ATM_TB_tendency_pre', 2)
@@ -507,7 +516,7 @@ contains
           T11%local(n)%val, T12%local(n)%val, T13%local(n)%val,         & ! (out)
           T21%local(n)%val, T22%local(n)%val, T23%local(n)%val,         & ! (out)
           T31%local(n)%val, T32%local(n)%val, T33%local(n)%val,         & ! (out)
-          dPTdx%local(n)%val, dPTdy%local(n)%val, dPTdz%local(n)%val,   & ! (out)
+          DF1%local(n)%val, DF2%local(n)%val, DF3%local(n)%val,         & ! (out)
           TKE%local(n)%val, Nu%local(n)%val, Kh%local(n)%val,           & ! (out)
           DDENS%local(n)%val, MOMX%local(n)%val, MOMY%local(n)%val, MOMZ%local(n)%val, THERM%local(n)%val,            & ! (in)
           DENS_hyd%local(n)%val, PRES_hyd%local(n)%val, PRES%local(n)%val, PT%local(n)%val,                           & ! (in)
@@ -528,11 +537,11 @@ contains
         T11%local(n)%val, T12%local(n)%val, T13%local(n)%val,                                                       & ! (in)
         T21%local(n)%val, T22%local(n)%val, T23%local(n)%val,                                                       & ! (in)
         T31%local(n)%val, T32%local(n)%val, T33%local(n)%val,                                                       & ! (in)
-        dPTdx%local(n)%val, dPTdy%local(n)%val, dPTdz%local(n)%val, Nu%local(n)%val, Kh%local(n)%val,               &
-        DDENS%local(n)%val, MOMX%local(n)%val, MOMY%local(n)%val, MOMZ%local(n)%val, THERM%local(n)%val,            &
-        DENS_hyd%local(n)%val, PRES_hyd%local(n)%val, PRES%local(n)%val, PT%local(n)%val,                           &
-        Dx, Dy, Dz, Sx, Sy, Sz, Lift, lcmesh3D, lcmesh3D%refElem3D, lcmesh3D%lcmesh2D, lcmesh3D%lcmesh2D%refElem2D, &
-        bnd_info(n)%is_bound                                                                                        )
+        DF1%local(n)%val, DF2%local(n)%val, DF3%local(n)%val, Nu%local(n)%val, Kh%local(n)%val,                     & ! (in)
+        DDENS%local(n)%val, MOMX%local(n)%val, MOMY%local(n)%val, MOMZ%local(n)%val, THERM%local(n)%val,            & ! (in)
+        DENS_hyd%local(n)%val, PRES_hyd%local(n)%val, PRES%local(n)%val, PT%local(n)%val,                           & ! (in)
+        Dx, Dy, Dz, Sx, Sy, Sz, Lift, lcmesh3D, lcmesh3D%refElem3D, lcmesh3D%lcmesh2D, lcmesh3D%lcmesh2D%refElem2D, & ! (in)
+        bnd_info(n)%is_bound                                                                                        ) ! (in)
       call PROF_rapend('ATM_PHY_TB_cal_tend', 2)
     end do
 
@@ -546,13 +555,13 @@ contains
       do n=1, mesh3D%LOCAL_MESH_NUM
         call PROF_rapstart('ATM_PHY_TB_cal_grad_qtrc', 2)
         call this%tbsolver_cal_grad_qtrc( &
-          dQTdx%local(n)%val, dQTdy%local(n)%val, dQTdz%local(n)%val,      & ! (out)
-          this%GRAD_DENS(1)%local(n)%val, this%GRAD_DENS(2)%local(n)%val,  & ! (inout)
-          this%GRAD_DENS(3)%local(n)%val,                                  & ! (inout)
-          QTRC%local(n)%val, DDENS%local(n)%val, DENS_hyd%local(n)%val,    & ! (in) 
-          Dx, Dy, Dx, Sx, Sy, Sz, Lift, lcmesh3D, lcmesh3D%refElem3D,      & ! (in)
-          lcmesh3D%lcmesh2D, lcmesh3D%lcmesh2D%refElem2D,                  & ! (in)
-          bnd_info(n)%is_bound, cal_grad_flag )                              ! (in)
+          DFQ1%local(n)%val, DFQ2%local(n)%val, DFQ2%local(n)%val,                       & ! (out)
+          this%GRAD_DENS(1)%local(n)%val, this%GRAD_DENS(2)%local(n)%val,                & ! (inout)
+          this%GRAD_DENS(3)%local(n)%val,                                                & ! (inout)
+          Kh%local(n)%val, QTRC%local(n)%val, DDENS%local(n)%val, DENS_hyd%local(n)%val, & ! (in) 
+          Dx, Dy, Dx, Sx, Sy, Sz, Lift, lcmesh3D, lcmesh3D%refElem3D,                    & ! (in)
+          lcmesh3D%lcmesh2D, lcmesh3D%lcmesh2D%refElem2D,                                & ! (in)
+          bnd_info(n)%is_bound, cal_grad_flag )                                            ! (in)
         call PROF_rapend('ATM_PHY_TB_cal_grad_qtrc', 2)
       end do
       cal_grad_flag = .false.
@@ -562,7 +571,7 @@ contains
       do n=1, mesh3D%LOCAL_MESH_NUM
         call PROF_rapstart('ATM_PHY_TB_cal_tend_qtrc', 2)
         call this%tbsolver_cal_tend_qtrc( tb_RHOQ_t%local(n)%val,          & ! (out)
-          dQTdx%local(n)%val, dQTdy%local(n)%val, dQTdz%local(n)%val,      & ! (out)
+          DFQ1%local(n)%val, DFQ2%local(n)%val, DFQ3%local(n)%val,         & ! (out)
           Kh%local(n)%val, DDENS%local(n)%val, DENS_hyd%local(n)%val,      & ! (in) 
           Dx, Dy, Dx, Sx, Sy, Sz, Lift, lcmesh3D, lcmesh3D%refElem3D,      & ! (in)
           lcmesh3D%lcmesh2D, lcmesh3D%lcmesh2D%refElem2D,                  & ! (in)
@@ -583,11 +592,17 @@ contains
     implicit none
 
     class(AtmPhyTbDGMDriver), intent(inout) :: this
+
+    integer :: idim
     !-----------------------------------------------------------------------------
 
     call this%tbsolver_final()
 
     if ( QA > 0 ) then
+      do idim=1, 3
+        call this%GRAD_DENS(idim)%Final()
+      end do
+  
       call this%auxtrcvars_manager%Final()
     end if
 
