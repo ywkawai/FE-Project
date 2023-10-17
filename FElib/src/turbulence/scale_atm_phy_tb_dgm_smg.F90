@@ -154,10 +154,12 @@ contains
     return
   end subroutine atm_phy_tb_dgm_smg_Final
 
+!> Calculate parameterized stress tensor and eddy heat flux with turbulent model
+!!
 !OCL SERIAL  
   subroutine atm_phy_tb_dgm_smg_cal_grad( &
     T11, T12, T13, T21, T22, T23, T31, T32, T33,                & ! (out)
-    dPTdx, dPTdy, dPTdz,                                        & ! (out)
+    DF1, DF2, DF3,                                              & ! (out)
     TKE, Nu, Kh,                                                & ! (out)
     DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd,    & ! (in)
     PRES, PT,                                                   & ! (in)
@@ -172,28 +174,34 @@ contains
     class(elementbase3D), intent(in) :: elem
     class(LocalMesh2D), intent(in) :: lmesh2D
     class(elementbase2D), intent(in) :: elem2D
-    real(RP), intent(out) :: T11(elem%Np,lmesh%NeA), T12(elem%Np,lmesh%NeA), T13(elem%Np,lmesh%NeA)
-    real(RP), intent(out) :: T21(elem%Np,lmesh%NeA), T22(elem%Np,lmesh%NeA), T23(elem%Np,lmesh%NeA)
-    real(RP), intent(out) :: T31(elem%Np,lmesh%NeA), T32(elem%Np,lmesh%NeA), T33(elem%Np,lmesh%NeA)
-    real(RP), intent(out) :: dPTdx(elem%Np,lmesh%NeA)
-    real(RP), intent(out) :: dPTdy(elem%Np,lmesh%NeA)
-    real(RP), intent(out) :: dPTdz(elem%Np,lmesh%NeA)
-    real(RP), intent(out) :: TKE(elem%Np,lmesh%NeA)    
-    real(RP), intent(out) :: Nu(elem%Np,lmesh%NeA)
-    real(RP), intent(out) :: Kh(elem%Np,lmesh%NeA)
-    real(RP), intent(in)  :: DDENS_(elem%Np,lmesh%NeA)
-    real(RP), intent(in)  :: MOMX_(elem%Np,lmesh%NeA)
-    real(RP), intent(in)  :: MOMY_(elem%Np,lmesh%NeA)
-    real(RP), intent(in)  :: MOMZ_(elem%Np,lmesh%NeA)
-    real(RP), intent(in)  :: DRHOT_(elem%Np,lmesh%NeA)
-    real(RP), intent(in)  :: DENS_hyd(elem%Np,lmesh%NeA)
-    real(RP), intent(in)  :: PRES_hyd(elem%Np,lmesh%NeA)
-    real(RP), intent(in)  :: PRES(elem%Np,lmesh%NeA)
-    real(RP), intent(in)  :: PT(elem%Np,lmesh%NeA)
-    type(SparseMat), intent(in) :: Dx, Dy, Dz
-    type(SparseMat), intent(in) :: Sx, Sy, Sz
-    type(SparseMat), intent(in) :: Lift
-    logical, intent(in) :: is_bound(elem%NfpTot,lmesh%Ne)
+    real(RP), intent(out) :: T11(elem%Np,lmesh%NeA)      !< (1,1) component of stress tensor
+    real(RP), intent(out) :: T12(elem%Np,lmesh%NeA)      !< (1,2) component of stress tensor
+    real(RP), intent(out) :: T13(elem%Np,lmesh%NeA)      !< (1,3) component of stress tensor
+    real(RP), intent(out) :: T21(elem%Np,lmesh%NeA)      !< (2,1) component of stress tensor
+    real(RP), intent(out) :: T22(elem%Np,lmesh%NeA)      !< (2,2) component of stress tensor
+    real(RP), intent(out) :: T23(elem%Np,lmesh%NeA)      !< (2,3) component of stress tensor
+    real(RP), intent(out) :: T31(elem%Np,lmesh%NeA)      !< (3,1) component of stress tensor
+    real(RP), intent(out) :: T32(elem%Np,lmesh%NeA)      !< (3,2) component of stress tensor
+    real(RP), intent(out) :: T33(elem%Np,lmesh%NeA)      !< (3,3) component of stress tensor
+    real(RP), intent(out)  :: DF1(elem%Np,lmesh%NeA)     !< Diffusive heat flux in x1 direction / density
+    real(RP), intent(out)  :: DF2(elem%Np,lmesh%NeA)     !< Diffusive heat flux in x2 direction / density
+    real(RP), intent(out)  :: DF3(elem%Np,lmesh%NeA)     !< Diffusive heat flux in x3 direction / density
+    real(RP), intent(out) :: TKE(elem%Np,lmesh%NeA)      !< Parameterized turbulent kinetic energy
+    real(RP), intent(out) :: Nu(elem%Np,lmesh%NeA)       !< Eddy viscosity
+    real(RP), intent(out) :: Kh(elem%Np,lmesh%NeA)       !< Eddy diffusivity
+    real(RP), intent(in)  :: DDENS_(elem%Np,lmesh%NeA)   !< Density perturbation
+    real(RP), intent(in)  :: MOMX_ (elem%Np,lmesh%NeA)   !< Momentum in x1 direction
+    real(RP), intent(in)  :: MOMY_ (elem%Np,lmesh%NeA)   !< Momentum in x2 direction
+    real(RP), intent(in)  :: MOMZ_ (elem%Np,lmesh%NeA)   !< Momentum in x3 direction
+    real(RP), intent(in)  :: DRHOT_(elem%Np,lmesh%NeA)   !< Density x potential temperature perturbation
+    real(RP), intent(in)  :: DENS_hyd(elem%Np,lmesh%NeA) !< Reference pressure in hydrostatic balance
+    real(RP), intent(in)  :: PRES_hyd(elem%Np,lmesh%NeA) !< Reference density in hydrostatic balance
+    real(RP), intent(in)  :: PRES(elem%Np,lmesh%NeA)     !< Pressure
+    real(RP), intent(in)  :: PT(elem%Np,lmesh%NeA)       !< Potential temperature
+    type(SparseMat), intent(in) :: Dx, Dy, Dz             !< Differential matrix managed by sparse matrix type
+    type(SparseMat), intent(in) :: Sx, Sy, Sz             !< Stiffness matrix managed by sparse matrix type
+    type(SparseMat), intent(in) :: Lift                   !< Lifting matrix managed by sparse matrix type
+    logical, intent(in) :: is_bound(elem%NfpTot,lmesh%Ne) !< Flag whether nodes are located at domain boundaries
 
     real(RP) :: Fx(elem%Np), Fy(elem%Np), Fz(elem%Np), LiftDelFlx(elem%Np)
     real(RP) :: DENS(elem%Np), RDENS(elem%Np), RHOT(elem%Np), Q(elem%Np)
@@ -307,15 +315,15 @@ contains
 
       call sparsemat_matmul( Dx, RHOT, Fx )
       call sparsemat_matmul( Lift, lmesh%Fscale(:,ke) * del_flux_rhot(:,ke,1), LiftDelFlx )
-      dPTdx(:,ke) = ( lmesh%Escale(:,ke,1,1) * Fx(:) + LiftDelFlx(:) - Q(:) * DdensDxi(:,1) ) * RDENS(:)
+      DF1(:,ke) = ( lmesh%Escale(:,ke,1,1) * Fx(:) + LiftDelFlx(:) - Q(:) * DdensDxi(:,1) ) * RDENS(:)
 
       call sparsemat_matmul( Dy, RHOT, Fy )
       call sparsemat_matmul( Lift, lmesh%Fscale(:,ke) * del_flux_rhot(:,ke,2), LiftDelFlx )
-      dPTdy(:,ke) = ( lmesh%Escale(:,ke,2,2) * Fy(:) + LiftDelFlx(:) - Q(:) * DdensDxi(:,2) ) * RDENS(:)
+      DF2(:,ke) = ( lmesh%Escale(:,ke,2,2) * Fy(:) + LiftDelFlx(:) - Q(:) * DdensDxi(:,2) ) * RDENS(:)
 
       call sparsemat_matmul( Dz, RHOT, Fz )
       call sparsemat_matmul( Lift, lmesh%Fscale(:,ke) * del_flux_rhot(:,ke,3), LiftDelFlx )
-      dPTdz(:,ke) = ( lmesh%Escale(:,ke,3,3) * Fz(:) + LiftDelFlx(:) - Q(:) * DdensDxi(:,3) ) * RDENS(:)
+      DF3(:,ke) = ( lmesh%Escale(:,ke,3,3) * Fz(:) + LiftDelFlx(:) - Q(:) * DdensDxi(:,3) ) * RDENS(:)
 
 
       ! Calculate the component of strain velocity tensor
@@ -332,7 +340,7 @@ contains
         S2 = 2.0_RP * ( S11(p)**2 + S22(p)**2 + S33(p)**2 ) &
            + 4.0_RP * ( S31(p)**2 + S12(p)**2 + S23(p)**2 )
         
-        Ri = Grav / PT(p,ke) * dPTdz(p,ke) / max( S2, EPS )
+        Ri = Grav / PT(p,ke) * DF3(p,ke) / max( S2, EPS )
 
         ! The Stability functions fm and fh are given by the appendix A of Brown et al. (1994). 
         if (Ri < 0.0_RP ) then ! unstable
@@ -390,16 +398,22 @@ contains
         T32(p,ke) = DENS(p) * coef * S23(p)
         T33(p,ke) = DENS(p) * ( coef * ( S33(p) - SkkOvThree ) - TKEMulTwoOvThree )
       end do
+
+      DF1(:,ke) = Kh(:,ke) * DF1(:,ke)
+      DF2(:,ke) = Kh(:,ke) * DF2(:,ke)
+      DF3(:,ke) = Kh(:,ke) * DF3(:,ke)
     end do
   
     return
   end subroutine atm_phy_tb_dgm_smg_cal_grad
 
+!> Calculate parameterized diffusive mass flux of tracer with turbulent model
+!!
 !OCL SERIAL  
   subroutine atm_phy_tb_dgm_smg_cal_grad_qtrc( &
-    dQTdx, dQTdy, dQTdz,                                        & ! (out)
+    DFQ1, DFQ2, DFQ3,                                           & ! (out)
     dRdx, dRdy, dRdz,                                           & ! (inout)
-    QTRC, DDENS, DENS_hyd,                                      & ! (in)
+    Kh, QTRC, DDENS, DENS_hyd,                                  & ! (in)
     Dx, Dy, Dz, Sx, Sy, Sz, Lift, lmesh, elem, lmesh2D, elem2D, & ! (in)
     is_bound, cal_grad_dens                                     ) ! (in)
 
@@ -409,20 +423,21 @@ contains
     class(elementbase3D), intent(in) :: elem
     class(LocalMesh2D), intent(in) :: lmesh2D
     class(elementbase2D), intent(in) :: elem2D
-    real(RP), intent(out) :: dQTdx(elem%Np,lmesh%NeA)
-    real(RP), intent(out) :: dQTdy(elem%Np,lmesh%NeA)
-    real(RP), intent(out) :: dQTdz(elem%Np,lmesh%NeA)
-    real(RP), intent(inout) :: dRdx(elem%Np,lmesh%NeA)
-    real(RP), intent(inout) :: dRdy(elem%Np,lmesh%NeA)
-    real(RP), intent(inout) :: dRdz(elem%Np,lmesh%NeA)
-    real(RP), intent(in)  :: QTRC(elem%Np,lmesh%NeA)
-    real(RP), intent(in)  :: DDENS(elem%Np,lmesh%NeA)
-    real(RP), intent(in)  :: DENS_hyd(elem%Np,lmesh%NeA)        
-    type(SparseMat), intent(in) :: Dx, Dy, Dz
-    type(SparseMat), intent(in) :: Sx, Sy, Sz
-    type(SparseMat), intent(in) :: Lift
-    logical, intent(in) :: is_bound(elem%NfpTot,lmesh%Ne)
-    logical, intent(in) :: cal_grad_dens
+    real(RP), intent(out) :: DFQ1(elem%Np,lmesh%NeA)      !< Diffusive mass flux in x1 direction / density (Kh dq/dx1)
+    real(RP), intent(out) :: DFQ2(elem%Np,lmesh%NeA)      !< Diffusive mass flux in x2 direction / density (Kh dq/dx2)
+    real(RP), intent(out) :: DFQ3(elem%Np,lmesh%NeA)      !< Diffusive mass flux in x3 direction / density (Kh dq/dx3)
+    real(RP), intent(inout) :: dRdx(elem%Np,lmesh%NeA)    !< Spatial gradient of density in x1 direction
+    real(RP), intent(inout) :: dRdy(elem%Np,lmesh%NeA)    !< Spatial gradient of density in x2 direction
+    real(RP), intent(inout) :: dRdz(elem%Np,lmesh%NeA)    !< Spatial gradient of density in x3 direction
+    real(RP), intent(in)  :: Kh(elem%Np,lmesh%NeA)        !< Eddy diffusivity
+    real(RP), intent(in)  :: QTRC(elem%Np,lmesh%NeA)      !< Mass faction of tracer
+    real(RP), intent(in)  :: DDENS(elem%Np,lmesh%NeA)     !< Density perturbation
+    real(RP), intent(in)  :: DENS_hyd(elem%Np,lmesh%NeA)  !< Reference desity in hydrostatic state
+    type(SparseMat), intent(in) :: Dx, Dy, Dz             !< Differential matrix managed by sparse matrix type
+    type(SparseMat), intent(in) :: Sx, Sy, Sz             !< Stiffness matrix managed by sparse matrix type
+    type(SparseMat), intent(in) :: Lift                   !< Lifting matrix managed by sparse matrix type
+    logical, intent(in) :: is_bound(elem%NfpTot,lmesh%Ne) !< Flag whether nodes are located at domain boundaries
+    logical, intent(in) :: cal_grad_dens                  !< Flag whether spatial gradients of density are calcuated
 
     real(RP) :: Fx(elem%Np), Fy(elem%Np), Fz(elem%Np), LiftDelFlx(elem%Np)
     real(RP) :: del_flux(elem%NfpTot,lmesh%Ne,3)
@@ -473,15 +488,15 @@ contains
       !---
       call sparsemat_matmul( Dx, RHOxQTRC(:), Fx )
       call sparsemat_matmul( Lift, lmesh%Fscale(:,ke) * del_flux(:,ke,1), LiftDelFlx )
-      dQTdx(:,ke) = ( lmesh%Escale(:,ke,1,1) * Fx(:) + LiftDelFlx(:) - QTRC(:,ke) * dRdx(:,ke) ) * RDENS(:)
+      DFQ1(:,ke) = Kh(:,ke) * ( lmesh%Escale(:,ke,1,1) * Fx(:) + LiftDelFlx(:) - QTRC(:,ke) * dRdx(:,ke) ) * RDENS(:)
 
       call sparsemat_matmul( Dy, RHOxQTRC(:), Fy )
       call sparsemat_matmul( Lift, lmesh%Fscale(:,ke) * del_flux(:,ke,2), LiftDelFlx )
-      dQTdy(:,ke) = ( lmesh%Escale(:,ke,2,2) * Fy(:) + LiftDelFlx(:) - QTRC(:,ke) * dRdy(:,ke) ) * RDENS(:)
+      DFQ2(:,ke) = Kh(:,ke) * ( lmesh%Escale(:,ke,2,2) * Fy(:) + LiftDelFlx(:) - QTRC(:,ke) * dRdy(:,ke) ) * RDENS(:)
 
       call sparsemat_matmul( Dz, RHOxQTRC(:), Fz )
       call sparsemat_matmul( Lift, lmesh%Fscale(:,ke) * del_flux(:,ke,3), LiftDelFlx )
-      dQTdz(:,ke) = ( lmesh%Escale(:,ke,3,3) * Fz(:) + LiftDelFlx(:) - QTRC(:,ke) * dRdz(:,ke) ) * RDENS(:)
+      DFQ3(:,ke) = Kh(:,ke) * ( lmesh%Escale(:,ke,3,3) * Fz(:) + LiftDelFlx(:) - QTRC(:,ke) * dRdz(:,ke) ) * RDENS(:)
     end do
 
     !$omp end parallel
@@ -646,11 +661,13 @@ contains
     return
   end subroutine cal_del_flux_grad_qtrc
 
+!> Calculate tendecies with turbulent model
+!!
 !OCL SERIAL  
   subroutine atm_phy_tb_dgm_smg_cal_tend( &
     MOMX_t, MOMY_t, MOMZ_t, RHOT_t,                             & ! (out)
     T11, T12, T13, T21, T22, T23, T31, T32, T33,                & ! (in)
-    dPTdx, dPTdy, dPTdz,                                        & ! (in)
+    DF1, DF2, DF3,                                              & ! (in)
     Nu, Kh,                                                     & ! (in)
     DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_,                        & ! (in)
     DENS_hyd, PRES_hyd,  PRES_, PT_,                            & ! (in)
@@ -663,31 +680,37 @@ contains
     class(elementbase3D), intent(in) :: elem
     class(LocalMesh2D), intent(in) :: lmesh2D
     class(elementbase2D), intent(in) :: elem2D
-    real(RP), intent(out) :: MOMX_t(elem%Np,lmesh%NeA)
-    real(RP), intent(out) :: MOMY_t(elem%Np,lmesh%NeA)
-    real(RP), intent(out) :: MOMZ_t(elem%Np,lmesh%NeA)
-    real(RP), intent(out) :: RHOT_t(elem%Np,lmesh%NeA)
-    real(RP), intent(in) :: T11(elem%Np,lmesh%NeA), T12(elem%Np,lmesh%NeA), T13(elem%Np,lmesh%NeA)
-    real(RP), intent(in) :: T21(elem%Np,lmesh%NeA), T22(elem%Np,lmesh%NeA), T23(elem%Np,lmesh%NeA)
-    real(RP), intent(in) :: T31(elem%Np,lmesh%NeA), T32(elem%Np,lmesh%NeA), T33(elem%Np,lmesh%NeA)
-    real(RP), intent(in)  :: dPTdx(elem%Np,lmesh%NeA)
-    real(RP), intent(in)  :: dPTdy(elem%Np,lmesh%NeA)
-    real(RP), intent(in)  :: dPTdz(elem%Np,lmesh%NeA)
-    real(RP), intent(in)  :: Nu   (elem%Np,lmesh%NeA) ! Eddy viscosity
-    real(RP), intent(in)  :: Kh   (elem%Np,lmesh%NeA) ! Eddy diffusivity
-    real(RP), intent(in)  :: DDENS_(elem%Np,lmesh%NeA)
-    real(RP), intent(in)  :: MOMX_ (elem%Np,lmesh%NeA)
-    real(RP), intent(in)  :: MOMY_ (elem%Np,lmesh%NeA)
-    real(RP), intent(in)  :: MOMZ_ (elem%Np,lmesh%NeA)
-    real(RP), intent(in)  :: DRHOT_(elem%Np,lmesh%NeA)
-    real(RP), intent(in)  :: DENS_hyd(elem%Np,lmesh%NeA)
-    real(RP), intent(in)  :: PRES_hyd(elem%Np,lmesh%NeA)
-    real(RP), intent(in)  :: PRES_(elem%Np,lmesh%NeA)
-    real(RP), intent(in)  :: PT_  (elem%Np,lmesh%NeA)
-    type(SparseMat), intent(in) :: Dx, Dy, Dz
-    type(SparseMat), intent(in) :: Sx, Sy, Sz
-    type(SparseMat), intent(in) :: Lift
-    logical, intent(in) :: is_bound(elem%NfpTot,lmesh%Ne)
+    real(RP), intent(out) :: MOMX_t(elem%Np,lmesh%NeA)   !< Tendency of momentum in x1 direction with turbulent model
+    real(RP), intent(out) :: MOMY_t(elem%Np,lmesh%NeA)   !< Tendency of momentum in x2 direction with turbulent model
+    real(RP), intent(out) :: MOMZ_t(elem%Np,lmesh%NeA)   !< Tendency of momentum in x3 direction with turbulent model
+    real(RP), intent(out) :: RHOT_t(elem%Np,lmesh%NeA)   !< Tendency of density x potential temperature with turbulent model
+    real(RP), intent(in) :: T11(elem%Np,lmesh%NeA)       !< (1,1) component of stress tensor
+    real(RP), intent(in) :: T12(elem%Np,lmesh%NeA)       !< (1,2) component of stress tensor
+    real(RP), intent(in) :: T13(elem%Np,lmesh%NeA)       !< (1,3) component of stress tensor
+    real(RP), intent(in) :: T21(elem%Np,lmesh%NeA)       !< (2,1) component of stress tensor
+    real(RP), intent(in) :: T22(elem%Np,lmesh%NeA)       !< (2,2) component of stress tensor
+    real(RP), intent(in) :: T23(elem%Np,lmesh%NeA)       !< (2,3) component of stress tensor
+    real(RP), intent(in) :: T31(elem%Np,lmesh%NeA)       !< (3,1) component of stress tensor
+    real(RP), intent(in) :: T32(elem%Np,lmesh%NeA)       !< (3,2) component of stress tensor
+    real(RP), intent(in) :: T33(elem%Np,lmesh%NeA)       !< (3,3) component of stress tensor
+    real(RP), intent(in)  :: DF1(elem%Np,lmesh%NeA)      !< Diffusive heat flux in x1 direction / density
+    real(RP), intent(in)  :: DF2(elem%Np,lmesh%NeA)      !< Diffusive heat flux in x2 direction / density
+    real(RP), intent(in)  :: DF3(elem%Np,lmesh%NeA)      !< Diffusive heat flux in x3 direction / density
+    real(RP), intent(in)  :: Nu   (elem%Np,lmesh%NeA)    !< Eddy viscosity
+    real(RP), intent(in)  :: Kh   (elem%Np,lmesh%NeA)    !< Eddy diffusivity
+    real(RP), intent(in)  :: DDENS_(elem%Np,lmesh%NeA)   !< Density perturbation
+    real(RP), intent(in)  :: MOMX_ (elem%Np,lmesh%NeA)   !< Momentum in x1 direction
+    real(RP), intent(in)  :: MOMY_ (elem%Np,lmesh%NeA)   !< Momentum in x2 direction
+    real(RP), intent(in)  :: MOMZ_ (elem%Np,lmesh%NeA)   !< Momentum in x3 direction
+    real(RP), intent(in)  :: DRHOT_(elem%Np,lmesh%NeA)   !< Density x potential temperature perturbation
+    real(RP), intent(in)  :: DENS_hyd(elem%Np,lmesh%NeA) !< Reference pressure in hydrostatic balance
+    real(RP), intent(in)  :: PRES_hyd(elem%Np,lmesh%NeA) !< Reference density in hydrostatic balance
+    real(RP), intent(in)  :: PRES_(elem%Np,lmesh%NeA)    !< Pressure
+    real(RP), intent(in)  :: PT_  (elem%Np,lmesh%NeA)    !< Potential temperature
+    type(SparseMat), intent(in) :: Dx, Dy, Dz             !< Differential matrix managed by sparse matrix type
+    type(SparseMat), intent(in) :: Sx, Sy, Sz             !< Stiffness matrix managed by sparse matrix type
+    type(SparseMat), intent(in) :: Lift                   !< Lifting matrix managed by sparse matrix type
+    logical, intent(in) :: is_bound(elem%NfpTot,lmesh%Ne) !< Flag whether nodes are located at domain boundaries
 
     integer :: ke
 
@@ -699,7 +722,7 @@ contains
 
     call cal_del_flux( del_flux_mom, del_flux_rhot,                           & ! (out)
       T11, T12, T13, T21, T22, T23, T31, T32, T33,                            & ! (in)
-      dPTdx, dPTdy, dPTdz,                                                    & ! (in)
+      DF1, DF2, DF3,                                                          & ! (in)
       Nu, Kh,                                                                 & ! (in)
       DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd,                & ! (in)
       lmesh%normal_fn(:,:,1), lmesh%normal_fn(:,:,2), lmesh%normal_fn(:,:,3), & ! (in)
@@ -739,24 +762,27 @@ contains
                    + lmesh%Escale(:,ke,3,3) * Fz(:) + LiftDelFlx(:)
 
       ! RHOT
-      call sparsemat_matmul( Dx, DENS(:) * Kh(:,ke) * dPTdx(:,ke), Fx )
-      call sparsemat_matmul( Dy, DENS(:) * Kh(:,ke) * dPTdy(:,ke), Fy )
-      call sparsemat_matmul( Dz, DENS(:) * Kh(:,ke) * dPTdz(:,ke), Fz )
+      call sparsemat_matmul( Dx, DENS(:) * DF1(:,ke), Fx )
+      call sparsemat_matmul( Dy, DENS(:) * DF2(:,ke), Fy )
+      call sparsemat_matmul( Dz, DENS(:) * DF3(:,ke), Fz )
       call sparsemat_matmul( Lift, lmesh%Fscale(:,ke) * del_flux_rhot(:,ke), LiftDelFlx )
 
-      RHOT_t(:,ke) = lmesh%Escale(:,ke,1,1) * Fx(:) + lmesh%Escale(:,ke,2,2) * Fy(:) &
-                   + lmesh%Escale(:,ke,3,3) * Fz(:) + LiftDelFlx(:)
+      RHOT_t(:,ke)  = ( lmesh%Escale(:,ke,1,1) * Fx(:) &
+                      + lmesh%Escale(:,ke,2,2) * Fy(:) &
+                      + lmesh%Escale(:,ke,3,3) * Fz(:) &
+                      + LiftDelFlx(:) ) / lmesh%Gsqrt(:,ke)
 
     end do
 
     return
   end subroutine atm_phy_tb_dgm_smg_cal_tend
 
-
+!> Calculate tendecies of tracer density with turbulent model
+!!
 !OCL SERIAL  
   subroutine atm_phy_tb_dgm_smg_cal_tend_qtrc( &
     RHOQ_t,                                                     & ! (out)
-    dQTdx, dQTdy, dQTdz,                                        & ! (in)
+    DFQ1, DFQ2, DFQ3,                                           & ! (in)
     Kh, DDENS_,DENS_hyd,                                        & ! (in)
     Dx, Dy, Dz, Sx, Sy, Sz, Lift, lmesh, elem, lmesh2D, elem2D, & ! (in)
     is_bound                                                    ) ! (in)
@@ -767,17 +793,17 @@ contains
     class(elementbase3D), intent(in) :: elem
     class(LocalMesh2D), intent(in) :: lmesh2D
     class(elementbase2D), intent(in) :: elem2D
-    real(RP), intent(out) :: RHOQ_t(elem%Np,lmesh%NeA)
-    real(RP), intent(in)  :: dQTdx(elem%Np,lmesh%NeA)
-    real(RP), intent(in)  :: dQTdy(elem%Np,lmesh%NeA)
-    real(RP), intent(in)  :: dQTdz(elem%Np,lmesh%NeA)
-    real(RP), intent(in)  :: Kh   (elem%Np,lmesh%NeA) ! Eddy diffusivity
-    real(RP), intent(in)  :: DDENS_(elem%Np,lmesh%NeA)
-    real(RP), intent(in)  :: DENS_hyd(elem%Np,lmesh%NeA)
-    type(SparseMat), intent(in) :: Dx, Dy, Dz
-    type(SparseMat), intent(in) :: Sx, Sy, Sz
-    type(SparseMat), intent(in) :: Lift
-    logical, intent(in) :: is_bound(elem%NfpTot,lmesh%Ne)
+    real(RP), intent(out) :: RHOQ_t(elem%Np,lmesh%NeA)    !< Tendency of tracer mass fraction
+    real(RP), intent(in)  :: DFQ1(elem%Np,lmesh%NeA)      !< Diffusive mass flux in x1 direction / density (Kh dq/dx1)
+    real(RP), intent(in)  :: DFQ2(elem%Np,lmesh%NeA)      !< Diffusive mass flux in x2 direction / density (Kh dq/dx2)
+    real(RP), intent(in)  :: DFQ3(elem%Np,lmesh%NeA)      !< Diffusive mass flux in x3 direction / density (Kh dq/dx3)
+    real(RP), intent(in)  :: Kh   (elem%Np,lmesh%NeA)     !< Eddy diffusivity
+    real(RP), intent(in)  :: DDENS_(elem%Np,lmesh%NeA)    !< Density perturbation
+    real(RP), intent(in)  :: DENS_hyd(elem%Np,lmesh%NeA)  !< Reference pressure in hydrostatic state
+    type(SparseMat), intent(in) :: Dx, Dy, Dz             !< Differential matrix managed by sparse matrix type
+    type(SparseMat), intent(in) :: Sx, Sy, Sz             !< Stiffness matrix managed by sparse matrix type
+    type(SparseMat), intent(in) :: Lift                   !< Lifting matrix managed by sparse matrix type
+    logical, intent(in) :: is_bound(elem%NfpTot,lmesh%Ne) !< Flag whether nodes are located at domain boundaries
 
     integer :: ke
 
@@ -787,7 +813,7 @@ contains
     !--------------------------------------------------------------------
 
     call cal_del_flux_qtrc( del_flux,                                         & ! (out)
-      dQTdx, dQTdy, dQTdz,                                                    & ! (in)
+      DFQ1, DFQ2, DFQ3,                                                       & ! (in)
       Kh, DDENS_, DENS_hyd,                                                   & ! (in)
       lmesh%normal_fn(:,:,1), lmesh%normal_fn(:,:,2), lmesh%normal_fn(:,:,3), & ! (in)
       lmesh%vmapM, lmesh%vmapP,                                               & ! (in)
@@ -800,9 +826,9 @@ contains
       DENS(:) = DENS_hyd(:,ke) + DDENS_(:,ke)
 
       ! RHOQ
-      call sparsemat_matmul( Dx, DENS(:) * Kh(:,ke) * dQTdx(:,ke), Fx )
-      call sparsemat_matmul( Dy, DENS(:) * Kh(:,ke) * dQTdy(:,ke), Fy )
-      call sparsemat_matmul( Dz, DENS(:) * Kh(:,ke) * dQTdz(:,ke), Fz )
+      call sparsemat_matmul( Dx, DENS(:) * DFQ1(:,ke), Fx )
+      call sparsemat_matmul( Dy, DENS(:) * DFQ2(:,ke), Fy )
+      call sparsemat_matmul( Dz, DENS(:) * DFQ3(:,ke), Fz )
       call sparsemat_matmul( Lift, lmesh%Fscale(:,ke) * del_flux(:,ke), LiftDelFlx )
 
       RHOQ_t(:,ke) = lmesh%Escale(:,ke,1,1) * Fx(:) + lmesh%Escale(:,ke,2,2) * Fy(:) &
@@ -817,7 +843,7 @@ contains
 !OCL SERIAL  
   subroutine cal_del_flux( del_flux_mom, del_flux_rhot,                & ! (out)
     T11, T12, T13, T21, T22, T23, T31, T32, T33,                       & ! (in)
-    dPTdx, dPTdy, dPTdz,                                               & ! (in)
+    DF1, DF2, DF3,                                                     & ! (in)
     Nu, Kh,                                                            & ! (in)
     DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd,           & ! (in)
     nx, ny, nz, vmapM, vmapP, lmesh, elem, is_bound                    ) ! (in)
@@ -831,9 +857,9 @@ contains
     real(RP), intent(in)  :: T11(elem%Np*lmesh%NeA), T12(elem%Np*lmesh%NeA), T13(elem%Np*lmesh%NeA)
     real(RP), intent(in)  :: T21(elem%Np*lmesh%NeA), T22(elem%Np*lmesh%NeA), T23(elem%Np*lmesh%NeA)
     real(RP), intent(in)  :: T31(elem%Np*lmesh%NeA), T32(elem%Np*lmesh%NeA), T33(elem%Np*lmesh%NeA)
-    real(RP), intent(in)  :: dPTdx(elem%Np*lmesh%NeA)
-    real(RP), intent(in)  :: dPTdy(elem%Np*lmesh%NeA)
-    real(RP), intent(in)  :: dPTdz(elem%Np*lmesh%NeA)
+    real(RP), intent(in)  :: DF1(elem%Np*lmesh%NeA)
+    real(RP), intent(in)  :: DF2(elem%Np*lmesh%NeA)
+    real(RP), intent(in)  :: DF3(elem%Np*lmesh%NeA)
     real(RP), intent(in)  :: Nu   (elem%Np*lmesh%NeA) ! Eddy viscosity
     real(RP), intent(in)  :: Kh   (elem%Np*lmesh%NeA) ! Eddy diffusivity
     real(RP), intent(in) ::  DDENS_(elem%Np*lmesh%NeA)
@@ -892,13 +918,13 @@ contains
         del_flux_mom(i,1) = - TauM_x
         del_flux_mom(i,2) = - TauM_y
         del_flux_mom(i,3) = 0.5_RP * ( TauP_z - TauM_z )
-        del_flux_rhot(i)  = - densM * Kh(iM) * ( dPTdx(iM) * nx(i) + dPTdy(iM) * ny(i) + dPTdz(iM) * nz(i) )
+        del_flux_rhot(i)  = - densM * ( DF1(iM) * nx(i) + DF2(iM) * ny(i) + DF3(iM) * nz(i) )
       else        
         del_flux_mom(i,1) = 0.5_RP * ( TauP_x - TauM_x )
         del_flux_mom(i,2) = 0.5_RP * ( TauP_y - TauM_y )
         del_flux_mom(i,3) = 0.5_RP * ( TauP_z - TauM_z )
-        del_flux_rhot(i)  = 0.5_RP * ( densP * Kh(iP) * ( dPTdx(iP) * nx_ + dPTdy(iP) * ny_ + dPTdz(iP) * nz_ ) &
-                                     - densM * Kh(iM) * ( dPTdx(iM) * nx_ + dPTdy(iM) * ny_ + dPTdz(iM) * nz_ ) )
+        del_flux_rhot(i)  = 0.5_RP * ( densP * ( DF1(iP) * nx_ + DF2(iP) * ny_ + DF3(iP) * nz_ ) &
+                                     - densM * ( DF1(iM) * nx_ + DF2(iM) * ny_ + DF3(iM) * nz_ ) )
       end if
     end do
 
@@ -907,7 +933,7 @@ contains
 
 !OCL SERIAL  
   subroutine cal_del_flux_qtrc( del_flux,             & ! (out)
-    dQTdx, dQTdy, dQTdz,                              & ! (in)
+    DFQ1, DFQ2, DFQ3,                                 & ! (in)
     Kh, DDENS_, DENS_hyd,                             & ! (in)
     nx, ny, nz, vmapM, vmapP, lmesh, elem, is_bound   ) ! (in)
 
@@ -916,9 +942,9 @@ contains
     class(LocalMesh3D), intent(in) :: lmesh
     class(elementbase3D), intent(in) :: elem  
     real(RP), intent(out) ::  del_flux(elem%NfpTot*lmesh%Ne) 
-    real(RP), intent(in)  :: dQTdx(elem%Np*lmesh%NeA)
-    real(RP), intent(in)  :: dQTdy(elem%Np*lmesh%NeA)
-    real(RP), intent(in)  :: dQTdz(elem%Np*lmesh%NeA)
+    real(RP), intent(in)  :: DFQ1(elem%Np*lmesh%NeA)
+    real(RP), intent(in)  :: DFQ2(elem%Np*lmesh%NeA)
+    real(RP), intent(in)  :: DFQ3(elem%Np*lmesh%NeA)
     real(RP), intent(in)  :: Kh   (elem%Np*lmesh%NeA) ! Eddy diffusivity
     real(RP), intent(in) ::  DDENS_(elem%Np*lmesh%NeA)
     real(RP), intent(in) ::  DENS_hyd(elem%Np*lmesh%NeA)
@@ -956,10 +982,10 @@ contains
       end if
 
       if ( is_bound(i) )  then
-        del_flux(i)  = - densM * Kh(iM) * ( dQTdx(iM) * nx(i) + dQTdy(iM) * ny(i) + dQTdz(iM) * nz(i) )
+        del_flux(i)  = - densM * ( DFQ1(iM) * nx(i) + DFQ2(iM) * ny(i) + DFQ3(iM) * nz(i) )
       else        
-        del_flux(i)  = 0.5_RP * ( densP * Kh(iP) * ( dQTdx(iP) * nx_ + dQTdy(iP) * ny_ + dQTdz(iP) * nz_ ) &
-                                - densM * Kh(iM) * ( dQTdx(iM) * nx_ + dQTdy(iM) * ny_ + dQTdz(iM) * nz_ ) )
+        del_flux(i)  = 0.5_RP * ( densP * ( DFQ1(iP) * nx_ + DFQ2(iP) * ny_ + DFQ3(iP) * nz_ ) &
+                                - densM * ( DFQ1(iM) * nx_ + DFQ2(iM) * ny_ + DFQ3(iM) * nz_ ) )
       end if
     end do
 

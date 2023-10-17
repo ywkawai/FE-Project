@@ -40,22 +40,22 @@ module scale_atm_phy_tb_dgm_common
   !
   !++ Public parameters & variables
   !
-  integer, public, parameter :: ATMOS_PHY_TB_AUX_T13_ID     = 1
-  integer, public, parameter :: ATMOS_PHY_TB_AUX_T23_ID     = 2
-  integer, public, parameter :: ATMOS_PHY_TB_AUX_T33_ID     = 3
-  integer, public, parameter :: ATMOS_PHY_TB_AUX_DPTDZ_ID   = 4
-  integer, public, parameter :: ATMOS_PHY_TB_AUX_T31_ID     = 5
-  integer, public, parameter :: ATMOS_PHY_TB_AUX_T32_ID     = 6
-  integer, public, parameter :: ATMOS_PHY_TB_AUX_DPTDX_ID   = 7
-  integer, public, parameter :: ATMOS_PHY_TB_AUX_DPTDY_ID   = 8
-  integer, public, parameter :: ATMOS_PHY_TB_AUX_T11_ID     = 9
-  integer, public, parameter :: ATMOS_PHY_TB_AUX_T12_ID     = 10
-  integer, public, parameter :: ATMOS_PHY_TB_AUX_T21_ID     = 11
-  integer, public, parameter :: ATMOS_PHY_TB_AUX_T22_ID     = 12
+  integer, public, parameter :: ATMOS_PHY_TB_AUX_T13_ID      = 1
+  integer, public, parameter :: ATMOS_PHY_TB_AUX_T23_ID      = 2
+  integer, public, parameter :: ATMOS_PHY_TB_AUX_T33_ID      = 3
+  integer, public, parameter :: ATMOS_PHY_TB_AUX_DIFFFLX3_ID = 4
+  integer, public, parameter :: ATMOS_PHY_TB_AUX_T31_ID      = 5
+  integer, public, parameter :: ATMOS_PHY_TB_AUX_T32_ID      = 6
+  integer, public, parameter :: ATMOS_PHY_TB_AUX_DIFFFLX1_ID = 7
+  integer, public, parameter :: ATMOS_PHY_TB_AUX_DIFFFLX2_ID = 8
+  integer, public, parameter :: ATMOS_PHY_TB_AUX_T11_ID      = 9
+  integer, public, parameter :: ATMOS_PHY_TB_AUX_T12_ID      = 10
+  integer, public, parameter :: ATMOS_PHY_TB_AUX_T21_ID      = 11
+  integer, public, parameter :: ATMOS_PHY_TB_AUX_T22_ID      = 12
   integer, public, parameter :: ATMOS_PHY_TB_AUX_SCALAR_NUM  = 4
   integer, public, parameter :: ATMOS_PHY_TB_AUX_HVEC_NUM    = 2
   integer, public, parameter :: ATMOS_PHY_TB_AUX_HTENSOR_NUM = 1
-  integer, public, parameter :: ATMOS_PHY_TB_AUX_NUM        = 12
+  integer, public, parameter :: ATMOS_PHY_TB_AUX_NUM         = 12
   
   integer, public, parameter :: ATMOS_PHY_TB_DIAG_TKE_ID     = 1
   integer, public, parameter :: ATMOS_PHY_TB_DIAG_NU_ID      = 2
@@ -96,15 +96,15 @@ contains
                     'kg.m-3.m2.s-2',  3, 'XYZ',  ''                                 ), &
       VariableInfo( ATMOS_PHY_TB_AUX_T33_ID, 'TB_T33', 'stress tensor (T33)',          &
                     'kg.m-3.m2.s-2',  3, 'XYZ',  ''                                 ), &
-      VariableInfo( ATMOS_PHY_TB_AUX_DPTDZ_ID, 'DPTDZ', 'gradient of PT (z)',          &
+      VariableInfo( ATMOS_PHY_TB_AUX_DIFFFLX3_ID, 'DIFF_FLX3', 'diffusive flux (z)',      &
                     'K/m',  3, 'XYZ',  ''                                           ), &                                      
       VariableInfo( ATMOS_PHY_TB_AUX_T31_ID, 'TB_T31', 'stress tensor (T31)',          &
                     'kg.m-3.m2.s-2',  3, 'XYZ',  ''                                 ), &
       VariableInfo( ATMOS_PHY_TB_AUX_T32_ID, 'TB_T32', 'stress tensor (T32)',          &
                     'kg.m-3.m2.s-2',  3, 'XYZ',  ''                                 ), &
-      VariableInfo( ATMOS_PHY_TB_AUX_DPTDX_ID, 'DPTDX', 'gradient of PT (x)',          &
+      VariableInfo( ATMOS_PHY_TB_AUX_DIFFFLX1_ID, 'DIFF_FLX1', 'diffusive flux (x)',      &
                     'K/m',  3, 'XYZ',  ''                                           ), &
-      VariableInfo( ATMOS_PHY_TB_AUX_DPTDY_ID, 'DPTDY', 'gradient of PT (y)',          &
+      VariableInfo( ATMOS_PHY_TB_AUX_DIFFFLX2_ID, 'DIFF_FLX2', 'diffusive flux (y)',      &
                     'K/m',  3, 'XYZ',  ''                                           ), &
       VariableInfo( ATMOS_PHY_TB_AUX_T11_ID, 'TB_T11', 'stress tensor (T11)',          &
                     'kg.m-3.m2.s-2',  3, 'XYZ',  ''                                 ), &
