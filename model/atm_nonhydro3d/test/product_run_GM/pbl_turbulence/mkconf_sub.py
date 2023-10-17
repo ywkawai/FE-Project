@@ -32,19 +32,13 @@ def mkconf_init( conf_path,
 /
 &PARAM_EXP
   ENV_U          = 0D0,
-  ENV_THETA_SFC  = 299.0D0, 
+  ENV_THETA_SFC  = 299.5D0, 
   ENV_THETA_LAPS = 4.0D-3, 
   RANDOM_THETA   = 1.0D0, 
 /
 &PARAM_CONST
   CONST_OHM = 0.0D0, 
   CONST_RADIUS = {rplanet}D0,  
-/
-&PARAM_EXP
-  ENV_U          = 0D0,     
-  ENV_THETA_SFC  = 299.0D0, 
-  ENV_THETA_LAPS = 4.0D-3, 
-  RANDOM_THETA   = 1.0D0, 
 /
 &PARAM_CONST
   CONST_OHM = 0.0D0,
@@ -92,7 +86,7 @@ def mkconf_run( conf_path,
   else:
     shallow_atm_approx_flag = "SHALLOW_ATM_APPROX_FLAG = .false.,"
 
-  conf_run_s = f"""#--- Configuration file for a test case of sound wave  -------
+  conf_run_s = f"""#--- Configuration file for a test case of PBL turbulence  -------
 &PARAM_RESTART
   IN_BASENAME  = "{restart_in_basename}",
   OUTPUT_FLAG  = .true., 
@@ -233,7 +227,7 @@ def mkconf_regrid( conf_path,
   else:
     shallow_atm_approx_flag = "SHALLOW_ATM_APPROX_FLAG = .false.,"
   
-  conf_run_s = f"""#--- Configuration file for a test case of sound wave  -------
+  conf_run_s = f"""#--- Configuration file for a test case of PBL turbulence  -------
 &PARAM_IO
  IO_LOG_BASENAME = "regrid_LOG"
 ! IO_LOG_ALLNODE  = .true., 
@@ -254,7 +248,7 @@ def mkconf_regrid( conf_path,
 /
 &PARAM_REGRID_FILE
   !-- output ----------------
-  out_basename=f"./{out_dir}/history", 
+  out_basename="./{out_dir}/history", 
   out_UniformGrid={uniform_grid_flag}, 
 /
 &PARAM_REGRID_OPERATE_FIELD
@@ -322,7 +316,7 @@ def get_job_header(job_name, nprc, elapse_time):
 
 
 module purge
-module load lang/tcsds-1.2.37
+module load lang/tcsds-1.2.38
 
 export SPACK_LIB_PATH=/vol0004/apps/oss/spack-v0.19/opt/spack/linux-rhel8-a64fx/fj-4.8.1/parallel-netcdf-1.12.3-avpnzm4pwv2tuu2mv73lacb4vhcwlnds/lib:/opt/FJSVxtclanga/tcsds-mpi-latest/lib64:/vol0004/apps/oss/spack-v0.19/opt/spack/linux-rhel8-a64fx/fj-4.8.1/netcdf-fortran-4.6.0-mmdtg5243y4mwqsl3gcu3m2kh27raq5n/lib:/vol0004/apps/oss/spack-v0.19/opt/spack/linux-rhel8-a64fx/fj-4.8.1/netcdf-c-4.9.0-g462kcd2ivou7ewax6wddywoyrbz2oib/lib:/vol0004/apps/oss/spack-v0.19/opt/spack/linux-rhel8-a64fx/fj-4.8.1/hdf5-1.12.2-kb4msz2kuwzsmqsshhpryqebui6tqcfs/lib:/vol0004/apps/oss/spack-v0.19/opt/spack/linux-rhel8-a64fx/fj-4.8.1/rhash-1.4.2-s3mitrsnpm36uemub4vkzj22qa4ygndu/lib:/vol0004/apps/oss/spack-v0.19/opt/spack/linux-rhel8-a64fx/fj-4.8.1/libuv-1.44.1-riv7xhqvpur57jexesqfpw2mpnjjfhdd/lib:/vol0004/apps/oss/spack-v0.19/opt/spack/linux-rhel8-a64fx/fj-4.8.1/libarchive-3.5.2-l7jdc7uw35jngg7tibqzsohz44ouwsj7/lib:/vol0004/apps/oss/spack-v0.19/opt/spack/linux-rhel8-a64fx/fj-4.8.1/zstd-1.5.2-7j2edrlmibpft52s3m3q7ujechw3hujt/lib:/vol0004/apps/oss/spack-v0.19/opt/spack/linux-rhel8-a64fx/fj-4.8.1/zlib-1.2.13-go4ye2sg72pcca4bgunmcseuzq6czbol/lib:/vol0004/apps/oss/spack-v0.19/opt/spack/linux-rhel8-a64fx/fj-4.8.1/mbedtls-2.28.0-squ3v2xuqnd3mfpxiuoimtxaookk3dyi/lib:/vol0004/apps/oss/spack-v0.19/opt/spack/linux-rhel8-a64fx/fj-4.8.1/lzo-2.10-uhskbd2ewdp4akltdmetra3oy4twv57f/lib:/vol0004/apps/oss/spack-v0.19/opt/spack/linux-rhel8-a64fx/fj-4.8.1/libiconv-1.16-bfdxvmujixuefjz26ldcsxhzqr3rcufm/lib:/vol0004/apps/oss/spack-v0.19/opt/spack/linux-rhel8-a64fx/fj-4.8.1/expat-2.4.8-lztkevt2hobbf7ykiwnuegynnoxqqvwe/lib:/vol0004/apps/oss/spack-v0.19/opt/spack/linux-rhel8-a64fx/fj-4.8.1/libbsd-0.11.5-x462pikjmy4scmsuhucngco5efautbg2/lib:/vol0004/apps/oss/spack-v0.19/opt/spack/linux-rhel8-a64fx/fj-4.8.1/libmd-1.0.4-wcmufmjxfiwxa65p4eetl2y674q2pgqa/lib
 export LD_LIBRARY_PATH=/lib64:/usr/lib64:/opt/FJSVxtclanga/tcsds-latest/lib:/opt/FJSVxtclanga/tcsds-mpi-latest/lib64:${{SPACK_LIB_PATH}}:${{LD_LIBRARY_PATH}}

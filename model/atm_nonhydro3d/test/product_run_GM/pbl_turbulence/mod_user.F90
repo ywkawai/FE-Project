@@ -37,11 +37,10 @@ module mod_user
   use scale_element_hexahedral, only: HexahedralElement
   use scale_localmesh_3d, only: LocalMesh3D
   use scale_localmesh_2d, only: LocalMesh2D  
+  use scale_meshfield_base, only: MeshField3D
 
   use scale_sparsemat, only: &
     SparseMat, SparseMat_matmul
-  use scale_gmres, only: &
-    GMRES
   
   use mod_user_base, only: UserBase
   use mod_experiment, only: Experiment
@@ -59,6 +58,7 @@ module mod_user
     generic :: mkinit => mkinit_
     procedure :: setup_ => USER_setup
     generic :: setup => setup_
+    procedure :: calc_tendency => USER_calc_tendency
   end type User
 
   !-----------------------------------------------------------------------------
@@ -73,6 +73,7 @@ module mod_user
   !
   !++ Private parameters & variables
   !
+  logical :: is_PREShyd_ref_set
 
   !-----------------------------------------------------------------------------
 contains
@@ -124,8 +125,45 @@ contains
     call this%UserBase%Setup( atm, USER_do )
     !-
 
+    is_PREShyd_ref_set = .false. 
+
     return
   end subroutine USER_setup
+
+!OCL SERIAL
+  subroutine USER_calc_tendency( this, atm )
+    use scale_file_history_meshfield, only: &
+      FILE_HISTORY_meshfield_in
+    use scale_atm_dyn_dgm_nonhydro3d_common, only: &
+      PRESHYD_VID => AUXVAR_PRESHYDRO_ID,        &
+      PRESHYD_REF_VID => AUXVAR_PRESHYDRO_REF_ID    
+    implicit none
+    class(User), intent(inout) :: this
+    class(AtmosComponent), intent(inout) :: atm
+
+    class(MeshField3D), pointer :: PRES_hyd
+    class(MeshField3D), pointer :: PRES_hyd_ref
+    class(LocalMesh3D), pointer :: lcmesh3D
+    integer :: domid, ke
+    !------------------------------------------
+
+
+    ! Set reference hydrostatic pressure
+    if ( .not. is_PREShyd_ref_set ) then
+      call atm%vars%AUXVARS_manager%Get3D( PRESHYD_VID, PRES_hyd )
+      call atm%vars%AUXVARS_manager%Get3D( PRESHYD_REF_VID, PRES_hyd_ref )
+
+      do domid=1, PRES_hyd_ref%mesh%LOCAL_MESH_NUM
+        lcmesh3D => PRES_hyd_ref%mesh%lcmesh_list(domid)
+        do ke=lcmesh3D%NeS, lcmesh3D%NeE
+          PRES_hyd_ref%local(domid)%val(:,ke) = PRES_hyd%local(domid)%val(:,ke)
+        end do
+      end do
+      is_PREShyd_ref_set = .true.
+    end if
+
+    return
+  end subroutine USER_calc_tendency
 
   !------
 
