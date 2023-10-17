@@ -11,7 +11,7 @@ REGRID_TOPO_INI_DIR="./ini_topo_regrid"
 def mkconf_init( conf_path,
                 nprc, neh, nez, porder, 
                 fz ): 
-    conf_init_s = f"""#--- Configuration file for a test case of tracer advection  -------
+    conf_init_s = f"""#--- Configuration file for a test case of Held Suarez test with topography  -------
 &PARAM_IO
  IO_LOG_BASENAME = 'init_LOG',
 /
@@ -195,7 +195,7 @@ def mkconf_run( conf_path,
 def mkconf_regrid_ini_topo( conf_path,
                 in_topo_basename, in_nprc, in_neh, in_porder, 
                 nprc, neh, porder ): 
-    conf_run_s = f"""#--- Configuration file for a test case of sound wave  -------
+    conf_run_s = f"""#--- Configuration file for a test case of Held Suarez test with topography  -------
 &PARAM_IO
  IO_LOG_BASENAME = "regrid_ini_topo_LOG"
 ! IO_LOG_ALLNODE  = .true., 
@@ -238,7 +238,7 @@ def mkconf_regrid_topo( conf_path,
                 regrid_nprcx, regrid_nprcy, 
                 regrid_nex, regrid_ney, 
                 regrid_porder ): 
-    conf_run_s = f"""#--- Configuration file for a test case of sound wave  -------
+    conf_run_s = f"""#--- Configuration file for a test case of Held Suarez test with topography  -------
 &PARAM_IO
  IO_LOG_BASENAME = "regrid_topo_LOG"
 ! IO_LOG_ALLNODE  = .true., 
@@ -285,7 +285,7 @@ def mkconf_regrid( conf_path,
                 regrid_nprcx, regrid_nprcy, 
                 regrid_nex, regrid_ney, regrid_nez, 
                 regrid_porder ): 
-  conf_run_s = f"""#--- Configuration file for a test case of sound wave  -------
+  conf_run_s = f"""#--- Configuration file for a test case of Held Suarez test with topography  -------
 &PARAM_IO
  IO_LOG_BASENAME = "regrid_LOG"
 ! IO_LOG_ALLNODE  = .true., 
@@ -354,7 +354,7 @@ def mkconf_regrid_p( conf_path,
     out_dir="./outdata_p"    
     out_UniformGrid_flag=".false."
      
-  conf_run_s = f"""#--- Configuration file for Held Suarez test  -------
+  conf_run_s = f"""#--- Configuration file for Held Suarez test with topography  -------
 &PARAM_IO
  IO_LOG_BASENAME = "regrid_p_LOG"
 ! IO_LOG_ALLNODE  = .true., 
@@ -424,7 +424,7 @@ def mkconf_regrid_spectra_p( conf_path,
 
   out_dir="./outdata_p_spectra"    
      
-  conf_run_s = f"""#--- Configuration file for a test case of sound wave  -------
+  conf_run_s = f"""#--- Configuration file for a test case of Held Suarez test with topography  -------
 &PARAM_IO
  IO_LOG_BASENAME = "regrid_p_spectra_LOG"
 ! IO_LOG_ALLNODE  = .true., 
@@ -490,7 +490,7 @@ def mkconf_regrid_spectra_p( conf_path,
 
   out_dir="./outdata_p_spectra"    
      
-  conf_run_s = f"""#--- Configuration file for a test case of sound wave  -------
+  conf_run_s = f"""#--- Configuration file for a test case of Held Suarez test with topography  -------
 &PARAM_IO
  IO_LOG_BASENAME = "regrid_p_spectra_LOG"
 ! IO_LOG_ALLNODE  = .true., 
@@ -613,7 +613,7 @@ def get_job_header(job_name, nprc, elapse_time):
 
 
 module purge
-module load lang/tcsds-1.2.37
+module load lang/tcsds-1.2.38
 
 export SPACK_LIB_PATH=/vol0004/apps/oss/spack-v0.19/opt/spack/linux-rhel8-a64fx/fj-4.8.1/parallel-netcdf-1.12.3-avpnzm4pwv2tuu2mv73lacb4vhcwlnds/lib:/opt/FJSVxtclanga/tcsds-mpi-latest/lib64:/vol0004/apps/oss/spack-v0.19/opt/spack/linux-rhel8-a64fx/fj-4.8.1/netcdf-fortran-4.6.0-mmdtg5243y4mwqsl3gcu3m2kh27raq5n/lib:/vol0004/apps/oss/spack-v0.19/opt/spack/linux-rhel8-a64fx/fj-4.8.1/netcdf-c-4.9.0-g462kcd2ivou7ewax6wddywoyrbz2oib/lib:/vol0004/apps/oss/spack-v0.19/opt/spack/linux-rhel8-a64fx/fj-4.8.1/hdf5-1.12.2-kb4msz2kuwzsmqsshhpryqebui6tqcfs/lib:/vol0004/apps/oss/spack-v0.19/opt/spack/linux-rhel8-a64fx/fj-4.8.1/rhash-1.4.2-s3mitrsnpm36uemub4vkzj22qa4ygndu/lib:/vol0004/apps/oss/spack-v0.19/opt/spack/linux-rhel8-a64fx/fj-4.8.1/libuv-1.44.1-riv7xhqvpur57jexesqfpw2mpnjjfhdd/lib:/vol0004/apps/oss/spack-v0.19/opt/spack/linux-rhel8-a64fx/fj-4.8.1/libarchive-3.5.2-l7jdc7uw35jngg7tibqzsohz44ouwsj7/lib:/vol0004/apps/oss/spack-v0.19/opt/spack/linux-rhel8-a64fx/fj-4.8.1/zstd-1.5.2-7j2edrlmibpft52s3m3q7ujechw3hujt/lib:/vol0004/apps/oss/spack-v0.19/opt/spack/linux-rhel8-a64fx/fj-4.8.1/zlib-1.2.13-go4ye2sg72pcca4bgunmcseuzq6czbol/lib:/vol0004/apps/oss/spack-v0.19/opt/spack/linux-rhel8-a64fx/fj-4.8.1/mbedtls-2.28.0-squ3v2xuqnd3mfpxiuoimtxaookk3dyi/lib:/vol0004/apps/oss/spack-v0.19/opt/spack/linux-rhel8-a64fx/fj-4.8.1/lzo-2.10-uhskbd2ewdp4akltdmetra3oy4twv57f/lib:/vol0004/apps/oss/spack-v0.19/opt/spack/linux-rhel8-a64fx/fj-4.8.1/libiconv-1.16-bfdxvmujixuefjz26ldcsxhzqr3rcufm/lib:/vol0004/apps/oss/spack-v0.19/opt/spack/linux-rhel8-a64fx/fj-4.8.1/expat-2.4.8-lztkevt2hobbf7ykiwnuegynnoxqqvwe/lib:/vol0004/apps/oss/spack-v0.19/opt/spack/linux-rhel8-a64fx/fj-4.8.1/libbsd-0.11.5-x462pikjmy4scmsuhucngco5efautbg2/lib:/vol0004/apps/oss/spack-v0.19/opt/spack/linux-rhel8-a64fx/fj-4.8.1/libmd-1.0.4-wcmufmjxfiwxa65p4eetl2y674q2pgqa/lib
 export LD_LIBRARY_PATH=/lib64:/usr/lib64:/opt/FJSVxtclanga/tcsds-latest/lib:/opt/FJSVxtclanga/tcsds-mpi-latest/lib64:${{SPACK_LIB_PATH}}:${{LD_LIBRARY_PATH}}

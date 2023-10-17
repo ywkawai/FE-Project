@@ -22,6 +22,15 @@ module mod_user
   use scale_prof
   use scale_prc, only: PRC_abort  
 
+  use scale_const, only: &
+    PI => CONST_PI,        &
+    GRAV => CONST_GRAV,    &
+    OHM => CONST_OHM,      &
+    Rdry => CONST_Rdry,    &
+    CPdry => CONST_CPdry,  &
+    PRES00 => CONST_PRE00, &
+    RPlanet => CONST_RADIUS
+
   use mod_atmos_component, only: &
     AtmosComponent
 
@@ -76,6 +85,8 @@ module mod_user
 
   type(MeshField3D), private :: PT_diff
 
+  logical :: is_PREShyd_ref_set
+
   !-----------------------------------------------------------------------------
 contains
 !OCL SERIAL
@@ -128,6 +139,8 @@ contains
     !-
     call read_exp_params()
 
+    is_PREShyd_ref_set = .false. 
+
     if ( this%USER_do ) call PT_diff%Init( 'PT_diff', 'K', atm%mesh%ptr_mesh )
 
     return
@@ -138,18 +151,14 @@ contains
     use scale_file_history_meshfield, only: &
       FILE_HISTORY_meshfield_in
 
-    use scale_const, only: &
-      Rdry => CONST_Rdry,      &
-      CpDry => CONST_CPdry,    &
-      RPlanet => CONST_RADIUS, &
-      PI => CONST_PI
-
     use scale_localmeshfield_base, only: LocalMeshFieldBase
     use scale_cubedsphere_coord_cnv, only: CubedSphereCoordCnv_LonLat2CSVec
   
     use scale_file_history_meshfield, only: &
       FILE_HISTORY_meshfield_in
     use scale_atm_dyn_dgm_nonhydro3d_common, only: &
+      PRESHYD_VID => AUXVAR_PRESHYDRO_ID,         &
+      PRESHYD_REF_VID => AUXVAR_PRESHYDRO_REF_ID, &
       MOMX_p  => PHYTEND_MOMX_ID, &
       MOMY_p  => PHYTEND_MOMY_ID, &
       MOMZ_p  => PHYTEND_MOMZ_ID, &
@@ -165,20 +174,27 @@ contains
 
     class(LocalMesh3D), pointer :: lcmesh
     class(ElementBase3D), pointer :: elem
-    class(LocalMeshFieldBase), pointer :: DDENS, MOMX, MOMY, MOMZ, DRHOT
-    class(LocalMeshFieldBase), pointer :: DENS_hyd, PRES_hyd
-    class(LocalMeshFieldBase), pointer :: PRES, PT
-    class(LocalMeshFieldBase), pointer :: Rtot, CVtot, CPtot
+    ! class(LocalMeshFieldBase), pointer :: DDENS, MOMX, MOMY, MOMZ, DRHOT
+    ! class(LocalMeshFieldBase), pointer :: DENS_hyd, PRES_hyd
+    ! class(LocalMeshFieldBase), pointer :: PRES, PT
+    ! class(LocalMeshFieldBase), pointer :: Rtot, CVtot, CPtot
 
     real(RP) :: rtau
-
-    integer :: n
-    integer :: ke, ke2D
 
     real(RP), allocatable :: DENS(:)
     real(RP), allocatable :: sfac(:)
     real(RP), allocatable :: Umet(:,:), Vmet(:,:)
     real(RP), allocatable :: U0(:,:), V0(:,:)
+
+    class(MeshField3D), pointer :: PRES_hyd
+    class(MeshField3D), pointer :: PRES_hyd_ref
+    class(LocalMesh3D), pointer :: lcmesh3D
+    real(RP), allocatable :: sin_lat(:)
+    real(RP), allocatable :: cos_lat(:)
+    real(RP), allocatable :: T(:)
+
+    integer :: domid
+    integer :: ke, ke2D
     !------------------------------------------
 
     if ( this%USER_do ) then
@@ -186,17 +202,48 @@ contains
       call FILE_HISTORY_meshfield_in( PT_diff, "perturbation of potential temperature" )
     end if
 
+    ! Set reference hydrostatic pressure
+    if ( .not. is_PREShyd_ref_set ) then
+      call atm%vars%AUXVARS_manager%Get3D( PRESHYD_VID, PRES_hyd )
+      call atm%vars%AUXVARS_manager%Get3D( PRESHYD_REF_VID, PRES_hyd_ref )
+
+      do domid=1, PRES_hyd_ref%mesh%LOCAL_MESH_NUM
+        lcmesh3D => PRES_hyd_ref%mesh%lcmesh_list(domid)
+        elem => lcmesh3D%refElem3D
+        allocate( sin_lat(elem%Np), cos_lat(elem%Np))
+        allocate( T(elem%Np) )
+
+        select case( trim(DCMIP_case) )
+        case ('2-1', '2-2')
+          do ke=lcmesh3D%NeS, lcmesh3D%NeE
+            ke2D = lcmesh3D%EMap3Dto2D(ke)
+            sin_lat(:) = sin(lcmesh3D%lat2D(elem%IndexH2Dto3D(:),ke2D))
+            cos_lat(:) = cos(lcmesh3D%lat2D(elem%IndexH2Dto3D(:),ke2D))
+    
+            T(:) = Teq * ( 1.0_RP - Cs * Ueq**2 * sin_lat(:)**2 / Grav )
+    
+            PRES_hyd(:,ke) = PRES00 * exp( - 0.5_RP * Ueq**2 / ( Rdry * Teq ) * sin_lat(:)**2 - Grav * lcmesh3D%zlev(:,ke) / ( Rdry * T(:) ) )
+    
+            PRES_hyd_ref%local(domid)%val(:,ke) = PRES_hyd%local(domid)%val(:,ke)
+          end do  
+        end select
+
+        deallocate( sin_lat, cos_lat, T )
+      end do
+      is_PREShyd_ref_set = .true.
+    end if
+
     return
 
     ! rtau = 1.0_RP / SPONGE_LAYER_tau
     
-    ! do n=1, atm%mesh%ptr_mesh%LOCAL_MESH_NUM
-    !   call AtmosVars_GetLocalMeshPrgVars( n, atm%mesh%ptr_mesh,  &
+    ! do domid=1, atm%mesh%ptr_mesh%LOCAL_MESH_NUM
+    !   call AtmosVars_GetLocalMeshPrgVars( domid, atm%mesh%ptr_mesh,  &
     !     atm%vars%PROGVARS_manager, atm%vars%AUXVARS_manager,     &
     !     DDENS, MOMX, MOMY, MOMZ, DRHOT,                          &
     !     DENS_hyd, PRES_hyd, Rtot, CVtot, CPtot, lcmesh           )     
       
-    !   call AtmosVars_GetLocalMeshPhyAuxVars( n,  atm%mesh%ptr_mesh, &
+    !   call AtmosVars_GetLocalMeshPhyAuxVars( domid,  atm%mesh%ptr_mesh, &
     !     atm%vars%AUXVARS_manager, PRES, PT                          )
       
     !   elem => lcmesh%refElem3D
@@ -222,14 +269,14 @@ contains
     !     sfac(:) = rtau * 0.5_RP * ( 1.0_RP - cos( PI * ( lcmesh%pos_en(:,ke,3) - 25.E3_RP ) / (40.E3_RP - 25.E3_RP) ) ) 
 
     !     where ( lcmesh%pos_en(:,ke,3) > 25.E3_RP ) 
-    !       atm%vars%PHY_TEND(MOMX_p)%local(n)%val(:,ke) = atm%vars%PHY_TEND(MOMX_p)%local(n)%val(:,ke)   &
+    !       atm%vars%PHY_TEND(MOMX_p)%local(domid)%val(:,ke) = atm%vars%PHY_TEND(MOMX_p)%local(domid)%val(:,ke)   &
     !         - sfac(:) * ( MOMX%val(:,ke) - DENS(:) * U0(:,ke) )
-    !       atm%vars%PHY_TEND(MOMY_p)%local(n)%val(:,ke) = atm%vars%PHY_TEND(MOMY_p)%local(n)%val(:,ke)   &
+    !       atm%vars%PHY_TEND(MOMY_p)%local(domid)%val(:,ke) = atm%vars%PHY_TEND(MOMY_p)%local(domid)%val(:,ke)   &
     !         - sfac(:) * ( MOMY%val(:,ke) - DENS(:) * V0(:,ke) )
-    !       atm%vars%PHY_TEND(MOMZ_p)%local(n)%val(:,ke) = atm%vars%PHY_TEND(MOMZ_p)%local(n)%val(:,ke)   &
+    !       atm%vars%PHY_TEND(MOMZ_p)%local(domid)%val(:,ke) = atm%vars%PHY_TEND(MOMZ_p)%local(domid)%val(:,ke)   &
     !         - sfac(:) * MOMZ%val(:,ke)
 
-    !       atm%vars%PHY_TEND(RHOH_p)%local(n)%val(:,ke) = atm%vars%PHY_TEND(RHOH_p)%local(n)%val(:,ke)   &
+    !       atm%vars%PHY_TEND(RHOH_p)%local(domid)%val(:,ke) = atm%vars%PHY_TEND(RHOH_p)%local(domid)%val(:,ke)   &
     !         - DENS(:) * sfac(:) * CpDry * ( PRES%val(:,ke) / DENS(:) - PRES_hyd%val(:,ke) / DENS_hyd%val(:,ke) ) / Rdry
     !     end where
     !   end do
@@ -248,15 +295,6 @@ contains
     x, y, z, dom_xmin, dom_xmax, dom_ymin, dom_ymax, dom_zmin, dom_zmax,   &
     lcmesh, elem )
      
-    use scale_const, only: &
-      PI => CONST_PI,        &
-      GRAV => CONST_GRAV,    &
-      OHM => CONST_OHM,      &
-      Rdry => CONST_Rdry,    &
-      CPdry => CONST_CPdry,  &
-      PRES00 => CONST_PRE00, &
-      RPlanet => CONST_RADIUS
-    
     use scale_atm_dyn_dgm_hydrostatic, only: &
       hydrostatic_calc_basicstate_constTLAPS
     use scale_cubedsphere_coord_cnv, only: &
