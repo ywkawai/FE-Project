@@ -162,7 +162,7 @@ contains
 
     !$omp parallel do private( ke, ke2d, Cori,     &
     !$omp RHOT_, rdens_, u_, v_, w_, wt_,          &
-    !$omp drho, GradPhyd_x, GradPhyd_y,            &
+    !$omp drho, DPRES_hyd, GradPhyd_x, GradPhyd_y, &
     !$omp GsqrtV, RGsqrtV,                         &
     !$omp Fx, Fy, Fz, LiftDelFlx )
     do ke = lmesh%NeS, lmesh%NeE
