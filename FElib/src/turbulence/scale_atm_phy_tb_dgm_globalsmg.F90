@@ -978,7 +978,7 @@ contains
     !--------------------------------------------------------------------
 
     call cal_del_flux_qtrc( del_flux,                                                      & ! (out)
-      DFQ1, DFQ2, DFQ3, Kh, DDENS_, DENS_hyd,                                           & ! (in)
+      DFQ1, DFQ2, DFQ3, Kh, DDENS_, DENS_hyd,                                              & ! (in)
       lmesh%Gsqrt, lmesh%normal_fn(:,:,1), lmesh%normal_fn(:,:,2), lmesh%normal_fn(:,:,3), & ! (in)
       lmesh%vmapM, lmesh%vmapP, lmesh, elem, is_bound )                                      ! (in)
 
@@ -989,9 +989,9 @@ contains
       GsqrtDENS(:) = lmesh%Gsqrt(:,ke) * ( DENS_hyd(:,ke) + DDENS_(:,ke) )
 
       ! RHOQ
-      call sparsemat_matmul( Dx, GsqrtDENS(:) * Kh(:,ke) * DFQ1(:,ke), Fx )
-      call sparsemat_matmul( Dy, GsqrtDENS(:) * Kh(:,ke) * DFQ2(:,ke), Fy )
-      call sparsemat_matmul( Dz, GsqrtDENS(:) * Kh(:,ke) * DFQ3(:,ke), Fz )
+      call sparsemat_matmul( Dx, GsqrtDENS(:) * DFQ1(:,ke), Fx )
+      call sparsemat_matmul( Dy, GsqrtDENS(:) * DFQ2(:,ke), Fy )
+      call sparsemat_matmul( Dz, GsqrtDENS(:) * DFQ3(:,ke), Fz )
       call sparsemat_matmul( Lift, lmesh%Fscale(:,ke) * del_flux(:,ke), LiftDelFlx )
 
       RHOQ_t(:,ke) = ( lmesh%Escale(:,ke,1,1) * Fx(:) &

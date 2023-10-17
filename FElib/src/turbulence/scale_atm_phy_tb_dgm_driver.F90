@@ -315,12 +315,12 @@ module scale_atm_phy_tb_dgm_driver
   integer, public, parameter :: ATMOS_PHY_TB_AUXTRC_NUM        = 3
   type(VariableInfo), public :: ATMOS_PHY_TB_AUXTRC_VINFO(ATMOS_PHY_TB_AUXTRC_NUM)
   DATA ATMOS_PHY_TB_AUXTRC_VINFO / &
-    VariableInfo( ATMOS_PHY_TB_AUXTRC_DFQ1_ID, 'DFQ1', 'Kh * gradient of QTRC (z)',   &
-                  'K/m',  3, 'XYZ',  ''                                           ),  &
-    VariableInfo( ATMOS_PHY_TB_AUXTRC_DFQ2_ID, 'DFQ2', 'Kh * gradient of QTRC (x)',   &
-                  'K/m',  3, 'XYZ',  ''                                           ),  &
-    VariableInfo( ATMOS_PHY_TB_AUXTRC_DFQ3_ID, 'DFQ3', 'Kh * gradient of QTRC (y)',   &
-                  'K/m',  3, 'XYZ',  ''                                           )   /
+    VariableInfo( ATMOS_PHY_TB_AUXTRC_DFQ1_ID, 'DFQ1', 'Kh * gradient of QTRC (z)',    &
+                  'm2/s',  3, 'XYZ',  ''                                           ),  &
+    VariableInfo( ATMOS_PHY_TB_AUXTRC_DFQ2_ID, 'DFQ2', 'Kh * gradient of QTRC (x)',    &
+                  'm2/s',  3, 'XYZ',  ''                                           ),  &
+    VariableInfo( ATMOS_PHY_TB_AUXTRC_DFQ3_ID, 'DFQ3', 'Kh * gradient of QTRC (y)',    &
+                  'm2/s',  3, 'XYZ',  ''                                           )   /
 
 contains
 !OCL SERIAL  
