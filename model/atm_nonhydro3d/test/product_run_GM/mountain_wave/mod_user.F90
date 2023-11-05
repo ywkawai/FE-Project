@@ -28,6 +28,7 @@ module mod_user
     OHM => CONST_OHM,      &
     Rdry => CONST_Rdry,    &
     CPdry => CONST_CPdry,  &
+    CVdry => CONST_CVdry,  &
     PRES00 => CONST_PRE00, &
     RPlanet => CONST_RADIUS
 
@@ -57,6 +58,7 @@ module mod_user
     procedure :: setup_ => USER_setup
     generic :: setup => setup_
     procedure :: calc_tendency => USER_calc_tendency
+    procedure :: update => USER_update
   end type User
 
 
@@ -80,10 +82,23 @@ module mod_user
   real(RP) :: Cs     =  0.0_RP   !< Equatorial surface wind shear (for sheared flow) [m-1]
 !  real(RP) :: SPONGE_LAYER_tau = 1800.0_RP
 
+  logical :: sponge_layer_flag = .false.
+  real(RP), private :: zTop
+  real(RP), private :: SPONGE_HEIGHT
+  real(RP), private :: SPONGE_EFOLD_SEC         = 600.0_RP
+  logical :: lateral_sponge_layer_flag = .false.
+  real(RP), private :: LATERAL_SPONGE_EFOLD_SEC = 600.0_RP
+
   integer :: IniIntrpPolyOrder_h = 8
   integer :: IniIntrpPolyOrder_v = 8
 
   type(MeshField3D), private :: PT_diff
+
+  type(MeshField3D) :: U_bg, V_bg, T_bg
+
+  logical :: ini_bg_force_flag = .false.
+  real(RP) :: ini_bg_force_tend = - 60.0_RP
+  real(RP) :: ini_bg_force_tscale = 10.0_RP
 
   logical :: is_PREShyd_ref_set
 
@@ -114,11 +129,24 @@ contains
 
     logical :: USER_do                   = .false. !< do user step?
     namelist / PARAM_USER / &
-       USER_do
+       USER_do,             &
+       ini_bg_force_flag,   &
+       ini_bg_force_tend,   &
+       ini_bg_force_tscale, &
+       sponge_layer_flag,   &
+       zTop,                &
+       SPONGE_HEIGHT,       &
+       SPONGE_EFOLD_SEC,    &
+       lateral_sponge_layer_flag, &
+       LATERAL_SPONGE_EFOLD_SEC
+
 
     integer :: ierr    
     !------------------------------------------
 
+    zTop                 = 20.E3_RP
+    SPONGE_HEIGHT        = 15.E3_RP
+    SPONGE_EFOLD_SEC     = 900.0_RP
 
     LOG_NEWLINE
     LOG_INFO("USER_setup",*) 'Setup'
@@ -142,6 +170,10 @@ contains
     is_PREShyd_ref_set = .false. 
 
     if ( this%USER_do ) call PT_diff%Init( 'PT_diff', 'K', atm%mesh%ptr_mesh )
+
+    call U_bg%Init( "U_bg", "s-1", atm%mesh%ptr_mesh )
+    call V_bg%Init( "V_bg", "s-1", atm%mesh%ptr_mesh )
+    call T_bg%Init( "T_bg", "K", atm%mesh%ptr_mesh )
 
     return
   end subroutine USER_setup
@@ -172,27 +204,15 @@ contains
     class(User), intent(inout) :: this
     class(AtmosComponent), intent(inout) :: atm
 
-    class(LocalMesh3D), pointer :: lcmesh
-    class(ElementBase3D), pointer :: elem
-    ! class(LocalMeshFieldBase), pointer :: DDENS, MOMX, MOMY, MOMZ, DRHOT
-    ! class(LocalMeshFieldBase), pointer :: DENS_hyd, PRES_hyd
-    ! class(LocalMeshFieldBase), pointer :: PRES, PT
-    ! class(LocalMeshFieldBase), pointer :: Rtot, CVtot, CPtot
-
-    real(RP) :: rtau
-
-    real(RP), allocatable :: DENS(:)
-    real(RP), allocatable :: sfac(:)
-    real(RP), allocatable :: Umet(:,:), Vmet(:,:)
-    real(RP), allocatable :: U0(:,:), V0(:,:)
-
     class(MeshField3D), pointer :: PRES_hyd
     class(MeshField3D), pointer :: PRES_hyd_ref
-    class(LocalMesh3D), pointer :: lcmesh3D
-    real(RP), allocatable :: sin_lat(:)
-    real(RP), allocatable :: cos_lat(:)
-    real(RP), allocatable :: T(:)
 
+    real(RP), allocatable :: sin_lat(:), cos_lat(:)
+    real(RP), allocatable :: T(:)
+    real(RP), allocatable :: Umet(:,:), Vmet(:,:)
+
+    class(LocalMesh3D), pointer :: lcmesh3D
+    class(ElementBase3D), pointer :: elem
     integer :: domid
     integer :: ke, ke2D
     !------------------------------------------
@@ -210,82 +230,162 @@ contains
       do domid=1, PRES_hyd_ref%mesh%LOCAL_MESH_NUM
         lcmesh3D => PRES_hyd_ref%mesh%lcmesh_list(domid)
         elem => lcmesh3D%refElem3D
-        allocate( sin_lat(elem%Np), cos_lat(elem%Np))
+
+        allocate( Umet(elem%Np,lcmesh3D%Ne), Vmet(elem%Np,lcmesh3D%Ne) )
         allocate( T(elem%Np) )
+        allocate( sin_lat(elem%Np), cos_lat(elem%Np) )
 
         select case( trim(DCMIP_case) )
         case ('2-1', '2-2')
+          !$omp parallel do private(ke2D,sin_lat,cos_lat,T)
           do ke=lcmesh3D%NeS, lcmesh3D%NeE
-            ke2D = lcmesh3D%EMap3Dto2D(ke)
+            ke2d = lcmesh3D%EMap3Dto2D(ke)
             sin_lat(:) = sin(lcmesh3D%lat2D(elem%IndexH2Dto3D(:),ke2D))
             cos_lat(:) = cos(lcmesh3D%lat2D(elem%IndexH2Dto3D(:),ke2D))
-    
+
             T(:) = Teq * ( 1.0_RP - Cs * Ueq**2 * sin_lat(:)**2 / Grav )
-    
-            PRES_hyd(:,ke) = PRES00 * exp( - 0.5_RP * Ueq**2 / ( Rdry * Teq ) * sin_lat(:)**2 - Grav * lcmesh3D%zlev(:,ke) / ( Rdry * T(:) ) )
-    
-            PRES_hyd_ref%local(domid)%val(:,ke) = PRES_hyd%local(domid)%val(:,ke)
-          end do  
+            Umet(:,ke) = Ueq * cos_lat(:) * sqrt( 2.0_RP * Teq / T(:) * Cs * lcmesh3D%zlev(:,ke) + T(:) / Teq )
+            Vmet(:,ke) = 0.0_RP
+            
+            PRES_hyd_ref%local(domid)%val(:,ke) = PRES00 * exp(- Grav * lcmesh3D%zlev(:,ke) / ( Rdry * Teq ) )
+            T_bg%local(domid)%val(:,ke) = T(:)
+          end do
+
+          call CubedSphereCoordCnv_LonLat2CSVec( &
+            lcmesh3D%panelID, lcmesh3D%pos_en(:,:,1), lcmesh3D%pos_en(:,:,2),  & ! (in)
+            lcmesh3D%gam(:,lcmesh3D%NeS:lcmesh3D%NeE), elem%Np * lcmesh3D%Ne,  & ! (in)
+            Umet(:,:), Vmet(:,:),                                              & ! (in)
+            U_bg%local(domid)%val(:,lcmesh3D%NeS:lcmesh3D%NeE),                & ! (out)
+            V_bg%local(domid)%val(:,lcmesh3D%NeS:lcmesh3D%NeE)                 ) ! (out)
         end select
 
-        deallocate( sin_lat, cos_lat, T )
+        deallocate( Umet, Vmet )
+        deallocate( sin_lat, cos_lat )
       end do
       is_PREShyd_ref_set = .true.
     end if
 
     return
-
-    ! rtau = 1.0_RP / SPONGE_LAYER_tau
-    
-    ! do domid=1, atm%mesh%ptr_mesh%LOCAL_MESH_NUM
-    !   call AtmosVars_GetLocalMeshPrgVars( domid, atm%mesh%ptr_mesh,  &
-    !     atm%vars%PROGVARS_manager, atm%vars%AUXVARS_manager,     &
-    !     DDENS, MOMX, MOMY, MOMZ, DRHOT,                          &
-    !     DENS_hyd, PRES_hyd, Rtot, CVtot, CPtot, lcmesh           )     
-      
-    !   call AtmosVars_GetLocalMeshPhyAuxVars( domid,  atm%mesh%ptr_mesh, &
-    !     atm%vars%AUXVARS_manager, PRES, PT                          )
-      
-    !   elem => lcmesh%refElem3D
-    !   allocate( DENS(elem%Np), sfac(elem%Np) )
-    !   allocate( U0(elem%Np,lcmesh%Ne), V0(elem%Np,lcmesh%Ne) )
-    !   allocate( Umet(elem%Np,lcmesh%Ne), Vmet(elem%Np,lcmesh%Ne) )
-
-    !   !$omp parallel do private(ke2D)
-    !   do ke=lcmesh%NeS, lcmesh%NeE
-    !     ke2D = lcmesh%EMap3Dto2D(ke)
-    !     Umet(:,ke) = Ueq * cos(lcmesh%lat2D(elem%IndexH2Dto3D(:),ke2D))
-    !     Vmet(:,ke) = 0.0_RP
-    !   end do
-      
-    !   call CubedSphereCnv_LonLat2CSVec( &
-    !     lcmesh%panelID, lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2), elem%Np * lcmesh%Ne, RPlanet, &
-    !     Umet(:,:), Vmet(:,:),                                                             &
-    !     U0(:,:), V0(:,:)                                                                          )
-
-    !   !$omp parallel do private(DENS, sfac)
-    !   do ke=lcmesh%NeS, lcmesh%NeE
-    !     DENS(:) = DENS_hyd%val(:,ke) + DDENS%val(:,ke)
-    !     sfac(:) = rtau * 0.5_RP * ( 1.0_RP - cos( PI * ( lcmesh%pos_en(:,ke,3) - 25.E3_RP ) / (40.E3_RP - 25.E3_RP) ) ) 
-
-    !     where ( lcmesh%pos_en(:,ke,3) > 25.E3_RP ) 
-    !       atm%vars%PHY_TEND(MOMX_p)%local(domid)%val(:,ke) = atm%vars%PHY_TEND(MOMX_p)%local(domid)%val(:,ke)   &
-    !         - sfac(:) * ( MOMX%val(:,ke) - DENS(:) * U0(:,ke) )
-    !       atm%vars%PHY_TEND(MOMY_p)%local(domid)%val(:,ke) = atm%vars%PHY_TEND(MOMY_p)%local(domid)%val(:,ke)   &
-    !         - sfac(:) * ( MOMY%val(:,ke) - DENS(:) * V0(:,ke) )
-    !       atm%vars%PHY_TEND(MOMZ_p)%local(domid)%val(:,ke) = atm%vars%PHY_TEND(MOMZ_p)%local(domid)%val(:,ke)   &
-    !         - sfac(:) * MOMZ%val(:,ke)
-
-    !       atm%vars%PHY_TEND(RHOH_p)%local(domid)%val(:,ke) = atm%vars%PHY_TEND(RHOH_p)%local(domid)%val(:,ke)   &
-    !         - DENS(:) * sfac(:) * CpDry * ( PRES%val(:,ke) / DENS(:) - PRES_hyd%val(:,ke) / DENS_hyd%val(:,ke) ) / Rdry
-    !     end where
-    !   end do
-    !   deallocate( DENS, sfac )
-    !   deallocate( Umet, Vmet, U0, V0 )
-    ! end do
-
-    return
   end subroutine USER_calc_tendency
+
+!OCL SERIAL
+  subroutine USER_update( this, atm )
+    use scale_localmeshfield_base, only: LocalMeshFieldBase
+    use scale_file_history_meshfield, only: &
+      FILE_HISTORY_meshfield_in
+    use scale_atm_dyn_dgm_nonhydro3d_common, only: &
+      MOMX_p  => PHYTEND_MOMX_ID, &
+      MOMY_p  => PHYTEND_MOMY_ID, &
+      MOMZ_p  => PHYTEND_MOMZ_ID, &
+      RHOH_p  => PHYTEND_RHOH_ID
+    use scale_time_manager, only:  TIME_NOWSTEP
+    use mod_atmos_vars, only: &
+      AtmosVars_GetLocalMeshPrgVars,    &
+      AtmosVars_GetLocalMeshPhyAuxVars
+
+    implicit none
+    class(User), intent(inout) :: this
+    class(AtmosComponent), intent(inout) :: atm
+
+    class(LocalMesh3D), pointer :: lcmesh
+    class(LocalMeshFieldBase), pointer :: DDENS, MOMX, MOMY, MOMZ, DRHOT
+    class(LocalMeshFieldBase), pointer :: DENS_hyd, PRES_hyd
+    class(LocalMeshFieldBase), pointer :: PRES, PT
+    class(LocalMeshFieldBase), pointer :: Rtot, CVtot, CPtot
+    type(ElementBase3D), pointer :: elem3D
+
+    integer :: n
+    integer :: ke, ke2D
+
+    real(RP), allocatable :: DENS(:), T(:)
+    real(RP), allocatable :: rtau(:), sfac(:), rsfac(:)
+    real(RP), allocatable :: lon(:), lat(:)
+
+    real(RP) :: rtau_ini_bg
+    real(RP) :: rtau_sponge
+    real(RP) :: rtau_lateral_sponge
+ 
+    real(DP) :: dt
+    real(RP) :: tsec
+    real(RP) :: Gamm
+    !----------------------------------------------------------
+
+    dt = atm%time_manager%dtsec
+    tsec = dt * real( TIME_NOWSTEP, kind=RP )
+    gamm = CpDry / CvDry 
+
+    rtau_ini_bg = 0.0_RP
+    if ( ini_bg_force_flag .and. ( tsec < ini_bg_force_tend ) ) then
+      rtau_ini_bg = 1.0_RP / ini_bg_force_tscale
+    end if
+
+    rtau_sponge = 0.0_RP
+    if ( sponge_layer_flag ) then
+      rtau_sponge = 1.0_RP / SPONGE_EFOLD_SEC
+    end if
+
+    rtau_lateral_sponge = 0.0_RP
+    if ( lateral_sponge_layer_flag ) then
+      rtau_lateral_sponge = 1.0_RP / LATERAL_SPONGE_EFOLD_SEC
+    end if
+
+    do n=1, atm%mesh%ptr_mesh%LOCAL_MESH_NUM
+      call AtmosVars_GetLocalMeshPrgVars( n, atm%mesh%ptr_mesh,  &
+        atm%vars%PROGVARS_manager, atm%vars%AUXVARS_manager,     &
+        DDENS, MOMX, MOMY, MOMZ, DRHOT,                          &
+        DENS_hyd, PRES_hyd, Rtot, CVtot, CPtot, lcmesh           )      
+
+      call AtmosVars_GetLocalMeshPhyAuxVars( n, atm%mesh%ptr_mesh, &
+        atm%vars%AUXVARS_manager, PRES, PT                         )
+      
+      elem3D => lcmesh%refElem3D
+
+      allocate( DENS(elem3D%Np), T(elem3D%Np) )
+      allocate( rtau(elem3D%Np), sfac(elem3D%Np), rsfac(elem3D%Np) )
+      allocate( lon(elem3D%Np), lat(elem3D%Np) )
+
+      !$omp parallel do private(DENS, T, lon, lat, rtau, sfac, rsfac, ke2D)
+      do ke=lcmesh%NeS, lcmesh%NeE
+        ke2D = lcmesh%EMap3Dto2D(ke)
+
+        lon(:) = lcmesh%lon2D(elem3D%IndexH2Dto3D,ke2D)
+        lat(:) = lcmesh%lat2D(elem3D%IndexH2Dto3D,ke2D)
+
+        rtau(:) = rtau_ini_bg
+        where ( lcmesh%zlev(:,ke) > SPONGE_HEIGHT )
+          rtau(:) = rtau(:) + rtau_sponge * 0.5_RP * ( 1.0_RP - cos( PI * ( lcmesh%zlev(:,ke) - SPONGE_HEIGHT ) / ( zTop - SPONGE_HEIGHT ) ) )
+        end where
+        where ( lon(:) < PI * 0.5_RP )
+          rtau(:) = rtau(:) + rtau_lateral_sponge * 0.5_RP * ( 1.0_RP - cos( PI * ( lon(:)               ) / ( PI * 0.5_RP ) ) )
+        end where
+        where ( lon(:) > 1.5_RP * PI )
+          rtau(:) = rtau(:) + rtau_lateral_sponge * 0.5_RP * ( 1.0_RP - cos( PI * ( lon(:) - PI * 1.5_RP ) / ( PI * 0.5_RP ) ) )
+        end where
+
+        sfac(:) = dt * rtau(:)
+        rsfac(:) = 1.0_RP / ( 1.0_RP + sfac(:) )
+
+        DENS(:) = DENS_hyd%val(:,ke) + DDENS%val(:,ke)
+        T(:) =  PRES%val(:,ke) / ( Rdry * DENS(:) )
+
+        MOMX%val(:,ke) = ( MOMX%val(:,ke) + sfac(:) * DENS(:) * U_bg%local(n)%val(:,ke) ) * rsfac(:)
+        MOMY%val(:,ke) = ( MOMY%val(:,ke) + sfac(:) * DENS(:) * V_bg%local(n)%val(:,ke) ) * rsfac(:)
+        MOMZ%val(:,ke) = MOMZ%val(:,ke) * rsfac(:)
+
+        !- For the case of d DRHOT /dt = dens * Cp * ( Teq - T ) / tauT     
+        !  <- It is based on the forcing form in Held and Surez in which the temperature evolution equation is assumed to be dT/dt = R/Cp * T/p * dp/dt + (Teq - T) / tauT
+        DRHOT%val(:,ke) = DRHOT%val(:,ke) &
+                        - dt * rtau(:) * ( 1.0_RP - T_bg%local(n)%val(:,ke) / T(:) ) * DENS(:) * PT%val(:,ke)     &
+                        / ( 1.0_RP + dt * rtau(:) * ( 1.0_RP + (gamm - 1.0_RP) * T_bg%local(n)%val(:,ke) / T(:) ) )  
+      end do
+
+      deallocate( DENS, T )
+      deallocate( rtau, sfac, rsfac )
+      deallocate( lat )
+    end do
+    
+    return
+  end subroutine USER_update
 
   !------
 
@@ -332,6 +432,7 @@ contains
 
     type(LocalMesh2D), pointer :: lmesh2D
     real(RP) :: H0_pres
+    real(RP) :: Ueq_
     !-----------------------------------------------------------------------------
 
     call read_exp_params()
@@ -342,7 +443,7 @@ contains
       TLAPS, TEMP0, PRES00,                                            & ! (in)
       x, y, lcmesh%zlev, lcmesh, elem                                  ) ! (in)
     case ('2-1', '2-2')
-      !$omp parallel do private( ke2d, sin_lat, cos_lat, T )
+      !$omp parallel do private( ke2d, sin_lat, cos_lat, T, Ueq_ )
       do ke=lcmesh%NeS, lcmesh%NeE
         ke2d = lcmesh%EMap3Dto2D(ke)
         sin_lat(:) = sin(lcmesh%lat2D(elem%IndexH2Dto3D(:),ke2D))
@@ -354,7 +455,7 @@ contains
         DENS_hyd(:,ke) = PRES_hyd(:,ke) / ( Rdry * T(:) )
   
         MOMX_met(:,ke) = DENS_hyd(:,ke) * Ueq * cos_lat(:) * sqrt( 2.0_RP * Teq / T(:) * Cs * lcmesh%zlev(:,ke) + T(:) / Teq )
-        MOMY_met(:,ke)           = 0.0_RP
+        MOMY_met(:,ke) = 0.0_RP
       end do
 
       call CubedSphereCoordCnv_LonLat2CSVec( &

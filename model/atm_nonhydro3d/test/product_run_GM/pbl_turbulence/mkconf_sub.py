@@ -109,13 +109,15 @@ def mkconf_run( conf_path,
 /
 #** ATMOS ******************************************************
 &PARAM_ATMOS
-  ACTIVATE_FLAG       = .true., 
-  ATMOS_MESH_TYPE     = 'GLOBAL',   
-  TIME_DT             = {dt}D0, 
-  TIME_DT_UNIT        = 'SEC', 
-  ATMOS_DYN_DO        = .true., 
-  ATMOS_PHY_SF_DO = .true.,
-  ATMOS_PHY_TB_DO = .true.,   
+  ACTIVATE_FLAG        = .true., 
+  ATMOS_MESH_TYPE      = 'GLOBAL',   
+  TIME_DT              = {dt}D0, 
+  TIME_DT_UNIT         = 'SEC', 
+  TIME_DT_RESTART      = 900D0, 
+  TIME_DT_RESTART_UNIT = "SEC",      
+  ATMOS_DYN_DO         = .true., 
+  ATMOS_PHY_SF_DO      = .true.,
+  ATMOS_PHY_TB_DO      = .true.,   
 /
 &PARAM_ATMOS_MESH
   {shallow_atm_approx_flag}
@@ -162,7 +164,7 @@ def mkconf_run( conf_path,
   MF_ORDER_v = {mf_ordv},
 /
 &PARAM_ATMOS_DYN_SPONGELAYER
-  SL_WDAMP_TAU     = {dt}D0, 
+  SL_WDAMP_TAU     = 10D0,
   SL_WDAMP_HEIGHT  = 2000D0, 
 /
 #** ATMOS / PHYS / SFC ******************************************************
@@ -282,6 +284,7 @@ def mkconf_regrid( conf_path,
   dom_ymax    =  90.0D0, 
   dom_zmin    = 0.0D0, 
   dom_zmax    = 3.0D3,   
+  FZ          = {fz},   
 /
     """
     
@@ -332,6 +335,7 @@ export OMP_NUM_THREADS=12
 SCALE_DG_INIT_BIN={SCALE_DG_BIN_PATH}/scale-dg_init
 SCALE_DG_BIN={SCALE_DG_BIN_PATH}/scale-dg
 SCALE_DG_REGRID_BIN={SCALE_DG_REGRID_BIN_PATH}/regrid_tool
+SCALE_DG_SPECTRA_BIN={SCALE_DG_REGRID_BIN_PATH}/sh_transform
   """
   return jobshell_s  
 
@@ -371,6 +375,23 @@ llio_transfer --purge ${{SCALE_DG_REGRID_BIN}} *.conf
   
   with open(conf_path, 'w') as f:
       f.write(jobshell_header_s + jobshell_s)
+
+def mksh_job_spectra_analysis( conf_path, job_name, analysis_cnf, 
+              nprc, elapse_time, outdir ):
+
+  jobshell_header_s = get_job_header(job_name, nprc, elapse_time)
+  jobshell_s = f"""
+mkdir -p {outdir}/
+llio_transfer ${{SCALE_DG_SPECTRA_BIN}} *.conf
+
+mpiexec -np {nprc} -stdout-proc ./output.%j/%/1000r/stdout -stderr-proc ./output.%j/%/1000r/stderr \\
+  ${{SCALE_DG_SPECTRA_BIN}} {analysis_cnf} || exit 1
+
+llio_transfer --purge ${{SCALE_DG_SPECTRA_BIN}} *.conf 
+  """
+  
+  with open(conf_path, 'w') as f:
+      f.write(jobshell_header_s + jobshell_s)
              
 def mk_conf_sh( exp_name, exp_info ):
     nprc = exp_info["nprc"]
@@ -382,7 +403,8 @@ def mk_conf_sh( exp_name, exp_info ):
     run_num = exp_info["run_num"]
     shallow_atm_approx = exp_info["shallow_atm_approx"] 
 
-    out_dir_pref0=f"./rp{int(rplanet/1000)}km/{exp_name}"
+    rplanet_km = '{:.1f}'.format(rplanet/1000)
+    out_dir_pref0=f"./rp{rplanet_km}km/{exp_name}"
 
     print(out_dir_pref0)
     os.makedirs(out_dir_pref0, exist_ok=True)
@@ -392,6 +414,10 @@ def mk_conf_sh( exp_name, exp_info ):
     
     for runno in range(1,run_num+1):
       date_time = date_time0 + datetime.timedelta(hours=hr_per_run*(runno-1))
+      if runno >= exp_info["runno_analysis"]:
+        hist_int_sec = exp_info["hist_int_sec_analysis"] 
+      else:
+        hist_int_sec = exp_info["hist_int_sec"]
       
       out_dir_pref = f"{out_dir_pref0}/run{runno}/"
       os.makedirs(out_dir_pref, exist_ok=True)
@@ -410,19 +436,19 @@ def mk_conf_sh( exp_name, exp_info ):
                 nprc, eh, ez, porder, 
                 exp_info["dt"], exp_info["dt_dyn"],
                 mf_alph, exp_info["mf_ordh"], mf_alpv, exp_info["mf_ordv"], 
-                fz, rplanet, exp_info["hist_int_sec"], shallow_atm_approx )        
+                fz, rplanet, hist_int_sec, shallow_atm_approx )        
                       
       mkconf_regrid(f"{out_dir_pref}/regrid.conf", 
                       nprc, eh, ez, porder, fz, 
                       exp_info["regrid_nprcx"], exp_info["regrid_nprcy"], 
                       exp_info["regrid_Ex"], exp_info["regrid_Ey"], exp_info["Ez"], exp_info["regrid_porder"],
-                      rplanet, "./output/", ".false.", shallow_atm_approx )
+                      rplanet, "./outdata/", ".false.", shallow_atm_approx )
 
-      mkconf_regrid(f"{out_dir_pref}/regrid_uniform.conf", 
-                      nprc, eh, ez, porder, fz, 
-                      exp_info["regrid_nprcx"], exp_info["regrid_nprcy"], 
-                      exp_info["regrid_Ex"], exp_info["regrid_Ey"], exp_info["Ez"], exp_info["regrid_porder"],
-                      rplanet, "./output_uniform/", ".true.", shallow_atm_approx )
+      # mkconf_regrid(f"{out_dir_pref}/regrid_uniform.conf", 
+      #                 nprc, eh, ez, porder, fz, 
+      #                 exp_info["regrid_nprcx"], exp_info["regrid_nprcy"], 
+      #                 exp_info["regrid_Ex"], exp_info["regrid_Ey"], exp_info["Ez"], exp_info["regrid_porder"],
+      #                 rplanet, "./output_uniform/", ".true.", shallow_atm_approx )
       
                   
       mksh_job_run(f"{out_dir_pref}/job_run.sh", f"PBL_Eh{eh}P{porder}", 
@@ -432,8 +458,8 @@ def mk_conf_sh( exp_name, exp_info ):
                         exp_info["regrid_nprcx"]*exp_info["regrid_nprcy"], exp_info["regrid_elapse_time"], 
                         "outdata")
               
-      mksh_job_regrid(f"{out_dir_pref}/job_regrid_uniform.sh", f"REG_E{eh}P{porder}", "regrid_uniform.conf", 
-                        exp_info["regrid_nprcx"]*exp_info["regrid_nprcy"], exp_info["regrid_elapse_time"], 
-                        "outdata")
+      # mksh_job_regrid(f"{out_dir_pref}/job_regrid_uniform.sh", f"REG_E{eh}P{porder}", "regrid_uniform.conf", 
+      #                   exp_info["regrid_nprcx"]*exp_info["regrid_nprcy"], exp_info["regrid_elapse_time"], 
+      #                   "outdata")
   
 #---------------------------------
