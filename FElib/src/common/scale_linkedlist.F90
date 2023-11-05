@@ -1,3 +1,12 @@
+!> module common / data collection
+!!
+!! @par Description
+!!      A module to provide linked list
+!!
+!! @par Reference
+!!
+!! @author Team SCALE
+!!
 #include "scaleFElib.h"
 module scale_linkedlist
   !-----------------------------------------------------------------------------

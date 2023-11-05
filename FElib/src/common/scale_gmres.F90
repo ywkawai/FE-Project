@@ -1,3 +1,16 @@
+!-------------------------------------------------------------------------------
+!> module common / GMRES
+!!
+!! @par Description
+!!      A module to provide a iterative solver for system of linear equations using generalized minimal residual method (GMRES)
+!!
+!! @par Reference
+!!  - Y. Saad and M.H. Schultz, 1986:
+!!     GMRES: A generalized minimal residual algorithm for solving nonsymmetric linear systems.
+!!     SIAM J. Sci. Stat. Comput., 7:856–869
+!!
+!! @author Team SCALE
+!!
 #include "scaleFElib.h"
 module scale_gmres
   !-----------------------------------------------------------------------------

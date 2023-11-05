@@ -1,0 +1,111 @@
+################################################################################
+#
+# ------ For Odyssey -----
+#
+################################################################################
+
+##### Fortran setting
+#FFLAGS is set in Mkinclude. FFLAGS_DEBUG is used if SCALE_DEBUG=T
+
+FC  = mpifrtpx
+SFC = frtpx
+MODDIROPT = -M
+
+FFLAGS_FAST  = -Kfast,parallel,ocl,preex,array_private,noalias=s,mfunc=2 \
+               -Nlst=i,lst=t -X08 -Ncompdisp -Koptmsg=1 -Cpp             \
+               -x-                                                       \
+               -Ksimd,loop_fission                                       \
+               -Kauto,threadsafe                                         \
+               -Nfjomplib                                                \
+               -DVECTLEN=${VECTLEN} -DCACHELINESIZE=${CACHELINESIZE}            
+
+FFLAGS_AGGRESSIVE = -Kinstance=12,swp_strong
+
+FFLAGS_QUICKDEBUG = -Nquickdbg -NRtrap
+
+FFLAGS_DYN   = $(FFLAGS) -Knoprefetch,loop_nofission,loop_nofusion,nounroll,parallel_strong -Ksimd=2 -x100
+
+FFLAGS_DEBUG = -O0                                                       \
+               -Nlst=i,lst=t -X03 -v03s -v03d -v03o -Ncompdisp -Koptmsg=1 -Cpp \
+               -Ec -Eg -Ha -He -Hf -Ho -Hs -Hu -Hx -Ncheck_global
+
+
+
+##### C setting
+#CFLAGS is set in Mkinclude. CFLAGS_DEBUG is used if SCALE_DEBUG=T
+
+CC = mpifccpx
+
+CFLAGS_FAST  = -Kfast,parallel,ocl,preex,array_private,region_extension,restp=all -Ksimd
+CFLAGS_DEBUG = -O0
+
+##### Vector length
+ifeq ($(SCALE_USE_SINGLEFP),T)
+   VECTLEN = 16
+else
+   VECTLEN = 8
+endif
+CACHELINESIZE = 256
+
+##### Special setting
+
+FFLAGS_OPENMP = -Kopenmp
+# enable + disable parallel
+# FFLAGS_OPENMP = -Kopenmp,noparallel
+
+### Performance monitor
+# disable
+#PERF_MONIT = -Nnofjprof -UFIPP -UFAPP -UFINEPA
+# fipp
+#PERF_MONIT = -Nfjprof -DFIPP -UFAPP -UFINEPA
+# fapp
+PERF_MONIT = -Nfjprof -UFIPP -DFAPP -UFINEPA
+# fine PA
+#PERF_MONIT = -Nfjprof -UFIPP -UFAPP -DFINEPA
+
+FFLAGS_SYSDEPEND = $(PERF_MONIT)
+CFLAGS_SYSDEPEND = $(PERF_MONIT)
+
+
+
+##### Linker setting
+
+LD      = $(FC)
+LDFLAGS = $(FFLAGS)
+
+
+
+################################################################################
+
+###### NetCDF library
+# Default settings
+# if nc-config is not available, please set environment variable
+# example:
+# export SCALE_NETCDF_INCLUDE="-I/home/user/tool/cross-K/include"
+# export SCALE_NETCDF_LIBS="-L/home/user/tool/cross-K/lib -lnetcdff -lnetcdf -lhdf5_hl -lhdf5 -lsz -lz"
+
+SCALE_HDF=/work/opt/local/modules/modulefiles/LN/odyssey/compiler/fj/1.2.37/hdf5/1.12.0
+SCALE_NETCDF_C=/work/opt/local/modules/modulefiles/LN/odyssey/compiler/fj/1.2.37/netcdf/4.7.4
+SCALE_NETCDF_F=/work/opt/local/modules/modulefiles/LN/odyssey/compiler/fj/1.2.37/netcdf-fortran/4.5.3
+SCALE_PNETCDF=/work/opt/local/modules/modulefiles/LN/odyssey/mpi/fj/1.2.37/fjmpi/1.2.37/pnetcdf/1.12.1
+SCALE_NETCDF_INCLUDE ?= -I$(SCALE_NETCDF_C)/include -I$(SCALE_NETCDF_F)/include -I$(SCALE_PNETCDF)/include
+SCALE_NETCDF_LIBS ?= -L$(SCALE_NETCDF_C)/lib -L$(SCALE_NETCDF_F)/lib -L$(SCALE_HDF)/lib -L$(SCALE_PNETCDF)/lib -lpnetcdf -lnetcdff -lnetcdf -lhdf5_hl -lhdf5 -lfjprofmpi -lmpi_cxx
+SCALE_ENABLE_PNETCDF ?= T
+
+###### Math library
+# Default settings
+SCALE_MATHLIB_LIBS ?=
+# Or, please set environment variable
+# example:
+export SCALE_MATHLIB_LIBS="-SSL2"
+
+##### SCALE
+SCALEORI_INCLUDE  ?= -I$(SCALE)/include -I$(SCALE)/scalelib/include
+SCALEORI_LIBS     ?= -L$(SCALE)/lib -lscale -ldcutils
+
+##### for frontend
+INSTALL = install
+AR      = ar
+ARFLAGS = r
+RANLIB  = ranlib
+JOBSUB  = pjsub

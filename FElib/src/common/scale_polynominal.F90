@@ -1,3 +1,12 @@
+!> module common / Polynominal
+!!
+!! @par Description
+!!      A module to provide utilities for polynominal
+!!
+!! @par Reference
+!!
+!! @author Team SCALE
+!!
 #include "scaleFElib.h"
 module scale_polynominal
   !-----------------------------------------------------------------------------

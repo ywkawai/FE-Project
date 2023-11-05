@@ -493,7 +493,7 @@ contains
     do v=1, 5
       call q(v)%Init( "q", "1", mesh )
     end do
-    call fields_comm%Init(5, 0, mesh)
+    call fields_comm%Init(5, 0, 0, mesh)
 
     !---
     do n=1, mesh%LOCAL_MESH_NUM
