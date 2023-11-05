@@ -16,12 +16,25 @@ module mod_spectral_transform
   implicit none
   private
 
+  public :: spectral_tranform_Init
   public :: spectral_tranform
 
+  
 contains
 !OCL SERIAL
-  subroutine spectral_tranform( g_var, g_var2D, lon, lat, Gsqrt, J,     &
+  subroutine spectral_tranform_Init( elem2D )
+    use scale_element_quadrilateral, only: QuadrilateralElement
+    implicit none
+    class(QuadrilateralElement), intent(in) :: elem2D
+    !----------------------------------------------
+
+    return
+  end subroutine spectral_tranform_Init
+
+!OCL SERIAL
+  subroutine spectral_tranform( g_var, g_var2D, lon, lat, Gsqrt, J,      &
     mesh3D_list, varNum, var2DNum, levelNum, elem2D, Ne2D, Mt, mesh_num, &
+    IntrpMat2D, Intw2D, Np2D_intrp,                                      &
     s_var, s_var2D )
     use mpi
     use scale_prc, only: &
@@ -35,12 +48,15 @@ contains
     integer, intent(in) :: levelNum
     class(MeshCubedSphereDom3D), intent(in) :: mesh3D_list(mesh_num)
     class(ElementBase2D), intent(in) :: elem2D
+    integer, intent(in) :: Np2D_intrp
     real(RP), intent(in) :: g_var(varNum,levelNum,elem2D%Np,Ne2D,mesh_num)
     real(RP), intent(in) :: g_var2D(var2DNum,elem2D%Np,Ne2D,mesh_num)
-    real(RP), intent(in) :: lon(elem2D%Np,Ne2D,mesh_num)
-    real(RP), intent(in) :: lat(elem2D%Np,Ne2D,mesh_num)
+    real(RP), intent(in) :: lon(Np2D_intrp,Ne2D,mesh_num)
+    real(RP), intent(in) :: lat(Np2D_intrp,Ne2D,mesh_num)
     real(RP), intent(in) :: Gsqrt(elem2D%Np,Ne2D,mesh_num)
     real(RP), intent(in) :: J(elem2D%Np,Ne2D,mesh_num)
+    real(RP), intent(in) :: IntrpMat2D(Np2D_intrp,elem2D%Np)
+    real(RP), intent(in) :: Intw2D(Np2D_intrp)
     real(RP), intent(out) :: s_var(varNum,levelNum,0:Mt,0:Mt,2)
     real(RP), intent(out) :: s_var2D(var2DNum,0:Mt,0:Mt,2)
 
@@ -65,17 +81,25 @@ contains
     end do
 
     do mesh_id=1, mesh_num
-      call spectral_inv_tranform_local( &
-        g_var(:,:,:,:,mesh_id), lon(:,:,mesh_id), lat(:,:,mesh_id),   &
-        Gsqrt(:,:,mesh_id), J(:,:,mesh_id), elem2D%IntWeight_lgl,     &
-        varNum, levelNum, elem2D%Np, Ne2D, Mt, &
-        s_local(:,:,:,:,1), s_local(:,:,:,:,2) )
-
-      call spectral_inv_tranform_local( &
-        g_var2D(:,:,:,mesh_id), lon(:,:,mesh_id), lat(:,:,mesh_id),   &
-        Gsqrt(:,:,mesh_id), J(:,:,mesh_id), elem2D%IntWeight_lgl,     &
-        var2DNum, 1, elem2D%Np, Ne2D, Mt, &
-        s_local_2d(:,:,:,1), s_local_2d(:,:,:,2) )        
+      LOG_INFO('SH_Transform',*) "Spectral transformation", ", m=", mesh_id
+      call flush(IO_FID_LOG)
+      
+      if ( varNum > 0 ) then
+        call spectral_inv_tranform_local( &
+          g_var(:,:,:,:,mesh_id), lon(:,:,mesh_id), lat(:,:,mesh_id),   &
+          Gsqrt(:,:,mesh_id), J(:,:,mesh_id),                           &
+          varNum, levelNum, elem2D%Np, Ne2D, Mt,                        &
+          IntrpMat2D, Intw2D, Np2D_intrp,                               &
+          s_local(:,:,:,:,1), s_local(:,:,:,:,2) )
+      end if
+      if ( var2DNum > 0 ) then
+        call spectral_inv_tranform_local( &
+          g_var2D(:,:,:,mesh_id), lon(:,:,mesh_id), lat(:,:,mesh_id),   &
+          Gsqrt(:,:,mesh_id), J(:,:,mesh_id),                           &
+          var2DNum, 1, elem2D%Np, Ne2D, Mt,                             &
+          IntrpMat2D, Intw2D, Np2D_intrp,                               &
+          s_local_2d(:,:,:,1), s_local_2d(:,:,:,2) )        
+      end if
     end do
 
     ! global sum
@@ -104,8 +128,9 @@ contains
   end subroutine spectral_tranform
 
 !OCL SERIAL
-  subroutine spectral_inv_tranform_local( g_var, lon, lat, Gsqrt, J, intw, &
-    varNum, levelNum, Np, Ne2D, Mt, &
+  subroutine spectral_inv_tranform_local( g_var, lon, lat, Gsqrt, J,       &
+    varNum, levelNum, Np, Ne2D, Mt,                                        &
+    IntrpMat2D, intw, Np2D_intrp,                                          &
     s_r_local, s_i_local )
 
     integer, intent(in) :: varNum
@@ -113,12 +138,14 @@ contains
     integer, intent(in) :: Np
     integer, intent(in) :: Ne2D
     integer, intent(in) :: Mt
+    integer, intent(in) :: Np2D_intrp
     real(RP), intent(in) :: g_var(varNum*levelNum,Np,Ne2D)
-    real(RP), intent(in) :: lon(Np,Ne2D)
-    real(RP), intent(in) :: lat(Np,Ne2D)
+    real(RP), intent(in) :: lon(Np2D_intrp,Ne2D)
+    real(RP), intent(in) :: lat(Np2D_intrp,Ne2D)
     real(RP), intent(in) :: Gsqrt(Np,Ne2D)
     real(RP), intent(in) :: J(Np,Ne2D)
-    real(RP), intent(in) :: intw(Np)
+    real(RP), intent(in) :: IntrpMat2D(Np2D_intrp,Np)
+    real(RP), intent(in) :: intw(Np2D_intrp)
     real(RP), intent(inout) :: s_r_local(varNum*levelNum,0:Mt,0:Mt)
     real(RP), intent(inout) :: s_i_local(varNum*levelNum,0:Mt,0:Mt)
 
@@ -127,7 +154,11 @@ contains
     integer :: ke2D
     integer :: p
 
-    real(RP) :: mu(Np), cos_lat(Np)
+    real(RP) :: mu(Np2D_intrp), cos_lat(Np2D_intrp)
+    real(RP) :: coef0_intrp(Np2D_intrp,Ne2D)
+    real(RP) :: var_intrp(varNum*levelNum,Np2D_intrp,Ne2D)
+    real(RP) :: tr_IntrpMat2D(Np,Np2D_intrp)
+
     real(RP) :: Pm_l(-1:Mt,0:Mt)
     real(RP) :: sign_
     real(RP) :: cos_m_lon
@@ -136,10 +167,14 @@ contains
 
     real(RP) :: fact0(0:Mt)
     integer :: i
+    integer :: ii, kk
+    real(RP) :: tmp1(Np2D_intrp), tmp2(varNum*levelNum,Np2D_intrp)
     !----------------------------------------------------------
 
     fact0(:) = 1.0_RP
     fact0(0) = 1.0_RP / sqrt(2.0_RP)
+
+    tr_IntrpMat2D(:,:) = transpose(IntrpMat2D)
 
     !$omp parallel do private(i,sign_)
     do l=1, Mt
@@ -154,13 +189,32 @@ contains
       fact0(l) = sign_ * sqrt(0.5_RP * fact0(l))
     end do
 
+    !$omp parallel do private(tmp1, tmp2, ii, kk)
+    do ke2D=1, Ne2D
+      tmp1(:) = 0.0_RP
+      do ii=1, Np2D_intrp
+      do kk=1, Np
+        tmp1(ii) = tmp1(ii) + IntrpMat2D(ii,kk) * Gsqrt(kk,ke2D) * J(kk,ke2D)
+      end do
+      end do
+      coef0_intrp(:,ke2D) = tmp1(:)
+
+      tmp2(:,:) = 0.0_RP
+      do ii=1, Np2D_intrp
+      do kk=1, Np  
+        tmp2(:,ii) = tmp2(:,ii) + g_var(:,kk,ke2D) * tr_IntrpMat2D(kk,ii)
+      end do
+      end do
+      var_intrp(:,:,ke2D) = tmp2(:,:)
+    end do
+
     do ke2D=1, Ne2D
       mu(:) = sin(lat(:,ke2D))
       cos_lat(:) = cos(lat(:,ke2D))
 
-      do p=1, Np
+      do p=1, Np2D_intrp
         !-----
-        coef0 = Gsqrt(p,ke2D) * J(p,ke2D) * intw(p)
+        coef0 = coef0_intrp(p,ke2D) * intw(p)
 
         !$omp parallel private(l, m, cos_m_lon, sin_m_lon, sign_)
         !$omp do
@@ -188,9 +242,9 @@ contains
             end if
 
             s_r_local(:,l,m) = s_r_local(:,l,m) &
-              + coef0 * Pm_l(l,m) * cos_m_lon * g_var(:,p,ke2D)
+              + coef0 * Pm_l(l,m) * cos_m_lon * var_intrp(:,p,ke2D)
             s_i_local(:,l,m) = s_i_local(:,l,m) &
-              + coef0 * Pm_l(l,m) * sin_m_lon * g_var(:,p,ke2D)
+              + coef0 * Pm_l(l,m) * sin_m_lon * var_intrp(:,p,ke2D)
           end do
         end do
         !$omp end do
