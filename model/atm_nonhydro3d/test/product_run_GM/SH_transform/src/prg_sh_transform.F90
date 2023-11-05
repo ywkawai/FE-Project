@@ -21,8 +21,9 @@ program prg_sh_transform
     spectral_tranform
   
   use mod_grid, only: &
-    lon2D, lat2D, Gsqrt2D, J2D, mesh3D_list, &
-    Ne2D, refElem2D
+    lon2D_intrp, lat2D_intrp, Gsqrt2D, J2D, mesh3D_list, &
+    Ne2D, refElem2D,                         &
+    IntrpMat2D, Intrp_intw2D
   use mod_vars, only: &
     vars_list, vars2D_list, var_num_step, &
     vars_read, vars_write,   &
@@ -56,11 +57,15 @@ program prg_sh_transform
     call vars_read( istep, mesh3D_list, levels )
 
     LOG_INFO('SH_Transform',*) "Spectral transformation"
-    call spectral_tranform( g_var3D, g_var2D, lon2D, lat2D, Gsqrt2D, J2D, mesh3D_list,    &
+    call spectral_tranform( g_var3D, g_var2D, &
+      lon2D_intrp, lat2D_intrp, Gsqrt2D, J2D, mesh3D_list,    &
       size(vars_list), size(vars2D_list), LevelNum, refElem2D, Ne2D, Mt, target_proc_num, &
+      IntrpMat2D, intrp_intw2D, size(intrp_intw2D),                                       &
       s_var3D, s_var2D )
 
     call vars_write( istep, Mt, LevelNum )
+
+    call flush(IO_FID_LOG)  
   end do
 
   ! do l=0, Mt
@@ -98,6 +103,7 @@ contains
     logical :: fileexist
     character(len=H_LONG) :: cnf_fname  ! config file for launcher
 
+    character(len=H_LONG) :: in_bs_filebase
     character(len=H_LONG) :: in_filebase
     character(len=H_LONG) :: out_filebase
 
@@ -115,8 +121,11 @@ contains
     integer, parameter :: Var2DNum_nmax = 20
     character(len=H_SHORT)  :: vars2D(VarNum_nmax) = ''       ! name of variables
 
+    logical :: KinEnergyAnalysisFlag = .false. 
+
     !-
     namelist / PARAM_SH_TRANSFORM / &
+        in_bs_filebase,           &
         in_filebase,              &
         out_filebase,             &
         target_proc_num_tot,      &
@@ -124,7 +133,8 @@ contains
         LevelNum,                 &
         TARGET_LEVELS,            &
         level_units,              &
-        VARS, VARS2D
+        VARS, VARS2D,             &
+        KinEnergyAnalysisFlag
     
     integer :: Ne2D
     class(LocalMesh2D), pointer :: lcmesh2D
@@ -160,8 +170,9 @@ contains
     LOG_INFO("SH_TRANSFORM",*) 'Setup'
 
     !-
-    in_filebase = "./in_data/topo"
-    out_filebase = "./out_data/topo"
+    in_filebase    = "./in_data/topo"
+    in_bs_filebase = ""
+    out_filebase   = "./out_data/topo"
     Mt       = 2
     LevelNum = 1
     level_units = "Pa"
@@ -197,10 +208,12 @@ contains
     elem2D => mesh3D_list(1)%refElem2D
     lcmesh2D => mesh3D_list(1)%mesh2D%lcmesh_list(1)
     Ne2D = lcmesh2D%Ne
-    call vars_init( vars2D, vars, levels, level_units, elem2D%Np, Ne2D, Mt, mesh3D_list, target_proc_s, &
-      in_filebase, out_filebase, myrank )
+    call vars_init( vars2D, vars, KinEnergyAnalysisFlag, &
+      levels, level_units, elem2D%Np, Ne2D, Mt, mesh3D_list, target_proc_s, &
+      in_filebase, in_bs_filebase, out_filebase, myrank )
 
-    !---
+    !--- Test data
+    
     do m=1, target_proc_num
       elem2D => mesh3D_list(m)%refElem2D
       lcmesh2D => mesh3D_list(m)%mesh2D%lcmesh_list(1)
@@ -208,23 +221,28 @@ contains
       !$omp parallel do
       do ke2D=lcmesh2D%NeS, lcmesh2D%NeE
         !** Y^0_0
-        ! g_var2D(1,1,:,ke2D,m) = sqrt(1.0_RP / (4.0_RP*PI))
+        ! g_var2D(1,:,ke2D,m) = sqrt(1.0_RP / (4.0_RP*PI))
         !* Y^0_1
         ! g_var2D(1,1,:,ke2D,m) = sqrt(3.0_RP / (4.0_RP*PI)) &
         !  * sin(lcmesh2D%lat(:,ke2D)) 
         !** 1/2 * ( Y^1_2 + Y*^1_2 ) 
-        ! g_var2D(1,1,:,ke2D,m) = - sqrt(15.0_RP / (8.0_RP*PI)) &
+        ! g_var2D(1,:,ke2D,m) = - sqrt(15.0_RP / (8.0_RP*PI)) &
         !   * sin(lcmesh2D%lat(:,ke2D)) * cos(lcmesh2D%lat(:,ke2D)) &
         !   * cos(lcmesh2D%lon(:,ke2D))
         !** - i 1/2 * ( Y^1_2 - Y*^1_2 )
-        ! g_var2D(1,1,:,ke2D,m) = - sqrt(15.0_RP / (8.0_RP*PI)) &
+        ! g_var2D(1,:,ke2D,m) = - sqrt(15.0_RP / (8.0_RP*PI)) &
         !   * sin(lcmesh2D%lat(:,ke2D)) * cos(lcmesh2D%lat(:,ke2D)) &
         !   * sin(lcmesh2D%lon(:,ke2D))
         !** 1/2 * ( Y^2_3 + Y*^2_3 ) 
-        ! g_var2D(1,1,:,ke2D,m) = sqrt(105.0_RP / (32.0_RP*PI)) &
+        ! g_var2D(1,:,ke2D,m) = sqrt(105.0_RP / (32.0_RP*PI)) &
         !   * cos(lcmesh2D%lat(:,ke2D)) * cos(lcmesh2D%lat(:,ke2D)) &
         !   * sin(lcmesh2D%lat(:,ke2D))                             &
         !   * cos(2.0_RP * lcmesh2D%lon(:,ke2D))
+        !** 1/2 * ( Y^5_6 + Y*^5_6 ) 
+        ! g_var2D(1,:,ke2D,m) = - 3.0_RP / 32.0_RP * sqrt(10001_RP / PI) &
+        !   * cos(lcmesh2D%lat(:,ke2D)) **5                         &
+        !   * sin(lcmesh2D%lat(:,ke2D))                             &
+        !   * cos(5.0_RP * lcmesh2D%lon(:,ke2D))
       end do
     end do
     

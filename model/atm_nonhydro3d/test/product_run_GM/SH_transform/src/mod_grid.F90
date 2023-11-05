@@ -22,8 +22,13 @@ module mod_grid
   type(HexahedralElement) :: refElem3D
   real(RP), public, allocatable :: lon2D(:,:,:)
   real(RP), public, allocatable :: lat2D(:,:,:)
+  real(RP), public, allocatable :: lon2D_intrp(:,:,:)
+  real(RP), public, allocatable :: lat2D_intrp(:,:,:)
   real(RP), public, allocatable :: Gsqrt2D(:,:,:)
   real(RP), public, allocatable :: J2D(:,:,:)
+
+  real(RP), public, allocatable :: intrp_intw2D(:)
+  real(RP), public, allocatable :: IntrpMat2D(:,:)
 
   integer, public :: Ne2D
   class(ElementBase2D), public, pointer :: refElem2D
@@ -33,12 +38,19 @@ module mod_grid
 
   public :: grid_init
   public :: grid_final
+
 contains
 !OCL SERIAL
-  subroutine grid_init( target_proc_num, target_proc_s )    
+  subroutine grid_init( target_proc_num, target_proc_s )   
+    use scale_element_quadrilateral, only: &
+      QuadrilateralElement 
+    use scale_cubedsphere_coord_cnv, only: &
+      CubedSphereCoordCnv_CS2LonLatPos
     implicit none
     integer, intent(in) :: target_proc_num
     integer, intent(in) :: target_proc_s
+
+    logical :: SHALLOW_ATM_APPROX_FLAG = .true.
 
     integer :: Nprc = 6
     integer :: NeGX = 2
@@ -48,6 +60,7 @@ contains
     
     integer :: PolyOrder_h = 7
     integer :: PolyOrder_v = 7
+    integer :: IntrpPolyOrder_h = 7
     real(RP) :: dom_zmin, dom_zmax
 
     integer :: k
@@ -56,9 +69,11 @@ contains
     real(RP) :: FZ(FZ_nmax)
 
     namelist / PARAM_SH_MESH / &
+        SHALLOW_ATM_APPROX_FLAG,  &
         dom_zmin, dom_zmax,       &
         Nprc, NeGX, NeGY, NeZ,    &
         PolyOrder_h, PolyOrder_v, &
+        IntrpPolyOrder_h,         &
         FZ
     integer :: ierr
     
@@ -68,6 +83,12 @@ contains
     class(LocalMesh2D), pointer :: lcmesh2D
     integer :: ke2D
     integer :: Np2D
+
+    real(RP), allocatable :: intrp_x1(:)
+    real(RP), allocatable :: intrp_x2(:)
+    real(RP), allocatable :: vx(:), vy(:)
+    real(RP), allocatable :: alph2D(:,:), beta2D(:,:)
+    real(RP), allocatable :: gam(:,:)
     !-------------------------------------------
 
     FZ(:) = - 1.0_RP
@@ -99,10 +120,10 @@ contains
       target_myrank = target_proc_s + m - 1
       if (is_spec_FZ) then
         call mesh3D_list(m)%Init( NeGX, NeGY, NeZ, RPlanet, dom_zmin, dom_zmax, refElem3D, NLocalMeshPerPrc, &
-          nproc=Nprc, FZ=FZ(1:NeZ+1), myrank=target_myrank )
+          nproc=Nprc, FZ=FZ(1:NeZ+1), myrank=target_myrank, shallow_approx=SHALLOW_ATM_APPROX_FLAG )
       else
         call mesh3D_list(m)%Init( NeGX, NeGY, NeZ, RPlanet, dom_zmin, dom_zmax, refElem3D, NLocalMeshPerPrc, &
-          nproc=Nprc, myrank=target_myrank )
+          nproc=Nprc, myrank=target_myrank, shallow_approx=SHALLOW_ATM_APPROX_FLAG )
       end if
       call mesh3D_list(m)%Generate()
     end do
@@ -129,6 +150,35 @@ contains
       end do
     end do
 
+    !--
+    allocate( intrp_intw2D(IntrpPolyOrder_h**2) )
+    allocate( intrpMat2D(IntrpPolyOrder_h**2,refElem2D%Np) )
+    allocate( lon2D_intrp(IntrpPolyOrder_h**2,Ne2D,mesh_num) )
+    allocate( lat2D_intrp(IntrpPolyOrder_h**2,Ne2D,mesh_num) )
+
+    allocate( intrp_x1(IntrpPolyOrder_h**2), intrp_x2(IntrpPolyOrder_h**2) )
+    IntrpMat2D(:,:) = mesh3D_list(1)%refElem2D%GenIntGaussLegendreIntrpMat( IntrpPolyOrder_h, &
+      intw_intrp=intrp_intw2D, x_intrp=intrp_x1, y_intrp=intrp_x2 )
+
+    allocate( vx(refElem2D%Nv), vy(refElem2D%Nv) )
+    allocate( alph2D(IntrpPolyOrder_h**2,lcmesh2D%Ne), beta2D(IntrpPolyOrder_h**2,lcmesh2D%Ne) )    
+    allocate( gam(IntrpPolyOrder_h**2,lcmesh2D%Ne) )
+    do m=1, target_proc_num
+      lcmesh2D => mesh3D_list(m)%mesh2D%lcmesh_list(1)
+
+      !$omp parallel do private(vx, vy)
+      do ke2D=lcmesh2D%NeS, lcmesh2D%NeE
+        vx(:) = lcmesh2D%pos_ev(lcmesh2D%EToV(ke2D,:),1)
+        vy(:) = lcmesh2D%pos_ev(lcmesh2D%EToV(ke2D,:),2)
+        alph2D(:,ke2D) = vx(1) + 0.5_RP * ( intrp_x1(:) + 1.0_RP ) * ( vx(2) - vx(1) ) 
+        beta2D(:,ke2D) = vy(1) + 0.5_RP * ( intrp_x2(:) + 1.0_RP ) * ( vy(4) - vy(1) )
+        gam(:,ke2D) = 1.0_RP
+      end do
+      call CubedSphereCoordCnv_CS2LonLatPos( &
+        lcmesh2D%panelID, alph2D, beta2D, gam, IntrpPolyOrder_h**2 * lcmesh2D%Ne, & ! (in)
+        lon2D_intrp(:,:,m), lat2D_intrp(:,:,m)                                    ) ! (out)
+    end do
+
     return
   end subroutine grid_init
 
@@ -145,6 +195,9 @@ contains
     deallocate( mesh3D_list )
 
     call refElem3D%Final()
+
+    deallocate( lon2D_intrp, lat2D_intrp )
+    deallocate( intrp_intw2D, IntrpMat2D )
 
     return
   end subroutine grid_final

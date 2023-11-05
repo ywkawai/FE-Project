@@ -27,12 +27,22 @@ module mod_vars
   integer, public :: var_num_step
 
   integer, public :: var2DNum
+  integer, public :: varNum0
   integer, public :: varNum
 
   real(RP), public, allocatable :: g_var2D(:,:,:,:)
   real(RP), public, allocatable :: s_var2D(:,:,:,:)
   real(RP), public, allocatable :: g_var3D(:,:,:,:,:)
   real(RP), public, allocatable :: s_var3D(:,:,:,:,:)
+
+  real(RP), public, allocatable :: g_bs_var3D(:,:,:,:,:)
+  integer, public, parameter :: BS_PRESHYD_ID = 1
+  integer, public, parameter :: BS_DENSHYD_ID = 2
+
+  real(RP), public, allocatable :: g_ke_var3D(:,:,:,:,:)
+  integer, public, parameter :: KE_RsqrtUmet_ID = 1
+  integer, public, parameter :: KE_RsqrtVmet_ID = 2
+  integer, public, parameter :: KE_RsqrtWmet_ID = 3
 
   integer :: ncido
   integer :: zonal_wave_number_dim_id
@@ -49,22 +59,27 @@ module mod_vars
   integer, allocatable :: var_id_list_i(:)
 
   type(FILE_base_meshfield), allocatable :: in_files(:)
+  type(FILE_base_meshfield), allocatable :: in_bs_files(:)
   type(FILE_base_meshfield), allocatable :: in_files_2d(:)
 
   real(DP) :: output_dt
   real(DP) :: start_sec
 
   logical :: output_flag
+  logical :: KinEnergyAnalysisFlag
 
 contains
 !OCL SERIAL
   subroutine vars_init( &
-    vars2D, vars, levels, level_units, Np2D, Ne2D, Mt, mesh3D_list, target_proc_s, &
-    in_fbasename, out_fbasename, myrank )
+    vars2D, vars, KinEnergyAnalysisFlag_,                            &
+    levels, level_units, Np2D, Ne2D, Mt, mesh3D_list, target_proc_s, &
+    in_fbasename, in_bs_fbasename, out_fbasename, myrank )
+
     use scale_const, only: EPS => CONST_EPS
     implicit none
     character(len=H_SHORT), intent(in) :: vars2D(:)
     character(len=H_SHORT), intent(in) :: vars(:)
+    logical, intent(in) :: KinEnergyAnalysisFlag_
     real(RP), intent(in) :: levels(:)
     character(*), intent(in) :: level_units
     integer, intent(in) :: Np2D
@@ -73,6 +88,7 @@ contains
     type(MeshCubedSphereDom3D), intent(in), target :: mesh3D_list(:)
     integer, intent(in) :: target_proc_s
     character(len=*), intent(in) :: in_fbasename
+    character(len=*), intent(in) :: in_bs_fbasename
     character(len=*), intent(in) :: out_fbasename
     integer, intent(in) :: myrank
     
@@ -89,6 +105,8 @@ contains
     real(DP) :: time_endsec
     !------------------------------------------------------------
 
+    KinEnergyAnalysisFlag = KinEnergyAnalysisFlag_
+
     var2DNum = 0
     do nn= 1, size(vars2D)
       if ( vars2D(nn) == '' ) then
@@ -102,19 +120,28 @@ contains
       vars2D_list(nn) = vars2D(nn)
     end do
 
-    varNum = 0
+    varNum0 = 0
     do nn= 1, size(vars)
       if ( vars(nn) == '' ) then
         exit
       else
-        varNum = varNum + 1
+        varNum0 = varNum0 + 1
       end if
     end do
+    varNum = varNum0
+
+    if ( KinEnergyAnalysisFlag ) varNum = varNum0 + 3
+
     allocate( vars_list(varNum) )
-    do nn=1, varNum
+    do nn=1, varNum0
       vars_list(nn) = vars(nn)
     end do
-    
+    if ( KinEnergyAnalysisFlag ) then
+      vars_list(varNum0+1) = 'RsqrtUmet'
+      vars_list(varNum0+2) = 'RsqrtVmet'
+      vars_list(varNum0+3) = 'RsqrtW'
+    end if
+
     !--
     mesh_num = size(mesh3D_list)
     LevelNum = size(levels)
@@ -136,34 +163,56 @@ contains
     end if
 
     !---
-    allocate( in_files(mesh_num) )
-    allocate( in_files_2d(mesh_num) )
+    if ( in_fbasename /= "" ) then
+      allocate( in_files(mesh_num) )
+      allocate( in_files_2d(mesh_num) )
+    end if
+    if ( in_bs_fbasename /= "" ) then
+      LOG_INFO("VARS_INIT",*) "Data file with basic state:", trim(in_bs_fbasename)
+      allocate( in_bs_files(mesh_num) )
+      allocate( g_bs_var3D(2,LevelNum,Np2D,Ne2D,mesh_num) )
+    end if
+    
+    !-------------
 
+    !-------------
     do m=1, mesh_num
       target_myrank = target_proc_s + m - 1      
       !-
-      call in_files(m)%Init( varNum, meshCubedSphere3D=mesh3D_list(m) )
-      call in_files(m)%Open( in_fbasename, myrank=target_myrank )
+      if ( allocated(in_files) ) then
+        call in_files(m)%Init( varNum, meshCubedSphere3D=mesh3D_list(m) )
+        call in_files(m)%Open( in_fbasename, myrank=target_myrank )
+      end if
 
-      call in_files_2d(m)%Init( var2DNum, meshCubedSphere2D=mesh3D_list(m)%mesh2D )
-      call in_files_2d(m)%Open( in_fbasename, myrank=target_myrank )
+      if ( allocated(in_bs_files) ) then
+        call in_bs_files(m)%Init( 2, meshCubedSphere3D=mesh3D_list(m) )
+        call in_bs_files(m)%Open( in_bs_fbasename, myrank=target_myrank )  
+      end if
+
+      if ( allocated(in_files_2d) ) then
+        call in_files_2d(m)%Init( var2DNum, meshCubedSphere2D=mesh3D_list(m)%mesh2D )
+        call in_files_2d(m)%Open( in_fbasename, myrank=target_myrank )
+      end if
     end do
 
-    if (varNum > 0) then
+    if ( allocated(in_files) .and. varNum > 0) then
       call in_files(1)%Get_VarStepSize( trim(vars_list(1)),   & ! (in)
         var_num_step                                          ) ! (out)
       call in_files(1)%Get_dataInfo( trim(vars_list(1)), istep=1,  & ! (in)
         time_start=start_sec,                       & ! (out)
         time_end=time_endsec                        ) ! (out)
       output_dt = time_endsec - start_sec 
-    end if
-    if (var2DNum > 0) then
-      call in_files(1)%Get_VarStepSize( trim(vars2D_list(1)),   & ! (in)
-        var_num_step                                            ) ! (out)
-      call in_files(1)%Get_dataInfo( trim(vars2D_list(1)), istep=1,  & ! (in)
+    end if 
+    if ( allocated(in_files_2d) .and. var2DNum > 0) then
+      call in_files_2d(1)%Get_VarStepSize( trim(vars2D_list(1)),   & ! (in)
+        var_num_step                                               ) ! (out)
+      call in_files_2d(1)%Get_dataInfo( trim(vars2D_list(1)), istep=1,  & ! (in)
         time_start=start_sec,                       & ! (out)
         time_end=time_endsec                        ) ! (out)
       output_dt = time_endsec - start_sec 
+    end if
+    if ( ( .not. allocated(in_files_2d) ) .and. ( .not. allocated(in_files_2d) ) ) then
+      output_dt = 0.0_RP; var_num_step = 0
     end if
 
     if ( output_dt < EPS .and. var_num_step == 0 ) then
@@ -233,11 +282,27 @@ contains
       call nc_check( nf90_close(ncido) )
     end if
     
-    do m=1, size(in_files)
-      call in_files(m)%Close()
-      call in_files(m)%Final()
-    end do
-    deallocate( in_files )
+    if ( allocated( in_files) ) then
+      do m=1, size(in_files)
+        call in_files(m)%Close()
+        call in_files(m)%Final()
+      end do
+      deallocate( in_files )
+    end if
+    if ( allocated( in_files_2d) ) then
+      do m=1, size(in_files_2d)
+        call in_files_2d(m)%Close()
+        call in_files_2d(m)%Final()
+      end do
+      deallocate( in_files_2d )
+    end if
+    if ( allocated(in_bs_files) ) then
+      do m=1, size(in_bs_files)
+        call in_bs_files(m)%Close()
+        call in_bs_files(m)%Final()
+      end do
+      deallocate( in_bs_files )
+    end if
 
     return
   end subroutine vars_final
@@ -322,10 +387,14 @@ contains
     real(RP), allocatable :: tmp_Vmet(:,:)
     real(RP), allocatable :: gam(:,:)
     integer :: LayerNum
-    integer :: vid_U, vid_V
+    integer :: vid_U, vid_V, vid_W
+
+    real(RP), allocatable :: g_tmp_ddens(:,:,:,:)
+    real(RP), allocatable :: RsqrtDENS(:,:,:)
     !----------------------------
 
     LayerNum = size(levels)
+    vid_U = -1; vid_V = -1; vid_W = -1
 
     do m=1, size(mesh3D_list)
       lcmesh2D => mesh3D_list(m)%mesh2D%lcmesh_list(1)
@@ -347,39 +416,24 @@ contains
       elem3D => lcmesh3D%refElem3D
       lcmesh2D => mesh3D_list(m)%mesh2D%lcmesh_list(1)
 
-      do vid=1, varNum
+      if ( allocated(in_bs_files) .and. istep == 1 ) then
+        call get_gvar3D( istep, BS_PRESHYD_ID, in_bs_files(m), "PRES_hyd", mesh3D_list(m), levels, &
+          g_bs_var3D(:,:,:,:,m) )
+        call get_gvar3D( istep, BS_DENSHYD_ID, in_bs_files(m), "DENS_hyd", mesh3D_list(m), levels, &
+          g_bs_var3D(:,:,:,:,m) )
+      end if
+
+      do vid=1, varNum0
         varname = trim(vars_list(vid))
-        call tmp_field3D%Init( varname, "", mesh3D_list(m) )
-        call in_files(m)%Read_Var( &
-          MF3D_XYZT, varname, tmp_field3D, step=istep )
-        
-        do k = 1, LayerNum
-        do ke = lcmesh3D%NeS, lcmesh3D%NeE
-            ke2D = lcmesh3D%EMap3Dto2D(ke)
-            do pz=1, elem3D%Nnode_v
-            do ph=1, elem3D%Nnode_h1D**2
-              p = ph + (pz-1)*elem3D%Nnode_h1D**2
-              pp = ph + min(pz,elem3D%Nnode_v-1)*elem3D%Nnode_h1D**2
-              if ( lcmesh3D%pos_en(p,ke,3) <= levels(k)   &
-                .and. lcmesh3D%pos_en(pp,ke,3) >= levels(k) ) then
-                g_var3D(vid,k,ph,ke2D,m) = tmp_field3D%local(1)%val(p,ke)
-              end if
-            end do
-            end do
-          end do
-        end do
+        call get_gvar3D( istep, vid, in_files(m), varname, mesh3D_list(m), levels, &
+          g_var3D(:,:,:,:,m) )
 
-        call tmp_field3D%Final()
-
-        if ( trim(varname) == "U" ) then
-          vid_U = vid
-        end if
-        if ( trim(varname) == "V" ) then
-          vid_V = vid
-        end if
+        if ( trim(varname) == "U" ) vid_U = vid
+        if ( trim(varname) == "V" ) vid_V = vid
+        if ( trim(varname) == "W" ) vid_W = vid
       end do
 
-      if ( varNum > 0 ) then
+      if ( vid_U > 0 .and. vid_V > 0 .and. vid_W > 0 ) then
         allocate( tmp_U(lcmesh2D%refElem2D%Np,lcmesh2D%Ne) )
         allocate( tmp_V(lcmesh2D%refElem2D%Np,lcmesh2D%Ne) )
         allocate( tmp_Umet(lcmesh2D%refElem2D%Np,lcmesh2D%Ne) )
@@ -399,15 +453,98 @@ contains
           g_var3D(vid_V,k,:,:,m) = tmp_Vmet(:,:)
         end do
         
+        if ( KinEnergyAnalysisFlag ) then
+          allocate( g_tmp_ddens(1,LayerNum,lcmesh2D%refElem2D%Np,lcmesh2D%Ne) )
+          allocate( RsqrtDENS(LayerNum,lcmesh2D%refElem2D%Np,lcmesh2D%Ne) )
+
+          call get_gvar3D( istep, 1, in_files(m), "DDENS", mesh3D_list(m), levels, &
+            g_tmp_ddens )
+
+          !$omp parallel 
+          !$omp do collapse(2)
+          do ke2D=lcmesh2D%NeS, lcmesh2D%NeE
+          do ph=1, lcmesh2D%refElem2D%Np
+            RsqrtDENS(:,ph,ke2D) = sqrt( g_bs_var3D(BS_DENSHYD_ID,:,ph,ke2D,m) + g_tmp_ddens(1,:,ph,ke2D) )
+          end do
+          end do
+          !$omp do collapse(2)
+          do ke2D=lcmesh2D%NeS, lcmesh2D%NeE
+          do ph=1, lcmesh2D%refElem2D%Np  
+            g_var3D(varNum0+1,:,ph,ke2D,m) = RsqrtDENS(:,ph,ke2D) * g_var3D(vid_U,:,ph,ke2D,m)
+            g_var3D(varNum0+2,:,ph,ke2D,m) = RsqrtDENS(:,ph,ke2D) * g_var3D(vid_V,:,ph,ke2D,m)
+            g_var3D(varNum0+3,:,ph,ke2D,m) = RsqrtDENS(:,ph,ke2D) * g_var3D(vid_W,:,ph,ke2D,m)
+          end do
+          end do
+          !$omp end parallel
+
+          deallocate( g_tmp_ddens, RsqrtDENS )
+        end if
+
         deallocate( tmp_U, tmp_V, tmp_Umet, tmp_Vmet, gam )
       end if
-    end do
 
+    end do
 
     return
   end subroutine vars_read
 
 !-------
+!OCL SERIAL
+  subroutine get_gvar3D( istep, vid, in_file, varname, mesh3D, levels, &
+    gvar3D )
+    use scale_meshfield_base, only: MeshField3D
+    use scale_mesh_base3d, only: &
+      MF3D_XYZT => MeshBase3D_DIMTYPEID_XYZT
+    implicit none
+    integer, intent(in) :: istep
+    integer, intent(in) :: vid
+    class(FILE_base_meshfield), intent(inout) :: in_file
+    character(len=*), intent(in) :: varname
+    class(MeshCubedSphereDom3D), intent(in), target :: mesh3D
+    real(RP), intent(in) :: levels(:)
+    real(RP), intent(inout) :: gvar3D(:,:,:,:)
+
+    class(LocalMesh3D), pointer :: lcmesh3D
+    class(ElementBase3D), pointer :: elem3D
+
+    type(MeshField3D) :: tmp_field3D
+
+    integer :: LayerNum
+
+    integer :: ke2D, ke
+    integer :: p, pp, ph, pz
+    integer :: k
+    !---------------------------------------------------
+
+    LayerNum = size(levels)
+
+    call tmp_field3D%Init( varname, "", mesh3D )
+    call in_file%Read_Var( &
+      MF3D_XYZT, varname, tmp_field3D, step=istep )
+    
+    lcmesh3D => mesh3D%lcmesh_list(1)
+    elem3D => lcmesh3D%refElem3D
+    do k = 1, LayerNum
+    do ke = lcmesh3D%NeS, lcmesh3D%NeE
+        ke2D = lcmesh3D%EMap3Dto2D(ke)
+        do pz=1, elem3D%Nnode_v
+        do ph=1, elem3D%Nnode_h1D**2
+          p = ph + (pz-1)*elem3D%Nnode_h1D**2
+          pp = ph + min(pz,elem3D%Nnode_v-1)*elem3D%Nnode_h1D**2
+          if ( lcmesh3D%pos_en(p,ke,3) <= levels(k)   &
+            .and. lcmesh3D%pos_en(pp,ke,3) >= levels(k) ) then
+            gvar3D(vid,k,ph,ke2D) = tmp_field3D%local(1)%val(p,ke)
+          end if
+        end do
+        end do
+      end do
+    end do
+
+    call tmp_field3D%Final()
+
+    return
+  end subroutine get_gvar3D
+
 !OCL SERIAL
   subroutine nc_check( status )
     integer, intent (in) :: status
