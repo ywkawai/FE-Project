@@ -53,6 +53,7 @@ module mod_user
     generic :: mkinit => mkinit_
     procedure :: setup_ => USER_setup
     generic :: setup => setup_
+    procedure :: calc_tendency => USER_calc_tendency
     procedure :: update => USER_update
   end type User
 
@@ -78,6 +79,9 @@ module mod_user
   real(RP), private, parameter :: sigb        = 0.7_RP
 
   !-----------------------------------------------------------------------------
+
+  logical :: is_PREShyd_ref_set
+
 
 contains
 
@@ -130,6 +134,50 @@ contains
 
     return
   end subroutine USER_setup
+
+!OCL SERIAL
+  subroutine USER_calc_tendency( this, atm )
+    use scale_atm_dyn_dgm_nonhydro3d_common, only: &
+      PRESHYD_VID => AUXVAR_PRESHYDRO_ID,        &
+      PRESHYD_REF_VID => AUXVAR_PRESHYDRO_REF_ID    
+    implicit none
+    class(User), intent(inout) :: this
+    class(AtmosComponent), intent(inout) :: atm
+
+    class(MeshField3D), pointer :: PRES_hyd
+    class(MeshField3D), pointer :: PRES_hyd_ref
+    class(LocalMesh3D), pointer :: lcmesh3D
+    class(ElementBase3D), pointer :: elem
+    integer :: domid
+    integer :: ke, p
+    real(RP) :: DENS_ref, PRES_ref
+    !------------------------------------------
+
+
+    ! Set reference hydrostatic pressure
+    if ( .not. is_PREShyd_ref_set ) then
+      call atm%vars%AUXVARS_manager%Get3D( PRESHYD_VID, PRES_hyd )
+      call atm%vars%AUXVARS_manager%Get3D( PRESHYD_REF_VID, PRES_hyd_ref )
+
+      do domid=1, PRES_hyd_ref%mesh%LOCAL_MESH_NUM
+        lcmesh3D => PRES_hyd_ref%mesh%lcmesh_list(domid)
+        elem => lcmesh3D%refElem3D
+
+        !$omp parallel do collapse(2) private(ke,p, DENS_ref, PRES_ref)
+        do ke=lcmesh3D%NeS, lcmesh3D%NeE
+          do p=1, elem%Np    
+            call calc_hydrostatic_state_1pt( DENS_ref, PRES_ref,  & ! (out)
+              lcmesh3D%zlev(p,ke), 0.0_RP, 0.0_RP ) ! (in)
+            
+            PRES_hyd_ref%local(domid)%val(p,ke) = PRES_ref
+          end do
+        end do
+      end do
+      is_PREShyd_ref_set = .true.
+    end if
+
+    return
+  end subroutine USER_calc_tendency
 
 !OCL SERIAL
   subroutine USER_update( this, atm )

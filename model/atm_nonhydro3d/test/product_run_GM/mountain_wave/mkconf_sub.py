@@ -8,7 +8,8 @@ SCALE_DG_REGRID_BIN_PATH="../../../../../../../bin"
 
 def mkconf_init( conf_path,
                 nprc, neh, nez, porder, initgp_porder, 
-                fz  ): 
+                fz,
+                h0 ): 
     conf_init_s = f"""#--- Configuration file for a test case of mountain wave  -------
 &PARAM_IO
  IO_LOG_BASENAME = 'init_LOG',
@@ -30,7 +31,7 @@ def mkconf_init( conf_path,
 /
 &PARAM_EXP
   DCMIP_case = '2-1',  
-  Ueq = 20.0D0, 
+  Ueq        = 20.0D0, 
   IniIntrpPolyOrder_h = {initgp_porder},
   IniIntrpPolyOrder_v = {initgp_porder},
 /
@@ -47,7 +48,7 @@ def mkconf_init( conf_path,
   NeGY             = {neh},
   NeZ              = {nez},
   dom_zmin         = 0.0D0, 
-  dom_zmax         = 20.0D3, 
+  dom_zmax         = 30.0D3, 
   PolyOrder_h      = {porder},
   PolyOrder_v      = {porder}, 
   FZ               = {fz}, 
@@ -58,12 +59,12 @@ def mkconf_init( conf_path,
   OUT_BASENAME = 'TOPO', 
 /
 &PARAM_MKTOPO_SCHAER_GLOBAL
-  SCHAER_Clon   = 3.141592653589793D0, ! PI
-  SCHAER_Clat   = 0.D0, 
-  SCHAER_R      = 5000.D0,
-  SCHAER_LAMBDA = 4000.D0, 
-  SCHAER_SHAPE_ID = 1, ! gaussian
-  SCHAER_HEIGHT = 250.D0,  
+  SCHAER_Clon     = 3.141592653589793D0, ! PI
+  SCHAER_Clat     = 0.D0, 
+  SCHAER_R        = 5000.D0,
+  SCHAER_LAMBDA   = 4000.D0, 
+  SCHAER_SHAPE_ID = 1, 
+  SCHAER_HEIGHT = {h0}.D0,  
   quasi_2D_flag = .true., 
 /
 #** ATMOS / DYN ******************************************************
@@ -100,8 +101,16 @@ def mkconf_run( conf_path,
   CONST_OHM = 0.0D0, 
   CONST_RADIUS = 38219.67606478705D0, ! R_earth / 166.7
 /
+&PARAM_EXP
+  DCMIP_case = '2-1',  
+  Ueq        = 20.0D0, 
+/
 &PARAM_USER
   USER_do = .true., 
+  sponge_layer_flag = .true., 
+  zTop              = 30D3, 
+  SPONGE_HEIGHT     = 15D3, 
+  SPONGE_EFOLD_SEC  = 300D0,   
 /
 #** ATMOS ******************************************************
 &PARAM_ATMOS
@@ -118,7 +127,7 @@ def mkconf_run( conf_path,
   NeGY             = {neh},
   NeZ              = {nez},
   dom_zmin         = 0.0D0, 
-  dom_zmax         = 20.0D3, 
+  dom_zmax         = 30.0D3, 
   PolyOrder_h      = {porder},
   PolyOrder_v      = {porder},
   FZ               = {fz},   
@@ -139,7 +148,6 @@ def mkconf_run( conf_path,
   !-
   MODALFILTER_FLAG  = .true.,
   NUMDIFF_FLAG      = .false., 
-  SPONGELAYER_FLAG  = .true.,   
 /
 &PARAM_ATMOS_DYN_BND
   btm_vel_bc   = 'SLIP', 
@@ -155,15 +163,10 @@ def mkconf_run( conf_path,
   MF_ALPHA_v = {mf_alpv}, 
   MF_ORDER_v = {mf_ordv},
 /
-&PARAM_ATMOS_DYN_SPONGELAYER
-  SL_WDAMP_TAU        = 10.0D0, 
-  SL_WDAMP_HEIGHT     = 10.0D3, 
-!  SL_HORIVELDAMP_FLAG = .true.
-/
 #*** OUTPUT *******************************************
 &PARAM_FILE_HISTORY
  FILE_HISTORY_DEFAULT_BASENAME  = "history",
- FILE_HISTORY_DEFAULT_TINTERVAL = 120D0, 
+ FILE_HISTORY_DEFAULT_TINTERVAL = 600D0, 
  FILE_HISTORY_DEFAULT_TUNIT     = "SEC",
  FILE_HISTORY_DEFAULT_TAVERAGE  = .false.,
  FILE_HISTORY_DEFAULT_DATATYPE  = "REAL8",
@@ -234,7 +237,7 @@ def mkconf_regrid( conf_path,
   NeGY             = {neh},
   NeGZ             = {nez},
   dom_zmin         = 0.0D0, 
-  dom_zmax         = 20.0D3, 
+  dom_zmax         = 30.0D3, 
   PolyOrder_h      = {porder},
   PolyOrder_v      = {porder},
   FZ               = {fz},
@@ -252,7 +255,7 @@ def mkconf_regrid( conf_path,
   dom_ymin    = -90.0D0, 
   dom_ymax    =  90.0D0, 
   dom_zmin    = 0.0D0, 
-  dom_zmax    = 20.0D3,   
+  dom_zmax    = 30.0D3,   
   FZ          = {fz},  
 /
 &PARAM_REGRID_VCOORD
@@ -260,7 +263,7 @@ def mkconf_regrid( conf_path,
   out_NeZ         = {regrid_nez},                 
   out_PolyOrder_v = {porder},         
   out_dom_vmin    = 0D0,         
-  out_dom_vmax    = 20D3, 
+  out_dom_vmax    = 30D3, 
   out_Fz = {fz}, 
   in_topofile_basename = "outdata/topo", 
   topo_varname         = "topo",           
@@ -410,6 +413,7 @@ def mk_conf_sh( exp_name, exp_info ):
     ez = exp_info["Ez"]
     fz = exp_info["fz"]
     porder = exp_info["porder"]
+    h0 = exp_info["h0"]
 
     out_dir_pref=f"./rhot_heve/{exp_name}"
 
@@ -418,7 +422,8 @@ def mk_conf_sh( exp_name, exp_info ):
     
     mkconf_init(f"{out_dir_pref}/init.conf", 
                 nprc, eh, ez, porder, exp_info["initgp_porder"], 
-                fz )
+                fz,
+                h0 )
     
     mkconf_run(f"{out_dir_pref}/run.conf", 
                "init_00000101-000000.000", 1, 
