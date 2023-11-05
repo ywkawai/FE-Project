@@ -141,7 +141,7 @@ contains
       do i=1, this%M
         row_nonzero_counter(i) = 0
         do j=1, this%N
-          if ( abs(mat(i,j)) > EPS_ ) &
+          if ( abs(mat(i,j)) >= EPS_ ) &
             row_nonzero_counter(i) = row_nonzero_counter(i) + 1
         end do
       end do
@@ -153,7 +153,7 @@ contains
       do i=1, this%M
         col_size_l = 0
         do j=1,this%N
-          if ( abs(mat(i,j)) > EPS_ ) then
+          if ( abs(mat(i,j)) >= EPS_ ) then
               col_size_l = col_size_l + 1
               l = i+(col_size_l-1)*this%M
               tmp_val   (l) = mat(i,j)   

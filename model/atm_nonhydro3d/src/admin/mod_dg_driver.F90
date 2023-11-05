@@ -203,6 +203,7 @@ contains
 
   !----------------------------
   
+!OCL SERIAL
   subroutine initialize()
 
     use scale_const, only: CONST_setup
@@ -312,6 +313,7 @@ contains
     return
   end subroutine finalize
 
+!OCL SERIAL
   subroutine restart_read()
     implicit none    
     !----------------------------------------
@@ -343,6 +345,7 @@ contains
     return
   end subroutine restart_read
 
+!OCL SERIAL
   subroutine restart_write
     implicit none    
     !----------------------------------------

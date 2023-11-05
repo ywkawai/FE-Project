@@ -173,6 +173,8 @@ contains
           call vintrp%Interpolate( istep, out_mesh%ptr_mesh3D, out_veclat )
           call regrid_file_write_var( vinfo_v, vintrp%vintrp_var3D, istep )
         end if
+
+        if( IO_L ) call flush(IO_FID_LOG)      
       end do
     end if
 
