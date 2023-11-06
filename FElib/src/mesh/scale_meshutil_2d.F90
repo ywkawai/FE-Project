@@ -224,65 +224,77 @@ contains
     integer, intent(in) :: Fmask(Nfp,4)
 
 
-    integer :: k, k1, k2
+    integer :: ke, ke1, ke2
     integer :: f, f1, f2
     integer :: p
     integer :: n
     integer :: idP, idM
     integer :: v1, v2
     integer :: nodeids(Np,Ne)
-    real(RP) :: refd2
     real(RP) :: x1(Nfp,Nfp), x2(Nfp,Nfp)
     real(RP) :: y1(Nfp,Nfp), y2(Nfp,Nfp)
     real(RP) :: dist(Nfp,Nfp)
     real(RP) :: x(Np*Ne), y(Np*Ne)
+
+    integer :: mindist_indx(1)
     !-----------------------------------------------------------------------------
 
-    do k=1, Ne
+    !$omp parallel private(ke,f,p,n)
+    !$omp do
+    do ke=1, Ne
     do p=1, Np
-      n = p + (k-1)*Np
-      nodeids(p,k) = n
-      x(n) = pos_en(p,k,1)
-      y(n) = pos_en(p,k,2)
+      n = p + (ke-1)*Np
+      nodeids(p,ke) = n
+      x(n) = pos_en(p,ke,1)
+      y(n) = pos_en(p,ke,2)
     end do
     end do
-
-    do k=1, Ne
+    !$omp end do
+    !$omp do collapse(2)
+    do ke=1, Ne
     do f=1, Nfaces
     do p=1, Nfp
-      n = p + (f-1)*Nfp + (k-1)*Nfp*Nfaces
-      MapM(p,f,k) = n
-      MapP(p,f,k) = n
-      VMapM(p,f,k) = nodeids(Fmask(p,f),k)
+      n = p + (f-1)*Nfp + (ke-1)*Nfp*Nfaces
+      MapM(p,f,ke) = n
+      MapP(p,f,ke) = n
+      VMapM(p,f,ke) = nodeids(Fmask(p,f),ke)
     end do
     end do
     end do
 
+    !$omp workshare
     VMapP(:,:,:) = -1
-    do k1=1, Ne
+    !$omp end workshare
+    !$omp end parallel
+
+    !$omp parallel private( &
+    !$omp ke1, f1, ke2, f2, v1, v2,                     &
+    !$omp x1, x2, y1, y2, dist, mindist_indx, idP, idM  )
+    
+    !$omp do
+    do ke1=1, Ne
     do f1=1, Nfaces
-      k2 = EToE(k1,f1); f2 = EToF(k1,f1)
+      ke2 = EToE(ke1,f1); f2 = EToF(ke1,f1)
 
-      v1 = EToV(k1,f1); v2 = EToV(k1,1+mod(f1,Nfaces))
-      refd2 =   (pos_ev(v1,1) - pos_ev(v2,1))**2   &
-              + (pos_ev(v1,2) - pos_ev(v2,2))**2
+      v1 = EToV(ke1,f1); v2 = EToV(ke1,1+mod(f1,Nfaces))
 
-      x1(:,:) = spread( x(VMapM(:,f1,k1)), 2, Nfp )
-      x2(:,:) = spread( x(VMapM(:,f2,k2)), 1, Nfp )
-      y1(:,:) = spread( y(VMapM(:,f1,k1)), 2, Nfp )
-      y2(:,:) = spread( y(VMapM(:,f2,k2)), 1, Nfp )
+      x1(:,:) = spread( x(VMapM(:,f1,ke1)), 2, Nfp )
+      x2(:,:) = spread( x(VMapM(:,f2,ke2)), 1, Nfp )
+      y1(:,:) = spread( y(VMapM(:,f1,ke1)), 2, Nfp )
+      y2(:,:) = spread( y(VMapM(:,f2,ke2)), 1, Nfp )
 
-      dist(:,:) = (x1 - x2)**2 + (y1 - y2)**2
-      do idP=1, Nfp
+      dist(:,:) = (x1(:,:) - x2(:,:))**2 &
+                + (y1(:,:) - y2(:,:))**2
       do idM=1, Nfp
-          if (dist(idM,idP)/refd2 < 1.0E-14_RP) then
-            VMapP(idM,f1,k1) = VMapM(idP,f2,k2)
-            MapP(idM,f1,k1) = idP + (f2-1)*Nfp + (k2-1)*Nfp*Nfaces
-          end if
-      end do
+        mindist_indx(:) = minloc(dist(idM,:))
+        idP = mindist_indx(1)
+        VMapP(idM,f1,ke1) = VMapM(idP,f2,ke2)
+        MapP(idM,f1,ke1) = idP + (f2-1)*Nfp + (ke2-1)*Nfp*Nfaces
       end do
     end do
     end do
+    !$omp end do
+    !$omp end parallel
 
     !-----
   !    mapB_counter = 0
