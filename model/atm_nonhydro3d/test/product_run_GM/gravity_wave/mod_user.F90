@@ -77,6 +77,8 @@ module mod_user
   integer :: Ini_GP_PolyOrder_h = 8
   integer :: Ini_GP_PolyOrder_v = 8
 
+  logical :: is_PREShyd_ref_set
+
   !-----------------------------------------------------------------------------
 contains
 !OCL SERIAL
@@ -106,7 +108,7 @@ contains
     namelist / PARAM_USER / &
        USER_do
 
-    integer :: ierr    
+    integer :: ierr
     !------------------------------------------
 
 
@@ -127,7 +129,11 @@ contains
     !-
     call this%UserBase%Setup( atm, USER_do )
 
-    if ( this%USER_do ) call PT_diff%Init( 'PT_diff', 'K', atm%mesh%ptr_mesh )
+    if ( this%USER_do ) then
+      call PT_diff%Init( 'PT_diff', 'K', atm%mesh%ptr_mesh )
+    end if
+
+    is_PREShyd_ref_set = .false. 
 
     return
   end subroutine USER_setup
@@ -136,10 +142,33 @@ contains
   subroutine USER_calc_tendency( this, atm )
     use scale_file_history_meshfield, only: &
       FILE_HISTORY_meshfield_in
+    use scale_atm_dyn_dgm_nonhydro3d_common, only: &
+      PRESHYD_VID => AUXVAR_PRESHYDRO_ID,        &
+      PRESHYD_REF_VID => AUXVAR_PRESHYDRO_REF_ID    
     implicit none
     class(User), intent(inout) :: this
     class(AtmosComponent), intent(inout) :: atm
+
+    class(MeshField3D), pointer :: PRES_hyd
+    class(MeshField3D), pointer :: PRES_hyd_ref
+    class(LocalMesh3D), pointer :: lcmesh3D
+    integer :: domid, ke
     !------------------------------------------
+
+
+    ! Set reference hydrostatic pressure
+    if ( .not. is_PREShyd_ref_set ) then
+      call atm%vars%AUXVARS_manager%Get3D( PRESHYD_VID, PRES_hyd )
+      call atm%vars%AUXVARS_manager%Get3D( PRESHYD_REF_VID, PRES_hyd_ref )
+
+      do domid=1, PRES_hyd_ref%mesh%LOCAL_MESH_NUM
+        lcmesh3D => PRES_hyd_ref%mesh%lcmesh_list(domid)
+        do ke=lcmesh3D%NeS, lcmesh3D%NeE
+          PRES_hyd_ref%local(domid)%val(:,ke) = PRES_hyd%local(domid)%val(:,ke)
+        end do
+      end do
+      is_PREShyd_ref_set = .true.
+    end if
 
     if ( this%USER_do ) then
       call atm%vars%Calc_diagVar( 'PT_diff', PT_diff )

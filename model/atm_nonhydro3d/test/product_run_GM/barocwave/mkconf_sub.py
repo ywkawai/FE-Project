@@ -9,7 +9,7 @@ SCALE_DG_REGRID_BIN_PATH="../../../../../../../bin"
 def mkconf_init( conf_path,
                 nprc, neh, nez, porder, initgp_porder, 
                 fz  ): 
-    conf_init_s = f"""#--- Configuration file for a test case of baroclinic wave  -------
+    conf_init_s = f"""#--- Configuration file for a test case of baroclinic instability  -------
 &PARAM_IO
  IO_LOG_BASENAME = 'init_LOG',
 /
@@ -67,7 +67,7 @@ def mkconf_run( conf_path,
                 restart_in_basename, start_day, 
                 nprc, neh, nez, porder, 
                 fz, topo_in_basename, dt, mf_alph, mf_ordh, mf_alpv, mf_ordv ): 
-    conf_run_s = f"""#--- Configuration file for a test case of baroclinic wave  -------
+    conf_run_s = f"""#--- Configuration file for a test case of baroclinic instability -------
 &PARAM_RESTART
   IN_BASENAME = "{restart_in_basename}",
   OUTPUT_FLAG = .true., 
@@ -147,9 +147,10 @@ def mkconf_run( conf_path,
 &HISTORY_ITEM name='U'        /
 &HISTORY_ITEM name='V'        /
 &HISTORY_ITEM name='W'        /
-&HISTORY_ITEM name='MOMX'      /
-&HISTORY_ITEM name='MOMY'      /
-&HISTORY_ITEM name='MOMZ'      /
+&HISTORY_ITEM name='T'        /
+!&HISTORY_ITEM name='MOMX'      /
+!&HISTORY_ITEM name='MOMY'      /
+!&HISTORY_ITEM name='MOMZ'      /
 &HISTORY_ITEM name='DDENS'      /
 &HISTORY_ITEM name='THERM'     /
 &HISTORY_ITEM name='PRES'      /
@@ -177,7 +178,7 @@ def mkconf_regrid( conf_path,
                 regrid_nprcx, regrid_nprcy, 
                 regrid_nex, regrid_ney, regrid_nez, 
                 regrid_porder ): 
-    conf_run_s = f"""#--- Configuration file for a test case of baroclinic wave  -------
+    conf_run_s = f"""#--- Configuration file for a test case of sound wave  -------
 &PARAM_IO
  IO_LOG_BASENAME = "regrid_LOG"
 ! IO_LOG_ALLNODE  = .true., 
@@ -238,7 +239,7 @@ def mkconf_regrid_p( conf_path,
                 regrid_nprcx, regrid_nprcy, 
                 regrid_nex, regrid_ney, regrid_nez, 
                 regrid_porder ): 
-    conf_run_s = f"""#--- Configuration file for a test case of sound wave  -------
+    conf_run_s = f"""#--- Configuration file for a test case of baroclinic wave  -------
 &PARAM_IO
  IO_LOG_BASENAME = "regrid_p_LOG"
 ! IO_LOG_ALLNODE  = .true., 
@@ -250,7 +251,7 @@ def mkconf_regrid_p( conf_path,
 &PARAM_REGRID_INTERP_FIELD
   !- input --------------------
   in_basename="history",      
-  vars = "W", "U", "V", "THERM", "DDENS", "PRES", !"PRES_hyd", 
+  vars = "W", "U", "V", "THERM", "DDENS", "PRES", "T", 
   !out_tinterval = 5,
 /
 &PARAM_REGRID_FILE
@@ -311,6 +312,10 @@ def get_job_header(job_name, nprc, elapse_time):
   else:
     rscgrp = "small"
   
+  if node_num==384:
+    node_num = 385
+    rscgrp = "large"
+    
   jobshell_s = f"""################################################################################
 #
 # for Fugaku

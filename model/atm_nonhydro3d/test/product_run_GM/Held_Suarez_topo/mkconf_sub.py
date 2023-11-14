@@ -580,7 +580,8 @@ def mkconf_sh_spectra( conf_path,
   dom_zmin         = 0.0D0, 
   dom_zmax         = 30.0D2,  
   PolyOrder_h      = {porder},
-  PolyOrder_v      = 3,
+  PolyOrder_v      = 3, 
+  IntrpPolyOrder_h = 11,     
   FZ               = 1000D2, 950D2, 850D2, 790D2, 680D2, 550D2, 400D2, 250D2, 100D2, 50D2, 30D2,  
 /
     """

@@ -17,13 +17,13 @@ TARGET_RUNDIR_NO_LIST = {
 #EXP_ref="Eh48Ez32P7_topo_egn64"
 EXP_ref="Eh24Ez16P7_topo_egn64"
 
-#PRES_INTERP=250e2; Y_lim = [1e-4,1e3]; Y_comps_lim = [8e-2,.14e1]; SLOPE_m3_ampl=2.5e5; SLOPE_m5div3_ampl=1e2
-PRES_INTERP=500e2; Y_lim = [.5e-4,2e2]; Y_comps_lim = [1e-1,.2e1]; SLOPE_m3_ampl=4.5e4; SLOPE_m5div3_ampl=2.5e1
-#PRES_INTERP=850e2; Y_lim = [.5e-4,2e2]; Y_comps_lim = [1e-1,.2e1]; SLOPE_m3_ampl=4.5e4; SLOPE_m5div3_ampl=2.5e1
+#PRES_INTERP=250e2; Y_lim = [1e-4,1e3]; Y_comps_lim = [8e-2,.14e1]; SLOPE_m3_ampl=2.5e5; SLOPE_m5div3_ampl=2e3
+PRES_INTERP=500e2; Y_lim = [.5e-4,2e2]; Y_comps_lim = [1e-1,.2e1]; SLOPE_m3_ampl=1e5; SLOPE_m5div3_ampl=2.5e1
+#PRES_INTERP=850e2; Y_lim = [.5e-4,2e2]; Y_comps_lim = [1e-1,.3e1]; SLOPE_m3_ampl=4.5e4; SLOPE_m5div3_ampl=6e2
 
 LMAX_list = {
 #    "Eh12Ez8P3": 64, "Eh24Ez16P3": 128,
-    "Eh12Ez8P3": 42, "Eh24Ez16P3": 85,    
+    "Eh12Ez8P3": 56, "Eh24Ez16P3": 107,    
     "Eh6Ez4P7_topo_egn64": 64, "Eh12Ez8P7_topo_egn64": 128, "Eh24Ez16P7_topo_egn64":256, "Eh48Ez32P7_topo_egn64":512, 
     "Eh4Ez3P11": 64, "Eh8Ez6P11": 128, }
 
@@ -94,7 +94,7 @@ def mkgraph_compensate( hke_spectra_listlist, wke_spectra_listlist, slope_m3_amp
         i = i + 1
     
     ax.plot(n_ref, n_ref**(0),label="-3", linestyle="-", color="lightgray")        
-#    ax.plot(n_ref, slope_m5div3_ampl*n_ref**(-5.0/3.0+3.0),label="-5/3", linestyle="-", color="lightgray")        
+    ax.plot(n_ref, slope_m5div3_ampl/slope_m3_ampl * n_ref**(-5.0/3.0+3.0),label="-5/3", linestyle="-", color="lightgray")        
     ax.legend()
     
     
