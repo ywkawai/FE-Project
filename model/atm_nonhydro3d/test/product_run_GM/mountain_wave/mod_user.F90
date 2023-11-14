@@ -356,7 +356,7 @@ contains
           rtau(:) = rtau(:) + rtau_sponge * 0.5_RP * ( 1.0_RP - cos( PI * ( lcmesh%zlev(:,ke) - SPONGE_HEIGHT ) / ( zTop - SPONGE_HEIGHT ) ) )
         end where
         where ( lon(:) < PI * 0.5_RP )
-          rtau(:) = rtau(:) + rtau_lateral_sponge * 0.5_RP * ( 1.0_RP - cos( PI * ( lon(:)               ) / ( PI * 0.5_RP ) ) )
+          rtau(:) = rtau(:) + rtau_lateral_sponge * 0.5_RP * ( 1.0_RP - cos( PI * ( lon(:) - PI * 0.5_RP ) / ( PI * 0.5_RP ) ) )
         end where
         where ( lon(:) > 1.5_RP * PI )
           rtau(:) = rtau(:) + rtau_lateral_sponge * 0.5_RP * ( 1.0_RP - cos( PI * ( lon(:) - PI * 1.5_RP ) / ( PI * 0.5_RP ) ) )
