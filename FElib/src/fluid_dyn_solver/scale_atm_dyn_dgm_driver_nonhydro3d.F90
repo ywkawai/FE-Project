@@ -64,7 +64,8 @@ module scale_atm_dyn_dgm_driver_nonhydro3d
   use scale_atm_dyn_dgm_nonhydro3d_rhot_heve, only: &
     atm_dyn_dgm_nonhydro3d_rhot_heve_Init,          &
     atm_dyn_dgm_nonhydro3d_rhot_heve_Final,         &
-    atm_dyn_dgm_nonhydro3d_rhot_heve_cal_tend
+    atm_dyn_dgm_nonhydro3d_rhot_heve_cal_tend, &
+    atm_dyn_dgm_nonhydro3d_rhot_heve_cal_tend_new
 
   use scale_atm_dyn_dgm_nonhydro3d_etot_heve, only: &
     atm_dyn_dgm_nonhydro3d_etot_heve_Init,          &
@@ -349,6 +350,12 @@ contains
       this%cal_tend_ex => atm_dyn_dgm_nonhydro3d_rhot_heve_cal_tend
       this%cal_vi => null()
       this%dynsolver_final => atm_dyn_dgm_nonhydro3d_rhot_heve_Final
+    case("NONHYDRO3D_HEVE_OPT_P7", "NONHYDRO3D_RHOT_HEVE_OPT_P7")
+      this%EQS_TYPEID = EQS_TYPEID_NONHYD3D_HEVE
+      call atm_dyn_dgm_nonhydro3d_rhot_heve_Init( mesh3D )
+      this%cal_tend_ex => atm_dyn_dgm_nonhydro3d_rhot_heve_cal_tend_new
+      this%cal_vi => null()
+      this%dynsolver_final => atm_dyn_dgm_nonhydro3d_rhot_heve_Final      
     case("NONHYDRO3D_ETOT_HEVE")
       this%EQS_TYPEID = EQS_TYPEID_NONHYD3D_HEVE_ENTOT
       call atm_dyn_dgm_nonhydro3d_etot_heve_Init( mesh3D )

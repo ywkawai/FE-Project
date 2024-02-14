@@ -49,7 +49,7 @@ CACHELINESIZE = 256
 
 ##### Special setting
 
-FFLAGS_OPENMP = -Kopenmp
+FFLAGS_OPENMP = -Kopenmp,noparallel
 # enable + disable parallel
 # FFLAGS_OPENMP = -Kopenmp,noparallel
 
