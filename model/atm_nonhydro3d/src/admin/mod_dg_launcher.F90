@@ -238,8 +238,7 @@ contains
        if( universal_master ) write(*,'(1x,A,L5)') "*** Flag of ABORT ALL JOBS  = ", ABORT_ALL_JOBS
     endif
 
-  ! communicator split for nesting domains
-#ifdef SCALE_DEVELOP
+    ! communicator split for nesting domains
     call PRC_MPIsplit_nest( global_comm,      & ! [IN]
                             NUM_DOMAIN,       & ! [IN]
                             PRC_DOMAINS(:),   & ! [IN]
@@ -247,17 +246,6 @@ contains
                             COLOR_REORDER,    & ! [IN]
                             local_comm,       & ! [OUT]
                             ID_DOMAIN         ) ! [OUT]
-#else
-    call PRC_MPIsplit_nest( global_comm,      & ! [IN]
-                            NUM_DOMAIN,       & ! [IN]
-                            PRC_DOMAINS(:),   & ! [IN]
-                            LOG_SPLIT,        & ! [IN]
-                            COLOR_REORDER,    & ! [IN]
-                            local_comm,       & ! [OUT]
-                            ID_DOMAIN,        & ! [OUT]
-                            intercomm_parent, & ! [OUT]
-                            intercomm_child   ) ! [OUT]
-#endif
 
     !--- initialize FPM module & error handler
     call FPM_Init( NUM_FAIL_TOLERANCE, & ! [IN]
