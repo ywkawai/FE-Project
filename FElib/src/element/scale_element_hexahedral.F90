@@ -392,7 +392,7 @@ contains
     real(RP) :: r_int1D_i(IntrpPolyOrder)
     real(RP) :: r_int1Dw_i(IntrpPolyOrder)
     real(RP) :: P_int1D_ori_h(IntrpPolyOrder,this%Nnode_h1D)
-    real(RP) :: P_int1D_ori_v(IntrpPolyOrder,this%Nfp_v)
+    real(RP) :: P_int1D_ori_v(IntrpPolyOrder,this%Nnode_v)
     real(RP) :: Vint(IntrpPolyOrder**3,this%Np)
 
     integer :: p1, p2, p3, p1_, p2_, p3_
