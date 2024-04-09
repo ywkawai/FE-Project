@@ -579,6 +579,9 @@ contains
     real(RP) :: SCHAER_R        !< half-width of mountain   [m]
     real(RP) :: SCHAER_LAMBDA   !< wavelength of mountain oscillation [m]
     integer  :: SCHAER_SHAPE_ID !< 1: gaussian, 2: cosine bell
+    logical  :: SCHAER_MERI_TAPER_FLAG
+    real(RP)  :: SCHAER_MERI_TAPER_TANH_Clat
+    real(RP)  :: SCHAER_MERI_TAPER_TANH_LatWidth
     real(RP) :: SCHAER_HEIGHT   !< height of mountain [m]
     logical :: quasi_2D_flag
 
@@ -589,6 +592,9 @@ contains
       SCHAER_LAMBDA,   &
       SCHAER_SHAPE_ID, &
       SCHAER_HEIGHT,   &
+      SCHAER_MERI_TAPER_FLAG,          &
+      SCHAER_MERI_TAPER_TANH_Clat,     &
+      SCHAER_MERI_TAPER_TANH_LatWidth, &
       quasi_2D_flag
 
     integer :: ierr    
@@ -611,6 +617,8 @@ contains
     SCHAER_SHAPE_ID = 1
     SCHAER_HEIGHT   = 2000.0_RP
     quasi_2D_flag   = .false.
+
+    SCHAER_MERI_TAPER_FLAG = .false.
 
     !--- read namelist
     rewind(IO_FID_CONF)
@@ -651,6 +659,10 @@ contains
 
         if ( quasi_2D_flag ) then
           mwt_shape(:) = mwt_shape(:) * cos(lmesh2D%lat(:,ke2d))
+          if ( SCHAER_MERI_TAPER_FLAG ) then
+            mwt_shape(:) = mwt_shape(:) * & 
+              0.5_RP * ( 1.0_RP - tanh( ( abs(lmesh2D%lat(:,ke2d)) - SCHAER_MERI_TAPER_TANH_Clat ) / SCHAER_MERI_TAPER_TANH_LatWidth ) )
+          end if
         end if
 
         topo%local(n)%val(:,ke2d) = SCHAER_HEIGHT *  mwt_shape(:) * cos( PI * r(:) / SCHAER_LAMBDA )**2
