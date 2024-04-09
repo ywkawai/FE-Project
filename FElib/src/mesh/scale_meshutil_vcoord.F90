@@ -93,6 +93,14 @@ contains
     real(RP) :: Fx2D(elem2D%Np), Fy2D(elem2D%Np), LiftDelFlux2D(elem2D%Np)
     real(RP) :: GradZs(elem2D%Np,lcmesh2D%Ne,2)
     real(RP) :: coef3D(elem%NP)
+
+#ifdef SCALE_PRODUCT_RUN_RM_MOUNTAIN_WAVE
+    real(RP), parameter :: SCHAER_CX = 120E3_RP
+    real(RP), parameter :: SCHAER_RX = 5E3_RP
+    real(RP), parameter :: SCHAER_LAMBDA = 4E3_RP
+    real(RP), parameter :: SCHAER_HEIGHT = 25E0_RP
+#endif
+
     !------------------------------------------------
 
     if ( vcoord_id == MESH_VCOORD_TERRAIN_FOLLOWING_ID ) then
@@ -107,6 +115,9 @@ contains
         topo, lcmesh2D%normal_fn(:,:,1), lcmesh2D%normal_fn(:,:,2), &
         lcmesh2D%VMapM, lcmesh2D%VMapP, lcmesh2D, elem2D            )
       
+      ! call mktopoutil_GalerkinProjection( GradZs(:,:,1), func_schear, &
+      !   13, lcmesh2D, elem2D )
+              
       !$omp parallel private(ke2D, ke,        &
       !$omp Fx2D, Fy2D, LiftDelFlux2D, coef3D )
 
@@ -119,6 +130,19 @@ contains
         call sparsemat_matmul( Dy2D, topo(:,ke2D), Fy2D )
         call sparsemat_matmul( Lift2D, lcmesh2D%Fscale(:,ke2D) * del_flux(:,ke2D,2), LiftDelFlux2D)
         GradZs(:,ke2D,2) = lcmesh2D%Escale(:,ke2D,2,2) * Fy2D(:) + LiftDelFlux2D(:)
+
+#ifdef SCALE_PRODUCT_RUN_RM_MOUNTAIN_WAVE_ANALYTIC_METRIC
+        dist(:) = exp( - ( lmesh2D%pos_en(:,ke2d,1) - SCHAER_CX )**2 / SCHAER_RX**2 )
+        topo%local(n)%val(:,ke2d) = SCHAER_HEIGHT * dist(:) * ( cos( PI * ( lmesh2D%pos_en(:,ke2d,1) - SCHAER_CX ) / SCHAER_LAMBDA ) )**2
+                                  * 0.5_RP * (1.0_RP + cos(2.0_RP * PI * ( lmesh2D%pos_en(:,ke2d,1) - SCHAER_CX ) / SCHAER_LAMBDA ) ) )
+        GradZs(:,ke2D,1) = 0.5_RP * SCHAER_HEIGHT * exp( - ( lcmesh2D%pos_en(:,ke2d,1) - SCHAER_CX )**2 / SCHAER_RX**2 ) &
+          * ( &
+            - 2.0_RP / SCHAER_RX * ( ( lcmesh2D%pos_en(:,ke2d,1) - SCHAER_CX ) / SCHAER_RX )                              &
+              * (1.0_RP + cos(2.0_RP * PI * ( lcmesh2D%pos_en(:,ke2d,1) - SCHAER_CX ) / SCHAER_LAMBDA ) )                 &        
+            - 2.0_RP * PI / SCHAER_LAMBDA * sin(2.0_RP * PI * ( lcmesh2D%pos_en(:,ke2d,1) - SCHAER_CX ) / SCHAER_LAMBDA ) &
+          )       
+        GradZs(:,ke2D,2) = 0.0_RP        
+#endif
       end do
       !$omp end do
 
@@ -142,7 +166,119 @@ contains
     end if
 
     return
+  contains
+    subroutine func_schear( q_intrp, &
+        x, y, elem_intrp   )
+      class(ElementBase2D), intent(in) :: elem_intrp
+      real(RP), intent(out) :: q_intrp(elem_intrp%Np)
+      real(RP), intent(in) :: x(elem_intrp%Np)
+      real(RP), intent(in) :: y(elem_intrp%Np)
+      !---------------------------------------
+
+      q_intrp(:) = 0.5_RP * SCHAER_HEIGHT * exp( - ( x(:) - SCHAER_CX )**2 / SCHAER_RX**2 ) &
+          * ( &
+            - 2.0_RP / SCHAER_RX * ( ( x(:) - SCHAER_CX ) / SCHAER_RX )                              &
+              * (1.0_RP + cos(2.0_RP * PI * ( x(:) - SCHAER_CX ) / SCHAER_LAMBDA ) )                 &        
+            - 2.0_RP * PI / SCHAER_LAMBDA * sin(2.0_RP * PI * ( x(:) - SCHAER_CX ) / SCHAER_LAMBDA ) &
+          )       
+      return
+    end subroutine func_schear    
   end subroutine MeshUtil_VCoord_GetMetric
+
+
+!OCL SERIAL
+  subroutine mktopoutil_gen_GPMat( GPMat, &
+    elem_intrp, elem )
+    implicit none
+
+    class(ElementBase2D), intent(in) :: elem_intrp
+    class(ElementBase2D), intent(in) :: elem
+    real(RP), intent(out) :: GPMat(elem%Np,elem_intrp%Np)
+
+    integer :: p1, p2, p_
+    integer :: p_intrp
+
+    real(RP) :: InvV_intrp(elem%Np,elem_intrp%Np)
+    !---------------------------------------------
+
+    InvV_intrp(:,:) = 0.0_RP
+    do p2=1, elem%PolyOrder+1
+    do p1=1, elem%PolyOrder+1
+      p_ = p1 + (p2-1)*(elem%PolyOrder + 1) 
+      p_intrp = p1 + (p2-1)*(elem_intrp%PolyOrder + 1)
+      InvV_intrp(p_,:) = elem_intrp%invV(p_intrp,:)
+    end do
+    end do
+    GPMat(:,:) = matmul(elem%V, InvV_intrp)
+
+    return
+  end subroutine mktopoutil_gen_GPMat
+
+!OCL SERIAL  
+  subroutine mktopoutil_GalerkinProjection( q, &
+    func, IntrpPolyOrder_h,                    &
+    lcmesh2D, elem                             )
+  
+  use scale_element_quadrilateral
+  implicit none
+  class(LocalMesh2D), intent(in) :: lcmesh2D
+  class(ElementBase2D), intent(in) :: elem
+  real(RP), intent(out) :: q(elem%Np,lcmesh2D%NeA)
+  integer, intent(in) :: IntrpPolyOrder_h
+
+  interface
+    subroutine func( q_intrp, &
+        x, y, elem_intrp   )
+      import ElementBase2D
+      import RP
+      class(ElementBase2D), intent(in) :: elem_intrp
+      real(RP), intent(out) :: q_intrp(elem_intrp%Np)
+      real(RP), intent(in) :: x(elem_intrp%Np)
+      real(RP), intent(in) :: y(elem_intrp%Np)
+    end subroutine func
+  end interface
+
+  type(QuadrilateralElement) :: elem_intrp
+  real(RP), allocatable :: x_intrp(:,:), y_intrp(:,:)
+  real(RP) :: vx(elem%Nv), vy(elem%Nv)
+
+  real(RP), allocatable :: IntrpMat(:,:)
+  real(RP), allocatable :: q_intrp(:)
+
+  integer :: ke
+  !-----------------------------------------------
+
+  call elem_intrp%Init( IntrpPolyOrder_h, .false. )
+
+  allocate( IntrpMat(elem%Np,elem_intrp%Np) )
+  call mktopoutil_gen_GPMat( IntrpMat, elem_intrp, elem )
+
+  allocate( x_intrp(elem_intrp%Np,lcmesh2D%Ne), y_intrp(elem_intrp%Np,lcmesh2D%Ne) )
+  allocate( q_intrp(elem_intrp%Np) )
+
+  !$omp parallel do private(vx, vy)
+  do ke=lcmesh2D%NeS, lcmesh2D%NeE
+    vx(:) = lcmesh2D%pos_ev(lcmesh2D%EToV(ke,:),1)
+    vy(:) = lcmesh2D%pos_ev(lcmesh2D%EToV(ke,:),2)
+    x_intrp(:,ke) = vx(1) + 0.5_RP * ( elem_intrp%x1(:) + 1.0_RP ) * ( vx(2) - vx(1) ) 
+    y_intrp(:,ke) = vy(1) + 0.5_RP * ( elem_intrp%x2(:) + 1.0_RP ) * ( vy(4) - vy(1) )
+  end do
+
+  !$omp parallel do private( q_intrp )
+  do ke=lcmesh2D%NeS, lcmesh2D%NeE
+
+    call func( q_intrp,                 & ! (out)
+      x_intrp(:,ke), y_intrp(:,ke),     & ! (in)
+      elem_intrp                        ) ! (in)
+    
+    ! Perform Galerkin projection
+    q(:,ke) = matmul( IntrpMat, q_intrp )
+  end do
+
+  call elem_intrp%Final()
+
+  return
+end subroutine mktopoutil_GalerkinProjection
 
 !OCL SERIAL
   subroutine cal_del_flux( del_flux, &
