@@ -79,6 +79,7 @@ module mod_user
   real(RP) :: TLAPS  = 6.5E-3_RP  
   real(RP) :: Teq    = 300_RP    !< Reference surface temperature at the equator [K]
   real(RP) :: Ueq    =  0.0_RP   !< Reference zonal wind velocity [m/s]
+  real(RP) :: Ueq0   =  0.0_RP   !< Reference zonal wind velocity [m/s]
   real(RP) :: Cs     =  0.0_RP   !< Equatorial surface wind shear (for sheared flow) [m-1]
 !  real(RP) :: SPONGE_LAYER_tau = 1800.0_RP
 
@@ -92,6 +93,10 @@ module mod_user
   logical :: lateral_sponge_layer_flag = .false.
   real(RP), private :: LATERAL_SPONGE_EFOLD_SEC = 600.0_RP
   real(RP), private :: SL_TANH_NONDIM_WIDTH     = 0.16_RP
+  logical, private :: SL_APPLY_DENS = .false.
+  logical  :: SL_MERI_TAPER_FLAG
+  real(RP)  :: SL_MERI_TAPER_TANH_Clat
+  real(RP)  :: SL_MERI_TAPER_TANH_LatWidth
 
   integer :: IniIntrpPolyOrder_h = 8
   integer :: IniIntrpPolyOrder_v = 8
@@ -103,6 +108,8 @@ module mod_user
   logical :: ini_bg_force_flag = .false.
   real(RP) :: ini_bg_force_tend   = - 60.0_RP
   real(RP) :: ini_bg_force_tscale = 10.0_RP
+  real(RP) :: ini_bg_force_turnoff_tstart = 50.0_RP
+  real(RP) :: ini_bg_force_turnoff_tscale = 100.0_RP
 
   real(RP), allocatable :: sfac_h(:,:)
   real(RP), allocatable :: sfac_v(:,:)  
@@ -149,7 +156,15 @@ contains
        lateral_sponge_layer_flag, &
        LATERAL_SPONGE_EFOLD_SEC,  &
        SPONGE_LAYER_FUNC_NAME,    &
-       SL_TANH_NONDIM_WIDTH
+       SL_TANH_NONDIM_WIDTH,      &
+       ini_bg_force_flag,         &
+       ini_bg_force_tscale,       &
+       ini_bg_force_turnoff_tstart, &       
+       ini_bg_force_turnoff_tscale, &
+       SL_APPLY_DENS, &
+       SL_MERI_TAPER_FLAG, &
+       SL_MERI_TAPER_TANH_Clat,    &
+       SL_MERI_TAPER_TANH_LatWidth
 
 
     integer :: ierr    
@@ -197,7 +212,7 @@ contains
       LOG_ERROR("USER_setup",*) 'Not supported function for SPONGE_LAYER_FUNC. Check!', SPONGE_LAYER_FUNC_NAME
       call PRC_abort
     end select
-    call setup_sfac( this, mesh )
+    call setup_sfac( this, atm )
 
     return
   end subroutine USER_setup
@@ -246,9 +261,6 @@ contains
     if ( lateral_sponge_layer_flag ) then
       rtau_lateral_sponge = 1.0_RP / LATERAL_SPONGE_EFOLD_SEC
     end if
-
-    sponge_lateral_x00 = Lx - SPONGE_LATERAL_WIDTH
-    sponge_lateral_x0 = sponge_lateral_x00 + 0.5_RP * SPONGE_LATERAL_WIDTH
     
     do n=1, atm%mesh%ptr_mesh%LOCAL_MESH_NUM      
       lcmesh => atm%mesh%ptr_mesh%lcmesh_list(n) 
@@ -261,8 +273,8 @@ contains
       do ke=lcmesh%NeS, lcmesh%NeE
         ke2D = lcmesh%EMap3Dto2D(ke)
 
-        lon(:) = lcmesh%lon2D(elem3D%IndexH2Dto3D,ke2D)
-        lat(:) = lcmesh%lat2D(elem3D%IndexH2Dto3D,ke2D)
+        lon(:) = lcmesh%lon2D(elem%IndexH2Dto3D,ke2D)
+        lat(:) = lcmesh%lat2D(elem%IndexH2Dto3D,ke2D)
 
         select case( SLFUNC_TYPEID )
         case ( SLFUNC_COSBELL_TYPEID )
@@ -275,16 +287,21 @@ contains
             sfac_h(:,ke) =  sfac_h(:,ke) + rtau_lateral_sponge * 0.5_RP * ( 1.0_RP - cos( PI * ( lon(:) - PI * 1.5_RP ) / ( PI * 0.5_RP ) ) )
           end where
           where ( lcmesh%zlev(:,ke) > SPONGE_HEIGHT )
-            sfac_v(:,ke) = sfac(:,ke) + rtau_sponge * 0.5_RP * ( 1.0_RP - cos( PI * ( lcmesh%zlev(:,ke) - SPONGE_HEIGHT ) / ( zTop - SPONGE_HEIGHT ) ) )
+            sfac_v(:,ke) = sfac_v(:,ke) + rtau_sponge * 0.5_RP * ( 1.0_RP - cos( PI * ( lcmesh%zlev(:,ke) - SPONGE_HEIGHT ) / ( zTop - SPONGE_HEIGHT ) ) )
           end where
         
         case ( SLFUNC_TANH_TYPEID )
           sfac_v(:,ke) = &
             + rtau_sponge * 0.5_RP * ( 1.0_RP + tanh( ( lcmesh%zlev(:,ke) - 0.5_RP * ( zTop + SPONGE_HEIGHT ) ) / ( SL_TANH_NONDIM_WIDTH * ( zTop - SPONGE_HEIGHT ) ) ) )
           sfac_h(:,ke) = &
-                rtau_lateral_sponge * 0.5_RP * ( 1.0_RP - tanh( ( lon(:) - PI * 0.25_RP ) / ( SL_TANH_NONDIM_WIDTH * PI * 0.5_RP ) ) ) &
-              + rtau_lateral_sponge * 0.5_RP * ( 1.0_RP + tanh( ( lon(:) - PI * 1.75_RP ) / ( SL_TANH_NONDIM_WIDTH * PI * 0.5_RP ) ) )
+              rtau_lateral_sponge * 0.5_RP * ( 1.0_RP - tanh( ( lon(:) - PI * 0.25_RP ) / ( SL_TANH_NONDIM_WIDTH * PI * 0.5_RP ) ) ) &
+            + rtau_lateral_sponge * 0.5_RP * ( 1.0_RP + tanh( ( lon(:) - PI * 1.75_RP ) / ( SL_TANH_NONDIM_WIDTH * PI * 0.5_RP ) ) )
         end select
+
+        if ( SL_MERI_TAPER_FLAG ) then
+          sfac_h(:,ke) = sfac_h(:,ke) * & 
+            0.5_RP * ( 1.0_RP - tanh( ( abs(lat(:)) - SL_MERI_TAPER_TANH_Clat ) / SL_MERI_TAPER_TANH_LatWidth ) )
+        end if
       end do
 
       deallocate( lon, lat )
@@ -292,6 +309,34 @@ contains
 
     return
   end subroutine setup_sfac
+
+!OCL SERIAL
+  subroutine cal_ini_bg_force_param( tsec, sw, ini_bg_sfac )
+    implicit none
+    real(RP), intent(in) :: tsec
+    real(RP), intent(out) :: sw
+    real(RP), intent(out) :: ini_bg_sfac
+
+    real(RP) :: ini_bg_off_tsec
+    !--------------------------------------------------
+
+    ini_bg_off_tsec = ini_bg_force_turnoff_tstart + ini_bg_force_turnoff_tscale
+
+    if ( ini_bg_force_flag .and. tsec < ini_bg_off_tsec ) then
+      ini_bg_sfac = 1.0_RP / ini_bg_force_tscale
+      if ( tsec > ini_bg_force_turnoff_tstart ) then
+        sw = 0.5_RP * ( 1.0_RP - cos( PI * ( ( tsec - ini_bg_force_turnoff_tstart ) / ini_bg_force_turnoff_tscale - 1.0_RP ) ) )
+      else
+        sw = 1.0_RP
+      end if
+    else
+      ini_bg_sfac = 0.0_RP
+      sw = 0.0_RP
+    end if
+    LOG_INFO("USER_up",*) "time=", tsec, sw, ini_bg_sfac
+
+    return
+  end subroutine  cal_ini_bg_force_param
 
 !OCL SERIAL  
   subroutine USER_calc_tendency( this, atm )
@@ -332,10 +377,10 @@ contains
     integer :: ke, ke2D
     !------------------------------------------
 
-    if ( this%USER_do ) then
-      call atm%vars%Calc_diagVar( 'PT_diff', PT_diff )
-      call FILE_HISTORY_meshfield_in( PT_diff, "perturbation of potential temperature" )
-    end if
+    ! if ( this%USER_do ) then
+    !   call atm%vars%Calc_diagVar( 'PT_diff', PT_diff )
+    !   call FILE_HISTORY_meshfield_in( PT_diff, "perturbation of potential temperature" )
+    ! end if
 
     ! Set reference hydrostatic pressure
     if ( .not. is_PREShyd_ref_set ) then
@@ -413,8 +458,7 @@ contains
     integer :: ke, ke2D
 
     real(RP), allocatable :: DENS(:), T(:)
-    real(RP), allocatable :: rtau(:,:), sfac(:), rsfac(:)
-    real(RP), allocatable :: lon(:), lat(:)
+    real(RP), allocatable :: sfac(:), rsfac(:)
 
     real(RP) :: rtau_ini_bg
     real(RP) :: rtau_sponge
@@ -426,8 +470,7 @@ contains
 
     real(DP) :: dt_
 
-    real(RP) :: ini_bg_sfac, ini_bg_off_tsec
-    real(RP) :: sw
+    real(RP) :: ini_bg_sfac, sw
     !----------------------------------------------------------
 
     dt = atm%time_manager%dtsec
@@ -436,22 +479,8 @@ contains
     gamm = CpDry / CvDry 
 
     dt_ = atm%time_manager%dtsec
-    ini_bg_off_tsec = 15.0_RP * ini_bg_force_tscale
-    if ( ini_bg_force_flag .and. tsec < ini_bg_off_tsec ) then
-!      U_bg = U0 * ( 1.0_RP - exp(-tsec/ini_bg_force_tscale) )
-      ini_bg_sfac = 1.0_RP / ini_bg_force_tscale
-      if ( tsec > 5.0_RP * ini_bg_force_tscale ) then
-        sw = 0.5_RP * ( 1.0_RP - cos( PI * ( ( tsec - 5.0_RP * ini_bg_force_tscale ) / ( 10.0_RP * ini_bg_force_tscale ) - 1.0_RP ) ) )
-      else
-        sw = 1.0_RP
-      end if
-    else
-      U_bg = U0
-      ini_bg_sfac = 0.0_RP
-      sw = 0.0_RP
-    end if
-!    ini_bg_sfac = 0.0_RP
-    LOG_INFO("USER_up",*) "time=", tsec, sw
+    call cal_ini_bg_force_param( tsec, & ! (in)
+      sw, ini_bg_sfac ) ! (out)
 
     do n=1, atm%mesh%ptr_mesh%LOCAL_MESH_NUM
       call AtmosVars_GetLocalMeshPrgVars( n, atm%mesh%ptr_mesh,  &
@@ -465,10 +494,9 @@ contains
       elem3D => lcmesh%refElem3D
 
       allocate( DENS(elem3D%Np), T(elem3D%Np) )
-      allocate( rtau(elem3D%Np,lcmesh%Ne), sfac(elem3D%Np), rsfac(elem3D%Np) )
-      allocate( lon(elem3D%Np), lat(elem3D%Np) )
+      allocate( sfac(elem3D%Np), rsfac(elem3D%Np) )
 
-      !$omp parallel private(DENS, T, lon, lat,  sfac, rsfac, ke2D)
+      !$omp parallel private(DENS, T, sfac, rsfac, ke2D)
       !$omp do
       do ke=lcmesh%NeS, lcmesh%NeE
         sfac(:) = dt_ * ( sw * ini_bg_sfac + ( 1.0_RP - sw ) * ( sfac_h(:,ke) + sfac_v(:,ke) ) ) 
@@ -485,16 +513,13 @@ contains
         end if
         !- For the case of d DRHOT /dt = dens * Cp * ( Teq - T ) / tauT     
         !  <- It is based on the forcing form in Held and Surez in which the temperature evolution equation is assumed to be dT/dt = R/Cp * T/p * dp/dt + (Teq - T) / tauT
-        DRHOT%val(:,ke) = DRHOT%val(:,ke) &
-                        - dt * rtau(:,ke) * ( 1.0_RP - T_bg%local(n)%val(:,ke) / T(:) ) * DENS(:) * PT%val(:,ke)     &
-                        / ( 1.0_RP + dt * rtau(:,ke) * ( 1.0_RP + (gamm - 1.0_RP) * T_bg%local(n)%val(:,ke) / T(:) ) )  
+        DRHOT%val(:,ke) = DRHOT%val(:,ke) * rsfac(:) 
       end do
 
       !$omp end parallel
 
       deallocate( DENS, T )
       deallocate( sfac, rsfac )
-      deallocate( lat )
     end do
     
     return
@@ -536,19 +561,23 @@ contains
     real(RP), intent(in) :: dom_ymin, dom_ymax
     real(RP), intent(in) :: dom_zmin, dom_zmax    
 
-    real(RP) :: T(elem%Np)
+    real(RP) :: T(elem%Np), T0(elem%Np), DENS0(elem%Np)
+    real(RP) :: PRES_hyd0(elem%Np)
     real(RP) :: sin_lat(elem%Np), cos_lat(elem%Np)
     real(RP) :: MOMX_met(elem%Np,lcmesh%Ne)
-    real(RP) :: MOMY_met          (elem%Np,lcmesh%Ne)
+    real(RP) :: MOMY_met(elem%Np,lcmesh%Ne)
 
     integer :: ke, ke2d
 
     type(LocalMesh2D), pointer :: lmesh2D
     real(RP) :: H0_pres
-    real(RP) :: Ueq_
+
+    real(RP) :: rgamm
     !-----------------------------------------------------------------------------
 
     call read_exp_params()
+
+    rgamm = CVDry / CPDry
 
     select case( trim(DCMIP_case) )
     case( '2-0-0', '2-0-1' )
@@ -556,18 +585,26 @@ contains
       TLAPS, TEMP0, PRES00,                                            & ! (in)
       x, y, lcmesh%zlev, lcmesh, elem                                  ) ! (in)
     case ('2-1', '2-2')
-      !$omp parallel do private( ke2d, sin_lat, cos_lat, T, Ueq_ )
+      !$omp parallel do private( ke2d, sin_lat, cos_lat, T, T0, DENS0, PRES_hyd0 )
       do ke=lcmesh%NeS, lcmesh%NeE
         ke2d = lcmesh%EMap3Dto2D(ke)
         sin_lat(:) = sin(lcmesh%lat2D(elem%IndexH2Dto3D(:),ke2D))
         cos_lat(:) = cos(lcmesh%lat2D(elem%IndexH2Dto3D(:),ke2D))
 
-        T(:) = Teq * ( 1.0_RP - Cs * Ueq**2 * sin_lat(:)**2 / Grav )
+        T (:) = Teq * ( 1.0_RP - Cs * Ueq **2 * sin_lat(:)**2 / Grav )
+        T0(:) = Teq * ( 1.0_RP - Cs * Ueq0**2 * sin_lat(:)**2 / Grav )
 
         PRES_hyd(:,ke) = PRES00 * exp( - 0.5_RP * Ueq**2 / ( Rdry * Teq ) * sin_lat(:)**2 - Grav * lcmesh%zlev(:,ke) / ( Rdry * T(:) ) )
         DENS_hyd(:,ke) = PRES_hyd(:,ke) / ( Rdry * T(:) )
-  
-        MOMX_met(:,ke) = DENS_hyd(:,ke) * Ueq * cos_lat(:) * sqrt( 2.0_RP * Teq / T(:) * Cs * lcmesh%zlev(:,ke) + T(:) / Teq )
+
+        PRES_hyd0(:) = PRES00 * exp( - 0.5_RP * Ueq0**2 / ( Rdry * Teq ) * sin_lat(:)**2 - Grav * lcmesh%zlev(:,ke) / ( Rdry * T0(:) ) )
+        DRHOT(:,ke) = PRES00 / Rdry * ( &
+          ( PRES_hyd0(:) / PRES00 )**rgamm - ( PRES_hyd(:,ke) / PRES00 )**rgamm )
+        
+        DENS0(:) = PRES_hyd0(:) / ( Rdry * T0(:) ) 
+        DDENS(:,ke) = DENS0(:) - PRES_hyd(:,ke) / ( Rdry * T(:) )
+
+        MOMX_met(:,ke) = DENS0(:) * Ueq0 * cos_lat(:) * sqrt( 2.0_RP * Teq / T0(:) * Cs * lcmesh%zlev(:,ke) + T0(:) / Teq )
         MOMY_met(:,ke) = 0.0_RP
       end do
 
@@ -592,7 +629,7 @@ contains
     namelist /PARAM_EXP/ &
       DCMIP_case,          &
       TEMP0, TLAPS,        &
-      Ueq, Cs,             &
+      Ueq, Ueq0, Cs,       &
       TLAPS,               &
       IniIntrpPolyOrder_h, &
       IniIntrpPolyOrder_v!, &

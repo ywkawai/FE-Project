@@ -10,7 +10,8 @@ module mod_regrid_nodemap
   use scale_prof
   use scale_prc, only: PRC_abort
   use scale_const, only: &
-    PI => CONST_PI
+    PI => CONST_PI!, &
+!    EPS => CONST_EPS
 
   use scale_element_base, only: ElementBase2D, ElementBase3D
   use scale_localmesh_2d, only: LocalMesh2D
@@ -244,6 +245,10 @@ contains
 
     integer :: out_panel
     integer :: Np2D
+
+    ! integer :: i2, i1
+    ! real(RP) :: l21(2), lp1(2)
+    ! real(RP) :: tmp, l21_abs, lp1_abs
     !-----------------------------------------------------------------
 
     LOG_INFO("regrid_nodemap",*) "NodeMap_construct_nodemap_2D_prep"    
@@ -355,7 +360,22 @@ contains
                   
             is_inside_elem  = polygon_inpoly( out_x(p_h,ke_h), out_y(p_h,ke_h),  &
                                               4, in_elem_x(:), in_elem_y(:)      )
-                        
+            ! if ( (.not. is_inside_elem ) .and.   &
+            !   ( p_h_x == Np1D .or. p_h_y == Np1D ) ) then
+            !   if ( p_h_x == Np1D ) then
+            !     i2 = 3; i1 = 2
+            !   else if ( p_h_y == Np1D ) then
+            !     i2 = 4; i1 = 3
+            !   end if
+            !   l21(:) = (/ in_elem_x(i2) - in_elem_x(i1), in_elem_y(i2) - in_elem_y(i1) /)
+            !   lp1(:) = (/ out_x(p_h,ke_h) - in_elem_x(i1), out_y(p_h,ke_h) - in_elem_y(i1) /)
+            !   l21_abs = sqrt( sum(l21(:)**2) ); lp1_abs = sqrt( sum(lp1(:)**2) )
+            !   tmp = sum(l21(:) * lp1(:))
+            !   if ( abs(tmp - l21_abs * lp1_abs) < EPS .and. tmp >= 0.0_RP .and. l21_abs >= lp1_abs ) then
+            !     is_inside_elem = .true.  
+            !   end if
+            ! end if
+
             if (is_inside_elem) then
               this%elem_i(p_h,ke_h) = i
               this%elem_j(p_h,ke_h) = j

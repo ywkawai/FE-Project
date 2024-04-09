@@ -9,10 +9,25 @@ SCALE_DG_REGRID_BIN_PATH="../../../../../../../bin"
 #----------------------
 
 def mkconf_init( conf_path,
-                nprc, neh, nez, porder, initgp_porder, 
+                nprc, neh, nez, porder, 
                 fz,
-                h0 ): 
-    conf_init_s = f"""#--- Configuration file for a test case of mountain wave  -------
+                Ueq, h0, ini_bg_force_flag, 
+                highlat_tappering_flag ): 
+  if ini_bg_force_flag:
+    Ueq0 = "0D0"
+  else:
+    Ueq0 = Ueq
+  
+  if highlat_tappering_flag:
+    param_highlat_tappering = f"""
+  SCHAER_MERI_TAPER_FLAG = .true., 
+  SCHAER_MERI_TAPER_TANH_Clat = 1.0471975511965976D0, ! 60 deg
+  SCHAER_MERI_TAPER_TANH_LatWidth = 0.13962634015954636D0, ! 8 deg 
+    """
+  else:
+    param_highlat_tappering = ""
+    
+  conf_init_s = f"""#--- Configuration file for a test case of mountain wave  -------
 &PARAM_IO
  IO_LOG_BASENAME = 'init_LOG',
 /
@@ -33,9 +48,8 @@ def mkconf_init( conf_path,
 /
 &PARAM_EXP
   DCMIP_case = '2-1',  
-  Ueq        = 20.0D0, 
-  IniIntrpPolyOrder_h = {initgp_porder},
-  IniIntrpPolyOrder_v = {initgp_porder},
+  Ueq        = {Ueq}, 
+  Ueq0       = {Ueq0}, 
 /
 #** ATMOS ******************************************************
 &PARAM_ATMOS
@@ -68,6 +82,7 @@ def mkconf_init( conf_path,
   SCHAER_SHAPE_ID = 1, 
   SCHAER_HEIGHT = {h0}.D0,  
   quasi_2D_flag = .true., 
+{param_highlat_tappering}
 /
 #** ATMOS / DYN ******************************************************
 &PARAM_ATMOS_DYN
@@ -76,16 +91,40 @@ def mkconf_init( conf_path,
 /    
     """
     
-    with open(conf_path, 'w') as f:
-        f.write(conf_init_s)
+  with open(conf_path, 'w') as f:
+    f.write(conf_init_s)
 
 #----------------
 
 def mkconf_run( conf_path, 
-                restart_in_basename, start_day, 
+                restart_in_basename, start_day, integ_hour, 
                 nprc, neh, nez, porder, 
-                fz, dt, mf_alph, mf_ordh, mf_alpv, mf_ordv ): 
-    conf_run_s = f"""#--- Configuration file for a test case of mountain wave  -------
+                fz, dt, mf_alph, mf_ordh, mf_alpv, mf_ordv,
+                ini_bg_force_flag, ini_bg_force_tscale,
+                ini_bg_force_turnoff_tstart, ini_bg_force_turnoff_tscale, 
+                lsponge_tappering_flag ):                  
+  
+  if ini_bg_force_flag:
+    param_ini_bg_force = f"""
+  ini_bg_force_flag = .true., 
+  ini_bg_force_tscale = {ini_bg_force_tscale}D0, 
+  ini_bg_force_turnoff_tstart = {ini_bg_force_turnoff_tstart}D0, 
+  ini_bg_force_turnoff_tscale = {ini_bg_force_turnoff_tscale}D0,   
+    """
+  else:
+    param_ini_bg_force = ""
+  
+  if lsponge_tappering_flag:
+    param_lsponge_tappering = f"""
+  SL_MERI_TAPER_FLAG = .true., 
+  SL_MERI_TAPER_TANH_Clat = 1.0471975511965976D0, ! 60 deg
+  SL_MERI_TAPER_TANH_LatWidth = 0.13962634015954636D0, ! 8 deg    
+    """
+  else:
+    param_lsponge_tappering = ""
+    
+
+  conf_run_s = f"""#--- Configuration file for a test case of mountain wave  -------
 &PARAM_RESTART
   IN_BASENAME = "{restart_in_basename}",
   OUTPUT_FLAG = .true., 
@@ -94,9 +133,9 @@ def mkconf_run( conf_path,
 &PARAM_TIME
   TIME_STARTDATE       = 0000, 1, {start_day}, 0, 0, 0,
   TIME_STARTMS         = 0.D0,
-  TIME_DURATION        = 2.0D0, 
+  TIME_DURATION        = {integ_hour}, 
   TIME_DURATION_UNIT   = 'HOUR', 
-  TIME_DT              = 3.0D0, 
+  TIME_DT              = 0.375D0, 
   TIME_DT_UNIT         = 'SEC', 
 /
 &PARAM_CONST
@@ -112,15 +151,18 @@ def mkconf_run( conf_path,
   sponge_layer_flag = .true., 
   zTop              = 30D3, 
   SPONGE_HEIGHT     = 15D3, 
-  SPONGE_EFOLD_SEC  = 120D0, 
+  SPONGE_EFOLD_SEC  = 100D0, 
+  SPONGE_LAYER_FUNC_NAME    = "TANH",     
   lateral_sponge_layer_flag = .true., 
-  LATERAL_SPONGE_EFOLD_SEC  = 240D0,   
+  LATERAL_SPONGE_EFOLD_SEC  = 200D0,   
+{param_ini_bg_force}
+{param_lsponge_tappering}
 /
 #** ATMOS ******************************************************
 &PARAM_ATMOS
   ACTIVATE_FLAG       = .true., 
   ATMOS_MESH_TYPE     = 'GLOBAL',   
-  TIME_DT             = 3.0D0, 
+  TIME_DT             = 0.375D0, 
   TIME_DT_UNIT        = 'SEC', 
   ATMOS_DYN_DO        = .true.
 /
@@ -179,10 +221,9 @@ def mkconf_run( conf_path,
 &HISTORY_ITEM name='U'        /
 &HISTORY_ITEM name='V'        /
 &HISTORY_ITEM name='W'        /
-&HISTORY_ITEM name='PT_diff'  /
 &HISTORY_ITEM name='DDENS'    /
 &HISTORY_ITEM name='THERM'    /
-&HISTORY_ITEM name='PRES'     /
+!&HISTORY_ITEM name='PRES'     /
 
 #*** Statistics *******************************************
 
@@ -190,7 +231,7 @@ def mkconf_run( conf_path,
  use_globalcomm = .true.,
 /
 &PARAM_MONITOR 
-  MONITOR_STEP_INTERVAL = 2,
+  MONITOR_STEP_INTERVAL = 30,
 /
 &MONITOR_ITEM name='DDENS' /
 &MONITOR_ITEM name='ENGT'  /
@@ -199,14 +240,15 @@ def mkconf_run( conf_path,
 &MONITOR_ITEM name='ENGP'  /
     """
     
-    with open(conf_path, 'w') as f:
-        f.write(conf_run_s)
+  with open(conf_path, 'w') as f:
+      f.write(conf_run_s)
 
 def mkconf_regrid( conf_path,
                 nprc, neh, nez, porder, fz, 
                 regrid_nprcx, regrid_nprcy, 
                 regrid_nex, regrid_ney, regrid_nez, 
-                regrid_porder ): 
+                regrid_porderh, regrid_porderv, regrid_fz, 
+                output_dir ): 
     conf_run_s = f"""#--- Configuration file for a test case of mountain wave  -------
 &PARAM_IO
  IO_LOG_BASENAME = "regrid_LOG"
@@ -223,12 +265,12 @@ def mkconf_regrid( conf_path,
 &PARAM_REGRID_INTERP_FIELD
   !- input --------------------
   in_basename="history",      
-  vars = "W", "U", "V", "PT_diff", !"PRES_hyd", 
+  vars = "W", "U", "V", !"PRES_hyd", 
   !out_tinterval = 5,
 /
 &PARAM_REGRID_FILE
   !-- output ----------------
-  out_basename="./outdata/history", 
+  out_basename="{output_dir}/history", 
   out_UniformGrid=.false., 
 /
 &PARAM_REGRID_OPERATE_FIELD
@@ -252,26 +294,26 @@ def mkconf_regrid( conf_path,
   NprcY       = {regrid_nprcy}, 
   NeY         = {regrid_ney},    
   NeGZ        = {regrid_nez}, 
-  PolyOrder_h = {regrid_porder}, 
-  PolyOrder_v = {porder}, 
+  PolyOrder_h = {regrid_porderh}, 
+  PolyOrder_v = {regrid_porderv}, 
   dom_xmin    =   0.0D0, 
   dom_xmax    = 360.0D0,   
   dom_ymin    = -90.0D0, 
   dom_ymax    =  90.0D0, 
   dom_zmin    = 0.0D0, 
   dom_zmax    = 30.0D3,   
-  FZ          = {fz},  
+  FZ          = {regrid_fz},  
 /
-&PARAM_REGRID_VCOORD
-  vintrp_name     = 'HEIGHT', 
-  out_NeZ         = {regrid_nez},                 
-  out_PolyOrder_v = {porder},         
-  out_dom_vmin    = 0D0,         
-  out_dom_vmax    = 30D3, 
-  out_Fz = {fz}, 
-  in_topofile_basename = "outdata/topo", 
-  topo_varname         = "topo",           
-/
+!&PARAM_REGRID_VCOORD
+!  vintrp_name     = 'HEIGHT', 
+!  out_NeZ         = {regrid_nez},                 
+!  out_PolyOrder_v = {porder},         
+!  out_dom_vmin    = 0D0,         
+!  out_dom_vmax    = 30D3, 
+!  out_Fz = {fz}, 
+!  in_topofile_basename = "outdata/topo", 
+!  topo_varname         = "topo",           
+!/
     """
     
     with open(conf_path, 'w') as f:
@@ -380,27 +422,42 @@ def mk_conf_sh( exp_name, exp_info ):
     fz = exp_info["fz"]
     porder = exp_info["porder"]
     h0 = exp_info["h0"]
-
-    out_dir_pref=f"./rhot_heve/{exp_name}"
+    ini_bg_force_flag = exp_info["ini_bg_force_flag"]
+    highlat_tappering_flag = exp_info["highlat_tappering_flag"]
+    
+    out_dir_pref=f"./rhot_heve2/{exp_name}"
 
     print(out_dir_pref)
     os.makedirs(out_dir_pref, exist_ok=True)
-    
+
+    ueq = "20D0"
     mkconf_init(f"{out_dir_pref}/init.conf", 
-                nprc, eh, ez, porder, exp_info["initgp_porder"], 
+                nprc, eh, ez, porder, 
                 fz,
-                h0 )
+                ueq, h0, ini_bg_force_flag, 
+                highlat_tappering_flag )
     
     mkconf_run(f"{out_dir_pref}/run.conf", 
-               "init_00000101-000000.000", 1, 
+               "init_00000101-000000.000", 1, exp_info["integ_hour"], 
                 nprc, eh, ez, porder, 
                 fz, exp_info["dt"], 
-                exp_info["mf_alph"], exp_info["mf_ordh"], exp_info["mf_alpv"], exp_info["mf_ordv"])        
+                exp_info["mf_alph"], exp_info["mf_ordh"], exp_info["mf_alpv"], exp_info["mf_ordv"], 
+                ini_bg_force_flag, exp_info["ini_bg_force_tscale"], exp_info["ini_bg_force_turnoff_tstart"], exp_info["ini_bg_force_turnoff_tscale"], 
+                highlat_tappering_flag )  
                     
     mkconf_regrid(f"{out_dir_pref}/regrid.conf", 
                     nprc, eh, ez, porder, fz, 
                     exp_info["regrid_nprcx"], exp_info["regrid_nprcy"], 
-                    exp_info["regrid_Ex"], exp_info["regrid_Ey"], exp_info["Ez"], exp_info["regrid_porder"] )
+                    exp_info["regrid_Ex"], exp_info["regrid_Ey"], exp_info["Ez"], 
+                    exp_info["regrid_porder"], exp_info["regrid_porder"], fz, 
+                    "outdata" )
+    
+    mkconf_regrid(f"{out_dir_pref}/regrid_compari.conf", 
+                    nprc, eh, ez, porder, fz, 
+                    exp_info["regrid_nprcx_compari"], exp_info["regrid_nprcy_compari"], 
+                    exp_info["regrid_Ex_compari"], exp_info["regrid_Ey_compari"], exp_info["regrid_Ez_compari"], 
+                    exp_info["regrid_porderh_compari"], exp_info["regrid_porderv_compari"], exp_info["regrid_fz_compari"],
+                    "outdata_compari" )
 
     mkconf_regrid_topo(f"{out_dir_pref}/regrid_topo.conf", 
                     nprc, eh, porder, 
@@ -417,5 +474,9 @@ def mk_conf_sh( exp_name, exp_info ):
     mksh_job_regrid(f"{out_dir_pref}/job_regrid_topo.sh", f"REGT_E{eh}P{porder}", "regrid_topo.conf", 
                       exp_info["regrid_nprcx"]*exp_info["regrid_nprcy"], exp_info["regrid_elapse_time"], 
                       "outdata")
+
+    mksh_job_regrid(f"{out_dir_pref}/job_regrid_compari.sh", f"REG_E{eh}P{porder}", "regrid_compari.conf", 
+                      exp_info["regrid_nprcx_compari"]*exp_info["regrid_nprcy_compari"], exp_info["regrid_elapse_time"], 
+                      "outdata_compari")
   
 #---------------------------------
