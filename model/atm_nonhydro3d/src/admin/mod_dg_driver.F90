@@ -140,6 +140,9 @@ contains
       
       !* change to next state *************************
 
+      !- USER
+      call user_%update_pre( atmos )
+
       !- ATMOS
       if ( atmos%IsActivated() .and. atmos%time_manager%do_step ) then
        call atmos%update()

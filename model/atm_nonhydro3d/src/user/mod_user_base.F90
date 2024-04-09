@@ -39,6 +39,7 @@ module mod_user_base
     generic :: setup => setup_base
     procedure :: final => USER_base_final
     procedure :: calc_tendency => USER_base_calc_tendency
+    procedure :: update_pre => USER_base_update_pre
     procedure :: update => USER_base_update
   end type UserBase
 
@@ -105,6 +106,14 @@ contains
 
     return
   end subroutine USER_base_calc_tendency
+
+  subroutine USER_base_update_pre( this, atm )
+    implicit none
+    class(UserBase), intent(inout) :: this
+    class(AtmosComponent), intent(inout) :: atm
+    !------------------------------------------
+    return
+  end subroutine USER_base_update_pre
 
   subroutine USER_base_update( this, atm )
     implicit none
