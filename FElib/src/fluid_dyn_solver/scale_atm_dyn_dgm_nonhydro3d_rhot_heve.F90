@@ -55,7 +55,9 @@ module scale_atm_dyn_dgm_nonhydro3d_rhot_heve
   public :: atm_dyn_dgm_nonhydro3d_rhot_heve_Init
   public :: atm_dyn_dgm_nonhydro3d_rhot_heve_Final
   public :: atm_dyn_dgm_nonhydro3d_rhot_heve_cal_tend
-
+#ifdef SCALE_PRODUCT_RUN_RM_MOUNTAIN_WAVE
+  public :: atm_dyn_dgm_nonhydro3d_rhot_heve_set_dampcoef
+#endif
   !-----------------------------------------------------------------------------
   !
   !++ Public parameters & variables
@@ -67,13 +69,91 @@ module scale_atm_dyn_dgm_nonhydro3d_rhot_heve
   !
   !-------------------
 
+#ifdef SCALE_PRODUCT_RUN_RM_MOUNTAIN_WAVE
+  type(MeshField3D), public :: forcing_U0
+  type(MeshField3D), public :: forcing_W0
+  real(RP) :: U0
+  real(RP) :: Grav_mod
+  real(RP) :: ini_bg_force_tscale
+  real(RP) :: ini_bg_force_turnoff_tstart
+  real(RP) :: ini_bg_force_turnoff_tscale
+  real(RP) :: ini_bg_sfac
+
+  real(RP), allocatable :: sfac(:,:)
+  real(RP), allocatable :: sfac_btm(:,:)
+  real(RP) :: sw
+#endif
+
 contains
   subroutine atm_dyn_dgm_nonhydro3d_rhot_heve_Init( mesh )
     implicit none
-    class(MeshBase3D), intent(in) :: mesh
+    class(MeshBase3D), target, intent(in) :: mesh
+
+#ifdef SCALE_PRODUCT_RUN_RM_MOUNTAIN_WAVE
+    integer :: n, ke
+    class(ElementBase3D), pointer :: elem
+    class(LocalMesh3D), pointer :: lmesh3D
+
+    real(RP) :: zTop
+    real(RP) :: SPONGE_HEIGHT
+    real(RP) :: SPONGE_LATERAL_WIDTH
+    real(RP) :: SPONGE_EFOLD_SEC
+    real(RP) :: LATERAL_SPONGE_EFOLD_SEC
+    real(RP) :: SL_TANH_NONDIM_WIDTH 
+
+    real(RP) :: rtau_sponge
+    real(RP) :: rtau_lateral_sponge
+    real(RP) :: sponge_lateral_x00
+    real(RP) :: sponge_lateral_x0    
+#endif
     !--------------------------------------------
 
     call atm_dyn_dgm_nonhydro3d_common_Init( mesh )
+#ifdef SCALE_PRODUCT_RUN_RM_MOUNTAIN_WAVE
+    call forcing_U0%Init( "forcing_U0", "m/s", mesh )
+    call forcing_W0%Init( "forcing_W0", "m/s", mesh )
+    do n=1, mesh%LOCAL_MESH_NUM
+      lmesh3D => mesh%lcmesh_list(n)
+      do ke=lmesh3D%NeS, lmesh3D%NeE
+        forcing_U0%local(n)%val(:,ke) = 20.0_RP
+        forcing_W0%local(n)%val(:,ke) = - lmesh3D%Gsqrt(:,ke) * lmesh3D%GI3(:,ke,1) * forcing_U0%local(n)%val(:,ke) &
+          * exp(-lmesh3D%pos_en(:,ke,3)/2000.0_RP)
+      end do
+    end do
+
+    !---
+    U0 = 20.0_RP
+    ini_bg_force_tscale = 60.0_RP
+    ini_bg_force_turnoff_tstart = 120.0_RP
+    ini_bg_force_turnoff_tscale = 1800.0_RP  
+    
+    zTop = 30E3_RP
+    SPONGE_HEIGHT = 15E3_RP
+    SPONGE_EFOLD_SEC = 100E0_RP
+    SPONGE_LATERAL_WIDTH = 120E3_RP
+    LATERAL_SPONGE_EFOLD_SEC = 100E0_RP
+    SL_TANH_NONDIM_WIDTH = 0.16E0_RP
+
+    lmesh3D => mesh%lcmesh_list(1)
+    elem => lmesh3D%refElem3D
+    allocate( sfac(elem%Np,lmesh3D%Ne) )
+    allocate( sfac_btm(elem%Np,lmesh3D%Ne) )
+
+    rtau_sponge = 1.0_RP / SPONGE_EFOLD_SEC
+    rtau_lateral_sponge = 1.0_RP / LATERAL_SPONGE_EFOLD_SEC
+    sponge_lateral_x00 = 240E3_RP - SPONGE_LATERAL_WIDTH
+    sponge_lateral_x0 = sponge_lateral_x00 + 0.5_RP * SPONGE_LATERAL_WIDTH
+
+    !$omp parallel do
+    do ke=lmesh3D%NeS, lmesh3D%NeE
+        sfac(:,ke) = &
+            rtau_sponge * 0.5_RP * ( 1.0_RP + tanh( ( lmesh3D%zlev(:,ke) - 0.5_RP * ( zTop + SPONGE_HEIGHT ) ) / ( SL_TANH_NONDIM_WIDTH * ( zTop - SPONGE_HEIGHT ) ) ) ) &
+          + rtau_lateral_sponge * 0.5_RP * ( 1.0_RP - tanh( ( lmesh3D%pos_en(:,ke,1) - 0.5_RP * SPONGE_LATERAL_WIDTH ) / ( SL_TANH_NONDIM_WIDTH * SPONGE_LATERAL_WIDTH ) ) ) &
+          + rtau_lateral_sponge * 0.5_RP * ( 1.0_RP + tanh( ( lmesh3D%pos_en(:,ke,1) -             sponge_lateral_x0 ) / ( SL_TANH_NONDIM_WIDTH * SPONGE_LATERAL_WIDTH ) ) )
+
+        sfac_btm(:,ke) = rtau_sponge * 0.5_RP * ( 1.0_RP + tanh( ( lmesh3D%zlev(:,ke) - 0.5_RP * ( zTop + SPONGE_HEIGHT ) ) / ( SL_TANH_NONDIM_WIDTH * ( zTop - SPONGE_HEIGHT ) ) ) )
+    end do    
+#endif
     return
   end subroutine atm_dyn_dgm_nonhydro3d_rhot_heve_Init
 
@@ -85,6 +165,31 @@ contains
     call atm_dyn_dgm_nonhydro3d_common_Final()
     return
   end subroutine atm_dyn_dgm_nonhydro3d_rhot_heve_Final  
+
+#ifdef SCALE_PRODUCT_RUN_RM_MOUNTAIN_WAVE
+  subroutine atm_dyn_dgm_nonhydro3d_rhot_heve_set_dampcoef( tsec )
+    use scale_const, only: PI => CONST_PI
+    implicit none
+    real(RP), intent(in) :: tsec
+
+    real(RP) :: ini_bg_off_tsec
+    !-----------------------------------
+
+    ini_bg_off_tsec = ini_bg_force_turnoff_tstart + ini_bg_force_turnoff_tscale
+    if ( tsec < ini_bg_off_tsec ) then
+      if ( tsec > ini_bg_force_turnoff_tstart ) then
+        sw = 0.5_RP * ( 1.0_RP - cos( PI * ( ( tsec - ini_bg_force_turnoff_tstart ) / ini_bg_force_turnoff_tscale - 1.0_RP ) ) )
+      else
+        sw = 1.0_RP
+      end if
+    else
+      sw = 0.0_RP
+    end if
+    ini_bg_sfac = sw * 1.0_RP / ini_bg_force_tscale
+    
+    return
+  end subroutine atm_dyn_dgm_nonhydro3d_rhot_heve_set_dampcoef
+#endif
 
   !-------------------------------
 
@@ -138,7 +243,9 @@ contains
 
     real(RP) :: gamm, rgamm    
     real(RP) :: rP0
-    real(RP) :: RovP0, P0ovR       
+    real(RP) :: RovP0, P0ovR 
+    
+    real(RP) :: damp_coef(elem%Np)
     !------------------------------------------------------------------------
 
     call PROF_rapstart('cal_dyn_tend_bndflux', 3)
@@ -164,7 +271,7 @@ contains
     !$omp RHOT_, rdens_, u_, v_, w_, wt_,          &
     !$omp drho, DPRES_hyd, GradPhyd_x, GradPhyd_y, &
     !$omp GsqrtV, RGsqrtV,                         &
-    !$omp Fx, Fy, Fz, LiftDelFlx )
+    !$omp Fx, Fy, Fz, LiftDelFlx, damp_coef )
     do ke = lmesh%NeS, lmesh%NeE
       !--
       ke2d = lmesh%EMap3Dto2D(ke)
@@ -271,6 +378,33 @@ contains
             + lmesh%Escale(:,ke,2,2) * Fy(:)      &
             + lmesh%Escale(:,ke,3,3) * Fz(:)      &
             + LiftDelFlx(:) ) / lmesh%Gsqrt(:,ke) 
+
+#ifdef SCALE_PRODUCT_RUN_RM_MOUNTAIN_WAVE
+      damp_coef(:) =  ( 1.0_RP - sw ) * sfac(:,ke )
+      DENS_dt(:,ke) = DENS_dt(:,ke) &
+        - ini_bg_sfac * DDENS_(:,ke)
+      MOMX_dt(:,ke) = MOMX_dt(:,ke) &
+        -  ( ini_bg_sfac + damp_coef(:) ) * ( MOMX_(:,ke) - ( DENS_hyd(:,ke) + DDENS_(:,ke) ) * forcing_U0%local(lmesh%lcdomID)%val(:,ke) ) &
+        + ( 1.0_RP + DDENS_(:,ke)/DENS_hyd(:,ke) ) * GradPhyd_x(:) * RGsqrtV(:)
+      MOMY_dt(:,ke) = MOMY_dt(:,ke) &
+        + ( 1.0_RP + DDENS_(:,ke)/DENS_hyd(:,ke) ) * GradPhyd_y(:) * RGsqrtV(:)
+      MOMZ_dt(:,ke) = MOMZ_dt(:,ke) &
+        - ini_bg_sfac * ( MOMZ_(:,ke) - ( DENS_hyd(:,ke) + DDENS_(:,ke) ) * forcing_W0%local(lmesh%lcdomID)%val(:,ke) ) &
+        - damp_coef(:) * MOMZ_(:,ke)
+      RHOT_dt(:,ke) = RHOT_dt(:,ke) &
+        - ( ini_bg_sfac + damp_coef(:) ) * DRHOT_(:,ke)
+      ! damp_coef(:) = sfac(:,ke )
+      ! MOMX_dt(:,ke) = MOMX_dt(:,ke) &
+      !   -  damp_coef(:) * ( MOMX_(:,ke) - ( DENS_hyd(:,ke) + DDENS_(:,ke) ) * forcing_U0%local(lmesh%lcdomID)%val(:,ke) ) &
+      !   + ( 1.0_RP + DDENS_(:,ke)/DENS_hyd(:,ke) ) * GradPhyd_x(:) * RGsqrtV(:)
+      ! MOMY_dt(:,ke) = MOMY_dt(:,ke) &
+      !   - damp_coef(:) * MOMY_(:,ke) &
+      !   + ( 1.0_RP + DDENS_(:,ke)/DENS_hyd(:,ke) ) * GradPhyd_y(:) * RGsqrtV(:)
+      ! MOMZ_dt(:,ke) = MOMZ_dt(:,ke) &
+      !   - damp_coef(:) * MOMZ_(:,ke)
+      ! RHOT_dt(:,ke) = RHOT_dt(:,ke) &
+      !   - damp_coef(:) * DRHOT_(:,ke)
+#endif
     end do
 
     call PROF_rapend('cal_dyn_tend_interior', 3)

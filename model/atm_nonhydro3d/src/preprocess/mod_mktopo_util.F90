@@ -20,6 +20,12 @@ module mod_mktopo_util
 
   use scale_const, only: &
     PI => CONST_PI
+    
+  use scale_element_base, only: ElementBase2D
+  use scale_element_quadrilateral, only: QuadrilateralElement    
+  use scale_localmesh_2d, only: LocalMesh2D
+  use scale_mesh_base2d, only: MeshBase2D
+  use scale_meshfield_base, only: MeshField2D
 
   !-----------------------------------------------------------------------------
   implicit none
@@ -29,6 +35,8 @@ module mod_mktopo_util
   !++ Public procedure
   !
   public :: mktopoutil_barocwave_global_JW2006_calc_topo
+  public :: mktopoutil_gen_GPMat
+  public :: mktopoutil_GalerkinProjection
 
 contains
 
@@ -77,5 +85,98 @@ contains
 
     return
   end subroutine mktopoutil_barocwave_global_JW2006_calc_topo
+
+!OCL SERIAL
+  subroutine mktopoutil_gen_GPMat( GPMat, &
+    elem_intrp, elem )
+    implicit none
+
+    class(ElementBase2D), intent(in) :: elem_intrp
+    class(ElementBase2D), intent(in) :: elem
+    real(RP), intent(out) :: GPMat(elem%Np,elem_intrp%Np)
+
+    integer :: p1, p2, p_
+    integer :: p_intrp
+
+    real(RP) :: InvV_intrp(elem%Np,elem_intrp%Np)
+    !---------------------------------------------
+
+    InvV_intrp(:,:) = 0.0_RP
+    do p2=1, elem%PolyOrder+1
+    do p1=1, elem%PolyOrder+1
+      p_ = p1 + (p2-1)*(elem%PolyOrder + 1) 
+      p_intrp = p1 + (p2-1)*(elem_intrp%PolyOrder + 1)
+      InvV_intrp(p_,:) = elem_intrp%invV(p_intrp,:)
+    end do
+    end do
+    GPMat(:,:) = matmul(elem%V, InvV_intrp)
+
+    return
+  end subroutine mktopoutil_gen_GPMat
+
+!OCL SERIAL  
+  subroutine mktopoutil_GalerkinProjection( q, &
+    func, IntrpPolyOrder_h,                    &
+    lcmesh2D, elem                             )
+  
+  implicit none
+  class(LocalMesh2D), intent(in) :: lcmesh2D
+  class(ElementBase2D), intent(in) :: elem
+  real(RP), intent(out) :: q(elem%Np,lcmesh2D%NeA)
+  integer, intent(in) :: IntrpPolyOrder_h
+
+  interface
+    subroutine func( q_intrp, &
+        x, y, elem_intrp   )
+      import ElementBase2D
+      import RP
+      class(ElementBase2D), intent(in) :: elem_intrp
+      real(RP), intent(out) :: q_intrp(elem_intrp%Np)
+      real(RP), intent(in) :: x(elem_intrp%Np)
+      real(RP), intent(in) :: y(elem_intrp%Np)
+    end subroutine func
+  end interface
+
+  type(QuadrilateralElement) :: elem_intrp
+  real(RP), allocatable :: x_intrp(:,:), y_intrp(:,:)
+  real(RP) :: vx(elem%Nv), vy(elem%Nv)
+
+  real(RP), allocatable :: IntrpMat(:,:)
+  real(RP), allocatable :: q_intrp(:)
+
+  integer :: ke
+  !-----------------------------------------------
+
+  call elem_intrp%Init( IntrpPolyOrder_h, .false. )
+
+  allocate( IntrpMat(elem%Np,elem_intrp%Np) )
+  call mktopoutil_gen_GPMat( IntrpMat, elem_intrp, elem )
+
+  allocate( x_intrp(elem_intrp%Np,lcmesh2D%Ne), y_intrp(elem_intrp%Np,lcmesh2D%Ne) )
+  allocate( q_intrp(elem_intrp%Np) )
+
+  !$omp parallel do private(vx, vy)
+  do ke=lcmesh2D%NeS, lcmesh2D%NeE
+    vx(:) = lcmesh2D%pos_ev(lcmesh2D%EToV(ke,:),1)
+    vy(:) = lcmesh2D%pos_ev(lcmesh2D%EToV(ke,:),2)
+    x_intrp(:,ke) = vx(1) + 0.5_RP * ( elem_intrp%x1(:) + 1.0_RP ) * ( vx(2) - vx(1) ) 
+    y_intrp(:,ke) = vy(1) + 0.5_RP * ( elem_intrp%x2(:) + 1.0_RP ) * ( vy(4) - vy(1) )
+  end do
+
+  !$omp parallel do private( q_intrp )
+  do ke=lcmesh2D%NeS, lcmesh2D%NeE
+
+    call func( q_intrp,                 & ! (out)
+      x_intrp(:,ke), y_intrp(:,ke),     & ! (in)
+      elem_intrp                        ) ! (in)
+    
+    ! Perform Galerkin projection
+    q(:,ke) = matmul( IntrpMat, q_intrp )
+  end do
+
+  call elem_intrp%Final()
+
+  return
+end subroutine mktopoutil_GalerkinProjection
 
 end module mod_mktopo_util

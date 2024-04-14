@@ -446,6 +446,8 @@ contains
   !! - Klemp et al., 2003,  MWR, Vol.131, 1229-1239
 !OCL SERIAL
   subroutine MKTOPO_Schaer_type_mountain( mesh, topo )
+    use mod_mktopo_util, only: &
+      mktopoutil_gen_GPMat, mktopoutil_GalerkinProjection
     implicit none
 
     class(MeshBase2D), intent(in), target :: mesh
@@ -456,11 +458,13 @@ contains
     real(RP) :: SCHAER_RX       =   5.E3_RP !< bubble radius   [m]: x
     real(RP) :: SCHAER_LAMBDA   =   4.E3_RP !< wavelength of wavelike perturbation [m]: x
     real(RP) :: SCHAER_HEIGHT   =  250.0_RP !< height of mountain [m]
+    integer :: IntrpPolyOrder_h
     namelist / PARAM_MKTOPO_SCHAER / &
        SCHAER_CX,     &
        SCHAER_RX,     &
        SCHAER_LAMBDA, &
-       SCHAER_HEIGHT
+       SCHAER_HEIGHT, &
+       IntrpPolyOrder_h
 
     integer :: ierr    
     integer :: n
@@ -473,6 +477,7 @@ contains
     !--------------------------------
 
     LOG_INFO("MKTOPO_Schaer",*) 'Setup'
+    IntrpPolyOrder_h = -1
 
     !--- read namelist
     rewind(IO_FID_CONF)
@@ -485,20 +490,46 @@ contains
     endif
     LOG_NML(PARAM_MKTOPO_SCHAER)
 
+    if (IntrpPolyOrder_h == -1) then
+      lmesh2D => mesh%lcmesh_list(1)
+      elem => lmesh2D%refElem2D
+      IntrpPolyOrder_h = elem%PolyOrder
+    end if    
+
     do n=1, mesh%LOCAL_MESH_NUM
       lmesh2D => mesh%lcmesh_list(n)
       elem => lmesh2D%refElem2D
 
-      allocate( dist(elem%Np) )
-      !$omp parallel do private(dist)
-      do ke2D=lmesh2D%NeS, lmesh2D%NeE
-        dist(:) = exp( - ( lmesh2D%pos_en(:,ke2d,1) - SCHAER_CX )**2 / SCHAER_RX**2 )
-        topo%local(n)%val(:,ke2d) = SCHAER_HEIGHT * dist(:) * ( cos( PI * ( lmesh2D%pos_en(:,ke2d,1) - SCHAER_CX ) / SCHAER_LAMBDA ) )**2
-      end do
-      deallocate( dist )
+      if ( IntrpPolyOrder_h == elem%PolyOrder ) then
+        allocate( dist(elem%Np) )
+        !$omp parallel do private(dist)
+        do ke2D=lmesh2D%NeS, lmesh2D%NeE
+          dist(:) = exp( - ( lmesh2D%pos_en(:,ke2d,1) - SCHAER_CX )**2 / SCHAER_RX**2 )
+          topo%local(n)%val(:,ke2d) = SCHAER_HEIGHT * dist(:) * ( cos( PI * ( lmesh2D%pos_en(:,ke2d,1) - SCHAER_CX ) / SCHAER_LAMBDA ) )**2
+        end do
+        deallocate( dist )
+      else
+        call mktopoutil_GalerkinProjection( topo%local(n)%val, func_schear, &
+          IntrpPolyOrder_h, lmesh2D, elem )
+      end if
     end do
     
     return
+  contains
+    subroutine func_schear( q_intrp, &
+        x, y, elem_intrp   )
+      class(ElementBase2D), intent(in) :: elem_intrp
+      real(RP), intent(out) :: q_intrp(elem_intrp%Np)
+      real(RP), intent(in) :: x(elem_intrp%Np)
+      real(RP), intent(in) :: y(elem_intrp%Np)
+
+      real(RP) :: dist_(elem_intrp%Np)
+      !---------------------------------------
+
+      dist_(:) = exp( - ( x(:)- SCHAER_CX )**2 / SCHAER_RX**2 )
+      q_intrp(:) = SCHAER_HEIGHT * dist_(:) * ( cos( PI * ( x(:) - SCHAER_CX ) / SCHAER_LAMBDA ) )**2
+      return
+    end subroutine func_schear    
   end subroutine MKTOPO_Schaer_type_mountain
 
   !-----------------------------------------------------------------------------

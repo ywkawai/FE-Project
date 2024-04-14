@@ -94,10 +94,10 @@ contains
     real(RP) :: GradZs(elem2D%Np,lcmesh2D%Ne,2)
     real(RP) :: coef3D(elem%NP)
 
-#ifdef SCALE_PRODUCT_RUN_RM_MOUNTAIN_WAVE
+#ifdef SCALE_PRODUCT_RUN_RM_MOUNTAIN_WAVE_ANALYTIC_METRIC
     real(RP), parameter :: SCHAER_CX = 120E3_RP
     real(RP), parameter :: SCHAER_RX = 5E3_RP
-    real(RP), parameter :: SCHAER_LAMBDA = 4E3_RP
+    real(RP), parameter :: SCHAER_LAMBDA = 4E3_RP !4.0E10_RP
     real(RP), parameter :: SCHAER_HEIGHT = 25E0_RP
 #endif
 
@@ -117,12 +117,23 @@ contains
       
       ! call mktopoutil_GalerkinProjection( GradZs(:,:,1), func_schear, &
       !   13, lcmesh2D, elem2D )
-              
+
       !$omp parallel private(ke2D, ke,        &
       !$omp Fx2D, Fy2D, LiftDelFlux2D, coef3D )
-
       !$omp do
       do ke2D=1, lcmesh2D%Ne
+#ifdef SCALE_PRODUCT_RUN_RM_MOUNTAIN_WAVE_ANALYTIC_METRIC
+        ! dist(:) = exp( - ( lcmesh2D%pos_en(:,ke2d,1) - SCHAER_CX )**2 / SCHAER_RX**2 )
+        ! topo%local(n)%val(:,ke2d) = SCHAER_HEIGHT * dist(:) * ( cos( PI * ( lcmesh2D%pos_en(:,ke2d,1) - SCHAER_CX ) / SCHAER_LAMBDA ) )**2
+        !                           * 0.5_RP * (1.0_RP + cos(2.0_RP * PI * ( lcmesh2D%pos_en(:,ke2d,1) - SCHAER_CX ) / SCHAER_LAMBDA ) )
+        GradZs(:,ke2D,1) = 0.5_RP * SCHAER_HEIGHT * exp( - ( lcmesh2D%pos_en(:,ke2d,1) - SCHAER_CX )**2 / SCHAER_RX**2 ) &
+          * ( &
+            - 2.0_RP / SCHAER_RX * ( ( lcmesh2D%pos_en(:,ke2d,1) - SCHAER_CX ) / SCHAER_RX )                              &
+              * (1.0_RP + cos(2.0_RP * PI * ( lcmesh2D%pos_en(:,ke2d,1) - SCHAER_CX ) / SCHAER_LAMBDA ) )                 &        
+            - 2.0_RP * PI / SCHAER_LAMBDA * sin(2.0_RP * PI * ( lcmesh2D%pos_en(:,ke2d,1) - SCHAER_CX ) / SCHAER_LAMBDA ) &
+          )
+        GradZs(:,ke2D,2) = 0.0_RP       
+#else
         call sparsemat_matmul( Dx2D, topo(:,ke2D), Fx2D )
         call sparsemat_matmul( Lift2D, lcmesh2D%Fscale(:,ke2D) * del_flux(:,ke2D,1), LiftDelFlux2D)
         GradZs(:,ke2D,1) = lcmesh2D%Escale(:,ke2D,1,1) * Fx2D(:) + LiftDelFlux2D(:)
@@ -130,18 +141,6 @@ contains
         call sparsemat_matmul( Dy2D, topo(:,ke2D), Fy2D )
         call sparsemat_matmul( Lift2D, lcmesh2D%Fscale(:,ke2D) * del_flux(:,ke2D,2), LiftDelFlux2D)
         GradZs(:,ke2D,2) = lcmesh2D%Escale(:,ke2D,2,2) * Fy2D(:) + LiftDelFlux2D(:)
-
-#ifdef SCALE_PRODUCT_RUN_RM_MOUNTAIN_WAVE_ANALYTIC_METRIC
-        dist(:) = exp( - ( lmesh2D%pos_en(:,ke2d,1) - SCHAER_CX )**2 / SCHAER_RX**2 )
-        topo%local(n)%val(:,ke2d) = SCHAER_HEIGHT * dist(:) * ( cos( PI * ( lmesh2D%pos_en(:,ke2d,1) - SCHAER_CX ) / SCHAER_LAMBDA ) )**2
-                                  * 0.5_RP * (1.0_RP + cos(2.0_RP * PI * ( lmesh2D%pos_en(:,ke2d,1) - SCHAER_CX ) / SCHAER_LAMBDA ) ) )
-        GradZs(:,ke2D,1) = 0.5_RP * SCHAER_HEIGHT * exp( - ( lcmesh2D%pos_en(:,ke2d,1) - SCHAER_CX )**2 / SCHAER_RX**2 ) &
-          * ( &
-            - 2.0_RP / SCHAER_RX * ( ( lcmesh2D%pos_en(:,ke2d,1) - SCHAER_CX ) / SCHAER_RX )                              &
-              * (1.0_RP + cos(2.0_RP * PI * ( lcmesh2D%pos_en(:,ke2d,1) - SCHAER_CX ) / SCHAER_LAMBDA ) )                 &        
-            - 2.0_RP * PI / SCHAER_LAMBDA * sin(2.0_RP * PI * ( lcmesh2D%pos_en(:,ke2d,1) - SCHAER_CX ) / SCHAER_LAMBDA ) &
-          )       
-        GradZs(:,ke2D,2) = 0.0_RP        
 #endif
       end do
       !$omp end do
@@ -166,6 +165,7 @@ contains
     end if
 
     return
+#ifdef SCALE_PRODUCT_RUN_RM_MOUNTAIN_WAVE_ANALYTIC_METRIC
   contains
     subroutine func_schear( q_intrp, &
         x, y, elem_intrp   )
@@ -182,7 +182,8 @@ contains
             - 2.0_RP * PI / SCHAER_LAMBDA * sin(2.0_RP * PI * ( x(:) - SCHAER_CX ) / SCHAER_LAMBDA ) &
           )       
       return
-    end subroutine func_schear    
+    end subroutine func_schear
+#endif
   end subroutine MeshUtil_VCoord_GetMetric
 
 

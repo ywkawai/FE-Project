@@ -250,6 +250,8 @@ module scale_atm_dyn_dgm_driver_nonhydro3d
 
     !
     logical :: hevi_flag
+    !
+    real(RP) :: tsec
 
     procedure (atm_dyn_nonhydro3d_cal_vi), pointer, nopass :: cal_vi => null()
     procedure (atm_dyn_nonhydro3d_cal_tend_ex), pointer, nopass :: cal_tend_ex => null()
@@ -476,6 +478,8 @@ contains
       call setup_modalfilter( this, refElem3D )
     end if
 
+    this%tsec = 0.0_RP
+
     return
   end subroutine AtmDynDGMDriver_nonhydro3d_Init
 
@@ -515,7 +519,15 @@ contains
 
     use scale_atm_dyn_dgm_modalfilter, only: &
       atm_dyn_dgm_modalfilter_apply
-    
+
+#ifdef SCALE_PRODUCT_RUN_RM_MOUNTAIN_WAVE
+    use scale_atm_dyn_dgm_nonhydro3d_rhot_heve, only: &
+      atm_dyn_dgm_nonhydro3d_rhot_heve_set_dampcoef
+#endif
+#ifdef SCALE_PRODUCT_RUN_GM_MOUNTAIN_WAVE
+    use scale_atm_dyn_dgm_globalnonhydro3d_rhot_heve, only: &
+      atm_dyn_dgm_globalnonhydro3d_rhot_heve_set_dampcoef
+#endif
     implicit none
 
     class(AtmDynDGMDriver_nonhydro3d), intent(inout) :: this
@@ -551,6 +563,7 @@ contains
     class(MeshField3D), pointer :: DENS_tp, MOMX_tp, MOMY_tp, MOMZ_tp, RHOT_tp, RHOH_p
     class(MeshField3D), pointer :: DPRES
 
+    real(RP) :: tsec_
     !-----------------------------------------------------------------------------
     
     !-
@@ -592,7 +605,13 @@ contains
     call PROF_rapend( 'ATM_DYN_update_pre', 2)
 
     do rkstage=1, this%tint(1)%nstage
-    
+      tsec_ = this%tsec + this%tint(1)%coef_c_ex(rkstage) * this%tint(1)%Get_deltime()    
+#ifdef SCALE_PRODUCT_RUN_RM_MOUNTAIN_WAVE
+      call atm_dyn_dgm_nonhydro3d_rhot_heve_set_dampcoef( tsec_ )
+#endif
+#ifdef SCALE_PRODUCT_RUN_GM_MOUNTAIN_WAVE
+      call atm_dyn_dgm_globalnonhydro3d_rhot_heve_set_dampcoef( tsec_ )
+#endif
       !- Calculate the tendency with the implicit part      
       if (this%hevi_flag) then        
         do n=1, mesh3D%LOCAL_MESH_NUM
@@ -779,6 +798,8 @@ contains
       PRES_hyd, DENS_hyd, Rtot, CVtot, CPtot, mesh3D, & ! (in)
       this%ENTOT_CONSERVE_SCHEME_FLAG )                 ! (in)
     call PROF_rapend( 'ATM_DYN_update_post', 2)      
+
+    this%tsec = this%tsec + this%tint(1)%Get_deltime()    
 
     return
   end subroutine AtmDynDGMDriver_nonhydro3d_update
