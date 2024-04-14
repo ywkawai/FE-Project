@@ -93,4 +93,7 @@ ifeq ($(SCALE_ENABLE_PAPI),T)
    FFLAGS += -DPAPI
 endif
 
-
+# TEST CASE
+ifneq ($(origin FFLAG_TESTCASE), undefined)
+   FFLAGS += $(FFLAG_TESTCASE)
+endif
