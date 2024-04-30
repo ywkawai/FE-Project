@@ -212,11 +212,11 @@ contains
 
 !OCL SERIAL
   subroutine ATMOS_dyn_bnd_applyBC_prgvars_lc( this,  &
-    domID,                                            & ! (in)
-    DDENS, MOMX, MOMY, MOMZ, THERM,                   & ! (inout)
-    DENS_hyd, PRES_hyd,                               & ! (in)
-    Gsqrt, GsqrtH, G13, G23, nx, ny, nz,              & ! (in)
-    vmapM, vmapP, vmapB, lmesh, elem, lmesh2D, elem2D ) ! (in)
+    domID,                                              & ! (in)
+    DDENS, MOMX, MOMY, MOMZ, THERM,                     & ! (inout)
+    DENS_hyd, PRES_hyd,                                 & ! (in)
+    Gsqrt, GsqrtH, G11, G12, G22, G13, G23, nx, ny, nz, & ! (in)
+    vmapM, vmapP, vmapB, lmesh, elem, lmesh2D, elem2D )   ! (in)
 
     use scale_mesh_bndinfo, only: &
       BND_TYPE_SLIP_ID, BND_TYPE_NOSLIP_ID, &
@@ -239,6 +239,9 @@ contains
     real(RP), intent(in) :: PRES_hyd(elem%Np*lmesh%NeA)
     real(RP), intent(in) :: Gsqrt(elem%Np*lmesh%NeA)
     real(RP), intent(in) :: GsqrtH(elem2D%Np,lmesh2D%Ne)
+    real(RP), intent(in) ::  G11(elem2D%Np,lmesh2D%Ne)
+    real(RP), intent(in) ::  G12(elem2D%Np,lmesh2D%Ne)
+    real(RP), intent(in) ::  G22(elem2D%Np,lmesh2D%Ne)
     real(RP), intent(in) ::  G13(elem%Np*lmesh%NeA)
     real(RP), intent(in) ::  G23(elem%Np*lmesh%NeA)    
     real(RP), intent(in) :: nx(elem%NfpTot*lmesh%Ne)
@@ -253,12 +256,13 @@ contains
     real(RP) :: mom_normal
 
     real(RP) :: MOMW
-    real(RP) :: GsqrtV
+    real(RP) :: GsqrtV, G11_, G12_, G22_
+    real(RP) :: fac
     !-----------------------------------------------
 
     !$omp parallel do collapse(2) private( &
     !$omp ke, p, ke2D, i, i_, iM, iP,      &
-    !$omp mom_normal, MOMW, GsqrtV         )
+    !$omp mom_normal, MOMW, GsqrtV, G11_, G12_, G22_, fac    )
     do ke=lmesh%NeS, lmesh%NeE
     do p=1, elem%NfpTot
       i = p + (ke-1)*elem%NfpTot
@@ -273,8 +277,29 @@ contains
           ke2D = lmesh%EMap3Dto2D(ke)
 
           GsqrtV = Gsqrt(iM) / GsqrtH(elem%IndexH2Dto3D_bnd(p),ke2D) 
-          ! MOMW = MOMZ(iM) / GsqrtV &
-          !    + G13(iM) * MOMX(iM) + G23(iM) * MOMY(iM)
+          G11_ = G11(elem%IndexH2Dto3D_bnd(p),ke2D)
+          G12_ = G12(elem%IndexH2Dto3D_bnd(p),ke2D)
+          G22_ = G22(elem%IndexH2Dto3D_bnd(p),ke2D)
+
+#ifdef SCALE_PRODUCT_RUN_RM_MOUNTAIN_WAVE_BC          
+          MOMW = MOMZ(iM) / GsqrtV &
+             + G13(iM) * MOMX(iM) + G23(iM) * MOMY(iM)
+          fac = nz(i) * GsqrtV**2 / ( 1.0_RP + ( GsqrtV * G13(iM) )**2 + ( GsqrtV * G23(iM) )**2 )
+
+          mom_normal = MOMX(iM) * nx(i) + MOMY(iM) * ny(i) + MOMW * nz(i)
+          MOMX(iP) = MOMX(iM) - 2.0_RP * mom_normal * ( nx(i) + fac * G13(iM) )
+          MOMY(iP) = MOMY(iM) - 2.0_RP * mom_normal * ( ny(i) + fac * G23(iM) )
+          MOMZ(iP) = MOMZ(iM) - 2.0_RP * mom_normal * fac / GsqrtV 
+#elif SCALE_PRODUCT_RUN_GM_MOUNTAIN_WAVE_BC
+          MOMW = MOMZ(iM) / GsqrtV &
+             + G13(iM) * MOMX(iM) + G23(iM) * MOMY(iM)
+          fac = nz(i) * GsqrtV**2 / ( 1.0_RP + G11_ * ( GsqrtV * G13(iM) )**2 + 2.0_RP * G12_ * ( GsqrtV**2 * G13(iM) * G23(iM) ) + G22_ * ( GsqrtV * G23(iM) )**2 )
+
+          mom_normal = MOMX(iM) * nx(i) + MOMY(iM) * ny(i) + MOMW * nz(i)
+          MOMX(iP) = MOMX(iM) - 2.0_RP * mom_normal * ( nx(i) + fac * ( G11_ * G13(iM) + G12_ * G23(iM) ) )
+          MOMY(iP) = MOMY(iM) - 2.0_RP * mom_normal * ( ny(i) + fac * ( G12_ * G13(iM) + G22_ * G23(iM) ) )
+          MOMZ(iP) = MOMZ(iM) - 2.0_RP * mom_normal * fac / GsqrtV 
+#else
           MOMW = MOMZ(iM) &
              + GsqrtV * ( G13(iM) * MOMX(iM) + G23(iM) * MOMY(iM) )
 
@@ -282,7 +307,7 @@ contains
           MOMX(iP) = MOMX(iM) - 2.0_RP * mom_normal * nx(i)
           MOMY(iP) = MOMY(iM) - 2.0_RP * mom_normal * ny(i)
           MOMZ(iP) = MOMZ(iM) - 2.0_RP * mom_normal * nz(i)
-
+#endif
         case ( BND_TYPE_NOSLIP_ID )
           MOMX(iP) = - MOMX(iM)
           MOMY(iP) = - MOMY(iM)
