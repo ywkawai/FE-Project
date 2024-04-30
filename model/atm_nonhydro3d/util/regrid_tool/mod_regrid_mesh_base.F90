@@ -254,7 +254,7 @@ contains
       call this%mesh2D%Init( this%NeGX, this%NeGY, &
         this%dom_xmin, this%dom_xmax, this%dom_ymin, this%dom_ymax,             &
         this%isPeriodicX, this%isPeriodicY, this%elem2D, this%NLocalMeshPerPrc, &
-        this%NprcX, this%NprcY, myrank=myrank_  )
+        this%NprcX, this%NprcY, nproc=this%Nprc, myrank=myrank_  )
       
       this%ptr_mesh2D => this%mesh2D
 
@@ -263,7 +263,7 @@ contains
       call this%mesh2D%Init( this%NeGX, this%NeGY, &
         this%dom_xmin, this%dom_xmax, this%dom_ymin, this%dom_ymax,             &
         this%isPeriodicX, .false., this%elem2D, this%NLocalMeshPerPrc,          &
-        this%NprcX, this%NprcY, myrank=myrank_ )
+        this%NprcX, this%NprcY, nproc=this%Nprc, myrank=myrank_ )
 
       call this%mesh2D%SetDimInfo( MeshBase2D_DIMTYPEID_X, 'lon', 'degree_east', 'longitude' )
       call this%mesh2D%SetDimInfo( MeshBase2D_DIMTYPEID_Y, 'lat', 'degree_north', 'latitude' )
