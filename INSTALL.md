@@ -15,18 +15,18 @@ We confirm that building our codes has succeeded in the following environments:
     - OpenMPI 4.1.2
     - LAPACK 3.10.0
     - NetCDF 4.8.1
-    - SCALE library 5.4.5
+    - SCALE library 5.5.1
   - Ubuntu 20.04 LTS (for case of Intel oneAPI HPC Toolkit 2023.0)
     - Intel® Fortran Compiler
     - Intel MPI Library
     - Intel oneAPI Math Kernel Library
     - NetCDF 4.8.0
     - SCALE library develop version
-  - macOS Ventura
-    - GNU Fortran 12.2.0
-    - OpenMPI 4.1.4
-    - LAPACK 3.11
-    - NetCDF 4.9.0
+  - macOS Sonoma
+    - GNU Fortran 13.2.0
+    - OpenMPI 5.0.3
+    - LAPACK 3.12
+    - NetCDF 4.9.2
     - SCALE library develop version
 
 Our codes are also verified in Fugaku and Odyssey (Fujitsu compiler). 
