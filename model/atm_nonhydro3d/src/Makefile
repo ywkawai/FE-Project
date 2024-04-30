@@ -35,9 +35,7 @@ VPATH = \
 	user:         \
 	preprocess:
 
-OBJS = \
-	mod_dg_launcher.o            \
-	mod_dg_driver.o              \
+SUB_OBJS = \
 	mod_atmos_component.o        \
 	mod_atmos_dyn.o              \
 	mod_atmos_dyn_vars.o         \
@@ -55,11 +53,19 @@ OBJS = \
 	mod_user.o                   \
 	mod_experiment.o             \
 	\
-	mod_dg_prep.o                \
+	mod_mktopo_util.o            \
 	mod_mktopo.o                 \
 	mod_mkinit_util.o            \
 	mod_mkinit.o
 
+MAIN_OBJS = \
+	mod_dg_launcher.o            \
+	mod_dg_driver.o				 \
+	mod_dg_prep.o                
+
+OBJS = 	\
+	$(SUB_OBJS)	\
+	$(MAIN_OBJS)
 
 all:
 	$(MAKE) build
@@ -70,6 +76,7 @@ build:
 	$(MAKE) makelib
 	@echo;echo "Entering scale-dg...";echo "Current version is " $(VERSION)
 	mkdir -p $(BUILD_DIR)
+	$(MAKE) makeobjs
 	$(MAKE) makebin
 	@echo "Complete making scale-dg."
 
@@ -83,10 +90,18 @@ info:
 	@echo "SCALE-DG"
 	@$(MAKE) --no-print-directory conflog
 
+makeobjs:
+	@$(MAKE) sub_objs
+	@$(MAKE) main_objs
+
 makelib:
 	$(MAKE) -C $(SCALEFELIBDIR)/src
 
 makebin:  $(BUILD_DIR)/$(BINNAME)$(POSTFIX) $(BUILD_DIR)/$(PPNAME)$(POSTFIX)
+
+sub_objs: $(patsubst %,$(BUILD_DIR)/%,$(SUB_OBJS)) $(BUILD_DIR)/mod_user.o
+
+main_objs: $(patsubst %,$(BUILD_DIR)/%,$(MAIN_OBJS))
 
 $(BUILD_DIR)/$(BINNAME)$(POSTFIX)  : $(BUILD_DIR)/$(BINNAME).o  $(patsubst %,$(BUILD_DIR)/%,$(OBJS)) $(BUILD_DIR)/mod_user.o $(LIBS)
 	$(LD) $(LDFLAGS) $(ADDITIONAL_FFLAGS) -o $@ $^ $(LIBS) $(CONTRIB_LIBS) $(SCALE_NETCDF_LIBS) $(SCALE_MATHLIB_LIBS) $(SCALE_PAPI_LIBS)

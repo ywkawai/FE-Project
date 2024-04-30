@@ -6,6 +6,11 @@
 !!          a test case proposed by Galewsky et al. (2004)
 !!          barotropic instability test
 !!
+!! @par Reference
+!!  - J. Galewsky, R.K. Scott, L.M. Polvani, 2004:
+!!    An initial-value problem for testing numerical models of the global shallow-water equations. 
+!!    Tellus, Series A: Dynamic Meteorology and Oceanography, 56(5), 429-440.
+!!
 !! @author Team SCALE
 !!
 !<
@@ -115,15 +120,17 @@ contains
     return
   end subroutine USER_setup
 
-  subroutine USER_calc_tendency
+  subroutine USER_calc_tendency( atm )
     implicit none
+    class(GlobalSWComponent), intent(inout) :: atm
     !------------------------------------------
 
     return
   end subroutine USER_calc_tendency
 
-  subroutine USER_update
+  subroutine USER_update( atm )
     implicit none
+    class(GlobalSWComponent), intent(inout) :: atm
     !------------------------------------------
 
     return
@@ -134,8 +141,8 @@ contains
     h, U, V, hs, u1, u2,                                 &
     x, y, lcmesh, elem                                   )
     
-    use scale_cubedsphere_cnv, only: &
-      CubedSphereCnv_LonLat2CSVec
+    use scale_cubedsphere_coord_cnv, only: &
+      CubedSphereCoordCnv_LonLat2CSVec
     implicit none
 
     class(Exp_G04_BarotropicInstability), intent(inout) :: this
@@ -163,16 +170,18 @@ contains
       lat0, lat1, umax,      &
       hhat, phi2, alph, beta
     
-  
+    real(RP) :: gam(elem%Np,lcmesh%Ne)  
     real(RP) :: VelLon(elem%Np,lcmesh%Ne)
     real(RP) :: VelLat(elem%Np,lcmesh%Ne)
-    integer :: ke
-    integer :: ierr
 
     type(LineElement) :: elem1D
+
+    integer :: ke
     integer :: p
 
     real(RP) :: lon_(elem%Np)
+
+    integer :: ierr
     !-----------------------------------------------------------------------------
 
     lat0 = PI / 7.0_RP
@@ -204,8 +213,6 @@ contains
 
       call cal_zonal_vel( VelLon(:,ke),             &
         lcmesh%lat(:,ke), elem%Np, lat0, lat1, umax )
-      VelLon(:,ke) = VelLon(:,ke) / cos(lcmesh%lat(:,ke))
-
       VelLat(:,ke) = 0.0_RP    
                   
       do p=1, elem%Np
@@ -225,9 +232,13 @@ contains
       hs(:,ke) = 0.0_RP
     end do
 
-    call CubedSphereCnv_LonLat2CSVec( &
-      lcmesh%panelID, lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2), elem%Np * lcmesh%Ne, RPlanet, &
-      VelLon(:,:), VelLat(:,:), U(:,lcmesh%NeS:lcmesh%NeE), V(:,lcmesh%NeS:lcmesh%NeE)          )
+    gam(:,:) = 1.0_RP
+    call CubedSphereCoordCnv_LonLat2CSVec( &
+      lcmesh%panelID, lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2), & ! (in)
+      gam(:,:), elem%Np * lcmesh%Ne,                              & ! (in)
+      VelLon(:,:), VelLat(:,:),                                   & ! (in)
+      U(:,lcmesh%NeS:lcmesh%NeE), V(:,lcmesh%NeS:lcmesh%NeE)      ) ! (out)
+    
     !$omp parallel do
     do ke=lcmesh%NeS, lcmesh%NeE
       u1(:,ke) = lcmesh%G_ij(:,ke,1,1) * U(:,ke) + lcmesh%G_ij(:,ke,1,2) * V(:,ke)

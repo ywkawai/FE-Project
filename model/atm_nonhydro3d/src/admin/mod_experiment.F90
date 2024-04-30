@@ -308,10 +308,10 @@ contains
     end select
     select type (mesh)
     type is (MeshCubeDom3D)
-      call hydvars_comm_rm%Init(1, 0, mesh)
+      call hydvars_comm_rm%Init(1, 0, 0, mesh)
       hydvars_comm => hydvars_comm_rm
     type is (MeshCubedSphereDom3D)
-      call hydvars_comm_gm%Init(1, 0, mesh)
+      call hydvars_comm_gm%Init(1, 0, 0, mesh)
       hydvars_comm => hydvars_comm_gm
     end select
 

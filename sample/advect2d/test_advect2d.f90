@@ -389,6 +389,8 @@ contains
       VelTypeName, VelTypeParams,     &
       nstep_eval_error
     
+    character(len=H_LONG) :: cnf_fname  ! config file for launcher
+
     integer :: comm, myrank, nprocs
     logical :: ismaster
     integer :: ierr
@@ -402,7 +404,8 @@ contains
     call PRC_ERRHANDLER_setup( .false., ismaster ) ! [IN]
     
     ! setup scale_io
-    call IO_setup( "test_advect2d", "test.conf" )
+    cnf_fname = IO_ARG_getfname( ismaster )
+    call IO_setup( "test_advect2d", cnf_fname )
     
     ! setup log
     call IO_LOG_setup( myrank, ismaster )   
@@ -467,7 +470,7 @@ contains
     call qexact%Init( "qexact", "1", mesh )
     call u%Init( "u", "m/s", mesh )
     call v%Init( "v", "m/s", mesh )
-    call fields_comm%Init(3, 0, mesh)
+    call fields_comm%Init(3, 0, 0, mesh)
 
     call FILE_HISTORY_meshfield_setup( mesh2d_=mesh )
     call FILE_HISTORY_reg( q%varname, "q", q%unit, HST_ID(1), dim_type='XY')

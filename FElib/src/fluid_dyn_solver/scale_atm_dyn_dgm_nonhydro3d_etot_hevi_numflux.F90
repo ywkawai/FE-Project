@@ -1,5 +1,5 @@
 !-------------------------------------------------------------------------------
-!> module Atmosphere / Dynamics HEVI numerical flux
+!> module FElib / Fluid dyn solver / Atmosphere / Nonhydrostatic model / HEVI / Numflux
 !!
 !! @par Description
 !!      HEVE DGM scheme for Atmospheric dynamical process. 
@@ -171,15 +171,13 @@ contains
       GsqrtDensM(:) = GsqrtDDENS_M(:) + Gsqrt_M(:) * DENS_hyd(iM)
       GsqrtDensP(:) = GsqrtDDENS_P(:) + Gsqrt_P(:) * DENS_hyd(iP)
 
-      VelhM(:) = ( GsqrtMOMX_M(:) * nx(:,ke) + GsqrtMOMY_M(:) * ny(:,ke)                  &
-                 + ( G13_M(:) * GsqrtMOMX_M(:) + G23_M(:) * GsqrtMOMY_M(:) ) * nz(:,ke) ) &
-                 / GsqrtDensM(:)
-      VelhP(:) = ( GsqrtMOMX_P(:) * nx(:,ke) + GsqrtMOMY_P(:) * ny(:,ke)                  &
-                 + ( G13_P(:) * GsqrtMOMX_P(:) + G23_P(:) * GsqrtMOMY_P(:) ) * nz(:,ke) ) &
-                 / GsqrtDensP(:)
-
-      VelM(:) = VelhM(:) + GsqrtMOMZ_M(:) / ( GsqrtV_M(:) * GsqrtDensM(:) ) * nz(:,ke)
-      VelP(:) = VelhP(:) + GsqrtMOMZ_P(:) / ( GsqrtV_P(:) * GsqrtDensP(:) ) * nz(:,ke)
+      VelhM(:) = ( GsqrtMOMX_M(:) * nx(:,ke) + GsqrtMOMY_M(:) * ny(:,ke) ) / GsqrtDensM(:)
+      VelhP(:) = ( GsqrtMOMX_P(:) * nx(:,ke) + GsqrtMOMY_P(:) * ny(:,ke) ) / GsqrtDensP(:)
+      
+      VelM(:) = VelhM(:) + ( &
+        GsqrtMOMZ_M(:) / GsqrtV_M(:) + G13_M(:) * GsqrtMOMX_M(:) + G23_M(:) * GsqrtMOMY_M(:) ) / GsqrtDensM(:) * nz(:,ke)
+      VelP(:) = VelhP(:) + ( &
+        GsqrtMOMZ_P(:) / GsqrtV_P(:) + G13_P(:) * GsqrtMOMX_P(:) + G23_P(:) * GsqrtMOMY_P(:) ) / GsqrtDensP(:) * nz(:,ke)
         
 
       ! dpresM(:) = ( CPtot(iM) / CVtot(iM) - 1.0_RP ) &
@@ -375,16 +373,13 @@ contains
       GsqrtDensM(:) = GsqrtDDENS_M(:) + Gsqrt_M(:) * DENS_hyd(iM)
       GsqrtDensP(:) = GsqrtDDENS_P(:) + Gsqrt_P(:) * DENS_hyd(iP)
 
-      VelhM(:) = ( GsqrtMOMX_M(:) * nx(:,ke) + GsqrtMOMY_M(:) * ny(:,ke)                  &
-                 + ( G13_M(:) * GsqrtMOMX_M(:) + G23_M(:) * GsqrtMOMY_M(:) ) * nz(:,ke) ) &
-                 / GsqrtDensM(:)
-      VelhP(:) = ( GsqrtMOMX_P(:) * nx(:,ke) + GsqrtMOMY_P(:) * ny(:,ke)                  &
-                 + ( G13_P(:) * GsqrtMOMX_P(:) + G23_P(:) * GsqrtMOMY_P(:) ) * nz(:,ke) ) &
-                 / GsqrtDensP(:)
-
-      VelM(:) = VelhM(:) + GsqrtMOMZ_M(:) / ( GsqrtV_M(:) * GsqrtDensM(:) ) * nz(:,ke)
-      VelP(:) = VelhP(:) + GsqrtMOMZ_P(:) / ( GsqrtV_P(:) * GsqrtDensP(:) ) * nz(:,ke)
-
+      VelhM(:) = ( GsqrtMOMX_M(:) * nx(:,ke) + GsqrtMOMY_M(:) * ny(:,ke) ) / GsqrtDensM(:)
+      VelhP(:) = ( GsqrtMOMX_P(:) * nx(:,ke) + GsqrtMOMY_P(:) * ny(:,ke) ) / GsqrtDensP(:)
+      
+      VelM(:) = VelhM(:) + ( &
+        GsqrtMOMZ_M(:) / GsqrtV_M(:) + G13_M(:) * GsqrtMOMX_M(:) + G23_M(:) * GsqrtMOMY_M(:) ) / GsqrtDensM(:) * nz(:,ke)
+      VelP(:) = VelhP(:) + ( &
+        GsqrtMOMZ_P(:) / GsqrtV_P(:) + G13_P(:) * GsqrtMOMX_P(:) + G23_P(:) * GsqrtMOMY_P(:) ) / GsqrtDensP(:) * nz(:,ke)
 
       Gsqrt_u1M(:) = ( G_11(iM2Dto3D(:),ke2D) * GsqrtMOMX_M(:) + G_12(iM2Dto3D(:),ke2D) * GsqrtMOMY_M(:) )
       Gsqrt_u2M(:) = ( G_12(iM2Dto3D(:),ke2D) * GsqrtMOMX_M(:) + G_22(iM2Dto3D(:),ke2D) * GsqrtMOMY_M(:) )

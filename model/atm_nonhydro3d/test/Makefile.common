@@ -6,23 +6,26 @@
 
 ifeq ($(origin SYSDEP_DIR), undefined)
    SYSDEP_DIR = $(TOPDIR)/sysdep
+else
+   ifeq ( "$(shell ls $(SYSDEP_DIR) | grep Makedef.$(SCALE_FE_SYS))", "")
+      SYSDEP_DIR=$(TOPDIR)/sysdep
+   else
+      USELOCALBIN = T
+   endif
 endif
+
+include $(SYSDEP_DIR)/Makedef.$(SCALE_FE_SYS)
+include $(TOPDIR)/Mkinclude
+
 
 msg1 = "\n"
 
 ifeq ($(SCALE_DEBUG),T)
    msg1       += "SCALE_DEBUG is set.\n"
-   USELOCALBIN = T
 endif
 
 ifeq ($(SCALE_USE_SINGLEFP),T)
    msg1       += "SCALE_USE_SINGLEFP is set.\n"
-   USELOCALBIN = T
-endif
-
-ifeq ($(SCALE_USE_FIXEDINDEX),T)
-   msg1       += "SCALE_USE_FIXEDINDEX is set.\n"
-   USELOCALBIN = T
 endif
 
 ifneq ($(ORG_SRCS),)
@@ -35,28 +38,24 @@ ifeq ($(SCALE_DISABLE_LOCALBIN),T)
 endif
 
 ifeq ($(USELOCALBIN),T)
-   BUILD_DIR := $(PWD)/.libs
-   BINDIR     = $(PWD)
-   msg1      += "The location of executable files is changed to $(BINDIR)\n"
+   BUILD_DIR := $(PWD)/.libs$(POSTFIX)
+   BINDIR2    = $(PWD)
+   msg1      += "The location of executable files is changed to $(BINDIR2)\n"
 else
-   BUILD_DIR := $(TOPDIR)/.libs
-   BINDIR     = $(TOPDIR)/bin
+   BUILD_DIR = "undefined"
+   BINDIR2   = $(BINDIR)
 endif
 
 ifeq ($(origin PPNAME), undefined)
-   PPNAME = scale-dg_pp
+   PPNAME = scale-dg_pp(POSTFIX)
 endif
 
 ifeq ($(origin INITNAME), undefined)
-   INITNAME = scale-dg_init
+   INITNAME = scale-dg_init(POSTFIX)
 endif
 
 ifeq ($(origin BINNAME), undefined)
-   BINNAME = scale-dg
-endif
-
-ifeq ($(origin N2GNAME), undefined)
-   N2GNAME = net2g
+   BINNAME = scale-dg(POSTFIX)
 endif
 
 ifeq ($(origin PPCONF), undefined)
@@ -71,14 +70,8 @@ ifeq ($(origin RUNCONF), undefined)
    RUNCONF = NONE
 endif
 
-ifeq ($(origin N2GCONF), undefined)
-   N2GCONF = NONE
-endif
 
 #UTILDIR    = ${TOPDIR}/scale-rm/util/netcdf2grads_h
-
-include $(SYSDEP_DIR)/Makedef.$(SCALE_FE_SYS)
-include $(TOPDIR)/Mkinclude
 
 
 all: build ${USER_target}
@@ -92,24 +85,26 @@ build: $(patsubst %,$(BUILD_DIR)/%,$(ORG_SRCS))
 	@echo -e "$(msg1)"
 	mkdir -p $(BUILD_DIR)
 	$(MAKE) -C $(ATMNONHYDRO3DDIR)/src SYSDEP_DIR=$(SYSDEP_DIR) \
-                                BUILD_DIR=$(BUILD_DIR)   \
-                                BINDIR=$(BINDIR)
+                                BUILD_DIR=$(BUILD_DIR)            \
+                                BINDIR=$(BINDIR2)                 \
+                                POSTFIX=$(POSTFIX)                \
+                                FFLAG_TESTCASE=$(FFLAG_TESTCASE)
 
 util:
 	$(MAKE) -C $(UTILDIR)
 
 run: jobshell
-	$(JOBSUB) run.sh
+	$(JOBSUB) run.sh $(JOBSUB_OPTION)
 
 jobshell:
 	@if [ -f ../Mkjobshell.$(SCALE_FE_SYS).sh ]; then \
-		bash ../Mkjobshell.$(SCALE_FE_SYS).sh            $(BINDIR)                                \
+		bash ../Mkjobshell.$(SCALE_FE_SYS).sh            $(BINDIR2)                                \
 		                                              $(PPNAME) $(INITNAME) $(BINNAME) $(N2GNAME) \
 		                                              $(PPCONF) $(INITCONF) $(RUNCONF) $(N2GCONF) \
 		                                              $(TPROC)                                    \
 		                                              $(DATPARAM) $(DATDISTS);                    \
 	else \
-		bash $(SYSDEP_DIR)/Mkjobshell.$(SCALE_FE_SYS).sh $(BINDIR)                                \
+		bash $(SYSDEP_DIR)/Mkjobshell.$(SCALE_FE_SYS).sh $(BINDIR2)                                \
 		                                              $(PPNAME) $(INITNAME) $(BINNAME) $(N2GNAME) \
 		                                              $(PPCONF) $(INITCONF) $(RUNCONF) $(N2GCONF) \
 		                                              $(TPROC)                                    \
@@ -122,23 +117,27 @@ vis:
 eval:
 	bash ./evaluate/evaluate.sh
 
-
+info:
+	$(MAKE) -C $(ATMNONHYDRO3DDIR)/src info \
+	       BINDIR=$(BINDIR2)          \
+          BUILD_DIR=$(BUILD_DIR)     \
+          SYSDEP_DIR=$(SYSDEP_DIR)
 
 .PHONY: allclean distclean clean
 
 allclean: distclean clean
-	$(MAKE) -C $(ATMNONHYDRO3DDIR)/src allclean BINDIR=$(BINDIR)         \
+	$(MAKE) -C $(ATMNONHYDRO3DDIR)/src allclean BINDIR=$(BINDIR2)  \
                                          BUILD_DIR=$(BUILD_DIR)   \
                                          SYSDEP_DIR=$(SYSDEP_DIR)
 
 distclean: clean
-	$(MAKE) -C $(ATMNONHYDRO3DDIR)/src distclean BINDIR=$(BINDIR)         \
+	$(MAKE) -C $(ATMNONHYDRO3DDIR)/src distclean BINDIR=$(BINDIR2)  \
                                           BUILD_DIR=$(BUILD_DIR)   \
                                           SYSDEP_DIR=$(SYSDEP_DIR)
 	rm -f *.nc *LOG.pe* monitor.pe* latlon* run.sh
 
 clean:
-	$(MAKE) -C $(ATMNONHYDRO3DDIR)/src clean BINDIR=$(BINDIR)         \
+	$(MAKE) -C $(ATMNONHYDRO3DDIR)/src clean BINDIR=$(BINDIR2)  \
                                       BUILD_DIR=$(BUILD_DIR)   \
                                       SYSDEP_DIR=$(SYSDEP_DIR)
 

@@ -1257,7 +1257,7 @@ contains
     call MOMZ%Init( "MOMZ", "kg.m-2.s-1", mesh )
     call DRHOT%Init( "DRHOT", "kg.m-3.K", mesh )
    
-    call prgvar_comm%Init(PROG_VARS_NUM, 0, mesh)
+    call prgvar_comm%Init(PROG_VARS_NUM, 0, 0, mesh)
     prgvar_list(VARID_DDENS)%field3d => DDENS
     prgvar_list(VARID_MOMX)%field3d => MOMX
     prgvar_list(VARID_MOMY)%field3d => MOMY
@@ -1268,7 +1268,7 @@ contains
     call PRES_hyd%Init( "PRES_hyd", "Pa", mesh )
     call DENS_hyd%Init( "DENS_hyd", "kg.m-3", mesh )
     
-    call auxvar_comm%Init(AUX_VARS_NUM, 0, mesh)
+    call auxvar_comm%Init(AUX_VARS_NUM, 0, 0, mesh)
     auxvar_list(AUXVARID_DENS_hyd)%field3d => DENS_hyd
     auxvar_list(AUXVARID_PRES_hyd)%field3d => PRES_hyd
 

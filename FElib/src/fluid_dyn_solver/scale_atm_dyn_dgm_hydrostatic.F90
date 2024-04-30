@@ -1,5 +1,5 @@
 !-------------------------------------------------------------------------------
-!> module Atmosphere / Dynamics common
+!> module FElib / Fluid dyn solver / Atmosphere / Common
 !!
 !! @par Description
 !!      Construct hydrostatic state for Atmospheric dynamical process. 
@@ -46,6 +46,7 @@ module scale_atm_dyn_dgm_hydrostatic
   !
   public :: hydrostatic_calc_basicstate_constT
   public :: hydrostatic_calc_basicstate_constPT
+  public :: hydrostatic_calc_basicstate_constTLAPS
   public :: hydrostatic_calc_basicstate_constPTLAPS
   public :: hydrostatic_calc_basicstate_constBVFreq
   public :: hydrostaic_build_rho_XYZ
@@ -66,6 +67,7 @@ module scale_atm_dyn_dgm_hydrostatic
   !
 
 contains
+  !> Calculate density and pressure in hydrostatic balance with a constant temperature
 !OCL SERIAL
   subroutine hydrostatic_calc_basicstate_constT( &
     DENS_hyd, PRES_hyd,                          &
@@ -98,6 +100,7 @@ contains
     return
   end subroutine hydrostatic_calc_basicstate_constT
 
+  !> Calculate density and pressure in hydrostatic balance with a constant potential temperature
 !OCL SERIAL
   subroutine hydrostatic_calc_basicstate_constPT( &
     DENS_hyd, PRES_hyd,                         &
@@ -138,6 +141,7 @@ contains
     return
   end subroutine hydrostatic_calc_basicstate_constPT
 
+  !> Calculate density and pressure in hydrostatic balance with a constant Brunt–Väisälä frequency
 !OCL SERIAL
   subroutine hydrostatic_calc_basicstate_constBVFreq( &
     DENS_hyd, PRES_hyd,                                           &
@@ -183,6 +187,44 @@ contains
     return
   end subroutine hydrostatic_calc_basicstate_constBVFreq
 
+  !> Calculate density and pressure in hydrostatic balance with a constant lapse rate of temperature
+!OCL SERIAL
+  subroutine hydrostatic_calc_basicstate_constTLAPS( &
+    DENS_hyd, PRES_hyd,                              &
+    TLAPS, Temp0, PRES_sfc, x, y, z, lcmesh3D, elem )
+
+    implicit none
+
+    class(LocalMesh3D), intent(in) :: lcmesh3D
+    class(ElementBase3D), intent(in) :: elem
+    real(RP), intent(out) :: DENS_hyd(elem%Np,lcmesh3D%NeA)
+    real(RP), intent(out) :: PRES_hyd(elem%Np,lcmesh3D%NeA)
+    real(RP), intent(in) :: x(elem%Np,lcmesh3D%Ne)
+    real(RP), intent(in) :: y(elem%Np,lcmesh3D%Ne)
+    real(RP), intent(in) :: z(elem%Np,lcmesh3D%Ne)
+    real(RP), intent(in) :: TLAPS
+    real(RP), intent(in) :: Temp0
+    real(RP), intent(in) :: PRES_sfc
+
+    integer :: ke
+
+    real(RP) :: fac
+    real(RP) :: TEMP(elem%Np)
+    !-----------------------------------------------
+
+    fac = GRAV / ( Rdry * TLAPS )
+
+    !$omp parallel do private(TEMP)
+    do ke=lcmesh3D%NeS, lcmesh3D%NeE
+      TEMP(:) = Temp0 * ( 1.0_RP - TLAPS / Temp0 * z(:,ke) )
+      PRES_hyd(:,ke) = PRES00 * ( TEMP(:) / Temp0 )**fac
+      DENS_hyd(:,ke) =  PRES_hyd(:,ke) / ( Rdry * TEMP(:) )
+    end do
+
+    return
+  end subroutine hydrostatic_calc_basicstate_constTLAPS
+
+  !> Calculate density and pressure in hydrostatic balance with a constant lapse rate of potential temperature
 !OCL SERIAL
   subroutine hydrostatic_calc_basicstate_constPTLAPS( &
     DENS_hyd, PRES_hyd,                                 &
@@ -228,6 +270,7 @@ contains
     return
   end subroutine hydrostatic_calc_basicstate_constPTLAPS
 
+  !> Build density in hydrostatic balance state of dry atmosphere
 !OCL SERIAL
   subroutine hydrostaic_build_rho_XYZ_dry(   &
     DDENS,                                   &
@@ -271,6 +314,7 @@ contains
     return
   end subroutine hydrostaic_build_rho_XYZ_dry
 
+  !> Build density in hydrostatic balance state of moist atmosphere
 !OCL SERIAL
   subroutine hydrostaic_build_rho_XYZ_moist( &
     DDENS,                                   &
@@ -279,6 +323,8 @@ contains
     x, y, z, lcmesh, elem,                   &
     bnd_SFC_PRES                             )
 
+    use scale_const, only: &
+      EPS0 => CONST_EPS
     implicit none
 
     class(LocalMesh3D), intent(in) :: lcmesh
@@ -299,7 +345,6 @@ contains
     integer :: itr_lin
     integer :: itr_nlin
 
-    real(RP), parameter :: EPS0 = 1.0E-12_RP
     real(RP), parameter :: EPS  = 1.0E-12_RP
 
     type(SparseMat) :: Dz, Lift
@@ -353,7 +398,7 @@ contains
     m = min(N / elem%Nnode_h1D**2, 30)
 !    m = min(N / elem%Nnode_h1D**2, 256)
 
-    call gmres_hydro%Init( N, m, EPS, EPS )
+    call gmres_hydro%Init( N, m, EPS, EPS0 )
     allocate( wj(N), pinv_v(N) )
 
     call Dz%Init( elem%Dx3, storage_format='ELL' )
@@ -422,14 +467,16 @@ contains
 
         do itr_lin=1, 2*int(N/m)
           !
-          call GMRES_hydro_core( gmres_hydro, VAR_DEL, wj, is_converged, &
-            VARS, b, N, m,                                               &
+          call GMRES_hydro_core( gmres_hydro, VAR_DEL, wj, is_converged, & ! (out)
+            VARS, b, N, m,                                               & ! (in)
             PmatDlu,  PmatDlu_ipiv,  PmatL, PmatU, pinv_v,               & ! (in)
             POT(:,:,ke_x,ke_y), Rtot(:,:,ke_x,ke_y),                     & ! (in)
             CPtot_ov_CVtot(:,:,ke_x,ke_y), DENS_hyd_z, PRES_hyd_z,       & ! (in)
             Dz, Lift, IntrpMat_VPOrdM1, lcmesh, elem,                    & ! (in)
             nz, vmapM_z1D, vmapP_z1D, ke_x, ke_y )
 
+            ! LOG_PROGRESS(*) ke_x, ke_y, "itr_lin:", itr_lin, ": VAR_DEL", VAR_DEL(elem%Colmask(:,1),1)
+            ! if( IO_L ) call flush(IO_FID_LOG)
           if (is_converged) exit
         end do ! itr_lin
         do ke_z=1, lcmesh%NeZ  
@@ -560,11 +607,8 @@ contains
         nz, vmapM, vmapP, ke_x, ke_y             ) ! (in)
       
       call gmres_hydro%Iterate_step_j( j, wj, is_converged )
-      
-      if ( is_converged .and. j==1 ) then
-        x(:) = pinv_v(:) * gmres_hydro%g(1)
-        return
-      end if
+
+      LOG_INFO("GMRES check**:",*) "j=", j, "g:", gmres_hydro%g(j+1), "r:", gmres_hydro%r(j,j), "hj(j+1):", gmres_hydro%hj(j+1)      
       if ( is_converged ) exit
     end do
 

@@ -62,6 +62,7 @@ module mod_regrid_vec_conversion
 
 
 contains
+!OCL SERIAL
   subroutine regrid_vec_conversion_Init( out_mesh )
     implicit none
     class(MeshBase3D), intent(in) :: out_mesh
@@ -77,6 +78,7 @@ contains
     return
   end subroutine regrid_vec_conversion_Init
 
+!OCL SERIAL
   subroutine regrid_vec_conversion_Do( &
     istep, out_mesh, nodeMap_list,     &
     GP_flag, out_mesh_GP, GPMat        )
@@ -89,8 +91,8 @@ contains
     use scale_localmesh_2d, only: LocalMesh2D
     use scale_localmesh_3d, only: LocalMesh3D
     use scale_element_base, only: ElementBase3D
-    use scale_cubedsphere_cnv, only: &
-      CubedSphereCnv_LonLat2CSPos
+    use scale_cubedsphere_coord_cnv, only: &
+      CubedSphereCoordCnv_LonLat2CSPos
     
     use scale_const, only: &
       PI => CONST_PI,         &
@@ -118,6 +120,7 @@ contains
     real(RP), allocatable :: out_y(:,:)
     real(RP), allocatable :: out_x3D(:,:)
     real(RP), allocatable :: out_y3D(:,:)
+    real(RP), allocatable :: gam(:,:)
 
     integer :: p_h, ke_h
     real(RP) :: out_lon(1)
@@ -145,9 +148,10 @@ contains
       allocate( out_x(Np1D**2,Ne2D), out_y(Np1D**2,Ne2D) )
       allocate( out_x3D(elem3D%Np,lcmesh%Ne) )
       allocate( out_y3D(elem3D%Np,lcmesh%Ne) )
+      allocate( gam(elem3D%Np,lcmesh%Ne) )
 
       call MeshUtilCubedSphere2D_getPanelID ( &
-        inPanelID(:,:),                             & ! (out)
+        inPanelID(:,:),                               & ! (out)
         lcmesh2D%pos_en(:,:,1) * PI / 180.0_RP,       & ! (in)
         lcmesh2D%pos_en(:,:,2) * PI / 180.0_RP,       & ! (in)
         Np1D**2 * Ne2D                              ) ! (in)      
@@ -157,7 +161,7 @@ contains
         out_lon(1) = lcmesh2D%pos_en(p_h,ke_h,1) * PI / 180.0_RP
         out_lat(1) = lcmesh2D%pos_en(p_h,ke_h,2) * PI / 180.0_RP
 
-        call CubedSphereCnv_LonLat2CSPos( &
+        call CubedSphereCoordCnv_LonLat2CSPos( &
           inPanelID(p_h,ke_h),                       & ! (in)
           out_lon(1), out_lat(1), 1,                 & ! (in)
           out_x(p_h,ke_h), out_y(p_h,ke_h)           ) ! (out)
@@ -170,14 +174,20 @@ contains
         inPanelID3D(:,ke) = inPanelID(elem3D%IndexH2Dto3D(:),ke2D)
         out_x3D(:,ke) = out_x(elem3D%IndexH2Dto3D(:),ke2D)
         out_y3D(:,ke) = out_y(elem3D%IndexH2Dto3D(:),ke2D)
+
+        if ( out_mesh%global_shallow_layer_approx_flag ) then
+          gam(:,ke) = 1.0_RP
+        else
+          gam(:,ke) = 1.0_RP + lcmesh%zlev(:,ke) / RPlanet
+        end if  
       end do
 
-      call CS2LonLatVec( inPanelID3D, out_x3D, out_y3D, &
-        elem3D%Np, lcmesh%Ne, lcmesh%NeA, RPlanet,      &
+      call CS2LonLatVec( inPanelID3D, out_x3D, out_y3D, gam, &
+        elem3D%Np, lcmesh%Ne, lcmesh%NeA,               &
         out_vec_comp1%local(n)%val(:,:),                &
         out_vec_comp2%local(n)%val(:,:),                &
-        out_veclon%local(n)%val(:,:),             &
-        out_veclat%local(n)%val(:,:)              )
+        out_veclon%local(n)%val(:,:),                   &
+        out_veclat%local(n)%val(:,:)                    )
       
       !$omp parallel do private(ke2D)
       do ke=lcmesh%NeS, lcmesh%NeE
@@ -189,11 +199,13 @@ contains
       deallocate( inPanelID, inPanelID3D )
       deallocate( out_x, out_y )
       deallocate( out_x3D, out_y3D )
+      deallocate( gam )
     end do
 
     return
   end subroutine regrid_vec_conversion_Do
 
+!OCL SERIAL
   subroutine regrid_vec_conversion_Final()
     implicit none
     !----------------------------------------------
@@ -206,14 +218,15 @@ contains
 
 !-----------------------------
 
-
+!OCL SERIAL
   subroutine CS2LonLatVec( &
-    panelID, alpha, beta, Np, Ne, NeA, radius, & ! (in)
+    panelID, alpha, beta, gam, Np, Ne, NeA,    & ! (in)
     VecAlpha, VecBeta,                         & ! (in)
     VecLon, VecLat                             ) ! (out)
 
     use scale_const, only: &
-      EPS => CONST_EPS
+      EPS => CONST_EPS,       &
+      RPlanet => CONST_RADIUS
     implicit none
 
     integer, intent(in) :: Np
@@ -222,7 +235,7 @@ contains
     integer, intent(in) :: panelID(Np,Ne)
     real(RP), intent(in) :: alpha(Np,Ne)
     real(RP), intent(in) :: beta (Np,Ne)
-    real(RP), intent(in) :: radius
+    real(RP), intent(in) :: gam(Np,NeA)
     real(DP), intent(in) :: VecAlpha(Np,NeA)
     real(DP), intent(in) :: VecBeta (Np,NeA)
     real(RP), intent(out) :: VecLon(Np,NeA)
@@ -231,14 +244,16 @@ contains
     integer :: p, ke
     real(RP) :: X ,Y, del2
     real(RP) :: s
+    real(RP) :: radius
     !-----------------------------------------------------------------------------
 
-    !$omp parallel do collapse(2) private( p, X, Y, del2, s )
+    !$omp parallel do collapse(2) private( p, X, Y, del2, s, radius )
     do ke=1, Ne
     do p=1, Np
       X = tan( alpha(p,ke) )
       Y = tan( beta (p,ke) )
       del2 = 1.0_RP + X**2 + Y**2
+      radius = RPlanet * gam(p,ke)
 
       select case( panelID(p,ke) )
       case( 1, 2, 3, 4 )

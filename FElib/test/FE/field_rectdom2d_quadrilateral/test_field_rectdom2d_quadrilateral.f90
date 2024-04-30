@@ -122,7 +122,7 @@ contains
 
     !---
     call q%Init( q_VARNAME, q_UNITS, mesh )
-    call fields_comm%Init(1, 0, mesh)
+    call fields_comm%Init(1, 0, 0, mesh)
     
     call FILE_HISTORY_meshfield_setup( mesh2d_=mesh )
     call FILE_HISTORY_reg( q_VARNAME, q_DESC, q_UNITS, HST_ID(1), dim_type='XY')

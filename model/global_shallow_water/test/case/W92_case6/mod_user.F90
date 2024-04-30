@@ -6,6 +6,11 @@
 !!          Test case 5 of Williamson et al. (1992)
 !!          Rossby–Haurwitz wave
 !!
+!! @par Reference
+!!  - Williamson et al. 1992: 
+!!    A Standard Test Set for Numerical Approximations to the Shallow Water Equations in Spherical Geometry.
+!!    Journal of Computational Physics, 102, 211-224.
+!!
 !! @author Team SCALE
 !!
 !<
@@ -108,15 +113,17 @@ contains
     return
   end subroutine USER_setup
 
-  subroutine USER_calc_tendency
+  subroutine USER_calc_tendency( atm )
     implicit none
+    class(GlobalSWComponent), intent(inout) :: atm
     !------------------------------------------
 
     return
   end subroutine USER_calc_tendency
 
-  subroutine USER_update
+  subroutine USER_update( atm )
     implicit none
+    class(GlobalSWComponent), intent(inout) :: atm
     !------------------------------------------
 
     return
@@ -132,8 +139,8 @@ contains
       GRAV => CONST_GRAV,      &
       RPlanet => CONST_RADIUS, &
       OMG => CONST_OHM 
-    use scale_cubedsphere_cnv, only: &
-      CubedSphereCnv_LonLat2CSVec
+    use scale_cubedsphere_coord_cnv, only: &
+      CubedSphereCoordCnv_LonLat2CSVec
     implicit none
 
     class(Exp_W92_case6), intent(inout) :: this
@@ -155,18 +162,19 @@ contains
     namelist /PARAM_EXP/ &
       H00, K_
     
-
+    real(RP) :: gam(elem%Np,lcmesh%Ne)
     real(RP) :: VelLon(elem%Np,lcmesh%Ne)
     real(RP) :: VelLat(elem%Np,lcmesh%Ne)
+    
     real(RP) :: lon(elem%Np)
     real(RP) :: lat(elem%Np)
     real(RP) :: A(elem%Np)
     real(RP) :: B(elem%Np)    
     real(RP) :: C(elem%Np)    
-    integer :: ke
-    integer :: ierr
 
-    real(RP) :: r(elem%Np)
+    integer :: ke
+
+    integer :: ierr
     !-----------------------------------------------------------------------------
 
     H00 = 8000.0_RP
@@ -189,8 +197,8 @@ contains
       lon(:) = lcmesh%lon(:,ke)
       lat(:) = lcmesh%lat(:,ke)
 
-      VelLon(:,ke) = RPlanet * ( OM &
-        - K_ * cos(lat(:))**2 * ( -4.0_RP * sin(lat(:))**2 + cos(lat(:))**2 ) * cos(4.0_RP*lon(:))  & ! * cos(lat(:))
+      VelLon(:,ke) = RPlanet * cos(lat(:)) * ( OM &
+        - K_ * cos(lat(:))**2 * ( -4.0_RP * sin(lat(:))**2 + cos(lat(:))**2 ) * cos(4.0_RP*lon(:)) &
       )
       VelLat(:,ke) = - RPlanet * K_ * 4.0_RP * cos(lat(:))**3 * sin(lat(:)) * sin(4.0_RP*lon(:))      
 
@@ -212,9 +220,13 @@ contains
 
     end do
 
-    call CubedSphereCnv_LonLat2CSVec( &
-      lcmesh%panelID, lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2), elem%Np * lcmesh%Ne, RPlanet, &
-      VelLon(:,:), VelLat(:,:), U(:,lcmesh%NeS:lcmesh%NeE), V(:,lcmesh%NeS:lcmesh%NeE)          )
+    gam(:,:) = 1.0_RP
+    call CubedSphereCoordCnv_LonLat2CSVec( &
+      lcmesh%panelID, lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2), & ! (in)
+      gam(:,:), elem%Np * lcmesh%Ne,                              & ! (in)
+      VelLon(:,:), VelLat(:,:),                                   & ! (in)
+      U(:,lcmesh%NeS:lcmesh%NeE), V(:,lcmesh%NeS:lcmesh%NeE)      ) ! (out)
+    
     !$omp parallel do
     do ke=lcmesh%NeS, lcmesh%NeE
       u1(:,ke) = lcmesh%G_ij(:,ke,1,1) * U(:,ke) + lcmesh%G_ij(:,ke,1,2) * V(:,ke)

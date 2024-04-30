@@ -152,7 +152,7 @@ contains
     call dudx%Init( "dudx", "1", mesh )
     call dudy%Init( "dudy", "1", mesh )
     call dudz%Init( "dudz", "1", mesh )
-    call fields_comm%Init(2, 0, mesh)
+    call fields_comm%Init(2, 0, 0, mesh)
 
     call FILE_HISTORY_meshfield_setup( mesh3d_=mesh )
     call FILE_HISTORY_reg( q_VARNAME, q_DESC, q_UNITS, HST_ID(1), dim_type='XYZ')

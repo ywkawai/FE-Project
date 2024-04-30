@@ -2,7 +2,7 @@
 !> module INITIAL
 !!
 !! @par Description
-!!          subroutines for preparing topography data 
+!!          A module for preparing topography data 
 !!
 !! @author Team SCALE
 !!
@@ -56,11 +56,13 @@ module mod_mktopo
   
   integer, public :: MKTOPO_TYPE                          = -1
   integer, parameter, public :: I_IGNORE                  = 0
-  integer, parameter, public :: I_FLAT                    = 1
-  integer, parameter, public :: I_BELLSHAPE               = 2
-  integer, parameter, public :: I_SCAER                   = 3
-  integer, parameter, public :: I_BELLSHAPE_GLOBAL        = 4
-  integer, parameter, public :: I_BAROCWAVE_GLOBAL_JW2004 = 5  
+  integer, parameter, public :: I_INPUT_FILE              = 1
+  integer, parameter, public :: I_FLAT                    = 2
+  integer, parameter, public :: I_BELLSHAPE               = 3
+  integer, parameter, public :: I_SCAER                   = 4
+  integer, parameter, public :: I_BELLSHAPE_GLOBAL        = 5
+  integer, parameter, public :: I_SCAHER_GLOBAL           = 6
+  integer, parameter, public :: I_BAROCWAVE_GLOBAL_JW2006 = 7  
 
   !-----------------------------------------------------------------------------
   !
@@ -68,7 +70,10 @@ module mod_mktopo
   !
 
   private :: MKTOPO_flat
+  private :: MKTOPO_bellshape
+  private :: MKTOPO_Schaer_type_mountain
   private :: MKTOPO_bellshape_global
+  private :: MKTOPO_barocwave_global_JW2006
 
   !-----------------------------------------------------------------------------
   !
@@ -82,6 +87,7 @@ module mod_mktopo
 contains
   !-----------------------------------------------------------------------------
   !> Setup
+!OCL SERIAL
   subroutine MKTOPO_setup
     implicit none
 
@@ -113,6 +119,8 @@ contains
     select case(trim(toponame))
     case('NONE')
       MKTOPO_TYPE = I_IGNORE
+    case('INPUT_FILE')
+      MKTOPO_TYPE = I_INPUT_FILE
     case('FLAT')
       MKTOPO_TYPE = I_FLAT  
     case('BELLSHAPE')
@@ -120,9 +128,11 @@ contains
     case('SCHAER')
       MKTOPO_TYPE = I_SCAER
     case('BELLSHAPE_GLOBAL')
-      MKTOPO_TYPE = I_BELLSHAPE_GLOBAL 
-    case('BAROCWAVE_GLOBAL_JW2004')
-      MKTOPO_TYPE = I_BAROCWAVE_GLOBAL_JW2004      
+      MKTOPO_TYPE = I_BELLSHAPE_GLOBAL
+    case('SCHAER_GLOBAL')
+      MKTOPO_TYPE = I_SCAHER_GLOBAL
+    case('BAROCWAVE_GLOBAL_JW2006')
+      MKTOPO_TYPE = I_BAROCWAVE_GLOBAL_JW2006      
     case default
       LOG_ERROR("MKTOPO_setup",*) 'Not appropriate toponame. Check!', toponame
       call PRC_abort      
@@ -133,6 +143,7 @@ contains
 
   !-----------------------------------------------------------------------------
   !> Driver
+!OCL SERIAL
   subroutine MKTOPO( output, model_mesh, topography )
     use scale_model_var_manager, only: ModelVarManager
     implicit none
@@ -164,6 +175,8 @@ contains
       call mesh%GetMesh2D( mesh2D )
 
       select case( MKTOPO_TYPE )
+      case ( I_INPUT_FILE )
+        call MKTOPO_input_file( mesh2D, topography%topo )
       case ( I_FLAT )
         call MKTOPO_flat( mesh2D, topography%topo )
       case ( I_BELLSHAPE )
@@ -172,7 +185,9 @@ contains
         call MKTOPO_Schaer_type_mountain( mesh2D, topography%topo )
       case ( I_BELLSHAPE_GLOBAL )
         call MKTOPO_bellshape_global( mesh2D, topography%topo )
-      case ( I_BAROCWAVE_GLOBAL_JW2004 )
+      case ( I_SCAHER_GLOBAL )
+        call MKTOPO_Schaer_type_global( mesh2D, topography%topo )        
+      case ( I_BAROCWAVE_GLOBAL_JW2006 )
         call MKTOPO_barocwave_global_JW2006( mesh2D, topography%topo )
       end select
 
@@ -185,6 +200,9 @@ contains
     return
   end subroutine MKTOPO
 
+  !-----------------------------------------------------------------------------
+  !> Output topography data
+!OCL SERIAL
   subroutine MKTOPO_write( model_mesh, topography )
 
     use scale_time, only: &
@@ -239,7 +257,74 @@ contains
   !-- private---------------------------------------------------------------------
 
   !-----------------------------------------------------------------------------
+  !> Make topography from input file
+  !!
+!OCL SERIAL  
+  subroutine MKTOPO_input_file( mesh, topo )
+    use scale_file_base_meshfield, only: FILE_base_meshfield
+    use scale_mesh_rectdom2d, only: MeshRectDom2D
+    use scale_mesh_cubedspheredom2d, only: MeshCubedSphereDom2D
+    use scale_mesh_base2d, only: &
+      MFTYPE2D_XY => MeshBase2D_DIMTYPEID_XY
+
+    implicit none
+
+    class(MeshBase2D), intent(in), target :: mesh
+    class(MeshField2D), intent(inout) :: topo
+
+    character(len=H_LONG) :: IN_BASENAME
+    character(len=H_MID) :: VARNAME
+
+    namelist / PARAM_MKTOPO_INPUT_FILE / &
+      IN_BASENAME, &
+      VARNAME
+
+    integer :: ierr    
+    integer :: n
+    integer :: ke2d
+    type(LocalMesh2D), pointer :: lmesh2D
+
+    type(FILE_base_meshfield) :: file
+
+    logical :: file_existed
+    !--------------------------------
+
+    LOG_INFO("MKTOPO_input_file",*) 'Setup'
+
+    !--- read namelist
+    rewind(IO_FID_CONF)
+    read(IO_FID_CONF,nml=PARAM_MKTOPO_INPUT_FILE,iostat=ierr)
+    if( ierr < 0 ) then !--- missing
+       LOG_INFO("MKTOPO_input_file",*) 'Not found namelist. Default used.'
+    elseif( ierr > 0 ) then !--- fatal error
+       LOG_ERROR("MKTOPO_input_file",*) 'Not appropriate names in namelist PARAM_MKTOPO_INPUT_FILE. Check!'
+       call PRC_abort
+    endif
+    LOG_NML(PARAM_MKTOPO_INPUT_FILE)
+
+    !-- Read topography data
+
+    select type( mesh )
+    class is (MeshCubedSphereDom2D)
+      call file%Init( 1, meshcubedsphere2D=mesh )
+    class is (MeshRectDom2D)      
+      call file%Init( 1, mesh2D=mesh )
+    end select
+
+    call file%Open( IN_BASENAME, myrank=PRC_myrank)
+    call file%Read_Var( MFTYPE2D_XY, VARNAME, topo )
+
+    call file%Close()
+    call file%Final()
+
+    return
+  end subroutine MKTOPO_input_file
+
+
+  !-----------------------------------------------------------------------------
   !> Make flat mountain  
+  !!
+!OCL SERIAL  
   subroutine MKTOPO_flat( mesh, topo )
     implicit none
 
@@ -247,7 +332,7 @@ contains
     class(MeshField2D), intent(inout) :: topo
 
     ! flat mountain parameter
-    real(RP) :: FLAT_HEIGHT   =  100.0_RP ! height of mountain [m]
+    real(RP) :: FLAT_HEIGHT   =  100.0_RP !< height of mountain [m]
 
     namelist / PARAM_MKTOPO_FLAT / &
        FLAT_HEIGHT
@@ -285,6 +370,8 @@ contains
 
   !-----------------------------------------------------------------------------
   !> Make mountain with bell shape
+  !!
+!OCL SERIAL
   subroutine MKTOPO_bellshape( mesh, topo )
     implicit none
 
@@ -292,10 +379,10 @@ contains
     class(MeshField2D), intent(inout) :: topo
 
     ! bell-shaped mountain parameter
-    real(RP) :: BELL_cx     =   0.0E0_RP ! center location [m]: x-coordinate
-    real(RP) :: BELL_cy     =   0.0E3_RP ! center location [m]: y-coordinate
-    real(RP) :: BELL_R      =   2.E3_RP  ! half radius        [m]
-    real(RP) :: BELL_HEIGHT =  100.0_RP  ! height of mountain [m]
+    real(RP) :: BELL_cx     =   0.0E0_RP !< center location [m]: x-coordinate
+    real(RP) :: BELL_cy     =   0.0E3_RP !< center location [m]: y-coordinate
+    real(RP) :: BELL_R      =   2.E3_RP  !< half radius        [m]
+    real(RP) :: BELL_HEIGHT =  100.0_RP  !< height of mountain [m]
     logical  :: BELL_QUASI_2D = .false. 
     namelist / PARAM_MKTOPO_BELLSHAPE / &
       BELL_cx,     &
@@ -353,8 +440,11 @@ contains
 
   !-----------------------------------------------------------------------------
   !> Make Schaer-type mountain
-  !> References: Schaer et al, 2002, MWR, Vol.130, 2459-2480
-  !>             Klemp et al, 2003,  MWR, Vol.131, 1229-1239
+  !!
+  !! @par Reference
+  !! - Schaer et al., 2002, MWR, Vol.130, 2459-2480
+  !! - Klemp et al., 2003,  MWR, Vol.131, 1229-1239
+!OCL SERIAL
   subroutine MKTOPO_Schaer_type_mountain( mesh, topo )
     implicit none
 
@@ -362,10 +452,10 @@ contains
     class(MeshField2D), intent(inout) :: topo
 
     ! Schaer-type mountain parameter
-    real(RP) :: SCHAER_CX       =  25.E3_RP ! center location [m]: x
-    real(RP) :: SCHAER_RX       =   5.E3_RP ! bubble radius   [m]: x
-    real(RP) :: SCHAER_LAMBDA   =   4.E3_RP ! wavelength of wavelike perturbation [m]: x
-    real(RP) :: SCHAER_HEIGHT   =  250.0_RP ! height of mountain [m]
+    real(RP) :: SCHAER_CX       =  25.E3_RP !< center location [m]: x
+    real(RP) :: SCHAER_RX       =   5.E3_RP !< bubble radius   [m]: x
+    real(RP) :: SCHAER_LAMBDA   =   4.E3_RP !< wavelength of wavelike perturbation [m]: x
+    real(RP) :: SCHAER_HEIGHT   =  250.0_RP !< height of mountain [m]
     namelist / PARAM_MKTOPO_SCHAER / &
        SCHAER_CX,     &
        SCHAER_RX,     &
@@ -413,6 +503,7 @@ contains
 
   !-----------------------------------------------------------------------------
   !> Make mountain with bell shape (global)
+  !!
   subroutine MKTOPO_bellshape_global( mesh, topo )
     implicit none
 
@@ -420,10 +511,10 @@ contains
     class(MeshField2D), intent(inout) :: topo
 
     ! bell-shaped mountain parameter
-    real(RP) :: BELL_Clon   =   0.0E0_RP ! center location [rad]: longitude
-    real(RP) :: BELL_Clat   =   0.0E3_RP ! center location [rad]: latitude
-    real(RP) :: BELL_R      =   2.E3_RP  ! half radius        [m]
-    real(RP) :: BELL_HEIGHT =  100.0_RP  ! height of mountain [m]
+    real(RP) :: BELL_Clon   =   0.0E0_RP !< center location [rad]: longitude
+    real(RP) :: BELL_Clat   =   0.0E0_RP !< center location [rad]: latitude
+    real(RP) :: BELL_R      =   2.E3_RP  !< half radius        [m]
+    real(RP) :: BELL_HEIGHT =  100.0_RP  !< height of mountain [m]
     namelist / PARAM_MKTOPO_BELLSHAPE_GLOBAL / &
       BELL_Clon,     &
       BELL_Clat,     &
@@ -439,15 +530,15 @@ contains
     real(RP), allocatable :: r(:)
     !--------------------------------
 
-    LOG_INFO("MKTOPO_bellshape",*) 'Setup'
+    LOG_INFO("MKTOPO_bellshape_global",*) 'Setup'
 
     !--- read namelist
     rewind(IO_FID_CONF)
     read(IO_FID_CONF,nml=PARAM_MKTOPO_BELLSHAPE_GLOBAL,iostat=ierr)
     if( ierr < 0 ) then !--- missing
-       LOG_INFO("MKTOPO_bellshape",*) 'Not found namelist. Default used.'
+       LOG_INFO("MKTOPO_bellshape_global",*) 'Not found namelist. Default used.'
     elseif( ierr > 0 ) then !--- fatal error
-       LOG_ERROR("MKTOPO_bellshape",*) 'Not appropriate names in namelist PARAM_MKTOPO_BELLSHAPE_GLOBAL. Check!'
+       LOG_ERROR("MKTOPO_bellshape_global",*) 'Not appropriate names in namelist PARAM_MKTOPO_BELLSHAPE_GLOBAL. Check!'
        call PRC_abort
     endif
     LOG_NML(PARAM_MKTOPO_BELLSHAPE_GLOBAL)
@@ -470,22 +561,124 @@ contains
     return
   end subroutine MKTOPO_bellshape_global
 
+  !-----------------------------------------------------------------------------
+  !> Make Schaer-type mountain (global)
+  !!
+  !! @par Reference
+  !! - Klemp, J. B., Skamarock, W. C., & Park, S. H., 2015: Idealized global nonhydrostatic atmospheric test cases on a reduced‐radius sphere. Journal of Advances in Modeling Earth Systems, 7(3), 1155-1177.
+  !!
+  subroutine MKTOPO_Schaer_type_global( mesh, topo )
+    implicit none
+
+    class(MeshBase2D), intent(in), target :: mesh
+    class(MeshField2D), intent(inout) :: topo
+
+    ! bell-shaped mountain parameter
+    real(RP) :: SCHAER_Clon     !< center location [rad]: longitude
+    real(RP) :: SCHAER_Clat     !< center location [rad]: latitude
+    real(RP) :: SCHAER_R        !< half-width of mountain   [m]
+    real(RP) :: SCHAER_LAMBDA   !< wavelength of mountain oscillation [m]
+    integer  :: SCHAER_SHAPE_ID !< 1: gaussian, 2: cosine bell
+    real(RP) :: SCHAER_HEIGHT   !< height of mountain [m]
+    logical :: quasi_2D_flag
+
+    namelist / PARAM_MKTOPO_SCHAER_GLOBAL / &
+      SCHAER_Clon,     &
+      SCHAER_Clat,     &
+      SCHAER_R,        &
+      SCHAER_LAMBDA,   &
+      SCHAER_SHAPE_ID, &
+      SCHAER_HEIGHT,   &
+      quasi_2D_flag
+
+    integer :: ierr    
+    integer :: n
+    integer :: ke2d
+    type(LocalMesh2D), pointer :: lmesh2D
+    class(ElementBase2D), pointer :: elem
+
+    real(RP), allocatable :: r(:)
+    real(RP), allocatable :: mwt_shape(:)
+
+    !--------------------------------
+
+    LOG_INFO("MKTOPO_Schaer_global",*) 'Setup'
+
+    SCHAER_Clon     = 1.0_RP / 4.0_RP * PI
+    SCHAER_Clat     = 0.0_RP
+    SCHAER_R        = RPlanet * 3.0_RP / 4.0_RP * PI
+    SCHAER_LAMBDA   = RPlanet * PI / 16.0_RP
+    SCHAER_SHAPE_ID = 1
+    SCHAER_HEIGHT   = 2000.0_RP
+    quasi_2D_flag   = .false.
+
+    !--- read namelist
+    rewind(IO_FID_CONF)
+    read(IO_FID_CONF,nml=PARAM_MKTOPO_SCHAER_GLOBAL,iostat=ierr)
+    if( ierr < 0 ) then !--- missing
+       LOG_INFO("MKTOPO_Schaer_global",*) 'Not found namelist. Default used.'
+    elseif( ierr > 0 ) then !--- fatal error
+       LOG_ERROR("MKTOPO_Schaer_global",*) 'Not appropriate names in namelist PARAM_MKTOPO_SCHAER_GLOBAL. Check!'
+       call PRC_abort
+    endif
+    LOG_NML(PARAM_MKTOPO_SCHAER_GLOBAL)
+
+    do n=1, mesh%LOCAL_MESH_NUM
+      lmesh2D => mesh%lcmesh_list(n)
+      elem => lmesh2D%refElem2D
+
+      allocate( r(elem%Np), mwt_shape(elem%Np) )
+      !$omp parallel do private(r, mwt_shape)
+      do ke2D=lmesh2D%NeS, lmesh2D%NeE
+        if ( quasi_2D_flag ) then
+!          r(:) = RPlanet * ( min( abs(lmesh2D%lon(:,ke2d) - SCHAER_Clon), abs(lmesh2D%lon(:,ke2d) - (SCHAER_Clon + 2.0_RP * PI ) ) ) )
+          r(:) = RPlanet * abs(lmesh2D%lon(:,ke2d) - SCHAER_Clon)
+        else
+          r(:) = RPlanet &
+              * acos( sin(SCHAER_Clat) * sin(lmesh2D%lat(:,ke2d))                                          &
+                    + cos(SCHAER_Clat) * cos(lmesh2D%lat(:,ke2d)) * cos(lmesh2D%lon(:,ke2d) - SCHAER_Clon) )
+        end if
+
+        if ( SCHAER_SHAPE_ID == 1 ) then
+          mwt_shape(:) = exp( - ( r(:) / SCHAER_R )**2 ) 
+        else if ( SCHAER_SHAPE_ID == 2 ) then
+          where ( r(:) < SCHAER_R )
+            mwt_shape(:) = 0.5_RP * ( 1.0_RP + cos( PI * r(:) / SCHAER_R ) )
+          elsewhere
+            mwt_shape(:) = 0.0_RP
+          end where          
+        end if
+
+        if ( quasi_2D_flag ) then
+          mwt_shape(:) = mwt_shape(:) * cos(lmesh2D%lat(:,ke2d))
+        end if
+
+        topo%local(n)%val(:,ke2d) = SCHAER_HEIGHT *  mwt_shape(:) * cos( PI * r(:) / SCHAER_LAMBDA )**2
+      end do
+      deallocate( r, mwt_shape )
+    end do
+    
+    return
+  end subroutine MKTOPO_Schaer_type_global
 
   !-----------------------------------------------------------------------------
-  !> Make mountain with bell shape (global)
+  !> Make a topography for a global test case of idealized baroclinic wave in Jablonowski and Williamson (2006)
+  !!
+  !! @par Reference
+  !! - Jablonowski, C., & Williamson, D. L., 2006: A baroclinic instability test case for atmospheric model dynamical cores. Quarterly Journal of the Royal Meteorological Society: A journal of the atmospheric sciences, applied meteorology and physical oceanography, 132(621C), 2943-2975.
+  !!
+!OCL SERIAL
   subroutine MKTOPO_barocwave_global_JW2006( mesh, topo )
-    use scale_const, only: &
-      OHM => CONST_OHM,   &
-      Grav => CONST_GRAV
-
+    use mod_mktopo_util, only: &
+      calc_topo => mktopoutil_barocwave_global_JW2006_calc_topo
     implicit none
 
     class(MeshBase2D), intent(in), target :: mesh
     class(MeshField2D), intent(inout) :: topo
 
     ! parameters of baroclinic wave test case in JW2006
-    real(RP) :: ETA0        = 0.252_RP  ! The value of η at a reference level (position of the jet)
-    real(RP) :: U0 = 35.E0_RP           ! The parameter associated with zonal jet maximum amplitude  [m/s]
+    real(RP) :: ETA0 = 0.252_RP  !< The value of η at a reference level (position of the jet)
+    real(RP) :: U0   = 35.E0_RP  !< The parameter associated with zonal jet maximum amplitude  [m/s]
 
     namelist / PARAM_MKTOPO_BAROCWAVE_GLOBAL_JW2006 / &
       ETA0, U0
@@ -495,10 +688,6 @@ contains
     integer :: ke2d
     type(LocalMesh2D), pointer :: lmesh2D
     class(ElementBase2D), pointer :: elem
-
-    real(RP), allocatable :: cosLat(:)
-    real(RP), allocatable :: sinLat(:)
-    real(RP) :: tmp
     !--------------------------------
 
     LOG_INFO("MKTOPO_barocwave_JW2006",*) 'Setup'
@@ -517,23 +706,12 @@ contains
     do n=1, mesh%LOCAL_MESH_NUM
       lmesh2D => mesh%lcmesh_list(n)
       elem => lmesh2D%refElem2D
-
-      allocate( cosLat(elem%Np), sinLat(elem%Np) )
       
-      !$omp parallel do private( cosLat, sinLat, tmp )
+      !$omp parallel do
       do ke2D=lmesh2D%NeS, lmesh2D%NeE
-        cosLat(:) = cos(lmesh2D%lat(:,ke2d))
-        sinLat(:) = sin(lmesh2D%lat(:,ke2d))
-        tmp = cos( (1.0_RP - ETA0) * 0.5_RP * PI )
-        tmp = U0 * tmp * sqrt(tmp)
-
-        topo%local(n)%val(:,ke2d) = tmp * &
-          (   ( - 2.0_RP * sinLat(:)**6 * ( cosLat(:)**2 + 1.0_RP / 3.0_RP ) + 10.0_RP / 63.0_RP ) * tmp         &
-            + ( 8.0_RP / 5.0_RP * cosLat**3 * ( sinLat**2 + 2.0_RP / 3.0_RP ) - 0.25_RP * PI ) * RPlanet * OHM   &
-          ) / Grav  
+        call calc_topo( topo%local(n)%val(:,ke2d), & ! (out)
+          U0, ETA0, lmesh2D%lat(:,ke2d), elem%Np )   ! (in)
       end do
-
-      deallocate( cosLat, sinLat )
     end do
     
     return

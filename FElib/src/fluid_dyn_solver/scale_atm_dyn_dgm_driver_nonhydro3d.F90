@@ -1,5 +1,5 @@
 !-------------------------------------------------------------------------------
-!> module Atmosphere / Dynamics / DGM driver (nonydro3d)
+!> module FElib / Fluid dyn solver / Atmosphere / driver (3D nonhydrostatic model)
 !!
 !! @par Description
 !!      Driver module for dynamical core based on DGM 
@@ -54,6 +54,7 @@ module scale_atm_dyn_dgm_driver_nonhydro3d
     MOMZ_VID => PRGVAR_MOMZ_ID,                               &
     AUXVAR_NUM, &
     PRESHYD_VID => AUXVAR_PRESHYDRO_ID, DENSHYD_VID => AUXVAR_DENSHYDRO_ID,                 &
+    PRESHYD_REF_VID => AUXVAR_PRESHYDRO_REF_ID,                                             &
     CPTOT_VID => AUXVAR_CPtot_ID, CVTOT_VID => AUXVAR_CVtot_ID, RTOT_VID => AUXVAR_Rtot_ID, &
     PRES_VID => AUXVAR_PRES_ID,                                                             &
     PHYTEND_DENS_ID, PHYTEND_MOMX_ID, PHYTEND_MOMY_ID, PHYTEND_MOMZ_ID, PHYTEND_RHOT_ID,    &
@@ -94,9 +95,10 @@ module scale_atm_dyn_dgm_driver_nonhydro3d
     atm_dyn_dgm_nonhydro3d_rhot_hevi_splitform_cal_vi    
   
   use scale_atm_dyn_dgm_globalnonhydro3d_rhot_heve, only: &
-    atm_dyn_dgm_globalnonhydro3d_rhot_heve_Init,          &
-    atm_dyn_dgm_globalnonhydro3d_rhot_heve_Final,         &
-    atm_dyn_dgm_globalnonhydro3d_rhot_heve_cal_tend
+    atm_dyn_dgm_globalnonhydro3d_rhot_heve_Init,                 &
+    atm_dyn_dgm_globalnonhydro3d_rhot_heve_Final,                &
+    atm_dyn_dgm_globalnonhydro3d_rhot_heve_cal_tend_shallow_atm, &
+    atm_dyn_dgm_globalnonhydro3d_rhot_heve_cal_tend_deep_atm
 
   use scale_atm_dyn_dgm_globalnonhydro3d_etot_heve, only: &
     atm_dyn_dgm_globalnonhydro3d_etot_heve_Init,          &
@@ -130,7 +132,7 @@ module scale_atm_dyn_dgm_driver_nonhydro3d
     subroutine atm_dyn_nonhydro3d_cal_tend_ex( &
       DENS_dt, MOMX_dt, MOMY_dt, MOMZ_dt, RHOT_dt,               & ! (out)
       DDENS_, MOMX_, MOMY_, MOMZ_, THERM_, DPRES_,               & ! (in) 
-      DENS_hyd, PRES_hyd, CORIOLIS,                              & ! (in)
+      DENS_hyd, PRES_hyd, PRES_hyd_ref, CORIOLIS,                & ! (in)
       Rtot, CVtot, CPtot,                                        & ! (in)
       Dx, Dy, Dz, Sx, Sy, Sz, Lift, lmesh, elem, lmesh2D, elem2D ) ! (in)
 
@@ -160,6 +162,7 @@ module scale_atm_dyn_dgm_driver_nonhydro3d
       real(RP), intent(in)  :: DPRES_(elem%Np,lmesh%NeA)
       real(RP), intent(in)  :: DENS_hyd(elem%Np,lmesh%NeA)
       real(RP), intent(in)  :: PRES_hyd(elem%Np,lmesh%NeA)
+      real(RP), intent(in)  :: PRES_hyd_ref(elem%Np,lmesh%NeA)
       real(RP), intent(in)  :: CORIOLIS(elem2D%Np,lmesh2D%NeA)
       real(RP), intent(in)  :: Rtot(elem%Np,lmesh%NeA)
       real(RP), intent(in)  :: CVtot(elem%Np,lmesh%NeA)
@@ -188,7 +191,7 @@ module scale_atm_dyn_dgm_driver_nonhydro3d
       implicit none
   
       class(LocalMesh3D), intent(in) :: lmesh
-      class(elementbase3D), intent(in) :: elem
+      class(ElementBase3D), intent(in) :: elem
       class(LocalMesh2D), intent(in) :: lmesh2D
       class(ElementBase2D), intent(in) :: elem2D
       real(RP), intent(out) :: DENS_dt(elem%Np,lmesh%NeA)
@@ -301,6 +304,8 @@ contains
     eqs_type_name, tint_type_name, dtsec,           &
     sponge_layer_flag, modal_filter_flag,           &
     model_mesh3D )
+
+    use scale_mesh_cubedspheredom3d, only: MeshCubedSphereDom3D
     implicit none
 
     class(AtmDynDGMDriver_nonhydro3d), intent(inout) :: this
@@ -316,12 +321,17 @@ contains
     integer :: domID
     class(HexahedralElement), pointer :: refElem3D
     class(ElementBase), pointer :: refElem
+    class(MeshCubedSphereDom3D), pointer :: gm_mesh3D
 
     integer :: iv
     logical :: reg_file_hist
     !-----------------------------------------------------------------------------
 
     mesh3D => model_mesh3D%ptr_mesh
+    select type( mesh3D )
+    class is (MeshCubedSphereDom3D)
+      gm_mesh3D => mesh3D
+    end select
 
     call AtmDynDGMDriver_base3D_Init( this, &
       PRGVAR_NUM,                           &
@@ -349,12 +359,20 @@ contains
     case("GLOBALNONHYDRO3D_HEVE", "GLOBALNONHYDRO3D_RHOT_HEVE")
       this%EQS_TYPEID = EQS_TYPEID_GLOBALNONHYD3D_HEVE
       call atm_dyn_dgm_globalnonhydro3d_rhot_heve_Init( mesh3D )
-      this%cal_tend_ex => atm_dyn_dgm_globalnonhydro3d_rhot_heve_cal_tend
+      if ( gm_mesh3D%shallow_approx ) then
+        this%cal_tend_ex => atm_dyn_dgm_globalnonhydro3d_rhot_heve_cal_tend_shallow_atm
+      else
+        this%cal_tend_ex => atm_dyn_dgm_globalnonhydro3d_rhot_heve_cal_tend_deep_atm
+      end if
       this%cal_vi => null()
       this%dynsolver_final => atm_dyn_dgm_globalnonhydro3d_rhot_heve_Final
     case("GLOBALNONHYDRO3D_ETOT_HEVE")
       this%EQS_TYPEID = EQS_TYPEID_GLOBALNONHYD3D_HEVE_ENTOT
       call atm_dyn_dgm_globalnonhydro3d_etot_heve_Init( mesh3D )
+      if ( .not. gm_mesh3D%shallow_approx ) then
+        LOG_ERROR("AtmDynDGMDriver_nonhydro3d_Init",*) 'EQS Type:', eqs_type_name, 'Deep atmosphere is not supported. Check!'
+        call PRC_abort  
+      end if
       this%cal_tend_ex => atm_dyn_dgm_globalnonhydro3d_etot_heve_cal_tend
       this%cal_vi => null()
       this%dynsolver_final => atm_dyn_dgm_globalnonhydro3d_etot_heve_Final
@@ -384,6 +402,10 @@ contains
     case("GLOBALNONHYDRO3D_HEVI", "GLOBALNONHYDRO3D_RHOT_HEVI")
       this%EQS_TYPEID = EQS_TYPEID_GLOBALNONHYD3D_HEVI
       call atm_dyn_dgm_globalnonhydro3d_rhot_hevi_Init( mesh3D )
+      if ( .not. gm_mesh3D%shallow_approx ) then
+        LOG_ERROR("AtmDynDGMDriver_nonhydro3d_Init",*) 'EQS Type:', eqs_type_name, 'Deep atmosphere is not supported. Check!'
+        call PRC_abort  
+      end if
       this%cal_tend_ex => atm_dyn_dgm_globalnonhydro3d_rhot_hevi_cal_tend
       this%cal_vi => atm_dyn_dgm_globalnonhydro3d_rhot_hevi_cal_vi
       this%dynsolver_final => atm_dyn_dgm_globalnonhydro3d_rhot_hevi_Final
@@ -391,6 +413,10 @@ contains
     case("GLOBALNONHYDRO3D_ETOT_HEVI")
       this%EQS_TYPEID = EQS_TYPEID_GLOBALNONHYD3D_HEVI_ENTOT
       call atm_dyn_dgm_globalnonhydro3d_etot_hevi_Init( mesh3D )
+      if ( .not. gm_mesh3D%shallow_approx ) then
+        LOG_ERROR("AtmDynDGMDriver_nonhydro3d_Init",*) 'EQS Type:', eqs_type_name, 'Deep atmosphere is not supported. Check!'
+        call PRC_abort  
+      end if
       this%cal_tend_ex => atm_dyn_dgm_globalnonhydro3d_etot_hevi_cal_tend
       this%cal_vi => atm_dyn_dgm_globalnonhydro3d_etot_hevi_cal_vi
       this%dynsolver_final => atm_dyn_dgm_globalnonhydro3d_etot_hevi_Final
@@ -422,7 +448,7 @@ contains
     end do
 
     call model_mesh3D%Create_communicator( &
-      AUXDYNVARS3D_NUM, 0,             & ! (in) 
+      AUXDYNVARS3D_NUM, 0, 0,          & ! (in) 
       this%AUXDYNVAR3D_manager,        & ! (in)
       this%AUX_DYNVARS3D(:),           & ! (in)
       this%AUXDYNVAR3D_commid          ) ! (out)
@@ -521,7 +547,7 @@ contains
     integer :: ke
 
     class(MeshField3D), pointer :: DDENS, MOMX, MOMY, MOMZ, THERM
-    class(MeshField3D), pointer :: PRES_hyd, DENS_hyd, Rtot, CVtot, CPtot, PRES
+    class(MeshField3D), pointer :: PRES_hyd, PRES_hyd_ref, DENS_hyd, Rtot, CVtot, CPtot, PRES
     class(MeshField3D), pointer :: DENS_tp, MOMX_tp, MOMY_tp, MOMZ_tp, RHOT_tp, RHOH_p
     class(MeshField3D), pointer :: DPRES
 
@@ -537,6 +563,7 @@ contains
 
     call AUX_VARS%Get3D( PRESHYD_VID, PRES_hyd )
     call AUX_VARS%Get3D( DENSHYD_VID, DENS_hyd )
+    call AUX_VARS%Get3D( PRESHYD_REF_VID, PRES_hyd_ref )
     call AUX_VARS%Get3D( PRES_VID, PRES )
     call AUX_VARS%Get3D( RTOT_VID, Rtot )
     call AUX_VARS%Get3D( CVTOT_VID, CVtot )
@@ -645,17 +672,17 @@ contains
         call PROF_rapstart( 'ATM_DYN_update_caltend_ex', 2)
         tintbuf_ind = this%tint(n)%tend_buf_indmap(rkstage)
         call this%cal_tend_ex( &
-          this%tint(n)%tend_buf2D_ex(:,:,DENS_VID,tintbuf_ind),                            & ! (out)
-          this%tint(n)%tend_buf2D_ex(:,:,MOMX_VID ,tintbuf_ind),                           & ! (out)
-          this%tint(n)%tend_buf2D_ex(:,:,MOMY_VID ,tintbuf_ind),                           & ! (out)
-          this%tint(n)%tend_buf2D_ex(:,:,MOMZ_VID ,tintbuf_ind),                           & ! (out)
-          this%tint(n)%tend_buf2D_ex(:,:,THERM_VID,tintbuf_ind),                           & ! (out)
-          DDENS%local(n)%val, MOMX%local(n)%val, MOMY%local(n)%val, MOMZ%local(n)%val,     & ! (in)
-          THERM%local(n)%val, DPRES%local(n)%val,                                          & ! (in)
-          DENS_hyd%local(n)%val, PRES_hyd%local(n)%val, Coriolis%local(n)%val,             & ! (in)
-          Rtot%local(n)%val, CVtot%local(n)%val, CPtot%local(n)%val,                       & ! (in)
-          Dx, Dy, Dz, Sx, Sy, Sz, Lift,                                                    & ! (in)
-          lcmesh3D, lcmesh3D%refElem3D, lcmesh3D%lcmesh2D, lcmesh3D%lcmesh2D%refElem2D     ) 
+          this%tint(n)%tend_buf2D_ex(:,:,DENS_VID,tintbuf_ind),                             & ! (out)
+          this%tint(n)%tend_buf2D_ex(:,:,MOMX_VID ,tintbuf_ind),                            & ! (out)
+          this%tint(n)%tend_buf2D_ex(:,:,MOMY_VID ,tintbuf_ind),                            & ! (out)
+          this%tint(n)%tend_buf2D_ex(:,:,MOMZ_VID ,tintbuf_ind),                            & ! (out)
+          this%tint(n)%tend_buf2D_ex(:,:,THERM_VID,tintbuf_ind),                            & ! (out)
+          DDENS%local(n)%val, MOMX%local(n)%val, MOMY%local(n)%val, MOMZ%local(n)%val,      & ! (in)
+          THERM%local(n)%val, DPRES%local(n)%val,                                           & ! (in)
+          DENS_hyd%local(n)%val, PRES_hyd%local(n)%val, PRES_hyd_ref%local(n)%val,          & ! (in)
+          Coriolis%local(n)%val, Rtot%local(n)%val, CVtot%local(n)%val, CPtot%local(n)%val, & ! (in)
+          Dx, Dy, Dz, Sx, Sy, Sz, Lift,                                                     & ! (in)
+          lcmesh3D, lcmesh3D%refElem3D, lcmesh3D%lcmesh2D, lcmesh3D%lcmesh2D%refElem2D      ) 
         call PROF_rapend( 'ATM_DYN_update_caltend_ex', 2)
 
         !- Sponge layer
@@ -908,9 +935,12 @@ contains
     real(RP) :: MF_ALPHA_v = 36.0_RP
     integer  :: MF_ORDER_v = 16
 
+    logical :: APPLY_MF_AFTER_VI = .true.
+
     namelist /PARAM_ATMOS_DYN_MODALFILTER/ &
       MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h,   &
-      MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v    
+      MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v,   &
+      APPLY_MF_AFTER_VI
 
     integer :: ierr
 
@@ -929,17 +959,31 @@ contains
     LOG_NML(PARAM_ATMOS_DYN_MODALFILTER)
 
     if ( this%hevi_flag ) then
-      call this%modal_filter_3d%Init( &
-        refElem3D,                           & ! (in)
-        MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h,   & ! (in)
-        1.0_RP, 0.0_RP, MF_ORDER_v           ) ! (in)
 
       call elemV1D%Init( refElem3D%PolyOrder_v, refElem3D%IsLumpedMatrix() )      
-      call this%modal_filter_v1D%Init( elemV1D, &
-        MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v,      &
-        tend_flag = .true.                      )
+
+      if ( APPLY_MF_AFTER_VI ) then
+        call this%modal_filter_3d%Init( &
+          refElem3D,                           & ! (in)
+          MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h,   & ! (in)
+          MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v    ) ! (in)
+
+        call this%modal_filter_v1D%Init( elemV1D, &
+          MF_ETAC_v, 0.0_RP, MF_ORDER_v,          &
+          tend_flag = .true.                      )
+      else
+        call this%modal_filter_3d%Init( &
+          refElem3D,                           & ! (in)
+          MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h,   & ! (in)
+          1.0_RP, 0.0_RP, MF_ORDER_v           ) ! (in)
+
+        call this%modal_filter_v1D%Init( elemV1D, &
+          MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v,      &
+          tend_flag = .true.                      )        
+      end if
       
       call elemV1D%Final()
+      
     else
       call this%modal_filter_3d%Init( &
         refElem3D,                           & ! (in)

@@ -1,3 +1,12 @@
+!-------------------------------------------------------------------------------
+!> module FElib / Mesh / Topography
+!!
+!! @par Description
+!!          A module to manage vertical coordinate with topography 
+!!
+!! @author Team SCALE
+!<
+!-------------------------------------------------------------------------------
 #include "scaleFElib.h"
 module scale_mesh_topography
 
@@ -26,7 +35,7 @@ module scale_mesh_topography
   !++ Public type & procedure
   ! 
   type, public :: MeshTopography
-    type(MeshField2D) :: topo
+    type(MeshField2D) :: topo 
   contains
     procedure :: Init => MeshTopography_Init
     procedure :: Final => MeshTopography_Final
@@ -49,6 +58,7 @@ module scale_mesh_topography
   !
 
 contains
+!OCL SERIAL
   subroutine MeshTopography_Init( this, varname, mesh )
     implicit none
 
@@ -62,12 +72,15 @@ contains
     call this%topo%Init( varname, "m", mesh )
 
     do n=1, mesh%LOCAL_MESH_NUM
+!$omp parallel workshare
       this%topo%local(n)%val(:,:) = 0.0_RP
+!$omp end parallel workshare
     end do
 
     return
   end subroutine MeshTopography_Init
 
+!OCL SERIAL
   subroutine MeshTopography_Final( this )
     implicit none
 
@@ -79,11 +92,13 @@ contains
     return
   end subroutine MeshTopography_Final
   
+!OCL SERIAL
   subroutine MeshTopography_set_vcoordinate( this, mesh3D, &
       vcoord_id, zTop, comm3D, comm2D                      )
     
     use scale_sparsemat, only: SparseMat
     use scale_meshutil_vcoord, only: MeshUtil_VCoord_GetMetric
+    use scale_meshfieldcomm_cubedspheredom3d, only: MeshFieldCommCubedSphereDom3D
     implicit none
 
     class(MeshTopography), target, intent(inout) :: this
@@ -96,14 +111,18 @@ contains
     type(SparseMat) :: Dx2D, Dy2D, Lift2D
     class(LocalMesh3D), pointer :: lcmesh
     class(LocalMesh2D), pointer :: lcmesh2D
+    class(ElementBase3D), pointer :: elem3D
 
     integer :: n
-    integer :: ke
+    integer :: ke, ke2D
 
     type(MeshFieldContainer) :: comm2d_varlist(1)
-    type(MeshFieldContainer) :: comm3d_varlist(3)
+    type(MeshFieldContainer) :: comm3d_varlist(4)
 
-    type(MeshField3D), target :: Gsqrt, G13, G23
+    type(MeshField3D), target :: zlev, GsqrtV, G13, G23
+    type(MeshField3D), target :: tmp_G13, tmp_G23
+
+    logical :: flag_covariantvec
     !-------------------------------------------------------------
 
     lcmesh => mesh3D%lcmesh_list(1)
@@ -121,28 +140,51 @@ contains
 
     ! Calculate metric factors associated with general vertical coordinates
 
-    call Gsqrt%Init( "Gsqrt", "", mesh3D )
+    call zlev%Init( "zlev", "", mesh3D )
+    call GsqrtV%Init( "GsqrtV", "", mesh3D )
     call G13%Init( "G13", "", mesh3D )
     call G23%Init( "G23", "", mesh3D )
+
+    call tmp_G13%Init( "tmp_G13", "", mesh3D )
+    call tmp_G23%Init( "tmp_G23", "", mesh3D )
 
     do n=1, mesh3D%LOCAL_MESH_NUM
       lcmesh => mesh3D%lcmesh_list(n)
       lcmesh2D => lcmesh%lcmesh2D
-  
-      Gsqrt%local(n)%val(:,:) = lcmesh%Gsqrt(:,:)
+      elem3D => lcmesh%refElem3D
+
       call MeshUtil_VCoord_GetMetric( &
-        G13%local(n)%val, G23%local(n)%val, lcmesh%zlev(:,:),   & ! (out)
-        Gsqrt%local(n)%val,                                     & ! (inout)
+        G13%local(n)%val, G23%local(n)%val, zlev%local(n)%val,  & ! (out)
+        GsqrtV%local(n)%val,                                    & ! (out)
         this%topo%local(n)%val(:,:), zTop, vcoord_id,           & ! (in)
         lcmesh, lcmesh%refElem3D, lcmesh2D, lcmesh2D%refElem2D, & ! (in)
         Dx2D, Dy2D, Lift2D                                      ) ! (in)
+
+      !$omp parallel do private(ke2D)
+      do ke=lcmesh%NeS, lcmesh%NeE
+        ke2D = lcmesh%EMap3Dto2D(ke)
+        tmp_G13%local(n)%val(:,ke) = &
+          lcmesh%GIJ(elem3D%IndexH2Dto3D(:),ke2D,1,1) * G13%local(n)%val(:,ke) &
+        + lcmesh%GIJ(elem3D%IndexH2Dto3D(:),ke2D,1,2) * G23%local(n)%val(:,ke)
+        tmp_G23%local(n)%val(:,ke) = &
+          lcmesh%GIJ(elem3D%IndexH2Dto3D(:),ke2D,2,1) * G13%local(n)%val(:,ke) &
+        + lcmesh%GIJ(elem3D%IndexH2Dto3D(:),ke2D,2,2) * G23%local(n)%val(:,ke)
+      end do        
     end do
 
     ! Exchange metric data to fill halo
 
-    comm3d_varlist(1)%field3d => Gsqrt
-    comm3d_varlist(2)%field3d => G13
-    comm3d_varlist(3)%field3d => G23
+    comm3d_varlist(1)%field3d => zlev
+    comm3d_varlist(2)%field3d => GsqrtV
+    comm3d_varlist(3)%field3d => tmp_G13
+    comm3d_varlist(4)%field3d => tmp_G23
+
+    flag_covariantvec = .false.
+    select type(comm3D)
+    type is (MeshFieldCommCubedSphereDom3D)
+      call comm3D%SetCovariantVec( 1, G13, G23 )
+      flag_covariantvec = .true.
+    end select
 
     call comm3D%Put(comm3d_varlist, 1)
     call comm3D%Exchange()
@@ -152,18 +194,24 @@ contains
 
     do n=1, mesh3D%LOCAL_MESH_NUM
       lcmesh => mesh3D%lcmesh_list(n)
-      !$omp parallel do
-      do ke=lcmesh%NeS, lcmesh%NeA
-        lcmesh%Gsqrt(:,ke) = Gsqrt%local(n)%val(:,ke)
-        lcmesh%GI3(:,ke,1) = G13%local(n)%val(:,ke)
-        lcmesh%GI3(:,ke,2) = G23%local(n)%val(:,ke)
-      end do
+      elem3D => lcmesh%refElem3D
+
+      if ( flag_covariantvec ) then
+        call mesh3D%Set_geometric_with_vcoord( n, &
+          GsqrtV%local(n)%val, zlev%local(n)%val, G13%local(n)%val, G23%local(n)%val )
+      else
+        call mesh3D%Set_geometric_with_vcoord( n, &
+          GsqrtV%local(n)%val, zlev%local(n)%val, tmp_G13%local(n)%val, tmp_G23%local(n)%val )
+      end if
     end do
 
     !---
-    call Gsqrt%Final()
+    call zlev%Final()
+    call GsqrtV%Final()
     call G13%Final()
     call G23%Final()
+    call tmp_G13%Final()
+    call tmp_G23%Final()
 
     call Dx2D%Final()
     call Dy2D%Final()

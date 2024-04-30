@@ -892,7 +892,9 @@ contains
       InitCond_GalerkinProjFlag,      &      
       VelTypeName, VelTypeParams,     &
       nstep_eval_error
-    
+
+    character(len=H_LONG) :: cnf_fname  ! config file for launcher
+      
     integer :: comm, myrank, nprocs
     logical :: ismaster
     integer :: ierr
@@ -906,7 +908,8 @@ contains
     call PRC_ERRHANDLER_setup( .false., ismaster ) ! [IN]
     
     ! setup scale_io
-    call IO_setup( "test_advect3d", "test.conf" )
+    cnf_fname = IO_ARG_getfname( ismaster )
+    call IO_setup( "test_advect3d_hevi", cnf_fname )
     
     ! setup log
     call IO_LOG_setup( myrank, ismaster )   
@@ -975,7 +978,7 @@ contains
     call u%Init( "u", "m/s", mesh )
     call v%Init( "v", "m/s", mesh )
     call w%Init( "w", "m/s", mesh )
-    call fields_comm%Init(4, 0, mesh)
+    call fields_comm%Init(4, 0, 0, mesh)
 
     call FILE_HISTORY_meshfield_setup( mesh3d_=mesh )
     call FILE_HISTORY_reg( q%varname, "q", q%unit, HST_ID(1), dim_type='XYZ')

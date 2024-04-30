@@ -1,5 +1,5 @@
 !-------------------------------------------------------------------------------
-!> module Atmosphere / Dynamics common
+!> module FElib / Fluid dyn solver / Atmosphere / Common
 !!
 !! @par Description
 !!      Sponge layer for Atmospheric dynamical process. 

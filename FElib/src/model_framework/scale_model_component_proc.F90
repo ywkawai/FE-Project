@@ -1,3 +1,12 @@
+!-------------------------------------------------------------------------------
+!> FElib / model framework / physics process
+!!
+!! @par Description
+!!          A module for managing processes in model component
+!!
+!! @author Team SCALE
+!!
+!<
 #include "scaleFElib.h"
 module scale_model_component_proc
   !-----------------------------------------------------------------------------
@@ -96,6 +105,7 @@ module scale_model_component_proc
   !-----------------------------------------------------------------------------
 
 contains
+!OCL SERIAL
   subroutine ModelComponentProc_Init( this, name, is_activated )
     implicit none
 
@@ -110,6 +120,7 @@ contains
     return
   end subroutine ModelComponentProc_Init
 
+!OCL SERIAL
   function ModelComponentProc_isActivated( this ) result( is_activated )
     implicit none
 

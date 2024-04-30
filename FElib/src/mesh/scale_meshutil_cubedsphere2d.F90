@@ -282,8 +282,8 @@ contains
 
 !OCL SERIAL
   subroutine MeshUtilCubedSphere2D_getPanelID( panelID, lon, lat, Np )
-    use scale_cubedsphere_cnv, only: &
-      CubedSphereCnv_LonLat2CSPos
+    use scale_cubedsphere_coord_cnv, only: &
+      CubedSphereCoordCnv_LonLat2CSPos
     implicit none
 
     integer, intent(in) :: Np
@@ -315,7 +315,7 @@ contains
 
     panelID(:) = -1
     do pnl=1, 6
-      call CubedSphereCnv_LonLat2CSPos( pnl, lon_, lat_, Np, &
+      call CubedSphereCoordCnv_LonLat2CSPos( pnl, lon_, lat_, Np, &
         alph, beta )
     
       select case(pnl)

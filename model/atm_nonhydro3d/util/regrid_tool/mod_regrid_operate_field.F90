@@ -117,7 +117,7 @@ contains
     if ( uvmet_conversion_flag ) then
       call regrid_vec_conversion_Init( out_mesh%ptr_mesh3D )
       call out_vinfo%items(vinfoid_umet)%SetProperties( 'Umet', 'm/s', 'eastward velocity', 'x_wind' )
-      call out_vinfo%items(vinfoid_vmet)%SetProperties( 'Vmet', 'm/s', 'westward velocity', 'y_wind' )
+      call out_vinfo%items(vinfoid_vmet)%SetProperties( 'Vmet', 'm/s', 'northward velocity', 'y_wind' )
     end if
 
     return
@@ -173,6 +173,8 @@ contains
           call vintrp%Interpolate( istep, out_mesh%ptr_mesh3D, out_veclat )
           call regrid_file_write_var( vinfo_v, vintrp%vintrp_var3D, istep )
         end if
+
+        if( IO_L ) call flush(IO_FID_LOG)      
       end do
     end if
 

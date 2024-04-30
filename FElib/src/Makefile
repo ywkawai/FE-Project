@@ -43,7 +43,8 @@ OBJS_NAME_COMMON = \
 	scale_timeint_rk.o             \
 	scale_linkedlist.o             \
 	scale_gmres.o                  \
-	scale_cubedsphere_cnv.o        \
+	scale_geographic_coord_cnv.o   \
+	scale_cubedsphere_coord_cnv.o  \
 	scale_coriolis_param.o
 
 OBJS_NAME_ELEMENT = \
@@ -65,10 +66,10 @@ OBJS_NAME_MESH = \
 	scale_localmesh_1d.o           \
 	scale_localmesh_2d.o           \
 	scale_localmesh_3d.o           \
-	scale_mesh_base.o	            \
-	scale_mesh_base1d.o	          \
-	scale_mesh_base2d.o	          \
-	scale_mesh_base3d.o	          \
+	scale_mesh_base.o	           \
+	scale_mesh_base1d.o	           \
+	scale_mesh_base2d.o	           \
+	scale_mesh_base3d.o	           \
 	scale_mesh_linedom1d.o         \
 	scale_mesh_rectdom2d.o         \
 	scale_mesh_cubedom3d.o         \
@@ -77,16 +78,17 @@ OBJS_NAME_MESH = \
 	scale_mesh_topography.o
 
 OBJS_NAME_DATA = \
-	scale_variableinfo.o                    \
-	scale_localmeshfield_base.o             \
-	scale_meshfield_base.o                  \
-	scale_meshfieldcomm_base.o              \
-	scale_meshfieldcomm_1d.o                \
-	scale_meshfieldcomm_rectdom2d.o         \
-	scale_meshfieldcomm_cubedspheredom2d.o  \
-	scale_meshfieldcomm_cubedom3d.o         \
-	scale_meshfieldcomm_cubedspheredom3d.o  \
-	scale_meshfield_statistics.o            \
+	scale_variableinfo.o                     \
+	scale_localmeshfield_base.o              \
+	scale_meshfield_base.o                   \
+	scale_meshfieldcomm_base.o               \
+	scale_meshfieldcomm_1d.o                 \
+	scale_meshfieldcomm_rectdom2d.o          \
+	scale_meshfieldcomm_cubedspheredom2d.o   \
+	scale_meshfieldcomm_cubedom3d.o          \
+	scale_meshfieldcomm_cubedspheredom3d.o   \
+	scale_meshfield_statistics.o             \
+	scale_meshfield_analysis_numerror_base.o \
 	scale_meshfield_analysis_numerror.o
 
 OBJS_NAME_FILE = \
@@ -128,7 +130,10 @@ OBJS_NAME_FLUID_DYN_SOLVER = \
 	scale_atm_dyn_dgm_trcadvect3d_heve.o	
 
 OBJS_NAME_TURBULENCE = \
-	scale_atm_phy_tb_dgm_smg.o
+	scale_atm_phy_tb_dgm_driver.o    \
+	scale_atm_phy_tb_dgm_smg.o       \
+	scale_atm_phy_tb_dgm_globalsmg.o \
+	scale_atm_phy_tb_dgm_common.o 
 
 OBJS_NAME_MICROPHYS = \
 	scale_atm_phy_mp_dgm_common.o

@@ -1,3 +1,14 @@
+!-------------------------------------------------------------------------------
+!> module common / Coriolis parameter 
+!!
+!! @par Description
+!!      Setup coriolis parameter (for regional model)
+!!
+!!
+!! @par Reference
+!!
+!! @author Team SCALE
+!!
 #include "scaleFElib.h"
 module scale_coriolis_param
   !-----------------------------------------------------------------------------

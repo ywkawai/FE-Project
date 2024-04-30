@@ -1,4 +1,14 @@
 !-------------------------------------------------------------------------------
+!> module FElib / Fluid dyn solver / Atmosphere / 2D nonhydrostatic model / HEVE
+!!
+!! @par Description
+!!      HEVE DGM scheme for 2D Atmospheric Dynamical process. 
+!!      The governing equations is a fully compressibile nonhydrostic equations, 
+!!      which consist of mass, momentum, and thermodynamics equations. 
+!!
+!! @author Team SCALE
+!<
+!-------------------------------------------------------------------------------
 #include "scaleFElib.h"
 module scale_atm_dyn_dgm_nonhydro2d
   !-----------------------------------------------------------------------------

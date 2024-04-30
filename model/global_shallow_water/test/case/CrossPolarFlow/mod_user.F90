@@ -3,8 +3,13 @@
 !!
 !! @par Description
 !!          User defined module
-!!          a test case proposed by Donald and Bates (1989)
+!!          a test case proposed by McDonald and Bates (1989)
 !!          cross-polar flow with a geostrophically balanced initial state
+!!
+!! @par Reference
+!!  - McDonald, A., and J. R. Bates, 1989: 
+!!    Semi-Lagrangian integration of a shallow water model on the sphere. 
+!!    Monthly Weather Review, 117, 130–137.
 !!
 !! @author Team SCALE
 !!
@@ -108,15 +113,17 @@ contains
     return
   end subroutine USER_setup
 
-  subroutine USER_calc_tendency
+  subroutine USER_calc_tendency( atm )
     implicit none
+    class(GlobalSWComponent), intent(inout) :: atm
     !------------------------------------------
 
     return
   end subroutine USER_calc_tendency
 
-  subroutine USER_update
+  subroutine USER_update( atm )
     implicit none
+    class(GlobalSWComponent), intent(inout) :: atm
     !------------------------------------------
 
     return
@@ -132,8 +139,8 @@ contains
       GRAV => CONST_GRAV,      &
       RPlanet => CONST_RADIUS, &
       OMG => CONST_OHM 
-    use scale_cubedsphere_cnv, only: &
-      CubedSphereCnv_LonLat2CSVec
+    use scale_cubedsphere_coord_cnv, only: &
+      CubedSphereCoordCnv_LonLat2CSVec
     implicit none
 
     class(Exp_DB89_CrossPolarFlow), intent(inout) :: this
@@ -154,14 +161,16 @@ contains
       PHI0, V0
     
 
+    real(RP) :: gam(elem%Np,lcmesh%Ne)  
     real(RP) :: VelLon(elem%Np,lcmesh%Ne)
     real(RP) :: VelLat(elem%Np,lcmesh%Ne)
+
     real(RP) :: lon(elem%Np)
     real(RP) :: lat(elem%Np)
+    
     integer :: ke
-    integer :: ierr
 
-    real(RP) :: r(elem%Np)
+    integer :: ierr
     !-----------------------------------------------------------------------------
 
     PHI0 = 5.768E4_RP
@@ -184,16 +193,20 @@ contains
       lon(:) = lcmesh%lon(:,ke)
       lat(:) = lcmesh%lat(:,ke)
 
-      VelLon(:,ke) = - V0 * sin(lon(:)) * sin(lat(:)) * ( 4.0_RP * cos(lat(:))**2 - 1.0_RP ) / cos(lat(:))
+      VelLon(:,ke) = - V0 * sin(lon(:)) * sin(lat(:)) * ( 4.0_RP * cos(lat(:))**2 - 1.0_RP )
       VelLat(:,ke) = V0 * sin(lat(:))**2 * cos(lon(:))     
                   
       h(:,ke) = ( PHI0 + 2.0_RP * OMG * RPlanet * V0 * sin(lat(:))**3 * cos(lat(:)) * sin(lon(:)) ) / Grav
       hs(:,ke) = 0.0_RP
     end do
 
-    call CubedSphereCnv_LonLat2CSVec( &
-      lcmesh%panelID, lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2), elem%Np * lcmesh%Ne, RPlanet, &
-      VelLon(:,:), VelLat(:,:), U(:,lcmesh%NeS:lcmesh%NeE), V(:,lcmesh%NeS:lcmesh%NeE)          )
+    gam(:,:) = 1.0_RP
+    call CubedSphereCoordCnv_LonLat2CSVec( &
+      lcmesh%panelID, lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2), & ! (in)
+      gam(:,:), elem%Np * lcmesh%Ne,                              & ! (in)
+      VelLon(:,:), VelLat(:,:),                                   & ! (in)
+      U(:,lcmesh%NeS:lcmesh%NeE), V(:,lcmesh%NeS:lcmesh%NeE)      ) ! (out)
+    
     !$omp parallel do
     do ke=lcmesh%NeS, lcmesh%NeE
       u1(:,ke) = lcmesh%G_ij(:,ke,1,1) * U(:,ke) + lcmesh%G_ij(:,ke,1,2) * V(:,ke)

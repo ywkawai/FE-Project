@@ -207,18 +207,20 @@ contains
     return
   end subroutine AtmosMeshRM_Final
 
-  subroutine AtmosMeshRM_create_communicator( this, sfield_num, hvfield_num, var_manager, field_list, commid )
+  subroutine AtmosMeshRM_create_communicator( this, sfield_num, hvfield_num, htensorfield_num, &
+    var_manager, field_list, commid )
     implicit none
     class(AtmosMeshRM), target, intent(inout) :: this
     integer, intent(in) :: sfield_num
     integer, intent(in) :: hvfield_num
+    integer, intent(in) :: htensorfield_num
     class(ModelVarManager), intent(inout) :: var_manager
     class(MeshField3D), intent(in) :: field_list(:)
     integer, intent(out) :: commid
     !-----------------------------------------------------
 
     commid = this%Get_communicatorID( ATM_MESH_MAX_COMMNUICATOR_NUM )
-    call this%comm_list(commid)%Init(sfield_num,  hvfield_num, this%mesh )
+    call this%comm_list(commid)%Init(sfield_num,  hvfield_num, htensorfield_num, this%mesh )
     call var_manager%MeshFieldComm_Prepair( this%comm_list(commid), field_list )
 
     return
@@ -293,8 +295,8 @@ contains
     type(MeshFieldCommRectDom2D) :: comm2D
     !-------------------------------------------------
 
-    call comm2D%Init( 1, 0, this%mesh%mesh2D )
-    call comm3D%Init( 1, 1, this%mesh )
+    call comm2D%Init( 1, 0, 0, this%mesh%mesh2D )
+    call comm3D%Init( 2, 1, 0, this%mesh )
 
     call this%topography%SetVCoordinate( this%ptr_mesh,   &
       this%vcoord_type_id, this%mesh%zmax_gl, comm3D, comm2D )

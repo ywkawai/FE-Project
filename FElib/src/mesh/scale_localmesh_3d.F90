@@ -36,6 +36,7 @@ module scale_localmesh_3d
     real(RP), allocatable :: GI3(:,:,:)    !< The contravariant component of metric tensor with vertical general coordinate 
     real(RP), allocatable :: GsqrtH(:,:)   !< The Jacobian of horizontal transformation in the computational coordinate
     real(RP), allocatable :: zlev(:,:)
+    real(RP), allocatable :: gam(:,:)      !< Factor for approximation with spherical shell domain (= r/a)
 
     class(LocalMesh2D), pointer :: lcmesh2D
     real(DP), allocatable :: lon2D(:,:)     
@@ -94,6 +95,7 @@ contains
       deallocate( this%zS, this%Sz )
       deallocate( this%GI3, this%GsqrtH )
       deallocate( this%zlev )
+      deallocate( this%gam )
       deallocate( this%lon2D, this%lat2D )
       deallocate( this%EMap3Dto2D )
     end if

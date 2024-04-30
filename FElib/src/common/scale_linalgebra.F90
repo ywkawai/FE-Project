@@ -1,3 +1,12 @@
+!> module common / Linear algebra
+!!
+!! @par Description
+!!      A module to provide utilities for linear algebra
+!!
+!! @par Reference
+!!
+!! @author Team SCALE
+!!
 #include "scaleFElib.h"
 module scale_linalgebra
   !-----------------------------------------------------------------------------

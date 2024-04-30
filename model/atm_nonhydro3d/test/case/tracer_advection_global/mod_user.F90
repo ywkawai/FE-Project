@@ -29,8 +29,8 @@ module mod_user
   use scale_element_base, only: ElementBase3D
   use scale_element_hexahedral, only: HexahedralElement
   use scale_localmesh_3d, only: LocalMesh3D   
-  use scale_cubedsphere_cnv, only: &
-    CubedSphereCnv_LonLat2CSVec
+  use scale_cubedsphere_coord_cnv, only: &
+    CubedSphereCoordCnv_LonLat2CSVec
   
   use mod_atmos_component, only: &
     AtmosComponent
@@ -182,15 +182,16 @@ contains
           lon3D(:), lat3D(:), lcmesh%zlev(:,ke),   &
           time, elem3D%Np                          )  
           
-        svec    (:,ke,1) = DENS_hyd%val(:,ke) * svec(:,ke,1) / cos(lat3D(:))
+        svec    (:,ke,1) = DENS_hyd%val(:,ke) * svec(:,ke,1)
         svec    (:,ke,2) = DENS_hyd%val(:,ke) * svec(:,ke,2)
         MOMZ%val(:,ke  ) = DENS_hyd%val(:,ke) * W(:)
       end do
 
-      call CubedSphereCnv_LonLat2CSVec( &
-        lcmesh%panelID, lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2),          &
-        lcmesh%Ne * elem3D%Np, RPlanet, svec(:,:,1), svec(:,:,2),            &
-        MOMX%val(:,lcmesh%NeS:lcmesh%NeE), MOMY%val(:,lcmesh%NeS:lcmesh%NeE) )  
+      call CubedSphereCoordCnv_LonLat2CSVec( &
+        lcmesh%panelID, lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2),          & ! (in)
+        lcmesh%gam(:,lcmesh%NeS:lcmesh%NeE), lcmesh%Ne * elem3D%Np,          & ! (in)
+        svec(:,:,1), svec(:,:,2),                                            & ! (in)
+        MOMX%val(:,lcmesh%NeS:lcmesh%NeE), MOMY%val(:,lcmesh%NeS:lcmesh%NeE) ) ! (out)
         
       deallocate( svec )
       deallocate( lon3D, lat3D )
@@ -304,10 +305,11 @@ contains
       MOMZ(:,ke) = DENS_hyd(:,ke) * W(:)
     end do
         
-    call CubedSphereCnv_LonLat2CSVec( &
-      lcmesh%panelID, lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2),  &
-      lcmesh%Ne * elem%Np, RPlanet, svec(:,:,1), svec(:,:,2),      &
-      MOMX(:,lcmesh%NeS:lcmesh%NeE), MOMY(:,lcmesh%NeS:lcmesh%NeE) )
+    call CubedSphereCoordCnv_LonLat2CSVec( &
+      lcmesh%panelID, lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2),  & ! (in)
+      lcmesh%gam(:,lcmesh%NeS:lcmesh%NeE), lcmesh%Ne * elem%Np,    & ! (in)
+      svec(:,:,1), svec(:,:,2),                                    & ! (in)
+      MOMX(:,lcmesh%NeS:lcmesh%NeE), MOMY(:,lcmesh%NeS:lcmesh%NeE) ) ! (out)
 
     return
   end subroutine exp_SetInitCond_tracer_advection

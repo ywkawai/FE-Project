@@ -17,9 +17,9 @@ program test_advect3dGlobal
   use scale_element_hexahedral, only: HexahedralElement
   use scale_localmesh_3d
   use scale_mesh_cubedspheredom3d
-  use scale_cubedsphere_cnv, only: &
-    CubedSphereCnv_CS2LonLatCoord, &
-    CubedSphereCnv_LonLat2CSVec
+  use scale_cubedsphere_coord_cnv, only: &
+    CubedSphereCoordCnv_CS2LonLatPos, &
+    CubedSphereCoordCnv_LonLat2CSVec
   use scale_localmeshfield_base, only: LocalMeshField3D
   use scale_meshfield_base, only: &
     MeshField2D, MeshField3D
@@ -181,6 +181,7 @@ program test_advect3dGlobal
   call final()
 
 contains
+!OCL SERIAL
   subroutine cal_dyn_tend( dqdt, q_, U_, V_, W_, lmesh, elem)
     implicit none
 
@@ -225,6 +226,7 @@ contains
     return
   end subroutine cal_dyn_tend
 
+!OCL SERIAL
   subroutine cal_del_flux_dyn( del_flux, q_, U_, V_, W_, Gsqrt_, nx, ny, nz, vmapM, vmapP, lmesh, elem )
     implicit none
 
@@ -265,6 +267,7 @@ contains
 
   !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+!OCL SERIAL
   subroutine evaluate_error(tsec)
 
     implicit none
@@ -324,6 +327,7 @@ contains
     return
   end subroutine evaluate_error
 
+!OCL SERIAL
   subroutine set_velocity_lc( U_, V_, W_, Vellon_, Vellat_, &
       tsec, lmesh, elem )
     implicit none
@@ -356,14 +360,13 @@ contains
       
       Vellon_(:,ke_) = svec(:,ke_,1)
       Vellat_(:,ke_) = svec(:,ke_,2)
-
-      svec(:,ke_,1) = svec(:,ke_,1) / cos(lat3D(:))
     end do
 
-    call CubedSphereCnv_LonLat2CSVec( &
-      lmesh%panelID, lmesh%pos_en(:,:,1), lmesh%pos_en(:,:,2),    &
-      lmesh%Ne * elem%Np, RPlanet, svec(:,:,1), svec(:,:,2),      &
-      U_(:,lmesh%NeS:lmesh%NeE), V_(:,lmesh%NeS:lmesh%NeE)        )
+    call CubedSphereCoordCnv_LonLat2CSVec( &
+      lmesh%panelID, lmesh%pos_en(:,:,1), lmesh%pos_en(:,:,2),    & ! (in)
+      lmesh%gam(:,lmesh%NeS:lmesh%NeE), lmesh%Ne * elem%Np,       & ! (in)
+      svec(:,:,1), svec(:,:,2),                                   & ! (in)
+      U_(:,lmesh%NeS:lmesh%NeE), V_(:,lmesh%NeS:lmesh%NeE)        ) ! (out)
 
     return
   end subroutine set_velocity_lc
@@ -483,6 +486,8 @@ contains
       VelTypeName, VelTypeParams,         &
       nstep_eval_error
     
+    character(len=H_LONG) :: cnf_fname  ! config file for launcher
+
     integer :: comm, myrank, nprocs
     logical :: ismaster
     integer :: ierr
@@ -496,7 +501,8 @@ contains
     call PRC_ERRHANDLER_setup( .false., ismaster ) ! [IN]
     
     ! setup scale_io
-    call IO_setup( "test_advect3d", "test.conf" )
+    cnf_fname = IO_ARG_getfname( ismaster )
+    call IO_setup( "test_advect3dGlobal", cnf_fname )
     
     ! setup log
     call IO_LOG_setup( myrank, ismaster )   
@@ -568,8 +574,8 @@ contains
     call V%Init( "V", "s-1", mesh )
     call W%Init( "W", "s-1", mesh )
 
-    call prgvars_comm%Init(1, 0, mesh)
-    call auxvars_comm%Init(1, 1, mesh)
+    call prgvars_comm%Init(1, 0, 0, mesh)
+    call auxvars_comm%Init(1, 1, 0, mesh)
     
     call Vellon%Init( "Vellon", "m/s", mesh )
     call Vellat%Init( "Vellat", "m/s", mesh )

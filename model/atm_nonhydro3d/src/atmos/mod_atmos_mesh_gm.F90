@@ -64,7 +64,7 @@ module mod_atmos_mesh_gm
   !
 
 contains
-
+!OCL SERIAL
   subroutine AtmosMeshGM_Init( this )    
     use scale_const, only: &
       RPlanet => CONST_RADIUS
@@ -84,6 +84,7 @@ contains
     real(RP) :: FZ(FZ_nmax)
 
     !* Global
+    logical :: SHALLOW_ATM_APPROX_FLAG = .true.
     integer  :: NeGX               = 2
     integer  :: NeGY               = 2
     integer  :: NeZ                = 2
@@ -97,6 +98,7 @@ contains
     character(len=H_MID)  :: TOPO_IN_VARNAME     = 'topo'   !< variable name of topo in the input file
     
     namelist / PARAM_ATMOS_MESH / &
+      SHALLOW_ATM_APPROX_FLAG,                     &
       dom_zmin, dom_zmax,                          &
       FZ, isPeriodicZ,                             &
       NeGX, NeGY, NeZ, NLocalMeshPerPrc, Nprc,     &
@@ -144,13 +146,14 @@ contains
     end do
     if (is_spec_FZ) then
       call this%mesh%Init( &
-        NeGX, NeGY, NeZ, RPlanet, dom_zmin, dom_zmax, &
-        this%element, NLocalMeshPerPrc, nproc=Nprc,   &
-        FZ=FZ(1:NeZ+1)    )
+        NeGX, NeGY, NeZ, RPlanet, dom_zmin, dom_zmax,          &
+        this%element, NLocalMeshPerPrc, nproc=Nprc,            &
+        FZ=FZ(1:NeZ+1), shallow_approx=SHALLOW_ATM_APPROX_FLAG )
     else
       call this%mesh%Init( &
         NeGX, NeGY, NeZ, RPlanet, dom_zmin, dom_zmax, &
-        this%element, NLocalMeshPerPrc, nproc=Nprc    )
+        this%element, NLocalMeshPerPrc, nproc=Nprc,   &
+        shallow_approx=SHALLOW_ATM_APPROX_FLAG        )
     end if
     
     call this%mesh%Generate()
@@ -177,6 +180,7 @@ contains
     return
   end subroutine AtmosMeshGM_Init
 
+!OCL SERIAL
   subroutine AtmosMeshGM_Final(this)
     implicit none
 
@@ -194,23 +198,27 @@ contains
     return
   end subroutine AtmosMeshGM_Final
 
-  subroutine AtmosMeshGM_create_communicator( this, sfield_num, hvfield_num, var_manager, field_list, commid )
+!OCL SERIAL
+  subroutine AtmosMeshGM_create_communicator( this, sfield_num, hvfield_num, htensorfield_num, &
+    var_manager, field_list, commid )
     implicit none
     class(AtmosMeshGM), target, intent(inout) :: this
     integer, intent(in) :: sfield_num
     integer, intent(in) :: hvfield_num
+    integer, intent(in) :: htensorfield_num
     class(ModelVarManager), intent(inout) :: var_manager
     class(MeshField3D), intent(in) :: field_list(:)
     integer, intent(out) :: commid
     !-----------------------------------------------------
 
     commid = this%Get_communicatorID( ATM_MESH_MAX_COMMNUICATOR_NUM )
-    call this%comm_list(commid)%Init( sfield_num, hvfield_num, this%mesh )
+    call this%comm_list(commid)%Init( sfield_num, hvfield_num, htensorfield_num, this%mesh )
     call var_manager%MeshFieldComm_Prepair( this%comm_list(commid), field_list )
 
     return
   end subroutine AtmosMeshGM_create_communicator  
 
+!OCL SERIAL
   subroutine AtmosMeshGM_setup_restartfile1( this, restart_file, var_num )
     implicit none
     class(AtmosMeshGM), target, intent(inout) :: this
@@ -222,6 +230,7 @@ contains
     return
   end subroutine AtmosMeshGM_setup_restartfile1
 
+!OCL SERIAL
   subroutine AtmosMeshGM_setup_restartfile2( this, restart_file, &
     in_basename, in_postfix_timelabel,                         &
     out_basename, out_postfix_timelabel,                       &
@@ -244,11 +253,12 @@ contains
 
   end subroutine AtmosMeshGM_setup_restartfile2
 
+!OCL SERIAL
   subroutine AtmosMeshGM_calc_UVMet( this, U, V, &
     Umet, Vmet )
 
-    use scale_cubedsphere_cnv, only: &
-      CubedSphereCnv_CS2LonLatVec
+    use scale_cubedsphere_coord_cnv, only: &
+      CubedSphereCoordCnv_CS2LonLatVec
     implicit none
     class(AtmosMeshGM), target, intent(in) :: this
     type(MeshField3D), intent(in) :: U
@@ -265,24 +275,19 @@ contains
     do n=1, this%mesh%LOCAL_MESH_NUM
       lcmesh => this%mesh%lcmesh_list(n)
       elem => lcmesh%refElem3D
-      call CubedSphereCnv_CS2LonLatVec( &
-        lcmesh%panelID, lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2), &
-        elem%Np * lcmesh%Ne, this%mesh%RPlanet,                     &
-        U%local(n)%val(:,lcmesh%NeS:lcmesh%NeE),                    &
-        V%local(n)%val(:,lcmesh%NeS:lcmesh%NeE),                    &
-        Umet%local(n)%val(:,lcmesh%NeS:lcmesh%NeE),                 &
-        Vmet%local(n)%val(:,lcmesh%NeS:lcmesh%NeE)                  )
-      
-      !$omp parallel do private(ke2D)
-      do ke=lcmesh%NeS, lcmesh%NeE
-        ke2D = lcmesh%EMap3Dto2D(ke)
-        Umet%local(n)%val(:,ke) = Umet%local(n)%val(:,ke) * cos(lcmesh%lat2D(elem%IndexH2Dto3D(:),ke2D)) 
-      end do
+      call CubedSphereCoordCnv_CS2LonLatVec( &
+        lcmesh%panelID, lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2), & ! (in)
+        lcmesh%gam, elem%Np * lcmesh%Ne,                            & ! (in)
+        U%local(n)%val(:,lcmesh%NeS:lcmesh%NeE),                    & ! (in)
+        V%local(n)%val(:,lcmesh%NeS:lcmesh%NeE),                    & ! (in)
+        Umet%local(n)%val(:,lcmesh%NeS:lcmesh%NeE),                 & ! (out)
+        Vmet%local(n)%val(:,lcmesh%NeS:lcmesh%NeE)                  ) ! (out)
     end do
 
     return
   end subroutine AtmosMeshGM_calc_UVMet
 
+!OCL SERIAL
   subroutine AtmosMeshGM_setup_vcoordinate( this )
     use scale_meshfieldcomm_cubedspheredom2d, only: MeshFieldCommCubedSphereDom2D
     implicit none
@@ -292,8 +297,8 @@ contains
     type(MeshFieldCommCubedSphereDom2D) :: comm2D
     !-------------------------------------------------
 
-    call comm2D%Init( 1, 0, this%mesh%mesh2D )
-    call comm3D%Init( 1, 1, this%mesh )
+    call comm2D%Init( 1, 0, 0, this%mesh%mesh2D )
+    call comm3D%Init( 2, 1, 0, this%mesh )
 
     call this%topography%SetVCoordinate( this%ptr_mesh,   &
       this%vcoord_type_id, this%mesh%zmax_gl, comm3D, comm2D )

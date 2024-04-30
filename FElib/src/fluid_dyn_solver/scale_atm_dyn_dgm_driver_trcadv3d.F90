@@ -1,5 +1,5 @@
 !-------------------------------------------------------------------------------
-!> module Atmosphere / Dynamics / DGM driver (tracer advection)
+!> module FElib / Fluid dyn solver / Atmosphere / DGM driver (tracer advection)
 !!
 !! @par Description
 !!      Driver module for tracer advection based on DGM 
@@ -237,7 +237,7 @@ contains
 
     iv = TRCVARS3D_TRCADV_ID
     call model_mesh3D%Create_communicator( &
-      1, 0,                            & ! (in) 
+      1, 0, 0,                         & ! (in) 
       this%TRCVAR3D_manager,           & ! (in)
       this%TRCVARS3D(iv:iv),           & ! (in)
       this%TRCVAR3D_commid             ) ! (out)
@@ -256,7 +256,7 @@ contains
     end do
 
     call model_mesh3D%Create_communicator( &
-      1, 1,                              & ! (in) 
+      1, 1, 0,                           & ! (in) 
       this%AUXTRC_FLUX_VAR3D_manager,    & ! (in)
       this%AUXTRC_FLUX_VARS3D(:),        & ! (in)
       this%AUXTRC_FLUX_VAR3D_commid      ) ! (out)
@@ -275,7 +275,7 @@ contains
     end do
 
     call model_mesh3D%Create_communicator( &
-      1, 0,                            & ! (in) 
+      1, 0, 0,                         & ! (in) 
       this%AUXTRCVAR3D_manager,        & ! (in)
       this%AUX_TRCVARS3D(:),           & ! (in)
       this%AUXTRCVAR3D_commid          ) ! (out)
@@ -386,6 +386,7 @@ contains
           this%alphaDensM%local(n)%face_val, this%alphaDensP%local(n)%face_val,            & ! (inout)
           DDENS%local(n)%val, MOMX%local(n)%val, MOMY%local(n)%val, MOMZ%local(n)%val,     & ! (in)
           DENS_hyd%local(n)%val,                                                           & ! (in)
+          lcmesh3D%Gsqrt,                                                                  & ! (in)
           lcmesh3D%normal_fn(:,:,1), lcmesh3D%normal_fn(:,:,2), lcmesh3D%normal_fn(:,:,3), & ! (in)
           lcmesh3D%VMapM, lcmesh3D%VMapP, lcmesh3D, lcmesh3D%refElem3D                     ) ! (in)
       end do

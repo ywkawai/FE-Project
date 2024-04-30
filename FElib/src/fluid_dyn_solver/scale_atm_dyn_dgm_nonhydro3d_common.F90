@@ -1,8 +1,8 @@
 !-------------------------------------------------------------------------------
-!> module Atmosphere / Dynamics common
+!> module FElib / Fluid dyn solver / Atmosphere / Nonhydrostatic model / Common
 !!
 !! @par Description
-!!      HEVE DGM scheme for Atmospheric dynamical process. 
+!!      A coomon model for atmospheric nonhydrostatic dynamical core 
 !!
 !! @author Team SCALE
 !<
@@ -78,15 +78,16 @@ module scale_atm_dyn_dgm_nonhydro3d_common
   integer, public, parameter :: PHYTEND_NUM         = 6
 
   !-
-  integer, public, parameter :: AUXVAR_PRESHYDRO_ID = 1
-  integer, public, parameter :: AUXVAR_DENSHYDRO_ID = 2
-  integer, public, parameter :: AUXVAR_PRES_ID      = 3
-  integer, public, parameter :: AUXVAR_PT_ID        = 4
-  integer, public, parameter :: AUXVAR_Rtot_ID      = 5
-  integer, public, parameter :: AUXVAR_CVtot_ID     = 6
-  integer, public, parameter :: AUXVAR_CPtot_ID     = 7
-  integer, public, parameter :: AUXVAR_Qdry_ID      = 8
-  integer, public, parameter :: AUXVAR_NUM          = 8
+  integer, public, parameter :: AUXVAR_PRESHYDRO_ID     = 1
+  integer, public, parameter :: AUXVAR_DENSHYDRO_ID     = 2
+  integer, public, parameter :: AUXVAR_PRES_ID          = 3
+  integer, public, parameter :: AUXVAR_PT_ID            = 4
+  integer, public, parameter :: AUXVAR_Rtot_ID          = 5
+  integer, public, parameter :: AUXVAR_CVtot_ID         = 6
+  integer, public, parameter :: AUXVAR_CPtot_ID         = 7
+  integer, public, parameter :: AUXVAR_Qdry_ID          = 8
+  integer, public, parameter :: AUXVAR_PRESHYDRO_REF_ID = 9
+  integer, public, parameter :: AUXVAR_NUM              = 9
 
   
   
@@ -159,22 +160,24 @@ contains
 
     type(VariableInfo) :: AUXVAR_VARINFO(AUXVAR_NUM)
     DATA AUXVAR_VARINFO / &
-      VariableInfo( AUXVAR_PRESHYDRO_ID, 'PRES_hyd', 'hydrostatic part of pressure',  &
-                      'Pa', 3, 'XYZ', ''                                                 ), &
-      VariableInfo( AUXVAR_DENSHYDRO_ID, 'DENS_hyd', 'hydrostatic part of density',   &
-                    'kg/m3', 3, 'XYZ', ''                                                 ), &
-      VariableInfo( AUXVAR_PRES_ID     ,     'PRES', 'pressure',                      &
-                      'Pa', 3, 'XYZ', 'air_pressure'                                     ), &
-      VariableInfo( AUXVAR_PT_ID       ,       'PT', 'potential temperature',         &
-                        'K', 3, 'XYZ', 'potential_temperature'                            ), &
-      VariableInfo( AUXVAR_Rtot_ID     ,     'RTOT', 'Total gas constant',            &
-                        'J/kg/K', 3, 'XYZ', ''                                            ), &
-      VariableInfo( AUXVAR_CVtot_ID    ,    'CVTOT', 'Total heat capacity',           &
-                        'J/kg/K', 3, 'XYZ', ''                                            ), &
-      VariableInfo( AUXVAR_CPtot_ID    ,    'CPTOT', 'Total heat capacity',           &
-                        'J/kg/K', 3, 'XYZ', ''                                            ), &
-      VariableInfo( AUXVAR_QDRY_ID     ,     'QDRY', 'dry air',                       &
-                        'kg/kg', 3, 'XYZ', ''                                             )  /
+      VariableInfo( AUXVAR_PRESHYDRO_ID, 'PRES_hyd', 'hydrostatic part of pressure',             &
+                      'Pa', 3, 'XYZ', ''                                                      ), &
+      VariableInfo( AUXVAR_DENSHYDRO_ID, 'DENS_hyd', 'hydrostatic part of density',              &
+                    'kg/m3', 3, 'XYZ', ''                                                     ), &
+      VariableInfo( AUXVAR_PRES_ID     ,     'PRES', 'pressure',                                 &
+                      'Pa', 3, 'XYZ', 'air_pressure'                                          ), &
+      VariableInfo( AUXVAR_PT_ID       ,       'PT', 'potential temperature',                    &
+                        'K', 3, 'XYZ', 'potential_temperature'                                ), &
+      VariableInfo( AUXVAR_Rtot_ID     ,     'RTOT', 'Total gas constant',                       &
+                        'J/kg/K', 3, 'XYZ', ''                                                ), &
+      VariableInfo( AUXVAR_CVtot_ID    ,    'CVTOT', 'Total heat capacity',                      &
+                        'J/kg/K', 3, 'XYZ', ''                                                ), &
+      VariableInfo( AUXVAR_CPtot_ID    ,    'CPTOT', 'Total heat capacity',                      &
+                        'J/kg/K', 3, 'XYZ', ''                                                ), &
+      VariableInfo( AUXVAR_QDRY_ID     ,     'QDRY', 'dry air',                                  &
+                        'kg/kg', 3, 'XYZ', ''                                                 ), &
+      VariableInfo( AUXVAR_PRESHYDRO_REF_ID, 'PRES_hyd_REF', 'hydrostatic reference pressure',   &
+                      'Pa', 3, 'XYZ', ''                                                        )/
 
     type(VariableInfo) :: PHYTEND_VARINFO(PHYTEND_NUM)
     DATA PHYTEND_VARINFO / &

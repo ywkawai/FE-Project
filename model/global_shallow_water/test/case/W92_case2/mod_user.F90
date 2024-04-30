@@ -5,6 +5,12 @@
 !!          User defined module
 !!          Test case 2 of Williamson et al. (1992)
 !!          Steady-state geostrophic flow
+!!
+!! @par Reference
+!!  - Williamson et al. 1992: 
+!!    A Standard Test Set for Numerical Approximations to the Shallow Water Equations in Spherical Geometry.
+!!    Journal of Computational Physics, 102, 211-224.
+!!
 !! @author Team SCALE
 !!
 !<
@@ -107,21 +113,24 @@ contains
     return
   end subroutine USER_setup
 
-  subroutine USER_calc_tendency
+  subroutine USER_calc_tendency( atm )
     implicit none
+    class(GlobalSWComponent), intent(inout) :: atm
     !------------------------------------------
 
     return
   end subroutine USER_calc_tendency
 
-  subroutine USER_update
+  subroutine USER_update( atm )
     implicit none
+    class(GlobalSWComponent), intent(inout) :: atm
     !------------------------------------------
 
     return
   end subroutine USER_update
 
   !------
+!OCL SERIAL
   subroutine exp_SetInitCond_W92_case2( this,  &
     h, U, V, hs, u1, u2,                       &
     x, y, lcmesh, elem                         )
@@ -131,8 +140,8 @@ contains
       GRAV => CONST_GRAV,      &
       RPlanet => CONST_RADIUS, &
       OMG => CONST_OHM 
-    use scale_cubedsphere_cnv, only: &
-      CubedSphereCnv_LonLat2CSVec
+    use scale_cubedsphere_coord_cnv, only: &
+      CubedSphereCoordCnv_LonLat2CSVec
     implicit none
 
     class(Exp_W92_case2), intent(inout) :: this
@@ -157,9 +166,11 @@ contains
     integer, parameter :: IntrpPolyOrder_v = 6
     real(RP), allocatable :: PRES_purtub(:,:)
   
+    real(RP) :: gam(elem%Np,lcmesh%Ne)
     real(RP) :: VelLon(elem%Np,lcmesh%Ne)
     real(RP) :: VelLat(elem%Np,lcmesh%Ne)
     integer :: ke
+
     integer :: ierr
     !-----------------------------------------------------------------------------
 
@@ -185,13 +196,16 @@ contains
         ) / Grav
       hs(:,ke) = 0.0_RP
       VelLon(:,ke) =   U0 * ( cos(alpha) * cos(lcmesh%lat(:,ke)) + sin(alpha) * cos(lcmesh%lon(:,ke)) * sin(lcmesh%lat(:,ke)) )
-      VelLon(:,ke) = VelLon(:,ke) / cos(lcmesh%lat(:,ke))
       VelLat(:,ke) = - U0 * sin(alpha) * sin(lcmesh%lon(:,ke))
     end do
 
-    call CubedSphereCnv_LonLat2CSVec( &
-      lcmesh%panelID, lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2), elem%Np * lcmesh%Ne, RPlanet, &
-      VelLon(:,:), VelLat(:,:), U(:,lcmesh%NeS:lcmesh%NeE), V(:,lcmesh%NeS:lcmesh%NeE)          )
+    gam(:,:) = 1.0_RP
+    call CubedSphereCoordCnv_LonLat2CSVec( &
+      lcmesh%panelID, lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2), & ! (in)
+      gam(:,:), elem%Np * lcmesh%Ne,                              & ! (in)
+      VelLon(:,:), VelLat(:,:),                                   & ! (in)
+      U(:,lcmesh%NeS:lcmesh%NeE), V(:,lcmesh%NeS:lcmesh%NeE)      ) ! (out)
+
     !$omp parallel do
     do ke=lcmesh%NeS, lcmesh%NeE
       u1(:,ke) = lcmesh%G_ij(:,ke,1,1) * U(:,ke) + lcmesh%G_ij(:,ke,1,2) * V(:,ke)

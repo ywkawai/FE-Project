@@ -1,5 +1,5 @@
 !-------------------------------------------------------------------------------
-!> module Atmosphere / Dynamics / boundary
+!> module FElib / Fluid dyn solver / Atmosphere / Boundary
 !!
 !! @par Description
 !!          A module for setting halo data based on boundary conditions. 
@@ -84,6 +84,8 @@ module scale_atm_dyn_dgm_bnd
   integer, parameter :: DOM_BND_NUM     = 6
 
 contains
+
+!OCL SERIAL
   subroutine ATMOS_dyn_bnd_setup( this )
     use scale_mesh_bndinfo, only: &
       BND_TYPE_NOSPEC_NAME, &
@@ -151,6 +153,7 @@ contains
     return
   end subroutine ATMOS_dyn_bnd_setup
 
+!OCL SERIAL
   subroutine ATMOS_dyn_bnd_finalize( this )
     implicit none
     class(AtmDynBnd), intent(inout) :: this
@@ -250,12 +253,12 @@ contains
     real(RP) :: mom_normal
 
     real(RP) :: MOMW
-    real(RP) :: nx_, ny_, nz_, r_nabs_
+    real(RP) :: GsqrtV
     !-----------------------------------------------
 
     !$omp parallel do collapse(2) private( &
     !$omp ke, p, ke2D, i, i_, iM, iP,      &
-    !$omp mom_normal, MOMW, nx_, ny_, nz_, r_nabs_       )
+    !$omp mom_normal, MOMW, GsqrtV         )
     do ke=lmesh%NeS, lmesh%NeE
     do p=1, elem%NfpTot
       i = p + (ke-1)*elem%NfpTot
@@ -269,23 +272,17 @@ contains
         case ( BND_TYPE_SLIP_ID)
           ke2D = lmesh%EMap3Dto2D(ke)
 
+          GsqrtV = Gsqrt(iM) / GsqrtH(elem%IndexH2Dto3D_bnd(p),ke2D) 
+          ! MOMW = MOMZ(iM) / GsqrtV &
+          !    + G13(iM) * MOMX(iM) + G23(iM) * MOMY(iM)
           MOMW = MOMZ(iM) &
-               + Gsqrt(iM) / GsqrtH(elem%IndexH2Dto3D_bnd(p),ke2D) &
-                  * ( G13(iM) * MOMX(iM) + G23(iM) * MOMY(iM) )
+             + GsqrtV * ( G13(iM) * MOMX(iM) + G23(iM) * MOMY(iM) )
+
           mom_normal = MOMX(iM) * nx(i) + MOMY(iM) * ny(i) + MOMW * nz(i)
+          MOMX(iP) = MOMX(iM) - 2.0_RP * mom_normal * nx(i)
+          MOMY(iP) = MOMY(iM) - 2.0_RP * mom_normal * ny(i)
+          MOMZ(iP) = MOMZ(iM) - 2.0_RP * mom_normal * nz(i)
 
-          ! MOMX(iP) = MOMX(iM) - 2.0_RP * mom_normal * nx(i)
-          ! MOMY(iP) = MOMY(iM) - 2.0_RP * mom_normal * ny(i)
-          ! MOMZ(iP) = MOMZ(iM) - 2.0_RP * mom_normal * nz(i)
-
-          r_nabs_ = 1.0_RP / sqrt(1.0_RP + (Gsqrt(iM) * G13(iM))**2 + (Gsqrt(iM) * G23(iM))**2 )
-          nx_ = Gsqrt(iM) * G13(iM) * r_nabs_
-          ny_ = Gsqrt(iM) * G23(iM) * r_nabs_
-          nz_ = r_nabs_
-
-          MOMX(iP) = MOMX(iM) - 2.0_RP * MOMW * nx_
-          MOMY(iP) = MOMY(iM) - 2.0_RP * MOMW * ny_
-          MOMZ(iP) = MOMZ(iM) - 2.0_RP * MOMW * nz_
         case ( BND_TYPE_NOSLIP_ID )
           MOMX(iP) = - MOMX(iM)
           MOMY(iP) = - MOMY(iM)

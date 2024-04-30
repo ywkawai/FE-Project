@@ -64,6 +64,10 @@ module mod_user
 
   type(MeshField3D), private :: PT_diff
 
+  real(RP), private :: U0      = 40.0_RP
+  real(RP) :: THETA0           = 300.0_RP
+  real(RP) :: BruntVaisalaFreq = 0.0187_RP  
+
   !-----------------------------------------------------------------------------
 contains
 !OCL SERIAL
@@ -114,6 +118,9 @@ contains
     call this%UserBase%Setup( atm, USER_do )
 
     !-
+    call read_exp_parameters()
+    
+    !-
     if ( this%USER_do ) call PT_diff%Init( 'PT_diff', 'K', atm%mesh%ptr_mesh )
 
     return
@@ -131,7 +138,7 @@ contains
       PI => CONST_PI
 
     use scale_localmeshfield_base, only: LocalMeshFieldBase
-    use scale_cubedsphere_cnv, only: CubedSphereCnv_LonLat2CSVec
+    use scale_cubedsphere_coord_cnv, only: CubedSphereCoordCnv_LonLat2CSVec
   
     use scale_file_history_meshfield, only: &
       FILE_HISTORY_meshfield_in
@@ -159,12 +166,12 @@ contains
     real(RP), parameter :: rtau = 1.0_RP / 1800.0_RP
 
     integer :: n
-    integer :: ke
+    integer :: ke, ke2D
 
     real(RP), allocatable :: DENS(:)
     real(RP), allocatable :: sfac(:)
-    real(RP), allocatable :: UmetOvCosLat(:,:), Vmet(:,:)
-    real(RP), allocatable :: U0(:,:), V0(:,:)
+    real(RP), allocatable :: Umet(:,:), Vmet(:,:)
+    real(RP), allocatable :: U_0(:,:), V_0(:,:)
     !------------------------------------------
 
     if ( this%USER_do ) then
@@ -185,19 +192,21 @@ contains
       
       elem => lcmesh%refElem3D
       allocate( DENS(elem%Np), sfac(elem%Np) )
-      allocate( U0(elem%Np,lcmesh%Ne), V0(elem%Np,lcmesh%Ne) )
-      allocate( UmetOvCosLat(elem%Np,lcmesh%Ne), Vmet(elem%Np,lcmesh%Ne) )
+      allocate( U_0(elem%Np,lcmesh%Ne), V_0(elem%Np,lcmesh%Ne) )
+      allocate( Umet(elem%Np,lcmesh%Ne), Vmet(elem%Np,lcmesh%Ne) )
 
       !$omp parallel do
       do ke=lcmesh%NeS, lcmesh%NeE
-        UmetOvCosLat(:,ke) = 40.0_RP
-        Vmet(:,ke)         = 0.0_RP
+        ke2D = lcmesh%EMap3Dto2D(ke)
+        Umet(:,ke) = U0 * cos(lcmesh%lat2D(elem%IndexH2Dto3D(:),ke2D))
+        Vmet(:,ke) = 0.0_RP
       end do
       
-      call CubedSphereCnv_LonLat2CSVec( &
-        lcmesh%panelID, lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2), elem%Np * lcmesh%Ne, RPlanet, &
-        UmetOvCosLat(:,:), Vmet(:,:),                                                             &
-        U0(:,:), V0(:,:)                                                                          )
+      call CubedSphereCoordCnv_LonLat2CSVec( &
+        lcmesh%panelID, lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2), & ! (in)
+        lcmesh%gam(:,lcmesh%NeS:lcmesh%NeE), elem%Np * lcmesh%Ne,   & ! (in)
+        Umet(:,:), Vmet(:,:),                                       & ! (in)
+        U_0(:,:), V_0(:,:)                                          ) ! (out)
 
       !$omp parallel do private(DENS, sfac)
       do ke=lcmesh%NeS, lcmesh%NeE
@@ -206,9 +215,9 @@ contains
 
         where ( lcmesh%pos_en(:,ke,3) > 25.E3_RP ) 
           atm%vars%PHY_TEND(MOMX_p)%local(n)%val(:,ke) = atm%vars%PHY_TEND(MOMX_p)%local(n)%val(:,ke)   &
-            - sfac(:) * ( MOMX%val(:,ke) - DENS(:) * U0(:,ke) )
+            - sfac(:) * ( MOMX%val(:,ke) - DENS(:) * U_0(:,ke) )
           atm%vars%PHY_TEND(MOMY_p)%local(n)%val(:,ke) = atm%vars%PHY_TEND(MOMY_p)%local(n)%val(:,ke)   &
-            - sfac(:) * ( MOMY%val(:,ke) - DENS(:) * V0(:,ke) )
+            - sfac(:) * ( MOMY%val(:,ke) - DENS(:) * V_0(:,ke) )
           atm%vars%PHY_TEND(MOMZ_p)%local(n)%val(:,ke) = atm%vars%PHY_TEND(MOMZ_p)%local(n)%val(:,ke)   &
             - sfac(:) * MOMZ%val(:,ke)
 
@@ -217,7 +226,7 @@ contains
         end where
       end do
       deallocate( DENS, sfac )
-      deallocate( UmetOvCosLat, Vmet, U0, V0 )
+      deallocate( Umet, Vmet, U_0, V_0 )
     end do
 
     return
@@ -242,8 +251,8 @@ contains
     
     use scale_atm_dyn_dgm_hydrostatic, only: &
       hydrostatic_calc_basicstate_constBVFreq
-    use scale_cubedsphere_cnv, only: &
-      CubedSphereCnv_LonLat2CSVec
+    use scale_cubedsphere_coord_cnv, only: &
+      CubedSphereCoordCnv_LonLat2CSVec
   
     use mod_experiment, only: &
       TracerLocalMeshField_ptr   
@@ -268,12 +277,6 @@ contains
     real(RP), intent(in) :: dom_ymin, dom_ymax
     real(RP), intent(in) :: dom_zmin, dom_zmax
     
-    real(RP) :: THETA0 = 300.0_RP
-    real(RP) :: BruntVaisalaFreq = 0.0187_RP  
-    real(RP) :: U0     = 40.0_RP
-    namelist /PARAM_EXP/ &
-      U0,                &
-      BruntVaisalaFreq
     integer, parameter :: IntrpPolyOrder_h = 8
     integer, parameter :: IntrpPolyOrder_v = 8
 
@@ -282,25 +285,16 @@ contains
 
     real(RP) :: cos_lat(elem%Np)
     real(RP) :: T(elem%Np)
-    real(RP) :: MOMX_met_ov_coslat(elem%Np,lcmesh%Ne)
+    real(RP) :: MOMX_met(elem%Np,lcmesh%Ne)
     real(RP) :: MOMY_met          (elem%Np,lcmesh%Ne)
 
     integer :: ke, ke2d
-    integer :: ierr
 
     type(LocalMesh2D), pointer :: lmesh2D
     real(RP) :: H0_pres
     !-----------------------------------------------------------------------------
 
-    rewind(IO_FID_CONF)
-    read(IO_FID_CONF,nml=PARAM_EXP,iostat=ierr)
-    if( ierr < 0 ) then !--- missing
-       LOG_INFO("MOUNTAIN_WAVE_setup",*) 'Not found namelist. Default used.'
-    elseif( ierr > 0 ) then !--- fatal error
-       LOG_ERROR("MOUNTAIN_WAVE_setup",*) 'Not appropriate names in namelist PARAM_EXP. Check!'
-       call PRC_abort
-    endif
-    LOG_NML(PARAM_EXP)
+    call read_exp_parameters()
     !---
 
     call hydrostatic_calc_basicstate_constBVFreq( DENS_hyd, PRES_hyd, & ! (out)
@@ -333,14 +327,15 @@ contains
       T(:) = H0_pres / Rdry * ( Grav - U0 * cos_lat * ( U0 * cos_lat / RPlanet + 2.0_RP * OHM * cos_lat ) )
       DENS_hyd(:,ke) = p_lat(elem%IndexH2Dto3D,ke2d) / ( Rdry * T(:) ) * exp( - lcmesh%zlev(:,ke) / H0_pres )
 
-      MOMX_met_ov_coslat(:,ke) = DENS_hyd(:,ke) * U0
-      MOMY_met(:,ke)           = 0.0_RP
+      MOMX_met(:,ke) = DENS_hyd(:,ke) * U0 * cos_lat(:)
+      MOMY_met(:,ke) = 0.0_RP
     end do
 
-    call CubedSphereCnv_LonLat2CSVec( &
-      lcmesh%panelID, lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2), elem%Np * lcmesh%Ne, RPlanet, &
-      MOMX_met_ov_coslat(:,:), MOMY_met(:,:),                                                   &
-      MOMX(:,lcmesh%NeS:lcmesh%NeE), MOMY(:,lcmesh%NeS:lcmesh%NeE)                              )
+    call CubedSphereCoordCnv_LonLat2CSVec( &
+      lcmesh%panelID, lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2),    & ! (in)
+      lcmesh%gam(:,lcmesh%NeS:lcmesh%NeE), elem%Np * lcmesh%Ne,      & ! (in)
+      MOMX_met(:,:), MOMY_met(:,:),                                  & ! (in)
+      MOMX(:,lcmesh%NeS:lcmesh%NeE), MOMY(:,lcmesh%NeS:lcmesh%NeE)   ) ! (out)
 
     return
   contains
@@ -373,5 +368,29 @@ contains
       return
     end subroutine 
   end subroutine exp_SetInitCond_mountain_wave
+
+  subroutine read_exp_parameters()
+    implicit none
+
+    namelist /PARAM_EXP/ &
+      U0,                &
+      BruntVaisalaFreq,  &
+      THETA0
+      
+    integer :: ierr
+    !--------------------------------------------------
+
+    rewind(IO_FID_CONF)
+    read(IO_FID_CONF,nml=PARAM_EXP,iostat=ierr)
+    if( ierr < 0 ) then !--- missing
+       LOG_INFO("MOUNTAIN_WAVE_setup",*) 'Not found namelist. Default used.'
+    elseif( ierr > 0 ) then !--- fatal error
+       LOG_ERROR("MOUNTAIN_WAVE_setup",*) 'Not appropriate names in namelist PARAM_EXP. Check!'
+       call PRC_abort
+    endif
+    LOG_NML(PARAM_EXP)
+
+    return
+  end subroutine read_exp_parameters
 
 end module mod_user

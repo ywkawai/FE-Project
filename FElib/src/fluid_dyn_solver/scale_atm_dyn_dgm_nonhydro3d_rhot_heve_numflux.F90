@@ -1,5 +1,5 @@
 !-------------------------------------------------------------------------------
-!> module Atmosphere / Dynamics HEVE numflux
+!> module FElib / Fluid dyn solver / Atmosphere / Nonhydrostatic model / HEVE / Numflux
 !!
 !! @par Description
 !!      HEVE DGM scheme for Atmospheric dynamical process. 
@@ -238,7 +238,7 @@ contains
     del_flux, del_flux_hyd,                                           & ! (out)
     DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DPRES_, DENS_hyd, PRES_hyd,  & ! (in)
     Rtot, CVtot, CPtot,                                               & ! (in)
-    Gsqrt, G11, G12, G22, GsqrtH, G13, G23, nx, ny, nz,               & ! (in)
+    Gsqrt, G11, G12, G22, GsqrtH, gam, G13, G23, nx, ny, nz,          & ! (in)
     vmapM, vmapP, iM2Dto3D, lmesh, elem, lmesh2D, elem2D              ) ! (in)
 
     implicit none
@@ -265,6 +265,7 @@ contains
     real(RP), intent(in) ::  G12(elem2D%Np,lmesh2D%Ne)
     real(RP), intent(in) ::  G22(elem2D%Np,lmesh2D%Ne)
     real(RP), intent(in) ::  GsqrtH(elem2D%Np,lmesh2D%Ne)
+    real(RP), intent(in) :: gam(elem%Np*lmesh%NeA)
     real(RP), intent(in) ::  G13(elem%Np*lmesh%NeA)
     real(RP), intent(in) ::  G23(elem%Np*lmesh%NeA)
     real(RP), intent(in) :: nx(elem%NfpTot,lmesh%Ne)
@@ -294,6 +295,7 @@ contains
     real(RP) :: Gnn_M(elem%NfpTot), Gnn_P(elem%NfpTot)
     real(RP) :: Gxz_M(elem%NfpTot), Gxz_P(elem%NfpTot)
     real(RP) :: Gyz_M(elem%NfpTot), Gyz_P(elem%NfpTot)
+    real(RP) :: rgam2_M(elem%NfpTot), rgam2_P(elem%NfpTot)
 
     real(RP) :: gamm, rgamm    
     real(RP) :: rP0
@@ -315,15 +317,18 @@ contains
     !$omp GsqrtDDENS_M, GsqrtDDENS_P, GsqrtDRHOT_M, GsqrtDRHOT_P,                       &
     !$omp Phyd_M, Phyd_P,                                                               &
     !$omp Gsqrt_P, Gsqrt_M, GsqrtV_P, GsqrtV_M, G13_P, G13_M, G23_P, G23_M,             &
-    !$omp Gxz_P, Gxz_M, Gyz_P, Gyz_M, G1n_M, G2n_M, Gnn_P, Gnn_M                        )
+    !$omp rgam2_M, rgam2_P, Gxz_P, Gxz_M, Gyz_P, Gyz_M, G1n_M, G2n_M, Gnn_P, Gnn_M      )
     do ke=lmesh%NeS, lmesh%NeE
       iM(:) = vmapM(:,ke); iP(:) = vmapP(:,ke)
       ke2D = lmesh%EMap3Dto2D(ke)
 
       Gsqrt_M(:) = Gsqrt(iM)
       Gsqrt_P(:) = Gsqrt(iP)
-      GsqrtV_M(:) = Gsqrt_M(:) / GsqrtH(iM2Dto3D(:),ke2D)
-      GsqrtV_P(:) = Gsqrt_P(:) / GsqrtH(iM2Dto3D(:),ke2D)
+
+      rgam2_M(:) = 1.0_RP / gam(iM)**2
+      rgam2_P(:) = 1.0_RP / gam(iP)**2
+      GsqrtV_M(:) = Gsqrt_M(:) * rgam2_M(:) / GsqrtH(iM2Dto3D(:),ke2D)
+      GsqrtV_P(:) = Gsqrt_P(:) * rgam2_P(:) / GsqrtH(iM2Dto3D(:),ke2D)
 
       G13_M(:) = G13(iM)
       G13_P(:) = G13(iP)
@@ -343,18 +348,18 @@ contains
       Phyd_M(:) = PRES_hyd(iM)
       Phyd_P(:) = PRES_hyd(iP)
 
-      Gxz_M(:) = G11(iM2Dto3D(:),ke2D) * G13_M(:) + G12(iM2Dto3D(:),ke2D) * G23_M(:)
-      Gxz_P(:) = G11(iM2Dto3D(:),ke2D) * G13_P(:) + G12(iM2Dto3D(:),ke2D) * G23_P(:)
+      Gxz_M(:) = rgam2_M(:) * ( G11(iM2Dto3D(:),ke2D) * G13_M(:) + G12(iM2Dto3D(:),ke2D) * G23_M(:) )
+      Gxz_P(:) = rgam2_P(:) * ( G11(iM2Dto3D(:),ke2D) * G13_P(:) + G12(iM2Dto3D(:),ke2D) * G23_P(:) )
 
-      Gyz_M(:) = G12(iM2Dto3D(:),ke2D) * G13_M(:) + G22(iM2Dto3D(:),ke2D) * G23_M(:)
-      Gyz_P(:) = G12(iM2Dto3D(:),ke2D) * G13_P(:) + G22(iM2Dto3D(:),ke2D) * G23_P(:)
+      Gyz_M(:) = rgam2_M(:) * ( G12(iM2Dto3D(:),ke2D) * G13_M(:) + G22(iM2Dto3D(:),ke2D) * G23_M(:) )
+      Gyz_P(:) = rgam2_P(:) * ( G12(iM2Dto3D(:),ke2D) * G13_P(:) + G22(iM2Dto3D(:),ke2D) * G23_P(:) )
                
-      G1n_M(:)  = G11(iM2Dto3D(:),ke2D) * nx(:,ke) + G12(iM2Dto3D(:),ke2D) * ny(:,ke)
-      G2n_M(:)  = G12(iM2Dto3D(:),ke2D) * nx(:,ke) + G22(iM2Dto3D(:),ke2D) * ny(:,ke)
+      G1n_M(:) = rgam2_M(:) * ( G11(iM2Dto3D(:),ke2D) * nx(:,ke) + G12(iM2Dto3D(:),ke2D) * ny(:,ke) )
+      G2n_M(:) = rgam2_P(:) * ( G12(iM2Dto3D(:),ke2D) * nx(:,ke) + G22(iM2Dto3D(:),ke2D) * ny(:,ke) )
 
-      Gnn_M(:)  = G11(iM2Dto3D(:),ke2D) * abs( nx(:,ke) ) + G22(iM2Dto3D(:),ke2D) * abs( ny(:,ke) )       &
+      Gnn_M(:)  = rgam2_M(:) * ( G11(iM2Dto3D(:),ke2D) * abs( nx(:,ke) ) + G22(iM2Dto3D(:),ke2D) * abs( ny(:,ke) ) ) &
                 + ( 1.0_RP / GsqrtV_M(:)**2 + G13_M(:) * Gxz_M(:) + G23_M(:) * Gyz_M(:) ) * abs( nz(:,ke) )
-      Gnn_P(:)  = G11(iM2Dto3D(:),ke2D) * abs( nx(:,ke) ) + G22(iM2Dto3D(:),ke2D) * abs( ny(:,ke) )       &
+      Gnn_P(:)  = rgam2_P(:) * ( G11(iM2Dto3D(:),ke2D) * abs( nx(:,ke) ) + G22(iM2Dto3D(:),ke2D) * abs( ny(:,ke) ) ) &
                 + ( 1.0_RP / GsqrtV_P(:)**2 + G13_P(:) * Gxz_P(:) + G23_P(:) * Gyz_P(:) ) * abs( nz(:,ke) )
 
       GsqrtDensM(:) = GsqrtDDENS_M(:) + Gsqrt_M(:) * DENS_hyd(iM)

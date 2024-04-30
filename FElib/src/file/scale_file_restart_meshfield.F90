@@ -1,7 +1,8 @@
-!> module file_restart_meshfield
+!-------------------------------------------------------------------------------
+!> module FElib / File / Restart
 !!
 !! @par Description
-!!           module for outputing data to restart simulations
+!!           A module for outputing data to restart simulations
 !!
 !! @author Team SCALE
 !!
@@ -117,7 +118,7 @@ module scale_file_restart_meshfield
 contains
 
 !----------------
-
+!OCL SERIAL
   subroutine FILE_restart_meshfield_setup()
     implicit none
 
@@ -169,6 +170,7 @@ contains
     return
   end subroutine FILE_restart_meshfield_setup
 
+!OCL SERIAL
   subroutine FILE_restart_meshfield_component_Init1( this,  &
     comp_name,                                              &
     var_num, mesh1D, mesh2D, meshCubedSphere2D,             &
@@ -200,6 +202,7 @@ contains
     return
   end subroutine FILE_restart_meshfield_component_Init1
 
+!OCL SERIAL
   subroutine FILE_restart_meshfield_component_Init2( this,  &
       comp_name,                                            &
       in_basename, in_postfix_timelabel,                    &
@@ -243,6 +246,7 @@ contains
     return
   end subroutine FILE_restart_meshfield_component_Init2
 
+!OCL SERIAL
   subroutine FILE_restart_meshfield_component_open( &
     this )
 
@@ -278,6 +282,7 @@ contains
     return
   end subroutine FILE_restart_meshfield_component_open
 
+!OCL SERIAL
   subroutine FILE_restart_meshfield_component_create( &
       this )
 
@@ -324,6 +329,7 @@ contains
     return
   end subroutine FILE_restart_meshfield_component_create
 
+!OCL SERIAL
   subroutine FILE_restart_meshfield_component_def_var( this,      &
     field, desc, vid, dim_type_id                                 )
   
@@ -342,6 +348,7 @@ contains
     return 
   end subroutine FILE_restart_meshfield_component_def_var
 
+!OCL SERIAL
   subroutine FILE_restart_meshfield_component_enddef( this )
 
     implicit none
@@ -352,6 +359,7 @@ contains
     return
   end subroutine FILE_restart_meshfield_component_enddef
 
+!OCL SERIAL
   subroutine FILE_restart_meshfield_component_write_var2d( this, &
     vid, field2d )
     
@@ -368,6 +376,7 @@ contains
     return
   end subroutine FILE_restart_meshfield_component_write_var2d
 
+!OCL SERIAL
   subroutine FILE_restart_meshfield_component_write_var3d( this, &
     vid, field3d )
     
@@ -384,6 +393,7 @@ contains
     return
   end subroutine FILE_restart_meshfield_component_write_var3d
 
+!OCL SERIAL
   subroutine FILE_restart_meshfield_component_read_var2d( this,  &
     dim_typeid, varname, field2d, step, allow_missing  )
   
@@ -404,6 +414,7 @@ contains
     return
   end subroutine FILE_restart_meshfield_component_read_var2d
 
+!OCL SERIAL
   subroutine FILE_restart_meshfield_component_read_var3d( this,  &
     dim_typeid, varname, field3d, step, allow_missing  )
   
@@ -424,6 +435,7 @@ contains
     return
   end subroutine FILE_restart_meshfield_component_read_var3d
 
+!OCL SERIAL
   subroutine FILE_restart_meshfield_component_close( this )
     implicit none
 
@@ -439,7 +451,7 @@ contains
     return
   end subroutine FILE_restart_meshfield_component_close
 
-
+!OCL SERIAL
   subroutine FILE_restart_meshfield_component_Final( this )
     implicit none
     class(FILE_restart_meshfield_component), intent(inout) :: this

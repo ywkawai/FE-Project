@@ -88,16 +88,12 @@ contains
 
     !########## Initial setup ##########
 
-#ifdef SCALE_DEVELOP
     ! setup standard I/O
     if ( add_path .and. path /= "" ) then
       call IO_setup( MODELNAME, trim(path)//cnf_fname, prefix=path )
     else
-#endif
       call IO_setup( MODELNAME, trim(path)//cnf_fname )
-#ifdef SCALE_DEVELOP
     end if
-#endif
 
     ! setup MPI
     call PRC_LOCAL_setup( comm_world, & ! [IN]
@@ -143,6 +139,9 @@ contains
       call FILE_HISTORY_set_nowdate( TIME_NOWDATE, TIME_NOWSUBSEC, TIME_NOWSTEP )
       
       !* change to next state *************************
+
+      !- USER
+      call user_%update_pre( atmos )
 
       !- ATMOS
       if ( atmos%IsActivated() .and. atmos%time_manager%do_step ) then
@@ -203,6 +202,7 @@ contains
 
   !----------------------------
   
+!OCL SERIAL
   subroutine initialize()
 
     use scale_const, only: CONST_setup
@@ -312,6 +312,7 @@ contains
     return
   end subroutine finalize
 
+!OCL SERIAL
   subroutine restart_read()
     implicit none    
     !----------------------------------------
@@ -343,6 +344,7 @@ contains
     return
   end subroutine restart_read
 
+!OCL SERIAL
   subroutine restart_write
     implicit none    
     !----------------------------------------
