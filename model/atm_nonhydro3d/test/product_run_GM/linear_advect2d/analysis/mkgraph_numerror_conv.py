@@ -2,12 +2,13 @@ import os
 import mkgraph_numerror_conv_sub as mncs
 
 TOP_DIR="./"
-OUT_DIR="./analysis/num_error"
+EXP_DIR_POSTFIX=""
+OUT_DIR=f"./analysis/num_error{EXP_DIR_POSTFIX}"
 
 exp_dir_list = {
-    "0deg": f"{TOP_DIR}/solid_body_rot_alph_0deg/GAUSSIAN/",
-    "45deg": f"{TOP_DIR}/solid_body_rot_alph_45deg/GAUSSIAN/",
-    "90deg": f"{TOP_DIR}/solid_body_rot_alph_90deg/GAUSSIAN/"    
+    "0deg": f"{TOP_DIR}/solid_body_rot_alph_0deg{EXP_DIR_POSTFIX}/GAUSSIAN/",
+    "45deg": f"{TOP_DIR}/solid_body_rot_alph_45deg{EXP_DIR_POSTFIX}/GAUSSIAN/",
+    "90deg": f"{TOP_DIR}/solid_body_rot_alph_90deg{EXP_DIR_POSTFIX}/GAUSSIAN/"    
 }
 
 p1_list = ["Eh16Ez12P1", "Eh32Ez12P1", "Eh64Ez12P1", "Eh128Ez12P1"]

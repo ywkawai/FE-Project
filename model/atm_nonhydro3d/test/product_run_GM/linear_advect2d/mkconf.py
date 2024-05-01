@@ -75,4 +75,4 @@ exp_list = { **exp_list_p1, **exp_list_p3, **exp_list_p7, **exp_list_p11 }
    
 for alph in alph_deg_list:
   for exp_name, exp_info in exp_list.items():
-    mkconf_sub.mk_conf_jobsh( exp_name, exp_info, alph )
+    mkconf_sub.mk_conf_jobsh( exp_name, exp_info, alph, "_check" )

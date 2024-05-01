@@ -69,7 +69,7 @@ __pycache__
 *.ipynb
 LOG_NUMERROR.peall
 model/atm_nonhydro3d/test/product_run/mountain_wave*/*/Eh*
-model/atm_nonhydro3d/test/product_run_GM/advect2d/solid*/*/Eh*
+model/atm_nonhydro3d/test/product_run_GM/linear_advect2d/solid*/*/Eh*
 model/atm_nonhydro3d/test/product_run_GM/Held_Suarez/Eh*
 model/atm_nonhydro3d/test/product_run_GM/Held_Suarez/analysis_out/
 model/atm_nonhydro3d/test/product_run_GM/Held_Suarez_topo/Eh*

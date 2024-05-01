@@ -2,7 +2,7 @@
 !> module USER
 !!
 !! @par Description
-!!          User defined module for a test case of tracer advection in global domain
+!!          User defined module for a test case of two-dimensional linear advection in global domain
 !!
 !! @author Team SCALE
 !!
@@ -513,7 +513,6 @@ contains
 
     integer :: p
 
-    real(RP) :: radius_dummy(elem%Np,lcmesh%Ne)
     real(RP) :: Cart_pos(elem%Np,lcmesh%Ne,3)
     real(RP) :: Cart_vec(elem%Np,lcmesh%Ne,3)
     !-----------------------------------------------------------------------------
@@ -532,9 +531,8 @@ contains
       INIT_TRACER_PROF, lcmesh, elem,                           & ! (in) 
       InitGP_PolyOrder_h, InitGP_PolyOrder_v                    )
   
-    radius_dummy(:,:) = RPlanet
     call CubedSphereCoordCnv_CS2CartPos( &
-      lcmesh%panelID, lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2), radius_dummy(:,:), &
+      lcmesh%panelID, lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2), lcmesh%gam(:,lcmesh%NeS:lcmesh%NeE), & ! (in)
       elem%Np * lcmesh%Ne,                              & ! (in)
       Cart_pos(:,:,1), Cart_pos(:,:,2), Cart_pos(:,:,3) ) ! (out)
     
@@ -546,10 +544,10 @@ contains
 
       select case (FLOW_TYPE) 
       case( 'SOLID_BODY_ROTATION_FLOW' )
-        call calc_solid_body_rot_flow( &
-          svec(:,ke,1), svec(:,ke,2), W(:),        &
-          lon3D(:), lat3D(:), lcmesh%zlev(:,ke),   &
-          0.0_RP, elem%Np                          )
+        ! call calc_solid_body_rot_flow( &
+        !   svec(:,ke,1), svec(:,ke,2), W(:),        &
+        !   lon3D(:), lat3D(:), lcmesh%zlev(:,ke),   &
+        !   0.0_RP, elem%Np                          )
 
         call calc_solid_body_rot_flow_cartvec( &
           Cart_vec(:,ke,1), Cart_vec(:,ke,2), Cart_vec(:,ke,3),                 & ! (out)
@@ -723,7 +721,7 @@ contains
       alpha(:,ke) = vx(1) + 0.5_RP * ( elem_x1(:) + 1.0_RP ) * ( vx(2) - vx(1) ) 
       beta(:,ke) = vy(1) + 0.5_RP * ( elem_x2(:) + 1.0_RP ) * ( vy(4) - vy(1) )
       z(:,ke) = vz(1) + 0.5_RP * ( elem_x3(:) + 1.0_RP ) * ( vz(5) - vz(1) )
-      gam(:,ke) = 1.0_RP + z(:,ke) /  RPlanet
+      gam(:,ke) = 1.0_RP ! + z(:,ke) /  RPlanet
     end do
 
     call CubedSphereCoordCnv_CS2LonLatPos( &
@@ -791,7 +789,6 @@ contains
 
     r_intrp(:) = RPlanet / GAUSSIAN_rh * acos( sin(latc_now) * sin(lat_intrp(:)) + cos(latc_now) * cos(lat_intrp(:)) * cos(lon_intrp(:) - lonc_now) )
     qtrc_intrp(:) = exp( - r_intrp(:)**2 )
-
     return
   end subroutine calc_gaussian_core
 
