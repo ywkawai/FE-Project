@@ -377,8 +377,8 @@ def mksh_job_run( conf_path, job_name,
   jobshell_header_s = batch_job_common.get_job_header(job_name, nprc, elapse_time)
   jobshell_s = f"""
 
-SCALE_DG_INIT_BIN={SCALE_DG_BIN_PATH}/scale-dg_init
-SCALE_DG_BIN={SCALE_DG_BIN_PATH}/scale-dg
+SCALE_DG_INIT_BIN={SCALE_DG_BIN_PATH}/scale-dg_init_gm_mtwave_bc
+SCALE_DG_BIN={SCALE_DG_BIN_PATH}/scale-dg_gm_mtwave_bc
 SCALE_DG_REGRID_BIN={SCALE_DG_REGRID_BIN_PATH}/regrid_tool
 llio_transfer ${{SCALE_DG_INIT_BIN}} ${{SCALE_DG_BIN}} *.conf
 
@@ -425,7 +425,7 @@ def mk_conf_sh( exp_name, exp_info ):
     ini_bg_force_flag = exp_info["ini_bg_force_flag"]
     highlat_tappering_flag = exp_info["highlat_tappering_flag"]
     
-    out_dir_pref=f"./rhot_heve2/{exp_name}"
+    out_dir_pref=f"./rhot_heve/{exp_name}"
 
     print(out_dir_pref)
     os.makedirs(out_dir_pref, exist_ok=True)

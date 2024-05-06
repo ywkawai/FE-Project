@@ -22,7 +22,8 @@ TPROC       = 1
 DATPARAM    =
 DATDISTS    =
 
-
+POSTFIX = _gm_mtwave_bc
+FFLAG_TESTCASE = "-DSCALE_PRODUCT_RUN_GM_MOUNTAIN_WAVE -DSCALE_PRODUCT_RUN_GM_MOUNTAIN_WAVE_BC"
 
 # build, makedir, run, jobshell, allclean, clean is inside of common Makefile
 include $(TESTDIR)/Makefile.common
