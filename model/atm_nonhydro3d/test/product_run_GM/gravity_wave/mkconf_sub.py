@@ -15,7 +15,7 @@ def mkconf_init( conf_path,
  IO_LOG_BASENAME = 'init_LOG',
 /
 &PARAM_MKINIT
-  initname = 'inertia_gravity_wave', 
+  initname = 'gravity_wave', 
 /
 &PARAM_RESTART
   OUTPUT_FLAG = .true., 
@@ -196,7 +196,7 @@ def mkconf_regrid( conf_path,
                 regrid_nprcx, regrid_nprcy, 
                 regrid_nex, regrid_ney, regrid_nez, 
                 regrid_porder ): 
-    conf_run_s = f"""#--- Configuration file for a test case of sound wave  -------
+    conf_run_s = f"""#--- Configuration file for regrid  -------
 &PARAM_IO
  IO_LOG_BASENAME = "regrid_LOG"
 ! IO_LOG_ALLNODE  = .true., 
@@ -327,10 +327,5 @@ def mk_conf_sh( exp_name, exp_info ):
         
     mksh_job_regrid(f"{out_dir_pref}/job_regrid.sh", f"REG_E{eh}P{porder}", "regrid.conf", 
                       exp_info["regrid_nprcx"]*exp_info["regrid_nprcy"], exp_info["regrid_elapse_time"], 
-                      "outdata")
-            
-    mksh_job_regrid(f"{out_dir_pref}/job_regrid_topo.sh", f"REGT_E{eh}P{porder}", "regrid_topo.conf", 
-                      exp_info["regrid_nprcx"]*exp_info["regrid_nprcy"], exp_info["regrid_elapse_time"], 
-                      "outdata")
-  
+                      "outdata")  
 #---------------------------------

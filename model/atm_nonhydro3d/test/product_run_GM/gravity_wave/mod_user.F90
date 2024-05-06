@@ -282,12 +282,7 @@ contains
     
     select case(InitPerturbType)
     case( 'GAUSSIAN' )
-
-      ! call mkinitutil_GalerkinProjection_global( &
-      !   PT_purtub,                                                    &  ! (out)
-      !   calc_pt_perturbation, Ini_GP_PolyOrder_h, Ini_GP_PolyOrder_v, &  ! (in)
-      !   lcmesh, elem, RPlanet                                         )  ! (in)
-
+    
       call mkinitutil_GalerkinProjection_global( &
         DDENS,                                                           &  ! (out)
 !        calc_ddens_perturbation, Ini_GP_PolyOrder_h, Ini_GP_PolyOrder_v, &  ! (in)
@@ -316,71 +311,6 @@ contains
 
     return
   end subroutine exp_SetInitCond_inertia_gravity_wave
-
-!OCL SERIAL
-  subroutine calc_pt_perturbation(  DPT_intrp,   &
-    lon_intrp, lat_intrp, z_intrp, elem_intrp, RPlanet )
-    implicit none
-    class(ElementBase3D), intent(in) :: elem_intrp
-    real(RP), intent(out) :: DPT_intrp(elem_intrp%Np)
-    real(RP), intent(in) :: lon_intrp(elem_intrp%Np)
-    real(RP), intent(in) :: lat_intrp(elem_intrp%Np)
-    real(RP), intent(in) :: z_intrp(elem_intrp%Np)
-    real(RP), intent(in) :: RPlanet
-
-    real(RP) :: r_intrp(elem_intrp%Np)
-    !---------------------------------------------
-
-    r_intrp(:) = RPlanet / rh * acos( sin(latc) * sin(lat_intrp(:)) + cos(latc) * cos(lat_intrp(:)) * cos(lon_intrp(:) - lonc) )
-
-    DPT_intrp(:) = DTHETA * exp( - r_intrp(:)**2 )           &
-                   * sin( dble(nv) * PI * z_intrp(:) / Zt ) !&
-!                   * exp( 0.5_RP * z_intrp(:) * Grav / (Rdry * TEMP0 ) )
-    return
-  end subroutine calc_pt_perturbation
-
-!OCL SERIAL
-  subroutine calc_ddens_perturbation(  DDENS_intrp,   &
-    lon_intrp, lat_intrp, z_intrp, elem_intrp, RPlanet )
-
-    use scale_const, only: &
-      GRAV => CONST_GRAV,   &
-      Rdry => CONST_Rdry,   &
-      CPdry => CONST_CPdry, &
-      PRES00 => CONST_PRE00    
-    implicit none
-    class(ElementBase3D), intent(in) :: elem_intrp
-    real(RP), intent(out) :: DDENS_intrp(elem_intrp%Np)
-    real(RP), intent(in) :: lon_intrp(elem_intrp%Np)
-    real(RP), intent(in) :: lat_intrp(elem_intrp%Np)
-    real(RP), intent(in) :: z_intrp(elem_intrp%Np)
-    real(RP), intent(in) :: RPlanet
-
-    real(RP) :: r_intrp(elem_intrp%Np)
-
-    real(RP) :: DPT_intrp(elem_intrp%Np)
-    real(RP) :: PT_hyd(elem_intrp%Np)
-    real(RP) :: PRES_hyd(elem_intrp%Np)
-    real(RP) :: DENS_hyd(elem_intrp%Np)
-    real(RP) :: EXNER(elem_intrp%Np)
-    !---------------------------------------------
-
-
-    PT_hyd(:) = THETA0 * exp( BruntVaisalaFreq**2 / Grav * z_intrp(:) )
-    
-    EXNER(:) = 1.0_RP + Grav**2 / ( CpDry * BruntVaisalaFreq**2 ) * ( 1.0_RP / PT_hyd(:) - 1.0_RP / THETA0 )
-    PRES_hyd(:) = PRES00 * EXNER(:)**(CpDry/Rdry)
-    DENS_hyd(:) =  PRES_hyd(:) / ( Rdry * exner(:) * PT_hyd(:) )
-
-    r_intrp(:) = RPlanet / rh * acos( sin(latc) * sin(lat_intrp(:)) + cos(latc) * cos(lat_intrp(:)) * cos(lon_intrp(:) - lonc) )
-
-    DPT_intrp(:) = DTHETA * exp( - r_intrp(:)**2 )           &
-                   * sin( dble(nv) * PI * z_intrp(:) / Zt ) 
-
-    DDENS_intrp(:) = PRES_hyd(:) / ( Rdry * EXNER(:) * PT_hyd(:) ) &
-                   * ( - DPT_intrp(:) / PT_hyd(:) ) / ( 1.0_RP +  DPT_intrp(:) / PT_hyd(:) )
-    return
-  end subroutine calc_ddens_perturbation
 
 !OCL SERIAL
   subroutine calc_ddens_perturbation_tdash(  DDENS_intrp,   &
@@ -416,7 +346,6 @@ contains
     DENS_hyd(:) =  PRES_hyd(:) / ( Rdry * exner(:) * PT_hyd(:) )
 
     r_intrp(:) = RPlanet / rh * acos( sin(latc) * sin(lat_intrp(:)) + cos(latc) * cos(lat_intrp(:)) * cos(lon_intrp(:) - lonc) )
-!   r_intrp(:) = RPlanet / rh * acos( sin(latc) * sin(lat_intrp(:)) + cos(latc) * cos(lat_intrp(:)) )
 
     DT_intrp(:) = DTHETA * exp( - r_intrp(:)**2 )           &
                    * sin( dble(nv) * PI * z_intrp(:) / Zt ) &
