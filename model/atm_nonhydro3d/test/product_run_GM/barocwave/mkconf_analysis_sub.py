@@ -1,11 +1,8 @@
 import os
-import math
+import sys
+sys.path.append(os.path.join(os.path.dirname(__file__), '../common'))
+import batch_job_common
 
-REGRID_Nprc=1536  
-REGRID_Eh=80
-REGRID_Ez=3
-REGRID_Porder=7
-REGRID_FZ="0.00D0, 5116.68D0, 16455.20D0, 30000.00D0"
 
 OUTPUT_INT=8*3600
 OUTPUT_NSTEP=16
@@ -58,7 +55,7 @@ def mkconf_regrid( conf_path,
                 nprc, neh, nez, porder, fz, 
                 regrid_nprc, regrid_neh, regrid_nez, regrid_porder, regrid_fz, 
                 log_basename, in_basename, vars_list, regrid_outdata ): 
-    conf_run_s = f"""#--- Configuration file for a test case of sound wave  -------
+    conf_run_s = f"""#--- Configuration file for analysis of baroclinic wave test  -------
 &PARAM_IO
  IO_LOG_BASENAME = "{log_basename}", 
 ! IO_LOG_ALLNODE  = .true., 
@@ -109,56 +106,13 @@ def mkconf_regrid( conf_path,
         f.write(conf_run_s)
 
 #----------------
-def get_job_header(job_name, nprc, elapse_time):
-  node_num = math.ceil(nprc/4)
-  if node_num > 384:
-    rscgrp = "large"
-  if node_num == 384:
-    rscgrp = "large"
-    node_num = 385    
-  else:
-    rscgrp = "small"
-  
-  jobshell_s = f"""################################################################################
-#
-# for Fugaku
-#
-################################################################################
-#PJM --rsc-list "rscunit=rscunit_ft01"
-#PJM --name "{job_name}"
-#PJM -x PJM_LLIO_GFSCACHE=/vol0005
-#PJM --rsc-list "rscgrp={rscgrp}"
-#PJM --rsc-list "node={node_num}"
-#PJM --rsc-list "elapse={elapse_time}"
-#PJM --mpi "max-proc-per-node=4"
-#PJM -S
-
-
-module purge
-module load lang/tcsds-1.2.37
-
-export SPACK_LIB_PATH=/vol0004/apps/oss/spack-v0.19/opt/spack/linux-rhel8-a64fx/fj-4.8.1/parallel-netcdf-1.12.3-avpnzm4pwv2tuu2mv73lacb4vhcwlnds/lib:/opt/FJSVxtclanga/tcsds-mpi-latest/lib64:/vol0004/apps/oss/spack-v0.19/opt/spack/linux-rhel8-a64fx/fj-4.8.1/netcdf-fortran-4.6.0-mmdtg5243y4mwqsl3gcu3m2kh27raq5n/lib:/vol0004/apps/oss/spack-v0.19/opt/spack/linux-rhel8-a64fx/fj-4.8.1/netcdf-c-4.9.0-g462kcd2ivou7ewax6wddywoyrbz2oib/lib:/vol0004/apps/oss/spack-v0.19/opt/spack/linux-rhel8-a64fx/fj-4.8.1/hdf5-1.12.2-kb4msz2kuwzsmqsshhpryqebui6tqcfs/lib:/vol0004/apps/oss/spack-v0.19/opt/spack/linux-rhel8-a64fx/fj-4.8.1/rhash-1.4.2-s3mitrsnpm36uemub4vkzj22qa4ygndu/lib:/vol0004/apps/oss/spack-v0.19/opt/spack/linux-rhel8-a64fx/fj-4.8.1/libuv-1.44.1-riv7xhqvpur57jexesqfpw2mpnjjfhdd/lib:/vol0004/apps/oss/spack-v0.19/opt/spack/linux-rhel8-a64fx/fj-4.8.1/libarchive-3.5.2-l7jdc7uw35jngg7tibqzsohz44ouwsj7/lib:/vol0004/apps/oss/spack-v0.19/opt/spack/linux-rhel8-a64fx/fj-4.8.1/zstd-1.5.2-7j2edrlmibpft52s3m3q7ujechw3hujt/lib:/vol0004/apps/oss/spack-v0.19/opt/spack/linux-rhel8-a64fx/fj-4.8.1/zlib-1.2.13-go4ye2sg72pcca4bgunmcseuzq6czbol/lib:/vol0004/apps/oss/spack-v0.19/opt/spack/linux-rhel8-a64fx/fj-4.8.1/mbedtls-2.28.0-squ3v2xuqnd3mfpxiuoimtxaookk3dyi/lib:/vol0004/apps/oss/spack-v0.19/opt/spack/linux-rhel8-a64fx/fj-4.8.1/lzo-2.10-uhskbd2ewdp4akltdmetra3oy4twv57f/lib:/vol0004/apps/oss/spack-v0.19/opt/spack/linux-rhel8-a64fx/fj-4.8.1/libiconv-1.16-bfdxvmujixuefjz26ldcsxhzqr3rcufm/lib:/vol0004/apps/oss/spack-v0.19/opt/spack/linux-rhel8-a64fx/fj-4.8.1/expat-2.4.8-lztkevt2hobbf7ykiwnuegynnoxqqvwe/lib:/vol0004/apps/oss/spack-v0.19/opt/spack/linux-rhel8-a64fx/fj-4.8.1/libbsd-0.11.5-x462pikjmy4scmsuhucngco5efautbg2/lib:/vol0004/apps/oss/spack-v0.19/opt/spack/linux-rhel8-a64fx/fj-4.8.1/libmd-1.0.4-wcmufmjxfiwxa65p4eetl2y674q2pgqa/lib
-export LD_LIBRARY_PATH=/lib64:/usr/lib64:/opt/FJSVxtclanga/tcsds-latest/lib:/opt/FJSVxtclanga/tcsds-mpi-latest/lib64:${{SPACK_LIB_PATH}}:${{LD_LIBRARY_PATH}}
-
-#export XOS_MMM_L_ARENA_FREE=1
-export FORT90L="-Wl,-T"
-#export OMPI_MCA_plm_ple_memory_allocation_policy=bind_local
-export PLE_MPI_STD_EMPTYFILE="off"
-export PARALLEL=12
-export OMP_NUM_THREADS=12
-#export fu11bf=1
-
-SCALE_DG_BAROC_ANALYSIS_BIN={SCALE_DG_BAROC_ANALYSIS_BIN}
-SCALE_DG_REGRID_BIN={SCALE_DG_REGRID_BIN_PATH}/regrid_tool
-  """
-  return jobshell_s  
-
 def mksh_job_analysis( conf_path, job_name, 
               nprc, elapse_time, outdir ):
 
-  jobshell_header_s = get_job_header(job_name, nprc, elapse_time)
+  jobshell_header_s = batch_job_common.get_job_header(job_name, nprc, elapse_time)
   jobshell_s = f"""
 mkdir -p {outdir}/
+SCALE_DG_BAROC_ANALYSIS_BIN={SCALE_DG_BAROC_ANALYSIS_BIN}
 llio_transfer ${{SCALE_DG_BAROC_ANALYSIS_BIN}} *.conf
 
 mpiexec -np {nprc} -stdout-proc ./output.%j/%/1000r/stdout -stderr-proc ./output.%j/%/1000r/stderr \\
@@ -182,8 +136,9 @@ def mksh_job_regrid( conf_path, job_name, regrid_cnf_list,
     
   run_cmd = "\n".join(run_cmd_list)
             
-  jobshell_header_s = get_job_header(job_name, nprc, elapse_time)
+  jobshell_header_s = batch_job_common.get_job_header(job_name, nprc, elapse_time)
   jobshell_s = f"""
+SCALE_DG_REGRID_BIN={SCALE_DG_REGRID_BIN_PATH}/regrid_tool
 mkdir -p {outdir}/
 llio_transfer ${{SCALE_DG_REGRID_BIN}} *.conf
 
@@ -202,15 +157,21 @@ def mk_conf_sh( exp_name, exp_info ):
     fz = exp_info["fz"]
     porder = exp_info["porder"]
 
+    regrid_nprc = exp_info["regrid_nprc"]
+    regrid_eh = exp_info["regrid_Eh"]
+    regrid_ez = ez
+    regrid_fz = fz
+    regrid_porder = porder
+    
     out_dir_pref=f"./rhot_hevi/{exp_name}"
 
     print(out_dir_pref)
     os.makedirs(out_dir_pref+"_1", exist_ok=True)
     os.makedirs(out_dir_pref+"_2", exist_ok=True)
         
-    refsol_dir_pref=f"../Eh{REGRID_Eh}Ez{REGRID_Ez}P{REGRID_Porder}"
+    refsol_dir_pref=f"../Eh{regrid_eh}Ez{regrid_ez}P{regrid_porder}"
     mkconf_run_analysis(f"{out_dir_pref}_1/analysis.conf", 
-                REGRID_Nprc, REGRID_Eh, REGRID_Ez, REGRID_Porder, REGRID_FZ, 
+                regrid_nprc, regrid_eh, regrid_ez, regrid_porder, regrid_fz, 
                 f'{refsol_dir_pref}_1/history',
                 f'{refsol_dir_pref}_1/init_00000101-000000.000',
                 f'{refsol_dir_pref}_1/TOPO', 
@@ -219,7 +180,7 @@ def mk_conf_sh( exp_name, exp_info ):
                  
     
     mkconf_run_analysis(f"{out_dir_pref}_2/analysis.conf", 
-                REGRID_Nprc, REGRID_Eh, REGRID_Ez, REGRID_Porder, REGRID_FZ, 
+                regrid_nprc, regrid_eh, regrid_ez, regrid_porder, regrid_fz, 
                 f'{refsol_dir_pref}_2/history',
                 f'{refsol_dir_pref}_1/init_00000101-000000.000',
                 f'{refsol_dir_pref}_1/TOPO', 
@@ -228,22 +189,22 @@ def mk_conf_sh( exp_name, exp_info ):
                     
     for runno in [1, 2]:
       mksh_job_analysis( f"{out_dir_pref}_{runno}/job_analysis.sh", f"ANL_E{eh}P{porder}_{runno}", 
-                  REGRID_Nprc, exp_info["regrid_elapse_time"], "analysis" )
+                  regrid_nprc, exp_info["regrid_elapse_time"], "analysis" )
       
       mkconf_regrid(f"{out_dir_pref}_{runno}/regrid_analysis.conf", 
                   nprc, eh, ez, porder, fz, 
-                  REGRID_Nprc, REGRID_Eh, REGRID_Ez, REGRID_Porder, REGRID_FZ, 
+                  regrid_nprc, regrid_eh, regrid_ez, regrid_porder, regrid_fz, 
                   "regrid_analysis_LOG", "history", """THERM""", "./outdata_analysis/history" )
 
       mkconf_regrid(f"{out_dir_pref}_{runno}/regrid_bs_analysis.conf", 
                   nprc, eh, ez, porder, fz, 
-                  REGRID_Nprc, REGRID_Eh, REGRID_Ez, REGRID_Porder, REGRID_FZ, 
+                  regrid_nprc, regrid_eh, regrid_ez, regrid_porder, regrid_fz, 
                   "regrid_bs_analysis_LOG", "init_00000101-000000.000", "'PRES_hyd', 'DENS_hyd'", "./outdata_analysis/bs" )
     
       regrid_conf_list = [ "regrid_analysis.conf" ]
       if runno==1:
         regrid_conf_list.append("regrid_bs_analysis.conf")
       mksh_job_regrid(f"{out_dir_pref}_{runno}/job_regrid_analysis.sh", f"REG_E{eh}P{porder}_{runno}", 
-                  regrid_conf_list, REGRID_Nprc, exp_info["regrid_elapse_time"], "outdata_analysis")
+                  regrid_conf_list, regrid_nprc, exp_info["regrid_elapse_time"], "outdata_analysis")
   
 #---------------------------------

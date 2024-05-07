@@ -122,6 +122,9 @@ module mod_user
     procedure :: final => User_final
   end type User
 
+  logical :: PREShyd_ref_set_flag = .true.
+  logical :: is_PREShyd_ref_set
+
   !-----------------------------------------------------------------------------
 contains
 !OCL SERIAL
@@ -170,7 +173,8 @@ contains
        USER_do,              &
        SPONGE_FLAG,          &
        SPONGE_sigR,          &
-       SPONGE_tauR   
+       SPONGE_tauR,          &
+       PREShyd_ref_set_flag   
 
 
     integer :: ierr    
@@ -213,6 +217,8 @@ contains
     ! call this%MOMX_exact%Init( "MOMX_exact", "m/s", mesh )
     ! call this%MOMY_exact%Init( "MOMY_exact", "m/s", mesh )
 
+    is_PREShyd_ref_set = .false.
+
     return
   end subroutine USER_setup
 
@@ -236,7 +242,9 @@ contains
     use scale_prof
     use scale_file_history_meshfield, only: &
       FILE_HISTORY_meshfield_in
-        
+    use scale_atm_dyn_dgm_nonhydro3d_common, only: &
+      PRESHYD_VID => AUXVAR_PRESHYDRO_ID,        &
+      PRESHYD_REF_VID => AUXVAR_PRESHYDRO_REF_ID  
     implicit none
     class(User), intent(inout) :: this
     class(AtmosComponent), intent(inout) :: atm
@@ -244,6 +252,16 @@ contains
     class(MeshBase), pointer :: ptr_mesh
     class(MeshCubedSphereDom3D), pointer :: mesh
     real(RP) :: tsec
+
+    class(MeshField3D), pointer :: PRES_hyd
+    class(MeshField3D), pointer :: PRES_hyd_ref
+    
+    class(LocalMesh3D), pointer :: lcmesh3D
+    class(ElementBase3D), pointer :: elem3D
+    integer :: domid
+    integer :: ke, ke2D
+    integer :: p, ph, pz
+    real(RP) :: temp_dummy, U0_dummy
     !------------------------------------------
 
     call this%UserBase%calc_tendency( atm )
@@ -265,6 +283,36 @@ contains
     ! call FILE_HISTORY_meshfield_in( this%MOMY_exact, "MOMY_exact" )
     ! call FILE_HISTORY_meshfield_in( this%PRES_exact, "PRES_exact" )
 
+    ! Set reference hydrostatic pressure
+    if ( PREShyd_ref_set_flag ) then
+      if ( .not. is_PREShyd_ref_set ) then
+        call atm%vars%AUXVARS_manager%Get3D( PRESHYD_VID, PRES_hyd )
+        call atm%vars%AUXVARS_manager%Get3D( PRESHYD_REF_VID, PRES_hyd_ref )
+
+        do domid=1, PRES_hyd_ref%mesh%LOCAL_MESH_NUM
+          lcmesh3D => PRES_hyd_ref%mesh%lcmesh_list(domid)
+          elem3D => lcmesh3D%refElem3D
+          !$omp parallel do private( &
+          !$omp temp_dummy, U0_dummy, &
+          !$omp ke, ke2D, pz, ph, p   )
+          do ke=lcmesh3D%NeS, lcmesh3D%NeE
+            ke2D = lcmesh3D%EMap3Dto2D(ke)
+            do pz=1, elem3D%Nnode_v
+            do ph=1, elem3D%Nnode_h1D**2
+              p = ph + (pz-1) * elem3D%Nnode_h1D**2
+              call get_thermal_wind_balance_1point_itr( &
+                PRES_hyd_ref%local(domid)%val(p,ke), temp_dummy, U0_dummy, &
+                lcmesh3D%lon2D(ph,ke2D), lcmesh3D%lat2D(ph,ke2D), lcmesh3D%zlev(p,ke), &
+                0.0_RP, 0.0_RP, REF_TEMP, REF_PRES, LAPSE_RATE,                        &
+                p, ke )
+            end do
+            end do
+          end do
+        end do
+        is_PREShyd_ref_set = .true.
+      end if
+    end if
+    
     return
   end subroutine USER_calc_tendency
 
