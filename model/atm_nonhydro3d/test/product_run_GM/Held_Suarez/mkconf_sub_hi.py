@@ -10,54 +10,56 @@ SCALE_DG_REGRID_BIN_PATH="../../../../../../../../bin"
 
 #----------------------
 
-def mkconf_init( conf_path,
-                nprc, neh, nez, porder, 
-                fz  ): 
-    conf_init_s = f"""#--- Configuration file for Held Suarez test -------
+def mkconf_regrid_init( conf_path, 
+                restart_in_basename, in_nprc, in_neh, in_nez, in_porder, in_fz, 
+                restart_out_basename, out_nprc, out_neh, out_nez, out_porder, out_fz ): 
+    conf_regrid_s = f"""#--- Configuration file for Held Suarez test  -------
 &PARAM_IO
- IO_LOG_BASENAME = 'init_LOG',
+ IO_LOG_BASENAME = "regrid_LOG"
+! IO_LOG_ALLNODE  = .true., 
 /
-&PARAM_MKINIT
-  initname = 'Held-Suarez_1994', 
+&PARAM_REGRID_MESH
+ in_MeshType  = "CUBEDSPHERE3D", 
+ out_MeshType = "CUBEDSPHERE3D", 
 /
-&PARAM_RESTART
-  OUTPUT_FLAG = .true., 
-  OUT_BASENAME = 'init'
+&PARAM_REGRID_INTERP_FIELD
+  !- input --------------------
+  in_basename="{restart_in_basename}",      
+  vars = "DDENS", "MOMX", "MOMY", "MOMZ", "THERM", "DENS_hyd", "PRES_hyd",  
 /
-&PARAM_TIME
-  TIME_STARTDATE       = 0000, 1, 1, 0, 0, 0,
-  TIME_STARTMS         = 0.D0,
-/
-&PARAM_EXP
-/
-#** ATMOS ******************************************************
-&PARAM_ATMOS
-  ATMOS_MESH_TYPE = 'GLOBAL', 
-  ACTIVATE_FLAG = .true., 
-  ATMOS_DYN_DO  = .true.
-/
-&PARAM_ATMOS_MESH
+&PARAM_REGRID_FILE
+  !-- output ----------------
+  out_basename="{restart_out_basename}", 
+  out_UniformGrid=.false., 
+/    
+&PARAM_REGRID_INMESH3D_CUBEDSPHERE
   NLocalMeshPerPrc = 1, 
-  Nprc             = {nprc}, 
-  NeGX             = {neh},
-  NeGY             = {neh},
-  NeZ              = {nez},
+  Nprc             = {in_nprc}, 
+  NeGX             = {in_neh},
+  NeGY             = {in_neh},
+  NeGZ             = {in_nez},
   dom_zmin         = 0.0D0, 
   dom_zmax         = 30.0D3, 
-  PolyOrder_h      = {porder},
-  PolyOrder_v      = {porder}, 
-  FZ               = {fz}, 
-!  LumpedMassMatFlag = .true.,   
+  PolyOrder_h      = {in_porder},
+  PolyOrder_v      = {in_porder},
+  Fz               = {in_fz}, 
 /
-#** ATMOS / DYN ******************************************************
-&PARAM_ATMOS_DYN
-  EQS_TYPE         = "NONHYDRO3D_HEVE", 
-  TINTEG_TYPE      = 'ERK_SSP_3s3o',    
-/    
+&PARAM_REGRID_OUTMESH3D_CUBEDSPHERE
+  NLocalMeshPerPrc = 1, 
+  Nprc             = {out_nprc}, 
+  NeGX             = {out_neh},
+  NeGY             = {out_neh},
+  NeGZ             = {out_nez},
+  dom_zmin         = 0.0D0, 
+  dom_zmax         = 30.0D3, 
+  PolyOrder_h      = {out_porder},
+  PolyOrder_v      = {out_porder},
+  Fz               = {out_fz}, 
+/   
     """
     
     with open(conf_path, 'w') as f:
-        f.write(conf_init_s)
+        f.write(conf_regrid_s)
 
 #----------------
 
@@ -189,7 +191,8 @@ def mkconf_regrid( conf_path,
                 regrid_nprcx, regrid_nprcy, 
                 regrid_nex, regrid_ney, regrid_nez, 
                 regrid_porder ): 
-  conf_run_s = f"""#--- Configuration file for Held Suarez test  -------
+  
+  conf_run_s = f"""#--- Configuration file for a test case of Held Suarez test  -------
 &PARAM_IO
  IO_LOG_BASENAME = "regrid_LOG"
 ! IO_LOG_ALLNODE  = .true., 
@@ -249,16 +252,21 @@ def mkconf_regrid_p( conf_path,
                 nprc, neh, nez, porder, fz, 
                 regrid_nprcx, regrid_nprcy, 
                 regrid_nex, regrid_ney, regrid_nez, 
-                regrid_porder, regrid_hori_uniform ):
-
+                regrid_porder, shallow_atm_approx, regrid_hori_uniform ): 
+  
+  if shallow_atm_approx:
+    shallow_atm_approx_flag = ""
+  else:
+    shallow_atm_approx_flag = "SHALLOW_ATM_APPROX_FLAG = .false.,"
+    
   if regrid_hori_uniform:
     out_UniformGrid_flag=".true."
-    out_dir="./outdata_p_uniform"    
+    out_dir="./outdata_p_uniform"
   else:
+    out_UniformGrid_flag=".false."    
     out_dir="./outdata_p"    
-    out_UniformGrid_flag=".false."
-     
-  conf_run_s = f"""#--- Configuration file for Held Suarez test  -------
+    
+  conf_run_s = f"""#--- Configuration file for a test case of Held Suarez test  -------
 &PARAM_IO
  IO_LOG_BASENAME = "regrid_p_LOG"
 ! IO_LOG_ALLNODE  = .true., 
@@ -282,6 +290,7 @@ def mkconf_regrid_p( conf_path,
   uvmet_conversion_flag = .true., 
 /
 &PARAM_REGRID_INMESH3D_CUBEDSPHERE
+  {shallow_atm_approx_flag}
   NLocalMeshPerPrc = 1, 
   Nprc             = {nprc}, 
   NeGX             = {neh},
@@ -294,6 +303,7 @@ def mkconf_regrid_p( conf_path,
   FZ               = {fz},
 /
 &PARAM_REGRID_OUTMESH3D_STRUCTURED
+  {shallow_atm_approx_flag}
   NprcX       = {regrid_nprcx},       
   NeX         = {regrid_nex},           
   NprcY       = {regrid_nprcy}, 
@@ -318,10 +328,10 @@ def mkconf_regrid_p( conf_path,
   out_Fz          = 1000D2, 950D2, 850D2, 790D2, 680D2, 550D2, 400D2, 250D2, 100D2, 50D2, 30D2,    
   extrapolate     = .true.,
 /
-    """
+  """
     
   with open(conf_path, 'w') as f:
-      f.write(conf_run_s)
+    f.write(conf_run_s)
 
 def mkconf_regrid_spectra_p( conf_path,
                 nprc, neh, nez, porder, fz ):
@@ -428,6 +438,7 @@ def mkconf_sh_spectra( conf_path,
       f.write(conf_run_s)
 
 #----------------
+
 def mksh_job_run( conf_path, job_name, 
               nprc, elapse_time,
                 spinup1_flag ):
@@ -460,9 +471,14 @@ llio_transfer --purge ${{SCALE_DG_INIT_BIN}} ${{SCALE_DG_BIN}} *.conf
 def mksh_job_regrid( conf_path, job_name, regrid_cnf, 
               nprc, elapse_time, outdir ):
 
+  if len(outdir) > 0:
+    mkdir_cmd = f"mkdir -p {outdir}"
+  else:
+    mkdir_cmd = ""
+
   jobshell_header_s = batch_job_common.get_job_header(job_name, nprc, elapse_time)
   jobshell_s = f"""
-mkdir -p {outdir}/
+{mkdir_cmd}
 SCALE_DG_REGRID_BIN={SCALE_DG_REGRID_BIN_PATH}/regrid_tool
 llio_transfer ${{SCALE_DG_REGRID_BIN}} *.conf
 
@@ -474,7 +490,7 @@ llio_transfer --purge ${{SCALE_DG_REGRID_BIN}} *.conf
   
   with open(conf_path, 'w') as f:
       f.write(jobshell_header_s + jobshell_s)
-             
+
 #----------------
 def mksh_job_spectra( conf_path, job_name, spectra_cnf, 
               nprc, elapse_time, outdir ):
@@ -493,84 +509,44 @@ llio_transfer --purge ${{SCALE_DG_SPECTRA_BIN}} *.conf
   
   with open(conf_path, 'w') as f:
       f.write(jobshell_header_s + jobshell_s)
-             
+
 def mk_conf_sh( exp_name, exp_info ):
     nprc = exp_info["nprc"]
     eh = exp_info["Eh"]
     ez = exp_info["Ez"]
     fz = exp_info["fz"]
-    porder = exp_info["porder"]
-
+    porder = exp_info["porder"]   
+    
     out_dir_pref=f"./rhot_hevi/{exp_name}"
     print(out_dir_pref)
     
-    os.makedirs(out_dir_pref+"/spinup1", exist_ok=True)
-    mkconf_init(f"{out_dir_pref}/spinup1/init.conf", 
-                nprc, eh, ez, porder, fz )
-    
-    mkconf_run(f"{out_dir_pref}/spinup1/run.conf", 
-               "init_00000101-000000.000", 1, 1, 1, 50, 
-                nprc, eh, ez, porder, fz, exp_info["dt"], exp_info["dt_dyn"],
-                exp_info["mf_alph_ini"], exp_info["mf_ordh"], exp_info["mf_alpv_ini"], exp_info["mf_ordv"], True) 
-    
-    if (porder + 1) * eh < 192:
-      os.makedirs(out_dir_pref+"/spinup2", exist_ok=True)
-      mkconf_run(f"{out_dir_pref}/spinup2/run.conf", 
-                "../spinup1/restart_00010220-000000.000", 1, 2, 20, 150, 
-                  nprc, eh, ez, porder, fz, exp_info["dt"], exp_info["dt_dyn"],
-                  exp_info["mf_alph"], exp_info["mf_ordh"], exp_info["mf_alpv"], exp_info["mf_ordv"], False)
-      spinup_run_num = 2
-    else:
-      os.makedirs(out_dir_pref+"/spinup2", exist_ok=True)
-      mkconf_run(f"{out_dir_pref}/spinup2/run.conf", 
-                "../spinup1/restart_00010220-000000.000", 1, 2, 20, 50, 
-                  nprc, eh, ez, porder, fz, exp_info["dt"], exp_info["dt_dyn"],
-                  exp_info["mf_alph"], exp_info["mf_ordh"], exp_info["mf_alpv"], exp_info["mf_ordv"], False) 
-      
-      os.makedirs(out_dir_pref+"/spinup3", exist_ok=True)
-      mkconf_run(f"{out_dir_pref}/spinup3/run.conf", 
-                "../spinup2/restart_00010411-000000.000", 1, 4, 11, 50, 
-                  nprc, eh, ez, porder, fz, exp_info["dt"], exp_info["dt_dyn"],
-                  exp_info["mf_alph"], exp_info["mf_ordh"], exp_info["mf_alpv"], exp_info["mf_ordv"], False) 
+    os.makedirs(out_dir_pref+"/init_regrid", exist_ok=True)
+    mkconf_regrid_init(f"{out_dir_pref}/init_regrid/regrid_restart.conf", 
+                exp_info["rg_in_basename"], exp_info["rg_in_nprc"], exp_info["rg_in_Eh"], exp_info["rg_in_Ez"], exp_info["rg_in_porder"], exp_info["rg_in_fz"],                 
+                exp_info["rg_out_basename"], nprc, eh, ez, porder, fz )
 
-      os.makedirs(out_dir_pref+"/spinup4", exist_ok=True)
-      mkconf_run(f"{out_dir_pref}/spinup4/run.conf", 
-                "../spinup3/restart_00010531-000000.000", 1, 5, 31, 50, 
-                  nprc, eh, ez, porder, fz, exp_info["dt"], exp_info["dt_dyn"],
-                  exp_info["mf_alph"], exp_info["mf_ordh"], exp_info["mf_alpv"], exp_info["mf_ordv"], False) 
-      spinup_run_num = 4
-                     
-    for runno in range(1, spinup_run_num+1):
-      mkconf_regrid(f"{out_dir_pref}/spinup{runno}/regrid.conf",
-                  nprc, eh, ez, porder, fz, 
-                  exp_info["regrid_nprcx"], exp_info["regrid_nprcy"], 
-                  exp_info["regrid_Ex"], exp_info["regrid_Ey"], exp_info["Ez"], exp_info["regrid_porder"] )
-
-      mksh_job_run(f"{out_dir_pref}/spinup{runno}/job_run.sh", f"HS_Eh{eh}P{porder}_sp{runno}", 
-                  nprc, exp_info["elapse_time"], (runno==1) ) 
+    mksh_job_regrid(f"{out_dir_pref}/init_regrid/job_regrid_restart.sh", f"REGRS_E{eh}P{porder}", "regrid_restart.conf", 
+                nprc, exp_info["regrid_elapse_time"], 
+                "")
     
-      mksh_job_regrid(f"{out_dir_pref}/spinup{runno}/job_regrid.sh", f"REG_E{eh}P{porder}_{runno}", "regrid.conf", 
-                  exp_info["regrid_nprcx"]*exp_info["regrid_nprcy"], exp_info["regrid_elapse_time"], 
-                  "outdata")
-
     #---                     
-    date_time0 = datetime.datetime(1, 1, 1, 0, 0, 0, 0) + datetime.timedelta(days=200)
+    date_time0 = datetime.datetime(1, 1, 1, 0, 0, 0, 0) + datetime.timedelta(days=exp_info["ini_day"])
     day_per_run = exp_info["day_per_run"]
     
-    for runno in range(1,int(2000/day_per_run)+1):
+    for runno in range(1,int( exp_info["integ_day"] /day_per_run)+1):
       date_time = date_time0 + datetime.timedelta(days=day_per_run*(runno-1))
       
       if runno > 1:
         prev_run_dir = f"../run{runno-1}"
       else:
-        prev_run_dir = f"../spinup{spinup_run_num}"
+        prev_run_dir = f"../init_regrid"
       
       os.makedirs(out_dir_pref+f"/run{runno}", exist_ok=True)
       mkconf_run(f"{out_dir_pref}/run{runno}/run.conf", 
                 f"{prev_run_dir}/restart_{date_time.year:04}{date_time.month:02}{date_time.day:02}-000000.000", 
                 date_time.year, date_time.month, date_time.day, day_per_run, 
                 nprc, eh, ez, porder, fz, exp_info["dt"], exp_info["dt_dyn"],
-                exp_info["mf_alph"], exp_info["mf_ordh"], exp_info["mf_alpv"], exp_info["mf_ordv"], False) 
+                exp_info["mf_alph"], exp_info["mf_ordh"], exp_info["mf_alpv"], exp_info["mf_ordv"], False )
       
       mkconf_regrid(f"{out_dir_pref}/run{runno}/regrid.conf",
                   nprc, eh, ez, porder, fz, 
@@ -579,17 +555,19 @@ def mk_conf_sh( exp_name, exp_info ):
       mkconf_regrid_p(f"{out_dir_pref}/run{runno}/regrid_p.conf",
                   nprc, eh, ez, porder, fz, 
                   exp_info["regrid_nprcx"], exp_info["regrid_nprcy"], 
-                  exp_info["regrid_Ex"], exp_info["regrid_Ey"], exp_info["Ez"], exp_info["regrid_porder"], False )
+                  exp_info["regrid_Ex"], exp_info["regrid_Ey"], exp_info["Ez"], exp_info["regrid_porder"], 
+                  False, False )
       mkconf_regrid_p(f"{out_dir_pref}/run{runno}/regrid_p_uniform.conf",
                   nprc, eh, ez, porder, fz, 
                   exp_info["regrid_nprcx"], exp_info["regrid_nprcy"], 
-                  exp_info["regrid_Ex"], exp_info["regrid_Ey"], exp_info["Ez"], exp_info["regrid_porder"], True )
-
+                  exp_info["regrid_Ex"], exp_info["regrid_Ey"], exp_info["Ez"], exp_info["regrid_porder"], 
+                  False, True )
+      
       mkconf_regrid_spectra_p( f"{out_dir_pref}/run{runno}/regrid_p_spectra.conf",
                       nprc, eh, ez, porder, fz )
       mkconf_sh_spectra( f"{out_dir_pref}/run{runno}/spectral_analysis.conf",
                       nprc, eh, porder, exp_info["spectra_Mt"] )
-      
+            
       mksh_job_run(f"{out_dir_pref}/run{runno}/job_run.sh", f"HS_Eh{eh}P{porder}_sp1", 
                   nprc, exp_info["elapse_time"], False) 
     
