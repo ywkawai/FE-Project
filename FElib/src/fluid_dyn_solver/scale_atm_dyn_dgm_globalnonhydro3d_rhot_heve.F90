@@ -77,7 +77,7 @@ module scale_atm_dyn_dgm_globalnonhydro3d_rhot_heve
   type(MeshField3D), public :: forcing_V0
   type(MeshField3D), public :: forcing_W0
   real(RP) :: U0
-  real(RP) :: Grav_mod
+  logical :: ini_bg_force_flag
   real(RP) :: ini_bg_force_tscale
   real(RP) :: ini_bg_force_turnoff_tstart
   real(RP) :: ini_bg_force_turnoff_tscale
@@ -85,7 +85,6 @@ module scale_atm_dyn_dgm_globalnonhydro3d_rhot_heve
   real(RP) :: ini_bg_sfac
 
   real(RP), allocatable :: sfac(:,:)
-  real(RP), allocatable :: sfac_btm(:,:)
   real(RP) :: sw
 #endif
 
@@ -111,6 +110,7 @@ contains
     real(RP) :: SPONGE_HEIGHT
     real(RP) :: SPONGE_LATERAL_WIDTH
     real(RP) :: SPONGE_EFOLD_SEC
+    logical :: lateral_sponge_layer_flag
     real(RP) :: LATERAL_SPONGE_EFOLD_SEC
     real(RP) :: SL_TANH_NONDIM_WIDTH 
 
@@ -119,7 +119,25 @@ contains
 
     logical  :: SL_MERI_TAPER_FLAG
     real(RP)  :: SL_MERI_TAPER_TANH_Clat
-    real(RP)  :: SL_MERI_TAPER_TANH_LatWidth  
+    real(RP)  :: SL_MERI_TAPER_TANH_LatWidth
+
+    namelist / PARAM_USER_MTWAVE / &
+      U0,                  &
+      zTop,                &
+      SPONGE_HEIGHT,       &
+      SPONGE_EFOLD_SEC,    &
+      lateral_sponge_layer_flag, &
+      LATERAL_SPONGE_EFOLD_SEC,  &
+      SL_TANH_NONDIM_WIDTH,      &
+      ini_bg_force_flag,         &
+      ini_bg_force_tscale,       &
+      ini_bg_force_turnoff_tstart, &       
+      ini_bg_force_turnoff_tscale, &
+      SL_MERI_TAPER_FLAG, &
+      SL_MERI_TAPER_TANH_Clat,    &
+      SL_MERI_TAPER_TANH_LatWidth    
+    integer :: ierr
+    
     real(RP), allocatable :: sfac_h(:)
 #endif
     !--------------------------------------------
@@ -128,6 +146,7 @@ contains
 #ifdef SCALE_PRODUCT_RUN_GM_MOUNTAIN_WAVE
     !---
     U0 = 20.0_RP
+    ini_bg_force_flag = .true.
     ini_bg_force_tscale = 60.0_RP
     ini_bg_force_turnoff_tstart = 120.0_RP
     ini_bg_force_turnoff_tscale = 1800.0_RP  
@@ -140,15 +159,29 @@ contains
     SPONGE_HEIGHT = 15E3_RP
     SPONGE_EFOLD_SEC = 100E0_RP
     SPONGE_LATERAL_WIDTH = 120E3_RP
+    lateral_sponge_layer_flag = .true. 
     LATERAL_SPONGE_EFOLD_SEC = 200E0_RP!100E0_RP
     SL_TANH_NONDIM_WIDTH = 0.16E0_RP
 
     SL_MERI_TAPER_FLAG = .true.
-    SL_MERI_TAPER_TANH_Clat = 1.0471975511965976D0 ! 60 deg
+    SL_MERI_TAPER_TANH_Clat = 1.0471975511965976D0      ! 60 deg
     SL_MERI_TAPER_TANH_LatWidth = 0.13962634015954636D0 ! 8 deg          
+
+    LOG_NEWLINE
+    LOG_INFO("globalnonhydro3d_rhot_heve_Init",*) 'Setup'
+
+    !--- read namelist
+    rewind(IO_FID_CONF)
+    read(IO_FID_CONF,nml=PARAM_USER_MTWAVE,iostat=ierr)
+    if( ierr < 0 ) then !--- missing
+       LOG_INFO("globalnonhydro3d_rhot_heve_Init",*) 'Not found namelist. Default used.'
+    elseif( ierr > 0 ) then !--- fatal error
+       LOG_ERROR("globalnonhydro3d_rhot_heve_Init",*) 'Not appropriate names in namelist PARAM_USER_MTWAVE. Check!'
+       call PRC_abort
+    endif
+    LOG_NML(PARAM_USER_MTWAVE)
     !-----------------------
 
-    
     call forcing_U0%Init( "forcing_U0", "m/s", mesh )
     call forcing_V0%Init( "forcing_V0", "m/s", mesh )
     call forcing_W0%Init( "forcing_W0", "m/s", mesh )
@@ -159,7 +192,6 @@ contains
     allocate( Umet(elem%Np,lmesh3D%Ne), Vmet(elem%Np,lmesh3D%Ne) )
     allocate( GsqrtV(elem%Np) )
     allocate( sfac(elem%Np,lmesh3D%Ne) )
-    allocate( sfac_btm(elem%Np,lmesh3D%Ne) )
     allocate( sfac_h(elem%Np) )
 
     do n=1, mesh%LOCAL_MESH_NUM
@@ -191,7 +223,11 @@ contains
     end do
 
     rtau_sponge = 1.0_RP / SPONGE_EFOLD_SEC
-    rtau_lateral_sponge = 1.0_RP / LATERAL_SPONGE_EFOLD_SEC
+    if ( lateral_sponge_layer_flag ) then
+      rtau_lateral_sponge = 1.0_RP / LATERAL_SPONGE_EFOLD_SEC
+    else
+      rtau_lateral_sponge = 0.0_RP
+    end if
 
     !$omp parallel do private(lon, lat, sfac_h, ke2D)
     do ke=lmesh3D%NeS, lmesh3D%NeE
@@ -225,29 +261,32 @@ contains
   end subroutine atm_dyn_dgm_globalnonhydro3d_rhot_heve_Final  
 
 #ifdef SCALE_PRODUCT_RUN_GM_MOUNTAIN_WAVE
+!OCL SERIAL
   subroutine atm_dyn_dgm_globalnonhydro3d_rhot_heve_set_dampcoef( tsec )
     use scale_const, only: PI => CONST_PI
     implicit none
     real(RP), intent(in) :: tsec
 
     real(RP) :: ini_bg_off_tsec
-    real(RP) :: sw2
     !-----------------------------------
 
-    ini_bg_off_tsec = ini_bg_force_turnoff_tstart + ini_bg_force_turnoff_tscale
-    if ( tsec < ini_bg_off_tsec ) then
-      if ( tsec > ini_bg_force_turnoff_tstart ) then
-        sw = 0.5_RP * ( 1.0_RP - cos( PI * ( ( tsec - ini_bg_force_turnoff_tstart ) / ini_bg_force_turnoff_tscale - 1.0_RP ) ) )
+    if ( ini_bg_force_flag ) then
+      ini_bg_off_tsec = ini_bg_force_turnoff_tstart + ini_bg_force_turnoff_tscale
+      if ( tsec < ini_bg_off_tsec ) then
+        if ( tsec > ini_bg_force_turnoff_tstart ) then
+          sw = 0.5_RP * ( 1.0_RP - cos( PI * ( ( tsec - ini_bg_force_turnoff_tstart ) / ini_bg_force_turnoff_tscale - 1.0_RP ) ) )
+        else
+          sw = 1.0_RP
+        end if
       else
-        sw = 1.0_RP
+        sw = 0.0_RP
       end if
+      ini_bg_sfac = sw * 1.0_RP / ini_bg_force_tscale
     else
       sw = 0.0_RP
+      ini_bg_sfac = 0.0_RP
     end if
-    ini_bg_sfac = sw * 1.0_RP / ini_bg_force_tscale
-    ! sw = 0.0_RP
-    ! ini_bg_sfac = 0.0_RP
-    
+
     return
   end subroutine atm_dyn_dgm_globalnonhydro3d_rhot_heve_set_dampcoef
 #endif
