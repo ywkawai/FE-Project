@@ -2,7 +2,7 @@ import os
 import mkgraph_numerror_conv_sub as mncs
 
 TOP_DIR="./"
-OUT_DIR="./analysis/num_error"
+OUT_DIR="./analysis_out/num_error"
 
 p1_list = ["Eh16Ez12P1", "Eh32Ez24P1", "Eh64Ez48P1", "Eh128Ez96P1"]
 p1_dof_list = {"Eh16Ez12P1":32, "Eh32Ez24P1":64, "Eh64Ez48P1":128, "Eh128Ez96P1":256}
