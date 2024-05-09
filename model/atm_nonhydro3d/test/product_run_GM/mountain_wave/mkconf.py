@@ -5,7 +5,7 @@ dom_info = { "h0": 25}
 regrid_compari_info = {"regrid_nprcx_compari": 16, "regrid_Ex_compari": 16, "regrid_nprcy_compari": 16, "regrid_Ey_compari": 8, "regrid_porderh_compari": 3, "regrid_porderv_compari": 7,
                "regrid_Ez_compari": 36, 
                "regrid_fz_compari": "0D3, 0.500D3, 1.000D3, 1.500D3, 2.000D3, 2.500D3, 3.000D3, 3.500D3, 4.000D3, 4.500D3, 5.000D3, 5.500D3, 6.000D3, 6.500D3, 7.000D3, 7.500D3, 8.000D3, 8.500D3, 9.000D3, 9.500D3, 10.000D3, 10.500D3, 11.000D3, 11.500D3, 12.000D3, 12.500D3, 13.092D3, 13.794D3, 14.626D3, 15.611D3, 16.779D3, 18.162D3, 19.801D3, 21.743D3, 24.044D3, 26.771D3, 30.00D3"}
-ini_bg_force_info = {"ini_bg_force_flag": True, "ini_bg_force_tscale": 600, "ini_bg_force_turnoff_tstart": 3000, "ini_bg_force_turnoff_tscale": 6000 }
+ini_bg_force_info = {"ini_bg_force_flag": True, "ini_bg_force_tscale": 60, "ini_bg_force_turnoff_tstart": 120, "ini_bg_force_turnoff_tscale": 1800 }
 highlat_info = { "highlat_tappering_flag": True }
 
 # p = 3
