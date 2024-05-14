@@ -19,6 +19,7 @@ module scale_mesh_bndinfo
 
   type, public :: MeshBndInfo
     integer, allocatable :: list(:)
+    real(RP), allocatable :: val(:)
     character(len=H_SHORT) :: tag
   contains
     procedure :: Init => MeshBndInfo_Init
@@ -44,6 +45,8 @@ module scale_mesh_bndinfo
   integer, public, parameter:: BND_TYPE_NOSLIP_ID               = 3
   character(len=*), public , parameter :: BND_TYPE_ADIABAT_NAME = 'ADIABATIC'
   integer, public, parameter :: BND_TYPE_ADIABAT_ID             = 4
+  character(len=*), public , parameter :: BND_TYPE_FIXVAL_NAME  = 'FIXVAL'
+  integer, public, parameter :: BND_TYPE_FIXVAL_ID              = 5
 
   !-----------------------------------------------------------------------------
   !
@@ -52,14 +55,27 @@ module scale_mesh_bndinfo
   !-------------------
  
 contains
+!OCL SERIAL
   subroutine MeshBndInfo_Init(this, list_size, tag)
+    use scale_const, only: &
+      UNDEF8 => CONST_UNDEF8
     implicit none
     class(MeshBndInfo), intent(inout) :: this
     integer, intent(in) :: list_size
     character(*), optional, intent(in) :: tag
+
+    integer :: i
     !------------------------------------------------------
 
     allocate( this%list(list_size) )
+    allocate( this%val(list_size) )
+
+    !$omp parallel do
+    do i = 1, list_size
+      this%list(i) = BND_TYPE_NOSPEC_ID
+      this%val(i)  = UNDEF8
+    end do
+
     if (present(tag)) then
       this%tag = tag
     else
@@ -69,43 +85,54 @@ contains
     return
   end subroutine MeshBndInfo_Init
 
+!OCL SERIAL
   subroutine MeshBndInfo_Final(this)
     implicit none
     class(MeshBndInfo), intent(inout) :: this
     !------------------------------------------------------
 
     if (allocated(this%list)) deallocate(this%list)
+    if (allocated(this%val)) deallocate(this%val)
     
     return
   end subroutine MeshBndInfo_Final  
 
-  subroutine MeshBndInfo_set_by_ID(this, is, ie, bnd_type_id)
+!OCL SERIAL
+  subroutine MeshBndInfo_set_by_ID(this, is, ie, bnd_type_id, val)
     implicit none
     class(MeshBndInfo), intent(inout) :: this
     integer, intent(in) :: is
     integer, intent(in) :: ie
     integer, intent(in) :: bnd_type_id
+    real(RP), intent(in), optional :: val
     !------------------------------------------------------
 
     this%list(is:ie) = bnd_type_id
+    if ( present(val) ) then
+      this%val(is:ie) = val
+    end if
+
     return
   end subroutine MeshBndInfo_set_by_Id
 
-  subroutine MeshBndInfo_set_by_name(this, is, ie, bnd_type_name)
+!OCL SERIAL
+  subroutine MeshBndInfo_set_by_name(this, is, ie, bnd_type_name, val)
     implicit none
     class(MeshBndInfo), intent(inout) :: this
     integer, intent(in) :: is
     integer, intent(in) :: ie
     character(*), intent(in) :: bnd_type_name
+    real(RP), intent(in), optional :: val
 
     integer :: bnd_type_id
     !------------------------------------------------------
     bnd_type_id = BndType_NameToID(bnd_type_name)
-    call MeshBndInfo_set_by_ID(this, is, ie, bnd_type_id)
+    call MeshBndInfo_set_by_ID(this, is, ie, bnd_type_id, val)
 
     return
   end subroutine MeshBndInfo_set_by_name
 
+!OCL SERIAL
   function BndType_NameToID(bnd_type_name) result(bnd_type_id)
     implicit none
     character(*), intent(in) :: bnd_type_name
@@ -124,6 +151,8 @@ contains
       bnd_type_id = BND_TYPE_NOSLIP_ID
     case (BND_TYPE_ADIABAT_NAME)
       bnd_type_id = BND_TYPE_ADIABAT_ID
+    case (BND_TYPE_FIXVAL_NAME)
+      bnd_type_id = BND_TYPE_FIXVAL_ID      
     case default
       LOG_ERROR('BndType_NameToID ',*) trim(bnd_type_name) // ' is not supported. Check!'
       call PRC_abort

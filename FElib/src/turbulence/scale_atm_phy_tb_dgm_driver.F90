@@ -67,7 +67,9 @@ module scale_atm_phy_tb_dgm_driver
     MOMZ_VID => PRGVAR_MOMZ_ID,                               &
     AUXVAR_NUM, &
     PRESHYD_VID => AUXVAR_PRESHYDRO_ID, DENSHYD_VID => AUXVAR_DENSHYDRO_ID, &
-    PRES_VID => AUXVAR_PRES_ID, PT_VID => AUXVAR_PT_ID
+    PRES_VID => AUXVAR_PRES_ID, PT_VID => AUXVAR_PT_ID,                     &
+    CPTOT_VID => AUXVAR_CPtot_ID, RTOT_VID => AUXVAR_Rtot_ID
+
 
   use scale_atm_phy_tb_dgm_common, only: &
     ATMOS_PHY_TB_TENDS_NUM1, &
@@ -438,7 +440,7 @@ contains
     integer :: ke
 
     class(MeshField3D), pointer :: DDENS, MOMX, MOMY, MOMZ, THERM
-    class(MeshField3D), pointer :: PRES_hyd, DENS_hyd, PRES, PT
+    class(MeshField3D), pointer :: PRES_hyd, DENS_hyd, PRES, PT, Rtot, CPtot
     class(MeshField3D), pointer :: T11, T12, T13, T21, T22, T23, T31, T32, T33
     class(MeshField3D), pointer :: DF1, DF2, DF3
     class(MeshField3D), pointer :: DFQ1, DFQ2, DFQ3
@@ -468,6 +470,8 @@ contains
     call AUX_VARS%Get3D( DENSHYD_VID, DENS_hyd )
     call AUX_VARS%Get3D( PRES_VID, PRES )
     call AUX_VARS%Get3D( PT_VID, PT )
+    call AUX_VARS%Get3D( RTOT_VID, Rtot )
+    call AUX_VARS%Get3D( CPTOT_VID, CPtot )
 
     call AUX_TB_VARS%Get3D( T11_VID, T11 )
     call AUX_TB_VARS%Get3D( T12_VID, T12 )
@@ -504,12 +508,21 @@ contains
       lcmesh3D => mesh3D%lcmesh_list(n)
 
       !- Apply boundary conditions
-      call PROF_rapstart('ATM_PHY_TB_inquire_bnd', 2)
+      call PROF_rapstart('ATM_PHY_TB_bnd', 2)
       allocate( bnd_info(n)%is_bound(lcmesh3D%refElem3D%NfpTot,lcmesh3D%Ne) )
-      call boundary_cond%Inquire_bound_flag(  bnd_info(n)%is_bound, &
-        n, lcmesh3D%VMapM, lcmesh3D%VMapP, lcmesh3D%VMapB,          &
-        lcmesh3D, lcmesh3D%refElem3D                                )
-      call PROF_rapend('ATM_PHY_TB_inquire_bnd', 2)
+      call boundary_cond%Inquire_bound_flag(  bnd_info(n)%is_bound, & ! (out)
+        n, lcmesh3D%VMapM, lcmesh3D%VMapP, lcmesh3D%VMapB,          & ! (in)
+        lcmesh3D, lcmesh3D%refElem3D                                ) ! (in)
+      
+      call boundary_cond%ApplyBC_Grad_TBVARS_lc( n, &
+        DDENS%local(n)%val, MOMX%local(n)%val, MOMY%local(n)%val, MOMZ%local(n)%val, PT%local(n)%val, PRES%local(n)%val, & ! (inout)
+        DENS_hyd%local(n)%val, PRES_hyd%local(n)%val, Rtot%local(n)%val, CPtot%local(n)%val,                             & ! (in)
+        lcmesh3D%Gsqrt(:,:), lcmesh3D%GsqrtH(:,:), lcmesh3D%GIJ(:,:,1,1), lcmesh3D%GIJ(:,:,1,2), lcmesh3D%GIJ(:,:,2,2),  & ! (in)
+        lcmesh3D%GI3(:,:,1), lcmesh3D%GI3(:,:,2),                                                                        & ! (in)
+        lcmesh3D%normal_fn(:,:,1), lcmesh3D%normal_fn(:,:,2), lcmesh3D%normal_fn(:,:,3),                                 & ! (in)
+        lcmesh3D%vmapM, lcmesh3D%vmapP, lcmesh3D%vmapB,                                                                  & ! (in)
+        lcmesh3D, lcmesh3D%refElem3D, lcmesh3D%lcmesh2D, lcmesh3D%lcmesh2D%refElem2D                                     ) ! (in)        
+      call PROF_rapend('ATM_PHY_TB_bnd', 2)
 
       call PROF_rapstart('ATM_PHY_TB_cal_grad', 2)
       call this%tbsolver_cal_grad( &
@@ -531,6 +544,21 @@ contains
     call PROF_rapend('ATM_PHY_TB_exchange_prgv', 2)
 
     do n=1, mesh3D%LOCAL_MESH_NUM
+      !- Apply boundary conditions for stress tensor
+      call PROF_rapstart('ATM_PHY_TB_bnd', 2)
+      allocate( bnd_info(n)%is_bound(lcmesh3D%refElem3D%NfpTot,lcmesh3D%Ne) )
+      call boundary_cond%ApplyBC_Grad_TBStress_lc( n, &
+        T11%local(n)%val, T12%local(n)%val, T13%local(n)%val,                                                            & ! (inout)
+        T21%local(n)%val, T22%local(n)%val, T23%local(n)%val,                                                            & ! (inout)
+        T31%local(n)%val, T32%local(n)%val, T33%local(n)%val,                                                            & ! (inout)
+        DF1%local(n)%val, DF2%local(n)%val, DF3%local(n)%val,                                                            & ! (inout)
+        lcmesh3D%Gsqrt(:,:), lcmesh3D%GsqrtH(:,:), lcmesh3D%GIJ(:,:,1,1), lcmesh3D%GIJ(:,:,1,2), lcmesh3D%GIJ(:,:,2,2),  & ! (in)
+        lcmesh3D%GI3(:,:,1), lcmesh3D%GI3(:,:,2),                                                                        & ! (in)
+        lcmesh3D%normal_fn(:,:,1), lcmesh3D%normal_fn(:,:,2), lcmesh3D%normal_fn(:,:,3),                                 & ! (in)
+        lcmesh3D%vmapM, lcmesh3D%vmapP, lcmesh3D%vmapB,                                                                  & ! (in)
+        lcmesh3D, lcmesh3D%refElem3D, lcmesh3D%lcmesh2D, lcmesh3D%lcmesh2D%refElem2D                                     ) ! (in)        
+      call PROF_rapend('ATM_PHY_TB_bnd', 2)
+
       call PROF_rapstart('ATM_PHY_TB_cal_tend', 2)
       call this%tbsolver_cal_tend( &
         tb_MOMX_t%local(n)%val, tb_MOMY_t%local(n)%val, tb_MOMZ_t%local(n)%val, tb_RHOT_t%local(n)%val,             & ! (out)

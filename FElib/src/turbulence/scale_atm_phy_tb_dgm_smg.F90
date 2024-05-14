@@ -535,13 +535,11 @@ contains
     real(RP) :: densM, densP
     real(RP) :: del
     real(RP) :: facx, facy, facz
-
-    real(RP) :: MOMZ_P
     !------------------------------------------------------------------------
     
     !$omp parallel do private ( iM, iP,   &
     !$omp densM, densP,                   &
-    !$omp del, facx, facy, facz, MOMZ_P   )
+    !$omp del, facx, facy, facz           )
     do i=1, elem%NfpTot * lmesh%Ne
       iM = vmapM(i); iP = vmapP(i)
 
@@ -552,7 +550,6 @@ contains
         facx = 1.0_RP
         facy = 1.0_RP 
         facz = 1.0_RP
-        MOMZ_P = - MOMZ_(iM)
       else
         ! facx = 1.0_RP - sign(1.0_RP,nx(i))
         ! facy = 1.0_RP - sign(1.0_RP,ny(i))
@@ -560,7 +557,6 @@ contains
         facx = 1.0_RP
         facy = 1.0_RP
         facz = 1.0_RP
-        MOMZ_P = MOMZ_(iP)
       end if
 
       del = 0.5_RP * ( densP - densM )
@@ -578,7 +574,7 @@ contains
       del_flux_mom(i,2,2) = facy * del * ny(i)
       del_flux_mom(i,3,2) = facz * del * nz(i)
 
-      del = 0.5_RP * ( MOMZ_P - MOMZ_(iM) )
+      del = 0.5_RP * ( MOMZ_(iP) - MOMZ_(iM) )
       del_flux_mom(i,1,3) = facx * del * nx(i)
       del_flux_mom(i,2,3) = facy * del * ny(i)
       del_flux_mom(i,3,3) = facz * del * nz(i)
