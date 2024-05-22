@@ -150,7 +150,7 @@ contains
       AtmosVars_GetLocalMeshPhyAuxVars
 
     implicit none
-    class(Experiment), intent(inout) :: this
+    class(User), intent(inout) :: this 
     class(AtmosComponent), intent(inout) :: atm
 
     class(LocalMesh3D), pointer :: lcmesh
