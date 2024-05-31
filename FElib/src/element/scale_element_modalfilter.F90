@@ -39,7 +39,7 @@ module scale_element_modalfilter
   !
   type, public :: ModalFilter
     real(RP), allocatable :: FilterMat(:,:)
-    real(RP), allocatable :: newMat(:,:)
+    real(RP), allocatable :: FilterMatX(:,:)
   contains
     procedure :: Init_line => ModalFilter_Init_line
     procedure :: Init_quadrilateral => ModalFilter_Init_quadrilateral
@@ -169,8 +169,9 @@ contains
       tend_flag_ )                                               ! (in)
 
     allocate( this%FilterMat(elem%Np,elem%Np) )
-    allocate( this%newMat(8,8) )
+    allocate( this%FilterMatX(8,8) )
     this%FilterMat(:,:) = 0.0_RP
+    this%FilterMatX(:,:) = 0.0_RP
     do p3=1, elem%Nnode_v
     do p2=1, elem%Nnode_h1D
     do p1=1, elem%Nnode_h1D
@@ -192,7 +193,7 @@ contains
     !--------------------------------------------
 
     if( allocated(this%FilterMat) ) deallocate( this%FilterMat )
-    if( allocated(this%newMat) ) deallocate( this%newMat )
+    if( allocated(this%FilterMatX) ) deallocate( this%FilterMatX )
     
     return
   end subroutine ModalFilter_Final
