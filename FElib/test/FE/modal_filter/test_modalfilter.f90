@@ -87,7 +87,7 @@ contains
                                filterMat(i,5) * q_in(5,j,k) + & 
                                filterMat(i,6) * q_in(6,j,k) + & 
                                filterMat(i,7) * q_in(7,j,k) + & 
-                               filterMat(i,8) * q_in(8,j,k) + & 
+                               filterMat(i,8) * q_in(8,j,k) 
         end do
         end do
         end do
@@ -103,7 +103,7 @@ contains
                           q_out_new(i,5,k) * filterMat_tr(5,j) + &
                           q_out_new(i,6,k) * filterMat_tr(6,j) + &
                           q_out_new(i,7,k) * filterMat_tr(7,j) + &
-                          q_out_new(i,8,k) * filterMat_tr(8,j) + &
+                          q_out_new(i,8,k) * filterMat_tr(8,j)
         end do
         end do
         end do
@@ -119,7 +119,7 @@ contains
                                q_in(i,j,5) * filterMat_tr(5,k) + & 
                                q_in(i,j,6) * filterMat_tr(6,k) + & 
                                q_in(i,j,7) * filterMat_tr(7,k) + & 
-                               q_in(i,j,8) * filterMat_tr(8,k) + & 
+                               q_in(i,j,8) * filterMat_tr(8,k)
         end do
         end do
         end do
