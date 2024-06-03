@@ -35,7 +35,7 @@ program test_modalfilter
     do y = 1, 8
     do x = 1, 8
         kp = x + (y - 1) * 8 + (z - 1) * 8 * 8
-        q_in(kp) = sin(x) * sin(y) * sin(z) 
+        q_in(kp) = sin(dble(x)) * sin(dble(y)) * sin(dble(z)) 
     end do
     end do
     end do
