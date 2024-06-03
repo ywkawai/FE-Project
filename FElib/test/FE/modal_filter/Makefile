@@ -30,11 +30,11 @@ makedir:
 makebin: $(BINNAME)
 	@echo "Complete making."
 
-run:
-	mpirun -n 1 ./$(BINNAME)
-
-vis:
-	bash ./visualize/visualize.sh
+#run:
+#	mpirun -n 1 ./$(BINNAME)
+#
+#vis:
+#	bash ./visualize/visualize.sh
 
 $(BINNAME): $(BUILD_DIR)/$(BINNAME).o $(patsubst %,$(BUILD_DIR)/%,$(OBJS)) $(LIBS)
 	$(LD) $(LDFLAGS) $(ADDITIONAL_FFLAGS) -o $@ $^ $(LIBS) $(CONTRIB_LIBS) $(SCALE_NETCDF_LIBS) $(SCALE_MATHLIB_LIBS) $(SCALE_PAPI_LIBS)
