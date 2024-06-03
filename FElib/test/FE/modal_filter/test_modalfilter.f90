@@ -19,6 +19,7 @@ program test_modalfilter
     real(RP) :: q_in(Np)
     real(RP) :: q_out_ori(Np)
     real(RP) :: q_out_new(Np)
+    real(RP) :: error(Np)
     real(RP) :: rmse
 
     real(RP) :: filter1D_tr(Np1D, Np1D)
@@ -46,14 +47,15 @@ program test_modalfilter
 
     call apply_filter_xyz(filter1D%FilterMat, filter1D_tr, q_in, q_out_new)
 
-    print *, "q original"
+    !-- calculate error: err = q_out_new - q_out_ori 
     do kp=1, Np
-        print *, q_out_ori(kp)
+        error(kp) = q_out_new(kp) - q_out_ori(kp)
     end do
-    print *, "q new"
-    do kp=1, Np
-        print *, q_out_new(kp)
-    end do
+
+    !-- save error
+    open(10, file="modalfilter_err.dat", access='stream', form='unformatted', status='new')
+    write(10) error(:)
+    close(10)
 
     !-- calculate rmse
     do kp=1, Np
