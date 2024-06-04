@@ -309,6 +309,20 @@ contains
     RovP0 = Rdry * rP0
     P0ovR = PRES00 / Rdry
 
+    !if(PRC_GLOBAL_myrank == 0) then
+    !  write(*,*) "lmesh.NeA", lmesh%NeA
+    !  write(*,*) "lmesh.NeS", lmesh%NeS
+    !  write(*,*) "lmesh.NeE", lmesh%NeE
+
+    !  !-- output vmaps
+    !  open(66, file="vmapP.dat", access="stream", form="unformatted", status="new")
+    !  open(67, file="vmapM.dat", access="stream", form="unformatted", status="new")
+    !  write(66) vmapP(:,:)
+    !  write(67) vmapM(:,:)
+    !  close(66)
+    !  close(67)
+    !end if
+
     !$omp parallel do private( &
     !$omp ke, iM, iP, ke2d,                                                             &
     !$omp alpha, VelM, VelP,                                                            &
