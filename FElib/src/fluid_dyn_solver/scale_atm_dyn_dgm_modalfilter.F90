@@ -249,7 +249,7 @@ contains
              q_in(i,j,5)  * filterMat_tr(5,k) + &
              q_in(i,j,6)  * filterMat_tr(6,k) + &
              q_in(i,j,7)  * filterMat_tr(7,k) + &
-             q_in(i,j,8)  * filterMat_tr(8,k) + &
+             q_in(i,j,8)  * filterMat_tr(8,k)
 
       tmp2 = q_in(i,j,9)  * filterMat_tr(9,k) + &
              q_in(i,j,10) * filterMat_tr(10,k) + &
