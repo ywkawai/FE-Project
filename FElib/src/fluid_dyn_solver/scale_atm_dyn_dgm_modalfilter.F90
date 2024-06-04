@@ -41,6 +41,7 @@ module scale_atm_dyn_dgm_modalfilter
   !++ Private procedures & variables
   !
   !-------------------
+  private :: apply_filter_xyz_direction
 contains
 
 !OCL SERIAL
@@ -62,11 +63,14 @@ contains
     
     integer :: ke
     real(RP) :: tmp(elem%Np,5)
+    real(RP) :: FilterMat_tr(12,12)
     integer :: ii, kk
     real(RP) :: Mik
     logical :: do_weight_Gsqrt_
     real(RP) :: RGsqrt(elem%Np)
     !------------------------------------
+    FilterMat_tr(:,:) = transpose(filter%FilterMat(:,:))
+
 
     if ( present( do_weight_Gsqrt ) ) then
       do_weight_Gsqrt_ = do_weight_Gsqrt
@@ -79,17 +83,20 @@ contains
       do ke=lmesh%NeS, lmesh%NeE
 
         tmp(:,:) = 0.0_RP
-        do ii=1, elem%Np
-        do kk=1, elem%Np
-          Mik = filter%FilterMat(ii,kk) * lmesh%Gsqrt(kk,ke)
 
-          tmp(ii,1) = tmp(ii,1) + Mik * DDENS_(kk,ke)
-          tmp(ii,2) = tmp(ii,2) + Mik * MOMX_ (kk,ke)
-          tmp(ii,3) = tmp(ii,3) + Mik * MOMY_ (kk,ke)
-          tmp(ii,4) = tmp(ii,4) + Mik * MOMZ_ (kk,ke)
-          tmp(ii,5) = tmp(ii,5) + Mik * DRHOT_(kk,ke)
+        do ii=1, elem%Np
+          DDENS_(ii,ke) = lmesh%Gsqrt(ii,ke) * DDENS_(ii,ke)
+          MOMX_(ii,ke) = lmesh%Gsqrt(ii,ke) * MOMX_(ii,ke)
+          MOMY_(ii,ke) = lmesh%Gsqrt(ii,ke) * MOMY_(ii,ke)
+          MOMZ_(ii,ke) = lmesh%Gsqrt(ii,ke) * MOMZ_(ii,ke)
+          DRHOT_(ii,ke) = lmesh%Gsqrt(ii,ke) * DRHOT_(ii,ke)
         end do
-        end do
+
+        call apply_filter_xyz_direction(filter%FilterMat, FilterMat_tr, DDENS_(:,ke), tmp(:,1))
+        call apply_filter_xyz_direction(filter%FilterMat, FilterMat_tr, MOMX_(:,ke),  tmp(:,2))
+        call apply_filter_xyz_direction(filter%FilterMat, FilterMat_tr, MOMY_(:,ke),  tmp(:,3))
+        call apply_filter_xyz_direction(filter%FilterMat, FilterMat_tr, MOMZ_(:,ke),  tmp(:,4))
+        call apply_filter_xyz_direction(filter%FilterMat, FilterMat_tr, DRHOT_(:,ke), tmp(:,5))
 
         RGsqrt(:) = 1.0_RP / lmesh%Gsqrt(:,ke)
         DDENS_(:,ke) = tmp(:,1) * RGsqrt(:)
@@ -105,16 +112,13 @@ contains
       do ke=lmesh%NeS, lmesh%NeE
 
         tmp(:,:) = 0.0_RP
-        do ii=1, elem%Np
-        do kk=1, elem%Np
-          Mik = filter%FilterMat(ii,kk)
-          tmp(ii,1) = tmp(ii,1) + Mik * DDENS_(kk,ke)
-          tmp(ii,2) = tmp(ii,2) + Mik * MOMX_ (kk,ke)
-          tmp(ii,3) = tmp(ii,3) + Mik * MOMY_ (kk,ke)
-          tmp(ii,4) = tmp(ii,4) + Mik * MOMZ_ (kk,ke)
-          tmp(ii,5) = tmp(ii,5) + Mik * DRHOT_(kk,ke)
-        end do
-        end do      
+
+        call apply_filter_xyz_direction(filter%FilterMat, FilterMat_tr, DDENS_(:,ke), tmp(:,1))
+        call apply_filter_xyz_direction(filter%FilterMat, FilterMat_tr, MOMX_(:,ke),  tmp(:,2))
+        call apply_filter_xyz_direction(filter%FilterMat, FilterMat_tr, MOMY_(:,ke),  tmp(:,3))
+        call apply_filter_xyz_direction(filter%FilterMat, FilterMat_tr, MOMZ_(:,ke),  tmp(:,4))
+        call apply_filter_xyz_direction(filter%FilterMat, FilterMat_tr, DRHOT_(:,ke), tmp(:,5))
+
         DDENS_(:,ke) = tmp(:,1)
         MOMX_ (:,ke) = tmp(:,2)
         MOMY_ (:,ke) = tmp(:,3)
@@ -170,5 +174,83 @@ contains
 
     return
   end subroutine atm_dyn_dgm_tracer_modalfilter_apply
+
+!OCL SERIAL
+  subroutine apply_filter_xyz_direction(filterMat, filterMat_tr, q_in, q_tmp )
+    implicit none
+
+    real(RP), intent(in) :: filterMat(12, 12)
+    real(RP), intent(in) :: filterMat_tr(12, 12)
+    real(RP), intent(inout) :: q_in(12, 12, 12)
+    real(RP), intent(inout) :: q_tmp(12, 12, 12)
+    
+    integer :: i, j, k
+
+    !-- x direction
+    do k=1, 12
+    do j=1, 12
+    do i=1, 12
+
+      q_tmp(i,j,k) = filterMat(i,1)  * q_in(1,j,k) + &
+                     filterMat(i,2)  * q_in(2,j,k) + &
+                     filterMat(i,3)  * q_in(3,j,k) + & 
+                     filterMat(i,4)  * q_in(4,j,k) + & 
+                     filterMat(i,5)  * q_in(5,j,k) + & 
+                     filterMat(i,6)  * q_in(6,j,k) + & 
+                     filterMat(i,7)  * q_in(7,j,k) + & 
+                     filterMat(i,8)  * q_in(8,j,k) + & 
+                     filterMat(i,9)  * q_in(9,j,k) + & 
+                     filterMat(i,10) * q_in(10,j,k) + & 
+                     filterMat(i,11) * q_in(11,j,k) + & 
+                     filterMat(i,12) * q_in(12,j,k)  
+
+    end do
+    end do
+    end do
+
+    !-- y direction
+    do k=1, 12
+    do j=1, 12
+    do i=1, 12
+
+      q_in(i,j,k) = q_tmp(i,1,k)  * filterMat_tr(1,j) + &
+                    q_tmp(i,2,k)  * filterMat_tr(2,j) + &
+                    q_tmp(i,3,k)  * filterMat_tr(3,j) + &
+                    q_tmp(i,4,k)  * filterMat_tr(4,j) + &
+                    q_tmp(i,5,k)  * filterMat_tr(5,j) + &
+                    q_tmp(i,6,k)  * filterMat_tr(6,j) + &
+                    q_tmp(i,7,k)  * filterMat_tr(7,j) + &
+                    q_tmp(i,8,k)  * filterMat_tr(8,j) + &
+                    q_tmp(i,9,k)  * filterMat_tr(9,j) + &
+                    q_tmp(i,10,k) * filterMat_tr(10,j) + &
+                    q_tmp(i,11,k) * filterMat_tr(11,j) + &
+                    q_tmp(i,12,k) * filterMat_tr(12,j) 
+
+    end do
+    end do
+    end do
+
+    !-- z direction
+    do k=1, 12
+    do j=1, 12
+    do i=1, 12
+
+      q_tmp(i,j,k) = q_in(i,j,1)  * filterMat_tr(1,k) + &
+                     q_in(i,j,2)  * filterMat_tr(2,k) + &
+                     q_in(i,j,3)  * filterMat_tr(3,k) + &
+                     q_in(i,j,4)  * filterMat_tr(4,k) + &
+                     q_in(i,j,5)  * filterMat_tr(5,k) + &
+                     q_in(i,j,6)  * filterMat_tr(6,k) + &
+                     q_in(i,j,7)  * filterMat_tr(7,k) + &
+                     q_in(i,j,8)  * filterMat_tr(8,k) + &
+                     q_in(i,j,9)  * filterMat_tr(9,k) + &
+                     q_in(i,j,10) * filterMat_tr(10,k) + &
+                     q_in(i,j,11) * filterMat_tr(11,k) + &
+                     q_in(i,j,12) * filterMat_tr(12,k) 
+
+    end do
+    end do
+    end do
+  end subroutine apply_filter_xyz_direction
 
 end module scale_atm_dyn_dgm_modalfilter
