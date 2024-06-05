@@ -249,20 +249,20 @@ for EXP_list_key, EXP_list in EXP_listlist.items():
 os.makedirs(ANALYSIS_OUT_DIR, exist_ok=True)
 # mkgraph_sh_nh_max_conv(umet_listlist, EXP_listlist, EXP_list_DOF, EXP_list_color, 29.5, 33.2, 40.0,46.5, 200e2, 260e2, 
 #                        PREVSTUDY_PEAKVAL_Umet, 
-#                        f"{ANALYSIS_OUT_DIR}/Umet_resoldep.png" )
+#                        f"{ANALYSIS_OUT_DIR}/Umet_resoldep.pdf" )
 
 mkgraph_sh_nh_max_conv(eddy_temp_variance_listlist, EXP_listlist, EXP_list_DOF, EXP_list_color, 20, 50, 35, 45, 780e2, 870e2, 
                        PREVSTUDY_PEAKVAL_EDDYTEMP, 
-                       f"{ANALYSIS_OUT_DIR}/Tvariance_resoldep.png" )
+                       f"{ANALYSIS_OUT_DIR}/Tvariance_resoldep.pdf" )
 
 mkgraph_sh_nh_max_conv(eddy_kinetic_energy_listlist, EXP_listlist, EXP_list_DOF, EXP_list_color, 180, 560, 40.5,46, 200e2, 350e2, 
                        PREVSTUDY_PEAKVAL_EDDYKinE, 
-                       f"{ANALYSIS_OUT_DIR}/EddyKinEnergy_resoldep.png" )
+                       f"{ANALYSIS_OUT_DIR}/EddyKinEnergy_resoldep.pdf" )
 
 mkgraph_sh_nh_max_conv(merid_eddy_momflx_listlist, EXP_listlist, EXP_list_DOF, EXP_list_color, 52, 85, 28, 38, 220e2, 280e2, 
                        PREVSTUDY_PEAKVAL_EDDYMOMFlux, 
-                       f"{ANALYSIS_OUT_DIR}/EddyMomFlux_resoldep.png" )
+                       f"{ANALYSIS_OUT_DIR}/EddyMomFlux_resoldep.pdf" )
 
 mkgraph_sh_nh_max_conv(merid_eddy_hflx_listlist, EXP_listlist, EXP_list_DOF, EXP_list_color, 18.0,26, 33.5,43.5, 830e2, 890e2, 
                        PREVSTUDY_PEAKVAL_EDDYHEATFlux, 
-                       f"{ANALYSIS_OUT_DIR}/EddyHeatFlux_resoldep.png" )
+                       f"{ANALYSIS_OUT_DIR}/EddyHeatFlux_resoldep.pdf" )

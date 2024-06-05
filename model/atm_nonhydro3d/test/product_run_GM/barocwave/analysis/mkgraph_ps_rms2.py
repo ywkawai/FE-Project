@@ -133,7 +133,7 @@ def get_numerror_merged_data( resol_dir_list, varname ):
 def mkgraph(var_list, var_urange, 
             label_list, line_color, line_style_list, 
             png_out):
-  fig = plt.figure(figsize=(3.7,6))
+  fig = plt.figure(figsize=(4,7))
   ax = fig.add_subplot(111)
   ax.set_yscale("log")
   ax.set_xlim([0,1e1])  
@@ -150,8 +150,8 @@ def mkgraph(var_list, var_urange,
             linestyle=line_style_list[key], 
             label=label_list[key],
             linewidth=2 )
-  ax.set_ylabel("L2 error (Ps) [hPa]", fontsize=16)
-  ax.set_xlabel("time [day]", fontsize=16)
+  ax.set_ylabel("L2 error (Ps) [hPa]", fontsize=14)
+  ax.set_xlabel("time [day]", fontsize=14)
   ax.tick_params(axis="both", labelsize=12)
   ax.legend(fontsize=12)
   
@@ -166,14 +166,14 @@ l2error_urange = get_numerror_JM06_urange("analysis/JM06_uncertain_range.csv")
 l2error_P3 = get_numerror_merged_data( P3_exp_list, "L2_error_SFCPRES" )
 mkgraph( l2error_P3, l2error_urange.sel(day=slice(0,11)),
         P3_exp_label, "blue", P3_exp_lstyle, 
-        f"{OUT_DIR}/ps_l2error_P3.png" )
+        f"{OUT_DIR}/ps_l2error_P3.pdf" )
 
 l2error_P7 = get_numerror_merged_data( P7_exp_list, "L2_error_SFCPRES" )
 mkgraph( l2error_P7, l2error_urange.sel(day=slice(0,11)),
         P7_exp_label, "red", P7_exp_lstyle, 
-        f"{OUT_DIR}/ps_l2error_P7.png" )
+        f"{OUT_DIR}/ps_l2error_P7.pdf" )
 
 l2error_P11 = get_numerror_merged_data( P11_exp_list, "L2_error_SFCPRES" )
 mkgraph( l2error_P11, l2error_urange.sel(day=slice(0,11)),
         P11_exp_label, "green", P11_exp_lstyle, 
-        f"{OUT_DIR}/ps_l2error_P11.png" )
+        f"{OUT_DIR}/ps_l2error_P11.pdf" )

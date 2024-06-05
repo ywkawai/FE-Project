@@ -7,14 +7,17 @@ import os
 
 TOP_DIR="rp3.4km"
 
+# EXP_list= [
+#     "Eh64Ez34P7",   
+#     "Eh100Ez52P4",                  
+#     "Eh128Ez64P3",
+# ]
 EXP_list= [
-    "Eh64Ez34P7",   
-    "Eh100Ez52P4",                  
-    "Eh128Ez64P3",
-    # "Eh64Ez34P7_deepatm",     
-    # "Eh100Ez52P4_deepatm",  
-    # "Eh128Ez64P3_deepatm",      
+    "Eh64Ez34P7_deepatm",     
+    "Eh100Ez52P4_deepatm",  
+    "Eh128Ez64P3_deepatm",      
 ]
+
 TARGET_RUNDIR_NO_LIST = {
   "Eh128Ez64P3": list(range(8,9)),     
   "Eh100Ez52P4": list(range(8,9)),       
@@ -61,13 +64,13 @@ exp_ltype_width = {
 
 ANALYSIS_OUT_DIR="analysis_out"
 
-fig_suffix="_rp3.4km_shallow_atm_approx"
-Z_INTERP=500; Y_lim = [5e-6,1.1e0];  Y_lim_zoom = [1e-5,.5e-1]; 
-SLOPE_m3_ampl=2.4e5; SLOPE_m5div3_ampl=.8e2
+# fig_suffix="_rp3.4km_shallow_atm_approx"
+# Z_INTERP=500; Y_lim = [5e-6,1.1e0];  Y_lim_zoom = [1e-5,.5e-1]; 
+# SLOPE_m3_ampl=2.4e5; SLOPE_m5div3_ampl=.8e2
 
-# fig_suffix="_rp3.4km_no_shallow_atm_approx"
-# Z_INTERP=500; Y_lim = [2e-6,0.8e0]; Y_lim_zoom = [1e-5,.3e-1]; 
-# SLOPE_m3_ampl=1.5e5; SLOPE_m5div3_ampl=.53e2
+fig_suffix="_rp3.4km_no_shallow_atm_approx"
+Z_INTERP=500; Y_lim = [2e-6,0.8e0]; Y_lim_zoom = [1e-5,.3e-1]; 
+SLOPE_m3_ampl=1.5e5; SLOPE_m5div3_ampl=.53e2
 
 #---------
 def mkgraph( hke_spectra_list, wke_spectra_list, slope_m3_ampl, slope_m5div3_ampl, pngname,):
@@ -200,10 +203,10 @@ for exp in EXP_list:
 os.makedirs(f"{ANALYSIS_OUT_DIR}/energy_spectra", exist_ok=True)
 mkgraph( hke_spectra_tavg_list, vke_spectra_tavg_list, 
         SLOPE_m3_ampl, SLOPE_m5div3_ampl, 
-        f"{ANALYSIS_OUT_DIR}/energy_spectra/KE_spectra_z{int(Z_INTERP)}m{fig_suffix}.png")
+        f"{ANALYSIS_OUT_DIR}/energy_spectra/KE_spectra_z{int(Z_INTERP)}m{fig_suffix}.pdf")
 mkgraph_diffm53( hke_spectra_tavg_list, vke_spectra_tavg_list, 
         SLOPE_m3_ampl, SLOPE_m5div3_ampl, 
-        f"{ANALYSIS_OUT_DIR}/energy_spectra/KE_comp_spectra_z{int(Z_INTERP)}m{fig_suffix}.png")
+        f"{ANALYSIS_OUT_DIR}/energy_spectra/KE_comp_spectra_z{int(Z_INTERP)}m{fig_suffix}.pdf")
 mkgraph_zoom( hke_spectra_tavg_list, vke_spectra_tavg_list, 
         SLOPE_m5div3_ampl, 
-        f"{ANALYSIS_OUT_DIR}/energy_spectra/KE_spectra_zoom_z{int(Z_INTERP)}m{fig_suffix}.png")
+        f"{ANALYSIS_OUT_DIR}/energy_spectra/KE_spectra_zoom_z{int(Z_INTERP)}m{fig_suffix}.pdf")

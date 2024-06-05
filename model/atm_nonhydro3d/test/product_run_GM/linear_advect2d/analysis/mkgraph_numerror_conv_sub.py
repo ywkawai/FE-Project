@@ -52,7 +52,7 @@ def set_ax(ax, ylabel, ylim):
   ax.set_yscale("log")
   ax.set_xlim(1e1, 1e3)
   ax.set_ylim(ylim[0], ylim[1])
-  ax.tick_params(which="both", labelsize=13)
+  ax.tick_params(which="both", labelsize=12)
   ax.set_xlabel("$N_{e,h}\,(p+1)$", fontsize=15)
   ax.set_ylabel(ylabel, fontsize=15)
   ax.grid(which="major", color="gray", linestyle="-")
@@ -80,7 +80,7 @@ def get_color_and_linestyle_and_label(key):
 def mkgraph_num_convergence(data_list, slope_dof_list, slope_list, ylabel_list, ylim_list, outpng_path):
   print(f"mkgraph: {outpng_path} ..")
   
-  fig = plt.figure(figsize=(14,6)) 
+  fig = plt.figure(figsize=(15,6)) 
   
   ax_list = {}
   data_num = len(data_list)
@@ -106,8 +106,9 @@ def mkgraph_num_convergence(data_list, slope_dof_list, slope_list, ylabel_list, 
   
     if i==data_num-1:
       ax_list[i].legend(bbox_to_anchor=(1.07, 1), loc='upper left', borderaxespad=0, fontsize=14)
-  
+    
   plt.subplots_adjust(wspace=0.35, hspace=0.6)
+  plt.tight_layout()  
   plt.savefig(outpng_path)
   
 def get_numerror_data_list(dir, exp_list):

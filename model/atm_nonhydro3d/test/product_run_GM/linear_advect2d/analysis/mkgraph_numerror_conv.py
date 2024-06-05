@@ -69,7 +69,7 @@ mncs.mkgraph_num_convergence(
   [slope_dof, slope_dof, slope_dof],  
   [slope_L1_list, slope_L2_list, slope_Linf_list], 
   [f"L1 error", f"L2 error", f"Linf error"], 
-  [l1_ylim, l2_ylim, linf_ylim], f"{OUT_DIR}/numerror_t0day.png" )
+  [l1_ylim, l2_ylim, linf_ylim], f"{OUT_DIR}/numerror_t0day.pdf" )
 
 #-- time = 12 * 86400 s --------
 
@@ -112,4 +112,5 @@ mncs.mkgraph_num_convergence(
   [slope_dof, slope_dof, slope_dof],  
   [slope_L1_list, slope_L2_list, slope_Linf_list], 
   [f"L1 error", f"L2 error", f"Linf error"], 
-  [l1_ylim, l2_ylim, linf_ylim], f"{OUT_DIR}/numerror_t12day.png" )
+#  [l1_ylim, l2_ylim, linf_ylim], f"{OUT_DIR}/numerror_t12day.png" )
+  [l1_ylim, l2_ylim, linf_ylim], f"{OUT_DIR}/numerror_t12day.pdf" )

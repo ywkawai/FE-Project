@@ -118,7 +118,7 @@ def create_w_prim2_fig():
 
   create_fig_vertical_structure_fillmaxmin( 
     w_w_prim_list_scaledg, w_w_prim_list_scaledg_KT2023, 0.0,2.0, np.linspace(0.0,2.0,5), np.linspace(0.0,2.0,21), 
-    "W_PRIM2 [m$^2$/s$^2$]", exp_color_list, exp_lbl_list, f"{OUT_DIR}/w_prim2.png" )
+    "W_PRIM2 [m$^2$/s$^2$]", exp_color_list, exp_lbl_list, f"{OUT_DIR}/w_prim2.pdf" )
 
 def create_w_skewness_fig():
   w_skew_list_scaledg_KT2023 = {}
@@ -143,7 +143,7 @@ def create_w_skewness_fig():
 
   create_fig_vertical_structure_fillmaxmin( 
     w_skew_list_scaledg, w_skew_list_scaledg_KT2023, -0.5,1.5, np.linspace(-0.5,1.5,5), np.linspace(-0.5,1.5,21), 
-    "Skewness", exp_color_list, exp_lbl_list, f"{OUT_DIR}/w_skewness.png" )
+    "Skewness", exp_color_list, exp_lbl_list, f"{OUT_DIR}/w_skewness.pdf" )
 
 def create_heat_flux_fig():
   tot_htflux_list_scaledg_KT2023 = {}
@@ -166,7 +166,7 @@ def create_heat_flux_fig():
 
   create_fig_vertical_structure_fillmaxmin( 
     tot_htflux_list_scaledg, tot_htflux_list_scaledg_KT2023, -30, 210, np.linspace(-0,200,5), np.linspace(-30,210,25), 
-    "vertical heat flux [W m$^2$]", exp_color_list, exp_lbl_list, f"{OUT_DIR}/vertical_heat_flux_zoom.png" )
+    "vertical heat flux [W m$^2$]", exp_color_list, exp_lbl_list, f"{OUT_DIR}/vertical_heat_flux_zoom.pdf" )
 
 def create_pt_fig():
   pt_list_scaledg_KT2023 = {}
@@ -181,7 +181,7 @@ def create_pt_fig():
 
   create_fig_vertical_structure_fillmaxmin( 
     pt_list_scaledg, pt_list_scaledg_KT2023, 303.0,305.5, np.arange(303.0,305.5,0.5), np.arange(303.0,305.5,0.1), 
-    "potential temperature [K]", exp_color_list, exp_lbl_list, f"{OUT_DIR}/PotTemp.png" )
+    "potential temperature [K]", exp_color_list, exp_lbl_list, f"{OUT_DIR}/PotTemp.pdf" )
   
 #-----
 os.makedirs(OUT_DIR, exist_ok=True)

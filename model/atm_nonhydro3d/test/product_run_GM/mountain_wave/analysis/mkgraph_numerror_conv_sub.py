@@ -103,7 +103,7 @@ def mkgraph_num_convergence(data_list, slope_dof_list, slope_list, ylabel_list, 
         linestyle="--" )
   
     if i==data_num-1:
-      ax_list[i].legend(bbox_to_anchor=(1.07, 1), loc='upper left', borderaxespad=0, fontsize=14)
+      ax_list[i].legend(bbox_to_anchor=(1.07, 1), loc='upper left', borderaxespad=0, fontsize=15)
   
   plt.subplots_adjust(wspace=0.35, hspace=0.6)
   if (len(outpng_path) > 0):

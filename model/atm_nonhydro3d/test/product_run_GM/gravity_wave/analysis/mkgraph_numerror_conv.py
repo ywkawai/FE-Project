@@ -2,7 +2,7 @@ import os
 import mkgraph_numerror_conv_sub as mncs
 
 TOP_DIR="./"
-OUT_DIR="./analysis_out/num_error"
+OUT_DIR="./analysis/num_error"
 
 p1_list = ["Eh16Ez12P1", "Eh32Ez24P1", "Eh64Ez48P1", "Eh128Ez96P1"]
 p1_dof_list = {"Eh16Ez12P1":32, "Eh32Ez24P1":64, "Eh64Ez48P1":128, "Eh128Ez96P1":256}
@@ -92,7 +92,7 @@ mncs.mkgraph_num_convergence(
   [slope_dof, slope_dof, slope_dof],  
   [slope_L1_list, slope_L2_list, slope_Linf_list], 
   [f"L1 error", f"L2 error", f"Linf error"], 
-  [l1_ylim, l2_ylim, linf_ylim], f"{OUT_DIR}/numerror_{varname}_t2day.png" )
+  [l1_ylim, l2_ylim, linf_ylim], f"{OUT_DIR}/numerror_{varname}_t2day.pdf" )
 
 # U --------
 varname="U"
@@ -131,7 +131,7 @@ mncs.mkgraph_num_convergence(
   [slope_dof, slope_dof, slope_dof],  
   [slope_L1_list, slope_L2_list, slope_Linf_list], 
   [f"L1 error", f"L2 error", f"Linf error"], 
-  [l1_ylim, l2_ylim, linf_ylim], f"{OUT_DIR}/numerror_{varname}_t2day.png" )
+  [l1_ylim, l2_ylim, linf_ylim], f"{OUT_DIR}/numerror_{varname}_t2day.pdf" )
 
 # W --------
 varname="W"
@@ -178,7 +178,7 @@ mncs.mkgraph_num_convergence(
   [slope_dof, slope_dof, slope_dof],  
   [slope_L1_list, slope_L2_list, slope_Linf_list], 
   [f"L1 error", f"L2 error", f"Linf error"], 
-  [l1_ylim, l2_ylim, linf_ylim], f"{OUT_DIR}/numerror_{varname}_t2day.png" )
+  [l1_ylim, l2_ylim, linf_ylim], f"{OUT_DIR}/numerror_{varname}_t2day.pdf" )
 
 # W --------
 varname="DRHOT"
@@ -217,4 +217,4 @@ mncs.mkgraph_num_convergence(
   [slope_dof, slope_dof, slope_dof],  
   [slope_L1_list, slope_L2_list, slope_Linf_list], 
   [f"L1 error", f"L2 error", f"Linf error"], 
-  [l1_ylim, l2_ylim, linf_ylim], f"{OUT_DIR}/numerror_{varname}_t2day.png" )
+  [l1_ylim, l2_ylim, linf_ylim], f"{OUT_DIR}/numerror_{varname}_t2day.pdf" )

@@ -33,7 +33,7 @@ exp_ltype_width = {
 }
 
 #OUT_DIR="./compari"
-OUT_DIR="./analysis_out/vprofile_noSA_JPGU"
+OUT_DIR="./analysis_out/vprofile_noSA"
 EXP_TOPDIR="rp3.4km"
 
 #---------------------
@@ -80,7 +80,7 @@ def create_fig_vertical_structure_fillmaxmin( var_list_scaledg, var_list_scaledg
     v_max = np.maximum(v_max, var)
     v_min = np.minimum(v_min, var)
 #  print(v_max)
-#  ax.fill_betweenx( v.coords[v.dims[0]], v_min, v_max, color="gray", alpha=0.5 )
+  ax.fill_betweenx( v.coords[v.dims[0]], v_min, v_max, color="gray", alpha=0.5 )
   
   for exp_name, var in var_list_scaledg.items():
 #    print(exp_name)
@@ -118,7 +118,7 @@ def create_w_prim2_fig():
   w_w_prim_list_scaledg_noSA = cal_w_prim2_dg( expname_list_SCALEDG_noSA )  
   create_fig_vertical_structure_fillmaxmin( 
     w_w_prim_list_scaledg_noSA, w_w_prim_list_scaledg, 0.0,2.0, np.linspace(0.0,2.0,5), np.linspace(0.0,2.0,21), 
-    "W_PRIM2 [m$^2$/s$^2$]", exp_color_list, exp_lbl_list, f"{OUT_DIR}/w_prim2.png" )
+    "W_PRIM2 [m$^2$/s$^2$]", exp_color_list, exp_lbl_list, f"{OUT_DIR}/w_prim2.pdf" )
 
 #-
 def cal_w_skewness_dg(expname_list):
@@ -137,7 +137,7 @@ def create_w_skewness_fig():
   w_skew_list_scaledg_noSA = cal_w_skewness_dg( expname_list_SCALEDG_noSA ) 
   create_fig_vertical_structure_fillmaxmin( 
     w_skew_list_scaledg_noSA, w_skew_list_scaledg, -0.5,1.5, np.linspace(-0.5,1.5,5), np.linspace(-0.5,1.5,21), 
-    "Skewness", exp_color_list, exp_lbl_list, f"{OUT_DIR}/w_skewness.png" )
+    "Skewness", exp_color_list, exp_lbl_list, f"{OUT_DIR}/w_skewness.pdf" )
 
 #-
 def cal_heat_flux_dg(expname_list):
@@ -157,7 +157,7 @@ def create_heat_flux_fig():
   
   create_fig_vertical_structure_fillmaxmin( 
     tot_htflux_list_scaledg_noSA, tot_htflux_list_scaledg, -30, 210, np.linspace(-0,200,5), np.linspace(-30,210,25), 
-    "vertical heat flux [W m$^2$]", exp_color_list, exp_lbl_list, f"{OUT_DIR}/vertical_heat_flux_zoom.png" )
+    "vertical heat flux [W m$^2$]", exp_color_list, exp_lbl_list, f"{OUT_DIR}/vertical_heat_flux_zoom.pdf" )
 
 #-
 def cal_pt_dg(expname_list):
@@ -171,7 +171,7 @@ def create_pt_fig():
   pt_list_scaledg_noSA = cal_pt_dg(expname_list_SCALEDG_noSA)
   create_fig_vertical_structure_fillmaxmin( 
     pt_list_scaledg_noSA, pt_list_scaledg, 303.0,305.5, np.arange(303.0,305.5,0.5), np.arange(303.0,305.5,0.1), 
-    "potential temperature [K]", exp_color_list, exp_lbl_list, f"{OUT_DIR}/PotTemp.png" )
+    "potential temperature [K]", exp_color_list, exp_lbl_list, f"{OUT_DIR}/PotTemp.pdf" )
   
 #-----
 os.makedirs(OUT_DIR, exist_ok=True)

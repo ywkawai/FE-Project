@@ -41,27 +41,29 @@ def v_1Daxis_fmt(tick_val, pos):
   return f'{val}'
 
 def set_fig_Xz_axis(ax):
-  ax.tick_params(labelsize=20, length=8)
-  ax.set_xlabel('longitude [deg]', fontsize=22)  
+  ax.tick_params(labelsize=16, length=8)
+  ax.set_xlabel('longitude [deg]', fontsize=16)  
   ax.xaxis.set_major_locator(tick.MultipleLocator(30.0))
   ax.xaxis.set_minor_locator(tick.MultipleLocator(10.0))
-  ax.set_ylabel('height [km]', fontsize=22)
+  ax.set_ylabel('height [km]', fontsize=16)
   ax.yaxis.set_major_locator(tick.MultipleLocator(2000.0))
   ax.yaxis.set_minor_locator(tick.MultipleLocator(500.0))
   ax.yaxis.set_major_formatter(tick.FuncFormatter(v_1Daxis_fmt))
 
-def plot_var_xz(v, fig_title, vmin, vmax, cnt_levels, png_name):
+def plot_var_xz(v, fig_title, vmin, vmax, vint, cnt_levels, png_name):
   x = v.coords["lon"]
   z = v.coords["z"]
 
   X, Z = np.meshgrid(x,z)
-  fig = plt.figure(figsize=(15,10)) 
+  fig = plt.figure(figsize=(9,6)) 
   ax = fig.add_subplot(1,1,1)
   set_fig_Xz_axis(ax)
-  ax.set_title(fig_title, fontsize=26)
+#  ax.set_title(fig_title, fontsize=24)
 
   print(f"output: {png_name} ..")
-  pcm = ax.pcolormesh(X, Z, v.values, vmin=vmin, vmax=vmax, cmap='jet')
+  lv = np.linspace(vmin,vmax,int((vmax-vmin)/vint)+1)
+  print(lv)
+  pcm = ax.contourf(X, Z, v.values, levels=lv, cmap='jet', extend="both")
   levels = cnt_levels[cnt_levels**2 > 5e-17**2]
 #  print(levels)
   cont = ax.contour(X, Z, v.values, levels=levels, colors=['black'])  
@@ -69,12 +71,12 @@ def plot_var_xz(v, fig_title, vmin, vmax, cnt_levels, png_name):
   cont = ax.contour(X, Z, v.values, levels=[0.0], colors=['lightgreen'], linewidths=2.0)  
 
 #  fmt = tick.ScalarFormatter(useMathText=True)
-  cbar = plt.colorbar(pcm, aspect=50.0, 
-                      extend='both', shrink=0.8, orientation='horizontal', pad=0.12)
-  cbar.ax.ticklabel_format(style='sci', scilimits=(-3,3))
-  cbar.formatter.set_useMathText(True)
-  cbar.ax.xaxis.get_offset_text().set(size=16) 
-  cbar.ax.tick_params(labelsize=20)
+  cbar = plt.colorbar(pcm, aspect=60.0, 
+                      extend='both', shrink=0.9, orientation='horizontal', pad=0.14)
+#  cbar.set_ticks(np.linspace(np.floor(vmin), np.ceil(vmax), num=5, endpoint=True))
+  cbar.ax.ticklabel_format(style='sci', scilimits=(-3,3), useMathText=True)
+  cbar.ax.xaxis.get_offset_text().set(size=14) 
+  cbar.ax.tick_params(labelsize=14)
 
   plt.savefig(png_name)
 
@@ -100,31 +102,40 @@ vars["PT_dash"] = rhot_hyd / vars["DENS_hyd"] * ( ( 1.0 + vars["THERM"] / rhot_h
 for tsec in [43200]:
 
     levels = np.arange(-5e-3, 5e-3+5e-4, 5e-4)    
-    plot_var_xz(vars["PT_dash"].sel(lat=0, time=tsec)[:,0,:], 'Potential temperature perturbation [K]', -3.5e-3, 3.5e-3, levels,  f"{dist_dir}/PTdash_t{tsec}sec.png")
+    plot_var_xz(vars["PT_dash"].sel(lat=0, time=tsec)[:,0,:], 'Potential temperature perturbation [K]', 
+                -3.5e-3, 3.5e-3, 1e-4, levels,  f"{dist_dir}/PTdash_t{tsec}sec.pdf")
     
     levels = np.arange(-8e-3, 8e-3+1e-3, 1e-3)    
-    plot_var_xz(vars["Umet"].sel(lat=0, time=tsec)[:,0,:], 'Zonal wind [m/s]', -8e-3, 8e-3, levels,  f"{dist_dir}/Umet_t{tsec}sec.png")
+    plot_var_xz(vars["Umet"].sel(lat=0, time=tsec)[:,0,:], 'Zonal wind [m/s]', 
+                -8e-3, 8e-3, 2e-4, levels,  f"{dist_dir}/Umet_t{tsec}sec.pdf")
     
     levels = np.arange(-3e-5, 3e-5+2e-6, 2e-6)    
-    plot_var_xz(vars["W"].sel(lat=0, time=tsec)[:,0,:], 'Vertical wind [m/s]', -2e-5, 2e-5, levels,  f"{dist_dir}/W_t{tsec}sec.png")
+    plot_var_xz(vars["W"].sel(lat=0, time=tsec)[:,0,:], 'Vertical wind [m/s]',
+                -2.5e-5, 2.5e-5, 5e-7, levels,  f"{dist_dir}/W_t{tsec}sec.pdf")
 
 for tsec in [86400]:
     
     levels = np.arange(-2.5e-3, 2.5e-3+2.5e-4, 2.5e-4)    
-    plot_var_xz(vars["PT_dash"].sel(lat=0, time=tsec)[:,0,:], 'Potential temperature perturbation [K]', -3e-3, 3e-3, levels,  f"{dist_dir}/PTdash_t{tsec}sec.png")
+    plot_var_xz(vars["PT_dash"].sel(lat=0, time=tsec)[:,0,:], 'Potential temperature perturbation [K]', 
+                -3e-3, 3e-3, 1e-4, levels,  f"{dist_dir}/PTdash_t{tsec}sec.pdf")
     
     levels = np.arange(-6e-3, 6e-3+1e-3, 1e-3)    
-    plot_var_xz(vars["Umet"].sel(lat=0, time=tsec)[:,0,:], 'Zonal wind [m/s]', -4e-3, 4e-3, levels,  f"{dist_dir}/Umet_t{tsec}sec.png")
+    plot_var_xz(vars["Umet"].sel(lat=0, time=tsec)[:,0,:], 'Zonal wind [m/s]', 
+                -4e-3, 4e-3, 2e-4, levels,  f"{dist_dir}/Umet_t{tsec}sec.pdf")
     
     levels = np.arange(-2e-5, 2e-5+1e-6, 1e-6)    
-    plot_var_xz(vars["W"].sel(lat=0, time=tsec)[:,0,:], 'Vertical wind [m/s]', -2e-5, 2e-5, levels,  f"{dist_dir}/W_t{tsec}sec.png")
+    plot_var_xz(vars["W"].sel(lat=0, time=tsec)[:,0,:], 'Vertical wind [m/s]',
+                -2e-5, 2e-5, 2e-7, levels,  f"{dist_dir}/W_t{tsec}sec.pdf")
 
 for tsec in [129600, 172800]:    
     levels = np.arange(-2.5e-3, 2.5e-3+2.5e-4, 2.5e-4)    
-    plot_var_xz(vars["PT_dash"].sel(lat=0, time=tsec)[:,0,:], 'Potential temperature perturbation [K]', -3e-3, 3e-3, levels,  f"{dist_dir}/PTdash_t{tsec}sec.png")
+    plot_var_xz(vars["PT_dash"].sel(lat=0, time=tsec)[:,0,:], 'Potential temperature perturbation [K]', 
+                -3e-3, 3e-3, 1e-4, levels,  f"{dist_dir}/PTdash_t{tsec}sec.pdf")
   
     levels = np.arange(-6e-3, 6e-3+1e-3, 1e-3)    
-    plot_var_xz(vars["Umet"].sel(lat=0, time=tsec)[:,0,:], 'Zonal wind [m/s]', -4e-3, 4e-3, levels,  f"{dist_dir}/Umet_t{tsec}sec.png")
+    plot_var_xz(vars["Umet"].sel(lat=0, time=tsec)[:,0,:], 'Zonal wind [m/s]',
+                -4e-3, 4e-3, 2e-4, levels,  f"{dist_dir}/Umet_t{tsec}sec.pdf")
     
-    levels = np.arange(-2e-5, 2e-5+1e-6, 1e-6)        
-    plot_var_xz(vars["W"].sel(lat=0, time=tsec)[:,0,:], 'Vertical wind [m/s]', -2e-5, 2e-5, levels,  f"{dist_dir}/W_t{tsec}sec.png")
+    levels = np.arange(-1.8e-5, 1.8e-5+1e-6, 1e-6)        
+    plot_var_xz(vars["W"].sel(lat=0, time=tsec)[:,0,:], 'Vertical wind [m/s]', 
+                -1.8e-5, 1.8e-5, 5e-7, levels,  f"{dist_dir}/W_t{tsec}sec.pdf")

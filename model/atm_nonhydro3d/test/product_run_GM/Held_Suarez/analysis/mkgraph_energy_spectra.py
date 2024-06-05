@@ -21,8 +21,8 @@ TARGET_RUNDIR_NO_LIST = {
 }
 EXP_ref="Eh48Ez32P7"
 
-PRES_INTERP=250e2; Y_lim = [1e-4,1e3]; Y_comps_lim = [8e-2,.14e1]; SLOPE_m3_ampl=2.5e5; SLOPE_m5div3_ampl=1e2
-#PRES_INTERP=850e2; Y_lim = [.5e-4,2e2]; Y_comps_lim = [1e-1,.2e1]; SLOPE_m3_ampl=4.5e4; SLOPE_m5div3_ampl=2.5e1
+#PRES_INTERP=250e2; Y_lim = [1e-4,1e3]; Y_comps_lim = [8e-2,.14e1]; SLOPE_m3_ampl=2.5e5; SLOPE_m5div3_ampl=1e2
+PRES_INTERP=850e2; Y_lim = [.5e-4,2e2]; Y_comps_lim = [1e-1,.2e1]; SLOPE_m3_ampl=4.5e4; SLOPE_m5div3_ampl=2.5e1
 
 LMAX_list = {
 #    "Eh12Ez8P3": 64, "Eh24Ez16P3": 128,
@@ -163,7 +163,7 @@ for exp_list_key, exp_list in EXP_listlist.items():
 
     for exp in exp_list:
         runno_list = TARGET_RUNDIR_NO_LIST[exp]
-        hke_spectra_tavg_list[exp], vke_spectra_tavg_list[exp] = cal_kinetic_energy(exp, runno_list[0], runno_list[-1])
+        hke_spectra_tavg_list[exp], vke_spectra_tavg_list[exp] = cal_kinetic_energy(f"rhot_hevi/{exp}", runno_list[0], runno_list[-1])
 
     hke_spectra_tavg_listlist.append(hke_spectra_tavg_list)
     vke_spectra_tavg_listlist.append(vke_spectra_tavg_list)
@@ -172,8 +172,8 @@ for exp_list_key, exp_list in EXP_listlist.items():
 os.makedirs(f"{ANALYSIS_OUT_DIR}/energy_spectra", exist_ok=True)
 mkgraph( hke_spectra_tavg_listlist, vke_spectra_tavg_listlist, 
         SLOPE_m3_ampl, SLOPE_m5div3_ampl, 
-        f"{ANALYSIS_OUT_DIR}/energy_spectra/KE_spectra_p{int(PRES_INTERP/1e2)}hPa_compari.png")
+        f"{ANALYSIS_OUT_DIR}/energy_spectra/KE_spectra_p{int(PRES_INTERP/1e2)}hPa_compari.pdf")
 
 mkgraph_compensate( hke_spectra_tavg_listlist, vke_spectra_tavg_listlist, 
         SLOPE_m3_ampl, SLOPE_m5div3_ampl, 
-        f"{ANALYSIS_OUT_DIR}/energy_spectra/KE_compensated_spectra_p{int(PRES_INTERP/1e2)}hPa_compari.png")
+        f"{ANALYSIS_OUT_DIR}/energy_spectra/KE_compensated_spectra_p{int(PRES_INTERP/1e2)}hPa_compari.pdf")

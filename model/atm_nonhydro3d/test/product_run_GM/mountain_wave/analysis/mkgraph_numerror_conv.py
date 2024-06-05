@@ -72,7 +72,7 @@ mncs.mkgraph_num_convergence(
   [slope_dof, slope_dof, slope_dof],  
   [slope_L1_list, slope_L2_list, slope_Linf_list], 
   [f"L1 error", f"L2 error", f"Linf error"], 
-  [l1_ylim, l2_ylim, linf_ylim], f"{OUT_DIR}/numerror_{varname}_t2hr.png" )
+  [l1_ylim, l2_ylim, linf_ylim], f"{OUT_DIR}/numerror_{varname}_t2hr.pdf" )
 
 # W --------
 varname="W"
@@ -116,7 +116,7 @@ mncs.mkgraph_num_convergence(
   [slope_dof, slope_dof, slope_dof],  
   [slope_L1_list, slope_L2_list, slope_Linf_list], 
   [f"L1 error", f"L2 error", f"Linf error"], 
-  [l1_ylim, l2_ylim, linf_ylim], f"{OUT_DIR}/numerror_{varname}_t2hr.png" )
+  [l1_ylim, l2_ylim, linf_ylim], f"{OUT_DIR}/numerror_{varname}_t2hr.pdf" )
 
 # DDENS --------
 varname="DDENS"
@@ -160,7 +160,7 @@ mncs.mkgraph_num_convergence(
   [slope_dof, slope_dof, slope_dof],  
   [slope_L1_list, slope_L2_list, slope_Linf_list], 
   [f"L1 error", f"L2 error", f"Linf error"], 
-  [l1_ylim, l2_ylim, linf_ylim], f"{OUT_DIR}/numerror_{varname}_t2hr.png" )
+  [l1_ylim, l2_ylim, linf_ylim], f"{OUT_DIR}/numerror_{varname}_t2hr.pdf" )
 
 # DRHOT --------
 varname="DRHOT"
@@ -206,4 +206,4 @@ mncs.mkgraph_num_convergence(
   [slope_dof, slope_dof, slope_dof],  
   [slope_L1_list, slope_L2_list, slope_Linf_list], 
   [f"L1 error", f"L2 error", f"Linf error"], 
-  [l1_ylim, l2_ylim, linf_ylim], f"{OUT_DIR}/numerror_{varname}_t2hr.png" )
+  [l1_ylim, l2_ylim, linf_ylim], f"{OUT_DIR}/numerror_{varname}_t2hr.pdf" )

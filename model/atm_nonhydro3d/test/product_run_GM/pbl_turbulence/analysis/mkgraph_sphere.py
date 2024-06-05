@@ -12,8 +12,7 @@ import joblib
 TOP_EXP_DIR="./rp3.4km/Eh64Ez34P7_deepatm"
 OUT_DIR=f"analysis_out/anim/{TOP_EXP_DIR}/"
 
-RUN_NO_S=1
-RUN_NO_E=8
+RUN_NO_S=8; RUN_NO_E=8
 StartTimeSec=0
 TimePerRun = 1800
 TimeInterval=300
@@ -27,14 +26,19 @@ def open_tmp_nc(dir, varname):
   return xr.open_mfdataset(f'{dir}/history.pe*.nc', decode_times=False, combine='by_coords')[varname]
 
 
-def gen_graph_sub(fig, ax_list, X, Y, vmin, vmax, var, time, time_ind, png_name):
+def gen_graph_sub(fig, ax_list, X, Y, vmin, vmax, vint, var, time, time_ind, png_name):
   print("time="+str(time[time_ind]))
 
+  lv = np.linspace(vmin,vmax,int((vmax-vmin)/vint)+1)
   for ax in ax_list:
     cax = ax.pcolormesh(X, Y, var,
         vmin=vmin, vmax=vmax, 
         cmap = "jet", transform=ccrs.PlateCarree(), 
-    )
+    )    
+    # cax = ax.contourf(X, Y, var,
+    #     levels=lv, 
+    #     cmap = "jet", transform=ccrs.PlateCarree(), 
+    # )
     fig.colorbar(cax, ax=ax, shrink=0.62)
         
     # title = ax.text(150.0, 3100, "time="+str(time.values[time_ind]) + " [s]", backgroundcolor="white", size="large")
@@ -43,16 +47,16 @@ def gen_graph_sub(fig, ax_list, X, Y, vmin, vmax, var, time, time_ind, png_name)
     ax.autoscale_view()
   plt.savefig(png_name)
   
-def gen_graph(var_list, vmin, vmax, anim_file):
+def gen_graph(var_list, vmin, vmax, vint, anim_file):
   X, Y = np.meshgrid(var_list[0].lon.values, var_list[0].lat.values)
   plt.subplots_adjust(wspace=0.1, hspace=0.1)
 
   istart=0
-  itime_offset = 0
+  itime_offset = int((RUN_NO_S-1)*1800/TimeInterval)
 
   for var in var_list:
     time_ = var.time
-    time = np.arange(time_[0],time_[0]+1830,300)
+    time = np.arange(time_[0],time_[0]+1830,TimeInterval)
     print(time)
     print(itime_offset)
     
@@ -79,15 +83,15 @@ def gen_graph(var_list, vmin, vmax, anim_file):
           gl.xlocator = mticker.FixedLocator(np.arange(-180, 180, 30))
           gl.ylocator = mticker.FixedLocator(np.arange(-90, 90, 30))
 
-        out_png = f"{anim_file}_t{itime_offset+time_ind:06}.png"
+        out_png = f"{anim_file}_t{itime_offset+time_ind:06}.pdf"
         print(out_png)
-        gen_graph_sub( fig, [ax1, ax2, ax3, ax4], X, Y, vmin, vmax, 
+        gen_graph_sub( fig, [ax1, ax2, ax3, ax4], X, Y, vmin, vmax, vint, 
                       var.sel(time=time[time_ind]).values, time, time_ind, 
                       out_png )
       # result = joblib.Parallel(n_jobs=1)(joblib.delayed(gen_graph_sub) 
       #   ( fig, [ax1, ax2, ax3, ax4], X, Y, vmin, vmax, 
       #                 var.isel(time=time_ind).values, time, time_ind, 
-      #                 f"{anim_file}_t{itime_offset+time_ind:06}.png" ) for time_ind in range(istart,len(time.values)))
+      #                 f"{anim_file}_t{itime_offset+time_ind:06}.pdf" ) for time_ind in range(istart,len(time.values)))
     
     itime_offset = itime_offset + len(time) - 1
     istart=1
@@ -113,4 +117,4 @@ for runno in range(RUN_NO_S,RUN_NO_E+1):
   dir_list.append(f"{TOP_EXP_DIR}/run{runno}/outdata")
 
 os.makedirs(OUT_DIR, exist_ok=True)
-gen_graph(get_var_list("W", dir_list), -1.5, 1.5, f'{OUT_DIR}/Wsphere')
+gen_graph(get_var_list("W", dir_list), -1.5, 1.5, 0.1, f'{OUT_DIR}/Wsphere')
