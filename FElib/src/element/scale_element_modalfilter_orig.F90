@@ -151,10 +151,6 @@ contains
 
     real(RP) :: filter1D_h(elem%Nnode_h1D)
     real(RP) :: filter1D_v(elem%Nnode_v)
-    !--- for 3 direction
-    !--- should create 1D_h and 1D_v, just for simplicity
-    type(LineElement) :: elem1D
-    !--- end
     integer :: p1, p2, p3
     integer :: l
     logical :: tend_flag_
@@ -171,39 +167,19 @@ contains
       etac_v, alpha_v, ord_V, elem%Nnode_v, elem%PolyOrder_v,  & ! (in)
       tend_flag_ )                                               ! (in)
 
-    ! -- original method
-    !allocate( this%FilterMat(elem%Np,elem%Np) )
-    !this%FilterMat(:,:) = 0.0_RP
-
-    !do p3=1, elem%Nnode_v
-    !do p2=1, elem%Nnode_h1D
-    !do p1=1, elem%Nnode_h1D
-    !  l = p1 + (p2-1)*elem%Nnode_h1D + (p3-1)*elem%Nnode_h1D**2
-    !  this%FilterMat(l,l) = filter1D_h(p1) * filter1D_h(p2) * filter1D_v(p3)
-    !end do  
-    !end do
-    !end do
-    !this%FilterMat(:,:) = matmul(this%FilterMat, elem%invV)
-    !this%FilterMat(:,:) = matmul(elem%V, this%FilterMat)
-
-    !--- init a line element
-    call elem1D%Init(elem%PolyOrder_h, .false.)
-
-    allocate( this%FilterMat(elem1D%Np,elem1D%Np) )
+    allocate( this%FilterMat(elem%Np,elem%Np) )
     this%FilterMat(:,:) = 0.0_RP
-
-    !--- assgin 1d filter to the matrix
-    do p1=1, elem1D%Np
-      this%FilterMat(p1,p1) = filter1D_h(p1)
+    do p3=1, elem%Nnode_v
+    do p2=1, elem%Nnode_h1D
+    do p1=1, elem%Nnode_h1D
+      l = p1 + (p2-1)*elem%Nnode_h1D + (p3-1)*elem%Nnode_h1D**2
+      this%FilterMat(l,l) = filter1D_h(p1) * filter1D_h(p2) * filter1D_v(p3)
+    end do  
     end do
-
-    this%FilterMat(:,:) = matmul(this%FilterMat, elem1D%invV)
-    this%FilterMat(:,:) = matmul(elem1D%V, this%FilterMat)
-
-    !-- clean up
-
-    call elem1D%Final()
-
+    end do
+    this%FilterMat(:,:) = matmul(this%FilterMat, elem%invV)
+    this%FilterMat(:,:) = matmul(elem%V, this%FilterMat)
+    
     return
   end subroutine ModalFilter_Init_hexahedral
 
