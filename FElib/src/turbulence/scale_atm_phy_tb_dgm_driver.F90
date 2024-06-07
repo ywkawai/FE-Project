@@ -546,7 +546,6 @@ contains
     do n=1, mesh3D%LOCAL_MESH_NUM
       !- Apply boundary conditions for stress tensor
       call PROF_rapstart('ATM_PHY_TB_bnd', 2)
-      allocate( bnd_info(n)%is_bound(lcmesh3D%refElem3D%NfpTot,lcmesh3D%Ne) )
       call boundary_cond%ApplyBC_Grad_TBStress_lc( n, &
         T11%local(n)%val, T12%local(n)%val, T13%local(n)%val,                                                            & ! (inout)
         T21%local(n)%val, T22%local(n)%val, T23%local(n)%val,                                                            & ! (inout)
