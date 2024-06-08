@@ -403,14 +403,12 @@ contains
       lcmesh3D => mesh3D%lcmesh_list(n)
 
       call this%boundary_cond%ApplyBC_PROGVARS_lc( n, & ! (in)
-        DDENS_TRC%local(n)%val(:,:),                                                  & ! (inout)
-        MFLX_x_tavg%local(n)%val, MFLX_y_tavg%local(n)%val, MFLX_z_tavg%local(n)%val, & ! (inout)
-        THERM%local(n)%val,                                                           & ! (inout)
-        DENS_hyd%local(n)%val, PRES_hyd%local(n)%val,                                 & ! (in)
-        lcmesh3D%Gsqrt(:,:), lcmesh3D%GsqrtH(:,:), lcmesh3D%GI3(:,:,1), lcmesh3D%GI3(:,:,2),  & ! (in)
-        lcmesh3D%normal_fn(:,:,1), lcmesh3D%normal_fn(:,:,2), lcmesh3D%normal_fn(:,:,3),    & ! (in)
-        lcmesh3D%vmapM, lcmesh3D%vmapP, lcmesh3D%vmapB,                                     & ! (in)
-        lcmesh3D, lcmesh3D%refElem3D, lcmesh3D%lcmesh2D, lcmesh3D%lcmesh2D%refElem2D          ) ! (in)
+        DDENS_TRC%local(n)%val(:,:), MFLX_x_tavg%local(n)%val, MFLX_y_tavg%local(n)%val, MFLX_z_tavg%local(n)%val, THERM%local(n)%val, & ! (inout)
+        DENS_hyd%local(n)%val, PRES_hyd%local(n)%val,                                                                                  & ! (in)
+        lcmesh3D%Gsqrt(:,:), lcmesh3D%GsqrtH(:,:), lcmesh3D%GIJ(:,:,1,1), lcmesh3D%GIJ(:,:,1,2), lcmesh3D%GIJ(:,:,2,2),                & ! (in)
+        lcmesh3D%GI3(:,:,1), lcmesh3D%GI3(:,:,2),                                                                                      & ! (in)
+        lcmesh3D%normal_fn(:,:,1), lcmesh3D%normal_fn(:,:,2), lcmesh3D%normal_fn(:,:,3),                                               & ! (in)
+        lcmesh3D%vmapM, lcmesh3D%vmapP, lcmesh3D%vmapB, lcmesh3D, lcmesh3D%refElem3D, lcmesh3D%lcmesh2D, lcmesh3D%lcmesh2D%refElem2D   ) ! (in)
     end do
     call PROF_rapend( 'ATM_DYN_applyBC_mflux', 3)
 

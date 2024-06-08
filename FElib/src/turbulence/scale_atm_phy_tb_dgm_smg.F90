@@ -535,13 +535,11 @@ contains
     real(RP) :: densM, densP
     real(RP) :: del
     real(RP) :: facx, facy, facz
-
-    real(RP) :: MOMZ_P
     !------------------------------------------------------------------------
     
     !$omp parallel do private ( iM, iP,   &
     !$omp densM, densP,                   &
-    !$omp del, facx, facy, facz, MOMZ_P   )
+    !$omp del, facx, facy, facz           )
     do i=1, elem%NfpTot * lmesh%Ne
       iM = vmapM(i); iP = vmapP(i)
 
@@ -552,7 +550,6 @@ contains
         facx = 1.0_RP
         facy = 1.0_RP 
         facz = 1.0_RP
-        MOMZ_P = - MOMZ_(iM)
       else
         ! facx = 1.0_RP - sign(1.0_RP,nx(i))
         ! facy = 1.0_RP - sign(1.0_RP,ny(i))
@@ -560,7 +557,6 @@ contains
         facx = 1.0_RP
         facy = 1.0_RP
         facz = 1.0_RP
-        MOMZ_P = MOMZ_(iP)
       end if
 
       del = 0.5_RP * ( densP - densM )
@@ -578,7 +574,7 @@ contains
       del_flux_mom(i,2,2) = facy * del * ny(i)
       del_flux_mom(i,3,2) = facz * del * nz(i)
 
-      del = 0.5_RP * ( MOMZ_P - MOMZ_(iM) )
+      del = 0.5_RP * ( MOMZ_(iP) - MOMZ_(iM) )
       del_flux_mom(i,1,3) = facx * del * nx(i)
       del_flux_mom(i,2,3) = facy * del * ny(i)
       del_flux_mom(i,3,3) = facz * del * nz(i)
@@ -914,18 +910,11 @@ contains
       TauM_z = T31(iM) * nx_ + T32(iM) * ny_ + T33(iM) * nz_
       TauP_z = T31(iP) * nx_ + T32(iP) * ny_ + T33(iP) * nz_
 
-      if ( is_bound(i) )  then
-        del_flux_mom(i,1) = - TauM_x
-        del_flux_mom(i,2) = - TauM_y
-        del_flux_mom(i,3) = 0.5_RP * ( TauP_z - TauM_z )
-        del_flux_rhot(i)  = - densM * ( DF1(iM) * nx(i) + DF2(iM) * ny(i) + DF3(iM) * nz(i) )
-      else        
-        del_flux_mom(i,1) = 0.5_RP * ( TauP_x - TauM_x )
-        del_flux_mom(i,2) = 0.5_RP * ( TauP_y - TauM_y )
-        del_flux_mom(i,3) = 0.5_RP * ( TauP_z - TauM_z )
-        del_flux_rhot(i)  = 0.5_RP * ( densP * ( DF1(iP) * nx_ + DF2(iP) * ny_ + DF3(iP) * nz_ ) &
-                                     - densM * ( DF1(iM) * nx_ + DF2(iM) * ny_ + DF3(iM) * nz_ ) )
-      end if
+      del_flux_mom(i,1) = 0.5_RP * ( TauP_x - TauM_x )
+      del_flux_mom(i,2) = 0.5_RP * ( TauP_y - TauM_y )
+      del_flux_mom(i,3) = 0.5_RP * ( TauP_z - TauM_z )
+      del_flux_rhot(i)  = 0.5_RP * ( densP * ( DF1(iP) * nx_ + DF2(iP) * ny_ + DF3(iP) * nz_ ) &
+                                   - densM * ( DF1(iM) * nx_ + DF2(iM) * ny_ + DF3(iM) * nz_ ) )
     end do
 
     return
@@ -981,12 +970,8 @@ contains
         nz_ = nz(i)
       end if
 
-      if ( is_bound(i) )  then
-        del_flux(i)  = - densM * ( DFQ1(iM) * nx(i) + DFQ2(iM) * ny(i) + DFQ3(iM) * nz(i) )
-      else        
-        del_flux(i)  = 0.5_RP * ( densP * ( DFQ1(iP) * nx_ + DFQ2(iP) * ny_ + DFQ3(iP) * nz_ ) &
-                                - densM * ( DFQ1(iM) * nx_ + DFQ2(iM) * ny_ + DFQ3(iM) * nz_ ) )
-      end if
+      del_flux(i)  = 0.5_RP * ( densP * ( DFQ1(iP) * nx_ + DFQ2(iP) * ny_ + DFQ3(iP) * nz_ ) &
+                              - densM * ( DFQ1(iM) * nx_ + DFQ2(iM) * ny_ + DFQ3(iM) * nz_ ) )
     end do
 
     return
