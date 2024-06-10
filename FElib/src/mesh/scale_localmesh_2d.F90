@@ -1,3 +1,11 @@
+!-------------------------------------------------------------------------------
+!> module FElib / Mesh / Local 2D
+!!
+!! @par Description
+!!      Module to mangage 2D local mesh for element-based methods
+!!
+!! @author Yuta Kawai, Team SCALE
+!<
 #include "scaleFElib.h"
 module scale_localmesh_2d
 
@@ -8,7 +16,7 @@ module scale_localmesh_2d
   use scale_precision
   use scale_localmesh_base, only: &
     LocalMeshBase, LocalMeshBase_Init, LocalMeshBase_Final
-  use scale_element_base, only: elementbase, elementbase2D
+  use scale_element_base, only: ElementBase, ElementBase2D
 
   !-----------------------------------------------------------------------------
   implicit none
@@ -47,6 +55,7 @@ module scale_localmesh_2d
   !
 
 contains
+!OCL SERIAL
   subroutine LocalMesh2D_Init( this, &
     lcdomID, refElem, myrank )
     
@@ -64,6 +73,7 @@ contains
     return
   end subroutine LocalMesh2D_Init
 
+!OCL SERIAL
   subroutine LocalMesh2D_Final( this, is_generated )
     implicit none
     type(LocalMesh2D), intent(inout) :: this

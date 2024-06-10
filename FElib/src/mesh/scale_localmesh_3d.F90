@@ -1,3 +1,11 @@
+!-------------------------------------------------------------------------------
+!> module FElib / Mesh / Local 3D
+!!
+!! @par Description
+!!      Module to mangage 3D local mesh for element-based methods
+!!
+!! @author Yuta Kawai, Team SCALE
+!<
 #include "scaleFElib.h"
 module scale_localmesh_3d
 
@@ -9,7 +17,7 @@ module scale_localmesh_3d
   use scale_localmesh_base, only: &
     LocalMeshBase, LocalMeshBase_Init, LocalMeshBase_Final
   use scale_localmesh_2d, only: LocalMesh2D
-  use scale_element_base, only: elementbase, elementbase3D
+  use scale_element_base, only: ElementBase, ElementBase3D
 
   !-----------------------------------------------------------------------------
   implicit none
@@ -65,7 +73,7 @@ module scale_localmesh_3d
   !
 
 contains
-
+!OCL SERIAL
   subroutine LocalMesh3D_Init( this, &
     lcdomID, refElem, myrank )
     implicit none
@@ -84,6 +92,7 @@ contains
     return
   end subroutine LocalMesh3D_Init
 
+!OCL SERIAL
   subroutine LocalMesh3D_Final( this, is_generated )
     implicit none
     type(LocalMesh3D), intent(inout) :: this
@@ -103,6 +112,7 @@ contains
     return
   end subroutine LocalMesh3D_Final
   
+!OCL SERIAL
   subroutine LocalMesh3D_setLocalMesh2D( this, lcmesh2D )
     implicit none
     class(LocalMesh3D), intent(inout) :: this

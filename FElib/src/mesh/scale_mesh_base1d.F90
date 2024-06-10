@@ -1,3 +1,11 @@
+!-------------------------------------------------------------------------------
+!> module FElib / Mesh / Base 1D
+!!
+!! @par Description
+!!      Base module to mangage 1D meshes for element-based methods
+!!
+!! @author Yuta Kawai, Team SCALE
+!<
 #include "scaleFElib.h"
 module scale_mesh_base1d
 
@@ -14,7 +22,7 @@ module scale_mesh_base1d
     MeshBase_Init, MeshBase_Final, &
     MeshBase_setGeometricInfo
   
-  use scale_element_base, only: elementbase1d
+  use scale_element_base, only: ElementBase1D
   use scale_element_line, only: LineElement
 
   !-----------------------------------------------------------------------------
@@ -25,36 +33,36 @@ module scale_mesh_base1d
   !
   !++ Public type & procedure
   ! 
-  type, abstract, public, extends(MeshBase) :: Meshbase1d
+  type, abstract, public, extends(MeshBase) :: MeshBase1D
     type(LocalMesh1D), allocatable :: lcmesh_list(:)
-    class(elementbase1D), pointer :: refElem1D
+    class(ElementBase1D), pointer :: refElem1D
     
     integer, public :: NeG
     integer, public :: Nprc
     real(RP), public :: xmin_gl, xmax_gl
     real(RP), public, allocatable :: FX(:)
   contains
-    procedure(Meshbase1d_generate), deferred :: Generate 
+    procedure(MeshBase1D_generate), deferred :: Generate 
     procedure :: GetLocalMesh => MeshBase1D_get_localmesh
-  end type Meshbase1d
+  end type MeshBase1D
 
   interface 
-    subroutine Meshbase1d_generate(this)
-      import Meshbase1d
-      class(Meshbase1d), intent(inout), target :: this
-    end subroutine Meshbase1d_generate
+    subroutine MeshBase1D_generate(this)
+      import MeshBase1D
+      class(MeshBase1D), intent(inout), target :: this
+    end subroutine MeshBase1D_generate
   end interface
 
-  public :: Meshbase1d_Init, Meshbase1d_Final
-  public :: Meshbase1d_setGeometricInfo, Meshbase1D_assignDomID, MeshBase1D_setupLocalDom
+  public :: MeshBase1D_Init, MeshBase1D_Final
+  public :: MeshBase1D_setGeometricInfo, MeshBase1D_assignDomID, MeshBase1D_setupLocalDom
 
   !-----------------------------------------------------------------------------
   !
   !++ Public parameters & variables
   !
-  integer, public :: MeshBase1D_DIMTYPE_NUM   = 2
-  integer, public :: MeshBase1D_DIMTYPEID_X   = 1
-  integer, public :: MeshBase1D_DIMTYPEID_XT  = 2
+  integer, public :: MESHBASE1D_DIMTYPE_NUM   = 2
+  integer, public :: MESHBASE1D_DIMTYPEID_X   = 1
+  integer, public :: MESHBASE1D_DIMTYPEID_XT  = 2
   
   !-----------------------------------------------------------------------------
   !
@@ -67,7 +75,8 @@ module scale_mesh_base1d
   !
 
 contains
-  subroutine Meshbase1d_Init( this,         &
+!OCL SERIAL
+  subroutine MeshBase1D_Init( this,         &
     NeG,                                    &
     dom_xmin, dom_xmax,                     &
     refElem, NLocalMeshPerPrc,              &
@@ -75,11 +84,11 @@ contains
     
     implicit none
 
-    class(Meshbase1d), intent(inout) :: this
+    class(MeshBase1D), intent(inout) :: this
     integer, intent(in) :: NeG
     real(RP), intent(in) :: dom_xmin
     real(RP), intent(in) :: dom_xmax   
-    class(elementbase1d), intent(in), target :: refElem
+    class(ElementBase1D), intent(in), target :: refElem
     integer, intent(in) :: NLocalMeshPerPrc
     integer, intent(in), optional :: nprocs
     integer, intent(in), optional :: myrank
@@ -110,7 +119,7 @@ contains
 
     this%refElem1D => refElem
     call MeshBase_Init( this,          &
-      MeshBase1D_DIMTYPE_NUM, refElem, &
+      MESHBASE1D_DIMTYPE_NUM, refElem, &
       NLocalMeshPerPrc, 2,             &
       nprocs                           )
 
@@ -121,15 +130,16 @@ contains
       call LocalMesh1D_Init( this%lcmesh_list(n), n, refElem, myrank )
     end do
 
-    call this%SetDimInfo( MeshBase1D_DIMTYPEID_X, "x", "m", "X-coordinate" )
-    call this%SetDimInfo( MeshBase1D_DIMTYPEID_XT, "xt", "m", "X-coordinate" )
+    call this%SetDimInfo( MESHBASE1D_DIMTYPEID_X, "x", "m", "X-coordinate" )
+    call this%SetDimInfo( MESHBASE1D_DIMTYPEID_XT, "xt", "m", "X-coordinate" )
 
     return
-  end subroutine Meshbase1d_Init
+  end subroutine MeshBase1D_Init
 
-  subroutine Meshbase1d_Final( this )
+!OCL SERIAL
+  subroutine MeshBase1D_Final( this )
     implicit none    
-    class(Meshbase1d), intent(inout) :: this
+    class(MeshBase1D), intent(inout) :: this
 
     integer :: n
     !-----------------------------------------------------------------------------
@@ -145,8 +155,9 @@ contains
     call MeshBase_Final(this)
 
     return
-  end subroutine Meshbase1d_Final
+  end subroutine MeshBase1D_Final
   
+!OCL SERIAL
   subroutine MeshBase1D_get_localmesh( this, id, ptr_lcmesh )
     use scale_localmesh_base, only: LocalMeshBase
     implicit none
@@ -160,13 +171,14 @@ contains
     return
   end subroutine MeshBase1D_get_localmesh
 
-  subroutine Meshbase1d_setGeometricInfo( lcmesh )
+!OCL SERIAL
+  subroutine MeshBase1D_setGeometricInfo( lcmesh )
     implicit none
     
     type(LocalMesh1D), intent(inout) :: lcmesh
 
-    class(Elementbase1D), pointer :: refElem
-    integer :: n
+    class(ElementBase1D), pointer :: refElem
+    integer :: ke
     integer :: f
     integer :: i
 
@@ -189,15 +201,15 @@ contains
     end do
     end do
   
-    do n=1, lcmesh%Ne
-      node_ids(:) = lcmesh%EToV(n,:)
+    do ke=1, lcmesh%Ne
+      node_ids(:) = lcmesh%EToV(ke,:)
       vx(:) = lcmesh%pos_ev(node_ids(:),1)
-      lcmesh%pos_en(:,n,1) = vx(1) + 0.5_RP*(refElem%x1(:) + 1.0_RP)*(vx(2) - vx(1))
+      lcmesh%pos_en(:,ke,1) = vx(1) + 0.5_RP*(refElem%x1(:) + 1.0_RP)*(vx(2) - vx(1))
       
       xr(:) = 0.5_RP*(vx(2) - vx(1)) !matmul(refElem%Dr,mesh%x(:,n))
 
-      lcmesh%J(:,n) = xr
-      lcmesh%Escale(:,n,1,1) =   1.0_RP/lcmesh%J(:,n)
+      lcmesh%J(:,ke) = xr
+      lcmesh%Escale(:,ke,1,1) =   1.0_RP/lcmesh%J(:,ke)
 
       !* Face
 
@@ -206,17 +218,18 @@ contains
       !mesh%fy(:,n) = mesh%y(fmask(:),n)
 
       ! Calculate normal vectors
-      lcmesh%normal_fn(fid(:,1),n,1) = - 1.0_RP
-      lcmesh%normal_fn(fid(:,2),n,1) = + 1.0_RP
-      lcmesh%sJ(:,n) = 1.0_RP
-      lcmesh%Fscale(:,n) = lcmesh%sJ(:,n)/lcmesh%J(fmask(:),n)
-      lcmesh%Gsqrt(:,n) = 1.0_RP
+      lcmesh%normal_fn(fid(:,1),ke,1) = - 1.0_RP
+      lcmesh%normal_fn(fid(:,2),ke,1) = + 1.0_RP
+      lcmesh%sJ(:,ke) = 1.0_RP
+      lcmesh%Fscale(:,ke) = lcmesh%sJ(:,ke)/lcmesh%J(fmask(:),ke)
+      lcmesh%Gsqrt(:,ke) = 1.0_RP
     end do
 
     return
-  end subroutine Meshbase1d_setGeometricInfo
+  end subroutine MeshBase1D_setGeometricInfo
 
-  subroutine Meshbase1D_assignDomID( this, &
+!OCL SERIAL
+  subroutine MeshBase1D_assignDomID( this, &
     tileID_table, panelID_table,        &
     pi_table )
   
@@ -224,7 +237,7 @@ contains
       MeshUtil1D_buildGlobalMap
     implicit none
     
-    class(Meshbase1d), intent(inout) :: this    
+    class(MeshBase1D), intent(inout) :: this    
     integer, intent(out) :: tileID_table(this%LOCAL_MESH_NUM, this%PRC_NUM)
     integer, intent(out) :: panelID_table(this%LOCAL_MESH_NUM*this%PRC_NUM)
     integer, intent(out) :: pi_table(this%LOCAL_MESH_NUM*this%PRC_NUM)
@@ -250,8 +263,9 @@ contains
     end do
 
     return
-  end subroutine Meshbase1D_assignDomID
+  end subroutine MeshBase1D_assignDomID
 
+!OCL SERIAL
   subroutine MeshBase1D_setupLocalDom( lcmesh,  &
     tileID, panelID,                            &
     i, Nprc,                                    &

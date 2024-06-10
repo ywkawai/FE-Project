@@ -1,3 +1,11 @@
+!-------------------------------------------------------------------------------
+!> module FElib / Mesh / Base
+!!
+!! @par Description
+!!      Base module to mangage meshes for element-based methods
+!!
+!! @author Yuta Kawai, Team SCALE
+!<
 #include "scaleFElib.h"
 module scale_mesh_base
 
@@ -78,6 +86,7 @@ module scale_mesh_base
   !
 
 contains
+!OCL SERIAL
   subroutine MeshBase_Init( this, &
      ndimtype, refElem, NLocalMeshPerPrc, NsideTile, &
      nprocs                                          )
@@ -119,6 +128,7 @@ contains
     return
   end subroutine MeshBase_Init
 
+!OCL SERIAL
   subroutine MeshBase_Final( this )
     implicit none
     class(MeshBase), intent(inout) :: this
@@ -136,13 +146,14 @@ contains
     return
   end subroutine MeshBase_Final
 
+!OCL SERIAL
   subroutine MeshBase_setGeometricInfo( mesh, ndim )
     implicit none
     
     class(LocalMeshBase), intent(inout) :: mesh
     integer, intent(in) :: ndim
 
-    class(elementbase), pointer :: refElem
+    class(ElementBase), pointer :: refElem
     !-----------------------------------------------------------------------------
 
     refElem => mesh%refElem
@@ -162,7 +173,7 @@ contains
     return
   end subroutine MeshBase_setGeometricInfo
 
-
+!OCL SERIAL
   subroutine MeshBase_SetDimInfo( this, &
       dimID, name, unit, desc, positive_down )
     implicit none

@@ -1,3 +1,12 @@
+!-------------------------------------------------------------------------------
+!> module FElib / Mesh / utility for 2D cubed-sphere mesh
+!!
+!! @par Description
+!!          A module useful for generating 2D cubed-sphere mesh
+!!
+!! @author Yuta Kawai, Team SCALE
+!<
+!-------------------------------------------------------------------------------
 #include "scaleFElib.h"
 module scale_meshutil_cubedsphere2d
   !-----------------------------------------------------------------------------
