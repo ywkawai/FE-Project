@@ -1,3 +1,11 @@
+!-------------------------------------------------------------------------------
+!> module FElib / Mesh / Base 2D
+!!
+!! @par Description
+!!      Base module to mangage 2D meshes for element-based methods
+!!
+!! @author Yuta Kawai, Team SCALE
+!<
 #include "scaleFElib.h"
 module scale_mesh_base2d
 
@@ -13,7 +21,7 @@ module scale_mesh_base2d
   use scale_mesh_base, only: &
     MeshBase, MeshBase_Init, MeshBase_Final
     
-  use scale_element_base, only: elementbase2D
+  use scale_element_base, only: ElementBase2D
 
   !-----------------------------------------------------------------------------
   implicit none
@@ -25,7 +33,7 @@ module scale_mesh_base2d
   ! 
   type, abstract, public, extends(MeshBase) :: MeshBase2D
     type(LocalMesh2D), allocatable :: lcmesh_list(:)
-    type(elementbase2D), pointer :: refElem2D
+    type(ElementBase2D), pointer :: refElem2D
   contains
     procedure(MeshBase2D_generate), deferred :: Generate 
     procedure :: GetLocalMesh => MeshBase2D_get_localmesh
@@ -45,11 +53,11 @@ module scale_mesh_base2d
   !
   !++ Public parameters & variables
   !
-  integer, public :: MeshBase2D_DIMTYPE_NUM   = 4
-  integer, public :: MeshBase2D_DIMTYPEID_X   = 1
-  integer, public :: MeshBase2D_DIMTYPEID_Y   = 2
-  integer, public :: MeshBase2D_DIMTYPEID_XY  = 3
-  integer, public :: MeshBase2D_DIMTYPEID_XYT = 4
+  integer, public :: MESHBASE2D_DIMTYPE_NUM   = 4
+  integer, public :: MESHBASE2D_DIMTYPEID_X   = 1
+  integer, public :: MESHBASE2D_DIMTYPEID_Y   = 2
+  integer, public :: MESHBASE2D_DIMTYPEID_XY  = 3
+  integer, public :: MESHBASE2D_DIMTYPEID_XYT = 4
 
   !-----------------------------------------------------------------------------
   !
@@ -62,6 +70,7 @@ module scale_mesh_base2d
   !
 
 contains
+!OCL SERIAL
   subroutine MeshBase2D_Init(this, &
     refElem, NLocalMeshPerPrc,     &
     nprocs, myrank                 )
@@ -69,7 +78,7 @@ contains
     implicit none
 
     class(MeshBase2D), intent(inout) :: this
-    class(elementbase2D), intent(in), target :: refElem
+    class(ElementBase2D), intent(in), target :: refElem
     integer, intent(in) :: NLocalMeshPerPrc
     integer, intent(in), optional :: nprocs
     integer, intent(in), optional :: myrank
@@ -79,7 +88,7 @@ contains
     
     this%refElem2D => refElem
     call MeshBase_Init( this, &
-      MeshBase2D_DIMTYPE_NUM, refElem, &
+      MESHBASE2D_DIMTYPE_NUM, refElem, &
       NLocalMeshPerPrc, 4,             &
       nprocs                           )
 
@@ -88,14 +97,15 @@ contains
       call LocalMesh2D_Init( this%lcmesh_list(n), n, refElem, myrank )
     end do
 
-    call this%SetDimInfo( MeshBase2D_DIMTYPEID_X, "x", "m", "X-coordinate" )
-    call this%SetDimInfo( MeshBase2D_DIMTYPEID_Y, "y", "m", "Y-coordinate" )
-    call this%SetDimInfo( MeshBase2D_DIMTYPEID_XY, "xy", "m", "XY-coordinate" )
-    call this%SetDimInfo( MeshBase2D_DIMTYPEID_XYT, "xyt", "m", "XY-coordinate" )
+    call this%SetDimInfo( MESHBASE2D_DIMTYPEID_X, "x", "m", "X-coordinate" )
+    call this%SetDimInfo( MESHBASE2D_DIMTYPEID_Y, "y", "m", "Y-coordinate" )
+    call this%SetDimInfo( MESHBASE2D_DIMTYPEID_XY, "xy", "m", "XY-coordinate" )
+    call this%SetDimInfo( MESHBASE2D_DIMTYPEID_XYT, "xyt", "m", "XY-coordinate" )
 
     return
   end subroutine MeshBase2D_Init
 
+!OCL SERIAL
   subroutine MeshBase2D_Final( this )
     implicit none
     
@@ -116,6 +126,7 @@ contains
     return
   end subroutine MeshBase2D_Final
   
+!OCL SERIAL
   subroutine MeshBase2D_get_localmesh( this, id, ptr_lcmesh )
     use scale_localmesh_base, only: LocalMeshBase
     implicit none
@@ -129,6 +140,7 @@ contains
     return
   end subroutine MeshBase2D_get_localmesh
 
+!OCL SERIAL
   subroutine MeshBase2D_setGeometricInfo( lcmesh, coord_conv, calc_normal )
 
     implicit none
@@ -137,18 +149,18 @@ contains
     interface
       subroutine coord_conv( x, y, xr, xs, yr, ys, &
         vx, vy, elem )
-        import elementbase2D
+        import ElementBase2D
         import RP
-        type(elementbase2D), intent(in) :: elem
+        type(ElementBase2D), intent(in) :: elem
         real(RP), intent(out) :: x(elem%Np), y(elem%Np)
         real(RP), intent(out) :: xr(elem%Np), xs(elem%Np), yr(elem%Np), ys(elem%Np)
         real(RP), intent(in) :: vx(elem%Nv), vy(elem%Nv)        
       end subroutine coord_conv
       subroutine calc_normal( normal_fn, &
         Escale_f, fid, elem )
-        import elementbase2D
+        import ElementBase2D
         import RP
-        type(elementbase2D), intent(in) :: elem
+        type(ElementBase2D), intent(in) :: elem
         real(RP), intent(out) :: normal_fn(elem%NfpTot,2)
         integer, intent(in) :: fid(elem%Nfp,elem%Nfaces)
         real(RP), intent(in) :: Escale_f(elem%NfpTot,2,2)
@@ -156,7 +168,7 @@ contains
     end interface
 
     class(ElementBase2D), pointer :: refElem
-    integer :: n
+    integer :: ke
     integer :: f
     integer :: i, j
     integer :: d
@@ -193,20 +205,20 @@ contains
     end do
     end do
 
-    do n=1, lcmesh%Ne
-      node_ids(:) = lcmesh%EToV(n,:)
+    do ke=1, lcmesh%Ne
+      node_ids(:) = lcmesh%EToV(ke,:)
       vx(:) = lcmesh%pos_ev(node_ids(:),1)
       vy(:) = lcmesh%pos_ev(node_ids(:),2)
       call coord_conv( &
-        lcmesh%pos_en(:,n,1), lcmesh%pos_en(:,n,2), xr, xs, yr, ys, & ! (out)
+        lcmesh%pos_en(:,ke,1), lcmesh%pos_en(:,ke,2), xr, xs, yr, ys, & ! (out)
         vx, vy, refElem )                                             ! (in)
       
-      lcmesh%J(:,n) = - xs*yr + xr*ys
+      lcmesh%J(:,ke) = - xs*yr + xr*ys
 
-      lcmesh%Escale(:,n,1,1) =   ys/lcmesh%J(:,n)
-      lcmesh%Escale(:,n,1,2) = - xs/lcmesh%J(:,n)
-      lcmesh%Escale(:,n,2,1) = - yr/lcmesh%J(:,n)
-      lcmesh%Escale(:,n,2,2) =   xr/lcmesh%J(:,n)
+      lcmesh%Escale(:,ke,1,1) =   ys/lcmesh%J(:,ke)
+      lcmesh%Escale(:,ke,1,2) = - xs/lcmesh%J(:,ke)
+      lcmesh%Escale(:,ke,2,1) = - yr/lcmesh%J(:,ke)
+      lcmesh%Escale(:,ke,2,2) =   xr/lcmesh%J(:,ke)
       
       !* Face
       
@@ -217,20 +229,20 @@ contains
       ! Calculate normal vectors
       do j=1, 2
       do i=1, 2
-        Escale_f(:,i,j) = lcmesh%Escale(fmask(:),n,i,j)
+        Escale_f(:,i,j) = lcmesh%Escale(fmask(:),ke,i,j)
       end do
       end do
       
-      call calc_normal( lcmesh%normal_fn(:,n,:), & ! (out)
+      call calc_normal( lcmesh%normal_fn(:,ke,:), & ! (out)
         Escale_f, fid, refElem )                   ! (in)
       
-      lcmesh%sJ(:,n) = sqrt( lcmesh%normal_fn(:,n,1)**2 + lcmesh%normal_fn(:,n,2)**2 )
+      lcmesh%sJ(:,ke) = sqrt( lcmesh%normal_fn(:,ke,1)**2 + lcmesh%normal_fn(:,ke,2)**2 )
       do d=1, 2
-        lcmesh%normal_fn(:,n,d) = lcmesh%normal_fn(:,n,d)/lcmesh%sJ(:,n)
+        lcmesh%normal_fn(:,ke,d) = lcmesh%normal_fn(:,ke,d)/lcmesh%sJ(:,ke)
       end do
-      lcmesh%sJ(:,n) = lcmesh%sJ(:,n)*lcmesh%J(fmask(:),n)
+      lcmesh%sJ(:,ke) = lcmesh%sJ(:,ke)*lcmesh%J(fmask(:),ke)
 
-      lcmesh%Fscale(:,n) = lcmesh%sJ(:,n)/lcmesh%J(fmask(:),n)       
+      lcmesh%Fscale(:,ke) = lcmesh%sJ(:,ke)/lcmesh%J(fmask(:),ke)       
     end do
 
     !$omp parallel

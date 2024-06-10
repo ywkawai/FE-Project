@@ -30,7 +30,7 @@ module scale_file_common_meshfield
     MeshBase3D_DIMTYPEID_ZT,                                                 &
     MeshBase3D_DIMTYPEID_XY, MeshBase3D_DIMTYPEID_XYT,                       &
     MeshBase3D_DIMTYPEID_XYZ, MeshBase3D_DIMTYPEID_XYZT,                     &
-    MeshBase3D_DIMTYPE_NUM
+    MESHBASE3D_DIMTYPE_NUM
 
   use scale_mesh_rectdom2d, only: MeshRectDom2D
   use scale_mesh_cubedom3d, only: MeshCubeDom3D
@@ -851,7 +851,7 @@ contains
     implicit none
 
     class(MeshCubeDom3D), target, intent(in) :: mesh3D
-    type(FILE_common_meshfield_diminfo), intent(out) :: dimsinfo(MeshBase3D_DIMTYPE_NUM)
+    type(FILE_common_meshfield_diminfo), intent(out) :: dimsinfo(MESHBASE3D_DIMTYPE_NUM)
 
     type(LocalMesh3D), pointer :: lcmesh
     integer :: i, j, k, n
@@ -929,7 +929,7 @@ contains
     implicit none
 
     class(MeshCubedSphereDom3D), target, intent(in) :: mesh3D
-    type(FILE_common_meshfield_diminfo), intent(out) :: dimsinfo(MeshBase3D_DIMTYPE_NUM)
+    type(FILE_common_meshfield_diminfo), intent(out) :: dimsinfo(MESHBASE3D_DIMTYPE_NUM)
 
     type(LocalMesh3D), pointer :: lcmesh
     integer :: i, j, k, n
@@ -1011,7 +1011,7 @@ contains
     implicit none
 
     class(MeshCubeDom3D), target, intent(in) :: mesh3D  
-    type(FILE_common_meshfield_diminfo), intent(in) :: dimsinfo(MeshBase3D_DIMTYPE_NUM)
+    type(FILE_common_meshfield_diminfo), intent(in) :: dimsinfo(MESHBASE3D_DIMTYPE_NUM)
     real(DP), intent(out) :: x(dimsinfo(MeshBase3D_DIMTYPEID_X)%size)
     real(DP), intent(out) :: y(dimsinfo(MeshBase3D_DIMTYPEID_Y)%size)
     real(DP), intent(out) :: z(dimsinfo(MeshBase3D_DIMTYPEID_Z)%size)
@@ -1089,7 +1089,7 @@ contains
     implicit none
 
     class(MeshCubedSphereDom3D), target, intent(in) :: mesh3D  
-    type(FILE_common_meshfield_diminfo), intent(in) :: dimsinfo(MeshBase3D_DIMTYPE_NUM)
+    type(FILE_common_meshfield_diminfo), intent(in) :: dimsinfo(MESHBASE3D_DIMTYPE_NUM)
     real(DP), intent(out) :: x(dimsinfo(MeshBase3D_DIMTYPEID_X)%size)
     real(DP), intent(out) :: y(dimsinfo(MeshBase3D_DIMTYPEID_Y)%size)
     real(DP), intent(out) :: z(dimsinfo(MeshBase3D_DIMTYPEID_Z)%size)

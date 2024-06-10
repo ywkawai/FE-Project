@@ -44,13 +44,15 @@ module scale_atm_phy_tb_dgm_driver
 
   use scale_atm_dyn_dgm_bnd, only: AtmDynBnd
 
+  use scale_atm_phy_tb_dgm_dns, only: &
+    atm_phy_tb_dgm_dns_Init,          &
+    atm_phy_tb_dgm_dns_Final,         &
+    atm_phy_tb_dgm_dns_cal_grad
+
   use scale_atm_phy_tb_dgm_smg, only: &
     atm_phy_tb_dgm_smg_Init,          &
     atm_phy_tb_dgm_smg_Final,         &
-    atm_phy_tb_dgm_smg_cal_grad,      &
-    atm_phy_tb_dgm_smg_cal_tend,      &
-    atm_phy_tb_dgm_smg_cal_grad_qtrc, &
-    atm_phy_tb_dgm_smg_cal_tend_qtrc
+    atm_phy_tb_dgm_smg_cal_grad
 
   use scale_atm_phy_tb_dgm_globalsmg, only: &
     atm_phy_tb_dgm_globalsmg_Init,          &
@@ -70,8 +72,10 @@ module scale_atm_phy_tb_dgm_driver
     PRES_VID => AUXVAR_PRES_ID, PT_VID => AUXVAR_PT_ID,                     &
     CPTOT_VID => AUXVAR_CPtot_ID, RTOT_VID => AUXVAR_Rtot_ID
 
-
   use scale_atm_phy_tb_dgm_common, only: &
+    atm_phy_tb_dgm_common_cal_grad_qtrc, &
+    atm_phy_tb_dgm_common_cal_tend,      &
+    atm_phy_tb_dgm_common_cal_tend_qtrc, &
     ATMOS_PHY_TB_TENDS_NUM1, &
     TB_MOMX_t_VID => ATMOS_PHY_TB_MOMX_t_ID,TB_MOMY_t_VID => ATMOS_PHY_TB_MOMY_t_ID,  &
     TB_MOMZ_t_VID => ATMOS_PHY_TB_MOMZ_t_ID, TB_RHOT_t_VID => ATMOS_PHY_TB_RHOT_t_ID, &
@@ -306,8 +310,9 @@ module scale_atm_phy_tb_dgm_driver
   !
   !++ Private procedures & variables
   !
-  integer, parameter :: TB_TYPEID_SMAGORINSKY         = 1
-  integer, parameter :: TB_TYPEID_SMAGORINSKY_GLOBAL  = 2
+  integer, parameter :: TB_TYPEID_DNS                 = 1
+  integer, parameter :: TB_TYPEID_SMAGORINSKY         = 2
+  integer, parameter :: TB_TYPEID_SMAGORINSKY_GLOBAL  = 3
 
   integer, public, parameter :: ATMOS_PHY_TB_AUXTRC_DFQ1_ID    = 1  
   integer, public, parameter :: ATMOS_PHY_TB_AUXTRC_DFQ2_ID    = 2
@@ -351,14 +356,23 @@ contains
     !--- Set the type of turbulence scheme
     
     select case(tb_type_name)
+    case ('DNS')
+      this%TB_TYPEID = TB_TYPEID_DNS
+
+      call atm_phy_tb_dgm_dns_Init( mesh3D )
+      this%tbsolver_cal_grad => atm_phy_tb_dgm_dns_cal_grad
+      this%tbsolver_cal_grad_qtrc => atm_phy_tb_dgm_common_cal_grad_qtrc
+      this%tbsolver_cal_tend => atm_phy_tb_dgm_common_cal_tend
+      this%tbsolver_cal_tend_qtrc => atm_phy_tb_dgm_common_cal_tend_qtrc
+      this%tbsolver_final => atm_phy_tb_dgm_dns_Final
     case ('SMAGORINSKY')
       this%TB_TYPEID = TB_TYPEID_SMAGORINSKY
 
       call atm_phy_tb_dgm_smg_Init( mesh3D )
       this%tbsolver_cal_grad => atm_phy_tb_dgm_smg_cal_grad
-      this%tbsolver_cal_grad_qtrc => atm_phy_tb_dgm_smg_cal_grad_qtrc
-      this%tbsolver_cal_tend => atm_phy_tb_dgm_smg_cal_tend
-      this%tbsolver_cal_tend_qtrc => atm_phy_tb_dgm_smg_cal_tend_qtrc
+      this%tbsolver_cal_grad_qtrc => atm_phy_tb_dgm_common_cal_grad_qtrc
+      this%tbsolver_cal_tend => atm_phy_tb_dgm_common_cal_tend
+      this%tbsolver_cal_tend_qtrc => atm_phy_tb_dgm_common_cal_tend_qtrc
       this%tbsolver_final => atm_phy_tb_dgm_smg_Final
     case ('SMAGORINSKY_GLOBAL')
       this%TB_TYPEID = TB_TYPEID_SMAGORINSKY_GLOBAL

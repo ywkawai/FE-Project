@@ -1,3 +1,11 @@
+!-------------------------------------------------------------------------------
+!> module FElib / Mesh / Cubed-sphere 3D domain
+!!
+!! @par Description
+!!      Mangage mesh data of cubed-sphere 3D domain for element-based methods
+!!
+!! @author Yuta Kawai, Team SCALE
+!<
 #include "scaleFElib.h"
 module scale_mesh_cubedspheredom3d
 
@@ -11,7 +19,7 @@ module scale_mesh_cubedspheredom3d
   use scale_mesh_base3d, only: &
     MeshBase3D, MeshBase3D_Init, MeshBase3D_Final,                               &
     MeshBase3D_setGeometricInfo,                                                 &
-    MeshBase3D_DIMTYPE_NUM,                                                      &
+    MESHBASE3D_DIMTYPE_NUM,                                                      &
     MeshBase3D_DIMTYPEID_X, MeshBase3D_DIMTYPEID_Y, MeshBase3D_DIMTYPEID_Z,      &
     MeshBase3D_DIMTYPEID_XYZ, MeshBase3D_DIMTYPEID_ZT, MeshBase3D_DIMTYPEID_XYZT
   use scale_localmesh_3d, only: LocalMesh3D

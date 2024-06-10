@@ -1,4 +1,12 @@
 !-------------------------------------------------------------------------------
+!> module FElib / Mesh / Boundary information
+!!
+!! @par Description
+!!      A module to mangage boundary information of computational domain 
+!!
+!! @author Yuta Kawai, Team SCALE
+!<
+!-------------------------------------------------------------------------------
 #include "scaleFElib.h"
 module scale_mesh_bndinfo
   !-----------------------------------------------------------------------------

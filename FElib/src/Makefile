@@ -131,6 +131,7 @@ OBJS_NAME_FLUID_DYN_SOLVER = \
 
 OBJS_NAME_TURBULENCE = \
 	scale_atm_phy_tb_dgm_driver.o    \
+	scale_atm_phy_tb_dgm_dns.o       \
 	scale_atm_phy_tb_dgm_smg.o       \
 	scale_atm_phy_tb_dgm_globalsmg.o \
 	scale_atm_phy_tb_dgm_common.o 

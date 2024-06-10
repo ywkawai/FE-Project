@@ -41,14 +41,6 @@ module mod_atmos_phy_tb
 
   use scale_atm_dyn_dgm_bnd, only: AtmDynBnd
   
-  use scale_atm_phy_tb_dgm_smg, only: &
-    atm_phy_tb_dgm_smg_Init,          &
-    atm_phy_tb_dgm_smg_Final,         &
-    atm_phy_tb_dgm_smg_cal_grad,      &
-    atm_phy_tb_dgm_smg_cal_tend,      &
-    atm_phy_tb_dgm_smg_cal_grad_qtrc, &
-    atm_phy_tb_dgm_smg_cal_tend_qtrc
-
   use scale_atm_phy_tb_dgm_driver, only: &
     AtmPhyTbDGMDriver
   use mod_atmos_phy_tb_vars, only: AtmosPhyTbVars

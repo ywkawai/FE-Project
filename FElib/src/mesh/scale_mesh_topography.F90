@@ -4,7 +4,7 @@
 !! @par Description
 !!          A module to manage vertical coordinate with topography 
 !!
-!! @author Team SCALE
+!! @author Yuta Kawai, Team SCALE
 !<
 !-------------------------------------------------------------------------------
 #include "scaleFElib.h"

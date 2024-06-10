@@ -1,3 +1,12 @@
+!-------------------------------------------------------------------------------
+!> module FElib / Mesh / utility for 3D mesh
+!!
+!! @par Description
+!!          A module useful for generating 3D mesh 
+!!
+!! @author Yuta Kawai, Team SCALE
+!<
+!-------------------------------------------------------------------------------
 #include "scaleFElib.h"
 module scale_meshutil_3d
   !-----------------------------------------------------------------------------
@@ -121,7 +130,7 @@ contains
 
     integer :: nodes(Ne*Nfaces,4)
     integer(kind=8) :: face_ids(Ne*Nfaces)
-    integer :: k
+    integer :: ke
     integer :: f
     integer :: n
     integer :: n1, n2
@@ -146,13 +155,13 @@ contains
     Nnodes_row = size(nodes,1)
     
     !---------
-    do n=1, Ne
-       nodes(n     ,:) = EToV(n,(/ 1, 2, 6, 5 /))
-       nodes(n+Ne  ,:) = EToV(n,(/ 2, 4, 8, 6 /))
-       nodes(n+2*Ne,:) = EToV(n,(/ 4, 3, 7, 8 /))
-       nodes(n+3*Ne,:) = EToV(n,(/ 3, 1, 5, 7 /))
-       nodes(n+4*Ne,:) = EToV(n,(/ 1, 3, 4, 2 /))       
-       nodes(n+5*Ne,:) = EToV(n,(/ 5, 6, 8, 7 /))       
+    do ke=1, Ne
+       nodes(ke     ,:) = EToV(ke,(/ 1, 2, 6, 5 /))
+       nodes(ke+Ne  ,:) = EToV(ke,(/ 2, 4, 8, 6 /))
+       nodes(ke+2*Ne,:) = EToV(ke,(/ 4, 3, 7, 8 /))
+       nodes(ke+3*Ne,:) = EToV(ke,(/ 3, 1, 5, 7 /))
+       nodes(ke+4*Ne,:) = EToV(ke,(/ 1, 3, 4, 2 /))       
+       nodes(ke+5*Ne,:) = EToV(ke,(/ 5, 6, 8, 7 /))       
     end do
    
     ! Sort
@@ -165,18 +174,18 @@ contains
     nodes = nodes - 1
     !---------
 
-    do n=1, Ne
-       EToE(n,:) = n
-       EToF(n,:) = (/ 1, 2, 3, 4, 5, 6 /)
+    do ke=1, Ne
+       EToE(ke,:) = ke
+       EToF(ke,:) = (/ 1, 2, 3, 4, 5, 6 /)
     end do
 
     face_ids(:) =   nodes(:,1)*Nnodes**3 + nodes(:,2)*Nnodes**2 &
                 + nodes(:,3)*Nnodes + nodes(:,4) + 1
 
     do f=1, Nfaces
-    do k=1, Ne
-      n = k + (f-1)*Ne
-      spNodeToNode(:,n) = (/ n, EToE(k,f), EToF(k,f) /)
+    do ke=1, Ne
+      n = ke + (f-1)*Ne
+      spNodeToNode(:,n) = (/ n, EToE(ke,f), EToF(ke,f) /)
       sorted_faceid(n)  = face_ids(n)
       sort_indx(n)      = n
        ! write(*,*) "face_id, n, EToE, EToF:", spNodeToNode(:,n)
@@ -205,11 +214,11 @@ contains
     end do
 
     do f=1, Nfaces
-    do k=1, Ne
-       n = k + (f-1)*Ne
+    do ke=1, Ne
+       n = ke + (f-1)*Ne
        if ( EToE_1d(n) /= -1 ) then
-          EToE(k,f) = EToE_1d(n)
-          EToF(k,f) = EToF_1d(n)
+          EToE(ke,f) = EToE_1d(n)
+          EToF(ke,f) = EToF_1d(n)
        end if
     end do
     end do
@@ -493,7 +502,7 @@ contains
     integer, intent(in) :: Fmask_h(Nfp_h,Nfaces_h)
     integer, intent(in) :: Fmask_v(Nfp_v,Nfaces_v)
 
-    integer :: k, n
+    integer :: ke, n
     integer :: b
     integer :: f
     integer :: i, j
@@ -522,34 +531,34 @@ contains
     rdomy = 1.0_RP/(ymax - ymin)
     rdomz = 1.0_RP/abs(zmax - zmin)
     
-    do k=1, Ne
+    do ke=1, Ne
       do f=1, Nfaces_h
-        x = sum(pos_en(Fmask_h(:,f),k,1)) / dble(Nfp_h)
-        y = sum(pos_en(Fmask_h(:,f),k,2)) / dble(Nfp_h)
+        x = sum(pos_en(Fmask_h(:,f),ke,1)) / dble(Nfp_h)
+        y = sum(pos_en(Fmask_h(:,f),ke,2)) / dble(Nfp_h)
 
         call eval_domain_boundary( &
           elemIDs_h, ordInfo_h, faceIDs_h, counterB_h, & ! (inout)
-          1, y, ymin, x, k, f, rdomy                   ) ! (in)
+          1, y, ymin, x, ke, f, rdomy                  ) ! (in)
         call eval_domain_boundary( &
           elemIDs_h, ordInfo_h, faceIDs_h, counterB_h, & ! (inout)
-          2, x, xmax, y, k, f, rdomx                   ) ! (in)    
+          2, x, xmax, y, ke, f, rdomx                  ) ! (in)    
         call eval_domain_boundary( &
           elemIDs_h, ordInfo_h, faceIDs_h, counterB_h, & ! (inout)
-          3, y, ymax, x, k, f, rdomy                   ) ! (in)
+          3, y, ymax, x, ke, f, rdomy                  ) ! (in)
         call eval_domain_boundary( &
           elemIDs_h, ordInfo_h, faceIDs_h, counterB_h, & ! (inout)
-          4, x, xmin, y, k, f, rdomx                   ) ! (in)
+          4, x, xmin, y, ke, f, rdomx                  ) ! (in)
       end do
       do f=1, Nfaces_v
-        x = sum(pos_en(Fmask_v(:,f),k,1)) / dble(Nfp_v)
-        z = sum(pos_en(Fmask_v(:,f),k,3)) / dble(Nfp_v)
+        x = sum(pos_en(Fmask_v(:,f),ke,1)) / dble(Nfp_v)
+        z = sum(pos_en(Fmask_v(:,f),ke,3)) / dble(Nfp_v)
 
         call eval_domain_boundary( &
           elemIDs_v, ordInfo_v, faceIDs_v, counterB_v, & ! (inout)
-          1, z, zmin, x, k, f, rdomz                   ) ! (in)
+          1, z, zmin, x, ke, f, rdomz                  ) ! (in)
         call eval_domain_boundary( &
           elemIDs_v, ordInfo_v, faceIDs_v, counterB_v, & ! (inout)
-          2, z, zmax, x, k, f, rdomz                   ) ! (in)  
+          2, z, zmax, x, ke, f, rdomz                  ) ! (in)  
       end do    
     end do
 
@@ -566,11 +575,11 @@ contains
       ! write(*,*) faceIds_h(1:counterB_h(1),b)
 
       do i=1, counterB_h(b)
-        k = elemIDs_h(i,b); f = faceIDs_h(i,b)
+        ke = elemIDs_h(i,b); f = faceIDs_h(i,b)
         do j=1, Nfp_h
           n = j + (f-1)*Nfp_h
-          VMapP(n,k) = Np*Ne + mapB_counter
-          VmapB(mapB_counter) = Fmask_h(j,f) + (k-1)*Np
+          VMapP(n,ke) = Np*Ne + mapB_counter
+          VmapB(mapB_counter) = Fmask_h(j,f) + (ke-1)*Np
           mapB_counter = mapB_counter + 1
         end do
       end do
@@ -578,11 +587,11 @@ contains
 
     do b = 1, Nfaces_v
       do i=1, counterB_v(b)
-        k = elemIDs_v(i,b); f = faceIDs_v(i,b)
+        ke = elemIDs_v(i,b); f = faceIDs_v(i,b)
         do j=1, Nfp_v
           n = j + Nfp_h*Nfaces_h + Nfp_v*(f-1)
-          VMapP(n,k) = Np*Ne + mapB_counter
-          VmapB(mapB_counter) = Fmask_v(j,f) + (k-1)*Np
+          VMapP(n,ke) = Np*Ne + mapB_counter
+          VmapB(mapB_counter) = Fmask_v(j,f) + (ke-1)*Np
           mapB_counter = mapB_counter + 1
         end do
       end do

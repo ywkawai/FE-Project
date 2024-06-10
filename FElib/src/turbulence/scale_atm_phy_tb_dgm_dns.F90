@@ -1,25 +1,15 @@
 !> module FElib / Atmosphere / Physics turbulence
 !!
 !! @par Description
-!!      Sub-grid scale turbulnce process
-!!      Smagorinsky-type
+!!      Turbulnce process for DNS
 !!
 !! @author Team SCALE
 !!
 !! @par Reference
-!!  - Brown et al., 1994:
-!!    Large-eddy simulaition of stable atmospheric boundary layers with a revised stochastic subgrid model.
-!!    Roy. Meteor. Soc., 120, 1485-1512
-!!  - Scotti et al., 1993:
-!!    Generalized Smagorinsky model for anisotropic grids.
-!!    Phys. Fluids A, 5, 2306-2308
-!!  - Nishizawa et al., 2015:
-!!    Influence of grid aspect ratio on planetary boundary layer turbulence in large-eddy simulations
-!!    Geosci. Model Dev., 8, 3393–3419
 !<
 !-------------------------------------------------------------------------------
 #include "scaleFElib.h"
-module scale_atm_phy_tb_dgm_smg
+module scale_atm_phy_tb_dgm_dns
   !-----------------------------------------------------------------------------
   !
   !++ Used modules
@@ -55,9 +45,9 @@ module scale_atm_phy_tb_dgm_smg
   !
   !++ Public procedures
   !
-  public :: atm_phy_tb_dgm_smg_Init
-  public :: atm_phy_tb_dgm_smg_Final
-  public :: atm_phy_tb_dgm_smg_cal_grad
+  public :: atm_phy_tb_dgm_dns_Init
+  public :: atm_phy_tb_dgm_dns_Final
+  public :: atm_phy_tb_dgm_dns_cal_grad
 
   !-----------------------------------------------------------------------------
   !
@@ -73,85 +63,53 @@ module scale_atm_phy_tb_dgm_smg
   real(RP), private, parameter   :: twoOverThree  = 2.0_RP / 3.0_RP
   real(RP), private, parameter   :: FourOverThree = 4.0_RP / 3.0_RP
 
-  real(RP), private              :: Cs            = 0.13_RP ! Smagorinsky constant (Scotti et al. 1993)
-  real(RP), private, parameter   :: PrN           = 0.7_RP  ! Prandtl number in neutral conditions
-  real(RP), private, parameter   :: RiC           = 0.25_RP ! critical Richardson number
-  real(RP), private, parameter   :: FmC           = 16.0_RP ! fum = sqrt(1 - c*Ri)
-  real(RP), private, parameter   :: FhB           = 40.0_RP ! fuh = sqrt(1 - b*Ri)/PrN
-  real(RP), private              :: RPrN                    ! 1 / PrN
-  real(RP), private              :: RRiC                    ! 1 / RiC
-  real(RP), private              :: OnemPrNovRiC            ! PrN / RiC
-  
-  ! for backscatter
-  real(RP), private, parameter   :: CB   = 1.4_RP
-  real(RP), private, parameter   :: CBt  = 0.45_RP
-  real(RP), private, parameter   :: aN   = 0.47958315233127197_RP ! a_N = sqrt(0.23)
-  real(RP), private, parameter   :: atN4 = 0.09_RP                ! a_{\theta N}^4 = 0.3**2
-  real(RP), private, parameter   :: C1o  = aN**3
-  real(RP), private, parameter   :: D1o  = PrN * atN4 / aN
-
-
-  real(RP), private              :: filter_fac    = 2.0_RP
-  real(RP), private              :: NU_MAX        = 10000.0_RP
-  real(RP), private              :: tke_fac       
+  real(RP), private              :: DNS_NU        = 1.512E-5_RP !< kinematic viscosity coefficient [m2/s] for air at 20degC
+  real(RP), private              :: DNS_MU        = 1.8E-5_RP   !< molecular diffusive coefficient [m2/s] for air at 20degC
 
 contains
 !OCL SERIAL
-  subroutine atm_phy_tb_dgm_smg_Init( mesh )
+  subroutine atm_phy_tb_dgm_dns_Init( mesh )
     implicit none    
     class(MeshBase3D), intent(in) :: mesh
 
     logical  :: consistent_tke = .true.
 
-    namelist / PARAM_ATMOS_PHY_TB_DGM_SMG / &
-      Cs,                                   &
-      NU_MAX,                               &
-      filter_fac,                           &
-      consistent_tke
-    
+    namelist / PARAM_ATMOS_PHY_TB_DGM_DNS / &
+      DNS_NU, DNS_MU
+        
     integer :: ierr
     !--------------------------------------------------------------------
 
     LOG_NEWLINE
-    LOG_INFO("ATMOS_PHY_TB_dgm_smg_setup",*) 'Setup'
-    LOG_INFO("ATMOS_PHY_TB_dgm_smg_setup",*) 'Smagorinsky-type Eddy Viscocity Model'
+    LOG_INFO("ATMOS_PHY_TB_dgm_dns_setup",*) 'Setup'
+    LOG_INFO("ATMOS_PHY_TB_dgm_dns_setup",*) 'Eddy Viscocity Model for DNS'
 
     !--- read namelist
     rewind(IO_FID_CONF)
-    read(IO_FID_CONF,nml=PARAM_ATMOS_PHY_TB_DGM_SMG,iostat=ierr)
+    read(IO_FID_CONF,nml=PARAM_ATMOS_PHY_TB_DGM_DNS,iostat=ierr)
     if( ierr < 0 ) then !--- missing
-       LOG_INFO("ATMOS_PHY_TB_dgm_smg_setup",*) 'Not found namelist. Default used.'
+       LOG_INFO("ATMOS_PHY_TB_dgm_dns_setup",*) 'Not found namelist. Default used.'
     elseif( ierr > 0 ) then !--- fatal error
-       LOG_ERROR("ATMOS_PHY_TB_dgm_smg_setup",*) 'Not appropriate names in namelist PARAM_ATMOS_PHY_TB_DGM_SMG. Check!'
+       LOG_ERROR("ATMOS_PHY_TB_dgm_dns_setup",*) 'Not appropriate names in namelist PARAM_ATMOS_PHY_TB_DGM_DNS. Check!'
        call PRC_abort
     endif
-    LOG_NML(PARAM_ATMOS_PHY_TB_DGM_SMG)
-
-    RPrN         = 1.0_RP / PrN
-    RRiC         = 1.0_RP / RiC
-    OnemPrNovRiC = ( 1.0_RP - PrN ) * RRiC
-
-    if ( consistent_tke ) then
-      tke_fac = 1.0_RP
-    else
-      tke_fac = 0.0_RP
-    end if
+    LOG_NML(PARAM_ATMOS_PHY_TB_DGM_DNS)
 
     return
-  end subroutine atm_phy_tb_dgm_smg_Init
+  end subroutine atm_phy_tb_dgm_dns_Init
 
 !OCL SERIAL
-  subroutine atm_phy_tb_dgm_smg_Final()
+  subroutine atm_phy_tb_dgm_dns_Final()
     implicit none
     !--------------------------------------------------------------------
 
     return
-  end subroutine atm_phy_tb_dgm_smg_Final
+  end subroutine atm_phy_tb_dgm_dns_Final
 
 !> Calculate parameterized stress tensor and eddy heat flux with turbulent model
 !!
 !OCL SERIAL  
-  subroutine atm_phy_tb_dgm_smg_cal_grad( &
+  subroutine atm_phy_tb_dgm_dns_cal_grad( &
     T11, T12, T13, T21, T22, T23, T31, T32, T33,                & ! (out)
     DF1, DF2, DF3,                                              & ! (out)
     TKE, Nu, Kh,                                                & ! (out)
@@ -160,8 +118,6 @@ contains
     Dx, Dy, Dz, Sx, Sy, Sz, Lift, lmesh, elem, lmesh2D, elem2D, & ! (in)
     is_bound                                                    ) ! (in)
 
-    use scale_atm_phy_tb_dgm_common, only: &
-      atm_phy_tb_dgm_common_calc_lambda
     implicit none
 
     class(LocalMesh3D), intent(in) :: lmesh
@@ -207,19 +163,7 @@ contains
 
     real(RP) :: S11(elem%Np), S12(elem%Np), S22(elem%Np), S23(elem%Np), S31(elem%Np), S33(elem%Np)
     real(RP) :: SkkOvThree
-    real(RP) :: TKEMulTwoOvThree
     real(RP) :: coef
-
-    real(RP) :: Ri ! local gradient Richardson number
-    real(RP) :: S2 ! (2SijSij)^1/2
-    real(RP) :: fm ! factor in eddy viscosity which represents the stability dependence of 
-                   ! the Brown et al (1994)'s subgrid model 
-    real(RP) :: Pr ! Parandtl number (=Nu/Kh= fm/fh)
-
-    real(RP) :: lambda  (elem%Np,lmesh%Ne) ! basic mixing length
-    real(RP) :: lambda_r(elem%Np)          ! characteristic subgrid length scale 
-    real(RP) :: E(elem%Np)  ! subgrid kinetic energy 
-    real(RP) :: C1(elem%Np) ! factor in the relation with energy disspation rate, lambda_r, and E
 
     integer :: ke
     integer :: p
@@ -230,16 +174,13 @@ contains
       lmesh%normal_fn(:,:,1), lmesh%normal_fn(:,:,2), lmesh%normal_fn(:,:,3), & ! (in)
       lmesh%vmapM, lmesh%vmapP,                                               & ! (in)
       lmesh, elem, is_bound )                                                   ! (in)
-
-    call atm_phy_tb_dgm_common_calc_lambda( lambda, & ! (out)
-      Cs, filter_fac, lmesh, elem, lmesh2D, elem2D  ) ! (in)
   
     !$omp parallel do private( &
     !$omp Fx, Fy, Fz, LiftDelFlx,                  &
     !$omp DENS, RHOT, RDENS, Q, DdensDxi, DVelDxi, &
     !$omp S11, S12, S22, S23, S31, S33,            &
-    !$omp coef, SkkOvThree, TKEMulTwoOvThree,      &
-    !$omp p, Ri, S2, fm, Pr, lambda_r, E, C1       )
+    !$omp coef, SkkOvThree,                        &
+    !$omp p )
     do ke=lmesh%NeS, lmesh%NeE
       !---
       DENS (:) = DENS_hyd(:,ke) + DDENS_(:,ke)
@@ -329,68 +270,26 @@ contains
       S33(:) = DVelDxi(:,3,3)
 
       ! Caclulate eddy viscosity & eddy diffusivity
-      
-      do p=1, elem%Np
-        S2 = 2.0_RP * ( S11(p)**2 + S22(p)**2 + S33(p)**2 ) &
-           + 4.0_RP * ( S31(p)**2 + S12(p)**2 + S23(p)**2 )
-        
-        Ri = Grav / PT(p,ke) * DF3(p,ke) / max( S2, EPS )
 
-        ! The Stability functions fm and fh are given by the appendix A of Brown et al. (1994). 
-        if (Ri < 0.0_RP ) then ! unstable
-          fm = sqrt( 1.0_RP - FmC * Ri )
-          Nu(p,ke) = lambda(p,ke)**2 * sqrt( S2 ) * fm
-          Pr = fm / sqrt( 1.0_RP - FhB * Ri ) * PrN
-        else if ( Ri < RiC ) then ! stable
-          fm = ( 1.0_RP - Ri * RRiC )**4
-          Nu(p,ke) = lambda(p,ke)**2 * sqrt( S2 ) * fm
-          Pr = PrN / ( 1.0_RP - OnemPrNovRiC * Ri )
-        else ! strongly stable
-          fm = 0.0_RP
-          Nu(p,ke) = 0.0_RP
-          Kh(p,ke) = 0.0_RP
-          Pr = 1.0_RP
-        end if
-
-        if ( Ri < RiC ) then
-          Kh(p,ke) = max( min( Nu(p,ke) / Pr, NU_MAX ), EPS )
-          Nu(p,ke) = max( min( Nu(p,ke), NU_MAX ), EPS )
-          Pr = Nu(p,ke) / Kh(p,ke)
-          lambda_r(p) = lambda(p,ke) * sqrt( fm / sqrt( 1.0_RP - Ri/Pr ) )
-        else
-          lambda_r(p) = 0.0_RP
-        end if
-      end do
-      
-!      Nu(:,ke) = 0.0_RP
-
-      ! if ( backscatter ) then
-      ! else 
-        E (:) = Nu(:,ke)**3 / ( lambda_r(:)**4 + EPS )
-        C1(:) = C1o
-      ! end if
-
-      ! TKE
-      TKE(:,ke) = ( E(:) * lambda_r(:) / C1(:) )**twoOverThree
+      Nu(:,ke) = DNS_NU
+      Kh(:,ke) = DNS_MU
 
       !---
 
       do p=1, elem%Np
-        TKEMulTwoOvThree = twoOverThree * TKE(p,ke) * tke_fac
-        SkkOvThree = ( S11(p) + S22(p) + S33(p) ) * OneOverThree
         coef = 2.0_RP * Nu(p,ke)
 
-        T11(p,ke) = DENS(p) * ( coef * ( S11(p) - SkkOvThree ) - TKEMulTwoOvThree )
+        T11(p,ke) = DENS(p) * ( coef * ( S11(p) - SkkOvThree )  )
         T12(p,ke) = DENS(p) * coef * S12(p)
         T13(p,ke) = DENS(p) * coef * S31(p)
 
         T21(p,ke) = DENS(p) * coef * S12(p)
-        T22(p,ke) = DENS(p) * ( coef * ( S22(p) - SkkOvThree ) - TKEMulTwoOvThree )
+        T22(p,ke) = DENS(p) * ( coef * ( S22(p) - SkkOvThree )  )
         T23(p,ke) = DENS(p) * coef * S23(p)
 
         T31(p,ke) = DENS(p) * coef * S31(p)
         T32(p,ke) = DENS(p) * coef * S23(p)
-        T33(p,ke) = DENS(p) * ( coef * ( S33(p) - SkkOvThree ) - TKEMulTwoOvThree )
+        T33(p,ke) = DENS(p) * ( coef * ( S33(p) - SkkOvThree )  )
       end do
 
       DF1(:,ke) = Kh(:,ke) * DF1(:,ke)
@@ -399,9 +298,7 @@ contains
     end do
   
     return
-  end subroutine atm_phy_tb_dgm_smg_cal_grad
-
-!-- private --------------------------------------------------------
+  end subroutine atm_phy_tb_dgm_dns_cal_grad
 
 !OCL SERIAL  
   subroutine cal_del_flux_grad( del_flux_rho, del_flux_mom, del_flux_rhot,  & ! (out)
@@ -487,4 +384,6 @@ contains
     return
   end subroutine cal_del_flux_grad
 
-end module scale_atm_phy_tb_dgm_smg
+!-- private --------------------------------------------------------
+
+end module scale_atm_phy_tb_dgm_dns

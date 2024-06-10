@@ -1,10 +1,10 @@
 !-------------------------------------------------------------------------------
-!> module Mesh / Rectangle 2D domain
+!> module FElib / Mesh / Rectangle 2D domain
 !!
 !! @par Description
 !!      Mangage mesh data of rectangle 2D domain for element-based methods
 !!
-!! @author Team SCALE
+!! @author Yuta Kawai, Team SCALE
 !<
 !-------------------------------------------------------------------------------
 #include "scaleFElib.h"
@@ -22,7 +22,7 @@ module scale_mesh_rectdom2d
 
   use scale_localmesh_2d, only: &
     LocalMesh2D
-  use scale_element_base, only: elementbase2D
+  use scale_element_base, only: ElementBase2D
   use scale_element_quadrilateral, only: QuadrilateralElement
 
   !-----------------------------------------------------------------------------
@@ -361,7 +361,7 @@ contains
 
     implicit none
 
-    type(elementbase2D), intent(in) :: elem
+    type(ElementBase2D), intent(in) :: elem
     real(RP), intent(out) :: x(elem%Np), y(elem%Np)
     real(RP), intent(out) :: xr(elem%Np), xs(elem%Np), yr(elem%Np), ys(elem%Np)
     real(RP), intent(in) :: vx(elem%Nv), vy(elem%Nv)
@@ -384,7 +384,7 @@ contains
 
     implicit none
 
-    type(elementbase2D), intent(in) :: elem
+    type(ElementBase2D), intent(in) :: elem
     real(RP), intent(out) :: normal_fn(elem%NfpTot,2)
     integer, intent(in) :: fid(elem%Nfp,elem%Nfaces)
     real(RP), intent(in) :: Escale_f(elem%NfpTot,2,2)
