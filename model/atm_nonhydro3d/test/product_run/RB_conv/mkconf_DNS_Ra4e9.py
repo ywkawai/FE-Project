@@ -1,35 +1,71 @@
 import mkconf_sub_DNS as mkconf_sub
 
-exp_info_common = {"dns_nu": "1.512D-1", "dns_mu": "1.8D-1"}
+exp_info_common = {"runno_s": 1, "dns_nu": "1.512D-1", "dns_mu": "1.8D-1", "ini_PT": "300.0D0" }
 # p=3
 exp_list_P3 = {
-  "Dx25m_P3": { "nprcx": 8, "nprcy": 8, "Eh": 4, "Ez": 16, "porder": 3, "dt_sec": "3D-1", "dt_dyn_sec": "3D-2", 
+  "Dx25m_P3": { "nprcx": 8, "nprcy": 8, "Ex": 4, "Ey": 4, "Ez": 16, "porder": 3, "dt_sec": "3D-1", "dt_dyn_sec": "3D-2", 
                   "integ_hour": 72, "hr_per_run": 2, "elapse_time": "01:00:00",
                   "modal_filter_flag": True, "mf_ordh": 32, "mf_alph": "1D-1", "mf_ordv": 32, "mf_alpv": "1D-1",
-                  "hist_int_sec": 600, "initgp_porder": 7, 
+                  "hist_int_sec": "600D0", "initgp_porder": 7, 
+                  "regrid_nprcx": 8, "regrid_Ex": 4, "regrid_nprcy": 8, "regrid_Ey": 4, "regrid_porder": 3, "regrid_elapse_time": "00:15:00",                   
                 },
-  "Dx12.5m_P3": { "nprcx": 16, "nprcy": 16, "Eh": 4, "Ez": 32, "porder": 3, "dt_sec": "1.5D-1", "dt_dyn_sec": "1.5D-2", 
+  "Dx12.5m_P3": { "nprcx": 16, "nprcy": 16,  "Ex": 4, "Ey": 4, "Ez": 32, "porder": 3, "dt_sec": "1.5D-1", "dt_dyn_sec": "1.5D-2", 
                   "integ_hour": 72, "hr_per_run": 2, "elapse_time": "04:00:00",
                   "modal_filter_flag": True, "mf_ordh": 32, "mf_alph": "1D-1", "mf_ordv": 32, "mf_alpv": "1D-1",
-                  "hist_int_sec": 600, "initgp_porder": 7, 
+                  "hist_int_sec": "600D0", "initgp_porder": 7, 
+                  "regrid_nprcx": 8, "regrid_Ex": 8, "regrid_nprcy": 8, "regrid_Ey": 8, "regrid_porder": 3, "regrid_elapse_time": "00:15:00",                                     
+                },          
+}
+exp_list_P3_mf = {
+  "Dx25m_P3_mf": { "nprcx": 8, "nprcy": 8, "Ex": 4, "Ey": 4, "Ez": 16, "porder": 3, "dt_sec": "3D-1", "dt_dyn_sec": "3D-2", 
+                  "integ_hour": 72, "hr_per_run": 2, "elapse_time": "01:00:00",
+                  "modal_filter_flag": True, "mf_ordh": 16, "mf_alph": "1D-2", "mf_ordv": 16, "mf_alpv": "1D-2",
+                  "hist_int_sec": "600D0", "initgp_porder": 7, 
+                  "regrid_nprcx": 8, "regrid_Ex": 4, "regrid_nprcy": 8, "regrid_Ey": 4, "regrid_porder": 3, "regrid_elapse_time": "00:15:00",                   
+                },
+  "Dx12.5m_P3_mf": { "nprcx": 16, "nprcy": 16,  "Ex": 4, "Ey": 4, "Ez": 32, "porder": 3, "dt_sec": "1.5D-1", "dt_dyn_sec": "1.5D-2", 
+                  "integ_hour": 72, "hr_per_run": 2, "elapse_time": "04:00:00",
+                  "modal_filter_flag": True, "mf_ordh": 16, "mf_alph": "1D-2", "mf_ordv": 16, "mf_alpv": "1D-2",
+                  "hist_int_sec": "600D0", "initgp_porder": 7, 
+                  "regrid_nprcx": 8, "regrid_Ex": 8, "regrid_nprcy": 8, "regrid_Ey": 8, "regrid_porder": 3, "regrid_elapse_time": "00:15:00",                                     
                 },          
 }
 # p=7
 exp_list_P7 = {
-  "Dx25m_P7": { "nprcx": 8, "nprcy": 8, "Eh": 2, "Ez": 8, "porder": 7, "dt_sec": "3D-1", "dt_dyn_sec": "3D-2", 
+  "Dx25m_P7": { "nprcx": 8, "nprcy": 8, "Ex": 2, "Ey": 2, "Ez": 8, "porder": 7, "dt_sec": "3D-1", "dt_dyn_sec": "3D-2", 
                   "integ_hour": 72, "hr_per_run": 2, "elapse_time": "01:00:00",
                   "modal_filter_flag": True, "mf_ordh": 32, "mf_alph": "2D0", "mf_ordv": 32, "mf_alpv": "2D0",
-                  "hist_int_sec": 600, "initgp_porder": 11, 
+                  "hist_int_sec": "600D0", "initgp_porder": 11, 
+                  "regrid_nprcx": 8, "regrid_Ex": 4, "regrid_nprcy": 8, "regrid_Ey": 4, "regrid_porder": 3, "regrid_elapse_time": "00:15:00",                                     
                 },
-  "Dx12.5m_P7": { "nprcx": 16, "nprcy": 16, "Eh": 2, "Ez": 16, "porder": 7, "dt_sec": "1.5D-1", "dt_dyn_sec": "1.5D-2", 
+  "Dx12.5m_P7": { "nprcx": 16, "nprcy": 16, "Ex": 2, "Ey": 2, "Ez": 16, "porder": 7, "dt_sec": "1.5D-1", "dt_dyn_sec": "1.5D-2", 
                   "integ_hour": 72, "hr_per_run": 2, "elapse_time": "04:00:00",
                   "modal_filter_flag": True, "mf_ordh": 32, "mf_alph": "1D0", "mf_ordv": 32, "mf_alpv": "1D0",
-                  "hist_int_sec": 600, "initgp_porder": 11, 
+                  "hist_int_sec": "600D0", "initgp_porder": 11, 
+                  "regrid_nprcx": 8, "regrid_Ex": 8, "regrid_nprcy": 8, "regrid_Ey": 8, "regrid_porder": 3, "regrid_elapse_time": "00:15:00",                                                       
                 },          
 }
+# p=11
+exp_list_P11 = {
+  "Dx27m_P11": { "nprcx": 10, "nprcy": 10, "Ex": 1, "Ey": 1, "Ez": 5, "porder": 11, "dt_sec": "2.5D-1", "dt_dyn_sec": "2.5D-2", 
+                  "integ_hour": 72, "hr_per_run": 2, "elapse_time": "02:00:00",
+                  "modal_filter_flag": True, "mf_ordh": 64, "mf_alph": "2D1", "mf_ordv": 64, "mf_alpv": "2D1",
+                  "hist_int_sec": "600D0", "initgp_porder": 13, 
+                  "regrid_nprcx": 10, "regrid_Ex": 1, "regrid_nprcy": 10, "regrid_Ey": 1, "regrid_porder": 11, "regrid_elapse_time": "00:15:00",                                                       
+                },    
+  "Dx13m_P11": { "nprcx": 20, "nprcy": 20, "Ex": 1, "Ey": 1, "Ez": 10, "porder": 11, "dt_sec": "1.25D-1", "dt_dyn_sec": "1.25D-2", 
+                  "integ_hour": 72, "hr_per_run": 2, "elapse_time": "05:00:00",
+                  "modal_filter_flag": True, "mf_ordh": 64, "mf_alph": "2D1", "mf_ordv": 64, "mf_alpv": "2D1",
+                  "hist_int_sec": "600D0", "initgp_porder": 13, 
+                  "regrid_nprcx": 10, "regrid_Ex": 2, "regrid_nprcy": 10, "regrid_Ey": 2, "regrid_porder": 11, "regrid_elapse_time": "00:15:00",                                                                         
+                },          
+}
+
 exp_list = {  
             **exp_list_P3,              
+#            **exp_list_P3_mf,                          
             **exp_list_P7,  
+            **exp_list_P11,              
             }
 #---------------------------------
 

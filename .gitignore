@@ -64,4 +64,5 @@ stderr.*
 #
 model/atm_nonhydro3d/test/case/**/*.nc
 model/atm_nonhydro3d/test/product_run/RB_conv/LES/Dx*/run*
-model/atm_nonhydro3d/test/product_run/RB_conv/DNS_Ra4e9/Dx*/run*
+model/atm_nonhydro3d/test/product_run/RB_conv/DNS_Ra4e9*/Dx*/run*
+model/atm_nonhydro3d/test/product_run/RB_conv/DNS_Ra4e9*/tmp_*

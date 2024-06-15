@@ -67,3 +67,75 @@ export OMP_NUM_THREADS=12
 #export fu11bf=1
   """
   return jobshell_s  
+
+
+#---
+def mkconf_regrid( conf_path,
+                nprcx, nprcy, nex, ney, nez, porder, 
+                regrid_nprcx, regrid_nprcy, 
+                regrid_nex, regrid_ney, regrid_nez, 
+                regrid_porder, 
+                in_basename, vars_list, out_basename ): 
+    conf_run_s = f"""#--- Configuration file for a test case of RB convection  -------
+&PARAM_IO
+ IO_LOG_BASENAME = "regrid_LOG"
+! IO_LOG_ALLNODE  = .true., 
+/
+&PARAM_CONST
+  CONST_OHM = 0.0D0, 
+/
+&PARAM_REGRID_MESH
+ in_MeshType  = "STRUCTURED3D", 
+ out_MeshType = "STRUCTURED3D", 
+/
+&PARAM_REGRID_INTERP_FIELD
+  !- input --------------------
+  in_basename="{in_basename}",      
+  vars = {vars_list}, ! "U", "V", "W", "DDENS", "PT", 
+  !out_tinterval = 5,
+/
+&PARAM_REGRID_FILE
+  !-- output ----------------
+  out_basename="{out_basename}", 
+  out_UniformGrid=.true., 
+/
+&PARAM_REGRID_INMESH3D_STRUCTURED
+  dom_xmin         = -1.6D3, 
+  dom_xmax         =  1.6D3, 
+  isPeriodicX      = .true.,
+  dom_ymin         = -1.6D3,  
+  dom_ymax         =  1.6D3,  
+  isPeriodicY      = .true.,  
+  dom_zmin         = 0.0D0, 
+  dom_zmax         = 1.6D3,   
+  NprcX            = {nprcx}, 
+  NeX              = {nex},
+  NprcY            = {nprcy},   
+  NeY              = {ney},
+  NeGZ             = {nez},
+  PolyOrder_h      = {porder},
+  PolyOrder_v      = {porder},    
+/
+&PARAM_REGRID_OUTMESH3D_STRUCTURED
+  dom_xmin         = -1.6D3, 
+  dom_xmax         =  1.6D3, 
+  isPeriodicX      = .true.,
+  dom_ymin         = -1.6D3,  
+  dom_ymax         =  1.6D3,  
+  isPeriodicY      = .true.,  
+  dom_zmin         = 0.0D0, 
+  dom_zmax         = 1.6D3, 
+  NprcX       = {regrid_nprcx},       
+  NeX         = {regrid_nex},           
+  NprcY       = {regrid_nprcy}, 
+  NeY         = {regrid_ney},    
+  NeGZ        = {regrid_nez}, 
+  PolyOrder_h = {regrid_porder}, 
+  PolyOrder_v = {regrid_porder}, 
+/
+    """
+    
+    with open(conf_path, 'w') as f:
+        f.write(conf_run_s)
+
+#--

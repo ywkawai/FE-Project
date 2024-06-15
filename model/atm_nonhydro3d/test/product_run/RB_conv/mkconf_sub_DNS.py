@@ -10,7 +10,8 @@ SCALE_DG_REGRID_BIN_PATH="../../../../../../../../bin"
 #----------------------
 
 def mkconf_init( conf_path,
-                nprcx, nprcy, eh, ez, porder, initgp_porder ): 
+                nprcx, nprcy, ex, ey, ez, porder, initgp_porder, 
+                ini_PT ): 
     conf_init_s = f"""#--- Configuration file for a test case of RB convection  -------
 &PARAM_IO
  IO_LOG_BASENAME = 'init_LOG',
@@ -23,14 +24,14 @@ def mkconf_init( conf_path,
   OUT_BASENAME = 'init'
 /
 &PARAM_TIME
-  TIME_STARTDATE       = 0000, 1, 1, 0, 0, 0,
+  TIME_STARTDATE       = 0001, 1, 1, 0, 0, 0,
   TIME_STARTMS         = 0.D0,
 /
 &PARAM_CONST
   CONST_OHM = 0.0D0, 
 /
 &PARAM_EXP
-  THETA0 = 300.0D0, 
+  THETA0 = {ini_PT}, 
   DTHETA = -0.001D0, 
   x_c = 0.0D3, 
   y_c = 0.0D3,  
@@ -48,10 +49,10 @@ def mkconf_init( conf_path,
 #** ATMOS ******************************************************
 &PARAM_ATMOS
   ACTIVATE_FLAG = .true., 
-  ATMOS_DYN_DO  = .true.
+  ATMOS_DYN_DO  = .true., 
+  ATMOS_PHY_TB_DO = .true.,     
 /
 &PARAM_ATMOS_MESH
-  NLocalMeshPerPrc = 1, 
   dom_xmin         = -1.6D3, 
   dom_xmax         =  1.6D3, 
   isPeriodicX      = .true.,
@@ -61,9 +62,9 @@ def mkconf_init( conf_path,
   dom_zmin         = 0.0D0, 
   dom_zmax         = 1.6D3,   
   NprcX            = {nprcx}, 
-  NeX              = {eh},
+  NeX              = {ex},
   NprcY            = {nprcy},   
-  NeY              = {eh},
+  NeY              = {ey},
   NeZ              = {ez},
   PolyOrder_h      = {porder},
   PolyOrder_v      = {porder}, 
@@ -85,7 +86,7 @@ def mkconf_run( conf_path,
                 restart_in_basename, 
                 start_month, start_day, start_hour, integ_sec, 
                 dt_sec, dt_dyn_sec,                 
-                nprcx, nprcy, eh, ez, porder, 
+                nprcx, nprcy, ex, ey, ez, porder, 
                 modal_filter_flag, mf_alph, mf_ordh, mf_alpv, mf_ordv, 
                 output_dtsec, 
                 dns_mu, dns_nu ): 
@@ -130,12 +131,12 @@ def mkconf_run( conf_path,
 #** ATMOS ******************************************************
 &PARAM_ATMOS
   ACTIVATE_FLAG       = .true., 
-  TIME_DT             = {dt_sec}D0, 
+  TIME_DT             = {dt_sec}, 
   TIME_DT_UNIT        = 'SEC', 
-  ATMOS_DYN_DO        = .true.
+  ATMOS_DYN_DO        = .true., 
+  ATMOS_PHY_TB_DO     = .true.,   
 /
 &PARAM_ATMOS_MESH
-  NLocalMeshPerPrc = 1, 
   dom_xmin         = -1.6D3, 
   dom_xmax         =  1.6D3, 
   isPeriodicX      = .true.,
@@ -145,9 +146,9 @@ def mkconf_run( conf_path,
   dom_zmin         = 0.0D0, 
   dom_zmax         = 1.6D3,   
   NprcX            = {nprcx}, 
-  NeX              = {eh},
+  NeX              = {ex},
   NprcY            = {nprcy},   
-  NeY              = {eh},
+  NeY              = {ey},
   NeZ              = {ez},
   PolyOrder_h      = {porder},
   PolyOrder_v      = {porder},  
@@ -161,7 +162,7 @@ def mkconf_run( conf_path,
   EQS_TYPE         = "NONHYDRO3D_RHOT_HEVE", 
   !-
   TINTEG_TYPE   = 'ERK_SSP_10s4o_2N', 
-  TIME_DT          = {dt_dyn_sec}D0, 
+  TIME_DT          = {dt_dyn_sec}, 
   TIME_DT_UNIT     = 'SEC', 
   !-
   MODALFILTER_FLAG  = {mf_flag},
@@ -182,7 +183,7 @@ def mkconf_run( conf_path,
 {param_mf}
 #** ATMOS / PHYS / Turbulence ***********************************************
 &PARAM_ATMOS_PHY_TB
-  TIME_DT      = {dt_sec}D0,   
+  TIME_DT      = {dt_sec},   
   TIME_DT_UNIT = 'SEC', 
   TB_TYPE      = 'DNS', 
 /
@@ -193,7 +194,7 @@ def mkconf_run( conf_path,
 #*** OUTPUT *******************************************
 &PARAM_FILE_HISTORY
  FILE_HISTORY_DEFAULT_BASENAME  = "history",
- FILE_HISTORY_DEFAULT_TINTERVAL = {output_dtsec}D0, 
+ FILE_HISTORY_DEFAULT_TINTERVAL = {output_dtsec}, 
  FILE_HISTORY_DEFAULT_TUNIT     = "SEC",
  FILE_HISTORY_DEFAULT_TAVERAGE  = .false.,
  FILE_HISTORY_DEFAULT_DATATYPE  = "REAL4",
@@ -223,78 +224,6 @@ def mkconf_run( conf_path,
     
   with open(conf_path, 'w') as f:
       f.write(conf_run_s)
-
-def mkconf_regrid( conf_path,
-                nprcx, nex, nprcy, ney, nez, porder, 
-                regrid_nprcx, regrid_nprcy, 
-                regrid_nex, regrid_ney, regrid_nez, 
-                regrid_porder ): 
-    conf_run_s = f"""#--- Configuration file for a test case of RB convection  -------
-&PARAM_IO
- IO_LOG_BASENAME = "regrid_LOG"
-! IO_LOG_ALLNODE  = .true., 
-/
-&PARAM_CONST
-  CONST_OHM = 0.0D0, 
-/
-&PARAM_REGRID_MESH
- in_MeshType  = "STRUCTURED3D", 
- out_MeshType = "STRUCTURED3D", 
-/
-&PARAM_REGRID_INTERP_FIELD
-  !- input --------------------
-  in_basename="history",      
-  vars = "U", "V", "W", "DDENS", "PT", 
-  !out_tinterval = 5,
-/
-&PARAM_REGRID_FILE
-  !-- output ----------------
-  out_basename="./outdata/history", 
-  out_UniformGrid=.false., 
-/
-&PARAM_REGRID_OPERATE_FIELD
-  uvmet_conversion_flag = .true., 
-/
-&PARAM_REGRID_INMESH3D_STRUCTURED
-  NLocalMeshPerPrc = 1, 
-  dom_xmin         = -1.6D3, 
-  dom_xmax         =  1.6D3, 
-  isPeriodicX      = .true.,
-  dom_ymin         = -1.6D3,  
-  dom_ymax         =  1.6D3,  
-  isPeriodicY      = .true.,  
-  dom_zmin         = 0.0D0, 
-  dom_zmax         = 1.6D3,   
-  NprcX            = {nprcx}, 
-  NeX              = {nex},
-  NprcY            = {nprcy},   
-  NeY              = {ney},
-  NeGZ             = {nez},
-  PolyOrder_h      = {porder},
-  PolyOrder_v      = {porder},    
-/
-&PARAM_REGRID_OUTMESH3D_STRUCTURED
-  NLocalMeshPerPrc = 1, 
-  dom_xmin         = -1.6D3, 
-  dom_xmax         =  1.6D3, 
-  isPeriodicX      = .true.,
-  dom_ymin         = -1.6D3,  
-  dom_ymax         =  1.6D3,  
-  isPeriodicY      = .true.,  
-  dom_zmin         = 0.0D0, 
-  dom_zmax         = 1.6D3, 
-  NprcX       = {regrid_nprcx},       
-  NeX         = {regrid_nex},           
-  NprcY       = {regrid_nprcy}, 
-  NeY         = {regrid_ney},    
-  NeGZ        = {regrid_nez}, 
-  PolyOrder_h = {regrid_porder}, 
-  PolyOrder_v = {regrid_porder}, 
-/
-    """
-    
-    with open(conf_path, 'w') as f:
-        f.write(conf_run_s)
 
 #----------------
 
@@ -347,24 +276,28 @@ llio_transfer --purge ${{SCALE_DG_REGRID_BIN}} *.conf
 def mk_conf_sh( exp_name, exp_info, exp_postfix="" ):
     nprcx = exp_info["nprcx"]
     nprcy = exp_info["nprcy"]    
-    eh = exp_info["Eh"]
+    ex = exp_info["Ex"]
+    ey = exp_info["Ey"]    
     ez = exp_info["Ez"]
     porder = exp_info["porder"]
+    runno_s = exp_info["runno_s"]       
 
     out_dir_pref=f"./DNS{exp_postfix}/{exp_name}"
     nprc = nprcx * nprcy
     
     print(out_dir_pref)    
     #-------
-    os.makedirs(out_dir_pref+f"/run1", exist_ok=True)    
-    mkconf_init(f"{out_dir_pref}/run1/init.conf", 
-                nprcx, nprcy, eh, ez, porder, exp_info["initgp_porder"] )
+    if runno_s == 1:
+      os.makedirs(out_dir_pref+f"/run1", exist_ok=True)    
+      mkconf_init(f"{out_dir_pref}/run1/init.conf", 
+                  nprcx, nprcy, ex, ey, ez, porder, exp_info["initgp_porder"],
+                  exp_info["ini_PT"] )
     
     #---                     
     date_time0 = datetime.datetime(1, 1, 1, 0, 0, 0, 0) # + datetime.timedelta(days=exp_info["ini_day"])
     hr_per_run = exp_info["hr_per_run"]
     
-    for runno in range(1,int( exp_info["integ_hour"] /hr_per_run)+1):
+    for runno in range(runno_s,runno_s+int( exp_info["integ_hour"] /hr_per_run)):
       date_time = date_time0 + datetime.timedelta(hours=hr_per_run*(runno-1))
       if runno > 1:
         restart_in_basename = f"../run{runno-1}/restart_{date_time.year:04}{date_time.month:02}{date_time.day:02}-{date_time.hour:02}0000.000"
@@ -376,24 +309,35 @@ def mk_conf_sh( exp_name, exp_info, exp_postfix="" ):
       mkconf_run(f"{out_dir_pref}/run{runno}/run.conf", 
             restart_in_basename, date_time.month, date_time.day, date_time.hour, 3600*hr_per_run, 
             exp_info["dt_sec"], exp_info["dt_dyn_sec"],            
-            nprcx, nprcy, eh, ez, porder, 
+            nprcx, nprcy, ex, ey, ez, porder, 
             exp_info["modal_filter_flag"], exp_info["mf_alph"], exp_info["mf_ordh"], exp_info["mf_alpv"], exp_info["mf_ordv"], 
             exp_info["hist_int_sec"], exp_info["dns_mu"], exp_info["dns_nu"] )        
                     
-      # mkconf_regrid(f"{out_dir_pref}/regrid.conf", 
-      #                 nprc, eh, ez, porder,  
-      #                 exp_info["regrid_nprcx"], exp_info["regrid_nprcy"], 
-      #                 exp_info["regrid_Ex"], exp_info["regrid_Ey"], exp_info["Ez"], exp_info["regrid_porder"] )
-                  
+                    
+      if runno==1:
+        batch_job_common.mkconf_regrid( 
+                        f"{out_dir_pref}/run{runno_s}/regrid_bs.conf", 
+                        nprcx, nprcy, ex, ey, ez, porder,  
+                        exp_info["regrid_nprcx"], exp_info["regrid_nprcy"], 
+                        exp_info["regrid_Ex"], exp_info["regrid_Ey"], ez, exp_info["regrid_porder"],
+                        restart_in_basename, "'PRES_hyd', 'DENS_hyd'", "outdata/basic_state" )
+                    
+      batch_job_common.mkconf_regrid(f"{out_dir_pref}/run{runno}/regrid.conf", 
+                      nprcx, nprcy, ex, ey, ez, porder,  
+                      exp_info["regrid_nprcx"], exp_info["regrid_nprcy"], 
+                      exp_info["regrid_Ex"], exp_info["regrid_Ey"], ez, exp_info["regrid_porder"],
+                      "history", "'U', 'V', 'W', 'DDENS', 'PT'", "outdata/history" )
+      
       mksh_job_run(f"{out_dir_pref}/run{runno}/job_run.sh", f"RB_D_P{porder}_rn{runno}", 
                   nprc, exp_info["elapse_time"], (runno==1) ) 
           
-      # mksh_job_regrid(f"{out_dir_pref}/job_regrid.sh", f"REG_E{eh}P{porder}", "regrid.conf", 
-      #                   exp_info["regrid_nprcx"]*exp_info["regrid_nprcy"], exp_info["regrid_elapse_time"], 
-      #                   "outdata")
-              
-      # mksh_job_regrid(f"{out_dir_pref}/job_regrid_topo.sh", f"REGT_E{eh}P{porder}", "regrid_topo.conf", 
-      #                   exp_info["regrid_nprcx"]*exp_info["regrid_nprcy"], exp_info["regrid_elapse_time"], 
-      #                   "outdata")
+      if runno==1:
+        mksh_job_regrid(f"{out_dir_pref}/run{runno}/job_regrid_bs.sh", f"RG_L_P{porder}_rn{runno}", "regrid_bs.conf", 
+                          exp_info["regrid_nprcx"]*exp_info["regrid_nprcy"], exp_info["regrid_elapse_time"], 
+                          "outdata")
+          
+      mksh_job_regrid(f"{out_dir_pref}/run{runno}/job_regrid.sh", f"RG_D_P{porder}_rn{runno}", "regrid.conf", 
+                        exp_info["regrid_nprcx"]*exp_info["regrid_nprcy"], exp_info["regrid_elapse_time"], 
+                        "outdata")
   
 #---------------------------------
