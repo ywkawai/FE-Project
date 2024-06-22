@@ -26,7 +26,7 @@ def get_var_list_y0(varname, dir_list, pe_num_x, pe_nun_y, pe_xs, pe_xe, pe_ys, 
   return var_list    
 
 def gen_anim( var_listlist, vmin, vmax, 
-             anim_file):
+             anim_file, interval=90):
     
   var_num = len(var_listlist)
   X_list = []; Z_list = []
@@ -66,7 +66,7 @@ def gen_anim( var_listlist, vmin, vmax,
       
     istart=1; time_offset = time_offset + time.values[-1]
     
-  ani = ArtistAnimation(fig, artists, interval=90)
+  ani = ArtistAnimation(fig, artists, interval=interval)
   ani.save(anim_file, writer='imagemagick')
 
 

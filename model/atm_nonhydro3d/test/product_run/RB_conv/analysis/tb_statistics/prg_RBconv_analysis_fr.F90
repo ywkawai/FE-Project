@@ -120,6 +120,8 @@ program prg_RBconv_analysis
   real(RP) :: harea
 
   real(RP) :: start_time, end_time
+
+  character(len=H_SHORT) :: tb_scheme = 'DNS' ! or SMAGORINSKY
   !-----------------------------------------------------------------------------
 
 
@@ -586,7 +588,8 @@ contains
       out_filebase_tb,                &
       start_time0,                    &
       output_tintrv,                  &
-      num_step
+      num_step,                       &
+      tb_scheme
 
     !-
     integer :: k
@@ -800,7 +803,7 @@ contains
 
     ! Diagnose
     call common_Init( mesh3D )
-    call diag_tb_Init( mesh3D, meshV1D, &
+    call diag_tb_Init( tb_scheme, mesh3D, meshV1D, &
       out_filebase_tb, dtype, output_tintrv, &
       myrank, ismaster, NLocalMeshPerPrc )
 
