@@ -88,15 +88,76 @@ module mod_diag_tb
   integer :: NLocalMeshPerPrc
 
 
+  abstract interface
+    subroutine atm_phy_tb_cal_grad( &
+      T11, T12, T13, T21, T22, T23, T31, T32, T33,                & ! (out)
+      DF1, DF2, DF3,                                              & ! (out)
+      TKE, Nu, Kh,                                                & ! (out)
+      DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd,    & ! (in)
+      PRES, PT,                                                   & ! (in)
+      Dx, Dy, Dz, Sx, Sy, Sz, Lift, lmesh, elem, lmesh2D, elem2D, & ! (in)
+      is_bound                                                    ) ! (in)
+      import RP
+      import LocalMesh3D
+      import LocalMesh2D
+      import ElementBase3D
+      import ElementBase2D
+      import SparseMat
+      implicit none
+
+      class(LocalMesh3D), intent(in) :: lmesh
+      class(ElementBase3D), intent(in) :: elem
+      class(LocalMesh2D), intent(in) :: lmesh2D
+      class(ElementBase2D), intent(in) :: elem2D
+      real(RP), intent(out) :: T11(elem%Np,lmesh%NeA), T12(elem%Np,lmesh%NeA), T13(elem%Np,lmesh%NeA)
+      real(RP), intent(out) :: T21(elem%Np,lmesh%NeA), T22(elem%Np,lmesh%NeA), T23(elem%Np,lmesh%NeA)
+      real(RP), intent(out) :: T31(elem%Np,lmesh%NeA), T32(elem%Np,lmesh%NeA), T33(elem%Np,lmesh%NeA)
+      real(RP), intent(out) :: DF1(elem%Np,lmesh%NeA)
+      real(RP), intent(out) :: DF2(elem%Np,lmesh%NeA)
+      real(RP), intent(out) :: DF3(elem%Np,lmesh%NeA)
+      real(RP), intent(out) :: TKE(elem%Np,lmesh%NeA)
+      real(RP), intent(out) :: Nu(elem%Np,lmesh%NeA)
+      real(RP), intent(out) :: Kh(elem%Np,lmesh%NeA)
+      real(RP), intent(in)  :: DDENS_(elem%Np,lmesh%NeA)
+      real(RP), intent(in)  :: MOMX_(elem%Np,lmesh%NeA)
+      real(RP), intent(in)  :: MOMY_(elem%Np,lmesh%NeA)
+      real(RP), intent(in)  :: MOMZ_(elem%Np,lmesh%NeA)
+      real(RP), intent(in)  :: DRHOT_(elem%Np,lmesh%NeA)
+      real(RP), intent(in)  :: DENS_hyd(elem%Np,lmesh%NeA)
+      real(RP), intent(in)  :: PRES_hyd(elem%Np,lmesh%NeA)
+      real(RP), intent(in)  :: PRES(elem%Np,lmesh%NeA)
+      real(RP), intent(in)  :: PT(elem%Np,lmesh%NeA)
+      type(SparseMat), intent(in) :: Dx, Dy, Dz
+      type(SparseMat), intent(in) :: Sx, Sy, Sz
+      type(SparseMat), intent(in) :: Lift
+      logical, intent(in) :: is_bound(elem%NfpTot,lmesh%Ne)
+    end subroutine atm_phy_tb_cal_grad
+  end interface
+  procedure (atm_phy_tb_cal_grad), pointer :: tbsolver_cal_grad => null()
+
+  abstract interface    
+    subroutine atm_phy_tb_final()
+      implicit none
+    end subroutine atm_phy_tb_final
+  end interface 
+  procedure (atm_phy_tb_final), pointer :: tbsolver_final => null()
+
 contains
 !OCL SERIAL
-  subroutine diag_tb_Init( mesh, meshV1D, &
+  subroutine diag_tb_Init( tb_scheme, mesh, meshV1D, &
     out_filebase_tb, dtype, out_tintrv,   &
     myrank, is_master_, NLocalMeshPerPrc_ )
 
+    use scale_atm_phy_tb_dgm_dns, only: &
+      atm_phy_tb_dgm_dns_Init, &
+      atm_phy_tb_dgm_dns_cal_grad, &
+      atm_phy_tb_dgm_dns_Final
     use scale_atm_phy_tb_dgm_smg, only: &
-      atm_phy_tb_dgm_smg_Init
+      atm_phy_tb_dgm_smg_Init, &
+      atm_phy_tb_dgm_smg_cal_grad, &
+      atm_phy_tb_dgm_smg_Final
     implicit none    
+    character(len=*), intent(in) :: tb_scheme
     class(MeshCubeDom3D), intent(in) :: mesh
     class(MeshBase1D), intent(in) :: meshV1D
     character(len=*), intent(in) :: out_filebase_tb
@@ -109,7 +170,19 @@ contains
     logical fileexist
     !--------------------------------------------------------------------
 
-    call atm_phy_tb_dgm_smg_Init( mesh )
+    select case(trim(tb_scheme))
+    case ("DNS")
+      call atm_phy_tb_dgm_dns_Init( mesh )
+      tbsolver_cal_grad => atm_phy_tb_dgm_dns_cal_grad
+      tbsolver_final => atm_phy_tb_dgm_dns_Final
+    case ("SMAGORINSKY")
+      call atm_phy_tb_dgm_smg_Init( mesh )
+      tbsolver_cal_grad => atm_phy_tb_dgm_smg_cal_grad
+      tbsolver_final => atm_phy_tb_dgm_smg_Final
+    case default
+      LOG_ERROR("diag_tb_Init",*) 'Invalid tb_scheme. Check!'
+      call PRC_abort      
+    end select
 
     call T11%Init("T11", "kg.m-3.m2.s-2", mesh)
     call T12%Init("T12", "kg.m-3.m2.s-2", mesh)
@@ -240,7 +313,7 @@ contains
         lmesh%VMapM, lmesh%VMapP, lmesh%VMapB, lmesh, lmesh%refElem3D,          &
         lmesh%lcmesh2D, lmesh%lcmesh2D%refElem2D )
 
-      call atm_phy_tb_dgm_smg_cal_grad( &
+      call tbsolver_cal_grad( &
         T11%local(n)%val, T12%local(n)%val, T13%local(n)%val,             &
         T21%local(n)%val, T22%local(n)%val, T23%local(n)%val,             &
         T31%local(n)%val, T32%local(n)%val, T33%local(n)%val,             &
@@ -309,12 +382,10 @@ contains
 
 !OCL SERIAL
   subroutine diag_tb_Final()
-    use scale_atm_phy_tb_dgm_smg, only: &
-      atm_phy_tb_dgm_smg_Final
     implicit none   
     !--------------------------------------------------------------------
 
-    call atm_phy_tb_dgm_smg_Final()
+    call tbsolver_final()
 
     call TKE%Final()
 
