@@ -294,11 +294,11 @@ def mk_conf_sh( exp_name, exp_info, exp_postfix="" ):
                   exp_info["ini_PT"] )
     
     #---                     
-    date_time0 = datetime.datetime(1, 1, 1, 0, 0, 0, 0) # + datetime.timedelta(days=exp_info["ini_day"])
+    date_time0 = datetime.datetime(1, 1, 1, 0, 0, 0, 0) + datetime.timedelta(seconds=exp_info["start_time_sec"])
     hr_per_run = exp_info["hr_per_run"]
     
     for runno in range(runno_s,runno_s+int( exp_info["integ_hour"] /hr_per_run)):
-      date_time = date_time0 + datetime.timedelta(hours=hr_per_run*(runno-1))
+      date_time = date_time0 + datetime.timedelta(hours=hr_per_run*(runno-runno_s))
       if runno > 1:
         restart_in_basename = f"../run{runno-1}/restart_{date_time.year:04}{date_time.month:02}{date_time.day:02}-{date_time.hour:02}0000.000"
       else:
