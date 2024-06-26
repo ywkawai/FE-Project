@@ -1,3 +1,11 @@
+!> module FElib / Data / base
+!!
+!! @par Description
+!!           A module for managing field data with FEM 
+!!
+!! @author Yuta Kawai, Team SCALE
+!!
+!<
 #include "scaleFElib.h"
 module scale_localmeshfield_base
 
@@ -20,7 +28,7 @@ module scale_localmeshfield_base
   use scale_localmesh_3d, only: &
     LocalMesh3D, LocalMesh3D_Init, LocalMesh3D_Final
 
-  use scale_element_base, only: elementbase2D
+  use scale_element_base, only: ElementBase2D
 
   !-----------------------------------------------------------------------------
   implicit none
