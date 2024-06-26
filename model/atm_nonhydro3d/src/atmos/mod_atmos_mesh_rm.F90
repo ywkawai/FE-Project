@@ -96,6 +96,7 @@ contains
     character(len=H_LONG) :: TOPO_IN_BASENAME    = ''     !< basename of the input file
     character(len=H_MID)  :: TOPO_IN_VARNAME     = 'topo' !< variable name of topo in the input file
     character(len=H_MID)  :: VERTICAL_COORD_NAME = "TERRAIN_FOLLOWING"
+    logical :: COMM_USE_MPI_PC    = .false.
 
     integer, parameter :: ATMOS_MESH_NLocalMeshPerPrc = 1
 
@@ -112,7 +113,8 @@ contains
       PolyOrder_h, PolyOrder_v, LumpedMassMatFlag, &
       NprcX, NprcY,                                &
       TOPO_IN_BASENAME, TOPO_IN_VARNAME,           &
-      VERTICAL_COORD_NAME
+      VERTICAL_COORD_NAME,                         &
+      COMM_USE_MPI_PC
     
     integer :: k
     logical :: is_spec_FZ
@@ -187,6 +189,9 @@ contains
     this%vcoord_type_id = MeshUtil_get_VCoord_TypeID( VERTICAL_COORD_NAME )
     call this%Setup_vcoordinate()
 
+    !-
+    this%comm_use_mpi_pc = COMM_USE_MPI_PC
+
     return
   end subroutine AtmosMeshRM_Init
 
@@ -221,6 +226,7 @@ contains
 
     commid = this%Get_communicatorID( ATM_MESH_MAX_COMMNUICATOR_NUM )
     call this%comm_list(commid)%Init(sfield_num,  hvfield_num, htensorfield_num, this%mesh )
+    if ( this%comm_use_mpi_pc ) call this%comm_list(commid)%Prepare_PC()
     call var_manager%MeshFieldComm_Prepair( this%comm_list(commid), field_list )
 
     return
