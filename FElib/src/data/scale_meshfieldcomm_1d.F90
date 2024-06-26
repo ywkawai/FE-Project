@@ -1,3 +1,11 @@
+!-------------------------------------------------------------------------------
+!> module FElib / Data / Communication 1D
+!!
+!! @par Description
+!!      A module to mangage 1D data communication for element-based methods
+!!
+!! @author Yuta Kawai, Team SCALE
+!<
 #include "scaleFElib.h"
 module scale_meshfieldcomm_1d
 
@@ -53,6 +61,7 @@ module scale_meshfieldcomm_1d
   !
   !++ Private parameters & variables
   !
+  integer, parameter :: COMM_FACE_NUM = 2
 
 contains
   subroutine MeshFieldComm1D_Init( this, &
@@ -63,11 +72,19 @@ contains
     class(MeshFieldComm1D), intent(inout) :: this
     integer, intent(in) :: sfield_num
     integer, intent(in) :: hvfield_num
-    class(Meshbase1d), intent(in), target :: mesh1d    
+    class(MeshBase1D), intent(in), target :: mesh1d
+
+    integer :: n
+    integer :: Nnode_LCMeshFace(COMM_FACE_NUM,mesh1d%LOCAL_MESH_NUM)
     !-----------------------------------------------------------------------------
     
     this%mesh1d => mesh1d 
-    call MeshFieldCommBase_Init( this, sfield_num, hvfield_num, 0, mesh1d%refElem1D%Nfp * 2, 2, mesh1d)  
+    ! Dummy
+    do n=1, this%mesh1d%LOCAL_MESH_NUM
+      Nnode_LCMeshFace(:,n) = (/ 1, 1 /)
+    end do
+    
+    call MeshFieldCommBase_Init( this, sfield_num, hvfield_num, 0, mesh1d%refElem1D%Nfp * 2, 2, Nnode_LCMeshFace, mesh1d)  
   
     return
   end subroutine MeshFieldComm1D_Init
@@ -128,50 +145,35 @@ contains
     return
   end subroutine MeshFieldComm1D_get
 
+!OCL SERIAL
   subroutine MeshFieldComm1D_exchange( this )
-
-    use scale_prc, only: &
-      PRC_LOCAL_COMM_WORLD, PRC_abort, PRC_MPIbarrier
-    
     use scale_meshfieldcomm_base, only: &
       MeshFieldCommBase_exchange_core,  &
       LocalMeshCommData
 
     implicit none
   
-    class(MeshFieldComm1D), intent(inout) :: this
+    class(MeshFieldComm1D), intent(inout), target :: this
   
     integer :: n, f
     type(LocalMesh1D), pointer :: mesh
-    integer, parameter :: Nnode_LCMeshFace = 1
-    type(LocalMeshCommData), target :: commdata_list(this%nfaces_comm, this%mesh%LOCAL_MESH_NUM)
     type(LocalMeshCommData), pointer :: commdata
     !-----------------------------------------------------------------------------
     
     do n=1, this%mesh%LOCAL_MESH_NUM
-      mesh => this%mesh1d%lcmesh_list(n)
-      do f=1, this%nfaces_comm
-        
-        commdata => commdata_list(f,n)
-        call commdata%Init(this, mesh, f, Nnode_LCMeshFace)
-
-        call push_localsendbuf( commdata%send_buf(:,:),      &  ! (inout)
-          this%send_buf(:,:,n), commdata%s_faceID, f,        &  ! (in)
-          commdata%Nnode_LCMeshFace, this%field_num_tot)        ! (in)
-      end do
+    do f=1, this%nfaces_comm      
+      commdata => this%commdata_list(f,n)
+      call push_localsendbuf( commdata%send_buf(:,:),      &  ! (inout)
+        this%send_buf(:,:,n), commdata%s_faceID, f,        &  ! (in)
+        commdata%Nnode_LCMeshFace, this%field_num_tot)        ! (in)
+    end do
     end do
 
     !-----------------------
 
-    call MeshFieldCommBase_exchange_core(this, commdata_list(:,:))
+    call MeshFieldCommBase_exchange_core( this, this%commdata_list(:,:) )
     
     !---------------------
-  
-    do n=1, this%mesh%LOCAL_MESH_NUM
-    do f=1, this%nfaces_comm
-      call commdata_list(f,n)%Final()
-    end do
-    end do 
 
     return
   end subroutine MeshFieldComm1D_exchange

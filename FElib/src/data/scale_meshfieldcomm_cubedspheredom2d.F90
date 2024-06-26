@@ -1,3 +1,11 @@
+!-------------------------------------------------------------------------------
+!> module FElib / Data / Communication in 2D cubed-sphere domain
+!!
+!! @par Description
+!!      A module to mangage data communication with 2D cubed-sphere domain for element-based methods
+!!
+!! @author Yuta Kawai, Team SCALE
+!<
 #include "scaleFElib.h"
 module scale_meshfieldcomm_cubedspheredom2d
 
@@ -36,6 +44,7 @@ module scale_meshfieldcomm_cubedspheredom2d
   type, public, extends(MeshFieldCommBase) :: MeshFieldCommCubedSphereDom2D
     class(MeshCubedSphereDom2D), pointer :: mesh2d
     type(VecCovariantComp), allocatable :: vec_covariant_comp_ptrlist(:)
+    integer, allocatable :: Nnode_LCMeshAllFace(:)
   contains
     procedure, public :: Init   => MeshFieldCommCubedSphereDom2D_Init
     procedure, public :: Put    => MeshFieldCommCubedSphereDom2D_put
@@ -60,6 +69,7 @@ module scale_meshfieldcomm_cubedspheredom2d
   !++ Private parameters & variables
   !
   integer :: bufsize_per_field
+  integer, parameter :: COMM_FACE_NUM = 4
 
 contains
   subroutine MeshFieldCommCubedSphereDom2D_Init( this, &
@@ -74,13 +84,23 @@ contains
     class(MeshCubedSphereDom2D), intent(in), target :: mesh2d
     
     type(LocalMesh2D), pointer :: lcmesh
+    integer :: n
+    integer :: Nnode_LCMeshFace(COMM_FACE_NUM,mesh2d%LOCAL_MESH_NUM)
     !-----------------------------------------------------------------------------
     
     this%mesh2d => mesh2d
     lcmesh => mesh2d%lcmesh_list(1)
     bufsize_per_field = 2*(lcmesh%NeX + lcmesh%NeY)*lcmesh%refElem2D%Nfp
-    call MeshFieldCommBase_Init( this, sfield_num, hvfield_num, htensorfield_num, bufsize_per_field, 4, mesh2d )  
-  
+
+    allocate( this%Nnode_LCMeshAllFace(mesh2d%LOCAL_MESH_NUM) )
+    do n=1, this%mesh2d%LOCAL_MESH_NUM
+      lcmesh => this%mesh2d%lcmesh_list(n)
+      Nnode_LCMeshFace(:,n) = (/ lcmesh%NeX, lcmesh%NeY, lcmesh%NeX, lcmesh%NeY /) * lcmesh%refElem2D%Nfp
+      this%Nnode_LCMeshAllFace(n) = sum(Nnode_LCMeshFace(:,n))
+    end do
+
+    call MeshFieldCommBase_Init( this, sfield_num, hvfield_num, htensorfield_num, bufsize_per_field, COMM_FACE_NUM, Nnode_LCMeshFace, mesh2d)  
+
     if (hvfield_num > 0) then
       allocate( this%vec_covariant_comp_ptrlist(hvfield_num) )
     end if
@@ -89,11 +109,12 @@ contains
   end subroutine MeshFieldCommCubedSphereDom2D_Init
 
   subroutine MeshFieldCommCubedSphereDom2D_Final( this )
-
     implicit none
     
     class(MeshFieldCommCubedSphereDom2D), intent(inout) :: this
     !-----------------------------------------------------------------------------
+
+    deallocate( this%Nnode_LCMeshAllFace )
 
     if ( this%hvfield_num > 0 ) then
       deallocate( this%vec_covariant_comp_ptrlist )
@@ -134,7 +155,7 @@ contains
     do n=1, this%mesh%LOCAL_MESH_NUM
       lcmesh => this%mesh2d%lcmesh_list(n)
       call MeshFieldCommBase_extract_bounddata( field_list(i)%field2d%local(n)%val, lcmesh%refElem, lcmesh, & ! (in)
-        this%send_buf(:,varid_s+i-1,n) )                                                                  ! (out)
+        this%send_buf(:,varid_s+i-1,n) )                                                                      ! (out)
     end do
     end do
 
@@ -192,11 +213,8 @@ contains
     return
   end subroutine MeshFieldCommCubedSphereDom2D_get
 
-  subroutine MeshFieldCommCubedSphereDom2D_exchange( this )
-
-    use scale_prc, only: &
-      PRC_LOCAL_COMM_WORLD, PRC_abort, PRC_MPIbarrier
-    
+!OCL SERIAL
+  subroutine MeshFieldCommCubedSphereDom2D_exchange( this )    
     use scale_meshfieldcomm_base, only: &
       MeshFieldCommBase_exchange_core,  &
       LocalMeshCommData
@@ -207,11 +225,10 @@ contains
     
     implicit none
   
-    class(MeshFieldCommCubedSphereDom2D), intent(inout) :: this
+    class(MeshFieldCommCubedSphereDom2D), intent(inout), target :: this
   
     integer :: n, f
     integer :: varid
-    integer :: k, l, p
 
     real(RP), allocatable :: fpos2D(:,:)
     real(RP), allocatable :: lcfpos2D(:,:)
@@ -220,9 +237,6 @@ contains
     
     class(ElementBase2D), pointer :: elem
     type(LocalMesh2D), pointer :: lcmesh
-    integer :: Nnode_LCMeshFace(this%nfaces_comm)
-    integer :: is_f(this%nfaces_comm)    
-    type(LocalMeshCommData), target :: commdata_list(this%nfaces_comm, this%mesh%LOCAL_MESH_NUM)
     type(LocalMeshCommData), pointer :: commdata
 
     integer :: irs, ire    
@@ -232,34 +246,25 @@ contains
       lcmesh => this%mesh2d%lcmesh_list(n)
       elem => lcmesh%refElem2D
 
-      Nnode_LCMeshFace(:) = (/ lcmesh%NeX, lcmesh%NeY, lcmesh%NeX, lcmesh%NeY /) * lcmesh%refElem2D%Nfp
-                
-      is_f(1) = 1
-      do f=2, this%nfaces_comm
-        is_f(f) = is_f(f-1) + Nnode_LCMeshFace(f-1)
-      end do
-
-      allocate( fpos2D(sum(Nnode_LCMeshFace(:)),2) )
+      allocate( fpos2D(this%Nnode_LCMeshAllFace(n),2) )
       call extract_boundary_data2D( lcmesh%pos_en(:,:,1), elem, lcmesh, fpos2D(:,1) )  
       call extract_boundary_data2D( lcmesh%pos_en(:,:,2), elem, lcmesh, fpos2D(:,2) ) 
 
       irs = 1
       do f=1, this%nfaces_comm
-        commdata => commdata_list(f,n)
-        call commdata%Init(this, lcmesh, f, Nnode_LCMeshFace(f))
-
-        call push_localsendbuf( commdata%send_buf(:,:),      &  ! (inout)
-          this%send_buf(:,:,n), commdata%s_faceID, is_f(f),  &  ! (in)
-          commdata%Nnode_LCMeshFace, this%field_num_tot)        ! (in)
+        commdata => this%commdata_list(f,n)
+        call push_localsendbuf( commdata%send_buf(:,:),             &  ! (inout)
+          this%send_buf(:,:,n), commdata%s_faceID, this%is_f(f,n),  &  ! (in)
+          commdata%Nnode_LCMeshFace, this%field_num_tot)               ! (in)
         
         if ( commdata%s_panelID /= lcmesh%panelID ) then
           if ( this%hvfield_num > 0 ) then
             
-            allocate( lcfpos2D(Nnode_LCMeshFace(f),2), unity_fac(Nnode_LCMeshFace(f)) )
-            allocate( tmp_svec2D(Nnode_LCMeshFace(f),2) )
+            allocate( lcfpos2D(commdata%Nnode_LCMeshFace,2), unity_fac(commdata%Nnode_LCMeshFace) )
+            allocate( tmp_svec2D(commdata%Nnode_LCMeshFace,2) )
 
-            call push_localsendbuf( lcfpos2D,                            &
-              fpos2D, commdata%s_faceID, is_f(f), Nnode_LCMeshFace(f), 2 )
+            call push_localsendbuf( lcfpos2D,                                   &
+              fpos2D, commdata%s_faceID, this%is_f(f,n), commdata%Nnode_LCMeshFace, 2 )
             unity_fac(:) = 1.0_RP
 
             ire = irs + commdata%Nnode_LCMeshFace - 1
@@ -269,7 +274,7 @@ contains
               tmp_svec2D(:,2) = commdata%send_buf(:,varid+1)
               call CubedSphereCoordCnv_CS2LonLatVec( &
                 lcmesh%panelID, lcfpos2D(:,1), lcfpos2D(:,2), unity_fac,           &
-                Nnode_LCMeshFace(f),                                               &
+                commdata%Nnode_LCMeshFace,                                         &
                 tmp_svec2D(:,1), tmp_svec2D(:,2),                                  &
                 commdata%send_buf(:,varid), commdata%send_buf(:,varid+1)           )
             end do
@@ -285,7 +290,7 @@ contains
 
     !-----------------------
 
-    call MeshFieldCommBase_exchange_core(this, commdata_list(:,:))
+    call MeshFieldCommBase_exchange_core(this, this%commdata_list(:,:))
 
     !-----------------------
   
@@ -293,35 +298,28 @@ contains
       lcmesh => this%mesh2d%lcmesh_list(n)
       elem => lcmesh%refElem2D
 
-      allocate( fpos2D(sum(Nnode_LCMeshFace(:)),2) )
+      allocate( fpos2D(this%Nnode_LCMeshAllFace(n),2) )
       call extract_boundary_data2D( lcmesh%pos_en(:,:,1), elem, lcmesh, fpos2D(:,1) )  
       call extract_boundary_data2D( lcmesh%pos_en(:,:,2), elem, lcmesh, fpos2D(:,2) ) 
 
-      Nnode_LCMeshFace(:) = (/ lcmesh%NeX, lcmesh%NeY, lcmesh%NeX, lcmesh%NeY /) * lcmesh%refElem2D%Nfp
-                
-      is_f(1) = 1
-      do f=2, this%nfaces_comm
-        is_f(f) = is_f(f-1) + Nnode_LCMeshFace(f-1)
-      end do
-
       irs = 1
       do f=1, this%nfaces_comm
-        commdata => commdata_list(f,n)
+        commdata => this%commdata_list(f,n)
         ire = irs + commdata%Nnode_LCMeshFace - 1
 
         if ( commdata%s_panelID /= lcmesh%panelID ) then
           if ( this%hvfield_num > 0 ) then
 
-            allocate( lcfpos2D(Nnode_LCMeshFace(f),2), unity_fac(Nnode_LCMeshFace(f)) )
+            allocate( lcfpos2D(commdata%Nnode_LCMeshFace,2), unity_fac(commdata%Nnode_LCMeshFace) )
 
-            call push_localsendbuf( lcfpos2D,            &
-              fpos2D, f, is_f(f), Nnode_LCMeshFace(f), 2 )
+            call push_localsendbuf( lcfpos2D,                          &
+              fpos2D, f, this%is_f(f,n), commdata%Nnode_LCMeshFace, 2 )
             unity_fac(:) = 1.0_RP
 
             do varid=this%sfield_num+1, this%field_num_tot-1, 2
               call CubedSphereCoordCnv_LonLat2CSVec( &
                 lcmesh%panelID, lcfpos2D(:,1), lcfpos2D(:,2), unity_fac(:),          &
-                Nnode_LCMeshFace(f),                                                 &
+                commdata%Nnode_LCMeshFace,                                           &
                 commdata%recv_buf(:,varid), commdata%recv_buf(:,varid+1),            &
                 this%recv_buf(irs:ire,varid,n), this%recv_buf(irs:ire,varid+1,n)     )
             end do
@@ -329,7 +327,6 @@ contains
           end if
         end if
 
-        call commdata%Final()
         irs = ire + 1
       end do
 
