@@ -38,6 +38,8 @@ module mod_atmos_mesh
 
     type(MeshTopography) :: topography
     integer :: vcoord_type_id
+
+    logical :: comm_use_mpi_pc
   contains
     procedure :: AtmosMesh_Init
     procedure :: AtmosMesh_Final
