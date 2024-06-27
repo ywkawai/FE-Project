@@ -34,7 +34,7 @@ $(BUILD_DIR)/scale_atm_phy_tb_dgm_globalsmg.o: turbulence/scale_atm_phy_tb_dgm_g
 $(BUILD_DIR)/scale_atm_phy_tb_dgm_smg.o: turbulence/scale_atm_phy_tb_dgm_smg.F90 $(DEPENDLIB) $(BUILD_DIR)/scale_atm_phy_tb_dgm_common.o $(BUILD_DIR)/scale_element_base.o $(BUILD_DIR)/scale_element_hexahedral.o $(BUILD_DIR)/scale_localmesh_2d.o $(BUILD_DIR)/scale_localmesh_3d.o $(BUILD_DIR)/scale_localmeshfield_base.o $(BUILD_DIR)/scale_mesh_base3d.o $(BUILD_DIR)/scale_meshfield_base.o $(BUILD_DIR)/scale_sparsemat.o
 $(BUILD_DIR)/scale_coriolis_param.o: common/scale_coriolis_param.F90 $(DEPENDLIB)
 $(BUILD_DIR)/scale_cubedsphere_coord_cnv.o: common/scale_cubedsphere_coord_cnv.F90 $(DEPENDLIB) $(BUILD_DIR)/scale_geographic_coord_cnv.o
-$(BUILD_DIR)/scale_element_base.o: element/scale_element_base.F90 $(DEPENDLIB)
+$(BUILD_DIR)/scale_element_base.o: element/scale_element_base.F90 $(DEPENDLIB) $(BUILD_DIR)/scale_linalgebra.o
 $(BUILD_DIR)/scale_element_hexahedral.o: element/scale_element_hexahedral.F90 $(DEPENDLIB) $(BUILD_DIR)/scale_element_base.o $(BUILD_DIR)/scale_element_quadrilateral.o $(BUILD_DIR)/scale_linalgebra.o $(BUILD_DIR)/scale_polynominal.o
 $(BUILD_DIR)/scale_element_line.o: element/scale_element_line.F90 $(DEPENDLIB) $(BUILD_DIR)/scale_element_base.o $(BUILD_DIR)/scale_linalgebra.o $(BUILD_DIR)/scale_polynominal.o
 $(BUILD_DIR)/scale_element_modalfilter.o: element/scale_element_modalfilter.F90 $(DEPENDLIB) $(BUILD_DIR)/scale_element_base.o $(BUILD_DIR)/scale_element_hexahedral.o $(BUILD_DIR)/scale_element_line.o $(BUILD_DIR)/scale_element_quadrilateral.o
