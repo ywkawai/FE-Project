@@ -52,4 +52,4 @@ def run_job(exp_dir, num_spinup, num_run, start_subdir):
         os.chdir(old_path)
 
 for dir in dir_list:
-    run_job(dir, num_run_list[dir], start_subdir_list[dir])
+    run_job(dir, 0, num_run_list[dir], start_subdir_list[dir])

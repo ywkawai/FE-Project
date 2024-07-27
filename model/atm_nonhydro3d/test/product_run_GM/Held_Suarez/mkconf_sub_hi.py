@@ -2,7 +2,7 @@ import os
 import math
 import datetime
 import sys
-sys.path.append(os.path.join(os.path.dirname(__file__), '../../common'))
+sys.path.append(os.path.join(os.path.dirname(__file__), '../common'))
 import batch_job_common
   
 SCALE_DG_BIN_PATH="../../../"

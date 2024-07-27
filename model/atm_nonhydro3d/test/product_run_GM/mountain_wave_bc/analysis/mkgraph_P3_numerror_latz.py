@@ -3,6 +3,7 @@ import numpy as np
 import mkgraph_common as mkgraph
 import matplotlib.ticker as tick
 import matplotlib.pyplot as plt
+from matplotlib.colors import BoundaryNorm
 
 target_dir="./rhot_heve/"
 out_dir="./analysis_out/h25m/num_error/"
@@ -64,30 +65,53 @@ def vert_1Daxis_fmt(tick_val, pos):
 #  print(val)
   return f'{val}'
 def set_fig_XZ_axis(ax, xlabel):
-  ax.tick_params(labelsize=18, length=10)  
+  ax.tick_params(labelsize=12, length=5)  
 #  print("ylabel:", xlabel)
   ax.xaxis.set_major_locator(tick.MultipleLocator(10000.0))
   ax.xaxis.set_minor_locator(tick.MultipleLocator(2500.0))    
   ax.xaxis.set_major_formatter(tick.FuncFormatter(hori_1Daxis_fmt))
   if (xlabel):  
-    ax.set_xlabel('x [km]', fontsize=18)  
+    ax.set_xlabel('x [km]', fontsize=12)  
   ax.yaxis.set_major_locator(tick.MultipleLocator(2000.0))
   ax.yaxis.set_minor_locator(tick.MultipleLocator(500.0))  
   ax.yaxis.set_major_formatter(tick.FuncFormatter(vert_1Daxis_fmt))
-  ax.set_ylabel('height [km]', fontsize=18)
+  ax.set_ylabel('height [km]', fontsize=12)
 
 def set_fig_LonZ_axis(ax, xlabel):
-  ax.tick_params(labelsize=18, length=10)  
+  ax.tick_params(labelsize=12, length=5)  
 #  print("ylabel:", xlabel)
   ax.xaxis.set_major_locator(tick.MultipleLocator(30.0))
   ax.xaxis.set_minor_locator(tick.MultipleLocator(10.0))    
   ax.xaxis.set_major_formatter(tick.FuncFormatter(hori_1Daxis0_fmt))
   if (xlabel):  
-    ax.set_xlabel('longitude [deg]', fontsize=18)  
+    ax.set_xlabel('longitude [deg]', fontsize=12)  
   ax.yaxis.set_major_locator(tick.MultipleLocator(2000.0))
   ax.yaxis.set_minor_locator(tick.MultipleLocator(500.0))  
   ax.yaxis.set_major_formatter(tick.FuncFormatter(vert_1Daxis_fmt))
-  ax.set_ylabel('height [km]', fontsize=18)
+  ax.set_ylabel('height [km]', fontsize=12)
+
+def mkgraph( contourf_var, contour_var, vmin, vmax, vint, cbar_int, cnt_levels, outfname):
+  fig, ax = plt.subplots(1,1,figsize=(6, 4)) 
+  lv = np.linspace(vmin,vmax,int((vmax-vmin)/vint)+1)
+  cmap = plt.colormaps['jet']
+  norm = BoundaryNorm(lv, ncolors=cmap.N, clip=True)  
+  
+  x = contourf_var.coords["x"]; z = contourf_var.coords["z"]
+  pcm = ax.pcolormesh(x, z, contourf_var.values, norm=norm, cmap="jet")
+  cbar = plt.colorbar(pcm, aspect=50.0, ticks=cnt_levels, extend='both', shrink=1.0, orientation='vertical', pad=0.03)
+  cbar.ax.ticklabel_format(style='sci', scilimits=(-3,3), useMathText=True)  
+  cbar.ax.tick_params(labelsize=10, length=2)
+  cbar.ax.yaxis.set_tick_params(pad=2)     
+  cbar.ax.yaxis.get_offset_text().set(size=9)   
+  cbar.set_ticks(np.arange(vmin, vmax+1e-10, cbar_int))  
+  
+  x = contour_var.coords["x"]; z = contour_var.coords["z"]  
+  cntr = ax.contour(x, z, contour_var.values,levels=cnt_levels, 
+                    colors='white', linewidths=1)
+  
+  set_fig_LonZ_axis(ax, True)
+  plt.tight_layout()
+  plt.savefig(outfname)
 
 #------------------
 
@@ -115,21 +139,21 @@ conv_rate = np.log2(numerror1/numerror2)/np.log2(resol_fac)
 Radius=38219.6760
 
 #---
-fig, ax = plt.subplots(1,1,figsize=(9,5)) 
-conv_rate_=conv_rate.rolling(center=True,x=7,z=1).mean()
+conv_rate_=conv_rate.rolling(center=True,x=5).mean()
 conv_rate_.coords["x"] = conv_rate_.coords["x"]*180/np.pi + 180
 w_ref_ = w_ref.copy()
 w_ref_.coords["x"] = w_ref_.coords["x"]*180/np.pi + 180
-conv_rate_.sel(z=slice(60e3,72e3),x=slice(140,220)).plot(vmin=1.5,vmax=4.5,ax=ax,cmap="jet")
-cntr = w_ref_.sel(z=slice(60e3,72e3),x=slice(140,220)).plot.contour(ax=ax,levels=[-0.1,-0.075,-0.05,-0.025,0,0.025,0.05,0.075,0.1],colors='white')
-set_fig_LonZ_axis(ax, True)
-plt.savefig(f"{out_dir}/dist_conv_rate.png")
+mkgraph( conv_rate_.sel(z=slice(60e3,72e3),x=slice(140,220)), 
+         w_ref_.sel(z=slice(60e3,72e3),x=slice(140,220)),
+         1.5, 4.5, 0.05,  0.5, 
+         [-0.1,-0.075,-0.05,-0.025,0,0.025,0.05,0.075,0.1], 
+         f"{out_dir}/dist_conv_rate.pdf" )
 
 #---
-fig, ax = plt.subplots(1,1,figsize=(9,5)) 
 numerror_w_ = numerror_w["Eh96Ez36P3"].copy()
 numerror_w_.coords["x"] = numerror_w_.coords["x"]*180/np.pi + 180
-numerror_w_.rolling(center=True,x=1,z=1).mean().sel(z=slice(60e3,72e3),x=slice(140,220)).plot(ax=ax,cmap="jet",vmin=0,vmax=1e-4)
-cntr = w_ref_.sel(z=slice(60e3,72e3),x=slice(140,220)).plot.contour(ax=ax,levels=[-0.1,-0.075,-0.05,-0.025,0,0.025,0.05,0.075,0.1],colors='white')
-set_fig_LonZ_axis(ax, True)
-plt.savefig(f"{out_dir}/dist_L2error.png")
+mkgraph( numerror_w_.sel(z=slice(60e3,72e3),x=slice(140,220)), 
+         w_ref_.sel(z=slice(60e3,72e3),x=slice(140,220)), 
+         0.0, 1e-4, 2.5e-6, 1e-5,  
+         [-0.1,-0.075,-0.05,-0.025,0,0.025,0.05,0.075,0.1], 
+         f"{out_dir}/dist_L2error.pdf" )
