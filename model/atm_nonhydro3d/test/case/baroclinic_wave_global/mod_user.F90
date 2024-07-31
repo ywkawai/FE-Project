@@ -375,7 +375,7 @@ contains
       VelLat(:,ke) = 0.0_RP
 
       r_intrp(:) = RPlanet / Lp * acos( sin(Lat_c) * sin(lat(:,ke2D)) + cos(Lat_c) * cos(lat(:,ke2D)) * cos(lon(:,ke2D) - Lon_c) )
-      VelLon_dash(:,ke) = Up * exp( - r_intrp(:)**2 ) / cos( lat(:,ke2D) )
+      VelLon_dash(:,ke) = Up * exp( - r_intrp(:)**2 )
       VelLat_dash(:,ke) = 0.0_RP
       do p=1, Np
         if (k==1 .and. cos(lat(p,ke2D)) < EPS  ) then

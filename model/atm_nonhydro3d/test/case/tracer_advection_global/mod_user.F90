@@ -300,7 +300,7 @@ contains
         lon3D(:), lat3D(:), lcmesh%zlev(:,ke),   &
         0.0_RP, elem%Np                          )
       
-      svec(:,ke,1) = DENS_hyd(:,ke) * svec(:,ke,1) / cos(lat3D(:))
+      svec(:,ke,1) = DENS_hyd(:,ke) * svec(:,ke,1)
       svec(:,ke,2) = DENS_hyd(:,ke) * svec(:,ke,2)
       MOMZ(:,ke) = DENS_hyd(:,ke) * W(:)
     end do
