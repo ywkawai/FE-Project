@@ -29,12 +29,12 @@ module scale_localmesh_2d
   type, extends(LocalMeshBase), public :: LocalMesh2D
 
     type(ElementBase2D), pointer :: refElem2D
-    real(DP) :: xmin, xmax
-    real(DP) :: ymin, ymax
+    real(RP) :: xmin, xmax
+    real(RP) :: ymin, ymax
     integer :: NeX, NeY
 
-    real(DP), allocatable :: lon(:,:)     
-    real(DP), allocatable :: lat(:,:)     
+    real(RP), allocatable :: lon(:,:)     
+    real(RP), allocatable :: lat(:,:)     
   end type LocalMesh2D
 
   public :: LocalMesh2D_Init, LocalMesh2D_Final
