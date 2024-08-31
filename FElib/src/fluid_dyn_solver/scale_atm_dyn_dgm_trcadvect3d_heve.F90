@@ -154,9 +154,9 @@ contains
     lmesh, elem, lmesh2D, elem2D                    ) ! (in)
 
     class(LocalMesh3D), intent(in) :: lmesh
-    class(elementbase3D), intent(in) :: elem
+    class(ElementBase3D), intent(in) :: elem
     class(LocalMesh2D), intent(in) :: lmesh2D
-    class(elementbase2D), intent(in) :: elem2D
+    class(ElementBase2D), intent(in) :: elem2D
     type(SparseMat), intent(in) :: Dx, Dy, Dz, Sx, Sy, Sz, Lift, FaceIntMat
     
     real(RP), intent(out) :: QTRC_dt(elem%Np,lmesh%NeA)
@@ -229,9 +229,9 @@ contains
 
     implicit none
     class(LocalMesh3D), intent(in) :: lmesh
-    class(elementbase3D), intent(in) :: elem
+    class(ElementBase3D), intent(in) :: elem
     class(LocalMesh2D), intent(in) :: lmesh2D
-    class(elementbase2D), intent(in) :: elem2D    
+    class(ElementBase2D), intent(in) :: elem2D    
     real(RP), intent(out) :: fct_coef(elem%Np,lmesh%NeA)
     real(RP), intent(in) :: QTRC_(elem%Np,lmesh%NeA)
     real(RP), intent(in) :: MOMX_(elem%Np,lmesh%NeA)
@@ -302,9 +302,9 @@ contains
     
     implicit none
     class(LocalMesh3D), intent(in) :: lmesh
-    class(elementbase3D), intent(in) :: elem
+    class(ElementBase3D), intent(in) :: elem
     class(LocalMesh2D), intent(in) :: lmesh2D
-    class(elementbase2D), intent(in) :: elem2D
+    class(ElementBase2D), intent(in) :: elem2D
     real(RP), intent(inout) :: QTRC_(elem%Np,lmesh%NeA)
     real(RP), intent(in) :: DENS_hyd(elem%Np,lmesh%NeA)     
     real(RP), intent(in) :: DDENS_  (elem%Np,lmesh%NeA)
@@ -337,7 +337,7 @@ contains
    
     implicit none
     class(LocalMesh3D), intent(in) :: lmesh
-    class(elementbase3D), intent(in) :: elem
+    class(ElementBase3D), intent(in) :: elem
     real(RP), intent(inout) ::  MFLX_x_tavg(elem%Np,lmesh%NeA)
     real(RP), intent(inout) ::  MFLX_y_tavg(elem%Np,lmesh%NeA)
     real(RP), intent(inout) ::  MFLX_z_tavg(elem%Np,lmesh%NeA)
@@ -401,7 +401,7 @@ contains
     implicit none
  
     class(LocalMesh3D), intent(in) :: lmesh
-    class(elementbase3D), intent(in) :: elem  
+    class(ElementBase3D), intent(in) :: elem  
     real(RP), intent(inout) ::  alph_dens_M(elem%NfpTot*lmesh%Ne)
     real(RP), intent(inout) ::  alph_dens_P(elem%NfpTot*lmesh%Ne)
     real(RP), intent(in) ::  DDENS_(elem%Np*lmesh%NeA)
@@ -459,7 +459,7 @@ contains
     implicit none
  
     class(LocalMesh3D), intent(in) :: lmesh
-    class(elementbase3D), intent(in) :: elem  
+    class(ElementBase3D), intent(in) :: elem  
     real(RP), intent(inout) ::  alph_dens_M(elem%NfpTot*lmesh%Ne)
     real(RP), intent(inout) ::  alph_dens_P(elem%NfpTot*lmesh%Ne)
     real(RP), intent(in) ::  DDENS_(elem%Np*lmesh%NeA)
@@ -645,9 +645,9 @@ contains
     implicit none
 
     class(LocalMesh3D), intent(in) :: lmesh
-    class(elementbase3D), intent(in) :: elem  
+    class(ElementBase3D), intent(in) :: elem  
     class(LocalMesh2D), intent(in) :: lmesh2D
-    class(elementbase2D), intent(in) :: elem2D
+    class(ElementBase2D), intent(in) :: elem2D
     real(RP), intent(out) ::  net_outward_flux(lmesh%Ne)
     real(RP), intent(in) ::  QTRC_(elem%Np*lmesh%NeA)
     real(RP), intent(in) ::  MOMX_(elem%Np*lmesh%NeA)  

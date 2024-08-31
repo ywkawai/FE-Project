@@ -53,7 +53,8 @@ module scale_polynominal
   !
   !++ Private parameters & variables
   !
-  
+  private :: gen_JacobiGaussQuadraturePts
+
   !-----------------------------------------------------------------------------
 
 contains
@@ -72,7 +73,6 @@ contains
     real(RP) :: P_lgl(Nord+1,Nord+1)    
     real(RP) :: P(size(x),Nord+1)
     real(RP) :: Pr(size(x),Nord+1)
-
     !---------------------------------------------------------------------------
 
     P_lgl(:,:)  = Polynominal_GenLegendrePoly(Nord, x_lgl)
@@ -107,7 +107,6 @@ contains
     integer :: n, k
     real(RP) :: P(Nord+1,Nord+1)
     real(RP) :: lr_nn
-
     !---------------------------------------------------------------------------
 
     P(:,:)  = Polynominal_GenLegendrePoly(Nord, x_lgl)
@@ -146,7 +145,6 @@ contains
     real(RP), intent(out) :: P(size(x), Nord+1)
 
     integer :: n
-
     !---------------------------------------------------------------------------
 
     if (Nord < 0) then
@@ -187,12 +185,11 @@ contains
     implicit none
  
     integer, intent(in) :: Nord
-    real(DP), intent(in) :: x(:)
-    real(DP), intent(in) :: P(:,:)
-    real(DP) :: GradP(size(x), Nord+1)
+    real(RP), intent(in) :: x(:)
+    real(RP), intent(in) :: P(:,:)
+    real(RP) :: GradP(size(x), Nord+1)
 
     integer :: n
-
     !---------------------------------------------------------------------------
 
     if (Nord < 0) then

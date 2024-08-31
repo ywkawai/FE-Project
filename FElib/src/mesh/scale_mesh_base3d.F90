@@ -207,7 +207,7 @@ contains
     integer :: fmask(lcmesh%refElem%NfpTot)
     integer :: fid_h(lcmesh%refElem3D%Nfp_h,lcmesh%refElem3D%Nfaces_h)
     integer :: fid_v(lcmesh%refElem3D%Nfp_v,lcmesh%refElem3D%Nfaces_v)
-    real(DP) :: Escale_f(lcmesh%refElem%NfpTot,3,3)
+    real(RP) :: Escale_f(lcmesh%refElem%NfpTot,3,3)
 
     integer :: node_ids(lcmesh%refElem%Nv)
     real(RP) :: vx(lcmesh%refElem%Nv), vy(lcmesh%refElem%Nv), vz(lcmesh%refElem%Nv)    

@@ -30,25 +30,25 @@ module scale_localmesh_3d
   type, extends(LocalMeshBase), public :: LocalMesh3D
 
     type(ElementBase3D), pointer :: refElem3D
-    real(DP) :: xmin, xmax
-    real(DP) :: ymin, ymax
-    real(DP) :: zmin, zmax
+    real(RP) :: xmin, xmax
+    real(RP) :: ymin, ymax
+    real(RP) :: zmin, zmax
     integer :: NeX
     integer :: NeY
     integer :: NeZ
     integer :: Ne2D
     integer :: Ne2DA
 
-    real(DP), allocatable :: Sz(:,:)
-    real(DP), allocatable :: zS(:,:)
+    real(RP), allocatable :: Sz(:,:)
+    real(RP), allocatable :: zS(:,:)
     real(RP), allocatable :: GI3(:,:,:)    !< The contravariant component of metric tensor with vertical general coordinate 
     real(RP), allocatable :: GsqrtH(:,:)   !< The Jacobian of horizontal transformation in the computational coordinate
     real(RP), allocatable :: zlev(:,:)
     real(RP), allocatable :: gam(:,:)      !< Factor for approximation with spherical shell domain (= r/a)
 
     class(LocalMesh2D), pointer :: lcmesh2D
-    real(DP), allocatable :: lon2D(:,:)     
-    real(DP), allocatable :: lat2D(:,:)
+    real(RP), allocatable :: lon2D(:,:)     
+    real(RP), allocatable :: lat2D(:,:)
 
     integer, allocatable :: EMap3Dto2D(:)  
   contains
