@@ -83,6 +83,25 @@ module scale_atm_dyn_dgm_driver_trcadv3d
   !++ Public type & procedure
   !
 
+#ifdef SCALE_PRODUCT_RUN_GM_LINADV_DEFORMATIONFLOW
+  abstract interface
+    subroutine set_massflux( tsec, &
+      MFLX_x, MFLX_y, MFLX_z, &
+      DENS_hyd, lcmesh, elem )
+      import LocalMesh3D
+      import ElementBase3D
+      import RP
+      class(LocalMesh3D), intent(in) :: lcmesh
+      class(ElementBase3D), intent(in) :: elem
+      real(RP), intent(in) :: tsec
+      real(RP), intent(out) :: MFLX_x(elem%Np,lcmesh%NeA)
+      real(RP), intent(out) :: MFLX_y(elem%Np,lcmesh%NeA)
+      real(RP), intent(out) :: MFLX_z(elem%Np,lcmesh%NeA)
+      real(RP), intent(in) :: DENS_hyd(elem%Np,lcmesh%NeA)
+    end subroutine set_massflux
+  end interface
+#endif
+
   type, extends(AtmDynDGMDriver_base3D), public :: AtmDynDGMDriver_trcadv3d
     integer :: EQS_TYPEID
     logical :: ONLY_TRACERADV_FLAG
@@ -112,10 +131,18 @@ module scale_atm_dyn_dgm_driver_trcadv3d
     ! boundary_condition
     type(AtmDynBnd), pointer :: boundary_cond
 
+    !
+#ifdef SCALE_PRODUCT_RUN_GM_LINADV_DEFORMATIONFLOW
+    real(RP) :: tsec
+    procedure(set_massflux), pointer, nopass :: mass_flux_func
+#endif
   contains
     procedure :: Init => AtmDynDGMDriver_trcadv3d_Init
     procedure :: Final => AtmDynDGMDriver_trcadv3d_Final
     procedure :: Update => AtmDynDGMDriver_trcadv3d_update
+#ifdef SCALE_PRODUCT_RUN_GM_LINADV_DEFORMATIONFLOW
+    procedure :: Set_massflux_func => AtmDynDGMDriver_trcadv3d_set_massflux_func
+#endif
   end type AtmDynDGMDriver_trcadv3d
 
   !-----------------------------------------------------------------------------
@@ -343,6 +370,8 @@ contains
     class(MeshField3D), pointer :: MFLX_x_tavg, MFLX_y_tavg, MFLX_z_tavg
 
     integer :: iq    
+
+    real(RP) :: tsec_
     !-----------------------------------------------------------------------------
     
     !-- prepairation
@@ -401,7 +430,6 @@ contains
     call PROF_rapstart( 'ATM_DYN_applyBC_mflux', 3)
     do n=1, mesh3D%LOCAL_MESH_NUM
       lcmesh3D => mesh3D%lcmesh_list(n)
-
       call this%boundary_cond%ApplyBC_PROGVARS_lc( n, & ! (in)
         DDENS_TRC%local(n)%val(:,:),                                                  & ! (inout)
         MFLX_x_tavg%local(n)%val, MFLX_y_tavg%local(n)%val, MFLX_z_tavg%local(n)%val, & ! (inout)
@@ -437,6 +465,43 @@ contains
 
       do rkstage=1, this%tint(1)%nstage
         if ( TRACER_ADVC(iq) ) then
+#ifdef SCALE_PRODUCT_RUN_GM_LINADV_DEFORMATIONFLOW
+          tsec_ = this%tsec + this%tint(1)%coef_c_ex(rkstage) * this%tint(1)%Get_deltime() 
+          do n=1, mesh3D%LOCAL_MESH_NUM
+            lcmesh3D => mesh3D%lcmesh_list(n)
+            call this%mass_flux_func( tsec_, &
+              MFLX_x_tavg%local(n)%val, MFLX_y_tavg%local(n)%val, MFLX_z_tavg%local(n)%val, &
+              DENS_hyd%local(n)%val, lcmesh3D, lcmesh3D%refElem3D )            
+          enddo
+
+          call PROF_rapstart( 'ATM_DYN_exchange_mflx', 3)
+          call this%AUXTRC_FLUX_VAR3D_manager%MeshFieldComm_Exchange()
+          call PROF_rapend( 'ATM_DYN_exchange_mflx', 3)
+
+          do n=1, mesh3D%LOCAL_MESH_NUM
+            lcmesh3D => mesh3D%lcmesh_list(n)
+
+            call this%boundary_cond%ApplyBC_PROGVARS_lc( n, & ! (in)
+              DDENS_TRC%local(n)%val(:,:),                                                  & ! (inout)
+              MFLX_x_tavg%local(n)%val, MFLX_y_tavg%local(n)%val, MFLX_z_tavg%local(n)%val, & ! (inout)
+              THERM%local(n)%val,                                                           & ! (inout)
+              DENS_hyd%local(n)%val, PRES_hyd%local(n)%val,                                 & ! (in)
+              lcmesh3D%Gsqrt(:,:), lcmesh3D%GsqrtH(:,:), lcmesh3D%GIJ(:,:,1,1), lcmesh3D%GIJ(:,:,1,2), lcmesh3D%GIJ(:,:,2,2), & ! (in) 
+              lcmesh3D%GI3(:,:,1), lcmesh3D%GI3(:,:,2), & ! (in)
+              lcmesh3D%normal_fn(:,:,1), lcmesh3D%normal_fn(:,:,2), lcmesh3D%normal_fn(:,:,3),    & ! (in)
+              lcmesh3D%vmapM, lcmesh3D%vmapP, lcmesh3D%vmapB,                                     & ! (in)
+              lcmesh3D, lcmesh3D%refElem3D, lcmesh3D%lcmesh2D, lcmesh3D%lcmesh2D%refElem2D          ) ! (in)
+
+            call atm_dyn_dgm_trcadvect3d_heve_cal_alphdens_advtest( &
+              this%alphaDensM%local(n)%face_val, this%alphaDensP%local(n)%face_val,            & ! (inout)
+              DDENS%local(n)%val, MFLX_x_tavg%local(n)%val, MFLX_y_tavg%local(n)%val, MFLX_z_tavg%local(n)%val,     & ! (in)
+              DENS_hyd%local(n)%val,                                                           & ! (in)
+              lcmesh3D%Gsqrt,                                                                  & ! (in)
+              lcmesh3D%normal_fn(:,:,1), lcmesh3D%normal_fn(:,:,2), lcmesh3D%normal_fn(:,:,3), & ! (in)
+              lcmesh3D%VMapM, lcmesh3D%VMapP, lcmesh3D, lcmesh3D%refElem3D                     ) ! (in)
+          end do
+#endif
+
           call PROF_rapstart( 'ATM_DYN_exchange_trc', 3)
           call this%TRCVAR3D_manager%MeshFieldComm_Exchange()
           call PROF_rapend( 'ATM_DYN_exchange_trc', 3)
@@ -551,6 +616,9 @@ contains
 
     call PROF_rapend( 'ATM_DYN_trc_update', 2)
 
+#ifdef SCALE_PRODUCT_RUN_GM_LINADV_DEFORMATIONFLOW
+    this%tsec = this%tsec + this%tint(1)%Get_deltime()    
+#endif
     return
   end subroutine AtmDynDGMDriver_trcadv3d_update
 
@@ -586,6 +654,18 @@ contains
 
     return
   end subroutine AtmDynDGMDriver_trcadv3d_Final
+
+#ifdef SCALE_PRODUCT_RUN_GM_LINADV_DEFORMATIONFLOW
+!OCL SERIAL
+  subroutine AtmDynDGMDriver_trcadv3d_set_massflux_func( this, mass_flux_func )
+    implicit none
+    class(AtmDynDGMDriver_trcadv3d), intent(inout) :: this
+    procedure(set_massflux) :: mass_flux_func
+    !----------------------------------------------------
+    this%mass_flux_func  => mass_flux_func
+    return
+  end subroutine AtmDynDGMDriver_trcadv3d_set_massflux_func
+#endif
 
 !-- private
 !OCL SERIAL

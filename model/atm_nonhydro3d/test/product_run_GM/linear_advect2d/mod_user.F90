@@ -333,12 +333,12 @@ contains
       call GeographicCoordCnv_geo_to_orth_pos( center_pos_geo, 1, & ! (in) 
         center_pos_orth ) ! (out)
 
-      call GeographicCoordCnv_rotateY( center_pos_orth(:,1), + SOLID_BODY_ROT_ALPH, & ! (in) 
+      call GeographicCoordCnv_rotateY( center_pos_orth(:,1), - SOLID_BODY_ROT_ALPH, & ! (in) 
         center_pos_tmp(:,1)   ) ! (out)
       call GeographicCoordCnv_rotateZ( center_pos_tmp(:,1), 2.0_RP * PI / SOLID_BODY_ROT_TAU * tsec, & ! (in) 
         center_pos_onXY       ) ! (out)
 
-      call GeographicCoordCnv_rotateY( center_pos_onXY, - SOLID_BODY_ROT_ALPH, & ! (in)
+      call GeographicCoordCnv_rotateY( center_pos_onXY, + SOLID_BODY_ROT_ALPH, & ! (in)
         center_pos_tmp(:,1) ) ! (out)
       call GeographicCoordCnv_orth_to_geo_pos( center_pos_tmp, 1, & ! (in) 
         center_pos_geo ) ! (out)
