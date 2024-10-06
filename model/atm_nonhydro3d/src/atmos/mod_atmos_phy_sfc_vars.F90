@@ -1,4 +1,13 @@
 !-------------------------------------------------------------------------------
+!> module ATMOSPHERE phyics / surface process
+!!
+!! @par Description
+!!          Container for variables with surface model
+!!
+!! @author Yuta Kawai, Team SCALE
+!!
+!<
+!-------------------------------------------------------------------------------
 #include "scaleFElib.h"
 module mod_atmos_phy_sfc_vars
   !-----------------------------------------------------------------------------

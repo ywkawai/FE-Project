@@ -1,3 +1,12 @@
+!-------------------------------------------------------------------------------
+!> module common / sparsemat
+!!
+!! @par Description
+!!          module to treat sparse matrix and the associated operations
+!!
+!! @author Yuta Kawai, Team SCALE
+!!
+!<
 #include "scaleFElib.h"
 module scale_sparsemat
   !-----------------------------------------------------------------------------

@@ -16,7 +16,7 @@ module scale_meshfieldcomm_1d
   use scale_precision
   use scale_io
 
-  use scale_element_base, only: elementbase, elementbase1d
+  use scale_element_base, only: ElementBase, ElementBase1d
   use scale_mesh_base1d, only: MeshBase1D
   use scale_meshfield_base, only: MeshField1D
   use scale_meshfieldcomm_base, only: &

@@ -4,7 +4,7 @@
 !! @par Description
 !!      Driver module for dynamical core based on DGM 
 !!
-!! @author Team SCALE
+!! @author Yuta Kawai, Team SCALE
 !<
 !-------------------------------------------------------------------------------
 #include "scaleFElib.h"
@@ -140,7 +140,7 @@ module scale_atm_dyn_dgm_driver_nonhydro3d
       import LocalMesh3D
       import ElementBase3D
       import LocalMesh2D
-      import elementbase2D
+      import ElementBase2D
       import SparseMat
       implicit none
 
@@ -863,7 +863,7 @@ contains
 
     class(AtmDynDGMDriver_nonhydro3d), intent(inout) :: this
     class(LocalMesh3D), intent(in) :: lcmesh
-    class(elementbase3D), intent(in) :: elem3D
+    class(ElementBase3D), intent(in) :: elem3D
     real(RP), intent(inout) :: dyn_tends(elem3D%Np,lcmesh%NeA,PRGVAR_NUM)
     real(RP), intent(in) :: DENS_tp(elem3D%Np,lcmesh%NeA)
     real(RP), intent(in) :: MOMX_tp(elem3D%Np,lcmesh%NeA)

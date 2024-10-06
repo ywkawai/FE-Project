@@ -4,7 +4,7 @@
 !! @par Description
 !!      Sponge layer for Atmospheric dynamical process. 
 !!
-!! @author Team SCALE
+!! @author Yuta Kawai, Team SCALE
 !<
 !-------------------------------------------------------------------------------
 #include "scaleFElib.h"

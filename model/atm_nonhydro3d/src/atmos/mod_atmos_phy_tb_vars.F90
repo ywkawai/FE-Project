@@ -2,9 +2,9 @@
 !> module Atmosphere / Physics turbulence
 !!
 !! @par Description
-!!          Container for mod_atmos_phy_mp
+!!          Container for variables with turbulence model
 !!
-!! @author Team SCALE
+!! @author Yuta Kawai, Team SCALE
 !!
 !<
 !-------------------------------------------------------------------------------

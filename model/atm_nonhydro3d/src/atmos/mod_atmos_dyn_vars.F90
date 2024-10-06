@@ -2,9 +2,9 @@
 !> module Atmosphere / Dynamics
 !!
 !! @par Description
-!!          Container for mod_atmos_dyn
+!!          Container for variables with dynamics component
 !!
-!! @author Team SCALE
+!! @author Yuta Kawai, Team SCALE
 !!
 !<
 !-------------------------------------------------------------------------------

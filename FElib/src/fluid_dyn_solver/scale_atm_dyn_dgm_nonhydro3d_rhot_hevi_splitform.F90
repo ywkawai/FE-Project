@@ -6,7 +6,7 @@
 !!      To improve the numerical instability due to the aliasing errors, 
 !!      the split form based on Gassner et al. (2016, JCP) is used for advection terms. 
 !!
-!! @author Team SCALE
+!! @author Yuta Kawai, Team SCALE
 !<
 !-------------------------------------------------------------------------------
 #include "scaleFElib.h"

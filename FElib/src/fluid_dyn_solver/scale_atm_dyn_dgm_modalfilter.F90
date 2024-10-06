@@ -5,7 +5,7 @@
 !!      Modal filter for Atmospheric dynamical process. 
 !!      The modal filter surpresses the numerical instability due to the aliasing errors. 
 !!
-!! @author Team SCALE
+!! @author Yuta Kawai, Team SCALE
 !<
 !-------------------------------------------------------------------------------
 #include "scaleFElib.h"

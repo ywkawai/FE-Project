@@ -3,7 +3,7 @@
 !! @par Description
 !!           A common module for outputing field data 
 !!
-!! @author Team SCALE
+!! @author Yuta Kawai, Team SCALE
 !!
 !<
 !-------------------------------------------------------------------------------

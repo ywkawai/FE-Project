@@ -5,7 +5,7 @@
 !!      Explicit numerical diffusion for Atmospheric dynamical process. 
 !!      For the discretization, the local DGM (e.g., Cockburn and Shu, 1998) is used. 
 !!
-!! @author Team SCALE
+!! @author Yuta Kawai, Team SCALE
 !<
 !-------------------------------------------------------------------------------
 #include "scaleFElib.h"
@@ -388,7 +388,7 @@ contains
     implicit none
 
     class(LocalMesh3D), intent(in) :: lmesh
-    class(elementbase3D), intent(in) :: elem
+    class(ElementBase3D), intent(in) :: elem
     type(SparseMat), intent(in) :: Dx, Dy, Dz, Lift
     real(RP), intent(inout)  :: tend_(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: GxV_(elem%Np,lmesh%NeA)
@@ -452,7 +452,7 @@ contains
     implicit none
 
     class(LocalMesh3D), intent(in) :: lmesh
-    class(elementbase3D), intent(in) :: elem  
+    class(ElementBase3D), intent(in) :: elem  
     real(RP), intent(out) ::  del_flux(elem%NfpTot*lmesh%Ne)
     real(RP), intent(in) ::  GxV_(elem%Np*lmesh%NeA)
     real(RP), intent(in) ::  GyV_(elem%Np*lmesh%NeA)
@@ -513,7 +513,7 @@ contains
     implicit none
 
     class(LocalMesh3D), intent(in) :: lmesh
-    class(elementbase3D), intent(in) :: elem
+    class(ElementBase3D), intent(in) :: elem
     type(SparseMat), intent(in) :: Dx, Dy, Dz, Lift
     real(RP), intent(out) :: lapla_h(elem%Np,lmesh%NeA)
     real(RP), intent(out) :: lapla_v(elem%Np,lmesh%NeA)
@@ -568,7 +568,7 @@ contains
     implicit none
 
     class(LocalMesh3D), intent(in) :: lmesh
-    class(elementbase3D), intent(in) :: elem  
+    class(ElementBase3D), intent(in) :: elem  
     real(RP), intent(out) ::  del_flux_h(elem%NfpTot*lmesh%Ne)
     real(RP), intent(out) ::  del_flux_v(elem%NfpTot*lmesh%Ne)
     real(RP), intent(in) ::  GxV_(elem%Np*lmesh%NeA)
@@ -614,7 +614,7 @@ contains
     implicit none
 
     class(LocalMesh3D), intent(in) :: lmesh
-    class(elementbase3D), intent(in) :: elem
+    class(ElementBase3D), intent(in) :: elem
     type(SparseMat), intent(in) :: Dx, Dy, Dz, Lift
     real(RP), intent(out)  :: GxV_(elem%Np,lmesh%NeA)
     real(RP), intent(out)  :: GyV_(elem%Np,lmesh%NeA)
@@ -676,7 +676,7 @@ contains
     implicit none
 
     class(LocalMesh3D), intent(in) :: lmesh
-    class(elementbase3D), intent(in) :: elem  
+    class(ElementBase3D), intent(in) :: elem  
     real(RP), intent(out) :: del_flux(elem%NfpTot*lmesh%Ne,3)
     real(RP), intent(in) :: Varh_(elem%Np*lmesh%NeA)
     real(RP), intent(in) :: Varv_(elem%Np*lmesh%NeA)

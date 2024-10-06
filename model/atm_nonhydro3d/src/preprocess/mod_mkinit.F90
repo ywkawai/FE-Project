@@ -4,7 +4,7 @@
 !! @par Description
 !!          subroutines for preparing initial data
 !!
-!! @author Team SCALE
+!! @author Yuta Kawai, Team SCALE
 !!
 !<
 !-------------------------------------------------------------------------------

@@ -4,7 +4,7 @@
 !! @par Description
 !!          User defined module (dummy)
 !!
-!! @author Team SCALE
+!! @author Yuta Kawai, Team SCALE
 !!
 !<
 !-------------------------------------------------------------------------------

@@ -1,7 +1,7 @@
 !> module FElib / Data / base
 !!
 !! @par Description
-!!           A module for managing field data with FEM 
+!!           A module for managing field data with subdomains included in each MPI process 
 !!
 !! @author Yuta Kawai, Team SCALE
 !!

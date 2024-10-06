@@ -4,7 +4,7 @@
 !! @par Description
 !!          Container for atmospheric variables
 !!
-!! @author Team SCALE
+!! @author Yuta Kawai, Team SCALE
 !!
 !<
 !-------------------------------------------------------------------------------

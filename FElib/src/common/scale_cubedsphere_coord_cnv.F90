@@ -15,7 +15,7 @@
 !!    Geophysical Journal International, 209, 1934–1954. 
 !!    (Appendix A)
 !!
-!! @author Team SCALE
+!! @author Yuta Kawai, Team SCALE
 !!
 #include "scaleFElib.h"
 module scale_cubedsphere_coord_cnv

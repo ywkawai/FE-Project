@@ -1,10 +1,10 @@
 !-------------------------------------------------------------------------------
-!> module meshfield_analysis_numerror_base
+!> module FElib / Data / Statistics / numerical error
 !!
 !! @par Description
 !!           This module provides a base class useful for evaluating numerical errrors
 !!
-!! @author Team SCALE
+!! @author Yuta Kawai, Team SCALE
 !!
 !<
 !-------------------------------------------------------------------------------

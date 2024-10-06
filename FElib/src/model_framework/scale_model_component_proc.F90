@@ -4,7 +4,7 @@
 !! @par Description
 !!          A module for managing processes in model component
 !!
-!! @author Team SCALE
+!! @author Yuta Kawai, Team SCALE
 !!
 !<
 #include "scaleFElib.h"

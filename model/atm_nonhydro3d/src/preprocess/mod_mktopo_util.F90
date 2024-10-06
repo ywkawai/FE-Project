@@ -4,7 +4,7 @@
 !! @par Description
 !!          subroutines useful to prepare topography data
 !!
-!! @author Team SCALE
+!! @author Yuta Kawai, Team SCALE
 !!
 !<
 !-------------------------------------------------------------------------------

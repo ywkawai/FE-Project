@@ -2,9 +2,9 @@
 !> module Atmosphere / Physics Cloud Microphysics
 !!
 !! @par Description
-!!          Container for mod_atmos_phy_mp
+!!          Container for variables with cloud microphysics component
 !!
-!! @author Team SCALE
+!! @author Yuta Kawai, Team SCALE
 !!
 !<
 !-------------------------------------------------------------------------------

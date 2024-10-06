@@ -3,7 +3,7 @@
 !! @par Description
 !!           A module for a quadrilateral finite element
 !!
-!! @author Team SCALE
+!! @author Yuta Kawai, Team SCALE
 !!
 !<
 #include "scaleFElib.h"
@@ -16,7 +16,7 @@ module scale_element_quadrilateral
   use scale_precision
 
   use scale_element_base, only: &
-    elementbase2D, &
+    ElementBase2D, &
     ElementBase2D_Init, ElementBase2D_Final
   
   !-----------------------------------------------------------------------------

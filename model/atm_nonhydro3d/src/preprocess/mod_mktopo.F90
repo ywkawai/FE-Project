@@ -4,7 +4,7 @@
 !! @par Description
 !!          A module for preparing topography data 
 !!
-!! @author Team SCALE
+!! @author Yuta Kawai, Team SCALE
 !!
 !<
 !-------------------------------------------------------------------------------

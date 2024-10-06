@@ -5,7 +5,7 @@
 !!      HEVI DGM scheme for Atmospheric dynamical process
 !!      As the thermodynamics equation, a density * potential temperature equation is used.
 !!
-!! @author Team SCALE
+!! @author Yuta Kawai, Team SCALE
 !<
 !-------------------------------------------------------------------------------
 #include "scaleFElib.h"
@@ -78,7 +78,7 @@ contains
     lmesh, elem   ) ! (in)
     implicit none
     class(LocalMesh3D), intent(in) :: lmesh
-    class(elementbase3D), intent(in) :: elem
+    class(ElementBase3D), intent(in) :: elem
     integer, intent(out) :: vmapM(elem%NfpTot,lmesh%NeZ)
     integer, intent(out) :: vmapP(elem%NfpTot,lmesh%NeZ)    
 
@@ -138,7 +138,7 @@ contains
     implicit none
 
     class(LocalMesh3D), intent(in) :: lmesh
-    class(elementbase3D), intent(in) :: elem
+    class(ElementBase3D), intent(in) :: elem
     real(RP), intent(out) :: DENS_t(elem%Np,lmesh%NeA)
     real(RP), intent(out) :: MOMZ_t(elem%Np,lmesh%NeA)
     real(RP), intent(out) :: RHOT_t(elem%Np,lmesh%NeA)
@@ -322,7 +322,7 @@ contains
     implicit none
 
     class(LocalMesh3D), intent(in) :: lmesh
-    class(elementbase3D), intent(in) :: elem
+    class(ElementBase3D), intent(in) :: elem
     real(RP), intent(out) :: MOMX_t(elem%Np,lmesh%NeA)
     real(RP), intent(out) :: MOMY_t(elem%Np,lmesh%NeA)
     real(RP), intent(out) :: alph(elem%NfpTot,lmesh%NeZ,lmesh%NeX*lmesh%NeY)
@@ -462,7 +462,7 @@ contains
     implicit none
 
     class(LocalMesh3D), intent(in) :: lmesh
-    class(elementbase3D), intent(in) :: elem
+    class(ElementBase3D), intent(in) :: elem
     integer, intent(in) :: kl, ku, nz_1D
     real(RP), intent(out) :: PmatBnd(2*kl+ku+1,3,elem%Nnode_v,lmesh%NeZ,elem%Nnode_h1D**2)
     real(RP), intent(in)  :: PROG_VARS0(elem%Np,lmesh%NeZ,PRGVAR_NUM)
@@ -738,7 +738,7 @@ contains
     implicit none
 
     class(LocalMesh3D), intent(in) :: lmesh
-    class(elementbase3D), intent(in) :: elem
+    class(ElementBase3D), intent(in) :: elem
     integer, intent(in) :: kl_uv, ku_uv, nz_1D_uv
     real(RP), intent(out) :: PmatBnd_uv(2*kl_uv+ku_uv+1,elem%Nnode_v,1,lmesh%NeZ,elem%Nnode_h1D**2)
     real(RP), intent(in)  :: PROG_VARS0(elem%Np,lmesh%NeZ,PRGVAR_NUM)
@@ -896,7 +896,7 @@ contains
     implicit none
 
     class(LocalMesh3D), intent(in) :: lmesh
-    class(elementbase3D), intent(in) :: elem  
+    class(ElementBase3D), intent(in) :: elem  
     real(RP), intent(out) ::  del_flux(elem%NfpTot*lmesh%NeZ,lmesh%NeX*lmesh%NeY,PRGVAR_NUM)
     real(RP), intent(out) :: alph(elem%NfpTot*lmesh%NeZ,lmesh%NeX*lmesh%NeY)
     real(RP), intent(in) ::  PVARS_ (elem%Np*lmesh%NeZ,PRGVAR_NUM,lmesh%NeX*lmesh%NeY)
@@ -981,7 +981,7 @@ contains
     implicit none
 
     class(LocalMesh3D), intent(in) :: lmesh
-    class(elementbase3D), intent(in) :: elem  
+    class(ElementBase3D), intent(in) :: elem  
     real(RP), intent(out) ::  del_flux(elem%NfpTot*lmesh%NeZ,lmesh%NeX*lmesh%NeY,PRGVAR_NUM)
     real(RP), intent(in) :: alph(elem%NfpTot*lmesh%NeZ,lmesh%NeX*lmesh%NeY)
     real(RP), intent(in) ::  PVARS_ (elem%Np*lmesh%NeZ,PRGVAR_NUM,lmesh%NeX*lmesh%NeY)
