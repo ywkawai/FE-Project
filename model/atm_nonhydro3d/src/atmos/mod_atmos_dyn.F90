@@ -1,10 +1,10 @@
 !-------------------------------------------------------------------------------
-!> module ATMOSPHERE dynamical process
+!> module Atmosphere / Dynamics
 !!
 !! @par Description
 !!          Module for atmosphere dynamical process
 !!
-!! @author Team SCALE
+!! @author Yuta Kawai, Team SCALE
 !!
 !<
 !-------------------------------------------------------------------------------

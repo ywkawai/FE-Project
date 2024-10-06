@@ -4,7 +4,7 @@
 !! @par Description
 !!      Driver module for turbulent model based on DGM 
 !!
-!! @author Team SCALE
+!! @author Yuta Kawai, Team SCALE
 !<
 !-------------------------------------------------------------------------------
 #include "scaleFElib.h"
@@ -162,9 +162,9 @@ module scale_atm_phy_tb_dgm_driver
       implicit none
 
       class(LocalMesh3D), intent(in) :: lmesh
-      class(elementbase3D), intent(in) :: elem
+      class(ElementBase3D), intent(in) :: elem
       class(LocalMesh2D), intent(in) :: lmesh2D
-      class(elementbase2D), intent(in) :: elem2D
+      class(ElementBase2D), intent(in) :: elem2D
       real(RP), intent(out) :: DFQ1(elem%Np,lmesh%NeA)
       real(RP), intent(out) :: DFQ2(elem%Np,lmesh%NeA)
       real(RP), intent(out) :: DFQ3(elem%Np,lmesh%NeA)
@@ -270,20 +270,14 @@ module scale_atm_phy_tb_dgm_driver
   end interface 
 
   type, public :: AtmPhyTbDGMDriver
-    !
-    integer :: TB_TYPEID
+    integer :: TB_TYPEID !< Index of the turbulent model
 
-    !
+    !- Auxiliary variables with tracer
+
     type(MeshField3D), allocatable :: auxtrcvars(:)
     type(ModelVarManager) :: auxtrcvars_manager
     integer :: auxtrcvars_commid
 
-    ! diagnostic variables
-    type(MeshField3D), allocatable :: AUX_TBVARS3D(:)
-    type(ModelVarManager) :: AUXTBVAR3D_manager
-    integer :: AUXTBVAR3D_commid
-
-    !
     type(MeshField3D) :: GRAD_DENS(3)
 
     procedure (atm_phy_tb_cal_grad), pointer, nopass :: tbsolver_cal_grad => null()
@@ -395,7 +389,7 @@ contains
     !- Initialize variables
 
     !-
-    if ( QA > 1 ) then
+    if ( QA > 0 ) then
       call this%auxtrcvars_manager%Init()
       allocate( this%auxtrcvars(ATMOS_PHY_TB_AUXTRC_NUM) )
 

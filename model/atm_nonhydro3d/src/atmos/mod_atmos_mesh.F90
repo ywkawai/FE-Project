@@ -1,4 +1,13 @@
 !-------------------------------------------------------------------------------
+!> module Atmosphere / Mesh
+!!
+!! @par Description
+!!          Base module for mesh with atmospheric model
+!!
+!! @author Yuta kawai, Team SCALE
+!!
+!<
+!-------------------------------------------------------------------------------
 #include "scaleFElib.h"
 module mod_atmos_mesh
   !-----------------------------------------------------------------------------

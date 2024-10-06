@@ -4,7 +4,7 @@
 !! @par Description
 !!          A module for monitoring model statistics
 !!
-!! @author Team SCALE
+!! @author Yuta Kawai, Team SCALE
 !!
 !<
 !-------------------------------------------------------------------------------

@@ -3,7 +3,7 @@
 !! @par Description
 !!           A module for a line finite element
 !!
-!! @author Team SCALE
+!! @author Yuta Kawai, Team SCALE
 !!
 !<
 #include "scaleFElib.h"

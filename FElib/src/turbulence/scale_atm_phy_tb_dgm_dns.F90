@@ -5,7 +5,7 @@
 !!
 !! @author Team SCALE
 !!
-!! @par Reference
+!! @author Yuta Kawai, Team SCALE
 !<
 !-------------------------------------------------------------------------------
 #include "scaleFElib.h"
@@ -121,9 +121,9 @@ contains
     implicit none
 
     class(LocalMesh3D), intent(in) :: lmesh
-    class(elementbase3D), intent(in) :: elem
+    class(ElementBase3D), intent(in) :: elem
     class(LocalMesh2D), intent(in) :: lmesh2D
-    class(elementbase2D), intent(in) :: elem2D
+    class(ElementBase2D), intent(in) :: elem2D
     real(RP), intent(out) :: T11(elem%Np,lmesh%NeA)      !< (1,1) component of stress tensor
     real(RP), intent(out) :: T12(elem%Np,lmesh%NeA)      !< (1,2) component of stress tensor
     real(RP), intent(out) :: T13(elem%Np,lmesh%NeA)      !< (1,3) component of stress tensor
@@ -308,7 +308,7 @@ contains
     implicit none
 
     class(LocalMesh3D), intent(in) :: lmesh
-    class(elementbase3D), intent(in) :: elem  
+    class(ElementBase3D), intent(in) :: elem  
     real(RP), intent(out) ::  del_flux_rho(elem%NfpTot*lmesh%Ne,3)
     real(RP), intent(out) ::  del_flux_mom(elem%NfpTot*lmesh%Ne,3,3)
     real(RP), intent(out) ::  del_flux_rhot(elem%NfpTot*lmesh%Ne,3)

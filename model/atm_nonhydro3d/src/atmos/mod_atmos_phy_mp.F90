@@ -1,9 +1,10 @@
+!-------------------------------------------------------------------------------
 !> module ATMOSPHERE phyics / cloud microphysics
 !!
 !! @par Description
 !!          Module for cloud microphysics
 !!
-!! @author Team SCALE
+!! @author Yuta Kawai, Team SCALE
 !!
 !<
 !-------------------------------------------------------------------------------

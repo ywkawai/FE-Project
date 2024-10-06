@@ -4,7 +4,7 @@
 !! @par Description
 !!          A module for managing mesh used in models
 !!
-!! @author Team SCALE
+!! @author Yuta Kawai, Team SCALE
 !!
 !<
 !-------------------------------------------------------------------------------

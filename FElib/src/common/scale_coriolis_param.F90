@@ -7,7 +7,7 @@
 !!
 !! @par Reference
 !!
-!! @author Team SCALE
+!! @author Yuta Kawai, Team SCALE
 !!
 #include "scaleFElib.h"
 module scale_coriolis_param

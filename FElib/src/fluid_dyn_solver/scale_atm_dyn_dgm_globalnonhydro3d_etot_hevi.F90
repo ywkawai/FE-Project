@@ -6,7 +6,7 @@
 !!      The governing equations is a fully compressibile nonhydrostic equations, 
 !!      which consist of mass, momentum, and thermodynamics (total energy conservation) equations. 
 !!
-!! @author Team SCALE
+!! @author Yuta Kawai, Team SCALE
 !<
 !-------------------------------------------------------------------------------
 #include "scaleFElib.h"

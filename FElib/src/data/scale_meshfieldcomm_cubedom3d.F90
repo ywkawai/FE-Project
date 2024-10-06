@@ -16,7 +16,7 @@ module scale_meshfieldcomm_cubedom3d
   use scale_precision
   use scale_io
 
-  use scale_element_base, only: elementbase, elementBase3D
+  use scale_element_base, only: ElementBase, ElementBase3D
   use scale_mesh_cubedom3d, only: MeshCubeDom3D
   use scale_meshfield_base, only: MeshField3D
   use scale_meshfieldcomm_base, only: &

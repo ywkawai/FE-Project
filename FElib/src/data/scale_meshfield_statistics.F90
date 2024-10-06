@@ -1,3 +1,11 @@
+!> module FElib / Data / Statistics
+!!
+!! @par Description
+!!           A module for analyzing statistics of field data 
+!!
+!! @author Yuta Kawai, Team SCALE
+!!
+!<
 #include "scaleFElib.h"
 module scale_meshfield_statistics
 

@@ -4,7 +4,7 @@
 !! @par Description
 !!          A module for setting halo data based on boundary conditions. 
 !!
-!! @author Team SCALE
+!! @author Yuta Kawai, Team SCALE
 !<
 !-------------------------------------------------------------------------------
 #include "scaleFElib.h"
@@ -346,7 +346,7 @@ contains
 
     class(AtmDynBnd), intent(in) :: this
     class(LocalMesh3D), intent(in) :: lmesh
-    class(elementbase3D), intent(in) :: elem    
+    class(ElementBase3D), intent(in) :: elem    
     real(RP), intent(inout) :: GxVar(elem%Np*lmesh%NeA)
     real(RP), intent(inout) :: GyVar(elem%Np*lmesh%NeA)
     real(RP), intent(inout) :: GzVar(elem%Np*lmesh%NeA)
@@ -420,7 +420,7 @@ contains
 
     class(AtmDynBnd), intent(in) :: this
     class(LocalMesh3D), intent(in) :: lmesh
-    class(elementbase3D), intent(in) :: elem    
+    class(ElementBase3D), intent(in) :: elem    
     real(RP), intent(inout) :: Var(elem%Np*lmesh%NeA)
     logical, intent(out) :: is_bound(elem%NfpTot*lmesh%Ne)
     integer, intent(in) :: VarID
@@ -718,7 +718,7 @@ contains
 
     class(AtmDynBnd), intent(in) :: this
     class(LocalMesh3D), intent(in) :: lmesh
-    class(elementbase3D), intent(in) :: elem    
+    class(ElementBase3D), intent(in) :: elem    
     logical, intent(out) :: is_bound(elem%NfpTot*lmesh%Ne)
     integer, intent(in) :: domID
     integer, intent(in) :: vmapM(elem%NfpTot*lmesh%Ne)
@@ -766,7 +766,7 @@ contains
     real(RP), intent(in) :: thermal_fixval(DOM_BND_NUM)
     class(MeshBase), intent(in) :: mesh
     class(LocalMesh3D), intent(in) :: lmesh
-    class(elementbase3D), intent(in) :: elem
+    class(ElementBase3D), intent(in) :: elem
     integer, intent(in) :: vmapB(:)
 
     integer :: tileID

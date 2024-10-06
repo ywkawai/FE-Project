@@ -4,7 +4,7 @@
 !! @par Description
 !!          User defined module (base class)
 !!
-!! @author Team SCALE
+!! @author Yuta Kawai, Team SCALE
 !!
 !<
 !-------------------------------------------------------------------------------

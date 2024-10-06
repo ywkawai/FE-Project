@@ -4,7 +4,7 @@
 !! @par Description
 !!      Driver module for dynamical core based on DGM 
 !!
-!! @author Team SCALE
+!! @author Yuta Kawai, Team SCALE
 !<
 !-------------------------------------------------------------------------------
 #include "scaleFElib.h"

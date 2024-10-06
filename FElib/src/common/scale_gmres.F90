@@ -9,7 +9,7 @@
 !!     GMRES: A generalized minimal residual algorithm for solving nonsymmetric linear systems.
 !!     SIAM J. Sci. Stat. Comput., 7:856–869
 !!
-!! @author Team SCALE
+!! @author Yuta Kawai, Team SCALE
 !!
 #include "scaleFElib.h"
 module scale_gmres

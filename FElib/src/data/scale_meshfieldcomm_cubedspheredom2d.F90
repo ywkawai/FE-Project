@@ -16,7 +16,7 @@ module scale_meshfieldcomm_cubedspheredom2d
   use scale_precision
   use scale_io
 
-  use scale_element_base, only: elementbase, elementBase2D
+  use scale_element_base, only: ElementBase, ElementBase2D
   use scale_mesh_cubedspheredom2d, only: MeshCubedSphereDom2D
   use scale_meshfield_base, only: MeshField2D
   use scale_meshfieldcomm_base, only: &
@@ -363,7 +363,7 @@ contains
   subroutine extract_boundary_data2D( var, refElem, mesh, buf )
     implicit none
   
-    type(elementbase2D), intent(in) :: refElem
+    type(ElementBase2D), intent(in) :: refElem
     type(LocalMesh2D), intent(in) :: mesh
     real(DP), intent(in) :: var(refElem%Np * mesh%Ne)
     real(DP), intent(inout) :: buf(refElem%Nfp * mesh%NeX * 4)

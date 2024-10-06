@@ -4,7 +4,7 @@
 !! @par Description
 !!      Construct hydrostatic state for Atmospheric dynamical process. 
 !!
-!! @author Team SCALE
+!! @author Yuta Kawai, Team SCALE
 !<
 !-------------------------------------------------------------------------------
 #include "scaleFElib.h"
@@ -557,7 +557,7 @@ contains
     implicit none
 
     class(LocalMesh3D), intent(in) :: lmesh
-    class(elementbase3D), intent(in) :: elem
+    class(ElementBase3D), intent(in) :: elem
     integer, intent(in) :: N
     integer, intent(in) :: m    
 
@@ -701,7 +701,7 @@ contains
    
     implicit none
     class(LocalMesh3D), intent(in) :: lmesh
-    class(elementbase3D), intent(in) :: elem
+    class(ElementBase3D), intent(in) :: elem
 
     real(RP), intent(out) :: Ax(elem%Np,lmesh%NeZ)
     real(RP), intent(in) :: DDENS (elem%Np,lmesh%NeZ)
@@ -769,7 +769,7 @@ contains
     implicit none
 
     class(LocalMesh3D), intent(in) :: lmesh
-    class(elementbase3D), intent(in) :: elem  
+    class(ElementBase3D), intent(in) :: elem  
     real(RP), intent(out) ::  del_flux(elem%NfpTot*lmesh%NeZ)
     real(RP), intent(in) ::  DDENS_(elem%Np*lmesh%NeZ)
     real(RP), intent(in) ::  POT_(elem%Np*lmesh%NeZ)
@@ -838,7 +838,7 @@ contains
  
     implicit none
     class(LocalMesh3D), intent(in) :: lmesh
-    class(elementbase3D), intent(in) :: elem
+    class(ElementBase3D), intent(in) :: elem
 
     real(RP), intent(out) :: Ax(elem%Np,lmesh%NeZ)
     real(RP), intent(in) :: DDENS (elem%Np,lmesh%NeZ)
@@ -901,7 +901,7 @@ contains
     implicit none
 
     class(LocalMesh3D), intent(in) :: lmesh
-    class(elementbase3D), intent(in) :: elem  
+    class(ElementBase3D), intent(in) :: elem  
     real(RP), intent(out) ::  del_flux(elem%NfpTot*lmesh%NeZ)
     real(RP), intent(in) ::  DDENS_(elem%Np*lmesh%NeZ)
     real(RP), intent(in) ::  DDENS0_(elem%Np*lmesh%NeZ)
@@ -979,7 +979,7 @@ contains
     implicit none
 
     class(LocalMesh3D), intent(in) :: lmesh
-    class(elementbase3D), intent(in) :: elem
+    class(ElementBase3D), intent(in) :: elem
     real(RP), intent(out) :: PmatDlu(elem%Np,elem%Np,lmesh%NeZ)
     integer, intent(out) :: PmatDlu_ipiv(elem%Np,lmesh%NeZ)
     real(RP), intent(out) :: PmatL(elem%Np,elem%Np,lmesh%NeZ)

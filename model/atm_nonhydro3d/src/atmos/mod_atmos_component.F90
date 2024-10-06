@@ -4,7 +4,7 @@
 !! @par Description
 !!          Atmosphere component module
 !!
-!! @author Team SCALE
+!! @author Yuta Kawai, Team SCALE
 !!
 !<
 !-------------------------------------------------------------------------------

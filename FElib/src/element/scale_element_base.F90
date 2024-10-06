@@ -1,9 +1,9 @@
-!> module FElib/ Element / Base
+!> module FElib / Element / Base
 !!
 !! @par Description
 !!           A base module for finite element
 !!
-!! @author Team SCALE
+!! @author Yuta Kawai, Team SCALE
 !!
 !<
 !-------------------------------------------------------------------------------

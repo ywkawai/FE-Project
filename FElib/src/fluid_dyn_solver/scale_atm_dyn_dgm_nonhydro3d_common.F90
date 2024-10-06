@@ -4,7 +4,7 @@
 !! @par Description
 !!      A coomon model for atmospheric nonhydrostatic dynamical core 
 !!
-!! @author Team SCALE
+!! @author Yuta Kawai, Team SCALE
 !<
 !-------------------------------------------------------------------------------
 #include "scaleFElib.h"
