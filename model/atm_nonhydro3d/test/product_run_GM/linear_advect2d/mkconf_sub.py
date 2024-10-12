@@ -2,6 +2,7 @@ import os
 import sys
 sys.path.append(os.path.join(os.path.dirname(__file__), '../common'))
 import batch_job_common
+import numpy as np
 
 
 ptracer_shape="GAUSSIAN"
@@ -41,7 +42,7 @@ def mkconf_init( conf_path,
 &PARAM_EXP
   FLOW_TYPE = 'SOLID_BODY_ROTATION_FLOW', 
   SOLID_BODY_ROT_TAU  = {tau}D0, 
-  SOLID_BODY_ROT_ALPH = {alph}D0, 
+  SOLID_BODY_ROT_ALPH = {alph*np.pi/180.0}D0, 
   INIT_TRACER_PROF    = '{ptracer_shape}', 
   LONC                = {lonc}D0,   
   LATC                = {latc}D0, 
@@ -83,8 +84,22 @@ def mkconf_run( conf_path,
                 nprc, neh, nez, porder, 
                 ptracer_shape, lonc, latc, rh, initgp_porder, 
                 tau, alph, 
-                dt ): 
-    conf_run_s = f"""#--- Configuration file for a test case of two-dimensional linear advection  -------
+                dt,
+                modal_filter_flag, MF_order, MF_alpha ):
+  
+  if modal_filter_flag:
+    modal_filter_setting_flag = "TRACERADV_MODALFILTER_FLAG=.true.,"
+    modal_filter_setting = f"""
+&PARAM_ATMOS_DYN_TRACER_MODALFILTER
+  MF_ORDER_h={MF_order}, MF_ALPHA_h={MF_alpha}, 
+  MF_ORDER_v={MF_order}, MF_ALPHA_v=0D0, 
+/
+"""
+  else:    
+    modal_filter_setting_flag = ""    
+    modal_filter_setting = ""
+    
+  conf_run_s = f"""#--- Configuration file for a test case of two-dimensional linear advection  -------
 &PARAM_RESTART
   IN_BASENAME = "init_00000101-000000.000",
   OUTPUT_FLAG = .true., 
@@ -93,7 +108,7 @@ def mkconf_run( conf_path,
 &PARAM_TIME
   TIME_STARTDATE       = 0000, 1, 1, 0, 0, 0,
   TIME_STARTMS         = 0.D0,
-  TIME_DURATION        = 12.0D0, 
+  TIME_DURATION        = 24.0D0, !12.0D0, 
   TIME_DURATION_UNIT   = 'DAY', 
   TIME_DT              = 1200.0D0, 
   TIME_DT_UNIT         = 'SEC', 
@@ -109,7 +124,7 @@ def mkconf_run( conf_path,
 &PARAM_EXP
   FLOW_TYPE = 'SOLID_BODY_ROTATION_FLOW', 
   SOLID_BODY_ROT_TAU  = {tau}D0, 
-  SOLID_BODY_ROT_ALPH = {alph}D0, 
+  SOLID_BODY_ROT_ALPH = {alph*np.pi/180.0}D0, 
   INIT_TRACER_PROF    = '{ptracer_shape}', 
   LONC                = {lonc}D0,   
   LATC                = {latc}D0, 
@@ -154,6 +169,8 @@ def mkconf_run( conf_path,
   !-
   MODALFILTER_FLAG  = .false.,
   NUMDIFF_FLAG      = .false.,
+  !-
+  {modal_filter_setting_flag}, 
 /
 &PARAM_ATMOS_DYN_BND
   btm_vel_bc   = 'SLIP', 
@@ -169,7 +186,7 @@ def mkconf_run( conf_path,
   west_thermal_bc  = 'PERIODIC',
   east_thermal_bc  = 'PERIODIC',
 /
-
+{modal_filter_setting}
 #*** OUTPUT *******************************************
 &PARAM_FILE_HISTORY
  FILE_HISTORY_DEFAULT_BASENAME  = "history",
@@ -183,6 +200,7 @@ def mkconf_run( conf_path,
 &HISTORY_ITEM name='V'        /
 &HISTORY_ITEM name='W'        /
 &HISTORY_ITEM name='PTracer'  /
+&HISTORY_ITEM name='PTracer_exact'  /
 
 #*** Statistics *******************************************
 
@@ -195,8 +213,8 @@ def mkconf_run( conf_path,
 &MONITOR_ITEM name='PTracer' /
     """
     
-    with open(conf_path, 'w') as f:
-        f.write(conf_run_s)
+  with open(conf_path, 'w') as f:
+      f.write(conf_run_s)
 
 def mkconf_regrid( conf_path,
                 nprc, neh, nez, porder, 
@@ -215,7 +233,7 @@ def mkconf_regrid( conf_path,
 &PARAM_REGRID_INTERP_FIELD
   !- input --------------------
   in_basename="history",      
-  vars = "U", "V", "PTracer",
+  vars = "U", "V", "PTracer", "PTracer_exact", 
   !out_tinterval = 5,
 /
 &PARAM_REGRID_FILE
@@ -321,7 +339,8 @@ def mk_conf_jobsh( exp_name, exp_info, alph, exp_dir_postfix="" ):
               nprc, eh, ez, porder, 
               ptracer_shape, lonc, latc, rh, exp_info["initgp_porder"], 
               tau, alph,
-              exp_info["dt"])        
+              exp_info["dt"], 
+              exp_info["ModalFilter_flag"], exp_info["MF_order"], exp_info["MF_alpha"]  )        
   
   mkconf_regrid(f"{out_dir}/regrid.conf", 
               nprc, eh, ez, porder, 

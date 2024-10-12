@@ -1,6 +1,7 @@
 import mkconf_sub
 
 alph_deg_list = [0, 45, 90]
+modal_filter_info = { "ModalFilter_flag": False, "MF_order": 32, "MF_alpha": "0D0" }
 
 # p = 1
 exp_list_p1 = {
@@ -75,4 +76,5 @@ exp_list = { **exp_list_p1, **exp_list_p3, **exp_list_p7, **exp_list_p11 }
    
 for alph in alph_deg_list:
   for exp_name, exp_info in exp_list.items():
+    exp_info.update(modal_filter_info)
     mkconf_sub.mk_conf_jobsh( exp_name, exp_info, alph, "_check" )

@@ -67,10 +67,12 @@ ANALYSIS_OUT_DIR="analysis_out"
 # fig_suffix="_rp3.4km_shallow_atm_approx"
 # Z_INTERP=500; Y_lim = [5e-6,1.1e0];  Y_lim_zoom = [1e-5,.5e-1]; 
 # SLOPE_m3_ampl=2.4e5; SLOPE_m5div3_ampl=.8e2
+#EXP_ref_name = "Eh64Ez34P7"
 
 fig_suffix="_rp3.4km_no_shallow_atm_approx"
 Z_INTERP=500; Y_lim = [2e-6,0.8e0]; Y_lim_zoom = [1e-5,.3e-1]; 
 SLOPE_m3_ampl=1.5e5; SLOPE_m5div3_ampl=.53e2
+EXP_ref_name = "Eh64Ez34P7_deepatm"
 
 #---------
 def mkgraph( hke_spectra_list, wke_spectra_list, slope_m3_ampl, slope_m5div3_ampl, pngname,):
@@ -119,6 +121,35 @@ def mkgraph_diffm53(hke_spectra_list, wke_spectra_list, slope_m3_ampl, slope_m5d
   ax.set(yscale='log', xscale='log')
   ax.set_xlabel('Spherical harmonic degree', fontsize=18)  
   ax.set_ylabel("$E(k)*k^{5/3}$", fontsize=18)
+#  ax.grid()
+  ax.set_xlim([4e0,1.024e3])
+  ax.set_ylim(4e-1, 1.4e0)
+#  ax.legend(fontsize=15)
+  plt.savefig(pngname)
+
+def mkgraph_diff(hke_spectra_list, wke_spectra_list, ref_exp_name, slope_m5div3_ampl, pngname,):
+  fig, ax = plt.subplots(1, 1, figsize=(10,5.8))
+  
+  ref_spectra_tmp = (hke_spectra_list[ref_exp_name] + wke_spectra_list[ref_exp_name]).sel(n=slice(0,LMAX_list[ref_exp_name])).copy()
+  ref_spectra_tmp[:,1:-1] = 2.0 * ref_spectra_tmp[:,1:-1]
+  ref_spectra = ref_spectra_tmp.sum(["m"])
+  
+  for expname, hspectra in hke_spectra_list.items():
+      spectra = hspectra + wke_spectra_list[expname]
+      spectra_tmp = spectra.sel(n=slice(0,LMAX_list[expname])).copy()
+      spectra_tmp[:,1:-1] = 2.0 * spectra_tmp[:,1:-1]        
+      spectra_ = spectra_tmp.sum(["m"])
+      if expname == ref_exp_name: 
+        slope_m35 = slope_m5div3_ampl*spectra_.n**(-5.0/3.0)
+      print(spectra_.values)
+      ax.plot(spectra_.n[0:], spectra_.values/ref_spectra.values, label=expname, color=exp_color_list[expname], linewidth=exp_ltype_width[expname])
+
+#  ax.plot(spectra_.n, slope_m35/ref_spectra, label="-5/3", linestyle="-.", color="gray")    
+  ax.tick_params(axis="both", which="major", length=6, labelsize=14)
+  ax.tick_params(axis="both", which="minor", length=4)  
+  ax.set(yscale='log', xscale='log')
+  ax.set_xlabel('Spherical harmonic degree', fontsize=18)  
+  ax.set_ylabel("normalized $E(k)$", fontsize=18)
 #  ax.grid()
   ax.set_xlim([4e0,1.024e3])
   ax.set_ylim(4e-1, 1.4e0)
@@ -210,3 +241,6 @@ mkgraph_diffm53( hke_spectra_tavg_list, vke_spectra_tavg_list,
 mkgraph_zoom( hke_spectra_tavg_list, vke_spectra_tavg_list, 
         SLOPE_m5div3_ampl, 
         f"{ANALYSIS_OUT_DIR}/energy_spectra/KE_spectra_zoom_z{int(Z_INTERP)}m{fig_suffix}.pdf")
+mkgraph_diff( hke_spectra_tavg_list, vke_spectra_tavg_list, 
+        EXP_ref_name, SLOPE_m5div3_ampl, 
+        f"{ANALYSIS_OUT_DIR}/energy_spectra/KE_normalized_spectra_z{int(Z_INTERP)}m{fig_suffix}.pdf")

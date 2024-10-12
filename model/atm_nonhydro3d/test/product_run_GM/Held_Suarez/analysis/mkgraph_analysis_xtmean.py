@@ -12,7 +12,8 @@ EXP_DIR_LIST = {
 #  "Eh12Ez8P3", 
 #  "Eh24Ez16P3",     
 #    "Eh48Ez32P3"
-   "Eh6Ez4P7",  # "Eh12Ez8P7", 
+   "Eh6Ez4P7",  
+  # "Eh12Ez8P7", 
   # "Eh24Ez16P7", 
   # "Eh48Ez32P7",
 #  "Eh4Ez3P11", "Eh8Ez6P11", 

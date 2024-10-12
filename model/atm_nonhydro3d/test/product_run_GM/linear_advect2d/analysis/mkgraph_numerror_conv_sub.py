@@ -69,11 +69,11 @@ def get_color_and_linestyle_and_label(key):
     color = "green"; lbl="p=11"
 
   if "_0deg"  in key:
-    lstyle = "-"; lbl=f"{lbl},\\alpha=0"
+    lstyle = "-"; lbl=f"{lbl},\\phi_0=0"
   if "_45deg"  in key:
-    lstyle = "--"; lbl=f"{lbl},\\alpha=\pi/4"
+    lstyle = "--"; lbl=f"{lbl},\\phi_0=\pi/4"
   if "_90deg"  in key:
-    lstyle = ":"; lbl=f"{lbl},\\alpha=\pi/2"
+    lstyle = ":"; lbl=f"{lbl},\\phi_0=\pi/2"
        
   return color, lstyle, lbl
 

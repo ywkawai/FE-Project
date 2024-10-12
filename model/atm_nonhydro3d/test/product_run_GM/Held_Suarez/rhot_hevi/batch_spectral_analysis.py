@@ -5,11 +5,11 @@ import batch_job_common
 
 dir_list = [
 #* p=3
-    "./Eh12Ez8P3",  "./Eh24Ez16P3", "./Eh48Ez32P3", 
+   "./Eh12Ez8P3",  "./Eh24Ez16P3", "./Eh48Ez32P3", 
 #* p=7
-    "./Eh6Ez4P7", "./Eh12Ez8P7",  "./Eh24Ez16P7", "./Eh48Ez32P7",
+   "./Eh6Ez4P7", "./Eh12Ez8P7",  "./Eh24Ez16P7", "./Eh48Ez32P7", 
 #* p=11    
-    "./Eh4Ez3P11", "./Eh8Ez6P11", "./Eh16Ez12P11"    
+   "./Eh4Ez3P11", "./Eh8Ez6P11", "./Eh16Ez12P11"    
 ]
 
 num_run_list = {

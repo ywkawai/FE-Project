@@ -13,12 +13,13 @@ import joblib
 
 EXP_TOP_DIR = "./rhot_hevi"
 EXP_DIR_LIST = {
-#  "Eh12Ez8P3", 
+# "Eh12Ez8P3", 
 # "Eh24Ez16P3",   
-#  "Eh48Ez32P3"
-#  "Eh6Ez4P7", "Eh12Ez8P7",  
+# "Eh48Ez32P3"
+"Eh6Ez4P7", 
+# "Eh12Ez8P7",  
 # "Eh24Ez16P7", 
- "Eh48Ez32P7", 
+# "Eh48Ez32P7", 
 #  "Eh4Ez3P11", 
 #  "Eh8Ez6P11",
 #"Eh16Ez12P11",
@@ -30,7 +31,7 @@ EXP_DIR_LIST = {
 # }
 TARGET_RUNDIR_NO_LIST = {
   "Eh12Ez8P3": list(range(1,5)), "Eh24Ez16P3": list(range(1,9)), "Eh48Ez32P3": list(range(1,21)), 
-  "Eh6Ez4P7": list(range(1,5)), "Eh12Ez8P7": list(range(1,9)), "Eh24Ez16P7": list(range(1,21)), "Eh48Ez32P7": list(range(1,31)), 
+  "Eh6Ez4P7": list(range(1,5)), "Eh12Ez8P7": list(range(1,9)), "Eh24Ez16P7": list(range(1,21)), "Eh48Ez32P7": list(range(1,101)), 
   "Eh4Ez3P11": list(range(1,5)), "Eh8Ez6P11": list(range(1,9)), "Eh16Ez12P11": list(range(1,21)),
 }
 
