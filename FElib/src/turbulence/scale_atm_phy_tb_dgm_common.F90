@@ -36,6 +36,8 @@ module scale_atm_phy_tb_dgm_common
   !
   !++ Public procedures
   !
+  public :: atm_phy_tb_dgm_common_Init
+
   public :: atm_phy_tb_dgm_common_get_varinfo
   public :: atm_phy_tb_dgm_common_calc_lambda
 
@@ -88,7 +90,43 @@ module scale_atm_phy_tb_dgm_common
 
   private :: fact, p1, p2, p3
   
+  real(RP) :: BR1_STAB_COEF
+
 contains
+!OCL SERIAL
+  subroutine atm_phy_tb_dgm_common_Init( mesh )
+    use scale_mesh_base3d, only: MeshBase3D
+    implicit none    
+    class(MeshBase3D), intent(in) :: mesh
+
+    logical  :: consistent_tke = .true.
+
+    namelist / PARAM_ATMOS_PHY_TB_DGM_COMMON / &
+      BR1_STAB_COEF
+
+        
+    integer :: ierr
+    !--------------------------------------------------------------------
+
+    LOG_NEWLINE
+    LOG_INFO("ATMOS_PHY_TB_dgm_dns_common",*) 'Setup'
+
+    BR1_STAB_COEF = 0.0_RP
+
+    !--- read namelist
+    rewind(IO_FID_CONF)
+    read(IO_FID_CONF,nml=PARAM_ATMOS_PHY_TB_DGM_COMMON,iostat=ierr)
+    if( ierr < 0 ) then !--- missing
+       LOG_INFO("ATMOS_PHY_TB_dgm_common_setup",*) 'Not found namelist. Default used.'
+    elseif( ierr > 0 ) then !--- fatal error
+       LOG_ERROR("ATMOS_PHY_TB_dgm_common_setup",*) 'Not appropriate names in namelist PARAM_ATMOS_PHY_TB_DGM_COMMON. Check!'
+       call PRC_abort
+    endif
+    LOG_NML(PARAM_ATMOS_PHY_TB_DGM_COMMON)
+
+    return
+  end subroutine atm_phy_tb_dgm_common_Init
+
 !OCL SERIAL
   subroutine atm_phy_tb_dgm_common_get_varinfo( &
     auxvar_info, diagvar_info, tend_info        )
@@ -368,6 +406,7 @@ contains
       DF1, DF2, DF3,                                                          & ! (in)
       Nu, Kh,                                                                 & ! (in)
       DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd,                & ! (in)
+      PT_,                                                                    & ! (in)
       lmesh%normal_fn(:,:,1), lmesh%normal_fn(:,:,2), lmesh%normal_fn(:,:,3), & ! (in)
       lmesh%vmapM, lmesh%vmapP, lmesh, elem, is_bound   )                       ! (in)
 
@@ -559,6 +598,7 @@ contains
     DF1, DF2, DF3,                                                     & ! (in)
     Nu, Kh,                                                            & ! (in)
     DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd,           & ! (in)
+    PT_,                                                               & ! (in)
     nx, ny, nz, vmapM, vmapP, lmesh, elem, is_bound                    ) ! (in)
 
     implicit none
@@ -582,6 +622,7 @@ contains
     real(RP), intent(in) ::  DRHOT_(elem%Np*lmesh%NeA)  
     real(RP), intent(in) ::  DENS_hyd(elem%Np*lmesh%NeA)
     real(RP), intent(in) ::  PRES_hyd(elem%Np*lmesh%NeA)
+    real(RP), intent(in) :: PT_(elem%Np*lmesh%NeA)
     real(RP), intent(in) :: nx(elem%NfpTot*lmesh%Ne)
     real(RP), intent(in) :: ny(elem%NfpTot*lmesh%Ne)
     real(RP), intent(in) :: nz(elem%NfpTot*lmesh%Ne)
@@ -595,6 +636,8 @@ contains
     real(RP) :: TauM_y, TauP_y
     real(RP) :: TauM_z, TauP_z
     real(RP) :: nx_, ny_, nz_
+
+    real(RP) :: tau
     !------------------------------------------------------------------------
 
     !$omp parallel do private( iM, iP, &
@@ -632,6 +675,25 @@ contains
       bnd_flux_mom(i,3) = 0.5_RP * ( TauP_z - TauM_z )
       bnd_flux_rhot(i)  = 0.5_RP * ( densP * ( DF1(iP) * nx_ + DF2(iP) * ny_ + DF3(iP) * nz_ ) &
                                    - densM * ( DF1(iM) * nx_ + DF2(iM) * ny_ + DF3(iM) * nz_ ) )
+    end do
+
+    tau = BR1_STAB_COEF * (elem%PolyOrder_v + 1)**2 / 200.0_RP
+    !$omp parallel do private( i, iM, iP, densM )
+    do i=1, elem%NfpTot * lmesh%Ne
+      if ( is_bound(i) ) then
+        iM = vmapM(i); iP = vmapP(i)
+
+        bnd_flux_mom(i,1)  = bnd_flux_mom(i,1) &
+          + tau * Nu(iM) * ( MOMX_(iP) - MOMX_(iM) ) 
+        bnd_flux_mom(i,2)  = bnd_flux_mom(i,2) &
+          + tau * Nu(iM) * ( MOMY_(iP) - MOMY_(iM) ) 
+        bnd_flux_mom(i,3)  = bnd_flux_mom(i,3) &
+          + tau * Nu(iM) * ( MOMZ_(iP) - MOMZ_(iM) ) 
+        
+        densM = DDENS_(iM) + DENS_hyd(iM)
+        bnd_flux_rhot(i)  = bnd_flux_rhot(i) &
+          + tau * densM * Kh(iM) * ( PT_(iP) - PT_(iM) ) 
+      end if
     end do
 
     return

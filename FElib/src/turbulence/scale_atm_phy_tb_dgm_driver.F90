@@ -73,6 +73,7 @@ module scale_atm_phy_tb_dgm_driver
     CPTOT_VID => AUXVAR_CPtot_ID, RTOT_VID => AUXVAR_Rtot_ID
 
   use scale_atm_phy_tb_dgm_common, only: &
+    atm_phy_tb_dgm_common_Init,          &
     atm_phy_tb_dgm_common_cal_grad_qtrc, &
     atm_phy_tb_dgm_common_cal_tend,      &
     atm_phy_tb_dgm_common_cal_tend_qtrc, &
@@ -413,6 +414,9 @@ contains
         call this%GRAD_DENS(idim)%Init( "Grad_DENS", "kg/m4", mesh3D )      
       end do
     end if
+
+    !--
+    call atm_phy_tb_dgm_common_Init( mesh3D )
 
     return
   end subroutine AtmPhyTbDGMDriver_Init
