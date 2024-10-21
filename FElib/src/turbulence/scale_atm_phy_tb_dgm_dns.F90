@@ -277,6 +277,7 @@ contains
       !---
 
       do p=1, elem%Np
+        SkkOvThree = ( S11(p) + S22(p) + S33(p) ) * OneOverThree
         coef = 2.0_RP * Nu(p,ke)
 
         T11(p,ke) = DENS(p) * ( coef * ( S11(p) - SkkOvThree )  )
