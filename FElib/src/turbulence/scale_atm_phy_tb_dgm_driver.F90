@@ -552,6 +552,8 @@ contains
     call PROF_rapend('ATM_PHY_TB_exchange_prgv', 2)
 
     do n=1, mesh3D%LOCAL_MESH_NUM
+      lcmesh3D => mesh3D%lcmesh_list(n)
+
       !- Apply boundary conditions for stress tensor
       call PROF_rapstart('ATM_PHY_TB_bnd', 2)
       call boundary_cond%ApplyBC_Grad_TBStress_lc( n, &
@@ -585,9 +587,11 @@ contains
       if ( .not. TRACER_ADVC(iq) ) cycle
       
       call TRC_VARS%Get3D( iq, QTRC )
-      call TB_TENDS%Get3D( ATMOS_PHY_TB_TENDS_NUM1 + iq, tb_RHOT_t )
+      call TB_TENDS%Get3D( ATMOS_PHY_TB_TENDS_NUM1 + iq, tb_RHOQ_t )
       
       do n=1, mesh3D%LOCAL_MESH_NUM
+        lcmesh3D => mesh3D%lcmesh_list(n)
+
         call PROF_rapstart('ATM_PHY_TB_cal_grad_qtrc', 2)
         call this%tbsolver_cal_grad_qtrc( &
           DFQ1%local(n)%val, DFQ2%local(n)%val, DFQ2%local(n)%val,                       & ! (out)
@@ -604,6 +608,8 @@ contains
       call this%auxtrcvars_manager%MeshFieldComm_Exchange()
 
       do n=1, mesh3D%LOCAL_MESH_NUM
+        lcmesh3D => mesh3D%lcmesh_list(n)
+
         call PROF_rapstart('ATM_PHY_TB_cal_tend_qtrc', 2)
         call this%tbsolver_cal_tend_qtrc( tb_RHOQ_t%local(n)%val,          & ! (out)
           DFQ1%local(n)%val, DFQ2%local(n)%val, DFQ3%local(n)%val,         & ! (out)
