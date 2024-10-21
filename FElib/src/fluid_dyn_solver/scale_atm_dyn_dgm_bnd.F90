@@ -694,7 +694,7 @@ contains
         select case( this%ThermalBC_list(domID)%list(i_) )
         case ( BND_TYPE_ADIABAT_ID )
           normal_flux = DF1(iM) * nx(i) + DF2(iM) * ny(i) &
-            + ( DF3(iM) / GsqrtV + G13(iM) * DF1(iM) + G23(iM) * DF2(iM) )
+            + ( DF3(iM) / GsqrtV + G13(iM) * DF1(iM) + G23(iM) * DF2(iM) ) * nz(i) 
           DF1(iP) = DF1(iM) - 2.0_RP * normal_flux * normal_vec(1)
           DF2(iP) = DF2(iM) - 2.0_RP * normal_flux * normal_vec(2)
           DF3(iP) = DF3(iM) - 2.0_RP * normal_flux * normal_vec(3)
