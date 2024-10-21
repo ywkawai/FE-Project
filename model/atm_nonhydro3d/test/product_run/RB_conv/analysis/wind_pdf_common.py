@@ -37,7 +37,7 @@ def create_pdf_uvw_single(u, v, w,
 
     plt.ylim(0, 0.65)
     plt.xlabel("wind speed [m/s]", fontsize=14)
-    plt.ylabel("probabillity density", fontsize=14)
+    plt.ylabel("probability density", fontsize=14)
     plt.tick_params(labelsize=14)
     plt.savefig(figname)
     
@@ -64,9 +64,10 @@ def create_pdf_uvw_overplot_log(
                                 varname, v_list, nbin, v_range, ylim_range, exp_color_list, exp_linetype_list, figname):
     exp_name_list = v_list.keys()
 
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(figsize=(8,10))
     for exp_name in exp_name_list:
-        xr.plot.hist(v_list[exp_name], density=True, color=exp_color_list[exp_name], bins=nbin, range=v_range, histtype='step', label=exp_name, linestyle=exp_linetype_list[exp_name])
+        xr.plot.hist(v_list[exp_name], density=True, color=exp_color_list[exp_name], bins=nbin, range=v_range, histtype='step', label=exp_name, linestyle=exp_linetype_list[exp_name],
+                     linewidth=3)
 
     # handles, labels = ax.get_legend_handles_labels()
     # print(handles[0])
@@ -91,13 +92,14 @@ def merge_tmp_nc_sub(varname, tmpdir, exp_name, dir_ind, time_list, pe, suffix="
         tmp_data_dir = f"{tmpdir}/tmp_{exp_name}_{di}/"
         print(f"{tmp_data_dir}/tmp_{varname}{suffix}.pe{pe:06}.nc")
         tlist = time_list[di]
-        var =  xr.open_mfdataset(f'{tmp_data_dir}/tmp_{varname}{suffix}.pe{pe:06}.nc', decode_times=False, combine='by_coords')[varname].sel(time=tlist[istart:len(tlist)-istart]).copy()
-        time_new = tstart + tlist[istart:len(tlist)-istart]
-        print(time_new)
+        var =  xr.open_mfdataset(f'{tmp_data_dir}/tmp_{varname}{suffix}.pe{pe:06}.nc', decode_times=False, combine='by_coords')[varname].sel(time=tlist[istart:len(tlist)]).copy()
+        time_new = tstart + tlist[istart:len(tlist)]
+#        print(time_new)
         var_list.append(var.assign_coords(time=time_new))
         istart = 1; tstart = tstart + tlist[-1]
     
     var_merge = xr.concat(var_list, dim="time")
+    print(var_merge.time.values)
     var_merge.to_netcdf(f"{tmpdir}/tmp_{exp_name}/tmp_{varname}{suffix}.pe{pe:06}.nc")
 
 def merge_tmp_nc(varname, tmpdir, exp_name, dir_ind, time_list, penum, suffix="", Nproc=4):  
@@ -122,6 +124,13 @@ def create_tmp_data( top_exp_dir, exp_name_list, tmpdir, dir_ind_list, runno_ini
             os.makedirs(tmpdir_di, exist_ok=True)        
             create_tmp_nc(target_dir, tmpdir_di, pe_num_list[exp_name], zlev_list, time_list[di], nproc )
 
+def merge_tmp_data( exp_name_list, tmpdir, dir_ind_list,
+                    zlev_listlist, time_listlist, pe_num_list, 
+                    nproc=4 ):
+    for exp_name in exp_name_list:
+        tmp_data_dir = f"{tmpdir}/tmp_{exp_name}"    
+        os.makedirs(tmp_data_dir, exist_ok=True)   
+        zlev_list = zlev_listlist[exp_name]
         for varname in ["vel_abs"]:
             for zlev in zlev_list:
                 merge_tmp_nc(varname, tmpdir, exp_name, 

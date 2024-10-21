@@ -50,4 +50,4 @@ def mkgraph(ds_list, varname, ylim, color_list, linestyle_list):
     for key, ds in ds_list.items():
         time = ds.sec
         ax.plot(time, ds[varname], label=key, color=color_list[key], linestyle=linestyle_list[key])
-    ax.legend()
+    ax.legend(loc='upper left', bbox_to_anchor=(1, 1))

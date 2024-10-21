@@ -117,48 +117,48 @@ def energy_spectra_analysis(exp_top_dir, exp_name, nx, penum, L,
   os.makedirs(tmp_dir, exist_ok=True)  
 
   time_list_ex = gen_tmp_nc( exp_top_dir, exp_name, dir_ind, ZLEVEL_list, TIME_list, penum, tmp_dir, runno_inidata, nproc, gem_tmp_data_skip_flag)
+  r = Parallel(n_jobs=nproc)( [delayed(energy_spectra_analysis_core_sub)( tmp_dir, nx, L, di, TIME_list[di], ZLEVEL_list, OUTNC_suffix) for di in dir_ind ] )
 
-  print(time_list_ex)
+  
+def energy_spectra_analysis_core_sub( tmp_dir, nx, L, 
+                            di, time_list, ZLEVEL_list, 
+                            OUTNC_suffix ):
+  #----
   Ncut = int(nx/2)
   freq = np.fft.fftfreq(nx, L/float(nx)) #Nnp.arange(-1.0/(2.0*dx), 1.0/(2.0*dx), 1.0/float(L))
   kx = 2.0*np.pi*freq
 
-  ke_spectra_hvel = xr.DataArray( np.zeros((len(time_list_ex), len(ZLEVEL_list), Ncut)), 
-                                  coords=[time_list_ex, np.array(ZLEVEL_list, dtype=float), kx[:Ncut]], dims=["time", "z", "k"])
+  ke_spectra_hvel = xr.DataArray( np.zeros((len(time_list), len(ZLEVEL_list), Ncut)), 
+                                  coords=[time_list, np.array(ZLEVEL_list, dtype=float), kx[:Ncut]], dims=["time", "z", "k"])
   ke_spectra_hvel.name = "KE_spectra_momh"
   ke_spectra_hvel.attrs["units"] = "kg.m-3.m3.s-2" 
-  ke_spectra_wvel = xr.DataArray( np.zeros((len(time_list_ex), len(ZLEVEL_list), Ncut)), 
-                                  coords=[time_list_ex, np.array(ZLEVEL_list, dtype=float), kx[:Ncut]], dims=["time", "z", "k"])
+  ke_spectra_wvel = xr.DataArray( np.zeros((len(time_list), len(ZLEVEL_list), Ncut)), 
+                                  coords=[time_list, np.array(ZLEVEL_list, dtype=float), kx[:Ncut]], dims=["time", "z", "k"])
   ke_spectra_wvel.name = "KE_spectra_momz"
   ke_spectra_wvel.attrs["units"] = "kg.m-3.m3.s-2" 
 
-  ds_cache = {}
-  tind_off = 0
-  for di in dir_ind:
-    time_list = TIME_list[di]
-    tmpdir = tmp_dir + f"_{di}/"
-    print(tmpdir)
-    
-    for zind, zlev in enumerate(ZLEVEL_list):  
-      dens_ = get_varnp(tmpdir, "DENS", time_list, zlev, ds_cache)
-      u_ = get_varnp(tmpdir, "U", time_list, zlev, ds_cache)
-      v_ = get_varnp(tmpdir, "V", time_list, zlev, ds_cache)
-      w_ = get_varnp(tmpdir, "W", time_list, zlev, ds_cache)
-      
-      for tind, time in enumerate(time_list):
-        print(f"calc_KE_spectra.. t={time} z={zlev}")
-        dens = np.copy(dens_[:,:,tind])
-        u = u_[tind,:,:]
-        v = v_[tind,:,:]
-        w = w_[tind,:,:]
-        
-        kx_, ke_spectra_hvel[tind_off+tind,zind,:], ke_spectra_wvel[tind_off+tind,zind,:] = \
-          calc_KE_spectra( dens, u, v, w, nx, nx, L )
-
-    tind_off = tind_off + len(time_list)
-
-  for var in [ke_spectra_hvel, ke_spectra_wvel]: var.to_netcdf(f"{tmp_dir}/{var.name}{OUTNC_suffix}.nc")
+  tmpdir = tmp_dir + f"_{di}/"
+  print(tmpdir)
   
+  ds_cache = {} 
+  for zind, zlev in enumerate(ZLEVEL_list):  
+    dens_ = get_varnp(tmpdir, "DENS", time_list, zlev, ds_cache)
+    u_ = get_varnp(tmpdir, "U", time_list, zlev, ds_cache)
+    v_ = get_varnp(tmpdir, "V", time_list, zlev, ds_cache)
+    w_ = get_varnp(tmpdir, "W", time_list, zlev, ds_cache)
+      
+    for tind, time in enumerate(time_list):
+      print(f"calc_KE_spectra.. t={time} z={zlev}")
+      dens = np.copy(dens_[:,:,tind])
+      u = u_[tind,:,:]
+      v = v_[tind,:,:]
+      w = w_[tind,:,:]
+      
+      kx_, ke_spectra_hvel[tind,zind,:], ke_spectra_wvel[tind,zind,:] = \
+        calc_KE_spectra( dens, u, v, w, nx, nx, L )
+
+  for var in [ke_spectra_hvel, ke_spectra_wvel]: var.to_netcdf(f"{tmpdir}/{var.name}{OUTNC_suffix}.nc")
+
   
 #---- mkgraph
 def xaxis_txt(inv_lam, pos=None):
@@ -245,7 +245,7 @@ def create_fig_energy_spectra(
 
 
 def create_fig_energy_spectra_diffm53(ke_spectra_list, zlev, figname, 
-                                      exp_ltype_list, exp_color_list, exp_label_list, 
+                                      exp_ltype_list, exp_ltype_width, exp_color_list, exp_label_list, 
                                       ylim_range,                                       
                                       slope_m35_ampl = 1.7e-5):
   print(f"create_fig_energy_spectra: {figname}")
@@ -260,7 +260,10 @@ def create_fig_energy_spectra_diffm53(ke_spectra_list, zlev, figname,
     ke_spectra = ke_spectra_list[exp_name].sel(z=zlev)
     slope_m35 = slope_m35_ampl*ke_spectra.k**(-5.0/3.0) 
     ax.plot(ke_spectra.k/(2.0*np.pi), ke_spectra/slope_m35, 
-      linestyle=exp_ltype_list[exp_name], color=exp_color_list[exp_name], label=exp_label_list[exp_name])
+      linestyle=exp_ltype_list[exp_name], 
+      linewidth=exp_ltype_width[exp_name], 
+      color=exp_color_list[exp_name], 
+      label=exp_label_list[exp_name] )
 
   kx = ke_spectra_list[exp_name].k
   ax.plot(kx/(2.0*np.pi), slope_m35/slope_m35, color="grey", linestyle="-.", label="-5/3")
@@ -268,17 +271,41 @@ def create_fig_energy_spectra_diffm53(ke_spectra_list, zlev, figname,
   ax.set_xlabel("inverse of wavelength [m$^{-1}$]", fontsize=20)
   ax.xaxis.set_major_formatter(FuncFormatter(xaxis_txt))
   ax.xaxis.set_minor_formatter(FuncFormatter(xaxis_txt_minor))
-  ax.tick_params(which="both", labelsize=18, length=3)
+  ax.tick_params(which="both", labelsize=16, length=3)
 
   plt.savefig(figname)
   
-def read_spectra_data(exp_name, tmp_dir, ke_spectra_hvel_list, ke_spectra_wvel_list, ke_spectra_3dvel_list, 
+def read_spectra_data(exp_name, tmp_dir, dir_ind, ke_spectra_3dvel_list, 
                       ncut, OUTNC_suffix=""):
-  ke_spectra_hvel = xr.open_mfdataset(f'{tmp_dir}/KE_spectra_momh{OUTNC_suffix}.nc', decode_times=False, combine='by_coords').KE_spectra_momh
-  ke_spectra_hvel_list[exp_name] = np.mean(ke_spectra_hvel[:,:,1:ncut], axis=0)
+  di = dir_ind[0]
+  fac = 1.0 / float(len(dir_ind))
+  ke_spectra_hvel = xr.open_mfdataset(f'{tmp_dir}_{di}/KE_spectra_momh{OUTNC_suffix}.nc', decode_times=False, combine='by_coords').KE_spectra_momh
+  ke_spectra_wvel= xr.open_mfdataset(f'{tmp_dir}_{di}/KE_spectra_momz{OUTNC_suffix}.nc', decode_times=False, combine='by_coords').KE_spectra_momz
+  ke_spectra_3dvel_tmp = fac * np.mean(ke_spectra_hvel[1:,:,1:ncut] + ke_spectra_wvel[1:,:,1:ncut], axis=0)
+  for i in range(1,len(dir_ind)):
+    di = dir_ind[i]
+    ke_spectra_hvel = xr.open_mfdataset(f'{tmp_dir}_{di}/KE_spectra_momh{OUTNC_suffix}.nc', decode_times=False, combine='by_coords').KE_spectra_momh
+    ke_spectra_wvel = xr.open_mfdataset(f'{tmp_dir}_{di}/KE_spectra_momz{OUTNC_suffix}.nc', decode_times=False, combine='by_coords').KE_spectra_momz
+    ke_spectra_3dvel_tmp = ke_spectra_3dvel_tmp + fac * np.mean(ke_spectra_hvel[1:,:,1:ncut] + ke_spectra_wvel[1:,:,1:ncut], axis=0)
+    
+  ke_spectra_3dvel_list[exp_name] = ke_spectra_3dvel_tmp
+  return
 
-  ke_spectra_wvel = xr.open_mfdataset(f'{tmp_dir}/KE_spectra_momz{OUTNC_suffix}.nc', decode_times=False, combine='by_coords').KE_spectra_momz
-  ke_spectra_wvel_list[exp_name] = np.mean(ke_spectra_wvel[:,:,1:ncut], axis=0)
-
-  ke_spectra_3dvel_list[exp_name] = ke_spectra_hvel_list[exp_name] + ke_spectra_wvel_list[exp_name]
+def read_spectra_data_hv(exp_name, tmp_dir, dir_ind, ke_spectra_hvel_list, ke_spectra_wvel_list, 
+                      ncut, ncut_s=1,OUTNC_suffix=""):
+  di = dir_ind[0]
+  fac = 1.0 / float(len(dir_ind))
+  ke_spectra_hvel = xr.open_mfdataset(f'{tmp_dir}_{di}/KE_spectra_momh{OUTNC_suffix}.nc', decode_times=False, combine='by_coords').KE_spectra_momh
+  ke_spectra_wvel= xr.open_mfdataset(f'{tmp_dir}_{di}/KE_spectra_momz{OUTNC_suffix}.nc', decode_times=False, combine='by_coords').KE_spectra_momz
+  ke_spectra_hvel_tmp = fac * np.mean(ke_spectra_hvel[1:,:,ncut_s:ncut], axis=0)
+  ke_spectra_wvel_tmp = fac * np.mean(ke_spectra_wvel[1:,:,ncut_s:ncut], axis=0)  
+  for i in range(1,len(dir_ind)):
+    di = dir_ind[i]
+    ke_spectra_hvel = xr.open_mfdataset(f'{tmp_dir}_{di}/KE_spectra_momh{OUTNC_suffix}.nc', decode_times=False, combine='by_coords').KE_spectra_momh
+    ke_spectra_wvel = xr.open_mfdataset(f'{tmp_dir}_{di}/KE_spectra_momz{OUTNC_suffix}.nc', decode_times=False, combine='by_coords').KE_spectra_momz
+    ke_spectra_hvel_tmp = ke_spectra_hvel_tmp + fac * np.mean(ke_spectra_hvel[1:,:,ncut_s:ncut], axis=0)
+    ke_spectra_wvel_tmp = ke_spectra_wvel_tmp + fac * np.mean(ke_spectra_wvel[1:,:,ncut_s:ncut], axis=0)
+    
+  ke_spectra_hvel_list[exp_name] = ke_spectra_hvel_tmp
+  ke_spectra_wvel_list[exp_name] = ke_spectra_wvel_tmp  
   return

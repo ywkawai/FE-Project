@@ -84,12 +84,13 @@ def mkconf_init( conf_path,
 
 def mkconf_run( conf_path, 
                 restart_in_basename, 
-                start_month, start_day, start_hour, integ_sec, 
+                start_month, start_day, start_hour, start_min, integ_sec, 
                 dt_sec, dt_dyn_sec,                 
                 nprcx, nprcy, ex, ey, ez, porder, 
                 modal_filter_flag, mf_alph, mf_ordh, mf_alpv, mf_ordv, 
                 output_dtsec, 
-                dns_mu, dns_nu ): 
+                dns_mu, dns_nu,
+                br1_stab, br1_stab_coef ): 
   
   if modal_filter_flag:
     mf_flag = ".true."
@@ -107,6 +108,14 @@ def mkconf_run( conf_path,
     mf_flag = ".false."    
     param_mf = ""
     
+  if br1_stab:
+    br1_stab = f"""
+&PARAM_ATMOS_PHY_TB_DGM_COMMON
+      BR1_STAB_COEF = {br1_stab_coef}, 
+    /
+    """
+  else:
+    br1_stab = ""
 
   conf_run_s = f"""#--- Configuration file for a test case of RB convection  -------
 &PARAM_RESTART
@@ -115,7 +124,7 @@ def mkconf_run( conf_path,
   OUT_BASENAME = 'restart'
 /
 &PARAM_TIME
-  TIME_STARTDATE       = 1, {start_month}, {start_day}, {start_hour}, 0, 0,
+  TIME_STARTDATE       = 1, {start_month}, {start_day}, {start_hour}, {start_min}, 0,
   TIME_STARTMS         = 0.D0,
   TIME_DURATION        = {integ_sec},
   TIME_DURATION_UNIT   = 'SEC', 
@@ -191,6 +200,7 @@ def mkconf_run( conf_path,
   DNS_MU       = {dns_mu}, 
   DNS_NU       = {dns_nu}
 /
+{br1_stab}
 #*** OUTPUT *******************************************
 &PARAM_FILE_HISTORY
  FILE_HISTORY_DEFAULT_BASENAME  = "history",
@@ -228,7 +238,7 @@ def mkconf_run( conf_path,
 #----------------
 
 def mksh_job_run( conf_path, job_name, 
-              nprc, elapse_time, init_flag ):
+              nprc, elapse_time, init_flag, node_shape ):
 
   if init_flag:
     init_cmd = f"""
@@ -238,7 +248,7 @@ mpiexec -np {nprc} -stdout-proc ./output.%j/%/1000r/stdout -stderr-proc ./output
   else:
     init_cmd = ""
 
-  jobshell_header_s = batch_job_common.get_job_header(job_name, nprc, elapse_time)
+  jobshell_header_s = batch_job_common.get_job_header(job_name, nprc, elapse_time, node_shape)
   jobshell_s = f"""
 SCALE_DG_INIT_BIN={SCALE_DG_BIN_PATH}/scale-dg_init
 SCALE_DG_BIN={SCALE_DG_BIN_PATH}/scale-dg  
@@ -285,6 +295,11 @@ def mk_conf_sh( exp_name, exp_info, exp_postfix="" ):
     out_dir_pref=f"./DNS{exp_postfix}/{exp_name}"
     nprc = nprcx * nprcy
     
+    if exp_info["BR1_stab"]:
+      br1_stab_coef = exp_info["BR1_stab_coef"]
+    else:
+      br1_stab_coef = "0D0"
+    
     print(out_dir_pref)    
     #-------
     if runno_s == 1:
@@ -298,20 +313,21 @@ def mk_conf_sh( exp_name, exp_info, exp_postfix="" ):
     hr_per_run = exp_info["hr_per_run"]
     
     for runno in range(runno_s,runno_s+int( exp_info["integ_hour"] /hr_per_run)):
-      date_time = date_time0 + datetime.timedelta(hours=hr_per_run*(runno-runno_s))
+      date_time = date_time0 + datetime.timedelta(minutes=60*hr_per_run*(runno-runno_s))
       if runno > 1:
-        restart_in_basename = f"../run{runno-1}/restart_{date_time.year:04}{date_time.month:02}{date_time.day:02}-{date_time.hour:02}0000.000"
+        restart_in_basename = f"../run{runno-1}/restart_{date_time.year:04}{date_time.month:02}{date_time.day:02}-{date_time.hour:02}{date_time.minute:02}00.000"
       else:
-        restart_in_basename = f"init_{date_time.year:04}{date_time.month:02}{date_time.day:02}-{date_time.hour:02}0000.000"
+        restart_in_basename = f"init_{date_time.year:04}{date_time.month:02}{date_time.day:02}-{date_time.hour:02}{date_time.minute:02}00.000"
     
       os.makedirs(out_dir_pref+f"/run{runno}", exist_ok=True)
     
       mkconf_run(f"{out_dir_pref}/run{runno}/run.conf", 
-            restart_in_basename, date_time.month, date_time.day, date_time.hour, 3600*hr_per_run, 
+            restart_in_basename, date_time.month, date_time.day, date_time.hour, date_time.minute, 3600*hr_per_run, 
             exp_info["dt_sec"], exp_info["dt_dyn_sec"],            
             nprcx, nprcy, ex, ey, ez, porder, 
             exp_info["modal_filter_flag"], exp_info["mf_alph"], exp_info["mf_ordh"], exp_info["mf_alpv"], exp_info["mf_ordv"], 
-            exp_info["hist_int_sec"], exp_info["dns_mu"], exp_info["dns_nu"] )        
+            exp_info["hist_int_sec"], exp_info["dns_mu"], exp_info["dns_nu"], 
+            exp_info["BR1_stab"], br1_stab_coef )        
                     
                     
       if runno==1:
@@ -329,7 +345,7 @@ def mk_conf_sh( exp_name, exp_info, exp_postfix="" ):
                       "history", "'U', 'V', 'W', 'DDENS', 'PT'", "outdata/history" )
       
       mksh_job_run(f"{out_dir_pref}/run{runno}/job_run.sh", f"RB_D_P{porder}_rn{runno}", 
-                  nprc, exp_info["elapse_time"], (runno==1) ) 
+                  nprc, exp_info["elapse_time"], (runno==1), exp_info["node_shape"] ) 
           
       if runno==1:
         mksh_job_regrid(f"{out_dir_pref}/run{runno}/job_regrid_bs.sh", f"RG_L_P{porder}_rn{runno}", "regrid_bs.conf", 

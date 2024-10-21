@@ -69,4 +69,49 @@ def gen_anim( var_listlist, vmin, vmax,
   ani = ArtistAnimation(fig, artists, interval=interval)
   ani.save(anim_file, writer='imagemagick')
 
+def gen_anim2( var_listlist, vmin_list, vmax_list, 
+             anim_file, interval=90):
+    
+  var_num = len(var_listlist)
+  X_list = []; Z_list = []
+  fig, axes = plt.subplots(1, var_num, figsize=(8*var_num,5))
+  
+  for v in range(0,var_num):
+    axes[v].set_xlabel("x [m]")
+    axes[v].set_ylabel("z [m]")
+    var_list = var_listlist[v]
+    x, z = np.meshgrid(var_list[0].x.values, var_list[0].z.values)
+    X_list.append(x); Z_list.append(z)
+
+  artists = []
+  istart=0; time_offset = 0.0
+
+  var_list_1 = var_listlist[0]
+  for k in range(0,len(var_list_1)):
+    time = var_list_1[k].time
+    for time_ind in range(istart,len(time.values)):
+        print("time="+f"{time_offset} + "+str(time.values[time_ind]))
+        cax_list = []
+        for v in range(0,var_num):
+            var_list = var_listlist[v]
+            cax = axes[v].pcolormesh(X_list[v], Z_list[v], var_list[k].isel(time=time_ind).values,
+                vmin=vmin_list[v], vmax=vmax_list[v], 
+                cmap = "jet"
+            )
+            cax_list.append(cax)
+        
+            if time_ind == 0:
+                fig.colorbar(cax, 
+                            orientation='horizontal', ax=axes[v], shrink=0.7)#, pad=0.015)                    
+        
+        title = axes[1].text(-500.0, 1700, "Time="+str(time_offset+time.values[time_ind]) + " [s]", backgroundcolor="white", size="large")
+        cax_list.append(title)
+        artists.append(cax_list)
+      
+    istart=1; time_offset = time_offset + time.values[-1]
+    
+  ani = ArtistAnimation(fig, artists, interval=interval)
+  ani.save(anim_file, writer='imagemagick')
+
+
 
