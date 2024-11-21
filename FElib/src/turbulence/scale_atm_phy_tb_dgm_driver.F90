@@ -308,20 +308,20 @@ module scale_atm_phy_tb_dgm_driver
   integer, parameter :: TB_TYPEID_SMAGORINSKY         = 2
   integer, parameter :: TB_TYPEID_SMAGORINSKY_GLOBAL  = 3
 
-  integer, public, parameter :: ATMOS_PHY_TB_AUXTRC_DFQ1_ID    = 1  
-  integer, public, parameter :: ATMOS_PHY_TB_AUXTRC_DFQ2_ID    = 2
-  integer, public, parameter :: ATMOS_PHY_TB_AUXTRC_DFQ3_ID    = 3
+  integer, public, parameter :: ATMOS_PHY_TB_AUXTRC_DFQ3_ID    = 1
+  integer, public, parameter :: ATMOS_PHY_TB_AUXTRC_DFQ1_ID    = 2  
+  integer, public, parameter :: ATMOS_PHY_TB_AUXTRC_DFQ2_ID    = 3
   integer, public, parameter :: ATMOS_PHY_TB_AUXTRC_SCALAR_NUM = 1 
   integer, public, parameter :: ATMOS_PHY_TB_AUXTRC_HVEC_NUM   = 1
   integer, public, parameter :: ATMOS_PHY_TB_AUXTRC_NUM        = 3
   type(VariableInfo), public :: ATMOS_PHY_TB_AUXTRC_VINFO(ATMOS_PHY_TB_AUXTRC_NUM)
   DATA ATMOS_PHY_TB_AUXTRC_VINFO / &
-    VariableInfo( ATMOS_PHY_TB_AUXTRC_DFQ1_ID, 'DFQ1', 'Kh * gradient of QTRC (z)',    &
-                  'm2/s',  3, 'XYZ',  ''                                           ),  &
-    VariableInfo( ATMOS_PHY_TB_AUXTRC_DFQ2_ID, 'DFQ2', 'Kh * gradient of QTRC (x)',    &
-                  'm2/s',  3, 'XYZ',  ''                                           ),  &
-    VariableInfo( ATMOS_PHY_TB_AUXTRC_DFQ3_ID, 'DFQ3', 'Kh * gradient of QTRC (y)',    &
-                  'm2/s',  3, 'XYZ',  ''                                           )   /
+    VariableInfo( ATMOS_PHY_TB_AUXTRC_DFQ3_ID, 'DFQ1', 'Kh * gradient of QTRC (z)',    &
+                  'm2/s.kg/kg.m-1',  3, 'XYZ',  ''                                 ),  &
+    VariableInfo( ATMOS_PHY_TB_AUXTRC_DFQ1_ID, 'DFQ1', 'Kh * gradient of QTRC (x)',    &
+                  'm2/s.kg/kg.m-1',  3, 'XYZ',  ''                                 ),  &
+    VariableInfo( ATMOS_PHY_TB_AUXTRC_DFQ2_ID, 'DFQ2', 'Kh * gradient of QTRC (y)',    &
+                  'm2/s.kg/kg.m-1',  3, 'XYZ',  ''                                 )   /
 
 contains
 !OCL SERIAL  
@@ -594,11 +594,11 @@ contains
 
         call PROF_rapstart('ATM_PHY_TB_cal_grad_qtrc', 2)
         call this%tbsolver_cal_grad_qtrc( &
-          DFQ1%local(n)%val, DFQ2%local(n)%val, DFQ2%local(n)%val,                       & ! (out)
+          DFQ1%local(n)%val, DFQ2%local(n)%val, DFQ3%local(n)%val,                       & ! (out)
           this%GRAD_DENS(1)%local(n)%val, this%GRAD_DENS(2)%local(n)%val,                & ! (inout)
           this%GRAD_DENS(3)%local(n)%val,                                                & ! (inout)
           Kh%local(n)%val, QTRC%local(n)%val, DDENS%local(n)%val, DENS_hyd%local(n)%val, & ! (in) 
-          Dx, Dy, Dx, Sx, Sy, Sz, Lift, lcmesh3D, lcmesh3D%refElem3D,                    & ! (in)
+          Dx, Dy, Dz, Sx, Sy, Sz, Lift, lcmesh3D, lcmesh3D%refElem3D,                    & ! (in)
           lcmesh3D%lcmesh2D, lcmesh3D%lcmesh2D%refElem2D,                                & ! (in)
           bnd_info(n)%is_bound, cal_grad_flag )                                            ! (in)
         call PROF_rapend('ATM_PHY_TB_cal_grad_qtrc', 2)
@@ -614,7 +614,7 @@ contains
         call this%tbsolver_cal_tend_qtrc( tb_RHOQ_t%local(n)%val,          & ! (out)
           DFQ1%local(n)%val, DFQ2%local(n)%val, DFQ3%local(n)%val,         & ! (out)
           Kh%local(n)%val, DDENS%local(n)%val, DENS_hyd%local(n)%val,      & ! (in) 
-          Dx, Dy, Dx, Sx, Sy, Sz, Lift, lcmesh3D, lcmesh3D%refElem3D,      & ! (in)
+          Dx, Dy, Dz, Sx, Sy, Sz, Lift, lcmesh3D, lcmesh3D%refElem3D,      & ! (in)
           lcmesh3D%lcmesh2D, lcmesh3D%lcmesh2D%refElem2D,                  & ! (in)
           bnd_info(n)%is_bound )                                             ! (in)
         call PROF_rapend('ATM_PHY_TB_cal_tend_qtrc', 2)
