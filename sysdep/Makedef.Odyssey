@@ -99,10 +99,6 @@ SCALE_MATHLIB_LIBS ?=
 # example:
 export SCALE_MATHLIB_LIBS="-SSL2"
 
-##### SCALE
-SCALEORI_INCLUDE  ?= -I$(SCALE)/include -I$(SCALE)/scalelib/include
-SCALEORI_LIBS     ?= -L$(SCALE)/lib -lscale -ldcutils
-
 ##### for frontend
 INSTALL = install
 AR      = ar
