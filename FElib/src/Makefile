@@ -1,6 +1,6 @@
 ################################################################################
 #
-# Makefile for scale library
+# Makefile for FElib
 #
 ################################################################################
 
@@ -159,92 +159,96 @@ OBJS_NAME = \
 
 
 OBJS_NAME_SCALELIB = \
-	scale_precision.o  \
-	scale_const.o      \
-	scale_io.o         \
-	scale_time.o       \
-	scale_prc_cartesC.o                \
-	scale_comm_cartesC.o               \
+	scale_precision.o        \
+	scale_const.o            \
+	scale_io.o               \
+	scale_time.o             \
+	scale_prc_cartesC.o      \
+	scale_comm_cartesC.o     \
 	scale_atmos_thermodyn.o  \
 	scale_atmos_saturation.o \
 	scale_atmos_grid_cartesC_index.o   \
 	scale_atmos_grid_cartesC.o         \
 	\
-	scale.o	\
-	scale_sys_sigvars.o \
-	scale_file_netcdf.o \
-	scale_file_grads.o	\
-	scale_calendar.o	\
-	scale_debug.o \
-	scale_fpm.o \
-	scale_index.o \
+	scale.o	              \
+	scale_sys_sigvars.o   \
+	scale_file_netcdf.o   \
+	scale_file_grads.o	  \
+	scale_calendar.o	  \
+	scale_debug.o         \
+	scale_fpm.o           \
+	scale_index.o         \
 	scale_mapprojection.o \
-	scale_matrix.o	\
-	scale_sort.o	\
-	scale_hash.o	\
-	scale_prc.o	       \
-	scale_prof.o	\
-	scale_random.o	\
-	scale_sigvars.o \
-	scale_statistics.o	\
-	scale_tracer.o	\
-	scale_vector.o	\
-	scale_monitor.o	\
-	scale_file.o	\
-	scale_file_cartesC.o	\
-	scale_file_h.o	\
-	scale_file_history.o	\
-	scale_file_netcdf.o \
+	scale_matrix.o	      \
+	scale_sort.o	      \
+	scale_hash.o	      \
+	scale_prc.o	          \
+	scale_prof.o	      \
+	scale_random.o	      \
+	scale_sigvars.o       \
+	scale_statistics.o	  \
+	scale_tracer.o	      \
+	scale_vector.o	      \
+	scale_monitor.o	      \
+	scale_file.o	      \
+	scale_file_cartesC.o  \
+	scale_file_h.o	      \
+	scale_file_history.o  \
+	scale_file_netcdf.o   \
 	\
-	scale_atmos_adiabat.o \
-	scale_atmos_aerosol.o \
+	scale_atmos_adiabat.o     \
+	scale_atmos_aerosol.o     \
 	scale_atmos_hydrometeor.o \
 	\
-	scale_atmos_phy_mp_common.o \
-	scale_atmos_phy_mp_kessler.o	\
-	scale_atmos_phy_mp_sn14.o	\
+	scale_atmos_phy_mp_common.o   \
+	scale_atmos_phy_mp_kessler.o  \
+	scale_atmos_phy_mp_sn14.o	  \
 	scale_atmos_phy_mp_suzuki10.o \
 	scale_atmos_phy_mp_tomita08.o \
 	\
-	scale_atmos_phy_sf_bulk.o \
+	scale_atmos_phy_sf_bulk.o  \
 	scale_atmos_phy_sf_const.o \
 	\
-	scale_ocean_grid_cartesC.o	\
-	scale_ocean_grid_cartesC_index.o	\
-	scale_ocean_grid_cartesC_real.o \
-	scale_ocean_grid_icoA.o \
-	scale_ocean_grid_icoA_index.o \
-	scale_ocean_dyn_slab.o	\
-	scale_ocean_dyn_offline.o \
-	scale_ocean_phy_ice_simple.o	\
-	scale_ocean_phy_albedo.o	\
-	scale_ocean_phy_albedo_nakajima00.o \
-	scale_ocean_phy_roughness.o \
-	scale_ocean_phy_roughness_miller92.o	\
-	scale_ocean_phy_roughness_moon07.o	\
-	scale_ocean_phy_tc.o	\
-	scale_land_grid_cartesC.o \
+	scale_ocean_grid_cartesC.o	         \
+	scale_ocean_grid_cartesC_index.o     \
+	scale_ocean_grid_cartesC_real.o      \
+	scale_ocean_grid_icoA.o              \
+	scale_ocean_grid_icoA_index.o        \
+	scale_ocean_dyn_slab.o	             \
+	scale_ocean_dyn_offline.o            \
+	scale_ocean_phy_ice_simple.o	     \
+	scale_ocean_phy_albedo.o	         \
+	scale_ocean_phy_albedo_nakajima00.o  \
+	scale_ocean_phy_roughness.o          \
+	scale_ocean_phy_roughness_miller92.o \
+	scale_ocean_phy_roughness_moon07.o	 \
+	scale_ocean_phy_tc.o	             \
+	\
+	scale_land_grid_cartesC.o       \
 	scale_land_grid_cartesC_index.o \
 	scale_land_grid_cartesC_real.o	\
-	scale_land_grid_icoA.o	\
+	scale_land_grid_icoA.o	        \
 	scale_land_grid_icoA_index.o	\
-	scale_land_dyn_bucket.o \
-	scale_land_phy_matsiro.o	\
-	scale_land_phy_snow_diagnos.o \
-	scale_land_phy_snow_ky90.o	\
-	scale_urban_grid_cartesC.o	\
-	scale_urban_grid_cartesC_index.o	\
-	scale_urban_grid_cartesC_real.o \
-	scale_urban_grid_icoA.o \
-	scale_urban_grid_icoA_index.o \
-	scale_urban_dyn_kusaka01.o	\
-	scale_bulkflux.o	\
-	scale_landuse.o \
-	scale_cpl_sfc_index.o \
-	scale_cpl_phy_sfc_fixed_temp.o	\
-	scale_cpl_phy_sfc_skin.o \
+	scale_land_dyn_bucket.o         \
+	scale_land_phy_matsiro.o	    \
+	scale_land_phy_snow_diagnos.o   \
+	scale_land_phy_snow_ky90.o	    \
+	\
+	scale_urban_grid_cartesC.o	     \
+	scale_urban_grid_cartesC_index.o \
+	scale_urban_grid_cartesC_real.o  \
+	scale_urban_grid_icoA.o          \
+	scale_urban_grid_icoA_index.o    \
+	scale_urban_dyn_kusaka01.o	     \
+	\
+	scale_bulkflux.o	             \
+	scale_landuse.o                  \
+	scale_cpl_sfc_index.o            \
+	scale_cpl_phy_sfc_fixed_temp.o	 \
+	scale_cpl_phy_sfc_skin.o         \
+	\
 	scale_spnudge.o \
-	scale_dft.o	
+	scale_dft.o
 
 MODS_SCALELIB = $(addprefix $(SCALE)/include/, \
 	$(shell echo $(patsubst %.o,%.mod, \
