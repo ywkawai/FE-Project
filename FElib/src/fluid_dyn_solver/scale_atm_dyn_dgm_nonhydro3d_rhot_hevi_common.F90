@@ -502,7 +502,7 @@ contains
     integer :: Colmask(elem%Nnode_v)
     real(RP) :: Id(elem%Nnode_v,elem%Nnode_v)
     real(RP) :: Dd(elem%Nnode_v)
-    real(RP) :: tmp1
+    real(RP) :: tmp1(elem%Nnode_v)
     real(RP) :: fac
     integer :: ij, v1, v2, pv1, pv2,  g_kj, g_kjp1, g_kjm1, pb1
     logical :: bc_flag
@@ -628,64 +628,65 @@ contains
         fp2 = elem%Nfp_h * elem%Nfaces_h + (f2-1)*elem%Nfp_v + ij
 
         !--
-        tmp1 = fac * elem%Lift(FmV,fp) * lmesh%Fscale(fp,ke) &
+        tmp1(:) = fac * elem%Lift(Colmask(:),fp) * lmesh%Fscale(fp,ke) &
              * max( alph(fp,ke_z), alph(fp2,ke_z2) )
         if (bc_flag) then
-          PmatD(pv1,pv1,MOMZ_VID_LC,MOMZ_VID_LC) = PmatD(pv1,pv1,MOMZ_VID_LC,MOMZ_VID_LC) + 2.0_RP * tmp1
+          PmatD(:,pv1,MOMZ_VID_LC,MOMZ_VID_LC) = PmatD(:,pv1,MOMZ_VID_LC,MOMZ_VID_LC) + 2.0_RP * tmp1(:)
         else         
           do v=1, 3
-            PmatD(pv1,pv1,v,v) = PmatD(pv1,pv1,v,v) + tmp1            
+            PmatD(:,pv1,v,v) = PmatD(:,pv1,v,v) + tmp1(:)         
             if (f1 == 1) then
-              PmatL(pv1,pv2,v,v) = - tmp1                                
+              PmatL(:,pv2,v,v) = - tmp1(:)                              
             else
-              PmatU(pv1,pv2,v,v) = - tmp1
+              PmatU(:,pv2,v,v) = - tmp1(:)
             end if
           end do
         end if 
 
         !--
-        tmp1 = fac * elem%Lift(FmV,fp) * lmesh%Fscale(fp,ke) * nz(fp,ke_z)
+        tmp1(:) = fac * elem%Lift(Colmask(:),fp) * lmesh%Fscale(fp,ke) * nz(fp,ke_z)
 
         if (bc_flag) then
-          PmatD(pv1,pv1,DENS_VID_LC,MOMZ_VID_LC) = PmatD(pv1,pv1,DENS_VID_LC,MOMZ_VID_LC) - 2.0_RP * tmp1
-          PmatD(pv1,pv1,RHOT_VID_LC,MOMZ_VID_LC) = PmatD(pv1,pv1,RHOT_VID_LC,MOMZ_VID_LC) - 2.0_RP * tmp1 * POT0(pv1,ke_z,ij)
-          PmatD(pv1,pv1,RHOT_VID_LC,DENS_VID_LC) = PmatD(pv1,pv1,RHOT_VID_LC,DENS_VID_LC) + 2.0_RP * tmp1 * POT0(pv1,ke_z,ij) * WT0(pv1,ke_z,ij)
-          PmatD(pv1,pv1,RHOT_VID_LC,RHOT_VID_LC) = PmatD(pv1,pv1,RHOT_VID_LC,RHOT_VID_LC) - 2.0_RP * tmp1 * WT0(pv1,ke_z,ij)
+          PmatD(:,pv1,DENS_VID_LC,MOMZ_VID_LC) = PmatD(:,pv1,DENS_VID_LC,MOMZ_VID_LC) - 2.0_RP * tmp1(:)
+          PmatD(:,pv1,RHOT_VID_LC,MOMZ_VID_LC) = PmatD(:,pv1,RHOT_VID_LC,MOMZ_VID_LC) - 2.0_RP * tmp1(:) * POT0(pv1,ke_z,ij)
+          PmatD(:,pv1,RHOT_VID_LC,DENS_VID_LC) = PmatD(:,pv1,RHOT_VID_LC,DENS_VID_LC) + 2.0_RP * tmp1(:) * POT0(pv1,ke_z,ij) * WT0(pv1,ke_z,ij)
+          PmatD(:,pv1,RHOT_VID_LC,RHOT_VID_LC) = PmatD(:,pv1,RHOT_VID_LC,RHOT_VID_LC) - 2.0_RP * tmp1(:) * WT0(pv1,ke_z,ij)
         else 
-          PmatD(pv1,pv1,DENS_VID_LC,MOMZ_VID_LC) = PmatD(pv1,pv1,DENS_VID_LC,MOMZ_VID_LC) - tmp1
+          PmatD(:,pv1,DENS_VID_LC,MOMZ_VID_LC) = PmatD(:,pv1,DENS_VID_LC,MOMZ_VID_LC) - tmp1(:)
 
           ! PmatD(pv1,pv1,MOMZ_VID_LC,MOMZ_VID_LC) = PmatD(pv1,pv1,MOMZ_VID_LC,MOMZ_VID_LC) - tmp1 * 2.0_RP * W0(pv1,ke_z,ij) [ <- d_MOMZ ( MOMZ x MOMZ / DENS ) ]
           ! PmatD(pv1,pv1,MOMZ_VID_LC,DENS_VID_LC) = PmatD(pv1,pv1,MOMZ_VID_LC,DENS_VID_LC) + tmp1 * W0(pv1,ke_z,ij)**2       [ <- d_DENS ( MOMZ x MOMZ / DENS ) ]
-          PmatD(pv1,pv1,MOMZ_VID_LC,RHOT_VID_LC) = PmatD(pv1,pv1,MOMZ_VID_LC,RHOT_VID_LC) - tmp1 * DPDRHOT0(pv1,ke_z,ij)
+          PmatD(:,pv1,MOMZ_VID_LC,RHOT_VID_LC) = PmatD(:,pv1,MOMZ_VID_LC,RHOT_VID_LC) - tmp1(:) * DPDRHOT0(pv1,ke_z,ij)
 
-          PmatD(pv1,pv1,RHOT_VID_LC,MOMZ_VID_LC) = PmatD(pv1,pv1,RHOT_VID_LC,MOMZ_VID_LC) - tmp1 * POT0(pv1,ke_z,ij)
-          PmatD(pv1,pv1,RHOT_VID_LC,DENS_VID_LC) = PmatD(pv1,pv1,RHOT_VID_LC,DENS_VID_LC) + tmp1 * POT0(pv1,ke_z,ij) * WT0(pv1,ke_z,ij)
-          PmatD(pv1,pv1,RHOT_VID_LC,RHOT_VID_LC) = PmatD(pv1,pv1,RHOT_VID_LC,RHOT_VID_LC) - tmp1 * WT0(pv1,ke_z,ij)
+          PmatD(:,pv1,RHOT_VID_LC,MOMZ_VID_LC) = PmatD(:,pv1,RHOT_VID_LC,MOMZ_VID_LC) - tmp1(:) * POT0(pv1,ke_z,ij)
+          PmatD(:,pv1,RHOT_VID_LC,DENS_VID_LC) = PmatD(:,pv1,RHOT_VID_LC,DENS_VID_LC) + tmp1(:) * POT0(pv1,ke_z,ij) * WT0(pv1,ke_z,ij)
+          PmatD(:,pv1,RHOT_VID_LC,RHOT_VID_LC) = PmatD(:,pv1,RHOT_VID_LC,RHOT_VID_LC) - tmp1(:) * WT0(pv1,ke_z,ij)
 
           if (f1 == 1) then
-            PmatL(pv1,pv2,DENS_VID_LC,MOMZ_VID_LC) = + tmp1
+            ! PmatL(pv1,pv2,DENS_VID_LC,MOMZ_VID_LC) = + tmp1
+            PmatL(:,pv2,DENS_VID_LC,MOMZ_VID_LC) = + tmp1(:)
 
             ! PmatL(pv1,pv2,MOMZ_VID_LC,MOMZ_VID_LC) = PmatL(pv1,pv2,MOMZ_VID_LC,MOMZ_VID_LC) &     [ <- d_MOMZ ( MOMZ x MOMZ / DENS ) ]
             !                                      + tmp1 * 2.0_RP * W0(pv2,ke_z2,ij)
             ! PmatL(pv1,pv2,MOMZ_VID_LC,DENS_VID_LC) = - tmp1 * W0(pv2,ke_z2,ij) * W0(pv2,ke_z2,ij) [ <- d_DENS ( MOMZ x MOMZ / DENS ) ]      
-            PmatL(pv1,pv2,MOMZ_VID_LC,RHOT_VID_LC) = + tmp1 * DPDRHOT0(pv2,ke_z2,ij) 
+            PmatL(:,pv2,MOMZ_VID_LC,RHOT_VID_LC) = + tmp1(:) * DPDRHOT0(pv2,ke_z2,ij) 
 
-            PmatL(pv1,pv2,RHOT_VID_LC,MOMZ_VID_LC) = + tmp1 * POT0(pv2,ke_z2,ij)
-            PmatL(pv1,pv2,RHOT_VID_LC,DENS_VID_LC) = - tmp1 * POT0(pv2,ke_z2,ij) * WT0(pv2,ke_z2,ij)
-            PmatL(pv1,pv2,RHOT_VID_LC,RHOT_VID_LC) = PmatL(pv1,pv2,RHOT_VID_LC,RHOT_VID_LC) &
-                                                   + tmp1 * WT0(pv2,ke_z2,ij)
+            PmatL(:,pv2,RHOT_VID_LC,MOMZ_VID_LC) = + tmp1(:) * POT0(pv2,ke_z2,ij)
+            PmatL(:,pv2,RHOT_VID_LC,DENS_VID_LC) = - tmp1(:) * POT0(pv2,ke_z2,ij) * WT0(pv2,ke_z2,ij)
+            PmatL(:,pv2,RHOT_VID_LC,RHOT_VID_LC) = PmatL(:,pv2,RHOT_VID_LC,RHOT_VID_LC) &
+                                                   + tmp1(:) * WT0(pv2,ke_z2,ij)
           else
-            PmatU(pv1,pv2,DENS_VID_LC,MOMZ_VID_LC) = + tmp1
+            PmatU(:,pv2,DENS_VID_LC,MOMZ_VID_LC) = + tmp1(:)
 
             ! PmatU(pv1,pv2,MOMZ_VID_LC,MOMZ_VID_LC) = PmatU(pv1,pv2,MOMZ_VID_LC,MOMZ_VID_LC ) &    [ <- d_MOMZ ( MOMZ x MOMZ / DENS ) ]
             !                                     + tmp1 * 2.0_RP * W0(pv2,ke_z2,ij)
             ! PmatU(pv1,pv2,MOMZ_VID_LC,DENS_VID_LC) = - tmp1 * W0(pv2,ke_z2,ij) * W0(pv2,ke_z2,ij) [ <- d_DENS ( MOMZ x MOMZ / DENS ) ]  
-            PmatU(pv1,pv2,MOMZ_VID_LC,RHOT_VID_LC) = + tmp1 * DPDRHOT0(pv2,ke_z2,ij)
+            PmatU(:,pv2,MOMZ_VID_LC,RHOT_VID_LC) = + tmp1(:) * DPDRHOT0(pv2,ke_z2,ij)
 
-            PmatU(pv1,pv2,RHOT_VID_LC,MOMZ_VID_LC) = + tmp1 * POT0(pv2,ke_z2,ij)
-            PmatU(pv1,pv2,RHOT_VID_LC,DENS_VID_LC) = - tmp1 * POT0(pv2,ke_z2,ij) * WT0(pv2,ke_z2,ij)
-            PmatU(pv1,pv2,RHOT_VID_LC,RHOT_VID_LC) = PmatU(pv1,pv2,RHOT_VID_LC,RHOT_VID_LC) &
-                                                   + tmp1 * WT0(pv2,ke_z2,ij)
+            PmatU(:,pv2,RHOT_VID_LC,MOMZ_VID_LC) = + tmp1(:) * POT0(pv2,ke_z2,ij)
+            PmatU(:,pv2,RHOT_VID_LC,DENS_VID_LC) = - tmp1(:) * POT0(pv2,ke_z2,ij) * WT0(pv2,ke_z2,ij)
+            PmatU(:,pv2,RHOT_VID_LC,RHOT_VID_LC) = PmatU(:,pv2,RHOT_VID_LC,RHOT_VID_LC) &
+                                                   + tmp1(:) * WT0(pv2,ke_z2,ij)
           end if
         end if
       end do
@@ -777,7 +778,7 @@ contains
     integer :: Colmask(elem%Nnode_v)
     real(RP) :: Id(elem%Nnode_v,elem%Nnode_v)
     real(RP) :: Dd(elem%Nnode_v)
-    real(RP) :: tmp1
+    real(RP) :: tmp1(elem%Nnode_v)
     real(RP) :: fac
     integer :: ij, v1, v2, pv1, pv2,  g_kj, g_kjp1, g_kjm1, pb1
     logical :: bc_flag
@@ -846,15 +847,15 @@ contains
         fp2 = elem%Nfp_h * elem%Nfaces_h + (f2-1)*elem%Nfp_v + ij
 
         !--
-        tmp1 = fac * elem%Lift(FmV,fp) * lmesh%Fscale(fp,ke) &
+        tmp1(:) = fac * elem%Lift(Colmask(:),fp) * lmesh%Fscale(fp,ke) &
              * max( alph(fp,ke_z), alph(fp2,ke_z2) )
         if (bc_flag) then
         else         
-          PmatD_uv(pv1,pv1) = PmatD_uv(pv1,pv1) + tmp1
+          PmatD_uv(:,pv1) = PmatD_uv(:,pv1) + tmp1(:)
           if (f1 == 1) then
-            PmatL_uv(pv1,pv2) = - tmp1                                
+            PmatL_uv(:,pv2) = - tmp1(:)                        
           else
-            PmatU_uv(pv1,pv2) = - tmp1
+            PmatU_uv(:,pv2) = - tmp1(:)
           end if
         end if
       end do
