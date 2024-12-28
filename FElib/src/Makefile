@@ -286,9 +286,9 @@ info:
 
 prep_scalelib: 
 	echo "Prepair libscale_sub.a and include files for FE-Project .."
-	$(MAKE) $(LIBDIR)/libscale_sub.a
+	$(MAKE) $(LIBDIR)/libscale_sub$(POSTFIX).a
 
-$(LIBDIR)/libscale_sub.a: $(SCALE)/lib/libscale.a
+$(LIBDIR)/libscale_sub$(POSTFIX).a: $(SCALE)/lib/$(SCALE_LIBNAME)
 	mkdir -p $(LIBDIR)
 	$(AR) -x $< $(OBJS_NAME_SCALELIB)
 	$(AR) $(ARFLAGS) $(@F) $(OBJS_NAME_SCALELIB)
