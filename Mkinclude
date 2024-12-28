@@ -1,38 +1,19 @@
 .DEFAULT_GOAL := all
 
-OBJ_DIR   = ./.libs
 INST_DIR  = $(TOPDIR)
 
-ifeq ($(origin BINDIR),undefined)
-   BINDIR = $(INST_DIR)/bin
-endif
-
-ifeq ($(origin LIBDIR),undefined)
-   LIBDIR = $(INST_DIR)/lib
-endif
-
-ifeq ($(origin MODDIR),undefined)
-   MODDIR = $(INST_DIR)/include
-endif
-
-DCUTILSDIR  = $(TOPDIR)/dc_utils
+DCUTILSDIR       = $(TOPDIR)/dc_utils
 SCALEFELIBDIR    = $(TOPDIR)/FElib
-GLOBALSWDIR = $(TOPDIR)/model/global_shallow_water
+GLOBALSWDIR      = $(TOPDIR)/model/global_shallow_water
 ATMNONHYDRO2DDIR = $(TOPDIR)/model/atm_nonhydro2d
 ATMNONHYDRO3DDIR = $(TOPDIR)/model/atm_nonhydro3d
 
-SCALE_INCLUDE = -I$(MODDIR)/scalelib -I$(SCALE)/scalelib/include
-SCALE_LIBS = -L$(LIBDIR) -lscale_sub -L$(SCALE)/lib -ldcutils
-
-CONTRIB_LIBS    = $(SCALE_LIBS)
-CONTRIB_INCLUDE = $(SCALE_INCLUDE)
-
 ifeq ($(SCALE_DEBUG),T)
-   FFLAGS = $(FFLAGS_DEBUG) $(FFLAGS_SYSDEPEND) -DDEBUG $(SCALE_INCLUDE)
+   FFLAGS = $(FFLAGS_DEBUG) $(FFLAGS_SYSDEPEND) -DDEBUG
    CFLAGS = $(CFLAGS_DEBUG) $(CFLAGS_SYSDEPEND)
    POSTFIX = _debug
 else
-   FFLAGS = $(FFLAGS_FAST)  $(FFLAGS_SYSDEPEND) $(SCALE_INCLUDE)
+   FFLAGS = $(FFLAGS_FAST)  $(FFLAGS_SYSDEPEND)
    CFLAGS = $(CFLAGS_FAST)  $(CFLAGS_SYSDEPEND)
    ifeq ($(SCALE_USE_AGGRESSIVEOPT),T)
       FFLAGS += $(FFLAGS_AGGRESSIVE)
@@ -40,6 +21,9 @@ else
    endif
    ifeq ($(SCALE_QUICKDEBUG),T)
       FFLAGS += $(FFLAGS_QUICKDEBUG) -DQUICKDEBUG
+      POSTFIX = _quickdebug
+   else
+      POSTFIX =
    endif
 endif
 
@@ -49,10 +33,6 @@ endif
 
 ifeq ($(SCALE_USE_SINGLEFP),T)
    FFLAGS += -DSINGLE
-endif
-
-ifeq ($(SCALE_USE_MASSCHECK),T)
-   FFLAGS += -DCHECK_MASS
 endif
 
 ifeq ($(SCALE_ENABLE_OPENMP),T)
@@ -66,6 +46,30 @@ endif
 ifeq ($(SCALE_DEVELOP),T)
    FFLAGS += -DSCALE_DEVELOP
 endif
+
+# ----
+ifeq ($(origin BINDIR),undefined)
+   BINDIR = $(INST_DIR)/bin
+endif
+
+ifeq ($(origin LIBDIR),undefined)
+   LIBDIR = $(INST_DIR)/lib
+endif
+
+ifeq ($(origin MODDIR),undefined)
+   MODDIR = $(INST_DIR)/include$(POSTFIX)
+endif
+
+# SCALE library
+ifeq ($(origin SCALE_LIBNAME),undefined)
+   SCALE_LIBNAME=libscale.a
+endif
+SCALE_INCLUDE = -I$(MODDIR)/scalelib -I$(SCALE)/scalelib/include
+SCALE_LIBS = -L$(LIBDIR) -lscale_sub$(POSTFIX) -L$(SCALE)/lib -ldcutils
+FFLAGS += $(SCALE_INCLUDE)
+
+CONTRIB_LIBS    = $(SCALE_LIBS)
+CONTRIB_INCLUDE = $(SCALE_INCLUDE)
 
 
 # NetCDF library setting
