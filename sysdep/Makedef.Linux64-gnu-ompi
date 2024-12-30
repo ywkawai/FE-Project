@@ -58,6 +58,9 @@ CFLAGS_SYSDEPEND = $(SSE_FLAGS)
 LD      = $(FC)
 LDFLAGS = $(FFLAGS)
 
+##### Execute command
+
+MPIEXEC = "mpirun -np"
 
 
 ################################################################################

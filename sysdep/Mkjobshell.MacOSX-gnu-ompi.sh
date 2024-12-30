@@ -1,21 +1,17 @@
 #! /bin/bash -x
 
 # Arguments
-BINDIR=${1}
-PPNAME=${2}
-INITNAME=${3}
-BINNAME=${4}
-N2GNAME=${5}
+MPIEXEC=${1}
+BINDIR=${2}
+PPNAME=${3}
+INITNAME=${4}
+BINNAME=${5}
 PPCONF=${6}
 INITCONF=${7}
 RUNCONF=${8}
-N2GCONF=${9}
-PROCS=${10}
-eval DATPARAM=(`echo ${11} | tr -s '[' '"' | tr -s ']' '"'`)
-eval DATDISTS=(`echo ${12} | tr -s '[' '"' | tr -s ']' '"'`)
-
-# System specific
-MPIEXEC="mpirun --oversubscribe -np"
+PROCS=${9}
+eval DATPARAM=(`echo ${10} | tr -s '[' '"' | tr -s ']' '"'`)
+eval DATDISTS=(`echo ${11} | tr -s '[' '"' | tr -s ']' '"'`)
 
 PROCLIST=(`echo ${PROCS} | tr -s ',' ' '`)
 TPROC=${PROCLIST[0]}
@@ -54,23 +50,6 @@ if [ ! ${RUNCONF} = "NONE" ]; then
    done
 fi
 
-if [ ! ${N2GCONF} = "NONE" ]; then
-   CONFLIST=(`echo ${N2GCONF} | tr -s ',' ' '`)
-   ndata=${#CONFLIST[@]}
-   for n in `seq 1 ${ndata}`
-   do
-      let i="n - 1"
-      RUN_N2G=`echo -e "${RUN_N2G}\n"${MPIEXEC} ${PROCLIST[i]} ${BINDIR}/${N2GNAME} ${CONFLIST[i]} "|| exit 1"`
-   done
-fi
-
-if [ "${BINNAME}" = "scale-gm" ]; then
-   nc=""
-else
-   nc=".nc"
-fi
-
-
 
 cat << EOF1 > ./run.sh
 #! /bin/bash -x
@@ -81,6 +60,7 @@ cat << EOF1 > ./run.sh
 ################################################################################
 export FORT_FMT_RECL=400
 export GFORTRAN_UNBUFFERED_ALL=Y
+export OMP_NUM_THREADS=${OMP_NUM_THREADS}
 
 EOF1
 

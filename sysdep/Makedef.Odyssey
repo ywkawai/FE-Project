@@ -73,6 +73,9 @@ CFLAGS_SYSDEPEND = $(PERF_MONIT)
 LD      = $(FC)
 LDFLAGS = $(FFLAGS)
 
+##### Execute command
+
+MPIEXEC = "mpiexec -np"
 
 
 ################################################################################
