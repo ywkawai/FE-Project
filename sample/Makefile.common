@@ -6,6 +6,7 @@
 
 SYSDEP_DIR  = $(TOPDIR)/sysdep
 BUILD_DIR   = ./.libs
+BINDIR2     = .
 
 include $(SYSDEP_DIR)/Makedef.$(SCALE_FE_SYS)
 include $(TOPDIR)/Mkinclude
@@ -15,6 +16,30 @@ LIBS = $(LIBDIR)/libScaleFECore.a
 SAMPLE_AUX_DIR = $(SAMPLE_DIR)/auxiliary
 SAMPLE_AUX_INCLUDE = $(SAMPLE_AUX_DIR)/.libs
 SAMPLE_AUX_LIB = $(SAMPLE_AUX_DIR)/libScaleFESampleAux.a
+
+ifeq ($(origin PPNAME), undefined)
+   PPNAME = NONE
+endif
+
+ifeq ($(origin INITNAME), undefined)
+   INITNAME = NONE
+endif
+
+ifeq ($(origin BINNAME), undefined)
+   BINNAME = NONE
+endif
+
+ifeq ($(origin PPCONF), undefined)
+   PPCONF = NONE
+endif
+
+ifeq ($(origin INITCONF), undefined)
+   INITCONF = NONE
+endif
+
+ifeq ($(origin RUNCONF), undefined)
+   RUNCONF = NONE
+endif
 
 all:
 	$(MAKE) envlog
@@ -52,6 +77,31 @@ clean:
 
 $(BUILD_DIR)/%.o: %.f90
 	$(FC) $(FFLAGS) $(ADDITIONAL_FFLAGS) -DVERSION_MACRO=\"$(VERSION)\" -I$(BUILD_DIR) -I$(MODDIR) $(CONTRIB_INCLUDE) -I$(SCALEFELIBDIR)/include -I$(SAMPLE_AUX_INCLUDE) $(SCALE_NETCDF_INCLUDE) $(MODDIROPT) $(BUILD_DIR) -o $@ -c $<
+
+run: jobshell
+	@if [ "$(JOBSUB)" == "pjsub" ]; then \
+		$(eval JID := $(shell $(JOBSUB) -z jid run.sh $(JOBSUB_OPTION))) if [ $$? -ne 0 ]; then exit 1; fi; \
+		echo "$(JOBSUB) run.sh (job id=$(JID)) .."; \
+		set -- `pjwait $(JID)`; if [ $$2 != "0" -o $$3 != "0" ]; then exit 1; fi; \
+	else \
+		$(JOBSUB) run.sh $(JOBSUB_OPTION); \
+	fi
+
+jobshell: export ADDITIONAL_CONF := $(ADDITIONAL_CONF)
+jobshell:
+	@if [ -f $(SYSDEP_DIR)/Mkjobshell.$(SCALE_SYS).sh ]; then \
+		bash $(SYSDEP_DIR)/Mkjobshell.$(SCALE_SYS).sh $(MPIEXEC) $(BINDIR2)            \
+		                                              $(PPNAME) $(INITNAME) $(BINNAME) \
+		                                              $(PPCONF) $(INITCONF) $(RUNCONF) \
+		                                              $(TPROC)                         \
+		                                              $(DATPARAM) $(DATDISTS);         \
+	else \
+		bash $(TOPDIR)/sysdep/Mkjobshell.$(SCALE_SYS).sh $(MPIEXEC) $(BINDIR2)         \
+		                                              $(PPNAME) $(INITNAME) $(BINNAME) \
+		                                              $(PPCONF) $(INITCONF) $(RUNCONF) \
+		                                              $(TPROC)                         \
+		                                              $(DATPARAM) $(DATDISTS);         \
+	fi
 
 .PHONY : clean distclean allclean
 
