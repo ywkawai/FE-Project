@@ -67,7 +67,7 @@ LDFLAGS = $(FFLAGS)
 
 ##### Execute command
 
-MPIEXEC = "mpirun -np"
+MPIEXEC = "mpiexec.hydra -np"
 
 ################################################################################
 

@@ -79,7 +79,7 @@ $(BUILD_DIR)/%.o: %.f90
 	$(FC) $(FFLAGS) $(ADDITIONAL_FFLAGS) -DVERSION_MACRO=\"$(VERSION)\" -I$(BUILD_DIR) -I$(MODDIR) $(CONTRIB_INCLUDE) -I$(SCALEFELIBDIR)/include -I$(SAMPLE_AUX_INCLUDE) $(SCALE_NETCDF_INCLUDE) $(MODDIROPT) $(BUILD_DIR) -o $@ -c $<
 
 run: jobshell
-	@if [ $(JOBSUB) == "pjsub" ]; then \
+	@if [ $(JOBSUB) = "pjsub" ]; then \
 		JID=$$($(JOBSUB) -z jid run.sh $(JOBSUB_OPTION)); if [ $$? -ne 0 ]; then exit 1; fi; \
 		echo "$(JOBSUB) run.sh (job id=$$JID) .."; \
 		set -- `pjwait $$JID`; if [ $$2 != "0" -o $$3 != "0" ]; then exit 1; fi; \
@@ -91,14 +91,14 @@ run: jobshell
 jobshell: export ADDITIONAL_CONF := $(ADDITIONAL_CONF)
 jobshell: export OMP_NUM_THREADS := $(OMP_NUM_THREADS)
 jobshell:
-	@if [ -f $(SYSDEP_DIR)/Mkjobshell.$(SCALE_SYS).sh ]; then \
-		bash $(SYSDEP_DIR)/Mkjobshell.$(SCALE_SYS).sh $(MPIEXEC) $(BINDIR2)            \
+	@if [ -f $(SYSDEP_DIR)/Mkjobshell.$(SCALE_FE_SYS).sh ]; then \
+		bash $(SYSDEP_DIR)/Mkjobshell.$(SCALE_FE_SYS).sh $(MPIEXEC) $(BINDIR2)            \
 		                                              $(PPNAME) $(INITNAME) $(BINNAME) \
 		                                              $(PPCONF) $(INITCONF) $(RUNCONF) \
 		                                              $(TPROC)                         \
 		                                              $(DATPARAM) $(DATDISTS);         \
 	else \
-		bash $(TOPDIR)/sysdep/Mkjobshell.$(SCALE_SYS).sh $(MPIEXEC) $(BINDIR2)         \
+		bash $(TOPDIR)/sysdep/Mkjobshell.$(SCALE_FE_SYS).sh $(MPIEXEC) $(BINDIR2)         \
 		                                              $(PPNAME) $(INITNAME) $(BINNAME) \
 		                                              $(PPCONF) $(INITCONF) $(RUNCONF) \
 		                                              $(TPROC)                         \
