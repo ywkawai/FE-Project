@@ -10,9 +10,8 @@ PPCONF=${6}
 INITCONF=${7}
 RUNCONF=${8}
 PROCS=${9}
-PROCS_SNO=${10}
-eval DATPARAM=(`echo ${11} | tr -s '[' '"' | tr -s ']' '"'`)
-eval DATDISTS=(`echo ${12} | tr -s '[' '"' | tr -s ']' '"'`)
+eval DATPARAM=(`echo ${10} | tr -s '[' '"' | tr -s ']' '"'`)
+eval DATDISTS=(`echo ${11} | tr -s '[' '"' | tr -s ']' '"'`)
 
 PROCLIST=(`echo ${PROCS} | tr -s ',' ' '`)
 TPROC=${PROCLIST[0]}
@@ -20,7 +19,6 @@ for n in ${PROCLIST[@]}
 do
    (( n > TPROC )) && TPROC=${n}
 done
-PROCLIST_SNO=(`echo ${PROCS_SNO} | tr -s ',' ' '`)
 
 FILES_LLIO=""
 if [ ! ${PPCONF} = "NONE" ]; then
@@ -72,17 +70,17 @@ cat << EOF1 > ./run.sh
 # ------ For FUGAKU
 #
 ################################################################################
-#PJM -g #PJM -g ${FUGAKU_GROUP}
+#PJM -g ${FUGAKU_GROUP}
 #PJM -L freq=2200
 #PJM -L eco_state=2
 #PJM -L rscgrp="small"
 #PJM -L node=$(((TPROC+3)/4)):torus
-#PJM -L elapse=01:00:00
+#PJM -L elapse=00:20:00
 #PJM --mpi "max-proc-per-node=4"
 #PJM -j
 #PJM -s
 #
-#PJM -x PJM_LLIO_GFSCACHE=/vol0004
+#PJM -x PJM_LLIO_GFSCACHE=/vol0004:/vol0005
 #
 
 export PARALLEL=12
@@ -95,7 +93,7 @@ export FLIB_BARRIER=HARD
 ${ADDITIONAL_CONF}
 
 llio_transfer /home/apps/oss/scale/llio.list
-. /home/apps/oss/scale/setup_ldlpath.sh
+export LD_LIBRARY_PATH=/lib64:/opt/FJSVxtclanga/tcsds-mpi-latest/lib64:/opt/FJSVxtclanga/tcsds-1.2.39/lib64:`cat /home/apps/oss/scale/llio.list | sed 's:\(.*/lib\(\|64\)\)/.*:\1:' | uniq | sed -z 's/\n/:/g'`
 
 
 #. /vol0004/apps/oss/spack/share/spack/setup-env.sh
@@ -177,7 +175,6 @@ llio_transfer ${FILES_LLIO}
 ${RUN_PP}
 ${RUN_INIT}
 ${RUN_MAIN}
-${RUN_SNO}
 
 
 ################################################################################

@@ -19,7 +19,6 @@ for n in ${PROCLIST[@]}
 do
    (( n > TPROC )) && TPROC=${n}
 done
-PROCLIST_SNO=(`echo ${PROCS_SNO} | tr -s ',' ' '`)
 
 FILES_LLIO=""
 if [ ! ${PPCONF} = "NONE" ]; then
@@ -74,7 +73,7 @@ cat << EOF1 > ./run.sh
 #PJM -g ${ODYSSEY_GROUP}
 #PJM -L rscgrp=regular-o
 #PJM -L node=$(((TPROC+3)/4)):torus
-#PJM -L elapse=01:00:00
+#PJM -L elapse=00:20:00
 #PJM --mpi "max-proc-per-node=4"
 #PJM -j
 #PJM -s
