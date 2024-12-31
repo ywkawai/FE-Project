@@ -70,7 +70,7 @@ program test_advect3dGlobal
   logical, parameter :: LumpedMassMatFlag = .false.
   logical :: InitCond_GalerkinProjFlag 
   integer, parameter :: PolyOrderErrorCheck = 6
-  type(sparsemat) :: Dx, Sx, Dy, Sy, Dz, Sz, Lift
+  type(sparsemat) :: Dx, Dy, Dz, Lift
   
   type(MeshCubedSphereDom3D), target :: mesh
   type(MeshField3D), target :: q, qexact  
@@ -545,13 +545,10 @@ contains
     !------   
     
     call refElem%Init(PolyOrder_h, PolyOrder_v, LumpedMassMatFlag)
-    call Dx%Init(refElem%Dx1)
-    call Sx%Init(refElem%Sx1)
-    call Dy%Init(refElem%Dx2)
-    call Sy%Init(refElem%Sx2)
-    call Dz%Init(refElem%Dx3)
-    call Sz%Init(refElem%Sx3)
-    call Lift%Init(refElem%Lift)
+    call Dx%Init(refElem%Dx1, storage_format='ELL')
+    call Dy%Init(refElem%Dx2, storage_format='ELL')
+    call Dz%Init(refElem%Dx3, storage_format='ELL')
+    call Lift%Init(refElem%Lift, storage_format='ELL')
 
     call mesh%Init( &
       NeGX, NeGY, NeGz, RPlanet, dom_zmin, dom_zmax, &
@@ -625,12 +622,7 @@ contains
     call auxvars_comm%Final()
     call mesh%Final()
     
-    call Dx%Final()
-    call Sx%Final()
-    call Dy%Final()
-    call Sy%Final()
-    call Dz%Final()
-    call Sz%Final()
+    call Dx%Final(); call Dy%Final(); call Dz%Final()
     call Lift%Final()
     call refElem%Final()
     
