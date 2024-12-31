@@ -1,6 +1,6 @@
 ################################################################################
 #
-# Common Makefile for each sample (Please include this file)
+# Common Makefile for each sample programs
 #
 ################################################################################
 
@@ -79,15 +79,17 @@ $(BUILD_DIR)/%.o: %.f90
 	$(FC) $(FFLAGS) $(ADDITIONAL_FFLAGS) -DVERSION_MACRO=\"$(VERSION)\" -I$(BUILD_DIR) -I$(MODDIR) $(CONTRIB_INCLUDE) -I$(SCALEFELIBDIR)/include -I$(SAMPLE_AUX_INCLUDE) $(SCALE_NETCDF_INCLUDE) $(MODDIROPT) $(BUILD_DIR) -o $@ -c $<
 
 run: jobshell
-	@if [ "$(JOBSUB)" == "pjsub" ]; then \
-		$(eval JID := $(shell $(JOBSUB) -z jid run.sh $(JOBSUB_OPTION))) if [ $$? -ne 0 ]; then exit 1; fi; \
-		echo "$(JOBSUB) run.sh (job id=$(JID)) .."; \
-		set -- `pjwait $(JID)`; if [ $$2 != "0" -o $$3 != "0" ]; then exit 1; fi; \
+	@if [ $(JOBSUB) == "pjsub" ]; then \
+		JID=$$($(JOBSUB) -z jid run.sh $(JOBSUB_OPTION)); if [ $$? -ne 0 ]; then exit 1; fi; \
+		echo "$(JOBSUB) run.sh (job id=$$JID) .."; \
+		set -- `pjwait $$JID`; if [ $$2 != "0" -o $$3 != "0" ]; then exit 1; fi; \
 	else \
+		echo "$(JOBSUB) run.sh"; \
 		$(JOBSUB) run.sh $(JOBSUB_OPTION); \
 	fi
 
 jobshell: export ADDITIONAL_CONF := $(ADDITIONAL_CONF)
+jobshell: export OMP_NUM_THREADS := $(OMP_NUM_THREADS)
 jobshell:
 	@if [ -f $(SYSDEP_DIR)/Mkjobshell.$(SCALE_SYS).sh ]; then \
 		bash $(SYSDEP_DIR)/Mkjobshell.$(SCALE_SYS).sh $(MPIEXEC) $(BINDIR2)            \
