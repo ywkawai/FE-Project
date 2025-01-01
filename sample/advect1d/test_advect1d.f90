@@ -53,7 +53,7 @@ program test_advect1d
   real(RP) :: ADV_VEL                       !< The constant speed of advection
 
   type(LineElement)  :: refElem
-  type(sparsemat) :: Dx, Sx, Lift
+  type(sparsemat) :: Dx, Lift
 
   type(MeshLineDom1D), target :: mesh
   type(LocalMesh1D), pointer :: lcmesh
@@ -348,7 +348,6 @@ contains
 
     call refElem%Init(PolyOrder, DumpedMassMatFlag)
     call Dx%Init(refElem%Dx1)
-    call Sx%Init(refElem%Sx1)
     call Lift%Init(refElem%Lift)
 
     !-- setup mesh
@@ -413,7 +412,7 @@ contains
     call fields_comm%Final()
     call mesh%Final()
     
-    call Dx%Final(); call Sx%Final(); call Lift%Final()
+    call Dx%Final(); call Lift%Final()
     call refElem%Final()
     
     call TIME_manager_Final

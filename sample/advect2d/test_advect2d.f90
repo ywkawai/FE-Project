@@ -63,7 +63,7 @@ program test_advect2d
   logical, parameter :: LumpedMassMatFlag = .false.
   logical :: InitCond_GalerkinProjFlag 
   integer, parameter :: PolyOrderErrorCheck = 6
-  type(sparsemat) :: Dx, Sx, Dy, Sy, Lift
+  type(sparsemat) :: Dx, Dy, Lift
   
   type(MeshRectDom2D), target :: mesh
   type(MeshField2D), target :: q, qexact  
@@ -72,7 +72,7 @@ program test_advect2d
   type(MeshFieldContainer) :: field_list(3)  
   integer :: HST_ID(2)
 
-  integer :: n, k, p
+  integer :: n, ke, p
   type(LocalMesh2D), pointer :: lcmesh
   
   character(len=H_SHORT) :: TINTEG_SCHEME_TYPE
@@ -175,14 +175,15 @@ contains
 
     !-----
     call PROF_rapstart( 'cal_dyn_tend_interior', 2)
-    do k = lmesh%NeS, lmesh%NeE
-      call sparsemat_matmul(Dx, q_(:,k)*u_(:,k), Fx)
-      call sparsemat_matmul(Dy, q_(:,k)*v_(:,k), Fy)
-      call sparsemat_matmul(Lift, lmesh%Fscale(:,k)*del_flux(:,k), LiftDelFlx)
+    !$omp parallel do private(ke, Fx, Fy, LiftDelFlx)
+    do ke = lmesh%NeS, lmesh%NeE
+      call sparsemat_matmul(Dx, q_(:,ke)*u_(:,ke), Fx)
+      call sparsemat_matmul(Dy, q_(:,ke)*v_(:,ke), Fy)
+      call sparsemat_matmul(Lift, lmesh%Fscale(:,ke)*del_flux(:,ke), LiftDelFlx)
 
-      dqdt(:,k) = - (  lmesh%Escale(:,k,1,1) * Fx(:) &
-                     + lmesh%Escale(:,k,2,2) * Fy(:) &
-                     + LiftDelFlx )
+      dqdt(:,ke) = - ( lmesh%Escale(:,ke,1,1) * Fx(:) &
+                     + lmesh%Escale(:,ke,2,2) * Fy(:) &
+                     + LiftDelFlx(:) )
     end do
     call PROF_rapend( 'cal_dyn_tend_interior', 2)
 
@@ -194,29 +195,31 @@ contains
 
     class(LocalMesh2D), intent(in) :: lmesh
     class(elementbase2D), intent(in) :: elem  
-    real(RP), intent(out) ::  del_flux(elem%NfpTot*lmesh%Ne)
+    real(RP), intent(out) ::  del_flux(elem%NfpTot,lmesh%Ne)
     real(RP), intent(in) ::  q_(elem%Np*lmesh%NeA)
     real(RP), intent(in) ::  u_(elem%Np*lmesh%NeA)  
     real(RP), intent(in) ::  v_(elem%Np*lmesh%NeA)  
-    real(RP), intent(in) :: nx(elem%NfpTot*lmesh%Ne)
-    real(RP), intent(in) :: ny(elem%NfpTot*lmesh%Ne)
-    integer, intent(in) :: vmapM(elem%NfpTot*lmesh%Ne)
-    integer, intent(in) :: vmapP(elem%NfpTot*lmesh%Ne)
+    real(RP), intent(in) :: nx(elem%NfpTot,lmesh%Ne)
+    real(RP), intent(in) :: ny(elem%NfpTot,lmesh%Ne)
+    integer, intent(in) :: vmapM(elem%NfpTot,lmesh%Ne)
+    integer, intent(in) :: vmapP(elem%NfpTot,lmesh%Ne)
      
-    integer :: i, iP, iM
-    real(RP) :: VelP, VelM, alpha
+    integer :: iP(elem%NfpTot), iM(elem%NfpTot)
+    real(RP) :: VelP(elem%NfpTot), VelM(elem%NfpTot)
+    real(RP) :: alpha(elem%NfpTot)
     !------------------------------------------------------------------------
 
-    do i=1, elem%NfpTot*lmesh%Ne
-      iM = vmapM(i); iP = vmapP(i)
+    !$omp parallel do private(ke, iM, iP, VelM, VelP, alpha)
+    do ke=1, lmesh%Ne
+      iM(:) = vmapM(:,ke); iP(:) = vmapP(:,ke)
 
-      VelM = u_(iM)*nx(i) + v_(iM)*ny(i)
-      VelP = u_(iP)*nx(i) + v_(iP)*ny(i)
+      VelM(:) = u_(iM(:)) * nx(:,ke) + v_(iM(:)) * ny(:,ke)
+      VelP(:) = u_(iP(:)) * nx(:,ke) + v_(iP(:)) * ny(:,ke)
 
-      alpha = 0.5_RP*abs(VelM + VelP)
-      del_flux(i) = 0.5_RP*(               &
-          ( q_(iP)*VelP - q_(iM)*VelM )    &
-        - alpha*(q_(iP) - q_(iM))        )
+      alpha(:) = 0.5_RP * abs( VelM(:) + VelP(:) )
+      del_flux(:,ke) = 0.5_RP * ( &
+          ( q_(iP(:)) * VelP(:) - q_(iM(:)) * VelM(:) )   &
+         - alpha(:) * ( q_(iP(:)) - q_(iM(:)) )           )
     end do
 
     return
@@ -248,30 +251,32 @@ contains
 
     do n=1, mesh%LOCAL_MESH_NUM
       lcmesh => mesh%lcmesh_list(n)
-      do k=lcmesh%NeS, lcmesh%NeE
+      !$omp parallel do private( &
+      !$omp ke, x_uwind, y_vwind, vx, vy, pos_intrp, x_uwind_intrp, y_vwind_intrp, &
+      !$omp qexact_intrp, q_intrp ) reduction(+: l2error) reduction(max: linferror)
+      do ke=lcmesh%NeS, lcmesh%NeE
+        x_uwind(:) = get_upwind_pos1d(lcmesh%pos_en(:,ke,1), ADV_VELX, tsec, dom_xmin, dom_xmax)
+        y_vwind(:) = get_upwind_pos1d(lcmesh%pos_en(:,ke,2), ADV_VELY, tsec, dom_ymin, dom_ymax)
 
-        x_uwind(:) = get_upwind_pos1d(lcmesh%pos_en(:,k,1), ADV_VELX, tsec, dom_xmin, dom_xmax)
-        y_vwind(:) = get_upwind_pos1d(lcmesh%pos_en(:,k,2), ADV_VELY, tsec, dom_ymin, dom_ymax)
-
-        vx(:) = lcmesh%pos_ev(lcmesh%EToV(k,:),1)
-        vy(:) = lcmesh%pos_ev(lcmesh%EToV(k,:),2)
+        vx(:) = lcmesh%pos_ev(lcmesh%EToV(ke,:),1)
+        vy(:) = lcmesh%pos_ev(lcmesh%EToV(ke,:),2)
         pos_intrp(:,1) = vx(1) + 0.5_RP*(x_intrp(:) + 1.0_RP)*(vx(2) - vx(1))
         pos_intrp(:,2) = vy(1) + 0.5_RP*(y_intrp(:) + 1.0_RP)*(vy(3) - vy(1))
         x_uwind_intrp(:) = get_upwind_pos1d(pos_intrp(:,1), ADV_VELX, tsec, dom_xmin, dom_xmax)
         y_vwind_intrp(:) = get_upwind_pos1d(pos_intrp(:,2), ADV_VELY, tsec, dom_ymin, dom_ymax)
 
-        call get_profile2d_tracer( qexact%local(n)%val(:,k),             & ! (out)
+        call get_profile2d_tracer( qexact%local(n)%val(:,ke),             & ! (out)
           InitShapeName, x_uwind, y_vwind, InitShapeParams, refElem%Np )   ! (in)
 
         call get_profile2d_tracer( qexact_intrp(:),                                              & ! (out) 
           InitShapeName, x_uwind_intrp, y_vwind_intrp, InitShapeParams, PolyOrderErrorCheck**2 )   ! (in)
 
-        q_intrp(:) = matmul(IntrpMat, q%local(n)%val(:,k))
+        q_intrp(:) = matmul(IntrpMat, q%local(n)%val(:,ke))
 
         l2error = l2error &
-            + sum(   lcmesh%J(1,k) * intw_intrp(:) * ( q_intrp(:) - qexact_intrp(:) )**2 )
+            + sum(   lcmesh%J(1,ke) * intw_intrp(:) * ( q_intrp(:) - qexact_intrp(:) )**2 )
         
-        linferror = max(linferror, maxval(abs(q%local(n)%val(:,k) - qexact%local(n)%val(:,k))))
+        linferror = max(linferror, maxval(abs(q%local(n)%val(:,ke) - qexact%local(n)%val(:,ke))))
       end do
     end do
 
@@ -291,9 +296,10 @@ contains
 
     do n=1, mesh%LOCAL_MESH_NUM
       lcmesh => mesh%lcmesh_list(n)
-      do k=lcmesh%NeS, lcmesh%NeE
-        call get_profile2d_flow( u%local(n)%val(:,k), v%local(n)%val(:,k),                         & ! (out)
-          VelTypeName, lcmesh%pos_en(:,k,1), lcmesh%pos_en(:,k,2), VelTypeParams, refElem%Np )       ! (in)
+      !$omp parallel do private(ke)
+      do ke=lcmesh%NeS, lcmesh%NeE
+        call get_profile2d_flow( u%local(n)%val(:,ke), v%local(n)%val(:,ke),                         & ! (out)
+          VelTypeName, lcmesh%pos_en(:,ke,1), lcmesh%pos_en(:,ke,2), VelTypeParams, refElem%Np )       ! (in)
       end do
     end do
 
@@ -318,11 +324,11 @@ contains
 
     do n=1, mesh%LOCAL_MESH_NUM
       lcmesh => mesh%lcmesh_list(n)
-      do k=lcmesh%NeS, lcmesh%NeE
-        call get_profile2d_tracer( qexact%local(n)%val(:,k),                                        & ! (out)
-          InitShapeName, lcmesh%pos_en(:,k,1), lcmesh%pos_en(:,k,2), InitShapeParams, refElem%Np )    ! (in)
+      do ke=lcmesh%NeS, lcmesh%NeE
+        call get_profile2d_tracer( qexact%local(n)%val(:,ke),                                        & ! (out)
+          InitShapeName, lcmesh%pos_en(:,ke,1), lcmesh%pos_en(:,ke,2), InitShapeParams, refElem%Np )    ! (in)
         
-        q%local(n)%val(:,k) = qexact%local(n)%val(:,k)
+        q%local(n)%val(:,ke) = qexact%local(n)%val(:,ke)
       end do
     end do
     call set_velocity( u, v, 0.0_RP )
@@ -346,9 +352,9 @@ contains
 
       do n=1, mesh%LOCAL_MESH_NUM
         lcmesh => mesh%lcmesh_list(n)
-        do k=lcmesh%NeS, lcmesh%NeE      
-          vx(:) = lcmesh%pos_ev(lcmesh%EToV(k,:),1)
-          vy(:) = lcmesh%pos_ev(lcmesh%EToV(k,:),2)                                                  
+        do ke=lcmesh%NeS, lcmesh%NeE      
+          vx(:) = lcmesh%pos_ev(lcmesh%EToV(ke,:),1)
+          vy(:) = lcmesh%pos_ev(lcmesh%EToV(ke,:),2)                                                  
           pos_intrp(:,1) = vx(1) + 0.5_RP*(x_intrp(:) + 1.0_RP)*(vx(2) - vx(1))
           pos_intrp(:,2) = vy(1) + 0.5_RP*(y_intrp(:) + 1.0_RP)*(vy(3) - vy(1))       
   
@@ -358,7 +364,7 @@ contains
           do l_=1, refElem%Np
             int_gphi(l_) = sum(intw_intrp(:)*lagrange_intrp(:,l_)*q_intrp(:)) 
           end do
-          q%local(n)%val(:,k) = matmul(refElem%invM, int_gphi)
+          q%local(n)%val(:,ke) = matmul(refElem%invM, int_gphi)
         end do
       end do
     end if
@@ -443,11 +449,9 @@ contains
     !------   
     
     call refElem%Init(PolyOrder, LumpedMassMatFlag)
-    call Dx%Init(refElem%Dx1)
-    call Sx%Init(refElem%Sx1)
-    call Dy%Init(refElem%Dx2)
-    call Sy%Init(refElem%Sx2)
-    call Lift%Init(refElem%Lift)
+    call Dx%Init(refElem%Dx1, storage_format='ELL')
+    call Dy%Init(refElem%Dx2, storage_format='ELL')
+    call Lift%Init(refElem%Lift, storage_format='ELL')
 
     call mesh%Init( &
       NeGX, NeGY,                             &
@@ -509,10 +513,7 @@ contains
     call fields_comm%Final()
     call mesh%Final()
     
-    call Dx%Final()
-    call Sx%Final()
-    call Dy%Final()
-    call Sy%Final()
+    call Dx%Final(); call Dy%Final()
     call Lift%Final()
     call refElem%Final()
     

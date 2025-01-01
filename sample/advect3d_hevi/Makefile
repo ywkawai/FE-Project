@@ -11,11 +11,12 @@ SAMPLE_DIR  = ../
 BINNAME = test_advect3d_hevi
 OBJS = 
 
+RUNCONF         = test.conf
+TPROC           = 4
+OMP_NUM_THREADS = 2
+
 #-------------------------------------------------------
 include $(SAMPLE_DIR)/Makefile.common
-
-run:
-	OMP_NUM_THREADS=2 mpirun -n 4 ./$(BINNAME) test.conf
 
 vis:
 	bash ./visualize/visualize.sh

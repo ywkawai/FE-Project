@@ -65,7 +65,9 @@ FFLAGS_TENTATIVE = -no-ip -no-ipo
 LD      = $(FC)
 LDFLAGS = $(FFLAGS)
 
+##### Execute command
 
+MPIEXEC = "mpiexec.hydra -np"
 
 ################################################################################
 
@@ -80,10 +82,6 @@ LDFLAGS = $(FFLAGS)
 # Please set environment variable
 # example:
 export SCALE_MATHLIB_LIBS="-mkl=sequential"
-
-##### SCALE
-SCALEORI_INCLUDE  ?= -I$(SCALE)/include -I$(SCALE)/scalelib/include
-SCALEORI_LIBS     ?= -L$(SCALE)/lib -lscale -ldcutils
 
 ##### for frontend
 INSTALL = install

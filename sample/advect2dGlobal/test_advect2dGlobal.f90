@@ -63,7 +63,7 @@ program test_advect2dGlobal
   logical, parameter :: LumpedMassMatFlag = .false.
   logical :: InitCond_GalerkinProjFlag 
   integer, parameter :: PolyOrderErrorCheck = 6
-  type(sparsemat) :: Dx, Sx, Dy, Sy, Lift
+  type(sparsemat) :: Dx, Dy, Lift
   
   type(MeshCubedSphereDom2D), target :: mesh
   type(MeshField2D), target :: q, qexact  
@@ -500,11 +500,9 @@ contains
     !------   
     
     call refElem%Init(PolyOrder, LumpedMassMatFlag)
-    call Dx%Init(refElem%Dx1)
-    call Sx%Init(refElem%Sx1)
-    call Dy%Init(refElem%Dx2)
-    call Sy%Init(refElem%Sx2)
-    call Lift%Init(refElem%Lift)
+    call Dx%Init(refElem%Dx1, storage_format='ELL')
+    call Dy%Init(refElem%Dx2, storage_format='ELL')
+    call Lift%Init(refElem%Lift, storage_format='ELL')
 
     call mesh%Init( &
       NeGX, NeGY, RPlanet,      &
@@ -579,9 +577,7 @@ contains
     call mesh%Final()
     
     call Dx%Final()
-    call Sx%Final()
     call Dy%Final()
-    call Sy%Final()
     call Lift%Final()
     call refElem%Final()
     

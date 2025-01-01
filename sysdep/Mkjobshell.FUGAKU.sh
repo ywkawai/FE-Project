@@ -20,47 +20,89 @@ do
    (( n > TPROC )) && TPROC=${n}
 done
 
+FILES_LLIO=""
 if [ ! ${PPCONF} = "NONE" ]; then
    CONFLIST=(`echo ${PPCONF} | tr -s ',' ' '`)
    ndata=${#CONFLIST[@]}
+   FILES_LLIO=`echo -e ${FILES_LLIO} ${BINDIR}/${PPNAME}`
    for n in `seq 1 ${ndata}`
    do
       let i="n - 1"
       RUN_PP=`echo -e "${RUN_PP}\n"${MPIEXEC} ${PROCLIST[i]} ${BINDIR}/${PPNAME} ${CONFLIST[i]} "|| exit 1"`
+      FILES_LLIO=`echo -e ${FILES_LLIO} ${CONFLIST[i]}`
    done
 fi
 
 if [ ! ${INITCONF} = "NONE" ]; then
    CONFLIST=(`echo ${INITCONF} | tr -s ',' ' '`)
    ndata=${#CONFLIST[@]}
+   FILES_LLIO=`echo -e ${FILES_LLIO} ${BINDIR}/${INITNAME}`
    for n in `seq 1 ${ndata}`
    do
       let i="n - 1"
       RUN_INIT=`echo -e "${RUN_INIT}\n"${MPIEXEC} ${PROCLIST[i]} ${BINDIR}/${INITNAME} ${CONFLIST[i]} "|| exit 1"`
+      FILES_LLIO=`echo -e ${FILES_LLIO} ${CONFLIST[i]}`
    done
 fi
 
 if [ ! ${RUNCONF} = "NONE" ]; then
    CONFLIST=(`echo ${RUNCONF} | tr -s ',' ' '`)
    ndata=${#CONFLIST[@]}
+   FILES_LLIO=`echo -e ${FILES_LLIO} ${BINDIR}/${BINNAME}`
    for n in `seq 1 ${ndata}`
    do
       let i="n - 1"
       RUN_MAIN=`echo -e "${RUN_MAIN}\n"${MPIEXEC} ${PROCLIST[i]} ${BINDIR}/${BINNAME} ${CONFLIST[i]} "|| exit 1"`
+      FILES_LLIO=`echo -e ${FILES_LLIO} ${CONFLIST[i]}`
    done
 fi
+
+array=( `echo ${TPROC} | tr -s 'x' ' '`)
+x=${array[0]}
+y=${array[1]:-1}
+let xy="${x} * ${y}"
 
 
 cat << EOF1 > ./run.sh
 #! /bin/bash -x
 ################################################################################
 #
-# ------ For Linux64 & gnu fortran&C & openmpi -----
+# ------ For FUGAKU
 #
 ################################################################################
-export FORT_FMT_RECL=400
-export GFORTRAN_UNBUFFERED_ALL=Y
-export OMP_NUM_THREADS=${OMP_NUM_THREADS}
+#PJM -g ${FUGAKU_GROUP}
+#PJM -L freq=2200
+#PJM -L eco_state=2
+#PJM -L rscgrp="small"
+#PJM -L node=$(((TPROC+3)/4)):torus
+#PJM -L elapse=00:20:00
+#PJM --mpi "max-proc-per-node=4"
+#PJM -j
+#PJM -s
+#
+#PJM -x PJM_LLIO_GFSCACHE=/vol0004:/vol0005
+#
+
+export PARALLEL=12
+export OMP_NUM_THREADS=\${PARALLEL}
+export FORT90L=-Wl,-T
+export PLE_MPI_STD_EMPTYFILE=off
+export OMP_WAIT_POLICY=active
+export FLIB_BARRIER=HARD
+
+${ADDITIONAL_CONF}
+
+llio_transfer /home/apps/oss/scale/llio.list
+export LD_LIBRARY_PATH=/lib64:/opt/FJSVxtclanga/tcsds-mpi-latest/lib64:/opt/FJSVxtclanga/tcsds-1.2.39/lib64:`cat /home/apps/oss/scale/llio.list | sed 's:\(.*/lib\(\|64\)\)/.*:\1:' | uniq | sed -z 's/\n/:/g'`
+
+
+#. /vol0004/apps/oss/spack/share/spack/setup-env.sh
+#spack load --first netcdf-c%fj
+#spack load --first netcdf-fortran%fj
+#spack load --first parallel-netcdf%fj
+
+#export LD_LIBRARY_PATH=\`/home/system/tool/sort_libp\`
+#/home/system/tool/sort_libp -s
 
 EOF1
 
@@ -122,10 +164,18 @@ fi
 
 cat << EOF2 >> ./run.sh
 
-# run
+# stage-in
+
+llio_transfer ${FILES_LLIO}
+
+# /home/system/tool/dir_transfer data_dir
+
+#run
+
 ${RUN_PP}
 ${RUN_INIT}
 ${RUN_MAIN}
+
 
 ################################################################################
 EOF2

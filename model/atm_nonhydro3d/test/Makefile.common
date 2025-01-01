@@ -74,8 +74,7 @@ endif
 #UTILDIR    = ${TOPDIR}/scale-rm/util/netcdf2grads_h
 
 
-all: build ${USER_target}
-
+all: build
 
 $(BUILD_DIR)/%.F90: $(CODE_DIR)/%.F90
 	mkdir -p $(BUILD_DIR)
@@ -96,18 +95,19 @@ util:
 run: jobshell
 	$(JOBSUB) run.sh $(JOBSUB_OPTION)
 
+jobshell: export ADDITIONAL_CONF := $(ADDITIONAL_CONF)
 jobshell:
-	@if [ -f ../Mkjobshell.$(SCALE_FE_SYS).sh ]; then \
-		bash ../Mkjobshell.$(SCALE_FE_SYS).sh            $(BINDIR2)                                \
-		                                              $(PPNAME) $(INITNAME) $(BINNAME) $(N2GNAME) \
-		                                              $(PPCONF) $(INITCONF) $(RUNCONF) $(N2GCONF) \
-		                                              $(TPROC)                                    \
+	@if [ -f $(SYSDEP_DIR)/Mkjobshell.$(SCALE_SYS).sh ]; then \
+		bash $(SYSDEP_DIR)/Mkjobshell.$(SCALE_SYS).sh $(MPIEXEC) $(BINDIR2)                        \
+		                                              $(PPNAME) $(INITNAME) $(BINNAME) $(SNONAME) \
+		                                              $(PPCONF) $(INITCONF) $(RUNCONF) $(SNOCONF) \
+		                                              $(TPROC) $(TPROC_SNO)                       \
 		                                              $(DATPARAM) $(DATDISTS);                    \
 	else \
-		bash $(SYSDEP_DIR)/Mkjobshell.$(SCALE_FE_SYS).sh $(BINDIR2)                                \
-		                                              $(PPNAME) $(INITNAME) $(BINNAME) $(N2GNAME) \
-		                                              $(PPCONF) $(INITCONF) $(RUNCONF) $(N2GCONF) \
-		                                              $(TPROC)                                    \
+		bash $(TOPDIR)/sysdep/Mkjobshell.$(SCALE_SYS).sh $(MPIEXEC) $(BINDIR2)                     \
+		                                              $(PPNAME) $(INITNAME) $(BINNAME) $(SNONAME) \
+		                                              $(PPCONF) $(INITCONF) $(RUNCONF) $(SNOCONF) \
+		                                              $(TPROC) $(TPROC_SNO)                       \
 		                                              $(DATPARAM) $(DATDISTS);                    \
 	fi
 

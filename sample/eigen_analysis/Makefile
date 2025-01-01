@@ -11,13 +11,16 @@ SAMPLE_DIR  = ../
 BINNAME = test_eigen_analysis
 OBJS    = 
 
-#-------------------------------------------------------
-include $(SAMPLE_DIR)/Makefile.common
+RUNCONF         = test.conf
+TPROC           = 1
+OMP_NUM_THREADS = 1
 
-run:
-	export OMP_NUM_THREADS=1
+#-------------------------------------------------------
+run: prep_run
+prep_run:
 	mkdir -p data
-	mpirun -n 1 ./$(BINNAME) test.conf
+
+include $(SAMPLE_DIR)/Makefile.common
 
 vis:
 	python ./visualize/dispersion_dissipation_graph.py

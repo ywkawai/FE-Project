@@ -173,7 +173,7 @@ contains
     !------------------------------------------------------------------------
 
     call PROF_rapstart( 'cal_dyn_tend_bndflux', 2)
-    call cal_del_flux_dyn( del_flux,                                          & ! (out)
+    call cal_bnd_flux_dyn( del_flux,                                          & ! (out)
       q_, u_, v_, w_,                                                         & ! (in)
       lmesh%normal_fn(:,:,1), lmesh%normal_fn(:,:,2), lmesh%normal_fn(:,:,3), & ! (in)
       lmesh%vmapM, lmesh%vmapP,                                               & ! (in)
@@ -182,10 +182,11 @@ contains
 
     !-----
     call PROF_rapstart( 'cal_dyn_tend_interior', 2)
+    !$omp parallel do private(Fx, Fy, Fz, LiftDelFlx)
     do ke = lmesh%NeS, lmesh%NeE
-      call sparsemat_matmul(Dx, q_(:,ke)*u_(:,ke), Fx)
-      call sparsemat_matmul(Dy, q_(:,ke)*v_(:,ke), Fy)
-      call sparsemat_matmul(Dz, q_(:,ke)*w_(:,ke), Fz)
+      call sparsemat_matmul(Dx, q_(:,ke) * u_(:,ke), Fx)
+      call sparsemat_matmul(Dy, q_(:,ke) * v_(:,ke), Fy)
+      call sparsemat_matmul(Dz, q_(:,ke) * w_(:,ke), Fz)
       call sparsemat_matmul(Lift, lmesh%Fscale(:,ke)*del_flux(:,ke), LiftDelFlx)
 
       dqdt(:,ke) = - ( lmesh%Escale(:,ke,1,1) * Fx(:) &
@@ -198,7 +199,7 @@ contains
     return
   end subroutine cal_dyn_tend
 
-  subroutine cal_del_flux_dyn( del_flux, q_, u_, v_, w_, nx, ny, nz, vmapM, vmapP, lmesh, elem )
+  subroutine cal_bnd_flux_dyn( del_flux, q_, u_, v_, w_, nx, ny, nz, vmapM, vmapP, lmesh, elem )
     implicit none
 
     class(LocalMesh3D), intent(in) :: lmesh
@@ -218,20 +219,21 @@ contains
     real(RP) :: VelP, VelM, alpha
     !------------------------------------------------------------------------
 
+    !$omp parallel do private(i, iM, iP, VelM, VelP, alpha)
     do i=1, elem%NfpTot*lmesh%Ne
       iM = vmapM(i); iP = vmapP(i)
 
-      VelM = u_(iM)*nx(i) + v_(iM)*ny(i) + w_(iM)*nz(i)
-      VelP = u_(iP)*nx(i) + v_(iP)*ny(i) + w_(iP)*nz(i)
+      VelM = u_(iM) * nx(i) + v_(iM) * ny(i) + w_(iM) * nz(i)
+      VelP = u_(iP) * nx(i) + v_(iP) * ny(i) + w_(iP) * nz(i)
 
-      alpha = 0.5_RP*abs(VelM + VelP)
-      del_flux(i) = 0.5_RP*(               &
-          ( q_(iP)*VelP - q_(iM)*VelM )    &
-        - alpha*(q_(iP) - q_(iM))        )
+      alpha = 0.5_RP * abs( VelM + VelP )
+      del_flux(i) = 0.5_RP * (               &
+          ( q_(iP) * VelP - q_(iM) * VelM )  &
+        - alpha * ( q_(iP) - q_(iM) )        )
     end do
 
     return
-  end subroutine cal_del_flux_dyn
+  end subroutine cal_bnd_flux_dyn
 
   !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -260,6 +262,10 @@ contains
 
     do n=1, mesh%LOCAL_MESH_NUM
       lcmesh => mesh%lcmesh_list(n)
+      
+      !$omp parallel do private( &
+      !$omp ke, x_uwind, y_vwind, z_wwind, vx, vy, vz, pos_intrp, x_uwind_intrp, y_vwind_intrp, z_wwind_intrp, &
+      !$omp qexact_intrp, q_intrp ) reduction(+: l2error) reduction(max: linferror)
       do ke=lcmesh%NeS, lcmesh%NeE
 
         x_uwind(:) = get_upwind_pos1d(lcmesh%pos_en(:,ke,1), ADV_VELX, tsec, dom_xmin, dom_xmax)
@@ -270,9 +276,9 @@ contains
         vy(:) = lcmesh%pos_ev(lcmesh%EToV(ke,:),2)
         vz(:) = lcmesh%pos_ev(lcmesh%EToV(ke,:),3)
 
-        pos_intrp(:,1) = vx(1) + 0.5_RP*(x_intrp(:) + 1.0_RP)*(vx(2) - vx(1))
-        pos_intrp(:,2) = vy(1) + 0.5_RP*(y_intrp(:) + 1.0_RP)*(vy(3) - vy(1))
-        pos_intrp(:,3) = vz(1) + 0.5_RP*(z_intrp(:) + 1.0_RP)*(vz(5) - vz(1))
+        pos_intrp(:,1) = vx(1) + 0.5_RP * ( x_intrp(:) + 1.0_RP ) * ( vx(2) - vx(1) )
+        pos_intrp(:,2) = vy(1) + 0.5_RP * ( y_intrp(:) + 1.0_RP ) * ( vy(3) - vy(1) )
+        pos_intrp(:,3) = vz(1) + 0.5_RP * ( z_intrp(:) + 1.0_RP ) * ( vz(5) - vz(1) )
 
         x_uwind_intrp(:) = get_upwind_pos1d(pos_intrp(:,1), ADV_VELX, tsec, dom_xmin, dom_xmax)
         y_vwind_intrp(:) = get_upwind_pos1d(pos_intrp(:,2), ADV_VELY, tsec, dom_ymin, dom_ymax)
@@ -476,12 +482,9 @@ contains
     !------   
     
     call refElem%Init(PolyOrder_h, PolyOrder_v, LumpedMassMatFlag)
-    call Dx%Init(refElem%Dx1)
-    call Sx%Init(refElem%Sx1)
-    call Dy%Init(refElem%Dx2)
-    call Sy%Init(refElem%Sx2)
-    call Dz%Init(refElem%Dx3)
-    call Sz%Init(refElem%Sx3)
+    call Dx%Init(refElem%Dx1, storage_format='ELL')
+    call Dy%Init(refElem%Dx2, storage_format='ELL')
+    call Dz%Init(refElem%Dx3, storage_format='ELL')
     call Lift%Init(refElem%Lift)
 
     call mesh%Init( &
@@ -546,12 +549,7 @@ contains
     call fields_comm%Final()
     call mesh%Final()
     
-    call Dx%Final()
-    call Sx%Final()
-    call Dy%Final()
-    call Sy%Final()
-    call Dz%Final()
-    call Sz%Final()
+    call Dx%Final(); call Dy%Final(); call Dz%Final()
     call Lift%Final()
     call refElem%Final()
     
