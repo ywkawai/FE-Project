@@ -48,10 +48,10 @@ program test_advect2d
 
   ! The type of initial q (sin, gaussian-hill, cosine-bell, top-hat)
   character(len=H_SHORT) :: InitShapeName
-  real(RP) :: InitShapeParams(4)
+  real(RP), save :: InitShapeParams(4)
   ! The type of specified velocify field (constant, rigid-body-rot)
   character(len=H_SHORT) :: VelTypeName 
-  real(RP) :: VelTypeParams(4)
+  real(RP), save :: VelTypeParams(4)
 
   real(RP), parameter :: dom_xmin =  0.0_RP
   real(RP), parameter :: dom_xmax = +1.0_RP
@@ -60,22 +60,19 @@ program test_advect2d
   
   type(QuadrilateralElement) :: refElem
   integer :: PolyOrder
-  logical, parameter :: LumpedMassMatFlag = .false.
   logical :: InitCond_GalerkinProjFlag 
-  integer, parameter :: PolyOrderErrorCheck = 6
   type(sparsemat) :: Dx, Dy, Lift
   
   type(MeshRectDom2D), target :: mesh
   type(MeshField2D), target :: q, qexact  
   type(MeshField2D), target :: u, v
   type(MeshFieldCommRectDom2D) :: fields_comm
-  type(MeshFieldContainer) :: field_list(3)  
-  integer :: HST_ID(2)
+  type(MeshFieldContainer), save :: field_list(3)  
+  integer, save :: HST_ID(2)
 
   integer :: n, ke, p
   type(LocalMesh2D), pointer :: lcmesh
   
-  character(len=H_SHORT) :: TINTEG_SCHEME_TYPE
   type(timeint_rk), allocatable :: tinteg_lc(:)
   integer :: nowstep
   integer :: rkstage
@@ -83,10 +80,11 @@ program test_advect2d
   integer, parameter :: RKVAR_Q = 1
   real(RP) :: tsec_
 
+  integer :: PolyOrderErrorCheck
   real(RP), allocatable :: IntrpMat(:,:)
-  real(RP) :: intw_intrp(PolyOrderErrorCheck**2)
-  real(RP) :: x_intrp(PolyOrderErrorCheck**2)
-  real(RP) :: y_intrp(PolyOrderErrorCheck**2)
+  real(RP), allocatable :: intw_intrp(:)
+  real(RP), allocatable :: x_intrp(:)
+  real(RP), allocatable :: y_intrp(:)
 
   integer :: nstep_eval_error
   !-------------------------------------------------------
@@ -386,6 +384,9 @@ contains
     use scale_file_history, only: FILE_HISTORY_reg 
         
     implicit none
+    
+    logical, parameter :: LumpedMassMatFlag = .false.
+    character(len=H_SHORT) :: TINTEG_SCHEME_TYPE
 
     namelist /PARAM_TEST/ &
       NeGX, NeGY, PolyOrder,          &
@@ -393,6 +394,7 @@ contains
       InitShapeName, InitShapeParams, &
       InitCond_GalerkinProjFlag,      &      
       VelTypeName, VelTypeParams,     &
+      PolyOrderErrorCheck,            &
       nstep_eval_error
     
     character(len=H_LONG) :: cnf_fname  ! config file for launcher
@@ -425,7 +427,8 @@ contains
     VelTypeName        = 'const'
     InitCond_GalerkinProjFlag = .false.
     VelTypeParams(:)   = (/ 1.0_RP, 1.0_RP, 0.0_RP, 0.0_RP /)
-    nstep_eval_error = 5
+    PolyOrderErrorCheck = 6
+    nstep_eval_error    = 5
 
     rewind(IO_FID_CONF)
     read(IO_FID_CONF,nml=PARAM_TEST,iostat=ierr)
@@ -482,6 +485,7 @@ contains
     
     !---
     allocate( IntrpMat(PolyOrderErrorCheck**2,(PolyOrder+1)**2) )
+    allocate( intw_intrp(PolyOrderErrorCheck**2), x_intrp(PolyOrderErrorCheck**2), y_intrp(PolyOrderErrorCheck**2) )
     IntrpMat(:,:) = refElem%GenIntGaussLegendreIntrpMat( PolyOrderErrorCheck,          & ! (in)
                                                          intw_intrp, x_intrp, y_intrp )  ! (out)
 

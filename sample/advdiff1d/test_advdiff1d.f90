@@ -41,16 +41,12 @@ program test_advdiff1d
     get_upwind_pos1d => fieldutil_get_upwind_pos1d,        &
     get_profile1d_tracer => fieldutil_get_profile1d_tracer 
   
-
   !-----------------------------------------------------------------------------
   implicit none
 
-  integer :: NeGX = 8
-  integer, parameter :: NLocalMeshPerPrc = 1
-
   ! The type of initial q (sin, gaussian-hill, cosine-bell, top-hat)
   character(len=H_SHORT) :: InitShapeName
-  real(RP) :: InitShapeParams(2)
+  real(RP), save :: InitShapeParams(2)
   ! The type of specified velocify field (constant)
   real(RP) :: ADV_VEL
   ! The coefficient of diffusion
@@ -60,10 +56,7 @@ program test_advdiff1d
   real(RP), parameter :: dom_xmax = +1.0_RP
 
   type(LineElement)  :: refElem
-  integer            :: PolyOrder
-  logical, parameter :: DumpedMassMatFlag = .false.
   type(sparsemat) :: Dx, Sx, Lift
-  integer, parameter :: PolyOrderErrorCheck = 6
 
   type(MeshLineDom1D), target :: mesh
   type(MeshField1D), target :: q, qexact 
@@ -71,15 +64,14 @@ program test_advdiff1d
   type(MeshField1D), target :: u
   type(MeshFieldComm1D) :: fields_comm
   type(MeshFieldComm1D) :: auxvars_comm
-  type(MeshFieldContainer) :: field_list(2)
-  type(MeshFieldContainer) :: auxvars_list(1)
+  type(MeshFieldContainer), save :: field_list(2)
+  type(MeshFieldContainer), save :: auxvars_list(1)
 
-  integer :: HST_ID(2)
+  integer, save :: HST_ID(2)
 
   integer :: n, k, p
   type(LocalMesh1D), pointer :: lcmesh
   
-  character(len=H_SHORT) :: TINTEG_SCHEME_TYPE
   type(timeint_rk), allocatable :: tinteg_lc(:)
   integer :: nowstep
   integer :: rkstage
@@ -87,19 +79,15 @@ program test_advdiff1d
   integer, parameter :: RKVAR_Q = 1
   real(RP) :: tsec_
 
+  integer :: PolyOrderErrorCheck
   real(RP), allocatable :: IntrpMat(:,:)
-  real(RP) :: intw_intrp(PolyOrderErrorCheck)
-  real(RP) :: x_intrp(PolyOrderErrorCheck)
-
+  real(RP), allocatable :: intw_intrp(:)
+  real(RP), allocatable :: x_intrp(:)
   integer :: nstep_eval_error
   !-------------------------------------------------------
 
   call init()
   call set_initcond()
-
-  field_list(1)%field1d => q
-  field_list(2)%field1d => u
-  auxvars_list(1)%field1d => dqdx
 
   do nowstep=1, TIME_NSTEP
     do rkstage=1, tinteg_lc(1)%nstage
@@ -369,12 +357,17 @@ contains
   end subroutine set_initcond
 
   subroutine init()
-
     use scale_calendar, only: CALENDAR_setup
     use scale_time_manager, only: TIME_manager_Init 
     use scale_file_history_meshfield, only: FILE_HISTORY_meshfield_setup  
     use scale_file_history, only: FILE_HISTORY_reg       
     implicit none
+  
+    integer :: NeGX = 8
+    integer, parameter :: NLocalMeshPerPrc = 1
+    integer            :: PolyOrder
+    logical, parameter :: DumpedMassMatFlag = .false.
+    character(len=H_SHORT) :: TINTEG_SCHEME_TYPE
 
     namelist /PARAM_TEST/ &
       NeGX, PolyOrder,                &
@@ -382,6 +375,7 @@ contains
       InitShapeName, InitShapeParams, &
       ADV_VEL,                        &
       DIFF_COEF,                      &
+      PolyOrderErrorCheck,            &
       nstep_eval_error
         
     character(len=H_LONG) :: cnf_fname  ! config file for launcher
@@ -412,7 +406,8 @@ contains
     InitShapeParams  = (/ 1.0_RP, 0.0_RP /)
     ADV_VEL          = 0.0_RP
     DIFF_COEF        = 0.0_RP
-    nstep_eval_error = 5
+    PolyOrderErrorCheck = 6
+    nstep_eval_error    = 5
     TINTEG_SCHEME_TYPE = 'ERK_SSP_3s3o'
     
     rewind(IO_FID_CONF)
@@ -452,9 +447,13 @@ contains
     call qexact%Init( "qexact", "1", mesh )
     call dqdx%Init( "q", "1", mesh )
     call u%Init( "u", "m/s", mesh )
+
     call fields_comm%Init(2, 0, mesh)
     call auxvars_comm%Init(1, 0, mesh)
-    
+    field_list(1)%field1d => q
+    field_list(2)%field1d => u
+    auxvars_list(1)%field1d => dqdx
+      
     call FILE_HISTORY_meshfield_setup( mesh )
     call FILE_HISTORY_reg( q%varname, "q", q%unit, HST_ID(1), dim_type='X')
     call FILE_HISTORY_reg( qexact%varname, "qexact", q%unit, HST_ID(2), dim_type='X')
@@ -468,7 +467,12 @@ contains
     end do
 
     !------------------
+
+    ! calculate the information about GL points, weights, and matrix for interpolation
+
     allocate(IntrpMat(PolyOrderErrorCheck,PolyOrder+1))
+    allocate(intw_intrp(PolyOrderErrorCheck), x_intrp(PolyOrderErrorCheck))
+
     IntrpMat(:,:) = refElem%GenIntGaussLegendreIntrpMat( PolyOrderErrorCheck,  & ! (in)
                                                          intw_intrp, x_intrp  )  ! (out)
 

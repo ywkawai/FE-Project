@@ -44,10 +44,10 @@ program test_field_cubedspheredom2d
   character(len=H_short), parameter :: q_VARNAME = "q"
   character(len=H_short), parameter :: q_DESC    = "q"
   character(len=H_short), parameter :: q_UNITS   = "K"
-  integer :: HST_ID(3)
+  integer, save :: HST_ID(3)
 
   type(MeshFieldCommCubedSphereDom2D) :: fields_comm
-  type(MeshFieldContainer) :: field_list(1)  
+  type(MeshFieldContainer), save :: field_list(1)  
 
   integer :: n
   type(LocalMesh2D), pointer :: lcmesh

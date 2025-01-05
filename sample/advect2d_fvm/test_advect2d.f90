@@ -50,14 +50,13 @@ program test_advect2d
 
   integer :: NeGX, GXHALO
   integer :: NeGY, GYHALO
-  integer, parameter :: NLocalMeshPerPrc = 1
 
   ! The type of initial q (sin, gaussian-hill, cosine-bell, top-hat)
   character(len=H_SHORT) :: InitShapeName
-  real(RP) :: InitShapeParams(4)
+  real(RP), save :: InitShapeParams(4)
   ! The type of specified velocify field (constant, rigid-body-rot)
   character(len=H_SHORT) :: VelTypeName 
-  real(RP) :: VelTypeParams(4)
+  real(RP), save :: VelTypeParams(4)
 
   real(RP), parameter :: dom_xmin =  0.0_RP
   real(RP), parameter :: dom_xmax = +1.0_RP
@@ -77,7 +76,7 @@ program test_advect2d
   real(RP) :: tsec_
   character(len=H_MID), parameter :: APPNAME = "advect2d with FVM"
 
-  integer :: HST_ID(2)
+  integer, save :: HST_ID(2)
   real(RP), allocatable :: q(:,:,:)
   real(RP), allocatable :: qexact(:,:,:)
   real(RP), allocatable :: u(:,:,:)

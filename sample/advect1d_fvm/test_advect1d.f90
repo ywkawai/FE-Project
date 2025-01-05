@@ -41,7 +41,7 @@ program test_advect1d
 
   ! The type of initial q (sin, gaussian-hill, cosine-bell, top-hat)
   character(len=H_SHORT) :: InitShapeName
-  real(RP) :: InitShapeParams(2)
+  real(RP), save :: InitShapeParams(2)
   ! The type of specified velocify field (constant)
   real(RP) :: ADV_VEL
 
@@ -61,7 +61,7 @@ program test_advect1d
   real(RP) :: tsec_
   character(len=H_MID), parameter :: APPNAME = "advect1d with FVM"
 
-  integer :: HST_ID(2)
+  integer, save :: HST_ID(2)
   real(RP), allocatable :: q(:,:,:)
   real(RP), allocatable :: qexact(:,:,:)
   real(RP), allocatable :: u(:,:,:)

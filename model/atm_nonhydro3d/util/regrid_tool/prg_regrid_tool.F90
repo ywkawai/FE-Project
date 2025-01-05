@@ -59,7 +59,6 @@ program regrid_tool
   integer                 :: myrank                      ! my rank                           (execution)
   logical                 :: ismaster                    ! master process?                   (execution)
 
-  logical :: do_output
   integer :: vid
   integer :: istep
 
@@ -219,8 +218,6 @@ contains
     end if
 
     !-
-    do_output = .true.
-
     LOG_INFO("regrid_tool",*) 'Setup has been finished.'
     if( IO_L ) call flush(IO_FID_LOG)
 
