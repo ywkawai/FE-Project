@@ -43,10 +43,10 @@ program test_field1d
   character(len=H_short), parameter :: q_VARNAME = "q"
   character(len=H_short), parameter :: q_DESC    = "q"
   character(len=H_short), parameter :: q_UNITS   = "K"
-  integer :: HST_ID(1)
+  integer, save :: HST_ID(1)
 
   type(MeshFieldComm1D) :: fields_comm
-  type(MeshFieldContainer) :: field_list(1)  
+  type(MeshFieldContainer), save :: field_list(1)  
 
   type(LocalMesh1D), pointer :: lcmesh
   integer :: n

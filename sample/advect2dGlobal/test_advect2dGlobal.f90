@@ -53,16 +53,15 @@ program test_advect2dGlobal
 
   ! The type of initial q (gaussian-hill, cosine-bell, top-hat)
   character(len=H_SHORT) :: InitShapeName
-  real(RP) :: InitShapeParams(4)
+  real(RP), save :: InitShapeParams(4)
   ! The type of specified velocify field (rigid-body-rot)
   character(len=H_SHORT) :: VelTypeName 
-  real(RP) :: VelTypeParams(4)
+  real(RP), save :: VelTypeParams(4)
   
   type(QuadrilateralElement) :: refElem
   integer :: PolyOrder
   logical, parameter :: LumpedMassMatFlag = .false.
   logical :: InitCond_GalerkinProjFlag 
-  integer, parameter :: PolyOrderErrorCheck = 6
   type(sparsemat) :: Dx, Dy, Lift
   
   type(MeshCubedSphereDom2D), target :: mesh
@@ -70,16 +69,15 @@ program test_advect2dGlobal
   type(MeshField2D), target :: U, V
   type(MeshField2D), target :: lon, lat, Gsqrt
   type(MeshFieldCommCubedSphereDom2D) :: prgvars_comm
-  type(MeshFieldContainer) :: prgvars_comm_vars(1)  
+  type(MeshFieldContainer), save :: prgvars_comm_vars(1)  
   type(MeshFieldCommCubedSphereDom2D) :: auxvars_comm
-  type(MeshFieldContainer) :: auxvars_comm_vars(2)  
+  type(MeshFieldContainer), save :: auxvars_comm_vars(2)  
 
-  integer :: HST_ID(7)
+  integer, save :: HST_ID(7)
 
   integer :: n, ke, p
   type(LocalMesh2D), pointer :: lcmesh
   
-  character(len=H_SHORT) :: TINTEG_SCHEME_TYPE
   type(timeint_rk), allocatable :: tinteg_lc(:)
   integer :: nowstep
   integer :: rkstage
@@ -87,20 +85,17 @@ program test_advect2dGlobal
   integer, parameter :: RKVAR_Q = 1
   real(RP) :: tsec_
 
+  integer :: PolyOrderErrorCheck
   real(RP), allocatable :: IntrpMat(:,:)
-  real(RP) :: intw_intrp(PolyOrderErrorCheck**2)
-  real(RP) :: x_intrp(PolyOrderErrorCheck**2)
-  real(RP) :: y_intrp(PolyOrderErrorCheck**2)
+  real(RP), allocatable :: intw_intrp(:)
+  real(RP), allocatable :: x_intrp(:)
+  real(RP), allocatable :: y_intrp(:)
 
   integer :: nstep_eval_error
   !-------------------------------------------------------
 
   call init()
   call set_initcond()
-
-  prgvars_comm_vars(1)%field2d => q
-  auxvars_comm_vars(1)%field2d => U
-  auxvars_comm_vars(2)%field2d => V
 
   call auxvars_comm%Put(auxvars_comm_vars, 1)
   call auxvars_comm%Exchange()
@@ -434,6 +429,7 @@ contains
         
     implicit none
 
+    character(len=H_SHORT) :: TINTEG_SCHEME_TYPE
     namelist /PARAM_TEST/ &
       NeGX, NeGY, NLocalMeshPerPrc,   &
       PolyOrder,                      &
@@ -441,6 +437,7 @@ contains
       InitShapeName, InitShapeParams, &
       InitCond_GalerkinProjFlag,      &      
       VelTypeName, VelTypeParams,     &
+      PolyOrderErrorCheck,            &
       nstep_eval_error
     
     character(len=H_LONG) :: cnf_fname  ! config file for launcher
@@ -473,7 +470,8 @@ contains
     VelTypeName        = 'const'
     InitCond_GalerkinProjFlag = .false.
     VelTypeParams(:)   = (/ 1.0_RP, 1.0_RP, 0.0_RP, 0.0_RP /)
-    nstep_eval_error = 5
+    PolyOrderErrorCheck = 6
+    nstep_eval_error    = 5
 
     rewind(IO_FID_CONF)
     read(IO_FID_CONF,nml=PARAM_TEST,iostat=ierr)
@@ -526,7 +524,10 @@ contains
 
     call prgvars_comm%Init(1, 0, 0, mesh)
     call auxvars_comm%Init(0, 1, 0, mesh)
-    
+    prgvars_comm_vars(1)%field2d => q
+    auxvars_comm_vars(1)%field2d => U
+    auxvars_comm_vars(2)%field2d => V
+
     call lon%Init( "lon", "rad", mesh )
     call lat%Init( "lat", "rad", mesh )
     call Gsqrt%Init( "Gsqrt", "", mesh )
@@ -543,6 +544,7 @@ contains
     call FILE_HISTORY_reg( Gsqrt%varname, "Gsqrt", Gsqrt%unit, HST_ID(7), dim_type='XY')
 
     allocate( IntrpMat(PolyOrderErrorCheck**2,(PolyOrder+1)**2) )
+    allocate( intw_intrp(PolyOrderErrorCheck**2), x_intrp(PolyOrderErrorCheck**2), y_intrp(PolyOrderErrorCheck**2) )
     IntrpMat(:,:) = refElem%GenIntGaussLegendreIntrpMat( PolyOrderErrorCheck,          & ! (in)
                                                          intw_intrp, x_intrp, y_intrp )  ! (out)
 

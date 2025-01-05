@@ -48,7 +48,7 @@ program test_advect1d
   implicit none
 
   character(len=H_SHORT) :: InitShapeName   !< The type of initial profile (sin, gaussian-hill, cosine-bell, top-hat)
-  real(RP) :: InitShapeParams(2)
+  real(RP), save :: InitShapeParams(2)
   integer :: InitGPMatPolyOrder
   real(RP) :: ADV_VEL                       !< The constant speed of advection
 
@@ -61,8 +61,8 @@ program test_advect1d
 
   type(MeshField1D), target :: q, u, qexact  
   type(MeshFieldComm1D) :: fields_comm
-  type(MeshFieldContainer) :: field_list(2)  
-  integer :: HST_ID(2)
+  type(MeshFieldContainer), save :: field_list(2)  
+  integer, save :: HST_ID(2)
   
   integer :: nowstep
   real(RP) :: tsec_

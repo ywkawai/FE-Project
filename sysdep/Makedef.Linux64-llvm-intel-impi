@@ -1,20 +1,21 @@
 ################################################################################
 #
-# ------ For Linux64 & intel fortran (classic) & C & intel mpi -----
+# ------ For Linux64 & LLVM based intel fortran&C & intel mpi -----
 #
 ################################################################################
 
 ##### Fortran setting
 #FFLAGS is set in Mkinclude. FFLAGS_DEBUG is used if SCALE_DEBUG=T
 
-FC  = mpiifort
-SFC = ifort
+FC  = mpiifx
+SFC = ifx
 MODDIROPT = -module
 
-FFLAGS_FAST  = -fpp -m64 -O3 -xHost -ip             \
+#FFLAGS_FAST  = -fpp
+FFLAGS_FAST  = -fpp -m64 -O3 -xAVX                  \
                -assume byterecl -convert big_endian \
                -fp-model source                     \
-               -mcmodel=medium -heap-arrays
+               -ftz -fno-alias -align all
 
 FFLAGS_AGGRESSIVE = -ipo -no-prec-div
 
@@ -34,7 +35,7 @@ FFLAGS_DEBUG = -fpp -m64 -O0                        \
 ##### C setting
 #CFLAGS is set in Mkinclude. CFLAGS_DEBUG is used if SCALE_DEBUG=T
 
-CC = mpiicc
+CC = mpiicx
 
 CFLAGS_FAST       = -O3 -xHost -ip -ftz -mcmodel=medium -shared-intel
 CFLAGS_AGGRESSIVE = -ipo -no-prec-div
@@ -47,6 +48,7 @@ CFLAGS_DEBUG      = -O0
 IFORT_VERSION=$(shell $(SFC) -v 2>&1 | cut -f3 -d' ' | cut -f1 -d.)
 ifeq ($(shell if [ $(IFORT_VERSION) -ge 15 ]; then echo yes; fi),yes)
   FFLAGS_OPENMP = -qopenmp -no-heap-arrays
+#  FFLAGS_OPENMP = -qopenmp -heap-arrays
 else
   FFLAGS_OPENMP = -openmp -no-heap-arrays
 endif
@@ -81,11 +83,11 @@ MPIEXEC = "mpiexec.hydra -np"
 ###### Math library
 # Please set environment variable
 # example:
-export SCALE_MATHLIB_LIBS="-mkl=sequential"
+export SCALE_MATHLIB_LIBS="-qmkl=sequential"
 
 ##### for frontend
 INSTALL = install
-AR      = xiar
+AR      = ar
 ARFLAGS = r
 RANLIB  = ranlib
 JOBSUB  = sh

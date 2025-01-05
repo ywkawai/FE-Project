@@ -44,14 +44,13 @@ program test_advect3d
 
   integer :: NprcX, NprcY
   integer :: NeX, NeY, NeGZ
-  integer, parameter :: NLocalMeshPerPrc = 1
 
   ! The type of initial q (sin, gaussian-hill, cosine-bell, top-hat)
   character(len=H_SHORT) :: InitShapeName
-  real(RP) :: InitShapeParams(6)
+  real(RP), save :: InitShapeParams(6)
   ! The type of specified velocify field (constant)
   character(len=H_SHORT) :: VelTypeName 
-  real(RP) :: VelTypeParams(6)
+  real(RP), save :: VelTypeParams(6)
 
   real(RP), parameter :: dom_xmin =  0.0_RP
   real(RP), parameter :: dom_xmax = +1.0_RP
@@ -62,17 +61,15 @@ program test_advect3d
   
   type(HexahedralElement) :: refElem
   integer :: PolyOrder_h, PolyOrder_v
-  logical, parameter :: LumpedMassMatFlag = .false.
   logical :: InitCond_GalerkinProjFlag 
-  integer, parameter :: PolyOrderErrorCheck = 6
-  type(sparsemat) :: Dx, Sx, Dy, Sy, Dz, Sz, Lift
+  type(sparsemat) :: Dx, Dy, Dz, Lift
   
   type(MeshCubeDom3D), target :: mesh
   type(MeshField3D), target :: q, qexact  
   type(MeshField3D), target :: u, v, w
   type(MeshFieldCommCubeDom3D) :: fields_comm
-  type(MeshFieldContainer) :: field_list(4)  
-  integer :: HST_ID(2)
+  type(MeshFieldContainer), save :: field_list(4)  
+  integer, save :: HST_ID(2)
 
   integer :: n
   type(LocalMesh3D), pointer :: lcmesh
@@ -85,22 +82,17 @@ program test_advect3d
   integer, parameter :: RKVAR_Q = 1
   real(RP) :: tsec_
 
+  integer :: PolyOrderErrorCheck
   real(RP), allocatable :: IntrpMat(:,:)
-  real(RP) :: intw_intrp(PolyOrderErrorCheck**3)
-  real(RP) :: x_intrp(PolyOrderErrorCheck**3)
-  real(RP) :: y_intrp(PolyOrderErrorCheck**3)
-  real(RP) :: z_intrp(PolyOrderErrorCheck**3)
-
+  real(RP), allocatable :: intw_intrp(:)
+  real(RP), allocatable :: x_intrp(:)
+  real(RP), allocatable :: y_intrp(:)
+  real(RP), allocatable :: z_intrp(:)
   integer :: nstep_eval_error
   !-------------------------------------------------------
 
   call init()
   call set_initcond()
-
-  field_list(1)%field3d => q
-  field_list(2)%field3d => u
-  field_list(3)%field3d => v
-  field_list(4)%field3d => w
 
   do nowstep=1, TIME_NSTEP
     do rkstage=1, tinteg_lc(1)%nstage
@@ -238,7 +230,6 @@ contains
   !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
   subroutine evaluate_error(tsec)
-
     implicit none
 
     real(DP), intent(in) :: tsec
@@ -413,14 +404,14 @@ contains
   end subroutine set_initcond
 
   subroutine init()
-
     use scale_calendar, only: CALENDAR_setup
     use scale_time_manager, only: TIME_manager_Init 
     use scale_file_history_meshfield, only: FILE_HISTORY_meshfield_setup  
     use scale_file_history, only: FILE_HISTORY_reg 
-        
     implicit none
 
+    logical, parameter :: LumpedMassMatFlag = .false.
+    integer, parameter :: NLocalMeshPerPrc = 1
     namelist /PARAM_TEST/ &
       NprcX, NeX, NprcY, NeY, NeGZ,   & 
       PolyOrder_h, PolyOrder_v,       &
@@ -428,6 +419,7 @@ contains
       InitShapeName, InitShapeParams, &
       InitCond_GalerkinProjFlag,      &      
       VelTypeName, VelTypeParams,     &
+      PolyOrderErrorCheck,            &
       nstep_eval_error
     
     integer :: comm, myrank, nprocs
@@ -458,7 +450,8 @@ contains
     VelTypeName        = 'const'
     InitCond_GalerkinProjFlag = .false.
     VelTypeParams(:)   = (/ 1.0_RP, 1.0_RP, 1.0_RP, 0.0_RP, 0.0_RP, 0.0_RP /)
-    nstep_eval_error = 5
+    PolyOrderErrorCheck = 6
+    nstep_eval_error    = 5
 
     rewind(IO_FID_CONF)
     read(IO_FID_CONF,nml=PARAM_TEST,iostat=ierr)
@@ -509,14 +502,20 @@ contains
     call u%Init( "u", "m/s", mesh )
     call v%Init( "v", "m/s", mesh )
     call w%Init( "w", "m/s", mesh )
+    
     call fields_comm%Init(4, 0, 0, mesh)
-
+    field_list(1)%field3d => q
+    field_list(2)%field3d => u
+    field_list(3)%field3d => v
+    field_list(4)%field3d => w
+  
     call FILE_HISTORY_meshfield_setup( mesh3d_=mesh )
     call FILE_HISTORY_reg( q%varname, "q", q%unit, HST_ID(1), dim_type='XYZ')
     call FILE_HISTORY_reg( qexact%varname, "qexact", q%unit, HST_ID(2), dim_type='XYZ')
     
     !---
     allocate( IntrpMat(PolyOrderErrorCheck**3,(PolyOrder_h+1)**2*(PolyOrder_v+1)) )
+    allocate( intw_intrp(PolyOrderErrorCheck**3), x_intrp(PolyOrderErrorCheck**3), y_intrp(PolyOrderErrorCheck**3), z_intrp(PolyOrderErrorCheck**3) )
     IntrpMat(:,:) = refElem%GenIntGaussLegendreIntrpMat( PolyOrderErrorCheck,                   & ! (in)
                                                          intw_intrp, x_intrp, y_intrp, z_intrp )  ! (out)
 

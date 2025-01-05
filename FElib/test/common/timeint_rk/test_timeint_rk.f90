@@ -18,9 +18,9 @@ program test_timeint_rk
   integer, parameter :: save_error_dstep2 = 8
 
   integer, parameter :: error_array_size = 100
-  real(RP) :: answer(error_array_size)
-  real(RP) :: error1_mem(error_array_size)
-  real(RP) :: error2_mem(error_array_size)
+  real(RP), save :: answer(error_array_size)
+  real(RP), save :: error1_mem(error_array_size)
+  real(RP), save :: error2_mem(error_array_size)
 
   !-------------------------------
 

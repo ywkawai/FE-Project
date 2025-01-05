@@ -9,10 +9,10 @@ program test_sparsemat
   implicit none
 
   integer, parameter :: N = 5 
-  real(RP) :: A(N,N)
+  real(RP), save :: A(N,N)
   type(SparseMat) :: Acsr
   type(SparseMat) :: Aell
-  real(RP) :: x(N), b(N), b_ans(N)
+  real(RP), save :: x(N), b(N), b_ans(N)
   integer :: i, j
   !----------------------------------------
 
