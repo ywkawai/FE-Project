@@ -52,7 +52,6 @@ program test_euler3d_hevi
 
   integer :: NprcX, NprcY
   integer :: NeX, NeY, NeGZ
-  integer, parameter :: NLocalMeshPerPrc = 1
 
   real(RP), parameter :: dom_xmin =  0.0_RP
   real(RP), parameter :: dom_xmax = +10.0E3_RP
@@ -64,7 +63,7 @@ program test_euler3d_hevi
   type(HexahedralElement) :: refElem, refElem_l
   integer :: PolyOrder_h, PolyOrder_v
   logical :: LumpedMassMatFlag
-  type(sparsemat) :: Dx, Sx, Dy, Sy, Dz, Sz, Lift
+  type(sparsemat) :: Dx, Dy, Dz, Lift
   type(sparsemat) :: Dx_l, Lift_l  
   real(RP), allocatable :: IntrpMat_VPOrdM1(:,:)
 
@@ -84,12 +83,12 @@ program test_euler3d_hevi
   type(MeshField3D), target :: DDENS, MOMX, MOMY, MOMZ, DRHOT
   type(MeshField3D), target :: PRES_hyd, DENS_hyd
   type(MeshFieldCommCubeDom3D) :: prgvar_comm
-  type(MeshFieldContainer) :: prgvar_list(PROG_VARS_NUM)  
+  type(MeshFieldContainer), save :: prgvar_list(PROG_VARS_NUM)  
   type(MeshFieldCommCubeDom3D) :: auxvar_comm
-  type(MeshFieldContainer) :: auxvar_list(AUX_VARS_NUM)  
+  type(MeshFieldContainer), save :: auxvar_list(AUX_VARS_NUM)  
 
-  integer :: PRGVAR_HST_ID(PROG_VARS_NUM)
-  integer :: AUXVAR_HST_ID(AUX_VARS_NUM)
+  integer, save :: PRGVAR_HST_ID(PROG_VARS_NUM)
+  integer, save :: AUXVAR_HST_ID(AUX_VARS_NUM)
 
   integer :: n
   type(LocalMesh3D), pointer :: lcmesh
@@ -1159,6 +1158,7 @@ contains
         
     implicit none
 
+    integer, parameter :: NLocalMeshPerPrc = 1
     namelist /PARAM_TEST/ &
       NprcX, NeX, NprcY, NeY, NeGZ,   & 
       PolyOrder_h, PolyOrder_v,       &
@@ -1223,11 +1223,8 @@ contains
     call refElem_l%Init(PolyOrder_h, PolyOrder_v, .true.)    
     call Dx%Init(refElem%Dx1)
     call Dx_l%Init(refElem_l%Dx1)    
-    call Sx%Init(refElem%Sx1)
     call Dy%Init(refElem%Dx2)
-    call Sy%Init(refElem%Sx2)
     call Dz%Init(refElem%Dx3)
-    call Sz%Init(refElem%Sx3)
     allocate( lift_tmp(refElem%Np,refElem%NfpTot) )
     call Lift%Init(refElem%Lift)
     ! lift_tmp(:,:) = matmul(refElem%M, refElem%Lift)
@@ -1334,12 +1331,7 @@ contains
 
     call mesh%Final()
     
-    call Dx%Final()
-    call Sx%Final()
-    call Dy%Final()
-    call Sy%Final()
-    call Dz%Final()
-    call Sz%Final()
+    call Dx%Final(); call Dy%Final(); call Dz%Final()
     call Lift%Final()
     call refElem%Final()
     
