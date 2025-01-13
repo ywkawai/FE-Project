@@ -26,7 +26,7 @@ flag_legend = True
 
 for n in range(1,len(time)):
   print(f"n={n}")
-  im1 = plt.plot(x, uex.isel(time=n), color="gray", linestyle = "dotted", label="exact") 
+  im1 = plt.plot(x, uex.isel(time=n), color="red", linestyle = "dashed", label="exact", alpha=0.5, linewidth = 3.0) 
   im2 = plt.plot(x, u.isel(time=n), color="black", label="numsol")
   
   time_txt = "{:.2f}".format(time.values[n])
