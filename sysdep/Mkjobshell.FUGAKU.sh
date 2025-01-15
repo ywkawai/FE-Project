@@ -75,7 +75,7 @@ cat << EOF1 > ./run.sh
 #PJM -L eco_state=2
 #PJM -L rscgrp="small"
 #PJM -L node=$(((TPROC+3)/4)):torus
-#PJM -L elapse=00:20:00
+#PJM -L elapse=00:10:00
 #PJM --mpi "max-proc-per-node=4"
 #PJM -j
 #PJM -s
@@ -93,7 +93,7 @@ export FLIB_BARRIER=HARD
 ${ADDITIONAL_CONF}
 
 llio_transfer /home/apps/oss/scale/llio.list
-export LD_LIBRARY_PATH=/lib64:/opt/FJSVxtclanga/tcsds-mpi-latest/lib64:/opt/FJSVxtclanga/tcsds-1.2.39/lib64:`cat /home/apps/oss/scale/llio.list | sed 's:\(.*/lib\(\|64\)\)/.*:\1:' | uniq | sed -z 's/\n/:/g'`
+export LD_LIBRARY_PATH=/lib64:/opt/FJSVxtclanga/tcsds-mpi-latest/lib64:/opt/FJSVxtclanga/tcsds-latest/lib64:`cat /home/apps/oss/scale/llio.list | sed 's:\(.*/lib\(\|64\)\)/.*:\1:' | uniq | sed -z 's/\n/:/g'`
 
 
 #. /vol0004/apps/oss/spack/share/spack/setup-env.sh
