@@ -108,7 +108,7 @@ program test_advect2d
       !* Update prognostic variables
       call PROF_rapstart( 'cal_dyn_tend', 1)
       tintbuf_ind = tinteg%tend_buf_indmap(rkstage)
-      call cal_dyn_tend( tinteg%tend_buf2D_ex(:,:,RKVAR_Q,tintbuf_ind), q, u, v )
+      call cal_tend( tinteg%tend_buf2D_ex(:,:,RKVAR_Q,tintbuf_ind), q, u, v )
       call PROF_rapend( 'cal_dyn_tend', 1) 
 
       call PROF_rapstart( 'update_var', 1)
@@ -136,7 +136,7 @@ program test_advect2d
   call final()
 
 contains
-  subroutine cal_dyn_tend( dqdt, q_, u_, v_ )
+  subroutine cal_tend( dqdt, q_, u_, v_ )
 
     implicit none
 
@@ -169,7 +169,7 @@ contains
     call PROF_rapend( 'cal_dyn_tend_dqdt', 2)
 
     return
-  end subroutine cal_dyn_tend
+  end subroutine cal_tend
  
   !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
