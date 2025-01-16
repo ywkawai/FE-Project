@@ -73,7 +73,6 @@ jobs:
         export SCALE=${GITHUB_WORKSPACE}/../scale
 
         cd FElib/test/common
-        testdirs=
         for testdir in ${testdirs}; do
           make -C ${testdir} && make -C ${testdir} run
         done
@@ -82,14 +81,14 @@ jobs:
       env: 
         testdirs: (polynominal mesh_linedom1d mesh_rectdom2d_quadrilateral mesh_cubedsphere2d mesh_cubedom3d_hexahedral mesh_cubedsphere3d field_linedom1d field_rectdom2d_quadrilateral field_cubedspheredom2d field_cubedom3d_hexahedral field_cubedspheredom3d)
       run: | 
+        shell: bash
         echo "Perform unit tests .."
 
         export SCALE_FE_SYS=Linux64-gnu-ompi
         export SCALE=${GITHUB_WORKSPACE}/../scale
 
         cd FElib/test/FE
-        testdirs=
-        for testdir in ${testdirs}; do
+        for testdir in ${testdirs[@]}; do
           make -C ${testdir} && make -C ${testdir} run
         done
     
