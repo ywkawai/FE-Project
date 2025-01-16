@@ -48,7 +48,7 @@ if [ ! ${RUNCONF} = "NONE" ]; then
       let i="n - 1"
       RUN_MAIN=`echo -e "${RUN_MAIN}\n"${MPIEXEC} ${PROCLIST[i]} ${BINDIR}/${BINNAME} ${CONFLIST[i]} "|| exit 1"`
    done
-else
+elif [ ! ${BINNAME} = "NONE" ]; then
    RUN_MAIN=`echo -e "${RUN_MAIN}\n"${MPIEXEC} ${PROCLIST[i]} ${BINDIR}/${BINNAME}"|| exit 1"`
 fi
 
