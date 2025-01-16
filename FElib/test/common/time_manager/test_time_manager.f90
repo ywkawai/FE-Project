@@ -77,6 +77,8 @@ contains
     namelist /PARAM_OCN_DYN/ &
       TIME_DT, TIME_DT_UNIT
     integer :: ierr
+
+    character(len=H_LONG) :: cnf_fname              ! config file for launcher
     !-------------------------------------------------
 
     call PRC_MPIstart( comm )
@@ -87,7 +89,8 @@ contains
     call PRC_ERRHANDLER_setup( .false., ismaster ) ! [IN]
 
     ! setup scale_io
-    call IO_setup( "test_time_manager", "test.conf", allow_noconf = .false. )
+    cnf_fname = IO_ARG_getfname( ismaster )
+    call IO_setup( "test_time_manager", cnf_fname, allow_noconf = .false. )
 
     ! setup log
     call IO_LOG_setup( myrank, ismaster )   
