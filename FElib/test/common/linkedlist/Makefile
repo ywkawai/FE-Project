@@ -11,7 +11,6 @@ FELIB_TEST_DIR = ../../
 BINNAME = test_linkedlist
 OBJS    =
 
-RUNCONF         = 
 TPROC           = 1
 OMP_NUM_THREADS = 1
 
