@@ -22,7 +22,7 @@ def mkgraph_numerror( time, numerror, fig_title, ylbl, ylim_min, ylim_max, out_f
 
 names=['dummy1', 'tsec', 'L1_error', 'L2_error', 'Linf_error', 'Ediss', 'Edisp']
 
-df = pd.read_csv(in_numerror_logfile, names=names, skiprows=range(0, 1), delim_whitespace=True)
+df = pd.read_csv(in_numerror_logfile, names=names, skiprows=range(0, 1), sep='\s+')
 df = df.drop(columns=['dummy1']).set_index('tsec')
 ds = xr.Dataset.from_dataframe(df)
 

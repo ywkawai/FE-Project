@@ -2,7 +2,7 @@
 !> Program A sample program: 1-dimensional linear advection test
 !! 
 !! 
-!! @author Team SCALE
+!! @author Yuta Kawai, Team SCALE
 !<
 !-------------------------------------------------------------------------------
 #include "scalelib.h"
@@ -397,11 +397,17 @@ contains
     use scale_time_manager, only: TIME_manager_Final 
     use mod_advect1d_numerror, only: advect1d_numerror_Final   
     implicit none
+    integer :: idom
+    !------------------------------------------------------------------------
 
     call PROF_rapstart( "final", 1 )
     call advect1d_numerror_Final()
 
     call FILE_HISTORY_meshfield_finalize()
+
+    do idom=1, mesh%LOCAL_MESH_NUM
+      call tinteg_lc(idom)%Final()
+    end do
 
     call q%Final()
     call qexact%Final()
@@ -422,5 +428,4 @@ contains
 
     return
   end subroutine final
-
 end program test_advect1d
