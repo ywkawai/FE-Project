@@ -65,7 +65,7 @@ jobs:
 
     - name: unit test for common
       env: 
-        testdirs: (linkedlist time_manager sparsemat timeint_rk)
+        testdirs: linkedlist time_manager sparsemat timeint_rk
       run: | 
         echo "Perform unit tests .."
 
@@ -79,7 +79,7 @@ jobs:
 
     - name: unit test for FE
       env: 
-        testdirs: (polynominal mesh_linedom1d mesh_rectdom2d_quadrilateral mesh_cubedsphere2d mesh_cubedom3d_hexahedral mesh_cubedsphere3d field_linedom1d field_rectdom2d_quadrilateral field_cubedspheredom2d field_cubedom3d_hexahedral field_cubedspheredom3d)
+        testdirs: polynominal mesh_linedom1d mesh_rectdom2d_quadrilateral mesh_cubedsphere2d mesh_cubedom3d_hexahedral mesh_cubedsphere3d field_linedom1d field_rectdom2d_quadrilateral field_cubedspheredom2d field_cubedom3d_hexahedral field_cubedspheredom3d
       run: | 
         shell: bash
         echo "Perform unit tests .."
@@ -88,11 +88,13 @@ jobs:
         export SCALE=${GITHUB_WORKSPACE}/../scale
 
         cd FElib/test/FE
-        for testdir in ${testdirs[@]}; do
+        for testdir in ${testdirs}; do
           make -C ${testdir} && make -C ${testdir} run
         done
     
-    - name: unit test for framework
+    - name: unit test for model framework
+      env: 
+        testdirs: model_framework
       run: | 
         echo "Perform unit tests .."
 
@@ -100,7 +102,9 @@ jobs:
         export SCALE=${GITHUB_WORKSPACE}/../scale
 
         cd FElib/test/framework
-        make -C model_framework
+        for testdir in ${testdirs}; do
+          make -C ${testdir} && make -C ${testdir} run
+        done
 
     - name: samples
       run: | 
