@@ -11,6 +11,7 @@ FELIB_TEST_DIR = ../../
 BINNAME = test_mesh_rectdom2d_quadrilateral
 OBJS    =
 
+RUNCONF         = test.conf
 TPROC           = 1
 OMP_NUM_THREADS = 1
 

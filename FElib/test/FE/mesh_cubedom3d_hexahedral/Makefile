@@ -11,6 +11,7 @@ FELIB_TEST_DIR = ../../
 BINNAME = test_mesh_cubedom3d_hexahedral
 OBJS    =
 
+RUNCONF         = test.conf
 TPROC           = 1
 OMP_NUM_THREADS = 1
 

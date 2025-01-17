@@ -16,7 +16,8 @@ SAMPLE_AUX_LIBS = libScaleFESampleAux.a
 SAMPLE_AUX_OBJS = \
 	mod_operator_fvm.o \
 	mod_output_fvm.o   \
-	mod_fieldutil.o
+	mod_fieldutil.o    \
+	mod_dft.o
 
 all:
 	$(MAKE) envlog

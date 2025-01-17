@@ -43,15 +43,15 @@ class Experiment:
       v.print_info()
 
   def prepair(self):
-    shutil.copyfile(self._org_pe_path, self._pe_path)
-    os.chmod(self.pe_path, 0o777)
+    # shutil.copyfile(self._org_pe_path, self._pe_path)
+    # os.chmod(self.pe_path, 0o777)
 
     print("prepair & generate configure files and job scripts ..")
     for case in self.expcase_list.values():
       print("case= " + case.name + " path=" + case.path + "...")
       case.prepair()
       case.generate_configfile()
-      case.generate_jobscript(self._topdir + case.name+".sh")      
+      # case.generate_jobscript(self._topdir + case.name+".sh")      
 
 class ExpCase(metaclass=ABCMeta):
   def __init__(self, exp, path_from_exptopdir, name, confname, 

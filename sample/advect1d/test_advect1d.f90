@@ -2,7 +2,7 @@
 !> Program A sample program: 1-dimensional linear advection test
 !! 
 !! 
-!! @author Team SCALE
+!! @author Yuta Kawai, Team SCALE
 !<
 !-------------------------------------------------------------------------------
 #include "scalelib.h"
@@ -70,8 +70,6 @@ program test_advect1d
   integer :: rkstage
   integer :: tintbuf_ind
   integer, parameter :: RKVAR_Q = 1
-
-  integer :: LOG_STEP_INTERVAL
   !-------------------------------------------------------
 
   call init()
@@ -182,7 +180,7 @@ contains
     implicit none
 
     class(LocalMesh1D), intent(in) :: lmesh
-    class(elementbase1D), intent(in) :: elem  
+    class(ElementBase1D), intent(in) :: elem  
     real(RP), intent(out) ::  ebnd_flux(elem%NfpTot,lmesh%Ne) !< Flux at element boundaries
     real(RP), intent(in) ::  q_(elem%Np*lmesh%NeA)
     real(RP), intent(in) ::  u_(elem%Np*lmesh%NeA)  
@@ -258,6 +256,8 @@ contains
     call FILE_HISTORY_meshfield_put( HST_ID(2), qexact )
     call FILE_HISTORY_meshfield_write()   
   
+    call intrpElem%Final()
+
     return
   end subroutine set_initcond
 
@@ -277,7 +277,7 @@ contains
   
     integer            :: NeGX                = 2
     integer            :: PolyOrder           = 1
-    logical, parameter :: DumpedMassMatFlag   = .false.
+    logical, parameter :: LumpedMassMatFlag   = .false.
     character(len=H_SHORT) :: TINTEG_SCHEME_TYPE
 
     namelist /PARAM_TEST/ &
@@ -285,9 +285,8 @@ contains
       TINTEG_SCHEME_TYPE,             &
       InitShapeName, InitShapeParams, &
       InitGPMatPolyOrder,             &
-      ADV_VEL,                        &
-      LOG_STEP_INTERVAL
-        
+      ADV_VEL  
+      
     integer :: comm, myrank, nprocs
     logical :: ismaster
     integer :: ierr
@@ -321,7 +320,6 @@ contains
     InitGPMatPolyOrder = 7
     ADV_VEL            = 1.0_RP
     TINTEG_SCHEME_TYPE = 'ERK_SSP_3s3o'
-    LOG_STEP_INTERVAL  = 5
     
     rewind(IO_FID_CONF)
     read(IO_FID_CONF,nml=PARAM_TEST,iostat=ierr)
@@ -346,7 +344,7 @@ contains
 
     !-- setup reference element and spatial operators
 
-    call refElem%Init(PolyOrder, DumpedMassMatFlag)
+    call refElem%Init(PolyOrder, LumpedMassMatFlag)
     call Dx%Init(refElem%Dx1)
     call Lift%Init(refElem%Lift)
 
@@ -399,11 +397,17 @@ contains
     use scale_time_manager, only: TIME_manager_Final 
     use mod_advect1d_numerror, only: advect1d_numerror_Final   
     implicit none
+    integer :: idom
+    !------------------------------------------------------------------------
 
     call PROF_rapstart( "final", 1 )
     call advect1d_numerror_Final()
 
     call FILE_HISTORY_meshfield_finalize()
+
+    do idom=1, mesh%LOCAL_MESH_NUM
+      call tinteg_lc(idom)%Final()
+    end do
 
     call q%Final()
     call qexact%Final()
@@ -424,5 +428,4 @@ contains
 
     return
   end subroutine final
-
 end program test_advect1d

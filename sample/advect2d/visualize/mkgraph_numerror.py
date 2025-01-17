@@ -29,4 +29,4 @@ ds = xr.Dataset.from_dataframe(df)
 time = ds["tsec"]
 mkgraph_numerror( time, ds["L1_error"], "L1 error", "L1 error", 1e-9, 1e-2, f"{outpng_basename}_l1.png")
 mkgraph_numerror( time, ds["L2_error"], 'L2 error', "L2 error", 1e-9, 1e-2, f"{outpng_basename}_l2.png")
-mkgraph_numerror( time, ds["Linf_error"], 'Linf error', "Linf error", 1e-9, 1e-2, f"{outpng_basename}_linf.png")
+mkgraph_numerror( time, ds["Linf_error"], 'Linf error', "Linf error", 1e-8, 1e-1, f"{outpng_basename}_linf.png")

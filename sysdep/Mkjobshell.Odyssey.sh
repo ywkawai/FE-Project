@@ -55,6 +55,9 @@ if [ ! ${RUNCONF} = "NONE" ]; then
       RUN_MAIN=`echo -e "${RUN_MAIN}\n"${MPIEXEC} ${PROCLIST[i]} ${BINDIR}/${BINNAME} ${CONFLIST[i]} "|| exit 1"`
       FILES_LLIO=`echo -e ${FILES_LLIO} ${CONFLIST[i]}`
    done
+elif [ ! ${BINNAME} = "NONE" ]; then
+   FILES_LLIO=`echo -e ${FILES_LLIO} ${BINDIR}/${BINNAME}`
+   RUN_MAIN=`echo -e "${RUN_MAIN}\n"${MPIEXEC} ${PROCLIST[i]} ${BINDIR}/${BINNAME}"|| exit 1"`
 fi
 
 array=( `echo ${TPROC} | tr -s 'x' ' '`)

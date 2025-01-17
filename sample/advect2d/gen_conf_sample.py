@@ -7,10 +7,12 @@ from advect2d_expcase import exp_prepair
 TOP_DIR="./"
 Ne_List = [4, 8, 16, 32, 64, 128]
 PolyOrder_List = [1, 2, 3, 4, 5]
+iniGPMat_porder_list = [3, 5, 7, 10, 11]
 DELT_List = [ [0.0005]*len(Ne_List) ]*len(PolyOrder_List) 
-iniGalerkinProjFlag = False
+eval_numerror_step_list = [100, 100, 100, 100, 100, 100]
+eval_numerror_porder_list = [3, 5, 7, 10, 11]
 
-ORG_PE_PATH="/data5/ykawai/FE-Project/sample/advect2d/test_advect2d"
+ORG_PE_PATH="./test_advect2d"
 
 vconst_params = [1.0, 1.0, 0.0, 0.0]
 vrigid_body_rot_params = [0.5, 0.5, 1.0, 0.0]
@@ -30,4 +32,5 @@ expcase_params_dict = {
   'Icosine-bell_Vswirling': ['cosine-bell', [0.25, 0.25, 0.05, 0.0],  'swirling', vswirling_params ]
 }
 
-exp_prepair(TOP_DIR, Ne_List, PolyOrder_List, DELT_List, ORG_PE_PATH, expcase_params_dict, iniGalerkinProjFlag)
+exp_prepair( TOP_DIR, Ne_List, PolyOrder_List, DELT_List, ORG_PE_PATH, expcase_params_dict, 
+             iniGPMat_porder_list, eval_numerror_porder_list, eval_numerror_step_list )

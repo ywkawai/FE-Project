@@ -19,7 +19,7 @@ ax.set_xlim(0.0, 1.0)
 ax.set_ylim(ylim_min , ylim_max)
 ax.set_xlabel("x")
 ax.set_ylabel("u")
-ax.set_title("1D linear advection") 
+ax.set_title("1D linear advection-diffusion") 
 
 ims = []
 flag_legend = True
@@ -30,7 +30,7 @@ for n in range(1,len(time)):
   im2 = plt.plot(x, u.isel(time=n), color="black", label="numsol")
   
   time_txt = "{:.2f}".format(time.values[n])
-  title = ax.text(0.01, ylim_max*0.95, "time="+time_txt)
+  title = ax.text(0.01, ylim_max*0.85, "time="+time_txt)
   if flag_legend:
     plt.legend(bbox_to_anchor=(1.01, 1), loc='upper left')
     flag_legend = False
