@@ -87,7 +87,8 @@ build: $(patsubst %,$(BUILD_DIR)/%,$(ORG_SRCS))
                                 BUILD_DIR=$(BUILD_DIR)            \
                                 BINDIR=$(BINDIR2)                 \
                                 POSTFIX=$(POSTFIX)                \
-                                FFLAG_TESTCASE=$(FFLAG_TESTCASE)
+                                FFLAG_TESTCASE=$(FFLAG_TESTCASE)  \
+                                EXP_ORG_SRCS="$(ORG_SRCS)"
 
 util:
 	$(MAKE) -C $(UTILDIR)

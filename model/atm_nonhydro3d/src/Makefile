@@ -50,7 +50,6 @@ SUB_OBJS = \
 	mod_atmos_mesh_gm.o          \
 	mod_atmos_vars.o             \
 	mod_user_base.o              \
-	mod_user.o                   \
 	mod_experiment.o             \
 	\
 	mod_mktopo_util.o            \
@@ -62,6 +61,13 @@ MAIN_OBJS = \
 	mod_dg_launcher.o            \
 	mod_dg_driver.o				 \
 	mod_dg_prep.o                
+
+# TEST CASE
+ifeq ($(origin EXP_ORG_SRCS), undefined)
+	SUB_OBJS += mod_user.o
+else
+	SUB_OBJS += $(patsubst %.F90,%.o,$(EXP_ORG_SRCS))
+endif
 
 OBJS = 	\
 	$(SUB_OBJS)	\
@@ -99,18 +105,18 @@ makelib:
 
 makebin:  $(BUILD_DIR)/$(BINNAME)$(POSTFIX) $(BUILD_DIR)/$(PPNAME)$(POSTFIX)
 
-sub_objs: $(patsubst %,$(BUILD_DIR)/%,$(SUB_OBJS)) $(BUILD_DIR)/mod_user.o
+sub_objs: $(patsubst %,$(BUILD_DIR)/%,$(SUB_OBJS))
 
 main_objs: $(patsubst %,$(BUILD_DIR)/%,$(MAIN_OBJS))
 
-$(BUILD_DIR)/$(BINNAME)$(POSTFIX)  : $(BUILD_DIR)/$(BINNAME).o  $(patsubst %,$(BUILD_DIR)/%,$(OBJS)) $(BUILD_DIR)/mod_user.o $(LIBS)
+$(BUILD_DIR)/$(BINNAME)$(POSTFIX)  : $(BUILD_DIR)/$(BINNAME).o  $(patsubst %,$(BUILD_DIR)/%,$(OBJS)) $(LIBS)
 	$(LD) $(LDFLAGS) $(ADDITIONAL_FFLAGS) -o $@ $^ $(LIBS) $(CONTRIB_LIBS) $(SCALE_NETCDF_LIBS) $(SCALE_MATHLIB_LIBS) $(SCALE_PAPI_LIBS)
 
-$(BUILD_DIR)/$(PPNAME)$(POSTFIX) : $(BUILD_DIR)/$(PPNAME).o $(patsubst %,$(BUILD_DIR)/%,$(OBJS)) $(BUILD_DIR)/mod_user.o $(LIBS)
+$(BUILD_DIR)/$(PPNAME)$(POSTFIX) : $(BUILD_DIR)/$(PPNAME).o $(patsubst %,$(BUILD_DIR)/%,$(OBJS)) $(LIBS)
 	$(LD) $(LDFLAGS) $(ADDITIONAL_FFLAGS) -o $@ $^ $(LIBS) $(CONTRIB_LIBS) $(SCALE_NETCDF_LIBS) $(SCALE_MATHLIB_LIBS) $(SCALE_PAPI_LIBS)
 
-$(BUILD_DIR)/$(BINNAME).o  : $(LIBS) $(patsubst %,$(BUILD_DIR)/%,$(OBJS)) $(BUILD_DIR)/mod_user.o
-$(BUILD_DIR)/$(PPNAME).o : $(LIBS) $(patsubst %,$(BUILD_DIR)/%,$(OBJS)) $(BUILD_DIR)/mod_user.o
+$(BUILD_DIR)/$(BINNAME).o  : $(LIBS) $(patsubst %,$(BUILD_DIR)/%,$(OBJS))
+$(BUILD_DIR)/$(PPNAME).o : $(LIBS) $(patsubst %,$(BUILD_DIR)/%,$(OBJS))
 $(BUILD_DIR)/mod_user.o    : $(LIBS) $(patsubst %,$(BUILD_DIR)/%,$(SUB_OBJS)) $(BUILD_DIR)/mod_experiment.o $(BUILD_DIR)/mod_mkinit_util.o
 
 $(BINDIR)/$(BINNAME)$(POSTFIX)  : $(BUILD_DIR)/$(BINNAME)$(POSTFIX)
