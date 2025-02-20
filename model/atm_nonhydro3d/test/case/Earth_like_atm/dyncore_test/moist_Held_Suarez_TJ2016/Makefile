@@ -11,7 +11,11 @@ TESTDIR     = ../../../..
 
 # user-defined source files
 CODE_DIR    = .
-ORG_SRCS    = mod_user.F90
+ORG_SRCS    = mod_user.F90    \
+	mod_user_sub_data.F90     \
+	mod_user_sub_Filter.F90   \
+	mod_user_sub_LSC.F90      \
+	mod_user_sub_BLmixing.F90
 
 # parameters for run
 INITCONF    = init.conf
@@ -32,3 +36,7 @@ include $(TESTDIR)/Makefile.common
 make_expdir:
 	mkdir -p run{_spinup1,_spinup2,1,2,3,4}/outdata_p
 
+$(BUILD_DIR)/mod_user.o : $(BUILD_DIR)/mod_user_sub_LSC.o $(BUILD_DIR)/mod_user_sub_BLmixing.o
+$(BUILD_DIR)/mod_user_sub_BLmixing.o: $(BUILD_DIR)/mod_atmos_vars.o
+$(BUILD_DIR)/mod_user_sub_LSC.o : $(BUILD_DIR)/mod_user_sub_Filter.o $(BUILD_DIR)/mod_atmos_vars.o
+$(BUILD_DIR)/mod_user_sub_Filter.o : $(BUILD_DIR)/mod_user_sub_data.o

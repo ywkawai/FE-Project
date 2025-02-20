@@ -365,7 +365,6 @@ contains
 
     real(RP) :: SFLX_MU1, SFLX_MV1
 
-!    real(RP) :: mass_check
     !-------------------------------------------------
 
     if (is_update_sflx) then
@@ -466,16 +465,6 @@ contains
         DENS_tp(:,ke) = DENS_tp(:,ke) - LiftDelFlx(:)
       end if 
     end do
-
-    ! mass_check = 0.0_RP
-    ! !$omp parallel do private(LiftDelFlx) reduction(+: mass_check)
-    ! do ke2D=1, lcmesh2D%Ne
-    !   ke = ke2D
-    !   call sparsemat_matmul( Lift, lcmesh%Fscale(:,ke)*del_flux(:,ke,5), LiftDelFlx )
-    !   mass_check = mass_check &
-    !     - sum( lcmesh%J(:,ke) * lcmesh%Gsqrt(:,ke) * elem%IntWeight_lgl(:) * LiftDelFlx(:) )
-    ! end do
-    ! LOG_INFO("SFC_mass_check: ",*) mass_check
 
     return
   end subroutine cal_tend_from_sfcflx
