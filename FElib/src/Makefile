@@ -20,6 +20,7 @@ VPATH = \
 	data:             \
 	file:             \
 	fluid_dyn_solver: \
+	surface:          \
 	turbulence:       \
 	microphysics:     \
 	model_framework:
@@ -129,6 +130,9 @@ OBJS_NAME_FLUID_DYN_SOLVER = \
 	scale_atm_dyn_dgm_driver_trcadv3d.o	             \
 	scale_atm_dyn_dgm_trcadvect3d_heve.o	
 
+OBJS_NAME_SURFACE = \
+	scale_atm_phy_sf_bulk_simple.o
+
 OBJS_NAME_TURBULENCE = \
 	scale_atm_phy_tb_dgm_driver.o    \
 	scale_atm_phy_tb_dgm_dns.o       \
@@ -153,6 +157,7 @@ OBJS_NAME = \
 	$(OBJS_NAME_DATA)		      \
 	$(OBJS_NAME_FILE)             \
 	$(OBJS_NAME_FLUID_DYN_SOLVER) \
+	$(OBJS_NAME_SURFACE)          \
 	$(OBJS_NAME_TURBULENCE)       \
 	$(OBJS_NAME_MICROPHYS)        \
 	$(OBJS_NAME_MODEL_FRAMEWORK)
