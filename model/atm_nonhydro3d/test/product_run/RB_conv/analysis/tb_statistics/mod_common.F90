@@ -7,6 +7,8 @@ module mod_common
   use scale_precision
   use scale_io
   use scale_prc
+  use scale_const, only: &
+    CpDry => CONST_CPdry
 
   use scale_sparsemat, only: &
     sparsemat
@@ -34,7 +36,9 @@ module mod_common
   public :: global_horizontal_mean
   !----
   public :: get_reconstructed_flux
+
   public :: get_del_flux_cent  
+  public :: get_del_flux_cent_heat
   !----
   public :: inquire_bound_flag
   
@@ -50,6 +54,7 @@ module mod_common
   integer, allocatable:: velBC_ids(:)
   type(MeshBndInfo), allocatable :: thermBC_list(:)
   integer, allocatable:: thermBC_ids(:)
+
   integer, parameter :: domBnd_South_ID = 1
   integer, parameter :: domBnd_East_ID  = 2
   integer, parameter :: domBnd_North_ID = 3
@@ -57,6 +62,17 @@ module mod_common
   integer, parameter :: domBnd_Btm_ID   = 5
   integer, parameter :: domBnd_Top_ID   = 6
   integer, parameter :: DOM_BND_NUM     = 6  
+
+  real(RP), private :: BTM_FIXED_HEAT_FLUX  = 15.88_RP
+  real(RP), private :: TOP_FIXED_HEAT_FLUX  = 15.88_RP  ! ztop=1.6 km
+
+  integer, parameter :: BC_HEAT_FIXED_TEMP    = 1
+  integer, parameter :: BC_MOM_NoSlip         = 1
+  integer, parameter :: BC_HEAT_FIXED_FLUX    = 2
+  integer, parameter :: BC_MOM_CONST_BULKCOEF = 2
+
+  integer :: BTM_BC_HEAT_TYPEID
+  integer :: TOP_BC_HEAT_TYPEID
 
   real(RP), allocatable :: gLB(:), gRB(:)
   integer, allocatable :: vmapM_Z(:,:)
@@ -89,7 +105,21 @@ contains
     integer :: Nnode_v
     real(RP), allocatable :: nodepos_v(:)
     real(RP), allocatable :: L_pp1(:,:)
+
+    character(H_SHORT) :: BTM_BC_TYPE_HEAT
+    character(H_SHORT) :: TOP_BC_TYPE_HEAT
+
+    namelist / PARAM_RBCONV_ANALYSIS_BC / &
+      BTM_BC_TYPE_HEAT,   &
+      TOP_BC_TYPE_HEAT,   &
+      BTM_FIXED_HEAT_FLUX, &
+      TOP_FIXED_HEAT_FLUX
+
+    integer :: ierr
     !--------------------------------------------------------------------
+
+    LOG_NEWLINE
+    LOG_INFO("common_Init",*) 'Setup'
 
     refElem3D => mesh%refElem3D
     call Dx%Init( refElem3D%Dx1, storage_format='ELL' )
@@ -154,6 +184,23 @@ contains
         thermBC_ids(:),          & ! (in)
         lcmesh3D%VMapB, mesh, lcmesh3D, lcmesh3D%refElem3D ) ! (in)
     end do    
+
+    !--- read namelist
+    BTM_BC_TYPE_HEAT = "FixedTemp"
+    TOP_BC_TYPE_HEAT = "FixedTemp"
+
+    rewind(IO_FID_CONF)
+    read(IO_FID_CONF,nml=PARAM_RBCONV_ANALYSIS_BC ,iostat=ierr)
+    if( ierr < 0 ) then !--- missing
+       LOG_INFO("diag_tb_Init",*) 'Not found namelist. Default used.'
+    elseif( ierr > 0 ) then !--- fatal error
+       LOG_ERROR("diag_tb_Init",*) 'Not appropriate names in namelist PARAM_RBCONV_ANALYSIS_BC . Check!'
+       call PRC_abort
+    endif
+    LOG_NML(PARAM_RBCONV_ANALYSIS_BC)
+
+    BTM_BC_HEAT_TYPEID = get_bctype_heat_id(BTM_BC_TYPE_HEAT)
+    TOP_BC_HEAT_TYPEID = get_bctype_heat_id(TOP_BC_TYPE_HEAT)
 
     ! Flux reconstruction
     allocate( vmapM_Z(refElem3D%NfpTot,lcmesh3D%NeZ), vmapP_Z(refElem3D%NfpTot,lcmesh3D%NeZ) )
@@ -264,18 +311,42 @@ contains
   end subroutine get_reconstructed_flux
 
 !OCL SERIAL
-  subroutine get_del_flux_cent( del_flux,    &
-    flux, lcmesh, elem, bndtype_top_id, bndtype_btm_id,  &
-    sfc_flux )
+  subroutine get_del_flux_cent_heat( del_flux,    &
+    flux, lcmesh, elem )
 
     implicit none
     class(LocalMesh3D), intent(in) :: lcmesh
     class(elementbase3D), intent(in) :: elem
     real(RP), intent(out) :: del_flux(elem%NfpTot,lcmesh%Ne)
     real(RP), intent(in) :: flux(elem%Np*lcmesh%NeZ,lcmesh%Ne2D)
-    integer, intent(in) :: bndtype_top_id ! mirror: 1, noflux: 2, specified zero sflux: 3
-    integer, intent(in) :: bndtype_btm_id ! mirror: 1, noflux: 2, specified sflux: 3
+
+    real(RP) :: sfc_flux(elem%Nfp_v,lcmesh%Ne2D)
+    real(RP) :: top_flux(elem%Nfp_v,lcmesh%Ne2D)
+    !--------------------------------
+
+    sfc_flux(:,:) = - BTM_FIXED_HEAT_FLUX / CpDry
+    top_flux(:,:) = - TOP_FIXED_HEAT_FLUX / CpDry
+    call get_del_flux_cent( del_flux,    &
+      flux, lcmesh, elem, TOP_BC_HEAT_TYPEID, BTM_BC_HEAT_TYPEID,  &
+      sfc_flux, top_flux )
+
+    return
+  end subroutine get_del_flux_cent_heat
+
+!OCL SERIAL
+  subroutine get_del_flux_cent( del_flux,    &
+    flux, lcmesh, elem, bndtype_top_id, bndtype_btm_id,  &
+    sfc_flux, top_flux )
+
+    implicit none
+    class(LocalMesh3D), intent(in) :: lcmesh
+    class(elementbase3D), intent(in) :: elem
+    real(RP), intent(out) :: del_flux(elem%NfpTot,lcmesh%Ne)
+    real(RP), intent(in) :: flux(elem%Np*lcmesh%NeZ,lcmesh%Ne2D)
+    integer, intent(in) :: bndtype_top_id ! mirror: 1, specified flux: 2
+    integer, intent(in) :: bndtype_btm_id ! mirror: 1, specified flux: 2
     real(RP), optional, intent(in) :: sfc_flux(elem%Nfp_v,lcmesh%Ne2D)
+    real(RP), optional, intent(in) :: top_flux(elem%Nfp_v,lcmesh%Ne2D)
 
     integer :: ke2D, ke_z, ke
     integer :: p2D, p
@@ -304,11 +375,6 @@ contains
           del_flux(p,ke) = 0.0_RP
         end do
       else if (bndtype_btm_id == 2) then
-          do p2D=1, elem%Nfp_v
-            p = elem%Nfp_h * elem%Nfaces_h + p2D
-            del_flux(p,ke) = - 2.0_RP * flux(iM(p),ke2D)
-          end do  
-      else if (bndtype_btm_id == 3) then
         do p2D=1, elem%Nfp_v
           p = elem%Nfp_h * elem%Nfaces_h + p2D
           del_flux(p,ke) = sfc_flux(p2D,ke2D) - flux(iM(p),ke2D)
@@ -324,14 +390,9 @@ contains
           del_flux(p,ke) = 0.0_RP
         end do
       else if (bndtype_top_id == 2) then
-          do p2D=1, elem%Nfp_v
-            p = elem%Nfp_h * elem%Nfaces_h + elem%Nfp_v + p2D
-            del_flux(p,ke) = - 2.0_RP * flux(iM(p),ke2D)
-          end do  
-      else if (bndtype_top_id == 3) then
         do p2D=1, elem%Nfp_v
           p = elem%Nfp_h * elem%Nfaces_h + elem%Nfp_v + p2D
-          del_flux(p,ke) = 0.0_RP - flux(iM(p),ke2D)
+          del_flux(p,ke) = top_flux(p2D,ke2D) - flux(iM(p),ke2D)
         end do
       end if
     end do
@@ -481,5 +542,21 @@ contains
 
     return
   end subroutine common_gen_vmapZ
+
+  function get_bctype_heat_id(bctype) result(type_id)
+    character(*), intent(in) :: bctype
+    integer :: type_id
+    !------------------
+    select case( trim(bctype) )
+    case('FixedFlux')
+      type_id = BC_HEAT_FIXED_FLUX
+    case('FixedTemp')
+      type_id = BC_HEAT_FIXED_TEMP
+    case default
+      LOG_ERROR("RBconv_get_bctype_heat_id",*) 'Not appropriate boundary condition. Check!', trim(bctype)
+      call PRC_abort
+    end select
+    return
+  end function get_bctype_heat_id  
 
 end module mod_common

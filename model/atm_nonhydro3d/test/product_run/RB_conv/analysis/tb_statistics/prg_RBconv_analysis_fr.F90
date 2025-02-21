@@ -88,6 +88,8 @@ program prg_RBconv_analysis
   type(MeshField1D) :: MOMZ_TOTFLX_V1D
   type(MeshField1D) :: MOMZ_MEANFLX_V1D
   type(MeshField1D) :: MOMZ_EDDYFLX_V1D
+  type(MeshField1D) :: HVEL_ABS_V1D
+  type(MeshField1D) :: WVEL_ABS_V1D
   integer, parameter :: DIAGVID_DENS = 1
   integer, parameter :: DIAGVID_RHOT = 2
   integer, parameter :: DIAGVID_MOMZ = 3
@@ -100,6 +102,8 @@ program prg_RBconv_analysis
   integer, parameter :: DIAGVID_MOMZ_TOTFLX  = 10
   integer, parameter :: DIAGVID_MOMZ_MEANFLX = 11
   integer, parameter :: DIAGVID_MOMZ_EDDYFLX = 12
+  integer, parameter :: DIAGVID_HVEL_ABS     = 13
+  integer, parameter :: DIAGVID_WVEL_ABS     = 14
 
   type(AtmDynBnd) :: dyn_bnd
 
@@ -159,9 +163,10 @@ program prg_RBconv_analysis
       lcmesh3D => mesh3D%lcmesh_list(n)
       call analyze_lc_1( &
         DENS_V1D%local(1)%val, RHOT_V1D%local(1)%val, MOMZ_V1D%local(1)%val,    &
-        DDENS%local(n)%val, PT%local(n)%val, W%local(n)%val,                    &
-        DENS_hyd%local(n)%val,                                                  &
-        n, lcmesh3D, refElem3D, lcmesh3D%lcmesh2D, lcmesh3D%lcmesh2D%refElem2D, &
+        HVEL_ABS_V1D%local(1)%val, WVEL_ABS_V1D%local(1)%val,                                &
+        DDENS%local(n)%val, PT%local(n)%val, U%local(n)%val, V%local(n)%val, W%local(n)%val, &
+        DENS_hyd%local(n)%val,                                                               &
+        n, lcmesh3D, refElem3D, lcmesh3D%lcmesh2D, lcmesh3D%lcmesh2D%refElem2D,              &
         meshV1D%lcmesh_list(1), refElemV1D )
     end do
 
@@ -208,6 +213,8 @@ program prg_RBconv_analysis
       call out_file_V1D%Write_var1D( DIAGVID_MOMZ_TOTFLX, MOMZ_TOTFLX_V1D, start_time, end_time )
       call out_file_V1D%Write_var1D( DIAGVID_MOMZ_MEANFLX, MOMZ_MEANFLX_V1D, start_time, end_time )
       call out_file_V1D%Write_var1D( DIAGVID_MOMZ_EDDYFLX, MOMZ_EDDYFLX_V1D, start_time, end_time )
+      call out_file_V1D%Write_var1D( DIAGVID_HVEL_ABS, HVEL_ABS_V1D, start_time, end_time )
+      call out_file_V1D%Write_var1D( DIAGVID_WVEL_ABS, WVEL_ABS_V1D, start_time, end_time )
     end if
 
     if( IO_L ) call flush(IO_FID_LOG)
@@ -264,7 +271,8 @@ contains
 
 !OCL SERIAL
   subroutine analyze_lc_1( DENS_V1D_, RHOT_V1D_, MOMZ_V1D_,  &
-    DDENS_, PT_, W_,                                         &
+    HVEL_ABS_V1D_, WVEL_ABS_V1D_,                            &
+    DDENS_, PT_, U_, V_, W_,                                 &
     DENS_hyd_,                                               &
     domID, lmesh, elem, lmeshH2D, elemH2D, lmeshV1D, elemV1D )
 
@@ -278,8 +286,12 @@ contains
     real(RP), intent(inout) :: DENS_V1D_(elemV1D%Np,lmeshV1D%NeA)
     real(RP), intent(inout) :: RHOT_V1D_(elemV1D%Np,lmeshV1D%NeA)
     real(RP), intent(inout) :: MOMZ_V1D_(elemV1D%Np,lmeshV1D%NeA)
+    real(RP), intent(inout) :: HVEL_ABS_V1D_(elemV1D%Np,lmeshV1D%NeA)
+    real(RP), intent(inout) :: WVEL_ABS_V1D_(elemV1D%Np,lmeshV1D%NeA)
     real(RP), intent(in)    :: DDENS_   (elem%Np,lmesh%NeA)
     real(RP), intent(in)    :: PT_      (elem%Np,lmesh%NeA)
+    real(RP), intent(in)    :: U_       (elem%Np,lmesh%NeA)
+    real(RP), intent(in)    :: V_       (elem%Np,lmesh%NeA)
     real(RP), intent(in)    :: W_       (elem%Np,lmesh%NeA)
     real(RP), intent(in)    :: DENS_hyd_(elem%Np,lmesh%NeA)
     integer, intent(in) :: domID
@@ -307,6 +319,8 @@ contains
         DENS_V1D_(:,ke_z) = 0.0_RP
         RHOT_V1D_(:,ke_z) = 0.0_RP
         MOMZ_V1D_(:,ke_z) = 0.0_RP
+        HVEL_ABS_V1D_(:,ke_z) = 0.0_RP
+        WVEL_ABS_V1D_(:,ke_z) = 0.0_RP
       end do
       harea = 0.0_RP
     end if
@@ -357,6 +371,11 @@ contains
           !                   + sum( int_w(:) * DENS_lc(hSliceID(:)) * W_ (hSliceID(:),ke) )
           MOMZ_V1D_(p,ke_z) = MOMZ_V1D_(p,ke_z) &
                             + sum( int_w(:) * MOMZ_reconst(hSliceID(:),ke) )
+
+          HVEL_ABS_V1D_(p,ke_z) = HVEL_ABS_V1D_(p,ke_z) &
+                            + sum( int_w(:) * ( U_(hSliceID(:),ke)**2 + V_(hSliceID(:),ke)**2 )**0.5 )
+          WVEL_ABS_V1D_(p,ke_z) = WVEL_ABS_V1D_(p,ke_z) &
+                            + sum( int_w(:) * ( W_(hSliceID(:),ke)**2 )**0.5 )
         end do
       end do    
       end do  
@@ -375,6 +394,8 @@ contains
         DENS_V1D_(:,ke_z) = DENS_V1D_(:,ke_z) / harea
         RHOT_V1D_(:,ke_z) = RHOT_V1D_(:,ke_z) / harea
         MOMZ_V1D_(:,ke_z) = MOMZ_V1D_(:,ke_z) / harea
+        HVEL_ABS_V1D_(:,ke_z) = HVEL_ABS_V1D_(:,ke_z) / harea
+        WVEL_ABS_V1D_(:,ke_z) = WVEL_ABS_V1D_(:,ke_z) / harea
       end do
     end if
 
@@ -436,6 +457,7 @@ contains
     real(RP) :: del_flux_momzw(elem%NfpTot,lmesh%Ne)
 
     real(RP) :: sfc_nonormal_flux(elem%Nfp_v,lmesh%Ne2D)
+    real(RP) :: btm_nonormal_flux(elem%Nfp_v,lmesh%Ne2D)
 
     real(RP) :: W_hm_V1D
     !---------------------------------------------------------------------
@@ -473,15 +495,18 @@ contains
     !$omp end do
     !$omp workshare
     sfc_nonormal_flux(:,:) = 0.0_RP
+    btm_nonormal_flux(:,:) = 0.0_RP
     !$omp end workshare
     !$omp end parallel
-    call get_del_flux_cent( del_flux_rhotw,      &
-      HEATTOTFLX_z, lmesh, lmesh%refElem3D, 1, 1 )
+    call get_del_flux_cent( del_flux_rhotw,       &
+      HEATTOTFLX_z, lmesh, lmesh%refElem3D, 2, 2, &
+      sfc_nonormal_flux, btm_nonormal_flux )
     call get_reconstructed_flux( HEATTOTFLX_reconst, & 
       HEATTOTFLX_z, del_flux_rhotw, lmesh, lmesh%refElem3D )
     
-    call get_del_flux_cent( del_flux_momzw,      &
-      MOMZTOTFLX_z, lmesh, lmesh%refElem3D, 1, 1 )
+    call get_del_flux_cent( del_flux_momzw,       &
+      MOMZTOTFLX_z, lmesh, lmesh%refElem3D, 2, 2, &
+      sfc_nonormal_flux, btm_nonormal_flux )
     call get_reconstructed_flux( MOMZTOTFLX_reconst, & 
       MOMZTOTFLX_z, del_flux_momzw, lmesh, lmesh%refElem3D )
     
@@ -579,7 +604,7 @@ contains
 
     character(len=H_LONG) :: out_filebase_tb
     character(len=H_LONG) :: out_filebase_V1D
-  
+
     !-
     namelist / PARAM_RBCONV_ANALYSIS / &
       in_filebase,                    &
@@ -743,6 +768,8 @@ contains
     call MOMZ_TOTFLX_V1D%Init("MOMZ_TOTFLX", "m/s.kg.m-2.s-1", meshV1D)
     call MOMZ_MEANFLX_V1D%Init("MOMZ_MEANFLX", "m/s.kg.m-2.s-1", meshV1D)
     call MOMZ_EDDYFLX_V1D%Init("MOMZ_EDDYFLX", "m/s.kg.m-2.s-1", meshV1D)
+    call HVEL_ABS_V1D%Init("HVEL_ABS", "m/s", meshV1D)
+    call WVEL_ABS_V1D%Init("WVEL_ABS", "m/s", meshV1D)
 
     ! Input & Output   
 
@@ -782,6 +809,10 @@ contains
         timeinv=output_tintrv )          
       call out_file_V1D%Def_Var(MOMZ_EDDYFLX_V1D, "horizontal averaged eddy momentum flux in z-direction", &
         DIAGVID_MOMZ_EDDYFLX, DIMTYPEID_ZT, dtype, timeinv=output_tintrv )      
+      call out_file_V1D%Def_Var( HVEL_ABS_V1D, "horizontal averaged abs(horizontal wind vec.)", DIAGVID_HVEL_ABS, DIMTYPEID_ZT, dtype, &
+        timeinv=output_tintrv )          
+      call out_file_V1D%Def_Var( WVEL_ABS_V1D, "horizontal averaged abs(vertical wind vec.)", DIAGVID_WVEL_ABS, DIMTYPEID_ZT, dtype, &
+        timeinv=output_tintrv )          
       call out_file_V1D%End_def()
     end if
 

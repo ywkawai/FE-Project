@@ -170,6 +170,10 @@ contains
     logical fileexist
     !--------------------------------------------------------------------
 
+    LOG_NEWLINE
+    LOG_INFO("diag_tb_Init",*) 'Setup'
+
+    !--
     select case(trim(tb_scheme))
     case ("DNS")
       call atm_phy_tb_dgm_dns_Init( mesh )
@@ -421,7 +425,8 @@ contains
       Grav => CONST_GRAV, &
       CpDry => CONST_CPdry
     use mod_common, only: &
-      get_del_flux_cent,     &
+      get_del_flux_cent,      &
+      get_del_flux_cent_heat, &
       get_reconstructed_flux
     
     implicit none   
@@ -465,8 +470,8 @@ contains
     real(RP) :: SGS_MOMZ_EDDYFLX_reconst(elem3D%Np,lmesh%NeA)
     real(RP) :: del_flux_sgs_momz_eddyflux(elem3D%NfpTot,lmesh%Ne)
 
-    real(RP) :: sfc_heat_flux(elem3D%Nfp_v,lmesh%Ne2D)
     real(RP) :: sfc_momz_flux(elem3D%Nfp_v,lmesh%Ne2D)
+    real(RP) :: top_momz_flux(elem3D%Nfp_v,lmesh%Ne2D)
     !--------------------------------------------------------------------
 
     lmesh2D => lmesh%lcmesh2D
@@ -493,8 +498,8 @@ contains
     ! end do
     !$omp do
     do ke2D=lmesh2D%NeS, lmesh2D%NeE
-      sfc_heat_flux(:,ke2D) = 0.0_RP
       sfc_momz_flux(:,ke2D) = 0.0_RP
+      top_momz_flux(:,ke2D) = 0.0_RP
     end do
     !$omp end parallel
     !$omp parallel do private( ke_x, ke_y, p, ke2D, ke, DENS_lc )
@@ -511,8 +516,8 @@ contains
       end do  
     end do    
 
-    call get_del_flux_cent( del_flux_sgs_heat_eddyflux, &
-      SGS_HEAT_EDDYFLX_z, lmesh, elem3D, 1, 1  )
+    call get_del_flux_cent_heat( del_flux_sgs_heat_eddyflux, &
+      SGS_HEAT_EDDYFLX_z, lmesh, elem3D                      )
     call get_reconstructed_flux( SGS_HEAT_EDDYFLX_reconst, & 
       SGS_HEAT_EDDYFLX_z, del_flux_sgs_heat_eddyflux, lmesh, elem3D    )
 
