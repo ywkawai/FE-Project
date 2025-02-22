@@ -5,7 +5,7 @@
 !! @author Yuta Kawai, Team SCALE
 !<
 !-------------------------------------------------------------------------------
-#include "scalelib.h"
+#include "scaleFElib.h"
 program test_advect1d
   !-----------------------------------------------------------------------------
   !
@@ -64,7 +64,6 @@ program test_advect1d
   type(MeshFieldContainer), save :: field_list(2)  
   integer, save :: HST_ID(2)
   
-  integer :: nowstep
   real(RP) :: tsec_
   type(timeint_rk), allocatable :: tinteg_lc(:)
   integer :: rkstage
