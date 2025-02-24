@@ -51,6 +51,7 @@ program test_advect1d
   real(RP), save :: InitShapeParams(2)
   integer :: InitGPMatPolyOrder
   real(RP) :: ADV_VEL                       !< The constant speed of advection
+  logical :: Do_NumErrorAnalysis            !< Flag wheter analysis of numerical error is performed
 
   type(LineElement)  :: refElem
   type(sparsemat) :: Dx, Lift
@@ -115,9 +116,11 @@ program test_advect1d
     end do
 
     tsec_ = TIME_DTSEC * real(TIME_NOWSTEP-1, kind=RP)
-    call advect1d_numerror_eval( qexact, & ! (out)
-      q, TIME_NOWSTEP, tsec_, ADV_VEL, InitShapeName, InitShapeParams, & ! (in)
-      mesh, mesh%refElem1D                                             ) ! (in)
+    if ( Do_NumErrorAnalysis ) then
+      call advect1d_numerror_eval( qexact, & ! (out)
+        q, TIME_NOWSTEP, tsec_, ADV_VEL, InitShapeName, InitShapeParams, & ! (in)
+        mesh, mesh%refElem1D                                             ) ! (in)
+    end if
 
     !* Output history file
 
@@ -247,9 +250,11 @@ contains
       end do
     end do
   
-    call advect1d_numerror_eval( qexact, & ! (out)
-      q, 1, 0.0_RP, ADV_VEL, InitShapeName, InitShapeParams, & ! (in)
-      mesh, mesh%refElem1D                                   ) ! (in)
+    if ( Do_NumErrorAnalysis ) then
+      call advect1d_numerror_eval( qexact, & ! (out)
+        q, 1, 0.0_RP, ADV_VEL, InitShapeName, InitShapeParams, & ! (in)
+        mesh, mesh%refElem1D                                   ) ! (in)
+    end if
 
     call FILE_HISTORY_meshfield_put( HST_ID(1), q )
     call FILE_HISTORY_meshfield_put( HST_ID(2), qexact )
@@ -284,7 +289,8 @@ contains
       TINTEG_SCHEME_TYPE,             &
       InitShapeName, InitShapeParams, &
       InitGPMatPolyOrder,             &
-      ADV_VEL  
+      ADV_VEL,                        &
+      Do_NumErrorAnalysis
       
     integer :: comm, myrank, nprocs
     logical :: ismaster
@@ -319,6 +325,7 @@ contains
     InitGPMatPolyOrder = 7
     ADV_VEL            = 1.0_RP
     TINTEG_SCHEME_TYPE = 'ERK_SSP_3s3o'
+    Do_NumErrorAnalysis = .false.
     
     rewind(IO_FID_CONF)
     read(IO_FID_CONF,nml=PARAM_TEST,iostat=ierr)
@@ -380,7 +387,8 @@ contains
     end do
 
     !-- setup a module for evaluating numerical errors 
-    call advect1d_numerror_Init( refElem )
+    if ( Do_NumErrorAnalysis ) &
+      call advect1d_numerror_Init( refElem )
 
     !-- report information of time intervals
     call TIME_manager_report_timeintervals
@@ -400,7 +408,8 @@ contains
     !------------------------------------------------------------------------
 
     call PROF_rapstart( "final", 1 )
-    call advect1d_numerror_Final()
+    if ( Do_NumErrorAnalysis ) &
+      call advect1d_numerror_Final()
 
     call FILE_HISTORY_meshfield_finalize()
 

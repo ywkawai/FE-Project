@@ -5,7 +5,7 @@ mkdir -p analysis
 
 ### make animation ###
 echo "+make animation"
-#python visualize/mkanim.py analysis/advect1d.mp4 -0.1 1.1
+python visualize/mkanim.py analysis/advect1d.mp4 -0.1 1.1
 
 ### check error norm ###
 echo "+check numerical errors"

@@ -45,6 +45,7 @@ program test_advect1d_fvm
   character(len=H_SHORT) :: InitShapeName   !< The type of initial profile (sin, gaussian-hill, cosine-bell, top-hat)
   real(RP), save :: InitShapeParams(2)
   real(RP) :: ADV_VEL                       !< The constant speed of advection
+  logical :: Do_NumErrorAnalysis            !< Flag wheter analysis of numerical error is performed
 
   type(operator_fvm) :: optr_fvm
 
@@ -95,10 +96,11 @@ program test_advect1d_fvm
     end do
 
     tsec_ = TIME_DTSEC * real(TIME_NOWSTEP-1, kind=RP)
-    call advect1d_fvm_numerror_eval( qexact(:,IS,JS), & ! (out)
-      q(:,IS,JS), TIME_NOWSTEP, tsec_, ADV_VEL, InitShapeName, InitShapeParams, & ! (in)
-      CZ, FZ, KS, KE, KA, KHALO                                                 ) ! (in)
-
+    if ( Do_NumErrorAnalysis ) then
+      call advect1d_fvm_numerror_eval( qexact(:,IS,JS), & ! (out)
+        q(:,IS,JS), TIME_NOWSTEP, tsec_, ADV_VEL, InitShapeName, InitShapeParams, & ! (in)
+        CZ, FZ, KS, KE, KA, KHALO                                                 ) ! (in)
+    end if
 
     !* Output history file
 
@@ -113,7 +115,7 @@ program test_advect1d_fvm
 
 contains
   !> Calculate the tendency
-  !! dqdt = - ( <u q>_k - <uq>_k-1 ) / DZ
+  !! dqdt = - ( <u q>_k - <u q>_k-1 ) / DZ
   !!
   subroutine cal_dyn_tend( dqdt, q_, u_ )
     implicit none
@@ -122,26 +124,22 @@ contains
     real(RP), intent(in) :: q_(KA,IA,JA)
     real(RP), intent(in)  :: u_(KA,IA,JA)
 
-    integer :: k, i, j
+    integer :: k
     real(RP) :: qflux(KA,IA,JA)
 
-      !------------------------------------------------------------------------
-      call PROF_rapstart( 'update_dyn_cal_flux', 2)
-      call optr_fvm%C_flux_XYW( qflux, u_, q_ )
-      call PROF_rapend( 'update_dyn_cal_flux', 2)
+    !------------------------------------------------------------------------
+    call PROF_rapstart( 'cal_tend_flux', 2)
+    call optr_fvm%C_flux_XYW( qflux, u_, q_ )
+    call PROF_rapend( 'cal_tend_flux', 2)
 
-      call PROF_rapstart( 'cal_dyn_tend_dqdt', 2)
-      do j=JS, JS
-      do i=IS, IS
-      do k=KS, KE
-        dqdt(k,i,j) = - (qflux(k,i,j) - qflux(k-1,i,j)) * RCDZ(k)
-      end do
-      end do
-      end do
-      call PROF_rapend( 'cal_dyn_tend_dqdt', 2)
+    call PROF_rapstart( 'cal_tend_dqdt', 2)
+    do k=KS, KE
+      dqdt(k,IS,JS) = - (qflux(k,IS,JS) - qflux(k-1,IS,JS)) * RCDZ(k)
+    end do
+    call PROF_rapend( 'cal_tend_dqdt', 2)
 
-      return
-    end subroutine cal_dyn_tend
+    return
+  end subroutine cal_dyn_tend
  
   !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -174,9 +172,11 @@ contains
     end do
     u(:,:,:) = ADV_VEL
 
-    call advect1d_fvm_numerror_eval( qexact(:,IS,JS),                 & ! (out)
-      q(:,IS,JS), 1, 0.0_RP, ADV_VEL, InitShapeName, InitShapeParams, & ! (in)
-      CZ, FZ, KS, KE, KA, KHALO                                       ) ! (in)
+    if ( Do_NumErrorAnalysis ) then
+      call advect1d_fvm_numerror_eval( qexact(:,IS,JS),                 & ! (out)
+        q(:,IS,JS), 1, 0.0_RP, ADV_VEL, InitShapeName, InitShapeParams, & ! (in)
+        CZ, FZ, KS, KE, KA, KHALO                                       ) ! (in)
+    end if
 
     call FILE_HISTORY_put(HST_ID(1), q(KS:KE,IS,JS))
     call FILE_HISTORY_put(HST_ID(2), qexact(KS:KE,IS,JS))
@@ -188,7 +188,8 @@ contains
   !> Initialization
   subroutine init()
     use scale_prc_cartesC, only: PRC_CARTESC_setup     
-    use scale_comm_cartesC, only: COMM_setup
+    use scale_comm_cartesC, only: &
+      COMM_setup, COMM_regist
     use scale_calendar, only: CALENDAR_setup
     use scale_time_manager, only:           &
       TIME_manager_Init,                    &
@@ -215,11 +216,12 @@ contains
       NeGX, GXHALO,                         &
       FLUX_SCHEME_TYPE, TINTEG_SCHEME_TYPE, &
       InitShapeName, InitShapeParams,       &
-      ADV_VEL
+      ADV_VEL,                              &
+      Do_NumErrorAnalysis
     
     integer :: ierr
-
     real(RP) :: del
+    integer :: gid
     !----------------------------------------------
     
     !-- setup SCALE modules
@@ -230,11 +232,12 @@ contains
     !-- read namelist
 
     NeGX = 2; GXHALO = 2
-    FLUX_SCHEME_TYPE = 'CD2'
-    TINTEG_SCHEME_TYPE = 'ERK_SSP_3s3o'
-    InitShapeName    = 'sin'
-    InitShapeParams  = (/ 1.0_RP, 0.0_RP /)
-    ADV_VEL          = 1.0_RP
+    FLUX_SCHEME_TYPE    = 'CD2'
+    TINTEG_SCHEME_TYPE  = 'ERK_SSP_3s3o'
+    InitShapeName       = 'sin'
+    InitShapeParams     = (/ 1.0_RP, 0.0_RP /)
+    ADV_VEL             = 1.0_RP
+    Do_NumErrorAnalysis = .false.
 
     rewind(IO_FID_CONF)
     read(IO_FID_CONF,nml=PARAM_TEST,iostat=ierr)
@@ -264,6 +267,7 @@ contains
 
     !-- setup mpi communication
     call COMM_setup
+    call COMM_regist( KA, IA, JA, IHALO, JHALO, gid )
 
     !-- setup calendar & initial time
     call CALENDAR_setup
@@ -285,7 +289,8 @@ contains
     call FILE_HISTORY_reg( "qexact", "qexact", "1", HST_ID(2), dim_type='X')
 
     !-- setup a module for evaluating numerical errors 
-    call advect1d_fvm_numerror_Init( FZ, KS, KE, KA )
+    if ( Do_NumErrorAnalysis ) &
+      call advect1d_fvm_numerror_Init( FZ, KS, KE, KA )
 
     !-- report information of time intervals
     call TIME_manager_report_timeintervals
@@ -301,8 +306,8 @@ contains
     implicit none
     !-----------------------------------------
     call PROF_rapstart( "final", 1 )
-
-    call advect1d_fvm_numerror_Final()
+    if ( Do_NumErrorAnalysis ) &
+      call advect1d_fvm_numerror_Final()
     
     call optr_fvm%Final()
     call output_fvm_finalize
