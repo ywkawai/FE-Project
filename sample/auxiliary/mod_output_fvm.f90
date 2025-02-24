@@ -158,20 +158,20 @@ subroutine set_dims_rectdom2d()
 
   start(1,1) = 1
   dims(1,1)  = "x"
-  count(1,1) = KMAX
+  count(1,1) = IMAX
   call FILE_HISTORY_Set_Dim( "X", 1, 1, dims(:,:), zs(:), start(:,:), count(:,:))
 
   start(1,1) = 1
   dims(1,1)  = "y"
-  count(1,1) = IMAX
+  count(1,1) = JMAX
   call FILE_HISTORY_Set_Dim( "Y", 1, 1, dims(:,:), zs(:), start(:,:), count(:,:))
 
   start(1,1) = 1
   start(2,1) = 1
   dims(1,1)  = "x"
   dims(2,1)  = "y"
-  count(1,1) = KMAX
-  count(2,1) = IMAX
+  count(1,1) = IMAX
+  count(2,1) = JMAX
   call FILE_HISTORY_Set_Dim( "XY", 2, 1, dims(:,:), zs(:), start(:,:), count(:,:))
 
 end subroutine set_dims_rectdom2d
@@ -208,10 +208,10 @@ subroutine set_axis_rectdom2d()
     z_bnds(2,k) = FZ(k  )
   end do
 
-  call FILE_HISTORY_Set_Axis( 'x', 'X-coordinate', '1', 'x', CZ(KS:KE))!,               &
+  call FILE_HISTORY_Set_Axis( 'x', 'X-coordinate', '1', 'x', CX(IS:IE))!,               &
                               !bounds=z_bnds (:,KS  :KE), gsize=KMAX, start=startZ )
 
-  call FILE_HISTORY_Set_Axis( 'y', 'Y-coordinate', '1', 'y', CX(IS:IE))!,               &
+  call FILE_HISTORY_Set_Axis( 'y', 'Y-coordinate', '1', 'y', CY(JS:JE))!,               &
                               !bounds=z_bnds (:,KS  :KE), gsize=KMAX, start=startZ )
 
 end subroutine set_axis_rectdom2d
