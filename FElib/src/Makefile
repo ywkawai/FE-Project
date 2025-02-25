@@ -89,6 +89,7 @@ OBJS_NAME_DATA = \
 	scale_meshfieldcomm_cubedom3d.o          \
 	scale_meshfieldcomm_cubedspheredom3d.o   \
 	scale_meshfield_statistics.o             \
+	scale_meshfield_fvm_util.o               \
 	scale_meshfield_analysis_numerror_base.o \
 	scale_meshfield_analysis_numerror.o
 

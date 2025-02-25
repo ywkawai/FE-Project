@@ -69,6 +69,7 @@ $(BUILD_DIR)/scale_mesh_topography.o: mesh/scale_mesh_topography.F90 $(DEPENDLIB
 $(BUILD_DIR)/scale_meshfield_analysis_numerror.o: data/scale_meshfield_analysis_numerror.F90 $(DEPENDLIB) $(BUILD_DIR)/scale_element_base.o $(BUILD_DIR)/scale_element_hexahedral.o $(BUILD_DIR)/scale_element_line.o $(BUILD_DIR)/scale_element_quadrilateral.o $(BUILD_DIR)/scale_localmesh_1d.o $(BUILD_DIR)/scale_localmesh_2d.o $(BUILD_DIR)/scale_localmesh_3d.o $(BUILD_DIR)/scale_localmesh_base.o $(BUILD_DIR)/scale_localmeshfield_base.o $(BUILD_DIR)/scale_mesh_base.o $(BUILD_DIR)/scale_mesh_base1d.o $(BUILD_DIR)/scale_mesh_base2d.o $(BUILD_DIR)/scale_mesh_base3d.o $(BUILD_DIR)/scale_meshfield_analysis_numerror_base.o $(BUILD_DIR)/scale_meshfield_base.o $(BUILD_DIR)/scale_time_manager.o
 $(BUILD_DIR)/scale_meshfield_analysis_numerror_base.o: data/scale_meshfield_analysis_numerror_base.F90 $(DEPENDLIB) $(BUILD_DIR)/scale_element_base.o $(BUILD_DIR)/scale_element_hexahedral.o $(BUILD_DIR)/scale_element_line.o $(BUILD_DIR)/scale_element_quadrilateral.o $(BUILD_DIR)/scale_localmesh_base.o $(BUILD_DIR)/scale_localmeshfield_base.o $(BUILD_DIR)/scale_mesh_base.o $(BUILD_DIR)/scale_meshfield_base.o $(BUILD_DIR)/scale_time_manager.o
 $(BUILD_DIR)/scale_meshfield_base.o: data/scale_meshfield_base.F90 $(DEPENDLIB) $(BUILD_DIR)/scale_element_base.o $(BUILD_DIR)/scale_localmesh_1d.o $(BUILD_DIR)/scale_localmesh_2d.o $(BUILD_DIR)/scale_localmesh_3d.o $(BUILD_DIR)/scale_localmeshfield_base.o $(BUILD_DIR)/scale_mesh_base1d.o $(BUILD_DIR)/scale_mesh_base2d.o $(BUILD_DIR)/scale_mesh_base3d.o
+$(BUILD_DIR)/scale_meshfield_fvm_util.o: data/scale_meshfield_fvm_util.F90 $(DEPENDLIB) $(BUILD_DIR)/scale_element_base.o $(BUILD_DIR)/scale_localmesh_2d.o $(BUILD_DIR)/scale_localmesh_3d.o
 $(BUILD_DIR)/scale_meshfield_statistics.o: data/scale_meshfield_statistics.F90 $(DEPENDLIB) $(BUILD_DIR)/scale_element_base.o $(BUILD_DIR)/scale_localmesh_base.o $(BUILD_DIR)/scale_localmeshfield_base.o $(BUILD_DIR)/scale_meshfield_base.o
 $(BUILD_DIR)/scale_meshfieldcomm_1d.o: data/scale_meshfieldcomm_1d.F90 $(DEPENDLIB) $(BUILD_DIR)/scale_element_base.o $(BUILD_DIR)/scale_localmesh_1d.o $(BUILD_DIR)/scale_mesh_base1d.o $(BUILD_DIR)/scale_meshfield_base.o $(BUILD_DIR)/scale_meshfieldcomm_base.o
 $(BUILD_DIR)/scale_meshfieldcomm_base.o: data/scale_meshfieldcomm_base.F90 $(DEPENDLIB) $(BUILD_DIR)/scale_element_base.o $(BUILD_DIR)/scale_localmesh_base.o $(BUILD_DIR)/scale_mesh_base.o $(BUILD_DIR)/scale_meshfield_base.o
@@ -168,6 +169,7 @@ MODS =	\
 	$(BUILD_DIR)/scale_meshfield_analysis_numerror.mod	\
 	$(BUILD_DIR)/scale_meshfield_analysis_numerror_base.mod	\
 	$(BUILD_DIR)/scale_meshfield_base.mod	\
+	$(BUILD_DIR)/scale_meshfield_fvm_util.mod	\
 	$(BUILD_DIR)/scale_meshfield_statistics.mod	\
 	$(BUILD_DIR)/scale_meshfieldcomm_1d.mod	\
 	$(BUILD_DIR)/scale_meshfieldcomm_base.mod	\

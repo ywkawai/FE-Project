@@ -1,5 +1,5 @@
 !-------------------------------------------------------------------------------
-!> Program A sample program: 1-dimensional linear advection test
+!> Program A sample program: 2-dimensional linear advection test
 !! 
 !! 
 !! @author Yuta Kawai, Team SCALE
@@ -34,20 +34,14 @@ program test_advect2d
   use scale_file_history, only: &
     FILE_HISTORY_set_nowdate
 
-    use scale_time_manager, only: &
+  use scale_time_manager, only: &
     TIME_manager_checkstate, TIME_manager_advance,     &
     TIME_NOWDATE, TIME_NOWSUBSEC, TIME_NOWSTEP,        &
     TIME_DTSEC, TIME_NSTEP, TIME_DOresume, TIME_DOend
-  
+    
   use scale_timeint_rk, only: timeint_rk  
 
-  use mod_advect2d_numerror, only: advect2d_numerror_eval
-  
-  use mod_fieldutil, only: &
-    get_upwind_pos1d => fieldutil_get_upwind_pos1d,         &
-    get_profile2d_tracer => fieldutil_get_profile2d_tracer, &
-    get_profile2d_flow => fieldutil_get_profile2d_flow
-
+  use mod_advect2d_numerror, only: advect2d_numerror_eval  
   !-----------------------------------------------------------------------------
   implicit none
 
@@ -234,6 +228,7 @@ contains
   !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
   subroutine set_velocity( u_, v_, tsec )
+    use mod_fieldutil, only: fieldutil_get_profile2d_flow
     implicit none
     type(MeshField2D), intent(inout) :: u_
     type(MeshField2D), intent(inout) :: v_ 
@@ -248,7 +243,7 @@ contains
       lcmesh => mesh%lcmesh_list(idom)
       !$omp parallel do private(ke)
       do ke=lcmesh%NeS, lcmesh%NeE
-        call get_profile2d_flow( u%local(idom)%val(:,ke), v%local(idom)%val(:,ke),                   & ! (out)
+        call fieldutil_get_profile2d_flow( u%local(idom)%val(:,ke), v%local(idom)%val(:,ke),         & ! (out)
           VelTypeName, lcmesh%pos_en(:,ke,1), lcmesh%pos_en(:,ke,2), VelTypeParams, refElem%Np )       ! (in)
       end do
     end do
@@ -470,7 +465,8 @@ contains
     !------------------------------------------------------------------------
 
     call PROF_rapstart( "final", 1 )
-    call advect2d_numerror_Final()
+    if ( Do_NumErrorAnalysis ) &
+      call advect2d_numerror_Final()
 
     call FILE_HISTORY_meshfield_finalize()
 

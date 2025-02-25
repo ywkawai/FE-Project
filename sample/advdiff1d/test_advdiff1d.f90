@@ -1,4 +1,11 @@
-#include "scalelib.h"
+!-------------------------------------------------------------------------------
+!> Program A sample program: 1-dimensional linear advection and diffusion test
+!! 
+!! 
+!! @author Yuta Kawai, Team SCALE
+!<
+!-------------------------------------------------------------------------------
+#include "scaleFElib.h"
 program test_advdiff1d
   !-----------------------------------------------------------------------------
   !
@@ -45,6 +52,7 @@ program test_advdiff1d
   integer :: InitGPMatPolyOrder
   real(RP) :: ADV_VEL                       !< The constant speed of advection
   real(RP) :: DIFF_COEF                     !< The coefficient of diffusion
+  logical :: Do_NumErrorAnalysis            !< Flag wheter analysis of numerical error is performed
 
   type(LineElement)  :: refElem
   type(sparsemat) :: Dx, Lift
@@ -135,9 +143,11 @@ program test_advdiff1d
     end do
     
     tsec_ = TIME_DTSEC * real(TIME_NOWSTEP-1, kind=RP)
-    call advdiff1d_numerror_eval( qexact, & ! (out)
-      q, TIME_NOWSTEP, tsec_, ADV_VEL, DIFF_COEF, InitShapeName, InitShapeParams, & ! (in)
-      mesh, mesh%refElem1D                                                        ) ! (in)
+    if ( Do_NumErrorAnalysis ) then
+      call advdiff1d_numerror_eval( qexact, & ! (out)
+        q, TIME_NOWSTEP, tsec_, ADV_VEL, DIFF_COEF, InitShapeName, InitShapeParams, & ! (in)
+        mesh, mesh%refElem1D                                                        ) ! (in)
+    end if
 
     !* Output history file
 
@@ -320,10 +330,12 @@ contains
       end do
     end do
 
-    call advdiff1d_numerror_eval( qexact, & ! (out)
-      q, 1, 0.0_RP, ADV_VEL, DIFF_COEF, InitShapeName, InitShapeParams, & ! (in)
-      mesh, mesh%refElem1D                                              ) ! (in)
-  
+    if ( Do_NumErrorAnalysis ) then
+      call advdiff1d_numerror_eval( qexact, & ! (out)
+        q, 1, 0.0_RP, ADV_VEL, DIFF_COEF, InitShapeName, InitShapeParams, & ! (in)
+        mesh, mesh%refElem1D                                              ) ! (in)
+    end if
+
     call FILE_HISTORY_meshfield_put( HST_ID(1), q )
     call FILE_HISTORY_meshfield_put( HST_ID(2), qexact )
     call FILE_HISTORY_meshfield_write()   
@@ -359,7 +371,8 @@ contains
       InitShapeName, InitShapeParams, &
       InitGPMatPolyOrder,             &      
       ADV_VEL,                        &
-      DIFF_COEF
+      DIFF_COEF,                      &
+      Do_NumErrorAnalysis
     
     integer :: comm, myrank, nprocs
     logical :: ismaster
@@ -390,12 +403,13 @@ contains
     !--- read namelist
 
     NeGX = 2; PolyOrder = 1 
-    InitShapeName      = 'sin'; 
-    InitShapeParams    = (/ 1.0_RP, 0.0_RP /)
-    InitGPMatPolyOrder = 7
-    ADV_VEL            = 0.0_RP
-    DIFF_COEF          = 0.05_RP
-    TINTEG_SCHEME_TYPE = 'ERK_SSP_3s3o'
+    InitShapeName       = 'sin'; 
+    InitShapeParams     = (/ 1.0_RP, 0.0_RP /)
+    InitGPMatPolyOrder  = 7
+    ADV_VEL             = 0.0_RP
+    DIFF_COEF           = 0.05_RP
+    TINTEG_SCHEME_TYPE  = 'ERK_SSP_3s3o'
+    Do_NumErrorAnalysis = .false.
     
     rewind(IO_FID_CONF)
     read(IO_FID_CONF,nml=PARAM_TEST,iostat=ierr)
@@ -458,7 +472,8 @@ contains
     end do
 
     !-- setup a module for evaluating numerical errors 
-    call advdiff1d_numerror_Init( refElem )
+    if ( Do_NumErrorAnalysis ) &
+      call advdiff1d_numerror_Init( refElem )
 
     !-- report information of time intervals
     call TIME_manager_report_timeintervals
@@ -471,10 +486,14 @@ contains
   subroutine final()
     use scale_file_history_meshfield, only: &
       FILE_HISTORY_meshfield_finalize
-    use scale_time_manager, only: TIME_manager_Final    
+    use scale_time_manager, only: TIME_manager_Final   
+    use mod_advdiff1d_numerror, only: advdiff1d_numerror_Final
     implicit none
 
     call PROF_rapstart( "final", 1 )
+    if ( Do_NumErrorAnalysis ) &
+      call advdiff1d_numerror_Final()
+
     call FILE_HISTORY_meshfield_finalize()
 
     call q%Final()
