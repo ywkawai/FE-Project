@@ -53,7 +53,10 @@ OBJS_NAME_ELEMENT = \
 	scale_element_line.o          \
 	scale_element_quadrilateral.o \
 	scale_element_hexahedral.o    \
-	scale_element_modalfilter.o
+	scale_element_modalfilter.o   \
+	scale_element_operation_base.o                \
+	scale_element_operation_tensorprod3D_kernel.o \
+	scale_element_operation_tensorprod3D.o
 
 OBJS_NAME_MESH = \
 	scale_meshutil_1d.o            \
@@ -339,6 +342,8 @@ dependency: prep_scalelib
 
 common/scale_quicksort.F90: scale_quicksort.F90.erb
 common/scale_timeint_rk.F90: scale_timeint_rk.F90.erb
+element/scale_element_operation_tensorprod3D_kernel.F90: scale_element_operation_tensorprod3D_kernel.F90.erb
+element/scale_element_operation_tensorprod3D.F90: scale_element_operation_tensorprod3D.F90.erb
 
 $(BUILD_DIR)/%.o : %.F90
 	$(FC) $(FFLAGS) $(SCALE_INCLUDE) $(INCLUDE) -I$(SCALEFELIBDIR)/include -I$(BUILD_DIR) $(MODDIROPT) $(BUILD_DIR) -o $@ -c $<
