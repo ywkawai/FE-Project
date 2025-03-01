@@ -55,6 +55,7 @@ OBJS_NAME_ELEMENT = \
 	scale_element_hexahedral.o    \
 	scale_element_modalfilter.o   \
 	scale_element_operation_base.o                \
+	scale_element_operation_general.o	          \
 	scale_element_operation_tensorprod3D_kernel.o \
 	scale_element_operation_tensorprod3D.o
 
@@ -114,6 +115,7 @@ OBJS_NAME_FLUID_DYN_SOLVER = \
 	scale_atm_dyn_dgm_nonhydro3d_rhot_heve_numflux.o \
 	scale_atm_dyn_dgm_nonhydro3d_etot_heve.o         \
 	scale_atm_dyn_dgm_nonhydro3d_rhot_heve.o         \
+	scale_atm_dyn_dgm_nonhydro3d_rhot_heve_new1.o    \
 	scale_atm_dyn_dgm_nonhydro3d_etot_hevi_common.o  \
 	scale_atm_dyn_dgm_nonhydro3d_rhot_hevi_common.o  \
 	scale_atm_dyn_dgm_nonhydro3d_etot_hevi_numflux.o \

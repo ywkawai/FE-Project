@@ -20,6 +20,7 @@ module scale_element_operation_tensorprod3D
   !++ used modules
   !
   use scale_precision
+  use scale_io
 
   use scale_element_base, only: &
     ElementBase3D, &
@@ -35,939 +36,3038 @@ module scale_element_operation_tensorprod3D
   !
   !++ Public type & procedure
   !  
-  type, public, extends(ElementOperationBase3D) :: ElementOperationTensorProd3D_P1
-    real(RP) :: Dx1D(2,2)
-    real(RP) :: Dy1D(2,2)
-    real(RP) :: Dz1D(2,2)
-    real(RP) :: Dy1D_tr(2,2)
-    real(RP) :: Dz1D_tr(2,2)
+
+  type, public, abstract, extends(ElementOperationBase3D) :: ElementOperationTensorProd3D
   contains
+    procedure(ElementOperationTensorProd3D_Init), deferred, public :: Init
+    procedure(ElementOperationTensorProd3D_Final), deferred, public :: Final
+  end type ElementOperationTensorProd3D
+
+  interface
+    subroutine ElementOperationTensorProd3D_Init( this, elem3D )
+      import ElementOperationTensorProd3D
+      import ElementBase3D
+      class(ElementOperationTensorProd3D), intent(inout) :: this
+      class(ElementBase3D), intent(in), target :: elem3D
+    end subroutine ElementOperationTensorProd3D_Init
+
+    subroutine ElementOperationTensorProd3D_Final( this )
+      import ElementOperationTensorProd3D
+      class(ElementOperationTensorProd3D), intent(inout) :: this
+    end subroutine ElementOperationTensorProd3D_Final
+  end interface
+
+  public :: ElementOperationTensorprod3D_create
+
+  type, public, extends(ElementOperationTensorProd3D) :: ElementOperationTensorProd3D_P1
+    real(RP) :: D1D(2,2)
+    real(RP) :: D1D_tr(2,2)
+    real(RP) :: Lift_mat(2,2,2,6)
+    real(RP) :: IntrpMat_VPOrdM1(2,2)
+
+  contains
+    procedure, public :: Init => element_operation_tensorprod3D_Init_P1
+    procedure, public :: Final => element_operation_tensorprod3D_Final_P1
     procedure, public :: Dx => element_operation_tensorprod3D_Dx_P1
     procedure, public :: Dy => element_operation_tensorprod3D_Dy_P1
     procedure, public :: Dz => element_operation_tensorprod3D_Dz_P1
-    procedure, public :: Grad => element_operation_tensorprod3D_Grad_P1
+    procedure, public :: Lift => element_operation_tensorprod3D_Lift_P1
+    procedure, public :: DxDyDzLift => element_operation_tensorprod3D_DxDyDzLift_P1
+    procedure, public :: Div => element_operation_tensorprod3D_Div_P1
+    procedure, public :: VFilterPM1 => element_operation_tensorprod3D_VFilterPM1_P1
   end type ElementOperationTensorProd3D_P1
-  type, public, extends(ElementOperationBase3D) :: ElementOperationTensorProd3D_P2
-    real(RP) :: Dx1D(3,3)
-    real(RP) :: Dy1D(3,3)
-    real(RP) :: Dz1D(3,3)
-    real(RP) :: Dy1D_tr(3,3)
-    real(RP) :: Dz1D_tr(3,3)
+  type, public, extends(ElementOperationTensorProd3D) :: ElementOperationTensorProd3D_P2
+    real(RP) :: D1D(3,3)
+    real(RP) :: D1D_tr(3,3)
+    real(RP) :: Lift_mat(3,3,3,6)
+    real(RP) :: IntrpMat_VPOrdM1(3,3)
+
   contains
+    procedure, public :: Init => element_operation_tensorprod3D_Init_P2
+    procedure, public :: Final => element_operation_tensorprod3D_Final_P2
     procedure, public :: Dx => element_operation_tensorprod3D_Dx_P2
     procedure, public :: Dy => element_operation_tensorprod3D_Dy_P2
     procedure, public :: Dz => element_operation_tensorprod3D_Dz_P2
-    procedure, public :: Grad => element_operation_tensorprod3D_Grad_P2
+    procedure, public :: Lift => element_operation_tensorprod3D_Lift_P2
+    procedure, public :: DxDyDzLift => element_operation_tensorprod3D_DxDyDzLift_P2
+    procedure, public :: Div => element_operation_tensorprod3D_Div_P2
+    procedure, public :: VFilterPM1 => element_operation_tensorprod3D_VFilterPM1_P2
   end type ElementOperationTensorProd3D_P2
-  type, public, extends(ElementOperationBase3D) :: ElementOperationTensorProd3D_P3
-    real(RP) :: Dx1D(4,4)
-    real(RP) :: Dy1D(4,4)
-    real(RP) :: Dz1D(4,4)
-    real(RP) :: Dy1D_tr(4,4)
-    real(RP) :: Dz1D_tr(4,4)
+  type, public, extends(ElementOperationTensorProd3D) :: ElementOperationTensorProd3D_P3
+    real(RP) :: D1D(4,4)
+    real(RP) :: D1D_tr(4,4)
+    real(RP) :: Lift_mat(4,4,4,6)
+    real(RP) :: IntrpMat_VPOrdM1(4,4)
+
   contains
+    procedure, public :: Init => element_operation_tensorprod3D_Init_P3
+    procedure, public :: Final => element_operation_tensorprod3D_Final_P3
     procedure, public :: Dx => element_operation_tensorprod3D_Dx_P3
     procedure, public :: Dy => element_operation_tensorprod3D_Dy_P3
     procedure, public :: Dz => element_operation_tensorprod3D_Dz_P3
-    procedure, public :: Grad => element_operation_tensorprod3D_Grad_P3
+    procedure, public :: Lift => element_operation_tensorprod3D_Lift_P3
+    procedure, public :: DxDyDzLift => element_operation_tensorprod3D_DxDyDzLift_P3
+    procedure, public :: Div => element_operation_tensorprod3D_Div_P3
+    procedure, public :: VFilterPM1 => element_operation_tensorprod3D_VFilterPM1_P3
   end type ElementOperationTensorProd3D_P3
-  type, public, extends(ElementOperationBase3D) :: ElementOperationTensorProd3D_P4
-    real(RP) :: Dx1D(5,5)
-    real(RP) :: Dy1D(5,5)
-    real(RP) :: Dz1D(5,5)
-    real(RP) :: Dy1D_tr(5,5)
-    real(RP) :: Dz1D_tr(5,5)
+  type, public, extends(ElementOperationTensorProd3D) :: ElementOperationTensorProd3D_P4
+    real(RP) :: D1D(5,5)
+    real(RP) :: D1D_tr(5,5)
+    real(RP) :: Lift_mat(5,5,5,6)
+    real(RP) :: IntrpMat_VPOrdM1(5,5)
+
   contains
+    procedure, public :: Init => element_operation_tensorprod3D_Init_P4
+    procedure, public :: Final => element_operation_tensorprod3D_Final_P4
     procedure, public :: Dx => element_operation_tensorprod3D_Dx_P4
     procedure, public :: Dy => element_operation_tensorprod3D_Dy_P4
     procedure, public :: Dz => element_operation_tensorprod3D_Dz_P4
-    procedure, public :: Grad => element_operation_tensorprod3D_Grad_P4
+    procedure, public :: Lift => element_operation_tensorprod3D_Lift_P4
+    procedure, public :: DxDyDzLift => element_operation_tensorprod3D_DxDyDzLift_P4
+    procedure, public :: Div => element_operation_tensorprod3D_Div_P4
+    procedure, public :: VFilterPM1 => element_operation_tensorprod3D_VFilterPM1_P4
   end type ElementOperationTensorProd3D_P4
-  type, public, extends(ElementOperationBase3D) :: ElementOperationTensorProd3D_P5
-    real(RP) :: Dx1D(6,6)
-    real(RP) :: Dy1D(6,6)
-    real(RP) :: Dz1D(6,6)
-    real(RP) :: Dy1D_tr(6,6)
-    real(RP) :: Dz1D_tr(6,6)
+  type, public, extends(ElementOperationTensorProd3D) :: ElementOperationTensorProd3D_P5
+    real(RP) :: D1D(6,6)
+    real(RP) :: D1D_tr(6,6)
+    real(RP) :: Lift_mat(6,6,6,6)
+    real(RP) :: IntrpMat_VPOrdM1(6,6)
+
   contains
+    procedure, public :: Init => element_operation_tensorprod3D_Init_P5
+    procedure, public :: Final => element_operation_tensorprod3D_Final_P5
     procedure, public :: Dx => element_operation_tensorprod3D_Dx_P5
     procedure, public :: Dy => element_operation_tensorprod3D_Dy_P5
     procedure, public :: Dz => element_operation_tensorprod3D_Dz_P5
-    procedure, public :: Grad => element_operation_tensorprod3D_Grad_P5
+    procedure, public :: Lift => element_operation_tensorprod3D_Lift_P5
+    procedure, public :: DxDyDzLift => element_operation_tensorprod3D_DxDyDzLift_P5
+    procedure, public :: Div => element_operation_tensorprod3D_Div_P5
+    procedure, public :: VFilterPM1 => element_operation_tensorprod3D_VFilterPM1_P5
   end type ElementOperationTensorProd3D_P5
-  type, public, extends(ElementOperationBase3D) :: ElementOperationTensorProd3D_P6
-    real(RP) :: Dx1D(7,7)
-    real(RP) :: Dy1D(7,7)
-    real(RP) :: Dz1D(7,7)
-    real(RP) :: Dy1D_tr(7,7)
-    real(RP) :: Dz1D_tr(7,7)
+  type, public, extends(ElementOperationTensorProd3D) :: ElementOperationTensorProd3D_P6
+    real(RP) :: D1D(7,7)
+    real(RP) :: D1D_tr(7,7)
+    real(RP) :: Lift_mat(7,7,7,6)
+    real(RP) :: IntrpMat_VPOrdM1(7,7)
+
   contains
+    procedure, public :: Init => element_operation_tensorprod3D_Init_P6
+    procedure, public :: Final => element_operation_tensorprod3D_Final_P6
     procedure, public :: Dx => element_operation_tensorprod3D_Dx_P6
     procedure, public :: Dy => element_operation_tensorprod3D_Dy_P6
     procedure, public :: Dz => element_operation_tensorprod3D_Dz_P6
-    procedure, public :: Grad => element_operation_tensorprod3D_Grad_P6
+    procedure, public :: Lift => element_operation_tensorprod3D_Lift_P6
+    procedure, public :: DxDyDzLift => element_operation_tensorprod3D_DxDyDzLift_P6
+    procedure, public :: Div => element_operation_tensorprod3D_Div_P6
+    procedure, public :: VFilterPM1 => element_operation_tensorprod3D_VFilterPM1_P6
   end type ElementOperationTensorProd3D_P6
-  type, public, extends(ElementOperationBase3D) :: ElementOperationTensorProd3D_P7
-    real(RP) :: Dx1D(8,8)
-    real(RP) :: Dy1D(8,8)
-    real(RP) :: Dz1D(8,8)
-    real(RP) :: Dy1D_tr(8,8)
-    real(RP) :: Dz1D_tr(8,8)
+  type, public, extends(ElementOperationTensorProd3D) :: ElementOperationTensorProd3D_P7
+    real(RP) :: D1D(8,8)
+    real(RP) :: D1D_tr(8,8)
+    real(RP) :: Lift_mat(8,8,8,6)
+    real(RP) :: IntrpMat_VPOrdM1(8,8)
+
   contains
+    procedure, public :: Init => element_operation_tensorprod3D_Init_P7
+    procedure, public :: Final => element_operation_tensorprod3D_Final_P7
     procedure, public :: Dx => element_operation_tensorprod3D_Dx_P7
     procedure, public :: Dy => element_operation_tensorprod3D_Dy_P7
     procedure, public :: Dz => element_operation_tensorprod3D_Dz_P7
-    procedure, public :: Grad => element_operation_tensorprod3D_Grad_P7
+    procedure, public :: Lift => element_operation_tensorprod3D_Lift_P7
+    procedure, public :: DxDyDzLift => element_operation_tensorprod3D_DxDyDzLift_P7
+    procedure, public :: Div => element_operation_tensorprod3D_Div_P7
+    procedure, public :: VFilterPM1 => element_operation_tensorprod3D_VFilterPM1_P7
   end type ElementOperationTensorProd3D_P7
-  type, public, extends(ElementOperationBase3D) :: ElementOperationTensorProd3D_P8
-    real(RP) :: Dx1D(9,9)
-    real(RP) :: Dy1D(9,9)
-    real(RP) :: Dz1D(9,9)
-    real(RP) :: Dy1D_tr(9,9)
-    real(RP) :: Dz1D_tr(9,9)
+  type, public, extends(ElementOperationTensorProd3D) :: ElementOperationTensorProd3D_P8
+    real(RP) :: D1D(9,9)
+    real(RP) :: D1D_tr(9,9)
+    real(RP) :: Lift_mat(9,9,9,6)
+    real(RP) :: IntrpMat_VPOrdM1(9,9)
+
   contains
+    procedure, public :: Init => element_operation_tensorprod3D_Init_P8
+    procedure, public :: Final => element_operation_tensorprod3D_Final_P8
     procedure, public :: Dx => element_operation_tensorprod3D_Dx_P8
     procedure, public :: Dy => element_operation_tensorprod3D_Dy_P8
     procedure, public :: Dz => element_operation_tensorprod3D_Dz_P8
-    procedure, public :: Grad => element_operation_tensorprod3D_Grad_P8
+    procedure, public :: Lift => element_operation_tensorprod3D_Lift_P8
+    procedure, public :: DxDyDzLift => element_operation_tensorprod3D_DxDyDzLift_P8
+    procedure, public :: Div => element_operation_tensorprod3D_Div_P8
+    procedure, public :: VFilterPM1 => element_operation_tensorprod3D_VFilterPM1_P8
   end type ElementOperationTensorProd3D_P8
-  type, public, extends(ElementOperationBase3D) :: ElementOperationTensorProd3D_P9
-    real(RP) :: Dx1D(10,10)
-    real(RP) :: Dy1D(10,10)
-    real(RP) :: Dz1D(10,10)
-    real(RP) :: Dy1D_tr(10,10)
-    real(RP) :: Dz1D_tr(10,10)
+  type, public, extends(ElementOperationTensorProd3D) :: ElementOperationTensorProd3D_P9
+    real(RP) :: D1D(10,10)
+    real(RP) :: D1D_tr(10,10)
+    real(RP) :: Lift_mat(10,10,10,6)
+    real(RP) :: IntrpMat_VPOrdM1(10,10)
+
   contains
+    procedure, public :: Init => element_operation_tensorprod3D_Init_P9
+    procedure, public :: Final => element_operation_tensorprod3D_Final_P9
     procedure, public :: Dx => element_operation_tensorprod3D_Dx_P9
     procedure, public :: Dy => element_operation_tensorprod3D_Dy_P9
     procedure, public :: Dz => element_operation_tensorprod3D_Dz_P9
-    procedure, public :: Grad => element_operation_tensorprod3D_Grad_P9
+    procedure, public :: Lift => element_operation_tensorprod3D_Lift_P9
+    procedure, public :: DxDyDzLift => element_operation_tensorprod3D_DxDyDzLift_P9
+    procedure, public :: Div => element_operation_tensorprod3D_Div_P9
+    procedure, public :: VFilterPM1 => element_operation_tensorprod3D_VFilterPM1_P9
   end type ElementOperationTensorProd3D_P9
-  type, public, extends(ElementOperationBase3D) :: ElementOperationTensorProd3D_P10
-    real(RP) :: Dx1D(11,11)
-    real(RP) :: Dy1D(11,11)
-    real(RP) :: Dz1D(11,11)
-    real(RP) :: Dy1D_tr(11,11)
-    real(RP) :: Dz1D_tr(11,11)
+  type, public, extends(ElementOperationTensorProd3D) :: ElementOperationTensorProd3D_P10
+    real(RP) :: D1D(11,11)
+    real(RP) :: D1D_tr(11,11)
+    real(RP) :: Lift_mat(11,11,11,6)
+    real(RP) :: IntrpMat_VPOrdM1(11,11)
+
   contains
+    procedure, public :: Init => element_operation_tensorprod3D_Init_P10
+    procedure, public :: Final => element_operation_tensorprod3D_Final_P10
     procedure, public :: Dx => element_operation_tensorprod3D_Dx_P10
     procedure, public :: Dy => element_operation_tensorprod3D_Dy_P10
     procedure, public :: Dz => element_operation_tensorprod3D_Dz_P10
-    procedure, public :: Grad => element_operation_tensorprod3D_Grad_P10
+    procedure, public :: Lift => element_operation_tensorprod3D_Lift_P10
+    procedure, public :: DxDyDzLift => element_operation_tensorprod3D_DxDyDzLift_P10
+    procedure, public :: Div => element_operation_tensorprod3D_Div_P10
+    procedure, public :: VFilterPM1 => element_operation_tensorprod3D_VFilterPM1_P10
   end type ElementOperationTensorProd3D_P10
-  type, public, extends(ElementOperationBase3D) :: ElementOperationTensorProd3D_P11
-    real(RP) :: Dx1D(12,12)
-    real(RP) :: Dy1D(12,12)
-    real(RP) :: Dz1D(12,12)
-    real(RP) :: Dy1D_tr(12,12)
-    real(RP) :: Dz1D_tr(12,12)
+  type, public, extends(ElementOperationTensorProd3D) :: ElementOperationTensorProd3D_P11
+    real(RP) :: D1D(12,12)
+    real(RP) :: D1D_tr(12,12)
+    real(RP) :: Lift_mat(12,12,12,6)
+    real(RP) :: IntrpMat_VPOrdM1(12,12)
+
   contains
+    procedure, public :: Init => element_operation_tensorprod3D_Init_P11
+    procedure, public :: Final => element_operation_tensorprod3D_Final_P11
     procedure, public :: Dx => element_operation_tensorprod3D_Dx_P11
     procedure, public :: Dy => element_operation_tensorprod3D_Dy_P11
     procedure, public :: Dz => element_operation_tensorprod3D_Dz_P11
-    procedure, public :: Grad => element_operation_tensorprod3D_Grad_P11
+    procedure, public :: Lift => element_operation_tensorprod3D_Lift_P11
+    procedure, public :: DxDyDzLift => element_operation_tensorprod3D_DxDyDzLift_P11
+    procedure, public :: Div => element_operation_tensorprod3D_Div_P11
+    procedure, public :: VFilterPM1 => element_operation_tensorprod3D_VFilterPM1_P11
   end type ElementOperationTensorProd3D_P11
-  type, public, extends(ElementOperationBase3D) :: ElementOperationTensorProd3D_P12
-    real(RP) :: Dx1D(13,13)
-    real(RP) :: Dy1D(13,13)
-    real(RP) :: Dz1D(13,13)
-    real(RP) :: Dy1D_tr(13,13)
-    real(RP) :: Dz1D_tr(13,13)
+  type, public, extends(ElementOperationTensorProd3D) :: ElementOperationTensorProd3D_P12
+    real(RP) :: D1D(13,13)
+    real(RP) :: D1D_tr(13,13)
+    real(RP) :: Lift_mat(13,13,13,6)
+    real(RP) :: IntrpMat_VPOrdM1(13,13)
+
   contains
+    procedure, public :: Init => element_operation_tensorprod3D_Init_P12
+    procedure, public :: Final => element_operation_tensorprod3D_Final_P12
     procedure, public :: Dx => element_operation_tensorprod3D_Dx_P12
     procedure, public :: Dy => element_operation_tensorprod3D_Dy_P12
     procedure, public :: Dz => element_operation_tensorprod3D_Dz_P12
-    procedure, public :: Grad => element_operation_tensorprod3D_Grad_P12
+    procedure, public :: Lift => element_operation_tensorprod3D_Lift_P12
+    procedure, public :: DxDyDzLift => element_operation_tensorprod3D_DxDyDzLift_P12
+    procedure, public :: Div => element_operation_tensorprod3D_Div_P12
+    procedure, public :: VFilterPM1 => element_operation_tensorprod3D_VFilterPM1_P12
   end type ElementOperationTensorProd3D_P12
-  type, public, extends(ElementOperationBase3D) :: ElementOperationTensorProd3D_P13
-    real(RP) :: Dx1D(14,14)
-    real(RP) :: Dy1D(14,14)
-    real(RP) :: Dz1D(14,14)
-    real(RP) :: Dy1D_tr(14,14)
-    real(RP) :: Dz1D_tr(14,14)
+  type, public, extends(ElementOperationTensorProd3D) :: ElementOperationTensorProd3D_P13
+    real(RP) :: D1D(14,14)
+    real(RP) :: D1D_tr(14,14)
+    real(RP) :: Lift_mat(14,14,14,6)
+    real(RP) :: IntrpMat_VPOrdM1(14,14)
+
   contains
+    procedure, public :: Init => element_operation_tensorprod3D_Init_P13
+    procedure, public :: Final => element_operation_tensorprod3D_Final_P13
     procedure, public :: Dx => element_operation_tensorprod3D_Dx_P13
     procedure, public :: Dy => element_operation_tensorprod3D_Dy_P13
     procedure, public :: Dz => element_operation_tensorprod3D_Dz_P13
-    procedure, public :: Grad => element_operation_tensorprod3D_Grad_P13
+    procedure, public :: Lift => element_operation_tensorprod3D_Lift_P13
+    procedure, public :: DxDyDzLift => element_operation_tensorprod3D_DxDyDzLift_P13
+    procedure, public :: Div => element_operation_tensorprod3D_Div_P13
+    procedure, public :: VFilterPM1 => element_operation_tensorprod3D_VFilterPM1_P13
   end type ElementOperationTensorProd3D_P13
+  type, public, extends(ElementOperationTensorProd3D) :: ElementOperationTensorProd3D_P14
+    real(RP) :: D1D(15,15)
+    real(RP) :: D1D_tr(15,15)
+    real(RP) :: Lift_mat(15,15,15,6)
+    real(RP) :: IntrpMat_VPOrdM1(15,15)
+
+  contains
+    procedure, public :: Init => element_operation_tensorprod3D_Init_P14
+    procedure, public :: Final => element_operation_tensorprod3D_Final_P14
+    procedure, public :: Dx => element_operation_tensorprod3D_Dx_P14
+    procedure, public :: Dy => element_operation_tensorprod3D_Dy_P14
+    procedure, public :: Dz => element_operation_tensorprod3D_Dz_P14
+    procedure, public :: Lift => element_operation_tensorprod3D_Lift_P14
+    procedure, public :: DxDyDzLift => element_operation_tensorprod3D_DxDyDzLift_P14
+    procedure, public :: Div => element_operation_tensorprod3D_Div_P14
+    procedure, public :: VFilterPM1 => element_operation_tensorprod3D_VFilterPM1_P14
+  end type ElementOperationTensorProd3D_P14
+  type, public, extends(ElementOperationTensorProd3D) :: ElementOperationTensorProd3D_P15
+    real(RP) :: D1D(16,16)
+    real(RP) :: D1D_tr(16,16)
+    real(RP) :: Lift_mat(16,16,16,6)
+    real(RP) :: IntrpMat_VPOrdM1(16,16)
+
+  contains
+    procedure, public :: Init => element_operation_tensorprod3D_Init_P15
+    procedure, public :: Final => element_operation_tensorprod3D_Final_P15
+    procedure, public :: Dx => element_operation_tensorprod3D_Dx_P15
+    procedure, public :: Dy => element_operation_tensorprod3D_Dy_P15
+    procedure, public :: Dz => element_operation_tensorprod3D_Dz_P15
+    procedure, public :: Lift => element_operation_tensorprod3D_Lift_P15
+    procedure, public :: DxDyDzLift => element_operation_tensorprod3D_DxDyDzLift_P15
+    procedure, public :: Div => element_operation_tensorprod3D_Div_P15
+    procedure, public :: VFilterPM1 => element_operation_tensorprod3D_VFilterPM1_P15
+  end type ElementOperationTensorProd3D_P15
 
 contains
+!OCL SERIAL
+  subroutine ElementOperationTensorprod3D_create( elem3D, obj )
+    use scale_prc, only: PRC_abort
+    implicit none
+    class(ElementBase3D), intent(in) :: elem3D
+    class(ElementOperationTensorProd3D), intent(out), allocatable :: obj
+    !-----------------------------------------------------
+
+    if ( elem3D%PolyOrder_h /= elem3D%PolyOrder_v ) then
+      LOG_INFO('ElemenetOperationTensorprod3D_create',*) 'PolyOrder_h and PolyOrder_v should be same in this module. ElemenetOperationGeneral should be used!'
+      call PRC_abort
+    end if
+
+    select case( elem3D%PolyOrder_h )
+    case(1)
+      allocate( ElementOperationTensorProd3D_P1 :: obj )
+    case(2)
+      allocate( ElementOperationTensorProd3D_P2 :: obj )
+    case(3)
+      allocate( ElementOperationTensorProd3D_P3 :: obj )
+    case(4)
+      allocate( ElementOperationTensorProd3D_P4 :: obj )
+    case(5)
+      allocate( ElementOperationTensorProd3D_P5 :: obj )
+    case(6)
+      allocate( ElementOperationTensorProd3D_P6 :: obj )
+    case(7)
+      allocate( ElementOperationTensorProd3D_P7 :: obj )
+    case(8)
+      allocate( ElementOperationTensorProd3D_P8 :: obj )
+    case(9)
+      allocate( ElementOperationTensorProd3D_P9 :: obj )
+    case(10)
+      allocate( ElementOperationTensorProd3D_P10 :: obj )
+    case(11)
+      allocate( ElementOperationTensorProd3D_P11 :: obj )
+    case(12)
+      allocate( ElementOperationTensorProd3D_P12 :: obj )
+    case(13)
+      allocate( ElementOperationTensorProd3D_P13 :: obj )
+    case(14)
+      allocate( ElementOperationTensorProd3D_P14 :: obj )
+    case(15)
+      allocate( ElementOperationTensorProd3D_P15 :: obj )
+    case default
+      LOG_INFO('ElemenetOperationTensorprod3D_create',*) 'The specified polynomial order execceds 15 and is not supported in this module. ElemenetOperationGeneral should be used!'
+      call PRC_abort
+    end select
+    call obj%Init( elem3D )
+
+    return
+  end subroutine ElementOperationTensorprod3D_create
+
+
+!--- For p=1 ------------------------------------
+
+!> Initialization
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Init_P1( this, elem3D )
+    use scale_element_line, only: LineElement
+    use scale_sparsemat, only: SparseMat
+    implicit none
+    class(ElementOperationTensorProd3D_P1), intent(inout) :: this
+    class(ElementBase3D), intent(in), target :: elem3D
+
+    integer :: p
+
+    integer :: p1, p2, p_
+    real(RP) :: invV_VPOrdM1(2,2)
+
+    type(LineElement) :: elem1D
+    type(SparseMat) :: Lift_sm
+    !----------------------------------------------------------
+    this%elem3D => elem3D
+
+    call elem1D%Init( 1, .false. )
+    this%D1D(:,:) = elem1D%Dx1(:,:)
+    this%D1D_tr(:,:) = transpose(this%D1D)
+
+    call Lift_sm%Init( elem3D%Lift, storage_format='ELL' )
+    this%Lift_mat(:,:,:,:) = reshape(Lift_sm%val, (/ 2,2,2,6 /) )
+    call Lift_sm%Final()
+
+    !--
+
+    InvV_VPOrdM1(:,:) = elem1D%invV(:,:)
+    InvV_VPOrdM1(2,:) = 0.0_RP
+    this%IntrpMat_VPOrdM1(:,:) = matmul(elem1D%V, invV_VPOrdM1)
+
+    !-
+    call elem1D%Final()
+
+    return
+  end subroutine element_operation_tensorprod3D_Init_P1
+
+!> Finalization
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Final_P1( this )
+    implicit none
+    class(ElementOperationTensorProd3D_P1), intent(inout) :: this
+    !----------------------------------------------------------
+    nullify( this%elem3D )
+    return
+  end subroutine element_operation_tensorprod3D_Final_P1
 
 !> Calculate the differential in x-direction
 !!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Dx_P1( this, vec_in, vec_out )
-    use scale_element_operation_tensorprod3D_kernel, only: element_operation_tensorprod3D_kernel_matrix_vec_dirX_P1
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirX_P1
     implicit none
     class(ElementOperationTensorProd3D_P1), intent(in) :: this
-    real(RP), intent(in) :: vec_in(this%Np1D,this%Np1D**2)
-    real(RP), intent(out) :: vec_out(this%Np1D,this%Np1D**2)
+    real(RP), intent(in) :: vec_in(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
     !----------------------------------------------------------
-    call element_tensorprod3D_operation_kernel_matrix_vec_dirX_P1( this%Dx1D, vec_in, vec_out )
+    call element_operation_kernel_matvec_dirX_P1( this%D1D, vec_in, vec_out )
     return
   end subroutine element_operation_tensorprod3D_Dx_P1
-
-!> Calculate the differential in x-direction
-!!
-!OCL SERIAL
-  subroutine element_operation_tensorprod3D_Dx_P2( this, vec_in, vec_out )
-    use scale_element_operation_tensorprod3D_kernel, only: element_operation_tensorprod3D_kernel_matrix_vec_dirX_P2
-    implicit none
-    class(ElementOperationTensorProd3D_P2), intent(in) :: this
-    real(RP), intent(in) :: vec_in(this%Np1D,this%Np1D**2)
-    real(RP), intent(out) :: vec_out(this%Np1D,this%Np1D**2)
-    !----------------------------------------------------------
-    call element_tensorprod3D_operation_kernel_matrix_vec_dirX_P2( this%Dx1D, vec_in, vec_out )
-    return
-  end subroutine element_operation_tensorprod3D_Dx_P2
-
-!> Calculate the differential in x-direction
-!!
-!OCL SERIAL
-  subroutine element_operation_tensorprod3D_Dx_P3( this, vec_in, vec_out )
-    use scale_element_operation_tensorprod3D_kernel, only: element_operation_tensorprod3D_kernel_matrix_vec_dirX_P3
-    implicit none
-    class(ElementOperationTensorProd3D_P3), intent(in) :: this
-    real(RP), intent(in) :: vec_in(this%Np1D,this%Np1D**2)
-    real(RP), intent(out) :: vec_out(this%Np1D,this%Np1D**2)
-    !----------------------------------------------------------
-    call element_tensorprod3D_operation_kernel_matrix_vec_dirX_P3( this%Dx1D, vec_in, vec_out )
-    return
-  end subroutine element_operation_tensorprod3D_Dx_P3
-
-!> Calculate the differential in x-direction
-!!
-!OCL SERIAL
-  subroutine element_operation_tensorprod3D_Dx_P4( this, vec_in, vec_out )
-    use scale_element_operation_tensorprod3D_kernel, only: element_operation_tensorprod3D_kernel_matrix_vec_dirX_P4
-    implicit none
-    class(ElementOperationTensorProd3D_P4), intent(in) :: this
-    real(RP), intent(in) :: vec_in(this%Np1D,this%Np1D**2)
-    real(RP), intent(out) :: vec_out(this%Np1D,this%Np1D**2)
-    !----------------------------------------------------------
-    call element_tensorprod3D_operation_kernel_matrix_vec_dirX_P4( this%Dx1D, vec_in, vec_out )
-    return
-  end subroutine element_operation_tensorprod3D_Dx_P4
-
-!> Calculate the differential in x-direction
-!!
-!OCL SERIAL
-  subroutine element_operation_tensorprod3D_Dx_P5( this, vec_in, vec_out )
-    use scale_element_operation_tensorprod3D_kernel, only: element_operation_tensorprod3D_kernel_matrix_vec_dirX_P5
-    implicit none
-    class(ElementOperationTensorProd3D_P5), intent(in) :: this
-    real(RP), intent(in) :: vec_in(this%Np1D,this%Np1D**2)
-    real(RP), intent(out) :: vec_out(this%Np1D,this%Np1D**2)
-    !----------------------------------------------------------
-    call element_tensorprod3D_operation_kernel_matrix_vec_dirX_P5( this%Dx1D, vec_in, vec_out )
-    return
-  end subroutine element_operation_tensorprod3D_Dx_P5
-
-!> Calculate the differential in x-direction
-!!
-!OCL SERIAL
-  subroutine element_operation_tensorprod3D_Dx_P6( this, vec_in, vec_out )
-    use scale_element_operation_tensorprod3D_kernel, only: element_operation_tensorprod3D_kernel_matrix_vec_dirX_P6
-    implicit none
-    class(ElementOperationTensorProd3D_P6), intent(in) :: this
-    real(RP), intent(in) :: vec_in(this%Np1D,this%Np1D**2)
-    real(RP), intent(out) :: vec_out(this%Np1D,this%Np1D**2)
-    !----------------------------------------------------------
-    call element_tensorprod3D_operation_kernel_matrix_vec_dirX_P6( this%Dx1D, vec_in, vec_out )
-    return
-  end subroutine element_operation_tensorprod3D_Dx_P6
-
-!> Calculate the differential in x-direction
-!!
-!OCL SERIAL
-  subroutine element_operation_tensorprod3D_Dx_P7( this, vec_in, vec_out )
-    use scale_element_operation_tensorprod3D_kernel, only: element_operation_tensorprod3D_kernel_matrix_vec_dirX_P7
-    implicit none
-    class(ElementOperationTensorProd3D_P7), intent(in) :: this
-    real(RP), intent(in) :: vec_in(this%Np1D,this%Np1D**2)
-    real(RP), intent(out) :: vec_out(this%Np1D,this%Np1D**2)
-    !----------------------------------------------------------
-    call element_tensorprod3D_operation_kernel_matrix_vec_dirX_P7( this%Dx1D, vec_in, vec_out )
-    return
-  end subroutine element_operation_tensorprod3D_Dx_P7
-
-!> Calculate the differential in x-direction
-!!
-!OCL SERIAL
-  subroutine element_operation_tensorprod3D_Dx_P8( this, vec_in, vec_out )
-    use scale_element_operation_tensorprod3D_kernel, only: element_operation_tensorprod3D_kernel_matrix_vec_dirX_P8
-    implicit none
-    class(ElementOperationTensorProd3D_P8), intent(in) :: this
-    real(RP), intent(in) :: vec_in(this%Np1D,this%Np1D**2)
-    real(RP), intent(out) :: vec_out(this%Np1D,this%Np1D**2)
-    !----------------------------------------------------------
-    call element_tensorprod3D_operation_kernel_matrix_vec_dirX_P8( this%Dx1D, vec_in, vec_out )
-    return
-  end subroutine element_operation_tensorprod3D_Dx_P8
-
-!> Calculate the differential in x-direction
-!!
-!OCL SERIAL
-  subroutine element_operation_tensorprod3D_Dx_P9( this, vec_in, vec_out )
-    use scale_element_operation_tensorprod3D_kernel, only: element_operation_tensorprod3D_kernel_matrix_vec_dirX_P9
-    implicit none
-    class(ElementOperationTensorProd3D_P9), intent(in) :: this
-    real(RP), intent(in) :: vec_in(this%Np1D,this%Np1D**2)
-    real(RP), intent(out) :: vec_out(this%Np1D,this%Np1D**2)
-    !----------------------------------------------------------
-    call element_tensorprod3D_operation_kernel_matrix_vec_dirX_P9( this%Dx1D, vec_in, vec_out )
-    return
-  end subroutine element_operation_tensorprod3D_Dx_P9
-
-!> Calculate the differential in x-direction
-!!
-!OCL SERIAL
-  subroutine element_operation_tensorprod3D_Dx_P10( this, vec_in, vec_out )
-    use scale_element_operation_tensorprod3D_kernel, only: element_operation_tensorprod3D_kernel_matrix_vec_dirX_P10
-    implicit none
-    class(ElementOperationTensorProd3D_P10), intent(in) :: this
-    real(RP), intent(in) :: vec_in(this%Np1D,this%Np1D**2)
-    real(RP), intent(out) :: vec_out(this%Np1D,this%Np1D**2)
-    !----------------------------------------------------------
-    call element_tensorprod3D_operation_kernel_matrix_vec_dirX_P10( this%Dx1D, vec_in, vec_out )
-    return
-  end subroutine element_operation_tensorprod3D_Dx_P10
-
-!> Calculate the differential in x-direction
-!!
-!OCL SERIAL
-  subroutine element_operation_tensorprod3D_Dx_P11( this, vec_in, vec_out )
-    use scale_element_operation_tensorprod3D_kernel, only: element_operation_tensorprod3D_kernel_matrix_vec_dirX_P11
-    implicit none
-    class(ElementOperationTensorProd3D_P11), intent(in) :: this
-    real(RP), intent(in) :: vec_in(this%Np1D,this%Np1D**2)
-    real(RP), intent(out) :: vec_out(this%Np1D,this%Np1D**2)
-    !----------------------------------------------------------
-    call element_tensorprod3D_operation_kernel_matrix_vec_dirX_P11( this%Dx1D, vec_in, vec_out )
-    return
-  end subroutine element_operation_tensorprod3D_Dx_P11
-
-!> Calculate the differential in x-direction
-!!
-!OCL SERIAL
-  subroutine element_operation_tensorprod3D_Dx_P12( this, vec_in, vec_out )
-    use scale_element_operation_tensorprod3D_kernel, only: element_operation_tensorprod3D_kernel_matrix_vec_dirX_P12
-    implicit none
-    class(ElementOperationTensorProd3D_P12), intent(in) :: this
-    real(RP), intent(in) :: vec_in(this%Np1D,this%Np1D**2)
-    real(RP), intent(out) :: vec_out(this%Np1D,this%Np1D**2)
-    !----------------------------------------------------------
-    call element_tensorprod3D_operation_kernel_matrix_vec_dirX_P12( this%Dx1D, vec_in, vec_out )
-    return
-  end subroutine element_operation_tensorprod3D_Dx_P12
-
-!> Calculate the differential in x-direction
-!!
-!OCL SERIAL
-  subroutine element_operation_tensorprod3D_Dx_P13( this, vec_in, vec_out )
-    use scale_element_operation_tensorprod3D_kernel, only: element_operation_tensorprod3D_kernel_matrix_vec_dirX_P13
-    implicit none
-    class(ElementOperationTensorProd3D_P13), intent(in) :: this
-    real(RP), intent(in) :: vec_in(this%Np1D,this%Np1D**2)
-    real(RP), intent(out) :: vec_out(this%Np1D,this%Np1D**2)
-    !----------------------------------------------------------
-    call element_tensorprod3D_operation_kernel_matrix_vec_dirX_P13( this%Dx1D, vec_in, vec_out )
-    return
-  end subroutine element_operation_tensorprod3D_Dx_P13
-
-!-------------------------------------------------------------
-
 
 !> Calculate the differential in z-direction
 !!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Dy_P1( this, vec_in, vec_out )
-    use scale_element_operation_tensorprod3D_kernel, only: element_operation_tensorprod3D_kernel_matrix_vec_dirY_P1
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirY_P1
     implicit none
     class(ElementOperationTensorProd3D_P1), intent(in) :: this
-    real(RP), intent(in) :: vec_in(this%Np1D,this%Np1D,this%Np1D)
-    real(RP), intent(out) :: vec_out(this%Np1D,this%Np1D,this%Np1D)
+    real(RP), intent(in) :: vec_in(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
     !----------------------------------------------------------
-    call element_tensorprod3D_operation_kernel_matrix_vec_dirY_P1( this%Dy1D_tr, vec_in, vec_out )
+    call element_operation_kernel_matvec_dirY_P1( this%D1D_tr, vec_in, vec_out )
     return
   end subroutine element_operation_tensorprod3D_Dy_P1
 
 !> Calculate the differential in z-direction
 !!
 !OCL SERIAL
-  subroutine element_operation_tensorprod3D_Dy_P2( this, vec_in, vec_out )
-    use scale_element_operation_tensorprod3D_kernel, only: element_operation_tensorprod3D_kernel_matrix_vec_dirY_P2
+  subroutine element_operation_tensorprod3D_Dz_P1( this, vec_in, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirZ_P1
+    implicit none
+    class(ElementOperationTensorProd3D_P1), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
+    !----------------------------------------------------------
+    call element_operation_kernel_matvec_dirZ_P1( this%D1D_tr, vec_in, vec_out )
+    return
+  end subroutine element_operation_tensorprod3D_Dz_P1
+
+!> Calculate the Lifting term
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Lift_P1( this, vec_in, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_Lift_hexahedral_P1
+    implicit none
+    class(ElementOperationTensorProd3D_P1), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%NfpTot)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
+    !----------------------------------------------------------
+    call element_operation_kernel_matvec_Lift_hexahedral_P1( this%Lift_mat, vec_in, vec_out )
+    return
+  end subroutine element_operation_tensorprod3D_Lift_P1
+
+!> Calculate the 3D gradient
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_DxDyDzLift_P1( this, vec_in, vec_in_lift, vec_out_dx, vec_out_dy, vec_out_dz, vec_out_lift )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_gradlike_dirXYZ_P1, &
+      element_operation_kernel_matvec_Lift_hexahedral_P1
+    implicit none
+    class(ElementOperationTensorProd3D_P1), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np)
+    real(RP), intent(in) :: vec_in_lift(this%elem3D%NfpTot)
+    real(RP), intent(out) :: vec_out_dx(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out_dy(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out_dz(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out_lift(this%elem3D%Np)
+    !----------------------------------------------------------
+    call element_operation_kernel_matvec_gradlike_dirXYZ_P1( this%D1D, this%D1D_tr, vec_in, vec_in, &
+      vec_out_dx, vec_out_dy, vec_out_dz )
+    call element_operation_kernel_matvec_Lift_hexahedral_P1( this%Lift_mat, vec_in_lift, &
+      vec_out_lift )      
+
+    return
+  end subroutine element_operation_tensorprod3D_DxDyDzLift_P1
+
+!> Calculate the 3D gradient
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Div_P1(  this, vec_in_x, vec_in_y, vec_in_z, vec_in_lift, Escale, Gsqrt, sign_, &
+    vec_out_dx, vec_out_dy, vec_out_dz, vec_out_lift, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_divlike_dirXYZ_P1, &
+      element_operation_kernel_matvec_Lift_hexahedral_P1
+    implicit none
+    class(ElementOperationTensorProd3D_P1), intent(in) :: this
+    real(RP), intent(in) :: vec_in_x(this%elem3D%Np)
+    real(RP), intent(in) :: vec_in_y(this%elem3D%Np)
+    real(RP), intent(in) :: vec_in_z(this%elem3D%Np)
+    real(RP), intent(in) :: vec_in_lift(this%elem3D%NfpTot)
+    real(RP), intent(in) :: Escale(3,this%elem3D%Np)
+    real(RP), intent(in) :: Gsqrt(this%elem3D%Np)
+    real(RP), intent(in) :: sign_    
+    real(RP), intent(out) :: vec_out_dx(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out_dy(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out_dz(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out_lift(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
+    !----------------------------------------------------------
+
+    call element_operation_kernel_matvec_Lift_hexahedral_P1( this%Lift_mat, vec_in_lift, &
+      vec_out_lift )      
+
+    call element_operation_kernel_matvec_divlike_dirXYZ_P1( this%D1D, this%D1D_tr, vec_in_x, vec_in_y, vec_in_z, Escale, Gsqrt, vec_out_lift, sign_, &
+      vec_out_dx, vec_out_dy, vec_out_dz, vec_out )
+
+    return
+  end subroutine element_operation_tensorprod3D_Div_P1
+
+  subroutine element_operation_tensorprod3D_VFilterPM1_P1( this, vec_in, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirZ_P1
+    implicit none
+    class(ElementOperationTensorProd3D_P1), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
+    !---------------------------------------------------------------
+
+    call element_operation_kernel_matvec_dirZ_P1( this%IntrpMat_VPOrdM1, vec_in, &
+      vec_out )
+    return
+  end subroutine element_operation_tensorprod3D_VFilterPM1_P1 
+
+
+!--- For p=2 ------------------------------------
+
+!> Initialization
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Init_P2( this, elem3D )
+    use scale_element_line, only: LineElement
+    use scale_sparsemat, only: SparseMat
+    implicit none
+    class(ElementOperationTensorProd3D_P2), intent(inout) :: this
+    class(ElementBase3D), intent(in), target :: elem3D
+
+    integer :: p
+
+    integer :: p1, p2, p_
+    real(RP) :: invV_VPOrdM1(3,3)
+
+    type(LineElement) :: elem1D
+    type(SparseMat) :: Lift_sm
+    !----------------------------------------------------------
+    this%elem3D => elem3D
+
+    call elem1D%Init( 2, .false. )
+    this%D1D(:,:) = elem1D%Dx1(:,:)
+    this%D1D_tr(:,:) = transpose(this%D1D)
+
+    call Lift_sm%Init( elem3D%Lift, storage_format='ELL' )
+    this%Lift_mat(:,:,:,:) = reshape(Lift_sm%val, (/ 3,3,3,6 /) )
+    call Lift_sm%Final()
+
+    !--
+
+    InvV_VPOrdM1(:,:) = elem1D%invV(:,:)
+    InvV_VPOrdM1(3,:) = 0.0_RP
+    this%IntrpMat_VPOrdM1(:,:) = matmul(elem1D%V, invV_VPOrdM1)
+
+    !-
+    call elem1D%Final()
+
+    return
+  end subroutine element_operation_tensorprod3D_Init_P2
+
+!> Finalization
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Final_P2( this )
+    implicit none
+    class(ElementOperationTensorProd3D_P2), intent(inout) :: this
+    !----------------------------------------------------------
+    nullify( this%elem3D )
+    return
+  end subroutine element_operation_tensorprod3D_Final_P2
+
+!> Calculate the differential in x-direction
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Dx_P2( this, vec_in, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirX_P2
     implicit none
     class(ElementOperationTensorProd3D_P2), intent(in) :: this
-    real(RP), intent(in) :: vec_in(this%Np1D,this%Np1D,this%Np1D)
-    real(RP), intent(out) :: vec_out(this%Np1D,this%Np1D,this%Np1D)
+    real(RP), intent(in) :: vec_in(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
     !----------------------------------------------------------
-    call element_tensorprod3D_operation_kernel_matrix_vec_dirY_P2( this%Dy1D_tr, vec_in, vec_out )
+    call element_operation_kernel_matvec_dirX_P2( this%D1D, vec_in, vec_out )
+    return
+  end subroutine element_operation_tensorprod3D_Dx_P2
+
+!> Calculate the differential in z-direction
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Dy_P2( this, vec_in, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirY_P2
+    implicit none
+    class(ElementOperationTensorProd3D_P2), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
+    !----------------------------------------------------------
+    call element_operation_kernel_matvec_dirY_P2( this%D1D_tr, vec_in, vec_out )
     return
   end subroutine element_operation_tensorprod3D_Dy_P2
 
 !> Calculate the differential in z-direction
 !!
 !OCL SERIAL
-  subroutine element_operation_tensorprod3D_Dy_P3( this, vec_in, vec_out )
-    use scale_element_operation_tensorprod3D_kernel, only: element_operation_tensorprod3D_kernel_matrix_vec_dirY_P3
+  subroutine element_operation_tensorprod3D_Dz_P2( this, vec_in, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirZ_P2
+    implicit none
+    class(ElementOperationTensorProd3D_P2), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
+    !----------------------------------------------------------
+    call element_operation_kernel_matvec_dirZ_P2( this%D1D_tr, vec_in, vec_out )
+    return
+  end subroutine element_operation_tensorprod3D_Dz_P2
+
+!> Calculate the Lifting term
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Lift_P2( this, vec_in, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_Lift_hexahedral_P2
+    implicit none
+    class(ElementOperationTensorProd3D_P2), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%NfpTot)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
+    !----------------------------------------------------------
+    call element_operation_kernel_matvec_Lift_hexahedral_P2( this%Lift_mat, vec_in, vec_out )
+    return
+  end subroutine element_operation_tensorprod3D_Lift_P2
+
+!> Calculate the 3D gradient
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_DxDyDzLift_P2( this, vec_in, vec_in_lift, vec_out_dx, vec_out_dy, vec_out_dz, vec_out_lift )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_gradlike_dirXYZ_P2, &
+      element_operation_kernel_matvec_Lift_hexahedral_P2
+    implicit none
+    class(ElementOperationTensorProd3D_P2), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np)
+    real(RP), intent(in) :: vec_in_lift(this%elem3D%NfpTot)
+    real(RP), intent(out) :: vec_out_dx(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out_dy(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out_dz(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out_lift(this%elem3D%Np)
+    !----------------------------------------------------------
+    call element_operation_kernel_matvec_gradlike_dirXYZ_P2( this%D1D, this%D1D_tr, vec_in, vec_in, &
+      vec_out_dx, vec_out_dy, vec_out_dz )
+    call element_operation_kernel_matvec_Lift_hexahedral_P2( this%Lift_mat, vec_in_lift, &
+      vec_out_lift )      
+
+    return
+  end subroutine element_operation_tensorprod3D_DxDyDzLift_P2
+
+!> Calculate the 3D gradient
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Div_P2(  this, vec_in_x, vec_in_y, vec_in_z, vec_in_lift, Escale, Gsqrt, sign_, &
+    vec_out_dx, vec_out_dy, vec_out_dz, vec_out_lift, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_divlike_dirXYZ_P2, &
+      element_operation_kernel_matvec_Lift_hexahedral_P2
+    implicit none
+    class(ElementOperationTensorProd3D_P2), intent(in) :: this
+    real(RP), intent(in) :: vec_in_x(this%elem3D%Np)
+    real(RP), intent(in) :: vec_in_y(this%elem3D%Np)
+    real(RP), intent(in) :: vec_in_z(this%elem3D%Np)
+    real(RP), intent(in) :: vec_in_lift(this%elem3D%NfpTot)
+    real(RP), intent(in) :: Escale(3,this%elem3D%Np)
+    real(RP), intent(in) :: Gsqrt(this%elem3D%Np)
+    real(RP), intent(in) :: sign_    
+    real(RP), intent(out) :: vec_out_dx(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out_dy(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out_dz(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out_lift(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
+    !----------------------------------------------------------
+
+    call element_operation_kernel_matvec_Lift_hexahedral_P2( this%Lift_mat, vec_in_lift, &
+      vec_out_lift )      
+
+    call element_operation_kernel_matvec_divlike_dirXYZ_P2( this%D1D, this%D1D_tr, vec_in_x, vec_in_y, vec_in_z, Escale, Gsqrt, vec_out_lift, sign_, &
+      vec_out_dx, vec_out_dy, vec_out_dz, vec_out )
+
+    return
+  end subroutine element_operation_tensorprod3D_Div_P2
+
+  subroutine element_operation_tensorprod3D_VFilterPM1_P2( this, vec_in, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirZ_P2
+    implicit none
+    class(ElementOperationTensorProd3D_P2), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
+    !---------------------------------------------------------------
+
+    call element_operation_kernel_matvec_dirZ_P2( this%IntrpMat_VPOrdM1, vec_in, &
+      vec_out )
+    return
+  end subroutine element_operation_tensorprod3D_VFilterPM1_P2 
+
+
+!--- For p=3 ------------------------------------
+
+!> Initialization
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Init_P3( this, elem3D )
+    use scale_element_line, only: LineElement
+    use scale_sparsemat, only: SparseMat
+    implicit none
+    class(ElementOperationTensorProd3D_P3), intent(inout) :: this
+    class(ElementBase3D), intent(in), target :: elem3D
+
+    integer :: p
+
+    integer :: p1, p2, p_
+    real(RP) :: invV_VPOrdM1(4,4)
+
+    type(LineElement) :: elem1D
+    type(SparseMat) :: Lift_sm
+    !----------------------------------------------------------
+    this%elem3D => elem3D
+
+    call elem1D%Init( 3, .false. )
+    this%D1D(:,:) = elem1D%Dx1(:,:)
+    this%D1D_tr(:,:) = transpose(this%D1D)
+
+    call Lift_sm%Init( elem3D%Lift, storage_format='ELL' )
+    this%Lift_mat(:,:,:,:) = reshape(Lift_sm%val, (/ 4,4,4,6 /) )
+    call Lift_sm%Final()
+
+    !--
+
+    InvV_VPOrdM1(:,:) = elem1D%invV(:,:)
+    InvV_VPOrdM1(4,:) = 0.0_RP
+    this%IntrpMat_VPOrdM1(:,:) = matmul(elem1D%V, invV_VPOrdM1)
+
+    !-
+    call elem1D%Final()
+
+    return
+  end subroutine element_operation_tensorprod3D_Init_P3
+
+!> Finalization
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Final_P3( this )
+    implicit none
+    class(ElementOperationTensorProd3D_P3), intent(inout) :: this
+    !----------------------------------------------------------
+    nullify( this%elem3D )
+    return
+  end subroutine element_operation_tensorprod3D_Final_P3
+
+!> Calculate the differential in x-direction
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Dx_P3( this, vec_in, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirX_P3
     implicit none
     class(ElementOperationTensorProd3D_P3), intent(in) :: this
-    real(RP), intent(in) :: vec_in(this%Np1D,this%Np1D,this%Np1D)
-    real(RP), intent(out) :: vec_out(this%Np1D,this%Np1D,this%Np1D)
+    real(RP), intent(in) :: vec_in(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
     !----------------------------------------------------------
-    call element_tensorprod3D_operation_kernel_matrix_vec_dirY_P3( this%Dy1D_tr, vec_in, vec_out )
+    call element_operation_kernel_matvec_dirX_P3( this%D1D, vec_in, vec_out )
+    return
+  end subroutine element_operation_tensorprod3D_Dx_P3
+
+!> Calculate the differential in z-direction
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Dy_P3( this, vec_in, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirY_P3
+    implicit none
+    class(ElementOperationTensorProd3D_P3), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
+    !----------------------------------------------------------
+    call element_operation_kernel_matvec_dirY_P3( this%D1D_tr, vec_in, vec_out )
     return
   end subroutine element_operation_tensorprod3D_Dy_P3
 
 !> Calculate the differential in z-direction
 !!
 !OCL SERIAL
-  subroutine element_operation_tensorprod3D_Dy_P4( this, vec_in, vec_out )
-    use scale_element_operation_tensorprod3D_kernel, only: element_operation_tensorprod3D_kernel_matrix_vec_dirY_P4
+  subroutine element_operation_tensorprod3D_Dz_P3( this, vec_in, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirZ_P3
+    implicit none
+    class(ElementOperationTensorProd3D_P3), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
+    !----------------------------------------------------------
+    call element_operation_kernel_matvec_dirZ_P3( this%D1D_tr, vec_in, vec_out )
+    return
+  end subroutine element_operation_tensorprod3D_Dz_P3
+
+!> Calculate the Lifting term
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Lift_P3( this, vec_in, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_Lift_hexahedral_P3
+    implicit none
+    class(ElementOperationTensorProd3D_P3), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%NfpTot)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
+    !----------------------------------------------------------
+    call element_operation_kernel_matvec_Lift_hexahedral_P3( this%Lift_mat, vec_in, vec_out )
+    return
+  end subroutine element_operation_tensorprod3D_Lift_P3
+
+!> Calculate the 3D gradient
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_DxDyDzLift_P3( this, vec_in, vec_in_lift, vec_out_dx, vec_out_dy, vec_out_dz, vec_out_lift )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_gradlike_dirXYZ_P3, &
+      element_operation_kernel_matvec_Lift_hexahedral_P3
+    implicit none
+    class(ElementOperationTensorProd3D_P3), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np)
+    real(RP), intent(in) :: vec_in_lift(this%elem3D%NfpTot)
+    real(RP), intent(out) :: vec_out_dx(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out_dy(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out_dz(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out_lift(this%elem3D%Np)
+    !----------------------------------------------------------
+    call element_operation_kernel_matvec_gradlike_dirXYZ_P3( this%D1D, this%D1D_tr, vec_in, vec_in, &
+      vec_out_dx, vec_out_dy, vec_out_dz )
+    call element_operation_kernel_matvec_Lift_hexahedral_P3( this%Lift_mat, vec_in_lift, &
+      vec_out_lift )      
+
+    return
+  end subroutine element_operation_tensorprod3D_DxDyDzLift_P3
+
+!> Calculate the 3D gradient
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Div_P3(  this, vec_in_x, vec_in_y, vec_in_z, vec_in_lift, Escale, Gsqrt, sign_, &
+    vec_out_dx, vec_out_dy, vec_out_dz, vec_out_lift, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_divlike_dirXYZ_P3, &
+      element_operation_kernel_matvec_Lift_hexahedral_P3
+    implicit none
+    class(ElementOperationTensorProd3D_P3), intent(in) :: this
+    real(RP), intent(in) :: vec_in_x(this%elem3D%Np)
+    real(RP), intent(in) :: vec_in_y(this%elem3D%Np)
+    real(RP), intent(in) :: vec_in_z(this%elem3D%Np)
+    real(RP), intent(in) :: vec_in_lift(this%elem3D%NfpTot)
+    real(RP), intent(in) :: Escale(3,this%elem3D%Np)
+    real(RP), intent(in) :: Gsqrt(this%elem3D%Np)
+    real(RP), intent(in) :: sign_    
+    real(RP), intent(out) :: vec_out_dx(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out_dy(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out_dz(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out_lift(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
+    !----------------------------------------------------------
+
+    call element_operation_kernel_matvec_Lift_hexahedral_P3( this%Lift_mat, vec_in_lift, &
+      vec_out_lift )      
+
+    call element_operation_kernel_matvec_divlike_dirXYZ_P3( this%D1D, this%D1D_tr, vec_in_x, vec_in_y, vec_in_z, Escale, Gsqrt, vec_out_lift, sign_, &
+      vec_out_dx, vec_out_dy, vec_out_dz, vec_out )
+
+    return
+  end subroutine element_operation_tensorprod3D_Div_P3
+
+  subroutine element_operation_tensorprod3D_VFilterPM1_P3( this, vec_in, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirZ_P3
+    implicit none
+    class(ElementOperationTensorProd3D_P3), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
+    !---------------------------------------------------------------
+
+    call element_operation_kernel_matvec_dirZ_P3( this%IntrpMat_VPOrdM1, vec_in, &
+      vec_out )
+    return
+  end subroutine element_operation_tensorprod3D_VFilterPM1_P3 
+
+
+!--- For p=4 ------------------------------------
+
+!> Initialization
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Init_P4( this, elem3D )
+    use scale_element_line, only: LineElement
+    use scale_sparsemat, only: SparseMat
+    implicit none
+    class(ElementOperationTensorProd3D_P4), intent(inout) :: this
+    class(ElementBase3D), intent(in), target :: elem3D
+
+    integer :: p
+
+    integer :: p1, p2, p_
+    real(RP) :: invV_VPOrdM1(5,5)
+
+    type(LineElement) :: elem1D
+    type(SparseMat) :: Lift_sm
+    !----------------------------------------------------------
+    this%elem3D => elem3D
+
+    call elem1D%Init( 4, .false. )
+    this%D1D(:,:) = elem1D%Dx1(:,:)
+    this%D1D_tr(:,:) = transpose(this%D1D)
+
+    call Lift_sm%Init( elem3D%Lift, storage_format='ELL' )
+    this%Lift_mat(:,:,:,:) = reshape(Lift_sm%val, (/ 5,5,5,6 /) )
+    call Lift_sm%Final()
+
+    !--
+
+    InvV_VPOrdM1(:,:) = elem1D%invV(:,:)
+    InvV_VPOrdM1(5,:) = 0.0_RP
+    this%IntrpMat_VPOrdM1(:,:) = matmul(elem1D%V, invV_VPOrdM1)
+
+    !-
+    call elem1D%Final()
+
+    return
+  end subroutine element_operation_tensorprod3D_Init_P4
+
+!> Finalization
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Final_P4( this )
+    implicit none
+    class(ElementOperationTensorProd3D_P4), intent(inout) :: this
+    !----------------------------------------------------------
+    nullify( this%elem3D )
+    return
+  end subroutine element_operation_tensorprod3D_Final_P4
+
+!> Calculate the differential in x-direction
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Dx_P4( this, vec_in, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirX_P4
     implicit none
     class(ElementOperationTensorProd3D_P4), intent(in) :: this
-    real(RP), intent(in) :: vec_in(this%Np1D,this%Np1D,this%Np1D)
-    real(RP), intent(out) :: vec_out(this%Np1D,this%Np1D,this%Np1D)
+    real(RP), intent(in) :: vec_in(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
     !----------------------------------------------------------
-    call element_tensorprod3D_operation_kernel_matrix_vec_dirY_P4( this%Dy1D_tr, vec_in, vec_out )
+    call element_operation_kernel_matvec_dirX_P4( this%D1D, vec_in, vec_out )
+    return
+  end subroutine element_operation_tensorprod3D_Dx_P4
+
+!> Calculate the differential in z-direction
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Dy_P4( this, vec_in, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirY_P4
+    implicit none
+    class(ElementOperationTensorProd3D_P4), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
+    !----------------------------------------------------------
+    call element_operation_kernel_matvec_dirY_P4( this%D1D_tr, vec_in, vec_out )
     return
   end subroutine element_operation_tensorprod3D_Dy_P4
 
 !> Calculate the differential in z-direction
 !!
 !OCL SERIAL
-  subroutine element_operation_tensorprod3D_Dy_P5( this, vec_in, vec_out )
-    use scale_element_operation_tensorprod3D_kernel, only: element_operation_tensorprod3D_kernel_matrix_vec_dirY_P5
+  subroutine element_operation_tensorprod3D_Dz_P4( this, vec_in, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirZ_P4
+    implicit none
+    class(ElementOperationTensorProd3D_P4), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
+    !----------------------------------------------------------
+    call element_operation_kernel_matvec_dirZ_P4( this%D1D_tr, vec_in, vec_out )
+    return
+  end subroutine element_operation_tensorprod3D_Dz_P4
+
+!> Calculate the Lifting term
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Lift_P4( this, vec_in, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_Lift_hexahedral_P4
+    implicit none
+    class(ElementOperationTensorProd3D_P4), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%NfpTot)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
+    !----------------------------------------------------------
+    call element_operation_kernel_matvec_Lift_hexahedral_P4( this%Lift_mat, vec_in, vec_out )
+    return
+  end subroutine element_operation_tensorprod3D_Lift_P4
+
+!> Calculate the 3D gradient
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_DxDyDzLift_P4( this, vec_in, vec_in_lift, vec_out_dx, vec_out_dy, vec_out_dz, vec_out_lift )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_gradlike_dirXYZ_P4, &
+      element_operation_kernel_matvec_Lift_hexahedral_P4
+    implicit none
+    class(ElementOperationTensorProd3D_P4), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np)
+    real(RP), intent(in) :: vec_in_lift(this%elem3D%NfpTot)
+    real(RP), intent(out) :: vec_out_dx(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out_dy(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out_dz(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out_lift(this%elem3D%Np)
+    !----------------------------------------------------------
+    call element_operation_kernel_matvec_gradlike_dirXYZ_P4( this%D1D, this%D1D_tr, vec_in, vec_in, &
+      vec_out_dx, vec_out_dy, vec_out_dz )
+    call element_operation_kernel_matvec_Lift_hexahedral_P4( this%Lift_mat, vec_in_lift, &
+      vec_out_lift )      
+
+    return
+  end subroutine element_operation_tensorprod3D_DxDyDzLift_P4
+
+!> Calculate the 3D gradient
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Div_P4(  this, vec_in_x, vec_in_y, vec_in_z, vec_in_lift, Escale, Gsqrt, sign_, &
+    vec_out_dx, vec_out_dy, vec_out_dz, vec_out_lift, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_divlike_dirXYZ_P4, &
+      element_operation_kernel_matvec_Lift_hexahedral_P4
+    implicit none
+    class(ElementOperationTensorProd3D_P4), intent(in) :: this
+    real(RP), intent(in) :: vec_in_x(this%elem3D%Np)
+    real(RP), intent(in) :: vec_in_y(this%elem3D%Np)
+    real(RP), intent(in) :: vec_in_z(this%elem3D%Np)
+    real(RP), intent(in) :: vec_in_lift(this%elem3D%NfpTot)
+    real(RP), intent(in) :: Escale(3,this%elem3D%Np)
+    real(RP), intent(in) :: Gsqrt(this%elem3D%Np)
+    real(RP), intent(in) :: sign_    
+    real(RP), intent(out) :: vec_out_dx(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out_dy(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out_dz(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out_lift(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
+    !----------------------------------------------------------
+
+    call element_operation_kernel_matvec_Lift_hexahedral_P4( this%Lift_mat, vec_in_lift, &
+      vec_out_lift )      
+
+    call element_operation_kernel_matvec_divlike_dirXYZ_P4( this%D1D, this%D1D_tr, vec_in_x, vec_in_y, vec_in_z, Escale, Gsqrt, vec_out_lift, sign_, &
+      vec_out_dx, vec_out_dy, vec_out_dz, vec_out )
+
+    return
+  end subroutine element_operation_tensorprod3D_Div_P4
+
+  subroutine element_operation_tensorprod3D_VFilterPM1_P4( this, vec_in, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirZ_P4
+    implicit none
+    class(ElementOperationTensorProd3D_P4), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
+    !---------------------------------------------------------------
+
+    call element_operation_kernel_matvec_dirZ_P4( this%IntrpMat_VPOrdM1, vec_in, &
+      vec_out )
+    return
+  end subroutine element_operation_tensorprod3D_VFilterPM1_P4 
+
+
+!--- For p=5 ------------------------------------
+
+!> Initialization
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Init_P5( this, elem3D )
+    use scale_element_line, only: LineElement
+    use scale_sparsemat, only: SparseMat
+    implicit none
+    class(ElementOperationTensorProd3D_P5), intent(inout) :: this
+    class(ElementBase3D), intent(in), target :: elem3D
+
+    integer :: p
+
+    integer :: p1, p2, p_
+    real(RP) :: invV_VPOrdM1(6,6)
+
+    type(LineElement) :: elem1D
+    type(SparseMat) :: Lift_sm
+    !----------------------------------------------------------
+    this%elem3D => elem3D
+
+    call elem1D%Init( 5, .false. )
+    this%D1D(:,:) = elem1D%Dx1(:,:)
+    this%D1D_tr(:,:) = transpose(this%D1D)
+
+    call Lift_sm%Init( elem3D%Lift, storage_format='ELL' )
+    this%Lift_mat(:,:,:,:) = reshape(Lift_sm%val, (/ 6,6,6,6 /) )
+    call Lift_sm%Final()
+
+    !--
+
+    InvV_VPOrdM1(:,:) = elem1D%invV(:,:)
+    InvV_VPOrdM1(6,:) = 0.0_RP
+    this%IntrpMat_VPOrdM1(:,:) = matmul(elem1D%V, invV_VPOrdM1)
+
+    !-
+    call elem1D%Final()
+
+    return
+  end subroutine element_operation_tensorprod3D_Init_P5
+
+!> Finalization
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Final_P5( this )
+    implicit none
+    class(ElementOperationTensorProd3D_P5), intent(inout) :: this
+    !----------------------------------------------------------
+    nullify( this%elem3D )
+    return
+  end subroutine element_operation_tensorprod3D_Final_P5
+
+!> Calculate the differential in x-direction
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Dx_P5( this, vec_in, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirX_P5
     implicit none
     class(ElementOperationTensorProd3D_P5), intent(in) :: this
-    real(RP), intent(in) :: vec_in(this%Np1D,this%Np1D,this%Np1D)
-    real(RP), intent(out) :: vec_out(this%Np1D,this%Np1D,this%Np1D)
+    real(RP), intent(in) :: vec_in(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
     !----------------------------------------------------------
-    call element_tensorprod3D_operation_kernel_matrix_vec_dirY_P5( this%Dy1D_tr, vec_in, vec_out )
+    call element_operation_kernel_matvec_dirX_P5( this%D1D, vec_in, vec_out )
+    return
+  end subroutine element_operation_tensorprod3D_Dx_P5
+
+!> Calculate the differential in z-direction
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Dy_P5( this, vec_in, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirY_P5
+    implicit none
+    class(ElementOperationTensorProd3D_P5), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
+    !----------------------------------------------------------
+    call element_operation_kernel_matvec_dirY_P5( this%D1D_tr, vec_in, vec_out )
     return
   end subroutine element_operation_tensorprod3D_Dy_P5
 
 !> Calculate the differential in z-direction
 !!
 !OCL SERIAL
-  subroutine element_operation_tensorprod3D_Dy_P6( this, vec_in, vec_out )
-    use scale_element_operation_tensorprod3D_kernel, only: element_operation_tensorprod3D_kernel_matrix_vec_dirY_P6
+  subroutine element_operation_tensorprod3D_Dz_P5( this, vec_in, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirZ_P5
+    implicit none
+    class(ElementOperationTensorProd3D_P5), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
+    !----------------------------------------------------------
+    call element_operation_kernel_matvec_dirZ_P5( this%D1D_tr, vec_in, vec_out )
+    return
+  end subroutine element_operation_tensorprod3D_Dz_P5
+
+!> Calculate the Lifting term
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Lift_P5( this, vec_in, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_Lift_hexahedral_P5
+    implicit none
+    class(ElementOperationTensorProd3D_P5), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%NfpTot)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
+    !----------------------------------------------------------
+    call element_operation_kernel_matvec_Lift_hexahedral_P5( this%Lift_mat, vec_in, vec_out )
+    return
+  end subroutine element_operation_tensorprod3D_Lift_P5
+
+!> Calculate the 3D gradient
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_DxDyDzLift_P5( this, vec_in, vec_in_lift, vec_out_dx, vec_out_dy, vec_out_dz, vec_out_lift )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_gradlike_dirXYZ_P5, &
+      element_operation_kernel_matvec_Lift_hexahedral_P5
+    implicit none
+    class(ElementOperationTensorProd3D_P5), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np)
+    real(RP), intent(in) :: vec_in_lift(this%elem3D%NfpTot)
+    real(RP), intent(out) :: vec_out_dx(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out_dy(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out_dz(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out_lift(this%elem3D%Np)
+    !----------------------------------------------------------
+    call element_operation_kernel_matvec_gradlike_dirXYZ_P5( this%D1D, this%D1D_tr, vec_in, vec_in, &
+      vec_out_dx, vec_out_dy, vec_out_dz )
+    call element_operation_kernel_matvec_Lift_hexahedral_P5( this%Lift_mat, vec_in_lift, &
+      vec_out_lift )      
+
+    return
+  end subroutine element_operation_tensorprod3D_DxDyDzLift_P5
+
+!> Calculate the 3D gradient
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Div_P5(  this, vec_in_x, vec_in_y, vec_in_z, vec_in_lift, Escale, Gsqrt, sign_, &
+    vec_out_dx, vec_out_dy, vec_out_dz, vec_out_lift, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_divlike_dirXYZ_P5, &
+      element_operation_kernel_matvec_Lift_hexahedral_P5
+    implicit none
+    class(ElementOperationTensorProd3D_P5), intent(in) :: this
+    real(RP), intent(in) :: vec_in_x(this%elem3D%Np)
+    real(RP), intent(in) :: vec_in_y(this%elem3D%Np)
+    real(RP), intent(in) :: vec_in_z(this%elem3D%Np)
+    real(RP), intent(in) :: vec_in_lift(this%elem3D%NfpTot)
+    real(RP), intent(in) :: Escale(3,this%elem3D%Np)
+    real(RP), intent(in) :: Gsqrt(this%elem3D%Np)
+    real(RP), intent(in) :: sign_    
+    real(RP), intent(out) :: vec_out_dx(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out_dy(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out_dz(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out_lift(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
+    !----------------------------------------------------------
+
+    call element_operation_kernel_matvec_Lift_hexahedral_P5( this%Lift_mat, vec_in_lift, &
+      vec_out_lift )      
+
+    call element_operation_kernel_matvec_divlike_dirXYZ_P5( this%D1D, this%D1D_tr, vec_in_x, vec_in_y, vec_in_z, Escale, Gsqrt, vec_out_lift, sign_, &
+      vec_out_dx, vec_out_dy, vec_out_dz, vec_out )
+
+    return
+  end subroutine element_operation_tensorprod3D_Div_P5
+
+  subroutine element_operation_tensorprod3D_VFilterPM1_P5( this, vec_in, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirZ_P5
+    implicit none
+    class(ElementOperationTensorProd3D_P5), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
+    !---------------------------------------------------------------
+
+    call element_operation_kernel_matvec_dirZ_P5( this%IntrpMat_VPOrdM1, vec_in, &
+      vec_out )
+    return
+  end subroutine element_operation_tensorprod3D_VFilterPM1_P5 
+
+
+!--- For p=6 ------------------------------------
+
+!> Initialization
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Init_P6( this, elem3D )
+    use scale_element_line, only: LineElement
+    use scale_sparsemat, only: SparseMat
+    implicit none
+    class(ElementOperationTensorProd3D_P6), intent(inout) :: this
+    class(ElementBase3D), intent(in), target :: elem3D
+
+    integer :: p
+
+    integer :: p1, p2, p_
+    real(RP) :: invV_VPOrdM1(7,7)
+
+    type(LineElement) :: elem1D
+    type(SparseMat) :: Lift_sm
+    !----------------------------------------------------------
+    this%elem3D => elem3D
+
+    call elem1D%Init( 6, .false. )
+    this%D1D(:,:) = elem1D%Dx1(:,:)
+    this%D1D_tr(:,:) = transpose(this%D1D)
+
+    call Lift_sm%Init( elem3D%Lift, storage_format='ELL' )
+    this%Lift_mat(:,:,:,:) = reshape(Lift_sm%val, (/ 7,7,7,6 /) )
+    call Lift_sm%Final()
+
+    !--
+
+    InvV_VPOrdM1(:,:) = elem1D%invV(:,:)
+    InvV_VPOrdM1(7,:) = 0.0_RP
+    this%IntrpMat_VPOrdM1(:,:) = matmul(elem1D%V, invV_VPOrdM1)
+
+    !-
+    call elem1D%Final()
+
+    return
+  end subroutine element_operation_tensorprod3D_Init_P6
+
+!> Finalization
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Final_P6( this )
+    implicit none
+    class(ElementOperationTensorProd3D_P6), intent(inout) :: this
+    !----------------------------------------------------------
+    nullify( this%elem3D )
+    return
+  end subroutine element_operation_tensorprod3D_Final_P6
+
+!> Calculate the differential in x-direction
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Dx_P6( this, vec_in, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirX_P6
     implicit none
     class(ElementOperationTensorProd3D_P6), intent(in) :: this
-    real(RP), intent(in) :: vec_in(this%Np1D,this%Np1D,this%Np1D)
-    real(RP), intent(out) :: vec_out(this%Np1D,this%Np1D,this%Np1D)
+    real(RP), intent(in) :: vec_in(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
     !----------------------------------------------------------
-    call element_tensorprod3D_operation_kernel_matrix_vec_dirY_P6( this%Dy1D_tr, vec_in, vec_out )
+    call element_operation_kernel_matvec_dirX_P6( this%D1D, vec_in, vec_out )
+    return
+  end subroutine element_operation_tensorprod3D_Dx_P6
+
+!> Calculate the differential in z-direction
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Dy_P6( this, vec_in, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirY_P6
+    implicit none
+    class(ElementOperationTensorProd3D_P6), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
+    !----------------------------------------------------------
+    call element_operation_kernel_matvec_dirY_P6( this%D1D_tr, vec_in, vec_out )
     return
   end subroutine element_operation_tensorprod3D_Dy_P6
 
 !> Calculate the differential in z-direction
 !!
 !OCL SERIAL
-  subroutine element_operation_tensorprod3D_Dy_P7( this, vec_in, vec_out )
-    use scale_element_operation_tensorprod3D_kernel, only: element_operation_tensorprod3D_kernel_matrix_vec_dirY_P7
+  subroutine element_operation_tensorprod3D_Dz_P6( this, vec_in, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirZ_P6
+    implicit none
+    class(ElementOperationTensorProd3D_P6), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
+    !----------------------------------------------------------
+    call element_operation_kernel_matvec_dirZ_P6( this%D1D_tr, vec_in, vec_out )
+    return
+  end subroutine element_operation_tensorprod3D_Dz_P6
+
+!> Calculate the Lifting term
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Lift_P6( this, vec_in, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_Lift_hexahedral_P6
+    implicit none
+    class(ElementOperationTensorProd3D_P6), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%NfpTot)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
+    !----------------------------------------------------------
+    call element_operation_kernel_matvec_Lift_hexahedral_P6( this%Lift_mat, vec_in, vec_out )
+    return
+  end subroutine element_operation_tensorprod3D_Lift_P6
+
+!> Calculate the 3D gradient
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_DxDyDzLift_P6( this, vec_in, vec_in_lift, vec_out_dx, vec_out_dy, vec_out_dz, vec_out_lift )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_gradlike_dirXYZ_P6, &
+      element_operation_kernel_matvec_Lift_hexahedral_P6
+    implicit none
+    class(ElementOperationTensorProd3D_P6), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np)
+    real(RP), intent(in) :: vec_in_lift(this%elem3D%NfpTot)
+    real(RP), intent(out) :: vec_out_dx(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out_dy(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out_dz(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out_lift(this%elem3D%Np)
+    !----------------------------------------------------------
+    call element_operation_kernel_matvec_gradlike_dirXYZ_P6( this%D1D, this%D1D_tr, vec_in, vec_in, &
+      vec_out_dx, vec_out_dy, vec_out_dz )
+    call element_operation_kernel_matvec_Lift_hexahedral_P6( this%Lift_mat, vec_in_lift, &
+      vec_out_lift )      
+
+    return
+  end subroutine element_operation_tensorprod3D_DxDyDzLift_P6
+
+!> Calculate the 3D gradient
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Div_P6(  this, vec_in_x, vec_in_y, vec_in_z, vec_in_lift, Escale, Gsqrt, sign_, &
+    vec_out_dx, vec_out_dy, vec_out_dz, vec_out_lift, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_divlike_dirXYZ_P6, &
+      element_operation_kernel_matvec_Lift_hexahedral_P6
+    implicit none
+    class(ElementOperationTensorProd3D_P6), intent(in) :: this
+    real(RP), intent(in) :: vec_in_x(this%elem3D%Np)
+    real(RP), intent(in) :: vec_in_y(this%elem3D%Np)
+    real(RP), intent(in) :: vec_in_z(this%elem3D%Np)
+    real(RP), intent(in) :: vec_in_lift(this%elem3D%NfpTot)
+    real(RP), intent(in) :: Escale(3,this%elem3D%Np)
+    real(RP), intent(in) :: Gsqrt(this%elem3D%Np)
+    real(RP), intent(in) :: sign_    
+    real(RP), intent(out) :: vec_out_dx(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out_dy(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out_dz(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out_lift(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
+    !----------------------------------------------------------
+
+    call element_operation_kernel_matvec_Lift_hexahedral_P6( this%Lift_mat, vec_in_lift, &
+      vec_out_lift )      
+
+    call element_operation_kernel_matvec_divlike_dirXYZ_P6( this%D1D, this%D1D_tr, vec_in_x, vec_in_y, vec_in_z, Escale, Gsqrt, vec_out_lift, sign_, &
+      vec_out_dx, vec_out_dy, vec_out_dz, vec_out )
+
+    return
+  end subroutine element_operation_tensorprod3D_Div_P6
+
+  subroutine element_operation_tensorprod3D_VFilterPM1_P6( this, vec_in, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirZ_P6
+    implicit none
+    class(ElementOperationTensorProd3D_P6), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
+    !---------------------------------------------------------------
+
+    call element_operation_kernel_matvec_dirZ_P6( this%IntrpMat_VPOrdM1, vec_in, &
+      vec_out )
+    return
+  end subroutine element_operation_tensorprod3D_VFilterPM1_P6 
+
+
+!--- For p=7 ------------------------------------
+
+!> Initialization
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Init_P7( this, elem3D )
+    use scale_element_line, only: LineElement
+    use scale_sparsemat, only: SparseMat
+    implicit none
+    class(ElementOperationTensorProd3D_P7), intent(inout) :: this
+    class(ElementBase3D), intent(in), target :: elem3D
+
+    integer :: p
+
+    integer :: p1, p2, p_
+    real(RP) :: invV_VPOrdM1(8,8)
+
+    type(LineElement) :: elem1D
+    type(SparseMat) :: Lift_sm
+    !----------------------------------------------------------
+    this%elem3D => elem3D
+
+    call elem1D%Init( 7, .false. )
+    this%D1D(:,:) = elem1D%Dx1(:,:)
+    this%D1D_tr(:,:) = transpose(this%D1D)
+
+    call Lift_sm%Init( elem3D%Lift, storage_format='ELL' )
+    this%Lift_mat(:,:,:,:) = reshape(Lift_sm%val, (/ 8,8,8,6 /) )
+    call Lift_sm%Final()
+
+    !--
+
+    InvV_VPOrdM1(:,:) = elem1D%invV(:,:)
+    InvV_VPOrdM1(8,:) = 0.0_RP
+    this%IntrpMat_VPOrdM1(:,:) = matmul(elem1D%V, invV_VPOrdM1)
+
+    !-
+    call elem1D%Final()
+
+    return
+  end subroutine element_operation_tensorprod3D_Init_P7
+
+!> Finalization
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Final_P7( this )
+    implicit none
+    class(ElementOperationTensorProd3D_P7), intent(inout) :: this
+    !----------------------------------------------------------
+    nullify( this%elem3D )
+    return
+  end subroutine element_operation_tensorprod3D_Final_P7
+
+!> Calculate the differential in x-direction
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Dx_P7( this, vec_in, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirX_P7
     implicit none
     class(ElementOperationTensorProd3D_P7), intent(in) :: this
-    real(RP), intent(in) :: vec_in(this%Np1D,this%Np1D,this%Np1D)
-    real(RP), intent(out) :: vec_out(this%Np1D,this%Np1D,this%Np1D)
+    real(RP), intent(in) :: vec_in(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
     !----------------------------------------------------------
-    call element_tensorprod3D_operation_kernel_matrix_vec_dirY_P7( this%Dy1D_tr, vec_in, vec_out )
+    call element_operation_kernel_matvec_dirX_P7( this%D1D, vec_in, vec_out )
+    return
+  end subroutine element_operation_tensorprod3D_Dx_P7
+
+!> Calculate the differential in z-direction
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Dy_P7( this, vec_in, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirY_P7
+    implicit none
+    class(ElementOperationTensorProd3D_P7), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
+    !----------------------------------------------------------
+    call element_operation_kernel_matvec_dirY_P7( this%D1D_tr, vec_in, vec_out )
     return
   end subroutine element_operation_tensorprod3D_Dy_P7
 
 !> Calculate the differential in z-direction
 !!
 !OCL SERIAL
-  subroutine element_operation_tensorprod3D_Dy_P8( this, vec_in, vec_out )
-    use scale_element_operation_tensorprod3D_kernel, only: element_operation_tensorprod3D_kernel_matrix_vec_dirY_P8
+  subroutine element_operation_tensorprod3D_Dz_P7( this, vec_in, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirZ_P7
+    implicit none
+    class(ElementOperationTensorProd3D_P7), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
+    !----------------------------------------------------------
+    call element_operation_kernel_matvec_dirZ_P7( this%D1D_tr, vec_in, vec_out )
+    return
+  end subroutine element_operation_tensorprod3D_Dz_P7
+
+!> Calculate the Lifting term
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Lift_P7( this, vec_in, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_Lift_hexahedral_P7
+    implicit none
+    class(ElementOperationTensorProd3D_P7), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%NfpTot)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
+    !----------------------------------------------------------
+    call element_operation_kernel_matvec_Lift_hexahedral_P7( this%Lift_mat, vec_in, vec_out )
+    return
+  end subroutine element_operation_tensorprod3D_Lift_P7
+
+!> Calculate the 3D gradient
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_DxDyDzLift_P7( this, vec_in, vec_in_lift, vec_out_dx, vec_out_dy, vec_out_dz, vec_out_lift )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_gradlike_dirXYZ_P7, &
+      element_operation_kernel_matvec_Lift_hexahedral_P7
+    implicit none
+    class(ElementOperationTensorProd3D_P7), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np)
+    real(RP), intent(in) :: vec_in_lift(this%elem3D%NfpTot)
+    real(RP), intent(out) :: vec_out_dx(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out_dy(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out_dz(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out_lift(this%elem3D%Np)
+    !----------------------------------------------------------
+    call element_operation_kernel_matvec_gradlike_dirXYZ_P7( this%D1D, this%D1D_tr, vec_in, vec_in, &
+      vec_out_dx, vec_out_dy, vec_out_dz )
+    call element_operation_kernel_matvec_Lift_hexahedral_P7( this%Lift_mat, vec_in_lift, &
+      vec_out_lift )      
+
+    return
+  end subroutine element_operation_tensorprod3D_DxDyDzLift_P7
+
+!> Calculate the 3D gradient
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Div_P7(  this, vec_in_x, vec_in_y, vec_in_z, vec_in_lift, Escale, Gsqrt, sign_, &
+    vec_out_dx, vec_out_dy, vec_out_dz, vec_out_lift, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_divlike_dirXYZ_P7, &
+      element_operation_kernel_matvec_Lift_hexahedral_P7
+    implicit none
+    class(ElementOperationTensorProd3D_P7), intent(in) :: this
+    real(RP), intent(in) :: vec_in_x(this%elem3D%Np)
+    real(RP), intent(in) :: vec_in_y(this%elem3D%Np)
+    real(RP), intent(in) :: vec_in_z(this%elem3D%Np)
+    real(RP), intent(in) :: vec_in_lift(this%elem3D%NfpTot)
+    real(RP), intent(in) :: Escale(3,this%elem3D%Np)
+    real(RP), intent(in) :: Gsqrt(this%elem3D%Np)
+    real(RP), intent(in) :: sign_    
+    real(RP), intent(out) :: vec_out_dx(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out_dy(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out_dz(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out_lift(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
+    !----------------------------------------------------------
+
+    call element_operation_kernel_matvec_Lift_hexahedral_P7( this%Lift_mat, vec_in_lift, &
+      vec_out_lift )      
+
+    call element_operation_kernel_matvec_divlike_dirXYZ_P7( this%D1D, this%D1D_tr, vec_in_x, vec_in_y, vec_in_z, Escale, Gsqrt, vec_out_lift, sign_, &
+      vec_out_dx, vec_out_dy, vec_out_dz, vec_out )
+
+    return
+  end subroutine element_operation_tensorprod3D_Div_P7
+
+  subroutine element_operation_tensorprod3D_VFilterPM1_P7( this, vec_in, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirZ_P7
+    implicit none
+    class(ElementOperationTensorProd3D_P7), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
+    !---------------------------------------------------------------
+
+    call element_operation_kernel_matvec_dirZ_P7( this%IntrpMat_VPOrdM1, vec_in, &
+      vec_out )
+    return
+  end subroutine element_operation_tensorprod3D_VFilterPM1_P7 
+
+
+!--- For p=8 ------------------------------------
+
+!> Initialization
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Init_P8( this, elem3D )
+    use scale_element_line, only: LineElement
+    use scale_sparsemat, only: SparseMat
+    implicit none
+    class(ElementOperationTensorProd3D_P8), intent(inout) :: this
+    class(ElementBase3D), intent(in), target :: elem3D
+
+    integer :: p
+
+    integer :: p1, p2, p_
+    real(RP) :: invV_VPOrdM1(9,9)
+
+    type(LineElement) :: elem1D
+    type(SparseMat) :: Lift_sm
+    !----------------------------------------------------------
+    this%elem3D => elem3D
+
+    call elem1D%Init( 8, .false. )
+    this%D1D(:,:) = elem1D%Dx1(:,:)
+    this%D1D_tr(:,:) = transpose(this%D1D)
+
+    call Lift_sm%Init( elem3D%Lift, storage_format='ELL' )
+    this%Lift_mat(:,:,:,:) = reshape(Lift_sm%val, (/ 9,9,9,6 /) )
+    call Lift_sm%Final()
+
+    !--
+
+    InvV_VPOrdM1(:,:) = elem1D%invV(:,:)
+    InvV_VPOrdM1(9,:) = 0.0_RP
+    this%IntrpMat_VPOrdM1(:,:) = matmul(elem1D%V, invV_VPOrdM1)
+
+    !-
+    call elem1D%Final()
+
+    return
+  end subroutine element_operation_tensorprod3D_Init_P8
+
+!> Finalization
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Final_P8( this )
+    implicit none
+    class(ElementOperationTensorProd3D_P8), intent(inout) :: this
+    !----------------------------------------------------------
+    nullify( this%elem3D )
+    return
+  end subroutine element_operation_tensorprod3D_Final_P8
+
+!> Calculate the differential in x-direction
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Dx_P8( this, vec_in, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirX_P8
     implicit none
     class(ElementOperationTensorProd3D_P8), intent(in) :: this
-    real(RP), intent(in) :: vec_in(this%Np1D,this%Np1D,this%Np1D)
-    real(RP), intent(out) :: vec_out(this%Np1D,this%Np1D,this%Np1D)
+    real(RP), intent(in) :: vec_in(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
     !----------------------------------------------------------
-    call element_tensorprod3D_operation_kernel_matrix_vec_dirY_P8( this%Dy1D_tr, vec_in, vec_out )
+    call element_operation_kernel_matvec_dirX_P8( this%D1D, vec_in, vec_out )
+    return
+  end subroutine element_operation_tensorprod3D_Dx_P8
+
+!> Calculate the differential in z-direction
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Dy_P8( this, vec_in, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirY_P8
+    implicit none
+    class(ElementOperationTensorProd3D_P8), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
+    !----------------------------------------------------------
+    call element_operation_kernel_matvec_dirY_P8( this%D1D_tr, vec_in, vec_out )
     return
   end subroutine element_operation_tensorprod3D_Dy_P8
 
 !> Calculate the differential in z-direction
 !!
 !OCL SERIAL
-  subroutine element_operation_tensorprod3D_Dy_P9( this, vec_in, vec_out )
-    use scale_element_operation_tensorprod3D_kernel, only: element_operation_tensorprod3D_kernel_matrix_vec_dirY_P9
+  subroutine element_operation_tensorprod3D_Dz_P8( this, vec_in, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirZ_P8
+    implicit none
+    class(ElementOperationTensorProd3D_P8), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
+    !----------------------------------------------------------
+    call element_operation_kernel_matvec_dirZ_P8( this%D1D_tr, vec_in, vec_out )
+    return
+  end subroutine element_operation_tensorprod3D_Dz_P8
+
+!> Calculate the Lifting term
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Lift_P8( this, vec_in, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_Lift_hexahedral_P8
+    implicit none
+    class(ElementOperationTensorProd3D_P8), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%NfpTot)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
+    !----------------------------------------------------------
+    call element_operation_kernel_matvec_Lift_hexahedral_P8( this%Lift_mat, vec_in, vec_out )
+    return
+  end subroutine element_operation_tensorprod3D_Lift_P8
+
+!> Calculate the 3D gradient
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_DxDyDzLift_P8( this, vec_in, vec_in_lift, vec_out_dx, vec_out_dy, vec_out_dz, vec_out_lift )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_gradlike_dirXYZ_P8, &
+      element_operation_kernel_matvec_Lift_hexahedral_P8
+    implicit none
+    class(ElementOperationTensorProd3D_P8), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np)
+    real(RP), intent(in) :: vec_in_lift(this%elem3D%NfpTot)
+    real(RP), intent(out) :: vec_out_dx(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out_dy(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out_dz(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out_lift(this%elem3D%Np)
+    !----------------------------------------------------------
+    call element_operation_kernel_matvec_gradlike_dirXYZ_P8( this%D1D, this%D1D_tr, vec_in, vec_in, &
+      vec_out_dx, vec_out_dy, vec_out_dz )
+    call element_operation_kernel_matvec_Lift_hexahedral_P8( this%Lift_mat, vec_in_lift, &
+      vec_out_lift )      
+
+    return
+  end subroutine element_operation_tensorprod3D_DxDyDzLift_P8
+
+!> Calculate the 3D gradient
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Div_P8(  this, vec_in_x, vec_in_y, vec_in_z, vec_in_lift, Escale, Gsqrt, sign_, &
+    vec_out_dx, vec_out_dy, vec_out_dz, vec_out_lift, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_divlike_dirXYZ_P8, &
+      element_operation_kernel_matvec_Lift_hexahedral_P8
+    implicit none
+    class(ElementOperationTensorProd3D_P8), intent(in) :: this
+    real(RP), intent(in) :: vec_in_x(this%elem3D%Np)
+    real(RP), intent(in) :: vec_in_y(this%elem3D%Np)
+    real(RP), intent(in) :: vec_in_z(this%elem3D%Np)
+    real(RP), intent(in) :: vec_in_lift(this%elem3D%NfpTot)
+    real(RP), intent(in) :: Escale(3,this%elem3D%Np)
+    real(RP), intent(in) :: Gsqrt(this%elem3D%Np)
+    real(RP), intent(in) :: sign_    
+    real(RP), intent(out) :: vec_out_dx(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out_dy(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out_dz(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out_lift(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
+    !----------------------------------------------------------
+
+    call element_operation_kernel_matvec_Lift_hexahedral_P8( this%Lift_mat, vec_in_lift, &
+      vec_out_lift )      
+
+    call element_operation_kernel_matvec_divlike_dirXYZ_P8( this%D1D, this%D1D_tr, vec_in_x, vec_in_y, vec_in_z, Escale, Gsqrt, vec_out_lift, sign_, &
+      vec_out_dx, vec_out_dy, vec_out_dz, vec_out )
+
+    return
+  end subroutine element_operation_tensorprod3D_Div_P8
+
+  subroutine element_operation_tensorprod3D_VFilterPM1_P8( this, vec_in, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirZ_P8
+    implicit none
+    class(ElementOperationTensorProd3D_P8), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
+    !---------------------------------------------------------------
+
+    call element_operation_kernel_matvec_dirZ_P8( this%IntrpMat_VPOrdM1, vec_in, &
+      vec_out )
+    return
+  end subroutine element_operation_tensorprod3D_VFilterPM1_P8 
+
+
+!--- For p=9 ------------------------------------
+
+!> Initialization
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Init_P9( this, elem3D )
+    use scale_element_line, only: LineElement
+    use scale_sparsemat, only: SparseMat
+    implicit none
+    class(ElementOperationTensorProd3D_P9), intent(inout) :: this
+    class(ElementBase3D), intent(in), target :: elem3D
+
+    integer :: p
+
+    integer :: p1, p2, p_
+    real(RP) :: invV_VPOrdM1(10,10)
+
+    type(LineElement) :: elem1D
+    type(SparseMat) :: Lift_sm
+    !----------------------------------------------------------
+    this%elem3D => elem3D
+
+    call elem1D%Init( 9, .false. )
+    this%D1D(:,:) = elem1D%Dx1(:,:)
+    this%D1D_tr(:,:) = transpose(this%D1D)
+
+    call Lift_sm%Init( elem3D%Lift, storage_format='ELL' )
+    this%Lift_mat(:,:,:,:) = reshape(Lift_sm%val, (/ 10,10,10,6 /) )
+    call Lift_sm%Final()
+
+    !--
+
+    InvV_VPOrdM1(:,:) = elem1D%invV(:,:)
+    InvV_VPOrdM1(10,:) = 0.0_RP
+    this%IntrpMat_VPOrdM1(:,:) = matmul(elem1D%V, invV_VPOrdM1)
+
+    !-
+    call elem1D%Final()
+
+    return
+  end subroutine element_operation_tensorprod3D_Init_P9
+
+!> Finalization
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Final_P9( this )
+    implicit none
+    class(ElementOperationTensorProd3D_P9), intent(inout) :: this
+    !----------------------------------------------------------
+    nullify( this%elem3D )
+    return
+  end subroutine element_operation_tensorprod3D_Final_P9
+
+!> Calculate the differential in x-direction
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Dx_P9( this, vec_in, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirX_P9
     implicit none
     class(ElementOperationTensorProd3D_P9), intent(in) :: this
-    real(RP), intent(in) :: vec_in(this%Np1D,this%Np1D,this%Np1D)
-    real(RP), intent(out) :: vec_out(this%Np1D,this%Np1D,this%Np1D)
+    real(RP), intent(in) :: vec_in(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
     !----------------------------------------------------------
-    call element_tensorprod3D_operation_kernel_matrix_vec_dirY_P9( this%Dy1D_tr, vec_in, vec_out )
+    call element_operation_kernel_matvec_dirX_P9( this%D1D, vec_in, vec_out )
+    return
+  end subroutine element_operation_tensorprod3D_Dx_P9
+
+!> Calculate the differential in z-direction
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Dy_P9( this, vec_in, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirY_P9
+    implicit none
+    class(ElementOperationTensorProd3D_P9), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
+    !----------------------------------------------------------
+    call element_operation_kernel_matvec_dirY_P9( this%D1D_tr, vec_in, vec_out )
     return
   end subroutine element_operation_tensorprod3D_Dy_P9
 
 !> Calculate the differential in z-direction
 !!
 !OCL SERIAL
-  subroutine element_operation_tensorprod3D_Dy_P10( this, vec_in, vec_out )
-    use scale_element_operation_tensorprod3D_kernel, only: element_operation_tensorprod3D_kernel_matrix_vec_dirY_P10
+  subroutine element_operation_tensorprod3D_Dz_P9( this, vec_in, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirZ_P9
+    implicit none
+    class(ElementOperationTensorProd3D_P9), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
+    !----------------------------------------------------------
+    call element_operation_kernel_matvec_dirZ_P9( this%D1D_tr, vec_in, vec_out )
+    return
+  end subroutine element_operation_tensorprod3D_Dz_P9
+
+!> Calculate the Lifting term
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Lift_P9( this, vec_in, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_Lift_hexahedral_P9
+    implicit none
+    class(ElementOperationTensorProd3D_P9), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%NfpTot)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
+    !----------------------------------------------------------
+    call element_operation_kernel_matvec_Lift_hexahedral_P9( this%Lift_mat, vec_in, vec_out )
+    return
+  end subroutine element_operation_tensorprod3D_Lift_P9
+
+!> Calculate the 3D gradient
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_DxDyDzLift_P9( this, vec_in, vec_in_lift, vec_out_dx, vec_out_dy, vec_out_dz, vec_out_lift )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_gradlike_dirXYZ_P9, &
+      element_operation_kernel_matvec_Lift_hexahedral_P9
+    implicit none
+    class(ElementOperationTensorProd3D_P9), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np)
+    real(RP), intent(in) :: vec_in_lift(this%elem3D%NfpTot)
+    real(RP), intent(out) :: vec_out_dx(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out_dy(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out_dz(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out_lift(this%elem3D%Np)
+    !----------------------------------------------------------
+    call element_operation_kernel_matvec_gradlike_dirXYZ_P9( this%D1D, this%D1D_tr, vec_in, vec_in, &
+      vec_out_dx, vec_out_dy, vec_out_dz )
+    call element_operation_kernel_matvec_Lift_hexahedral_P9( this%Lift_mat, vec_in_lift, &
+      vec_out_lift )      
+
+    return
+  end subroutine element_operation_tensorprod3D_DxDyDzLift_P9
+
+!> Calculate the 3D gradient
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Div_P9(  this, vec_in_x, vec_in_y, vec_in_z, vec_in_lift, Escale, Gsqrt, sign_, &
+    vec_out_dx, vec_out_dy, vec_out_dz, vec_out_lift, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_divlike_dirXYZ_P9, &
+      element_operation_kernel_matvec_Lift_hexahedral_P9
+    implicit none
+    class(ElementOperationTensorProd3D_P9), intent(in) :: this
+    real(RP), intent(in) :: vec_in_x(this%elem3D%Np)
+    real(RP), intent(in) :: vec_in_y(this%elem3D%Np)
+    real(RP), intent(in) :: vec_in_z(this%elem3D%Np)
+    real(RP), intent(in) :: vec_in_lift(this%elem3D%NfpTot)
+    real(RP), intent(in) :: Escale(3,this%elem3D%Np)
+    real(RP), intent(in) :: Gsqrt(this%elem3D%Np)
+    real(RP), intent(in) :: sign_    
+    real(RP), intent(out) :: vec_out_dx(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out_dy(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out_dz(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out_lift(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
+    !----------------------------------------------------------
+
+    call element_operation_kernel_matvec_Lift_hexahedral_P9( this%Lift_mat, vec_in_lift, &
+      vec_out_lift )      
+
+    call element_operation_kernel_matvec_divlike_dirXYZ_P9( this%D1D, this%D1D_tr, vec_in_x, vec_in_y, vec_in_z, Escale, Gsqrt, vec_out_lift, sign_, &
+      vec_out_dx, vec_out_dy, vec_out_dz, vec_out )
+
+    return
+  end subroutine element_operation_tensorprod3D_Div_P9
+
+  subroutine element_operation_tensorprod3D_VFilterPM1_P9( this, vec_in, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirZ_P9
+    implicit none
+    class(ElementOperationTensorProd3D_P9), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
+    !---------------------------------------------------------------
+
+    call element_operation_kernel_matvec_dirZ_P9( this%IntrpMat_VPOrdM1, vec_in, &
+      vec_out )
+    return
+  end subroutine element_operation_tensorprod3D_VFilterPM1_P9 
+
+
+!--- For p=10 ------------------------------------
+
+!> Initialization
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Init_P10( this, elem3D )
+    use scale_element_line, only: LineElement
+    use scale_sparsemat, only: SparseMat
+    implicit none
+    class(ElementOperationTensorProd3D_P10), intent(inout) :: this
+    class(ElementBase3D), intent(in), target :: elem3D
+
+    integer :: p
+
+    integer :: p1, p2, p_
+    real(RP) :: invV_VPOrdM1(11,11)
+
+    type(LineElement) :: elem1D
+    type(SparseMat) :: Lift_sm
+    !----------------------------------------------------------
+    this%elem3D => elem3D
+
+    call elem1D%Init( 10, .false. )
+    this%D1D(:,:) = elem1D%Dx1(:,:)
+    this%D1D_tr(:,:) = transpose(this%D1D)
+
+    call Lift_sm%Init( elem3D%Lift, storage_format='ELL' )
+    this%Lift_mat(:,:,:,:) = reshape(Lift_sm%val, (/ 11,11,11,6 /) )
+    call Lift_sm%Final()
+
+    !--
+
+    InvV_VPOrdM1(:,:) = elem1D%invV(:,:)
+    InvV_VPOrdM1(11,:) = 0.0_RP
+    this%IntrpMat_VPOrdM1(:,:) = matmul(elem1D%V, invV_VPOrdM1)
+
+    !-
+    call elem1D%Final()
+
+    return
+  end subroutine element_operation_tensorprod3D_Init_P10
+
+!> Finalization
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Final_P10( this )
+    implicit none
+    class(ElementOperationTensorProd3D_P10), intent(inout) :: this
+    !----------------------------------------------------------
+    nullify( this%elem3D )
+    return
+  end subroutine element_operation_tensorprod3D_Final_P10
+
+!> Calculate the differential in x-direction
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Dx_P10( this, vec_in, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirX_P10
     implicit none
     class(ElementOperationTensorProd3D_P10), intent(in) :: this
-    real(RP), intent(in) :: vec_in(this%Np1D,this%Np1D,this%Np1D)
-    real(RP), intent(out) :: vec_out(this%Np1D,this%Np1D,this%Np1D)
+    real(RP), intent(in) :: vec_in(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
     !----------------------------------------------------------
-    call element_tensorprod3D_operation_kernel_matrix_vec_dirY_P10( this%Dy1D_tr, vec_in, vec_out )
+    call element_operation_kernel_matvec_dirX_P10( this%D1D, vec_in, vec_out )
+    return
+  end subroutine element_operation_tensorprod3D_Dx_P10
+
+!> Calculate the differential in z-direction
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Dy_P10( this, vec_in, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirY_P10
+    implicit none
+    class(ElementOperationTensorProd3D_P10), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
+    !----------------------------------------------------------
+    call element_operation_kernel_matvec_dirY_P10( this%D1D_tr, vec_in, vec_out )
     return
   end subroutine element_operation_tensorprod3D_Dy_P10
 
 !> Calculate the differential in z-direction
 !!
 !OCL SERIAL
-  subroutine element_operation_tensorprod3D_Dy_P11( this, vec_in, vec_out )
-    use scale_element_operation_tensorprod3D_kernel, only: element_operation_tensorprod3D_kernel_matrix_vec_dirY_P11
+  subroutine element_operation_tensorprod3D_Dz_P10( this, vec_in, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirZ_P10
+    implicit none
+    class(ElementOperationTensorProd3D_P10), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
+    !----------------------------------------------------------
+    call element_operation_kernel_matvec_dirZ_P10( this%D1D_tr, vec_in, vec_out )
+    return
+  end subroutine element_operation_tensorprod3D_Dz_P10
+
+!> Calculate the Lifting term
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Lift_P10( this, vec_in, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_Lift_hexahedral_P10
+    implicit none
+    class(ElementOperationTensorProd3D_P10), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%NfpTot)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
+    !----------------------------------------------------------
+    call element_operation_kernel_matvec_Lift_hexahedral_P10( this%Lift_mat, vec_in, vec_out )
+    return
+  end subroutine element_operation_tensorprod3D_Lift_P10
+
+!> Calculate the 3D gradient
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_DxDyDzLift_P10( this, vec_in, vec_in_lift, vec_out_dx, vec_out_dy, vec_out_dz, vec_out_lift )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_gradlike_dirXYZ_P10, &
+      element_operation_kernel_matvec_Lift_hexahedral_P10
+    implicit none
+    class(ElementOperationTensorProd3D_P10), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np)
+    real(RP), intent(in) :: vec_in_lift(this%elem3D%NfpTot)
+    real(RP), intent(out) :: vec_out_dx(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out_dy(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out_dz(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out_lift(this%elem3D%Np)
+    !----------------------------------------------------------
+    call element_operation_kernel_matvec_gradlike_dirXYZ_P10( this%D1D, this%D1D_tr, vec_in, vec_in, &
+      vec_out_dx, vec_out_dy, vec_out_dz )
+    call element_operation_kernel_matvec_Lift_hexahedral_P10( this%Lift_mat, vec_in_lift, &
+      vec_out_lift )      
+
+    return
+  end subroutine element_operation_tensorprod3D_DxDyDzLift_P10
+
+!> Calculate the 3D gradient
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Div_P10(  this, vec_in_x, vec_in_y, vec_in_z, vec_in_lift, Escale, Gsqrt, sign_, &
+    vec_out_dx, vec_out_dy, vec_out_dz, vec_out_lift, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_divlike_dirXYZ_P10, &
+      element_operation_kernel_matvec_Lift_hexahedral_P10
+    implicit none
+    class(ElementOperationTensorProd3D_P10), intent(in) :: this
+    real(RP), intent(in) :: vec_in_x(this%elem3D%Np)
+    real(RP), intent(in) :: vec_in_y(this%elem3D%Np)
+    real(RP), intent(in) :: vec_in_z(this%elem3D%Np)
+    real(RP), intent(in) :: vec_in_lift(this%elem3D%NfpTot)
+    real(RP), intent(in) :: Escale(3,this%elem3D%Np)
+    real(RP), intent(in) :: Gsqrt(this%elem3D%Np)
+    real(RP), intent(in) :: sign_    
+    real(RP), intent(out) :: vec_out_dx(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out_dy(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out_dz(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out_lift(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
+    !----------------------------------------------------------
+
+    call element_operation_kernel_matvec_Lift_hexahedral_P10( this%Lift_mat, vec_in_lift, &
+      vec_out_lift )      
+
+    call element_operation_kernel_matvec_divlike_dirXYZ_P10( this%D1D, this%D1D_tr, vec_in_x, vec_in_y, vec_in_z, Escale, Gsqrt, vec_out_lift, sign_, &
+      vec_out_dx, vec_out_dy, vec_out_dz, vec_out )
+
+    return
+  end subroutine element_operation_tensorprod3D_Div_P10
+
+  subroutine element_operation_tensorprod3D_VFilterPM1_P10( this, vec_in, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirZ_P10
+    implicit none
+    class(ElementOperationTensorProd3D_P10), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
+    !---------------------------------------------------------------
+
+    call element_operation_kernel_matvec_dirZ_P10( this%IntrpMat_VPOrdM1, vec_in, &
+      vec_out )
+    return
+  end subroutine element_operation_tensorprod3D_VFilterPM1_P10 
+
+
+!--- For p=11 ------------------------------------
+
+!> Initialization
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Init_P11( this, elem3D )
+    use scale_element_line, only: LineElement
+    use scale_sparsemat, only: SparseMat
+    implicit none
+    class(ElementOperationTensorProd3D_P11), intent(inout) :: this
+    class(ElementBase3D), intent(in), target :: elem3D
+
+    integer :: p
+
+    integer :: p1, p2, p_
+    real(RP) :: invV_VPOrdM1(12,12)
+
+    type(LineElement) :: elem1D
+    type(SparseMat) :: Lift_sm
+    !----------------------------------------------------------
+    this%elem3D => elem3D
+
+    call elem1D%Init( 11, .false. )
+    this%D1D(:,:) = elem1D%Dx1(:,:)
+    this%D1D_tr(:,:) = transpose(this%D1D)
+
+    call Lift_sm%Init( elem3D%Lift, storage_format='ELL' )
+    this%Lift_mat(:,:,:,:) = reshape(Lift_sm%val, (/ 12,12,12,6 /) )
+    call Lift_sm%Final()
+
+    !--
+
+    InvV_VPOrdM1(:,:) = elem1D%invV(:,:)
+    InvV_VPOrdM1(12,:) = 0.0_RP
+    this%IntrpMat_VPOrdM1(:,:) = matmul(elem1D%V, invV_VPOrdM1)
+
+    !-
+    call elem1D%Final()
+
+    return
+  end subroutine element_operation_tensorprod3D_Init_P11
+
+!> Finalization
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Final_P11( this )
+    implicit none
+    class(ElementOperationTensorProd3D_P11), intent(inout) :: this
+    !----------------------------------------------------------
+    nullify( this%elem3D )
+    return
+  end subroutine element_operation_tensorprod3D_Final_P11
+
+!> Calculate the differential in x-direction
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Dx_P11( this, vec_in, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirX_P11
     implicit none
     class(ElementOperationTensorProd3D_P11), intent(in) :: this
-    real(RP), intent(in) :: vec_in(this%Np1D,this%Np1D,this%Np1D)
-    real(RP), intent(out) :: vec_out(this%Np1D,this%Np1D,this%Np1D)
+    real(RP), intent(in) :: vec_in(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
     !----------------------------------------------------------
-    call element_tensorprod3D_operation_kernel_matrix_vec_dirY_P11( this%Dy1D_tr, vec_in, vec_out )
+    call element_operation_kernel_matvec_dirX_P11( this%D1D, vec_in, vec_out )
+    return
+  end subroutine element_operation_tensorprod3D_Dx_P11
+
+!> Calculate the differential in z-direction
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Dy_P11( this, vec_in, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirY_P11
+    implicit none
+    class(ElementOperationTensorProd3D_P11), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
+    !----------------------------------------------------------
+    call element_operation_kernel_matvec_dirY_P11( this%D1D_tr, vec_in, vec_out )
     return
   end subroutine element_operation_tensorprod3D_Dy_P11
 
 !> Calculate the differential in z-direction
 !!
 !OCL SERIAL
-  subroutine element_operation_tensorprod3D_Dy_P12( this, vec_in, vec_out )
-    use scale_element_operation_tensorprod3D_kernel, only: element_operation_tensorprod3D_kernel_matrix_vec_dirY_P12
+  subroutine element_operation_tensorprod3D_Dz_P11( this, vec_in, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirZ_P11
+    implicit none
+    class(ElementOperationTensorProd3D_P11), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
+    !----------------------------------------------------------
+    call element_operation_kernel_matvec_dirZ_P11( this%D1D_tr, vec_in, vec_out )
+    return
+  end subroutine element_operation_tensorprod3D_Dz_P11
+
+!> Calculate the Lifting term
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Lift_P11( this, vec_in, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_Lift_hexahedral_P11
+    implicit none
+    class(ElementOperationTensorProd3D_P11), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%NfpTot)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
+    !----------------------------------------------------------
+    call element_operation_kernel_matvec_Lift_hexahedral_P11( this%Lift_mat, vec_in, vec_out )
+    return
+  end subroutine element_operation_tensorprod3D_Lift_P11
+
+!> Calculate the 3D gradient
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_DxDyDzLift_P11( this, vec_in, vec_in_lift, vec_out_dx, vec_out_dy, vec_out_dz, vec_out_lift )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_gradlike_dirXYZ_P11, &
+      element_operation_kernel_matvec_Lift_hexahedral_P11
+    implicit none
+    class(ElementOperationTensorProd3D_P11), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np)
+    real(RP), intent(in) :: vec_in_lift(this%elem3D%NfpTot)
+    real(RP), intent(out) :: vec_out_dx(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out_dy(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out_dz(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out_lift(this%elem3D%Np)
+    !----------------------------------------------------------
+    call element_operation_kernel_matvec_gradlike_dirXYZ_P11( this%D1D, this%D1D_tr, vec_in, vec_in, &
+      vec_out_dx, vec_out_dy, vec_out_dz )
+    call element_operation_kernel_matvec_Lift_hexahedral_P11( this%Lift_mat, vec_in_lift, &
+      vec_out_lift )      
+
+    return
+  end subroutine element_operation_tensorprod3D_DxDyDzLift_P11
+
+!> Calculate the 3D gradient
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Div_P11(  this, vec_in_x, vec_in_y, vec_in_z, vec_in_lift, Escale, Gsqrt, sign_, &
+    vec_out_dx, vec_out_dy, vec_out_dz, vec_out_lift, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_divlike_dirXYZ_P11, &
+      element_operation_kernel_matvec_Lift_hexahedral_P11
+    implicit none
+    class(ElementOperationTensorProd3D_P11), intent(in) :: this
+    real(RP), intent(in) :: vec_in_x(this%elem3D%Np)
+    real(RP), intent(in) :: vec_in_y(this%elem3D%Np)
+    real(RP), intent(in) :: vec_in_z(this%elem3D%Np)
+    real(RP), intent(in) :: vec_in_lift(this%elem3D%NfpTot)
+    real(RP), intent(in) :: Escale(3,this%elem3D%Np)
+    real(RP), intent(in) :: Gsqrt(this%elem3D%Np)
+    real(RP), intent(in) :: sign_    
+    real(RP), intent(out) :: vec_out_dx(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out_dy(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out_dz(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out_lift(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
+    !----------------------------------------------------------
+
+    call element_operation_kernel_matvec_Lift_hexahedral_P11( this%Lift_mat, vec_in_lift, &
+      vec_out_lift )      
+
+    call element_operation_kernel_matvec_divlike_dirXYZ_P11( this%D1D, this%D1D_tr, vec_in_x, vec_in_y, vec_in_z, Escale, Gsqrt, vec_out_lift, sign_, &
+      vec_out_dx, vec_out_dy, vec_out_dz, vec_out )
+
+    return
+  end subroutine element_operation_tensorprod3D_Div_P11
+
+  subroutine element_operation_tensorprod3D_VFilterPM1_P11( this, vec_in, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirZ_P11
+    implicit none
+    class(ElementOperationTensorProd3D_P11), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
+    !---------------------------------------------------------------
+
+    call element_operation_kernel_matvec_dirZ_P11( this%IntrpMat_VPOrdM1, vec_in, &
+      vec_out )
+    return
+  end subroutine element_operation_tensorprod3D_VFilterPM1_P11 
+
+
+!--- For p=12 ------------------------------------
+
+!> Initialization
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Init_P12( this, elem3D )
+    use scale_element_line, only: LineElement
+    use scale_sparsemat, only: SparseMat
+    implicit none
+    class(ElementOperationTensorProd3D_P12), intent(inout) :: this
+    class(ElementBase3D), intent(in), target :: elem3D
+
+    integer :: p
+
+    integer :: p1, p2, p_
+    real(RP) :: invV_VPOrdM1(13,13)
+
+    type(LineElement) :: elem1D
+    type(SparseMat) :: Lift_sm
+    !----------------------------------------------------------
+    this%elem3D => elem3D
+
+    call elem1D%Init( 12, .false. )
+    this%D1D(:,:) = elem1D%Dx1(:,:)
+    this%D1D_tr(:,:) = transpose(this%D1D)
+
+    call Lift_sm%Init( elem3D%Lift, storage_format='ELL' )
+    this%Lift_mat(:,:,:,:) = reshape(Lift_sm%val, (/ 13,13,13,6 /) )
+    call Lift_sm%Final()
+
+    !--
+
+    InvV_VPOrdM1(:,:) = elem1D%invV(:,:)
+    InvV_VPOrdM1(13,:) = 0.0_RP
+    this%IntrpMat_VPOrdM1(:,:) = matmul(elem1D%V, invV_VPOrdM1)
+
+    !-
+    call elem1D%Final()
+
+    return
+  end subroutine element_operation_tensorprod3D_Init_P12
+
+!> Finalization
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Final_P12( this )
+    implicit none
+    class(ElementOperationTensorProd3D_P12), intent(inout) :: this
+    !----------------------------------------------------------
+    nullify( this%elem3D )
+    return
+  end subroutine element_operation_tensorprod3D_Final_P12
+
+!> Calculate the differential in x-direction
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Dx_P12( this, vec_in, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirX_P12
     implicit none
     class(ElementOperationTensorProd3D_P12), intent(in) :: this
-    real(RP), intent(in) :: vec_in(this%Np1D,this%Np1D,this%Np1D)
-    real(RP), intent(out) :: vec_out(this%Np1D,this%Np1D,this%Np1D)
+    real(RP), intent(in) :: vec_in(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
     !----------------------------------------------------------
-    call element_tensorprod3D_operation_kernel_matrix_vec_dirY_P12( this%Dy1D_tr, vec_in, vec_out )
+    call element_operation_kernel_matvec_dirX_P12( this%D1D, vec_in, vec_out )
+    return
+  end subroutine element_operation_tensorprod3D_Dx_P12
+
+!> Calculate the differential in z-direction
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Dy_P12( this, vec_in, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirY_P12
+    implicit none
+    class(ElementOperationTensorProd3D_P12), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
+    !----------------------------------------------------------
+    call element_operation_kernel_matvec_dirY_P12( this%D1D_tr, vec_in, vec_out )
     return
   end subroutine element_operation_tensorprod3D_Dy_P12
 
 !> Calculate the differential in z-direction
 !!
 !OCL SERIAL
-  subroutine element_operation_tensorprod3D_Dy_P13( this, vec_in, vec_out )
-    use scale_element_operation_tensorprod3D_kernel, only: element_operation_tensorprod3D_kernel_matrix_vec_dirY_P13
-    implicit none
-    class(ElementOperationTensorProd3D_P13), intent(in) :: this
-    real(RP), intent(in) :: vec_in(this%Np1D,this%Np1D,this%Np1D)
-    real(RP), intent(out) :: vec_out(this%Np1D,this%Np1D,this%Np1D)
-    !----------------------------------------------------------
-    call element_tensorprod3D_operation_kernel_matrix_vec_dirY_P13( this%Dy1D_tr, vec_in, vec_out )
-    return
-  end subroutine element_operation_tensorprod3D_Dy_P13
-
-!-------------------------------------------------------------
-
-
-!> Calculate the differential in z-direction
-!!
-!OCL SERIAL
-  subroutine element_operation_tensorprod3D_Dz_P1( this, vec_in, vec_out )
-    use scale_element_operation_tensorprod3D_kernel, only: element_operation_tensorprod3D_kernel_matrix_vec_dirZ_P1
-    implicit none
-    class(ElementOperationTensorProd3D_P1), intent(in) :: this
-    real(RP), intent(in) :: vec_in(this%Np1D,this%Np1D,this%Np1D)
-    real(RP), intent(out) :: vec_out(this%Np1D,this%Np1D,this%Np1D)
-    !----------------------------------------------------------
-    call element_tensorprod3D_operation_kernel_matrix_vec_dirZ_P1( this%Dz1D_tr, vec_in, vec_out )
-    return
-  end subroutine element_operation_tensorprod3D_Dz_P1
-
-!> Calculate the differential in z-direction
-!!
-!OCL SERIAL
-  subroutine element_operation_tensorprod3D_Dz_P2( this, vec_in, vec_out )
-    use scale_element_operation_tensorprod3D_kernel, only: element_operation_tensorprod3D_kernel_matrix_vec_dirZ_P2
-    implicit none
-    class(ElementOperationTensorProd3D_P2), intent(in) :: this
-    real(RP), intent(in) :: vec_in(this%Np1D,this%Np1D,this%Np1D)
-    real(RP), intent(out) :: vec_out(this%Np1D,this%Np1D,this%Np1D)
-    !----------------------------------------------------------
-    call element_tensorprod3D_operation_kernel_matrix_vec_dirZ_P2( this%Dz1D_tr, vec_in, vec_out )
-    return
-  end subroutine element_operation_tensorprod3D_Dz_P2
-
-!> Calculate the differential in z-direction
-!!
-!OCL SERIAL
-  subroutine element_operation_tensorprod3D_Dz_P3( this, vec_in, vec_out )
-    use scale_element_operation_tensorprod3D_kernel, only: element_operation_tensorprod3D_kernel_matrix_vec_dirZ_P3
-    implicit none
-    class(ElementOperationTensorProd3D_P3), intent(in) :: this
-    real(RP), intent(in) :: vec_in(this%Np1D,this%Np1D,this%Np1D)
-    real(RP), intent(out) :: vec_out(this%Np1D,this%Np1D,this%Np1D)
-    !----------------------------------------------------------
-    call element_tensorprod3D_operation_kernel_matrix_vec_dirZ_P3( this%Dz1D_tr, vec_in, vec_out )
-    return
-  end subroutine element_operation_tensorprod3D_Dz_P3
-
-!> Calculate the differential in z-direction
-!!
-!OCL SERIAL
-  subroutine element_operation_tensorprod3D_Dz_P4( this, vec_in, vec_out )
-    use scale_element_operation_tensorprod3D_kernel, only: element_operation_tensorprod3D_kernel_matrix_vec_dirZ_P4
-    implicit none
-    class(ElementOperationTensorProd3D_P4), intent(in) :: this
-    real(RP), intent(in) :: vec_in(this%Np1D,this%Np1D,this%Np1D)
-    real(RP), intent(out) :: vec_out(this%Np1D,this%Np1D,this%Np1D)
-    !----------------------------------------------------------
-    call element_tensorprod3D_operation_kernel_matrix_vec_dirZ_P4( this%Dz1D_tr, vec_in, vec_out )
-    return
-  end subroutine element_operation_tensorprod3D_Dz_P4
-
-!> Calculate the differential in z-direction
-!!
-!OCL SERIAL
-  subroutine element_operation_tensorprod3D_Dz_P5( this, vec_in, vec_out )
-    use scale_element_operation_tensorprod3D_kernel, only: element_operation_tensorprod3D_kernel_matrix_vec_dirZ_P5
-    implicit none
-    class(ElementOperationTensorProd3D_P5), intent(in) :: this
-    real(RP), intent(in) :: vec_in(this%Np1D,this%Np1D,this%Np1D)
-    real(RP), intent(out) :: vec_out(this%Np1D,this%Np1D,this%Np1D)
-    !----------------------------------------------------------
-    call element_tensorprod3D_operation_kernel_matrix_vec_dirZ_P5( this%Dz1D_tr, vec_in, vec_out )
-    return
-  end subroutine element_operation_tensorprod3D_Dz_P5
-
-!> Calculate the differential in z-direction
-!!
-!OCL SERIAL
-  subroutine element_operation_tensorprod3D_Dz_P6( this, vec_in, vec_out )
-    use scale_element_operation_tensorprod3D_kernel, only: element_operation_tensorprod3D_kernel_matrix_vec_dirZ_P6
-    implicit none
-    class(ElementOperationTensorProd3D_P6), intent(in) :: this
-    real(RP), intent(in) :: vec_in(this%Np1D,this%Np1D,this%Np1D)
-    real(RP), intent(out) :: vec_out(this%Np1D,this%Np1D,this%Np1D)
-    !----------------------------------------------------------
-    call element_tensorprod3D_operation_kernel_matrix_vec_dirZ_P6( this%Dz1D_tr, vec_in, vec_out )
-    return
-  end subroutine element_operation_tensorprod3D_Dz_P6
-
-!> Calculate the differential in z-direction
-!!
-!OCL SERIAL
-  subroutine element_operation_tensorprod3D_Dz_P7( this, vec_in, vec_out )
-    use scale_element_operation_tensorprod3D_kernel, only: element_operation_tensorprod3D_kernel_matrix_vec_dirZ_P7
-    implicit none
-    class(ElementOperationTensorProd3D_P7), intent(in) :: this
-    real(RP), intent(in) :: vec_in(this%Np1D,this%Np1D,this%Np1D)
-    real(RP), intent(out) :: vec_out(this%Np1D,this%Np1D,this%Np1D)
-    !----------------------------------------------------------
-    call element_tensorprod3D_operation_kernel_matrix_vec_dirZ_P7( this%Dz1D_tr, vec_in, vec_out )
-    return
-  end subroutine element_operation_tensorprod3D_Dz_P7
-
-!> Calculate the differential in z-direction
-!!
-!OCL SERIAL
-  subroutine element_operation_tensorprod3D_Dz_P8( this, vec_in, vec_out )
-    use scale_element_operation_tensorprod3D_kernel, only: element_operation_tensorprod3D_kernel_matrix_vec_dirZ_P8
-    implicit none
-    class(ElementOperationTensorProd3D_P8), intent(in) :: this
-    real(RP), intent(in) :: vec_in(this%Np1D,this%Np1D,this%Np1D)
-    real(RP), intent(out) :: vec_out(this%Np1D,this%Np1D,this%Np1D)
-    !----------------------------------------------------------
-    call element_tensorprod3D_operation_kernel_matrix_vec_dirZ_P8( this%Dz1D_tr, vec_in, vec_out )
-    return
-  end subroutine element_operation_tensorprod3D_Dz_P8
-
-!> Calculate the differential in z-direction
-!!
-!OCL SERIAL
-  subroutine element_operation_tensorprod3D_Dz_P9( this, vec_in, vec_out )
-    use scale_element_operation_tensorprod3D_kernel, only: element_operation_tensorprod3D_kernel_matrix_vec_dirZ_P9
-    implicit none
-    class(ElementOperationTensorProd3D_P9), intent(in) :: this
-    real(RP), intent(in) :: vec_in(this%Np1D,this%Np1D,this%Np1D)
-    real(RP), intent(out) :: vec_out(this%Np1D,this%Np1D,this%Np1D)
-    !----------------------------------------------------------
-    call element_tensorprod3D_operation_kernel_matrix_vec_dirZ_P9( this%Dz1D_tr, vec_in, vec_out )
-    return
-  end subroutine element_operation_tensorprod3D_Dz_P9
-
-!> Calculate the differential in z-direction
-!!
-!OCL SERIAL
-  subroutine element_operation_tensorprod3D_Dz_P10( this, vec_in, vec_out )
-    use scale_element_operation_tensorprod3D_kernel, only: element_operation_tensorprod3D_kernel_matrix_vec_dirZ_P10
-    implicit none
-    class(ElementOperationTensorProd3D_P10), intent(in) :: this
-    real(RP), intent(in) :: vec_in(this%Np1D,this%Np1D,this%Np1D)
-    real(RP), intent(out) :: vec_out(this%Np1D,this%Np1D,this%Np1D)
-    !----------------------------------------------------------
-    call element_tensorprod3D_operation_kernel_matrix_vec_dirZ_P10( this%Dz1D_tr, vec_in, vec_out )
-    return
-  end subroutine element_operation_tensorprod3D_Dz_P10
-
-!> Calculate the differential in z-direction
-!!
-!OCL SERIAL
-  subroutine element_operation_tensorprod3D_Dz_P11( this, vec_in, vec_out )
-    use scale_element_operation_tensorprod3D_kernel, only: element_operation_tensorprod3D_kernel_matrix_vec_dirZ_P11
-    implicit none
-    class(ElementOperationTensorProd3D_P11), intent(in) :: this
-    real(RP), intent(in) :: vec_in(this%Np1D,this%Np1D,this%Np1D)
-    real(RP), intent(out) :: vec_out(this%Np1D,this%Np1D,this%Np1D)
-    !----------------------------------------------------------
-    call element_tensorprod3D_operation_kernel_matrix_vec_dirZ_P11( this%Dz1D_tr, vec_in, vec_out )
-    return
-  end subroutine element_operation_tensorprod3D_Dz_P11
-
-!> Calculate the differential in z-direction
-!!
-!OCL SERIAL
   subroutine element_operation_tensorprod3D_Dz_P12( this, vec_in, vec_out )
-    use scale_element_operation_tensorprod3D_kernel, only: element_operation_tensorprod3D_kernel_matrix_vec_dirZ_P12
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirZ_P12
     implicit none
     class(ElementOperationTensorProd3D_P12), intent(in) :: this
-    real(RP), intent(in) :: vec_in(this%Np1D,this%Np1D,this%Np1D)
-    real(RP), intent(out) :: vec_out(this%Np1D,this%Np1D,this%Np1D)
+    real(RP), intent(in) :: vec_in(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
     !----------------------------------------------------------
-    call element_tensorprod3D_operation_kernel_matrix_vec_dirZ_P12( this%Dz1D_tr, vec_in, vec_out )
+    call element_operation_kernel_matvec_dirZ_P12( this%D1D_tr, vec_in, vec_out )
     return
   end subroutine element_operation_tensorprod3D_Dz_P12
+
+!> Calculate the Lifting term
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Lift_P12( this, vec_in, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_Lift_hexahedral_P12
+    implicit none
+    class(ElementOperationTensorProd3D_P12), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%NfpTot)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
+    !----------------------------------------------------------
+    call element_operation_kernel_matvec_Lift_hexahedral_P12( this%Lift_mat, vec_in, vec_out )
+    return
+  end subroutine element_operation_tensorprod3D_Lift_P12
+
+!> Calculate the 3D gradient
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_DxDyDzLift_P12( this, vec_in, vec_in_lift, vec_out_dx, vec_out_dy, vec_out_dz, vec_out_lift )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_gradlike_dirXYZ_P12, &
+      element_operation_kernel_matvec_Lift_hexahedral_P12
+    implicit none
+    class(ElementOperationTensorProd3D_P12), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np)
+    real(RP), intent(in) :: vec_in_lift(this%elem3D%NfpTot)
+    real(RP), intent(out) :: vec_out_dx(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out_dy(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out_dz(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out_lift(this%elem3D%Np)
+    !----------------------------------------------------------
+    call element_operation_kernel_matvec_gradlike_dirXYZ_P12( this%D1D, this%D1D_tr, vec_in, vec_in, &
+      vec_out_dx, vec_out_dy, vec_out_dz )
+    call element_operation_kernel_matvec_Lift_hexahedral_P12( this%Lift_mat, vec_in_lift, &
+      vec_out_lift )      
+
+    return
+  end subroutine element_operation_tensorprod3D_DxDyDzLift_P12
+
+!> Calculate the 3D gradient
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Div_P12(  this, vec_in_x, vec_in_y, vec_in_z, vec_in_lift, Escale, Gsqrt, sign_, &
+    vec_out_dx, vec_out_dy, vec_out_dz, vec_out_lift, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_divlike_dirXYZ_P12, &
+      element_operation_kernel_matvec_Lift_hexahedral_P12
+    implicit none
+    class(ElementOperationTensorProd3D_P12), intent(in) :: this
+    real(RP), intent(in) :: vec_in_x(this%elem3D%Np)
+    real(RP), intent(in) :: vec_in_y(this%elem3D%Np)
+    real(RP), intent(in) :: vec_in_z(this%elem3D%Np)
+    real(RP), intent(in) :: vec_in_lift(this%elem3D%NfpTot)
+    real(RP), intent(in) :: Escale(3,this%elem3D%Np)
+    real(RP), intent(in) :: Gsqrt(this%elem3D%Np)
+    real(RP), intent(in) :: sign_    
+    real(RP), intent(out) :: vec_out_dx(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out_dy(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out_dz(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out_lift(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
+    !----------------------------------------------------------
+
+    call element_operation_kernel_matvec_Lift_hexahedral_P12( this%Lift_mat, vec_in_lift, &
+      vec_out_lift )      
+
+    call element_operation_kernel_matvec_divlike_dirXYZ_P12( this%D1D, this%D1D_tr, vec_in_x, vec_in_y, vec_in_z, Escale, Gsqrt, vec_out_lift, sign_, &
+      vec_out_dx, vec_out_dy, vec_out_dz, vec_out )
+
+    return
+  end subroutine element_operation_tensorprod3D_Div_P12
+
+  subroutine element_operation_tensorprod3D_VFilterPM1_P12( this, vec_in, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirZ_P12
+    implicit none
+    class(ElementOperationTensorProd3D_P12), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
+    !---------------------------------------------------------------
+
+    call element_operation_kernel_matvec_dirZ_P12( this%IntrpMat_VPOrdM1, vec_in, &
+      vec_out )
+    return
+  end subroutine element_operation_tensorprod3D_VFilterPM1_P12 
+
+
+!--- For p=13 ------------------------------------
+
+!> Initialization
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Init_P13( this, elem3D )
+    use scale_element_line, only: LineElement
+    use scale_sparsemat, only: SparseMat
+    implicit none
+    class(ElementOperationTensorProd3D_P13), intent(inout) :: this
+    class(ElementBase3D), intent(in), target :: elem3D
+
+    integer :: p
+
+    integer :: p1, p2, p_
+    real(RP) :: invV_VPOrdM1(14,14)
+
+    type(LineElement) :: elem1D
+    type(SparseMat) :: Lift_sm
+    !----------------------------------------------------------
+    this%elem3D => elem3D
+
+    call elem1D%Init( 13, .false. )
+    this%D1D(:,:) = elem1D%Dx1(:,:)
+    this%D1D_tr(:,:) = transpose(this%D1D)
+
+    call Lift_sm%Init( elem3D%Lift, storage_format='ELL' )
+    this%Lift_mat(:,:,:,:) = reshape(Lift_sm%val, (/ 14,14,14,6 /) )
+    call Lift_sm%Final()
+
+    !--
+
+    InvV_VPOrdM1(:,:) = elem1D%invV(:,:)
+    InvV_VPOrdM1(14,:) = 0.0_RP
+    this%IntrpMat_VPOrdM1(:,:) = matmul(elem1D%V, invV_VPOrdM1)
+
+    !-
+    call elem1D%Final()
+
+    return
+  end subroutine element_operation_tensorprod3D_Init_P13
+
+!> Finalization
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Final_P13( this )
+    implicit none
+    class(ElementOperationTensorProd3D_P13), intent(inout) :: this
+    !----------------------------------------------------------
+    nullify( this%elem3D )
+    return
+  end subroutine element_operation_tensorprod3D_Final_P13
+
+!> Calculate the differential in x-direction
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Dx_P13( this, vec_in, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirX_P13
+    implicit none
+    class(ElementOperationTensorProd3D_P13), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
+    !----------------------------------------------------------
+    call element_operation_kernel_matvec_dirX_P13( this%D1D, vec_in, vec_out )
+    return
+  end subroutine element_operation_tensorprod3D_Dx_P13
+
+!> Calculate the differential in z-direction
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Dy_P13( this, vec_in, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirY_P13
+    implicit none
+    class(ElementOperationTensorProd3D_P13), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
+    !----------------------------------------------------------
+    call element_operation_kernel_matvec_dirY_P13( this%D1D_tr, vec_in, vec_out )
+    return
+  end subroutine element_operation_tensorprod3D_Dy_P13
 
 !> Calculate the differential in z-direction
 !!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Dz_P13( this, vec_in, vec_out )
-    use scale_element_operation_tensorprod3D_kernel, only: element_operation_tensorprod3D_kernel_matrix_vec_dirZ_P13
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirZ_P13
     implicit none
     class(ElementOperationTensorProd3D_P13), intent(in) :: this
-    real(RP), intent(in) :: vec_in(this%Np1D,this%Np1D,this%Np1D)
-    real(RP), intent(out) :: vec_out(this%Np1D,this%Np1D,this%Np1D)
+    real(RP), intent(in) :: vec_in(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
     !----------------------------------------------------------
-    call element_tensorprod3D_operation_kernel_matrix_vec_dirZ_P13( this%Dz1D_tr, vec_in, vec_out )
+    call element_operation_kernel_matvec_dirZ_P13( this%D1D_tr, vec_in, vec_out )
     return
   end subroutine element_operation_tensorprod3D_Dz_P13
 
-!-------------------------------------------------------------
-
-
-!> Calculate the differential in z-direction
+!> Calculate the Lifting term
 !!
 !OCL SERIAL
-  subroutine element_operation_tensorprod3D_Grad_P1( this, vec_in, vec_out_dx, vec_out_dy, vec_out_dz )
-    use scale_element_operation_tensorprod3D_kernel, only: element_operation_tensorprod3D_kernel_matrix_vec_gradlike_dirXYZ_P1
-    implicit none
-    class(ElementOperationTensorProd3D_P1), intent(in) :: this
-    real(RP), intent(in) :: vec_in(this%Np1D,this%Np1D,this%Np1D)
-    real(RP), intent(out) :: vec_out_dx(this%Np1D,this%Np1D,this%Np1D)
-    real(RP), intent(out) :: vec_out_dy(this%Np1D,this%Np1D,this%Np1D)
-    real(RP), intent(out) :: vec_out_dz(this%Np1D,this%Np1D,this%Np1D)
-    !----------------------------------------------------------
-    call element_tensorprod3D_operation_kernel_matrix_vec_gradlike_dirXYZ_P1( this%Dx1D, this%Dy1D_tr, this%Dz1D_tr, vec_in, &
-      vec_out_dx, vec_out_dy, vec_out_dz )
-    return
-  end subroutine element_operation_tensorprod3D_Grad_P1
-
-!> Calculate the differential in z-direction
-!!
-!OCL SERIAL
-  subroutine element_operation_tensorprod3D_Grad_P2( this, vec_in, vec_out_dx, vec_out_dy, vec_out_dz )
-    use scale_element_operation_tensorprod3D_kernel, only: element_operation_tensorprod3D_kernel_matrix_vec_gradlike_dirXYZ_P2
-    implicit none
-    class(ElementOperationTensorProd3D_P2), intent(in) :: this
-    real(RP), intent(in) :: vec_in(this%Np1D,this%Np1D,this%Np1D)
-    real(RP), intent(out) :: vec_out_dx(this%Np1D,this%Np1D,this%Np1D)
-    real(RP), intent(out) :: vec_out_dy(this%Np1D,this%Np1D,this%Np1D)
-    real(RP), intent(out) :: vec_out_dz(this%Np1D,this%Np1D,this%Np1D)
-    !----------------------------------------------------------
-    call element_tensorprod3D_operation_kernel_matrix_vec_gradlike_dirXYZ_P2( this%Dx1D, this%Dy1D_tr, this%Dz1D_tr, vec_in, &
-      vec_out_dx, vec_out_dy, vec_out_dz )
-    return
-  end subroutine element_operation_tensorprod3D_Grad_P2
-
-!> Calculate the differential in z-direction
-!!
-!OCL SERIAL
-  subroutine element_operation_tensorprod3D_Grad_P3( this, vec_in, vec_out_dx, vec_out_dy, vec_out_dz )
-    use scale_element_operation_tensorprod3D_kernel, only: element_operation_tensorprod3D_kernel_matrix_vec_gradlike_dirXYZ_P3
-    implicit none
-    class(ElementOperationTensorProd3D_P3), intent(in) :: this
-    real(RP), intent(in) :: vec_in(this%Np1D,this%Np1D,this%Np1D)
-    real(RP), intent(out) :: vec_out_dx(this%Np1D,this%Np1D,this%Np1D)
-    real(RP), intent(out) :: vec_out_dy(this%Np1D,this%Np1D,this%Np1D)
-    real(RP), intent(out) :: vec_out_dz(this%Np1D,this%Np1D,this%Np1D)
-    !----------------------------------------------------------
-    call element_tensorprod3D_operation_kernel_matrix_vec_gradlike_dirXYZ_P3( this%Dx1D, this%Dy1D_tr, this%Dz1D_tr, vec_in, &
-      vec_out_dx, vec_out_dy, vec_out_dz )
-    return
-  end subroutine element_operation_tensorprod3D_Grad_P3
-
-!> Calculate the differential in z-direction
-!!
-!OCL SERIAL
-  subroutine element_operation_tensorprod3D_Grad_P4( this, vec_in, vec_out_dx, vec_out_dy, vec_out_dz )
-    use scale_element_operation_tensorprod3D_kernel, only: element_operation_tensorprod3D_kernel_matrix_vec_gradlike_dirXYZ_P4
-    implicit none
-    class(ElementOperationTensorProd3D_P4), intent(in) :: this
-    real(RP), intent(in) :: vec_in(this%Np1D,this%Np1D,this%Np1D)
-    real(RP), intent(out) :: vec_out_dx(this%Np1D,this%Np1D,this%Np1D)
-    real(RP), intent(out) :: vec_out_dy(this%Np1D,this%Np1D,this%Np1D)
-    real(RP), intent(out) :: vec_out_dz(this%Np1D,this%Np1D,this%Np1D)
-    !----------------------------------------------------------
-    call element_tensorprod3D_operation_kernel_matrix_vec_gradlike_dirXYZ_P4( this%Dx1D, this%Dy1D_tr, this%Dz1D_tr, vec_in, &
-      vec_out_dx, vec_out_dy, vec_out_dz )
-    return
-  end subroutine element_operation_tensorprod3D_Grad_P4
-
-!> Calculate the differential in z-direction
-!!
-!OCL SERIAL
-  subroutine element_operation_tensorprod3D_Grad_P5( this, vec_in, vec_out_dx, vec_out_dy, vec_out_dz )
-    use scale_element_operation_tensorprod3D_kernel, only: element_operation_tensorprod3D_kernel_matrix_vec_gradlike_dirXYZ_P5
-    implicit none
-    class(ElementOperationTensorProd3D_P5), intent(in) :: this
-    real(RP), intent(in) :: vec_in(this%Np1D,this%Np1D,this%Np1D)
-    real(RP), intent(out) :: vec_out_dx(this%Np1D,this%Np1D,this%Np1D)
-    real(RP), intent(out) :: vec_out_dy(this%Np1D,this%Np1D,this%Np1D)
-    real(RP), intent(out) :: vec_out_dz(this%Np1D,this%Np1D,this%Np1D)
-    !----------------------------------------------------------
-    call element_tensorprod3D_operation_kernel_matrix_vec_gradlike_dirXYZ_P5( this%Dx1D, this%Dy1D_tr, this%Dz1D_tr, vec_in, &
-      vec_out_dx, vec_out_dy, vec_out_dz )
-    return
-  end subroutine element_operation_tensorprod3D_Grad_P5
-
-!> Calculate the differential in z-direction
-!!
-!OCL SERIAL
-  subroutine element_operation_tensorprod3D_Grad_P6( this, vec_in, vec_out_dx, vec_out_dy, vec_out_dz )
-    use scale_element_operation_tensorprod3D_kernel, only: element_operation_tensorprod3D_kernel_matrix_vec_gradlike_dirXYZ_P6
-    implicit none
-    class(ElementOperationTensorProd3D_P6), intent(in) :: this
-    real(RP), intent(in) :: vec_in(this%Np1D,this%Np1D,this%Np1D)
-    real(RP), intent(out) :: vec_out_dx(this%Np1D,this%Np1D,this%Np1D)
-    real(RP), intent(out) :: vec_out_dy(this%Np1D,this%Np1D,this%Np1D)
-    real(RP), intent(out) :: vec_out_dz(this%Np1D,this%Np1D,this%Np1D)
-    !----------------------------------------------------------
-    call element_tensorprod3D_operation_kernel_matrix_vec_gradlike_dirXYZ_P6( this%Dx1D, this%Dy1D_tr, this%Dz1D_tr, vec_in, &
-      vec_out_dx, vec_out_dy, vec_out_dz )
-    return
-  end subroutine element_operation_tensorprod3D_Grad_P6
-
-!> Calculate the differential in z-direction
-!!
-!OCL SERIAL
-  subroutine element_operation_tensorprod3D_Grad_P7( this, vec_in, vec_out_dx, vec_out_dy, vec_out_dz )
-    use scale_element_operation_tensorprod3D_kernel, only: element_operation_tensorprod3D_kernel_matrix_vec_gradlike_dirXYZ_P7
-    implicit none
-    class(ElementOperationTensorProd3D_P7), intent(in) :: this
-    real(RP), intent(in) :: vec_in(this%Np1D,this%Np1D,this%Np1D)
-    real(RP), intent(out) :: vec_out_dx(this%Np1D,this%Np1D,this%Np1D)
-    real(RP), intent(out) :: vec_out_dy(this%Np1D,this%Np1D,this%Np1D)
-    real(RP), intent(out) :: vec_out_dz(this%Np1D,this%Np1D,this%Np1D)
-    !----------------------------------------------------------
-    call element_tensorprod3D_operation_kernel_matrix_vec_gradlike_dirXYZ_P7( this%Dx1D, this%Dy1D_tr, this%Dz1D_tr, vec_in, &
-      vec_out_dx, vec_out_dy, vec_out_dz )
-    return
-  end subroutine element_operation_tensorprod3D_Grad_P7
-
-!> Calculate the differential in z-direction
-!!
-!OCL SERIAL
-  subroutine element_operation_tensorprod3D_Grad_P8( this, vec_in, vec_out_dx, vec_out_dy, vec_out_dz )
-    use scale_element_operation_tensorprod3D_kernel, only: element_operation_tensorprod3D_kernel_matrix_vec_gradlike_dirXYZ_P8
-    implicit none
-    class(ElementOperationTensorProd3D_P8), intent(in) :: this
-    real(RP), intent(in) :: vec_in(this%Np1D,this%Np1D,this%Np1D)
-    real(RP), intent(out) :: vec_out_dx(this%Np1D,this%Np1D,this%Np1D)
-    real(RP), intent(out) :: vec_out_dy(this%Np1D,this%Np1D,this%Np1D)
-    real(RP), intent(out) :: vec_out_dz(this%Np1D,this%Np1D,this%Np1D)
-    !----------------------------------------------------------
-    call element_tensorprod3D_operation_kernel_matrix_vec_gradlike_dirXYZ_P8( this%Dx1D, this%Dy1D_tr, this%Dz1D_tr, vec_in, &
-      vec_out_dx, vec_out_dy, vec_out_dz )
-    return
-  end subroutine element_operation_tensorprod3D_Grad_P8
-
-!> Calculate the differential in z-direction
-!!
-!OCL SERIAL
-  subroutine element_operation_tensorprod3D_Grad_P9( this, vec_in, vec_out_dx, vec_out_dy, vec_out_dz )
-    use scale_element_operation_tensorprod3D_kernel, only: element_operation_tensorprod3D_kernel_matrix_vec_gradlike_dirXYZ_P9
-    implicit none
-    class(ElementOperationTensorProd3D_P9), intent(in) :: this
-    real(RP), intent(in) :: vec_in(this%Np1D,this%Np1D,this%Np1D)
-    real(RP), intent(out) :: vec_out_dx(this%Np1D,this%Np1D,this%Np1D)
-    real(RP), intent(out) :: vec_out_dy(this%Np1D,this%Np1D,this%Np1D)
-    real(RP), intent(out) :: vec_out_dz(this%Np1D,this%Np1D,this%Np1D)
-    !----------------------------------------------------------
-    call element_tensorprod3D_operation_kernel_matrix_vec_gradlike_dirXYZ_P9( this%Dx1D, this%Dy1D_tr, this%Dz1D_tr, vec_in, &
-      vec_out_dx, vec_out_dy, vec_out_dz )
-    return
-  end subroutine element_operation_tensorprod3D_Grad_P9
-
-!> Calculate the differential in z-direction
-!!
-!OCL SERIAL
-  subroutine element_operation_tensorprod3D_Grad_P10( this, vec_in, vec_out_dx, vec_out_dy, vec_out_dz )
-    use scale_element_operation_tensorprod3D_kernel, only: element_operation_tensorprod3D_kernel_matrix_vec_gradlike_dirXYZ_P10
-    implicit none
-    class(ElementOperationTensorProd3D_P10), intent(in) :: this
-    real(RP), intent(in) :: vec_in(this%Np1D,this%Np1D,this%Np1D)
-    real(RP), intent(out) :: vec_out_dx(this%Np1D,this%Np1D,this%Np1D)
-    real(RP), intent(out) :: vec_out_dy(this%Np1D,this%Np1D,this%Np1D)
-    real(RP), intent(out) :: vec_out_dz(this%Np1D,this%Np1D,this%Np1D)
-    !----------------------------------------------------------
-    call element_tensorprod3D_operation_kernel_matrix_vec_gradlike_dirXYZ_P10( this%Dx1D, this%Dy1D_tr, this%Dz1D_tr, vec_in, &
-      vec_out_dx, vec_out_dy, vec_out_dz )
-    return
-  end subroutine element_operation_tensorprod3D_Grad_P10
-
-!> Calculate the differential in z-direction
-!!
-!OCL SERIAL
-  subroutine element_operation_tensorprod3D_Grad_P11( this, vec_in, vec_out_dx, vec_out_dy, vec_out_dz )
-    use scale_element_operation_tensorprod3D_kernel, only: element_operation_tensorprod3D_kernel_matrix_vec_gradlike_dirXYZ_P11
-    implicit none
-    class(ElementOperationTensorProd3D_P11), intent(in) :: this
-    real(RP), intent(in) :: vec_in(this%Np1D,this%Np1D,this%Np1D)
-    real(RP), intent(out) :: vec_out_dx(this%Np1D,this%Np1D,this%Np1D)
-    real(RP), intent(out) :: vec_out_dy(this%Np1D,this%Np1D,this%Np1D)
-    real(RP), intent(out) :: vec_out_dz(this%Np1D,this%Np1D,this%Np1D)
-    !----------------------------------------------------------
-    call element_tensorprod3D_operation_kernel_matrix_vec_gradlike_dirXYZ_P11( this%Dx1D, this%Dy1D_tr, this%Dz1D_tr, vec_in, &
-      vec_out_dx, vec_out_dy, vec_out_dz )
-    return
-  end subroutine element_operation_tensorprod3D_Grad_P11
-
-!> Calculate the differential in z-direction
-!!
-!OCL SERIAL
-  subroutine element_operation_tensorprod3D_Grad_P12( this, vec_in, vec_out_dx, vec_out_dy, vec_out_dz )
-    use scale_element_operation_tensorprod3D_kernel, only: element_operation_tensorprod3D_kernel_matrix_vec_gradlike_dirXYZ_P12
-    implicit none
-    class(ElementOperationTensorProd3D_P12), intent(in) :: this
-    real(RP), intent(in) :: vec_in(this%Np1D,this%Np1D,this%Np1D)
-    real(RP), intent(out) :: vec_out_dx(this%Np1D,this%Np1D,this%Np1D)
-    real(RP), intent(out) :: vec_out_dy(this%Np1D,this%Np1D,this%Np1D)
-    real(RP), intent(out) :: vec_out_dz(this%Np1D,this%Np1D,this%Np1D)
-    !----------------------------------------------------------
-    call element_tensorprod3D_operation_kernel_matrix_vec_gradlike_dirXYZ_P12( this%Dx1D, this%Dy1D_tr, this%Dz1D_tr, vec_in, &
-      vec_out_dx, vec_out_dy, vec_out_dz )
-    return
-  end subroutine element_operation_tensorprod3D_Grad_P12
-
-!> Calculate the differential in z-direction
-!!
-!OCL SERIAL
-  subroutine element_operation_tensorprod3D_Grad_P13( this, vec_in, vec_out_dx, vec_out_dy, vec_out_dz )
-    use scale_element_operation_tensorprod3D_kernel, only: element_operation_tensorprod3D_kernel_matrix_vec_gradlike_dirXYZ_P13
+  subroutine element_operation_tensorprod3D_Lift_P13( this, vec_in, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_Lift_hexahedral_P13
     implicit none
     class(ElementOperationTensorProd3D_P13), intent(in) :: this
-    real(RP), intent(in) :: vec_in(this%Np1D,this%Np1D,this%Np1D)
-    real(RP), intent(out) :: vec_out_dx(this%Np1D,this%Np1D,this%Np1D)
-    real(RP), intent(out) :: vec_out_dy(this%Np1D,this%Np1D,this%Np1D)
-    real(RP), intent(out) :: vec_out_dz(this%Np1D,this%Np1D,this%Np1D)
+    real(RP), intent(in) :: vec_in(this%elem3D%NfpTot)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
     !----------------------------------------------------------
-    call element_tensorprod3D_operation_kernel_matrix_vec_gradlike_dirXYZ_P13( this%Dx1D, this%Dy1D_tr, this%Dz1D_tr, vec_in, &
-      vec_out_dx, vec_out_dy, vec_out_dz )
+    call element_operation_kernel_matvec_Lift_hexahedral_P13( this%Lift_mat, vec_in, vec_out )
     return
-  end subroutine element_operation_tensorprod3D_Grad_P13
+  end subroutine element_operation_tensorprod3D_Lift_P13
+
+!> Calculate the 3D gradient
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_DxDyDzLift_P13( this, vec_in, vec_in_lift, vec_out_dx, vec_out_dy, vec_out_dz, vec_out_lift )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_gradlike_dirXYZ_P13, &
+      element_operation_kernel_matvec_Lift_hexahedral_P13
+    implicit none
+    class(ElementOperationTensorProd3D_P13), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np)
+    real(RP), intent(in) :: vec_in_lift(this%elem3D%NfpTot)
+    real(RP), intent(out) :: vec_out_dx(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out_dy(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out_dz(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out_lift(this%elem3D%Np)
+    !----------------------------------------------------------
+    call element_operation_kernel_matvec_gradlike_dirXYZ_P13( this%D1D, this%D1D_tr, vec_in, vec_in, &
+      vec_out_dx, vec_out_dy, vec_out_dz )
+    call element_operation_kernel_matvec_Lift_hexahedral_P13( this%Lift_mat, vec_in_lift, &
+      vec_out_lift )      
+
+    return
+  end subroutine element_operation_tensorprod3D_DxDyDzLift_P13
+
+!> Calculate the 3D gradient
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Div_P13(  this, vec_in_x, vec_in_y, vec_in_z, vec_in_lift, Escale, Gsqrt, sign_, &
+    vec_out_dx, vec_out_dy, vec_out_dz, vec_out_lift, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_divlike_dirXYZ_P13, &
+      element_operation_kernel_matvec_Lift_hexahedral_P13
+    implicit none
+    class(ElementOperationTensorProd3D_P13), intent(in) :: this
+    real(RP), intent(in) :: vec_in_x(this%elem3D%Np)
+    real(RP), intent(in) :: vec_in_y(this%elem3D%Np)
+    real(RP), intent(in) :: vec_in_z(this%elem3D%Np)
+    real(RP), intent(in) :: vec_in_lift(this%elem3D%NfpTot)
+    real(RP), intent(in) :: Escale(3,this%elem3D%Np)
+    real(RP), intent(in) :: Gsqrt(this%elem3D%Np)
+    real(RP), intent(in) :: sign_    
+    real(RP), intent(out) :: vec_out_dx(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out_dy(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out_dz(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out_lift(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
+    !----------------------------------------------------------
+
+    call element_operation_kernel_matvec_Lift_hexahedral_P13( this%Lift_mat, vec_in_lift, &
+      vec_out_lift )      
+
+    call element_operation_kernel_matvec_divlike_dirXYZ_P13( this%D1D, this%D1D_tr, vec_in_x, vec_in_y, vec_in_z, Escale, Gsqrt, vec_out_lift, sign_, &
+      vec_out_dx, vec_out_dy, vec_out_dz, vec_out )
+
+    return
+  end subroutine element_operation_tensorprod3D_Div_P13
+
+  subroutine element_operation_tensorprod3D_VFilterPM1_P13( this, vec_in, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirZ_P13
+    implicit none
+    class(ElementOperationTensorProd3D_P13), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
+    !---------------------------------------------------------------
+
+    call element_operation_kernel_matvec_dirZ_P13( this%IntrpMat_VPOrdM1, vec_in, &
+      vec_out )
+    return
+  end subroutine element_operation_tensorprod3D_VFilterPM1_P13 
+
+
+!--- For p=14 ------------------------------------
+
+!> Initialization
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Init_P14( this, elem3D )
+    use scale_element_line, only: LineElement
+    use scale_sparsemat, only: SparseMat
+    implicit none
+    class(ElementOperationTensorProd3D_P14), intent(inout) :: this
+    class(ElementBase3D), intent(in), target :: elem3D
+
+    integer :: p
+
+    integer :: p1, p2, p_
+    real(RP) :: invV_VPOrdM1(15,15)
+
+    type(LineElement) :: elem1D
+    type(SparseMat) :: Lift_sm
+    !----------------------------------------------------------
+    this%elem3D => elem3D
+
+    call elem1D%Init( 14, .false. )
+    this%D1D(:,:) = elem1D%Dx1(:,:)
+    this%D1D_tr(:,:) = transpose(this%D1D)
+
+    call Lift_sm%Init( elem3D%Lift, storage_format='ELL' )
+    this%Lift_mat(:,:,:,:) = reshape(Lift_sm%val, (/ 15,15,15,6 /) )
+    call Lift_sm%Final()
+
+    !--
+
+    InvV_VPOrdM1(:,:) = elem1D%invV(:,:)
+    InvV_VPOrdM1(15,:) = 0.0_RP
+    this%IntrpMat_VPOrdM1(:,:) = matmul(elem1D%V, invV_VPOrdM1)
+
+    !-
+    call elem1D%Final()
+
+    return
+  end subroutine element_operation_tensorprod3D_Init_P14
+
+!> Finalization
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Final_P14( this )
+    implicit none
+    class(ElementOperationTensorProd3D_P14), intent(inout) :: this
+    !----------------------------------------------------------
+    nullify( this%elem3D )
+    return
+  end subroutine element_operation_tensorprod3D_Final_P14
+
+!> Calculate the differential in x-direction
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Dx_P14( this, vec_in, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirX_P14
+    implicit none
+    class(ElementOperationTensorProd3D_P14), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
+    !----------------------------------------------------------
+    call element_operation_kernel_matvec_dirX_P14( this%D1D, vec_in, vec_out )
+    return
+  end subroutine element_operation_tensorprod3D_Dx_P14
+
+!> Calculate the differential in z-direction
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Dy_P14( this, vec_in, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirY_P14
+    implicit none
+    class(ElementOperationTensorProd3D_P14), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
+    !----------------------------------------------------------
+    call element_operation_kernel_matvec_dirY_P14( this%D1D_tr, vec_in, vec_out )
+    return
+  end subroutine element_operation_tensorprod3D_Dy_P14
+
+!> Calculate the differential in z-direction
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Dz_P14( this, vec_in, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirZ_P14
+    implicit none
+    class(ElementOperationTensorProd3D_P14), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
+    !----------------------------------------------------------
+    call element_operation_kernel_matvec_dirZ_P14( this%D1D_tr, vec_in, vec_out )
+    return
+  end subroutine element_operation_tensorprod3D_Dz_P14
+
+!> Calculate the Lifting term
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Lift_P14( this, vec_in, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_Lift_hexahedral_P14
+    implicit none
+    class(ElementOperationTensorProd3D_P14), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%NfpTot)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
+    !----------------------------------------------------------
+    call element_operation_kernel_matvec_Lift_hexahedral_P14( this%Lift_mat, vec_in, vec_out )
+    return
+  end subroutine element_operation_tensorprod3D_Lift_P14
+
+!> Calculate the 3D gradient
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_DxDyDzLift_P14( this, vec_in, vec_in_lift, vec_out_dx, vec_out_dy, vec_out_dz, vec_out_lift )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_gradlike_dirXYZ_P14, &
+      element_operation_kernel_matvec_Lift_hexahedral_P14
+    implicit none
+    class(ElementOperationTensorProd3D_P14), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np)
+    real(RP), intent(in) :: vec_in_lift(this%elem3D%NfpTot)
+    real(RP), intent(out) :: vec_out_dx(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out_dy(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out_dz(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out_lift(this%elem3D%Np)
+    !----------------------------------------------------------
+    call element_operation_kernel_matvec_gradlike_dirXYZ_P14( this%D1D, this%D1D_tr, vec_in, vec_in, &
+      vec_out_dx, vec_out_dy, vec_out_dz )
+    call element_operation_kernel_matvec_Lift_hexahedral_P14( this%Lift_mat, vec_in_lift, &
+      vec_out_lift )      
+
+    return
+  end subroutine element_operation_tensorprod3D_DxDyDzLift_P14
+
+!> Calculate the 3D gradient
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Div_P14(  this, vec_in_x, vec_in_y, vec_in_z, vec_in_lift, Escale, Gsqrt, sign_, &
+    vec_out_dx, vec_out_dy, vec_out_dz, vec_out_lift, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_divlike_dirXYZ_P14, &
+      element_operation_kernel_matvec_Lift_hexahedral_P14
+    implicit none
+    class(ElementOperationTensorProd3D_P14), intent(in) :: this
+    real(RP), intent(in) :: vec_in_x(this%elem3D%Np)
+    real(RP), intent(in) :: vec_in_y(this%elem3D%Np)
+    real(RP), intent(in) :: vec_in_z(this%elem3D%Np)
+    real(RP), intent(in) :: vec_in_lift(this%elem3D%NfpTot)
+    real(RP), intent(in) :: Escale(3,this%elem3D%Np)
+    real(RP), intent(in) :: Gsqrt(this%elem3D%Np)
+    real(RP), intent(in) :: sign_    
+    real(RP), intent(out) :: vec_out_dx(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out_dy(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out_dz(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out_lift(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
+    !----------------------------------------------------------
+
+    call element_operation_kernel_matvec_Lift_hexahedral_P14( this%Lift_mat, vec_in_lift, &
+      vec_out_lift )      
+
+    call element_operation_kernel_matvec_divlike_dirXYZ_P14( this%D1D, this%D1D_tr, vec_in_x, vec_in_y, vec_in_z, Escale, Gsqrt, vec_out_lift, sign_, &
+      vec_out_dx, vec_out_dy, vec_out_dz, vec_out )
+
+    return
+  end subroutine element_operation_tensorprod3D_Div_P14
+
+  subroutine element_operation_tensorprod3D_VFilterPM1_P14( this, vec_in, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirZ_P14
+    implicit none
+    class(ElementOperationTensorProd3D_P14), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
+    !---------------------------------------------------------------
+
+    call element_operation_kernel_matvec_dirZ_P14( this%IntrpMat_VPOrdM1, vec_in, &
+      vec_out )
+    return
+  end subroutine element_operation_tensorprod3D_VFilterPM1_P14 
+
+
+!--- For p=15 ------------------------------------
+
+!> Initialization
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Init_P15( this, elem3D )
+    use scale_element_line, only: LineElement
+    use scale_sparsemat, only: SparseMat
+    implicit none
+    class(ElementOperationTensorProd3D_P15), intent(inout) :: this
+    class(ElementBase3D), intent(in), target :: elem3D
+
+    integer :: p
+
+    integer :: p1, p2, p_
+    real(RP) :: invV_VPOrdM1(16,16)
+
+    type(LineElement) :: elem1D
+    type(SparseMat) :: Lift_sm
+    !----------------------------------------------------------
+    this%elem3D => elem3D
+
+    call elem1D%Init( 15, .false. )
+    this%D1D(:,:) = elem1D%Dx1(:,:)
+    this%D1D_tr(:,:) = transpose(this%D1D)
+
+    call Lift_sm%Init( elem3D%Lift, storage_format='ELL' )
+    this%Lift_mat(:,:,:,:) = reshape(Lift_sm%val, (/ 16,16,16,6 /) )
+    call Lift_sm%Final()
+
+    !--
+
+    InvV_VPOrdM1(:,:) = elem1D%invV(:,:)
+    InvV_VPOrdM1(16,:) = 0.0_RP
+    this%IntrpMat_VPOrdM1(:,:) = matmul(elem1D%V, invV_VPOrdM1)
+
+    !-
+    call elem1D%Final()
+
+    return
+  end subroutine element_operation_tensorprod3D_Init_P15
+
+!> Finalization
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Final_P15( this )
+    implicit none
+    class(ElementOperationTensorProd3D_P15), intent(inout) :: this
+    !----------------------------------------------------------
+    nullify( this%elem3D )
+    return
+  end subroutine element_operation_tensorprod3D_Final_P15
+
+!> Calculate the differential in x-direction
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Dx_P15( this, vec_in, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirX_P15
+    implicit none
+    class(ElementOperationTensorProd3D_P15), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
+    !----------------------------------------------------------
+    call element_operation_kernel_matvec_dirX_P15( this%D1D, vec_in, vec_out )
+    return
+  end subroutine element_operation_tensorprod3D_Dx_P15
+
+!> Calculate the differential in z-direction
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Dy_P15( this, vec_in, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirY_P15
+    implicit none
+    class(ElementOperationTensorProd3D_P15), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
+    !----------------------------------------------------------
+    call element_operation_kernel_matvec_dirY_P15( this%D1D_tr, vec_in, vec_out )
+    return
+  end subroutine element_operation_tensorprod3D_Dy_P15
+
+!> Calculate the differential in z-direction
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Dz_P15( this, vec_in, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirZ_P15
+    implicit none
+    class(ElementOperationTensorProd3D_P15), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
+    !----------------------------------------------------------
+    call element_operation_kernel_matvec_dirZ_P15( this%D1D_tr, vec_in, vec_out )
+    return
+  end subroutine element_operation_tensorprod3D_Dz_P15
+
+!> Calculate the Lifting term
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Lift_P15( this, vec_in, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_Lift_hexahedral_P15
+    implicit none
+    class(ElementOperationTensorProd3D_P15), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%NfpTot)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
+    !----------------------------------------------------------
+    call element_operation_kernel_matvec_Lift_hexahedral_P15( this%Lift_mat, vec_in, vec_out )
+    return
+  end subroutine element_operation_tensorprod3D_Lift_P15
+
+!> Calculate the 3D gradient
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_DxDyDzLift_P15( this, vec_in, vec_in_lift, vec_out_dx, vec_out_dy, vec_out_dz, vec_out_lift )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_gradlike_dirXYZ_P15, &
+      element_operation_kernel_matvec_Lift_hexahedral_P15
+    implicit none
+    class(ElementOperationTensorProd3D_P15), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np)
+    real(RP), intent(in) :: vec_in_lift(this%elem3D%NfpTot)
+    real(RP), intent(out) :: vec_out_dx(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out_dy(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out_dz(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out_lift(this%elem3D%Np)
+    !----------------------------------------------------------
+    call element_operation_kernel_matvec_gradlike_dirXYZ_P15( this%D1D, this%D1D_tr, vec_in, vec_in, &
+      vec_out_dx, vec_out_dy, vec_out_dz )
+    call element_operation_kernel_matvec_Lift_hexahedral_P15( this%Lift_mat, vec_in_lift, &
+      vec_out_lift )      
+
+    return
+  end subroutine element_operation_tensorprod3D_DxDyDzLift_P15
+
+!> Calculate the 3D gradient
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Div_P15(  this, vec_in_x, vec_in_y, vec_in_z, vec_in_lift, Escale, Gsqrt, sign_, &
+    vec_out_dx, vec_out_dy, vec_out_dz, vec_out_lift, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_divlike_dirXYZ_P15, &
+      element_operation_kernel_matvec_Lift_hexahedral_P15
+    implicit none
+    class(ElementOperationTensorProd3D_P15), intent(in) :: this
+    real(RP), intent(in) :: vec_in_x(this%elem3D%Np)
+    real(RP), intent(in) :: vec_in_y(this%elem3D%Np)
+    real(RP), intent(in) :: vec_in_z(this%elem3D%Np)
+    real(RP), intent(in) :: vec_in_lift(this%elem3D%NfpTot)
+    real(RP), intent(in) :: Escale(3,this%elem3D%Np)
+    real(RP), intent(in) :: Gsqrt(this%elem3D%Np)
+    real(RP), intent(in) :: sign_    
+    real(RP), intent(out) :: vec_out_dx(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out_dy(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out_dz(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out_lift(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
+    !----------------------------------------------------------
+
+    call element_operation_kernel_matvec_Lift_hexahedral_P15( this%Lift_mat, vec_in_lift, &
+      vec_out_lift )      
+
+    call element_operation_kernel_matvec_divlike_dirXYZ_P15( this%D1D, this%D1D_tr, vec_in_x, vec_in_y, vec_in_z, Escale, Gsqrt, vec_out_lift, sign_, &
+      vec_out_dx, vec_out_dy, vec_out_dz, vec_out )
+
+    return
+  end subroutine element_operation_tensorprod3D_Div_P15
+
+  subroutine element_operation_tensorprod3D_VFilterPM1_P15( this, vec_in, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirZ_P15
+    implicit none
+    class(ElementOperationTensorProd3D_P15), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
+    !---------------------------------------------------------------
+
+    call element_operation_kernel_matvec_dirZ_P15( this%IntrpMat_VPOrdM1, vec_in, &
+      vec_out )
+    return
+  end subroutine element_operation_tensorprod3D_VFilterPM1_P15 
+
 
 end module scale_element_operation_tensorprod3D
