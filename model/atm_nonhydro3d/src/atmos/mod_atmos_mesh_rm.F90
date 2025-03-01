@@ -114,6 +114,9 @@ contains
 
     logical :: COMM_USE_MPI_PC    = .false.  !< Flag whether persistent communication is used in MPI
 
+    character(len=H_SHORT) :: Element_operation_type = 'General' !< General or TensorProd3D
+    character(len=H_SHORT) :: SpMV_storage_format    = 'ELL'     !< CSR or ELL
+
     integer, parameter :: ATMOS_MESH_NLocalMeshPerPrc = 1
 
     integer, parameter :: FZ_nmax = 1000
@@ -127,6 +130,8 @@ contains
       isPeriodicX, isPeriodicY, isPeriodicZ,       &
       NeX, NeY, NeZ,                               &
       PolyOrder_h, PolyOrder_v, LumpedMassMatFlag, &
+      Element_operation_type,                      &
+      SpMV_storage_format,                         &
       NprcX, NprcY,                                &
       TOPO_IN_BASENAME, TOPO_IN_VARNAME,           &
       VERTICAL_COORD_NAME,                         &
@@ -189,6 +194,7 @@ contains
     
     !-
     call this%AtmosMesh_Init( this%mesh )
+    call this%PrepairElementOperation(  Element_operation_type, SpMV_storage_format )
 
     !- Set topography & vertical coordinate
 

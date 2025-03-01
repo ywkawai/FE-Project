@@ -113,6 +113,9 @@ contains
     character(len=H_MID)  :: VERTICAL_COORD_NAME = "TERRAIN_FOLLOWING"  !< Type of the vertical coordinate
 
     logical :: COMM_USE_MPI_PC    = .false.      !< Flag whether persistent communication is used in MPI
+
+    character(len=H_SHORT) :: Element_operation_type = 'General' !< General or TensorProd3D
+    character(len=H_SHORT) :: SpMV_storage_format    = 'ELL'     !< CSR or ELL
     
     namelist / PARAM_ATMOS_MESH / &
       SHALLOW_ATM_APPROX_FLAG,                     &
@@ -120,6 +123,8 @@ contains
       FZ, isPeriodicZ,                             &
       NeGX, NeGY, NeZ, NLocalMeshPerPrc, Nprc,     &
       PolyOrder_h, PolyOrder_v, LumpedMassMatFlag, &
+      Element_operation_type,                      &
+      SpMV_storage_format,                         &
       VERTICAL_COORD_NAME,                         &
       TOPO_IN_BASENAME, TOPO_IN_VARNAME,           &
       COMM_USE_MPI_PC
@@ -179,6 +184,7 @@ contains
     !-
 
     call this%AtmosMesh_Init( this%mesh )
+    call this%PrepairElementOperation( Element_operation_type, SpMV_storage_format )
 
     !- Set topography & vertical coordinate
     

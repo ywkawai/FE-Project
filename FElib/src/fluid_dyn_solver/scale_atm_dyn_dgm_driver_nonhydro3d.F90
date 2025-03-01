@@ -34,6 +34,7 @@ module scale_atm_dyn_dgm_driver_nonhydro3d
   use scale_element_base, only: &
     ElementBase, ElementBase2D, ElementBase3D
   use scale_element_hexahedral, only: HexahedralElement
+  use scale_element_operation_base, only: ElementOperationBase3D
   use scale_meshfield_base, only: &
     MeshFieldBase, MeshField2D, MeshField3D
 
@@ -65,6 +66,10 @@ module scale_atm_dyn_dgm_driver_nonhydro3d
     atm_dyn_dgm_nonhydro3d_rhot_heve_Init,          &
     atm_dyn_dgm_nonhydro3d_rhot_heve_Final,         &
     atm_dyn_dgm_nonhydro3d_rhot_heve_cal_tend
+  use scale_atm_dyn_dgm_nonhydro3d_rhot_heve_new1, only: &
+    atm_dyn_dgm_nonhydro3d_rhot_heve_new1_Init,          &
+    atm_dyn_dgm_nonhydro3d_rhot_heve_new1_Final,         &
+    atm_dyn_dgm_nonhydro3d_rhot_heve_new1_cal_tend
 
   use scale_atm_dyn_dgm_nonhydro3d_etot_heve, only: &
     atm_dyn_dgm_nonhydro3d_etot_heve_Init,          &
@@ -134,13 +139,14 @@ module scale_atm_dyn_dgm_driver_nonhydro3d
       DDENS_, MOMX_, MOMY_, MOMZ_, THERM_, DPRES_,               & ! (in) 
       DENS_hyd, PRES_hyd, PRES_hyd_ref, CORIOLIS,                & ! (in)
       Rtot, CVtot, CPtot,                                        & ! (in)
-      Dx, Dy, Dz, Sx, Sy, Sz, Lift, lmesh, elem, lmesh2D, elem2D ) ! (in)
+      element3D_operation, Dx, Dy, Dz, Sx, Sy, Sz, Lift, lmesh, elem, lmesh2D, elem2D ) ! (in)
 
       import RP
       import LocalMesh3D
       import ElementBase3D
       import LocalMesh2D
       import ElementBase2D
+      import ElementOperationBase3D
       import SparseMat
       implicit none
 
@@ -148,6 +154,7 @@ module scale_atm_dyn_dgm_driver_nonhydro3d
       class(ElementBase3D), intent(in) :: elem
       class(LocalMesh2D), intent(in) :: lmesh2D
       class(ElementBase2D), intent(in) :: elem2D
+      class(ElementOperationBase3D), intent(in) :: element3D_operation
       type(SparseMat), intent(in) :: Dx, Dy, Dz, Sx, Sy, Sz, Lift
       real(RP), intent(out) :: DENS_dt(elem%Np,lmesh%NeA)
       real(RP), intent(out) :: MOMX_dt(elem%Np,lmesh%NeA)
@@ -176,7 +183,7 @@ module scale_atm_dyn_dgm_driver_nonhydro3d
       DDENS_, MOMX_, MOMY_, MOMZ_, THERM_, DENS_hyd, PRES_hyd, & ! (in)
       DDENS0_, MOMX0_, MOMY0_, MOMZ0_, THERM0_,                & ! (in) 
       Rtot, CVtot, CPtot,                                      & ! (in)
-      Dz, Lift,                                                & ! (in)
+      element3D_operation, Dz, Lift,                           & ! (in)
       modalFilterFlag, VModalFilter,                           & ! (in)
       impl_fac, dt,                                            & ! (in)
       lmesh, elem, lmesh2D, elem2D )
@@ -187,6 +194,7 @@ module scale_atm_dyn_dgm_driver_nonhydro3d
       import LocalMesh2D
       import ElementBase2D
       import ModalFilter
+      import ElementOperationBase3D
       import SparseMat
       implicit none
   
@@ -214,6 +222,7 @@ module scale_atm_dyn_dgm_driver_nonhydro3d
       real(RP), intent(in)  :: Rtot(elem%Np,lmesh%NeA)
       real(RP), intent(in)  :: CVtot(elem%Np,lmesh%NeA)
       real(RP), intent(in)  :: CPtot(elem%Np,lmesh%NeA)
+      class(ElementOperationBase3D), intent(in) :: element3D_operation
       class(SparseMat), intent(in) :: Dz, Lift
       logical, intent(in) :: modalFilterFlag
       class(ModalFilter), intent(in) :: VModalFilter
@@ -348,6 +357,12 @@ contains
       this%cal_tend_ex => atm_dyn_dgm_nonhydro3d_rhot_heve_cal_tend
       this%cal_vi => null()
       this%dynsolver_final => atm_dyn_dgm_nonhydro3d_rhot_heve_Final
+    case("NONHYDRO3D_HEVE_NEW1", "NONHYDRO3D_RHOT_HEVE_NEW1")
+      this%EQS_TYPEID = EQS_TYPEID_NONHYD3D_HEVE
+      call atm_dyn_dgm_nonhydro3d_rhot_heve_new1_Init( mesh3D )
+      this%cal_tend_ex => atm_dyn_dgm_nonhydro3d_rhot_heve_new1_cal_tend
+      this%cal_vi => null()
+      this%dynsolver_final => atm_dyn_dgm_nonhydro3d_rhot_heve_new1_Final
     case("NONHYDRO3D_ETOT_HEVE")
       this%EQS_TYPEID = EQS_TYPEID_NONHYD3D_HEVE_ENTOT
       call atm_dyn_dgm_nonhydro3d_etot_heve_Init( mesh3D )
@@ -501,11 +516,11 @@ contains
     MFLX_x_tavg, MFLX_y_tavg, MFLX_z_tavg,               &
     ALPH_DENS_M_tavg, ALPH_DENS_P_tavg,                  &
     Coriolis,                                            &
+    element_operation,                                   &
     Dx, Dy, Dz, Sx, Sy, Sz, Lift, mesh3D                 )
 
     use scale_tracer, only: &
       QA, TRACER_ADVC, TRACER_NAME
-    
     use scale_atm_dyn_dgm_trcadvect3d_heve, only: &
       atm_dyn_dgm_trcadvect3d_save_massflux
   
@@ -529,6 +544,7 @@ contains
     type(MeshField3D), intent(inout) :: ALPH_DENS_M_tavg
     type(MeshField3D), intent(inout) :: ALPH_DENS_P_tavg
     class(MeshField2D), intent(in) :: Coriolis
+    class(ElementOperationBase3D), intent(in) :: element_operation
     type(SparseMat), intent(in) :: Dx, Dy, Dz
     type(SparseMat), intent(in) :: Sx, Sy, Sz
     type(SparseMat), intent(in) :: Lift
@@ -613,7 +629,7 @@ contains
             this%tint(n)%var0_2D(:,:,MOMY_VID ), this%tint(n)%var0_2D(:,:,MOMZ_VID),        & ! (in)
             this%tint(n)%var0_2D(:,:,THERM_VID ),                                           & ! (in)
             Rtot%local(n)%val, CVtot%local(n)%val, CPtot%local(n)%val,                      & ! (in)
-            Dz, Lift,                                                                       & ! (in)
+            element_operation, Dz, Lift,                                                    & ! (in)
             this%MODALFILTER_FLAG, this%modal_filter_v1D,                                   & ! (in)
             implicit_fac, dt,                                                               & ! (in)
             lcmesh3D, lcmesh3D%refElem3D, lcmesh3D%lcmesh2D, lcmesh3D%lcmesh2D%refElem2D    ) ! (in)
@@ -679,7 +695,7 @@ contains
           THERM%local(n)%val, DPRES%local(n)%val,                                           & ! (in)
           DENS_hyd%local(n)%val, PRES_hyd%local(n)%val, PRES_hyd_ref%local(n)%val,          & ! (in)
           Coriolis%local(n)%val, Rtot%local(n)%val, CVtot%local(n)%val, CPtot%local(n)%val, & ! (in)
-          Dx, Dy, Dz, Sx, Sy, Sz, Lift,                                                     & ! (in)
+          element_operation, Dx, Dy, Dz, Sx, Sy, Sz, Lift,                                  & ! (in)
           lcmesh3D, lcmesh3D%refElem3D, lcmesh3D%lcmesh2D, lcmesh3D%lcmesh2D%refElem2D      ) 
         call PROF_rapend( 'ATM_DYN_update_caltend_ex', 2)
 

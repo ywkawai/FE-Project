@@ -31,6 +31,7 @@ module scale_atm_dyn_dgm_nonhydro3d_rhot_hevi
     ElementBase2D, ElementBase3D
   use scale_element_modalfilter, only: ModalFilter
   use scale_element_hexahedral, only: HexahedralElement
+  use scale_element_operation_base, only: ElementOperationBase3D
   use scale_localmesh_2d, only: LocalMesh2D  
   use scale_localmesh_3d, only: LocalMesh3D
   use scale_mesh_base3d, only: MeshBase3D
@@ -95,7 +96,7 @@ contains
     DENS_dt, MOMX_dt, MOMY_dt, MOMZ_dt, RHOT_dt,                                   & ! (out)
     DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DPRES_, DENS_hyd, PRES_hyd, PRES_hyd_ref, & ! (in)
     CORIOLIS, Rtot, CVtot, CPtot,                                                  & ! (in)
-    Dx, Dy, Dz, Sx, Sy, Sz, Lift, lmesh, elem, lmesh2D, elem2D )                     ! (in)
+    element3D_operation, Dx, Dy, Dz, Sx, Sy, Sz, Lift, lmesh, elem, lmesh2D, elem2D )                     ! (in)
 
     use scale_atm_dyn_dgm_nonhydro3d_rhot_hevi_numflux, only: &
       get_ebnd_flux => atm_dyn_dgm_nonhydro3d_rhot_hevi_numflux_get_generalvc
@@ -106,6 +107,7 @@ contains
     class(ElementBase3D), intent(in) :: elem
     class(LocalMesh2D), intent(in) :: lmesh2D
     class(ElementBase2D), intent(in) :: elem2D
+    class(ElementOperationBase3D), intent(in) :: element3D_operation
     type(SparseMat), intent(in) :: Dx, Dy, Dz, Sx, Sy, Sz, Lift
     real(RP), intent(out) :: DENS_dt(elem%Np,lmesh%NeA)
     real(RP), intent(out) :: MOMX_dt(elem%Np,lmesh%NeA)
@@ -277,7 +279,7 @@ contains
     DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DENS_hyd, PRES_hyd, & ! (in)
     DDENS0_, MOMX0_, MOMY0_, MOMZ0_, DRHOT0_,                & ! (in)
     Rtot, CVtot, CPtot,                                      & ! (in)
-    Dz, Lift,                                                & ! (in)
+    element3D_operation, Dz, Lift,                           & ! (in)
     modalFilterFlag, VModalFilter,                           & ! (in)
     impl_fac, dt,                                            & ! (in)
     lmesh, elem, lmesh2D, elem2D                             ) ! (in)
@@ -314,6 +316,7 @@ contains
     real(RP), intent(in)  :: Rtot(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: CVtot(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: CPtot(elem%Np,lmesh%NeA)
+    class(ElementOperationBase3D), intent(in) :: element3D_operation
     class(SparseMat), intent(in) :: Dz, Lift
     logical, intent(in) :: modalFilterFlag
     class(ModalFilter), intent(in) :: VModalFilter

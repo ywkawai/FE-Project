@@ -10,7 +10,7 @@
 !<
 !-------------------------------------------------------------------------------
 #include "scaleFElib.h"
-module scale_atm_dyn_dgm_nonhydro3d_rhot_heve
+module scale_atm_dyn_dgm_nonhydro3d_rhot_heve_new1
   !-----------------------------------------------------------------------------
   !
   !++ Used modules
@@ -53,9 +53,9 @@ module scale_atm_dyn_dgm_nonhydro3d_rhot_heve
   !
   !++ Public procedures
   !
-  public :: atm_dyn_dgm_nonhydro3d_rhot_heve_Init
-  public :: atm_dyn_dgm_nonhydro3d_rhot_heve_Final
-  public :: atm_dyn_dgm_nonhydro3d_rhot_heve_cal_tend
+  public :: atm_dyn_dgm_nonhydro3d_rhot_heve_new1_Init
+  public :: atm_dyn_dgm_nonhydro3d_rhot_heve_new1_Final
+  public :: atm_dyn_dgm_nonhydro3d_rhot_heve_new1_cal_tend
 
   !-----------------------------------------------------------------------------
   !
@@ -69,28 +69,28 @@ module scale_atm_dyn_dgm_nonhydro3d_rhot_heve
   !-------------------
 
 contains
-  subroutine atm_dyn_dgm_nonhydro3d_rhot_heve_Init( mesh )
+  subroutine atm_dyn_dgm_nonhydro3d_rhot_heve_new1_Init( mesh )
     implicit none
     class(MeshBase3D), intent(in) :: mesh
     !--------------------------------------------
 
     call atm_dyn_dgm_nonhydro3d_common_Init( mesh )
     return
-  end subroutine atm_dyn_dgm_nonhydro3d_rhot_heve_Init
+  end subroutine atm_dyn_dgm_nonhydro3d_rhot_heve_new1_Init
 
 
-  subroutine atm_dyn_dgm_nonhydro3d_rhot_heve_Final()
+  subroutine atm_dyn_dgm_nonhydro3d_rhot_heve_new1_Final()
     implicit none
     !--------------------------------------------
     
     call atm_dyn_dgm_nonhydro3d_common_Final()
     return
-  end subroutine atm_dyn_dgm_nonhydro3d_rhot_heve_Final  
+  end subroutine atm_dyn_dgm_nonhydro3d_rhot_heve_new1_Final  
 
   !-------------------------------
 
 !OCL SERIAL
-  subroutine atm_dyn_dgm_nonhydro3d_rhot_heve_cal_tend( &
+  subroutine atm_dyn_dgm_nonhydro3d_rhot_heve_new1_cal_tend( &
     DENS_dt, MOMX_dt, MOMY_dt, MOMZ_dt, RHOT_dt,                                   & ! (out)
     DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DPRES_, DENS_hyd, PRES_hyd, PRES_hyd_ref, & ! (in)
     CORIOLIS, Rtot, CVtot, CPtot,                                                  & ! (in)
@@ -135,6 +135,7 @@ contains
     real(RP) :: Cori(elem%Np)
     real(RP) :: drho(elem%Np)
     real(RP) :: GsqrtV(elem%Np), RGsqrtV(elem%Np)
+    real(RP) :: Escale(3,elem%Np)
 
     integer :: ke, ke2d
 
@@ -165,7 +166,7 @@ contains
     !$omp parallel do private( ke, ke2d, Cori,     &
     !$omp RHOT_, rdens_, u_, v_, w_, wt_,          &
     !$omp drho, DPRES_hyd, GradPhyd_x, GradPhyd_y, &
-    !$omp GsqrtV, RGsqrtV,                         &
+    !$omp GsqrtV, RGsqrtV, Escale,                 &
     !$omp Fx, Fy, Fz, LiftDelFlx )
     do ke = lmesh%NeS, lmesh%NeE
       !--
@@ -174,6 +175,10 @@ contains
 
       GsqrtV(:)  = lmesh%Gsqrt(:,ke) / lmesh%GsqrtH(elem%IndexH2Dto3D,ke2d)
       RGsqrtV(:) = 1.0_RP / GsqrtV(:)
+
+      Escale(1,:) = lmesh%Escale(:,ke,1,1)
+      Escale(2,:) = lmesh%Escale(:,ke,2,2)
+      Escale(3,:) = lmesh%Escale(:,ke,3,3)
 
       !--
       RHOT_(:) = P0ovR * (PRES_hyd(:,ke) * rP0)**rgamm + DRHOT_(:,ke)
@@ -185,8 +190,6 @@ contains
       v_ (:) = MOMY_(:,ke) * rdens_(:)
       w_ (:) = MOMZ_(:,ke) * rdens_(:)
       wt_(:) = w_(:) * RGsqrtV(:) + lmesh%GI3(:,ke,1) * u_(:) + lmesh%GI3(:,ke,2) * v_(:) 
-
-      drho(:) = matmul(IntrpMat_VPOrdM1, DDENS_(:,ke))
 
       !-- Gradient hydrostatic pressure
       
@@ -207,77 +210,140 @@ contains
                     + LiftDelFlx(:)
 
       !-- DENS
-      call sparsemat_matmul(Dx, lmesh%Gsqrt(:,ke) * MOMX_(:,ke), Fx)
-      call sparsemat_matmul(Dy, lmesh%Gsqrt(:,ke) * MOMY_(:,ke), Fy)
-      call sparsemat_matmul(Dz, lmesh%Gsqrt(:,ke) * ( DDENS_(:,ke) + DENS_hyd(:,ke) ) * wt_(:), Fz)
-      call sparsemat_matmul(Lift, lmesh%Fscale(:,ke) * del_flux(:,ke,DENS_VID), LiftDelFlx)
+      call element3D_operation%Div( &
+        lmesh%Gsqrt(:,ke) * MOMX_(:,ke),                                 & ! (in)
+        lmesh%Gsqrt(:,ke) * MOMY_(:,ke),                                 & ! (in)
+        lmesh%Gsqrt(:,ke) * ( DDENS_(:,ke) + DENS_hyd(:,ke) ) * wt_(:),  & ! (in)
+        lmesh%Fscale(:,ke) * del_flux(:,ke,DENS_VID),                    & ! (in)
+        Escale(:,:), lmesh%Gsqrt(:,ke), -1.0_RP,                         & ! (in)
+        Fx, Fy, Fz, LiftDelFlx,                                          & ! (out)
+        DENS_dt(:,ke) ) ! (out)
+      
+      ! call sparsemat_matmul(Dx, lmesh%Gsqrt(:,ke) * MOMX_(:,ke), Fx)
+      ! call sparsemat_matmul(Dy, lmesh%Gsqrt(:,ke) * MOMY_(:,ke), Fy)
+      ! call sparsemat_matmul(Dz, lmesh%Gsqrt(:,ke) * ( DDENS_(:,ke) + DENS_hyd(:,ke) ) * wt_(:), Fz)
+      ! call sparsemat_matmul(Lift, lmesh%Fscale(:,ke) * del_flux(:,ke,DENS_VID), LiftDelFlx)
 
-      DENS_dt(:,ke) = - ( &
-            lmesh%Escale(:,ke,1,1) * Fx(:)    &
-          + lmesh%Escale(:,ke,2,2) * Fy(:)    &
-          + lmesh%Escale(:,ke,3,3) * Fz(:)    &
-          + LiftDelFlx(:) ) / lmesh%Gsqrt(:,ke)
+      ! DENS_dt(:,ke) = - ( &
+      !       lmesh%Escale(:,ke,1,1) * Fx(:)    &
+      !     + lmesh%Escale(:,ke,2,2) * Fy(:)    &
+      !     + lmesh%Escale(:,ke,3,3) * Fz(:)    &
+      !     + LiftDelFlx(:) ) / lmesh%Gsqrt(:,ke)
       
       !-- MOMX
-      call sparsemat_matmul(Dx, lmesh%Gsqrt(:,ke) * (  u_(:) * MOMX_(:,ke) + DPRES_(:,ke) ), Fx)
-      call sparsemat_matmul(Dy, lmesh%Gsqrt(:,ke) *    v_(:) * MOMX_(:,ke)                 , Fy)
-      call sparsemat_matmul(Dz, lmesh%Gsqrt(:,ke) * ( wt_(:) * MOMX_(:,ke)                     &
-                                                    + lmesh%GI3(:,ke,1) * DPRES_(:,ke)    ), Fz)
-      call sparsemat_matmul(Lift, lmesh%Fscale(:,ke) * del_flux(:,ke,MOMX_VID), LiftDelFlx)
-
-      MOMX_dt(:,ke) = &
-          - ( lmesh%Escale(:,ke,1,1) * Fx(:)      &
-            + lmesh%Escale(:,ke,2,2) * Fy(:)      &
-            + lmesh%Escale(:,ke,3,3) * Fz(:)      &
-            + LiftDelFlx(:) ) / lmesh%Gsqrt(:,ke) &
-          - GradPhyd_x(:) * RGsqrtV(:)            &
+      call element3D_operation%Div( &
+        lmesh%Gsqrt(:,ke) * (  u_(:) * MOMX_(:,ke) + DPRES_(:,ke) ), & ! (in)
+        lmesh%Gsqrt(:,ke) *    v_(:) * MOMX_(:,ke)                 , & ! (in)
+        lmesh%Gsqrt(:,ke) * ( wt_(:) * MOMX_(:,ke)                   & ! (in)
+                            + lmesh%GI3(:,ke,2) * DPRES_(:,ke)    ), & !
+        lmesh%Fscale(:,ke) * del_flux(:,ke,MOMX_VID),                & ! (in)
+        Escale(:,:), lmesh%Gsqrt(:,ke), -1.0_RP,                     & ! (in)
+        Fx, Fy, Fz, LiftDelFlx,                                      & ! (out)
+        MOMX_dt(:,ke) ) ! (out)      
+      
+      MOMX_dt(:,ke) = MOMX_dt(:,ke) &
+          - GradPhyd_x(:) * RGsqrtV(:) &
           + Cori(:) * MOMY_(:,ke)
+           
+      ! call sparsemat_matmul(Dx, lmesh%Gsqrt(:,ke) * (  u_(:) * MOMX_(:,ke) + DPRES_(:,ke) ), Fx)
+      ! call sparsemat_matmul(Dy, lmesh%Gsqrt(:,ke) *    v_(:) * MOMX_(:,ke)                 , Fy)
+      ! call sparsemat_matmul(Dz, lmesh%Gsqrt(:,ke) * ( wt_(:) * MOMX_(:,ke)                     &
+      !                                               + lmesh%GI3(:,ke,1) * DPRES_(:,ke)    ), Fz)
+      ! call sparsemat_matmul(Lift, lmesh%Fscale(:,ke) * del_flux(:,ke,MOMX_VID), LiftDelFlx)
+
+      ! MOMX_dt(:,ke) = &
+      !     - ( lmesh%Escale(:,ke,1,1) * Fx(:)      &
+      !       + lmesh%Escale(:,ke,2,2) * Fy(:)      &
+      !       + lmesh%Escale(:,ke,3,3) * Fz(:)      &
+      !       + LiftDelFlx(:) ) / lmesh%Gsqrt(:,ke) &
+      !     - GradPhyd_x(:) * RGsqrtV(:)            &
+      !     + Cori(:) * MOMY_(:,ke)
 
       !-- MOMY
-      call sparsemat_matmul(Dx, lmesh%Gsqrt(:,ke) *    u_(:) * MOMY_(:,ke)                 , Fx)
-      call sparsemat_matmul(Dy, lmesh%Gsqrt(:,ke) * (  v_(:) * MOMY_(:,ke) + DPRES_(:,ke) ), Fy)
-      call sparsemat_matmul(Dz, lmesh%Gsqrt(:,ke) * ( wt_(:) * MOMY_(:,ke)                     &
-                                                    + lmesh%GI3(:,ke,2) * DPRES_(:,ke)    ), Fz)
-      call sparsemat_matmul(Lift, lmesh%Fscale(:,ke) * del_flux(:,ke,MOMY_VID), LiftDelFlx)
-
-      MOMY_dt(:,ke) = &
-          - ( lmesh%Escale(:,ke,1,1) * Fx(:)      &
-            + lmesh%Escale(:,ke,2,2) * Fy(:)      &
-            + lmesh%Escale(:,ke,3,3) * Fz(:)      &
-            + LiftDelFlx(:) ) / lmesh%Gsqrt(:,ke) &
-          - GradPhyd_y(:) * RGsqrtV(:)            &
+      call element3D_operation%Div( &
+        lmesh%Gsqrt(:,ke) *    u_(:) * MOMY_(:,ke),                  & ! (in)
+        lmesh%Gsqrt(:,ke) * (  v_(:) * MOMY_(:,ke) + DPRES_(:,ke) ), & ! (in)
+        lmesh%Gsqrt(:,ke) * ( wt_(:) * MOMY_(:,ke)                   & ! (in)
+                            + lmesh%GI3(:,ke,2) * DPRES_(:,ke) ),    & !
+        lmesh%Fscale(:,ke) * del_flux(:,ke,MOMY_VID),                & ! (in)
+        Escale(:,:), lmesh%Gsqrt(:,ke), -1.0_RP,                     & ! (in)
+        Fx, Fy, Fz, LiftDelFlx,                                      & ! (out)
+        MOMY_dt(:,ke) ) ! (out)      
+      
+      MOMY_dt(:,ke) = MOMY_dt(:,ke) &
+          - GradPhyd_y(:) * RGsqrtV(:) &
           - Cori(:) * MOMX_(:,ke)
 
+      ! call sparsemat_matmul(Dx, lmesh%Gsqrt(:,ke) *    u_(:) * MOMY_(:,ke)                 , Fx)
+      ! call sparsemat_matmul(Dy, lmesh%Gsqrt(:,ke) * (  v_(:) * MOMY_(:,ke) + DPRES_(:,ke) ), Fy)
+      ! call sparsemat_matmul(Dz, lmesh%Gsqrt(:,ke) * ( wt_(:) * MOMY_(:,ke)                     &
+      !                                               + lmesh%GI3(:,ke,2) * DPRES_(:,ke)    ), Fz)
+      ! call sparsemat_matmul(Lift, lmesh%Fscale(:,ke) * del_flux(:,ke,MOMY_VID), LiftDelFlx)
+
+      ! MOMY_dt(:,ke) = &
+      !     - ( lmesh%Escale(:,ke,1,1) * Fx(:)      &
+      !       + lmesh%Escale(:,ke,2,2) * Fy(:)      &
+      !       + lmesh%Escale(:,ke,3,3) * Fz(:)      &
+      !       + LiftDelFlx(:) ) / lmesh%Gsqrt(:,ke) &
+      !     - GradPhyd_y(:) * RGsqrtV(:)            &
+      !     - Cori(:) * MOMX_(:,ke)
+
       !-- MOMZ
-      call sparsemat_matmul(Dx, lmesh%Gsqrt(:,ke) *   u_(:) * MOMZ_(:,ke), Fx)
-      call sparsemat_matmul(Dy, lmesh%Gsqrt(:,ke) *   v_(:) * MOMZ_(:,ke), Fy)
-      call sparsemat_matmul(Dz, lmesh%Gsqrt(:,ke) * ( wt_(:) * MOMZ_(:,ke)           &
-                                                    + RGsqrtV(:) * DPRES_(:,ke) ), Fz)
-      call sparsemat_matmul(Lift, lmesh%Fscale(:,ke) * del_flux(:,ke,MOMZ_VID), LiftDelFlx)
+      call element3D_operation%Div( &
+        lmesh%Gsqrt(:,ke) * u_ (:) * MOMZ_(:,ke),          & ! (in)
+        lmesh%Gsqrt(:,ke) * v_ (:) * MOMZ_(:,ke),          & ! (in)
+        lmesh%Gsqrt(:,ke) * ( wt_(:) * MOMZ_(:,ke)         & ! (in)
+                            + RGsqrtV(:) * DPRES_(:,ke) ), & !
+        lmesh%Fscale(:,ke) * del_flux(:,ke,MOMZ_VID),      & ! (in)
+        Escale(:,:), lmesh%Gsqrt(:,ke), -1.0_RP,           & ! (in)
+        Fx, Fy, Fz, LiftDelFlx,                            & ! (out)
+        MOMZ_dt(:,ke) ) ! (out)      
       
-      MOMZ_dt(:,ke) = &
-          - ( lmesh%Escale(:,ke,1,1) * Fx(:)       &
-            + lmesh%Escale(:,ke,2,2) * Fy(:)       &
-            + lmesh%Escale(:,ke,3,3) * Fz(:)       &
-            + LiftDelFlx(:) ) / lmesh%Gsqrt(:,ke)  &
-          - Grav * drho(:)
+      call element3D_operation%VFilterPM1( DDENS_(:,ke), & ! (in)
+        drho ) ! (out)
+      ! drho(:) = matmul(IntrpMat_VPOrdM1, DDENS_(:,ke))
+      MOMZ_dt(:,ke) = MOMZ_dt(:,ke) &
+        - Grav * drho(:)
+      
+      ! call sparsemat_matmul(Dx, lmesh%Gsqrt(:,ke) *   u_(:) * MOMZ_(:,ke), Fx)
+      ! call sparsemat_matmul(Dy, lmesh%Gsqrt(:,ke) *   v_(:) * MOMZ_(:,ke), Fy)
+      ! call sparsemat_matmul(Dz, lmesh%Gsqrt(:,ke) * ( wt_(:) * MOMZ_(:,ke)           &
+      !                                               + RGsqrtV(:) * DPRES_(:,ke) ), Fz)
+      ! call sparsemat_matmul(Lift, lmesh%Fscale(:,ke) * del_flux(:,ke,MOMZ_VID), LiftDelFlx)
+      
+      ! MOMZ_dt(:,ke) = &
+      !     - ( lmesh%Escale(:,ke,1,1) * Fx(:)       &
+      !       + lmesh%Escale(:,ke,2,2) * Fy(:)       &
+      !       + lmesh%Escale(:,ke,3,3) * Fz(:)       &
+      !       + LiftDelFlx(:) ) / lmesh%Gsqrt(:,ke)  &
+      !     - Grav * drho(:)
 
       !-- RHOT
-      call sparsemat_matmul(Dx, lmesh%Gsqrt(:,ke) * u_ (:) * RHOT_(:), Fx)
-      call sparsemat_matmul(Dy, lmesh%Gsqrt(:,ke) * v_ (:) * RHOT_(:), Fy)
-      call sparsemat_matmul(Dz, lmesh%Gsqrt(:,ke) * wt_(:) * RHOT_(:), Fz)
-      call sparsemat_matmul(Lift, lmesh%Fscale(:,ke) * del_flux(:,ke,RHOT_VID), LiftDelFlx)
+
+      call element3D_operation%Div( &
+        lmesh%Gsqrt(:,ke) * u_ (:) * RHOT_(:),        & ! (in)
+        lmesh%Gsqrt(:,ke) * v_ (:) * RHOT_(:),        & ! (in)
+        lmesh%Gsqrt(:,ke) * wt_(:) * RHOT_(:),        & ! (in)
+        lmesh%Fscale(:,ke) * del_flux(:,ke,RHOT_VID), & ! (in)
+        Escale(:,:), lmesh%Gsqrt(:,ke), -1.0_RP,      & ! (in)
+        Fx, Fy, Fz, LiftDelFlx,                       & ! (out)
+        RHOT_dt(:,ke) ) ! (out)
+
+      ! call sparsemat_matmul(Dx, lmesh%Gsqrt(:,ke) * u_ (:) * RHOT_(:), Fx)
+      ! call sparsemat_matmul(Dy, lmesh%Gsqrt(:,ke) * v_ (:) * RHOT_(:), Fy)
+      ! call sparsemat_matmul(Dz, lmesh%Gsqrt(:,ke) * wt_(:) * RHOT_(:), Fz)
+      ! call sparsemat_matmul(Lift, lmesh%Fscale(:,ke) * del_flux(:,ke,RHOT_VID), LiftDelFlx)
       
-      RHOT_dt(:,ke) = &
-          - ( lmesh%Escale(:,ke,1,1) * Fx(:)      &
-            + lmesh%Escale(:,ke,2,2) * Fy(:)      &
-            + lmesh%Escale(:,ke,3,3) * Fz(:)      &
-            + LiftDelFlx(:) ) / lmesh%Gsqrt(:,ke) 
+      ! RHOT_dt(:,ke) = &
+      !     - ( lmesh%Escale(:,ke,1,1) * Fx(:)      &
+      !       + lmesh%Escale(:,ke,2,2) * Fy(:)      &
+      !       + lmesh%Escale(:,ke,3,3) * Fz(:)      &
+      !       + LiftDelFlx(:) ) / lmesh%Gsqrt(:,ke) 
     end do
 
     call PROF_rapend('cal_dyn_tend_interior', 3)
 
     return
-  end subroutine atm_dyn_dgm_nonhydro3d_rhot_heve_cal_tend
+  end subroutine atm_dyn_dgm_nonhydro3d_rhot_heve_new1_cal_tend
 
-end module scale_atm_dyn_dgm_nonhydro3d_rhot_heve
+end module scale_atm_dyn_dgm_nonhydro3d_rhot_heve_new1

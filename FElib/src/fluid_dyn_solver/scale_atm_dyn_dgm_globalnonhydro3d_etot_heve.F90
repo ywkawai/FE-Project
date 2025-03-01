@@ -30,6 +30,7 @@ module scale_atm_dyn_dgm_globalnonhydro3d_etot_heve
   use scale_element_base, only: &
     ElementBase2D, ElementBase3D
   use scale_element_hexahedral, only: HexahedralElement
+  use scale_element_operation_base, only: ElementOperationBase3D
   use scale_localmesh_2d, only: LocalMesh2D  
   use scale_localmesh_3d, only: LocalMesh3D
   use scale_mesh_base2d, only: MeshBase2D
@@ -92,10 +93,10 @@ contains
 
 !OCL SERIAL
   subroutine atm_dyn_dgm_globalnonhydro3d_etot_heve_cal_tend( &
-    DENS_dt, MOMX_dt, MOMY_dt, MOMZ_dt, EnTot_dt,                                 & ! (out)
-    DDENS_, MOMX_, MOMY_, MOMZ_, ETOT_, DPRES_, DENS_hyd, PRES_hyd, PRES_hyd_ref, & ! (in)
-    CORIOLIS, Rtot, CVtot, CPtot,                                                 & ! (in)
-    Dx, Dy, Dz, Sx, Sy, Sz, Lift, lmesh, elem, lmesh2D, elem2D )                    ! (in)
+    DENS_dt, MOMX_dt, MOMY_dt, MOMZ_dt, EnTot_dt,                                     & ! (out)
+    DDENS_, MOMX_, MOMY_, MOMZ_, ETOT_, DPRES_, DENS_hyd, PRES_hyd, PRES_hyd_ref,     & ! (in)
+    CORIOLIS, Rtot, CVtot, CPtot,                                                     & ! (in)
+    element3D_operation, Dx, Dy, Dz, Sx, Sy, Sz, Lift, lmesh, elem, lmesh2D, elem2D )   ! (in)
 
     use scale_atm_dyn_dgm_nonhydro3d_etot_heve_numflux, only: &
       get_ebnd_flux => atm_dyn_dgm_nonhydro3d_etot_heve_numflux_get_generalhvc
@@ -107,6 +108,7 @@ contains
     class(ElementBase3D), intent(in) :: elem
     class(LocalMesh2D), intent(in) :: lmesh2D
     class(ElementBase2D), intent(in) :: elem2D
+    class(ElementOperationBase3D), intent(in) :: element3D_operation
     type(SparseMat), intent(in) :: Dx, Dy, Dz, Sx, Sy, Sz, Lift
     real(RP), intent(out) :: DENS_dt(elem%Np,lmesh%NeA)
     real(RP), intent(out) :: MOMX_dt(elem%Np,lmesh%NeA)

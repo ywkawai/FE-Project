@@ -307,6 +307,7 @@ contains
         this%trcadv_driver%AUXTRC_FLUX_VARS3D(MASSFLX_Z_TAVG),                     & ! (inout)
         this%trcadv_driver%alphaDensM, this%trcadv_driver%alphaDensP,              & ! (inout)
         this%dyn_vars%AUX_VARS2D(ATMOS_DYN_AUXVARS2D_CORIOLIS_ID),                 & ! (in)
+        model_mesh%element3D_operation,                                            & ! (in)
         model_mesh%DOptrMat(1), model_mesh%DOptrMat(2), model_mesh%DOptrMat(3),    & ! (in)
         model_mesh%SOptrMat(1), model_mesh%SOptrMat(2), model_mesh%SOptrMat(3),    & ! (in)
         model_mesh%LiftOptrMat, mesh3D                                             ) ! (in)
