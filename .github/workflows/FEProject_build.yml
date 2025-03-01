@@ -79,7 +79,7 @@ jobs:
 
     - name: unit test for FE
       env: 
-        testdirs: polynominal mesh_linedom1d mesh_rectdom2d_quadrilateral mesh_cubedsphere2d mesh_cubedom3d_hexahedral mesh_cubedsphere3d field_linedom1d field_rectdom2d_quadrilateral field_cubedspheredom2d field_cubedom3d_hexahedral field_cubedspheredom3d
+        testdirs: polynominal element_operation_hexahedral mesh_linedom1d mesh_rectdom2d_quadrilateral mesh_cubedsphere2d mesh_cubedom3d_hexahedral mesh_cubedsphere3d field_linedom1d field_rectdom2d_quadrilateral field_cubedspheredom2d field_cubedom3d_hexahedral field_cubedspheredom3d
       run: | 
         echo "Perform unit tests .."
 
