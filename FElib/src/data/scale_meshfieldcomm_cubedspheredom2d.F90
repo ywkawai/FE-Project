@@ -2,7 +2,7 @@
 !> module FElib / Data / Communication in 2D cubed-sphere domain
 !!
 !! @par Description
-!!      A module to mangage data communication with 2D cubed-sphere domain for element-based methods
+!!      A module to manage data communication with 2D cubed-sphere domain for element-based methods
 !!
 !! @author Yuta Kawai, Team SCALE
 !<
@@ -63,7 +63,9 @@ module scale_meshfieldcomm_cubedspheredom2d
   !
   !++ Private type & procedure
   !
-
+  private :: post_exchange_core
+  private :: push_localsendbuf
+  
   !-----------------------------------------------------------------------------
   !
   !++ Private parameters & variables
@@ -163,9 +165,11 @@ contains
   end subroutine MeshFieldCommCubedSphereDom2D_put
 
   subroutine MeshFieldCommCubedSphereDom2D_get(this, field_list, varid_s)
+    use scale_meshfieldcomm_base, only: &
+      MeshFieldCommBase_wait_core
     implicit none
     
-    class(MeshFieldCommCubedSphereDom2D), intent(in) :: this
+    class(MeshFieldCommCubedSphereDom2D), intent(inout) :: this
     type(MeshFieldContainer), intent(inout) :: field_list(:)
     integer, intent(in) :: varid_s
 
@@ -181,6 +185,13 @@ contains
 
     varnum = size(field_list) 
 
+    !--
+    if ( this%call_wait_flag_sub_get ) then
+      call post_exchange_core( this )
+      call MeshFieldCommBase_wait_core( this, this%commdata_list )
+    end if
+
+    !--
     do i=1, varnum
     do n=1, this%mesh2d%LOCAL_MESH_NUM
       lcmesh => this%mesh2d%lcmesh_list(n)
@@ -214,7 +225,7 @@ contains
   end subroutine MeshFieldCommCubedSphereDom2D_get
 
 !OCL SERIAL
-  subroutine MeshFieldCommCubedSphereDom2D_exchange( this )    
+  subroutine MeshFieldCommCubedSphereDom2D_exchange( this, do_wait )    
     use scale_meshfieldcomm_base, only: &
       MeshFieldCommBase_exchange_core,  &
       LocalMeshCommData
@@ -226,7 +237,8 @@ contains
     implicit none
   
     class(MeshFieldCommCubedSphereDom2D), intent(inout), target :: this
-  
+    logical, intent(in), optional :: do_wait
+
     integer :: n, f
     integer :: varid
 
@@ -290,10 +302,37 @@ contains
 
     !-----------------------
 
-    call MeshFieldCommBase_exchange_core(this, this%commdata_list(:,:))
+    call MeshFieldCommBase_exchange_core(this, this%commdata_list(:,:), do_wait )
+    if ( .not. this%call_wait_flag_sub_get ) &
+      call post_exchange_core( this )
 
-    !-----------------------
-  
+    return
+  end subroutine MeshFieldCommCubedSphereDom2D_exchange
+
+!- Private ---------------------------
+
+  subroutine post_exchange_core( this )
+    use scale_meshfieldcomm_base, only: LocalMeshCommData
+    use scale_cubedsphere_coord_cnv, only: &
+      CubedSphereCoordCnv_LonLat2CSVec
+    implicit none
+
+    class(MeshFieldCommCubedSphereDom2D), intent(inout), target :: this
+
+    integer :: n, f
+    integer :: varid
+
+    real(RP), allocatable :: fpos2D(:,:)
+    real(RP), allocatable :: lcfpos2D(:,:)
+    real(RP), allocatable :: unity_fac(:)
+    
+    class(ElementBase2D), pointer :: elem
+    type(LocalMesh2D), pointer :: lcmesh
+    type(LocalMeshCommData), pointer :: commdata
+
+    integer :: irs, ire    
+    !-----------------------------------------------------------------------------
+
     do n=1, this%mesh%LOCAL_MESH_NUM
       lcmesh => this%mesh2d%lcmesh_list(n)
       elem => lcmesh%refElem2D
@@ -331,12 +370,10 @@ contains
       end do
 
       deallocate( fpos2D )
-    end do 
+    end do
 
-    return
-  end subroutine MeshFieldCommCubedSphereDom2D_exchange
-
-!----------------------------
+    return    
+  end subroutine post_exchange_core
 
   subroutine push_localsendbuf( lc_send_buf, send_buf, s_faceID, is, Nnode_LCMeshFace, var_num )
     implicit none

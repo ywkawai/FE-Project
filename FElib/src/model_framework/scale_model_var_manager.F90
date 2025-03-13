@@ -58,6 +58,7 @@ module scale_model_var_manager
     !--
     procedure, public :: MeshFieldComm_Prepair => ModelVarManager_meshfiled_comm_prepare
     procedure, public :: MeshFieldComm_Exchange => ModelVarManager_meshfiled_comm_exchange
+    procedure, public :: MeshFieldComm_Get => ModelVarManager_meshfiled_comm_Get
   end type ModelVarManager
 
   public :: VariableInfo ! Cascade
@@ -440,16 +441,34 @@ contains
   end subroutine ModelVarManager_meshfiled_comm_prepare
 
 !OCL SERIAL  
-  subroutine ModelVarManager_meshfiled_comm_exchange( this )
+  subroutine ModelVarManager_meshfiled_comm_exchange( this, do_wait )
     implicit none
     class(ModelVarManager), intent(inout) :: this
+    logical, intent(in), optional :: do_wait
+
+    logical :: do_wait_
     !------------------------------------------------
     
     call this%ptr_comm%Put( this%comm_list, 1 )
-    call this%ptr_comm%Exchange()
-    call this%ptr_comm%Get( this%comm_list, 1 )
+    call this%ptr_comm%Exchange( do_wait )
+
+    if ( present(do_wait) ) then
+      do_wait_ = do_wait
+    else
+      do_wait_ = .true.
+    end if
+    if ( do_wait_ ) &
+      call this%ptr_comm%Get( this%comm_list, 1 )
 
     return
   end subroutine ModelVarManager_meshfiled_comm_exchange
 
+!OCL SERIAL  
+  subroutine ModelVarManager_meshfiled_comm_get( this )
+    implicit none
+    class(ModelVarManager), intent(inout) :: this
+    !------------------------------------------------
+    call this%ptr_comm%Get( this%comm_list, 1 )
+    return
+  end subroutine ModelVarManager_meshfiled_comm_get 
 end module scale_model_var_manager
