@@ -2,7 +2,7 @@
 !> module FElib / Data / Communication 2D rectangle domain
 !!
 !! @par Description
-!!      A module to mangage data communication with 2D rectangle domain for element-based methods
+!!      A module to manage data communication with 2D rectangle domain for element-based methods
 !!
 !! @author Yuta Kawai, Team SCALE
 !<
@@ -56,6 +56,7 @@ module scale_meshfieldcomm_rectdom2d
   !
   !++ Private procedure
   !
+  private :: push_localsendbuf
   
   !-----------------------------------------------------------------------------
   !
@@ -128,9 +129,11 @@ contains
   end subroutine MeshFieldCommRectDom2D_put
 
   subroutine MeshFieldCommRectDom2D_get(this, field_list, varid_s)
+    use scale_meshfieldcomm_base, only: &
+      MeshFieldCommBase_wait_core
     implicit none
     
-    class(MeshFieldCommRectDom2D), intent(in) :: this
+    class(MeshFieldCommRectDom2D), intent(inout) :: this
     type(MeshFieldContainer), intent(inout) :: field_list(:)
     integer, intent(in) :: varid_s
 
@@ -138,6 +141,10 @@ contains
     integer :: n
     type(Localmesh2d), pointer :: lcmesh
     !-----------------------------------------------------------------------------
+
+    !--
+    if ( this%call_wait_flag_sub_get ) &
+      call MeshFieldCommBase_wait_core( this, this%commdata_list )
 
     do i=1, size(field_list) 
     do n=1, this%mesh2d%LOCAL_MESH_NUM
@@ -151,7 +158,7 @@ contains
   end subroutine MeshFieldCommRectDom2D_get
 
 !OCL SERIAL
-  subroutine MeshFieldCommRectDom2D_exchange( this )
+  subroutine MeshFieldCommRectDom2D_exchange( this, do_wait )
     use scale_meshfieldcomm_base, only: &
       MeshFieldCommBase_exchange_core,  &
       LocalMeshCommData
@@ -159,7 +166,8 @@ contains
     implicit none
   
     class(MeshFieldCommRectDom2D), intent(inout), target :: this
-  
+    logical, intent(in), optional :: do_wait
+
     integer :: n, f
     type(LocalMeshCommData), pointer :: commdata
     !-----------------------------------------------------------------------------
@@ -175,7 +183,7 @@ contains
 
     !-----------------------
 
-    call MeshFieldCommBase_exchange_core(this, this%commdata_list(:,:))
+    call MeshFieldCommBase_exchange_core( this, this%commdata_list(:,:), do_wait )
 
     !---------------------
 

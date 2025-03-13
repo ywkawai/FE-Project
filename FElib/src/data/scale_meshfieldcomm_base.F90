@@ -2,7 +2,7 @@
 !> module FElib / Data / Communication base
 !!
 !! @par Description
-!!      Base module to mangage data communication for element-based methods
+!!      Base module to manage data communication for element-based methods
 !!
 !! @author Yuta Kawai, Team SCALE
 !<
@@ -68,7 +68,9 @@ module scale_meshfieldcomm_base
 
     logical :: MPI_pc_flag
     integer, allocatable :: request_pc(:)
-    integer :: req_counter_pc
+
+    integer :: req_counter
+    logical :: call_wait_flag_sub_get
   contains
     procedure(MeshFieldCommBase_put), public, deferred :: Put   
     procedure(MeshFieldCommBase_get), public, deferred :: Get
@@ -78,6 +80,7 @@ module scale_meshfieldcomm_base
 
   public :: MeshFieldCommBase_Init, MeshFieldCommBase_Final
   public :: MeshFieldCommBase_exchange_core
+  public :: MeshFieldCommBase_wait_core
   public :: MeshFieldCommBase_extract_bounddata
   public :: MeshFieldCommBase_set_bounddata
 
@@ -99,14 +102,15 @@ module scale_meshfieldcomm_base
     subroutine MeshFieldCommBase_get(this, field_list, varid_s)
       import MeshFieldCommBase
       import MeshFieldContainer
-      class(MeshFieldCommBase), intent(in) :: this
+      class(MeshFieldCommBase), intent(inout) :: this
       type(MeshFieldContainer), intent(inout) :: field_list(:)
       integer, intent(in) :: varid_s
     end subroutine MeshFieldCommBase_get
 
-    subroutine MeshFieldCommBase_Exchange(this)
+    subroutine MeshFieldCommBase_Exchange(this, do_wait)
         import MeshFieldCommBase
         class(MeshFieldCommBase), intent(inout), target :: this
+        logical, intent(in), optional :: do_wait
     end subroutine MeshFieldCommBase_Exchange
 
     subroutine MeshFieldComm_Final(this)
@@ -208,7 +212,7 @@ contains
       deallocate( this%commdata_list, this%is_f )
 
       if (this%MPI_pc_flag) then
-        do ireq=1, this%req_counter_pc
+        do ireq=1, this%req_counter
           call MPI_request_free( this%request_pc(ireq), ierr )
         end do           
         deallocate( this%request_pc ) 
@@ -232,11 +236,11 @@ contains
       allocate( this%request_pc(2*this%nfaces_comm*this%mesh%LOCAL_MESH_NUM) )
     end if
 
-    this%req_counter_pc = 0
+    this%req_counter = 0
     do n=1, this%mesh%LOCAL_MESH_NUM
     do f=1, this%nfaces_comm
       call this%commdata_list(f,n)%PC_Init(     &
-        this%req_counter_pc, this%request_pc(:) ) ! (inout)
+        this%req_counter, this%request_pc(:) ) ! (inout)
     end do
     end do     
 
@@ -246,10 +250,55 @@ contains
 !> Exchange halo data
 !!
 !OCL SERIAL
-  subroutine MeshFieldCommBase_exchange_core( this, commdata_list )
+  subroutine MeshFieldCommBase_exchange_core( this, commdata_list, do_wait )
+!    use scale_prof
+    implicit none
+  
+    class(MeshFieldCommBase), intent(inout) :: this
+    type(LocalMeshCommData), intent(inout), target :: commdata_list(this%nfaces_comm, this%mesh%LOCAL_MESH_NUM)
+    logical, intent(in), optional :: do_wait
+  
+    integer :: n, f    
+    integer :: ierr
+    logical :: do_wait_
+    !-----------------------------------------------------------------------------
 
-    use scale_prc, only: &
-      PRC_LOCAL_COMM_WORLD, PRC_abort, PRC_MPIbarrier
+    if ( present(do_wait) ) then
+      do_wait_ = do_wait
+    else
+      do_wait_ = .true.
+    end if    
+    
+!    call PROF_rapstart( 'meshfiled_comm_ex_core', 3)
+    if ( this%MPI_pc_flag ) then
+      call MPI_startall( this%req_counter, this%request_pc(1:this%req_counter), ierr )
+    else
+      this%req_counter = 0
+    end if
+    do n=1, this%mesh%LOCAL_MESH_NUM      
+    do f=1, this%nfaces_comm
+      call commdata_list(f,n)%SendRecv( &
+        this%req_counter, this%request_send(:), this%request_recv(:), & ! (inout)
+        commdata_list(:,:),                                           & ! (inout) 
+        this%MPI_pc_flag )                                              ! (in)  
+    end do
+    end do
+!    call PROF_rapend( 'meshfiled_comm_ex_core', 3)
+
+    if ( do_wait_ ) then
+      call MeshFieldCommBase_wait_core( this, commdata_list )
+      this%call_wait_flag_sub_get = .false.
+    else
+      this%call_wait_flag_sub_get = .true.
+    end if
+
+    return
+  end subroutine MeshFieldCommBase_exchange_core
+
+!> Wait data communication
+!!
+!OCL SERIAL
+  subroutine MeshFieldCommBase_wait_core( this, commdata_list )
     use mpi, only: &
       !MPI_waitall,    &
       MPI_STATUS_SIZE
@@ -258,49 +307,33 @@ contains
   
     class(MeshFieldCommBase), intent(inout) :: this
     type(LocalMeshCommData), intent(inout), target :: commdata_list(this%nfaces_comm, this%mesh%LOCAL_MESH_NUM)
-  
-    integer :: n, f
-    integer :: var_id
-    integer :: irs, ire
-    
+
     integer :: ierr
-    integer :: req_counter 
     integer :: stat_send(MPI_STATUS_SIZE, this%nfaces_comm * this%mesh%LOCAL_MESH_NUM)
     integer :: stat_recv(MPI_STATUS_SIZE, this%nfaces_comm * this%mesh%LOCAL_MESH_NUM)
     integer :: stat_pc(MPI_STATUS_SIZE, 2*this%nfaces_comm * this%mesh%LOCAL_MESH_NUM)
-    !-----------------------------------------------------------------------------
-    
-    ! call PROF_rapstart( 'meshfiled_comm_ex_core1', 3)
-    req_counter = 0
-    do n=1, this%mesh%LOCAL_MESH_NUM      
-    do f=1, this%nfaces_comm
-      call commdata_list(f,n)%SendRecv( &
-        req_counter, this%request_send(:), this%request_recv(:), & ! (inout)
-        commdata_list(:,:),                                      & ! (inout) 
-        this%MPI_pc_flag )                                         ! (in)  
-    end do
-    end do
-    if ( this%MPI_pc_flag ) then
-      call MPI_startall( this%req_counter_pc, this%request_pc(1:this%req_counter_pc), ierr )
-    end if
-    ! call PROF_rapend( 'meshfiled_comm_ex_core1', 3)
 
-    ! call PROF_rapstart( 'meshfiled_comm_ex_core2', 3)
+    integer :: n, f
+    integer :: var_id
+    integer :: irs, ire
+    !----------------------------
+
+!    call PROF_rapstart( 'meshfiled_comm_wait_core', 3)
     if ( this%MPI_pc_flag ) then
-      if (this%req_counter_pc > 0) then
-        call MPI_waitall( this%req_counter_pc, this%request_pc(1:this%req_counter_pc), stat_pc(:,1:this%req_counter_pc), ierr )
+      if (this%req_counter > 0) then
+        call MPI_waitall( this%req_counter, this%request_pc(1:this%req_counter), stat_pc(:,1:this%req_counter), ierr )
       end if
     else
-      if (req_counter > 0) then
-        call MPI_waitall( req_counter, this%request_recv(1:req_counter), stat_recv(:,1:req_counter), ierr )
-        call MPI_waitall( req_counter, this%request_send(1:req_counter), stat_send(:,1:req_counter), ierr )
+      if ( this%req_counter > 0 ) then
+        call MPI_waitall( this%req_counter, this%request_recv(1:this%req_counter), stat_recv(:,1:this%req_counter), ierr )
+        call MPI_waitall( this%req_counter, this%request_send(1:this%req_counter), stat_send(:,1:this%req_counter), ierr )
       end if
     end if
-    ! call PROF_rapend( 'meshfiled_comm_ex_core2', 3)
+!    call PROF_rapend( 'meshfiled_comm_wait_core', 3)
   
     !---------------------
 
-    ! call PROF_rapstart( 'meshfiled_comm_ex_core3', 3)
+!    call PROF_rapstart( 'meshfiled_comm_wait_post', 3)
     do n=1, this%mesh%LOCAL_MESH_NUM
       !$omp parallel do private(var_id,f,irs,ire)
       do var_id=1, this%field_num_tot
@@ -312,21 +345,27 @@ contains
         end do ! end loop for face
       end do
     end do
-    ! call PROF_rapend( 'meshfiled_comm_ex_core3', 3)
+!    call PROF_rapend( 'meshfiled_comm_wait_post', 3)
 
     return
-  end subroutine MeshFieldCommBase_exchange_core
+  end subroutine MeshFieldCommBase_wait_core
 
+!OCL SERIAL
   subroutine MeshFieldCommBase_extract_bounddata(var, refElem, mesh, buf)
     implicit none
   
     class(ElementBase), intent(in) :: refElem
     class(LocalMeshBase), intent(in) :: mesh
     real(RP), intent(in) :: var(refElem%Np * mesh%NeA)
-    real(RP), intent(inout) :: buf(size(mesh%VmapB))
-    !-----------------------------------------------------------------------------
+    real(RP), intent(out) :: buf(size(mesh%VmapB))
 
-    buf(:) = var(mesh%VmapB(:))
+    integer :: i
+    !-----------------------------------------------------------------------------
+    !$omp parallel do
+!OCL PREFETCH
+    do i=1, size(buf)
+      buf(i) = var(mesh%VmapB(i))
+    end do
     return
   end subroutine MeshFieldCommBase_extract_bounddata
 
@@ -411,7 +450,7 @@ contains
        this%s_rank, tag, PRC_LOCAL_COMM_WORLD,                           &
        req_send(req_counter), ierr )
       
-    else  !<----- end if s_rank /= mesh%PRC_myrank
+    else if ( this%s_rank == this%lcmesh%PRC_myrank ) then
       lccommdat_list(abs(this%s_faceID), this%s_tilelocalID)%recv_buf(:,:) &
         = this%send_buf(:,:)
     end if         

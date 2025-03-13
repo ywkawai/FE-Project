@@ -2,7 +2,7 @@
 !> module FElib / Data / Communication 1D
 !!
 !! @par Description
-!!      A module to mangage 1D data communication for element-based methods
+!!      A module to manage 1D data communication for element-based methods
 !!
 !! @author Yuta Kawai, Team SCALE
 !<
@@ -56,7 +56,8 @@ module scale_meshfieldcomm_1d
   !
   !++ Private procedure
   !
-  
+  private :: push_localsendbuf
+
   !-----------------------------------------------------------------------------
   !
   !++ Private parameters & variables
@@ -123,9 +124,11 @@ contains
   end subroutine MeshFieldComm1D_put
 
   subroutine MeshFieldComm1D_get(this, field_list, varid_s)
+    use scale_meshfieldcomm_base, only: &
+      MeshFieldCommBase_wait_core
     implicit none
     
-    class(MeshFieldComm1D), intent(in) :: this
+    class(MeshFieldComm1D), intent(inout) :: this
     type(MeshFieldContainer), intent(inout) :: field_list(:)
     integer, intent(in) :: varid_s
 
@@ -134,6 +137,9 @@ contains
     type(LocalMesh1D), pointer :: mesh
     !-----------------------------------------------------------------------------
     
+    if ( this%call_wait_flag_sub_get ) &
+      call MeshFieldCommBase_wait_core( this, this%commdata_list )
+
     do i=1, size(field_list) 
     do n=1, this%mesh1D%LOCAL_MESH_NUM
       mesh => this%mesh1d%lcmesh_list(n)
@@ -146,20 +152,22 @@ contains
   end subroutine MeshFieldComm1D_get
 
 !OCL SERIAL
-  subroutine MeshFieldComm1D_exchange( this )
+  subroutine MeshFieldComm1D_exchange( this, do_wait )
     use scale_meshfieldcomm_base, only: &
       MeshFieldCommBase_exchange_core,  &
+      MeshFieldCommBase_wait_core,      &
       LocalMeshCommData
 
     implicit none
   
     class(MeshFieldComm1D), intent(inout), target :: this
+    logical, intent(in), optional :: do_wait
   
     integer :: n, f
     type(LocalMesh1D), pointer :: mesh
     type(LocalMeshCommData), pointer :: commdata
     !-----------------------------------------------------------------------------
-    
+
     do n=1, this%mesh%LOCAL_MESH_NUM
     do f=1, this%nfaces_comm      
       commdata => this%commdata_list(f,n)
@@ -171,8 +179,8 @@ contains
 
     !-----------------------
 
-    call MeshFieldCommBase_exchange_core( this, this%commdata_list(:,:) )
-    
+    call MeshFieldCommBase_exchange_core( this, this%commdata_list(:,:), do_wait )
+
     !---------------------
 
     return

@@ -2,7 +2,7 @@
 !> module FElib / Data / Communication 3D cubic domain
 !!
 !! @par Description
-!!      A module to mangage data communication with 3D cubic domain for element-based methods
+!!      A module to manage data communication with 3D cubic domain for element-based methods
 !!
 !! @author Yuta Kawai, Team SCALE
 !<
@@ -26,7 +26,7 @@ module scale_meshfieldcomm_cubedom3d
     MeshFieldCommBase_set_bounddata,                 &
     MeshFieldContainer
   use scale_localmesh_3d, only: Localmesh3d
-   
+  use scale_prof
   !-----------------------------------------------------------------------------
   implicit none
   private
@@ -56,7 +56,8 @@ module scale_meshfieldcomm_cubedom3d
   !
   !++ Private procedure
   !
-  
+  private :: push_localsendbuf
+
   !-----------------------------------------------------------------------------
   !
   !++ Private parameters & variables
@@ -101,7 +102,6 @@ contains
   end subroutine MeshFieldCommCubeDom3D_Init
 
   subroutine MeshFieldCommCubeDom3D_Final( this )
-
     implicit none    
     class(MeshFieldCommCubeDom3D), intent(inout) :: this
     !-----------------------------------------------------------------------------
@@ -119,24 +119,30 @@ contains
   
     integer :: i
     integer :: n
-    type(Localmesh3d), pointer :: lcmesh
+    type(LocalMesh3d), pointer :: lcmesh
+    integer :: field_num
     !-----------------------------------------------------------------------------
 
-    do i=1, size(field_list)
+!    call PROF_rapstart( 'meshfiled_comm_put', 3)
+    field_num = size(field_list)
     do n=1, this%mesh%LOCAL_MESH_NUM
       lcmesh => this%mesh3d%lcmesh_list(n)
-      call MeshFieldCommBase_extract_bounddata( field_list(i)%field3d%local(n)%val, lcmesh%refElem, lcmesh, & ! (in)
-        this%send_buf(:,varid_s+i-1,n) )                                                                      ! (out)
+      do i=1, field_num
+        call MeshFieldCommBase_extract_bounddata( field_list(i)%field3d%local(n)%val, lcmesh%refElem, lcmesh, & ! (in)
+          this%send_buf(:,varid_s+i-1,n) )                                                                      ! (out)
+      end do
     end do
-    end do
+!    call PROF_rapend( 'meshfiled_comm_put', 3)
 
     return
   end subroutine MeshFieldCommCubeDom3D_put
 
   subroutine MeshFieldCommCubeDom3D_get(this, field_list, varid_s)
+    use scale_meshfieldcomm_base, only: &
+      MeshFieldCommBase_wait_core
     implicit none
     
-    class(MeshFieldCommCubeDom3D), intent(in) :: this
+    class(MeshFieldCommCubeDom3D), intent(inout) :: this
     type(MeshFieldContainer), intent(inout) :: field_list(:)
     integer, intent(in) :: varid_s
 
@@ -145,6 +151,11 @@ contains
     type(Localmesh3d), pointer :: lcmesh
     !-----------------------------------------------------------------------------
 
+    if ( this%call_wait_flag_sub_get ) then
+      call MeshFieldCommBase_wait_core( this, this%commdata_list )
+    end if
+
+!    call PROF_rapstart( 'meshfiled_comm_get', 3)
     do i=1, size(field_list) 
     do n=1, this%mesh3d%LOCAL_MESH_NUM
       lcmesh => this%mesh3d%lcmesh_list(n)
@@ -152,24 +163,27 @@ contains
          field_list(i)%field3d%local(n)%val )                                                         !(out)
     end do
     end do
+!    call PROF_rapend( 'meshfiled_comm_get', 3)
 
     return
   end subroutine MeshFieldCommCubeDom3D_get
 
 !OCL SERIAL
-  subroutine MeshFieldCommCubeDom3D_exchange( this )
+  subroutine MeshFieldCommCubeDom3D_exchange( this, do_wait )
     use scale_meshfieldcomm_base, only: &
       MeshFieldCommBase_exchange_core,  &
       LocalMeshCommData
     implicit none
   
     class(MeshFieldCommCubeDom3D), intent(inout), target :: this
-  
+    logical, intent(in), optional :: do_wait
+
     integer :: n, f
     type(LocalMesh3D), pointer :: lcmesh
     type(LocalMeshCommData), pointer :: commdata
     !-----------------------------------------------------------------------------
     
+!    call PROF_rapstart( 'meshfiled_comm_ex_push_buf', 3)
     do n=1, this%mesh%LOCAL_MESH_NUM
       lcmesh => this%mesh3d%lcmesh_list(n)
       do f=1, this%nfaces_comm
@@ -179,12 +193,11 @@ contains
           commdata%Nnode_LCMeshFace, this%field_num_tot, lcmesh )      ! (in)
       end do
     end do
+!    call PROF_rapend( 'meshfiled_comm_ex_push_buf', 3)
 
     !-----------------------
 
-    call MeshFieldCommBase_exchange_core(this, this%commdata_list(:,:))
-
-    !---------------------
+    call MeshFieldCommBase_exchange_core(this, this%commdata_list(:,:), do_wait )
 
     return
   end subroutine MeshFieldCommCubeDom3D_exchange
@@ -198,19 +211,25 @@ contains
     integer, intent(in) ::  Nnode_LCMeshFace
     integer, intent(in) :: var_num
     type(LocalMesh3D), intent(in) :: lcmesh
-    real(RP), intent(inout) :: lc_send_buf(Nnode_LCMeshFace,var_num)
+    real(RP), intent(out) :: lc_send_buf(Nnode_LCMeshFace,var_num)
     real(RP), intent(in) :: send_buf(bufsize_per_field,var_num)  
     integer, intent(in) :: s_faceID, is
   
     integer :: ie
+    integer :: vid, i
     class(ElementBase3D), pointer :: e3D
     !-----------------------------------------------------------------------------
 
-    e3D => lcmesh%refElem3D
-    ie = is + Nnode_LCMeshFace - 1
     if ( s_faceID > 0 ) then
-      lc_send_buf(:,:) = send_buf(is:ie,:)        
+      !$omp parallel do
+      do vid=1, var_num
+      do i=1, Nnode_LCMeshFace
+        lc_send_buf(i,vid) = send_buf(is+i-1,vid)
+      end do
+      end do
     else if ( -5 < s_faceID .and. s_faceID < 0) then
+      e3D => lcmesh%refElem3D
+      ie = is + Nnode_LCMeshFace - 1  
       call revert_hori( lc_send_buf(:,:), send_buf(is:ie,:), Nnode_LCMeshFace/lcmesh%NeZ, lcmesh%NeZ )      
     end if 
 
@@ -240,5 +259,4 @@ contains
       end do
     end subroutine revert_hori    
   end subroutine push_localsendbuf
-
 end module scale_meshfieldcomm_cubedom3d

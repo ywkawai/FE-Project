@@ -2,7 +2,7 @@
 !> module FElib / Data / Communication in 3D cubed-sphere domain
 !!
 !! @par Description
-!!      A module to mangage data communication with 3D cubed-sphere domain for element-based methods
+!!      A module to manage data communication with 3D cubed-sphere domain for element-based methods
 !!
 !! @author Yuta Kawai, Team SCALE
 !<
@@ -66,6 +66,8 @@ module scale_meshfieldcomm_cubedspheredom3d
   !
   !++ Private type & procedure
   !
+  private :: post_exchange_core
+  private :: push_localsendbuf
 
   !-----------------------------------------------------------------------------
   !
@@ -171,9 +173,11 @@ contains
   end subroutine MeshFieldCommCubedSphereDom3D_put
 
   subroutine MeshFieldCommCubedSphereDom3D_get(this, field_list, varid_s)
+    use scale_meshfieldcomm_base, only: &
+      MeshFieldCommBase_wait_core
     implicit none
     
-    class(MeshFieldCommCubedSphereDom3D), intent(in) :: this
+    class(MeshFieldCommCubedSphereDom3D), intent(inout) :: this
     type(MeshFieldContainer), intent(inout) :: field_list(:)
     integer, intent(in) :: varid_s
 
@@ -193,6 +197,13 @@ contains
 
     varnum = size(field_list) 
 
+    !--
+    if ( this%call_wait_flag_sub_get ) then
+      call post_exchange_core( this )
+      call MeshFieldCommBase_wait_core( this, this%commdata_list )
+    end if
+
+    !--
     do i=1, varnum
     do n=1, this%mesh3d%LOCAL_MESH_NUM
       lcmesh => this%mesh3d%lcmesh_list(n)
@@ -239,7 +250,7 @@ contains
   end subroutine MeshFieldCommCubedSphereDom3D_get
 
 !OCL SERIAL
-  subroutine MeshFieldCommCubedSphereDom3D_exchange( this )
+  subroutine MeshFieldCommCubedSphereDom3D_exchange( this, do_wait )
     use scale_meshfieldcomm_base, only: &
       MeshFieldCommBase_exchange_core,  &
       LocalMeshCommData
@@ -251,7 +262,8 @@ contains
     implicit none
   
     class(MeshFieldCommCubedSphereDom3D), intent(inout), target :: this
-  
+    logical, intent(in), optional :: do_wait
+
     integer :: n, f
     integer :: varid
 
@@ -357,10 +369,38 @@ contains
 
     !-----------------------
 
-    call MeshFieldCommBase_exchange_core(this, this%commdata_list(:,:))
+    call MeshFieldCommBase_exchange_core(this, this%commdata_list(:,:), do_wait )
+    if ( .not. this%call_wait_flag_sub_get ) &
+      call post_exchange_core( this )
 
-    !-----------------------
-  
+    return
+  end subroutine MeshFieldCommCubedSphereDom3D_exchange
+
+!----------------------------
+
+  subroutine post_exchange_core( this )
+    use scale_meshfieldcomm_base, only: LocalMeshCommData
+    use scale_cubedsphere_coord_cnv, only: &
+      CubedSphereCoordCnv_LonLat2CSVec
+    implicit none
+
+    class(MeshFieldCommCubedSphereDom3D), intent(inout), target :: this
+
+    integer :: n, f
+    integer :: varid
+
+    real(RP), allocatable :: fpos3D(:,:)
+    real(RP), allocatable :: lcfpos3D(:,:)
+    real(RP), allocatable :: unity_fac(:)
+    real(RP), allocatable :: tmp1_htensor3D(:,:,:)
+    
+    class(ElementBase3D), pointer :: elem
+    type(LocalMesh3D), pointer :: lcmesh
+    type(LocalMeshCommData), pointer :: commdata
+
+    integer :: irs, ire    
+    !-----------------------------------------------------------------------------
+
     do n=1, this%mesh%LOCAL_MESH_NUM
       lcmesh => this%mesh3d%lcmesh_list(n)
       elem => lcmesh%refElem3D
@@ -435,9 +475,7 @@ contains
     end do 
 
     return
-  end subroutine MeshFieldCommCubedSphereDom3D_exchange
-
-!----------------------------
+  end subroutine post_exchange_core
 
 !OCL SERIAL
   subroutine push_localsendbuf( lc_send_buf, send_buf, s_faceID, is, Nnode_LCMeshFace, var_num, &
