@@ -327,7 +327,7 @@ distclean: clean
 
 allclean: distclean
 
-dependency:
+dependency: prep_scalelib
 	./makedepend .
 
 

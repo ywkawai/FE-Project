@@ -10,7 +10,7 @@ srcdir = ARGV.shift || usage
 deps = Hash.new
 pros = Hash.new
 
-SCALE_INCLUDE="#{ENV["SCALE"]}/include"
+SCALE_INCLUDE="../../include/scalelib/"
 puts "SCALE_INCLUDE: #{SCALE_INCLUDE}"
 SUFFIX = ".F90"
 
