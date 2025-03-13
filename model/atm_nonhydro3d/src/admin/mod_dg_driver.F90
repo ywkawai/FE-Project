@@ -1,10 +1,11 @@
 !-------------------------------------------------------------------------------
-!> module SCALE-DG driver
+!> module SCALE-DG (a main routine of regional/global model)
 !!
 !! @par Description
-!!         
+!!          SCALE: Scalable Computing by Advanced Library and Environment
+!!          SCALE-DG: Regional / global model with atmospheric dynamical core based on DGM
 !!
-!! @author Team SCALE
+!! @author Yuta Kawai, Team SCALE
 !!
 !<
 !-------------------------------------------------------------------------------
@@ -349,14 +350,19 @@ contains
 
 !OCL SERIAL
   subroutine restart_write
+    use scale_file_restart_meshfield, only: &
+      restart_file    
     implicit none    
     !----------------------------------------
 
+    if ( .not. restart_file%flag_output ) return
+    
     if ( atmos%isActivated() .and. atmos%time_manager%do_restart) then
       call atmos%vars%Write_restart_file()
     end if
 
     return
   end subroutine restart_write
+
 
 end module mod_dg_driver
