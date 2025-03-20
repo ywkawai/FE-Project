@@ -36,7 +36,7 @@ module scale_atm_phy_tb_dgm_common
   !
   !++ Public procedures
   !
-  public :: atm_phy_tb_dgm_common_get_varinfo
+  public :: atm_phy_tb_dgm_common_setup_variables
   public :: atm_phy_tb_dgm_common_calc_lambda
 
   public :: atm_phy_tb_dgm_common_cal_grad_qtrc
@@ -90,14 +90,27 @@ module scale_atm_phy_tb_dgm_common
   
 contains
 !OCL SERIAL
-  subroutine atm_phy_tb_dgm_common_get_varinfo( &
-    auxvar_info, diagvar_info, tend_info        )
-
+  subroutine atm_phy_tb_dgm_common_setup_variables( &
+    tends, auxvars, diagvars,                       & ! (inout)
+    tends_manager, auxvar_manager, diagvar_manager, & ! (inout)
+    TENDS_NUM_TOT, mesh3D                           ) ! (in)
+    use scale_tracer, only: &
+      QA, TRACER_NAME, TRACER_DESC, TRACER_UNIT    
+    use scale_mesh_base3d, only: MeshBase3D
+    use scale_meshfield_base, only: MeshField3D
     implicit none
+    integer, intent(in) :: TENDS_NUM_TOT
+    type(MeshField3D), intent(inout) :: tends(TENDS_NUM_TOT)
+    type(MeshField3D), intent(inout) :: auxvars(ATMOS_PHY_TB_AUX_NUM)
+    type(MeshField3D), intent(inout) :: diagvars(ATMOS_PHY_TB_DIAG_NUM)
+    type(ModelVarManager), intent(inout) :: tends_manager
+    type(ModelVarManager), intent(inout) :: auxvar_manager
+    type(ModelVarManager), intent(inout) :: diagvar_manager
+    class(MeshBase3D), intent(in) :: mesh3D
 
-    type(VariableInfo), intent(out) :: auxvar_info(ATMOS_PHY_TB_AUX_NUM)
-    type(VariableInfo), intent(out) :: diagvar_info(ATMOS_PHY_TB_DIAG_NUM)
-    type(VariableInfo), intent(out) :: tend_info(ATMOS_PHY_TB_TENDS_NUM1)
+    ! type(VariableInfo), intent(out) :: auxvar_info(ATMOS_PHY_TB_AUX_NUM)
+    ! type(VariableInfo), intent(out) :: diagvar_info(ATMOS_PHY_TB_DIAG_NUM)
+    ! type(VariableInfo), intent(out) :: tend_info(ATMOS_PHY_TB_TENDS_NUM1)
 
     type(VariableInfo) :: ATMOS_PHY_TB_AUX_VINFO(ATMOS_PHY_TB_AUX_NUM)
     DATA ATMOS_PHY_TB_AUX_VINFO / &
@@ -146,14 +159,66 @@ contains
       VariableInfo( ATMOS_PHY_TB_RHOT_t_ID, 'TB_RHOT_t', 'tendency of rho*PT in TB process',        &
                     'kg/m3.K/s', 3, 'XYZ',  ''                                                   )  / 
 
+    type(VariableInfo) :: qtrc_vinfo_tmp
+
+    integer :: iv
+    integer :: iq
+    logical :: reg_file_hist
     !----------------------------------------------------------
 
-    auxvar_info(:) = ATMOS_PHY_TB_AUX_VINFO
-    diagvar_info(:) = ATMOS_PHY_TB_DIAG_VINFO
-    tend_info(:) = ATMOS_PHY_TB_TEND_VINFO
+    ! auxvar_info(:) = ATMOS_PHY_TB_AUX_VINFO
+    ! diagvar_info(:) = ATMOS_PHY_TB_DIAG_VINFO
+    ! tend_info(:) = ATMOS_PHY_TB_TEND_VINFO
+
+    !- Initialize an object to manage tendencies with turbulent model
+
+    reg_file_hist = .true.    
+    do iv = 1, ATMOS_PHY_TB_TENDS_NUM1
+      call tends_manager%Regist( &
+        ATMOS_PHY_TB_TEND_VINFO(iv), mesh3D,     & ! (in) 
+        tends(iv), reg_file_hist,                & ! (out)
+        fill_zero=.true.                         )
+    end do
+
+    qtrc_vinfo_tmp%ndims    = 3
+    qtrc_vinfo_tmp%dim_type = 'XYZ'
+    qtrc_vinfo_tmp%STDNAME  = ''
+
+    do iq = 1, QA
+      iv = ATMOS_PHY_TB_TENDS_NUM1 + iq 
+      qtrc_vinfo_tmp%keyID = iv
+      qtrc_vinfo_tmp%NAME  = 'TB_'//trim(TRACER_NAME(iq))//'_t'
+      qtrc_vinfo_tmp%DESC  = 'tendency of '//trim(TRACER_DESC(iq))//' in TB process'
+      qtrc_vinfo_tmp%UNIT  = trim(TRACER_UNIT(iq))//'/s'
+
+      call tends_manager%Regist( &
+        qtrc_vinfo_tmp, mesh3D,                  & ! (in) 
+        tends(iv), reg_file_hist,                & ! (out)
+        fill_zero=.true.                         )
+    end do
+
+    !- Initialize an object to manage auxiliary variables with turbulent model
+
+    reg_file_hist = .true.    
+    do iv = 1, ATMOS_PHY_TB_AUX_NUM
+      call auxvar_manager%Regist( &
+        ATMOS_PHY_TB_AUX_VINFO(iv), mesh3D, & ! (in) 
+        auxvars(iv), reg_file_hist,         & ! (out)
+        fill_zero=.true.                    )
+    end do
+
+    !- Initialize an object to manage diagnostic variables with turbulent model
+    
+    reg_file_hist = .true.    
+    do iv = 1, ATMOS_PHY_TB_DIAG_NUM
+      call diagvar_manager%Regist( &
+        ATMOS_PHY_TB_DIAG_VINFO(iv), mesh3D, & ! (in) 
+        diagvars(iv), reg_file_hist,         & ! (out)
+        fill_zero=.true.                     )
+    end do
 
     return
-  end subroutine atm_phy_tb_dgm_common_get_varinfo
+  end subroutine atm_phy_tb_dgm_common_setup_variables
 
 !OCL SERIAL  
   subroutine atm_phy_tb_dgm_common_calc_lambda( lambda, & ! (out)

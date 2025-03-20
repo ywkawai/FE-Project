@@ -316,7 +316,7 @@ module scale_atm_phy_tb_dgm_driver
   integer, public, parameter :: ATMOS_PHY_TB_AUXTRC_NUM        = 3
   type(VariableInfo), public :: ATMOS_PHY_TB_AUXTRC_VINFO(ATMOS_PHY_TB_AUXTRC_NUM)
   DATA ATMOS_PHY_TB_AUXTRC_VINFO / &
-    VariableInfo( ATMOS_PHY_TB_AUXTRC_DFQ3_ID, 'DFQ1', 'Kh * gradient of QTRC (z)',    &
+    VariableInfo( ATMOS_PHY_TB_AUXTRC_DFQ3_ID, 'DFQ3', 'Kh * gradient of QTRC (z)',    &
                   'm2/s.kg/kg.m-1',  3, 'XYZ',  ''                                 ),  &
     VariableInfo( ATMOS_PHY_TB_AUXTRC_DFQ1_ID, 'DFQ1', 'Kh * gradient of QTRC (x)',    &
                   'm2/s.kg/kg.m-1',  3, 'XYZ',  ''                                 ),  &

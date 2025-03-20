@@ -137,7 +137,6 @@ contains
     integer :: ierr
 
     integer :: v
-    logical :: reg_file_hist
     !---------------------------------------------------------------
 
     rewind(IO_FID_CONF)
@@ -162,12 +161,11 @@ contains
     call this%NUMDIFF_FLUX_manager%Init()
     allocate( this%NUMDIFF_FLUX_VARS3D(NUMDIFF_FLUX_NUM) )
 
-    reg_file_hist = .false.    
     do v = 1, NUMDIFF_FLUX_NUM
       call this%NUMDIFF_FLUX_manager%Regist(  &
         ATMOS_DYN_NUMDIFF_FLUX_VINFO(v), mesh3D, & ! (in) 
         this%NUMDIFF_FLUX_VARS3D(v),             & ! (inout) 
-        reg_file_hist, fill_zero=.true.          ) ! (in)
+        .false., fill_zero=.true.                ) ! (in)
     end do
 
     call model_mesh3D%Create_communicator( &
@@ -180,12 +178,11 @@ contains
     call this%NUMDIFF_TEND_manager%Init()
     allocate( this%NUMDIFF_TEND_VARS3D(NUMDIFF_TEND_NUM) )
 
-    reg_file_hist = .false.    
     do v = 1, NUMDIFF_TEND_NUM
       call this%NUMDIFF_TEND_manager%Regist( &
         ATMOS_DYN_NUMDIFF_TEND_VINFO(v), mesh3D, & ! (in) 
         this%NUMDIFF_TEND_VARS3D(v),             & ! (inout)
-        reg_file_hist, fill_zero=.true.          ) ! (in)      
+        .false., fill_zero=.true.                ) ! (in)      
     end do
 
     call model_mesh3D%Create_communicator( &

@@ -35,7 +35,8 @@ module scale_atm_dyn_dgm_nonhydro3d_common
   use scale_localmeshfield_base, only: LocalMeshField3D
   use scale_meshfield_base, only: MeshField3D
 
-  use scale_variableinfo, only: VariableInfo
+  use scale_model_var_manager, only: &
+    ModelVarManager, VariableInfo
 
   !-----------------------------------------------------------------------------
   implicit none
@@ -46,6 +47,7 @@ module scale_atm_dyn_dgm_nonhydro3d_common
   !
   public :: atm_dyn_dgm_nonhydro3d_common_Init
   public :: atm_dyn_dgm_nonhydro3d_common_Final
+  public :: atm_dyn_dgm_nonhydro3d_common_setup_variables
   public :: atm_dyn_dgm_nonhydro3d_common_get_varinfo
   public :: atm_dyn_dgm_nonhydro3d_common_calc_pressure
   public :: atm_dyn_dgm_nonhydro3d_common_DRHOT2PRES
@@ -140,7 +142,6 @@ contains
     prgvar_info, auxvar_info, phytend_info              )
 
     implicit none
-
     type(VariableInfo), intent(out) :: prgvar_info(PRGVAR_NUM)
     type(VariableInfo), intent(out) :: auxvar_info(AUXVAR_NUM)
     type(VariableInfo), intent(out), optional :: phytend_info(PHYTEND_NUM)
@@ -202,6 +203,149 @@ contains
 
     return
   end subroutine atm_dyn_dgm_nonhydro3d_common_get_varinfo
+
+  subroutine atm_dyn_dgm_nonhydro3d_common_setup_variables( &
+    prgvars, qtrcvars, auxvars, phytends,                             & ! (inout)
+    prgvar_manager, qtrcvar_manager, auxvar_manager, phytend_manager, & ! (inout)
+    PHYTEND_NUM_TOT, mesh3D,                                          & ! (in)
+    PRGVAR_VARINFO )                                                    ! (out)
+
+    use scale_atmos_hydrometeor, only: &
+      ATMOS_HYDROMETEOR_dry
+    use scale_tracer, only: &
+      QA, TRACER_NAME, TRACER_DESC, TRACER_UNIT    
+    use scale_mesh_base3d, only: MeshBase3D
+    use scale_meshfield_base, only: MeshField3D
+    implicit none
+    integer, intent(in) :: PHYTEND_NUM_TOT
+    type(MeshField3D), intent(inout) :: prgvars(PRGVAR_NUM)
+    type(MeshField3D), intent(inout) :: qtrcvars(0:QA)    
+    type(MeshField3D), intent(inout) :: auxvars(AUXVAR_NUM)
+    type(MeshField3D), intent(inout) :: phytends(PHYTEND_NUM_TOT)
+    type(ModelVarManager), intent(inout) :: prgvar_manager
+    type(ModelVarManager), intent(inout) :: qtrcvar_manager
+    type(ModelVarManager), intent(inout) :: auxvar_manager
+    type(ModelVarManager), intent(inout) :: phytend_manager
+    class(MeshBase3D), intent(in) :: mesh3D
+
+    type(VariableInfo), intent(out) :: PRGVAR_VARINFO(PRGVAR_NUM)
+
+    type(VariableInfo) :: AUXVAR_VARINFO(AUXVAR_NUM)
+    type(VariableInfo) :: PHYTEND_VARINFO(PHYTEND_NUM)
+
+    integer :: iv
+    integer :: iq
+    logical :: reg_file_hist
+
+    type(VariableInfo) :: qtrc_dry_vinfo_tmp
+    type(VariableInfo) :: qtrc_dry_tp_vinfo_tmp
+    type(VariableInfo) :: qtrc_vinfo_tmp
+    type(VariableInfo) :: qtrc_tp_vinfo_tmp
+    !----------------------------------------------------------
+
+    call atm_dyn_dgm_nonhydro3d_common_get_varinfo( PRGVAR_VARINFO, AUXVAR_VARINFO, PHYTEND_VARINFO ) ! (out)
+
+    !- Initialize prognostic variables
+
+    reg_file_hist = .true.    
+    do iv = 1, PRGVAR_NUM
+      call prgvar_manager%Regist(  &
+        PRGVAR_VARINFO(iv), mesh3D,                           & ! (in) 
+        prgvars(iv),                                          & ! (inout)
+        reg_file_hist,  monitor_flag=.true., fill_zero=.true. ) ! (out)
+    end do
+
+    !- Initialize tracer variables
+
+    reg_file_hist = .true.
+
+    if ( ATMOS_HYDROMETEOR_dry ) then
+      ! Dummy
+      qtrc_dry_vinfo_tmp%ndims    = 3
+      qtrc_dry_vinfo_tmp%dim_type = 'XYZ'
+      qtrc_dry_vinfo_tmp%STDNAME  = ''
+
+      qtrc_dry_vinfo_tmp%keyID = 0
+      qtrc_dry_vinfo_tmp%NAME  = "QV"
+      qtrc_dry_vinfo_tmp%DESC  = "Ratio of Water Vapor mass to total mass (Specific humidity)"
+      qtrc_dry_vinfo_tmp%UNIT  = "kg/kg"
+      call qtrcvar_manager%Regist( &
+        qtrc_dry_vinfo_tmp, mesh3D,                      & ! (in) 
+        qtrcvars(0),                                     & ! (inout)
+        .false., monitor_flag=.false., fill_zero=.true.  ) ! (in)
+    else
+      qtrc_vinfo_tmp%ndims    = 3
+      qtrc_vinfo_tmp%dim_type = 'XYZ'
+      qtrc_vinfo_tmp%STDNAME  = ''
+  
+      do iq = 1, QA
+        qtrc_vinfo_tmp%keyID = iq
+        qtrc_vinfo_tmp%NAME  = TRACER_NAME(iq)
+        qtrc_vinfo_tmp%DESC  = TRACER_DESC(iq)
+        qtrc_vinfo_tmp%UNIT  = TRACER_UNIT(iq)
+        call qtrcvar_manager%Regist( &
+          qtrc_vinfo_tmp, mesh3D,                               & ! (in) 
+          qtrcvars(iq),                                         & ! (inout)
+          reg_file_hist, monitor_flag=.true., fill_zero=.true.  ) ! (in)
+      end do
+    end if
+
+    !- Initialize auxiliary variables
+
+    reg_file_hist = .true.
+    do iv = 1, AUXVAR_NUM
+      call auxvar_manager%Regist( &
+        AUXVAR_VARINFO(iv), mesh3D,       & ! (in) 
+        auxvars(iv),                      & ! (inout)
+        reg_file_hist, fill_zero=.true.   ) ! (in)
+    end do
+
+    !- Initialize the tendency of physical processes
+
+    reg_file_hist = .true.
+    do iv = 1, PHYTEND_NUM
+      call phytend_manager%Regist( &
+        PHYTEND_VARINFO(iv), mesh3D,     & ! (in) 
+        phytends(iv),                    & ! (inout)
+        reg_file_hist, fill_zero=.true.  ) ! (in)
+    end do
+
+    if ( ATMOS_HYDROMETEOR_dry ) then
+      ! Dummy
+      qtrc_dry_tp_vinfo_tmp%ndims    = 3
+      qtrc_dry_tp_vinfo_tmp%dim_type = 'XYZ'
+      qtrc_dry_tp_vinfo_tmp%STDNAME  = ''
+
+      iv = PHYTEND_NUM + 1
+      qtrc_dry_tp_vinfo_tmp%keyID = 0
+      qtrc_dry_tp_vinfo_tmp%NAME  = "QV_tp"
+      qtrc_dry_tp_vinfo_tmp%DESC  = "tendency of physical process for QV"
+      qtrc_dry_tp_vinfo_tmp%UNIT  = "kg/m3/s"
+      call phytend_manager%Regist( &
+        qtrc_dry_tp_vinfo_tmp, mesh3D,   & ! (in) 
+        phytends(iv),                    & ! (inout)
+        .false., fill_zero=.true.        ) ! (in)
+    else
+      qtrc_tp_vinfo_tmp%ndims    = 3
+      qtrc_tp_vinfo_tmp%dim_type = 'XYZ'
+      qtrc_tp_vinfo_tmp%STDNAME  = ''
+
+      do iq = 1, QA
+        iv = PHYTEND_NUM + iq 
+        qtrc_tp_vinfo_tmp%keyID = iv
+        qtrc_tp_vinfo_tmp%NAME  = trim(TRACER_NAME(iq))//'_tp'
+        qtrc_tp_vinfo_tmp%DESC  = 'tendency of physical process for '//trim(TRACER_DESC(iq))
+        qtrc_tp_vinfo_tmp%UNIT  = trim(TRACER_UNIT(iq))//'/s'
+
+        call phytend_manager%Regist( &
+          qtrc_tp_vinfo_tmp, mesh3D,       & ! (in) 
+          phytends(iv),                    & ! (inout)
+          reg_file_hist, fill_zero=.true.  ) ! (in)
+      end do    
+    end if
+
+    return
+  end subroutine atm_dyn_dgm_nonhydro3d_common_setup_variables
 
 !OCL SERIAL
   subroutine atm_dyn_dgm_nonhydro3d_common_calc_pressure( &

@@ -288,7 +288,7 @@ module scale_atm_dyn_dgm_driver_nonhydro3d
   type(VariableInfo), public :: ATMOS_DYN_AUXDYNVARS3D_VINFO(AUXDYNVARS3D_NUM)
   DATA ATMOS_DYN_AUXDYNVARS3D_VINFO / &
     VariableInfo( AUXDYNVARS3D_DPRES_ID, 'DPRES', '',  &
-                  '1',  3, 'XYZ',  ''                  )  / 
+                  '1',  3, 'XYZ',  ''                  )  /
 
   !-----------------------------------------------------------------------------
   !
@@ -324,7 +324,6 @@ contains
     class(MeshCubedSphereDom3D), pointer :: gm_mesh3D
 
     integer :: iv
-    logical :: reg_file_hist
     !-----------------------------------------------------------------------------
 
     mesh3D => model_mesh3D%ptr_mesh
@@ -439,12 +438,11 @@ contains
     call this%AUXDYNVAR3D_manager%Init()
     allocate( this%AUX_DYNVARS3D(AUXDYNVARS3D_NUM) )
 
-    reg_file_hist = .false.    
     do iv = 1, AUXDYNVARS3D_NUM
       call this%AUXDYNVAR3D_manager%Regist( &
-        ATMOS_DYN_AUXDYNVARS3D_VINFO(iv), mesh3D,  & ! (in) 
-        this%AUX_DYNVARS3D(iv),                    & ! (inout)
-        reg_file_hist, fill_zero=.true.            ) ! (in)
+        ATMOS_DYN_AUXDYNVARS3D_VINFO(iv), mesh3D,  & 
+        this%AUX_DYNVARS3D(iv),                    & 
+        .false., fill_zero=.true.                  ) 
     end do
 
     call model_mesh3D%Create_communicator( &
