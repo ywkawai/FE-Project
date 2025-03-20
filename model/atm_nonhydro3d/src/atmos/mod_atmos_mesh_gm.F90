@@ -43,6 +43,8 @@ module mod_atmos_mesh_gm
   !++ Public type & procedures
   !
 
+  !> Derived type to manage a computational mesh of global atmospheric model
+  !!
   type, extends(AtmosMesh), public :: AtmosMeshGM
     type(MeshCubedSphereDom3D) :: mesh
     type(MeshFieldCommCubedSphereDom3D) :: comm_list(ATM_MESH_MAX_COMMNUICATOR_NUM)
@@ -73,6 +75,9 @@ module mod_atmos_mesh_gm
   !
 
 contains
+
+  !> Initialize a object to manage computational mesh
+  !!
 !OCL SERIAL
   subroutine AtmosMeshGM_Init( this )    
     use scale_const, only: &
@@ -85,27 +90,29 @@ contains
     implicit none
     class(AtmosMeshGM), target, intent(inout) :: this
 
-    real(RP) :: dom_zmin          = 0.0_RP
-    real(RP) :: dom_zmax          = 10.0E3_RP
-    logical  :: isPeriodicZ       = .false.
+    real(RP) :: dom_zmin          = 0.0_RP      !< Minimum vertical coordinate value of the computational domain
+    real(RP) :: dom_zmax          = 10.0E3_RP   !< Maximum vertical coordinate value of the computational domain
+    logical  :: isPeriodicZ       = .false.     !< Flag whether a periodic boundary condition is applied in the vertical direction
   
     integer, parameter :: FZ_nmax = 1000
-    real(RP) :: FZ(FZ_nmax)
+    real(RP) :: FZ(FZ_nmax)                  !< Values of the vertically computational coordinate at the element boundaries
 
     !* Global
-    logical :: SHALLOW_ATM_APPROX_FLAG = .true.
-    integer  :: NeGX               = 2
-    integer  :: NeGY               = 2
-    integer  :: NeZ                = 2
-    integer  :: NLocalMeshPerPrc   = 6
-    integer  :: Nprc               = 1
-    integer  :: PolyOrder_h        = 2
-    integer  :: PolyOrder_v        = 2
-    logical  :: LumpedMassMatFlag  = .false.
-    character(len=H_MID)  :: VERTICAL_COORD_NAME = "TERRAIN_FOLLOWING"
-    character(len=H_LONG) :: TOPO_IN_BASENAME    = ''       !< basename of the input file
-    character(len=H_MID)  :: TOPO_IN_VARNAME     = 'topo'   !< variable name of topo in the input file
-    logical :: COMM_USE_MPI_PC     = .false.
+    logical :: SHALLOW_ATM_APPROX_FLAG = .true.  !< Flag whether the shallow atmosphere approximation is applied
+    integer  :: NeGX               = 2           !< Number of finite element in the y-coordinate direction in each panel of the cubed-sphere mesh
+    integer  :: NeGY               = 2           !< Number of finite element in the y-coordinate direction in each panel of the cubed-sphere mesh
+    integer  :: NeZ                = 2           !< Number of finite element in the vertical direction in each MPI process
+    integer  :: NLocalMeshPerPrc   = 6           !< Number of local mesh per MPI process 
+    integer  :: Nprc               = 1           !< Total number of MPI process
+    integer  :: PolyOrder_h        = 2           !< Polynomial order for the horizontal direction
+    integer  :: PolyOrder_v        = 2           !< Polynomial order for the z-direction
+    logical  :: LumpedMassMatFlag  = .false.     !< Flag whether a mass lumping is applied
+
+    character(len=H_LONG) :: TOPO_IN_BASENAME    = ''                   !< Basename of the input file
+    character(len=H_MID)  :: TOPO_IN_VARNAME     = 'topo'               !< Variable name of topography in the input file
+    character(len=H_MID)  :: VERTICAL_COORD_NAME = "TERRAIN_FOLLOWING"  !< Type of the vertical coordinate
+
+    logical :: COMM_USE_MPI_PC    = .false.      !< Flag whether persistent communication is used in MPI
     
     namelist / PARAM_ATMOS_MESH / &
       SHALLOW_ATM_APPROX_FLAG,                     &
@@ -142,12 +149,12 @@ contains
 
     !----
 
-    ! Setup the element
+    !- Setup the element
 
     call this%element%Init( PolyOrder_h, PolyOrder_v, LumpedMassMatFlag )
     call this%element_v1D%Init( PolyOrder_v, LumpedMassMatFlag )
 
-    ! Setup the mesh
+    !- Setup the mesh
 
     is_spec_FZ = .true.
     do k=1, NeZ+1
@@ -194,6 +201,8 @@ contains
     return
   end subroutine AtmosMeshGM_Init
 
+  !> Finalize a object to manage computational mesh
+  !!
 !OCL SERIAL
   subroutine AtmosMeshGM_Final(this)
     implicit none

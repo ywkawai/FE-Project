@@ -230,7 +230,7 @@ contains
 
     use scale_atm_dyn_dgm_nonhydro3d_common, only: &
       PRGVAR_SCALAR_NUM, PRGVAR_HVEC_NUM,          &
-      atm_dyn_dgm_nonhydro3d_common_get_varinfo
+      atm_dyn_dgm_nonhydro3d_common_setup_variables
     implicit none
 
     class(AtmosVars), target, intent(inout) :: this
@@ -274,10 +274,6 @@ contains
     class(MeshBase2D), pointer :: mesh2D
 
     type(VariableInfo) :: prgvar_info(PRGVAR_NUM)
-    type(VariableInfo) :: auxvar_info(AUXVAR_NUM)
-    type(VariableInfo) :: phytend_info(PHYTEND_NUM1)
-
-    type(VariableInfo) :: qtrc_vinfo_tmp
     !--------------------------------------------------
 
     LOG_INFO('AtmosVars_Init',*)
@@ -298,60 +294,36 @@ contains
     mesh3D => atm_mesh%ptr_mesh
     call mesh3D%GetMesh2D( mesh2D )
 
-    !- Get variable information
-    call atm_dyn_dgm_nonhydro3d_common_get_varinfo( prgvar_info, auxvar_info, phytend_info )
-
-    !- Initialize prognostic variables
+    !- Initialize variables associated with dynamical core 
+    !  (prognostic variables, tracer variables, 3D auxiliary variables, and tendencies of physical processes)
 
     call this%PROGVARS_manager%Init()
+    call this%QTRCVARS_manager%Init()
+    call this%AUXVARS_manager%Init()
+    call this%PHYTENDS_manager%Init()
+
     allocate( this%PROG_VARS(PRGVAR_NUM) )
+    allocate( this%QTRC_VARS(0:QA) )
+    allocate( this%AUX_VARS(AUXVAR_NUM) )
 
-    reg_file_hist = .true.    
-    do iv = 1, PRGVAR_NUM
-      call this%PROGVARS_manager%Regist(  &
-        prgvar_info(iv), mesh3D,                              & ! (in) 
-        this%PROG_VARS(iv),                                   & ! (inout)
-        reg_file_hist,  monitor_flag=.true., fill_zero=.true. ) ! (out)
-    end do
+    this%PHYTEND_NUM_TOT = PHYTEND_NUM1 + max(1,QA)
+    allocate( this%PHY_TEND(this%PHYTEND_NUM_TOT) )
 
+    call atm_dyn_dgm_nonhydro3d_common_setup_variables( &
+      this%PROG_VARS, this%QTRC_VARS, this%AUX_VARS, this%PHY_TEND,                              & ! (inout)
+      this%PROGVARS_manager, this%QTRCVARS_manager, this%AUXVARS_manager, this%PHYTENDS_manager, & ! (inout)
+      this%PHYTEND_NUM_TOT, mesh3D,                                                              & ! (in)
+      prgvar_info ) ! (out)
+ 
+    ! Setup communicator
+    
     call atm_mesh%Create_communicator( &
       PRGVAR_SCALAR_NUM, PRGVAR_HVEC_NUM, 0,              & ! (in)
       this%PROGVARS_manager,                              & ! (inout)
       this%PROG_VARS(:),                                  & ! (in)
       this%PROG_VARS_commID                               ) ! (out)
-
-    !- Initialize tracer variables
-
-    call this%QTRCVARS_manager%Init()
-    allocate( this%QTRC_VARS(0:QA) )
-
-    reg_file_hist = .true.
-    qtrc_vinfo_tmp%ndims    = 3
-    qtrc_vinfo_tmp%dim_type = 'XYZ'
-    qtrc_vinfo_tmp%STDNAME  = ''
-
-    if ( ATMOS_HYDROMETEOR_dry ) then
-      ! Dummy
-      qtrc_vinfo_tmp%keyID = 0
-      qtrc_vinfo_tmp%NAME  = "QV"
-      qtrc_vinfo_tmp%DESC  = "Ratio of Water Vapor mass to total mass (Specific humidity)"
-      qtrc_vinfo_tmp%UNIT  = "kg/kg"
-      call this%QTRCVARS_manager%Regist( &
-        qtrc_vinfo_tmp, mesh3D,                          & ! (in) 
-        this%QTRC_VARS(0),                               & ! (inout)
-        .false., monitor_flag=.false., fill_zero=.true.  ) ! (in)
-    else
-      do iq = 1, QA
-        qtrc_vinfo_tmp%keyID = iq
-        qtrc_vinfo_tmp%NAME  = TRACER_NAME(iq)
-        qtrc_vinfo_tmp%DESC  = TRACER_DESC(iq)
-        qtrc_vinfo_tmp%UNIT  = TRACER_UNIT(iq)
-        call this%QTRCVARS_manager%Regist( &
-          qtrc_vinfo_tmp, mesh3D,                               & ! (in) 
-          this%QTRC_VARS(iq),                                   & ! (inout)
-          reg_file_hist, monitor_flag=.true., fill_zero=.true.  ) ! (in)
-      end do
-
+    
+    if ( .not. ATMOS_HYDROMETEOR_dry ) then
       call atm_mesh%Create_communicator( &
         QA, 0, 0,                        & ! (in)
         this%QTRCVARS_manager,           & ! (inout)
@@ -359,7 +331,13 @@ contains
         this%QTRC_VARS_commID            ) ! (out)
     end if
 
-    !- Output list of prognostic variables
+    call atm_mesh%Create_communicator( &
+      AUXVAR_NUM, 0, 0,                & ! (in)
+      this%AUXVARS_manager,            & ! (inout)
+      this%AUX_VARS(:),                & ! (in)
+      this%AUX_VARS_commID             ) ! (out)
+
+    ! Output list of prognostic variables
 
     LOG_NEWLINE
     LOG_INFO("ATMOS_vars_setup",*) 'List of prognostic variables (ATMOS) '
@@ -376,27 +354,8 @@ contains
     end do
     LOG_NEWLINE
 
-    !- Initialize auxiliary variables
 
-    ! 3D
-    call this%AUXVARS_manager%Init()
-    allocate( this%AUX_VARS(AUXVAR_NUM) )
-    
-    reg_file_hist = .true.
-    do iv = 1, AUXVAR_NUM
-      call this%AUXVARS_manager%Regist( &
-        auxvar_info(iv), mesh3D,          & ! (in) 
-        this%AUX_VARS(iv),                & ! (inout)
-        reg_file_hist, fill_zero=.true.   ) ! (in)
-    end do
-
-    call atm_mesh%Create_communicator( &
-      AUXVAR_NUM, 0, 0,                & ! (in)
-      this%AUXVARS_manager,            & ! (inout)
-      this%AUX_VARS(:),                & ! (in)
-      this%AUX_VARS_commID             ) ! (out)
-
-    ! 2D
+    !- Initialize 2D auxiliary variables
     call this%AUXVARS2D_manager%Init()
     allocate( this%AUX_VARS2D(ATMOS_AUXVARS2D_NUM) )
     
@@ -408,50 +367,6 @@ contains
         reg_file_hist, fill_zero=.true.      ) ! (in)
     end do
   
-    !- Initialize the tendency of physical processes
-
-    this%PHYTEND_NUM_TOT = PHYTEND_NUM1 + max(1,QA)
-
-    call this%PHYTENDS_manager%Init()
-    allocate( this%PHY_TEND(this%PHYTEND_NUM_TOT) )
-    
-    reg_file_hist = .true.
-    do iv = 1, PHYTEND_NUM1
-      call this%PHYTENDS_manager%Regist( &
-        phytend_info(iv), mesh3D,        & ! (in) 
-        this%PHY_TEND(iv),               & ! (inout)
-        reg_file_hist, fill_zero=.true.  ) ! (in)
-    end do
-
-    if ( ATMOS_HYDROMETEOR_dry ) then
-      ! Dummy
-      iv = PHYTEND_NUM1 + 1
-      qtrc_vinfo_tmp%keyID = 0
-      qtrc_vinfo_tmp%NAME  = "QV_tp"
-      qtrc_vinfo_tmp%DESC  = "tendency of physical process for QV (dummy)"
-      qtrc_vinfo_tmp%UNIT  = "kg/m3/s"
-      call this%PHYTENDS_manager%Regist( &
-        qtrc_vinfo_tmp, mesh3D,          & ! (in) 
-        this%PHY_TEND(iv),               & ! (inout)
-        .false., fill_zero=.true.        ) ! (in)
-    else
-      qtrc_vinfo_tmp%ndims    = 3
-      qtrc_vinfo_tmp%dim_type = 'XYZ'
-      qtrc_vinfo_tmp%STDNAME  = ''
-
-      do iq = 1, QA
-        iv = PHYTEND_NUM1 + iq 
-        qtrc_vinfo_tmp%keyID = iv
-        qtrc_vinfo_tmp%NAME  = trim(TRACER_NAME(iq))//'_tp'
-        qtrc_vinfo_tmp%DESC  = 'tendency of physical process for '//trim(TRACER_DESC(iq))
-        qtrc_vinfo_tmp%UNIT  = trim(TRACER_UNIT(iq))//'/s'
-
-        call this%PHYTENDS_manager%Regist( &
-          qtrc_vinfo_tmp, mesh3D,          & ! (in) 
-          this%PHY_TEND(iv),               & ! (inout)
-          reg_file_hist, fill_zero=.true.  ) ! (in)
-      end do    
-    end if
 
     !- Initialize diagnostic variables for output
 

@@ -54,16 +54,19 @@ module mod_atmos_phy_mp
   !
   !++ Public type & procedure
   !
-  type, extends(ModelComponentProc), public :: AtmosPhyMp
-    integer :: MP_TYPEID
-    type(AtmosPhyMpVars) :: vars
 
-    logical, private :: do_precipitation    !> apply sedimentation (precipitation)?
-    logical, private :: do_negative_fixer   !> apply negative fixer?
-    real(RP), private :: limit_negative     !> abort if abs(fixed negative vaue) > abs(MP_limit_negative)
-    integer, private :: ntmax_sedimentation !> number of time step for sedimentation
-    real(RP), private :: max_term_vel       !> terminal velocity for calculate dt of sedimentation
-    real(RP), private :: cldfrac_thleshold  !> thleshold for cloud fraction
+  !> Derived type to manage a component of cloud microphysics
+  !!
+  type, extends(ModelComponentProc), public :: AtmosPhyMp
+    integer :: MP_TYPEID         !< Type id of cloud microphysics scheme
+    type(AtmosPhyMpVars) :: vars !< A object to manage variables with cloud microphysics
+
+    logical, private :: do_precipitation    !< Apply sedimentation (precipitation)?
+    logical, private :: do_negative_fixer   !< Apply negative fixer?
+    real(RP), private :: limit_negative     !< Abort if abs(fixed negative vaue) > abs(MP_limit_negative)
+    integer, private :: ntmax_sedimentation !< Number of time step for sedimentation
+    real(RP), private :: max_term_vel       !< Terminal velocity for calculate dt of sedimentation
+    real(RP), private :: cldfrac_thleshold  !< Thleshold for cloud fraction
 
     real(DP), private :: dtsec
     integer, private :: nstep_sedmientation
@@ -72,7 +75,6 @@ module mod_atmos_phy_mp
 
     type(sparsemat) :: Dz, Lift
     type(HexahedralElement) :: elem
-
   contains
     procedure, public :: setup => AtmosPhyMp_setup 
     procedure, public :: calc_tendency => AtmosPhyMp_calc_tendency
@@ -98,6 +100,12 @@ module mod_atmos_phy_mp
   !-----------------------------------------------------------------------------
     
 contains
+
+!> Setup a component of cloud microphysics
+!!
+!! @param model_mesh a object to manage computational mesh of atmospheric model 
+!! @param tm_parent_comp a object to mange a temporal scheme in a parent component
+!!
   subroutine AtmosPhyMp_setup( this, model_mesh, tm_parent_comp )
     use scale_const, only: &
       EPS => CONST_EPS
@@ -120,16 +128,16 @@ contains
     class(ModelMeshBase), target, intent(in) :: model_mesh
     class(TIME_manager_component), intent(inout) :: tm_parent_comp
 
-    real(DP) :: TIME_DT                             = UNDEF8
-    character(len=H_SHORT) :: TIME_DT_UNIT          = 'SEC'  
+    real(DP) :: TIME_DT                             = UNDEF8 !< Timestep for cloud microcloud physics
+    character(len=H_SHORT) :: TIME_DT_UNIT          = 'SEC'  !< Unit of timestep
 
-    character(len=H_MID) :: MP_TYPE = 'KESSLER'
+    character(len=H_MID) :: MP_TYPE = 'KESSLER'              !< Type of cloud microcloud physics scheme
 
-    logical :: do_precipitation
-    logical :: do_negative_fixer
+    logical :: do_precipitation     !< Flag whether sedimentation (precipitation) is applied
+    logical :: do_negative_fixer    !< Flag whether negative fixer is applied
     real(RP) :: limit_negative
-    integer :: ntmax_sedimentation
-    real(RP) :: max_term_vel
+    integer :: ntmax_sedimentation  
+    real(RP) :: max_term_vel        
     real(RP) :: cldfrac_thleshold
 
     namelist /PARAM_ATMOS_PHY_MP/ &
@@ -255,6 +263,15 @@ contains
     return
   end subroutine AtmosPhyMp_setup
 
+!> Calculate tendencies associated with cloud microphysics
+!!
+!!
+!! @param model_mesh a object to manage computational mesh of atmospheric model 
+!! @param prgvars_list a object to mange prognostic variables with atmospheric dynamical core
+!! @param trcvars_list a object to mange auxiliary variables 
+!! @param forcing_list a object to mange forcing terms
+!! @param is_update Flag to speicfy whether the tendencies are updated in this call
+!!
 !OCL SERIAL
   subroutine AtmosPhyMp_calc_tendency( &
     this, model_mesh, prgvars_list, trcvars_list, &
@@ -372,6 +389,14 @@ contains
     return  
   end subroutine AtmosPhyMp_calc_tendency
 
+!> Update variables in a component of cloud microphysics
+!!
+!! @param model_mesh a object to manage computational mesh of atmospheric model 
+!! @param prgvars_list a object to mange prognostic variables with atmospheric dynamical core
+!! @param trcvars_list a object to mange auxiliary variables 
+!! @param forcing_list a object to mange forcing terms
+!! @param is_update Flag to speicfy whether the tendencies are updated in this call
+!!
 !OCL SERIAL  
   subroutine AtmosPhyMp_update( this, model_mesh, &
     prgvars_list, trcvars_list,                   &
@@ -390,6 +415,8 @@ contains
     return
   end subroutine AtmosPhyMp_update
 
+!> Finalize a component of cloud microphysics
+!!
 !OCL SERIAL  
   subroutine AtmosPhyMp_finalize( this )
     implicit none

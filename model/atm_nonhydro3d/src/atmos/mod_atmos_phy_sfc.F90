@@ -50,6 +50,9 @@ module mod_atmos_phy_sfc
   !
   !++ Public type & procedure
   !
+
+  !> Derived type to manage a component of surface process
+  !!
   type, extends(ModelComponentProc), public :: AtmosPhySfc
     class(AtmosMesh), pointer :: mesh
 
@@ -86,6 +89,12 @@ module mod_atmos_phy_sfc
   !-----------------------------------------------------------------------------
     
 contains
+
+!> Setup a component of surface process
+!!
+!! @param model_mesh a object to manage computational mesh of atmospheric model 
+!! @param tm_parent_comp a object to mange a temporal scheme in a parent component
+!!
 !OCL SERIAL
   subroutine AtmosPhySfc_setup( this, model_mesh, tm_parent_comp )
     use scale_time_manager, only: TIME_manager_component
@@ -100,10 +109,10 @@ contains
     class(ModelMeshBase), target, intent(in) :: model_mesh
     class(TIME_manager_component), intent(inout) :: tm_parent_comp
 
-    real(DP) :: TIME_DT                             = UNDEF8
-    character(len=H_SHORT) :: TIME_DT_UNIT          = 'SEC'  
+    real(DP) :: TIME_DT                             = UNDEF8  !< Timestep for surface process
+    character(len=H_SHORT) :: TIME_DT_UNIT          = 'SEC'   !< Unit of timestep
 
-    character(len=H_MID) :: SFCFLX_TYPE = "CONST"
+    character(len=H_MID) :: SFCFLX_TYPE = "CONST"             !< Type of surface flux scheme
     namelist /PARAM_ATMOS_PHY_SFC/ &
       TIME_DT,          &
       TIME_DT_UNIT,     &
@@ -159,6 +168,15 @@ contains
     return
   end subroutine AtmosPhySfc_setup
 
+!> Calculate tendencies associated with a surface model
+!!
+!!
+!! @param model_mesh a object to manage computational mesh of atmospheric model 
+!! @param prgvars_list a object to mange prognostic variables with atmospheric dynamical core
+!! @param trcvars_list a object to mange auxiliary variables 
+!! @param forcing_list a object to mange forcing terms
+!! @param is_update Flag to speicfy whether the tendencies are updated in this call
+!!
 !OCL SERIAL
   subroutine AtmosPhySfc_calc_tendency( &
     this, model_mesh, prgvars_list, trcvars_list, &
@@ -239,6 +257,14 @@ contains
     return  
   end subroutine AtmosPhySfc_calc_tendency
 
+!> Update variables in a surface model
+!!
+!! @param model_mesh a object to manage computational mesh of atmospheric model 
+!! @param prgvars_list a object to mange prognostic variables with atmospheric dynamical core
+!! @param trcvars_list a object to mange auxiliary variables 
+!! @param forcing_list a object to mange forcing terms
+!! @param is_update Flag to speicfy whether the tendencies are updated in this call
+!!
 !OCL SERIAL
   subroutine AtmosPhySfc_update( this, model_mesh,           &
     prgvars_list, trcvars_list, auxvars_list,  forcing_list, &
@@ -257,6 +283,8 @@ contains
     return
   end subroutine AtmosPhySfc_update
 
+!> Finalize a component of surface process
+!!
 !OCL SERIAL
   subroutine AtmosPhySfc_finalize( this )
     implicit none

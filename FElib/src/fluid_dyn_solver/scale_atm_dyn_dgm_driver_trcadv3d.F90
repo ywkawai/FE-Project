@@ -197,7 +197,6 @@ contains
     class(ElementBase), pointer :: refElem
 
     integer :: iv
-    logical :: reg_file_hist
     !-----------------------------------------------------------------------------
 
     mesh3D => model_mesh3D%ptr_mesh
@@ -227,12 +226,11 @@ contains
     call this%TRCVAR3D_manager%Init()
     allocate( this%TRCVARS3D(TRCVARS3D_NUM) )
 
-    reg_file_hist = .false.    
     do iv = 1, TRCVARS3D_NUM
       call this%TRCVAR3D_manager%Regist( &
         ATMOS_DYN_TRCVARS3D_VINFO(iv), mesh3D,     & ! (in) 
         this%TRCVARS3D(iv),                        & ! (inout)
-        reg_file_hist, fill_zero=.true.            ) ! (in)
+        .false., fill_zero=.true.                  ) ! (in)
     end do
 
     iv = TRCVARS3D_TRCADV_ID
@@ -247,12 +245,11 @@ contains
     call this%AUXTRC_FLUX_VAR3D_manager%Init()
     allocate( this%AUXTRC_FLUX_VARS3D(MASS_FLUX_NUM) )
     
-    reg_file_hist = .false.    
     do iv = 1, MASS_FLUX_NUM
       call this%AUXTRC_FLUX_VAR3D_manager%Regist(  &
         ATMOS_DYN_MASS_FLUX_VINFO(iv), mesh3D,     & ! (in) 
         this%AUXTRC_FLUX_VARS3D(iv),               & ! (inout)
-        reg_file_hist, fill_zero=.true.            ) ! (in)
+        .false., fill_zero=.true.                  ) ! (in)
     end do
 
     call model_mesh3D%Create_communicator( &
@@ -266,12 +263,11 @@ contains
     call this%AUXTRCVAR3D_manager%Init()
     allocate( this%AUX_TRCVARS3D(AUXTRCVARS3D_NUM) )
 
-    reg_file_hist = .false.    
     do iv = 1, AUXTRCVARS3D_NUM
       call this%AUXTRCVAR3D_manager%Regist( &
         ATMOS_DYN_AUXTRCVARS3D_VINFO(iv), mesh3D,  & ! (in) 
         this%AUX_TRCVARS3D(iv),                    & ! (inout)
-        reg_file_hist, fill_zero=.true.            ) ! (in)
+        .false., fill_zero=.true.                  ) ! (in)
     end do
 
     call model_mesh3D%Create_communicator( &
