@@ -1,10 +1,10 @@
 !-------------------------------------------------------------------------------
-!> module ATMOSPHERE phyics / turbulence process
+!> module ATMOSPHERE phyics / sub-grid scale turbulence process
 !!
 !! @par Description
-!!          Module for turbulence process
+!!          Module for sub-grid scale turbulence process
 !!
-!! @author Team SCALE
+!! @author Yuta Kawai, Team SCALE
 !!
 !<
 !-------------------------------------------------------------------------------
@@ -53,6 +53,9 @@ module mod_atmos_phy_tb
   !
   !++ Public type & procedure
   !
+
+  !> Derived type to manage a component of sub-grid scale turbulent process
+  !!
   type, extends(ModelComponentProc), public :: AtmosPhyTb
     integer :: TB_TYPEID
     type(AtmPhyTbDGMDriver) :: tb_driver
@@ -82,6 +85,11 @@ module mod_atmos_phy_tb
   !-----------------------------------------------------------------------------
     
 contains
+!> Setup a component of SGS turbulence process
+!!
+!! @param model_mesh a object to manage computational mesh of atmospheric model 
+!! @param tm_parent_comp a object to mange a temporal scheme in a parent component
+!!
 !OCL SERIAL
   subroutine AtmosPhyTb_setup( this, model_mesh, tm_parent_comp )
     use mod_atmos_mesh, only: AtmosMesh
@@ -92,12 +100,12 @@ contains
     class(ModelMeshBase), target, intent(in) :: model_mesh
     class(TIME_manager_component), intent(inout) :: tm_parent_comp
 
-    real(DP) :: TIME_DT                             = UNDEF8
-    character(len=H_SHORT) :: TIME_DT_UNIT          = 'SEC'  
+    real(DP) :: TIME_DT                             = UNDEF8  !< Timestep for sub-grid scale turbulent process
+    character(len=H_SHORT) :: TIME_DT_UNIT          = 'SEC'   !< Unit of timestep
 
-    character(len=H_MID) :: TB_TYPE = 'SMAGORINSKY'
+    character(len=H_MID) :: TB_TYPE = 'SMAGORINSKY'           !< Type of sub-grid scale turbulent scheme
     namelist /PARAM_ATMOS_PHY_TB/ &
-      TIME_DT,          &
+      TIME_DT,          & 
       TIME_DT_UNIT,     &
       TB_TYPE
     
@@ -151,11 +159,19 @@ contains
     return
   end subroutine AtmosPhyTb_setup
 
+!> Calculate tendencies associated with a turbulent model
+!!
+!!
+!! @param model_mesh a object to manage computational mesh of atmospheric model 
+!! @param prgvars_list a object to mange prognostic variables with atmospheric dynamical core
+!! @param trcvars_list a object to mange auxiliary variables 
+!! @param forcing_list a object to mange forcing terms
+!! @param is_update Flag to speicfy whether the tendencies are updated in this call
+!!
 !OCL SERIAL
   subroutine AtmosPhyTb_calc_tendency( &
     this, model_mesh, prgvars_list, trcvars_list, &
     auxvars_list, forcing_list, is_update         )
-
 
     use scale_tracer, only: &
       TRACER_ADVC   
@@ -253,6 +269,14 @@ contains
     return  
   end subroutine AtmosPhyTb_calc_tendency
 
+!> Update variables in a turbulent model
+!!
+!! @param model_mesh a object to manage computational mesh of atmospheric model 
+!! @param prgvars_list a object to mange prognostic variables with atmospheric dynamical core
+!! @param trcvars_list a object to mange auxiliary variables 
+!! @param forcing_list a object to mange forcing terms
+!! @param is_update Flag to speicfy whether the tendencies are updated in this call
+!!
 !OCL SERIAL
   subroutine AtmosPhyTb_update( this, model_mesh, prgvars_list, trcvars_list, auxvars_list, forcing_list, is_update )
     implicit none
@@ -269,6 +293,8 @@ contains
     return
   end subroutine AtmosPhyTb_update
 
+!> Finalize a component of sub-grid scale turbulent process
+!!
 !OCL SERIAL
   subroutine AtmosPhyTb_finalize( this )
     implicit none
@@ -283,6 +309,10 @@ contains
     return
   end subroutine AtmosPhyTb_finalize
 
+!> Set boundary conditions to a turbulent model
+!!
+!! @param dyn_bnd A object to manage boundary conditions of dynamical core
+!!
 !OCL SERIAL
   subroutine AtmosPhyTb_setDynBC( this, dyn_bnd )
     implicit none
