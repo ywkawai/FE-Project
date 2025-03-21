@@ -1,5 +1,5 @@
 !-------------------------------------------------------------------------------
-!> module ATMOSPHERE phyics / sub-grid scale turbulence process
+!> module ATMOSPHERE physics / sub-grid scale turbulence process
 !!
 !! @par Description
 !!          Module for sub-grid scale turbulence process

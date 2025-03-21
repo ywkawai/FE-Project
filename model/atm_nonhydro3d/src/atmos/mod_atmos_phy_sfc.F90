@@ -1,10 +1,10 @@
 !-------------------------------------------------------------------------------
-!> module ATMOSPHERE phyics / surface process
+!> module ATMOSPHERE physics / surface process
 !!
 !! @par Description
 !!          Module for surface process
 !!
-!! @author Team SCALE
+!! @author Yuta Kawai, Team SCALE
 !!
 !<
 !-------------------------------------------------------------------------------

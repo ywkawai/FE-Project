@@ -1,5 +1,5 @@
 !-------------------------------------------------------------------------------
-!> module ATMOSPHERE phyics / cloud microphysics
+!> module ATMOSPHERE physics / cloud microphysics
 !!
 !! @par Description
 !!          Module for cloud microphysics

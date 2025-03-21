@@ -1,8 +1,8 @@
 !-------------------------------------------------------------------------------
-!> module Atmosphere / Physics turbulence
+!> module ATMOSPHERE physics / sub-grid scale turbulence
 !!
 !! @par Description
-!!          Container for variables with turbulence model
+!!          Container for variables with sub-grid scale turbulence model
 !!
 !! @author Yuta Kawai, Team SCALE
 !!

@@ -1,5 +1,5 @@
 !-------------------------------------------------------------------------------
-!> module Atmosphere / Dynamics
+!> module ATMOSPHERE dynamics
 !!
 !! @par Description
 !!          Container for variables with dynamics component

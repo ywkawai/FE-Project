@@ -1,5 +1,5 @@
 !-------------------------------------------------------------------------------
-!> module Atmosphere / Dynamics
+!> module ATMOSPHERE dynamics
 !!
 !! @par Description
 !!          Module for atmosphere dynamical process
@@ -327,6 +327,7 @@ contains
 
       call this%trcadv_driver%Update( &
         trcvars_list, prgvars_list, auxvars_list, forcing_list,                 & ! (inout)
+        model_mesh%element3D_operation,                                         & ! (in)
         model_mesh%DOptrMat(1), model_mesh%DOptrMat(2), model_mesh%DOptrMat(3), & ! (in)
         model_mesh%SOptrMat(1), model_mesh%SOptrMat(2), model_mesh%SOptrMat(3), & ! (in)
         model_mesh%LiftOptrMat, mesh3D,                                         & ! (in)
