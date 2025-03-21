@@ -323,6 +323,7 @@ contains
     lcmesh%G_ij  (:,:,2,2) = 1.0_RP
     lcmesh%GI3   (:,:,1)   = 0.0_RP
     lcmesh%GI3   (:,:,2)   = 0.0_RP
+    lcmesh%gam   (:,:)     = 1.0_RP
     !$omp end workshare
 
     !$omp end parallel

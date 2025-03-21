@@ -35,6 +35,8 @@ module scale_atm_dyn_dgm_driver_trcadv3d
   use scale_element_base, only: &
     ElementBase, ElementBase2D, ElementBase3D
   use scale_element_hexahedral, only: HexahedralElement
+  use scale_element_operation_base, only: ElementOperationBase3D
+
   use scale_meshfield_base, only: &
     MeshFieldBase, MeshField2D, MeshField3D
   use scale_localmeshfield_base, only: &
@@ -302,6 +304,7 @@ contains
 !OCL SERIAL
   subroutine AtmDynDGMDriver_trcadv3d_update( this, &
     TRC_VARS, PROG_VARS, AUX_VARS, PHYTENDS,             &
+    element_operation,                                   &
     Dx, Dy, Dz, Sx, Sy, Sz, Lift, mesh3D,                &
     dyn_driver                                           )
 
@@ -317,6 +320,7 @@ contains
     class(ModelVarManager), intent(inout) :: PROG_VARS
     class(ModelVarManager), intent(inout) :: AUX_VARS
     class(ModelVarManager), intent(inout) :: PHYTENDS
+    class(ElementOperationBase3D), intent(in) :: element_operation
     type(SparseMat), intent(in) :: Dx, Dy, Dz
     type(SparseMat), intent(in) :: Sx, Sy, Sz
     type(SparseMat), intent(in) :: Lift
@@ -496,7 +500,7 @@ contains
             call atm_dyn_dgm_tracer_modalfilter_apply( &
               QTRC_tmp%local(n)%val,                              & ! (inout)
               DENS_hyd%local(n)%val, DDENS_TRC%local(n)%val,      & ! (in)
-              lcmesh3D, lcmesh3D%refElem3D, this%modal_filter_3d  ) ! (in)
+              lcmesh3D, lcmesh3D%refElem3D, element_operation     ) ! (in)
             call PROF_rapend( 'ATM_DYN_update_qtrc_modalfilter', 3)
           end if
 

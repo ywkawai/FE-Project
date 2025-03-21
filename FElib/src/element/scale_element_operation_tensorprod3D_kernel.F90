@@ -38,93 +38,107 @@ module scale_element_operation_tensorprod3D_kernel
   public :: element_operation_kernel_matvec_Lift_hexahedral_P1
   public :: element_operation_kernel_matvec_gradlike_dirXYZ_P1
   public :: element_operation_kernel_matvec_divlike_dirXYZ_P1
+  public :: element_operation_kernel_matvec_ModalFilter_P1
   public :: element_operation_kernel_matvec_dirX_P2
   public :: element_operation_kernel_matvec_dirY_P2  
   public :: element_operation_kernel_matvec_dirZ_P2
   public :: element_operation_kernel_matvec_Lift_hexahedral_P2
   public :: element_operation_kernel_matvec_gradlike_dirXYZ_P2
   public :: element_operation_kernel_matvec_divlike_dirXYZ_P2
+  public :: element_operation_kernel_matvec_ModalFilter_P2
   public :: element_operation_kernel_matvec_dirX_P3
   public :: element_operation_kernel_matvec_dirY_P3  
   public :: element_operation_kernel_matvec_dirZ_P3
   public :: element_operation_kernel_matvec_Lift_hexahedral_P3
   public :: element_operation_kernel_matvec_gradlike_dirXYZ_P3
   public :: element_operation_kernel_matvec_divlike_dirXYZ_P3
+  public :: element_operation_kernel_matvec_ModalFilter_P3
   public :: element_operation_kernel_matvec_dirX_P4
   public :: element_operation_kernel_matvec_dirY_P4  
   public :: element_operation_kernel_matvec_dirZ_P4
   public :: element_operation_kernel_matvec_Lift_hexahedral_P4
   public :: element_operation_kernel_matvec_gradlike_dirXYZ_P4
   public :: element_operation_kernel_matvec_divlike_dirXYZ_P4
+  public :: element_operation_kernel_matvec_ModalFilter_P4
   public :: element_operation_kernel_matvec_dirX_P5
   public :: element_operation_kernel_matvec_dirY_P5  
   public :: element_operation_kernel_matvec_dirZ_P5
   public :: element_operation_kernel_matvec_Lift_hexahedral_P5
   public :: element_operation_kernel_matvec_gradlike_dirXYZ_P5
   public :: element_operation_kernel_matvec_divlike_dirXYZ_P5
+  public :: element_operation_kernel_matvec_ModalFilter_P5
   public :: element_operation_kernel_matvec_dirX_P6
   public :: element_operation_kernel_matvec_dirY_P6  
   public :: element_operation_kernel_matvec_dirZ_P6
   public :: element_operation_kernel_matvec_Lift_hexahedral_P6
   public :: element_operation_kernel_matvec_gradlike_dirXYZ_P6
   public :: element_operation_kernel_matvec_divlike_dirXYZ_P6
+  public :: element_operation_kernel_matvec_ModalFilter_P6
   public :: element_operation_kernel_matvec_dirX_P7
   public :: element_operation_kernel_matvec_dirY_P7  
   public :: element_operation_kernel_matvec_dirZ_P7
   public :: element_operation_kernel_matvec_Lift_hexahedral_P7
   public :: element_operation_kernel_matvec_gradlike_dirXYZ_P7
   public :: element_operation_kernel_matvec_divlike_dirXYZ_P7
+  public :: element_operation_kernel_matvec_ModalFilter_P7
   public :: element_operation_kernel_matvec_dirX_P8
   public :: element_operation_kernel_matvec_dirY_P8  
   public :: element_operation_kernel_matvec_dirZ_P8
   public :: element_operation_kernel_matvec_Lift_hexahedral_P8
   public :: element_operation_kernel_matvec_gradlike_dirXYZ_P8
   public :: element_operation_kernel_matvec_divlike_dirXYZ_P8
+  public :: element_operation_kernel_matvec_ModalFilter_P8
   public :: element_operation_kernel_matvec_dirX_P9
   public :: element_operation_kernel_matvec_dirY_P9  
   public :: element_operation_kernel_matvec_dirZ_P9
   public :: element_operation_kernel_matvec_Lift_hexahedral_P9
   public :: element_operation_kernel_matvec_gradlike_dirXYZ_P9
   public :: element_operation_kernel_matvec_divlike_dirXYZ_P9
+  public :: element_operation_kernel_matvec_ModalFilter_P9
   public :: element_operation_kernel_matvec_dirX_P10
   public :: element_operation_kernel_matvec_dirY_P10  
   public :: element_operation_kernel_matvec_dirZ_P10
   public :: element_operation_kernel_matvec_Lift_hexahedral_P10
   public :: element_operation_kernel_matvec_gradlike_dirXYZ_P10
   public :: element_operation_kernel_matvec_divlike_dirXYZ_P10
+  public :: element_operation_kernel_matvec_ModalFilter_P10
   public :: element_operation_kernel_matvec_dirX_P11
   public :: element_operation_kernel_matvec_dirY_P11  
   public :: element_operation_kernel_matvec_dirZ_P11
   public :: element_operation_kernel_matvec_Lift_hexahedral_P11
   public :: element_operation_kernel_matvec_gradlike_dirXYZ_P11
   public :: element_operation_kernel_matvec_divlike_dirXYZ_P11
+  public :: element_operation_kernel_matvec_ModalFilter_P11
   public :: element_operation_kernel_matvec_dirX_P12
   public :: element_operation_kernel_matvec_dirY_P12  
   public :: element_operation_kernel_matvec_dirZ_P12
   public :: element_operation_kernel_matvec_Lift_hexahedral_P12
   public :: element_operation_kernel_matvec_gradlike_dirXYZ_P12
   public :: element_operation_kernel_matvec_divlike_dirXYZ_P12
+  public :: element_operation_kernel_matvec_ModalFilter_P12
   public :: element_operation_kernel_matvec_dirX_P13
   public :: element_operation_kernel_matvec_dirY_P13  
   public :: element_operation_kernel_matvec_dirZ_P13
   public :: element_operation_kernel_matvec_Lift_hexahedral_P13
   public :: element_operation_kernel_matvec_gradlike_dirXYZ_P13
   public :: element_operation_kernel_matvec_divlike_dirXYZ_P13
+  public :: element_operation_kernel_matvec_ModalFilter_P13
   public :: element_operation_kernel_matvec_dirX_P14
   public :: element_operation_kernel_matvec_dirY_P14  
   public :: element_operation_kernel_matvec_dirZ_P14
   public :: element_operation_kernel_matvec_Lift_hexahedral_P14
   public :: element_operation_kernel_matvec_gradlike_dirXYZ_P14
   public :: element_operation_kernel_matvec_divlike_dirXYZ_P14
+  public :: element_operation_kernel_matvec_ModalFilter_P14
   public :: element_operation_kernel_matvec_dirX_P15
   public :: element_operation_kernel_matvec_dirY_P15  
   public :: element_operation_kernel_matvec_dirZ_P15
   public :: element_operation_kernel_matvec_Lift_hexahedral_P15
   public :: element_operation_kernel_matvec_gradlike_dirXYZ_P15
   public :: element_operation_kernel_matvec_divlike_dirXYZ_P15
+  public :: element_operation_kernel_matvec_ModalFilter_P15
 
 contains
-
 !--- For p=1 ------------------------------------
 
 !> Calculate a matrix-vector multiplication associated with mathematical operations in the x direction (first dimension of vec_in) with p=1
@@ -284,22 +298,17 @@ contains
 !!
 !OCL SERIAL
   subroutine element_operation_kernel_matvec_divlike_dirXYZ_P1( &
-    Mat, Mat_tr, vec_in_x, vec_in_y, vec_in_z, Escale, Gsqrt, vec_in_lift, sign_, &
-    vec_out_x, vec_out_y, vec_out_z, vec_out  )
+    Mat, Mat_tr, vec_in_x, vec_in_y, vec_in_z, &
+    vec_out_x, vec_out_y, vec_out_z  )
     implicit none
     real(RP), intent(in) :: Mat(2,2)
     real(RP), intent(in) :: Mat_tr(2,2)
     real(RP), intent(in) :: vec_in_x(2,2**2)
     real(RP), intent(in) :: vec_in_y(2,2,2)
     real(RP), intent(in) :: vec_in_z(2,2,2)
-    real(RP), intent(in) :: Escale(3,2,2**2)
-    real(RP), intent(in) :: Gsqrt(2,2**2)
-    real(RP), intent(in) :: vec_in_lift(2,2**2)
-    real(RP), intent(in) :: sign_
     real(RP), intent(out) :: vec_out_x(2,2**2)
     real(RP), intent(out) :: vec_out_y(2,2**2)
     real(RP), intent(out) :: vec_out_z(2,2**2)
-    real(RP), intent(out) :: vec_out(2,2**2)
 
     integer :: i, j, k, jk
     !----------------------------------------------------------
@@ -308,8 +317,8 @@ contains
 
     do jk=1, 2**2
     do i=1, 2
-        vec_out_x(i,jk) = Mat(i,1) * vec_in_x(1,jk) &
-                        + Mat(i,2) * vec_in_x(2,jk)
+      vec_out_x(i,jk) = Mat(i,1) * vec_in_x(1,jk) &
+                      + Mat(i,2) * vec_in_x(2,jk)
     end do
     end do
 
@@ -318,8 +327,8 @@ contains
     do j=1, 2
       jk = j + (k-1)*2
       do i=1, 2
-          vec_out_y(i,jk) = vec_in_y(i,1,k) * Mat_tr(1,j) &
-                          + vec_in_y(i,2,k) * Mat_tr(2,j) 
+        vec_out_y(i,jk) = vec_in_y(i,1,k) * Mat_tr(1,j) &
+                        + vec_in_y(i,2,k) * Mat_tr(2,j) 
       end do
     end do
     end do
@@ -329,22 +338,63 @@ contains
     do j=1, 2
       jk = j + (k-1)*2
       do i=1, 2
-          vec_out_z(i,jk) = vec_in_z(i,j,1) * Mat_tr(1,k) &
-                          + vec_in_z(i,j,2) * Mat_tr(2,k) 
+        vec_out_z(i,jk) = vec_in_z(i,j,1) * Mat_tr(1,k) &
+                        + vec_in_z(i,j,2) * Mat_tr(2,k) 
       end do
     end do
     end do
-
-    do jk=1, 2**2
-    do i=1, 2
-        vec_out(i,jk) = sign_ * (  Escale(1,i,jk) * vec_out_x(i,jk) + Escale(2,i,jk) * vec_out_y(i,jk) + Escale(3,i,jk) * vec_out_z(i,jk) &
-                                 + vec_in_lift(i,jk) ) / Gsqrt(i,jk)
-    end do
-    end do
-          
     return
   end subroutine element_operation_kernel_matvec_divlike_dirXYZ_P1
 
+!> Calculate a matrix-vector multiplication associated with 3D modal filtering with p=1
+!!
+!OCL SERIAL
+  subroutine element_operation_kernel_matvec_ModalFilter_P1( Mat_h1D, Mat_h1D_tr, Mat_v1D_tr, vec_in, vec_work, &
+    vec_out  )
+    implicit none
+    real(RP), intent(in) :: Mat_h1D(2,2)
+    real(RP), intent(in) :: Mat_h1D_tr(2,2)
+    real(RP), intent(in) :: Mat_v1D_tr(2,2)
+    real(RP), intent(in) :: vec_in(2,2,2)
+    real(RP), intent(out) :: vec_work(2,2,2)
+    real(RP), intent(out) :: vec_out(2,2,2)
+
+    integer :: i, j, k
+    !----------------------------------------------------------
+
+    ! X-dir
+
+    do k=1, 2
+    do j=1, 2
+    do i=1, 2
+      vec_out(i,j,k) = Mat_h1D(i,1) * vec_in(1,j,k) &
+                     + Mat_h1D(i,2) * vec_in(2,j,k)
+    end do
+    end do
+    end do
+    
+    ! Y-dir
+    do k=1, 2
+    do j=1, 2
+    do i=1, 2
+      vec_work(i,j,k) = vec_out(i,1,k) * Mat_h1D_tr(1,j) &
+                      + vec_out(i,2,k) * Mat_h1D_tr(2,j) 
+    end do
+    end do
+    end do
+    
+    ! Z-dir
+    do k=1, 2
+    do j=1, 2
+    do i=1, 2
+      vec_out(i,j,k) = vec_work(i,j,1) * Mat_v1D_tr(1,k) &
+                     + vec_work(i,j,2) * Mat_v1D_tr(2,k) 
+    end do
+    end do
+    end do
+
+    return
+  end subroutine element_operation_kernel_matvec_ModalFilter_P1
 
 !--- For p=2 ------------------------------------
 
@@ -511,22 +561,17 @@ contains
 !!
 !OCL SERIAL
   subroutine element_operation_kernel_matvec_divlike_dirXYZ_P2( &
-    Mat, Mat_tr, vec_in_x, vec_in_y, vec_in_z, Escale, Gsqrt, vec_in_lift, sign_, &
-    vec_out_x, vec_out_y, vec_out_z, vec_out  )
+    Mat, Mat_tr, vec_in_x, vec_in_y, vec_in_z, &
+    vec_out_x, vec_out_y, vec_out_z  )
     implicit none
     real(RP), intent(in) :: Mat(3,3)
     real(RP), intent(in) :: Mat_tr(3,3)
     real(RP), intent(in) :: vec_in_x(3,3**2)
     real(RP), intent(in) :: vec_in_y(3,3,3)
     real(RP), intent(in) :: vec_in_z(3,3,3)
-    real(RP), intent(in) :: Escale(3,3,3**2)
-    real(RP), intent(in) :: Gsqrt(3,3**2)
-    real(RP), intent(in) :: vec_in_lift(3,3**2)
-    real(RP), intent(in) :: sign_
     real(RP), intent(out) :: vec_out_x(3,3**2)
     real(RP), intent(out) :: vec_out_y(3,3**2)
     real(RP), intent(out) :: vec_out_z(3,3**2)
-    real(RP), intent(out) :: vec_out(3,3**2)
 
     integer :: i, j, k, jk
     !----------------------------------------------------------
@@ -535,9 +580,9 @@ contains
 
     do jk=1, 3**2
     do i=1, 3
-        vec_out_x(i,jk) = Mat(i,1) * vec_in_x(1,jk) &
-                        + Mat(i,2) * vec_in_x(2,jk) &
-                        + Mat(i,3) * vec_in_x(3,jk)
+      vec_out_x(i,jk) = Mat(i,1) * vec_in_x(1,jk) &
+                      + Mat(i,2) * vec_in_x(2,jk) &
+                      + Mat(i,3) * vec_in_x(3,jk)
     end do
     end do
 
@@ -546,9 +591,9 @@ contains
     do j=1, 3
       jk = j + (k-1)*3
       do i=1, 3
-          vec_out_y(i,jk) = vec_in_y(i,1,k) * Mat_tr(1,j) &
-                          + vec_in_y(i,2,k) * Mat_tr(2,j) &
-                          + vec_in_y(i,3,k) * Mat_tr(3,j) 
+        vec_out_y(i,jk) = vec_in_y(i,1,k) * Mat_tr(1,j) &
+                        + vec_in_y(i,2,k) * Mat_tr(2,j) &
+                        + vec_in_y(i,3,k) * Mat_tr(3,j) 
       end do
     end do
     end do
@@ -558,23 +603,67 @@ contains
     do j=1, 3
       jk = j + (k-1)*3
       do i=1, 3
-          vec_out_z(i,jk) = vec_in_z(i,j,1) * Mat_tr(1,k) &
-                          + vec_in_z(i,j,2) * Mat_tr(2,k) &
-                          + vec_in_z(i,j,3) * Mat_tr(3,k) 
+        vec_out_z(i,jk) = vec_in_z(i,j,1) * Mat_tr(1,k) &
+                        + vec_in_z(i,j,2) * Mat_tr(2,k) &
+                        + vec_in_z(i,j,3) * Mat_tr(3,k) 
       end do
     end do
     end do
-
-    do jk=1, 3**2
-    do i=1, 3
-        vec_out(i,jk) = sign_ * (  Escale(1,i,jk) * vec_out_x(i,jk) + Escale(2,i,jk) * vec_out_y(i,jk) + Escale(3,i,jk) * vec_out_z(i,jk) &
-                                 + vec_in_lift(i,jk) ) / Gsqrt(i,jk)
-    end do
-    end do
-          
     return
   end subroutine element_operation_kernel_matvec_divlike_dirXYZ_P2
 
+!> Calculate a matrix-vector multiplication associated with 3D modal filtering with p=2
+!!
+!OCL SERIAL
+  subroutine element_operation_kernel_matvec_ModalFilter_P2( Mat_h1D, Mat_h1D_tr, Mat_v1D_tr, vec_in, vec_work, &
+    vec_out  )
+    implicit none
+    real(RP), intent(in) :: Mat_h1D(3,3)
+    real(RP), intent(in) :: Mat_h1D_tr(3,3)
+    real(RP), intent(in) :: Mat_v1D_tr(3,3)
+    real(RP), intent(in) :: vec_in(3,3,3)
+    real(RP), intent(out) :: vec_work(3,3,3)
+    real(RP), intent(out) :: vec_out(3,3,3)
+
+    integer :: i, j, k
+    !----------------------------------------------------------
+
+    ! X-dir
+
+    do k=1, 3
+    do j=1, 3
+    do i=1, 3
+      vec_out(i,j,k) = Mat_h1D(i,1) * vec_in(1,j,k) &
+                     + Mat_h1D(i,2) * vec_in(2,j,k) &
+                     + Mat_h1D(i,3) * vec_in(3,j,k)
+    end do
+    end do
+    end do
+    
+    ! Y-dir
+    do k=1, 3
+    do j=1, 3
+    do i=1, 3
+      vec_work(i,j,k) = vec_out(i,1,k) * Mat_h1D_tr(1,j) &
+                      + vec_out(i,2,k) * Mat_h1D_tr(2,j) &
+                      + vec_out(i,3,k) * Mat_h1D_tr(3,j) 
+    end do
+    end do
+    end do
+    
+    ! Z-dir
+    do k=1, 3
+    do j=1, 3
+    do i=1, 3
+      vec_out(i,j,k) = vec_work(i,j,1) * Mat_v1D_tr(1,k) &
+                     + vec_work(i,j,2) * Mat_v1D_tr(2,k) &
+                     + vec_work(i,j,3) * Mat_v1D_tr(3,k) 
+    end do
+    end do
+    end do
+
+    return
+  end subroutine element_operation_kernel_matvec_ModalFilter_P2
 
 !--- For p=3 ------------------------------------
 
@@ -747,22 +836,17 @@ contains
 !!
 !OCL SERIAL
   subroutine element_operation_kernel_matvec_divlike_dirXYZ_P3( &
-    Mat, Mat_tr, vec_in_x, vec_in_y, vec_in_z, Escale, Gsqrt, vec_in_lift, sign_, &
-    vec_out_x, vec_out_y, vec_out_z, vec_out  )
+    Mat, Mat_tr, vec_in_x, vec_in_y, vec_in_z, &
+    vec_out_x, vec_out_y, vec_out_z  )
     implicit none
     real(RP), intent(in) :: Mat(4,4)
     real(RP), intent(in) :: Mat_tr(4,4)
     real(RP), intent(in) :: vec_in_x(4,4**2)
     real(RP), intent(in) :: vec_in_y(4,4,4)
     real(RP), intent(in) :: vec_in_z(4,4,4)
-    real(RP), intent(in) :: Escale(3,4,4**2)
-    real(RP), intent(in) :: Gsqrt(4,4**2)
-    real(RP), intent(in) :: vec_in_lift(4,4**2)
-    real(RP), intent(in) :: sign_
     real(RP), intent(out) :: vec_out_x(4,4**2)
     real(RP), intent(out) :: vec_out_y(4,4**2)
     real(RP), intent(out) :: vec_out_z(4,4**2)
-    real(RP), intent(out) :: vec_out(4,4**2)
 
     integer :: i, j, k, jk
     !----------------------------------------------------------
@@ -771,10 +855,10 @@ contains
 
     do jk=1, 4**2
     do i=1, 4
-        vec_out_x(i,jk) = Mat(i,1) * vec_in_x(1,jk) &
-                        + Mat(i,2) * vec_in_x(2,jk) &
-                        + Mat(i,3) * vec_in_x(3,jk) &
-                        + Mat(i,4) * vec_in_x(4,jk)
+      vec_out_x(i,jk) = Mat(i,1) * vec_in_x(1,jk) &
+                      + Mat(i,2) * vec_in_x(2,jk) &
+                      + Mat(i,3) * vec_in_x(3,jk) &
+                      + Mat(i,4) * vec_in_x(4,jk)
     end do
     end do
 
@@ -783,10 +867,10 @@ contains
     do j=1, 4
       jk = j + (k-1)*4
       do i=1, 4
-          vec_out_y(i,jk) = vec_in_y(i,1,k) * Mat_tr(1,j) &
-                          + vec_in_y(i,2,k) * Mat_tr(2,j) &
-                          + vec_in_y(i,3,k) * Mat_tr(3,j) &
-                          + vec_in_y(i,4,k) * Mat_tr(4,j) 
+        vec_out_y(i,jk) = vec_in_y(i,1,k) * Mat_tr(1,j) &
+                        + vec_in_y(i,2,k) * Mat_tr(2,j) &
+                        + vec_in_y(i,3,k) * Mat_tr(3,j) &
+                        + vec_in_y(i,4,k) * Mat_tr(4,j) 
       end do
     end do
     end do
@@ -796,24 +880,71 @@ contains
     do j=1, 4
       jk = j + (k-1)*4
       do i=1, 4
-          vec_out_z(i,jk) = vec_in_z(i,j,1) * Mat_tr(1,k) &
-                          + vec_in_z(i,j,2) * Mat_tr(2,k) &
-                          + vec_in_z(i,j,3) * Mat_tr(3,k) &
-                          + vec_in_z(i,j,4) * Mat_tr(4,k) 
+        vec_out_z(i,jk) = vec_in_z(i,j,1) * Mat_tr(1,k) &
+                        + vec_in_z(i,j,2) * Mat_tr(2,k) &
+                        + vec_in_z(i,j,3) * Mat_tr(3,k) &
+                        + vec_in_z(i,j,4) * Mat_tr(4,k) 
       end do
     end do
     end do
-
-    do jk=1, 4**2
-    do i=1, 4
-        vec_out(i,jk) = sign_ * (  Escale(1,i,jk) * vec_out_x(i,jk) + Escale(2,i,jk) * vec_out_y(i,jk) + Escale(3,i,jk) * vec_out_z(i,jk) &
-                                 + vec_in_lift(i,jk) ) / Gsqrt(i,jk)
-    end do
-    end do
-          
     return
   end subroutine element_operation_kernel_matvec_divlike_dirXYZ_P3
 
+!> Calculate a matrix-vector multiplication associated with 3D modal filtering with p=3
+!!
+!OCL SERIAL
+  subroutine element_operation_kernel_matvec_ModalFilter_P3( Mat_h1D, Mat_h1D_tr, Mat_v1D_tr, vec_in, vec_work, &
+    vec_out  )
+    implicit none
+    real(RP), intent(in) :: Mat_h1D(4,4)
+    real(RP), intent(in) :: Mat_h1D_tr(4,4)
+    real(RP), intent(in) :: Mat_v1D_tr(4,4)
+    real(RP), intent(in) :: vec_in(4,4,4)
+    real(RP), intent(out) :: vec_work(4,4,4)
+    real(RP), intent(out) :: vec_out(4,4,4)
+
+    integer :: i, j, k
+    !----------------------------------------------------------
+
+    ! X-dir
+
+    do k=1, 4
+    do j=1, 4
+    do i=1, 4
+      vec_out(i,j,k) = Mat_h1D(i,1) * vec_in(1,j,k) &
+                     + Mat_h1D(i,2) * vec_in(2,j,k) &
+                     + Mat_h1D(i,3) * vec_in(3,j,k) &
+                     + Mat_h1D(i,4) * vec_in(4,j,k)
+    end do
+    end do
+    end do
+    
+    ! Y-dir
+    do k=1, 4
+    do j=1, 4
+    do i=1, 4
+      vec_work(i,j,k) = vec_out(i,1,k) * Mat_h1D_tr(1,j) &
+                      + vec_out(i,2,k) * Mat_h1D_tr(2,j) &
+                      + vec_out(i,3,k) * Mat_h1D_tr(3,j) &
+                      + vec_out(i,4,k) * Mat_h1D_tr(4,j) 
+    end do
+    end do
+    end do
+    
+    ! Z-dir
+    do k=1, 4
+    do j=1, 4
+    do i=1, 4
+      vec_out(i,j,k) = vec_work(i,j,1) * Mat_v1D_tr(1,k) &
+                     + vec_work(i,j,2) * Mat_v1D_tr(2,k) &
+                     + vec_work(i,j,3) * Mat_v1D_tr(3,k) &
+                     + vec_work(i,j,4) * Mat_v1D_tr(4,k) 
+    end do
+    end do
+    end do
+
+    return
+  end subroutine element_operation_kernel_matvec_ModalFilter_P3
 
 !--- For p=4 ------------------------------------
 
@@ -992,22 +1123,17 @@ contains
 !!
 !OCL SERIAL
   subroutine element_operation_kernel_matvec_divlike_dirXYZ_P4( &
-    Mat, Mat_tr, vec_in_x, vec_in_y, vec_in_z, Escale, Gsqrt, vec_in_lift, sign_, &
-    vec_out_x, vec_out_y, vec_out_z, vec_out  )
+    Mat, Mat_tr, vec_in_x, vec_in_y, vec_in_z, &
+    vec_out_x, vec_out_y, vec_out_z  )
     implicit none
     real(RP), intent(in) :: Mat(5,5)
     real(RP), intent(in) :: Mat_tr(5,5)
     real(RP), intent(in) :: vec_in_x(5,5**2)
     real(RP), intent(in) :: vec_in_y(5,5,5)
     real(RP), intent(in) :: vec_in_z(5,5,5)
-    real(RP), intent(in) :: Escale(3,5,5**2)
-    real(RP), intent(in) :: Gsqrt(5,5**2)
-    real(RP), intent(in) :: vec_in_lift(5,5**2)
-    real(RP), intent(in) :: sign_
     real(RP), intent(out) :: vec_out_x(5,5**2)
     real(RP), intent(out) :: vec_out_y(5,5**2)
     real(RP), intent(out) :: vec_out_z(5,5**2)
-    real(RP), intent(out) :: vec_out(5,5**2)
 
     integer :: i, j, k, jk
     !----------------------------------------------------------
@@ -1016,11 +1142,11 @@ contains
 
     do jk=1, 5**2
     do i=1, 5
-        vec_out_x(i,jk) = Mat(i,1) * vec_in_x(1,jk) &
-                        + Mat(i,2) * vec_in_x(2,jk) &
-                        + Mat(i,3) * vec_in_x(3,jk) &
-                        + Mat(i,4) * vec_in_x(4,jk) &
-                        + Mat(i,5) * vec_in_x(5,jk)
+      vec_out_x(i,jk) = Mat(i,1) * vec_in_x(1,jk) &
+                      + Mat(i,2) * vec_in_x(2,jk) &
+                      + Mat(i,3) * vec_in_x(3,jk) &
+                      + Mat(i,4) * vec_in_x(4,jk) &
+                      + Mat(i,5) * vec_in_x(5,jk)
     end do
     end do
 
@@ -1029,11 +1155,11 @@ contains
     do j=1, 5
       jk = j + (k-1)*5
       do i=1, 5
-          vec_out_y(i,jk) = vec_in_y(i,1,k) * Mat_tr(1,j) &
-                          + vec_in_y(i,2,k) * Mat_tr(2,j) &
-                          + vec_in_y(i,3,k) * Mat_tr(3,j) &
-                          + vec_in_y(i,4,k) * Mat_tr(4,j) &
-                          + vec_in_y(i,5,k) * Mat_tr(5,j) 
+        vec_out_y(i,jk) = vec_in_y(i,1,k) * Mat_tr(1,j) &
+                        + vec_in_y(i,2,k) * Mat_tr(2,j) &
+                        + vec_in_y(i,3,k) * Mat_tr(3,j) &
+                        + vec_in_y(i,4,k) * Mat_tr(4,j) &
+                        + vec_in_y(i,5,k) * Mat_tr(5,j) 
       end do
     end do
     end do
@@ -1043,25 +1169,75 @@ contains
     do j=1, 5
       jk = j + (k-1)*5
       do i=1, 5
-          vec_out_z(i,jk) = vec_in_z(i,j,1) * Mat_tr(1,k) &
-                          + vec_in_z(i,j,2) * Mat_tr(2,k) &
-                          + vec_in_z(i,j,3) * Mat_tr(3,k) &
-                          + vec_in_z(i,j,4) * Mat_tr(4,k) &
-                          + vec_in_z(i,j,5) * Mat_tr(5,k) 
+        vec_out_z(i,jk) = vec_in_z(i,j,1) * Mat_tr(1,k) &
+                        + vec_in_z(i,j,2) * Mat_tr(2,k) &
+                        + vec_in_z(i,j,3) * Mat_tr(3,k) &
+                        + vec_in_z(i,j,4) * Mat_tr(4,k) &
+                        + vec_in_z(i,j,5) * Mat_tr(5,k) 
       end do
     end do
     end do
-
-    do jk=1, 5**2
-    do i=1, 5
-        vec_out(i,jk) = sign_ * (  Escale(1,i,jk) * vec_out_x(i,jk) + Escale(2,i,jk) * vec_out_y(i,jk) + Escale(3,i,jk) * vec_out_z(i,jk) &
-                                 + vec_in_lift(i,jk) ) / Gsqrt(i,jk)
-    end do
-    end do
-          
     return
   end subroutine element_operation_kernel_matvec_divlike_dirXYZ_P4
 
+!> Calculate a matrix-vector multiplication associated with 3D modal filtering with p=4
+!!
+!OCL SERIAL
+  subroutine element_operation_kernel_matvec_ModalFilter_P4( Mat_h1D, Mat_h1D_tr, Mat_v1D_tr, vec_in, vec_work, &
+    vec_out  )
+    implicit none
+    real(RP), intent(in) :: Mat_h1D(5,5)
+    real(RP), intent(in) :: Mat_h1D_tr(5,5)
+    real(RP), intent(in) :: Mat_v1D_tr(5,5)
+    real(RP), intent(in) :: vec_in(5,5,5)
+    real(RP), intent(out) :: vec_work(5,5,5)
+    real(RP), intent(out) :: vec_out(5,5,5)
+
+    integer :: i, j, k
+    !----------------------------------------------------------
+
+    ! X-dir
+
+    do k=1, 5
+    do j=1, 5
+    do i=1, 5
+      vec_out(i,j,k) = Mat_h1D(i,1) * vec_in(1,j,k) &
+                     + Mat_h1D(i,2) * vec_in(2,j,k) &
+                     + Mat_h1D(i,3) * vec_in(3,j,k) &
+                     + Mat_h1D(i,4) * vec_in(4,j,k) &
+                     + Mat_h1D(i,5) * vec_in(5,j,k)
+    end do
+    end do
+    end do
+    
+    ! Y-dir
+    do k=1, 5
+    do j=1, 5
+    do i=1, 5
+      vec_work(i,j,k) = vec_out(i,1,k) * Mat_h1D_tr(1,j) &
+                      + vec_out(i,2,k) * Mat_h1D_tr(2,j) &
+                      + vec_out(i,3,k) * Mat_h1D_tr(3,j) &
+                      + vec_out(i,4,k) * Mat_h1D_tr(4,j) &
+                      + vec_out(i,5,k) * Mat_h1D_tr(5,j) 
+    end do
+    end do
+    end do
+    
+    ! Z-dir
+    do k=1, 5
+    do j=1, 5
+    do i=1, 5
+      vec_out(i,j,k) = vec_work(i,j,1) * Mat_v1D_tr(1,k) &
+                     + vec_work(i,j,2) * Mat_v1D_tr(2,k) &
+                     + vec_work(i,j,3) * Mat_v1D_tr(3,k) &
+                     + vec_work(i,j,4) * Mat_v1D_tr(4,k) &
+                     + vec_work(i,j,5) * Mat_v1D_tr(5,k) 
+    end do
+    end do
+    end do
+
+    return
+  end subroutine element_operation_kernel_matvec_ModalFilter_P4
 
 !--- For p=5 ------------------------------------
 
@@ -1246,22 +1422,17 @@ contains
 !!
 !OCL SERIAL
   subroutine element_operation_kernel_matvec_divlike_dirXYZ_P5( &
-    Mat, Mat_tr, vec_in_x, vec_in_y, vec_in_z, Escale, Gsqrt, vec_in_lift, sign_, &
-    vec_out_x, vec_out_y, vec_out_z, vec_out  )
+    Mat, Mat_tr, vec_in_x, vec_in_y, vec_in_z, &
+    vec_out_x, vec_out_y, vec_out_z  )
     implicit none
     real(RP), intent(in) :: Mat(6,6)
     real(RP), intent(in) :: Mat_tr(6,6)
     real(RP), intent(in) :: vec_in_x(6,6**2)
     real(RP), intent(in) :: vec_in_y(6,6,6)
     real(RP), intent(in) :: vec_in_z(6,6,6)
-    real(RP), intent(in) :: Escale(3,6,6**2)
-    real(RP), intent(in) :: Gsqrt(6,6**2)
-    real(RP), intent(in) :: vec_in_lift(6,6**2)
-    real(RP), intent(in) :: sign_
     real(RP), intent(out) :: vec_out_x(6,6**2)
     real(RP), intent(out) :: vec_out_y(6,6**2)
     real(RP), intent(out) :: vec_out_z(6,6**2)
-    real(RP), intent(out) :: vec_out(6,6**2)
 
     integer :: i, j, k, jk
     !----------------------------------------------------------
@@ -1270,12 +1441,12 @@ contains
 
     do jk=1, 6**2
     do i=1, 6
-        vec_out_x(i,jk) = Mat(i,1) * vec_in_x(1,jk) &
-                        + Mat(i,2) * vec_in_x(2,jk) &
-                        + Mat(i,3) * vec_in_x(3,jk) &
-                        + Mat(i,4) * vec_in_x(4,jk) &
-                        + Mat(i,5) * vec_in_x(5,jk) &
-                        + Mat(i,6) * vec_in_x(6,jk)
+      vec_out_x(i,jk) = Mat(i,1) * vec_in_x(1,jk) &
+                      + Mat(i,2) * vec_in_x(2,jk) &
+                      + Mat(i,3) * vec_in_x(3,jk) &
+                      + Mat(i,4) * vec_in_x(4,jk) &
+                      + Mat(i,5) * vec_in_x(5,jk) &
+                      + Mat(i,6) * vec_in_x(6,jk)
     end do
     end do
 
@@ -1284,12 +1455,12 @@ contains
     do j=1, 6
       jk = j + (k-1)*6
       do i=1, 6
-          vec_out_y(i,jk) = vec_in_y(i,1,k) * Mat_tr(1,j) &
-                          + vec_in_y(i,2,k) * Mat_tr(2,j) &
-                          + vec_in_y(i,3,k) * Mat_tr(3,j) &
-                          + vec_in_y(i,4,k) * Mat_tr(4,j) &
-                          + vec_in_y(i,5,k) * Mat_tr(5,j) &
-                          + vec_in_y(i,6,k) * Mat_tr(6,j) 
+        vec_out_y(i,jk) = vec_in_y(i,1,k) * Mat_tr(1,j) &
+                        + vec_in_y(i,2,k) * Mat_tr(2,j) &
+                        + vec_in_y(i,3,k) * Mat_tr(3,j) &
+                        + vec_in_y(i,4,k) * Mat_tr(4,j) &
+                        + vec_in_y(i,5,k) * Mat_tr(5,j) &
+                        + vec_in_y(i,6,k) * Mat_tr(6,j) 
       end do
     end do
     end do
@@ -1299,26 +1470,79 @@ contains
     do j=1, 6
       jk = j + (k-1)*6
       do i=1, 6
-          vec_out_z(i,jk) = vec_in_z(i,j,1) * Mat_tr(1,k) &
-                          + vec_in_z(i,j,2) * Mat_tr(2,k) &
-                          + vec_in_z(i,j,3) * Mat_tr(3,k) &
-                          + vec_in_z(i,j,4) * Mat_tr(4,k) &
-                          + vec_in_z(i,j,5) * Mat_tr(5,k) &
-                          + vec_in_z(i,j,6) * Mat_tr(6,k) 
+        vec_out_z(i,jk) = vec_in_z(i,j,1) * Mat_tr(1,k) &
+                        + vec_in_z(i,j,2) * Mat_tr(2,k) &
+                        + vec_in_z(i,j,3) * Mat_tr(3,k) &
+                        + vec_in_z(i,j,4) * Mat_tr(4,k) &
+                        + vec_in_z(i,j,5) * Mat_tr(5,k) &
+                        + vec_in_z(i,j,6) * Mat_tr(6,k) 
       end do
     end do
     end do
-
-    do jk=1, 6**2
-    do i=1, 6
-        vec_out(i,jk) = sign_ * (  Escale(1,i,jk) * vec_out_x(i,jk) + Escale(2,i,jk) * vec_out_y(i,jk) + Escale(3,i,jk) * vec_out_z(i,jk) &
-                                 + vec_in_lift(i,jk) ) / Gsqrt(i,jk)
-    end do
-    end do
-          
     return
   end subroutine element_operation_kernel_matvec_divlike_dirXYZ_P5
 
+!> Calculate a matrix-vector multiplication associated with 3D modal filtering with p=5
+!!
+!OCL SERIAL
+  subroutine element_operation_kernel_matvec_ModalFilter_P5( Mat_h1D, Mat_h1D_tr, Mat_v1D_tr, vec_in, vec_work, &
+    vec_out  )
+    implicit none
+    real(RP), intent(in) :: Mat_h1D(6,6)
+    real(RP), intent(in) :: Mat_h1D_tr(6,6)
+    real(RP), intent(in) :: Mat_v1D_tr(6,6)
+    real(RP), intent(in) :: vec_in(6,6,6)
+    real(RP), intent(out) :: vec_work(6,6,6)
+    real(RP), intent(out) :: vec_out(6,6,6)
+
+    integer :: i, j, k
+    !----------------------------------------------------------
+
+    ! X-dir
+
+    do k=1, 6
+    do j=1, 6
+    do i=1, 6
+      vec_out(i,j,k) = Mat_h1D(i,1) * vec_in(1,j,k) &
+                     + Mat_h1D(i,2) * vec_in(2,j,k) &
+                     + Mat_h1D(i,3) * vec_in(3,j,k) &
+                     + Mat_h1D(i,4) * vec_in(4,j,k) &
+                     + Mat_h1D(i,5) * vec_in(5,j,k) &
+                     + Mat_h1D(i,6) * vec_in(6,j,k)
+    end do
+    end do
+    end do
+    
+    ! Y-dir
+    do k=1, 6
+    do j=1, 6
+    do i=1, 6
+      vec_work(i,j,k) = vec_out(i,1,k) * Mat_h1D_tr(1,j) &
+                      + vec_out(i,2,k) * Mat_h1D_tr(2,j) &
+                      + vec_out(i,3,k) * Mat_h1D_tr(3,j) &
+                      + vec_out(i,4,k) * Mat_h1D_tr(4,j) &
+                      + vec_out(i,5,k) * Mat_h1D_tr(5,j) &
+                      + vec_out(i,6,k) * Mat_h1D_tr(6,j) 
+    end do
+    end do
+    end do
+    
+    ! Z-dir
+    do k=1, 6
+    do j=1, 6
+    do i=1, 6
+      vec_out(i,j,k) = vec_work(i,j,1) * Mat_v1D_tr(1,k) &
+                     + vec_work(i,j,2) * Mat_v1D_tr(2,k) &
+                     + vec_work(i,j,3) * Mat_v1D_tr(3,k) &
+                     + vec_work(i,j,4) * Mat_v1D_tr(4,k) &
+                     + vec_work(i,j,5) * Mat_v1D_tr(5,k) &
+                     + vec_work(i,j,6) * Mat_v1D_tr(6,k) 
+    end do
+    end do
+    end do
+
+    return
+  end subroutine element_operation_kernel_matvec_ModalFilter_P5
 
 !--- For p=6 ------------------------------------
 
@@ -1509,22 +1733,17 @@ contains
 !!
 !OCL SERIAL
   subroutine element_operation_kernel_matvec_divlike_dirXYZ_P6( &
-    Mat, Mat_tr, vec_in_x, vec_in_y, vec_in_z, Escale, Gsqrt, vec_in_lift, sign_, &
-    vec_out_x, vec_out_y, vec_out_z, vec_out  )
+    Mat, Mat_tr, vec_in_x, vec_in_y, vec_in_z, &
+    vec_out_x, vec_out_y, vec_out_z  )
     implicit none
     real(RP), intent(in) :: Mat(7,7)
     real(RP), intent(in) :: Mat_tr(7,7)
     real(RP), intent(in) :: vec_in_x(7,7**2)
     real(RP), intent(in) :: vec_in_y(7,7,7)
     real(RP), intent(in) :: vec_in_z(7,7,7)
-    real(RP), intent(in) :: Escale(3,7,7**2)
-    real(RP), intent(in) :: Gsqrt(7,7**2)
-    real(RP), intent(in) :: vec_in_lift(7,7**2)
-    real(RP), intent(in) :: sign_
     real(RP), intent(out) :: vec_out_x(7,7**2)
     real(RP), intent(out) :: vec_out_y(7,7**2)
     real(RP), intent(out) :: vec_out_z(7,7**2)
-    real(RP), intent(out) :: vec_out(7,7**2)
 
     integer :: i, j, k, jk
     !----------------------------------------------------------
@@ -1533,13 +1752,13 @@ contains
 
     do jk=1, 7**2
     do i=1, 7
-        vec_out_x(i,jk) = Mat(i,1) * vec_in_x(1,jk) &
-                        + Mat(i,2) * vec_in_x(2,jk) &
-                        + Mat(i,3) * vec_in_x(3,jk) &
-                        + Mat(i,4) * vec_in_x(4,jk) &
-                        + Mat(i,5) * vec_in_x(5,jk) &
-                        + Mat(i,6) * vec_in_x(6,jk) &
-                        + Mat(i,7) * vec_in_x(7,jk)
+      vec_out_x(i,jk) = Mat(i,1) * vec_in_x(1,jk) &
+                      + Mat(i,2) * vec_in_x(2,jk) &
+                      + Mat(i,3) * vec_in_x(3,jk) &
+                      + Mat(i,4) * vec_in_x(4,jk) &
+                      + Mat(i,5) * vec_in_x(5,jk) &
+                      + Mat(i,6) * vec_in_x(6,jk) &
+                      + Mat(i,7) * vec_in_x(7,jk)
     end do
     end do
 
@@ -1548,13 +1767,13 @@ contains
     do j=1, 7
       jk = j + (k-1)*7
       do i=1, 7
-          vec_out_y(i,jk) = vec_in_y(i,1,k) * Mat_tr(1,j) &
-                          + vec_in_y(i,2,k) * Mat_tr(2,j) &
-                          + vec_in_y(i,3,k) * Mat_tr(3,j) &
-                          + vec_in_y(i,4,k) * Mat_tr(4,j) &
-                          + vec_in_y(i,5,k) * Mat_tr(5,j) &
-                          + vec_in_y(i,6,k) * Mat_tr(6,j) &
-                          + vec_in_y(i,7,k) * Mat_tr(7,j) 
+        vec_out_y(i,jk) = vec_in_y(i,1,k) * Mat_tr(1,j) &
+                        + vec_in_y(i,2,k) * Mat_tr(2,j) &
+                        + vec_in_y(i,3,k) * Mat_tr(3,j) &
+                        + vec_in_y(i,4,k) * Mat_tr(4,j) &
+                        + vec_in_y(i,5,k) * Mat_tr(5,j) &
+                        + vec_in_y(i,6,k) * Mat_tr(6,j) &
+                        + vec_in_y(i,7,k) * Mat_tr(7,j) 
       end do
     end do
     end do
@@ -1564,27 +1783,83 @@ contains
     do j=1, 7
       jk = j + (k-1)*7
       do i=1, 7
-          vec_out_z(i,jk) = vec_in_z(i,j,1) * Mat_tr(1,k) &
-                          + vec_in_z(i,j,2) * Mat_tr(2,k) &
-                          + vec_in_z(i,j,3) * Mat_tr(3,k) &
-                          + vec_in_z(i,j,4) * Mat_tr(4,k) &
-                          + vec_in_z(i,j,5) * Mat_tr(5,k) &
-                          + vec_in_z(i,j,6) * Mat_tr(6,k) &
-                          + vec_in_z(i,j,7) * Mat_tr(7,k) 
+        vec_out_z(i,jk) = vec_in_z(i,j,1) * Mat_tr(1,k) &
+                        + vec_in_z(i,j,2) * Mat_tr(2,k) &
+                        + vec_in_z(i,j,3) * Mat_tr(3,k) &
+                        + vec_in_z(i,j,4) * Mat_tr(4,k) &
+                        + vec_in_z(i,j,5) * Mat_tr(5,k) &
+                        + vec_in_z(i,j,6) * Mat_tr(6,k) &
+                        + vec_in_z(i,j,7) * Mat_tr(7,k) 
       end do
     end do
     end do
-
-    do jk=1, 7**2
-    do i=1, 7
-        vec_out(i,jk) = sign_ * (  Escale(1,i,jk) * vec_out_x(i,jk) + Escale(2,i,jk) * vec_out_y(i,jk) + Escale(3,i,jk) * vec_out_z(i,jk) &
-                                 + vec_in_lift(i,jk) ) / Gsqrt(i,jk)
-    end do
-    end do
-          
     return
   end subroutine element_operation_kernel_matvec_divlike_dirXYZ_P6
 
+!> Calculate a matrix-vector multiplication associated with 3D modal filtering with p=6
+!!
+!OCL SERIAL
+  subroutine element_operation_kernel_matvec_ModalFilter_P6( Mat_h1D, Mat_h1D_tr, Mat_v1D_tr, vec_in, vec_work, &
+    vec_out  )
+    implicit none
+    real(RP), intent(in) :: Mat_h1D(7,7)
+    real(RP), intent(in) :: Mat_h1D_tr(7,7)
+    real(RP), intent(in) :: Mat_v1D_tr(7,7)
+    real(RP), intent(in) :: vec_in(7,7,7)
+    real(RP), intent(out) :: vec_work(7,7,7)
+    real(RP), intent(out) :: vec_out(7,7,7)
+
+    integer :: i, j, k
+    !----------------------------------------------------------
+
+    ! X-dir
+
+    do k=1, 7
+    do j=1, 7
+    do i=1, 7
+      vec_out(i,j,k) = Mat_h1D(i,1) * vec_in(1,j,k) &
+                     + Mat_h1D(i,2) * vec_in(2,j,k) &
+                     + Mat_h1D(i,3) * vec_in(3,j,k) &
+                     + Mat_h1D(i,4) * vec_in(4,j,k) &
+                     + Mat_h1D(i,5) * vec_in(5,j,k) &
+                     + Mat_h1D(i,6) * vec_in(6,j,k) &
+                     + Mat_h1D(i,7) * vec_in(7,j,k)
+    end do
+    end do
+    end do
+    
+    ! Y-dir
+    do k=1, 7
+    do j=1, 7
+    do i=1, 7
+      vec_work(i,j,k) = vec_out(i,1,k) * Mat_h1D_tr(1,j) &
+                      + vec_out(i,2,k) * Mat_h1D_tr(2,j) &
+                      + vec_out(i,3,k) * Mat_h1D_tr(3,j) &
+                      + vec_out(i,4,k) * Mat_h1D_tr(4,j) &
+                      + vec_out(i,5,k) * Mat_h1D_tr(5,j) &
+                      + vec_out(i,6,k) * Mat_h1D_tr(6,j) &
+                      + vec_out(i,7,k) * Mat_h1D_tr(7,j) 
+    end do
+    end do
+    end do
+    
+    ! Z-dir
+    do k=1, 7
+    do j=1, 7
+    do i=1, 7
+      vec_out(i,j,k) = vec_work(i,j,1) * Mat_v1D_tr(1,k) &
+                     + vec_work(i,j,2) * Mat_v1D_tr(2,k) &
+                     + vec_work(i,j,3) * Mat_v1D_tr(3,k) &
+                     + vec_work(i,j,4) * Mat_v1D_tr(4,k) &
+                     + vec_work(i,j,5) * Mat_v1D_tr(5,k) &
+                     + vec_work(i,j,6) * Mat_v1D_tr(6,k) &
+                     + vec_work(i,j,7) * Mat_v1D_tr(7,k) 
+    end do
+    end do
+    end do
+
+    return
+  end subroutine element_operation_kernel_matvec_ModalFilter_P6
 
 !--- For p=7 ------------------------------------
 
@@ -1781,22 +2056,17 @@ contains
 !!
 !OCL SERIAL
   subroutine element_operation_kernel_matvec_divlike_dirXYZ_P7( &
-    Mat, Mat_tr, vec_in_x, vec_in_y, vec_in_z, Escale, Gsqrt, vec_in_lift, sign_, &
-    vec_out_x, vec_out_y, vec_out_z, vec_out  )
+    Mat, Mat_tr, vec_in_x, vec_in_y, vec_in_z, &
+    vec_out_x, vec_out_y, vec_out_z  )
     implicit none
     real(RP), intent(in) :: Mat(8,8)
     real(RP), intent(in) :: Mat_tr(8,8)
     real(RP), intent(in) :: vec_in_x(8,8**2)
     real(RP), intent(in) :: vec_in_y(8,8,8)
     real(RP), intent(in) :: vec_in_z(8,8,8)
-    real(RP), intent(in) :: Escale(3,8,8**2)
-    real(RP), intent(in) :: Gsqrt(8,8**2)
-    real(RP), intent(in) :: vec_in_lift(8,8**2)
-    real(RP), intent(in) :: sign_
     real(RP), intent(out) :: vec_out_x(8,8**2)
     real(RP), intent(out) :: vec_out_y(8,8**2)
     real(RP), intent(out) :: vec_out_z(8,8**2)
-    real(RP), intent(out) :: vec_out(8,8**2)
 
     integer :: i, j, k, jk
     !----------------------------------------------------------
@@ -1805,14 +2075,14 @@ contains
 
     do jk=1, 8**2
     do i=1, 8
-        vec_out_x(i,jk) = Mat(i,1) * vec_in_x(1,jk) &
-                        + Mat(i,2) * vec_in_x(2,jk) &
-                        + Mat(i,3) * vec_in_x(3,jk) &
-                        + Mat(i,4) * vec_in_x(4,jk) &
-                        + Mat(i,5) * vec_in_x(5,jk) &
-                        + Mat(i,6) * vec_in_x(6,jk) &
-                        + Mat(i,7) * vec_in_x(7,jk) &
-                        + Mat(i,8) * vec_in_x(8,jk)
+      vec_out_x(i,jk) = Mat(i,1) * vec_in_x(1,jk) &
+                      + Mat(i,2) * vec_in_x(2,jk) &
+                      + Mat(i,3) * vec_in_x(3,jk) &
+                      + Mat(i,4) * vec_in_x(4,jk) &
+                      + Mat(i,5) * vec_in_x(5,jk) &
+                      + Mat(i,6) * vec_in_x(6,jk) &
+                      + Mat(i,7) * vec_in_x(7,jk) &
+                      + Mat(i,8) * vec_in_x(8,jk)
     end do
     end do
 
@@ -1821,14 +2091,14 @@ contains
     do j=1, 8
       jk = j + (k-1)*8
       do i=1, 8
-          vec_out_y(i,jk) = vec_in_y(i,1,k) * Mat_tr(1,j) &
-                          + vec_in_y(i,2,k) * Mat_tr(2,j) &
-                          + vec_in_y(i,3,k) * Mat_tr(3,j) &
-                          + vec_in_y(i,4,k) * Mat_tr(4,j) &
-                          + vec_in_y(i,5,k) * Mat_tr(5,j) &
-                          + vec_in_y(i,6,k) * Mat_tr(6,j) &
-                          + vec_in_y(i,7,k) * Mat_tr(7,j) &
-                          + vec_in_y(i,8,k) * Mat_tr(8,j) 
+        vec_out_y(i,jk) = vec_in_y(i,1,k) * Mat_tr(1,j) &
+                        + vec_in_y(i,2,k) * Mat_tr(2,j) &
+                        + vec_in_y(i,3,k) * Mat_tr(3,j) &
+                        + vec_in_y(i,4,k) * Mat_tr(4,j) &
+                        + vec_in_y(i,5,k) * Mat_tr(5,j) &
+                        + vec_in_y(i,6,k) * Mat_tr(6,j) &
+                        + vec_in_y(i,7,k) * Mat_tr(7,j) &
+                        + vec_in_y(i,8,k) * Mat_tr(8,j) 
       end do
     end do
     end do
@@ -1838,28 +2108,87 @@ contains
     do j=1, 8
       jk = j + (k-1)*8
       do i=1, 8
-          vec_out_z(i,jk) = vec_in_z(i,j,1) * Mat_tr(1,k) &
-                          + vec_in_z(i,j,2) * Mat_tr(2,k) &
-                          + vec_in_z(i,j,3) * Mat_tr(3,k) &
-                          + vec_in_z(i,j,4) * Mat_tr(4,k) &
-                          + vec_in_z(i,j,5) * Mat_tr(5,k) &
-                          + vec_in_z(i,j,6) * Mat_tr(6,k) &
-                          + vec_in_z(i,j,7) * Mat_tr(7,k) &
-                          + vec_in_z(i,j,8) * Mat_tr(8,k) 
+        vec_out_z(i,jk) = vec_in_z(i,j,1) * Mat_tr(1,k) &
+                        + vec_in_z(i,j,2) * Mat_tr(2,k) &
+                        + vec_in_z(i,j,3) * Mat_tr(3,k) &
+                        + vec_in_z(i,j,4) * Mat_tr(4,k) &
+                        + vec_in_z(i,j,5) * Mat_tr(5,k) &
+                        + vec_in_z(i,j,6) * Mat_tr(6,k) &
+                        + vec_in_z(i,j,7) * Mat_tr(7,k) &
+                        + vec_in_z(i,j,8) * Mat_tr(8,k) 
       end do
     end do
     end do
-
-    do jk=1, 8**2
-    do i=1, 8
-        vec_out(i,jk) = sign_ * (  Escale(1,i,jk) * vec_out_x(i,jk) + Escale(2,i,jk) * vec_out_y(i,jk) + Escale(3,i,jk) * vec_out_z(i,jk) &
-                                 + vec_in_lift(i,jk) ) / Gsqrt(i,jk)
-    end do
-    end do
-          
     return
   end subroutine element_operation_kernel_matvec_divlike_dirXYZ_P7
 
+!> Calculate a matrix-vector multiplication associated with 3D modal filtering with p=7
+!!
+!OCL SERIAL
+  subroutine element_operation_kernel_matvec_ModalFilter_P7( Mat_h1D, Mat_h1D_tr, Mat_v1D_tr, vec_in, vec_work, &
+    vec_out  )
+    implicit none
+    real(RP), intent(in) :: Mat_h1D(8,8)
+    real(RP), intent(in) :: Mat_h1D_tr(8,8)
+    real(RP), intent(in) :: Mat_v1D_tr(8,8)
+    real(RP), intent(in) :: vec_in(8,8,8)
+    real(RP), intent(out) :: vec_work(8,8,8)
+    real(RP), intent(out) :: vec_out(8,8,8)
+
+    integer :: i, j, k
+    !----------------------------------------------------------
+
+    ! X-dir
+
+    do k=1, 8
+    do j=1, 8
+    do i=1, 8
+      vec_out(i,j,k) = Mat_h1D(i,1) * vec_in(1,j,k) &
+                     + Mat_h1D(i,2) * vec_in(2,j,k) &
+                     + Mat_h1D(i,3) * vec_in(3,j,k) &
+                     + Mat_h1D(i,4) * vec_in(4,j,k) &
+                     + Mat_h1D(i,5) * vec_in(5,j,k) &
+                     + Mat_h1D(i,6) * vec_in(6,j,k) &
+                     + Mat_h1D(i,7) * vec_in(7,j,k) &
+                     + Mat_h1D(i,8) * vec_in(8,j,k)
+    end do
+    end do
+    end do
+    
+    ! Y-dir
+    do k=1, 8
+    do j=1, 8
+    do i=1, 8
+      vec_work(i,j,k) = vec_out(i,1,k) * Mat_h1D_tr(1,j) &
+                      + vec_out(i,2,k) * Mat_h1D_tr(2,j) &
+                      + vec_out(i,3,k) * Mat_h1D_tr(3,j) &
+                      + vec_out(i,4,k) * Mat_h1D_tr(4,j) &
+                      + vec_out(i,5,k) * Mat_h1D_tr(5,j) &
+                      + vec_out(i,6,k) * Mat_h1D_tr(6,j) &
+                      + vec_out(i,7,k) * Mat_h1D_tr(7,j) &
+                      + vec_out(i,8,k) * Mat_h1D_tr(8,j) 
+    end do
+    end do
+    end do
+    
+    ! Z-dir
+    do k=1, 8
+    do j=1, 8
+    do i=1, 8
+      vec_out(i,j,k) = vec_work(i,j,1) * Mat_v1D_tr(1,k) &
+                     + vec_work(i,j,2) * Mat_v1D_tr(2,k) &
+                     + vec_work(i,j,3) * Mat_v1D_tr(3,k) &
+                     + vec_work(i,j,4) * Mat_v1D_tr(4,k) &
+                     + vec_work(i,j,5) * Mat_v1D_tr(5,k) &
+                     + vec_work(i,j,6) * Mat_v1D_tr(6,k) &
+                     + vec_work(i,j,7) * Mat_v1D_tr(7,k) &
+                     + vec_work(i,j,8) * Mat_v1D_tr(8,k) 
+    end do
+    end do
+    end do
+
+    return
+  end subroutine element_operation_kernel_matvec_ModalFilter_P7
 
 !--- For p=8 ------------------------------------
 
@@ -2062,39 +2391,36 @@ contains
 !!
 !OCL SERIAL
   subroutine element_operation_kernel_matvec_divlike_dirXYZ_P8( &
-    Mat, Mat_tr, vec_in_x, vec_in_y, vec_in_z, Escale, Gsqrt, vec_in_lift, sign_, &
-    vec_out_x, vec_out_y, vec_out_z, vec_out  )
+    Mat, Mat_tr, vec_in_x, vec_in_y, vec_in_z, &
+    vec_out_x, vec_out_y, vec_out_z  )
     implicit none
     real(RP), intent(in) :: Mat(9,9)
     real(RP), intent(in) :: Mat_tr(9,9)
     real(RP), intent(in) :: vec_in_x(9,9**2)
     real(RP), intent(in) :: vec_in_y(9,9,9)
     real(RP), intent(in) :: vec_in_z(9,9,9)
-    real(RP), intent(in) :: Escale(3,9,9**2)
-    real(RP), intent(in) :: Gsqrt(9,9**2)
-    real(RP), intent(in) :: vec_in_lift(9,9**2)
-    real(RP), intent(in) :: sign_
     real(RP), intent(out) :: vec_out_x(9,9**2)
     real(RP), intent(out) :: vec_out_y(9,9**2)
     real(RP), intent(out) :: vec_out_z(9,9**2)
-    real(RP), intent(out) :: vec_out(9,9**2)
 
     integer :: i, j, k, jk
+    real(RP) :: tmp1, tmp2, tmp3
     !----------------------------------------------------------
 
     ! X-dir
 
     do jk=1, 9**2
     do i=1, 9
-        vec_out_x(i,jk) = Mat(i,1) * vec_in_x(1,jk) &
-                        + Mat(i,2) * vec_in_x(2,jk) &
-                        + Mat(i,3) * vec_in_x(3,jk) &
-                        + Mat(i,4) * vec_in_x(4,jk) &
-                        + Mat(i,5) * vec_in_x(5,jk) &
-                        + Mat(i,6) * vec_in_x(6,jk) &
-                        + Mat(i,7) * vec_in_x(7,jk) &
-                        + Mat(i,8) * vec_in_x(8,jk) &
-                        + Mat(i,9) * vec_in_x(9,jk)
+      tmp1 = Mat(i,1) * vec_in_x(1,jk) &
+           + Mat(i,2) * vec_in_x(2,jk) &
+           + Mat(i,3) * vec_in_x(3,jk)
+      tmp2 = Mat(i,4) * vec_in_x(4,jk) &
+           + Mat(i,5) * vec_in_x(5,jk) &
+           + Mat(i,6) * vec_in_x(6,jk)
+      tmp3 = Mat(i,7) * vec_in_x(7,jk) &
+           + Mat(i,8) * vec_in_x(8,jk) &
+           + Mat(i,9) * vec_in_x(9,jk)
+      vec_out_x(i,jk) = tmp1 + tmp2 + tmp3
     end do
     end do
 
@@ -2103,15 +2429,16 @@ contains
     do j=1, 9
       jk = j + (k-1)*9
       do i=1, 9
-          vec_out_y(i,jk) = vec_in_y(i,1,k) * Mat_tr(1,j) &
-                          + vec_in_y(i,2,k) * Mat_tr(2,j) &
-                          + vec_in_y(i,3,k) * Mat_tr(3,j) &
-                          + vec_in_y(i,4,k) * Mat_tr(4,j) &
-                          + vec_in_y(i,5,k) * Mat_tr(5,j) &
-                          + vec_in_y(i,6,k) * Mat_tr(6,j) &
-                          + vec_in_y(i,7,k) * Mat_tr(7,j) &
-                          + vec_in_y(i,8,k) * Mat_tr(8,j) &
-                          + vec_in_y(i,9,k) * Mat_tr(9,j) 
+        tmp1 = vec_in_y(i,1,k) * Mat_tr(1,j) &
+             + vec_in_y(i,2,k) * Mat_tr(2,j) &
+             + vec_in_y(i,3,k) * Mat_tr(3,j) 
+        tmp2 = vec_in_y(i,4,k) * Mat_tr(4,j) &
+             + vec_in_y(i,5,k) * Mat_tr(5,j) &
+             + vec_in_y(i,6,k) * Mat_tr(6,j) 
+        tmp3 = vec_in_y(i,7,k) * Mat_tr(7,j) &
+             + vec_in_y(i,8,k) * Mat_tr(8,j) &
+             + vec_in_y(i,9,k) * Mat_tr(9,j) 
+      vec_out_y(i,jk) = tmp1 + tmp2 + tmp3
       end do
     end do
     end do
@@ -2121,29 +2448,96 @@ contains
     do j=1, 9
       jk = j + (k-1)*9
       do i=1, 9
-          vec_out_z(i,jk) = vec_in_z(i,j,1) * Mat_tr(1,k) &
-                          + vec_in_z(i,j,2) * Mat_tr(2,k) &
-                          + vec_in_z(i,j,3) * Mat_tr(3,k) &
-                          + vec_in_z(i,j,4) * Mat_tr(4,k) &
-                          + vec_in_z(i,j,5) * Mat_tr(5,k) &
-                          + vec_in_z(i,j,6) * Mat_tr(6,k) &
-                          + vec_in_z(i,j,7) * Mat_tr(7,k) &
-                          + vec_in_z(i,j,8) * Mat_tr(8,k) &
-                          + vec_in_z(i,j,9) * Mat_tr(9,k) 
+        tmp1 = vec_in_z(i,j,1) * Mat_tr(1,k) &
+             + vec_in_z(i,j,2) * Mat_tr(2,k) &
+             + vec_in_z(i,j,3) * Mat_tr(3,k) 
+        tmp2 = vec_in_z(i,j,4) * Mat_tr(4,k) &
+             + vec_in_z(i,j,5) * Mat_tr(5,k) &
+             + vec_in_z(i,j,6) * Mat_tr(6,k) 
+        tmp3 = vec_in_z(i,j,7) * Mat_tr(7,k) &
+             + vec_in_z(i,j,8) * Mat_tr(8,k) &
+             + vec_in_z(i,j,9) * Mat_tr(9,k) 
+      vec_out_z(i,jk) = tmp1 + tmp2 + tmp3
       end do
     end do
     end do
-
-    do jk=1, 9**2
-    do i=1, 9
-        vec_out(i,jk) = sign_ * (  Escale(1,i,jk) * vec_out_x(i,jk) + Escale(2,i,jk) * vec_out_y(i,jk) + Escale(3,i,jk) * vec_out_z(i,jk) &
-                                 + vec_in_lift(i,jk) ) / Gsqrt(i,jk)
-    end do
-    end do
-          
     return
   end subroutine element_operation_kernel_matvec_divlike_dirXYZ_P8
 
+!> Calculate a matrix-vector multiplication associated with 3D modal filtering with p=8
+!!
+!OCL SERIAL
+  subroutine element_operation_kernel_matvec_ModalFilter_P8( Mat_h1D, Mat_h1D_tr, Mat_v1D_tr, vec_in, vec_work, &
+    vec_out  )
+    implicit none
+    real(RP), intent(in) :: Mat_h1D(9,9)
+    real(RP), intent(in) :: Mat_h1D_tr(9,9)
+    real(RP), intent(in) :: Mat_v1D_tr(9,9)
+    real(RP), intent(in) :: vec_in(9,9,9)
+    real(RP), intent(out) :: vec_work(9,9,9)
+    real(RP), intent(out) :: vec_out(9,9,9)
+
+    integer :: i, j, k
+    real(RP) :: tmp1, tmp2, tmp3
+    !----------------------------------------------------------
+
+    ! X-dir
+
+    do k=1, 9
+    do j=1, 9
+    do i=1, 9
+      tmp1 = Mat_h1D(i,1) * vec_in(1,j,k) &
+           + Mat_h1D(i,2) * vec_in(2,j,k) &
+           + Mat_h1D(i,3) * vec_in(3,j,k)
+      tmp2 = Mat_h1D(i,4) * vec_in(4,j,k) &
+           + Mat_h1D(i,5) * vec_in(5,j,k) &
+           + Mat_h1D(i,6) * vec_in(6,j,k)
+      tmp3 = Mat_h1D(i,7) * vec_in(7,j,k) &
+           + Mat_h1D(i,8) * vec_in(8,j,k) &
+           + Mat_h1D(i,9) * vec_in(9,j,k)
+      vec_out(i,j,k) = tmp1 + tmp2 + tmp3
+    end do
+    end do
+    end do
+    
+    ! Y-dir
+    do k=1, 9
+    do j=1, 9
+    do i=1, 9
+      tmp1 = vec_out(i,1,k) * Mat_h1D_tr(1,j) &
+           + vec_out(i,2,k) * Mat_h1D_tr(2,j) &
+           + vec_out(i,3,k) * Mat_h1D_tr(3,j) 
+      tmp2 = vec_out(i,4,k) * Mat_h1D_tr(4,j) &
+           + vec_out(i,5,k) * Mat_h1D_tr(5,j) &
+           + vec_out(i,6,k) * Mat_h1D_tr(6,j) 
+      tmp3 = vec_out(i,7,k) * Mat_h1D_tr(7,j) &
+           + vec_out(i,8,k) * Mat_h1D_tr(8,j) &
+           + vec_out(i,9,k) * Mat_h1D_tr(9,j) 
+      vec_work(i,j,k) = tmp1 + tmp2 + tmp3
+    end do
+    end do
+    end do
+    
+    ! Z-dir
+    do k=1, 9
+    do j=1, 9
+    do i=1, 9
+      tmp1 = vec_work(i,j,1) * Mat_v1D_tr(1,k) &
+           + vec_work(i,j,2) * Mat_v1D_tr(2,k) &
+           + vec_work(i,j,3) * Mat_v1D_tr(3,k) 
+      tmp2 = vec_work(i,j,4) * Mat_v1D_tr(4,k) &
+           + vec_work(i,j,5) * Mat_v1D_tr(5,k) &
+           + vec_work(i,j,6) * Mat_v1D_tr(6,k) 
+      tmp3 = vec_work(i,j,7) * Mat_v1D_tr(7,k) &
+           + vec_work(i,j,8) * Mat_v1D_tr(8,k) &
+           + vec_work(i,j,9) * Mat_v1D_tr(9,k) 
+      vec_out(i,j,k) = tmp1 + tmp2 + tmp3
+    end do
+    end do
+    end do
+
+    return
+  end subroutine element_operation_kernel_matvec_ModalFilter_P8
 
 !--- For p=9 ------------------------------------
 
@@ -2352,40 +2746,37 @@ contains
 !!
 !OCL SERIAL
   subroutine element_operation_kernel_matvec_divlike_dirXYZ_P9( &
-    Mat, Mat_tr, vec_in_x, vec_in_y, vec_in_z, Escale, Gsqrt, vec_in_lift, sign_, &
-    vec_out_x, vec_out_y, vec_out_z, vec_out  )
+    Mat, Mat_tr, vec_in_x, vec_in_y, vec_in_z, &
+    vec_out_x, vec_out_y, vec_out_z  )
     implicit none
     real(RP), intent(in) :: Mat(10,10)
     real(RP), intent(in) :: Mat_tr(10,10)
     real(RP), intent(in) :: vec_in_x(10,10**2)
     real(RP), intent(in) :: vec_in_y(10,10,10)
     real(RP), intent(in) :: vec_in_z(10,10,10)
-    real(RP), intent(in) :: Escale(3,10,10**2)
-    real(RP), intent(in) :: Gsqrt(10,10**2)
-    real(RP), intent(in) :: vec_in_lift(10,10**2)
-    real(RP), intent(in) :: sign_
     real(RP), intent(out) :: vec_out_x(10,10**2)
     real(RP), intent(out) :: vec_out_y(10,10**2)
     real(RP), intent(out) :: vec_out_z(10,10**2)
-    real(RP), intent(out) :: vec_out(10,10**2)
 
     integer :: i, j, k, jk
+    real(RP) :: tmp1, tmp2, tmp3
     !----------------------------------------------------------
 
     ! X-dir
 
     do jk=1, 10**2
     do i=1, 10
-        vec_out_x(i,jk) = Mat(i,1) * vec_in_x(1,jk) &
-                        + Mat(i,2) * vec_in_x(2,jk) &
-                        + Mat(i,3) * vec_in_x(3,jk) &
-                        + Mat(i,4) * vec_in_x(4,jk) &
-                        + Mat(i,5) * vec_in_x(5,jk) &
-                        + Mat(i,6) * vec_in_x(6,jk) &
-                        + Mat(i,7) * vec_in_x(7,jk) &
-                        + Mat(i,8) * vec_in_x(8,jk) &
-                        + Mat(i,9) * vec_in_x(9,jk) &
-                        + Mat(i,10) * vec_in_x(10,jk)
+      tmp1 = Mat(i,1) * vec_in_x(1,jk) &
+           + Mat(i,2) * vec_in_x(2,jk) &
+           + Mat(i,3) * vec_in_x(3,jk)
+      tmp2 = Mat(i,4) * vec_in_x(4,jk) &
+           + Mat(i,5) * vec_in_x(5,jk) &
+           + Mat(i,6) * vec_in_x(6,jk)
+      tmp3 = Mat(i,7) * vec_in_x(7,jk) &
+           + Mat(i,8) * vec_in_x(8,jk) &
+           + Mat(i,9) * vec_in_x(9,jk) &
+           + Mat(i,10) * vec_in_x(10,jk)
+      vec_out_x(i,jk) = tmp1 + tmp2 + tmp3
     end do
     end do
 
@@ -2394,16 +2785,17 @@ contains
     do j=1, 10
       jk = j + (k-1)*10
       do i=1, 10
-          vec_out_y(i,jk) = vec_in_y(i,1,k) * Mat_tr(1,j) &
-                          + vec_in_y(i,2,k) * Mat_tr(2,j) &
-                          + vec_in_y(i,3,k) * Mat_tr(3,j) &
-                          + vec_in_y(i,4,k) * Mat_tr(4,j) &
-                          + vec_in_y(i,5,k) * Mat_tr(5,j) &
-                          + vec_in_y(i,6,k) * Mat_tr(6,j) &
-                          + vec_in_y(i,7,k) * Mat_tr(7,j) &
-                          + vec_in_y(i,8,k) * Mat_tr(8,j) &
-                          + vec_in_y(i,9,k) * Mat_tr(9,j) &
-                          + vec_in_y(i,10,k) * Mat_tr(10,j) 
+        tmp1 = vec_in_y(i,1,k) * Mat_tr(1,j) &
+             + vec_in_y(i,2,k) * Mat_tr(2,j) &
+             + vec_in_y(i,3,k) * Mat_tr(3,j) 
+        tmp2 = vec_in_y(i,4,k) * Mat_tr(4,j) &
+             + vec_in_y(i,5,k) * Mat_tr(5,j) &
+             + vec_in_y(i,6,k) * Mat_tr(6,j) 
+        tmp3 = vec_in_y(i,7,k) * Mat_tr(7,j) &
+             + vec_in_y(i,8,k) * Mat_tr(8,j) &
+             + vec_in_y(i,9,k) * Mat_tr(9,j) &
+             + vec_in_y(i,10,k) * Mat_tr(10,j) 
+      vec_out_y(i,jk) = tmp1 + tmp2 + tmp3
       end do
     end do
     end do
@@ -2413,30 +2805,100 @@ contains
     do j=1, 10
       jk = j + (k-1)*10
       do i=1, 10
-          vec_out_z(i,jk) = vec_in_z(i,j,1) * Mat_tr(1,k) &
-                          + vec_in_z(i,j,2) * Mat_tr(2,k) &
-                          + vec_in_z(i,j,3) * Mat_tr(3,k) &
-                          + vec_in_z(i,j,4) * Mat_tr(4,k) &
-                          + vec_in_z(i,j,5) * Mat_tr(5,k) &
-                          + vec_in_z(i,j,6) * Mat_tr(6,k) &
-                          + vec_in_z(i,j,7) * Mat_tr(7,k) &
-                          + vec_in_z(i,j,8) * Mat_tr(8,k) &
-                          + vec_in_z(i,j,9) * Mat_tr(9,k) &
-                          + vec_in_z(i,j,10) * Mat_tr(10,k) 
+        tmp1 = vec_in_z(i,j,1) * Mat_tr(1,k) &
+             + vec_in_z(i,j,2) * Mat_tr(2,k) &
+             + vec_in_z(i,j,3) * Mat_tr(3,k) 
+        tmp2 = vec_in_z(i,j,4) * Mat_tr(4,k) &
+             + vec_in_z(i,j,5) * Mat_tr(5,k) &
+             + vec_in_z(i,j,6) * Mat_tr(6,k) 
+        tmp3 = vec_in_z(i,j,7) * Mat_tr(7,k) &
+             + vec_in_z(i,j,8) * Mat_tr(8,k) &
+             + vec_in_z(i,j,9) * Mat_tr(9,k) &
+             + vec_in_z(i,j,10) * Mat_tr(10,k) 
+      vec_out_z(i,jk) = tmp1 + tmp2 + tmp3
       end do
     end do
     end do
-
-    do jk=1, 10**2
-    do i=1, 10
-        vec_out(i,jk) = sign_ * (  Escale(1,i,jk) * vec_out_x(i,jk) + Escale(2,i,jk) * vec_out_y(i,jk) + Escale(3,i,jk) * vec_out_z(i,jk) &
-                                 + vec_in_lift(i,jk) ) / Gsqrt(i,jk)
-    end do
-    end do
-          
     return
   end subroutine element_operation_kernel_matvec_divlike_dirXYZ_P9
 
+!> Calculate a matrix-vector multiplication associated with 3D modal filtering with p=9
+!!
+!OCL SERIAL
+  subroutine element_operation_kernel_matvec_ModalFilter_P9( Mat_h1D, Mat_h1D_tr, Mat_v1D_tr, vec_in, vec_work, &
+    vec_out  )
+    implicit none
+    real(RP), intent(in) :: Mat_h1D(10,10)
+    real(RP), intent(in) :: Mat_h1D_tr(10,10)
+    real(RP), intent(in) :: Mat_v1D_tr(10,10)
+    real(RP), intent(in) :: vec_in(10,10,10)
+    real(RP), intent(out) :: vec_work(10,10,10)
+    real(RP), intent(out) :: vec_out(10,10,10)
+
+    integer :: i, j, k
+    real(RP) :: tmp1, tmp2, tmp3
+    !----------------------------------------------------------
+
+    ! X-dir
+
+    do k=1, 10
+    do j=1, 10
+    do i=1, 10
+      tmp1 = Mat_h1D(i,1) * vec_in(1,j,k) &
+           + Mat_h1D(i,2) * vec_in(2,j,k) &
+           + Mat_h1D(i,3) * vec_in(3,j,k)
+      tmp2 = Mat_h1D(i,4) * vec_in(4,j,k) &
+           + Mat_h1D(i,5) * vec_in(5,j,k) &
+           + Mat_h1D(i,6) * vec_in(6,j,k)
+      tmp3 = Mat_h1D(i,7) * vec_in(7,j,k) &
+           + Mat_h1D(i,8) * vec_in(8,j,k) &
+           + Mat_h1D(i,9) * vec_in(9,j,k) &
+           + Mat_h1D(i,10) * vec_in(10,j,k)
+      vec_out(i,j,k) = tmp1 + tmp2 + tmp3
+    end do
+    end do
+    end do
+    
+    ! Y-dir
+    do k=1, 10
+    do j=1, 10
+    do i=1, 10
+      tmp1 = vec_out(i,1,k) * Mat_h1D_tr(1,j) &
+           + vec_out(i,2,k) * Mat_h1D_tr(2,j) &
+           + vec_out(i,3,k) * Mat_h1D_tr(3,j) 
+      tmp2 = vec_out(i,4,k) * Mat_h1D_tr(4,j) &
+           + vec_out(i,5,k) * Mat_h1D_tr(5,j) &
+           + vec_out(i,6,k) * Mat_h1D_tr(6,j) 
+      tmp3 = vec_out(i,7,k) * Mat_h1D_tr(7,j) &
+           + vec_out(i,8,k) * Mat_h1D_tr(8,j) &
+           + vec_out(i,9,k) * Mat_h1D_tr(9,j) &
+           + vec_out(i,10,k) * Mat_h1D_tr(10,j) 
+      vec_work(i,j,k) = tmp1 + tmp2 + tmp3
+    end do
+    end do
+    end do
+    
+    ! Z-dir
+    do k=1, 10
+    do j=1, 10
+    do i=1, 10
+      tmp1 = vec_work(i,j,1) * Mat_v1D_tr(1,k) &
+           + vec_work(i,j,2) * Mat_v1D_tr(2,k) &
+           + vec_work(i,j,3) * Mat_v1D_tr(3,k) 
+      tmp2 = vec_work(i,j,4) * Mat_v1D_tr(4,k) &
+           + vec_work(i,j,5) * Mat_v1D_tr(5,k) &
+           + vec_work(i,j,6) * Mat_v1D_tr(6,k) 
+      tmp3 = vec_work(i,j,7) * Mat_v1D_tr(7,k) &
+           + vec_work(i,j,8) * Mat_v1D_tr(8,k) &
+           + vec_work(i,j,9) * Mat_v1D_tr(9,k) &
+           + vec_work(i,j,10) * Mat_v1D_tr(10,k) 
+      vec_out(i,j,k) = tmp1 + tmp2 + tmp3
+    end do
+    end do
+    end do
+
+    return
+  end subroutine element_operation_kernel_matvec_ModalFilter_P9
 
 !--- For p=10 ------------------------------------
 
@@ -2651,41 +3113,38 @@ contains
 !!
 !OCL SERIAL
   subroutine element_operation_kernel_matvec_divlike_dirXYZ_P10( &
-    Mat, Mat_tr, vec_in_x, vec_in_y, vec_in_z, Escale, Gsqrt, vec_in_lift, sign_, &
-    vec_out_x, vec_out_y, vec_out_z, vec_out  )
+    Mat, Mat_tr, vec_in_x, vec_in_y, vec_in_z, &
+    vec_out_x, vec_out_y, vec_out_z  )
     implicit none
     real(RP), intent(in) :: Mat(11,11)
     real(RP), intent(in) :: Mat_tr(11,11)
     real(RP), intent(in) :: vec_in_x(11,11**2)
     real(RP), intent(in) :: vec_in_y(11,11,11)
     real(RP), intent(in) :: vec_in_z(11,11,11)
-    real(RP), intent(in) :: Escale(3,11,11**2)
-    real(RP), intent(in) :: Gsqrt(11,11**2)
-    real(RP), intent(in) :: vec_in_lift(11,11**2)
-    real(RP), intent(in) :: sign_
     real(RP), intent(out) :: vec_out_x(11,11**2)
     real(RP), intent(out) :: vec_out_y(11,11**2)
     real(RP), intent(out) :: vec_out_z(11,11**2)
-    real(RP), intent(out) :: vec_out(11,11**2)
 
     integer :: i, j, k, jk
+    real(RP) :: tmp1, tmp2, tmp3
     !----------------------------------------------------------
 
     ! X-dir
 
     do jk=1, 11**2
     do i=1, 11
-        vec_out_x(i,jk) = Mat(i,1) * vec_in_x(1,jk) &
-                        + Mat(i,2) * vec_in_x(2,jk) &
-                        + Mat(i,3) * vec_in_x(3,jk) &
-                        + Mat(i,4) * vec_in_x(4,jk) &
-                        + Mat(i,5) * vec_in_x(5,jk) &
-                        + Mat(i,6) * vec_in_x(6,jk) &
-                        + Mat(i,7) * vec_in_x(7,jk) &
-                        + Mat(i,8) * vec_in_x(8,jk) &
-                        + Mat(i,9) * vec_in_x(9,jk) &
-                        + Mat(i,10) * vec_in_x(10,jk) &
-                        + Mat(i,11) * vec_in_x(11,jk)
+      tmp1 = Mat(i,1) * vec_in_x(1,jk) &
+           + Mat(i,2) * vec_in_x(2,jk) &
+           + Mat(i,3) * vec_in_x(3,jk) &
+           + Mat(i,4) * vec_in_x(4,jk)
+      tmp2 = Mat(i,5) * vec_in_x(5,jk) &
+           + Mat(i,6) * vec_in_x(6,jk) &
+           + Mat(i,7) * vec_in_x(7,jk) &
+           + Mat(i,8) * vec_in_x(8,jk)
+      tmp3 = Mat(i,9) * vec_in_x(9,jk) &
+           + Mat(i,10) * vec_in_x(10,jk) &
+           + Mat(i,11) * vec_in_x(11,jk)
+      vec_out_x(i,jk) = tmp1 + tmp2 + tmp3
     end do
     end do
 
@@ -2694,17 +3153,18 @@ contains
     do j=1, 11
       jk = j + (k-1)*11
       do i=1, 11
-          vec_out_y(i,jk) = vec_in_y(i,1,k) * Mat_tr(1,j) &
-                          + vec_in_y(i,2,k) * Mat_tr(2,j) &
-                          + vec_in_y(i,3,k) * Mat_tr(3,j) &
-                          + vec_in_y(i,4,k) * Mat_tr(4,j) &
-                          + vec_in_y(i,5,k) * Mat_tr(5,j) &
-                          + vec_in_y(i,6,k) * Mat_tr(6,j) &
-                          + vec_in_y(i,7,k) * Mat_tr(7,j) &
-                          + vec_in_y(i,8,k) * Mat_tr(8,j) &
-                          + vec_in_y(i,9,k) * Mat_tr(9,j) &
-                          + vec_in_y(i,10,k) * Mat_tr(10,j) &
-                          + vec_in_y(i,11,k) * Mat_tr(11,j) 
+        tmp1 = vec_in_y(i,1,k) * Mat_tr(1,j) &
+             + vec_in_y(i,2,k) * Mat_tr(2,j) &
+             + vec_in_y(i,3,k) * Mat_tr(3,j) &
+             + vec_in_y(i,4,k) * Mat_tr(4,j) 
+        tmp2 = vec_in_y(i,5,k) * Mat_tr(5,j) &
+             + vec_in_y(i,6,k) * Mat_tr(6,j) &
+             + vec_in_y(i,7,k) * Mat_tr(7,j) &
+             + vec_in_y(i,8,k) * Mat_tr(8,j) 
+        tmp3 = vec_in_y(i,9,k) * Mat_tr(9,j) &
+             + vec_in_y(i,10,k) * Mat_tr(10,j) &
+             + vec_in_y(i,11,k) * Mat_tr(11,j) 
+      vec_out_y(i,jk) = tmp1 + tmp2 + tmp3
       end do
     end do
     end do
@@ -2714,31 +3174,104 @@ contains
     do j=1, 11
       jk = j + (k-1)*11
       do i=1, 11
-          vec_out_z(i,jk) = vec_in_z(i,j,1) * Mat_tr(1,k) &
-                          + vec_in_z(i,j,2) * Mat_tr(2,k) &
-                          + vec_in_z(i,j,3) * Mat_tr(3,k) &
-                          + vec_in_z(i,j,4) * Mat_tr(4,k) &
-                          + vec_in_z(i,j,5) * Mat_tr(5,k) &
-                          + vec_in_z(i,j,6) * Mat_tr(6,k) &
-                          + vec_in_z(i,j,7) * Mat_tr(7,k) &
-                          + vec_in_z(i,j,8) * Mat_tr(8,k) &
-                          + vec_in_z(i,j,9) * Mat_tr(9,k) &
-                          + vec_in_z(i,j,10) * Mat_tr(10,k) &
-                          + vec_in_z(i,j,11) * Mat_tr(11,k) 
+        tmp1 = vec_in_z(i,j,1) * Mat_tr(1,k) &
+             + vec_in_z(i,j,2) * Mat_tr(2,k) &
+             + vec_in_z(i,j,3) * Mat_tr(3,k) &
+             + vec_in_z(i,j,4) * Mat_tr(4,k) 
+        tmp2 = vec_in_z(i,j,5) * Mat_tr(5,k) &
+             + vec_in_z(i,j,6) * Mat_tr(6,k) &
+             + vec_in_z(i,j,7) * Mat_tr(7,k) &
+             + vec_in_z(i,j,8) * Mat_tr(8,k) 
+        tmp3 = vec_in_z(i,j,9) * Mat_tr(9,k) &
+             + vec_in_z(i,j,10) * Mat_tr(10,k) &
+             + vec_in_z(i,j,11) * Mat_tr(11,k) 
+      vec_out_z(i,jk) = tmp1 + tmp2 + tmp3
       end do
     end do
     end do
-
-    do jk=1, 11**2
-    do i=1, 11
-        vec_out(i,jk) = sign_ * (  Escale(1,i,jk) * vec_out_x(i,jk) + Escale(2,i,jk) * vec_out_y(i,jk) + Escale(3,i,jk) * vec_out_z(i,jk) &
-                                 + vec_in_lift(i,jk) ) / Gsqrt(i,jk)
-    end do
-    end do
-          
     return
   end subroutine element_operation_kernel_matvec_divlike_dirXYZ_P10
 
+!> Calculate a matrix-vector multiplication associated with 3D modal filtering with p=10
+!!
+!OCL SERIAL
+  subroutine element_operation_kernel_matvec_ModalFilter_P10( Mat_h1D, Mat_h1D_tr, Mat_v1D_tr, vec_in, vec_work, &
+    vec_out  )
+    implicit none
+    real(RP), intent(in) :: Mat_h1D(11,11)
+    real(RP), intent(in) :: Mat_h1D_tr(11,11)
+    real(RP), intent(in) :: Mat_v1D_tr(11,11)
+    real(RP), intent(in) :: vec_in(11,11,11)
+    real(RP), intent(out) :: vec_work(11,11,11)
+    real(RP), intent(out) :: vec_out(11,11,11)
+
+    integer :: i, j, k
+    real(RP) :: tmp1, tmp2, tmp3
+    !----------------------------------------------------------
+
+    ! X-dir
+
+    do k=1, 11
+    do j=1, 11
+    do i=1, 11
+      tmp1 = Mat_h1D(i,1) * vec_in(1,j,k) &
+           + Mat_h1D(i,2) * vec_in(2,j,k) &
+           + Mat_h1D(i,3) * vec_in(3,j,k) &
+           + Mat_h1D(i,4) * vec_in(4,j,k)
+      tmp2 = Mat_h1D(i,5) * vec_in(5,j,k) &
+           + Mat_h1D(i,6) * vec_in(6,j,k) &
+           + Mat_h1D(i,7) * vec_in(7,j,k) &
+           + Mat_h1D(i,8) * vec_in(8,j,k)
+      tmp3 = Mat_h1D(i,9) * vec_in(9,j,k) &
+           + Mat_h1D(i,10) * vec_in(10,j,k) &
+           + Mat_h1D(i,11) * vec_in(11,j,k)
+      vec_out(i,j,k) = tmp1 + tmp2 + tmp3
+    end do
+    end do
+    end do
+    
+    ! Y-dir
+    do k=1, 11
+    do j=1, 11
+    do i=1, 11
+      tmp1 = vec_out(i,1,k) * Mat_h1D_tr(1,j) &
+           + vec_out(i,2,k) * Mat_h1D_tr(2,j) &
+           + vec_out(i,3,k) * Mat_h1D_tr(3,j) &
+           + vec_out(i,4,k) * Mat_h1D_tr(4,j) 
+      tmp2 = vec_out(i,5,k) * Mat_h1D_tr(5,j) &
+           + vec_out(i,6,k) * Mat_h1D_tr(6,j) &
+           + vec_out(i,7,k) * Mat_h1D_tr(7,j) &
+           + vec_out(i,8,k) * Mat_h1D_tr(8,j) 
+      tmp3 = vec_out(i,9,k) * Mat_h1D_tr(9,j) &
+           + vec_out(i,10,k) * Mat_h1D_tr(10,j) &
+           + vec_out(i,11,k) * Mat_h1D_tr(11,j) 
+      vec_work(i,j,k) = tmp1 + tmp2 + tmp3
+    end do
+    end do
+    end do
+    
+    ! Z-dir
+    do k=1, 11
+    do j=1, 11
+    do i=1, 11
+      tmp1 = vec_work(i,j,1) * Mat_v1D_tr(1,k) &
+           + vec_work(i,j,2) * Mat_v1D_tr(2,k) &
+           + vec_work(i,j,3) * Mat_v1D_tr(3,k) &
+           + vec_work(i,j,4) * Mat_v1D_tr(4,k) 
+      tmp2 = vec_work(i,j,5) * Mat_v1D_tr(5,k) &
+           + vec_work(i,j,6) * Mat_v1D_tr(6,k) &
+           + vec_work(i,j,7) * Mat_v1D_tr(7,k) &
+           + vec_work(i,j,8) * Mat_v1D_tr(8,k) 
+      tmp3 = vec_work(i,j,9) * Mat_v1D_tr(9,k) &
+           + vec_work(i,j,10) * Mat_v1D_tr(10,k) &
+           + vec_work(i,j,11) * Mat_v1D_tr(11,k) 
+      vec_out(i,j,k) = tmp1 + tmp2 + tmp3
+    end do
+    end do
+    end do
+
+    return
+  end subroutine element_operation_kernel_matvec_ModalFilter_P10
 
 !--- For p=11 ------------------------------------
 
@@ -2959,42 +3492,39 @@ contains
 !!
 !OCL SERIAL
   subroutine element_operation_kernel_matvec_divlike_dirXYZ_P11( &
-    Mat, Mat_tr, vec_in_x, vec_in_y, vec_in_z, Escale, Gsqrt, vec_in_lift, sign_, &
-    vec_out_x, vec_out_y, vec_out_z, vec_out  )
+    Mat, Mat_tr, vec_in_x, vec_in_y, vec_in_z, &
+    vec_out_x, vec_out_y, vec_out_z  )
     implicit none
     real(RP), intent(in) :: Mat(12,12)
     real(RP), intent(in) :: Mat_tr(12,12)
     real(RP), intent(in) :: vec_in_x(12,12**2)
     real(RP), intent(in) :: vec_in_y(12,12,12)
     real(RP), intent(in) :: vec_in_z(12,12,12)
-    real(RP), intent(in) :: Escale(3,12,12**2)
-    real(RP), intent(in) :: Gsqrt(12,12**2)
-    real(RP), intent(in) :: vec_in_lift(12,12**2)
-    real(RP), intent(in) :: sign_
     real(RP), intent(out) :: vec_out_x(12,12**2)
     real(RP), intent(out) :: vec_out_y(12,12**2)
     real(RP), intent(out) :: vec_out_z(12,12**2)
-    real(RP), intent(out) :: vec_out(12,12**2)
 
     integer :: i, j, k, jk
+    real(RP) :: tmp1, tmp2, tmp3
     !----------------------------------------------------------
 
     ! X-dir
 
     do jk=1, 12**2
     do i=1, 12
-        vec_out_x(i,jk) = Mat(i,1) * vec_in_x(1,jk) &
-                        + Mat(i,2) * vec_in_x(2,jk) &
-                        + Mat(i,3) * vec_in_x(3,jk) &
-                        + Mat(i,4) * vec_in_x(4,jk) &
-                        + Mat(i,5) * vec_in_x(5,jk) &
-                        + Mat(i,6) * vec_in_x(6,jk) &
-                        + Mat(i,7) * vec_in_x(7,jk) &
-                        + Mat(i,8) * vec_in_x(8,jk) &
-                        + Mat(i,9) * vec_in_x(9,jk) &
-                        + Mat(i,10) * vec_in_x(10,jk) &
-                        + Mat(i,11) * vec_in_x(11,jk) &
-                        + Mat(i,12) * vec_in_x(12,jk)
+      tmp1 = Mat(i,1) * vec_in_x(1,jk) &
+           + Mat(i,2) * vec_in_x(2,jk) &
+           + Mat(i,3) * vec_in_x(3,jk) &
+           + Mat(i,4) * vec_in_x(4,jk)
+      tmp2 = Mat(i,5) * vec_in_x(5,jk) &
+           + Mat(i,6) * vec_in_x(6,jk) &
+           + Mat(i,7) * vec_in_x(7,jk) &
+           + Mat(i,8) * vec_in_x(8,jk)
+      tmp3 = Mat(i,9) * vec_in_x(9,jk) &
+           + Mat(i,10) * vec_in_x(10,jk) &
+           + Mat(i,11) * vec_in_x(11,jk) &
+           + Mat(i,12) * vec_in_x(12,jk)
+      vec_out_x(i,jk) = tmp1 + tmp2 + tmp3
     end do
     end do
 
@@ -3003,18 +3533,19 @@ contains
     do j=1, 12
       jk = j + (k-1)*12
       do i=1, 12
-          vec_out_y(i,jk) = vec_in_y(i,1,k) * Mat_tr(1,j) &
-                          + vec_in_y(i,2,k) * Mat_tr(2,j) &
-                          + vec_in_y(i,3,k) * Mat_tr(3,j) &
-                          + vec_in_y(i,4,k) * Mat_tr(4,j) &
-                          + vec_in_y(i,5,k) * Mat_tr(5,j) &
-                          + vec_in_y(i,6,k) * Mat_tr(6,j) &
-                          + vec_in_y(i,7,k) * Mat_tr(7,j) &
-                          + vec_in_y(i,8,k) * Mat_tr(8,j) &
-                          + vec_in_y(i,9,k) * Mat_tr(9,j) &
-                          + vec_in_y(i,10,k) * Mat_tr(10,j) &
-                          + vec_in_y(i,11,k) * Mat_tr(11,j) &
-                          + vec_in_y(i,12,k) * Mat_tr(12,j) 
+        tmp1 = vec_in_y(i,1,k) * Mat_tr(1,j) &
+             + vec_in_y(i,2,k) * Mat_tr(2,j) &
+             + vec_in_y(i,3,k) * Mat_tr(3,j) &
+             + vec_in_y(i,4,k) * Mat_tr(4,j) 
+        tmp2 = vec_in_y(i,5,k) * Mat_tr(5,j) &
+             + vec_in_y(i,6,k) * Mat_tr(6,j) &
+             + vec_in_y(i,7,k) * Mat_tr(7,j) &
+             + vec_in_y(i,8,k) * Mat_tr(8,j) 
+        tmp3 = vec_in_y(i,9,k) * Mat_tr(9,j) &
+             + vec_in_y(i,10,k) * Mat_tr(10,j) &
+             + vec_in_y(i,11,k) * Mat_tr(11,j) &
+             + vec_in_y(i,12,k) * Mat_tr(12,j) 
+      vec_out_y(i,jk) = tmp1 + tmp2 + tmp3
       end do
     end do
     end do
@@ -3024,32 +3555,108 @@ contains
     do j=1, 12
       jk = j + (k-1)*12
       do i=1, 12
-          vec_out_z(i,jk) = vec_in_z(i,j,1) * Mat_tr(1,k) &
-                          + vec_in_z(i,j,2) * Mat_tr(2,k) &
-                          + vec_in_z(i,j,3) * Mat_tr(3,k) &
-                          + vec_in_z(i,j,4) * Mat_tr(4,k) &
-                          + vec_in_z(i,j,5) * Mat_tr(5,k) &
-                          + vec_in_z(i,j,6) * Mat_tr(6,k) &
-                          + vec_in_z(i,j,7) * Mat_tr(7,k) &
-                          + vec_in_z(i,j,8) * Mat_tr(8,k) &
-                          + vec_in_z(i,j,9) * Mat_tr(9,k) &
-                          + vec_in_z(i,j,10) * Mat_tr(10,k) &
-                          + vec_in_z(i,j,11) * Mat_tr(11,k) &
-                          + vec_in_z(i,j,12) * Mat_tr(12,k) 
+        tmp1 = vec_in_z(i,j,1) * Mat_tr(1,k) &
+             + vec_in_z(i,j,2) * Mat_tr(2,k) &
+             + vec_in_z(i,j,3) * Mat_tr(3,k) &
+             + vec_in_z(i,j,4) * Mat_tr(4,k) 
+        tmp2 = vec_in_z(i,j,5) * Mat_tr(5,k) &
+             + vec_in_z(i,j,6) * Mat_tr(6,k) &
+             + vec_in_z(i,j,7) * Mat_tr(7,k) &
+             + vec_in_z(i,j,8) * Mat_tr(8,k) 
+        tmp3 = vec_in_z(i,j,9) * Mat_tr(9,k) &
+             + vec_in_z(i,j,10) * Mat_tr(10,k) &
+             + vec_in_z(i,j,11) * Mat_tr(11,k) &
+             + vec_in_z(i,j,12) * Mat_tr(12,k) 
+      vec_out_z(i,jk) = tmp1 + tmp2 + tmp3
       end do
     end do
     end do
-
-    do jk=1, 12**2
-    do i=1, 12
-        vec_out(i,jk) = sign_ * (  Escale(1,i,jk) * vec_out_x(i,jk) + Escale(2,i,jk) * vec_out_y(i,jk) + Escale(3,i,jk) * vec_out_z(i,jk) &
-                                 + vec_in_lift(i,jk) ) / Gsqrt(i,jk)
-    end do
-    end do
-          
     return
   end subroutine element_operation_kernel_matvec_divlike_dirXYZ_P11
 
+!> Calculate a matrix-vector multiplication associated with 3D modal filtering with p=11
+!!
+!OCL SERIAL
+  subroutine element_operation_kernel_matvec_ModalFilter_P11( Mat_h1D, Mat_h1D_tr, Mat_v1D_tr, vec_in, vec_work, &
+    vec_out  )
+    implicit none
+    real(RP), intent(in) :: Mat_h1D(12,12)
+    real(RP), intent(in) :: Mat_h1D_tr(12,12)
+    real(RP), intent(in) :: Mat_v1D_tr(12,12)
+    real(RP), intent(in) :: vec_in(12,12,12)
+    real(RP), intent(out) :: vec_work(12,12,12)
+    real(RP), intent(out) :: vec_out(12,12,12)
+
+    integer :: i, j, k
+    real(RP) :: tmp1, tmp2, tmp3
+    !----------------------------------------------------------
+
+    ! X-dir
+
+    do k=1, 12
+    do j=1, 12
+    do i=1, 12
+      tmp1 = Mat_h1D(i,1) * vec_in(1,j,k) &
+           + Mat_h1D(i,2) * vec_in(2,j,k) &
+           + Mat_h1D(i,3) * vec_in(3,j,k) &
+           + Mat_h1D(i,4) * vec_in(4,j,k)
+      tmp2 = Mat_h1D(i,5) * vec_in(5,j,k) &
+           + Mat_h1D(i,6) * vec_in(6,j,k) &
+           + Mat_h1D(i,7) * vec_in(7,j,k) &
+           + Mat_h1D(i,8) * vec_in(8,j,k)
+      tmp3 = Mat_h1D(i,9) * vec_in(9,j,k) &
+           + Mat_h1D(i,10) * vec_in(10,j,k) &
+           + Mat_h1D(i,11) * vec_in(11,j,k) &
+           + Mat_h1D(i,12) * vec_in(12,j,k)
+      vec_out(i,j,k) = tmp1 + tmp2 + tmp3
+    end do
+    end do
+    end do
+    
+    ! Y-dir
+    do k=1, 12
+    do j=1, 12
+    do i=1, 12
+      tmp1 = vec_out(i,1,k) * Mat_h1D_tr(1,j) &
+           + vec_out(i,2,k) * Mat_h1D_tr(2,j) &
+           + vec_out(i,3,k) * Mat_h1D_tr(3,j) &
+           + vec_out(i,4,k) * Mat_h1D_tr(4,j) 
+      tmp2 = vec_out(i,5,k) * Mat_h1D_tr(5,j) &
+           + vec_out(i,6,k) * Mat_h1D_tr(6,j) &
+           + vec_out(i,7,k) * Mat_h1D_tr(7,j) &
+           + vec_out(i,8,k) * Mat_h1D_tr(8,j) 
+      tmp3 = vec_out(i,9,k) * Mat_h1D_tr(9,j) &
+           + vec_out(i,10,k) * Mat_h1D_tr(10,j) &
+           + vec_out(i,11,k) * Mat_h1D_tr(11,j) &
+           + vec_out(i,12,k) * Mat_h1D_tr(12,j) 
+      vec_work(i,j,k) = tmp1 + tmp2 + tmp3
+    end do
+    end do
+    end do
+    
+    ! Z-dir
+    do k=1, 12
+    do j=1, 12
+    do i=1, 12
+      tmp1 = vec_work(i,j,1) * Mat_v1D_tr(1,k) &
+           + vec_work(i,j,2) * Mat_v1D_tr(2,k) &
+           + vec_work(i,j,3) * Mat_v1D_tr(3,k) &
+           + vec_work(i,j,4) * Mat_v1D_tr(4,k) 
+      tmp2 = vec_work(i,j,5) * Mat_v1D_tr(5,k) &
+           + vec_work(i,j,6) * Mat_v1D_tr(6,k) &
+           + vec_work(i,j,7) * Mat_v1D_tr(7,k) &
+           + vec_work(i,j,8) * Mat_v1D_tr(8,k) 
+      tmp3 = vec_work(i,j,9) * Mat_v1D_tr(9,k) &
+           + vec_work(i,j,10) * Mat_v1D_tr(10,k) &
+           + vec_work(i,j,11) * Mat_v1D_tr(11,k) &
+           + vec_work(i,j,12) * Mat_v1D_tr(12,k) 
+      vec_out(i,j,k) = tmp1 + tmp2 + tmp3
+    end do
+    end do
+    end do
+
+    return
+  end subroutine element_operation_kernel_matvec_ModalFilter_P11
 
 !--- For p=12 ------------------------------------
 
@@ -3276,43 +3883,40 @@ contains
 !!
 !OCL SERIAL
   subroutine element_operation_kernel_matvec_divlike_dirXYZ_P12( &
-    Mat, Mat_tr, vec_in_x, vec_in_y, vec_in_z, Escale, Gsqrt, vec_in_lift, sign_, &
-    vec_out_x, vec_out_y, vec_out_z, vec_out  )
+    Mat, Mat_tr, vec_in_x, vec_in_y, vec_in_z, &
+    vec_out_x, vec_out_y, vec_out_z  )
     implicit none
     real(RP), intent(in) :: Mat(13,13)
     real(RP), intent(in) :: Mat_tr(13,13)
     real(RP), intent(in) :: vec_in_x(13,13**2)
     real(RP), intent(in) :: vec_in_y(13,13,13)
     real(RP), intent(in) :: vec_in_z(13,13,13)
-    real(RP), intent(in) :: Escale(3,13,13**2)
-    real(RP), intent(in) :: Gsqrt(13,13**2)
-    real(RP), intent(in) :: vec_in_lift(13,13**2)
-    real(RP), intent(in) :: sign_
     real(RP), intent(out) :: vec_out_x(13,13**2)
     real(RP), intent(out) :: vec_out_y(13,13**2)
     real(RP), intent(out) :: vec_out_z(13,13**2)
-    real(RP), intent(out) :: vec_out(13,13**2)
 
     integer :: i, j, k, jk
+    real(RP) :: tmp1, tmp2, tmp3
     !----------------------------------------------------------
 
     ! X-dir
 
     do jk=1, 13**2
     do i=1, 13
-        vec_out_x(i,jk) = Mat(i,1) * vec_in_x(1,jk) &
-                        + Mat(i,2) * vec_in_x(2,jk) &
-                        + Mat(i,3) * vec_in_x(3,jk) &
-                        + Mat(i,4) * vec_in_x(4,jk) &
-                        + Mat(i,5) * vec_in_x(5,jk) &
-                        + Mat(i,6) * vec_in_x(6,jk) &
-                        + Mat(i,7) * vec_in_x(7,jk) &
-                        + Mat(i,8) * vec_in_x(8,jk) &
-                        + Mat(i,9) * vec_in_x(9,jk) &
-                        + Mat(i,10) * vec_in_x(10,jk) &
-                        + Mat(i,11) * vec_in_x(11,jk) &
-                        + Mat(i,12) * vec_in_x(12,jk) &
-                        + Mat(i,13) * vec_in_x(13,jk)
+      tmp1 = Mat(i,1) * vec_in_x(1,jk) &
+           + Mat(i,2) * vec_in_x(2,jk) &
+           + Mat(i,3) * vec_in_x(3,jk) &
+           + Mat(i,4) * vec_in_x(4,jk)
+      tmp2 = Mat(i,5) * vec_in_x(5,jk) &
+           + Mat(i,6) * vec_in_x(6,jk) &
+           + Mat(i,7) * vec_in_x(7,jk) &
+           + Mat(i,8) * vec_in_x(8,jk)
+      tmp3 = Mat(i,9) * vec_in_x(9,jk) &
+           + Mat(i,10) * vec_in_x(10,jk) &
+           + Mat(i,11) * vec_in_x(11,jk) &
+           + Mat(i,12) * vec_in_x(12,jk) &
+           + Mat(i,13) * vec_in_x(13,jk)
+      vec_out_x(i,jk) = tmp1 + tmp2 + tmp3
     end do
     end do
 
@@ -3321,19 +3925,20 @@ contains
     do j=1, 13
       jk = j + (k-1)*13
       do i=1, 13
-          vec_out_y(i,jk) = vec_in_y(i,1,k) * Mat_tr(1,j) &
-                          + vec_in_y(i,2,k) * Mat_tr(2,j) &
-                          + vec_in_y(i,3,k) * Mat_tr(3,j) &
-                          + vec_in_y(i,4,k) * Mat_tr(4,j) &
-                          + vec_in_y(i,5,k) * Mat_tr(5,j) &
-                          + vec_in_y(i,6,k) * Mat_tr(6,j) &
-                          + vec_in_y(i,7,k) * Mat_tr(7,j) &
-                          + vec_in_y(i,8,k) * Mat_tr(8,j) &
-                          + vec_in_y(i,9,k) * Mat_tr(9,j) &
-                          + vec_in_y(i,10,k) * Mat_tr(10,j) &
-                          + vec_in_y(i,11,k) * Mat_tr(11,j) &
-                          + vec_in_y(i,12,k) * Mat_tr(12,j) &
-                          + vec_in_y(i,13,k) * Mat_tr(13,j) 
+        tmp1 = vec_in_y(i,1,k) * Mat_tr(1,j) &
+             + vec_in_y(i,2,k) * Mat_tr(2,j) &
+             + vec_in_y(i,3,k) * Mat_tr(3,j) &
+             + vec_in_y(i,4,k) * Mat_tr(4,j) 
+        tmp2 = vec_in_y(i,5,k) * Mat_tr(5,j) &
+             + vec_in_y(i,6,k) * Mat_tr(6,j) &
+             + vec_in_y(i,7,k) * Mat_tr(7,j) &
+             + vec_in_y(i,8,k) * Mat_tr(8,j) 
+        tmp3 = vec_in_y(i,9,k) * Mat_tr(9,j) &
+             + vec_in_y(i,10,k) * Mat_tr(10,j) &
+             + vec_in_y(i,11,k) * Mat_tr(11,j) &
+             + vec_in_y(i,12,k) * Mat_tr(12,j) &
+             + vec_in_y(i,13,k) * Mat_tr(13,j) 
+      vec_out_y(i,jk) = tmp1 + tmp2 + tmp3
       end do
     end do
     end do
@@ -3343,33 +3948,112 @@ contains
     do j=1, 13
       jk = j + (k-1)*13
       do i=1, 13
-          vec_out_z(i,jk) = vec_in_z(i,j,1) * Mat_tr(1,k) &
-                          + vec_in_z(i,j,2) * Mat_tr(2,k) &
-                          + vec_in_z(i,j,3) * Mat_tr(3,k) &
-                          + vec_in_z(i,j,4) * Mat_tr(4,k) &
-                          + vec_in_z(i,j,5) * Mat_tr(5,k) &
-                          + vec_in_z(i,j,6) * Mat_tr(6,k) &
-                          + vec_in_z(i,j,7) * Mat_tr(7,k) &
-                          + vec_in_z(i,j,8) * Mat_tr(8,k) &
-                          + vec_in_z(i,j,9) * Mat_tr(9,k) &
-                          + vec_in_z(i,j,10) * Mat_tr(10,k) &
-                          + vec_in_z(i,j,11) * Mat_tr(11,k) &
-                          + vec_in_z(i,j,12) * Mat_tr(12,k) &
-                          + vec_in_z(i,j,13) * Mat_tr(13,k) 
+        tmp1 = vec_in_z(i,j,1) * Mat_tr(1,k) &
+             + vec_in_z(i,j,2) * Mat_tr(2,k) &
+             + vec_in_z(i,j,3) * Mat_tr(3,k) &
+             + vec_in_z(i,j,4) * Mat_tr(4,k) 
+        tmp2 = vec_in_z(i,j,5) * Mat_tr(5,k) &
+             + vec_in_z(i,j,6) * Mat_tr(6,k) &
+             + vec_in_z(i,j,7) * Mat_tr(7,k) &
+             + vec_in_z(i,j,8) * Mat_tr(8,k) 
+        tmp3 = vec_in_z(i,j,9) * Mat_tr(9,k) &
+             + vec_in_z(i,j,10) * Mat_tr(10,k) &
+             + vec_in_z(i,j,11) * Mat_tr(11,k) &
+             + vec_in_z(i,j,12) * Mat_tr(12,k) &
+             + vec_in_z(i,j,13) * Mat_tr(13,k) 
+      vec_out_z(i,jk) = tmp1 + tmp2 + tmp3
       end do
     end do
     end do
-
-    do jk=1, 13**2
-    do i=1, 13
-        vec_out(i,jk) = sign_ * (  Escale(1,i,jk) * vec_out_x(i,jk) + Escale(2,i,jk) * vec_out_y(i,jk) + Escale(3,i,jk) * vec_out_z(i,jk) &
-                                 + vec_in_lift(i,jk) ) / Gsqrt(i,jk)
-    end do
-    end do
-          
     return
   end subroutine element_operation_kernel_matvec_divlike_dirXYZ_P12
 
+!> Calculate a matrix-vector multiplication associated with 3D modal filtering with p=12
+!!
+!OCL SERIAL
+  subroutine element_operation_kernel_matvec_ModalFilter_P12( Mat_h1D, Mat_h1D_tr, Mat_v1D_tr, vec_in, vec_work, &
+    vec_out  )
+    implicit none
+    real(RP), intent(in) :: Mat_h1D(13,13)
+    real(RP), intent(in) :: Mat_h1D_tr(13,13)
+    real(RP), intent(in) :: Mat_v1D_tr(13,13)
+    real(RP), intent(in) :: vec_in(13,13,13)
+    real(RP), intent(out) :: vec_work(13,13,13)
+    real(RP), intent(out) :: vec_out(13,13,13)
+
+    integer :: i, j, k
+    real(RP) :: tmp1, tmp2, tmp3
+    !----------------------------------------------------------
+
+    ! X-dir
+
+    do k=1, 13
+    do j=1, 13
+    do i=1, 13
+      tmp1 = Mat_h1D(i,1) * vec_in(1,j,k) &
+           + Mat_h1D(i,2) * vec_in(2,j,k) &
+           + Mat_h1D(i,3) * vec_in(3,j,k) &
+           + Mat_h1D(i,4) * vec_in(4,j,k)
+      tmp2 = Mat_h1D(i,5) * vec_in(5,j,k) &
+           + Mat_h1D(i,6) * vec_in(6,j,k) &
+           + Mat_h1D(i,7) * vec_in(7,j,k) &
+           + Mat_h1D(i,8) * vec_in(8,j,k)
+      tmp3 = Mat_h1D(i,9) * vec_in(9,j,k) &
+           + Mat_h1D(i,10) * vec_in(10,j,k) &
+           + Mat_h1D(i,11) * vec_in(11,j,k) &
+           + Mat_h1D(i,12) * vec_in(12,j,k) &
+           + Mat_h1D(i,13) * vec_in(13,j,k)
+      vec_out(i,j,k) = tmp1 + tmp2 + tmp3
+    end do
+    end do
+    end do
+    
+    ! Y-dir
+    do k=1, 13
+    do j=1, 13
+    do i=1, 13
+      tmp1 = vec_out(i,1,k) * Mat_h1D_tr(1,j) &
+           + vec_out(i,2,k) * Mat_h1D_tr(2,j) &
+           + vec_out(i,3,k) * Mat_h1D_tr(3,j) &
+           + vec_out(i,4,k) * Mat_h1D_tr(4,j) 
+      tmp2 = vec_out(i,5,k) * Mat_h1D_tr(5,j) &
+           + vec_out(i,6,k) * Mat_h1D_tr(6,j) &
+           + vec_out(i,7,k) * Mat_h1D_tr(7,j) &
+           + vec_out(i,8,k) * Mat_h1D_tr(8,j) 
+      tmp3 = vec_out(i,9,k) * Mat_h1D_tr(9,j) &
+           + vec_out(i,10,k) * Mat_h1D_tr(10,j) &
+           + vec_out(i,11,k) * Mat_h1D_tr(11,j) &
+           + vec_out(i,12,k) * Mat_h1D_tr(12,j) &
+           + vec_out(i,13,k) * Mat_h1D_tr(13,j) 
+      vec_work(i,j,k) = tmp1 + tmp2 + tmp3
+    end do
+    end do
+    end do
+    
+    ! Z-dir
+    do k=1, 13
+    do j=1, 13
+    do i=1, 13
+      tmp1 = vec_work(i,j,1) * Mat_v1D_tr(1,k) &
+           + vec_work(i,j,2) * Mat_v1D_tr(2,k) &
+           + vec_work(i,j,3) * Mat_v1D_tr(3,k) &
+           + vec_work(i,j,4) * Mat_v1D_tr(4,k) 
+      tmp2 = vec_work(i,j,5) * Mat_v1D_tr(5,k) &
+           + vec_work(i,j,6) * Mat_v1D_tr(6,k) &
+           + vec_work(i,j,7) * Mat_v1D_tr(7,k) &
+           + vec_work(i,j,8) * Mat_v1D_tr(8,k) 
+      tmp3 = vec_work(i,j,9) * Mat_v1D_tr(9,k) &
+           + vec_work(i,j,10) * Mat_v1D_tr(10,k) &
+           + vec_work(i,j,11) * Mat_v1D_tr(11,k) &
+           + vec_work(i,j,12) * Mat_v1D_tr(12,k) &
+           + vec_work(i,j,13) * Mat_v1D_tr(13,k) 
+      vec_out(i,j,k) = tmp1 + tmp2 + tmp3
+    end do
+    end do
+    end do
+
+    return
+  end subroutine element_operation_kernel_matvec_ModalFilter_P12
 
 !--- For p=13 ------------------------------------
 
@@ -3602,44 +4286,41 @@ contains
 !!
 !OCL SERIAL
   subroutine element_operation_kernel_matvec_divlike_dirXYZ_P13( &
-    Mat, Mat_tr, vec_in_x, vec_in_y, vec_in_z, Escale, Gsqrt, vec_in_lift, sign_, &
-    vec_out_x, vec_out_y, vec_out_z, vec_out  )
+    Mat, Mat_tr, vec_in_x, vec_in_y, vec_in_z, &
+    vec_out_x, vec_out_y, vec_out_z  )
     implicit none
     real(RP), intent(in) :: Mat(14,14)
     real(RP), intent(in) :: Mat_tr(14,14)
     real(RP), intent(in) :: vec_in_x(14,14**2)
     real(RP), intent(in) :: vec_in_y(14,14,14)
     real(RP), intent(in) :: vec_in_z(14,14,14)
-    real(RP), intent(in) :: Escale(3,14,14**2)
-    real(RP), intent(in) :: Gsqrt(14,14**2)
-    real(RP), intent(in) :: vec_in_lift(14,14**2)
-    real(RP), intent(in) :: sign_
     real(RP), intent(out) :: vec_out_x(14,14**2)
     real(RP), intent(out) :: vec_out_y(14,14**2)
     real(RP), intent(out) :: vec_out_z(14,14**2)
-    real(RP), intent(out) :: vec_out(14,14**2)
 
     integer :: i, j, k, jk
+    real(RP) :: tmp1, tmp2, tmp3
     !----------------------------------------------------------
 
     ! X-dir
 
     do jk=1, 14**2
     do i=1, 14
-        vec_out_x(i,jk) = Mat(i,1) * vec_in_x(1,jk) &
-                        + Mat(i,2) * vec_in_x(2,jk) &
-                        + Mat(i,3) * vec_in_x(3,jk) &
-                        + Mat(i,4) * vec_in_x(4,jk) &
-                        + Mat(i,5) * vec_in_x(5,jk) &
-                        + Mat(i,6) * vec_in_x(6,jk) &
-                        + Mat(i,7) * vec_in_x(7,jk) &
-                        + Mat(i,8) * vec_in_x(8,jk) &
-                        + Mat(i,9) * vec_in_x(9,jk) &
-                        + Mat(i,10) * vec_in_x(10,jk) &
-                        + Mat(i,11) * vec_in_x(11,jk) &
-                        + Mat(i,12) * vec_in_x(12,jk) &
-                        + Mat(i,13) * vec_in_x(13,jk) &
-                        + Mat(i,14) * vec_in_x(14,jk)
+      tmp1 = Mat(i,1) * vec_in_x(1,jk) &
+           + Mat(i,2) * vec_in_x(2,jk) &
+           + Mat(i,3) * vec_in_x(3,jk) &
+           + Mat(i,4) * vec_in_x(4,jk) &
+           + Mat(i,5) * vec_in_x(5,jk)
+      tmp2 = Mat(i,6) * vec_in_x(6,jk) &
+           + Mat(i,7) * vec_in_x(7,jk) &
+           + Mat(i,8) * vec_in_x(8,jk) &
+           + Mat(i,9) * vec_in_x(9,jk) &
+           + Mat(i,10) * vec_in_x(10,jk)
+      tmp3 = Mat(i,11) * vec_in_x(11,jk) &
+           + Mat(i,12) * vec_in_x(12,jk) &
+           + Mat(i,13) * vec_in_x(13,jk) &
+           + Mat(i,14) * vec_in_x(14,jk)
+      vec_out_x(i,jk) = tmp1 + tmp2 + tmp3
     end do
     end do
 
@@ -3648,20 +4329,21 @@ contains
     do j=1, 14
       jk = j + (k-1)*14
       do i=1, 14
-          vec_out_y(i,jk) = vec_in_y(i,1,k) * Mat_tr(1,j) &
-                          + vec_in_y(i,2,k) * Mat_tr(2,j) &
-                          + vec_in_y(i,3,k) * Mat_tr(3,j) &
-                          + vec_in_y(i,4,k) * Mat_tr(4,j) &
-                          + vec_in_y(i,5,k) * Mat_tr(5,j) &
-                          + vec_in_y(i,6,k) * Mat_tr(6,j) &
-                          + vec_in_y(i,7,k) * Mat_tr(7,j) &
-                          + vec_in_y(i,8,k) * Mat_tr(8,j) &
-                          + vec_in_y(i,9,k) * Mat_tr(9,j) &
-                          + vec_in_y(i,10,k) * Mat_tr(10,j) &
-                          + vec_in_y(i,11,k) * Mat_tr(11,j) &
-                          + vec_in_y(i,12,k) * Mat_tr(12,j) &
-                          + vec_in_y(i,13,k) * Mat_tr(13,j) &
-                          + vec_in_y(i,14,k) * Mat_tr(14,j) 
+        tmp1 = vec_in_y(i,1,k) * Mat_tr(1,j) &
+             + vec_in_y(i,2,k) * Mat_tr(2,j) &
+             + vec_in_y(i,3,k) * Mat_tr(3,j) &
+             + vec_in_y(i,4,k) * Mat_tr(4,j) &
+             + vec_in_y(i,5,k) * Mat_tr(5,j) 
+        tmp2 = vec_in_y(i,6,k) * Mat_tr(6,j) &
+             + vec_in_y(i,7,k) * Mat_tr(7,j) &
+             + vec_in_y(i,8,k) * Mat_tr(8,j) &
+             + vec_in_y(i,9,k) * Mat_tr(9,j) &
+             + vec_in_y(i,10,k) * Mat_tr(10,j) 
+        tmp3 = vec_in_y(i,11,k) * Mat_tr(11,j) &
+             + vec_in_y(i,12,k) * Mat_tr(12,j) &
+             + vec_in_y(i,13,k) * Mat_tr(13,j) &
+             + vec_in_y(i,14,k) * Mat_tr(14,j) 
+      vec_out_y(i,jk) = tmp1 + tmp2 + tmp3
       end do
     end do
     end do
@@ -3671,34 +4353,116 @@ contains
     do j=1, 14
       jk = j + (k-1)*14
       do i=1, 14
-          vec_out_z(i,jk) = vec_in_z(i,j,1) * Mat_tr(1,k) &
-                          + vec_in_z(i,j,2) * Mat_tr(2,k) &
-                          + vec_in_z(i,j,3) * Mat_tr(3,k) &
-                          + vec_in_z(i,j,4) * Mat_tr(4,k) &
-                          + vec_in_z(i,j,5) * Mat_tr(5,k) &
-                          + vec_in_z(i,j,6) * Mat_tr(6,k) &
-                          + vec_in_z(i,j,7) * Mat_tr(7,k) &
-                          + vec_in_z(i,j,8) * Mat_tr(8,k) &
-                          + vec_in_z(i,j,9) * Mat_tr(9,k) &
-                          + vec_in_z(i,j,10) * Mat_tr(10,k) &
-                          + vec_in_z(i,j,11) * Mat_tr(11,k) &
-                          + vec_in_z(i,j,12) * Mat_tr(12,k) &
-                          + vec_in_z(i,j,13) * Mat_tr(13,k) &
-                          + vec_in_z(i,j,14) * Mat_tr(14,k) 
+        tmp1 = vec_in_z(i,j,1) * Mat_tr(1,k) &
+             + vec_in_z(i,j,2) * Mat_tr(2,k) &
+             + vec_in_z(i,j,3) * Mat_tr(3,k) &
+             + vec_in_z(i,j,4) * Mat_tr(4,k) &
+             + vec_in_z(i,j,5) * Mat_tr(5,k) 
+        tmp2 = vec_in_z(i,j,6) * Mat_tr(6,k) &
+             + vec_in_z(i,j,7) * Mat_tr(7,k) &
+             + vec_in_z(i,j,8) * Mat_tr(8,k) &
+             + vec_in_z(i,j,9) * Mat_tr(9,k) &
+             + vec_in_z(i,j,10) * Mat_tr(10,k) 
+        tmp3 = vec_in_z(i,j,11) * Mat_tr(11,k) &
+             + vec_in_z(i,j,12) * Mat_tr(12,k) &
+             + vec_in_z(i,j,13) * Mat_tr(13,k) &
+             + vec_in_z(i,j,14) * Mat_tr(14,k) 
+      vec_out_z(i,jk) = tmp1 + tmp2 + tmp3
       end do
     end do
     end do
-
-    do jk=1, 14**2
-    do i=1, 14
-        vec_out(i,jk) = sign_ * (  Escale(1,i,jk) * vec_out_x(i,jk) + Escale(2,i,jk) * vec_out_y(i,jk) + Escale(3,i,jk) * vec_out_z(i,jk) &
-                                 + vec_in_lift(i,jk) ) / Gsqrt(i,jk)
-    end do
-    end do
-          
     return
   end subroutine element_operation_kernel_matvec_divlike_dirXYZ_P13
 
+!> Calculate a matrix-vector multiplication associated with 3D modal filtering with p=13
+!!
+!OCL SERIAL
+  subroutine element_operation_kernel_matvec_ModalFilter_P13( Mat_h1D, Mat_h1D_tr, Mat_v1D_tr, vec_in, vec_work, &
+    vec_out  )
+    implicit none
+    real(RP), intent(in) :: Mat_h1D(14,14)
+    real(RP), intent(in) :: Mat_h1D_tr(14,14)
+    real(RP), intent(in) :: Mat_v1D_tr(14,14)
+    real(RP), intent(in) :: vec_in(14,14,14)
+    real(RP), intent(out) :: vec_work(14,14,14)
+    real(RP), intent(out) :: vec_out(14,14,14)
+
+    integer :: i, j, k
+    real(RP) :: tmp1, tmp2, tmp3
+    !----------------------------------------------------------
+
+    ! X-dir
+
+    do k=1, 14
+    do j=1, 14
+    do i=1, 14
+      tmp1 = Mat_h1D(i,1) * vec_in(1,j,k) &
+           + Mat_h1D(i,2) * vec_in(2,j,k) &
+           + Mat_h1D(i,3) * vec_in(3,j,k) &
+           + Mat_h1D(i,4) * vec_in(4,j,k) &
+           + Mat_h1D(i,5) * vec_in(5,j,k)
+      tmp2 = Mat_h1D(i,6) * vec_in(6,j,k) &
+           + Mat_h1D(i,7) * vec_in(7,j,k) &
+           + Mat_h1D(i,8) * vec_in(8,j,k) &
+           + Mat_h1D(i,9) * vec_in(9,j,k) &
+           + Mat_h1D(i,10) * vec_in(10,j,k)
+      tmp3 = Mat_h1D(i,11) * vec_in(11,j,k) &
+           + Mat_h1D(i,12) * vec_in(12,j,k) &
+           + Mat_h1D(i,13) * vec_in(13,j,k) &
+           + Mat_h1D(i,14) * vec_in(14,j,k)
+      vec_out(i,j,k) = tmp1 + tmp2 + tmp3
+    end do
+    end do
+    end do
+    
+    ! Y-dir
+    do k=1, 14
+    do j=1, 14
+    do i=1, 14
+      tmp1 = vec_out(i,1,k) * Mat_h1D_tr(1,j) &
+           + vec_out(i,2,k) * Mat_h1D_tr(2,j) &
+           + vec_out(i,3,k) * Mat_h1D_tr(3,j) &
+           + vec_out(i,4,k) * Mat_h1D_tr(4,j) &
+           + vec_out(i,5,k) * Mat_h1D_tr(5,j) 
+      tmp2 = vec_out(i,6,k) * Mat_h1D_tr(6,j) &
+           + vec_out(i,7,k) * Mat_h1D_tr(7,j) &
+           + vec_out(i,8,k) * Mat_h1D_tr(8,j) &
+           + vec_out(i,9,k) * Mat_h1D_tr(9,j) &
+           + vec_out(i,10,k) * Mat_h1D_tr(10,j) 
+      tmp3 = vec_out(i,11,k) * Mat_h1D_tr(11,j) &
+           + vec_out(i,12,k) * Mat_h1D_tr(12,j) &
+           + vec_out(i,13,k) * Mat_h1D_tr(13,j) &
+           + vec_out(i,14,k) * Mat_h1D_tr(14,j) 
+      vec_work(i,j,k) = tmp1 + tmp2 + tmp3
+    end do
+    end do
+    end do
+    
+    ! Z-dir
+    do k=1, 14
+    do j=1, 14
+    do i=1, 14
+      tmp1 = vec_work(i,j,1) * Mat_v1D_tr(1,k) &
+           + vec_work(i,j,2) * Mat_v1D_tr(2,k) &
+           + vec_work(i,j,3) * Mat_v1D_tr(3,k) &
+           + vec_work(i,j,4) * Mat_v1D_tr(4,k) &
+           + vec_work(i,j,5) * Mat_v1D_tr(5,k) 
+      tmp2 = vec_work(i,j,6) * Mat_v1D_tr(6,k) &
+           + vec_work(i,j,7) * Mat_v1D_tr(7,k) &
+           + vec_work(i,j,8) * Mat_v1D_tr(8,k) &
+           + vec_work(i,j,9) * Mat_v1D_tr(9,k) &
+           + vec_work(i,j,10) * Mat_v1D_tr(10,k) 
+      tmp3 = vec_work(i,j,11) * Mat_v1D_tr(11,k) &
+           + vec_work(i,j,12) * Mat_v1D_tr(12,k) &
+           + vec_work(i,j,13) * Mat_v1D_tr(13,k) &
+           + vec_work(i,j,14) * Mat_v1D_tr(14,k) 
+      vec_out(i,j,k) = tmp1 + tmp2 + tmp3
+    end do
+    end do
+    end do
+
+    return
+  end subroutine element_operation_kernel_matvec_ModalFilter_P13
 
 !--- For p=14 ------------------------------------
 
@@ -3937,45 +4701,42 @@ contains
 !!
 !OCL SERIAL
   subroutine element_operation_kernel_matvec_divlike_dirXYZ_P14( &
-    Mat, Mat_tr, vec_in_x, vec_in_y, vec_in_z, Escale, Gsqrt, vec_in_lift, sign_, &
-    vec_out_x, vec_out_y, vec_out_z, vec_out  )
+    Mat, Mat_tr, vec_in_x, vec_in_y, vec_in_z, &
+    vec_out_x, vec_out_y, vec_out_z  )
     implicit none
     real(RP), intent(in) :: Mat(15,15)
     real(RP), intent(in) :: Mat_tr(15,15)
     real(RP), intent(in) :: vec_in_x(15,15**2)
     real(RP), intent(in) :: vec_in_y(15,15,15)
     real(RP), intent(in) :: vec_in_z(15,15,15)
-    real(RP), intent(in) :: Escale(3,15,15**2)
-    real(RP), intent(in) :: Gsqrt(15,15**2)
-    real(RP), intent(in) :: vec_in_lift(15,15**2)
-    real(RP), intent(in) :: sign_
     real(RP), intent(out) :: vec_out_x(15,15**2)
     real(RP), intent(out) :: vec_out_y(15,15**2)
     real(RP), intent(out) :: vec_out_z(15,15**2)
-    real(RP), intent(out) :: vec_out(15,15**2)
 
     integer :: i, j, k, jk
+    real(RP) :: tmp1, tmp2, tmp3
     !----------------------------------------------------------
 
     ! X-dir
 
     do jk=1, 15**2
     do i=1, 15
-        vec_out_x(i,jk) = Mat(i,1) * vec_in_x(1,jk) &
-                        + Mat(i,2) * vec_in_x(2,jk) &
-                        + Mat(i,3) * vec_in_x(3,jk) &
-                        + Mat(i,4) * vec_in_x(4,jk) &
-                        + Mat(i,5) * vec_in_x(5,jk) &
-                        + Mat(i,6) * vec_in_x(6,jk) &
-                        + Mat(i,7) * vec_in_x(7,jk) &
-                        + Mat(i,8) * vec_in_x(8,jk) &
-                        + Mat(i,9) * vec_in_x(9,jk) &
-                        + Mat(i,10) * vec_in_x(10,jk) &
-                        + Mat(i,11) * vec_in_x(11,jk) &
-                        + Mat(i,12) * vec_in_x(12,jk) &
-                        + Mat(i,13) * vec_in_x(13,jk) &
-                        + Mat(i,14) * vec_in_x(14,jk) &
-                        + Mat(i,15) * vec_in_x(15,jk)
+      tmp1 = Mat(i,1) * vec_in_x(1,jk) &
+           + Mat(i,2) * vec_in_x(2,jk) &
+           + Mat(i,3) * vec_in_x(3,jk) &
+           + Mat(i,4) * vec_in_x(4,jk) &
+           + Mat(i,5) * vec_in_x(5,jk)
+      tmp2 = Mat(i,6) * vec_in_x(6,jk) &
+           + Mat(i,7) * vec_in_x(7,jk) &
+           + Mat(i,8) * vec_in_x(8,jk) &
+           + Mat(i,9) * vec_in_x(9,jk) &
+           + Mat(i,10) * vec_in_x(10,jk)
+      tmp3 = Mat(i,11) * vec_in_x(11,jk) &
+           + Mat(i,12) * vec_in_x(12,jk) &
+           + Mat(i,13) * vec_in_x(13,jk) &
+           + Mat(i,14) * vec_in_x(14,jk) &
+           + Mat(i,15) * vec_in_x(15,jk)
+      vec_out_x(i,jk) = tmp1 + tmp2 + tmp3
     end do
     end do
 
@@ -3984,21 +4745,22 @@ contains
     do j=1, 15
       jk = j + (k-1)*15
       do i=1, 15
-          vec_out_y(i,jk) = vec_in_y(i,1,k) * Mat_tr(1,j) &
-                          + vec_in_y(i,2,k) * Mat_tr(2,j) &
-                          + vec_in_y(i,3,k) * Mat_tr(3,j) &
-                          + vec_in_y(i,4,k) * Mat_tr(4,j) &
-                          + vec_in_y(i,5,k) * Mat_tr(5,j) &
-                          + vec_in_y(i,6,k) * Mat_tr(6,j) &
-                          + vec_in_y(i,7,k) * Mat_tr(7,j) &
-                          + vec_in_y(i,8,k) * Mat_tr(8,j) &
-                          + vec_in_y(i,9,k) * Mat_tr(9,j) &
-                          + vec_in_y(i,10,k) * Mat_tr(10,j) &
-                          + vec_in_y(i,11,k) * Mat_tr(11,j) &
-                          + vec_in_y(i,12,k) * Mat_tr(12,j) &
-                          + vec_in_y(i,13,k) * Mat_tr(13,j) &
-                          + vec_in_y(i,14,k) * Mat_tr(14,j) &
-                          + vec_in_y(i,15,k) * Mat_tr(15,j) 
+        tmp1 = vec_in_y(i,1,k) * Mat_tr(1,j) &
+             + vec_in_y(i,2,k) * Mat_tr(2,j) &
+             + vec_in_y(i,3,k) * Mat_tr(3,j) &
+             + vec_in_y(i,4,k) * Mat_tr(4,j) &
+             + vec_in_y(i,5,k) * Mat_tr(5,j) 
+        tmp2 = vec_in_y(i,6,k) * Mat_tr(6,j) &
+             + vec_in_y(i,7,k) * Mat_tr(7,j) &
+             + vec_in_y(i,8,k) * Mat_tr(8,j) &
+             + vec_in_y(i,9,k) * Mat_tr(9,j) &
+             + vec_in_y(i,10,k) * Mat_tr(10,j) 
+        tmp3 = vec_in_y(i,11,k) * Mat_tr(11,j) &
+             + vec_in_y(i,12,k) * Mat_tr(12,j) &
+             + vec_in_y(i,13,k) * Mat_tr(13,j) &
+             + vec_in_y(i,14,k) * Mat_tr(14,j) &
+             + vec_in_y(i,15,k) * Mat_tr(15,j) 
+      vec_out_y(i,jk) = tmp1 + tmp2 + tmp3
       end do
     end do
     end do
@@ -4008,35 +4770,120 @@ contains
     do j=1, 15
       jk = j + (k-1)*15
       do i=1, 15
-          vec_out_z(i,jk) = vec_in_z(i,j,1) * Mat_tr(1,k) &
-                          + vec_in_z(i,j,2) * Mat_tr(2,k) &
-                          + vec_in_z(i,j,3) * Mat_tr(3,k) &
-                          + vec_in_z(i,j,4) * Mat_tr(4,k) &
-                          + vec_in_z(i,j,5) * Mat_tr(5,k) &
-                          + vec_in_z(i,j,6) * Mat_tr(6,k) &
-                          + vec_in_z(i,j,7) * Mat_tr(7,k) &
-                          + vec_in_z(i,j,8) * Mat_tr(8,k) &
-                          + vec_in_z(i,j,9) * Mat_tr(9,k) &
-                          + vec_in_z(i,j,10) * Mat_tr(10,k) &
-                          + vec_in_z(i,j,11) * Mat_tr(11,k) &
-                          + vec_in_z(i,j,12) * Mat_tr(12,k) &
-                          + vec_in_z(i,j,13) * Mat_tr(13,k) &
-                          + vec_in_z(i,j,14) * Mat_tr(14,k) &
-                          + vec_in_z(i,j,15) * Mat_tr(15,k) 
+        tmp1 = vec_in_z(i,j,1) * Mat_tr(1,k) &
+             + vec_in_z(i,j,2) * Mat_tr(2,k) &
+             + vec_in_z(i,j,3) * Mat_tr(3,k) &
+             + vec_in_z(i,j,4) * Mat_tr(4,k) &
+             + vec_in_z(i,j,5) * Mat_tr(5,k) 
+        tmp2 = vec_in_z(i,j,6) * Mat_tr(6,k) &
+             + vec_in_z(i,j,7) * Mat_tr(7,k) &
+             + vec_in_z(i,j,8) * Mat_tr(8,k) &
+             + vec_in_z(i,j,9) * Mat_tr(9,k) &
+             + vec_in_z(i,j,10) * Mat_tr(10,k) 
+        tmp3 = vec_in_z(i,j,11) * Mat_tr(11,k) &
+             + vec_in_z(i,j,12) * Mat_tr(12,k) &
+             + vec_in_z(i,j,13) * Mat_tr(13,k) &
+             + vec_in_z(i,j,14) * Mat_tr(14,k) &
+             + vec_in_z(i,j,15) * Mat_tr(15,k) 
+      vec_out_z(i,jk) = tmp1 + tmp2 + tmp3
       end do
     end do
     end do
-
-    do jk=1, 15**2
-    do i=1, 15
-        vec_out(i,jk) = sign_ * (  Escale(1,i,jk) * vec_out_x(i,jk) + Escale(2,i,jk) * vec_out_y(i,jk) + Escale(3,i,jk) * vec_out_z(i,jk) &
-                                 + vec_in_lift(i,jk) ) / Gsqrt(i,jk)
-    end do
-    end do
-          
     return
   end subroutine element_operation_kernel_matvec_divlike_dirXYZ_P14
 
+!> Calculate a matrix-vector multiplication associated with 3D modal filtering with p=14
+!!
+!OCL SERIAL
+  subroutine element_operation_kernel_matvec_ModalFilter_P14( Mat_h1D, Mat_h1D_tr, Mat_v1D_tr, vec_in, vec_work, &
+    vec_out  )
+    implicit none
+    real(RP), intent(in) :: Mat_h1D(15,15)
+    real(RP), intent(in) :: Mat_h1D_tr(15,15)
+    real(RP), intent(in) :: Mat_v1D_tr(15,15)
+    real(RP), intent(in) :: vec_in(15,15,15)
+    real(RP), intent(out) :: vec_work(15,15,15)
+    real(RP), intent(out) :: vec_out(15,15,15)
+
+    integer :: i, j, k
+    real(RP) :: tmp1, tmp2, tmp3
+    !----------------------------------------------------------
+
+    ! X-dir
+
+    do k=1, 15
+    do j=1, 15
+    do i=1, 15
+      tmp1 = Mat_h1D(i,1) * vec_in(1,j,k) &
+           + Mat_h1D(i,2) * vec_in(2,j,k) &
+           + Mat_h1D(i,3) * vec_in(3,j,k) &
+           + Mat_h1D(i,4) * vec_in(4,j,k) &
+           + Mat_h1D(i,5) * vec_in(5,j,k)
+      tmp2 = Mat_h1D(i,6) * vec_in(6,j,k) &
+           + Mat_h1D(i,7) * vec_in(7,j,k) &
+           + Mat_h1D(i,8) * vec_in(8,j,k) &
+           + Mat_h1D(i,9) * vec_in(9,j,k) &
+           + Mat_h1D(i,10) * vec_in(10,j,k)
+      tmp3 = Mat_h1D(i,11) * vec_in(11,j,k) &
+           + Mat_h1D(i,12) * vec_in(12,j,k) &
+           + Mat_h1D(i,13) * vec_in(13,j,k) &
+           + Mat_h1D(i,14) * vec_in(14,j,k) &
+           + Mat_h1D(i,15) * vec_in(15,j,k)
+      vec_out(i,j,k) = tmp1 + tmp2 + tmp3
+    end do
+    end do
+    end do
+    
+    ! Y-dir
+    do k=1, 15
+    do j=1, 15
+    do i=1, 15
+      tmp1 = vec_out(i,1,k) * Mat_h1D_tr(1,j) &
+           + vec_out(i,2,k) * Mat_h1D_tr(2,j) &
+           + vec_out(i,3,k) * Mat_h1D_tr(3,j) &
+           + vec_out(i,4,k) * Mat_h1D_tr(4,j) &
+           + vec_out(i,5,k) * Mat_h1D_tr(5,j) 
+      tmp2 = vec_out(i,6,k) * Mat_h1D_tr(6,j) &
+           + vec_out(i,7,k) * Mat_h1D_tr(7,j) &
+           + vec_out(i,8,k) * Mat_h1D_tr(8,j) &
+           + vec_out(i,9,k) * Mat_h1D_tr(9,j) &
+           + vec_out(i,10,k) * Mat_h1D_tr(10,j) 
+      tmp3 = vec_out(i,11,k) * Mat_h1D_tr(11,j) &
+           + vec_out(i,12,k) * Mat_h1D_tr(12,j) &
+           + vec_out(i,13,k) * Mat_h1D_tr(13,j) &
+           + vec_out(i,14,k) * Mat_h1D_tr(14,j) &
+           + vec_out(i,15,k) * Mat_h1D_tr(15,j) 
+      vec_work(i,j,k) = tmp1 + tmp2 + tmp3
+    end do
+    end do
+    end do
+    
+    ! Z-dir
+    do k=1, 15
+    do j=1, 15
+    do i=1, 15
+      tmp1 = vec_work(i,j,1) * Mat_v1D_tr(1,k) &
+           + vec_work(i,j,2) * Mat_v1D_tr(2,k) &
+           + vec_work(i,j,3) * Mat_v1D_tr(3,k) &
+           + vec_work(i,j,4) * Mat_v1D_tr(4,k) &
+           + vec_work(i,j,5) * Mat_v1D_tr(5,k) 
+      tmp2 = vec_work(i,j,6) * Mat_v1D_tr(6,k) &
+           + vec_work(i,j,7) * Mat_v1D_tr(7,k) &
+           + vec_work(i,j,8) * Mat_v1D_tr(8,k) &
+           + vec_work(i,j,9) * Mat_v1D_tr(9,k) &
+           + vec_work(i,j,10) * Mat_v1D_tr(10,k) 
+      tmp3 = vec_work(i,j,11) * Mat_v1D_tr(11,k) &
+           + vec_work(i,j,12) * Mat_v1D_tr(12,k) &
+           + vec_work(i,j,13) * Mat_v1D_tr(13,k) &
+           + vec_work(i,j,14) * Mat_v1D_tr(14,k) &
+           + vec_work(i,j,15) * Mat_v1D_tr(15,k) 
+      vec_out(i,j,k) = tmp1 + tmp2 + tmp3
+    end do
+    end do
+    end do
+
+    return
+  end subroutine element_operation_kernel_matvec_ModalFilter_P14
 
 !--- For p=15 ------------------------------------
 
@@ -4281,46 +5128,43 @@ contains
 !!
 !OCL SERIAL
   subroutine element_operation_kernel_matvec_divlike_dirXYZ_P15( &
-    Mat, Mat_tr, vec_in_x, vec_in_y, vec_in_z, Escale, Gsqrt, vec_in_lift, sign_, &
-    vec_out_x, vec_out_y, vec_out_z, vec_out  )
+    Mat, Mat_tr, vec_in_x, vec_in_y, vec_in_z, &
+    vec_out_x, vec_out_y, vec_out_z  )
     implicit none
     real(RP), intent(in) :: Mat(16,16)
     real(RP), intent(in) :: Mat_tr(16,16)
     real(RP), intent(in) :: vec_in_x(16,16**2)
     real(RP), intent(in) :: vec_in_y(16,16,16)
     real(RP), intent(in) :: vec_in_z(16,16,16)
-    real(RP), intent(in) :: Escale(3,16,16**2)
-    real(RP), intent(in) :: Gsqrt(16,16**2)
-    real(RP), intent(in) :: vec_in_lift(16,16**2)
-    real(RP), intent(in) :: sign_
     real(RP), intent(out) :: vec_out_x(16,16**2)
     real(RP), intent(out) :: vec_out_y(16,16**2)
     real(RP), intent(out) :: vec_out_z(16,16**2)
-    real(RP), intent(out) :: vec_out(16,16**2)
 
     integer :: i, j, k, jk
+    real(RP) :: tmp1, tmp2, tmp3
     !----------------------------------------------------------
 
     ! X-dir
 
     do jk=1, 16**2
     do i=1, 16
-        vec_out_x(i,jk) = Mat(i,1) * vec_in_x(1,jk) &
-                        + Mat(i,2) * vec_in_x(2,jk) &
-                        + Mat(i,3) * vec_in_x(3,jk) &
-                        + Mat(i,4) * vec_in_x(4,jk) &
-                        + Mat(i,5) * vec_in_x(5,jk) &
-                        + Mat(i,6) * vec_in_x(6,jk) &
-                        + Mat(i,7) * vec_in_x(7,jk) &
-                        + Mat(i,8) * vec_in_x(8,jk) &
-                        + Mat(i,9) * vec_in_x(9,jk) &
-                        + Mat(i,10) * vec_in_x(10,jk) &
-                        + Mat(i,11) * vec_in_x(11,jk) &
-                        + Mat(i,12) * vec_in_x(12,jk) &
-                        + Mat(i,13) * vec_in_x(13,jk) &
-                        + Mat(i,14) * vec_in_x(14,jk) &
-                        + Mat(i,15) * vec_in_x(15,jk) &
-                        + Mat(i,16) * vec_in_x(16,jk)
+      tmp1 = Mat(i,1) * vec_in_x(1,jk) &
+           + Mat(i,2) * vec_in_x(2,jk) &
+           + Mat(i,3) * vec_in_x(3,jk) &
+           + Mat(i,4) * vec_in_x(4,jk) &
+           + Mat(i,5) * vec_in_x(5,jk)
+      tmp2 = Mat(i,6) * vec_in_x(6,jk) &
+           + Mat(i,7) * vec_in_x(7,jk) &
+           + Mat(i,8) * vec_in_x(8,jk) &
+           + Mat(i,9) * vec_in_x(9,jk) &
+           + Mat(i,10) * vec_in_x(10,jk)
+      tmp3 = Mat(i,11) * vec_in_x(11,jk) &
+           + Mat(i,12) * vec_in_x(12,jk) &
+           + Mat(i,13) * vec_in_x(13,jk) &
+           + Mat(i,14) * vec_in_x(14,jk) &
+           + Mat(i,15) * vec_in_x(15,jk) &
+           + Mat(i,16) * vec_in_x(16,jk)
+      vec_out_x(i,jk) = tmp1 + tmp2 + tmp3
     end do
     end do
 
@@ -4329,22 +5173,23 @@ contains
     do j=1, 16
       jk = j + (k-1)*16
       do i=1, 16
-          vec_out_y(i,jk) = vec_in_y(i,1,k) * Mat_tr(1,j) &
-                          + vec_in_y(i,2,k) * Mat_tr(2,j) &
-                          + vec_in_y(i,3,k) * Mat_tr(3,j) &
-                          + vec_in_y(i,4,k) * Mat_tr(4,j) &
-                          + vec_in_y(i,5,k) * Mat_tr(5,j) &
-                          + vec_in_y(i,6,k) * Mat_tr(6,j) &
-                          + vec_in_y(i,7,k) * Mat_tr(7,j) &
-                          + vec_in_y(i,8,k) * Mat_tr(8,j) &
-                          + vec_in_y(i,9,k) * Mat_tr(9,j) &
-                          + vec_in_y(i,10,k) * Mat_tr(10,j) &
-                          + vec_in_y(i,11,k) * Mat_tr(11,j) &
-                          + vec_in_y(i,12,k) * Mat_tr(12,j) &
-                          + vec_in_y(i,13,k) * Mat_tr(13,j) &
-                          + vec_in_y(i,14,k) * Mat_tr(14,j) &
-                          + vec_in_y(i,15,k) * Mat_tr(15,j) &
-                          + vec_in_y(i,16,k) * Mat_tr(16,j) 
+        tmp1 = vec_in_y(i,1,k) * Mat_tr(1,j) &
+             + vec_in_y(i,2,k) * Mat_tr(2,j) &
+             + vec_in_y(i,3,k) * Mat_tr(3,j) &
+             + vec_in_y(i,4,k) * Mat_tr(4,j) &
+             + vec_in_y(i,5,k) * Mat_tr(5,j) 
+        tmp2 = vec_in_y(i,6,k) * Mat_tr(6,j) &
+             + vec_in_y(i,7,k) * Mat_tr(7,j) &
+             + vec_in_y(i,8,k) * Mat_tr(8,j) &
+             + vec_in_y(i,9,k) * Mat_tr(9,j) &
+             + vec_in_y(i,10,k) * Mat_tr(10,j) 
+        tmp3 = vec_in_y(i,11,k) * Mat_tr(11,j) &
+             + vec_in_y(i,12,k) * Mat_tr(12,j) &
+             + vec_in_y(i,13,k) * Mat_tr(13,j) &
+             + vec_in_y(i,14,k) * Mat_tr(14,j) &
+             + vec_in_y(i,15,k) * Mat_tr(15,j) &
+             + vec_in_y(i,16,k) * Mat_tr(16,j) 
+      vec_out_y(i,jk) = tmp1 + tmp2 + tmp3
       end do
     end do
     end do
@@ -4354,35 +5199,124 @@ contains
     do j=1, 16
       jk = j + (k-1)*16
       do i=1, 16
-          vec_out_z(i,jk) = vec_in_z(i,j,1) * Mat_tr(1,k) &
-                          + vec_in_z(i,j,2) * Mat_tr(2,k) &
-                          + vec_in_z(i,j,3) * Mat_tr(3,k) &
-                          + vec_in_z(i,j,4) * Mat_tr(4,k) &
-                          + vec_in_z(i,j,5) * Mat_tr(5,k) &
-                          + vec_in_z(i,j,6) * Mat_tr(6,k) &
-                          + vec_in_z(i,j,7) * Mat_tr(7,k) &
-                          + vec_in_z(i,j,8) * Mat_tr(8,k) &
-                          + vec_in_z(i,j,9) * Mat_tr(9,k) &
-                          + vec_in_z(i,j,10) * Mat_tr(10,k) &
-                          + vec_in_z(i,j,11) * Mat_tr(11,k) &
-                          + vec_in_z(i,j,12) * Mat_tr(12,k) &
-                          + vec_in_z(i,j,13) * Mat_tr(13,k) &
-                          + vec_in_z(i,j,14) * Mat_tr(14,k) &
-                          + vec_in_z(i,j,15) * Mat_tr(15,k) &
-                          + vec_in_z(i,j,16) * Mat_tr(16,k) 
+        tmp1 = vec_in_z(i,j,1) * Mat_tr(1,k) &
+             + vec_in_z(i,j,2) * Mat_tr(2,k) &
+             + vec_in_z(i,j,3) * Mat_tr(3,k) &
+             + vec_in_z(i,j,4) * Mat_tr(4,k) &
+             + vec_in_z(i,j,5) * Mat_tr(5,k) 
+        tmp2 = vec_in_z(i,j,6) * Mat_tr(6,k) &
+             + vec_in_z(i,j,7) * Mat_tr(7,k) &
+             + vec_in_z(i,j,8) * Mat_tr(8,k) &
+             + vec_in_z(i,j,9) * Mat_tr(9,k) &
+             + vec_in_z(i,j,10) * Mat_tr(10,k) 
+        tmp3 = vec_in_z(i,j,11) * Mat_tr(11,k) &
+             + vec_in_z(i,j,12) * Mat_tr(12,k) &
+             + vec_in_z(i,j,13) * Mat_tr(13,k) &
+             + vec_in_z(i,j,14) * Mat_tr(14,k) &
+             + vec_in_z(i,j,15) * Mat_tr(15,k) &
+             + vec_in_z(i,j,16) * Mat_tr(16,k) 
+      vec_out_z(i,jk) = tmp1 + tmp2 + tmp3
       end do
     end do
     end do
-
-    do jk=1, 16**2
-    do i=1, 16
-        vec_out(i,jk) = sign_ * (  Escale(1,i,jk) * vec_out_x(i,jk) + Escale(2,i,jk) * vec_out_y(i,jk) + Escale(3,i,jk) * vec_out_z(i,jk) &
-                                 + vec_in_lift(i,jk) ) / Gsqrt(i,jk)
-    end do
-    end do
-          
     return
   end subroutine element_operation_kernel_matvec_divlike_dirXYZ_P15
+
+!> Calculate a matrix-vector multiplication associated with 3D modal filtering with p=15
+!!
+!OCL SERIAL
+  subroutine element_operation_kernel_matvec_ModalFilter_P15( Mat_h1D, Mat_h1D_tr, Mat_v1D_tr, vec_in, vec_work, &
+    vec_out  )
+    implicit none
+    real(RP), intent(in) :: Mat_h1D(16,16)
+    real(RP), intent(in) :: Mat_h1D_tr(16,16)
+    real(RP), intent(in) :: Mat_v1D_tr(16,16)
+    real(RP), intent(in) :: vec_in(16,16,16)
+    real(RP), intent(out) :: vec_work(16,16,16)
+    real(RP), intent(out) :: vec_out(16,16,16)
+
+    integer :: i, j, k
+    real(RP) :: tmp1, tmp2, tmp3
+    !----------------------------------------------------------
+
+    ! X-dir
+
+    do k=1, 16
+    do j=1, 16
+    do i=1, 16
+      tmp1 = Mat_h1D(i,1) * vec_in(1,j,k) &
+           + Mat_h1D(i,2) * vec_in(2,j,k) &
+           + Mat_h1D(i,3) * vec_in(3,j,k) &
+           + Mat_h1D(i,4) * vec_in(4,j,k) &
+           + Mat_h1D(i,5) * vec_in(5,j,k)
+      tmp2 = Mat_h1D(i,6) * vec_in(6,j,k) &
+           + Mat_h1D(i,7) * vec_in(7,j,k) &
+           + Mat_h1D(i,8) * vec_in(8,j,k) &
+           + Mat_h1D(i,9) * vec_in(9,j,k) &
+           + Mat_h1D(i,10) * vec_in(10,j,k)
+      tmp3 = Mat_h1D(i,11) * vec_in(11,j,k) &
+           + Mat_h1D(i,12) * vec_in(12,j,k) &
+           + Mat_h1D(i,13) * vec_in(13,j,k) &
+           + Mat_h1D(i,14) * vec_in(14,j,k) &
+           + Mat_h1D(i,15) * vec_in(15,j,k) &
+           + Mat_h1D(i,16) * vec_in(16,j,k)
+      vec_out(i,j,k) = tmp1 + tmp2 + tmp3
+    end do
+    end do
+    end do
+    
+    ! Y-dir
+    do k=1, 16
+    do j=1, 16
+    do i=1, 16
+      tmp1 = vec_out(i,1,k) * Mat_h1D_tr(1,j) &
+           + vec_out(i,2,k) * Mat_h1D_tr(2,j) &
+           + vec_out(i,3,k) * Mat_h1D_tr(3,j) &
+           + vec_out(i,4,k) * Mat_h1D_tr(4,j) &
+           + vec_out(i,5,k) * Mat_h1D_tr(5,j) 
+      tmp2 = vec_out(i,6,k) * Mat_h1D_tr(6,j) &
+           + vec_out(i,7,k) * Mat_h1D_tr(7,j) &
+           + vec_out(i,8,k) * Mat_h1D_tr(8,j) &
+           + vec_out(i,9,k) * Mat_h1D_tr(9,j) &
+           + vec_out(i,10,k) * Mat_h1D_tr(10,j) 
+      tmp3 = vec_out(i,11,k) * Mat_h1D_tr(11,j) &
+           + vec_out(i,12,k) * Mat_h1D_tr(12,j) &
+           + vec_out(i,13,k) * Mat_h1D_tr(13,j) &
+           + vec_out(i,14,k) * Mat_h1D_tr(14,j) &
+           + vec_out(i,15,k) * Mat_h1D_tr(15,j) &
+           + vec_out(i,16,k) * Mat_h1D_tr(16,j) 
+      vec_work(i,j,k) = tmp1 + tmp2 + tmp3
+    end do
+    end do
+    end do
+    
+    ! Z-dir
+    do k=1, 16
+    do j=1, 16
+    do i=1, 16
+      tmp1 = vec_work(i,j,1) * Mat_v1D_tr(1,k) &
+           + vec_work(i,j,2) * Mat_v1D_tr(2,k) &
+           + vec_work(i,j,3) * Mat_v1D_tr(3,k) &
+           + vec_work(i,j,4) * Mat_v1D_tr(4,k) &
+           + vec_work(i,j,5) * Mat_v1D_tr(5,k) 
+      tmp2 = vec_work(i,j,6) * Mat_v1D_tr(6,k) &
+           + vec_work(i,j,7) * Mat_v1D_tr(7,k) &
+           + vec_work(i,j,8) * Mat_v1D_tr(8,k) &
+           + vec_work(i,j,9) * Mat_v1D_tr(9,k) &
+           + vec_work(i,j,10) * Mat_v1D_tr(10,k) 
+      tmp3 = vec_work(i,j,11) * Mat_v1D_tr(11,k) &
+           + vec_work(i,j,12) * Mat_v1D_tr(12,k) &
+           + vec_work(i,j,13) * Mat_v1D_tr(13,k) &
+           + vec_work(i,j,14) * Mat_v1D_tr(14,k) &
+           + vec_work(i,j,15) * Mat_v1D_tr(15,k) &
+           + vec_work(i,j,16) * Mat_v1D_tr(16,k) 
+      vec_out(i,j,k) = tmp1 + tmp2 + tmp3
+    end do
+    end do
+    end do
+
+    return
+  end subroutine element_operation_kernel_matvec_ModalFilter_P15
 
 
 end module scale_element_operation_tensorprod3D_kernel

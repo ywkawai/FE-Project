@@ -65,11 +65,8 @@ module scale_atm_dyn_dgm_driver_nonhydro3d
   use scale_atm_dyn_dgm_nonhydro3d_rhot_heve, only: &
     atm_dyn_dgm_nonhydro3d_rhot_heve_Init,          &
     atm_dyn_dgm_nonhydro3d_rhot_heve_Final,         &
+    atm_dyn_dgm_nonhydro3d_rhot_heve_cal_tend_asis, &
     atm_dyn_dgm_nonhydro3d_rhot_heve_cal_tend
-  use scale_atm_dyn_dgm_nonhydro3d_rhot_heve_new1, only: &
-    atm_dyn_dgm_nonhydro3d_rhot_heve_new1_Init,          &
-    atm_dyn_dgm_nonhydro3d_rhot_heve_new1_Final,         &
-    atm_dyn_dgm_nonhydro3d_rhot_heve_new1_cal_tend
 
   use scale_atm_dyn_dgm_nonhydro3d_etot_heve, only: &
     atm_dyn_dgm_nonhydro3d_etot_heve_Init,          &
@@ -135,11 +132,13 @@ module scale_atm_dyn_dgm_driver_nonhydro3d
 
   abstract interface    
     subroutine atm_dyn_nonhydro3d_cal_tend_ex( &
-      DENS_dt, MOMX_dt, MOMY_dt, MOMZ_dt, RHOT_dt,               & ! (out)
-      DDENS_, MOMX_, MOMY_, MOMZ_, THERM_, DPRES_,               & ! (in) 
-      DENS_hyd, PRES_hyd, PRES_hyd_ref, CORIOLIS,                & ! (in)
-      Rtot, CVtot, CPtot,                                        & ! (in)
-      element3D_operation, Dx, Dy, Dz, Sx, Sy, Sz, Lift, lmesh, elem, lmesh2D, elem2D ) ! (in)
+      DENS_dt, MOMX_dt, MOMY_dt, MOMZ_dt, RHOT_dt,      & ! (out)
+      DDENS_, MOMX_, MOMY_, MOMZ_, THERM_, DPRES_,       & ! (in) 
+      DENS_hyd, PRES_hyd, PRES_hyd_ref, CORIOLIS,        & ! (in)
+      Rtot, CVtot, CPtot,                                & ! (in)
+      DPhydDx, DPhydDy,                                  & ! (in)
+      element3D_operation, Dx, Dy, Dz, Sx, Sy, Sz, Lift, & ! (in)
+      lmesh, elem, lmesh2D, elem2D ) ! (in)
 
       import RP
       import LocalMesh3D
@@ -174,6 +173,8 @@ module scale_atm_dyn_dgm_driver_nonhydro3d
       real(RP), intent(in)  :: Rtot(elem%Np,lmesh%NeA)
       real(RP), intent(in)  :: CVtot(elem%Np,lmesh%NeA)
       real(RP), intent(in)  :: CPtot(elem%Np,lmesh%NeA)
+      real(RP), intent(in) :: DPhydDx(elem%Np,lmesh%NeA)
+      real(RP), intent(in) :: DPhydDy(elem%Np,lmesh%NeA)
     end subroutine atm_dyn_nonhydro3d_cal_tend_ex
   end interface
 
@@ -184,7 +185,6 @@ module scale_atm_dyn_dgm_driver_nonhydro3d
       DDENS0_, MOMX0_, MOMY0_, MOMZ0_, THERM0_,                & ! (in) 
       Rtot, CVtot, CPtot,                                      & ! (in)
       element3D_operation, Dz, Lift,                           & ! (in)
-      modalFilterFlag, VModalFilter,                           & ! (in)
       impl_fac, dt,                                            & ! (in)
       lmesh, elem, lmesh2D, elem2D )
   
@@ -224,8 +224,6 @@ module scale_atm_dyn_dgm_driver_nonhydro3d
       real(RP), intent(in)  :: CPtot(elem%Np,lmesh%NeA)
       class(ElementOperationBase3D), intent(in) :: element3D_operation
       class(SparseMat), intent(in) :: Dz, Lift
-      logical, intent(in) :: modalFilterFlag
-      class(ModalFilter), intent(in) :: VModalFilter
       real(RP), intent(in) :: impl_fac
       real(RP), intent(in) :: dt
     end subroutine atm_dyn_nonhydro3d_cal_vi
@@ -236,6 +234,7 @@ module scale_atm_dyn_dgm_driver_nonhydro3d
     end subroutine atm_dyn_nonhydro3d_final
   end interface 
 
+  !> Derived type to provide a driver of dynamical core with the atmospheric nonhydrostatic equations
   type, extends(AtmDynDGMDriver_base3D), public :: AtmDynDGMDriver_nonhydro3d
     integer :: EQS_TYPEID
     logical :: ENTOT_CONSERVE_SCHEME_FLAG
@@ -244,6 +243,9 @@ module scale_atm_dyn_dgm_driver_nonhydro3d
     logical :: MODALFILTER_FLAG
     type(ModalFilter) :: modal_filter_3d
     type(ModalFilter) :: modal_filter_v1D
+
+    type(ModalFilter) :: modal_filterH1D
+    type(ModalFilter) :: modal_filterV1D
 
     ! sponge layer
     type(AtmDynSpongeLayer) :: sponge_layer
@@ -260,6 +262,9 @@ module scale_atm_dyn_dgm_driver_nonhydro3d
     !
     logical :: hevi_flag
 
+    !
+    logical :: hide_mpi_comm_flag
+
     procedure (atm_dyn_nonhydro3d_cal_vi), pointer, nopass :: cal_vi => null()
     procedure (atm_dyn_nonhydro3d_cal_tend_ex), pointer, nopass :: cal_tend_ex => null()
     procedure (atm_dyn_nonhydro3d_final), pointer, nopass :: dynsolver_final => null()
@@ -269,6 +274,7 @@ module scale_atm_dyn_dgm_driver_nonhydro3d
     procedure :: Update => AtmDynDGMDriver_nonhydro3d_update
     procedure :: Is_THERMVAR_RHOT => AtmDynDGMDriver_nonhydro3d_Is_THERMVAR_RHOT    
     procedure :: calc_pressure => AtmDynDGMDriver_nonhydro3d_calc_pressure
+    procedure :: Update_phyd_hgrad => AtmDynDGMDriver_nonhydro3d_update_phyd_hgrad
   end type AtmDynDGMDriver_nonhydro3d
 
   !-----------------------------------------------------------------------------
@@ -291,13 +297,19 @@ module scale_atm_dyn_dgm_driver_nonhydro3d
   integer, public, parameter :: EQS_TYPEID_NONHYD3D_SPLITFORM_HEVI   = 10  
 
   !-
-  integer, public, parameter :: AUXDYNVARS3D_NUM         = 1
   integer, public, parameter :: AUXDYNVARS3D_DPRES_ID    = 1
+  integer, public, parameter :: AUXDYNVARS3D_DPhydDx_ID  = 2
+  integer, public, parameter :: AUXDYNVARS3D_DPhydDy_ID  = 3
+  integer, public, parameter :: AUXDYNVARS3D_NUM         = 3
 
   type(VariableInfo), public :: ATMOS_DYN_AUXDYNVARS3D_VINFO(AUXDYNVARS3D_NUM)
   DATA ATMOS_DYN_AUXDYNVARS3D_VINFO / &
-    VariableInfo( AUXDYNVARS3D_DPRES_ID, 'DPRES', '',  &
-                  '1',  3, 'XYZ',  ''                  )  /
+    VariableInfo( AUXDYNVARS3D_DPRES_ID, 'DPRES', '',      &
+                  '1',  3, 'XYZ',  ''                   ), &  
+    VariableInfo( AUXDYNVARS3D_DPhydDx_ID, 'DPhydDx', '',  &
+                  '1',  3, 'XYZ',  ''                   ), &  
+    VariableInfo( AUXDYNVARS3D_DPhydDy_ID, 'DPhydDy', '',  &
+                  '1',  3, 'XYZ',  ''                    ) /
 
   !-----------------------------------------------------------------------------
   !
@@ -308,10 +320,12 @@ module scale_atm_dyn_dgm_driver_nonhydro3d
   private :: setup_modalfilter
   
 contains
+!> Initialize a object to provide a driver of atmospheric dynamical core
 !OCL SERIAL  
   subroutine AtmDynDGMDriver_nonhydro3d_Init( this, &
     eqs_type_name, tint_type_name, dtsec,           &
     sponge_layer_flag, modal_filter_flag,           &
+    hide_mpi_comm_flag, &
     model_mesh3D )
 
     use scale_mesh_cubedspheredom3d, only: MeshCubedSphereDom3D
@@ -323,6 +337,7 @@ contains
     real(DP), intent(in) :: dtsec
     logical, intent(in) :: sponge_layer_flag
     logical, intent(in) :: modal_filter_flag
+    logical, intent(in) :: hide_mpi_comm_flag
     class(ModelMesh3D), intent(inout), target :: model_mesh3D
 
     class(MeshBase3D), pointer :: mesh3D
@@ -348,21 +363,22 @@ contains
 
     this%ENTOT_CONSERVE_SCHEME_FLAG = .false.
     this%hevi_flag                  = .false.
+    this%hide_mpi_comm_flag         = hide_mpi_comm_flag
 
     select case(eqs_type_name)
     !-- HEVE ------------------
+    case("NONHYDRO3D_HEVE_ASIS", "NONHYDRO3D_RHOT_HEVE_ASIS")
+      this%EQS_TYPEID = EQS_TYPEID_NONHYD3D_HEVE
+      call atm_dyn_dgm_nonhydro3d_rhot_heve_Init( mesh3D )
+      this%cal_tend_ex => atm_dyn_dgm_nonhydro3d_rhot_heve_cal_tend_asis
+      this%cal_vi => null()
+      this%dynsolver_final => atm_dyn_dgm_nonhydro3d_rhot_heve_Final
     case("NONHYDRO3D_HEVE", "NONHYDRO3D_RHOT_HEVE")
       this%EQS_TYPEID = EQS_TYPEID_NONHYD3D_HEVE
       call atm_dyn_dgm_nonhydro3d_rhot_heve_Init( mesh3D )
       this%cal_tend_ex => atm_dyn_dgm_nonhydro3d_rhot_heve_cal_tend
       this%cal_vi => null()
       this%dynsolver_final => atm_dyn_dgm_nonhydro3d_rhot_heve_Final
-    case("NONHYDRO3D_HEVE_NEW1", "NONHYDRO3D_RHOT_HEVE_NEW1")
-      this%EQS_TYPEID = EQS_TYPEID_NONHYD3D_HEVE
-      call atm_dyn_dgm_nonhydro3d_rhot_heve_new1_Init( mesh3D )
-      this%cal_tend_ex => atm_dyn_dgm_nonhydro3d_rhot_heve_new1_cal_tend
-      this%cal_vi => null()
-      this%dynsolver_final => atm_dyn_dgm_nonhydro3d_rhot_heve_new1_Final
     case("NONHYDRO3D_ETOT_HEVE")
       this%EQS_TYPEID = EQS_TYPEID_NONHYD3D_HEVE_ENTOT
       call atm_dyn_dgm_nonhydro3d_etot_heve_Init( mesh3D )
@@ -460,10 +476,11 @@ contains
         .false., fill_zero=.true.                  ) 
     end do
 
+    !- Setup halo data communication for DPRES
     call model_mesh3D%Create_communicator( &
-      AUXDYNVARS3D_NUM, 0, 0,          & ! (in) 
+      1, 0, 0,                         & ! (in) 
       this%AUXDYNVAR3D_manager,        & ! (in)
-      this%AUX_DYNVARS3D(:),           & ! (in)
+      this%AUX_DYNVARS3D(1:1),         & ! (in)
       this%AUXDYNVAR3D_commid          ) ! (out)
 
 
@@ -486,7 +503,7 @@ contains
         refElem3D => refElem
       end select
 
-      call setup_modalfilter( this, refElem3D )
+      call setup_modalfilter( this, refElem3D, model_mesh3D%element3D_operation )
     end if
 
     return
@@ -529,6 +546,7 @@ contains
     use scale_atm_dyn_dgm_modalfilter, only: &
       atm_dyn_dgm_modalfilter_apply
     
+    use mpi_f08_ext      
     implicit none
 
     class(AtmDynDGMDriver_nonhydro3d), intent(inout) :: this
@@ -563,7 +581,7 @@ contains
     class(MeshField3D), pointer :: DDENS, MOMX, MOMY, MOMZ, THERM
     class(MeshField3D), pointer :: PRES_hyd, PRES_hyd_ref, DENS_hyd, Rtot, CVtot, CPtot, PRES
     class(MeshField3D), pointer :: DENS_tp, MOMX_tp, MOMY_tp, MOMZ_tp, RHOT_tp, RHOH_p
-    class(MeshField3D), pointer :: DPRES
+    class(MeshField3D), pointer :: DPRES, DPhydDx, DPhydDy
 
     !-----------------------------------------------------------------------------
     
@@ -591,6 +609,8 @@ contains
     call PHYTENDS%Get3D( PHYTEND_RHOH_ID, RHOH_p )
 
     call this%AUXDYNVAR3D_manager%Get3D( AUXDYNVARS3D_DPRES_ID, DPRES )
+    call this%AUXDYNVAR3D_manager%Get3D( AUXDYNVARS3D_DPhydDx_ID, DPhydDx )
+    call this%AUXDYNVAR3D_manager%Get3D( AUXDYNVARS3D_DPhydDy_ID, DPhydDy )
 
     if (this%hevi_flag) then 
       do n=1, mesh3D%LOCAL_MESH_NUM
@@ -630,7 +650,6 @@ contains
             this%tint(n)%var0_2D(:,:,THERM_VID ),                                           & ! (in)
             Rtot%local(n)%val, CVtot%local(n)%val, CPtot%local(n)%val,                      & ! (in)
             element_operation, Dz, Lift,                                                    & ! (in)
-            this%MODALFILTER_FLAG, this%modal_filter_v1D,                                   & ! (in)
             implicit_fac, dt,                                                               & ! (in)
             lcmesh3D, lcmesh3D%refElem3D, lcmesh3D%lcmesh2D, lcmesh3D%lcmesh2D%refElem2D    ) ! (in)
           
@@ -647,6 +666,14 @@ contains
       
       end if
 
+      !- Exchange halo data
+      if ( this%hide_mpi_comm_flag ) then
+        call PROF_rapstart( 'ATM_DYN_exchange_prgv', 2)
+        call PROG_VARS%MeshFieldComm_Exchange( do_wait=.false. )
+        ! call FJMPI_Progress_start()
+        call PROF_rapend( 'ATM_DYN_exchange_prgv', 2)
+      end if
+
       !- Calculate pressure perturbation
 
       call PROF_rapstart( 'ATM_DYN_cal_pres', 2)
@@ -659,8 +686,14 @@ contains
 
       !- Exchange halo data
       call PROF_rapstart( 'ATM_DYN_exchange_prgv', 2)
-      call PROG_VARS%MeshFieldComm_Exchange()
-      call this%AUXDYNVAR3D_manager%MeshFieldComm_Exchange()
+      if ( this%hide_mpi_comm_flag ) then
+        ! call FJMPI_Progress_stop()
+        call this%AUXDYNVAR3D_manager%MeshFieldComm_Exchange( do_wait=.false. )
+        call PROG_VARS%MeshFieldComm_Get()
+      else
+        call PROG_VARS%MeshFieldComm_Exchange()
+        call this%AUXDYNVAR3D_manager%MeshFieldComm_Exchange()
+      end if
       call PROF_rapend( 'ATM_DYN_exchange_prgv', 2)
 
       do n=1, mesh3D%LOCAL_MESH_NUM
@@ -679,6 +712,12 @@ contains
         call PROF_rapend( 'ATM_DYN_applyBC_prgv', 2)
       end do
 
+      if ( this%hide_mpi_comm_flag ) then
+        call PROF_rapstart( 'ATM_DYN_exchange_prgv', 2)
+        call this%AUXDYNVAR3D_manager%MeshFieldComm_Get()
+        call PROF_rapend( 'ATM_DYN_exchange_prgv', 2)
+      end if
+
       !- Calculate the tendency with the explicit part
       do n=1, mesh3D%LOCAL_MESH_NUM
         lcmesh3D => mesh3D%lcmesh_list(n)
@@ -695,6 +734,7 @@ contains
           THERM%local(n)%val, DPRES%local(n)%val,                                           & ! (in)
           DENS_hyd%local(n)%val, PRES_hyd%local(n)%val, PRES_hyd_ref%local(n)%val,          & ! (in)
           Coriolis%local(n)%val, Rtot%local(n)%val, CVtot%local(n)%val, CPtot%local(n)%val, & ! (in)
+          DPhydDx%local(n)%val, DPhydDy%local(n)%val,                                       & ! (in)
           element_operation, Dx, Dy, Dz, Sx, Sy, Sz, Lift,                                  & ! (in)
           lcmesh3D, lcmesh3D%refElem3D, lcmesh3D%lcmesh2D, lcmesh3D%lcmesh2D%refElem2D      ) 
         call PROF_rapend( 'ATM_DYN_update_caltend_ex', 2)
@@ -776,11 +816,10 @@ contains
       do n=1, mesh3D%LOCAL_MESH_NUM
         lcmesh3D => mesh3D%lcmesh_list(n)
 
-        call PROF_rapstart( 'ATM_DYN_update_modalfilter', 2)
+        call PROF_rapstart( 'ATM_DYN_update_modalfilter', 2)        
         call atm_dyn_dgm_modalfilter_apply(  & 
           DDENS%local(n)%val, MOMX%local(n)%val, MOMY%local(n)%val, MOMZ%local(n)%val, THERM%local(n)%val, & ! (inout)
-          lcmesh3D, lcmesh3D%refElem3D, this%modal_filter_3d,        & ! (in)
-!          do_weight_Gsqrt = .false.                                 ) ! (in)          
+          lcmesh3D, lcmesh3D%refElem3D, element_operation,           & ! (in)
           do_weight_Gsqrt = .true.                                   ) ! (in)        
         call PROF_rapend( 'ATM_DYN_update_modalfilter', 2)
       end do
@@ -797,6 +836,7 @@ contains
     return
   end subroutine AtmDynDGMDriver_nonhydro3d_update
 
+!> Finalize a object to provide a driver of atmospheric dynamical core
 !OCL SERIAL
   subroutine AtmDynDGMDriver_nonhydro3d_Final( this )
     implicit none
@@ -864,10 +904,108 @@ contains
     return
   end subroutine AtmDynDGMDriver_nonhydro3d_calc_pressure
     
+!OCL SERIAL
+  subroutine AtmDynDGMDriver_nonhydro3d_update_phyd_hgrad( this, &
+    PRES_hyd, PRES_hyd_ref,                    & ! (in)
+    mesh3D, element_operation                  ) ! (in)
+    use scale_atm_dyn_dgm_nonhydro3d_common, only: &
+      atm_dyn_dgm_nonhydro3d_common_calc_phyd_hgrad_lc
+    implicit none
+    class(AtmDynDGMDriver_nonhydro3d), intent(inout) :: this
+    class(MeshField3D), intent(in) :: PRES_hyd
+    class(MeshField3D), intent(in) :: PRES_hyd_ref
+    class(MeshBase3D), intent(in), target :: mesh3D
+    class(ElementOperationBase3D), intent(in) :: element_operation
+    
+    integer :: n
+    class(LocalMesh3D), pointer :: lcmesh3D
+    !---------------------------
+
+    do n=1, mesh3D%LOCAL_MESH_NUM
+      lcmesh3D => mesh3D%lcmesh_list(n)
+      call atm_dyn_dgm_nonhydro3d_common_calc_phyd_hgrad_lc( &
+        this%AUX_DYNVARS3D(AUXDYNVARS3D_DPhydDx_ID)%local(n)%val, & ! (out)
+        this%AUX_DYNVARS3D(AUXDYNVARS3D_DPhydDy_ID)%local(n)%val, & ! (out)
+        PRES_hyd%local(n)%val, PRES_hyd_ref%local(n)%val,         & ! (in)
+        element_operation, lcmesh3D, lcmesh3D%refElem3D           ) ! (in)
+    end do
+
+    return
+  end subroutine AtmDynDGMDriver_nonhydro3d_update_phyd_hgrad
+
 !----- private --------------------------------------
 
 !OCL SERIAL
   subroutine add_phy_tend( this, & ! (in)
+    dyn_tends,                                           & ! (inout)
+    DENS_tp, MOMX_tp, MOMY_tp, MOMZ_tp, RHOT_tp, RHOH_p, & !(in)
+    PRES, Rtot, CPtot,                                   & ! (in)
+    domID, lcmesh, elem3D                                ) ! (in)
+
+    implicit none
+
+    class(AtmDynDGMDriver_nonhydro3d), intent(inout) :: this
+    class(LocalMesh3D), intent(in) :: lcmesh
+    class(ElementBase3D), intent(in) :: elem3D
+    real(RP), intent(inout) :: dyn_tends(elem3D%Np,lcmesh%NeA,PRGVAR_NUM)
+    real(RP), intent(in) :: DENS_tp(elem3D%Np,lcmesh%NeA)
+    real(RP), intent(in) :: MOMX_tp(elem3D%Np,lcmesh%NeA)
+    real(RP), intent(in) :: MOMY_tp(elem3D%Np,lcmesh%NeA)
+    real(RP), intent(in) :: MOMZ_tp(elem3D%Np,lcmesh%NeA)
+    real(RP), intent(in) :: RHOT_tp(elem3D%Np,lcmesh%NeA)
+    real(RP), intent(in) :: RHOH_p (elem3D%Np,lcmesh%NeA)
+    real(RP), intent(in) :: PRES(elem3D%Np,lcmesh%NeA)
+    real(RP), intent(in) :: Rtot(elem3D%Np,lcmesh%NeA)
+    real(RP), intent(in) :: CPtot(elem3D%Np,lcmesh%NeA)
+    integer, intent(in) :: domID
+
+    integer :: ke, p
+    real(RP) :: EXNER(elem3D%Np)
+    real(RP) :: rP0
+    !---------------------------------------------------------------------------------
+
+    rP0   = 1.0_RP / PRES00
+
+    !$omp parallel private( EXNER, ke )
+    
+    !$omp do
+    do ke=lcmesh%NeS, lcmesh%NeE
+      do p=1, elem3D%Np
+        dyn_tends(p,ke,DENS_VID) = dyn_tends(p,ke,DENS_VID) + DENS_tp(p,ke)
+        dyn_tends(p,ke,MOMZ_VID) = dyn_tends(p,ke,MOMZ_VID) + MOMZ_tp(p,ke)
+        dyn_tends(p,ke,MOMX_VID) = dyn_tends(p,ke,MOMX_VID) + MOMX_tp(p,ke)
+        dyn_tends(p,ke,MOMY_VID) = dyn_tends(p,ke,MOMY_VID) + MOMY_tp(p,ke)
+      end do
+    end do
+    !$omp end do
+
+    if ( this%ENTOT_CONSERVE_SCHEME_FLAG ) then
+      !$omp do
+      do ke=lcmesh%NeS, lcmesh%NeE
+        EXNER(:) = ( PRES(:,ke) * rP0 )**( Rtot(:,ke) / CPtot(:,ke) )
+
+        dyn_tends(:,ke,THERM_VID) = dyn_tends(:,ke,THERM_VID) &
+                                        + RHOH_p(:,ke)                             &
+                                        + ( CPtot(:,ke) * EXNER(:) ) * RHOT_tp(:,ke)
+      end do
+      !$omp end do
+    else
+      !$omp do
+      do ke=lcmesh%NeS, lcmesh%NeE
+        EXNER(:) = ( PRES(:,ke) * rP0 )**( Rtot(:,ke) / CPtot(:,ke) )
+
+        dyn_tends(:,ke,THERM_VID) = dyn_tends(:,ke,THERM_VID) &
+                                       + RHOT_tp(:,ke)                             &
+                                       + RHOH_p  (:,ke) / ( CPtot(:,ke) * EXNER(:) )
+      end do
+      !$omp end do
+    end if
+    !$omp end parallel
+    return
+  end subroutine add_phy_tend
+
+!OCL SERIAL
+  subroutine add_phy_tend_new( this, & ! (in)
     dyn_tends,                                           & ! (inout)
     DENS_tp, MOMX_tp, MOMY_tp, MOMZ_tp, RHOT_tp, RHOH_p, & !(in)
     PRES, Rtot, CPtot,                                   & ! (in)
@@ -931,16 +1069,17 @@ contains
     end if
     !$omp end parallel
     return
-  end subroutine add_phy_tend
+  end subroutine add_phy_tend_new
 
   !-- Setup modal filter
 !OCL SERIAL
-  subroutine setup_modalfilter( this, refElem3D )
+  subroutine setup_modalfilter( this, refElem3D, element_operation )
     use scale_element_line, only: LineElement
     implicit none
 
     class(AtmDynDGMDriver_nonhydro3d), target, intent(inout) :: this
     class(HexahedralElement), target, intent(in) :: refElem3D
+    class(ElementOperationBase3D), intent(inout) :: element_operation
 
     real(RP) :: MF_ETAC_h  = 2.0_RP/3.0_RP
     real(RP) :: MF_ALPHA_h = 36.0_RP
@@ -949,13 +1088,10 @@ contains
     real(RP) :: MF_ALPHA_v = 36.0_RP
     integer  :: MF_ORDER_v = 16
 
-    logical :: APPLY_MF_AFTER_VI = .true.
-
     namelist /PARAM_ATMOS_DYN_MODALFILTER/ &
       MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h,   &
-      MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v,   &
-      APPLY_MF_AFTER_VI
-
+      MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v
+    
     integer :: ierr
 
     type(LineElement) :: elemV1D
@@ -972,38 +1108,14 @@ contains
 
     LOG_NML(PARAM_ATMOS_DYN_MODALFILTER)
 
-    if ( this%hevi_flag ) then
+    call this%modal_filter_3d%Init( &
+      refElem3D,                           & ! (in)
+      MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h,   & ! (in)
+      MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v    ) ! (in)
 
-      call elemV1D%Init( refElem3D%PolyOrder_v, refElem3D%IsLumpedMatrix() )      
-
-      if ( APPLY_MF_AFTER_VI ) then
-        call this%modal_filter_3d%Init( &
-          refElem3D,                           & ! (in)
-          MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h,   & ! (in)
-          MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v    ) ! (in)
-
-        call this%modal_filter_v1D%Init( elemV1D, &
-          MF_ETAC_v, 0.0_RP, MF_ORDER_v,          &
-          tend_flag = .true.                      )
-      else
-        call this%modal_filter_3d%Init( &
-          refElem3D,                           & ! (in)
-          MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h,   & ! (in)
-          1.0_RP, 0.0_RP, MF_ORDER_v           ) ! (in)
-
-        call this%modal_filter_v1D%Init( elemV1D, &
-          MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v,      &
-          tend_flag = .true.                      )        
-      end if
-      
-      call elemV1D%Final()
-      
-    else
-      call this%modal_filter_3d%Init( &
-        refElem3D,                           & ! (in)
-        MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h,   & ! (in)
-        MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v    ) ! (in)
-    end if  
+    call element_operation%Setup_ModalFilter( &
+      MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h,   & ! (in)
+      MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v    ) ! (in)
 
     return
   end subroutine setup_modalfilter

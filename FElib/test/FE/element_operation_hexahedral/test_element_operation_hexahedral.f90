@@ -16,7 +16,7 @@ program test_element_operation_hexahedral
   implicit none
 
   integer :: p
-  integer, parameter :: Pmax=3
+  integer, parameter :: Pmax=7
   !-------------------------------------------------
 
   call init()
@@ -34,7 +34,7 @@ contains
     logical, intent(in) :: LumpedMassMatFlag
 
     type(HexahedralElement) :: refElem
-    type(ElementOperationGenral) :: elem_oper_general
+    type(ElementOperationGeneral) :: elem_oper_general
     class(ElementOperationTensorProd3D), allocatable :: elem_oper_tensorprod
 
     type(SparseMat) :: Dx, Dy, Dz, Lift
@@ -135,9 +135,12 @@ contains
     call assert( dat_out_lift, dat_out_lift_ans, 'Check values', 'Lift', elem%Np )
 
     !--
-    call elem_oper%Div( dat_in_vec(:,1), dat_in_vec(:,2), dat_in_vec(:,3), dat_in_f, Escale, Gsqrt, 1.0_RP, &
-      dat_out_grad(:,1), dat_out_grad(:,2), dat_out_grad(:,3), dat_out_lift, &
-      dat_out_div )
+    call elem_oper%Div( dat_in_vec(:,1), dat_in_vec(:,2), dat_in_vec(:,3), dat_in_f, &
+      dat_out_grad(:,1), dat_out_grad(:,2), dat_out_grad(:,3), dat_out_lift )
+    dat_out_div(:) = ( Escale(1,:) * dat_out_grad(:,1) &
+                     + Escale(2,:) * dat_out_grad(:,2) &
+                     + Escale(3,:) * dat_out_grad(:,3) &
+                     + dat_out_lift(:) ) / Gsqrt(:)
     call assert( dat_out_div, dat_out_div_ans(:), 'Check values', 'Div', elem%Np )
 
     return
@@ -222,7 +225,7 @@ contains
 
   subroutine final()
     implicit none
-    LOG_INFO("init",*) 'Finalize ...'
+    LOG_INFO("Final",*) 'Finalize ...'
 
     call PRC_MPIfinish()
     return
@@ -238,15 +241,17 @@ contains
     character(*), intent(in) :: var_name
 
     real(RP), parameter :: EPS = 1.0E-15_RP
+    real(RP) :: l2_error
     integer :: i
     !--------------------------------------
 
-    write(*,'(a,a)', advance='no') trim(var_name), "="
+    l2_error = sum((vals(:) - ans(:))**2)
+    write(IO_FID_LOG,'(a,a,ES18.8,a)', advance='no') trim(var_name), ": l2error", sqrt(l2_error), ': val='
     do i=1, val_size
-      write(*, '(f12.5)', advance='no') vals(i)
+      write(IO_FID_LOG, '(f12.5)', advance='no') vals(i)
     end do
-    write(*,*)
-    if ( sum((vals(:) - ans(:))**2) > EPS ) then
+    write(IO_FID_LOG,*)
+    if ( l2_error > EPS ) then
       LOG_ERROR(assert_name,*) 'The value of '//trim(var_name)//' is unexcepted!', &
         "val=", vals(:), " ans=", ans(:)
       call PRC_abort

@@ -27,6 +27,7 @@ module scale_element_operation_tensorprod3D
     ElementBase3D_Init, ElementBase3D_Final
 
   use scale_element_operation_base, only: ElementOperationBase3D
+  use scale_element_modalfilter, only: ModalFilter  
 
   !-----------------------------------------------------------------------------
   implicit none
@@ -63,8 +64,15 @@ module scale_element_operation_tensorprod3D
     real(RP) :: D1D(2,2)
     real(RP) :: D1D_tr(2,2)
     real(RP) :: Lift_mat(2,2,2,6)
-    real(RP) :: IntrpMat_VPOrdM1(2,2)
+    real(RP) :: IntrpMat_VPOrdM1_tr(2,2)
 
+    real(RP) :: MFilter_h1D(2,2)
+    real(RP) :: MFilter_h1D_tr(2,2)
+    real(RP) :: MFilter_v1D_tr(2,2)
+
+    real(RP) :: MFilter_tracer_h1D(2,2)
+    real(RP) :: MFilter_tracer_h1D_tr(2,2)
+    real(RP) :: MFilter_tracer_v1D_tr(2,2)
   contains
     procedure, public :: Init => element_operation_tensorprod3D_Init_P1
     procedure, public :: Final => element_operation_tensorprod3D_Final_P1
@@ -74,14 +82,27 @@ module scale_element_operation_tensorprod3D
     procedure, public :: Lift => element_operation_tensorprod3D_Lift_P1
     procedure, public :: DxDyDzLift => element_operation_tensorprod3D_DxDyDzLift_P1
     procedure, public :: Div => element_operation_tensorprod3D_Div_P1
+    procedure, public :: Div_var5 => element_operation_tensorprod3D_Div_var5_P1
     procedure, public :: VFilterPM1 => element_operation_tensorprod3D_VFilterPM1_P1
+    !-
+    procedure, public :: Setup_ModalFilter => element_operation_tensorprod3D_Setup_ModalFilter_P1
+    procedure, public :: Setup_ModalFilter_tracer => element_operation_tensorprod3D_Setup_ModalFilter_tracer_P1
+    procedure, public :: ModalFilter_tracer => element_operation_tensorprod3D_ModalFilter_tracer_P1
+    procedure, public :: ModalFilter_var5 => element_operation_tensorprod3D_ModalFilter_var5_P1
   end type ElementOperationTensorProd3D_P1
   type, public, extends(ElementOperationTensorProd3D) :: ElementOperationTensorProd3D_P2
     real(RP) :: D1D(3,3)
     real(RP) :: D1D_tr(3,3)
     real(RP) :: Lift_mat(3,3,3,6)
-    real(RP) :: IntrpMat_VPOrdM1(3,3)
+    real(RP) :: IntrpMat_VPOrdM1_tr(3,3)
 
+    real(RP) :: MFilter_h1D(3,3)
+    real(RP) :: MFilter_h1D_tr(3,3)
+    real(RP) :: MFilter_v1D_tr(3,3)
+
+    real(RP) :: MFilter_tracer_h1D(3,3)
+    real(RP) :: MFilter_tracer_h1D_tr(3,3)
+    real(RP) :: MFilter_tracer_v1D_tr(3,3)
   contains
     procedure, public :: Init => element_operation_tensorprod3D_Init_P2
     procedure, public :: Final => element_operation_tensorprod3D_Final_P2
@@ -91,14 +112,27 @@ module scale_element_operation_tensorprod3D
     procedure, public :: Lift => element_operation_tensorprod3D_Lift_P2
     procedure, public :: DxDyDzLift => element_operation_tensorprod3D_DxDyDzLift_P2
     procedure, public :: Div => element_operation_tensorprod3D_Div_P2
+    procedure, public :: Div_var5 => element_operation_tensorprod3D_Div_var5_P2
     procedure, public :: VFilterPM1 => element_operation_tensorprod3D_VFilterPM1_P2
+    !-
+    procedure, public :: Setup_ModalFilter => element_operation_tensorprod3D_Setup_ModalFilter_P2
+    procedure, public :: Setup_ModalFilter_tracer => element_operation_tensorprod3D_Setup_ModalFilter_tracer_P2
+    procedure, public :: ModalFilter_tracer => element_operation_tensorprod3D_ModalFilter_tracer_P2
+    procedure, public :: ModalFilter_var5 => element_operation_tensorprod3D_ModalFilter_var5_P2
   end type ElementOperationTensorProd3D_P2
   type, public, extends(ElementOperationTensorProd3D) :: ElementOperationTensorProd3D_P3
     real(RP) :: D1D(4,4)
     real(RP) :: D1D_tr(4,4)
     real(RP) :: Lift_mat(4,4,4,6)
-    real(RP) :: IntrpMat_VPOrdM1(4,4)
+    real(RP) :: IntrpMat_VPOrdM1_tr(4,4)
 
+    real(RP) :: MFilter_h1D(4,4)
+    real(RP) :: MFilter_h1D_tr(4,4)
+    real(RP) :: MFilter_v1D_tr(4,4)
+
+    real(RP) :: MFilter_tracer_h1D(4,4)
+    real(RP) :: MFilter_tracer_h1D_tr(4,4)
+    real(RP) :: MFilter_tracer_v1D_tr(4,4)
   contains
     procedure, public :: Init => element_operation_tensorprod3D_Init_P3
     procedure, public :: Final => element_operation_tensorprod3D_Final_P3
@@ -108,14 +142,27 @@ module scale_element_operation_tensorprod3D
     procedure, public :: Lift => element_operation_tensorprod3D_Lift_P3
     procedure, public :: DxDyDzLift => element_operation_tensorprod3D_DxDyDzLift_P3
     procedure, public :: Div => element_operation_tensorprod3D_Div_P3
+    procedure, public :: Div_var5 => element_operation_tensorprod3D_Div_var5_P3
     procedure, public :: VFilterPM1 => element_operation_tensorprod3D_VFilterPM1_P3
+    !-
+    procedure, public :: Setup_ModalFilter => element_operation_tensorprod3D_Setup_ModalFilter_P3
+    procedure, public :: Setup_ModalFilter_tracer => element_operation_tensorprod3D_Setup_ModalFilter_tracer_P3
+    procedure, public :: ModalFilter_tracer => element_operation_tensorprod3D_ModalFilter_tracer_P3
+    procedure, public :: ModalFilter_var5 => element_operation_tensorprod3D_ModalFilter_var5_P3
   end type ElementOperationTensorProd3D_P3
   type, public, extends(ElementOperationTensorProd3D) :: ElementOperationTensorProd3D_P4
     real(RP) :: D1D(5,5)
     real(RP) :: D1D_tr(5,5)
     real(RP) :: Lift_mat(5,5,5,6)
-    real(RP) :: IntrpMat_VPOrdM1(5,5)
+    real(RP) :: IntrpMat_VPOrdM1_tr(5,5)
 
+    real(RP) :: MFilter_h1D(5,5)
+    real(RP) :: MFilter_h1D_tr(5,5)
+    real(RP) :: MFilter_v1D_tr(5,5)
+
+    real(RP) :: MFilter_tracer_h1D(5,5)
+    real(RP) :: MFilter_tracer_h1D_tr(5,5)
+    real(RP) :: MFilter_tracer_v1D_tr(5,5)
   contains
     procedure, public :: Init => element_operation_tensorprod3D_Init_P4
     procedure, public :: Final => element_operation_tensorprod3D_Final_P4
@@ -125,14 +172,27 @@ module scale_element_operation_tensorprod3D
     procedure, public :: Lift => element_operation_tensorprod3D_Lift_P4
     procedure, public :: DxDyDzLift => element_operation_tensorprod3D_DxDyDzLift_P4
     procedure, public :: Div => element_operation_tensorprod3D_Div_P4
+    procedure, public :: Div_var5 => element_operation_tensorprod3D_Div_var5_P4
     procedure, public :: VFilterPM1 => element_operation_tensorprod3D_VFilterPM1_P4
+    !-
+    procedure, public :: Setup_ModalFilter => element_operation_tensorprod3D_Setup_ModalFilter_P4
+    procedure, public :: Setup_ModalFilter_tracer => element_operation_tensorprod3D_Setup_ModalFilter_tracer_P4
+    procedure, public :: ModalFilter_tracer => element_operation_tensorprod3D_ModalFilter_tracer_P4
+    procedure, public :: ModalFilter_var5 => element_operation_tensorprod3D_ModalFilter_var5_P4
   end type ElementOperationTensorProd3D_P4
   type, public, extends(ElementOperationTensorProd3D) :: ElementOperationTensorProd3D_P5
     real(RP) :: D1D(6,6)
     real(RP) :: D1D_tr(6,6)
     real(RP) :: Lift_mat(6,6,6,6)
-    real(RP) :: IntrpMat_VPOrdM1(6,6)
+    real(RP) :: IntrpMat_VPOrdM1_tr(6,6)
 
+    real(RP) :: MFilter_h1D(6,6)
+    real(RP) :: MFilter_h1D_tr(6,6)
+    real(RP) :: MFilter_v1D_tr(6,6)
+
+    real(RP) :: MFilter_tracer_h1D(6,6)
+    real(RP) :: MFilter_tracer_h1D_tr(6,6)
+    real(RP) :: MFilter_tracer_v1D_tr(6,6)
   contains
     procedure, public :: Init => element_operation_tensorprod3D_Init_P5
     procedure, public :: Final => element_operation_tensorprod3D_Final_P5
@@ -142,14 +202,27 @@ module scale_element_operation_tensorprod3D
     procedure, public :: Lift => element_operation_tensorprod3D_Lift_P5
     procedure, public :: DxDyDzLift => element_operation_tensorprod3D_DxDyDzLift_P5
     procedure, public :: Div => element_operation_tensorprod3D_Div_P5
+    procedure, public :: Div_var5 => element_operation_tensorprod3D_Div_var5_P5
     procedure, public :: VFilterPM1 => element_operation_tensorprod3D_VFilterPM1_P5
+    !-
+    procedure, public :: Setup_ModalFilter => element_operation_tensorprod3D_Setup_ModalFilter_P5
+    procedure, public :: Setup_ModalFilter_tracer => element_operation_tensorprod3D_Setup_ModalFilter_tracer_P5
+    procedure, public :: ModalFilter_tracer => element_operation_tensorprod3D_ModalFilter_tracer_P5
+    procedure, public :: ModalFilter_var5 => element_operation_tensorprod3D_ModalFilter_var5_P5
   end type ElementOperationTensorProd3D_P5
   type, public, extends(ElementOperationTensorProd3D) :: ElementOperationTensorProd3D_P6
     real(RP) :: D1D(7,7)
     real(RP) :: D1D_tr(7,7)
     real(RP) :: Lift_mat(7,7,7,6)
-    real(RP) :: IntrpMat_VPOrdM1(7,7)
+    real(RP) :: IntrpMat_VPOrdM1_tr(7,7)
 
+    real(RP) :: MFilter_h1D(7,7)
+    real(RP) :: MFilter_h1D_tr(7,7)
+    real(RP) :: MFilter_v1D_tr(7,7)
+
+    real(RP) :: MFilter_tracer_h1D(7,7)
+    real(RP) :: MFilter_tracer_h1D_tr(7,7)
+    real(RP) :: MFilter_tracer_v1D_tr(7,7)
   contains
     procedure, public :: Init => element_operation_tensorprod3D_Init_P6
     procedure, public :: Final => element_operation_tensorprod3D_Final_P6
@@ -159,14 +232,27 @@ module scale_element_operation_tensorprod3D
     procedure, public :: Lift => element_operation_tensorprod3D_Lift_P6
     procedure, public :: DxDyDzLift => element_operation_tensorprod3D_DxDyDzLift_P6
     procedure, public :: Div => element_operation_tensorprod3D_Div_P6
+    procedure, public :: Div_var5 => element_operation_tensorprod3D_Div_var5_P6
     procedure, public :: VFilterPM1 => element_operation_tensorprod3D_VFilterPM1_P6
+    !-
+    procedure, public :: Setup_ModalFilter => element_operation_tensorprod3D_Setup_ModalFilter_P6
+    procedure, public :: Setup_ModalFilter_tracer => element_operation_tensorprod3D_Setup_ModalFilter_tracer_P6
+    procedure, public :: ModalFilter_tracer => element_operation_tensorprod3D_ModalFilter_tracer_P6
+    procedure, public :: ModalFilter_var5 => element_operation_tensorprod3D_ModalFilter_var5_P6
   end type ElementOperationTensorProd3D_P6
   type, public, extends(ElementOperationTensorProd3D) :: ElementOperationTensorProd3D_P7
     real(RP) :: D1D(8,8)
     real(RP) :: D1D_tr(8,8)
     real(RP) :: Lift_mat(8,8,8,6)
-    real(RP) :: IntrpMat_VPOrdM1(8,8)
+    real(RP) :: IntrpMat_VPOrdM1_tr(8,8)
 
+    real(RP) :: MFilter_h1D(8,8)
+    real(RP) :: MFilter_h1D_tr(8,8)
+    real(RP) :: MFilter_v1D_tr(8,8)
+
+    real(RP) :: MFilter_tracer_h1D(8,8)
+    real(RP) :: MFilter_tracer_h1D_tr(8,8)
+    real(RP) :: MFilter_tracer_v1D_tr(8,8)
   contains
     procedure, public :: Init => element_operation_tensorprod3D_Init_P7
     procedure, public :: Final => element_operation_tensorprod3D_Final_P7
@@ -176,14 +262,27 @@ module scale_element_operation_tensorprod3D
     procedure, public :: Lift => element_operation_tensorprod3D_Lift_P7
     procedure, public :: DxDyDzLift => element_operation_tensorprod3D_DxDyDzLift_P7
     procedure, public :: Div => element_operation_tensorprod3D_Div_P7
+    procedure, public :: Div_var5 => element_operation_tensorprod3D_Div_var5_P7
     procedure, public :: VFilterPM1 => element_operation_tensorprod3D_VFilterPM1_P7
+    !-
+    procedure, public :: Setup_ModalFilter => element_operation_tensorprod3D_Setup_ModalFilter_P7
+    procedure, public :: Setup_ModalFilter_tracer => element_operation_tensorprod3D_Setup_ModalFilter_tracer_P7
+    procedure, public :: ModalFilter_tracer => element_operation_tensorprod3D_ModalFilter_tracer_P7
+    procedure, public :: ModalFilter_var5 => element_operation_tensorprod3D_ModalFilter_var5_P7
   end type ElementOperationTensorProd3D_P7
   type, public, extends(ElementOperationTensorProd3D) :: ElementOperationTensorProd3D_P8
     real(RP) :: D1D(9,9)
     real(RP) :: D1D_tr(9,9)
     real(RP) :: Lift_mat(9,9,9,6)
-    real(RP) :: IntrpMat_VPOrdM1(9,9)
+    real(RP) :: IntrpMat_VPOrdM1_tr(9,9)
 
+    real(RP) :: MFilter_h1D(9,9)
+    real(RP) :: MFilter_h1D_tr(9,9)
+    real(RP) :: MFilter_v1D_tr(9,9)
+
+    real(RP) :: MFilter_tracer_h1D(9,9)
+    real(RP) :: MFilter_tracer_h1D_tr(9,9)
+    real(RP) :: MFilter_tracer_v1D_tr(9,9)
   contains
     procedure, public :: Init => element_operation_tensorprod3D_Init_P8
     procedure, public :: Final => element_operation_tensorprod3D_Final_P8
@@ -193,14 +292,27 @@ module scale_element_operation_tensorprod3D
     procedure, public :: Lift => element_operation_tensorprod3D_Lift_P8
     procedure, public :: DxDyDzLift => element_operation_tensorprod3D_DxDyDzLift_P8
     procedure, public :: Div => element_operation_tensorprod3D_Div_P8
+    procedure, public :: Div_var5 => element_operation_tensorprod3D_Div_var5_P8
     procedure, public :: VFilterPM1 => element_operation_tensorprod3D_VFilterPM1_P8
+    !-
+    procedure, public :: Setup_ModalFilter => element_operation_tensorprod3D_Setup_ModalFilter_P8
+    procedure, public :: Setup_ModalFilter_tracer => element_operation_tensorprod3D_Setup_ModalFilter_tracer_P8
+    procedure, public :: ModalFilter_tracer => element_operation_tensorprod3D_ModalFilter_tracer_P8
+    procedure, public :: ModalFilter_var5 => element_operation_tensorprod3D_ModalFilter_var5_P8
   end type ElementOperationTensorProd3D_P8
   type, public, extends(ElementOperationTensorProd3D) :: ElementOperationTensorProd3D_P9
     real(RP) :: D1D(10,10)
     real(RP) :: D1D_tr(10,10)
     real(RP) :: Lift_mat(10,10,10,6)
-    real(RP) :: IntrpMat_VPOrdM1(10,10)
+    real(RP) :: IntrpMat_VPOrdM1_tr(10,10)
 
+    real(RP) :: MFilter_h1D(10,10)
+    real(RP) :: MFilter_h1D_tr(10,10)
+    real(RP) :: MFilter_v1D_tr(10,10)
+
+    real(RP) :: MFilter_tracer_h1D(10,10)
+    real(RP) :: MFilter_tracer_h1D_tr(10,10)
+    real(RP) :: MFilter_tracer_v1D_tr(10,10)
   contains
     procedure, public :: Init => element_operation_tensorprod3D_Init_P9
     procedure, public :: Final => element_operation_tensorprod3D_Final_P9
@@ -210,14 +322,27 @@ module scale_element_operation_tensorprod3D
     procedure, public :: Lift => element_operation_tensorprod3D_Lift_P9
     procedure, public :: DxDyDzLift => element_operation_tensorprod3D_DxDyDzLift_P9
     procedure, public :: Div => element_operation_tensorprod3D_Div_P9
+    procedure, public :: Div_var5 => element_operation_tensorprod3D_Div_var5_P9
     procedure, public :: VFilterPM1 => element_operation_tensorprod3D_VFilterPM1_P9
+    !-
+    procedure, public :: Setup_ModalFilter => element_operation_tensorprod3D_Setup_ModalFilter_P9
+    procedure, public :: Setup_ModalFilter_tracer => element_operation_tensorprod3D_Setup_ModalFilter_tracer_P9
+    procedure, public :: ModalFilter_tracer => element_operation_tensorprod3D_ModalFilter_tracer_P9
+    procedure, public :: ModalFilter_var5 => element_operation_tensorprod3D_ModalFilter_var5_P9
   end type ElementOperationTensorProd3D_P9
   type, public, extends(ElementOperationTensorProd3D) :: ElementOperationTensorProd3D_P10
     real(RP) :: D1D(11,11)
     real(RP) :: D1D_tr(11,11)
     real(RP) :: Lift_mat(11,11,11,6)
-    real(RP) :: IntrpMat_VPOrdM1(11,11)
+    real(RP) :: IntrpMat_VPOrdM1_tr(11,11)
 
+    real(RP) :: MFilter_h1D(11,11)
+    real(RP) :: MFilter_h1D_tr(11,11)
+    real(RP) :: MFilter_v1D_tr(11,11)
+
+    real(RP) :: MFilter_tracer_h1D(11,11)
+    real(RP) :: MFilter_tracer_h1D_tr(11,11)
+    real(RP) :: MFilter_tracer_v1D_tr(11,11)
   contains
     procedure, public :: Init => element_operation_tensorprod3D_Init_P10
     procedure, public :: Final => element_operation_tensorprod3D_Final_P10
@@ -227,14 +352,27 @@ module scale_element_operation_tensorprod3D
     procedure, public :: Lift => element_operation_tensorprod3D_Lift_P10
     procedure, public :: DxDyDzLift => element_operation_tensorprod3D_DxDyDzLift_P10
     procedure, public :: Div => element_operation_tensorprod3D_Div_P10
+    procedure, public :: Div_var5 => element_operation_tensorprod3D_Div_var5_P10
     procedure, public :: VFilterPM1 => element_operation_tensorprod3D_VFilterPM1_P10
+    !-
+    procedure, public :: Setup_ModalFilter => element_operation_tensorprod3D_Setup_ModalFilter_P10
+    procedure, public :: Setup_ModalFilter_tracer => element_operation_tensorprod3D_Setup_ModalFilter_tracer_P10
+    procedure, public :: ModalFilter_tracer => element_operation_tensorprod3D_ModalFilter_tracer_P10
+    procedure, public :: ModalFilter_var5 => element_operation_tensorprod3D_ModalFilter_var5_P10
   end type ElementOperationTensorProd3D_P10
   type, public, extends(ElementOperationTensorProd3D) :: ElementOperationTensorProd3D_P11
     real(RP) :: D1D(12,12)
     real(RP) :: D1D_tr(12,12)
     real(RP) :: Lift_mat(12,12,12,6)
-    real(RP) :: IntrpMat_VPOrdM1(12,12)
+    real(RP) :: IntrpMat_VPOrdM1_tr(12,12)
 
+    real(RP) :: MFilter_h1D(12,12)
+    real(RP) :: MFilter_h1D_tr(12,12)
+    real(RP) :: MFilter_v1D_tr(12,12)
+
+    real(RP) :: MFilter_tracer_h1D(12,12)
+    real(RP) :: MFilter_tracer_h1D_tr(12,12)
+    real(RP) :: MFilter_tracer_v1D_tr(12,12)
   contains
     procedure, public :: Init => element_operation_tensorprod3D_Init_P11
     procedure, public :: Final => element_operation_tensorprod3D_Final_P11
@@ -244,14 +382,27 @@ module scale_element_operation_tensorprod3D
     procedure, public :: Lift => element_operation_tensorprod3D_Lift_P11
     procedure, public :: DxDyDzLift => element_operation_tensorprod3D_DxDyDzLift_P11
     procedure, public :: Div => element_operation_tensorprod3D_Div_P11
+    procedure, public :: Div_var5 => element_operation_tensorprod3D_Div_var5_P11
     procedure, public :: VFilterPM1 => element_operation_tensorprod3D_VFilterPM1_P11
+    !-
+    procedure, public :: Setup_ModalFilter => element_operation_tensorprod3D_Setup_ModalFilter_P11
+    procedure, public :: Setup_ModalFilter_tracer => element_operation_tensorprod3D_Setup_ModalFilter_tracer_P11
+    procedure, public :: ModalFilter_tracer => element_operation_tensorprod3D_ModalFilter_tracer_P11
+    procedure, public :: ModalFilter_var5 => element_operation_tensorprod3D_ModalFilter_var5_P11
   end type ElementOperationTensorProd3D_P11
   type, public, extends(ElementOperationTensorProd3D) :: ElementOperationTensorProd3D_P12
     real(RP) :: D1D(13,13)
     real(RP) :: D1D_tr(13,13)
     real(RP) :: Lift_mat(13,13,13,6)
-    real(RP) :: IntrpMat_VPOrdM1(13,13)
+    real(RP) :: IntrpMat_VPOrdM1_tr(13,13)
 
+    real(RP) :: MFilter_h1D(13,13)
+    real(RP) :: MFilter_h1D_tr(13,13)
+    real(RP) :: MFilter_v1D_tr(13,13)
+
+    real(RP) :: MFilter_tracer_h1D(13,13)
+    real(RP) :: MFilter_tracer_h1D_tr(13,13)
+    real(RP) :: MFilter_tracer_v1D_tr(13,13)
   contains
     procedure, public :: Init => element_operation_tensorprod3D_Init_P12
     procedure, public :: Final => element_operation_tensorprod3D_Final_P12
@@ -261,14 +412,27 @@ module scale_element_operation_tensorprod3D
     procedure, public :: Lift => element_operation_tensorprod3D_Lift_P12
     procedure, public :: DxDyDzLift => element_operation_tensorprod3D_DxDyDzLift_P12
     procedure, public :: Div => element_operation_tensorprod3D_Div_P12
+    procedure, public :: Div_var5 => element_operation_tensorprod3D_Div_var5_P12
     procedure, public :: VFilterPM1 => element_operation_tensorprod3D_VFilterPM1_P12
+    !-
+    procedure, public :: Setup_ModalFilter => element_operation_tensorprod3D_Setup_ModalFilter_P12
+    procedure, public :: Setup_ModalFilter_tracer => element_operation_tensorprod3D_Setup_ModalFilter_tracer_P12
+    procedure, public :: ModalFilter_tracer => element_operation_tensorprod3D_ModalFilter_tracer_P12
+    procedure, public :: ModalFilter_var5 => element_operation_tensorprod3D_ModalFilter_var5_P12
   end type ElementOperationTensorProd3D_P12
   type, public, extends(ElementOperationTensorProd3D) :: ElementOperationTensorProd3D_P13
     real(RP) :: D1D(14,14)
     real(RP) :: D1D_tr(14,14)
     real(RP) :: Lift_mat(14,14,14,6)
-    real(RP) :: IntrpMat_VPOrdM1(14,14)
+    real(RP) :: IntrpMat_VPOrdM1_tr(14,14)
 
+    real(RP) :: MFilter_h1D(14,14)
+    real(RP) :: MFilter_h1D_tr(14,14)
+    real(RP) :: MFilter_v1D_tr(14,14)
+
+    real(RP) :: MFilter_tracer_h1D(14,14)
+    real(RP) :: MFilter_tracer_h1D_tr(14,14)
+    real(RP) :: MFilter_tracer_v1D_tr(14,14)
   contains
     procedure, public :: Init => element_operation_tensorprod3D_Init_P13
     procedure, public :: Final => element_operation_tensorprod3D_Final_P13
@@ -278,14 +442,27 @@ module scale_element_operation_tensorprod3D
     procedure, public :: Lift => element_operation_tensorprod3D_Lift_P13
     procedure, public :: DxDyDzLift => element_operation_tensorprod3D_DxDyDzLift_P13
     procedure, public :: Div => element_operation_tensorprod3D_Div_P13
+    procedure, public :: Div_var5 => element_operation_tensorprod3D_Div_var5_P13
     procedure, public :: VFilterPM1 => element_operation_tensorprod3D_VFilterPM1_P13
+    !-
+    procedure, public :: Setup_ModalFilter => element_operation_tensorprod3D_Setup_ModalFilter_P13
+    procedure, public :: Setup_ModalFilter_tracer => element_operation_tensorprod3D_Setup_ModalFilter_tracer_P13
+    procedure, public :: ModalFilter_tracer => element_operation_tensorprod3D_ModalFilter_tracer_P13
+    procedure, public :: ModalFilter_var5 => element_operation_tensorprod3D_ModalFilter_var5_P13
   end type ElementOperationTensorProd3D_P13
   type, public, extends(ElementOperationTensorProd3D) :: ElementOperationTensorProd3D_P14
     real(RP) :: D1D(15,15)
     real(RP) :: D1D_tr(15,15)
     real(RP) :: Lift_mat(15,15,15,6)
-    real(RP) :: IntrpMat_VPOrdM1(15,15)
+    real(RP) :: IntrpMat_VPOrdM1_tr(15,15)
 
+    real(RP) :: MFilter_h1D(15,15)
+    real(RP) :: MFilter_h1D_tr(15,15)
+    real(RP) :: MFilter_v1D_tr(15,15)
+
+    real(RP) :: MFilter_tracer_h1D(15,15)
+    real(RP) :: MFilter_tracer_h1D_tr(15,15)
+    real(RP) :: MFilter_tracer_v1D_tr(15,15)
   contains
     procedure, public :: Init => element_operation_tensorprod3D_Init_P14
     procedure, public :: Final => element_operation_tensorprod3D_Final_P14
@@ -295,14 +472,27 @@ module scale_element_operation_tensorprod3D
     procedure, public :: Lift => element_operation_tensorprod3D_Lift_P14
     procedure, public :: DxDyDzLift => element_operation_tensorprod3D_DxDyDzLift_P14
     procedure, public :: Div => element_operation_tensorprod3D_Div_P14
+    procedure, public :: Div_var5 => element_operation_tensorprod3D_Div_var5_P14
     procedure, public :: VFilterPM1 => element_operation_tensorprod3D_VFilterPM1_P14
+    !-
+    procedure, public :: Setup_ModalFilter => element_operation_tensorprod3D_Setup_ModalFilter_P14
+    procedure, public :: Setup_ModalFilter_tracer => element_operation_tensorprod3D_Setup_ModalFilter_tracer_P14
+    procedure, public :: ModalFilter_tracer => element_operation_tensorprod3D_ModalFilter_tracer_P14
+    procedure, public :: ModalFilter_var5 => element_operation_tensorprod3D_ModalFilter_var5_P14
   end type ElementOperationTensorProd3D_P14
   type, public, extends(ElementOperationTensorProd3D) :: ElementOperationTensorProd3D_P15
     real(RP) :: D1D(16,16)
     real(RP) :: D1D_tr(16,16)
     real(RP) :: Lift_mat(16,16,16,6)
-    real(RP) :: IntrpMat_VPOrdM1(16,16)
+    real(RP) :: IntrpMat_VPOrdM1_tr(16,16)
 
+    real(RP) :: MFilter_h1D(16,16)
+    real(RP) :: MFilter_h1D_tr(16,16)
+    real(RP) :: MFilter_v1D_tr(16,16)
+
+    real(RP) :: MFilter_tracer_h1D(16,16)
+    real(RP) :: MFilter_tracer_h1D_tr(16,16)
+    real(RP) :: MFilter_tracer_v1D_tr(16,16)
   contains
     procedure, public :: Init => element_operation_tensorprod3D_Init_P15
     procedure, public :: Final => element_operation_tensorprod3D_Final_P15
@@ -312,7 +502,13 @@ module scale_element_operation_tensorprod3D
     procedure, public :: Lift => element_operation_tensorprod3D_Lift_P15
     procedure, public :: DxDyDzLift => element_operation_tensorprod3D_DxDyDzLift_P15
     procedure, public :: Div => element_operation_tensorprod3D_Div_P15
+    procedure, public :: Div_var5 => element_operation_tensorprod3D_Div_var5_P15
     procedure, public :: VFilterPM1 => element_operation_tensorprod3D_VFilterPM1_P15
+    !-
+    procedure, public :: Setup_ModalFilter => element_operation_tensorprod3D_Setup_ModalFilter_P15
+    procedure, public :: Setup_ModalFilter_tracer => element_operation_tensorprod3D_Setup_ModalFilter_tracer_P15
+    procedure, public :: ModalFilter_tracer => element_operation_tensorprod3D_ModalFilter_tracer_P15
+    procedure, public :: ModalFilter_var5 => element_operation_tensorprod3D_ModalFilter_var5_P15
   end type ElementOperationTensorProd3D_P15
 
 contains
@@ -368,7 +564,7 @@ contains
 
     return
   end subroutine ElementOperationTensorprod3D_create
-
+  
 
 !--- For p=1 ------------------------------------
 
@@ -376,41 +572,69 @@ contains
 !!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Init_P1( this, elem3D )
-    use scale_element_line, only: LineElement
-    use scale_sparsemat, only: SparseMat
     implicit none
     class(ElementOperationTensorProd3D_P1), intent(inout) :: this
     class(ElementBase3D), intent(in), target :: elem3D
-
-    integer :: p
-
-    integer :: p1, p2, p_
-    real(RP) :: invV_VPOrdM1(2,2)
-
-    type(LineElement) :: elem1D
-    type(SparseMat) :: Lift_sm
     !----------------------------------------------------------
+
     this%elem3D => elem3D
 
-    call elem1D%Init( 1, .false. )
-    this%D1D(:,:) = elem1D%Dx1(:,:)
-    this%D1D_tr(:,:) = transpose(this%D1D)
-
-    call Lift_sm%Init( elem3D%Lift, storage_format='ELL' )
-    this%Lift_mat(:,:,:,:) = reshape(Lift_sm%val, (/ 2,2,2,6 /) )
-    call Lift_sm%Final()
-
-    !--
-
-    InvV_VPOrdM1(:,:) = elem1D%invV(:,:)
-    InvV_VPOrdM1(2,:) = 0.0_RP
-    this%IntrpMat_VPOrdM1(:,:) = matmul(elem1D%V, invV_VPOrdM1)
-
-    !-
-    call elem1D%Final()
-
+    call setup_elem_operator( this%D1D, this%D1D_tr, this%Lift_mat, this%IntrpMat_VPOrdM1_tr, &
+      2, elem3D )
     return
   end subroutine element_operation_tensorprod3D_Init_P1
+
+  !> Setup modal filter
+  !!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Setup_ModalFilter_P1( this, &
+    MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h, &
+    MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v )
+    use scale_element_hexahedral, only: HexahedralElement
+    use scale_element_line, only: LineElement
+    implicit none
+    class(ElementOperationTensorProd3D_P1), intent(inout) :: this
+    real(RP), intent(in) :: MF_ETAC_h
+    real(RP), intent(in) :: MF_ALPHA_h
+    integer, intent(in) :: MF_ORDER_h
+    real(RP), intent(in) :: MF_ETAC_v
+    real(RP), intent(in) :: MF_ALPHA_v
+    integer, intent(in) :: MF_ORDER_v
+    !--------------------------------------------------------
+
+    call setup_ModalFilter( this%MFilter_h1D, this%MFilter_h1D_tr, this%MFilter_v1D_tr, &
+      MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h,               &
+      MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v,               &
+      this%elem3D%PolyOrder_h, this%elem3D%PolyOrder_v )
+    
+    return
+  end subroutine element_operation_tensorprod3D_Setup_ModalFilter_P1 
+
+  !> Setup modal filter for tracer
+  !!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Setup_ModalFilter_tracer_P1( this, &
+    MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h, &
+    MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v )
+    use scale_element_hexahedral, only: HexahedralElement
+    use scale_element_line, only: LineElement
+    implicit none
+    class(ElementOperationTensorProd3D_P1), intent(inout) :: this
+    real(RP), intent(in) :: MF_ETAC_h
+    real(RP), intent(in) :: MF_ALPHA_h
+    integer, intent(in) :: MF_ORDER_h
+    real(RP), intent(in) :: MF_ETAC_v
+    real(RP), intent(in) :: MF_ALPHA_v
+    integer, intent(in) :: MF_ORDER_v
+    !--------------------------------------------------------
+
+    call setup_ModalFilter( this%MFilter_tracer_h1D, this%MFilter_tracer_h1D_tr, this%MFilter_tracer_v1D_tr, &
+      MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h,               &
+      MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v,               &
+      this%elem3D%PolyOrder_h, this%elem3D%PolyOrder_v )
+    
+    return
+  end subroutine element_operation_tensorprod3D_Setup_ModalFilter_tracer_P1 
 
 !> Finalization
 !!
@@ -506,8 +730,8 @@ contains
 !> Calculate the 3D gradient
 !!
 !OCL SERIAL
-  subroutine element_operation_tensorprod3D_Div_P1(  this, vec_in_x, vec_in_y, vec_in_z, vec_in_lift, Escale, Gsqrt, sign_, &
-    vec_out_dx, vec_out_dy, vec_out_dz, vec_out_lift, vec_out )
+  subroutine element_operation_tensorprod3D_Div_P1(  this, vec_in_x, vec_in_y, vec_in_z, vec_in_lift, &
+    vec_out_dx, vec_out_dy, vec_out_dz, vec_out_lift )
     use scale_element_operation_tensorprod3D_kernel, only: &
       element_operation_kernel_matvec_divlike_dirXYZ_P1, &
       element_operation_kernel_matvec_Lift_hexahedral_P1
@@ -517,25 +741,49 @@ contains
     real(RP), intent(in) :: vec_in_y(this%elem3D%Np)
     real(RP), intent(in) :: vec_in_z(this%elem3D%Np)
     real(RP), intent(in) :: vec_in_lift(this%elem3D%NfpTot)
-    real(RP), intent(in) :: Escale(3,this%elem3D%Np)
-    real(RP), intent(in) :: Gsqrt(this%elem3D%Np)
-    real(RP), intent(in) :: sign_    
     real(RP), intent(out) :: vec_out_dx(this%elem3D%Np)
     real(RP), intent(out) :: vec_out_dy(this%elem3D%Np)
     real(RP), intent(out) :: vec_out_dz(this%elem3D%Np)
     real(RP), intent(out) :: vec_out_lift(this%elem3D%Np)
-    real(RP), intent(out) :: vec_out(this%elem3D%Np)
     !----------------------------------------------------------
 
     call element_operation_kernel_matvec_Lift_hexahedral_P1( this%Lift_mat, vec_in_lift, &
       vec_out_lift )      
 
-    call element_operation_kernel_matvec_divlike_dirXYZ_P1( this%D1D, this%D1D_tr, vec_in_x, vec_in_y, vec_in_z, Escale, Gsqrt, vec_out_lift, sign_, &
-      vec_out_dx, vec_out_dy, vec_out_dz, vec_out )
-
+    call element_operation_kernel_matvec_divlike_dirXYZ_P1( this%D1D, this%D1D_tr, vec_in_x, vec_in_y, vec_in_z, &
+      vec_out_dx, vec_out_dy, vec_out_dz )
     return
   end subroutine element_operation_tensorprod3D_Div_P1
 
+!> Calculate the 3D gradient
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Div_var5_P1(  this, vec_in, vec_in_lift, &
+    vec_out_d )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_divlike_dirXYZ_P1, &
+      element_operation_kernel_matvec_Lift_hexahedral_P1
+    implicit none
+    class(ElementOperationTensorProd3D_P1), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np,3,5)
+    real(RP), intent(in) :: vec_in_lift(this%elem3D%NfpTot,5)
+    real(RP), intent(out) :: vec_out_d(this%elem3D%Np,4,5)
+
+    integer :: iv
+    !----------------------------------------------------------
+
+    do iv=1, 5
+      call element_operation_kernel_matvec_Lift_hexahedral_P1( this%Lift_mat, vec_in_lift(:,iv), &
+        vec_out_d(:,4,iv) )      
+    end do
+    do iv=1, 5
+      call element_operation_kernel_matvec_divlike_dirXYZ_P1( this%D1D, this%D1D_tr, vec_in(:,1,iv), vec_in(:,2,iv), vec_in(:,3,iv), &
+        vec_out_d(:,1,iv), vec_out_d(:,2,iv), vec_out_d(:,3,iv) )
+    end do
+    return
+  end subroutine element_operation_tensorprod3D_Div_var5_P1
+    
+!OCL SERIAL
   subroutine element_operation_tensorprod3D_VFilterPM1_P1( this, vec_in, vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirZ_P1
     implicit none
@@ -544,10 +792,49 @@ contains
     real(RP), intent(out) :: vec_out(this%elem3D%Np)
     !---------------------------------------------------------------
 
-    call element_operation_kernel_matvec_dirZ_P1( this%IntrpMat_VPOrdM1, vec_in, &
+    call element_operation_kernel_matvec_dirZ_P1( this%IntrpMat_VPOrdM1_tr, vec_in, &
       vec_out )
     return
   end subroutine element_operation_tensorprod3D_VFilterPM1_P1 
+
+  !OCL SERIAL
+  subroutine element_operation_tensorprod3D_ModalFilter_tracer_P1( this, vec_in, vec_work, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_ModalFilter_P1
+
+    implicit none
+    class(ElementOperationTensorProd3D_P1), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np)
+    real(RP), intent(out) :: vec_work(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
+    !---------------------------------------------
+
+    call element_operation_kernel_matvec_ModalFilter_P1( this%MFilter_tracer_h1D, this%MFilter_tracer_h1D_tr, this%MFilter_tracer_v1D_tr, vec_in(:), vec_work, &
+      vec_out(:) )
+    
+    return
+  end subroutine element_operation_tensorprod3D_ModalFilter_tracer_P1 
+  
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_ModalFilter_var5_P1( this, vec_in, vec_work, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_ModalFilter_P1
+
+    implicit none
+    class(ElementOperationTensorProd3D_P1), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np,5)
+    real(RP), intent(out) :: vec_work(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np,5)
+    integer :: iv
+    !---------------------------------------------
+
+    do iv=1, 5
+      call element_operation_kernel_matvec_ModalFilter_P1( this%MFilter_h1D, this%MFilter_h1D_tr, this%MFilter_v1D_tr, vec_in(:,iv), vec_work, &
+        vec_out(:,iv) )
+    end do
+    
+    return
+  end subroutine element_operation_tensorprod3D_ModalFilter_var5_P1 
 
 
 !--- For p=2 ------------------------------------
@@ -556,41 +843,69 @@ contains
 !!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Init_P2( this, elem3D )
-    use scale_element_line, only: LineElement
-    use scale_sparsemat, only: SparseMat
     implicit none
     class(ElementOperationTensorProd3D_P2), intent(inout) :: this
     class(ElementBase3D), intent(in), target :: elem3D
-
-    integer :: p
-
-    integer :: p1, p2, p_
-    real(RP) :: invV_VPOrdM1(3,3)
-
-    type(LineElement) :: elem1D
-    type(SparseMat) :: Lift_sm
     !----------------------------------------------------------
+
     this%elem3D => elem3D
 
-    call elem1D%Init( 2, .false. )
-    this%D1D(:,:) = elem1D%Dx1(:,:)
-    this%D1D_tr(:,:) = transpose(this%D1D)
-
-    call Lift_sm%Init( elem3D%Lift, storage_format='ELL' )
-    this%Lift_mat(:,:,:,:) = reshape(Lift_sm%val, (/ 3,3,3,6 /) )
-    call Lift_sm%Final()
-
-    !--
-
-    InvV_VPOrdM1(:,:) = elem1D%invV(:,:)
-    InvV_VPOrdM1(3,:) = 0.0_RP
-    this%IntrpMat_VPOrdM1(:,:) = matmul(elem1D%V, invV_VPOrdM1)
-
-    !-
-    call elem1D%Final()
-
+    call setup_elem_operator( this%D1D, this%D1D_tr, this%Lift_mat, this%IntrpMat_VPOrdM1_tr, &
+      3, elem3D )
     return
   end subroutine element_operation_tensorprod3D_Init_P2
+
+  !> Setup modal filter
+  !!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Setup_ModalFilter_P2( this, &
+    MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h, &
+    MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v )
+    use scale_element_hexahedral, only: HexahedralElement
+    use scale_element_line, only: LineElement
+    implicit none
+    class(ElementOperationTensorProd3D_P2), intent(inout) :: this
+    real(RP), intent(in) :: MF_ETAC_h
+    real(RP), intent(in) :: MF_ALPHA_h
+    integer, intent(in) :: MF_ORDER_h
+    real(RP), intent(in) :: MF_ETAC_v
+    real(RP), intent(in) :: MF_ALPHA_v
+    integer, intent(in) :: MF_ORDER_v
+    !--------------------------------------------------------
+
+    call setup_ModalFilter( this%MFilter_h1D, this%MFilter_h1D_tr, this%MFilter_v1D_tr, &
+      MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h,               &
+      MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v,               &
+      this%elem3D%PolyOrder_h, this%elem3D%PolyOrder_v )
+    
+    return
+  end subroutine element_operation_tensorprod3D_Setup_ModalFilter_P2 
+
+  !> Setup modal filter for tracer
+  !!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Setup_ModalFilter_tracer_P2( this, &
+    MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h, &
+    MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v )
+    use scale_element_hexahedral, only: HexahedralElement
+    use scale_element_line, only: LineElement
+    implicit none
+    class(ElementOperationTensorProd3D_P2), intent(inout) :: this
+    real(RP), intent(in) :: MF_ETAC_h
+    real(RP), intent(in) :: MF_ALPHA_h
+    integer, intent(in) :: MF_ORDER_h
+    real(RP), intent(in) :: MF_ETAC_v
+    real(RP), intent(in) :: MF_ALPHA_v
+    integer, intent(in) :: MF_ORDER_v
+    !--------------------------------------------------------
+
+    call setup_ModalFilter( this%MFilter_tracer_h1D, this%MFilter_tracer_h1D_tr, this%MFilter_tracer_v1D_tr, &
+      MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h,               &
+      MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v,               &
+      this%elem3D%PolyOrder_h, this%elem3D%PolyOrder_v )
+    
+    return
+  end subroutine element_operation_tensorprod3D_Setup_ModalFilter_tracer_P2 
 
 !> Finalization
 !!
@@ -686,8 +1001,8 @@ contains
 !> Calculate the 3D gradient
 !!
 !OCL SERIAL
-  subroutine element_operation_tensorprod3D_Div_P2(  this, vec_in_x, vec_in_y, vec_in_z, vec_in_lift, Escale, Gsqrt, sign_, &
-    vec_out_dx, vec_out_dy, vec_out_dz, vec_out_lift, vec_out )
+  subroutine element_operation_tensorprod3D_Div_P2(  this, vec_in_x, vec_in_y, vec_in_z, vec_in_lift, &
+    vec_out_dx, vec_out_dy, vec_out_dz, vec_out_lift )
     use scale_element_operation_tensorprod3D_kernel, only: &
       element_operation_kernel_matvec_divlike_dirXYZ_P2, &
       element_operation_kernel_matvec_Lift_hexahedral_P2
@@ -697,25 +1012,49 @@ contains
     real(RP), intent(in) :: vec_in_y(this%elem3D%Np)
     real(RP), intent(in) :: vec_in_z(this%elem3D%Np)
     real(RP), intent(in) :: vec_in_lift(this%elem3D%NfpTot)
-    real(RP), intent(in) :: Escale(3,this%elem3D%Np)
-    real(RP), intent(in) :: Gsqrt(this%elem3D%Np)
-    real(RP), intent(in) :: sign_    
     real(RP), intent(out) :: vec_out_dx(this%elem3D%Np)
     real(RP), intent(out) :: vec_out_dy(this%elem3D%Np)
     real(RP), intent(out) :: vec_out_dz(this%elem3D%Np)
     real(RP), intent(out) :: vec_out_lift(this%elem3D%Np)
-    real(RP), intent(out) :: vec_out(this%elem3D%Np)
     !----------------------------------------------------------
 
     call element_operation_kernel_matvec_Lift_hexahedral_P2( this%Lift_mat, vec_in_lift, &
       vec_out_lift )      
 
-    call element_operation_kernel_matvec_divlike_dirXYZ_P2( this%D1D, this%D1D_tr, vec_in_x, vec_in_y, vec_in_z, Escale, Gsqrt, vec_out_lift, sign_, &
-      vec_out_dx, vec_out_dy, vec_out_dz, vec_out )
-
+    call element_operation_kernel_matvec_divlike_dirXYZ_P2( this%D1D, this%D1D_tr, vec_in_x, vec_in_y, vec_in_z, &
+      vec_out_dx, vec_out_dy, vec_out_dz )
     return
   end subroutine element_operation_tensorprod3D_Div_P2
 
+!> Calculate the 3D gradient
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Div_var5_P2(  this, vec_in, vec_in_lift, &
+    vec_out_d )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_divlike_dirXYZ_P2, &
+      element_operation_kernel_matvec_Lift_hexahedral_P2
+    implicit none
+    class(ElementOperationTensorProd3D_P2), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np,3,5)
+    real(RP), intent(in) :: vec_in_lift(this%elem3D%NfpTot,5)
+    real(RP), intent(out) :: vec_out_d(this%elem3D%Np,4,5)
+
+    integer :: iv
+    !----------------------------------------------------------
+
+    do iv=1, 5
+      call element_operation_kernel_matvec_Lift_hexahedral_P2( this%Lift_mat, vec_in_lift(:,iv), &
+        vec_out_d(:,4,iv) )      
+    end do
+    do iv=1, 5
+      call element_operation_kernel_matvec_divlike_dirXYZ_P2( this%D1D, this%D1D_tr, vec_in(:,1,iv), vec_in(:,2,iv), vec_in(:,3,iv), &
+        vec_out_d(:,1,iv), vec_out_d(:,2,iv), vec_out_d(:,3,iv) )
+    end do
+    return
+  end subroutine element_operation_tensorprod3D_Div_var5_P2
+    
+!OCL SERIAL
   subroutine element_operation_tensorprod3D_VFilterPM1_P2( this, vec_in, vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirZ_P2
     implicit none
@@ -724,10 +1063,49 @@ contains
     real(RP), intent(out) :: vec_out(this%elem3D%Np)
     !---------------------------------------------------------------
 
-    call element_operation_kernel_matvec_dirZ_P2( this%IntrpMat_VPOrdM1, vec_in, &
+    call element_operation_kernel_matvec_dirZ_P2( this%IntrpMat_VPOrdM1_tr, vec_in, &
       vec_out )
     return
   end subroutine element_operation_tensorprod3D_VFilterPM1_P2 
+
+  !OCL SERIAL
+  subroutine element_operation_tensorprod3D_ModalFilter_tracer_P2( this, vec_in, vec_work, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_ModalFilter_P2
+
+    implicit none
+    class(ElementOperationTensorProd3D_P2), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np)
+    real(RP), intent(out) :: vec_work(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
+    !---------------------------------------------
+
+    call element_operation_kernel_matvec_ModalFilter_P2( this%MFilter_tracer_h1D, this%MFilter_tracer_h1D_tr, this%MFilter_tracer_v1D_tr, vec_in(:), vec_work, &
+      vec_out(:) )
+    
+    return
+  end subroutine element_operation_tensorprod3D_ModalFilter_tracer_P2 
+  
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_ModalFilter_var5_P2( this, vec_in, vec_work, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_ModalFilter_P2
+
+    implicit none
+    class(ElementOperationTensorProd3D_P2), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np,5)
+    real(RP), intent(out) :: vec_work(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np,5)
+    integer :: iv
+    !---------------------------------------------
+
+    do iv=1, 5
+      call element_operation_kernel_matvec_ModalFilter_P2( this%MFilter_h1D, this%MFilter_h1D_tr, this%MFilter_v1D_tr, vec_in(:,iv), vec_work, &
+        vec_out(:,iv) )
+    end do
+    
+    return
+  end subroutine element_operation_tensorprod3D_ModalFilter_var5_P2 
 
 
 !--- For p=3 ------------------------------------
@@ -736,41 +1114,69 @@ contains
 !!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Init_P3( this, elem3D )
-    use scale_element_line, only: LineElement
-    use scale_sparsemat, only: SparseMat
     implicit none
     class(ElementOperationTensorProd3D_P3), intent(inout) :: this
     class(ElementBase3D), intent(in), target :: elem3D
-
-    integer :: p
-
-    integer :: p1, p2, p_
-    real(RP) :: invV_VPOrdM1(4,4)
-
-    type(LineElement) :: elem1D
-    type(SparseMat) :: Lift_sm
     !----------------------------------------------------------
+
     this%elem3D => elem3D
 
-    call elem1D%Init( 3, .false. )
-    this%D1D(:,:) = elem1D%Dx1(:,:)
-    this%D1D_tr(:,:) = transpose(this%D1D)
-
-    call Lift_sm%Init( elem3D%Lift, storage_format='ELL' )
-    this%Lift_mat(:,:,:,:) = reshape(Lift_sm%val, (/ 4,4,4,6 /) )
-    call Lift_sm%Final()
-
-    !--
-
-    InvV_VPOrdM1(:,:) = elem1D%invV(:,:)
-    InvV_VPOrdM1(4,:) = 0.0_RP
-    this%IntrpMat_VPOrdM1(:,:) = matmul(elem1D%V, invV_VPOrdM1)
-
-    !-
-    call elem1D%Final()
-
+    call setup_elem_operator( this%D1D, this%D1D_tr, this%Lift_mat, this%IntrpMat_VPOrdM1_tr, &
+      4, elem3D )
     return
   end subroutine element_operation_tensorprod3D_Init_P3
+
+  !> Setup modal filter
+  !!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Setup_ModalFilter_P3( this, &
+    MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h, &
+    MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v )
+    use scale_element_hexahedral, only: HexahedralElement
+    use scale_element_line, only: LineElement
+    implicit none
+    class(ElementOperationTensorProd3D_P3), intent(inout) :: this
+    real(RP), intent(in) :: MF_ETAC_h
+    real(RP), intent(in) :: MF_ALPHA_h
+    integer, intent(in) :: MF_ORDER_h
+    real(RP), intent(in) :: MF_ETAC_v
+    real(RP), intent(in) :: MF_ALPHA_v
+    integer, intent(in) :: MF_ORDER_v
+    !--------------------------------------------------------
+
+    call setup_ModalFilter( this%MFilter_h1D, this%MFilter_h1D_tr, this%MFilter_v1D_tr, &
+      MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h,               &
+      MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v,               &
+      this%elem3D%PolyOrder_h, this%elem3D%PolyOrder_v )
+    
+    return
+  end subroutine element_operation_tensorprod3D_Setup_ModalFilter_P3 
+
+  !> Setup modal filter for tracer
+  !!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Setup_ModalFilter_tracer_P3( this, &
+    MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h, &
+    MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v )
+    use scale_element_hexahedral, only: HexahedralElement
+    use scale_element_line, only: LineElement
+    implicit none
+    class(ElementOperationTensorProd3D_P3), intent(inout) :: this
+    real(RP), intent(in) :: MF_ETAC_h
+    real(RP), intent(in) :: MF_ALPHA_h
+    integer, intent(in) :: MF_ORDER_h
+    real(RP), intent(in) :: MF_ETAC_v
+    real(RP), intent(in) :: MF_ALPHA_v
+    integer, intent(in) :: MF_ORDER_v
+    !--------------------------------------------------------
+
+    call setup_ModalFilter( this%MFilter_tracer_h1D, this%MFilter_tracer_h1D_tr, this%MFilter_tracer_v1D_tr, &
+      MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h,               &
+      MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v,               &
+      this%elem3D%PolyOrder_h, this%elem3D%PolyOrder_v )
+    
+    return
+  end subroutine element_operation_tensorprod3D_Setup_ModalFilter_tracer_P3 
 
 !> Finalization
 !!
@@ -866,8 +1272,8 @@ contains
 !> Calculate the 3D gradient
 !!
 !OCL SERIAL
-  subroutine element_operation_tensorprod3D_Div_P3(  this, vec_in_x, vec_in_y, vec_in_z, vec_in_lift, Escale, Gsqrt, sign_, &
-    vec_out_dx, vec_out_dy, vec_out_dz, vec_out_lift, vec_out )
+  subroutine element_operation_tensorprod3D_Div_P3(  this, vec_in_x, vec_in_y, vec_in_z, vec_in_lift, &
+    vec_out_dx, vec_out_dy, vec_out_dz, vec_out_lift )
     use scale_element_operation_tensorprod3D_kernel, only: &
       element_operation_kernel_matvec_divlike_dirXYZ_P3, &
       element_operation_kernel_matvec_Lift_hexahedral_P3
@@ -877,25 +1283,49 @@ contains
     real(RP), intent(in) :: vec_in_y(this%elem3D%Np)
     real(RP), intent(in) :: vec_in_z(this%elem3D%Np)
     real(RP), intent(in) :: vec_in_lift(this%elem3D%NfpTot)
-    real(RP), intent(in) :: Escale(3,this%elem3D%Np)
-    real(RP), intent(in) :: Gsqrt(this%elem3D%Np)
-    real(RP), intent(in) :: sign_    
     real(RP), intent(out) :: vec_out_dx(this%elem3D%Np)
     real(RP), intent(out) :: vec_out_dy(this%elem3D%Np)
     real(RP), intent(out) :: vec_out_dz(this%elem3D%Np)
     real(RP), intent(out) :: vec_out_lift(this%elem3D%Np)
-    real(RP), intent(out) :: vec_out(this%elem3D%Np)
     !----------------------------------------------------------
 
     call element_operation_kernel_matvec_Lift_hexahedral_P3( this%Lift_mat, vec_in_lift, &
       vec_out_lift )      
 
-    call element_operation_kernel_matvec_divlike_dirXYZ_P3( this%D1D, this%D1D_tr, vec_in_x, vec_in_y, vec_in_z, Escale, Gsqrt, vec_out_lift, sign_, &
-      vec_out_dx, vec_out_dy, vec_out_dz, vec_out )
-
+    call element_operation_kernel_matvec_divlike_dirXYZ_P3( this%D1D, this%D1D_tr, vec_in_x, vec_in_y, vec_in_z, &
+      vec_out_dx, vec_out_dy, vec_out_dz )
     return
   end subroutine element_operation_tensorprod3D_Div_P3
 
+!> Calculate the 3D gradient
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Div_var5_P3(  this, vec_in, vec_in_lift, &
+    vec_out_d )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_divlike_dirXYZ_P3, &
+      element_operation_kernel_matvec_Lift_hexahedral_P3
+    implicit none
+    class(ElementOperationTensorProd3D_P3), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np,3,5)
+    real(RP), intent(in) :: vec_in_lift(this%elem3D%NfpTot,5)
+    real(RP), intent(out) :: vec_out_d(this%elem3D%Np,4,5)
+
+    integer :: iv
+    !----------------------------------------------------------
+
+    do iv=1, 5
+      call element_operation_kernel_matvec_Lift_hexahedral_P3( this%Lift_mat, vec_in_lift(:,iv), &
+        vec_out_d(:,4,iv) )      
+    end do
+    do iv=1, 5
+      call element_operation_kernel_matvec_divlike_dirXYZ_P3( this%D1D, this%D1D_tr, vec_in(:,1,iv), vec_in(:,2,iv), vec_in(:,3,iv), &
+        vec_out_d(:,1,iv), vec_out_d(:,2,iv), vec_out_d(:,3,iv) )
+    end do
+    return
+  end subroutine element_operation_tensorprod3D_Div_var5_P3
+    
+!OCL SERIAL
   subroutine element_operation_tensorprod3D_VFilterPM1_P3( this, vec_in, vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirZ_P3
     implicit none
@@ -904,10 +1334,49 @@ contains
     real(RP), intent(out) :: vec_out(this%elem3D%Np)
     !---------------------------------------------------------------
 
-    call element_operation_kernel_matvec_dirZ_P3( this%IntrpMat_VPOrdM1, vec_in, &
+    call element_operation_kernel_matvec_dirZ_P3( this%IntrpMat_VPOrdM1_tr, vec_in, &
       vec_out )
     return
   end subroutine element_operation_tensorprod3D_VFilterPM1_P3 
+
+  !OCL SERIAL
+  subroutine element_operation_tensorprod3D_ModalFilter_tracer_P3( this, vec_in, vec_work, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_ModalFilter_P3
+
+    implicit none
+    class(ElementOperationTensorProd3D_P3), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np)
+    real(RP), intent(out) :: vec_work(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
+    !---------------------------------------------
+
+    call element_operation_kernel_matvec_ModalFilter_P3( this%MFilter_tracer_h1D, this%MFilter_tracer_h1D_tr, this%MFilter_tracer_v1D_tr, vec_in(:), vec_work, &
+      vec_out(:) )
+    
+    return
+  end subroutine element_operation_tensorprod3D_ModalFilter_tracer_P3 
+  
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_ModalFilter_var5_P3( this, vec_in, vec_work, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_ModalFilter_P3
+
+    implicit none
+    class(ElementOperationTensorProd3D_P3), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np,5)
+    real(RP), intent(out) :: vec_work(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np,5)
+    integer :: iv
+    !---------------------------------------------
+
+    do iv=1, 5
+      call element_operation_kernel_matvec_ModalFilter_P3( this%MFilter_h1D, this%MFilter_h1D_tr, this%MFilter_v1D_tr, vec_in(:,iv), vec_work, &
+        vec_out(:,iv) )
+    end do
+    
+    return
+  end subroutine element_operation_tensorprod3D_ModalFilter_var5_P3 
 
 
 !--- For p=4 ------------------------------------
@@ -916,41 +1385,69 @@ contains
 !!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Init_P4( this, elem3D )
-    use scale_element_line, only: LineElement
-    use scale_sparsemat, only: SparseMat
     implicit none
     class(ElementOperationTensorProd3D_P4), intent(inout) :: this
     class(ElementBase3D), intent(in), target :: elem3D
-
-    integer :: p
-
-    integer :: p1, p2, p_
-    real(RP) :: invV_VPOrdM1(5,5)
-
-    type(LineElement) :: elem1D
-    type(SparseMat) :: Lift_sm
     !----------------------------------------------------------
+
     this%elem3D => elem3D
 
-    call elem1D%Init( 4, .false. )
-    this%D1D(:,:) = elem1D%Dx1(:,:)
-    this%D1D_tr(:,:) = transpose(this%D1D)
-
-    call Lift_sm%Init( elem3D%Lift, storage_format='ELL' )
-    this%Lift_mat(:,:,:,:) = reshape(Lift_sm%val, (/ 5,5,5,6 /) )
-    call Lift_sm%Final()
-
-    !--
-
-    InvV_VPOrdM1(:,:) = elem1D%invV(:,:)
-    InvV_VPOrdM1(5,:) = 0.0_RP
-    this%IntrpMat_VPOrdM1(:,:) = matmul(elem1D%V, invV_VPOrdM1)
-
-    !-
-    call elem1D%Final()
-
+    call setup_elem_operator( this%D1D, this%D1D_tr, this%Lift_mat, this%IntrpMat_VPOrdM1_tr, &
+      5, elem3D )
     return
   end subroutine element_operation_tensorprod3D_Init_P4
+
+  !> Setup modal filter
+  !!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Setup_ModalFilter_P4( this, &
+    MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h, &
+    MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v )
+    use scale_element_hexahedral, only: HexahedralElement
+    use scale_element_line, only: LineElement
+    implicit none
+    class(ElementOperationTensorProd3D_P4), intent(inout) :: this
+    real(RP), intent(in) :: MF_ETAC_h
+    real(RP), intent(in) :: MF_ALPHA_h
+    integer, intent(in) :: MF_ORDER_h
+    real(RP), intent(in) :: MF_ETAC_v
+    real(RP), intent(in) :: MF_ALPHA_v
+    integer, intent(in) :: MF_ORDER_v
+    !--------------------------------------------------------
+
+    call setup_ModalFilter( this%MFilter_h1D, this%MFilter_h1D_tr, this%MFilter_v1D_tr, &
+      MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h,               &
+      MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v,               &
+      this%elem3D%PolyOrder_h, this%elem3D%PolyOrder_v )
+    
+    return
+  end subroutine element_operation_tensorprod3D_Setup_ModalFilter_P4 
+
+  !> Setup modal filter for tracer
+  !!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Setup_ModalFilter_tracer_P4( this, &
+    MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h, &
+    MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v )
+    use scale_element_hexahedral, only: HexahedralElement
+    use scale_element_line, only: LineElement
+    implicit none
+    class(ElementOperationTensorProd3D_P4), intent(inout) :: this
+    real(RP), intent(in) :: MF_ETAC_h
+    real(RP), intent(in) :: MF_ALPHA_h
+    integer, intent(in) :: MF_ORDER_h
+    real(RP), intent(in) :: MF_ETAC_v
+    real(RP), intent(in) :: MF_ALPHA_v
+    integer, intent(in) :: MF_ORDER_v
+    !--------------------------------------------------------
+
+    call setup_ModalFilter( this%MFilter_tracer_h1D, this%MFilter_tracer_h1D_tr, this%MFilter_tracer_v1D_tr, &
+      MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h,               &
+      MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v,               &
+      this%elem3D%PolyOrder_h, this%elem3D%PolyOrder_v )
+    
+    return
+  end subroutine element_operation_tensorprod3D_Setup_ModalFilter_tracer_P4 
 
 !> Finalization
 !!
@@ -1046,8 +1543,8 @@ contains
 !> Calculate the 3D gradient
 !!
 !OCL SERIAL
-  subroutine element_operation_tensorprod3D_Div_P4(  this, vec_in_x, vec_in_y, vec_in_z, vec_in_lift, Escale, Gsqrt, sign_, &
-    vec_out_dx, vec_out_dy, vec_out_dz, vec_out_lift, vec_out )
+  subroutine element_operation_tensorprod3D_Div_P4(  this, vec_in_x, vec_in_y, vec_in_z, vec_in_lift, &
+    vec_out_dx, vec_out_dy, vec_out_dz, vec_out_lift )
     use scale_element_operation_tensorprod3D_kernel, only: &
       element_operation_kernel_matvec_divlike_dirXYZ_P4, &
       element_operation_kernel_matvec_Lift_hexahedral_P4
@@ -1057,25 +1554,49 @@ contains
     real(RP), intent(in) :: vec_in_y(this%elem3D%Np)
     real(RP), intent(in) :: vec_in_z(this%elem3D%Np)
     real(RP), intent(in) :: vec_in_lift(this%elem3D%NfpTot)
-    real(RP), intent(in) :: Escale(3,this%elem3D%Np)
-    real(RP), intent(in) :: Gsqrt(this%elem3D%Np)
-    real(RP), intent(in) :: sign_    
     real(RP), intent(out) :: vec_out_dx(this%elem3D%Np)
     real(RP), intent(out) :: vec_out_dy(this%elem3D%Np)
     real(RP), intent(out) :: vec_out_dz(this%elem3D%Np)
     real(RP), intent(out) :: vec_out_lift(this%elem3D%Np)
-    real(RP), intent(out) :: vec_out(this%elem3D%Np)
     !----------------------------------------------------------
 
     call element_operation_kernel_matvec_Lift_hexahedral_P4( this%Lift_mat, vec_in_lift, &
       vec_out_lift )      
 
-    call element_operation_kernel_matvec_divlike_dirXYZ_P4( this%D1D, this%D1D_tr, vec_in_x, vec_in_y, vec_in_z, Escale, Gsqrt, vec_out_lift, sign_, &
-      vec_out_dx, vec_out_dy, vec_out_dz, vec_out )
-
+    call element_operation_kernel_matvec_divlike_dirXYZ_P4( this%D1D, this%D1D_tr, vec_in_x, vec_in_y, vec_in_z, &
+      vec_out_dx, vec_out_dy, vec_out_dz )
     return
   end subroutine element_operation_tensorprod3D_Div_P4
 
+!> Calculate the 3D gradient
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Div_var5_P4(  this, vec_in, vec_in_lift, &
+    vec_out_d )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_divlike_dirXYZ_P4, &
+      element_operation_kernel_matvec_Lift_hexahedral_P4
+    implicit none
+    class(ElementOperationTensorProd3D_P4), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np,3,5)
+    real(RP), intent(in) :: vec_in_lift(this%elem3D%NfpTot,5)
+    real(RP), intent(out) :: vec_out_d(this%elem3D%Np,4,5)
+
+    integer :: iv
+    !----------------------------------------------------------
+
+    do iv=1, 5
+      call element_operation_kernel_matvec_Lift_hexahedral_P4( this%Lift_mat, vec_in_lift(:,iv), &
+        vec_out_d(:,4,iv) )      
+    end do
+    do iv=1, 5
+      call element_operation_kernel_matvec_divlike_dirXYZ_P4( this%D1D, this%D1D_tr, vec_in(:,1,iv), vec_in(:,2,iv), vec_in(:,3,iv), &
+        vec_out_d(:,1,iv), vec_out_d(:,2,iv), vec_out_d(:,3,iv) )
+    end do
+    return
+  end subroutine element_operation_tensorprod3D_Div_var5_P4
+    
+!OCL SERIAL
   subroutine element_operation_tensorprod3D_VFilterPM1_P4( this, vec_in, vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirZ_P4
     implicit none
@@ -1084,10 +1605,49 @@ contains
     real(RP), intent(out) :: vec_out(this%elem3D%Np)
     !---------------------------------------------------------------
 
-    call element_operation_kernel_matvec_dirZ_P4( this%IntrpMat_VPOrdM1, vec_in, &
+    call element_operation_kernel_matvec_dirZ_P4( this%IntrpMat_VPOrdM1_tr, vec_in, &
       vec_out )
     return
   end subroutine element_operation_tensorprod3D_VFilterPM1_P4 
+
+  !OCL SERIAL
+  subroutine element_operation_tensorprod3D_ModalFilter_tracer_P4( this, vec_in, vec_work, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_ModalFilter_P4
+
+    implicit none
+    class(ElementOperationTensorProd3D_P4), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np)
+    real(RP), intent(out) :: vec_work(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
+    !---------------------------------------------
+
+    call element_operation_kernel_matvec_ModalFilter_P4( this%MFilter_tracer_h1D, this%MFilter_tracer_h1D_tr, this%MFilter_tracer_v1D_tr, vec_in(:), vec_work, &
+      vec_out(:) )
+    
+    return
+  end subroutine element_operation_tensorprod3D_ModalFilter_tracer_P4 
+  
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_ModalFilter_var5_P4( this, vec_in, vec_work, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_ModalFilter_P4
+
+    implicit none
+    class(ElementOperationTensorProd3D_P4), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np,5)
+    real(RP), intent(out) :: vec_work(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np,5)
+    integer :: iv
+    !---------------------------------------------
+
+    do iv=1, 5
+      call element_operation_kernel_matvec_ModalFilter_P4( this%MFilter_h1D, this%MFilter_h1D_tr, this%MFilter_v1D_tr, vec_in(:,iv), vec_work, &
+        vec_out(:,iv) )
+    end do
+    
+    return
+  end subroutine element_operation_tensorprod3D_ModalFilter_var5_P4 
 
 
 !--- For p=5 ------------------------------------
@@ -1096,41 +1656,69 @@ contains
 !!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Init_P5( this, elem3D )
-    use scale_element_line, only: LineElement
-    use scale_sparsemat, only: SparseMat
     implicit none
     class(ElementOperationTensorProd3D_P5), intent(inout) :: this
     class(ElementBase3D), intent(in), target :: elem3D
-
-    integer :: p
-
-    integer :: p1, p2, p_
-    real(RP) :: invV_VPOrdM1(6,6)
-
-    type(LineElement) :: elem1D
-    type(SparseMat) :: Lift_sm
     !----------------------------------------------------------
+
     this%elem3D => elem3D
 
-    call elem1D%Init( 5, .false. )
-    this%D1D(:,:) = elem1D%Dx1(:,:)
-    this%D1D_tr(:,:) = transpose(this%D1D)
-
-    call Lift_sm%Init( elem3D%Lift, storage_format='ELL' )
-    this%Lift_mat(:,:,:,:) = reshape(Lift_sm%val, (/ 6,6,6,6 /) )
-    call Lift_sm%Final()
-
-    !--
-
-    InvV_VPOrdM1(:,:) = elem1D%invV(:,:)
-    InvV_VPOrdM1(6,:) = 0.0_RP
-    this%IntrpMat_VPOrdM1(:,:) = matmul(elem1D%V, invV_VPOrdM1)
-
-    !-
-    call elem1D%Final()
-
+    call setup_elem_operator( this%D1D, this%D1D_tr, this%Lift_mat, this%IntrpMat_VPOrdM1_tr, &
+      6, elem3D )
     return
   end subroutine element_operation_tensorprod3D_Init_P5
+
+  !> Setup modal filter
+  !!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Setup_ModalFilter_P5( this, &
+    MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h, &
+    MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v )
+    use scale_element_hexahedral, only: HexahedralElement
+    use scale_element_line, only: LineElement
+    implicit none
+    class(ElementOperationTensorProd3D_P5), intent(inout) :: this
+    real(RP), intent(in) :: MF_ETAC_h
+    real(RP), intent(in) :: MF_ALPHA_h
+    integer, intent(in) :: MF_ORDER_h
+    real(RP), intent(in) :: MF_ETAC_v
+    real(RP), intent(in) :: MF_ALPHA_v
+    integer, intent(in) :: MF_ORDER_v
+    !--------------------------------------------------------
+
+    call setup_ModalFilter( this%MFilter_h1D, this%MFilter_h1D_tr, this%MFilter_v1D_tr, &
+      MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h,               &
+      MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v,               &
+      this%elem3D%PolyOrder_h, this%elem3D%PolyOrder_v )
+    
+    return
+  end subroutine element_operation_tensorprod3D_Setup_ModalFilter_P5 
+
+  !> Setup modal filter for tracer
+  !!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Setup_ModalFilter_tracer_P5( this, &
+    MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h, &
+    MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v )
+    use scale_element_hexahedral, only: HexahedralElement
+    use scale_element_line, only: LineElement
+    implicit none
+    class(ElementOperationTensorProd3D_P5), intent(inout) :: this
+    real(RP), intent(in) :: MF_ETAC_h
+    real(RP), intent(in) :: MF_ALPHA_h
+    integer, intent(in) :: MF_ORDER_h
+    real(RP), intent(in) :: MF_ETAC_v
+    real(RP), intent(in) :: MF_ALPHA_v
+    integer, intent(in) :: MF_ORDER_v
+    !--------------------------------------------------------
+
+    call setup_ModalFilter( this%MFilter_tracer_h1D, this%MFilter_tracer_h1D_tr, this%MFilter_tracer_v1D_tr, &
+      MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h,               &
+      MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v,               &
+      this%elem3D%PolyOrder_h, this%elem3D%PolyOrder_v )
+    
+    return
+  end subroutine element_operation_tensorprod3D_Setup_ModalFilter_tracer_P5 
 
 !> Finalization
 !!
@@ -1226,8 +1814,8 @@ contains
 !> Calculate the 3D gradient
 !!
 !OCL SERIAL
-  subroutine element_operation_tensorprod3D_Div_P5(  this, vec_in_x, vec_in_y, vec_in_z, vec_in_lift, Escale, Gsqrt, sign_, &
-    vec_out_dx, vec_out_dy, vec_out_dz, vec_out_lift, vec_out )
+  subroutine element_operation_tensorprod3D_Div_P5(  this, vec_in_x, vec_in_y, vec_in_z, vec_in_lift, &
+    vec_out_dx, vec_out_dy, vec_out_dz, vec_out_lift )
     use scale_element_operation_tensorprod3D_kernel, only: &
       element_operation_kernel_matvec_divlike_dirXYZ_P5, &
       element_operation_kernel_matvec_Lift_hexahedral_P5
@@ -1237,25 +1825,49 @@ contains
     real(RP), intent(in) :: vec_in_y(this%elem3D%Np)
     real(RP), intent(in) :: vec_in_z(this%elem3D%Np)
     real(RP), intent(in) :: vec_in_lift(this%elem3D%NfpTot)
-    real(RP), intent(in) :: Escale(3,this%elem3D%Np)
-    real(RP), intent(in) :: Gsqrt(this%elem3D%Np)
-    real(RP), intent(in) :: sign_    
     real(RP), intent(out) :: vec_out_dx(this%elem3D%Np)
     real(RP), intent(out) :: vec_out_dy(this%elem3D%Np)
     real(RP), intent(out) :: vec_out_dz(this%elem3D%Np)
     real(RP), intent(out) :: vec_out_lift(this%elem3D%Np)
-    real(RP), intent(out) :: vec_out(this%elem3D%Np)
     !----------------------------------------------------------
 
     call element_operation_kernel_matvec_Lift_hexahedral_P5( this%Lift_mat, vec_in_lift, &
       vec_out_lift )      
 
-    call element_operation_kernel_matvec_divlike_dirXYZ_P5( this%D1D, this%D1D_tr, vec_in_x, vec_in_y, vec_in_z, Escale, Gsqrt, vec_out_lift, sign_, &
-      vec_out_dx, vec_out_dy, vec_out_dz, vec_out )
-
+    call element_operation_kernel_matvec_divlike_dirXYZ_P5( this%D1D, this%D1D_tr, vec_in_x, vec_in_y, vec_in_z, &
+      vec_out_dx, vec_out_dy, vec_out_dz )
     return
   end subroutine element_operation_tensorprod3D_Div_P5
 
+!> Calculate the 3D gradient
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Div_var5_P5(  this, vec_in, vec_in_lift, &
+    vec_out_d )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_divlike_dirXYZ_P5, &
+      element_operation_kernel_matvec_Lift_hexahedral_P5
+    implicit none
+    class(ElementOperationTensorProd3D_P5), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np,3,5)
+    real(RP), intent(in) :: vec_in_lift(this%elem3D%NfpTot,5)
+    real(RP), intent(out) :: vec_out_d(this%elem3D%Np,4,5)
+
+    integer :: iv
+    !----------------------------------------------------------
+
+    do iv=1, 5
+      call element_operation_kernel_matvec_Lift_hexahedral_P5( this%Lift_mat, vec_in_lift(:,iv), &
+        vec_out_d(:,4,iv) )      
+    end do
+    do iv=1, 5
+      call element_operation_kernel_matvec_divlike_dirXYZ_P5( this%D1D, this%D1D_tr, vec_in(:,1,iv), vec_in(:,2,iv), vec_in(:,3,iv), &
+        vec_out_d(:,1,iv), vec_out_d(:,2,iv), vec_out_d(:,3,iv) )
+    end do
+    return
+  end subroutine element_operation_tensorprod3D_Div_var5_P5
+    
+!OCL SERIAL
   subroutine element_operation_tensorprod3D_VFilterPM1_P5( this, vec_in, vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirZ_P5
     implicit none
@@ -1264,10 +1876,49 @@ contains
     real(RP), intent(out) :: vec_out(this%elem3D%Np)
     !---------------------------------------------------------------
 
-    call element_operation_kernel_matvec_dirZ_P5( this%IntrpMat_VPOrdM1, vec_in, &
+    call element_operation_kernel_matvec_dirZ_P5( this%IntrpMat_VPOrdM1_tr, vec_in, &
       vec_out )
     return
   end subroutine element_operation_tensorprod3D_VFilterPM1_P5 
+
+  !OCL SERIAL
+  subroutine element_operation_tensorprod3D_ModalFilter_tracer_P5( this, vec_in, vec_work, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_ModalFilter_P5
+
+    implicit none
+    class(ElementOperationTensorProd3D_P5), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np)
+    real(RP), intent(out) :: vec_work(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
+    !---------------------------------------------
+
+    call element_operation_kernel_matvec_ModalFilter_P5( this%MFilter_tracer_h1D, this%MFilter_tracer_h1D_tr, this%MFilter_tracer_v1D_tr, vec_in(:), vec_work, &
+      vec_out(:) )
+    
+    return
+  end subroutine element_operation_tensorprod3D_ModalFilter_tracer_P5 
+  
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_ModalFilter_var5_P5( this, vec_in, vec_work, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_ModalFilter_P5
+
+    implicit none
+    class(ElementOperationTensorProd3D_P5), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np,5)
+    real(RP), intent(out) :: vec_work(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np,5)
+    integer :: iv
+    !---------------------------------------------
+
+    do iv=1, 5
+      call element_operation_kernel_matvec_ModalFilter_P5( this%MFilter_h1D, this%MFilter_h1D_tr, this%MFilter_v1D_tr, vec_in(:,iv), vec_work, &
+        vec_out(:,iv) )
+    end do
+    
+    return
+  end subroutine element_operation_tensorprod3D_ModalFilter_var5_P5 
 
 
 !--- For p=6 ------------------------------------
@@ -1276,41 +1927,69 @@ contains
 !!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Init_P6( this, elem3D )
-    use scale_element_line, only: LineElement
-    use scale_sparsemat, only: SparseMat
     implicit none
     class(ElementOperationTensorProd3D_P6), intent(inout) :: this
     class(ElementBase3D), intent(in), target :: elem3D
-
-    integer :: p
-
-    integer :: p1, p2, p_
-    real(RP) :: invV_VPOrdM1(7,7)
-
-    type(LineElement) :: elem1D
-    type(SparseMat) :: Lift_sm
     !----------------------------------------------------------
+
     this%elem3D => elem3D
 
-    call elem1D%Init( 6, .false. )
-    this%D1D(:,:) = elem1D%Dx1(:,:)
-    this%D1D_tr(:,:) = transpose(this%D1D)
-
-    call Lift_sm%Init( elem3D%Lift, storage_format='ELL' )
-    this%Lift_mat(:,:,:,:) = reshape(Lift_sm%val, (/ 7,7,7,6 /) )
-    call Lift_sm%Final()
-
-    !--
-
-    InvV_VPOrdM1(:,:) = elem1D%invV(:,:)
-    InvV_VPOrdM1(7,:) = 0.0_RP
-    this%IntrpMat_VPOrdM1(:,:) = matmul(elem1D%V, invV_VPOrdM1)
-
-    !-
-    call elem1D%Final()
-
+    call setup_elem_operator( this%D1D, this%D1D_tr, this%Lift_mat, this%IntrpMat_VPOrdM1_tr, &
+      7, elem3D )
     return
   end subroutine element_operation_tensorprod3D_Init_P6
+
+  !> Setup modal filter
+  !!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Setup_ModalFilter_P6( this, &
+    MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h, &
+    MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v )
+    use scale_element_hexahedral, only: HexahedralElement
+    use scale_element_line, only: LineElement
+    implicit none
+    class(ElementOperationTensorProd3D_P6), intent(inout) :: this
+    real(RP), intent(in) :: MF_ETAC_h
+    real(RP), intent(in) :: MF_ALPHA_h
+    integer, intent(in) :: MF_ORDER_h
+    real(RP), intent(in) :: MF_ETAC_v
+    real(RP), intent(in) :: MF_ALPHA_v
+    integer, intent(in) :: MF_ORDER_v
+    !--------------------------------------------------------
+
+    call setup_ModalFilter( this%MFilter_h1D, this%MFilter_h1D_tr, this%MFilter_v1D_tr, &
+      MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h,               &
+      MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v,               &
+      this%elem3D%PolyOrder_h, this%elem3D%PolyOrder_v )
+    
+    return
+  end subroutine element_operation_tensorprod3D_Setup_ModalFilter_P6 
+
+  !> Setup modal filter for tracer
+  !!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Setup_ModalFilter_tracer_P6( this, &
+    MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h, &
+    MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v )
+    use scale_element_hexahedral, only: HexahedralElement
+    use scale_element_line, only: LineElement
+    implicit none
+    class(ElementOperationTensorProd3D_P6), intent(inout) :: this
+    real(RP), intent(in) :: MF_ETAC_h
+    real(RP), intent(in) :: MF_ALPHA_h
+    integer, intent(in) :: MF_ORDER_h
+    real(RP), intent(in) :: MF_ETAC_v
+    real(RP), intent(in) :: MF_ALPHA_v
+    integer, intent(in) :: MF_ORDER_v
+    !--------------------------------------------------------
+
+    call setup_ModalFilter( this%MFilter_tracer_h1D, this%MFilter_tracer_h1D_tr, this%MFilter_tracer_v1D_tr, &
+      MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h,               &
+      MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v,               &
+      this%elem3D%PolyOrder_h, this%elem3D%PolyOrder_v )
+    
+    return
+  end subroutine element_operation_tensorprod3D_Setup_ModalFilter_tracer_P6 
 
 !> Finalization
 !!
@@ -1406,8 +2085,8 @@ contains
 !> Calculate the 3D gradient
 !!
 !OCL SERIAL
-  subroutine element_operation_tensorprod3D_Div_P6(  this, vec_in_x, vec_in_y, vec_in_z, vec_in_lift, Escale, Gsqrt, sign_, &
-    vec_out_dx, vec_out_dy, vec_out_dz, vec_out_lift, vec_out )
+  subroutine element_operation_tensorprod3D_Div_P6(  this, vec_in_x, vec_in_y, vec_in_z, vec_in_lift, &
+    vec_out_dx, vec_out_dy, vec_out_dz, vec_out_lift )
     use scale_element_operation_tensorprod3D_kernel, only: &
       element_operation_kernel_matvec_divlike_dirXYZ_P6, &
       element_operation_kernel_matvec_Lift_hexahedral_P6
@@ -1417,25 +2096,49 @@ contains
     real(RP), intent(in) :: vec_in_y(this%elem3D%Np)
     real(RP), intent(in) :: vec_in_z(this%elem3D%Np)
     real(RP), intent(in) :: vec_in_lift(this%elem3D%NfpTot)
-    real(RP), intent(in) :: Escale(3,this%elem3D%Np)
-    real(RP), intent(in) :: Gsqrt(this%elem3D%Np)
-    real(RP), intent(in) :: sign_    
     real(RP), intent(out) :: vec_out_dx(this%elem3D%Np)
     real(RP), intent(out) :: vec_out_dy(this%elem3D%Np)
     real(RP), intent(out) :: vec_out_dz(this%elem3D%Np)
     real(RP), intent(out) :: vec_out_lift(this%elem3D%Np)
-    real(RP), intent(out) :: vec_out(this%elem3D%Np)
     !----------------------------------------------------------
 
     call element_operation_kernel_matvec_Lift_hexahedral_P6( this%Lift_mat, vec_in_lift, &
       vec_out_lift )      
 
-    call element_operation_kernel_matvec_divlike_dirXYZ_P6( this%D1D, this%D1D_tr, vec_in_x, vec_in_y, vec_in_z, Escale, Gsqrt, vec_out_lift, sign_, &
-      vec_out_dx, vec_out_dy, vec_out_dz, vec_out )
-
+    call element_operation_kernel_matvec_divlike_dirXYZ_P6( this%D1D, this%D1D_tr, vec_in_x, vec_in_y, vec_in_z, &
+      vec_out_dx, vec_out_dy, vec_out_dz )
     return
   end subroutine element_operation_tensorprod3D_Div_P6
 
+!> Calculate the 3D gradient
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Div_var5_P6(  this, vec_in, vec_in_lift, &
+    vec_out_d )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_divlike_dirXYZ_P6, &
+      element_operation_kernel_matvec_Lift_hexahedral_P6
+    implicit none
+    class(ElementOperationTensorProd3D_P6), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np,3,5)
+    real(RP), intent(in) :: vec_in_lift(this%elem3D%NfpTot,5)
+    real(RP), intent(out) :: vec_out_d(this%elem3D%Np,4,5)
+
+    integer :: iv
+    !----------------------------------------------------------
+
+    do iv=1, 5
+      call element_operation_kernel_matvec_Lift_hexahedral_P6( this%Lift_mat, vec_in_lift(:,iv), &
+        vec_out_d(:,4,iv) )      
+    end do
+    do iv=1, 5
+      call element_operation_kernel_matvec_divlike_dirXYZ_P6( this%D1D, this%D1D_tr, vec_in(:,1,iv), vec_in(:,2,iv), vec_in(:,3,iv), &
+        vec_out_d(:,1,iv), vec_out_d(:,2,iv), vec_out_d(:,3,iv) )
+    end do
+    return
+  end subroutine element_operation_tensorprod3D_Div_var5_P6
+    
+!OCL SERIAL
   subroutine element_operation_tensorprod3D_VFilterPM1_P6( this, vec_in, vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirZ_P6
     implicit none
@@ -1444,10 +2147,49 @@ contains
     real(RP), intent(out) :: vec_out(this%elem3D%Np)
     !---------------------------------------------------------------
 
-    call element_operation_kernel_matvec_dirZ_P6( this%IntrpMat_VPOrdM1, vec_in, &
+    call element_operation_kernel_matvec_dirZ_P6( this%IntrpMat_VPOrdM1_tr, vec_in, &
       vec_out )
     return
   end subroutine element_operation_tensorprod3D_VFilterPM1_P6 
+
+  !OCL SERIAL
+  subroutine element_operation_tensorprod3D_ModalFilter_tracer_P6( this, vec_in, vec_work, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_ModalFilter_P6
+
+    implicit none
+    class(ElementOperationTensorProd3D_P6), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np)
+    real(RP), intent(out) :: vec_work(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
+    !---------------------------------------------
+
+    call element_operation_kernel_matvec_ModalFilter_P6( this%MFilter_tracer_h1D, this%MFilter_tracer_h1D_tr, this%MFilter_tracer_v1D_tr, vec_in(:), vec_work, &
+      vec_out(:) )
+    
+    return
+  end subroutine element_operation_tensorprod3D_ModalFilter_tracer_P6 
+  
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_ModalFilter_var5_P6( this, vec_in, vec_work, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_ModalFilter_P6
+
+    implicit none
+    class(ElementOperationTensorProd3D_P6), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np,5)
+    real(RP), intent(out) :: vec_work(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np,5)
+    integer :: iv
+    !---------------------------------------------
+
+    do iv=1, 5
+      call element_operation_kernel_matvec_ModalFilter_P6( this%MFilter_h1D, this%MFilter_h1D_tr, this%MFilter_v1D_tr, vec_in(:,iv), vec_work, &
+        vec_out(:,iv) )
+    end do
+    
+    return
+  end subroutine element_operation_tensorprod3D_ModalFilter_var5_P6 
 
 
 !--- For p=7 ------------------------------------
@@ -1456,41 +2198,69 @@ contains
 !!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Init_P7( this, elem3D )
-    use scale_element_line, only: LineElement
-    use scale_sparsemat, only: SparseMat
     implicit none
     class(ElementOperationTensorProd3D_P7), intent(inout) :: this
     class(ElementBase3D), intent(in), target :: elem3D
-
-    integer :: p
-
-    integer :: p1, p2, p_
-    real(RP) :: invV_VPOrdM1(8,8)
-
-    type(LineElement) :: elem1D
-    type(SparseMat) :: Lift_sm
     !----------------------------------------------------------
+
     this%elem3D => elem3D
 
-    call elem1D%Init( 7, .false. )
-    this%D1D(:,:) = elem1D%Dx1(:,:)
-    this%D1D_tr(:,:) = transpose(this%D1D)
-
-    call Lift_sm%Init( elem3D%Lift, storage_format='ELL' )
-    this%Lift_mat(:,:,:,:) = reshape(Lift_sm%val, (/ 8,8,8,6 /) )
-    call Lift_sm%Final()
-
-    !--
-
-    InvV_VPOrdM1(:,:) = elem1D%invV(:,:)
-    InvV_VPOrdM1(8,:) = 0.0_RP
-    this%IntrpMat_VPOrdM1(:,:) = matmul(elem1D%V, invV_VPOrdM1)
-
-    !-
-    call elem1D%Final()
-
+    call setup_elem_operator( this%D1D, this%D1D_tr, this%Lift_mat, this%IntrpMat_VPOrdM1_tr, &
+      8, elem3D )
     return
   end subroutine element_operation_tensorprod3D_Init_P7
+
+  !> Setup modal filter
+  !!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Setup_ModalFilter_P7( this, &
+    MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h, &
+    MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v )
+    use scale_element_hexahedral, only: HexahedralElement
+    use scale_element_line, only: LineElement
+    implicit none
+    class(ElementOperationTensorProd3D_P7), intent(inout) :: this
+    real(RP), intent(in) :: MF_ETAC_h
+    real(RP), intent(in) :: MF_ALPHA_h
+    integer, intent(in) :: MF_ORDER_h
+    real(RP), intent(in) :: MF_ETAC_v
+    real(RP), intent(in) :: MF_ALPHA_v
+    integer, intent(in) :: MF_ORDER_v
+    !--------------------------------------------------------
+
+    call setup_ModalFilter( this%MFilter_h1D, this%MFilter_h1D_tr, this%MFilter_v1D_tr, &
+      MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h,               &
+      MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v,               &
+      this%elem3D%PolyOrder_h, this%elem3D%PolyOrder_v )
+    
+    return
+  end subroutine element_operation_tensorprod3D_Setup_ModalFilter_P7 
+
+  !> Setup modal filter for tracer
+  !!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Setup_ModalFilter_tracer_P7( this, &
+    MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h, &
+    MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v )
+    use scale_element_hexahedral, only: HexahedralElement
+    use scale_element_line, only: LineElement
+    implicit none
+    class(ElementOperationTensorProd3D_P7), intent(inout) :: this
+    real(RP), intent(in) :: MF_ETAC_h
+    real(RP), intent(in) :: MF_ALPHA_h
+    integer, intent(in) :: MF_ORDER_h
+    real(RP), intent(in) :: MF_ETAC_v
+    real(RP), intent(in) :: MF_ALPHA_v
+    integer, intent(in) :: MF_ORDER_v
+    !--------------------------------------------------------
+
+    call setup_ModalFilter( this%MFilter_tracer_h1D, this%MFilter_tracer_h1D_tr, this%MFilter_tracer_v1D_tr, &
+      MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h,               &
+      MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v,               &
+      this%elem3D%PolyOrder_h, this%elem3D%PolyOrder_v )
+    
+    return
+  end subroutine element_operation_tensorprod3D_Setup_ModalFilter_tracer_P7 
 
 !> Finalization
 !!
@@ -1586,8 +2356,8 @@ contains
 !> Calculate the 3D gradient
 !!
 !OCL SERIAL
-  subroutine element_operation_tensorprod3D_Div_P7(  this, vec_in_x, vec_in_y, vec_in_z, vec_in_lift, Escale, Gsqrt, sign_, &
-    vec_out_dx, vec_out_dy, vec_out_dz, vec_out_lift, vec_out )
+  subroutine element_operation_tensorprod3D_Div_P7(  this, vec_in_x, vec_in_y, vec_in_z, vec_in_lift, &
+    vec_out_dx, vec_out_dy, vec_out_dz, vec_out_lift )
     use scale_element_operation_tensorprod3D_kernel, only: &
       element_operation_kernel_matvec_divlike_dirXYZ_P7, &
       element_operation_kernel_matvec_Lift_hexahedral_P7
@@ -1597,25 +2367,49 @@ contains
     real(RP), intent(in) :: vec_in_y(this%elem3D%Np)
     real(RP), intent(in) :: vec_in_z(this%elem3D%Np)
     real(RP), intent(in) :: vec_in_lift(this%elem3D%NfpTot)
-    real(RP), intent(in) :: Escale(3,this%elem3D%Np)
-    real(RP), intent(in) :: Gsqrt(this%elem3D%Np)
-    real(RP), intent(in) :: sign_    
     real(RP), intent(out) :: vec_out_dx(this%elem3D%Np)
     real(RP), intent(out) :: vec_out_dy(this%elem3D%Np)
     real(RP), intent(out) :: vec_out_dz(this%elem3D%Np)
     real(RP), intent(out) :: vec_out_lift(this%elem3D%Np)
-    real(RP), intent(out) :: vec_out(this%elem3D%Np)
     !----------------------------------------------------------
 
     call element_operation_kernel_matvec_Lift_hexahedral_P7( this%Lift_mat, vec_in_lift, &
       vec_out_lift )      
 
-    call element_operation_kernel_matvec_divlike_dirXYZ_P7( this%D1D, this%D1D_tr, vec_in_x, vec_in_y, vec_in_z, Escale, Gsqrt, vec_out_lift, sign_, &
-      vec_out_dx, vec_out_dy, vec_out_dz, vec_out )
-
+    call element_operation_kernel_matvec_divlike_dirXYZ_P7( this%D1D, this%D1D_tr, vec_in_x, vec_in_y, vec_in_z, &
+      vec_out_dx, vec_out_dy, vec_out_dz )
     return
   end subroutine element_operation_tensorprod3D_Div_P7
 
+!> Calculate the 3D gradient
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Div_var5_P7(  this, vec_in, vec_in_lift, &
+    vec_out_d )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_divlike_dirXYZ_P7, &
+      element_operation_kernel_matvec_Lift_hexahedral_P7
+    implicit none
+    class(ElementOperationTensorProd3D_P7), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np,3,5)
+    real(RP), intent(in) :: vec_in_lift(this%elem3D%NfpTot,5)
+    real(RP), intent(out) :: vec_out_d(this%elem3D%Np,4,5)
+
+    integer :: iv
+    !----------------------------------------------------------
+
+    do iv=1, 5
+      call element_operation_kernel_matvec_Lift_hexahedral_P7( this%Lift_mat, vec_in_lift(:,iv), &
+        vec_out_d(:,4,iv) )      
+    end do
+    do iv=1, 5
+      call element_operation_kernel_matvec_divlike_dirXYZ_P7( this%D1D, this%D1D_tr, vec_in(:,1,iv), vec_in(:,2,iv), vec_in(:,3,iv), &
+        vec_out_d(:,1,iv), vec_out_d(:,2,iv), vec_out_d(:,3,iv) )
+    end do
+    return
+  end subroutine element_operation_tensorprod3D_Div_var5_P7
+    
+!OCL SERIAL
   subroutine element_operation_tensorprod3D_VFilterPM1_P7( this, vec_in, vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirZ_P7
     implicit none
@@ -1624,10 +2418,49 @@ contains
     real(RP), intent(out) :: vec_out(this%elem3D%Np)
     !---------------------------------------------------------------
 
-    call element_operation_kernel_matvec_dirZ_P7( this%IntrpMat_VPOrdM1, vec_in, &
+    call element_operation_kernel_matvec_dirZ_P7( this%IntrpMat_VPOrdM1_tr, vec_in, &
       vec_out )
     return
   end subroutine element_operation_tensorprod3D_VFilterPM1_P7 
+
+  !OCL SERIAL
+  subroutine element_operation_tensorprod3D_ModalFilter_tracer_P7( this, vec_in, vec_work, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_ModalFilter_P7
+
+    implicit none
+    class(ElementOperationTensorProd3D_P7), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np)
+    real(RP), intent(out) :: vec_work(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
+    !---------------------------------------------
+
+    call element_operation_kernel_matvec_ModalFilter_P7( this%MFilter_tracer_h1D, this%MFilter_tracer_h1D_tr, this%MFilter_tracer_v1D_tr, vec_in(:), vec_work, &
+      vec_out(:) )
+    
+    return
+  end subroutine element_operation_tensorprod3D_ModalFilter_tracer_P7 
+  
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_ModalFilter_var5_P7( this, vec_in, vec_work, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_ModalFilter_P7
+
+    implicit none
+    class(ElementOperationTensorProd3D_P7), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np,5)
+    real(RP), intent(out) :: vec_work(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np,5)
+    integer :: iv
+    !---------------------------------------------
+
+    do iv=1, 5
+      call element_operation_kernel_matvec_ModalFilter_P7( this%MFilter_h1D, this%MFilter_h1D_tr, this%MFilter_v1D_tr, vec_in(:,iv), vec_work, &
+        vec_out(:,iv) )
+    end do
+    
+    return
+  end subroutine element_operation_tensorprod3D_ModalFilter_var5_P7 
 
 
 !--- For p=8 ------------------------------------
@@ -1636,41 +2469,69 @@ contains
 !!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Init_P8( this, elem3D )
-    use scale_element_line, only: LineElement
-    use scale_sparsemat, only: SparseMat
     implicit none
     class(ElementOperationTensorProd3D_P8), intent(inout) :: this
     class(ElementBase3D), intent(in), target :: elem3D
-
-    integer :: p
-
-    integer :: p1, p2, p_
-    real(RP) :: invV_VPOrdM1(9,9)
-
-    type(LineElement) :: elem1D
-    type(SparseMat) :: Lift_sm
     !----------------------------------------------------------
+
     this%elem3D => elem3D
 
-    call elem1D%Init( 8, .false. )
-    this%D1D(:,:) = elem1D%Dx1(:,:)
-    this%D1D_tr(:,:) = transpose(this%D1D)
-
-    call Lift_sm%Init( elem3D%Lift, storage_format='ELL' )
-    this%Lift_mat(:,:,:,:) = reshape(Lift_sm%val, (/ 9,9,9,6 /) )
-    call Lift_sm%Final()
-
-    !--
-
-    InvV_VPOrdM1(:,:) = elem1D%invV(:,:)
-    InvV_VPOrdM1(9,:) = 0.0_RP
-    this%IntrpMat_VPOrdM1(:,:) = matmul(elem1D%V, invV_VPOrdM1)
-
-    !-
-    call elem1D%Final()
-
+    call setup_elem_operator( this%D1D, this%D1D_tr, this%Lift_mat, this%IntrpMat_VPOrdM1_tr, &
+      9, elem3D )
     return
   end subroutine element_operation_tensorprod3D_Init_P8
+
+  !> Setup modal filter
+  !!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Setup_ModalFilter_P8( this, &
+    MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h, &
+    MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v )
+    use scale_element_hexahedral, only: HexahedralElement
+    use scale_element_line, only: LineElement
+    implicit none
+    class(ElementOperationTensorProd3D_P8), intent(inout) :: this
+    real(RP), intent(in) :: MF_ETAC_h
+    real(RP), intent(in) :: MF_ALPHA_h
+    integer, intent(in) :: MF_ORDER_h
+    real(RP), intent(in) :: MF_ETAC_v
+    real(RP), intent(in) :: MF_ALPHA_v
+    integer, intent(in) :: MF_ORDER_v
+    !--------------------------------------------------------
+
+    call setup_ModalFilter( this%MFilter_h1D, this%MFilter_h1D_tr, this%MFilter_v1D_tr, &
+      MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h,               &
+      MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v,               &
+      this%elem3D%PolyOrder_h, this%elem3D%PolyOrder_v )
+    
+    return
+  end subroutine element_operation_tensorprod3D_Setup_ModalFilter_P8 
+
+  !> Setup modal filter for tracer
+  !!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Setup_ModalFilter_tracer_P8( this, &
+    MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h, &
+    MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v )
+    use scale_element_hexahedral, only: HexahedralElement
+    use scale_element_line, only: LineElement
+    implicit none
+    class(ElementOperationTensorProd3D_P8), intent(inout) :: this
+    real(RP), intent(in) :: MF_ETAC_h
+    real(RP), intent(in) :: MF_ALPHA_h
+    integer, intent(in) :: MF_ORDER_h
+    real(RP), intent(in) :: MF_ETAC_v
+    real(RP), intent(in) :: MF_ALPHA_v
+    integer, intent(in) :: MF_ORDER_v
+    !--------------------------------------------------------
+
+    call setup_ModalFilter( this%MFilter_tracer_h1D, this%MFilter_tracer_h1D_tr, this%MFilter_tracer_v1D_tr, &
+      MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h,               &
+      MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v,               &
+      this%elem3D%PolyOrder_h, this%elem3D%PolyOrder_v )
+    
+    return
+  end subroutine element_operation_tensorprod3D_Setup_ModalFilter_tracer_P8 
 
 !> Finalization
 !!
@@ -1766,8 +2627,8 @@ contains
 !> Calculate the 3D gradient
 !!
 !OCL SERIAL
-  subroutine element_operation_tensorprod3D_Div_P8(  this, vec_in_x, vec_in_y, vec_in_z, vec_in_lift, Escale, Gsqrt, sign_, &
-    vec_out_dx, vec_out_dy, vec_out_dz, vec_out_lift, vec_out )
+  subroutine element_operation_tensorprod3D_Div_P8(  this, vec_in_x, vec_in_y, vec_in_z, vec_in_lift, &
+    vec_out_dx, vec_out_dy, vec_out_dz, vec_out_lift )
     use scale_element_operation_tensorprod3D_kernel, only: &
       element_operation_kernel_matvec_divlike_dirXYZ_P8, &
       element_operation_kernel_matvec_Lift_hexahedral_P8
@@ -1777,25 +2638,49 @@ contains
     real(RP), intent(in) :: vec_in_y(this%elem3D%Np)
     real(RP), intent(in) :: vec_in_z(this%elem3D%Np)
     real(RP), intent(in) :: vec_in_lift(this%elem3D%NfpTot)
-    real(RP), intent(in) :: Escale(3,this%elem3D%Np)
-    real(RP), intent(in) :: Gsqrt(this%elem3D%Np)
-    real(RP), intent(in) :: sign_    
     real(RP), intent(out) :: vec_out_dx(this%elem3D%Np)
     real(RP), intent(out) :: vec_out_dy(this%elem3D%Np)
     real(RP), intent(out) :: vec_out_dz(this%elem3D%Np)
     real(RP), intent(out) :: vec_out_lift(this%elem3D%Np)
-    real(RP), intent(out) :: vec_out(this%elem3D%Np)
     !----------------------------------------------------------
 
     call element_operation_kernel_matvec_Lift_hexahedral_P8( this%Lift_mat, vec_in_lift, &
       vec_out_lift )      
 
-    call element_operation_kernel_matvec_divlike_dirXYZ_P8( this%D1D, this%D1D_tr, vec_in_x, vec_in_y, vec_in_z, Escale, Gsqrt, vec_out_lift, sign_, &
-      vec_out_dx, vec_out_dy, vec_out_dz, vec_out )
-
+    call element_operation_kernel_matvec_divlike_dirXYZ_P8( this%D1D, this%D1D_tr, vec_in_x, vec_in_y, vec_in_z, &
+      vec_out_dx, vec_out_dy, vec_out_dz )
     return
   end subroutine element_operation_tensorprod3D_Div_P8
 
+!> Calculate the 3D gradient
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Div_var5_P8(  this, vec_in, vec_in_lift, &
+    vec_out_d )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_divlike_dirXYZ_P8, &
+      element_operation_kernel_matvec_Lift_hexahedral_P8
+    implicit none
+    class(ElementOperationTensorProd3D_P8), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np,3,5)
+    real(RP), intent(in) :: vec_in_lift(this%elem3D%NfpTot,5)
+    real(RP), intent(out) :: vec_out_d(this%elem3D%Np,4,5)
+
+    integer :: iv
+    !----------------------------------------------------------
+
+    do iv=1, 5
+      call element_operation_kernel_matvec_Lift_hexahedral_P8( this%Lift_mat, vec_in_lift(:,iv), &
+        vec_out_d(:,4,iv) )      
+    end do
+    do iv=1, 5
+      call element_operation_kernel_matvec_divlike_dirXYZ_P8( this%D1D, this%D1D_tr, vec_in(:,1,iv), vec_in(:,2,iv), vec_in(:,3,iv), &
+        vec_out_d(:,1,iv), vec_out_d(:,2,iv), vec_out_d(:,3,iv) )
+    end do
+    return
+  end subroutine element_operation_tensorprod3D_Div_var5_P8
+    
+!OCL SERIAL
   subroutine element_operation_tensorprod3D_VFilterPM1_P8( this, vec_in, vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirZ_P8
     implicit none
@@ -1804,10 +2689,49 @@ contains
     real(RP), intent(out) :: vec_out(this%elem3D%Np)
     !---------------------------------------------------------------
 
-    call element_operation_kernel_matvec_dirZ_P8( this%IntrpMat_VPOrdM1, vec_in, &
+    call element_operation_kernel_matvec_dirZ_P8( this%IntrpMat_VPOrdM1_tr, vec_in, &
       vec_out )
     return
   end subroutine element_operation_tensorprod3D_VFilterPM1_P8 
+
+  !OCL SERIAL
+  subroutine element_operation_tensorprod3D_ModalFilter_tracer_P8( this, vec_in, vec_work, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_ModalFilter_P8
+
+    implicit none
+    class(ElementOperationTensorProd3D_P8), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np)
+    real(RP), intent(out) :: vec_work(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
+    !---------------------------------------------
+
+    call element_operation_kernel_matvec_ModalFilter_P8( this%MFilter_tracer_h1D, this%MFilter_tracer_h1D_tr, this%MFilter_tracer_v1D_tr, vec_in(:), vec_work, &
+      vec_out(:) )
+    
+    return
+  end subroutine element_operation_tensorprod3D_ModalFilter_tracer_P8 
+  
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_ModalFilter_var5_P8( this, vec_in, vec_work, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_ModalFilter_P8
+
+    implicit none
+    class(ElementOperationTensorProd3D_P8), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np,5)
+    real(RP), intent(out) :: vec_work(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np,5)
+    integer :: iv
+    !---------------------------------------------
+
+    do iv=1, 5
+      call element_operation_kernel_matvec_ModalFilter_P8( this%MFilter_h1D, this%MFilter_h1D_tr, this%MFilter_v1D_tr, vec_in(:,iv), vec_work, &
+        vec_out(:,iv) )
+    end do
+    
+    return
+  end subroutine element_operation_tensorprod3D_ModalFilter_var5_P8 
 
 
 !--- For p=9 ------------------------------------
@@ -1816,41 +2740,69 @@ contains
 !!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Init_P9( this, elem3D )
-    use scale_element_line, only: LineElement
-    use scale_sparsemat, only: SparseMat
     implicit none
     class(ElementOperationTensorProd3D_P9), intent(inout) :: this
     class(ElementBase3D), intent(in), target :: elem3D
-
-    integer :: p
-
-    integer :: p1, p2, p_
-    real(RP) :: invV_VPOrdM1(10,10)
-
-    type(LineElement) :: elem1D
-    type(SparseMat) :: Lift_sm
     !----------------------------------------------------------
+
     this%elem3D => elem3D
 
-    call elem1D%Init( 9, .false. )
-    this%D1D(:,:) = elem1D%Dx1(:,:)
-    this%D1D_tr(:,:) = transpose(this%D1D)
-
-    call Lift_sm%Init( elem3D%Lift, storage_format='ELL' )
-    this%Lift_mat(:,:,:,:) = reshape(Lift_sm%val, (/ 10,10,10,6 /) )
-    call Lift_sm%Final()
-
-    !--
-
-    InvV_VPOrdM1(:,:) = elem1D%invV(:,:)
-    InvV_VPOrdM1(10,:) = 0.0_RP
-    this%IntrpMat_VPOrdM1(:,:) = matmul(elem1D%V, invV_VPOrdM1)
-
-    !-
-    call elem1D%Final()
-
+    call setup_elem_operator( this%D1D, this%D1D_tr, this%Lift_mat, this%IntrpMat_VPOrdM1_tr, &
+      10, elem3D )
     return
   end subroutine element_operation_tensorprod3D_Init_P9
+
+  !> Setup modal filter
+  !!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Setup_ModalFilter_P9( this, &
+    MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h, &
+    MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v )
+    use scale_element_hexahedral, only: HexahedralElement
+    use scale_element_line, only: LineElement
+    implicit none
+    class(ElementOperationTensorProd3D_P9), intent(inout) :: this
+    real(RP), intent(in) :: MF_ETAC_h
+    real(RP), intent(in) :: MF_ALPHA_h
+    integer, intent(in) :: MF_ORDER_h
+    real(RP), intent(in) :: MF_ETAC_v
+    real(RP), intent(in) :: MF_ALPHA_v
+    integer, intent(in) :: MF_ORDER_v
+    !--------------------------------------------------------
+
+    call setup_ModalFilter( this%MFilter_h1D, this%MFilter_h1D_tr, this%MFilter_v1D_tr, &
+      MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h,               &
+      MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v,               &
+      this%elem3D%PolyOrder_h, this%elem3D%PolyOrder_v )
+    
+    return
+  end subroutine element_operation_tensorprod3D_Setup_ModalFilter_P9 
+
+  !> Setup modal filter for tracer
+  !!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Setup_ModalFilter_tracer_P9( this, &
+    MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h, &
+    MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v )
+    use scale_element_hexahedral, only: HexahedralElement
+    use scale_element_line, only: LineElement
+    implicit none
+    class(ElementOperationTensorProd3D_P9), intent(inout) :: this
+    real(RP), intent(in) :: MF_ETAC_h
+    real(RP), intent(in) :: MF_ALPHA_h
+    integer, intent(in) :: MF_ORDER_h
+    real(RP), intent(in) :: MF_ETAC_v
+    real(RP), intent(in) :: MF_ALPHA_v
+    integer, intent(in) :: MF_ORDER_v
+    !--------------------------------------------------------
+
+    call setup_ModalFilter( this%MFilter_tracer_h1D, this%MFilter_tracer_h1D_tr, this%MFilter_tracer_v1D_tr, &
+      MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h,               &
+      MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v,               &
+      this%elem3D%PolyOrder_h, this%elem3D%PolyOrder_v )
+    
+    return
+  end subroutine element_operation_tensorprod3D_Setup_ModalFilter_tracer_P9 
 
 !> Finalization
 !!
@@ -1946,8 +2898,8 @@ contains
 !> Calculate the 3D gradient
 !!
 !OCL SERIAL
-  subroutine element_operation_tensorprod3D_Div_P9(  this, vec_in_x, vec_in_y, vec_in_z, vec_in_lift, Escale, Gsqrt, sign_, &
-    vec_out_dx, vec_out_dy, vec_out_dz, vec_out_lift, vec_out )
+  subroutine element_operation_tensorprod3D_Div_P9(  this, vec_in_x, vec_in_y, vec_in_z, vec_in_lift, &
+    vec_out_dx, vec_out_dy, vec_out_dz, vec_out_lift )
     use scale_element_operation_tensorprod3D_kernel, only: &
       element_operation_kernel_matvec_divlike_dirXYZ_P9, &
       element_operation_kernel_matvec_Lift_hexahedral_P9
@@ -1957,25 +2909,49 @@ contains
     real(RP), intent(in) :: vec_in_y(this%elem3D%Np)
     real(RP), intent(in) :: vec_in_z(this%elem3D%Np)
     real(RP), intent(in) :: vec_in_lift(this%elem3D%NfpTot)
-    real(RP), intent(in) :: Escale(3,this%elem3D%Np)
-    real(RP), intent(in) :: Gsqrt(this%elem3D%Np)
-    real(RP), intent(in) :: sign_    
     real(RP), intent(out) :: vec_out_dx(this%elem3D%Np)
     real(RP), intent(out) :: vec_out_dy(this%elem3D%Np)
     real(RP), intent(out) :: vec_out_dz(this%elem3D%Np)
     real(RP), intent(out) :: vec_out_lift(this%elem3D%Np)
-    real(RP), intent(out) :: vec_out(this%elem3D%Np)
     !----------------------------------------------------------
 
     call element_operation_kernel_matvec_Lift_hexahedral_P9( this%Lift_mat, vec_in_lift, &
       vec_out_lift )      
 
-    call element_operation_kernel_matvec_divlike_dirXYZ_P9( this%D1D, this%D1D_tr, vec_in_x, vec_in_y, vec_in_z, Escale, Gsqrt, vec_out_lift, sign_, &
-      vec_out_dx, vec_out_dy, vec_out_dz, vec_out )
-
+    call element_operation_kernel_matvec_divlike_dirXYZ_P9( this%D1D, this%D1D_tr, vec_in_x, vec_in_y, vec_in_z, &
+      vec_out_dx, vec_out_dy, vec_out_dz )
     return
   end subroutine element_operation_tensorprod3D_Div_P9
 
+!> Calculate the 3D gradient
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Div_var5_P9(  this, vec_in, vec_in_lift, &
+    vec_out_d )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_divlike_dirXYZ_P9, &
+      element_operation_kernel_matvec_Lift_hexahedral_P9
+    implicit none
+    class(ElementOperationTensorProd3D_P9), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np,3,5)
+    real(RP), intent(in) :: vec_in_lift(this%elem3D%NfpTot,5)
+    real(RP), intent(out) :: vec_out_d(this%elem3D%Np,4,5)
+
+    integer :: iv
+    !----------------------------------------------------------
+
+    do iv=1, 5
+      call element_operation_kernel_matvec_Lift_hexahedral_P9( this%Lift_mat, vec_in_lift(:,iv), &
+        vec_out_d(:,4,iv) )      
+    end do
+    do iv=1, 5
+      call element_operation_kernel_matvec_divlike_dirXYZ_P9( this%D1D, this%D1D_tr, vec_in(:,1,iv), vec_in(:,2,iv), vec_in(:,3,iv), &
+        vec_out_d(:,1,iv), vec_out_d(:,2,iv), vec_out_d(:,3,iv) )
+    end do
+    return
+  end subroutine element_operation_tensorprod3D_Div_var5_P9
+    
+!OCL SERIAL
   subroutine element_operation_tensorprod3D_VFilterPM1_P9( this, vec_in, vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirZ_P9
     implicit none
@@ -1984,10 +2960,49 @@ contains
     real(RP), intent(out) :: vec_out(this%elem3D%Np)
     !---------------------------------------------------------------
 
-    call element_operation_kernel_matvec_dirZ_P9( this%IntrpMat_VPOrdM1, vec_in, &
+    call element_operation_kernel_matvec_dirZ_P9( this%IntrpMat_VPOrdM1_tr, vec_in, &
       vec_out )
     return
   end subroutine element_operation_tensorprod3D_VFilterPM1_P9 
+
+  !OCL SERIAL
+  subroutine element_operation_tensorprod3D_ModalFilter_tracer_P9( this, vec_in, vec_work, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_ModalFilter_P9
+
+    implicit none
+    class(ElementOperationTensorProd3D_P9), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np)
+    real(RP), intent(out) :: vec_work(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
+    !---------------------------------------------
+
+    call element_operation_kernel_matvec_ModalFilter_P9( this%MFilter_tracer_h1D, this%MFilter_tracer_h1D_tr, this%MFilter_tracer_v1D_tr, vec_in(:), vec_work, &
+      vec_out(:) )
+    
+    return
+  end subroutine element_operation_tensorprod3D_ModalFilter_tracer_P9 
+  
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_ModalFilter_var5_P9( this, vec_in, vec_work, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_ModalFilter_P9
+
+    implicit none
+    class(ElementOperationTensorProd3D_P9), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np,5)
+    real(RP), intent(out) :: vec_work(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np,5)
+    integer :: iv
+    !---------------------------------------------
+
+    do iv=1, 5
+      call element_operation_kernel_matvec_ModalFilter_P9( this%MFilter_h1D, this%MFilter_h1D_tr, this%MFilter_v1D_tr, vec_in(:,iv), vec_work, &
+        vec_out(:,iv) )
+    end do
+    
+    return
+  end subroutine element_operation_tensorprod3D_ModalFilter_var5_P9 
 
 
 !--- For p=10 ------------------------------------
@@ -1996,41 +3011,69 @@ contains
 !!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Init_P10( this, elem3D )
-    use scale_element_line, only: LineElement
-    use scale_sparsemat, only: SparseMat
     implicit none
     class(ElementOperationTensorProd3D_P10), intent(inout) :: this
     class(ElementBase3D), intent(in), target :: elem3D
-
-    integer :: p
-
-    integer :: p1, p2, p_
-    real(RP) :: invV_VPOrdM1(11,11)
-
-    type(LineElement) :: elem1D
-    type(SparseMat) :: Lift_sm
     !----------------------------------------------------------
+
     this%elem3D => elem3D
 
-    call elem1D%Init( 10, .false. )
-    this%D1D(:,:) = elem1D%Dx1(:,:)
-    this%D1D_tr(:,:) = transpose(this%D1D)
-
-    call Lift_sm%Init( elem3D%Lift, storage_format='ELL' )
-    this%Lift_mat(:,:,:,:) = reshape(Lift_sm%val, (/ 11,11,11,6 /) )
-    call Lift_sm%Final()
-
-    !--
-
-    InvV_VPOrdM1(:,:) = elem1D%invV(:,:)
-    InvV_VPOrdM1(11,:) = 0.0_RP
-    this%IntrpMat_VPOrdM1(:,:) = matmul(elem1D%V, invV_VPOrdM1)
-
-    !-
-    call elem1D%Final()
-
+    call setup_elem_operator( this%D1D, this%D1D_tr, this%Lift_mat, this%IntrpMat_VPOrdM1_tr, &
+      11, elem3D )
     return
   end subroutine element_operation_tensorprod3D_Init_P10
+
+  !> Setup modal filter
+  !!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Setup_ModalFilter_P10( this, &
+    MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h, &
+    MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v )
+    use scale_element_hexahedral, only: HexahedralElement
+    use scale_element_line, only: LineElement
+    implicit none
+    class(ElementOperationTensorProd3D_P10), intent(inout) :: this
+    real(RP), intent(in) :: MF_ETAC_h
+    real(RP), intent(in) :: MF_ALPHA_h
+    integer, intent(in) :: MF_ORDER_h
+    real(RP), intent(in) :: MF_ETAC_v
+    real(RP), intent(in) :: MF_ALPHA_v
+    integer, intent(in) :: MF_ORDER_v
+    !--------------------------------------------------------
+
+    call setup_ModalFilter( this%MFilter_h1D, this%MFilter_h1D_tr, this%MFilter_v1D_tr, &
+      MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h,               &
+      MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v,               &
+      this%elem3D%PolyOrder_h, this%elem3D%PolyOrder_v )
+    
+    return
+  end subroutine element_operation_tensorprod3D_Setup_ModalFilter_P10 
+
+  !> Setup modal filter for tracer
+  !!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Setup_ModalFilter_tracer_P10( this, &
+    MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h, &
+    MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v )
+    use scale_element_hexahedral, only: HexahedralElement
+    use scale_element_line, only: LineElement
+    implicit none
+    class(ElementOperationTensorProd3D_P10), intent(inout) :: this
+    real(RP), intent(in) :: MF_ETAC_h
+    real(RP), intent(in) :: MF_ALPHA_h
+    integer, intent(in) :: MF_ORDER_h
+    real(RP), intent(in) :: MF_ETAC_v
+    real(RP), intent(in) :: MF_ALPHA_v
+    integer, intent(in) :: MF_ORDER_v
+    !--------------------------------------------------------
+
+    call setup_ModalFilter( this%MFilter_tracer_h1D, this%MFilter_tracer_h1D_tr, this%MFilter_tracer_v1D_tr, &
+      MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h,               &
+      MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v,               &
+      this%elem3D%PolyOrder_h, this%elem3D%PolyOrder_v )
+    
+    return
+  end subroutine element_operation_tensorprod3D_Setup_ModalFilter_tracer_P10 
 
 !> Finalization
 !!
@@ -2126,8 +3169,8 @@ contains
 !> Calculate the 3D gradient
 !!
 !OCL SERIAL
-  subroutine element_operation_tensorprod3D_Div_P10(  this, vec_in_x, vec_in_y, vec_in_z, vec_in_lift, Escale, Gsqrt, sign_, &
-    vec_out_dx, vec_out_dy, vec_out_dz, vec_out_lift, vec_out )
+  subroutine element_operation_tensorprod3D_Div_P10(  this, vec_in_x, vec_in_y, vec_in_z, vec_in_lift, &
+    vec_out_dx, vec_out_dy, vec_out_dz, vec_out_lift )
     use scale_element_operation_tensorprod3D_kernel, only: &
       element_operation_kernel_matvec_divlike_dirXYZ_P10, &
       element_operation_kernel_matvec_Lift_hexahedral_P10
@@ -2137,25 +3180,49 @@ contains
     real(RP), intent(in) :: vec_in_y(this%elem3D%Np)
     real(RP), intent(in) :: vec_in_z(this%elem3D%Np)
     real(RP), intent(in) :: vec_in_lift(this%elem3D%NfpTot)
-    real(RP), intent(in) :: Escale(3,this%elem3D%Np)
-    real(RP), intent(in) :: Gsqrt(this%elem3D%Np)
-    real(RP), intent(in) :: sign_    
     real(RP), intent(out) :: vec_out_dx(this%elem3D%Np)
     real(RP), intent(out) :: vec_out_dy(this%elem3D%Np)
     real(RP), intent(out) :: vec_out_dz(this%elem3D%Np)
     real(RP), intent(out) :: vec_out_lift(this%elem3D%Np)
-    real(RP), intent(out) :: vec_out(this%elem3D%Np)
     !----------------------------------------------------------
 
     call element_operation_kernel_matvec_Lift_hexahedral_P10( this%Lift_mat, vec_in_lift, &
       vec_out_lift )      
 
-    call element_operation_kernel_matvec_divlike_dirXYZ_P10( this%D1D, this%D1D_tr, vec_in_x, vec_in_y, vec_in_z, Escale, Gsqrt, vec_out_lift, sign_, &
-      vec_out_dx, vec_out_dy, vec_out_dz, vec_out )
-
+    call element_operation_kernel_matvec_divlike_dirXYZ_P10( this%D1D, this%D1D_tr, vec_in_x, vec_in_y, vec_in_z, &
+      vec_out_dx, vec_out_dy, vec_out_dz )
     return
   end subroutine element_operation_tensorprod3D_Div_P10
 
+!> Calculate the 3D gradient
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Div_var5_P10(  this, vec_in, vec_in_lift, &
+    vec_out_d )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_divlike_dirXYZ_P10, &
+      element_operation_kernel_matvec_Lift_hexahedral_P10
+    implicit none
+    class(ElementOperationTensorProd3D_P10), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np,3,5)
+    real(RP), intent(in) :: vec_in_lift(this%elem3D%NfpTot,5)
+    real(RP), intent(out) :: vec_out_d(this%elem3D%Np,4,5)
+
+    integer :: iv
+    !----------------------------------------------------------
+
+    do iv=1, 5
+      call element_operation_kernel_matvec_Lift_hexahedral_P10( this%Lift_mat, vec_in_lift(:,iv), &
+        vec_out_d(:,4,iv) )      
+    end do
+    do iv=1, 5
+      call element_operation_kernel_matvec_divlike_dirXYZ_P10( this%D1D, this%D1D_tr, vec_in(:,1,iv), vec_in(:,2,iv), vec_in(:,3,iv), &
+        vec_out_d(:,1,iv), vec_out_d(:,2,iv), vec_out_d(:,3,iv) )
+    end do
+    return
+  end subroutine element_operation_tensorprod3D_Div_var5_P10
+    
+!OCL SERIAL
   subroutine element_operation_tensorprod3D_VFilterPM1_P10( this, vec_in, vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirZ_P10
     implicit none
@@ -2164,10 +3231,49 @@ contains
     real(RP), intent(out) :: vec_out(this%elem3D%Np)
     !---------------------------------------------------------------
 
-    call element_operation_kernel_matvec_dirZ_P10( this%IntrpMat_VPOrdM1, vec_in, &
+    call element_operation_kernel_matvec_dirZ_P10( this%IntrpMat_VPOrdM1_tr, vec_in, &
       vec_out )
     return
   end subroutine element_operation_tensorprod3D_VFilterPM1_P10 
+
+  !OCL SERIAL
+  subroutine element_operation_tensorprod3D_ModalFilter_tracer_P10( this, vec_in, vec_work, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_ModalFilter_P10
+
+    implicit none
+    class(ElementOperationTensorProd3D_P10), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np)
+    real(RP), intent(out) :: vec_work(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
+    !---------------------------------------------
+
+    call element_operation_kernel_matvec_ModalFilter_P10( this%MFilter_tracer_h1D, this%MFilter_tracer_h1D_tr, this%MFilter_tracer_v1D_tr, vec_in(:), vec_work, &
+      vec_out(:) )
+    
+    return
+  end subroutine element_operation_tensorprod3D_ModalFilter_tracer_P10 
+  
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_ModalFilter_var5_P10( this, vec_in, vec_work, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_ModalFilter_P10
+
+    implicit none
+    class(ElementOperationTensorProd3D_P10), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np,5)
+    real(RP), intent(out) :: vec_work(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np,5)
+    integer :: iv
+    !---------------------------------------------
+
+    do iv=1, 5
+      call element_operation_kernel_matvec_ModalFilter_P10( this%MFilter_h1D, this%MFilter_h1D_tr, this%MFilter_v1D_tr, vec_in(:,iv), vec_work, &
+        vec_out(:,iv) )
+    end do
+    
+    return
+  end subroutine element_operation_tensorprod3D_ModalFilter_var5_P10 
 
 
 !--- For p=11 ------------------------------------
@@ -2176,41 +3282,69 @@ contains
 !!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Init_P11( this, elem3D )
-    use scale_element_line, only: LineElement
-    use scale_sparsemat, only: SparseMat
     implicit none
     class(ElementOperationTensorProd3D_P11), intent(inout) :: this
     class(ElementBase3D), intent(in), target :: elem3D
-
-    integer :: p
-
-    integer :: p1, p2, p_
-    real(RP) :: invV_VPOrdM1(12,12)
-
-    type(LineElement) :: elem1D
-    type(SparseMat) :: Lift_sm
     !----------------------------------------------------------
+
     this%elem3D => elem3D
 
-    call elem1D%Init( 11, .false. )
-    this%D1D(:,:) = elem1D%Dx1(:,:)
-    this%D1D_tr(:,:) = transpose(this%D1D)
-
-    call Lift_sm%Init( elem3D%Lift, storage_format='ELL' )
-    this%Lift_mat(:,:,:,:) = reshape(Lift_sm%val, (/ 12,12,12,6 /) )
-    call Lift_sm%Final()
-
-    !--
-
-    InvV_VPOrdM1(:,:) = elem1D%invV(:,:)
-    InvV_VPOrdM1(12,:) = 0.0_RP
-    this%IntrpMat_VPOrdM1(:,:) = matmul(elem1D%V, invV_VPOrdM1)
-
-    !-
-    call elem1D%Final()
-
+    call setup_elem_operator( this%D1D, this%D1D_tr, this%Lift_mat, this%IntrpMat_VPOrdM1_tr, &
+      12, elem3D )
     return
   end subroutine element_operation_tensorprod3D_Init_P11
+
+  !> Setup modal filter
+  !!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Setup_ModalFilter_P11( this, &
+    MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h, &
+    MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v )
+    use scale_element_hexahedral, only: HexahedralElement
+    use scale_element_line, only: LineElement
+    implicit none
+    class(ElementOperationTensorProd3D_P11), intent(inout) :: this
+    real(RP), intent(in) :: MF_ETAC_h
+    real(RP), intent(in) :: MF_ALPHA_h
+    integer, intent(in) :: MF_ORDER_h
+    real(RP), intent(in) :: MF_ETAC_v
+    real(RP), intent(in) :: MF_ALPHA_v
+    integer, intent(in) :: MF_ORDER_v
+    !--------------------------------------------------------
+
+    call setup_ModalFilter( this%MFilter_h1D, this%MFilter_h1D_tr, this%MFilter_v1D_tr, &
+      MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h,               &
+      MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v,               &
+      this%elem3D%PolyOrder_h, this%elem3D%PolyOrder_v )
+    
+    return
+  end subroutine element_operation_tensorprod3D_Setup_ModalFilter_P11 
+
+  !> Setup modal filter for tracer
+  !!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Setup_ModalFilter_tracer_P11( this, &
+    MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h, &
+    MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v )
+    use scale_element_hexahedral, only: HexahedralElement
+    use scale_element_line, only: LineElement
+    implicit none
+    class(ElementOperationTensorProd3D_P11), intent(inout) :: this
+    real(RP), intent(in) :: MF_ETAC_h
+    real(RP), intent(in) :: MF_ALPHA_h
+    integer, intent(in) :: MF_ORDER_h
+    real(RP), intent(in) :: MF_ETAC_v
+    real(RP), intent(in) :: MF_ALPHA_v
+    integer, intent(in) :: MF_ORDER_v
+    !--------------------------------------------------------
+
+    call setup_ModalFilter( this%MFilter_tracer_h1D, this%MFilter_tracer_h1D_tr, this%MFilter_tracer_v1D_tr, &
+      MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h,               &
+      MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v,               &
+      this%elem3D%PolyOrder_h, this%elem3D%PolyOrder_v )
+    
+    return
+  end subroutine element_operation_tensorprod3D_Setup_ModalFilter_tracer_P11 
 
 !> Finalization
 !!
@@ -2306,8 +3440,8 @@ contains
 !> Calculate the 3D gradient
 !!
 !OCL SERIAL
-  subroutine element_operation_tensorprod3D_Div_P11(  this, vec_in_x, vec_in_y, vec_in_z, vec_in_lift, Escale, Gsqrt, sign_, &
-    vec_out_dx, vec_out_dy, vec_out_dz, vec_out_lift, vec_out )
+  subroutine element_operation_tensorprod3D_Div_P11(  this, vec_in_x, vec_in_y, vec_in_z, vec_in_lift, &
+    vec_out_dx, vec_out_dy, vec_out_dz, vec_out_lift )
     use scale_element_operation_tensorprod3D_kernel, only: &
       element_operation_kernel_matvec_divlike_dirXYZ_P11, &
       element_operation_kernel_matvec_Lift_hexahedral_P11
@@ -2317,25 +3451,49 @@ contains
     real(RP), intent(in) :: vec_in_y(this%elem3D%Np)
     real(RP), intent(in) :: vec_in_z(this%elem3D%Np)
     real(RP), intent(in) :: vec_in_lift(this%elem3D%NfpTot)
-    real(RP), intent(in) :: Escale(3,this%elem3D%Np)
-    real(RP), intent(in) :: Gsqrt(this%elem3D%Np)
-    real(RP), intent(in) :: sign_    
     real(RP), intent(out) :: vec_out_dx(this%elem3D%Np)
     real(RP), intent(out) :: vec_out_dy(this%elem3D%Np)
     real(RP), intent(out) :: vec_out_dz(this%elem3D%Np)
     real(RP), intent(out) :: vec_out_lift(this%elem3D%Np)
-    real(RP), intent(out) :: vec_out(this%elem3D%Np)
     !----------------------------------------------------------
 
     call element_operation_kernel_matvec_Lift_hexahedral_P11( this%Lift_mat, vec_in_lift, &
       vec_out_lift )      
 
-    call element_operation_kernel_matvec_divlike_dirXYZ_P11( this%D1D, this%D1D_tr, vec_in_x, vec_in_y, vec_in_z, Escale, Gsqrt, vec_out_lift, sign_, &
-      vec_out_dx, vec_out_dy, vec_out_dz, vec_out )
-
+    call element_operation_kernel_matvec_divlike_dirXYZ_P11( this%D1D, this%D1D_tr, vec_in_x, vec_in_y, vec_in_z, &
+      vec_out_dx, vec_out_dy, vec_out_dz )
     return
   end subroutine element_operation_tensorprod3D_Div_P11
 
+!> Calculate the 3D gradient
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Div_var5_P11(  this, vec_in, vec_in_lift, &
+    vec_out_d )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_divlike_dirXYZ_P11, &
+      element_operation_kernel_matvec_Lift_hexahedral_P11
+    implicit none
+    class(ElementOperationTensorProd3D_P11), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np,3,5)
+    real(RP), intent(in) :: vec_in_lift(this%elem3D%NfpTot,5)
+    real(RP), intent(out) :: vec_out_d(this%elem3D%Np,4,5)
+
+    integer :: iv
+    !----------------------------------------------------------
+
+    do iv=1, 5
+      call element_operation_kernel_matvec_Lift_hexahedral_P11( this%Lift_mat, vec_in_lift(:,iv), &
+        vec_out_d(:,4,iv) )      
+    end do
+    do iv=1, 5
+      call element_operation_kernel_matvec_divlike_dirXYZ_P11( this%D1D, this%D1D_tr, vec_in(:,1,iv), vec_in(:,2,iv), vec_in(:,3,iv), &
+        vec_out_d(:,1,iv), vec_out_d(:,2,iv), vec_out_d(:,3,iv) )
+    end do
+    return
+  end subroutine element_operation_tensorprod3D_Div_var5_P11
+    
+!OCL SERIAL
   subroutine element_operation_tensorprod3D_VFilterPM1_P11( this, vec_in, vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirZ_P11
     implicit none
@@ -2344,10 +3502,49 @@ contains
     real(RP), intent(out) :: vec_out(this%elem3D%Np)
     !---------------------------------------------------------------
 
-    call element_operation_kernel_matvec_dirZ_P11( this%IntrpMat_VPOrdM1, vec_in, &
+    call element_operation_kernel_matvec_dirZ_P11( this%IntrpMat_VPOrdM1_tr, vec_in, &
       vec_out )
     return
   end subroutine element_operation_tensorprod3D_VFilterPM1_P11 
+
+  !OCL SERIAL
+  subroutine element_operation_tensorprod3D_ModalFilter_tracer_P11( this, vec_in, vec_work, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_ModalFilter_P11
+
+    implicit none
+    class(ElementOperationTensorProd3D_P11), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np)
+    real(RP), intent(out) :: vec_work(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
+    !---------------------------------------------
+
+    call element_operation_kernel_matvec_ModalFilter_P11( this%MFilter_tracer_h1D, this%MFilter_tracer_h1D_tr, this%MFilter_tracer_v1D_tr, vec_in(:), vec_work, &
+      vec_out(:) )
+    
+    return
+  end subroutine element_operation_tensorprod3D_ModalFilter_tracer_P11 
+  
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_ModalFilter_var5_P11( this, vec_in, vec_work, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_ModalFilter_P11
+
+    implicit none
+    class(ElementOperationTensorProd3D_P11), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np,5)
+    real(RP), intent(out) :: vec_work(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np,5)
+    integer :: iv
+    !---------------------------------------------
+
+    do iv=1, 5
+      call element_operation_kernel_matvec_ModalFilter_P11( this%MFilter_h1D, this%MFilter_h1D_tr, this%MFilter_v1D_tr, vec_in(:,iv), vec_work, &
+        vec_out(:,iv) )
+    end do
+    
+    return
+  end subroutine element_operation_tensorprod3D_ModalFilter_var5_P11 
 
 
 !--- For p=12 ------------------------------------
@@ -2356,41 +3553,69 @@ contains
 !!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Init_P12( this, elem3D )
-    use scale_element_line, only: LineElement
-    use scale_sparsemat, only: SparseMat
     implicit none
     class(ElementOperationTensorProd3D_P12), intent(inout) :: this
     class(ElementBase3D), intent(in), target :: elem3D
-
-    integer :: p
-
-    integer :: p1, p2, p_
-    real(RP) :: invV_VPOrdM1(13,13)
-
-    type(LineElement) :: elem1D
-    type(SparseMat) :: Lift_sm
     !----------------------------------------------------------
+
     this%elem3D => elem3D
 
-    call elem1D%Init( 12, .false. )
-    this%D1D(:,:) = elem1D%Dx1(:,:)
-    this%D1D_tr(:,:) = transpose(this%D1D)
-
-    call Lift_sm%Init( elem3D%Lift, storage_format='ELL' )
-    this%Lift_mat(:,:,:,:) = reshape(Lift_sm%val, (/ 13,13,13,6 /) )
-    call Lift_sm%Final()
-
-    !--
-
-    InvV_VPOrdM1(:,:) = elem1D%invV(:,:)
-    InvV_VPOrdM1(13,:) = 0.0_RP
-    this%IntrpMat_VPOrdM1(:,:) = matmul(elem1D%V, invV_VPOrdM1)
-
-    !-
-    call elem1D%Final()
-
+    call setup_elem_operator( this%D1D, this%D1D_tr, this%Lift_mat, this%IntrpMat_VPOrdM1_tr, &
+      13, elem3D )
     return
   end subroutine element_operation_tensorprod3D_Init_P12
+
+  !> Setup modal filter
+  !!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Setup_ModalFilter_P12( this, &
+    MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h, &
+    MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v )
+    use scale_element_hexahedral, only: HexahedralElement
+    use scale_element_line, only: LineElement
+    implicit none
+    class(ElementOperationTensorProd3D_P12), intent(inout) :: this
+    real(RP), intent(in) :: MF_ETAC_h
+    real(RP), intent(in) :: MF_ALPHA_h
+    integer, intent(in) :: MF_ORDER_h
+    real(RP), intent(in) :: MF_ETAC_v
+    real(RP), intent(in) :: MF_ALPHA_v
+    integer, intent(in) :: MF_ORDER_v
+    !--------------------------------------------------------
+
+    call setup_ModalFilter( this%MFilter_h1D, this%MFilter_h1D_tr, this%MFilter_v1D_tr, &
+      MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h,               &
+      MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v,               &
+      this%elem3D%PolyOrder_h, this%elem3D%PolyOrder_v )
+    
+    return
+  end subroutine element_operation_tensorprod3D_Setup_ModalFilter_P12 
+
+  !> Setup modal filter for tracer
+  !!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Setup_ModalFilter_tracer_P12( this, &
+    MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h, &
+    MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v )
+    use scale_element_hexahedral, only: HexahedralElement
+    use scale_element_line, only: LineElement
+    implicit none
+    class(ElementOperationTensorProd3D_P12), intent(inout) :: this
+    real(RP), intent(in) :: MF_ETAC_h
+    real(RP), intent(in) :: MF_ALPHA_h
+    integer, intent(in) :: MF_ORDER_h
+    real(RP), intent(in) :: MF_ETAC_v
+    real(RP), intent(in) :: MF_ALPHA_v
+    integer, intent(in) :: MF_ORDER_v
+    !--------------------------------------------------------
+
+    call setup_ModalFilter( this%MFilter_tracer_h1D, this%MFilter_tracer_h1D_tr, this%MFilter_tracer_v1D_tr, &
+      MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h,               &
+      MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v,               &
+      this%elem3D%PolyOrder_h, this%elem3D%PolyOrder_v )
+    
+    return
+  end subroutine element_operation_tensorprod3D_Setup_ModalFilter_tracer_P12 
 
 !> Finalization
 !!
@@ -2486,8 +3711,8 @@ contains
 !> Calculate the 3D gradient
 !!
 !OCL SERIAL
-  subroutine element_operation_tensorprod3D_Div_P12(  this, vec_in_x, vec_in_y, vec_in_z, vec_in_lift, Escale, Gsqrt, sign_, &
-    vec_out_dx, vec_out_dy, vec_out_dz, vec_out_lift, vec_out )
+  subroutine element_operation_tensorprod3D_Div_P12(  this, vec_in_x, vec_in_y, vec_in_z, vec_in_lift, &
+    vec_out_dx, vec_out_dy, vec_out_dz, vec_out_lift )
     use scale_element_operation_tensorprod3D_kernel, only: &
       element_operation_kernel_matvec_divlike_dirXYZ_P12, &
       element_operation_kernel_matvec_Lift_hexahedral_P12
@@ -2497,25 +3722,49 @@ contains
     real(RP), intent(in) :: vec_in_y(this%elem3D%Np)
     real(RP), intent(in) :: vec_in_z(this%elem3D%Np)
     real(RP), intent(in) :: vec_in_lift(this%elem3D%NfpTot)
-    real(RP), intent(in) :: Escale(3,this%elem3D%Np)
-    real(RP), intent(in) :: Gsqrt(this%elem3D%Np)
-    real(RP), intent(in) :: sign_    
     real(RP), intent(out) :: vec_out_dx(this%elem3D%Np)
     real(RP), intent(out) :: vec_out_dy(this%elem3D%Np)
     real(RP), intent(out) :: vec_out_dz(this%elem3D%Np)
     real(RP), intent(out) :: vec_out_lift(this%elem3D%Np)
-    real(RP), intent(out) :: vec_out(this%elem3D%Np)
     !----------------------------------------------------------
 
     call element_operation_kernel_matvec_Lift_hexahedral_P12( this%Lift_mat, vec_in_lift, &
       vec_out_lift )      
 
-    call element_operation_kernel_matvec_divlike_dirXYZ_P12( this%D1D, this%D1D_tr, vec_in_x, vec_in_y, vec_in_z, Escale, Gsqrt, vec_out_lift, sign_, &
-      vec_out_dx, vec_out_dy, vec_out_dz, vec_out )
-
+    call element_operation_kernel_matvec_divlike_dirXYZ_P12( this%D1D, this%D1D_tr, vec_in_x, vec_in_y, vec_in_z, &
+      vec_out_dx, vec_out_dy, vec_out_dz )
     return
   end subroutine element_operation_tensorprod3D_Div_P12
 
+!> Calculate the 3D gradient
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Div_var5_P12(  this, vec_in, vec_in_lift, &
+    vec_out_d )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_divlike_dirXYZ_P12, &
+      element_operation_kernel_matvec_Lift_hexahedral_P12
+    implicit none
+    class(ElementOperationTensorProd3D_P12), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np,3,5)
+    real(RP), intent(in) :: vec_in_lift(this%elem3D%NfpTot,5)
+    real(RP), intent(out) :: vec_out_d(this%elem3D%Np,4,5)
+
+    integer :: iv
+    !----------------------------------------------------------
+
+    do iv=1, 5
+      call element_operation_kernel_matvec_Lift_hexahedral_P12( this%Lift_mat, vec_in_lift(:,iv), &
+        vec_out_d(:,4,iv) )      
+    end do
+    do iv=1, 5
+      call element_operation_kernel_matvec_divlike_dirXYZ_P12( this%D1D, this%D1D_tr, vec_in(:,1,iv), vec_in(:,2,iv), vec_in(:,3,iv), &
+        vec_out_d(:,1,iv), vec_out_d(:,2,iv), vec_out_d(:,3,iv) )
+    end do
+    return
+  end subroutine element_operation_tensorprod3D_Div_var5_P12
+    
+!OCL SERIAL
   subroutine element_operation_tensorprod3D_VFilterPM1_P12( this, vec_in, vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirZ_P12
     implicit none
@@ -2524,10 +3773,49 @@ contains
     real(RP), intent(out) :: vec_out(this%elem3D%Np)
     !---------------------------------------------------------------
 
-    call element_operation_kernel_matvec_dirZ_P12( this%IntrpMat_VPOrdM1, vec_in, &
+    call element_operation_kernel_matvec_dirZ_P12( this%IntrpMat_VPOrdM1_tr, vec_in, &
       vec_out )
     return
   end subroutine element_operation_tensorprod3D_VFilterPM1_P12 
+
+  !OCL SERIAL
+  subroutine element_operation_tensorprod3D_ModalFilter_tracer_P12( this, vec_in, vec_work, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_ModalFilter_P12
+
+    implicit none
+    class(ElementOperationTensorProd3D_P12), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np)
+    real(RP), intent(out) :: vec_work(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
+    !---------------------------------------------
+
+    call element_operation_kernel_matvec_ModalFilter_P12( this%MFilter_tracer_h1D, this%MFilter_tracer_h1D_tr, this%MFilter_tracer_v1D_tr, vec_in(:), vec_work, &
+      vec_out(:) )
+    
+    return
+  end subroutine element_operation_tensorprod3D_ModalFilter_tracer_P12 
+  
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_ModalFilter_var5_P12( this, vec_in, vec_work, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_ModalFilter_P12
+
+    implicit none
+    class(ElementOperationTensorProd3D_P12), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np,5)
+    real(RP), intent(out) :: vec_work(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np,5)
+    integer :: iv
+    !---------------------------------------------
+
+    do iv=1, 5
+      call element_operation_kernel_matvec_ModalFilter_P12( this%MFilter_h1D, this%MFilter_h1D_tr, this%MFilter_v1D_tr, vec_in(:,iv), vec_work, &
+        vec_out(:,iv) )
+    end do
+    
+    return
+  end subroutine element_operation_tensorprod3D_ModalFilter_var5_P12 
 
 
 !--- For p=13 ------------------------------------
@@ -2536,41 +3824,69 @@ contains
 !!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Init_P13( this, elem3D )
-    use scale_element_line, only: LineElement
-    use scale_sparsemat, only: SparseMat
     implicit none
     class(ElementOperationTensorProd3D_P13), intent(inout) :: this
     class(ElementBase3D), intent(in), target :: elem3D
-
-    integer :: p
-
-    integer :: p1, p2, p_
-    real(RP) :: invV_VPOrdM1(14,14)
-
-    type(LineElement) :: elem1D
-    type(SparseMat) :: Lift_sm
     !----------------------------------------------------------
+
     this%elem3D => elem3D
 
-    call elem1D%Init( 13, .false. )
-    this%D1D(:,:) = elem1D%Dx1(:,:)
-    this%D1D_tr(:,:) = transpose(this%D1D)
-
-    call Lift_sm%Init( elem3D%Lift, storage_format='ELL' )
-    this%Lift_mat(:,:,:,:) = reshape(Lift_sm%val, (/ 14,14,14,6 /) )
-    call Lift_sm%Final()
-
-    !--
-
-    InvV_VPOrdM1(:,:) = elem1D%invV(:,:)
-    InvV_VPOrdM1(14,:) = 0.0_RP
-    this%IntrpMat_VPOrdM1(:,:) = matmul(elem1D%V, invV_VPOrdM1)
-
-    !-
-    call elem1D%Final()
-
+    call setup_elem_operator( this%D1D, this%D1D_tr, this%Lift_mat, this%IntrpMat_VPOrdM1_tr, &
+      14, elem3D )
     return
   end subroutine element_operation_tensorprod3D_Init_P13
+
+  !> Setup modal filter
+  !!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Setup_ModalFilter_P13( this, &
+    MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h, &
+    MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v )
+    use scale_element_hexahedral, only: HexahedralElement
+    use scale_element_line, only: LineElement
+    implicit none
+    class(ElementOperationTensorProd3D_P13), intent(inout) :: this
+    real(RP), intent(in) :: MF_ETAC_h
+    real(RP), intent(in) :: MF_ALPHA_h
+    integer, intent(in) :: MF_ORDER_h
+    real(RP), intent(in) :: MF_ETAC_v
+    real(RP), intent(in) :: MF_ALPHA_v
+    integer, intent(in) :: MF_ORDER_v
+    !--------------------------------------------------------
+
+    call setup_ModalFilter( this%MFilter_h1D, this%MFilter_h1D_tr, this%MFilter_v1D_tr, &
+      MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h,               &
+      MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v,               &
+      this%elem3D%PolyOrder_h, this%elem3D%PolyOrder_v )
+    
+    return
+  end subroutine element_operation_tensorprod3D_Setup_ModalFilter_P13 
+
+  !> Setup modal filter for tracer
+  !!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Setup_ModalFilter_tracer_P13( this, &
+    MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h, &
+    MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v )
+    use scale_element_hexahedral, only: HexahedralElement
+    use scale_element_line, only: LineElement
+    implicit none
+    class(ElementOperationTensorProd3D_P13), intent(inout) :: this
+    real(RP), intent(in) :: MF_ETAC_h
+    real(RP), intent(in) :: MF_ALPHA_h
+    integer, intent(in) :: MF_ORDER_h
+    real(RP), intent(in) :: MF_ETAC_v
+    real(RP), intent(in) :: MF_ALPHA_v
+    integer, intent(in) :: MF_ORDER_v
+    !--------------------------------------------------------
+
+    call setup_ModalFilter( this%MFilter_tracer_h1D, this%MFilter_tracer_h1D_tr, this%MFilter_tracer_v1D_tr, &
+      MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h,               &
+      MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v,               &
+      this%elem3D%PolyOrder_h, this%elem3D%PolyOrder_v )
+    
+    return
+  end subroutine element_operation_tensorprod3D_Setup_ModalFilter_tracer_P13 
 
 !> Finalization
 !!
@@ -2666,8 +3982,8 @@ contains
 !> Calculate the 3D gradient
 !!
 !OCL SERIAL
-  subroutine element_operation_tensorprod3D_Div_P13(  this, vec_in_x, vec_in_y, vec_in_z, vec_in_lift, Escale, Gsqrt, sign_, &
-    vec_out_dx, vec_out_dy, vec_out_dz, vec_out_lift, vec_out )
+  subroutine element_operation_tensorprod3D_Div_P13(  this, vec_in_x, vec_in_y, vec_in_z, vec_in_lift, &
+    vec_out_dx, vec_out_dy, vec_out_dz, vec_out_lift )
     use scale_element_operation_tensorprod3D_kernel, only: &
       element_operation_kernel_matvec_divlike_dirXYZ_P13, &
       element_operation_kernel_matvec_Lift_hexahedral_P13
@@ -2677,25 +3993,49 @@ contains
     real(RP), intent(in) :: vec_in_y(this%elem3D%Np)
     real(RP), intent(in) :: vec_in_z(this%elem3D%Np)
     real(RP), intent(in) :: vec_in_lift(this%elem3D%NfpTot)
-    real(RP), intent(in) :: Escale(3,this%elem3D%Np)
-    real(RP), intent(in) :: Gsqrt(this%elem3D%Np)
-    real(RP), intent(in) :: sign_    
     real(RP), intent(out) :: vec_out_dx(this%elem3D%Np)
     real(RP), intent(out) :: vec_out_dy(this%elem3D%Np)
     real(RP), intent(out) :: vec_out_dz(this%elem3D%Np)
     real(RP), intent(out) :: vec_out_lift(this%elem3D%Np)
-    real(RP), intent(out) :: vec_out(this%elem3D%Np)
     !----------------------------------------------------------
 
     call element_operation_kernel_matvec_Lift_hexahedral_P13( this%Lift_mat, vec_in_lift, &
       vec_out_lift )      
 
-    call element_operation_kernel_matvec_divlike_dirXYZ_P13( this%D1D, this%D1D_tr, vec_in_x, vec_in_y, vec_in_z, Escale, Gsqrt, vec_out_lift, sign_, &
-      vec_out_dx, vec_out_dy, vec_out_dz, vec_out )
-
+    call element_operation_kernel_matvec_divlike_dirXYZ_P13( this%D1D, this%D1D_tr, vec_in_x, vec_in_y, vec_in_z, &
+      vec_out_dx, vec_out_dy, vec_out_dz )
     return
   end subroutine element_operation_tensorprod3D_Div_P13
 
+!> Calculate the 3D gradient
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Div_var5_P13(  this, vec_in, vec_in_lift, &
+    vec_out_d )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_divlike_dirXYZ_P13, &
+      element_operation_kernel_matvec_Lift_hexahedral_P13
+    implicit none
+    class(ElementOperationTensorProd3D_P13), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np,3,5)
+    real(RP), intent(in) :: vec_in_lift(this%elem3D%NfpTot,5)
+    real(RP), intent(out) :: vec_out_d(this%elem3D%Np,4,5)
+
+    integer :: iv
+    !----------------------------------------------------------
+
+    do iv=1, 5
+      call element_operation_kernel_matvec_Lift_hexahedral_P13( this%Lift_mat, vec_in_lift(:,iv), &
+        vec_out_d(:,4,iv) )      
+    end do
+    do iv=1, 5
+      call element_operation_kernel_matvec_divlike_dirXYZ_P13( this%D1D, this%D1D_tr, vec_in(:,1,iv), vec_in(:,2,iv), vec_in(:,3,iv), &
+        vec_out_d(:,1,iv), vec_out_d(:,2,iv), vec_out_d(:,3,iv) )
+    end do
+    return
+  end subroutine element_operation_tensorprod3D_Div_var5_P13
+    
+!OCL SERIAL
   subroutine element_operation_tensorprod3D_VFilterPM1_P13( this, vec_in, vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirZ_P13
     implicit none
@@ -2704,10 +4044,49 @@ contains
     real(RP), intent(out) :: vec_out(this%elem3D%Np)
     !---------------------------------------------------------------
 
-    call element_operation_kernel_matvec_dirZ_P13( this%IntrpMat_VPOrdM1, vec_in, &
+    call element_operation_kernel_matvec_dirZ_P13( this%IntrpMat_VPOrdM1_tr, vec_in, &
       vec_out )
     return
   end subroutine element_operation_tensorprod3D_VFilterPM1_P13 
+
+  !OCL SERIAL
+  subroutine element_operation_tensorprod3D_ModalFilter_tracer_P13( this, vec_in, vec_work, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_ModalFilter_P13
+
+    implicit none
+    class(ElementOperationTensorProd3D_P13), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np)
+    real(RP), intent(out) :: vec_work(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
+    !---------------------------------------------
+
+    call element_operation_kernel_matvec_ModalFilter_P13( this%MFilter_tracer_h1D, this%MFilter_tracer_h1D_tr, this%MFilter_tracer_v1D_tr, vec_in(:), vec_work, &
+      vec_out(:) )
+    
+    return
+  end subroutine element_operation_tensorprod3D_ModalFilter_tracer_P13 
+  
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_ModalFilter_var5_P13( this, vec_in, vec_work, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_ModalFilter_P13
+
+    implicit none
+    class(ElementOperationTensorProd3D_P13), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np,5)
+    real(RP), intent(out) :: vec_work(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np,5)
+    integer :: iv
+    !---------------------------------------------
+
+    do iv=1, 5
+      call element_operation_kernel_matvec_ModalFilter_P13( this%MFilter_h1D, this%MFilter_h1D_tr, this%MFilter_v1D_tr, vec_in(:,iv), vec_work, &
+        vec_out(:,iv) )
+    end do
+    
+    return
+  end subroutine element_operation_tensorprod3D_ModalFilter_var5_P13 
 
 
 !--- For p=14 ------------------------------------
@@ -2716,41 +4095,69 @@ contains
 !!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Init_P14( this, elem3D )
-    use scale_element_line, only: LineElement
-    use scale_sparsemat, only: SparseMat
     implicit none
     class(ElementOperationTensorProd3D_P14), intent(inout) :: this
     class(ElementBase3D), intent(in), target :: elem3D
-
-    integer :: p
-
-    integer :: p1, p2, p_
-    real(RP) :: invV_VPOrdM1(15,15)
-
-    type(LineElement) :: elem1D
-    type(SparseMat) :: Lift_sm
     !----------------------------------------------------------
+
     this%elem3D => elem3D
 
-    call elem1D%Init( 14, .false. )
-    this%D1D(:,:) = elem1D%Dx1(:,:)
-    this%D1D_tr(:,:) = transpose(this%D1D)
-
-    call Lift_sm%Init( elem3D%Lift, storage_format='ELL' )
-    this%Lift_mat(:,:,:,:) = reshape(Lift_sm%val, (/ 15,15,15,6 /) )
-    call Lift_sm%Final()
-
-    !--
-
-    InvV_VPOrdM1(:,:) = elem1D%invV(:,:)
-    InvV_VPOrdM1(15,:) = 0.0_RP
-    this%IntrpMat_VPOrdM1(:,:) = matmul(elem1D%V, invV_VPOrdM1)
-
-    !-
-    call elem1D%Final()
-
+    call setup_elem_operator( this%D1D, this%D1D_tr, this%Lift_mat, this%IntrpMat_VPOrdM1_tr, &
+      15, elem3D )
     return
   end subroutine element_operation_tensorprod3D_Init_P14
+
+  !> Setup modal filter
+  !!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Setup_ModalFilter_P14( this, &
+    MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h, &
+    MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v )
+    use scale_element_hexahedral, only: HexahedralElement
+    use scale_element_line, only: LineElement
+    implicit none
+    class(ElementOperationTensorProd3D_P14), intent(inout) :: this
+    real(RP), intent(in) :: MF_ETAC_h
+    real(RP), intent(in) :: MF_ALPHA_h
+    integer, intent(in) :: MF_ORDER_h
+    real(RP), intent(in) :: MF_ETAC_v
+    real(RP), intent(in) :: MF_ALPHA_v
+    integer, intent(in) :: MF_ORDER_v
+    !--------------------------------------------------------
+
+    call setup_ModalFilter( this%MFilter_h1D, this%MFilter_h1D_tr, this%MFilter_v1D_tr, &
+      MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h,               &
+      MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v,               &
+      this%elem3D%PolyOrder_h, this%elem3D%PolyOrder_v )
+    
+    return
+  end subroutine element_operation_tensorprod3D_Setup_ModalFilter_P14 
+
+  !> Setup modal filter for tracer
+  !!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Setup_ModalFilter_tracer_P14( this, &
+    MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h, &
+    MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v )
+    use scale_element_hexahedral, only: HexahedralElement
+    use scale_element_line, only: LineElement
+    implicit none
+    class(ElementOperationTensorProd3D_P14), intent(inout) :: this
+    real(RP), intent(in) :: MF_ETAC_h
+    real(RP), intent(in) :: MF_ALPHA_h
+    integer, intent(in) :: MF_ORDER_h
+    real(RP), intent(in) :: MF_ETAC_v
+    real(RP), intent(in) :: MF_ALPHA_v
+    integer, intent(in) :: MF_ORDER_v
+    !--------------------------------------------------------
+
+    call setup_ModalFilter( this%MFilter_tracer_h1D, this%MFilter_tracer_h1D_tr, this%MFilter_tracer_v1D_tr, &
+      MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h,               &
+      MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v,               &
+      this%elem3D%PolyOrder_h, this%elem3D%PolyOrder_v )
+    
+    return
+  end subroutine element_operation_tensorprod3D_Setup_ModalFilter_tracer_P14 
 
 !> Finalization
 !!
@@ -2846,8 +4253,8 @@ contains
 !> Calculate the 3D gradient
 !!
 !OCL SERIAL
-  subroutine element_operation_tensorprod3D_Div_P14(  this, vec_in_x, vec_in_y, vec_in_z, vec_in_lift, Escale, Gsqrt, sign_, &
-    vec_out_dx, vec_out_dy, vec_out_dz, vec_out_lift, vec_out )
+  subroutine element_operation_tensorprod3D_Div_P14(  this, vec_in_x, vec_in_y, vec_in_z, vec_in_lift, &
+    vec_out_dx, vec_out_dy, vec_out_dz, vec_out_lift )
     use scale_element_operation_tensorprod3D_kernel, only: &
       element_operation_kernel_matvec_divlike_dirXYZ_P14, &
       element_operation_kernel_matvec_Lift_hexahedral_P14
@@ -2857,25 +4264,49 @@ contains
     real(RP), intent(in) :: vec_in_y(this%elem3D%Np)
     real(RP), intent(in) :: vec_in_z(this%elem3D%Np)
     real(RP), intent(in) :: vec_in_lift(this%elem3D%NfpTot)
-    real(RP), intent(in) :: Escale(3,this%elem3D%Np)
-    real(RP), intent(in) :: Gsqrt(this%elem3D%Np)
-    real(RP), intent(in) :: sign_    
     real(RP), intent(out) :: vec_out_dx(this%elem3D%Np)
     real(RP), intent(out) :: vec_out_dy(this%elem3D%Np)
     real(RP), intent(out) :: vec_out_dz(this%elem3D%Np)
     real(RP), intent(out) :: vec_out_lift(this%elem3D%Np)
-    real(RP), intent(out) :: vec_out(this%elem3D%Np)
     !----------------------------------------------------------
 
     call element_operation_kernel_matvec_Lift_hexahedral_P14( this%Lift_mat, vec_in_lift, &
       vec_out_lift )      
 
-    call element_operation_kernel_matvec_divlike_dirXYZ_P14( this%D1D, this%D1D_tr, vec_in_x, vec_in_y, vec_in_z, Escale, Gsqrt, vec_out_lift, sign_, &
-      vec_out_dx, vec_out_dy, vec_out_dz, vec_out )
-
+    call element_operation_kernel_matvec_divlike_dirXYZ_P14( this%D1D, this%D1D_tr, vec_in_x, vec_in_y, vec_in_z, &
+      vec_out_dx, vec_out_dy, vec_out_dz )
     return
   end subroutine element_operation_tensorprod3D_Div_P14
 
+!> Calculate the 3D gradient
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Div_var5_P14(  this, vec_in, vec_in_lift, &
+    vec_out_d )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_divlike_dirXYZ_P14, &
+      element_operation_kernel_matvec_Lift_hexahedral_P14
+    implicit none
+    class(ElementOperationTensorProd3D_P14), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np,3,5)
+    real(RP), intent(in) :: vec_in_lift(this%elem3D%NfpTot,5)
+    real(RP), intent(out) :: vec_out_d(this%elem3D%Np,4,5)
+
+    integer :: iv
+    !----------------------------------------------------------
+
+    do iv=1, 5
+      call element_operation_kernel_matvec_Lift_hexahedral_P14( this%Lift_mat, vec_in_lift(:,iv), &
+        vec_out_d(:,4,iv) )      
+    end do
+    do iv=1, 5
+      call element_operation_kernel_matvec_divlike_dirXYZ_P14( this%D1D, this%D1D_tr, vec_in(:,1,iv), vec_in(:,2,iv), vec_in(:,3,iv), &
+        vec_out_d(:,1,iv), vec_out_d(:,2,iv), vec_out_d(:,3,iv) )
+    end do
+    return
+  end subroutine element_operation_tensorprod3D_Div_var5_P14
+    
+!OCL SERIAL
   subroutine element_operation_tensorprod3D_VFilterPM1_P14( this, vec_in, vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirZ_P14
     implicit none
@@ -2884,10 +4315,49 @@ contains
     real(RP), intent(out) :: vec_out(this%elem3D%Np)
     !---------------------------------------------------------------
 
-    call element_operation_kernel_matvec_dirZ_P14( this%IntrpMat_VPOrdM1, vec_in, &
+    call element_operation_kernel_matvec_dirZ_P14( this%IntrpMat_VPOrdM1_tr, vec_in, &
       vec_out )
     return
   end subroutine element_operation_tensorprod3D_VFilterPM1_P14 
+
+  !OCL SERIAL
+  subroutine element_operation_tensorprod3D_ModalFilter_tracer_P14( this, vec_in, vec_work, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_ModalFilter_P14
+
+    implicit none
+    class(ElementOperationTensorProd3D_P14), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np)
+    real(RP), intent(out) :: vec_work(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
+    !---------------------------------------------
+
+    call element_operation_kernel_matvec_ModalFilter_P14( this%MFilter_tracer_h1D, this%MFilter_tracer_h1D_tr, this%MFilter_tracer_v1D_tr, vec_in(:), vec_work, &
+      vec_out(:) )
+    
+    return
+  end subroutine element_operation_tensorprod3D_ModalFilter_tracer_P14 
+  
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_ModalFilter_var5_P14( this, vec_in, vec_work, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_ModalFilter_P14
+
+    implicit none
+    class(ElementOperationTensorProd3D_P14), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np,5)
+    real(RP), intent(out) :: vec_work(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np,5)
+    integer :: iv
+    !---------------------------------------------
+
+    do iv=1, 5
+      call element_operation_kernel_matvec_ModalFilter_P14( this%MFilter_h1D, this%MFilter_h1D_tr, this%MFilter_v1D_tr, vec_in(:,iv), vec_work, &
+        vec_out(:,iv) )
+    end do
+    
+    return
+  end subroutine element_operation_tensorprod3D_ModalFilter_var5_P14 
 
 
 !--- For p=15 ------------------------------------
@@ -2896,41 +4366,69 @@ contains
 !!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Init_P15( this, elem3D )
-    use scale_element_line, only: LineElement
-    use scale_sparsemat, only: SparseMat
     implicit none
     class(ElementOperationTensorProd3D_P15), intent(inout) :: this
     class(ElementBase3D), intent(in), target :: elem3D
-
-    integer :: p
-
-    integer :: p1, p2, p_
-    real(RP) :: invV_VPOrdM1(16,16)
-
-    type(LineElement) :: elem1D
-    type(SparseMat) :: Lift_sm
     !----------------------------------------------------------
+
     this%elem3D => elem3D
 
-    call elem1D%Init( 15, .false. )
-    this%D1D(:,:) = elem1D%Dx1(:,:)
-    this%D1D_tr(:,:) = transpose(this%D1D)
-
-    call Lift_sm%Init( elem3D%Lift, storage_format='ELL' )
-    this%Lift_mat(:,:,:,:) = reshape(Lift_sm%val, (/ 16,16,16,6 /) )
-    call Lift_sm%Final()
-
-    !--
-
-    InvV_VPOrdM1(:,:) = elem1D%invV(:,:)
-    InvV_VPOrdM1(16,:) = 0.0_RP
-    this%IntrpMat_VPOrdM1(:,:) = matmul(elem1D%V, invV_VPOrdM1)
-
-    !-
-    call elem1D%Final()
-
+    call setup_elem_operator( this%D1D, this%D1D_tr, this%Lift_mat, this%IntrpMat_VPOrdM1_tr, &
+      16, elem3D )
     return
   end subroutine element_operation_tensorprod3D_Init_P15
+
+  !> Setup modal filter
+  !!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Setup_ModalFilter_P15( this, &
+    MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h, &
+    MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v )
+    use scale_element_hexahedral, only: HexahedralElement
+    use scale_element_line, only: LineElement
+    implicit none
+    class(ElementOperationTensorProd3D_P15), intent(inout) :: this
+    real(RP), intent(in) :: MF_ETAC_h
+    real(RP), intent(in) :: MF_ALPHA_h
+    integer, intent(in) :: MF_ORDER_h
+    real(RP), intent(in) :: MF_ETAC_v
+    real(RP), intent(in) :: MF_ALPHA_v
+    integer, intent(in) :: MF_ORDER_v
+    !--------------------------------------------------------
+
+    call setup_ModalFilter( this%MFilter_h1D, this%MFilter_h1D_tr, this%MFilter_v1D_tr, &
+      MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h,               &
+      MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v,               &
+      this%elem3D%PolyOrder_h, this%elem3D%PolyOrder_v )
+    
+    return
+  end subroutine element_operation_tensorprod3D_Setup_ModalFilter_P15 
+
+  !> Setup modal filter for tracer
+  !!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Setup_ModalFilter_tracer_P15( this, &
+    MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h, &
+    MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v )
+    use scale_element_hexahedral, only: HexahedralElement
+    use scale_element_line, only: LineElement
+    implicit none
+    class(ElementOperationTensorProd3D_P15), intent(inout) :: this
+    real(RP), intent(in) :: MF_ETAC_h
+    real(RP), intent(in) :: MF_ALPHA_h
+    integer, intent(in) :: MF_ORDER_h
+    real(RP), intent(in) :: MF_ETAC_v
+    real(RP), intent(in) :: MF_ALPHA_v
+    integer, intent(in) :: MF_ORDER_v
+    !--------------------------------------------------------
+
+    call setup_ModalFilter( this%MFilter_tracer_h1D, this%MFilter_tracer_h1D_tr, this%MFilter_tracer_v1D_tr, &
+      MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h,               &
+      MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v,               &
+      this%elem3D%PolyOrder_h, this%elem3D%PolyOrder_v )
+    
+    return
+  end subroutine element_operation_tensorprod3D_Setup_ModalFilter_tracer_P15 
 
 !> Finalization
 !!
@@ -3026,8 +4524,8 @@ contains
 !> Calculate the 3D gradient
 !!
 !OCL SERIAL
-  subroutine element_operation_tensorprod3D_Div_P15(  this, vec_in_x, vec_in_y, vec_in_z, vec_in_lift, Escale, Gsqrt, sign_, &
-    vec_out_dx, vec_out_dy, vec_out_dz, vec_out_lift, vec_out )
+  subroutine element_operation_tensorprod3D_Div_P15(  this, vec_in_x, vec_in_y, vec_in_z, vec_in_lift, &
+    vec_out_dx, vec_out_dy, vec_out_dz, vec_out_lift )
     use scale_element_operation_tensorprod3D_kernel, only: &
       element_operation_kernel_matvec_divlike_dirXYZ_P15, &
       element_operation_kernel_matvec_Lift_hexahedral_P15
@@ -3037,25 +4535,49 @@ contains
     real(RP), intent(in) :: vec_in_y(this%elem3D%Np)
     real(RP), intent(in) :: vec_in_z(this%elem3D%Np)
     real(RP), intent(in) :: vec_in_lift(this%elem3D%NfpTot)
-    real(RP), intent(in) :: Escale(3,this%elem3D%Np)
-    real(RP), intent(in) :: Gsqrt(this%elem3D%Np)
-    real(RP), intent(in) :: sign_    
     real(RP), intent(out) :: vec_out_dx(this%elem3D%Np)
     real(RP), intent(out) :: vec_out_dy(this%elem3D%Np)
     real(RP), intent(out) :: vec_out_dz(this%elem3D%Np)
     real(RP), intent(out) :: vec_out_lift(this%elem3D%Np)
-    real(RP), intent(out) :: vec_out(this%elem3D%Np)
     !----------------------------------------------------------
 
     call element_operation_kernel_matvec_Lift_hexahedral_P15( this%Lift_mat, vec_in_lift, &
       vec_out_lift )      
 
-    call element_operation_kernel_matvec_divlike_dirXYZ_P15( this%D1D, this%D1D_tr, vec_in_x, vec_in_y, vec_in_z, Escale, Gsqrt, vec_out_lift, sign_, &
-      vec_out_dx, vec_out_dy, vec_out_dz, vec_out )
-
+    call element_operation_kernel_matvec_divlike_dirXYZ_P15( this%D1D, this%D1D_tr, vec_in_x, vec_in_y, vec_in_z, &
+      vec_out_dx, vec_out_dy, vec_out_dz )
     return
   end subroutine element_operation_tensorprod3D_Div_P15
 
+!> Calculate the 3D gradient
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Div_var5_P15(  this, vec_in, vec_in_lift, &
+    vec_out_d )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_divlike_dirXYZ_P15, &
+      element_operation_kernel_matvec_Lift_hexahedral_P15
+    implicit none
+    class(ElementOperationTensorProd3D_P15), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np,3,5)
+    real(RP), intent(in) :: vec_in_lift(this%elem3D%NfpTot,5)
+    real(RP), intent(out) :: vec_out_d(this%elem3D%Np,4,5)
+
+    integer :: iv
+    !----------------------------------------------------------
+
+    do iv=1, 5
+      call element_operation_kernel_matvec_Lift_hexahedral_P15( this%Lift_mat, vec_in_lift(:,iv), &
+        vec_out_d(:,4,iv) )      
+    end do
+    do iv=1, 5
+      call element_operation_kernel_matvec_divlike_dirXYZ_P15( this%D1D, this%D1D_tr, vec_in(:,1,iv), vec_in(:,2,iv), vec_in(:,3,iv), &
+        vec_out_d(:,1,iv), vec_out_d(:,2,iv), vec_out_d(:,3,iv) )
+    end do
+    return
+  end subroutine element_operation_tensorprod3D_Div_var5_P15
+    
+!OCL SERIAL
   subroutine element_operation_tensorprod3D_VFilterPM1_P15( this, vec_in, vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirZ_P15
     implicit none
@@ -3064,10 +4586,157 @@ contains
     real(RP), intent(out) :: vec_out(this%elem3D%Np)
     !---------------------------------------------------------------
 
-    call element_operation_kernel_matvec_dirZ_P15( this%IntrpMat_VPOrdM1, vec_in, &
+    call element_operation_kernel_matvec_dirZ_P15( this%IntrpMat_VPOrdM1_tr, vec_in, &
       vec_out )
     return
   end subroutine element_operation_tensorprod3D_VFilterPM1_P15 
 
+  !OCL SERIAL
+  subroutine element_operation_tensorprod3D_ModalFilter_tracer_P15( this, vec_in, vec_work, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_ModalFilter_P15
+
+    implicit none
+    class(ElementOperationTensorProd3D_P15), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np)
+    real(RP), intent(out) :: vec_work(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np)
+    !---------------------------------------------
+
+    call element_operation_kernel_matvec_ModalFilter_P15( this%MFilter_tracer_h1D, this%MFilter_tracer_h1D_tr, this%MFilter_tracer_v1D_tr, vec_in(:), vec_work, &
+      vec_out(:) )
+    
+    return
+  end subroutine element_operation_tensorprod3D_ModalFilter_tracer_P15 
+  
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_ModalFilter_var5_P15( this, vec_in, vec_work, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_ModalFilter_P15
+
+    implicit none
+    class(ElementOperationTensorProd3D_P15), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np,5)
+    real(RP), intent(out) :: vec_work(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np,5)
+    integer :: iv
+    !---------------------------------------------
+
+    do iv=1, 5
+      call element_operation_kernel_matvec_ModalFilter_P15( this%MFilter_h1D, this%MFilter_h1D_tr, this%MFilter_v1D_tr, vec_in(:,iv), vec_work, &
+        vec_out(:,iv) )
+    end do
+    
+    return
+  end subroutine element_operation_tensorprod3D_ModalFilter_var5_P15 
+
+
+!- private -
+
+!OCL SERIAL
+  subroutine setup_ModalFilter( MFilter_h1D, MFilter_h1D_tr, MFilter_v1D_tr, &
+    MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h, &
+    MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v, &
+    PolyOrder_h, PolyOrder_v )
+
+    use scale_element_line, only: LineElement
+    implicit none
+
+    real(RP), intent(inout) :: MFilter_h1D(:,:)
+    real(RP), intent(inout) :: MFilter_h1D_tr(:,:)
+    real(RP), intent(inout) :: MFilter_v1D_tr(:,:)
+    real(RP), intent(in) :: MF_ETAC_h
+    real(RP), intent(in) :: MF_ALPHA_h
+    integer, intent(in) :: MF_ORDER_h
+    real(RP), intent(in) :: MF_ETAC_v
+    real(RP), intent(in) :: MF_ALPHA_v
+    integer, intent(in) :: MF_ORDER_v
+    integer, intent(in) :: PolyOrder_h
+    integer, intent(in) :: PolyOrder_v
+
+    type(LineElement) :: elem1D
+    type(ModalFilter) :: MFilter1D
+    !--------------------------------------------------------
+
+    call elem1D%Init( PolyOrder_h, .false. )      
+
+    call MFilter1D%Init( elem1D, &
+      MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h      )
+    MFilter_h1D(:,:) = MFilter1D%FilterMat(:,:)
+    MFilter_h1D_tr(:,:) = transpose(MFilter_h1D(:,:))
+
+    call MFilter1D%Final()
+    call elem1D%Final()
+
+    !-
+    call elem1D%Init( PolyOrder_v, .false. )      
+
+    call MFilter1D%Init( elem1D, &
+      MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v      )
+    MFilter_v1D_tr(:,:) = transpose(MFilter1D%FilterMat(:,:))
+
+    call MFilter1D%Final()
+    call elem1D%Final()
+
+    return
+  end subroutine setup_ModalFilter
+
+!OCL SERIAL
+  subroutine setup_elem_operator( D1D, D1D_tr, Lift_mat, IntrpMat_VPOrdM1_tr, &
+    np, elem3D )
+    use scale_element_line, only: LineElement
+    use scale_sparsemat, only: SparseMat
+    implicit none
+    integer, intent(in) :: np
+    class(ElementBase3D), intent(in) :: elem3D
+    real(RP), intent(out) :: D1D(np,np)
+    real(RP), intent(out) :: D1D_tr(np,np)
+    real(RP), intent(out) :: Lift_mat(np,np,np,6)
+    real(RP), intent(out) :: IntrpMat_VPOrdM1_tr(np,np)
+
+    integer :: p
+
+    integer :: p1, p2, p_
+    real(RP) :: invV_VPOrdM1(np,np)
+    real(RP) :: IntrpMat_VPOrdM1(np,np)
+
+    type(LineElement) :: elem1D
+    type(SparseMat) :: Lift_sm
+    integer :: i, j, k
+    !----------------------------------------------------------
+
+    call elem1D%Init( np-1, .false. )
+    D1D(:,:) = elem1D%Dx1(:,:)
+    D1D_tr(:,:) = transpose(D1D)
+
+    call Lift_sm%Init( elem3D%Lift, storage_format='ELL' )
+    do k=1, np
+    do j=1, np
+    do i=1, np
+      p1 = i + (j-1)*np + (k-1)*np**2
+      Lift_mat(i,j,k,1:6) = &
+        (/ elem3D%Lift(p1,i+(k-1)*np), &
+           elem3D%Lift(p1,j+(k-1)*np+(2-1)*np**2), &
+           elem3D%Lift(p1,i+(k-1)*np+(3-1)*np**2), &
+           elem3D%Lift(p1,j+(k-1)*np+(4-1)*np**2), &
+           elem3D%Lift(p1,i+(j-1)*np+(5-1)*np**2), &
+           elem3D%Lift(p1,i+(j-1)*np+(6-1)*np**2) /)
+    end do
+    end do
+    end do
+    call Lift_sm%Final()
+
+    !--
+
+    InvV_VPOrdM1(:,:) = elem1D%invV(:,:)
+    InvV_VPOrdM1(np,:) = 0.0_RP
+    IntrpMat_VPOrdM1(:,:) = matmul(elem1D%V, invV_VPOrdM1)
+    IntrpMat_VPOrdM1_tr(:,:) = transpose(IntrpMat_VPOrdM1)
+
+    !-
+    call elem1D%Final()
+
+    return
+  end subroutine setup_elem_operator
 
 end module scale_element_operation_tensorprod3D

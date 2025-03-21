@@ -97,8 +97,9 @@ contains
   subroutine atm_dyn_dgm_globalnonhydro3d_rhot_heve_cal_tend_shallow_atm( &
     DENS_dt, MOMX_dt, MOMY_dt, MOMZ_dt, RHOT_dt,                                   & ! (out)
     DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DPRES_, DENS_hyd, PRES_hyd, PRES_hyd_ref, & ! (in)
-    CORIOLIS, Rtot, CVtot, CPtot,                                                  & ! (in)
-    element3D_operation, Dx, Dy, Dz, Sx, Sy, Sz, Lift, lmesh, elem, lmesh2D, elem2D )  ! (in)
+    CORIOLIS, Rtot, CVtot, CPtot, DPhydDx, DPhydDy,                                & ! (in)
+    element3D_operation, Dx, Dy, Dz, Sx, Sy, Sz, Lift,                             & ! (in)
+    lmesh, elem, lmesh2D, elem2D )                                                   ! (in)
 
     use scale_atm_dyn_dgm_nonhydro3d_rhot_heve_numflux, only: &
       get_ebnd_flux => atm_dyn_dgm_nonhydro3d_rhot_heve_numflux_get_generalhvc
@@ -130,6 +131,8 @@ contains
     real(RP), intent(in)  :: Rtot (elem%Np,lmesh%NeA)    
     real(RP), intent(in)  :: CVtot(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: CPtot(elem%Np,lmesh%NeA)
+    real(RP), intent(in) :: DPhydDx(elem%Np,lmesh%NeA)
+    real(RP), intent(in) :: DPhydDy(elem%Np,lmesh%NeA)
 
     real(RP) :: Fx(elem%Np), Fy(elem%Np), Fz(elem%Np), LiftDelFlx(elem%Np)
     real(RP) :: DPRES_hyd(elem%Np), GradPhyd_x(elem%Np), GradPhyd_y(elem%Np)
@@ -333,7 +336,7 @@ contains
   subroutine atm_dyn_dgm_globalnonhydro3d_rhot_heve_cal_tend_deep_atm( &
     DENS_dt, MOMX_dt, MOMY_dt, MOMZ_dt, RHOT_dt,                                    & ! (out)
     DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DPRES_, DENS_hyd, PRES_hyd, PRES_hyd_ref,  & ! (in)
-    CORIOLIS, Rtot, CVtot, CPtot,                                                   & ! (in)
+    CORIOLIS, Rtot, CVtot, CPtot, DPhydDx, DPhydDy,                                 & ! (in)
     element3D_operation, Dx, Dy, Dz, Sx, Sy, Sz, Lift, lmesh, elem, lmesh2D, elem2D ) ! (in)
 
     use scale_atm_dyn_dgm_nonhydro3d_rhot_heve_numflux, only: &
@@ -366,6 +369,8 @@ contains
     real(RP), intent(in)  :: Rtot (elem%Np,lmesh%NeA)    
     real(RP), intent(in)  :: CVtot(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: CPtot(elem%Np,lmesh%NeA)
+    real(RP), intent(in) :: DPhydDx(elem%Np,lmesh%NeA)
+    real(RP), intent(in) :: DPhydDy(elem%Np,lmesh%NeA)
 
     real(RP) :: Fx(elem%Np), Fy(elem%Np), Fz(elem%Np), LiftDelFlx(elem%Np)
     real(RP) :: DPRES_hyd(elem%Np), GradPhyd_x(elem%Np), GradPhyd_y(elem%Np)

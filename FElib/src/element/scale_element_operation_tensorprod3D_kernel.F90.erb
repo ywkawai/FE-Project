@@ -39,12 +39,14 @@ module scale_element_operation_tensorprod3D_kernel
   public :: element_operation_kernel_matvec_Lift_hexahedral_P<%=p%>
   public :: element_operation_kernel_matvec_gradlike_dirXYZ_P<%=p%>
   public :: element_operation_kernel_matvec_divlike_dirXYZ_P<%=p%>
+  public :: element_operation_kernel_matvec_ModalFilter_P<%=p%>
 % end
 
 contains
 % for p in 1..AUTOGEN_PMAX
 % np = p+1
-
+% np_div3 = ((p+1)/3.0).round
+% np_div3_res = np - np_div3*2
 !--- For p=<%=p%> ------------------------------------
 
 !> Calculate a matrix-vector multiplication associated with mathematical operations in the x direction (first dimension of vec_in) with p=<%=p%>
@@ -222,35 +224,52 @@ contains
 !!
 !OCL SERIAL
   subroutine element_operation_kernel_matvec_divlike_dirXYZ_P<%=p%>( &
-    Mat, Mat_tr, vec_in_x, vec_in_y, vec_in_z, Escale, Gsqrt, vec_in_lift, sign_, &
-    vec_out_x, vec_out_y, vec_out_z, vec_out  )
+    Mat, Mat_tr, vec_in_x, vec_in_y, vec_in_z, &
+    vec_out_x, vec_out_y, vec_out_z  )
     implicit none
     real(RP), intent(in) :: Mat(<%=np%>,<%=np%>)
     real(RP), intent(in) :: Mat_tr(<%=np%>,<%=np%>)
     real(RP), intent(in) :: vec_in_x(<%=np%>,<%=np%>**2)
     real(RP), intent(in) :: vec_in_y(<%=np%>,<%=np%>,<%=np%>)
     real(RP), intent(in) :: vec_in_z(<%=np%>,<%=np%>,<%=np%>)
-    real(RP), intent(in) :: Escale(3,<%=np%>,<%=np%>**2)
-    real(RP), intent(in) :: Gsqrt(<%=np%>,<%=np%>**2)
-    real(RP), intent(in) :: vec_in_lift(<%=np%>,<%=np%>**2)
-    real(RP), intent(in) :: sign_
     real(RP), intent(out) :: vec_out_x(<%=np%>,<%=np%>**2)
     real(RP), intent(out) :: vec_out_y(<%=np%>,<%=np%>**2)
     real(RP), intent(out) :: vec_out_z(<%=np%>,<%=np%>**2)
-    real(RP), intent(out) :: vec_out(<%=np%>,<%=np%>**2)
 
     integer :: i, j, k, jk
+% if p > 7
+    real(RP) :: tmp1, tmp2, tmp3
+% end
     !----------------------------------------------------------
 
     ! X-dir
 
     do jk=1, <%=np%>**2
     do i=1, <%=np%>
-        vec_out_x(i,jk) = Mat(i,1) * vec_in_x(1,jk) &
-% for ii in 2..np-1
-                        + Mat(i,<%=ii%>) * vec_in_x(<%=ii%>,jk) &
+% if p <= 7
+      vec_out_x(i,jk) = Mat(i,1) * vec_in_x(1,jk) &
+%   for ii in 2..np-1
+                      + Mat(i,<%=ii%>) * vec_in_x(<%=ii%>,jk) &
+%   end
+                      + Mat(i,<%=np%>) * vec_in_x(<%=np%>,jk)
+% else
+      tmp1 = Mat(i,1) * vec_in_x(1,jk) &
+%   for ii in 2..np_div3-1
+           + Mat(i,<%=ii%>) * vec_in_x(<%=ii%>,jk) &
+%   end
+           + Mat(i,<%=np_div3%>) * vec_in_x(<%=np_div3%>,jk)
+      tmp2 = Mat(i,<%=np_div3+1%>) * vec_in_x(<%=np_div3+1%>,jk) &
+%   for ii in np_div3+2..np_div3*2-1
+           + Mat(i,<%=ii%>) * vec_in_x(<%=ii%>,jk) &
+%   end
+           + Mat(i,<%=np_div3*2%>) * vec_in_x(<%=np_div3*2%>,jk)
+      tmp3 = Mat(i,<%=np_div3*2+1%>) * vec_in_x(<%=np_div3*2+1%>,jk) &
+%   for ii in np_div3*2+2..np-1
+           + Mat(i,<%=ii%>) * vec_in_x(<%=ii%>,jk) &
+%   end
+           + Mat(i,<%=np%>) * vec_in_x(<%=np%>,jk)
+      vec_out_x(i,jk) = tmp1 + tmp2 + tmp3
 % end
-                        + Mat(i,<%=np%>) * vec_in_x(<%=np%>,jk)
     end do
     end do
 
@@ -259,11 +278,30 @@ contains
     do j=1, <%=np%>
       jk = j + (k-1)*<%=np%>
       do i=1, <%=np%>
-          vec_out_y(i,jk) = vec_in_y(i,1,k) * Mat_tr(1,j) &
-% for jj in 2..np-1
-                          + vec_in_y(i,<%=jj%>,k) * Mat_tr(<%=jj%>,j) &
+% if p <= 7
+        vec_out_y(i,jk) = vec_in_y(i,1,k) * Mat_tr(1,j) &
+%   for jj in 2..np-1
+                        + vec_in_y(i,<%=jj%>,k) * Mat_tr(<%=jj%>,j) &
+%   end
+                        + vec_in_y(i,<%=np%>,k) * Mat_tr(<%=np%>,j) 
+% else
+        tmp1 = vec_in_y(i,1,k) * Mat_tr(1,j) &
+%   for jj in 2..np_div3-1
+             + vec_in_y(i,<%=jj%>,k) * Mat_tr(<%=jj%>,j) &
+%   end
+             + vec_in_y(i,<%=np_div3%>,k) * Mat_tr(<%=np_div3%>,j) 
+        tmp2 = vec_in_y(i,<%=np_div3+1%>,k) * Mat_tr(<%=np_div3+1%>,j) &
+%   for jj in np_div3+2..np_div3*2-1
+             + vec_in_y(i,<%=jj%>,k) * Mat_tr(<%=jj%>,j) &
+%   end
+             + vec_in_y(i,<%=np_div3*2%>,k) * Mat_tr(<%=np_div3*2%>,j) 
+        tmp3 = vec_in_y(i,<%=np_div3*2+1%>,k) * Mat_tr(<%=np_div3*2+1%>,j) &
+%   for jj in np_div3*2+2..np-1
+             + vec_in_y(i,<%=jj%>,k) * Mat_tr(<%=jj%>,j) &
+%   end
+             + vec_in_y(i,<%=np%>,k) * Mat_tr(<%=np%>,j) 
+      vec_out_y(i,jk) = tmp1 + tmp2 + tmp3
 % end
-                          + vec_in_y(i,<%=np%>,k) * Mat_tr(<%=np%>,j) 
       end do
     end do
     end do
@@ -273,24 +311,154 @@ contains
     do j=1, <%=np%>
       jk = j + (k-1)*<%=np%>
       do i=1, <%=np%>
-          vec_out_z(i,jk) = vec_in_z(i,j,1) * Mat_tr(1,k) &
-% for kk in 2..np-1
-                          + vec_in_z(i,j,<%=kk%>) * Mat_tr(<%=kk%>,k) &
+% if p <= 7
+        vec_out_z(i,jk) = vec_in_z(i,j,1) * Mat_tr(1,k) &
+%   for kk in 2..np-1
+                        + vec_in_z(i,j,<%=kk%>) * Mat_tr(<%=kk%>,k) &
+%   end
+                        + vec_in_z(i,j,<%=np%>) * Mat_tr(<%=np%>,k) 
+% else
+        tmp1 = vec_in_z(i,j,1) * Mat_tr(1,k) &
+%   for kk in 2..np_div3-1
+             + vec_in_z(i,j,<%=kk%>) * Mat_tr(<%=kk%>,k) &
+%   end
+             + vec_in_z(i,j,<%=np_div3%>) * Mat_tr(<%=np_div3%>,k) 
+        tmp2 = vec_in_z(i,j,<%=np_div3+1%>) * Mat_tr(<%=np_div3+1%>,k) &
+%   for kk in np_div3+2..np_div3*2-1
+             + vec_in_z(i,j,<%=kk%>) * Mat_tr(<%=kk%>,k) &
+%   end
+             + vec_in_z(i,j,<%=np_div3*2%>) * Mat_tr(<%=np_div3*2%>,k) 
+        tmp3 = vec_in_z(i,j,<%=np_div3*2+1%>) * Mat_tr(<%=np_div3*2+1%>,k) &
+%   for kk in np_div3*2+2..np-1
+             + vec_in_z(i,j,<%=kk%>) * Mat_tr(<%=kk%>,k) &
+%   end
+             + vec_in_z(i,j,<%=np%>) * Mat_tr(<%=np%>,k) 
+      vec_out_z(i,jk) = tmp1 + tmp2 + tmp3
 % end
-                          + vec_in_z(i,j,<%=np%>) * Mat_tr(<%=np%>,k) 
       end do
     end do
     end do
-
-    do jk=1, <%=np%>**2
-    do i=1, <%=np%>
-        vec_out(i,jk) = sign_ * (  Escale(1,i,jk) * vec_out_x(i,jk) + Escale(2,i,jk) * vec_out_y(i,jk) + Escale(3,i,jk) * vec_out_z(i,jk) &
-                                 + vec_in_lift(i,jk) ) / Gsqrt(i,jk)
-    end do
-    end do
-          
     return
   end subroutine element_operation_kernel_matvec_divlike_dirXYZ_P<%=p%>
+
+!> Calculate a matrix-vector multiplication associated with 3D modal filtering with p=<%=p%>
+!!
+!OCL SERIAL
+  subroutine element_operation_kernel_matvec_ModalFilter_P<%=p%>( Mat_h1D, Mat_h1D_tr, Mat_v1D_tr, vec_in, vec_work, &
+    vec_out  )
+    implicit none
+    real(RP), intent(in) :: Mat_h1D(<%=np%>,<%=np%>)
+    real(RP), intent(in) :: Mat_h1D_tr(<%=np%>,<%=np%>)
+    real(RP), intent(in) :: Mat_v1D_tr(<%=np%>,<%=np%>)
+    real(RP), intent(in) :: vec_in(<%=np%>,<%=np%>,<%=np%>)
+    real(RP), intent(out) :: vec_work(<%=np%>,<%=np%>,<%=np%>)
+    real(RP), intent(out) :: vec_out(<%=np%>,<%=np%>,<%=np%>)
+
+    integer :: i, j, k
+% if p > 7
+    real(RP) :: tmp1, tmp2, tmp3
+% end
+    !----------------------------------------------------------
+
+    ! X-dir
+
+    do k=1, <%=np%>
+    do j=1, <%=np%>
+    do i=1, <%=np%>
+% if p <= 7
+      vec_out(i,j,k) = Mat_h1D(i,1) * vec_in(1,j,k) &
+%   for ii in 2..np-1
+                     + Mat_h1D(i,<%=ii%>) * vec_in(<%=ii%>,j,k) &
+%   end
+                     + Mat_h1D(i,<%=np%>) * vec_in(<%=np%>,j,k)
+% else
+      tmp1 = Mat_h1D(i,1) * vec_in(1,j,k) &
+%   for ii in 2..np_div3-1
+           + Mat_h1D(i,<%=ii%>) * vec_in(<%=ii%>,j,k) &
+%   end
+           + Mat_h1D(i,<%=np_div3%>) * vec_in(<%=np_div3%>,j,k)
+      tmp2 = Mat_h1D(i,<%=np_div3+1%>) * vec_in(<%=np_div3+1%>,j,k) &
+%   for ii in np_div3+2..np_div3*2-1
+           + Mat_h1D(i,<%=ii%>) * vec_in(<%=ii%>,j,k) &
+%   end
+           + Mat_h1D(i,<%=np_div3*2%>) * vec_in(<%=np_div3*2%>,j,k)
+      tmp3 = Mat_h1D(i,<%=np_div3*2+1%>) * vec_in(<%=np_div3*2+1%>,j,k) &
+%   for ii in np_div3*2+2..np-1
+           + Mat_h1D(i,<%=ii%>) * vec_in(<%=ii%>,j,k) &
+%   end
+           + Mat_h1D(i,<%=np%>) * vec_in(<%=np%>,j,k)
+      vec_out(i,j,k) = tmp1 + tmp2 + tmp3
+% end
+    end do
+    end do
+    end do
+    
+    ! Y-dir
+    do k=1, <%=np%>
+    do j=1, <%=np%>
+    do i=1, <%=np%>
+% if p <= 7
+      vec_work(i,j,k) = vec_out(i,1,k) * Mat_h1D_tr(1,j) &
+%   for jj in 2..np-1
+                      + vec_out(i,<%=jj%>,k) * Mat_h1D_tr(<%=jj%>,j) &
+%   end
+                      + vec_out(i,<%=np%>,k) * Mat_h1D_tr(<%=np%>,j) 
+% else
+      tmp1 = vec_out(i,1,k) * Mat_h1D_tr(1,j) &
+%   for jj in 2..np_div3-1
+           + vec_out(i,<%=jj%>,k) * Mat_h1D_tr(<%=jj%>,j) &
+%   end
+           + vec_out(i,<%=np_div3%>,k) * Mat_h1D_tr(<%=np_div3%>,j) 
+      tmp2 = vec_out(i,<%=np_div3+1%>,k) * Mat_h1D_tr(<%=np_div3+1%>,j) &
+%   for jj in np_div3+2..np_div3*2-1
+           + vec_out(i,<%=jj%>,k) * Mat_h1D_tr(<%=jj%>,j) &
+%   end
+           + vec_out(i,<%=np_div3*2%>,k) * Mat_h1D_tr(<%=np_div3*2%>,j) 
+      tmp3 = vec_out(i,<%=np_div3*2+1%>,k) * Mat_h1D_tr(<%=np_div3*2+1%>,j) &
+%   for jj in np_div3*2+2..np-1
+           + vec_out(i,<%=jj%>,k) * Mat_h1D_tr(<%=jj%>,j) &
+%   end
+           + vec_out(i,<%=np%>,k) * Mat_h1D_tr(<%=np%>,j) 
+      vec_work(i,j,k) = tmp1 + tmp2 + tmp3
+% end                        
+    end do
+    end do
+    end do
+    
+    ! Z-dir
+    do k=1, <%=np%>
+    do j=1, <%=np%>
+    do i=1, <%=np%>
+% if p <= 7
+      vec_out(i,j,k) = vec_work(i,j,1) * Mat_v1D_tr(1,k) &
+%   for kk in 2..np-1
+                     + vec_work(i,j,<%=kk%>) * Mat_v1D_tr(<%=kk%>,k) &
+%   end
+                     + vec_work(i,j,<%=np%>) * Mat_v1D_tr(<%=np%>,k) 
+% else
+      tmp1 = vec_work(i,j,1) * Mat_v1D_tr(1,k) &
+%   for kk in 2..np_div3-1
+           + vec_work(i,j,<%=kk%>) * Mat_v1D_tr(<%=kk%>,k) &
+%   end
+           + vec_work(i,j,<%=np_div3%>) * Mat_v1D_tr(<%=np_div3%>,k) 
+      tmp2 = vec_work(i,j,<%=np_div3+1%>) * Mat_v1D_tr(<%=np_div3+1%>,k) &
+%   for kk in np_div3+2..np_div3*2-1
+           + vec_work(i,j,<%=kk%>) * Mat_v1D_tr(<%=kk%>,k) &
+%   end
+           + vec_work(i,j,<%=np_div3*2%>) * Mat_v1D_tr(<%=np_div3*2%>,k) 
+      tmp3 = vec_work(i,j,<%=np_div3*2+1%>) * Mat_v1D_tr(<%=np_div3*2+1%>,k) &
+%   for kk in np_div3*2+2..np-1
+           + vec_work(i,j,<%=kk%>) * Mat_v1D_tr(<%=kk%>,k) &
+%   end
+           + vec_work(i,j,<%=np%>) * Mat_v1D_tr(<%=np%>,k) 
+      vec_out(i,j,k) = tmp1 + tmp2 + tmp3
+% end                       
+    end do
+    end do
+    end do
+
+    return
+  end subroutine element_operation_kernel_matvec_ModalFilter_P<%=p%>
 
 % end
 

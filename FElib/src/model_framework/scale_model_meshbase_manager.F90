@@ -26,7 +26,7 @@ module scale_model_meshbase_manager
   use scale_mesh_base3d, only: MeshBase3D
 
   use scale_element_operation_base, only: ElementOperationBase3D
-  use scale_element_operation_general, only: ElementOperationGenral
+  use scale_element_operation_general, only: ElementOperationGeneral
   use scale_element_operation_tensorprod3D, only: ElementOperationTensorProd3D
 
   use scale_sparsemat, only: sparsemat  
@@ -81,7 +81,7 @@ module scale_model_meshbase_manager
 
   type, extends(ModelMeshBase), abstract, public :: ModelMeshBase3D
     class(MeshBase3D), pointer :: ptr_mesh
-    type(ElementOperationGenral) :: element_operation_general
+    type(ElementOperationGeneral) :: element_operation_general
     class(ElementOperationTensorProd3D), allocatable :: element_operation_tensorprod
     logical :: initialized_element_operation
   contains
@@ -269,15 +269,16 @@ contains
 
 !OCL SERIAL
   subroutine ModelMeshBase3D_prepair_ElementOperation( this, element_operation_type, &
-    SpMV_storage_format )
+    SpMV_storage_format_ )
     use scale_prc, only: PRC_abort
     use scale_element_operation_tensorprod3D, only: ElementOperationTensorprod3D_create
     implicit none
     class(ModelMeshBase3D), intent(inout), target :: this
     character(len=*), intent(in), optional :: element_operation_type
-    character(len=*), intent(in), optional :: SpMV_storage_format
+    character(len=*), intent(in), optional :: SpMV_storage_format_
 
     character(len=H_SHORT) :: element_operation_type_
+    character(len=H_SHORT) :: SpMV_storage_format
 
     class(ElementBase3D), pointer :: elem3D
     !-----------------------------------------------------
@@ -287,7 +288,7 @@ contains
     else
       element_operation_type_ = "General"
     end if
-
+    SpMV_storage_format = "ELL"
     elem3D => this%ptr_mesh%refElem3D
     call this%DOptrMat(1)%Init( elem3D%Dx1, storage_format=SpMV_storage_format )
     call this%DOptrMat(2)%Init( elem3D%Dx2, storage_format=SpMV_storage_format )
