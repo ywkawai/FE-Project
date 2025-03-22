@@ -97,9 +97,10 @@ module scale_atm_dyn_dgm_driver_nonhydro3d
     atm_dyn_dgm_nonhydro3d_rhot_hevi_splitform_cal_vi    
   
   use scale_atm_dyn_dgm_globalnonhydro3d_rhot_heve, only: &
-    atm_dyn_dgm_globalnonhydro3d_rhot_heve_Init,                 &
-    atm_dyn_dgm_globalnonhydro3d_rhot_heve_Final,                &
-    atm_dyn_dgm_globalnonhydro3d_rhot_heve_cal_tend_shallow_atm, &
+    atm_dyn_dgm_globalnonhydro3d_rhot_heve_Init,                      &
+    atm_dyn_dgm_globalnonhydro3d_rhot_heve_Final,                     &
+    atm_dyn_dgm_globalnonhydro3d_rhot_heve_cal_tend_shallow_atm_asis, &
+    atm_dyn_dgm_globalnonhydro3d_rhot_heve_cal_tend_shallow_atm,      &
     atm_dyn_dgm_globalnonhydro3d_rhot_heve_cal_tend_deep_atm
 
   use scale_atm_dyn_dgm_globalnonhydro3d_etot_heve, only: &
@@ -386,6 +387,16 @@ contains
       this%cal_vi => null()
       this%dynsolver_final => atm_dyn_dgm_nonhydro3d_etot_heve_Final
       this%ENTOT_CONSERVE_SCHEME_FLAG = .true.
+    case("GLOBALNONHYDRO3D_HEVE_ASIS", "GLOBALNONHYDRO3D_RHOT_HEVE_ASIS")
+      this%EQS_TYPEID = EQS_TYPEID_GLOBALNONHYD3D_HEVE
+      call atm_dyn_dgm_globalnonhydro3d_rhot_heve_Init( mesh3D )
+      if ( gm_mesh3D%shallow_approx ) then
+        this%cal_tend_ex => atm_dyn_dgm_globalnonhydro3d_rhot_heve_cal_tend_shallow_atm_asis
+      else
+        this%cal_tend_ex => atm_dyn_dgm_globalnonhydro3d_rhot_heve_cal_tend_deep_atm
+      end if
+      this%cal_vi => null()
+      this%dynsolver_final => atm_dyn_dgm_globalnonhydro3d_rhot_heve_Final
     case("GLOBALNONHYDRO3D_HEVE", "GLOBALNONHYDRO3D_RHOT_HEVE")
       this%EQS_TYPEID = EQS_TYPEID_GLOBALNONHYD3D_HEVE
       call atm_dyn_dgm_globalnonhydro3d_rhot_heve_Init( mesh3D )
