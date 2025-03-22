@@ -99,7 +99,7 @@ module scale_atm_dyn_dgm_driver_nonhydro3d
   use scale_atm_dyn_dgm_globalnonhydro3d_rhot_heve, only: &
     atm_dyn_dgm_globalnonhydro3d_rhot_heve_Init,                      &
     atm_dyn_dgm_globalnonhydro3d_rhot_heve_Final,                     &
-    atm_dyn_dgm_globalnonhydro3d_rhot_heve_cal_tend_shallow_atm_asis, &
+    atm_dyn_dgm_globalnh3d_rhot_heve_cal_tend_shallow_atm_asis,       &
     atm_dyn_dgm_globalnonhydro3d_rhot_heve_cal_tend_shallow_atm,      &
     atm_dyn_dgm_globalnonhydro3d_rhot_heve_cal_tend_deep_atm
 
@@ -391,7 +391,7 @@ contains
       this%EQS_TYPEID = EQS_TYPEID_GLOBALNONHYD3D_HEVE
       call atm_dyn_dgm_globalnonhydro3d_rhot_heve_Init( mesh3D )
       if ( gm_mesh3D%shallow_approx ) then
-        this%cal_tend_ex => atm_dyn_dgm_globalnonhydro3d_rhot_heve_cal_tend_shallow_atm_asis
+        this%cal_tend_ex => atm_dyn_dgm_globalnh3d_rhot_heve_cal_tend_shallow_atm_asis
       else
         this%cal_tend_ex => atm_dyn_dgm_globalnonhydro3d_rhot_heve_cal_tend_deep_atm
       end if

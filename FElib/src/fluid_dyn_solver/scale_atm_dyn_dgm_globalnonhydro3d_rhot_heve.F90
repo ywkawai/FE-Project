@@ -57,7 +57,7 @@ module scale_atm_dyn_dgm_globalnonhydro3d_rhot_heve
   public :: atm_dyn_dgm_globalnonhydro3d_rhot_heve_Init
   public :: atm_dyn_dgm_globalnonhydro3d_rhot_heve_Final
   public :: atm_dyn_dgm_globalnonhydro3d_rhot_heve_cal_tend_shallow_atm
-  public :: atm_dyn_dgm_globalnonhydro3d_rhot_heve_cal_tend_shallow_atm_asis
+  public :: atm_dyn_dgm_globalnh3d_rhot_heve_cal_tend_shallow_atm_asis
   public :: atm_dyn_dgm_globalnonhydro3d_rhot_heve_cal_tend_deep_atm
 
   !-----------------------------------------------------------------------------
@@ -95,7 +95,7 @@ contains
   !-------------------------------
 
 !OCL SERIAL
-  subroutine atm_dyn_dgm_globalnonhydro3d_rhot_heve_cal_tend_shallow_atm_asis( &
+  subroutine atm_dyn_dgm_globalnh3d_rhot_heve_cal_tend_shallow_atm_asis( &
     DENS_dt, MOMX_dt, MOMY_dt, MOMZ_dt, RHOT_dt,                                   & ! (out)
     DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DPRES_, DENS_hyd, PRES_hyd, PRES_hyd_ref, & ! (in)
     CORIOLIS, Rtot, CVtot, CPtot, DPhydDx, DPhydDy,                                & ! (in)
@@ -330,7 +330,7 @@ contains
     call PROF_rapend('cal_dyn_tend_interior', 3)
 
     return
-  end subroutine atm_dyn_dgm_globalnonhydro3d_rhot_heve_cal_tend_shallow_atm_asis
+  end subroutine atm_dyn_dgm_globalnh3d_rhot_heve_cal_tend_shallow_atm_asis
 
   !OCL SERIAL
   subroutine atm_dyn_dgm_globalnonhydro3d_rhot_heve_cal_tend_shallow_atm( &
