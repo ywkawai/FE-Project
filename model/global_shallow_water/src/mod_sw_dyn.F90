@@ -272,10 +272,6 @@ contains
 
 !OCL SERIAL
   subroutine SWDyn_update( this, model_mesh, prgvars_list, trcvars_list, auxvars_list, forcing_list, is_update )
-
-    use scale_atm_dyn_dgm_modalfilter, only: &
-      atm_dyn_dgm_modalfilter_apply
-
     implicit none
 
     class(SWDyn), intent(inout) :: this
@@ -394,9 +390,10 @@ contains
         call PROF_rapend( 'SW_DYN_get_localmesh_ptr', 2)
 
         call PROF_rapstart( 'SW_DYN_update_expfilter', 2)
-        call atm_dyn_dgm_modalfilter_apply(              & ! (inout)
-          h%val, U%val, V%val, u1%val, u2%val,           & ! (in)
-          lcmesh, lcmesh%refElem2D, this%modal_filter    ) ! (in)
+        call apply_modal_filter( &
+          h%val, U%val, V%val, u1%val, u2%val,       & ! (inout)
+          lcmesh%Gsqrt, this%modal_filter%FilterMat, & ! (in)
+          lcmesh, lcmesh%refElem2D                   ) ! (in)
         call PROF_rapend( 'SW_DYN_update_expfilter', 2)
       end do
     end if
@@ -468,6 +465,49 @@ contains
   end subroutine SWDyn_finalize  
 
   !--- private ---------------
+
+!OCL SERIAL
+  subroutine apply_modal_filter( h, U, V, u1, u2, &
+    Gsqrt, FilterMat, lmesh, elem )
+    implicit none
+    class(LocalMesh2D), intent(in) :: lmesh
+    class(ElementBase2D), intent(in) :: elem
+    real(RP), intent(inout) :: h(elem%Np,lmesh%NeA)
+    real(RP), intent(inout) :: U(elem%Np,lmesh%NeA)
+    real(RP), intent(inout) :: V(elem%Np,lmesh%NeA)
+    real(RP), intent(inout) :: u1(elem%Np,lmesh%NeA)
+    real(RP), intent(inout) :: u2(elem%Np,lmesh%NeA)
+    real(RP), intent(in) :: Gsqrt(elem%Np,lmesh%NeA)
+    real(RP), intent(in) :: FilterMat(elem%Np,elem%Np)
+
+    integer :: ke
+    integer :: ii, kk
+    real(RP) :: Mik
+    real(RP) :: tmp(elem%Np,5)
+    !-------------------------------------
+
+    !$omp parallel do private(ii, kk, tmp, Mik)
+    do ke=lmesh%NeS, lmesh%NeE
+      tmp(:,:) = 0.0_RP
+      do ii=1, elem%Np
+      do kk=1, elem%Np
+        Mik = FilterMat(ii,kk)
+        tmp(ii,1) = tmp(ii,1) + Mik * Gsqrt(kk,ke) * h(kk,ke)
+        tmp(ii,2) = tmp(ii,2) + Mik * U(kk,ke)
+        tmp(ii,3) = tmp(ii,3) + Mik * V(kk,ke)
+        tmp(ii,4) = tmp(ii,4) + Mik * u1(kk,ke)
+        tmp(ii,5) = tmp(ii,5) + Mik * u2(kk,ke)
+      end do
+      end do
+
+      h(:,ke) = tmp(:,1) / Gsqrt(:,ke)
+      U(:,ke) = tmp(:,2)
+      V(:,ke) = tmp(:,3)
+      u1(:,ke) = tmp(:,4)
+      u2(:,ke) = tmp(:,5)
+    end do
+    return
+  end subroutine apply_modal_filter
 
 !OCL SERIAL
   ! subroutine add_phy_tend( this,      & ! (in)
