@@ -1,5 +1,5 @@
 !-------------------------------------------------------------------------------
-!> module Atmosphere / Physics Cloud Microphysics
+!> module ATMOSPHERE physics / Cloud Microphysics
 !!
 !! @par Description
 !!          Container for variables with cloud microphysics component

@@ -1,5 +1,5 @@
 !-------------------------------------------------------------------------------
-!> module Atmosphere / Dynamics
+!> module ATMOSPHERE dynamics
 !!
 !! @par Description
 !!          Module for atmosphere dynamical process
@@ -130,7 +130,8 @@ contains
     logical :: ONLY_TRACERADV_FLAG        = .false. !< Flag to set whether we only treat tracer advection equations considering advection test cases
     logical :: TRACERADV_DISABLE_LIMITER  = .false. !< Flag to disable limiters for ensuring non-negative values
     logical :: TRACERADV_MODALFILTER_FLAG = .false. !< Flag to whether a modal filtering is used for tracer variables
-
+    logical :: HIDE_MPI_COMM_FLAG         = .false.
+    
     namelist / PARAM_ATMOS_DYN /       &
       EQS_TYPE,                        &
       TINTEG_TYPE,                     &
@@ -142,7 +143,8 @@ contains
       SPONGELAYER_FLAG,                &
       ONLY_TRACERADV_FLAG,             &
       TRACERADV_DISABLE_LIMITER,       &
-      TRACERADV_MODALFILTER_FLAG
+      TRACERADV_MODALFILTER_FLAG,      &
+      HIDE_MPI_COMM_FLAG
     
     class(AtmosMesh), pointer     :: atm_mesh
     class(MeshBase), pointer      :: ptr_mesh
@@ -193,8 +195,10 @@ contains
 
     !- Initialize a module for 3D dynamical core 
     call this%dyncore_driver%Init( EQS_TYPE, &
-      TINTEG_TYPE, dtsec,                          &
-      SPONGELAYER_FLAG, MODALFILTER_FLAG, atm_mesh )
+      TINTEG_TYPE, dtsec,                    &
+      SPONGELAYER_FLAG, MODALFILTER_FLAG,    &
+      HIDE_MPI_COMM_FLAG, &
+      atm_mesh )
 
     !- Initialize a module for tracer equations
     call this%trcadv_driver%Init( "TRCADV3D_HEVE", &
@@ -307,6 +311,7 @@ contains
         this%trcadv_driver%AUXTRC_FLUX_VARS3D(MASSFLX_Z_TAVG),                     & ! (inout)
         this%trcadv_driver%alphaDensM, this%trcadv_driver%alphaDensP,              & ! (inout)
         this%dyn_vars%AUX_VARS2D(ATMOS_DYN_AUXVARS2D_CORIOLIS_ID),                 & ! (in)
+        model_mesh%element3D_operation,                                            & ! (in)
         model_mesh%DOptrMat(1), model_mesh%DOptrMat(2), model_mesh%DOptrMat(3),    & ! (in)
         model_mesh%SOptrMat(1), model_mesh%SOptrMat(2), model_mesh%SOptrMat(3),    & ! (in)
         model_mesh%LiftOptrMat, mesh3D                                             ) ! (in)
@@ -322,6 +327,7 @@ contains
 
       call this%trcadv_driver%Update( &
         trcvars_list, prgvars_list, auxvars_list, forcing_list,                 & ! (inout)
+        model_mesh%element3D_operation,                                         & ! (in)
         model_mesh%DOptrMat(1), model_mesh%DOptrMat(2), model_mesh%DOptrMat(3), & ! (in)
         model_mesh%SOptrMat(1), model_mesh%SOptrMat(2), model_mesh%SOptrMat(3), & ! (in)
         model_mesh%LiftOptrMat, mesh3D,                                         & ! (in)

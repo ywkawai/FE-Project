@@ -1,5 +1,5 @@
 !-------------------------------------------------------------------------------
-!> module ATMOSPHERE phyics / surface process
+!> module ATMOSPHERE physics / surface process
 !!
 !! @par Description
 !!          Container for variables with surface model

@@ -1,5 +1,5 @@
 !-------------------------------------------------------------------------------
-!> module ATMOSPHERIC Variables
+!> module ATMOSPHERE / Variables
 !!
 !! @par Description
 !!          Container for atmospheric variables
@@ -587,15 +587,16 @@ contains
 
     integer :: iv
 
-    type(MeshField3D), pointer :: var
     integer :: domid
     integer :: ke
+    class(MeshBase3D), pointer :: mesh3D
     class(LocalMesh3D), pointer :: lcmesh3D
+    class(MeshField3D), pointer :: Phyd_ref
     !---------------------------------------
 
     LOG_NEWLINE
     LOG_INFO("ATMOSVar_read_restart_file",*) 'Open restart file (ATMOS) '
-
+        
     !- Open restart file
     call this%restart_file%Open()
 
@@ -625,12 +626,13 @@ contains
       this%PROGVARS_manager, this%AUXVARS_manager              )
 
     ! Set reference value of hydrostatic pressure
-    var => this%AUX_VARS(AUXVAR_PRESHYDRO_REF_ID)
-    do domid=1, var%mesh%LOCAL_MESH_NUM
-      lcmesh3D => var%mesh%lcmesh_list(domid)
+    Phyd_ref => this%AUX_VARS(AUXVAR_PRESHYDRO_REF_ID)
+    mesh3D => Phyd_ref%mesh
+    do domid=1, mesh3D%LOCAL_MESH_NUM
+      lcmesh3D => mesh3D%lcmesh_list(domid)
       !$omp parallel do
       do ke=lcmesh3D%NeS, lcmesh3D%NeE
-        var%local(domid)%val(:,ke) = 0.0_RP
+        Phyd_ref%local(domid)%val(:,ke) = 0.0_RP
       end do
     end do
 
@@ -642,6 +644,10 @@ contains
 
     !-- Communicate halo data of hydrostatic & diagnostic variables
     call this%AUXVARS_manager%MeshFieldComm_Exchange()
+
+    !-- Set horizontal gradient of hydrostatic pressure
+    call dyncore%update_phyd_hgrad( this%AUX_VARS(AUXVAR_PRESHYDRO_ID), Phyd_ref, &
+      mesh3D, atmos_mesh%element3D_operation )
 
     return
   end subroutine AtmosVar_Read_restart_file

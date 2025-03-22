@@ -129,7 +129,6 @@ contains
     Rtot, CPtot_ov_CVtot,                                    & ! (in)
     Dz, Lift, IntrpMat_VPOrdM1,                              & ! (in)
     GnnM, G13, G23, GsqrtV,                                  & ! (in)
-    modalFilterFlag, VModalFilter,                           & ! (in)
     impl_fac, dt,                                            & ! (in)
     lmesh, elem,                                             & ! (in)
     nz, vmapM, vmapP,                                        & ! (in)
@@ -160,8 +159,6 @@ contains
     real(RP), intent(in) :: G13 (elem%Np,lmesh%NeZ,lmesh%NeX*lmesh%NeY)
     real(RP), intent(in) :: G23 (elem%Np,lmesh%NeZ,lmesh%NeX*lmesh%NeY)
     real(RP), intent(in) :: GsqrtV(elem%Np,lmesh%NeZ,lmesh%NeX*lmesh%NeY)
-    logical, intent(in) :: modalFilterFlag
-    real(RP), intent(in) :: VModalFilter(elem%Nnode_v,elem%Nnode_v)    
     real(RP), intent(in) :: impl_fac
     real(RP), intent(in) :: dt
     real(RP), intent(in) :: nz(elem%NfpTot,lmesh%NeZ,lmesh%NeX*lmesh%NeY)
@@ -252,30 +249,6 @@ contains
     end do
     !$omp end do
 
-    if ( modalFilterFlag ) then
-      !$omp do collapse(2)
-      do ke_xy=1, lmesh%NeX*lmesh%NeY
-      do ke_z=1, lmesh%NeZ
-        ke = ke_xy + (ke_z-1)*lmesh%NeX*lmesh%NeY
-
-          !-- Modal filtering in the vertical direction  
-          do kk=1, elem%Nnode_v
-          do ij=1, elem%Nnode_h1D**2
-            p = elem%Colmask(kk,ij)
-            do kkk=1, elem%Nnode_v
-              pp = elem%Colmask(kkk,ij)
-              vmf_v = rdt * VModalFilter(kk,kkk)
-              DENS_t(p,ke) = DENS_t(p,ke) + vmf_v * PROG_VARS(pp,ke_z,DENS_VID,ke_xy)
-              MOMZ_t(p,ke) = MOMZ_t(p,ke) + vmf_v * PROG_VARS(pp,ke_z,MOMZ_VID,ke_xy)
-              RHOT_t(p,ke) = RHOT_t(p,ke) + vmf_v * PROG_VARS(pp,ke_z,RHOT_VID,ke_xy)
-            end do
-          end do
-          end do
-      end do
-      end do
-    !$omp end do 
-    end if
-
     if ( present( b1D_ij ) ) then
       !$omp do collapse(2)
       do ke_xy=1, lmesh%NeX*lmesh%NeY
@@ -313,7 +286,6 @@ contains
     Rtot, CPtot_ov_CVtot,                                    & ! (in)
     Dz, Lift, IntrpMat_VPOrdM1,                              & ! (in)
     GnnM, G13, G23, GsqrtV,                                  & ! (in)
-    modalFilterFlag, VModalFilter,                           & ! (in)
     impl_fac, dt,                                            & ! (in)
     lmesh, elem,                                             & ! (in)
     nz, vmapM, vmapP,                                        & ! (in)
@@ -343,8 +315,6 @@ contains
     real(RP), intent(in) :: G13 (elem%Np,lmesh%NeZ,lmesh%NeX*lmesh%NeY)
     real(RP), intent(in) :: G23 (elem%Np,lmesh%NeZ,lmesh%NeX*lmesh%NeY)
     real(RP), intent(in) :: GsqrtV(elem%Np,lmesh%NeZ,lmesh%NeX*lmesh%NeY)
-    logical, intent(in) :: modalFilterFlag
-    real(RP), intent(in) :: VModalFilter(elem%Nnode_v,elem%Nnode_v)    
     real(RP), intent(in) :: impl_fac
     real(RP), intent(in) :: dt
     real(RP), intent(in) :: nz(elem%NfpTot,lmesh%NeZ,lmesh%NeX*lmesh%NeY)
@@ -399,29 +369,6 @@ contains
     end do
     !$omp end do
 
-    if ( modalFilterFlag ) then
-      !$omp do collapse(2)
-      do ke_xy=1, lmesh%NeX*lmesh%NeY
-      do ke_z=1, lmesh%NeZ
-        ke = ke_xy + (ke_z-1)*lmesh%NeX*lmesh%NeY
-
-          !-- Modal filtering in the vertical direction  
-          do kk=1, elem%Nnode_v
-          do ij=1, elem%Nnode_h1D**2
-            p = elem%Colmask(kk,ij)
-            do kkk=1, elem%Nnode_v
-              pp = elem%Colmask(kkk,ij)
-              vmf_v = rdt * VModalFilter(kk,kkk)
-              MOMX_t(p,ke) = MOMX_t(p,ke) + vmf_v * PROG_VARS(pp,ke_z,MOMX_VID,ke_xy)
-              MOMY_t(p,ke) = MOMY_t(p,ke) + vmf_v * PROG_VARS(pp,ke_z,MOMY_VID,ke_xy)
-            end do
-          end do
-          end do
-      end do
-      end do
-    !$omp end do 
-    end if
-
     if ( present( b1D_ij_uv ) ) then
       !$omp do collapse(2)
       do ke_xy=1, lmesh%NeX*lmesh%NeY
@@ -454,7 +401,6 @@ contains
     G13, G23, GsqrtV, alph,                 & ! (in)
     Rtot, CPtot_ov_CVtot,                   & ! (in)
     Dz, Lift, IntrpMat_VPOrdM1,             & ! (in)
-    modalFilterFlag, VModalFilter,          & ! (in)
     impl_fac, dt,                           & ! (in)
     lmesh, elem,                            & ! (in)
     nz, vmapM, vmapP, ke_x, ke_y )            ! (in)
@@ -476,8 +422,6 @@ contains
     real(RP), intent(in) ::  CPtot_ov_CVtot(elem%Np,lmesh%NeZ)
     class(SparseMat), intent(in) :: Dz, Lift
     real(RP), intent(in) :: IntrpMat_VPOrdM1(elem%Np,elem%Np)
-    logical, intent(in) :: modalFilterFlag
-    real(RP), intent(in) :: VModalFilter(elem%Nnode_v,elem%Nnode_v)
     real(RP), intent(in) :: impl_fac
     real(RP), intent(in) :: dt
     real(RP), intent(in) :: nz(elem%NfpTot,lmesh%NeZ)
@@ -582,11 +526,7 @@ contains
         fac_dz_p(:) = impl_fac * lmesh%Escale(Colmask(:),ke,3,3) / GsqrtV(Colmask(:),ke_z) &
                     * elem%Dx3(Colmask(:),Colmask(p))
         
-        if (modalFilterFlag) then
-          Dd(:) = Id(:,p) - VModalFilter(:,p) * impl_fac / dt
-        else
-          Dd(:) = Id(:,p)
-        end if
+        Dd(:) = Id(:,p)
 
         ! DDENS
         PmatD(:,p,DENS_VID_LC,DENS_VID_LC) = Dd(:)
@@ -731,7 +671,6 @@ contains
     G13, G23, GsqrtV, alph,                 & ! (in)
     Rtot, CPtot_ov_CVtot,                   & ! (in)
     Dz, Lift, IntrpMat_VPOrdM1,             & ! (in)
-    modalFilterFlag, VModalFilter,          & ! (in)
     impl_fac, dt,                           & ! (in)
     lmesh, elem,                            & ! (in)
     nz, vmapM, vmapP, ke_x, ke_y )            ! (in)
@@ -753,8 +692,6 @@ contains
     real(RP), intent(in) ::  CPtot_ov_CVtot(elem%Np,lmesh%NeZ)
     class(SparseMat), intent(in) :: Dz, Lift
     real(RP), intent(in) :: IntrpMat_VPOrdM1(elem%Np,elem%Np)
-    logical, intent(in) :: modalFilterFlag
-    real(RP), intent(in) :: VModalFilter(elem%Nnode_v,elem%Nnode_v)
     real(RP), intent(in) :: impl_fac
     real(RP), intent(in) :: dt
     real(RP), intent(in) :: nz(elem%NfpTot,lmesh%NeZ)
@@ -815,11 +752,7 @@ contains
 
       !-----  
       do p=1, elem%Nnode_v
-        if (modalFilterFlag) then
-          Dd(:) = Id(:,p) - VModalFilter(:,p) * impl_fac / dt
-        else
-          Dd(:) = Id(:,p)
-        end if
+        Dd(:) = Id(:,p)
         ! MOMX, MOMY
         PmatD_uv(:,p) = Dd(:)
       end do
@@ -889,7 +822,7 @@ contains
 !-- private ----------------
 
 !OCL SERIAL  
-  subroutine vi_cal_del_flux_dyn_uv( del_flux, alph,             & ! (out)
+  subroutine vi_cal_del_flux_dyn_uv( del_flux, alph,          & ! (out)
     PVARS_, PVARS0_,                                          & ! (in)
     DENS_hyd, PRES_hyd, Rtot, CPtot_ov_CVtot,                 & ! (in)
     Gnn_, G13_, G23_, GsqrtV_, nz, vmapM, vmapP, lmesh, elem  ) ! (in)

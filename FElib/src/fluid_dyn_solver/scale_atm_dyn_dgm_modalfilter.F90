@@ -3,7 +3,7 @@
 !!
 !! @par Description
 !!      Modal filter for Atmospheric dynamical process. 
-!!      The modal filter surpresses the numerical instability due to the aliasing errors. 
+!!      The modal filter suppresses the numerical instability due to the aliasing errors. 
 !!
 !! @author Yuta Kawai, Team SCALE
 !<
@@ -19,7 +19,7 @@ module scale_atm_dyn_dgm_modalfilter
 
   use scale_element_base, only: ElementBase
   use scale_localmesh_base, only: LocalMeshBase
-  use scale_element_modalfilter, only: ModalFilter
+  use scale_element_operation_base, only: ElementOperationBase3D
 
   !-----------------------------------------------------------------------------
   implicit none
@@ -46,8 +46,8 @@ contains
 !OCL SERIAL
   subroutine atm_dyn_dgm_modalfilter_apply(  &
     DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_,     & ! (inout)
-    lmesh, elem, filter, do_weight_Gsqrt     ) ! (in)
-
+    lmesh, elem, elem_operation,             & ! (in) 
+    do_weight_Gsqrt )                          ! (in)
     implicit none
 
     class(LocalMeshBase), intent(in) :: lmesh
@@ -57,13 +57,14 @@ contains
     real(RP), intent(inout)  :: MOMY_(elem%Np,lmesh%NeA)
     real(RP), intent(inout)  :: MOMZ_(elem%Np,lmesh%NeA)
     real(RP), intent(inout)  :: DRHOT_(elem%Np,lmesh%NeA)
-    class(ModalFilter), intent(in) :: filter
+    class(ElementOperationBase3D), intent(in) :: elem_operation
     logical, intent(in), optional :: do_weight_Gsqrt
     
     integer :: ke
     real(RP) :: tmp(elem%Np,5)
-    integer :: ii, kk
-    real(RP) :: Mik
+    real(RP) :: work(elem%Np)
+    real(RP) :: tmp_out(elem%Np,5)
+    integer :: kk
     logical :: do_weight_Gsqrt_
     real(RP) :: RGsqrt(elem%Np)
     !------------------------------------
@@ -75,46 +76,44 @@ contains
     end if
 
     if ( do_weight_Gsqrt_ ) then
-      !$omp parallel do private( tmp, ii, kk, Mik, RGsqrt )
+      !$omp parallel do private( tmp, tmp_out, work, kk, RGsqrt )
       do ke=lmesh%NeS, lmesh%NeE
 
-        tmp(:,:) = 0.0_RP
-        do ii=1, elem%Np
         do kk=1, elem%Np
-          Mik = filter%FilterMat(ii,kk) * lmesh%Gsqrt(kk,ke)
+          tmp(kk,1) = lmesh%Gsqrt(kk,ke) * DDENS_(kk,ke)
+          tmp(kk,2) = lmesh%Gsqrt(kk,ke) * MOMX_(kk,ke)
+          tmp(kk,3) = lmesh%Gsqrt(kk,ke) * MOMY_(kk,ke)
+          tmp(kk,4) = lmesh%Gsqrt(kk,ke) * MOMZ_(kk,ke)
+          tmp(kk,5) = lmesh%Gsqrt(kk,ke) * DRHOT_(kk,ke)
+        end do
 
-          tmp(ii,1) = tmp(ii,1) + Mik * DDENS_(kk,ke)
-          tmp(ii,2) = tmp(ii,2) + Mik * MOMX_ (kk,ke)
-          tmp(ii,3) = tmp(ii,3) + Mik * MOMY_ (kk,ke)
-          tmp(ii,4) = tmp(ii,4) + Mik * MOMZ_ (kk,ke)
-          tmp(ii,5) = tmp(ii,5) + Mik * DRHOT_(kk,ke)
-        end do
-        end do
+        call elem_operation%ModalFilter_var5( tmp, work, &
+          tmp_out )
 
         RGsqrt(:) = 1.0_RP / lmesh%Gsqrt(:,ke)
-        DDENS_(:,ke) = tmp(:,1) * RGsqrt(:)
-        MOMX_ (:,ke) = tmp(:,2) * RGsqrt(:)
-        MOMY_ (:,ke) = tmp(:,3) * RGsqrt(:)
-        MOMZ_ (:,ke) = tmp(:,4) * RGsqrt(:)
-        DRHOT_(:,ke) = tmp(:,5) * RGsqrt(:)
+        DDENS_(:,ke) = tmp_out(:,1) * RGsqrt(:)
+        MOMX_ (:,ke) = tmp_out(:,2) * RGsqrt(:)
+        MOMY_ (:,ke) = tmp_out(:,3) * RGsqrt(:)
+        MOMZ_ (:,ke) = tmp_out(:,4) * RGsqrt(:)
+        DRHOT_(:,ke) = tmp_out(:,5) * RGsqrt(:)
       end do    
 
     else
 
-      !$omp parallel do private( tmp, ii, kk, Mik )
+      !$omp parallel do private( tmp, work, kk )
       do ke=lmesh%NeS, lmesh%NeE
 
-        tmp(:,:) = 0.0_RP
-        do ii=1, elem%Np
         do kk=1, elem%Np
-          Mik = filter%FilterMat(ii,kk)
-          tmp(ii,1) = tmp(ii,1) + Mik * DDENS_(kk,ke)
-          tmp(ii,2) = tmp(ii,2) + Mik * MOMX_ (kk,ke)
-          tmp(ii,3) = tmp(ii,3) + Mik * MOMY_ (kk,ke)
-          tmp(ii,4) = tmp(ii,4) + Mik * MOMZ_ (kk,ke)
-          tmp(ii,5) = tmp(ii,5) + Mik * DRHOT_(kk,ke)
+          tmp(kk,1) = DDENS_(kk,ke)
+          tmp(kk,2) = MOMX_(kk,ke)
+          tmp(kk,3) = MOMY_(kk,ke)
+          tmp(kk,4) = MOMZ_(kk,ke)
+          tmp(kk,5) = DRHOT_(kk,ke)
         end do
-        end do      
+        
+        call elem_operation%ModalFilter_var5( tmp, work, &
+          tmp_out )
+
         DDENS_(:,ke) = tmp(:,1)
         MOMX_ (:,ke) = tmp(:,2)
         MOMY_ (:,ke) = tmp(:,3)
@@ -131,7 +130,7 @@ contains
   subroutine atm_dyn_dgm_tracer_modalfilter_apply(  &
     QTRC_,                                   & ! (inout)
     DENS_hyd_, DDENS_,                       & ! (inout)
-    lmesh, elem, filter                      ) ! (in)
+    lmesh, elem, elem_operation              ) ! (in)
 
     implicit none
 
@@ -140,32 +139,29 @@ contains
     real(RP), intent(inout)  :: QTRC_(elem%Np,lmesh%NeA)
     real(RP), intent(inout)  :: DENS_hyd_(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: DDENS_(elem%Np,lmesh%NeA)
-    class(ModalFilter), intent(in) :: filter
+    class(ElementOperationBase3D), intent(in) :: elem_operation
 
     integer :: ke
     real(RP) :: tmp(elem%Np)
-    integer :: ii, kk
-    real(RP) :: Mik
-
+    real(RP) :: work(elem%Np)
+    real(RP) :: tmp_out(elem%Np)
     real(RP) :: weight(elem%Np)
+    integer :: kk
     !------------------------------------
 
-    !$omp parallel do private( tmp, ii, kk, Mik, weight )
+    !$omp parallel do private( tmp, tmp_out, work, kk, weight )
     do ke=lmesh%NeS, lmesh%NeE
 
-      tmp(:) = 0.0_RP
-      weight(:) = lmesh%Gsqrt(:,ke) &
-                * ( DENS_hyd_(:,ke) + DDENS_(:,ke) )
-
-      do ii=1, elem%Np
       do kk=1, elem%Np
-        Mik = filter%FilterMat(ii,kk) * weight(kk)
-
-        tmp(ii) = tmp(ii) + Mik * QTRC_(kk,ke)
+        weight(kk) = lmesh%Gsqrt(kk,ke) &
+                   * ( DENS_hyd_(kk,ke) + DDENS_(kk,ke) ) 
+        tmp(kk) = weight(kk) * QTRC_(kk,ke)
       end do
-      end do
 
-      QTRC_(:,ke) = tmp(:) / weight(:)
+      call elem_operation%ModalFilter_tracer( tmp, work, &
+        tmp_out )
+
+      QTRC_(:,ke) = tmp_out(:) / weight(:)
     end do    
 
     return
