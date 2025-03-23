@@ -2,7 +2,7 @@
 !> module FElib / Mesh / Base 2D
 !!
 !! @par Description
-!!      Base module to mangage 2D meshes for element-based methods
+!!      Base module to manage 2D meshes for element-based methods
 !!
 !! @author Yuta Kawai, Team SCALE
 !<

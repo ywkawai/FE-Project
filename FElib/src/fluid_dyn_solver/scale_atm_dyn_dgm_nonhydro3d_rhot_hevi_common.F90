@@ -49,7 +49,6 @@ module scale_atm_dyn_dgm_nonhydro3d_rhot_hevi_common
   !
   !++ Public procedures
   !
-  public :: atm_dyn_dgm_nonhydro3d_rhot_hevi_common_gen_vmap
   public :: atm_dyn_dgm_nonhydro3d_rhot_hevi_common_eval_Ax
   public :: atm_dyn_dgm_nonhydro3d_rhot_hevi_common_eval_Ax_uv
   public :: atm_dyn_dgm_nonhydro3d_rhot_hevi_common_construct_matbnd
@@ -71,53 +70,6 @@ module scale_atm_dyn_dgm_nonhydro3d_rhot_hevi_common
 
 contains
   !------------------------------------------------
-
-!OCL SERIAL
-  subroutine atm_dyn_dgm_nonhydro3d_rhot_hevi_common_gen_vmap( &
-    vmapM, vmapP, & ! (out)
-    lmesh, elem   ) ! (in)
-    implicit none
-    class(LocalMesh3D), intent(in) :: lmesh
-    class(ElementBase3D), intent(in) :: elem
-    integer, intent(out) :: vmapM(elem%NfpTot,lmesh%NeZ)
-    integer, intent(out) :: vmapP(elem%NfpTot,lmesh%NeZ)    
-
-    integer :: ke_z
-    integer :: f
-    integer :: vs, ve
-    !-------------------------------------------------------
-
-    !$omp parallel private(f, vs, ve)
-    !$omp do
-    do ke_z=1, lmesh%NeZ
-      do f=1, elem%Nfaces_h
-        vs = 1 + (f-1)*elem%Nfp_h
-        ve = vs + elem%Nfp_h - 1
-        vmapM(vs:ve,ke_z) = elem%Fmask_h(:,f) + (ke_z-1)*elem%Np
-      end do
-      do f=1, elem%Nfaces_v
-        vs = elem%Nfp_h*elem%Nfaces_h + 1 + (f-1)*elem%Nfp_v
-        ve = vs + elem%Nfp_v - 1
-        vmapM(vs:ve,ke_z) = elem%Fmask_v(:,f) + (ke_z-1)*elem%Np
-      end do
-      vmapP(:,ke_z) = vmapM(:,ke_z)
-    end do
-    !$omp do
-    do ke_z=1, lmesh%NeZ
-      vs = elem%Nfp_h*elem%Nfaces_h + 1
-      ve = vs + elem%Nfp_v - 1
-      if (ke_z > 1) &
-        vmapP(vs:ve,ke_z) = elem%Fmask_v(:,2) + (ke_z-2)*elem%Np
-
-      vs = elem%Nfp_h*elem%Nfaces_h + elem%Nfp_v + 1
-      ve = vs + elem%Nfp_v - 1
-      if (ke_z < lmesh%NeZ) &
-        vmapP(vs:ve,ke_z) = elem%Fmask_v(:,1) + ke_z*elem%Np
-    end do
-    !$omp end parallel
-
-    return
-  end subroutine atm_dyn_dgm_nonhydro3d_rhot_hevi_common_gen_vmap
 
 !OCL SERIAL  
   subroutine atm_dyn_dgm_nonhydro3d_rhot_hevi_common_eval_Ax( &

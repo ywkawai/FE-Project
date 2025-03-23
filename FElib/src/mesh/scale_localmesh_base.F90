@@ -2,7 +2,7 @@
 !> module FElib / Mesh / Local, Base
 !!
 !! @par Description
-!!      Base module to mangage meshes for element-based methods
+!!      Base module to manage meshes for element-based methods
 !!
 !! @author Yuta Kawai, Team SCALE
 !<

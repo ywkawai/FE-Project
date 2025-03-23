@@ -3,7 +3,7 @@
 !!
 !! @par Description
 !!      HEVE DGM scheme for Global Atmospheric Dynamical process. 
-!!      The governing equations is a fully compressibile nonhydrostic equations, 
+!!      The governing equations is a fully compressible nonhydrostatic equations, 
 !!      which consist of mass, momentum, and thermodynamics (total energy conservation) equations. 
 !!
 !! @author Yuta Kawai, Team SCALE

@@ -2,7 +2,7 @@
 !> module FElib / Mesh / Boundary information
 !!
 !! @par Description
-!!      A module to mangage boundary information of computational domain 
+!!      A module to manage boundary information of computational domain 
 !!
 !! @author Yuta Kawai, Team SCALE
 !<

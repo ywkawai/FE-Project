@@ -2,7 +2,7 @@
 !> module FElib / Mesh / Rectangle 2D domain
 !!
 !! @par Description
-!!      Mangage mesh data of rectangle 2D domain for element-based methods
+!!      Manage mesh data of rectangle 2D domain for element-based methods
 !!
 !! @author Yuta Kawai, Team SCALE
 !<
