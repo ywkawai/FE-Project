@@ -2,7 +2,7 @@
 !> module FElib / Mesh / Base 1D
 !!
 !! @par Description
-!!      Base module to mangage 1D meshes for element-based methods
+!!      Base module to manage 1D meshes for element-based methods
 !!
 !! @author Yuta Kawai, Team SCALE
 !<

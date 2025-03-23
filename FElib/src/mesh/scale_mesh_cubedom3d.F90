@@ -2,7 +2,7 @@
 !> module FElib / Mesh / Cubic 3D domain
 !!
 !! @par Description
-!!      Mangage mesh data of cubic 3D domain for element-based methods
+!!      Manage mesh data of cubic 3D domain for element-based methods
 !!
 !! @author Yuta Kawai, Team SCALE
 !<

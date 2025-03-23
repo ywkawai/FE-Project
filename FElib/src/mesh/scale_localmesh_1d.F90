@@ -2,7 +2,7 @@
 !> module FElib / Mesh / Local 1D
 !!
 !! @par Description
-!!      Module to mangage 1D local mesh for element-based methods
+!!      Module to manage 1D local mesh for element-based methods
 !!
 !! @author Yuta Kawai, Team SCALE
 !<

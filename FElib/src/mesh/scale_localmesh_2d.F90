@@ -2,7 +2,7 @@
 !> module FElib / Mesh / Local 2D
 !!
 !! @par Description
-!!      Module to mangage 2D local mesh for element-based methods
+!!      Module to manage 2D local mesh for element-based methods
 !!
 !! @author Yuta Kawai, Team SCALE
 !<
