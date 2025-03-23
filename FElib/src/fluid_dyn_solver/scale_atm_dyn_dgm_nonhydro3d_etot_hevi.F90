@@ -296,7 +296,6 @@ contains
     lmesh, elem, lmesh2D, elem2D                             ) ! (in)
 
     use scale_atm_dyn_dgm_nonhydro3d_etot_hevi_common, only: &
-      vi_gen_vmap => atm_dyn_dgm_nonhydro3d_etot_hevi_common_gen_vmap,                  &
       vi_eval_Ax => atm_dyn_dgm_nonhydro3d_etot_hevi_common_eval_Ax,                    &
       vi_eval_Ax_uv => atm_dyn_dgm_nonhydro3d_etot_hevi_common_eval_Ax_uv,              &
       vi_construct_matbnd => atm_dyn_dgm_nonhydro3d_etot_hevi_common_construct_matbnd,  &
@@ -380,8 +379,7 @@ contains
     allocate( PmatBnd   (2*kl+ku+1,nz_1D,elem%Nnode_h1D**2) )
     allocate( PmatBnd_uv(2*kl_uv+ku_uv+1,nz_1D_uv,elem%Nnode_h1D**2) )
 
-    call vi_gen_vmap( vmapM, vmapP, & ! (out)
-      lmesh, elem                   ) ! (in)
+    call lmesh%GetVmapZ1D( vmapM, vmapP ) ! (out)
    
     !-
     

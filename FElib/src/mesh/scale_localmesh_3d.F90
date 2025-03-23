@@ -2,7 +2,7 @@
 !> module FElib / Mesh / Local 3D
 !!
 !! @par Description
-!!      Module to mangage 3D local mesh for element-based methods
+!!      Module to manage 3D local mesh for element-based methods
 !!
 !! @author Yuta Kawai, Team SCALE
 !<
@@ -52,7 +52,8 @@ module scale_localmesh_3d
 
     integer, allocatable :: EMap3Dto2D(:)  
   contains
-    procedure :: SetLocalMesh2D => LocalMesh3D_setLocalMesh2D  
+    procedure :: SetLocalMesh2D => LocalMesh3D_setLocalMesh2D 
+    procedure :: GetVmapZ1D => LocalMesh3D_getVmapZ1D 
   end type LocalMesh3D
 
   public :: LocalMesh3D_Init, LocalMesh3D_Final
@@ -123,5 +124,51 @@ contains
 
     return
   end subroutine LocalMesh3D_setLocalMesh2D
+
+!OCL SERIAL
+  subroutine LocalMesh3D_getVmapZ1D( this, vmapM, vmapP )
+
+    implicit none
+    class(LocalMesh3D), intent(in), target :: this
+    integer, intent(out) :: vmapM(this%refElem3D%NfpTot,this%NeZ)
+    integer, intent(out) :: vmapP(this%refElem3D%NfpTot,this%NeZ)    
+
+    integer :: ke_z
+    integer :: f
+    integer :: vs, ve
+
+    class(ElementBase3D), pointer :: elem
+    !------------------------------
+
+    elem => this%refElem3D
+
+    do ke_z=1, this%NeZ
+      do f=1, elem%Nfaces_h
+        vs = 1 + (f-1)*elem%Nfp_h
+        ve = vs + elem%Nfp_h - 1
+        vmapM(vs:ve,ke_z) = elem%Fmask_h(:,f) + (ke_z-1)*elem%Np
+      end do
+      do f=1, elem%Nfaces_v
+        vs = elem%Nfp_h*elem%Nfaces_h + 1 + (f-1)*elem%Nfp_v
+        ve = vs + elem%Nfp_v - 1
+        vmapM(vs:ve,ke_z) = elem%Fmask_v(:,f) + (ke_z-1)*elem%Np
+      end do
+      vmapP(:,ke_z) = vmapM(:,ke_z)
+    end do
+
+    do ke_z=1, this%NeZ
+      vs = elem%Nfp_h*elem%Nfaces_h + 1
+      ve = vs + elem%Nfp_v - 1
+      if (ke_z > 1) &
+        vmapP(vs:ve,ke_z) = elem%Fmask_v(:,2) + (ke_z-2)*elem%Np
+
+      vs = elem%Nfp_h*elem%Nfaces_h + elem%Nfp_v + 1
+      ve = vs + elem%Nfp_v - 1
+      if (ke_z < this%NeZ) &
+        vmapP(vs:ve,ke_z) = elem%Fmask_v(:,1) + ke_z*elem%Np
+    end do
+
+    return
+  end subroutine LocalMesh3D_getVmapZ1D
 
 end module scale_localmesh_3d

@@ -62,6 +62,11 @@ module scale_element_operation_general
     procedure, public :: ModalFilter_var5 => element_operation_general_ModalFilter_var5
   end type ElementOperationGeneral
   
+  interface ElementOperationGeneral_Generate_VPOrdM1
+    module procedure element_operation_general_generate_VPOrdM1
+  end interface
+  public :: ElementOperationGeneral_Generate_VPOrdM1
+  
 contains
 
   !> Initialization
@@ -76,9 +81,6 @@ contains
     type(SparseMat), intent(in), target :: Dy
     type(SparseMat), intent(in), target :: Dz
     type(SparseMat), intent(in), target :: Lift
-
-    integer :: p1, p2, p_
-    real(RP) :: invV_VPOrdM1(elem3D%Np,elem3D%Np)
     !----------------------------------------------------------
 
     this%elem3D => elem3D
@@ -89,6 +91,24 @@ contains
 
     !--
     allocate( this%IntrpMat_VPOrdM1(elem3D%Np,elem3D%Np) )
+    call element_operation_general_generate_VPOrdM1( this%IntrpMat_VPOrdM1, &
+      elem3D )
+
+    return
+  end subroutine element_operation_general_Init
+
+  !> Generate a vertical filter matrix to remove the highest mode
+  !!
+!OCL SERIAL
+  subroutine element_operation_general_generate_VPOrdM1( IntrpMat_VPOrdM1, &
+    elem3D )
+    implicit none
+    class(ElementBase3D), intent(in), target :: elem3D
+    real(RP), intent(out) :: IntrpMat_VPOrdM1(elem3D%Np,elem3D%Np)
+
+    integer :: p1, p2, p_
+    real(RP) :: invV_VPOrdM1(elem3D%Np,elem3D%Np)
+    !----------------------------------------------------------
 
     InvV_VPOrdM1(:,:) = elem3D%invV(:,:)
     do p2=1, elem3D%Nnode_h1D
@@ -97,10 +117,10 @@ contains
       InvV_VPOrdM1(p_,:) = 0.0_RP
     end do
     end do
-    this%IntrpMat_VPOrdM1(:,:) = matmul(elem3D%V, invV_VPOrdM1)
+    IntrpMat_VPOrdM1(:,:) = matmul(elem3D%V, invV_VPOrdM1)
 
     return
-  end subroutine element_operation_general_Init
+  end subroutine element_operation_general_generate_VPOrdM1
 
   !> Setup modal filter
   !!
