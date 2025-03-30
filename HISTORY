@@ -1,10 +1,11 @@
-= 2025-04-XX (0.9.0)
+= 2025-04-01 (0.9.0)
 * New features
   * Add a module for DNS in turbulent schemes
   * Add a surface flux scheme with constant bulk coefficients for the heat and moisture
   * Available to specify a no-splip and fixed value for thermal boundary conditions with the viscous and diffusion terms
-  * Add a moist version of the Held Suarez test case based on Thatcher and Jablonowski (2016)
-  * Speedup several HEVE solvers and modal filtering when using tensor product finite elements 
+  * Add a moist version of the Held-Suarez test case based on Thatcher and Jablonowski (2016)
+  * Add a test case of Rayleigh–Bénard convection
+  * Speedup several HEVE solvers and modal filtering when using a tensor product element, hexahedral element
   * Provide an option of persistent communication in exchanging halo data 
   * Support a case of HEVI without the mass matrix lumping 
   * Support recent intel fortran compiler based on LLVM
