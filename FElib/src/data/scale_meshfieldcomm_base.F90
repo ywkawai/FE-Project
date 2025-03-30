@@ -32,6 +32,7 @@ module scale_meshfieldcomm_base
   !++ Public type & procedure
   ! 
 
+  !> Derived type to manage data communication between a face of local mesh
   type, public :: LocalMeshCommData
     class(LocalMeshBase), pointer :: lcmesh
     real(RP), allocatable :: send_buf(:,:)
@@ -50,6 +51,7 @@ module scale_meshfieldcomm_base
     procedure, public :: PC_Init => LocalMeshCommData_pc_init
   end type
 
+  !> Base derived type to manage data communication
   type, abstract, public :: MeshFieldCommBase
     integer :: sfield_num
     integer :: hvfield_num
@@ -135,6 +137,15 @@ module scale_meshfieldcomm_base
   !
 
 contains
+
+!> Initialize a base object to manage data communication of fields
+!!
+!! @param sfield_num Number of scalar fields
+!! @param hvfield_num Number of horizontal vector fields
+!! @param htensorfield_num Number of horizontal tensor fields
+!! @param bufsize_per_field Buffer size per a field
+!! @param comm_face_num Number of faces on a local mesh which perform data communication
+!! @param Nnode_LCMeshFace Array to store the number of nodes  
 !OCL SERIAL
   subroutine MeshFieldCommBase_Init( this, &
     sfield_num, hvfield_num, htensorfield_num, bufsize_per_field, comm_face_num, &
@@ -189,6 +200,8 @@ contains
     return
   end subroutine MeshFieldCommBase_Init
 
+!> Finalize a base object to manage data communication of fields
+!!
 !OCL SERIAL
   subroutine MeshFieldCommBase_Final( this )
     implicit none
@@ -223,6 +236,7 @@ contains
   end subroutine MeshFieldCommBase_Final
 
 !> Prepare persistent communication
+!!
 !OCL SERIAL
   subroutine MeshFieldCommBase_prepare_PC( this )
     implicit none    
@@ -249,6 +263,8 @@ contains
 
 !> Exchange halo data
 !!
+!! @param commdata_list Array of LocalMeshCommData objects which manage information and halo data 
+!! @param do_wait Flag whether MPI_waitall is called and move tmp data of LocalMeshCommData object to a recv buffer
 !OCL SERIAL
   subroutine MeshFieldCommBase_exchange_core( this, commdata_list, do_wait )
 !    use scale_prof
@@ -295,8 +311,9 @@ contains
     return
   end subroutine MeshFieldCommBase_exchange_core
 
-!> Wait data communication
-!!
+!> Wait data communication and move tmp data of LocalMeshCommData object to a recv buffer
+!! 
+!! @param commdata_list Array of LocalMeshCommData objects which manage information and halo data 
 !OCL SERIAL
   subroutine MeshFieldCommBase_wait_core( this, commdata_list )
     use mpi, only: &

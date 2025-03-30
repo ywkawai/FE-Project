@@ -557,7 +557,7 @@ contains
     use scale_atm_dyn_dgm_modalfilter, only: &
       atm_dyn_dgm_modalfilter_apply
     
-    use mpi_f08_ext      
+    ! use mpi_f08_ext      
     implicit none
 
     class(AtmDynDGMDriver_nonhydro3d), intent(inout) :: this
