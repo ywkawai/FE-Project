@@ -1,7 +1,7 @@
 !> module FElib / Data / Utility
 !!
 !! @par Description
-!!           A module for providing utility ruoutines associated with DG field data
+!!           A module for providing utility routines associated with DG field data
 !!
 !! @author Yuta Kawai, Team SCALE
 !!

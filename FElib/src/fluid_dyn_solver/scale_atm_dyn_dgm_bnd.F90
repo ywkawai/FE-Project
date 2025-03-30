@@ -238,6 +238,8 @@ contains
     return
   end subroutine ATMOS_dyn_bnd_setBCInfo
 
+!> Set exterior values at element boundaries to evaluate inviscid numerical fluxes
+!!
 !OCL SERIAL
   subroutine ATMOS_dyn_bnd_applyBC_prgvars_lc( this,  &
     domID,                                              & ! (in)
