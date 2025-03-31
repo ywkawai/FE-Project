@@ -83,4 +83,4 @@ Our codes are also verified in Fugaku and Odyssey (Fujitsu compiler).
 
  `% make run`
 
- In the directory of 'visualize', some python scripts with matplotlib are prepared for visualizing simulation results.
+ In the directory of 'visualize', several python scripts with matplotlib are prepared for visualizing simulation results.

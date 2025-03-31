@@ -20,9 +20,9 @@ We also provide sample programs and atmospheric models for meteorological simula
 
 ### Nonhydrostatic atmospheric model
 - Simple 2D model with only dynamical process
-- Regional and Global models
+- Regional and Global models (SCALE-DG)
 
-## Simple samples for intrduction to DGM. 
+## Simple samples for introduction to DGM. 
 ### 1D problems 
   - Linear advection equation
     - various profiles of advected quantity
@@ -43,6 +43,11 @@ We also provide sample programs and atmospheric models for meteorological simula
 
 ## Build FE library
 Please see ``INSTALL.md''.  
+
+## Contributors
+- Yuta Kawai
+- Xuanzhengbo Ren
+- Hirofumi Tomita
 
 ## Acknowledgements
 This project is supported by [the Transformaive Research Areas B: DNA Climate Science](https://dna-climate.org/) (MEXT KAKENHI Grant Number JP20H05731), 
