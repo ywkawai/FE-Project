@@ -1,3 +1,11 @@
+!-------------------------------------------------------------------------------
+!> module FElib / Mesh / Local, Base
+!!
+!! @par Description
+!!      Base module to manage meshes for element-based methods
+!!
+!! @author Yuta Kawai, Team SCALE
+!<
 #include "scaleFElib.h"
 module scale_localmesh_base
 
@@ -8,7 +16,7 @@ module scale_localmesh_base
   use scale_precision
   use scale_io
 
-  use scale_element_base, only: elementbase
+  use scale_element_base, only: ElementBase
 
   !-----------------------------------------------------------------------------
   implicit none

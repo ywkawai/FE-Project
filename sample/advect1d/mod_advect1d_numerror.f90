@@ -1,4 +1,4 @@
-#include "scalelib.h"
+#include "scaleFElib.h"
 module mod_advect1d_numerror
   use scale_precision
   use scale_prc

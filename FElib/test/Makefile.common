@@ -1,0 +1,102 @@
+################################################################################
+#
+# Common Makefile for unit tests of FElib
+#
+################################################################################
+
+SYSDEP_DIR  = $(TOPDIR)/sysdep
+BUILD_DIR   = ./.libs
+BINDIR2     = .
+
+include $(SYSDEP_DIR)/Makedef.$(SCALE_FE_SYS)
+include $(TOPDIR)/Mkinclude
+
+LIBS = $(LIBDIR)/libScaleFECore.a
+
+ifeq ($(origin PPNAME), undefined)
+   PPNAME = NONE
+endif
+
+ifeq ($(origin INITNAME), undefined)
+   INITNAME = NONE
+endif
+
+ifeq ($(origin BINNAME), undefined)
+   BINNAME = NONE
+endif
+
+ifeq ($(origin PPCONF), undefined)
+   PPCONF = NONE
+endif
+
+ifeq ($(origin INITCONF), undefined)
+   INITCONF = NONE
+endif
+
+ifeq ($(origin RUNCONF), undefined)
+   RUNCONF = NONE
+endif
+
+all:
+	$(MAKE) envlog
+	$(MAKE) makedir
+	$(MAKE) makebin
+
+makedir:
+	mkdir -p $(BUILD_DIR)
+
+makebin: $(BINNAME)
+	@echo "Complete making."
+
+
+$(BINNAME): $(BUILD_DIR)/$(BINNAME).o $(patsubst %,$(BUILD_DIR)/%,$(OBJS)) $(LIBS)
+	$(LD) $(LDFLAGS) $(ADDITIONAL_FFLAGS) -o $@ $^ $(LIBS) $(CONTRIB_LIBS)  $(SCALE_NETCDF_LIBS) $(SCALE_MATHLIB_LIBS) $(SCALE_PAPI_LIBS)
+
+$(BUILD_DIR)/$(BINNAME).o: $(BINNAME).f90 $(patsubst %,$(BUILD_DIR)/%,$(OBJS))
+
+distclean: clean
+	rm -f $(BINNAME)
+
+clean:
+	rm -rf $(BUILD_DIR)
+	rm -f *.nc
+
+.SUFFIXES:
+.SUFFIXES: .o .f90 .mod
+
+%.mod: %.f90
+	$(MAKE) $(patsubst %.f90,%.o,$<)
+
+$(BUILD_DIR)/%.o: %.f90
+	$(FC) $(FFLAGS) $(ADDITIONAL_FFLAGS) -DVERSION_MACRO=\"$(VERSION)\" -I$(BUILD_DIR) -I$(MODDIR) $(CONTRIB_INCLUDE) -I$(SCALEFELIBDIR)/include  $(SCALE_NETCDF_INCLUDE) $(MODDIROPT) $(BUILD_DIR) -o $@ -c $<
+
+run: jobshell
+	@if [ $(JOBSUB) = "pjsub" ]; then \
+		JID=$$($(JOBSUB) -z jid run.sh $(JOBSUB_OPTION)); if [ $$? -ne 0 ]; then exit 1; fi; \
+		echo "$(JOBSUB) run.sh (job id=$$JID) .."; \
+		set -- `pjwait $$JID`; if [ $$2 != "0" -o $$3 != "0" ]; then exit 1; fi; \
+	else \
+		echo "$(JOBSUB) run.sh"; \
+		$(JOBSUB) run.sh $(JOBSUB_OPTION); \
+	fi
+
+jobshell: export ADDITIONAL_CONF := $(ADDITIONAL_CONF)
+jobshell: export OMP_NUM_THREADS := $(OMP_NUM_THREADS)
+jobshell:
+	@if [ -f $(SYSDEP_DIR)/Mkjobshell.$(SCALE_FE_SYS).sh ]; then \
+		bash $(SYSDEP_DIR)/Mkjobshell.$(SCALE_FE_SYS).sh $(MPIEXEC) $(BINDIR2)            \
+		                                              $(PPNAME) $(INITNAME) $(BINNAME) \
+		                                              $(PPCONF) $(INITCONF) $(RUNCONF) \
+		                                              $(TPROC)                         \
+		                                              $(DATPARAM) $(DATDISTS);         \
+	else \
+		bash $(TOPDIR)/sysdep/Mkjobshell.$(SCALE_FE_SYS).sh $(MPIEXEC) $(BINDIR2)         \
+		                                              $(PPNAME) $(INITNAME) $(BINNAME) \
+		                                              $(PPCONF) $(INITCONF) $(RUNCONF) \
+		                                              $(TPROC)                         \
+		                                              $(DATPARAM) $(DATDISTS);         \
+	fi
+
+.PHONY : clean distclean allclean
+
+include $(TOPDIR)/utils/make/Make_environments

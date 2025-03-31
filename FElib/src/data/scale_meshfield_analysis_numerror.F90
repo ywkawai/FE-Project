@@ -1,10 +1,10 @@
 !-------------------------------------------------------------------------------
-!> module meshfield_analysis_numerror_base
+!> module FElib / Data / Statistics / numerical error
 !!
 !! @par Description
 !!           This module provides classes to evaluate numerical error for 1D, 2D, and 3D fields
 !!
-!! @author Team SCALE
+!! @author Yuta Kawai, Team SCALE
 !!
 !<
 !-------------------------------------------------------------------------------

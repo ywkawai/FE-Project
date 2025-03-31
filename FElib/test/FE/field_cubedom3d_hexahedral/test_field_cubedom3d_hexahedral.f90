@@ -59,7 +59,7 @@ program test_field3d
   type(MeshField3D), target :: dudx
   type(MeshField3D), target :: dudy
   type(MeshField3D), target :: dudz
-  integer :: HST_ID(5)
+  integer, save :: HST_ID(5)
 
   type(MeshFieldCommCubeDom3D) :: fields_comm
 

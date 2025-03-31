@@ -1,3 +1,11 @@
+!-------------------------------------------------------------------------------
+!> module FElib / Mesh / Base 3D
+!!
+!! @par Description
+!!      Base module to manage 3D meshes for element-based methods
+!!
+!! @author Yuta Kawai, Team SCALE
+!<
 #include "scaleFElib.h"
 module scale_mesh_base3d
 
@@ -67,15 +75,15 @@ module scale_mesh_base3d
   !
   !++ Public parameters & variables
   !
-  integer, public :: MeshBase3D_DIMTYPE_NUM    = 8
-  integer, public :: MeshBase3D_DIMTYPEID_X    = 1
-  integer, public :: MeshBase3D_DIMTYPEID_Y    = 2
-  integer, public :: MeshBase3D_DIMTYPEID_Z    = 3
-  integer, public :: MeshBase3D_DIMTYPEID_ZT   = 4
-  integer, public :: MeshBase3D_DIMTYPEID_XY   = 5
-  integer, public :: MeshBase3D_DIMTYPEID_XYT  = 6
-  integer, public :: MeshBase3D_DIMTYPEID_XYZ  = 7
-  integer, public :: MeshBase3D_DIMTYPEID_XYZT = 8
+  integer, public :: MESHBASE3D_DIMTYPE_NUM    = 8
+  integer, public :: MESHBASE3D_DIMTYPEID_X    = 1
+  integer, public :: MESHBASE3D_DIMTYPEID_Y    = 2
+  integer, public :: MESHBASE3D_DIMTYPEID_Z    = 3
+  integer, public :: MESHBASE3D_DIMTYPEID_ZT   = 4
+  integer, public :: MESHBASE3D_DIMTYPEID_XY   = 5
+  integer, public :: MESHBASE3D_DIMTYPEID_XYT  = 6
+  integer, public :: MESHBASE3D_DIMTYPEID_XYZ  = 7
+  integer, public :: MESHBASE3D_DIMTYPEID_XYZT = 8
   
   !-----------------------------------------------------------------------------
   !
@@ -88,6 +96,7 @@ module scale_mesh_base3d
   !
 
 contains
+!OCL SERIAL
   subroutine MeshBase3D_Init(this,        &
     refElem, NLocalMeshPerPrc, NsideTile, &
     nproc, myrank )
@@ -106,7 +115,7 @@ contains
     
     this%refElem3D => refElem
     call MeshBase_Init( this,            &
-      MeshBase3D_DIMTYPE_NUM, refElem,   &
+      MESHBASE3D_DIMTYPE_NUM, refElem,   &
       NLocalMeshPerPrc, NsideTile, nproc )
 
     allocate( this%lcmesh_list(this%LOCAL_MESH_NUM) )
@@ -114,22 +123,21 @@ contains
       call LocalMesh3D_Init( this%lcmesh_list(n), n, refElem, myrank )
     end do
 
-    call this%SetDimInfo( MeshBase3D_DIMTYPEID_X, "x", "m", "X-coordinate" )
-    call this%SetDimInfo( MeshBase3D_DIMTYPEID_Y, "y", "m", "Y-coordinate" )
-    call this%SetDimInfo( MeshBase3D_DIMTYPEID_Z, "z", "m", "Z-coordinate" )
-    call this%SetDimInfo( MeshBase3D_DIMTYPEID_ZT, "z", "m", "Z-coordinate" )
-    call this%SetDimInfo( MeshBase3D_DIMTYPEID_XY, "xy", "m", "XY-coordinate" )
-    call this%SetDimInfo( MeshBase3D_DIMTYPEID_XYT, "xyt", "m", "XY-coordinate" )
-    call this%SetDimInfo( MeshBase3D_DIMTYPEID_XYZ, "xyz", "m", "XYZ-coordinate" )
-    call this%SetDimInfo( MeshBase3D_DIMTYPEID_XYZT, "xyzt", "m", "XYZ-coordinate" )
+    call this%SetDimInfo( MESHBASE3D_DIMTYPEID_X, "x", "m", "X-coordinate" )
+    call this%SetDimInfo( MESHBASE3D_DIMTYPEID_Y, "y", "m", "Y-coordinate" )
+    call this%SetDimInfo( MESHBASE3D_DIMTYPEID_Z, "z", "m", "Z-coordinate" )
+    call this%SetDimInfo( MESHBASE3D_DIMTYPEID_ZT, "z", "m", "Z-coordinate" )
+    call this%SetDimInfo( MESHBASE3D_DIMTYPEID_XY, "xy", "m", "XY-coordinate" )
+    call this%SetDimInfo( MESHBASE3D_DIMTYPEID_XYT, "xyt", "m", "XY-coordinate" )
+    call this%SetDimInfo( MESHBASE3D_DIMTYPEID_XYZ, "xyz", "m", "XYZ-coordinate" )
+    call this%SetDimInfo( MESHBASE3D_DIMTYPEID_XYZT, "xyzt", "m", "XYZ-coordinate" )
 
     return
   end subroutine MeshBase3D_Init
 
+!OCL SERIAL
   subroutine MeshBase3D_Final( this )
-    
     implicit none
-
     class(MeshBase3D), intent(inout) :: this
 
     integer :: n
@@ -148,6 +156,7 @@ contains
     return
   end subroutine MeshBase3D_Final
   
+!OCL SERIAL
   subroutine MeshBase3D_get_localmesh( this, id, ptr_lcmesh )
     use scale_localmesh_base, only: LocalMeshBase
     implicit none
@@ -161,6 +170,7 @@ contains
     return
   end subroutine MeshBase3D_get_localmesh
 
+!OCL SERIAL
   subroutine MeshBase3D_setGeometricInfo( lcmesh, coord_conv, calc_normal )
     implicit none
     
@@ -197,7 +207,7 @@ contains
     integer :: fmask(lcmesh%refElem%NfpTot)
     integer :: fid_h(lcmesh%refElem3D%Nfp_h,lcmesh%refElem3D%Nfaces_h)
     integer :: fid_v(lcmesh%refElem3D%Nfp_v,lcmesh%refElem3D%Nfaces_v)
-    real(DP) :: Escale_f(lcmesh%refElem%NfpTot,3,3)
+    real(RP) :: Escale_f(lcmesh%refElem%NfpTot,3,3)
 
     integer :: node_ids(lcmesh%refElem%Nv)
     real(RP) :: vx(lcmesh%refElem%Nv), vy(lcmesh%refElem%Nv), vz(lcmesh%refElem%Nv)    
@@ -313,6 +323,7 @@ contains
     lcmesh%G_ij  (:,:,2,2) = 1.0_RP
     lcmesh%GI3   (:,:,1)   = 0.0_RP
     lcmesh%GI3   (:,:,2)   = 0.0_RP
+    lcmesh%gam   (:,:)     = 1.0_RP
     !$omp end workshare
 
     !$omp end parallel

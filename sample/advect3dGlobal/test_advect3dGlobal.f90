@@ -59,34 +59,31 @@ program test_advect3dGlobal
 
   ! The type of initial q (gaussian-hill, cosine-bell, top-hat)
   character(len=H_SHORT) :: InitShapeName
-  real(RP) :: InitShapeParams(4)
+  real(RP), save :: InitShapeParams(4)
   ! The type of specified velocify field (rigid-body-rot)
   character(len=H_SHORT) :: VelTypeName 
-  real(RP) :: VelTypeParams(4)
+  real(RP), save :: VelTypeParams(4)
   
   type(HexahedralElement) :: refElem
   integer :: PolyOrder_h
   integer :: PolyOrder_v
-  logical, parameter :: LumpedMassMatFlag = .false.
   logical :: InitCond_GalerkinProjFlag 
-  integer, parameter :: PolyOrderErrorCheck = 6
-  type(sparsemat) :: Dx, Sx, Dy, Sy, Dz, Sz, Lift
+  type(sparsemat) :: Dx, Dy, Dz, Lift
   
   type(MeshCubedSphereDom3D), target :: mesh
   type(MeshField3D), target :: q, qexact  
   type(MeshField3D), target :: U, V, W
   type(MeshField3D), target :: Vellon, Vellat
   type(MeshFieldCommCubedSphereDom3D) :: prgvars_comm
-  type(MeshFieldContainer) :: prgvars_comm_vars(1)  
+  type(MeshFieldContainer), save :: prgvars_comm_vars(1)  
   type(MeshFieldCommCubedSphereDom3D) :: auxvars_comm
-  type(MeshFieldContainer) :: auxvars_comm_vars(3)  
+  type(MeshFieldContainer), save :: auxvars_comm_vars(3)  
 
-  integer :: HST_ID(7)
+  integer, save :: HST_ID(7)
 
   integer :: n, ke, p
   type(LocalMesh3D), pointer :: lcmesh
   
-  character(len=H_SHORT) :: TINTEG_SCHEME_TYPE
   type(timeint_rk), allocatable :: tinteg_lc(:)
   integer :: nowstep
   integer :: rkstage
@@ -94,23 +91,18 @@ program test_advect3dGlobal
   integer, parameter :: RKVAR_Q = 1
   real(RP) :: tsec_
 
+  integer :: PolyOrderErrorCheck
   real(RP), allocatable :: IntrpMat(:,:)
-  real(RP) :: intw_intrp(PolyOrderErrorCheck**3)
-  real(RP) :: x_intrp(PolyOrderErrorCheck**3)
-  real(RP) :: y_intrp(PolyOrderErrorCheck**3)
-  real(RP) :: z_intrp(PolyOrderErrorCheck**3)
-
+  real(RP), allocatable :: intw_intrp(:)
+  real(RP), allocatable :: x_intrp(:)
+  real(RP), allocatable :: y_intrp(:)
+  real(RP), allocatable :: z_intrp(:)
   integer :: nstep_eval_error
   !-------------------------------------------------------
 
   call init()
   call set_initcond()
-  
-  prgvars_comm_vars(1)%field3d => q
-  auxvars_comm_vars(1)%field3d => W
-  auxvars_comm_vars(2)%field3d => U
-  auxvars_comm_vars(3)%field3d => V
-  
+    
   do nowstep=1, TIME_NSTEP
     do rkstage=1, tinteg_lc(1)%nstage
       tsec_ =  ( dble(nowstep-1) + tinteg_lc(1)%coef_c_ex(rkstage) ) * TIME_DTSEC
@@ -476,6 +468,8 @@ contains
         
     implicit none
 
+    logical, parameter :: LumpedMassMatFlag = .false.
+    character(len=H_SHORT) :: TINTEG_SCHEME_TYPE
     namelist /PARAM_TEST/ &
       NeGX, NeGY, NeGZ, NLocalMeshPerPrc, &
       PolyOrder_h, PolyOrder_v,           &
@@ -484,6 +478,7 @@ contains
       InitShapeName, InitShapeParams,     &
       InitCond_GalerkinProjFlag,          &      
       VelTypeName, VelTypeParams,         &
+      PolyOrderErrorCheck,                &
       nstep_eval_error
     
     character(len=H_LONG) :: cnf_fname  ! config file for launcher
@@ -518,7 +513,8 @@ contains
     VelTypeName        = 'const'
     InitCond_GalerkinProjFlag = .false.
     VelTypeParams(:)   = (/ 1.0_RP, 1.0_RP, 0.0_RP, 0.0_RP /)
-    nstep_eval_error = 5
+    PolyOrderErrorCheck = 6
+    nstep_eval_error    = 5
 
     rewind(IO_FID_CONF)
     read(IO_FID_CONF,nml=PARAM_TEST,iostat=ierr)
@@ -545,13 +541,10 @@ contains
     !------   
     
     call refElem%Init(PolyOrder_h, PolyOrder_v, LumpedMassMatFlag)
-    call Dx%Init(refElem%Dx1)
-    call Sx%Init(refElem%Sx1)
-    call Dy%Init(refElem%Dx2)
-    call Sy%Init(refElem%Sx2)
-    call Dz%Init(refElem%Dx3)
-    call Sz%Init(refElem%Sx3)
-    call Lift%Init(refElem%Lift)
+    call Dx%Init(refElem%Dx1, storage_format='ELL')
+    call Dy%Init(refElem%Dx2, storage_format='ELL')
+    call Dz%Init(refElem%Dx3, storage_format='ELL')
+    call Lift%Init(refElem%Lift, storage_format='ELL')
 
     call mesh%Init( &
       NeGX, NeGY, NeGz, RPlanet, dom_zmin, dom_zmax, &
@@ -576,7 +569,11 @@ contains
 
     call prgvars_comm%Init(1, 0, 0, mesh)
     call auxvars_comm%Init(1, 1, 0, mesh)
-    
+    prgvars_comm_vars(1)%field3d => q
+    auxvars_comm_vars(1)%field3d => W
+    auxvars_comm_vars(2)%field3d => U
+    auxvars_comm_vars(3)%field3d => V
+      
     call Vellon%Init( "Vellon", "m/s", mesh )
     call Vellat%Init( "Vellat", "m/s", mesh )
 
@@ -591,6 +588,7 @@ contains
     call FILE_HISTORY_reg( Vellat%varname, "Vellat", Vellat%unit, HST_ID(7), dim_type='XYZ')
 
     allocate( IntrpMat(PolyOrderErrorCheck**3,(PolyOrder_h+1)**2*(PolyOrder_v+1)) )
+    allocate( intw_intrp(PolyOrderErrorCheck**3), x_intrp(PolyOrderErrorCheck**3), y_intrp(PolyOrderErrorCheck**3), z_intrp(PolyOrderErrorCheck**3) )
     IntrpMat(:,:) = refElem%GenIntGaussLegendreIntrpMat( PolyOrderErrorCheck,                   & ! (in)
                                                          intw_intrp, x_intrp, y_intrp, z_intrp )  ! (out)
 
@@ -625,12 +623,7 @@ contains
     call auxvars_comm%Final()
     call mesh%Final()
     
-    call Dx%Final()
-    call Sx%Final()
-    call Dy%Final()
-    call Sy%Final()
-    call Dz%Final()
-    call Sz%Final()
+    call Dx%Final(); call Dy%Final(); call Dz%Final()
     call Lift%Final()
     call refElem%Final()
     

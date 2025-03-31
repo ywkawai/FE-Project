@@ -1,10 +1,10 @@
 !-------------------------------------------------------------------------------
-!> module Mesh / Cubic 3D domain
+!> module FElib / Mesh / Cubic 3D domain
 !!
 !! @par Description
-!!      Mangage mesh data of cubic 3D domain for element-based methods
+!!      Manage mesh data of cubic 3D domain for element-based methods
 !!
-!! @author Team SCALE
+!! @author Yuta Kawai, Team SCALE
 !<
 #include "scaleFElib.h"
 module scale_mesh_cubedom3d
@@ -26,7 +26,7 @@ module scale_mesh_cubedom3d
 
   use scale_localmesh_3d, only: &
     LocalMesh3D
-  use scale_element_base, only: elementbase3D
+  use scale_element_base, only: ElementBase3D
   use scale_element_hexahedral, only: HexahedralElement
 
   use scale_mesh_rectdom2d, only: &
@@ -517,7 +517,7 @@ contains
 
     implicit none
 
-    type(elementbase3D), intent(in) :: elem
+    type(ElementBase3D), intent(in) :: elem
     real(RP), intent(out) :: x(elem%Np), y(elem%Np), z(elem%Np)
     real(RP), intent(out) :: xX(elem%Np), xY(elem%Np), xZ(elem%Np)
     real(RP), intent(out) :: yX(elem%Np), yY(elem%Np), yZ(elem%Np)
@@ -549,7 +549,7 @@ contains
 
     implicit none
 
-    type(elementbase3D), intent(in) :: elem
+    type(ElementBase3D), intent(in) :: elem
     real(RP), intent(out) :: normal_fn(elem%NfpTot,3)
     integer, intent(in) :: fid_h(elem%Nfp_h,elem%Nfaces_h)
     integer, intent(in) :: fid_v(elem%Nfp_v,elem%Nfaces_v)        

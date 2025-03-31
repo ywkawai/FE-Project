@@ -1,9 +1,9 @@
-!> module FElib/ Element / Base
+!> module FElib / Element / Base
 !!
 !! @par Description
 !!           A base module for finite element
 !!
-!! @author Team SCALE
+!! @author Yuta Kawai, Team SCALE
 !!
 !<
 !-------------------------------------------------------------------------------
@@ -38,12 +38,14 @@ module scale_element_base
     real(RP), allocatable :: M(:,:)
     real(RP), allocatable :: invM(:,:)
     real(RP), allocatable :: Lift(:,:)
-    real(RP), allocatable :: Filter(:,:)
     real(RP), allocatable :: IntWeight_lgl(:)
   contains
     procedure :: IsLumpedMatrix => ElementBase_isLumpedMatrix
   end type ElementBase
-  
+  public :: ElementBase_construct_MassMat
+  public :: ElementBase_construct_StiffMat
+  public :: ElementBase_construct_LiftMat
+
   !- 1D
 
   type, public, extends(ElementBase) :: ElementBase1D
@@ -142,6 +144,8 @@ module scale_element_base
   private :: ElementBase_Final
 
 contains
+  !-- Base Element ------------------------------------------------------------------------------
+
 !OCL SERIAL
   subroutine ElementBase_Init( elem, lumpedmat_flag )
     implicit none
@@ -157,7 +161,6 @@ contains
     allocate( elem%Lift(elem%Np, elem%NfpTot) )    
     
     allocate( elem%IntWeight_lgl(elem%Np) )  
-    allocate( elem%Filter(elem%Np, elem%Np))
 
     elem%LumpedMatFlag = lumpedmat_flag
 
@@ -178,7 +181,6 @@ contains
       deallocate( elem%invV )
       deallocate( elem%Lift )
       deallocate( elem%IntWeight_lgl )
-      deallocate( elem%Filter )
     end if
 
     return
@@ -195,7 +197,74 @@ contains
     return
   end function ElementBase_isLumpedMatrix
 
-  !--------------------------------------------------------------------------------
+
+!> Construct mass matrix
+!!  M^-1 = V V^T
+!!  M = ( M^-1 )^-1
+!OCL SERIAL
+  subroutine ElementBase_construct_MassMat( V, Np, &
+    MassMat, invMassMat )
+    use scale_linalgebra, only: linalgebra_inv
+    implicit none
+    integer, intent(in) :: Np
+    real(RP), intent(in) :: V(Np,Np)
+    real(RP), intent(out) :: MassMat(Np,Np)
+    real(RP), intent(out), optional :: invMassMat(Np,Np)
+
+    real(RP) :: tmpMat(Np,Np)
+    real(RP) :: invM(Np,Np)
+    !------------------------------------
+
+    tmpMat(:,:) = transpose(V)
+    invM(:,:) = matmul( V, tmpMat )
+    MassMat(:,:) = linAlgebra_inv( invM )
+
+    if ( present(invMassMat) ) invMassMat(:,:) = invM(:,:)
+    return
+  end subroutine ElementBase_construct_MassMat
+
+!> Construct stiffness matrix
+!!  StiffMat_i = M^-1 ( M D_xi )^T
+!OCL SERIAL
+  subroutine ElementBase_construct_StiffMat( MassMat, invMassMat, DMat, Np, &
+      StiffMat )
+    implicit none
+    integer, intent(in) :: Np
+    real(RP), intent(in) :: MassMat(Np,Np)
+    real(RP), intent(in) :: invMassMat(Np,Np)
+    real(RP), intent(in) :: DMat(Np,Np)
+    real(RP), intent(out) :: StiffMat(Np,Np)
+
+    real(RP) :: tmpMat1(Np,Np)
+    real(RP) :: tmpMat2(Np,Np)
+    !------------------------------------
+
+    tmpMat1(:,:) = matmul( MassMat, DMat )
+    tmpMat2(:,:) = transpose( tmpMat1 )
+    StiffMat(:,:) = matmul( invMassMat, tmpMat2 )
+
+    return
+  end subroutine ElementBase_construct_StiffMat
+
+!> Construct stiffness matrix
+!!  StiffMat_i = M^-1 ( M D_xi )^T
+!OCL SERIAL
+  subroutine ElementBase_construct_LiftMat( invM, EMat, Np, NfpTot, &
+      LiftMat )
+    implicit none
+    integer, intent(in) :: Np
+    integer, intent(in) :: NfpTot
+    real(RP), intent(in) :: invM(Np,Np)
+    real(RP), intent(in) :: EMat(Np,NfpTot)
+    real(RP), intent(out) :: LiftMat(Np,NfpTot)
+    !------------------------------------
+
+    LiftMat(:,:) = matmul( invM, EMat )
+    return
+  end subroutine ElementBase_construct_LiftMat 
+
+  !-- 1D Element ------------------------------------------------------------------------------
+
 !OCL SERIAL
   subroutine ElementBase1D_Init( elem, lumpedmat_flag )
     implicit none
@@ -233,6 +302,8 @@ contains
 
     return
   end subroutine ElementBase1D_Final
+
+  !-- 2D Element ------------------------------------------------------------------------------
 
 !OCL SERIAL
   subroutine ElementBase2D_Init( elem, lumpedmat_flag )
@@ -273,6 +344,8 @@ contains
     return
   end subroutine ElementBase2D_Final
 
+  !-- 3D Element ------------------------------------------------------------------------------
+  
 !OCL SERIAL
   subroutine ElementBase3D_Init( elem, lumpedmat_flag )
     implicit none

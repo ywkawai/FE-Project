@@ -1,3 +1,12 @@
+!> module common / Polygon
+!!
+!! @par Description
+!!      A module to provide utilities for polygon
+!!
+!! @par Reference
+!!
+!! @author Yuta Kawai, Team SCALE
+!!
 #include "scaleFElib.h"
 module scale_polygon
   !-----------------------------------------------------------------------------

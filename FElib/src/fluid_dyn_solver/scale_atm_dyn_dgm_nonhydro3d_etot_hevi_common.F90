@@ -5,7 +5,7 @@
 !!      HEVI DGM scheme for Atmospheric dynamical process
 !!      As the thermodynamics equation, a total energy equation is used.
 !!
-!! @author Team SCALE
+!! @author Yuta Kawai, Team SCALE
 !<
 !-------------------------------------------------------------------------------
 #include "scaleFElib.h"
@@ -48,11 +48,7 @@ module scale_atm_dyn_dgm_nonhydro3d_etot_hevi_common
   !-----------------------------------------------------------------------------
   !
   !++ Public procedures
-  !
-
-
-  
-  public :: atm_dyn_dgm_nonhydro3d_etot_hevi_common_gen_vmap
+  !  
   public :: atm_dyn_dgm_nonhydro3d_etot_hevi_common_eval_Ax
   public :: atm_dyn_dgm_nonhydro3d_etot_hevi_common_eval_Ax_uv
   public :: atm_dyn_dgm_nonhydro3d_etot_hevi_common_construct_matbnd
@@ -75,53 +71,6 @@ module scale_atm_dyn_dgm_nonhydro3d_etot_hevi_common
 contains
   !------------------------------------------------
 
-!OCL SERIAL
-  subroutine atm_dyn_dgm_nonhydro3d_etot_hevi_common_gen_vmap( &
-    vmapM, vmapP, & ! (out)
-    lmesh, elem   ) ! (in)
-    implicit none
-    class(LocalMesh3D), intent(in) :: lmesh
-    class(elementbase3D), intent(in) :: elem
-    integer, intent(out) :: vmapM(elem%NfpTot,lmesh%NeZ)
-    integer, intent(out) :: vmapP(elem%NfpTot,lmesh%NeZ)    
-
-    integer :: ke_z
-    integer :: f
-    integer :: vs, ve
-    !-------------------------------------------------------
-
-    !$omp parallel private(f, vs, ve)
-    !$omp do
-    do ke_z=1, lmesh%NeZ
-      do f=1, elem%Nfaces_h
-        vs = 1 + (f-1)*elem%Nfp_h
-        ve = vs + elem%Nfp_h - 1
-        vmapM(vs:ve,ke_z) = elem%Fmask_h(:,f) + (ke_z-1)*elem%Np
-      end do
-      do f=1, elem%Nfaces_v
-        vs = elem%Nfp_h*elem%Nfaces_h + 1 + (f-1)*elem%Nfp_v
-        ve = vs + elem%Nfp_v - 1
-        vmapM(vs:ve,ke_z) = elem%Fmask_v(:,f) + (ke_z-1)*elem%Np
-      end do
-      vmapP(:,ke_z) = vmapM(:,ke_z)
-    end do
-    !$omp do
-    do ke_z=1, lmesh%NeZ
-      vs = elem%Nfp_h*elem%Nfaces_h + 1
-      ve = vs + elem%Nfp_v - 1
-      if (ke_z > 1) &
-        vmapP(vs:ve,ke_z) = elem%Fmask_v(:,2) + (ke_z-2)*elem%Np
-
-      vs = elem%Nfp_h*elem%Nfaces_h + elem%Nfp_v + 1
-      ve = vs + elem%Nfp_v - 1
-      if (ke_z < lmesh%NeZ) &
-        vmapP(vs:ve,ke_z) = elem%Fmask_v(:,1) + ke_z*elem%Np
-    end do
-    !$omp end parallel
-
-    return
-  end subroutine atm_dyn_dgm_nonhydro3d_etot_hevi_common_gen_vmap
-
 !OCL SERIAL  
   subroutine atm_dyn_dgm_nonhydro3d_etot_hevi_common_eval_Ax( &
     DENS_t, MOMZ_t, ETOT_t,                                  & ! (out)
@@ -132,7 +81,6 @@ contains
     Rtot, CPtot_ov_CVtot,                                    & ! (in)
     Dz, Lift, IntrpMat_VPOrdM1,                              & ! (in)
     GnnM, G13, G23, GsqrtV,                                  & ! (in)
-    modalFilterFlag, VModalFilter,                           & ! (in)
     impl_fac, dt,                                            & ! (in)
     lmesh, elem,                                             & ! (in)
     nz, vmapM, vmapP,                                        & ! (in)
@@ -141,7 +89,7 @@ contains
     implicit none
 
     class(LocalMesh3D), intent(in) :: lmesh
-    class(elementbase3D), intent(in) :: elem
+    class(ElementBase3D), intent(in) :: elem
     real(RP), intent(out) :: DENS_t(elem%Np,lmesh%NeA)
     real(RP), intent(out) :: MOMZ_t(elem%Np,lmesh%NeA)
     real(RP), intent(out) :: ETOT_t(elem%Np,lmesh%NeA)
@@ -165,8 +113,6 @@ contains
     real(RP), intent(in) :: G13 (elem%Np,lmesh%NeZ,lmesh%NeX*lmesh%NeY)
     real(RP), intent(in) :: G23 (elem%Np,lmesh%NeZ,lmesh%NeX*lmesh%NeY)
     real(RP), intent(in) :: GsqrtV(elem%Np,lmesh%NeZ,lmesh%NeX*lmesh%NeY)
-    logical, intent(in) :: modalFilterFlag
-    real(RP), intent(in) :: VModalFilter(elem%Nnode_v,elem%Nnode_v)    
     real(RP), intent(in) :: impl_fac
     real(RP), intent(in) :: dt
     real(RP), intent(in) :: nz(elem%NfpTot,lmesh%NeZ,lmesh%NeX*lmesh%NeY)
@@ -247,30 +193,6 @@ contains
     end do
     !$omp end do
 
-    if ( modalFilterFlag ) then
-      !$omp do collapse(2)
-      do ke_xy=1, lmesh%NeX*lmesh%NeY
-      do ke_z=1, lmesh%NeZ
-        ke = ke_xy + (ke_z-1)*lmesh%NeX*lmesh%NeY
-
-          !-- Modal filtering in the vertical direction  
-          do kk=1, elem%Nnode_v
-          do ij=1, elem%Nnode_h1D**2
-            p = elem%Colmask(kk,ij)
-            do kkk=1, elem%Nnode_v
-              pp = elem%Colmask(kkk,ij)
-              vmf_v = rdt * VModalFilter(kk,kkk)
-              DENS_t(p,ke) = DENS_t(p,ke) + vmf_v * PROG_VARS(pp,ke_z,DENS_VID,ke_xy)
-              MOMZ_t(p,ke) = MOMZ_t(p,ke) + vmf_v * PROG_VARS(pp,ke_z,MOMZ_VID,ke_xy)
-              ETOT_t(p,ke) = ETOT_t(p,ke) + vmf_v * PROG_VARS(pp,ke_z,ETOT_VID,ke_xy)
-            end do
-          end do
-          end do
-      end do
-      end do
-    !$omp end do 
-    end if
-
     if ( present( b1D_ij ) ) then
       !$omp do collapse(2)
       do ke_xy=1, lmesh%NeX*lmesh%NeY
@@ -308,7 +230,6 @@ contains
     Rtot, CPtot_ov_CVtot,                                    & ! (in)
     Dz, Lift, IntrpMat_VPOrdM1,                              & ! (in)
     GnnM, G13, G23, GsqrtV,                                  & ! (in)
-    modalFilterFlag, VModalFilter,                           & ! (in)
     impl_fac, dt,                                            & ! (in)
     lmesh, elem,                                             & ! (in)
     nz, vmapM, vmapP,                                        & ! (in)
@@ -317,7 +238,7 @@ contains
     implicit none
 
     class(LocalMesh3D), intent(in) :: lmesh
-    class(elementbase3D), intent(in) :: elem
+    class(ElementBase3D), intent(in) :: elem
     real(RP), intent(out) :: MOMX_t(elem%Np,lmesh%NeA)
     real(RP), intent(out) :: MOMY_t(elem%Np,lmesh%NeA)
     real(RP), intent(out) :: alph(elem%NfpTot,lmesh%NeZ,lmesh%NeX*lmesh%NeY)
@@ -340,8 +261,6 @@ contains
     real(RP), intent(in) :: G13 (elem%Np,lmesh%NeZ,lmesh%NeX*lmesh%NeY)
     real(RP), intent(in) :: G23 (elem%Np,lmesh%NeZ,lmesh%NeX*lmesh%NeY)
     real(RP), intent(in) :: GsqrtV(elem%Np,lmesh%NeZ,lmesh%NeX*lmesh%NeY)
-    logical, intent(in) :: modalFilterFlag
-    real(RP), intent(in) :: VModalFilter(elem%Nnode_v,elem%Nnode_v)    
     real(RP), intent(in) :: impl_fac
     real(RP), intent(in) :: dt
     real(RP), intent(in) :: nz(elem%NfpTot,lmesh%NeZ,lmesh%NeX*lmesh%NeY)
@@ -398,29 +317,6 @@ contains
     end do
     !$omp end do
 
-    if ( modalFilterFlag ) then
-      !$omp do collapse(2)
-      do ke_xy=1, lmesh%NeX*lmesh%NeY
-      do ke_z=1, lmesh%NeZ
-        ke = ke_xy + (ke_z-1)*lmesh%NeX*lmesh%NeY
-
-          !-- Modal filtering in the vertical direction  
-          do kk=1, elem%Nnode_v
-          do ij=1, elem%Nnode_h1D**2
-            p = elem%Colmask(kk,ij)
-            do kkk=1, elem%Nnode_v
-              pp = elem%Colmask(kkk,ij)
-              vmf_v = rdt * VModalFilter(kk,kkk)
-              MOMX_t(p,ke) = MOMX_t(p,ke) + vmf_v * PROG_VARS(pp,ke_z,MOMX_VID,ke_xy)
-              MOMY_t(p,ke) = MOMY_t(p,ke) + vmf_v * PROG_VARS(pp,ke_z,MOMY_VID,ke_xy)
-            end do
-          end do
-          end do
-      end do
-      end do
-    !$omp end do 
-    end if
-
     if ( present( b1D_ij_uv ) ) then
       !$omp do collapse(2)
       do ke_xy=1, lmesh%NeX*lmesh%NeY
@@ -453,7 +349,6 @@ contains
     G13, G23, GsqrtV, alph,                 & ! (in)
     Rtot, CPtot_ov_CVtot, GeoPot,           & ! (in)
     Dz, Lift, IntrpMat_VPOrdM1,             & ! (in)
-    modalFilterFlag, VModalFilter,          & ! (in)
     impl_fac, dt,                           & ! (in)
     lmesh, elem,                            & ! (in)
     nz, vmapM, vmapP, ke_x, ke_y )            ! (in)
@@ -461,7 +356,7 @@ contains
     implicit none
 
     class(LocalMesh3D), intent(in) :: lmesh
-    class(elementbase3D), intent(in) :: elem
+    class(ElementBase3D), intent(in) :: elem
     integer, intent(in) :: kl, ku, nz_1D
     real(RP), intent(out) :: PmatBnd(2*kl+ku+1,3,elem%Nnode_v,lmesh%NeZ,elem%Nnode_h1D**2)
     real(RP), intent(in)  :: PROG_VARS0(elem%Np,lmesh%NeZ,PRGVAR_NUM)
@@ -477,8 +372,6 @@ contains
     real(RP), intent(in) ::  GeoPot(elem%Np,lmesh%NeZ)
     class(SparseMat), intent(in) :: Dz, Lift
     real(RP), intent(in) :: IntrpMat_VPOrdM1(elem%Np,elem%Np)
-    logical, intent(in) :: modalFilterFlag
-    real(RP), intent(in) :: VModalFilter(elem%Nnode_v,elem%Nnode_v)
     real(RP), intent(in) :: impl_fac
     real(RP), intent(in) :: dt
     real(RP), intent(in) :: nz(elem%NfpTot,lmesh%NeZ)
@@ -592,11 +485,7 @@ contains
         fac_dz_p(:) = impl_fac * lmesh%Escale(Colmask(:),ke,3,3) / GsqrtV(Colmask(:),ke_z) &
                     * elem%Dx3(Colmask(:),Colmask(p))
         
-        if (modalFilterFlag) then
-          Dd(:) = Id(:,p) - VModalFilter(:,p) * impl_fac / dt
-        else
-          Dd(:) = Id(:,p)
-        end if
+        Dd(:) = Id(:,p)
 
         ! DDENS
         PmatD(:,p,DENS_VID_LC,DENS_VID_LC) = Dd(:)
@@ -740,7 +629,6 @@ contains
     G13, G23, GsqrtV, alph,                 & ! (in)
     Rtot, CPtot_ov_CVtot, GeoPot,           & ! (in)
     Dz, Lift, IntrpMat_VPOrdM1,             & ! (in)
-    modalFilterFlag, VModalFilter,          & ! (in)
     impl_fac, dt,                           & ! (in)
     lmesh, elem,                            & ! (in)
     nz, vmapM, vmapP, ke_x, ke_y )            ! (in)
@@ -748,7 +636,7 @@ contains
     implicit none
 
     class(LocalMesh3D), intent(in) :: lmesh
-    class(elementbase3D), intent(in) :: elem
+    class(ElementBase3D), intent(in) :: elem
     integer, intent(in) :: kl_uv, ku_uv, nz_1D_uv
     real(RP), intent(out) :: PmatBnd_uv(2*kl_uv+ku_uv+1,elem%Nnode_v,1,lmesh%NeZ,elem%Nnode_h1D**2)
     real(RP), intent(in)  :: PROG_VARS0(elem%Np,lmesh%NeZ,PRGVAR_NUM)
@@ -764,8 +652,6 @@ contains
     real(RP), intent(in) ::  GeoPot(elem%Np,lmesh%NeZ)
     class(SparseMat), intent(in) :: Dz, Lift
     real(RP), intent(in) :: IntrpMat_VPOrdM1(elem%Np,elem%Np)
-    logical, intent(in) :: modalFilterFlag
-    real(RP), intent(in) :: VModalFilter(elem%Nnode_v,elem%Nnode_v)
     real(RP), intent(in) :: impl_fac
     real(RP), intent(in) :: dt
     real(RP), intent(in) :: nz(elem%NfpTot,lmesh%NeZ)
@@ -830,11 +716,8 @@ contains
 
       !-----  
       do p=1, elem%Nnode_v
-        if (modalFilterFlag) then
-          Dd(:) = Id(:,p) - VModalFilter(:,p) * impl_fac / dt
-        else
-          Dd(:) = Id(:,p)
-        end if
+        Dd(:) = Id(:,p)
+
         ! MOMX, MOMY
         PmatD_uv(:,p) = Dd(:)
       end do
@@ -912,7 +795,7 @@ contains
     implicit none
 
     class(LocalMesh3D), intent(in) :: lmesh
-    class(elementbase3D), intent(in) :: elem  
+    class(ElementBase3D), intent(in) :: elem  
     real(RP), intent(out) ::  del_flux(elem%NfpTot*lmesh%NeZ,lmesh%NeX*lmesh%NeY,PRGVAR_NUM)
     real(RP), intent(in) ::  alph(elem%NfpTot*lmesh%NeZ,lmesh%NeX*lmesh%NeY)
     real(RP), intent(in) ::  PVARS_ (elem%Np*lmesh%NeZ,PRGVAR_NUM,lmesh%NeX*lmesh%NeY)
@@ -1010,7 +893,7 @@ contains
     implicit none
 
     class(LocalMesh3D), intent(in) :: lmesh
-    class(elementbase3D), intent(in) :: elem  
+    class(ElementBase3D), intent(in) :: elem  
     real(RP), intent(out) ::  del_flux(elem%NfpTot*lmesh%NeZ,lmesh%NeX*lmesh%NeY,PRGVAR_NUM)
     real(RP), intent(out) :: alph(elem%NfpTot*lmesh%NeZ,lmesh%NeX*lmesh%NeY)
     real(RP), intent(in) ::  PVARS_ (elem%Np*lmesh%NeZ,PRGVAR_NUM,lmesh%NeX*lmesh%NeY)

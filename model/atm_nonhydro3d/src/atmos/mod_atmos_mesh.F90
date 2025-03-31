@@ -1,4 +1,13 @@
 !-------------------------------------------------------------------------------
+!> module Atmosphere / Mesh
+!!
+!! @par Description
+!!          Base module for mesh with atmospheric model
+!!
+!! @author Yuta kawai, Team SCALE
+!!
+!<
+!-------------------------------------------------------------------------------
 #include "scaleFElib.h"
 module mod_atmos_mesh
   !-----------------------------------------------------------------------------
@@ -38,6 +47,8 @@ module mod_atmos_mesh
 
     type(MeshTopography) :: topography
     integer :: vcoord_type_id
+
+    logical :: comm_use_mpi_pc
   contains
     procedure :: AtmosMesh_Init
     procedure :: AtmosMesh_Final
@@ -122,21 +133,10 @@ contains
     class(AtmosMesh), target, intent(inout) :: this
     class(MeshBase3D), intent(in) :: mesh
 
-    character(len=H_SHORT) :: SpMV_storage_format = 'ELL' ! CSR or ELL
     class(MeshBase2D), pointer :: mesh2D
     !-------------------------------------------
 
     call this%ModelMesh3D_Init( mesh )
-
-    call this%DOptrMat(1)%Init( mesh%refElem3D%Dx1, storage_format=SpMV_storage_format )
-    call this%DOptrMat(2)%Init( mesh%refElem3D%Dx2, storage_format=SpMV_storage_format )
-    call this%DOptrMat(3)%Init( mesh%refElem3D%Dx3, storage_format=SpMV_storage_format )
-
-    call this%SOptrMat(1)%Init( mesh%refElem3D%Sx1, storage_format=SpMV_storage_format )
-    call this%SOptrMat(2)%Init( mesh%refElem3D%Sx2, storage_format=SpMV_storage_format )
-    call this%SOptrMat(3)%Init( mesh%refElem3D%Sx3, storage_format=SpMV_storage_format )
-
-    call this%LiftOptrMat%Init( mesh%refElem3D%Lift, storage_format=SpMV_storage_format )
 
     !-
     call FILE_monitor_meshfield_set_dim( mesh, 'ATM3D' )

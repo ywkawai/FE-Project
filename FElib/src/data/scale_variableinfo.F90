@@ -1,3 +1,11 @@
+!> module FElib / Data / base
+!!
+!! @par Description
+!!           A module for managing information of variable
+!!
+!! @author Yuta Kawai, Team SCALE
+!!
+!<
 #include "scaleFElib.h"
 module scale_variableinfo
   !-----------------------------------------------------------------------------

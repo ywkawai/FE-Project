@@ -2,10 +2,10 @@
 !> Program A sample program: 1-dimensional linear advection test
 !! 
 !! 
-!! @author Team SCALE
+!! @author Yuta Kawai, Team SCALE
 !<
 !-------------------------------------------------------------------------------
-#include "scalelib.h"
+#include "scaleFElib.h"
 program test_advect1d
   !-----------------------------------------------------------------------------
   !
@@ -48,12 +48,13 @@ program test_advect1d
   implicit none
 
   character(len=H_SHORT) :: InitShapeName   !< The type of initial profile (sin, gaussian-hill, cosine-bell, top-hat)
-  real(RP) :: InitShapeParams(2)
+  real(RP), save :: InitShapeParams(2)
   integer :: InitGPMatPolyOrder
   real(RP) :: ADV_VEL                       !< The constant speed of advection
+  logical :: Do_NumErrorAnalysis            !< Flag wheter analysis of numerical error is performed
 
   type(LineElement)  :: refElem
-  type(sparsemat) :: Dx, Sx, Lift
+  type(sparsemat) :: Dx, Lift
 
   type(MeshLineDom1D), target :: mesh
   type(LocalMesh1D), pointer :: lcmesh
@@ -61,17 +62,14 @@ program test_advect1d
 
   type(MeshField1D), target :: q, u, qexact  
   type(MeshFieldComm1D) :: fields_comm
-  type(MeshFieldContainer) :: field_list(2)  
-  integer :: HST_ID(2)
+  type(MeshFieldContainer), save :: field_list(2)  
+  integer, save :: HST_ID(2)
   
-  integer :: nowstep
   real(RP) :: tsec_
   type(timeint_rk), allocatable :: tinteg_lc(:)
   integer :: rkstage
   integer :: tintbuf_ind
   integer, parameter :: RKVAR_Q = 1
-
-  integer :: LOG_STEP_INTERVAL
   !-------------------------------------------------------
 
   call init()
@@ -118,9 +116,11 @@ program test_advect1d
     end do
 
     tsec_ = TIME_DTSEC * real(TIME_NOWSTEP-1, kind=RP)
-    call advect1d_numerror_eval( qexact, & ! (out)
-      q, TIME_NOWSTEP, tsec_, ADV_VEL, InitShapeName, InitShapeParams, & ! (in)
-      mesh, mesh%refElem1D                                             ) ! (in)
+    if ( Do_NumErrorAnalysis ) then
+      call advect1d_numerror_eval( qexact, & ! (out)
+        q, TIME_NOWSTEP, tsec_, ADV_VEL, InitShapeName, InitShapeParams, & ! (in)
+        mesh, mesh%refElem1D                                             ) ! (in)
+    end if
 
     !* Output history file
 
@@ -182,7 +182,7 @@ contains
     implicit none
 
     class(LocalMesh1D), intent(in) :: lmesh
-    class(elementbase1D), intent(in) :: elem  
+    class(ElementBase1D), intent(in) :: elem  
     real(RP), intent(out) ::  ebnd_flux(elem%NfpTot,lmesh%Ne) !< Flux at element boundaries
     real(RP), intent(in) ::  q_(elem%Np*lmesh%NeA)
     real(RP), intent(in) ::  u_(elem%Np*lmesh%NeA)  
@@ -250,14 +250,18 @@ contains
       end do
     end do
   
-    call advect1d_numerror_eval( qexact, & ! (out)
-      q, 1, 0.0_RP, ADV_VEL, InitShapeName, InitShapeParams, & ! (in)
-      mesh, mesh%refElem1D                                   ) ! (in)
+    if ( Do_NumErrorAnalysis ) then
+      call advect1d_numerror_eval( qexact, & ! (out)
+        q, 1, 0.0_RP, ADV_VEL, InitShapeName, InitShapeParams, & ! (in)
+        mesh, mesh%refElem1D                                   ) ! (in)
+    end if
 
     call FILE_HISTORY_meshfield_put( HST_ID(1), q )
     call FILE_HISTORY_meshfield_put( HST_ID(2), qexact )
     call FILE_HISTORY_meshfield_write()   
   
+    call intrpElem%Final()
+
     return
   end subroutine set_initcond
 
@@ -277,7 +281,7 @@ contains
   
     integer            :: NeGX                = 2
     integer            :: PolyOrder           = 1
-    logical, parameter :: DumpedMassMatFlag   = .false.
+    logical, parameter :: LumpedMassMatFlag   = .false.
     character(len=H_SHORT) :: TINTEG_SCHEME_TYPE
 
     namelist /PARAM_TEST/ &
@@ -286,8 +290,8 @@ contains
       InitShapeName, InitShapeParams, &
       InitGPMatPolyOrder,             &
       ADV_VEL,                        &
-      LOG_STEP_INTERVAL
-        
+      Do_NumErrorAnalysis
+      
     integer :: comm, myrank, nprocs
     logical :: ismaster
     integer :: ierr
@@ -321,7 +325,7 @@ contains
     InitGPMatPolyOrder = 7
     ADV_VEL            = 1.0_RP
     TINTEG_SCHEME_TYPE = 'ERK_SSP_3s3o'
-    LOG_STEP_INTERVAL  = 5
+    Do_NumErrorAnalysis = .false.
     
     rewind(IO_FID_CONF)
     read(IO_FID_CONF,nml=PARAM_TEST,iostat=ierr)
@@ -346,9 +350,8 @@ contains
 
     !-- setup reference element and spatial operators
 
-    call refElem%Init(PolyOrder, DumpedMassMatFlag)
+    call refElem%Init(PolyOrder, LumpedMassMatFlag)
     call Dx%Init(refElem%Dx1)
-    call Sx%Init(refElem%Sx1)
     call Lift%Init(refElem%Lift)
 
     !-- setup mesh
@@ -384,7 +387,8 @@ contains
     end do
 
     !-- setup a module for evaluating numerical errors 
-    call advect1d_numerror_Init( refElem )
+    if ( Do_NumErrorAnalysis ) &
+      call advect1d_numerror_Init( refElem )
 
     !-- report information of time intervals
     call TIME_manager_report_timeintervals
@@ -400,11 +404,18 @@ contains
     use scale_time_manager, only: TIME_manager_Final 
     use mod_advect1d_numerror, only: advect1d_numerror_Final   
     implicit none
+    integer :: idom
+    !------------------------------------------------------------------------
 
     call PROF_rapstart( "final", 1 )
-    call advect1d_numerror_Final()
+    if ( Do_NumErrorAnalysis ) &
+      call advect1d_numerror_Final()
 
     call FILE_HISTORY_meshfield_finalize()
+
+    do idom=1, mesh%LOCAL_MESH_NUM
+      call tinteg_lc(idom)%Final()
+    end do
 
     call q%Final()
     call qexact%Final()
@@ -413,7 +424,7 @@ contains
     call fields_comm%Final()
     call mesh%Final()
     
-    call Dx%Final(); call Sx%Final(); call Lift%Final()
+    call Dx%Final(); call Lift%Final()
     call refElem%Final()
     
     call TIME_manager_Final
@@ -425,5 +436,4 @@ contains
 
     return
   end subroutine final
-
 end program test_advect1d

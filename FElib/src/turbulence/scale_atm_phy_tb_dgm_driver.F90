@@ -4,7 +4,7 @@
 !! @par Description
 !!      Driver module for turbulent model based on DGM 
 !!
-!! @author Team SCALE
+!! @author Yuta Kawai, Team SCALE
 !<
 !-------------------------------------------------------------------------------
 #include "scaleFElib.h"
@@ -44,13 +44,15 @@ module scale_atm_phy_tb_dgm_driver
 
   use scale_atm_dyn_dgm_bnd, only: AtmDynBnd
 
+  use scale_atm_phy_tb_dgm_dns, only: &
+    atm_phy_tb_dgm_dns_Init,          &
+    atm_phy_tb_dgm_dns_Final,         &
+    atm_phy_tb_dgm_dns_cal_grad
+
   use scale_atm_phy_tb_dgm_smg, only: &
     atm_phy_tb_dgm_smg_Init,          &
     atm_phy_tb_dgm_smg_Final,         &
-    atm_phy_tb_dgm_smg_cal_grad,      &
-    atm_phy_tb_dgm_smg_cal_tend,      &
-    atm_phy_tb_dgm_smg_cal_grad_qtrc, &
-    atm_phy_tb_dgm_smg_cal_tend_qtrc
+    atm_phy_tb_dgm_smg_cal_grad
 
   use scale_atm_phy_tb_dgm_globalsmg, only: &
     atm_phy_tb_dgm_globalsmg_Init,          &
@@ -67,9 +69,13 @@ module scale_atm_phy_tb_dgm_driver
     MOMZ_VID => PRGVAR_MOMZ_ID,                               &
     AUXVAR_NUM, &
     PRESHYD_VID => AUXVAR_PRESHYDRO_ID, DENSHYD_VID => AUXVAR_DENSHYDRO_ID, &
-    PRES_VID => AUXVAR_PRES_ID, PT_VID => AUXVAR_PT_ID
+    PRES_VID => AUXVAR_PRES_ID, PT_VID => AUXVAR_PT_ID,                     &
+    CPTOT_VID => AUXVAR_CPtot_ID, RTOT_VID => AUXVAR_Rtot_ID
 
   use scale_atm_phy_tb_dgm_common, only: &
+    atm_phy_tb_dgm_common_cal_grad_qtrc, &
+    atm_phy_tb_dgm_common_cal_tend,      &
+    atm_phy_tb_dgm_common_cal_tend_qtrc, &
     ATMOS_PHY_TB_TENDS_NUM1, &
     TB_MOMX_t_VID => ATMOS_PHY_TB_MOMX_t_ID,TB_MOMY_t_VID => ATMOS_PHY_TB_MOMY_t_ID,  &
     TB_MOMZ_t_VID => ATMOS_PHY_TB_MOMZ_t_ID, TB_RHOT_t_VID => ATMOS_PHY_TB_RHOT_t_ID, &
@@ -156,9 +162,9 @@ module scale_atm_phy_tb_dgm_driver
       implicit none
 
       class(LocalMesh3D), intent(in) :: lmesh
-      class(elementbase3D), intent(in) :: elem
+      class(ElementBase3D), intent(in) :: elem
       class(LocalMesh2D), intent(in) :: lmesh2D
-      class(elementbase2D), intent(in) :: elem2D
+      class(ElementBase2D), intent(in) :: elem2D
       real(RP), intent(out) :: DFQ1(elem%Np,lmesh%NeA)
       real(RP), intent(out) :: DFQ2(elem%Np,lmesh%NeA)
       real(RP), intent(out) :: DFQ3(elem%Np,lmesh%NeA)
@@ -264,20 +270,14 @@ module scale_atm_phy_tb_dgm_driver
   end interface 
 
   type, public :: AtmPhyTbDGMDriver
-    !
-    integer :: TB_TYPEID
+    integer :: TB_TYPEID !< Index of the turbulent model
 
-    !
+    !- Auxiliary variables with tracer
+
     type(MeshField3D), allocatable :: auxtrcvars(:)
     type(ModelVarManager) :: auxtrcvars_manager
     integer :: auxtrcvars_commid
 
-    ! diagnostic variables
-    type(MeshField3D), allocatable :: AUX_TBVARS3D(:)
-    type(ModelVarManager) :: AUXTBVAR3D_manager
-    integer :: AUXTBVAR3D_commid
-
-    !
     type(MeshField3D) :: GRAD_DENS(3)
 
     procedure (atm_phy_tb_cal_grad), pointer, nopass :: tbsolver_cal_grad => null()
@@ -304,23 +304,24 @@ module scale_atm_phy_tb_dgm_driver
   !
   !++ Private procedures & variables
   !
-  integer, parameter :: TB_TYPEID_SMAGORINSKY         = 1
-  integer, parameter :: TB_TYPEID_SMAGORINSKY_GLOBAL  = 2
+  integer, parameter :: TB_TYPEID_DNS                 = 1
+  integer, parameter :: TB_TYPEID_SMAGORINSKY         = 2
+  integer, parameter :: TB_TYPEID_SMAGORINSKY_GLOBAL  = 3
 
-  integer, public, parameter :: ATMOS_PHY_TB_AUXTRC_DFQ1_ID    = 1  
-  integer, public, parameter :: ATMOS_PHY_TB_AUXTRC_DFQ2_ID    = 2
-  integer, public, parameter :: ATMOS_PHY_TB_AUXTRC_DFQ3_ID    = 3
+  integer, public, parameter :: ATMOS_PHY_TB_AUXTRC_DFQ3_ID    = 1
+  integer, public, parameter :: ATMOS_PHY_TB_AUXTRC_DFQ1_ID    = 2  
+  integer, public, parameter :: ATMOS_PHY_TB_AUXTRC_DFQ2_ID    = 3
   integer, public, parameter :: ATMOS_PHY_TB_AUXTRC_SCALAR_NUM = 1 
   integer, public, parameter :: ATMOS_PHY_TB_AUXTRC_HVEC_NUM   = 1
   integer, public, parameter :: ATMOS_PHY_TB_AUXTRC_NUM        = 3
   type(VariableInfo), public :: ATMOS_PHY_TB_AUXTRC_VINFO(ATMOS_PHY_TB_AUXTRC_NUM)
   DATA ATMOS_PHY_TB_AUXTRC_VINFO / &
-    VariableInfo( ATMOS_PHY_TB_AUXTRC_DFQ1_ID, 'DFQ1', 'Kh * gradient of QTRC (z)',    &
-                  'm2/s',  3, 'XYZ',  ''                                           ),  &
-    VariableInfo( ATMOS_PHY_TB_AUXTRC_DFQ2_ID, 'DFQ2', 'Kh * gradient of QTRC (x)',    &
-                  'm2/s',  3, 'XYZ',  ''                                           ),  &
-    VariableInfo( ATMOS_PHY_TB_AUXTRC_DFQ3_ID, 'DFQ3', 'Kh * gradient of QTRC (y)',    &
-                  'm2/s',  3, 'XYZ',  ''                                           )   /
+    VariableInfo( ATMOS_PHY_TB_AUXTRC_DFQ3_ID, 'DFQ3', 'Kh * gradient of QTRC (z)',    &
+                  'm2/s.kg/kg.m-1',  3, 'XYZ',  ''                                 ),  &
+    VariableInfo( ATMOS_PHY_TB_AUXTRC_DFQ1_ID, 'DFQ1', 'Kh * gradient of QTRC (x)',    &
+                  'm2/s.kg/kg.m-1',  3, 'XYZ',  ''                                 ),  &
+    VariableInfo( ATMOS_PHY_TB_AUXTRC_DFQ2_ID, 'DFQ2', 'Kh * gradient of QTRC (y)',    &
+                  'm2/s.kg/kg.m-1',  3, 'XYZ',  ''                                 )   /
 
 contains
 !OCL SERIAL  
@@ -349,14 +350,23 @@ contains
     !--- Set the type of turbulence scheme
     
     select case(tb_type_name)
+    case ('DNS')
+      this%TB_TYPEID = TB_TYPEID_DNS
+
+      call atm_phy_tb_dgm_dns_Init( mesh3D )
+      this%tbsolver_cal_grad => atm_phy_tb_dgm_dns_cal_grad
+      this%tbsolver_cal_grad_qtrc => atm_phy_tb_dgm_common_cal_grad_qtrc
+      this%tbsolver_cal_tend => atm_phy_tb_dgm_common_cal_tend
+      this%tbsolver_cal_tend_qtrc => atm_phy_tb_dgm_common_cal_tend_qtrc
+      this%tbsolver_final => atm_phy_tb_dgm_dns_Final
     case ('SMAGORINSKY')
       this%TB_TYPEID = TB_TYPEID_SMAGORINSKY
 
       call atm_phy_tb_dgm_smg_Init( mesh3D )
       this%tbsolver_cal_grad => atm_phy_tb_dgm_smg_cal_grad
-      this%tbsolver_cal_grad_qtrc => atm_phy_tb_dgm_smg_cal_grad_qtrc
-      this%tbsolver_cal_tend => atm_phy_tb_dgm_smg_cal_tend
-      this%tbsolver_cal_tend_qtrc => atm_phy_tb_dgm_smg_cal_tend_qtrc
+      this%tbsolver_cal_grad_qtrc => atm_phy_tb_dgm_common_cal_grad_qtrc
+      this%tbsolver_cal_tend => atm_phy_tb_dgm_common_cal_tend
+      this%tbsolver_cal_tend_qtrc => atm_phy_tb_dgm_common_cal_tend_qtrc
       this%tbsolver_final => atm_phy_tb_dgm_smg_Final
     case ('SMAGORINSKY_GLOBAL')
       this%TB_TYPEID = TB_TYPEID_SMAGORINSKY_GLOBAL
@@ -379,7 +389,7 @@ contains
     !- Initialize variables
 
     !-
-    if ( QA > 1 ) then
+    if ( QA > 0 ) then
       call this%auxtrcvars_manager%Init()
       allocate( this%auxtrcvars(ATMOS_PHY_TB_AUXTRC_NUM) )
 
@@ -438,7 +448,7 @@ contains
     integer :: ke
 
     class(MeshField3D), pointer :: DDENS, MOMX, MOMY, MOMZ, THERM
-    class(MeshField3D), pointer :: PRES_hyd, DENS_hyd, PRES, PT
+    class(MeshField3D), pointer :: PRES_hyd, DENS_hyd, PRES, PT, Rtot, CPtot
     class(MeshField3D), pointer :: T11, T12, T13, T21, T22, T23, T31, T32, T33
     class(MeshField3D), pointer :: DF1, DF2, DF3
     class(MeshField3D), pointer :: DFQ1, DFQ2, DFQ3
@@ -468,6 +478,8 @@ contains
     call AUX_VARS%Get3D( DENSHYD_VID, DENS_hyd )
     call AUX_VARS%Get3D( PRES_VID, PRES )
     call AUX_VARS%Get3D( PT_VID, PT )
+    call AUX_VARS%Get3D( RTOT_VID, Rtot )
+    call AUX_VARS%Get3D( CPTOT_VID, CPtot )
 
     call AUX_TB_VARS%Get3D( T11_VID, T11 )
     call AUX_TB_VARS%Get3D( T12_VID, T12 )
@@ -504,12 +516,21 @@ contains
       lcmesh3D => mesh3D%lcmesh_list(n)
 
       !- Apply boundary conditions
-      call PROF_rapstart('ATM_PHY_TB_inquire_bnd', 2)
+      call PROF_rapstart('ATM_PHY_TB_bnd', 2)
       allocate( bnd_info(n)%is_bound(lcmesh3D%refElem3D%NfpTot,lcmesh3D%Ne) )
-      call boundary_cond%Inquire_bound_flag(  bnd_info(n)%is_bound, &
-        n, lcmesh3D%VMapM, lcmesh3D%VMapP, lcmesh3D%VMapB,          &
-        lcmesh3D, lcmesh3D%refElem3D                                )
-      call PROF_rapend('ATM_PHY_TB_inquire_bnd', 2)
+      call boundary_cond%Inquire_bound_flag(  bnd_info(n)%is_bound, & ! (out)
+        n, lcmesh3D%VMapM, lcmesh3D%VMapP, lcmesh3D%VMapB,          & ! (in)
+        lcmesh3D, lcmesh3D%refElem3D                                ) ! (in)
+      
+      call boundary_cond%ApplyBC_Grad_TBVARS_lc( n, &
+        DDENS%local(n)%val, MOMX%local(n)%val, MOMY%local(n)%val, MOMZ%local(n)%val, PT%local(n)%val, PRES%local(n)%val, & ! (inout)
+        DENS_hyd%local(n)%val, PRES_hyd%local(n)%val, Rtot%local(n)%val, CPtot%local(n)%val,                             & ! (in)
+        lcmesh3D%Gsqrt(:,:), lcmesh3D%GsqrtH(:,:), lcmesh3D%GIJ(:,:,1,1), lcmesh3D%GIJ(:,:,1,2), lcmesh3D%GIJ(:,:,2,2),  & ! (in)
+        lcmesh3D%GI3(:,:,1), lcmesh3D%GI3(:,:,2),                                                                        & ! (in)
+        lcmesh3D%normal_fn(:,:,1), lcmesh3D%normal_fn(:,:,2), lcmesh3D%normal_fn(:,:,3),                                 & ! (in)
+        lcmesh3D%vmapM, lcmesh3D%vmapP, lcmesh3D%vmapB,                                                                  & ! (in)
+        lcmesh3D, lcmesh3D%refElem3D, lcmesh3D%lcmesh2D, lcmesh3D%lcmesh2D%refElem2D                                     ) ! (in)        
+      call PROF_rapend('ATM_PHY_TB_bnd', 2)
 
       call PROF_rapstart('ATM_PHY_TB_cal_grad', 2)
       call this%tbsolver_cal_grad( &
@@ -531,6 +552,22 @@ contains
     call PROF_rapend('ATM_PHY_TB_exchange_prgv', 2)
 
     do n=1, mesh3D%LOCAL_MESH_NUM
+      lcmesh3D => mesh3D%lcmesh_list(n)
+
+      !- Apply boundary conditions for stress tensor
+      call PROF_rapstart('ATM_PHY_TB_bnd', 2)
+      call boundary_cond%ApplyBC_Grad_TBStress_lc( n, &
+        T11%local(n)%val, T12%local(n)%val, T13%local(n)%val,                                                            & ! (inout)
+        T21%local(n)%val, T22%local(n)%val, T23%local(n)%val,                                                            & ! (inout)
+        T31%local(n)%val, T32%local(n)%val, T33%local(n)%val,                                                            & ! (inout)
+        DF1%local(n)%val, DF2%local(n)%val, DF3%local(n)%val,                                                            & ! (inout)
+        lcmesh3D%Gsqrt(:,:), lcmesh3D%GsqrtH(:,:), lcmesh3D%GIJ(:,:,1,1), lcmesh3D%GIJ(:,:,1,2), lcmesh3D%GIJ(:,:,2,2),  & ! (in)
+        lcmesh3D%GI3(:,:,1), lcmesh3D%GI3(:,:,2),                                                                        & ! (in)
+        lcmesh3D%normal_fn(:,:,1), lcmesh3D%normal_fn(:,:,2), lcmesh3D%normal_fn(:,:,3),                                 & ! (in)
+        lcmesh3D%vmapM, lcmesh3D%vmapP, lcmesh3D%vmapB,                                                                  & ! (in)
+        lcmesh3D, lcmesh3D%refElem3D, lcmesh3D%lcmesh2D, lcmesh3D%lcmesh2D%refElem2D                                     ) ! (in)        
+      call PROF_rapend('ATM_PHY_TB_bnd', 2)
+
       call PROF_rapstart('ATM_PHY_TB_cal_tend', 2)
       call this%tbsolver_cal_tend( &
         tb_MOMX_t%local(n)%val, tb_MOMY_t%local(n)%val, tb_MOMZ_t%local(n)%val, tb_RHOT_t%local(n)%val,             & ! (out)
@@ -550,16 +587,18 @@ contains
       if ( .not. TRACER_ADVC(iq) ) cycle
       
       call TRC_VARS%Get3D( iq, QTRC )
-      call TB_TENDS%Get3D( ATMOS_PHY_TB_TENDS_NUM1 + iq, tb_RHOT_t )
+      call TB_TENDS%Get3D( ATMOS_PHY_TB_TENDS_NUM1 + iq, tb_RHOQ_t )
       
       do n=1, mesh3D%LOCAL_MESH_NUM
+        lcmesh3D => mesh3D%lcmesh_list(n)
+
         call PROF_rapstart('ATM_PHY_TB_cal_grad_qtrc', 2)
         call this%tbsolver_cal_grad_qtrc( &
-          DFQ1%local(n)%val, DFQ2%local(n)%val, DFQ2%local(n)%val,                       & ! (out)
+          DFQ1%local(n)%val, DFQ2%local(n)%val, DFQ3%local(n)%val,                       & ! (out)
           this%GRAD_DENS(1)%local(n)%val, this%GRAD_DENS(2)%local(n)%val,                & ! (inout)
           this%GRAD_DENS(3)%local(n)%val,                                                & ! (inout)
           Kh%local(n)%val, QTRC%local(n)%val, DDENS%local(n)%val, DENS_hyd%local(n)%val, & ! (in) 
-          Dx, Dy, Dx, Sx, Sy, Sz, Lift, lcmesh3D, lcmesh3D%refElem3D,                    & ! (in)
+          Dx, Dy, Dz, Sx, Sy, Sz, Lift, lcmesh3D, lcmesh3D%refElem3D,                    & ! (in)
           lcmesh3D%lcmesh2D, lcmesh3D%lcmesh2D%refElem2D,                                & ! (in)
           bnd_info(n)%is_bound, cal_grad_flag )                                            ! (in)
         call PROF_rapend('ATM_PHY_TB_cal_grad_qtrc', 2)
@@ -569,11 +608,13 @@ contains
       call this%auxtrcvars_manager%MeshFieldComm_Exchange()
 
       do n=1, mesh3D%LOCAL_MESH_NUM
+        lcmesh3D => mesh3D%lcmesh_list(n)
+
         call PROF_rapstart('ATM_PHY_TB_cal_tend_qtrc', 2)
         call this%tbsolver_cal_tend_qtrc( tb_RHOQ_t%local(n)%val,          & ! (out)
           DFQ1%local(n)%val, DFQ2%local(n)%val, DFQ3%local(n)%val,         & ! (out)
           Kh%local(n)%val, DDENS%local(n)%val, DENS_hyd%local(n)%val,      & ! (in) 
-          Dx, Dy, Dx, Sx, Sy, Sz, Lift, lcmesh3D, lcmesh3D%refElem3D,      & ! (in)
+          Dx, Dy, Dz, Sx, Sy, Sz, Lift, lcmesh3D, lcmesh3D%refElem3D,      & ! (in)
           lcmesh3D%lcmesh2D, lcmesh3D%lcmesh2D%refElem2D,                  & ! (in)
           bnd_info(n)%is_bound )                                             ! (in)
         call PROF_rapend('ATM_PHY_TB_cal_tend_qtrc', 2)

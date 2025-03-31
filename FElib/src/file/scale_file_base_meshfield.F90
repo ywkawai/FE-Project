@@ -4,7 +4,7 @@
 !! @par Description
 !!          A base module for outputting data with MeshField type 
 !!
-!! @author Team SCALE
+!! @author Yuta Kawai, Team SCALE
 !<
 !-------------------------------------------------------------------------------
 #include "scaleFElib.h"
@@ -37,7 +37,7 @@ module scale_file_base_meshfield
     MF3D_DIMTYPE_Z => MeshBase3D_DIMTYPEID_Z, &
     MF3D_DTYPE_NUM => MeshBase3D_DIMTYPE_NUM
 
-  use scale_element_base, only: elementbase1D, elementbase2D, elementbase3D
+  use scale_element_base, only: ElementBase1D, ElementBase2D, ElementBase3D
   use scale_mesh_base1d, only: MeshBase1D
   use scale_mesh_base2d, only: MeshBase2D
   use scale_mesh_base3d, only: MeshBase3D

@@ -1,3 +1,11 @@
+!-------------------------------------------------------------------------------
+!> module FElib / Mesh / Local 1D
+!!
+!! @par Description
+!!      Module to manage 1D local mesh for element-based methods
+!!
+!! @author Yuta Kawai, Team SCALE
+!<
 #include "scaleFElib.h"
 module scale_localmesh_1d
 
@@ -8,7 +16,7 @@ module scale_localmesh_1d
   use scale_precision
   use scale_localmesh_base, only: &
     LocalMeshBase, LocalMeshBase_Init, LocalMeshBase_Final
-  use scale_element_base, only: elementbase, elementbase1D
+  use scale_element_base, only: ElementBase, ElementBase1D
 
   !-----------------------------------------------------------------------------
   implicit none
@@ -20,7 +28,7 @@ module scale_localmesh_1d
   ! 
   type, extends(LocalMeshBase), public :: LocalMesh1D
 
-    type(elementbase1D), pointer :: refElem1D
+    type(ElementBase1D), pointer :: refElem1D
     real(RP) :: xmin, xmax 
   end type LocalMesh1D
 
@@ -42,6 +50,7 @@ module scale_localmesh_1d
   !
 
 contains
+!OCL SERIAL
   subroutine LocalMesh1D_Init( this, &
     lcdomID, refElem, myrank )
     
@@ -49,7 +58,7 @@ contains
 
     type(LocalMesh1D), intent(inout) :: this
     integer, intent(in) :: lcdomID
-    class(elementbase1D), intent(in), target :: refElem
+    class(ElementBase1D), intent(in), target :: refElem
     integer, intent(in), optional :: myrank
     !-------------------------------------------------
 
@@ -59,6 +68,7 @@ contains
     return
   end subroutine LocalMesh1D_Init
 
+!OCL SERIAL
   subroutine LocalMesh1D_Final( this, is_generated )
     implicit none
 

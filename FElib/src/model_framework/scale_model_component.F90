@@ -4,7 +4,7 @@
 !! @par Description
 !!          A module for managing model components
 !!
-!! @author Team SCALE
+!! @author Yuta Kawai, Team SCALE
 !!
 !<
 !-------------------------------------------------------------------------------

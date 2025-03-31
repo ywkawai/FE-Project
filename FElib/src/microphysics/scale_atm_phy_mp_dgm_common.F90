@@ -12,7 +12,7 @@
 !!    Preserving Nonnegativity in Discontinuous Galerkin Approximations to Scalar Transport via Truncation and Mass Aware Rescaling (TMAR).
 !!    Monthly Weather Review, 144(12), 4771–4786.
 !!
-!! @author Team SCALE
+!! @author Yuta Kawai, Team SCALE
 !!
 !-------------------------------------------------------------------------------
 #include "scaleFElib.h"
@@ -525,14 +525,18 @@ contains
     real(RP) :: InternalEn(elem%Np), InternalEn0(elem%Np), TEMP(elem%Np)
     real(RP) :: RHOT_hyd(elem%Np)
 
-    real(RP) :: m    
+#ifdef SINGLE
+    real(RP), parameter :: TRC_EPS = 1E-32_RP
+#else
+    real(RP), parameter :: TRC_EPS = 1E-128_RP
+#endif
     !------------------------------------------------
 
     !$omp parallel do private( &
-    !$omp ke, iq, DENS, DDENS0, InternalEn, InternalEn0, TEMP, QTRC_tmp, &
+    !$omp ke, iq, DENS, DDENS0, InternalEn, InternalEn0, TEMP, QTRC_tmp,       &
     !$omp TRCMASS0, TRCMASS1, MASS0_elem, MASS1_elem, IntEn0_elem, IntEn_elem, &
-    !$omp Qdry, CVtot_old, CPtot_old, Rtot_old,                  &
-    !$omp int_w, m, RHOT_hyd )
+    !$omp Qdry, CVtot_old, CPtot_old, Rtot_old,                                &
+    !$omp int_w, RHOT_hyd )
     do ke = lmesh%NeS, lmesh%NeE
 
       do iq = 1, QA
@@ -559,7 +563,7 @@ contains
       int_w(:) = lmesh%Gsqrt(:,ke) * lmesh%J(:,ke) * elem%IntWeight_lgl(:)
       do iq = 1, 1 + QLA + QIA  
         TRCMASS0(:) = DENS(:) * QTRC_tmp(:,iq)
-        TRCMASS1(:,iq) = max( 1E-128_RP, TRCMASS0(:) )
+        TRCMASS1(:,iq) = max( TRC_EPS, TRCMASS0(:) )
 
         MASS0_elem = sum( int_w(:) * TRCMASS0(:)    )
         MASS1_elem = sum( int_w(:) * TRCMASS1(:,iq) )

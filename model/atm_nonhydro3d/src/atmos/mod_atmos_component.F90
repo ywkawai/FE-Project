@@ -4,7 +4,7 @@
 !! @par Description
 !!          Atmosphere component module
 !!
-!! @author Team SCALE
+!! @author Yuta Kawai, Team SCALE
 !!
 !<
 !-------------------------------------------------------------------------------
@@ -194,15 +194,6 @@ contains
     call this%phy_mp_proc%ModelComponentProc_Init( 'AtmosPhysMp', ATMOS_PHY_MP_DO )
     call this%phy_mp_proc%setup( this%mesh, this%time_manager )
 
-    !- Setup the module for atmosphere / dynamics 
-    call this%dyn_proc%ModelComponentProc_Init( 'AtmosDyn', ATMOS_DYN_DO )
-    call this%dyn_proc%setup( this%mesh, this%time_manager )
-
-    !- Setup the module for atmosphere / physics / turbulence
-    call this%phy_tb_proc%ModelComponentProc_Init( 'AtmosPhysTb', ATMOS_PHY_TB_DO )
-    call this%phy_tb_proc%setup( this%mesh, this%time_manager )
-    call this%phy_tb_proc%SetDynBC( this%dyn_proc%dyncore_driver%boundary_cond )
-
     !-- Regist qv if needed
     if ( ATMOS_HYDROMETEOR_dry .and. ATMOS_USE_QV ) then
       LOG_INFO("ATMOS_setup",*) "Regist QV"
@@ -215,6 +206,15 @@ contains
       this%phy_mp_proc%vars%QA = 1
       this%phy_mp_proc%vars%QE = this%phy_mp_proc%vars%QS    
     end if
+
+    !- Setup the module for atmosphere / dynamics 
+    call this%dyn_proc%ModelComponentProc_Init( 'AtmosDyn', ATMOS_DYN_DO )
+    call this%dyn_proc%setup( this%mesh, this%time_manager )
+
+    !- Setup the module for atmosphere / physics / turbulence
+    call this%phy_tb_proc%ModelComponentProc_Init( 'AtmosPhysTb', ATMOS_PHY_TB_DO )
+    call this%phy_tb_proc%setup( this%mesh, this%time_manager )
+    call this%phy_tb_proc%SetDynBC( this%dyn_proc%dyncore_driver%boundary_cond )
 
     LOG_NEWLINE
     LOG_INFO('AtmosComponent_setup',*) 'Finish setup of each atmospheric components.'

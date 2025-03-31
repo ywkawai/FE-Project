@@ -9,13 +9,19 @@ TOPDIR      = $(abspath ../..)
 SAMPLE_DIR  = ../
 
 BINNAME = test_advdiff1d
-OBJS = 
+OBJS = mod_advdiff1d_numerror.o
+
+RUNCONF         = test.conf
+TPROC           = 1
+OMP_NUM_THREADS = 4
 
 #-------------------------------------------------------
 include $(SAMPLE_DIR)/Makefile.common
 
-run:
-	OMP_NUM_THREADS=4 mpirun -n 1 ./$(BINNAME) test.conf
-
 vis:
 	bash ./visualize/visualize.sh
+
+clean_analysis:
+	rm -f analysis
+
+$(BUILD_DIR)/test_advdiff1d.o : $(BUILD_DIR)/mod_advdiff1d_numerror.o

@@ -6,7 +6,7 @@
 !!      The governing equations is a fully compressibile nonhydrostic equations, 
 !!      which consist of mass, momentum, and thermodynamics (total energy conservation) equations. 
 !!
-!! @author Team SCALE
+!! @author Yuta Kawai, Team SCALE
 !<
 !-------------------------------------------------------------------------------
 #include "scaleFElib.h"
@@ -31,6 +31,7 @@ module scale_atm_dyn_dgm_nonhydro3d_etot_hevi
     ElementBase2D, ElementBase3D
   use scale_element_modalfilter, only: ModalFilter
   use scale_element_hexahedral, only: HexahedralElement
+  use scale_element_operation_base, only: ElementOperationBase3D
   use scale_localmesh_2d, only: LocalMesh2D  
   use scale_localmesh_3d, only: LocalMesh3D
   use scale_mesh_base3d, only: MeshBase3D
@@ -94,8 +95,9 @@ contains
   subroutine atm_dyn_dgm_nonhydro3d_etot_hevi_cal_tend( &
     DENS_dt, MOMX_dt, MOMY_dt, MOMZ_dt, ETOT_dt,                                  & ! (out)
     DDENS_, MOMX_, MOMY_, MOMZ_, ETOT_, DPRES_, DENS_hyd, PRES_hyd, PRES_hyd_ref, & ! (in)
-    CORIOLIS, Rtot, CVtot, CPtot,                                                 & ! (in)
-    Dx, Dy, Dz, Sx, Sy, Sz, Lift, lmesh, elem, lmesh2D, elem2D )                    ! (in)
+    CORIOLIS, Rtot, CVtot, CPtot, DPhydDx, DPhydDy,                               & ! (in)
+    element3D_operation, Dx, Dy, Dz, Sx, Sy, Sz, Lift,                            & ! (in)
+    lmesh, elem, lmesh2D, elem2D )                                                  ! (in)
 
     use scale_atm_dyn_dgm_nonhydro3d_etot_hevi_numflux, only: &
       get_ebnd_flux => atm_dyn_dgm_nonhydro3d_etot_hevi_numflux_get_generalvc
@@ -106,6 +108,7 @@ contains
     class(ElementBase3D), intent(in) :: elem
     class(LocalMesh2D), intent(in) :: lmesh2D
     class(ElementBase2D), intent(in) :: elem2D
+    class(ElementOperationBase3D), intent(in) :: element3D_operation
     type(SparseMat), intent(in) :: Dx, Dy, Dz, Sx, Sy, Sz, Lift
     real(RP), intent(out) :: DENS_dt(elem%Np,lmesh%NeA)
     real(RP), intent(out) :: MOMX_dt(elem%Np,lmesh%NeA)
@@ -125,6 +128,8 @@ contains
     real(RP), intent(in)  :: Rtot(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: CVtot(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: CPtot(elem%Np,lmesh%NeA)
+    real(RP), intent(in) :: DPhydDx(elem%Np,lmesh%NeA)
+    real(RP), intent(in) :: DPhydDy(elem%Np,lmesh%NeA)
 
     real(RP) :: Fx(elem%Np), Fy(elem%Np), Fz(elem%Np), LiftDelFlx(elem%Np)
     real(RP) :: DPRES_hyd(elem%Np), GradPhyd_x(elem%Np), GradPhyd_y(elem%Np)
@@ -286,13 +291,11 @@ contains
     DDENS_, MOMX_, MOMY_, MOMZ_, ETOT_, DENS_hyd, PRES_hyd,  & ! (in)
     DDENS0_, MOMX0_, MOMY0_, MOMZ0_, ETOT0_,                 & ! (in)
     Rtot, CVtot, CPtot,                                      & ! (in)
-    Dz, Lift,                                                & ! (in)
-    modalFilterFlag, VModalFilter,                           & ! (in)
+    element3D_operation, Dz, Lift,                           & ! (in)
     impl_fac, dt,                                            & ! (in)
     lmesh, elem, lmesh2D, elem2D                             ) ! (in)
 
     use scale_atm_dyn_dgm_nonhydro3d_etot_hevi_common, only: &
-      vi_gen_vmap => atm_dyn_dgm_nonhydro3d_etot_hevi_common_gen_vmap,                  &
       vi_eval_Ax => atm_dyn_dgm_nonhydro3d_etot_hevi_common_eval_Ax,                    &
       vi_eval_Ax_uv => atm_dyn_dgm_nonhydro3d_etot_hevi_common_eval_Ax_uv,              &
       vi_construct_matbnd => atm_dyn_dgm_nonhydro3d_etot_hevi_common_construct_matbnd,  &
@@ -324,9 +327,8 @@ contains
     real(RP), intent(in)  :: Rtot(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: CVtot(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: CPtot(elem%Np,lmesh%NeA)
+    class(ElementOperationBase3D), intent(in) :: element3D_operation
     class(SparseMat), intent(in) :: Dz, Lift
-    logical, intent(in) :: modalFilterFlag
-    class(ModalFilter), intent(in) :: VModalFilter
     real(RP), intent(in) :: impl_fac
     real(RP), intent(in) :: dt
 
@@ -377,8 +379,7 @@ contains
     allocate( PmatBnd   (2*kl+ku+1,nz_1D,elem%Nnode_h1D**2) )
     allocate( PmatBnd_uv(2*kl_uv+ku_uv+1,nz_1D_uv,elem%Nnode_h1D**2) )
 
-    call vi_gen_vmap( vmapM, vmapP, & ! (out)
-      lmesh, elem                   ) ! (in)
+    call lmesh%GetVmapZ1D( vmapM, vmapP ) ! (out)
    
     !-
     
@@ -450,7 +451,6 @@ contains
           Rtot_z, CPtot_ov_CVtot,                                               & ! (in)
           Dz, Lift, IntrpMat_VPOrdM1,                                           & ! (in)
           GnnM_z, G13_z, G23_z, GsqrtV_z,                                       & ! (in)
-          modalFilterFlag, VModalFilter%FilterMat,                              & ! (in)
           impl_fac, dt,                                                         & ! (in) 
           lmesh, elem, nz, vmapM, vmapP,                                        & ! (in)
           b1D_uv(:,:,:,:,:)                                                     ) ! (out)
@@ -468,7 +468,6 @@ contains
             Rtot_z(:,:,ke_xy), CPtot_ov_CVtot(:,:,ke_xy),              & ! (in)
             GeoPot(:,:,ke_xy),                                         & ! (in)
             Dz, Lift, IntrpMat_VPOrdM1,                                & ! (in)
-            modalFilterFlag, VModalFilter%FilterMat,                   & ! (in)
             impl_fac, dt,                                              & ! (in)
             lmesh, elem, nz(:,:,ke_xy), vmapM, vmapP, ke_xy, 1         ) ! (in)
           call PROF_rapend( 'hevi_cal_vi_matbnd', 3)
@@ -501,7 +500,6 @@ contains
           Rtot_z, CPtot_ov_CVtot,                                               & ! (in)
           Dz, Lift, IntrpMat_VPOrdM1,                                           & ! (in)
           GnnM_z, G13_z, G23_z, GsqrtV_z,                                       & ! (in)
-          modalFilterFlag, VModalFilter%FilterMat,                              & ! (in)
           impl_fac, dt,                                                         & ! (in) 
           lmesh, elem, nz, vmapM, vmapP,                                        & ! (in)
           b1D(:,:,:,:,:)                                                        ) ! (out)
@@ -518,7 +516,6 @@ contains
             Rtot_z(:,:,ke_xy), CPtot_ov_CVtot(:,:,ke_xy),              & ! (in)
             GeoPot(:,:,ke_xy),                                         & ! (in)
             Dz, Lift, IntrpMat_VPOrdM1,                                & ! (in)
-            modalFilterFlag, VModalFilter%FilterMat,                   & ! (in)
             impl_fac, dt,                                              & ! (in)
             lmesh, elem, nz(:,:,ke_xy), vmapM, vmapP, ke_xy, 1         ) ! (in)
           call PROF_rapend( 'hevi_cal_vi_matbnd', 3)
@@ -577,7 +574,6 @@ contains
         Rtot_z, CPtot_ov_CVtot,                                               & ! (in)
         Dz, Lift, IntrpMat_VPOrdM1,                                           & ! (in)
         GnnM_z, G13_z, G23_z, GsqrtV_z,                                       & ! (in)
-        modalFilterFlag, VModalFilter%FilterMat,                              & ! (in)
         impl_fac, dt,                                                         & ! (in) 
         lmesh, elem, nz, vmapM, vmapP                                         ) ! (in)
           
@@ -590,7 +586,6 @@ contains
         Rtot_z, CPtot_ov_CVtot,                                               & ! (in)
         Dz, Lift, IntrpMat_VPOrdM1,                                           & ! (in)
         GnnM_z, G13_z, G23_z, GsqrtV_z,                                       & ! (in)
-        modalFilterFlag, VModalFilter%FilterMat,                              & ! (in)
         impl_fac, dt,                                                         & ! (in) 
         lmesh, elem, nz, vmapM, vmapP                                         ) ! (in)
     end if

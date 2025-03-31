@@ -5,7 +5,7 @@
 !!      HEVI DGM scheme for Atmospheric dynamical process
 !!      As the thermodynamics equation, a density * potential temperature equation is used.
 !!
-!! @author Team SCALE
+!! @author Yuta Kawai, Team SCALE
 !<
 !-------------------------------------------------------------------------------
 #include "scaleFElib.h"
@@ -49,7 +49,6 @@ module scale_atm_dyn_dgm_nonhydro3d_rhot_hevi_common
   !
   !++ Public procedures
   !
-  public :: atm_dyn_dgm_nonhydro3d_rhot_hevi_common_gen_vmap
   public :: atm_dyn_dgm_nonhydro3d_rhot_hevi_common_eval_Ax
   public :: atm_dyn_dgm_nonhydro3d_rhot_hevi_common_eval_Ax_uv
   public :: atm_dyn_dgm_nonhydro3d_rhot_hevi_common_construct_matbnd
@@ -72,53 +71,6 @@ module scale_atm_dyn_dgm_nonhydro3d_rhot_hevi_common
 contains
   !------------------------------------------------
 
-!OCL SERIAL
-  subroutine atm_dyn_dgm_nonhydro3d_rhot_hevi_common_gen_vmap( &
-    vmapM, vmapP, & ! (out)
-    lmesh, elem   ) ! (in)
-    implicit none
-    class(LocalMesh3D), intent(in) :: lmesh
-    class(elementbase3D), intent(in) :: elem
-    integer, intent(out) :: vmapM(elem%NfpTot,lmesh%NeZ)
-    integer, intent(out) :: vmapP(elem%NfpTot,lmesh%NeZ)    
-
-    integer :: ke_z
-    integer :: f
-    integer :: vs, ve
-    !-------------------------------------------------------
-
-    !$omp parallel private(f, vs, ve)
-    !$omp do
-    do ke_z=1, lmesh%NeZ
-      do f=1, elem%Nfaces_h
-        vs = 1 + (f-1)*elem%Nfp_h
-        ve = vs + elem%Nfp_h - 1
-        vmapM(vs:ve,ke_z) = elem%Fmask_h(:,f) + (ke_z-1)*elem%Np
-      end do
-      do f=1, elem%Nfaces_v
-        vs = elem%Nfp_h*elem%Nfaces_h + 1 + (f-1)*elem%Nfp_v
-        ve = vs + elem%Nfp_v - 1
-        vmapM(vs:ve,ke_z) = elem%Fmask_v(:,f) + (ke_z-1)*elem%Np
-      end do
-      vmapP(:,ke_z) = vmapM(:,ke_z)
-    end do
-    !$omp do
-    do ke_z=1, lmesh%NeZ
-      vs = elem%Nfp_h*elem%Nfaces_h + 1
-      ve = vs + elem%Nfp_v - 1
-      if (ke_z > 1) &
-        vmapP(vs:ve,ke_z) = elem%Fmask_v(:,2) + (ke_z-2)*elem%Np
-
-      vs = elem%Nfp_h*elem%Nfaces_h + elem%Nfp_v + 1
-      ve = vs + elem%Nfp_v - 1
-      if (ke_z < lmesh%NeZ) &
-        vmapP(vs:ve,ke_z) = elem%Fmask_v(:,1) + ke_z*elem%Np
-    end do
-    !$omp end parallel
-
-    return
-  end subroutine atm_dyn_dgm_nonhydro3d_rhot_hevi_common_gen_vmap
-
 !OCL SERIAL  
   subroutine atm_dyn_dgm_nonhydro3d_rhot_hevi_common_eval_Ax( &
     DENS_t, MOMZ_t, RHOT_t,                                  & ! (out)
@@ -129,7 +81,6 @@ contains
     Rtot, CPtot_ov_CVtot,                                    & ! (in)
     Dz, Lift, IntrpMat_VPOrdM1,                              & ! (in)
     GnnM, G13, G23, GsqrtV,                                  & ! (in)
-    modalFilterFlag, VModalFilter,                           & ! (in)
     impl_fac, dt,                                            & ! (in)
     lmesh, elem,                                             & ! (in)
     nz, vmapM, vmapP,                                        & ! (in)
@@ -138,7 +89,7 @@ contains
     implicit none
 
     class(LocalMesh3D), intent(in) :: lmesh
-    class(elementbase3D), intent(in) :: elem
+    class(ElementBase3D), intent(in) :: elem
     real(RP), intent(out) :: DENS_t(elem%Np,lmesh%NeA)
     real(RP), intent(out) :: MOMZ_t(elem%Np,lmesh%NeA)
     real(RP), intent(out) :: RHOT_t(elem%Np,lmesh%NeA)
@@ -160,8 +111,6 @@ contains
     real(RP), intent(in) :: G13 (elem%Np,lmesh%NeZ,lmesh%NeX*lmesh%NeY)
     real(RP), intent(in) :: G23 (elem%Np,lmesh%NeZ,lmesh%NeX*lmesh%NeY)
     real(RP), intent(in) :: GsqrtV(elem%Np,lmesh%NeZ,lmesh%NeX*lmesh%NeY)
-    logical, intent(in) :: modalFilterFlag
-    real(RP), intent(in) :: VModalFilter(elem%Nnode_v,elem%Nnode_v)    
     real(RP), intent(in) :: impl_fac
     real(RP), intent(in) :: dt
     real(RP), intent(in) :: nz(elem%NfpTot,lmesh%NeZ,lmesh%NeX*lmesh%NeY)
@@ -252,30 +201,6 @@ contains
     end do
     !$omp end do
 
-    if ( modalFilterFlag ) then
-      !$omp do collapse(2)
-      do ke_xy=1, lmesh%NeX*lmesh%NeY
-      do ke_z=1, lmesh%NeZ
-        ke = ke_xy + (ke_z-1)*lmesh%NeX*lmesh%NeY
-
-          !-- Modal filtering in the vertical direction  
-          do kk=1, elem%Nnode_v
-          do ij=1, elem%Nnode_h1D**2
-            p = elem%Colmask(kk,ij)
-            do kkk=1, elem%Nnode_v
-              pp = elem%Colmask(kkk,ij)
-              vmf_v = rdt * VModalFilter(kk,kkk)
-              DENS_t(p,ke) = DENS_t(p,ke) + vmf_v * PROG_VARS(pp,ke_z,DENS_VID,ke_xy)
-              MOMZ_t(p,ke) = MOMZ_t(p,ke) + vmf_v * PROG_VARS(pp,ke_z,MOMZ_VID,ke_xy)
-              RHOT_t(p,ke) = RHOT_t(p,ke) + vmf_v * PROG_VARS(pp,ke_z,RHOT_VID,ke_xy)
-            end do
-          end do
-          end do
-      end do
-      end do
-    !$omp end do 
-    end if
-
     if ( present( b1D_ij ) ) then
       !$omp do collapse(2)
       do ke_xy=1, lmesh%NeX*lmesh%NeY
@@ -313,7 +238,6 @@ contains
     Rtot, CPtot_ov_CVtot,                                    & ! (in)
     Dz, Lift, IntrpMat_VPOrdM1,                              & ! (in)
     GnnM, G13, G23, GsqrtV,                                  & ! (in)
-    modalFilterFlag, VModalFilter,                           & ! (in)
     impl_fac, dt,                                            & ! (in)
     lmesh, elem,                                             & ! (in)
     nz, vmapM, vmapP,                                        & ! (in)
@@ -322,7 +246,7 @@ contains
     implicit none
 
     class(LocalMesh3D), intent(in) :: lmesh
-    class(elementbase3D), intent(in) :: elem
+    class(ElementBase3D), intent(in) :: elem
     real(RP), intent(out) :: MOMX_t(elem%Np,lmesh%NeA)
     real(RP), intent(out) :: MOMY_t(elem%Np,lmesh%NeA)
     real(RP), intent(out) :: alph(elem%NfpTot,lmesh%NeZ,lmesh%NeX*lmesh%NeY)
@@ -343,8 +267,6 @@ contains
     real(RP), intent(in) :: G13 (elem%Np,lmesh%NeZ,lmesh%NeX*lmesh%NeY)
     real(RP), intent(in) :: G23 (elem%Np,lmesh%NeZ,lmesh%NeX*lmesh%NeY)
     real(RP), intent(in) :: GsqrtV(elem%Np,lmesh%NeZ,lmesh%NeX*lmesh%NeY)
-    logical, intent(in) :: modalFilterFlag
-    real(RP), intent(in) :: VModalFilter(elem%Nnode_v,elem%Nnode_v)    
     real(RP), intent(in) :: impl_fac
     real(RP), intent(in) :: dt
     real(RP), intent(in) :: nz(elem%NfpTot,lmesh%NeZ,lmesh%NeX*lmesh%NeY)
@@ -399,29 +321,6 @@ contains
     end do
     !$omp end do
 
-    if ( modalFilterFlag ) then
-      !$omp do collapse(2)
-      do ke_xy=1, lmesh%NeX*lmesh%NeY
-      do ke_z=1, lmesh%NeZ
-        ke = ke_xy + (ke_z-1)*lmesh%NeX*lmesh%NeY
-
-          !-- Modal filtering in the vertical direction  
-          do kk=1, elem%Nnode_v
-          do ij=1, elem%Nnode_h1D**2
-            p = elem%Colmask(kk,ij)
-            do kkk=1, elem%Nnode_v
-              pp = elem%Colmask(kkk,ij)
-              vmf_v = rdt * VModalFilter(kk,kkk)
-              MOMX_t(p,ke) = MOMX_t(p,ke) + vmf_v * PROG_VARS(pp,ke_z,MOMX_VID,ke_xy)
-              MOMY_t(p,ke) = MOMY_t(p,ke) + vmf_v * PROG_VARS(pp,ke_z,MOMY_VID,ke_xy)
-            end do
-          end do
-          end do
-      end do
-      end do
-    !$omp end do 
-    end if
-
     if ( present( b1D_ij_uv ) ) then
       !$omp do collapse(2)
       do ke_xy=1, lmesh%NeX*lmesh%NeY
@@ -454,7 +353,6 @@ contains
     G13, G23, GsqrtV, alph,                 & ! (in)
     Rtot, CPtot_ov_CVtot,                   & ! (in)
     Dz, Lift, IntrpMat_VPOrdM1,             & ! (in)
-    modalFilterFlag, VModalFilter,          & ! (in)
     impl_fac, dt,                           & ! (in)
     lmesh, elem,                            & ! (in)
     nz, vmapM, vmapP, ke_x, ke_y )            ! (in)
@@ -462,7 +360,7 @@ contains
     implicit none
 
     class(LocalMesh3D), intent(in) :: lmesh
-    class(elementbase3D), intent(in) :: elem
+    class(ElementBase3D), intent(in) :: elem
     integer, intent(in) :: kl, ku, nz_1D
     real(RP), intent(out) :: PmatBnd(2*kl+ku+1,3,elem%Nnode_v,lmesh%NeZ,elem%Nnode_h1D**2)
     real(RP), intent(in)  :: PROG_VARS0(elem%Np,lmesh%NeZ,PRGVAR_NUM)
@@ -476,8 +374,6 @@ contains
     real(RP), intent(in) ::  CPtot_ov_CVtot(elem%Np,lmesh%NeZ)
     class(SparseMat), intent(in) :: Dz, Lift
     real(RP), intent(in) :: IntrpMat_VPOrdM1(elem%Np,elem%Np)
-    logical, intent(in) :: modalFilterFlag
-    real(RP), intent(in) :: VModalFilter(elem%Nnode_v,elem%Nnode_v)
     real(RP), intent(in) :: impl_fac
     real(RP), intent(in) :: dt
     real(RP), intent(in) :: nz(elem%NfpTot,lmesh%NeZ)
@@ -502,7 +398,7 @@ contains
     integer :: Colmask(elem%Nnode_v)
     real(RP) :: Id(elem%Nnode_v,elem%Nnode_v)
     real(RP) :: Dd(elem%Nnode_v)
-    real(RP) :: tmp1
+    real(RP) :: tmp1(elem%Nnode_v)
     real(RP) :: fac
     integer :: ij, v1, v2, pv1, pv2,  g_kj, g_kjp1, g_kjm1, pb1
     logical :: bc_flag
@@ -582,11 +478,7 @@ contains
         fac_dz_p(:) = impl_fac * lmesh%Escale(Colmask(:),ke,3,3) / GsqrtV(Colmask(:),ke_z) &
                     * elem%Dx3(Colmask(:),Colmask(p))
         
-        if (modalFilterFlag) then
-          Dd(:) = Id(:,p) - VModalFilter(:,p) * impl_fac / dt
-        else
-          Dd(:) = Id(:,p)
-        end if
+        Dd(:) = Id(:,p)
 
         ! DDENS
         PmatD(:,p,DENS_VID_LC,DENS_VID_LC) = Dd(:)
@@ -628,64 +520,65 @@ contains
         fp2 = elem%Nfp_h * elem%Nfaces_h + (f2-1)*elem%Nfp_v + ij
 
         !--
-        tmp1 = fac * elem%Lift(FmV,fp) * lmesh%Fscale(fp,ke) &
+        tmp1(:) = fac * elem%Lift(Colmask(:),fp) * lmesh%Fscale(fp,ke) &
              * max( alph(fp,ke_z), alph(fp2,ke_z2) )
         if (bc_flag) then
-          PmatD(pv1,pv1,MOMZ_VID_LC,MOMZ_VID_LC) = PmatD(pv1,pv1,MOMZ_VID_LC,MOMZ_VID_LC) + 2.0_RP * tmp1
+          PmatD(:,pv1,MOMZ_VID_LC,MOMZ_VID_LC) = PmatD(:,pv1,MOMZ_VID_LC,MOMZ_VID_LC) + 2.0_RP * tmp1(:)
         else         
           do v=1, 3
-            PmatD(pv1,pv1,v,v) = PmatD(pv1,pv1,v,v) + tmp1            
+            PmatD(:,pv1,v,v) = PmatD(:,pv1,v,v) + tmp1(:)         
             if (f1 == 1) then
-              PmatL(pv1,pv2,v,v) = - tmp1                                
+              PmatL(:,pv2,v,v) = - tmp1(:)                              
             else
-              PmatU(pv1,pv2,v,v) = - tmp1
+              PmatU(:,pv2,v,v) = - tmp1(:)
             end if
           end do
         end if 
 
         !--
-        tmp1 = fac * elem%Lift(FmV,fp) * lmesh%Fscale(fp,ke) * nz(fp,ke_z)
+        tmp1(:) = fac * elem%Lift(Colmask(:),fp) * lmesh%Fscale(fp,ke) * nz(fp,ke_z)
 
         if (bc_flag) then
-          PmatD(pv1,pv1,DENS_VID_LC,MOMZ_VID_LC) = PmatD(pv1,pv1,DENS_VID_LC,MOMZ_VID_LC) - 2.0_RP * tmp1
-          PmatD(pv1,pv1,RHOT_VID_LC,MOMZ_VID_LC) = PmatD(pv1,pv1,RHOT_VID_LC,MOMZ_VID_LC) - 2.0_RP * tmp1 * POT0(pv1,ke_z,ij)
-          PmatD(pv1,pv1,RHOT_VID_LC,DENS_VID_LC) = PmatD(pv1,pv1,RHOT_VID_LC,DENS_VID_LC) + 2.0_RP * tmp1 * POT0(pv1,ke_z,ij) * WT0(pv1,ke_z,ij)
-          PmatD(pv1,pv1,RHOT_VID_LC,RHOT_VID_LC) = PmatD(pv1,pv1,RHOT_VID_LC,RHOT_VID_LC) - 2.0_RP * tmp1 * WT0(pv1,ke_z,ij)
+          PmatD(:,pv1,DENS_VID_LC,MOMZ_VID_LC) = PmatD(:,pv1,DENS_VID_LC,MOMZ_VID_LC) - 2.0_RP * tmp1(:)
+          PmatD(:,pv1,RHOT_VID_LC,MOMZ_VID_LC) = PmatD(:,pv1,RHOT_VID_LC,MOMZ_VID_LC) - 2.0_RP * tmp1(:) * POT0(pv1,ke_z,ij)
+          PmatD(:,pv1,RHOT_VID_LC,DENS_VID_LC) = PmatD(:,pv1,RHOT_VID_LC,DENS_VID_LC) + 2.0_RP * tmp1(:) * POT0(pv1,ke_z,ij) * WT0(pv1,ke_z,ij)
+          PmatD(:,pv1,RHOT_VID_LC,RHOT_VID_LC) = PmatD(:,pv1,RHOT_VID_LC,RHOT_VID_LC) - 2.0_RP * tmp1(:) * WT0(pv1,ke_z,ij)
         else 
-          PmatD(pv1,pv1,DENS_VID_LC,MOMZ_VID_LC) = PmatD(pv1,pv1,DENS_VID_LC,MOMZ_VID_LC) - tmp1
+          PmatD(:,pv1,DENS_VID_LC,MOMZ_VID_LC) = PmatD(:,pv1,DENS_VID_LC,MOMZ_VID_LC) - tmp1(:)
 
           ! PmatD(pv1,pv1,MOMZ_VID_LC,MOMZ_VID_LC) = PmatD(pv1,pv1,MOMZ_VID_LC,MOMZ_VID_LC) - tmp1 * 2.0_RP * W0(pv1,ke_z,ij) [ <- d_MOMZ ( MOMZ x MOMZ / DENS ) ]
           ! PmatD(pv1,pv1,MOMZ_VID_LC,DENS_VID_LC) = PmatD(pv1,pv1,MOMZ_VID_LC,DENS_VID_LC) + tmp1 * W0(pv1,ke_z,ij)**2       [ <- d_DENS ( MOMZ x MOMZ / DENS ) ]
-          PmatD(pv1,pv1,MOMZ_VID_LC,RHOT_VID_LC) = PmatD(pv1,pv1,MOMZ_VID_LC,RHOT_VID_LC) - tmp1 * DPDRHOT0(pv1,ke_z,ij)
+          PmatD(:,pv1,MOMZ_VID_LC,RHOT_VID_LC) = PmatD(:,pv1,MOMZ_VID_LC,RHOT_VID_LC) - tmp1(:) * DPDRHOT0(pv1,ke_z,ij)
 
-          PmatD(pv1,pv1,RHOT_VID_LC,MOMZ_VID_LC) = PmatD(pv1,pv1,RHOT_VID_LC,MOMZ_VID_LC) - tmp1 * POT0(pv1,ke_z,ij)
-          PmatD(pv1,pv1,RHOT_VID_LC,DENS_VID_LC) = PmatD(pv1,pv1,RHOT_VID_LC,DENS_VID_LC) + tmp1 * POT0(pv1,ke_z,ij) * WT0(pv1,ke_z,ij)
-          PmatD(pv1,pv1,RHOT_VID_LC,RHOT_VID_LC) = PmatD(pv1,pv1,RHOT_VID_LC,RHOT_VID_LC) - tmp1 * WT0(pv1,ke_z,ij)
+          PmatD(:,pv1,RHOT_VID_LC,MOMZ_VID_LC) = PmatD(:,pv1,RHOT_VID_LC,MOMZ_VID_LC) - tmp1(:) * POT0(pv1,ke_z,ij)
+          PmatD(:,pv1,RHOT_VID_LC,DENS_VID_LC) = PmatD(:,pv1,RHOT_VID_LC,DENS_VID_LC) + tmp1(:) * POT0(pv1,ke_z,ij) * WT0(pv1,ke_z,ij)
+          PmatD(:,pv1,RHOT_VID_LC,RHOT_VID_LC) = PmatD(:,pv1,RHOT_VID_LC,RHOT_VID_LC) - tmp1(:) * WT0(pv1,ke_z,ij)
 
           if (f1 == 1) then
-            PmatL(pv1,pv2,DENS_VID_LC,MOMZ_VID_LC) = + tmp1
+            ! PmatL(pv1,pv2,DENS_VID_LC,MOMZ_VID_LC) = + tmp1
+            PmatL(:,pv2,DENS_VID_LC,MOMZ_VID_LC) = + tmp1(:)
 
             ! PmatL(pv1,pv2,MOMZ_VID_LC,MOMZ_VID_LC) = PmatL(pv1,pv2,MOMZ_VID_LC,MOMZ_VID_LC) &     [ <- d_MOMZ ( MOMZ x MOMZ / DENS ) ]
             !                                      + tmp1 * 2.0_RP * W0(pv2,ke_z2,ij)
             ! PmatL(pv1,pv2,MOMZ_VID_LC,DENS_VID_LC) = - tmp1 * W0(pv2,ke_z2,ij) * W0(pv2,ke_z2,ij) [ <- d_DENS ( MOMZ x MOMZ / DENS ) ]      
-            PmatL(pv1,pv2,MOMZ_VID_LC,RHOT_VID_LC) = + tmp1 * DPDRHOT0(pv2,ke_z2,ij) 
+            PmatL(:,pv2,MOMZ_VID_LC,RHOT_VID_LC) = + tmp1(:) * DPDRHOT0(pv2,ke_z2,ij) 
 
-            PmatL(pv1,pv2,RHOT_VID_LC,MOMZ_VID_LC) = + tmp1 * POT0(pv2,ke_z2,ij)
-            PmatL(pv1,pv2,RHOT_VID_LC,DENS_VID_LC) = - tmp1 * POT0(pv2,ke_z2,ij) * WT0(pv2,ke_z2,ij)
-            PmatL(pv1,pv2,RHOT_VID_LC,RHOT_VID_LC) = PmatL(pv1,pv2,RHOT_VID_LC,RHOT_VID_LC) &
-                                                   + tmp1 * WT0(pv2,ke_z2,ij)
+            PmatL(:,pv2,RHOT_VID_LC,MOMZ_VID_LC) = + tmp1(:) * POT0(pv2,ke_z2,ij)
+            PmatL(:,pv2,RHOT_VID_LC,DENS_VID_LC) = - tmp1(:) * POT0(pv2,ke_z2,ij) * WT0(pv2,ke_z2,ij)
+            PmatL(:,pv2,RHOT_VID_LC,RHOT_VID_LC) = PmatL(:,pv2,RHOT_VID_LC,RHOT_VID_LC) &
+                                                   + tmp1(:) * WT0(pv2,ke_z2,ij)
           else
-            PmatU(pv1,pv2,DENS_VID_LC,MOMZ_VID_LC) = + tmp1
+            PmatU(:,pv2,DENS_VID_LC,MOMZ_VID_LC) = + tmp1(:)
 
             ! PmatU(pv1,pv2,MOMZ_VID_LC,MOMZ_VID_LC) = PmatU(pv1,pv2,MOMZ_VID_LC,MOMZ_VID_LC ) &    [ <- d_MOMZ ( MOMZ x MOMZ / DENS ) ]
             !                                     + tmp1 * 2.0_RP * W0(pv2,ke_z2,ij)
             ! PmatU(pv1,pv2,MOMZ_VID_LC,DENS_VID_LC) = - tmp1 * W0(pv2,ke_z2,ij) * W0(pv2,ke_z2,ij) [ <- d_DENS ( MOMZ x MOMZ / DENS ) ]  
-            PmatU(pv1,pv2,MOMZ_VID_LC,RHOT_VID_LC) = + tmp1 * DPDRHOT0(pv2,ke_z2,ij)
+            PmatU(:,pv2,MOMZ_VID_LC,RHOT_VID_LC) = + tmp1(:) * DPDRHOT0(pv2,ke_z2,ij)
 
-            PmatU(pv1,pv2,RHOT_VID_LC,MOMZ_VID_LC) = + tmp1 * POT0(pv2,ke_z2,ij)
-            PmatU(pv1,pv2,RHOT_VID_LC,DENS_VID_LC) = - tmp1 * POT0(pv2,ke_z2,ij) * WT0(pv2,ke_z2,ij)
-            PmatU(pv1,pv2,RHOT_VID_LC,RHOT_VID_LC) = PmatU(pv1,pv2,RHOT_VID_LC,RHOT_VID_LC) &
-                                                   + tmp1 * WT0(pv2,ke_z2,ij)
+            PmatU(:,pv2,RHOT_VID_LC,MOMZ_VID_LC) = + tmp1(:) * POT0(pv2,ke_z2,ij)
+            PmatU(:,pv2,RHOT_VID_LC,DENS_VID_LC) = - tmp1(:) * POT0(pv2,ke_z2,ij) * WT0(pv2,ke_z2,ij)
+            PmatU(:,pv2,RHOT_VID_LC,RHOT_VID_LC) = PmatU(:,pv2,RHOT_VID_LC,RHOT_VID_LC) &
+                                                   + tmp1(:) * WT0(pv2,ke_z2,ij)
           end if
         end if
       end do
@@ -730,7 +623,6 @@ contains
     G13, G23, GsqrtV, alph,                 & ! (in)
     Rtot, CPtot_ov_CVtot,                   & ! (in)
     Dz, Lift, IntrpMat_VPOrdM1,             & ! (in)
-    modalFilterFlag, VModalFilter,          & ! (in)
     impl_fac, dt,                           & ! (in)
     lmesh, elem,                            & ! (in)
     nz, vmapM, vmapP, ke_x, ke_y )            ! (in)
@@ -738,7 +630,7 @@ contains
     implicit none
 
     class(LocalMesh3D), intent(in) :: lmesh
-    class(elementbase3D), intent(in) :: elem
+    class(ElementBase3D), intent(in) :: elem
     integer, intent(in) :: kl_uv, ku_uv, nz_1D_uv
     real(RP), intent(out) :: PmatBnd_uv(2*kl_uv+ku_uv+1,elem%Nnode_v,1,lmesh%NeZ,elem%Nnode_h1D**2)
     real(RP), intent(in)  :: PROG_VARS0(elem%Np,lmesh%NeZ,PRGVAR_NUM)
@@ -752,8 +644,6 @@ contains
     real(RP), intent(in) ::  CPtot_ov_CVtot(elem%Np,lmesh%NeZ)
     class(SparseMat), intent(in) :: Dz, Lift
     real(RP), intent(in) :: IntrpMat_VPOrdM1(elem%Np,elem%Np)
-    logical, intent(in) :: modalFilterFlag
-    real(RP), intent(in) :: VModalFilter(elem%Nnode_v,elem%Nnode_v)
     real(RP), intent(in) :: impl_fac
     real(RP), intent(in) :: dt
     real(RP), intent(in) :: nz(elem%NfpTot,lmesh%NeZ)
@@ -777,7 +667,7 @@ contains
     integer :: Colmask(elem%Nnode_v)
     real(RP) :: Id(elem%Nnode_v,elem%Nnode_v)
     real(RP) :: Dd(elem%Nnode_v)
-    real(RP) :: tmp1
+    real(RP) :: tmp1(elem%Nnode_v)
     real(RP) :: fac
     integer :: ij, v1, v2, pv1, pv2,  g_kj, g_kjp1, g_kjm1, pb1
     logical :: bc_flag
@@ -814,11 +704,7 @@ contains
 
       !-----  
       do p=1, elem%Nnode_v
-        if (modalFilterFlag) then
-          Dd(:) = Id(:,p) - VModalFilter(:,p) * impl_fac / dt
-        else
-          Dd(:) = Id(:,p)
-        end if
+        Dd(:) = Id(:,p)
         ! MOMX, MOMY
         PmatD_uv(:,p) = Dd(:)
       end do
@@ -846,15 +732,15 @@ contains
         fp2 = elem%Nfp_h * elem%Nfaces_h + (f2-1)*elem%Nfp_v + ij
 
         !--
-        tmp1 = fac * elem%Lift(FmV,fp) * lmesh%Fscale(fp,ke) &
+        tmp1(:) = fac * elem%Lift(Colmask(:),fp) * lmesh%Fscale(fp,ke) &
              * max( alph(fp,ke_z), alph(fp2,ke_z2) )
         if (bc_flag) then
         else         
-          PmatD_uv(pv1,pv1) = PmatD_uv(pv1,pv1) + tmp1
+          PmatD_uv(:,pv1) = PmatD_uv(:,pv1) + tmp1(:)
           if (f1 == 1) then
-            PmatL_uv(pv1,pv2) = - tmp1                                
+            PmatL_uv(:,pv2) = - tmp1(:)                        
           else
-            PmatU_uv(pv1,pv2) = - tmp1
+            PmatU_uv(:,pv2) = - tmp1(:)
           end if
         end if
       end do
@@ -888,7 +774,7 @@ contains
 !-- private ----------------
 
 !OCL SERIAL  
-  subroutine vi_cal_del_flux_dyn_uv( del_flux, alph,             & ! (out)
+  subroutine vi_cal_del_flux_dyn_uv( del_flux, alph,          & ! (out)
     PVARS_, PVARS0_,                                          & ! (in)
     DENS_hyd, PRES_hyd, Rtot, CPtot_ov_CVtot,                 & ! (in)
     Gnn_, G13_, G23_, GsqrtV_, nz, vmapM, vmapP, lmesh, elem  ) ! (in)
@@ -896,7 +782,7 @@ contains
     implicit none
 
     class(LocalMesh3D), intent(in) :: lmesh
-    class(elementbase3D), intent(in) :: elem  
+    class(ElementBase3D), intent(in) :: elem  
     real(RP), intent(out) ::  del_flux(elem%NfpTot*lmesh%NeZ,lmesh%NeX*lmesh%NeY,PRGVAR_NUM)
     real(RP), intent(out) :: alph(elem%NfpTot*lmesh%NeZ,lmesh%NeX*lmesh%NeY)
     real(RP), intent(in) ::  PVARS_ (elem%Np*lmesh%NeZ,PRGVAR_NUM,lmesh%NeX*lmesh%NeY)
@@ -981,7 +867,7 @@ contains
     implicit none
 
     class(LocalMesh3D), intent(in) :: lmesh
-    class(elementbase3D), intent(in) :: elem  
+    class(ElementBase3D), intent(in) :: elem  
     real(RP), intent(out) ::  del_flux(elem%NfpTot*lmesh%NeZ,lmesh%NeX*lmesh%NeY,PRGVAR_NUM)
     real(RP), intent(in) :: alph(elem%NfpTot*lmesh%NeZ,lmesh%NeX*lmesh%NeY)
     real(RP), intent(in) ::  PVARS_ (elem%Np*lmesh%NeZ,PRGVAR_NUM,lmesh%NeX*lmesh%NeY)

@@ -5,7 +5,7 @@
 !!      Explicit numerical diffusion for Atmospheric dynamical process. 
 !!      For the discretization, the local DGM (e.g., Cockburn and Shu, 1998) is used. 
 !!
-!! @author Team SCALE
+!! @author Yuta Kawai, Team SCALE
 !<
 !-------------------------------------------------------------------------------
 #include "scaleFElib.h"
@@ -137,7 +137,6 @@ contains
     integer :: ierr
 
     integer :: v
-    logical :: reg_file_hist
     !---------------------------------------------------------------
 
     rewind(IO_FID_CONF)
@@ -162,12 +161,11 @@ contains
     call this%NUMDIFF_FLUX_manager%Init()
     allocate( this%NUMDIFF_FLUX_VARS3D(NUMDIFF_FLUX_NUM) )
 
-    reg_file_hist = .false.    
     do v = 1, NUMDIFF_FLUX_NUM
       call this%NUMDIFF_FLUX_manager%Regist(  &
         ATMOS_DYN_NUMDIFF_FLUX_VINFO(v), mesh3D, & ! (in) 
         this%NUMDIFF_FLUX_VARS3D(v),             & ! (inout) 
-        reg_file_hist, fill_zero=.true.          ) ! (in)
+        .false., fill_zero=.true.                ) ! (in)
     end do
 
     call model_mesh3D%Create_communicator( &
@@ -180,12 +178,11 @@ contains
     call this%NUMDIFF_TEND_manager%Init()
     allocate( this%NUMDIFF_TEND_VARS3D(NUMDIFF_TEND_NUM) )
 
-    reg_file_hist = .false.    
     do v = 1, NUMDIFF_TEND_NUM
       call this%NUMDIFF_TEND_manager%Regist( &
         ATMOS_DYN_NUMDIFF_TEND_VINFO(v), mesh3D, & ! (in) 
         this%NUMDIFF_TEND_VARS3D(v),             & ! (inout)
-        reg_file_hist, fill_zero=.true.          ) ! (in)      
+        .false., fill_zero=.true.                ) ! (in)      
     end do
 
     call model_mesh3D%Create_communicator( &
@@ -388,7 +385,7 @@ contains
     implicit none
 
     class(LocalMesh3D), intent(in) :: lmesh
-    class(elementbase3D), intent(in) :: elem
+    class(ElementBase3D), intent(in) :: elem
     type(SparseMat), intent(in) :: Dx, Dy, Dz, Lift
     real(RP), intent(inout)  :: tend_(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: GxV_(elem%Np,lmesh%NeA)
@@ -452,7 +449,7 @@ contains
     implicit none
 
     class(LocalMesh3D), intent(in) :: lmesh
-    class(elementbase3D), intent(in) :: elem  
+    class(ElementBase3D), intent(in) :: elem  
     real(RP), intent(out) ::  del_flux(elem%NfpTot*lmesh%Ne)
     real(RP), intent(in) ::  GxV_(elem%Np*lmesh%NeA)
     real(RP), intent(in) ::  GyV_(elem%Np*lmesh%NeA)
@@ -513,7 +510,7 @@ contains
     implicit none
 
     class(LocalMesh3D), intent(in) :: lmesh
-    class(elementbase3D), intent(in) :: elem
+    class(ElementBase3D), intent(in) :: elem
     type(SparseMat), intent(in) :: Dx, Dy, Dz, Lift
     real(RP), intent(out) :: lapla_h(elem%Np,lmesh%NeA)
     real(RP), intent(out) :: lapla_v(elem%Np,lmesh%NeA)
@@ -568,7 +565,7 @@ contains
     implicit none
 
     class(LocalMesh3D), intent(in) :: lmesh
-    class(elementbase3D), intent(in) :: elem  
+    class(ElementBase3D), intent(in) :: elem  
     real(RP), intent(out) ::  del_flux_h(elem%NfpTot*lmesh%Ne)
     real(RP), intent(out) ::  del_flux_v(elem%NfpTot*lmesh%Ne)
     real(RP), intent(in) ::  GxV_(elem%Np*lmesh%NeA)
@@ -614,7 +611,7 @@ contains
     implicit none
 
     class(LocalMesh3D), intent(in) :: lmesh
-    class(elementbase3D), intent(in) :: elem
+    class(ElementBase3D), intent(in) :: elem
     type(SparseMat), intent(in) :: Dx, Dy, Dz, Lift
     real(RP), intent(out)  :: GxV_(elem%Np,lmesh%NeA)
     real(RP), intent(out)  :: GyV_(elem%Np,lmesh%NeA)
@@ -676,7 +673,7 @@ contains
     implicit none
 
     class(LocalMesh3D), intent(in) :: lmesh
-    class(elementbase3D), intent(in) :: elem  
+    class(ElementBase3D), intent(in) :: elem  
     real(RP), intent(out) :: del_flux(elem%NfpTot*lmesh%Ne,3)
     real(RP), intent(in) :: Varh_(elem%Np*lmesh%NeA)
     real(RP), intent(in) :: Varv_(elem%Np*lmesh%NeA)

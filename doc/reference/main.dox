@@ -1,0 +1,22 @@
+!> @mainpage
+!>
+!> \section intro What's FE-Project
+!> This project provides a library and sample programs for the discontinuous Galerkin methods (DGM). 
+!> Our DGM library includes regional and global atmospheric dynamical cores based DGM. 
+!> Furthermore, FE-Project provides SCALE-DG, a nonhydrostatic atmospheric model with DG dynamical cores and several physics processes. 
+!> For the physics processes, we use SCALE (Scalable Computing for Advanced Library and Environment) library. 
+!>
+!> \section list Reference manual
+!> - <a href="namespaces.html">Module List</a>
+!> - <a href="files.html">File List</a>
+!>
+!> \section config Configuration List
+!> - @ref namelist
+!> - @ref history
+!>
+!> \section link Links
+!> - <a href="https://ywkawai.github.io/FE-Project_web/">FE-Project Web Page</a>
+!>
+!> \section references References
+!> - <a href="https://journals.ametsoc.org/view/journals/mwre/151/6/MWR-D-22-0245.1.xml">Kawai and Tomita (2023, MWR) </a>
+!> - <a href="https://gmd.copernicus.org/articles/18/725/2025/">Kawai and Tomita (2025, GMD) </a>

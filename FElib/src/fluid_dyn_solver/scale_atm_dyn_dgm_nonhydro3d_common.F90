@@ -4,7 +4,7 @@
 !! @par Description
 !!      A coomon model for atmospheric nonhydrostatic dynamical core 
 !!
-!! @author Team SCALE
+!! @author Yuta Kawai, Team SCALE
 !<
 !-------------------------------------------------------------------------------
 #include "scaleFElib.h"
@@ -35,7 +35,10 @@ module scale_atm_dyn_dgm_nonhydro3d_common
   use scale_localmeshfield_base, only: LocalMeshField3D
   use scale_meshfield_base, only: MeshField3D
 
-  use scale_variableinfo, only: VariableInfo
+  use scale_model_var_manager, only: &
+    ModelVarManager, VariableInfo
+
+  use scale_element_operation_base, only: ElementOperationBase3D
 
   !-----------------------------------------------------------------------------
   implicit none
@@ -46,11 +49,13 @@ module scale_atm_dyn_dgm_nonhydro3d_common
   !
   public :: atm_dyn_dgm_nonhydro3d_common_Init
   public :: atm_dyn_dgm_nonhydro3d_common_Final
+  public :: atm_dyn_dgm_nonhydro3d_common_setup_variables
   public :: atm_dyn_dgm_nonhydro3d_common_get_varinfo
   public :: atm_dyn_dgm_nonhydro3d_common_calc_pressure
   public :: atm_dyn_dgm_nonhydro3d_common_DRHOT2PRES
   public :: atm_dyn_dgm_nonhydro3d_common_EnTot2PRES
   public :: atm_dyn_dgm_nonhydro3d_common_DRHOT2EnTot
+  public :: atm_dyn_dgm_nonhydro3d_common_calc_phyd_hgrad_lc
 
   !-----------------------------------------------------------------------------
   !
@@ -140,7 +145,6 @@ contains
     prgvar_info, auxvar_info, phytend_info              )
 
     implicit none
-
     type(VariableInfo), intent(out) :: prgvar_info(PRGVAR_NUM)
     type(VariableInfo), intent(out) :: auxvar_info(AUXVAR_NUM)
     type(VariableInfo), intent(out), optional :: phytend_info(PHYTEND_NUM)
@@ -202,6 +206,149 @@ contains
 
     return
   end subroutine atm_dyn_dgm_nonhydro3d_common_get_varinfo
+
+  subroutine atm_dyn_dgm_nonhydro3d_common_setup_variables( &
+    prgvars, qtrcvars, auxvars, phytends,                             & ! (inout)
+    prgvar_manager, qtrcvar_manager, auxvar_manager, phytend_manager, & ! (inout)
+    PHYTEND_NUM_TOT, mesh3D,                                          & ! (in)
+    PRGVAR_VARINFO )                                                    ! (out)
+
+    use scale_atmos_hydrometeor, only: &
+      ATMOS_HYDROMETEOR_dry
+    use scale_tracer, only: &
+      QA, TRACER_NAME, TRACER_DESC, TRACER_UNIT    
+    use scale_mesh_base3d, only: MeshBase3D
+    use scale_meshfield_base, only: MeshField3D
+    implicit none
+    integer, intent(in) :: PHYTEND_NUM_TOT
+    type(MeshField3D), intent(inout) :: prgvars(PRGVAR_NUM)
+    type(MeshField3D), intent(inout) :: qtrcvars(0:QA)    
+    type(MeshField3D), intent(inout) :: auxvars(AUXVAR_NUM)
+    type(MeshField3D), intent(inout) :: phytends(PHYTEND_NUM_TOT)
+    type(ModelVarManager), intent(inout) :: prgvar_manager
+    type(ModelVarManager), intent(inout) :: qtrcvar_manager
+    type(ModelVarManager), intent(inout) :: auxvar_manager
+    type(ModelVarManager), intent(inout) :: phytend_manager
+    class(MeshBase3D), intent(in) :: mesh3D
+
+    type(VariableInfo), intent(out) :: PRGVAR_VARINFO(PRGVAR_NUM)
+
+    type(VariableInfo) :: AUXVAR_VARINFO(AUXVAR_NUM)
+    type(VariableInfo) :: PHYTEND_VARINFO(PHYTEND_NUM)
+
+    integer :: iv
+    integer :: iq
+    logical :: reg_file_hist
+
+    type(VariableInfo) :: qtrc_dry_vinfo_tmp
+    type(VariableInfo) :: qtrc_dry_tp_vinfo_tmp
+    type(VariableInfo) :: qtrc_vinfo_tmp
+    type(VariableInfo) :: qtrc_tp_vinfo_tmp
+    !----------------------------------------------------------
+
+    call atm_dyn_dgm_nonhydro3d_common_get_varinfo( PRGVAR_VARINFO, AUXVAR_VARINFO, PHYTEND_VARINFO ) ! (out)
+
+    !- Initialize prognostic variables
+
+    reg_file_hist = .true.    
+    do iv = 1, PRGVAR_NUM
+      call prgvar_manager%Regist(  &
+        PRGVAR_VARINFO(iv), mesh3D,                           & ! (in) 
+        prgvars(iv),                                          & ! (inout)
+        reg_file_hist,  monitor_flag=.true., fill_zero=.true. ) ! (out)
+    end do
+
+    !- Initialize tracer variables
+
+    reg_file_hist = .true.
+
+    if ( ATMOS_HYDROMETEOR_dry ) then
+      ! Dummy
+      qtrc_dry_vinfo_tmp%ndims    = 3
+      qtrc_dry_vinfo_tmp%dim_type = 'XYZ'
+      qtrc_dry_vinfo_tmp%STDNAME  = ''
+
+      qtrc_dry_vinfo_tmp%keyID = 0
+      qtrc_dry_vinfo_tmp%NAME  = "QV"
+      qtrc_dry_vinfo_tmp%DESC  = "Ratio of Water Vapor mass to total mass (Specific humidity)"
+      qtrc_dry_vinfo_tmp%UNIT  = "kg/kg"
+      call qtrcvar_manager%Regist( &
+        qtrc_dry_vinfo_tmp, mesh3D,                      & ! (in) 
+        qtrcvars(0),                                     & ! (inout)
+        .false., monitor_flag=.false., fill_zero=.true.  ) ! (in)
+    else
+      qtrc_vinfo_tmp%ndims    = 3
+      qtrc_vinfo_tmp%dim_type = 'XYZ'
+      qtrc_vinfo_tmp%STDNAME  = ''
+  
+      do iq = 1, QA
+        qtrc_vinfo_tmp%keyID = iq
+        qtrc_vinfo_tmp%NAME  = TRACER_NAME(iq)
+        qtrc_vinfo_tmp%DESC  = TRACER_DESC(iq)
+        qtrc_vinfo_tmp%UNIT  = TRACER_UNIT(iq)
+        call qtrcvar_manager%Regist( &
+          qtrc_vinfo_tmp, mesh3D,                               & ! (in) 
+          qtrcvars(iq),                                         & ! (inout)
+          reg_file_hist, monitor_flag=.true., fill_zero=.true.  ) ! (in)
+      end do
+    end if
+
+    !- Initialize auxiliary variables
+
+    reg_file_hist = .true.
+    do iv = 1, AUXVAR_NUM
+      call auxvar_manager%Regist( &
+        AUXVAR_VARINFO(iv), mesh3D,       & ! (in) 
+        auxvars(iv),                      & ! (inout)
+        reg_file_hist, fill_zero=.true.   ) ! (in)
+    end do
+
+    !- Initialize the tendency of physical processes
+
+    reg_file_hist = .true.
+    do iv = 1, PHYTEND_NUM
+      call phytend_manager%Regist( &
+        PHYTEND_VARINFO(iv), mesh3D,     & ! (in) 
+        phytends(iv),                    & ! (inout)
+        reg_file_hist, fill_zero=.true.  ) ! (in)
+    end do
+
+    if ( ATMOS_HYDROMETEOR_dry ) then
+      ! Dummy
+      qtrc_dry_tp_vinfo_tmp%ndims    = 3
+      qtrc_dry_tp_vinfo_tmp%dim_type = 'XYZ'
+      qtrc_dry_tp_vinfo_tmp%STDNAME  = ''
+
+      iv = PHYTEND_NUM + 1
+      qtrc_dry_tp_vinfo_tmp%keyID = 0
+      qtrc_dry_tp_vinfo_tmp%NAME  = "QV_tp"
+      qtrc_dry_tp_vinfo_tmp%DESC  = "tendency of physical process for QV"
+      qtrc_dry_tp_vinfo_tmp%UNIT  = "kg/m3/s"
+      call phytend_manager%Regist( &
+        qtrc_dry_tp_vinfo_tmp, mesh3D,   & ! (in) 
+        phytends(iv),                    & ! (inout)
+        .false., fill_zero=.true.        ) ! (in)
+    else
+      qtrc_tp_vinfo_tmp%ndims    = 3
+      qtrc_tp_vinfo_tmp%dim_type = 'XYZ'
+      qtrc_tp_vinfo_tmp%STDNAME  = ''
+
+      do iq = 1, QA
+        iv = PHYTEND_NUM + iq 
+        qtrc_tp_vinfo_tmp%keyID = iv
+        qtrc_tp_vinfo_tmp%NAME  = trim(TRACER_NAME(iq))//'_tp'
+        qtrc_tp_vinfo_tmp%DESC  = 'tendency of physical process for '//trim(TRACER_DESC(iq))
+        qtrc_tp_vinfo_tmp%UNIT  = trim(TRACER_UNIT(iq))//'/s'
+
+        call phytend_manager%Regist( &
+          qtrc_tp_vinfo_tmp, mesh3D,       & ! (in) 
+          phytends(iv),                    & ! (inout)
+          reg_file_hist, fill_zero=.true.  ) ! (in)
+      end do    
+    end if
+
+    return
+  end subroutine atm_dyn_dgm_nonhydro3d_common_setup_variables
 
 !OCL SERIAL
   subroutine atm_dyn_dgm_nonhydro3d_common_calc_pressure( &
@@ -388,6 +535,161 @@ contains
     return
   end subroutine atm_dyn_dgm_nonhydro3d_common_EnTot2PRES
 
+!> Calculate horizontal graidient of hydrostatic pressure 
+!! In this calculation, we assume that PRES_hyd_ref is continuous at element boundaries.
+!OCL SERIAL
+  subroutine atm_dyn_dgm_nonhydro3d_common_calc_phyd_hgrad_lc( DPhydDx, DPhydDy, &
+      PRES_hyd, PRES_hyd_ref,        &
+      element3D_operation, lmesh, elem )
+    implicit none
+    class(LocalMesh3D), intent(in) :: lmesh
+    class(ElementBase3D), intent(in) :: elem
+    real(RP), intent(out)  :: DPhydDx(elem%Np,lmesh%NeA)
+    real(RP), intent(out)  :: DPhydDy(elem%Np,lmesh%NeA)
+    real(RP), intent(in)  :: PRES_hyd(elem%Np,lmesh%NeA)
+    real(RP), intent(in)  :: PRES_hyd_ref(elem%Np,lmesh%NeA)
+    class(ElementOperationBase3D), intent(in) :: element3D_operation
+
+    integer :: ke, ke2D, p  
+
+    real(RP) :: Fx(elem%Np), Fy(elem%Np), Fz(elem%Np,2), DFlux(elem%Np,4,2)
+    real(RP) :: del_flux_hyd(elem%NfpTot,2,lmesh%Ne)
+    real(RP) :: GsqrtV(elem%Np), RGsqrtV(elem%Np)
+
+    real(RP) :: E33
+    real(RP) :: GradPhyd_x, GradPhyd_y
+    !-----------------------------------------
+
+    call get_phyd_hgrad_numflux_generalhvc( del_flux_hyd,                       & ! (out)
+      PRES_hyd, PRES_hyd_ref,                                                   & ! (in)
+      lmesh%Gsqrt, lmesh%GsqrtH, lmesh%gam, lmesh%GI3(:,:,1), lmesh%GI3(:,:,2), & ! (in)
+      lmesh%normal_fn(:,:,1), lmesh%normal_fn(:,:,2), lmesh%normal_fn(:,:,3),   & ! (in)
+      lmesh%vmapM, lmesh%vmapP, elem%IndexH2Dto3D_bnd,                          & ! (in)
+      lmesh, elem, lmesh%lcmesh2D, lmesh%lcmesh2D%refElem2D                     ) ! (in)
+
+    !$omp parallel do private( ke, ke2D, p, &
+    !$omp Fx, Fy, Fz, DFlux, GsqrtV, RGsqrtV, E33, &
+    !$omp GradPhyd_x, GradPhyd_y )      
+    do ke = lmesh%NeS, lmesh%NeE
+      ke2d = lmesh%EMap3Dto2D(ke)
+
+      do p=1, elem%Np
+        GsqrtV(p)  = lmesh%Gsqrt(p,ke) / ( lmesh%gam(p,ke)**2 * lmesh%GsqrtH(elem%IndexH2Dto3D(p),ke2d) )
+        RGsqrtV(p) = 1.0_RP / GsqrtV(p)
+      end do
+
+      do p=1, elem%Np
+        Fx(p) = GsqrtV(p) * ( PRES_hyd(p,ke) - PRES_hyd_ref(p,ke) )
+        Fy(p) = Fx(p)
+        Fz(p,1) = lmesh%GI3(p,ke,1) * Fx(p)
+        Fz(p,2) = lmesh%GI3(p,ke,2) * Fx(p)
+      end do   
+      
+      call element3D_operation%Div( Fx, Fy, Fz(:,1), del_flux_hyd(:,1,ke), &
+        DFlux(:,1,1), DFlux(:,2,1), DFlux(:,3,1), DFlux(:,4,1) )
+      call element3D_operation%Dz( Fz(:,2), DFlux(:,3,2) )
+      call element3D_operation%Lift( del_flux_hyd(:,2,ke), DFlux(:,4,2) )
+      
+      do p=1, elem%Np
+        E33 = lmesh%Escale(p,ke,3,3)
+
+        GradPhyd_x = lmesh%Escale(p,ke,1,1) * DFlux(p,1,1) &
+                   + E33                    * DFlux(p,3,1) &
+                   + DFlux(p,4,1)
+
+        GradPhyd_y = lmesh%Escale(p,ke,2,2) * DFlux(p,2,1) &
+                   + E33                    * DFlux(p,3,2) &
+                   + DFlux(p,4,2)
+
+        DPhydDx(p,ke) = GradPhyd_x * RGsqrtV(p)
+        DPhydDy(p,ke) = GradPhyd_y * RGsqrtV(p)
+      end do      
+    end do
+
+    return
+  end subroutine atm_dyn_dgm_nonhydro3d_common_calc_phyd_hgrad_lc
+
 !-- private
+
+!OCL SERIAL
+  subroutine get_phyd_hgrad_numflux_generalhvc( &
+    del_flux_hyd,                                        & ! (out)
+    PRES_hyd, PRES_hyd_ref,                              & ! (in)
+    Gsqrt, GsqrtH, gam, G13, G23, nx, ny, nz,            & ! (in)
+    vmapM, vmapP, iM2Dto3D, lmesh, elem, lmesh2D, elem2D ) ! (in)
+
+    implicit none
+
+    class(LocalMesh3D), intent(in) :: lmesh
+    class(ElementBase3D), intent(in) :: elem  
+    class(LocalMesh2D), intent(in) :: lmesh2D
+    class(ElementBase2D), intent(in) :: elem2D
+    real(RP), intent(out) ::  del_flux_hyd(elem%NfpTot,2,lmesh%Ne)
+    real(RP), intent(in) ::  PRES_hyd(elem%Np*lmesh%NeA)
+    real(RP), intent(in) ::  PRES_hyd_ref(elem%Np*lmesh%NeA)
+    real(RP), intent(in) ::  GsqrtH(elem2D%Np,lmesh2D%Ne)
+    real(RP), intent(in) ::  Gsqrt(elem%Np*lmesh%NeA)
+    real(RP), intent(in) :: gam(elem%Np*lmesh%NeA)
+    real(RP), intent(in) ::  G13(elem%Np*lmesh%NeA)
+    real(RP), intent(in) ::  G23(elem%Np*lmesh%NeA)
+    real(RP), intent(in) :: nx(elem%NfpTot,lmesh%Ne)
+    real(RP), intent(in) :: ny(elem%NfpTot,lmesh%Ne)
+    real(RP), intent(in) :: nz(elem%NfpTot,lmesh%Ne)
+    integer, intent(in) :: vmapM(elem%NfpTot,lmesh%Ne)
+    integer, intent(in) :: vmapP(elem%NfpTot,lmesh%Ne)
+    integer, intent(in) :: iM2Dto3D(elem%NfpTot)
+    
+    integer :: ke, fp, i, iP(elem%NfpTot), iM(elem%NfpTot)
+    integer :: ke2D
+    real(RP) :: DPRES_hyd(elem%NfpTot,2)
+    real(RP) :: Gsqrt_(elem%NfpTot,2)
+    real(RP) :: GsqrtV_(elem%NfpTot,2)
+    real(RP) :: G13_(elem%NfpTot,2)
+    real(RP) :: G23_(elem%NfpTot,2)
+    
+    integer, parameter :: IN = 1
+    integer, parameter :: EX = 2
+
+    real(RP) :: tmp1, tmp2
+    !------------------------------------------------------------------------
+
+    !$omp parallel do private( &
+    !$omp ke, iM, iP, ke2D, fp,                    &
+    !$omp DPRES_hyd,  Gsqrt_, GsqrtV_, G13_, G23_, &
+    !$omp tmp1, tmp2 )
+!OCL PREFETCH
+    do ke=lmesh%NeS, lmesh%NeE
+      iM(:) = vmapM(:,ke); iP(:) = vmapP(:,ke)
+      ke2D = lmesh%EMap3Dto2D(ke)
+
+      Gsqrt_(:,IN) = Gsqrt(iM)
+      Gsqrt_(:,EX) = Gsqrt(iP)
+      GsqrtV_(:,IN) = Gsqrt_(:,IN) / gam(iM)**2 / GsqrtH(iM2Dto3D(:),ke2D)
+      GsqrtV_(:,EX) = Gsqrt_(:,EX) / gam(iP)**2 / GsqrtH(iM2Dto3D(:),ke2D)
+
+      G13_(:,IN) = G13(iM)
+      G13_(:,EX) = G13(iP)
+      G23_(:,IN) = G23(iM)
+      G23_(:,EX) = G23(iP)
+
+      DPRES_hyd(:,IN) = PRES_hyd(iM) - PRES_hyd_ref(iM)
+      DPRES_hyd(:,EX) = PRES_hyd(iP) - PRES_hyd_ref(iP) 
+      
+      do fp=1, elem%NfpTot
+        tmp1 = lmesh%Fscale(fp,ke) * 0.5_RP * GsqrtV_(fp,EX) * DPRES_hyd(fp,EX)
+        tmp2 = lmesh%Fscale(fp,ke) * 0.5_RP * GsqrtV_(fp,IN) * DPRES_hyd(fp,IN)
+
+        del_flux_hyd(fp,1,ke) = &
+            ( nx(fp,ke) + G13_(fp,EX) * nz(fp,ke) ) * tmp1 &
+          - ( nx(fp,ke) + G13_(fp,IN) * nz(fp,ke) ) * tmp2
+
+        del_flux_hyd(fp,2,ke) = &
+            ( ny(fp,ke) + G23_(fp,EX) * nz(fp,ke) ) * tmp1 &
+          - ( ny(fp,ke) + G23_(fp,IN) * nz(fp,ke) ) * tmp2
+      end do
+    end do
+
+    return
+  end subroutine get_phyd_hgrad_numflux_generalhvc
 
 end module scale_atm_dyn_dgm_nonhydro3d_common

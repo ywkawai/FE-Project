@@ -1,3 +1,12 @@
+!-------------------------------------------------------------------------------
+!> module common / time
+!!
+!! @par Description
+!!          Module to manage time with temporal integration
+!!
+!! @author Yuta Kawai, Team SCALE
+!!
+!<
 #include "scaleFElib.h"
 module scale_time_manager
   !-----------------------------------------------------------------------------

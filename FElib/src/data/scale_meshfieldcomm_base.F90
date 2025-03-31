@@ -1,3 +1,11 @@
+!-------------------------------------------------------------------------------
+!> module FElib / Data / Communication base
+!!
+!! @par Description
+!!      Base module to manage data communication for element-based methods
+!!
+!! @author Yuta Kawai, Team SCALE
+!<
 #include "scaleFElib.h"
 module scale_meshfieldcomm_base
 
@@ -8,7 +16,7 @@ module scale_meshfieldcomm_base
   use scale_precision
   use scale_io
 
-  use scale_element_base, only: elementbase
+  use scale_element_base, only: ElementBase
   use scale_mesh_base, only: MeshBase
   use scale_meshfield_base, only: &
     MeshFieldBase, MeshField1D, MeshField2D, MeshField3D
@@ -24,35 +32,7 @@ module scale_meshfieldcomm_base
   !++ Public type & procedure
   ! 
 
-
-  type, abstract, public :: MeshFieldCommBase
-    integer :: sfield_num
-    integer :: hvfield_num
-    integer :: htensorfield_num
-    integer :: field_num_tot
-
-    class(MeshBase), pointer :: mesh
-    real(RP), allocatable :: send_buf(:,:,:)
-    real(RP), allocatable :: recv_buf(:,:,:)
-    integer :: nfaces_comm
-
-  contains
-    procedure(MeshFieldCommBase_put), public, deferred :: Put   
-    procedure(MeshFieldCommBase_get), public, deferred :: Get
-    procedure(MeshFieldCommBase_exchange), public, deferred :: Exchange
-  end type MeshFieldCommBase
-
-  public :: MeshFieldCommBase_Init, MeshFieldCommBase_Final
-  public :: MeshFieldCommBase_exchange_core
-  public :: MeshFieldCommBase_extract_bounddata
-  public :: MeshFieldCommBase_set_bounddata
-
-  type, public :: MeshFieldContainer
-    class(MeshField1D), pointer :: field1d
-    class(MeshField2D), pointer :: field2d
-    class(MeshField3D), pointer :: field3d        
-  end type
-
+  !> Derived type to manage data communication between a face of local mesh
   type, public :: LocalMeshCommData
     class(LocalMeshBase), pointer :: lcmesh
     real(RP), allocatable :: send_buf(:,:)
@@ -67,7 +47,49 @@ module scale_meshfieldcomm_base
   contains
     procedure, public :: Init => LocalMeshCommData_Init
     procedure, public :: Final => LocalMeshCommData_Final
-    procedure, public :: ISendRecv => LocalMeshCommData_iSendRecv
+    procedure, public :: SendRecv => LocalMeshCommData_SendRecv
+    procedure, public :: PC_Init => LocalMeshCommData_pc_init
+  end type
+
+  !> Base derived type to manage data communication
+  type, abstract, public :: MeshFieldCommBase
+    integer :: sfield_num
+    integer :: hvfield_num
+    integer :: htensorfield_num
+    integer :: field_num_tot
+    integer :: nfaces_comm
+
+    class(MeshBase), pointer :: mesh
+    real(RP), allocatable :: send_buf(:,:,:)
+    real(RP), allocatable :: recv_buf(:,:,:)
+    integer, allocatable :: request_send(:)
+    integer, allocatable :: request_recv(:)
+
+    type(LocalMeshCommData), allocatable :: commdata_list(:,:)
+    integer, allocatable :: is_f(:,:)
+
+    logical :: MPI_pc_flag
+    integer, allocatable :: request_pc(:)
+
+    integer :: req_counter
+    logical :: call_wait_flag_sub_get
+  contains
+    procedure(MeshFieldCommBase_put), public, deferred :: Put   
+    procedure(MeshFieldCommBase_get), public, deferred :: Get
+    procedure(MeshFieldCommBase_exchange), public, deferred :: Exchange
+    procedure, public :: Prepare_PC => MeshFieldCommBase_prepare_PC
+  end type MeshFieldCommBase
+
+  public :: MeshFieldCommBase_Init, MeshFieldCommBase_Final
+  public :: MeshFieldCommBase_exchange_core
+  public :: MeshFieldCommBase_wait_core
+  public :: MeshFieldCommBase_extract_bounddata
+  public :: MeshFieldCommBase_set_bounddata
+
+  type, public :: MeshFieldContainer
+    class(MeshField1D), pointer :: field1d
+    class(MeshField2D), pointer :: field2d
+    class(MeshField3D), pointer :: field3d        
   end type  
   
   interface
@@ -82,14 +104,15 @@ module scale_meshfieldcomm_base
     subroutine MeshFieldCommBase_get(this, field_list, varid_s)
       import MeshFieldCommBase
       import MeshFieldContainer
-      class(MeshFieldCommBase), intent(in) :: this
+      class(MeshFieldCommBase), intent(inout) :: this
       type(MeshFieldContainer), intent(inout) :: field_list(:)
       integer, intent(in) :: varid_s
     end subroutine MeshFieldCommBase_get
 
-    subroutine MeshFieldCommBase_Exchange(this)
+    subroutine MeshFieldCommBase_Exchange(this, do_wait)
         import MeshFieldCommBase
-        class(MeshFieldCommBase), intent(inout) :: this
+        class(MeshFieldCommBase), intent(inout), target :: this
+        logical, intent(in), optional :: do_wait
     end subroutine MeshFieldCommBase_Exchange
 
     subroutine MeshFieldComm_Final(this)
@@ -114,18 +137,33 @@ module scale_meshfieldcomm_base
   !
 
 contains
+
+!> Initialize a base object to manage data communication of fields
+!!
+!! @param sfield_num Number of scalar fields
+!! @param hvfield_num Number of horizontal vector fields
+!! @param htensorfield_num Number of horizontal tensor fields
+!! @param bufsize_per_field Buffer size per a field
+!! @param comm_face_num Number of faces on a local mesh which perform data communication
+!! @param Nnode_LCMeshFace Array to store the number of nodes  
+!OCL SERIAL
   subroutine MeshFieldCommBase_Init( this, &
-    sfield_num, hvfield_num, htensorfield_num, bufsize_per_field, comm_face_num, mesh )
+    sfield_num, hvfield_num, htensorfield_num, bufsize_per_field, comm_face_num, &
+    Nnode_LCMeshFace, mesh )
 
     implicit none
     
     class(MeshFieldCommBase), intent(inout) :: this
+    class(Meshbase), intent(in), target :: mesh
     integer, intent(in) :: sfield_num
     integer, intent(in) :: hvfield_num
     integer, intent(in) :: htensorfield_num
     integer, intent(in) :: bufsize_per_field
     integer, intent(in) :: comm_face_num
-    class(Meshbase), intent(in), target :: mesh
+    integer, intent(in) :: Nnode_LCMeshFace(comm_face_num,mesh%LOCAL_MESH_NUM)
+
+    integer :: n, f
+    class(LocalMeshBase), pointer :: lcmesh
     !-----------------------------------------------------------------------------
 
     this%mesh => mesh
@@ -138,88 +176,213 @@ contains
     if (this%field_num_tot > 0) then
       allocate( this%send_buf(bufsize_per_field, this%field_num_tot, mesh%LOCAL_MESH_NUM) )
       allocate( this%recv_buf(bufsize_per_field, this%field_num_tot, mesh%LOCAL_MESH_NUM) )
+      allocate( this%request_send(comm_face_num*mesh%LOCAL_MESH_NUM) )
+      allocate( this%request_recv(comm_face_num*mesh%LOCAL_MESH_NUM) )
+
+      allocate( this%commdata_list(comm_face_num,mesh%LOCAL_MESH_NUM) )
+      allocate( this%is_f(comm_face_num,mesh%LOCAL_MESH_NUM) ) 
+
+      do n=1, mesh%LOCAL_MESH_NUM
+        this%is_f(1,n) = 1
+        do f=2, this%nfaces_comm
+          this%is_f(f,n) = this%is_f(f-1,n) + Nnode_LCMeshFace(f-1,n)
+        end do
+
+        call mesh%GetLocalMesh(n, lcmesh)
+        do f=1, this%nfaces_comm
+          call this%commdata_list(f,n)%Init( this, lcmesh, f, Nnode_LCMeshFace(f,n) )
+        end do
+      end do  
     end if 
+
+    this%MPI_pc_flag = .false.
 
     return
   end subroutine MeshFieldCommBase_Init
 
+!> Finalize a base object to manage data communication of fields
+!!
+!OCL SERIAL
   subroutine MeshFieldCommBase_Final( this )
     implicit none
     
     class(MeshFieldCommBase), intent(inout) :: this
+
+    integer :: n, f
+    integer :: ireq
+    integer :: ierr
     !-----------------------------------------------------------------------------
 
     if (this%field_num_tot > 0) then
       deallocate( this%send_buf, this%recv_buf )
+      deallocate( this%request_send, this%request_recv )
+
+      do n=1, this%mesh%LOCAL_MESH_NUM
+      do f=1, this%nfaces_comm
+        call this%commdata_list(f,n)%Final()
+      end do
+      end do     
+      deallocate( this%commdata_list, this%is_f )
+
+      if (this%MPI_pc_flag) then
+        do ireq=1, this%req_counter
+          call MPI_request_free( this%request_pc(ireq), ierr )
+        end do           
+        deallocate( this%request_pc ) 
+      end if
     end if
 
     return
   end subroutine MeshFieldCommBase_Final
 
-  subroutine MeshFieldCommBase_exchange_core( this, commdata_list )
+!> Prepare persistent communication
+!!
+!OCL SERIAL
+  subroutine MeshFieldCommBase_prepare_PC( this )
+    implicit none    
+    class(MeshFieldCommBase), intent(inout) :: this
 
-    use scale_prc, only: &
-      PRC_LOCAL_COMM_WORLD, PRC_abort, PRC_MPIbarrier
-    use mpi, only: &
-      !MPI_waitall,    &
-      MPI_STATUS_SIZE
+    integer :: n, f
+    !-----------------------------------------------------------------------------
+
+    this%MPI_pc_flag = .true.
+    if (this%field_num_tot > 0) then
+      allocate( this%request_pc(2*this%nfaces_comm*this%mesh%LOCAL_MESH_NUM) )
+    end if
+
+    this%req_counter = 0
+    do n=1, this%mesh%LOCAL_MESH_NUM
+    do f=1, this%nfaces_comm
+      call this%commdata_list(f,n)%PC_Init(     &
+        this%req_counter, this%request_pc(:) ) ! (inout)
+    end do
+    end do     
+
+    return
+  end subroutine MeshFieldCommBase_prepare_PC
+
+!> Exchange halo data
+!!
+!! @param commdata_list Array of LocalMeshCommData objects which manage information and halo data 
+!! @param do_wait Flag whether MPI_waitall is called and move tmp data of LocalMeshCommData object to a recv buffer
+!OCL SERIAL
+  subroutine MeshFieldCommBase_exchange_core( this, commdata_list, do_wait )
+!    use scale_prof
     implicit none
   
     class(MeshFieldCommBase), intent(inout) :: this
     type(LocalMeshCommData), intent(inout), target :: commdata_list(this%nfaces_comm, this%mesh%LOCAL_MESH_NUM)
+    logical, intent(in), optional :: do_wait
   
-    integer :: n, f, k, l, p
-
-    integer :: var_id
-    integer :: irs, ire
+    integer :: n, f    
     integer :: ierr
-    integer :: req_counter 
-    integer :: request_send(this%nfaces_comm * this%mesh%LOCAL_MESH_NUM)
-    integer :: request_recv(this%nfaces_comm * this%mesh%LOCAL_MESH_NUM)
-    integer :: stat_send(MPI_STATUS_SIZE, this%nfaces_comm * this%mesh%LOCAL_MESH_NUM)
-    integer :: stat_recv(MPI_STATUS_SIZE, this%nfaces_comm * this%mesh%LOCAL_MESH_NUM)
+    logical :: do_wait_
     !-----------------------------------------------------------------------------
+
+    if ( present(do_wait) ) then
+      do_wait_ = do_wait
+    else
+      do_wait_ = .true.
+    end if    
     
-    req_counter = 0
+!    call PROF_rapstart( 'meshfiled_comm_ex_core', 3)
+    if ( this%MPI_pc_flag ) then
+      call MPI_startall( this%req_counter, this%request_pc(1:this%req_counter), ierr )
+    else
+      this%req_counter = 0
+    end if
     do n=1, this%mesh%LOCAL_MESH_NUM      
     do f=1, this%nfaces_comm
-      call commdata_list(f,n)%ISendRecv( &
-        req_counter, request_send(:), request_recv(:), & ! (inout)
-        commdata_list(:,:) )                             ! (inout)      
+      call commdata_list(f,n)%SendRecv( &
+        this%req_counter, this%request_send(:), this%request_recv(:), & ! (inout)
+        commdata_list(:,:),                                           & ! (inout) 
+        this%MPI_pc_flag )                                              ! (in)  
     end do
     end do
+!    call PROF_rapend( 'meshfiled_comm_ex_core', 3)
 
-    if (req_counter > 0) then
-      call MPI_waitall(req_counter, request_recv(1:req_counter), stat_recv(:,1:req_counter), ierr)
-      call MPI_waitall(req_counter, request_send(1:req_counter), stat_send(:,1:req_counter), ierr)
+    if ( do_wait_ ) then
+      call MeshFieldCommBase_wait_core( this, commdata_list )
+      this%call_wait_flag_sub_get = .false.
+    else
+      this%call_wait_flag_sub_get = .true.
     end if
-  
-    !---------------------
-
-    do n=1, this%mesh%LOCAL_MESH_NUM
-      irs = 1
-      do f=1, this%nfaces_comm
-        ire = irs + commdata_list(f,n)%Nnode_LCMeshFace - 1
-        do var_id=1, this%field_num_tot
-          this%recv_buf(irs:ire,var_id,n) = commdata_list(f,n)%recv_buf(:,var_id)
-        end do
-        irs = ire + 1
-      end do ! end loop for face
-    end do
 
     return
   end subroutine MeshFieldCommBase_exchange_core
 
+!> Wait data communication and move tmp data of LocalMeshCommData object to a recv buffer
+!! 
+!! @param commdata_list Array of LocalMeshCommData objects which manage information and halo data 
+!OCL SERIAL
+  subroutine MeshFieldCommBase_wait_core( this, commdata_list )
+    use mpi, only: &
+      !MPI_waitall,    &
+      MPI_STATUS_SIZE
+    use scale_prof
+    implicit none
+  
+    class(MeshFieldCommBase), intent(inout) :: this
+    type(LocalMeshCommData), intent(inout), target :: commdata_list(this%nfaces_comm, this%mesh%LOCAL_MESH_NUM)
+
+    integer :: ierr
+    integer :: stat_send(MPI_STATUS_SIZE, this%nfaces_comm * this%mesh%LOCAL_MESH_NUM)
+    integer :: stat_recv(MPI_STATUS_SIZE, this%nfaces_comm * this%mesh%LOCAL_MESH_NUM)
+    integer :: stat_pc(MPI_STATUS_SIZE, 2*this%nfaces_comm * this%mesh%LOCAL_MESH_NUM)
+
+    integer :: n, f
+    integer :: var_id
+    integer :: irs, ire
+    !----------------------------
+
+!    call PROF_rapstart( 'meshfiled_comm_wait_core', 3)
+    if ( this%MPI_pc_flag ) then
+      if (this%req_counter > 0) then
+        call MPI_waitall( this%req_counter, this%request_pc(1:this%req_counter), stat_pc(:,1:this%req_counter), ierr )
+      end if
+    else
+      if ( this%req_counter > 0 ) then
+        call MPI_waitall( this%req_counter, this%request_recv(1:this%req_counter), stat_recv(:,1:this%req_counter), ierr )
+        call MPI_waitall( this%req_counter, this%request_send(1:this%req_counter), stat_send(:,1:this%req_counter), ierr )
+      end if
+    end if
+!    call PROF_rapend( 'meshfiled_comm_wait_core', 3)
+  
+    !---------------------
+
+!    call PROF_rapstart( 'meshfiled_comm_wait_post', 3)
+    do n=1, this%mesh%LOCAL_MESH_NUM
+      !$omp parallel do private(var_id,f,irs,ire)
+      do var_id=1, this%field_num_tot
+        irs = 1
+        do f=1, this%nfaces_comm
+          ire = irs + commdata_list(f,n)%Nnode_LCMeshFace - 1
+          this%recv_buf(irs:ire,var_id,n) = commdata_list(f,n)%recv_buf(:,var_id)
+          irs = ire + 1
+        end do ! end loop for face
+      end do
+    end do
+!    call PROF_rapend( 'meshfiled_comm_wait_post', 3)
+
+    return
+  end subroutine MeshFieldCommBase_wait_core
+
+!OCL SERIAL
   subroutine MeshFieldCommBase_extract_bounddata(var, refElem, mesh, buf)
     implicit none
   
     class(ElementBase), intent(in) :: refElem
     class(LocalMeshBase), intent(in) :: mesh
     real(RP), intent(in) :: var(refElem%Np * mesh%NeA)
-    real(RP), intent(inout) :: buf(size(mesh%VmapB))
-    !-----------------------------------------------------------------------------
+    real(RP), intent(out) :: buf(size(mesh%VmapB))
 
-    buf(:) = var(mesh%VmapB(:))
+    integer :: i
+    !-----------------------------------------------------------------------------
+    !$omp parallel do
+!OCL PREFETCH
+    do i=1, size(buf)
+      buf(i) = var(mesh%VmapB(i))
+    end do
     return
   end subroutine MeshFieldCommBase_extract_bounddata
 
@@ -264,9 +427,9 @@ contains
     return
   end subroutine LocalMeshCommData_Init
 
-  subroutine LocalMeshCommData_iSendRecv( this, &
+  subroutine LocalMeshCommData_SendRecv( this, &
       req_counter, req_send, req_recv,          &
-      lccommdat_list )
+      lccommdat_list, MPI_pc_flag )
     
     use scale_prc, only: &
       PRC_LOCAL_COMM_WORLD
@@ -280,6 +443,51 @@ contains
     integer, intent(inout) :: req_send(:)
     integer, intent(inout) :: req_recv(:)
     type(LocalMeshCommData), intent(inout) :: lccommdat_list(:,:)
+    logical, intent(in) :: MPI_pc_flag
+  
+    integer :: tag
+    integer :: bufsize
+    integer :: ierr
+    !-------------------------------------------
+
+    if ( this%s_rank /= this%lcmesh%PRC_myrank &
+      .and. (.not. MPI_pc_flag ) ) then
+
+      req_counter = req_counter + 1
+
+      tag = 10 * this%lcmesh%tileID + this%faceID
+      bufsize = size(this%recv_buf)
+      call MPI_irecv( this%recv_buf(1,1), bufsize, MPI_DOUBLE_PRECISION, &
+        this%s_rank, tag, PRC_LOCAL_COMM_WORLD,                          &
+        req_recv(req_counter), ierr)
+
+      bufsize = size(this%send_buf)
+      tag = 10 * this%s_tileID + abs(this%s_faceID)
+      call MPI_isend( this%send_buf(1,1), bufsize, MPI_DOUBLE_PRECISION, &
+       this%s_rank, tag, PRC_LOCAL_COMM_WORLD,                           &
+       req_send(req_counter), ierr )
+      
+    else if ( this%s_rank == this%lcmesh%PRC_myrank ) then
+      lccommdat_list(abs(this%s_faceID), this%s_tilelocalID)%recv_buf(:,:) &
+        = this%send_buf(:,:)
+    end if         
+    
+    return
+  end subroutine LocalMeshCommData_sendrecv
+
+  subroutine LocalMeshCommData_pc_init( this, &
+      req_counter, req                        )
+    
+    use scale_prc, only: &
+      PRC_LOCAL_COMM_WORLD
+    use mpi, only: &
+      !MPI_isend, MPI_irecv, &
+      MPI_DOUBLE_PRECISION
+    implicit none
+
+    class(LocalMeshCommData), intent(inout) :: this
+    integer, intent(inout) :: req_counter
+    integer, intent(inout) :: req(:)
   
     integer :: tag
     integer :: bufsize
@@ -290,25 +498,24 @@ contains
 
       req_counter = req_counter + 1
 
-      bufsize = size(this%send_buf)
-      tag = 10 * this%s_tileID + abs(this%s_faceID)
-      call MPI_isend( this%send_buf(1,1), bufsize, MPI_DOUBLE_PRECISION, &
-       this%s_rank, tag, PRC_LOCAL_COMM_WORLD,                           &
-       req_send(req_counter), ierr )
-
-      tag = 10 * this%lcmesh%tileID + this%faceID
+      tag = 100 * this%lcmesh%tileID + this%faceID
       bufsize = size(this%recv_buf)
-      call MPI_irecv( this%recv_buf(1,1), bufsize, MPI_DOUBLE_PRECISION, &
-        this%s_rank, tag, PRC_LOCAL_COMM_WORLD,                          &
-        req_recv(req_counter), ierr)
-      
-    else  !<----- end if s_rank /= mesh%PRC_myrank
-      lccommdat_list(abs(this%s_faceID), this%s_tilelocalID)%recv_buf(:,:) &
-        = this%send_buf(:,:)
+      call MPI_recv_init( this%recv_buf(1,1), bufsize, MPI_DOUBLE_PRECISION, &
+        this%s_rank, tag, PRC_LOCAL_COMM_WORLD,                              &
+        req(req_counter), ierr)
+
+      !--
+      req_counter = req_counter + 1
+
+      bufsize = size(this%send_buf)
+      tag = 100 * this%s_tileID + abs(this%s_faceID)
+      call MPI_send_init( this%send_buf(1,1), bufsize, MPI_DOUBLE_PRECISION, &
+       this%s_rank, tag, PRC_LOCAL_COMM_WORLD,                               &
+       req(req_counter), ierr )
     end if         
     
     return
-  end subroutine LocalMeshCommData_isendrecv
+  end subroutine LocalMeshCommData_pc_init
 
   subroutine LocalMeshCommData_Final( this )
     implicit none

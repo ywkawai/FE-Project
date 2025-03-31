@@ -1,3 +1,11 @@
+!-------------------------------------------------------------------------------
+!> module FElib / Mesh / utility for general vertical coordinate
+!!
+!! @par Description
+!!          A module useful for general vertical coordinate
+!!
+!! @author Yuta Kawai, Team SCALE
+!<
 #include "scaleFElib.h"
 module scale_meshutil_vcoord
   !-----------------------------------------------------------------------------

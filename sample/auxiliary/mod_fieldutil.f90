@@ -35,6 +35,7 @@ module mod_fieldutil
   
   public :: fieldutil_get_profile2d_tracer
   public :: fieldutil_get_profile2d_flow
+  public :: fieldutil_get_upwind_pos2d
 
   public :: fieldutil_get_profile2dGlobal_tracer
   public :: fieldutil_get_profile2dGlobal_flow
@@ -84,6 +85,7 @@ contains
   ! If the profile_name is 'cosbell', param1 indicates the half of width. 
   ! If the profile_name is 'top-hat', param1 indicates the half of width. 
   !
+!OCL SERIAL
   subroutine fieldutil_get_profile1d_tracer( profile,  &  
     profile_name, x, params, N ) 
     implicit none
@@ -133,6 +135,7 @@ contains
   ! If the profile_name is 'cosine-bell', (param1,param2) is the coordinate of center position, param3 is the half of width. The shape is isotropic about the center of domain. 
   ! If the profile_name is 'top-hat', (param1,param2) is the coordinate of center position, param3 and param4 are the half of width in x- and y- directions, respectively. 
   !
+!OCL SERIAL
   subroutine fieldutil_get_profile2d_tracer( profile, &
     profile_name, x, y, params, N )
     implicit none
@@ -182,6 +185,7 @@ contains
   ! If the profile_name is 'rigid-body-rot', (param1,param2) is the coordinate of center position, param3 is the period of rigidlid rotation. 
   ! If the profile_name is 'swirling', param3 is a parameter of period and the flow reaches the maximum deformation at n x param3/2 where n is a natural number. param4 is the current time. 
   !
+!OCL SERIAL
   subroutine fieldutil_get_profile2d_flow( flow_x, flow_y, &
     profile_name, x, y, params, N)
 
@@ -221,6 +225,39 @@ contains
     return
   end subroutine fieldutil_get_profile2d_flow
 
+!OCL SERIAL
+  subroutine fieldutil_get_upwind_pos2d( uposx, uposy, &
+      posx, posy, profile_name, params, nowtime, dom_xmin, dom_xmax, dom_ymin, dom_ymax) 
+    real(RP), intent(in) :: posx(:), posy(:)
+    real(RP), intent(out) :: uposx(size(posx))
+    real(RP), intent(out) :: uposy(size(posy))
+    real(RP), intent(in) :: nowtime
+    character(*), intent(in) :: profile_name
+    real(RP), intent(in) :: params(:)
+    real(RP), intent(in) :: dom_xmin, dom_xmax
+    real(RP), intent(in) :: dom_ymin, dom_ymax
+
+    integer :: period
+    real(RP) :: r(size(posx))
+    real(RP) :: phi(size(posx))
+    !-------
+
+    select case(profile_name)
+    case ('constant')
+      uposx(:) = fieldutil_get_upwind_pos1d(posx, params(1), nowtime, dom_xmin, dom_xmax)
+      uposy(:) = fieldutil_get_upwind_pos1d(posy, params(2), nowtime, dom_ymin, dom_ymax)
+    case ('rigid-body-rot')
+      r(:) = sqrt( ( posx(:) - params(1) )**2 + ( posy(:) - params(2) )**2 )
+      phi(:) = atan2( posy(:) - params(2), posx(:) - params(1) ) - 2.0_RP*PI/params(3) * nowtime
+      uposx(:) = params(1) + r(:) * cos( phi(:) )
+      uposy(:) = params(2) + r(:) * sin( phi(:) )
+    case default
+      LOG_ERROR('fieldutil_get_upwind_pos2d',*) trim(profile_name)//' is not supported. Check!'
+      call PRC_abort
+    end select
+    return
+  end subroutine fieldutil_get_upwind_pos2d
+
   !-- 2d Global--------------------------------------------------------------
 
   !> Get 2D data whose value is set based on specified pattern. 
@@ -231,6 +268,7 @@ contains
   ! If the profile_name is 'cosine-bell', (param1,param2) is the coordinate of center position, param3 is the half of width. The shape is isotropic about the center of domain. 
   ! If the profile_name is 'top-hat', (param1,param2) is the coordinate of center position, param3 and param4 are the half of width in x- and y- directions, respectively. 
   !
+!OCL SERIAL
   subroutine fieldutil_get_profile2dGlobal_tracer( profile, &
     profile_name, lon, lat, RPlanet, params, N )
     implicit none
@@ -275,6 +313,7 @@ contains
 
   !-------------------------------
 
+!OCL SERIAL
   subroutine fieldutil_get_profile2dGlobal_flow( flow_lon, flow_lat, &
     profile_name, lon, lat, params, N)
 

@@ -9,14 +9,14 @@ TOPDIR      = $(abspath ../..)
 SAMPLE_DIR  = ../
 
 BINNAME = test_advect1d
-OBJS = mod_advect1d_numerror.o
+OBJS    = mod_advect1d_numerror.o
 
-#-------------------------------------------------------
+RUNCONF         = test.conf
+TPROC           = 1
+OMP_NUM_THREADS = 1
+
+#------------------------------------------------------
 include $(SAMPLE_DIR)/Makefile.common
-
-run:
-	export OMP_NUM_THREADS=1
-	mpirun -n 1 ./$(BINNAME) test.conf
 
 vis:
 	bash ./visualize/visualize.sh

@@ -1,3 +1,12 @@
+!-------------------------------------------------------------------------------
+!> module FElib / Mesh / utility for 2D mesh
+!!
+!! @par Description
+!!          A module useful for generating 2D mesh 
+!!
+!! @author Yuta Kawai, Team SCALE
+!<
+!-------------------------------------------------------------------------------
 #include "scaleFElib.h"
 module scale_meshutil_2d
   !-----------------------------------------------------------------------------
@@ -95,34 +104,34 @@ contains
     integer, intent(in) :: EToV(Ne,4)
 
     integer :: nodes(Ne*Nfaces,2)
-    integer :: face_ids(Ne*Nfaces)
-    integer :: k
+    integer(kind=8) :: face_ids(Ne*Nfaces)
+    integer :: ke
     integer :: f
     integer :: n
     integer :: n1, n2
     integer :: Nnodes
     integer :: tmp
     integer :: Nnodes_row
-    integer :: matchL(2,4), matchR(2,4)
+    integer :: matchL(2,3), matchR(2,3)
 
     real(RP) :: EToE_1d(Ne*Nfaces)
     real(RP) :: EToF_1d(Ne*Nfaces)
 
-    integer :: spNodeToNode(4,Ne*Nfaces)
-    integer :: spNodeToNodeRowTmp(4,Ne*Nfaces)
+    integer :: spNodeToNode(3,Ne*Nfaces)
+    integer :: spNodeToNodeRowTmp(3,Ne*Nfaces)
     integer :: sort_indx(Ne*Nfaces)
-    integer :: sort_val(Ne*Nfaces)
+    integer(kind=8) :: sorted_faceid(Ne*Nfaces)
     !-----------------------------------------------------------------------------
 
     Nnodes = maxval( EToV )
     Nnodes_row = size(nodes,1)
 
     !---------
-    do n=1, Ne
-       nodes(n     ,:) = EToV(n,(/ 1, 2 /))
-       nodes(n+Ne  ,:) = EToV(n,(/ 2, 4 /))
-       nodes(n+2*Ne,:) = EToV(n,(/ 4, 3 /))
-       nodes(n+3*Ne,:) = EToV(n,(/ 3, 1 /))
+    do ke=1, Ne
+       nodes(ke     ,:) = EToV(ke,(/ 1, 2 /))
+       nodes(ke+Ne  ,:) = EToV(ke,(/ 2, 4 /))
+       nodes(ke+2*Ne,:) = EToV(ke,(/ 4, 3 /))
+       nodes(ke+3*Ne,:) = EToV(ke,(/ 3, 1 /))
     end do
    
     ! Sort
@@ -137,26 +146,25 @@ contains
     nodes = nodes - 1
     !---------
 
-    do n=1, Ne
-       EToE(n,:) = n
-       EToF(n,:) = (/ 1, 2, 3, 4 /)
+    do ke=1, Ne
+       EToE(ke,:) = ke
+       EToF(ke,:) = (/ 1, 2, 3, 4 /)
     end do
 
     face_ids(:) = nodes(:,1)*Nnodes + nodes(:,2) + 1
 
     do f=1, Nfaces
-    do k=1, Ne
-       n = k + (f-1)*Ne
-       spNodeToNode(:,n) = (/ face_ids(n), n, EToE(k,f), EToF(k,f) /)
-       sort_val(n) = face_ids(n)
+    do ke=1, Ne
+       n = ke + (f-1)*Ne
+       spNodeToNode(:,n) = (/ n, EToE(ke,f), EToF(ke,f) /)
+       sorted_faceid(n) = face_ids(n)
        sort_indx(n) = n
        ! write(*,*) "face_id, n, EToE, EToF:", spNodeToNode(:,n)
     end do
     end do
 
-    
     !- sort row
-    call QUICKSORT_exec_with_idx( Ne*Nfaces, sort_val, sort_indx )
+    call QUICKSORT_exec_with_idx( Ne*Nfaces, sorted_faceid, sort_indx )
     spNodeToNodeRowTmp(:,:) = spNodeToNode(:,:)
     do n=1, Nnodes_row
       spNodeToNode(:,n) = spNodeToNodeRowTmp(:,sort_indx(n))
@@ -166,21 +174,21 @@ contains
     EToE_1d(:) = -1
     EToF_1d(:) = -1
     do n=1, Nnodes_row-1
-       if ( spNodeToNode(1,n) - spNodeToNode(1,n+1) == 0 ) then
+       if ( sorted_faceid(n) - sorted_faceid(n+1) == 0 ) then
           matchL(:,:) = transpose( spNodeToNode(:,(/ n, n+1 /)) )
           matchR(:,:) = transpose( spNodeToNode(:,(/ n+1, n /)) )
 
-          EToE_1d(matchL(:,2)) = matchR(:,3)
-          EToF_1d(matchL(:,2)) = matchR(:,4)
+          EToE_1d(matchL(:,1)) = matchR(:,2)
+          EToF_1d(matchL(:,1)) = matchR(:,3)
        end if
     end do
 
     do f=1, Nfaces
-    do k=1, Ne
-       n = k + (f-1)*Ne
+    do ke=1, Ne
+       n = ke + (f-1)*Ne
        if ( EToE_1d(n) /= -1 ) then
-          EToE(k,f) = EToE_1d(n)
-          EToF(k,f) = EToF_1d(n)
+          EToE(ke,f) = EToE_1d(n)
+          EToF(ke,f) = EToF_1d(n)
        end if
     end do
     end do
@@ -353,7 +361,7 @@ contains
     integer, intent(in) :: Fmask(Nfp,4)
 
 
-    integer :: k
+    integer :: ke
     integer :: b
     integer :: f
     integer :: i, j
@@ -374,15 +382,15 @@ contains
     rdomx = 1.0_RP/(xmax - xmin)
     rdomy = 1.0_RP/(ymax - ymin)
 
-    do k=1, Ne
+    do ke=1, Ne
     do f=1, Nfaces
-      x = sum(pos_en(Fmask(:,f),k,1)/dble(Nfp))
-      y = sum(pos_en(Fmask(:,f),k,2)/dble(Nfp))
+      x = sum(pos_en(Fmask(:,f),ke,1)/dble(Nfp))
+      y = sum(pos_en(Fmask(:,f),ke,2)/dble(Nfp))
 
-      call eval_domain_boundary(1, y, ymin, x, k, f, rdomy)
-      call eval_domain_boundary(2, x, xmax, y, k, f, rdomx)
-      call eval_domain_boundary(3, y, ymax, x, k, f, rdomy)
-      call eval_domain_boundary(4, x, xmin, y, k, f, rdomx)
+      call eval_domain_boundary(1, y, ymin, x, ke, f, rdomy)
+      call eval_domain_boundary(2, x, xmax, y, ke, f, rdomx)
+      call eval_domain_boundary(3, y, ymax, x, ke, f, rdomy)
+      call eval_domain_boundary(4, x, xmin, y, ke, f, rdomx)
     end do
     end do
 
@@ -398,10 +406,10 @@ contains
     !  write(*,*) faceIds(1:counterB(b),b)
 
       do i=1, counterB(b)
-        k = elemIds(i,b); f = faceIDs(i,b)
+        ke = elemIds(i,b); f = faceIDs(i,b)
         do j=1, Nfp
-          VMapP(j,f,k) = Np*Ne + mapB_counter
-          VmapB(mapB_counter) = Fmask(j,f) + (k-1)*Np
+          VMapP(j,f,ke) = Np*Ne + mapB_counter
+          VmapB(mapB_counter) = Fmask(j,f) + (ke-1)*Np
           mapB_counter = mapB_counter + 1
         end do
       end do
@@ -420,19 +428,19 @@ contains
 
     return
    contains
-     subroutine eval_domain_boundary(domb_id, r, rbc, ord_info, k_, f_, normalized_fac)
+     subroutine eval_domain_boundary(domb_id, r, rbc, ord_info, ke_, f_, normalized_fac)
         integer, intent(in) :: domb_id
         real(RP), intent(in) :: r
         real(RP), intent(in) :: rbc
         real(RP), intent(in) :: ord_info
-        integer, intent(in) :: k_, f_
+        integer, intent(in) :: ke_, f_
         real(RP), intent(in) :: normalized_fac
         !-------------------------------------------------------------
 
         if ( abs(r - rbc)*normalized_fac < NODE_TOL ) then
           counterB(domB_ID) = counterB(domB_ID) + 1
           ordInfo(counterB(domB_ID),domB_ID) = ord_info
-          elemIds(counterB(domB_ID),domB_ID) = k_
+          elemIds(counterB(domB_ID),domB_ID) = ke_
           faceIds(counterB(domB_ID),domB_ID) = f_
         end if
 

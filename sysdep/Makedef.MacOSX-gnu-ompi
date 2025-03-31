@@ -58,6 +58,9 @@ CFLAGS_SYSDEPEND = $(SSE_FLAGS)
 LD      = $(FC)
 LDFLAGS = $(FFLAGS)
 
+##### Execute command
+
+MPIEXEC="mpirun --oversubscribe -np"
 
 ##### Lapack
 LAPACK_LIBS    ?= -L/usr/local/opt/lapack/lib -llapack
@@ -69,9 +72,6 @@ LAPACK_LIBS    ?= -L/usr/local/opt/lapack/lib -llapack
 ##### MathLib
 SCALE_MATHLIB_LIBS=-L/usr/local/opt/lapack/lib -llapack
 
-##### SCALE
-SCALEORI_INCLUDE  ?= -I$(SCALE)/include -I$(SCALE)/scalelib/include
-SCALEORI_LIBS     ?= -L$(SCALE)/lib -lscale -ldcutils
 
 ##### for frontend
 INSTALL = install

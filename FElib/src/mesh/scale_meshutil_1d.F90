@@ -1,3 +1,12 @@
+!-------------------------------------------------------------------------------
+!> module FElib / Mesh / utility for 1D mesh
+!!
+!! @par Description
+!!          A module useful for generating 1D mesh 
+!!
+!! @author Yuta Kawai, Team SCALE
+!<
+!-------------------------------------------------------------------------------
 #include "scaleFElib.h"
 module scale_meshutil_1d
   !-----------------------------------------------------------------------------
@@ -22,7 +31,7 @@ module scale_meshutil_1d
   public :: MeshUtil1D_buildGlobalMap
 
 contains
-
+!OCL SERIAL
   subroutine MeshUtil1D_genLineDomain( pos_v, EToV, & ! (out)
     Ke_x, xmin, xmax,                               & ! (in)
     Fx )                                              ! (in)
@@ -77,7 +86,7 @@ contains
     return
   end subroutine MeshUtil1D_genLineDomain
 
-
+!OCL SERIAL
   subroutine MeshUtil1D_genConnectivity( EToE, EToF, & ! (out)
     EToV, Ne, Nfaces )                                 ! (in)
     
@@ -183,10 +192,11 @@ contains
 !    end do
 
     return
-end subroutine MeshUtil1D_genConnectivity
+  end subroutine MeshUtil1D_genConnectivity
 
-subroutine MeshUtil1D_BuildInteriorMap( VMapM, VMapP, MapM, MapP,  & ! (out)
-  pos_en, pos_ev, EtoE, EtoF, EtoV, Fmask, Ne, Np, Nfp, Nfaces, Nv ) ! (in)
+!OCL SERIAL
+  subroutine MeshUtil1D_BuildInteriorMap( VMapM, VMapP, MapM, MapP,  & ! (out)
+    pos_en, pos_ev, EtoE, EtoF, EtoV, Fmask, Ne, Np, Nfp, Nfaces, Nv ) ! (in)
 
 
   implicit none
@@ -298,76 +308,77 @@ subroutine MeshUtil1D_BuildInteriorMap( VMapM, VMapP, MapM, MapP,  & ! (out)
 !    write(*,*) "mapB:", mesh%mapB(:)
 !    write(*,*) "vmapB:", mesh%vmapB(:)
 
-  return
-end subroutine MeshUtil1D_BuildInteriorMap
+    return
+  end subroutine MeshUtil1D_BuildInteriorMap
 
-subroutine MeshUtil1D_genPatchBoundaryMap(  VMapB, MapB, VMapP, & ! (inout)
-  pos_en, xmin, xmax, Fmask, Ne, Np, Nfp, Nfaces, Nv            ) ! (in)
+!OCL SERIAL
+  subroutine MeshUtil1D_genPatchBoundaryMap(  VMapB, MapB, VMapP, & ! (inout)
+    pos_en, xmin, xmax, Fmask, Ne, Np, Nfp, Nfaces, Nv            ) ! (in)
 
-  implicit none
+    implicit none
 
-  integer, intent(in) :: Ne
-  integer, intent(in) :: Np
-  integer, intent(in) :: Nfp
-  integer, intent(in) :: Nfaces
-  integer, intent(in) :: Nv
+    integer, intent(in) :: Ne
+    integer, intent(in) :: Np
+    integer, intent(in) :: Nfp
+    integer, intent(in) :: Nfaces
+    integer, intent(in) :: Nv
 
-  integer, intent(inout), allocatable :: VMapB(:)
-  integer, intent(inout), allocatable :: MapB(:)
-  integer, intent(inout) :: VMapP(Nfp,Nfaces,Ne)
+    integer, intent(inout), allocatable :: VMapB(:)
+    integer, intent(inout), allocatable :: MapB(:)
+    integer, intent(inout) :: VMapP(Nfp,Nfaces,Ne)
 
-  real(RP), intent(in) :: pos_en(Np,Ne,1)
-  real(RP), intent(in) :: xmin, xmax
-  integer, intent(in) :: Fmask(Nfp,2)
+    real(RP), intent(in) :: pos_en(Np,Ne,1)
+    real(RP), intent(in) :: xmin, xmax
+    integer, intent(in) :: Fmask(Nfp,2)
 
-  integer :: k
-  integer :: b
-  integer :: f
-  integer :: i, j
-  real(RP) :: x
+    integer :: k
+    integer :: b
+    integer :: f
+    integer :: i, j
+    real(RP) :: x
 
-  real(RP), parameter :: NODE_TOL = 1.0E-12_RP
+    real(RP), parameter :: NODE_TOL = 1.0E-12_RP
 
-  integer :: elemIDs(Nfp*Ne,2)
-  integer :: faceIDs(Nfp*Ne,2)
-  integer :: counterB(2)
-  integer :: mapB_counter
-  real(RP) :: rdomx
-  !-----------------------------------------------------------------------------
+    integer :: elemIDs(Nfp*Ne,2)
+    integer :: faceIDs(Nfp*Ne,2)
+    integer :: counterB(2)
+    integer :: mapB_counter
+    real(RP) :: rdomx
+    !-----------------------------------------------------------------------------
 
-  counterB(:) = 0d0
-  rdomx = 1.0_RP/(xmax - xmin)
+    counterB(:) = 0d0
+    rdomx = 1.0_RP/(xmax - xmin)
 
-  do k=1, Ne
-  do f=1, Nfaces
-    x = sum(pos_en(Fmask(:,f),k,1)/dble(Nfp))
+    do k=1, Ne
+    do f=1, Nfaces
+      x = sum(pos_en(Fmask(:,f),k,1)/dble(Nfp))
 
-    call eval_domain_boundary(1, x, xmin, k, f, rdomx)
-    call eval_domain_boundary(2, x, xmax, k, f, rdomx)
-  end do
-  end do
+      call eval_domain_boundary(1, x, xmin, k, f, rdomx)
+      call eval_domain_boundary(2, x, xmax, k, f, rdomx)
+    end do
+    end do
 
 
-  allocate( mapB(sum(counterB*Nfp))    )
-  allocate( vmapB(size(mapB)) )
+    allocate( mapB(sum(counterB*Nfp))    )
+    allocate( vmapB(size(mapB)) )
 
-  mapB_counter = 1
-  do b = 1, 2
-    ! write(*,*) "LocalMesh boundary ID:", b
-    ! write(*,*) counterB(b)
-    ! write(*,*) ordInfo(1:counterB(1),b)
-    ! write(*,*) elemIds(1:counterB(1),b)
-    ! write(*,*) faceIds(1:counterB(1),b)
+    mapB_counter = 1
+    do b = 1, 2
+      ! write(*,*) "LocalMesh boundary ID:", b
+      ! write(*,*) counterB(b)
+      ! write(*,*) ordInfo(1:counterB(1),b)
+      ! write(*,*) elemIds(1:counterB(1),b)
+      ! write(*,*) faceIds(1:counterB(1),b)
 
-    do i=1, counterB(b)
-      k = elemIds(i,b); f = faceIDs(i,b)
-      do j=1, Nfp
-        VMapP(j,f,k) = Np*Ne + mapB_counter
-        VmapB(mapB_counter) = Fmask(j,f) + (k-1)*Np
-        mapB_counter = mapB_counter + 1
+      do i=1, counterB(b)
+        k = elemIds(i,b); f = faceIDs(i,b)
+        do j=1, Nfp
+          VMapP(j,f,k) = Np*Ne + mapB_counter
+          VmapB(mapB_counter) = Fmask(j,f) + (k-1)*Np
+          mapB_counter = mapB_counter + 1
+        end do
       end do
     end do
-  end do
 
    ! write(*,*) "VMapP:-----"
    ! do b=1, 4
@@ -401,6 +412,7 @@ subroutine MeshUtil1D_genPatchBoundaryMap(  VMapB, MapB, VMapP, & ! (inout)
     end subroutine eval_domain_boundary
   end subroutine MeshUtil1D_genPatchBoundaryMap
 
+!OCL SERIAL
   subroutine MeshUtil1D_genPeriodicBoundaryMap( EToE, EToF, VMapP, & ! (inout)
     xperiod, x, fx, Fmask, Ne, Np, Nfp, Nfaces, Nv                 ) ! (in)
 
@@ -504,6 +516,7 @@ subroutine MeshUtil1D_genPatchBoundaryMap(  VMapB, MapB, VMapP, & ! (inout)
     return
   end subroutine MeshUtil1D_genPeriodicBoundaryMap
 
+!OCL SERIAL
   subroutine MeshUtil1D_buildGlobalMap( &
     panelID_table, pi_table,                     & ! (out)
     tileID_map, tileFaceID_map, tilePanelID_map, & ! (out)

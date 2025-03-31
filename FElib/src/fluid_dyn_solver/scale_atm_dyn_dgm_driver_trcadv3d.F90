@@ -4,7 +4,7 @@
 !! @par Description
 !!      Driver module for tracer advection based on DGM 
 !!
-!! @author Team SCALE
+!! @author Yuta Kawai, Team SCALE
 !<
 !-------------------------------------------------------------------------------
 #include "scaleFElib.h"
@@ -35,6 +35,8 @@ module scale_atm_dyn_dgm_driver_trcadv3d
   use scale_element_base, only: &
     ElementBase, ElementBase2D, ElementBase3D
   use scale_element_hexahedral, only: HexahedralElement
+  use scale_element_operation_base, only: ElementOperationBase3D
+
   use scale_meshfield_base, only: &
     MeshFieldBase, MeshField2D, MeshField3D
   use scale_localmeshfield_base, only: &
@@ -197,7 +199,6 @@ contains
     class(ElementBase), pointer :: refElem
 
     integer :: iv
-    logical :: reg_file_hist
     !-----------------------------------------------------------------------------
 
     mesh3D => model_mesh3D%ptr_mesh
@@ -227,12 +228,11 @@ contains
     call this%TRCVAR3D_manager%Init()
     allocate( this%TRCVARS3D(TRCVARS3D_NUM) )
 
-    reg_file_hist = .false.    
     do iv = 1, TRCVARS3D_NUM
       call this%TRCVAR3D_manager%Regist( &
         ATMOS_DYN_TRCVARS3D_VINFO(iv), mesh3D,     & ! (in) 
         this%TRCVARS3D(iv),                        & ! (inout)
-        reg_file_hist, fill_zero=.true.            ) ! (in)
+        .false., fill_zero=.true.                  ) ! (in)
     end do
 
     iv = TRCVARS3D_TRCADV_ID
@@ -247,12 +247,11 @@ contains
     call this%AUXTRC_FLUX_VAR3D_manager%Init()
     allocate( this%AUXTRC_FLUX_VARS3D(MASS_FLUX_NUM) )
     
-    reg_file_hist = .false.    
     do iv = 1, MASS_FLUX_NUM
       call this%AUXTRC_FLUX_VAR3D_manager%Regist(  &
         ATMOS_DYN_MASS_FLUX_VINFO(iv), mesh3D,     & ! (in) 
         this%AUXTRC_FLUX_VARS3D(iv),               & ! (inout)
-        reg_file_hist, fill_zero=.true.            ) ! (in)
+        .false., fill_zero=.true.                  ) ! (in)
     end do
 
     call model_mesh3D%Create_communicator( &
@@ -266,12 +265,11 @@ contains
     call this%AUXTRCVAR3D_manager%Init()
     allocate( this%AUX_TRCVARS3D(AUXTRCVARS3D_NUM) )
 
-    reg_file_hist = .false.    
     do iv = 1, AUXTRCVARS3D_NUM
       call this%AUXTRCVAR3D_manager%Regist( &
         ATMOS_DYN_AUXTRCVARS3D_VINFO(iv), mesh3D,  & ! (in) 
         this%AUX_TRCVARS3D(iv),                    & ! (inout)
-        reg_file_hist, fill_zero=.true.            ) ! (in)
+        .false., fill_zero=.true.                  ) ! (in)
     end do
 
     call model_mesh3D%Create_communicator( &
@@ -306,6 +304,7 @@ contains
 !OCL SERIAL
   subroutine AtmDynDGMDriver_trcadv3d_update( this, &
     TRC_VARS, PROG_VARS, AUX_VARS, PHYTENDS,             &
+    element_operation,                                   &
     Dx, Dy, Dz, Sx, Sy, Sz, Lift, mesh3D,                &
     dyn_driver                                           )
 
@@ -321,6 +320,7 @@ contains
     class(ModelVarManager), intent(inout) :: PROG_VARS
     class(ModelVarManager), intent(inout) :: AUX_VARS
     class(ModelVarManager), intent(inout) :: PHYTENDS
+    class(ElementOperationBase3D), intent(in) :: element_operation
     type(SparseMat), intent(in) :: Dx, Dy, Dz
     type(SparseMat), intent(in) :: Sx, Sy, Sz
     type(SparseMat), intent(in) :: Lift
@@ -403,14 +403,12 @@ contains
       lcmesh3D => mesh3D%lcmesh_list(n)
 
       call this%boundary_cond%ApplyBC_PROGVARS_lc( n, & ! (in)
-        DDENS_TRC%local(n)%val(:,:),                                                  & ! (inout)
-        MFLX_x_tavg%local(n)%val, MFLX_y_tavg%local(n)%val, MFLX_z_tavg%local(n)%val, & ! (inout)
-        THERM%local(n)%val,                                                           & ! (inout)
-        DENS_hyd%local(n)%val, PRES_hyd%local(n)%val,                                 & ! (in)
-        lcmesh3D%Gsqrt(:,:), lcmesh3D%GsqrtH(:,:), lcmesh3D%GI3(:,:,1), lcmesh3D%GI3(:,:,2),  & ! (in)
-        lcmesh3D%normal_fn(:,:,1), lcmesh3D%normal_fn(:,:,2), lcmesh3D%normal_fn(:,:,3),    & ! (in)
-        lcmesh3D%vmapM, lcmesh3D%vmapP, lcmesh3D%vmapB,                                     & ! (in)
-        lcmesh3D, lcmesh3D%refElem3D, lcmesh3D%lcmesh2D, lcmesh3D%lcmesh2D%refElem2D          ) ! (in)
+        DDENS_TRC%local(n)%val(:,:), MFLX_x_tavg%local(n)%val, MFLX_y_tavg%local(n)%val, MFLX_z_tavg%local(n)%val, THERM%local(n)%val, & ! (inout)
+        DENS_hyd%local(n)%val, PRES_hyd%local(n)%val,                                                                                  & ! (in)
+        lcmesh3D%Gsqrt(:,:), lcmesh3D%GsqrtH(:,:), lcmesh3D%GIJ(:,:,1,1), lcmesh3D%GIJ(:,:,1,2), lcmesh3D%GIJ(:,:,2,2),                & ! (in)
+        lcmesh3D%GI3(:,:,1), lcmesh3D%GI3(:,:,2),                                                                                      & ! (in)
+        lcmesh3D%normal_fn(:,:,1), lcmesh3D%normal_fn(:,:,2), lcmesh3D%normal_fn(:,:,3),                                               & ! (in)
+        lcmesh3D%vmapM, lcmesh3D%vmapP, lcmesh3D%vmapB, lcmesh3D, lcmesh3D%refElem3D, lcmesh3D%lcmesh2D, lcmesh3D%lcmesh2D%refElem2D   ) ! (in)
     end do
     call PROF_rapend( 'ATM_DYN_applyBC_mflux', 3)
 
@@ -502,7 +500,7 @@ contains
             call atm_dyn_dgm_tracer_modalfilter_apply( &
               QTRC_tmp%local(n)%val,                              & ! (inout)
               DENS_hyd%local(n)%val, DDENS_TRC%local(n)%val,      & ! (in)
-              lcmesh3D, lcmesh3D%refElem3D, this%modal_filter_3d  ) ! (in)
+              lcmesh3D, lcmesh3D%refElem3D, element_operation     ) ! (in)
             call PROF_rapend( 'ATM_DYN_update_qtrc_modalfilter', 3)
           end if
 

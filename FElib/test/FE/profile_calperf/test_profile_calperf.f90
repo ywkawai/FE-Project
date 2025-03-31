@@ -45,7 +45,7 @@ program test_profile_calperf
   
   type(MeshCubeDom3D), target :: mesh
 
-  type(MeshField3D), target :: q(5)
+  type(MeshField3D), save, target :: q(5)
 
   type(MeshFieldCommCubeDom3D) :: fields_comm
 

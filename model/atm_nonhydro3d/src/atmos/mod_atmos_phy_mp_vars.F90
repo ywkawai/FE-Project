@@ -1,10 +1,10 @@
 !-------------------------------------------------------------------------------
-!> module Atmosphere / Physics Cloud Microphysics
+!> module ATMOSPHERE physics / Cloud Microphysics
 !!
 !! @par Description
-!!          Container for mod_atmos_phy_mp
+!!          Container for variables with cloud microphysics component
 !!
-!! @author Team SCALE
+!! @author Yuta Kawai, Team SCALE
 !!
 !<
 !-------------------------------------------------------------------------------
@@ -153,7 +153,8 @@ contains
     class(MeshBase2D), pointer :: mesh2D
     class(MeshBase3D), pointer :: mesh3D
 
-    type(VariableInfo) :: qtrc_vinfo_tmp
+    type(VariableInfo) :: qtrc_tp_vinfo_tmp
+    type(VariableInfo) :: qtrc_vterm_vinfo_tmp
     !--------------------------------------------------
 
     LOG_INFO('AtmosPhyMpVars_Init',*)
@@ -182,43 +183,51 @@ contains
     reg_file_hist = .true.    
     do iv = 1, ATMOS_PHY_MP_TENDS_NUM1
       call this%tends_manager%Regist(           &
-        ATMOS_PHY_MP_TEND_VINFO(iv), mesh3D,    & ! (in) 
-        this%tends(iv), reg_file_hist           ) ! (out)
+        ATMOS_PHY_MP_TEND_VINFO(iv), mesh3D,    &
+        this%tends(iv), reg_file_hist           )
       
       do n = 1, mesh3D%LOCAL_MESH_NUM
         this%tends(iv)%local(n)%val(:,:) = 0.0_RP
       end do         
     end do
 
-    qtrc_vinfo_tmp%ndims    = 3
-    qtrc_vinfo_tmp%dim_type = 'XYZ'
-    qtrc_vinfo_tmp%STDNAME  = ''
+    qtrc_tp_vinfo_tmp%ndims    = 3
+    qtrc_tp_vinfo_tmp%dim_type = 'XYZ'
+    qtrc_tp_vinfo_tmp%STDNAME  = ''
     
     do iq = 1, this%QA
       iv = ATMOS_PHY_MP_TENDS_NUM1 + iq 
-      qtrc_vinfo_tmp%keyID = iv
-      qtrc_vinfo_tmp%NAME  = 'MP_'//trim(TRACER_NAME(this%QS+iq-1))//'_t'
-      qtrc_vinfo_tmp%DESC  = 'tendency of rho*'//trim(TRACER_NAME(this%QS+iq-1))//' in MP process'
-      qtrc_vinfo_tmp%UNIT  = 'kg/m3/s'
+      qtrc_tp_vinfo_tmp%keyID = iv
+      qtrc_tp_vinfo_tmp%NAME  = 'MP_'//trim(TRACER_NAME(this%QS+iq-1))//'_t'
+      qtrc_tp_vinfo_tmp%DESC  = 'tendency of rho*'//trim(TRACER_NAME(this%QS+iq-1))//' in MP process'
+      qtrc_tp_vinfo_tmp%UNIT  = 'kg/m3/s'
 
+      reg_file_hist = .true.
       call this%tends_manager%Regist( &
-        qtrc_vinfo_tmp, mesh3D,                 & ! (in) 
-        this%tends(iv), reg_file_hist           ) ! (out)
+        qtrc_tp_vinfo_tmp, mesh3D,              & 
+        this%tends(iv), reg_file_hist           ) 
       
       do n = 1, mesh3D%LOCAL_MESH_NUM
         this%tends(iv)%local(n)%val(:,:) = 0.0_RP
       end do         
     end do    
 
+    !--
+    
     allocate( this%vterm_hist_id(this%QS+1:this%QE) )
     allocate( this%vterm_hist   (this%QS+1:this%QE) )
+
+    qtrc_vterm_vinfo_tmp%ndims    = 3
+    qtrc_vterm_vinfo_tmp%dim_type = 'XYZ'
+    qtrc_vterm_vinfo_tmp%STDNAME  = ''
+
     do iq = this%QS+1, this%QE
-      qtrc_vinfo_tmp%NAME = 'Vterm_'//trim(TRACER_NAME(this%QS+iq-1))
-      qtrc_vinfo_tmp%DESC = 'terminal velocity of '//trim(TRACER_NAME(this%QS+iq-1))
-      qtrc_vinfo_tmp%UNIT = 'm/s'
-      call FILE_HISTORY_reg( qtrc_vinfo_tmp%NAME, qtrc_vinfo_tmp%DESC, qtrc_vinfo_tmp%UNIT, &
+      qtrc_vterm_vinfo_tmp%NAME = 'Vterm_'//trim(TRACER_NAME(this%QS+iq-1))
+      qtrc_vterm_vinfo_tmp%DESC = 'terminal velocity of '//trim(TRACER_NAME(this%QS+iq-1))
+      qtrc_vterm_vinfo_tmp%UNIT = 'm/s'
+      call FILE_HISTORY_reg( qtrc_vterm_vinfo_tmp%NAME, qtrc_vterm_vinfo_tmp%DESC, qtrc_vterm_vinfo_tmp%UNIT, &
         this%vterm_hist_id(iq), dim_type='XYZ'                                              )
-      if ( this%vterm_hist_id(iq) > 0 ) call this%vterm_hist(iq)%Init( qtrc_vinfo_tmp%NAME, qtrc_vinfo_tmp%UNIT, mesh3D )
+      if ( this%vterm_hist_id(iq) > 0 ) call this%vterm_hist(iq)%Init( qtrc_vterm_vinfo_tmp%NAME, qtrc_vterm_vinfo_tmp%UNIT, mesh3D )
     end do
 
     !--

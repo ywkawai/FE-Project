@@ -1,10 +1,10 @@
 !-------------------------------------------------------------------------------
-!> module ATMOSPHERE dynamical process
+!> module ATMOSPHERE dynamics
 !!
 !! @par Description
 !!          Module for atmosphere dynamical process
 !!
-!! @author Team SCALE
+!! @author Yuta Kawai, Team SCALE
 !!
 !<
 !-------------------------------------------------------------------------------
@@ -65,13 +65,13 @@ module mod_atmos_dyn
   !++ Public type & procedure
   !
 
+  !> Derived type to manage a component of atmospheric dynamics
+  !!
   type, extends(ModelComponentProc), public :: AtmosDyn
-    integer :: EQS_TYPEID
+    type(AtmDynDGMDriver_nonhydro3d) :: dyncore_driver !< A driver object to manage a dry atmospheric dynamical core
+    type(AtmDynDGMDriver_trcadv3d) :: trcadv_driver    !< A driver object to manage a tracer advection
 
-    type(AtmDynDGMDriver_nonhydro3d) :: dyncore_driver
-    type(AtmDynDGMDriver_trcadv3d) :: trcadv_driver
-
-    type(AtmosDynVars) :: dyn_vars
+    type(AtmosDynVars) :: dyn_vars                     !< A object to manage variables in a component of atmospheric dynamics
 
     ! explicit numerical diffusion
     logical :: CALC_NUMDIFF_FLAG
@@ -102,6 +102,11 @@ module mod_atmos_dyn
 
 contains
 
+!> Setup a component of atmospheric dynamics
+!!
+!! @param model_mesh a object to manage computational mesh of atmospheric model 
+!! @param tm_parent_comp a object to mange a temporal scheme in a parent component
+!!
 !OCL SERIAL
   subroutine AtmosDyn_setup( this, model_mesh, tm_parent_comp )
     use mod_atmos_mesh, only: AtmosMesh
@@ -113,19 +118,20 @@ contains
     class(ModelMeshBase), target, intent(in) :: model_mesh
     class(TIME_manager_component), intent(inout) :: tm_parent_comp
 
-    character(len=H_MID) :: EQS_TYPE             = "NONHYDRO3D_HEVE"
-    character(len=H_SHORT) :: TINTEG_TYPE        = 'ERK_SSP_3s3o'
-    character(len=H_SHORT) :: TINTEG_TYPE_TRACER = 'ERK_SSP_3s3o'    
-    real(DP) :: TIME_DT                          = UNDEF8
-    character(len=H_SHORT) :: TIME_DT_UNIT       = 'SEC'  
+    character(len=H_MID) :: EQS_TYPE             = "NONHYDRO3D_HEVE" !< Type of governing equations
+    character(len=H_SHORT) :: TINTEG_TYPE        = 'ERK_SSP_3s3o'    !< Type of temporal scheme for a dry dynamical core
+    character(len=H_SHORT) :: TINTEG_TYPE_TRACER = 'ERK_SSP_3s3o'    !< Type of temporal scheme for tracer advection equations
+    real(DP) :: TIME_DT                          = UNDEF8            !< Timestep for a atmospheric dynamical core
+    character(len=H_SHORT) :: TIME_DT_UNIT       = 'SEC'             !< Unit of timestep
     
-    logical :: MODALFILTER_FLAG           = .false.
-    logical :: NUMDIFF_FLAG               = .false.
-    logical :: SPONGELAYER_FLAG           = .false.
-    logical :: ONLY_TRACERADV_FLAG        = .false.
-    logical :: TRACERADV_DISABLE_LIMITER  = .false.
-    logical :: TRACERADV_MODALFILTER_FLAG = .false.
-
+    logical :: MODALFILTER_FLAG           = .false. !< Flag to set whether a modal filtering is used
+    logical :: NUMDIFF_FLAG               = .false. !< Flag to set whether we calculate explicit numerical diffusion terms, which is available for a regional dynamical core mode
+    logical :: SPONGELAYER_FLAG           = .false. !< Flag to set whether a sponge layer is applied
+    logical :: ONLY_TRACERADV_FLAG        = .false. !< Flag to set whether we only treat tracer advection equations considering advection test cases
+    logical :: TRACERADV_DISABLE_LIMITER  = .false. !< Flag to disable limiters for ensuring non-negative values
+    logical :: TRACERADV_MODALFILTER_FLAG = .false. !< Flag to whether a modal filtering is used for tracer variables
+    logical :: HIDE_MPI_COMM_FLAG         = .false.
+    
     namelist / PARAM_ATMOS_DYN /       &
       EQS_TYPE,                        &
       TINTEG_TYPE,                     &
@@ -137,7 +143,8 @@ contains
       SPONGELAYER_FLAG,                &
       ONLY_TRACERADV_FLAG,             &
       TRACERADV_DISABLE_LIMITER,       &
-      TRACERADV_MODALFILTER_FLAG
+      TRACERADV_MODALFILTER_FLAG,      &
+      HIDE_MPI_COMM_FLAG
     
     class(AtmosMesh), pointer     :: atm_mesh
     class(MeshBase), pointer      :: ptr_mesh
@@ -188,8 +195,10 @@ contains
 
     !- Initialize a module for 3D dynamical core 
     call this%dyncore_driver%Init( EQS_TYPE, &
-      TINTEG_TYPE, dtsec,                          &
-      SPONGELAYER_FLAG, MODALFILTER_FLAG, atm_mesh )
+      TINTEG_TYPE, dtsec,                    &
+      SPONGELAYER_FLAG, MODALFILTER_FLAG,    &
+      HIDE_MPI_COMM_FLAG, &
+      atm_mesh )
 
     !- Initialize a module for tracer equations
     call this%trcadv_driver%Init( "TRCADV3D_HEVE", &
@@ -204,6 +213,18 @@ contains
     return
   end subroutine AtmosDyn_setup
 
+
+!> Calculate tendencies associated with atmospheric dynamics
+!!
+!! Because the tendecies with atmospheric dynamical cores are treated in AtmosDyn_update,
+!! no calculation is performed in this subroutine.
+!!
+!! @param model_mesh a object to manage computational mesh of atmospheric model 
+!! @param prgvars_list a object to mange prognostic variables with atmospheric dynamical core
+!! @param trcvars_list a object to mange auxiliary variables 
+!! @param forcing_list a object to mange forcing terms
+!! @param is_update Flag to speicfy whether the tendencies are updated in this call
+!!
 !OCL SERIAL  
   subroutine AtmosDyn_calc_tendency( this, model_mesh, prgvars_list, trcvars_list, auxvars_list, forcing_list, is_update )
     implicit none
@@ -222,6 +243,16 @@ contains
     return  
   end subroutine AtmosDyn_calc_tendency
 
+
+!> Update variables with a component of atmospheric dynamics
+!! The tendecies with atmospheric dynamical cores are evaluated and the prognostic variables is updated.
+!!
+!! @param model_mesh a object to manage computational mesh of atmospheric model 
+!! @param prgvars_list a object to mange prognostic variables with atmospheric dynamical core
+!! @param trcvars_list a object to mange auxiliary variables 
+!! @param forcing_list a object to mange forcing terms
+!! @param is_update Flag to speicfy whether the tendencies are updated in this call
+!!
 !OCL SERIAL
   subroutine AtmosDyn_update( this, model_mesh, prgvars_list, trcvars_list, auxvars_list, forcing_list, is_update )
     use scale_tracer, only: &
@@ -255,28 +286,7 @@ contains
     class(ModelVarManager), intent(inout) :: forcing_list
     logical, intent(in) :: is_update
 
-    integer :: rkstage
-    integer :: tintbuf_ind
-
     class(MeshBase), pointer :: mesh
-    class(LocalMesh3D), pointer :: lcmesh
-    integer :: n
-    integer :: ke, ke2D, p
-
-    class(LocalMeshFieldBase), pointer :: DDENS, MOMX, MOMY, MOMZ, THERM
-    class(LocalMeshFieldBase), pointer :: DENS_hyd, PRES_hyd
-    class(LocalMeshFieldBase), pointer :: Rtot, CVtot, CPtot
-
-    class(LocalMeshFieldBase), pointer :: ALPH_DENS_M_tavg, ALPH_DENS_P_tavg, MFLX_x_tavg, MFLX_y_tavg, MFLX_z_tavg    
-    class(LocalMeshFieldBase), pointer :: QTRC
-    class(LocalMeshFieldBase), pointer :: RHOQ_tp
-
-    integer :: v
-    integer :: iq
-    real(RP) :: implicit_fac
-    real(RP) :: dt
-    real(RP) :: dttmp_trc
-
     class(MeshBase3D), pointer :: mesh3D
     !--------------------------------------------------
     
@@ -301,6 +311,7 @@ contains
         this%trcadv_driver%AUXTRC_FLUX_VARS3D(MASSFLX_Z_TAVG),                     & ! (inout)
         this%trcadv_driver%alphaDensM, this%trcadv_driver%alphaDensP,              & ! (inout)
         this%dyn_vars%AUX_VARS2D(ATMOS_DYN_AUXVARS2D_CORIOLIS_ID),                 & ! (in)
+        model_mesh%element3D_operation,                                            & ! (in)
         model_mesh%DOptrMat(1), model_mesh%DOptrMat(2), model_mesh%DOptrMat(3),    & ! (in)
         model_mesh%SOptrMat(1), model_mesh%SOptrMat(2), model_mesh%SOptrMat(3),    & ! (in)
         model_mesh%LiftOptrMat, mesh3D                                             ) ! (in)
@@ -316,6 +327,7 @@ contains
 
       call this%trcadv_driver%Update( &
         trcvars_list, prgvars_list, auxvars_list, forcing_list,                 & ! (inout)
+        model_mesh%element3D_operation,                                         & ! (in)
         model_mesh%DOptrMat(1), model_mesh%DOptrMat(2), model_mesh%DOptrMat(3), & ! (in)
         model_mesh%SOptrMat(1), model_mesh%SOptrMat(2), model_mesh%SOptrMat(3), & ! (in)
         model_mesh%LiftOptrMat, mesh3D,                                         & ! (in)
@@ -341,6 +353,8 @@ contains
     return  
   end subroutine AtmosDyn_update
 
+!> Finalize a component of atmospheric dynamics
+!!
 !OCL SERIAL
   subroutine AtmosDyn_finalize( this )
     implicit none
@@ -378,7 +392,7 @@ contains
     class(LocalMesh2D), pointer :: lcmesh2D
     integer :: n
 
-    character(len=H_SHORT) :: CORIOLIS_type ! type of coriolis force: 'PLANE', 'SPHERE'
+    character(len=H_SHORT) :: CORIOLIS_type !< Type of coriolis force: 'PLANE', 'SPHERE'
     real(RP) :: CORIOLIS_f0   = 0.0_RP
     real(RP) :: CORIOLIS_beta = 0.0_RP
     real(RP) :: CORIOLIS_y0

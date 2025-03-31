@@ -20,9 +20,9 @@ We also provide sample programs and atmospheric models for meteorological simula
 
 ### Nonhydrostatic atmospheric model
 - Simple 2D model with only dynamical process
-- Regional and Global models
+- Regional and Global models (SCALE-DG)
 
-## Simple samples for intrduction to DGM. 
+## Simple samples for introduction to DGM. 
 ### 1D problems 
   - Linear advection equation
     - various profiles of advected quantity
@@ -43,3 +43,14 @@ We also provide sample programs and atmospheric models for meteorological simula
 
 ## Build FE library
 Please see ``INSTALL.md''.  
+
+## Contributors
+- Yuta Kawai
+- Xuanzhengbo Ren
+- Hirofumi Tomita
+
+## Acknowledgements
+This project is supported by [the Transformaive Research Areas B: DNA Climate Science](https://dna-climate.org/) (MEXT KAKENHI Grant Number JP20H05731), 
+[Moonshot Goal8 Realization of a society safe from the threat of extreme winds and rains by controlling and modifying the weather by 2050](https://www.jst.go.jp/moonshot/program/goal8/) ([Development of an atmospheric simulation model for probability estimation for local atmospheric phenomena](https://moonshot8-modeldev.riken.jp)), JICA and JST SATREPS (grant Number: JPMJSA2109), JST AIP Grant Number JPMJCR19U2, and the Foundation for Computational Science (FOCUS) Establishing Supercomputing Center of Excellence. 
+The model development and validation experiments are
+performed using supercomputers (Oackbridge-CX and Wisteria) at the University of Tokyo and Fugaku at RIKEN (Project ID: ra000005, hp200271, hp230278).

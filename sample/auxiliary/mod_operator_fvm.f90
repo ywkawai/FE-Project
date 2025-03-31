@@ -126,7 +126,15 @@ contains
 
     select case( this%flux_scheme_id )
     case (FLUX_SCHEME_ID_UD1)
-
+      do j=this%JS, this%JE
+      do i=this%IS, this%IE
+      do k=this%KS-1, this%KE
+        flux(k,i,j) = vel(k,i,j)*( &
+            F2*( q(k+1,i,j) + q(k,i,j) ) &
+          - F2*( q(k+1,i,j) - q(k,i,j) ) * sign(1.0_RP,vel(k,i,j)) )
+      end do
+      end do
+      end do  
     case (FLUX_SCHEME_ID_CD2)
       do j=this%JS, this%JE
       do i=this%IS, this%IE
@@ -182,7 +190,15 @@ contains
 
     select case( this%flux_scheme_id )
     case (FLUX_SCHEME_ID_UD1)
-
+      do j=this%JS, this%JE
+      do i=this%IS-1, this%IE
+      do k=this%KS, this%KE
+        flux(k,i,j) = vel(k,i,j)*( &
+            F2*( q(k,i+1,j) + q(k,i,j) ) &
+          - F2*( q(k,i+1,j) - q(k,i,j) ) * sign(1.0_RP,vel(k,i,j)) )
+      end do
+      end do
+      end do  
     case (FLUX_SCHEME_ID_CD2)
       do j=this%JS, this%JE
       do i=this%IS-1, this%IE
@@ -227,7 +243,7 @@ contains
   end subroutine operator_fvm_C_flux_UYZ
 
   subroutine operator_fvm_C_flux_XVZ( this, flux, vel, q )
-
+    implicit none
     class(operator_fvm), intent(inout) :: this
     real(RP), intent(out) :: flux(this%KA, this%IA, this%JA)
     real(RP), intent(in) :: vel(this%KA, this%IA, this%JA)
@@ -238,7 +254,15 @@ contains
 
     select case( this%flux_scheme_id )
     case (FLUX_SCHEME_ID_UD1)
-
+      do j=this%JS, this%JE
+      do i=this%IS-1, this%IE
+      do k=this%KS, this%KE
+        flux(k,i,j) = vel(k,i,j)*( &
+            F2*( q(k,i,j+1) + q(k,i,j) ) &
+          - F2*( q(k,i,j+1) - q(k,i,j) ) * sign(1.0_RP,vel(k,i,j)) )
+      end do
+      end do
+      end do  
     case (FLUX_SCHEME_ID_CD2)
       do j=this%JS-1, this%JE
       do i=this%IS, this%IE
@@ -248,7 +272,15 @@ contains
       end do
       end do
     case (FLUX_SCHEME_ID_UD3)
-
+      do j=this%JS-1, this%JE
+      do i=this%IS, this%IE
+      do k=this%KS, this%KE
+        flux(k,i,j) = vel(k,i,j) &
+          * ( ( F31 * ( q(k,i,j+2)+q(k,i,j-1) ) + F32 * ( q(k,i,j+1)+q(k,i,j) ) ) &
+            - ( F31 * ( q(k,i,j+2)-q(k,i,j-1) ) + F33 * ( q(k,i,j+1)-q(k,i,j) ) ) * sign(1.0_RP,vel(k,i,j)) )
+      end do
+      end do
+      end do   
     case (FLUX_SCHEME_ID_CD4)
       do j=this%JS-1, this%JE
       do i=this%IS, this%IE
@@ -258,6 +290,19 @@ contains
       end do
       end do      
     case (FLUX_SCHEME_ID_UD5)
+      do j=this%JS-1, this%JE
+      do i=this%IS, this%IE
+      do k=this%KS, this%KE
+        flux(k,i,j) = vel(k,i,j) &
+          * ( ( F51 * ( q(k,i,j+3)+q(k,i,j-2) ) &
+              + F52 * ( q(k,i,j+2)+q(k,i,j-1) ) &
+              + F53 * ( q(k,i,j+1)+q(k,i,j) ) ) &
+            - ( F51 * ( q(k,i,j+3)-q(k,i,j-2) ) &
+              + F54 * ( q(k,i,j+2)-q(k,i,j-1) ) &
+              + F55 * ( q(k,i,j+1)-q(k,i,j) ) ) * sign(1.0_RP,vel(k,i,j)) )         
+      end do
+      end do
+      end do      
     end select
   end subroutine operator_fvm_C_flux_XVZ
 

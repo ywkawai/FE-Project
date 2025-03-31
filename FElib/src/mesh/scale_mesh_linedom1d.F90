@@ -1,3 +1,12 @@
+!-------------------------------------------------------------------------------
+!> module FElib / Mesh / 1D domain
+!!
+!! @par Description
+!!      Manage mesh data of 1D domain for element-based methods
+!!
+!! @author Yuta Kawai, Team SCALE
+!<
+!-------------------------------------------------------------------------------
 #include "scaleFElib.h"
 module scale_mesh_linedom1d
 
@@ -12,7 +21,7 @@ module scale_mesh_linedom1d
     MeshBase1D_assignDomID, MeshBase1D_setGeometricInfo, MeshBase1D_setupLocalDom
 
   use scale_localmesh_1d, only: LocalMesh1D
-  use scale_element_base, only: elementbase1D
+  use scale_element_base, only: ElementBase1D
   use scale_element_line, only: LineElement
 
   !-----------------------------------------------------------------------------

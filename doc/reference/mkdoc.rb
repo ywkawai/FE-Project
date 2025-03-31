@@ -93,15 +93,15 @@ Index = {
 }
 
 files = parse_dir(srcdir)
-
 files = files.flatten.sort!
 
 tree = Hash.new
 nm_params = Hash.new
 history = Hash.new
-files.each do |fname|
-
+files.each do |fname|  
   mod_f = fname.sub(/#{srcdir}\//,"").sub(/\.[Ff]90\Z/,"")
+  check = false
+  check = true if /scale_atm_dyn_dgm_driver_nonhydro3d/ =~ mod_f
 
   vars = Hash.new
   namelists = Hash.new
@@ -160,20 +160,47 @@ files.each do |fname|
           hist[info[1]] = {:unit => info[3], :desc => info[2], :var => info[0]}
         when /call FILE_HISTORY_reg\s*\((.+)$/i
           str = $1.strip.sub(/\)\Z/,"").strip
-          next if /scale_file_history/ =~ modname
+          next if /scale_model_var_manager/ =~ modname
+          next if /scale_file_history_meshfield/ =~ modname
           str.gsub!(/\(:[^)]*\)/,'')
           info = str.split(",").map{|c| c.strip.sub(/\A'?(.*)'\Z/,'\1')}
-          hist[info[0]] = {:unit => info[2], :desc => info[1], :var => info[0]}
-        when /data\s+([^\s]+)\s+\/(.+)\/$/i
+          if /qtrc(.*)_vinfo_tmp/ =~ info[0]
+            name = "TRACER_NAME"+$1
+            hist[name] = {:unit => "TRACER_UNIT", :desc => "TRACER_DESC", :var => "TRACER_NAME"}
+          else
+            hist[info[0]] = {:unit => info[2], :desc => info[1], :var => info[0]}          
+          end
+        when /qtrc(.*)_vinfo_tmp%(.*)\s?(=\s?.*)/          
+          post=$1
+          vid=$2.strip
+          name = "TRACER_NAME"+post
+          val = $3.sub!(/\A=/,"").strip
+          val.gsub!(/\A"?(.*)"\Z/,'\1')
+          data[name] = {} if data[name] == nil
+          data[name][vid] = val
+        when /call .*%Regist\((.+)$/i
+          str = $1.strip.sub(/\)\Z/,"").strip
+          next if /scale_model_var_manager/ =~ modname
+          next if /scale_file_history_meshfield/ =~ modname
+          str.gsub!(/\(:[^)]*\)/,'')
+          info = str.split(",").map{|c| c.strip.sub(/\A'?(.*)'\Z/,'\1')}
+          next if /false/ =~ info[3]
+          if /qtrc(.*)_vinfo_tmp/ =~ info[0]
+            name = "TRACER_NAME"+$1
+            hist[name] = {:unit => "TRACER_UNIT", :desc => "TRACER_DESC", :var => "TRACER_NAME"}
+          else
+            hist[info[0]+"%NAME"] = {:unit => info[0]+"%UNIT", :desc => info[0]+"%DESC", :var => info[0]+"%NAME"}
+          end
+        when /DATA\s+([^\s]+)\s+\/(.+)\/$/i
           name = $1
-          body = $2
-          if /Vinfo/ =~ body
+          body = $2.strip
+          if /VariableInfo/ =~ body
             ary = Array.new
             while body
-              if /\A(Vinfo\(.+?\)),\s*?(Vinfo.*)\Z/ =~ body
+              if /\A(VariableInfo\(.+?\)),\s*?(VariableInfo.*)\Z/ =~ body
                 ary.push $1
                 body = $2.strip
-              elsif /\A(Vinfo\(.+\))\Z/ =~ body
+              elsif /\A(VariableInfo\(.+\))\Z/ =~ body
                 ary.push $1
                 body = nil
               else
@@ -189,7 +216,6 @@ files.each do |fname|
       end # while line
     end # open
   end
-
   vars.update(Index){|k,v1,v2| v1}
 
   if namelists.empty? && hist.empty?
@@ -264,45 +290,55 @@ EOL
     hist.sort.each do |name, info|
       name = get_data(name,data,vars)
       desc = get_data(info[:desc],data,vars)
-      if /\A(.*)trim\(([^()]+)(?:\([^()]+\))?\)(.*)\Z/ =~ name || /\A()(TRACER_NAME)\([^()]+\)()\Z/ =~ name
-        pre = $1
-        vn = $2
-        post = $3
-        pre.sub!(/'?([^']+)'\/\//, '\1')
-        post.sub!(/\/\/'([^']+)'?/, '\1')
-        vn = "@ref #{vn.downcase} \"#{vn}\"" if vn == "TRACER_NAME"
-        name = "#{pre}<em>{#{vn}}</em>#{post}"
-      end
-      if /\A(.*)trim\(([^()]+)(?:\([^()]+\))?\)(.*)\Z/ =~ desc || /\A()(TRACER_DESC)\([^()]+\)()\Z/ =~ desc
-        pre = $1
-        vn = $2
-        post = $3
-        pre.sub!(/'?([^']+)'\/\//, '\1')
-        post.sub!(/\/\/'([^']+)'?/,'\1')
-        vn = "TRACER_NAME" if vn == "TRACER_DESC"
-        vn = "HYD_NAME" if vn == "HYD_DESC"
-        vn = "AE_NAME" if vn == "AE_DESC"
-        case vn
-        when "HYD_NAME"
-          if /NUM_NAME/ =~ name
-            desc = "#{pre}<em>{#{vn}}</em>#{post};<br/><em>{NUM_NAME}</em> is NC, NR, NI, NS, NG, NH."
-          else
-            desc = "#{pre}<em>{#{vn}}</em>#{post};<br/><em>{#{vn}}</em> is QC, QR, QI, QS, QG, QH."
-          end
-        when "AE_NAME"
-          desc = "#{pre}<em>{#{vn}}</em>#{post};<br/><em>{#{vn}}</em> is AD, ASO, AVA, AS, AR, ASS, AU, AT, AOC."
-        else
+
+      if /TRACER_NAME(.*)/ =~ name
+        trcname = "TRACER_NAME"+$1
+        if /\A(.*)trim\(([^()]+)(?:\([^()]+\))?\)(.*)\Z/ =~ data[trcname]["NAME"] || /\A()(TRACER_NAME)\([^()]+\)()\Z/ =~ data[trcname]["NAME"]
+          pre = $1
+          vn = $2
+          post = $3
+          pre.sub!(/'?([^']+)'\/\//, '\1')
+          post.sub!(/\/\/'([^']+)'?/, '\1')
           vn = "@ref #{vn.downcase} \"#{vn}\"" if vn == "TRACER_NAME"
-          desc = "#{pre}<em>{#{vn}}</em>#{post};<br/><em>{#{vn}}</em> depends on the physics schemes, e.g., QV, QC, QR."
+          name = "#{pre}<em>{#{vn}}</em>#{post}"
+        end
+        if /\A(.*)trim\(([^()]+)(?:\([^()]+\))?\)(.*)\Z/ =~ data[trcname]["DESC"] || /\A()(TRACER_DESC)\([^()]+\)()\Z/ =~ data[trcname]["DESC"]
+          pre = $1
+          vn = $2
+          post = $3
+          pre.sub!(/'?([^']+)'\/\//, '\1')
+          post.sub!(/\/\/'([^']+)'?/,'\1')
+          vn = "TRACER_NAME" if vn == "TRACER_DESC"
+          vn = "HYD_NAME" if vn == "HYD_DESC"
+          vn = "AE_NAME" if vn == "AE_DESC"
+          case vn
+          when "HYD_NAME"
+            if /NUM_NAME/ =~ name
+              desc = "#{pre}<em>{#{vn}}</em>#{post};<br/><em>{NUM_NAME}</em> is NC, NR, NI, NS, NG, NH."
+            else
+              desc = "#{pre}<em>{#{vn}}</em>#{post};<br/><em>{#{vn}}</em> is QC, QR, QI, QS, QG, QH."
+            end
+          when "AE_NAME"
+            desc = "#{pre}<em>{#{vn}}</em>#{post};<br/><em>{#{vn}}</em> is AD, ASO, AVA, AS, AR, ASS, AU, AT, AOC."
+          else
+            vn = "@ref #{vn.downcase} \"#{vn}\"" if vn == "TRACER_NAME"
+            desc = "#{pre}<em>{#{vn}}</em>#{post};<br/><em>{#{vn}}</em> depends on the physics schemes, e.g., QV, QC, QR."
+          end
+        end
+        if /.*QV.*/ =~ data[trcname]["NAME"]
+          val1 = data[trcname]["NAME"]
+          val2 = data[trcname]["DESC"]
+          name = "<em>#{val1}</em>"
+          desc = "<em>#{val2} which can be output also when ATMOS_HYDROMETEOR_dry=.true.</em>"
         end
       end
       if /\A([^()]+)\([^()]+\)%(.+)\Z/ =~ name 
         vn  = $1
         elm = $2
         ary = data[vn].map do |d|
-          if /\AVinfo\((.+)\)\Z/ =~ d
+          if /\AVariableInfo\((.+)\)\Z/ =~ d
             body = $1.split(",").map{|s| s.strip.sub!(/\A'(.+)'\Z/,'\1')}
-            [ body[0], modname, body[1], body[2], body[0]]
+            [ body[1], modname, body[2], body[3], body[1]]
           else
             raise d
           end

@@ -1,4 +1,13 @@
 !-------------------------------------------------------------------------------
+!> module Atmosphere / Mesh
+!!
+!! @par Description
+!!          Module for mesh with atmospheric regional model
+!!
+!! @author Yuta kawai, Team SCALE
+!!
+!<
+!-------------------------------------------------------------------------------
 #include "scaleFElib.h"
 module mod_atmos_mesh_rm
   !-----------------------------------------------------------------------------
@@ -32,6 +41,9 @@ module mod_atmos_mesh_rm
   !
   !++ Public type & procedures
   !
+
+  !> Derived type to manage a computational mesh of regional atmospheric model
+  !!
   type, extends(AtmosMesh), public :: AtmosMeshRM
     type(MeshCubeDom3D) :: mesh
     type(MeshFieldCommCubeDom3D) :: comm_list(ATM_MESH_MAX_COMMNUICATOR_NUM)
@@ -65,6 +77,8 @@ contains
 
   !- AtmosMesh RM -----------------------------------------
 
+  !> Initialize a object to manage computational mesh
+  !!
   subroutine AtmosMeshRM_Init( this )
     use scale_file_base_meshfield, only: FILE_base_meshfield
     use scale_mesh_base2d, only: &
@@ -75,32 +89,38 @@ contains
     implicit none
     class(AtmosMeshRM), target, intent(inout) :: this
 
-    real(RP) :: dom_xmin         = 0.0_RP 
-    real(RP) :: dom_xmax         = 100.0E3_RP
-    real(RP) :: dom_ymin         = 0.0_RP 
-    real(RP) :: dom_ymax         = 100.0E3_RP
-    real(RP) :: dom_zmin         = 0.0_RP
-    real(RP) :: dom_zmax         = 10.0E3_RP
-    logical  :: isPeriodicX       = .true.
-    logical  :: isPeriodicY       = .true.
-    logical  :: isPeriodicZ       = .false.
+    real(RP) :: dom_xmin         = 0.0_RP      !< Minimum x-coordinate value of the computational domain
+    real(RP) :: dom_xmax         = 100.0E3_RP  !< Maximum x-coordinate value of the computational domain
+    real(RP) :: dom_ymin         = 0.0_RP      !< Minimum y-coordinate value of the computational domain
+    real(RP) :: dom_ymax         = 100.0E3_RP  !< Maximum y-coordinate value of the computational domain
+    real(RP) :: dom_zmin         = 0.0_RP      !< Minimum vertical coordinate value of the computational domain
+    real(RP) :: dom_zmax         = 10.0E3_RP   !< Maximum vertical coordinate value of the computational domain
+    logical  :: isPeriodicX       = .true.     !< Flag whether a periodic boundary condition is applied in the x-direction
+    logical  :: isPeriodicY       = .true.     !< Flag whether a periodic boundary condition is applied in the y-direction
+    logical  :: isPeriodicZ       = .false.    !< Flag whether a periodic boundary condition is applied in the vertical direction
 
-    integer  :: NeX               = 2
-    integer  :: NeY               = 2
-    integer  :: NeZ               = 2
-    integer  :: NprcX             = 1
-    integer  :: NprcY             = 1 
-    integer  :: PolyOrder_h       = 2
-    integer  :: PolyOrder_v       = 2
-    logical  :: LumpedMassMatFlag = .false.
-    character(len=H_LONG) :: TOPO_IN_BASENAME    = ''     !< basename of the input file
-    character(len=H_MID)  :: TOPO_IN_VARNAME     = 'topo' !< variable name of topo in the input file
-    character(len=H_MID)  :: VERTICAL_COORD_NAME = "TERRAIN_FOLLOWING"
+    integer  :: NeX               = 2        !< Number of finite element in the x-direction in each MPI process
+    integer  :: NeY               = 2        !< Number of finite element in the y-direction in each MPI process
+    integer  :: NeZ               = 2        !< Number of finite element in the vertical direction in each MPI process
+    integer  :: NprcX             = 1        !< Number of MPI process in the x-direction
+    integer  :: NprcY             = 1        !< Number of MPI process in the y-direction
+    integer  :: PolyOrder_h       = 2        !< Polynomial order for the horizontal direction
+    integer  :: PolyOrder_v       = 2        !< Polynomial order for the z-direction
+    logical  :: LumpedMassMatFlag = .false.  !< Flag whether a mass lumping is applied
+
+    character(len=H_LONG) :: TOPO_IN_BASENAME    = ''                   !< Basename of the input file
+    character(len=H_MID)  :: TOPO_IN_VARNAME     = 'topo'               !< Variable name of topography in the input file
+    character(len=H_MID)  :: VERTICAL_COORD_NAME = "TERRAIN_FOLLOWING"  !< Type of the vertical coordinate
+
+    logical :: COMM_USE_MPI_PC    = .false.  !< Flag whether persistent communication is used in MPI
+
+    character(len=H_SHORT) :: Element_operation_type = 'General' !< General or TensorProd3D
+    character(len=H_SHORT) :: SpMV_storage_format    = 'ELL'     !< CSR or ELL
 
     integer, parameter :: ATMOS_MESH_NLocalMeshPerPrc = 1
 
     integer, parameter :: FZ_nmax = 1000
-    real(RP) :: FZ(FZ_nmax)
+    real(RP) :: FZ(FZ_nmax)                  !< Values of the vertically computational coordinate at the element boundaries
 
     namelist / PARAM_ATMOS_MESH / &
       dom_xmin, dom_xmax,                          &
@@ -110,9 +130,12 @@ contains
       isPeriodicX, isPeriodicY, isPeriodicZ,       &
       NeX, NeY, NeZ,                               &
       PolyOrder_h, PolyOrder_v, LumpedMassMatFlag, &
+      Element_operation_type,                      &
+      SpMV_storage_format,                         &
       NprcX, NprcY,                                &
       TOPO_IN_BASENAME, TOPO_IN_VARNAME,           &
-      VERTICAL_COORD_NAME
+      VERTICAL_COORD_NAME,                         &
+      COMM_USE_MPI_PC
     
     integer :: k
     logical :: is_spec_FZ
@@ -171,6 +194,7 @@ contains
     
     !-
     call this%AtmosMesh_Init( this%mesh )
+    call this%PrepairElementOperation(  Element_operation_type, SpMV_storage_format )
 
     !- Set topography & vertical coordinate
 
@@ -187,9 +211,14 @@ contains
     this%vcoord_type_id = MeshUtil_get_VCoord_TypeID( VERTICAL_COORD_NAME )
     call this%Setup_vcoordinate()
 
+    !-
+    this%comm_use_mpi_pc = COMM_USE_MPI_PC
+
     return
   end subroutine AtmosMeshRM_Init
 
+  !> Finalize a object to manage computational mesh
+  !!
   subroutine AtmosMeshRM_Final(this)
     implicit none
 
@@ -221,6 +250,7 @@ contains
 
     commid = this%Get_communicatorID( ATM_MESH_MAX_COMMNUICATOR_NUM )
     call this%comm_list(commid)%Init(sfield_num,  hvfield_num, htensorfield_num, this%mesh )
+    if ( this%comm_use_mpi_pc ) call this%comm_list(commid)%Prepare_PC()
     call var_manager%MeshFieldComm_Prepair( this%comm_list(commid), field_list )
 
     return

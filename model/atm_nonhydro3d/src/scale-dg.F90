@@ -5,7 +5,7 @@
 !!          SCALE: Scalable Computing by Advanced Library and Environment
 !!          numerical model with DGM for regional weather, regional climate, and large-Eddy Simulation (LES)
 !!
-!! @author Team SCALE
+!! @author Yuta Kawai, Team SCALE
 !!
 !<
 !-------------------------------------------------------------------------------

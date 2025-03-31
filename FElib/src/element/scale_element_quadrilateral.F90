@@ -3,7 +3,7 @@
 !! @par Description
 !!           A module for a quadrilateral finite element
 !!
-!! @author Team SCALE
+!! @author Yuta Kawai, Team SCALE
 !!
 !<
 #include "scaleFElib.h"
@@ -16,7 +16,7 @@ module scale_element_quadrilateral
   use scale_precision
 
   use scale_element_base, only: &
-    elementbase2D, &
+    ElementBase2D, &
     ElementBase2D_Init, ElementBase2D_Final
   
   !-----------------------------------------------------------------------------
@@ -78,9 +78,12 @@ contains
 
     use scale_linalgebra, only: linalgebra_inv
     use scale_polynominal, only: &
-    polynominal_genGaussLobattoPt, Polynominal_GenGaussLobattoPtIntWeight,   &
-    polynominal_genLegendrePoly, Polynominal_genDLegendrePoly,               &
-    polynominal_genLagrangePoly, polynominal_genDLagrangePoly_lglpt
+      polynominal_genGaussLobattoPt, Polynominal_GenGaussLobattoPtIntWeight,   &
+      polynominal_genLegendrePoly, Polynominal_genDLegendrePoly,               &
+      polynominal_genLagrangePoly, polynominal_genDLagrangePoly_lglpt
+    use scale_element_base, only: & 
+      ElementBase_construct_MassMat, ElementBase_construct_StiffMat, &
+      ElementBase_construct_LiftMat
 
     implicit none
 
@@ -95,7 +98,7 @@ contains
     real(RP) :: DP1D_ori(elem%Nfp, elem%Nfp)
     real(RP) :: DLagr1D(elem%Nfp, elem%Nfp)
     real(RP) :: V1D(elem%Nfp, elem%Nfp)
-    real(RP) :: Emat(elem%Np, elem%Nfp*elem%Nfaces)
+    real(RP) :: Emat(elem%Np, elem%NfpTot)
     real(RP) :: MassEdge(elem%Nfp, elem%Nfp)
 
     real(RP) :: eta, etac
@@ -180,16 +183,16 @@ contains
       end do
       end do      
     else
-      elem%invM(:,:) = matmul(elem%V, transpose(elem%V))
-      elem%M(:,:) = linAlgebra_inv( elem%invM )
+      call ElementBase_construct_MassMat( elem%V, elem%Np, & ! (in)
+        elem%M, elem%invM )                                  ! (out)
     end if
 
     !* Set the stiffness matrix
-    elem%Sx1(:,:) = transpose(matmul( elem%M, elem%Dx1))
-    elem%Sx1(:,:) = matmul( elem%invM, elem%Sx1 )
-    
-    elem%Sx2(:,:) = transpose(matmul( elem%M, elem%Dx2))
-    elem%Sx2(:,:) = matmul( elem%invM, elem%Sx2 )
+
+    call ElementBase_construct_StiffMat( elem%M, elem%invM, elem%Dx1, elem%Np, & ! (in)
+      elem%Sx1 )                                                                 ! (out)
+    call ElementBase_construct_StiffMat( elem%M, elem%invM, elem%Dx2, elem%Np, & ! (in)
+      elem%Sx2 )                                                                 ! (out)
 
     !* Set the lift matrix
 
@@ -206,33 +209,16 @@ contains
           MassEdge(l,l) = intWeight_lgl1DPts(l)
         end do  
       else
-        MassEdge(:,:) = linalgebra_inv(matmul(V1D, transpose(V1D)))
+        call ElementBase_construct_MassMat( V1D, elem%Nfp, & ! (in)
+          MassEdge )                                         ! (out)
       end if
 
       Emat(elem%Fmask(:,f), (f-1)*elem%Nfp+1:f*elem%Nfp) = MassEdge
     end do
-    elem%Lift(:,:) = matmul( elem%invM, Emat )
+    call ElementBase_construct_LiftMat( elem%invM, EMat, elem%Np, elem%NfpTot, & ! (in)
+      elem%Lift )                                                                ! (out)
   
     !* Construct filter matrix
-
-    etac = (elem%PolyOrder*0.5_RP)/dble(elem%PolyOrder)
-    filter1D(:) = 1.0_RP
-    do p1=1, elem%Nfp
-      eta = dble(p1-1)/dble(elem%PolyOrder)
-      if ( eta > etac .and. p1 /= 1) then
-        filter1D(p1) = exp( - 36.0_DP*( ((eta - etac)/(1.0_DP - etac))**4 ))
-      end if
-    end do
-
-    elem%Filter(:,:) = 0.0_RP
-    do p2=1, elem%Nfp
-    do p1=1, elem%Nfp
-      l = p1 + (p2-1)*elem%Nfp
-      elem%Filter(l,l) = filter1D(p1) * filter1D(p2)
-    end do  
-    end do
-    elem%Filter(:,:) = matmul(elem%Filter, elem%invV)
-    elem%Filter(:,:) = matmul(elem%V, elem%Filter)
 
     return
   end subroutine construct_Element

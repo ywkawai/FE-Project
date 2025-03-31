@@ -8,14 +8,20 @@ PWD         = $(shell pwd)
 TOPDIR      = $(abspath ../..)
 SAMPLE_DIR  = ../
 
-BINNAME = test_advect1d
-OBJS = 
+BINNAME = test_advect1d_fvm
+OBJS    = mod_advect1d_fvm_numerror.o
+
+RUNCONF         = test.conf
+TPROC           = 1
+OMP_NUM_THREADS = 1
 
 #-------------------------------------------------------
 include $(SAMPLE_DIR)/Makefile.common
 
-run:
-	OMP_NUM_THREADS=1 mpirun -n 1 ./$(BINNAME) test.conf
-
 vis:
 	bash ./visualize/visualize.sh
+
+clean_analysis:
+	rm -f analysis
+
+$(BUILD_DIR)/test_advect1d_fvm.o : $(BUILD_DIR)/mod_advect1d_fvm_numerror.o

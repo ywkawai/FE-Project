@@ -12,7 +12,7 @@
 !!    Preserving Nonnegativity in Discontinuous Galerkin Approximations to Scalar Transport via Truncation and Mass Aware Rescaling (TMAR).
 !!    Monthly Weather Review, 144(12), 4771–4786.
 !!
-!! @author Team SCALE
+!! @author Yuta Kawai, Team SCALE
 !<
 !-------------------------------------------------------------------------------
 #include "scaleFElib.h"
@@ -154,9 +154,9 @@ contains
     lmesh, elem, lmesh2D, elem2D                    ) ! (in)
 
     class(LocalMesh3D), intent(in) :: lmesh
-    class(elementbase3D), intent(in) :: elem
+    class(ElementBase3D), intent(in) :: elem
     class(LocalMesh2D), intent(in) :: lmesh2D
-    class(elementbase2D), intent(in) :: elem2D
+    class(ElementBase2D), intent(in) :: elem2D
     type(SparseMat), intent(in) :: Dx, Dy, Dz, Sx, Sy, Sz, Lift, FaceIntMat
     
     real(RP), intent(out) :: QTRC_dt(elem%Np,lmesh%NeA)
@@ -229,9 +229,9 @@ contains
 
     implicit none
     class(LocalMesh3D), intent(in) :: lmesh
-    class(elementbase3D), intent(in) :: elem
+    class(ElementBase3D), intent(in) :: elem
     class(LocalMesh2D), intent(in) :: lmesh2D
-    class(elementbase2D), intent(in) :: elem2D    
+    class(ElementBase2D), intent(in) :: elem2D    
     real(RP), intent(out) :: fct_coef(elem%Np,lmesh%NeA)
     real(RP), intent(in) :: QTRC_(elem%Np,lmesh%NeA)
     real(RP), intent(in) :: MOMX_(elem%Np,lmesh%NeA)
@@ -302,9 +302,9 @@ contains
     
     implicit none
     class(LocalMesh3D), intent(in) :: lmesh
-    class(elementbase3D), intent(in) :: elem
+    class(ElementBase3D), intent(in) :: elem
     class(LocalMesh2D), intent(in) :: lmesh2D
-    class(elementbase2D), intent(in) :: elem2D
+    class(ElementBase2D), intent(in) :: elem2D
     real(RP), intent(inout) :: QTRC_(elem%Np,lmesh%NeA)
     real(RP), intent(in) :: DENS_hyd(elem%Np,lmesh%NeA)     
     real(RP), intent(in) :: DDENS_  (elem%Np,lmesh%NeA)
@@ -337,7 +337,7 @@ contains
    
     implicit none
     class(LocalMesh3D), intent(in) :: lmesh
-    class(elementbase3D), intent(in) :: elem
+    class(ElementBase3D), intent(in) :: elem
     real(RP), intent(inout) ::  MFLX_x_tavg(elem%Np,lmesh%NeA)
     real(RP), intent(inout) ::  MFLX_y_tavg(elem%Np,lmesh%NeA)
     real(RP), intent(inout) ::  MFLX_z_tavg(elem%Np,lmesh%NeA)
@@ -379,8 +379,10 @@ contains
       alph_dens_M, alph_dens_P,                                               & ! (out)
       DDENS, MOMX, MOMY, MOMZ, DPRES, DENS_hyd, PRES_hyd,                     & ! (in)
       Rtot, CVtot, CPtot,                                                     & ! (in)
+      lmesh%Gsqrt, lmesh%GIJ(:,:,1,1), lmesh%GIJ(:,:,1,2), lmesh%GIJ(:,:,2,2), & ! (in)
       lmesh%normal_fn(:,:,1), lmesh%normal_fn(:,:,2), lmesh%normal_fn(:,:,3), & ! (in)
-      lmesh%vmapM, lmesh%vmapP, lmesh, lmesh%refElem3D,                       & ! (in)
+      lmesh%vmapM, lmesh%vmapP, elem%IndexH2Dto3D_bnd,                        & ! (in)
+      lmesh, lmesh%lcmesh2D, lmesh%refElem3D, lmesh%lcmesh2D%refElem2D,       & ! (in)
       tavg_weight_h, tavg_weight_v                                            ) ! (in)
     
     return
@@ -401,7 +403,7 @@ contains
     implicit none
  
     class(LocalMesh3D), intent(in) :: lmesh
-    class(elementbase3D), intent(in) :: elem  
+    class(ElementBase3D), intent(in) :: elem  
     real(RP), intent(inout) ::  alph_dens_M(elem%NfpTot*lmesh%Ne)
     real(RP), intent(inout) ::  alph_dens_P(elem%NfpTot*lmesh%Ne)
     real(RP), intent(in) ::  DDENS_(elem%Np*lmesh%NeA)
@@ -446,7 +448,8 @@ contains
   subroutine atm_dyn_dgm_trcadvect3d_heve_cal_alphdens_dyn( alph_dens_M, alph_dens_P, &
     DDENS_, MOMX_, MOMY_, MOMZ_, DPRES_, DENS_hyd, PRES_hyd,    &
     Rtot, CVtot, CPtot,                                         &
-    nx, ny, nz, vmapM, vmapP, lmesh, elem,                      &
+    Gsqrt, G11, G12, G22, nx, ny, nz, vmapM, vmapP, iM2Dto3D,   &
+    lmesh, lmesh2D, elem, elem2D,                               &
     tavg_weight_h, tavg_weight_v )
  
     use scale_const, only: &
@@ -459,9 +462,11 @@ contains
     implicit none
  
     class(LocalMesh3D), intent(in) :: lmesh
-    class(elementbase3D), intent(in) :: elem  
-    real(RP), intent(inout) ::  alph_dens_M(elem%NfpTot*lmesh%Ne)
-    real(RP), intent(inout) ::  alph_dens_P(elem%NfpTot*lmesh%Ne)
+    class(LocalMesh2D), intent(in) :: lmesh2D
+    class(ElementBase3D), intent(in) :: elem  
+    class(ElementBase2D), intent(in) :: elem2D
+    real(RP), intent(inout) ::  alph_dens_M(elem%NfpTot,lmesh%Ne)
+    real(RP), intent(inout) ::  alph_dens_P(elem%NfpTot,lmesh%Ne)
     real(RP), intent(in) ::  DDENS_(elem%Np*lmesh%NeA)
     real(RP), intent(in) ::  MOMX_(elem%Np*lmesh%NeA)  
     real(RP), intent(in) ::  MOMY_(elem%Np*lmesh%NeA)  
@@ -472,41 +477,54 @@ contains
     real(RP), intent(in) ::  Rtot(elem%Np*lmesh%NeA)
     real(RP), intent(in) ::  CVtot(elem%Np*lmesh%NeA)
     real(RP), intent(in) ::  CPtot(elem%Np*lmesh%NeA)
-    real(RP), intent(in) :: nx(elem%NfpTot*lmesh%Ne)
-    real(RP), intent(in) :: ny(elem%NfpTot*lmesh%Ne)
-    real(RP), intent(in) :: nz(elem%NfpTot*lmesh%Ne)
-    integer, intent(in) :: vmapM(elem%NfpTot*lmesh%Ne)
-    integer, intent(in) :: vmapP(elem%NfpTot*lmesh%Ne)
+    real(RP), intent(in) :: Gsqrt(elem%Np*lmesh%NeA)
+    real(RP), intent(in) ::  G11(elem2D%Np,lmesh2D%Ne)
+    real(RP), intent(in) ::  G12(elem2D%Np,lmesh2D%Ne)
+    real(RP), intent(in) ::  G22(elem2D%Np,lmesh2D%Ne)
+    real(RP), intent(in) :: nx(elem%NfpTot,lmesh%Ne)
+    real(RP), intent(in) :: ny(elem%NfpTot,lmesh%Ne)
+    real(RP), intent(in) :: nz(elem%NfpTot,lmesh%Ne)
+    integer, intent(in) :: vmapM(elem%NfpTot,lmesh%Ne)
+    integer, intent(in) :: vmapP(elem%NfpTot,lmesh%Ne)
+    integer, intent(in) :: iM2Dto3D(elem%NfpTot)    
     real(RP), intent(in) :: tavg_weight_h
     real(RP), intent(in) :: tavg_weight_v
     
-    integer :: i, iP, iM
-    real(RP) :: VelP, VelM, alpha
-    real(RP) :: densM, densP
+    integer :: ke, iP(elem%NfpTot), iM(elem%NfpTot)
+    integer :: ke2D
+    real(RP) :: VelP(elem%NfpTot), VelM(elem%NfpTot), alpha(elem%NfpTot)
+    real(RP) :: densM(elem%NfpTot), densP(elem%NfpTot)
     real(RP) :: gamm, rgamm
-    real(RP) :: tavg_weight 
+    real(RP) :: tavg_weight(elem%NfpTot) 
+
+    real(RP) :: Gnn_M(elem%NfpTot), Gnn_P(elem%NfpTot)
     !------------------------------------------------------------------------
  
     gamm = CpDry/CvDry
     rgamm = CvDry/CpDry
  
     !$omp parallel do private( &
-    !$omp iM, iP, VelP, VelM, alpha, densM, densP, tavg_weight )
-    do i=1, elem%NfpTot*lmesh%Ne
-      iM = vmapM(i); iP = vmapP(i)
-
-      densM = DDENS_(iM) + DENS_hyd(iM)
-      densP = DDENS_(iP) + DENS_hyd(iP)
+    !$omp ke, iM, iP, ke2D, VelP, VelM, alpha, densM, densP, tavg_weight, &
+    !$omp Gnn_M, Gnn_P )
+    do ke=lmesh%NeS, lmesh%NeE
+      iM(:) = vmapM(:,ke); iP(:) = vmapP(:,ke)
+      ke2D = lmesh%EMap3Dto2D(ke)
+  
+      densM(:) = DDENS_(iM) + DENS_hyd(iM)
+      densP(:) = DDENS_(iP) + DENS_hyd(iP)
  
-      VelM = ( MOMX_(iM)*nx(i) + MOMY_(iM)*ny(i) + MOMZ_(iM)*nz(i) ) / densM
-      VelP = ( MOMX_(iP)*nx(i) + MOMY_(iP)*ny(i) + MOMZ_(iP)*nz(i) ) / densP
- 
-      alpha = max( sqrt( gamm * ( PRES_hyd(iM) + DPRES_(iM) ) / densM ) + abs(VelM), &
-                   sqrt( gamm * ( PRES_hyd(iP) + DPRES_(iP) ) / densP ) + abs(VelP)  )
-      tavg_weight = tavg_weight_h * ( abs(nx(i)) + abs(ny(i)) ) + tavg_weight_v * abs(nz(i))
+      Gnn_M(:) = G11(iM2Dto3D(:),ke2D) * abs( nx(:,ke) ) + G22(iM2Dto3D(:),ke2D) * abs( ny(:,ke) )
+      Gnn_P(:) = G11(iM2Dto3D(:),ke2D) * abs( nx(:,ke) ) + G22(iM2Dto3D(:),ke2D) * abs( ny(:,ke) )
 
-      alph_dens_M(i) = alph_dens_M(i) + tavg_weight * alpha * densM
-      alph_dens_P(i) = alph_dens_P(i) + tavg_weight * alpha * densP
+      VelM(:) = ( MOMX_(iM)*nx(:,ke) + MOMY_(iM)*ny(:,ke) + MOMZ_(iM)*nz(:,ke) ) / densM(:)
+      VelP(:) = ( MOMX_(iP)*nx(:,ke) + MOMY_(iP)*ny(:,ke) + MOMZ_(iP)*nz(:,ke) ) / densP(:)
+ 
+      alpha(:) = max( sqrt(  Gnn_M(:) * gamm * ( PRES_hyd(iM) + DPRES_(iM) ) / densM(:) ) + abs(VelM(:)), &
+                      sqrt(  Gnn_P(:) * gamm * ( PRES_hyd(iP) + DPRES_(iP) ) / densP(:) ) + abs(VelP(:))  )
+      tavg_weight = tavg_weight_h * ( abs(nx(:,ke)) + abs(ny(:,ke)) ) + tavg_weight_v * abs(nz(:,ke))
+
+      alph_dens_M(:,ke) = alph_dens_M(:,ke) + tavg_weight * alpha(:) * densM(:) * Gsqrt(iM)
+      alph_dens_P(:,ke) = alph_dens_P(:,ke) + tavg_weight * alpha(:) * densP(:) * Gsqrt(iP)
     end do
  
     return
@@ -645,9 +663,9 @@ contains
     implicit none
 
     class(LocalMesh3D), intent(in) :: lmesh
-    class(elementbase3D), intent(in) :: elem  
+    class(ElementBase3D), intent(in) :: elem  
     class(LocalMesh2D), intent(in) :: lmesh2D
-    class(elementbase2D), intent(in) :: elem2D
+    class(ElementBase2D), intent(in) :: elem2D
     real(RP), intent(out) ::  net_outward_flux(lmesh%Ne)
     real(RP), intent(in) ::  QTRC_(elem%Np*lmesh%NeA)
     real(RP), intent(in) ::  MOMX_(elem%Np*lmesh%NeA)  

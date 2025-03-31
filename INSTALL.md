@@ -10,22 +10,22 @@ This FE library requires following libraries:
   - SCALE library (https://scale.riken.jp). 
 
 We confirm that building our codes has succeeded in the following environments:
-  - Ubuntu 22.04 LTS (for case of GNU compiler)
-    - GNU Fortran 11.2.0
-    - OpenMPI 4.1.2
-    - LAPACK 3.10.0
-    - NetCDF 4.8.1
-    - SCALE library 5.5.1
-  - Ubuntu 20.04 LTS (for case of Intel oneAPI HPC Toolkit 2023.0)
+  - Ubuntu 24.04 LTS (for case of GNU compiler)
+    - GNU Fortran 13.2.0
+    - OpenMPI 4.1.6
+    - LAPACK 3.12.0
+    - NetCDF 4.9.2
+    - SCALE library 5.5.4
+  - Ubuntu 22.04 LTS (for case of Intel oneAPI HPC Toolkit 2025.0)
     - Intel® Fortran Compiler
     - Intel MPI Library
     - Intel oneAPI Math Kernel Library
     - NetCDF 4.8.0
     - SCALE library develop version
-  - macOS Sonoma
+  - macOS Sequoia
     - GNU Fortran 13.2.0
     - OpenMPI 5.0.3
-    - LAPACK 3.12
+    - LAPACK 3.12.0
     - NetCDF 4.9.2
     - SCALE library develop version
 
@@ -40,11 +40,7 @@ Our codes are also verified in Fugaku and Odyssey (Fujitsu compiler).
 
   - Set a directory in which SCALE library is contained
 
-  `% export SCALE="~/workspace/scale-5.4.5/"`   (for example)
-
-  - If a developing version of SCALE library is used, set a variable as
-
-  `% export SCALE_DEVELOP=T`
+  `% export SCALE="~/workspace/scale-5.5.4/"`   (for example)
 
   - If you would like to enable a thread parallelization with OpenMP, set a variable as 
 
@@ -53,6 +49,11 @@ Our codes are also verified in Fugaku and Odyssey (Fujitsu compiler).
   - Set a directory in which a NetCDF library is contained (if necessary).
 
   `% export NETCDF="/ap/netcdf4-fortran/4.7.3/"`   (for example)
+
+  - If need, to indicate that a developing version of SCALE library is used, set a variable as
+
+  `% export SCALE_DEVELOP=T`
+
 
 2. Build the library in the directory of FElib
 
@@ -82,4 +83,4 @@ Our codes are also verified in Fugaku and Odyssey (Fujitsu compiler).
 
  `% make run`
 
- In the directory of 'visualize', some python scripts with matplotlib are prepared for visualizing simulation results.
+ In the directory of 'visualize', several python scripts with matplotlib are prepared for visualizing simulation results.

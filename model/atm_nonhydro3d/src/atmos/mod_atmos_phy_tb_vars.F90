@@ -1,10 +1,10 @@
 !-------------------------------------------------------------------------------
-!> module Atmosphere / Physics turbulence
+!> module ATMOSPHERE physics / sub-grid scale turbulence
 !!
 !! @par Description
-!!          Container for mod_atmos_phy_mp
+!!          Container for variables with sub-grid scale turbulence model
 !!
-!! @author Team SCALE
+!! @author Yuta Kawai, Team SCALE
 !!
 !<
 !-------------------------------------------------------------------------------
@@ -93,7 +93,7 @@ contains
     use scale_tracer, only: &
       TRACER_NAME, TRACER_DESC, TRACER_UNIT    
     use scale_atm_phy_tb_dgm_common, only: &
-      atm_phy_tb_dgm_common_get_varinfo
+      atm_phy_tb_dgm_common_setup_variables
     
     implicit none
     class(AtmosPhyTbVars), target, intent(inout) :: this
@@ -106,12 +106,6 @@ contains
     class(AtmosMesh), pointer :: atm_mesh
     class(MeshBase2D), pointer :: mesh2D
     class(MeshBase3D), pointer :: mesh3D
-
-    type(VariableInfo) :: auxvar_info(ATMOS_PHY_TB_AUX_NUM)
-    type(VariableInfo) :: diagvar_info(ATMOS_PHY_TB_DIAG_NUM)
-    type(VariableInfo) :: tbtend_info(ATMOS_PHY_TB_TENDS_NUM1)
-
-    type(VariableInfo) :: qtrc_vinfo_tmp
     !--------------------------------------------------
 
     LOG_INFO('AtmosPhyTbVars_Init',*)
@@ -130,63 +124,22 @@ contains
     call mesh3D%GetMesh2D( mesh2D )
 
     !- Get variable information
-    call atm_phy_tb_dgm_common_get_varinfo( auxvar_info, diagvar_info, tbtend_info ) ! (out)
+    ! call atm_phy_tb_dgm_common_get_varinfo( auxvar_info, diagvar_info, tbtend_info ) ! (out)
 
-    !- Initialize an object to manage tendencies with turbulent model
+    !- Initialize objects to variables with turbulent model
 
     call this%tends_manager%Init()
-    allocate( this%tends(this%TENDS_NUM_TOT) )
-
-    reg_file_hist = .true.    
-    do iv = 1, ATMOS_PHY_TB_TENDS_NUM1
-      call this%tends_manager%Regist(            &
-        tbtend_info(iv), mesh3D,                 & ! (in) 
-        this%tends(iv), reg_file_hist,           & ! (out)
-        fill_zero=.true.                         )
-    end do
-
-    qtrc_vinfo_tmp%ndims    = 3
-    qtrc_vinfo_tmp%dim_type = 'XYZ'
-    qtrc_vinfo_tmp%STDNAME  = ''
-
-    do iq = 1, QA
-      iv = ATMOS_PHY_TB_TENDS_NUM1 + iq 
-      qtrc_vinfo_tmp%keyID = iv
-      qtrc_vinfo_tmp%NAME  = 'TB_'//trim(TRACER_NAME(iq))//'_t'
-      qtrc_vinfo_tmp%DESC  = 'tendency of '//trim(TRACER_DESC(iq))//' in TB process'
-      qtrc_vinfo_tmp%UNIT  = trim(TRACER_UNIT(iq))//'/s'
-
-      call this%tends_manager%Regist(            &
-        qtrc_vinfo_tmp, mesh3D,                  & ! (in) 
-        this%tends(iv), reg_file_hist,           & ! (out)
-        fill_zero=.true.                         )
-    end do
-
-    !- Initialize an object to manage auxiliary variables with turbulent model
-
     call this%auxvars_manager%Init()
+    call this%diagvars_manager%Init()
+
+    allocate( this%diagvars(ATMOS_PHY_TB_DIAG_NUM) )
+    allocate( this%tends(this%TENDS_NUM_TOT) )
     allocate( this%auxvars(ATMOS_PHY_TB_AUX_NUM) )
 
-    reg_file_hist = .true.    
-    do iv = 1, ATMOS_PHY_TB_AUX_NUM
-      call this%auxvars_manager%Regist(          &
-        auxvar_info(iv), mesh3D,                 & ! (in) 
-        this%auxvars(iv), reg_file_hist,         & ! (out)
-        fill_zero=.true.                         )
-    end do
-
-    !- Initialize an object to manage diagnostic variables with turbulent model
-
-    call this%diagvars_manager%Init()
-    allocate( this%diagvars(ATMOS_PHY_TB_DIAG_NUM) )
-
-    reg_file_hist = .true.    
-    do iv = 1, ATMOS_PHY_TB_DIAG_NUM
-      call this%diagvars_manager%Regist(         &
-        diagvar_info(iv), mesh3D,                & ! (in) 
-        this%diagvars(iv), reg_file_hist,        & ! (out)
-        fill_zero=.true.                         )
-    end do
+    call atm_phy_tb_dgm_common_setup_variables( &
+      this%tends, this%auxvars, this%diagvars,                         & ! (inout)
+      this%tends_manager, this%auxvars_manager, this%diagvars_manager, & ! (inout)
+      this%TENDS_NUM_TOT, mesh3D )                                       ! (in)
 
     !- Setup communication
 

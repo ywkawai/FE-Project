@@ -3,7 +3,7 @@
 !! @par Description
 !!           A common module for outputing field data 
 !!
-!! @author Team SCALE
+!! @author Yuta Kawai, Team SCALE
 !!
 !<
 !-------------------------------------------------------------------------------
@@ -16,7 +16,7 @@ module scale_file_common_meshfield
   use scale_precision
   use scale_io
 
-  use scale_element_base, only: elementbase1D, elementbase2D, elementbase3D
+  use scale_element_base, only: ElementBase1D, ElementBase2D, ElementBase3D
   use scale_mesh_base, only: MeshDimInfo
   use scale_mesh_base1d, only: MeshBase1D, &
     MeshBase1D_DIMTYPEID_X, MeshBase1D_DIMTYPEID_XT, &
@@ -30,7 +30,7 @@ module scale_file_common_meshfield
     MeshBase3D_DIMTYPEID_ZT,                                                 &
     MeshBase3D_DIMTYPEID_XY, MeshBase3D_DIMTYPEID_XYT,                       &
     MeshBase3D_DIMTYPEID_XYZ, MeshBase3D_DIMTYPEID_XYZT,                     &
-    MeshBase3D_DIMTYPE_NUM
+    MESHBASE3D_DIMTYPE_NUM
 
   use scale_mesh_rectdom2d, only: MeshRectDom2D
   use scale_mesh_cubedom3d, only: MeshCubeDom3D
@@ -156,7 +156,7 @@ contains
 
     class(MeshBase1D), target, intent(in) :: mesh1D
     type(FILE_common_meshfield_diminfo), intent(in) :: dimsinfo(MeshBase1D_DIMTYPE_NUM)
-    real(DP), intent(out) :: x(dimsinfo(MeshBase1D_DIMTYPEID_X)%size)
+    real(RP), intent(out) :: x(dimsinfo(MeshBase1D_DIMTYPEID_X)%size)
     logical, intent(in), optional :: force_uniform_grid
 
     integer :: n
@@ -206,7 +206,7 @@ contains
     integer :: n, kelem1, p
     integer :: i, i2
     type(LocalMesh1D), pointer :: lcmesh
-    type(elementbase1D), pointer :: refElem
+    type(ElementBase1D), pointer :: refElem
     integer :: i0_s
 
     logical :: uniform_grid = .false.
@@ -280,7 +280,7 @@ contains
     integer :: n
     integer :: i0
     type(LocalMesh1D), pointer :: lcmesh
-    type(elementbase1D), pointer :: refElem
+    type(ElementBase1D), pointer :: refElem
     integer :: i0_s
     !----------------------------------------------------
 
@@ -313,7 +313,7 @@ contains
 
     integer :: kelem1
     integer :: i, i1, i2
-    type(elementbase1D), pointer :: refElem
+    type(ElementBase1D), pointer :: refElem
     integer :: indx
     !----------------------------------------------------
 
@@ -445,8 +445,8 @@ contains
 
     class(MeshRectDom2D), target, intent(in) :: mesh2D  
     type(FILE_common_meshfield_diminfo), intent(in) :: dimsinfo(MeshBase2D_DIMTYPE_NUM)
-    real(DP), intent(out) :: x(dimsinfo(MeshBase2D_DIMTYPEID_X)%size)
-    real(DP), intent(out) :: y(dimsinfo(MeshBase2D_DIMTYPEID_Y)%size)
+    real(RP), intent(out) :: x(dimsinfo(MeshBase2D_DIMTYPEID_X)%size)
+    real(RP), intent(out) :: y(dimsinfo(MeshBase2D_DIMTYPEID_Y)%size)
     logical, intent(in), optional :: force_uniform_grid
 
     integer :: n
@@ -512,8 +512,8 @@ contains
 
     class(MeshCubedSphereDom2D), target, intent(in) :: mesh2D  
     type(FILE_common_meshfield_diminfo), intent(in) :: dimsinfo(MeshBase2D_DIMTYPE_NUM)
-    real(DP), intent(out) :: x(dimsinfo(MeshBase2D_DIMTYPEID_X)%size)
-    real(DP), intent(out) :: y(dimsinfo(MeshBase2D_DIMTYPEID_Y)%size)
+    real(RP), intent(out) :: x(dimsinfo(MeshBase2D_DIMTYPEID_X)%size)
+    real(RP), intent(out) :: y(dimsinfo(MeshBase2D_DIMTYPEID_Y)%size)
 
     integer :: ni, nj, np, n
     integer :: k
@@ -583,7 +583,7 @@ contains
     integer :: n, kelem1
     integer :: i0, j0, i1, j1, i2, j2, i, j
     type(LocalMesh2D), pointer :: lcmesh
-    type(elementbase2D), pointer :: refElem
+    type(ElementBase2D), pointer :: refElem
     integer :: i0_s, j0_s
 
     logical :: uniform_grid = .false.
@@ -694,7 +694,7 @@ contains
     integer :: n, kelem1
     integer :: i0, j0, p0, i1, j1, i2, j2, i, j
     type(LocalMesh2D), pointer :: lcmesh
-    type(elementbase2D), pointer :: refElem
+    type(ElementBase2D), pointer :: refElem
     integer :: i0_s, j0_s
     integer :: Nfp
     !------------------------------------------------
@@ -746,7 +746,7 @@ contains
     integer :: n
     integer :: i0, j0
     type(LocalMesh2D), pointer :: lcmesh
-    type(elementbase2D), pointer :: refElem
+    type(ElementBase2D), pointer :: refElem
     integer :: i0_s, j0_s
     !----------------------------------------------------
 
@@ -783,7 +783,7 @@ contains
 
     integer :: kelem1
     integer :: i1, j1, i2, j2, i, j
-    type(elementbase2D), pointer :: refElem
+    type(ElementBase2D), pointer :: refElem
     integer :: indx
     !----------------------------------------------------
 
@@ -817,7 +817,7 @@ contains
     integer :: n
     integer :: i0, j0, p0
     type(LocalMesh2D), pointer :: lcmesh
-    type(elementbase2D), pointer :: refElem
+    type(ElementBase2D), pointer :: refElem
     integer :: i0_s, j0_s, p0_s
     !----------------------------------------------------
 
@@ -851,7 +851,7 @@ contains
     implicit none
 
     class(MeshCubeDom3D), target, intent(in) :: mesh3D
-    type(FILE_common_meshfield_diminfo), intent(out) :: dimsinfo(MeshBase3D_DIMTYPE_NUM)
+    type(FILE_common_meshfield_diminfo), intent(out) :: dimsinfo(MESHBASE3D_DIMTYPE_NUM)
 
     type(LocalMesh3D), pointer :: lcmesh
     integer :: i, j, k, n
@@ -929,7 +929,7 @@ contains
     implicit none
 
     class(MeshCubedSphereDom3D), target, intent(in) :: mesh3D
-    type(FILE_common_meshfield_diminfo), intent(out) :: dimsinfo(MeshBase3D_DIMTYPE_NUM)
+    type(FILE_common_meshfield_diminfo), intent(out) :: dimsinfo(MESHBASE3D_DIMTYPE_NUM)
 
     type(LocalMesh3D), pointer :: lcmesh
     integer :: i, j, k, n
@@ -1011,10 +1011,10 @@ contains
     implicit none
 
     class(MeshCubeDom3D), target, intent(in) :: mesh3D  
-    type(FILE_common_meshfield_diminfo), intent(in) :: dimsinfo(MeshBase3D_DIMTYPE_NUM)
-    real(DP), intent(out) :: x(dimsinfo(MeshBase3D_DIMTYPEID_X)%size)
-    real(DP), intent(out) :: y(dimsinfo(MeshBase3D_DIMTYPEID_Y)%size)
-    real(DP), intent(out) :: z(dimsinfo(MeshBase3D_DIMTYPEID_Z)%size)
+    type(FILE_common_meshfield_diminfo), intent(in) :: dimsinfo(MESHBASE3D_DIMTYPE_NUM)
+    real(RP), intent(out) :: x(dimsinfo(MeshBase3D_DIMTYPEID_X)%size)
+    real(RP), intent(out) :: y(dimsinfo(MeshBase3D_DIMTYPEID_Y)%size)
+    real(RP), intent(out) :: z(dimsinfo(MeshBase3D_DIMTYPEID_Z)%size)
     logical, intent(in), optional :: force_uniform_grid
 
     integer :: n, kelem
@@ -1089,10 +1089,10 @@ contains
     implicit none
 
     class(MeshCubedSphereDom3D), target, intent(in) :: mesh3D  
-    type(FILE_common_meshfield_diminfo), intent(in) :: dimsinfo(MeshBase3D_DIMTYPE_NUM)
-    real(DP), intent(out) :: x(dimsinfo(MeshBase3D_DIMTYPEID_X)%size)
-    real(DP), intent(out) :: y(dimsinfo(MeshBase3D_DIMTYPEID_Y)%size)
-    real(DP), intent(out) :: z(dimsinfo(MeshBase3D_DIMTYPEID_Z)%size)
+    type(FILE_common_meshfield_diminfo), intent(in) :: dimsinfo(MESHBASE3D_DIMTYPE_NUM)
+    real(RP), intent(out) :: x(dimsinfo(MeshBase3D_DIMTYPEID_X)%size)
+    real(RP), intent(out) :: y(dimsinfo(MeshBase3D_DIMTYPEID_Y)%size)
+    real(RP), intent(out) :: z(dimsinfo(MeshBase3D_DIMTYPEID_Z)%size)
 
     integer :: n, ni, nj, nk, np
     integer :: kelem
@@ -1174,7 +1174,7 @@ contains
     integer :: n, kelem1
     integer :: i0, j0, k0, i1, j1, k1, i2, j2, k2, i, j, k
     type(LocalMesh3D), pointer :: lcmesh
-    type(elementbase3D), pointer :: refElem
+    type(ElementBase3D), pointer :: refElem
     integer :: i0_s, j0_s, k0_s, indx
 
     logical :: uniform_grid = .false.
@@ -1314,7 +1314,7 @@ contains
     integer :: n, i0, j0, k0, p0
     integer :: i1, j1, k1, i2, j2, k2, i, j, k
     type(LocalMesh3D), pointer :: lcmesh
-    type(elementbase3D), pointer :: refElem
+    type(ElementBase3D), pointer :: refElem
     integer :: i0_s, j0_s, k0_s
     integer :: Nnode_h1D
     integer :: Nnode_v
@@ -1375,7 +1375,7 @@ contains
     integer :: n
     integer :: i0, j0, k0
     type(LocalMesh3D), pointer :: lcmesh
-    type(elementbase3D), pointer :: refElem
+    type(ElementBase3D), pointer :: refElem
     integer :: i0_s, j0_s, k0_s
     !----------------------------------------------------
 
@@ -1415,7 +1415,7 @@ contains
     integer :: n
     integer :: i0, j0, k0, p0
     type(LocalMesh3D), pointer :: lcmesh
-    type(elementbase3D), pointer :: refElem
+    type(ElementBase3D), pointer :: refElem
     integer :: i0_s, j0_s, k0_s, p0_s
     !----------------------------------------------------
 
@@ -1458,7 +1458,7 @@ contains
 
     integer :: kelem1
     integer :: i1, j1, k1, i2, j2, k2, i, j, k
-    type(elementbase3D), pointer :: refElem
+    type(ElementBase3D), pointer :: refElem
     integer :: indx
     !----------------------------------------------------
 

@@ -3,7 +3,7 @@
 !! @par Description
 !!      Coordinate conversion with a geographic coordinate
 !!
-!! @author Team SCALE
+!! @author Yuta Kawai, Team SCALE
 !!
 #include "scaleFElib.h"
 module scale_geographic_coord_cnv

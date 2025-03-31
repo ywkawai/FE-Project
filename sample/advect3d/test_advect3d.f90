@@ -44,14 +44,13 @@ program test_advect3d
 
   integer :: NprcX, NprcY
   integer :: NeX, NeY, NeGZ
-  integer, parameter :: NLocalMeshPerPrc = 1
 
   ! The type of initial q (sin, gaussian-hill, cosine-bell, top-hat)
   character(len=H_SHORT) :: InitShapeName
-  real(RP) :: InitShapeParams(6)
+  real(RP), save :: InitShapeParams(6)
   ! The type of specified velocify field (constant)
   character(len=H_SHORT) :: VelTypeName 
-  real(RP) :: VelTypeParams(6)
+  real(RP), save :: VelTypeParams(6)
 
   real(RP), parameter :: dom_xmin =  0.0_RP
   real(RP), parameter :: dom_xmax = +1.0_RP
@@ -62,17 +61,15 @@ program test_advect3d
   
   type(HexahedralElement) :: refElem
   integer :: PolyOrder_h, PolyOrder_v
-  logical, parameter :: LumpedMassMatFlag = .false.
   logical :: InitCond_GalerkinProjFlag 
-  integer, parameter :: PolyOrderErrorCheck = 6
-  type(sparsemat) :: Dx, Sx, Dy, Sy, Dz, Sz, Lift
+  type(sparsemat) :: Dx, Dy, Dz, Lift
   
   type(MeshCubeDom3D), target :: mesh
   type(MeshField3D), target :: q, qexact  
   type(MeshField3D), target :: u, v, w
   type(MeshFieldCommCubeDom3D) :: fields_comm
-  type(MeshFieldContainer) :: field_list(4)  
-  integer :: HST_ID(2)
+  type(MeshFieldContainer), save :: field_list(4)  
+  integer, save :: HST_ID(2)
 
   integer :: n
   type(LocalMesh3D), pointer :: lcmesh
@@ -85,22 +82,17 @@ program test_advect3d
   integer, parameter :: RKVAR_Q = 1
   real(RP) :: tsec_
 
+  integer :: PolyOrderErrorCheck
   real(RP), allocatable :: IntrpMat(:,:)
-  real(RP) :: intw_intrp(PolyOrderErrorCheck**3)
-  real(RP) :: x_intrp(PolyOrderErrorCheck**3)
-  real(RP) :: y_intrp(PolyOrderErrorCheck**3)
-  real(RP) :: z_intrp(PolyOrderErrorCheck**3)
-
+  real(RP), allocatable :: intw_intrp(:)
+  real(RP), allocatable :: x_intrp(:)
+  real(RP), allocatable :: y_intrp(:)
+  real(RP), allocatable :: z_intrp(:)
   integer :: nstep_eval_error
   !-------------------------------------------------------
 
   call init()
   call set_initcond()
-
-  field_list(1)%field3d => q
-  field_list(2)%field3d => u
-  field_list(3)%field3d => v
-  field_list(4)%field3d => w
 
   do nowstep=1, TIME_NSTEP
     do rkstage=1, tinteg_lc(1)%nstage
@@ -173,7 +165,7 @@ contains
     !------------------------------------------------------------------------
 
     call PROF_rapstart( 'cal_dyn_tend_bndflux', 2)
-    call cal_del_flux_dyn( del_flux,                                          & ! (out)
+    call cal_bnd_flux_dyn( del_flux,                                          & ! (out)
       q_, u_, v_, w_,                                                         & ! (in)
       lmesh%normal_fn(:,:,1), lmesh%normal_fn(:,:,2), lmesh%normal_fn(:,:,3), & ! (in)
       lmesh%vmapM, lmesh%vmapP,                                               & ! (in)
@@ -182,10 +174,11 @@ contains
 
     !-----
     call PROF_rapstart( 'cal_dyn_tend_interior', 2)
+    !$omp parallel do private(Fx, Fy, Fz, LiftDelFlx)
     do ke = lmesh%NeS, lmesh%NeE
-      call sparsemat_matmul(Dx, q_(:,ke)*u_(:,ke), Fx)
-      call sparsemat_matmul(Dy, q_(:,ke)*v_(:,ke), Fy)
-      call sparsemat_matmul(Dz, q_(:,ke)*w_(:,ke), Fz)
+      call sparsemat_matmul(Dx, q_(:,ke) * u_(:,ke), Fx)
+      call sparsemat_matmul(Dy, q_(:,ke) * v_(:,ke), Fy)
+      call sparsemat_matmul(Dz, q_(:,ke) * w_(:,ke), Fz)
       call sparsemat_matmul(Lift, lmesh%Fscale(:,ke)*del_flux(:,ke), LiftDelFlx)
 
       dqdt(:,ke) = - ( lmesh%Escale(:,ke,1,1) * Fx(:) &
@@ -198,7 +191,7 @@ contains
     return
   end subroutine cal_dyn_tend
 
-  subroutine cal_del_flux_dyn( del_flux, q_, u_, v_, w_, nx, ny, nz, vmapM, vmapP, lmesh, elem )
+  subroutine cal_bnd_flux_dyn( del_flux, q_, u_, v_, w_, nx, ny, nz, vmapM, vmapP, lmesh, elem )
     implicit none
 
     class(LocalMesh3D), intent(in) :: lmesh
@@ -218,25 +211,25 @@ contains
     real(RP) :: VelP, VelM, alpha
     !------------------------------------------------------------------------
 
+    !$omp parallel do private(i, iM, iP, VelM, VelP, alpha)
     do i=1, elem%NfpTot*lmesh%Ne
       iM = vmapM(i); iP = vmapP(i)
 
-      VelM = u_(iM)*nx(i) + v_(iM)*ny(i) + w_(iM)*nz(i)
-      VelP = u_(iP)*nx(i) + v_(iP)*ny(i) + w_(iP)*nz(i)
+      VelM = u_(iM) * nx(i) + v_(iM) * ny(i) + w_(iM) * nz(i)
+      VelP = u_(iP) * nx(i) + v_(iP) * ny(i) + w_(iP) * nz(i)
 
-      alpha = 0.5_RP*abs(VelM + VelP)
-      del_flux(i) = 0.5_RP*(               &
-          ( q_(iP)*VelP - q_(iM)*VelM )    &
-        - alpha*(q_(iP) - q_(iM))        )
+      alpha = 0.5_RP * abs( VelM + VelP )
+      del_flux(i) = 0.5_RP * (               &
+          ( q_(iP) * VelP - q_(iM) * VelM )  &
+        - alpha * ( q_(iP) - q_(iM) )        )
     end do
 
     return
-  end subroutine cal_del_flux_dyn
+  end subroutine cal_bnd_flux_dyn
 
   !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
   subroutine evaluate_error(tsec)
-
     implicit none
 
     real(DP), intent(in) :: tsec
@@ -260,6 +253,10 @@ contains
 
     do n=1, mesh%LOCAL_MESH_NUM
       lcmesh => mesh%lcmesh_list(n)
+      
+      !$omp parallel do private( &
+      !$omp ke, x_uwind, y_vwind, z_wwind, vx, vy, vz, pos_intrp, x_uwind_intrp, y_vwind_intrp, z_wwind_intrp, &
+      !$omp qexact_intrp, q_intrp ) reduction(+: l2error) reduction(max: linferror)
       do ke=lcmesh%NeS, lcmesh%NeE
 
         x_uwind(:) = get_upwind_pos1d(lcmesh%pos_en(:,ke,1), ADV_VELX, tsec, dom_xmin, dom_xmax)
@@ -270,9 +267,9 @@ contains
         vy(:) = lcmesh%pos_ev(lcmesh%EToV(ke,:),2)
         vz(:) = lcmesh%pos_ev(lcmesh%EToV(ke,:),3)
 
-        pos_intrp(:,1) = vx(1) + 0.5_RP*(x_intrp(:) + 1.0_RP)*(vx(2) - vx(1))
-        pos_intrp(:,2) = vy(1) + 0.5_RP*(y_intrp(:) + 1.0_RP)*(vy(3) - vy(1))
-        pos_intrp(:,3) = vz(1) + 0.5_RP*(z_intrp(:) + 1.0_RP)*(vz(5) - vz(1))
+        pos_intrp(:,1) = vx(1) + 0.5_RP * ( x_intrp(:) + 1.0_RP ) * ( vx(2) - vx(1) )
+        pos_intrp(:,2) = vy(1) + 0.5_RP * ( y_intrp(:) + 1.0_RP ) * ( vy(3) - vy(1) )
+        pos_intrp(:,3) = vz(1) + 0.5_RP * ( z_intrp(:) + 1.0_RP ) * ( vz(5) - vz(1) )
 
         x_uwind_intrp(:) = get_upwind_pos1d(pos_intrp(:,1), ADV_VELX, tsec, dom_xmin, dom_xmax)
         y_vwind_intrp(:) = get_upwind_pos1d(pos_intrp(:,2), ADV_VELY, tsec, dom_ymin, dom_ymax)
@@ -407,14 +404,14 @@ contains
   end subroutine set_initcond
 
   subroutine init()
-
     use scale_calendar, only: CALENDAR_setup
     use scale_time_manager, only: TIME_manager_Init 
     use scale_file_history_meshfield, only: FILE_HISTORY_meshfield_setup  
     use scale_file_history, only: FILE_HISTORY_reg 
-        
     implicit none
 
+    logical, parameter :: LumpedMassMatFlag = .false.
+    integer, parameter :: NLocalMeshPerPrc = 1
     namelist /PARAM_TEST/ &
       NprcX, NeX, NprcY, NeY, NeGZ,   & 
       PolyOrder_h, PolyOrder_v,       &
@@ -422,6 +419,7 @@ contains
       InitShapeName, InitShapeParams, &
       InitCond_GalerkinProjFlag,      &      
       VelTypeName, VelTypeParams,     &
+      PolyOrderErrorCheck,            &
       nstep_eval_error
     
     integer :: comm, myrank, nprocs
@@ -452,7 +450,8 @@ contains
     VelTypeName        = 'const'
     InitCond_GalerkinProjFlag = .false.
     VelTypeParams(:)   = (/ 1.0_RP, 1.0_RP, 1.0_RP, 0.0_RP, 0.0_RP, 0.0_RP /)
-    nstep_eval_error = 5
+    PolyOrderErrorCheck = 6
+    nstep_eval_error    = 5
 
     rewind(IO_FID_CONF)
     read(IO_FID_CONF,nml=PARAM_TEST,iostat=ierr)
@@ -476,12 +475,9 @@ contains
     !------   
     
     call refElem%Init(PolyOrder_h, PolyOrder_v, LumpedMassMatFlag)
-    call Dx%Init(refElem%Dx1)
-    call Sx%Init(refElem%Sx1)
-    call Dy%Init(refElem%Dx2)
-    call Sy%Init(refElem%Sx2)
-    call Dz%Init(refElem%Dx3)
-    call Sz%Init(refElem%Sx3)
+    call Dx%Init(refElem%Dx1, storage_format='ELL')
+    call Dy%Init(refElem%Dx2, storage_format='ELL')
+    call Dz%Init(refElem%Dx3, storage_format='ELL')
     call Lift%Init(refElem%Lift)
 
     call mesh%Init( &
@@ -506,14 +502,20 @@ contains
     call u%Init( "u", "m/s", mesh )
     call v%Init( "v", "m/s", mesh )
     call w%Init( "w", "m/s", mesh )
+    
     call fields_comm%Init(4, 0, 0, mesh)
-
+    field_list(1)%field3d => q
+    field_list(2)%field3d => u
+    field_list(3)%field3d => v
+    field_list(4)%field3d => w
+  
     call FILE_HISTORY_meshfield_setup( mesh3d_=mesh )
     call FILE_HISTORY_reg( q%varname, "q", q%unit, HST_ID(1), dim_type='XYZ')
     call FILE_HISTORY_reg( qexact%varname, "qexact", q%unit, HST_ID(2), dim_type='XYZ')
     
     !---
     allocate( IntrpMat(PolyOrderErrorCheck**3,(PolyOrder_h+1)**2*(PolyOrder_v+1)) )
+    allocate( intw_intrp(PolyOrderErrorCheck**3), x_intrp(PolyOrderErrorCheck**3), y_intrp(PolyOrderErrorCheck**3), z_intrp(PolyOrderErrorCheck**3) )
     IntrpMat(:,:) = refElem%GenIntGaussLegendreIntrpMat( PolyOrderErrorCheck,                   & ! (in)
                                                          intw_intrp, x_intrp, y_intrp, z_intrp )  ! (out)
 
@@ -546,12 +548,7 @@ contains
     call fields_comm%Final()
     call mesh%Final()
     
-    call Dx%Final()
-    call Sx%Final()
-    call Dy%Final()
-    call Sy%Final()
-    call Dz%Final()
-    call Sz%Final()
+    call Dx%Final(); call Dy%Final(); call Dz%Final()
     call Lift%Final()
     call refElem%Final()
     

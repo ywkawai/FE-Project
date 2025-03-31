@@ -1,6 +1,6 @@
 ################################################################################
 #
-# Makefile for scale library
+# Makefile for FElib
 #
 ################################################################################
 
@@ -20,6 +20,7 @@ VPATH = \
 	data:             \
 	file:             \
 	fluid_dyn_solver: \
+	surface:          \
 	turbulence:       \
 	microphysics:     \
 	model_framework:
@@ -52,7 +53,11 @@ OBJS_NAME_ELEMENT = \
 	scale_element_line.o          \
 	scale_element_quadrilateral.o \
 	scale_element_hexahedral.o    \
-	scale_element_modalfilter.o
+	scale_element_modalfilter.o   \
+	scale_element_operation_base.o                \
+	scale_element_operation_general.o	          \
+	scale_element_operation_tensorprod3D_kernel.o \
+	scale_element_operation_tensorprod3D.o
 
 OBJS_NAME_MESH = \
 	scale_meshutil_1d.o            \
@@ -88,6 +93,7 @@ OBJS_NAME_DATA = \
 	scale_meshfieldcomm_cubedom3d.o          \
 	scale_meshfieldcomm_cubedspheredom3d.o   \
 	scale_meshfield_statistics.o             \
+	scale_meshfield_fvm_util.o               \
 	scale_meshfield_analysis_numerror_base.o \
 	scale_meshfield_analysis_numerror.o
 
@@ -129,8 +135,12 @@ OBJS_NAME_FLUID_DYN_SOLVER = \
 	scale_atm_dyn_dgm_driver_trcadv3d.o	             \
 	scale_atm_dyn_dgm_trcadvect3d_heve.o	
 
+OBJS_NAME_SURFACE = \
+	scale_atm_phy_sf_bulk_simple.o
+
 OBJS_NAME_TURBULENCE = \
 	scale_atm_phy_tb_dgm_driver.o    \
+	scale_atm_phy_tb_dgm_dns.o       \
 	scale_atm_phy_tb_dgm_smg.o       \
 	scale_atm_phy_tb_dgm_globalsmg.o \
 	scale_atm_phy_tb_dgm_common.o 
@@ -149,17 +159,120 @@ OBJS_NAME = \
 	$(OBJS_NAME_COMMON)           \
 	$(OBJS_NAME_ELEMENT)          \
 	$(OBJS_NAME_MESH)             \
-	$(OBJS_NAME_DATA)		          \
+	$(OBJS_NAME_DATA)		      \
 	$(OBJS_NAME_FILE)             \
 	$(OBJS_NAME_FLUID_DYN_SOLVER) \
+	$(OBJS_NAME_SURFACE)          \
 	$(OBJS_NAME_TURBULENCE)       \
 	$(OBJS_NAME_MICROPHYS)        \
 	$(OBJS_NAME_MODEL_FRAMEWORK)
+
+
+OBJS_NAME_SCALELIB = \
+	scale_precision.o        \
+	scale_const.o            \
+	scale_io.o               \
+	scale_time.o             \
+	scale_prc_cartesC.o      \
+	scale_comm_cartesC.o     \
+	scale_atmos_thermodyn.o  \
+	scale_atmos_saturation.o \
+	scale_atmos_grid_cartesC_index.o   \
+	scale_atmos_grid_cartesC.o         \
+	\
+	scale.o	              \
+	scale_sys_sigvars.o   \
+	scale_file_netcdf.o   \
+	scale_file_grads.o	  \
+	scale_calendar.o	  \
+	scale_debug.o         \
+	scale_fpm.o           \
+	scale_index.o         \
+	scale_mapprojection.o \
+	scale_matrix.o	      \
+	scale_sort.o	      \
+	scale_hash.o	      \
+	scale_prc.o	          \
+	scale_prof.o	      \
+	scale_random.o	      \
+	scale_sigvars.o       \
+	scale_statistics.o	  \
+	scale_tracer.o	      \
+	scale_vector.o	      \
+	scale_monitor.o	      \
+	scale_file.o	      \
+	scale_file_cartesC.o  \
+	scale_file_h.o	      \
+	scale_file_history.o  \
+	scale_file_netcdf.o   \
+	\
+	scale_atmos_adiabat.o     \
+	scale_atmos_aerosol.o     \
+	scale_atmos_hydrometeor.o \
+	\
+	scale_atmos_phy_mp_common.o   \
+	scale_atmos_phy_mp_kessler.o  \
+	scale_atmos_phy_mp_sn14.o	  \
+	scale_atmos_phy_mp_suzuki10.o \
+	scale_atmos_phy_mp_tomita08.o \
+	\
+	scale_atmos_phy_sf_bulk.o  \
+	scale_atmos_phy_sf_const.o \
+	\
+	scale_ocean_grid_cartesC.o	         \
+	scale_ocean_grid_cartesC_index.o     \
+	scale_ocean_grid_cartesC_real.o      \
+	scale_ocean_grid_icoA.o              \
+	scale_ocean_grid_icoA_index.o        \
+	scale_ocean_dyn_slab.o	             \
+	scale_ocean_dyn_offline.o            \
+	scale_ocean_phy_ice_simple.o	     \
+	scale_ocean_phy_albedo.o	         \
+	scale_ocean_phy_albedo_nakajima00.o  \
+	scale_ocean_phy_roughness.o          \
+	scale_ocean_phy_roughness_miller92.o \
+	scale_ocean_phy_roughness_moon07.o	 \
+	scale_ocean_phy_tc.o	             \
+	\
+	scale_land_grid_cartesC.o       \
+	scale_land_grid_cartesC_index.o \
+	scale_land_grid_cartesC_real.o	\
+	scale_land_grid_icoA.o	        \
+	scale_land_grid_icoA_index.o	\
+	scale_land_dyn_bucket.o         \
+	scale_land_phy_matsiro.o	    \
+	scale_land_phy_snow_diagnos.o   \
+	scale_land_phy_snow_ky90.o	    \
+	\
+	scale_urban_grid_cartesC.o	     \
+	scale_urban_grid_cartesC_index.o \
+	scale_urban_grid_cartesC_real.o  \
+	scale_urban_grid_icoA.o          \
+	scale_urban_grid_icoA_index.o    \
+	scale_urban_dyn_kusaka01.o	     \
+	\
+	scale_bulkflux.o	             \
+	scale_landuse.o                  \
+	scale_cpl_sfc_index.o            \
+	scale_cpl_phy_sfc_fixed_temp.o	 \
+	scale_cpl_phy_sfc_skin.o         \
+	\
+	scale_spnudge.o \
+	scale_dft.o
+
+MODS_SCALELIB = $(addprefix $(SCALE)/include/, \
+	$(shell echo $(patsubst %.o,%.mod, \
+	$(filter-out scale_sys_sigvars.o, \
+	$(filter-out scale_file_netcdf.o, \
+	$(filter-out read_toshiba.o, \
+	$(filter-out read_toshiba_mpr.o, \
+	$(OBJS_NAME_SCALELIB) ))))) | tr A-Z a-z) )
 
 #------------------------------------------
 OBJS=$(patsubst %, $(BUILD_DIR)/%, $(OBJS_NAME))
 
 all:
+	$(MAKE) prep_scalelib
 	$(MAKE) build
 	$(MAKE) install
 
@@ -181,6 +294,20 @@ info:
 	@$(MAKE) --no-print-directory conflog
 
 
+prep_scalelib: 
+	echo "Prepair libscale_sub.a and include files for FE-Project .."
+	$(MAKE) $(LIBDIR)/libscale_sub$(POSTFIX).a
+
+$(LIBDIR)/libscale_sub$(POSTFIX).a: $(SCALE)/lib/$(SCALE_LIBNAME)
+	mkdir -p $(LIBDIR)
+	$(AR) -x $< $(OBJS_NAME_SCALELIB)
+	$(AR) $(ARFLAGS) $(@F) $(OBJS_NAME_SCALELIB)
+	install $(@F) $(LIBDIR)
+	rm -f $(OBJS_NAME_SCALELIB)
+
+	mkdir -p $(MODDIR)/scalelib
+	install $(MODS_SCALELIB) $(MODDIR)/scalelib
+
 $(LIBDIR)/$(LIBNAME): $(LIBNAME)
 	mkdir -p $(LIBDIR)
 	install $< $@
@@ -200,10 +327,11 @@ clean:
 
 distclean: clean
 	rm -rf $(LIBNAME)
+	rm -rf libscale_sub.a
 
 allclean: distclean
 
-dependency:
+dependency: prep_scalelib
 	./makedepend .
 
 
@@ -215,6 +343,8 @@ dependency:
 
 common/scale_quicksort.F90: scale_quicksort.F90.erb
 common/scale_timeint_rk.F90: scale_timeint_rk.F90.erb
+element/scale_element_operation_tensorprod3D_kernel.F90: scale_element_operation_tensorprod3D_kernel.F90.erb
+element/scale_element_operation_tensorprod3D.F90: scale_element_operation_tensorprod3D.F90.erb
 
 $(BUILD_DIR)/%.o : %.F90
 	$(FC) $(FFLAGS) $(SCALE_INCLUDE) $(INCLUDE) -I$(SCALEFELIBDIR)/include -I$(BUILD_DIR) $(MODDIROPT) $(BUILD_DIR) -o $@ -c $<

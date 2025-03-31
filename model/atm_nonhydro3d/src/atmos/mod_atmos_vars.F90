@@ -1,10 +1,10 @@
 !-------------------------------------------------------------------------------
-!> module ATMOSPHERIC Variables
+!> module ATMOSPHERE / Variables
 !!
 !! @par Description
 !!          Container for atmospheric variables
 !!
-!! @author Team SCALE
+!! @author Yuta Kawai, Team SCALE
 !!
 !<
 !-------------------------------------------------------------------------------
@@ -70,28 +70,39 @@ module mod_atmos_vars
   type, public :: AtmosVars
     class(AtmosMesh), pointer :: mesh
 
+    !- prognostic variables
     type(MeshField3D), allocatable :: PROG_VARS(:)
     type(ModelVarManager) :: PROGVARS_manager
     integer :: PROG_VARS_commID
 
+    !- tracer variables
     type(MeshField3D), allocatable :: QTRC_VARS(:)
     type(ModelVarManager) :: QTRCVARS_manager
     integer :: QTRC_VARS_commID 
-    
+
+    !- auxiliary variables    
     type(MeshField3D), allocatable :: AUX_VARS(:)
     type(ModelVarManager) :: AUXVARS_manager 
     integer :: AUX_VARS_commID
 
+    !- auxiliary variables (2D)
     type(MeshField2D), allocatable :: AUX_VARS2D(:)
     type(ModelVarManager) :: AUXVARS2D_manager 
     
+    !-
     type(ModelVarManager), pointer :: ptr_MP_AUXVARS2D_manager
 
+    logical :: moist
+    type(MeshField3D), pointer :: QV
+    type(MeshField3D) :: zero
+
+    !- Tendency with physics
     type(MeshField3D), allocatable :: PHY_TEND(:)
     type(ModelVarManager) :: PHYTENDS_manager 
     integer :: PHYTENDS_commID
     integer :: PHYTEND_NUM_TOT
 
+    !--
     integer, allocatable :: DIAGVARS2D_HISTID(:)
     integer, allocatable :: DIAGVARS3D_HISTID(:)
 
@@ -119,6 +130,7 @@ module mod_atmos_vars
   public :: AtmosVars_GetLocalMeshSfcVar
   public :: AtmosVars_GetLocalMeshQTRCVar  
   public :: AtmosVars_GetLocalMeshQTRCVarList
+  public :: AtmosVars_GetLocalMeshQTRC_Qv
   public :: AtmosVars_GetLocalMeshPhyAuxVars
   public :: AtmosVars_GetLocalMeshPhyTends
   public :: AtmosVars_GetLocalMeshQTRCPhyTend
@@ -211,12 +223,14 @@ contains
 
 !OCL SERIAL
   subroutine AtmosVars_Init( this, atm_mesh )
+    use scale_atmos_hydrometeor, only: &
+      ATMOS_HYDROMETEOR_dry
     use scale_file_monitor_meshfield, only:    &
       MONITOR_reg => FILE_monitor_meshfield_reg
 
     use scale_atm_dyn_dgm_nonhydro3d_common, only: &
       PRGVAR_SCALAR_NUM, PRGVAR_HVEC_NUM,          &
-      atm_dyn_dgm_nonhydro3d_common_get_varinfo
+      atm_dyn_dgm_nonhydro3d_common_setup_variables
     implicit none
 
     class(AtmosVars), target, intent(inout) :: this
@@ -260,10 +274,6 @@ contains
     class(MeshBase2D), pointer :: mesh2D
 
     type(VariableInfo) :: prgvar_info(PRGVAR_NUM)
-    type(VariableInfo) :: auxvar_info(AUXVAR_NUM)
-    type(VariableInfo) :: phytend_info(PHYTEND_NUM1)
-
-    type(VariableInfo) :: qtrc_vinfo_tmp
     !--------------------------------------------------
 
     LOG_INFO('AtmosVars_Init',*)
@@ -284,59 +294,50 @@ contains
     mesh3D => atm_mesh%ptr_mesh
     call mesh3D%GetMesh2D( mesh2D )
 
-    !- Get variable information
-    call atm_dyn_dgm_nonhydro3d_common_get_varinfo( prgvar_info, auxvar_info, phytend_info )
-
-    !- Initialize prognostic variables
+    !- Initialize variables associated with dynamical core 
+    !  (prognostic variables, tracer variables, 3D auxiliary variables, and tendencies of physical processes)
 
     call this%PROGVARS_manager%Init()
+    call this%QTRCVARS_manager%Init()
+    call this%AUXVARS_manager%Init()
+    call this%PHYTENDS_manager%Init()
+
     allocate( this%PROG_VARS(PRGVAR_NUM) )
+    allocate( this%QTRC_VARS(0:QA) )
+    allocate( this%AUX_VARS(AUXVAR_NUM) )
 
-    reg_file_hist = .true.    
-    do iv = 1, PRGVAR_NUM
-      call this%PROGVARS_manager%Regist(  &
-        prgvar_info(iv), mesh3D,                              & ! (in) 
-        this%PROG_VARS(iv),                                   & ! (inout)
-        reg_file_hist,  monitor_flag=.true., fill_zero=.true. ) ! (out)
-    end do
+    this%PHYTEND_NUM_TOT = PHYTEND_NUM1 + max(1,QA)
+    allocate( this%PHY_TEND(this%PHYTEND_NUM_TOT) )
 
+    call atm_dyn_dgm_nonhydro3d_common_setup_variables( &
+      this%PROG_VARS, this%QTRC_VARS, this%AUX_VARS, this%PHY_TEND,                              & ! (inout)
+      this%PROGVARS_manager, this%QTRCVARS_manager, this%AUXVARS_manager, this%PHYTENDS_manager, & ! (inout)
+      this%PHYTEND_NUM_TOT, mesh3D,                                                              & ! (in)
+      prgvar_info ) ! (out)
+ 
+    ! Setup communicator
+    
     call atm_mesh%Create_communicator( &
       PRGVAR_SCALAR_NUM, PRGVAR_HVEC_NUM, 0,              & ! (in)
       this%PROGVARS_manager,                              & ! (inout)
       this%PROG_VARS(:),                                  & ! (in)
       this%PROG_VARS_commID                               ) ! (out)
-
-    !- Initialize tracer variables
-
-    call this%QTRCVARS_manager%Init()
-    allocate( this%QTRC_VARS(max(1, QA)) )
-
-    if ( QA > 0 ) then
-      reg_file_hist = .true.
-      qtrc_vinfo_tmp%ndims    = 3
-      qtrc_vinfo_tmp%dim_type = 'XYZ'
-      qtrc_vinfo_tmp%STDNAME  = ''
-
-      do iq = 1, QA
-        qtrc_vinfo_tmp%keyID = iq
-        qtrc_vinfo_tmp%NAME  = TRACER_NAME(iq)
-        qtrc_vinfo_tmp%DESC  = TRACER_DESC(iq)
-        qtrc_vinfo_tmp%UNIT  = TRACER_UNIT(iq)
-       
-        call this%QTRCVARS_manager%Regist( &
-          qtrc_vinfo_tmp, mesh3D,                               & ! (in) 
-          this%QTRC_VARS(iq),                                   & ! (inout)
-          reg_file_hist, monitor_flag=.true., fill_zero=.true.  ) ! (in)
-      end do
-     
+    
+    if ( .not. ATMOS_HYDROMETEOR_dry ) then
       call atm_mesh%Create_communicator( &
         QA, 0, 0,                        & ! (in)
         this%QTRCVARS_manager,           & ! (inout)
-        this%QTRC_VARS(:),               & ! (in)
+        this%QTRC_VARS(1:QA),            & ! (in)
         this%QTRC_VARS_commID            ) ! (out)
     end if
 
-    !- Output list of prognostic variables
+    call atm_mesh%Create_communicator( &
+      AUXVAR_NUM, 0, 0,                & ! (in)
+      this%AUXVARS_manager,            & ! (inout)
+      this%AUX_VARS(:),                & ! (in)
+      this%AUX_VARS_commID             ) ! (out)
+
+    ! Output list of prognostic variables
 
     LOG_NEWLINE
     LOG_INFO("ATMOS_vars_setup",*) 'List of prognostic variables (ATMOS) '
@@ -353,27 +354,8 @@ contains
     end do
     LOG_NEWLINE
 
-    !- Initialize auxiliary variables
 
-    ! 3D
-    call this%AUXVARS_manager%Init()
-    allocate( this%AUX_VARS(AUXVAR_NUM) )
-    
-    reg_file_hist = .true.
-    do iv = 1, AUXVAR_NUM
-      call this%AUXVARS_manager%Regist( &
-        auxvar_info(iv), mesh3D,          & ! (in) 
-        this%AUX_VARS(iv),                & ! (inout)
-        reg_file_hist, fill_zero=.true.   ) ! (in)
-    end do
-
-    call atm_mesh%Create_communicator( &
-      AUXVAR_NUM, 0, 0,                & ! (in)
-      this%AUXVARS_manager,            & ! (inout)
-      this%AUX_VARS(:),                & ! (in)
-      this%AUX_VARS_commID             ) ! (out)
-
-    ! 2D
+    !- Initialize 2D auxiliary variables
     call this%AUXVARS2D_manager%Init()
     allocate( this%AUX_VARS2D(ATMOS_AUXVARS2D_NUM) )
     
@@ -385,39 +367,6 @@ contains
         reg_file_hist, fill_zero=.true.      ) ! (in)
     end do
   
-    !- Initialize the tendency of physical processes
-
-    this%PHYTEND_NUM_TOT = PHYTEND_NUM1 + QA
-
-    call this%PHYTENDS_manager%Init()
-    allocate( this%PHY_TEND(this%PHYTEND_NUM_TOT) )
-    
-    reg_file_hist = .true.
-    do iv = 1, PHYTEND_NUM1
-      call this%PHYTENDS_manager%Regist( &
-        phytend_info(iv), mesh3D,        & ! (in) 
-        this%PHY_TEND(iv),               & ! (inout)
-        reg_file_hist, fill_zero=.true.  ) ! (in)
-    end do
-
-    if ( QA > 0 ) then
-      qtrc_vinfo_tmp%ndims    = 3
-      qtrc_vinfo_tmp%dim_type = 'XYZ'
-      qtrc_vinfo_tmp%STDNAME  = ''
-
-      do iq = 1, QA
-        iv = PHYTEND_NUM1 + iq 
-        qtrc_vinfo_tmp%keyID = iv
-        qtrc_vinfo_tmp%NAME  = trim(TRACER_NAME(iq))//'_tp'
-        qtrc_vinfo_tmp%DESC  = 'tendency of physical process for '//trim(TRACER_DESC(iq))
-        qtrc_vinfo_tmp%UNIT  = trim(TRACER_UNIT(iq))//'/s'
-
-        call this%PHYTENDS_manager%Regist( &
-          qtrc_vinfo_tmp, mesh3D,          & ! (in) 
-          this%PHY_TEND(iv),               & ! (inout)
-          reg_file_hist, fill_zero=.true.  ) ! (in)
-      end do    
-    end if
 
     !- Initialize diagnostic variables for output
 
@@ -638,15 +587,16 @@ contains
 
     integer :: iv
 
-    type(MeshField3D), pointer :: var
     integer :: domid
     integer :: ke
+    class(MeshBase3D), pointer :: mesh3D
     class(LocalMesh3D), pointer :: lcmesh3D
+    class(MeshField3D), pointer :: Phyd_ref
     !---------------------------------------
 
     LOG_NEWLINE
     LOG_INFO("ATMOSVar_read_restart_file",*) 'Open restart file (ATMOS) '
-
+        
     !- Open restart file
     call this%restart_file%Open()
 
@@ -676,12 +626,13 @@ contains
       this%PROGVARS_manager, this%AUXVARS_manager              )
 
     ! Set reference value of hydrostatic pressure
-    var => this%AUX_VARS(AUXVAR_PRESHYDRO_REF_ID)
-    do domid=1, var%mesh%LOCAL_MESH_NUM
-      lcmesh3D => var%mesh%lcmesh_list(domid)
+    Phyd_ref => this%AUX_VARS(AUXVAR_PRESHYDRO_REF_ID)
+    mesh3D => Phyd_ref%mesh
+    do domid=1, mesh3D%LOCAL_MESH_NUM
+      lcmesh3D => mesh3D%lcmesh_list(domid)
       !$omp parallel do
       do ke=lcmesh3D%NeS, lcmesh3D%NeE
-        var%local(domid)%val(:,ke) = 0.0_RP
+        Phyd_ref%local(domid)%val(:,ke) = 0.0_RP
       end do
     end do
 
@@ -693,6 +644,10 @@ contains
 
     !-- Communicate halo data of hydrostatic & diagnostic variables
     call this%AUXVARS_manager%MeshFieldComm_Exchange()
+
+    !-- Set horizontal gradient of hydrostatic pressure
+    call dyncore%update_phyd_hgrad( this%AUX_VARS(AUXVAR_PRESHYDRO_ID), Phyd_ref, &
+      mesh3D, atmos_mesh%element3D_operation )
 
     return
   end subroutine AtmosVar_Read_restart_file
@@ -963,8 +918,8 @@ contains
 !OCL SERIAL
   subroutine AtmosVars_GetLocalMeshPrgVars( domID, mesh, prgvars_list, auxvars_list, &
     DDENS, MOMX, MOMY, MOMZ, THERM,                                                  &
-    DENS_hyd, PRES_hyd, Rtot, CVtot, CPtot, lcmesh3D                                 )
-    
+    DENS_hyd, PRES_hyd, Rtot, CVtot, CPtot,                                          &
+    lcmesh3D                                                                         )
     implicit none
     integer, intent(in) :: domID
     class(MeshBase), intent(in) :: mesh
@@ -1013,7 +968,7 @@ contains
 
     !---
     
-    if (present(lcmesh3D)) then
+    if ( present(lcmesh3D) ) then
       call mesh%GetLocalMesh( domID, lcmesh )
       nullify( lcmesh3D )
 
@@ -1094,6 +1049,54 @@ contains
 
    return
   end subroutine AtmosVars_GetLocalMeshQTRCVar
+
+!OCL SERIAL
+  subroutine AtmosVars_GetLocalMeshQTRC_Qv( domID, mesh, trcvars_list, forcing_list, &
+    var, var_tp, lcmesh3D                                               )
+
+    use scale_atmos_hydrometeor, only: &
+      ATMOS_HYDROMETEOR_dry, &
+      I_QV    
+   implicit none
+   integer, intent(in) :: domID
+   class(MeshBase), intent(in) :: mesh
+   class(ModelVarManager), intent(inout) :: trcvars_list
+   class(ModelVarManager), intent(inout) :: forcing_list
+   class(LocalMeshFieldBase), pointer, intent(out) :: var
+   class(LocalMeshFieldBase), pointer, intent(out) :: var_tp
+   class(LocalMesh3D), pointer, intent(out), optional :: lcmesh3D
+
+   class(MeshFieldBase), pointer :: field
+   class(LocalMeshBase), pointer :: lcmesh
+
+   integer :: iq, tend_iq
+   !-------------------------------------------------------
+
+   !--
+   if ( ATMOS_HYDROMETEOR_dry ) then
+     iq =0; tend_iq = PHYTEND_NUM1+1
+   else
+     iq = I_QV; tend_iq = PHYTEND_NUM1 + I_QV
+   end if
+
+   call trcvars_list%Get(iq, field)
+   call field%GetLocalMeshField(domID, var)
+
+   call forcing_list%Get(tend_iq, field)
+   call field%GetLocalMeshField(domID, var_tp)
+
+   if (present(lcmesh3D)) then
+     call mesh%GetLocalMesh( domID, lcmesh )
+     nullify( lcmesh3D )
+
+     select type(lcmesh)
+     type is (LocalMesh3D)
+       if (present(lcmesh3D)) lcmesh3D => lcmesh
+     end select
+   end if
+
+   return
+  end subroutine AtmosVars_GetLocalMeshQTRC_Qv
 
 !OCL SERIAL
   subroutine AtmosVars_GetLocalMeshQTRCVarList( domID, mesh, trcvars_list,  &
