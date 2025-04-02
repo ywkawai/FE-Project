@@ -262,6 +262,7 @@ module scale_atm_dyn_dgm_driver_nonhydro3d
 
     !
     logical :: hevi_flag
+    logical :: hevi_use_lapack_flag
 
     !
     logical :: hide_mpi_comm_flag

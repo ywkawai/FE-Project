@@ -49,6 +49,9 @@ module scale_atm_dyn_dgm_nonhydro3d_rhot_hevi_common
   !
   !++ Public procedures
   !
+  public :: atm_dyn_dgm_nonhydro3d_rhot_hevi_common_Init
+  public :: atm_dyn_dgm_nonhydro3d_rhot_hevi_common_Final
+  
   public :: atm_dyn_dgm_nonhydro3d_rhot_hevi_common_eval_Ax
   public :: atm_dyn_dgm_nonhydro3d_rhot_hevi_common_eval_Ax_uv
   public :: atm_dyn_dgm_nonhydro3d_rhot_hevi_common_construct_matbnd
@@ -58,6 +61,7 @@ module scale_atm_dyn_dgm_nonhydro3d_rhot_hevi_common
   !
   !++ Public parameters & variables
   !
+  logical, public :: VI_use_lapack_flag = .true.
   
   !-----------------------------------------------------------------------------
   !
@@ -70,6 +74,33 @@ module scale_atm_dyn_dgm_nonhydro3d_rhot_hevi_common
 
 contains
   !------------------------------------------------
+  subroutine atm_dyn_dgm_nonhydro3d_rhot_hevi_common_Init
+    implicit none
+    namelist / PARAM_ATMOS_DYN_NONHYDRO3D_RHOT_HEVI_COMMON / &
+      VI_use_lapack_flag
+
+    integer :: ierr
+    !---------------------------------------------------------
+
+    !--- read namelist
+    rewind(IO_FID_CONF)
+    read(IO_FID_CONF,nml=PARAM_ATMOS_DYN_NONHYDRO3D_RHOT_HEVI_COMMON,iostat=ierr)
+    if( ierr < 0 ) then !--- missing
+      LOG_INFO("ATMOS_DYN_nonhydro3d_rhot_hevi_common_setup",*) 'Not found namelist. Default used.'
+    elseif( ierr > 0 ) then !--- fatal error
+      LOG_ERROR("ATMOS_DYN_nonhydro3d_rhot_hevi_common_setup",*) 'Not appropriate names in namelist PARAM_ATMOS_DYN_NONHYDRO3D_RHOT_HEVI_COMMON. Check!'
+      call PRC_abort
+    endif
+    LOG_NML(PARAM_ATMOS_DYN_NONHYDRO3D_RHOT_HEVI_COMMON)
+
+    return
+  end subroutine atm_dyn_dgm_nonhydro3d_rhot_hevi_common_Init
+
+  subroutine atm_dyn_dgm_nonhydro3d_rhot_hevi_common_Final
+    implicit none
+    !---------------------------------------------------------
+    return
+  end subroutine atm_dyn_dgm_nonhydro3d_rhot_hevi_common_Final
 
 !OCL SERIAL  
   subroutine atm_dyn_dgm_nonhydro3d_rhot_hevi_common_eval_Ax( &
