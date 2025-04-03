@@ -330,6 +330,7 @@ distclean: clean
 	rm -rf libscale_sub.a
 
 allclean: distclean
+	rm -rf $(LIBDIR)/$(LIBNAME)
 
 dependency: prep_scalelib
 	./makedepend .
