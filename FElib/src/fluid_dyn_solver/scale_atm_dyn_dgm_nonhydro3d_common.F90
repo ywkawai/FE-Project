@@ -262,7 +262,7 @@ contains
 
     reg_file_hist = .true.
 
-    if ( ATMOS_HYDROMETEOR_dry ) then
+    if ( QA == 0 ) then
       ! Dummy
       qtrc_dry_vinfo_tmp%ndims    = 3
       qtrc_dry_vinfo_tmp%dim_type = 'XYZ'
@@ -313,7 +313,7 @@ contains
         reg_file_hist, fill_zero=.true.  ) ! (in)
     end do
 
-    if ( ATMOS_HYDROMETEOR_dry ) then
+    if ( QA == 0 ) then
       ! Dummy
       qtrc_dry_tp_vinfo_tmp%ndims    = 3
       qtrc_dry_tp_vinfo_tmp%dim_type = 'XYZ'

@@ -323,7 +323,7 @@ contains
       this%PROG_VARS(:),                                  & ! (in)
       this%PROG_VARS_commID                               ) ! (out)
     
-    if ( .not. ATMOS_HYDROMETEOR_dry ) then
+    if ( QA > 0 ) then
       call atm_mesh%Create_communicator( &
         QA, 0, 0,                        & ! (in)
         this%QTRCVARS_manager,           & ! (inout)
