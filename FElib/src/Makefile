@@ -167,6 +167,8 @@ OBJS_NAME = \
 	$(OBJS_NAME_MICROPHYS)        \
 	$(OBJS_NAME_MODEL_FRAMEWORK)
 
+#------------------------------------------
+OBJS=$(patsubst %, $(BUILD_DIR)/%, $(OBJS_NAME))
 
 OBJS_NAME_SCALELIB = \
 	scale_precision.o        \
@@ -260,6 +262,12 @@ OBJS_NAME_SCALELIB = \
 	scale_spnudge.o \
 	scale_dft.o
 
+#------------------------------------------
+
+MODS = $(addprefix $(BUILD_DIR)/, \
+	$(shell echo $(patsubst $(BUILD_DIR)/%.o,%.mod, \
+	$(OBJS) ) | tr A-Z a-z) )
+
 MODS_SCALELIB = $(addprefix $(SCALE)/include/, \
 	$(shell echo $(patsubst %.o,%.mod, \
 	$(filter-out scale_sys_sigvars.o, \
@@ -268,8 +276,6 @@ MODS_SCALELIB = $(addprefix $(SCALE)/include/, \
 	$(filter-out read_toshiba_mpr.o, \
 	$(OBJS_NAME_SCALELIB) ))))) | tr A-Z a-z) )
 
-#------------------------------------------
-OBJS=$(patsubst %, $(BUILD_DIR)/%, $(OBJS_NAME))
 
 all:
 	$(MAKE) prep_scalelib
@@ -309,15 +315,17 @@ $(LIBDIR)/libscale_sub$(POSTFIX).a: $(SCALE)/lib/$(SCALE_LIBNAME)
 	install $(MODS_SCALELIB) $(MODDIR)/scalelib
 
 $(LIBDIR)/$(LIBNAME): $(LIBNAME)
+	@echo "Install $(LIBNAME).."
 	mkdir -p $(LIBDIR)
 	install $< $@
 
 $(LIBNAME): $(OBJS)
-	echo "build $(LIBNAME).."
+	@echo "build $(LIBNAME).."
 	$(AR) $(ARFLAGS) $@ $?
 	$(RANLIB) $@
 
 modules: $(OBJS)
+	@echo "Install modules.."
 	mkdir -p $(MODDIR)
 	install $(MODS) $(MODDIR)
 
@@ -354,6 +362,7 @@ $(BUILD_DIR)/%.o : %.F90
 
 include $(TOPDIR)/utils/make/Make_environments
 
+ifneq ($(SCALE_IGNORE_SRCDEP),T)
 -include depend
+endif
 
-# DO NOT DELETE
