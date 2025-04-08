@@ -6,7 +6,8 @@
 
 PWD         = $(shell pwd)
 TOPDIR      = $(abspath ../../..)
-BUILD_DIR   = ./.libs
+BUILD_DIR       = ./.libs
+BUILD_DIR_LOCAL = ./.libs
 SYSDEP_DIR  = $(TOPDIR)/sysdep
 
 include $(SYSDEP_DIR)/Makedef.$(SCALE_FE_SYS)
@@ -15,11 +16,18 @@ include $(TOPDIR)/Mkinclude
 BINNAME  = scale-dg
 INITNAME = scale-dg_init
 PPNAME   = scale-dg_pp
+LIBNAME_SCALEDG=libScaleDG$(POSTFIX).a
 
 BINS = $(BINDIR)/$(BINNAME)$(POSTFIX)  \
        $(BINDIR)/$(INITNAME)$(POSTFIX) \
        $(BINDIR)/$(PPNAME)$(POSTFIX) 
-LIBS = $(LIBDIR)/libScaleFECore$(POSTFIX).a
+LIBS = $(LIBDIR)/${LIBNAME_SCALEDG}    \
+	   $(LIBDIR)/libScaleFECore$(POSTFIX).a
+
+ifneq ($(SCALE_IGNORE_SRCDEP),T)
+  DEPENDLIB = $(LIBDIR)/libScaleFECore$(POSTFIX).a
+  DEPENDLIB_LOCAL = $(LIBDIR)/${LIBNAME_SCALEDG}
+endif
 
 VERSION = $(shell git rev-parse --short HEAD 2> /dev/null)
 ifeq ($(VERSION),)
@@ -29,10 +37,11 @@ else
 endif
 
 VPATH = \
-	$(BUILD_DIR): \
-	admin:        \
-	atmos:        \
-	user:         \
+	$(BUILD_DIR):       \
+	$(BUILD_DIR_LOCAL): \
+	admin:              \
+	atmos:              \
+	user:               \
 	preprocess:
 
 SUB_OBJS = \
@@ -64,9 +73,9 @@ MAIN_OBJS = \
 
 # TEST CASE
 ifeq ($(origin EXP_ORG_SRCS), undefined)
-	SUB_OBJS += mod_user.o
+	MAIN_OBJS += mod_user.o
 else
-	SUB_OBJS += $(patsubst %.F90,%.o,$(EXP_ORG_SRCS))
+	MAIN_OBJS += $(patsubst %.F90,%.o,$(EXP_ORG_SRCS))
 endif
 
 OBJS = 	\
@@ -97,47 +106,63 @@ info:
 	@$(MAKE) --no-print-directory conflog
 
 makeobjs:
-	@$(MAKE) sub_objs
+	$(MAKE) $(LIBDIR)/$(LIBNAME_SCALEDG)
 	@$(MAKE) main_objs
 
 makelib:
 	$(MAKE) -C $(SCALEFELIBDIR)/src
 
-makebin:  $(BUILD_DIR)/$(BINNAME)$(POSTFIX) $(BUILD_DIR)/$(PPNAME)$(POSTFIX)
+makebin:  $(BUILD_DIR_LOCAL)/$(BINNAME)$(POSTFIX) $(BUILD_DIR_LOCAL)/$(PPNAME)$(POSTFIX)
 
-sub_objs: $(patsubst %,$(BUILD_DIR)/%,$(SUB_OBJS))
+#sub_objs: $(patsubst %,$(BUILD_DIR)/%,$(SUB_OBJS))
 
-main_objs: $(patsubst %,$(BUILD_DIR)/%,$(MAIN_OBJS))
+$(LIBNAME_SCALEDG): $(patsubst %,$(BUILD_DIR)/%,$(SUB_OBJS))
+	echo "Generate $(LIBNAME_SCALEDG).."
+	$(AR) $(ARFLAGS) $(LIBNAME_SCALEDG) $?
+	$(RANLIB) $(LIBNAME_SCALEDG)
 
-$(BUILD_DIR)/$(BINNAME)$(POSTFIX)  : $(BUILD_DIR)/$(BINNAME).o  $(patsubst %,$(BUILD_DIR)/%,$(OBJS)) $(LIBS)
-	$(LD) $(LDFLAGS) $(ADDITIONAL_FFLAGS) -o $@ $^ $(LIBS) $(CONTRIB_LIBS) $(SCALE_NETCDF_LIBS) $(SCALE_MATHLIB_LIBS) $(SCALE_PAPI_LIBS)
-
-$(BUILD_DIR)/$(PPNAME)$(POSTFIX) : $(BUILD_DIR)/$(PPNAME).o $(patsubst %,$(BUILD_DIR)/%,$(OBJS)) $(LIBS)
-	$(LD) $(LDFLAGS) $(ADDITIONAL_FFLAGS) -o $@ $^ $(LIBS) $(CONTRIB_LIBS) $(SCALE_NETCDF_LIBS) $(SCALE_MATHLIB_LIBS) $(SCALE_PAPI_LIBS)
-
-$(BUILD_DIR)/$(BINNAME).o  : $(LIBS) $(patsubst %,$(BUILD_DIR)/%,$(OBJS))
-$(BUILD_DIR)/$(PPNAME).o : $(LIBS) $(patsubst %,$(BUILD_DIR)/%,$(OBJS))
-$(BUILD_DIR)/mod_user.o    : $(LIBS) $(patsubst %,$(BUILD_DIR)/%,$(SUB_OBJS)) $(BUILD_DIR)/mod_experiment.o $(BUILD_DIR)/mod_mkinit_util.o
-
-$(BINDIR)/$(BINNAME)$(POSTFIX)  : $(BUILD_DIR)/$(BINNAME)$(POSTFIX)
+$(LIBDIR)/$(LIBNAME_SCALEDG): $(LIBNAME_SCALEDG)
 	install $< $@
 
-$(BINDIR)/$(PPNAME)$(POSTFIX)   : $(BUILD_DIR)/$(PPNAME)$(POSTFIX)
+main_objs: $(patsubst %,$(BUILD_DIR_LOCAL)/%,$(MAIN_OBJS))
+
+$(BUILD_DIR_LOCAL)/$(BINNAME)$(POSTFIX)  : $(BUILD_DIR_LOCAL)/$(BINNAME).o  $(patsubst %,$(BUILD_DIR_LOCAL)/%,$(MAIN_OBJS)) $(LIBS)
+	$(LD) $(LDFLAGS) $(ADDITIONAL_FFLAGS) -o $@ $^ $(LIBS) $(CONTRIB_LIBS) $(SCALE_NETCDF_LIBS) $(SCALE_MATHLIB_LIBS) $(SCALE_PAPI_LIBS)
+
+$(BUILD_DIR_LOCAL)/$(PPNAME)$(POSTFIX) : $(BUILD_DIR_LOCAL)/$(PPNAME).o $(patsubst %,$(BUILD_DIR_LOCAL)/%,$(MAIN_OBJS)) $(LIBS)
+	$(LD) $(LDFLAGS) $(ADDITIONAL_FFLAGS) -o $@ $^ $(LIBS) $(CONTRIB_LIBS) $(SCALE_NETCDF_LIBS) $(SCALE_MATHLIB_LIBS) $(SCALE_PAPI_LIBS)
+
+$(BUILD_DIR_LOCAL)/$(BINNAME).o  : $(LIBS) $(patsubst %,$(BUILD_DIR_LOCAL)/%,$(MAIN_OBJS))
+$(BUILD_DIR_LOCAL)/$(PPNAME).o : $(LIBS) $(patsubst %,$(BUILD_DIR_LOCAL)/%,$(MAIN_OBJS))
+$(BUILD_DIR_LOCAL)/mod_user.o  : $(patsubst %,$(BUILD_DIR)/%,$(SUB_OBJS)) $(BUILD_DIR)/mod_experiment.o $(BUILD_DIR)/mod_mkinit_util.o
+
+$(BINDIR)/$(BINNAME)$(POSTFIX)  : $(BUILD_DIR_LOCAL)/$(BINNAME)$(POSTFIX)
+	install $< $@
+
+$(BINDIR)/$(PPNAME)$(POSTFIX)   : $(BUILD_DIR_LOCAL)/$(PPNAME)$(POSTFIX)
 	install $< $@
 
 $(BINDIR)/$(INITNAME)$(POSTFIX) : $(BINDIR)/$(PPNAME)$(POSTFIX)
 	(cd $(BINDIR); ln -sf `basename $<` $@)
 
+clean:
+	rm -rf $(BUILD_DIR)
+	rm -f *.o *.mod *.lst *~
 
 distclean: clean
 	rm -f $(BINDIR)/$(BINNAME)$(POSTFIX)
 	rm -f $(BINDIR)/$(INITNAME)$(POSTFIX)
 	rm -f $(BINDIR)/$(PPNAME)$(POSTFIX)
+	rm -f $(LIBDIR)/$(LIBNAME_SCALEDG)
 	rm -rf ./.libs*
 
-clean:
-	rm -rf $(BUILD_DIR)
-	rm -f *.o *.mod *.lst *~
+allclean: distclean
+	$(MAKE) -C $(SCALEFELIBDIR)/src allclean
+	rm -f $(BINDIR)/$(BINNAME)*
+	rm -f $(BINDIR)/$(INITNAME)*
+#        rm -f $(BINDIR)/$(PPNAME)*
+	rm -rf $(TOPDIR)/bin
+	rm -rf $(TOPDIR)/lib
 
 dependency:
 	./makedepend .
@@ -151,22 +176,12 @@ dependency:
 $(BUILD_DIR)/%.o: %.F90
 	$(FC) $(FFLAGS) $(ADDITIONAL_FFLAGS) -DVERSION_MACRO=\"$(VERSION)\" -I$(BUILD_DIR) -I$(MODDIR) -I../include $(CONTRIB_INCLUDE) -I$(SCALEFELIBDIR)/include $(SCALE_NETCDF_INCLUDE) $(MODDIROPT) $(BUILD_DIR) -o $@ -c $<
 
+$(BUILD_DIR_LOCAL)/%.o: %.F90
+	$(FC) $(FFLAGS) $(ADDITIONAL_FFLAGS) -DVERSION_MACRO=\"$(VERSION)\" -I$(BUILD_DIR) -I$(BUILD_DIR_LOCAL) -I$(MODDIR) -I../include $(CONTRIB_INCLUDE) -I$(SCALEFELIBDIR)/include $(SCALE_NETCDF_INCLUDE) $(MODDIROPT) $(BUILD_DIR_LOCAL) -o $@ -c $<
+
 $(BUILD_DIR)/%.o : %.c
 	$(CC) $(CFLAGS) -o $@ -c $<
 
-allclean: distclean
-	$(MAKE) -C $(SCALEFELIBDIR)/src allclean
-	rm -f $(BINDIR)/$(BINNAME)*
-	rm -f $(BINDIR)/$(INITNAME)*
-#        rm -f $(BINDIR)/$(PPNAME)*
-	rm -rf $(TOPDIR)/bin
-
-
-distclean: clean
-	rm -f $(BINDIR)/$(BINNAME)$(POSTFIX)
-	rm -f $(BINDIR)/$(INITNAME)$(POSTFIX)
-#        rm -f $(BINDIR)/$(PPNAME)$(POSTFIX)
-	rm -rf ./.libs*
 
 .PHONY : clean distclean allclean depend dependency
 

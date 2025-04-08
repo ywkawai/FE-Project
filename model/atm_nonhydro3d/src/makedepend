@@ -46,16 +46,27 @@ def parse(deps, pros, srcdir, dir="")
     end
   end
 end
+def get_build_dir_postfix(mod_name)
+  if /mod_dg_(launcher|driver|prep)/ =~ mod_name
+    return "_LOCAL"
+  elsif /mod_user$/ =~ mod_name
+    return "_LOCAL"
+  else
+    return ""
+  end
+end
 
 parse(deps, pros, srcdir)
 p deps
 File.open( File.join(srcdir, "depend"), "w" ) do |file|
   deps.sort.each do |name, dep|
-    file.print "$(BUILD_DIR)/#{name}.o: #{dep[:dir]}/#{name}.F90 $(DEPENDLIB)"
+    postfix = get_build_dir_postfix(name)
+    file.print "$(BUILD_DIR#{postfix})/#{name}.o: #{dep[:dir]}/#{name}.F90 $(DEPENDLIB#{postfix})"
 #    file.print "#{name}.o: #{name}.F90"
     dep[:depends].sort.each do |mod|
       if pro = pros[mod]
-        file.print " $(BUILD_DIR)/#{pro[:file]}.o"
+        postfix = get_build_dir_postfix(pro[:file])
+        file.print " $(BUILD_DIR#{postfix})/#{pro[:file]}.o"
       else
         p name
         p mod

@@ -6,15 +6,15 @@
 !!
 !! Notation rules:
 !!   * ERK schemes
-!!    ERK(_abbrev1_)MsPo(_abbrev2) : explicit RK schme with M-stage and P-th order.
+!!    ERK(_abbrev1_)MsPo(_abbrev2) : explicit RK scheme with M-stage and P-th order.
 !!      ERK_1s1o (, Euler ) : Euler scheme
 !!      ERK_4s4o (, RK4   ) : classical 4 stage and 4th-order  RK scheme
 !!      ERK_SSP_MsPo : strong stability preserving (SSP) (M,P) RK scheme
 !!
-!!   * IMEX shcemes (we assume that ERK for non-stiff part and  DIRK for stiff part)
+!!   * IMEX schemes (we assume that ERK for non-stiff part and  DIRK for stiff part)
 !!     IMEX_abbrev : abbreviation of scheme name follows the table in Vogl et al. (2019). 
 !!
-!! @author Team SCALE
+!! @author Yuta Kawai, Team SCALE
 !!
 !! @par Reference
 !!  - Vogl et al. 2019:

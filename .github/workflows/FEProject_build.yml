@@ -65,7 +65,7 @@ jobs:
 
     - name: unit test for common
       env: 
-        testdirs: linkedlist time_manager sparsemat timeint_rk
+        testdirs: linkedlist linalgebra time_manager sparsemat timeint_rk
       run: | 
         echo "Perform unit tests .."
 
@@ -133,14 +133,14 @@ jobs:
         export SCALE=${GITHUB_WORKSPACE}/../scale
 
         echo "Build global shallow water model"
-        make -C global_shallow_water/src
+        make -j 2 -C global_shallow_water/src
 
         echo "Build 2D nonhydrostatic atmospheric model"
-        make -C atm_nonhydro2d/src
+        make -j 2 -C atm_nonhydro2d/src
 
         echo "Build 3D nonhydrostatic atmospheric model"
-        make -C atm_nonhydro3d/src
+        make -j 2 -C atm_nonhydro3d/src
       
         echo "Build 3D nonhydrostatic atmospheric model / utils"
-        make -C atm_nonhydro3d/util/regrid_tool           
+        make -j 2 -C atm_nonhydro3d/util/regrid_tool           
       

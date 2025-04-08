@@ -4,11 +4,15 @@
 !! @par Description
 !!    Set the initial data for baroclinic wave in global model based on Jablonowski and Williamson (2006).
 !!
-!! @author Team SCALE
+!! @author Yuta Kawai, Team SCALE
 !!
+!! @par Reference
+!!  - Jablonowski, C. and Williamson, D.L., 2006:
+!!    A baroclinic instability test case for atmospheric model dynamical cores. 
+!!    Q.J.R. Meteorol. Soc., 132, 2943-2975.
 !<
 !-------------------------------------------------------------------------------
-#include "scalelib.h"
+#include "scaleFElib.h"
 module mod_user
 
   !-----------------------------------------------------------------------------
@@ -323,9 +327,9 @@ contains
       vy(:) = lcmesh3D%pos_ev(lcmesh3D%EToV(ke,:),2)
       vz(:) = lcmesh3D%pos_ev(lcmesh3D%EToV(ke,:),3)
       alpha(:,ke) = vx(1) + 0.5_RP * ( elem_x1(:) + 1.0_RP ) * ( vx(2) - vx(1) ) 
-      beta(:,ke) = vy(1) + 0.5_RP * ( elem_x2(:) + 1.0_RP ) * ( vy(4) - vy(1) )
-      eta(:,ke) = vz(1) + 0.5_RP * ( elem_x3(:) + 1.0_RP ) * ( vz(5) - vz(1) )
-      gam(:,ke) = 1.0_RP
+      beta (:,ke) = vy(1) + 0.5_RP * ( elem_x2(:) + 1.0_RP ) * ( vy(4) - vy(1) )
+      eta  (:,ke) = vz(1) + 0.5_RP * ( elem_x3(:) + 1.0_RP ) * ( vz(5) - vz(1) )
+      gam  (:,ke) = 1.0_RP
     end do
 
     call CubedSphereCoordCnv_CS2LonLatPos( lcmesh3D%panelID, alpha, beta, gam, Np * lcmesh3D%Ne, &
@@ -388,14 +392,12 @@ contains
     end do
 
     call CubedSphereCoordCnv_LonLat2CSVec( &
-      lcmesh3D%panelID, lcmesh3D%pos_en(:,:,1), lcmesh3D%pos_en(:,:,2), & ! (in)
-      lcmesh3D%gam(:,lcmesh3D%NeS:lcmesh3D%NeE), Np * lcmesh3D%Ne,      & ! (in)
+      lcmesh3D%panelID, alpha, beta, gam, Np * lcmesh3D%Ne,             & ! (in)
       VelLon(:,:), VelLat(:,:),                                         & ! (in)
       U(:,lcmesh3D%NeS:lcmesh3D%NeE), V(:,lcmesh3D%NeS:lcmesh3D%NeE)    ) ! (out)
 
     call CubedSphereCoordCnv_LonLat2CSVec( &
-      lcmesh3D%panelID, lcmesh3D%pos_en(:,:,1), lcmesh3D%pos_en(:,:,2),        & ! (in)
-      lcmesh3D%gam(:,lcmesh3D%NeS:lcmesh3D%NeE), Np * lcmesh3D%Ne,             & ! (in)
+      lcmesh3D%panelID, alpha, beta, gam, Np * lcmesh3D%Ne,                    & ! (in)
       VelLon_dash(:,:), VelLat_dash(:,:),                                      & ! (in)
       U_dash(:,lcmesh3D%NeS:lcmesh3D%NeE), V_dash(:,lcmesh3D%NeS:lcmesh3D%NeE) ) ! (out)
 

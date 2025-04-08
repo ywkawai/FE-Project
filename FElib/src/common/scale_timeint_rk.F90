@@ -30,17 +30,17 @@ module scale_timeint_rk
   !
   !++ Public type, procedures
   !
+
+  !> Derived type to provide RK scheme   
   type, public :: timeint_rk
-    real(RP), private :: dt
+    real(RP), private :: dt               !< Timestep
 
-    integer, private :: rk_scheme_id_ex
-    integer, private :: rk_scheme_id_im
+    integer, private :: rk_scheme_id_ex   !< ID of explicit RK scheme
+    integer, private :: rk_scheme_id_im   !< ID of implicit RK scheme
 
-    integer, public :: var_num
-    integer, private, allocatable :: size_each_var(:)
-    integer, public :: nstage
-    integer, public :: var_buf_size
-    integer, public :: tend_buf_size
+    integer, private, allocatable :: size_each_var(:)  !< Dimension information for each variable
+    integer, public :: nstage                          !< Number of stage in RK scheme
+    integer, public :: tend_buf_size                   !< Buffer size to store tendencies
 
     ! For Butcher representation (explicit part)
     real(RP), public, allocatable :: coef_a_ex(:,:)
@@ -113,6 +113,13 @@ contains
 
 !----------------
 
+!> Initialize a object to provide RK scheme 
+!!
+!! @param rk_scheme_name Name of RK scheme
+!! @param dt Timestep
+!! @param ndim Number of spatial Dimension
+!! @param var_num Number of variables
+!! @param size_each_var Array to store size of each dimension
   subroutine timeint_rk_Init( this,                  &
     rk_scheme_name, dt, var_num, ndim, size_each_var )
 
@@ -130,7 +137,6 @@ contains
 
     this%dt = dt
     this%ndim = ndim
-    this%var_num  = 1
     allocate( this%size_each_var(ndim) )
     this%size_each_var(:) = size_each_var(:)
 
@@ -179,6 +185,8 @@ contains
     return
   end subroutine timeint_rk_Init
 
+!> Finalize a object to provide RK scheme 
+!!
   subroutine timeint_rk_Final( this )
     implicit none
     class(timeint_rk), intent(inout) :: this
@@ -213,6 +221,8 @@ contains
     return
   end subroutine timeint_rk_Final
 
+!> Get timestep
+!!
   elemental function timeint_rk_Get_DelTime( this ) result(dt)
     implicit none
     class(timeint_rk), intent(in) :: this
@@ -224,6 +234,9 @@ contains
     return
   end function timeint_rk_Get_DelTime
 
+!> Get a diagonal component of coefficient matrix at a stage for implicit RK scheme 
+!!
+!! @param nowstage Current stage
   elemental function timeint_rk_Get_implicit_diagfac( this, nowstage ) result(fac)
     implicit none
     class(timeint_rk), intent(in) :: this
@@ -238,6 +251,13 @@ contains
   !----------------
 
 
+!> Advance variable data at the current stage with explicit RK part
+!!
+!! @param nowstage Current stage
+!! @param q Array to store variable data
+!! @param varID Index of the targeting variable
+!! @param is Index at which begins the loop for the corresponding direction
+!! @param ie Index at which finishes the loop for the corresponding direction
   subroutine timeint_rk_advance1D( this, nowstage, q, varID, is, ie )
     implicit none  
     class(timeint_rk), intent(inout) :: this
@@ -256,16 +276,26 @@ contains
     return
   end subroutine timeint_rk_advance1D
 
+!> Advance tracer variable data at the current stage with explicit RK part
+!!
+!! @param nowstage Current stage
+!! @param q Array to store tracer variable data
+!! @param varID Index of the targeting variable
+!! @param is Index at which begins the loop for the corresponding direction
+!! @param ie Index at which finishes the loop for the corresponding direction
+!! @param DDENS  Array to store density perturbation data at the time level n+1
+!! @param DDENS0  Array to store density perturbation  data at the time level n
+!! @param DENS_hyd Array to hydrostatic part of density
   subroutine timeint_rk_advance_trcvar1D( this, nowstage, q, varID, is, ie , &
-      DENS, DENS0, DENS_hyd )
+      DDENS, DDENS0, DENS_hyd )
     implicit none
     class(timeint_rk), intent(inout) :: this
     integer, intent(in) :: nowstage
     real(RP), intent(inout) :: q(:)
     integer, intent(in) :: varID
     integer, intent(in) :: is, ie 
-    real(RP), intent(in) :: DENS (:)
-    real(RP), intent(in) :: DENS0(:)
+    real(RP), intent(in) :: DDENS (:)
+    real(RP), intent(in) :: DDENS0(:)
     real(RP), intent(in) :: DENS_hyd(:)
     !----------------------------------------    
  
@@ -276,15 +306,21 @@ contains
 
     if (this%low_storage_flag) then
       call rk_advance_trcvar_low_storage1D( this, nowstage, q, varID, is, ie , &
-        DENS, DENS0, DENS_hyd )
+        DDENS, DDENS0, DENS_hyd )
     else
       call rk_advance_trcvar_general1D( this, nowstage, q, varID, is, ie , &
-        DENS, DENS0, DENS_hyd )
+        DDENS, DDENS0, DENS_hyd )
     end if
 
     return
   end subroutine timeint_rk_advance_trcvar1D
 
+!> Store variable data at the time level n for the case of IMEX RK scheme
+!!
+!! @param q Array to store variable data at the time level n 
+!! @param varID Index of the targeting variable
+!! @param is Index at which begins the loop for the corresponding direction
+!! @param ie Index at which finishes the loop for the corresponding direction
   subroutine timeint_rk_store_var0_1D( this, q, varID, is, ie  )
     implicit none
     class(timeint_rk), intent(inout) :: this
@@ -305,6 +341,13 @@ contains
     return
   end subroutine timeint_rk_store_var0_1D
   
+!> Store variable data after the implicit part of current stage in IMEX RK scheme
+!!
+!! @param nowstage Current stage
+!! @param q Array to store variable data after the implicit part of current stage
+!! @param varID Index of the targeting variable
+!! @param is Index at which begins the loop for the corresponding direction
+!! @param ie Index at which finishes the loop for the corresponding direction
   subroutine timeint_rk_storeimpl1D( this, nowstage, q, varID, is, ie )
     implicit none
     class(timeint_rk), intent(inout) :: this
@@ -320,6 +363,15 @@ contains
     return
   end subroutine timeint_rk_storeimpl1D
 
+!> Advance variable data at the current stage with explicit RK part
+!!
+!! @param nowstage Current stage
+!! @param q Array to store variable data
+!! @param varID Index of the targeting variable
+!! @param is Index at which begins the loop for the corresponding direction
+!! @param ie Index at which finishes the loop for the corresponding direction
+!! @param js Index at which begins the loop for the corresponding direction
+!! @param je Index at which finishes the loop for the corresponding direction
   subroutine timeint_rk_advance2D( this, nowstage, q, varID, is, ie ,js, je )
     implicit none  
     class(timeint_rk), intent(inout) :: this
@@ -338,16 +390,28 @@ contains
     return
   end subroutine timeint_rk_advance2D
 
+!> Advance tracer variable data at the current stage with explicit RK part
+!!
+!! @param nowstage Current stage
+!! @param q Array to store tracer variable data
+!! @param varID Index of the targeting variable
+!! @param is Index at which begins the loop for the corresponding direction
+!! @param ie Index at which finishes the loop for the corresponding direction
+!! @param js Index at which begins the loop for the corresponding direction
+!! @param je Index at which finishes the loop for the corresponding direction
+!! @param DDENS  Array to store density perturbation data at the time level n+1
+!! @param DDENS0  Array to store density perturbation  data at the time level n
+!! @param DENS_hyd Array to hydrostatic part of density
   subroutine timeint_rk_advance_trcvar2D( this, nowstage, q, varID, is, ie ,js, je , &
-      DENS, DENS0, DENS_hyd )
+      DDENS, DDENS0, DENS_hyd )
     implicit none
     class(timeint_rk), intent(inout) :: this
     integer, intent(in) :: nowstage
     real(RP), intent(inout) :: q(:,:)
     integer, intent(in) :: varID
     integer, intent(in) :: is, ie ,js, je 
-    real(RP), intent(in) :: DENS (:,:)
-    real(RP), intent(in) :: DENS0(:,:)
+    real(RP), intent(in) :: DDENS (:,:)
+    real(RP), intent(in) :: DDENS0(:,:)
     real(RP), intent(in) :: DENS_hyd(:,:)
     !----------------------------------------    
  
@@ -358,15 +422,23 @@ contains
 
     if (this%low_storage_flag) then
       call rk_advance_trcvar_low_storage2D( this, nowstage, q, varID, is, ie ,js, je , &
-        DENS, DENS0, DENS_hyd )
+        DDENS, DDENS0, DENS_hyd )
     else
       call rk_advance_trcvar_general2D( this, nowstage, q, varID, is, ie ,js, je , &
-        DENS, DENS0, DENS_hyd )
+        DDENS, DDENS0, DENS_hyd )
     end if
 
     return
   end subroutine timeint_rk_advance_trcvar2D
 
+!> Store variable data at the time level n for the case of IMEX RK scheme
+!!
+!! @param q Array to store variable data at the time level n 
+!! @param varID Index of the targeting variable
+!! @param is Index at which begins the loop for the corresponding direction
+!! @param ie Index at which finishes the loop for the corresponding direction
+!! @param js Index at which begins the loop for the corresponding direction
+!! @param je Index at which finishes the loop for the corresponding direction
   subroutine timeint_rk_store_var0_2D( this, q, varID, is, ie ,js, je  )
     implicit none
     class(timeint_rk), intent(inout) :: this
@@ -389,6 +461,15 @@ contains
     return
   end subroutine timeint_rk_store_var0_2D
   
+!> Store variable data after the implicit part of current stage in IMEX RK scheme
+!!
+!! @param nowstage Current stage
+!! @param q Array to store variable data after the implicit part of current stage
+!! @param varID Index of the targeting variable
+!! @param is Index at which begins the loop for the corresponding direction
+!! @param ie Index at which finishes the loop for the corresponding direction
+!! @param js Index at which begins the loop for the corresponding direction
+!! @param je Index at which finishes the loop for the corresponding direction
   subroutine timeint_rk_storeimpl2D( this, nowstage, q, varID, is, ie ,js, je )
     implicit none
     class(timeint_rk), intent(inout) :: this
@@ -404,6 +485,17 @@ contains
     return
   end subroutine timeint_rk_storeimpl2D
 
+!> Advance variable data at the current stage with explicit RK part
+!!
+!! @param nowstage Current stage
+!! @param q Array to store variable data
+!! @param varID Index of the targeting variable
+!! @param is Index at which begins the loop for the corresponding direction
+!! @param ie Index at which finishes the loop for the corresponding direction
+!! @param js Index at which begins the loop for the corresponding direction
+!! @param je Index at which finishes the loop for the corresponding direction
+!! @param ks Index at which begins the loop for the corresponding direction
+!! @param ke Index at which finishes the loop for the corresponding direction
   subroutine timeint_rk_advance3D( this, nowstage, q, varID, is, ie ,js, je ,ks, ke )
     implicit none  
     class(timeint_rk), intent(inout) :: this
@@ -422,16 +514,30 @@ contains
     return
   end subroutine timeint_rk_advance3D
 
+!> Advance tracer variable data at the current stage with explicit RK part
+!!
+!! @param nowstage Current stage
+!! @param q Array to store tracer variable data
+!! @param varID Index of the targeting variable
+!! @param is Index at which begins the loop for the corresponding direction
+!! @param ie Index at which finishes the loop for the corresponding direction
+!! @param js Index at which begins the loop for the corresponding direction
+!! @param je Index at which finishes the loop for the corresponding direction
+!! @param ks Index at which begins the loop for the corresponding direction
+!! @param ke Index at which finishes the loop for the corresponding direction
+!! @param DDENS  Array to store density perturbation data at the time level n+1
+!! @param DDENS0  Array to store density perturbation  data at the time level n
+!! @param DENS_hyd Array to hydrostatic part of density
   subroutine timeint_rk_advance_trcvar3D( this, nowstage, q, varID, is, ie ,js, je ,ks, ke , &
-      DENS, DENS0, DENS_hyd )
+      DDENS, DDENS0, DENS_hyd )
     implicit none
     class(timeint_rk), intent(inout) :: this
     integer, intent(in) :: nowstage
     real(RP), intent(inout) :: q(:,:,:)
     integer, intent(in) :: varID
     integer, intent(in) :: is, ie ,js, je ,ks, ke 
-    real(RP), intent(in) :: DENS (:,:,:)
-    real(RP), intent(in) :: DENS0(:,:,:)
+    real(RP), intent(in) :: DDENS (:,:,:)
+    real(RP), intent(in) :: DDENS0(:,:,:)
     real(RP), intent(in) :: DENS_hyd(:,:,:)
     !----------------------------------------    
  
@@ -442,15 +548,25 @@ contains
 
     if (this%low_storage_flag) then
       call rk_advance_trcvar_low_storage3D( this, nowstage, q, varID, is, ie ,js, je ,ks, ke , &
-        DENS, DENS0, DENS_hyd )
+        DDENS, DDENS0, DENS_hyd )
     else
       call rk_advance_trcvar_general3D( this, nowstage, q, varID, is, ie ,js, je ,ks, ke , &
-        DENS, DENS0, DENS_hyd )
+        DDENS, DDENS0, DENS_hyd )
     end if
 
     return
   end subroutine timeint_rk_advance_trcvar3D
 
+!> Store variable data at the time level n for the case of IMEX RK scheme
+!!
+!! @param q Array to store variable data at the time level n 
+!! @param varID Index of the targeting variable
+!! @param is Index at which begins the loop for the corresponding direction
+!! @param ie Index at which finishes the loop for the corresponding direction
+!! @param js Index at which begins the loop for the corresponding direction
+!! @param je Index at which finishes the loop for the corresponding direction
+!! @param ks Index at which begins the loop for the corresponding direction
+!! @param ke Index at which finishes the loop for the corresponding direction
   subroutine timeint_rk_store_var0_3D( this, q, varID, is, ie ,js, je ,ks, ke  )
     implicit none
     class(timeint_rk), intent(inout) :: this
@@ -475,6 +591,17 @@ contains
     return
   end subroutine timeint_rk_store_var0_3D
   
+!> Store variable data after the implicit part of current stage in IMEX RK scheme
+!!
+!! @param nowstage Current stage
+!! @param q Array to store variable data after the implicit part of current stage
+!! @param varID Index of the targeting variable
+!! @param is Index at which begins the loop for the corresponding direction
+!! @param ie Index at which finishes the loop for the corresponding direction
+!! @param js Index at which begins the loop for the corresponding direction
+!! @param je Index at which finishes the loop for the corresponding direction
+!! @param ks Index at which begins the loop for the corresponding direction
+!! @param ke Index at which finishes the loop for the corresponding direction
   subroutine timeint_rk_storeimpl3D( this, nowstage, q, varID, is, ie ,js, je ,ks, ke )
     implicit none
     class(timeint_rk), intent(inout) :: this
@@ -494,6 +621,13 @@ contains
 
 
 
+!> Advance variable data at the current stage with explicit RK part (low-storage case)
+!!
+!! @param nowstage Current stage
+!! @param q Array to store variable data
+!! @param varID Index of the targeting variable
+!! @param is Index at which begins the loop for the corresponding direction
+!! @param ie Index at which finishes the loop for the corresponding direction
 !OCL SERIAL
   subroutine rk_advance_low_storage1D( this, nowstage, q, varID, is, ie  )
     use scale_const, only: &
@@ -565,7 +699,17 @@ contains
     return
   end subroutine rk_advance_low_storage1D
 
-  !OCL SERIAL
+!> Advance tracer variable data at the current stage with explicit RK part (low-storage case)
+!!
+!! @param nowstage Current stage
+!! @param q Array to store tracer variable data
+!! @param varID Index of the targeting variable
+!! @param is Index at which begins the loop for the corresponding direction
+!! @param ie Index at which finishes the loop for the corresponding direction
+!! @param DDENS  Array to store density perturbation data at the time level n+1
+!! @param DDENS0  Array to store density perturbation  data at the time level n
+!! @param DENS_hyd Array to hydrostatic part of density
+!OCL SERIAL
   subroutine rk_advance_trcvar_low_storage1D( this, nowstage, q, varID, is, ie , &
     DDENS, DDENS0, DENS_hyd )
     use scale_const, only: &
@@ -657,6 +801,15 @@ contains
   
 
 
+!> Advance variable data at the current stage with explicit RK part (low-storage case)
+!!
+!! @param nowstage Current stage
+!! @param q Array to store variable data
+!! @param varID Index of the targeting variable
+!! @param is Index at which begins the loop for the corresponding direction
+!! @param ie Index at which finishes the loop for the corresponding direction
+!! @param js Index at which begins the loop for the corresponding direction
+!! @param je Index at which finishes the loop for the corresponding direction
 !OCL SERIAL
   subroutine rk_advance_low_storage2D( this, nowstage, q, varID, is, ie ,js, je  )
     use scale_const, only: &
@@ -736,7 +889,19 @@ contains
     return
   end subroutine rk_advance_low_storage2D
 
-  !OCL SERIAL
+!> Advance tracer variable data at the current stage with explicit RK part (low-storage case)
+!!
+!! @param nowstage Current stage
+!! @param q Array to store tracer variable data
+!! @param varID Index of the targeting variable
+!! @param is Index at which begins the loop for the corresponding direction
+!! @param ie Index at which finishes the loop for the corresponding direction
+!! @param js Index at which begins the loop for the corresponding direction
+!! @param je Index at which finishes the loop for the corresponding direction
+!! @param DDENS  Array to store density perturbation data at the time level n+1
+!! @param DDENS0  Array to store density perturbation  data at the time level n
+!! @param DENS_hyd Array to hydrostatic part of density
+!OCL SERIAL
   subroutine rk_advance_trcvar_low_storage2D( this, nowstage, q, varID, is, ie ,js, je , &
     DDENS, DDENS0, DENS_hyd )
     use scale_const, only: &
@@ -836,6 +1001,17 @@ contains
   
 
 
+!> Advance variable data at the current stage with explicit RK part (low-storage case)
+!!
+!! @param nowstage Current stage
+!! @param q Array to store variable data
+!! @param varID Index of the targeting variable
+!! @param is Index at which begins the loop for the corresponding direction
+!! @param ie Index at which finishes the loop for the corresponding direction
+!! @param js Index at which begins the loop for the corresponding direction
+!! @param je Index at which finishes the loop for the corresponding direction
+!! @param ks Index at which begins the loop for the corresponding direction
+!! @param ke Index at which finishes the loop for the corresponding direction
 !OCL SERIAL
   subroutine rk_advance_low_storage3D( this, nowstage, q, varID, is, ie ,js, je ,ks, ke  )
     use scale_const, only: &
@@ -923,7 +1099,21 @@ contains
     return
   end subroutine rk_advance_low_storage3D
 
-  !OCL SERIAL
+!> Advance tracer variable data at the current stage with explicit RK part (low-storage case)
+!!
+!! @param nowstage Current stage
+!! @param q Array to store tracer variable data
+!! @param varID Index of the targeting variable
+!! @param is Index at which begins the loop for the corresponding direction
+!! @param ie Index at which finishes the loop for the corresponding direction
+!! @param js Index at which begins the loop for the corresponding direction
+!! @param je Index at which finishes the loop for the corresponding direction
+!! @param ks Index at which begins the loop for the corresponding direction
+!! @param ke Index at which finishes the loop for the corresponding direction
+!! @param DDENS  Array to store density perturbation data at the time level n+1
+!! @param DDENS0  Array to store density perturbation  data at the time level n
+!! @param DENS_hyd Array to hydrostatic part of density
+!OCL SERIAL
   subroutine rk_advance_trcvar_low_storage3D( this, nowstage, q, varID, is, ie ,js, je ,ks, ke , &
     DDENS, DDENS0, DENS_hyd )
     use scale_const, only: &
@@ -1031,6 +1221,13 @@ contains
   
 
 
+!> Advance variable data at the current stage with explicit RK part (general case)
+!!
+!! @param nowstage Current stage
+!! @param q Array to store variable data
+!! @param varID Index of the targeting variable
+!! @param is Index at which begins the loop for the corresponding direction
+!! @param ie Index at which finishes the loop for the corresponding direction
 !OCL SERIAL
   subroutine rk_advance_general1D( this, nowstage, q, varID, is, ie  )
     implicit none
@@ -1137,7 +1334,17 @@ contains
     return
   end subroutine rk_advance_general1D
 
-  !OCL SERIAL
+!> Advance tracer variable data at the current stage with explicit RK part (general case)
+!!
+!! @param nowstage Current stage
+!! @param q Array to store tracer variable data
+!! @param varID Index of the targeting variable
+!! @param is Index at which begins the loop for the corresponding direction
+!! @param ie Index at which finishes the loop for the corresponding direction
+!! @param DDENS  Array to store density perturbation data at the time level n+1
+!! @param DDENS0  Array to store density perturbation  data at the time level n
+!! @param DENS_hyd Array to hydrostatic part of density  
+!OCL SERIAL
   subroutine rk_advance_trcvar_general1D( this, nowstage, q, varID, is, ie , &
       DDENS, DDENS0, DENS_hyd )
     implicit none
@@ -1231,6 +1438,13 @@ contains
     return
   end subroutine rk_advance_trcvar_general1D
 
+!> Store variable data after the implicit part of current stage in IMEX RK scheme (general case)
+!!
+!! @param nowstage Current stage
+!! @param q Array to store variable data after the implicit part of current stage
+!! @param varID Index of the targeting variable
+!! @param is Index at which begins the loop for the corresponding direction
+!! @param ie Index at which finishes the loop for the corresponding direction
 !OCL SERIAL
   subroutine rk_storeimpl_general1D( this, nowstage, q, varID, is, ie  )
     implicit none
@@ -1269,6 +1483,15 @@ contains
   end subroutine rk_storeimpl_general1D
  
 
+!> Advance variable data at the current stage with explicit RK part (general case)
+!!
+!! @param nowstage Current stage
+!! @param q Array to store variable data
+!! @param varID Index of the targeting variable
+!! @param is Index at which begins the loop for the corresponding direction
+!! @param ie Index at which finishes the loop for the corresponding direction
+!! @param js Index at which begins the loop for the corresponding direction
+!! @param je Index at which finishes the loop for the corresponding direction
 !OCL SERIAL
   subroutine rk_advance_general2D( this, nowstage, q, varID, is, ie ,js, je  )
     implicit none
@@ -1393,7 +1616,19 @@ contains
     return
   end subroutine rk_advance_general2D
 
-  !OCL SERIAL
+!> Advance tracer variable data at the current stage with explicit RK part (general case)
+!!
+!! @param nowstage Current stage
+!! @param q Array to store tracer variable data
+!! @param varID Index of the targeting variable
+!! @param is Index at which begins the loop for the corresponding direction
+!! @param ie Index at which finishes the loop for the corresponding direction
+!! @param js Index at which begins the loop for the corresponding direction
+!! @param je Index at which finishes the loop for the corresponding direction
+!! @param DDENS  Array to store density perturbation data at the time level n+1
+!! @param DDENS0  Array to store density perturbation  data at the time level n
+!! @param DENS_hyd Array to hydrostatic part of density  
+!OCL SERIAL
   subroutine rk_advance_trcvar_general2D( this, nowstage, q, varID, is, ie ,js, je , &
       DDENS, DDENS0, DENS_hyd )
     implicit none
@@ -1501,6 +1736,15 @@ contains
     return
   end subroutine rk_advance_trcvar_general2D
 
+!> Store variable data after the implicit part of current stage in IMEX RK scheme (general case)
+!!
+!! @param nowstage Current stage
+!! @param q Array to store variable data after the implicit part of current stage
+!! @param varID Index of the targeting variable
+!! @param is Index at which begins the loop for the corresponding direction
+!! @param ie Index at which finishes the loop for the corresponding direction
+!! @param js Index at which begins the loop for the corresponding direction
+!! @param je Index at which finishes the loop for the corresponding direction
 !OCL SERIAL
   subroutine rk_storeimpl_general2D( this, nowstage, q, varID, is, ie ,js, je  )
     implicit none
@@ -1543,6 +1787,17 @@ contains
   end subroutine rk_storeimpl_general2D
  
 
+!> Advance variable data at the current stage with explicit RK part (general case)
+!!
+!! @param nowstage Current stage
+!! @param q Array to store variable data
+!! @param varID Index of the targeting variable
+!! @param is Index at which begins the loop for the corresponding direction
+!! @param ie Index at which finishes the loop for the corresponding direction
+!! @param js Index at which begins the loop for the corresponding direction
+!! @param je Index at which finishes the loop for the corresponding direction
+!! @param ks Index at which begins the loop for the corresponding direction
+!! @param ke Index at which finishes the loop for the corresponding direction
 !OCL SERIAL
   subroutine rk_advance_general3D( this, nowstage, q, varID, is, ie ,js, je ,ks, ke  )
     implicit none
@@ -1685,7 +1940,21 @@ contains
     return
   end subroutine rk_advance_general3D
 
-  !OCL SERIAL
+!> Advance tracer variable data at the current stage with explicit RK part (general case)
+!!
+!! @param nowstage Current stage
+!! @param q Array to store tracer variable data
+!! @param varID Index of the targeting variable
+!! @param is Index at which begins the loop for the corresponding direction
+!! @param ie Index at which finishes the loop for the corresponding direction
+!! @param js Index at which begins the loop for the corresponding direction
+!! @param je Index at which finishes the loop for the corresponding direction
+!! @param ks Index at which begins the loop for the corresponding direction
+!! @param ke Index at which finishes the loop for the corresponding direction
+!! @param DDENS  Array to store density perturbation data at the time level n+1
+!! @param DDENS0  Array to store density perturbation  data at the time level n
+!! @param DENS_hyd Array to hydrostatic part of density  
+!OCL SERIAL
   subroutine rk_advance_trcvar_general3D( this, nowstage, q, varID, is, ie ,js, je ,ks, ke , &
       DDENS, DDENS0, DENS_hyd )
     implicit none
@@ -1807,6 +2076,17 @@ contains
     return
   end subroutine rk_advance_trcvar_general3D
 
+!> Store variable data after the implicit part of current stage in IMEX RK scheme (general case)
+!!
+!! @param nowstage Current stage
+!! @param q Array to store variable data after the implicit part of current stage
+!! @param varID Index of the targeting variable
+!! @param is Index at which begins the loop for the corresponding direction
+!! @param ie Index at which finishes the loop for the corresponding direction
+!! @param js Index at which begins the loop for the corresponding direction
+!! @param je Index at which finishes the loop for the corresponding direction
+!! @param ks Index at which begins the loop for the corresponding direction
+!! @param ke Index at which finishes the loop for the corresponding direction
 !OCL SERIAL
   subroutine rk_storeimpl_general3D( this, nowstage, q, varID, is, ie ,js, je ,ks, ke  )
     implicit none
@@ -1853,4 +2133,3 @@ contains
   end subroutine rk_storeimpl_general3D
  
 end module scale_timeint_rk
-

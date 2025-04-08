@@ -73,20 +73,28 @@ module scale_atm_dyn_dgm_globalnonhydro3d_rhot_hevi
 contains
 !OCL SERIAL
   subroutine atm_dyn_dgm_globalnonhydro3d_rhot_hevi_Init( mesh )
+    use scale_atm_dyn_dgm_nonhydro3d_rhot_hevi_common, only: &
+      atm_dyn_dgm_nonhydro3d_rhot_hevi_common_Init
     implicit none
     class(MeshBase3D), intent(in) :: mesh
     !--------------------------------------------
 
     call atm_dyn_dgm_nonhydro3d_common_Init( mesh )
+    call atm_dyn_dgm_nonhydro3d_rhot_hevi_common_Init()
+
     return
   end subroutine atm_dyn_dgm_globalnonhydro3d_rhot_hevi_Init
 
 !OCL SERIAL
   subroutine atm_dyn_dgm_globalnonhydro3d_rhot_hevi_Final()
+    use scale_atm_dyn_dgm_nonhydro3d_rhot_hevi_common, only: &
+      atm_dyn_dgm_nonhydro3d_rhot_hevi_common_Final
     implicit none
     !--------------------------------------------
     
+    call atm_dyn_dgm_nonhydro3d_rhot_hevi_common_Final()
     call atm_dyn_dgm_nonhydro3d_common_Final()    
+
     return
   end subroutine atm_dyn_dgm_globalnonhydro3d_rhot_hevi_Final  
 
@@ -332,10 +340,12 @@ contains
     lmesh, elem, lmesh2D, elem2D                             ) ! (in)
 
     use scale_atm_dyn_dgm_nonhydro3d_rhot_hevi_common, only: &
-      vi_eval_Ax => atm_dyn_dgm_nonhydro3d_rhot_hevi_common_eval_Ax,                  &
-      vi_eval_Ax_uv => atm_dyn_dgm_nonhydro3d_rhot_hevi_common_eval_Ax_uv,                  &
-      vi_construct_matbnd => atm_dyn_dgm_nonhydro3d_rhot_hevi_common_construct_matbnd, &
-      vi_construct_matbnd_uv => atm_dyn_dgm_nonhydro3d_rhot_hevi_common_construct_matbnd_uv
+      vi_eval_Ax => atm_dyn_dgm_nonhydro3d_rhot_hevi_common_eval_Ax,                         &
+      vi_eval_Ax_uv => atm_dyn_dgm_nonhydro3d_rhot_hevi_common_eval_Ax_uv,                   &
+      vi_construct_matbnd => atm_dyn_dgm_nonhydro3d_rhot_hevi_common_construct_matbnd,       &
+      vi_construct_matbnd_uv => atm_dyn_dgm_nonhydro3d_rhot_hevi_common_construct_matbnd_uv, &
+      VI_use_lapack_flag
+    use scale_linalgebra, only: linalgebra_SolveLinEq_BndMat
   
     implicit none
 
@@ -498,7 +508,8 @@ contains
           !$omp parallel private(ij, v, ke_z, info_uv, ColMask)
           !$omp do
           do ij=1, elem%Nnode_h1D**2
-            call dgbsv( nz_1D_uv, kl_uv, ku_uv, 2, PmatBnd_uv(:,:,ij), 2*kl_uv+ku_uv+1, ipiv_uv(:,ij), b1D_uv(:,:,:,ij,ke_xy), nz_1D_uv, info_uv)
+!            call dgbsv( nz_1D_uv, kl_uv, ku_uv, 2, PmatBnd_uv(:,:,ij), 2*kl_uv+ku_uv+1, ipiv_uv(:,ij), b1D_uv(:,:,:,ij,ke_xy), nz_1D_uv, info_uv)
+            call linalgebra_SolveLinEq_BndMat( PmatBnd_uv(:,:,ij), b1D_uv(:,:,:,ij,ke_xy), ipiv_uv(:,ij), nz_1D_uv, kl_uv, ku_uv, 2, VI_use_lapack_flag )
 
             ColMask(:) = elem%Colmask(:,ij)
             do ke_z=1, lmesh%NeZ
@@ -545,7 +556,8 @@ contains
           !$omp parallel private(ij, v, ke_z, info, ColMask)
           !$omp do
           do ij=1, elem%Nnode_h1D**2
-            call dgbsv( nz_1D, kl, ku, 1, PmatBnd(:,:,ij), 2*kl+ku+1, ipiv(:,ij), b1D(:,:,:,ij,ke_xy), nz_1D, info)
+!            call dgbsv( nz_1D, kl, ku, 1, PmatBnd(:,:,ij), 2*kl+ku+1, ipiv(:,ij), b1D(:,:,:,ij,ke_xy), nz_1D, info)
+            call linalgebra_SolveLinEq_BndMat( PmatBnd(:,:,ij), b1D(:,:,:,ij,ke_xy), ipiv(:,ij), nz_1D, kl, ku, 1, VI_use_lapack_flag )
 
             ColMask(:) = elem%Colmask(:,ij)
             do ke_z=1, lmesh%NeZ
