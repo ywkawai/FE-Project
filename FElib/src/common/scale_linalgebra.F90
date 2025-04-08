@@ -336,7 +336,7 @@ contains
     integer :: i, j
     integer :: restart_i
 
-    type(sparsemat) :: M_PC
+    type(SparseMat) :: M_PC
 
     !--------------------------------------------------------------------------- 
 
@@ -447,9 +447,11 @@ contains
     jy = 1
     do j=1, n
       tmp = y(jy)
-      do i=1, m
-        A(i,j) = A(i,j) - tmp * x(i)
-      end do
+      if ( tmp /= 0.0_RP ) then
+        do i=1, m
+          A(i,j) = A(i,j) - tmp * x(i)
+        end do
+      end if
       jy = jy + incy
     end do
     return
@@ -508,7 +510,7 @@ contains
 !OCL SERIAL
   subroutine PreCondStep_PtJacobi(A, b, x)
     implicit none
-    type(sparsemat), intent(in) :: A
+    type(SparseMat), intent(in) :: A
     real(RP), intent(in) :: b(:)
     real(RP), intent(out) :: x(size(b))
 
@@ -607,5 +609,4 @@ contains
 
     return
   end subroutine PreCondStep_ILU0_solve
-
 end module scale_linalgebra
