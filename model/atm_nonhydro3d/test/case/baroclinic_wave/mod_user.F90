@@ -6,9 +6,13 @@
 !!
 !! @author Team SCALE
 !!
+!! @par Reference
+!!  - Ullrich, P.A., Reed, K.A. and Jablonowski, C. 2015:
+!!    Analytical initial conditions and an analysis of baroclinic instability waves in f- and β-plane 3D channel models
+!!    Q.J.R. Meteorol. Soc., 141, 2972-2988. 
 !<
 !-------------------------------------------------------------------------------
-#include "scalelib.h"
+#include "scaleFElib.h"
 module mod_user
 
   !-----------------------------------------------------------------------------
