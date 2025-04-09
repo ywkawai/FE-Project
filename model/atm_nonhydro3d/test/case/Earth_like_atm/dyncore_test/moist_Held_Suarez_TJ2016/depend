@@ -1,0 +1,5 @@
+
+$(BUILD_DIR_LOCAL)/mod_user.o : $(BUILD_DIR_LOCAL)/mod_user_sub_LSC.o $(BUILD_DIR_LOCAL)/mod_user_sub_BLmixing.o
+$(BUILD_DIR_LOCAL)/mod_user_sub_BLmixing.o: $(BUILD_DIR_LOCAL)/mod_atmos_vars.o
+$(BUILD_DIR_LOCAL)/mod_user_sub_LSC.o : $(BUILD_DIR_LOCAL)/mod_user_sub_Filter.o $(BUILD_DIR_LOCAL)/mod_atmos_vars.o
+$(BUILD_DIR_LOCAL)/mod_user_sub_Filter.o : $(BUILD_DIR_LOCAL)/mod_user_sub_data.o
