@@ -135,6 +135,7 @@ $(BUILD_DIR_LOCAL)/$(PPNAME)$(POSTFIX) : $(BUILD_DIR_LOCAL)/$(PPNAME).o $(patsub
 $(BUILD_DIR_LOCAL)/$(BINNAME).o  : $(LIBS) $(patsubst %,$(BUILD_DIR_LOCAL)/%,$(MAIN_OBJS))
 $(BUILD_DIR_LOCAL)/$(PPNAME).o : $(LIBS) $(patsubst %,$(BUILD_DIR_LOCAL)/%,$(MAIN_OBJS))
 $(BUILD_DIR_LOCAL)/mod_user.o  : $(patsubst %,$(BUILD_DIR)/%,$(SUB_OBJS)) $(BUILD_DIR)/mod_experiment.o $(BUILD_DIR)/mod_mkinit_util.o
+-include $(BUILD_DIR_LOCAL)/../depend
 
 $(BINDIR)/$(BINNAME)$(POSTFIX)  : $(BUILD_DIR_LOCAL)/$(BINNAME)$(POSTFIX)
 	install $< $@

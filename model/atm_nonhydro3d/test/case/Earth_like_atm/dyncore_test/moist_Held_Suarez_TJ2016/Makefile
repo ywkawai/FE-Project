@@ -35,8 +35,3 @@ include $(TESTDIR)/Makefile.common
 # Make dirs
 make_expdir:
 	mkdir -p run{_spinup1,_spinup2,1,2,3,4}/outdata_p
-
-$(BUILD_DIR)/mod_user.o : $(BUILD_DIR)/mod_user_sub_LSC.o $(BUILD_DIR)/mod_user_sub_BLmixing.o
-$(BUILD_DIR)/mod_user_sub_BLmixing.o: $(BUILD_DIR)/mod_atmos_vars.o
-$(BUILD_DIR)/mod_user_sub_LSC.o : $(BUILD_DIR)/mod_user_sub_Filter.o $(BUILD_DIR)/mod_atmos_vars.o
-$(BUILD_DIR)/mod_user_sub_Filter.o : $(BUILD_DIR)/mod_user_sub_data.o
