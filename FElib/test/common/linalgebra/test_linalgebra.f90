@@ -19,6 +19,7 @@ program test_linalgebra
 
   call test_SolveLinEq()
   call test_SolveLinEq_bndmat()
+  call test_SolveLinEq_vi_linkernel()
 
   write(*,*) "Test of LinAlgebra module has been succeeded!"
   call final()
@@ -85,6 +86,29 @@ contains
     call check_ans( x, 'test_SolveLinEq' )
     return
   end subroutine test_SolveLinEq
+
+  subroutine test_SolveLinEq_vi_linkernel
+    use scale_atm_dyn_dgm_hevi_common_linalgebra, only: &
+      lin_ludecomp => atm_dyn_dgm_hevi_common_linalgebra_ludecomp, &
+      lin_solver => atm_dyn_dgm_hevi_common_linalgebra_solve
+    implicit none
+
+    real(RP) :: D(2,N,N)
+    real(RP) :: x(2,N)
+    integer :: ipiv(2,N)
+    integer :: v
+    !-------------------------------
+    do v=1, 2
+      D(v,:,:) = A(:,:)
+      x(v,:) = b(:)
+    end do
+    call lin_ludecomp( D, ipiv, 2, N )
+    call lin_solver( D, x, ipiv, 2, N )
+    do v=1, 2
+      call check_ans( x(v,:), 'test_vi_linkernel' )
+    end do
+    return
+  end subroutine test_SolveLinEq_vi_linkernel
 
   subroutine test_SolveLinEq_bndmat
     use scale_linalgebra, only: linalgebra_SolveLinEq_BndMat
