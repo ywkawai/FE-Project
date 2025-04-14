@@ -48,6 +48,7 @@ module scale_atm_dyn_dgm_nonhydro3d_rhot_hevi_numflux
   !++ Public procedures
   !
   public :: atm_dyn_dgm_nonhydro3d_rhot_hevi_numflux_get_generalvc
+  public :: atm_dyn_dgm_nonhydro3d_rhot_hevi_numflux_get_generalhvc_asis
   public :: atm_dyn_dgm_nonhydro3d_rhot_hevi_numflux_get_generalhvc
 
   !-----------------------------------------------------------------------------
@@ -227,7 +228,7 @@ contains
   end subroutine atm_dyn_dgm_nonhydro3d_rhot_hevi_numflux_get_generalvc
 
 !OCL SERIAL
-  subroutine atm_dyn_dgm_nonhydro3d_rhot_hevi_numflux_get_generalhvc( &
+  subroutine atm_dyn_dgm_nonhydro3d_rhot_hevi_numflux_get_generalhvc_asis( &
     del_flux, del_flux_hyd,                                           & ! (out)
     DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DPRES_, DENS_hyd, PRES_hyd,  & ! (in)
     Rtot, CVtot, CPtot,                                               & ! (in)
@@ -407,6 +408,235 @@ contains
       del_flux_hyd(:,ke,2) = 0.5_RP * ( &
           GsqrtV_P(:) * ( ny(:,ke) + G23_P(:) * nz(:,ke) ) * Phyd_P(:) &
         - GsqrtV_M(:) * ( ny(:,ke) + G23_M(:) * nz(:,ke) ) * Phyd_M(:) )
+    end do
+
+    return
+  end subroutine atm_dyn_dgm_nonhydro3d_rhot_hevi_numflux_get_generalhvc_asis
+
+
+!OCL SERIAL
+  subroutine atm_dyn_dgm_nonhydro3d_rhot_hevi_numflux_get_generalhvc( &
+    del_flux,                                                         & ! (out)
+    DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DPRES, DENS_hyd, PRES_hyd,   & ! (in)
+    Rtot, CVtot, CPtot,                                               & ! (in)
+    Gsqrt, G11, G12, G22, GsqrtH, gam, G13, G23, nx, ny, nz,          & ! (in)
+    vmapM, vmapP, iM2Dto3D, lmesh, elem, lmesh2D, elem2D              ) ! (in)
+
+    implicit none
+
+    class(LocalMesh3D), intent(in) :: lmesh
+    class(ElementBase3D), intent(in) :: elem  
+    class(LocalMesh2D), intent(in) :: lmesh2D
+    class(ElementBase2D), intent(in) :: elem2D
+    real(RP), intent(out) ::  del_flux(elem%NfpTot,PRGVAR_NUM,lmesh%Ne)
+    real(RP), intent(in) ::  DDENS_(elem%Np*lmesh%NeA)
+    real(RP), intent(in) ::  MOMX_(elem%Np*lmesh%NeA)  
+    real(RP), intent(in) ::  MOMY_(elem%Np*lmesh%NeA)  
+    real(RP), intent(in) ::  MOMZ_(elem%Np*lmesh%NeA)  
+    real(RP), intent(in) ::  DRHOT_(elem%Np*lmesh%NeA)
+    real(RP), intent(in) ::  DPRES(elem%Np*lmesh%NeA)
+    real(RP), intent(in) ::  DENS_hyd(elem%Np*lmesh%NeA)
+    real(RP), intent(in) ::  PRES_hyd(elem%Np*lmesh%NeA)
+    real(RP), intent(in) ::  Rtot (elem%Np*lmesh%NeA)
+    real(RP), intent(in) ::  CVtot(elem%Np*lmesh%NeA)
+    real(RP), intent(in) ::  CPtot(elem%Np*lmesh%NeA)
+    real(RP), intent(in) ::  Gsqrt(elem%Np*lmesh%NeA)
+    real(RP), intent(in) ::  G11(elem2D%Np,lmesh2D%Ne)
+    real(RP), intent(in) ::  G12(elem2D%Np,lmesh2D%Ne)
+    real(RP), intent(in) ::  G22(elem2D%Np,lmesh2D%Ne)
+    real(RP), intent(in) ::  GsqrtH(elem2D%Np,lmesh2D%Ne)
+    real(RP), intent(in) :: gam(elem%Np*lmesh%NeA)
+    real(RP), intent(in) ::  G13(elem%Np*lmesh%NeA)
+    real(RP), intent(in) ::  G23(elem%Np*lmesh%NeA)
+    real(RP), intent(in) :: nx(elem%NfpTot,lmesh%Ne)
+    real(RP), intent(in) :: ny(elem%NfpTot,lmesh%Ne)
+    real(RP), intent(in) :: nz(elem%NfpTot,lmesh%Ne)
+    integer, intent(in) :: vmapM(elem%NfpTot,lmesh%Ne)
+    integer, intent(in) :: vmapP(elem%NfpTot,lmesh%Ne)
+    integer, intent(in) :: iM2Dto3D(elem%NfpTot)
+    
+    integer :: ke, fp, i, iP(elem%NfpTot), iM(elem%NfpTot)
+    integer :: ke2D
+    real(RP) :: Vel(elem%NfpTot,2), Velh(elem%NfpTot,2), alpha(elem%NfpTot)
+    real(RP) :: DPRES_(elem%NfpTot,2)
+    real(RP) :: GsqrtDens(elem%NfpTot,2)
+    real(RP) :: GsqrtRhot(elem%NfpTot,2)
+    real(RP) :: GsqrtDDENS(elem%NfpTot,2)
+    real(RP) :: GsqrtMOMX(elem%NfpTot,2)
+    real(RP) :: GsqrtMOMY(elem%NfpTot,2)
+    real(RP) :: GsqrtMOMZ(elem%NfpTot,2)
+    real(RP) :: GsqrtDRHOT(elem%NfpTot,2)
+    real(RP) :: Phyd_(elem%NfpTot,2)
+    real(RP) :: Gsqrt_(elem%NfpTot,2)
+    real(RP) :: GsqrtV_(elem%NfpTot,2)
+    real(RP) :: RGsqrtV(elem%NfpTot,2)
+    real(RP) :: rgam2(elem%NfpTot,2)
+    real(RP) :: G13_(elem%NfpTot,2)
+    real(RP) :: G23_(elem%NfpTot,2)
+    real(RP) :: Gxz_(elem%NfpTot,2)
+    real(RP) :: Gyz_(elem%NfpTot,2)
+    real(RP) :: G1n_(elem%NfpTot,2)
+    real(RP) :: G2n_(elem%NfpTot,2)
+
+    real(RP) :: gamm, rgamm    
+    real(RP) :: rP0
+    real(RP) :: RovP0, P0ovR
+    
+    integer, parameter :: IN = 1
+    integer, parameter :: EX = 2
+
+    real(RP) :: tmp1, tmp2, tmp3, tmp4, tmp01, tmp02, tmp03
+    real(RP) :: del_flux_tmp_mom(elem%NfpTot,2)
+
+    real(RP) :: G11_, G12_, G22_
+    real(RP) :: Gnn_M, Gnn_P
+    real(RP) :: swV
+    !------------------------------------------------------------------------
+
+    gamm  = CPDry / CvDry
+    rgamm = CvDry / CpDry
+    rP0   = 1.0_RP / PRES00
+    RovP0 = Rdry * rP0
+    P0ovR = PRES00 / Rdry
+
+    !$omp parallel do private( &
+    !$omp ke, iM, iP, ke2D, fp, swV,                                                    &
+    !$omp alpha, Vel, Velh,                                                             &
+    !$omp dpres_, GsqrtDens, GsqrtRhot,                                                 &
+    !$omp GsqrtDDENS, GsqrtMOMX, GsqrtMOMY, GsqrtMOMZ, GsqrtDRHOT,                      &
+    !$omp Phyd_,                                                                        &
+    !$omp Gsqrt_, GsqrtV_, RGsqrtV, G11_, G12_, G22_, G13_, G23_, rgam2,                &
+    !$omp Gxz_, Gyz_, G1n_, G2n_,                                                       &
+    !$omp Gnn_P, Gnn_M, tmp1, tmp2, tmp3, tmp4, tmp01, tmp02, tmp03, del_flux_tmp_mom   )
+!OCL PREFETCH
+    do ke=lmesh%NeS, lmesh%NeE
+      iM(:) = vmapM(:,ke); iP(:) = vmapP(:,ke)
+      ke2D = lmesh%EMap3Dto2D(ke)
+
+      Gsqrt_(:,IN) = Gsqrt(iM)
+      Gsqrt_(:,EX) = Gsqrt(iP)
+
+      rgam2(:,IN) = 1.0_RP / gam(iM)**2
+      rgam2(:,EX) = 1.0_RP / gam(iP)**2
+      GsqrtV_(:,IN) = Gsqrt_(:,IN) * rgam2(:,IN) / GsqrtH(iM2Dto3D(:),ke2D)
+      GsqrtV_(:,EX) = Gsqrt_(:,EX) * rgam2(:,EX) / GsqrtH(iM2Dto3D(:),ke2D)
+      RGsqrtV(:,:) = 1.0_RP / GsqrtV_(:,:)      
+
+      G13_(:,IN) = G13(iM)
+      G13_(:,EX) = G13(iP)
+      G23_(:,IN) = G23(iM)
+      G23_(:,EX) = G23(iP)
+
+      GsqrtDDENS(:,IN) = Gsqrt_(:,IN) * DDENS_(iM)
+      GsqrtDDENS(:,EX) = Gsqrt_(:,EX) * DDENS_(iP)
+      GsqrtMOMX (:,IN) = Gsqrt_(:,IN) * MOMX_ (iM)
+      GsqrtMOMX (:,EX) = Gsqrt_(:,EX) * MOMX_ (iP)
+      GsqrtMOMY (:,IN) = Gsqrt_(:,IN) * MOMY_ (iM)
+      GsqrtMOMY (:,EX) = Gsqrt_(:,EX) * MOMY_ (iP)
+      GsqrtMOMZ (:,IN) = Gsqrt_(:,IN) * MOMZ_ (iM)
+      GsqrtMOMZ (:,EX) = Gsqrt_(:,EX) * MOMZ_ (iP)
+      GsqrtDRHOT(:,IN) = Gsqrt_(:,IN) * DRHOT_(iM)
+      GsqrtDRHOT(:,EX) = Gsqrt_(:,EX) * DRHOT_(iP)
+
+      Phyd_(:,IN) = PRES_hyd(iM)
+      Phyd_(:,EX) = PRES_hyd(iP)
+      DPRES_(:,IN) = DPRES(iM)
+      DPRES_(:,EX) = DPRES(iP)
+
+      GsqrtDens(:,IN) = GsqrtDDENS(:,IN) + Gsqrt_(:,IN) * DENS_hyd(iM)
+      GsqrtDens(:,EX) = GsqrtDDENS(:,EX) + Gsqrt_(:,EX) * DENS_hyd(iP)
+
+      GsqrtRhot(:,:) = Gsqrt_(:,:) * P0ovR * (Phyd_(:,:) * rP0)**rgamm + GsqrtDRHOT(:,:)
+
+      Velh(:,IN) = ( GsqrtMOMX(:,IN) * nx(:,ke) + GsqrtMOMY(:,IN) * ny(:,ke) ) / GsqrtDens(:,IN)
+      Velh(:,EX) = ( GsqrtMOMX(:,EX) * nx(:,ke) + GsqrtMOMY(:,EX) * ny(:,ke) ) / GsqrtDens(:,EX)
+
+      Vel(:,IN) = Velh(:,IN) &
+                + ( ( ( GsqrtMOMZ(:,IN) * RGsqrtV(:,IN)                                          &
+                    + G13_(:,IN) * GsqrtMOMX(:,IN) + G23_(:,IN) * GsqrtMOMY(:,IN) ) * nz(:,ke) ) ) / GsqrtDens(:,IN)
+      Vel(:,EX) = Velh(:,EX) &
+                + ( ( ( GsqrtMOMZ(:,EX) * RGsqrtV(:,EX)                                          & 
+                    + G13_(:,EX) * GsqrtMOMX(:,EX) + G23_(:,EX) * GsqrtMOMY(:,EX) ) * nz(:,ke) ) ) / GsqrtDens(:,EX)
+            
+      do fp=1, elem%NfpTot
+        G11_ = G11(iM2Dto3D(fp),ke2D);  G12_ = G12(iM2Dto3D(fp),ke2D);  G22_ = G22(iM2Dto3D(fp),ke2D)
+
+        Gxz_(fp,IN) = rgam2(fp,IN) * ( G11_ * G13_(fp,IN) + G12_ * G23_(fp,IN) )
+        Gxz_(fp,EX) = rgam2(fp,EX) * ( G11_ * G13_(fp,EX) + G12_ * G23_(fp,EX) )
+
+        Gyz_(fp,IN) = rgam2(fp,IN) * ( G12_ * G13_(fp,IN) + G22_ * G23_(fp,IN) )
+        Gyz_(fp,EX) = rgam2(fp,EX) * ( G12_ * G13_(fp,EX) + G22_ * G23_(fp,EX) )
+
+        G1n_(fp,IN) = rgam2(fp,IN) * ( G11_ * nx(fp,ke) + G12_ * ny(fp,ke) )
+        G1n_(fp,EX) = rgam2(fp,EX) * ( G11_ * nx(fp,ke) + G12_ * ny(fp,ke) )
+
+        G2n_(fp,IN) = rgam2(fp,IN) * ( G12_ * nx(fp,ke) + G22_ * ny(fp,ke) )
+        G2n_(fp,EX) = rgam2(fp,EX) * ( G12_ * nx(fp,ke) + G22_ * ny(fp,ke) )
+      end do
+      do fp=1, elem%NfpTot
+        G11_ = G11(iM2Dto3D(fp),ke2D);  G22_ = G22(iM2Dto3D(fp),ke2D)
+        tmp1 = abs( G11_ * nx(fp,ke) ) + abs( G22_ * ny(fp,ke) )
+
+        Gnn_M = rgam2(fp,IN) * tmp1 &
+                + ( 1.0_RP * RGsqrtV(fp,IN)**2 + G13_(fp,IN) * Gxz_(fp,IN) + G23_(fp,IN) * Gyz_(fp,IN) ) * abs( nz(fp,ke) )
+        Gnn_P = rgam2(fp,EX) * tmp1 &
+                + ( 1.0_RP * RGsqrtV(fp,EX)**2 + G13_(fp,EX) * Gxz_(fp,EX) + G23_(fp,EX) * Gyz_(fp,EX) ) * abs( nz(fp,ke) )
+
+        swV = 1.0_RP - nz(fp,ke)**2
+        alpha(fp) = swV * max( sqrt( Gnn_M * gamm * ( Phyd_(fp,IN) + dpres_(fp,IN) ) * Gsqrt_(fp,IN) / GsqrtDens(fp,IN) ) + abs(Vel(fp,IN)), &
+                               sqrt( Gnn_P * gamm * ( Phyd_(fp,EX) + dpres_(fp,EX) ) * Gsqrt_(fp,EX) / GsqrtDens(fp,EX) ) + abs(Vel(fp,EX))  )
+      end do
+
+      do fp=1, elem%NfpTot
+        tmp1 = lmesh%Fscale(fp,ke) * 0.5_RP
+
+        tmp2 = - alpha(fp) * ( GsqrtDDENS(fp,EX) - GsqrtDDENS(fp,IN) )
+        del_flux(fp,DENS_VID,ke) = tmp1 * ( &
+                        GsqrtDens(fp,EX) * Velh(fp,EX) - GsqrtDens(fp,IN) * Velh(fp,IN)  &
+                      + tmp2  )
+
+        tmp2 = - alpha(fp) * ( GsqrtDRHOT(fp,EX) - GsqrtDRHOT(fp,IN) )
+        del_flux(fp,RHOT_VID,ke) = tmp1 * ( &
+                        GsqrtRhot(fp,EX) * Velh(fp,EX) - GsqrtRhot(fp,IN) * Velh(fp,IN) &
+                      + tmp2 )
+      end do
+
+      do fp=1, elem%NfpTot
+        tmp1 = lmesh%Fscale(fp,ke) * 0.5_RP
+
+        tmp2 = - alpha(fp) * ( GsqrtMOMZ(fp,EX) - GsqrtMOMZ(fp,IN) )
+        del_flux(fp,MOMZ_VID,ke) = tmp1 * ( &
+                        GsqrtMOMZ(fp,EX) * Vel(fp,EX) - GsqrtMOMZ(fp,IN) * Vel(fp,IN) &
+                      + tmp2 )
+      end do
+
+      do fp=1, elem%NfpTot
+        tmp3 = Gsqrt_(fp,EX) * dpres_(fp,EX)
+        tmp4 = Gsqrt_(fp,IN) * dpres_(fp,IN)
+        
+        del_flux_tmp_mom(fp,1) = &
+              ( G1n_(fp,EX) + Gxz_(fp,EX) * nz(fp,ke) ) * tmp3 &
+            - ( G1n_(fp,IN) + Gxz_(fp,IN) * nz(fp,ke) ) * tmp4
+        
+        del_flux_tmp_mom(fp,2) = &
+              ( G2n_(fp,EX) + Gyz_(fp,EX) * nz(fp,ke) ) * tmp3 &
+            - ( G2n_(fp,IN) + Gyz_(fp,IN) * nz(fp,ke) ) * tmp4
+      end do
+      do fp=1, elem%NfpTot
+        tmp1 = lmesh%Fscale(fp,ke) * 0.5_RP
+
+        tmp2 = - alpha(fp) * ( GsqrtMOMX(fp,EX) - GsqrtMOMX(fp,IN) )
+        del_flux(fp,MOMX_VID,ke) = tmp1 * ( &
+                        GsqrtMOMX(fp,EX) * Vel(fp,EX) - GsqrtMOMX(fp,IN) * Vel(fp,IN) &
+                      + del_flux_tmp_mom(fp,1) &
+                      + tmp2 )
+
+        tmp2 = - alpha(fp) * ( GsqrtMOMY(fp,EX) - GsqrtMOMY(fp,IN) )
+        del_flux(fp,MOMY_VID,ke) = tmp1 * ( &
+                        GsqrtMOMY(fp,EX) * Vel(fp,EX) - GsqrtMOMY(fp,IN) * Vel(fp,IN) &
+                      + del_flux_tmp_mom(fp,2) &
+                      + tmp2 )
+      end do
     end do
 
     return

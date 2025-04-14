@@ -388,7 +388,7 @@ contains
     real(RP) :: s
 
     integer :: ke, ke2d
-    integer :: p, p12, p3
+    integer :: p
 
     real(RP) :: gamm, rgamm    
     real(RP) :: rP0
