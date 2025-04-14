@@ -115,8 +115,10 @@ OBJS_NAME_FLUID_DYN_SOLVER = \
 	scale_atm_dyn_dgm_nonhydro3d_rhot_heve_numflux.o \
 	scale_atm_dyn_dgm_nonhydro3d_etot_heve.o         \
 	scale_atm_dyn_dgm_nonhydro3d_rhot_heve.o         \
-	scale_atm_dyn_dgm_nonhydro3d_etot_hevi_common.o  \
-	scale_atm_dyn_dgm_nonhydro3d_rhot_hevi_common.o  \
+	scale_atm_dyn_dgm_nonhydro3d_etot_hevi_common.o   \
+	scale_atm_dyn_dgm_nonhydro3d_rhot_hevi_common.o   \
+	scale_atm_dyn_dgm_nonhydro3d_rhot_hevi_common_2.o \
+	scale_atm_dyn_dgm_hevi_common_linalgebra.o       \
 	scale_atm_dyn_dgm_nonhydro3d_etot_hevi_numflux.o \
 	scale_atm_dyn_dgm_nonhydro3d_rhot_hevi_numflux.o \
 	scale_atm_dyn_dgm_nonhydro3d_etot_hevi.o         \
@@ -354,6 +356,7 @@ common/scale_quicksort.F90: scale_quicksort.F90.erb
 common/scale_timeint_rk.F90: scale_timeint_rk.F90.erb
 element/scale_element_operation_tensorprod3D_kernel.F90: scale_element_operation_tensorprod3D_kernel.F90.erb
 element/scale_element_operation_tensorprod3D.F90: scale_element_operation_tensorprod3D.F90.erb
+fluid_dyn_solver/scale_atm_dyn_dgm_hevi_common_linalgebra.F90: scale_atm_dyn_dgm_hevi_common_linalgebra.F90.erb
 
 $(BUILD_DIR)/%.o : %.F90
 	$(FC) $(FFLAGS) $(SCALE_INCLUDE) $(INCLUDE) -I$(SCALEFELIBDIR)/include -I$(BUILD_DIR) $(MODDIROPT) $(BUILD_DIR) -o $@ -c $<

@@ -111,6 +111,8 @@ module scale_atm_dyn_dgm_driver_nonhydro3d
   use scale_atm_dyn_dgm_globalnonhydro3d_rhot_hevi, only:  &
     atm_dyn_dgm_globalnonhydro3d_rhot_hevi_Init,           &
     atm_dyn_dgm_globalnonhydro3d_rhot_hevi_Final,          &
+    atm_dyn_dgm_globalnonhydro3d_rhot_hevi_cal_tend_asis,  &
+    atm_dyn_dgm_globalnonhydro3d_rhot_hevi_cal_vi_asis,    &
     atm_dyn_dgm_globalnonhydro3d_rhot_hevi_cal_tend,       &
     atm_dyn_dgm_globalnonhydro3d_rhot_hevi_cal_vi
 
@@ -440,6 +442,17 @@ contains
       this%cal_vi => atm_dyn_dgm_nonhydro3d_etot_hevi_cal_vi
       this%dynsolver_final => atm_dyn_dgm_nonhydro3d_etot_hevi_Final
       this%ENTOT_CONSERVE_SCHEME_FLAG = .true.
+      this%hevi_flag = .true.
+    case("GLOBALNONHYDRO3D_HEVI_ASIS", "GLOBALNONHYDRO3D_RHOT_HEVI_ASIS")
+      this%EQS_TYPEID = EQS_TYPEID_GLOBALNONHYD3D_HEVI
+      call atm_dyn_dgm_globalnonhydro3d_rhot_hevi_Init( mesh3D )
+      if ( .not. gm_mesh3D%shallow_approx ) then
+        LOG_ERROR("AtmDynDGMDriver_nonhydro3d_Init",*) 'EQS Type:', eqs_type_name, 'Deep atmosphere is not supported. Check!'
+        call PRC_abort  
+      end if
+      this%cal_tend_ex => atm_dyn_dgm_globalnonhydro3d_rhot_hevi_cal_tend_asis
+      this%cal_vi => atm_dyn_dgm_globalnonhydro3d_rhot_hevi_cal_vi_asis
+      this%dynsolver_final => atm_dyn_dgm_globalnonhydro3d_rhot_hevi_Final
       this%hevi_flag = .true.
     case("GLOBALNONHYDRO3D_HEVI", "GLOBALNONHYDRO3D_RHOT_HEVI")
       this%EQS_TYPEID = EQS_TYPEID_GLOBALNONHYD3D_HEVI
