@@ -6,9 +6,12 @@ program test_linalgebra
   implicit none
 
   real(RP), allocatable :: A(:,:)
+  real(RP), allocatable :: A_batch(:,:,:)
   real(RP), allocatable :: A_bnd(:,:)
   real(RP), allocatable :: B(:)
+  real(RP), allocatable :: B_batch(:,:)
   real(RP), allocatable :: X_ans(:)
+  real(RP), allocatable :: X_batch_ans(:,:)
   integer, allocatable :: ipiv_ans(:)
   integer :: N
   integer :: KL, KU
@@ -19,7 +22,6 @@ program test_linalgebra
 
   call test_SolveLinEq()
   call test_SolveLinEq_bndmat()
-  call test_SolveLinEq_vi_linkernel()
 
   write(*,*) "Test of LinAlgebra module has been succeeded!"
   call final()
@@ -72,6 +74,29 @@ contains
     allocate( ipiv_ans(N) )
     ipiv_ans(:) = (/ 2, 3, 3, 4 /)
 
+    !---------------------------
+    allocate( A_batch(3,N,N), B_batch(3,N) )
+    allocate( X_batch_ans(3,N) )
+
+    A_batch(1,:,:) = A(:,:)
+    B_batch(1,:) = B(:)
+
+    A_batch(2,1,:) = (/ 2.0_RP, 1.0_RP, 3.0_RP, 4.0_RP /)
+    A_batch(2,2,:) = (/ 1.0_RP, 2.0_RP, 1.0_RP, 3.0_RP /)
+    A_batch(2,3,:) = (/ 3.0_RP, 1.0_RP, 2.0_RP, 1.0_RP /)
+    A_batch(2,4,:) = (/ 4.0_RP, 3.0_RP, 2.0_RP, 1.0_RP /)
+    B_batch(2,:) = (/ 29.0_RP, 20.0_RP, 15.0_RP, 20.0_RP /)
+
+    A_batch(3,1,:) = (/ 1.0_RP, 2.0_RP, 3.0_RP, 4.0_RP /)
+    A_batch(3,2,:) = (/ 0.0_RP, 1.0_RP, 0.0_RP, 2.0_RP /)
+    A_batch(3,3,:) = (/ 3.0_RP, 0.0_RP, 2.0_RP, 1.0_RP /)
+    A_batch(3,4,:) = (/ 1.0_RP, 1.0_RP, 1.0_RP, 1.0_RP /)
+    B_batch(3,:) = (/ 13.0_RP, 1.0_RP, 12.0_RP, 6.0_RP /)
+
+    X_batch_ans(1,:) = X_ans(:)
+    X_batch_ans(2,:) = (/ 1.0_RP, 2.0_RP, 3.0_RP, 4.0_RP /)
+    X_batch_ans(3,:) = (/ 2.0_RP, 1.0_RP, 3.0_RP, 0.0_RP /)
+
     return
   end subroutine init
 
@@ -86,29 +111,6 @@ contains
     call check_ans( x, 'test_SolveLinEq' )
     return
   end subroutine test_SolveLinEq
-
-  subroutine test_SolveLinEq_vi_linkernel
-    use scale_atm_dyn_dgm_hevi_common_linalgebra, only: &
-      lin_ludecomp => atm_dyn_dgm_hevi_common_linalgebra_ludecomp, &
-      lin_solver => atm_dyn_dgm_hevi_common_linalgebra_solve
-    implicit none
-
-    real(RP) :: D(2,N,N)
-    real(RP) :: x(2,N)
-    integer :: ipiv(2,N)
-    integer :: v
-    !-------------------------------
-    do v=1, 2
-      D(v,:,:) = A(:,:)
-      x(v,:) = b(:)
-    end do
-    call lin_ludecomp( D, ipiv, 2, N )
-    call lin_solver( D, x, ipiv, 2, N )
-    do v=1, 2
-      call check_ans( x(v,:), 'test_vi_linkernel' )
-    end do
-    return
-  end subroutine test_SolveLinEq_vi_linkernel
 
   subroutine test_SolveLinEq_bndmat
     use scale_linalgebra, only: linalgebra_SolveLinEq_BndMat
@@ -136,16 +138,21 @@ contains
     return
   end subroutine test_SolveLinEq_bndmat
 
-  subroutine check_ans( x, lbl )
+  subroutine check_ans( x, lbl, x_ans_ )
     implicit none
     real(RP), intent(in) :: x(N)
     character(len=*), intent(in) :: lbl
+    real(RP), intent(in), optional :: x_ans_(N)
 
     real(RP) :: l2error
     real(RP), parameter :: EPS = 4.0E-15_RP
     !----------------------------------------------
 
-    l2error = sqrt( sum( (x(:) - X_ans)**2 ) ) / real(N, kind=RP)
+    if ( present(x_ans_) ) then
+      l2error = sqrt( sum( (x(:) - X_ans_)**2 ) ) / real(N, kind=RP)
+    else
+      l2error = sqrt( sum( (x(:) - X_ans)**2 ) ) / real(N, kind=RP)
+    end if
     write(*,*) "* ", lbl, ": x=", x(:)
     write(*,*) "l2error=", l2error
 
