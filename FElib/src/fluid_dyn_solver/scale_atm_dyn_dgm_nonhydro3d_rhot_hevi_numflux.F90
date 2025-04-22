@@ -455,9 +455,10 @@ contains
     integer, intent(in) :: vmapP(elem%NfpTot,lmesh%Ne)
     integer, intent(in) :: iM2Dto3D(elem%NfpTot)
     
-    integer :: ke, fp, i, iP(elem%NfpTot), iM(elem%NfpTot)
-    integer :: ke2D
-    real(RP) :: Vel(elem%NfpTot,2), Velh(elem%NfpTot,2), alpha(elem%NfpTot)
+    integer :: ke, ke2D, fp 
+    integer :: iP(elem%NfpTot), iM(elem%NfpTot)
+    real(RP) :: Vel(elem%NfpTot,2), Velh(elem%NfpTot,2)
+    real(RP) :: alpha(elem%NfpTot)
     real(RP) :: DPRES_(elem%NfpTot,2)
     real(RP) :: GsqrtDens(elem%NfpTot,2)
     real(RP) :: GsqrtRhot(elem%NfpTot,2)
@@ -502,7 +503,7 @@ contains
     !$omp parallel do private( &
     !$omp ke, iM, iP, ke2D, fp, swV,                                                    &
     !$omp alpha, Vel, Velh,                                                             &
-    !$omp dpres_, GsqrtDens, GsqrtRhot,                                                 &
+    !$omp DPRES_, GsqrtDens, GsqrtRhot,                                                 &
     !$omp GsqrtDDENS, GsqrtMOMX, GsqrtMOMY, GsqrtMOMZ, GsqrtDRHOT,                      &
     !$omp Phyd_,                                                                        &
     !$omp Gsqrt_, GsqrtV_, RGsqrtV, G11_, G12_, G22_, G13_, G23_, rgam2,                &

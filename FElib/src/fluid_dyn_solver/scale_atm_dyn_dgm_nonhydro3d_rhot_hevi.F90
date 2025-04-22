@@ -457,7 +457,6 @@ contains
           !$omp parallel private(ij, v, ke_z, info_uv, ColMask)
           !$omp do
           do ij=1, elem%Nnode_h1D**2
-!            call dgbsv( nz_1D_uv, kl_uv, ku_uv, 2, PmatBnd_uv(:,:,ij), 2*kl_uv+ku_uv+1, ipiv_uv(:,ij), b1D_uv(:,:,:,ij,ke_xy), nz_1D_uv, info_uv)
             call linalgebra_SolveLinEq_BndMat( PmatBnd_uv(:,:,ij), b1D_uv(:,:,:,ij,ke_xy), ipiv_uv(:,ij), nz_1D_uv, kl_uv, ku_uv, 2, VI_use_lapack_flag )
 
             ColMask(:) = elem%Colmask(:,ij)
@@ -506,7 +505,6 @@ contains
           !$omp parallel private(ij, v, ke_z, info, ColMask)
           !$omp do
           do ij=1, elem%Nnode_h1D**2
-!            call dgbsv( nz_1D, kl, ku, 1, PmatBnd(:,:,ij), 2*kl+ku+1, ipiv(:,ij), b1D(:,:,:,ij,ke_xy), nz_1D, info)
             call linalgebra_SolveLinEq_BndMat( PmatBnd(:,:,ij), b1D(:,:,:,ij,ke_xy), ipiv(:,ij), nz_1D, kl, ku, 1, VI_use_lapack_flag )
             ColMask(:) = elem%Colmask(:,ij)
             do ke_z=1, lmesh%NeZ
