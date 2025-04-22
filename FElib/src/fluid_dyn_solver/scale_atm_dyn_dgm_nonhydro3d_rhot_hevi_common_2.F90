@@ -120,12 +120,14 @@ contains
     vmapM, vmapP,                                            & ! (in)
     element3D_operation,                                     & ! (in)
     im, jm,                                                  & ! (in)
-    b                                                        ) ! (out)
+    b,                                                       & ! (out)
+    DENS, W, WT, POT, DPDRHOT                                ) ! (out)
 
     implicit none
 
     class(LocalMesh3D), intent(in) :: lmesh
     class(ElementBase3D), intent(in) :: elem
+    integer, intent(in) :: im, jm
     real(RP), intent(out) :: DENS_t(elem%Np,lmesh%NeA)
     real(RP), intent(out) :: MOMZ_t(elem%Np,lmesh%NeA)
     real(RP), intent(out) :: RHOT_t(elem%Np,lmesh%NeA)
@@ -148,8 +150,12 @@ contains
     integer, intent(in) :: vmapM(elem%NfpTot,lmesh%Ne)
     integer, intent(in) :: vmapP(elem%NfpTot,lmesh%Ne)    
     class(ElementOperationBase3D), intent(in) :: element3D_operation
-    integer, intent(in) :: im, jm
     real(RP), intent(out), optional :: b(im,3,elem%Nnode_v,jm,lmesh%Ne)
+    real(RP), intent(out), optional :: DENS(im,elem%Nnode_v,jm,lmesh%Ne)
+    real(RP), intent(out), optional :: W(im,elem%Nnode_v,jm,lmesh%Ne)
+    real(RP), intent(out), optional :: WT(im,elem%Nnode_v,jm,lmesh%Ne)
+    real(RP), intent(out), optional :: POT(im,elem%Nnode_v,jm,lmesh%Ne)
+    real(RP), intent(out), optional :: DPDRHOT(im,elem%Nnode_v,jm,lmesh%Ne)
 
     real(RP) :: Flux(elem%Np,3), DFlux(elem%Np,2,3)
     real(RP) :: del_flux(elem%NfpTot,PRGVAR_NUM,lmesh%Ne)
@@ -169,6 +175,10 @@ contains
     real(RP) :: RovP0, P0ovR
 
     integer :: i, j, p, pp, pv
+
+    real(RP) :: CPtot_ov_CVtot
+
+    logical :: flag_cal_b
     !--------------------------------------------------------
 
     gamm  = CPDry / CvDry
@@ -179,6 +189,12 @@ contains
 
     rdt = 1.0_RP / dt
 
+    if ( present(b) ) then
+      flag_cal_b = .true.
+    else
+      flag_cal_b = .false.
+    end if
+
     call vi_cal_del_flux_dyn( del_flux, & ! (out)
       alph, PROG_VARS, PROG_VARS0,                                              & ! (in)
       DENS_hyd, PRES_hyd, Rtot, CPtot, CVtot,                                   & ! (in)
@@ -186,14 +202,14 @@ contains
       lmesh%normal_fn(:,:,3), vmapM, vmapP, elem%IndexH2Dto3D_bnd,              & ! (in)
       lmesh, elem, lmesh%lcmesh2D, lmesh%lcmesh2D%refElem2D                     ) ! (in)
 
-    !$omp parallel private( ke_xy, ke_z, ke, ke2d, p, &
-    !$omp DPRES, RHOT, drho, pt_, Flux, DFlux,        &
-    !$omp E33, RGsqrtV                                )
+    !$omp parallel private( ke_xy, ke_z, ke, ke2d, p, i,j,pv, &
+    !$omp DPRES, RHOT, drho, pt_, Flux, DFlux,                &
+    !$omp E33, RGsqrtV, CPtot_ov_CVtot                        )
 
     !$omp do collapse(2)
     do ke_z=1, lmesh%NeZ
     do ke_xy=1, lmesh%NeX*lmesh%NeY
-      ke = Ke_xy + (ke_z-1)*lmesh%NeX*lmesh%NeY
+      ke = ke_xy + (ke_z-1)*lmesh%NeX*lmesh%NeY
       ke2d = lmesh%EMap3Dto2D(ke)
 
       do p=1, elem%Np
@@ -234,12 +250,12 @@ contains
         E33 = lmesh%Escale(p,ke,3,3)
 
         DENS_t(p,ke) = - ( &
-              E33 * DFlux(p,1,DENS_VID)    &
-            + DFlux(p,2,DENS_VID) ) * RGsqrtV(p)
+              E33 * DFlux(p,1,DENS_VID) &
+            + DFlux(p,2,DENS_VID)       ) * RGsqrtV(p)
           
         RHOT_t(p,ke) = - ( &
-              E33 * DFlux(p,1,RHOT_VID)    &
-            + DFlux(p,2,RHOT_VID) ) * RGsqrtV(p)
+              E33 * DFlux(p,1,RHOT_VID) &
+            + DFlux(p,2,RHOT_VID)       ) * RGsqrtV(p)
       end do
 
       call element3D_operation%VFilterPM1( PROG_VARS(:,ke,DENS_VID), &
@@ -249,14 +265,40 @@ contains
 
         MOMZ_t(p,ke) = - ( &
               E33 * DFlux(p,1,MOMZ_VID) &
-            + DFlux(p,2,MOMZ_VID) ) * RGsqrtV(p) &
+            + DFlux(p,2,MOMZ_VID)       ) * RGsqrtV(p) &
             - Grav * drho(p) 
       end do
+
+      if ( flag_cal_b ) then
+        do j=1, jm
+        do pv=1, elem%Nnode_v
+        do i=1, im
+          p = i + (j-1)*im + (pv-1)*im*jm
+          DENS(i,pv,j,ke) = DENS_hyd(p,ke) + PROG_VARS(p,ke,DENS_VID)
+          POT(i,pv,j,ke) = RHOT(p) / DENS(i,pv,j,ke)
+          W(i,pv,j,ke) = PROG_VARS(p,ke,MOMZ_VID) / DENS(i,pv,j,ke)
+          WT(i,pv,j,ke) = Flux(p,DENS_VID) / DENS(i,pv,j,ke)
+        end do
+        end do
+        end do
+        do j=1, jm
+        do pv=1, elem%Nnode_v
+        do i=1, im
+          p = i + (j-1)*im + (pv-1)*im*jm
+          CPtot_ov_CVtot = CPtot(p,ke) / CVtot(p,ke)
+          DPDRHOT(i,pv,j,ke) = CPtot_ov_CVtot &
+                            * PRES00 * ( Rtot(p,ke) / PRES00 * RHOT(p) )**CPtot_ov_CVtot &
+                            / RHOT(p)
+        end do
+        end do
+        end do
+      end if
+
     end do
     end do
     !$omp end do
 
-    if ( present( b ) ) then
+    if ( flag_cal_b ) then
       !$omp do collapse(2)
       do ke=1, lmesh%Ne
       do pv=1, elem%Nnode_v
@@ -285,27 +327,26 @@ contains
 
 !OCL SERIAL
   subroutine atm_dyn_dgm_nonhydro3d_rhot_hevi_common_solve( PROG_VARS, &
-    b, PROG_VARS0, Rtot, CPtot, CVtot, alph, DENS_hyd, PRES_hyd, &
+    b, DENS, W, WT, POT, DPDRHOT, alph,                          &
     GsqrtV, IntrpMat_VPOrdM1,                                    &
     impl_fac, dt,                                                &
     vmapM, vmapP, lmesh, elem, im, jm                            )
     use scale_atm_dyn_dgm_hevi_common_linalgebra, only: &
-      linkernel_ludecomp => atm_dyn_dgm_hevi_common_linalgebra_ludecomp, &
-      linkernel_solve => atm_dyn_dgm_hevi_common_linalgebra_solve
+      linkernel_solve_var3 => atm_dyn_dgm_hevi_common_linalgebra_solve_var3
+
     implicit none
     class(LocalMesh3D), intent(in) :: lmesh
     class(ElementBase3D), intent(in) :: elem
     integer, intent(in) :: im
     integer, intent(in) :: jm
     real(RP), intent(inout) :: PROG_VARS (elem%Nnode_h1D**2,elem%Nnode_v,lmesh%NeX*lmesh%NeY,lmesh%NeZ,PRGVAR_NUM)
-    real(RP), intent(inout) :: b(im*3*elem%Nnode_v,jm,lmesh%Ne2D,lmesh%NeZ)
-    real(RP), intent(in) :: PROG_VARS0(elem%Np,lmesh%NeX*lmesh%NeY,lmesh%NeZ,PRGVAR_NUM)
-    real(RP), intent(in) :: Rtot(elem%Np,lmesh%NeA)
-    real(RP), intent(in) :: CPtot(elem%Np,lmesh%NeA)
-    real(RP), intent(in) :: CVtot(elem%Np,lmesh%NeA)
+    real(RP), intent(inout) :: b(im,3*elem%Nnode_v,jm,lmesh%Ne2D,lmesh%NeZ)
+    real(RP), intent(in) :: DENS(im,elem%Nnode_v,jm,lmesh%Ne2D,lmesh%NeZ)
+    real(RP), intent(in) :: W(im,elem%Nnode_v,jm,lmesh%Ne2D,lmesh%NeZ)
+    real(RP), intent(in) :: WT(im,elem%Nnode_v,jm,lmesh%Ne2D,lmesh%NeZ)
+    real(RP), intent(in) :: POT(im,elem%Nnode_v,jm,lmesh%Ne2D,lmesh%NeZ)
+    real(RP), intent(in) :: DPDRHOT(im,elem%Nnode_v,jm,lmesh%Ne2D,lmesh%NeZ)
     real(RP), intent(in) :: alph(elem%NfpTot,lmesh%Ne)
-    real(RP), intent(in)  :: DENS_hyd(elem%Np,lmesh%NeA)
-    real(RP), intent(in)  :: PRES_hyd(elem%Np,lmesh%NeA)
     real(RP), intent(in) :: GsqrtV(elem%Np,lmesh%Ne)
     real(RP), intent(in) :: IntrpMat_VPOrdM1(elem%Np,elem%Np)
     real(RP), intent(in) :: impl_fac
@@ -314,129 +355,125 @@ contains
     integer, intent(in) :: vmapP(elem%NfpTot,lmesh%Ne)
 
     real(RP) :: tmp_v3(3)
-    real(RP) :: BndMatD(im*3*elem%Nnode_v,3*elem%Nnode_v,jm,lmesh%Ne2D)
-    real(RP) :: BndMatL(im*3*elem%Nnode_v,3,jm,lmesh%Ne2D)
-    real(RP) :: BndMatU(im*3*elem%Nnode_v,3,jm,lmesh%Ne2D)
-    real(RP) :: D(im*3*elem%Nnode_v,3*elem%Nnode_v)
-    real(RP) :: G(im*3*elem%Nnode_v,3,jm,lmesh%Ne2D,lmesh%NeZ)
-    integer :: ipiv(im*3*elem%Nnode_v)
+    real(RP) :: BndMatD(im,3*elem%Nnode_v,3*elem%Nnode_v,jm,lmesh%Ne2D)
+    real(RP) :: BndMatL(im,3*elem%Nnode_v,3,jm,lmesh%Ne2D)
+    real(RP) :: G(im,3*elem%Nnode_v,3,jm,lmesh%Ne2D,lmesh%NeZ)
+    integer :: ipiv(im,3*elem%Nnode_v)
+
+    integer :: Colmask(elem%Nnode_v)
+    real(RP) :: IntrpMat_VPOrdM1_(elem%Nnode_v,elem%Nnode_v)
+    real(RP) :: Dx3(elem%Nnode_v,elem%Nnode_v)
+    real(RP) :: Id(elem%Nnode_v,elem%Nnode_v)
 
     integer :: ke_xy, ke_z
-    integer :: i, pv, j
+    integer :: i, j, ij, pv, pv2
     integer :: v
     integer :: pp
-    integer :: p1, p2, p3
+    integer :: p, p1, p2, p3
     !-----------------------------------------------------------------
 
-    ! ke_z=1
-    call atm_dyn_dgm_nonhydro3d_rhot_hevi_common_construct_matbnd( &
-      BndMatL, BndMatD, BndMatU,                                          & ! (out)
-      PROG_VARS0, DENS_hyd, PRES_hyd, Rtot, CPtot, CVtot, alph,           & ! (in)
-      lmesh%GI3(:,:,1), lmesh%GI3(:,:,2), GsqrtV, lmesh%normal_fn(:,:,3), & ! (in)
-      IntrpMat_VPOrdM1,                                                   & ! (in)
-      impl_fac, dt, lmesh, elem, im, jm, vmapM, vmapP,                    & ! (in)
-      1 ) ! (in)
-    
-    !$omp parallel do private( ke_xy,j,v, D, ipiv ) collapse(2)
-    do ke_xy=1, lmesh%NeX * lmesh%NeY
-    do j=1, jm
-      D(:,:) = BndMatD(:,:,j,ke_xy)
+    ij = 1
+    Colmask(:) = elem%Colmask(:,ij)
+    do pv2=1, elem%Nnode_v
+    do pv=1, elem%Nnode_v
+      p = ij + (pv-1)*elem%Nnode_h1D**2
+      Dx3(pv,pv2) = impl_fac * elem%Dx3(p,Colmask(pv2))
+      IntrpMat_VPOrdM1_(pv,pv2) = impl_fac * Grav * IntrpMat_VPOrdM1(p,Colmask(pv2))
+    end do
+    end do
 
-      call linkernel_ludecomp( D, ipiv, im, elem%Nnode_v*3 )
-      call linkernel_solve( D, b(:,j,ke_xy,1), ipiv, im, elem%Nnode_v*3 )
-      if ( lmesh%NeZ > 1) then
-        do v=1, 3
-          G(:,v,j,ke_xy,1) = BndMatU(:,v,j,ke_xy)
-          call linkernel_solve( D, G(:,v,j,ke_xy,1), ipiv, im, elem%Nnode_v*3 )
+    Id(:,:) = 0.0_RP
+    do pv=1, elem%Nnode_v
+      Id(pv,pv) = 1.0_RP
+    end do
+
+    do ke_z=1,lmesh%NeZ
+      call atm_dyn_dgm_nonhydro3d_rhot_hevi_common_construct_matbnd( &
+        BndMatL, BndMatD, G(:,:,:,:,:,ke_z),                         & ! (out)
+        DENS, W, WT, POT, DPDRHOT, alph,                             &
+        GsqrtV, lmesh%normal_fn(:,:,3), Id, Dx3, IntrpMat_VPOrdM1_,  &
+        impl_fac, dt, lmesh, elem, im, jm, ke_z )
+
+      call PROF_rapstart( 'hevi_cal_vi_lin', 3)        
+!      call PROF_rapstart( 'hevi_cal_vi_lin_pre', 3)          
+      if ( ke_z > 1 ) then        
+        !$omp parallel do private( ke_xy,j,pv,i,v, p1,p2,p3,tmp_v3 ) collapse(2)
+        do ke_xy=1, lmesh%NeX * lmesh%NeY
+        do j=1, jm
+          do pv=1, 3*elem%Nnode_v
+          do i=1, im
+            p1 = 1 + (elem%Nnode_v-1)*3
+            p2 = p1 + 1
+            p3 = p1 + 2
+
+            tmp_v3(:) = BndMatL(i,pv,:,j,ke_xy)
+            BndMatD(i,pv,1,j,ke_xy) = BndMatD(i,pv,1,j,ke_xy) &
+                              - tmp_v3(1) * G(i,p1,1,j,ke_xy,ke_z-1) &
+                              - tmp_v3(2) * G(i,p2,1,j,ke_xy,ke_z-1) &
+                              - tmp_v3(3) * G(i,p3,1,j,ke_xy,ke_z-1)
+            BndMatD(i,pv,2,j,ke_xy) = BndMatD(i,pv,2,j,ke_xy) &
+                              - tmp_v3(1) * G(i,p1,2,j,ke_xy,ke_z-1) &
+                              - tmp_v3(2) * G(i,p2,2,j,ke_xy,ke_z-1) &
+                              - tmp_v3(3) * G(i,p3,2,j,ke_xy,ke_z-1)
+            BndMatD(i,pv,3,j,ke_xy) = BndMatD(i,pv,3,j,ke_xy) &
+                              - tmp_v3(1) * G(i,p1,3,j,ke_xy,ke_z-1) &
+                              - tmp_v3(2) * G(i,p2,3,j,ke_xy,ke_z-1) &
+                              - tmp_v3(3) * G(i,p3,3,j,ke_xy,ke_z-1)
+            b(i,pv,j,ke_xy,ke_z) = b(i,pv,j,ke_xy,ke_z) &
+              - tmp_v3(1) * b(i,p1,j,ke_xy,ke_z-1) &
+              - tmp_v3(2) * b(i,p2,j,ke_xy,ke_z-1) &
+              - tmp_v3(3) * b(i,p3,j,ke_xy,ke_z-1)              
+          end do
+          end do
+        end do
         end do
       end if
-    end do
+!      call PROF_rapend( 'hevi_cal_vi_lin_pre', 3)
+
+      call PROF_rapstart( 'hevi_cal_vi_lin_core', 3)
+      call linkernel_solve_var3( BndMatD, b(:,:,:,:,ke_z), G(:,:,:,:,:,ke_z), &
+        elem%Nnode_v, im, jm, lmesh%Ne2D, ke_z == lmesh%NeZ )
+
+      call PROF_rapend( 'hevi_cal_vi_lin_core', 3)
+      call PROF_rapend( 'hevi_cal_vi_lin', 3)
     end do
 
-    ! ke_z=2..NeZ
-
-    do ke_z=2, lmesh%NeZ
-      call atm_dyn_dgm_nonhydro3d_rhot_hevi_common_construct_matbnd( &
-        BndMatL, BndMatD, BndMatU,                                          & ! (out)
-        PROG_VARS0, DENS_hyd, PRES_hyd, Rtot, CPtot, CVtot, alph,           & ! (in)
-        lmesh%GI3(:,:,1), lmesh%GI3(:,:,2), GsqrtV, lmesh%normal_fn(:,:,3), & ! (in)
-        IntrpMat_VPOrdM1,                                                   & ! (in)
-        impl_fac, dt, lmesh, elem, im, jm, vmapM, vmapP,                    & ! (in)
-        ke_z ) ! (in)
-    
-      !$omp parallel do private( ke_xy,j,pv,i,v, pp,p1,p2,p3,tmp_v3, D, ipiv ) collapse(2)
+    call PROF_rapstart( 'hevi_cal_vi_lin', 3)
+!    call PROF_rapstart( 'hevi_cal_vi_lin_post', 3)
+    do ke_z=lmesh%NeZ-1, 1, -1
+      !$omp parallel do private( ke_xy,j,pv,i, tmp_v3 ) collapse(2)          
       do ke_xy=1, lmesh%NeX * lmesh%NeY
       do j=1, jm
-        D(:,:) = BndMatD(:,:,j,ke_xy)
-
         do pv=1, 3*elem%Nnode_v
         do i=1, im
-          p1 = i        + (elem%Nnode_v-1)*3*im
-          p2 = i +   im + (elem%Nnode_v-1)*3*im
-          p3 = i + 2*im + (elem%Nnode_v-1)*3*im
-          pp = i + (pv-1)*im
-
-          tmp_v3(:) = BndMatL(pp,:,j,ke_xy)
-          D(pp,1) = D(pp,1) - tmp_v3(1) * G(p1,1,j,ke_xy,ke_z-1) &
-                            - tmp_v3(2) * G(p2,1,j,ke_xy,ke_z-1) &
-                            - tmp_v3(3) * G(p3,1,j,ke_xy,ke_z-1)
-          D(pp,2) = D(pp,2) - tmp_v3(1) * G(p1,2,j,ke_xy,ke_z-1) &
-                            - tmp_v3(2) * G(p2,2,j,ke_xy,ke_z-1) &
-                            - tmp_v3(3) * G(p3,2,j,ke_xy,ke_z-1)
-          D(pp,3) = D(pp,3) - tmp_v3(1) * G(p1,3,j,ke_xy,ke_z-1) &
-                            - tmp_v3(2) * G(p2,3,j,ke_xy,ke_z-1) &
-                            - tmp_v3(3) * G(p3,3,j,ke_xy,ke_z-1)
-          b(pp,j,ke_xy,ke_z) = b(pp,j,ke_xy,ke_z) &
-            - tmp_v3(1) * b(p1,j,ke_xy,ke_z-1) &
-            - tmp_v3(2) * b(p2,j,ke_xy,ke_z-1) &
-            - tmp_v3(3) * b(p3,j,ke_xy,ke_z-1)              
-        end do
-        end do
-        call linkernel_ludecomp( D, ipiv, im, elem%Nnode_v*3 )
-        call linkernel_solve( D, b(:,j,ke_xy,ke_z), ipiv, im, 3*elem%Nnode_v )
-
-        if ( ke_z < lmesh%NeZ ) then
-          do v=1, 3
-            G(:,:,j,ke_xy,ke_z) = BndMatU(:,:,j,ke_xy)
-            call linkernel_solve( D, G(:,v,j,ke_xy,ke_z), ipiv, im, 3*elem%Nnode_v )
-          end do              
-        end if
-      end do  
-      end do
-    end do
-    do ke_z=lmesh%NeZ-1, 1
-      !$omp parallel do private( ke_xy,j,pv,i, pp,p1,p2,p3, tmp_v3 ) collapse(2)          
-      do ke_xy=1, lmesh%NeX * lmesh%NeY
-      do j=1, jm
-        do pv=1, elem%Nnode_v*3
-        do i=1, im
-          p1 = i        ! + (1-1)*3*im
-          p2 = i +   im ! + (1-1)*3*im
-          p3 = i + 2*im ! + (1-1)*3*im
-          pp = i + (pv-1)*im
-
-          tmp_v3(:) = G(pp,:,j,ke_xy,ke_z)
-          b(pp,j,ke_xy,ke_z) = b(pp,j,ke_xy,ke_z) &
-            - tmp_v3(1) * b(p1,j,ke_xy,ke_z+1) &
-            - tmp_v3(2) * b(p2,j,ke_xy,ke_z+1) &
-            - tmp_v3(3) * b(p3,j,ke_xy,ke_z+1)
-        end do
-        end do            
-        do pv=1, elem%Nnode_v
-        do i=1, im
-          p1 = i        + (pv-1)*3*im
-          p2 = i +   im + (pv-1)*3*im
-          p3 = i + 2*im + (pv-1)*3*im
-          pp = i + (j-1)*im
-
-          PROG_VARS(pp,pv,ke_xy,ke_z,DENS_VID) = PROG_VARS(pp,pv,ke_xy,ke_z,DENS_VID) + b(p1,j,ke_xy,ke_z)
-          PROG_VARS(pp,pv,ke_xy,ke_z,MOMZ_VID) = PROG_VARS(pp,pv,ke_xy,ke_z,MOMZ_VID) + b(p2,j,ke_xy,ke_z)
-          PROG_VARS(pp,pv,ke_xy,ke_z,RHOT_VID) = PROG_VARS(pp,pv,ke_xy,ke_z,RHOT_VID) + b(p3,j,ke_xy,ke_z)
+          tmp_v3(:) = G(i,pv,:,j,ke_xy,ke_z)
+          b(i,pv,j,ke_xy,ke_z) = b(i,pv,j,ke_xy,ke_z) &
+            - tmp_v3(1) * b(i,1,j,ke_xy,ke_z+1) &
+            - tmp_v3(2) * b(i,2,j,ke_xy,ke_z+1) &
+            - tmp_v3(3) * b(i,3,j,ke_xy,ke_z+1)
         end do
         end do
       end do
+      end do
+    end do
+    !$omp parallel do collapse(3) private(pv,i,j,p1,pp)
+    do ke_z=1, lmesh%NeZ
+    do ke_xy=1, lmesh%NeX * lmesh%NeY
+    do j=1, jm
+      do pv=1, elem%Nnode_v
+      do i=1, im
+        p1 = 1 + (pv-1)*3
+        pp = i + (j-1)*im
+        PROG_VARS(pp,pv,ke_xy,ke_z,DENS_VID) = PROG_VARS(pp,pv,ke_xy,ke_z,DENS_VID) + b(i,p1  ,j,ke_xy,ke_z)
+        PROG_VARS(pp,pv,ke_xy,ke_z,MOMZ_VID) = PROG_VARS(pp,pv,ke_xy,ke_z,MOMZ_VID) + b(i,p1+1,j,ke_xy,ke_z)
+        PROG_VARS(pp,pv,ke_xy,ke_z,RHOT_VID) = PROG_VARS(pp,pv,ke_xy,ke_z,RHOT_VID) + b(i,p1+2,j,ke_xy,ke_z)
+      end do
+      end do
     end do
     end do
+    end do
+!    call PROF_rapend( 'hevi_cal_vi_lin_post', 3)
+    call PROF_rapend( 'hevi_cal_vi_lin', 3)
 
     return
   end subroutine atm_dyn_dgm_nonhydro3d_rhot_hevi_common_solve
@@ -491,12 +528,8 @@ contains
     integer :: ke, ke2D
     integer :: fp
 
-    real(RP) :: rdt
-
     integer :: i, j, p, pp, pv
     !--------------------------------------------------------
-
-    rdt = 1.0_RP / dt
 
     call vi_cal_del_flux_dyn_uv( del_flux, alph, & ! (out)
       PROG_VARS, PROG_VARS0,                                                   & ! (in)
@@ -559,8 +592,7 @@ contains
     impl_fac, dt,                                                &
     vmapM, vmapP, lmesh, elem, im, jm                            )
     use scale_atm_dyn_dgm_hevi_common_linalgebra, only: &
-      linkernel_ludecomp => atm_dyn_dgm_hevi_common_linalgebra_ludecomp, &
-      linkernel_solve => atm_dyn_dgm_hevi_common_linalgebra_solve
+      linkernel_solve_uv => atm_dyn_dgm_hevi_common_linalgebra_solve_uv
     implicit none
     class(LocalMesh3D), intent(in) :: lmesh
     class(ElementBase3D), intent(in) :: elem
@@ -578,8 +610,6 @@ contains
     real(RP) :: tmp
     real(RP) :: BndMatD_uv(im*elem%Nnode_v,elem%Nnode_v,jm,lmesh%Ne2D)
     real(RP) :: BndMatL_uv(im*elem%Nnode_v,jm,lmesh%Ne2D)
-    real(RP) :: BndMatU_uv(im*elem%Nnode_v,jm,lmesh%Ne2D)
-    real(RP) :: D_uv(im*elem%Nnode_v,elem%Nnode_v)
     real(RP) :: G_uv(im*elem%Nnode_v,jm,lmesh%Ne2D,lmesh%NeZ)
     integer :: ipiv_uv(im*elem%Nnode_v)
 
@@ -590,58 +620,39 @@ contains
     integer :: p1, p2, p3
     !-----------------------------------------------------------------
 
-    ! ke_z=1
-    call atm_dyn_dgm_nonhydro3d_rhot_hevi_common_construct_matbnd_uv( &
-      BndMatL_uv, BndMatD_uv, BndMatU_uv,                            & ! (out)
-      alph, GsqrtV, impl_fac, dt, lmesh, elem, im, jm, vmapM, vmapP, & ! (in)
-      1 ) ! (in)
-        
-    !$omp parallel do private( ke_xy,j, D_uv, ipiv_uv ) collapse(2)
-    do ke_xy=1, lmesh%NeX * lmesh%NeY
-    do j=1, jm
-      D_uv(:,:) = BndMatD_uv(:,:,j,ke_xy)
-      call linkernel_ludecomp( D_uv, ipiv_uv, im, elem%Nnode_v )
-      call linkernel_solve( D_uv, b_uv(:,1,j,ke_xy,1), ipiv_uv, im, elem%Nnode_v )
-      call linkernel_solve( D_uv, b_uv(:,2,j,ke_xy,1), ipiv_uv, im, elem%Nnode_v )
-      if ( lmesh%NeZ > 1) then
-        G_uv(:,j,ke_xy,1) = BndMatU_uv(:,j,ke_xy)
-        call linkernel_solve( D_uv, G_uv(:,j,ke_xy,1), ipiv_uv, im, elem%Nnode_v )
-      end if
-    end do
-    end do
-    ! ke_z=2..NeZ
-    do ke_z=2, lmesh%NeZ
+    do ke_z=1, lmesh%NeZ
       call atm_dyn_dgm_nonhydro3d_rhot_hevi_common_construct_matbnd_uv( &
-        BndMatL_uv, BndMatD_uv, BndMatU_uv,                            & ! (out)
+        BndMatL_uv, BndMatD_uv,  G_uv(:,:,:,ke_z),                     & ! (out)
         alph, GsqrtV, impl_fac, dt, lmesh, elem, im, jm, vmapM, vmapP, & ! (in)
         ke_z ) ! (in)
-      !$omp parallel do private( ke_xy,j,pv,i, pp,p2,tmp, D_uv, ipiv_uv ) collapse(2)
-      do ke_xy=1, lmesh%NeX * lmesh%NeY
-      do j=1, jm
-        D_uv(:,:) = BndMatD_uv(:,:,j,ke_xy)
-        do pv=1, elem%Nnode_v
-        do i=1, im
-          pp = i + (pv-1)*im
-          p2 = i + (elem%Nnode_v-1)*im
-          tmp = BndMatL_uv(pp,j,ke_xy)
-          D_uv(pp,1)              = D_uv(pp,1)              - tmp * G_uv(p2,j,ke_xy,ke_z-1)
-          b_uv(pp,1,j,ke_xy,ke_z) = b_uv(pp,1,j,ke_xy,ke_z) - tmp * b_uv(p2,1,j,ke_xy,ke_z-1)
-          b_uv(pp,2,j,ke_xy,ke_z) = b_uv(pp,2,j,ke_xy,ke_z) - tmp * b_uv(p2,2,j,ke_xy,ke_z-1)
-        end do
-        end do
-        call linkernel_ludecomp( D_uv, ipiv_uv, im, elem%Nnode_v )
-        call linkernel_solve( D_uv, b_uv(:,1,j,ke_xy,ke_z), ipiv_uv, im, elem%Nnode_v )
-        call linkernel_solve( D_uv, b_uv(:,2,j,ke_xy,ke_z), ipiv_uv, im, elem%Nnode_v )
 
-        if ( ke_z < lmesh%NeZ ) then
-          G_uv(:,j,ke_xy,ke_z) = BndMatU_uv(:,j,ke_xy)
-          call linkernel_solve( D_uv, G_uv(:,j,ke_xy,ke_z), ipiv_uv, im, elem%Nnode_v )
-        end if
-      end do  
-      end do
+      call PROF_rapstart( 'hevi_cal_vi_lin_uv', 3)        
+      if ( ke_z > 1 ) then
+        !$omp parallel do private( ke_xy,j,pv,i, pp,p2,tmp ) collapse(2)
+        do ke_xy=1, lmesh%NeX * lmesh%NeY
+        do j=1, jm
+            do pv=1, elem%Nnode_v
+            do i=1, im
+              pp = i + (pv-1)*im
+              p2 = i + (elem%Nnode_v-1)*im
+              tmp = BndMatL_uv(pp,j,ke_xy)
+              BndMatD_uv(pp,1,j,ke_xy) = BndMatD_uv(pp,1,j,ke_xy) - tmp * G_uv(p2,j,ke_xy,ke_z-1)
+              b_uv(pp,1,j,ke_xy,ke_z) = b_uv(pp,1,j,ke_xy,ke_z) - tmp * b_uv(p2,1,j,ke_xy,ke_z-1)
+              b_uv(pp,2,j,ke_xy,ke_z) = b_uv(pp,2,j,ke_xy,ke_z) - tmp * b_uv(p2,2,j,ke_xy,ke_z-1)
+            end do
+            end do
+        end do
+        end do
+      end if
+      
+      call linkernel_solve_uv( BndMatD_uv, b_uv(:,:,:,:,ke_z), G_uv(:,:,:,ke_z), &
+        elem%Nnode_v, im, jm, lmesh%Ne2D, ke_z==lmesh%NeZ )
+
+      call PROF_rapend( 'hevi_cal_vi_lin_uv', 3) 
     end do
-    do ke_z=lmesh%NeZ-1, 1
-      !$omp parallel do private( ke_xy,j,pv,i, pp,p2,tmp, p ) collapse(2)
+    call PROF_rapstart( 'hevi_cal_vi_lin_uv', 3)
+    do ke_z=lmesh%NeZ-1, 1, -1
+      !$omp parallel do private( ke_xy,j,pv,i, pp,p2,tmp ) collapse(2)
       do ke_xy=1, lmesh%NeX * lmesh%NeY
       do j=1, jm
         do pv=1, elem%Nnode_v
@@ -651,15 +662,28 @@ contains
           tmp = G_uv(pp,j,ke_xy,ke_z)
           b_uv(pp,1,j,ke_xy,ke_z) = b_uv(pp,1,j,ke_xy,ke_z) - tmp * b_uv(p2,1,j,ke_xy,ke_z+1)
           b_uv(pp,2,j,ke_xy,ke_z) = b_uv(pp,2,j,ke_xy,ke_z) - tmp * b_uv(p2,2,j,ke_xy,ke_z+1)
-
-          p  = i + (j-1)*im
-          PROG_VARS(p,pv,ke_xy,ke_z,MOMX_VID) = PROG_VARS(p,pv,ke_xy,ke_z,MOMX_VID) + b_uv(pp,1,j,ke_xy,ke_z)
-          PROG_VARS(p,pv,ke_xy,ke_z,MOMY_VID) = PROG_VARS(p,pv,ke_xy,ke_z,MOMY_VID) + b_uv(pp,2,j,ke_xy,ke_z)
+        end do
+        end do
+      end do
+      end do
+    end do
+    !$omp parallel do private(ke_z,ke_xy,j,pv,i,pp,p) collapse(2)
+    do ke_z=1, lmesh%NeZ
+    do ke_xy=1, lmesh%NeX * lmesh%NeY
+      do j=1, jm
+        do pv=1, elem%Nnode_v
+        do i=1, im    
+          p = i + (pv-1)*im
+          pp = i + (j-1)*im
+          PROG_VARS(pp,pv,ke_xy,ke_z,MOMX_VID) = PROG_VARS(pp,pv,ke_xy,ke_z,MOMX_VID) + b_uv(p,1,j,ke_xy,ke_z)
+          PROG_VARS(pp,pv,ke_xy,ke_z,MOMY_VID) = PROG_VARS(pp,pv,ke_xy,ke_z,MOMY_VID) + b_uv(p,2,j,ke_xy,ke_z)
         end do
         end do
       end do
     end do
     end do
+
+    call PROF_rapend( 'hevi_cal_vi_lin_uv', 3) 
 
     return
   end subroutine atm_dyn_dgm_nonhydro3d_rhot_hevi_common_solve_uv
@@ -668,13 +692,12 @@ contains
 !OCL SERIAL  
   subroutine atm_dyn_dgm_nonhydro3d_rhot_hevi_common_construct_matbnd( &
     BndMatL, BndMatD, BndMatU,              & ! (out)
-    PROG_VARS0, DENS_hyd, PRES_hyd,         & ! (in)
-    Rtot, CPtot, CVtot,                     & ! (in)
-    alph, G13, G23, GsqrtV, nz,             & ! (in)
-    IntrpMat_VPOrdM1,                       & ! (in)
+    DENS, W, WT, POT, DPDRHOT,              & ! (in)
+    alph, GsqrtV, nz,                       & ! (in)
+    Id, fac_Dx3, fac_IntrpMat_VPOrdM1,      & ! (in)
     impl_fac, dt,                           & ! (in)
     lmesh, elem, im, jm,                    & ! (in)
-    vmapM, vmapP, ke_z                      ) ! (in)
+    ke_z                                    ) ! (in)
 
     class(LocalMesh3D), intent(in) :: lmesh
     class(ElementBase3D), intent(in) :: elem
@@ -682,37 +705,24 @@ contains
     real(RP), intent(out) :: BndMatL(im,3,elem%Nnode_v,3,jm,lmesh%Ne2D)
     real(RP), intent(out) :: BndMatD(im,3,elem%Nnode_v,3,elem%Nnode_v,jm,lmesh%Ne2D)
     real(RP), intent(out) :: BndMatU(im,3,elem%Nnode_v,3,jm,lmesh%Ne2D)
-    real(RP), intent(in)  :: PROG_VARS0(elem%Np,lmesh%Ne,PRGVAR_NUM)
-    real(RP), intent(in)  :: DENS_hyd(elem%Np,lmesh%NeA)
-    real(RP), intent(in)  :: PRES_hyd(elem%Np,lmesh%NeA)
-    real(RP), intent(in)  :: Rtot(elem%Np,lmesh%NeA)
-    real(RP), intent(in)  :: CPtot(elem%Np,lmesh%NeA)
-    real(RP), intent(in)  :: CVtot(elem%Np,lmesh%NeA)
+    real(RP), intent(in) :: DENS(im,elem%Nnode_v,jm,lmesh%Ne2D,lmesh%NeZ)
+    real(RP), intent(in) :: W(im,elem%Nnode_v,jm,lmesh%Ne2D,lmesh%NeZ)
+    real(RP), intent(in) :: WT(im,elem%Nnode_v,jm,lmesh%Ne2D,lmesh%NeZ)
+    real(RP), intent(in) :: POT(im,elem%Nnode_v,jm,lmesh%Ne2D,lmesh%NeZ)
+    real(RP), intent(in) :: DPDRHOT(im,elem%Nnode_v,jm,lmesh%Ne2D,lmesh%NeZ)
     real(RP), intent(in) :: alph(elem%NfpTot,lmesh%Ne)
-    real(RP), intent(in) ::  G13(elem%Np,lmesh%NeA)
-    real(RP), intent(in) ::  G23(elem%Np,lmesh%NeA)
     real(RP), intent(in) :: GsqrtV(elem%Np,lmesh%Ne)
     real(RP), intent(in) :: nz(elem%NfpTot,lmesh%Ne)
-    real(RP), intent(in) :: IntrpMat_VPOrdM1(elem%Np,elem%Np)
+    real(RP), intent(in) :: Id(elem%Nnode_v,elem%Nnode_v)
+    real(RP), intent(in) :: fac_Dx3(elem%Nnode_v,elem%Nnode_v)
+    real(RP), intent(in) :: fac_IntrpMat_VPOrdM1(elem%Nnode_v,elem%Nnode_v)
     real(RP), intent(in) :: impl_fac
     real(RP), intent(in) :: dt
-    integer, intent(in) :: vmapM(elem%NfpTot,lmesh%Ne)
-    integer, intent(in) :: vmapP(elem%NfpTot,lmesh%Ne)    
     integer, intent(in) :: ke_z
 
-    integer :: Colmask(elem%Nnode_v)
-    real(RP) :: Id(elem%Nnode_v,elem%Nnode_v)
-    real(RP) :: Dd(elem%Nnode_v)
-    real(RP) :: fac_dz(im,elem%Nnode_v,elem%Nnode_v,jm)
+    real(RP) :: fac_dz(im,elem%Nnode_v,elem%Nnode_v)
     real(RP) :: tmp1(im,elem%Nnode_v)
-
-    real(RP) :: RHOT_hyd
-    real(RP) :: DENS0(im,elem%Nnode_v,jm)
-    real(RP) :: POT0(im,elem%Nnode_v,jm)
-    real(RP) :: W0(im,elem%Nnode_v,jm)
-    real(RP) :: WT0(im,elem%Nnode_v,jm)
-    real(RP) :: DPDRHOT0(im,elem%Nnode_v,jm)
-    real(RP) :: CPtot_ov_CVtot
+    real(RP) :: tmp2(im,elem%Nnode_v)
 
     integer :: p, p2, pv, pv1, pv2
     integer :: fp,fp2
@@ -729,231 +739,163 @@ contains
     integer, parameter :: MOMZ_VID_LC = 2
     integer, parameter :: RHOT_VID_LC = 3
 
-    real(RP) :: gamm, rgamm
     !---------------------------------------------------------------------------
 
-    gamm = CpDry/CvDry
-    rgamm = CvDry/CpDry
+    call PROF_rapstart( 'hevi_cal_vi_matbnd', 3)
 
-    Id(:,:) = 0.0_RP
-    do p=1, elem%Nnode_v
-      Id(p,p) = 1.0_RP
-    end do
-
+    !$omp parallel private(ke2D,j,ke, pv,pv1,pv2, p,p2, fp,fp2, ke_z2,ke_2, i,ij, f1,f2, v, fac, bc_flag, &
+    !$omp fac_dz, tmp1, tmp2 )
+    !$omp do collapse(2)
     do ke2D=1, lmesh%Ne2D
+    do j=1, jm
       ke = ke2D + (ke_z-1)*lmesh%Ne2D
 
-      do j=1, jm
       do pv2=1, elem%Nnode_v
       do pv=1, elem%Nnode_v
       do i=1, im
         ij = i + (j-1)*im
-        p = ij + (pv-1)*elem%Nnode_h1D**2
-        fac_dz(i,pv,pv2,j) = impl_fac * lmesh%Escale(p,ke,3,3) / GsqrtV(p,ke) &
-                           * elem%Dx3(p,elem%Colmask(pv2,ij))
-      end do
-      end do
-      end do
-      end do
-      do j=1, jm
-      do pv=1, elem%Nnode_v
-      do i=1, im
-        p = i + (j-1)*im + (pv-1)*im*jm
-        RHOT_hyd = PRES00/Rdry * ( PRES_hyd(p,ke)/PRES00 )**rgamm
-        DENS0(i,pv,j) = DENS_hyd(p,ke) + PROG_VARS0(p,ke,DENS_VID)
-        POT0(i,pv,j) = ( RHOT_hyd + PROG_VARS0(p,ke,RHOT_VID) ) / DENS0(i,pv,j)
-        W0(i,pv,j) = PROG_VARS0(p,ke,MOMZ_VID) / DENS0(i,pv,j)
-      end do
-      end do
-      end do
-      do j=1, jm
-      do pv=1, elem%Nnode_v
-      do i=1, im
-        p = i + (j-1)*im + (pv-1)*im*jm
-        WT0(i,pv,j) = W0(i,pv,j) + GsqrtV(p,ke) * ( &
-              G13(p,ke) * PROG_VARS0(p,ke,MOMX_VID) &
-            + G23(p,ke) * PROG_VARS0(p,ke,MOMY_VID) ) / DENS0(i,pv,j)
-      end do
-      end do
-      end do
-      do j=1, jm
-      do pv=1, elem%Nnode_v
-      do i=1, im
-        p = i + (j-1)*im + (pv-1)*im*jm
-        CPtot_ov_CVtot = CPtot(p,ke) / CVtot(p,ke)
-        DPDRHOT0(i,pv,j) = CPtot_ov_CVtot &
-                         * PRES00 * ( Rtot(p,ke) / PRES00 * ( DENS0(i,pv,j) * POT0(i,pv,j) ) )**CPtot_ov_CVtot &
-                         / ( DENS0(i,pv,j) * POT0(i,pv,j) )
+        p = ij + (pv-1)*im*jm
+        fac_dz(i,pv,pv2) = lmesh%Escale(p,ke,3,3) / GsqrtV(p,ke) * fac_Dx3(pv,pv2)
       end do
       end do
       end do
 
-      do j=1, jm
-        do pv2=1, elem%Nnode_v
+      do pv2=1, elem%Nnode_v
+      do pv=1, elem%Nnode_v
+      do i=1, im
+        ! DDENS
+        BndMatD(i,DENS_VID_LC,pv,DENS_VID_LC,pv2,j,ke2D) = Id(pv,pv2)
+        BndMatD(i,DENS_VID_LC,pv,MOMZ_VID_LC,pv2,j,ke2D) = fac_dz(i,pv,pv2)
+        BndMatD(i,DENS_VID_LC,pv,RHOT_VID_LC,pv2,j,ke2D) = 0.0_RP
+
+        ! MOMZ
+        BndMatD(i,MOMZ_VID_LC,pv,MOMZ_VID_LC,pv2,j,ke2D) = Id(pv,pv2) ! &
+                                          !+ fac_dz_p(i,pv,pv2,j) * 2.0_RP * W0(i,pv2,j)  [ <- d_MOMZ ( MOMZ x MOMZ / DENS ) ]
+        BndMatD(i,MOMZ_VID_LC,pv,DENS_VID_LC,pv2,j,ke2D) = fac_IntrpMat_VPOrdM1(pv,pv2) ! &
+                                          !- fac_dz_p(i,pv,pv2,j) * W0(i,pv2,j)**2        [ <- d_DENS ( MOMZ x MOMZ / DENS ) ]
+        BndMatD(i,MOMZ_VID_LC,pv,RHOT_VID_LC,pv2,j,ke2D) = fac_dz(i,pv,pv2) * DPDRHOT(i,pv2,j,ke2D,ke_z)
+
+        ! DRHOT
+        BndMatD(i,RHOT_VID_LC,pv,DENS_VID_LC,pv2,j,ke2D) = - fac_dz(i,pv,pv2) * POT(i,pv2,j,ke2D,ke_z) * WT(i,pv2,j,ke2D,ke_z)
+        BndMatD(i,RHOT_VID_LC,pv,MOMZ_VID_LC,pv2,j,ke2D) =   fac_dz(i,pv,pv2) * POT(i,pv2,j,ke2D,ke_z)
+        BndMatD(i,RHOT_VID_LC,pv,RHOT_VID_LC,pv2,j,ke2D) = Id(pv,pv2) + fac_dz(i,pv,pv2) * WT(i,pv2,j,ke2D,ke_z)
+      end do
+      end do
+      end do
+
+      do f1=1, 2
+        if (f1==1) then
+          ke_z2 = max(ke_z-1,1)
+          pv1 = 1; pv2 = elem%Nnode_v; f2 = 2
+        else
+          ke_z2 = min(ke_z+1,lmesh%NeZ)
+          pv1 = elem%Nnode_v; pv2 = 1; f2 = 1
+        end if
+        ke_2 = ke2D + (ke_z2-1)*lmesh%Ne2D
+
+        if ( (ke_z == 1 .and. f1==1) .or. (ke_z == lmesh%NeZ .and. f1==elem%Nfaces_v) ) then
+          bc_flag = .true.
+          pv2 = pv1; f2 = f1
+        else 
+          bc_flag = .false.    
+        end if
+
         do pv=1, elem%Nnode_v
         do i=1, im
           ij = i + (j-1)*im
-          p  = ij + (pv -1)*elem%Nnode_h1D**2
-          p2 = ij + (pv2-1)*elem%Nnode_h1D**2
-
-          ! DDENS
-          BndMatD(i,DENS_VID_LC,pv,DENS_VID_LC,pv2,j,ke2D) = Id(pv,pv2)
-          BndMatD(i,DENS_VID_LC,pv,MOMZ_VID_LC,pv2,j,ke2D) = fac_dz(i,pv,pv2,j)
-
-          ! MOMZ
-          BndMatD(i,MOMZ_VID_LC,pv,MOMZ_VID_LC,pv2,j,ke2D) = Id(pv,pv2) ! &
-                                            !+ fac_dz_p(i,pv,pv2,j) * 2.0_RP * W0(i,pv2,j)  [ <- d_MOMZ ( MOMZ x MOMZ / DENS ) ]
-          BndMatD(i,MOMZ_VID_LC,pv,DENS_VID_LC,pv2,j,ke2D) = impl_fac * Grav * IntrpMat_VPOrdM1(p,elem%Colmask(pv2,ij)) ! &
-                                            !- fac_dz_p(i,pv,pv2,j) * W0(i,pv2,j)**2        [ <- d_DENS ( MOMZ x MOMZ / DENS ) ]
-          BndMatD(i,MOMZ_VID_LC,pv,RHOT_VID_LC,pv2,j,ke2D) = fac_dz(i,pv,pv2,j) * DPDRHOT0(i,pv2,j)
-
-          ! DRHOT
-          BndMatD(i,RHOT_VID_LC,pv,DENS_VID_LC,pv2,j,ke2D) = - fac_dz(i,pv,pv2,j) * POT0(i,pv2,j) * WT0(i,pv2,j)
-          BndMatD(i,RHOT_VID_LC,pv,MOMZ_VID_LC,pv2,j,ke2D) =   fac_dz(i,pv,pv2,j) * POT0(i,pv2,j)
-          BndMatD(i,RHOT_VID_LC,pv,RHOT_VID_LC,pv2,j,ke2D) = Id(pv,pv2) + fac_dz(i,pv,pv2,j) * WT0(i,pv2,j)
-        end do
-        end do
-        end do
-        do v=1, 3
-          BndMatL(:,:,:,v,j,ke2D) = 0.0_RP
-          BndMatU(:,:,:,v,j,ke2D) = 0.0_RP
-        end do
-        do f1=1, 2
-          if (f1==1) then
-            ke_z2 = max(ke_z-1,1)
-            pv1 = 1; f2 = 2
-          else
-            ke_z2 = min(ke_z+1,lmesh%NeZ)
-            pv1 = elem%Nnode_v; f2 = 1
-          end if
-          ke_2 = ke2D + (ke_z2-1)*lmesh%Ne2D
-
-          if ( (ke_z == 1 .and. f1==1) .or. (ke_z == lmesh%NeZ .and. f1==elem%Nfaces_v) ) then
-            bc_flag = .true.
-            f2 = f1
-          else 
-            bc_flag = .false.    
-          end if
-
-          do pv=1, elem%Nnode_v
-          do i=1, im
-            ij = i + (j-1)*im
-            fp  = elem%Nfp_h * elem%Nfaces_h + (f1-1)*elem%Nfp_v + ij
-            fp2 = elem%Nfp_h * elem%Nfaces_h + (f2-1)*elem%Nfp_v + ij
-            p = ij + (pv-1)*im*jm
-
-            !--
-            fac  = 0.5_RP * impl_fac / GsqrtV(p,ke)
-            tmp1(i,pv) = fac * elem%Lift(p,fp) * lmesh%Fscale(fp,ke) &
-                * max( alph(fp,ke), alph(fp2,ke_2) )
-          end do
-          end do
-
-          if (bc_flag) then
-            do pv=1, elem%Nnode_v
-            do i=1, im
-              BndMatD(i,MOMZ_VID_LC,pv,MOMZ_VID_LC,pv1,j,ke2D) = BndMatD(i,MOMZ_VID_LC,pv,MOMZ_VID_LC,pv1,j,ke2D) + 2.0_RP * tmp1(i,pv)
-            end do
-            end do
-          else
-            do v=1, 3
-            do pv=1, elem%Nnode_v
-            do i=1, im
-              BndMatD(i,v,pv,v,pv1,j,ke2D) = BndMatD(i,v,pv,v,pv1,j,ke2D) + tmp1(i,pv)
-            end do
-            end do
-            end do
-            if (f1 == 1) then
-              do v=1, 3
-              do pv=1, elem%Nnode_v
-              do i=1, im
-                BndMatL(i,v,pv,v,j,ke2D) = - tmp1(i,pv)
-              end do
-              end do
-              end do
-            else
-              do v=1, 3
-              do pv=1, elem%Nnode_v
-              do i=1, im
-                BndMatU(i,v,pv,v,j,ke2D) = - tmp1(i,pv)
-              end do
-              end do
-              end do
-            end if
-          end if
+          fp  = elem%Nfp_h * elem%Nfaces_h + (f1-1)*elem%Nfp_v + ij
+          fp2 = elem%Nfp_h * elem%Nfaces_h + (f2-1)*elem%Nfp_v + ij
+          p = ij + (pv-1)*im*jm
 
           !--
+          fac  = 0.5_RP * impl_fac / GsqrtV(p,ke) * elem%Lift(p,fp) * lmesh%Fscale(fp,ke)
+          tmp1(i,pv) = fac * max( alph(fp,ke), alph(fp2,ke_2) )
+          tmp2(i,pv) = fac * nz(fp,ke)
+        end do
+        end do
+
+        !--
+
+        if ( bc_flag ) then
           do pv=1, elem%Nnode_v
           do i=1, im
-            ij = i + (j-1)*im
-            fp  = elem%Nfp_h * elem%Nfaces_h + (f1-1)*elem%Nfp_v + ij
-            p = ij + (pv-1)*im*jm
-            !--
-            fac  = 0.5_RP * impl_fac / GsqrtV(p,ke)
-            tmp1(i,pv) = fac * elem%Lift(p,fp) * lmesh%Fscale(fp,ke) * nz(fp,ke)
+           ! d ( Eqs. ) / d DENS
+            BndMatD(i,RHOT_VID_LC,pv,DENS_VID_LC,pv1,j,ke2D) = BndMatD(i,RHOT_VID_LC,pv,DENS_VID_LC,pv1,j,ke2D) + 2.0_RP * tmp2(i,pv) * POT(i,pv1,j,ke2D,ke_z) * WT(i,pv1,j,ke2D,ke_z)
+
+           ! d ( Eqs. ) / d MOMZ            
+            BndMatD(i,DENS_VID_LC,pv,MOMZ_VID_LC,pv1,j,ke2D) = BndMatD(i,DENS_VID_LC,pv,MOMZ_VID_LC,pv1,j,ke2D) - 2.0_RP * tmp2(i,pv)
+            BndMatD(i,MOMZ_VID_LC,pv,MOMZ_VID_LC,pv1,j,ke2D) = BndMatD(i,MOMZ_VID_LC,pv,MOMZ_VID_LC,pv1,j,ke2D) + 2.0_RP * tmp1(i,pv)
+            BndMatD(i,RHOT_VID_LC,pv,MOMZ_VID_LC,pv1,j,ke2D) = BndMatD(i,RHOT_VID_LC,pv,MOMZ_VID_LC,pv1,j,ke2D) - 2.0_RP * tmp2(i,pv) * POT(i,pv1,j,ke2D,ke_z)
+
+           ! d ( Eqs. ) / d RHOT
+            BndMatD(i,RHOT_VID_LC,pv,RHOT_VID_LC,pv1,j,ke2D) = BndMatD(i,RHOT_VID_LC,pv,RHOT_VID_LC,pv1,j,ke2D) - 2.0_RP * tmp2(i,pv) * WT(i,pv1,j,ke2D,ke_z)
+
           end do
           end do
-          if ( bc_flag ) then
+        else
+          do pv=1, elem%Nnode_v
+          do i=1, im
+            ! d ( Eqs. ) / d DENS
+            BndMatD(i,DENS_VID_LC,pv,DENS_VID_LC,pv1,j,ke2D) = BndMatD(i,DENS_VID_LC,pv,DENS_VID_LC,pv1,j,ke2D) + tmp1(i,pv)
+            BndMatD(i,RHOT_VID_LC,pv,DENS_VID_LC,pv1,j,ke2D) = BndMatD(i,RHOT_VID_LC,pv,DENS_VID_LC,pv1,j,ke2D) + tmp2(i,pv) * POT(i,pv1,j,ke2D,ke_z) * WT(i,pv1,j,ke2D,ke_z)
+
+            ! d ( Eqs. ) / d MOMZ
+            BndMatD(i,DENS_VID_LC,pv,MOMZ_VID_LC,pv1,j,ke2D) = BndMatD(i,DENS_VID_LC,pv,MOMZ_VID_LC,pv1,j,ke2D) - tmp2(i,pv)
+            BndMatD(i,MOMZ_VID_LC,pv,MOMZ_VID_LC,pv1,j,ke2D) = BndMatD(i,MOMZ_VID_LC,pv,MOMZ_VID_LC,pv1,j,ke2D) + tmp1(i,pv)
+            BndMatD(i,RHOT_VID_LC,pv,MOMZ_VID_LC,pv1,j,ke2D) = BndMatD(i,RHOT_VID_LC,pv,MOMZ_VID_LC,pv1,j,ke2D) - tmp2(i,pv) * POT(i,pv1,j,ke2D,ke_z)
+
+            ! d ( Eqs. ) / d RHOT
+            BndMatD(i,MOMZ_VID_LC,pv,RHOT_VID_LC,pv1,j,ke2D) = BndMatD(i,MOMZ_VID_LC,pv,RHOT_VID_LC,pv1,j,ke2D) - tmp2(i,pv) * DPDRHOT(i,pv1,j,ke2D,ke_z)
+            BndMatD(i,RHOT_VID_LC,pv,RHOT_VID_LC,pv1,j,ke2D) = BndMatD(i,RHOT_VID_LC,pv,RHOT_VID_LC,pv1,j,ke2D) + tmp1(i,pv) &
+                                                                                                                - tmp2(i,pv) * WT(i,pv1,j,ke2D,ke_z)
+          end do
+          end do
+          if ( f1 == 1 ) then
             do pv=1, elem%Nnode_v
             do i=1, im
-              ij = i + (j-1)*im
-              p  = ij + (pv -1)*im*jm
-              BndMatD(i,DENS_VID_LC,pv,MOMZ_VID_LC,pv1,j,ke2D) = BndMatD(i,DENS_VID_LC,pv,MOMZ_VID_LC,pv1,j,ke2D) - 2.0_RP * tmp1(i,pv)
-              BndMatD(i,RHOT_VID_LC,pv,MOMZ_VID_LC,pv1,j,ke2D) = BndMatD(i,RHOT_VID_LC,pv,MOMZ_VID_LC,pv1,j,ke2D) - 2.0_RP * tmp1(i,pv) * POT0(i,pv1,j)
-              BndMatD(i,RHOT_VID_LC,pv,DENS_VID_LC,pv1,j,ke2D) = BndMatD(i,RHOT_VID_LC,pv,DENS_VID_LC,pv1,j,ke2D) + 2.0_RP * tmp1(i,pv) * POT0(i,pv1,j) * WT0(i,pv1,j)
-              BndMatD(i,RHOT_VID_LC,pv,RHOT_VID_LC,pv1,j,ke2D) = BndMatD(i,RHOT_VID_LC,pv,RHOT_VID_LC,pv1,j,ke2D) - 2.0_RP * tmp1(i,pv) * WT0(i,pv1,j)
+              ! d ( Eqs. ) / d DENS
+              BndMatL(i,DENS_VID_LC,pv,DENS_VID_LC,j,ke2D) = - tmp1(i,pv)
+              BndMatL(i,MOMZ_VID_LC,pv,DENS_VID_LC,j,ke2D) = 0.0_RP
+              BndMatL(i,RHOT_VID_LC,pv,DENS_VID_LC,j,ke2D) = - tmp2(i,pv) * POT(i,pv2,j,ke2D,ke_z2) * WT(i,pv2,j,ke2D,ke_z2)
+              ! d ( Eqs. ) / d MOMZ
+              BndMatL(i,DENS_VID_LC,pv,MOMZ_VID_LC,j,ke2D) = + tmp2(i,pv)
+              BndMatL(i,MOMZ_VID_LC,pv,MOMZ_VID_LC,j,ke2D) = - tmp1(i,pv)            
+              BndMatL(i,RHOT_VID_LC,pv,MOMZ_VID_LC,j,ke2D) = + tmp2(i,pv) * POT(i,pv2,j,ke2D,ke_z2)
+              ! d ( Eqs. ) / d RHOT
+              BndMatL(i,DENS_VID_LC,pv,RHOT_VID_LC,j,ke2D) = 0.0_RP  
+              BndMatL(i,MOMZ_VID_LC,pv,RHOT_VID_LC,j,ke2D) = + tmp2(i,pv) * DPDRHOT(i,pv2,j,ke2D,ke_z2)
+              BndMatL(i,RHOT_VID_LC,pv,RHOT_VID_LC,j,ke2D) = - tmp1(i,pv) &
+                                                             + tmp2(i,pv) * WT(i,pv2,j,ke2D,ke_z2)
             end do
-            end do
+            end do            
           else
             do pv=1, elem%Nnode_v
             do i=1, im
-              ij = i + (j-1)*im
-              p  = ij + (pv -1)*im*jm
-              BndMatD(i,DENS_VID_LC,pv,MOMZ_VID_LC,pv1,j,ke2D) = BndMatD(i,DENS_VID_LC,pv,MOMZ_VID_LC,pv1,j,ke2D) - tmp1(i,pv)
-
-              BndMatD(i,MOMZ_VID_LC,pv,RHOT_VID_LC,pv1,j,ke2D) = BndMatD(i,MOMZ_VID_LC,pv,RHOT_VID_LC,pv1,j,ke2D) - tmp1(i,pv) * DPDRHOT0(i,pv1,j)
-
-              BndMatD(i,RHOT_VID_LC,pv,MOMZ_VID_LC,pv1,j,ke2D) = BndMatD(i,RHOT_VID_LC,pv,MOMZ_VID_LC,pv1,j,ke2D) - tmp1(i,pv) * POT0(i,pv1,j)
-              BndMatD(i,RHOT_VID_LC,pv,DENS_VID_LC,pv1,j,ke2D) = BndMatD(i,RHOT_VID_LC,pv,DENS_VID_LC,pv1,j,ke2D) + tmp1(i,pv) * POT0(i,pv1,j) * WT0(i,pv1,j)
-              BndMatD(i,RHOT_VID_LC,pv,RHOT_VID_LC,pv1,j,ke2D) = BndMatD(i,RHOT_VID_LC,pv,RHOT_VID_LC,pv1,j,ke2D) - tmp1(i,pv) * WT0(i,pv1,j)
+              ! d ( Eqs. ) / d DENS
+              BndMatU(i,DENS_VID_LC,pv,DENS_VID_LC,j,ke2D) = - tmp1(i,pv)
+              BndMatU(i,MOMZ_VID_LC,pv,DENS_VID_LC,j,ke2D) = 0.0_RP
+              BndMatU(i,RHOT_VID_LC,pv,DENS_VID_LC,j,ke2D) = - tmp2(i,pv) * POT(i,pv2,j,ke2D,ke_z2) * WT(i,pv2,j,ke2D,ke_z2)
+              ! d ( Eqs. ) / d MOMZ
+              BndMatU(i,DENS_VID_LC,pv,MOMZ_VID_LC,j,ke2D) = + tmp2(i,pv)
+              BndMatU(i,MOMZ_VID_LC,pv,MOMZ_VID_LC,j,ke2D) = - tmp1(i,pv)            
+              BndMatU(i,RHOT_VID_LC,pv,MOMZ_VID_LC,j,ke2D) = + tmp2(i,pv) * POT(i,pv2,j,ke2D,ke_z2)
+              ! d ( Eqs. ) / d RHOT
+              BndMatU(i,DENS_VID_LC,pv,RHOT_VID_LC,j,ke2D) = 0.0_RP  
+              BndMatU(i,MOMZ_VID_LC,pv,RHOT_VID_LC,j,ke2D) = + tmp2(i,pv) * DPDRHOT(i,pv2,j,ke2D,ke_z2)
+              BndMatU(i,RHOT_VID_LC,pv,RHOT_VID_LC,j,ke2D) = - tmp1(i,pv) &
+                                                             + tmp2(i,pv) * WT(i,pv2,j,ke2D,ke_z2)
             end do
-            end do
-            if ( f1 == 1 ) then
-              do pv=1, elem%Nnode_v
-              do i=1, im
-                ij = i + (j-1)*im
-                p  = ij + (pv -1)*im*jm
-                BndMatL(i,DENS_VID_LC,pv,MOMZ_VID_LC,j,ke2D) = + tmp1(i,pv)
-    
-                BndMatL(i,MOMZ_VID_LC,pv,RHOT_VID_LC,j,ke2D) = + tmp1(i,pv) * DPDRHOT0(i,pv1,j)
-    
-                BndMatL(i,RHOT_VID_LC,pv,MOMZ_VID_LC,j,ke2D) = + tmp1(i,pv) * POT0(i,pv1,j)
-                BndMatL(i,RHOT_VID_LC,pv,DENS_VID_LC,j,ke2D) = - tmp1(i,pv) * POT0(i,pv1,j) * WT0(i,pv1,j)
-                BndMatL(i,RHOT_VID_LC,pv,RHOT_VID_LC,j,ke2D) = BndMatL(i,RHOT_VID_LC,pv,RHOT_VID_LC,j,ke2D) &
-                                                             + tmp1(i,pv) * WT0(i,pv1,j)
-              end do
-              end do            
-            else
-              do pv=1, elem%Nnode_v
-              do i=1, im
-                ij = i + (j-1)*im
-                p  = ij + (pv -1)*im*jm
-                BndMatU(i,DENS_VID_LC,pv,MOMZ_VID_LC,j,ke2D) = + tmp1(i,pv)
-    
-                BndMatU(i,MOMZ_VID_LC,pv,RHOT_VID_LC,j,ke2D) = + tmp1(i,pv) * DPDRHOT0(i,pv1,j)
-    
-                BndMatU(i,RHOT_VID_LC,pv,MOMZ_VID_LC,j,ke2D) = + tmp1(i,pv) * POT0(i,pv1,j)
-                BndMatU(i,RHOT_VID_LC,pv,DENS_VID_LC,j,ke2D) = - tmp1(i,pv) * POT0(i,pv1,j) * WT0(i,pv1,j)
-                BndMatU(i,RHOT_VID_LC,pv,RHOT_VID_LC,j,ke2D) = BndMatU(i,RHOT_VID_LC,pv,RHOT_VID_LC,j,ke2D) &
-                                                             + tmp1(i,pv) * WT0(i,pv1,j)
-              end do
-              end do            
-            end if   
-          end if
+            end do            
+          end if   
+        end if
 
-        end do ! end do for f
-      end do ! end for j
+      end do ! end do for f
+    end do ! end for j
     end do ! end do for ke2D
+    !$omp end do
+    !$omp end parallel
+
+    call PROF_rapend( 'hevi_cal_vi_matbnd', 3)
 
     return
   end subroutine atm_dyn_dgm_nonhydro3d_rhot_hevi_common_construct_matbnd
@@ -996,11 +938,15 @@ contains
     logical :: bc_flag
     !---------------------------------------------------------------------------
 
+    call PROF_rapstart( 'hevi_cal_vi_matbnd_uv', 3)
+
     Id(:,:) = 0.0_RP
     do p=1, elem%Nnode_v
       Id(p,p) = 1.0_RP
     end do
 
+    !$omp parallel private(ke2D,j,ke, pv2,pv,i, f1, ke_z2, pv1,f2, bc_flag, ij,fp,fp2,p, fac,tmp1) 
+    !$omp do collapse(2)
     do ke2D=1, lmesh%Ne2D
     do j=1, jm
       ke = ke2D + (ke_z-1)*lmesh%Ne2D
@@ -1012,8 +958,6 @@ contains
       end do
       end do
       end do
-      BndMatL_uv(:,:,j,ke2D) = 0.0_RP
-      BndMatU_uv(:,:,j,ke2D) = 0.0_RP
 
       do f1=1, 2
         if (f1==1) then
@@ -1059,6 +1003,9 @@ contains
 
     end do ! end do for j
     end do ! end do for ke2D
+    !$omp end do
+    !$omp end parallel
+    call PROF_rapend( 'hevi_cal_vi_matbnd_uv', 3)
 
     return
   end subroutine atm_dyn_dgm_nonhydro3d_rhot_hevi_common_construct_matbnd_uv
@@ -1347,12 +1294,13 @@ contains
       if ( ke_z == 1 .or. ke_z == lmesh%NeZ) then
         do fp=1, elem%NfpTot
           if ( iM(fp) == iP(fp) ) then
-            MOMZ(fp,EX) = - PVARS_(fp,MOMZ_VID) &
-                          - 2.0_RP * GsqrtV_(fp,IN) * (  G13_(fp,IN) * PVARS_(fp,MOMX_VID) &
-                                                       + G23_(fp,IN) * PVARS_(fp,MOMY_VID) )          
+            MOMZ(fp,EX) = - MOMZ(fp,IN) &
+                          - 2.0_RP * GsqrtV_(fp,IN) * (  G13_(fp,IN) * PVARS_(iM(fp),MOMX_VID) &
+                                                       + G23_(fp,IN) * PVARS_(iM(fp),MOMY_VID) )          
             MOMW(fp,EX) = - MOMW(fp,IN)
           end if
         end do
+      else
       end if
 
       do fp=1, elem%NfpTot
