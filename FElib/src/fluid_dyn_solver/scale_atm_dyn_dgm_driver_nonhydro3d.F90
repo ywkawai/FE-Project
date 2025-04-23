@@ -76,6 +76,8 @@ module scale_atm_dyn_dgm_driver_nonhydro3d
   use scale_atm_dyn_dgm_nonhydro3d_rhot_hevi, only: &
     atm_dyn_dgm_nonhydro3d_rhot_hevi_Init,          &
     atm_dyn_dgm_nonhydro3d_rhot_hevi_Final,         &
+    atm_dyn_dgm_nonhydro3d_rhot_hevi_cal_tend_asis, &
+    atm_dyn_dgm_nonhydro3d_rhot_hevi_cal_vi_asis,   &
     atm_dyn_dgm_nonhydro3d_rhot_hevi_cal_tend,      &
     atm_dyn_dgm_nonhydro3d_rhot_hevi_cal_vi
 
@@ -428,6 +430,13 @@ contains
       this%cal_vi => null()
       this%dynsolver_final => atm_dyn_dgm_nonhydro3d_rhot_heve_splitform_Final
     !-- HEVI ------------------
+    case("NONHYDRO3D_HEVI_ASIS", "NONHYDRO3D_RHOT_HEVI_ASIS") 
+      this%EQS_TYPEID = EQS_TYPEID_NONHYD3D_HEVI
+      call atm_dyn_dgm_nonhydro3d_rhot_hevi_Init( mesh3D )
+      this%cal_tend_ex => atm_dyn_dgm_nonhydro3d_rhot_hevi_cal_tend_asis
+      this%cal_vi => atm_dyn_dgm_nonhydro3d_rhot_hevi_cal_vi_asis
+      this%dynsolver_final => atm_dyn_dgm_nonhydro3d_rhot_hevi_Final
+      this%hevi_flag = .true.
     case("NONHYDRO3D_HEVI", "NONHYDRO3D_RHOT_HEVI") 
       this%EQS_TYPEID = EQS_TYPEID_NONHYD3D_HEVI
       call atm_dyn_dgm_nonhydro3d_rhot_hevi_Init( mesh3D )
