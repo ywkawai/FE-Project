@@ -199,8 +199,8 @@ contains
 
     !--
     if ( this%call_wait_flag_sub_get ) then
-      call post_exchange_core( this )
       call MeshFieldCommBase_wait_core( this, this%commdata_list )
+      call post_exchange_core( this )
     end if
 
     !--
