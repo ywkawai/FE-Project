@@ -6,7 +6,7 @@
 !!      The governing equations is a fully compressible nonhydrostatic equations, 
 !!      which consist of mass, momentum, and thermodynamics (density * potential temperature conservation) equations. 
 !!
-!! @author Yuta Kawai, Team SCALE
+!! @author Yuta Kawai, Xuanzhengbo Ren, and Team SCALE
 !<
 !-------------------------------------------------------------------------------
 #include "scaleFElib.h"
@@ -388,7 +388,7 @@ contains
     real(RP) :: s
 
     integer :: ke, ke2d
-    integer :: p, p12, p3
+    integer :: p
 
     real(RP) :: gamm, rgamm    
     real(RP) :: rP0

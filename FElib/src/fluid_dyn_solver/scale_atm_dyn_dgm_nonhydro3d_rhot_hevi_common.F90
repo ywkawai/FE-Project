@@ -314,13 +314,9 @@ contains
     integer :: v
     integer :: ij
     integer :: ColMask(elem%Nnode_v)
-    real(RP) :: rdt
     
     integer :: kk, kkk, p, pp
-    real(RP) :: vmf_v
     !--------------------------------------------------------
-
-    rdt = 1.0_RP / dt
 
     call vi_cal_del_flux_dyn_uv( del_flux, alph,   & ! (out)
       PROG_VARS, PROG_VARS0,                       & ! (in)
@@ -331,7 +327,7 @@ contains
 
     !$omp parallel private( ke_xy, ke_z, ke, ij, v,  &
     !$omp Fz, LiftDelFlx, Fscale, RGsqrtV, ColMask,  &
-    !$omp kk, p, kkk, vmf_v, pp                      )
+    !$omp kk, p, kkk, pp                             )
 
     !$omp do collapse(2)
     do ke_xy=1, lmesh%NeX*lmesh%NeY

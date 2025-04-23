@@ -6,9 +6,12 @@ program test_linalgebra
   implicit none
 
   real(RP), allocatable :: A(:,:)
+  real(RP), allocatable :: A_batch(:,:,:)
   real(RP), allocatable :: A_bnd(:,:)
   real(RP), allocatable :: B(:)
+  real(RP), allocatable :: B_batch(:,:)
   real(RP), allocatable :: X_ans(:)
+  real(RP), allocatable :: X_batch_ans(:,:)
   integer, allocatable :: ipiv_ans(:)
   integer :: N
   integer :: KL, KU
@@ -71,6 +74,29 @@ contains
     allocate( ipiv_ans(N) )
     ipiv_ans(:) = (/ 2, 3, 3, 4 /)
 
+    !---------------------------
+    allocate( A_batch(3,N,N), B_batch(3,N) )
+    allocate( X_batch_ans(3,N) )
+
+    A_batch(1,:,:) = A(:,:)
+    B_batch(1,:) = B(:)
+
+    A_batch(2,1,:) = (/ 2.0_RP, 1.0_RP, 3.0_RP, 4.0_RP /)
+    A_batch(2,2,:) = (/ 1.0_RP, 2.0_RP, 1.0_RP, 3.0_RP /)
+    A_batch(2,3,:) = (/ 3.0_RP, 1.0_RP, 2.0_RP, 1.0_RP /)
+    A_batch(2,4,:) = (/ 4.0_RP, 3.0_RP, 2.0_RP, 1.0_RP /)
+    B_batch(2,:) = (/ 29.0_RP, 20.0_RP, 15.0_RP, 20.0_RP /)
+
+    A_batch(3,1,:) = (/ 1.0_RP, 2.0_RP, 3.0_RP, 4.0_RP /)
+    A_batch(3,2,:) = (/ 0.0_RP, 1.0_RP, 0.0_RP, 2.0_RP /)
+    A_batch(3,3,:) = (/ 3.0_RP, 0.0_RP, 2.0_RP, 1.0_RP /)
+    A_batch(3,4,:) = (/ 1.0_RP, 1.0_RP, 1.0_RP, 1.0_RP /)
+    B_batch(3,:) = (/ 13.0_RP, 1.0_RP, 12.0_RP, 6.0_RP /)
+
+    X_batch_ans(1,:) = X_ans(:)
+    X_batch_ans(2,:) = (/ 1.0_RP, 2.0_RP, 3.0_RP, 4.0_RP /)
+    X_batch_ans(3,:) = (/ 2.0_RP, 1.0_RP, 3.0_RP, 0.0_RP /)
+
     return
   end subroutine init
 
@@ -112,16 +138,21 @@ contains
     return
   end subroutine test_SolveLinEq_bndmat
 
-  subroutine check_ans( x, lbl )
+  subroutine check_ans( x, lbl, x_ans_ )
     implicit none
     real(RP), intent(in) :: x(N)
     character(len=*), intent(in) :: lbl
+    real(RP), intent(in), optional :: x_ans_(N)
 
     real(RP) :: l2error
     real(RP), parameter :: EPS = 4.0E-15_RP
     !----------------------------------------------
 
-    l2error = sqrt( sum( (x(:) - X_ans)**2 ) ) / real(N, kind=RP)
+    if ( present(x_ans_) ) then
+      l2error = sqrt( sum( (x(:) - X_ans_)**2 ) ) / real(N, kind=RP)
+    else
+      l2error = sqrt( sum( (x(:) - X_ans)**2 ) ) / real(N, kind=RP)
+    end if
     write(*,*) "* ", lbl, ": x=", x(:)
     write(*,*) "l2error=", l2error
 
