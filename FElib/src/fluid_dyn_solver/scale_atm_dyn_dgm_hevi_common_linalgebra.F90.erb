@@ -8,13 +8,13 @@
 !> module FElib / Fluid dyn solver / Atmosphere / HEVI / Common
 !!
 !! @par Description
-!!      Computational kernels associated with linear algebra for vertical implicit solver
+!!      Computational kernels associated with linear algebra for vertical implicit solvers
 !!
-!! @author Yuta Kawai, Team SCALE
+!! @author Yuta Kawai, Xuanzhengbo Ren, and Team SCALE
 !<
 !-------------------------------------------------------------------------------
 #include "scaleFElib.h"
-module scale_atm_dyn_dgm_hevi_common_linalgebra_2
+module scale_atm_dyn_dgm_hevi_common_linalgebra
   !-----------------------------------------------------------------------------
   !
   !++ Used modules
@@ -732,4 +732,4 @@ contains
     return
   end subroutine solve_var3_im  
 
-end module scale_atm_dyn_dgm_hevi_common_linalgebra_2
+end module scale_atm_dyn_dgm_hevi_common_linalgebra
