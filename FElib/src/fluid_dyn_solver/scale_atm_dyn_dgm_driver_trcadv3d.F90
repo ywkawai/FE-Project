@@ -295,7 +295,7 @@ contains
         refElem3D => refElem
       end select
 
-      call setup_modalfilter( this, refElem3D )
+      call setup_modalfilter( this, refElem3D, model_mesh3D%element3D_operation )
     end if
 
     return
@@ -710,12 +710,13 @@ contains
 
   !-- Setup modal filter
 !OCL SERIAL
-  subroutine setup_modalfilter( this, refElem3D )
+  subroutine setup_modalfilter( this, refElem3D, element_operation )
     use scale_element_line, only: LineElement
     implicit none
 
     class(AtmDynDGMDriver_trcadv3d), target, intent(inout) :: this
     class(HexahedralElement), target, intent(in) :: refElem3D
+    class(ElementOperationBase3D), intent(inout) :: element_operation
 
     real(RP) :: MF_ETAC_h  = 2.0_RP/3.0_RP
     real(RP) :: MF_ALPHA_h = 36.0_RP
@@ -748,6 +749,10 @@ contains
         refElem3D,                           & ! (in)
         MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h,   & ! (in)
         MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v    ) ! (in)
+
+    call element_operation%Setup_ModalFilter_tracer( &
+      MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h,   & ! (in)
+      MF_ETAC_v, MF_ALPHA_v, MF_ORDER_v    ) ! (in)
 
     return
   end subroutine setup_modalfilter
