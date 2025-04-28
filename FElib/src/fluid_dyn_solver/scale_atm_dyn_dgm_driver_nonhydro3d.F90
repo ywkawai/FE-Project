@@ -817,7 +817,8 @@ contains
             DPRES%local(n)%val, DENS_hyd%local(n)%val, PRES_hyd%local(n)%val,               & ! (in)
             Rtot%local(n)%val, CVtot%local(n)%val, CPtot%local(n)%val,                      & ! (in)
             lcmesh3D, lcmesh3D%refElem3D,                                                   & ! (in)
-            rkstage, this%tint(n)%coef_b_ex(rkstage), tavg_coef_MFLXZ(rkstage)              ) ! (in)
+            rkstage, this%tint(n)%coef_b_ex(rkstage), tavg_coef_MFLXZ(rkstage),             & ! (in)
+            this%hevi_flag                                                                  ) ! (in)
           call PROF_rapend( 'ATM_DYN_tavg_mflx', 2)
         end if
         

@@ -169,8 +169,8 @@ contains
 
         !$omp parallel do
         do ke=lcmesh%NeS, lcmesh%NeE
-          vars%PHY_TEND(RHOT_p)%local(n)%val(:,ke) = RHOT_tp_BL%local(n)%val(:,ke)
-          RHOQv_tp%val(:,ke) =  RHOQ_tp_BL%local(n)%val(:,ke)
+          vars%PHY_TEND(RHOT_p)%local(n)%val(:,ke) = vars%PHY_TEND(RHOT_p)%local(n)%val(:,ke) + RHOT_tp_BL%local(n)%val(:,ke)
+          RHOQv_tp%val(:,ke) =  RHOQv_tp%val(:,ke) + RHOQ_tp_BL%local(n)%val(:,ke)
         end do
       end do  
     end if

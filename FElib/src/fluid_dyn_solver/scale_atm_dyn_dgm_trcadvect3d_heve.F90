@@ -333,7 +333,7 @@ contains
     MFLX_x_tavg, MFLX_y_tavg, MFLX_z_tavg, alph_dens_M, alph_dens_P, &
     DDENS, MOMX, MOMY, MOMZ, DPRES, DENS_hyd, PRES_hyd,              &
     Rtot, CVtot, CPtot,                                              &
-    lmesh, elem, rkstage, tavg_weight_h, tavg_weight_v               ) 
+    lmesh, elem, rkstage, tavg_weight_h, tavg_weight_v, is_hevi      ) 
    
     implicit none
     class(LocalMesh3D), intent(in) :: lmesh
@@ -356,6 +356,7 @@ contains
     integer, intent(in) :: rkstage
     real(RP), intent(in) :: tavg_weight_h
     real(RP), intent(in) :: tavg_weight_v
+    logical, intent(in) :: is_hevi
 
     integer :: ke
     !--------------------------------------------------------------
@@ -376,14 +377,14 @@ contains
     end do
 
     call atm_dyn_dgm_trcadvect3d_heve_cal_alphdens_dyn( &
-      alph_dens_M, alph_dens_P,                                               & ! (out)
-      DDENS, MOMX, MOMY, MOMZ, DPRES, DENS_hyd, PRES_hyd,                     & ! (in)
-      Rtot, CVtot, CPtot,                                                     & ! (in)
+      alph_dens_M, alph_dens_P,                                                & ! (out)
+      DDENS, MOMX, MOMY, MOMZ, DPRES, DENS_hyd, PRES_hyd,                      & ! (in)
+      Rtot, CVtot, CPtot,                                                      & ! (in)
       lmesh%Gsqrt, lmesh%GIJ(:,:,1,1), lmesh%GIJ(:,:,1,2), lmesh%GIJ(:,:,2,2), & ! (in)
-      lmesh%normal_fn(:,:,1), lmesh%normal_fn(:,:,2), lmesh%normal_fn(:,:,3), & ! (in)
-      lmesh%vmapM, lmesh%vmapP, elem%IndexH2Dto3D_bnd,                        & ! (in)
-      lmesh, lmesh%lcmesh2D, lmesh%refElem3D, lmesh%lcmesh2D%refElem2D,       & ! (in)
-      tavg_weight_h, tavg_weight_v                                            ) ! (in)
+      lmesh%normal_fn(:,:,1), lmesh%normal_fn(:,:,2), lmesh%normal_fn(:,:,3),  & ! (in)
+      lmesh%vmapM, lmesh%vmapP, elem%IndexH2Dto3D_bnd,                         & ! (in)
+      lmesh, lmesh%lcmesh2D, lmesh%refElem3D, lmesh%lcmesh2D%refElem2D,        & ! (in)
+      tavg_weight_h, tavg_weight_v, is_hevi                                    ) ! (in)
     
     return
   end subroutine atm_dyn_dgm_trcadvect3d_save_massflux
@@ -450,7 +451,7 @@ contains
     Rtot, CVtot, CPtot,                                         &
     Gsqrt, G11, G12, G22, nx, ny, nz, vmapM, vmapP, iM2Dto3D,   &
     lmesh, lmesh2D, elem, elem2D,                               &
-    tavg_weight_h, tavg_weight_v )
+    tavg_weight_h, tavg_weight_v, is_hevi )
  
     use scale_const, only: &
      GRAV => CONST_GRAV,  &
@@ -489,6 +490,7 @@ contains
     integer, intent(in) :: iM2Dto3D(elem%NfpTot)    
     real(RP), intent(in) :: tavg_weight_h
     real(RP), intent(in) :: tavg_weight_v
+    logical, intent(in) :: is_hevi
     
     integer :: ke, iP(elem%NfpTot), iM(elem%NfpTot)
     integer :: ke2D
@@ -512,9 +514,16 @@ contains
   
       densM(:) = DDENS_(iM) + DENS_hyd(iM)
       densP(:) = DDENS_(iP) + DENS_hyd(iP)
- 
-      Gnn_M(:) = G11(iM2Dto3D(:),ke2D) * abs( nx(:,ke) ) + G22(iM2Dto3D(:),ke2D) * abs( ny(:,ke) )
-      Gnn_P(:) = G11(iM2Dto3D(:),ke2D) * abs( nx(:,ke) ) + G22(iM2Dto3D(:),ke2D) * abs( ny(:,ke) )
+
+      if ( is_hevi ) then
+        Gnn_M(:) = G11(iM2Dto3D(:),ke2D) * abs( nx(:,ke) ) + G22(iM2Dto3D(:),ke2D) * abs( ny(:,ke) )
+        Gnn_P(:) = G11(iM2Dto3D(:),ke2D) * abs( nx(:,ke) ) + G22(iM2Dto3D(:),ke2D) * abs( ny(:,ke) )
+      else
+        Gnn_M(:) = G11(iM2Dto3D(:),ke2D) * abs( nx(:,ke) ) + G22(iM2Dto3D(:),ke2D) * abs( ny(:,ke) ) &
+                 + abs(nz(:,ke))
+        Gnn_P(:) = G11(iM2Dto3D(:),ke2D) * abs( nx(:,ke) ) + G22(iM2Dto3D(:),ke2D) * abs( ny(:,ke) ) &
+                 + abs(nz(:,ke))
+      end if
 
       VelM(:) = ( MOMX_(iM)*nx(:,ke) + MOMY_(iM)*ny(:,ke) + MOMZ_(iM)*nz(:,ke) ) / densM(:)
       VelP(:) = ( MOMX_(iP)*nx(:,ke) + MOMY_(iP)*ny(:,ke) + MOMZ_(iP)*nz(:,ke) ) / densP(:)
