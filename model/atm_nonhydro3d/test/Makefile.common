@@ -36,7 +36,7 @@ BINDIR2          = $(PWD)
 BUILD_DIR_LOCAL := $(PWD)/.libs$(POSTFIX)
 msg1         += "The location of executable files is $(BINDIR2)\n"
 ifeq ($(USELOCALBIN),T)
-   BUILD_DIR := ./.libs$(POSTFIX)
+   BUILD_DIR  := $(PWD)/.libs$(POSTFIX)
    LIBDIR2   := $(PWD)/lib
    msg1      += "The location of lib dir is changed to $(LIBDIR2)\n"
 else
@@ -150,6 +150,8 @@ distclean: clean
                                          LIBDIR=$(LIBDIR2)                  \
                                          SYSDEP_DIR=$(SYSDEP_DIR)
 	rm -f *.nc *LOG.pe* monitor.pe* latlon* run.sh
+	rm -rf analysis
 
 clean:
 	rm -rf $(BUILD_DIR_LOCAL)	
+	rm -rf $(BUILD_DIR_LOCAL)_tmp

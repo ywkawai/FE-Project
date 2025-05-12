@@ -91,6 +91,7 @@ build:
 	$(MAKE) makelib
 	@echo;echo "Entering scale-dg...";echo "Current version is " $(VERSION)
 	mkdir -p $(BUILD_DIR)
+	mkdir -p $(BUILD_DIR)_tmp
 	$(MAKE) makeobjs
 	$(MAKE) makebin
 	@echo "Complete making scale-dg."
@@ -148,6 +149,7 @@ $(BINDIR)/$(INITNAME)$(POSTFIX) : $(BINDIR)/$(PPNAME)$(POSTFIX)
 
 clean:
 	rm -rf $(BUILD_DIR)
+	rm -rf $(BUILD_DIR)_tmp
 	rm -f *.o *.mod *.lst *~
 
 distclean: clean
@@ -174,14 +176,17 @@ dependency:
 %.mod: %.F90
 	$(MAKE) $(patsubst %.F90,%.o,$<)
 
-$(BUILD_DIR)/%.o: %.F90
-	$(FC) $(FFLAGS) $(ADDITIONAL_FFLAGS) -DVERSION_MACRO=\"$(VERSION)\" -I$(BUILD_DIR) -I$(MODDIR) -I../include $(CONTRIB_INCLUDE) -I$(SCALEFELIBDIR)/include $(SCALE_NETCDF_INCLUDE) $(MODDIROPT) $(BUILD_DIR) -o $@ -c $<
-
 $(BUILD_DIR_LOCAL)/%.o: %.F90
 	$(FC) $(FFLAGS) $(ADDITIONAL_FFLAGS) -DVERSION_MACRO=\"$(VERSION)\" -I$(BUILD_DIR) -I$(BUILD_DIR_LOCAL) -I$(MODDIR) -I../include $(CONTRIB_INCLUDE) -I$(SCALEFELIBDIR)/include $(SCALE_NETCDF_INCLUDE) $(MODDIROPT) $(BUILD_DIR_LOCAL) -o $@ -c $<
 
+$(BUILD_DIR)/%.o: %.F90
+	$(FC) $(FFLAGS) $(ADDITIONAL_FFLAGS) -DVERSION_MACRO=\"$(VERSION)\" -I$(BUILD_DIR) -I$(BUILD_DIR)_tmp -I$(MODDIR) -I../include $(CONTRIB_INCLUDE) -I$(SCALEFELIBDIR)/include $(SCALE_NETCDF_INCLUDE) $(MODDIROPT) $(BUILD_DIR) -o $@ -c $<
+
 $(BUILD_DIR)/%.o : %.c
 	$(CC) $(CFLAGS) -o $@ -c $<
+
+$(BUILD_DIR)/mod_user.o: mod_user.F90
+	$(FC) $(FFLAGS) $(ADDITIONAL_FFLAGS) -DVERSION_MACRO=\"$(VERSION)\" -I$(BUILD_DIR) -I$(MODDIR) -I../include $(CONTRIB_INCLUDE) -I$(SCALEFELIBDIR)/include $(SCALE_NETCDF_INCLUDE) $(MODDIROPT) $(BUILD_DIR)_tmp -o $@ -c $<
 
 
 .PHONY : clean distclean allclean depend dependency

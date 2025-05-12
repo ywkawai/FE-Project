@@ -208,7 +208,6 @@ OBJS_NAME_SCALELIB = \
 	scale_file_cartesC.o  \
 	scale_file_h.o	      \
 	scale_file_history.o  \
-	scale_file_netcdf.o   \
 	\
 	scale_atmos_adiabat.o     \
 	scale_atmos_aerosol.o     \
