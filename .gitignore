@@ -63,3 +63,7 @@ stderr.*
 
 #
 model/atm_nonhydro3d/test/case/**/*.nc
+
+#
+model/atm_nonhydro3d/test/product_run/RBconv/DNS*/Dx*/*
+model/atm_nonhydro3d/test/product_run/RBconv/DNS*/tmp*
