@@ -2,7 +2,7 @@
 !> module FElib / Mesh / Base
 !!
 !! @par Description
-!!      Base module to mangage meshes for element-based methods
+!!      Base module to manage meshes for element-based methods
 !!
 !! @author Yuta Kawai, Team SCALE
 !<
@@ -35,7 +35,7 @@ module scale_mesh_base
     logical :: positive_down
   end type MeshDimInfo
 
-  type, abstract, public :: Meshbase
+  type, abstract, public :: MeshBase
     integer :: LOCAL_MESH_NUM
     integer :: PRC_NUM
     integer :: LOCAL_MESH_NUM_global
@@ -67,7 +67,8 @@ module scale_mesh_base
     end subroutine MeshBase_get_localmesh
   end interface
 
-  public :: MeshBase_Init, MeshBase_Final
+  public :: MeshBase_Init
+  public :: MeshBase_Final
   public :: MeshBase_setGeometricInfo
 
   !-----------------------------------------------------------------------------
@@ -105,7 +106,7 @@ contains
     integer :: n
     !-----------------------------------------------------------------------------
     
-    if (present(nprocs)) then
+    if ( present(nprocs) ) then
       this%PRC_NUM = nprocs
     else
       this%PRC_NUM = PRC_nprocs

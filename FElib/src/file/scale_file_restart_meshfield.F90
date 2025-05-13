@@ -2,7 +2,7 @@
 !> module FElib / File / Restart
 !!
 !! @par Description
-!!           A module for outputing data to restart simulations
+!!           A module for outputting data to restart simulations
 !!
 !! @author Yuta Kawai, Team SCALE
 !!

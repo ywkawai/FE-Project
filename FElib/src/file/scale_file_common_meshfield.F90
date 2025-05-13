@@ -1,7 +1,7 @@
 !> module FElib / File / Common
 !!
 !! @par Description
-!!           A common module for outputing field data 
+!!           A common module for outputting field data 
 !!
 !! @author Yuta Kawai, Team SCALE
 !!

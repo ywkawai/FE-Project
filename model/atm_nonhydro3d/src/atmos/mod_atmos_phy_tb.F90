@@ -140,7 +140,7 @@ contains
       atm_mesh => model_mesh
     end select
 
-    !--- Regist this compoent in the time manager
+    !--- Register this component in the time manager
     
     call tm_parent_comp%Regist_process( 'ATMOS_PHY_TB', TIME_DT, TIME_DT_UNIT, & ! (in)
       this%tm_process_id )                                                       ! (out)
@@ -166,7 +166,7 @@ contains
 !! @param prgvars_list a object to mange prognostic variables with atmospheric dynamical core
 !! @param trcvars_list a object to mange auxiliary variables 
 !! @param forcing_list a object to mange forcing terms
-!! @param is_update Flag to speicfy whether the tendencies are updated in this call
+!! @param is_update Flag to specify whether the tendencies are updated in this call
 !!
 !OCL SERIAL
   subroutine AtmosPhyTb_calc_tendency( &
