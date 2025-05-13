@@ -63,10 +63,10 @@ module mod_atmos_phy_mp
 
     logical, private :: do_precipitation    !< Apply sedimentation (precipitation)?
     logical, private :: do_negative_fixer   !< Apply negative fixer?
-    real(RP), private :: limit_negative     !< Abort if abs(fixed negative vaue) > abs(MP_limit_negative)
+    real(RP), private :: limit_negative     !< Abort if abs(fixed negative value) > abs(MP_limit_negative)
     integer, private :: ntmax_sedimentation !< Number of time step for sedimentation
     real(RP), private :: max_term_vel       !< Terminal velocity for calculate dt of sedimentation
-    real(RP), private :: cldfrac_thleshold  !< Thleshold for cloud fraction
+    real(RP), private :: cldfrac_thleshold  !< Threshold for cloud fraction
 
     real(DP), private :: dtsec
     integer, private :: nstep_sedmientation
@@ -204,7 +204,7 @@ contains
       atm_mesh => model_mesh
     end select
 
-    !--- Regist this compoent in the time manager
+    !--- Register this component in the time manager
     
     call tm_parent_comp%Regist_process( 'ATMOS_PHY_MP', TIME_DT, TIME_DT_UNIT, & ! (in)
       this%tm_process_id )                                                       ! (out) 
@@ -459,7 +459,6 @@ contains
 
     use scale_sparsemat, only: SparseMat
     use scale_atm_phy_mp_dgm_common, only:  &
-      atm_phy_mp_dgm_common_gen_vmap,              &
       atm_phy_mp_dgm_common_gen_intweight,         &
       atm_phy_mp_dgm_common_precipitation,         &
       atm_phy_mp_dgm_common_precipitation_momentum
@@ -548,9 +547,8 @@ contains
     rdt_MP = 1.0_RP / this%dtsec
     domid  = lcmesh%lcdomID
 
-    call atm_phy_mp_dgm_common_gen_vmap( vmapM, vmapP, & ! (out)
-      lcmesh, elem3D                                   ) ! (in)
-
+    call lcmesh%GetVmapZ1D( vmapM, vmapP ) ! (out)
+    
     call atm_phy_mp_dgm_common_gen_intweight( IntWeight, & ! (out)
       lcmesh                                             ) ! (in)
     

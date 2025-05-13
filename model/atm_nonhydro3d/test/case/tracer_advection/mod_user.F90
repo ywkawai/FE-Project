@@ -4,7 +4,7 @@
 !! @par Description
 !!          User defined module for a test case of tracer advection
 !!
-!! @author Team SCALE
+!! @author Yuta Kawai, Team SCALE
 !!
 !<
 !-------------------------------------------------------------------------------

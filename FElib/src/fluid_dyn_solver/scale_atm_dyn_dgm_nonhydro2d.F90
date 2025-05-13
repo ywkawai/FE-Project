@@ -3,7 +3,7 @@
 !!
 !! @par Description
 !!      HEVE DGM scheme for 2D Atmospheric Dynamical process. 
-!!      The governing equations is a fully compressibile nonhydrostic equations, 
+!!      The governing equations is a fully compressible nonhydrostatic equations, 
 !!      which consist of mass, momentum, and thermodynamics equations. 
 !!
 !! @author Yuta Kawai, Team SCALE
@@ -113,7 +113,7 @@ contains
     etac, alpha, ord )
 
     implicit none
-    class(elementbase2D), intent(in) :: elem
+    class(ElementBase2D), intent(in) :: elem
     real(RP), intent(in) :: etac
     real(RP), intent(in) :: alpha
     integer, intent(in) :: ord
@@ -163,7 +163,7 @@ contains
     implicit none
 
     class(LocalMesh2D), intent(in) :: lmesh
-    class(elementbase2D), intent(in) :: elem    
+    class(ElementBase2D), intent(in) :: elem    
     real(RP), intent(inout)  :: DDENS_(elem%Np,lmesh%NeA)
     real(RP), intent(inout)  :: MOMX_(elem%Np,lmesh%NeA)
     real(RP), intent(inout)  :: MOMZ_(elem%Np,lmesh%NeA)
@@ -192,7 +192,7 @@ contains
     implicit none
 
     class(LocalMesh2D), intent(in) :: lmesh
-    class(elementbase2D), intent(in) :: elem
+    class(ElementBase2D), intent(in) :: elem
     type(SparseMat), intent(in) :: Dx, Dz, Sx, Sz, Lift
     real(RP), intent(out) :: DENS_dt(elem%Np,lmesh%NeA)
     real(RP), intent(out) :: MOMX_dt(elem%Np,lmesh%NeA)
@@ -308,7 +308,7 @@ contains
     implicit none
 
     class(LocalMesh2D), intent(in) :: lmesh
-    class(elementbase2D), intent(in) :: elem  
+    class(ElementBase2D), intent(in) :: elem  
     real(RP), intent(out) ::  del_flux(elem%NfpTot*lmesh%Ne,PROG_VARS_NUM)
     real(RP), intent(in) ::  DDENS_(elem%Np*lmesh%NeA)
     real(RP), intent(in) ::  MOMX_(elem%Np*lmesh%NeA)  
@@ -420,7 +420,7 @@ contains
     implicit none
 
     class(LocalMesh2D), intent(in) :: lmesh
-    class(elementbase2D), intent(in) :: elem
+    class(ElementBase2D), intent(in) :: elem
     type(SparseMat), intent(in) :: Dx, Dz, Lift
     real(RP), intent(out)  :: GxU_(elem%Np,lmesh%NeA)
     real(RP), intent(out)  :: GzU_(elem%Np,lmesh%NeA)
@@ -490,7 +490,7 @@ contains
     implicit none
 
     class(LocalMesh2D), intent(in) :: lmesh
-    class(elementbase2D), intent(in) :: elem  
+    class(ElementBase2D), intent(in) :: elem  
     real(RP), intent(out) ::  del_flux(elem%NfpTot*lmesh%Ne,AUX_DIFFVARS_NUM)
     real(RP), intent(in) ::  DDENS_(elem%Np*lmesh%NeA)
     real(RP), intent(in) ::  MOMX_(elem%Np*lmesh%NeA)  

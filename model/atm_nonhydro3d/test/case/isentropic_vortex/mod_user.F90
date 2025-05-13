@@ -4,7 +4,7 @@
 !! @par Description
 !!          User defined module for a test case of isentropic vortex
 !!
-!! @author Team SCALE
+!! @author Yuta Kawai, Team SCALE
 !!
 !<
 !-------------------------------------------------------------------------------

@@ -41,6 +41,7 @@ conflog:
 	@echo " + LIBDIR    :" $(LIBDIR)
 	@echo " + MODDIR    :" $(MODDIR)
 	@echo " + BUILD_DIR :" $(BUILD_DIR)
+	@echo " + BUILD_DIR_LOCAL :" $(BUILD_DIR_LOCAL)
 	@echo "[FLAGS]"
 	@echo " + FFLAGS :" $(FFLAGS)
 	@echo "********************************************************************************************* "

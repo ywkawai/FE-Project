@@ -3,7 +3,7 @@
 !!
 !! @par Description
 !!      HEVI DGM scheme for Atmospheric dynamical process in which GMRES is used for implicit solver.
-!!      The governing equations is a fully compressibile nonhydrostic equations, 
+!!      The governing equations is a fully compressible nonhydrostatic equations, 
 !!      which consist of mass, momentum, and thermodynamics (density * potential temperature conservation) equations. 
 !!
 !! @author Yuta Kawai, Team SCALE

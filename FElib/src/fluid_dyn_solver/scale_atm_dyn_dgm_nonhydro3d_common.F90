@@ -2,7 +2,7 @@
 !> module FElib / Fluid dyn solver / Atmosphere / Nonhydrostatic model / Common
 !!
 !! @par Description
-!!      A coomon model for atmospheric nonhydrostatic dynamical core 
+!!      A common model for atmospheric nonhydrostatic dynamical core 
 !!
 !! @author Yuta Kawai, Team SCALE
 !<
@@ -408,7 +408,7 @@ contains
         
     implicit none
     class(LocalMesh3D), intent(in) :: lcmesh
-    class(elementbase3D), intent(in) :: elem3D
+    class(ElementBase3D), intent(in) :: elem3D
     real(RP), intent(out) :: PRES(elem3D%Np,lcmesh%NeA) 
     real(RP), intent(out) :: DPRES(elem3D%Np,lcmesh%NeA)
     real(RP), intent(in) :: DRHOT(elem3D%Np,lcmesh%NeA) 
@@ -445,7 +445,7 @@ contains
         
     implicit none
     class(LocalMesh3D), intent(in) :: lcmesh
-    class(elementbase3D), intent(in) :: elem3D
+    class(ElementBase3D), intent(in) :: elem3D
     real(RP), intent(out) :: EnTot(elem3D%Np,lcmesh%NeA) 
     real(RP), intent(in) :: DDENS(elem3D%Np,lcmesh%NeA)
     real(RP), intent(in) :: MOMX(elem3D%Np,lcmesh%NeA)
@@ -498,7 +498,7 @@ contains
     
     implicit none
     class(LocalMesh3D), intent(in) :: lcmesh
-    class(elementbase3D), intent(in) :: elem3D
+    class(ElementBase3D), intent(in) :: elem3D
     real(RP), intent(out) :: PRES(elem3D%Np,lcmesh%NeA)
     real(RP), intent(out) :: DPRES(elem3D%Np,lcmesh%NeA)
     real(RP), intent(in) :: DDENS(elem3D%Np,lcmesh%NeA)
