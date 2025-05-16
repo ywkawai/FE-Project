@@ -704,7 +704,9 @@ contains
       if ( this%hide_mpi_comm_flag ) then
         call PROF_rapstart( 'ATM_DYN_exchange_prgv', 2)
         call PROG_VARS%MeshFieldComm_Exchange( do_wait=.false. )
-        ! call FJMPI_Progress_start()
+#ifdef __FUJITSU
+        call FJMPI_Progress_start()
+#endif
         call PROF_rapend( 'ATM_DYN_exchange_prgv', 2)
       end if
 
@@ -721,9 +723,14 @@ contains
       !- Exchange halo data
       call PROF_rapstart( 'ATM_DYN_exchange_prgv', 2)
       if ( this%hide_mpi_comm_flag ) then
-        ! call FJMPI_Progress_stop()
-        call this%AUXDYNVAR3D_manager%MeshFieldComm_Exchange( do_wait=.false. )
+#ifdef __FUJITSU
+        call FJMPI_Progress_stop()
+#endif
         call PROG_VARS%MeshFieldComm_Get()
+        call this%AUXDYNVAR3D_manager%MeshFieldComm_Exchange( do_wait=.false. )
+#ifdef __FUJITSU
+        call FJMPI_Progress_start()
+#endif
       else
         call PROG_VARS%MeshFieldComm_Exchange()
         call this%AUXDYNVAR3D_manager%MeshFieldComm_Exchange()
@@ -748,6 +755,9 @@ contains
 
       if ( this%hide_mpi_comm_flag ) then
         call PROF_rapstart( 'ATM_DYN_exchange_prgv', 2)
+#ifdef __FUJITSU
+        call FJMPI_Progress_stop()
+#endif
         call this%AUXDYNVAR3D_manager%MeshFieldComm_Get()
         call PROF_rapend( 'ATM_DYN_exchange_prgv', 2)
       end if

@@ -100,45 +100,101 @@ contains
     real(RP), intent(inout) :: G(im,Nnode_v,jm,Ne2D)
     logical, intent(in) :: is_top
     !------------------------------------------
-    if ( im == Nnode_v ) then
-      select case(Nnode_v)
-      case( 2 )
+    select case(Nnode_v)
+    case( 2 )
+      if ( im == 4 ) then
         call solve_Nnode2_uv( D, b, G, Nnode_v, jm, Ne2D, is_top )
-      case( 3 )
+      else
+        call solve_uv_im( D, b, G, Nnode_v, im, jm, Ne2D, is_top )
+      end if
+    case( 3 )
+      if ( im == 9 ) then
         call solve_Nnode3_uv( D, b, G, Nnode_v, jm, Ne2D, is_top )
-      case( 4 )
+      else
+        call solve_uv_im( D, b, G, Nnode_v, im, jm, Ne2D, is_top )
+      end if
+    case( 4 )
+      if ( im == 16 ) then
         call solve_Nnode4_uv( D, b, G, Nnode_v, jm, Ne2D, is_top )
-      case( 5 )
+      else
+        call solve_uv_im( D, b, G, Nnode_v, im, jm, Ne2D, is_top )
+      end if
+    case( 5 )
+      if ( im == 5 ) then
         call solve_Nnode5_uv( D, b, G, Nnode_v, jm, Ne2D, is_top )
-      case( 6 )
+      else
+        call solve_uv_im( D, b, G, Nnode_v, im, jm, Ne2D, is_top )
+      end if
+    case( 6 )
+      if ( im == 6 ) then
         call solve_Nnode6_uv( D, b, G, Nnode_v, jm, Ne2D, is_top )
-      case( 7 )
+      else
+        call solve_uv_im( D, b, G, Nnode_v, im, jm, Ne2D, is_top )
+      end if
+    case( 7 )
+      if ( im == 7 ) then
         call solve_Nnode7_uv( D, b, G, Nnode_v, jm, Ne2D, is_top )
-      case( 8 )
+      else
+        call solve_uv_im( D, b, G, Nnode_v, im, jm, Ne2D, is_top )
+      end if
+    case( 8 )
+      if ( im == 8 ) then
         call solve_Nnode8_uv( D, b, G, Nnode_v, jm, Ne2D, is_top )
-      case( 9 )
+      else
+        call solve_uv_im( D, b, G, Nnode_v, im, jm, Ne2D, is_top )
+      end if
+    case( 9 )
+      if ( im == 9 ) then
         call solve_Nnode9_uv( D, b, G, Nnode_v, jm, Ne2D, is_top )
-      case( 10 )
+      else
+        call solve_uv_im( D, b, G, Nnode_v, im, jm, Ne2D, is_top )
+      end if
+    case( 10 )
+      if ( im == 10 ) then
         call solve_Nnode10_uv( D, b, G, Nnode_v, jm, Ne2D, is_top )
-      case( 11 )
+      else
+        call solve_uv_im( D, b, G, Nnode_v, im, jm, Ne2D, is_top )
+      end if
+    case( 11 )
+      if ( im == 22 ) then
         call solve_Nnode11_uv( D, b, G, Nnode_v, jm, Ne2D, is_top )
-      case( 12 )
+      else
+        call solve_uv_im( D, b, G, Nnode_v, im, jm, Ne2D, is_top )
+      end if
+    case( 12 )
+      if ( im == 24 ) then
         call solve_Nnode12_uv( D, b, G, Nnode_v, jm, Ne2D, is_top )
-      case( 13 )
+      else
+        call solve_uv_im( D, b, G, Nnode_v, im, jm, Ne2D, is_top )
+      end if
+    case( 13 )
+      if ( im == 26 ) then
         call solve_Nnode13_uv( D, b, G, Nnode_v, jm, Ne2D, is_top )
-      case( 14 )
+      else
+        call solve_uv_im( D, b, G, Nnode_v, im, jm, Ne2D, is_top )
+      end if
+    case( 14 )
+      if ( im == 28 ) then
         call solve_Nnode14_uv( D, b, G, Nnode_v, jm, Ne2D, is_top )
-      case( 15 )
+      else
+        call solve_uv_im( D, b, G, Nnode_v, im, jm, Ne2D, is_top )
+      end if
+    case( 15 )
+      if ( im == 15 ) then
         call solve_Nnode15_uv( D, b, G, Nnode_v, jm, Ne2D, is_top )
-      case( 16 )
+      else
+        call solve_uv_im( D, b, G, Nnode_v, im, jm, Ne2D, is_top )
+      end if
+    case( 16 )
+      if ( im == 16 ) then
         call solve_Nnode16_uv( D, b, G, Nnode_v, jm, Ne2D, is_top )
-      case default
-        LOG_INFO('atm_dyn_dgm_hevi_common_linalgebra_solve_uv',*) "im > 16 is not supported. Check!"
-        call PRC_abort
-      end select
-    else
-      call solve_uv_im( D, b, G, Nnode_v, im, jm, Ne2D, is_top )
-    end if
+      else
+        call solve_uv_im( D, b, G, Nnode_v, im, jm, Ne2D, is_top )
+      end if
+    case default
+      LOG_INFO('atm_dyn_dgm_hevi_common_linalgebra_solve_uv',*) "im > 16 is not supported. Check!"
+      call PRC_abort
+    end select
     return
   end subroutine atm_dyn_dgm_hevi_common_linalgebra_solve_uv
 
@@ -153,45 +209,101 @@ contains
     real(RP), intent(inout) :: G(im,3*Nnode_v,3,jm,Ne2D)
     logical, intent(in) :: is_top
     !------------------------------------------
-    if ( im == Nnode_v ) then
-      select case(Nnode_v)
-    case( 2 )
-        call solve_Nnode2_var3( D, b, G, Nnode_v, jm, Ne2D, is_top )
-    case( 3 )
-        call solve_Nnode3_var3( D, b, G, Nnode_v, jm, Ne2D, is_top )
-    case( 4 )
-        call solve_Nnode4_var3( D, b, G, Nnode_v, jm, Ne2D, is_top )
-    case( 5 )
-        call solve_Nnode5_var3( D, b, G, Nnode_v, jm, Ne2D, is_top )
-    case( 6 )
-        call solve_Nnode6_var3( D, b, G, Nnode_v, jm, Ne2D, is_top )
-    case( 7 )
-        call solve_Nnode7_var3( D, b, G, Nnode_v, jm, Ne2D, is_top )
-    case( 8 )
-        call solve_Nnode8_var3( D, b, G, Nnode_v, jm, Ne2D, is_top )
-    case( 9 )
-        call solve_Nnode9_var3( D, b, G, Nnode_v, jm, Ne2D, is_top )
-    case( 10 )
-        call solve_Nnode10_var3( D, b, G, Nnode_v, jm, Ne2D, is_top )
-    case( 11 )
-        call solve_Nnode11_var3( D, b, G, Nnode_v, jm, Ne2D, is_top )
-    case( 12 )
-        call solve_Nnode12_var3( D, b, G, Nnode_v, jm, Ne2D, is_top )
-    case( 13 )
-        call solve_Nnode13_var3( D, b, G, Nnode_v, jm, Ne2D, is_top )
-    case( 14 )
-        call solve_Nnode14_var3( D, b, G, Nnode_v, jm, Ne2D, is_top )
-    case( 15 )
-        call solve_Nnode15_var3( D, b, G, Nnode_v, jm, Ne2D, is_top )
-    case( 16 )
-        call solve_Nnode16_var3( D, b, G, Nnode_v, jm, Ne2D, is_top )
+    select case(Nnode_v)
+      case( 2 )
+        if ( im == 4 ) then
+          call solve_Nnode2_var3( D, b, G, Nnode_v, jm, Ne2D, is_top )
+        else
+          call solve_var3_im( D, b, G, Nnode_v, im, jm, Ne2D, is_top )
+        end if
+      case( 3 )
+        if ( im == 9 ) then
+          call solve_Nnode3_var3( D, b, G, Nnode_v, jm, Ne2D, is_top )
+        else
+          call solve_var3_im( D, b, G, Nnode_v, im, jm, Ne2D, is_top )
+        end if
+      case( 4 )
+        if ( im == 16 ) then
+          call solve_Nnode4_var3( D, b, G, Nnode_v, jm, Ne2D, is_top )
+        else
+          call solve_var3_im( D, b, G, Nnode_v, im, jm, Ne2D, is_top )
+        end if
+      case( 5 )
+        if ( im == 5 ) then
+          call solve_Nnode5_var3( D, b, G, Nnode_v, jm, Ne2D, is_top )
+        else
+          call solve_var3_im( D, b, G, Nnode_v, im, jm, Ne2D, is_top )
+        end if
+      case( 6 )
+        if ( im == 6 ) then
+          call solve_Nnode6_var3( D, b, G, Nnode_v, jm, Ne2D, is_top )
+        else
+          call solve_var3_im( D, b, G, Nnode_v, im, jm, Ne2D, is_top )
+        end if
+      case( 7 )
+        if ( im == 7 ) then
+          call solve_Nnode7_var3( D, b, G, Nnode_v, jm, Ne2D, is_top )
+        else
+          call solve_var3_im( D, b, G, Nnode_v, im, jm, Ne2D, is_top )
+        end if
+      case( 8 )
+        if ( im == 8 ) then
+          call solve_Nnode8_var3( D, b, G, Nnode_v, jm, Ne2D, is_top )
+        else
+          call solve_var3_im( D, b, G, Nnode_v, im, jm, Ne2D, is_top )
+        end if
+      case( 9 )
+        if ( im == 9 ) then
+          call solve_Nnode9_var3( D, b, G, Nnode_v, jm, Ne2D, is_top )
+        else
+          call solve_var3_im( D, b, G, Nnode_v, im, jm, Ne2D, is_top )
+        end if
+      case( 10 )
+        if ( im == 10 ) then
+          call solve_Nnode10_var3( D, b, G, Nnode_v, jm, Ne2D, is_top )
+        else
+          call solve_var3_im( D, b, G, Nnode_v, im, jm, Ne2D, is_top )
+        end if
+      case( 11 )
+        if ( im == 22 ) then
+          call solve_Nnode11_var3( D, b, G, Nnode_v, jm, Ne2D, is_top )
+        else
+          call solve_var3_im( D, b, G, Nnode_v, im, jm, Ne2D, is_top )
+        end if
+      case( 12 )
+        if ( im == 24 ) then
+          call solve_Nnode12_var3( D, b, G, Nnode_v, jm, Ne2D, is_top )
+        else
+          call solve_var3_im( D, b, G, Nnode_v, im, jm, Ne2D, is_top )
+        end if
+      case( 13 )
+        if ( im == 26 ) then
+          call solve_Nnode13_var3( D, b, G, Nnode_v, jm, Ne2D, is_top )
+        else
+          call solve_var3_im( D, b, G, Nnode_v, im, jm, Ne2D, is_top )
+        end if
+      case( 14 )
+        if ( im == 28 ) then
+          call solve_Nnode14_var3( D, b, G, Nnode_v, jm, Ne2D, is_top )
+        else
+          call solve_var3_im( D, b, G, Nnode_v, im, jm, Ne2D, is_top )
+        end if
+      case( 15 )
+        if ( im == 15 ) then
+          call solve_Nnode15_var3( D, b, G, Nnode_v, jm, Ne2D, is_top )
+        else
+          call solve_var3_im( D, b, G, Nnode_v, im, jm, Ne2D, is_top )
+        end if
+      case( 16 )
+        if ( im == 16 ) then
+          call solve_Nnode16_var3( D, b, G, Nnode_v, jm, Ne2D, is_top )
+        else
+          call solve_var3_im( D, b, G, Nnode_v, im, jm, Ne2D, is_top )
+        end if
       case default
         LOG_INFO('atm_dyn_dgm_hevi_common_linalgebra_solve',*) "im > 16 is not supported. Check!"
         call PRC_abort
-      end select
-    else
-      call solve_var3_im( D, b, G, Nnode_v, im, jm, Ne2D, is_top )
-    end if  
+    end select
     return
   end subroutine atm_dyn_dgm_hevi_common_linalgebra_solve_var3
 
@@ -373,7 +485,7 @@ contains
     real(RP) :: tmp
     !------------------------------
 
-    !$omp parallel do private(ke_xy,v2,k,i,j,v,r,ip,ipiv,tmpv,tmpb,tmp,bb,A) collapse(2)
+    !$omp parallel do collapse(2) private(ke_xy,v2,k,i,j,v,r,ip,ipiv,tmpv,tmpb,tmp,bb,A)
     do ke_xy=1, Ne2D
     do v2=1, jm
       A(:,:,:) = D(:,:,:,v2,ke_xy)
@@ -403,7 +515,9 @@ contains
         tmpv(:) = 1.0_RP / A(:,k,k)
         A(:,k,k) = tmpv(:)      
         do i=k+1, 6
-          A(:,i,k) = A(:,i,k) * tmpv(:)
+          do v=1, 4
+            A(v,i,k) = A(v,i,k) * tmpv(v)
+          end do
         end do
         do j=k+1, 6      
           do i=k+1, 6
@@ -676,7 +790,7 @@ contains
     real(RP) :: tmp
     !------------------------------
 
-    !$omp parallel do private(ke_xy,v2,k,i,j,v,r,ip,ipiv,tmpv,tmpb,tmp,bb,A) collapse(2)
+    !$omp parallel do collapse(2) private(ke_xy,v2,k,i,j,v,r,ip,ipiv,tmpv,tmpb,tmp,bb,A)
     do ke_xy=1, Ne2D
     do v2=1, jm
       A(:,:,:) = D(:,:,:,v2,ke_xy)
@@ -706,7 +820,9 @@ contains
         tmpv(:) = 1.0_RP / A(:,k,k)
         A(:,k,k) = tmpv(:)      
         do i=k+1, 9
-          A(:,i,k) = A(:,i,k) * tmpv(:)
+          do v=1, 9
+            A(v,i,k) = A(v,i,k) * tmpv(v)
+          end do
         end do
         do j=k+1, 9      
           do i=k+1, 9
@@ -979,7 +1095,7 @@ contains
     real(RP) :: tmp
     !------------------------------
 
-    !$omp parallel do private(ke_xy,v2,k,i,j,v,r,ip,ipiv,tmpv,tmpb,tmp,bb,A) collapse(2)
+    !$omp parallel do collapse(2) private(ke_xy,v2,k,i,j,v,r,ip,ipiv,tmpv,tmpb,tmp,bb,A)
     do ke_xy=1, Ne2D
     do v2=1, jm
       A(:,:,:) = D(:,:,:,v2,ke_xy)
@@ -1009,7 +1125,9 @@ contains
         tmpv(:) = 1.0_RP / A(:,k,k)
         A(:,k,k) = tmpv(:)      
         do i=k+1, 12
-          A(:,i,k) = A(:,i,k) * tmpv(:)
+          do v=1, 16
+            A(v,i,k) = A(v,i,k) * tmpv(v)
+          end do
         end do
         do j=k+1, 12      
           do i=k+1, 12
@@ -1282,7 +1400,7 @@ contains
     real(RP) :: tmp
     !------------------------------
 
-    !$omp parallel do private(ke_xy,v2,k,i,j,v,r,ip,ipiv,tmpv,tmpb,tmp,bb,A) collapse(2)
+    !$omp parallel do collapse(2) private(ke_xy,v2,k,i,j,v,r,ip,ipiv,tmpv,tmpb,tmp,bb,A)
     do ke_xy=1, Ne2D
     do v2=1, jm
       A(:,:,:) = D(:,:,:,v2,ke_xy)
@@ -1312,7 +1430,9 @@ contains
         tmpv(:) = 1.0_RP / A(:,k,k)
         A(:,k,k) = tmpv(:)      
         do i=k+1, 15
-          A(:,i,k) = A(:,i,k) * tmpv(:)
+          do v=1, 5
+            A(v,i,k) = A(v,i,k) * tmpv(v)
+          end do
         end do
         do j=k+1, 15      
           do i=k+1, 15
@@ -1585,7 +1705,7 @@ contains
     real(RP) :: tmp
     !------------------------------
 
-    !$omp parallel do private(ke_xy,v2,k,i,j,v,r,ip,ipiv,tmpv,tmpb,tmp,bb,A) collapse(2)
+    !$omp parallel do collapse(2) private(ke_xy,v2,k,i,j,v,r,ip,ipiv,tmpv,tmpb,tmp,bb,A)
     do ke_xy=1, Ne2D
     do v2=1, jm
       A(:,:,:) = D(:,:,:,v2,ke_xy)
@@ -1615,7 +1735,9 @@ contains
         tmpv(:) = 1.0_RP / A(:,k,k)
         A(:,k,k) = tmpv(:)      
         do i=k+1, 18
-          A(:,i,k) = A(:,i,k) * tmpv(:)
+          do v=1, 6
+            A(v,i,k) = A(v,i,k) * tmpv(v)
+          end do
         end do
         do j=k+1, 18      
           do i=k+1, 18
@@ -1888,7 +2010,7 @@ contains
     real(RP) :: tmp
     !------------------------------
 
-    !$omp parallel do private(ke_xy,v2,k,i,j,v,r,ip,ipiv,tmpv,tmpb,tmp,bb,A) collapse(2)
+    !$omp parallel do collapse(2) private(ke_xy,v2,k,i,j,v,r,ip,ipiv,tmpv,tmpb,tmp,bb,A)
     do ke_xy=1, Ne2D
     do v2=1, jm
       A(:,:,:) = D(:,:,:,v2,ke_xy)
@@ -1918,7 +2040,9 @@ contains
         tmpv(:) = 1.0_RP / A(:,k,k)
         A(:,k,k) = tmpv(:)      
         do i=k+1, 21
-          A(:,i,k) = A(:,i,k) * tmpv(:)
+          do v=1, 7
+            A(v,i,k) = A(v,i,k) * tmpv(v)
+          end do
         end do
         do j=k+1, 21      
           do i=k+1, 21
@@ -2191,7 +2315,7 @@ contains
     real(RP) :: tmp
     !------------------------------
 
-    !$omp parallel do private(ke_xy,v2,k,i,j,v,r,ip,ipiv,tmpv,tmpb,tmp,bb,A) collapse(2)
+    !$omp parallel do collapse(2) private(ke_xy,v2,k,i,j,v,r,ip,ipiv,tmpv,tmpb,tmp,bb,A)
     do ke_xy=1, Ne2D
     do v2=1, jm
       A(:,:,:) = D(:,:,:,v2,ke_xy)
@@ -2221,7 +2345,9 @@ contains
         tmpv(:) = 1.0_RP / A(:,k,k)
         A(:,k,k) = tmpv(:)      
         do i=k+1, 24
-          A(:,i,k) = A(:,i,k) * tmpv(:)
+          do v=1, 8
+            A(v,i,k) = A(v,i,k) * tmpv(v)
+          end do
         end do
         do j=k+1, 24      
           do i=k+1, 24
@@ -2494,7 +2620,7 @@ contains
     real(RP) :: tmp
     !------------------------------
 
-    !$omp parallel do private(ke_xy,v2,k,i,j,v,r,ip,ipiv,tmpv,tmpb,tmp,bb,A) collapse(2)
+    !$omp parallel do collapse(2) private(ke_xy,v2,k,i,j,v,r,ip,ipiv,tmpv,tmpb,tmp,bb,A)
     do ke_xy=1, Ne2D
     do v2=1, jm
       A(:,:,:) = D(:,:,:,v2,ke_xy)
@@ -2524,7 +2650,9 @@ contains
         tmpv(:) = 1.0_RP / A(:,k,k)
         A(:,k,k) = tmpv(:)      
         do i=k+1, 27
-          A(:,i,k) = A(:,i,k) * tmpv(:)
+          do v=1, 9
+            A(v,i,k) = A(v,i,k) * tmpv(v)
+          end do
         end do
         do j=k+1, 27      
           do i=k+1, 27
@@ -2797,7 +2925,7 @@ contains
     real(RP) :: tmp
     !------------------------------
 
-    !$omp parallel do private(ke_xy,v2,k,i,j,v,r,ip,ipiv,tmpv,tmpb,tmp,bb,A) collapse(2)
+    !$omp parallel do collapse(2) private(ke_xy,v2,k,i,j,v,r,ip,ipiv,tmpv,tmpb,tmp,bb,A)
     do ke_xy=1, Ne2D
     do v2=1, jm
       A(:,:,:) = D(:,:,:,v2,ke_xy)
@@ -2827,7 +2955,9 @@ contains
         tmpv(:) = 1.0_RP / A(:,k,k)
         A(:,k,k) = tmpv(:)      
         do i=k+1, 30
-          A(:,i,k) = A(:,i,k) * tmpv(:)
+          do v=1, 10
+            A(v,i,k) = A(v,i,k) * tmpv(v)
+          end do
         end do
         do j=k+1, 30      
           do i=k+1, 30
@@ -3100,7 +3230,7 @@ contains
     real(RP) :: tmp
     !------------------------------
 
-    !$omp parallel do private(ke_xy,v2,k,i,j,v,r,ip,ipiv,tmpv,tmpb,tmp,bb,A) collapse(2)
+    !$omp parallel do collapse(2) private(ke_xy,v2,k,i,j,v,r,ip,ipiv,tmpv,tmpb,tmp,bb,A)
     do ke_xy=1, Ne2D
     do v2=1, jm
       A(:,:,:) = D(:,:,:,v2,ke_xy)
@@ -3130,7 +3260,9 @@ contains
         tmpv(:) = 1.0_RP / A(:,k,k)
         A(:,k,k) = tmpv(:)      
         do i=k+1, 33
-          A(:,i,k) = A(:,i,k) * tmpv(:)
+          do v=1, 22
+            A(v,i,k) = A(v,i,k) * tmpv(v)
+          end do
         end do
         do j=k+1, 33      
           do i=k+1, 33
@@ -3403,7 +3535,7 @@ contains
     real(RP) :: tmp
     !------------------------------
 
-    !$omp parallel do private(ke_xy,v2,k,i,j,v,r,ip,ipiv,tmpv,tmpb,tmp,bb,A) collapse(2)
+    !$omp parallel do collapse(2) private(ke_xy,v2,k,i,j,v,r,ip,ipiv,tmpv,tmpb,tmp,bb,A)
     do ke_xy=1, Ne2D
     do v2=1, jm
       A(:,:,:) = D(:,:,:,v2,ke_xy)
@@ -3433,7 +3565,9 @@ contains
         tmpv(:) = 1.0_RP / A(:,k,k)
         A(:,k,k) = tmpv(:)      
         do i=k+1, 36
-          A(:,i,k) = A(:,i,k) * tmpv(:)
+          do v=1, 24
+            A(v,i,k) = A(v,i,k) * tmpv(v)
+          end do
         end do
         do j=k+1, 36      
           do i=k+1, 36
@@ -3706,7 +3840,7 @@ contains
     real(RP) :: tmp
     !------------------------------
 
-    !$omp parallel do private(ke_xy,v2,k,i,j,v,r,ip,ipiv,tmpv,tmpb,tmp,bb,A) collapse(2)
+    !$omp parallel do collapse(2) private(ke_xy,v2,k,i,j,v,r,ip,ipiv,tmpv,tmpb,tmp,bb,A)
     do ke_xy=1, Ne2D
     do v2=1, jm
       A(:,:,:) = D(:,:,:,v2,ke_xy)
@@ -3736,7 +3870,9 @@ contains
         tmpv(:) = 1.0_RP / A(:,k,k)
         A(:,k,k) = tmpv(:)      
         do i=k+1, 39
-          A(:,i,k) = A(:,i,k) * tmpv(:)
+          do v=1, 26
+            A(v,i,k) = A(v,i,k) * tmpv(v)
+          end do
         end do
         do j=k+1, 39      
           do i=k+1, 39
@@ -4009,7 +4145,7 @@ contains
     real(RP) :: tmp
     !------------------------------
 
-    !$omp parallel do private(ke_xy,v2,k,i,j,v,r,ip,ipiv,tmpv,tmpb,tmp,bb,A) collapse(2)
+    !$omp parallel do collapse(2) private(ke_xy,v2,k,i,j,v,r,ip,ipiv,tmpv,tmpb,tmp,bb,A)
     do ke_xy=1, Ne2D
     do v2=1, jm
       A(:,:,:) = D(:,:,:,v2,ke_xy)
@@ -4039,7 +4175,9 @@ contains
         tmpv(:) = 1.0_RP / A(:,k,k)
         A(:,k,k) = tmpv(:)      
         do i=k+1, 42
-          A(:,i,k) = A(:,i,k) * tmpv(:)
+          do v=1, 28
+            A(v,i,k) = A(v,i,k) * tmpv(v)
+          end do
         end do
         do j=k+1, 42      
           do i=k+1, 42
@@ -4312,7 +4450,7 @@ contains
     real(RP) :: tmp
     !------------------------------
 
-    !$omp parallel do private(ke_xy,v2,k,i,j,v,r,ip,ipiv,tmpv,tmpb,tmp,bb,A) collapse(2)
+    !$omp parallel do collapse(2) private(ke_xy,v2,k,i,j,v,r,ip,ipiv,tmpv,tmpb,tmp,bb,A)
     do ke_xy=1, Ne2D
     do v2=1, jm
       A(:,:,:) = D(:,:,:,v2,ke_xy)
@@ -4342,7 +4480,9 @@ contains
         tmpv(:) = 1.0_RP / A(:,k,k)
         A(:,k,k) = tmpv(:)      
         do i=k+1, 45
-          A(:,i,k) = A(:,i,k) * tmpv(:)
+          do v=1, 15
+            A(v,i,k) = A(v,i,k) * tmpv(v)
+          end do
         end do
         do j=k+1, 45      
           do i=k+1, 45
@@ -4615,7 +4755,7 @@ contains
     real(RP) :: tmp
     !------------------------------
 
-    !$omp parallel do private(ke_xy,v2,k,i,j,v,r,ip,ipiv,tmpv,tmpb,tmp,bb,A) collapse(2)
+    !$omp parallel do collapse(2) private(ke_xy,v2,k,i,j,v,r,ip,ipiv,tmpv,tmpb,tmp,bb,A)
     do ke_xy=1, Ne2D
     do v2=1, jm
       A(:,:,:) = D(:,:,:,v2,ke_xy)
@@ -4645,7 +4785,9 @@ contains
         tmpv(:) = 1.0_RP / A(:,k,k)
         A(:,k,k) = tmpv(:)      
         do i=k+1, 48
-          A(:,i,k) = A(:,i,k) * tmpv(:)
+          do v=1, 16
+            A(v,i,k) = A(v,i,k) * tmpv(v)
+          end do
         end do
         do j=k+1, 48      
           do i=k+1, 48
