@@ -74,19 +74,20 @@ contains
     real(RP), intent(inout) :: G(im,Nnode_v,jm,Ne2D)
     logical, intent(in) :: is_top
     !------------------------------------------
-    if ( im == Nnode_v ) then
-      select case(Nnode_v)
+    select case(Nnode_v)
 % for n in 2..AUTOGEN_VECMAX
-      case( <%=n%> )
+%  veclen=VECLEN_list[n]
+    case( <%=n%> )
+      if ( im == <%=veclen%> ) then
         call solve_Nnode<%=n%>_uv( D, b, G, Nnode_v, jm, Ne2D, is_top )
-% end    
-      case default
-        LOG_INFO('atm_dyn_dgm_hevi_common_linalgebra_solve_uv',*) "im > <%=AUTOGEN_VECMAX%> is not supported. Check!"
-        call PRC_abort
-      end select
-    else
-      call solve_uv_im( D, b, G, Nnode_v, im, jm, Ne2D, is_top )
-    end if
+      else
+        call solve_uv_im( D, b, G, Nnode_v, im, jm, Ne2D, is_top )
+      end if
+% end        
+    case default
+      LOG_INFO('atm_dyn_dgm_hevi_common_linalgebra_solve_uv',*) "im > <%=AUTOGEN_VECMAX%> is not supported. Check!"
+      call PRC_abort
+    end select
     return
   end subroutine atm_dyn_dgm_hevi_common_linalgebra_solve_uv
 
@@ -101,19 +102,20 @@ contains
     real(RP), intent(inout) :: G(im,3*Nnode_v,3,jm,Ne2D)
     logical, intent(in) :: is_top
     !------------------------------------------
-    if ( im == Nnode_v ) then
-      select case(Nnode_v)
+    select case(Nnode_v)
 % for n in 2..AUTOGEN_VECMAX
-    case( <%=n%> )
-        call solve_Nnode<%=n%>_var3( D, b, G, Nnode_v, jm, Ne2D, is_top )
+%   veclen=VECLEN_list[n]
+      case( <%=n%> )
+        if ( im == <%=veclen%> ) then
+          call solve_Nnode<%=n%>_var3( D, b, G, Nnode_v, jm, Ne2D, is_top )
+        else
+          call solve_var3_im( D, b, G, Nnode_v, im, jm, Ne2D, is_top )
+        end if
 % end    
       case default
         LOG_INFO('atm_dyn_dgm_hevi_common_linalgebra_solve',*) "im > <%=AUTOGEN_VECMAX%> is not supported. Check!"
         call PRC_abort
-      end select
-    else
-      call solve_var3_im( D, b, G, Nnode_v, im, jm, Ne2D, is_top )
-    end if  
+    end select
     return
   end subroutine atm_dyn_dgm_hevi_common_linalgebra_solve_var3
 
@@ -297,7 +299,7 @@ contains
     real(RP) :: tmp
     !------------------------------
 
-    !$omp parallel do private(ke_xy,v2,k,i,j,v,r,ip,ipiv,tmpv,tmpb,tmp,bb,A) collapse(2)
+    !$omp parallel do collapse(2) private(ke_xy,v2,k,i,j,v,r,ip,ipiv,tmpv,tmpb,tmp,bb,A)
     do ke_xy=1, Ne2D
     do v2=1, jm
       A(:,:,:) = D(:,:,:,v2,ke_xy)
@@ -327,7 +329,9 @@ contains
         tmpv(:) = 1.0_RP / A(:,k,k)
         A(:,k,k) = tmpv(:)      
         do i=k+1, <%=3*n%>
-          A(:,i,k) = A(:,i,k) * tmpv(:)
+          do v=1, <%=veclen%>
+            A(v,i,k) = A(v,i,k) * tmpv(v)
+          end do
         end do
         do j=k+1, <%=3*n%>      
           do i=k+1, <%=3*n%>
