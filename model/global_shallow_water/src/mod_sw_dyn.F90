@@ -1,10 +1,10 @@
 !-------------------------------------------------------------------------------
-!> module  dynamical process
+!> module  Global SW / dynamical process
 !!
 !! @par Description
 !!          Module for shallow water equation
 !!
-!! @author Team SCALE
+!! @author Yuta Kawai, Team SCALE
 !!
 !<
 !-------------------------------------------------------------------------------

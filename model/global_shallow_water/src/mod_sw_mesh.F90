@@ -1,4 +1,13 @@
 !-------------------------------------------------------------------------------
+!> module  Global SW / Mesh
+!!
+!! @par Description
+!!          Module to manage the mesh for global shallow water equation
+!!
+!! @author Yuta Kawai, Team SCALE
+!!
+!<
+!-------------------------------------------------------------------------------
 #include "scaleFElib.h"
 module mod_sw_mesh
   !-----------------------------------------------------------------------------

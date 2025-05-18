@@ -20,7 +20,7 @@
   * Fix experimental setup of a benchmark test of dynamical core for tidally locked Earth atmosphere
 * Fix bugs
   * Modify a numerical flux for the case of global tracer advection
-  * Modify a bug with a flag whether restart files are outputed
+  * Modify a bug with a flag whether restart files are outputted
 
 = 2024-05-01 (0.8.0)
 * New features
@@ -54,7 +54,7 @@
   * Add test suites for 3D regional atmospheric model
     * Isentropic vortex
     * Kelvin Helmholtz wave
-    * Mountain wave: linear nonhydrostatic case (Giraldo and Restelli 2008) and Schaer-type mountain case (Schär et al. 2002)
+    * Mountain wave: linear nonhydrostatic case (Giraldo and Restelli 2008) and Schär-type mountain case (Schär et al. 2002)
 * Improvements
   * Modify mass and heat conservation in tracer negative fixer
   * Available to specify surface pressure when initial hydrostatic state is generated

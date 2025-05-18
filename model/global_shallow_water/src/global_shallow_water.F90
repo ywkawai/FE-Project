@@ -3,9 +3,9 @@
 !!
 !! @par Description
 !!         global shallow water model
-!!         which is discretized by a discontinuous galerkin method. 
+!!         which is discretized by a discontinuous Galerkin method. 
 !!
-!! @author Team SCALE
+!! @author Yuta Kawai, Team SCALE
 !!
 !<
 !-------------------------------------------------------------------------------

@@ -4,7 +4,7 @@
 !! @par Description
 !!          global shallow water component module
 !!
-!! @author Team SCALE
+!! @author Yuta Kawai, Team SCALE
 !!
 !<
 !-------------------------------------------------------------------------------
