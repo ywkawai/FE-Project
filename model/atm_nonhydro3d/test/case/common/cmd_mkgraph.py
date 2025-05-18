@@ -43,46 +43,85 @@ def get_index(var, axis_name, val):
     ax = var.coords[axis_name]
     return np.abs(ax-val).argmin()
 
+def interp_data(var, axis_name, val):
+    ax = var.coords[axis_name]
+    ind = get_index(var, axis_name, val)
+    cv = ax[ind]
+    if (val-cv > 0):
+        ind2 = max(0, min(ind+1,len(ax)-1))
+    else:
+        ind2 = max(0, min(ind-1,len(ax)-1))
+    cv2 = ax[ind2]
+    coef2 = np.abs(cv-val)/ ( np.abs(cv-cv2) + 1e-16)
+    var_ = (1.0 - coef2) * var.isel({axis_name:ind}) + coef2 * var.isel({axis_name:ind2})
+#    print(f"interp: {ind.values} {ind2.values}, z={ax[ind].values}:{ax[ind2].values}, coef2={coef2.values}")
+    var_.attrs['units'] = var.units
+    var_.coords[axis_name] = val
+    return var_.rename(var.name)
+
 #----------------------
 parser = argparse.ArgumentParser(description='mkgraph')
 parser.add_argument('gturl', help='gturl')
 parser.add_argument('outputFilePath', help='Output file path (figure)')
 parser.add_argument('--range', help='Set range', nargs=2, type=float, default=[0.0,0.0] )
+parser.add_argument('--int', help='Set interval',type=float, default=None )
 parser.add_argument('--figsize', help='Figure size', nargs=2, type=int, default=None )
 parser.add_argument('--cmap', help='Set colormap', default="jet" )
 parser.add_argument('--prc_num_xy', help='Set PRC_NUM_X, PRC_NUM_Y', nargs=2, type=int, default=[1,1] )
 parser.add_argument('--title', help='Figure title', default=None )
 parser.add_argument('--exch', help='Exchange horizontal and vertical axes', action='store_true' )
+parser.add_argument('--interp', help='Interpolate data into the specified coordinates (If --interp is not added, we use data at the nearest position)', action='store_true' )
+parser.add_argument('--xlim', help='Set xlim in figure', nargs=2, type=float, default=[0.0,0.0] )
+parser.add_argument('--ylim', help='Set ylim in figure', nargs=2, type=float, default=[0.0,0.0] )
 
 args = parser.parse_args()
 filename, variable, params = parse_gturl(args.gturl)
 output_fpath = args.outputFilePath
 
+#--
 prc_num_x = args.prc_num_xy[0]
 prc_num_y = args.prc_num_xy[1]
 
-vmin = args.range[0]
-vmax = args.range[1]
-if (vmin == vmax):
-    vmin = None; vmax = None
-    
-cmap = args.cmap
-
+#-- 
 print("File name:", filename)
 print("Variable name:", variable)
 print("Parameters:", params)
 fpath = get_fpathlist( filename, prc_num_x, prc_num_y )
 da = merge_xy(fpath)[variable]
 
+#--
 for key, v in params.items():
 #    print(f"Sel: {key}={v}")
-    ind = get_index(da, key, v)
-    da = da.isel({key: ind})
+    if args.interp:
+        da = interp_data(da, key, v)
+    else:
+        ind = get_index(da, key, v)
+        da = da.isel({key: ind})
 
+#--
+vmin = args.range[0]
+vmax = args.range[1]
+if (vmin == vmax):
+    vmin = None; vmax = None
+
+#--
+if (args.xlim[0]==args.xlim[1]):
+    xlim = None
+else:
+    xlim = args.xlim
+
+if (args.ylim[0]==args.ylim[1]):
+    ylim = None
+else:
+    ylim = args.ylim
+
+#--
 if args.title:
     title = args.title
 else:
     title = f"{variable} [{da.units}]"
 
-fig = mkgraph.plot(da, vmin=vmin, vmax=vmax, cmap=cmap, title=title, figsize=args.figsize, exch=args.exch)
+
+#--
+fig = mkgraph.plot(da, vmin=vmin, vmax=vmax, vint=args.int, xlim=xlim, ylim=ylim, cmap=args.cmap, title=title, figsize=args.figsize, exch=args.exch)
 fig.savefig(output_fpath, bbox_inches='tight')

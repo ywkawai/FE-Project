@@ -166,24 +166,24 @@ contains
     real(RP), intent(in) :: dom_zmin, dom_zmax
     
     
-    ! Parameters for inital stratification
-    real(RP) :: REF_TEMP    = 288.E0_RP ! The reference temperature [K]
-    real(RP) :: REF_PRES    = 1.E5_RP   ! The reference pressure [Pa]
-    real(RP) :: LAPSE_RATE  = 5.E-3_RP  ! The lapse rate [K/m]
+    ! Parameters for initial stratification
+    real(RP) :: REF_TEMP    = 288.E0_RP !< The reference temperature [K]
+    real(RP) :: REF_PRES    = 1.E5_RP   !< The reference pressure [Pa]
+    real(RP) :: LAPSE_RATE  = 5.E-3_RP  !< The lapse rate [K/m]
 
     ! Parameters associated with coriolis parameter on a beta-plane
-    real(RP) :: Phi0Deg     = 45.E0_RP  ! The central latitude [degree_north]
+    real(RP) :: Phi0Deg     = 45.E0_RP  !< The central latitude [degree_north]
 
     ! Parameters for background zonal jet
-    real(RP) :: U0 = 35.E0_RP          ! The parameter associated with zonal jet maximum amplitude  [m/s]
-    real(RP) :: b  = 2.E0_RP           ! The vertical half-width [1]
+    real(RP) :: U0 = 35.E0_RP          !< The parameter associated with zonal jet maximum amplitude  [m/s]
+    real(RP) :: b  = 2.E0_RP           !< The vertical half-width [1]
 
-    ! Parameters for inital perturbation of zonal wind with a Gaussian profile
+    ! Parameters for initial perturbation of zonal wind with a Gaussian profile
     !
-    real(RP) :: Up  = 1.E0_RP         ! The maximum amplitude of zonal wind perturbation [m/s]
-    real(RP) :: Lp  = 600.E3_RP       ! The width of Gaussian profile
-    real(RP) :: Xc  = 2000.E3_RP      ! The center point (x) of inital perturbation
-    real(RP) :: Yc  = 2500.E3_RP      ! The center point (y) of inital perturbation
+    real(RP) :: Up  = 1.E0_RP         !< The maximum amplitude of zonal wind perturbation [m/s]
+    real(RP) :: Lp  = 600.E3_RP       !< The width of Gaussian profile
+    real(RP) :: Xc  = 2000.E3_RP      !< The center point (x) of initial perturbation
+    real(RP) :: Yc  = 2500.E3_RP      !< The center point (y) of initial perturbation
 
     namelist /PARAM_EXP/ &
       REF_TEMP, REF_PRES, LAPSE_RATE, &

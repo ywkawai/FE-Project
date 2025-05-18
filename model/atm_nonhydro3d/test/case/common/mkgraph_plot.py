@@ -50,7 +50,7 @@ def plot_var_xy(var, vmin, vmax, zisel, nc):
 
   plt.savefig(f"{v.name}_t{TIME_cut}_z{int(zlev)}.png")
 
-def plot(da, exch=False, vmin=None, vmax=None, cmap="jet", title=None, figsize=None):
+def plot(da, exch=False, vmin=None, vmax=None, xlim=None, ylim=None, vint=None, cmap="jet", title=None, figsize=None):
   cut_dim_info_str = []
   for k, v in da.coords.items(): 
     if k not in da.dims:
@@ -87,17 +87,28 @@ def plot(da, exch=False, vmin=None, vmax=None, cmap="jet", title=None, figsize=N
   plt.rcParams["font.size"] = 14
   fig, ax = plt.subplots(1,1, figsize=fig_size) 
 
+  if vint:
+    lv = np.arange(vmin, vmax + vint, vint)
+    cs = da.plot.contourf(y=yaxis_name, ax=ax, levels=lv, cmap=cmap, add_colorbar=False)
+  else:
+    cs = da.plot.contourf(y=yaxis_name, ax=ax, vmin=vmin, vmax=vmax, cmap=cmap, add_colorbar=False)
   
-  p = da.plot(y=yaxis_name, ax=ax, vmin=vmin, vmax=vmax, cmap=cmap, add_colorbar=False)
+  cs2 = da.plot.contour(y=yaxis_name, ax=ax, levels=cs.levels, colors='black', add_colorbar=False)
   ax.text(0.5, 1.0, cut_dim_info_str, transform=ax.transAxes, ha='center', va='bottom', fontsize=12)
 
   divider = make_axes_locatable(ax)
   cax = divider.append_axes("right", size="3%", pad=0.2)  
-  fig.colorbar(p, cax=cax)
+  fig.colorbar(cs, cax=cax)
 
   if title:
     print(title)
     ax.set_title(title, fontsize=18, pad=title_pad)
+
+  if xlim:
+    ax.set_xlim( [xlim[0], xlim[1]] )
+  if ylim:
+    ax.set_ylim( [ylim[0], ylim[1]] )
+
   ax.set_xlabel(f"{coord1.name} [{coord1.units}]", fontsize=16)
   ax.set_ylabel(f"{coord2.name} [{coord2.units}]", fontsize=16)
   # ax.set_aspect('equal')
