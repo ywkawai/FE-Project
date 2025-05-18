@@ -1,4 +1,13 @@
 !-------------------------------------------------------------------------------
+!> module Global SW / Dynamics
+!!
+!! @par Description
+!!          Container for variables with dynamics
+!!
+!! @author Yuta Kawai, Team SCALE
+!!
+!<
+!-------------------------------------------------------------------------------
 #include "scaleFElib.h"
 module mod_sw_dyn_vars
   !-----------------------------------------------------------------------------
