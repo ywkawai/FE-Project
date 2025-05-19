@@ -2,13 +2,20 @@
 !> module USER
 !!
 !! @par Description
-!!          User defined module for mountain wave experiments(linear hydrostatic case, nonhydrostatic case, Schaer case)
+!!          User defined module for mountain wave experiments(linear hydrostatic case, linear nonhydrostatic case, and Schaer case)
 !!
-!! @author Team SCALE
+!! @author Yuta Kawai, Team SCALE
 !!
+!! @par Reference
+!!  - Schär, C., Leuenberger, D., Fuhrer, O., Lüthi, D., and Girard, C. 2002: 
+!!    A New Terrain-Following Vertical Coordinate Formulation for Atmospheric Prediction Models. 
+!!    Mon. Wea. Rev., 130, 2459–2480
+!!  - Giraldo, F. X., and Restelli, M. 2008:
+!!    A study of spectral element and discontinuous Galerkin methods for the Navier–Stokes equations in nonhydrostatic mesoscale atmospheric modeling: Equation sets and test cases. 
+!!    J. Comput. Phys., 227(8), 3849-3877.
 !<
 !-------------------------------------------------------------------------------
-#include "scalelib.h"
+#include "scaleFElib.h"
 module mod_user
 
   !-----------------------------------------------------------------------------
