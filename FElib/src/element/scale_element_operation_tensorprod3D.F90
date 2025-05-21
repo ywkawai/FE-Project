@@ -83,6 +83,7 @@ module scale_element_operation_tensorprod3D
     procedure, public :: DxDyDzLift => element_operation_tensorprod3D_DxDyDzLift_P1
     procedure, public :: Div => element_operation_tensorprod3D_Div_P1
     procedure, public :: Div_var5 => element_operation_tensorprod3D_Div_var5_P1
+    procedure, public :: Div_var5_2 => element_operation_tensorprod3D_Div_var5_2_P1
     procedure, public :: VFilterPM1 => element_operation_tensorprod3D_VFilterPM1_P1
     !-
     procedure, public :: Setup_ModalFilter => element_operation_tensorprod3D_Setup_ModalFilter_P1
@@ -113,6 +114,7 @@ module scale_element_operation_tensorprod3D
     procedure, public :: DxDyDzLift => element_operation_tensorprod3D_DxDyDzLift_P2
     procedure, public :: Div => element_operation_tensorprod3D_Div_P2
     procedure, public :: Div_var5 => element_operation_tensorprod3D_Div_var5_P2
+    procedure, public :: Div_var5_2 => element_operation_tensorprod3D_Div_var5_2_P2
     procedure, public :: VFilterPM1 => element_operation_tensorprod3D_VFilterPM1_P2
     !-
     procedure, public :: Setup_ModalFilter => element_operation_tensorprod3D_Setup_ModalFilter_P2
@@ -143,6 +145,7 @@ module scale_element_operation_tensorprod3D
     procedure, public :: DxDyDzLift => element_operation_tensorprod3D_DxDyDzLift_P3
     procedure, public :: Div => element_operation_tensorprod3D_Div_P3
     procedure, public :: Div_var5 => element_operation_tensorprod3D_Div_var5_P3
+    procedure, public :: Div_var5_2 => element_operation_tensorprod3D_Div_var5_2_P3
     procedure, public :: VFilterPM1 => element_operation_tensorprod3D_VFilterPM1_P3
     !-
     procedure, public :: Setup_ModalFilter => element_operation_tensorprod3D_Setup_ModalFilter_P3
@@ -173,6 +176,7 @@ module scale_element_operation_tensorprod3D
     procedure, public :: DxDyDzLift => element_operation_tensorprod3D_DxDyDzLift_P4
     procedure, public :: Div => element_operation_tensorprod3D_Div_P4
     procedure, public :: Div_var5 => element_operation_tensorprod3D_Div_var5_P4
+    procedure, public :: Div_var5_2 => element_operation_tensorprod3D_Div_var5_2_P4
     procedure, public :: VFilterPM1 => element_operation_tensorprod3D_VFilterPM1_P4
     !-
     procedure, public :: Setup_ModalFilter => element_operation_tensorprod3D_Setup_ModalFilter_P4
@@ -203,6 +207,7 @@ module scale_element_operation_tensorprod3D
     procedure, public :: DxDyDzLift => element_operation_tensorprod3D_DxDyDzLift_P5
     procedure, public :: Div => element_operation_tensorprod3D_Div_P5
     procedure, public :: Div_var5 => element_operation_tensorprod3D_Div_var5_P5
+    procedure, public :: Div_var5_2 => element_operation_tensorprod3D_Div_var5_2_P5
     procedure, public :: VFilterPM1 => element_operation_tensorprod3D_VFilterPM1_P5
     !-
     procedure, public :: Setup_ModalFilter => element_operation_tensorprod3D_Setup_ModalFilter_P5
@@ -233,6 +238,7 @@ module scale_element_operation_tensorprod3D
     procedure, public :: DxDyDzLift => element_operation_tensorprod3D_DxDyDzLift_P6
     procedure, public :: Div => element_operation_tensorprod3D_Div_P6
     procedure, public :: Div_var5 => element_operation_tensorprod3D_Div_var5_P6
+    procedure, public :: Div_var5_2 => element_operation_tensorprod3D_Div_var5_2_P6
     procedure, public :: VFilterPM1 => element_operation_tensorprod3D_VFilterPM1_P6
     !-
     procedure, public :: Setup_ModalFilter => element_operation_tensorprod3D_Setup_ModalFilter_P6
@@ -263,6 +269,7 @@ module scale_element_operation_tensorprod3D
     procedure, public :: DxDyDzLift => element_operation_tensorprod3D_DxDyDzLift_P7
     procedure, public :: Div => element_operation_tensorprod3D_Div_P7
     procedure, public :: Div_var5 => element_operation_tensorprod3D_Div_var5_P7
+    procedure, public :: Div_var5_2 => element_operation_tensorprod3D_Div_var5_2_P7
     procedure, public :: VFilterPM1 => element_operation_tensorprod3D_VFilterPM1_P7
     !-
     procedure, public :: Setup_ModalFilter => element_operation_tensorprod3D_Setup_ModalFilter_P7
@@ -293,6 +300,7 @@ module scale_element_operation_tensorprod3D
     procedure, public :: DxDyDzLift => element_operation_tensorprod3D_DxDyDzLift_P8
     procedure, public :: Div => element_operation_tensorprod3D_Div_P8
     procedure, public :: Div_var5 => element_operation_tensorprod3D_Div_var5_P8
+    procedure, public :: Div_var5_2 => element_operation_tensorprod3D_Div_var5_2_P8
     procedure, public :: VFilterPM1 => element_operation_tensorprod3D_VFilterPM1_P8
     !-
     procedure, public :: Setup_ModalFilter => element_operation_tensorprod3D_Setup_ModalFilter_P8
@@ -323,6 +331,7 @@ module scale_element_operation_tensorprod3D
     procedure, public :: DxDyDzLift => element_operation_tensorprod3D_DxDyDzLift_P9
     procedure, public :: Div => element_operation_tensorprod3D_Div_P9
     procedure, public :: Div_var5 => element_operation_tensorprod3D_Div_var5_P9
+    procedure, public :: Div_var5_2 => element_operation_tensorprod3D_Div_var5_2_P9
     procedure, public :: VFilterPM1 => element_operation_tensorprod3D_VFilterPM1_P9
     !-
     procedure, public :: Setup_ModalFilter => element_operation_tensorprod3D_Setup_ModalFilter_P9
@@ -353,6 +362,7 @@ module scale_element_operation_tensorprod3D
     procedure, public :: DxDyDzLift => element_operation_tensorprod3D_DxDyDzLift_P10
     procedure, public :: Div => element_operation_tensorprod3D_Div_P10
     procedure, public :: Div_var5 => element_operation_tensorprod3D_Div_var5_P10
+    procedure, public :: Div_var5_2 => element_operation_tensorprod3D_Div_var5_2_P10
     procedure, public :: VFilterPM1 => element_operation_tensorprod3D_VFilterPM1_P10
     !-
     procedure, public :: Setup_ModalFilter => element_operation_tensorprod3D_Setup_ModalFilter_P10
@@ -383,6 +393,7 @@ module scale_element_operation_tensorprod3D
     procedure, public :: DxDyDzLift => element_operation_tensorprod3D_DxDyDzLift_P11
     procedure, public :: Div => element_operation_tensorprod3D_Div_P11
     procedure, public :: Div_var5 => element_operation_tensorprod3D_Div_var5_P11
+    procedure, public :: Div_var5_2 => element_operation_tensorprod3D_Div_var5_2_P11
     procedure, public :: VFilterPM1 => element_operation_tensorprod3D_VFilterPM1_P11
     !-
     procedure, public :: Setup_ModalFilter => element_operation_tensorprod3D_Setup_ModalFilter_P11
@@ -413,6 +424,7 @@ module scale_element_operation_tensorprod3D
     procedure, public :: DxDyDzLift => element_operation_tensorprod3D_DxDyDzLift_P12
     procedure, public :: Div => element_operation_tensorprod3D_Div_P12
     procedure, public :: Div_var5 => element_operation_tensorprod3D_Div_var5_P12
+    procedure, public :: Div_var5_2 => element_operation_tensorprod3D_Div_var5_2_P12
     procedure, public :: VFilterPM1 => element_operation_tensorprod3D_VFilterPM1_P12
     !-
     procedure, public :: Setup_ModalFilter => element_operation_tensorprod3D_Setup_ModalFilter_P12
@@ -443,6 +455,7 @@ module scale_element_operation_tensorprod3D
     procedure, public :: DxDyDzLift => element_operation_tensorprod3D_DxDyDzLift_P13
     procedure, public :: Div => element_operation_tensorprod3D_Div_P13
     procedure, public :: Div_var5 => element_operation_tensorprod3D_Div_var5_P13
+    procedure, public :: Div_var5_2 => element_operation_tensorprod3D_Div_var5_2_P13
     procedure, public :: VFilterPM1 => element_operation_tensorprod3D_VFilterPM1_P13
     !-
     procedure, public :: Setup_ModalFilter => element_operation_tensorprod3D_Setup_ModalFilter_P13
@@ -473,6 +486,7 @@ module scale_element_operation_tensorprod3D
     procedure, public :: DxDyDzLift => element_operation_tensorprod3D_DxDyDzLift_P14
     procedure, public :: Div => element_operation_tensorprod3D_Div_P14
     procedure, public :: Div_var5 => element_operation_tensorprod3D_Div_var5_P14
+    procedure, public :: Div_var5_2 => element_operation_tensorprod3D_Div_var5_2_P14
     procedure, public :: VFilterPM1 => element_operation_tensorprod3D_VFilterPM1_P14
     !-
     procedure, public :: Setup_ModalFilter => element_operation_tensorprod3D_Setup_ModalFilter_P14
@@ -503,6 +517,7 @@ module scale_element_operation_tensorprod3D
     procedure, public :: DxDyDzLift => element_operation_tensorprod3D_DxDyDzLift_P15
     procedure, public :: Div => element_operation_tensorprod3D_Div_P15
     procedure, public :: Div_var5 => element_operation_tensorprod3D_Div_var5_P15
+    procedure, public :: Div_var5_2 => element_operation_tensorprod3D_Div_var5_2_P15
     procedure, public :: VFilterPM1 => element_operation_tensorprod3D_VFilterPM1_P15
     !-
     procedure, public :: Setup_ModalFilter => element_operation_tensorprod3D_Setup_ModalFilter_P15
@@ -782,7 +797,29 @@ contains
     end do
     return
   end subroutine element_operation_tensorprod3D_Div_var5_P1
-    
+
+!> Calculate the 3D gradient
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Div_var5_2_P1(  this, vec_in, &
+    vec_out_d )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_divlike_dirXYZ_P1
+    implicit none
+    class(ElementOperationTensorProd3D_P1), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np,3,5)
+    real(RP), intent(out) :: vec_out_d(this%elem3D%Np,3,5)
+
+    integer :: iv
+    !----------------------------------------------------------
+
+    do iv=1, 5
+      call element_operation_kernel_matvec_divlike_dirXYZ_P1( this%D1D, this%D1D_tr, vec_in(:,1,iv), vec_in(:,2,iv), vec_in(:,3,iv), &
+        vec_out_d(:,1,iv), vec_out_d(:,2,iv), vec_out_d(:,3,iv) )
+    end do
+    return
+  end subroutine element_operation_tensorprod3D_Div_var5_2_P1
+  
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_VFilterPM1_P1( this, vec_in, vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirZ_P1
@@ -1053,7 +1090,29 @@ contains
     end do
     return
   end subroutine element_operation_tensorprod3D_Div_var5_P2
-    
+
+!> Calculate the 3D gradient
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Div_var5_2_P2(  this, vec_in, &
+    vec_out_d )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_divlike_dirXYZ_P2
+    implicit none
+    class(ElementOperationTensorProd3D_P2), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np,3,5)
+    real(RP), intent(out) :: vec_out_d(this%elem3D%Np,3,5)
+
+    integer :: iv
+    !----------------------------------------------------------
+
+    do iv=1, 5
+      call element_operation_kernel_matvec_divlike_dirXYZ_P2( this%D1D, this%D1D_tr, vec_in(:,1,iv), vec_in(:,2,iv), vec_in(:,3,iv), &
+        vec_out_d(:,1,iv), vec_out_d(:,2,iv), vec_out_d(:,3,iv) )
+    end do
+    return
+  end subroutine element_operation_tensorprod3D_Div_var5_2_P2
+  
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_VFilterPM1_P2( this, vec_in, vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirZ_P2
@@ -1324,7 +1383,29 @@ contains
     end do
     return
   end subroutine element_operation_tensorprod3D_Div_var5_P3
-    
+
+!> Calculate the 3D gradient
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Div_var5_2_P3(  this, vec_in, &
+    vec_out_d )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_divlike_dirXYZ_P3
+    implicit none
+    class(ElementOperationTensorProd3D_P3), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np,3,5)
+    real(RP), intent(out) :: vec_out_d(this%elem3D%Np,3,5)
+
+    integer :: iv
+    !----------------------------------------------------------
+
+    do iv=1, 5
+      call element_operation_kernel_matvec_divlike_dirXYZ_P3( this%D1D, this%D1D_tr, vec_in(:,1,iv), vec_in(:,2,iv), vec_in(:,3,iv), &
+        vec_out_d(:,1,iv), vec_out_d(:,2,iv), vec_out_d(:,3,iv) )
+    end do
+    return
+  end subroutine element_operation_tensorprod3D_Div_var5_2_P3
+  
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_VFilterPM1_P3( this, vec_in, vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirZ_P3
@@ -1595,7 +1676,29 @@ contains
     end do
     return
   end subroutine element_operation_tensorprod3D_Div_var5_P4
-    
+
+!> Calculate the 3D gradient
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Div_var5_2_P4(  this, vec_in, &
+    vec_out_d )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_divlike_dirXYZ_P4
+    implicit none
+    class(ElementOperationTensorProd3D_P4), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np,3,5)
+    real(RP), intent(out) :: vec_out_d(this%elem3D%Np,3,5)
+
+    integer :: iv
+    !----------------------------------------------------------
+
+    do iv=1, 5
+      call element_operation_kernel_matvec_divlike_dirXYZ_P4( this%D1D, this%D1D_tr, vec_in(:,1,iv), vec_in(:,2,iv), vec_in(:,3,iv), &
+        vec_out_d(:,1,iv), vec_out_d(:,2,iv), vec_out_d(:,3,iv) )
+    end do
+    return
+  end subroutine element_operation_tensorprod3D_Div_var5_2_P4
+  
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_VFilterPM1_P4( this, vec_in, vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirZ_P4
@@ -1866,7 +1969,29 @@ contains
     end do
     return
   end subroutine element_operation_tensorprod3D_Div_var5_P5
-    
+
+!> Calculate the 3D gradient
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Div_var5_2_P5(  this, vec_in, &
+    vec_out_d )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_divlike_dirXYZ_P5
+    implicit none
+    class(ElementOperationTensorProd3D_P5), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np,3,5)
+    real(RP), intent(out) :: vec_out_d(this%elem3D%Np,3,5)
+
+    integer :: iv
+    !----------------------------------------------------------
+
+    do iv=1, 5
+      call element_operation_kernel_matvec_divlike_dirXYZ_P5( this%D1D, this%D1D_tr, vec_in(:,1,iv), vec_in(:,2,iv), vec_in(:,3,iv), &
+        vec_out_d(:,1,iv), vec_out_d(:,2,iv), vec_out_d(:,3,iv) )
+    end do
+    return
+  end subroutine element_operation_tensorprod3D_Div_var5_2_P5
+  
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_VFilterPM1_P5( this, vec_in, vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirZ_P5
@@ -2137,7 +2262,29 @@ contains
     end do
     return
   end subroutine element_operation_tensorprod3D_Div_var5_P6
-    
+
+!> Calculate the 3D gradient
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Div_var5_2_P6(  this, vec_in, &
+    vec_out_d )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_divlike_dirXYZ_P6
+    implicit none
+    class(ElementOperationTensorProd3D_P6), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np,3,5)
+    real(RP), intent(out) :: vec_out_d(this%elem3D%Np,3,5)
+
+    integer :: iv
+    !----------------------------------------------------------
+
+    do iv=1, 5
+      call element_operation_kernel_matvec_divlike_dirXYZ_P6( this%D1D, this%D1D_tr, vec_in(:,1,iv), vec_in(:,2,iv), vec_in(:,3,iv), &
+        vec_out_d(:,1,iv), vec_out_d(:,2,iv), vec_out_d(:,3,iv) )
+    end do
+    return
+  end subroutine element_operation_tensorprod3D_Div_var5_2_P6
+  
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_VFilterPM1_P6( this, vec_in, vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirZ_P6
@@ -2408,7 +2555,29 @@ contains
     end do
     return
   end subroutine element_operation_tensorprod3D_Div_var5_P7
-    
+
+!> Calculate the 3D gradient
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Div_var5_2_P7(  this, vec_in, &
+    vec_out_d )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_divlike_dirXYZ_P7
+    implicit none
+    class(ElementOperationTensorProd3D_P7), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np,3,5)
+    real(RP), intent(out) :: vec_out_d(this%elem3D%Np,3,5)
+
+    integer :: iv
+    !----------------------------------------------------------
+
+    do iv=1, 5
+      call element_operation_kernel_matvec_divlike_dirXYZ_P7( this%D1D, this%D1D_tr, vec_in(:,1,iv), vec_in(:,2,iv), vec_in(:,3,iv), &
+        vec_out_d(:,1,iv), vec_out_d(:,2,iv), vec_out_d(:,3,iv) )
+    end do
+    return
+  end subroutine element_operation_tensorprod3D_Div_var5_2_P7
+  
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_VFilterPM1_P7( this, vec_in, vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirZ_P7
@@ -2679,7 +2848,29 @@ contains
     end do
     return
   end subroutine element_operation_tensorprod3D_Div_var5_P8
-    
+
+!> Calculate the 3D gradient
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Div_var5_2_P8(  this, vec_in, &
+    vec_out_d )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_divlike_dirXYZ_P8
+    implicit none
+    class(ElementOperationTensorProd3D_P8), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np,3,5)
+    real(RP), intent(out) :: vec_out_d(this%elem3D%Np,3,5)
+
+    integer :: iv
+    !----------------------------------------------------------
+
+    do iv=1, 5
+      call element_operation_kernel_matvec_divlike_dirXYZ_P8( this%D1D, this%D1D_tr, vec_in(:,1,iv), vec_in(:,2,iv), vec_in(:,3,iv), &
+        vec_out_d(:,1,iv), vec_out_d(:,2,iv), vec_out_d(:,3,iv) )
+    end do
+    return
+  end subroutine element_operation_tensorprod3D_Div_var5_2_P8
+  
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_VFilterPM1_P8( this, vec_in, vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirZ_P8
@@ -2950,7 +3141,29 @@ contains
     end do
     return
   end subroutine element_operation_tensorprod3D_Div_var5_P9
-    
+
+!> Calculate the 3D gradient
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Div_var5_2_P9(  this, vec_in, &
+    vec_out_d )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_divlike_dirXYZ_P9
+    implicit none
+    class(ElementOperationTensorProd3D_P9), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np,3,5)
+    real(RP), intent(out) :: vec_out_d(this%elem3D%Np,3,5)
+
+    integer :: iv
+    !----------------------------------------------------------
+
+    do iv=1, 5
+      call element_operation_kernel_matvec_divlike_dirXYZ_P9( this%D1D, this%D1D_tr, vec_in(:,1,iv), vec_in(:,2,iv), vec_in(:,3,iv), &
+        vec_out_d(:,1,iv), vec_out_d(:,2,iv), vec_out_d(:,3,iv) )
+    end do
+    return
+  end subroutine element_operation_tensorprod3D_Div_var5_2_P9
+  
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_VFilterPM1_P9( this, vec_in, vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirZ_P9
@@ -3221,7 +3434,29 @@ contains
     end do
     return
   end subroutine element_operation_tensorprod3D_Div_var5_P10
-    
+
+!> Calculate the 3D gradient
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Div_var5_2_P10(  this, vec_in, &
+    vec_out_d )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_divlike_dirXYZ_P10
+    implicit none
+    class(ElementOperationTensorProd3D_P10), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np,3,5)
+    real(RP), intent(out) :: vec_out_d(this%elem3D%Np,3,5)
+
+    integer :: iv
+    !----------------------------------------------------------
+
+    do iv=1, 5
+      call element_operation_kernel_matvec_divlike_dirXYZ_P10( this%D1D, this%D1D_tr, vec_in(:,1,iv), vec_in(:,2,iv), vec_in(:,3,iv), &
+        vec_out_d(:,1,iv), vec_out_d(:,2,iv), vec_out_d(:,3,iv) )
+    end do
+    return
+  end subroutine element_operation_tensorprod3D_Div_var5_2_P10
+  
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_VFilterPM1_P10( this, vec_in, vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirZ_P10
@@ -3492,7 +3727,29 @@ contains
     end do
     return
   end subroutine element_operation_tensorprod3D_Div_var5_P11
-    
+
+!> Calculate the 3D gradient
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Div_var5_2_P11(  this, vec_in, &
+    vec_out_d )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_divlike_dirXYZ_P11
+    implicit none
+    class(ElementOperationTensorProd3D_P11), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np,3,5)
+    real(RP), intent(out) :: vec_out_d(this%elem3D%Np,3,5)
+
+    integer :: iv
+    !----------------------------------------------------------
+
+    do iv=1, 5
+      call element_operation_kernel_matvec_divlike_dirXYZ_P11( this%D1D, this%D1D_tr, vec_in(:,1,iv), vec_in(:,2,iv), vec_in(:,3,iv), &
+        vec_out_d(:,1,iv), vec_out_d(:,2,iv), vec_out_d(:,3,iv) )
+    end do
+    return
+  end subroutine element_operation_tensorprod3D_Div_var5_2_P11
+  
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_VFilterPM1_P11( this, vec_in, vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirZ_P11
@@ -3763,7 +4020,29 @@ contains
     end do
     return
   end subroutine element_operation_tensorprod3D_Div_var5_P12
-    
+
+!> Calculate the 3D gradient
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Div_var5_2_P12(  this, vec_in, &
+    vec_out_d )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_divlike_dirXYZ_P12
+    implicit none
+    class(ElementOperationTensorProd3D_P12), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np,3,5)
+    real(RP), intent(out) :: vec_out_d(this%elem3D%Np,3,5)
+
+    integer :: iv
+    !----------------------------------------------------------
+
+    do iv=1, 5
+      call element_operation_kernel_matvec_divlike_dirXYZ_P12( this%D1D, this%D1D_tr, vec_in(:,1,iv), vec_in(:,2,iv), vec_in(:,3,iv), &
+        vec_out_d(:,1,iv), vec_out_d(:,2,iv), vec_out_d(:,3,iv) )
+    end do
+    return
+  end subroutine element_operation_tensorprod3D_Div_var5_2_P12
+  
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_VFilterPM1_P12( this, vec_in, vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirZ_P12
@@ -4034,7 +4313,29 @@ contains
     end do
     return
   end subroutine element_operation_tensorprod3D_Div_var5_P13
-    
+
+!> Calculate the 3D gradient
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Div_var5_2_P13(  this, vec_in, &
+    vec_out_d )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_divlike_dirXYZ_P13
+    implicit none
+    class(ElementOperationTensorProd3D_P13), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np,3,5)
+    real(RP), intent(out) :: vec_out_d(this%elem3D%Np,3,5)
+
+    integer :: iv
+    !----------------------------------------------------------
+
+    do iv=1, 5
+      call element_operation_kernel_matvec_divlike_dirXYZ_P13( this%D1D, this%D1D_tr, vec_in(:,1,iv), vec_in(:,2,iv), vec_in(:,3,iv), &
+        vec_out_d(:,1,iv), vec_out_d(:,2,iv), vec_out_d(:,3,iv) )
+    end do
+    return
+  end subroutine element_operation_tensorprod3D_Div_var5_2_P13
+  
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_VFilterPM1_P13( this, vec_in, vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirZ_P13
@@ -4305,7 +4606,29 @@ contains
     end do
     return
   end subroutine element_operation_tensorprod3D_Div_var5_P14
-    
+
+!> Calculate the 3D gradient
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Div_var5_2_P14(  this, vec_in, &
+    vec_out_d )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_divlike_dirXYZ_P14
+    implicit none
+    class(ElementOperationTensorProd3D_P14), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np,3,5)
+    real(RP), intent(out) :: vec_out_d(this%elem3D%Np,3,5)
+
+    integer :: iv
+    !----------------------------------------------------------
+
+    do iv=1, 5
+      call element_operation_kernel_matvec_divlike_dirXYZ_P14( this%D1D, this%D1D_tr, vec_in(:,1,iv), vec_in(:,2,iv), vec_in(:,3,iv), &
+        vec_out_d(:,1,iv), vec_out_d(:,2,iv), vec_out_d(:,3,iv) )
+    end do
+    return
+  end subroutine element_operation_tensorprod3D_Div_var5_2_P14
+  
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_VFilterPM1_P14( this, vec_in, vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirZ_P14
@@ -4576,7 +4899,29 @@ contains
     end do
     return
   end subroutine element_operation_tensorprod3D_Div_var5_P15
-    
+
+!> Calculate the 3D gradient
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Div_var5_2_P15(  this, vec_in, &
+    vec_out_d )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_divlike_dirXYZ_P15
+    implicit none
+    class(ElementOperationTensorProd3D_P15), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np,3,5)
+    real(RP), intent(out) :: vec_out_d(this%elem3D%Np,3,5)
+
+    integer :: iv
+    !----------------------------------------------------------
+
+    do iv=1, 5
+      call element_operation_kernel_matvec_divlike_dirXYZ_P15( this%D1D, this%D1D_tr, vec_in(:,1,iv), vec_in(:,2,iv), vec_in(:,3,iv), &
+        vec_out_d(:,1,iv), vec_out_d(:,2,iv), vec_out_d(:,3,iv) )
+    end do
+    return
+  end subroutine element_operation_tensorprod3D_Div_var5_2_P15
+  
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_VFilterPM1_P15( this, vec_in, vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirZ_P15
