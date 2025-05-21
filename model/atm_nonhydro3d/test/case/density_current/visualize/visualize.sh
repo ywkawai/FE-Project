@@ -4,9 +4,9 @@ echo "+make directory"
 mkdir -p analysis
 
 ### check error norm ###
-# for var in DDENS ENGT ENGP ENGK ENGI; do
-#    python ../common/cmd_analysis_monitor.py monitor.peall ${var} 180.0 analysis/monitor_${var}.png
-# done
+for var in DDENS ENGT ENGP ENGK ENGI; do
+   python ../common/cmd_analysis_monitor.py monitor.peall ${var} 0.08 analysis/monitor_${var}.png
+done
 
 ### make figures ###
 echo "+mkgraph"
