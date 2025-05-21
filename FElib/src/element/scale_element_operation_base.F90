@@ -39,6 +39,7 @@ module scale_element_operation_base
     procedure(ElementOperationBase_DxDyDzLift), deferred, public :: DxDyDzLift
     procedure(ElementOperationBase_Div), deferred, public :: Div
     procedure(ElementOperationBase_Div_var5), deferred, public :: Div_var5
+    procedure(ElementOperationBase_Div_var5_2), deferred, public :: Div_var5_2
     procedure(ElementOperationBase_VFilterPM1), deferred, public :: VFilterPM1
     procedure(ElementOperationBase_Setup_ModalFilter), deferred, public :: Setup_ModalFilter
     procedure(ElementOperationBase_Setup_ModalFilter_tracer), deferred, public :: Setup_ModalFilter_tracer
@@ -114,6 +115,15 @@ module scale_element_operation_base
       real(RP), intent(in) :: vec_in_lift(this%elem3D%NfpTot,5)
       real(RP), intent(out) :: vec_out_d(this%elem3D%Np,4,5)
     end subroutine ElementOperationBase_Div_var5
+
+    subroutine ElementOperationBase_Div_var5_2( this, vec_in, &
+      vec_out_d )
+      import ElementOperationBase3D      
+      import RP
+      class(ElementOperationBase3D), intent(in) :: this
+      real(RP), intent(in) :: vec_in(this%elem3D%Np,3,5)
+      real(RP), intent(out) :: vec_out_d(this%elem3D%Np,3,5)
+    end subroutine ElementOperationBase_Div_var5_2
 
     subroutine ElementOperationBase_VFilterPM1( this, vec_in, vec_out )
       import ElementOperationBase3D      

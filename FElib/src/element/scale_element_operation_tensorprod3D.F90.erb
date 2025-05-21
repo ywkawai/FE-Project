@@ -85,6 +85,7 @@ module scale_element_operation_tensorprod3D
     procedure, public :: DxDyDzLift => element_operation_tensorprod3D_DxDyDzLift_P<%=p%>
     procedure, public :: Div => element_operation_tensorprod3D_Div_P<%=p%>
     procedure, public :: Div_var5 => element_operation_tensorprod3D_Div_var5_P<%=p%>
+    procedure, public :: Div_var5_2 => element_operation_tensorprod3D_Div_var5_2_P<%=p%>
     procedure, public :: VFilterPM1 => element_operation_tensorprod3D_VFilterPM1_P<%=p%>
     !-
     procedure, public :: Setup_ModalFilter => element_operation_tensorprod3D_Setup_ModalFilter_P<%=p%>
@@ -340,7 +341,29 @@ contains
     end do
     return
   end subroutine element_operation_tensorprod3D_Div_var5_P<%=p%>
-    
+
+!> Calculate the 3D gradient
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Div_var5_2_P<%=p%>(  this, vec_in, &
+    vec_out_d )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_divlike_dirXYZ_P<%=p%>
+    implicit none
+    class(ElementOperationTensorProd3D_P<%=p%>), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np,3,5)
+    real(RP), intent(out) :: vec_out_d(this%elem3D%Np,3,5)
+
+    integer :: iv
+    !----------------------------------------------------------
+
+    do iv=1, 5
+      call element_operation_kernel_matvec_divlike_dirXYZ_P<%=p%>( this%D1D, this%D1D_tr, vec_in(:,1,iv), vec_in(:,2,iv), vec_in(:,3,iv), &
+        vec_out_d(:,1,iv), vec_out_d(:,2,iv), vec_out_d(:,3,iv) )
+    end do
+    return
+  end subroutine element_operation_tensorprod3D_Div_var5_2_P<%=p%>
+  
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_VFilterPM1_P<%=p%>( this, vec_in, vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirZ_P<%=p%>

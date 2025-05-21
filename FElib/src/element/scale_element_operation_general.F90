@@ -54,6 +54,7 @@ module scale_element_operation_general
     procedure, public :: DxDyDzLift => element_operation_general_DxDyDzLift
     procedure, public :: Div => element_operation_general_Div
     procedure, public :: Div_var5 => element_operation_general_Div_var5
+    procedure, public :: Div_var5_2 => element_operation_general_Div_var5_2
     procedure, public :: VFilterPM1 => element_operation_general_VFilterPM1
     !-
     procedure, public :: Setup_ModalFilter => element_operation_general_Setup_ModalFilter
@@ -305,6 +306,27 @@ contains
     end do
     return
   end subroutine element_operation_general_Div_var5
+
+!> Calculate the 3D gradient
+!!
+!OCL SERIAL
+  subroutine element_operation_general_Div_var5_2( this, vec_in,  &
+    vec_out_d )
+    implicit none
+    class(ElementOperationGeneral), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np,3,5)
+    real(RP), intent(out) :: vec_out_d(this%elem3D%Np,3,5)
+
+    integer :: iv
+    !---------------------------------------------------------------
+
+    do iv=1, 5
+      call sparsemat_matmul( this%Dx_sm, vec_in(:,1,iv), vec_out_d(:,1,iv) )
+      call sparsemat_matmul( this%Dy_sm, vec_in(:,2,iv), vec_out_d(:,2,iv) )
+      call sparsemat_matmul( this%Dz_sm, vec_in(:,3,iv), vec_out_d(:,3,iv) )
+    end do
+    return
+  end subroutine element_operation_general_Div_var5_2
 
 !OCL SERIAL
   subroutine element_operation_general_VFilterPM1( this, vec_in, vec_out )

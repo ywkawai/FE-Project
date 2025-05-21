@@ -66,7 +66,10 @@ module scale_atm_dyn_dgm_driver_nonhydro3d
     atm_dyn_dgm_nonhydro3d_rhot_heve_Init,          &
     atm_dyn_dgm_nonhydro3d_rhot_heve_Final,         &
     atm_dyn_dgm_nonhydro3d_rhot_heve_cal_tend_asis, &
-    atm_dyn_dgm_nonhydro3d_rhot_heve_cal_tend
+    atm_dyn_dgm_nonhydro3d_rhot_heve_cal_tend,      &
+    atm_dyn_dgm_nonhydro3d_rhot_heve_cal_tend_cco
+  use scale_atm_dyn_dgm_nonhydro3d_rhot_heve_numflux, only: &
+    atm_dyn_dgm_nonhydro3d_rhot_heve_add_bnd_contrib_generalvc
 
   use scale_atm_dyn_dgm_nonhydro3d_etot_heve, only: &
     atm_dyn_dgm_nonhydro3d_etot_heve_Init,          &
@@ -383,6 +386,12 @@ contains
       this%EQS_TYPEID = EQS_TYPEID_NONHYD3D_HEVE
       call atm_dyn_dgm_nonhydro3d_rhot_heve_Init( mesh3D )
       this%cal_tend_ex => atm_dyn_dgm_nonhydro3d_rhot_heve_cal_tend
+      this%cal_vi => null()
+      this%dynsolver_final => atm_dyn_dgm_nonhydro3d_rhot_heve_Final
+    case("NONHYDRO3D_HEVE_CCO")
+      this%EQS_TYPEID = EQS_TYPEID_NONHYD3D_HEVE
+      call atm_dyn_dgm_nonhydro3d_rhot_heve_Init( mesh3D )
+      this%cal_tend_ex => atm_dyn_dgm_nonhydro3d_rhot_heve_cal_tend_cco
       this%cal_vi => null()
       this%dynsolver_final => atm_dyn_dgm_nonhydro3d_rhot_heve_Final
     case("NONHYDRO3D_ETOT_HEVE")
@@ -723,10 +732,6 @@ contains
       !- Exchange halo data
       call PROF_rapstart( 'ATM_DYN_exchange_prgv', 2)
       if ( this%hide_mpi_comm_flag ) then
-#ifdef __FUJITSU
-        call FJMPI_Progress_stop()
-#endif
-        call PROG_VARS%MeshFieldComm_Get()
         call this%AUXDYNVAR3D_manager%MeshFieldComm_Exchange( do_wait=.false. )
 #ifdef __FUJITSU
         call FJMPI_Progress_start()
@@ -737,29 +742,22 @@ contains
       end if
       call PROF_rapend( 'ATM_DYN_exchange_prgv', 2)
 
-      do n=1, mesh3D%LOCAL_MESH_NUM
-        lcmesh3D => mesh3D%lcmesh_list(n)
+      if ( .not. this%hide_mpi_comm_flag ) then
+        do n=1, mesh3D%LOCAL_MESH_NUM
+          lcmesh3D => mesh3D%lcmesh_list(n)
 
-        !- Apply boundary conditions
-        call PROF_rapstart( 'ATM_DYN_applyBC_prgv', 2)
-        call this%boundary_cond%ApplyBC_PROGVARS_lc( n,                                                                   & ! (in)
-          DDENS%local(n)%val, MOMX%local(n)%val, MOMY%local(n)%val, MOMZ%local(n)%val, THERM%local(n)%val,                & ! (inout)
-          DENS_hyd%local(n)%val, PRES_hyd%local(n)%val,                                                                   & ! (in)
-          lcmesh3D%Gsqrt(:,:), lcmesh3D%GsqrtH(:,:), lcmesh3D%GIJ(:,:,1,1), lcmesh3D%GIJ(:,:,1,2), lcmesh3D%GIJ(:,:,2,2), & ! (in)
-          lcmesh3D%GI3(:,:,1), lcmesh3D%GI3(:,:,2),                                                                       & ! (in)
-          lcmesh3D%normal_fn(:,:,1), lcmesh3D%normal_fn(:,:,2), lcmesh3D%normal_fn(:,:,3),                                & ! (in)
-          lcmesh3D%vmapM, lcmesh3D%vmapP, lcmesh3D%vmapB,                                                                 & ! (in)
-          lcmesh3D, lcmesh3D%refElem3D, lcmesh3D%lcmesh2D, lcmesh3D%lcmesh2D%refElem2D                                    ) ! (in)
-        call PROF_rapend( 'ATM_DYN_applyBC_prgv', 2)
-      end do
-
-      if ( this%hide_mpi_comm_flag ) then
-        call PROF_rapstart( 'ATM_DYN_exchange_prgv', 2)
-#ifdef __FUJITSU
-        call FJMPI_Progress_stop()
-#endif
-        call this%AUXDYNVAR3D_manager%MeshFieldComm_Get()
-        call PROF_rapend( 'ATM_DYN_exchange_prgv', 2)
+          !- Apply boundary conditions
+          call PROF_rapstart( 'ATM_DYN_applyBC_prgv', 2)
+          call this%boundary_cond%ApplyBC_PROGVARS_lc( n,                                                                   & ! (in)
+            DDENS%local(n)%val, MOMX%local(n)%val, MOMY%local(n)%val, MOMZ%local(n)%val, THERM%local(n)%val,                & ! (inout)
+            DENS_hyd%local(n)%val, PRES_hyd%local(n)%val,                                                                   & ! (in)
+            lcmesh3D%Gsqrt(:,:), lcmesh3D%GsqrtH(:,:), lcmesh3D%GIJ(:,:,1,1), lcmesh3D%GIJ(:,:,1,2), lcmesh3D%GIJ(:,:,2,2), & ! (in)
+            lcmesh3D%GI3(:,:,1), lcmesh3D%GI3(:,:,2),                                                                       & ! (in)
+            lcmesh3D%normal_fn(:,:,1), lcmesh3D%normal_fn(:,:,2), lcmesh3D%normal_fn(:,:,3),                                & ! (in)
+            lcmesh3D%vmapM, lcmesh3D%vmapP, lcmesh3D%vmapB,                                                                 & ! (in)
+            lcmesh3D, lcmesh3D%refElem3D, lcmesh3D%lcmesh2D, lcmesh3D%lcmesh2D%refElem2D                                    ) ! (in)
+          call PROF_rapend( 'ATM_DYN_applyBC_prgv', 2)
+        end do
       end if
 
       !- Calculate the tendency with the explicit part
@@ -810,6 +808,50 @@ contains
       end do
       call PROF_rapend( 'ATM_DYN_update_add_tp', 2)
 
+
+      if ( this%hide_mpi_comm_flag ) then
+
+        call PROF_rapstart( 'ATM_DYN_exchange_prgv', 2)
+#ifdef __FUJITSU
+        call FJMPI_Progress_stop()
+#endif
+        call PROG_VARS%MeshFieldComm_Get()
+        call this%AUXDYNVAR3D_manager%MeshFieldComm_Get()
+        call PROF_rapend( 'ATM_DYN_exchange_prgv', 2)
+
+        do n=1, mesh3D%LOCAL_MESH_NUM
+          lcmesh3D => mesh3D%lcmesh_list(n)
+
+          !- Apply boundary conditions
+          call PROF_rapstart( 'ATM_DYN_applyBC_prgv', 2)
+          call this%boundary_cond%ApplyBC_PROGVARS_lc( n,                                                                   & ! (in)
+            DDENS%local(n)%val, MOMX%local(n)%val, MOMY%local(n)%val, MOMZ%local(n)%val, THERM%local(n)%val,                & ! (inout)
+            DENS_hyd%local(n)%val, PRES_hyd%local(n)%val,                                                                   & ! (in)
+            lcmesh3D%Gsqrt(:,:), lcmesh3D%GsqrtH(:,:), lcmesh3D%GIJ(:,:,1,1), lcmesh3D%GIJ(:,:,1,2), lcmesh3D%GIJ(:,:,2,2), & ! (in)
+            lcmesh3D%GI3(:,:,1), lcmesh3D%GI3(:,:,2),                                                                       & ! (in)
+            lcmesh3D%normal_fn(:,:,1), lcmesh3D%normal_fn(:,:,2), lcmesh3D%normal_fn(:,:,3),                                & ! (in)
+            lcmesh3D%vmapM, lcmesh3D%vmapP, lcmesh3D%vmapB,                                                                 & ! (in)
+            lcmesh3D, lcmesh3D%refElem3D, lcmesh3D%lcmesh2D, lcmesh3D%lcmesh2D%refElem2D                                    ) ! (in)
+          call PROF_rapend( 'ATM_DYN_applyBC_prgv', 2)
+
+          call PROF_rapstart( 'ATM_DYN_ebnd_flux', 2)
+          call atm_dyn_dgm_nonhydro3d_rhot_heve_add_bnd_contrib_generalvc( & 
+            this%tint(n)%tend_buf2D_ex(:,:,DENS_VID,tintbuf_ind),                             & ! (out)
+            this%tint(n)%tend_buf2D_ex(:,:,MOMX_VID ,tintbuf_ind),                            & ! (out)
+            this%tint(n)%tend_buf2D_ex(:,:,MOMY_VID ,tintbuf_ind),                            & ! (out)
+            this%tint(n)%tend_buf2D_ex(:,:,MOMZ_VID ,tintbuf_ind),                            & ! (out)
+            this%tint(n)%tend_buf2D_ex(:,:,THERM_VID,tintbuf_ind),                            & ! (out)
+            DDENS%local(n)%val, MOMX%local(n)%val, MOMY%local(n)%val, MOMZ%local(n)%val,      & ! (in)
+            THERM%local(n)%val, DPRES%local(n)%val,                                           & ! (in)
+            DENS_hyd%local(n)%val, PRES_hyd%local(n)%val,                                     & ! (in)
+            Rtot%local(n)%val, CVtot%local(n)%val, CPtot%local(n)%val, &
+            lcmesh3D%Gsqrt, lcmesh3D%GI3(:,:,1), lcmesh3D%GI3(:,:,2), lcmesh3D%normal_fn(:,:,1),lcmesh3D%normal_fn(:,:,2),lcmesh3D%normal_fn(:,:,3), &
+            lcmesh3D%VMapM, lcmesh3D%VMapP, lcmesh3D, lcmesh3D%refElem3D, lcmesh3D%lcmesh2D, lcmesh3D%lcmesh2D%refElem2D, &
+            element_operation )
+          call PROF_rapend( 'ATM_DYN_ebnd_flux', 2)
+        end do
+      end if
+      
       do n=1, mesh3D%LOCAL_MESH_NUM
         lcmesh3D => mesh3D%lcmesh_list(n)
 
