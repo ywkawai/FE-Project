@@ -7,7 +7,10 @@ This FE library requires following libraries:
   - MPI library
   - LAPACK
   - NetCDF
-  - SCALE library (https://scale.riken.jp). 
+  - SCALE library (https://scale.riken.jp)
+
+For visualization, we need a Python environment with several Python libraries such as Xarray and netCDF4.
+Note that the version of Matplotlib is assumed to be >= 3.8.
 
 We confirm that building our codes has succeeded in the following environments:
   - Ubuntu 24.04 LTS (for case of GNU compiler)
@@ -29,7 +32,7 @@ We confirm that building our codes has succeeded in the following environments:
     - NetCDF 4.9.2
     - SCALE library develop version
 
-Our codes are also verified in Fugaku and Odyssey (Fujitsu compiler). 
+Our codes are also verified in Fugaku and Odyssey with Fujitsu compiler. 
 
 ## Build FE-library
 
@@ -83,7 +86,7 @@ Our codes are also verified in Fugaku and Odyssey (Fujitsu compiler).
 
  `% make run`
 
- The directory of 'visualize' includes several scripts using Python libraries (e.g., xarray and matplotlib). 
+ The directory of 'visualize' includes several scripts using Python libraries. 
  To visualize the simulation result using the scripts, 
 
   `% make vis`
