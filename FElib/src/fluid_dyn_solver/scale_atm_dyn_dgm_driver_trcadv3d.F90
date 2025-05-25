@@ -454,7 +454,7 @@ contains
               this%alphaDensM%local(n)%face_val, this%alphaDensP%local(n)%face_val,         & ! (in)
               DENS_hyd%local(n)%val, DDENS_TRC%local(n)%val, DDENS0_TRC%local(n)%val,       & ! (in)
               this%tint(n)%coef_c_ex(rkstage), dttmp_trc,                                   & ! (in) 
-              Dx, Dy, Dz, Sx, Sy, Sz, Lift, this%FaceIntMat,                                & ! (in)
+              this%FaceIntMat,                                                              & ! (in)
               lcmesh3D, lcmesh3D%refElem3D, lcmesh3D%lcmesh2D, lcmesh3D%lcmesh2D%refElem2D, & ! (in)
               this%disable_limiter                                                          ) ! (in)
           end do
@@ -478,7 +478,7 @@ contains
               this%alphaDensM%local(n)%face_val, this%alphaDensP%local(n)%face_val,         & ! (in)
               this%AUX_TRCVARS3D(AUXTRCVARS3D_FCTCOEF_ID)%local(n)%val,                     & ! (out)
               RHOQ_tp%local(n)%val,                                                         & ! (in)
-              Dx, Dy, Dz, Sx, Sy, Sz, Lift, this%FaceIntMat,                                & ! (in)
+              element_operation, this%FaceIntMat,                                           & ! (in)
               lcmesh3D, lcmesh3D%refElem3D, lcmesh3D%lcmesh2D, lcmesh3D%lcmesh2D%refElem2D  ) ! (in)
           else
             !$omp parallel do

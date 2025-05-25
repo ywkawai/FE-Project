@@ -31,6 +31,7 @@ module scale_atm_dyn_dgm_trcadvect3d_heve
   use scale_element_base, only: &
     ElementBase2D, ElementBase3D
   use scale_element_hexahedral, only: HexahedralElement
+  use scale_element_operation_base, only: ElementOperationBase3D
   use scale_localmesh_2d, only: LocalMesh2D  
   use scale_localmesh_3d, only: LocalMesh3D
   use scale_mesh_base2d, only: MeshBase2D
@@ -150,14 +151,13 @@ contains
     QTRC_, MOMX_, MOMY_, MOMZ_,                     & ! (in)
     alphDENS_M, alphDENS_P, fct_coef,               & ! (in)
     RHOQ_tp,                                        & ! (in)
-    Dx, Dy, Dz, Sx, Sy, Sz, Lift, FaceIntMat,       & ! (in) 
+    element3D_operation, FaceIntMat,                & ! (in) 
     lmesh, elem, lmesh2D, elem2D                    ) ! (in)
 
     class(LocalMesh3D), intent(in) :: lmesh
     class(ElementBase3D), intent(in) :: elem
     class(LocalMesh2D), intent(in) :: lmesh2D
     class(ElementBase2D), intent(in) :: elem2D
-    type(SparseMat), intent(in) :: Dx, Dy, Dz, Sx, Sy, Sz, Lift, FaceIntMat
     
     real(RP), intent(out) :: QTRC_dt(elem%Np,lmesh%NeA)
     real(RP), intent(in) :: QTRC_(elem%Np,lmesh%NeA)
@@ -168,11 +168,15 @@ contains
     real(RP), intent(in) :: alphDENS_P(elem%NfpTot,lmesh%Ne)
     real(RP), intent(in) :: fct_coef(elem%Np,lmesh%NeA)
     real(RP), intent(in) :: RHOQ_tp(elem%Np,lmesh%NeA)
+    class(ElementOperationBase3D), intent(in) :: element3D_operation
+    type(SparseMat), intent(in) :: FaceIntMat
 
-    real(RP) :: Fx(elem%Np), Fy(elem%Np), Fz(elem%Np), LiftDelFlx(elem%Np)    
+    real(RP) :: Flux(elem%Np,3), DFlux(elem%Np,4)
     real(RP) :: del_flux(elem%NfpTot,lmesh%Ne)
-    real(RP) :: momwt_(elem%Np)    
-    
+    real(RP) :: momwt_
+    real(RP) :: Gsqrt_
+    real(RP) :: RGsqrt(elem%Np), RGsqrtV(elem%Np)
+
     integer :: ke, ke2d 
 
     real(RP) :: Q0, Q1, vol
@@ -191,26 +195,34 @@ contains
     call PROF_rapend('cal_trcadv_tend_bndflux', 3)
 
     call PROF_rapstart('cal_trcadv_tend_interior', 3)
-    !$omp parallel do private( &
-    !$omp momwt_, Fx, Fy, Fz, LiftDelFlx,  &    
-    !$omp ke, ke2d                         )  
+    !$omp parallel do private( ke, ke2D, &
+    !$omp momwt_, Flux, DFlux, Gsqrt_, RGsqrt, RGsqrtV )  
     do ke=lmesh%NeS, lmesh%NeE
       ke2d = lmesh%EMap3Dto2D(ke)
       
-      momwt_(:) = MOMZ_(:,ke) * lmesh%GsqrtH(elem%IndexH2Dto3D,ke2d) / lmesh%Gsqrt(:,ke) &
-                + lmesh%GI3(:,ke,1) * MOMX_(:,ke) + lmesh%GI3(:,ke,2) * MOMY_(:,ke)
+      do p=1, elem%Np
+        RGsqrt(p) = 1.0_RP / lmesh%Gsqrt(p,ke)
+        RGsqrtV(p) = lmesh%GsqrtH(elem%IndexH2Dto3D(p),ke2d) / RGsqrt(p)
+      end do
 
-      call sparsemat_matmul(Dx, lmesh%Gsqrt(:,ke) * MOMX_(:,ke) * QTRC_(:,ke), Fx)
-      call sparsemat_matmul(Dy, lmesh%Gsqrt(:,ke) * MOMY_(:,ke) * QTRC_(:,ke), Fy)
-      call sparsemat_matmul(Dz, lmesh%Gsqrt(:,ke) * momwt_(:)   * QTRC_(:,ke), Fz)
-      call sparsemat_matmul(Lift, lmesh%Fscale(:,ke) * del_flux(:,ke), LiftDelFlx)
+      do p=1, elem%Np
+        Gsqrt_ = lmesh%Gsqrt(p,ke)
+        Flux(p,1) = Gsqrt_ * MOMX_(p,ke) * QTRC_(p,ke)
+        Flux(p,2) = Gsqrt_ * MOMY_(p,ke) * QTRC_(p,ke)
+        Flux(p,3) = Gsqrt_ * ( &
+            MOMZ_(p,ke) * RGsqrtV(p)        &
+          + lmesh%GI3(p,ke,1) * MOMX_(p,ke) &
+          + lmesh%GI3(p,ke,2) * MOMY_(p,ke) ) * QTRC_(p,ke)
+      end do
+      call element3D_operation%Div( &
+        Flux, del_flux(:,ke), & ! (in)
+        DFlux                 ) ! (out)
 
-      QTRC_dt(:,ke) = ( &
-          - lmesh%Escale(:,ke,1,1) * Fx(:)     &
-          - lmesh%Escale(:,ke,2,2) * Fy(:)     &
-          - lmesh%Escale(:,ke,3,3) * Fz(:)     &
-          - LiftDelFlx(:)                   )  &
-          / lmesh%Gsqrt(:,ke)                  &
+      QTRC_dt(:,ke) = - ( &
+            lmesh%Escale(:,ke,1,1) * DFlux(:,1) &
+          + lmesh%Escale(:,ke,2,2) * DFlux(:,2) &
+          + lmesh%Escale(:,ke,3,3) * DFlux(:,3) &
+          + DFlux(:,4) ) / lmesh%Gsqrt(:,ke)    &
           + RHOQ_tp(:,ke)
     end do
     call PROF_rapend('cal_trcadv_tend_interior', 3)
@@ -223,8 +235,7 @@ contains
     fct_coef,                                                     & ! (out)
     QTRC_, MOMX_, MOMY_, MOMZ_, RHOQ_tp_, AlphDens_M, AlphDens_P, & ! (in)
     DENS_hyd, DDENS_, DDENS0_, rk_c_ssm1, dt,                     & ! (in)
-    Dx, Dy, Dz, Sx, Sy, Sz, Lift, FaceIntMat,                     & ! (in)
-    lmesh, elem, lmesh2D, elem2D,                                 & ! (in)
+    FaceIntMat, lmesh, elem, lmesh2D, elem2D,                     & ! (in)
     disable_limiter                                               ) ! (in)
 
     implicit none
@@ -245,7 +256,7 @@ contains
     real(RP), intent(in) :: DDENS0_(elem%Np,lmesh%NeA)
     real(RP), intent(in) :: rk_c_ssm1
     real(RP), intent(in) :: dt
-    type(SparseMat), intent(in) :: Dx, Dy, Dz, Sx, Sy, Sz, Lift, FaceIntMat
+    type(SparseMat), intent(in) :: FaceIntMat
     logical, intent(in), optional :: disable_limiter
 
     real(RP) :: netOutwardFlux(lmesh%Ne)
@@ -644,15 +655,17 @@ contains
       do f=1, elem%Nfaces_h
         do p=1, elem%Nfp_h
           fp = p + (f-1)*elem%Nfp_h
-          del_flux(fp,ke) = numflux(fp) * 0.5_RP * ( R_P(fp) + R_M(fp) - ( R_P(fp) - R_M(fp) ) * sign( 1.0_RP, outward_flux_tmp(f) ) ) &
-                          - QTRC_M(fp) * MomFlxM(fp)    
+          del_flux(fp,ke) = lmesh%Fscale(fp,ke) * &
+                        (   numflux(fp) * 0.5_RP * ( R_P(fp) + R_M(fp) - ( R_P(fp) - R_M(fp) ) * sign( 1.0_RP, outward_flux_tmp(f) ) ) &
+                          - QTRC_M(fp) * MomFlxM(fp) )
         end do
       end do 
       do f=1, elem%Nfaces_v
         do p=1, elem%Nfp_v
           fp = p + (f-1)*elem%Nfp_v + elem%Nfaces_h * elem%Nfp_h
-          del_flux(fp,ke) = numflux(fp) * 0.5_RP * ( R_P(fp) + R_M(fp) - ( R_P(fp) - R_M(fp) ) * sign( 1.0_RP, outward_flux_tmp(elem%Nfaces_h+f) ) ) &
-                          - QTRC_M(fp) * MomFlxM(fp) 
+          del_flux(fp,ke) = lmesh%Fscale(fp,ke) * & 
+                        (   numflux(fp) * 0.5_RP * ( R_P(fp) + R_M(fp) - ( R_P(fp) - R_M(fp) ) * sign( 1.0_RP, outward_flux_tmp(elem%Nfaces_h+f) ) ) &
+                          - QTRC_M(fp) * MomFlxM(fp) )
         end do
       end do
     end do
