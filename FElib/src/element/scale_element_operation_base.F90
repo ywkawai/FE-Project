@@ -95,19 +95,14 @@ module scale_element_operation_base
       real(RP), intent(out) :: vec_out_lift(this%elem3D%Np)
     end subroutine ElementOperationBase_DxDyDzLift
 
-    subroutine ElementOperationBase_Div( this, vec_in_x, vec_in_y, vec_in_z, vec_in_lift, &
-      vec_out_dx, vec_out_dy, vec_out_dz, vec_out_lift )
+    subroutine ElementOperationBase_Div( this, vec_in, vec_in_lift, &
+      vec_out )
       import ElementOperationBase3D      
       import RP
       class(ElementOperationBase3D), intent(in) :: this
-      real(RP), intent(in) :: vec_in_x(this%elem3D%Np)
-      real(RP), intent(in) :: vec_in_y(this%elem3D%Np)
-      real(RP), intent(in) :: vec_in_z(this%elem3D%Np)
+      real(RP), intent(in) :: vec_in(this%elem3D%Np,3)
       real(RP), intent(in) :: vec_in_lift(this%elem3D%NfpTot)
-      real(RP), intent(out) :: vec_out_dx(this%elem3D%Np)
-      real(RP), intent(out) :: vec_out_dy(this%elem3D%Np)
-      real(RP), intent(out) :: vec_out_dz(this%elem3D%Np)
-      real(RP), intent(out) :: vec_out_lift(this%elem3D%Np)
+      real(RP), intent(out) :: vec_out(this%elem3D%Np,4)
     end subroutine ElementOperationBase_Div
     
     subroutine ElementOperationBase_Div_var5( this, vec_in, vec_in_lift, &

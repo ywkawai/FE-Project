@@ -552,9 +552,9 @@ contains
 
     integer :: ke, ke2D, p  
 
-    real(RP) :: Fx(elem%Np), Fy(elem%Np), Fz(elem%Np,2), DFlux(elem%Np,4,2)
+    real(RP) :: Flux(elem%Np,3), Fz(elem%Np), DFlux(elem%Np,4,2)
     real(RP) :: del_flux_hyd(elem%NfpTot,2,lmesh%Ne)
-    real(RP) :: GsqrtV(elem%Np), RGsqrtV(elem%Np)
+    real(RP) :: GsqrtV, RGsqrtV(elem%Np)
 
     real(RP) :: E33
     real(RP) :: GradPhyd_x, GradPhyd_y
@@ -568,26 +568,27 @@ contains
       lmesh, elem, lmesh%lcmesh2D, lmesh%lcmesh2D%refElem2D                     ) ! (in)
 
     !$omp parallel do private( ke, ke2D, p, &
-    !$omp Fx, Fy, Fz, DFlux, GsqrtV, RGsqrtV, E33, &
+    !$omp Flux, Fz, DFlux, GsqrtV, RGsqrtV, E33, &
     !$omp GradPhyd_x, GradPhyd_y )      
     do ke = lmesh%NeS, lmesh%NeE
       ke2d = lmesh%EMap3Dto2D(ke)
 
       do p=1, elem%Np
-        GsqrtV(p)  = lmesh%Gsqrt(p,ke) / ( lmesh%gam(p,ke)**2 * lmesh%GsqrtH(elem%IndexH2Dto3D(p),ke2d) )
-        RGsqrtV(p) = 1.0_RP / GsqrtV(p)
+        GsqrtV  = lmesh%Gsqrt(p,ke) / ( lmesh%gam(p,ke)**2 * lmesh%GsqrtH(elem%IndexH2Dto3D(p),ke2d) )
+
+        RGsqrtV(p) = 1.0_RP / GsqrtV
+        Flux(p,1) = GsqrtV * ( PRES_hyd(p,ke) - PRES_hyd_ref(p,ke) )
       end do
 
-      do p=1, elem%Np
-        Fx(p) = GsqrtV(p) * ( PRES_hyd(p,ke) - PRES_hyd_ref(p,ke) )
-        Fy(p) = Fx(p)
-        Fz(p,1) = lmesh%GI3(p,ke,1) * Fx(p)
-        Fz(p,2) = lmesh%GI3(p,ke,2) * Fx(p)
+      do p=1, elem%Np        
+        Flux(p,2) = Flux(p,1)
+        Flux(p,3) = lmesh%GI3(p,ke,1) * Flux(p,1)
+        Fz  (p)   = lmesh%GI3(p,ke,2) * Flux(p,1)
       end do   
       
-      call element3D_operation%Div( Fx, Fy, Fz(:,1), del_flux_hyd(:,1,ke), &
-        DFlux(:,1,1), DFlux(:,2,1), DFlux(:,3,1), DFlux(:,4,1) )
-      call element3D_operation%Dz( Fz(:,2), DFlux(:,3,2) )
+      call element3D_operation%Div( Flux, del_flux_hyd(:,1,ke), &
+        DFlux(:,:,1) )
+      call element3D_operation%Dz( Fz, DFlux(:,3,2) )
       call element3D_operation%Lift( del_flux_hyd(:,2,ke), DFlux(:,4,2) )
       
       do p=1, elem%Np

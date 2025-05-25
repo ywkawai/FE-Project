@@ -286,31 +286,30 @@ contains
     return
   end subroutine element_operation_tensorprod3D_DxDyDzLift_P<%=p%>
 
-!> Calculate the 3D gradient
+!> Calculate the 3D divergence
+!!
+!! @param vec_in Array storing flux data (Fx,Fy,Fz) at nodes that we apply the differential matrices Dx, Dy, and Dz, respectively
+!! @param vec_in_lift Array storing surface flux data (Fs) at nodes that we apply the lifting operator
+!! @param vec_out Array storing the resulting data (Dx Fx, Dy Fy, Dz Fz, Lift Fs)
 !!
 !OCL SERIAL
-  subroutine element_operation_tensorprod3D_Div_P<%=p%>(  this, vec_in_x, vec_in_y, vec_in_z, vec_in_lift, &
-    vec_out_dx, vec_out_dy, vec_out_dz, vec_out_lift )
+  subroutine element_operation_tensorprod3D_Div_P<%=p%>(  this, vec_in, vec_in_lift, &
+    vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: &
       element_operation_kernel_matvec_divlike_dirXYZ_P<%=p%>, &
       element_operation_kernel_matvec_Lift_hexahedral_P<%=p%>
     implicit none
     class(ElementOperationTensorProd3D_P<%=p%>), intent(in) :: this
-    real(RP), intent(in) :: vec_in_x(this%elem3D%Np)
-    real(RP), intent(in) :: vec_in_y(this%elem3D%Np)
-    real(RP), intent(in) :: vec_in_z(this%elem3D%Np)
+    real(RP), intent(in) :: vec_in(this%elem3D%Np,3)
     real(RP), intent(in) :: vec_in_lift(this%elem3D%NfpTot)
-    real(RP), intent(out) :: vec_out_dx(this%elem3D%Np)
-    real(RP), intent(out) :: vec_out_dy(this%elem3D%Np)
-    real(RP), intent(out) :: vec_out_dz(this%elem3D%Np)
-    real(RP), intent(out) :: vec_out_lift(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np,4)
     !----------------------------------------------------------
 
     call element_operation_kernel_matvec_Lift_hexahedral_P<%=p%>( this%Lift_mat, vec_in_lift, &
-      vec_out_lift )      
+      vec_out(:,4) )      
 
-    call element_operation_kernel_matvec_divlike_dirXYZ_P<%=p%>( this%D1D, this%D1D_tr, vec_in_x, vec_in_y, vec_in_z, &
-      vec_out_dx, vec_out_dy, vec_out_dz )
+    call element_operation_kernel_matvec_divlike_dirXYZ_P<%=p%>( this%D1D, this%D1D_tr, vec_in(:,1), vec_in(:,2), vec_in(:,3), &
+      vec_out(:,1), vec_out(:,2), vec_out(:,3) )
     return
   end subroutine element_operation_tensorprod3D_Div_P<%=p%>
 
