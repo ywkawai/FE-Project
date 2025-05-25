@@ -4,8 +4,15 @@
 !! @par Description
 !!          User defined module for a test case of rising warm bubble
 !!
-!! @author Team SCALE
+!! @author Yuta Kawai, Team SCALE
 !!
+!! @par Reference
+!!  - Giraldo, F. X., Restelli, M. 2008: 
+!!    A study of spectral element and discontinuous Galerkin methods for the Navier–Stokes equations in nonhydrostatic mesoscale atmospheric modeling: Equation sets and test cases. 
+!!    J.　Comput.　Phys., 227(8), 3849-3877.
+!! - Robert, A. 1993: 
+!!   Bubble convection experiments with a semi-implicit formulation of the Euler equations. 
+!!   J. Atmos. Sci., 50, 1865–1873.
 !<
 !-------------------------------------------------------------------------------
 #include "scalelib.h"
