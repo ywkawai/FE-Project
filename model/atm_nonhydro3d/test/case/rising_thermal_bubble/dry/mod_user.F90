@@ -167,13 +167,15 @@ contains
     real(RP) :: x_c, y_c, z_c
     real(RP) :: r_x, r_y, r_z
 
+    integer :: IntrpPolyOrder_h
+    integer :: IntrpPolyOrder_v
     namelist /PARAM_EXP/ &
-      THETA0, DTHETA,            &
-      x_c, y_c, z_c,            &
-      r_x, r_y, r_z
+      THETA0, DTHETA,    &
+      x_c, y_c, z_c,     &
+      r_x, r_y, r_z,     &
+      IntrpPolyOrder_h,  &
+      IntrpPolyOrder_v
 
-    integer, parameter :: IntrpPolyOrder_h = 6
-    integer, parameter :: IntrpPolyOrder_v = 8
     real(RP), allocatable :: THETA_purtub(:,:)
     
     real(RP) :: RovCp
@@ -188,6 +190,9 @@ contains
     r_x = 250.0_RP; r_y = 250.0_RP; r_z = 250.0_RP;
     THETA0    = 300.0_RP
     DTHETA    = 0.5_RP
+
+    IntrpPolyOrder_h = elem%PolyOrder_h
+    IntrpPolyOrder_v = elem%PolyOrder_v
 
     rewind(IO_FID_CONF)
     read(IO_FID_CONF,nml=PARAM_EXP,iostat=ierr)
