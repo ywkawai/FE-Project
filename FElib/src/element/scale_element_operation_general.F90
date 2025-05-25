@@ -264,24 +264,19 @@ contains
 !> Calculate the 3D gradient
 !!
 !OCL SERIAL
-  subroutine element_operation_general_Div( this, vec_in_x, vec_in_y, vec_in_z, vec_in_lift, &
-    vec_out_dx, vec_out_dy, vec_out_dz, vec_out_lift )
+  subroutine element_operation_general_Div( this, vec_in, vec_in_lift, &
+    vec_out )
     implicit none
     class(ElementOperationGeneral), intent(in) :: this
-    real(RP), intent(in) :: vec_in_x(this%elem3D%Np)
-    real(RP), intent(in) :: vec_in_y(this%elem3D%Np)
-    real(RP), intent(in) :: vec_in_z(this%elem3D%Np)
+    real(RP), intent(in) :: vec_in(this%elem3D%Np,3)
     real(RP), intent(in) :: vec_in_lift(this%elem3D%NfpTot)
-    real(RP), intent(out) :: vec_out_dx(this%elem3D%Np)
-    real(RP), intent(out) :: vec_out_dy(this%elem3D%Np)
-    real(RP), intent(out) :: vec_out_dz(this%elem3D%Np)
-    real(RP), intent(out) :: vec_out_lift(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np,4)
     !---------------------------------------------------------------
 
-    call sparsemat_matmul( this%Dx_sm, vec_in_x, vec_out_dx )
-    call sparsemat_matmul( this%Dy_sm, vec_in_y, vec_out_dy )
-    call sparsemat_matmul( this%Dz_sm, vec_in_z, vec_out_dz )
-    call sparsemat_matmul( this%Lift_sm, vec_in_lift, vec_out_lift )
+    call sparsemat_matmul( this%Dx_sm, vec_in(:,1), vec_out(:,1) )
+    call sparsemat_matmul( this%Dy_sm, vec_in(:,2), vec_out(:,2) )
+    call sparsemat_matmul( this%Dz_sm, vec_in(:,3), vec_out(:,3) )
+    call sparsemat_matmul( this%Lift_sm, vec_in_lift, vec_out(:,4) )
     return
   end subroutine element_operation_general_Div    
 
