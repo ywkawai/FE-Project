@@ -320,7 +320,7 @@ contains
       qtrc_dry_tp_vinfo_tmp%STDNAME  = ''
 
       iv = PHYTEND_NUM + 1
-      qtrc_dry_tp_vinfo_tmp%keyID = 0
+      qtrc_dry_tp_vinfo_tmp%keyID = iv
       qtrc_dry_tp_vinfo_tmp%NAME  = "QV_tp"
       qtrc_dry_tp_vinfo_tmp%DESC  = "tendency of physical process for QV"
       qtrc_dry_tp_vinfo_tmp%UNIT  = "kg/m3/s"
