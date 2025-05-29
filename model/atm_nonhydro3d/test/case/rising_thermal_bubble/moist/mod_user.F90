@@ -178,6 +178,9 @@ contains
     real(RP) :: x_c, y_c, z_c
     real(RP) :: r_x, r_y, r_z
 
+    integer :: IntrpPolyOrder_h
+    integer :: IntrpPolyOrder_v
+
     namelist /PARAM_EXP/ &
       ENV_RH,            &
       ENV_L1_ZTOP,       &
@@ -187,10 +190,10 @@ contains
       SFC_THETA,         &
       x_c, y_c, z_c,     &
       r_x, r_y, r_z,     &
-      DTHETA
+      DTHETA,            &
+      IntrpPolyOrder_h,  &
+      IntrpPolyOrder_v
 
-    integer, parameter :: IntrpPolyOrder_h = 7
-    integer, parameter :: IntrpPolyOrder_v = 7
     real(RP), allocatable :: THETA_purtub(:,:)
     
     real(RP) :: PT  (elem%Np)
@@ -227,6 +230,9 @@ contains
     x_c = 500.0_RP; y_c = 500.0_RP; z_c = 350.0_RP
     r_x = 250.0_RP; r_y = 250.0_RP; r_z = 250.0_RP;
     DTHETA    = 0.5_RP
+
+    IntrpPolyOrder_h = elem%PolyOrder_h
+    IntrpPolyOrder_v = elem%PolyOrder_v
 
     rewind(IO_FID_CONF)
     read(IO_FID_CONF,nml=PARAM_EXP,iostat=ierr)

@@ -1073,8 +1073,9 @@ contains
    !-------------------------------------------------------
 
    !--
+
    if ( ATMOS_HYDROMETEOR_dry ) then
-     iq =0; tend_iq = PHYTEND_NUM1+1
+     iq = 0; tend_iq = PHYTEND_NUM1+1
    else
      iq = I_QV; tend_iq = PHYTEND_NUM1 + I_QV
    end if

@@ -94,7 +94,7 @@ cat << EOF1 > ./run.sh
 #PJM -L eco_state=2
 #PJM -L rscgrp="small"
 #PJM -L node=$(((TPROC+3)/4)):torus
-#PJM -L elapse=00:10:00
+#PJM -L elapse=00:15:00
 #PJM --mpi "max-proc-per-node=4"
 #PJM -j
 #PJM -s
