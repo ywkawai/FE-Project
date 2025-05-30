@@ -263,6 +263,7 @@ contains
            QS_MP                                        ) ! (out)
       QA_MP = ATMOS_PHY_MP_KESSLER_ntracers
     case ( 'TOMITA08' )
+      this%MP_TYPEID = MP_TYPEID_TOMITA08
       call ATMOS_HYDROMETEOR_regist( &
             ATMOS_PHY_MP_TOMITA08_nwaters,                & ! (in)
             ATMOS_PHY_MP_TOMITA08_nices,                  & ! (in)
@@ -272,6 +273,7 @@ contains
             QS_MP                                         ) ! (out)
       QA_MP = ATMOS_PHY_MP_TOMITA08_ntracers
     case( 'SN14' )
+      this%MP_TYPEID = MP_TYPEID_SN14
       call ATMOS_HYDROMETEOR_regist( &
             ATMOS_PHY_MP_SN14_nwaters,                   & ! (in)
             ATMOS_PHY_MP_SN14_nices,                     & ! (in)
@@ -982,7 +984,6 @@ contains
       TEMP1_z, QTRC1_z, CPtot1_z, CVtot1_z,    & ! (inout)
       RHOE_t_z, EVAPORATE_z                    ) ! (out)
   
-
     !$omp parallel do collapse(2) private(p_z,p_xy,iq, ke,p)
     do ke_z=1, lcmesh%NeZ
     do ke_xy=1, lcmesh%Ne2D
@@ -992,6 +993,8 @@ contains
         p = p_xy + (p_z-1)*elem3D%Nnode_h1D**2
         CPtot_t(p,ke) = ( CPtot1_z(p_z,ke_z,p_xy,ke_xy) - CPtot(p,ke) ) * rdt_MP
         CVtot_t(p,ke) = ( CVtot1_z(p_z,ke_z,p_xy,ke_xy) - CVtot(p,ke) ) * rdt_MP
+        RHOE_t(p,ke) = RHOE_t_z(p_z,ke_z,p_xy,ke_xy)
+        EVAPORATE(p,ke) = EVAPORATE_z(p_z,ke_z,p_xy,ke_xy)
       end do
       end do
       do iq = this%vars%QS, this%vars%QE
