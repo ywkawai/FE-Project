@@ -4,6 +4,7 @@ import argparse
 import re
 import xarray as xr
 import numpy as np
+import matplotlib.pyplot as plt
 
 def parse_gturl(gturl):
     pattern = r'^(.*)\.(pe[0-9\*]+)\.nc@([^,]+)(?:,(.*))?$'
@@ -124,4 +125,7 @@ else:
 
 #--
 fig = mkgraph.plot(da, vmin=vmin, vmax=vmax, vint=args.int, xlim=xlim, ylim=ylim, cmap=args.cmap, title=title, figsize=args.figsize, exch=args.exch)
-fig.savefig(output_fpath, bbox_inches='tight')
+if len(output_fpath) > 0:
+    fig.savefig(output_fpath, bbox_inches='tight')
+else:
+    plt.show()
