@@ -201,6 +201,7 @@ OBJS_NAME_SCALELIB = \
 	scale_random.o	      \
 	scale_sigvars.o       \
 	scale_statistics.o	  \
+	scale_specfunc.o      \
 	scale_tracer.o	      \
 	scale_vector.o	      \
 	scale_monitor.o	      \

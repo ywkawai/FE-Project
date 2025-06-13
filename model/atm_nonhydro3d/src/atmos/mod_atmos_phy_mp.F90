@@ -87,7 +87,9 @@ module mod_atmos_phy_mp
   !++ Public parameters & variables
   !-----------------------------------------------------------------------------
 
-  integer, parameter :: MP_TYPEID_KESSLER = 1
+  integer, parameter :: MP_TYPEID_KESSLER  = 1
+  integer, parameter :: MP_TYPEID_TOMITA08 = 2
+  integer, parameter :: MP_TYPEID_SN14     = 3
 
   !-----------------------------------------------------------------------------
   !
@@ -99,6 +101,8 @@ module mod_atmos_phy_mp
   !
   !-----------------------------------------------------------------------------
     
+  logical :: Flag_LT = .false. ! Tentative
+
 contains
 
 !> Setup a component of cloud microphysics
@@ -109,6 +113,8 @@ contains
   subroutine AtmosPhyMp_setup( this, model_mesh, tm_parent_comp )
     use scale_const, only: &
       EPS => CONST_EPS
+    use scale_tracer, only: &
+      TRACER_regist
     use scale_atmos_hydrometeor, only: &
       ATMOS_HYDROMETEOR_regist
     use scale_atmos_phy_mp_kessler, only: &
@@ -119,6 +125,22 @@ contains
       ATMOS_PHY_MP_KESSLER_tracer_names,        &
       ATMOS_PHY_MP_KESSLER_tracer_descriptions, &
       ATMOS_PHY_MP_KESSLER_tracer_units
+    use scale_atmos_phy_mp_tomita08, only: &
+      ATMOS_PHY_MP_tomita08_setup,               &
+      ATMOS_PHY_MP_tomita08_ntracers,            &
+      ATMOS_PHY_MP_tomita08_nwaters,             &
+      ATMOS_PHY_MP_tomita08_nices,               &
+      ATMOS_PHY_MP_tomita08_tracer_names,        &
+      ATMOS_PHY_MP_tomita08_tracer_descriptions, &
+      ATMOS_PHY_MP_tomita08_tracer_units
+    use scale_atmos_phy_mp_sn14, only: &
+      ATMOS_PHY_MP_sn14_setup,               &
+      ATMOS_PHY_MP_sn14_ntracers,            &
+      ATMOS_PHY_MP_sn14_nwaters,             &
+      ATMOS_PHY_MP_sn14_nices,               &
+      ATMOS_PHY_MP_sn14_tracer_names,        &
+      ATMOS_PHY_MP_sn14_tracer_descriptions, &
+      ATMOS_PHY_MP_sn14_tracer_units      
     !------------------------------
     use scale_time_manager, only: TIME_manager_component    
     use mod_atmos_mesh, only: AtmosMesh
@@ -153,10 +175,13 @@ contains
     
     class(AtmosMesh), pointer     :: atm_mesh
     class(MeshBase), pointer      :: ptr_mesh
+    class(LocalMesh3D), pointer :: lcmesh3D
+    class(ElementBase3D), pointer :: elem3D
 
     integer :: ierr
 
     integer :: QS_MP, QE_MP, QA_MP
+    integer :: QS2
 
     integer :: nstep_max
     !--------------------------------------------------
@@ -237,7 +262,32 @@ contains
            ATMOS_PHY_MP_KESSLER_tracer_units(:),        & ! (in)
            QS_MP                                        ) ! (out)
       QA_MP = ATMOS_PHY_MP_KESSLER_ntracers
-  
+    case ( 'TOMITA08' )
+      this%MP_TYPEID = MP_TYPEID_TOMITA08
+      call ATMOS_HYDROMETEOR_regist( &
+            ATMOS_PHY_MP_TOMITA08_nwaters,                & ! (in)
+            ATMOS_PHY_MP_TOMITA08_nices,                  & ! (in)
+            ATMOS_PHY_MP_TOMITA08_tracer_names(:),        & ! (in)
+            ATMOS_PHY_MP_TOMITA08_tracer_descriptions(:), & ! (in)
+            ATMOS_PHY_MP_TOMITA08_tracer_units(:),        & ! (in)
+            QS_MP                                         ) ! (out)
+      QA_MP = ATMOS_PHY_MP_TOMITA08_ntracers
+    ! case( 'SN14' )
+    !   this%MP_TYPEID = MP_TYPEID_SN14
+    !   call ATMOS_HYDROMETEOR_regist( &
+    !         ATMOS_PHY_MP_SN14_nwaters,                   & ! (in)
+    !         ATMOS_PHY_MP_SN14_nices,                     & ! (in)
+    !         ATMOS_PHY_MP_SN14_tracer_names(1:6),         & ! (in)
+    !         ATMOS_PHY_MP_SN14_tracer_descriptions(1:6),  & ! (in)
+    !         ATMOS_PHY_MP_SN14_tracer_units(1:6),         & ! (in)
+    !         QS_MP                                        ) ! (out)
+      
+    !   call TRACER_regist( QS2,                           & ! (out)
+    !         5,                                           & ! (in)
+    !         ATMOS_PHY_MP_SN14_tracer_names(7:11),        & ! (in)
+    !         ATMOS_PHY_MP_SN14_tracer_descriptions(7:11), & ! (in)
+    !         ATMOS_PHY_MP_SN14_tracer_units(7:11)         ) ! (in)
+    !   QA_MP = ATMOS_PHY_MP_SN14_ntracers
     case default
       LOG_ERROR("ATMOS_PHY_MP_setup",*) 'Not appropriate names of MP_TYPE in namelist PARAM_ATMOS_PHY_MP. Check!'
       call PRC_abort
@@ -253,6 +303,13 @@ contains
     select case( this%MP_TYPEID )
     case( MP_TYPEID_KESSLER )
       call ATMOS_PHY_MP_kessler_setup()
+    case( MP_TYPEID_TOMITA08 )
+      lcmesh3D => atm_mesh%ptr_mesh%lcmesh_list(1)
+      elem3D => lcmesh3D%refElem3D
+      call ATMOS_PHY_MP_tomita08_setup( &
+        elem3D%Nnode_v*lcmesh3D%NeZ, 1, elem3D%Nnode_v*lcmesh3D%NeZ, elem3D%Nnode_h1D**2, 1, elem3D%Nnode_h1D**2, lcmesh3D%Ne2D, 1, lcmesh3D%Ne2D, &
+        Flag_LT )    
+    case( MP_TYPEID_SN14 )
     end select
 
     !
@@ -454,9 +511,12 @@ contains
       LHF,                             &
       QHA, QLA, QIA
     use scale_atmos_phy_mp_kessler, only:    &
-      ATMOS_PHY_MP_KESSLER_adjustment,       &
       ATMOS_PHY_MP_KESSLER_terminal_velocity
-
+    use scale_atmos_phy_mp_tomita08, only: &
+      ATMOS_PHY_MP_TOMITA08_terminal_velocity
+    use scale_atmos_phy_mp_sn14, only: &
+      ATMOS_PHY_MP_SN14_tendency, &
+      ATMOS_PHY_MP_SN14_terminal_velocity
     use scale_sparsemat, only: SparseMat
     use scale_atm_phy_mp_dgm_common, only:  &
       atm_phy_mp_dgm_common_gen_intweight,         &
@@ -495,13 +555,9 @@ contains
     class(SparseMat), intent(in) :: Dz
     class(SparseMat), intent(in) :: Lift
 
-    real(RP) :: RHOE_t(elem3D%Np,lcmesh%NeA)
-
     real(RP) :: DENS (elem3D%Np,lcmesh%NeA)
-    real(RP) :: TEMP1(elem3D%Np,lcmesh%NeA)
-    real(RP) :: CPtot1(elem3D%Np,lcmesh%NeA)
-    real(RP) :: CVtot1(elem3D%Np,lcmesh%NeA)
-    real(RP) :: QTRC1(elem3D%Np,lcmesh%NeA,this%vars%QS:this%vars%QE)
+
+    real(RP) :: RHOE_t(elem3D%Np,lcmesh%NeA)
 
     real(RP) :: CPtot_t(elem3D%Np,lcmesh%NeA)
     real(RP) :: CVtot_t(elem3D%Np,lcmesh%NeA)
@@ -523,6 +579,8 @@ contains
     real(RP) :: RHOQ2(elem3D%Np,lcmesh%NeZ,lcmesh%Ne2D,this%vars%QS+1:this%vars%QE)
     real(RP) :: RHOQ2_tmp(elem3D%Nnode_v,lcmesh%NeZ,this%vars%QS+1:this%vars%QE)
     real(RP) :: DENS2_tmp(elem3D%Nnode_v,lcmesh%NeZ)
+    real(RP) :: TEMP2_tmp(elem3D%Nnode_v,lcmesh%NeZ)
+    real(RP) :: PRES2_tmp(elem3D%Nnode_v,lcmesh%NeZ)
     real(RP) :: REF_DENS_tmp(elem3D%Nnode_v,lcmesh%NeZ)
     real(RP) :: vterm_tmp(elem3D%Nnode_v,lcmesh%NeZ,this%vars%QS+1:this%vars%QE)
     real(RP) :: FLX_hydro(elem3D%Np,lcmesh%NeZ,lcmesh%Ne2D)
@@ -552,48 +610,29 @@ contains
     call atm_phy_mp_dgm_common_gen_intweight( IntWeight, & ! (out)
       lcmesh                                             ) ! (in)
     
+    !$omp parallel do private(ke)
+    do ke = lcmesh%NeS, lcmesh%NeE
+      DENS(:,ke) = DENS_hyd(:,ke) + DDENS(:,ke)
+    end do
+
     select case( this%MP_TYPEID )
     case( MP_TYPEID_KESSLER )
+      call calc_tendency_Kessler( this, &
+        RHOQ_t_MP, CPtot_t, CVtot_t, RHOE_t, EVAPORATE,  & ! (out)
+        DENS, QTRC, PRES, DENS_hyd, Rtot, CVtot, CPtot,  & ! (in)
+        rdt_MP, lcmesh, elem3D )                           ! (in)
 
-      !$omp parallel private(ke, iq)
-      !$omp do
-      do ke = lcmesh%NeS, lcmesh%NeE
-        DENS (:,ke) = DENS_hyd(:,ke) + DDENS(:,ke)
-        TEMP1(:,ke) = PRES(:,ke) / ( DENS(:,ke) * Rtot(:,ke) )
-        CPtot1(:,ke) = CPtot(:,ke)
-        CVtot1(:,ke) = CVtot(:,ke)
-      end do
-      !$omp end do
-      !$omp do collapse(2)
-      do iq = this%vars%QS, this%vars%QE
-      do ke = lcmesh%NeS, lcmesh%NeE
-        QTRC1(:,ke,iq) = QTRC(iq)%ptr%val(:,ke)
-      end do
-      end do
-      !$omp end do
-      !$omp end parallel
+    case( MP_TYPEID_TOMITA08 )
+      call calc_tendency_Tomita08( this, &
+        RHOQ_t_MP, CPtot_t, CVtot_t, RHOE_t, EVAPORATE,  & ! (out)
+        DENS, QTRC, PRES, DENS_hyd, Rtot, CVtot, CPtot,  & ! (in)
+        rdt_MP, lcmesh, elem3D )                           ! (in)
 
-      call ATMOS_PHY_MP_kessler_adjustment( &
-        elem3D%Np, 1, elem3D%Np, lcmesh%NeA, lcmesh%NeS, lcmesh%NeE, 1, 1, 1,  & ! (in)
-        DENS, PRES, this%dtsec,                                                & ! (in)
-        TEMP1, QTRC1, CPtot1, CVtot1,                                          & ! (inout)
-        RHOE_t, EVAPORATE                                                      ) ! (out)
-    
-     !$omp parallel private(ke, iq)
-     !$omp do collapse(2)
-      do iq = this%vars%QS, this%vars%QE
-      do ke = lcmesh%NeS, lcmesh%NeE
-        RHOQ_t_MP(iq)%ptr%val(:,ke) = ( QTRC1(:,ke,iq) - QTRC(iq)%ptr%val(:,ke) ) * DENS(:,ke) * rdt_MP
-      end do  
-      end do
-     !$omp end do
-     !$omp do
-      do ke = lcmesh%NeS, lcmesh%NeE
-        CPtot_t(:,ke) = ( CPtot1(:,ke) - CPtot(:,ke) ) * rdt_MP
-        CVtot_t(:,ke) = ( CVtot1(:,ke) - CVtot(:,ke) ) * rdt_MP
-      end do
-     !$omp end do
-     !$omp end parallel
+    case( MP_TYPEID_SN14 )
+      call calc_tendency_SN14( this, &
+        RHOQ_t_MP, CPtot_t, CVtot_t, RHOE_t, EVAPORATE,  & ! (out)
+        DENS, QTRC, PRES, DENS_hyd, Rtot, CVtot, CPtot,  & ! (in)
+        rdt_MP, lcmesh, elem3D )                           ! (in)
 
     end select
 
@@ -663,17 +702,18 @@ contains
 
         !- Calculate terminal velocity 
 
-        select case( this%MP_TYPEID )
-        case( MP_TYPEID_KESSLER )
           do ke2D = 1, lcmesh%Ne2D
             !$omp parallel do private( &
-            !$omp p2D, ke_z, iq, ColMask,                       &
-            !$omp DENS2_tmp, REF_DENS_tmp, RHOQ2_tmp, vterm_tmp ) 
+            !$omp p2D, ke_z, iq, ColMask,                                   &
+            !$omp DENS2_tmp, REF_DENS_tmp, RHOQ2_tmp, TEMP2_tmp, PRES2_tmp, &
+            !$omp vterm_tmp ) 
             do p2D = 1, elem3D%Nnode_h1D**2
               ColMask(:) = elem3D%Colmask(:,p2D)
               do ke_z = 1, lcmesh%NeZ
                 DENS2_tmp   (:,ke_z) = DENS2   (ColMask(:),ke_z,ke2D)
                 REF_DENS_tmp(:,ke_z) = REF_DENS(ColMask(:),ke_z,ke2D)
+                TEMP2_tmp   (:,ke_z) = TEMP2   (ColMask(:),ke_z,ke2D)
+                PRES2_tmp   (:,ke_z) = PRES2   (ColMask(:),ke_z,ke2D)
               end do
               do iq = this%vars%QS+1, this%vars%QE
               do ke_z = 1, lcmesh%NeZ            
@@ -681,10 +721,23 @@ contains
               end do
               end do
 
-              call ATMOS_PHY_MP_kessler_terminal_velocity( &
-                elem3D%Nnode_v*lcmesh%NeZ, 1, elem3D%Nnode_v*lcmesh%NeZ,   & ! (in)
-                DENS2_tmp(:,:), RHOQ2_tmp(:,:,:), REF_DENS_tmp(:,:),       & ! (in)
-                vterm_tmp(:,:,:)                                           ) ! (out)
+              select case( this%MP_TYPEID )
+              case( MP_TYPEID_KESSLER )
+                call ATMOS_PHY_MP_KESSLER_terminal_velocity( &
+                  elem3D%Nnode_v*lcmesh%NeZ, 1, elem3D%Nnode_v*lcmesh%NeZ, & ! (in)
+                  DENS2_tmp(:,:), RHOQ2_tmp(:,:,:), REF_DENS_tmp(:,:),     & ! (in)
+                  vterm_tmp(:,:,:)                                         ) ! (out)
+              case( MP_TYPEID_TOMITA08 )
+                call ATMOS_PHY_MP_TOMITA08_terminal_velocity( &
+                  elem3D%Nnode_v*lcmesh%NeZ, 1, elem3D%Nnode_v*lcmesh%NeZ, & ! (in)
+                  DENS2_tmp(:,:), TEMP2_tmp(:,:), RHOQ2_tmp(:,:,:),        & ! (in)
+                  vterm_tmp(:,:,:)                                         ) ! (out)
+              case( MP_TYPEID_SN14 )
+                call ATMOS_PHY_MP_SN14_terminal_velocity( &
+                  elem3D%Nnode_v*lcmesh%NeZ, 1, elem3D%Nnode_v*lcmesh%NeZ,          & ! (in)
+                  DENS2_tmp(:,:), TEMP2_tmp(:,:), RHOQ2_tmp(:,:,:), PRES2_tmp(:,:), & ! (in)
+                  vterm_tmp(:,:,:)                                                  ) ! (out)
+              end select   
 
               do iq = this%vars%QS+1, this%vars%QE
               do ke_z = 1, lcmesh%NeZ            
@@ -694,7 +747,6 @@ contains
             end do
           end do
 
-        end select   
         
         do iq = this%vars%QS+1, this%vars%QE
           if ( this%vars%vterm_hist_id(iq) > 0 ) then
@@ -778,4 +830,289 @@ contains
     return
   end subroutine AtmosPhyMp_calc_tendency_core
 
+!OCL SERIAL
+  subroutine calc_tendency_Kessler( this, &
+    RHOQ_t_MP, CPtot_t, CVtot_t, RHOE_t, EVAPORATE,  & ! (out)
+    DENS, QTRC, PRES, DENS_hyd, Rtot, CVtot, CPtot,  & ! (in)
+    rdt_MP, lcmesh, elem3D )                           ! (in)
+
+    use scale_atmos_phy_mp_kessler, only:    &
+      ATMOS_PHY_MP_KESSLER_adjustment
+    implicit none
+
+    class(AtmosPhyMp), intent(in) :: this
+    class(LocalMesh3D), intent(in) :: lcmesh
+    class(ElementBase3D), intent(in) :: elem3D
+    type(LocalMeshFieldBaseList), intent(inout) :: RHOQ_t_MP(this%vars%QS:this%vars%QE)
+    real(RP), intent(out) :: CPtot_t(elem3D%Np,lcmesh%NeA)
+    real(RP), intent(out) :: CVtot_t(elem3D%Np,lcmesh%NeA)
+    real(RP), intent(out) :: RHOE_t(elem3D%Np,lcmesh%NeA)
+    real(RP), intent(out) :: EVAPORATE(elem3D%Np,lcmesh%NeA)
+    real(RP), intent(in) :: DENS(elem3D%Np,lcmesh%NeA)
+    type(LocalMeshFieldBaseList), intent(in) :: QTRC(this%vars%QS:this%vars%QE)
+    real(RP), intent(in) :: PRES(elem3D%Np,lcmesh%NeA)
+    real(RP), intent(in) :: DENS_hyd(elem3D%Np,lcmesh%NeA)
+    real(RP), intent(in) :: Rtot (elem3D%Np,lcmesh%NeA)
+    real(RP), intent(in) :: CVtot(elem3D%Np,lcmesh%NeA)
+    real(RP), intent(in) :: CPtot(elem3D%Np,lcmesh%NeA)
+    real(RP), intent(in) :: rdt_MP
+
+    real(RP) :: TEMP1(elem3D%Np,lcmesh%NeA)
+    real(RP) :: CPtot1(elem3D%Np,lcmesh%NeA)
+    real(RP) :: CVtot1(elem3D%Np,lcmesh%NeA)
+    real(RP) :: QTRC1(elem3D%Np,lcmesh%NeA,this%vars%QS:this%vars%QE)
+
+    integer :: ke
+    integer :: iq
+    !------------------------------------------------------------
+
+    !$omp parallel private(ke, iq)
+    !$omp do
+    do ke = lcmesh%NeS, lcmesh%NeE
+      TEMP1(:,ke) = PRES(:,ke) / ( DENS(:,ke) * Rtot(:,ke) )
+      CPtot1(:,ke) = CPtot(:,ke)
+      CVtot1(:,ke) = CVtot(:,ke)
+    end do
+    !$omp end do
+    !$omp do collapse(2)
+    do iq = this%vars%QS, this%vars%QE
+    do ke = lcmesh%NeS, lcmesh%NeE
+      QTRC1(:,ke,iq) = QTRC(iq)%ptr%val(:,ke)
+    end do
+    end do
+    !$omp end do
+    !$omp end parallel
+
+    call ATMOS_PHY_MP_kessler_adjustment( &
+      elem3D%Np, 1, elem3D%Np, lcmesh%NeA, lcmesh%NeS, lcmesh%NeE, 1, 1, 1,  & ! (in)
+      DENS, PRES, this%dtsec,                                                & ! (in)
+      TEMP1, QTRC1, CPtot1, CVtot1,                                          & ! (inout)
+      RHOE_t, EVAPORATE                                                      ) ! (out)
+  
+    !$omp parallel private(ke, iq)
+    !$omp do collapse(2)
+    do iq = this%vars%QS, this%vars%QE
+    do ke = lcmesh%NeS, lcmesh%NeE
+      RHOQ_t_MP(iq)%ptr%val(:,ke) = ( QTRC1(:,ke,iq) - QTRC(iq)%ptr%val(:,ke) ) * DENS(:,ke) * rdt_MP
+    end do  
+    end do
+    !$omp end do
+    !$omp do
+    do ke = lcmesh%NeS, lcmesh%NeE
+      CPtot_t(:,ke) = ( CPtot1(:,ke) - CPtot(:,ke) ) * rdt_MP
+      CVtot_t(:,ke) = ( CVtot1(:,ke) - CVtot(:,ke) ) * rdt_MP
+    end do
+    !$omp end do
+    !$omp end parallel
+    return
+  end subroutine calc_tendency_Kessler
+
+!OCL SERIAL
+  subroutine calc_tendency_Tomita08( this, &
+    RHOQ_t_MP, CPtot_t, CVtot_t, RHOE_t, EVAPORATE,  & ! (out)
+    DENS, QTRC, PRES, DENS_hyd, Rtot, CVtot, CPtot,  & ! (in)
+    rdt_MP, lcmesh, elem3D )                           ! (in)
+
+    use scale_const, only: &
+      UNDEF => CONST_UNDEF
+    use scale_atmos_phy_mp_tomita08, only: &
+      ATMOS_PHY_MP_TOMITA08_adjustment
+    implicit none
+
+    class(AtmosPhyMp), intent(in) :: this
+    class(LocalMesh3D), intent(in) :: lcmesh
+    class(ElementBase3D), intent(in) :: elem3D
+    type(LocalMeshFieldBaseList), intent(inout) :: RHOQ_t_MP(this%vars%QS:this%vars%QE)
+    real(RP), intent(out) :: CPtot_t(elem3D%Np,lcmesh%NeA)
+    real(RP), intent(out) :: CVtot_t(elem3D%Np,lcmesh%NeA)
+    real(RP), intent(out) :: RHOE_t(elem3D%Np,lcmesh%NeA)
+    real(RP), intent(out) :: EVAPORATE(elem3D%Np,lcmesh%NeA)
+    real(RP), intent(in) :: DENS(elem3D%Np,lcmesh%NeA)
+    type(LocalMeshFieldBaseList), intent(in) :: QTRC(this%vars%QS:this%vars%QE)
+    real(RP), intent(in) :: PRES(elem3D%Np,lcmesh%NeA)
+    real(RP), intent(in) :: DENS_hyd(elem3D%Np,lcmesh%NeA)
+    real(RP), intent(in) :: Rtot (elem3D%Np,lcmesh%NeA)
+    real(RP), intent(in) :: CVtot(elem3D%Np,lcmesh%NeA)
+    real(RP), intent(in) :: CPtot(elem3D%Np,lcmesh%NeA)
+    real(RP), intent(in) :: rdt_MP
+
+    real(RP) :: DENS_z(elem3D%Nnode_v,lcmesh%NeZ,elem3D%Nnode_h1D**2,lcmesh%Ne2D)
+    real(RP) :: PRES_z(elem3D%Nnode_v,lcmesh%NeZ,elem3D%Nnode_h1D**2,lcmesh%Ne2D)
+    real(RP) :: CCN_z(elem3D%Nnode_v,lcmesh%NeZ,elem3D%Nnode_h1D**2,lcmesh%Ne2D)
+    real(RP) :: TEMP1_z(elem3D%Nnode_v,lcmesh%NeZ,elem3D%Nnode_h1D**2,lcmesh%Ne2D)
+    real(RP) :: CPtot1_z(elem3D%Nnode_v,lcmesh%NeZ,elem3D%Nnode_h1D**2,lcmesh%Ne2D)
+    real(RP) :: CVtot1_z(elem3D%Nnode_v,lcmesh%NeZ,elem3D%Nnode_h1D**2,lcmesh%Ne2D)
+    real(RP) :: QTRC1_z(elem3D%Nnode_v,lcmesh%NeZ,elem3D%Nnode_h1D**2,lcmesh%Ne2D,this%vars%QS:this%vars%QE)
+    real(RP) :: RHOE_t_z(elem3D%Nnode_v,lcmesh%NeZ,elem3D%Nnode_h1D**2,lcmesh%Ne2D)
+    real(RP) :: EVAPORATE_z(elem3D%Nnode_v,lcmesh%NeZ,elem3D%Nnode_h1D**2,lcmesh%Ne2D)
+
+    integer :: ke, ke_xy, ke_z
+    integer :: p,p_xy, p_z
+    integer :: iq
+    !------------------------------------------------------------
+
+    !$omp parallel do collapse(2) private(p_z,p_xy,iq, ke,p)
+    do ke_z=1, lcmesh%NeZ
+    do ke_xy=1, lcmesh%Ne2D
+      ke = ke_xy + (ke_z-1)*lcmesh%Ne2D
+      do p_z=1, elem3D%Nnode_v
+      do p_xy=1, elem3D%Nnode_h1D**2
+        p = p_xy + (p_z-1)*elem3D%Nnode_h1D**2
+        DENS_z(p_z,ke_z,p_xy,ke_xy) = DENS(p,ke)
+        PRES_z(p_z,ke_z,p_xy,ke_xy) = PRES(p,ke)
+        TEMP1_z(p_z,ke_z,p_xy,ke_xy) = PRES(p,ke) / ( DENS(p,ke) * Rtot(p,ke) )
+        CPtot1_z(p_z,ke_z,p_xy,ke_xy) = CPtot(p,ke)
+        CVtot1_z(p_z,ke_z,p_xy,ke_xy) = CVtot(p,ke)
+
+        CCN_z(p_z,ke_z,p_xy,ke_xy) = UNDEF
+      end do
+      end do
+      do iq = this%vars%QS, this%vars%QE
+        do p_z=1, elem3D%Nnode_v
+        do p_xy=1, elem3D%Nnode_h1D**2
+          p = p_xy + (p_z-1)*elem3D%Nnode_h1D**2
+          QTRC1_z(p_z,ke_z,p_xy,ke_xy,iq) = QTRC(iq)%ptr%val(p,ke)
+        end do
+        end do
+      end do
+    end do
+    end do
+
+    call ATMOS_PHY_MP_Tomita08_adjustment( &
+      elem3D%Nnode_v*lcmesh%NeZ, 1, elem3D%Nnode_v*lcmesh%NeZ, elem3D%Nnode_h1D**2, 1, elem3D%Nnode_h1D**2, lcmesh%Ne2D, 1, lcmesh%Ne2D, & ! (in)
+      DENS_z, PRES_z, CCN_z, this%dtsec,       & ! (in)
+      TEMP1_z, QTRC1_z, CPtot1_z, CVtot1_z,    & ! (inout)
+      RHOE_t_z, EVAPORATE_z                    ) ! (out)
+  
+    !$omp parallel do collapse(2) private(p_z,p_xy,iq, ke,p)
+    do ke_z=1, lcmesh%NeZ
+    do ke_xy=1, lcmesh%Ne2D
+      ke = ke_xy + (ke_z-1)*lcmesh%Ne2D
+      do p_z=1, elem3D%Nnode_v
+      do p_xy=1, elem3D%Nnode_h1D**2
+        p = p_xy + (p_z-1)*elem3D%Nnode_h1D**2
+        CPtot_t(p,ke) = ( CPtot1_z(p_z,ke_z,p_xy,ke_xy) - CPtot(p,ke) ) * rdt_MP
+        CVtot_t(p,ke) = ( CVtot1_z(p_z,ke_z,p_xy,ke_xy) - CVtot(p,ke) ) * rdt_MP
+        RHOE_t(p,ke) = RHOE_t_z(p_z,ke_z,p_xy,ke_xy)
+        EVAPORATE(p,ke) = EVAPORATE_z(p_z,ke_z,p_xy,ke_xy)
+      end do
+      end do
+      do iq = this%vars%QS, this%vars%QE
+        do p_z=1, elem3D%Nnode_v
+        do p_xy=1, elem3D%Nnode_h1D**2
+          p = p_xy + (p_z-1)*elem3D%Nnode_h1D**2
+          RHOQ_t_MP(iq)%ptr%val(p,ke) = ( QTRC1_z(p_z,ke_z,p_xy,ke_xy,iq) - QTRC(iq)%ptr%val(p,ke) ) * DENS(p,ke) * rdt_MP
+        end do
+        end do
+      end do
+    end do
+    end do
+
+    return
+  end subroutine calc_tendency_Tomita08
+
+!OCL SERIAL
+  subroutine calc_tendency_SN14( this, &
+    RHOQ_t_MP, CPtot_t, CVtot_t, RHOE_t, EVAPORATE,  & ! (out)
+    DENS, QTRC, PRES, DENS_hyd, Rtot, CVtot, CPtot,  & ! (in)
+    rdt_MP, lcmesh, elem3D )                           ! (in)
+
+    use scale_const, only: &
+      UNDEF => CONST_UNDEF
+    use scale_atmos_phy_mp_sn14, only: &
+       ATMOS_PHY_MP_sn14_tendency
+    implicit none
+
+    class(AtmosPhyMp), intent(in) :: this
+    class(LocalMesh3D), intent(in) :: lcmesh
+    class(ElementBase3D), intent(in) :: elem3D
+    type(LocalMeshFieldBaseList), intent(inout) :: RHOQ_t_MP(this%vars%QS:this%vars%QE)
+    real(RP), intent(out) :: CPtot_t(elem3D%Np,lcmesh%NeA)
+    real(RP), intent(out) :: CVtot_t(elem3D%Np,lcmesh%NeA)
+    real(RP), intent(out) :: RHOE_t(elem3D%Np,lcmesh%NeA)
+    real(RP), intent(out) :: EVAPORATE(elem3D%Np,lcmesh%NeA)
+    real(RP), intent(in) :: DENS(elem3D%Np,lcmesh%NeA)
+    type(LocalMeshFieldBaseList), intent(in) :: QTRC(this%vars%QS:this%vars%QE)
+    real(RP), intent(in) :: PRES(elem3D%Np,lcmesh%NeA)
+    real(RP), intent(in) :: DENS_hyd(elem3D%Np,lcmesh%NeA)
+    real(RP), intent(in) :: Rtot (elem3D%Np,lcmesh%NeA)
+    real(RP), intent(in) :: CVtot(elem3D%Np,lcmesh%NeA)
+    real(RP), intent(in) :: CPtot(elem3D%Np,lcmesh%NeA)
+    real(RP), intent(in) :: rdt_MP
+
+    real(RP) :: DENS_z(elem3D%Nnode_v,lcmesh%NeZ,elem3D%Nnode_h1D**2,lcmesh%Ne2D)
+    real(RP) :: PRES_z(elem3D%Nnode_v,lcmesh%NeZ,elem3D%Nnode_h1D**2,lcmesh%Ne2D)
+    real(RP) :: CCN_z(elem3D%Nnode_v,lcmesh%NeZ,elem3D%Nnode_h1D**2,lcmesh%Ne2D)
+    real(RP) :: TEMP1_z(elem3D%Nnode_v,lcmesh%NeZ,elem3D%Nnode_h1D**2,lcmesh%Ne2D)
+    real(RP) :: CPtot1_z(elem3D%Nnode_v,lcmesh%NeZ,elem3D%Nnode_h1D**2,lcmesh%Ne2D)
+    real(RP) :: CVtot1_z(elem3D%Nnode_v,lcmesh%NeZ,elem3D%Nnode_h1D**2,lcmesh%Ne2D)
+    real(RP) :: QTRC1_z(elem3D%Nnode_v,lcmesh%NeZ,elem3D%Nnode_h1D**2,lcmesh%Ne2D,this%vars%QS:this%vars%QE)
+    real(RP) :: RHOQ_t_MP_z(elem3D%Nnode_v,lcmesh%NeZ,elem3D%Nnode_h1D**2,lcmesh%Ne2D,this%vars%QS:this%vars%QE)
+    real(RP) :: RHOE_t_z(elem3D%Nnode_v,lcmesh%NeZ,elem3D%Nnode_h1D**2,lcmesh%Ne2D)
+    real(RP) :: EVAPORATE_z(elem3D%Nnode_v,lcmesh%NeZ,elem3D%Nnode_h1D**2,lcmesh%Ne2D)
+    real(RP) :: CPtot_t_z(elem3D%Nnode_v,lcmesh%NeZ,elem3D%Nnode_h1D**2,lcmesh%Ne2D)
+    real(RP) :: CVtot_t_z(elem3D%Nnode_v,lcmesh%NeZ,elem3D%Nnode_h1D**2,lcmesh%Ne2D)
+
+    integer :: ke, ke_xy, ke_z
+    integer :: p,p_xy, p_z
+    integer :: iq
+    !------------------------------------------------------------
+
+    !$omp parallel do collapse(2) private(p_z,p_xy,iq, ke,p)
+    do ke_z=1, lcmesh%NeZ
+    do ke_xy=1, lcmesh%Ne2D
+      ke = ke_xy + (ke_z-1)*lcmesh%Ne2D
+      do p_z=1, elem3D%Nnode_v
+      do p_xy=1, elem3D%Nnode_h1D**2
+        p = p_xy + (p_z-1)*elem3D%Nnode_h1D**2
+        DENS_z(p_z,ke_z,p_xy,ke_xy) = DENS(p,ke)
+        PRES_z(p_z,ke_z,p_xy,ke_xy) = PRES(p,ke)
+        TEMP1_z(p_z,ke_z,p_xy,ke_xy) = PRES(p,ke) / ( DENS(p,ke) * Rtot(p,ke) )
+        CPtot1_z(p_z,ke_z,p_xy,ke_xy) = CPtot(p,ke)
+        CVtot1_z(p_z,ke_z,p_xy,ke_xy) = CVtot(p,ke)
+
+        CCN_z(p_z,ke_z,p_xy,ke_xy) = UNDEF
+      end do
+      end do
+      do iq = this%vars%QS, this%vars%QE
+        do p_z=1, elem3D%Nnode_v
+        do p_xy=1, elem3D%Nnode_h1D**2
+          p = p_xy + (p_z-1)*elem3D%Nnode_h1D**2
+          QTRC1_z(p_z,ke_z,p_xy,ke_xy,iq) = QTRC(iq)%ptr%val(p,ke)
+        end do
+        end do
+      end do
+    end do
+    end do
+
+    ! call  ATMOS_PHY_MP_sn14_tendency( &
+    !   elem3D%Nnode_v*lcmesh%NeZ, 1, elem3D%Nnode_v*lcmesh%NeZ, elem3D%Nnode_h1D**2, 1, elem3D%Nnode_h1D**2, lcmesh%Ne2D, 1, lcmesh%Ne2D, & ! (in)
+    !   DENS_z, W_z, QTRC1_z, PRES_z, TEMP_z, Qdry_z, CPtot1_z, CVtot1_z, CCN_z, this%dtsec, REAL_CZ, REAL_FZ,  & ! (in)
+    !   RHOQ_t_MP_z, RHOE_t_z, CPtot_t_z, CVtot_t_z, EVAPORATE_z )                                                ! (out)
+  
+
+    !$omp parallel do collapse(2) private(p_z,p_xy,iq, ke,p)
+    do ke_z=1, lcmesh%NeZ
+    do ke_xy=1, lcmesh%Ne2D
+      ke = ke_xy + (ke_z-1)*lcmesh%Ne2D
+      do p_z=1, elem3D%Nnode_v
+      do p_xy=1, elem3D%Nnode_h1D**2
+        p = p_xy + (p_z-1)*elem3D%Nnode_h1D**2
+        CPtot_t(p,ke) = CPtot_t_z(p_z,ke_z,p_xy,ke_xy)
+        CVtot_t(p,ke) = CVtot_t_z(p_z,ke_z,p_xy,ke_xy)
+      end do
+      end do
+      do iq = this%vars%QS, this%vars%QE
+        do p_z=1, elem3D%Nnode_v
+        do p_xy=1, elem3D%Nnode_h1D**2
+          p = p_xy + (p_z-1)*elem3D%Nnode_h1D**2
+          RHOQ_t_MP(iq)%ptr%val(p,ke) = RHOQ_t_MP_z(p_z,ke_z,p_xy,ke_xy,iq)
+        end do
+        end do
+      end do
+    end do
+    end do
+
+    return
+  end subroutine calc_tendency_SN14  
 end module mod_atmos_phy_mp
