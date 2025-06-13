@@ -272,22 +272,22 @@ contains
             ATMOS_PHY_MP_TOMITA08_tracer_units(:),        & ! (in)
             QS_MP                                         ) ! (out)
       QA_MP = ATMOS_PHY_MP_TOMITA08_ntracers
-    case( 'SN14' )
-      this%MP_TYPEID = MP_TYPEID_SN14
-      call ATMOS_HYDROMETEOR_regist( &
-            ATMOS_PHY_MP_SN14_nwaters,                   & ! (in)
-            ATMOS_PHY_MP_SN14_nices,                     & ! (in)
-            ATMOS_PHY_MP_SN14_tracer_names(1:6),         & ! (in)
-            ATMOS_PHY_MP_SN14_tracer_descriptions(1:6),  & ! (in)
-            ATMOS_PHY_MP_SN14_tracer_units(1:6),         & ! (in)
-            QS_MP                                        ) ! (out)
+    ! case( 'SN14' )
+    !   this%MP_TYPEID = MP_TYPEID_SN14
+    !   call ATMOS_HYDROMETEOR_regist( &
+    !         ATMOS_PHY_MP_SN14_nwaters,                   & ! (in)
+    !         ATMOS_PHY_MP_SN14_nices,                     & ! (in)
+    !         ATMOS_PHY_MP_SN14_tracer_names(1:6),         & ! (in)
+    !         ATMOS_PHY_MP_SN14_tracer_descriptions(1:6),  & ! (in)
+    !         ATMOS_PHY_MP_SN14_tracer_units(1:6),         & ! (in)
+    !         QS_MP                                        ) ! (out)
       
-      call TRACER_regist( QS2,                           & ! (out)
-            5,                                           & ! (in)
-            ATMOS_PHY_MP_SN14_tracer_names(7:11),        & ! (in)
-            ATMOS_PHY_MP_SN14_tracer_descriptions(7:11), & ! (in)
-            ATMOS_PHY_MP_SN14_tracer_units(7:11)         ) ! (in)
-      QA_MP = ATMOS_PHY_MP_SN14_ntracers
+    !   call TRACER_regist( QS2,                           & ! (out)
+    !         5,                                           & ! (in)
+    !         ATMOS_PHY_MP_SN14_tracer_names(7:11),        & ! (in)
+    !         ATMOS_PHY_MP_SN14_tracer_descriptions(7:11), & ! (in)
+    !         ATMOS_PHY_MP_SN14_tracer_units(7:11)         ) ! (in)
+    !   QA_MP = ATMOS_PHY_MP_SN14_ntracers
     case default
       LOG_ERROR("ATMOS_PHY_MP_setup",*) 'Not appropriate names of MP_TYPE in namelist PARAM_ATMOS_PHY_MP. Check!'
       call PRC_abort
