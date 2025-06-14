@@ -49,6 +49,7 @@ module mod_atmos_mesh
     integer :: vcoord_type_id
 
     logical :: comm_use_mpi_pc
+    logical :: comm_use_mpi_pc_fujitsu_ext
   contains
     procedure :: AtmosMesh_Init
     procedure :: AtmosMesh_Final

@@ -152,10 +152,12 @@ contains
     !-----------------------------------------------------------------------------
 
     if ( this%call_wait_flag_sub_get ) then
+!      call PROF_rapstart( 'meshfiled_comm_get_wait', 3)
       call MeshFieldCommBase_wait_core( this, this%commdata_list )
+!      call PROF_rapend( 'meshfiled_comm_get_wait', 3)
     end if
 
-!    call PROF_rapstart( 'meshfiled_comm_get', 3)
+!   call PROF_rapstart( 'meshfiled_comm_get', 3)
     do i=1, size(field_list) 
     do n=1, this%mesh3d%LOCAL_MESH_NUM
       lcmesh => this%mesh3d%lcmesh_list(n)
@@ -173,6 +175,7 @@ contains
     use scale_meshfieldcomm_base, only: &
       MeshFieldCommBase_exchange_core,  &
       LocalMeshCommData
+    use scale_prof
     implicit none
   
     class(MeshFieldCommCubeDom3D), intent(inout), target :: this
