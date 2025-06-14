@@ -90,3 +90,12 @@ Our codes are also verified in Fugaku and Odyssey with Fujitsu compiler.
  To visualize the simulation result using the scripts, 
 
   `% make vis`
+
+## Switches for the compilation
+
+The following options is available by setting as environment variables, 
+ `% export OPTION_NAME=T`
+Switch options will be activated only when the value is "T"
+
+  - SCALE_IGNORE_SRCDEP   : Ignore source dependency at the compilation
+ 

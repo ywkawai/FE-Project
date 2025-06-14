@@ -759,6 +759,10 @@ contains
 
 !> Calculate the 3D divergence
 !!
+!! @param vec_in Array storing flux data (Fx,Fy,Fz) at nodes that we apply the differential matrices Dx, Dy, and Dz, respectively
+!! @param vec_in_lift Array storing surface flux data (Fs) at nodes that we apply the lifting operator
+!! @param vec_out Array storing the resulting data (Dx Fx, Dy Fy, Dz Fz, Lift Fs)
+!!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Div_P1(  this, vec_in, vec_in_lift, &
     vec_out )
@@ -1070,6 +1074,10 @@ contains
   end subroutine element_operation_tensorprod3D_DxDyDzLift_P2
 
 !> Calculate the 3D divergence
+!!
+!! @param vec_in Array storing flux data (Fx,Fy,Fz) at nodes that we apply the differential matrices Dx, Dy, and Dz, respectively
+!! @param vec_in_lift Array storing surface flux data (Fs) at nodes that we apply the lifting operator
+!! @param vec_out Array storing the resulting data (Dx Fx, Dy Fy, Dz Fz, Lift Fs)
 !!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Div_P2(  this, vec_in, vec_in_lift, &
@@ -1383,6 +1391,10 @@ contains
 
 !> Calculate the 3D divergence
 !!
+!! @param vec_in Array storing flux data (Fx,Fy,Fz) at nodes that we apply the differential matrices Dx, Dy, and Dz, respectively
+!! @param vec_in_lift Array storing surface flux data (Fs) at nodes that we apply the lifting operator
+!! @param vec_out Array storing the resulting data (Dx Fx, Dy Fy, Dz Fz, Lift Fs)
+!!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Div_P3(  this, vec_in, vec_in_lift, &
     vec_out )
@@ -1694,6 +1706,10 @@ contains
   end subroutine element_operation_tensorprod3D_DxDyDzLift_P4
 
 !> Calculate the 3D divergence
+!!
+!! @param vec_in Array storing flux data (Fx,Fy,Fz) at nodes that we apply the differential matrices Dx, Dy, and Dz, respectively
+!! @param vec_in_lift Array storing surface flux data (Fs) at nodes that we apply the lifting operator
+!! @param vec_out Array storing the resulting data (Dx Fx, Dy Fy, Dz Fz, Lift Fs)
 !!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Div_P4(  this, vec_in, vec_in_lift, &
@@ -2007,6 +2023,10 @@ contains
 
 !> Calculate the 3D divergence
 !!
+!! @param vec_in Array storing flux data (Fx,Fy,Fz) at nodes that we apply the differential matrices Dx, Dy, and Dz, respectively
+!! @param vec_in_lift Array storing surface flux data (Fs) at nodes that we apply the lifting operator
+!! @param vec_out Array storing the resulting data (Dx Fx, Dy Fy, Dz Fz, Lift Fs)
+!!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Div_P5(  this, vec_in, vec_in_lift, &
     vec_out )
@@ -2318,6 +2338,10 @@ contains
   end subroutine element_operation_tensorprod3D_DxDyDzLift_P6
 
 !> Calculate the 3D divergence
+!!
+!! @param vec_in Array storing flux data (Fx,Fy,Fz) at nodes that we apply the differential matrices Dx, Dy, and Dz, respectively
+!! @param vec_in_lift Array storing surface flux data (Fs) at nodes that we apply the lifting operator
+!! @param vec_out Array storing the resulting data (Dx Fx, Dy Fy, Dz Fz, Lift Fs)
 !!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Div_P6(  this, vec_in, vec_in_lift, &
@@ -2631,6 +2655,10 @@ contains
 
 !> Calculate the 3D divergence
 !!
+!! @param vec_in Array storing flux data (Fx,Fy,Fz) at nodes that we apply the differential matrices Dx, Dy, and Dz, respectively
+!! @param vec_in_lift Array storing surface flux data (Fs) at nodes that we apply the lifting operator
+!! @param vec_out Array storing the resulting data (Dx Fx, Dy Fy, Dz Fz, Lift Fs)
+!!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Div_P7(  this, vec_in, vec_in_lift, &
     vec_out )
@@ -2942,6 +2970,10 @@ contains
   end subroutine element_operation_tensorprod3D_DxDyDzLift_P8
 
 !> Calculate the 3D divergence
+!!
+!! @param vec_in Array storing flux data (Fx,Fy,Fz) at nodes that we apply the differential matrices Dx, Dy, and Dz, respectively
+!! @param vec_in_lift Array storing surface flux data (Fs) at nodes that we apply the lifting operator
+!! @param vec_out Array storing the resulting data (Dx Fx, Dy Fy, Dz Fz, Lift Fs)
 !!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Div_P8(  this, vec_in, vec_in_lift, &
@@ -3255,6 +3287,10 @@ contains
 
 !> Calculate the 3D divergence
 !!
+!! @param vec_in Array storing flux data (Fx,Fy,Fz) at nodes that we apply the differential matrices Dx, Dy, and Dz, respectively
+!! @param vec_in_lift Array storing surface flux data (Fs) at nodes that we apply the lifting operator
+!! @param vec_out Array storing the resulting data (Dx Fx, Dy Fy, Dz Fz, Lift Fs)
+!!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Div_P9(  this, vec_in, vec_in_lift, &
     vec_out )
@@ -3566,6 +3602,10 @@ contains
   end subroutine element_operation_tensorprod3D_DxDyDzLift_P10
 
 !> Calculate the 3D divergence
+!!
+!! @param vec_in Array storing flux data (Fx,Fy,Fz) at nodes that we apply the differential matrices Dx, Dy, and Dz, respectively
+!! @param vec_in_lift Array storing surface flux data (Fs) at nodes that we apply the lifting operator
+!! @param vec_out Array storing the resulting data (Dx Fx, Dy Fy, Dz Fz, Lift Fs)
 !!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Div_P10(  this, vec_in, vec_in_lift, &
@@ -3879,6 +3919,10 @@ contains
 
 !> Calculate the 3D divergence
 !!
+!! @param vec_in Array storing flux data (Fx,Fy,Fz) at nodes that we apply the differential matrices Dx, Dy, and Dz, respectively
+!! @param vec_in_lift Array storing surface flux data (Fs) at nodes that we apply the lifting operator
+!! @param vec_out Array storing the resulting data (Dx Fx, Dy Fy, Dz Fz, Lift Fs)
+!!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Div_P11(  this, vec_in, vec_in_lift, &
     vec_out )
@@ -4190,6 +4234,10 @@ contains
   end subroutine element_operation_tensorprod3D_DxDyDzLift_P12
 
 !> Calculate the 3D divergence
+!!
+!! @param vec_in Array storing flux data (Fx,Fy,Fz) at nodes that we apply the differential matrices Dx, Dy, and Dz, respectively
+!! @param vec_in_lift Array storing surface flux data (Fs) at nodes that we apply the lifting operator
+!! @param vec_out Array storing the resulting data (Dx Fx, Dy Fy, Dz Fz, Lift Fs)
 !!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Div_P12(  this, vec_in, vec_in_lift, &
@@ -4503,6 +4551,10 @@ contains
 
 !> Calculate the 3D divergence
 !!
+!! @param vec_in Array storing flux data (Fx,Fy,Fz) at nodes that we apply the differential matrices Dx, Dy, and Dz, respectively
+!! @param vec_in_lift Array storing surface flux data (Fs) at nodes that we apply the lifting operator
+!! @param vec_out Array storing the resulting data (Dx Fx, Dy Fy, Dz Fz, Lift Fs)
+!!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Div_P13(  this, vec_in, vec_in_lift, &
     vec_out )
@@ -4815,6 +4867,10 @@ contains
 
 !> Calculate the 3D divergence
 !!
+!! @param vec_in Array storing flux data (Fx,Fy,Fz) at nodes that we apply the differential matrices Dx, Dy, and Dz, respectively
+!! @param vec_in_lift Array storing surface flux data (Fs) at nodes that we apply the lifting operator
+!! @param vec_out Array storing the resulting data (Dx Fx, Dy Fy, Dz Fz, Lift Fs)
+!!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Div_P14(  this, vec_in, vec_in_lift, &
     vec_out )
@@ -5126,6 +5182,10 @@ contains
   end subroutine element_operation_tensorprod3D_DxDyDzLift_P15
 
 !> Calculate the 3D divergence
+!!
+!! @param vec_in Array storing flux data (Fx,Fy,Fz) at nodes that we apply the differential matrices Dx, Dy, and Dz, respectively
+!! @param vec_in_lift Array storing surface flux data (Fs) at nodes that we apply the lifting operator
+!! @param vec_out Array storing the resulting data (Dx Fx, Dy Fy, Dz Fz, Lift Fs)
 !!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Div_P15(  this, vec_in, vec_in_lift, &
