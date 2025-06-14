@@ -22,7 +22,7 @@ We also provide sample programs and atmospheric models for meteorological simula
 - Simple 2D model with only dynamical process
 - Regional and Global models (SCALE-DG)
 
-## Simple samples for introduction to DGM. 
+## Simple samples for introduction to DGM
 ### 1D problems 
   - Linear advection equation
     - various profiles of advected quantity
@@ -56,3 +56,7 @@ This project is supported by
 [Moonshot Goal8 Realization of a society safe from the threat of extreme winds and rains by controlling and modifying the weather by 2050](https://www.jst.go.jp/moonshot/program/goal8/) ([Development of an atmospheric simulation model for probability estimation for local atmospheric phenomena](https://moonshot8-modeldev.riken.jp)), JICA and JST SATREPS (grant Number: JPMJSA2109), JST AIP Grant Number JPMJCR19U2, and the Foundation for Computational Science (FOCUS) Establishing Supercomputing Center of Excellence. 
 The model development and validation experiments are
 performed using supercomputers (Oackbridge-CX and Wisteria) at the University of Tokyo and Fugaku at RIKEN (Project ID: ra000005, hp200271, hp230278).
+
+## General references
+- Kawai, Y. and H. Tomita, 2025, Development of a high-order global dynamical core using the discontinuous Galerkin method for an atmospheric large-eddy simulation (LES) and proposal of test cases: SCALE-DG v0.8.0. Geosci. Model Dev., 18, 725-762.
+- Kawai, Y. and H. Tomita, 2023, Numerical accuracy necessary for large-eddy simulation of planetary boundary layer turbulence using discontinuous Galerkin method. Mon. Wea. Rev., 151, 1479-1508

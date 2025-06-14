@@ -130,7 +130,7 @@ contains
     return
   end subroutine element_operation_kernel_matvec_dirZ_P<%=p%>
 
-!> Calculate a matrix-vector multiplication associated with Lift operations with hexahedral element of p=<%=p%>
+!> Calculate a matrix-vector multiplication with lifting operations for a hexahedral element of order p=<%=p%>
 !!
 !OCL SERIAL
   subroutine element_operation_kernel_matvec_Lift_hexahedral_P<%=p%>( Lift, vec_in, vec_out )
@@ -340,6 +340,127 @@ contains
     end do
     return
   end subroutine element_operation_kernel_matvec_divlike_dirXYZ_P<%=p%>
+
+!OCL SERIAL
+  subroutine element_operation_kernel_matvec_divlike_dirXYZ_var5_P<%=p%>( &
+    Mat, Mat_tr, vec_in_x, vec_in_y, vec_in_z, &
+    vec_out_x, vec_out_y, vec_out_z  )
+    implicit none
+    real(RP), intent(in) :: Mat(<%=np%>,<%=np%>)
+    real(RP), intent(in) :: Mat_tr(<%=np%>,<%=np%>)
+    real(RP), intent(in) :: vec_in_x(<%=np%>,<%=np%>**2*5)
+    real(RP), intent(in) :: vec_in_y(<%=np%>,<%=np%>,<%=np%>*5)
+    real(RP), intent(in) :: vec_in_z(<%=np%>,<%=np%>,<%=np%>,5)
+    real(RP), intent(out) :: vec_out_x(<%=np%>,<%=np%>**2*5)
+    real(RP), intent(out) :: vec_out_y(<%=np%>,<%=np%>**2*5)
+    real(RP), intent(out) :: vec_out_z(<%=np%>,<%=np%>**2,5)
+
+    integer :: i, j, k, jkv, jk, v, kv
+% if p > 7
+    real(RP) :: tmp1, tmp2, tmp3
+% end
+    !----------------------------------------------------------
+
+    ! X-dir
+
+    do jkv=1, <%=np%>**2*5
+    do i=1, <%=np%>
+% if p <= 7
+      vec_out_x(i,jkv) = Mat(i,1) * vec_in_x(1,jkv) &
+%   for ii in 2..np-1
+                      + Mat(i,<%=ii%>) * vec_in_x(<%=ii%>,jkv) &
+%   end
+                      + Mat(i,<%=np%>) * vec_in_x(<%=np%>,jkv)
+% else
+      tmp1 = Mat(i,1) * vec_in_x(1,jkv) &
+%   for ii in 2..np_div3-1
+           + Mat(i,<%=ii%>) * vec_in_x(<%=ii%>,jkv) &
+%   end
+           + Mat(i,<%=np_div3%>) * vec_in_x(<%=np_div3%>,jkv)
+      tmp2 = Mat(i,<%=np_div3+1%>) * vec_in_x(<%=np_div3+1%>,jkv) &
+%   for ii in np_div3+2..np_div3*2-1
+           + Mat(i,<%=ii%>) * vec_in_x(<%=ii%>,jkv) &
+%   end
+           + Mat(i,<%=np_div3*2%>) * vec_in_x(<%=np_div3*2%>,jkv)
+      tmp3 = Mat(i,<%=np_div3*2+1%>) * vec_in_x(<%=np_div3*2+1%>,jkv) &
+%   for ii in np_div3*2+2..np-1
+           + Mat(i,<%=ii%>) * vec_in_x(<%=ii%>,jkv) &
+%   end
+           + Mat(i,<%=np%>) * vec_in_x(<%=np%>,jkv)
+      vec_out_x(i,jkv) = tmp1 + tmp2 + tmp3
+% end
+    end do
+    end do
+
+    ! Y-dir
+    do kv=1, <%=np%>*5
+    do j=1, <%=np%>
+      jkv = j + (kv-1)*<%=np*5%>
+      do i=1, <%=np%>
+% if p <= 7
+        vec_out_y(i,jkv) = vec_in_y(i,1,kv) * Mat_tr(1,j) &
+%   for jj in 2..np-1
+                        + vec_in_y(i,<%=jj%>,kv) * Mat_tr(<%=jj%>,j) &
+%   end
+                        + vec_in_y(i,<%=np%>,kv) * Mat_tr(<%=np%>,j) 
+% else
+        tmp1 = vec_in_y(i,1,kv) * Mat_tr(1,j) &
+%   for jj in 2..np_div3-1
+             + vec_in_y(i,<%=jj%>,kv) * Mat_tr(<%=jj%>,j) &
+%   end
+             + vec_in_y(i,<%=np_div3%>,kv) * Mat_tr(<%=np_div3%>,j) 
+        tmp2 = vec_in_y(i,<%=np_div3+1%>,kv) * Mat_tr(<%=np_div3+1%>,j) &
+%   for jj in np_div3+2..np_div3*2-1
+             + vec_in_y(i,<%=jj%>,kv) * Mat_tr(<%=jj%>,j) &
+%   end
+             + vec_in_y(i,<%=np_div3*2%>,kv) * Mat_tr(<%=np_div3*2%>,j) 
+        tmp3 = vec_in_y(i,<%=np_div3*2+1%>,kv) * Mat_tr(<%=np_div3*2+1%>,j) &
+%   for jj in np_div3*2+2..np-1
+             + vec_in_y(i,<%=jj%>,kv) * Mat_tr(<%=jj%>,j) &
+%   end
+             + vec_in_y(i,<%=np%>,kv) * Mat_tr(<%=np%>,j) 
+      vec_out_y(i,jkv) = tmp1 + tmp2 + tmp3
+% end
+      end do
+    end do
+    end do
+    
+    ! Z-dir
+    do v=1, 5
+    do k=1, <%=np%>
+    do j=1, <%=np%>
+      jk = j + (k-1)*<%=np%>
+      do i=1, <%=np%>
+% if p <= 7
+        vec_out_z(i,jk,v) = vec_in_z(i,j,1,v) * Mat_tr(1,k) &
+%   for kk in 2..np-1
+                        + vec_in_z(i,j,<%=kk%>,v) * Mat_tr(<%=kk%>,k) &
+%   end
+                        + vec_in_z(i,j,<%=np%>,v) * Mat_tr(<%=np%>,k) 
+% else
+        tmp1 = vec_in_z(i,j,1,v) * Mat_tr(1,k) &
+%   for kk in 2..np_div3-1
+             + vec_in_z(i,j,<%=kk%>,v) * Mat_tr(<%=kk%>,k) &
+%   end
+             + vec_in_z(i,j,<%=np_div3%>,v) * Mat_tr(<%=np_div3%>,k) 
+        tmp2 = vec_in_z(i,j,<%=np_div3+1%>,v) * Mat_tr(<%=np_div3+1%>,k) &
+%   for kk in np_div3+2..np_div3*2-1
+             + vec_in_z(i,j,<%=kk%>,v) * Mat_tr(<%=kk%>,k) &
+%   end
+             + vec_in_z(i,j,<%=np_div3*2%>,v) * Mat_tr(<%=np_div3*2%>,k) 
+        tmp3 = vec_in_z(i,j,<%=np_div3*2+1%>,v) * Mat_tr(<%=np_div3*2+1%>,k) &
+%   for kk in np_div3*2+2..np-1
+             + vec_in_z(i,j,<%=kk%>,v) * Mat_tr(<%=kk%>,k) &
+%   end
+             + vec_in_z(i,j,<%=np%>,v) * Mat_tr(<%=np%>,k) 
+      vec_out_z(i,jk,v) = tmp1 + tmp2 + tmp3
+% end
+      end do
+    end do
+    end do
+    end do
+    return
+  end subroutine element_operation_kernel_matvec_divlike_dirXYZ_var5_P<%=p%>
 
 !> Calculate a matrix-vector multiplication associated with 3D modal filtering with p=<%=p%>
 !!

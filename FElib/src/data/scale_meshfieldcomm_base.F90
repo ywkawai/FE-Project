@@ -48,7 +48,8 @@ module scale_meshfieldcomm_base
     procedure, public :: Init => LocalMeshCommData_Init
     procedure, public :: Final => LocalMeshCommData_Final
     procedure, public :: SendRecv => LocalMeshCommData_SendRecv
-    procedure, public :: PC_Init => LocalMeshCommData_pc_init
+    procedure, public :: PC_Init_recv => LocalMeshCommData_pc_init_recv
+    procedure, public :: PC_Init_send => LocalMeshCommData_pc_init_send
   end type
 
   !> Base derived type to manage data communication
@@ -69,10 +70,13 @@ module scale_meshfieldcomm_base
     integer, allocatable :: is_f(:,:)
 
     logical :: MPI_pc_flag
+    logical :: use_mpi_pc_fujitsu_ext
     integer, allocatable :: request_pc(:)
 
     integer :: req_counter
     logical :: call_wait_flag_sub_get
+
+    integer :: obj_ind
   contains
     procedure(MeshFieldCommBase_put), public, deferred :: Put   
     procedure(MeshFieldCommBase_get), public, deferred :: Get
@@ -136,6 +140,8 @@ module scale_meshfieldcomm_base
   !++ Private parameters & variables
   !
 
+  integer :: obj_ind = 0
+
 contains
 
 !> Initialize a base object to manage data communication of fields
@@ -197,6 +203,8 @@ contains
 
     this%MPI_pc_flag = .false.
 
+    obj_ind = obj_ind + 1
+    this%obj_ind = obj_ind
     return
   end subroutine MeshFieldCommBase_Init
 
@@ -238,14 +246,34 @@ contains
 !> Prepare persistent communication
 !!
 !OCL SERIAL
-  subroutine MeshFieldCommBase_prepare_PC( this )
+  subroutine MeshFieldCommBase_prepare_PC( this, &
+    use_mpi_pc_fujitsu_ext )
+    use scale_prc, only: &
+      PRC_abort
     implicit none    
     class(MeshFieldCommBase), intent(inout) :: this
+    logical, intent(in), optional :: use_mpi_pc_fujitsu_ext
 
     integer :: n, f
     !-----------------------------------------------------------------------------
 
     this%MPI_pc_flag = .true.
+
+#ifdef __FUJITSU
+    this%use_mpi_pc_fujitsu_ext = .true.
+#else
+    this%use_mpi_pc_fujitsu_ext = .false.
+#endif
+    if ( present(use_mpi_pc_fujitsu_ext) ) then
+      this%use_mpi_pc_fujitsu_ext = use_mpi_pc_fujitsu_ext
+#ifndef __FUJITSU
+      if ( use_mpi_pc_fujitsu_ext ) then
+        LOG_ERROR("MeshFieldCommBase_prepare_PC",*) 'use_mpi_pc_fujitsu_ext=.true., but Fujitsu MPI is unavailable. Check!'
+        call PRC_abort
+      end if
+#endif
+    end if
+
     if (this%field_num_tot > 0) then
       allocate( this%request_pc(2*this%nfaces_comm*this%mesh%LOCAL_MESH_NUM) )
     end if
@@ -253,10 +281,18 @@ contains
     this%req_counter = 0
     do n=1, this%mesh%LOCAL_MESH_NUM
     do f=1, this%nfaces_comm
-      call this%commdata_list(f,n)%PC_Init(     &
-        this%req_counter, this%request_pc(:) ) ! (inout)
+      call this%commdata_list(f,n)%PC_Init_recv( &
+        this%req_counter, this%request_pc(:),     & ! (inout)
+        this%obj_ind, this%use_mpi_pc_fujitsu_ext ) ! (in)
     end do
-    end do     
+    end do    
+    do n=1, this%mesh%LOCAL_MESH_NUM
+    do f=1, this%nfaces_comm
+      call this%commdata_list(f,n)%PC_Init_send( &
+        this%req_counter, this%request_pc(:),     & ! (inout)
+        this%obj_ind, this%use_mpi_pc_fujitsu_ext ) ! (in)
+    end do
+    end do
 
     return
   end subroutine MeshFieldCommBase_prepare_PC
@@ -268,6 +304,14 @@ contains
 !OCL SERIAL
   subroutine MeshFieldCommBase_exchange_core( this, commdata_list, do_wait )
 !    use scale_prof
+#ifdef __FUJITSU
+     use mpi_ext, only: &
+       FJMPI_prequest_startall
+#endif
+    use mpi, only: &
+      MPI_startall
+    use scale_prc
+    use scale_prof
     implicit none
   
     class(MeshFieldCommBase), intent(inout) :: this
@@ -277,6 +321,9 @@ contains
     integer :: n, f    
     integer :: ierr
     logical :: do_wait_
+
+    integer :: i
+    type(LocalMeshCommData), pointer :: lcommdata
     !-----------------------------------------------------------------------------
 
     if ( present(do_wait) ) then
@@ -286,19 +333,41 @@ contains
     end if    
     
 !    call PROF_rapstart( 'meshfiled_comm_ex_core', 3)
+    !
     if ( this%MPI_pc_flag ) then
-      call MPI_startall( this%req_counter, this%request_pc(1:this%req_counter), ierr )
+      !$omp parallel
+      !$omp master
+      if ( this%use_mpi_pc_fujitsu_ext ) then
+#ifdef __FUJITSU
+        ! Use Fujitsu MPI extension for persistent communication
+        call FJMPI_prequest_startall( this%req_counter, this%request_pc(1:this%req_counter), ierr )
+#endif
+      else
+        call MPI_startall( this%req_counter, this%request_pc(1:this%req_counter), ierr )
+      end if
+      !$omp end master
+      !$omp do collapse(2) private(lcommdata)
+      do n=1, this%mesh%LOCAL_MESH_NUM      
+      do f=1, this%nfaces_comm
+        lcommdata => commdata_list(f,n)
+        if ( lcommdata%s_rank == lcommdata%lcmesh%PRC_myrank ) then
+          commdata_list(abs(lcommdata%s_faceID), lcommdata%s_tilelocalID)%recv_buf(:,:) &
+            = lcommdata%send_buf(:,:)
+        end if
+      end do 
+      end do
+      !$omp end parallel
     else
       this%req_counter = 0
+      do n=1, this%mesh%LOCAL_MESH_NUM      
+      do f=1, this%nfaces_comm
+        call commdata_list(f,n)%SendRecv( &
+          this%req_counter, this%request_send(:), this%request_recv(:), & ! (inout)
+          commdata_list(:,:)                                            ) ! (inout) 
+      end do
+      end do      
     end if
-    do n=1, this%mesh%LOCAL_MESH_NUM      
-    do f=1, this%nfaces_comm
-      call commdata_list(f,n)%SendRecv( &
-        this%req_counter, this%request_send(:), this%request_recv(:), & ! (inout)
-        commdata_list(:,:),                                           & ! (inout) 
-        this%MPI_pc_flag )                                              ! (in)  
-    end do
-    end do
+
 !    call PROF_rapend( 'meshfiled_comm_ex_core', 3)
 
     if ( do_wait_ ) then
@@ -317,40 +386,41 @@ contains
 !OCL SERIAL
   subroutine MeshFieldCommBase_wait_core( this, commdata_list )
     use mpi, only: &
-      !MPI_waitall,    &
+      MPI_waitall,    &
       MPI_STATUS_SIZE
     use scale_prof
+    use scale_prc
     implicit none
   
     class(MeshFieldCommBase), intent(inout) :: this
     type(LocalMeshCommData), intent(inout), target :: commdata_list(this%nfaces_comm, this%mesh%LOCAL_MESH_NUM)
 
     integer :: ierr
-    integer :: stat_send(MPI_STATUS_SIZE, this%nfaces_comm * this%mesh%LOCAL_MESH_NUM)
-    integer :: stat_recv(MPI_STATUS_SIZE, this%nfaces_comm * this%mesh%LOCAL_MESH_NUM)
-    integer :: stat_pc(MPI_STATUS_SIZE, 2*this%nfaces_comm * this%mesh%LOCAL_MESH_NUM)
+    integer :: stat_send(MPI_STATUS_SIZE, this%req_counter)
+    integer :: stat_recv(MPI_STATUS_SIZE, this%req_counter)
+    integer :: stat_pc(MPI_STATUS_SIZE, this%req_counter)
 
     integer :: n, f
     integer :: var_id
     integer :: irs, ire
     !----------------------------
 
-!    call PROF_rapstart( 'meshfiled_comm_wait_core', 3)
+!   call PROF_rapstart( 'meshfiled_comm_wait_core', 3)
     if ( this%MPI_pc_flag ) then
       if (this%req_counter > 0) then
-        call MPI_waitall( this%req_counter, this%request_pc(1:this%req_counter), stat_pc(:,1:this%req_counter), ierr )
+        call MPI_waitall( this%req_counter, this%request_pc(1:this%req_counter), stat_pc, ierr )
       end if
     else
       if ( this%req_counter > 0 ) then
-        call MPI_waitall( this%req_counter, this%request_recv(1:this%req_counter), stat_recv(:,1:this%req_counter), ierr )
-        call MPI_waitall( this%req_counter, this%request_send(1:this%req_counter), stat_send(:,1:this%req_counter), ierr )
+        call MPI_waitall( this%req_counter, this%request_recv(1:this%req_counter), stat_recv, ierr )
+        call MPI_waitall( this%req_counter, this%request_send(1:this%req_counter), stat_send, ierr )
       end if
     end if
-!    call PROF_rapend( 'meshfiled_comm_wait_core', 3)
+!   call PROF_rapend( 'meshfiled_comm_wait_core', 3)
   
     !---------------------
 
-!    call PROF_rapstart( 'meshfiled_comm_wait_post', 3)
+!   call PROF_rapstart( 'meshfiled_comm_wait_post', 3)
     do n=1, this%mesh%LOCAL_MESH_NUM
       !$omp parallel do private(var_id,f,irs,ire)
       do var_id=1, this%field_num_tot
@@ -362,7 +432,7 @@ contains
         end do ! end loop for face
       end do
     end do
-!    call PROF_rapend( 'meshfiled_comm_wait_post', 3)
+!   call PROF_rapend( 'meshfiled_comm_wait_post', 3)
 
     return
   end subroutine MeshFieldCommBase_wait_core
@@ -428,8 +498,8 @@ contains
   end subroutine LocalMeshCommData_Init
 
   subroutine LocalMeshCommData_SendRecv( this, &
-      req_counter, req_send, req_recv,          &
-      lccommdat_list, MPI_pc_flag )
+      req_counter, req_send, req_recv,         &
+      lccommdat_list )
     
     use scale_prc, only: &
       PRC_LOCAL_COMM_WORLD
@@ -443,15 +513,13 @@ contains
     integer, intent(inout) :: req_send(:)
     integer, intent(inout) :: req_recv(:)
     type(LocalMeshCommData), intent(inout) :: lccommdat_list(:,:)
-    logical, intent(in) :: MPI_pc_flag
   
     integer :: tag
     integer :: bufsize
     integer :: ierr
     !-------------------------------------------
 
-    if ( this%s_rank /= this%lcmesh%PRC_myrank &
-      .and. (.not. MPI_pc_flag ) ) then
+    if ( this%s_rank /= this%lcmesh%PRC_myrank ) then
 
       req_counter = req_counter + 1
 
@@ -475,19 +543,74 @@ contains
     return
   end subroutine LocalMeshCommData_sendrecv
 
-  subroutine LocalMeshCommData_pc_init( this, &
-      req_counter, req                        )
+  subroutine LocalMeshCommData_pc_init_send( this, &
+    req_counter, req, obj_ind_ ,      &
+    use_mpi_pc_fujisu_ext             )
     
     use scale_prc, only: &
       PRC_LOCAL_COMM_WORLD
     use mpi, only: &
-      !MPI_isend, MPI_irecv, &
-      MPI_DOUBLE_PRECISION
+      MPI_DOUBLE_PRECISION, &
+      MPI_send_init
+#ifdef __FUJITSU
+    use mpi_ext, only: &
+      FJMPI_Prequest_send_init
+#endif
     implicit none
 
     class(LocalMeshCommData), intent(inout) :: this
     integer, intent(inout) :: req_counter
     integer, intent(inout) :: req(:)
+    integer, intent(in) :: obj_ind_
+    logical, intent(in) :: use_mpi_pc_fujisu_ext
+
+    integer :: tag
+    integer :: bufsize
+    integer :: ierr
+    !-------------------------------------------
+
+    if ( this%s_rank /= this%lcmesh%PRC_myrank ) then
+      req_counter = req_counter + 1
+
+      bufsize = size(this%send_buf)
+!      tag = 1000 * this%s_tileID + 10 * obj_ind_ + abs(this%s_faceID)
+      tag = obj_ind_
+
+      if ( use_mpi_pc_fujisu_ext ) then
+#ifdef __FUJITSU
+        call FJMPI_Prequest_send_init( this%send_buf(1,1), bufsize, MPI_DOUBLE_PRECISION, &
+          this%s_rank, tag, PRC_LOCAL_COMM_WORLD,                                         &
+          req(req_counter), ierr )
+#endif
+      else
+        call MPI_send_init( this%send_buf(1,1), bufsize, MPI_DOUBLE_PRECISION, &
+          this%s_rank, tag, PRC_LOCAL_COMM_WORLD,                              &
+          req(req_counter), ierr )
+      end if
+    end if         
+
+    return
+  end subroutine LocalMeshCommData_pc_init_send
+  subroutine LocalMeshCommData_pc_init_recv( this, &
+    req_counter, req, obj_ind_,       &
+    use_mpi_pc_fujisu_ext             )
+    
+    use scale_prc, only: &
+      PRC_LOCAL_COMM_WORLD
+    use mpi, only: &
+      MPI_DOUBLE_PRECISION, &
+      MPI_recv_init
+#ifdef __FUJITSU
+    use mpi_ext, only: &
+      FJMPI_Prequest_recv_init
+#endif
+    implicit none
+
+    class(LocalMeshCommData), intent(inout) :: this
+    integer, intent(inout) :: req_counter
+    integer, intent(inout) :: req(:)
+    integer, intent(in) :: obj_ind_
+    logical, intent(in) :: use_mpi_pc_fujisu_ext
   
     integer :: tag
     integer :: bufsize
@@ -495,27 +618,27 @@ contains
     !-------------------------------------------
 
     if ( this%s_rank /= this%lcmesh%PRC_myrank ) then
-
       req_counter = req_counter + 1
 
-      tag = 100 * this%lcmesh%tileID + this%faceID
       bufsize = size(this%recv_buf)
-      call MPI_recv_init( this%recv_buf(1,1), bufsize, MPI_DOUBLE_PRECISION, &
-        this%s_rank, tag, PRC_LOCAL_COMM_WORLD,                              &
-        req(req_counter), ierr)
+!      tag = 1000 * this%lcmesh%tileID + 10 * obj_ind_ + this%faceID
+      tag = obj_ind_
 
-      !--
-      req_counter = req_counter + 1
-
-      bufsize = size(this%send_buf)
-      tag = 100 * this%s_tileID + abs(this%s_faceID)
-      call MPI_send_init( this%send_buf(1,1), bufsize, MPI_DOUBLE_PRECISION, &
-       this%s_rank, tag, PRC_LOCAL_COMM_WORLD,                               &
-       req(req_counter), ierr )
+      if ( use_mpi_pc_fujisu_ext ) then
+#ifdef __FUJITSU
+        call FJMPI_Prequest_recv_init( this%recv_buf(1,1), bufsize, MPI_DOUBLE_PRECISION, &
+          this%s_rank, tag, PRC_LOCAL_COMM_WORLD,                                         &
+          req(req_counter), ierr )
+#endif
+      else 
+        call MPI_recv_init( this%recv_buf(1,1), bufsize, MPI_DOUBLE_PRECISION, &
+          this%s_rank, tag, PRC_LOCAL_COMM_WORLD,                              &
+          req(req_counter), ierr )
+      end if
     end if         
-    
+
     return
-  end subroutine LocalMeshCommData_pc_init
+  end subroutine LocalMeshCommData_pc_init_recv
 
   subroutine LocalMeshCommData_Final( this )
     implicit none
