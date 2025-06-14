@@ -267,7 +267,7 @@ contains
     if ( present(use_mpi_pc_fujitsu_ext) ) then
       this%use_mpi_pc_fujitsu_ext = use_mpi_pc_fujitsu_ext
 #ifndef __FUJITSU
-      if ( use_mpi_pc_fujisu_ext ) then
+      if ( use_mpi_pc_fujitsu_ext ) then
         LOG_ERROR("MeshFieldCommBase_prepare_PC",*) 'use_mpi_pc_fujitsu_ext=.true., but Fujitsu MPI is unavailable. Check!'
         call PRC_abort
       end if
