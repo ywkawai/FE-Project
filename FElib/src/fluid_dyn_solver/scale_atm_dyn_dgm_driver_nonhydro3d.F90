@@ -588,8 +588,6 @@ contains
 
     use scale_atm_dyn_dgm_modalfilter, only: &
       atm_dyn_dgm_modalfilter_apply
-    
-    ! use mpi_f08_ext      
     implicit none
 
     class(AtmDynDGMDriver_nonhydro3d), intent(inout) :: this
@@ -713,9 +711,6 @@ contains
       if ( this%hide_mpi_comm_flag ) then
         call PROF_rapstart( 'ATM_DYN_exchange_prgv', 2)
         call PROG_VARS%MeshFieldComm_Exchange( do_wait=.false. )
-#ifdef __FUJITSU
-        call FJMPI_Progress_start()
-#endif
         call PROF_rapend( 'ATM_DYN_exchange_prgv', 2)
       end if
 
@@ -733,9 +728,6 @@ contains
       call PROF_rapstart( 'ATM_DYN_exchange_prgv', 2)
       if ( this%hide_mpi_comm_flag ) then
         call this%AUXDYNVAR3D_manager%MeshFieldComm_Exchange( do_wait=.false. )
-#ifdef __FUJITSU
-        call FJMPI_Progress_start()
-#endif
       else
         call PROG_VARS%MeshFieldComm_Exchange()
         call this%AUXDYNVAR3D_manager%MeshFieldComm_Exchange()
@@ -811,16 +803,14 @@ contains
 
       if ( this%hide_mpi_comm_flag ) then
 
-        call PROF_rapstart( 'ATM_DYN_exchange_prgv', 2)
-#ifdef __FUJITSU
-        call FJMPI_Progress_stop()
-#endif
+        call PROF_rapstart( 'ATM_DYN_exchange_prgv_wait', 2)
         call PROG_VARS%MeshFieldComm_Get()
         call this%AUXDYNVAR3D_manager%MeshFieldComm_Get()
-        call PROF_rapend( 'ATM_DYN_exchange_prgv', 2)
+        call PROF_rapend( 'ATM_DYN_exchange_prgv_wait', 2)
 
         do n=1, mesh3D%LOCAL_MESH_NUM
           lcmesh3D => mesh3D%lcmesh_list(n)
+          tintbuf_ind = this%tint(n)%tend_buf_indmap(rkstage)
 
           !- Apply boundary conditions
           call PROF_rapstart( 'ATM_DYN_applyBC_prgv', 2)
@@ -836,11 +826,12 @@ contains
 
           call PROF_rapstart( 'ATM_DYN_ebnd_flux', 2)
           call atm_dyn_dgm_nonhydro3d_rhot_heve_add_bnd_contrib_generalvc( & 
-            this%tint(n)%tend_buf2D_ex(:,:,DENS_VID,tintbuf_ind),                             & ! (out)
-            this%tint(n)%tend_buf2D_ex(:,:,MOMX_VID ,tintbuf_ind),                            & ! (out)
-            this%tint(n)%tend_buf2D_ex(:,:,MOMY_VID ,tintbuf_ind),                            & ! (out)
-            this%tint(n)%tend_buf2D_ex(:,:,MOMZ_VID ,tintbuf_ind),                            & ! (out)
-            this%tint(n)%tend_buf2D_ex(:,:,THERM_VID,tintbuf_ind),                            & ! (out)
+            ! this%tint(n)%tend_buf2D_ex(:,:,DENS_VID ,tintbuf_ind),                            & ! (inout)
+            ! this%tint(n)%tend_buf2D_ex(:,:,MOMX_VID ,tintbuf_ind),                            & ! (inout)
+            ! this%tint(n)%tend_buf2D_ex(:,:,MOMY_VID ,tintbuf_ind),                            & ! (inout)
+            ! this%tint(n)%tend_buf2D_ex(:,:,MOMZ_VID ,tintbuf_ind),                            & ! (inout)
+            ! this%tint(n)%tend_buf2D_ex(:,:,THERM_VID,tintbuf_ind),                            & ! (inout)
+            this%tint(n)%tend_buf2D_ex(:,:,:,tintbuf_ind),                                    & ! (inout)          
             DDENS%local(n)%val, MOMX%local(n)%val, MOMY%local(n)%val, MOMZ%local(n)%val,      & ! (in)
             THERM%local(n)%val, DPRES%local(n)%val,                                           & ! (in)
             DENS_hyd%local(n)%val, PRES_hyd%local(n)%val,                                     & ! (in)

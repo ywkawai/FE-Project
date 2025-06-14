@@ -86,6 +86,7 @@ module scale_element_operation_tensorprod3D
     procedure, public :: Div => element_operation_tensorprod3D_Div_P<%=p%>
     procedure, public :: Div_var5 => element_operation_tensorprod3D_Div_var5_P<%=p%>
     procedure, public :: Div_var5_2 => element_operation_tensorprod3D_Div_var5_2_P<%=p%>
+    procedure, public :: Lift_var5 => element_operation_tensorprod3D_Lift_var5_P<%=p%>
     procedure, public :: VFilterPM1 => element_operation_tensorprod3D_VFilterPM1_P<%=p%>
     !-
     procedure, public :: Setup_ModalFilter => element_operation_tensorprod3D_Setup_ModalFilter_P<%=p%>
@@ -170,8 +171,8 @@ contains
     return
   end subroutine element_operation_tensorprod3D_Setup_ModalFilter_P<%=p%> 
 
-  !> Setup modal filter for tracer
-  !!
+!> Setup modal filter for tracer
+!!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Setup_ModalFilter_tracer_P<%=p%>( this, &
     MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h, &
@@ -221,7 +222,7 @@ contains
     return
   end subroutine element_operation_tensorprod3D_Dx_P<%=p%>
 
-!> Calculate the differential in z-direction
+!> Calculate the differential in y-direction
 !!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Dy_P<%=p%>( this, vec_in, vec_out )
@@ -249,7 +250,7 @@ contains
     return
   end subroutine element_operation_tensorprod3D_Dz_P<%=p%>
 
-!> Calculate the Lifting term
+!> Calculate the lifting term
 !!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Lift_P<%=p%>( this, vec_in, vec_out )
@@ -314,7 +315,7 @@ contains
     return
   end subroutine element_operation_tensorprod3D_Div_P<%=p%>
 
-!> Calculate the 3D gradient
+!> Calculate the 3D gradient applied for five variables
 !!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Div_var5_P<%=p%>(  this, vec_in, vec_in_lift, &
@@ -342,7 +343,7 @@ contains
     return
   end subroutine element_operation_tensorprod3D_Div_var5_P<%=p%>
 
-!> Calculate the 3D gradient
+!> Calculate the 3D divergence applied for five variables
 !!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Div_var5_2_P<%=p%>(  this, vec_in, &
@@ -363,7 +364,27 @@ contains
     end do
     return
   end subroutine element_operation_tensorprod3D_Div_var5_2_P<%=p%>
+
+!> Calculate the lifting term applied for five variables
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Lift_var5_P<%=p%>( this, vec_in, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_Lift_hexahedral_P<%=p%>
+    implicit none
+    class(ElementOperationTensorProd3D_P<%=p%>), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%NfpTot,5)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np,5)
+
+    integer :: iv
+    !----------------------------------------------------------
+    do iv=1, 5
+      call element_operation_kernel_matvec_Lift_hexahedral_P<%=p%>( this%Lift_mat, vec_in(:,iv), vec_out(:,iv) )
+    end do
+    return
+  end subroutine element_operation_tensorprod3D_Lift_var5_P<%=p%>
   
+!> Apply a vertical modal filter which a coefficient with the highest vertical mode is set to zero
+!!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_VFilterPM1_P<%=p%>( this, vec_in, vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirZ_P<%=p%>
@@ -378,7 +399,9 @@ contains
     return
   end subroutine element_operation_tensorprod3D_VFilterPM1_P<%=p%> 
 
-  !OCL SERIAL
+!> Apply a modal filter for tracer variables
+!!
+!OCL SERIAL
   subroutine element_operation_tensorprod3D_ModalFilter_tracer_P<%=p%>( this, vec_in, vec_work, vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: &
       element_operation_kernel_matvec_ModalFilter_P<%=p%>
@@ -396,6 +419,8 @@ contains
     return
   end subroutine element_operation_tensorprod3D_ModalFilter_tracer_P<%=p%> 
   
+!> Apply a modal filter for five variables
+!!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_ModalFilter_var5_P<%=p%>( this, vec_in, vec_work, vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: &

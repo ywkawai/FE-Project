@@ -239,7 +239,7 @@ contains
 
 !OCL SERIAL
   subroutine atm_dyn_dgm_nonhydro3d_rhot_heve_add_bnd_contrib_generalvc( &
-    DENS_dt, MOMX_dt, MOMY_dt, MOMZ_dt, RHOT_dt,                     & ! (inout)
+    PRGVAR_dt,                                                       & ! (inout)
     DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DPRES, DENS_hyd, PRES_hyd,  & ! (in)
     Rtot, CVtot, CPtot,                                              & ! (in)
     Gsqrt, G13, G23, nx, ny, nz,                                     & ! (in)
@@ -251,11 +251,7 @@ contains
     class(ElementBase3D), intent(in) :: elem  
     class(LocalMesh2D), intent(in) :: lmesh2D
     class(ElementBase2D), intent(in) :: elem2D
-    real(RP), intent(inout) :: DENS_dt(elem%Np,lmesh%NeA)
-    real(RP), intent(inout) :: MOMX_dt(elem%Np,lmesh%NeA)
-    real(RP), intent(inout) :: MOMY_dt(elem%Np,lmesh%NeA)
-    real(RP), intent(inout) :: MOMZ_dt(elem%Np,lmesh%NeA)
-    real(RP), intent(inout) :: RHOT_dt(elem%Np,lmesh%NeA)
+    real(RP), intent(inout) :: PRGVAR_dt(elem%Np,lmesh%NeA,5)
     real(RP), intent(in) ::  DDENS_(elem%Np*lmesh%NeA)
     real(RP), intent(in) ::  MOMX_(elem%Np*lmesh%NeA)  
     real(RP), intent(in) ::  MOMY_(elem%Np*lmesh%NeA)  
@@ -310,6 +306,8 @@ contains
     integer :: p
     real(RP) :: del_flux(elem%NfpTot,5)
     real(RP) :: Lift(elem%Np,5)
+    real(RP) :: dq_tmp(5)
+    real(RP) :: RGsqrt(elem%Np)
     !------------------------------------------------------------------------
 
     gamm  = CPDry / CvDry
@@ -317,6 +315,7 @@ contains
     rP0   = 1.0_RP / PRES00
     RovP0 = Rdry * rP0
     P0ovR = PRES00 / Rdry
+    call PROF_rapstart('cal_dyn_tend_bndflux1', 3)
 
     !$omp parallel do private( &
     !$omp ke, iM, iP, ke2D, fp,                                                         &
@@ -326,7 +325,7 @@ contains
     !$omp Phyd_,                                                                        &
     !$omp Gsqrt_, GsqrtV_, RGsqrtV, G13_, G23_,                                         &
     !$omp Gnn_P, Gnn_M, tmp1, tmp2, tmp3, tmp4, tmp01, tmp02, tmp03, del_flux_tmp_mom,  &
-    !$omp iv, Lift, del_flux                                          )
+    !$omp del_flux, p, iv, Lift, RGsqrt, dq_tmp )
 !OCL PREFETCH
     do ke=lmesh%NeS, lmesh%NeE
       iM(:) = vmapM(:,ke); iP(:) = vmapP(:,ke)
@@ -412,6 +411,7 @@ contains
               ( ny(fp,ke) + G23_(fp,EX) * nz(fp,ke) ) * tmp3   &
             - ( ny(fp,ke) + G23_(fp,IN) * nz(fp,ke) ) * tmp4
       end do
+
       do fp=1, elem%NfpTot
         tmp1 = lmesh%Fscale(fp,ke) * 0.5_RP
 
@@ -421,6 +421,8 @@ contains
                       + del_flux_tmp_mom(fp,1) &
                       + tmp2 )
       end do
+
+      !-
       do fp=1, elem%NfpTot
         tmp1 = lmesh%Fscale(fp,ke) * 0.5_RP
 
@@ -437,20 +439,13 @@ contains
                       + tmp2 )
       end do
 
-
-      !-------
+      call elem3D_optr%Lift_var5( del_flux, Lift )
+      RGsqrt(:) = 1.0_RP / lmesh%Gsqrt(:,ke)
       do iv=1, 5
-        call elem3D_optr%Lift( del_flux(:,iv), Lift(:,iv) )
-      end do
-      do p=1, elem%Np
-        DENS_dt(p,ke) = DENS_dt(p,ke) + Lift(p,1)
-        MOMX_dt(p,ke) = MOMX_dt(p,ke) + Lift(p,2)
-        MOMY_dt(p,ke) = MOMY_dt(p,ke) + Lift(p,3)
-        MOMZ_dt(p,ke) = MOMZ_dt(p,ke) + Lift(p,4)
-        RHOT_dt(p,ke) = RHOT_dt(p,ke) + Lift(p,5)
+        PRGVAR_dt(:,ke,iv) = PRGVAR_dt(:,ke,iv) - RGsqrt(:) * Lift(:,iv)
       end do
     end do
-
+    call PROF_rapend('cal_dyn_tend_bndflux1', 3)
     return
   end subroutine atm_dyn_dgm_nonhydro3d_rhot_heve_add_bnd_contrib_generalvc
 

@@ -55,6 +55,7 @@ module scale_element_operation_general
     procedure, public :: Div => element_operation_general_Div
     procedure, public :: Div_var5 => element_operation_general_Div_var5
     procedure, public :: Div_var5_2 => element_operation_general_Div_var5_2
+    procedure, public :: Lift_var5 => element_operation_general_Lift_var5
     procedure, public :: VFilterPM1 => element_operation_general_VFilterPM1
     !-
     procedure, public :: Setup_ModalFilter => element_operation_general_Setup_ModalFilter
@@ -327,6 +328,22 @@ contains
     end do
     return
   end subroutine element_operation_general_Div_var5_2
+!> Calculate the differential in z-direction
+!!
+!OCL SERIAL
+  subroutine element_operation_general_Lift_var5( this, vec_in, vec_out )
+    implicit none
+    class(ElementOperationGeneral), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%NfpTot,5)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np,5)
+
+    integer :: iv
+    !----------------------------------------------------------
+    do iv=1,5
+      call sparsemat_matmul( this%Lift_sm, vec_in(:,iv), vec_out(:,iv) )
+    end do
+    return
+  end subroutine element_operation_general_Lift_var5
 
 !OCL SERIAL
   subroutine element_operation_general_VFilterPM1( this, vec_in, vec_out )
