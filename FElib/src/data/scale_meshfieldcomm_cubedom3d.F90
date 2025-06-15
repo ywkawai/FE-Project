@@ -36,7 +36,7 @@ module scale_meshfieldcomm_cubedom3d
   !++ Public type & procedure
   ! 
 
-
+  !> Base derived type to manage data communication with 3D cubic domain
   type, public, extends(MeshFieldCommBase) :: MeshFieldCommCubeDom3D
     class(MeshCubeDom3D), pointer :: mesh3d
   contains

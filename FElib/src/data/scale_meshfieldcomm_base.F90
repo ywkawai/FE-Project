@@ -15,6 +15,8 @@ module scale_meshfieldcomm_base
   !
   use scale_precision
   use scale_io
+  use scale_prc, only: &
+    PRC_abort
 
   use scale_element_base, only: ElementBase
   use scale_mesh_base, only: MeshBase
@@ -32,18 +34,18 @@ module scale_meshfieldcomm_base
   !++ Public type & procedure
   ! 
 
-  !> Derived type to manage data communication between a face of local mesh
+  !> Derived type to manage data communication at a face between adjacent local meshes
   type, public :: LocalMeshCommData
     class(LocalMeshBase), pointer :: lcmesh
-    real(RP), allocatable :: send_buf(:,:)
-    real(RP), allocatable :: recv_buf(:,:)
-    integer :: Nnode_LCMeshFace
-    integer :: s_tileID
-    integer :: s_faceID
-    integer :: s_panelID
-    integer :: s_rank
-    integer :: s_tilelocalID
-    integer :: faceID
+    real(RP), allocatable :: send_buf(:,:) !< Buffer for sending data
+    real(RP), allocatable :: recv_buf(:,:) !< Buffer for receiving data
+    integer :: Nnode_LCMeshFace !< Number of nodes at a face
+    integer :: s_tileID       !< Destination tile ID
+    integer :: s_faceID       !< Destination face ID
+    integer :: s_panelID      !< Destination panel ID
+    integer :: s_rank         !< Destination MPI rank
+    integer :: s_tilelocalID  !< Destination local tile ID 
+    integer :: faceID         !< Own face ID
   contains
     procedure, public :: Init => LocalMeshCommData_Init
     procedure, public :: Final => LocalMeshCommData_Final
@@ -54,27 +56,27 @@ module scale_meshfieldcomm_base
 
   !> Base derived type to manage data communication
   type, abstract, public :: MeshFieldCommBase
-    integer :: sfield_num
-    integer :: hvfield_num
-    integer :: htensorfield_num
-    integer :: field_num_tot
-    integer :: nfaces_comm
+    integer :: sfield_num        !< Number of scalar fields
+    integer :: hvfield_num       !< Number of horizontal vector fields
+    integer :: htensorfield_num  !< Number of horizontal tensor fields
+    integer :: field_num_tot     !< Total number of fields
+    integer :: nfaces_comm       !< Number of faces where halo data is communicated
 
     class(MeshBase), pointer :: mesh
-    real(RP), allocatable :: send_buf(:,:,:)
-    real(RP), allocatable :: recv_buf(:,:,:)
+    real(RP), allocatable :: send_buf(:,:,:) !< Buffer for sending data
+    real(RP), allocatable :: recv_buf(:,:,:) !< Buffer for receiving data
     integer, allocatable :: request_send(:)
     integer, allocatable :: request_recv(:)
 
     type(LocalMeshCommData), allocatable :: commdata_list(:,:)
     integer, allocatable :: is_f(:,:)
 
-    logical :: MPI_pc_flag
-    logical :: use_mpi_pc_fujitsu_ext
+    logical :: MPI_pc_flag                !< Flag whether persistent communication is used
+    logical :: use_mpi_pc_fujitsu_ext     !< Flag whether Fujitsu extension routines are used for persistent communication
     integer, allocatable :: request_pc(:)
 
     integer :: req_counter
-    logical :: call_wait_flag_sub_get
+    logical :: call_wait_flag_sub_get     !< Flag whether MPI_wait need to be called before getting halo data from recv_buf
 
     integer :: obj_ind
   contains
@@ -90,6 +92,7 @@ module scale_meshfieldcomm_base
   public :: MeshFieldCommBase_extract_bounddata
   public :: MeshFieldCommBase_set_bounddata
 
+  !> Container to save a pointer of MeshField(1D, 2D, 3D) object
   type, public :: MeshFieldContainer
     class(MeshField1D), pointer :: field1d
     class(MeshField2D), pointer :: field2d
@@ -140,7 +143,8 @@ module scale_meshfieldcomm_base
   !++ Private parameters & variables
   !
 
-  integer :: obj_ind = 0
+  integer            :: obj_ind       = 0
+  integer, parameter :: OBJ_INDEX_MAX = 8192
 
 contains
 
@@ -204,7 +208,12 @@ contains
     this%MPI_pc_flag = .false.
 
     obj_ind = obj_ind + 1
+    if ( obj_ind > OBJ_INDEX_MAX ) then
+      LOG_ERROR("MeshFieldCommBase_Init",*) 'obj_ind > OBJ_INDEX_MAX. Check!'
+      call PRC_abort
+    end if
     this%obj_ind = obj_ind
+    
     return
   end subroutine MeshFieldCommBase_Init
 
@@ -232,7 +241,7 @@ contains
       end do     
       deallocate( this%commdata_list, this%is_f )
 
-      if (this%MPI_pc_flag) then
+      if ( this%MPI_pc_flag ) then
         do ireq=1, this%req_counter
           call MPI_request_free( this%request_pc(ireq), ierr )
         end do           
@@ -245,11 +254,11 @@ contains
 
 !> Prepare persistent communication
 !!
+!! @param use_mpi_pc_fujitsu_ext Flag whether the extension routines of Fujitsu MPI are used
+!!
 !OCL SERIAL
   subroutine MeshFieldCommBase_prepare_PC( this, &
     use_mpi_pc_fujitsu_ext )
-    use scale_prc, only: &
-      PRC_abort
     implicit none    
     class(MeshFieldCommBase), intent(inout) :: this
     logical, intent(in), optional :: use_mpi_pc_fujitsu_ext
@@ -303,14 +312,12 @@ contains
 !! @param do_wait Flag whether MPI_waitall is called and move tmp data of LocalMeshCommData object to a recv buffer
 !OCL SERIAL
   subroutine MeshFieldCommBase_exchange_core( this, commdata_list, do_wait )
-!    use scale_prof
 #ifdef __FUJITSU
      use mpi_ext, only: &
        FJMPI_prequest_startall
 #endif
-    use mpi, only: &
-      MPI_startall
-    use scale_prc
+!    use mpi, only: &
+!      MPI_startall
     use scale_prof
     implicit none
   
@@ -386,10 +393,9 @@ contains
 !OCL SERIAL
   subroutine MeshFieldCommBase_wait_core( this, commdata_list )
     use mpi, only: &
-      MPI_waitall,    &
+!      MPI_waitall,    &
       MPI_STATUS_SIZE
     use scale_prof
-    use scale_prc
     implicit none
   
     class(MeshFieldCommBase), intent(inout) :: this
@@ -437,6 +443,7 @@ contains
     return
   end subroutine MeshFieldCommBase_wait_core
 
+!> Extract halo data from data array with MeshField object and set it to the recieving buffer
 !OCL SERIAL
   subroutine MeshFieldCommBase_extract_bounddata(var, refElem, mesh, buf)
     implicit none
@@ -456,6 +463,7 @@ contains
     return
   end subroutine MeshFieldCommBase_extract_bounddata
 
+!> Extract halo data from the recieving buffer and set it to data array with MeshField object
   subroutine MeshFieldCommBase_set_bounddata(buf, refElem, mesh, var)
     implicit none
     
@@ -550,8 +558,8 @@ contains
     use scale_prc, only: &
       PRC_LOCAL_COMM_WORLD
     use mpi, only: &
-      MPI_DOUBLE_PRECISION, &
-      MPI_send_init
+      MPI_DOUBLE_PRECISION!, &
+!      MPI_send_init
 #ifdef __FUJITSU
     use mpi_ext, only: &
       FJMPI_Prequest_send_init
@@ -598,8 +606,8 @@ contains
     use scale_prc, only: &
       PRC_LOCAL_COMM_WORLD
     use mpi, only: &
-      MPI_DOUBLE_PRECISION, &
-      MPI_recv_init
+      MPI_DOUBLE_PRECISION!, &
+!      MPI_recv_init
 #ifdef __FUJITSU
     use mpi_ext, only: &
       FJMPI_Prequest_recv_init
