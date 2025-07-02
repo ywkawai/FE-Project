@@ -57,6 +57,8 @@ module scale_atm_dyn_dgm_bnd
     type(MeshBndInfo), allocatable :: ThermalBC_list(:)
 
     integer, allocatable:: velBC_ids(:)
+    real(RP), allocatable :: vel_fixval(:,:)
+    
     integer, allocatable :: thermalBC_ids(:)
     real(RP), allocatable :: thermal_fixval(:)
   contains
@@ -111,10 +113,13 @@ contains
     real(RP) :: north_thermal_fixval, south_thermal_fixval
     real(RP) :: east_thermal_fixval, west_thermal_fixval
 
+    real(RP) :: btm_velx_fixval, top_velx_fixval
+
     namelist /PARAM_ATMOS_DYN_BND/ &
       btm_vel_bc, top_vel_bc, north_vel_bc, south_vel_bc, east_vel_bc, west_vel_bc,                         &
       btm_thermal_bc, top_thermal_bc, north_thermal_bc, south_thermal_bc, east_thermal_bc, west_thermal_bc, &
-      btm_thermal_fixval, top_thermal_fixval, north_thermal_fixval, south_thermal_fixval, east_thermal_fixval, west_thermal_fixval
+      btm_thermal_fixval, top_thermal_fixval, north_thermal_fixval, south_thermal_fixval, east_thermal_fixval, west_thermal_fixval, &
+      btm_velx_fixval, top_velx_fixval
     
     integer :: ierr
     !-----------------------------------------------
@@ -138,7 +143,10 @@ contains
     north_thermal_fixval = UNDEF8
     south_thermal_fixval = UNDEF8    
     east_thermal_fixval = UNDEF8
-    west_thermal_fixval = UNDEF8    
+    west_thermal_fixval = UNDEF8
+    
+    btm_velx_fixval = 0.0_RP
+    top_velx_fixval = 0.0_RP
 
     rewind(IO_FID_CONF)
     read(IO_FID_CONF,nml=PARAM_ATMOS_DYN_BND,iostat=ierr)
@@ -175,6 +183,11 @@ contains
     this%thermal_fixval(domBnd_East_ID) = east_thermal_fixval
     this%thermal_fixval(domBnd_West_ID) = west_thermal_fixval
 
+    allocate( this%vel_fixval(3,DOM_BND_NUM) )
+    this%vel_fixval(:,:) = 0.0_RP
+    this%vel_fixval(1,domBnd_Top_ID) = top_velx_fixval
+    this%vel_fixval(1,domBnd_Btm_ID) = btm_velx_fixval
+    
     !------
 
     return
@@ -231,7 +244,7 @@ contains
       call bnd_Init_lc( &
         this%VelBC_list(n), this%ThermalBC_list(n),        & ! (inout)
         this%velBC_ids(:), this%thermalBC_ids(:),          & ! (in)
-        this%thermal_fixval(:),                            & ! (in)
+        this%vel_fixval(:,:), this%thermal_fixval(:),      & ! (in)
         lcmesh3D%VMapB, mesh, lcmesh3D, lcmesh3D%refElem3D ) ! (in)
     end do
 
@@ -288,11 +301,13 @@ contains
     real(RP) :: MOMW
     real(RP) :: GsqrtV, G11_, G12_, G22_
     real(RP) :: fac
+
+    real(RP) :: MOM_B(3)
     !-----------------------------------------------
 
     !$omp parallel do collapse(2) private( &
     !$omp ke, p, ke2D, i, i_, iM, iP,      &
-    !$omp mom_normal, MOMW, GsqrtV, G11_, G12_, G22_, fac    )
+    !$omp mom_normal, MOMW, GsqrtV, G11_, G12_, G22_, fac, MOM_B    )
     do ke=lmesh%NeS, lmesh%NeE
     do p=1, elem%NfpTot
       i = p + (ke-1)*elem%NfpTot
@@ -321,9 +336,11 @@ contains
           MOMZ(iP) = MOMZ(iM) - 2.0_RP * mom_normal * fac / GsqrtV
 
         case ( BND_TYPE_NOSLIP_ID )
-          MOMX(iP) = - MOMX(iM)
-          MOMY(iP) = - MOMY(iM)
-          MOMZ(iP) = - MOMZ(iM)          
+          MOM_B(:) = ( DENS_hyd(iM) + DDENS(iM) ) * this%VelBC_list(domID)%vec(:,i_)
+
+          MOMX(iP) = 2.0_RP * MOM_B(1) - MOMX(iM)
+          MOMY(iP) = 2.0_RP * MOM_B(2) - MOMY(iM)
+          MOMZ(iP) = 2.0_RP * MOM_B(3) - MOMZ(iM)          
         end select
       end if
 
@@ -531,12 +548,14 @@ contains
     real(RP) :: TEMP_P, TEMP_B
     real(RP) :: GsqrtV, G11_, G12_, G22_
     real(RP) :: fac
+
+    real(RP) :: MOM_B(3)
     !-----------------------------------------------
 
     !$omp parallel do collapse(2) private( &
     !$omp ke, p, ke2D, i, i_, iM, iP,      &
     !$omp mom_normal, MOMW, GsqrtV, G11_, G12_, G22_, fac, &
-    !$omp TEMP_P, TEMP_B )
+    !$omp TEMP_P, TEMP_B, MOM_B )
     do ke=lmesh%NeS, lmesh%NeE
     do p=1, elem%NfpTot
       i = p + (ke-1)*elem%NfpTot
@@ -565,9 +584,11 @@ contains
           MOMZ(iP) = MOMZ(iM) - 2.0_RP * mom_normal * fac / GsqrtV
         
         case ( BND_TYPE_NOSLIP_ID )
-          MOMX(iP) = - MOMX(iM)
-          MOMY(iP) = - MOMY(iM)
-          MOMZ(iP) = - MOMZ(iM)          
+          MOM_B(:) = ( DENS_hyd(iM) + DDENS(iM) ) * this%VelBC_list(domID)%vec(:,i_)
+
+          MOMX(iP) = 2.0_RP * MOM_B(1) - MOMX(iM)
+          MOMY(iP) = 2.0_RP * MOM_B(2) - MOMY(iM)
+          MOMZ(iP) = 2.0_RP * MOM_B(3) - MOMZ(iM)           
         end select
 
         select case( this%ThermalBC_list(domID)%list(i_) )
@@ -755,16 +776,20 @@ contains
   subroutine bnd_Init_lc(   &
     velBCInfo, thermalBCInfo,           &  ! (inout)
     velBC_ids, thermalBC_ids,           &  ! (in)
-    thermal_fixval,                     &  ! (in)
+    vel_fixval, thermal_fixval,         &  ! (in)
     vmapB, mesh, lmesh, elem )             ! (in)
 
-    use scale_mesh_bndinfo, only: BND_TYPE_NOSPEC_ID
+    use scale_mesh_bndinfo, only: &
+      BND_TYPE_NOSPEC_ID, &
+      BND_VAL_TYPE_SCALAR, BND_VAL_TYPE_VECTOR
+
     implicit none
     
     type(MeshBndInfo), intent(inout) :: velBCInfo
     type(MeshBndInfo), intent(inout) :: thermalBCInfo
     integer, intent(in) :: velBC_ids(DOM_BND_NUM)
     integer, intent(in) :: thermalBC_ids(DOM_BND_NUM)
+    real(RP), intent(in) :: vel_fixval(3,DOM_BND_NUM)
     real(RP), intent(in) :: thermal_fixval(DOM_BND_NUM)
     class(MeshBase), intent(in) :: mesh
     class(LocalMesh3D), intent(in) :: lmesh
@@ -783,7 +808,7 @@ contains
       + elem%Nfp_v*lmesh%NeX*lmesh%NeY*(/ 0, 0, 0, 0, 1, 1 /)
     bnd_buf_size = sum(dom_bnd_sizes)
     
-    call velBCInfo%Init( bnd_buf_size )
+    call velBCInfo%Init( bnd_buf_size, val_type=BND_VAL_TYPE_VECTOR )
     call velBCInfo%Set(1, bnd_buf_size, BND_TYPE_NOSPEC_ID)
 
     call thermalBCInfo%Init( bnd_buf_size )
@@ -795,7 +820,7 @@ contains
       ie_ = is_ + dom_bnd_sizes(b) - 1
       if ( mesh%tileID_globalMap(b,tileID) == tileID      &
            .and. mesh%tileFaceID_globalMap(b,tileID) == b ) then
-        call velBCInfo%Set( is_, ie_, velbc_ids(b) )
+        call velBCInfo%Set( is_, ie_, velbc_ids(b), vec=vel_fixval(:,b) )
         call thermalBCInfo%Set( is_, ie_, thermalbc_ids(b), thermal_fixval(b) )
       end if
       is_ = ie_ + 1

@@ -28,7 +28,9 @@ module scale_mesh_bndinfo
   type, public :: MeshBndInfo
     integer, allocatable :: list(:)
     real(RP), allocatable :: val(:)
+    real(RP), allocatable :: vec(:,:)
     character(len=H_SHORT) :: tag
+    integer :: val_type
   contains
     procedure :: Init => MeshBndInfo_Init
     procedure :: Final => MeshBndInfo_Final
@@ -56,6 +58,9 @@ module scale_mesh_bndinfo
   character(len=*), public , parameter :: BND_TYPE_FIXVAL_NAME  = 'FIXVAL'
   integer, public, parameter :: BND_TYPE_FIXVAL_ID              = 5
 
+  integer, public :: BND_VAL_TYPE_SCALAR = 1
+  integer, public :: BND_VAL_TYPE_VECTOR = 2
+
   !-----------------------------------------------------------------------------
   !
   !++ Private procedures
@@ -64,24 +69,39 @@ module scale_mesh_bndinfo
  
 contains
 !OCL SERIAL
-  subroutine MeshBndInfo_Init(this, list_size, tag)
+  subroutine MeshBndInfo_Init(this, list_size, tag, val_type)
     use scale_const, only: &
       UNDEF8 => CONST_UNDEF8
     implicit none
     class(MeshBndInfo), intent(inout) :: this
     integer, intent(in) :: list_size
     character(*), optional, intent(in) :: tag
+    integer, optional, intent(in) :: val_type
 
     integer :: i
     !------------------------------------------------------
 
     allocate( this%list(list_size) )
-    allocate( this%val(list_size) )
+    if ( present(val_type) ) then
+      this%val_type = val_type
+    else
+      this%val_type = BND_VAL_TYPE_SCALAR
+    end if
+
+    if ( this%val_type == BND_VAL_TYPE_SCALAR ) then
+      allocate( this%val(list_size) )
+      this%val(:)  = UNDEF8
+    else if ( this%val_type == BND_VAL_TYPE_VECTOR ) then
+      allocate( this%vec(3,list_size) )
+      this%vec(:,:)  = UNDEF8
+    else
+      LOG_INFO('MeshBndInfo_Init',*) "The specified val_type is not supported. Check!", val_type
+      call PRC_abort
+    end if
 
     !$omp parallel do
     do i = 1, list_size
       this%list(i) = BND_TYPE_NOSPEC_ID
-      this%val(i)  = UNDEF8
     end do
 
     if (present(tag)) then
@@ -101,41 +121,51 @@ contains
 
     if (allocated(this%list)) deallocate(this%list)
     if (allocated(this%val)) deallocate(this%val)
+    if (allocated(this%vec)) deallocate(this%vec)
     
     return
   end subroutine MeshBndInfo_Final  
 
 !OCL SERIAL
-  subroutine MeshBndInfo_set_by_ID(this, is, ie, bnd_type_id, val)
+  subroutine MeshBndInfo_set_by_ID(this, is, ie, bnd_type_id, val, vec)
     implicit none
     class(MeshBndInfo), intent(inout) :: this
     integer, intent(in) :: is
     integer, intent(in) :: ie
     integer, intent(in) :: bnd_type_id
     real(RP), intent(in), optional :: val
+    real(RP), intent(in), optional :: vec(3)
+    
+    integer :: i
     !------------------------------------------------------
 
     this%list(is:ie) = bnd_type_id
     if ( present(val) ) then
       this%val(is:ie) = val
     end if
+    if ( present(vec) ) then
+      do i=is, ie
+        this%vec(:,i) = vec(:)
+      end do
+    end if
 
     return
   end subroutine MeshBndInfo_set_by_Id
 
 !OCL SERIAL
-  subroutine MeshBndInfo_set_by_name(this, is, ie, bnd_type_name, val)
+  subroutine MeshBndInfo_set_by_name(this, is, ie, bnd_type_name, val, vec)
     implicit none
     class(MeshBndInfo), intent(inout) :: this
     integer, intent(in) :: is
     integer, intent(in) :: ie
     character(*), intent(in) :: bnd_type_name
     real(RP), intent(in), optional :: val
-
+    real(RP), intent(in), optional :: vec(3)
+    
     integer :: bnd_type_id
     !------------------------------------------------------
     bnd_type_id = BndType_NameToID(bnd_type_name)
-    call MeshBndInfo_set_by_ID(this, is, ie, bnd_type_id, val)
+    call MeshBndInfo_set_by_ID(this, is, ie, bnd_type_id, val, vec)
 
     return
   end subroutine MeshBndInfo_set_by_name
