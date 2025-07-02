@@ -2,7 +2,7 @@
 !> module FElib / Mesh / utility for 3D mesh
 !!
 !! @par Description
-!!          A module useful for generating 3D mesh 
+!!          A module to provide subroutines for generating 3D mesh 
 !!
 !! @author Yuta Kawai, Team SCALE
 !<
@@ -51,7 +51,6 @@ contains
 
     integer :: i, j, k
     integer :: n
-    integer :: k_
     integer :: NvX, NvY, NvZ
     !-----------------------------------------------------------------------------
 
@@ -65,9 +64,9 @@ contains
     do k=1, NvZ
     do j=1, NvY
     do i=1, NvX
-      n = i + (j-1)*NvX + (k-1)*NvX*NvY
-      pos_v(n,1) = (xmax - xmin)*dble(i - 1)/dble(NvX - 1) + xmin
-      pos_v(n,2) = (ymax - ymin)*dble(j - 1)/dble(NvY - 1) + ymin
+      n = i + ( j - 1 ) * NvX + ( k - 1 ) *NvX*NvY
+      pos_v(n,1) = ( xmax - xmin ) * dble(i - 1)/dble(NvX - 1) + xmin
+      pos_v(n,2) = ( ymax - ymin ) * dble(j - 1)/dble(NvY - 1) + ymin
       if ( present(Fz) ) then
         pos_v(n,3) = Fz(k)
       else
@@ -133,9 +132,7 @@ contains
     integer :: ke
     integer :: f
     integer :: n
-    integer :: n1, n2
     integer :: Nnodes
-    integer :: tmp
     integer :: Nnodes_row
     integer :: matchL(2,3), matchR(2,3)
 
@@ -179,8 +176,8 @@ contains
        EToF(ke,:) = (/ 1, 2, 3, 4, 5, 6 /)
     end do
 
-    face_ids(:) =   nodes(:,1)*Nnodes**3 + nodes(:,2)*Nnodes**2 &
-                + nodes(:,3)*Nnodes + nodes(:,4) + 1
+    face_ids(:) = nodes(:,1) * Nnodes**3 + nodes(:,2) * Nnodes**2 &
+                + nodes(:,3) * Nnodes    + nodes(:,4) + 1
 
     do f=1, Nfaces
     do ke=1, Ne

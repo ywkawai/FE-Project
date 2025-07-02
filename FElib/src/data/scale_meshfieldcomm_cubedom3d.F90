@@ -23,6 +23,7 @@ module scale_meshfieldcomm_cubedom3d
     MeshFieldCommBase,                               &
     MeshFieldCommBase_Init, MeshFieldCommBase_Final, &
     MeshFieldCommBase_extract_bounddata,             &
+    MeshFieldCommBase_extract_bounddata_2,           &
     MeshFieldCommBase_set_bounddata,                 &
     MeshFieldContainer
   use scale_localmesh_3d, only: Localmesh3d
@@ -117,21 +118,22 @@ contains
     type(MeshFieldContainer), intent(in) :: field_list(:)
     integer, intent(in) :: varid_s
   
-    integer :: i
-    integer :: n
-    type(LocalMesh3d), pointer :: lcmesh
-    integer :: field_num
+    ! integer :: i
+    ! integer :: n
+    ! type(LocalMesh3d), pointer :: lcmesh
+    ! integer :: field_num
     !-----------------------------------------------------------------------------
 
 !    call PROF_rapstart( 'meshfiled_comm_put', 3)
-    field_num = size(field_list)
-    do n=1, this%mesh%LOCAL_MESH_NUM
-      lcmesh => this%mesh3d%lcmesh_list(n)
-      do i=1, field_num
-        call MeshFieldCommBase_extract_bounddata( field_list(i)%field3d%local(n)%val, lcmesh%refElem, lcmesh, & ! (in)
-          this%send_buf(:,varid_s+i-1,n) )                                                                      ! (out)
-      end do
-    end do
+    ! field_num = size(field_list)
+    ! do n=1, this%mesh%LOCAL_MESH_NUM
+    !   lcmesh => this%mesh3d%lcmesh_list(n)
+    !   do i=1, field_num
+    !     call MeshFieldCommBase_extract_bounddata( field_list(i)%field3d%local(n)%val, lcmesh%refElem, lcmesh, & ! (in)
+    !       this%send_buf(:,varid_s+i-1,n) )                                                                      ! (out)
+    !   end do
+    ! end do
+    call MeshFieldCommBase_extract_bounddata_2( field_list, 3, varid_s, this%mesh3d%lcmesh_list, this%send_buf )
 !    call PROF_rapend( 'meshfiled_comm_put', 3)
 
     return
@@ -152,20 +154,21 @@ contains
     !-----------------------------------------------------------------------------
 
     if ( this%call_wait_flag_sub_get ) then
-!      call PROF_rapstart( 'meshfiled_comm_get_wait', 3)
-      call MeshFieldCommBase_wait_core( this, this%commdata_list )
-!      call PROF_rapend( 'meshfiled_comm_get_wait', 3)
+      ! call PROF_rapstart( 'meshfiled_comm_wait_get', 2)
+      call MeshFieldCommBase_wait_core( this, this%commdata_list, &
+        field_list, 3, varid_s, this%mesh3d%lcmesh_list )
+      ! call PROF_rapend( 'meshfiled_comm_wait_get', 2)
+    else
+      ! call PROF_rapstart( 'meshfiled_comm_get', 2)
+      do i=1, size(field_list) 
+      do n=1, this%mesh3d%LOCAL_MESH_NUM
+        lcmesh => this%mesh3d%lcmesh_list(n)
+        call MeshFieldCommBase_set_bounddata( this%recv_buf(:,varid_s+i-1,n), lcmesh%refElem, lcmesh, & !(in)
+          field_list(i)%field3d%local(n)%val )                                                         !(out)
+      end do
+      end do
+      ! call PROF_rapend( 'meshfiled_comm_get', 2)
     end if
-
-!   call PROF_rapstart( 'meshfiled_comm_get', 3)
-    do i=1, size(field_list) 
-    do n=1, this%mesh3d%LOCAL_MESH_NUM
-      lcmesh => this%mesh3d%lcmesh_list(n)
-      call MeshFieldCommBase_set_bounddata( this%recv_buf(:,varid_s+i-1,n), lcmesh%refElem, lcmesh, & !(in)
-         field_list(i)%field3d%local(n)%val )                                                         !(out)
-    end do
-    end do
-!    call PROF_rapend( 'meshfiled_comm_get', 3)
 
     return
   end subroutine MeshFieldCommCubeDom3D_get

@@ -260,7 +260,8 @@ contains
     use scale_localmeshfield_base, only: LocalMeshFieldBase
     use scale_model_var_manager, only: ModelVarManager
     use scale_atm_dyn_dgm_nonhydro3d_common, only: &
-      atm_dyn_dgm_nonhydro3d_common_DRHOT2EnTot
+      atm_dyn_dgm_nonhydro3d_common_DRHOT2EnTot, &
+      atm_dyn_dgm_nonhydro3d_common_calc_RHOT_hyd
 
     use mod_atmos_mesh, only: AtmosMesh
     use mod_atmos_vars, only: &
@@ -282,6 +283,7 @@ contains
     class(MeshBase3D), pointer :: mesh
 
     real(RP), allocatable :: DRHOT_save(:,:)
+    real(RP), allocatable :: RHOT_hyd_save(:,:)
     !---------------------------------------------------------------------------
 
     mesh => model_mesh%ptr_mesh
@@ -293,15 +295,21 @@ contains
         lcmesh3D                                        )
       
       allocate( DRHOT_save(lcmesh3D%refElem3D%Np,lcmesh3D%NeA) )
+      allocate( RHOT_hyd_save(lcmesh3D%refElem3D%Np,lcmesh3D%NeA) )
+
       !$omp parallel do
       do ke=lcmesh3D%NeS, lcmesh3D%NeE
         DRHOT_save(:,ke) = THERM%val(:,ke)
       end do
 
+      call atm_dyn_dgm_nonhydro3d_common_calc_RHOT_hyd( RHOT_hyd_save, &
+        PRES_hyd%val, lcmesh3D, lcmesh3D%refElem3D )
+      
       call atm_dyn_dgm_nonhydro3d_common_DRHOT2EnTot( THERM%val, &
-        DDENS%val, MOMX%val, MOMY%val, MOMZ%val, DRHOT_save,        &
-        DENS_hyd%val, PRES_hyd%val, Rtot%val, CVtot%val, CPtot%val, &
-        lcmesh3D, lcmesh3D%refElem3D                                )
+        DDENS%val, MOMX%val, MOMY%val, MOMZ%val, DRHOT_save,     &
+        DENS_hyd%val, PRES_hyd%val, RHOT_hyd_save,               &
+        Rtot%val, CVtot%val, CPtot%val,                          &
+        lcmesh3D, lcmesh3D%refElem3D                             )
   
       deallocate( DRHOT_save )
     end do

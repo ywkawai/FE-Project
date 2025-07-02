@@ -90,6 +90,7 @@ module scale_meshfieldcomm_base
   public :: MeshFieldCommBase_exchange_core
   public :: MeshFieldCommBase_wait_core
   public :: MeshFieldCommBase_extract_bounddata
+  public :: MeshFieldCommBase_extract_bounddata_2
   public :: MeshFieldCommBase_set_bounddata
 
   !> Container to save a pointer of MeshField(1D, 2D, 3D) object
@@ -97,7 +98,7 @@ module scale_meshfieldcomm_base
     class(MeshField1D), pointer :: field1d
     class(MeshField2D), pointer :: field2d
     class(MeshField3D), pointer :: field3d        
-  end type  
+  end type
   
   interface
     subroutine MeshFieldCommBase_put(this, field_list, varid_s)
@@ -391,7 +392,8 @@ contains
 !! 
 !! @param commdata_list Array of LocalMeshCommData objects which manage information and halo data 
 !OCL SERIAL
-  subroutine MeshFieldCommBase_wait_core( this, commdata_list )
+  subroutine MeshFieldCommBase_wait_core( this, commdata_list, &
+    field_list, dim, varid_s, lcmesh_list )
     use mpi, only: &
 !      MPI_waitall,    &
       MPI_STATUS_SIZE
@@ -400,6 +402,10 @@ contains
   
     class(MeshFieldCommBase), intent(inout) :: this
     type(LocalMeshCommData), intent(inout), target :: commdata_list(this%nfaces_comm, this%mesh%LOCAL_MESH_NUM)
+    type(MeshFieldContainer), intent(inout), optional :: field_list(:)
+    integer, intent(in), optional :: dim
+    integer, intent(in), optional :: varid_s
+    class(LocalMeshBase), intent(in), optional, target :: lcmesh_list(:)
 
     integer :: ierr
     integer :: stat_send(MPI_STATUS_SIZE, this%req_counter)
@@ -407,11 +413,14 @@ contains
     integer :: stat_pc(MPI_STATUS_SIZE, this%req_counter)
 
     integer :: n, f
-    integer :: var_id
-    integer :: irs, ire
+    integer :: i, var_id
+    integer :: irs(this%nfaces_comm,this%mesh%LOCAL_MESH_NUM), ire(this%nfaces_comm,this%mesh%LOCAL_MESH_NUM)
+
+    class(LocalMeshBase), pointer :: lcmesh
+    integer :: val_size(this%mesh%LOCAL_MESH_NUM)
     !----------------------------
 
-!   call PROF_rapstart( 'meshfiled_comm_wait_core', 3)
+!   call PROF_rapstart( 'meshfiled_comm_wait_core', 2)
     if ( this%MPI_pc_flag ) then
       if (this%req_counter > 0) then
         call MPI_waitall( this%req_counter, this%request_pc(1:this%req_counter), stat_pc, ierr )
@@ -422,25 +431,70 @@ contains
         call MPI_waitall( this%req_counter, this%request_send(1:this%req_counter), stat_send, ierr )
       end if
     end if
-!   call PROF_rapend( 'meshfiled_comm_wait_core', 3)
+!   call PROF_rapend( 'meshfiled_comm_wait_core', 2)
   
     !---------------------
 
-!   call PROF_rapstart( 'meshfiled_comm_wait_post', 3)
-    do n=1, this%mesh%LOCAL_MESH_NUM
-      !$omp parallel do private(var_id,f,irs,ire)
-      do var_id=1, this%field_num_tot
-        irs = 1
-        do f=1, this%nfaces_comm
-          ire = irs + commdata_list(f,n)%Nnode_LCMeshFace - 1
-          this%recv_buf(irs:ire,var_id,n) = commdata_list(f,n)%recv_buf(:,var_id)
-          irs = ire + 1
-        end do ! end loop for face
-      end do
-    end do
-!   call PROF_rapend( 'meshfiled_comm_wait_post', 3)
+!   call PROF_rapstart( 'meshfiled_comm_wait_post', 2)
 
+    if ( present(field_list) ) then
+      do n=1, this%mesh%LOCAL_MESH_NUM
+        lcmesh => lcmesh_list(n)
+        val_size(n) = lcmesh%refElem%Np * lcmesh%NeA
+        irs(1,n) = lcmesh%refElem%Np * lcmesh%Ne + 1
+        do f=1, this%nfaces_comm
+          ire(f,n) = irs(f,n) + commdata_list(f,n)%Nnode_LCMeshFace - 1
+          if (f<this%nfaces_comm) irs(f+1,n) = ire(f,n) + 1
+        end do
+      end do
+      
+      !$omp parallel do private(var_id,n,i,f) collapse(3)
+      do n=1, this%mesh%LOCAL_MESH_NUM
+      do i=1, size(field_list)
+      do f=1, this%nfaces_comm
+        var_id = varid_s + i - 1
+        if (dim==1) then
+          call set_bounddata( field_list(var_id)%field1d%local(n)%val, val_size(n), irs(f,n), ire(f,n), commdata_list(f,n)%recv_buf(:,var_id) )
+        else if (dim==2) then
+          call set_bounddata( field_list(var_id)%field2d%local(n)%val, val_size(n), irs(f,n), ire(f,n), commdata_list(f,n)%recv_buf(:,var_id) )
+        else if (dim==3) then
+          call set_bounddata( field_list(var_id)%field3d%local(n)%val, val_size(n), irs(f,n), ire(f,n), commdata_list(f,n)%recv_buf(:,var_id) )
+        end if
+      end do ! end loop for face
+      end do
+      end do
+    else
+      do n=1, this%mesh%LOCAL_MESH_NUM
+        irs(1,n) = 1
+        do f=1, this%nfaces_comm
+          ire(f,n) = irs(f,n) + commdata_list(f,n)%Nnode_LCMeshFace - 1
+          if (f<this%nfaces_comm) irs(f+1,n) = ire(f,n) + 1
+        end do
+      end do
+
+      !$omp parallel do private(n,var_id,f) collapse(3)
+      do n=1, this%mesh%LOCAL_MESH_NUM
+      do var_id=1, this%field_num_tot
+      do f=1, this%nfaces_comm
+        this%recv_buf(irs(f,n):ire(f,n),var_id,n) = commdata_list(f,n)%recv_buf(:,var_id)
+      end do ! end loop for face
+      end do
+      end do
+    end if
+!   call PROF_rapend( 'meshfiled_comm_wait_post', 2)
     return
+  contains
+!OCL SERIAL
+    subroutine set_bounddata( var, IA, irs_, ire_, recv_buf )
+      implicit none
+      integer, intent(in) :: IA
+      real(RP), intent(inout) :: var(IA)
+      integer, intent(in) :: irs_, ire_
+      real(RP), intent(in) :: recv_buf(ire_-irs_+1)
+      !-----------------------------
+      var(irs_:ire_) = recv_buf(:)
+      return
+    end subroutine set_bounddata
   end subroutine MeshFieldCommBase_wait_core
 
 !> Extract halo data from data array with MeshField object and set it to the recieving buffer
@@ -462,6 +516,71 @@ contains
     end do
     return
   end subroutine MeshFieldCommBase_extract_bounddata
+
+!> Extract halo data from data array with MeshField object and set it to the recieving buffer
+!OCL SERIAL
+  subroutine MeshFieldCommBase_extract_bounddata_2(field_list, dim, varid_s, lcmesh_list, buf)
+    implicit none
+    class(MeshFieldContainer), intent(in), target :: field_list(:)
+    integer, intent(in) :: varid_s
+    integer, intent(in) :: dim
+    class(LocalMeshBase), intent(in), target :: lcmesh_list(:)
+    real(RP), intent(out) :: buf(size(lcmesh_list(1)%VmapB),size(field_list),size(lcmesh_list))
+
+    class(LocalMeshBase), pointer :: lcmesh
+    integer :: varid
+    integer :: i, n
+    !-----------------------------------------------------------------------------
+
+    do n=1, size(lcmesh_list)
+      lcmesh => lcmesh_list(n)
+      i = 1
+      do while( i <= size(field_list) )
+        varid = varid_s + i - 1
+        if ( i+1 <= n ) then
+          if (dim==1) then
+            call extract_bounddata_var2( buf(:,varid,n), buf(:,varid+1,n), field_list(varid)%field1d%local(n)%val, field_list(varid+1)%field1d%local(n)%val, lcmesh, lcmesh%refElem )
+          else if(dim==2) then
+            call extract_bounddata_var2( buf(:,varid,n), buf(:,varid+1,n), field_list(varid)%field2d%local(n)%val, field_list(varid+1)%field2d%local(n)%val, lcmesh, lcmesh%refElem )
+          else if(dim==3) then
+            call extract_bounddata_var2( buf(:,varid,n), buf(:,varid+1,n), field_list(varid)%field3d%local(n)%val, field_list(varid+1)%field3d%local(n)%val, lcmesh, lcmesh%refElem )
+          end if
+          i = i + 2
+        else
+          if (dim==1) then
+            call MeshFieldCommBase_extract_bounddata( field_list(varid)%field1d%local(n)%val, lcmesh%refElem, lcmesh,  buf(:,varid,n) )
+          else if(dim==2) then
+            call MeshFieldCommBase_extract_bounddata( field_list(varid)%field2d%local(n)%val, lcmesh%refElem, lcmesh,  buf(:,varid,n) )
+          else if(dim==3) then
+            call MeshFieldCommBase_extract_bounddata( field_list(varid)%field3d%local(n)%val, lcmesh%refElem, lcmesh,  buf(:,varid,n) )
+          end if
+          i = i + 1
+        end if
+      end do
+    end do
+    return
+  contains
+!OCL SERIAL
+    subroutine extract_bounddata_var2( buf1_, buf2_, var1, var2, lmesh, elem )
+      implicit none
+      class(LocalMeshBase), intent(in) :: lmesh
+      class(ElementBase), intent(in) :: elem
+      real(RP), intent(out) :: buf1_(size(lmesh%VMapB))
+      real(RP), intent(out) :: buf2_(size(lmesh%VMapB))
+      real(RP), intent(inout) :: var1(elem%Np*lmesh%NeA)
+      real(RP), intent(inout) :: var2(elem%Np*lmesh%NeA)
+
+      integer :: ii
+      !-----------------------------
+      !$omp parallel do
+!OCL PREFETCH
+      do ii=1, size(buf)
+        buf1_(ii) = var1(lmesh%vmapB(ii))
+        buf2_(ii) = var2(lmesh%vmapB(ii))
+      end do
+      return
+    end subroutine extract_bounddata_var2
+  end subroutine MeshFieldCommBase_extract_bounddata_2
 
 !> Extract halo data from the recieving buffer and set it to data array with MeshField object
   subroutine MeshFieldCommBase_set_bounddata(buf, refElem, mesh, var)
@@ -506,8 +625,8 @@ contains
   end subroutine LocalMeshCommData_Init
 
   subroutine LocalMeshCommData_SendRecv( this, &
-      req_counter, req_send, req_recv,         &
-      lccommdat_list )
+    req_counter, req_send, req_recv,           &
+    lccommdat_list )
     
     use scale_prc, only: &
       PRC_LOCAL_COMM_WORLD

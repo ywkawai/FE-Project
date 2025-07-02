@@ -90,11 +90,12 @@ contains
 
 !OCL SERIAL
   subroutine atm_dyn_dgm_nonhydro3d_etot_heve_cal_tend( &
-    DENS_dt, MOMX_dt, MOMY_dt, MOMZ_dt, ETOT_dt,                                  & ! (out)
-    DDENS_, MOMX_, MOMY_, MOMZ_, ETOT_, DPRES_, DENS_hyd, PRES_hyd, PRES_hyd_ref, & ! (in)
-    CORIOLIS, Rtot, CVtot, CPtot, DPhydDx, DPhydDy,                               & ! (in)
-    element3D_operation, Dx, Dy, Dz, Sx, Sy, Sz, Lift,                            & ! (in)
-    lmesh, elem, lmesh2D, elem2D )                                                  ! (in)
+    DENS_dt, MOMX_dt, MOMY_dt, MOMZ_dt, ETot_dt,              & ! (out)
+    DDENS_, MOMX_, MOMY_, MOMZ_, ETOT_, DPRES_,               & ! (in)
+    DENS_hyd, PRES_hyd, PRES_hyd_ref, THERM_hyd,              & ! (in)
+    CORIOLIS, Rtot, CVtot, CPtot, DPhydDx, DPhydDy,           & ! (in)
+    element3D_operation, Dx, Dy, Dz, Sx, Sy, Sz, Lift,        & ! (in)
+    lmesh, elem, lmesh2D, elem2D )                              ! (in)
 
     use scale_atm_dyn_dgm_nonhydro3d_etot_heve_numflux, only: &
       get_ebnd_flux => atm_dyn_dgm_nonhydro3d_etot_heve_numflux_get_generalvc
@@ -121,6 +122,7 @@ contains
     real(RP), intent(in)  :: DENS_hyd(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: PRES_hyd(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: PRES_hyd_ref(elem%Np,lmesh%NeA)
+    real(RP), intent(in)  :: THERM_hyd(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: CORIOLIS(elem2D%Np,lmesh2D%NeA)
     real(RP), intent(in)  :: Rtot(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: CVtot(elem%Np,lmesh%NeA)

@@ -57,6 +57,7 @@ module scale_timeint_rk
     real(RP), public, allocatable :: coef_c_im(:)
 
     integer, allocatable :: tend_buf_indmap(:)
+    integer :: var_num
     real(RP), public, allocatable :: var_buf1D_ex(:,:,:)
     real(RP), public, allocatable :: tend_buf1D_ex(:,:,:)
     real(RP), public, allocatable :: tend_buf1D_im(:,:,:)
@@ -82,22 +83,32 @@ module scale_timeint_rk
     procedure, public :: Get_implicit_diagfac => timeint_rk_Get_implicit_diagfac 
     procedure, public :: Get_deltime => timeint_rk_Get_deltime
     procedure, public :: Advance1D => timeint_rk_advance1D
+    procedure, public :: Advance1D_varlist => timeint_rk_advance1D_varlist
     procedure, public :: Advance_trcvar_1D => timeint_rk_advance_trcvar1D
     procedure, public :: StoreVar0_1D => timeint_rk_store_Var0_1D
     procedure, public :: StoreImplicit1D => timeint_rk_storeimpl1D
     procedure, public :: Advance2D => timeint_rk_advance2D
+    procedure, public :: Advance2D_varlist => timeint_rk_advance2D_varlist
     procedure, public :: Advance_trcvar_2D => timeint_rk_advance_trcvar2D
     procedure, public :: StoreVar0_2D => timeint_rk_store_Var0_2D
     procedure, public :: StoreImplicit2D => timeint_rk_storeimpl2D
     procedure, public :: Advance3D => timeint_rk_advance3D
+    procedure, public :: Advance3D_varlist => timeint_rk_advance3D_varlist
     procedure, public :: Advance_trcvar_3D => timeint_rk_advance_trcvar3D
     procedure, public :: StoreVar0_3D => timeint_rk_store_Var0_3D
     procedure, public :: StoreImplicit3D => timeint_rk_storeimpl3D
     generic, public :: Advance => Advance1D, Advance2D, Advance3D
+    generic, public :: Advance_varlist => Advance1D_varlist, Advance2D_varlist, Advance3D_varlist
     generic, public :: Advance_trcvar => Advance_trcvar_1D, Advance_trcvar_2D, Advance_trcvar_3D
     generic, public :: StoreVar0 => StoreVar0_1D, StoreVar0_2D, StoreVar0_3D
     generic, public :: StoreImplicit => StoreImplicit1D, StoreImplicit2D, StoreImplicit3D
   end type timeint_rk
+
+  type, public :: timeint_rk_var
+    real(RP), pointer :: var1D(:)
+    real(RP), pointer :: var2D(:,:)
+    real(RP), pointer :: var3D(:,:,:)
+  end type timeint_rk_var
 
   !-----------------------------------------------------------------------------
   !
@@ -137,6 +148,7 @@ contains
 
     this%dt = dt
     this%ndim = ndim
+    this%var_num = var_num
     allocate( this%size_each_var(ndim) )
     this%size_each_var(:) = size_each_var(:)
 
@@ -251,7 +263,7 @@ contains
   !----------------
 
 
-!> Advance variable data at the current stage with explicit RK part
+!> Advance a variable at the current stage with explicit RK part
 !!
 !! @param nowstage Current stage
 !! @param q Array to store variable data
@@ -266,15 +278,65 @@ contains
     integer, intent(in) :: varID
     integer, intent(in) :: is, ie 
     !----------------------------------------    
- 
     if (this%low_storage_flag) then
-      call rk_advance_low_storage1D( this, nowstage, q, varID, is, ie )
+      call rk_advance_low_storage1D( this, nowstage, q, varID, is, ie , this%size_each_var(1), this%var_num, &
+            this%var0_1D, this%varTmp_1d, this%tend_buf1D_ex )
     else
-      call rk_advance_general1D( this, nowstage, q, varID, is, ie  )
+      if ( this%imex_flag ) then
+        call rk_advance_general1D( this, nowstage, q, varID, is, ie , this%size_each_var(1), this%var_num, &
+            this%var0_1D, this%varTmp_1d, this%tend_buf1D_ex, this%tend_buf1D_im )
+      else
+        call rk_advance_general1D( this, nowstage, q, varID, is, ie , this%size_each_var(1), this%var_num, &
+            this%var0_1D, this%varTmp_1d, this%tend_buf1D_ex )
+      end if
     end if
 
     return
   end subroutine timeint_rk_advance1D
+
+!> Advance variables at the current stage with explicit RK part
+!!
+!! @param nowstage Current stage
+!! @param var_list Array of timeint_rk_var object which saves pointer to variable data
+!! @param varIDs Indices of the targeting variables
+!! @param is Index at which begins the loop for the corresponding direction
+!! @param ie Index at which finishes the loop for the corresponding direction
+!OCL SERIAL
+  subroutine timeint_rk_advance1D_varlist( this, nowstage, var_list, varIDs, is, ie )
+    implicit none  
+    class(timeint_rk), intent(inout) :: this
+    integer, intent(in) :: nowstage
+    integer, intent(in) :: varIDs(:)
+    type(timeint_rk_var), intent(inout) :: var_list(size(varIDs))
+    integer, intent(in) :: is, ie 
+
+    integer :: i
+    integer :: n
+    !----------------------------------------  
+
+    n = size(varIDs)
+
+    if (this%low_storage_flag) then
+      i = 1
+      do while(i <= n)
+         if ( i+1 <= n ) then
+          call rk_advance_low_storage1D_var2( this, nowstage, var_list(i)%var1D, var_list(i+1)%var1D, varIDs(i), varIDs(i+1), is, ie , this%size_each_var(1), this%var_num, &
+                 this%var0_1D, this%varTmp_1d, this%tend_buf1D_ex )
+          i = i + 2
+        else
+          call rk_advance_low_storage1D( this, nowstage, var_list(n)%var1D, varIDs(n), is, ie , this%size_each_var(1), this%var_num, &
+                 this%var0_1D, this%varTmp_1d, this%tend_buf1D_ex )
+          i = i + 1
+        end if
+      end do
+    else
+      do i=1, n
+        call this%Advance1D( nowstage, var_list(i)%var1D, varIDs(i), is, ie  )
+      end do
+    end if
+
+    return
+  end subroutine timeint_rk_advance1D_varlist
 
 !> Advance tracer variable data at the current stage with explicit RK part
 !!
@@ -305,11 +367,11 @@ contains
     end if
 
     if (this%low_storage_flag) then
-      call rk_advance_trcvar_low_storage1D( this, nowstage, q, varID, is, ie , &
-        DDENS, DDENS0, DENS_hyd )
+      call rk_advance_trcvar_low_storage1D( this, nowstage, q, varID, is, ie , this%size_each_var(1), this%var_num, &
+        DDENS, DDENS0, DENS_hyd, this%var0_1D, this%varTmp_1d, this%tend_buf1D_ex )
     else
-      call rk_advance_trcvar_general1D( this, nowstage, q, varID, is, ie , &
-        DDENS, DDENS0, DENS_hyd )
+      call rk_advance_trcvar_general1D( this, nowstage, q, varID, is, ie , this%size_each_var(1), this%var_num, &
+        DDENS, DDENS0, DENS_hyd, this%var0_1D, this%varTmp_1d, this%tend_buf1D_ex )
     end if
 
     return
@@ -358,12 +420,13 @@ contains
 
     !----------------------------------------    
  
-    call rk_storeimpl_general1D( this, nowstage, q, varID, is, ie  )
+    call rk_storeimpl_general1D( this, nowstage, q, varID, is, ie , this%size_each_var(1), this%var_num, &
+      this%var0_1D, this%varTmp_1d, this%tend_buf1D_im )
 
     return
   end subroutine timeint_rk_storeimpl1D
 
-!> Advance variable data at the current stage with explicit RK part
+!> Advance a variable at the current stage with explicit RK part
 !!
 !! @param nowstage Current stage
 !! @param q Array to store variable data
@@ -380,15 +443,67 @@ contains
     integer, intent(in) :: varID
     integer, intent(in) :: is, ie ,js, je 
     !----------------------------------------    
- 
     if (this%low_storage_flag) then
-      call rk_advance_low_storage2D( this, nowstage, q, varID, is, ie ,js, je )
+      call rk_advance_low_storage2D( this, nowstage, q, varID, is, ie ,js, je , this%size_each_var(1),this%size_each_var(2), this%var_num, &
+            this%var0_2D, this%varTmp_2d, this%tend_buf2D_ex )
     else
-      call rk_advance_general2D( this, nowstage, q, varID, is, ie ,js, je  )
+      if ( this%imex_flag ) then
+        call rk_advance_general2D( this, nowstage, q, varID, is, ie ,js, je , this%size_each_var(1),this%size_each_var(2), this%var_num, &
+            this%var0_2D, this%varTmp_2d, this%tend_buf2D_ex, this%tend_buf2D_im )
+      else
+        call rk_advance_general2D( this, nowstage, q, varID, is, ie ,js, je , this%size_each_var(1),this%size_each_var(2), this%var_num, &
+            this%var0_2D, this%varTmp_2d, this%tend_buf2D_ex )
+      end if
     end if
 
     return
   end subroutine timeint_rk_advance2D
+
+!> Advance variables at the current stage with explicit RK part
+!!
+!! @param nowstage Current stage
+!! @param var_list Array of timeint_rk_var object which saves pointer to variable data
+!! @param varIDs Indices of the targeting variables
+!! @param is Index at which begins the loop for the corresponding direction
+!! @param ie Index at which finishes the loop for the corresponding direction
+!! @param js Index at which begins the loop for the corresponding direction
+!! @param je Index at which finishes the loop for the corresponding direction
+!OCL SERIAL
+  subroutine timeint_rk_advance2D_varlist( this, nowstage, var_list, varIDs, is, ie ,js, je )
+    implicit none  
+    class(timeint_rk), intent(inout) :: this
+    integer, intent(in) :: nowstage
+    integer, intent(in) :: varIDs(:)
+    type(timeint_rk_var), intent(inout) :: var_list(size(varIDs))
+    integer, intent(in) :: is, ie ,js, je 
+
+    integer :: i
+    integer :: n
+    !----------------------------------------  
+
+    n = size(varIDs)
+
+    if (this%low_storage_flag) then
+      i = 1
+      do while(i <= n)
+         if ( i+1 <= n ) then
+          call rk_advance_low_storage2D_var2( this, nowstage, var_list(i)%var2D, var_list(i+1)%var2D, varIDs(i), varIDs(i+1), is, ie ,js, je , this%size_each_var(1),this%size_each_var(2), this%var_num, &
+                 this%var0_2D, this%varTmp_2d, this%tend_buf2D_ex )
+          i = i + 2
+        else
+          call rk_advance_low_storage2D( this, nowstage, var_list(n)%var2D, varIDs(n), is, ie ,js, je , this%size_each_var(1),this%size_each_var(2), this%var_num, &
+                 this%var0_2D, this%varTmp_2d, this%tend_buf2D_ex )
+          i = i + 1
+        end if
+      end do
+    else
+      do i=1, n
+        call this%Advance2D( nowstage, var_list(i)%var2D, varIDs(i), is, ie ,js, je  )
+      end do
+    end if
+
+    return
+  end subroutine timeint_rk_advance2D_varlist
 
 !> Advance tracer variable data at the current stage with explicit RK part
 !!
@@ -421,11 +536,11 @@ contains
     end if
 
     if (this%low_storage_flag) then
-      call rk_advance_trcvar_low_storage2D( this, nowstage, q, varID, is, ie ,js, je , &
-        DDENS, DDENS0, DENS_hyd )
+      call rk_advance_trcvar_low_storage2D( this, nowstage, q, varID, is, ie ,js, je , this%size_each_var(1),this%size_each_var(2), this%var_num, &
+        DDENS, DDENS0, DENS_hyd, this%var0_2D, this%varTmp_2d, this%tend_buf2D_ex )
     else
-      call rk_advance_trcvar_general2D( this, nowstage, q, varID, is, ie ,js, je , &
-        DDENS, DDENS0, DENS_hyd )
+      call rk_advance_trcvar_general2D( this, nowstage, q, varID, is, ie ,js, je , this%size_each_var(1),this%size_each_var(2), this%var_num, &
+        DDENS, DDENS0, DENS_hyd, this%var0_2D, this%varTmp_2d, this%tend_buf2D_ex )
     end if
 
     return
@@ -480,12 +595,13 @@ contains
 
     !----------------------------------------    
  
-    call rk_storeimpl_general2D( this, nowstage, q, varID, is, ie ,js, je  )
+    call rk_storeimpl_general2D( this, nowstage, q, varID, is, ie ,js, je , this%size_each_var(1),this%size_each_var(2), this%var_num, &
+      this%var0_2D, this%varTmp_2d, this%tend_buf2D_im )
 
     return
   end subroutine timeint_rk_storeimpl2D
 
-!> Advance variable data at the current stage with explicit RK part
+!> Advance a variable at the current stage with explicit RK part
 !!
 !! @param nowstage Current stage
 !! @param q Array to store variable data
@@ -504,15 +620,69 @@ contains
     integer, intent(in) :: varID
     integer, intent(in) :: is, ie ,js, je ,ks, ke 
     !----------------------------------------    
- 
     if (this%low_storage_flag) then
-      call rk_advance_low_storage3D( this, nowstage, q, varID, is, ie ,js, je ,ks, ke )
+      call rk_advance_low_storage3D( this, nowstage, q, varID, is, ie ,js, je ,ks, ke , this%size_each_var(1),this%size_each_var(2),this%size_each_var(3), this%var_num, &
+            this%var0_3D, this%varTmp_3d, this%tend_buf3D_ex )
     else
-      call rk_advance_general3D( this, nowstage, q, varID, is, ie ,js, je ,ks, ke  )
+      if ( this%imex_flag ) then
+        call rk_advance_general3D( this, nowstage, q, varID, is, ie ,js, je ,ks, ke , this%size_each_var(1),this%size_each_var(2),this%size_each_var(3), this%var_num, &
+            this%var0_3D, this%varTmp_3d, this%tend_buf3D_ex, this%tend_buf3D_im )
+      else
+        call rk_advance_general3D( this, nowstage, q, varID, is, ie ,js, je ,ks, ke , this%size_each_var(1),this%size_each_var(2),this%size_each_var(3), this%var_num, &
+            this%var0_3D, this%varTmp_3d, this%tend_buf3D_ex )
+      end if
     end if
 
     return
   end subroutine timeint_rk_advance3D
+
+!> Advance variables at the current stage with explicit RK part
+!!
+!! @param nowstage Current stage
+!! @param var_list Array of timeint_rk_var object which saves pointer to variable data
+!! @param varIDs Indices of the targeting variables
+!! @param is Index at which begins the loop for the corresponding direction
+!! @param ie Index at which finishes the loop for the corresponding direction
+!! @param js Index at which begins the loop for the corresponding direction
+!! @param je Index at which finishes the loop for the corresponding direction
+!! @param ks Index at which begins the loop for the corresponding direction
+!! @param ke Index at which finishes the loop for the corresponding direction
+!OCL SERIAL
+  subroutine timeint_rk_advance3D_varlist( this, nowstage, var_list, varIDs, is, ie ,js, je ,ks, ke )
+    implicit none  
+    class(timeint_rk), intent(inout) :: this
+    integer, intent(in) :: nowstage
+    integer, intent(in) :: varIDs(:)
+    type(timeint_rk_var), intent(inout) :: var_list(size(varIDs))
+    integer, intent(in) :: is, ie ,js, je ,ks, ke 
+
+    integer :: i
+    integer :: n
+    !----------------------------------------  
+
+    n = size(varIDs)
+
+    if (this%low_storage_flag) then
+      i = 1
+      do while(i <= n)
+         if ( i+1 <= n ) then
+          call rk_advance_low_storage3D_var2( this, nowstage, var_list(i)%var3D, var_list(i+1)%var3D, varIDs(i), varIDs(i+1), is, ie ,js, je ,ks, ke , this%size_each_var(1),this%size_each_var(2),this%size_each_var(3), this%var_num, &
+                 this%var0_3D, this%varTmp_3d, this%tend_buf3D_ex )
+          i = i + 2
+        else
+          call rk_advance_low_storage3D( this, nowstage, var_list(n)%var3D, varIDs(n), is, ie ,js, je ,ks, ke , this%size_each_var(1),this%size_each_var(2),this%size_each_var(3), this%var_num, &
+                 this%var0_3D, this%varTmp_3d, this%tend_buf3D_ex )
+          i = i + 1
+        end if
+      end do
+    else
+      do i=1, n
+        call this%Advance3D( nowstage, var_list(i)%var3D, varIDs(i), is, ie ,js, je ,ks, ke  )
+      end do
+    end if
+
+    return
+  end subroutine timeint_rk_advance3D_varlist
 
 !> Advance tracer variable data at the current stage with explicit RK part
 !!
@@ -547,11 +717,11 @@ contains
     end if
 
     if (this%low_storage_flag) then
-      call rk_advance_trcvar_low_storage3D( this, nowstage, q, varID, is, ie ,js, je ,ks, ke , &
-        DDENS, DDENS0, DENS_hyd )
+      call rk_advance_trcvar_low_storage3D( this, nowstage, q, varID, is, ie ,js, je ,ks, ke , this%size_each_var(1),this%size_each_var(2),this%size_each_var(3), this%var_num, &
+        DDENS, DDENS0, DENS_hyd, this%var0_3D, this%varTmp_3d, this%tend_buf3D_ex )
     else
-      call rk_advance_trcvar_general3D( this, nowstage, q, varID, is, ie ,js, je ,ks, ke , &
-        DDENS, DDENS0, DENS_hyd )
+      call rk_advance_trcvar_general3D( this, nowstage, q, varID, is, ie ,js, je ,ks, ke , this%size_each_var(1),this%size_each_var(2),this%size_each_var(3), this%var_num, &
+        DDENS, DDENS0, DENS_hyd, this%var0_3D, this%varTmp_3d, this%tend_buf3D_ex )
     end if
 
     return
@@ -612,13 +782,13 @@ contains
 
     !----------------------------------------    
  
-    call rk_storeimpl_general3D( this, nowstage, q, varID, is, ie ,js, je ,ks, ke  )
+    call rk_storeimpl_general3D( this, nowstage, q, varID, is, ie ,js, je ,ks, ke , this%size_each_var(1),this%size_each_var(2),this%size_each_var(3), this%var_num, &
+      this%var0_3D, this%varTmp_3d, this%tend_buf3D_im )
 
     return
   end subroutine timeint_rk_storeimpl3D
 
 !-------------------
-
 
 
 !> Advance variable data at the current stage with explicit RK part (low-storage case)
@@ -629,15 +799,21 @@ contains
 !! @param is Index at which begins the loop for the corresponding direction
 !! @param ie Index at which finishes the loop for the corresponding direction
 !OCL SERIAL
-  subroutine rk_advance_low_storage1D( this, nowstage, q, varID, is, ie  )
+  subroutine rk_advance_low_storage1D( this, nowstage, q, varID, is, ie , IA, var_num, &
+      var0_1D, varTmp_1d, tend_buf1D_ex )
     use scale_const, only: &
       EPS => CONST_EPS
     implicit none      
     class(timeint_rk), intent(inout) :: this
     integer, intent(in) :: nowstage
-    real(RP), intent(inout) :: q(:)
+    integer, intent(in) :: IA
+    real(RP), intent(inout) :: q(IA)
     integer, intent(in) :: varID
     integer, intent(in) :: is, ie 
+    integer, intent(in) :: var_num
+    real(RP), intent(inout) :: var0_1d(IA,var_num)
+    real(RP), intent(inout) :: varTmp_1d(IA,var_num)
+    real(RP), intent(inout) :: tend_buf1D_ex(IA,var_num,this%tend_buf_size)
 
     integer :: i
     real(RP) :: sig_ss
@@ -660,8 +836,8 @@ contains
       !$omp parallel private(i)
       !$omp do
       do i=is, ie
-        q(i) =  this%varTmp_1d(i,varID)                                             &
-                + sig_ss * q(i) + gam_ss * this%tend_buf1D_ex(i,varID,1)
+        q(i) =  varTmp_1d(i,varID)                                             &
+                + sig_ss * q(i) + gam_ss * tend_buf1D_ex(i,varID,1)
       end do
       !$omp end parallel
       call PROF_rapend( 'rk_advance_low_storage1D', 3)
@@ -673,23 +849,23 @@ contains
     if (nowstage == 1) then
       !$omp do
       do i=is, ie
-        this%var0_1D(i,varID)   = q(i)
-        this%varTmp_1D(i,varID) = 0.0_RP
+        var0_1D(i,varID)   = q(i)
+        varTmp_1D(i,varID) = 0.0_RP
       end do
     end if
 
     if ( abs(sig_Ns) > EPS .or. abs(gam_Ns) > EPS ) then
       !$omp do
       do i=is, ie
-        this%varTmp_1d(i,varID) = this%varTmp_1d(i,varID)      &
-            + sig_Ns * q(i) + gam_Ns * this%tend_buf1D_ex(i,varID,1)
+        varTmp_1d(i,varID) = varTmp_1d(i,varID)      &
+            + sig_Ns * q(i) + gam_Ns * tend_buf1D_ex(i,varID,1)
       end do
     end if
 
     !$omp do
     do i=is, ie
-      q(i) = one_Minus_sig_ss * this%var0_1d(i,varID)                &
-              + sig_ss * q(i) + gam_ss * this%tend_buf1D_ex(i,varID,1)
+      q(i) = one_Minus_sig_ss * var0_1d(i,varID)                &
+              + sig_ss * q(i) + gam_ss * tend_buf1D_ex(i,varID,1)
     end do
 
     !$omp end parallel
@@ -698,6 +874,103 @@ contains
 
     return
   end subroutine rk_advance_low_storage1D
+
+!> Advance variable data at the current stage with explicit RK part (low-storage case)
+!!
+!! @param nowstage Current stage
+!! @param q1 Array to store variable data
+!! @param q2 Array to store variable data
+!! @param varID1 Index of the targeting variable
+!! @param varID2 Index of the targeting variable
+!! @param is Index at which begins the loop for the corresponding direction
+!! @param ie Index at which finishes the loop for the corresponding direction
+!OCL SERIAL
+  subroutine rk_advance_low_storage1D_var2( this, nowstage, q1, q2, varID1, varID2, is, ie , IA, var_num, &
+      var0_1D, varTmp_1d, tend_buf1D_ex )
+    use scale_const, only: &
+      EPS => CONST_EPS
+    implicit none      
+    class(timeint_rk), intent(inout) :: this
+    integer, intent(in) :: nowstage
+    integer, intent(in) :: IA
+    real(RP), intent(inout) :: q1(IA)
+    real(RP), intent(inout) :: q2(IA)
+    integer, intent(in) :: varID1
+    integer, intent(in) :: varID2
+    integer, intent(in) :: is, ie 
+    integer, intent(in) :: var_num
+    real(RP), intent(inout) :: var0_1d(IA,var_num)
+    real(RP), intent(inout) :: varTmp_1d(IA,var_num)
+    real(RP), intent(inout) :: tend_buf1D_ex(IA,var_num,this%tend_buf_size)
+
+    integer :: i
+    real(RP) :: sig_ss
+    real(RP) :: gam_ss
+    real(RP) :: one_Minus_sig_ss
+    real(RP) :: sig_Ns
+    real(RP) :: gam_Ns
+
+    !----------------------------------------    
+
+    call PROF_rapstart( 'rk_advance_low_storage1D', 3) 
+
+    sig_ss = this%coef_sig_ex(nowstage+1,nowstage)
+    sig_Ns = this%coef_sig_ex(this%nstage+1,nowstage)
+    one_Minus_sig_ss = 1.0_RP - sig_ss
+    gam_ss = this%dt * this%coef_gam_ex(nowstage+1,nowstage)
+    gam_Ns = this%dt * this%coef_gam_ex(this%nstage+1,nowstage)
+
+    if ( nowstage == this%nstage ) then
+      !$omp parallel private(i)
+      !$omp do
+      do i=is, ie
+        q1(i) =  varTmp_1d(i,varID1)                                             &
+                + sig_ss * q1(i) + gam_ss * tend_buf1D_ex(i,varID1,1)
+        q2(i) =  varTmp_1d(i,varID2)                                             &
+                + sig_ss * q2(i) + gam_ss * tend_buf1D_ex(i,varID2,1)
+      end do
+      !$omp end parallel
+      call PROF_rapend( 'rk_advance_low_storage1D', 3)
+
+      return
+    end if
+      
+    !$omp parallel private(i)
+    if (nowstage == 1) then
+      !$omp do
+      do i=is, ie
+        var0_1D(i,varID1)   = q1(i)
+        var0_1D(i,varID2)   = q2(i)
+
+        varTmp_1D(i,varID1) = 0.0_RP
+        varTmp_1D(i,varID2) = 0.0_RP
+      end do
+    end if
+
+    if ( abs(sig_Ns) > EPS .or. abs(gam_Ns) > EPS ) then
+      !$omp do
+      do i=is, ie
+        varTmp_1d(i,varID1) = varTmp_1d(i,varID1)      &
+            + sig_Ns * q1(i) + gam_Ns * tend_buf1D_ex(i,varID1,1)
+        varTmp_1d(i,varID2) = varTmp_1d(i,varID2)      &
+            + sig_Ns * q2(i) + gam_Ns * tend_buf1D_ex(i,varID2,1)
+      end do
+    end if
+
+    !$omp do
+    do i=is, ie
+      q1(i) = one_Minus_sig_ss * var0_1d(i,varID1)                &
+              + sig_ss * q1(i) + gam_ss * tend_buf1D_ex(i,varID1,1)
+      q2(i) = one_Minus_sig_ss * var0_1d(i,varID2)                &
+              + sig_ss * q2(i) + gam_ss * tend_buf1D_ex(i,varID2,1)
+    end do
+
+    !$omp end parallel
+
+    call PROF_rapend( 'rk_advance_low_storage1D', 3)
+
+    return
+  end subroutine rk_advance_low_storage1D_var2
 
 !> Advance tracer variable data at the current stage with explicit RK part (low-storage case)
 !!
@@ -710,19 +983,25 @@ contains
 !! @param DDENS0  Array to store density perturbation  data at the time level n
 !! @param DENS_hyd Array to hydrostatic part of density
 !OCL SERIAL
-  subroutine rk_advance_trcvar_low_storage1D( this, nowstage, q, varID, is, ie , &
-    DDENS, DDENS0, DENS_hyd )
+  subroutine rk_advance_trcvar_low_storage1D( this, nowstage, q, varID, is, ie , IA, var_num, &
+    DDENS, DDENS0, DENS_hyd,                         &
+    var0_1D, varTmp_1d, tend_buf1D_ex )
     use scale_const, only: &
       EPS => CONST_EPS
     implicit none
     class(timeint_rk), intent(inout) :: this
     integer, intent(in) :: nowstage
-    real(RP), intent(inout) :: q(:)
+    integer, intent(in) :: IA
+    real(RP), intent(inout) :: q(IA)
     integer, intent(in) :: varID
     integer, intent(in) :: is, ie 
-    real(RP), intent(in) :: DDENS (:)
-    real(RP), intent(in) :: DDENS0(:)
-    real(RP), intent(in) :: DENS_hyd(:)
+    integer, intent(in) :: var_num
+    real(RP), intent(in) :: DDENS (IA)
+    real(RP), intent(in) :: DDENS0(IA)
+    real(RP), intent(in) :: DENS_hyd(IA)
+    real(RP), intent(inout) :: var0_1d(IA,var_num)
+    real(RP), intent(inout) :: varTmp_1d(IA,var_num)
+    real(RP), intent(inout) :: tend_buf1D_ex(IA,var_num,this%tend_buf_size)
 
     integer :: i
     real(RP) :: sig_ss
@@ -752,8 +1031,8 @@ contains
       !$omp do
       do i=is, ie
         dens_ssm1 = DENS_hyd(i) + DDENS0(i) + c_ssm1 * ( DDENS(i) - DDENS0(i) )
-        q(i) =  ( this%varTmp_1d(i,varID)                                              &
-                + sig_ss * q(i) * dens_ssm1 + gam_ss * this%tend_buf1D_ex(i,varID,1) ) &
+        q(i) =  ( varTmp_1d(i,varID)                                              &
+                + sig_ss * q(i) * dens_ssm1 + gam_ss * tend_buf1D_ex(i,varID,1) ) &
                 / ( DENS_hyd(i) + DDENS(i) )
       end do
       !$omp end parallel
@@ -768,8 +1047,8 @@ contains
     if (nowstage == 1) then
       !$omp do
       do i=is, ie
-        this%var0_1D(i,varID)   = q(i) * ( DENS_hyd(i) + DDENS0(i) )
-        this%varTmp_1D(i,varID) = 0.0_RP
+        var0_1D(i,varID)   = q(i) * ( DENS_hyd(i) + DDENS0(i) )
+        varTmp_1D(i,varID) = 0.0_RP
       end do
     end if
 
@@ -777,8 +1056,8 @@ contains
       !$omp do
       do i=is, ie
         dens_ssm1 = DENS_hyd(i) + DDENS0(i) + c_ssm1 * ( DDENS(i) - DDENS0(i) )
-        this%varTmp_1d(i,varID) = this%varTmp_1d(i,varID)                 &
-            + sig_Ns * q(i) * dens_ssm1 + gam_Ns * this%tend_buf1D_ex(i,varID,1)
+        varTmp_1d(i,varID) = varTmp_1d(i,varID)                      &
+            + sig_Ns * q(i) * dens_ssm1 + gam_Ns * tend_buf1D_ex(i,varID,1)
       end do
     end if
 
@@ -787,8 +1066,8 @@ contains
       dens_ssm1 = DENS_hyd(i) + DDENS0(i) + c_ssm1 * ( DDENS(i) - DDENS0(i) )
       dens_ss   = DENS_hyd(i) + DDENS0(i) + c_ss   * ( DDENS(i) - DDENS0(i) )
 
-      q(i) = ( one_Minus_sig_ss * this%var0_1d(i,varID)                                &
-              + sig_ss * q(i) * dens_ssm1 + gam_ss * this%tend_buf1D_ex(i,varID,1) )   &
+      q(i) = ( one_Minus_sig_ss * var0_1d(i,varID)                                &
+              + sig_ss * q(i) * dens_ssm1 + gam_ss * tend_buf1D_ex(i,varID,1) )   &
               / dens_ss
     end do
 
@@ -800,7 +1079,6 @@ contains
   end subroutine rk_advance_trcvar_low_storage1D
   
 
-
 !> Advance variable data at the current stage with explicit RK part (low-storage case)
 !!
 !! @param nowstage Current stage
@@ -811,15 +1089,21 @@ contains
 !! @param js Index at which begins the loop for the corresponding direction
 !! @param je Index at which finishes the loop for the corresponding direction
 !OCL SERIAL
-  subroutine rk_advance_low_storage2D( this, nowstage, q, varID, is, ie ,js, je  )
+  subroutine rk_advance_low_storage2D( this, nowstage, q, varID, is, ie ,js, je , IA,JA, var_num, &
+      var0_2D, varTmp_2d, tend_buf2D_ex )
     use scale_const, only: &
       EPS => CONST_EPS
     implicit none      
     class(timeint_rk), intent(inout) :: this
     integer, intent(in) :: nowstage
-    real(RP), intent(inout) :: q(:,:)
+    integer, intent(in) :: IA,JA
+    real(RP), intent(inout) :: q(IA,JA)
     integer, intent(in) :: varID
     integer, intent(in) :: is, ie ,js, je 
+    integer, intent(in) :: var_num
+    real(RP), intent(inout) :: var0_2d(IA,JA,var_num)
+    real(RP), intent(inout) :: varTmp_2d(IA,JA,var_num)
+    real(RP), intent(inout) :: tend_buf2D_ex(IA,JA,var_num,this%tend_buf_size)
 
     integer :: i,j
     real(RP) :: sig_ss
@@ -843,8 +1127,8 @@ contains
       !$omp do
       do j=js, je
       do i=is, ie
-        q(i,j) =  this%varTmp_2d(i,j,varID)                                             &
-                + sig_ss * q(i,j) + gam_ss * this%tend_buf2D_ex(i,j,varID,1)
+        q(i,j) =  varTmp_2d(i,j,varID)                                             &
+                + sig_ss * q(i,j) + gam_ss * tend_buf2D_ex(i,j,varID,1)
       end do
       end do
       !$omp end parallel
@@ -858,8 +1142,8 @@ contains
       !$omp do
       do j=js, je
       do i=is, ie
-        this%var0_2D(i,j,varID)   = q(i,j)
-        this%varTmp_2D(i,j,varID) = 0.0_RP
+        var0_2D(i,j,varID)   = q(i,j)
+        varTmp_2D(i,j,varID) = 0.0_RP
       end do
       end do
     end if
@@ -868,8 +1152,8 @@ contains
       !$omp do
       do j=js, je
       do i=is, ie
-        this%varTmp_2d(i,j,varID) = this%varTmp_2d(i,j,varID)      &
-            + sig_Ns * q(i,j) + gam_Ns * this%tend_buf2D_ex(i,j,varID,1)
+        varTmp_2d(i,j,varID) = varTmp_2d(i,j,varID)      &
+            + sig_Ns * q(i,j) + gam_Ns * tend_buf2D_ex(i,j,varID,1)
       end do
       end do
     end if
@@ -877,8 +1161,8 @@ contains
     !$omp do
     do j=js, je
     do i=is, ie
-      q(i,j) = one_Minus_sig_ss * this%var0_2d(i,j,varID)                &
-              + sig_ss * q(i,j) + gam_ss * this%tend_buf2D_ex(i,j,varID,1)
+      q(i,j) = one_Minus_sig_ss * var0_2d(i,j,varID)                &
+              + sig_ss * q(i,j) + gam_ss * tend_buf2D_ex(i,j,varID,1)
     end do
     end do
 
@@ -888,6 +1172,113 @@ contains
 
     return
   end subroutine rk_advance_low_storage2D
+
+!> Advance variable data at the current stage with explicit RK part (low-storage case)
+!!
+!! @param nowstage Current stage
+!! @param q1 Array to store variable data
+!! @param q2 Array to store variable data
+!! @param varID1 Index of the targeting variable
+!! @param varID2 Index of the targeting variable
+!! @param is Index at which begins the loop for the corresponding direction
+!! @param ie Index at which finishes the loop for the corresponding direction
+!! @param js Index at which begins the loop for the corresponding direction
+!! @param je Index at which finishes the loop for the corresponding direction
+!OCL SERIAL
+  subroutine rk_advance_low_storage2D_var2( this, nowstage, q1, q2, varID1, varID2, is, ie ,js, je , IA,JA, var_num, &
+      var0_2D, varTmp_2d, tend_buf2D_ex )
+    use scale_const, only: &
+      EPS => CONST_EPS
+    implicit none      
+    class(timeint_rk), intent(inout) :: this
+    integer, intent(in) :: nowstage
+    integer, intent(in) :: IA,JA
+    real(RP), intent(inout) :: q1(IA,JA)
+    real(RP), intent(inout) :: q2(IA,JA)
+    integer, intent(in) :: varID1
+    integer, intent(in) :: varID2
+    integer, intent(in) :: is, ie ,js, je 
+    integer, intent(in) :: var_num
+    real(RP), intent(inout) :: var0_2d(IA,JA,var_num)
+    real(RP), intent(inout) :: varTmp_2d(IA,JA,var_num)
+    real(RP), intent(inout) :: tend_buf2D_ex(IA,JA,var_num,this%tend_buf_size)
+
+    integer :: i,j
+    real(RP) :: sig_ss
+    real(RP) :: gam_ss
+    real(RP) :: one_Minus_sig_ss
+    real(RP) :: sig_Ns
+    real(RP) :: gam_Ns
+
+    !----------------------------------------    
+
+    call PROF_rapstart( 'rk_advance_low_storage2D', 3) 
+
+    sig_ss = this%coef_sig_ex(nowstage+1,nowstage)
+    sig_Ns = this%coef_sig_ex(this%nstage+1,nowstage)
+    one_Minus_sig_ss = 1.0_RP - sig_ss
+    gam_ss = this%dt * this%coef_gam_ex(nowstage+1,nowstage)
+    gam_Ns = this%dt * this%coef_gam_ex(this%nstage+1,nowstage)
+
+    if ( nowstage == this%nstage ) then
+      !$omp parallel private(i,j)
+      !$omp do
+      do j=js, je
+      do i=is, ie
+        q1(i,j) =  varTmp_2d(i,j,varID1)                                             &
+                + sig_ss * q1(i,j) + gam_ss * tend_buf2D_ex(i,j,varID1,1)
+        q2(i,j) =  varTmp_2d(i,j,varID2)                                             &
+                + sig_ss * q2(i,j) + gam_ss * tend_buf2D_ex(i,j,varID2,1)
+      end do
+      end do
+      !$omp end parallel
+      call PROF_rapend( 'rk_advance_low_storage2D', 3)
+
+      return
+    end if
+      
+    !$omp parallel private(i,j)
+    if (nowstage == 1) then
+      !$omp do
+      do j=js, je
+      do i=is, ie
+        var0_2D(i,j,varID1)   = q1(i,j)
+        var0_2D(i,j,varID2)   = q2(i,j)
+
+        varTmp_2D(i,j,varID1) = 0.0_RP
+        varTmp_2D(i,j,varID2) = 0.0_RP
+      end do
+      end do
+    end if
+
+    if ( abs(sig_Ns) > EPS .or. abs(gam_Ns) > EPS ) then
+      !$omp do
+      do j=js, je
+      do i=is, ie
+        varTmp_2d(i,j,varID1) = varTmp_2d(i,j,varID1)      &
+            + sig_Ns * q1(i,j) + gam_Ns * tend_buf2D_ex(i,j,varID1,1)
+        varTmp_2d(i,j,varID2) = varTmp_2d(i,j,varID2)      &
+            + sig_Ns * q2(i,j) + gam_Ns * tend_buf2D_ex(i,j,varID2,1)
+      end do
+      end do
+    end if
+
+    !$omp do
+    do j=js, je
+    do i=is, ie
+      q1(i,j) = one_Minus_sig_ss * var0_2d(i,j,varID1)                &
+              + sig_ss * q1(i,j) + gam_ss * tend_buf2D_ex(i,j,varID1,1)
+      q2(i,j) = one_Minus_sig_ss * var0_2d(i,j,varID2)                &
+              + sig_ss * q2(i,j) + gam_ss * tend_buf2D_ex(i,j,varID2,1)
+    end do
+    end do
+
+    !$omp end parallel
+
+    call PROF_rapend( 'rk_advance_low_storage2D', 3)
+
+    return
+  end subroutine rk_advance_low_storage2D_var2
 
 !> Advance tracer variable data at the current stage with explicit RK part (low-storage case)
 !!
@@ -902,19 +1293,25 @@ contains
 !! @param DDENS0  Array to store density perturbation  data at the time level n
 !! @param DENS_hyd Array to hydrostatic part of density
 !OCL SERIAL
-  subroutine rk_advance_trcvar_low_storage2D( this, nowstage, q, varID, is, ie ,js, je , &
-    DDENS, DDENS0, DENS_hyd )
+  subroutine rk_advance_trcvar_low_storage2D( this, nowstage, q, varID, is, ie ,js, je , IA,JA, var_num, &
+    DDENS, DDENS0, DENS_hyd,                         &
+    var0_2D, varTmp_2d, tend_buf2D_ex )
     use scale_const, only: &
       EPS => CONST_EPS
     implicit none
     class(timeint_rk), intent(inout) :: this
     integer, intent(in) :: nowstage
-    real(RP), intent(inout) :: q(:,:)
+    integer, intent(in) :: IA,JA
+    real(RP), intent(inout) :: q(IA,JA)
     integer, intent(in) :: varID
     integer, intent(in) :: is, ie ,js, je 
-    real(RP), intent(in) :: DDENS (:,:)
-    real(RP), intent(in) :: DDENS0(:,:)
-    real(RP), intent(in) :: DENS_hyd(:,:)
+    integer, intent(in) :: var_num
+    real(RP), intent(in) :: DDENS (IA,JA)
+    real(RP), intent(in) :: DDENS0(IA,JA)
+    real(RP), intent(in) :: DENS_hyd(IA,JA)
+    real(RP), intent(inout) :: var0_2d(IA,JA,var_num)
+    real(RP), intent(inout) :: varTmp_2d(IA,JA,var_num)
+    real(RP), intent(inout) :: tend_buf2D_ex(IA,JA,var_num,this%tend_buf_size)
 
     integer :: i,j
     real(RP) :: sig_ss
@@ -945,8 +1342,8 @@ contains
       do j=js, je
       do i=is, ie
         dens_ssm1 = DENS_hyd(i,j) + DDENS0(i,j) + c_ssm1 * ( DDENS(i,j) - DDENS0(i,j) )
-        q(i,j) =  ( this%varTmp_2d(i,j,varID)                                              &
-                + sig_ss * q(i,j) * dens_ssm1 + gam_ss * this%tend_buf2D_ex(i,j,varID,1) ) &
+        q(i,j) =  ( varTmp_2d(i,j,varID)                                              &
+                + sig_ss * q(i,j) * dens_ssm1 + gam_ss * tend_buf2D_ex(i,j,varID,1) ) &
                 / ( DENS_hyd(i,j) + DDENS(i,j) )
       end do
       end do
@@ -963,8 +1360,8 @@ contains
       !$omp do
       do j=js, je
       do i=is, ie
-        this%var0_2D(i,j,varID)   = q(i,j) * ( DENS_hyd(i,j) + DDENS0(i,j) )
-        this%varTmp_2D(i,j,varID) = 0.0_RP
+        var0_2D(i,j,varID)   = q(i,j) * ( DENS_hyd(i,j) + DDENS0(i,j) )
+        varTmp_2D(i,j,varID) = 0.0_RP
       end do
       end do
     end if
@@ -974,8 +1371,8 @@ contains
       do j=js, je
       do i=is, ie
         dens_ssm1 = DENS_hyd(i,j) + DDENS0(i,j) + c_ssm1 * ( DDENS(i,j) - DDENS0(i,j) )
-        this%varTmp_2d(i,j,varID) = this%varTmp_2d(i,j,varID)                 &
-            + sig_Ns * q(i,j) * dens_ssm1 + gam_Ns * this%tend_buf2D_ex(i,j,varID,1)
+        varTmp_2d(i,j,varID) = varTmp_2d(i,j,varID)                      &
+            + sig_Ns * q(i,j) * dens_ssm1 + gam_Ns * tend_buf2D_ex(i,j,varID,1)
       end do
       end do
     end if
@@ -986,8 +1383,8 @@ contains
       dens_ssm1 = DENS_hyd(i,j) + DDENS0(i,j) + c_ssm1 * ( DDENS(i,j) - DDENS0(i,j) )
       dens_ss   = DENS_hyd(i,j) + DDENS0(i,j) + c_ss   * ( DDENS(i,j) - DDENS0(i,j) )
 
-      q(i,j) = ( one_Minus_sig_ss * this%var0_2d(i,j,varID)                                &
-              + sig_ss * q(i,j) * dens_ssm1 + gam_ss * this%tend_buf2D_ex(i,j,varID,1) )   &
+      q(i,j) = ( one_Minus_sig_ss * var0_2d(i,j,varID)                                &
+              + sig_ss * q(i,j) * dens_ssm1 + gam_ss * tend_buf2D_ex(i,j,varID,1) )   &
               / dens_ss
     end do
     end do
@@ -999,7 +1396,6 @@ contains
     return
   end subroutine rk_advance_trcvar_low_storage2D
   
-
 
 !> Advance variable data at the current stage with explicit RK part (low-storage case)
 !!
@@ -1013,15 +1409,21 @@ contains
 !! @param ks Index at which begins the loop for the corresponding direction
 !! @param ke Index at which finishes the loop for the corresponding direction
 !OCL SERIAL
-  subroutine rk_advance_low_storage3D( this, nowstage, q, varID, is, ie ,js, je ,ks, ke  )
+  subroutine rk_advance_low_storage3D( this, nowstage, q, varID, is, ie ,js, je ,ks, ke , IA,JA,KA, var_num, &
+      var0_3D, varTmp_3d, tend_buf3D_ex )
     use scale_const, only: &
       EPS => CONST_EPS
     implicit none      
     class(timeint_rk), intent(inout) :: this
     integer, intent(in) :: nowstage
-    real(RP), intent(inout) :: q(:,:,:)
+    integer, intent(in) :: IA,JA,KA
+    real(RP), intent(inout) :: q(IA,JA,KA)
     integer, intent(in) :: varID
     integer, intent(in) :: is, ie ,js, je ,ks, ke 
+    integer, intent(in) :: var_num
+    real(RP), intent(inout) :: var0_3d(IA,JA,KA,var_num)
+    real(RP), intent(inout) :: varTmp_3d(IA,JA,KA,var_num)
+    real(RP), intent(inout) :: tend_buf3D_ex(IA,JA,KA,var_num,this%tend_buf_size)
 
     integer :: i,j,k
     real(RP) :: sig_ss
@@ -1046,8 +1448,8 @@ contains
       do k=ks, ke
       do j=js, je
       do i=is, ie
-        q(i,j,k) =  this%varTmp_3d(i,j,k,varID)                                             &
-                + sig_ss * q(i,j,k) + gam_ss * this%tend_buf3D_ex(i,j,k,varID,1)
+        q(i,j,k) =  varTmp_3d(i,j,k,varID)                                             &
+                + sig_ss * q(i,j,k) + gam_ss * tend_buf3D_ex(i,j,k,varID,1)
       end do
       end do
       end do
@@ -1063,8 +1465,8 @@ contains
       do k=ks, ke
       do j=js, je
       do i=is, ie
-        this%var0_3D(i,j,k,varID)   = q(i,j,k)
-        this%varTmp_3D(i,j,k,varID) = 0.0_RP
+        var0_3D(i,j,k,varID)   = q(i,j,k)
+        varTmp_3D(i,j,k,varID) = 0.0_RP
       end do
       end do
       end do
@@ -1075,8 +1477,8 @@ contains
       do k=ks, ke
       do j=js, je
       do i=is, ie
-        this%varTmp_3d(i,j,k,varID) = this%varTmp_3d(i,j,k,varID)      &
-            + sig_Ns * q(i,j,k) + gam_Ns * this%tend_buf3D_ex(i,j,k,varID,1)
+        varTmp_3d(i,j,k,varID) = varTmp_3d(i,j,k,varID)      &
+            + sig_Ns * q(i,j,k) + gam_Ns * tend_buf3D_ex(i,j,k,varID,1)
       end do
       end do
       end do
@@ -1086,8 +1488,8 @@ contains
     do k=ks, ke
     do j=js, je
     do i=is, ie
-      q(i,j,k) = one_Minus_sig_ss * this%var0_3d(i,j,k,varID)                &
-              + sig_ss * q(i,j,k) + gam_ss * this%tend_buf3D_ex(i,j,k,varID,1)
+      q(i,j,k) = one_Minus_sig_ss * var0_3d(i,j,k,varID)                &
+              + sig_ss * q(i,j,k) + gam_ss * tend_buf3D_ex(i,j,k,varID,1)
     end do
     end do
     end do
@@ -1098,6 +1500,123 @@ contains
 
     return
   end subroutine rk_advance_low_storage3D
+
+!> Advance variable data at the current stage with explicit RK part (low-storage case)
+!!
+!! @param nowstage Current stage
+!! @param q1 Array to store variable data
+!! @param q2 Array to store variable data
+!! @param varID1 Index of the targeting variable
+!! @param varID2 Index of the targeting variable
+!! @param is Index at which begins the loop for the corresponding direction
+!! @param ie Index at which finishes the loop for the corresponding direction
+!! @param js Index at which begins the loop for the corresponding direction
+!! @param je Index at which finishes the loop for the corresponding direction
+!! @param ks Index at which begins the loop for the corresponding direction
+!! @param ke Index at which finishes the loop for the corresponding direction
+!OCL SERIAL
+  subroutine rk_advance_low_storage3D_var2( this, nowstage, q1, q2, varID1, varID2, is, ie ,js, je ,ks, ke , IA,JA,KA, var_num, &
+      var0_3D, varTmp_3d, tend_buf3D_ex )
+    use scale_const, only: &
+      EPS => CONST_EPS
+    implicit none      
+    class(timeint_rk), intent(inout) :: this
+    integer, intent(in) :: nowstage
+    integer, intent(in) :: IA,JA,KA
+    real(RP), intent(inout) :: q1(IA,JA,KA)
+    real(RP), intent(inout) :: q2(IA,JA,KA)
+    integer, intent(in) :: varID1
+    integer, intent(in) :: varID2
+    integer, intent(in) :: is, ie ,js, je ,ks, ke 
+    integer, intent(in) :: var_num
+    real(RP), intent(inout) :: var0_3d(IA,JA,KA,var_num)
+    real(RP), intent(inout) :: varTmp_3d(IA,JA,KA,var_num)
+    real(RP), intent(inout) :: tend_buf3D_ex(IA,JA,KA,var_num,this%tend_buf_size)
+
+    integer :: i,j,k
+    real(RP) :: sig_ss
+    real(RP) :: gam_ss
+    real(RP) :: one_Minus_sig_ss
+    real(RP) :: sig_Ns
+    real(RP) :: gam_Ns
+
+    !----------------------------------------    
+
+    call PROF_rapstart( 'rk_advance_low_storage3D', 3) 
+
+    sig_ss = this%coef_sig_ex(nowstage+1,nowstage)
+    sig_Ns = this%coef_sig_ex(this%nstage+1,nowstage)
+    one_Minus_sig_ss = 1.0_RP - sig_ss
+    gam_ss = this%dt * this%coef_gam_ex(nowstage+1,nowstage)
+    gam_Ns = this%dt * this%coef_gam_ex(this%nstage+1,nowstage)
+
+    if ( nowstage == this%nstage ) then
+      !$omp parallel private(i,j,k)
+      !$omp do collapse(2)
+      do k=ks, ke
+      do j=js, je
+      do i=is, ie
+        q1(i,j,k) =  varTmp_3d(i,j,k,varID1)                                             &
+                + sig_ss * q1(i,j,k) + gam_ss * tend_buf3D_ex(i,j,k,varID1,1)
+        q2(i,j,k) =  varTmp_3d(i,j,k,varID2)                                             &
+                + sig_ss * q2(i,j,k) + gam_ss * tend_buf3D_ex(i,j,k,varID2,1)
+      end do
+      end do
+      end do
+      !$omp end parallel
+      call PROF_rapend( 'rk_advance_low_storage3D', 3)
+
+      return
+    end if
+      
+    !$omp parallel private(i,j,k)
+    if (nowstage == 1) then
+      !$omp do collapse(2)
+      do k=ks, ke
+      do j=js, je
+      do i=is, ie
+        var0_3D(i,j,k,varID1)   = q1(i,j,k)
+        var0_3D(i,j,k,varID2)   = q2(i,j,k)
+
+        varTmp_3D(i,j,k,varID1) = 0.0_RP
+        varTmp_3D(i,j,k,varID2) = 0.0_RP
+      end do
+      end do
+      end do
+    end if
+
+    if ( abs(sig_Ns) > EPS .or. abs(gam_Ns) > EPS ) then
+      !$omp do collapse(2)
+      do k=ks, ke
+      do j=js, je
+      do i=is, ie
+        varTmp_3d(i,j,k,varID1) = varTmp_3d(i,j,k,varID1)      &
+            + sig_Ns * q1(i,j,k) + gam_Ns * tend_buf3D_ex(i,j,k,varID1,1)
+        varTmp_3d(i,j,k,varID2) = varTmp_3d(i,j,k,varID2)      &
+            + sig_Ns * q2(i,j,k) + gam_Ns * tend_buf3D_ex(i,j,k,varID2,1)
+      end do
+      end do
+      end do
+    end if
+
+    !$omp do collapse(2)
+    do k=ks, ke
+    do j=js, je
+    do i=is, ie
+      q1(i,j,k) = one_Minus_sig_ss * var0_3d(i,j,k,varID1)                &
+              + sig_ss * q1(i,j,k) + gam_ss * tend_buf3D_ex(i,j,k,varID1,1)
+      q2(i,j,k) = one_Minus_sig_ss * var0_3d(i,j,k,varID2)                &
+              + sig_ss * q2(i,j,k) + gam_ss * tend_buf3D_ex(i,j,k,varID2,1)
+    end do
+    end do
+    end do
+
+    !$omp end parallel
+
+    call PROF_rapend( 'rk_advance_low_storage3D', 3)
+
+    return
+  end subroutine rk_advance_low_storage3D_var2
 
 !> Advance tracer variable data at the current stage with explicit RK part (low-storage case)
 !!
@@ -1114,19 +1633,25 @@ contains
 !! @param DDENS0  Array to store density perturbation  data at the time level n
 !! @param DENS_hyd Array to hydrostatic part of density
 !OCL SERIAL
-  subroutine rk_advance_trcvar_low_storage3D( this, nowstage, q, varID, is, ie ,js, je ,ks, ke , &
-    DDENS, DDENS0, DENS_hyd )
+  subroutine rk_advance_trcvar_low_storage3D( this, nowstage, q, varID, is, ie ,js, je ,ks, ke , IA,JA,KA, var_num, &
+    DDENS, DDENS0, DENS_hyd,                         &
+    var0_3D, varTmp_3d, tend_buf3D_ex )
     use scale_const, only: &
       EPS => CONST_EPS
     implicit none
     class(timeint_rk), intent(inout) :: this
     integer, intent(in) :: nowstage
-    real(RP), intent(inout) :: q(:,:,:)
+    integer, intent(in) :: IA,JA,KA
+    real(RP), intent(inout) :: q(IA,JA,KA)
     integer, intent(in) :: varID
     integer, intent(in) :: is, ie ,js, je ,ks, ke 
-    real(RP), intent(in) :: DDENS (:,:,:)
-    real(RP), intent(in) :: DDENS0(:,:,:)
-    real(RP), intent(in) :: DENS_hyd(:,:,:)
+    integer, intent(in) :: var_num
+    real(RP), intent(in) :: DDENS (IA,JA,KA)
+    real(RP), intent(in) :: DDENS0(IA,JA,KA)
+    real(RP), intent(in) :: DENS_hyd(IA,JA,KA)
+    real(RP), intent(inout) :: var0_3d(IA,JA,KA,var_num)
+    real(RP), intent(inout) :: varTmp_3d(IA,JA,KA,var_num)
+    real(RP), intent(inout) :: tend_buf3D_ex(IA,JA,KA,var_num,this%tend_buf_size)
 
     integer :: i,j,k
     real(RP) :: sig_ss
@@ -1158,8 +1683,8 @@ contains
       do j=js, je
       do i=is, ie
         dens_ssm1 = DENS_hyd(i,j,k) + DDENS0(i,j,k) + c_ssm1 * ( DDENS(i,j,k) - DDENS0(i,j,k) )
-        q(i,j,k) =  ( this%varTmp_3d(i,j,k,varID)                                              &
-                + sig_ss * q(i,j,k) * dens_ssm1 + gam_ss * this%tend_buf3D_ex(i,j,k,varID,1) ) &
+        q(i,j,k) =  ( varTmp_3d(i,j,k,varID)                                              &
+                + sig_ss * q(i,j,k) * dens_ssm1 + gam_ss * tend_buf3D_ex(i,j,k,varID,1) ) &
                 / ( DENS_hyd(i,j,k) + DDENS(i,j,k) )
       end do
       end do
@@ -1178,8 +1703,8 @@ contains
       do k=ks, ke
       do j=js, je
       do i=is, ie
-        this%var0_3D(i,j,k,varID)   = q(i,j,k) * ( DENS_hyd(i,j,k) + DDENS0(i,j,k) )
-        this%varTmp_3D(i,j,k,varID) = 0.0_RP
+        var0_3D(i,j,k,varID)   = q(i,j,k) * ( DENS_hyd(i,j,k) + DDENS0(i,j,k) )
+        varTmp_3D(i,j,k,varID) = 0.0_RP
       end do
       end do
       end do
@@ -1191,8 +1716,8 @@ contains
       do j=js, je
       do i=is, ie
         dens_ssm1 = DENS_hyd(i,j,k) + DDENS0(i,j,k) + c_ssm1 * ( DDENS(i,j,k) - DDENS0(i,j,k) )
-        this%varTmp_3d(i,j,k,varID) = this%varTmp_3d(i,j,k,varID)                 &
-            + sig_Ns * q(i,j,k) * dens_ssm1 + gam_Ns * this%tend_buf3D_ex(i,j,k,varID,1)
+        varTmp_3d(i,j,k,varID) = varTmp_3d(i,j,k,varID)                      &
+            + sig_Ns * q(i,j,k) * dens_ssm1 + gam_Ns * tend_buf3D_ex(i,j,k,varID,1)
       end do
       end do
       end do
@@ -1205,8 +1730,8 @@ contains
       dens_ssm1 = DENS_hyd(i,j,k) + DDENS0(i,j,k) + c_ssm1 * ( DDENS(i,j,k) - DDENS0(i,j,k) )
       dens_ss   = DENS_hyd(i,j,k) + DDENS0(i,j,k) + c_ss   * ( DDENS(i,j,k) - DDENS0(i,j,k) )
 
-      q(i,j,k) = ( one_Minus_sig_ss * this%var0_3d(i,j,k,varID)                                &
-              + sig_ss * q(i,j,k) * dens_ssm1 + gam_ss * this%tend_buf3D_ex(i,j,k,varID,1) )   &
+      q(i,j,k) = ( one_Minus_sig_ss * var0_3d(i,j,k,varID)                                &
+              + sig_ss * q(i,j,k) * dens_ssm1 + gam_ss * tend_buf3D_ex(i,j,k,varID,1) )   &
               / dens_ss
     end do
     end do
@@ -1229,17 +1754,29 @@ contains
 !! @param is Index at which begins the loop for the corresponding direction
 !! @param ie Index at which finishes the loop for the corresponding direction
 !OCL SERIAL
-  subroutine rk_advance_general1D( this, nowstage, q, varID, is, ie  )
+  subroutine rk_advance_general1D( this, nowstage, q, varID, is, ie , IA, var_num, &
+    var0_1D, varTmp_1d, tend_buf1D_ex, tend_buf1D_im )
     implicit none
     class(timeint_rk), intent(inout) :: this
     integer, intent(in) :: nowstage
-    real(RP), intent(inout) :: q(:)
+    integer, intent(in) :: IA
+    real(RP), intent(inout) :: q(IA)
     integer, intent(in) :: varID
     integer, intent(in) :: is, ie 
+    integer, intent(in) :: var_num
+    real(RP), intent(inout) :: var0_1d(IA,var_num)
+    real(RP), intent(inout) :: varTmp_1d(IA,var_num)
+    real(RP), intent(inout) :: tend_buf1D_ex(IA,var_num,this%tend_buf_size)
+    real(RP), intent(inout), optional :: tend_buf1D_im(IA,var_num,this%tend_buf_size)
 
     integer :: i
     integer :: s
     integer :: tintbuf_ind
+
+    real(RP) :: coef_a_ex_dt
+    real(RP) :: coef_a_im_dt
+    real(RP) :: coef_b_ex_dt
+    real(RP) :: coef_b_im_dt
     !----------------------------------------    
 
     call PROF_rapstart( 'rk_advance_general1D', 3)
@@ -1249,25 +1786,27 @@ contains
     if ( this%nstage == 1 ) then
       !$omp parallel do
       do i=is, ie
-        this%varTmp_1d(i,varID) = q(i)
+        varTmp_1d(i,varID) = q(i)
       end do
     end if
 
     if ( nowstage ==  this%nstage ) then
       if ( this%imex_flag ) then
-
-      !$omp parallel do
+        coef_b_ex_dt = this%coef_b_ex(nowstage) * this%dt
+        coef_b_im_dt = this%coef_b_im(nowstage) * this%dt
+        !$omp parallel do
         do i=is, ie
-          q(i) =  this%varTmp_1d(i,varID) + this%dt * ( &
-              + this%coef_b_ex(nowstage) * this%tend_buf1D_ex(i,varID,tintbuf_ind)   & 
-              + this%coef_b_im(nowstage) * this%tend_buf1D_im(i,varID,tintbuf_ind)   )
+          q(i) =  varTmp_1d(i,varID) &
+              + coef_b_ex_dt * tend_buf1D_ex(i,varID,tintbuf_ind) & 
+              + coef_b_im_dt * tend_buf1D_im(i,varID,tintbuf_ind)   
         end do
       else
+        coef_b_ex_dt = this%coef_b_ex(nowstage) * this%dt
 
         !$omp parallel do
         do i=is, ie
-          q(i) =  this%varTmp_1d(i,varID)                                             &
-                  + this%dt * this%coef_b_ex(nowstage) * this%tend_buf1D_ex(i,varID,tintbuf_ind)
+          q(i) =  varTmp_1d(i,varID)                       &
+                  + coef_b_ex_dt * tend_buf1D_ex(i,varID,tintbuf_ind)
         end do
       end if    
       call PROF_rapend( 'rk_advance_general1D', 3)
@@ -1275,56 +1814,65 @@ contains
       return
     end if 
 
-    !$omp parallel private( s ) &
+    !$omp parallel private( s, coef_a_ex_dt, coef_a_im_dt, coef_b_ex_dt, coef_b_im_dt ) &
     !$omp private( i )
 
     if ( nowstage == 1 .and. (.not. this%imex_flag) ) then
       !$omp do
       do i=is, ie
-        this%var0_1D(i,varID) = q(i)
-        this%varTmp_1D(i,varID) = q(i)
+        var0_1D(i,varID) = q(i)
+        varTmp_1D(i,varID) = q(i)
       end do
     end if 
 
     if ( this%imex_flag ) then
+      coef_b_ex_dt = this%coef_b_ex(nowstage) * this%dt
+      coef_b_im_dt = this%coef_b_im(nowstage) * this%dt
+
       !$omp do
       do i=is, ie
-        q(i) = this%var0_1d(i,varID)
-        this%varTmp_1d(i,varID) =  this%varTmp_1d(i,varID) + this%dt * ( &
-              + this%coef_b_ex(nowstage) * this%tend_buf1D_ex(i,varID,tintbuf_ind)   & 
-              + this%coef_b_im(nowstage) * this%tend_buf1D_im(i,varID,tintbuf_ind)   )
+        q(i) = var0_1d(i,varID)
+        varTmp_1d(i,varID) =  varTmp_1d(i,varID)   &
+              + coef_b_ex_dt * tend_buf1D_ex(i,varID,tintbuf_ind)  & 
+              + coef_b_im_dt * tend_buf1D_im(i,varID,tintbuf_ind)
       end do
     else
+      coef_b_ex_dt = this%coef_b_ex(nowstage) * this%dt
+
       !$omp do
       do i=is, ie
-        q(i) = this%var0_1d(i,varID)
-        this%varTmp_1d(i,varID) =  this%varTmp_1d(i,varID)                                             &
-                  + this%dt * this%coef_b_ex(nowstage) * this%tend_buf1D_ex(i,varID,tintbuf_ind)
+        q(i) = var0_1d(i,varID)
+        varTmp_1d(i,varID) =  varTmp_1d(i,varID) &
+              + coef_b_ex_dt * tend_buf1D_ex(i,varID,tintbuf_ind)
       end do
     end if 
 
     if ( this%tend_buf_size == 1 .and. (.not. this%imex_flag) ) then
+      coef_a_ex_dt = this%dt * this%coef_a_ex(nowstage+1,nowstage)
       !$omp do
       do i=is, ie
-        q(i) = this%var0_1d(i,varID)                                                &
-            +  this%dt * this%coef_a_ex(nowstage+1,nowstage)*this%tend_buf1D_ex(i,varID,1)
+        q(i) = var0_1d(i,varID)             &
+            +  coef_a_ex_dt * tend_buf1D_ex(i,varID,1)
       end do
     else if ( .not. this%imex_flag ) then      
       do s=1, nowstage
+        coef_a_ex_dt = this%dt * this%coef_a_ex(nowstage+1,s)
       !$omp do
       do i=is, ie
-        q(i) = q(i)                                  &
-            +  this%dt * this%coef_a_ex(nowstage+1,s)*this%tend_buf1D_ex(i,varID,s)
+        q(i) = q(i)                            &
+            +  coef_a_ex_dt * tend_buf1D_ex(i,varID,s)
       end do
       end do
     else ! IMEX   
       do s=1, nowstage
-      !$omp do
-      do i=is, ie
-        q(i) = q(i)                                        &
-            +  this%dt * ( this%coef_a_ex(nowstage+1,s)*this%tend_buf1D_ex(i,varID,s)  &
-                         + this%coef_a_im(nowstage+1,s)*this%tend_buf1D_im(i,varID,s)  )                         
-      end do
+        coef_a_ex_dt = this%dt * this%coef_a_ex(nowstage+1,s)
+        coef_a_im_dt = this%dt * this%coef_a_im(nowstage+1,s)            
+        !$omp do
+        do i=is, ie
+          q(i) = q(i)                                                 &
+            + coef_a_ex_dt * tend_buf1D_ex(i,varID,s) &
+            + coef_a_im_dt * tend_buf1D_im(i,varID,s)  
+        end do
       end do
     end if
 
@@ -1345,23 +1893,33 @@ contains
 !! @param DDENS0  Array to store density perturbation  data at the time level n
 !! @param DENS_hyd Array to hydrostatic part of density  
 !OCL SERIAL
-  subroutine rk_advance_trcvar_general1D( this, nowstage, q, varID, is, ie , &
-      DDENS, DDENS0, DENS_hyd )
+  subroutine rk_advance_trcvar_general1D( this, nowstage, q, varID, is, ie , IA, var_num, &
+    DDENS, DDENS0, DENS_hyd,                         &
+    var0_1D, varTmp_1d, tend_buf1D_ex )
     implicit none
     class(timeint_rk), intent(inout) :: this
     integer, intent(in) :: nowstage
-    real(RP), intent(inout) :: q(:)
+    integer, intent(in) :: IA
+    real(RP), intent(inout) :: q(IA)
     integer, intent(in) :: varID
     integer, intent(in) :: is, ie 
-    real(RP), intent(in) :: DDENS (:)
-    real(RP), intent(in) :: DDENS0(:)
-    real(RP), intent(in) :: DENS_hyd(:)
+    integer, intent(in) :: var_num
+    real(RP), intent(in) :: DDENS (IA)
+    real(RP), intent(in) :: DDENS0(IA)
+    real(RP), intent(in) :: DENS_hyd(IA)
+    real(RP), intent(inout) :: var0_1d(IA,var_num)
+    real(RP), intent(inout) :: varTmp_1d(IA,var_num)
+    real(RP), intent(inout) :: tend_buf1D_ex(IA,var_num,this%tend_buf_size)
 
     integer :: i
     integer :: s
     integer :: tintbuf_ind
 
     real(RP) :: dens_
+
+    real(RP) :: coef_a_ex
+    real(RP) :: coef_a_ex_dt
+    real(RP) :: coef_b_ex_dt
     real(RP) :: c_ss
     !----------------------------------------    
 
@@ -1372,15 +1930,16 @@ contains
     if ( this%nstage == 1 ) then
       !$omp parallel do
       do i=is, ie
-        this%varTmp_1d(i,varID) = q(i) * ( DENS_hyd(i) + DDENS0(i) )
+        varTmp_1d(i,varID) = q(i) * ( DENS_hyd(i) + DDENS0(i) )
       end do
     end if
 
     if ( nowstage ==  this%nstage ) then
+      coef_b_ex_dt = this%dt * this%coef_b_ex(nowstage)
       !$omp parallel do
       do i=is, ie
-        q(i) =  ( this%varTmp_1d(i,varID)                                          &
-            + this%dt * this%coef_b_ex(nowstage) * this%tend_buf1D_ex(i,varID,tintbuf_ind)  ) &
+        q(i) =  ( varTmp_1d(i,varID)                    &
+            + coef_b_ex_dt * tend_buf1D_ex(i,varID,tintbuf_ind)  ) &
             / ( DENS_hyd(i) + DDENS(i) )
       end do
       call PROF_rapend( 'rk_advance_trcvar_general1D', 3)
@@ -1390,40 +1949,44 @@ contains
 
     c_ss = this%coef_c_ex(nowstage+1) 
 
-    !$omp parallel private( s, dens_ ) &
+    !$omp parallel private( s, dens_, coef_a_ex, coef_a_ex_dt, coef_b_ex_dt ) &
     !$omp private( i )
 
     if ( nowstage == 1 .and. (.not. this%imex_flag) ) then
       !$omp do
       do i=is, ie
-        this%var0_1D(i,varID) = q(i) * ( DENS_hyd(i) + DDENS0(i) )
-        this%varTmp_1D(i,varID) = this%var0_1D(i,varID)
+        var0_1D(i,varID) = q(i) * ( DENS_hyd(i) + DDENS0(i) )
+        varTmp_1D(i,varID) = var0_1D(i,varID)
       end do
     end if 
 
+    coef_b_ex_dt = this%dt * this%coef_b_ex(nowstage)
     !$omp do
     do i=is, ie
       q(i) = this%var0_1d(i,varID)
-      this%varTmp_1d(i,varID) =  this%varTmp_1d(i,varID)                                             &
-            + this%dt * this%coef_b_ex(nowstage) * this%tend_buf1D_ex(i,varID,tintbuf_ind)
+      varTmp_1d(i,varID) =  varTmp_1d(i,varID)                                             &
+            + coef_b_ex_dt * tend_buf1D_ex(i,varID,tintbuf_ind)
     end do
 
     if ( this%tend_buf_size == 1 .and. (.not. this%imex_flag) ) then
+      coef_a_ex = this%coef_a_ex(nowstage+1,nowstage)
+      coef_b_ex_dt = this%dt * this%coef_a_ex(nowstage+1,nowstage)
       !$omp do
       do i=is, ie
         dens_ = ( DENS_hyd(i) + DDENS0(i) ) &
-            + this%coef_a_ex(nowstage+1,nowstage)*( DDENS(i) - DDENS0(i) )
-        q(i) = ( this%var0_1d(i,varID)                                           &
-            + this%dt * this%coef_a_ex(nowstage+1,nowstage)*this%tend_buf1D_ex(i,varID,1) ) &
+            + coef_a_ex * ( DDENS(i) - DDENS0(i) )
+        q(i) = ( var0_1d(i,varID)            &
+            + coef_b_ex_dt * tend_buf1D_ex(i,varID,1) ) &
             / dens_
       end do
-    else if ( .not. this%imex_flag ) then      
+    else if ( .not. this%imex_flag ) then    
       do s=1, nowstage
-      !$omp do
-      do i=is, ie
-        q(i) = q(i)                                  &
-            + this%dt * this%coef_a_ex(nowstage+1,s)*this%tend_buf1D_ex(i,varID,s)
-      end do
+        coef_a_ex_dt = this%dt * this%coef_a_ex(nowstage+1,s)
+        !$omp do
+        do i=is, ie
+          q(i) = q(i)                           &
+            + coef_a_ex_dt * tend_buf1D_ex(i,varID,s)
+        end do
       end do
       !$omp do
       do i=is, ie
@@ -1446,36 +2009,44 @@ contains
 !! @param is Index at which begins the loop for the corresponding direction
 !! @param ie Index at which finishes the loop for the corresponding direction
 !OCL SERIAL
-  subroutine rk_storeimpl_general1D( this, nowstage, q, varID, is, ie  )
+  subroutine rk_storeimpl_general1D( this, nowstage, q, varID, is, ie , IA, var_num, &
+    var0_1D, varTmp_1d, tend_buf1D_im )
     implicit none
     class(timeint_rk), intent(inout) :: this
     integer, intent(in) :: nowstage
-    real(RP), intent(inout) :: q(:)
+    integer, intent(in) :: IA
+    real(RP), intent(inout) :: q(IA)
     integer, intent(in) :: varID
     integer, intent(in) :: is, ie 
+    integer, intent(in) :: var_num
+    real(RP), intent(inout) :: var0_1d(IA,var_num)
+    real(RP), intent(inout) :: varTmp_1d(IA,var_num)
+    real(RP), intent(inout) :: tend_buf1D_im(IA,var_num,this%tend_buf_size)
 
     integer :: i
     integer :: tintbuf_ind
+    real(RP) :: coef_a_im_dt
     !----------------------------------------    
 
     if (.not. this%imex_flag ) return
     
     tintbuf_ind = this%tend_buf_indmap(nowstage)   
+    coef_a_im_dt = this%dt * this%coef_a_im(nowstage,nowstage)
 
     !$omp parallel
 
     if ( nowstage == 1 ) then
       !$omp do
       do i=is, ie
-        this%var0_1D(i,varID) = q(i)
-        this%varTmp_1D(i,varID) = q(i)
+        var0_1D(i,varID) = q(i)
+        varTmp_1D(i,varID) = q(i)
       end do
     end if
             
     !$omp do
     do i=is, ie
       q(i) = q(i)                                                                              &
-            +  this%dt * this%coef_a_im(nowstage,nowstage)*this%tend_buf1D_im(i,varID,tintbuf_ind)  
+            + coef_a_im_dt * tend_buf1D_im(i,varID,tintbuf_ind)  
     end do
     !$omp end parallel
 
@@ -1493,17 +2064,29 @@ contains
 !! @param js Index at which begins the loop for the corresponding direction
 !! @param je Index at which finishes the loop for the corresponding direction
 !OCL SERIAL
-  subroutine rk_advance_general2D( this, nowstage, q, varID, is, ie ,js, je  )
+  subroutine rk_advance_general2D( this, nowstage, q, varID, is, ie ,js, je , IA,JA, var_num, &
+    var0_2D, varTmp_2d, tend_buf2D_ex, tend_buf2D_im )
     implicit none
     class(timeint_rk), intent(inout) :: this
     integer, intent(in) :: nowstage
-    real(RP), intent(inout) :: q(:,:)
+    integer, intent(in) :: IA,JA
+    real(RP), intent(inout) :: q(IA,JA)
     integer, intent(in) :: varID
     integer, intent(in) :: is, ie ,js, je 
+    integer, intent(in) :: var_num
+    real(RP), intent(inout) :: var0_2d(IA,JA,var_num)
+    real(RP), intent(inout) :: varTmp_2d(IA,JA,var_num)
+    real(RP), intent(inout) :: tend_buf2D_ex(IA,JA,var_num,this%tend_buf_size)
+    real(RP), intent(inout), optional :: tend_buf2D_im(IA,JA,var_num,this%tend_buf_size)
 
     integer :: i,j
     integer :: s
     integer :: tintbuf_ind
+
+    real(RP) :: coef_a_ex_dt
+    real(RP) :: coef_a_im_dt
+    real(RP) :: coef_b_ex_dt
+    real(RP) :: coef_b_im_dt
     !----------------------------------------    
 
     call PROF_rapstart( 'rk_advance_general2D', 3)
@@ -1514,29 +2097,31 @@ contains
       !$omp parallel do
       do j=js, je
       do i=is, ie
-        this%varTmp_2d(i,j,varID) = q(i,j)
+        varTmp_2d(i,j,varID) = q(i,j)
       end do
       end do
     end if
 
     if ( nowstage ==  this%nstage ) then
       if ( this%imex_flag ) then
-
-      !$omp parallel do
+        coef_b_ex_dt = this%coef_b_ex(nowstage) * this%dt
+        coef_b_im_dt = this%coef_b_im(nowstage) * this%dt
+        !$omp parallel do
         do j=js, je
         do i=is, ie
-          q(i,j) =  this%varTmp_2d(i,j,varID) + this%dt * ( &
-              + this%coef_b_ex(nowstage) * this%tend_buf2D_ex(i,j,varID,tintbuf_ind)   & 
-              + this%coef_b_im(nowstage) * this%tend_buf2D_im(i,j,varID,tintbuf_ind)   )
+          q(i,j) =  varTmp_2d(i,j,varID) &
+              + coef_b_ex_dt * tend_buf2D_ex(i,j,varID,tintbuf_ind) & 
+              + coef_b_im_dt * tend_buf2D_im(i,j,varID,tintbuf_ind)   
         end do
         end do
       else
+        coef_b_ex_dt = this%coef_b_ex(nowstage) * this%dt
 
         !$omp parallel do
         do j=js, je
         do i=is, ie
-          q(i,j) =  this%varTmp_2d(i,j,varID)                                             &
-                  + this%dt * this%coef_b_ex(nowstage) * this%tend_buf2D_ex(i,j,varID,tintbuf_ind)
+          q(i,j) =  varTmp_2d(i,j,varID)                       &
+                  + coef_b_ex_dt * tend_buf2D_ex(i,j,varID,tintbuf_ind)
         end do
         end do
       end if    
@@ -1545,68 +2130,77 @@ contains
       return
     end if 
 
-    !$omp parallel private( s ) &
+    !$omp parallel private( s, coef_a_ex_dt, coef_a_im_dt, coef_b_ex_dt, coef_b_im_dt ) &
     !$omp private( i,j )
 
     if ( nowstage == 1 .and. (.not. this%imex_flag) ) then
       !$omp do
       do j=js, je
       do i=is, ie
-        this%var0_2D(i,j,varID) = q(i,j)
-        this%varTmp_2D(i,j,varID) = q(i,j)
+        var0_2D(i,j,varID) = q(i,j)
+        varTmp_2D(i,j,varID) = q(i,j)
       end do
       end do
     end if 
 
     if ( this%imex_flag ) then
+      coef_b_ex_dt = this%coef_b_ex(nowstage) * this%dt
+      coef_b_im_dt = this%coef_b_im(nowstage) * this%dt
+
       !$omp do
       do j=js, je
       do i=is, ie
-        q(i,j) = this%var0_2d(i,j,varID)
-        this%varTmp_2d(i,j,varID) =  this%varTmp_2d(i,j,varID) + this%dt * ( &
-              + this%coef_b_ex(nowstage) * this%tend_buf2D_ex(i,j,varID,tintbuf_ind)   & 
-              + this%coef_b_im(nowstage) * this%tend_buf2D_im(i,j,varID,tintbuf_ind)   )
+        q(i,j) = var0_2d(i,j,varID)
+        varTmp_2d(i,j,varID) =  varTmp_2d(i,j,varID)   &
+              + coef_b_ex_dt * tend_buf2D_ex(i,j,varID,tintbuf_ind)  & 
+              + coef_b_im_dt * tend_buf2D_im(i,j,varID,tintbuf_ind)
       end do
       end do
     else
+      coef_b_ex_dt = this%coef_b_ex(nowstage) * this%dt
+
       !$omp do
       do j=js, je
       do i=is, ie
-        q(i,j) = this%var0_2d(i,j,varID)
-        this%varTmp_2d(i,j,varID) =  this%varTmp_2d(i,j,varID)                                             &
-                  + this%dt * this%coef_b_ex(nowstage) * this%tend_buf2D_ex(i,j,varID,tintbuf_ind)
+        q(i,j) = var0_2d(i,j,varID)
+        varTmp_2d(i,j,varID) =  varTmp_2d(i,j,varID) &
+              + coef_b_ex_dt * tend_buf2D_ex(i,j,varID,tintbuf_ind)
       end do
       end do
     end if 
 
     if ( this%tend_buf_size == 1 .and. (.not. this%imex_flag) ) then
+      coef_a_ex_dt = this%dt * this%coef_a_ex(nowstage+1,nowstage)
       !$omp do
       do j=js, je
       do i=is, ie
-        q(i,j) = this%var0_2d(i,j,varID)                                                &
-            +  this%dt * this%coef_a_ex(nowstage+1,nowstage)*this%tend_buf2D_ex(i,j,varID,1)
+        q(i,j) = var0_2d(i,j,varID)             &
+            +  coef_a_ex_dt * tend_buf2D_ex(i,j,varID,1)
       end do
       end do
     else if ( .not. this%imex_flag ) then      
       do s=1, nowstage
+        coef_a_ex_dt = this%dt * this%coef_a_ex(nowstage+1,s)
       !$omp do
       do j=js, je
       do i=is, ie
-        q(i,j) = q(i,j)                                  &
-            +  this%dt * this%coef_a_ex(nowstage+1,s)*this%tend_buf2D_ex(i,j,varID,s)
+        q(i,j) = q(i,j)                            &
+            +  coef_a_ex_dt * tend_buf2D_ex(i,j,varID,s)
       end do
       end do
       end do
     else ! IMEX   
       do s=1, nowstage
-      !$omp do
-      do j=js, je
-      do i=is, ie
-        q(i,j) = q(i,j)                                        &
-            +  this%dt * ( this%coef_a_ex(nowstage+1,s)*this%tend_buf2D_ex(i,j,varID,s)  &
-                         + this%coef_a_im(nowstage+1,s)*this%tend_buf2D_im(i,j,varID,s)  )                         
-      end do
-      end do
+        coef_a_ex_dt = this%dt * this%coef_a_ex(nowstage+1,s)
+        coef_a_im_dt = this%dt * this%coef_a_im(nowstage+1,s)            
+        !$omp do
+        do j=js, je
+        do i=is, ie
+          q(i,j) = q(i,j)                                                 &
+            + coef_a_ex_dt * tend_buf2D_ex(i,j,varID,s) &
+            + coef_a_im_dt * tend_buf2D_im(i,j,varID,s)  
+        end do
+        end do
       end do
     end if
 
@@ -1629,23 +2223,33 @@ contains
 !! @param DDENS0  Array to store density perturbation  data at the time level n
 !! @param DENS_hyd Array to hydrostatic part of density  
 !OCL SERIAL
-  subroutine rk_advance_trcvar_general2D( this, nowstage, q, varID, is, ie ,js, je , &
-      DDENS, DDENS0, DENS_hyd )
+  subroutine rk_advance_trcvar_general2D( this, nowstage, q, varID, is, ie ,js, je , IA,JA, var_num, &
+    DDENS, DDENS0, DENS_hyd,                         &
+    var0_2D, varTmp_2d, tend_buf2D_ex )
     implicit none
     class(timeint_rk), intent(inout) :: this
     integer, intent(in) :: nowstage
-    real(RP), intent(inout) :: q(:,:)
+    integer, intent(in) :: IA,JA
+    real(RP), intent(inout) :: q(IA,JA)
     integer, intent(in) :: varID
     integer, intent(in) :: is, ie ,js, je 
-    real(RP), intent(in) :: DDENS (:,:)
-    real(RP), intent(in) :: DDENS0(:,:)
-    real(RP), intent(in) :: DENS_hyd(:,:)
+    integer, intent(in) :: var_num
+    real(RP), intent(in) :: DDENS (IA,JA)
+    real(RP), intent(in) :: DDENS0(IA,JA)
+    real(RP), intent(in) :: DENS_hyd(IA,JA)
+    real(RP), intent(inout) :: var0_2d(IA,JA,var_num)
+    real(RP), intent(inout) :: varTmp_2d(IA,JA,var_num)
+    real(RP), intent(inout) :: tend_buf2D_ex(IA,JA,var_num,this%tend_buf_size)
 
     integer :: i,j
     integer :: s
     integer :: tintbuf_ind
 
     real(RP) :: dens_
+
+    real(RP) :: coef_a_ex
+    real(RP) :: coef_a_ex_dt
+    real(RP) :: coef_b_ex_dt
     real(RP) :: c_ss
     !----------------------------------------    
 
@@ -1657,17 +2261,18 @@ contains
       !$omp parallel do
       do j=js, je
       do i=is, ie
-        this%varTmp_2d(i,j,varID) = q(i,j) * ( DENS_hyd(i,j) + DDENS0(i,j) )
+        varTmp_2d(i,j,varID) = q(i,j) * ( DENS_hyd(i,j) + DDENS0(i,j) )
       end do
       end do
     end if
 
     if ( nowstage ==  this%nstage ) then
+      coef_b_ex_dt = this%dt * this%coef_b_ex(nowstage)
       !$omp parallel do
       do j=js, je
       do i=is, ie
-        q(i,j) =  ( this%varTmp_2d(i,j,varID)                                          &
-            + this%dt * this%coef_b_ex(nowstage) * this%tend_buf2D_ex(i,j,varID,tintbuf_ind)  ) &
+        q(i,j) =  ( varTmp_2d(i,j,varID)                    &
+            + coef_b_ex_dt * tend_buf2D_ex(i,j,varID,tintbuf_ind)  ) &
             / ( DENS_hyd(i,j) + DDENS(i,j) )
       end do
       end do
@@ -1678,48 +2283,52 @@ contains
 
     c_ss = this%coef_c_ex(nowstage+1) 
 
-    !$omp parallel private( s, dens_ ) &
+    !$omp parallel private( s, dens_, coef_a_ex, coef_a_ex_dt, coef_b_ex_dt ) &
     !$omp private( i,j )
 
     if ( nowstage == 1 .and. (.not. this%imex_flag) ) then
       !$omp do
       do j=js, je
       do i=is, ie
-        this%var0_2D(i,j,varID) = q(i,j) * ( DENS_hyd(i,j) + DDENS0(i,j) )
-        this%varTmp_2D(i,j,varID) = this%var0_2D(i,j,varID)
+        var0_2D(i,j,varID) = q(i,j) * ( DENS_hyd(i,j) + DDENS0(i,j) )
+        varTmp_2D(i,j,varID) = var0_2D(i,j,varID)
       end do
       end do
     end if 
 
+    coef_b_ex_dt = this%dt * this%coef_b_ex(nowstage)
     !$omp do
     do j=js, je
     do i=is, ie
       q(i,j) = this%var0_2d(i,j,varID)
-      this%varTmp_2d(i,j,varID) =  this%varTmp_2d(i,j,varID)                                             &
-            + this%dt * this%coef_b_ex(nowstage) * this%tend_buf2D_ex(i,j,varID,tintbuf_ind)
+      varTmp_2d(i,j,varID) =  varTmp_2d(i,j,varID)                                             &
+            + coef_b_ex_dt * tend_buf2D_ex(i,j,varID,tintbuf_ind)
     end do
     end do
 
     if ( this%tend_buf_size == 1 .and. (.not. this%imex_flag) ) then
+      coef_a_ex = this%coef_a_ex(nowstage+1,nowstage)
+      coef_b_ex_dt = this%dt * this%coef_a_ex(nowstage+1,nowstage)
       !$omp do
       do j=js, je
       do i=is, ie
         dens_ = ( DENS_hyd(i,j) + DDENS0(i,j) ) &
-            + this%coef_a_ex(nowstage+1,nowstage)*( DDENS(i,j) - DDENS0(i,j) )
-        q(i,j) = ( this%var0_2d(i,j,varID)                                           &
-            + this%dt * this%coef_a_ex(nowstage+1,nowstage)*this%tend_buf2D_ex(i,j,varID,1) ) &
+            + coef_a_ex * ( DDENS(i,j) - DDENS0(i,j) )
+        q(i,j) = ( var0_2d(i,j,varID)            &
+            + coef_b_ex_dt * tend_buf2D_ex(i,j,varID,1) ) &
             / dens_
       end do
       end do
-    else if ( .not. this%imex_flag ) then      
+    else if ( .not. this%imex_flag ) then    
       do s=1, nowstage
-      !$omp do
-      do j=js, je
-      do i=is, ie
-        q(i,j) = q(i,j)                                  &
-            + this%dt * this%coef_a_ex(nowstage+1,s)*this%tend_buf2D_ex(i,j,varID,s)
-      end do
-      end do
+        coef_a_ex_dt = this%dt * this%coef_a_ex(nowstage+1,s)
+        !$omp do
+        do j=js, je
+        do i=is, ie
+          q(i,j) = q(i,j)                           &
+            + coef_a_ex_dt * tend_buf2D_ex(i,j,varID,s)
+        end do
+        end do
       end do
       !$omp do
       do j=js, je
@@ -1746,21 +2355,29 @@ contains
 !! @param js Index at which begins the loop for the corresponding direction
 !! @param je Index at which finishes the loop for the corresponding direction
 !OCL SERIAL
-  subroutine rk_storeimpl_general2D( this, nowstage, q, varID, is, ie ,js, je  )
+  subroutine rk_storeimpl_general2D( this, nowstage, q, varID, is, ie ,js, je , IA,JA, var_num, &
+    var0_2D, varTmp_2d, tend_buf2D_im )
     implicit none
     class(timeint_rk), intent(inout) :: this
     integer, intent(in) :: nowstage
-    real(RP), intent(inout) :: q(:,:)
+    integer, intent(in) :: IA,JA
+    real(RP), intent(inout) :: q(IA,JA)
     integer, intent(in) :: varID
     integer, intent(in) :: is, ie ,js, je 
+    integer, intent(in) :: var_num
+    real(RP), intent(inout) :: var0_2d(IA,JA,var_num)
+    real(RP), intent(inout) :: varTmp_2d(IA,JA,var_num)
+    real(RP), intent(inout) :: tend_buf2D_im(IA,JA,var_num,this%tend_buf_size)
 
     integer :: i,j
     integer :: tintbuf_ind
+    real(RP) :: coef_a_im_dt
     !----------------------------------------    
 
     if (.not. this%imex_flag ) return
     
     tintbuf_ind = this%tend_buf_indmap(nowstage)   
+    coef_a_im_dt = this%dt * this%coef_a_im(nowstage,nowstage)
 
     !$omp parallel
 
@@ -1768,8 +2385,8 @@ contains
       !$omp do
       do j=js, je
       do i=is, ie
-        this%var0_2D(i,j,varID) = q(i,j)
-        this%varTmp_2D(i,j,varID) = q(i,j)
+        var0_2D(i,j,varID) = q(i,j)
+        varTmp_2D(i,j,varID) = q(i,j)
       end do
       end do
     end if
@@ -1778,7 +2395,7 @@ contains
     do j=js, je
     do i=is, ie
       q(i,j) = q(i,j)                                                                              &
-            +  this%dt * this%coef_a_im(nowstage,nowstage)*this%tend_buf2D_im(i,j,varID,tintbuf_ind)  
+            + coef_a_im_dt * tend_buf2D_im(i,j,varID,tintbuf_ind)  
     end do
     end do
     !$omp end parallel
@@ -1799,17 +2416,29 @@ contains
 !! @param ks Index at which begins the loop for the corresponding direction
 !! @param ke Index at which finishes the loop for the corresponding direction
 !OCL SERIAL
-  subroutine rk_advance_general3D( this, nowstage, q, varID, is, ie ,js, je ,ks, ke  )
+  subroutine rk_advance_general3D( this, nowstage, q, varID, is, ie ,js, je ,ks, ke , IA,JA,KA, var_num, &
+    var0_3D, varTmp_3d, tend_buf3D_ex, tend_buf3D_im )
     implicit none
     class(timeint_rk), intent(inout) :: this
     integer, intent(in) :: nowstage
-    real(RP), intent(inout) :: q(:,:,:)
+    integer, intent(in) :: IA,JA,KA
+    real(RP), intent(inout) :: q(IA,JA,KA)
     integer, intent(in) :: varID
     integer, intent(in) :: is, ie ,js, je ,ks, ke 
+    integer, intent(in) :: var_num
+    real(RP), intent(inout) :: var0_3d(IA,JA,KA,var_num)
+    real(RP), intent(inout) :: varTmp_3d(IA,JA,KA,var_num)
+    real(RP), intent(inout) :: tend_buf3D_ex(IA,JA,KA,var_num,this%tend_buf_size)
+    real(RP), intent(inout), optional :: tend_buf3D_im(IA,JA,KA,var_num,this%tend_buf_size)
 
     integer :: i,j,k
     integer :: s
     integer :: tintbuf_ind
+
+    real(RP) :: coef_a_ex_dt
+    real(RP) :: coef_a_im_dt
+    real(RP) :: coef_b_ex_dt
+    real(RP) :: coef_b_im_dt
     !----------------------------------------    
 
     call PROF_rapstart( 'rk_advance_general3D', 3)
@@ -1821,7 +2450,7 @@ contains
       do k=ks, ke
       do j=js, je
       do i=is, ie
-        this%varTmp_3d(i,j,k,varID) = q(i,j,k)
+        varTmp_3d(i,j,k,varID) = q(i,j,k)
       end do
       end do
       end do
@@ -1829,25 +2458,27 @@ contains
 
     if ( nowstage ==  this%nstage ) then
       if ( this%imex_flag ) then
-
-      !$omp parallel do collapse(2)
+        coef_b_ex_dt = this%coef_b_ex(nowstage) * this%dt
+        coef_b_im_dt = this%coef_b_im(nowstage) * this%dt
+        !$omp parallel do collapse(2)
         do k=ks, ke
         do j=js, je
         do i=is, ie
-          q(i,j,k) =  this%varTmp_3d(i,j,k,varID) + this%dt * ( &
-              + this%coef_b_ex(nowstage) * this%tend_buf3D_ex(i,j,k,varID,tintbuf_ind)   & 
-              + this%coef_b_im(nowstage) * this%tend_buf3D_im(i,j,k,varID,tintbuf_ind)   )
+          q(i,j,k) =  varTmp_3d(i,j,k,varID) &
+              + coef_b_ex_dt * tend_buf3D_ex(i,j,k,varID,tintbuf_ind) & 
+              + coef_b_im_dt * tend_buf3D_im(i,j,k,varID,tintbuf_ind)   
         end do
         end do
         end do
       else
+        coef_b_ex_dt = this%coef_b_ex(nowstage) * this%dt
 
         !$omp parallel do collapse(2)
         do k=ks, ke
         do j=js, je
         do i=is, ie
-          q(i,j,k) =  this%varTmp_3d(i,j,k,varID)                                             &
-                  + this%dt * this%coef_b_ex(nowstage) * this%tend_buf3D_ex(i,j,k,varID,tintbuf_ind)
+          q(i,j,k) =  varTmp_3d(i,j,k,varID)                       &
+                  + coef_b_ex_dt * tend_buf3D_ex(i,j,k,varID,tintbuf_ind)
         end do
         end do
         end do
@@ -1857,7 +2488,7 @@ contains
       return
     end if 
 
-    !$omp parallel private( s ) &
+    !$omp parallel private( s, coef_a_ex_dt, coef_a_im_dt, coef_b_ex_dt, coef_b_im_dt ) &
     !$omp private( i,j,k )
 
     if ( nowstage == 1 .and. (.not. this%imex_flag) ) then
@@ -1865,72 +2496,81 @@ contains
       do k=ks, ke
       do j=js, je
       do i=is, ie
-        this%var0_3D(i,j,k,varID) = q(i,j,k)
-        this%varTmp_3D(i,j,k,varID) = q(i,j,k)
+        var0_3D(i,j,k,varID) = q(i,j,k)
+        varTmp_3D(i,j,k,varID) = q(i,j,k)
       end do
       end do
       end do
     end if 
 
     if ( this%imex_flag ) then
+      coef_b_ex_dt = this%coef_b_ex(nowstage) * this%dt
+      coef_b_im_dt = this%coef_b_im(nowstage) * this%dt
+
       !$omp do collapse(2)
       do k=ks, ke
       do j=js, je
       do i=is, ie
-        q(i,j,k) = this%var0_3d(i,j,k,varID)
-        this%varTmp_3d(i,j,k,varID) =  this%varTmp_3d(i,j,k,varID) + this%dt * ( &
-              + this%coef_b_ex(nowstage) * this%tend_buf3D_ex(i,j,k,varID,tintbuf_ind)   & 
-              + this%coef_b_im(nowstage) * this%tend_buf3D_im(i,j,k,varID,tintbuf_ind)   )
+        q(i,j,k) = var0_3d(i,j,k,varID)
+        varTmp_3d(i,j,k,varID) =  varTmp_3d(i,j,k,varID)   &
+              + coef_b_ex_dt * tend_buf3D_ex(i,j,k,varID,tintbuf_ind)  & 
+              + coef_b_im_dt * tend_buf3D_im(i,j,k,varID,tintbuf_ind)
       end do
       end do
       end do
     else
+      coef_b_ex_dt = this%coef_b_ex(nowstage) * this%dt
+
       !$omp do collapse(2)
       do k=ks, ke
       do j=js, je
       do i=is, ie
-        q(i,j,k) = this%var0_3d(i,j,k,varID)
-        this%varTmp_3d(i,j,k,varID) =  this%varTmp_3d(i,j,k,varID)                                             &
-                  + this%dt * this%coef_b_ex(nowstage) * this%tend_buf3D_ex(i,j,k,varID,tintbuf_ind)
+        q(i,j,k) = var0_3d(i,j,k,varID)
+        varTmp_3d(i,j,k,varID) =  varTmp_3d(i,j,k,varID) &
+              + coef_b_ex_dt * tend_buf3D_ex(i,j,k,varID,tintbuf_ind)
       end do
       end do
       end do
     end if 
 
     if ( this%tend_buf_size == 1 .and. (.not. this%imex_flag) ) then
+      coef_a_ex_dt = this%dt * this%coef_a_ex(nowstage+1,nowstage)
       !$omp do collapse(2)
       do k=ks, ke
       do j=js, je
       do i=is, ie
-        q(i,j,k) = this%var0_3d(i,j,k,varID)                                                &
-            +  this%dt * this%coef_a_ex(nowstage+1,nowstage)*this%tend_buf3D_ex(i,j,k,varID,1)
+        q(i,j,k) = var0_3d(i,j,k,varID)             &
+            +  coef_a_ex_dt * tend_buf3D_ex(i,j,k,varID,1)
       end do
       end do
       end do
     else if ( .not. this%imex_flag ) then      
       do s=1, nowstage
+        coef_a_ex_dt = this%dt * this%coef_a_ex(nowstage+1,s)
       !$omp do collapse(2)
       do k=ks, ke
       do j=js, je
       do i=is, ie
-        q(i,j,k) = q(i,j,k)                                  &
-            +  this%dt * this%coef_a_ex(nowstage+1,s)*this%tend_buf3D_ex(i,j,k,varID,s)
+        q(i,j,k) = q(i,j,k)                            &
+            +  coef_a_ex_dt * tend_buf3D_ex(i,j,k,varID,s)
       end do
       end do
       end do
       end do
     else ! IMEX   
       do s=1, nowstage
+        coef_a_ex_dt = this%dt * this%coef_a_ex(nowstage+1,s)
+        coef_a_im_dt = this%dt * this%coef_a_im(nowstage+1,s)            
       !$omp do collapse(2)
-      do k=ks, ke
-      do j=js, je
-      do i=is, ie
-        q(i,j,k) = q(i,j,k)                                        &
-            +  this%dt * ( this%coef_a_ex(nowstage+1,s)*this%tend_buf3D_ex(i,j,k,varID,s)  &
-                         + this%coef_a_im(nowstage+1,s)*this%tend_buf3D_im(i,j,k,varID,s)  )                         
-      end do
-      end do
-      end do
+        do k=ks, ke
+        do j=js, je
+        do i=is, ie
+          q(i,j,k) = q(i,j,k)                                                 &
+            + coef_a_ex_dt * tend_buf3D_ex(i,j,k,varID,s) &
+            + coef_a_im_dt * tend_buf3D_im(i,j,k,varID,s)  
+        end do
+        end do
+        end do
       end do
     end if
 
@@ -1955,23 +2595,33 @@ contains
 !! @param DDENS0  Array to store density perturbation  data at the time level n
 !! @param DENS_hyd Array to hydrostatic part of density  
 !OCL SERIAL
-  subroutine rk_advance_trcvar_general3D( this, nowstage, q, varID, is, ie ,js, je ,ks, ke , &
-      DDENS, DDENS0, DENS_hyd )
+  subroutine rk_advance_trcvar_general3D( this, nowstage, q, varID, is, ie ,js, je ,ks, ke , IA,JA,KA, var_num, &
+    DDENS, DDENS0, DENS_hyd,                         &
+    var0_3D, varTmp_3d, tend_buf3D_ex )
     implicit none
     class(timeint_rk), intent(inout) :: this
     integer, intent(in) :: nowstage
-    real(RP), intent(inout) :: q(:,:,:)
+    integer, intent(in) :: IA,JA,KA
+    real(RP), intent(inout) :: q(IA,JA,KA)
     integer, intent(in) :: varID
     integer, intent(in) :: is, ie ,js, je ,ks, ke 
-    real(RP), intent(in) :: DDENS (:,:,:)
-    real(RP), intent(in) :: DDENS0(:,:,:)
-    real(RP), intent(in) :: DENS_hyd(:,:,:)
+    integer, intent(in) :: var_num
+    real(RP), intent(in) :: DDENS (IA,JA,KA)
+    real(RP), intent(in) :: DDENS0(IA,JA,KA)
+    real(RP), intent(in) :: DENS_hyd(IA,JA,KA)
+    real(RP), intent(inout) :: var0_3d(IA,JA,KA,var_num)
+    real(RP), intent(inout) :: varTmp_3d(IA,JA,KA,var_num)
+    real(RP), intent(inout) :: tend_buf3D_ex(IA,JA,KA,var_num,this%tend_buf_size)
 
     integer :: i,j,k
     integer :: s
     integer :: tintbuf_ind
 
     real(RP) :: dens_
+
+    real(RP) :: coef_a_ex
+    real(RP) :: coef_a_ex_dt
+    real(RP) :: coef_b_ex_dt
     real(RP) :: c_ss
     !----------------------------------------    
 
@@ -1984,19 +2634,20 @@ contains
       do k=ks, ke
       do j=js, je
       do i=is, ie
-        this%varTmp_3d(i,j,k,varID) = q(i,j,k) * ( DENS_hyd(i,j,k) + DDENS0(i,j,k) )
+        varTmp_3d(i,j,k,varID) = q(i,j,k) * ( DENS_hyd(i,j,k) + DDENS0(i,j,k) )
       end do
       end do
       end do
     end if
 
     if ( nowstage ==  this%nstage ) then
+      coef_b_ex_dt = this%dt * this%coef_b_ex(nowstage)
       !$omp parallel do collapse(2)
       do k=ks, ke
       do j=js, je
       do i=is, ie
-        q(i,j,k) =  ( this%varTmp_3d(i,j,k,varID)                                          &
-            + this%dt * this%coef_b_ex(nowstage) * this%tend_buf3D_ex(i,j,k,varID,tintbuf_ind)  ) &
+        q(i,j,k) =  ( varTmp_3d(i,j,k,varID)                    &
+            + coef_b_ex_dt * tend_buf3D_ex(i,j,k,varID,tintbuf_ind)  ) &
             / ( DENS_hyd(i,j,k) + DDENS(i,j,k) )
       end do
       end do
@@ -2008,7 +2659,7 @@ contains
 
     c_ss = this%coef_c_ex(nowstage+1) 
 
-    !$omp parallel private( s, dens_ ) &
+    !$omp parallel private( s, dens_, coef_a_ex, coef_a_ex_dt, coef_b_ex_dt ) &
     !$omp private( i,j,k )
 
     if ( nowstage == 1 .and. (.not. this%imex_flag) ) then
@@ -2016,48 +2667,52 @@ contains
       do k=ks, ke
       do j=js, je
       do i=is, ie
-        this%var0_3D(i,j,k,varID) = q(i,j,k) * ( DENS_hyd(i,j,k) + DDENS0(i,j,k) )
-        this%varTmp_3D(i,j,k,varID) = this%var0_3D(i,j,k,varID)
+        var0_3D(i,j,k,varID) = q(i,j,k) * ( DENS_hyd(i,j,k) + DDENS0(i,j,k) )
+        varTmp_3D(i,j,k,varID) = var0_3D(i,j,k,varID)
       end do
       end do
       end do
     end if 
 
+    coef_b_ex_dt = this%dt * this%coef_b_ex(nowstage)
     !$omp do collapse(2)
     do k=ks, ke
     do j=js, je
     do i=is, ie
       q(i,j,k) = this%var0_3d(i,j,k,varID)
-      this%varTmp_3d(i,j,k,varID) =  this%varTmp_3d(i,j,k,varID)                                             &
-            + this%dt * this%coef_b_ex(nowstage) * this%tend_buf3D_ex(i,j,k,varID,tintbuf_ind)
+      varTmp_3d(i,j,k,varID) =  varTmp_3d(i,j,k,varID)                                             &
+            + coef_b_ex_dt * tend_buf3D_ex(i,j,k,varID,tintbuf_ind)
     end do
     end do
     end do
 
     if ( this%tend_buf_size == 1 .and. (.not. this%imex_flag) ) then
+      coef_a_ex = this%coef_a_ex(nowstage+1,nowstage)
+      coef_b_ex_dt = this%dt * this%coef_a_ex(nowstage+1,nowstage)
       !$omp do collapse(2)
       do k=ks, ke
       do j=js, je
       do i=is, ie
         dens_ = ( DENS_hyd(i,j,k) + DDENS0(i,j,k) ) &
-            + this%coef_a_ex(nowstage+1,nowstage)*( DDENS(i,j,k) - DDENS0(i,j,k) )
-        q(i,j,k) = ( this%var0_3d(i,j,k,varID)                                           &
-            + this%dt * this%coef_a_ex(nowstage+1,nowstage)*this%tend_buf3D_ex(i,j,k,varID,1) ) &
+            + coef_a_ex * ( DDENS(i,j,k) - DDENS0(i,j,k) )
+        q(i,j,k) = ( var0_3d(i,j,k,varID)            &
+            + coef_b_ex_dt * tend_buf3D_ex(i,j,k,varID,1) ) &
             / dens_
       end do
       end do
       end do
-    else if ( .not. this%imex_flag ) then      
+    else if ( .not. this%imex_flag ) then    
       do s=1, nowstage
-      !$omp do collapse(2)
-      do k=ks, ke
-      do j=js, je
-      do i=is, ie
-        q(i,j,k) = q(i,j,k)                                  &
-            + this%dt * this%coef_a_ex(nowstage+1,s)*this%tend_buf3D_ex(i,j,k,varID,s)
-      end do
-      end do
-      end do
+        coef_a_ex_dt = this%dt * this%coef_a_ex(nowstage+1,s)
+        !$omp do collapse(2)
+        do k=ks, ke
+        do j=js, je
+        do i=is, ie
+          q(i,j,k) = q(i,j,k)                           &
+            + coef_a_ex_dt * tend_buf3D_ex(i,j,k,varID,s)
+        end do
+        end do
+        end do
       end do
       !$omp do collapse(2)
       do k=ks, ke
@@ -2088,21 +2743,29 @@ contains
 !! @param ks Index at which begins the loop for the corresponding direction
 !! @param ke Index at which finishes the loop for the corresponding direction
 !OCL SERIAL
-  subroutine rk_storeimpl_general3D( this, nowstage, q, varID, is, ie ,js, je ,ks, ke  )
+  subroutine rk_storeimpl_general3D( this, nowstage, q, varID, is, ie ,js, je ,ks, ke , IA,JA,KA, var_num, &
+    var0_3D, varTmp_3d, tend_buf3D_im )
     implicit none
     class(timeint_rk), intent(inout) :: this
     integer, intent(in) :: nowstage
-    real(RP), intent(inout) :: q(:,:,:)
+    integer, intent(in) :: IA,JA,KA
+    real(RP), intent(inout) :: q(IA,JA,KA)
     integer, intent(in) :: varID
     integer, intent(in) :: is, ie ,js, je ,ks, ke 
+    integer, intent(in) :: var_num
+    real(RP), intent(inout) :: var0_3d(IA,JA,KA,var_num)
+    real(RP), intent(inout) :: varTmp_3d(IA,JA,KA,var_num)
+    real(RP), intent(inout) :: tend_buf3D_im(IA,JA,KA,var_num,this%tend_buf_size)
 
     integer :: i,j,k
     integer :: tintbuf_ind
+    real(RP) :: coef_a_im_dt
     !----------------------------------------    
 
     if (.not. this%imex_flag ) return
     
     tintbuf_ind = this%tend_buf_indmap(nowstage)   
+    coef_a_im_dt = this%dt * this%coef_a_im(nowstage,nowstage)
 
     !$omp parallel
 
@@ -2111,8 +2774,8 @@ contains
       do k=ks, ke
       do j=js, je
       do i=is, ie
-        this%var0_3D(i,j,k,varID) = q(i,j,k)
-        this%varTmp_3D(i,j,k,varID) = q(i,j,k)
+        var0_3D(i,j,k,varID) = q(i,j,k)
+        varTmp_3D(i,j,k,varID) = q(i,j,k)
       end do
       end do
       end do
@@ -2123,7 +2786,7 @@ contains
     do j=js, je
     do i=is, ie
       q(i,j,k) = q(i,j,k)                                                                              &
-            +  this%dt * this%coef_a_im(nowstage,nowstage)*this%tend_buf3D_im(i,j,k,varID,tintbuf_ind)  
+            + coef_a_im_dt * tend_buf3D_im(i,j,k,varID,tintbuf_ind)  
     end do
     end do
     end do

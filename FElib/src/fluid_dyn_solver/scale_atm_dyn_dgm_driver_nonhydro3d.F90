@@ -55,6 +55,7 @@ module scale_atm_dyn_dgm_driver_nonhydro3d
     MOMZ_VID => PRGVAR_MOMZ_ID,                               &
     AUXVAR_NUM, &
     PRESHYD_VID => AUXVAR_PRESHYDRO_ID, DENSHYD_VID => AUXVAR_DENSHYDRO_ID,                 &
+    THERMHYD_VID => AUXVAR_THERMHYDRO_ID,                                                   &
     PRESHYD_REF_VID => AUXVAR_PRESHYDRO_REF_ID,                                             &
     CPTOT_VID => AUXVAR_CPtot_ID, CVTOT_VID => AUXVAR_CVtot_ID, RTOT_VID => AUXVAR_Rtot_ID, &
     PRES_VID => AUXVAR_PRES_ID,                                                             &
@@ -140,12 +141,12 @@ module scale_atm_dyn_dgm_driver_nonhydro3d
 
   abstract interface    
     subroutine atm_dyn_nonhydro3d_cal_tend_ex( &
-      DENS_dt, MOMX_dt, MOMY_dt, MOMZ_dt, RHOT_dt,      & ! (out)
-      DDENS_, MOMX_, MOMY_, MOMZ_, THERM_, DPRES_,       & ! (in) 
-      DENS_hyd, PRES_hyd, PRES_hyd_ref, CORIOLIS,        & ! (in)
-      Rtot, CVtot, CPtot,                                & ! (in)
-      DPhydDx, DPhydDy,                                  & ! (in)
-      element3D_operation, Dx, Dy, Dz, Sx, Sy, Sz, Lift, & ! (in)
+      DENS_dt, MOMX_dt, MOMY_dt, MOMZ_dt, RHOT_dt,           & ! (out)
+      DDENS_, MOMX_, MOMY_, MOMZ_, THERM_, DPRES_,           & ! (in) 
+      DENS_hyd, PRES_hyd, PRES_hyd_ref, THERM_hyd, CORIOLIS, & ! (in)
+      Rtot, CVtot, CPtot,                                    & ! (in)
+      DPhydDx, DPhydDy,                                      & ! (in)
+      element3D_operation, Dx, Dy, Dz, Sx, Sy, Sz, Lift,     & ! (in)
       lmesh, elem, lmesh2D, elem2D ) ! (in)
 
       import RP
@@ -177,6 +178,7 @@ module scale_atm_dyn_dgm_driver_nonhydro3d
       real(RP), intent(in)  :: DENS_hyd(elem%Np,lmesh%NeA)
       real(RP), intent(in)  :: PRES_hyd(elem%Np,lmesh%NeA)
       real(RP), intent(in)  :: PRES_hyd_ref(elem%Np,lmesh%NeA)
+      real(RP), intent(in)  :: THERM_hyd(elem%Np,lmesh%NeA)
       real(RP), intent(in)  :: CORIOLIS(elem2D%Np,lmesh2D%NeA)
       real(RP), intent(in)  :: Rtot(elem%Np,lmesh%NeA)
       real(RP), intent(in)  :: CVtot(elem%Np,lmesh%NeA)
@@ -283,6 +285,7 @@ module scale_atm_dyn_dgm_driver_nonhydro3d
     procedure :: Update => AtmDynDGMDriver_nonhydro3d_update
     procedure :: Is_THERMVAR_RHOT => AtmDynDGMDriver_nonhydro3d_Is_THERMVAR_RHOT    
     procedure :: calc_pressure => AtmDynDGMDriver_nonhydro3d_calc_pressure
+    procedure :: update_therm_hyd => AtmDynDGMDriver_nonhydro3d_update_thermhyd
     procedure :: Update_phyd_hgrad => AtmDynDGMDriver_nonhydro3d_update_phyd_hgrad
   end type AtmDynDGMDriver_nonhydro3d
 
@@ -585,9 +588,10 @@ contains
       atm_dyn_dgm_trcadvect3d_save_massflux
   
     use scale_model_var_manager, only: ModelVarManager
-
     use scale_atm_dyn_dgm_modalfilter, only: &
       atm_dyn_dgm_modalfilter_apply
+
+    use scale_timeint_rk, only: TimeInt_RK_var
     implicit none
 
     class(AtmDynDGMDriver_nonhydro3d), intent(inout) :: this
@@ -620,22 +624,27 @@ contains
     integer :: ke
 
     class(MeshField3D), pointer :: DDENS, MOMX, MOMY, MOMZ, THERM
-    class(MeshField3D), pointer :: PRES_hyd, PRES_hyd_ref, DENS_hyd, Rtot, CVtot, CPtot, PRES
+    class(MeshField3D), pointer :: PRES_hyd, PRES_hyd_ref, DENS_hyd, THERM_hyd, Rtot, CVtot, CPtot, PRES
     class(MeshField3D), pointer :: DENS_tp, MOMX_tp, MOMY_tp, MOMZ_tp, RHOT_tp, RHOH_p
     class(MeshField3D), pointer :: DPRES, DPhydDx, DPhydDy
 
+    type(TimeInt_RK_var) :: rkvar_list(5,mesh3D%LOCAL_MESH_NUM)
+    integer :: rkvar_IDs(5)
+
+    logical :: do_wait
     !-----------------------------------------------------------------------------
     
     !-
     call PROF_rapstart( 'ATM_DYN_update_pre', 2)
-    call PROG_VARS%Get3D(DENS_VID , DDENS)
-    call PROG_VARS%Get3D(THERM_VID, THERM)
-    call PROG_VARS%Get3D(MOMZ_VID , MOMZ )
-    call PROG_VARS%Get3D(MOMX_VID , MOMX )
-    call PROG_VARS%Get3D(MOMY_VID , MOMY )
+    call PROG_VARS%Get3D( DENS_VID , DDENS )
+    call PROG_VARS%Get3D( THERM_VID, THERM )
+    call PROG_VARS%Get3D( MOMZ_VID , MOMZ  )
+    call PROG_VARS%Get3D( MOMX_VID , MOMX  )
+    call PROG_VARS%Get3D( MOMY_VID , MOMY  )
 
     call AUX_VARS%Get3D( PRESHYD_VID, PRES_hyd )
     call AUX_VARS%Get3D( DENSHYD_VID, DENS_hyd )
+    call AUX_VARS%Get3D( THERMHYD_VID, THERM_hyd )
     call AUX_VARS%Get3D( PRESHYD_REF_VID, PRES_hyd_ref )
     call AUX_VARS%Get3D( PRES_VID, PRES )
     call AUX_VARS%Get3D( RTOT_VID, Rtot )
@@ -664,6 +673,17 @@ contains
         call this%tint(n)%StoreVar0(  MOMY%local(n)%val,  MOMY_VID, 1, lcmesh3D%refElem%Np, lcmesh3D%NeS, lcmesh3D%NeE )        
       end do
     end if
+
+    do n=1, mesh3D%LOCAL_MESH_NUM
+      rkvar_list(1,n)%var2D => DDENS%local(n)%val
+      rkvar_list(2,n)%var2D => THERM%local(n)%val
+      rkvar_list(3,n)%var2D => MOMZ%local(n)%val
+      rkvar_list(4,n)%var2D => MOMX%local(n)%val
+      rkvar_list(5,n)%var2D => MOMY%local(n)%val
+      rkvar_IDs(:) = (/ DENS_VID, THERM_VID, MOMZ_VID, MOMX_VID, MOMY_VID /)
+    end do
+
+    do_wait = (.not. this%hide_mpi_comm_flag)
     call PROF_rapend( 'ATM_DYN_update_pre', 2)
 
     do rkstage=1, this%tint(1)%nstage
@@ -708,31 +728,26 @@ contains
       end if
 
       !- Exchange halo data
-      if ( this%hide_mpi_comm_flag ) then
-        call PROF_rapstart( 'ATM_DYN_exchange_prgv', 2)
-        call PROG_VARS%MeshFieldComm_Exchange( do_wait=.false. )
-        call PROF_rapend( 'ATM_DYN_exchange_prgv', 2)
-      end if
-
+      call PROF_rapstart( 'ATM_DYN_exchange_prgv', 2)
+      call PROG_VARS%MeshFieldComm_Exchange( do_wait )
+      call PROF_rapend( 'ATM_DYN_exchange_prgv', 2)
+  
       !- Calculate pressure perturbation
 
       call PROF_rapstart( 'ATM_DYN_cal_pres', 2)
       call atm_dyn_dgm_nonhydro3d_common_calc_pressure( &
-        PRES, DPRES,                                    & ! (inout) 
-        DDENS, MOMX, MOMY, MOMZ, THERM,                 & ! (in)
-        PRES_hyd, DENS_hyd, Rtot, CVtot, CPtot, mesh3D, & ! (in)
-        this%ENTOT_CONSERVE_SCHEME_FLAG )                 ! (in)
+        PRES, DPRES,                                       & ! (inout) 
+        DDENS, MOMX, MOMY, MOMZ, THERM,                    & ! (in)
+        PRES_hyd, DENS_hyd, THERM_hyd, Rtot, CVtot, CPtot, & ! (in)
+        mesh3D, this%ENTOT_CONSERVE_SCHEME_FLAG )            ! (in)
       call PROF_rapend( 'ATM_DYN_cal_pres', 2)
 
       !- Exchange halo data
-      call PROF_rapstart( 'ATM_DYN_exchange_prgv', 2)
-      if ( this%hide_mpi_comm_flag ) then
-        call this%AUXDYNVAR3D_manager%MeshFieldComm_Exchange( do_wait=.false. )
-      else
-        call PROG_VARS%MeshFieldComm_Exchange()
-        call this%AUXDYNVAR3D_manager%MeshFieldComm_Exchange()
+      if ( ( .not. this%hide_mpi_comm_flag ) .or. this%ENTOT_CONSERVE_SCHEME_FLAG ) then
+        call PROF_rapstart( 'ATM_DYN_exchange_prgv', 2)
+        call this%AUXDYNVAR3D_manager%MeshFieldComm_Exchange( do_wait )
+        call PROF_rapend( 'ATM_DYN_exchange_prgv', 2)
       end if
-      call PROF_rapend( 'ATM_DYN_exchange_prgv', 2)
 
       if ( .not. this%hide_mpi_comm_flag ) then
         do n=1, mesh3D%LOCAL_MESH_NUM
@@ -767,10 +782,11 @@ contains
           DDENS%local(n)%val, MOMX%local(n)%val, MOMY%local(n)%val, MOMZ%local(n)%val,      & ! (in)
           THERM%local(n)%val, DPRES%local(n)%val,                                           & ! (in)
           DENS_hyd%local(n)%val, PRES_hyd%local(n)%val, PRES_hyd_ref%local(n)%val,          & ! (in)
+          THERM_hyd%local(n)%val,                                                           & ! (in)
           Coriolis%local(n)%val, Rtot%local(n)%val, CVtot%local(n)%val, CPtot%local(n)%val, & ! (in)
           DPhydDx%local(n)%val, DPhydDy%local(n)%val,                                       & ! (in)
           element_operation, Dx, Dy, Dz, Sx, Sy, Sz, Lift,                                  & ! (in)
-          lcmesh3D, lcmesh3D%refElem3D, lcmesh3D%lcmesh2D, lcmesh3D%lcmesh2D%refElem2D      ) 
+          lcmesh3D, lcmesh3D%refElem3D, lcmesh3D%lcmesh2D, lcmesh3D%lcmesh2D%refElem2D      ) ! (in)
         call PROF_rapend( 'ATM_DYN_update_caltend_ex', 2)
 
         !- Sponge layer
@@ -805,7 +821,8 @@ contains
 
         call PROF_rapstart( 'ATM_DYN_exchange_prgv_wait', 2)
         call PROG_VARS%MeshFieldComm_Get()
-        call this%AUXDYNVAR3D_manager%MeshFieldComm_Get()
+        if ( this%ENTOT_CONSERVE_SCHEME_FLAG ) &
+          call this%AUXDYNVAR3D_manager%MeshFieldComm_Get()
         call PROF_rapend( 'ATM_DYN_exchange_prgv_wait', 2)
 
         do n=1, mesh3D%LOCAL_MESH_NUM
@@ -826,15 +843,10 @@ contains
 
           call PROF_rapstart( 'ATM_DYN_ebnd_flux', 2)
           call atm_dyn_dgm_nonhydro3d_rhot_heve_add_bnd_contrib_generalvc( & 
-            ! this%tint(n)%tend_buf2D_ex(:,:,DENS_VID ,tintbuf_ind),                            & ! (inout)
-            ! this%tint(n)%tend_buf2D_ex(:,:,MOMX_VID ,tintbuf_ind),                            & ! (inout)
-            ! this%tint(n)%tend_buf2D_ex(:,:,MOMY_VID ,tintbuf_ind),                            & ! (inout)
-            ! this%tint(n)%tend_buf2D_ex(:,:,MOMZ_VID ,tintbuf_ind),                            & ! (inout)
-            ! this%tint(n)%tend_buf2D_ex(:,:,THERM_VID,tintbuf_ind),                            & ! (inout)
             this%tint(n)%tend_buf2D_ex(:,:,:,tintbuf_ind),                                    & ! (inout)          
             DDENS%local(n)%val, MOMX%local(n)%val, MOMY%local(n)%val, MOMZ%local(n)%val,      & ! (in)
             THERM%local(n)%val, DPRES%local(n)%val,                                           & ! (in)
-            DENS_hyd%local(n)%val, PRES_hyd%local(n)%val,                                     & ! (in)
+            DENS_hyd%local(n)%val, PRES_hyd%local(n)%val, THERM_hyd%local(n)%val,             & ! (in)
             Rtot%local(n)%val, CVtot%local(n)%val, CPtot%local(n)%val, &
             lcmesh3D%Gsqrt, lcmesh3D%GI3(:,:,1), lcmesh3D%GI3(:,:,2), lcmesh3D%normal_fn(:,:,1),lcmesh3D%normal_fn(:,:,2),lcmesh3D%normal_fn(:,:,3), &
             lcmesh3D%VMapM, lcmesh3D%VMapP, lcmesh3D, lcmesh3D%refElem3D, lcmesh3D%lcmesh2D, lcmesh3D%lcmesh2D%refElem2D, &
@@ -866,11 +878,7 @@ contains
         end if
         
         call PROF_rapstart( 'ATM_DYN_update_advance', 2)      
-        call this%tint(n)%Advance( rkstage, DDENS%local(n)%val,  DENS_VID, 1, lcmesh3D%refElem%Np, lcmesh3D%NeS, lcmesh3D%NeE )        
-        call this%tint(n)%Advance( rkstage, THERM%local(n)%val, THERM_VID, 1, lcmesh3D%refElem%Np, lcmesh3D%NeS, lcmesh3D%NeE )    
-        call this%tint(n)%Advance( rkstage,  MOMZ%local(n)%val,  MOMZ_VID, 1, lcmesh3D%refElem%Np, lcmesh3D%NeS, lcmesh3D%NeE )    
-        call this%tint(n)%Advance( rkstage,  MOMX%local(n)%val,  MOMX_VID, 1, lcmesh3D%refElem%Np, lcmesh3D%NeS, lcmesh3D%NeE )    
-        call this%tint(n)%Advance( rkstage,  MOMY%local(n)%val,  MOMY_VID, 1, lcmesh3D%refElem%Np, lcmesh3D%NeS, lcmesh3D%NeE )
+        call this%tint(n)%Advance_varlist( rkstage, rkvar_list(:,n), rkvar_IDs(:), 1, lcmesh3D%refElem%Np, lcmesh3D%NeS, lcmesh3D%NeE )        
         call PROF_rapend( 'ATM_DYN_update_advance', 2)
       end do
     
@@ -907,8 +915,9 @@ contains
     call atm_dyn_dgm_nonhydro3d_common_calc_pressure( &
       PRES, DPRES,                                    & ! (inout) 
       DDENS, MOMX, MOMY, MOMZ, THERM,                 & ! (in)
-      PRES_hyd, DENS_hyd, Rtot, CVtot, CPtot, mesh3D, & ! (in)
-      this%ENTOT_CONSERVE_SCHEME_FLAG )                 ! (in)
+      PRES_hyd, DENS_hyd, THERM_hyd,                  & ! (in)
+      Rtot, CVtot, CPtot,                             & ! (in)
+      mesh3D, this%ENTOT_CONSERVE_SCHEME_FLAG )         ! (in)
     call PROF_rapend( 'ATM_DYN_update_post', 2)      
 
     return
@@ -951,7 +960,7 @@ contains
 
     class(MeshBase3D), pointer :: mesh3D
     class(MeshField3D), pointer :: DDENS, MOMX, MOMY, MOMZ, THERM
-    class(MeshField3D), pointer :: PRES_hyd, DENS_hyd, Rtot, CVtot, CPtot
+    class(MeshField3D), pointer :: PRES_hyd, DENS_hyd, THERM_hyd, Rtot, CVtot, CPtot
     
     type(MeshField3D) :: DPRES
     !-----------------------------------------------------------------------------
@@ -964,6 +973,7 @@ contains
 
     call AUX_VARS%Get3D( PRESHYD_VID, PRES_hyd )
     call AUX_VARS%Get3D( DENSHYD_VID, DENS_hyd )
+    call AUX_VARS%Get3D( THERMHYD_VID, THERM_hyd )
     call AUX_VARS%Get3D( RTOT_VID, Rtot )
     call AUX_VARS%Get3D( CVTOT_VID, CVtot )
     call AUX_VARS%Get3D( CPTOT_VID, CPtot )
@@ -972,16 +982,43 @@ contains
     call DPRES%Init( "DPRES", "Pa", mesh3D )
 
     call atm_dyn_dgm_nonhydro3d_common_calc_pressure( &
-      PRES, DPRES,                                    & ! (inout) 
-      DDENS, MOMX, MOMY, MOMZ, THERM,                 & ! (in)
-      PRES_hyd, DENS_hyd, Rtot, CVtot, CPtot, mesh3D, & ! (in)
-      this%ENTOT_CONSERVE_SCHEME_FLAG )                 ! (in)
+      PRES, DPRES,                                       & ! (inout) 
+      DDENS, MOMX, MOMY, MOMZ, THERM,                    & ! (in)
+      PRES_hyd, DENS_hyd, THERM_hyd, Rtot, CVtot, CPtot, & ! (in)
+      mesh3D, this%ENTOT_CONSERVE_SCHEME_FLAG )            ! (in)
 
     call DPRES%Final()
 
     return
   end subroutine AtmDynDGMDriver_nonhydro3d_calc_pressure
     
+!OCL SERIAL
+  subroutine AtmDynDGMDriver_nonhydro3d_update_thermhyd( this, &
+    AUX_VARS                                                   )    
+    use scale_atm_dyn_dgm_nonhydro3d_common, only: &
+      atm_dyn_dgm_nonhydro3d_common_calc_therm_phyd
+    implicit none
+    class(AtmDynDGMDriver_nonhydro3d), intent(inout) :: this
+    class(ModelVarManager), intent(inout) :: AUX_VARS
+    
+    class(MeshField3D), pointer :: PRES_hyd, DENS_hyd, THERM_hyd
+    class(MeshBase3D), pointer :: mesh3D
+    !---------------------------
+
+    call AUX_VARS%Get3D( PRESHYD_VID, PRES_hyd )
+    call AUX_VARS%Get3D( DENSHYD_VID, DENS_hyd )
+    call AUX_VARS%Get3D( THERMHYD_VID, THERM_hyd )
+
+    mesh3D => DENS_hyd%mesh
+
+    call atm_dyn_dgm_nonhydro3d_common_calc_therm_phyd( &
+      THERM_hyd,                                      & ! (inout) 
+      PRES_hyd, DENS_hyd,                             & ! (in)
+      mesh3D, this%ENTOT_CONSERVE_SCHEME_FLAG )         ! (in)
+
+    return
+  end subroutine AtmDynDGMDriver_nonhydro3d_update_thermhyd
+
 !OCL SERIAL
   subroutine AtmDynDGMDriver_nonhydro3d_update_phyd_hgrad( this, &
     PRES_hyd, PRES_hyd_ref,                    & ! (in)
