@@ -486,11 +486,11 @@ contains
   contains
 !OCL SERIAL
     subroutine set_bounddata( var, IA, irs_, ire_, recv_buf )
+      implicit none
       integer, intent(in) :: IA
       real(RP), intent(inout) :: var(IA)
       integer, intent(in) :: irs_, ire_
       real(RP), intent(in) :: recv_buf(ire_-irs_+1)
-      implicit none
       !-----------------------------
       var(irs_:ire_) = recv_buf(:)
       return
