@@ -231,8 +231,8 @@ contains
 !OCL SERIAL
   subroutine atm_dyn_dgm_nonhydro3d_rhot_hevi_numflux_get_generalvc( &
     del_flux,                                                        & ! (out)
-    DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DPRES, DENS_hyd, PRES_hyd,  & ! (in)
-    Rtot, CVtot, CPtot,                                              & ! (in)
+    DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DPRES,                      & ! (in)
+    DENS_hyd, PRES_hyd, THERM_hyd, Rtot, CVtot, CPtot,               & ! (in)
     Gsqrt, G13, G23, nx, ny, nz,                                     & ! (in)
     vmapM, vmapP, lmesh, elem, lmesh2D, elem2D                       ) ! (in)
 
@@ -251,6 +251,7 @@ contains
     real(RP), intent(in) ::  DPRES(elem%Np*lmesh%NeA)
     real(RP), intent(in) ::  DENS_hyd(elem%Np*lmesh%NeA)
     real(RP), intent(in) ::  PRES_hyd(elem%Np*lmesh%NeA)
+    real(RP), intent(in) ::  THERM_hyd(elem%Np*lmesh%NeA)
     real(RP), intent(in) ::  Rtot (elem%Np*lmesh%NeA)
     real(RP), intent(in) ::  CVtot(elem%Np*lmesh%NeA)
     real(RP), intent(in) ::  CPtot(elem%Np*lmesh%NeA)
@@ -342,7 +343,8 @@ contains
       GsqrtDens(:,IN) = GsqrtDDENS(:,IN) + Gsqrt_(:,IN) * DENS_hyd(iM)
       GsqrtDens(:,EX) = GsqrtDDENS(:,EX) + Gsqrt_(:,EX) * DENS_hyd(iP)
 
-      GsqrtRhot(:,:) = Gsqrt_(:,:) * P0ovR * (Phyd_(:,:) * rP0)**rgamm + GsqrtDRHOT(:,:)
+      GsqrtRhot(:,IN) = Gsqrt_(:,IN) * THERM_hyd(iM) + GsqrtDRHOT(:,IN)
+      GsqrtRhot(:,EX) = Gsqrt_(:,EX) * THERM_hyd(iP) + GsqrtDRHOT(:,EX)
 
       Velh(:,IN) = ( GsqrtMOMX(:,IN) * nx(:,ke) + GsqrtMOMY(:,IN) * ny(:,ke) ) / GsqrtDens(:,IN)
       Velh(:,EX) = ( GsqrtMOMX(:,EX) * nx(:,ke) + GsqrtMOMY(:,EX) * ny(:,ke) ) / GsqrtDens(:,EX)
@@ -603,8 +605,8 @@ contains
 !OCL SERIAL
   subroutine atm_dyn_dgm_nonhydro3d_rhot_hevi_numflux_get_generalhvc( &
     del_flux,                                                         & ! (out)
-    DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DPRES, DENS_hyd, PRES_hyd,   & ! (in)
-    Rtot, CVtot, CPtot,                                               & ! (in)
+    DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DPRES,                       & ! (in)
+    DENS_hyd, PRES_hyd, THERM_hyd, Rtot, CVtot, CPtot,                & ! (in)
     Gsqrt, G11, G12, G22, GsqrtH, gam, G13, G23, nx, ny, nz,          & ! (in)
     vmapM, vmapP, iM2Dto3D, lmesh, elem, lmesh2D, elem2D              ) ! (in)
 
@@ -623,6 +625,7 @@ contains
     real(RP), intent(in) ::  DPRES(elem%Np*lmesh%NeA)
     real(RP), intent(in) ::  DENS_hyd(elem%Np*lmesh%NeA)
     real(RP), intent(in) ::  PRES_hyd(elem%Np*lmesh%NeA)
+    real(RP), intent(in) ::  THERM_hyd(elem%Np*lmesh%NeA)
     real(RP), intent(in) ::  Rtot (elem%Np*lmesh%NeA)
     real(RP), intent(in) ::  CVtot(elem%Np*lmesh%NeA)
     real(RP), intent(in) ::  CPtot(elem%Np*lmesh%NeA)
@@ -733,7 +736,8 @@ contains
       GsqrtDens(:,IN) = GsqrtDDENS(:,IN) + Gsqrt_(:,IN) * DENS_hyd(iM)
       GsqrtDens(:,EX) = GsqrtDDENS(:,EX) + Gsqrt_(:,EX) * DENS_hyd(iP)
 
-      GsqrtRhot(:,:) = Gsqrt_(:,:) * P0ovR * (Phyd_(:,:) * rP0)**rgamm + GsqrtDRHOT(:,:)
+      GsqrtRhot(:,IN) = Gsqrt_(:,IN) * THERM_hyd(iM) + GsqrtDRHOT(:,IN)
+      GsqrtRhot(:,EX) = Gsqrt_(:,EX) * THERM_hyd(iP) + GsqrtDRHOT(:,EX)
 
       Velh(:,IN) = ( GsqrtMOMX(:,IN) * nx(:,ke) + GsqrtMOMY(:,IN) * ny(:,ke) ) / GsqrtDens(:,IN)
       Velh(:,EX) = ( GsqrtMOMX(:,EX) * nx(:,ke) + GsqrtMOMY(:,EX) * ny(:,ke) ) / GsqrtDens(:,EX)

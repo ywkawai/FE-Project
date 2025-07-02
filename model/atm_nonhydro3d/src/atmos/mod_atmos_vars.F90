@@ -51,7 +51,7 @@ module mod_atmos_vars
   use scale_atm_dyn_dgm_nonhydro3d_common, only: &
     PRGVAR_NUM, AUXVAR_NUM, PHYTEND_NUM1 => PHYTEND_NUM,                                        &
     PRGVAR_DDENS_ID, PRGVAR_THERM_ID, PRGVAR_MOMZ_ID, PRGVAR_MOMX_ID, PRGVAR_MOMY_ID,           &
-    AUXVAR_DENSHYDRO_ID, AUXVAR_PRESHYDRO_ID, AUXVAR_PRESHYDRO_REF_ID,                          &
+    AUXVAR_DENSHYDRO_ID, AUXVAR_PRESHYDRO_ID, AUXVAR_THERMHYDRO_ID, AUXVAR_PRESHYDRO_REF_ID,    &
     AUXVAR_Rtot_ID, AUXVAR_CPtot_ID, AUXVAR_CVtot_ID,                                           &
     AUXVAR_PRES_ID, AUXVAR_PT_ID, AUXVAR_Qdry_ID,                                               &
     PHYTEND_DENS_ID, PHYTEND_MOMX_ID, PHYTEND_MOMY_ID, PHYTEND_MOMZ_ID, PHYTEND_RHOT_ID,        &
@@ -619,9 +619,15 @@ contains
     LOG_INFO("ATMOSVar_read_restart_file",*) 'Close restart file (ATMOS) '
     call this%restart_file%Close()
 
-    !-- Diagnostic pressure
+    !-- Prepare diagnostic variables
+
+    ! Calculate specific heat
     call vars_calc_specific_heat( this )
-    
+
+    ! Set a basic state of thermodynamics variable
+    call dyncore%update_therm_hyd( this%AUXVARS_manager )
+
+    ! Calculate pressure
     call dyncore%calc_pressure( this%AUX_VARS(AUXVAR_PRES_ID), &
       this%PROGVARS_manager, this%AUXVARS_manager              )
 
@@ -1288,7 +1294,7 @@ contains
     call vars_calc_specific_heat( this )
     
     ! Calculate diagnostic variables
-    do varid=AUXVAR_DENSHYDRO_ID+1, AUXVAR_PT_ID
+    do varid=AUXVAR_THERMHYDRO_ID+1, AUXVAR_PT_ID
       field => this%AUX_VARS(varid)
       do n=1, field%mesh%LOCAL_MESH_NUM
         call AtmosVars_GetLocalMeshQTRCVarList( n, &
