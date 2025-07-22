@@ -54,6 +54,7 @@ OBJS_NAME_ELEMENT = \
 	scale_element_quadrilateral.o \
 	scale_element_hexahedral.o    \
 	scale_element_modalfilter.o   \
+	scale_element_SIACfilter.o    \
 	scale_element_operation_base.o                \
 	scale_element_operation_general.o	          \
 	scale_element_operation_tensorprod3D_kernel.o \
