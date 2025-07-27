@@ -2,7 +2,7 @@
 !> module FElib / element/ SIAC filter
 !!
 !! @par Description
-!!      A module to provide a smoothness-Increasing Accuracy-Increasing (SIAC) filter
+!!      A module to provide a Smoothness-Increasing Accuracy-Increasing (SIAC) filter
 !!
 !! @par Reference
 !!  - Cockburn et al. 2003:
@@ -243,7 +243,7 @@ contains
       filtered_q(p,ke) = tmp * 0.25_RP
     end do
     end do
-    
+
     return
   end subroutine SIAC_filter_apply_core  
 

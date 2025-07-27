@@ -41,6 +41,7 @@ module scale_meshfieldcomm_cubedspheredom2d
     type(MeshField2D), pointer :: u2 => null()
   end type    
 
+  !> Base derived type to manage data communication with 2D cubed-sphere domain
   type, public, extends(MeshFieldCommBase) :: MeshFieldCommCubedSphereDom2D
     class(MeshCubedSphereDom2D), pointer :: mesh2d
     type(VecCovariantComp), allocatable :: vec_covariant_comp_ptrlist(:)

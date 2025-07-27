@@ -39,6 +39,7 @@ module scale_localmeshfield_base
   !++ Public type & procedure
   ! 
 
+  !> Derived type representing a field with local mesh (base type)
   type, public :: LocalMeshFieldBase
     real(RP), allocatable :: val(:,:)
     real(RP), allocatable :: face_val(:,:)  
@@ -48,6 +49,7 @@ module scale_localmeshfield_base
     class(LocalMeshFieldBase), pointer :: ptr
   end type LocalMeshFieldBaseList
 
+  !> Derived type representing a field with 1D local mesh
   type, extends(LocalMeshFieldBase), public :: LocalMeshField1D
     type(LocalMesh1D), pointer :: mesh => null()
   contains
@@ -55,6 +57,7 @@ module scale_localmeshfield_base
     procedure :: Final => LocalMeshField1D_Final
   end type LocalMeshField1D
 
+  !> Derived type representing a field with 2D local mesh
   type, extends(LocalMeshFieldBase), public :: LocalMeshField2D
     type(LocalMesh2D), pointer :: mesh => null()
   contains
@@ -62,6 +65,7 @@ module scale_localmeshfield_base
     procedure :: Final => LocalMeshField2D_Final
   end type LocalMeshField2D
 
+  !> Derived type representing a field with 3D local mesh
   type, extends(LocalMeshFieldBase), public :: LocalMeshField3D
     type(LocalMesh3D), pointer :: mesh => null()
   contains

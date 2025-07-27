@@ -41,6 +41,7 @@ module scale_meshfield_base
   !++ Public type & procedure
   ! 
 
+  !> Derived type representing a field (base type)
   type, abstract, public :: MeshFieldBase
     character(len=H_SHORT) :: varname
     character(len=H_SHORT) :: unit
@@ -62,6 +63,7 @@ module scale_meshfield_base
 
   !------
   
+  !> Derived type representing a field with 1D mesh
   type, extends(MeshFieldBase), public :: MeshField1D
     type(LocalMeshField1D), allocatable :: local(:)
     class(MeshBase1D), pointer :: mesh 
@@ -71,6 +73,11 @@ module scale_meshfield_base
     procedure :: GetLocalMeshField =>  MeshField1D_get_LocalMeshField
   end type MeshField1D
 
+  type, public :: MeshField1DList
+    class(MeshField1D), pointer :: ptr
+  end type MeshField1DList
+
+  !> Derived type representing a field with 2D mesh
   type, extends(MeshFieldBase), public :: MeshField2D
     type(LocalMeshField2D), allocatable :: local(:)
     class(MeshBase2D), pointer :: mesh   
@@ -80,6 +87,11 @@ module scale_meshfield_base
     procedure :: GetLocalMeshField =>  MeshField2D_get_LocalMeshField
   end type MeshField2D
 
+  type, public :: MeshField2DList
+    class(MeshField2D), pointer :: ptr
+  end type MeshField2DList
+
+  !> Derived type representing a field with 3D mesh
   type, extends(MeshFieldBase), public :: MeshField3D
     type(LocalMeshField3D), allocatable :: local(:)
     class(MeshBase3D), pointer :: mesh   
