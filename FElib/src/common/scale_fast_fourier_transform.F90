@@ -6,8 +6,10 @@
 !!
 !! @author Yuta Kawai, Team SCALE
 !!
-!! -
 !! @par Reference
+!!  - Cooleyand & Tukey, 1965:
+!!    An algorithm for the machine calculation of complex Fourier series
+!!    Mathematics of Computation, 19, 297-301
 !!  - Bluestein 1970:
 !!    A linear filtering approach to the computation of discrete Fourier transform
 !!    IEEE Transactions on Audio and Electroacoustics, 18(4), 451-455. 

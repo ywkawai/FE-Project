@@ -65,7 +65,7 @@ jobs:
 
     - name: unit test for common
       env: 
-        testdirs: linkedlist linalgebra time_manager sparsemat timeint_rk
+        testdirs: linkedlist linalgebra time_manager sparsemat timeint_rk fast_fourier_transform
       run: | 
         echo "Perform unit tests .."
 
