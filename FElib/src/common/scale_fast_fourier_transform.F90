@@ -49,7 +49,9 @@ module scale_fast_fourier_transform
   contains
     procedure :: Init => FastFourierTransform1D_Init
     procedure :: Final => FastFourierTransform1D_Final
-    procedure :: Forward => FastFourierTransform1D_forward
+    procedure :: Forward_cmplx => FastFourierTransform1D_forward_cmplx
+    procedure :: Forward_real => FastFourierTransform1D_forward_real
+    generic :: Forward => Forward_cmplx, Forward_real
     procedure :: Backward => FastFourierTransform1D_backward
   end type FastFourierTransform1D
 
@@ -130,40 +132,54 @@ contains
   end subroutine FastFourierTransform1D_Init
 
 !OCL SERIAL
-  subroutine FastFourierTransform1D_forward( this, q, s )
+  subroutine FastFourierTransform1D_forward_real( this, q, s )
     implicit none
-    class(FastFourierTransform1D), intent(inout) :: this
+    class(FastFourierTransform1D), intent(in) :: this
     real(RP), intent(in) :: q(this%N)
     complex(RP), intent(out) :: s(this%N)
 
     complex(RP) :: q_(this%N)
     integer :: i
+    !-----------------------------------
 
+    do i=1, this%N
+        q_(i) = cmplx(q(i), 0.0_RP, kind=RP)
+    end do
+    call this%Forward_cmplx( q_, s )
+    return
+  end subroutine FastFourierTransform1D_forward_real
+
+!OCL SERIAL
+  subroutine FastFourierTransform1D_forward_cmplx( this, q, s )
+    implicit none
+    class(FastFourierTransform1D), intent(in) :: this
+    complex(RP), intent(in) :: q(this%N)
+    complex(RP), intent(out) :: s(this%N)
+
+    integer :: i
     real(RP) :: scaling
     !-----------------------------------
 
-    scaling = 1.0_RP / real( this%N )
-    do i=1, this%N
-        q_(i) = cmplx(q(i), 0.0_RP, kind=RP) * scaling
-    end do
     if ( this%use_bluestein ) then
       call fft1d_bluestein( s, &
-        q_, this%W_forward, this%W_backward, this%W1_bluestein, this%W2_bluestein, &
+        q, this%W_forward, this%W_backward, this%W1_bluestein, this%W2_bluestein, &
         this%N, this%M )
     else
       call fft1d_norecursive_core( s, &
-        q_, this%W_forward, this%N )
+        q, this%W_forward, this%N )
       ! call fft1d_recursive_core( s, &
-      !   q_, this%W_forward, this%N, this%N )
-
+      !   q, this%W_forward, this%N, this%N )
     end if
+
+    scaling = 1.0_RP / real( this%N )
+    s(:) = scaling * s(:)
     return
-  end subroutine FastFourierTransform1D_forward
+  end subroutine FastFourierTransform1D_forward_cmplx
 
 !OCL SERIAL
   subroutine FastFourierTransform1D_backward( this, s, q )
     implicit none
-    class(FastFourierTransform1D), intent(inout) :: this
+    class(FastFourierTransform1D), intent(in) :: this
     complex(RP), intent(in) :: s(this%N)
     real(RP), intent(out) :: q(this%N)
 
