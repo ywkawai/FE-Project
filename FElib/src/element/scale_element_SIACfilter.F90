@@ -222,14 +222,14 @@ contains
     integer, intent(in) :: Nmesh
     integer, intent(in) :: NmeshHalo
     integer, intent(in) :: Npts_per_elem 
+    integer, intent(in) :: HalfW
+    integer, intent(in) :: NintGLpt
     real(RP), intent(out) :: filtered_q(Npts_per_elem,Ne)
     real(RP), intent(in) :: q(Np1D,Ne*Nmesh)
-    integer, intent(in) :: NintGLpt
     real(RP), intent(in) :: kernel_func(NintGLpt,2,-HalfW:HalfW,Npts_per_elem)
     real(RP), intent(in) :: xi(Npts_per_elem)
     real(RP), intent(in) :: IntrpMat(NintGLpt,Np1D,2,Npts_per_elem)
     real(RP), intent(in) :: int_w(NintGLpt)
-    integer, intent(in) :: HalfW
 
     integer :: p
     integer :: m
