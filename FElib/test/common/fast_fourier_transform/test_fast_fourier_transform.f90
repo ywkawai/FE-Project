@@ -1,4 +1,4 @@
-#include "scalelib.h"
+#include "scaleFElib.h"
 program test_fast_fourier_transform
   use scale_precision
   use scale_prc
@@ -66,9 +66,9 @@ contains
     !   LOG_INFO('test_FFT',*) i, real(s_q(i)), aimag(s_q(i)), ":", abs(s_q(i))
     ! end do
 
-    write(lbl,'(a,i)') 'FFT forward N=', N
+    write(lbl,'(a,i5)') 'FFT forward N=', N
     call check_ans_cmplx( s_q, trim(lbl), s_q_ans, N )
-    write(lbl,'(a,i)') 'FFT backward N=', N
+    write(lbl,'(a,i5)') 'FFT backward N=', N
     call check_ans( g_q, trim(lbl), g_q_ans, N )
 
     call fft%Final()
