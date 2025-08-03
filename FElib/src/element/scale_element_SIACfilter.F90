@@ -81,7 +81,9 @@ contains
   subroutine SIAC_filter_Init( this, &
     r, l, &
     x_pts_per_elem, elem1D )
-    use scale_polynominal, only: Polynominal_GenLagrangePoly
+    use scale_polynominal, only: &
+      Polynominal_GenLagrangePoly, &
+      Polynominal_GenLegendrePoly
     implicit none
     class(SIAC_filter), intent(inout) :: this
     integer, intent(in) :: r
@@ -90,18 +92,21 @@ contains
     class(LineElement), intent(in) :: elem1D
 
     integer :: i
+    integer :: p
     integer :: m
 
     real(RP), allocatable :: IntrpMat_dummy(:,:)
     real(RP) :: x0, x1, x2
     real(RP), allocatable :: int_x_tmp(:)
+
+    real(RP), allocatable :: P1D_ori(:,:)
     !--------------------------------------
 
     this%spline_r = r
     this%spline_num = r + 1
     this%spline_ord = l
     
-    this%KernelHalfW = ceiling(0.5_RP * real(2*r+l,kind=RP))
+    this%KernelHalfW = ceiling(0.5_RP * real(r+l,kind=RP))
 
     this%Npts_per_elem = size(x_pts_per_elem)
 
@@ -117,15 +122,26 @@ contains
 
     allocate( this%IntrpMat(this%NintGLPt,elem1D%Np,2,this%Npts_per_elem) )
     allocate( int_x_tmp(this%NintGLPt) )
+    allocate( P1D_ori(this%NintGLPt,elem1D%Np) )
     do i=1, this%Npts_per_elem
       x0 = - 1.0_RP; x2 = 1.0_RP
       x1 = x_pts_per_elem(i)
 
       int_x_tmp(:) = x0 + 0.5_RP * (x1 - x0) * ( 1.0_RP + this%int_x(:) )
-      this%IntrpMat(:,:,1,i) = Polynominal_GenLagrangePoly( elem1D%PolyOrder, elem1D%x1, int_x_tmp(:) )
+      P1D_ori(:,:) = Polynominal_GenLegendrePoly( elem1D%PolyOrder, int_x_tmp(:) )
+      do p=1, elem1D%Np
+        P1D_ori(:,p) = P1D_ori(:,p) * sqrt(real(p-1,kind=RP) + 0.5_RP)
+      end do
+      this%IntrpMat(:,:,1,i) = matmul( P1D_ori, elem1D%invV )
+      ! this%IntrpMat(:,:,1,i) = Polynominal_GenLagrangePoly( elem1D%PolyOrder, elem1D%x1, int_x_tmp(:) )
       
       int_x_tmp(:) = x1 + 0.5_RP * (x2 - x1) * ( 1.0_RP + this%int_x(:) )
-      this%IntrpMat(:,:,2,i) = Polynominal_GenLagrangePoly( elem1D%PolyOrder, elem1D%x1, int_x_tmp(:) )
+      P1D_ori(:,:) = Polynominal_GenLegendrePoly( elem1D%PolyOrder, int_x_tmp(:) )
+      do p=1, elem1D%Np
+        P1D_ori(:,p) = P1D_ori(:,p) * sqrt(real(p-1,kind=RP) + 0.5_RP)
+      end do
+      this%IntrpMat(:,:,2,i) = matmul( P1D_ori, elem1D%invV )
+      ! this%IntrpMat(:,:,2,i) = Polynominal_GenLagrangePoly( elem1D%PolyOrder, elem1D%x1, int_x_tmp(:) )
     end do
 
     !---
@@ -330,6 +346,7 @@ contains
   subroutine calculate_kernel_func_coef( coef, &
     r, l, int_xi, int_w, NintPts )
     use scale_linalgebra, only: linalgebra_SolveLinEq
+    use scale_polynominal, only: Polynominal_GenLegendrePoly
     implicit none
     integer, intent(in) :: r
     integer, intent(in) :: l !< l=k+1
@@ -341,10 +358,12 @@ contains
     real(RP) :: x_gam
 
     integer :: i, j
+    integer :: ii, jj
     integer :: m, mm
 
     real(RP) :: LinMat(0:r,0:r)
     real(RP) :: b(0:r)
+    real(RP) :: coef_(0:r)
 
     real(RP) :: x_knots(0:l)
     real(RP) :: x0, x1
@@ -355,14 +374,23 @@ contains
     real(RP) :: int_tmp
     real(RP) :: int_w2(NintPts)
     real(RP) :: int_coef
+
+    real(RP) :: P(NintPts,0:r)
+    real(RP) :: zero(1)
+    real(RP) :: P_x0(1,0:r)
+
+    real(RP) :: scale_s(0:r)
+    real(RP) :: scale_r(0:r)
     !---------------------------------------------
 
     do i=0, l
       x_knots(i) = - 0.5_RP * real(l, kind=RP) + real(i, kind=RP)
     end do
-    !$omp parallel do collapse(2) private(gam, x_gam, m, int_tmp, x0, x1, int_coef, x_intrp, int_w2, mm, psi)
-    do j=0, r
-      do i=0, r
+    !$omp parallel do collapse(2) private(i, ii, j, jj, &
+    !$omp gam, x_gam, m, int_tmp, x0, x1, int_coef, x_intrp, int_w2, mm, psi, P)
+    do jj=0, r
+      do ii=0, r
+        i = ii; j = jj
         gam = j
         x_gam = - 0.5_RP * real(r, kind=RP) + gam
 
@@ -377,14 +405,19 @@ contains
           do mm=1, NintPts
             psi(mm) = central_Bspline( x_intrp(mm), l )
           end do
+
+          ! int_tmp = int_tmp &
+          !   + sum( int_w2(:) * psi(:) * ( x_intrp(:) - x_gam )**i )          
+          P(:,0:i) = Polynominal_GenLegendrePoly( i, x_intrp(:) - x_gam )
           int_tmp = int_tmp &
-            + sum( int_w2(:) * psi(:) * ( x_intrp(:) - x_gam )**i )
+            + sum( int_w2(:) * psi(:) * P(:,i) )
+
         !   if (i==1) then
         !       LOG_INFO("SIAC_filter_calc_coef",*) m, x0, x1, "Psi: ", psi(:)
         !       LOG_INFO("SIAC_filter_calc_coef",*) m, x0, x1, "x+x_gam: ", x_intrp(:) + x_gam
         !   end if
         end do
-        LinMat(i,j) = int_tmp
+        LinMat(ii,jj) = int_tmp
       end do
     end do
 
@@ -392,10 +425,30 @@ contains
     !   LOG_INFO("SIAC_filter_calc_coef",*) "LinMat: ",  LinMat(i,:)
     ! end do
 
-    b(:) = 0.0_RP
-    b(0) = 1.0_RP
+    ! b(:) = 0.0_RP
+    ! b(0) = 1.0_RP
+    zero(:) = 0.0_RP
+    P_x0(:,:) = Polynominal_GenLegendrePoly( r, zero(:) )
+    b(:) = P_x0(1,:)
 
-    call linalgebra_SolveLinEq( LinMat, b, coef )
+    do j=0, r
+      scale_s(j) = sqrt(sum(LinMat(:,j)**2))
+      if ( scale_s(j) /= 0.0_RP ) then
+        LinMat(:,j) = LinMat(:,j) / scale_s(j)
+      end if
+    end do
+    do i=0, r
+      scale_r(i) = sqrt(sum(LinMat(i,:)**2))
+      if ( scale_r(i) /= 0.0_RP ) then
+        LinMat(i,:) = LinMat(i,:) / scale_r(i)
+        b(i) = b(i) / scale_r(i)
+      end if
+    end do
+    call linalgebra_SolveLinEq( LinMat, b, coef_ )
+    do j=0, r
+      coef(j) = coef_(j) / scale_s(j)
+    end do
+
     return
   end subroutine calculate_kernel_func_coef
 
