@@ -666,8 +666,8 @@ contains
 
 !OCL SERIAL
   subroutine nc_check( status )
-    integer, intent (in) :: status
     implicit none
+    integer, intent (in) :: status
     if(status /= nf90_noerr) then 
       LOG_INFO('NetCDF_check',*) trim(nf90_strerror(status))
       call flush(IO_FID_CONF)
