@@ -454,7 +454,6 @@ contains
     
     select case( this%eval_type_id )
     case( ST_EVALTYPE_SAMPLE_UNIFORM_PTS )
-      LOG_INFO("TRANSFORM2D",*) "tranform..."
       call spectral_transform2D_DFT( this%spectral_coef, &
         q_list, this%var_num, mesh_num_x, mesh_num_y,                                   & ! (in)
         this%ks, this%ke,  this%ls, this%le, lmesh%refElem2D%Nfp, lmesh%NeX, lmesh%NeY, & ! (in)
@@ -613,7 +612,7 @@ contains
         end do      
         call spectral_transform1D_L2projection_lc( s_coef_lc, &
           q_tmp, 0, km, Np, Ne, vec_size, IntIntrpMat, IntXi, IntWeight, NintGLPt, &
-          (lmesh%xmin - xmin_gl)/Lx, delx  )
+          (lmesh%xmin - xmin_gl)/Lx-0.5_RP, delx/Lx  )
       end do
     end do
 
@@ -721,8 +720,8 @@ contains
     real(RP) :: g_q(NsamplePerElem1D*NeX*mesh_num_x,NsamplePerElem1D*NeY*mesh_num_y*var_num)
     complex(RP) :: s_qx(NsamplePerElem1D*NeX*mesh_num_x,size(g_q,2))
     complex(RP) :: g_qy(NsamplePerElem1D*NeY*mesh_num_y*NprcY,var_num,NsamplePerElem1D*NeX*mesh_num_x/NprcY)
-    complex(RP) :: s_q_lc(NsamplePerElem1D*NeGY,NsamplePerElem1D*NeX*mesh_num_x/NprcY,var_num)
-    complex(RP) :: s_q(NsamplePerElem1D*NeGY,NsamplePerElem1D*NeX*mesh_num_x,var_num)
+    complex(RP) :: s_q_lc(NsamplePerElem1D*NeGY,var_num,NsamplePerElem1D*NeX*mesh_num_x/NprcY)
+    complex(RP) :: s_q(NsamplePerElem1D*NeGY,var_num,NsamplePerElem1D*NeX*mesh_num_x)
 
     integer :: v
     integer :: xdim
@@ -784,7 +783,7 @@ contains
     !$omp parallel do collapse(2)
     do v=1, var_num
     do xdim=1, nx/NprcY
-      call fft_y%Forward( g_qy(:,v,xdim), s_q_lc(:,xdim,v) )
+      call fft_y%Forward( g_qy(:,v,xdim), s_q_lc(:,v,xdim) )
     end do
     end do
 
@@ -798,22 +797,22 @@ contains
     do v=1, var_num
       do ll=1, Nall_y/2+1
         do kk=1, Nall_x/2+1
-          spectral_coef(kk-1,ll-1,1,v) = real (s_q(ll,kk,v))
-          spectral_coef(kk-1,ll-1,2,v) = aimag(s_q(ll,kk,v))
+          spectral_coef(kk-1,ll-1,1,v) = real (s_q(ll,v,kk))
+          spectral_coef(kk-1,ll-1,2,v) = aimag(s_q(ll,v,kk))
         end do
         do kk=Nall_x/2+1, Nall_x
-          spectral_coef(kk-1-Nall_x,ll-1,1,v) = real (s_q(ll,kk,v))
-          spectral_coef(kk-1-Nall_x,ll-1,2,v) = aimag(s_q(ll,kk,v))
+          spectral_coef(kk-1-Nall_x,ll-1,1,v) = real (s_q(ll,v,kk))
+          spectral_coef(kk-1-Nall_x,ll-1,2,v) = aimag(s_q(ll,v,kk))
         end do
       end do
       do ll=Nall_y/2+1, Nall_y
         do kk=1, Nall_x/2+1
-          spectral_coef(kk-1,ll-1-Nall_y,1,v) = real (s_q(ll,kk,v))
-          spectral_coef(kk-1,ll-1-Nall_y,2,v) = aimag(s_q(ll,kk,v))
+          spectral_coef(kk-1,ll-1-Nall_y,1,v) = real (s_q(ll,v,kk))
+          spectral_coef(kk-1,ll-1-Nall_y,2,v) = aimag(s_q(ll,v,kk))
         end do
         do kk=Nall_x/2+1, Nall_x
-          spectral_coef(kk-1-Nall_x,ll-1-Nall_y,1,v) = real (s_q(ll,kk,v))
-          spectral_coef(kk-1-Nall_x,ll-1-Nall_y,2,v) = aimag(s_q(ll,kk,v))
+          spectral_coef(kk-1-Nall_x,ll-1-Nall_y,1,v) = real (s_q(ll,v,kk))
+          spectral_coef(kk-1-Nall_x,ll-1-Nall_y,2,v) = aimag(s_q(ll,v,kk))
         end do
       end do
     end do
@@ -969,8 +968,8 @@ contains
         call spectral_transform2D_L2projection_lc( s_coef_lc, &
           q_tmp, 0, km, ls, le, Np1D, NeX, NeY, vec_size,     &
           IntIntrpMat1D_tr, IntXi1D, IntWeight1D, NintGLpt1D, &
-          (lmesh%xmin - xmin_gl)/Lx, delx,                    &
-          (lmesh%ymin - ymin_gl)/Ly, dely                     )
+          (lmesh%xmin - xmin_gl)/Lx-0.5_RP, delx/Lx,          &
+          (lmesh%ymin - ymin_gl)/Ly-0.5_RP, dely/Ly           )
       end do
     end do
 
@@ -1072,7 +1071,7 @@ contains
       do px=1, NintGLpt1D
         p = px + (py-1)*NintGLpt1D
         q_intrp_tmp2(p,v) = q_intrp_tmp2(p,v) &
-          + sum(IntIntrpMat1D_tr(:,px) * q_intrp_tmp(px,:,v))
+          + sum(IntIntrpMat1D_tr(:,py) * q_intrp_tmp(px,:,v))
       end do
       end do
       end do
