@@ -167,14 +167,10 @@ contains
     !--- 2D mesh
 
     call this%refElem2D%Init( this%refElem3D%PolyOrder_h, refElem%IsLumpedMatrix() )
-    
-    this%mesh2D%isPeriodicX = isPeriodicX
-    this%mesh2D%isPeriodicY = isPeriodicY
-    this%mesh2D%NprcX = NprcX
-    this%mesh2D%NprcY = NprcY
 
-    call MeshBase2D_Init( this%mesh2D, this%refElem2D, NLocalMeshPerPrc,           &
-                          nproc, myrank                                            )
+    call this%mesh2D%Init( this%NeGX, this%NeGY, dom_xmin, dom_xmax, dom_ymin, dom_ymax, &
+      isPeriodicX, isPeriodicY, this%refElem2D, NLocalMeshPerPrc, &
+      NprcX, NprcY, nproc, myrank )
 
     return
   end subroutine MeshCubeDom3D_Init

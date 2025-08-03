@@ -34,18 +34,19 @@ endif
 
 
 OBJS_NAME_COMMON = \
-	scale_polynominal.o            \
-	scale_polygon.o                \
-	scale_sparsemat.o              \
-	scale_linalgebra.o             \
-	scale_time_manager.o           \
-	scale_quicksort.o              \
-	scale_timeint_rk_butcher_tab.o \
-	scale_timeint_rk.o             \
-	scale_linkedlist.o             \
-	scale_gmres.o                  \
-	scale_geographic_coord_cnv.o   \
-	scale_cubedsphere_coord_cnv.o  \
+	scale_polynominal.o             \
+	scale_polygon.o                 \
+	scale_sparsemat.o               \
+	scale_linalgebra.o              \
+	scale_time_manager.o            \
+	scale_fast_fourier_transform.o  \
+	scale_quicksort.o               \
+	scale_timeint_rk_butcher_tab.o  \
+	scale_timeint_rk.o              \
+	scale_linkedlist.o              \
+	scale_gmres.o                   \
+	scale_geographic_coord_cnv.o    \
+	scale_cubedsphere_coord_cnv.o   \
 	scale_coriolis_param.o
 
 OBJS_NAME_ELEMENT = \
@@ -54,6 +55,7 @@ OBJS_NAME_ELEMENT = \
 	scale_element_quadrilateral.o \
 	scale_element_hexahedral.o    \
 	scale_element_modalfilter.o   \
+	scale_element_SIACfilter.o    \
 	scale_element_operation_base.o                \
 	scale_element_operation_general.o	          \
 	scale_element_operation_tensorprod3D_kernel.o \
@@ -95,7 +97,8 @@ OBJS_NAME_DATA = \
 	scale_meshfield_statistics.o             \
 	scale_meshfield_fvm_util.o               \
 	scale_meshfield_analysis_numerror_base.o \
-	scale_meshfield_analysis_numerror.o
+	scale_meshfield_analysis_numerror.o      \
+	scale_meshfield_spectral_transform.o 
 
 OBJS_NAME_FILE = \
 	scale_file_common_meshfield.o  \
