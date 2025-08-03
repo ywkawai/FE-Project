@@ -323,10 +323,10 @@ contains
   recursive subroutine fft1d_recursive_core( x_out, x_in, W, N, N0 )
     implicit none
     integer, intent(in) :: N
+    integer, intent(in) :: N0
     complex(RP), intent(out) :: x_out(N)
     complex(RP), intent(in) :: x_in(N)
     complex(RP), intent(in) :: W(N0/2) !< twiddle factor
-    integer, intent(in) :: N0
 
     complex(RP) :: even(N/2), odd(N/2)
     complex(RP) :: E(N/2), O(N/2)
