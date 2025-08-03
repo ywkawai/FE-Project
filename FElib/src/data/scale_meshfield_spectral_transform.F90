@@ -294,7 +294,7 @@ contains
     implicit none
     class(MeshField_SpetralTransform1D), intent(inout) :: this
     integer, intent(in) :: mesh_num
-    class(MeshField1DList), target :: q_list(this%var_num,mesh_num)
+    type(MeshField1DList), target :: q_list(this%var_num,mesh_num)
 
     class(MeshBase1D), pointer :: mesh1D
     class(LocalMesh1D), pointer :: lmesh
@@ -445,7 +445,7 @@ contains
     implicit none
     class(MeshField_SpetralTransform2D), intent(inout) :: this
     integer, intent(in) :: mesh_num_x, mesh_num_y
-    class(MeshField2DList), target :: q_list(this%var_num,mesh_num_x,mesh_num_y)
+    type(MeshField2DList), target :: q_list(this%var_num,mesh_num_x,mesh_num_y)
 
     class(MeshBase2D), pointer :: mesh2D
     class(LocalMesh2D), pointer :: lmesh
@@ -492,7 +492,7 @@ contains
     integer, intent(in) :: var_num
     integer, intent(in) :: mesh_num
     real(RP), intent(out) :: spectral_coef(ks:ke,2,var_num)
-    class(MeshField1DList), target :: q_list(var_num,mesh_num)
+    type(MeshField1DList), target :: q_list(var_num,mesh_num)
     class(FastFourierTransform1D), intent(in) :: fft
     real(RP), intent(in) :: FFTIntrpMat(NsamplePerElem,Np)
     real(RP), intent(in) :: FFT_xi(NsamplePerElem)
@@ -906,7 +906,7 @@ contains
     integer, intent(in) :: NeX, Ney
     integer, intent(in) :: var_num
     integer, intent(in) :: mesh_num
-    class(MeshField2DList), target :: q_list(var_num,mesh_num)
+    type(MeshField2DList), target :: q_list(var_num,mesh_num)
     real(RP), intent(out) :: spectral_coef(ks:ke,ls:le,2,var_num)
     integer, intent(in) :: NintGLpt1D
     real(RP), intent(in) :: IntIntrpMat1D(NintGLpt1D,Np1D)

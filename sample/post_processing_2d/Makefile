@@ -12,7 +12,7 @@ BINNAME = test_post_processing_2d
 OBJS    = 
 
 RUNCONF         = test.conf
-TPROC           = 1
+TPROC           = 4
 OMP_NUM_THREADS = 1
 
 #------------------------------------------------------
