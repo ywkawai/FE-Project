@@ -124,6 +124,8 @@ jobs:
         make -C advect3d_hevi
         make -C euler3d_hevi
         make -C eigen_analysis
+        make -C post_processing_1d      
+        make -C post_processing_2d
 
     - name: Build model
       run: |
@@ -141,6 +143,10 @@ jobs:
         echo "Build 3D nonhydrostatic atmospheric model"
         make -j 2 -C atm_nonhydro3d/src
       
-        echo "Build 3D nonhydrostatic atmospheric model / utils"
-        make -j 2 -C atm_nonhydro3d/util/regrid_tool           
-      
+        echo "Build 3D nonhydrostatic atmospheric model / util / regrid_tool"
+        make -j 2 -C atm_nonhydro3d/util/regrid_tool
+
+        echo "Build 3D nonhydrostatic atmospheric model / util / spectra_analysis"
+        make -j 2 -C atm_nonhydro3d/util/spectral_analysis        
+
+
