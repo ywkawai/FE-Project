@@ -59,6 +59,7 @@ module scale_meshfield_spectral_transform
     integer :: NintGLpt
   end type MeshField_SpetralTransformBase
 
+  !> A derived type for spectral transform of MeshField1D
   type, public, extends(MeshField_SpetralTransformBase) :: MeshField_SpetralTransform1D
     integer :: kall
     integer :: ks, ke
@@ -76,6 +77,7 @@ module scale_meshfield_spectral_transform
     procedure :: Transform => MeshField_SpetralTransform1D_transform
   end type MeshField_SpetralTransform1D
 
+  !> A derived type for spectral transform of MeshField2D
   type, public, extends(MeshField_SpetralTransformBase) :: MeshField_SpetralTransform2D
     integer :: kall
     integer :: ks, ke
@@ -576,7 +578,6 @@ contains
     class(MeshBase1D), pointer :: mesh1D
     class(LocalMesh1D), pointer :: lmesh
     integer :: ldom
-    real(RP) :: Lx
     integer :: meshID
 
     integer :: kel, v

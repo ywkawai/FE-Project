@@ -1,7 +1,7 @@
 !> module common / Polynominal
 !!
 !! @par Description
-!!      A module to provide utilities for polynominal
+!!      A module to provide utilities for polynomials
 !!
 !! @par Reference
 !!
@@ -58,8 +58,11 @@ module scale_polynominal
   !-----------------------------------------------------------------------------
 
 contains
-  !> A function to obtain the values of Lagrange basis functions which are evaluated over aribitary points
+  !> A function to obtain the Lagrange basis functions related to the Gauss-Legendre-Lobatto (GLL) points 
   !!
+  !! @param Nord Order of Lagrange polynomial
+  !! @param x_lgl Positions of GLL points
+  !! @param x Positions where the Lagrange basis functions are evaluated 
 !OCL SERIAL
   function Polynominal_GenLagrangePoly(Nord, x_lgl, x) result(l)
     implicit none
@@ -115,8 +118,10 @@ contains
     return
   end function Polynominal_GenLagrangePoly
 
-  !> A function to obtain the differential values of Lagrange basis functions which are evaluated over aribitary points
+  !> A function to obtain the differential values of Lagrange basis functions at the GLL points
   !!
+  !! @param Nord Order of Lagrange polynomial
+  !! @param x_lgl Positions of GLL points
 !OCL SERIAL
   function Polynominal_GenDLagrangePoly_lglpt(Nord, x_lgl) result(lr)
     implicit none
@@ -155,8 +160,11 @@ contains
     return
   end function Polynominal_GenDLagrangePoly_lglpt
 
-  !> A function to obtain the values of Legendre polynominals which are evaluated at aribitary points. 
+  !> A function to obtain the values of Legendre polynomials which are evaluated at arbitrary points. 
   !!
+  !! @param Nord Order of Lagrange polynomial
+  !! @param x Positions where the Legendre polynomials are evaluated
+  !! @param P Values of the Legendre polynomials at x
 !OCL SERIAL
   subroutine Polynominal_GenLegendrePoly_sub(Nord, x, P)
     implicit none
@@ -183,8 +191,11 @@ contains
     return    
   end subroutine Polynominal_GenLegendrePoly_sub
 
-  !> A function to obtain the values of Legendre polynominals which are evaluated at aribitary points. 
+  !> A function to obtain the values of Legendre polynomials which are evaluated at arbitrary points.   
   !!
+  !! @param Nord Order of Lagrange polynomial
+  !! @param x Positions where the Legendre polynomials are evaluated
+  !! @param P Values of the Legendre polynomials at x
 !OCL SERIAL
   function Polynominal_GenLegendrePoly(Nord, x) result(P)
     implicit none
@@ -199,8 +210,11 @@ contains
     return    
   end function Polynominal_GenLegendrePoly
 
-  !> A function to obtain differential values of Legendre polynominals which are evaluated at aribitary points. 
+  !> A function to obtain differential values of Legendre polynomials which are evaluated at arbitrary points. 
   !! 
+  !! @param Nord Order of Lagrange polynomial
+  !! @param x Positions where the Legendre polynomials are evaluated
+  !! @param P Values of the Legendre polynomials at x
 !OCL SERIAL
   function Polynominal_GenDLegendrePoly(Nord, x, P) result(GradP)
     implicit none
@@ -228,8 +242,10 @@ contains
     return    
   end function Polynominal_GenDLegendrePoly
 
-  !> A function to calcuate the Legendre-Gauss-Lobtatto (LGL) points.
+  !> A function to calculate the Legendre-Gauss-Lobatto (LGL) points.
   !!
+  !! @param Nord Order of Lagrange polynomial
+  !! @param pts Position of the LGL points
 !OCL SERIAL
   function Polynominal_GenGaussLobattoPt(Nord) result(pts)
     implicit none
@@ -247,8 +263,10 @@ contains
     return   
   end function Polynominal_GenGaussLobattoPt
 
-  !> A function to calcuate the Gauss-Lobbato weights. 
+  !> A function to calculate the Gauss-Lobbato weights. 
   !!  
+  !! @param Nord Order of Lagrange polynomial
+  !! @param int_weight_lgl Gauss-Lobbato weights
 !OCL SERIAL
   function Polynominal_GenGaussLobattoPtIntWeight(Nord) result(int_weight_lgl)
     implicit none
@@ -268,8 +286,10 @@ contains
     return
   end function Polynominal_GenGaussLobattoPtIntWeight
 
-  !> A function to calcuate the Gauss-Legendre points.
+  !> A function to calculate the Gauss-Legendre (GL) points.
   !!
+  !! @param Nord Order of the Legendre polynomial
+  !! @param pts Position of the GL points
 !OCL SERIAL
   function Polynominal_GenGaussLegendrePt(Nord) result(pts)
     implicit none
@@ -282,8 +302,10 @@ contains
     return   
   end function Polynominal_GenGaussLegendrePt
 
-  !> A function to calcuate the Gauss-Legendre weights. 
-  !!  
+  !> A function to calculate the Gauss-Legendre (GL) weights. 
+  !! 
+  !! @param Nord Order of the Legendre polynomial
+  !! @param int_weight_gl Gauss-Legendre weights
 !OCL SERIAL
   function Polynominal_GenGaussLegendrePtIntWeight(Nord) result(int_weight_gl)
     implicit none
@@ -307,7 +329,7 @@ contains
 
   !- private -------------------------------
 
-  !> Calculate the N'th-order Gauss quadrature points and weights associated the Jacobi polynomial of type (alpja,beta).
+  !> Calculate the N'th-order Gauss quadrature points and weights associated the Jacobi polynomial of type (alpha,beta).
 !OCL SERIAL
   subroutine gen_JacobiGaussQuadraturePts( alpha, beta, N, &
       x )
