@@ -2,7 +2,7 @@
 !> module common / sparsemat
 !!
 !! @par Description
-!!          module to treat sparse matrix and the associated operations
+!!          A module to provide a fast Fourier transformation
 !!
 !! @author Yuta Kawai, Team SCALE
 !!

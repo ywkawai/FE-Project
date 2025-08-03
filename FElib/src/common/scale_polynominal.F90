@@ -73,6 +73,9 @@ contains
     real(RP) :: P_lgl(Nord+1,Nord+1)    
     real(RP) :: P(size(x),Nord+1)
     real(RP) :: Pr(size(x),Nord+1)
+
+    ! real(RP) :: w(Nord+1)
+    ! real(RP) :: int_w(Nord+1)
     !---------------------------------------------------------------------------
 
     P_lgl(:,:)  = Polynominal_GenLegendrePoly(Nord, x_lgl)
@@ -90,6 +93,24 @@ contains
         end if
       end do
     end do
+
+    !- Calculate interpolation coefficient based on barycentric form
+    ! Eq. (3.46) in Wang, Huybrechs & Vandewalle (2012): Explicit barycentric weights for polynomial interpolation in the roots or extrema of classical orthogonal polynomials 
+    ! int_w(:) = Polynominal_GenGaussLobattoPtIntWeight( Nord )
+    ! do n=1, Nord+1
+    !   w(n) = (-1)**mod(n-1,2) * sqrt(int_w(n))
+    ! end do
+    ! do n=1, Nord+1
+    !   do i=1, size(x)
+    !     if ( abs(x(i)-x_lgl(n)) < 1E-16_RP ) then
+    !       l(i,n) = 1.0_RP
+    !     else
+    !       l(i,n) = &
+    !           ( w(n) / ( x(i) - x_lgl(n) ) ) &
+    !         / sum( w(:) / ( x(i) - x_lgl(:) ) )
+    !     end if
+    !   end do      
+    ! end do
 
     return
   end function Polynominal_GenLagrangePoly
