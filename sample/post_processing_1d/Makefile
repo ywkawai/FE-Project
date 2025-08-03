@@ -9,7 +9,7 @@ TOPDIR      = $(abspath ../..)
 SAMPLE_DIR  = ../
 
 BINNAME = test_post_processing_1d
-OBJS    = 
+OBJS    = mod_advect1d_numerror.o
 
 RUNCONF         = test.conf
 TPROC           = 1
@@ -23,3 +23,5 @@ vis:
 
 clean_analysis:
 	rm -f analysis
+
+$(BUILD_DIR)/test_advect1d.o : $(BUILD_DIR)/mod_advect1d_numerror.o

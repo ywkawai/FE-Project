@@ -43,7 +43,7 @@ program test_post_processing_1d
 
   use scale_timeint_rk, only: timeint_rk  
 
-!  use mod_advect1d_numerror, only: advect1d_numerror_eval
+  use mod_advect1d_numerror, only: advect1d_numerror_eval
 
   use scale_element_SIACfilter, only: SIAC_filter
   use scale_meshfield_spectral_transform, only: &
@@ -108,10 +108,149 @@ program test_post_processing_1d
   call set_profile()
   call apply_SIAC_filter(1, 0.0_RP)
   call apply_spectral_transform(1, 0.0_RP)
+
+  do
+    !* Report current time
+    call TIME_manager_checkstate
+
+    !* Advance time
+    call TIME_manager_advance()
+    call FILE_HISTORY_set_nowdate( TIME_NOWDATE, TIME_NOWSUBSEC, TIME_NOWSTEP )
+
+    do rkstage=1, tinteg_lc(1)%nstage
+
+      !* Exchange halo data
+
+      call PROF_rapstart( 'exchange_halo', 1)
+      call fields_comm%Put(field_list, 1)
+      call fields_comm%Exchange()
+      call fields_comm%Get(field_list, 1)
+      call PROF_rapend( 'exchange_halo', 1)
+
+      !* Update prognostic variables
+
+      do domid=1, mesh%LOCAL_MESH_NUM
+
+        lcmesh => mesh%lcmesh_list(domid)
+        tintbuf_ind = tinteg_lc(domid)%tend_buf_indmap(rkstage)      
+        
+        call PROF_rapstart( 'cal_tend', 1)
+        call cal_tend( &
+          tinteg_lc(domid)%tend_buf2D_ex(:,:,RKVAR_Q,tintbuf_ind), & ! (out)
+          q%local(domid)%val, u%local(domid)%val,                  & ! (in)
+          lcmesh, lcmesh%refElem1D )                                 ! (in)
+        call PROF_rapend( 'cal_tend', 1) 
+
+        call PROF_rapstart( 'update_var', 1)
+        call tinteg_lc(domid)%Advance( rkstage, q%local(domid)%val, & ! (out) 
+          RKVAR_Q, 1, lcmesh%refElem%Np, lcmesh%NeS, lcmesh%NeE     ) ! (in)
+        call PROF_rapend('update_var', 1)
+      end do
+    end do
+
+    tsec_ = TIME_DTSEC * real(TIME_NOWSTEP-1, kind=RP)
+    if ( Do_NumErrorAnalysis ) then
+      call advect1d_numerror_eval( qexact, & ! (out)
+        q, TIME_NOWSTEP, tsec_, ADV_VEL, InitShapeName, InitShapeParams, & ! (in)
+        mesh, mesh%refElem1D                                             ) ! (in)
+    end if
+
+    !* Output history file
+
+    call FILE_HISTORY_meshfield_put(HST_ID(1), q)
+    call FILE_HISTORY_meshfield_put(HST_ID(2), qexact)
+    call FILE_HISTORY_meshfield_write()
+
+    if (TIME_DOend) exit
+  end do
+  LOG_INFO("tsec=",*) tsec_
+
+  call apply_SIAC_filter(2, 1.0_RP)
+  call apply_spectral_transform(2, 1.0_RP)
+
   !-
   call final()
 
 contains
+
+  !> Calculate the tendency
+  !! dqdt = - Dx ( uq ) + L ( <u q>_numflx - uq )
+  !!
+  subroutine cal_tend( dqdt, & ! (out)
+    q_, u_, lmesh, elem      ) ! (in)
+
+    use scale_sparsemat, only: sparsemat_matmul
+    implicit none
+
+    class(LocalMesh1D), intent(in) :: lmesh
+    class(ElementBase1D), intent(in) :: elem
+    real(RP), intent(out) :: dqdt(elem%Np,lmesh%NeA)
+    real(RP), intent(in)  :: q_(elem%Np,lmesh%NeA)
+    real(RP), intent(in)  :: u_(elem%Np,lmesh%NeA)
+
+    real(RP) :: Fx(elem%Np), LiftBndFlux(elem%Np)
+    real(RP) :: ebnd_flux(elem%NfpTot,lmesh%Ne)
+
+    integer :: ke
+    !------------------------------------------------------------------------
+
+    call PROF_rapstart( 'cal_tend_bndflux', 2)
+    call cal_elembnd_flux( ebnd_flux,        & ! (out)
+      q_, u_, lmesh%normal_fn(:,:,1),        & ! (in)
+      lmesh%vmapM, lmesh%vmapP, lmesh, elem  ) ! (in)
+    call PROF_rapend( 'cal_tend_bndflux', 2)
+
+    call PROF_rapstart( 'cal_tend_interior', 2)
+    do ke=lmesh%NeS, lmesh%NeE
+      call sparsemat_matmul( Dx, q_(:,ke) * u_(:,ke), Fx )
+      call sparsemat_matmul( Lift, lmesh%Fscale(:,ke) * ebnd_flux(:,ke), LiftBndFlux )
+
+      dqdt(:,ke) = - (  lmesh%Escale(:,ke,1,1) * Fx(:) &
+                      + LiftBndFlux )
+    end do
+    call PROF_rapend( 'cal_tend_interior', 2)
+
+    return
+  end subroutine cal_tend
+
+  !> Calculate the contribution at element boundaries: 
+  !! 0.5 * [ ( [qu]^+ [qu]^- ) - ( [qu]^+ [qu]^- ) ] - [qu]^-
+  subroutine cal_elembnd_flux( ebnd_flux,   & ! (out)
+      q_, u_, nx, vmapM, vmapP, lmesh, elem ) ! (in)
+    implicit none
+
+    class(LocalMesh1D), intent(in) :: lmesh
+    class(ElementBase1D), intent(in) :: elem  
+    real(RP), intent(out) ::  ebnd_flux(elem%NfpTot,lmesh%Ne) !< Flux at element boundaries
+    real(RP), intent(in) ::  q_(elem%Np*lmesh%NeA)
+    real(RP), intent(in) ::  u_(elem%Np*lmesh%NeA)  
+    real(RP), intent(in) :: nx(elem%NfpTot,lmesh%Ne)          !< Normal vector at element boundaries
+    integer, intent(in) :: vmapM(elem%NfpTot,lmesh%Ne)        !< Mapping array to convert the node id for boundary data (outside own element) into that of all nodes
+    integer, intent(in) :: vmapP(elem%NfpTot,lmesh%Ne)        !< Mapping array to convert the node id for boundary data (inside) own element) into that of all nodes
+     
+    integer :: ke
+    integer :: iP(elem%NfpTot), iM(elem%NfpTot)
+    real(RP) :: uP(elem%NfpTot), uM(elem%NfpTot)
+    real(RP) :: qP(elem%NfpTot), qM(elem%NfpTot)
+    real(RP) :: alpha(elem%NfpTot)
+    !------------------------------------------------------------------------
+
+    do ke=lmesh%NeS, lmesh%NeE
+      iM(:) = vmapM(:,ke); iP(:) = vmapP(:,ke)
+      uM(:) = u_(iM(:)); uP(:) = u_(iP(:))
+      qM(:) = q_(iM(:)); qP(:) = q_(iP(:))
+
+      alpha = 0.5_RP * abs( uP(:) + uM(:) )
+      ebnd_flux(:,ke) = 0.5_RP * ( &  
+          ( qP(:) * uP(:) - qM(:) * uM(:) ) * nx(:,ke) &
+           - alpha(:) * ( qP(:) - qM(:) )              )  
+    end do
+
+    return
+  end subroutine cal_elembnd_flux
+
+  !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
 !OCL SERIAL
   subroutine apply_SIAC_filter(istep, output_dt)
     use mod_fieldutil, only: fieldutil_get_profile1d_tracer
@@ -124,15 +263,18 @@ contains
     real(RP), allocatable :: q_out_exact(:,:)
     real(RP), allocatable :: filtered_q(:,:)
 
-    integer, parameter :: NmeshHalo = 1
+    integer :: NmeshHalo
     integer :: ke
     integer :: ldomID
+    integer :: i
 
     integer :: meshID
     !---------------------------------------
 
     ldomID = 1
     lcmesh => mesh%lcmesh_list(ldomID)
+
+    NmeshHalo = ceiling( (3 * refElem%PolyOrder + 1) / real(lcmesh%Ne, kind=RP) )
 
     allocate( q_ori(refElem%Np,lcmesh%Ne,1+2*NmeshHalo) )
     allocate( q_out_exact(filter%Npts_per_elem,lcmesh%Ne) )
@@ -147,11 +289,13 @@ contains
       q_ori(:,ke,meshID) = q%local(ldomID)%val(:,ke)
       q_out_ori(:,ke) = matmul( IntrpMatSampling, q_ori(:,ke,meshID) )
     end do
-    do ke=1, lcmesh%Ne
-      q_ori(:,ke,meshID-1) = q_ori(:,ke,meshID)
-      q_ori(:,ke,meshID+1) = q_ori(:,ke,meshID)
+    do i=1, NmeshHalo
+      do ke=1, lcmesh%Ne
+        q_ori(:,ke,meshID-i) = q_ori(:,ke,meshID)
+        q_ori(:,ke,meshID+i) = q_ori(:,ke,meshID)
+      end do
     end do
-    
+
     call filter%Apply1D( filtered_q, &
       q_ori, refElem%Np, lcmesh%Ne, size(q_ori,3), NmeshHalo )
     
@@ -169,7 +313,7 @@ contains
     real(RP), intent(in) :: q_exact(NsamplePtTot)
     !------------------------------------------
 
-    call nc_check( nf90_put_var( ncido, time_id, (/ istep * output_dt /), &
+    call nc_check( nf90_put_var( ncido, time_id, (/ (istep-1) * output_dt /), &
       start=[istep], count=[1]) )      
 
     call nc_check( nf90_put_var( ncido, q_ori_id, q_ori, &
@@ -248,11 +392,11 @@ contains
       end do
     end do
 
-    ! if ( Do_NumErrorAnalysis ) then
-    !   call advect1d_numerror_eval( qexact, & ! (out)
-    !     q, 1, 0.0_RP, ADV_VEL, InitShapeName, InitShapeParams, & ! (in)
-    !     mesh, mesh%refElem1D                                   ) ! (in)
-    ! end if
+    if ( Do_NumErrorAnalysis ) then
+      call advect1d_numerror_eval( qexact, & ! (out)
+        q, 1, 0.0_RP, ADV_VEL, InitShapeName, InitShapeParams, & ! (in)
+        mesh, mesh%refElem1D                                   ) ! (in)
+    end if
 
     call FILE_HISTORY_meshfield_put( HST_ID(1), q )
     call FILE_HISTORY_meshfield_put( HST_ID(2), qexact )
@@ -270,8 +414,8 @@ contains
       TIME_manager_report_timeintervals
     use scale_file_history_meshfield, only: FILE_HISTORY_meshfield_setup  
     use scale_file_history, only: FILE_HISTORY_reg  
-!    use mod_advect1d_numerror, only: advect1d_numerror_Init     
-    use scale_polynominal, only: Polynominal_GenLagrangePoly
+    use mod_advect1d_numerror, only: advect1d_numerror_Init     
+    use scale_polynominal, only: Polynominal_GenLagrangePoly, Polynominal_GenLegendrePoly
     implicit none
     real(RP), parameter :: dom_xmin =   0.0_RP
     real(RP), parameter :: dom_xmax = + 1.0_RP
@@ -311,6 +455,8 @@ contains
 
     integer :: p, ke
     real(RP) :: delx
+
+    real(RP), allocatable :: P_1D_ori(:,:)
     !----------------------------------------------
 
     !-- setup MPI
@@ -398,8 +544,8 @@ contains
     end do
 
     !-- setup a module for evaluating numerical errors 
-    ! if ( Do_NumErrorAnalysis ) &
-    !   call advect1d_numerror_Init( refElem )
+    if ( Do_NumErrorAnalysis ) &
+      call advect1d_numerror_Init( refElem )
 
     !-- report information of time intervals
     call TIME_manager_report_timeintervals
@@ -416,7 +562,13 @@ contains
     end do
 
     allocate( IntrpMatSampling(NsamplePtPerElem,refElem%Np) )
-    IntrpMatSampling(:,:) = Polynominal_GenLagrangePoly( refElem%PolyOrder, refElem%x1, sampling_x_per_elem(:) )
+    ! IntrpMatSampling(:,:) = Polynominal_GenLagrangePoly( refElem%PolyOrder, refElem%x1, sampling_x_per_elem(:) )
+    allocate( P_1D_ori(NsamplePtPerElem,refElem%Np) )
+    P_1D_ori(:,:) = Polynominal_GenLegendrePoly( refElem%PolyOrder, sampling_x_per_elem(:) )
+    do p=1, refElem%Np
+      P_1D_ori(:,p) = P_1D_ori(:,p) * sqrt(real(p-1,kind=RP) + 0.5_RP)
+    end do
+    IntrpMatSampling(:,:) = matmul( P_1D_ori(:,:), refElem%invV )
 
     delx = ( dom_xmax - dom_xmin ) / real(lmesh%Ne, kind=RP)
     do ke=1, lmesh%Ne
@@ -471,14 +623,14 @@ contains
     use scale_file_history_meshfield, only: &
       FILE_HISTORY_meshfield_finalize
     use scale_time_manager, only: TIME_manager_Final 
-!    use mod_advect1d_numerror, only: advect1d_numerror_Final   
+    use mod_advect1d_numerror, only: advect1d_numerror_Final   
     implicit none
     integer :: idom
     !------------------------------------------------------------------------
 
     call PROF_rapstart( "final", 1 )
-    ! if ( Do_NumErrorAnalysis ) &
-    !   call advect1d_numerror_Final()
+    if ( Do_NumErrorAnalysis ) &
+      call advect1d_numerror_Final()
 
     call FILE_HISTORY_meshfield_finalize()
 
