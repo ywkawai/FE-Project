@@ -12,6 +12,7 @@ include $(SYSDEP_DIR)/Makedef.$(SCALE_FE_SYS)
 include $(TOPDIR)/Mkinclude
 
 LIBNAME=libScaleFECore$(POSTFIX).a
+LIBNAME_PYBIND=ScaleFECore$(POSTFIX)$(PYBIND11_SUFFIX)
 
 VPATH = \
 	common:           \
@@ -47,7 +48,7 @@ OBJS_NAME_COMMON = \
 	scale_gmres.o                   \
 	scale_geographic_coord_cnv.o    \
 	scale_cubedsphere_coord_cnv.o   \
-	scale_coriolis_param.o
+	scale_coriolis_param.o          
 
 OBJS_NAME_ELEMENT = \
 	scale_element_base.o          \
@@ -160,6 +161,12 @@ OBJS_NAME_MODEL_FRAMEWORK = \
 	scale_model_component_proc.o   \
 	scale_model_var_manager.o
 
+OBJS_NAME_SCALEFELIB_CBINDING = \
+	scale_cbinding_util.o       \
+	scale_element_line_cbind.o
+OBJS_NAME_SCALEFELIB_PYBINDING = \
+	scale_element_line_cbind.py.o
+
 OBJS_NAME = \
 	$(OBJS_NAME_COMMON)           \
 	$(OBJS_NAME_ELEMENT)          \
@@ -172,8 +179,14 @@ OBJS_NAME = \
 	$(OBJS_NAME_MICROPHYS)        \
 	$(OBJS_NAME_MODEL_FRAMEWORK)
 
+ifeq ($(SCALE_FE_CBIND),T)
+  OBJS_NAME += $(OBJS_NAME_SCALEFELIB_CBINDING) 
+  OBJS_PYBIND_NAME += $(OBJS_NAME_SCALEFELIB_PYBINDING)
+endif
+
 #------------------------------------------
 OBJS=$(patsubst %, $(BUILD_DIR)/%, $(OBJS_NAME))
+OBJS_PYBIND=$(patsubst %, $(BUILD_DIR)/%, $(OBJS_PYBIND_NAME))
 
 OBJS_NAME_SCALELIB = \
 	scale_precision.o        \
@@ -291,11 +304,13 @@ build:
 	@echo;echo "Entering scaleFElib..."; echo "Current version is " $(LIBVERSION)
 	mkdir -p ${BUILD_DIR}
 	$(MAKE) $(LIBNAME)
+	$(MAKE) $(LIBNAME_PYBIND)
 	@echo "Complete making scaleFElib."
 
 install:
 	$(MAKE) modules
 	$(MAKE) $(LIBDIR)/$(LIBNAME)
+	$(MAKE) $(LIBDIR)/$(LIBNAME_PYBIND)
 
 
 info:
@@ -319,6 +334,7 @@ $(LIBDIR)/libscale_sub$(POSTFIX).a: $(SCALE)/lib/$(SCALE_LIBNAME)
 	mkdir -p $(MODDIR)/scalelib
 	install $(MODS_SCALELIB) $(MODDIR)/scalelib
 
+#-
 $(LIBDIR)/$(LIBNAME): $(LIBNAME)
 	@echo "Install $(LIBNAME).."
 	mkdir -p $(LIBDIR)
@@ -328,6 +344,19 @@ $(LIBNAME): $(OBJS)
 	@echo "build $(LIBNAME).."
 	$(AR) $(ARFLAGS) $@ $?
 	$(RANLIB) $@
+
+#-
+ifeq ($(SCALE_FE_CBIND),T)
+$(LIBDIR)/$(LIBNAME_PYBIND): $(LIBNAME_PYBIND)
+	@echo "Install $(LIBNAME_PYBIND).."
+	mkdir -p $(LIBDIR)
+	install $< $@
+else
+$(LIBDIR)/$(LIBNAME_PYBIND):
+endif
+$(LIBNAME_PYBIND): $(OBJS_PYBIND)
+	@echo "build $(LIBNAME_PYBIND).."
+	$(FC) -shared -fPIC -o $@ $? $(PYBIND11_INCLUDES) $(PYBIND11_LIBS) -undefined dynamic_lookup $(CBINDING_LIBS) $(LIBDIR)/$(LIBNAME) $(CONTRIB_LIBS)  $(SCALE_NETCDF_LIBS) $(SCALE_MATHLIB_LIBS) $(SCALE_PAPI_LIBS)
 
 modules: $(OBJS)
 	@echo "Install modules.."
@@ -363,6 +392,11 @@ fluid_dyn_solver/scale_atm_dyn_dgm_hevi_common_linalgebra.F90: scale_atm_dyn_dgm
 
 $(BUILD_DIR)/%.o : %.F90
 	$(FC) $(FFLAGS) $(SCALE_INCLUDE) $(INCLUDE) -I$(SCALEFELIBDIR)/include -I$(BUILD_DIR) $(MODDIROPT) $(BUILD_DIR) -o $@ -c $<
+
+$(BUILD_DIR)/%.py.o : %.py.cpp
+	$(CXX) $(CXXLAGS) -std=c++17 -fPIC \
+	$(PYBIND11_INCLUDES) -I$(BUILD_DIR) \
+	-o $@ -c $<
 
 .PHONY : clean distclean allclean depend modules dependency
 

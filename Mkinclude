@@ -11,13 +11,16 @@ ATMNONHYDRO3DDIR = $(TOPDIR)/model/atm_nonhydro3d
 ifeq ($(SCALE_DEBUG),T)
    FFLAGS = $(FFLAGS_DEBUG) $(FFLAGS_SYSDEPEND) -DDEBUG
    CFLAGS = $(CFLAGS_DEBUG) $(CFLAGS_SYSDEPEND)
+   CXXFLAGS = $(CXXFLAGS_DEBUG) $(CXXFLAGS_SYSDEPEND)
    POSTFIX = _debug
 else
    FFLAGS = $(FFLAGS_FAST)  $(FFLAGS_SYSDEPEND)
    CFLAGS = $(CFLAGS_FAST)  $(CFLAGS_SYSDEPEND)
+   CXXFLAGS = $(CXXFLAGS_FAST)  $(CXXFLAGS_SYSDEPEND)
    ifeq ($(SCALE_USE_AGGRESSIVEOPT),T)
       FFLAGS += $(FFLAGS_AGGRESSIVE)
       CFLAGS += $(CFLAGS_AGGRESSIVE)
+      CXXFLAGS += $(CXXFLAGS_AGGRESSIVE)
    endif
    ifeq ($(SCALE_QUICKDEBUG),T)
       FFLAGS += $(FFLAGS_QUICKDEBUG) -DQUICKDEBUG
@@ -98,6 +101,15 @@ endif
 # library location are inquired in order of: environment variable->Makedef.XXX
 ifeq ($(SCALE_ENABLE_PAPI),T)
    FFLAGS += -DPAPI
+endif
+
+# C binding setting
+# library location are inquired in order of: environment variable->Makedef.XXX
+ifeq ($(SCALE_FE_CBIND),T)
+   CBINDING_LIBS += $(CXXLIBS)
+   PYBIND11_INCLUDES := $(shell python3 -m pybind11 --includes)
+   PYBIND11_SUFFIX := $(shell python3-config --extension-suffix)
+   PYBIND11_LIBS := $(shell python3-config --ldflags)
 endif
 
 # TEST CASE

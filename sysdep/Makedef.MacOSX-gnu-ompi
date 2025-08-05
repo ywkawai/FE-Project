@@ -40,6 +40,15 @@ CC  = mpicc
 CFLAGS_FAST  = -O3 -m64
 CFLAGS_DEBUG = -O0 -m64 -g
 
+##### C++ setting
+#CXXFLAGS is set in Mkinclude. CFXXLAGS_DEBUG is used if SCALE_DEBUG=T
+
+CXX  = mpicxx
+
+CXXFLAGS_FAST  = -O3 -m64
+CXXFLAGS_DEBUG = -O0 -m64 -g
+
+CXXLIBS = -lc++
 
 
 ##### Special setting

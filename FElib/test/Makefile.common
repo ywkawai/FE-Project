@@ -49,10 +49,18 @@ ifeq ($(origin TPROC_POST), undefined)
    TPROC_POST = $(TPROC)
 endif
 
+ifneq ($(origin BINNAME), undefined)
 all:
 	$(MAKE) envlog
 	$(MAKE) makedir
 	$(MAKE) makebin
+endif
+ifneq ($(origin BINNAME_CBIND), undefined)
+all:
+	$(MAKE) envlog
+	$(MAKE) makedir
+	$(MAKE) makebin_cbind
+endif
 
 makedir:
 	mkdir -p $(BUILD_DIR)
@@ -60,11 +68,16 @@ makedir:
 makebin: $(BINNAME)
 	@echo "Complete making."
 
+makebin_cbind: $(BINNAME_CBIND)
+	@echo "Complete making."
 
 $(BINNAME): $(BUILD_DIR)/$(BINNAME).o $(patsubst %,$(BUILD_DIR)/%,$(OBJS)) $(LIBS)
 	$(LD) $(LDFLAGS) $(ADDITIONAL_FFLAGS) -o $@ $^ $(LIBS) $(CONTRIB_LIBS)  $(SCALE_NETCDF_LIBS) $(SCALE_MATHLIB_LIBS) $(SCALE_PAPI_LIBS)
+$(BINNAME_CBIND): $(BUILD_DIR)/$(BINNAME_CBIND).o $(patsubst %,$(BUILD_DIR)/%,$(OBJS)) $(LIBS)
+	$(LD) $(LDFLAGS) $(ADDITIONAL_FFLAGS) -o $@ $^ $(LIBS) $(CONTRIB_LIBS)  $(SCALE_NETCDF_LIBS) $(SCALE_MATHLIB_LIBS) $(SCALE_PAPI_LIBS) $(CBINDING_LIBS)
 
 $(BUILD_DIR)/$(BINNAME).o: $(BINNAME).f90 $(patsubst %,$(BUILD_DIR)/%,$(OBJS))
+$(BUILD_DIR)/$(BINNAME_CBIND).o: $(BINNAME_CBIND).cpp $(patsubst %,$(BUILD_DIR)/%,$(OBJS))
 
 distclean: clean
 	rm -f $(BINNAME)
@@ -74,13 +87,16 @@ clean:
 	rm -f *.nc
 
 .SUFFIXES:
-.SUFFIXES: .o .f90 .mod
+.SUFFIXES: .o .f90 .mod .cpp
 
 %.mod: %.f90
 	$(MAKE) $(patsubst %.f90,%.o,$<)
 
 $(BUILD_DIR)/%.o: %.f90
 	$(FC) $(FFLAGS) $(ADDITIONAL_FFLAGS) -DVERSION_MACRO=\"$(VERSION)\" -I$(BUILD_DIR) -I$(MODDIR) $(CONTRIB_INCLUDE) -I$(SCALEFELIBDIR)/include  $(SCALE_NETCDF_INCLUDE) $(MODDIROPT) $(BUILD_DIR) -o $@ -c $<
+
+$(BUILD_DIR)/%.o: %.cpp
+	$(CXX) $(CPPFLAGS) $(ADDITIONAL_CXXFLAGS) -DVERSION_MACRO=\"$(VERSION)\" -I$(BUILD_DIR) -I$(MODDIR) $(CONTRIB_INCLUDE) -I$(SCALEFELIBDIR)/include  $(SCALE_NETCDF_INCLUDE) $(BUILD_DIR) -o $@ -c $<
 
 run: jobshell
 	@if [ $(JOBSUB) = "pjsub" ]; then \
