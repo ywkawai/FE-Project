@@ -14,9 +14,13 @@ CODE_DIR    = .
 ORG_SRCS    = mod_user.F90
 
 # parameters for run
-#INITCONF    = init.conf
+INITCONF    = init.conf
 RUNCONF     = run.conf
-TPROC       = 1
+TPROC       = 6
+OMP_NUM_THREADS = 1
+# parameters for post-processing
+POSTCONF    = regrid.conf
+TPROC_POST  = 4
 
 # required data (parameters,distributed files)
 DATPARAM    =

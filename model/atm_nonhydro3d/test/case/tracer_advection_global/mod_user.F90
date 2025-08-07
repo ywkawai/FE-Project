@@ -4,11 +4,15 @@
 !! @par Description
 !!          User defined module for a test case of tracer advection in global domain
 !!
-!! @author Team SCALE
+!! @author Yuta Kawai, Team SCALE
 !!
+!! @par Reference
+!!  - Ullrich et al. 2012:
+!!    Dynamical Core Model Intercomparison Project (DCMIP) Test Case Document
+!!    DCMIP Summer School, 83.
 !<
 !-------------------------------------------------------------------------------
-#include "scalelib.h"
+#include "scaleFElib.h"
 module mod_user
 
   !-----------------------------------------------------------------------------
@@ -159,7 +163,6 @@ contains
     !------------------------------------------
 
     time = atm%time_manager%dtsec * real( TIME_NOWSTEP - 1, kind=RP )
-    !if (PRC_myrank==0) write(*,*) "time=", time
     
     do n=1, atm%mesh%ptr_mesh%LOCAL_MESH_NUM
       call AtmosVars_GetLocalMeshPrgVars( n, atm%mesh%ptr_mesh,  &
