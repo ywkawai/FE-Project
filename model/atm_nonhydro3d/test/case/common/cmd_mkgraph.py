@@ -69,6 +69,7 @@ parser.add_argument('--int', help='Set interval',type=float, default=None )
 parser.add_argument('--figsize', help='Figure size', nargs=2, type=int, default=None )
 parser.add_argument('--cmap', help='Set colormap', default="jet" )
 parser.add_argument('--prc_num_xy', help='Set PRC_NUM_X, PRC_NUM_Y', nargs=2, type=int, default=[1,1] )
+parser.add_argument('--merge_coords', help='Set name of horizontal coordinates which are merged', nargs=2, default=["y","x"] )
 parser.add_argument('--title', help='Figure title', default=None )
 parser.add_argument('--exch', help='Exchange horizontal and vertical axes', action='store_true' )
 parser.add_argument('--interp', help='Interpolate data into the specified coordinates (If --interp is not added, we use data at the nearest position)', action='store_true' )
@@ -83,12 +84,14 @@ output_fpath = args.outputFilePath
 prc_num_x = args.prc_num_xy[0]
 prc_num_y = args.prc_num_xy[1]
 
+merge_coords = args.merge_coords
+
 #-- 
 print("File name:", filename)
 print("Variable name:", variable)
 print("Parameters:", params)
 fpath = get_fpathlist( filename, prc_num_x, prc_num_y )
-da = merge_xy(fpath)[variable]
+da = merge_xy(fpath, merge_coords)[variable]
 
 #--
 for key, v in params.items():
