@@ -26,7 +26,12 @@ TPROC_POST  = 4
 DATPARAM    =
 DATDISTS    =
 
-
+# user-defined targets
+USER_target = make_outdir
 
 # build, makedir, run, jobshell, allclean, clean is inside of common Makefile
 include $(TESTDIR)/Makefile.common
+
+# Make dirs
+make_outdir:
+	mkdir -p outdata
