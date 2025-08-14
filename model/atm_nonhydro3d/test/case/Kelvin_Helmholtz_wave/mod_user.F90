@@ -4,7 +4,7 @@
 !! @par Description
 !!          User defined module for a Kelvin-Helmholtz wave experiment
 !!
-!! @author Team SCALE
+!! @author Yuta Kawai, Team SCALE
 !!
 !<
 !-------------------------------------------------------------------------------
@@ -181,7 +181,7 @@ contains
 
 
     real(RP) :: fact(elem%Np)
-    real(RP) :: rndm(elem%Np)   
+    real(RP) :: rndm(elem%Np,lcmesh%Ne)   
     real(RP) :: PT_tmp(elem%Np,lcmesh%NeZ,lcmesh%NeX,lcmesh%NeY)
     real(RP) :: DENS(elem%Np)
 
@@ -241,7 +241,9 @@ contains
     end do
     end do
 
-    !$omp parallel do private(fact, rndm, DENS)
+    call RANDOM_uniform( rndm )
+
+    !$omp parallel do private(fact, DENS)
     do ke=lcmesh%NeS, lcmesh%NeE
       fact(:) = ( lcmesh%zlev(:,ke) - ENV_L1_ZTOP ) / ( ENV_L3_ZBOTTOM - ENV_L1_ZTOP )
       fact(:) = max( min(fact(:), 1.0_RP ),  0.0_RP )
@@ -249,11 +251,10 @@ contains
       ! 
       DENS(:) = DENS_hyd(:,ke) + DDENS(:,ke)
 
-      call RANDOM_uniform( rndm )
       MOMX(:,ke) = DENS(:) * ( &
-               ENV_L1_U * ( 1.0_RP - fact(:) )       &
-             + ENV_L3_U * (          fact(:) )       &
-             + ( rndm(:) * 2.0_RP - 1.0_RP ) * RANDOM_U  )
+               ENV_L1_U * ( 1.0_RP - fact(:) )              &
+             + ENV_L3_U * (          fact(:) )              &
+             + ( rndm(:,ke) * 2.0_RP - 1.0_RP ) * RANDOM_U  )
     end do
 
     return

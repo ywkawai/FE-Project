@@ -565,7 +565,7 @@ contains
 
     real(RP) :: sfc_rhot(elem%Nfp_v)
     real(RP) :: bnd_SFC_PRES(elem%Nnode_h1D**2,lcmesh%Ne2DA)
-    real(RP) :: rndm(elem%Np)
+    real(RP) :: rndm(elem%Np,lcmesh%Ne)
 
     integer :: ke, ke2D, ke_x, Ke_y, ke_z
     integer :: ierr
@@ -637,18 +637,19 @@ contains
         DDENS(:,ke) = DENS(:) - DENS_hyd(:,ke)
       end do
     case ( "RANDOM" )
-      !$omp parallel do private( ke, ke2D, rndm, EXNER, sfc_rhot ) collapse(3)
+      call RANDOM_uniform( rndm )
+
+      !$omp parallel do private( ke, ke2D, EXNER, sfc_rhot ) collapse(3)
       do ke_z=1, lcmesh%NeZ
       do ke_y=1, lcmesh%NeY
       do ke_x=1, lcmesh%NeX
-        call RANDOM_uniform( rndm )
         ke2D = ke_x + (ke_y-1)*lcmesh%NeX
         ke = ke2D + (ke_z-1)*lcmesh%NeX*lcmesh%NeY
 
         EXNER(:) = ( PRES_hyd(:,ke) / PRES00 )**RovCp 
         PT_hyd(:,ke) = PRES00 / ( DENS_hyd(:,ke) * Rdry ) * EXNER(:)**(CVdry/Rdry)
         PT_zxy(:,ke_z,ke_x,ke_y) = PT_hyd(:,ke) &
-            + ( rndm(:) * 2.0_RP - 1.0_RP ) * DTHETA
+            + ( rndm(:,ke) * 2.0_RP - 1.0_RP ) * DTHETA
 
         if ( ke_z==1 ) then
           sfc_rhot(:) = DENS_hyd(elem%Hslice(:,1),ke2D) * PT_zxy(elem%Hslice(:,1),ke_z,ke_x,ke_y)        

@@ -202,7 +202,7 @@ contains
       
       do p=1, elem%Np
         RGsqrt(p) = 1.0_RP / lmesh%Gsqrt(p,ke)
-        RGsqrtV(p) = lmesh%GsqrtH(elem%IndexH2Dto3D(p),ke2d) / RGsqrt(p)
+        RGsqrtV(p) = lmesh%GsqrtH(elem%IndexH2Dto3D(p),ke2d) * RGsqrt(p)
       end do
 
       do p=1, elem%Np

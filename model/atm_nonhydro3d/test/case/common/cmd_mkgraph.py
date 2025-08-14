@@ -5,6 +5,7 @@ import re
 import xarray as xr
 import numpy as np
 import matplotlib.pyplot as plt
+import numbers
 
 def parse_gturl(gturl):
     pattern = r'^(.*)\.(pe[0-9\*]+)\.nc@([^,]+)(?:,(.*))?$'
@@ -21,7 +22,11 @@ def parse_gturl(gturl):
             param_pairs = [p.split('=') for p in params_str.split(',') if '=' in p]
             for k, v in param_pairs:
                 try:
-                    params[k] = float(v)
+                    if ":" in v:
+                        v_list = v.split(":")
+                        params[k] = [float(v_list[0]), float(v_list[1])]
+                    else:
+                        params[k] = float(v)
                 except ValueError:
                     params[k] = v
         return filename, variable, params
@@ -41,7 +46,7 @@ def merge_xy(fpath, dim=["y","x"]):
     return xr.open_mfdataset(fpath, decode_times=False,combine="nested", concat_dim=dim)
 
 def get_index(var, axis_name, val):
-    ax = var.coords[axis_name]
+    ax = var.coords[axis_name].values
     return np.abs(ax-val).argmin()
 
 def interp_data(var, axis_name, val):
@@ -69,6 +74,7 @@ parser.add_argument('--int', help='Set interval',type=float, default=None )
 parser.add_argument('--figsize', help='Figure size', nargs=2, type=int, default=None )
 parser.add_argument('--cmap', help='Set colormap', default="jet" )
 parser.add_argument('--prc_num_xy', help='Set PRC_NUM_X, PRC_NUM_Y', nargs=2, type=int, default=[1,1] )
+parser.add_argument('--merge_coords', help='Set name of horizontal coordinates which are merged', nargs=2, default=["y","x"] )
 parser.add_argument('--title', help='Figure title', default=None )
 parser.add_argument('--exch', help='Exchange horizontal and vertical axes', action='store_true' )
 parser.add_argument('--interp', help='Interpolate data into the specified coordinates (If --interp is not added, we use data at the nearest position)', action='store_true' )
@@ -83,27 +89,42 @@ output_fpath = args.outputFilePath
 prc_num_x = args.prc_num_xy[0]
 prc_num_y = args.prc_num_xy[1]
 
+merge_coords = args.merge_coords
+
 #-- 
 print("File name:", filename)
 print("Variable name:", variable)
 print("Parameters:", params)
 fpath = get_fpathlist( filename, prc_num_x, prc_num_y )
-da = merge_xy(fpath)[variable]
+da = merge_xy(fpath, merge_coords)[variable]
 
 #--
 for key, v in params.items():
-#    print(f"Sel: {key}={v}")
+    # print(f"Sel: {key}={v}")
     if args.interp:
         da = interp_data(da, key, v)
-    else:
+    elif isinstance(v,numbers.Number):
         ind = get_index(da, key, v)
         da = da.isel({key: ind})
+    elif isinstance(v,(list, tuple)):
+        if len(v)==2 and all(isinstance(vv, numbers.Number) for vv in v):
+            ind1 = get_index(da, key, v[0])
+            ind2 = get_index(da, key, v[1])
+            print("key", key)
+            print("v", v)
+            print(ind1,ind2)
+            da = da.isel({key: slice(ind1,ind2)})
+    else:
+        print(f"Sel: {key}={v}")
+        print("Error!")
+        exit(1)
 
 #--
 vmin = args.range[0]
 vmax = args.range[1]
 if (vmin == vmax):
     vmin = None; vmax = None
+# print(f"vmin={vmin}, vmax={vmax}, int={args.int}")
 
 #--
 if (args.xlim[0]==args.xlim[1]):

@@ -2,7 +2,7 @@
 !> module FElib / element/ ModalFilter
 !!
 !! @par Description
-!!      Modal filter
+!!      A module for modal filtering
 !!
 !! @author Yuta Kawai, Team SCALE
 !<
@@ -37,6 +37,8 @@ module scale_element_modalfilter
   !
   !++ Public type
   !
+
+  !> Derived type representing a modal filter
   type, public :: ModalFilter
     real(RP), allocatable :: FilterMat(:,:)
   contains

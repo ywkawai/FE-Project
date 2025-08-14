@@ -1,3 +1,9 @@
+# /*!
+#  * @file mkgraph_plot.py
+#  * @brief Convenience utilities for generating figures
+#  * @author
+#  *   Yuta Kawai, Team SCALE
+#  */
 import numpy as np
 import xarray as xr
 import matplotlib
@@ -29,26 +35,6 @@ def set_fig_YZ_axis(ax):
   ax.yaxis.set_major_formatter(tick.FuncFormatter(hori_1Daxis_fmt))
   ax.yaxis.set_major_locator(tick.MultipleLocator(1e3))
   ax.yaxis.set_minor_locator(tick.MultipleLocator(250.0))
-
-def plot_var_xy(var, vmin, vmax, zisel, nc):
-  x = var.coords["x"]
-  y = var.coords["y"]
-
-  zlev = z.values
-
-  X, Y = np.meshgrid(x, y)
-  fig = plt.figure(figsize=(60,9)) 
-  ax = fig.add_subplot(1,1,1)
-  set_fig_XY_axis(ax)
-  ax.set_title(f"baroclinic wave (z={int(zlev)}m)")
-
-  pcm = ax.pcolormesh(X, Y, v, vmin=vmin, vmax=vmax, cmap='seismic')
-  fmt = tick.ScalarFormatter(useMathText=True)
-  fmt.set_powerlimits((0,0))
-  cbar = plt.colorbar(pcm, aspect=40.0, extend='both', orientation='horizontal', shrink=0.5, format=fmt)
-  cbar.ax.xaxis.get_offset_text().set_fontsize(6)
-
-  plt.savefig(f"{v.name}_t{TIME_cut}_z{int(zlev)}.png")
 
 def plot(da, exch=False, vmin=None, vmax=None, xlim=None, ylim=None, vint=None, cmap="jet", title=None, figsize=None):
   cut_dim_info_str = []

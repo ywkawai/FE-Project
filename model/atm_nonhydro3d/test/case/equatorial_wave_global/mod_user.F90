@@ -2,9 +2,12 @@
 !> module USER
 !!
 !! @par Description
-!!          User defined module for a test case of equatorial wave (Test Case 4 in Tomita et al. (2004))
+!!          User defined module for a test case of equatorial wave (Test Case 4 in Tomita and Satoh (2004))
 !!
-!! @author Team SCALE
+!! @author Yuta Kawai, Team SCALE
+!!  - Tomita, H and M. Satoh, 2004:
+!!    A New Dynamical Framework of Nonhydrostatic Global Model Using the Icosahedral Grid. 
+!!    Fluid Dyn. Res., 34, 357 
 !!
 !<
 !-------------------------------------------------------------------------------
@@ -127,6 +130,7 @@ contains
     use scale_const, only: &
       Rdry => CONST_Rdry,  &
       CpDry => CONST_CPdry
+    use scale_time_manager, only:  TIME_NOWSTEP      
     use scale_localmeshfield_base, only: LocalMeshFieldBase
 
     use scale_file_history_meshfield, only: &
@@ -151,8 +155,10 @@ contains
     class(LocalMeshFieldBase), pointer :: Rtot, CVtot, CPtot
     class(LocalMeshFieldBase), pointer :: PRES, PT
 
+    real(RP) :: tsec    
     real(RP), parameter :: rtau = 1.0_RP / ( 10.0_RP * 86400.0_RP ) ! (10 day)^-1
-
+    real(RP), parameter :: rtau2 = 1.0_RP / ( 20.0_RP * 86400.0_RP ) ! (20 day)^-1
+    real(RP) :: fac
     integer :: n
     integer :: ke
 
@@ -163,6 +169,7 @@ contains
 
     if ( .not. is_Qheat_calculated ) then
       call exp_manager%Init( 'equatorial_wave_global' )
+      call exp_manager%Regist_SetInitCond( exp_SetInitCond_equatorial_wave )
       call exp_manager%SetInitCond( atm%mesh, &
         atm%vars%PROGVARS_manager, atm%vars%AUXVARS_manager, atm%vars%QTRCVARS_manager )
       call exp_manager%Final()
@@ -171,6 +178,9 @@ contains
     end if
 
     call FILE_HISTORY_meshfield_in( q_heat, "heating source" )
+
+    tsec = atm%time_manager%dtsec * real( TIME_NOWSTEP - 1, kind=RP )
+    fac = 1.0_RP!exp(-tsec * rtau2)
 
     do n=1, atm%mesh%ptr_mesh%LOCAL_MESH_NUM
       call AtmosVars_GetLocalMeshPrgVars( n, atm%mesh%ptr_mesh,  &
@@ -194,8 +204,8 @@ contains
           - rtau * MOMZ%val(:,ke)
 
         atm%vars%PHY_TEND(RHOH_p)%local(n)%val(:,ke) = atm%vars%PHY_TEND(RHOH_p)%local(n)%val(:,ke)   &
-          + DENS(:) * ( q_heat%local(n)%val(:,ke)                                                             &
-                      - rtau * CpDry * ( PRES%val(:,ke) / DENS(:) - PRES_hyd%val(:,ke) / DENS_hyd%val(:,ke) ) / Rdry  )
+          + DENS(:) * ( q_heat%local(n)%val(:,ke) * fac                                                                         &
+                      - rtau * CPtot%val(:,ke) * ( PRES%val(:,ke) / DENS(:) - PRES_hyd%val(:,ke) / DENS_hyd%val(:,ke) ) / Rdry  )
       end do
 
       deallocate( DENS )
@@ -306,9 +316,9 @@ contains
 
       lon_(:) = PI - lon(:)
       where ( abs(lon_(:)) < DLon .and. abs(lat(:)) < DLat )
-        q_intrp(:) = CpDry * Q0 * cos(0.5_RP * PI * lon_(:) / DLon)**2       &
-                                * cos(0.5_RP * PI * lat (:) / DLat)**2       &
-                                * sin( real(nv,kind=RP) * PI * zlev(:) / Zt )
+        q_intrp(:) = ( CpDry - Rdry ) * Q0 * cos(0.5_RP * PI * lon_(:) / DLon)**2  &
+                                      * cos(0.5_RP * PI * lat (:) / DLat)**2       &
+                                      * sin( real(nv,kind=RP) * PI * zlev(:) / Zt )
       elsewhere
         q_intrp(:) = 0.0_RP
       end where
