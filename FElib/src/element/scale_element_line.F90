@@ -27,6 +27,8 @@ module scale_element_line
   !
   !++ Public type & procedure
   !  
+
+  !> Derived type representing a line element
   type, public, extends(ElementBase1D) :: LineElement
   contains
     procedure :: Init => LineElement_Init
@@ -34,7 +36,19 @@ module scale_element_line
     procedure :: GenIntGaussLegendreIntrpMat => LineElement_gen_IntGaussLegendreIntrpMat    
   end type LineElement
 
+  !-----------------------------------------------------------------------------
+  !
+  !++ Private procedure
+  !   
+  private :: construct_Element
+  
 contains
+
+!> Initialize an object to manage a hexahedral element
+!!
+!! @param elem Object of finite element
+!! @param elemOrder Polynomial order
+!! @param LumpedMassMatFlag Flag whether mass lumping is considered
 !OCL SERIAL
   subroutine LineElement_Init( &
     elem, elemOrder,           &
@@ -61,6 +75,9 @@ contains
     return
   end subroutine LineElement_Init
 
+!> Finalize an object to manage a line element
+!!
+!! @param elem Object of finite element
 !OCL SERIAL  
   subroutine LineElement_Final(elem)
     implicit none

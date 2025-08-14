@@ -273,6 +273,9 @@ contains
   !-- 1D Element ------------------------------------------------------------------------------
 
 !> Initialize an object to manage a 1D reference element
+!!
+!! @param elem Object of finite element
+!! @param elem Flag whether mass lumping is considered
 !OCL SERIAL
   subroutine ElementBase1D_Init( elem, lumpedmat_flag )
     implicit none
@@ -315,6 +318,9 @@ contains
   !-- 2D Element ------------------------------------------------------------------------------
 
 !> Initialize an object to manage a 2D reference element
+!!
+!! @param elem Object of finite element
+!! @param elem Flag whether mass lumping is considered
 !OCL SERIAL
   subroutine ElementBase2D_Init( elem, lumpedmat_flag )
     implicit none
@@ -358,6 +364,9 @@ contains
   !-- 3D Element ------------------------------------------------------------------------------
   
 !> Initialize an object to manage a 3D reference element
+!!
+!! @param elem Object of finite element
+!! @param elem Flag whether mass lumping is considered
 !OCL SERIAL
   subroutine ElementBase3D_Init( elem, lumpedmat_flag )
     implicit none
