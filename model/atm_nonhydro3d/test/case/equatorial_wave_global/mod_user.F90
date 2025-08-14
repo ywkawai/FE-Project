@@ -2,7 +2,7 @@
 !> module USER
 !!
 !! @par Description
-!!          User defined module for a test case of equatorial wave (Test Case 4 in Tomita et al. (2004))
+!!          User defined module for a test case of equatorial wave (Test Case 4 in Tomita and Satoh (2004))
 !!
 !! @author Yuta Kawai, Team SCALE
 !!  - Tomita, H and M. Satoh, 2004:

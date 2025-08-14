@@ -6,7 +6,7 @@ mkdir -p analysis
 ### check error norm ###
 echo "+mkgraph monitor"
 for var in DDENS ENGT ENGP ENGK ENGI; do
-   python ../common/cmd_analysis_monitor.py monitor.peall ${var} 360 analysis/monitor_${var}.png
+   python ../common/cmd_analysis_monitor.py monitor.peall ${var} 600 analysis/monitor_${var}.png
 done
 
 ### make figures ###
