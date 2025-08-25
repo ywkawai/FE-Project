@@ -1,4 +1,5 @@
 #include "scaleFElib.h"
+#include "scale_c_binding.h"
 module scale_element_line_cbind
   !-----------------------------------------------------------------------------
   use scale_precision

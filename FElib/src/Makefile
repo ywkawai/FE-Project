@@ -16,8 +16,11 @@ LIBNAME_PYBIND=ScaleFECore$(POSTFIX)$(PYBIND11_SUFFIX)
 
 VPATH = \
 	common:           \
+	common/cbind:     \
 	element:          \
+	element/cbind:    \
 	mesh:             \
+	mesh/cbind:       \
 	data:             \
 	file:             \
 	fluid_dyn_solver: \
@@ -162,10 +165,22 @@ OBJS_NAME_MODEL_FRAMEWORK = \
 	scale_model_var_manager.o
 
 OBJS_NAME_SCALEFELIB_CBINDING = \
-	scale_cbinding_util.o       \
-	scale_element_line_cbind.o
+	scale_cbinding_util.o               \
+	scale_polynomial_cbind.o            \
+	scale_element_base1d_cbind.o        \
+	scale_element_base2d_cbind.o        \
+	scale_element_line_cbind.o          \
+	scale_element_quadrilateral_cbind.o \
+	scale_localmesh1d_cbind.o           \
+	scale_localmesh2d_cbind.o           \
+	scale_mesh_linedom1d_cbind.o        \
+	scale_mesh_rectdom2d_cbind.o
+
 OBJS_NAME_SCALEFELIB_PYBINDING = \
-	scale_element_line_cbind.py.o
+	scale_common_cbind.py.o  \
+	scale_element_cbind.py.o \
+	scale_mesh_cbind.py.o \
+	scale_FElib_cbind.py.o
 
 OBJS_NAME = \
 	$(OBJS_NAME_COMMON)           \
@@ -356,7 +371,7 @@ $(LIBDIR)/$(LIBNAME_PYBIND):
 endif
 $(LIBNAME_PYBIND): $(OBJS_PYBIND)
 	@echo "build $(LIBNAME_PYBIND).."
-	$(FC) -shared -fPIC -o $@ $? $(PYBIND11_INCLUDES) $(PYBIND11_LIBS) -undefined dynamic_lookup $(CBINDING_LIBS) $(LIBDIR)/$(LIBNAME) $(CONTRIB_LIBS)  $(SCALE_NETCDF_LIBS) $(SCALE_MATHLIB_LIBS) $(SCALE_PAPI_LIBS)
+	$(FC) -shared -fPIC -o $@ $^ $(PYBIND11_INCLUDES) $(PYBIND11_LIBS) -undefined dynamic_lookup $(CBINDING_LIBS) $(LIBDIR)/$(LIBNAME) $(CONTRIB_LIBS)  $(SCALE_NETCDF_LIBS) $(SCALE_MATHLIB_LIBS) $(SCALE_PAPI_LIBS)
 
 modules: $(OBJS)
 	@echo "Install modules.."
@@ -389,6 +404,7 @@ common/scale_timeint_rk.F90: scale_timeint_rk.F90.erb
 element/scale_element_operation_tensorprod3D_kernel.F90: scale_element_operation_tensorprod3D_kernel.F90.erb
 element/scale_element_operation_tensorprod3D.F90: scale_element_operation_tensorprod3D.F90.erb
 fluid_dyn_solver/scale_atm_dyn_dgm_hevi_common_linalgebra.F90: scale_atm_dyn_dgm_hevi_common_linalgebra.F90.erb
+$(BUILD_DIR)/scale_FElib_cbind.py.o: $(BUILD_DIR)/scale_mesh_cbind.py.o $(BUILD_DIR)/scale_element_cbind.py.o $(BUILD_DIR)/scale_common_cbind.py.o
 
 $(BUILD_DIR)/%.o : %.F90
 	$(FC) $(FFLAGS) $(SCALE_INCLUDE) $(INCLUDE) -I$(SCALEFELIBDIR)/include -I$(BUILD_DIR) $(MODDIROPT) $(BUILD_DIR) -o $@ -c $<

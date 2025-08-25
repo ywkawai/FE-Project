@@ -43,7 +43,7 @@ $(BUILD_DIR)/scale_element_SIACfilter.o: element/scale_element_SIACfilter.F90 $(
 $(BUILD_DIR)/scale_element_base.o: element/scale_element_base.F90 $(DEPENDLIB) $(BUILD_DIR)/scale_linalgebra.o
 $(BUILD_DIR)/scale_element_hexahedral.o: element/scale_element_hexahedral.F90 $(DEPENDLIB) $(BUILD_DIR)/scale_element_base.o $(BUILD_DIR)/scale_element_quadrilateral.o $(BUILD_DIR)/scale_linalgebra.o $(BUILD_DIR)/scale_polynominal.o
 $(BUILD_DIR)/scale_element_line.o: element/scale_element_line.F90 $(DEPENDLIB) $(BUILD_DIR)/scale_element_base.o $(BUILD_DIR)/scale_linalgebra.o $(BUILD_DIR)/scale_polynominal.o
-$(BUILD_DIR)/scale_element_line_cbind.o: element/scale_element_line_cbind.F90 $(DEPENDLIB) $(BUILD_DIR)/scale_cbinding_util.o $(BUILD_DIR)/scale_element_line.o
+$(BUILD_DIR)/scale_element_line_cbind.o: element/cbind/scale_element_line_cbind.F90 $(DEPENDLIB) $(BUILD_DIR)/scale_cbinding_util.o $(BUILD_DIR)/scale_element_line.o
 $(BUILD_DIR)/scale_element_modalfilter.o: element/scale_element_modalfilter.F90 $(DEPENDLIB) $(BUILD_DIR)/scale_element_base.o $(BUILD_DIR)/scale_element_hexahedral.o $(BUILD_DIR)/scale_element_line.o $(BUILD_DIR)/scale_element_quadrilateral.o
 $(BUILD_DIR)/scale_element_operation_base.o: element/scale_element_operation_base.F90 $(DEPENDLIB) $(BUILD_DIR)/scale_element_base.o
 $(BUILD_DIR)/scale_element_operation_general.o: element/scale_element_operation_general.F90 $(DEPENDLIB) $(BUILD_DIR)/scale_element_base.o $(BUILD_DIR)/scale_element_hexahedral.o $(BUILD_DIR)/scale_element_modalfilter.o $(BUILD_DIR)/scale_element_operation_base.o $(BUILD_DIR)/scale_sparsemat.o
