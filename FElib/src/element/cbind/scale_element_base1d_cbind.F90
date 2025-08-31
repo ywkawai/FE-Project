@@ -26,7 +26,7 @@ module scale_element_base1d_cbind
   !
 contains
 !*****
-DEF_C_BIND_RELEASE_HANDLE(CElementBase1DPtr,"CElementBase1D_release_handle")
+DEF_C_BIND_RELEASE_HANDLE(CElementBase1DPtr,"CElementBase1D_release_handle",)
 !***** Getter
 DEF_C_BIND_GETTER_I(CElementBase1DPtr,get_Np,"CElementBase1D_get_Np",Np)
 DEF_C_BIND_GETTER_I(CElementBase1DPtr,get_PolyOrder,"CElementBase1D_get_PolyOrder",PolyOrder)

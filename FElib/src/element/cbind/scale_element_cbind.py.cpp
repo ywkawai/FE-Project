@@ -1,7 +1,9 @@
 #include "scale_element_base1d_cbind.hpp"
 #include "scale_element_base2d_cbind.hpp"
+#include "scale_element_base3d_cbind.hpp"
 #include "scale_element_line_cbind.hpp"
 #include "scale_element_quadrilateral_cbind.hpp"
+#include "scale_element_hexahedral_cbind.hpp"
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
@@ -11,9 +13,15 @@ void bind_element(py::module_ &m){
     py::class_<ElementBase1D>(m, "ElementBase1D")
         .def("get_Np", &ElementBase1D::get_Np)
         .def("get_PolyOrder", &ElementBase1D::get_PolyOrder);
-    py::class_<ElementBase2D>(m, "ElementBase1D")
+    py::class_<ElementBase2D>(m, "ElementBase2D")
         .def("get_Np", &ElementBase2D::get_Np)
         .def("get_PolyOrder", &ElementBase2D::get_PolyOrder);
+    py::class_<ElementBase3D>(m, "ElementBase3D")
+        .def("get_Np", &ElementBase3D::get_Np)
+        .def("get_Nnode_h1D", &ElementBase3D::get_Nnode_h1D)
+        .def("get_Nnode_v", &ElementBase3D::get_Nnode_v)
+        .def("get_PolyOrder_h", &ElementBase3D::get_PolyOrder_h)
+        .def("get_PolyOrder_v", &ElementBase3D::get_PolyOrder_v);
     py::class_<LineElement>(m, "LineElement")
         .def(py::init<int, bool>())
         .def("get_Np", &LineElement::get_Np)
@@ -22,7 +30,9 @@ void bind_element(py::module_ &m){
         .def("get_Nv", &LineElement::get_Nv)
         .def("get_PolyOrder", &LineElement::get_PolyOrder)
         .def("get_x1", &LineElement::get_x1)
-        .def("get_Dx1", &LineElement::get_Dx1);
+        .def("get_IntWeight_lgl", &LineElement::get_IntWeight_lgl)
+        .def("get_Dx1", &LineElement::get_Dx1)
+        .def("get_Lift", &LineElement::get_Lift);
     py::class_<QuadrilateralElement>(m, "QuadrilateralElement")
         .def(py::init<int, bool>())
         .def("get_Np", &QuadrilateralElement::get_Np)
@@ -33,6 +43,30 @@ void bind_element(py::module_ &m){
         .def("get_PolyOrder", &QuadrilateralElement::get_PolyOrder)
         .def("get_x1", &QuadrilateralElement::get_x1)
         .def("get_x2", &QuadrilateralElement::get_x2)
+        .def("get_IntWeight_lgl", &QuadrilateralElement::get_IntWeight_lgl)
         .def("get_Dx1", &QuadrilateralElement::get_Dx1)
-        .def("get_Dx2", &QuadrilateralElement::get_Dx2);
-} 
+        .def("get_Dx2", &QuadrilateralElement::get_Dx2)
+        .def("get_Lift", &QuadrilateralElement::get_Lift);
+    py::class_<HexahedralElement>(m, "HexahedralElement")
+        .def(py::init<int, int, bool>())
+        .def("get_Np", &HexahedralElement::get_Np)
+        .def("get_Nnode_h1D", &HexahedralElement::get_Nnode_h1D)
+        .def("get_Nnode_v", &HexahedralElement::get_Nnode_v)
+        .def("get_Nfaces", &HexahedralElement::get_Nfaces)
+        .def("get_Nfaces_h", &HexahedralElement::get_Nfaces_h)
+        .def("get_Nfaces_v", &HexahedralElement::get_Nfaces_v)
+        .def("get_Nfp_h", &HexahedralElement::get_Nfp_h)
+        .def("get_Nfp_v", &HexahedralElement::get_Nfp_v)
+        .def("get_NfpTot", &HexahedralElement::get_NfpTot)
+        .def("get_Nv", &HexahedralElement::get_Nv)
+        .def("get_PolyOrder_h", &HexahedralElement::get_PolyOrder_h)
+        .def("get_PolyOrder_v", &HexahedralElement::get_PolyOrder_v)
+        .def("get_x1", &HexahedralElement::get_x1)
+        .def("get_x2", &HexahedralElement::get_x2)
+        .def("get_x3", &HexahedralElement::get_x3)
+        .def("get_IntWeight_lgl", &HexahedralElement::get_IntWeight_lgl)
+        .def("get_Dx1", &HexahedralElement::get_Dx1)
+        .def("get_Dx2", &HexahedralElement::get_Dx2)
+        .def("get_Dx3", &HexahedralElement::get_Dx3)
+        .def("get_Lift", &HexahedralElement::get_Lift);
+}

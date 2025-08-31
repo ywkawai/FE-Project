@@ -1,5 +1,4 @@
-#ifndef SCALE_LOCALMESH1D_CBIND_H
-#define SCALE_LOCALMESH1D_CBIND_H
+#pragma once
 
 #include <iostream>
 #include <cstdlib>
@@ -7,6 +6,9 @@
 #include <vector>
 #include <stdexcept>
 #include "../../element/cbind/scale_element_base1d_cbind.hpp"
+
+#include "../../common/cbind/scale_common_cbind_util.hpp"
+using namespace scale::FElib;
 
 extern "C" {
     void CLocalMesh1D_release_handle(void* ptr);
@@ -21,67 +23,32 @@ extern "C" {
 }
 class LocalMesh1D {
 public:
-    LocalMesh1D(void* handle): handle_(handle)
-    {
-        // handle_ = CLocalMesh1D_Init(NeG, dom_xmin, dom_xmax, refElem.get_Handle(), NLocalMeshPerPrc, nproc, myrank, FX_ptr);
-        // if (!handle_) {
-        //     throw std::runtime_error("Failed to initialize CLocalMesh1D");
-        // }
+    LocalMesh1D(void* handle): 
+        handle_(cbind::Handle(handle, cbind::Finalizer{&CLocalMesh1D_release_handle})){
     }
-    ~LocalMesh1D() {
-        if (handle_) {
-//        std::cout << "Release handle=" << handle_ << std::endl; 
-            CLocalMesh1D_release_handle(handle_);
-        }
-    }
+    ~LocalMesh1D() = default; 
 
-    // Prohibit copying object
     LocalMesh1D(const LocalMesh1D&) = delete;
     LocalMesh1D& operator=(const LocalMesh1D&) = delete;
-    // Allow to move the handle
-    LocalMesh1D(LocalMesh1D&& other) noexcept : handle_(other.handle_) {
-        other.handle_ = nullptr;
-    }
-    LocalMesh1D& operator=(LocalMesh1D&& other) noexcept {
-        if (this != &other) {
-            // if (handle_) CLocalMesh1D_Final(handle_);
-            handle_ = other.handle_;
-            other.handle_ = nullptr;
-        }
-        return *this;
-    }
+    LocalMesh1D(LocalMesh1D&& other) noexcept = default;
+    LocalMesh1D& operator=(LocalMesh1D&& other) = default;
 
-    int get_Ne() const { return getInt(&CLocalMesh1D_get_Ne); }
-    int get_NeS() const { return getInt(&CLocalMesh1D_get_NeS); }
-    int get_NeE() const { return getInt(&CLocalMesh1D_get_NeE); }
-    int get_NeA() const { return getInt(&CLocalMesh1D_get_NeA); }
+    int get_Ne() const { return cbind::get_value<int>(handle_, &CLocalMesh1D_get_Ne); }
+    int get_NeS() const { return cbind::get_value<int>(handle_, &CLocalMesh1D_get_NeS); }
+    int get_NeE() const { return cbind::get_value<int>(handle_, &CLocalMesh1D_get_NeE); }
+    int get_NeA() const { return cbind::get_value<int>(handle_, &CLocalMesh1D_get_NeA); }
 
     ElementBase1D get_refElem1D() const{
-        return ElementBase1D(CLocalMesh1D_get_refElem1D(handle_));
+        return ElementBase1D(CLocalMesh1D_get_refElem1D(handle_.get()));
     }
     std::vector<double> get_pos_en() const {
         int Np = get_refElem1D().get_Np();
         int Ne = get_Ne();
         int ndim = 1;
         std::vector<double> data(Np * Ne * ndim);
-        CLocalMesh1D_get_pos_en(handle_, data.data(), Np, Ne, ndim);
+        CLocalMesh1D_get_pos_en(handle_.get(), data.data(), Np, Ne, ndim);
         return data;
     }
 private:
-    using GetterFuncI = void(*)(void*, int*);
-    int getInt(GetterFuncI func) const {
-        int val = 0;
-        func(handle_, &val);
-        return val;
-    }
-    using GetterFuncD = void(*)(void*, double*);
-    double getDouble(GetterFuncD func) const {
-        double val = 0;
-        func(handle_, &val);
-        return val;
-    }
-
-    void* handle_;
+    cbind::Handle handle_;
 };
-
-#endif

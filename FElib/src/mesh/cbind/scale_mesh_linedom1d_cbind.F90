@@ -9,6 +9,8 @@ module scale_mesh_linedom1d_cbind
   use scale_element_base, only: ElementBase1D
   use scale_element_line, only: LineElement
   use scale_mesh_linedom1d, only: MeshLineDom1D
+
+  use scale_mesh_base1d_cbind, only: CMeshBase1DPtr
   use iso_c_binding
   implicit none
   private
@@ -85,13 +87,15 @@ contains
   end function CMeshLineDom1D_get_lcmesh1D
 
 !******
-DEF_C_BIND(CMeshLineDom1D,"CMeshLineDom1D")
+DEF_C_BIND(CMeshLineDom1D,"CMeshLineDom1D",)
 DEF_C_BIND_SUB(CMeshLineDom1D,Generate,"CMeshLineDom1D_Generate")
 !***** Getter
 DEF_C_BIND_GETTER_I(CMeshLineDom1D,get_NeG,"CMeshLineDom1D_get_NeG",NeG)
 DEF_C_BIND_GETTER_I(CMeshLineDom1D,get_Nprc,"CMeshLineDom1D_get_Nprc",Nprc)
 DEF_C_BIND_GETTER_D(CMeshLineDom1D,get_xmin_gl,"CMeshLineDom1D_get_xmin_gl",xmin_gl)
 DEF_C_BIND_GETTER_D(CMeshLineDom1D,get_xmax_gl,"CMeshLineDom1D_get_xmax_gl",xmax_gl)
+!******
+DEF_C_BIND_MAKE_FOBJ_PARENT_HANDLE(CMeshLineDom1D,get_MeshBase1D,"CMeshLineDom1D_get_MeshBase1D",CMeshBase1DPtr)
 !******
 
 end module scale_mesh_linedom1d_cbind

@@ -43,7 +43,7 @@ contains
   end subroutine CLineElement_Final
 
 !******
-DEF_C_BIND(CLineElement,"CLineElement")
+DEF_C_BIND(CLineElement,"CLineElement",)
 !***** Getter
 DEF_C_BIND_GETTER_I(CLineElement,get_Np,"CLineElement_get_Np",Np)
 DEF_C_BIND_GETTER_I(CLineElement,get_Nfaces,"CLineElement_get_Nfaces",Nfaces)

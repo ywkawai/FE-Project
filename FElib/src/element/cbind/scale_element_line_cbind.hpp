@@ -1,5 +1,4 @@
-#ifndef SCALE_ELEMENT_LINE_CBIND_H
-#define SCALE_ELEMENT_LINE_CBIND_H
+#pragma once
 
 #include <iostream>
 #include <cstdlib>
@@ -21,7 +20,9 @@ extern "C" {
     void CLineElement_get_Nv(void* ptr, int* val);
     void CLineElement_get_PolyOrder(void* ptr, int* val);   
     void CLineElement_get_x1(void* ptr, double* val, int n);
+    void CLineElement_get_IntWeight_lgl(void* ptr, double* val, int n);
     void CLineElement_get_Dx1(void* ptr, double* val, int nx, int ny);
+    void CLineElement_get_Lift(void* ptr, double* val, int nx, int ny);
 }
 class LineElement {
 public:
@@ -41,23 +42,14 @@ public:
     int get_NfpTot() const { return cbind::get_value<int>(handle_, &CLineElement_get_NfpTot); }
     int get_Nv() const { return cbind::get_value<int>(handle_, &CLineElement_get_Nv); }
     int get_PolyOrder() const { return cbind::get_value<int>(handle_, &CLineElement_get_PolyOrder); }
-    
-    std::vector<double> get_x1() const {
-        int Np = get_Np();
-        std::vector<double> data(Np);
-        CLineElement_get_x1(handle_.get(), data.data(), Np);
-        return data;
-    }
-    std::vector<double> get_Dx1() const {
-        int Np = get_Np();
-        std::vector<double> data(Np * Np);
-        CLineElement_get_Dx1(handle_.get(), data.data(), Np, Np);
-        return data;
-    }
+
+    std::vector<double> get_x1() const { return cbind::fetch_vector(this->get_Handle(), &CLineElement_get_x1, this->get_Np()); }
+    std::vector<double> get_IntWeight_lgl() const { return cbind::fetch_vector(this->get_Handle(), &CLineElement_get_IntWeight_lgl, this->get_Np()); }
+
+    std::vector<double> get_Dx1() const { return cbind::fetch_matrix(this->get_Handle(), &CLineElement_get_Dx1, this->get_Np(), this->get_Np()); }
+    std::vector<double> get_Lift() const { return cbind::fetch_matrix(this->get_Handle(), &CLineElement_get_Lift, this->get_Np(), this->get_NfpTot()); }
 
     const cbind::Handle& get_Handle() const { return this->handle_; }
 private:
     cbind::Handle handle_;
 };
-
-#endif

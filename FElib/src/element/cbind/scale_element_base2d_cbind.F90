@@ -26,7 +26,7 @@ module scale_element_base2d_cbind
   !
 contains
 !*****
-DEF_C_BIND_RELEASE_HANDLE(CElementBase2DPtr,"CElementBase2D_release_handle")
+DEF_C_BIND_RELEASE_HANDLE(CElementBase2DPtr,"CElementBase2D_release_handle",)
 !***** Getter
 DEF_C_BIND_GETTER_I(CElementBase2DPtr,get_Np,"CElementBase2D_get_Np",Np)
 DEF_C_BIND_GETTER_I(CElementBase2DPtr,get_PolyOrder,"CElementBase2D_get_PolyOrder",PolyOrder)

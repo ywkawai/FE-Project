@@ -22,6 +22,7 @@ VPATH = \
 	mesh:             \
 	mesh/cbind:       \
 	data:             \
+	data/cbind:       \
 	file:             \
 	fluid_dyn_solver: \
 	surface:          \
@@ -169,17 +170,27 @@ OBJS_NAME_SCALEFELIB_CBINDING = \
 	scale_polynomial_cbind.o            \
 	scale_element_base1d_cbind.o        \
 	scale_element_base2d_cbind.o        \
+	scale_element_base3d_cbind.o        \
 	scale_element_line_cbind.o          \
 	scale_element_quadrilateral_cbind.o \
+	scale_element_hexahedral_cbind.o    \
 	scale_localmesh1d_cbind.o           \
 	scale_localmesh2d_cbind.o           \
+	scale_localmesh3d_cbind.o           \
+	scale_mesh_base1d_cbind.o           \
+	scale_mesh_base2d_cbind.o           \
+	scale_mesh_base3d_cbind.o           \
 	scale_mesh_linedom1d_cbind.o        \
-	scale_mesh_rectdom2d_cbind.o
+	scale_mesh_rectdom2d_cbind.o        \
+	scale_localmeshfield_base_cbind.o   \
+	scale_meshfield_base_cbind.o
+
 
 OBJS_NAME_SCALEFELIB_PYBINDING = \
 	scale_common_cbind.py.o  \
 	scale_element_cbind.py.o \
-	scale_mesh_cbind.py.o \
+	scale_mesh_cbind.py.o    \
+	scale_data_cbind.py.o    \
 	scale_FElib_cbind.py.o
 
 OBJS_NAME = \
@@ -371,7 +382,7 @@ $(LIBDIR)/$(LIBNAME_PYBIND):
 endif
 $(LIBNAME_PYBIND): $(OBJS_PYBIND)
 	@echo "build $(LIBNAME_PYBIND).."
-	$(FC) -shared -fPIC -o $@ $^ $(PYBIND11_INCLUDES) $(PYBIND11_LIBS) -undefined dynamic_lookup $(CBINDING_LIBS) $(LIBDIR)/$(LIBNAME) $(CONTRIB_LIBS)  $(SCALE_NETCDF_LIBS) $(SCALE_MATHLIB_LIBS) $(SCALE_PAPI_LIBS)
+	$(FC) -fopenmp -shared -fPIC -o $@ $^ $(PYBIND11_INCLUDES) $(PYBIND11_LIBS) -undefined dynamic_lookup $(CBINDING_LIBS) $(LIBDIR)/$(LIBNAME) $(CONTRIB_LIBS)  $(SCALE_NETCDF_LIBS) $(SCALE_MATHLIB_LIBS) $(SCALE_PAPI_LIBS)
 
 modules: $(OBJS)
 	@echo "Install modules.."

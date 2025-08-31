@@ -9,6 +9,8 @@ module scale_mesh_rectdom2d_cbind
   use scale_element_base, only: ElementBase1D
   use scale_element_quadrilateral, only: QuadrilateralElement
   use scale_mesh_rectdom2d, only: MeshRectDom2D
+
+  use scale_mesh_base2d_cbind, only: CMeshBase2DPtr
   use iso_c_binding
   implicit none
   private
@@ -88,7 +90,7 @@ contains
   end function CMeshRectDom2D_get_lcmesh2D
 
 !******
-DEF_C_BIND(CMeshRectDom2D,"CMeshRectDom2D")
+DEF_C_BIND(CMeshRectDom2D,"CMeshRectDom2D",)
 DEF_C_BIND_SUB(CMeshRectDom2D,Generate,"CMeshRectDom2D_Generate")
 !***** Getter
 DEF_C_BIND_GETTER_I(CMeshRectDom2D,get_NeGX,"CMeshRectDom2D_get_NeGX",NeGX)
@@ -97,6 +99,10 @@ DEF_C_BIND_GETTER_I(CMeshRectDom2D,get_NprcX,"CMeshRectDom2D_get_NprcX",NprcX)
 DEF_C_BIND_GETTER_I(CMeshRectDom2D,get_NprcY,"CMeshRectDom2D_get_NprcY",NprcY)
 DEF_C_BIND_GETTER_D(CMeshRectDom2D,get_xmin_gl,"CMeshRectDom2D_get_xmin_gl",xmin_gl)
 DEF_C_BIND_GETTER_D(CMeshRectDom2D,get_xmax_gl,"CMeshRectDom2D_get_xmax_gl",xmax_gl)
+DEF_C_BIND_GETTER_D(CMeshRectDom2D,get_ymin_gl,"CMeshRectDom2D_get_ymin_gl",ymin_gl)
+DEF_C_BIND_GETTER_D(CMeshRectDom2D,get_ymax_gl,"CMeshRectDom2D_get_ymax_gl",ymax_gl)
+!******
+DEF_C_BIND_MAKE_FOBJ_PARENT_HANDLE(CMeshRectDom2D,get_MeshBase2D,"CMeshRectDom2D_get_MeshBase2D",CMeshBase2DPtr)
 !******
 
 end module scale_mesh_rectdom2d_cbind

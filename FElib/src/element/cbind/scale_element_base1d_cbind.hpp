@@ -1,5 +1,4 @@
-#ifndef SCALE_ELEMENT_BASE1D_CBIND_H
-#define SCALE_ELEMENT_BASE1D_CBIND_H
+#pragma once
 
 #include <iostream>
 #include <cstdlib>
@@ -33,5 +32,3 @@ public:
 private:
     cbind::Handle handle_;
 };
-
-#endif

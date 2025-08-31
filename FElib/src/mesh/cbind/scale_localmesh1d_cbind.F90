@@ -28,7 +28,7 @@ module scale_localmesh1d_cbind
   !
 contains
 !******
-DEF_C_BIND_RELEASE_HANDLE(CLocalMesh1DPtr,"CLocalMesh1D_release_handle")
+DEF_C_BIND_RELEASE_HANDLE(CLocalMesh1DPtr,"CLocalMesh1D_release_handle",)
 !***** Getter
 DEF_C_BIND_GETTER_I(CLocalMesh1DPtr,get_Ne,"CLocalMesh1D_get_Ne",Ne)
 DEF_C_BIND_GETTER_I(CLocalMesh1DPtr,get_NeS,"CLocalMesh1D_get_NeS",NeS)
@@ -36,6 +36,6 @@ DEF_C_BIND_GETTER_I(CLocalMesh1DPtr,get_NeE,"CLocalMesh1D_get_NeE",NeE)
 DEF_C_BIND_GETTER_I(CLocalMesh1DPtr,get_NeA,"CLocalMesh1D_get_NeA",NeA)
 DEF_C_BIND_GETTER_Array3D_RP(CLocalMesh1DPtr,get_pos_en,"CLocalMesh1D_get_pos_en",pos_en)
 !******
-DEF_C_BIND_MAKE_FOBJ_HANDLE(CLocalMesh1DPtr,get_refElem1D,"CLocalMesh1D_get_refElem1D",ElementBase1D,CElementBase1DPtr,refElem1D)
+DEF_C_BIND_MAKE_FOBJ_HANDLE(CLocalMesh1DPtr,get_refElem1D,"CLocalMesh1D_get_refElem1D",CElementBase1DPtr,refElem1D)
 !******
 end module scale_localmesh1d_cbind

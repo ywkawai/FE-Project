@@ -37,7 +37,16 @@ module scale_cbinding_util
     module procedure cbinding_util_DArray2DPtr_c2f
   end interface
   public :: cbinding_util_ArrayPtr_c2f
+  public :: cbinding_util_string_c2f
 
+  interface
+     function c_strlen(str) bind(C, name="strlen")
+       import :: c_ptr, c_size_t
+       type(c_ptr), value :: str
+       integer(c_size_t) :: c_strlen
+     end function c_strlen
+  end interface
+  
 contains
   function cbinding_util_logical_c2f( flag_c ) result( flag_f )
     implicit none
@@ -68,4 +77,23 @@ contains
     return
   end function cbinding_util_Darray2DPtr_c2f
 
+  function cbinding_util_string_c2f(cptr) result(fstr)
+    implicit none
+    type(c_ptr), intent(in) :: cptr
+    character(:), allocatable :: fstr
+
+    character(kind=c_char), pointer :: cstr(:)
+    integer(c_size_t) :: n
+    integer :: i
+    !----------------------------
+
+    n = c_strlen(cptr)
+    call c_f_pointer(cptr, cstr, [n])
+
+    allocate(character(len=n) :: fstr)
+    do i = 1, n
+       fstr(i:i) = transfer(cstr(i), ' ')
+    end do
+    return
+  end function cbinding_util_string_c2f
 end module scale_cbinding_util

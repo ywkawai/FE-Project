@@ -43,7 +43,7 @@ contains
   end subroutine CQuadrilateralElement_Final
 
 !******
-DEF_C_BIND(CQuadrilateralElement,"CQuadrilateralElement")
+DEF_C_BIND(CQuadrilateralElement,"CQuadrilateralElement",)
 !***** Getter
 DEF_C_BIND_GETTER_I(CQuadrilateralElement,get_Np,"CQuadrilateralElement_get_Np",Np)
 DEF_C_BIND_GETTER_I(CQuadrilateralElement,get_Nfaces,"CQuadrilateralElement_get_Nfaces",Nfaces)
