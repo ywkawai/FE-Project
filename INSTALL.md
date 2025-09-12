@@ -103,5 +103,6 @@ The following options is available by setting as environment variables,
  `% export OPTION_NAME=T`
 Switch options will be activated only when the value is "T"
 
+  - SCALE_ENABLE_OPENMP   : Enable a thread parallelization with OpenMP
   - SCALE_IGNORE_SRCDEP   : Ignore source dependency at the compilation
  
