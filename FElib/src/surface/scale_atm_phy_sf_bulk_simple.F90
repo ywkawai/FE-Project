@@ -48,14 +48,14 @@ module scale_atm_phy_sf_bulk_simple
   !
   !++ Private parameters & variables
   !
-  real(RP), private, parameter :: ATMOS_PHY_SF_U_maxM      =  100.0_RP ! maximum limit of absolute velocity for momentum [m/s]
-  real(RP), private            :: ATMOS_PHY_SF_U_minM      =    0.0_RP ! minimum limit of absolute velocity for momentum [m/s]
+  real(RP), private, parameter :: ATMOS_PHY_SF_U_maxM      =  100.0_RP !> maximum limit of absolute velocity for momentum [m/s]
+  real(RP), private            :: ATMOS_PHY_SF_U_minM      =    0.0_RP !> minimum limit of absolute velocity for momentum [m/s]
 
-  real(RP), private            :: ATMOS_PHY_SF_Const_Cm    = 0.0011_RP ! constant bulk coefficient for momentum    [NIL]
-  real(RP), private            :: ATMOS_PHY_SF_Const_Ch    = 0.0044_RP ! constant bulk coefficient for heat        [NIL]
-  real(RP), private            :: ATMOS_PHY_SF_Const_Ce    = 0.0044_RP ! constant bulk coefficient for evaporation [NIL]
+  real(RP), private            :: ATMOS_PHY_SF_Const_Cm    = 0.0011_RP !> constant bulk coefficient for momentum    [NIL]
+  real(RP), private            :: ATMOS_PHY_SF_Const_Ch    = 0.0044_RP !> constant bulk coefficient for heat        [NIL]
+  real(RP), private            :: ATMOS_PHY_SF_Const_Ce    = 0.0044_RP !> constant bulk coefficient for evaporation [NIL]
 
-  real(RP), private :: ATMOS_PHY_SF_BULK_beta = 1.0_RP ! evaporation efficiency (0-1)
+  real(RP), private :: ATMOS_PHY_SF_BULK_beta = 1.0_RP !> evaporation efficiency (0-1)
 
   !-----------------------------------------------------------------------------
   contains
@@ -95,7 +95,8 @@ module scale_atm_phy_sf_bulk_simple
   end subroutine ATMOS_PHY_SF_simple_setup
 
   !-----------------------------------------------------------------------------
-  !> Constant flux
+  !> Calculate surface fluxes with constant bulk coefficients
+  !!
   subroutine ATMOS_PHY_SF_simple_flux( &
        IA, IS, IE, JA, JS, JE, &
        ATM_W, ATM_U, ATM_V, ATM_TEMP, ATM_PRES, ATM_QV, &
@@ -116,33 +117,33 @@ module scale_atm_phy_sf_bulk_simple
     integer, intent(in) :: IA, IS, IE
     integer, intent(in) :: JA, JS, JE
 
-    real(RP), intent(in) :: ATM_W   (IA,JA) ! velocity w  at the lowermost layer (cell center) [m/s]
-    real(RP), intent(in) :: ATM_U   (IA,JA) ! velocity u  at the lowermost layer (cell center) [m/s]
-    real(RP), intent(in) :: ATM_V   (IA,JA) ! velocity v  at the lowermost layer (cell center) [m/s]
-    real(RP), intent(in) :: ATM_TEMP(IA,JA) ! temperature at the lowermost layer (cell center) [K]
-    real(RP), intent(in) :: ATM_PRES(IA,JA) ! pressure    at the lowermost layer (cell center) [Pa]
-    real(RP), intent(in) :: ATM_QV  (IA,JA) ! qv          at the lowermost layer (cell center) [kg/kg]
-    real(RP), intent(in) :: SFC_DENS(IA,JA) ! density     at the surface atmosphere [kg/m3]
-    real(RP), intent(in) :: SFC_TEMP(IA,JA) ! tempertire  at the surface atmosphere [K]
-    real(RP), intent(in) :: SFC_PRES(IA,JA) ! pressure    at the surface atmosphere [Pa]
-    real(RP), intent(in) :: ATM_Z1  (IA,JA) ! height of the lowermost grid from surface (cell center) [m]
+    real(RP), intent(in) :: ATM_W   (IA,JA) !< velocity w  at the lowermost layer (cell center) [m/s]
+    real(RP), intent(in) :: ATM_U   (IA,JA) !< velocity u  at the lowermost layer (cell center) [m/s]
+    real(RP), intent(in) :: ATM_V   (IA,JA) !< velocity v  at the lowermost layer (cell center) [m/s]
+    real(RP), intent(in) :: ATM_TEMP(IA,JA) !< temperature at the lowermost layer (cell center) [K]
+    real(RP), intent(in) :: ATM_PRES(IA,JA) !< pressure    at the lowermost layer (cell center) [Pa]
+    real(RP), intent(in) :: ATM_QV  (IA,JA) !< qv          at the lowermost layer (cell center) [kg/kg]
+    real(RP), intent(in) :: SFC_DENS(IA,JA) !< density     at the surface atmosphere [kg/m3]
+    real(RP), intent(in) :: SFC_TEMP(IA,JA) !< temperature  at the surface atmosphere [K]
+    real(RP), intent(in) :: SFC_PRES(IA,JA) !< pressure    at the surface atmosphere [Pa]
+    real(RP), intent(in) :: ATM_Z1  (IA,JA) !< height of the lowermost grid from surface (cell center) [m]
 
-    real(RP), intent(out) :: SFLX_MW(IA,JA) ! surface flux for z-momentum    (area center)   [m/s*kg/m2/s]
-    real(RP), intent(out) :: SFLX_MU(IA,JA) ! surface flux for x-momentum    (area center)   [m/s*kg/m2/s]
-    real(RP), intent(out) :: SFLX_MV(IA,JA) ! surface flux for y-momentum    (area center)   [m/s*kg/m2/s]
-    real(RP), intent(out) :: SFLX_SH(IA,JA) ! surface flux for sensible heat (area center)   [J/m2/s]
-    real(RP), intent(out) :: SFLX_LH(IA,JA) ! surface flux for latent   heat (area center)   [J/m2/s]
-    real(RP), intent(out) :: SFLX_QV(IA,JA) ! surface flux for qv            (area center)   [kg/m2/s]
-    real(RP), intent(out) :: U10    (IA,JA) ! velocity u        at 10m height
-    real(RP), intent(out) :: V10    (IA,JA) ! velocity v        at 10m height
+    real(RP), intent(out) :: SFLX_MW(IA,JA) !< surface flux for z-momentum    (area center)   [m/s*kg/m2/s]
+    real(RP), intent(out) :: SFLX_MU(IA,JA) !< surface flux for x-momentum    (area center)   [m/s*kg/m2/s]
+    real(RP), intent(out) :: SFLX_MV(IA,JA) !< surface flux for y-momentum    (area center)   [m/s*kg/m2/s]
+    real(RP), intent(out) :: SFLX_SH(IA,JA) !< surface flux for sensible heat (area center)   [J/m2/s]
+    real(RP), intent(out) :: SFLX_LH(IA,JA) !< surface flux for latent   heat (area center)   [J/m2/s]
+    real(RP), intent(out) :: SFLX_QV(IA,JA) !< surface flux for qv            (area center)   [kg/m2/s]
+    real(RP), intent(out) :: U10    (IA,JA) !< velocity u        at 10m height
+    real(RP), intent(out) :: V10    (IA,JA) !< velocity v        at 10m height
 
     real(RP) :: ATM_Uabs(IA,JA) ! absolute velocity at z1 [m/s]
     real(RP) :: R10
 
-    real(RP) :: SFC_PSAT (IA,JA) ! saturatad water vapor pressure [Pa]
+    real(RP) :: SFC_PSAT (IA,JA) ! saturated water vapor pressure [Pa]
     real(RP) :: LHV(IA,JA)
 
-    real(RP) :: SFC_QSAT      ! saturatad water vapor mixing ratio [kg/kg]
+    real(RP) :: SFC_QSAT      ! saturated water vapor mixing ratio [kg/kg]
     real(RP) :: SFC_QV(IA,JA) ! water vapor mixing ratio [kg/kg]
 
     integer  :: i, j

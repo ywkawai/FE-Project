@@ -32,8 +32,8 @@ module scale_atm_dyn_dgm_driver_base
   !++ Public type & procedure
   !
   type, public :: AtmDynDGMDriver_base
-    integer :: PROGVAR_NUM
-    type(TimeInt_RK), allocatable :: tint(:)
+    integer :: PROGVAR_NUM                   !< Number of prognostic variables
+    type(TimeInt_RK), allocatable :: tint(:) !< Objects with temporal scheme
   end type AtmDynDGMDriver_base
 
   type, extends(AtmDynDGMDriver_base), public :: AtmDynDGMDriver_base3D

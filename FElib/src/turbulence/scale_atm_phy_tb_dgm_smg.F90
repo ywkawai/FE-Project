@@ -1,14 +1,14 @@
 !> module FElib / Atmosphere / Physics turbulence
 !!
 !! @par Description
-!!      Sub-grid scale turbulnce process
+!!      Sub-grid scale turbulence process
 !!      Smagorinsky-type
 !!
 !! @author Yuta Kawai, Team SCALE
 !!
 !! @par Reference
 !!  - Brown et al., 1994:
-!!    Large-eddy simulaition of stable atmospheric boundary layers with a revised stochastic subgrid model.
+!!    Large-eddy simulation of stable atmospheric boundary layers with a revised stochastic subgrid model.
 !!    Roy. Meteor. Soc., 120, 1485-1512
 !!  - Scotti et al., 1993:
 !!    Generalized Smagorinsky model for anisotropic grids.
