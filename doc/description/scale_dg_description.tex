@@ -1,0 +1,68 @@
+\documentclass[a4paper,12pt]{report}
+\title{{\LARGE Detailed formulation of SCALE-DG}}
+\author{Yuta Kawai, and Team SCALE}
+\date{\today}
+
+\usepackage[a4paper,margin=25mm]{geometry}
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{} % 既存をクリア
+\fancyhead[L]{\leftmark} % 左に章タイトル
+\fancyhead[R]{\thepage}  % 右にページ番号
+\fancyfoot[C]{Detailed formulation of SCALE-DG} % フッタ中央に固定文字
+
+\usepackage{titlesec}
+\titleformat{\chapter}[hang]
+  {\normalfont\huge\bfseries}{\thechapter}{20pt}{}
+\titleformat{\section}[hang]
+  {\normalfont\Large\bfseries}{\thesection}{10pt}{}
+\titleformat{\subsection}[hang]
+  {\normalfont\large\bfseries}{\thesubsection}{8pt}{}
+
+% フォントの微調整
+\usepackage{microtype}
+
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{amsmath}
+\usepackage{siunitx}
+\usepackage[round]{natbib}
+\usepackage{bm}
+\usepackage{url}
+\usepackage{mathrsfs}
+\usepackage{subcaption}
+
+\begin{document}
+\maketitle
+\tableofcontents
+
+\input{introduction}
+
+\chapter{Governing equations}
+\input{governing_equation}
+
+%%
+\chapter{Discretization of dynamics}
+\label{chap:discretization dynamics}
+\input{dynamics_spatial_discretization}
+\newpage
+\input{dynamics_temporal_discretization}
+\newpage
+\input{dynamics_additional_stab}
+
+
+\chapter{Physical parameterization}
+\input{turbulence}
+
+
+%%%
+\appendix
+\chapter{The detail numerics}
+\input{runge_kutta}
+
+%%%
+\bibliographystyle{plainnat}
+\bibliography{../reference}
+
+
+\end{document}

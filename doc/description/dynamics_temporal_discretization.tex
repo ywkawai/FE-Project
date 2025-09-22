@@ -1,0 +1,180 @@
+\section{Temporal discretization}
+%%
+The semi-discretized equations in Eq.\,\eqref{eq:semidiscrete_eqs} can be represented  
+as the following ordinary differential equation (ODE) system  
+%%
+\begin{equation}
+  \dfrac{d \bm{q}}{d t} = \mathcal{S}(\bm{q},\nabla\bm{q}) + \mathcal{F}(\bm{q},\nabla\bm{q}), 
+\end{equation}
+%%
+where 
+$\mathcal{S}(\bm{q},\nabla\bm{q})$ and $\mathcal{F}(\bm{q},\nabla\bm{q})$ 
+represent the tendencies with slow and fast contributions, respectively.  
+This study adopted Runge--Kutta (RK) schemes to solve the ODE system 
+from $t=n\Delta t$ to $t=(n+1)\Delta t$, 
+where $\Delta t$ is the time step and $n$ is a natural number. 
+In this subsection, 
+we describe two approaches for temporal discretization, 
+namely, 
+horizontal explicit and vertical implicit (HEVI) 
+and horizontal explicit and vertical explicit (HEVE) approaches. 
+
+
+% We introduce two types of Courant number, 
+% which are used to explain timestep settings.  
+% For the horizontal advection test, 
+% the advective Courant number associated with the horizontal wind is defined as $C_{r,\textrm{adv}}=U_0\Delta t/\Delta_{h}$, 
+% where $U_0$ is the representative wind speed. 
+% For other numerical experiments,  
+% the acoustic Courant number associated with the sound wave propagation is defined as $C_{r,c_s}=c_s\Delta t/\Delta$, 
+% where $\Delta$ is the grid spacing; 
+% In particular, for the HEVI approach, $\Delta=\Delta_{h}$.  
+
+\subsubsection{HEVI approach}
+\label{sssec:temporal_discretization_hevi}
+%%
+%%
+If the aspect ratio of horizontal grid spacing to its vertical counterpart is large, 
+it is impractical to use fully explicit temporal schemes 
+because 
+the vertically propagating sound waves severely restrict the timestep. 
+A strategy to avoid computational cost in such case is the HEVI approach. 
+The terms corresponding to vertical dynamics with a fast time-scale 
+are evaluated using an implicit temporal scheme, 
+while 
+the remaining terms are evaluated using an explicit temporal scheme. 
+This procedure is regarded as a framework of 
+implicit-explicit (IMEX) time integration scheme
+\citep{Bao2015HEVI,Gardner2018IMEX}. 
+%  Durran and Blossey (2012); Ullrich and Jablonowski (2012); Giraldo et al. (2013); Lock et al. (2014); Weller et al. (2013). 
+% The remainder of this discussion considers the analyses described in Lock et al. (2014) and Weller et al. (2013).
+General formulation of IMEX RK scheme \citep[e.g.,][]{ASCHER1997IMEX} with $\nu$ stages can be represented as 
+%%
+\begin{eqnarray}
+ \bm{q}^{(s)} &=& \bm{q}^n 
+                 + \Delta t \sum_{s'=1}^{s-1} a_{ss'} \mathcal{S}(t+c_{s'}\Delta t, \bm{q}^{(s')})
+                 + \Delta t \sum_{s'=1}^{s} \tilde{a}_{ss'} \mathcal{F}(t+\tilde{c}_{s'}\Delta t, \bm{q}^{(s')}) 
+ \;\;\;\; \textrm{for}\;\;\; s=1, \dots, \nu  \nonumber \\
+ \nonumber \\
+ \bm{q}^{n+1} &=& \bm{q}^n 
+                + \Delta t \sum_{s=1}^{\nu} b_{s} \mathcal{S}(t+c_{s}\Delta t, \bm{q}^{(s)})
+                + \Delta t \sum_{s=1}^{\nu} \tilde{b}_{s} \mathcal{F}(t+\tilde{c}_{s}\Delta t, \bm{q}^{(s)}), 
+\end{eqnarray}
+%%
+where 
+$a_{ss'}$, $b_s$, and $c_{s}$ define the explicit temporal integrator, 
+while $\tilde{a}_{ss'}$, $\tilde{b}_s$, and $\tilde{c}_{s'}$ define the implicit temporal integrator; 
+$c_s=\sum_{s'=1}^{s-1} a_{ss'}$ and $\tilde{c}_s = \sum_{s'=1}^{s-1} \tilde{a}_{ss'}$ 
+represents time when slow and fast terms are evaluated, respectively. 
+These coefficients are compactly represented using ``double Butcher tableaux'', 
+as shown in Table \ref{tb:Butcher_tbl_IMEXRK}.  
+Note that, in the table of the explicit part, 
+$\mathscr{A}=\{a_{ss'}\}$ with $a_{ss'}=0$ for $s' \ge s$. 
+On the other hand, 
+for the implicit part,  
+$\tilde{\mathscr{A}}=\{\tilde{a}_{ss'}\}$ with $\tilde{a}_{ss'}=0$ for $s' > s$ 
+in the case of the diagonally implicit RK scheme. 
+
+
+The terms associated with 
+vertical mass flux, 
+vertical pressure gradient, 
+vertical flux of potential temperature, 
+and buoyancy in Eq.\,\eqref{eq:GovernEq_NonhydrostaticDynCore} were treated as fast terms, 
+whereas the other terms were treated as slow terms. 
+
+
+In SCALE-DG, 
+several implicit and explicit (IMEX) RK schemes in Table \ref{tb:HEVI_temporal_integ_choice} can be available. 
+To minimize contaminating the spatial accuracy of high-order DGM by temporal errors present in low-order HEVI scheme, 
+a third-order scheme proposed by \cite{kennedy2003additive} was adopted in our previous studies \citep{KT2025SCALEDG};  
+it includes four explicit and three implicit evaluations. 
+The corresponding double Butcher tableaux are given in Table \ref{tb:Butcher_tbl_IMEXRK}. 
+
+%t
+\begin{table}[t]
+\caption{Implicit and Explicit (IMEX) Runge--Kutta schemes available in HEVI temporal integration}
+%% Explicit part
+\begin{tabular}{l|cccc}
+%\tophline
+\hline
+Abbrev. & Order & Num. of stages (I,E) & Note & Reference \\
+\hline
+IMEX\_ARK232 & 2 & (2,3) &  & \cite{Giraldo2013} \\
+\hline
+IMEX\_ARK324 & 3 & (3,4) &  & \cite{kennedy2003additive} \\
+\hline
+\end{tabular}
+%%%%%
+%\belowtable{} % Table Footnotes
+\label{tb:HEVI_temporal_integ_choice}
+\end{table}
+
+
+In the implicit part of each stage, 
+the corresponding nonlinear equation system is solved using Newton's method. 
+In each iteration, the linearized equation system is solved. 
+Obtaining accurate solutions of the nonlinear equation system generally requires numerous iterations. 
+However, 
+this study performed a single iteration in Newton's method (i.e., Rosenbrock approach), 
+significantly reducing the computational cost. 
+Similar approach has been used in previous studies \citep{Ullrich2012Resenbrock}. 
+In the case of the collocation approach, 
+because the horizontal dependency between all nodes within an element vanishes,  
+the vertical implicit evaluation can be parallelly performed at each horizontal node. 
+
+
+For the case of HEVI, 
+the volume and surface integrations in Eqs.~(\ref{eq:differential_and_lifting_matrix}) and (\ref{eq:mass_matrix}) 
+were evaluated using inexact integration with the LGL nodes. 
+Consequently, $\bm{M}$ and $\bm{L}_{\partial \Omega_{e,3}}$ became diagonal matrices, 
+which further simplified the matrix structure associated with the vertical spatial operator. 
+
+
+\subsubsection{HEVE approach}
+\label{sssec:temporal_discretization_heve}
+%%
+%%
+When we consider a horizontal grid spacing with O(10 m) such as in LES, 
+the ratio of horizontal to vertical grid spacing approaches unity. 
+The advantages of HEVI approach decrease. 
+Thus, 
+it is suitable to adopt a fully explicit temporal approach, 
+referred to as HEVE approach. 
+In such cases, 
+RK schemes with a strong stability preserving (SSP) property \citep{gottlieb2001} are often used in combination with DGM. 
+In SCALE-DG, several RK schemes in Table \ref{tb:HEVE_temporal_integ_choice} can be available. 
+The corresponding Butcher table and coefficients with Shu-Osher form are shown in Appendix \ref{sec:appendix_RK}. 
+In our previous studies \citep{KT2023NumAccuracyDG,KT2025SCALEDG}, 
+we adopted a ten-stage RK scheme with the fourth-order accuracy proposed by \cite{Ketcheson2008RK4o10s}. 
+
+%t
+\begin{table}[t]
+\caption{Explicit Runge--Kutta schemes available in HEVE temporal integration}
+%% Explicit part
+\begin{tabular}{l|cccc}
+%\tophline
+\hline
+Abbrev. & Order & Num. of stages & Note & Reference \\
+\hline
+ERK\_Euler & 1 & 1 & for debug & \\
+\hline
+ERK\_SSP\_2s2o & 2 & 2 & SSP & \cite{SHU1988439} \\
+\hline
+ERK\_SSP\_3s3o & 3 & 3 & SSP & \cite{SHU1988439} \\
+ERK\_SSP\_4s3o & 3 & 4 & SSP & \\
+ERK\_SSP\_5s3o\_2N2* & 3 & 5 & SSP & \cite{higueras2019new} \\
+\hline
+ERK\_RK4 & 4 & 4 & classical RK4 & \\
+ERK\_SSP\_10s4o\_2N & 4 & 10 & SSP & \cite{Ketcheson2008RK4o10s} \\
+\hline
+\end{tabular}
+%%%%%
+%\belowtable{} % Table Footnotes
+\label{tb:HEVE_temporal_integ_choice}
+\end{table}
+
+
+When using the HEVE approach, 
+entries of the matrices in Eqs.\,\eqref{eq:differential_and_lifting_matrix} and \eqref{eq:mass_matrix}
+were directly calculated following Sect.\,3.2 in \cite{hesthaven2007nodal}. 

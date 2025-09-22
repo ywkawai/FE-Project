@@ -1,0 +1,563 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Dynamical core
+
+% Tensor representation
+% MCV
+@article{li2020development,
+  title={Development of a unified high-order nonhydrostatic multi-moment constrained finite volume dynamical core: derivation of flux-form governing equations in the general curvilinear coordinate system},
+  author={Li, Xingliang and Chen, Chungang and Shen, Xueshun and Xiao, Feng},
+  journal={arXiv preprint arXiv:2004.05779},
+  year={2020},
+  doi = {10.48550/arXiv.2004.05779}
+}
+
+
+% Cubed sphere mesh
+
+@article{sadourny1972FDMQuasiUniformSphereGrids,
+	address = {Boston MA, USA},
+	author = {Robert Sadourny},
+	journal = {Monthly Weather Review},
+	number = {2},
+	pages = {136 - 144},
+	publisher = {American Meteorological Society},
+	title = {{{C}}onservative {{F}}inite-{{D}}ifference {{A}}pproximations of the {{P}}rimitive {{E}}quations on {{Q}}uasi-{{U}}niform {{S}}pherical {{G}}rids},
+	volume = {100},
+	year = {1972},
+	doi = {10.1175/1520-0493(1972)100<0136:CFAOTP>2.3.CO;2}
+}
+
+
+@article{RONCHI199693,
+	author = {C. Ronchi and R. Iacono and P.S. Paolucci},
+	issn = {0021-9991},
+	journal = {Journal of Computational Physics},
+	number = {1},
+	pages = {93-114},
+	title = {The ``Cubed Sphere'': A New Method for the Solution of Partial Differential Equations in Spherical Geometry},
+	volume = {124},
+	year = {1996},
+	doi = {10.1006/jcph.1996.0047}
+}
+
+
+@article{RANCC1996,
+	abstract = {Abstract A model using shallow-water equations with an Arakawa-type scheme for momentum terms is tested on a quasi-uniform geometry on the sphere, derived by a spherical expansion of the inscribed cube based on the gnomonic projection. Thereby, a quasi-homogeneous distribution of grid points is achieved, and a global finite-difference model is designed which does not require Fourier filtering or suffer from the burden of redundant computational points at high latitudes. Difficulties resulting from the directional discontinuity of the coordinate lines crossing the edges of the expanded cube are almost completely eliminated by using the Arakawa B-grid, so that only scalar points are placed along the edges. An alternative approach is developed based on numerical orthogonalization of the grid whereby, inter alia, the directional discontinuity at the edges is avoided at the cost of some accumulation of points in the vicinity of the vertices of the cube. In the customary Rossby--Haurwitz wave-4 tests, both approaches are shown to converge to a visually indistinguishable solution as the resolution is increased. However, with the orthogonalized, conformal grid, convergence towards the asymptotic solution was substantially faster.},
+	author = {Ran{\v c}i{\'c}, M. and Purser, R. J. and Mesinger, F.},
+	journal = {Quarterly Journal of the Royal Meteorological Society},
+	keywords = {Finite differences, Numerical weather prediction, Quasi-uniform grids, Shallow-water equations},
+	number = {532},
+	pages = {959-982},
+	title = {A global shallow-water model using an expanded spherical cube: Gnomonic versus conformal coordinates},
+	volume = {122},
+	year = {1996},
+	doi = {10.1002/qj.49712253209}
+}
+
+
+%% general vertical coordinate
+
+@article{KASAHARA1974,
+	author = {Akira Kasahara},
+	journal = {Monthly Weather Review},
+	number = {7},
+	pages = {509 - 522},
+	publisher = {American Meteorological Society},
+	title = {Various Vertical Coordinate Systems Used for Numerical Weather Prediction},
+	volume = {102},
+	year = {1974},
+}
+
+
+%% terrain-following coordinate
+
+@article{GALCHEN1975209,
+  author = {Tzvi Gal-Chen and Richard C.J Somerville},
+  issn = {0021-9991},
+  journal = {Journal of Computational Physics},
+  number = {2},
+  pages = {209-228},
+  title = {{{O}}n the use of a coordinate transformation for the solution of the {{N}}avier-{{S}}tokes equations},
+  volume = {17},
+  year = {1975},
+  doi = {10.1016/0021-9991(75)90037-6}
+}
+@article{PHILLIPS1957,
+  address = {Boston MA, USA},
+  author = {N. A. Phillips},
+  journal = {Journal of Atmospheric Sciences},
+  number = {2},
+  pages = {184 - 185},
+  publisher = {American Meteorological Society},
+  title = {A coordinate system having some special advantages for numerical forecasting},
+  volume = {14},
+  year = {1957},
+  doi = {10.1175/1520-0469(1957)014<0184:ACSHSS>2.0.CO;2}
+}
+@article{Zangl2012Extend,
+	address = {Boston MA, USA},
+	author = {G{\"u}nther Z{\"a}ngl},
+	doi = {10.1175/MWR-D-12-00049.1},
+	journal = {Monthly Weather Review},
+	number = {11},
+	pages = {3722-3733},
+	publisher = {American Meteorological Society},
+	title = {Extending the Numerical Stability Limit of Terrain-Following Coordinate Models over Steep Slopes},
+	volume = {140},
+	year = {2012},
+}
+
+% DGM history
+@article{osti_4491151,
+title = {Triangular mesh methods for the neutron transport equation},
+author = {Reed, W H and Hill, T R},
+abstractNote = {},
+doi = {},
+url = {https://www.osti.gov/biblio/4491151}, 
+journal = {},
+number = {},
+volume = {},
+place = {United States},
+year = {1973},
+}
+@article{nitsche1971,
+author          = {Nitsche, J.},
+title           = {Über ein Variationsprinzip zur Lösung von Dirichlet-Problemen bei Verwendung von Teilräumen, die keinen Randbedingungen unterworfen sind},
+journal         = {Abhandlungen aus dem Mathematischen Seminar der Universität Hamburg},
+volume          = {36},
+number          = {},
+pages={9--15},  
+year            = {1971}
+}
+@article{gassner2021novel,
+  AUTHOR={Gassner, Gregor J. and Winters, Andrew R.},   
+  TITLE={{A} {N}ovel {R}obust {S}trategy for {D}iscontinuous {G}alerkin {M}ethods in {C}omputational {F}luid {M}echanics: {W}hy? {W}hen? {W}hat? {W}here?},      
+  JOURNAL={Frontiers in Physics},      	
+  VOLUME={8},      
+  PAGES={612},     
+  YEAR={2021}, 
+  ISSN={2296-424X},
+  doi = {10.1016/j.jcp.2016.09.013}
+}
+@book{hesthaven2007nodal,
+  title={Nodal discontinuous Galerkin methods: algorithms, analysis, and applications},
+  author={Hesthaven, Jan S and Warburton, Tim},
+  year={2007},
+  publisher={Springer Science \& Business Media}, 
+  doi = {10.1007/978-0-387-72067-8}
+}
+@article{BASSI1997267,
+	author = {F. Bassi and S. Rebay},
+	journal = {Journal of Computational Physics},
+	number = {2},
+	pages = {267-279},
+	title = {{A} {H}igh-{O}rder {A}ccurate {D}iscontinuous {F}inite {E}lement {M}ethod for the {N}umerical {S}olution of the {C}ompressible {N}avier--{S}tokes {E}quations},
+	volume = {131},
+	year = {1997},
+}
+% Stabilization in high-order FEM
+@article{WINTERS20181,
+  author = {Andrew R. Winters and Rodrigo C. Moura and Gianmarco Mengaldo and Gregor J. Gassner and Stefanie Walch and Joaquim Peiro and Spencer J. Sherwin},
+  journal = {Journal of Computational Physics},
+  pages = {1-21},
+  title = {{{A}} comparative study on polynomial dealiasing and split form discontinuous {{G}}alerkin schemes for under-resolved turbulence computations},
+  volume = {372},
+  year = {2018},
+  doi = {10.1016/j.jcp.2018.06.016}
+}
+% nodal DGM with split form
+@article{gassner2016split,
+  title = {{S}plit form nodal discontinuous {G}alerkin schemes with summation-by-parts property for the compressible {E}uler equations},
+  journal = {Journal of Computational Physics},
+  volume = {327},
+  pages = {39-66},
+  year = {2016},
+  issn = {0021-9991},
+  author = {Gregor J. Gassner and Andrew R. Winters and David A. Kopriva},
+  doi = {10.1016/j.jcp.2016.09.013}
+}
+
+%% DGM in atmospheric models
+
+@article{Nair2005DGTransport,
+	author = {Ramachandran D. Nair and Stephen J. Thomas and Richard D. Loft},
+	journal = {Monthly Weather Review},
+	number = {4},
+	pages = {814 - 828},
+	title = {A Discontinuous Galerkin Transport Scheme on the Cubed Sphere},
+	volume = {133},
+	year = {2005},
+	doi = {10.1175/MWR2890.1}
+}
+
+@article{Nair2005DGSWM,
+	author = {Nair, Ramachandran D. and Thomas, Stephen J. and Loft, Richard D.},
+	doi = {10.1175/MWR2903.1},
+	issn = {0027-0644, 1520-0493},
+	journal = {Monthly Weather Review},
+	number = {4},
+	pages = {876--888},
+	title = {A {Discontinuous} {Galerkin} {Global} {Shallow} {Water} {Model}},
+	urldate = {2022-11-09},
+	volume = {133},
+	year = {2005},
+}
+
+@article{GIRALDO20083849,
+	author = {F.X. Giraldo and M. Restelli},
+	journal = {Journal of Computational Physics},
+	number = {8},
+	pages = {3849-3877},
+	title = {{{A}} study of spectral element and discontinuous {{G}}alerkin methods for the {{N}}avier--{{S}}tokes equations in nonhydrostatic mesoscale atmospheric modeling: {{E}}quation sets and test cases},
+	volume = {227},
+	year = {2008},
+	doi = {10.1016/j.jcp.2007.12.009}
+}
+
+@article{Nair2009DiffExpGlobalDGSWM,
+	author = {Ramachandran D. Nair},
+	journal = {Monthly Weather Review},
+	number = {10},
+	pages = {3339 - 3350},
+	title = {Diffusion Experiments with a Global Discontinuous Galerkin Shallow-Water Model},
+	volume = {137},
+	year = {2009},
+	doi = {10.1175/2009MWR2843.1}
+}
+
+
+@article{Blaise2016StablizationDG,
+	author = {Blaise, S{\'e}bastien and Lambrechts, Jonathan and Deleersnijder, Eric},
+	journal = {International Journal for Numerical Methods in Fluids},
+	number = {9},
+	pages = {558-585},
+	title = {A stabilization for three-dimensional discontinuous {{G}}alerkin discretizations applied to nonhydrostatic atmospheric simulations},
+	volume = {81},
+	year = {2016},
+	doi = {10.1002/fld.4197}
+}
+
+@article{ORGIS2017461,
+	author = {Thomas Orgis and Matthias L{\"a}uter and D{\"o}rthe Handorf and Klaus Dethloff},
+	journal = {Journal of Computational Physics},
+	keywords = {Discontinuous Galerkin, Atmosphere, Euler equations, Baroclinic waves, Low-order balancing, Thermal wind equation},
+	pages = {461-481},
+	title = {Baroclinic waves on the $\beta$ plane using low-order Discontinuous Galerkin discretisation},
+	volume = {339},
+	year = {2017},
+	doi = {10.1016/j.jcp.2017.03.029}
+}
+@article{sridhar_large-eddy_2022,
+	author = {Sridhar, Akshay and Tissaoui, Yassine and Marras, Simone and Shen, Zhaoyi and Kawczynski, Charles and Byrne, Simon and Pamnany, Kiran and Waruszewski, Maciej and Gibson, Thomas H. and Kozdon, Jeremy E. and Churavy, Valentin and Wilcox, Lucas C. and Giraldo, Francis X. and Schneider, Tapio},
+	journal = {Geoscientific Model Development},
+	month = aug,
+	number = {15},
+	pages = {6259--6284},
+	shorttitle = {Large-eddy simulations with {ClimateMachine} v0.2.0},
+	title = {Large-eddy simulations with {ClimateMachine} v0.2.0: a new open-source code for atmospheric simulations on {GPUs} and {CPUs}},
+	volume = {15},
+	year = {2022},
+	doi = {10.5194/gmd-15-6259-2022}
+}
+
+% Tempest model
+
+@article{ullrich_global_2014,
+	author = {Ullrich, P. A.},
+	journal = {Geoscientific Model Development},
+	month = 12,
+	number = {6},
+	pages = {3017--3035},
+	title = {A global finite-element shallow-water model supporting continuous and discontinuous elements},
+	volume = {7},
+	year = {2014},
+	doi = {10.5194/gmd-7-3017-2014}
+}
+
+% nonhydrostatic model with high order finite volume scheme
+% MCORE
+@article{ullrich2010high,
+  title={High-order finite-volume methods for the shallow-water equations on the sphere},
+  author={Ullrich, Paul A and Jablonowski, Christiane and Van Leer, Bram},
+  journal={Journal of Computational Physics},
+  volume={229},
+  number={17},
+  pages={6104--6134},
+  year={2010},
+  publisher={Elsevier},
+  doi = {10.1016/j.jcp.2010.04.044},  
+}
+@article{ullrich2012dynamical,
+  title = "MCore: A non-hydrostatic atmospheric dynamical core utilizing high-order finite-volume methods",
+  journal = "Journal of Computational Physics",
+  volume = "231",
+  number = "15",
+  pages = "5078 - 5108",
+  year = "2012",
+  note = "",
+  issn = "0021-9991",
+  author = "Paul A. Ullrich and Christiane Jablonowski",
+  doi = {10.1016/j.jcp.2012.04.024}
+}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% HEVI
+@article{Bao2015HEVI,
+	author = {Lei Bao and Robert Kl{\"o}fkorn and Ramachandran D. Nair},
+	journal = {Monthly Weather Review},
+	number = {3},
+	pages = {972 - 990},
+	title = {{H}orizontally {E}xplicit and {V}ertically {I}mplicit ({HEVI}) Time Discretization Scheme for a Discontinuous {G}alerkin Nonhydrostatic Model},
+	volume = {143},
+	year = {2015},
+	doi = {10.1175/MWR-D-14-00083.1}
+}
+
+
+%% IMEX
+
+@article{ASCHER1997IMEX,
+	author = {Uri M. Ascher and Steven J. Ruuth and Raymond J. Spiteri},
+	journal = {Applied Numerical Mathematics},
+	note = {Special Issue on Time Integration},
+	number = {2},
+	pages = {151-167},
+	title = {Implicit-explicit Runge-Kutta methods for time-dependent partial differential equations},
+	volume = {25},
+	year = {1997},
+	doi={10.1016/S0168-9274(97)00056-1}
+}
+@article{Gardner2018IMEX,
+	author = {Gardner, D. J. and Guerra, J. E. and Hamon, F. P. and Reynolds, D. R. and Ullrich, P. A. and Woodward, C. S.},
+	journal = {Geoscientific Model Development},
+	number = {4},
+	pages = {1497--1515},
+	title = {Implicit--explicit ({{IMEX}}) Runge--Kutta methods for non-hydrostatic atmospheric models},
+	volume = {11},
+	year = {2018},
+	doi = {10.5194/gmd-11-1497-2018}
+}
+
+@article{kennedy2003additive,
+  title={{A}dditive {R}unge--{K}utta schemes for convection--diffusion--reaction equations},
+  author={Kennedy, Christopher A and Carpenter, Mark H},
+  journal={{A}pplied numerical mathematics},
+  volume={44},
+  number={1-2},
+  pages={139--181},
+  year={2003},
+  publisher={Elsevier}, 
+  doi = {10.1016/S0168-9274(02)00138-1}
+}
+
+@article{Ullrich2012Resenbrock,
+	author = {Paul Ullrich and Christiane Jablonowski},
+	journal = {Monthly Weather Review},
+	number = {4},
+	pages = {1257 - 1284},
+	publisher = {American Meteorological Society},
+	title = {Operator-Split Runge--Kutta--Rosenbrock Methods for Nonhydrostatic Atmospheric Models},
+	volume = {140},
+	year = {2012},
+	doi = {10.1175/MWR-D-10-05073.1}
+}
+
+@article{Giraldo2013,
+	author = {Giraldo, F. X. and Kelly, J. F. and Constantinescu, E. M.},
+	doi = {10.1137/120876034},
+	journal = {SIAM Journal on Scientific Computing},
+	number = {5},
+	pages = {B1162-B1194},
+	title = {Implicit-Explicit Formulations of a Three-Dimensional Nonhydrostatic Unified Model of the Atmosphere (NUMA)},
+	volume = {35},
+	year = {2013},
+}
+
+
+%%% Numerical fluxes 
+@article{Rusanov1961,
+  author={Vladimirovich V. Rusanov},
+  title={{C}alculation of {I}nteraction of {N}on-{S}teady {S}hock {W}aves with {O}bstacles},
+  journal={Journal of Computational and Mathematical Physics USSR},
+  year="1961",
+  volume="1",
+  pages="267",
+  doi = {10.1016/0041-5553(62)90062-9}
+}
+
+%%% SSP Runge-Kutta scheme
+@article{gottlieb2001,
+  author = {Gottlieb, Sigal and Shu, Chi-Wang and Tadmor, Eitan},
+  journal = {SIAM Review},
+  number = {1},
+  pages = {89-112},
+  title = {{S}trong {S}tability-{P}reserving {H}igh-Order {T}ime {D}iscretization {M}ethods},
+  volume = {43},
+  year = {2001},
+  doi = {10.1137/S003614450036757X}
+}
+@article{SHU1988439RK3o3s,
+	author = {Chi-Wang Shu and Stanley Osher},
+	journal = {Journal of Computational Physics},
+	number = {2},
+	pages = {439-471},
+	title = {{E}fficient implementation of essentially non-oscillatory shock-capturing schemes},
+	volume = {77},
+	year = {1988},
+}
+@article{Ketcheson2008RK4o10s,
+  author = {Ketcheson, David I.},
+  journal = {{SIAM} Journal on Scientific Computing},
+  number = {4},
+  pages = {2113-2136},
+  title = {{H}ighly {E}fficient {S}trong {S}tability-{P}reserving {R}unge--{K}utta {M}ethods with {L}ow-{S}torage {I}mplementations},
+  volume = {30},
+  year = {2008},
+  doi = {10.1137/07070485X}
+}
+
+
+@article{SHU1988439,
+	author = {Chi-Wang Shu and Stanley Osher},
+	doi = {https://doi.org/10.1016/0021-9991(88)90177-5},
+	issn = {0021-9991},
+	journal = {Journal of Computational Physics},
+	number = {2},
+	pages = {439-471},
+	title = {Efficient implementation of essentially non-oscillatory shock-capturing schemes},
+	volume = {77},
+	year = {1988},
+}
+
+@article{higueras2019new,
+  title={New third order low-storage SSP explicit Runge--Kutta methods},
+  author={Higueras, Inmaculada and Rold{\'a}n, Teo},
+  journal={Journal of Scientific Computing},
+  volume={79},
+  number={3},
+  pages={1882--1906},
+  year={2019},
+  publisher={Springer}
+}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% LES, turbulent models
+%%%
+@article{smagorinsky1963general,
+  title={General circulation experiments with the primitive equations: I. The basic experiment},
+  author={Smagorinsky, Joseph},
+  journal={Monthly Weather Review},
+  volume={91},
+  number={3},
+  pages={99--164},
+  year={1963},
+  publisher = {American Meteorological Society},
+  doi = {10.1175/1520-0493(1963)091<0099:GCEWTP>2.3.CO;2}
+}
+@article{lilly1962numerical,
+  title={On the numerical simulation of buoyant convection},
+  author={Lilly, Douglas K},
+  journal={Tellus},
+  volume={14},
+  number={2},
+  pages={148--172},
+  year={1962},
+  publisher={Wiley Online Library}, 
+  doi={10.1111/j.2153-3490.1962.tb00128.x}
+}
+@article{favre1983turbulence,
+  title={Turbulence: Space-time statistical properties and behavior in supersonic flows},
+  author={Favre, Alexandre},
+  journal={The Physics of Fluids},
+  volume={26},
+  number={10},
+  pages={2851--2863},
+  year={1983},
+  publisher={American Institute of Physics}, 
+  doi = {10.1063/1.864049}, 
+}
+@article{brown1994largeeddy,
+  author = {Brown, A. R. and Derbyshire, S. H. and Mason, P. J.},
+  title = {Large-eddy simulation of stable atmospheric boundary layers with a revised stochastic subgrid model},
+  journal = {Quarterly Journal of the Royal Meteorological Society},
+  volume = {120},
+  number = {520},
+  pages = {1485-1512},
+  year = {1994},
+  doi = {10.1002/qj.49712052004},
+}
+
+% Formulation of eddy viscous terms in cubed sphere coordinate
+@article{Rancic2017Nonhydro, 
+	author = {Miodrag Ran{\v c}i{\'c} and R. James Purser and Du{\v s}an Jovi{\'c} and Ratko Vasic and Thomas Black},
+	journal = {Monthly Weather Review},
+	number = {3},
+	pages = {1083 - 1105},
+	publisher = {American Meteorological Society},
+	title = {A Nonhydrostatic Multiscale Model on the Uniform Jacobian Cubed Sphere},
+	volume = {145},
+	year = {2017},
+	doi = {10.1175/MWR-D-16-0178.1}
+}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% SCALE
+@article{nishizawa2015influence,
+  title={Influence of grid aspect ratio on planetary boundary layer turbulence in large-eddy simulations},
+  author={Nishizawa, S and Yashiro, H and Sato, Y and Miyamoto, Yoshiaki and Tomita, H},
+  journal={Geoscientific Model Development},
+  volume={8},
+  number={10},
+  pages={3393--3419},
+  year={2015},
+  publisher={Copernicus GmbH},
+  doi = {10.5194/gmd-8-3393-2015}
+}
+@article{sato2015impacts,
+  title={Impacts of cloud microphysics on trade wind cumulus: which cloud microphysics processes contribute to the diversity in a large eddy simulation?},
+  author={Sato, Yousuke and Nishizawa, Seiya and Yashiro, Hisashi and Miyamoto, Yoshiaki and Kajikawa, Yoshiyuki and Tomita, Hirofumi},
+  journal={Progress in Earth and Planetary Science},
+  volume={2},
+  number={1},
+  pages={23},
+  year={2015},
+  publisher={Springer}
+}
+
+% Numerical accuracy necessary for LES
+@article { KT2021NumAccuracy,
+  author = "Yuta Kawai and Hirofumi Tomita",
+  title = "{N}umerical {A}ccuracy of {A}dvection {S}cheme {N}ecessary for {L}arge-{E}ddy {S}imulation of {P}lanetary {B}oundary {L}ayer {T}urbulence",
+  journal = "{M}onthly {W}eather {R}eview",
+  year = "2021",
+  publisher = "American Meteorological Society",
+  address = "Boston MA, USA",
+  volume = "149",
+  number = "9",
+  pages = "2993 - 3012",
+  doi = {10.1175/MWR-D-20-0362.1}
+}
+
+@article{ KT2023NumAccuracyDG,
+	author = {Yuta Kawai and Hirofumi Tomita},
+	journal = {{M}onthly {W}eather {R}eview},
+	number = {6},
+	pages = {1479 - 1508},
+	publisher = {American Meteorological Society},
+	title = {{N}umerical {A}ccuracy {N}ecessary for {L}arge-{E}ddy {S}imulation of {P}lanetary {B}oundary {L}ayer {T}urbulence {U}sing the {D}iscontinuous {G}alerkin {M}ethod},
+	volume = {151},
+	year = {2023},
+	doi = {10.1175/MWR-D-22-0245.1}, 
+}
+
+@article{ KT2025SCALEDG,
+	author = {Yuta Kawai and Hirofumi Tomita},
+  journal={Geoscientific Model Development},
+	number = {18},
+	pages = {725 - 762},
+	title = {{D}evelopment of a high-order global dynamical core using the discontinuous {G}alerkin method for an atmospheric large-eddy simulation ({LES}) and proposal of test cases: {SCALE-DG} v0.8.0},
+	year = {2025},
+	doi = {10.5194/gmd-18-725-2025}, 
+}
+

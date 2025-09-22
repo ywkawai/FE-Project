@@ -1,0 +1,128 @@
+\section{Turbulence}\label{sec:turbulence}
+{\bf \Large
+\begin{tabular}{ccc}
+\hline
+  Corresponding author & : & Yuta Kawai\\
+\hline
+\end{tabular}
+}
+
+\subsection{Smagorinsky-type model}
+%% 
+As a turbulent model, 
+this subsection describes 
+a Smagorinsky--Lilly type model \citep{smagorinsky1963general,lilly1962numerical} 
+that considered the stratification effect \citep{brown1994largeeddy}. 
+As a spatial filter, 
+the Favre-filtering \citep{favre1983turbulence} was used.  
+We do not explicitly denote the symbol representing the spatial filter 
+because the filtering approach is essentially the same as that explained in Appendix A of \cite{KT2023NumAccuracyDG}. 
+The difficulties in the derivation of viscous and diffusion terms 
+are caused by the gradient of vector quantities 
+and the spatial divergence with the non-orthogonal basis
+because the manipulations grow increasingly complex. 
+However, 
+previous studies that utilized tensor analysis help us provide a systematic derivation \citep[e.g.,][]{ullrich_global_2014,Rancic2017Nonhydro}. 
+In the absence of a vertical coordinate transformation, 
+the parameterized fluxes with the turbulent model can be represented in the general curvilinear coordinates as 
+%%
+\begin{align}    
+&\bm{f}_\textrm{SGS}(\bm{q},\nabla \bm{q})
+    =\begin{pmatrix}
+    0 \\
+    -\sqrt{G} \rho \tau^{11}  \\
+    -\sqrt{G} \rho \tau^{12}  \\
+    -\sqrt{G} \rho \tau^{13}  \\
+    -\sqrt{G} \rho \tau_*^1
+  \end{pmatrix}, \;\;\;
+\bm{g}_\textrm{SGS}(\bm{q},\nabla \bm{q})
+    =\begin{pmatrix}
+    0 \\
+    -\sqrt{G} \rho \tau^{21}  \\
+    -\sqrt{G} \rho \tau^{22}  \\
+    -\sqrt{G} \rho \tau^{23}  \\
+    -\sqrt{G} \rho \tau_*^2
+    \end{pmatrix}, \\
+&\bm{h}_\textrm{SGS}(\bm{q},\nabla \bm{q})
+    =\begin{pmatrix}
+    0 \\
+    -\sqrt{G} \rho \tau^{31}  \\
+    -\sqrt{G} \rho \tau^{32}  \\
+    -\sqrt{G} \rho \tau^{33}  \\
+    -\sqrt{G} \rho \tau_*^3
+    \end{pmatrix}, 
+\end{align}
+%%%%
+and 
+the source term can be given by 
+%%%
+\begin{equation}
+  \bm{S}_\textrm{SGS}(\bm{q},\nabla \bm{q}) = \begin{pmatrix}
+    0 \\
+    -\sqrt{G} \Gamma^1_{ml}\rho \tau^{ml}  \\
+    -\sqrt{G} \Gamma^2_{ml}\rho \tau^{ml}  \\
+    -\sqrt{G} \Gamma^3_{ml}\rho \tau^{ml}  \\
+    0
+    \end{pmatrix}.
+\end{equation}
+%%
+In the equations, 
+$\tau^{ij}$ is the contravariant components of parameterized eddy viscous flux tensor 
+($i=1,2,3$ and $j=1,2,3$) and can be written as 
+%%
+\begin{eqnarray}
+  \tau^{ij} = - 2 \nu_\textrm{SGS}
+   \left( 
+    S^{ij} - \dfrac{G^{ij}}{3} D
+   \right)
+   - \dfrac{2}{3} G^{ij} K_\textrm{SGS}, 
+\end{eqnarray} 
+%%
+where
+$S^{ij}$ is the strain velocity tensor, 
+$\nu_\textrm{SGS}$ is the eddy viscosity, 
+$D$ is the divergence of the three-dimensional velocity, 
+and 
+$K_\textrm{SGS}$ is the SGS kinetic energy. 
+The strain velocity tensor is represented as  
+%%
+%% grad u = [du/dx^i] a^i
+%         = [u^k,i a_k a^i]
+%         = [u^k,i a_k G^im a_m]
+%         = [G^im u^k,i a_k a_m ] 
+%         = [G^im u^j,m] a_i a_j
+\begin{equation}
+  S^{ij} = \dfrac{1}{2} 
+  \left( G^{im} \dfrac{\partial u^j_{,m}}{\partial \xi^m} + G^{jm} \dfrac{\partial u^i_{,m}}{\partial \xi^m} \right), 
+\end{equation}
+%%
+using the covariant derivative of the contravariant velocity component 
+%%
+\begin{equation}
+  u^i_{,j} = \dfrac{\partial u^i}{\partial \xi^j} + u^m \Gamma^i_{jm}.
+\end{equation}
+%%
+The eddy viscosity is written as 
+%%
+\begin{equation}
+  \nu_\textrm{SGS} 
+ = C_s \Delta_\textrm{SGS} |S|, 
+\end{equation}
+%%
+where 
+$C_s$, $\Delta_\textrm{SGS}$, 
+and $|S|$ represent the Smagorinsky constant, 
+the filter length, 
+and the norm of strain tensor defined as $\sqrt{2 G_{im}G_{jn}S^{ij}S^{mn}}$, respectively.
+The parameterized eddy diffusive flux can be written 
+as 
+%%
+\begin{eqnarray}
+  \tau_*^{i} = - \nu^*_\textrm{SGS} G^{ij} \dfrac{\partial \theta}{\partial \xi^j}, 
+\end{eqnarray}
+%%
+where 
+$\nu^*_\textrm{SGS}$ is the eddy diffusion coefficient.  
+For further details of the turbulent model, 
+refer to Sect.\,2.2 of \cite{nishizawa2015influence}. 
+
