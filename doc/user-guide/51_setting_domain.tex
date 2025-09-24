@@ -1,0 +1,52 @@
+\section{Configure a target domain} \label{sec:domain}
+%=======================================================================
+
+%-----------------------------------------------------------------------
+\subsection{Set domain size and the number of horizontal and vertical elements} \label{subsec:relation_dom_reso3}
+%-----------------------------------------------------------------------
+
+For atmospheric regional model using the Cartesian coordinates,
+the number of finite elements and polynomial orders are specified in \namelist{PARAM_ATMOS_MESH} in the configuration files.
+\editboxtwo{
+\verb|&PARAM_ATMOS_MESH| & \\
+\verb| Nprc  = 6,|  & ; Number of vertical layers \\
+\verb| NeGX  = 6,|  & ; Total number of grids along the {\XDIR} \\
+\verb| NeGY  = 6,|  & ; Total number of grids along the {\YDIR} \\
+\verb| NeZ   = 4,|  & ; Total number of grids along the {\YDIR} \\
+\verb| dom_zmin = 0D0,|  & ; Total number of grids along the {\YDIR} \\
+\verb| dom_zmax = 30D3,|  & ; Total number of grids along the {\YDIR} \\
+\verb| PolyOrder_h = 7,|  & ; Total number of grids along the {\YDIR} \\
+\verb| PolyOrder_v = 7,|  & ; Total number of grids along the {\YDIR} \\
+\verb| LumpedMassMatFlag = .true.,|  & ; Total number of grids along the {\YDIR} \\
+\verb|/|\\
+}
+
+
+
+For atmospheric global model using cubed-sphere coordinates,
+the number of finite elements and polynomial orders are specified in \namelist{PARAM_ATMOS_MESH} in the configuration files.
+\editboxtwo{
+\verb|&PARAM_ATMOS_MESH| & \\
+\verb| Nprc  = 6,|  & ; Number of vertical layers \\
+\verb| NeGX  = 6,|  & ; Total number of grids along the {\XDIR} \\
+\verb| NeGY  = 6,|  & ; Total number of grids along the {\YDIR} \\
+\verb| NeZ   = 4,|  & ; Total number of grids along the {\YDIR} \\
+\verb| dom_zmin = 0D0,|  & ; Total number of grids along the {\YDIR} \\
+\verb| dom_zmax = 30D3,|  & ; Total number of grids along the {\YDIR} \\
+\verb| PolyOrder_h = 7,|  & ; Total number of grids along the {\YDIR} \\
+\verb| PolyOrder_v = 7,|  & ; Total number of grids along the {\YDIR} \\
+\verb| LumpedMassMatFlag = .true.,|  & ; Total number of grids along the {\YDIR} \\
+\verb|/|\\
+}
+
+
+
+An arbitrary non-uniform element size can be specified in the vertical direction.
+%%
+\editboxtwo{
+\verb|&PARAM_ATMOS_MESH| & \\
+\verb| FZ = 0.0D0, 2760D0, 10340.0D0, 19528.0D0, 30000D0,|  & ;  Location at element face in the vertical direction [m] \\
+\verb|/|\\
+}
+
+%-----------------------------------------------------------------------

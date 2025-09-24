@@ -1,0 +1,76 @@
+\section{Dynamical core}
+%\label{sec:atmos_regional_model}
+%------------------------------------------------------
+In this section, regional dynamical core is described.
+% The Cartesian C-grid is employed in \scalerm.
+% In the Cartesian C-grid, scalar quantities, such as density, thermodynamics variable and vapor, is defined at the cell center, while components of vector quantities, such as the momentums and fluxes, are defined at staggered point.
+% See the description document of \scalerm for more details.
+
+
+\editboxtwo{
+\verb|&PARAM_ATMOS  | & \\
+\verb| ATMOS_MESH_TYPE    = "REGIONAL", | & ; Choose from Table \ref{tab:nml_dyn}.\\
+\verb| TIME_DT             = 5D-2,|           & ; Time step for calculation of atmospheric component \\
+\verb| TIME_DT_UNIT        = sec,|            & ; Unit for \verb|TIME_DT| \\
+\verb|/             | & \\
+}
+
+
+\editboxtwo{
+ \verb|&PARAM_ATMOS_DYN  | & \\
+ \verb|EQS_TYPE            = NONHYDRO3D_RHOT_HEVE,|          & ; Choose from temporal schemes in Table \ref{tab:nml_atm_dyn}\\
+ \verb|TINTEG_TYPE         = ERK_SSP_10s4o_2N,|     & ; Choose from temporal schemes\\
+ \verb|TINTEG_TYPE_TRACER  = ERK_SSP3s3o,|    & ; Choose from temporal schemes\\
+ \verb|TIME_DT             = 5D-2,|           & ; Time step for calculation of dynamical process \\
+ \verb|TIME_DT_UNIT        = sec,|            & ; Unit for \verb|TIME_DT| \\
+ \verb|MODALFILTER_FLAG    = .true.,|            & ; Choose from temporal spatial schemes in Table \ref{tab:nml_atm_dyn}\\
+\verb|/             | & \\
+}
+
+
+%t
+\begin{table}[t]
+\caption{Implicit and Explicit (IMEX) Runge--Kutta schemes available in HEVI temporal integration}
+%% Explicit part
+\begin{tabular}{l|cccc}
+%\tophline
+\hline
+Abbrev. & Order & Num. of stages (I,E) & Note & Reference \\
+\hline
+IMEX\_ARK232 & 2 & (2,3) &  & \cite{Giraldo2013} \\
+\hline
+IMEX\_ARK324 & 3 & (3,4) &  & \cite{kennedy2003additive} \\
+\hline
+\end{tabular}
+%%%%%
+%\belowtable{} % Table Footnotes
+\label{tb:HEVI_temporal_integ_choice}
+\end{table}
+
+
+
+\begin{table}[t]
+\caption{Explicit Runge--Kutta schemes available in HEVE temporal integration}
+%% Explicit part
+\begin{tabular}{l|cccc}
+%\tophline
+\hline
+Abbrev. & Order & Num. of stages & Note & Reference \\
+\hline
+ERK\_Euler & 1 & 1 & for debug & \\
+\hline
+ERK\_SSP\_2s2o & 2 & 2 & SSP & \cite{SHU1988439} \\
+\hline
+ERK\_SSP\_3s3o & 3 & 3 & SSP & \cite{SHU1988439} \\
+ERK\_SSP\_4s3o & 3 & 4 & SSP & \\
+ERK\_SSP\_5s3o\_2N2* & 3 & 5 & SSP & \cite{higueras2019new} \\
+\hline
+ERK\_RK4 & 4 & 4 & classical RK4 & \\
+ERK\_SSP\_10s4o\_2N & 4 & 10 & SSP & \cite{Ketcheson2008RK4o10s} \\
+\hline
+\end{tabular}
+%%%%%
+%\belowtable{} % Table Footnotes
+\label{tb:HEVE_temporal_integ_choice}
+\end{table}
+
