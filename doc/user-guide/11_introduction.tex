@@ -55,9 +55,16 @@ It can be skipped, as it is not related directly to its practical use.
 
 \begin{figure}[htb]
 \begin{center}
-  \includegraphics[width=0.9\hsize]{./../figure/scale.pdf}\\
-  \caption{Aims of \scalelib}
+  \includegraphics[width=0.9\hsize]{./../figure/library.pdf}\\
+  \caption{Aims of \scalelib (cite: Fig.\,1.1.1 of SCALE users guide)}
   \label{fig:scale}
+\end{center}
+\end{figure}
+\begin{figure}[hbt]
+\begin{center}
+  \includegraphics[width=0.9\hsize]{./../figure/scale.pdf}\\
+  \caption{Relationship between the library \scalelib and the model SCALE-RM (cite: Fig.\,1.1.2 of SCALE users guide)}
+  \label{fig:scale-rm}
 \end{center}
 \end{figure}
 
@@ -68,9 +75,10 @@ As shown in this figure, SCALE aims to resolve various problems.
 The development of \scalelib is considered in the context of its wide use
 by devices ranging from small PC clusters to next-generation supercomputers.
 For this purpose, scientists in meteorology/climate science
-and computer science are cooperating.
+and computer science are cooperating. 
+As shown in Fig. \ref{fig:scale-rm}, 
 \scalelib manages the parallel processes,
-file I/O, and inner-communication.
+file I/O, and inner-communication. 
 \scalelib also provides the solver for atmospheric flow ( dynamical core based on FVM with Arakawa C-grid)
 and physical processes such as micro-physics and radiation processes.
 SCALE-RM is a regional atmospheric model that fully uses \scalelib.
