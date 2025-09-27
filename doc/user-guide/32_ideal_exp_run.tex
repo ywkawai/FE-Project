@@ -1,0 +1,136 @@
+\section{How to execute model} \label{sec:ideal_exp_run}
+%====================================================================================
+
+
+\subsubsection{Experimental setup}
+This tutorial focuses on 
+a test case of quasi two-dimensional mountain wave.
+% In this idealized experiment, a cumulus appears and develops by providing a typical atmospheric vertical profile
+% and an initial disturbance in the lower troposphere.
+Table \ref{tab:setting_ideal} shows the experimental setting.
+
+\begin{table}[htb]
+\begin{minipage}{150mm}
+\begin{center}
+\caption{Experimental setting of idealized experiment}
+\begin{tabularx}{150mm}{|l|X|X|} \hline
+ \rowcolor[gray]{0.9} ~~ & Configuration & Note \\ \hline
+ Number of MPI processes& 8: $x$-direction, 1: $y$-direction & 1 MPI parallelization \\ \hline
+ Horizontal DOF & 40 elements $\times$ 8 DOF ($p=7$): $x$-direction, 1 element $\times$ 8 DOF ($p=7$): $y$-direction &  \\ \hline
+ Vertical DOF & 8 elements $\times$ 8 DOF ($p=7$) & \\ \hline
+ Horizontal element size & 2.5 km: $x$-direction, 2.5 km: $y$-direction & quasi 2D experiment in the $x$- and vertical directions. \\ \hline
+ Lateral boundary condition & Periodic condition & Both eastward and northward \\ \hline
+ Time step & 12 sec      &  \\ \hline
+ Integration time     & 10 hour & The total number of time step is 3000.\\ \hline
+ Time interval of data output & 1 hour  &  \\ \hline
+%  Physical scheme & Only the microphysics scheme &
+%  6-class single-moment bulk model \citep{tomita_2008} \\ \hline
+%  Initial vertical profile & GCSS Case1 squall line \citep{Redelsperger2000}&
+%  The wind profile based on \citet{Ooyama_2001} is given as the vertical shear. \\ \hline
+%  Initial disturbance & Warm bubble & Horizontal radius of 4 km and
+%  vertical radius of 3km with  maximum intensity of 3K.\\ \hline
+\end{tabularx}
+\label{tab:setting_ideal}
+\end{center}
+\end{minipage}
+\end{table}
+
+\subsubsection{Preparations} %\label{subsec:ideal_exp_prepare}
+%------------------------------------------------------
+
+As described in Section \ref{sec:compile},
+move to a directory of target test case and compile \scaledg. 
+\begin{verbatim}
+  $ cd FE-Project-{\version}/model/atm_nonhydro3d/test/case/mountain_wave/linear_hydrostatic_case
+  $ make -j4
+\end{verbatim}
+Then, 
+the following three executable files are generated in the current directory.
+\begin{verbatim}
+ scale-dg  scale-dg_init  scale-dg_pp
+\end{verbatim}
+
+\subsubsection{Creating initial conditions} \label{subsec:ideal_exp_init}
+%------------------------------------------------------
+
+To create the initial conditions, the configuration file for \verb|scale-dg_init| is required.
+The configuration file \verb|init_R20kmDX500m.conf| has been prepared
+according to Table \ref{tab:setting_ideal}.
+Reading the configuration file, \verb|scale-dg_init| calculates the stratified atmospheric structure and the initial disturbance.
+
+The general form of the executable command in \scaledg is given as follows:
+\begin{verbatim}
+  $ mpirun -n [the number of processes] \\
+    [executable binary name] [the configuration file]
+\end{verbatim}
+The number of processes using MPI parallel processing is given at [the number of processes]. 
+The name of the executable binary is given to [executable binary name],  such as \verb|scale-dg|, \verb|scale-dg_init|, and so on.  
+The configuration file, where the experimental settings are described, is given to [the configuration file].
+%If \verb|sample/init_R20kmDX500m.conf| is used as the configuration file and 
+If \verb|init.conf| is used as the configuration file and 
+\verb|scale-dg_init| using eight-MPI parallel is executed, 
+give the command as follows:
+\begin{verbatim}
+  $ mpirun  -n  8  ./scale-dg_init  ./init.conf
+\end{verbatim}
+\noindent
+If it is successfully completed, 
+the following message is output in the command line:
+
+\msgbox{
+ *** Start Launch System for SCALE-DG\\
+ *** Execute preprocess? :  T\\
+ *** Execute model?      :  F\\
+ *** End   Launch System for SCALE-DG\\
+}
+
+Through the above, the following three files are generated under the given directory:
+\begin{verbatim}
+  init_LOG.pe000000
+  init_00000101-000000.000.pe00000[0-7].nc
+\end{verbatim}
+where 
+the number followed by \verb|pe| in the file name shows the process number of MPI.
+In log file \verb|init_LOG.pe000000|,
+detailed information that is not displayed in the command-line is recorded.
+Although the eight MPI processes are used,
+only the log file of the 0th MPI rank (master rank) is output as default.
+If the execution is successfully finished, 
+the statements below are output at the end of LOG file:
+
+\msgbox{
+ +++++ Closing LOG file\\
+}
+
+The file whose name ends with ``.nc''  is formatted by \netcdf.
+It can be directly read by Xarray or GPhys/Ruby-DCL.
+
+
+\subsubsection{Execution of simulation} %\label{subsec:ideal_exp_run}
+%------------------------------------------------------
+
+The number of parallel processes is required to be the same as that when creating the initial conditions.
+The configuration file for the run is \verb|run.conf|. 
+
+% \begin{verbatim}
+%   $ cp  sample/run_R20kmDX500m.conf  ./run_R20kmDX500m.conf
+%   $ mpirun  -n  2  ./SCALE-DG  run_R20kmDX500m.conf
+% \end{verbatim}
+\begin{verbatim}
+  $ mpirun  -n  8  ./scale_dg  run.conf
+\end{verbatim}
+
+% If a computer satisfying the necessary requirements is used,
+% the calculation is concluded within two minutes.
+The following files are then generated under the given directory:
+\begin{verbatim}
+  LOG.pe000000
+  history.pe00000[0-7].nc
+\end{verbatim}
+%In \verb|LOG.pe000000|, the detailed log that is not displayed in the command line is recorded.
+When the execution finished normally,
+the following message is output at the end of this LOG file:
+\msgbox{
+ +++++ Closing LOG file\\
+}
+The history files \verb|history.pe00000*.nc| contain the results of the calculation. 

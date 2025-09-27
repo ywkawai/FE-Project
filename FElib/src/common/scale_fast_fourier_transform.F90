@@ -1,5 +1,5 @@
 !-------------------------------------------------------------------------------
-!> module common / sparsemat
+!> module common / FFT
 !!
 !! @par Description
 !!          A module to provide a fast Fourier transformation

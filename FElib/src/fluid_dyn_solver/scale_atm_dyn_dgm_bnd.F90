@@ -52,6 +52,8 @@ module scale_atm_dyn_dgm_bnd
   !
   !++ Public parameter & type & procedures
   !
+
+  !> A derived type useful for apply boundary conditions
   type, public :: AtmDynBnd
     type(MeshBndInfo), allocatable :: VelBC_list(:)
     type(MeshBndInfo), allocatable :: ThermalBC_list(:)
@@ -100,16 +102,26 @@ contains
     
     class(AtmDynBnd), intent(inout) :: this
 
-    character(len=H_SHORT) :: btm_vel_bc, top_vel_bc
-    character(len=H_SHORT) :: north_vel_bc, south_vel_bc
-    character(len=H_SHORT) :: east_vel_bc, west_vel_bc
-    character(len=H_SHORT) :: btm_thermal_bc, top_thermal_bc
-    character(len=H_SHORT) :: north_thermal_bc, south_thermal_bc
-    character(len=H_SHORT) :: east_thermal_bc, west_thermal_bc
+    character(len=H_SHORT) :: btm_vel_bc    !< Velocity BC at bottom boundary 
+    character(len=H_SHORT) :: top_vel_bc    !< Velocity BC at top boundary 
+    character(len=H_SHORT) :: north_vel_bc  !< Velocity BC at northern boundary
+    character(len=H_SHORT) :: south_vel_bc  !< Velocity BC at southern boundary 
+    character(len=H_SHORT) :: east_vel_bc   !< Velocity BC at east boundary 
+    character(len=H_SHORT) :: west_vel_bc   !< Velocity BC at west boundary 
 
-    real(RP) :: btm_thermal_fixval, top_thermal_fixval
-    real(RP) :: north_thermal_fixval, south_thermal_fixval
-    real(RP) :: east_thermal_fixval, west_thermal_fixval
+    character(len=H_SHORT) :: btm_thermal_bc    !< Thermal BC at bottom boundary 
+    character(len=H_SHORT) :: top_thermal_bc    !< Thermal BC at top boundary 
+    character(len=H_SHORT) :: north_thermal_bc  !< Thermal BC at northern boundary
+    character(len=H_SHORT) :: south_thermal_bc  !< Thermal BC at southern boundary 
+    character(len=H_SHORT) :: east_thermal_bc   !< Thermal BC at east boundary 
+    character(len=H_SHORT) :: west_thermal_bc   !< Thermal BC at west boundary 
+
+    real(RP) :: btm_thermal_fixval   !< Fixed value with thermal BC at bottom boundary 
+    real(RP) :: top_thermal_fixval   !< Fixed value with thermal BC at top boundary
+    real(RP) :: north_thermal_fixval !< Fixed value with thermal BC at north boundary
+    real(RP) :: south_thermal_fixval !< Fixed value with thermal BC at south boundary
+    real(RP) :: east_thermal_fixval  !< Fixed value with thermal BC at east boundary
+    real(RP) :: west_thermal_fixval  !< Fixed value with thermal BC at west boundary
 
     namelist /PARAM_ATMOS_DYN_BND/ &
       btm_vel_bc, top_vel_bc, north_vel_bc, south_vel_bc, east_vel_bc, west_vel_bc,                         &

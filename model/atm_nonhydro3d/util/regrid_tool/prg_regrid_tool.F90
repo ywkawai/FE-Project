@@ -265,6 +265,8 @@ contains
     call PRC_mpibarrier
     call PRC_MPIfinish
 
+    if( ismaster ) write(*,*) '*** End   regrid_tool'
+
     return
   end subroutine finalize
   

@@ -91,6 +91,7 @@ module scale_mesh_cubedom3d
   !
 
 contains
+!> Initialize an object to manage a cubic 3D domain
 !OCL SERIAL
   subroutine MeshCubeDom3D_Init( this,                          &
     NeGX, NeGY, NeGZ,                                           &
@@ -175,6 +176,7 @@ contains
     return
   end subroutine MeshCubeDom3D_Init
 
+!> Finalize an object to manage a cubic 3D domain
 !OCL SERIAL
   subroutine MeshCubeDom3D_Final( this )
     use scale_prc
@@ -210,6 +212,7 @@ contains
     return
   end subroutine MeshCubeDom3D_getMesh2D
 
+!> Generate a cubic 3D computational domain based on the parameters set in the initialization
 !OCL SERIAL
   subroutine MeshCubeDom3D_generate( this )
     implicit none

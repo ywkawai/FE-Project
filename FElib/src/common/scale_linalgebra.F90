@@ -16,7 +16,7 @@ module scale_linalgebra
   use scale_precision
   use scale_io
   use scale_prc
-  use scale_sparsemat, only: sparsemat
+  use scale_sparsemat, only: SparseMat
 
   !-----------------------------------------------------------------------------
   implicit none
@@ -29,6 +29,7 @@ module scale_linalgebra
 
   public :: linalgebra_LU
   public :: linalgebra_inv
+  !> Solve a linear equation Ax=b using a direct solver 
   interface linalgebra_SolveLinEq
     module procedure linalgebra_SolveLinEq_b1D
     module procedure linalgebra_SolveLinEq_b2D
@@ -70,11 +71,12 @@ module scale_linalgebra
 
 contains
 
+!> Calculate a inversion of matrix A
 !OCL SERIAL
   function linalgebra_inv(A) result(Ainv)
     implicit none
-    real(RP), intent(in) :: A(:,:)
-    real(RP) :: Ainv(size(A,1),size(A,2))
+    real(RP), intent(in) :: A(:,:)         !< Matrix A
+    real(RP) :: Ainv(size(A,1),size(A,2))  !< Result of matrix inversion
 
     real(RP) :: work(size(A,1))
     integer :: ipiv(size(A,1))
@@ -100,12 +102,13 @@ contains
     return
   end function linalgebra_inv
 
+!> Solve a linear equation Ax=b using a direct solver
 !OCL SERIAL
   subroutine linalgebra_SolveLinEq_b1D(A, b, x)
     implicit none
-    real(RP), intent(in) :: A(:,:)
-    real(RP), intent(in) :: b(:)
-    real(RP), intent(out) :: x(size(b))
+    real(RP), intent(in) :: A(:,:)        !< Coefficient matrix
+    real(RP), intent(in) :: b(:)          !< Vector in the right-hand side
+    real(RP), intent(out) :: x(size(b))   !< Solution vector of linear equation Ax=b
 
     real(RP) :: A_lu(size(A,1),size(A,2))
     integer :: ipiv(size(A,1))
@@ -132,12 +135,13 @@ contains
     return
   end subroutine linalgebra_SolveLinEq_b1D
 
+!> Solve a linear equation Ax=b using a direct solver where b is a matrix
 !OCL SERIAL
   subroutine linalgebra_SolveLinEq_b2D(A, b, x)
     implicit none
-    real(RP), intent(in) :: A(:,:)
-    real(RP), intent(in) :: b(:,:)
-    real(RP), intent(out) :: x(size(b,1),size(b,2))
+    real(RP), intent(in) :: A(:,:)                   !< Coefficient matrix
+    real(RP), intent(in) :: b(:,:)                   !< Matrix in the right-hand side
+    real(RP), intent(out) :: x(size(b,1),size(b,2))  !< Matrix storing solution of linear equation Ax=b
 
     real(RP) :: A_lu(size(A,1),size(A,2))
     integer :: ipiv(size(A,1))
@@ -164,11 +168,12 @@ contains
     return
   end subroutine linalgebra_SolveLinEq_b2D
 
+!> Perform LU factorization
 !OCL SERIAL
   subroutine linalgebra_LU(A_lu, ipiv)
     implicit none
-    real(RP), intent(inout) :: A_lu(:,:)
-    integer, intent(out) :: ipiv(size(A_lu,1))
+    real(RP), intent(inout) :: A_lu(:,:)       !> Matrix performed LU factorization. Note that original matrix is overwritten.
+    integer, intent(out) :: ipiv(size(A_lu,1)) !> Array storing the pivoting information
 
     integer :: n
     integer :: info
@@ -310,16 +315,18 @@ contains
     return
   end subroutine linalgebra_SolveLinEq_BndMat
 
+  !> Solve a linear equation Ax=b using the Generalized Minimal Residual solver (GMRES)
+  !!
   subroutine linalgebra_SolveLinEq_GMRES(A, b, x, m, restart_num, CONV_CRIT)
     use scale_sparsemat, only: sparsemat_matmul
     implicit none
     
-    type(sparsemat), intent(in) :: A
-    real(RP), intent(in) :: b(:)
-    real(RP), intent(inout) :: x(:)
-    integer, intent(in) :: m
-    integer, intent(in) ::restart_num
-    real(RP), intent(in) :: CONV_CRIT
+    type(SparseMat), intent(in) :: A   !< Object managing sparse matrix A
+    real(RP), intent(in) :: b(:)       !< Right hand side vector
+    real(RP), intent(inout) :: x(:)    !< Solution vector
+    integer, intent(in) :: m           !<
+    integer, intent(in) ::restart_num  !< Number of times by which restarting is performed if convergence condition is not satisfied
+    real(RP), intent(in) :: CONV_CRIT  !< Threshold for finishing the iteration solver
 
     real(RP) :: x0(size(x))
     real(RP) :: w(size(x))

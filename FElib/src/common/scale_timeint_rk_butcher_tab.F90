@@ -78,12 +78,13 @@ contains
       nstage = 4
       tend_buf_size = 1
       imex_flag = .false.
-    case( 'ERK_SSP_2s2o' )
+    case( 'ERK_SSP_2s2o' ) ! Shu and Osher, 1998: Efficient implementation of essentially nonoscillatory shock-capturing schemes, J. Comput. Phys.; Gottlieb and Shu, 1998: Total variation diminishing Runge-Kutta schemes, Math. Comput.
       nstage = 2
       tend_buf_size = 1
       low_storage_flag = .true.
       imex_flag = .false.
-    case( 'ERK_SSP_3s3o' ) ! SSP coefficient: 1, effective SSP coefficient Ceff: 1/3 
+    case( 'ERK_SSP_3s3o' ) ! Shu and Osher, 1998: Efficient implementation of essentially nonoscillatory shock-capturing schemes, J. Comput. Phys.;  
+                           ! SSP coefficient: 1, effective SSP coefficient Ceff: 1/3 
       nstage = 3
       tend_buf_size = 1
       low_storage_flag = .true.

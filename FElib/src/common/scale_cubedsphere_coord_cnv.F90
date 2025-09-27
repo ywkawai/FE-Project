@@ -2,7 +2,7 @@
 !> module common / Coordinate conversion with a cubed-sphere 
 !!
 !! @par Description
-!!      Coordinate conversion with a cubed-sphere 
+!!      A module to provide coordinate conversions with an equiangular gnomonic cubed-sphere projection
 !!
 !!
 !! @par Reference
@@ -79,21 +79,23 @@ module scale_cubedsphere_coord_cnv
 
 
 contains
+!> Calculate longitude and latitude coordinates from local coordinates using the central angles in an equiangular gnomonic cubed-sphere projection
+!!
 !OCL SERIAL
   subroutine CubedSphereCoordCnv_CS2LonLatPos( &
     panelID, alpha, beta, gam, Np,             & ! (in)
-    lon, lat )                                 ! (out)
+    lon, lat )                                   ! (out)
     use scale_geographic_coord_cnv, only: &
       GeographicCoordCnv_orth_to_geo_pos
     implicit none
 
-    integer, intent(in) :: panelID
-    integer, intent(in) :: Np
-    real(RP), intent(in) :: alpha(Np)
-    real(RP), intent(in) :: beta (Np)
-    real(RP), intent(in) :: gam(Np)
-    real(RP), intent(out) :: lon(Np)
-    real(RP), intent(out) :: lat(Np)
+    integer, intent(in) :: panelID     !< Panel ID of cubed-sphere coordinates
+    integer, intent(in) :: Np          !< Array size
+    real(RP), intent(in) :: alpha(Np)  !< Local coordinate using the central angles [rad]
+    real(RP), intent(in) :: beta (Np)  !< Local coordinate using the central angles [rad]
+    real(RP), intent(in) :: gam(Np)    !< A factor of r/a
+    real(RP), intent(out) :: lon(Np)   !< Longitude coordinate [rad]
+    real(RP), intent(out) :: lat(Np)   !< Latitude coordinate [rad]
 
     real(RP) :: CartPos(Np,3)
     real(RP) :: GeogPos(Np,3)
@@ -142,6 +144,8 @@ contains
     return
   end subroutine CubedSphereCoordCnv_CS2LonLatPos
 
+!> Covert the components of a vector in local coordinates with an equiangular gnomonic cubed-sphere projection to those in longitude and latitude coordinates
+!!
 !OCL SERIAL
   subroutine CubedSphereCoordCnv_CS2LonLatVec( &
     panelID, alpha, beta, gam, Np,         & ! (in)
@@ -153,16 +157,16 @@ contains
       EPS => CONST_EPS
     implicit none
 
-    integer, intent(in) :: panelID
-    integer, intent(in) :: Np
-    real(RP), intent(in) :: alpha(Np)
-    real(RP), intent(in) :: beta (Np)
-    real(RP), intent(in) :: gam(Np)      ! RPlanet / r
-    real(DP), intent(in) :: VecAlpha(Np)
-    real(DP), intent(in) :: VecBeta (Np)
-    real(RP), intent(out) :: VecLon(Np)
-    real(RP), intent(out) :: VecLat(Np)
-    real(RP), intent(in), optional :: lat(Np)
+    integer, intent(in) :: panelID       !< Panel ID of cubed-sphere coordinates
+    integer, intent(in) :: Np            !< Array size
+    real(RP), intent(in) :: alpha(Np)    !< Local coordinate using the central angles [rad]
+    real(RP), intent(in) :: beta (Np)    !< Local coordinate using the central angles [rad]
+    real(RP), intent(in) :: gam(Np)      !< A factor of RPlanet / r
+    real(DP), intent(in) :: VecAlpha(Np) !< A component of vector in the alpha-coordinate
+    real(DP), intent(in) :: VecBeta (Np) !< A component of vector in the beta-coordinate
+    real(RP), intent(out) :: VecLon(Np)  !< A component of vector in the longitude-coordinate
+    real(RP), intent(out) :: VecLat(Np)  !< A component of vector in the latitude-coordinate
+    real(RP), intent(in), optional :: lat(Np) !< latitude [rad]
 
     integer :: p
     real(RP) :: X ,Y, del2
@@ -231,6 +235,8 @@ contains
     return
   end subroutine CubedSphereCoordCnv_CS2LonLatVec
 
+!> Calculate local coordinates using the central angles in an equiangular gnomonic cubed-sphere projection from longitude and latitude coordinates
+!!
 !OCL SERIAL
   subroutine CubedSphereCoordCnv_LonLat2CSPos(  &
     panelID, lon, lat, Np,                 & ! (in)
@@ -238,12 +244,12 @@ contains
 
     implicit none
 
-    integer, intent(in) :: panelID
-    integer, intent(in) :: Np
-    real(RP), intent(in) :: lon(Np)
-    real(RP), intent(in) :: lat(Np)
-    real(RP), intent(out) ::alpha(Np)
-    real(RP), intent(out) ::beta (Np)
+    integer, intent(in) :: panelID      !< Panel ID of cubed-sphere coordinates
+    integer, intent(in) :: Np           !< Array size
+    real(RP), intent(in) :: lon(Np)     !< Longitude coordinate [rad]
+    real(RP), intent(in) :: lat(Np)     !< Latitude coordinate [rad]
+    real(RP), intent(out) ::alpha(Np)   !< Local coordinate using the central angles [rad]
+    real(RP), intent(out) ::beta (Np)   !< Local coordinate using the central angles [rad]
 
     integer :: p
     real(RP) :: tan_lat
@@ -302,8 +308,8 @@ contains
     return
   end subroutine CubedSphereCoordCnv_LonLat2CSPos
 
-  !
-  !
+!> Covert the components of a vector in longitude and latitude coordinates to those in local coordinates with an equiangular gnomonic cubed-sphere projection
+!!
 !OCL SERIAL
   subroutine CubedSphereCoordCnv_LonLat2CSVec( &
     panelID, alpha, beta, gam, Np,         & ! (in)
@@ -313,16 +319,16 @@ contains
 
     implicit none
 
-    integer, intent(in) :: panelID
-    integer, intent(in) :: Np
-    real(RP), intent(in) :: alpha(Np)
-    real(RP), intent(in) :: beta (Np)
-    real(RP), intent(in) :: gam(Np)
-    real(DP), intent(in) :: VecLon(Np)
-    real(DP), intent(in) :: VecLat(Np)
-    real(RP), intent(out) :: VecAlpha(Np)
-    real(RP), intent(out) :: VecBeta (Np)
-    real(RP), intent(in), optional :: lat(Np)
+    integer, intent(in) :: panelID        !< Panel ID of cubed-sphere coordinates
+    integer, intent(in) :: Np             !< Array size
+    real(RP), intent(in) :: alpha(Np)     !< Local coordinate using the central angles [rad]
+    real(RP), intent(in) :: beta (Np)     !< Local coordinate using the central angles [rad]
+    real(RP), intent(in) :: gam(Np)       !< A factor of RPlanet / r
+    real(DP), intent(in) :: VecLon(Np)    !< A component of vector in the longitude-coordinate
+    real(DP), intent(in) :: VecLat(Np)    !< A component of vector in the latitude-coordinate
+    real(DP), intent(out) :: VecAlpha(Np) !< A component of vector in the alpha-coordinate
+    real(DP), intent(out) :: VecBeta (Np) !< A component of vector in the beta-coordinate
+    real(RP), intent(in), optional :: lat(Np) !< latitude [rad]
 
     integer :: p
     real(RP) :: X ,Y, del2
@@ -394,20 +400,22 @@ contains
     return
   end subroutine CubedSphereCoordCnv_LonLat2CSVec
 
+!> Calculate Cartesian coordinates from local coordinates using the central angles in an equiangular gnomonic cubed-sphere projection
+!!
 !OCL SERIAL
   subroutine CubedSphereCoordCnv_CS2CartPos( &
     panelID, alpha, beta, gam, Np,           & ! (in)
     X, Y, Z                                  ) ! (out)
 
     implicit none
-    integer, intent(in) :: panelID
-    integer, intent(in) :: Np
-    real(RP), intent(in) :: alpha(Np)
-    real(RP), intent(in) :: beta (Np)
-    real(RP), intent(in) :: gam(Np)
-    real(RP), intent(out) :: X(Np)
-    real(RP), intent(out) :: Y(Np)
-    real(RP), intent(out) :: Z(Np)
+    integer, intent(in) :: panelID     !< Panel ID of cubed-sphere coordinates
+    integer, intent(in) :: Np          !< Array size
+    real(RP), intent(in) :: alpha(Np)  !< Local coordinate using the central angles [rad]
+    real(RP), intent(in) :: beta (Np)  !< Local coordinate using the central angles [rad]
+    real(RP), intent(in) :: gam(Np)    !< A factor of r/a
+    real(RP), intent(out) :: X(Np)     !< x-coordinate in the Cartesian coordinate
+    real(RP), intent(out) :: Y(Np)     !< y-coordinate in the Cartesian coordinate
+    real(RP), intent(out) :: Z(Np)     !< z-coordinate in the Cartesian coordinate
 
     integer :: p
     real(RP) :: x1, x2, fac
@@ -483,8 +491,8 @@ contains
     return
   end subroutine CubedSphereCoordCnv_CS2CartPos
 
-  !
-  !
+!> Covert the components of a vector in local coordinates with an equiangular gnomonic cubed-sphere projection to those in the Cartesian coordinates
+!!
 !OCL SERIAL
   subroutine CubedSphereCoordCnv_Cart2CSVec( &
     panelID, alpha, beta, gam, Np,         & ! (in)
@@ -493,16 +501,16 @@ contains
 
     implicit none
 
-    integer, intent(in) :: panelID
-    integer, intent(in) :: Np
-    real(RP), intent(in) :: alpha(Np)
-    real(RP), intent(in) :: beta (Np)
-    real(RP), intent(in) :: gam(Np)
-    real(DP), intent(in) :: Vec_x(Np)
-    real(DP), intent(in) :: Vec_y(Np)
-    real(DP), intent(in) :: Vec_z(Np)
-    real(RP), intent(out) :: VecAlpha(Np)
-    real(RP), intent(out) :: VecBeta (Np)
+    integer, intent(in) :: panelID        !< Panel ID of cubed-sphere coordinates
+    integer, intent(in) :: Np             !< Array size
+    real(RP), intent(in) :: alpha(Np)     !< Local coordinate using the central angles [rad]
+    real(RP), intent(in) :: beta (Np)     !< Local coordinate using the central angles [rad]
+    real(RP), intent(in) :: gam(Np)       !< A factor of RPlanet / r
+    real(DP), intent(in) :: Vec_x(Np)     !< A component of vector in the x-coordinate with the Cartesian coordinate
+    real(DP), intent(in) :: Vec_y(Np)     !< A component of vector in the y-coordinate with the Cartesian coordinate
+    real(DP), intent(in) :: Vec_z(Np)     !< A component of vector in the z-coordinate with the Cartesian coordinate
+    real(RP), intent(out) :: VecAlpha(Np) !< A component of vector in the alpha-coordinate
+    real(RP), intent(out) :: VecBeta (Np) !< A component of vector in the beta-coordinate
 
     integer :: p
     real(RP) :: x1, x2, fac
@@ -721,6 +729,8 @@ contains
     return
   end subroutine CubedSphereCoordCnv_LocalOrth2CSVec_alpha_1
 
+!> Calculate the metrics associated with an equiangular gnomonic cubed-sphere projection to those in longitude and latitude coordinates
+!!
 !OCL SERIAL  
   subroutine CubedSphereCoordCnv_GetMetric( &
     alpha, beta, Np, radius,            & ! (in)
@@ -728,13 +738,13 @@ contains
 
     implicit none
 
-    integer, intent(in) :: Np
-    real(RP), intent(in) :: alpha(Np)
-    real(RP), intent(in) :: beta(Np)
-    real(RP), intent(in) :: radius
-    real(RP), intent(out) :: G_ij(Np,2,2)
-    real(RP), intent(out) :: GIJ (Np,2,2)
-    real(RP), intent(out) :: Gsqrt(Np)
+    integer, intent(in) :: Np             !< Array size
+    real(RP), intent(in) :: alpha(Np)     !< Local coordinate using the central angles [rad]
+    real(RP), intent(in) :: beta (Np)     !< Local coordinate using the central angles [rad]
+    real(RP), intent(in) :: radius        !< Planetary radius
+    real(RP), intent(out) :: G_ij(Np,2,2) !< Horizontal covariant metric tensor
+    real(RP), intent(out) :: GIJ (Np,2,2) !< Horizontal contravariant metric tensor
+    real(RP), intent(out) :: Gsqrt(Np)    !< Horizontal Jacobian
 
     real(RP) :: X, Y
     real(RP) :: r2

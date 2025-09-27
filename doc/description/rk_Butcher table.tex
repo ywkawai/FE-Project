@@ -1,0 +1,248 @@
+%t
+\begin{table}[t]
+\caption{Double Butcher table for a third-order IMEX RK scheme proposed by \cite{kennedy2003additive}.}
+%% Explicit part
+\begin{tabular}{lcccc}
+%\tophline
+\hline
+$c_s$ & $a_{ss'}$ & & & \\
+\hline
+0 & 0 & 0 & 0 & 0 \\
+$\frac{1767732205903}{2027836641118}$ & $\frac{1767732205903}{2027836641118}$ & 0 & 0 & 0 \\
+$\frac{3}{5}$ & $\frac{5535828885825}{10492691773637}$ & $\frac{788022342437}{10882634858940}$ & 0 & 0 \\
+1 & $\frac{6485989280629}{16251701735622}$ & $-\frac{4246266847089}{9704473918619}$ & $-\frac{10755448449292}{10357097424841}$ & 0 \\
+\hline
+$b_s$ & $\frac{1471266399579}{7840856788654}$ & $-\frac{4482444167858}{7529755066697}$ & $\frac{11266239266428}{11593286722821}$ &  $\frac{1767732205903}{4055673282236}$ \\
+\hline
+\end{tabular}
+%%%%%
+\vspace{2cm}
+%% Implicit part
+\begin{tabular}{lcccc}
+%\tophline
+\hline
+$\tilde{c}_s$ & $\tilde{a}_{ss'}$ & & & \\
+\hline
+0 & 0 & 0 & 0 & 0 \\
+$\frac{1767732205903}{2027836641118}$ & $\frac{1767732205903}{4055673282236}$ & $\frac{1767732205903}{4055673282236}$ & 0 & 0 \\
+$\frac{3}{5}$ & $\frac{2746238789719}{10658868560708}$ & -$\frac{640167445237}{6845629431997}$ & $\frac{1767732205903}{4055673282236}$ & 0 \\
+1 & $\frac{1471266399579}{7840856788654}$ & $-\frac{4482444167858}{7529755066697}$ & $\frac{1767732205903}{11593286722821}$ &  $\frac{1767732205903}{4055673282236}$ \\
+\hline
+$\tilde{b}_s$ & $\frac{1471266399579}{7840856788654}$ & $-\frac{4482444167858}{7529755066697}$ & $\frac{11266239266428}{11593286722821}$ &  $\frac{1767732205903}{4055673282236}$ \\
+\end{tabular}
+%\belowtable{} % Table Footnotes
+\label{tb:Butcher_tbl_IMEXRK}
+\end{table}
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%t
+\begin{table}[t]
+\caption{Butcher table and Shu-Osher form for a third-order fully explicit SSP RK scheme with three stages}
+\begin{subtable}{\linewidth}
+\begin{tabular}{lccc}
+%\tophline
+$c_s$ & $a_{ss'}$ & & \\
+\hline
+$0$ & & &  \\
+$1$ & $1$ &  & \\
+$\frac{1}{2}$ & $\frac{1}{4}$ & $\frac{1}{4}$ & \\
+\hline
+$b_s$ & $\frac{1}{6}$ & $\frac{1}{6}$ & $\frac{2}{3}$  \\ 
+\end{tabular}
+%\belowtable{} % Table Footnotes
+\label{tb:Butcher_tbl_EXRK_SSPo3s3}
+\end{subtable}
+\vspace{.5cm}
+
+\begin{subtable}{\linewidth}
+\begin{tabular}{ccc}
+%\tophline
+$\alpha_{ss'}$ & & \\
+\hline
+$1$ & &  \\
+$\frac{3}{4}$ & $\frac{1}{4}$ & \\
+$\frac{1}{3}$ & $0$ & $\frac{2}{3}$ \\
+\hline
+\end{tabular}
+\hspace{.5cm}
+\begin{tabular}{ccc}
+%\tophline
+$\beta_{ss'}$ & & \\
+\hline
+$1$ & &  \\
+$0$ & $\frac{1}{4}$ & \\
+$0$ & $0$ & $\frac{2}{3}$ \\
+\hline
+\end{tabular}
+%\belowtable{} % Table Footnotes
+\label{tb:ShuOsher_tbl_EXRK_SSPo3s3}
+\end{subtable}
+\end{table}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%t
+\begin{table}[t]
+\caption{Butcher table and Shu-Osher form for a third-order fully explicit SSP RK scheme with four stages}
+\begin{subtable}{\linewidth}
+\begin{tabular}{lcccc}
+%\tophline
+$c_s$ & $a_{ss'}$ & & & \\
+\hline
+$0$ & & & & \\
+$\frac{1}{2}$ & $\frac{1}{2}$ &  & & \\
+$1$ & $\frac{1}{2}$ & $\frac{1}{2}$ & & \\
+$\frac{1}{2}$ & $\frac{1}{6}$ & $\frac{1}{6}$ & $\frac{1}{6}$ & \\
+\hline
+$b_s$ & $\frac{1}{6}$ & $\frac{1}{6}$ & $\frac{1}{6}$ & $\frac{1}{2}$  \\ 
+\end{tabular}
+%\belowtable{} % Table Footnotes
+\label{tb:Butcher_tbl_EXRK_SSPo3s4}
+\end{subtable}
+\vspace{.5cm}
+
+\begin{subtable}{\linewidth}
+\begin{tabular}{cccc}
+%\tophline
+$\alpha_{ss'}$ & & &\\
+\hline
+$1$ & &  &\\
+$0$ & 1 & & \\
+$\frac{2}{3}$ & $0$ & $\frac{1}{3}$ &\\
+$0$ & $0$ & $0$ & $1$ \\
+\hline
+\end{tabular}
+\hspace{.5cm}
+\begin{tabular}{cccc}
+%\tophline
+$\beta_{ss'}$ & & &\\
+\hline
+$\frac{1}{2}$ & & & \\
+$0$ & $\frac{1}{2}$ & & \\
+$0$ & $0$ & $\frac{1}{6}$ & \\
+$0$ & $0$ & 0 & $\frac{1}{2}$ \\
+\hline
+\end{tabular}
+%\belowtable{} % Table Footnotes
+\label{tb:ShuOsher_tbl_EXRK_SSPo3s4}
+\end{subtable}
+\end{table}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%t
+\begin{table}[t]
+\caption{Shu-Osher form for a third-order and five-stage fully explicit SSP RK scheme with $2N_2^*$ storage}
+% \begin{subtable}{\linewidth}
+% \begin{tabular}{lccccc}
+% %\tophline
+% $c_s$ & $a_{ss'}$ & & & & \\
+% \hline
+% $0$ & & & & & \\
+% $\frac{1}{2}$ & $\frac{1}{2}$ &  & & & \\
+% $1$ & $\frac{1}{2}$ & $\frac{1}{2}$ & & \\
+% $\frac{1}{2}$ & $\frac{1}{6}$ & $\frac{1}{6}$ & $\frac{1}{6}$ & \\
+% \hline
+% $b_s$ & $\frac{1}{6}$ & $\frac{1}{6}$ & $\frac{1}{6}$ & $\frac{1}{2}$  \\ 
+% \end{tabular}
+% %\belowtable{} % Table Footnotes
+% \label{tb:Butcher_tbl_EXRK_SSPo3s4}
+% \end{subtable}
+% \vspace{.5cm}
+
+\begin{subtable}{\linewidth}
+\scalebox{0.5}{
+\begin{tabular}{ccccc}
+%\tophline
+$\alpha_{ss'}$ & & & &\\
+\hline
+$1$ & & & & \\
+$0$ & 1 & & & \\
+$0.682342861037239$ & $0$ & $0.317657138962761$ & & \\
+$0$ & $0$ & $0$ & $1$ & \\
+$0.045230974482400 $ & $0$ & $0$ & $0$ & $0.954769025517600$ \\
+\hline
+\end{tabular}
+\hspace{.5cm}
+\begin{tabular}{ccccc}
+%\tophline
+$\beta_{ss'}$ & & & &\\
+\hline
+$0.465388589249323$ & & & &\\
+$0$ & $ 0.465388589249323$ & & &\\
+$0$ & $0$ & $ 0.124745797313998$ & & \\
+$0$ & $0$ & 0 & $0.465388589249323$ & \\
+$0$ & $0$ & 0 & $0$ & $0.154263303748666$ \\
+\hline
+\end{tabular}
+}
+%\belowtable{} % Table Footnotes
+\label{tb:ShuOsher_tbl_EXRK_SSPo3s5_2N2*}
+\end{subtable}
+\end{table}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%t
+\begin{table}[t]
+\caption{Butcher table for a fourth-order fully explicit RK scheme with ten stages porposed by \cite{Ketcheson2008RK4o10s}.}
+\begin{subtable}{\linewidth}
+\begin{tabular}{lcccccccccc}
+%\tophline
+$c_s$ & $a_{ss'}$ & & & & & & & & & \\
+\hline
+$0$ & &&&&&&&&&  \\
+$\frac{1}{6}$ & $\frac{1}{6}$ &  &&&&&&&& \\
+$\frac{1}{3}$ & $\frac{1}{6}$ & $\frac{1}{6}$ &&&&&&&& \\
+$\frac{1}{2}$ & $\frac{1}{6}$ & $\frac{1}{6}$ & $\frac{1}{6}$ &&&&&&& \\
+$\frac{2}{3}$ & $\frac{1}{6}$ & $\frac{1}{6}$ & $\frac{1}{6}$ & $\frac{1}{6}$ &&&&&& \\
+$\frac{1}{3}$ & $\frac{1}{15}$ & $\frac{1}{15}$ & $\frac{1}{15}$ & $\frac{1}{15}$ & $\frac{1}{15}$ &&&&& \\
+$\frac{1}{2}$ & $\frac{1}{15}$ & $\frac{1}{15}$ & $\frac{1}{15}$ & $\frac{1}{15}$ & $\frac{1}{15}$ & $\frac{1}{6}$ &&&& \\
+$\frac{2}{3}$ & $\frac{1}{15}$ & $\frac{1}{15}$ & $\frac{1}{15}$ & $\frac{1}{15}$ & $\frac{1}{15}$ & $\frac{1}{6}$ & $\frac{1}{6}$ &&& \\
+$\frac{5}{6}$ & $\frac{1}{15}$ & $\frac{1}{15}$ & $\frac{1}{15}$ & $\frac{1}{15}$ & $\frac{1}{15}$ & $\frac{1}{6}$ & $\frac{1}{6}$ & $\frac{1}{6}$ && \\
+$1$ & $\frac{1}{15}$ & $\frac{1}{15}$ & $\frac{1}{15}$ & $\frac{1}{15}$ & $\frac{1}{15}$ & $\frac{1}{6}$ & $\frac{1}{6}$ & $\frac{1}{6}$ & $\frac{1}{6}$ & \\
+\hline
+$b_s$ & $\frac{1}{10}$ & $\frac{1}{10}$ & $\frac{1}{10}$ & $\frac{1}{10}$ & $\frac{1}{10}$ & $\frac{1}{10}$ & $\frac{1}{10}$ & $\frac{1}{10}$ & $\frac{1}{10}$ & $\frac{1}{10}$ \\ 
+\end{tabular}
+%\belowtable{} % Table Footnotes
+\label{tb:Butcher_tbl_EXRK_o4s10}
+\end{subtable}
+\vspace{.5cm}
+
+\begin{subtable}{\linewidth}
+\begin{tabular}{cccccccccc}
+%\tophline
+$\alpha_{ss'}$ & & & & & & & & & \\
+\hline
+$1$ & & & & & & & & &  \\
+$0$ & $1$ & & & & & & & &  \\
+$0$ & $0$ & $1$ & & & & & & &  \\
+$0$ & $0$ & $0$ & $1$ & & & & & &  \\
+$\frac{3}{5}$ & $0$ & $0$ & $0$ & $\frac{2}{5}$ & & & & &  \\
+$0$ & $0$ & $0$ & $0$ & $0$ & $1$ & & & &  \\
+$0$ & $0$ & $0$ & $0$ & $0$ & $0$ & $1$ & & &  \\
+$0$ & $0$ & $0$ & $0$ & $0$ & $0$ & $0$ & $1$ & &  \\
+$0$ & $0$ & $0$ & $0$ & $0$ & $0$ & $0$ & $0$ & $1$ &  \\
+$0$ & $0$ & $0$ & $0$ & $0$ & $0$ & $0$ & $0$ & $0$ & $1$ \\
+\hline
+\end{tabular}
+\hspace{.5cm}
+\begin{tabular}{cccccccccc}
+%\tophline
+$\beta_{ss'}$ & & & & & & & & & \\
+\hline
+$\frac{1}{6}$ & & & & & & & & &  \\
+$0$ & $\frac{1}{6}$ & & & & & & & &  \\
+$0$ & $0$ & $\frac{1}{6}$ & & & & & & &  \\
+$0$ & $0$ & $0$ & $\frac{1}{6}$ & & & & & &  \\
+$0$ & $0$ & $0$ & $0$ & $\frac{1}{15}$ & & & & &  \\
+$0$ & $0$ & $0$ & $0$ & $0$ & $\frac{1}{6}$ & & & &  \\
+$0$ & $0$ & $0$ & $0$ & $0$ & $0$ & $\frac{1}{6}$ & & &  \\
+$0$ & $0$ & $0$ & $0$ & $0$ & $0$ & $0$ & $\frac{1}{6}$ & &  \\
+$0$ & $0$ & $0$ & $0$ & $0$ & $0$ & $0$ & $0$ & $\frac{1}{6}$ &  \\
+$0$ & $0$ & $0$ & $0$ & $\frac{3}{50}$ & $0$ & $0$ & $0$ & $0$ & $\frac{1}{10}$ \\
+\hline
+\end{tabular}
+%\belowtable{} % Table Footnotes
+\label{tb:ShuOsher_tbl_EXRK_SSPo3s4}
+\end{subtable}
+\end{table}

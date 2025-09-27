@@ -1,0 +1,388 @@
+{\bf \Large
+\begin{tabular}{ccc}
+\hline
+  Corresponding author & : & Yuta Kawai\\
+\hline
+\end{tabular}
+}
+
+\section{Coordinate system}
+%%
+To describe the governing equations for both regional and global dynamical cores, 
+a non-orthogonal curvilinear horizontal coordinate $(\xi,\eta)$ 
+and a general vertical coordinate $\zeta$ are introduced, 
+following \cite{li2020development}. 
+For the horizontal coordinate transformation, 
+the contravariant form of the metric tensor is represented by $G_h^{ij}$ for $i, j=1, 2$. 
+%%
+A three-dimensional metric tensor with the horizontal coordinate transformation is defined as 
+%%
+\begin{align}
+    G^{ij} = \begin{pmatrix}
+      G_h^{11} & G_h^{12} & 0 \\
+      G_h^{21} & G_h^{22} & 0 \\  
+      0 & 0 & 1
+    \end{pmatrix}. 
+\end{align}
+%%
+The horizontal Jacobian is defined as $\sqrt{G_h}=|G_{h}^{ij}|^{-\frac{1}{2}}$. 
+The Christoffel symbol of the second kind  $\Gamma^i_{ml}$,
+which means the spatial variation of the basis vector, is represented as 
+%%
+\begin{align}
+  \Gamma^i_{ml} = \dfrac{1}{2} G^{im} \left( 
+    \dfrac{\partial G_{jm}}{\partial x^k} 
+  + \dfrac{\partial G_{km}}{\partial x^j} 
+  + \dfrac{\partial G_{jk}}{\partial x^m} 
+  \right)
+\end{align}
+
+
+For the vertical coordinate transformation, 
+the metric tensor is defined as  $G_v^{13}=\partial \zeta/\partial \xi, G_v^{23}=\partial \zeta/\partial \eta $ 
+and 
+the vertical Jacobian is defined as $\sqrt{G_v}=\partial z/\partial \zeta$.  
+The vertical velocity in the transformed vertical coordinate can be written 
+using contravariant components of wind vector $(u^\xi, u^\eta, u^\zeta)$ as 
+%%
+\begin{align}
+\widetilde{u^\zeta} \equiv \dfrac{d \zeta}{d t} = \dfrac{1}{\sqrt{G_v}}\left( u^\zeta + \sqrt{G_v} G_v^{13} u^\xi + \sqrt{G_v} G_v^{23} u^\eta \right).  
+\end{align}
+%%
+
+
+The final Jacobian composed of horizontal and vertical coordinate transformations can be represented as $\sqrt{G}=\sqrt{G_h}\sqrt{G_v}$. 
+Hereafter, to briefly describe the formulations, 
+the coordinate variables are sometimes expressed using $(\xi^1,\xi^2,\xi^3)=(\xi,\eta,\zeta)$. 
+In addition, 
+the Einstein summation notation will be applied 
+for repeated indices when representing the geometric relations.
+
+
+\subsection{Horizontal coordinates used in regional model}
+%%
+For horizontal coordinates in our regional model, 
+the horizontal Cartesian coordinates $(x, y)$ is simply adopted 
+although we will introduce map projections in the near future. 
+Then, 
+%%
+\begin{equation}
+    G_h^{ij} =  \begin{pmatrix}
+        1 & 0 \\
+        0 & 0
+      \end{pmatrix}, \;\;\;
+    \sqrt{G_h}=1, 
+\label{eq:metric_tensor_Jacobian_regional_model}
+\end{equation}
+%%
+The Christoffel symbol of the second kind  $\Gamma^i_{ml}$ is represented as 
+\begin{align}
+  \Gamma^1_{ml} = 0, \;\; \Gamma^2_{ml} = 0, \;\; \Gamma^3_{ml} = 0, 
+\label{eq:ChristoffelSymbol2ndKind_regional_model}
+\end{align}
+%%
+where $m,l=1,2,3$. 
+
+
+The components of angular velocity vector included in the Coriolis terms
+are given as
+%%
+\begin{align}
+  \Omega^1 = 0, \;\;
+  \Omega^2 = 0, \nonumber \\
+  \Omega^3 = f_0 + \beta y.
+%\label{eq:angular_vel_vec_cartesian}
+\end{align}
+%%
+Here, 
+$f_0=2 \Omega \sin{\theta_0}, \beta= 2\Omega \cos{\theta_0}$ 
+where 
+$\omega$ is the angular velocity of the planet and $\theta_0$ is the reference latitude. 
+
+
+
+
+\subsection{Horizontal coordinates used in global model}
+%%
+For horizontal coordinates in our global model, 
+we adopt an equiangular gnomonic cubed-sphere projection \citep{sadourny1972FDMQuasiUniformSphereGrids,RONCHI199693} 
+to map a cube onto a sphere.  
+Compared to a conformal projection \citep{RANCC1996}, 
+we prefer this projection to generate more uniform grids in high spatial resolutions, 
+although the non-orthogonal basis need to be treated.
+In each panel of the cube, 
+a local coordinate using the central angles 
+$(\alpha, \beta)$ ($\in [-\pi/4,\pi/4]$) was introduced and 
+related to the horizontal coordinates $(\xi, \eta)$ by $\xi=\alpha, \eta=\beta$. 
+Based on the derivation with the coordinate transformation 
+in previous studies \citep[e.g.,][]{Nair2005DGTransport,ullrich2012dynamical,li2020development}, 
+the horizontal contravariant metric tensor and the horizontal Jacobian for the equiangular gnomonic cubed-sphere projection can be written as, respectively,  
+%%
+\begin{equation}
+    G_c^{ij} = \dfrac{\delta^2}{r^2(1+X^2)(1+Y^2)} \begin{pmatrix}
+        1+Y^2 & XY \\
+        XY    & 1 + X^2
+      \end{pmatrix}, \;\;\;
+    \sqrt{G_c}=\dfrac{r^2 (1+X^2)(1+Y^2)}{\delta^3}, 
+\label{eq:metric_tensor_Jacobian_cubedsphere}
+\end{equation}
+%%
+where $X=\tan \alpha$, $Y=\tan \beta$, $\delta=\sqrt{1+X^2+Y^2}$, and $r$ is the radial coordinate.  
+The Christoffel symbol of the second kind  $\Gamma^i_{ml}$ is represented as 
+%%
+\begin{align}
+ &\Gamma^1_{ml} = 
+ \begin{pmatrix}
+    \dfrac{2XY^2}{\delta^2} & \dfrac{-Y(1+Y^2)}{\delta^2} & \dfrac{\delta_S}{r} \\
+    \dfrac{-Y(1+Y^2)}{\delta^2} & 0 & 0  \\ 
+    \dfrac{\delta_S}{r} & 0 & 0
+  \end{pmatrix}, \nonumber \\
+  &\Gamma^2_{ml} = 
+  \begin{pmatrix}
+     0 & \dfrac{-X(1+X^2)}{\delta^2} & 0 \\
+     \dfrac{-X(1+X^2)}{\delta^2} & \dfrac{2X^2 Y}{\delta^2} & \dfrac{\delta_S}{r}  \\ 
+     0 & \dfrac{\delta_S}{r} & 0
+   \end{pmatrix},  \\
+ &\Gamma^3_{ml} = \delta_S \dfrac{r(1+X^2)(1+Y^2)}{\delta^4}
+   \begin{pmatrix}
+     -(1+X^2) & XY & 0 \\
+      XY & -(1+Y^2) & 0  \\ 
+      0 & 0 & 0
+    \end{pmatrix}, \nonumber
+\label{eq:ChristoffelSymbol2ndKind_cubedsphere}
+\end{align}
+%%
+where $\delta_S$ is a switch for shallow atmosphere approximation. 
+
+
+The components of angular velocity vector included in the Coriolis terms
+are given as
+%%
+\begin{align}
+  \Omega^1 = 0, \;\;
+  \Omega^2 = \delta_S \dfrac{\omega \delta}{r(1+Y^2)}, \;\;
+  \Omega^3 = \omega \dfrac{Y}{\delta}, \;\;\;\;\;\; &\text{for the equatorial panels,} \nonumber \\
+  \Omega^1 = - \delta_S \dfrac{s\omega X\delta}{r(1+X^2)}, \;\;
+  \Omega^2 = - \delta_S \dfrac{s\omega Y\delta}{r(1+Y^2)}, \;\;
+  \Omega^3 = \dfrac{s\omega}{\delta}, \;\;\;\;\;\;  &\text{for the polar panels}, 
+%\label{eq:angular_vel_vec_cubedsphere}
+\end{align}
+%%
+where 
+$\omega$ is the angular velocity of the planet
+and an index $s$ has a value of 1 and -1 for the Northern and Southern polar panels, respectively. 
+
+
+\subsection{Vertical coordinates}
+%%
+To treat the topography, 
+we adopt the traditional terrain-following coordinate \citep{PHILLIPS1957,GALCHEN1975209} as a general vertical coordinate. 
+The vertical coordinate transformation can be expressed as 
+%%
+\begin{align}
+    \zeta = z_T \dfrac{z-h}{z_T - h},   
+\end{align}
+%%
+where
+$z$ is the height coordinate, 
+$z_T$ is the top height of computational domain (we assume it is a constant value), 
+and $h$ is the surface height. 
+The corresponding Jacobian and metric tensor can be represented as   
+%%
+\begin{align}
+     \sqrt{G_v} = 1 - \dfrac{h}{z_T}, \;\;
+    \sqrt{G_v} G_v^{13} = \left(\dfrac{\zeta}{z_T} - 1 \right) \dfrac{\partial h}{\partial \xi}, \;\;     
+    \sqrt{G_v} G_v^{23} = \left(\dfrac{\zeta}{z_T} - 1 \right) \dfrac{\partial h}{\partial \eta}, 
+\end{align}
+%%
+respectively. 
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Governing equations for atmospheric dynamical core}
+%%
+As the governing equations, 
+we adopt the three-dimensional, 
+fully compressible nonhydrostatic equations based on the flux form \citep [e.g.,][]{ullrich2012dynamical}. 
+The compact form of the governing equations 
+can be written as
+%%
+\begin{align}
+    \dfrac{\partial \bm{q}}{\partial t} 
+    &+ \dfrac{\partial \left[\bm{f}(\bm{q})+\bm{f}_\textrm{SGS}(\bm{q},\nabla \bm{q}) \right]}{\partial \xi} 
+    + \dfrac{\partial \left[\bm{g}(\bm{q})+\bm{g}_\textrm{SGS}(\bm{q},\nabla \bm{q}) \right]}{\partial \eta} 
+    + \dfrac{\partial \left[\bm{h}(\bm{q})+\bm{h}_\textrm{SGS}(\bm{q},\nabla \bm{q}) \right]}{\partial \zeta} \nonumber \\
+    &= \bm{S}(\bm{q}) 
+    + \bm{S}_\textrm{SGS}(\bm{q},\nabla \bm{q}),
+\label{eq:GovernEq_NonhydrostaticDynCore}
+\end{align}
+%%
+Here, 
+$\bm{q}$ is the solution vector defined as
+%%
+\begin{equation}
+  \bm{q} 
+  = \left( \sqrt{G} \rho', \sqrt{G} \rho u^\xi, \sqrt{G} \rho u^\eta, \sqrt{G} \rho u^\zeta, \sqrt{G} (\rho \theta)', \rho q_{*} \right)^T,  
+\label{eq:solution_vector}
+\end{equation}
+%%
+where 
+$\rho, \theta$ denote the density and potential temperature defined later, respectively. 
+$q_*$ represents the mass concentration of each material such as 
+water vapor ($q_v$), liquid water ($q_l$), and solid water ($q_s$). 
+The mass concentrations should be the relation as 
+%%
+\begin{align}
+   q_d + \sum_{*=v,l,s} q_* = 1, 
+\end{align}
+%%
+where $q_d$ is the mass concentration of dry air. 
+To accurately treat nearly balanced flows, 
+the density $\rho$ and pressure $p$ (thus $\rho \theta$) are decomposed 
+as $q(\xi,\eta,\zeta,t) = q_\textrm{hyd}(\xi,\eta,\zeta) + q'(\xi,\eta,\zeta,t)$,  
+where $q_\textrm{hyd}$ denotes a variable satisfying the hydrostatic balance and $q'$ denotes the deviation. 
+
+
+In Eq.\,\eqref{eq:GovernEq_NonhydrostaticDynCore}, 
+$\bm{f}(\bm{q})$, $\bm{g}(\bm{q})$, and $\bm{h}(\bm{q})$ are inviscid fluxes 
+in the $\xi$, $\eta$, and $\zeta$ directions, respectively. 
+The horizontal inviscid fluxes are represented as
+%%
+\begin{equation}    
+\bm{f}(\bm{q})
+    =\begin{pmatrix}
+    \sqrt{G} \rho u^\xi \\
+    \sqrt{G} (\rho u^\xi u^\xi  + G^{11}_h p') \\
+    \sqrt{G} (\rho u^\eta u^\xi  + G^{21}_h p') \\
+    \sqrt{G} \rho u^\zeta u^\xi  \\
+    \sqrt{G} \rho \theta u^\xi \\
+    \sqrt{G} \rho q_* u^\xi 
+    \end{pmatrix}, \;\;\;
+\bm{g}(\bm{q})
+    =\begin{pmatrix}
+    \sqrt{G} \rho u^\eta \\
+    \sqrt{G} (\rho u^\xi u^\eta  + G^{12}_h p') \\
+    \sqrt{G} (\rho u^\eta u^\eta  + G^{22}_h p') \\
+    \sqrt{G} \rho u^\zeta u^\eta  \\
+    \sqrt{G} \rho \theta u^\eta \\
+    \sqrt{G} \rho q_* u^\eta
+    \end{pmatrix},
+\label{eq:horizontal_invisflux}
+\end{equation}
+%%
+and the vertical inviscid fluxes are represented as
+\begin{equation}   
+\bm{h}(\bm{q})
+    =\begin{pmatrix}
+    \sqrt{G} \rho \widetilde{u^\zeta} \\
+    \sqrt{G} [\rho u^\xi \widetilde{u^\zeta}  + (G^{13}_v G^{11}_h + G^{23}_v G^{12}_h) p'] \\
+    \sqrt{G} [\rho u^\eta \widetilde{u^\zeta} + (G^{13}_v G^{21}_h + G^{23}_v G^{22}_h)  p'] \\
+    \sqrt{G} \rho u^\zeta \widetilde{u^\zeta}  + \sqrt{G}_h p' \\
+    \sqrt{G} \rho \theta \widetilde{u^\zeta} \\
+    \sqrt{G} \rho q_* \widetilde{u^\zeta}
+    \end{pmatrix}. 
+\label{eq:vertical_invisflux}
+\end{equation}
+%%
+
+
+Furthermore, 
+$\bm{S}(\bm{q})$ in Eq.\,\eqref{eq:GovernEq_NonhydrostaticDynCore} represents the source terms as 
+\begin{align}
+\bm{S}(\bm{q})
+=
+  \begin{pmatrix}
+    \sqrt{G} S_{\rho,{\rm phy}} \\
+    \sqrt{G} ( F_H^1 + F_M^1 + F_C^1 ) + \sqrt{G} S_{\rho u^\xi,{\rm phy}} \\
+    \sqrt{G} ( F_H^2 + F_M^2 + F_C^2 ) + \sqrt{G} S_{\rho u^\eta\,{\rm phy}} \\
+    \sqrt{G} ( F_\textrm{buo} + F_C^3 ) + \sqrt{G} S_{\rho u^\zeta,{\rm phy}} \\
+    \sqrt{G} S_{\rho \theta,{\rm phy}} \\
+    \sqrt{G} S_{\rho q_*,{\rm phy}}
+  \end{pmatrix},   
+\end{align}
+%%
+where 
+$F_H^i$ for $i=1,2$ are the horizontal pressure gradient terms with hydrostatic balance 
+and can be expressed as 
+%%
+\begin{align}
+  F_H^i= - \dfrac{G_h^{im'}}{\sqrt{G_v}} \left[ 
+        \dfrac{\partial (\sqrt{G_v} p_\textrm{hyd})}{\partial \xi^{m'}} 
+      + \dfrac{\partial (G_v^{m'3} \sqrt{G_v} p_\textrm{hyd})}{\partial \xi^3}
+    \right]. 
+\end{align}
+%%
+Here, note that $m'=1,2$. 
+$F_M^i$ is the source terms due to the horizontal curvilinear coordinate as 
+%%
+\begin{align}
+  F_M^i=-\Gamma^i_{ml} (\rho u^m u^l + G^{ml} p'), 
+\end{align}
+%%
+where $m,l$ take values of $1,2,3$.
+$F_C^i$ is the the Coriolis terms as 
+%%
+\begin{align}
+  F_C^i=- G^{im} \epsilon_{jml} 2\Omega^m \rho u^l,
+\end{align}
+%%
+where $\epsilon_{jkl}$ is the three rank Levi--Civita tensor 
+and $\Omega^m$ are the components of angular velocity vector. 
+$F_\textrm{buo}$ is the buoyancy term as 
+%%
+\begin{align}
+ F_\textrm{buo}=- \rho' \left(\dfrac{a}{r}\right)^2 g,   
+\end{align}
+%%
+where $r$ is the radial coordinate, 
+$a$ is the planetary radius, 
+and $g$ is the standard gravitational acceleration. 
+In Eq.~(\ref{eq:GovernEq_NonhydrostaticDynCore}), 
+the terms with subscript SGS are associated with a turbulent model;  
+$\bm{f}_\textrm{SGS}(\bm{q},\nabla\bm{q})$, $\bm{g}_\textrm{SGS}(\bm{q},\nabla\bm{q})$, 
+and $\bm{h}_\textrm{SGS}(\bm{q},\nabla\bm{q})$ are the parameterized eddy fluxes 
+while  
+$\bm{S}_\textrm{SGS}(\bm{q},\nabla\bm{q})$ are the source terms with the curvilinear coordinates. 
+The terms associated with the turbulent model are detailed in Sect.\,\ref{sec:turbulence}. 
+On the other hand, 
+$\bm{S}_{*,\textrm{phys}}$ represents the terms with physical processes 
+such as cloud, radiation, and surface processes. 
+
+
+To consider the moist thermodynamics, 
+we introduce a potential temperature defined as 
+%%
+\begin{align}
+  \theta = T \left(\dfrac{P_0}{p}\right)^{R^*/C_p^*}, 
+\end{align}
+where 
+$T$ is the temperature, 
+$P_0$ is a constant pressure. 
+The gas constant $R^*$ and 
+the specific heat at constant volume $C_p^*$ are defined as 
+\begin{align}
+  C_p^* = \sum_{*=d,v,l,s} q_{*} C_{p,*}, \;\;\;
+  R^* = \sum_{*=d,v,l,s} q_{*} R_{*}. 
+\end{align}
+To close the equation systems in Eq.\,\eqref{eq:GovernEq_NonhydrostaticDynCore}, 
+the pressure $p$ is calculated using
+%%
+\begin{align}
+    p=P_0 \left(\dfrac{R^*}{P_0} \rho \theta  \right)^{\frac{C_{p}^*}{C_{v}^*}}, 
+\end{align}
+%%
+where $C_v^* = C_p^* - R^*$.  
+%The actual values for these constants are provided in Table \ref{tb:symbols}. 
+In terms of $C_p^*$ and $R^*$, 
+a diabatic heating contribution $H_{\rho \theta}$ included in $\bm{S}_{\rho \theta,\textrm{phys}}$ can be written as
+%%
+\begin{align}
+  H_{\rho \theta} = \dfrac{1}{C_p^*} \left(\dfrac{P_0}{p}\right)^{\frac{R^*}{C_p^*}} Q,
+\end{align}
+%%
+where $Q$ is the diabatic heating with the unit J/(m$^3$s).
+
+
+When the traditional approximation is applied to the governing equations in global model, 
+$\delta_S$ should be set to zero.

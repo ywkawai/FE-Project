@@ -2,7 +2,7 @@
 !> module FElib / Fluid dyn solver / Atmosphere / driver (3D nonhydrostatic model)
 !!
 !! @par Description
-!!      Driver module for dynamical core based on DGM 
+!!      Driver module for 3D nonhydrostatic dynamical core based on DGM 
 !!
 !! @author Yuta Kawai, Team SCALE
 !<
@@ -246,11 +246,11 @@ module scale_atm_dyn_dgm_driver_nonhydro3d
 
   !> Derived type to provide a driver of dynamical core with the atmospheric nonhydrostatic equations
   type, extends(AtmDynDGMDriver_base3D), public :: AtmDynDGMDriver_nonhydro3d
-    integer :: EQS_TYPEID
-    logical :: ENTOT_CONSERVE_SCHEME_FLAG
+    integer :: EQS_TYPEID                   !< Type ID of equation system
+    logical :: ENTOT_CONSERVE_SCHEME_FLAG   !< Flag whether total energy is a prognostic variable
 
     ! element-wise modal filter
-    logical :: MODALFILTER_FLAG
+    logical :: MODALFILTER_FLAG             !< Flag wheter modal filtering is applied
     type(ModalFilter) :: modal_filter_3d
     type(ModalFilter) :: modal_filter_v1D
 
@@ -259,7 +259,7 @@ module scale_atm_dyn_dgm_driver_nonhydro3d
 
     ! sponge layer
     type(AtmDynSpongeLayer) :: sponge_layer
-    logical :: SPONGELAYER_FLAG
+    logical :: SPONGELAYER_FLAG              !< Flag wheter sponge layer is applied
 
     ! diagnostic variables
     type(MeshField3D), allocatable :: AUX_DYNVARS3D(:)
@@ -269,12 +269,12 @@ module scale_atm_dyn_dgm_driver_nonhydro3d
     ! boundary condition
     type(AtmDynBnd) :: boundary_cond
 
-    !
-    logical :: hevi_flag
-    logical :: hevi_use_lapack_flag
+    ! HEVI soler
+    logical :: hevi_flag                     !< Flag wheter HEVI is applied
+    logical :: hevi_use_lapack_flag          !< Flag wheter lapack is used in HEVI solver
 
-    !
-    logical :: hide_mpi_comm_flag
+    ! data communication with MPI
+    logical :: hide_mpi_comm_flag            !< Flag wheter hiding MPI communication is performed
 
     procedure (atm_dyn_nonhydro3d_cal_vi), pointer, nopass :: cal_vi => null()
     procedure (atm_dyn_nonhydro3d_cal_tend_ex), pointer, nopass :: cal_tend_ex => null()
@@ -333,6 +333,13 @@ module scale_atm_dyn_dgm_driver_nonhydro3d
   
 contains
 !> Initialize a object to provide a driver of atmospheric dynamical core
+!!
+!! @param eqs_type_name Name of governing equation
+!! @param tint_type_name Name of temporal scheme
+!! @param sponge_layer_flag Flag whether sponge layer is applied
+!! @param modal_filter_flag Flag whether modal filtering is applied
+!! @param hide_mpi_comm_flag Flag whether hiding MPI communication is performed
+!! @param model_mesh3D Object managing 3D model mesh
 !OCL SERIAL  
   subroutine AtmDynDGMDriver_nonhydro3d_Init( this, &
     eqs_type_name, tint_type_name, dtsec,           &
@@ -555,7 +562,8 @@ contains
     return
   end subroutine AtmDynDGMDriver_nonhydro3d_Init
 
-!OCL SERIAL  
+!OCL SERIAL
+!> Get a flag whether density-weighted potential temperature is used for a prognostic thermodynamic variable
   function AtmDynDGMDriver_nonhydro3d_Is_THERMVAR_RHOT( this ) result(ret)
     implicit none
 
