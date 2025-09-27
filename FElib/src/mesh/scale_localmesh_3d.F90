@@ -26,31 +26,37 @@ module scale_localmesh_3d
   !-----------------------------------------------------------------------------
   !
   !++ Public type & procedure
-  ! 
+  !
+  
+  !> Derived type to manage a local 3D computational domain 
   type, extends(LocalMeshBase), public :: LocalMesh3D
 
-    type(ElementBase3D), pointer :: refElem3D
-    real(RP) :: xmin, xmax
-    real(RP) :: ymin, ymax
-    real(RP) :: zmin, zmax
-    integer :: NeX
-    integer :: NeY
-    integer :: NeZ
-    integer :: Ne2D
-    integer :: Ne2DA
+    type(ElementBase3D), pointer :: refElem3D !< Pointer to a object of 3D reference element
+    real(RP) :: xmin  !< Minimum x-coordinate value of the local computational domain
+    real(RP) :: xmax  !< Maximum x-coordinate value of the local computational domain
+    real(RP) :: ymin  !< Minimum y-coordinate value of the local computational domain
+    real(RP) :: ymax  !< Maximum y-coordinate value of the local computational domain
+    real(RP) :: zmin  !< Minimum z-coordinate value of the local computational domain
+    real(RP) :: zmax  !< Maximum z-coordinate value of the local computational domain
+
+    integer :: NeX    !< Number of finite element for the x-direction in the local computational domain
+    integer :: NeY    !< Number of finite element for the y-direction in the local computational domain
+    integer :: NeZ    !< Number of finite element for the z-direction in the local computational domain
+    integer :: Ne2D   !< NeX * NeY
+    integer :: Ne2DA  !< NeX * NeY + halo size
 
     real(RP), allocatable :: Sz(:,:)
     real(RP), allocatable :: zS(:,:)
     real(RP), allocatable :: GI3(:,:,:)    !< The contravariant component of metric tensor with vertical general coordinate 
     real(RP), allocatable :: GsqrtH(:,:)   !< The Jacobian of horizontal transformation in the computational coordinate
-    real(RP), allocatable :: zlev(:,:)
+    real(RP), allocatable :: zlev(:,:)     !< z-coordinates (actual level)
     real(RP), allocatable :: gam(:,:)      !< Factor for approximation with spherical shell domain (= r/a)
 
     class(LocalMesh2D), pointer :: lcmesh2D
-    real(RP), allocatable :: lon2D(:,:)     
-    real(RP), allocatable :: lat2D(:,:)
+    real(RP), allocatable :: lon2D(:,:)    !< Longitude coordinate with 2D mesh
+    real(RP), allocatable :: lat2D(:,:)    !< Latitude coordinate with 2D mesh
 
-    integer, allocatable :: EMap3Dto2D(:)  
+    integer, allocatable :: EMap3Dto2D(:)  !< Array to map 3D element ID to 2D element ID
   contains
     procedure :: SetLocalMesh2D => LocalMesh3D_setLocalMesh2D 
     procedure :: GetVmapZ1D => LocalMesh3D_getVmapZ1D 
@@ -75,6 +81,7 @@ module scale_localmesh_3d
   !
 
 contains
+!> Initialize an object to manage a 3D local computational domain
 !OCL SERIAL
   subroutine LocalMesh3D_Init( this, &
     lcdomID, refElem, myrank )
@@ -94,6 +101,7 @@ contains
     return
   end subroutine LocalMesh3D_Init
 
+!> Finalize an object to manage a 3D local computational domain
 !OCL SERIAL
   subroutine LocalMesh3D_Final( this, is_generated )
     implicit none
@@ -113,7 +121,8 @@ contains
 
     return
   end subroutine LocalMesh3D_Final
-  
+
+!> Set a pointer to an object to mange 2D local computational domain
 !OCL SERIAL
   subroutine LocalMesh3D_setLocalMesh2D( this, lcmesh2D )
     implicit none
@@ -126,6 +135,7 @@ contains
     return
   end subroutine LocalMesh3D_setLocalMesh2D
 
+!> Get arrays for vertical mapping node index with vertical element boundary to that with DG data
 !OCL SERIAL
   subroutine LocalMesh3D_getVmapZ1D( this, vmapM, vmapP )
 
@@ -172,6 +182,7 @@ contains
     return
   end subroutine LocalMesh3D_getVmapZ1D
 
+!> Get arrays for vertical mapping node index with vertical element boundary to that with DG data
 !OCL SERIAL
   subroutine LocalMesh3D_getVmapZ3D( this, vmapM, vmapP )
 

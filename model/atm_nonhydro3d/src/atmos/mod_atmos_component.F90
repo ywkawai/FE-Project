@@ -47,18 +47,20 @@ module mod_atmos_component
   !
   !++ Public type & procedure
   !
+
+  !> Derived type to manage atmospheric component
   type, extends(ModelComponent), public :: AtmosComponent
-    type(AtmosVars) :: vars
+    type(AtmosVars) :: vars             !< Object to mange variables with atmospheric component
 
-    character(len=H_SHORT) :: mesh_type
-    class(AtmosMesh), pointer :: mesh
-    type(AtmosMeshRM) :: mesh_rm
-    type(AtmosMeshGM) :: mesh_gm
+    character(len=H_SHORT) :: mesh_type !< Type name of mesh atmospheric component
+    class(AtmosMesh), pointer :: mesh   !< Pointer of mesh atmospheric component
+    type(AtmosMeshRM) :: mesh_rm        !< Object to manage mesh for the case of regional mode
+    type(AtmosMeshGM) :: mesh_gm        !< Object to manage mesh for the case of global mode
 
-    type(AtmosDyn) :: dyn_proc
-    type(AtmosPhySfc) :: phy_sfc_proc
-    type(AtmosPhyTb ) :: phy_tb_proc
-    type(AtmosPhyMp ) :: phy_mp_proc
+    type(AtmosDyn) :: dyn_proc          !< Object to manage dynamical process
+    type(AtmosPhySfc) :: phy_sfc_proc   !< Object to manage surface process
+    type(AtmosPhyTb ) :: phy_tb_proc    !< Object to manage sub-grid scale turbulence process
+    type(AtmosPhyMp ) :: phy_mp_proc    !< Object to manage cloud microphysics process
 
   contains
     procedure, public :: setup => Atmos_setup 
@@ -84,6 +86,7 @@ module mod_atmos_component
   !-----------------------------------------------------------------------------
 contains
 
+!> Setup a object to mange atmospheric component
 !OCL SERIAL
   subroutine Atmos_setup( this )
     use scale_const, only: &
@@ -106,20 +109,21 @@ contains
     
     class(AtmosComponent), intent(inout), target :: this
 
-    logical :: ACTIVATE_FLAG = .true.
+    logical :: ACTIVATE_FLAG = .true. !< Flag whether atmospheric component is activated
 
-    real(DP) :: TIME_DT                             = UNDEF8
-    character(len=H_SHORT) :: TIME_DT_UNIT          = 'SEC'
-    real(DP) :: TIME_DT_RESTART                     = UNDEF8
-    character(len=H_SHORT) :: TIME_DT_RESTART_UNIT  = 'SEC'
+    real(DP) :: TIME_DT                             = UNDEF8  !< Timestep value of atmospheric component
+    character(len=H_SHORT) :: TIME_DT_UNIT          = 'SEC'   !< Timestep unit of atmospheric component
+    real(DP) :: TIME_DT_RESTART                     = UNDEF8  !< Timestep value when outputting restart file for atmospheric component
+    character(len=H_SHORT) :: TIME_DT_RESTART_UNIT  = 'SEC'   !< Timestep unit when outputting restart file for atmospheric component
 
-    logical :: ATMOS_DYN_DO    = .true.
-    logical :: ATMOS_PHY_SF_DO = .false.
-    logical :: ATMOS_PHY_TB_DO = .false.
-    logical :: ATMOS_PHY_MP_DO = .false.  
-    character(len=H_SHORT) :: ATMOS_MESH_TYPE = 'REGIONAL' ! 'REGIONAL' or 'GLOBAL'
+    logical :: ATMOS_DYN_DO    = .true.  !< Flag whether dynamics process is considered
+    logical :: ATMOS_PHY_SF_DO = .false. !< Flag whether surface process is considered
+    logical :: ATMOS_PHY_TB_DO = .false. !< Flag whether SGS turbulent process is considered
+    logical :: ATMOS_PHY_MP_DO = .false. !< Flag whether cloud microphysics process is considered
+    character(len=H_SHORT) :: ATMOS_MESH_TYPE = 'REGIONAL'  !< Name of mesh type for atmospheric component ('REGIONAL' or 'GLOBAL')
 
-    logical :: ATMOS_USE_QV    = .false.
+    logical :: ATMOS_USE_QV    = .false. !< Flag whether QV is used although cloud microphysics is not considered
+
 
     namelist / PARAM_ATMOS / &
       ACTIVATE_FLAG,         &
