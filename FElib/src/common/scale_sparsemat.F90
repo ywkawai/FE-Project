@@ -2,7 +2,7 @@
 !> module common / sparsemat
 !!
 !! @par Description
-!!          module to treat sparse matrix and the associated operations
+!!          A module to treat sparse matrix and the associated operations
 !!
 !! @author Yuta Kawai, Team SCALE
 !!
@@ -29,6 +29,7 @@ module scale_sparsemat
   !++ Public type & procedure
   !  
 
+  !> Derived type to manage a sparse matrix
   type, public :: sparsemat
     integer :: M                      !< Number of row of original matrix
     integer :: N                      !< Number of column of original matrix

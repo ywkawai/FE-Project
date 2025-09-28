@@ -41,6 +41,9 @@ module mod_atmos_mesh
   !
   !++ Public type & procedures
   !
+
+  !> Derived type to manage a computational mesh (base class)
+  !!
   type, abstract, extends(ModelMesh3D), public :: AtmosMesh
     type(HexahedralElement) :: element
     type(LineElement) :: element_v1D
@@ -125,6 +128,7 @@ module mod_atmos_mesh
 
 contains
 
+!> Setup an object to manage a computational mesh
   subroutine AtmosMesh_Init( this, mesh )
 
     use scale_FILE_monitor_meshfield, only: &
@@ -149,6 +153,7 @@ contains
     return
   end subroutine AtmosMesh_Init
 
+!> Finalize an object to manage a computational mesh
   subroutine AtmosMesh_Final(this)
     implicit none
 

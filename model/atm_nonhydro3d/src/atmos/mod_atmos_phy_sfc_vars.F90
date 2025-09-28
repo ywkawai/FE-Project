@@ -48,6 +48,9 @@ module mod_atmos_phy_sfc_vars
   !
   !++ Public type & procedures
   !
+
+  !> Derived type to manage variables with a surface component
+  !!
   type, public :: AtmosPhySfcVars
     type(MeshField2D), allocatable :: SFC_VARS(:)
     type(ModelVarManager) :: SFCVARS_manager

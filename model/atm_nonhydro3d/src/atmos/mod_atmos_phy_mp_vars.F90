@@ -46,17 +46,18 @@ module mod_atmos_phy_mp_vars
   implicit none
   private
 
-
   !-----------------------------------------------------------------------------
   !
   !++ Public type & procedures
   !
-  type, public :: AtmosPhyMpVars
-    type(MeshField3D), allocatable :: tends(:)
-    type(ModelVarManager) :: tends_manager
 
-    type(MeshField2D), allocatable :: auxvars2D(:)
-    type(ModelVarManager) :: auxvars2D_manager
+  !> Derived type to manage variables with cloud microphysics component  
+  type, public :: AtmosPhyMpVars
+    type(MeshField3D), allocatable :: tends(:)  !< Array of tendency variables
+    type(ModelVarManager) :: tends_manager      !< Object to manage tendencies
+
+    type(MeshField2D), allocatable :: auxvars2D(:) !< Array of 2D auxiliary variables
+    type(ModelVarManager) :: auxvars2D_manager     !< Object to manage 2D auxiliary variables
 
     integer :: QS
     integer :: QE
@@ -128,6 +129,8 @@ module mod_atmos_phy_mp_vars
   !-------------------
 
 contains
+
+!> Setup an object to manage variables with cloud microphysics component  
 !OCL SERIAL
   subroutine AtmosPhyMpVars_Init( this, model_mesh, &
     QS_MP, QE_MP, QA_MP )
@@ -249,6 +252,7 @@ contains
     return
   end subroutine AtmosPhyMpVars_Init
 
+!> Finalize an object to manage variables with cloud microphysics component  
 !OCL SERIAL
   subroutine AtmosPhyMpVars_Final( this )
     implicit none

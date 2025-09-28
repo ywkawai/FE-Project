@@ -54,10 +54,10 @@ module mod_atmos_phy_sfc
   !> Derived type to manage a component of surface process
   !!
   type, extends(ModelComponentProc), public :: AtmosPhySfc
-    class(AtmosMesh), pointer :: mesh
+    class(AtmosMesh), pointer :: mesh !< Pointer to a object to manage the mesh with atmospheric component
 
-    integer :: SFCFLX_TYPEID
-    type(AtmosPhySfcVars) :: vars
+    integer :: SFCFLX_TYPEID          !< Type id of surface scheme
+    type(AtmosPhySfcVars) :: vars     !< A object to manage variables with surface component
   contains
     procedure, public :: setup => AtmosPhySfc_setup 
     procedure, public :: calc_tendency => AtmosPhySfc_calc_tendency

@@ -68,7 +68,7 @@ module mod_atmos_phy_mp
     real(RP), private :: max_term_vel       !< Terminal velocity for calculate dt of sedimentation
     real(RP), private :: cldfrac_thleshold  !< Threshold for cloud fraction
 
-    real(DP), private :: dtsec
+    real(DP), private :: dtsec                !< Timestep with cloud microphysics component
     integer, private :: nstep_sedmientation
     real(RP), private :: rnstep_sedmientation
     real(DP), private :: dtsec_sedmientation
