@@ -45,10 +45,10 @@ module mod_atmos_mesh
   !> Derived type to manage a computational mesh (base class)
   !!
   type, abstract, extends(ModelMesh3D), public :: AtmosMesh
-    type(HexahedralElement) :: element
-    type(LineElement) :: element_v1D
+    type(HexahedralElement) :: element !< Object to manage 3D reference element
+    type(LineElement) :: element_v1D   !< Object to manage 1D reference element for the vertical direction
 
-    type(MeshTopography) :: topography
+    type(MeshTopography) :: topography  !< Object to manage topography
     integer :: vcoord_type_id
 
     logical :: comm_use_mpi_pc
@@ -136,7 +136,7 @@ contains
     
     implicit none
     class(AtmosMesh), target, intent(inout) :: this
-    class(MeshBase3D), intent(in) :: mesh
+    class(MeshBase3D), intent(in) :: mesh            !< Object to manage 3D computational mesh
 
     class(MeshBase2D), pointer :: mesh2D
     !-------------------------------------------

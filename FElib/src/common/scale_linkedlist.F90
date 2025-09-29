@@ -1,4 +1,4 @@
-!> module common / data collection
+!> Module common / data collection
 !!
 !! @par Description
 !!      A module to provide linked list

@@ -41,8 +41,8 @@ module scale_localmeshfield_base
 
   !> Derived type representing a field with local mesh (base type)
   type, public :: LocalMeshFieldBase
-    real(RP), allocatable :: val(:,:)
-    real(RP), allocatable :: face_val(:,:)  
+    real(RP), allocatable :: val(:,:)       !< Buffer to save field data at all nodes
+    real(RP), allocatable :: face_val(:,:)  !< Buffer to save field data at face nodes
   end type LocalMeshFieldBase
 
   type, public :: LocalMeshFieldBaseList
@@ -77,8 +77,8 @@ module scale_localmeshfield_base
   !
   !++ Public parameters & variables
   !
-  integer, public, parameter :: LOCAL_MESHFIELD_TYPE_NODES_VAL     = 1
-  integer, public, parameter :: LOCAL_MESHFIELD_TYPE_NODES_FACEVAL = 2
+  integer, public, parameter :: LOCAL_MESHFIELD_TYPE_NODES_VAL     = 1  !< ID of data type with a field on all nodes in local mesh 
+  integer, public, parameter :: LOCAL_MESHFIELD_TYPE_NODES_FACEVAL = 2  !< ID of data type with a field on face nodes in local mesh 
 
   !-----------------------------------------------------------------------------
   !
@@ -95,13 +95,14 @@ module scale_localmeshfield_base
 
 contains
 
+!> Initialize an object to manage a field data (base type)
 !OCL SERIAL
   subroutine LocalMeshFieldBase_Init( this, lcmesh, data_type )
     use scale_prc, only: PRC_abort
     implicit none
     class(LocalMeshFieldBase), intent(inout) :: this
-    class(LocalMeshBase), intent(in) :: lcmesh
-    integer, intent(in), optional :: data_type
+    class(LocalMeshBase), intent(in) :: lcmesh   !< Object to manage a field data on a local mesh
+    integer, intent(in), optional :: data_type   !< ID of data type (all nodes or face nodes)
 
     integer :: data_type_
     !-----------------------------------------------------------------------------
@@ -125,6 +126,7 @@ contains
     return
   end subroutine LocalMeshFieldBase_Init
 
+!> Finalize an object to manage a field data (base type)
 !OCL SERIAL
   subroutine LocalMeshFieldBase_Final( this )
     implicit none
@@ -139,12 +141,13 @@ contains
 
   !* 1D *********
 
+!> Setup an object to manage a field data on 1D local computational mesh
 !OCL SERIAL
   subroutine LocalMeshField1D_Init( this, mesh, data_type )
     implicit none
     class(LocalMeshField1D), intent(inout) :: this
-    class(LocalMesh1D), target, intent(in) :: mesh
-    integer, optional, intent(in) :: data_type
+    class(LocalMesh1D), target, intent(in) :: mesh   !< Object to manage a field data on a 1D local mesh
+    integer, intent(in), optional :: data_type       !< ID of data type (all nodes or face nodes)
     !-----------------------------------------------------------------------------
 
     this%mesh => mesh
@@ -153,6 +156,7 @@ contains
     return
   end subroutine LocalMeshField1D_Init
 
+!> Finalize an object to manage a field data on 1D local computational mesh
 !OCL SERIAL
   subroutine LocalMeshField1D_Final( this )
     implicit none
@@ -166,12 +170,13 @@ contains
 
   !* 2D *********
   
+!> Setup an object to manage a field data on 2D local computational mesh
 !OCL SERIAL
   subroutine LocalMeshField2D_Init( this, mesh, data_type )
     implicit none
     class(LocalMeshField2D), intent(inout) :: this
-    class(LocalMesh2D), target, intent(in) :: mesh
-    integer, optional, intent(in) :: data_type
+    class(LocalMesh2D), target, intent(in) :: mesh   !< Object to manage a field data on a 2D local mesh
+    integer, intent(in), optional :: data_type       !< ID of data type (all nodes or face nodes)
     !-----------------------------------------------------------------------------
 
     this%mesh => mesh
@@ -180,6 +185,7 @@ contains
     return
   end subroutine LocalMeshField2D_Init
 
+!> Finalize an object to manage a field data on 2D local computational mesh
 !OCL SERIAL
   subroutine LocalMeshField2D_Final( this )
     implicit none
@@ -192,11 +198,12 @@ contains
 
   !* 3D *********
   
+!> Setup an object to manage a field data on 3D local computational mesh
 !OCL SERIAL
   subroutine LocalMeshField3D_Init( this, mesh, data_type )
     implicit none
     class(LocalMeshField3D), intent(inout) :: this
-    class(LocalMesh3D), target, intent(in) :: mesh
+    class(LocalMesh3D), target, intent(in) :: mesh   !< Object to manage a field data on a 3D local mesh
     integer, optional, intent(in) :: data_type
     !-----------------------------------------------------------------------------
 
@@ -206,6 +213,7 @@ contains
     return
   end subroutine LocalMeshField3D_Init
 
+!> Finalize an object to manage a field data on 3D local computational mesh
 !OCL SERIAL
   subroutine LocalMeshField3D_Final( this )
     implicit none

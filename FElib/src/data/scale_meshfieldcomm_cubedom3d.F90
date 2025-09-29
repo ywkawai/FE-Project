@@ -39,7 +39,7 @@ module scale_meshfieldcomm_cubedom3d
 
   !> Base derived type to manage data communication with 3D cubic domain
   type, public, extends(MeshFieldCommBase) :: MeshFieldCommCubeDom3D
-    class(MeshCubeDom3D), pointer :: mesh3d
+    class(MeshCubeDom3D), pointer :: mesh3d !< Pointer to an object representing 3D cubic computational mesh
   contains
     procedure, public :: Init => MeshFieldCommCubeDom3D_Init
     procedure, public :: Put => MeshFieldCommCubeDom3D_put
@@ -63,20 +63,21 @@ module scale_meshfieldcomm_cubedom3d
   !
   !++ Private parameters & variables
   !
-  integer :: bufsize_per_field
-  integer, parameter :: COMM_FACE_NUM = 6
+  integer :: bufsize_per_field             !< Buffer size per a field
+  integer, parameter :: COMM_FACE_NUM = 6  !< Number of faces with data communication
 
 contains
+!> Initialize an object to manage data communication with 3D cubic domain
   subroutine MeshFieldCommCubeDom3D_Init( this, &
     sfield_num, hvfield_num, htensorfield_num, mesh3d )
 
     implicit none
     
     class(MeshFieldCommCubeDom3D), intent(inout) :: this
-    integer, intent(in) :: sfield_num
-    integer, intent(in) :: hvfield_num
-    integer, intent(in) :: htensorfield_num
-    class(MeshCubeDom3D), intent(in), target :: mesh3d
+    integer, intent(in) :: sfield_num                    !< Number of scalar fields
+    integer, intent(in) :: hvfield_num                   !< Number of horizontal vector fields
+    integer, intent(in) :: htensorfield_num              !< Number of horizontal vector fields
+    class(MeshCubeDom3D), intent(in), target :: mesh3d   !< Object to manage a 3D cubic computational mesh
     
     type(LocalMesh3D), pointer :: lcmesh
     type(ElementBase3D), pointer :: elem
@@ -102,6 +103,7 @@ contains
     return
   end subroutine MeshFieldCommCubeDom3D_Init
 
+!> Finalize an object to manage data communication with 3D cubic domain
   subroutine MeshFieldCommCubeDom3D_Final( this )
     implicit none    
     class(MeshFieldCommCubeDom3D), intent(inout) :: this
@@ -112,11 +114,12 @@ contains
     return
   end subroutine MeshFieldCommCubeDom3D_Final
 
+!> Put field data into temporary buffers
   subroutine MeshFieldCommCubeDom3D_put(this, field_list, varid_s)
     implicit none
     class(MeshFieldCommCubeDom3D), intent(inout) :: this
-    type(MeshFieldContainer), intent(in) :: field_list(:)
-    integer, intent(in) :: varid_s
+    type(MeshFieldContainer), intent(in) :: field_list(:)  !< Array of objects with 3D mesh field
+    integer, intent(in) :: varid_s                         !< Start index with variables when field_list(1) is written to buffers for data communication
   
     ! integer :: i
     ! integer :: n
@@ -139,14 +142,15 @@ contains
     return
   end subroutine MeshFieldCommCubeDom3D_put
 
+!> Extract field data from temporary buffers
   subroutine MeshFieldCommCubeDom3D_get(this, field_list, varid_s)
     use scale_meshfieldcomm_base, only: &
       MeshFieldCommBase_wait_core
     implicit none
     
     class(MeshFieldCommCubeDom3D), intent(inout) :: this
-    type(MeshFieldContainer), intent(inout) :: field_list(:)
-    integer, intent(in) :: varid_s
+    type(MeshFieldContainer), intent(inout) :: field_list(:)  !< Array of objects with 3D mesh field
+    integer, intent(in) :: varid_s                            !< Start index with variables when field_list(1) is written to buffers for data communication
 
     integer :: i
     integer :: n
@@ -173,6 +177,9 @@ contains
     return
   end subroutine MeshFieldCommCubeDom3D_get
 
+!> Exchange field data between neighboring MPI processes
+!!
+!! @param do_wait Flag whether MPI_waitall is called and move tmp data of LocalMeshCommData object to a recv buffer
 !OCL SERIAL
   subroutine MeshFieldCommCubeDom3D_exchange( this, do_wait )
     use scale_meshfieldcomm_base, only: &

@@ -235,17 +235,19 @@ contains
     return
   end subroutine AtmosMeshGM_Final
 
+  !> Create a communicator for data communication on global computational domain
+  !!
 !OCL SERIAL
   subroutine AtmosMeshGM_create_communicator( this, sfield_num, hvfield_num, htensorfield_num, &
     var_manager, field_list, commid )
     implicit none
     class(AtmosMeshGM), target, intent(inout) :: this
-    integer, intent(in) :: sfield_num
-    integer, intent(in) :: hvfield_num
-    integer, intent(in) :: htensorfield_num
-    class(ModelVarManager), intent(inout) :: var_manager
-    class(MeshField3D), intent(in) :: field_list(:)
-    integer, intent(out) :: commid
+    integer, intent(in) :: sfield_num        !< Number of scalar fields
+    integer, intent(in) :: hvfield_num       !< Number of horizontal vector fields
+    integer, intent(in) :: htensorfield_num  !< Number of horizontal tensor fields
+    class(ModelVarManager), intent(inout) :: var_manager !< Object to manage variables
+    class(MeshField3D), intent(in) :: field_list(:)      !< Array of 3D fields
+    integer, intent(out) :: commid           !< Communicator ID
     !-----------------------------------------------------
 
     commid = this%Get_communicatorID( ATM_MESH_MAX_COMMNUICATOR_NUM )
@@ -253,7 +255,7 @@ contains
     if ( this%comm_use_mpi_pc ) then
       call this%comm_list(commid)%Prepare_PC( this%comm_use_mpi_pc_fujitsu_ext )
     end if
-    call var_manager%MeshFieldComm_Prepair( this%comm_list(commid), field_list )
+    call var_manager%MeshFieldComm_Prepare( this%comm_list(commid), field_list )
 
     return
   end subroutine AtmosMeshGM_create_communicator  
@@ -293,6 +295,7 @@ contains
 
   end subroutine AtmosMeshGM_setup_restartfile2
 
+!> Calculate horizontal vector components in longitude-latitude coordinates
 !OCL SERIAL
   subroutine AtmosMeshGM_calc_UVMet( this, U, V, &
     Umet, Vmet )
@@ -327,6 +330,7 @@ contains
     return
   end subroutine AtmosMeshGM_calc_UVMet
 
+!> Setup the vertical coordinate
 !OCL SERIAL
   subroutine AtmosMeshGM_setup_vcoordinate( this )
     use scale_meshfieldcomm_cubedspheredom2d, only: MeshFieldCommCubedSphereDom2D

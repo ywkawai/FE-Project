@@ -56,7 +56,7 @@ module scale_model_var_manager
     procedure, public :: GetLocalMeshFieldList => ModelVarManager_GetLocalMeshFieldList
 
     !--
-    procedure, public :: MeshFieldComm_Prepair => ModelVarManager_meshfiled_comm_prepare
+    procedure, public :: MeshFieldComm_Prepare => ModelVarManager_meshfiled_comm_prepare
     procedure, public :: MeshFieldComm_Exchange => ModelVarManager_meshfiled_comm_exchange
     procedure, public :: MeshFieldComm_Get => ModelVarManager_meshfiled_comm_Get
   end type ModelVarManager

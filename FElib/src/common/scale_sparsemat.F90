@@ -1,5 +1,5 @@
 !-------------------------------------------------------------------------------
-!> module common / sparsemat
+!> Module common / sparsemat
 !!
 !! @par Description
 !!          A module to treat sparse matrix and the associated operations

@@ -1,5 +1,5 @@
 !-------------------------------------------------------------------------------
-!> module common / Runge-Kutta scheme 
+!> Module common / Runge-Kutta scheme 
 !!
 !! @par Description
 !!      Butcher tableau

@@ -27,17 +27,18 @@ module scale_localmesh_base
   !++ Public type & procedure
   ! 
   
+  !> Derived type to manage a local computational domain (base type)
   type, public :: LocalMeshBase
-    integer :: Ne
-    integer :: NeS
-    integer :: NeE
-    integer :: NeA
-    integer :: Nv
+    integer :: Ne  !< Number of finite elements in the local computational domain
+    integer :: NeS !< Start index of finite element indices in the local computational domain
+    integer :: NeE !< End index of finite element indices in the local computational domain
+    integer :: NeA !< Total number of finite elements (Ne + halo buffer)
+    integer :: Nv  !< Number of vertices in the local computational domain
 
-    class(ElementBase), pointer :: refElem
+    class(ElementBase), pointer :: refElem !< Pointer to an object with a reference element
     
-    real(RP), allocatable :: pos_ev(:,:)
-    real(RP), allocatable :: pos_en(:,:,:)
+    real(RP), allocatable :: pos_ev(:,:)      !< Position of vertices in finite elements in the local computational domain
+    real(RP), allocatable :: pos_en(:,:,:)    !< Position of nodes in finite elements in the local computational domain
     real(RP), allocatable :: normal_fn(:,:,:)
 
     real(RP), allocatable :: sJ(:,:)
@@ -65,7 +66,7 @@ module scale_localmesh_base
     integer :: tileID
     integer :: panelID
     integer :: PRC_myrank
-    integer :: lcdomID
+    integer :: lcdomID      !< ID of local computational mesh
   
     real(RP), allocatable :: G_ij(:,:,:,:) !< The covariant component of metric tensor with horizontal general curvilinear coordinate 
     real(RP), allocatable :: GIJ(:,:,:,:)  !< The contravariant component of metric tensor with horizontal general curvilinear coordinate 
@@ -97,6 +98,7 @@ module scale_localmesh_base
   !
 
 contains
+!> Setup an object to manage a local computational mesh
   subroutine LocalMeshBase_Init( this, lcdomID, refElem, ndim, myrank )
     
     use scale_prc, only: PRC_myrank
@@ -121,6 +123,7 @@ contains
     return
   end subroutine LocalMeshBase_Init
 
+!> Finalize an object to manage a local computational mesh
   subroutine LocalMeshBase_Final( this, is_generated )
     implicit none
     

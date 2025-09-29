@@ -1,5 +1,5 @@
 !-------------------------------------------------------------------------------
-!> module FElib / element/ ModalFilter
+!> module FElib / Element/ ModalFilter
 !!
 !! @par Description
 !!      A module for modal filtering

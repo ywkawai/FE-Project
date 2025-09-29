@@ -57,11 +57,11 @@ module mod_atmos_phy_tb
   !> Derived type to manage a component of sub-grid scale turbulent process
   !!
   type, extends(ModelComponentProc), public :: AtmosPhyTb
-    integer :: TB_TYPEID
-    type(AtmPhyTbDGMDriver) :: tb_driver
+    integer :: TB_TYPEID                  !< Type ID of SGS turbulent scheme
+    type(AtmPhyTbDGMDriver) :: tb_driver  !< Object to represent a driver for SGS turbulent schemes
 
-    type(AtmosPhyTbVars) :: vars
-    type(AtmDynBnd), pointer :: dyn_bnd
+    type(AtmosPhyTbVars) :: vars          !< Object to manage variables with SGS turbulent model
+    type(AtmDynBnd), pointer :: dyn_bnd   !< Pointer to object for treating boundary conditions with atmospheric dynamics  
   contains
     procedure, public :: setup => AtmosPhyTb_setup 
     procedure, public :: calc_tendency => AtmosPhyTb_calc_tendency

@@ -1,4 +1,4 @@
-!> module common / Linear algebra
+!> Module common / Linear algebra
 !!
 !! @par Description
 !!      A module to provide utilities for linear algebra

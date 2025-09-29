@@ -1,5 +1,5 @@
 !-------------------------------------------------------------------------------
-!> module common / Coriolis parameter 
+!> Module common / Coriolis parameter 
 !!
 !! @par Description
 !!      Setup coriolis parameter (for regional model)
@@ -47,7 +47,7 @@ contains
     integer, intent(in) :: Np                 !< Array size
     real(RP), intent(out) :: coriolis(Np)     !< Array storing Coriolis parameter
     character(*), intent(in) :: COLIORIS_type !< Type of Coriolis parameter [PLANE / SPHERE / NONE]
-    real(RP), intent(in), optional :: y(Np)   !< Y-coordinate which is used when COLIORIS_type=PLANE
+    real(RP), intent(in), optional :: y(Np)   !< y-coordinate which is used when COLIORIS_type=PLANE
     real(RP), intent(in), optional :: f0      !< Value of Coriolis parameter at reference latitude which is used when COLIORIS_type=PLANE
     real(RP), intent(in), optional :: beta    !< Rossby parameter at reference latitude which is used when COLIORIS_type=PLANE
     real(RP), intent(in), optional :: y0      !< Distance from reference latitude

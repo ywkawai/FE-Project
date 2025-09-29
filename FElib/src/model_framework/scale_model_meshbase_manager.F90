@@ -40,6 +40,7 @@ module scale_model_meshbase_manager
   !++ Public type & procedures
   !
 
+  !> Derived type to manage model mesh and spatial operators (base type)
   type, abstract, public :: ModelMeshBase
     type(SparseMat), allocatable :: DOptrMat(:)
     type(SparseMat), allocatable :: SOptrMat(:)
@@ -54,7 +55,7 @@ module scale_model_meshbase_manager
     procedure(ModelMeshBase_get_modelmesh), public, deferred :: GetModelMesh
   end type ModelMeshBase
   
-  interface
+  abstract interface
     subroutine ModelMeshBase_get_modelmesh( this, ptr_mesh )
       import ModelMeshBase
       import MeshBase
@@ -63,6 +64,7 @@ module scale_model_meshbase_manager
     end subroutine ModelMeshBase_get_modelmesh
   end interface
 
+  !> Derived type to manage 1D mesh and spatial operators
   type, extends(ModelMeshBase), public :: ModelMeshBase1D
     class(MeshBase1D), pointer :: ptr_mesh
   contains
@@ -71,6 +73,7 @@ module scale_model_meshbase_manager
     procedure, public :: GetModelMesh => ModelMeshBase1D_get_modelmesh
   end type ModelMeshBase1D
 
+  !> Derived type to manage 2D mesh and spatial operators
   type, extends(ModelMeshBase), public :: ModelMeshBase2D
     class(MeshBase2D), pointer :: ptr_mesh
   contains
@@ -79,6 +82,7 @@ module scale_model_meshbase_manager
     procedure, public :: GetModelMesh => ModelMeshBase2D_get_modelmesh
   end type ModelMeshBase2D
 
+  !> Derived type to manage 3D mesh and spatial operators
   type, extends(ModelMeshBase), abstract, public :: ModelMeshBase3D
     class(MeshBase3D), pointer :: ptr_mesh
     type(ElementOperationGeneral) :: element_operation_general

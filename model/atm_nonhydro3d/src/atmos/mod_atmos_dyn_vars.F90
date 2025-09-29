@@ -107,6 +107,9 @@ module mod_atmos_dyn_vars
 contains
 
 !> Setup an object to manage variables with atmospheric dynamics component
+!!
+!! @param model_mesh a object to manage computational mesh of atmospheric model 
+!!
 !OCL SERIAL
   subroutine AtmosDynVars_Init( this, model_mesh )
     use scale_localmeshfield_base, only: LOCAL_MESHFIELD_TYPE_NODES_FACEVAL

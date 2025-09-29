@@ -43,10 +43,10 @@ module scale_meshfield_base
 
   !> Derived type representing a field (base type)
   type, abstract, public :: MeshFieldBase
-    character(len=H_SHORT) :: varname
-    character(len=H_SHORT) :: unit
-    integer :: hist_id
-    integer :: monitor_id
+    character(len=H_SHORT) :: varname  !< Variable name
+    character(len=H_SHORT) :: unit     !< Unit of variable
+    integer :: hist_id                 !< ID for outputting history data
+    integer :: monitor_id              !< ID for monitoring variable
   contains
     procedure(MeshFieldBase_get_LocalMeshField), deferred, public :: GetLocalMeshField
   end type MeshFieldBase
@@ -65,8 +65,8 @@ module scale_meshfield_base
   
   !> Derived type representing a field with 1D mesh
   type, extends(MeshFieldBase), public :: MeshField1D
-    type(LocalMeshField1D), allocatable :: local(:)
-    class(MeshBase1D), pointer :: mesh 
+    type(LocalMeshField1D), allocatable :: local(:) !< Array of objects with 1D field data
+    class(MeshBase1D), pointer :: mesh              !< Pointer to an object with a 1D computational mesh
   contains
     procedure :: Init => MeshField1D_Init
     procedure :: Final => MeshField1D_Final
@@ -79,8 +79,8 @@ module scale_meshfield_base
 
   !> Derived type representing a field with 2D mesh
   type, extends(MeshFieldBase), public :: MeshField2D
-    type(LocalMeshField2D), allocatable :: local(:)
-    class(MeshBase2D), pointer :: mesh   
+    type(LocalMeshField2D), allocatable :: local(:) !< Array of objects with 2D field data
+    class(MeshBase2D), pointer :: mesh              !< Pointer to an object with a 2D computational mesh  
   contains
     procedure :: Init => MeshField2D_Init
     procedure :: Final => MeshField2D_Final
@@ -93,8 +93,8 @@ module scale_meshfield_base
 
   !> Derived type representing a field with 3D mesh
   type, extends(MeshFieldBase), public :: MeshField3D
-    type(LocalMeshField3D), allocatable :: local(:)
-    class(MeshBase3D), pointer :: mesh   
+    type(LocalMeshField3D), allocatable :: local(:) !< Array of objects with 3D field data
+    class(MeshBase3D), pointer :: mesh              !< Pointer to an object with a 3D computational mesh   
   contains
     procedure :: Init => MeshField3D_Init
     procedure :: Final => MeshField3D_Final  
@@ -123,14 +123,15 @@ module scale_meshfield_base
 contains
   !**** 1D **********************************************************************
 
+!> Setup an object to manage a field data with a 1D computational mesh
 !OCL SERIAL
   subroutine MeshField1D_Init( this, varname, units, mesh, data_type )
     implicit none
     class(MeshField1D), intent(inout) :: this
-    character(len=*), intent(in) :: varname
-    character(len=*), intent(in) :: units    
-    class(MeshBase1D), target, intent(in) :: mesh
-    integer, intent(in), optional :: data_type
+    character(len=*), intent(in) :: varname       !< Variable name
+    character(len=*), intent(in) :: units         !< Unit of variable
+    class(MeshBase1D), target, intent(in) :: mesh !< Pointer to an object for a 1D computational mesh
+    integer, intent(in), optional :: data_type    !< ID of data type (all nodes or face nodes)
 
     integer :: n
     !-----------------------------------------------------------------------------
@@ -149,6 +150,7 @@ contains
     return
   end subroutine MeshField1D_Init
 
+!> Finalize an object to manage a field data with a 1D computational mesh
 !OCL SERIAL
   subroutine MeshField1D_Final(this)
     implicit none
@@ -180,14 +182,15 @@ contains
 
   !**** 2D **********************************************************************
 
+!> Setup an object to manage a field data with a 2D computational mesh
 !OCL SERIAL
   subroutine MeshField2D_Init( this, varname, units, mesh, data_type )
     implicit none
 
     class(MeshField2D), intent(inout) :: this
-    character(len=*), intent(in) :: varname
-    character(len=*), intent(in) :: units    
-    class(MeshBase2D), target, intent(in) :: mesh
+    character(len=*), intent(in) :: varname       !< Variable name
+    character(len=*), intent(in) :: units         !< Unit of variable
+    class(MeshBase2D), target, intent(in) :: mesh !< Pointer to an object for a 2D computational mesh
     integer, intent(in), optional :: data_type
 
     integer :: n
@@ -206,6 +209,7 @@ contains
     return
   end subroutine MeshField2D_Init
   
+!> Finalize an object to manage a field data with a 2D computational mesh
 !OCL SERIAL
   subroutine MeshField2D_Final(this)
     implicit none
@@ -238,14 +242,15 @@ contains
 
   !**** 3D **********************************************************************
 
+!> Setup an object to manage a field data with a 3D computational mesh
 !OCL SERIAL
   subroutine MeshField3D_Init( this, varname, units, mesh, data_type )
     implicit none
 
     class(MeshField3D), intent(inout) :: this
-    character(len=*), intent(in) :: varname
-    character(len=*), intent(in) :: units    
-    class(MeshBase3D), target, intent(in) :: mesh
+    character(len=*), intent(in) :: varname       !< Variable name
+    character(len=*), intent(in) :: units         !< Unit of variable
+    class(MeshBase3D), target, intent(in) :: mesh !< Pointer to an object for a 3D computational mesh
     integer, intent(in), optional :: data_type
 
     integer :: n
@@ -264,6 +269,7 @@ contains
     return
   end subroutine MeshField3D_Init
   
+!> Finalize an object to manage a field data with a 3D computational mesh
 !OCL SERIAL
   subroutine MeshField3D_Final(this)
     implicit none
