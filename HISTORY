@@ -1,4 +1,4 @@
-= 2025-10-04 (1.0.0)
+= 2025-10-03 (1.0.0)
 * New features
   * Support Tomita08 as a micro cloud physics schemes provided in SCALE library
   * Enable to hide a wait with MPI communication by overlapping elementwise computations in a regional HEVE solve

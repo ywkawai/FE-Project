@@ -25,7 +25,7 @@ VERSION  = $(shell cat ../../model/atm_nonhydro3d/VERSION)
 VERSION_SCALE  = 5.5.5
 
 IMAGE_BASENAME = scale_logo_final_ULWB.pdf
-IMAGE_BASENAME2 = $(shell grep includegraphics *tex | ruby -n -e '/^\s*\\includegraphics.*\{(.+)\}/ =~ $$_.split(":")[1] && print(/\A([^.]+)(\..+)?\Z/=~File.basename($$1) && $$1+($$2 || ".eps"),"\n") ') title_wallpaper.png
+IMAGE_BASENAME2 = $(shell grep includegraphics *tex | ruby -n -e '/^\s*\\includegraphics.*\{(.+)\}/ =~ $$_.split(":")[1] && print(/\A([^.]+)(\..+)?\Z/=~File.basename($$1) && $$1+($$2 || ".eps"),"\n") ') title_wallpaper.png SCALE-DG_logo_monotone.png
 
 FIG_DIR = ../figure
 IMAGES = $(patsubst %,$(FIG_DIR)/%,$(IMAGE_BASENAME))
