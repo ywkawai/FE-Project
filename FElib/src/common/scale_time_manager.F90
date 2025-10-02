@@ -1,5 +1,5 @@
 !-------------------------------------------------------------------------------
-!> module common / time
+!> Module common / time
 !!
 !! @par Description
 !!          Module to manage time with temporal integration

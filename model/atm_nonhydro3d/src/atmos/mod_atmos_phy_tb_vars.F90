@@ -1,5 +1,5 @@
 !-------------------------------------------------------------------------------
-!> module ATMOSPHERE physics / sub-grid scale turbulence
+!> module Atmosphere / Physics / sub-grid scale turbulence
 !!
 !! @par Description
 !!          Container for variables with sub-grid scale turbulence model
@@ -60,6 +60,8 @@ module mod_atmos_phy_tb_vars
   !
   !++ Public type & procedures
   !
+
+  !> Derived type to manage variables with atmospheric SGS turbulent component
   type, public :: AtmosPhyTbVars
     type(MeshField3D), allocatable :: tends(:)
     type(ModelVarManager) :: tends_manager
@@ -87,6 +89,9 @@ module mod_atmos_phy_tb_vars
   !-------------------
 
 contains
+!> Setup an object to manage variables with atmospheric SGS turbulent component
+!!
+!! @param model_mesh Object to manage computational mesh of atmospheric model 
 !OCL SERIAL
   subroutine AtmosPhyTbVars_Init( this, model_mesh )
 
@@ -153,6 +158,7 @@ contains
     return
   end subroutine AtmosPhyTbVars_Init
 
+!> Finalize an object to manage variables with atmospheric SGS turbulent component
 !OCL SERIAL
   subroutine AtmosPhyTbVars_Final( this )
     implicit none

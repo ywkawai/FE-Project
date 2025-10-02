@@ -1,5 +1,5 @@
 !-------------------------------------------------------------------------------
-!> module ATMOSPHERE physics / sub-grid scale turbulence process
+!> module Atmosphere / Physics / sub-grid scale turbulence process
 !!
 !! @par Description
 !!          Module for sub-grid scale turbulence process
@@ -57,11 +57,11 @@ module mod_atmos_phy_tb
   !> Derived type to manage a component of sub-grid scale turbulent process
   !!
   type, extends(ModelComponentProc), public :: AtmosPhyTb
-    integer :: TB_TYPEID
-    type(AtmPhyTbDGMDriver) :: tb_driver
+    integer :: TB_TYPEID                  !< Type ID of SGS turbulent scheme
+    type(AtmPhyTbDGMDriver) :: tb_driver  !< Object to represent a driver for SGS turbulent schemes
 
-    type(AtmosPhyTbVars) :: vars
-    type(AtmDynBnd), pointer :: dyn_bnd
+    type(AtmosPhyTbVars) :: vars          !< Object to manage variables with SGS turbulent model
+    type(AtmDynBnd), pointer :: dyn_bnd   !< Pointer to object for treating boundary conditions with atmospheric dynamics  
   contains
     procedure, public :: setup => AtmosPhyTb_setup 
     procedure, public :: calc_tendency => AtmosPhyTb_calc_tendency
@@ -87,8 +87,8 @@ module mod_atmos_phy_tb
 contains
 !> Setup a component of SGS turbulence process
 !!
-!! @param model_mesh a object to manage computational mesh of atmospheric model 
-!! @param tm_parent_comp a object to mange a temporal scheme in a parent component
+!! @param model_mesh Object to manage computational mesh of atmospheric model 
+!! @param tm_parent_comp Object to mange a temporal scheme in a parent component
 !!
 !OCL SERIAL
   subroutine AtmosPhyTb_setup( this, model_mesh, tm_parent_comp )
@@ -162,10 +162,10 @@ contains
 !> Calculate tendencies associated with a turbulent model
 !!
 !!
-!! @param model_mesh a object to manage computational mesh of atmospheric model 
-!! @param prgvars_list a object to mange prognostic variables with atmospheric dynamical core
-!! @param trcvars_list a object to mange auxiliary variables 
-!! @param forcing_list a object to mange forcing terms
+!! @param model_mesh Object to manage computational mesh of atmospheric model 
+!! @param prgvars_list Object to mange prognostic variables with atmospheric dynamical core
+!! @param trcvars_list Object to mange auxiliary variables 
+!! @param forcing_list Object to mange forcing terms
 !! @param is_update Flag to specify whether the tendencies are updated in this call
 !!
 !OCL SERIAL
@@ -271,10 +271,10 @@ contains
 
 !> Update variables in a turbulent model
 !!
-!! @param model_mesh a object to manage computational mesh of atmospheric model 
-!! @param prgvars_list a object to mange prognostic variables with atmospheric dynamical core
-!! @param trcvars_list a object to mange auxiliary variables 
-!! @param forcing_list a object to mange forcing terms
+!! @param model_mesh Object to manage computational mesh of atmospheric model 
+!! @param prgvars_list Object to mange prognostic variables with atmospheric dynamical core
+!! @param trcvars_list Object to mange auxiliary variables 
+!! @param forcing_list Object to mange forcing terms
 !! @param is_update Flag to speicfy whether the tendencies are updated in this call
 !!
 !OCL SERIAL
@@ -311,7 +311,7 @@ contains
 
 !> Set boundary conditions to a turbulent model
 !!
-!! @param dyn_bnd A object to manage boundary conditions of dynamical core
+!! @param dyn_bnd Object to manage boundary conditions of dynamical core
 !!
 !OCL SERIAL
   subroutine AtmosPhyTb_setDynBC( this, dyn_bnd )

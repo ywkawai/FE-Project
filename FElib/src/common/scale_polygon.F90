@@ -1,4 +1,4 @@
-!> module common / Polygon
+!> Module common / Polygon
 !!
 !! @par Description
 !!      A module to provide utilities for polygon

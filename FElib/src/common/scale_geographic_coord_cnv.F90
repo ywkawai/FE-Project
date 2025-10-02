@@ -1,4 +1,4 @@
-!> module common / Coordinate conversion with a geographic coordinate
+!> Module common / Coordinate conversion with a geographic coordinate
 !!
 !! @par Description
 !!      A module to provide coordinate conversions with a geographic coordinate

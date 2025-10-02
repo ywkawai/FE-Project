@@ -1,6 +1,6 @@
 ################################################################################
 #
-# List of SCALE environments
+# List of SCALE-DG environments
 #
 ################################################################################
 
@@ -13,7 +13,7 @@ envlog:
 	@echo "[Debug]"
 	@echo " + Activate debug option?                            [SCALE_DEBUG]            :" $(SCALE_DEBUG)
 	@echo " + Activate quick debug option?                      [SCALE_QUICKDEBUG]       :" $(SCALE_QUICKDEBUG)
-	@echo "[Perforamnce optimization]"
+	@echo "[Performance optimization]"
 	@echo " + Use single floating-point precision?              [SCALE_USE_SINGLEFP]     :" $(SCALE_USE_SINGLEFP)
 	@echo " + Use fixed size for spatial grid dimension?        [SCALE_USE_FIXEDINDEX]   :" $(SCALE_USE_FIXEDINDEX)
 	@echo " + Enable to use OpenMP?                             [SCALE_ENABLE_OPENMP]    :" $(SCALE_ENABLE_OPENMP)
@@ -29,7 +29,7 @@ envlog:
 	@echo " + MATH library path                                 [SCALE_MATHLIB_LIBS]     :" $(SCALE_MATHLIB_LIBS)
 	@echo " + Enable to use PAPI library?                       [SCALE_ENABLE_PAPI]      :" $(SCALE_ENABLE_PAPI)
 	@echo "[Special build]"
-	@echo " + Supress to make executables in local directory?   [SCALE_DISABLE_LOCALBIN] :" $(SCALE_DISABLE_LOCALBIN)
+	@echo " + Suppress to make executables in local directory?  [SCALE_DISABLE_LOCALBIN] :" $(SCALE_DISABLE_LOCALBIN)
 	@echo " + Ignore source dependency at the compilation?      [SCALE_IGNORE_SRCDEP]    :" $(SCALE_IGNORE_SRCDEP)
 	@echo "********************************************************************************************* "
 

@@ -75,10 +75,11 @@ module scale_atm_dyn_dgm_bnd
 
   !-----------------------------------------------------------------------------
   !
-  !++ Private procedures
+  !++ Private procedures & variables
   !
   !-------------------
 
+  private :: bnd_Init_lc
 
   integer, parameter :: domBnd_South_ID = 1
   integer, parameter :: domBnd_East_ID  = 2
@@ -90,6 +91,7 @@ module scale_atm_dyn_dgm_bnd
 
 contains
 
+!> Setup an object to manage boundary conditions with dynamical process 
 !OCL SERIAL
   subroutine ATMOS_dyn_bnd_setup( this )
     use scale_const, only: &
@@ -192,6 +194,7 @@ contains
     return
   end subroutine ATMOS_dyn_bnd_setup
 
+!> Finalize an object to manage boundary conditions with dynamical process 
 !OCL SERIAL
   subroutine ATMOS_dyn_bnd_finalize( this )
     implicit none

@@ -1,5 +1,5 @@
 !-------------------------------------------------------------------------------
-!> module ATMOSPHERE physics / surface process
+!> module Atmosphere / Physics / surface process
 !!
 !! @par Description
 !!          Container for variables with surface model
@@ -48,14 +48,17 @@ module mod_atmos_phy_sfc_vars
   !
   !++ Public type & procedures
   !
+
+  !> Derived type to manage variables with a surface component
+  !!
   type, public :: AtmosPhySfcVars
-    type(MeshField2D), allocatable :: SFC_VARS(:)
-    type(ModelVarManager) :: SFCVARS_manager
+    type(MeshField2D), allocatable :: SFC_VARS(:) !< Array of variables with a surface component
+    type(ModelVarManager) :: SFCVARS_manager      !< Object to manage variables
 
-    type(MeshField2D), allocatable :: SFC_FLX(:)
-    type(ModelVarManager) :: SFCFLX_manager
+    type(MeshField2D), allocatable :: SFC_FLX(:)  !< Array of flux variables with a surface component
+    type(ModelVarManager) :: SFCFLX_manager       !< Object to manage flux variables
 
-    integer :: SFCFLX_NUM_TOT
+    integer :: SFCFLX_NUM_TOT                     !< Number of surface fluxes 
   contains
     procedure :: Init => AtmosPhySfcVars_Init
     procedure :: Final => AtmosPhySfcVars_Final
@@ -105,6 +108,9 @@ module mod_atmos_phy_sfc_vars
   real(RP), private :: ATMOS_PHY_SFC_DEFAULT_SFC_TEMP = 300.0_RP
 
 contains
+!> Setup an object to manage variables with a surface component 
+!!
+!! @param model_mesh Object to manage computational mesh of atmospheric model 
   subroutine AtmosPhySfcVars_Init( this, model_mesh )
     implicit none
     class(AtmosPhySfcVars), target, intent(inout) :: this
@@ -179,6 +185,8 @@ contains
     return
   end subroutine AtmosPhySfcVars_Init
 
+!> Finalize an object to manage variables with a surface component 
+!!
   subroutine AtmosPhySfcVars_Final( this )
     implicit none
     class(AtmosPhySfcVars), intent(inout) :: this

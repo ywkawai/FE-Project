@@ -1,5 +1,5 @@
 !-------------------------------------------------------------------------------
-!> module common / Coordinate conversion with a cubed-sphere 
+!> Module common / Coordinate conversion with cubed-sphere projection
 !!
 !! @par Description
 !!      A module to provide coordinate conversions with an equiangular gnomonic cubed-sphere projection

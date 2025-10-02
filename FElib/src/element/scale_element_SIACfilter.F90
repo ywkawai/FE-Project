@@ -1,5 +1,5 @@
 !-------------------------------------------------------------------------------
-!> module FElib / element/ SIAC filter
+!> module FElib / Element/ SIAC filter
 !!
 !! @par Description
 !!      A module to provide a Smoothness-Increasing Accuracy-Increasing (SIAC) filter
@@ -39,6 +39,7 @@ module scale_element_SIACfilter
   !
   !++ Public type
   !
+  !> Derived type to provide a SIAC filter
   type, public :: SIAC_filter
     integer :: spline_ord
     integer :: spline_num

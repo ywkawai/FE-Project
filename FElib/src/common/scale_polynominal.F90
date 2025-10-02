@@ -1,4 +1,4 @@
-!> module common / Polynominal
+!> Module common / Polynominal
 !!
 !! @par Description
 !!      A module to provide utilities for polynomials

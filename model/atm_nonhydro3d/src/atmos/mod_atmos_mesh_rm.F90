@@ -45,8 +45,8 @@ module mod_atmos_mesh_rm
   !> Derived type to manage a computational mesh of regional atmospheric model
   !!
   type, extends(AtmosMesh), public :: AtmosMeshRM
-    type(MeshCubeDom3D) :: mesh
-    type(MeshFieldCommCubeDom3D) :: comm_list(ATM_MESH_MAX_COMMNUICATOR_NUM)
+    type(MeshCubeDom3D) :: mesh                                               !< Object to manage a cubic computational mesh
+    type(MeshFieldCommCubeDom3D) :: comm_list(ATM_MESH_MAX_COMMNUICATOR_NUM)  !< Object to manage data communication on a cubic computational mesh
   contains
     procedure :: Init => AtmosMeshRM_Init
     procedure :: Final => AtmosMeshRM_Final
@@ -77,7 +77,7 @@ contains
 
   !- AtmosMesh RM -----------------------------------------
 
-  !> Initialize a object to manage computational mesh
+  !> Initialize an object to manage computational mesh
   !!
   subroutine AtmosMeshRM_Init( this )
     use scale_file_base_meshfield, only: FILE_base_meshfield
@@ -116,7 +116,7 @@ contains
     logical :: COMM_USE_MPI_PC_FUJITSU_EXT
 
     character(len=H_SHORT) :: Element_operation_type = 'General' !< General or TensorProd3D
-    character(len=H_SHORT) :: SpMV_storage_format    = 'ELL'     !< CSR or ELL
+    character(len=H_SHORT) :: SpMV_storage_format    = 'ELL'     !< Storage format of sparse matrix (CSR or ELL)
 
     integer, parameter :: ATMOS_MESH_NLocalMeshPerPrc = 1
 
@@ -225,7 +225,7 @@ contains
     return
   end subroutine AtmosMeshRM_Init
 
-  !> Finalize a object to manage computational mesh
+  !> Finalize an object to manage computational mesh
   !!
   subroutine AtmosMeshRM_Final(this)
     implicit none
@@ -244,24 +244,26 @@ contains
     return
   end subroutine AtmosMeshRM_Final
 
+  !> Create a communicator for data communication on regional computational domain
+  !!
   subroutine AtmosMeshRM_create_communicator( this, sfield_num, hvfield_num, htensorfield_num, &
     var_manager, field_list, commid )
     implicit none
     class(AtmosMeshRM), target, intent(inout) :: this
-    integer, intent(in) :: sfield_num
-    integer, intent(in) :: hvfield_num
-    integer, intent(in) :: htensorfield_num
-    class(ModelVarManager), intent(inout) :: var_manager
-    class(MeshField3D), intent(in) :: field_list(:)
-    integer, intent(out) :: commid
+    integer, intent(in) :: sfield_num        !< Number of scalar fields
+    integer, intent(in) :: hvfield_num       !< Number of horizontal vector fields
+    integer, intent(in) :: htensorfield_num  !< Number of horizontal tensor fields
+    class(ModelVarManager), intent(inout) :: var_manager !< Object to manage variables
+    class(MeshField3D), intent(in) :: field_list(:)      !< Array of 3D fields
+    integer, intent(out) :: commid           !< Communicator ID
     !-----------------------------------------------------
 
     commid = this%Get_communicatorID( ATM_MESH_MAX_COMMNUICATOR_NUM )
-    call this%comm_list(commid)%Init(sfield_num,  hvfield_num, htensorfield_num, this%mesh )
+    call this%comm_list(commid)%Init( sfield_num,  hvfield_num, htensorfield_num, this%mesh )
     if ( this%comm_use_mpi_pc ) then
       call this%comm_list(commid)%Prepare_PC( this%comm_use_mpi_pc_fujitsu_ext )
     end if
-    call var_manager%MeshFieldComm_Prepair( this%comm_list(commid), field_list )
+    call var_manager%MeshFieldComm_Prepare( this%comm_list(commid), field_list )
 
     return
   end subroutine AtmosMeshRM_create_communicator 
@@ -326,6 +328,7 @@ contains
     return
   end subroutine AtmosMeshRM_calc_UVMet
 
+!> Setup the vertical coordinate
   subroutine AtmosMeshRM_setup_vcoordinate( this )
     use scale_meshfieldcomm_rectdom2d, only: MeshFieldCommRectDom2D
     implicit none

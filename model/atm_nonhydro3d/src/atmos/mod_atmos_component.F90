@@ -1,5 +1,5 @@
 !-------------------------------------------------------------------------------
-!> module ATMOSPHERE component
+!> module Atmosphere component
 !!
 !! @par Description
 !!          Atmosphere component module
@@ -86,7 +86,7 @@ module mod_atmos_component
   !-----------------------------------------------------------------------------
 contains
 
-!> Setup a object to mange atmospheric component
+!> Setup an object to mange atmospheric component
 !OCL SERIAL
   subroutine Atmos_setup( this )
     use scale_const, only: &
@@ -228,6 +228,7 @@ contains
     return
   end subroutine Atmos_setup
 
+!> Setup variables with the atmospheric component
 !OCL SERIAL
   subroutine Atmos_setup_vars( this )
     implicit none
@@ -246,6 +247,7 @@ contains
     return
   end subroutine Atmos_setup_vars
 
+!> Calculate tendencies with the atmospheric component
 !OCL SERIAL
   subroutine Atmos_calc_tendency( this, force )
     use scale_tracer, only: QA
@@ -371,6 +373,7 @@ contains
     return  
   end subroutine Atmos_calc_tendency
 
+!> Update variables with the atmospheric component
 !OCL SERIAL
   subroutine Atmos_update( this )
     implicit none
@@ -476,6 +479,7 @@ contains
     return
   end subroutine Atmos_set_surface
 
+!> Finalize an object to manage the atmospheric component
 !OCL SERIAL
   subroutine Atmos_finalize( this )
     implicit none

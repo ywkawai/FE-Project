@@ -36,6 +36,7 @@ module scale_meshfieldcomm_cubedspheredom2d
   !++ Public type & procedure
   ! 
 
+  !> Derived type to represent covariant vector components
   type :: VecCovariantComp
     type(MeshField2D), pointer :: u1 => null()
     type(MeshField2D), pointer :: u2 => null()
@@ -43,7 +44,7 @@ module scale_meshfieldcomm_cubedspheredom2d
 
   !> Base derived type to manage data communication with 2D cubed-sphere domain
   type, public, extends(MeshFieldCommBase) :: MeshFieldCommCubedSphereDom2D
-    class(MeshCubedSphereDom2D), pointer :: mesh2d
+    class(MeshCubedSphereDom2D), pointer :: mesh2d                         !< Pointer to an object representing 2D cubed-sphere computational mesh
     type(VecCovariantComp), allocatable :: vec_covariant_comp_ptrlist(:)
     integer, allocatable :: Nnode_LCMeshAllFace(:)
   contains

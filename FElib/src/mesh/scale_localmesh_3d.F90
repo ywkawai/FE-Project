@@ -39,9 +39,9 @@ module scale_localmesh_3d
     real(RP) :: zmin  !< Minimum z-coordinate value of the local computational domain
     real(RP) :: zmax  !< Maximum z-coordinate value of the local computational domain
 
-    integer :: NeX    !< Number of finite element for the x-direction in the local computational domain
-    integer :: NeY    !< Number of finite element for the y-direction in the local computational domain
-    integer :: NeZ    !< Number of finite element for the z-direction in the local computational domain
+    integer :: NeX    !< Number of finite elements for the x-direction in the local computational domain
+    integer :: NeY    !< Number of finite elements for the y-direction in the local computational domain
+    integer :: NeZ    !< Number of finite elements for the z-direction in the local computational domain
     integer :: Ne2D   !< NeX * NeY
     integer :: Ne2DA  !< NeX * NeY + halo size
 

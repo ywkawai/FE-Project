@@ -1,3 +1,9 @@
+!-------------------------------------------------------------------------------
+!> Program A sample program: 2-dimensional linear advection test on the sphere
+!! 
+!! 
+!! @author Yuta Kawai, Team SCALE
+!<
 #include "scaleFElib.h"
 program test_advect2dGlobal
   !-----------------------------------------------------------------------------

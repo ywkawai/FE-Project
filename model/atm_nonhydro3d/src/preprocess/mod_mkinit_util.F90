@@ -107,8 +107,7 @@ contains
     return
   end subroutine mkinitutil_gen_Vm1Mat
 
-  !>
-  !! Calculate the distribution function of a cosine bell in regional domain
+  !> Calculate the distribution function of a cosine bell in regional domain
   !! 
   !! If the vertical dependence is considered, specify z_func_type and z_func_params.
   !!  For z_func_type = 'sin', the values of z_func_params is
@@ -221,8 +220,7 @@ contains
     return
   end subroutine mkinitutil_calc_cosinebell
 
-  !>
-  !! Calculate the distribution function of a cosine bell in global domain
+  !> Calculate the distribution function of a cosine bell in global domain
   !! 
   !! If the vertical dependence is considered, specify z_func_type and z_func_params.
   !!  For z_func_type = 'sin', the values of z_func_params is
@@ -341,8 +339,7 @@ contains
   end subroutine mkinitutil_calc_cosinebell_global
 
 
-!>
-!! Apply the Galerkin projection to the user-defined function 
+!> Apply the Galerkin projection to the user-defined function 
 !! 
 !OCL SERIAL  
   subroutine mkinitutil_GalerkinProjection( q, &
@@ -413,9 +410,8 @@ contains
   return
 end subroutine mkinitutil_GalerkinProjection
 
-!>
-!! Apply the Galerkin projection to the user-defined function 
-!! (for global model)
+!> Apply the Galerkin projection to the user-defined function (for global model)
+!!
 !OCL SERIAL  
   subroutine mkinitutil_GalerkinProjection_global( q, &
       func, IntrpPolyOrder_h, IntrpPolyOrder_v,       &

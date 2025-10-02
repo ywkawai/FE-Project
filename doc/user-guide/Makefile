@@ -9,6 +9,8 @@ TEXNAME  = scale_dg_users_guide
 VERFNAME = 00_version.tex
 VERTEMPL = 00_version_template.tex
 
+SCALE_VERSION = 5.5.5
+
 # commands to compile documents
 LATEX    = pdflatex
 BIBTEX   = bibtex
@@ -16,14 +18,14 @@ HTMLBIN  = pandoc --to=html
 CURL     = curl -f -s -S --create-dirs
 IMAGE_URL = https://scale.riken.jp/archives/figure
 IMAGE_URL2 = https://r-ccs-climate.riken.jp/members/kawai/SCALE-DG_doc/archives
-IMAGE_PATH = $(IMAGE_URL)/$(if $(shell git branch --contains 2>/dev/null|grep -v master|grep -v release|grep -v hotfix),devel,$(VERSION))
+IMAGE_PATH = $(IMAGE_URL)/$(if $(shell git branch --contains 2>/dev/null|grep -v master|grep -v release|grep -v hotfix),devel,$(SCALE_VERSION))
 IMAGE_PATH2 = $(IMAGE_URL2)
 
 VERSION  = $(shell cat ../../model/atm_nonhydro3d/VERSION)
 VERSION_SCALE  = 5.5.5
 
 IMAGE_BASENAME = scale_logo_final_ULWB.pdf
-IMAGE_BASENAME2 = $(shell grep includegraphics *tex | ruby -n -e '/^\s*\\includegraphics.*\{(.+)\}/ =~ $$_.split(":")[1] && print(/\A([^.]+)(\..+)?\Z/=~File.basename($$1) && $$1+($$2 || ".eps"),"\n") ') title_wallpaper.png
+IMAGE_BASENAME2 = $(shell grep includegraphics *tex | ruby -n -e '/^\s*\\includegraphics.*\{(.+)\}/ =~ $$_.split(":")[1] && print(/\A([^.]+)(\..+)?\Z/=~File.basename($$1) && $$1+($$2 || ".eps"),"\n") ') title_wallpaper.png SCALE-DG_logo_monotone.png
 
 FIG_DIR = ../figure
 IMAGES = $(patsubst %,$(FIG_DIR)/%,$(IMAGE_BASENAME))

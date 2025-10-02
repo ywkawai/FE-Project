@@ -3,9 +3,9 @@
 !!
 !! @par Description
 !!          SCALE: Scalable Computing by Advanced Library and Environment
-!!          A atmospheric model with DG method
+!!          SCALE-DG: A atmospheric model with DG method
 !!
-!! @author Team SCALE
+!! @author Yuta Kawai, Team SCALE
 !!
 !<
 !-------------------------------------------------------------------------------

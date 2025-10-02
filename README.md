@@ -3,7 +3,7 @@
 ## What is this project?
 In [FE-Project](https://ywkawai.github.io/FE-Project_web/), 
 we develop a library for fluid simulations with the discontinuous Galerkin method (DGM). 
-We also provide sample programs and atmospheric models for meteorological simulations. 
+We also provide sample programs and an atmospheric model for meteorological simulations (SCALE-DG). 
 
 - Example of simulation results by nonhydrostatic atmospheric models with nodal DGM
 
@@ -32,12 +32,12 @@ We also provide sample programs and atmospheric models for meteorological simula
 ### 2D problems 
   - Linear advection equation in a rectangle domain
     - various profiles of advected quantity and flow
-  - Linear advection equation in a cubed sphere domain
+  - Linear advection equation in a cubed-sphere domain
 
 ### 3D problems 
   - Linear advection equation in a cubic domain
     - various profiles of advected quantity
-  - Linear advection equation in a cubed sphere domain
+  - Linear advection equation in a cubed-sphere domain
   - Euler equation in a cubic domain
     - Test the propagation of sound waves with HEVI temporal methods
 

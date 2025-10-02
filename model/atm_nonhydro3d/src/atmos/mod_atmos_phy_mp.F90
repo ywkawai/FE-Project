@@ -1,5 +1,5 @@
 !-------------------------------------------------------------------------------
-!> module ATMOSPHERE physics / cloud microphysics
+!> module Atmosphere / Physics / cloud microphysics
 !!
 !! @par Description
 !!          Module for cloud microphysics
@@ -59,7 +59,7 @@ module mod_atmos_phy_mp
   !!
   type, extends(ModelComponentProc), public :: AtmosPhyMp
     integer :: MP_TYPEID         !< Type id of cloud microphysics scheme
-    type(AtmosPhyMpVars) :: vars !< A object to manage variables with cloud microphysics
+    type(AtmosPhyMpVars) :: vars !< Object to manage variables with cloud microphysics
 
     logical, private :: do_precipitation    !< Apply sedimentation (precipitation)?
     logical, private :: do_negative_fixer   !< Apply negative fixer?
@@ -68,7 +68,7 @@ module mod_atmos_phy_mp
     real(RP), private :: max_term_vel       !< Terminal velocity for calculate dt of sedimentation
     real(RP), private :: cldfrac_thleshold  !< Threshold for cloud fraction
 
-    real(DP), private :: dtsec
+    real(DP), private :: dtsec                !< Timestep with cloud microphysics component
     integer, private :: nstep_sedmientation
     real(RP), private :: rnstep_sedmientation
     real(DP), private :: dtsec_sedmientation
@@ -107,8 +107,8 @@ contains
 
 !> Setup a component of cloud microphysics
 !!
-!! @param model_mesh a object to manage computational mesh of atmospheric model 
-!! @param tm_parent_comp a object to mange a temporal scheme in a parent component
+!! @param model_mesh Object to manage computational mesh of atmospheric model 
+!! @param tm_parent_comp Object to mange a temporal scheme in a parent component
 !!
   subroutine AtmosPhyMp_setup( this, model_mesh, tm_parent_comp )
     use scale_const, only: &
