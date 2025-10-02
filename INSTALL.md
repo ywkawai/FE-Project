@@ -49,7 +49,7 @@ Our codes are also verified in Fugaku and Odyssey with Fujitsu compiler.
 
   - Set a directory in which SCALE library is contained
 
-  `% export SCALE="~/workspace/scale-5.5.4/"`   (for example)
+  `% export SCALE="~/workspace/scale-5.5.5/"`   (for example)
 
   - If you would like to enable a thread parallelization with OpenMP, set a variable as 
 

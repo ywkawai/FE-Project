@@ -1,9 +1,10 @@
-= 2025-10-XX (1.0.0)
+= 2025-10-04 (1.0.0)
 * New features
   * Support Tomita08 as a micro cloud physics schemes provided in SCALE library
   * Enable to hide a wait with MPI communication by overlapping elementwise computations in a regional HEVE solve
   * Add a module and sample program for a Smoothness-Increasing Accuracy-Increasing (SIAC) filter
   * Add a tool to perform spectral analysis using DG data in 3D regional meshes
+  * Add a model description and a user guides of SCALE-DG (experimental)
 * Improvements
   * Update configuration files for sample programs and test cases of atmospheric model
   * Improve computational performance of vertical implicit solver in DG HEVI scheme
