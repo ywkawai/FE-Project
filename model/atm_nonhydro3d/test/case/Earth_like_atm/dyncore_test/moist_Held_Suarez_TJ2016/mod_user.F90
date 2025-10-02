@@ -12,7 +12,7 @@
 !!    Geoscientific Model Development, 9, 1263–1292
 !<
 !-------------------------------------------------------------------------------
-#include "scalelib.h"
+#include "scaleFElib.h"
 module mod_user
 
   !-----------------------------------------------------------------------------
@@ -245,15 +245,15 @@ contains
 
     dt = atm%time_manager%dtsec
 
-    if ( APPLY_NewFilter ) then
-      call newFilter%Apply( atm%vars%PHY_TEND(DENS_p), atm%mesh%ptr_mesh )
-      call newFilter%Apply( atm%vars%PHY_TEND(MOMX_p), atm%mesh%ptr_mesh )
-      call newFilter%Apply( atm%vars%PHY_TEND(MOMY_p), atm%mesh%ptr_mesh )
-      call newFilter%Apply( atm%vars%PHY_TEND(MOMZ_p), atm%mesh%ptr_mesh )
-      call newFilter%Apply( atm%vars%PHY_TEND(RHOT_p), atm%mesh%ptr_mesh )
-      call newFilter%Apply( atm%vars%PHY_TEND(RHOH_p), atm%mesh%ptr_mesh )
-      call newFilter%Apply( atm%vars%PHY_TEND(RHOH_p+1), atm%mesh%ptr_mesh )
-    end if
+    ! if ( APPLY_NewFilter ) then
+    !   call newFilter%Apply( atm%vars%PHY_TEND(DENS_p), atm%mesh%ptr_mesh )
+    !   call newFilter%Apply( atm%vars%PHY_TEND(MOMX_p), atm%mesh%ptr_mesh )
+    !   call newFilter%Apply( atm%vars%PHY_TEND(MOMY_p), atm%mesh%ptr_mesh )
+    !   call newFilter%Apply( atm%vars%PHY_TEND(MOMZ_p), atm%mesh%ptr_mesh )
+    !   call newFilter%Apply( atm%vars%PHY_TEND(RHOT_p), atm%mesh%ptr_mesh )
+    !   call newFilter%Apply( atm%vars%PHY_TEND(RHOH_p), atm%mesh%ptr_mesh )
+    !   call newFilter%Apply( atm%vars%PHY_TEND(RHOH_p+1), atm%mesh%ptr_mesh )
+    ! end if
 
     !-- Large-scale condensation
     call USER_sub_LSC_calc_tendency( atm%vars, &

@@ -1,0 +1,199 @@
+%------------------------------------------------------
+This section describes how to configure regional and global dynamical cores.
+For the parameters with mesh type and finite elements, 
+we note that \namelist{PARAM_ATMOS} and \namelist{PARAM_ATMOS_DYN} are used, as described in Section \ref{sec:domain}.
+
+
+\section{Temporal scheme}
+\label{sec:atmos_dynamics_temporal_scheme}
+
+The settings of temporal scheme are specified in \namelist{PARAM_ATMOS_DYN}. 
+\editboxtwo{
+ \verb|&PARAM_ATMOS_DYN  | & \\
+ \verb|EQS_TYPE            = NONHYDRO3D_RHOT_HEVE,| & ; Choose from governing equations in Table \ref{tab:nml_atm_dyn_governeq}\\
+ \verb|TINTEG_TYPE         = ERK_SSP_10s4o_2N,|     & ; Choose from temporal schemes in Table \ref{tb:HEVE_temporal_integ_choice} for HEVE \\
+                                                    & ; and Table \ref{tb:HEVI_temporal_integ_choice} for HEVI \\
+ \verb|TINTEG_TYPE_TRACER  = ERK_SSP3s3o,|    & ; Choose from temporal schemes in Table \ref{tb:HEVE_temporal_integ_choice} \\
+ \verb|TIME_DT             = 5D-2,|           & ; Time step for calculation of dynamical process \\
+ \verb|TIME_DT_UNIT        = sec,|            & ; Unit for \verb|TIME_DT| \\
+ \verb|MODALFILTER_FLAG    = .false.,|         & ; Flag to set whether a modal filtering is used (see Section\ref{sec:modal_filter})\\
+\verb|/             | & \\
+}
+%%
+\nmitem{TIME_DT} is the time step for time integration with dynamical process.
+It is also used as the time step for tracer advection.
+
+
+\begin{table}[bth]
+\begin{center}
+  \caption{List of EQS\_TYPE available in dynamical process. 
+  THERM means which variable is used in the thermodynamics equation. 
+  $\rho \theta$ and $\rho e_t$ represent density-weighted potential temperature and total energy, respectively.}
+  \label{tab:nml_atm_dyn_governeq}
+  \begin{tabularx}{150mm}{lcXX} \hline
+    \rowcolor[gray]{0.9}  EQS\_TYPE & THERM & Temporal strategy & Note \\ \hline
+      \verb|NONHYDRO3D_RHOT_HEVE|  & $\rho \theta$ & HEVE & regional\\
+      \verb|NONHYDRO3D_RHOT_HEVI|  & $\rho \theta$ & HEVI & regional \\
+      \verb|NONHYDRO3D_ETOT_HEVE|  & $\rho e_t$ & HEVE & regional, experimental \\
+      \verb|NONHYDRO3D_ETOT_HEVI|  & $\rho e_t$ & HEVI & regional, experimental \\
+    \hline
+      \verb|GLOBALNONHYDRO3D_RHOT_HEVE|  & $\rho \theta$ & HEVE & global \\
+      \verb|GLOBALNONHYDRO3D_RHOT_HEVI|  & $\rho \theta$ & HEVI & global \\
+      \verb|GLOBALNONHYDRO3D_ETOT_HEVE|  & $\rho e_t$ & HEVE & global, experimental \\
+      \verb|GLOBALNONHYDRO3D_ETOT_HEVI|  & $\rho e_t$ & HEVI & global, experimental \\
+    \hline
+  \end{tabularx}
+\end{center}
+\end{table}
+
+%t
+\begin{table}[t]
+\caption{Implicit and Explicit (IMEX) Runge--Kutta schemes available in HEVI temporal integration}
+%% Explicit part
+\begin{tabular}{l|cccc}
+%\tophline
+\hline
+Abbrev. & Order & Num. of stages (I,E) & Note & Reference \\
+\hline
+IMEX\_ARK232 & 2 & (2,3) &  & \cite{Giraldo2013} \\
+\hline
+IMEX\_ARK324 & 3 & (3,4) &  & \cite{kennedy2003additive} \\
+\hline
+\end{tabular}
+%%%%%
+%\belowtable{} % Table Footnotes
+\label{tb:HEVI_temporal_integ_choice}
+\end{table}
+
+
+
+\begin{table}[t]
+\caption{Explicit Runge--Kutta schemes available in HEVE temporal integration}
+%% Explicit part
+\begin{tabular}{l|cccc}
+%\tophline
+\hline
+Abbrev. & Order & Num. of stages & Note & Reference \\
+\hline
+ERK\_Euler & 1 & 1 & for debug & \\
+\hline
+ERK\_SSP\_2s2o & 2 & 2 & SSP & \cite{SHU1988439} \\
+\hline
+ERK\_SSP\_3s3o & 3 & 3 & SSP & \cite{SHU1988439} \\
+ERK\_SSP\_4s3o & 3 & 4 & SSP & \\
+ERK\_SSP\_5s3o\_2N2* & 3 & 5 & SSP & \cite{higueras2019new} \\
+\hline
+ERK\_RK4 & 4 & 4 & classical RK4 & \\
+ERK\_SSP\_10s4o\_2N & 4 & 10 & SSP & \cite{Ketcheson2008RK4o10s} \\
+\hline
+\end{tabular}
+%%%%%
+%\belowtable{} % Table Footnotes
+\label{tb:HEVE_temporal_integ_choice}
+\end{table}
+
+\section{Modal filtering} \label{sec:modal_filter}
+
+For high-order DGM, 
+numerical instability is likely to occur in advection-dominated flows 
+because the numerical dissipations with the upwind numerical fluxes weaken. 
+Furthermore, 
+we adopted a collocation approach due to its computational efficiency. 
+One drawback is that 
+the aliasing errors with evaluations of the nonlinear terms can drive numerical instability. 
+
+To suppress this numerical instability, 
+a modal filter with an exponential function is used as an additional stabilization mechanism. 
+The fundamental parameters are the order of $p_m$ and the non-dimensional decay strength $\alpha_m$. 
+We applied the filter to the solution vector 
+at the final stage of the RK scheme with a timestep $\Delta t$. 
+Then, the decay timescale for the highest mode is approximately $\Delta t/\alpha_m$.
+
+The switch of modal filtering exists in \namelist{PARAM_ATMOS_DYN} 
+and 
+the parameters are specified in \namelist{PARAM_ATMOS_DYN_MODALFILTER} as 
+\editboxtwo{
+ \verb|&PARAM_ATMOS_DYN  | & \\
+ \verb|MODALFILTER_FLAG    = .true.,|  & ; Flag to set whether a modal filtering is used \\
+\verb|/             | & \\
+}
+\editboxtwo{
+ \verb|&PARAM_ATMOS_DYN_MODALFILTER  | & \\
+ \verb|MF_ALPHA_h          = 1D-1,| & ; Order of modal filter in the horizontal direction  \\
+ \verb|MF_ORDER_h          = 16,  | & ; Non-dimensional strength of modal filter in the horizontal direction \\
+ \verb|MF_ALPHA_v          = 1D-1,| & ; Order of modal filter in the vertical direction  \\
+ \verb|MF_ORDER_v          = 16,  | & ; Non-dimensional strength of modal filter in the vertical direction \\
+\verb|/             | & \\
+}
+
+We set the order $p_m$, and decay coefficient $\alpha_m$ such that 
+the strength of filter should ensure numerical stability while being as weak as possible. 
+
+\section{Setting for boundary condition} \label{sec:atm_dynamics_bc}
+
+Boundary conditions with atmospheric dynamical core are specified in \namelist{PARAM_ATMOS_DYN_BND}. 
+For the default, slip and adiabatic conditions are imposed at rigid walls for velocity and heat, respectively. 
+The boundary condition top and bottom boundaries are specified as 
+\editboxtwo{
+ \verb|&PARAM_ATMOS_DYN_BND  | & \\
+  \verb|btm_vel_bc       = SLIP,| &; Velocity BC at bottom boundary \\
+  \verb|top_vel_bc       = SLIP, | &; Velocity BC at top boundary \\
+  \verb|btm_thermal_bc   = ADIABATIC,| &; Thermal BC at bottom boundary  \\
+  \verb|top_thermal_bc   = ADIABATIC,|  &; Thermal BC at top boundary \\
+\verb|/             | & \\
+}
+
+
+In the regional model, 
+when lateral boundaries are not periodic,  
+we should impose lateral boundary conditions as
+\editboxtwo{
+ \verb|&PARAM_ATMOS_DYN_BND  | & \\
+  \verb|north_vel_bc       = SLIP,| &; Velocity BC at northern boundary \\
+  \verb|south_vel_bc       = SLIP,| &; Velocity BC at southern boundary \\
+  \verb|west_vel_bc       = SLIP,| &; Velocity BC at west boundary  \\
+  \verb|east_vel_bc       = SLIP,| &; Velocity BC at east boundary \\
+  \verb|north_thermal_bc   = ADIABATIC,| &; Thermal BC at northern boundary \\
+  \verb|south_thermal_bc   = ADIABATIC,|  &; Thermal BC at southern boundary \\
+  \verb|west_thermal_bc   = ADIABATIC,| &; Thermal BC at west boundary  \\
+  \verb|east_thermal_bc   = ADIABATIC,|  &; Thermal BC at east boundary  \\
+\verb|/             | & \\
+}
+
+
+\section{Setting for Coriolis force} \label{sec:coriolis}
+
+\subsection{Regional model}
+
+For regional model, 
+the Coriolis parameter is zero as the default. 
+Thus, you should set the parameters to introduce the Coriolis force in simulations.
+There are two types of setting for the Coriolis parameter: $f$-/$\beta$-plane and sphere.
+The type can be specified by \nmitem{CORIOLIS_type} in \namelist{PARAM_ATMOS_DYN_CORIOLIS}.
+
+If \nmitem{CORIOLIS_type} is set to ``PLANE'', the Coriolis parameter $f$ is $f=f_0 + \beta (y-y_0)$.
+The plane for $\beta=0$ is called $f$-plane, otherwise it is called $\beta$-plane.
+The parameters of $f_0, \beta$ and $y_0$ is set with the parameters of \namelist{PARAM_ATMOS_DYN_CORIOLIS} as
+
+\editboxtwo{
+ \verb|&PARAM_ATMOS_DYN_CORIOLIS  | & \\
+  \verb|CORIOLIS_type    = NONE,| &; Type of coriolis force: NONE, PLANE, SPHERE\\
+  \verb|CORIOLIS_f0      = 0D0,| &; $f_0$  \\
+  \verb|CORIOLIS_beta    = 0D0,| &; $\beta_0$  \\
+  \verb|CORIOLIS_y0      = 0D0,| &; $y_0$ \\
+\verb|/             | & \\
+}
+
+On the other hand, CORIOLIS\_type=SPHERE, 
+the Coriolis parameter depends on the latitude as $f = 2\Omega \sin(\phi)$, 
+where $\Omega$ and $\phi$ are angular velocity of the sphere and latitude, respectively.
+The angular velocity of the sphere is set by \nmitem{CONST_OHM} parameter of \namelist{PARAM_CONST}.
+The latitude of the individual grids is determined depending on the map projection.
+
+\subsection{Global model}
+For the global model, 
+the Coriolis parameter is nonzero for the default and depends on the latitude. 
+The angular velocity of rotation is set by \nmitem{CONST_OHM} parameter of \namelist{PARAM_CONST}.
+If the Coriolis force is not considered, you should set \nmitem{CONST_OHM} to be zero. 
+
+

@@ -1,20 +1,20 @@
 !-------------------------------------------------------------------------------
-!> module common / Runge-Kutta scheme 
+!> Module common / Runge-Kutta scheme 
 !!
 !! @par Description
 !!      Butcher tableau
 !!
 !! Notation rules:
 !!   * ERK schemes
-!!    ERK(_abbrev1_)MsPo(_abbrev2) : explicit RK schme with M-stage and P-th order.
+!!    ERK(_abbrev1_)MsPo(_abbrev2) : explicit RK scheme with M-stage and P-th order.
 !!      ERK_1s1o (, Euler ) : Euler scheme
 !!      ERK_4s4o (, RK4   ) : classical 4 stage and 4th-order  RK scheme
 !!      ERK_SSP_MsPo : strong stability preserving (SSP) (M,P) RK scheme
 !!
-!!   * IMEX shcemes (we assume that ERK for non-stiff part and  DIRK for stiff part)
+!!   * IMEX schemes (we assume that ERK for non-stiff part and  DIRK for stiff part)
 !!     IMEX_abbrev : abbreviation of scheme name follows the table in Vogl et al. (2019). 
 !!
-!! @author Team SCALE
+!! @author Yuta Kawai, Team SCALE
 !!
 !! @par Reference
 !!  - Vogl et al. 2019:
@@ -78,12 +78,13 @@ contains
       nstage = 4
       tend_buf_size = 1
       imex_flag = .false.
-    case( 'ERK_SSP_2s2o' )
+    case( 'ERK_SSP_2s2o' ) ! Shu and Osher, 1998: Efficient implementation of essentially nonoscillatory shock-capturing schemes, J. Comput. Phys.; Gottlieb and Shu, 1998: Total variation diminishing Runge-Kutta schemes, Math. Comput.
       nstage = 2
       tend_buf_size = 1
       low_storage_flag = .true.
       imex_flag = .false.
-    case( 'ERK_SSP_3s3o' ) ! SSP coefficient: 1, effective SSP coefficient Ceff: 1/3 
+    case( 'ERK_SSP_3s3o' ) ! Shu and Osher, 1998: Efficient implementation of essentially nonoscillatory shock-capturing schemes, J. Comput. Phys.;  
+                           ! SSP coefficient: 1, effective SSP coefficient Ceff: 1/3 
       nstage = 3
       tend_buf_size = 1
       low_storage_flag = .true.

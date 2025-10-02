@@ -1,5 +1,5 @@
 !-------------------------------------------------------------------------------
-!> module common / GMRES
+!> Module common / GMRES
 !!
 !! @par Description
 !!      A module to provide a iterative solver for system of linear equations using generalized minimal residual method (GMRES)
@@ -29,6 +29,7 @@ module scale_gmres
   !++ Public type
   !  
 
+  !> Derived type to provide a iterative solver for system of linear equations using GMRES
   type, public :: GMRES
     real(RP) :: EPS
     real(RP) :: EPS0

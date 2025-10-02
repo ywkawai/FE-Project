@@ -1,7 +1,7 @@
 !-------------------------------------------------------------------------------
 !> Program Fourier dispersion / dissipation analysis of DGM
 !!
-!! @author Team SCALE
+!! @author Yuya Kawai, Team SCALE
 !!
 !! @par Reference
 !! - Alhawwary and Wang 2018:

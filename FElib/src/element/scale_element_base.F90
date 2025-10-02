@@ -26,19 +26,20 @@ module scale_element_base
 
   !- Base
 
+  !> Derived type representing an arbitrary finite element
   type, public :: ElementBase
-    integer :: Np
-    integer :: Nfaces
-    integer :: NfpTot
-    integer :: Nv
-    logical, private :: LumpedMatFlag
+    integer :: Np                       !< Number of nodes within an element
+    integer :: Nfaces                   !< Number of faces
+    integer :: NfpTot                   !< Total number of nodes on faces
+    integer :: Nv                       !< Number of vertices with an element
+    logical, private :: LumpedMatFlag   !< Flag whether the lumped mass matrix is used
 
-    real(RP), allocatable :: V(:,:)
-    real(RP), allocatable :: invV(:,:)
-    real(RP), allocatable :: M(:,:)
-    real(RP), allocatable :: invM(:,:)
-    real(RP), allocatable :: Lift(:,:)
-    real(RP), allocatable :: IntWeight_lgl(:)
+    real(RP), allocatable :: V(:,:)             !< The Vandermonde matrix (V) whose size is Np x Np 
+    real(RP), allocatable :: invV(:,:)          !< Inversion of the Vandermonde matrix (V^-1) whose size is Np x Np
+    real(RP), allocatable :: M(:,:)             !< Mass matrix (M) whose size is Np x Np
+    real(RP), allocatable :: invM(:,:)          !< Inversion of the mass matrix (M^-1) whose size Np x NP
+    real(RP), allocatable :: Lift(:,:)          !< Lifting matrix with element boundary integrals whose size Np x NfpTot
+    real(RP), allocatable :: IntWeight_lgl(:)   !< Weights of gaussian quadrature with the LGL nodes
   contains
     procedure :: IsLumpedMatrix => ElementBase_isLumpedMatrix
   end type ElementBase
@@ -48,16 +49,17 @@ module scale_element_base
 
   !- 1D
 
+  !> Derived type representing a 1D reference element
   type, public, extends(ElementBase) :: ElementBase1D
-    integer :: PolyOrder
-    integer :: Nfp
-    integer, allocatable :: Fmask(:,:)
+    integer :: PolyOrder                 !< Polynomial order
+    integer :: Nfp                       !< Number of nodes on an element face
+    integer, allocatable :: Fmask(:,:)   !< Array saving indices to extract nodal values on the faces
 
-    real(RP), allocatable :: x1(:) 
+    real(RP), allocatable :: x1(:)       !< Array saving x1-coordinate of nodes within the reference element
 
-    real(RP), allocatable :: Dx1(:,:)
+    real(RP), allocatable :: Dx1(:,:)    !< Elementwise differential matrix for the x1-coordinate direction (Dx1 = M^-1 Sx1)
 
-    real(RP), allocatable :: Sx1(:,:) 
+    real(RP), allocatable :: Sx1(:,:)    !< Elementwise stiffness matrix for the x1-coordinate direction
   end type ElementBase1D
   
   public :: ElementBase1D_Init
@@ -65,19 +67,20 @@ module scale_element_base
 
   !- 2D
 
+  !> Derived type representing a 2D reference element
   type, public, extends(ElementBase) :: ElementBase2D
-    integer :: PolyOrder
-    integer :: Nfp
-    integer, allocatable :: Fmask(:,:)
+    integer :: PolyOrder               !< Polynomial order
+    integer :: Nfp                     !< Number of nodes on an element face
+    integer, allocatable :: Fmask(:,:) !< Array saving indices to extract nodal values on the faces
 
-    real(RP), allocatable :: x1(:)
-    real(RP), allocatable :: x2(:)    
+    real(RP), allocatable :: x1(:)     !< Array saving x1-coordinate of nodes within the reference element
+    real(RP), allocatable :: x2(:)     !< Array saving x2-coordinate of nodes within the reference element
 
-    real(RP), allocatable :: Dx1(:,:)
-    real(RP), allocatable :: Dx2(:,:)
+    real(RP), allocatable :: Dx1(:,:)  !< Elementwise differential matrix for the x1-coordinate direction (Dx1 = M^-1 Sx1)
+    real(RP), allocatable :: Dx2(:,:)  !< Elementwise differential matrix for the x2-coordinate direction (Dx2 = M^-1 Sx2)
 
-    real(RP), allocatable :: Sx1(:,:)
-    real(RP), allocatable :: Sx2(:,:) 
+    real(RP), allocatable :: Sx1(:,:)  !< Elementwise stiffness matrix for the x1-coordinate direction
+    real(RP), allocatable :: Sx2(:,:)  !< Elementwise stiffness matrix for the x2-coordinate direction
   end type ElementBase2D
 
   public :: ElementBase2D_Init
@@ -100,36 +103,37 @@ module scale_element_base
 
   !- 3D
 
+  !> Derived type representing a 3D reference element
   type, public, extends(ElementBase) :: ElementBase3D    
-    integer :: PolyOrder_h
-    integer :: Nnode_h1D
-    integer :: Nfaces_h
-    integer :: Nfp_h
-    integer, allocatable :: Fmask_h(:,:)
+    integer :: PolyOrder_h               !< Polynomial order with the horizontal direction
+    integer :: Nnode_h1D                 !< Number of nodes along the horizontal coordinate
+    integer :: Nfaces_h                  !< Number of nodes on an horizontal face of the reference element
+    integer :: Nfp_h                     !< Number of horizontal faces of the reference element
+    integer, allocatable :: Fmask_h(:,:) !< Array saving indices to extract nodal values on the horizontal faces
 
-    integer :: PolyOrder_v
-    integer :: Nnode_v
-    integer :: Nfaces_v
-    integer :: Nfp_v
-    integer, allocatable :: Fmask_v(:,:)
+    integer :: PolyOrder_v               !< Polynomial order with the vertical direction
+    integer :: Nnode_v                   !< Number of nodes along the vertical coordinate
+    integer :: Nfaces_v                  !< Number of nodes on an vertical face of the reference element
+    integer :: Nfp_v                     !< Number of vertical faces of the reference element
+    integer, allocatable :: Fmask_v(:,:) !< Number of vertical faces of the reference element
 
-    integer, allocatable :: Colmask(:,:)
-    integer, allocatable :: Hslice(:,:)
-    integer, allocatable :: IndexH2Dto3D(:)
-    integer, allocatable :: IndexH2Dto3D_bnd(:)    
-    integer, allocatable :: IndexZ1Dto3D(:)
+    integer, allocatable :: Colmask(:,:)        !< Array saving indices to extract nodal values on the vertical columns
+    integer, allocatable :: Hslice(:,:)         !< Array saving indices to extract nodal values on the horizontal plane
+    integer, allocatable :: IndexH2Dto3D(:)     !< Array saving indices to expand 2D horizontal nodal values into the 3D nodal values
+    integer, allocatable :: IndexH2Dto3D_bnd(:) !< Array saving indices to expand 2D horizontal nodal values into the 3D nodal values on element faces
+    integer, allocatable :: IndexZ1Dto3D(:)     !< Array saving indices to expand 1D vertical nodal values into the 3D nodal values
 
-    real(RP), allocatable :: x1(:)
-    real(RP), allocatable :: x2(:)
-    real(RP), allocatable :: x3(:)
+    real(RP), allocatable :: x1(:) !< Array saving x1-coordinate of nodes within the reference element
+    real(RP), allocatable :: x2(:) !< Array saving x2-coordinate of nodes within the reference element
+    real(RP), allocatable :: x3(:) !< Array saving x3-coordinate of nodes within the reference element
     
-    real(RP), allocatable :: Dx1(:,:)
-    real(RP), allocatable :: Dx2(:,:)    
-    real(RP), allocatable :: Dx3(:,:)
+    real(RP), allocatable :: Dx1(:,:) !< Elementwise differential matrix for the x1-coordinate direction (Dx1 = M^-1 Sx1)
+    real(RP), allocatable :: Dx2(:,:) !< Elementwise differential matrix for the x2-coordinate direction (Dx2 = M^-1 Sx2)
+    real(RP), allocatable :: Dx3(:,:) !< Elementwise differential matrix for the x3-coordinate direction (Dx3 = M^-1 Sx3)
   
-    real(RP), allocatable :: Sx1(:,:)
-    real(RP), allocatable :: Sx2(:,:)    
-    real(RP), allocatable :: Sx3(:,:)
+    real(RP), allocatable :: Sx1(:,:) !< Elementwise stiffness matrix for the x1-coordinate direction
+    real(RP), allocatable :: Sx2(:,:) !< Elementwise stiffness matrix for the x2-coordinate direction    
+    real(RP), allocatable :: Sx3(:,:) !< Elementwise stiffness matrix for the x3-coordinate direction
   end type ElementBase3D
   
   public :: ElementBase3D_Init
@@ -146,6 +150,7 @@ module scale_element_base
 contains
   !-- Base Element ------------------------------------------------------------------------------
 
+!> Initialize a base object to manage a reference element
 !OCL SERIAL
   subroutine ElementBase_Init( elem, lumpedmat_flag )
     implicit none
@@ -167,6 +172,7 @@ contains
     return
   end subroutine ElementBase_Init
 
+!> Finalize a base object to manage a reference element
 !OCL SERIAL
   subroutine ElementBase_Final( elem )
     implicit none
@@ -186,6 +192,7 @@ contains
     return
   end subroutine ElementBase_Final
 
+!> Get a flag whether the lumped mass matrix is used
 !OCL SERIAL
   function ElementBase_isLumpedMatrix( elem ) result(lumpedmat_flag)
     implicit none
@@ -265,6 +272,10 @@ contains
 
   !-- 1D Element ------------------------------------------------------------------------------
 
+!> Initialize an object to manage a 1D reference element
+!!
+!! @param elem Object of finite element
+!! @param elem Flag whether mass lumping is considered
 !OCL SERIAL
   subroutine ElementBase1D_Init( elem, lumpedmat_flag )
     implicit none
@@ -284,6 +295,7 @@ contains
     return
   end subroutine ElementBase1D_Init
 
+!> Finalize an object to manage a 1D reference element
 !OCL SERIAL
   subroutine ElementBase1D_Final( elem )
     implicit none
@@ -305,6 +317,10 @@ contains
 
   !-- 2D Element ------------------------------------------------------------------------------
 
+!> Initialize an object to manage a 2D reference element
+!!
+!! @param elem Object of finite element
+!! @param elem Flag whether mass lumping is considered
 !OCL SERIAL
   subroutine ElementBase2D_Init( elem, lumpedmat_flag )
     implicit none
@@ -324,6 +340,7 @@ contains
     return
   end subroutine ElementBase2D_Init
 
+!> Finalize an object to manage a 2D reference element
 !OCL SERIAL
   subroutine ElementBase2D_Final( elem )
     implicit none
@@ -346,6 +363,10 @@ contains
 
   !-- 3D Element ------------------------------------------------------------------------------
   
+!> Initialize an object to manage a 3D reference element
+!!
+!! @param elem Object of finite element
+!! @param elem Flag whether mass lumping is considered
 !OCL SERIAL
   subroutine ElementBase3D_Init( elem, lumpedmat_flag )
     implicit none
@@ -369,6 +390,7 @@ contains
     return
   end subroutine ElementBase3D_Init
 
+!> Finalize an object to manage a 3D reference element
 !OCL SERIAL
   subroutine ElementBase3D_Final( elem )
     implicit none

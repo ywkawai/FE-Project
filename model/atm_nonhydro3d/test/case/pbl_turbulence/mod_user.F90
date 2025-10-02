@@ -2,9 +2,9 @@
 !> module USER
 !!
 !! @par Description
-!!          User defined module for a test case of planetary boudary layer turbulence
+!!          User defined module for a test case of planetary boundary layer turbulence
 !!
-!! @author Team SCALE
+!! @author Yuta Kawai, Team SCALE
 !!
 !<
 !-------------------------------------------------------------------------------
@@ -40,8 +40,6 @@ module mod_user
 
   use scale_sparsemat, only: &
     SparseMat, SparseMat_matmul
-  use scale_gmres, only: &
-    GMRES
   
   use mod_user_base, only: UserBase
   use mod_experiment, only: Experiment
@@ -180,7 +178,7 @@ contains
       ENV_PRES_SFC,     &
       RANDOM_THETA
 
-    real(RP) :: rndm(elem%Np) 
+    real(RP) :: rndm(elem%Np,lcmesh%Ne) 
     real(RP) :: POT (elem%Np,lcmesh%NeZ,lcmesh%NeX,lcmesh%NeY)
     real(RP) :: DENS(elem%Np)
 
@@ -216,16 +214,17 @@ contains
 
     allocate( bnd_SFC_PRES(elem%Nfp_v,lcmesh%Ne2DA) )
 
-    !$omp parallel do private( ke, ke2D, rndm, sfc_rhot )
+    call RANDOM_uniform( rndm )
+
+    !$omp parallel do private( ke, ke2D, sfc_rhot )
     do ke_z=1, lcmesh%NeZ
     do ke_y=1, lcmesh%NeY
     do ke_x=1, lcmesh%NeX
       ke2D = ke_x + (ke_y-1)*lcmesh%NeX
       ke = ke2D + (ke_z-1)*lcmesh%NeX*lcmesh%NeY
 
-      call RANDOM_uniform( rndm )
       POT(:,ke_z,ke_x,ke_y) = ENV_THETA_SFC + ENV_THETA_LAPS * z(:,ke)    &
-                            + ( rndm(:) * 2.0_RP - 1.0_RP ) * RANDOM_THETA
+                            + ( rndm(:,ke) * 2.0_RP - 1.0_RP ) * RANDOM_THETA
       
       if ( ke_z == 1 ) then
         sfc_rhot(:) = DENS_hyd(elem%Hslice(:,1),ke2D) * POT(elem%Hslice(:,1),ke_z,ke_x,ke_y)        
@@ -240,7 +239,9 @@ contains
       lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2), lcmesh%pos_en(:,:,3),   &
       lcmesh, elem, bnd_SFC_PRES=bnd_SFC_PRES                             )
 
-    !$parallel do private( ke, DENS, rndm, ke_x, ke_y )
+    call RANDOM_uniform( rndm )
+
+    !$parallel do private( ke, DENS, ke_x, ke_y )
     do ke_z=1, lcmesh%NeZ
     do ke_y=1, lcmesh%NeY
     do ke_x=1, lcmesh%NeX  
@@ -250,9 +251,8 @@ contains
       DRHOT(:,ke) = DENS(:) * POT(:,ke_z,ke_x,ke_y)                             &
                   - DENS_hyd(:,ke) * ( ENV_THETA_SFC + ENV_THETA_LAPS * z(:,ke) )
 
-      call RANDOM_uniform( rndm )
-      MOMX(:,ke) = DENS(:) * (ENV_U + (rndm(:) * 2.0_RP - 1.0_RP ) * RANDOM_U )
-      MOMY(:,ke) = DENS(:) * (ENV_V + (rndm(:) * 2.0_RP - 1.0_RP ) * RANDOM_V )    
+      MOMX(:,ke) = DENS(:) * (ENV_U + (rndm(:,ke) * 2.0_RP - 1.0_RP ) * RANDOM_U )
+      MOMY(:,ke) = DENS(:) * (ENV_V + (rndm(:,ke) * 2.0_RP - 1.0_RP ) * RANDOM_V )    
     end do
     end do
     end do

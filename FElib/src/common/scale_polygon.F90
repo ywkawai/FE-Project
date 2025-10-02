@@ -1,4 +1,4 @@
-!> module common / Polygon
+!> Module common / Polygon
 !!
 !! @par Description
 !!      A module to provide utilities for polygon
@@ -27,7 +27,7 @@ module scale_polygon
 
 contains
 
-  !> Check whether the point is located inside a polyngon
+  !> Check whether the point is located inside a polygon
 !OCL SERIAL
   function polygon_inpoly( pt_x, pt_y, num_node, v_x, v_y ) result(ret)
     implicit none

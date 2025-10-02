@@ -1,0 +1,222 @@
+{\bf \Large
+\begin{tabular}{ccc}
+\hline
+  Corresponding author & : & Yuta Kawai\\
+\hline
+\end{tabular}
+}
+
+\section{Spatial discretization}
+%%
+We perform the spatial discretization for Eq.\,\eqref{eq:GovernEq_NonhydrostaticDynCore}
+based on a nodal DGM \citep[e.g.,][]{hesthaven2007nodal}. 
+The three-dimensional computational domain $\Omega$ is divided 
+using non-overlapping hexahedral elements. 
+To relate the coordinates $(\xi^1,\xi^2, \xi^3)$ with the local coordinates 
+$\tilde{\bm{x}} \equiv (\tilde{x}^1,\tilde{x}^2,\tilde{x}^3)$ 
+in a reference element $\Omega_e$, 
+we adopted a linear mapping defined as 
+%%
+\begin{equation}
+ \tilde{x}^i = 2\dfrac{\xi^i-\xi^i_e}{h^i_{e}}, 
+\label{eq:linear_mapping}
+\end{equation}
+%%
+where 
+$\xi^i_{e}$ and $h^i_e$ represent the center position and width of the element, respectively, in the $\xi^i$-direction. 
+
+
+Using the tensor-product of one-dimensional Lagrange polynomials 
+%%
+\begin{align}
+ l_{\bm{m}} (\tilde{\bm{x}}) = l_{m_1}(\tilde{x}^1) l_{m_2}(\tilde{x}^2) l_{m_3} (\tilde{x}^3),   
+\end{align}
+%%
+a local approximated solution within each element $\Omega_e$ can be represented as
+%%
+\begin{equation}
+  \bm{q}^e|_{\Omega_e} (\tilde{\bm{x}},t) 
+  = \sum_{m_1=1}^{p+1} \sum_{m_2=1}^{p+1} \sum_{m_3=1}^{p+1} 
+      \bm{Q}^e_{m_1,m_2,m_3} (t) \;\; l_{m_1}(\tilde{x}^1) l_{m_2}(\tilde{x}^2) l_{m_3} (\tilde{x}^3), 
+\label{eq:polynomial_expression}
+\end{equation}
+%%
+In Eq.\,\eqref{eq:polynomial_expression}, 
+the coefficients $Q^e_{m_1,m_2,m_3}$ are the unknown degrees of freedom (DOF) 
+and $p$ is the polynomial order.
+In this study, the  Legendre--Gauss--Lobatto (LGL) points were used for interpolation and integration nodes. 
+
+
+\subsubsection{Semi-discretized equations}
+%%
+By applying the Galerkin approximation to Eq.\,\eqref{eq:GovernEq_NonhydrostaticDynCore}, 
+a strong form of the semi-discretized equations can be obtained as 
+%%
+\begin{align}
+  \dfrac{D}{Dt} \int_{\Omega_e} \bm{q}^e (\tilde{\bm{x}},t) \; l_{\bm{m}} (\tilde{\bm{x}}) \; J^E \; d\tilde{\bm{x}}
+  = 
+   &- \sum_{j=1}^3  
+    \int_{\Omega_e} \dfrac{\partial \bm{F}_j (\bm{q}^e,\bm{G})}{\partial \xi^j}  l_{\bm{m}} (\tilde{\bm{x}}) \; J^E \; d\tilde{\bm{x}} \nonumber \\
+   &- 
+    \int_{\partial \Omega_{e}} \left[ \hat{\bm{F}} (\bm{q}^e,\bm{G}) - \bm{F}  (\bm{q}^e,\bm{G}) \right] \cdot \bm{n} \; l_{\bm{m}} (\tilde{\bm{x}}) \; J^{\partial E} \; dS  \nonumber \\
+   &+ \int_{\Omega_{e}} \left[ \bm{S} (\bm{q}^e) + \bm{S}_{\rm SGS} (\bm{q}^e,\bm{G}) \right] l_{\bm{m}} (\tilde{\bm{x}}) \; J^E \; d\tilde{\bm{x}}, 
+\label{eq:semidiscrete_eqs}
+\end{align}
+%%
+where $(\bm{F}_1,\bm{F}_2,\bm{F}_3)=(\bm{f}+\bm{f}_{\rm SGS},\bm{g}+\bm{g}_{\rm SGS},\bm{h}+\bm{h}_{\rm SGS})$ is the flux vector tensor, 
+$\hat{\bm{F}}$ is the numerical flux at the element boundary $\partial\Omega_E$, 
+and 
+$\bm{n}$ is the outward unit vector normal to $\partial\Omega_E$; 
+In the volume and surface integrals, 
+$J^E$ and $J^{\partial E}$ represent the transformation Jacobian with the general curvilinear coordinates 
+and local coordinates within each element. 
+Note that, because of the linear mapping in Eq.\,\eqref{eq:linear_mapping}, 
+the associated geometric factors such as $J^E$ and $J^{\partial E}$ have constant values  
+when the volume and surface integrals are calculated. 
+For the turbulent model,  
+we need to evaluate 
+the eddy viscous flux tensor and diffusion flux, 
+which include a few gradient terms with quantities such as $\bm{\chi}=(u^\xi,u^\eta,u^\zeta,\theta,q_{v,l,s})$, 
+denoted by 
+%%
+$\bm{G}=(\partial \bm{\chi}/\partial\xi^1,\partial \bm{\chi}/\partial\xi^2,\partial \bm{\chi}/\partial\xi^3)$ 
+in Eq.\,\eqref{eq:semidiscrete_eqs}. 
+The gradient discretization in the $\xi^j$-direction is given by 
+%%
+\begin{align}
+  \int_{\Omega_e} \rho \; \bm{G}_j l_{\bm{m}} (\tilde{\bm{x}}) \; J^E \; d\tilde{\bm{x}}
+  =  
+  &  \int_{\Omega_e} \left[\dfrac{\partial \rho^e \bm{\chi}^e}{\partial \xi^j} - \bm{\chi}^e  \left(\dfrac{\partial \rho}{\partial \xi^j}\right)^e \right] l_{\bm{m}} (\tilde{\bm{x}}) \; J^E \; d\tilde{\bm{x}} \nonumber \\
+  &+ \int_{\partial \Omega_{e}} \left( \widehat{\rho\bm{\chi}} - \rho^e \bm{\chi}^e \right)\bm{n}_{\tilde{x}^j}  \cdot \bm{n} \; l_{\bm{m}} (\tilde{\bm{x}}) \; J^{\partial E} \; dS, \label{eq:semidiscrete_grad}
+\end{align}
+%%
+where 
+$\bm{n}_{\tilde{\bm{x}}^j}$ is the unit vector in the $\tilde{x}^j$-direction 
+and  
+the density gradient is calculated by
+%%
+\begin{align}
+  \int_{\Omega_e}  \left(\dfrac{\partial \rho}{\partial \xi^j}\right)^e l_{\bm{m}} (\tilde{\bm{x}}) \; J^E \; d\tilde{\bm{x}}
+=  
+    \int_{\Omega_e} \dfrac{\partial \rho^e}{\partial \xi^j} l_{\bm{m}} (\tilde{\bm{x}}) \; J^E \;  d\tilde{\bm{x}} 
+  + \int_{\partial \Omega_{e}} (\hat{\rho} - \rho^e)\bm{n}_{\tilde{x}^j}  \cdot \bm{n} \; l_{\bm{m}} (\tilde{\bm{x}}) \; J^{\partial E} \; dS. 
+\end{align}
+%%
+
+
+\subsubsection{Numerical flux}
+%%
+For the numerical flux of the inviscid terms, 
+the Rusanov flux \citep{Rusanov1961} is used 
+as a simple choice of the approximated Riemann solvers. 
+Its numerical dissipation is provided based on the maximum absolute eigenvalue of the Jacobian matrix 
+at the left and right sides of the element boundary. 
+The Rusanov flux is written as 
+%%
+\begin{equation}
+ \hat{\bm{F}}_{\rm invis} 
+ = \dfrac{1}{2}\left\{ \left[ \bm{F}_{\rm invis}(\bm{q}^+) + \bm{F}_{\rm invis}(\bm{q}^-) \right]\cdot\bm{n} - \lambda_{\rm max} \left[\bm{q}^+ - \bm{q}^- \right] \right\}, 
+\end{equation}
+%%
+where 
+$\lambda_{\rm max}$ is the maximum of the absolute value of eigenvalues of the flux Jacobian in the direction $\bm{n}$, and 
+$\bm{q}^-$ and $\bm{q}^+$ represent the interior and exterior values at $\partial \Omega_e$. 
+Previous studies \citep[e.g.,][]{li2020development} formulated 
+the Rusanov flux taken into account the horizontal and vertical coordinate transformations. 
+Based on their works, 
+at the element boundaries in the horizontal directions ($\xi$ and $\eta$), 
+$\lambda_{\rm max}$ can be represented as  
+%%
+\begin{equation}
+ \lambda_{{\rm max},\xi}=\left|u^\xi \right| + \sqrt{G_h^{11}} c_s, 
+\;\;\; 
+\lambda_{{\rm max},\eta}=\left|u^\eta \right| + \sqrt{G_h^{22}} c_s, 
+\end{equation}
+%%
+where $c_s=[(C_p/C_v) RT]^{1/2}$ is the speed of sound wave.
+For the vertical direction $\zeta$, 
+$\lambda_{\rm max}$ can be represented as 
+%%%
+\begin{equation}
+  \lambda_{{\rm max},\zeta} 
+    = \left|\widetilde{u^\zeta} \right| 
+    + \left[ 1/\sqrt{G_v} + G_v^{13}G_X + G_v^{23}G_Y \right]^{1/2} c_s, 
+\end{equation}
+%%%
+where
+$G_X=G_v^{13}G_h^{11} + G_v^{23}G_h^{12}$ 
+and 
+$G_Y=G_v^{13}G_h^{21} + G_v^{23}G_h^{22}$. 
+
+
+We adopt the central flux  
+as the numerical flux of the gradient $\bm{G}$ and 
+the SGS fluxes $(\bm{f}_{\rm SGS},\bm{g}_{\rm SGS},\bm{h}_{\rm SGS})$ 
+with the turbulent model. 
+
+
+\subsubsection{Matrix form of semi-discretized equation}
+%%
+When the same nodes are used for interpolation and integration (i.e., collocation), 
+a matrix form of Eqs.\,\eqref{eq:semidiscrete_eqs} and \eqref{eq:semidiscrete_grad} can be obtained as   
+%%
+\begin{align}
+    \dfrac{D \bm{q}^e}{Dt} 
+    =&
+      - \sum_{j=1}^{3} d_j D_{\tilde{x}^j} \bm{F}_j  (\bm{q}^e,\bm{G})
+      - \sum_{f=1}^{6} s_{\partial \Omega_{e,f}} L_{\partial \Omega_{e,f}} \left[ \hat{\bm{F}} (\bm{q}^e,\bm{G}) 
+                 - \bm{F}  (\bm{q}^e,\bm{G}) \right] 
+               \cdot \bm{n} \nonumber \\
+      &+ \bm{S} (\bm{q}^e) + \bm{S}_{\rm SGS} (\bm{q}^e,\bm{G}), 
+\label{eq:semidiscrete_eqs_matform} 
+\\
+%%
+  \rho \; \bm{G}_j
+  =&
+  d_j D_{\tilde{x}^j} (\rho^e \bm{\chi}^e) 
+    - \bm{\chi}^e  \left(\dfrac{\partial \rho}{\partial \xi^j}\right)^e
+  + \sum_{f'=1}^2 s_{\partial \Omega_{e,f'}} L_{\partial \Omega_{e,f'}} \left( \widehat{\rho\bm{\chi}} - \rho^e \bm{\chi}^e \right)\bm{n}_{\tilde{x}^j}  \cdot \bm{n}, 
+\label{eq:semidiscrete_eqs_aux_matform}
+\end{align}
+%%
+where 
+$D_{\tilde{x}^j}$ represents the differential matrix for the $\tilde{x}^j$-direction; 
+$L_{\partial \Omega_{e,f}}$ represents the lifting matrix with the surface integral for the $f$-th element surface, 
+and $L_{\partial \Omega_{e,f'}}$ represents the same for the $f'$-th element surface in the gradient operator for the $\tilde{x}^j$-direction. 
+The components of these matrices are given as 
+%%
+\begin{equation}
+ \left( D_{\tilde{x}^j} \right)_{\bm{m},\bm{m}'} 
+ = M^{-1} \int_{\Omega_e}  l_{\bm{m}} \dfrac{\partial l_{\bm{m}'}}{\partial \tilde{x}_j}  \; d\tilde{\bm{x}}, 
+ \;\;\;\;
+ \left( L_{\partial \Omega_e,j} \right)_{\bm{m},{\bm{m}'}} 
+ = M^{-1} \int_{\partial \Omega_{e,j}}  l_{\bm{m}} l^{\partial \Omega_{e,j}}_{\bm{m}'} dS, 
+\label{eq:differential_and_lifting_matrix}
+\end{equation}
+%%
+where $M$ denotes the mass matrix and is given by
+%%
+\begin{equation}
+ M_{\bm{m},\bm{m}'} 
+  = \int_{\Omega_e}  l_{\bm{m}} l_{\bm{m}'}  \; d\tilde{\bm{x}}.
+\label{eq:mass_matrix}
+\end{equation}
+%%
+The density gradient term is calculated as  
+%%
+\begin{equation}
+\left(\dfrac{\partial \rho}{\partial \xi^j}\right)^e
+= 
+d_j  D_{\tilde{x}^j} \rho^e
+- \sum_{f'=1}^2 s_{\partial \Omega_{e,f'}} L_{\partial \Omega_{e,f'}} \left( \widehat{\rho} - \rho^e \right)\bm{n}_{\tilde{x}^j}  \cdot \bm{n}.   
+\label{eq:semidiscrete_density_gradient_matform}
+\end{equation}
+%%
+Note that, 
+in Eqs.\,\eqref{eq:semidiscrete_eqs_matform}, \eqref{eq:semidiscrete_eqs_aux_matform}, and \eqref{eq:semidiscrete_density_gradient_matform}, 
+$d_j=\partial \tilde{x}^j/\partial \xi^j$ 
+and 
+$s_{\partial \Omega_e,f'} =J_{\partial \Omega_{e,f'}}/J^E$ 
+are constant values in the volume and surface integrals, respectively. 
+% We changed the calculation method of mass and lifting matrices depending on temporal discretization; 
+% This is detailed in Sect.\,\ref{ssec:temporal_discretization}. 

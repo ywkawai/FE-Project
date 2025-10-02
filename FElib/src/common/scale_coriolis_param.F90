@@ -1,5 +1,5 @@
 !-------------------------------------------------------------------------------
-!> module common / Coriolis parameter 
+!> Module common / Coriolis parameter 
 !!
 !! @par Description
 !!      Setup coriolis parameter (for regional model)
@@ -34,6 +34,7 @@ module scale_coriolis_param
 
 contains
 
+!> Get Coriolis parameter
 !OCL SERIAL
   subroutine get_coriolis_parameter( &
     coriolis,                        &
@@ -43,14 +44,14 @@ contains
 
     implicit none
 
-    integer, intent(in) :: Np
-    real(RP), intent(out) :: coriolis(Np)
-    character(*), intent(in) :: COLIORIS_type
-    real(RP), intent(in), optional :: y(Np)
-    real(RP), intent(in), optional :: f0
-    real(RP), intent(in), optional :: beta
-    real(RP), intent(in), optional :: y0
-    real(RP), intent(in), optional :: lat(Np)
+    integer, intent(in) :: Np                 !< Array size
+    real(RP), intent(out) :: coriolis(Np)     !< Array storing Coriolis parameter
+    character(*), intent(in) :: COLIORIS_type !< Type of Coriolis parameter [PLANE / SPHERE / NONE]
+    real(RP), intent(in), optional :: y(Np)   !< y-coordinate which is used when COLIORIS_type=PLANE
+    real(RP), intent(in), optional :: f0      !< Value of Coriolis parameter at reference latitude which is used when COLIORIS_type=PLANE
+    real(RP), intent(in), optional :: beta    !< Rossby parameter at reference latitude which is used when COLIORIS_type=PLANE
+    real(RP), intent(in), optional :: y0      !< Distance from reference latitude
+    real(RP), intent(in), optional :: lat(Np) !< Latitude
 
     integer :: i
     !------------------------------------------

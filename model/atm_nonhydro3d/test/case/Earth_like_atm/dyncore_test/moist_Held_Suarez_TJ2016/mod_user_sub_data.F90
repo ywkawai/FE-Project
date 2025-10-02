@@ -164,10 +164,10 @@ contains
     return
   end subroutine MeshFieldCommCubedSphereDom3D_put
 
-  subroutine MeshFieldCommCubedSphereDom3D_get(this, field_list, varid_s)
+  subroutine MeshFieldCommCubedSphereDom3D_get(this, field_list, varid_s )
     implicit none
     
-    class(MeshFieldCommCubedSphereDom3D_2), intent(in) :: this
+    class(MeshFieldCommCubedSphereDom3D_2), intent(inout) :: this
     type(MeshFieldContainer), intent(inout) :: field_list(:)
     integer, intent(in) :: varid_s
 
@@ -233,7 +233,7 @@ contains
   end subroutine MeshFieldCommCubedSphereDom3D_get
 
 !OCL SERIAL
-  subroutine MeshFieldCommCubedSphereDom3D_exchange( this )
+  subroutine MeshFieldCommCubedSphereDom3D_exchange( this, do_wait )
     use scale_meshfieldcomm_base, only: &
       MeshFieldCommBase_exchange_core,  &
       LocalMeshCommData
@@ -245,7 +245,8 @@ contains
     implicit none
   
     class(MeshFieldCommCubedSphereDom3D_2), intent(inout), target :: this
-  
+    logical, intent(in), optional :: do_wait
+
     integer :: n, f
     integer :: varid
 
@@ -351,7 +352,7 @@ contains
 
     !-----------------------
 
-    call MeshFieldCommBase_exchange_core(this, this%commdata_list(:,:))
+    call MeshFieldCommBase_exchange_core( this, this%commdata_list(:,:), do_wait )
 
     !-----------------------
   

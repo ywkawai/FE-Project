@@ -27,6 +27,8 @@ module scale_element_quadrilateral
   !
   !++ Public type & procedure
   !  
+
+  !> Derived type representing a quadrilateral element
   type, public, extends(ElementBase2D) :: QuadrilateralElement
   contains
     procedure :: Init => QuadrilateralElement_Init
@@ -34,10 +36,22 @@ module scale_element_quadrilateral
     procedure :: GenIntGaussLegendreIntrpMat => QuadrilateralElement_gen_IntGaussLegendreIntrpMat
   end type QuadrilateralElement
 
+  !-----------------------------------------------------------------------------
+  !
+  !++ Private procedure
+  !   
+  private :: construct_Element
+
 contains
+
+!> Initialize an object to manage a hexahedral element
+!!
+!! @param elem Object of finite element
+!! @param elemOrder Polynomial order with 1D direction
+!! @param LumpedMassMatFlag Flag whether mass lumping is considered
 !OCL SERIAL
   subroutine QuadrilateralElement_Init( &
-      elem, elemOrder,             &
+      elem, elemOrder,  &
       LumpedMassMatFlag )
     
     implicit none
@@ -61,6 +75,9 @@ contains
     return
   end subroutine QuadrilateralElement_Init
 
+!> Finalize an object to manage a quadrilateral element
+!!
+!! @param elem Object of finite element
 !OCL SERIAL
   subroutine QuadrilateralElement_Final(elem)
     implicit none

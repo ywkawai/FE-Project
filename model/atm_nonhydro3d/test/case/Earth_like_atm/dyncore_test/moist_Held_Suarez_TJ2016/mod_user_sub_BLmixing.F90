@@ -159,8 +159,8 @@ contains
     end do
 
     if (APPLY_NewFilter) then
-      call newFilter%Apply( vars%PHY_TEND(RHOT_p), RHOT_tp_BL, mesh3D )
-      call newFilter%Apply( vars%PHY_TEND(RHOT_p+2), RHOQ_tp_BL, mesh3D )
+      call newFilter%Apply( RHOT_tp_BL, mesh3D )
+      call newFilter%Apply( RHOQ_tp_BL, mesh3D )
     else
       do n=1, mesh3D%LOCAL_MESH_NUM
         lcmesh => mesh3D%lcmesh_list(n)
@@ -169,8 +169,8 @@ contains
 
         !$omp parallel do
         do ke=lcmesh%NeS, lcmesh%NeE
-          vars%PHY_TEND(RHOT_p)%local(n)%val(:,ke) = RHOT_tp_BL%local(n)%val(:,ke)
-          RHOQv_tp%val(:,ke) =  RHOQ_tp_BL%local(n)%val(:,ke)
+          vars%PHY_TEND(RHOT_p)%local(n)%val(:,ke) = vars%PHY_TEND(RHOT_p)%local(n)%val(:,ke) + RHOT_tp_BL%local(n)%val(:,ke)
+          RHOQv_tp%val(:,ke) =  RHOQv_tp%val(:,ke) + RHOQ_tp_BL%local(n)%val(:,ke)
         end do
       end do  
     end if
@@ -188,8 +188,6 @@ contains
     lcmesh, elem3D )
     use scale_sparsemat, only: &
       sparsemat, sparsemat_matmul
-    use scale_atm_dyn_dgm_nonhydro3d_rhot_hevi_common, only: &
-      vi_gen_vmap => atm_dyn_dgm_nonhydro3d_rhot_hevi_common_gen_vmap      
     implicit none
     type(LocalMesh3D), intent(in) :: lcmesh
     class(ElementBase3D), intent(in) :: elem3D
@@ -233,7 +231,7 @@ contains
     ! real(RP) :: mass_check, mass_check2
     !-------------------------------------------------------------
 
-    call vi_gen_vmap( vmapM, vmapP, lcmesh, elem3D )
+    call lcmesh%GetVmapZ1D( vmapM, vmapP )
 
     !$omp parallel private(ke, hslice, za_tmp, Vabs_tmp )
 

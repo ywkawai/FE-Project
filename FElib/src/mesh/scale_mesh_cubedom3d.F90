@@ -91,6 +91,7 @@ module scale_mesh_cubedom3d
   !
 
 contains
+!> Initialize an object to manage a cubic 3D domain
 !OCL SERIAL
   subroutine MeshCubeDom3D_Init( this,                          &
     NeGX, NeGY, NeGZ,                                           &
@@ -167,18 +168,15 @@ contains
     !--- 2D mesh
 
     call this%refElem2D%Init( this%refElem3D%PolyOrder_h, refElem%IsLumpedMatrix() )
-    
-    this%mesh2D%isPeriodicX = isPeriodicX
-    this%mesh2D%isPeriodicY = isPeriodicY
-    this%mesh2D%NprcX = NprcX
-    this%mesh2D%NprcY = NprcY
 
-    call MeshBase2D_Init( this%mesh2D, this%refElem2D, NLocalMeshPerPrc,           &
-                          nproc, myrank                                            )
+    call this%mesh2D%Init( this%NeGX, this%NeGY, dom_xmin, dom_xmax, dom_ymin, dom_ymax, &
+      isPeriodicX, isPeriodicY, this%refElem2D, NLocalMeshPerPrc, &
+      NprcX, NprcY, nproc, myrank )
 
     return
   end subroutine MeshCubeDom3D_Init
 
+!> Finalize an object to manage a cubic 3D domain
 !OCL SERIAL
   subroutine MeshCubeDom3D_Final( this )
     use scale_prc
@@ -214,6 +212,7 @@ contains
     return
   end subroutine MeshCubeDom3D_getMesh2D
 
+!> Generate a cubic 3D computational domain based on the parameters set in the initialization
 !OCL SERIAL
   subroutine MeshCubeDom3D_generate( this )
     implicit none

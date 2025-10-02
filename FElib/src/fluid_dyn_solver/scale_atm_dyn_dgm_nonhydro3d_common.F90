@@ -2,7 +2,7 @@
 !> module FElib / Fluid dyn solver / Atmosphere / Nonhydrostatic model / Common
 !!
 !! @par Description
-!!      A coomon model for atmospheric nonhydrostatic dynamical core 
+!!      A common model for atmospheric nonhydrostatic dynamical core 
 !!
 !! @author Yuta Kawai, Team SCALE
 !<
@@ -52,9 +52,11 @@ module scale_atm_dyn_dgm_nonhydro3d_common
   public :: atm_dyn_dgm_nonhydro3d_common_setup_variables
   public :: atm_dyn_dgm_nonhydro3d_common_get_varinfo
   public :: atm_dyn_dgm_nonhydro3d_common_calc_pressure
+  public :: atm_dyn_dgm_nonhydro3d_common_calc_therm_phyd
   public :: atm_dyn_dgm_nonhydro3d_common_DRHOT2PRES
   public :: atm_dyn_dgm_nonhydro3d_common_EnTot2PRES
   public :: atm_dyn_dgm_nonhydro3d_common_DRHOT2EnTot
+  public :: atm_dyn_dgm_nonhydro3d_common_calc_RHOT_hyd
   public :: atm_dyn_dgm_nonhydro3d_common_calc_phyd_hgrad_lc
 
   !-----------------------------------------------------------------------------
@@ -85,14 +87,15 @@ module scale_atm_dyn_dgm_nonhydro3d_common
   !-
   integer, public, parameter :: AUXVAR_PRESHYDRO_ID     = 1
   integer, public, parameter :: AUXVAR_DENSHYDRO_ID     = 2
-  integer, public, parameter :: AUXVAR_PRES_ID          = 3
-  integer, public, parameter :: AUXVAR_PT_ID            = 4
-  integer, public, parameter :: AUXVAR_Rtot_ID          = 5
-  integer, public, parameter :: AUXVAR_CVtot_ID         = 6
-  integer, public, parameter :: AUXVAR_CPtot_ID         = 7
-  integer, public, parameter :: AUXVAR_Qdry_ID          = 8
-  integer, public, parameter :: AUXVAR_PRESHYDRO_REF_ID = 9
-  integer, public, parameter :: AUXVAR_NUM              = 9
+  integer, public, parameter :: AUXVAR_THERMHYDRO_ID    = 3
+  integer, public, parameter :: AUXVAR_PRES_ID          = 4
+  integer, public, parameter :: AUXVAR_PT_ID            = 5
+  integer, public, parameter :: AUXVAR_Rtot_ID          = 6
+  integer, public, parameter :: AUXVAR_CVtot_ID         = 7
+  integer, public, parameter :: AUXVAR_CPtot_ID         = 8
+  integer, public, parameter :: AUXVAR_Qdry_ID          = 9
+  integer, public, parameter :: AUXVAR_PRESHYDRO_REF_ID = 10
+  integer, public, parameter :: AUXVAR_NUM              = 10
 
   
   
@@ -167,6 +170,8 @@ contains
       VariableInfo( AUXVAR_PRESHYDRO_ID, 'PRES_hyd', 'hydrostatic part of pressure',             &
                       'Pa', 3, 'XYZ', ''                                                      ), &
       VariableInfo( AUXVAR_DENSHYDRO_ID, 'DENS_hyd', 'hydrostatic part of density',              &
+                    'kg/m3', 3, 'XYZ', ''                                                     ), &
+      VariableInfo( AUXVAR_THERMHYDRO_ID, 'THERM_hyd', 'hydrostatic part of THERM',              &
                     'kg/m3', 3, 'XYZ', ''                                                     ), &
       VariableInfo( AUXVAR_PRES_ID     ,     'PRES', 'pressure',                                 &
                       'Pa', 3, 'XYZ', 'air_pressure'                                          ), &
@@ -262,7 +267,7 @@ contains
 
     reg_file_hist = .true.
 
-    if ( ATMOS_HYDROMETEOR_dry ) then
+    if ( QA == 0 ) then
       ! Dummy
       qtrc_dry_vinfo_tmp%ndims    = 3
       qtrc_dry_vinfo_tmp%dim_type = 'XYZ'
@@ -313,14 +318,14 @@ contains
         reg_file_hist, fill_zero=.true.  ) ! (in)
     end do
 
-    if ( ATMOS_HYDROMETEOR_dry ) then
+    if ( QA == 0 ) then
       ! Dummy
       qtrc_dry_tp_vinfo_tmp%ndims    = 3
       qtrc_dry_tp_vinfo_tmp%dim_type = 'XYZ'
       qtrc_dry_tp_vinfo_tmp%STDNAME  = ''
 
       iv = PHYTEND_NUM + 1
-      qtrc_dry_tp_vinfo_tmp%keyID = 0
+      qtrc_dry_tp_vinfo_tmp%keyID = iv
       qtrc_dry_tp_vinfo_tmp%NAME  = "QV_tp"
       qtrc_dry_tp_vinfo_tmp%DESC  = "tendency of physical process for QV"
       qtrc_dry_tp_vinfo_tmp%UNIT  = "kg/m3/s"
@@ -352,10 +357,10 @@ contains
 
 !OCL SERIAL
   subroutine atm_dyn_dgm_nonhydro3d_common_calc_pressure( &
-    PRES, DPRES,                               & ! (inout)
-    DDENS, MOMX, MOMY, MOMZ, THERM,            & ! (in)
-    PRES_hyd, DENS_hyd, Rtot, CVtot, CPtot,    & ! (in)
-    mesh3D, ENTOT_CONSERVE_SCHEME_FLAG         ) ! (in)
+    PRES, DPRES,                                        & ! (inout)
+    DDENS, MOMX, MOMY, MOMZ, THERM,                     & ! (in)
+    PRES_hyd, DENS_hyd, THERM_hyd, Rtot, CVtot, CPtot,  & ! (in)
+    mesh3D, ENTOT_CONSERVE_SCHEME_FLAG                  ) ! (in)
 
     implicit none
     class(MeshField3D), intent(inout) :: PRES
@@ -367,6 +372,7 @@ contains
     class(MeshField3D), intent(in) :: THERM
     class(MeshField3D), intent(in) :: PRES_hyd
     class(MeshField3D), intent(in) :: DENS_hyd
+    class(MeshField3D), intent(in) :: THERM_hyd
     class(MeshField3D), intent(in) :: Rtot
     class(MeshField3D), intent(in) :: CVtot
     class(MeshField3D), intent(in) :: CPtot
@@ -386,8 +392,8 @@ contains
           PRES_hyd%local(n)%val, DENS_hyd%local(n)%val, Rtot%local(n)%val, CVtot%local(n)%val,                 &
           lcmesh3D, lcmesh3D%refElem3D )
       else
-        call atm_dyn_dgm_nonhydro3d_common_DRHOT2PRES( PRES%local(n)%val, DPRES%local(n)%val,                   &
-          THERM%local(n)%val, PRES_hyd%local(n)%val, Rtot%local(n)%val, CVtot%local(n)%val, CPtot%local(n)%val, &
+        call atm_dyn_dgm_nonhydro3d_common_DRHOT2PRES( PRES%local(n)%val, DPRES%local(n)%val,                                           &
+          THERM%local(n)%val, PRES_hyd%local(n)%val, THERM_hyd%local(n)%val, Rtot%local(n)%val, CVtot%local(n)%val, CPtot%local(n)%val, &
           lcmesh3D, lcmesh3D%refElem3D )
       end if
     end do
@@ -396,8 +402,39 @@ contains
   end subroutine atm_dyn_dgm_nonhydro3d_common_calc_pressure
 
 !OCL SERIAL
+  subroutine atm_dyn_dgm_nonhydro3d_common_calc_therm_phyd( &
+    THERM_hyd,                                 & ! (inout)
+    PRES_hyd, DENS_hyd,                        & ! (in)
+    mesh3D, ENTOT_CONSERVE_SCHEME_FLAG         ) ! (in)
+
+    implicit none
+    class(MeshField3D), intent(inout) :: THERM_hyd
+    class(MeshField3D), intent(in) :: PRES_hyd
+    class(MeshField3D), intent(in) :: DENS_hyd
+    class(MeshBase3D), intent(in), target :: mesh3D
+    logical, intent(in) :: ENTOT_CONSERVE_SCHEME_FLAG
+    
+    integer :: n
+    class(LocalMesh3D), pointer :: lcmesh3D
+    !---------------------------
+
+    do n=1, mesh3D%LOCAL_MESH_NUM
+      lcmesh3D => mesh3D%lcmesh_list(n)
+
+      if ( ENTOT_CONSERVE_SCHEME_FLAG ) then
+        ! ToDO
+      else
+        call atm_dyn_dgm_nonhydro3d_common_calc_RHOT_hyd( THERM_hyd%local(n)%val, &
+          PRES_hyd%local(n)%val, lcmesh3D, lcmesh3D%refElem3D                     )
+      end if
+    end do
+
+    return
+  end subroutine atm_dyn_dgm_nonhydro3d_common_calc_therm_phyd
+
+!OCL SERIAL
   subroutine atm_dyn_dgm_nonhydro3d_common_DRHOT2PRES( PRES, DPRES, &
-    DRHOT, PRES_hyd, Rtot, CVtot, CPtot,                            &
+    DRHOT, PRES_hyd, THERM_hyd, Rtot, CVtot, CPtot,                 &
     lcmesh, elem3D                                                  )
 
     use scale_const, only: &
@@ -408,11 +445,12 @@ contains
         
     implicit none
     class(LocalMesh3D), intent(in) :: lcmesh
-    class(elementbase3D), intent(in) :: elem3D
+    class(ElementBase3D), intent(in) :: elem3D
     real(RP), intent(out) :: PRES(elem3D%Np,lcmesh%NeA) 
     real(RP), intent(out) :: DPRES(elem3D%Np,lcmesh%NeA)
     real(RP), intent(in) :: DRHOT(elem3D%Np,lcmesh%NeA) 
     real(RP), intent(in) :: PRES_hyd(elem3D%Np,lcmesh%NeA)
+    real(RP), intent(in) :: THERM_hyd(elem3D%Np,lcmesh%NeA)
     real(RP), intent(in) :: Rtot(elem3D%Np,lcmesh%NeA) 
     real(RP), intent(in) :: CVtot(elem3D%Np,lcmesh%NeA) 
     real(RP), intent(in) :: CPtot(elem3D%Np,lcmesh%NeA) 
@@ -425,7 +463,8 @@ contains
     rP0 = 1.0_RP / PRES00
     !$omp parallel do private( RHOT )
     do ke=lcmesh%NeS, lcmesh%NeE
-      RHOT(:) = PRES00 / Rdry * ( PRES_hyd(:,ke) / PRES00 )**(CvDry/CpDry) + DRHOT(:,ke)
+!      RHOT(:) = PRES00 / Rdry * ( PRES_hyd(:,ke) / PRES00 )**(CvDry/CpDry) + DRHOT(:,ke)
+      RHOT(:) = THERM_hyd(:,ke) + DRHOT(:,ke)
 
       PRES(:,ke) = PRES00 * ( Rtot(:,ke) * rP0 * RHOT(:) )**( CPtot(:,ke) / CVtot(:,ke) )
       DPRES(:,ke) = PRES(:,ke) - PRES_hyd(:,ke)
@@ -437,7 +476,7 @@ contains
 !OCL SERIAL
   subroutine atm_dyn_dgm_nonhydro3d_common_DRHOT2EnTot( EnTot,       &
     DDENS, MOMX, MOMY, MOMZ, DRHOT,                                  &
-    DENS_hyd, PRES_hyd, Rtot, CVtot, CPtot,                          &
+    DENS_hyd, PRES_hyd, THERM_hyd, Rtot, CVtot, CPtot,               &
     lcmesh, elem3D                                                   )
 
     use scale_const, only: &
@@ -445,7 +484,7 @@ contains
         
     implicit none
     class(LocalMesh3D), intent(in) :: lcmesh
-    class(elementbase3D), intent(in) :: elem3D
+    class(ElementBase3D), intent(in) :: elem3D
     real(RP), intent(out) :: EnTot(elem3D%Np,lcmesh%NeA) 
     real(RP), intent(in) :: DDENS(elem3D%Np,lcmesh%NeA)
     real(RP), intent(in) :: MOMX(elem3D%Np,lcmesh%NeA)
@@ -454,6 +493,7 @@ contains
     real(RP), intent(in) :: DRHOT(elem3D%Np,lcmesh%NeA) 
     real(RP), intent(in) :: DENS_hyd(elem3D%Np,lcmesh%NeA)
     real(RP), intent(in) :: PRES_hyd(elem3D%Np,lcmesh%NeA)
+    real(RP), intent(in) :: THERM_hyd(elem3D%Np,lcmesh%NeA)
     real(RP), intent(in) :: Rtot(elem3D%Np,lcmesh%NeA) 
     real(RP), intent(in) :: CVtot(elem3D%Np,lcmesh%NeA) 
     real(RP), intent(in) :: CPtot(elem3D%Np,lcmesh%NeA) 
@@ -468,7 +508,7 @@ contains
     !---------------------------------------------------------------
 
     call atm_dyn_dgm_nonhydro3d_common_DRHOT2PRES( PRES, DPRES, &
-      DRHOT, PRES_hyd, Rtot, CVtot, CPtot,                      &
+      DRHOT, PRES_hyd, THERM_hyd, Rtot, CVtot, CPtot,           &
       lcmesh, elem3D                                            )
     
     !$omp parallel do private( ke2D, DENS, mom_u1, mom_u2 )
@@ -498,7 +538,7 @@ contains
     
     implicit none
     class(LocalMesh3D), intent(in) :: lcmesh
-    class(elementbase3D), intent(in) :: elem3D
+    class(ElementBase3D), intent(in) :: elem3D
     real(RP), intent(out) :: PRES(elem3D%Np,lcmesh%NeA)
     real(RP), intent(out) :: DPRES(elem3D%Np,lcmesh%NeA)
     real(RP), intent(in) :: DDENS(elem3D%Np,lcmesh%NeA)
@@ -535,6 +575,37 @@ contains
     return
   end subroutine atm_dyn_dgm_nonhydro3d_common_EnTot2PRES
 
+!OCL SERIAL
+  subroutine atm_dyn_dgm_nonhydro3d_common_calc_RHOT_hyd( RHOT_hyd, &
+    PRES_hyd,                                                       &
+    lcmesh, elem3D                                                  )
+
+    use scale_const, only: &
+      Rdry => CONST_Rdry,   &
+      CPdry => CONST_CPdry, &
+      CVdry => CONST_CVdry, &
+      PRES00 => CONST_PRE00
+        
+    implicit none
+    class(LocalMesh3D), intent(in) :: lcmesh
+    class(ElementBase3D), intent(in) :: elem3D
+    real(RP), intent(out) :: RHOT_hyd(elem3D%Np,lcmesh%NeA) 
+    real(RP), intent(in) :: PRES_hyd(elem3D%Np,lcmesh%NeA)
+
+    integer :: ke
+    real(RP) :: rP0
+    !---------------------------------------------------------------
+
+    rP0 = 1.0_RP / PRES00
+
+    !$omp parallel do
+    do ke=lcmesh%NeS, lcmesh%NeE
+      RHOT_hyd(:,ke) = PRES00 / Rdry * ( PRES_hyd(:,ke) / PRES00 )**(CvDry/CpDry) 
+    end do
+
+    return
+  end subroutine atm_dyn_dgm_nonhydro3d_common_calc_RHOT_hyd
+
 !> Calculate horizontal graidient of hydrostatic pressure 
 !! In this calculation, we assume that PRES_hyd_ref is continuous at element boundaries.
 !OCL SERIAL
@@ -552,9 +623,9 @@ contains
 
     integer :: ke, ke2D, p  
 
-    real(RP) :: Fx(elem%Np), Fy(elem%Np), Fz(elem%Np,2), DFlux(elem%Np,4,2)
+    real(RP) :: Flux(elem%Np,3), Fz(elem%Np), DFlux(elem%Np,4,2)
     real(RP) :: del_flux_hyd(elem%NfpTot,2,lmesh%Ne)
-    real(RP) :: GsqrtV(elem%Np), RGsqrtV(elem%Np)
+    real(RP) :: GsqrtV, RGsqrtV(elem%Np)
 
     real(RP) :: E33
     real(RP) :: GradPhyd_x, GradPhyd_y
@@ -568,26 +639,27 @@ contains
       lmesh, elem, lmesh%lcmesh2D, lmesh%lcmesh2D%refElem2D                     ) ! (in)
 
     !$omp parallel do private( ke, ke2D, p, &
-    !$omp Fx, Fy, Fz, DFlux, GsqrtV, RGsqrtV, E33, &
+    !$omp Flux, Fz, DFlux, GsqrtV, RGsqrtV, E33, &
     !$omp GradPhyd_x, GradPhyd_y )      
     do ke = lmesh%NeS, lmesh%NeE
       ke2d = lmesh%EMap3Dto2D(ke)
 
       do p=1, elem%Np
-        GsqrtV(p)  = lmesh%Gsqrt(p,ke) / ( lmesh%gam(p,ke)**2 * lmesh%GsqrtH(elem%IndexH2Dto3D(p),ke2d) )
-        RGsqrtV(p) = 1.0_RP / GsqrtV(p)
+        GsqrtV  = lmesh%Gsqrt(p,ke) / ( lmesh%gam(p,ke)**2 * lmesh%GsqrtH(elem%IndexH2Dto3D(p),ke2d) )
+
+        RGsqrtV(p) = 1.0_RP / GsqrtV
+        Flux(p,1) = GsqrtV * ( PRES_hyd(p,ke) - PRES_hyd_ref(p,ke) )
       end do
 
-      do p=1, elem%Np
-        Fx(p) = GsqrtV(p) * ( PRES_hyd(p,ke) - PRES_hyd_ref(p,ke) )
-        Fy(p) = Fx(p)
-        Fz(p,1) = lmesh%GI3(p,ke,1) * Fx(p)
-        Fz(p,2) = lmesh%GI3(p,ke,2) * Fx(p)
+      do p=1, elem%Np        
+        Flux(p,2) = Flux(p,1)
+        Flux(p,3) = lmesh%GI3(p,ke,1) * Flux(p,1)
+        Fz  (p)   = lmesh%GI3(p,ke,2) * Flux(p,1)
       end do   
       
-      call element3D_operation%Div( Fx, Fy, Fz(:,1), del_flux_hyd(:,1,ke), &
-        DFlux(:,1,1), DFlux(:,2,1), DFlux(:,3,1), DFlux(:,4,1) )
-      call element3D_operation%Dz( Fz(:,2), DFlux(:,3,2) )
+      call element3D_operation%Div( Flux, del_flux_hyd(:,1,ke), &
+        DFlux(:,:,1) )
+      call element3D_operation%Dz( Fz, DFlux(:,3,2) )
       call element3D_operation%Lift( del_flux_hyd(:,2,ke), DFlux(:,4,2) )
       
       do p=1, elem%Np

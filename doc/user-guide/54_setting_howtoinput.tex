@@ -1,0 +1,20 @@
+%====================================================================================
+\section{How to prepare initial and boundary data} \label{sec:adv_datainput}
+%====================================================================================
+
+%%%---------------------------------------------------------------------------------%%%%
+\subsubsection{Settings common to NetCDF format} \label{sec:datainput_common_setting}
+%%
+The base name of the initial file to be output is set by \nmitem{RESTART_OUT_BASENAME} in \namelist{PARAM_RESTART} as follows:
+%%
+\editbox{
+\verb|&PARAM_RESTART|\\
+\verb| OUTPUT       = .true.,|  ; whether initial (or restart) files is output. \\
+\verb| OUT_BASENAME = "init",|  ; base name of initial (or restart) files \\
+\verb|/|\\
+}
+To generate initial file, \nmitem{OUTPUT} is set to \verb|.true.|.
+The base name of initial file is specified by \nmitem{OUT_BASENAME}.
+% For example, in the tutorial described in Sec. \ref{sec:tutorial_real_intro}, \nmitem{OUT_BASENAME} = ``\verb|init_d01|''.
+These settings are also used when outputting restart files in executing \scaledg (see Sec. \ref{sec:restart} for details).
+The structure of generated restart files is same as that of initial files.

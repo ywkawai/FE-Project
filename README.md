@@ -3,7 +3,7 @@
 ## What is this project?
 In [FE-Project](https://ywkawai.github.io/FE-Project_web/), 
 we develop a library for fluid simulations with the discontinuous Galerkin method (DGM). 
-We also provide sample programs and atmospheric models for meteorological simulations. 
+We also provide sample programs and an atmospheric model for meteorological simulations (SCALE-DG). 
 
 - Example of simulation results by nonhydrostatic atmospheric models with nodal DGM
 
@@ -22,7 +22,7 @@ We also provide sample programs and atmospheric models for meteorological simula
 - Simple 2D model with only dynamical process
 - Regional and Global models (SCALE-DG)
 
-## Simple samples for introduction to DGM. 
+## Simple samples for introduction to DGM
 ### 1D problems 
   - Linear advection equation
     - various profiles of advected quantity
@@ -32,12 +32,12 @@ We also provide sample programs and atmospheric models for meteorological simula
 ### 2D problems 
   - Linear advection equation in a rectangle domain
     - various profiles of advected quantity and flow
-  - Linear advection equation in a cubed sphere domain
+  - Linear advection equation in a cubed-sphere domain
 
 ### 3D problems 
   - Linear advection equation in a cubic domain
     - various profiles of advected quantity
-  - Linear advection equation in a cubed sphere domain
+  - Linear advection equation in a cubed-sphere domain
   - Euler equation in a cubic domain
     - Test the propagation of sound waves with HEVI temporal methods
 
@@ -50,7 +50,13 @@ Please see ``INSTALL.md''.
 - Hirofumi Tomita
 
 ## Acknowledgements
-This project is supported by [the Transformaive Research Areas B: DNA Climate Science](https://dna-climate.org/) (MEXT KAKENHI Grant Number JP20H05731), 
+This project is supported by 
+[Developing strategies coupling high-order dynamical core and physics processes considering future high-resolution atmospheric simulations](https://kaken.nii.ac.jp/ja/grant/KAKENHI-PROJECT-25K17471/)(MEXT KAKENHI Grant Number 25K17471), 
+[the Transformaive Research Areas B: DNA Climate Science](https://dna-climate.org/) (MEXT KAKENHI Grant Number JP20H05731), 
 [Moonshot Goal8 Realization of a society safe from the threat of extreme winds and rains by controlling and modifying the weather by 2050](https://www.jst.go.jp/moonshot/program/goal8/) ([Development of an atmospheric simulation model for probability estimation for local atmospheric phenomena](https://moonshot8-modeldev.riken.jp)), JICA and JST SATREPS (grant Number: JPMJSA2109), JST AIP Grant Number JPMJCR19U2, and the Foundation for Computational Science (FOCUS) Establishing Supercomputing Center of Excellence. 
 The model development and validation experiments are
 performed using supercomputers (Oackbridge-CX and Wisteria) at the University of Tokyo and Fugaku at RIKEN (Project ID: ra000005, hp200271, hp230278).
+
+## General references
+- Kawai, Y. and H. Tomita, 2025, Development of a high-order global dynamical core using the discontinuous Galerkin method for an atmospheric large-eddy simulation (LES) and proposal of test cases: SCALE-DG v0.8.0. Geosci. Model Dev., 18, 725-762.
+- Kawai, Y. and H. Tomita, 2023, Numerical accuracy necessary for large-eddy simulation of planetary boundary layer turbulence using discontinuous Galerkin method. Mon. Wea. Rev., 151, 1479-1508

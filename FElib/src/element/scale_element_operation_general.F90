@@ -54,6 +54,8 @@ module scale_element_operation_general
     procedure, public :: DxDyDzLift => element_operation_general_DxDyDzLift
     procedure, public :: Div => element_operation_general_Div
     procedure, public :: Div_var5 => element_operation_general_Div_var5
+    procedure, public :: Div_var5_2 => element_operation_general_Div_var5_2
+    procedure, public :: Lift_var5 => element_operation_general_Lift_var5
     procedure, public :: VFilterPM1 => element_operation_general_VFilterPM1
     !-
     procedure, public :: Setup_ModalFilter => element_operation_general_Setup_ModalFilter
@@ -264,24 +266,19 @@ contains
 !> Calculate the 3D gradient
 !!
 !OCL SERIAL
-  subroutine element_operation_general_Div( this, vec_in_x, vec_in_y, vec_in_z, vec_in_lift, &
-    vec_out_dx, vec_out_dy, vec_out_dz, vec_out_lift )
+  subroutine element_operation_general_Div( this, vec_in, vec_in_lift, &
+    vec_out )
     implicit none
     class(ElementOperationGeneral), intent(in) :: this
-    real(RP), intent(in) :: vec_in_x(this%elem3D%Np)
-    real(RP), intent(in) :: vec_in_y(this%elem3D%Np)
-    real(RP), intent(in) :: vec_in_z(this%elem3D%Np)
+    real(RP), intent(in) :: vec_in(this%elem3D%Np,3)
     real(RP), intent(in) :: vec_in_lift(this%elem3D%NfpTot)
-    real(RP), intent(out) :: vec_out_dx(this%elem3D%Np)
-    real(RP), intent(out) :: vec_out_dy(this%elem3D%Np)
-    real(RP), intent(out) :: vec_out_dz(this%elem3D%Np)
-    real(RP), intent(out) :: vec_out_lift(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np,4)
     !---------------------------------------------------------------
 
-    call sparsemat_matmul( this%Dx_sm, vec_in_x, vec_out_dx )
-    call sparsemat_matmul( this%Dy_sm, vec_in_y, vec_out_dy )
-    call sparsemat_matmul( this%Dz_sm, vec_in_z, vec_out_dz )
-    call sparsemat_matmul( this%Lift_sm, vec_in_lift, vec_out_lift )
+    call sparsemat_matmul( this%Dx_sm, vec_in(:,1), vec_out(:,1) )
+    call sparsemat_matmul( this%Dy_sm, vec_in(:,2), vec_out(:,2) )
+    call sparsemat_matmul( this%Dz_sm, vec_in(:,3), vec_out(:,3) )
+    call sparsemat_matmul( this%Lift_sm, vec_in_lift, vec_out(:,4) )
     return
   end subroutine element_operation_general_Div    
 
@@ -310,6 +307,43 @@ contains
     end do
     return
   end subroutine element_operation_general_Div_var5
+
+!> Calculate the 3D gradient
+!!
+!OCL SERIAL
+  subroutine element_operation_general_Div_var5_2( this, vec_in,  &
+    vec_out_d )
+    implicit none
+    class(ElementOperationGeneral), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np,3,5)
+    real(RP), intent(out) :: vec_out_d(this%elem3D%Np,3,5)
+
+    integer :: iv
+    !---------------------------------------------------------------
+
+    do iv=1, 5
+      call sparsemat_matmul( this%Dx_sm, vec_in(:,1,iv), vec_out_d(:,1,iv) )
+      call sparsemat_matmul( this%Dy_sm, vec_in(:,2,iv), vec_out_d(:,2,iv) )
+      call sparsemat_matmul( this%Dz_sm, vec_in(:,3,iv), vec_out_d(:,3,iv) )
+    end do
+    return
+  end subroutine element_operation_general_Div_var5_2
+!> Calculate the differential in z-direction
+!!
+!OCL SERIAL
+  subroutine element_operation_general_Lift_var5( this, vec_in, vec_out )
+    implicit none
+    class(ElementOperationGeneral), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%NfpTot,5)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np,5)
+
+    integer :: iv
+    !----------------------------------------------------------
+    do iv=1,5
+      call sparsemat_matmul( this%Lift_sm, vec_in(:,iv), vec_out(:,iv) )
+    end do
+    return
+  end subroutine element_operation_general_Lift_var5
 
 !OCL SERIAL
   subroutine element_operation_general_VFilterPM1( this, vec_in, vec_out )

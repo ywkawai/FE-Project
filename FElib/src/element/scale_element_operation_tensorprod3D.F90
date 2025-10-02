@@ -83,6 +83,8 @@ module scale_element_operation_tensorprod3D
     procedure, public :: DxDyDzLift => element_operation_tensorprod3D_DxDyDzLift_P1
     procedure, public :: Div => element_operation_tensorprod3D_Div_P1
     procedure, public :: Div_var5 => element_operation_tensorprod3D_Div_var5_P1
+    procedure, public :: Div_var5_2 => element_operation_tensorprod3D_Div_var5_2_P1
+    procedure, public :: Lift_var5 => element_operation_tensorprod3D_Lift_var5_P1
     procedure, public :: VFilterPM1 => element_operation_tensorprod3D_VFilterPM1_P1
     !-
     procedure, public :: Setup_ModalFilter => element_operation_tensorprod3D_Setup_ModalFilter_P1
@@ -113,6 +115,8 @@ module scale_element_operation_tensorprod3D
     procedure, public :: DxDyDzLift => element_operation_tensorprod3D_DxDyDzLift_P2
     procedure, public :: Div => element_operation_tensorprod3D_Div_P2
     procedure, public :: Div_var5 => element_operation_tensorprod3D_Div_var5_P2
+    procedure, public :: Div_var5_2 => element_operation_tensorprod3D_Div_var5_2_P2
+    procedure, public :: Lift_var5 => element_operation_tensorprod3D_Lift_var5_P2
     procedure, public :: VFilterPM1 => element_operation_tensorprod3D_VFilterPM1_P2
     !-
     procedure, public :: Setup_ModalFilter => element_operation_tensorprod3D_Setup_ModalFilter_P2
@@ -143,6 +147,8 @@ module scale_element_operation_tensorprod3D
     procedure, public :: DxDyDzLift => element_operation_tensorprod3D_DxDyDzLift_P3
     procedure, public :: Div => element_operation_tensorprod3D_Div_P3
     procedure, public :: Div_var5 => element_operation_tensorprod3D_Div_var5_P3
+    procedure, public :: Div_var5_2 => element_operation_tensorprod3D_Div_var5_2_P3
+    procedure, public :: Lift_var5 => element_operation_tensorprod3D_Lift_var5_P3
     procedure, public :: VFilterPM1 => element_operation_tensorprod3D_VFilterPM1_P3
     !-
     procedure, public :: Setup_ModalFilter => element_operation_tensorprod3D_Setup_ModalFilter_P3
@@ -173,6 +179,8 @@ module scale_element_operation_tensorprod3D
     procedure, public :: DxDyDzLift => element_operation_tensorprod3D_DxDyDzLift_P4
     procedure, public :: Div => element_operation_tensorprod3D_Div_P4
     procedure, public :: Div_var5 => element_operation_tensorprod3D_Div_var5_P4
+    procedure, public :: Div_var5_2 => element_operation_tensorprod3D_Div_var5_2_P4
+    procedure, public :: Lift_var5 => element_operation_tensorprod3D_Lift_var5_P4
     procedure, public :: VFilterPM1 => element_operation_tensorprod3D_VFilterPM1_P4
     !-
     procedure, public :: Setup_ModalFilter => element_operation_tensorprod3D_Setup_ModalFilter_P4
@@ -203,6 +211,8 @@ module scale_element_operation_tensorprod3D
     procedure, public :: DxDyDzLift => element_operation_tensorprod3D_DxDyDzLift_P5
     procedure, public :: Div => element_operation_tensorprod3D_Div_P5
     procedure, public :: Div_var5 => element_operation_tensorprod3D_Div_var5_P5
+    procedure, public :: Div_var5_2 => element_operation_tensorprod3D_Div_var5_2_P5
+    procedure, public :: Lift_var5 => element_operation_tensorprod3D_Lift_var5_P5
     procedure, public :: VFilterPM1 => element_operation_tensorprod3D_VFilterPM1_P5
     !-
     procedure, public :: Setup_ModalFilter => element_operation_tensorprod3D_Setup_ModalFilter_P5
@@ -233,6 +243,8 @@ module scale_element_operation_tensorprod3D
     procedure, public :: DxDyDzLift => element_operation_tensorprod3D_DxDyDzLift_P6
     procedure, public :: Div => element_operation_tensorprod3D_Div_P6
     procedure, public :: Div_var5 => element_operation_tensorprod3D_Div_var5_P6
+    procedure, public :: Div_var5_2 => element_operation_tensorprod3D_Div_var5_2_P6
+    procedure, public :: Lift_var5 => element_operation_tensorprod3D_Lift_var5_P6
     procedure, public :: VFilterPM1 => element_operation_tensorprod3D_VFilterPM1_P6
     !-
     procedure, public :: Setup_ModalFilter => element_operation_tensorprod3D_Setup_ModalFilter_P6
@@ -263,6 +275,8 @@ module scale_element_operation_tensorprod3D
     procedure, public :: DxDyDzLift => element_operation_tensorprod3D_DxDyDzLift_P7
     procedure, public :: Div => element_operation_tensorprod3D_Div_P7
     procedure, public :: Div_var5 => element_operation_tensorprod3D_Div_var5_P7
+    procedure, public :: Div_var5_2 => element_operation_tensorprod3D_Div_var5_2_P7
+    procedure, public :: Lift_var5 => element_operation_tensorprod3D_Lift_var5_P7
     procedure, public :: VFilterPM1 => element_operation_tensorprod3D_VFilterPM1_P7
     !-
     procedure, public :: Setup_ModalFilter => element_operation_tensorprod3D_Setup_ModalFilter_P7
@@ -293,6 +307,8 @@ module scale_element_operation_tensorprod3D
     procedure, public :: DxDyDzLift => element_operation_tensorprod3D_DxDyDzLift_P8
     procedure, public :: Div => element_operation_tensorprod3D_Div_P8
     procedure, public :: Div_var5 => element_operation_tensorprod3D_Div_var5_P8
+    procedure, public :: Div_var5_2 => element_operation_tensorprod3D_Div_var5_2_P8
+    procedure, public :: Lift_var5 => element_operation_tensorprod3D_Lift_var5_P8
     procedure, public :: VFilterPM1 => element_operation_tensorprod3D_VFilterPM1_P8
     !-
     procedure, public :: Setup_ModalFilter => element_operation_tensorprod3D_Setup_ModalFilter_P8
@@ -323,6 +339,8 @@ module scale_element_operation_tensorprod3D
     procedure, public :: DxDyDzLift => element_operation_tensorprod3D_DxDyDzLift_P9
     procedure, public :: Div => element_operation_tensorprod3D_Div_P9
     procedure, public :: Div_var5 => element_operation_tensorprod3D_Div_var5_P9
+    procedure, public :: Div_var5_2 => element_operation_tensorprod3D_Div_var5_2_P9
+    procedure, public :: Lift_var5 => element_operation_tensorprod3D_Lift_var5_P9
     procedure, public :: VFilterPM1 => element_operation_tensorprod3D_VFilterPM1_P9
     !-
     procedure, public :: Setup_ModalFilter => element_operation_tensorprod3D_Setup_ModalFilter_P9
@@ -353,6 +371,8 @@ module scale_element_operation_tensorprod3D
     procedure, public :: DxDyDzLift => element_operation_tensorprod3D_DxDyDzLift_P10
     procedure, public :: Div => element_operation_tensorprod3D_Div_P10
     procedure, public :: Div_var5 => element_operation_tensorprod3D_Div_var5_P10
+    procedure, public :: Div_var5_2 => element_operation_tensorprod3D_Div_var5_2_P10
+    procedure, public :: Lift_var5 => element_operation_tensorprod3D_Lift_var5_P10
     procedure, public :: VFilterPM1 => element_operation_tensorprod3D_VFilterPM1_P10
     !-
     procedure, public :: Setup_ModalFilter => element_operation_tensorprod3D_Setup_ModalFilter_P10
@@ -383,6 +403,8 @@ module scale_element_operation_tensorprod3D
     procedure, public :: DxDyDzLift => element_operation_tensorprod3D_DxDyDzLift_P11
     procedure, public :: Div => element_operation_tensorprod3D_Div_P11
     procedure, public :: Div_var5 => element_operation_tensorprod3D_Div_var5_P11
+    procedure, public :: Div_var5_2 => element_operation_tensorprod3D_Div_var5_2_P11
+    procedure, public :: Lift_var5 => element_operation_tensorprod3D_Lift_var5_P11
     procedure, public :: VFilterPM1 => element_operation_tensorprod3D_VFilterPM1_P11
     !-
     procedure, public :: Setup_ModalFilter => element_operation_tensorprod3D_Setup_ModalFilter_P11
@@ -413,6 +435,8 @@ module scale_element_operation_tensorprod3D
     procedure, public :: DxDyDzLift => element_operation_tensorprod3D_DxDyDzLift_P12
     procedure, public :: Div => element_operation_tensorprod3D_Div_P12
     procedure, public :: Div_var5 => element_operation_tensorprod3D_Div_var5_P12
+    procedure, public :: Div_var5_2 => element_operation_tensorprod3D_Div_var5_2_P12
+    procedure, public :: Lift_var5 => element_operation_tensorprod3D_Lift_var5_P12
     procedure, public :: VFilterPM1 => element_operation_tensorprod3D_VFilterPM1_P12
     !-
     procedure, public :: Setup_ModalFilter => element_operation_tensorprod3D_Setup_ModalFilter_P12
@@ -443,6 +467,8 @@ module scale_element_operation_tensorprod3D
     procedure, public :: DxDyDzLift => element_operation_tensorprod3D_DxDyDzLift_P13
     procedure, public :: Div => element_operation_tensorprod3D_Div_P13
     procedure, public :: Div_var5 => element_operation_tensorprod3D_Div_var5_P13
+    procedure, public :: Div_var5_2 => element_operation_tensorprod3D_Div_var5_2_P13
+    procedure, public :: Lift_var5 => element_operation_tensorprod3D_Lift_var5_P13
     procedure, public :: VFilterPM1 => element_operation_tensorprod3D_VFilterPM1_P13
     !-
     procedure, public :: Setup_ModalFilter => element_operation_tensorprod3D_Setup_ModalFilter_P13
@@ -473,6 +499,8 @@ module scale_element_operation_tensorprod3D
     procedure, public :: DxDyDzLift => element_operation_tensorprod3D_DxDyDzLift_P14
     procedure, public :: Div => element_operation_tensorprod3D_Div_P14
     procedure, public :: Div_var5 => element_operation_tensorprod3D_Div_var5_P14
+    procedure, public :: Div_var5_2 => element_operation_tensorprod3D_Div_var5_2_P14
+    procedure, public :: Lift_var5 => element_operation_tensorprod3D_Lift_var5_P14
     procedure, public :: VFilterPM1 => element_operation_tensorprod3D_VFilterPM1_P14
     !-
     procedure, public :: Setup_ModalFilter => element_operation_tensorprod3D_Setup_ModalFilter_P14
@@ -503,6 +531,8 @@ module scale_element_operation_tensorprod3D
     procedure, public :: DxDyDzLift => element_operation_tensorprod3D_DxDyDzLift_P15
     procedure, public :: Div => element_operation_tensorprod3D_Div_P15
     procedure, public :: Div_var5 => element_operation_tensorprod3D_Div_var5_P15
+    procedure, public :: Div_var5_2 => element_operation_tensorprod3D_Div_var5_2_P15
+    procedure, public :: Lift_var5 => element_operation_tensorprod3D_Lift_var5_P15
     procedure, public :: VFilterPM1 => element_operation_tensorprod3D_VFilterPM1_P15
     !-
     procedure, public :: Setup_ModalFilter => element_operation_tensorprod3D_Setup_ModalFilter_P15
@@ -610,8 +640,8 @@ contains
     return
   end subroutine element_operation_tensorprod3D_Setup_ModalFilter_P1 
 
-  !> Setup modal filter for tracer
-  !!
+!> Setup modal filter for tracer
+!!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Setup_ModalFilter_tracer_P1( this, &
     MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h, &
@@ -661,7 +691,7 @@ contains
     return
   end subroutine element_operation_tensorprod3D_Dx_P1
 
-!> Calculate the differential in z-direction
+!> Calculate the differential in y-direction
 !!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Dy_P1( this, vec_in, vec_out )
@@ -689,7 +719,7 @@ contains
     return
   end subroutine element_operation_tensorprod3D_Dz_P1
 
-!> Calculate the Lifting term
+!> Calculate the lifting term
 !!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Lift_P1( this, vec_in, vec_out )
@@ -727,35 +757,34 @@ contains
     return
   end subroutine element_operation_tensorprod3D_DxDyDzLift_P1
 
-!> Calculate the 3D gradient
+!> Calculate the 3D divergence
+!!
+!! @param vec_in Array storing flux data (Fx,Fy,Fz) at nodes that we apply the differential matrices Dx, Dy, and Dz, respectively
+!! @param vec_in_lift Array storing surface flux data (Fs) at nodes that we apply the lifting operator
+!! @param vec_out Array storing the resulting data (Dx Fx, Dy Fy, Dz Fz, Lift Fs)
 !!
 !OCL SERIAL
-  subroutine element_operation_tensorprod3D_Div_P1(  this, vec_in_x, vec_in_y, vec_in_z, vec_in_lift, &
-    vec_out_dx, vec_out_dy, vec_out_dz, vec_out_lift )
+  subroutine element_operation_tensorprod3D_Div_P1(  this, vec_in, vec_in_lift, &
+    vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: &
       element_operation_kernel_matvec_divlike_dirXYZ_P1, &
       element_operation_kernel_matvec_Lift_hexahedral_P1
     implicit none
     class(ElementOperationTensorProd3D_P1), intent(in) :: this
-    real(RP), intent(in) :: vec_in_x(this%elem3D%Np)
-    real(RP), intent(in) :: vec_in_y(this%elem3D%Np)
-    real(RP), intent(in) :: vec_in_z(this%elem3D%Np)
+    real(RP), intent(in) :: vec_in(this%elem3D%Np,3)
     real(RP), intent(in) :: vec_in_lift(this%elem3D%NfpTot)
-    real(RP), intent(out) :: vec_out_dx(this%elem3D%Np)
-    real(RP), intent(out) :: vec_out_dy(this%elem3D%Np)
-    real(RP), intent(out) :: vec_out_dz(this%elem3D%Np)
-    real(RP), intent(out) :: vec_out_lift(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np,4)
     !----------------------------------------------------------
 
     call element_operation_kernel_matvec_Lift_hexahedral_P1( this%Lift_mat, vec_in_lift, &
-      vec_out_lift )      
+      vec_out(:,4) )      
 
-    call element_operation_kernel_matvec_divlike_dirXYZ_P1( this%D1D, this%D1D_tr, vec_in_x, vec_in_y, vec_in_z, &
-      vec_out_dx, vec_out_dy, vec_out_dz )
+    call element_operation_kernel_matvec_divlike_dirXYZ_P1( this%D1D, this%D1D_tr, vec_in(:,1), vec_in(:,2), vec_in(:,3), &
+      vec_out(:,1), vec_out(:,2), vec_out(:,3) )
     return
   end subroutine element_operation_tensorprod3D_Div_P1
 
-!> Calculate the 3D gradient
+!> Calculate the 3D gradient applied for five variables
 !!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Div_var5_P1(  this, vec_in, vec_in_lift, &
@@ -782,7 +811,49 @@ contains
     end do
     return
   end subroutine element_operation_tensorprod3D_Div_var5_P1
-    
+
+!> Calculate the 3D divergence applied for five variables
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Div_var5_2_P1(  this, vec_in, &
+    vec_out_d )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_divlike_dirXYZ_P1
+    implicit none
+    class(ElementOperationTensorProd3D_P1), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np,3,5)
+    real(RP), intent(out) :: vec_out_d(this%elem3D%Np,3,5)
+
+    integer :: iv
+    !----------------------------------------------------------
+
+    do iv=1, 5
+      call element_operation_kernel_matvec_divlike_dirXYZ_P1( this%D1D, this%D1D_tr, vec_in(:,1,iv), vec_in(:,2,iv), vec_in(:,3,iv), &
+        vec_out_d(:,1,iv), vec_out_d(:,2,iv), vec_out_d(:,3,iv) )
+    end do
+    return
+  end subroutine element_operation_tensorprod3D_Div_var5_2_P1
+
+!> Calculate the lifting term applied for five variables
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Lift_var5_P1( this, vec_in, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_Lift_hexahedral_P1
+    implicit none
+    class(ElementOperationTensorProd3D_P1), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%NfpTot,5)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np,5)
+
+    integer :: iv
+    !----------------------------------------------------------
+    do iv=1, 5
+      call element_operation_kernel_matvec_Lift_hexahedral_P1( this%Lift_mat, vec_in(:,iv), vec_out(:,iv) )
+    end do
+    return
+  end subroutine element_operation_tensorprod3D_Lift_var5_P1
+  
+!> Apply a vertical modal filter which a coefficient with the highest vertical mode is set to zero
+!!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_VFilterPM1_P1( this, vec_in, vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirZ_P1
@@ -797,7 +868,9 @@ contains
     return
   end subroutine element_operation_tensorprod3D_VFilterPM1_P1 
 
-  !OCL SERIAL
+!> Apply a modal filter for tracer variables
+!!
+!OCL SERIAL
   subroutine element_operation_tensorprod3D_ModalFilter_tracer_P1( this, vec_in, vec_work, vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: &
       element_operation_kernel_matvec_ModalFilter_P1
@@ -815,6 +888,8 @@ contains
     return
   end subroutine element_operation_tensorprod3D_ModalFilter_tracer_P1 
   
+!> Apply a modal filter for five variables
+!!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_ModalFilter_var5_P1( this, vec_in, vec_work, vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: &
@@ -881,8 +956,8 @@ contains
     return
   end subroutine element_operation_tensorprod3D_Setup_ModalFilter_P2 
 
-  !> Setup modal filter for tracer
-  !!
+!> Setup modal filter for tracer
+!!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Setup_ModalFilter_tracer_P2( this, &
     MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h, &
@@ -932,7 +1007,7 @@ contains
     return
   end subroutine element_operation_tensorprod3D_Dx_P2
 
-!> Calculate the differential in z-direction
+!> Calculate the differential in y-direction
 !!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Dy_P2( this, vec_in, vec_out )
@@ -960,7 +1035,7 @@ contains
     return
   end subroutine element_operation_tensorprod3D_Dz_P2
 
-!> Calculate the Lifting term
+!> Calculate the lifting term
 !!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Lift_P2( this, vec_in, vec_out )
@@ -998,35 +1073,34 @@ contains
     return
   end subroutine element_operation_tensorprod3D_DxDyDzLift_P2
 
-!> Calculate the 3D gradient
+!> Calculate the 3D divergence
+!!
+!! @param vec_in Array storing flux data (Fx,Fy,Fz) at nodes that we apply the differential matrices Dx, Dy, and Dz, respectively
+!! @param vec_in_lift Array storing surface flux data (Fs) at nodes that we apply the lifting operator
+!! @param vec_out Array storing the resulting data (Dx Fx, Dy Fy, Dz Fz, Lift Fs)
 !!
 !OCL SERIAL
-  subroutine element_operation_tensorprod3D_Div_P2(  this, vec_in_x, vec_in_y, vec_in_z, vec_in_lift, &
-    vec_out_dx, vec_out_dy, vec_out_dz, vec_out_lift )
+  subroutine element_operation_tensorprod3D_Div_P2(  this, vec_in, vec_in_lift, &
+    vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: &
       element_operation_kernel_matvec_divlike_dirXYZ_P2, &
       element_operation_kernel_matvec_Lift_hexahedral_P2
     implicit none
     class(ElementOperationTensorProd3D_P2), intent(in) :: this
-    real(RP), intent(in) :: vec_in_x(this%elem3D%Np)
-    real(RP), intent(in) :: vec_in_y(this%elem3D%Np)
-    real(RP), intent(in) :: vec_in_z(this%elem3D%Np)
+    real(RP), intent(in) :: vec_in(this%elem3D%Np,3)
     real(RP), intent(in) :: vec_in_lift(this%elem3D%NfpTot)
-    real(RP), intent(out) :: vec_out_dx(this%elem3D%Np)
-    real(RP), intent(out) :: vec_out_dy(this%elem3D%Np)
-    real(RP), intent(out) :: vec_out_dz(this%elem3D%Np)
-    real(RP), intent(out) :: vec_out_lift(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np,4)
     !----------------------------------------------------------
 
     call element_operation_kernel_matvec_Lift_hexahedral_P2( this%Lift_mat, vec_in_lift, &
-      vec_out_lift )      
+      vec_out(:,4) )      
 
-    call element_operation_kernel_matvec_divlike_dirXYZ_P2( this%D1D, this%D1D_tr, vec_in_x, vec_in_y, vec_in_z, &
-      vec_out_dx, vec_out_dy, vec_out_dz )
+    call element_operation_kernel_matvec_divlike_dirXYZ_P2( this%D1D, this%D1D_tr, vec_in(:,1), vec_in(:,2), vec_in(:,3), &
+      vec_out(:,1), vec_out(:,2), vec_out(:,3) )
     return
   end subroutine element_operation_tensorprod3D_Div_P2
 
-!> Calculate the 3D gradient
+!> Calculate the 3D gradient applied for five variables
 !!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Div_var5_P2(  this, vec_in, vec_in_lift, &
@@ -1053,7 +1127,49 @@ contains
     end do
     return
   end subroutine element_operation_tensorprod3D_Div_var5_P2
-    
+
+!> Calculate the 3D divergence applied for five variables
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Div_var5_2_P2(  this, vec_in, &
+    vec_out_d )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_divlike_dirXYZ_P2
+    implicit none
+    class(ElementOperationTensorProd3D_P2), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np,3,5)
+    real(RP), intent(out) :: vec_out_d(this%elem3D%Np,3,5)
+
+    integer :: iv
+    !----------------------------------------------------------
+
+    do iv=1, 5
+      call element_operation_kernel_matvec_divlike_dirXYZ_P2( this%D1D, this%D1D_tr, vec_in(:,1,iv), vec_in(:,2,iv), vec_in(:,3,iv), &
+        vec_out_d(:,1,iv), vec_out_d(:,2,iv), vec_out_d(:,3,iv) )
+    end do
+    return
+  end subroutine element_operation_tensorprod3D_Div_var5_2_P2
+
+!> Calculate the lifting term applied for five variables
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Lift_var5_P2( this, vec_in, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_Lift_hexahedral_P2
+    implicit none
+    class(ElementOperationTensorProd3D_P2), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%NfpTot,5)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np,5)
+
+    integer :: iv
+    !----------------------------------------------------------
+    do iv=1, 5
+      call element_operation_kernel_matvec_Lift_hexahedral_P2( this%Lift_mat, vec_in(:,iv), vec_out(:,iv) )
+    end do
+    return
+  end subroutine element_operation_tensorprod3D_Lift_var5_P2
+  
+!> Apply a vertical modal filter which a coefficient with the highest vertical mode is set to zero
+!!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_VFilterPM1_P2( this, vec_in, vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirZ_P2
@@ -1068,7 +1184,9 @@ contains
     return
   end subroutine element_operation_tensorprod3D_VFilterPM1_P2 
 
-  !OCL SERIAL
+!> Apply a modal filter for tracer variables
+!!
+!OCL SERIAL
   subroutine element_operation_tensorprod3D_ModalFilter_tracer_P2( this, vec_in, vec_work, vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: &
       element_operation_kernel_matvec_ModalFilter_P2
@@ -1086,6 +1204,8 @@ contains
     return
   end subroutine element_operation_tensorprod3D_ModalFilter_tracer_P2 
   
+!> Apply a modal filter for five variables
+!!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_ModalFilter_var5_P2( this, vec_in, vec_work, vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: &
@@ -1152,8 +1272,8 @@ contains
     return
   end subroutine element_operation_tensorprod3D_Setup_ModalFilter_P3 
 
-  !> Setup modal filter for tracer
-  !!
+!> Setup modal filter for tracer
+!!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Setup_ModalFilter_tracer_P3( this, &
     MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h, &
@@ -1203,7 +1323,7 @@ contains
     return
   end subroutine element_operation_tensorprod3D_Dx_P3
 
-!> Calculate the differential in z-direction
+!> Calculate the differential in y-direction
 !!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Dy_P3( this, vec_in, vec_out )
@@ -1231,7 +1351,7 @@ contains
     return
   end subroutine element_operation_tensorprod3D_Dz_P3
 
-!> Calculate the Lifting term
+!> Calculate the lifting term
 !!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Lift_P3( this, vec_in, vec_out )
@@ -1269,35 +1389,34 @@ contains
     return
   end subroutine element_operation_tensorprod3D_DxDyDzLift_P3
 
-!> Calculate the 3D gradient
+!> Calculate the 3D divergence
+!!
+!! @param vec_in Array storing flux data (Fx,Fy,Fz) at nodes that we apply the differential matrices Dx, Dy, and Dz, respectively
+!! @param vec_in_lift Array storing surface flux data (Fs) at nodes that we apply the lifting operator
+!! @param vec_out Array storing the resulting data (Dx Fx, Dy Fy, Dz Fz, Lift Fs)
 !!
 !OCL SERIAL
-  subroutine element_operation_tensorprod3D_Div_P3(  this, vec_in_x, vec_in_y, vec_in_z, vec_in_lift, &
-    vec_out_dx, vec_out_dy, vec_out_dz, vec_out_lift )
+  subroutine element_operation_tensorprod3D_Div_P3(  this, vec_in, vec_in_lift, &
+    vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: &
       element_operation_kernel_matvec_divlike_dirXYZ_P3, &
       element_operation_kernel_matvec_Lift_hexahedral_P3
     implicit none
     class(ElementOperationTensorProd3D_P3), intent(in) :: this
-    real(RP), intent(in) :: vec_in_x(this%elem3D%Np)
-    real(RP), intent(in) :: vec_in_y(this%elem3D%Np)
-    real(RP), intent(in) :: vec_in_z(this%elem3D%Np)
+    real(RP), intent(in) :: vec_in(this%elem3D%Np,3)
     real(RP), intent(in) :: vec_in_lift(this%elem3D%NfpTot)
-    real(RP), intent(out) :: vec_out_dx(this%elem3D%Np)
-    real(RP), intent(out) :: vec_out_dy(this%elem3D%Np)
-    real(RP), intent(out) :: vec_out_dz(this%elem3D%Np)
-    real(RP), intent(out) :: vec_out_lift(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np,4)
     !----------------------------------------------------------
 
     call element_operation_kernel_matvec_Lift_hexahedral_P3( this%Lift_mat, vec_in_lift, &
-      vec_out_lift )      
+      vec_out(:,4) )      
 
-    call element_operation_kernel_matvec_divlike_dirXYZ_P3( this%D1D, this%D1D_tr, vec_in_x, vec_in_y, vec_in_z, &
-      vec_out_dx, vec_out_dy, vec_out_dz )
+    call element_operation_kernel_matvec_divlike_dirXYZ_P3( this%D1D, this%D1D_tr, vec_in(:,1), vec_in(:,2), vec_in(:,3), &
+      vec_out(:,1), vec_out(:,2), vec_out(:,3) )
     return
   end subroutine element_operation_tensorprod3D_Div_P3
 
-!> Calculate the 3D gradient
+!> Calculate the 3D gradient applied for five variables
 !!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Div_var5_P3(  this, vec_in, vec_in_lift, &
@@ -1324,7 +1443,49 @@ contains
     end do
     return
   end subroutine element_operation_tensorprod3D_Div_var5_P3
-    
+
+!> Calculate the 3D divergence applied for five variables
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Div_var5_2_P3(  this, vec_in, &
+    vec_out_d )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_divlike_dirXYZ_P3
+    implicit none
+    class(ElementOperationTensorProd3D_P3), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np,3,5)
+    real(RP), intent(out) :: vec_out_d(this%elem3D%Np,3,5)
+
+    integer :: iv
+    !----------------------------------------------------------
+
+    do iv=1, 5
+      call element_operation_kernel_matvec_divlike_dirXYZ_P3( this%D1D, this%D1D_tr, vec_in(:,1,iv), vec_in(:,2,iv), vec_in(:,3,iv), &
+        vec_out_d(:,1,iv), vec_out_d(:,2,iv), vec_out_d(:,3,iv) )
+    end do
+    return
+  end subroutine element_operation_tensorprod3D_Div_var5_2_P3
+
+!> Calculate the lifting term applied for five variables
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Lift_var5_P3( this, vec_in, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_Lift_hexahedral_P3
+    implicit none
+    class(ElementOperationTensorProd3D_P3), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%NfpTot,5)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np,5)
+
+    integer :: iv
+    !----------------------------------------------------------
+    do iv=1, 5
+      call element_operation_kernel_matvec_Lift_hexahedral_P3( this%Lift_mat, vec_in(:,iv), vec_out(:,iv) )
+    end do
+    return
+  end subroutine element_operation_tensorprod3D_Lift_var5_P3
+  
+!> Apply a vertical modal filter which a coefficient with the highest vertical mode is set to zero
+!!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_VFilterPM1_P3( this, vec_in, vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirZ_P3
@@ -1339,7 +1500,9 @@ contains
     return
   end subroutine element_operation_tensorprod3D_VFilterPM1_P3 
 
-  !OCL SERIAL
+!> Apply a modal filter for tracer variables
+!!
+!OCL SERIAL
   subroutine element_operation_tensorprod3D_ModalFilter_tracer_P3( this, vec_in, vec_work, vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: &
       element_operation_kernel_matvec_ModalFilter_P3
@@ -1357,6 +1520,8 @@ contains
     return
   end subroutine element_operation_tensorprod3D_ModalFilter_tracer_P3 
   
+!> Apply a modal filter for five variables
+!!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_ModalFilter_var5_P3( this, vec_in, vec_work, vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: &
@@ -1423,8 +1588,8 @@ contains
     return
   end subroutine element_operation_tensorprod3D_Setup_ModalFilter_P4 
 
-  !> Setup modal filter for tracer
-  !!
+!> Setup modal filter for tracer
+!!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Setup_ModalFilter_tracer_P4( this, &
     MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h, &
@@ -1474,7 +1639,7 @@ contains
     return
   end subroutine element_operation_tensorprod3D_Dx_P4
 
-!> Calculate the differential in z-direction
+!> Calculate the differential in y-direction
 !!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Dy_P4( this, vec_in, vec_out )
@@ -1502,7 +1667,7 @@ contains
     return
   end subroutine element_operation_tensorprod3D_Dz_P4
 
-!> Calculate the Lifting term
+!> Calculate the lifting term
 !!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Lift_P4( this, vec_in, vec_out )
@@ -1540,35 +1705,34 @@ contains
     return
   end subroutine element_operation_tensorprod3D_DxDyDzLift_P4
 
-!> Calculate the 3D gradient
+!> Calculate the 3D divergence
+!!
+!! @param vec_in Array storing flux data (Fx,Fy,Fz) at nodes that we apply the differential matrices Dx, Dy, and Dz, respectively
+!! @param vec_in_lift Array storing surface flux data (Fs) at nodes that we apply the lifting operator
+!! @param vec_out Array storing the resulting data (Dx Fx, Dy Fy, Dz Fz, Lift Fs)
 !!
 !OCL SERIAL
-  subroutine element_operation_tensorprod3D_Div_P4(  this, vec_in_x, vec_in_y, vec_in_z, vec_in_lift, &
-    vec_out_dx, vec_out_dy, vec_out_dz, vec_out_lift )
+  subroutine element_operation_tensorprod3D_Div_P4(  this, vec_in, vec_in_lift, &
+    vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: &
       element_operation_kernel_matvec_divlike_dirXYZ_P4, &
       element_operation_kernel_matvec_Lift_hexahedral_P4
     implicit none
     class(ElementOperationTensorProd3D_P4), intent(in) :: this
-    real(RP), intent(in) :: vec_in_x(this%elem3D%Np)
-    real(RP), intent(in) :: vec_in_y(this%elem3D%Np)
-    real(RP), intent(in) :: vec_in_z(this%elem3D%Np)
+    real(RP), intent(in) :: vec_in(this%elem3D%Np,3)
     real(RP), intent(in) :: vec_in_lift(this%elem3D%NfpTot)
-    real(RP), intent(out) :: vec_out_dx(this%elem3D%Np)
-    real(RP), intent(out) :: vec_out_dy(this%elem3D%Np)
-    real(RP), intent(out) :: vec_out_dz(this%elem3D%Np)
-    real(RP), intent(out) :: vec_out_lift(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np,4)
     !----------------------------------------------------------
 
     call element_operation_kernel_matvec_Lift_hexahedral_P4( this%Lift_mat, vec_in_lift, &
-      vec_out_lift )      
+      vec_out(:,4) )      
 
-    call element_operation_kernel_matvec_divlike_dirXYZ_P4( this%D1D, this%D1D_tr, vec_in_x, vec_in_y, vec_in_z, &
-      vec_out_dx, vec_out_dy, vec_out_dz )
+    call element_operation_kernel_matvec_divlike_dirXYZ_P4( this%D1D, this%D1D_tr, vec_in(:,1), vec_in(:,2), vec_in(:,3), &
+      vec_out(:,1), vec_out(:,2), vec_out(:,3) )
     return
   end subroutine element_operation_tensorprod3D_Div_P4
 
-!> Calculate the 3D gradient
+!> Calculate the 3D gradient applied for five variables
 !!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Div_var5_P4(  this, vec_in, vec_in_lift, &
@@ -1595,7 +1759,49 @@ contains
     end do
     return
   end subroutine element_operation_tensorprod3D_Div_var5_P4
-    
+
+!> Calculate the 3D divergence applied for five variables
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Div_var5_2_P4(  this, vec_in, &
+    vec_out_d )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_divlike_dirXYZ_P4
+    implicit none
+    class(ElementOperationTensorProd3D_P4), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np,3,5)
+    real(RP), intent(out) :: vec_out_d(this%elem3D%Np,3,5)
+
+    integer :: iv
+    !----------------------------------------------------------
+
+    do iv=1, 5
+      call element_operation_kernel_matvec_divlike_dirXYZ_P4( this%D1D, this%D1D_tr, vec_in(:,1,iv), vec_in(:,2,iv), vec_in(:,3,iv), &
+        vec_out_d(:,1,iv), vec_out_d(:,2,iv), vec_out_d(:,3,iv) )
+    end do
+    return
+  end subroutine element_operation_tensorprod3D_Div_var5_2_P4
+
+!> Calculate the lifting term applied for five variables
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Lift_var5_P4( this, vec_in, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_Lift_hexahedral_P4
+    implicit none
+    class(ElementOperationTensorProd3D_P4), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%NfpTot,5)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np,5)
+
+    integer :: iv
+    !----------------------------------------------------------
+    do iv=1, 5
+      call element_operation_kernel_matvec_Lift_hexahedral_P4( this%Lift_mat, vec_in(:,iv), vec_out(:,iv) )
+    end do
+    return
+  end subroutine element_operation_tensorprod3D_Lift_var5_P4
+  
+!> Apply a vertical modal filter which a coefficient with the highest vertical mode is set to zero
+!!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_VFilterPM1_P4( this, vec_in, vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirZ_P4
@@ -1610,7 +1816,9 @@ contains
     return
   end subroutine element_operation_tensorprod3D_VFilterPM1_P4 
 
-  !OCL SERIAL
+!> Apply a modal filter for tracer variables
+!!
+!OCL SERIAL
   subroutine element_operation_tensorprod3D_ModalFilter_tracer_P4( this, vec_in, vec_work, vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: &
       element_operation_kernel_matvec_ModalFilter_P4
@@ -1628,6 +1836,8 @@ contains
     return
   end subroutine element_operation_tensorprod3D_ModalFilter_tracer_P4 
   
+!> Apply a modal filter for five variables
+!!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_ModalFilter_var5_P4( this, vec_in, vec_work, vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: &
@@ -1694,8 +1904,8 @@ contains
     return
   end subroutine element_operation_tensorprod3D_Setup_ModalFilter_P5 
 
-  !> Setup modal filter for tracer
-  !!
+!> Setup modal filter for tracer
+!!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Setup_ModalFilter_tracer_P5( this, &
     MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h, &
@@ -1745,7 +1955,7 @@ contains
     return
   end subroutine element_operation_tensorprod3D_Dx_P5
 
-!> Calculate the differential in z-direction
+!> Calculate the differential in y-direction
 !!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Dy_P5( this, vec_in, vec_out )
@@ -1773,7 +1983,7 @@ contains
     return
   end subroutine element_operation_tensorprod3D_Dz_P5
 
-!> Calculate the Lifting term
+!> Calculate the lifting term
 !!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Lift_P5( this, vec_in, vec_out )
@@ -1811,35 +2021,34 @@ contains
     return
   end subroutine element_operation_tensorprod3D_DxDyDzLift_P5
 
-!> Calculate the 3D gradient
+!> Calculate the 3D divergence
+!!
+!! @param vec_in Array storing flux data (Fx,Fy,Fz) at nodes that we apply the differential matrices Dx, Dy, and Dz, respectively
+!! @param vec_in_lift Array storing surface flux data (Fs) at nodes that we apply the lifting operator
+!! @param vec_out Array storing the resulting data (Dx Fx, Dy Fy, Dz Fz, Lift Fs)
 !!
 !OCL SERIAL
-  subroutine element_operation_tensorprod3D_Div_P5(  this, vec_in_x, vec_in_y, vec_in_z, vec_in_lift, &
-    vec_out_dx, vec_out_dy, vec_out_dz, vec_out_lift )
+  subroutine element_operation_tensorprod3D_Div_P5(  this, vec_in, vec_in_lift, &
+    vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: &
       element_operation_kernel_matvec_divlike_dirXYZ_P5, &
       element_operation_kernel_matvec_Lift_hexahedral_P5
     implicit none
     class(ElementOperationTensorProd3D_P5), intent(in) :: this
-    real(RP), intent(in) :: vec_in_x(this%elem3D%Np)
-    real(RP), intent(in) :: vec_in_y(this%elem3D%Np)
-    real(RP), intent(in) :: vec_in_z(this%elem3D%Np)
+    real(RP), intent(in) :: vec_in(this%elem3D%Np,3)
     real(RP), intent(in) :: vec_in_lift(this%elem3D%NfpTot)
-    real(RP), intent(out) :: vec_out_dx(this%elem3D%Np)
-    real(RP), intent(out) :: vec_out_dy(this%elem3D%Np)
-    real(RP), intent(out) :: vec_out_dz(this%elem3D%Np)
-    real(RP), intent(out) :: vec_out_lift(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np,4)
     !----------------------------------------------------------
 
     call element_operation_kernel_matvec_Lift_hexahedral_P5( this%Lift_mat, vec_in_lift, &
-      vec_out_lift )      
+      vec_out(:,4) )      
 
-    call element_operation_kernel_matvec_divlike_dirXYZ_P5( this%D1D, this%D1D_tr, vec_in_x, vec_in_y, vec_in_z, &
-      vec_out_dx, vec_out_dy, vec_out_dz )
+    call element_operation_kernel_matvec_divlike_dirXYZ_P5( this%D1D, this%D1D_tr, vec_in(:,1), vec_in(:,2), vec_in(:,3), &
+      vec_out(:,1), vec_out(:,2), vec_out(:,3) )
     return
   end subroutine element_operation_tensorprod3D_Div_P5
 
-!> Calculate the 3D gradient
+!> Calculate the 3D gradient applied for five variables
 !!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Div_var5_P5(  this, vec_in, vec_in_lift, &
@@ -1866,7 +2075,49 @@ contains
     end do
     return
   end subroutine element_operation_tensorprod3D_Div_var5_P5
-    
+
+!> Calculate the 3D divergence applied for five variables
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Div_var5_2_P5(  this, vec_in, &
+    vec_out_d )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_divlike_dirXYZ_P5
+    implicit none
+    class(ElementOperationTensorProd3D_P5), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np,3,5)
+    real(RP), intent(out) :: vec_out_d(this%elem3D%Np,3,5)
+
+    integer :: iv
+    !----------------------------------------------------------
+
+    do iv=1, 5
+      call element_operation_kernel_matvec_divlike_dirXYZ_P5( this%D1D, this%D1D_tr, vec_in(:,1,iv), vec_in(:,2,iv), vec_in(:,3,iv), &
+        vec_out_d(:,1,iv), vec_out_d(:,2,iv), vec_out_d(:,3,iv) )
+    end do
+    return
+  end subroutine element_operation_tensorprod3D_Div_var5_2_P5
+
+!> Calculate the lifting term applied for five variables
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Lift_var5_P5( this, vec_in, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_Lift_hexahedral_P5
+    implicit none
+    class(ElementOperationTensorProd3D_P5), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%NfpTot,5)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np,5)
+
+    integer :: iv
+    !----------------------------------------------------------
+    do iv=1, 5
+      call element_operation_kernel_matvec_Lift_hexahedral_P5( this%Lift_mat, vec_in(:,iv), vec_out(:,iv) )
+    end do
+    return
+  end subroutine element_operation_tensorprod3D_Lift_var5_P5
+  
+!> Apply a vertical modal filter which a coefficient with the highest vertical mode is set to zero
+!!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_VFilterPM1_P5( this, vec_in, vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirZ_P5
@@ -1881,7 +2132,9 @@ contains
     return
   end subroutine element_operation_tensorprod3D_VFilterPM1_P5 
 
-  !OCL SERIAL
+!> Apply a modal filter for tracer variables
+!!
+!OCL SERIAL
   subroutine element_operation_tensorprod3D_ModalFilter_tracer_P5( this, vec_in, vec_work, vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: &
       element_operation_kernel_matvec_ModalFilter_P5
@@ -1899,6 +2152,8 @@ contains
     return
   end subroutine element_operation_tensorprod3D_ModalFilter_tracer_P5 
   
+!> Apply a modal filter for five variables
+!!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_ModalFilter_var5_P5( this, vec_in, vec_work, vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: &
@@ -1965,8 +2220,8 @@ contains
     return
   end subroutine element_operation_tensorprod3D_Setup_ModalFilter_P6 
 
-  !> Setup modal filter for tracer
-  !!
+!> Setup modal filter for tracer
+!!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Setup_ModalFilter_tracer_P6( this, &
     MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h, &
@@ -2016,7 +2271,7 @@ contains
     return
   end subroutine element_operation_tensorprod3D_Dx_P6
 
-!> Calculate the differential in z-direction
+!> Calculate the differential in y-direction
 !!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Dy_P6( this, vec_in, vec_out )
@@ -2044,7 +2299,7 @@ contains
     return
   end subroutine element_operation_tensorprod3D_Dz_P6
 
-!> Calculate the Lifting term
+!> Calculate the lifting term
 !!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Lift_P6( this, vec_in, vec_out )
@@ -2082,35 +2337,34 @@ contains
     return
   end subroutine element_operation_tensorprod3D_DxDyDzLift_P6
 
-!> Calculate the 3D gradient
+!> Calculate the 3D divergence
+!!
+!! @param vec_in Array storing flux data (Fx,Fy,Fz) at nodes that we apply the differential matrices Dx, Dy, and Dz, respectively
+!! @param vec_in_lift Array storing surface flux data (Fs) at nodes that we apply the lifting operator
+!! @param vec_out Array storing the resulting data (Dx Fx, Dy Fy, Dz Fz, Lift Fs)
 !!
 !OCL SERIAL
-  subroutine element_operation_tensorprod3D_Div_P6(  this, vec_in_x, vec_in_y, vec_in_z, vec_in_lift, &
-    vec_out_dx, vec_out_dy, vec_out_dz, vec_out_lift )
+  subroutine element_operation_tensorprod3D_Div_P6(  this, vec_in, vec_in_lift, &
+    vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: &
       element_operation_kernel_matvec_divlike_dirXYZ_P6, &
       element_operation_kernel_matvec_Lift_hexahedral_P6
     implicit none
     class(ElementOperationTensorProd3D_P6), intent(in) :: this
-    real(RP), intent(in) :: vec_in_x(this%elem3D%Np)
-    real(RP), intent(in) :: vec_in_y(this%elem3D%Np)
-    real(RP), intent(in) :: vec_in_z(this%elem3D%Np)
+    real(RP), intent(in) :: vec_in(this%elem3D%Np,3)
     real(RP), intent(in) :: vec_in_lift(this%elem3D%NfpTot)
-    real(RP), intent(out) :: vec_out_dx(this%elem3D%Np)
-    real(RP), intent(out) :: vec_out_dy(this%elem3D%Np)
-    real(RP), intent(out) :: vec_out_dz(this%elem3D%Np)
-    real(RP), intent(out) :: vec_out_lift(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np,4)
     !----------------------------------------------------------
 
     call element_operation_kernel_matvec_Lift_hexahedral_P6( this%Lift_mat, vec_in_lift, &
-      vec_out_lift )      
+      vec_out(:,4) )      
 
-    call element_operation_kernel_matvec_divlike_dirXYZ_P6( this%D1D, this%D1D_tr, vec_in_x, vec_in_y, vec_in_z, &
-      vec_out_dx, vec_out_dy, vec_out_dz )
+    call element_operation_kernel_matvec_divlike_dirXYZ_P6( this%D1D, this%D1D_tr, vec_in(:,1), vec_in(:,2), vec_in(:,3), &
+      vec_out(:,1), vec_out(:,2), vec_out(:,3) )
     return
   end subroutine element_operation_tensorprod3D_Div_P6
 
-!> Calculate the 3D gradient
+!> Calculate the 3D gradient applied for five variables
 !!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Div_var5_P6(  this, vec_in, vec_in_lift, &
@@ -2137,7 +2391,49 @@ contains
     end do
     return
   end subroutine element_operation_tensorprod3D_Div_var5_P6
-    
+
+!> Calculate the 3D divergence applied for five variables
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Div_var5_2_P6(  this, vec_in, &
+    vec_out_d )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_divlike_dirXYZ_P6
+    implicit none
+    class(ElementOperationTensorProd3D_P6), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np,3,5)
+    real(RP), intent(out) :: vec_out_d(this%elem3D%Np,3,5)
+
+    integer :: iv
+    !----------------------------------------------------------
+
+    do iv=1, 5
+      call element_operation_kernel_matvec_divlike_dirXYZ_P6( this%D1D, this%D1D_tr, vec_in(:,1,iv), vec_in(:,2,iv), vec_in(:,3,iv), &
+        vec_out_d(:,1,iv), vec_out_d(:,2,iv), vec_out_d(:,3,iv) )
+    end do
+    return
+  end subroutine element_operation_tensorprod3D_Div_var5_2_P6
+
+!> Calculate the lifting term applied for five variables
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Lift_var5_P6( this, vec_in, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_Lift_hexahedral_P6
+    implicit none
+    class(ElementOperationTensorProd3D_P6), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%NfpTot,5)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np,5)
+
+    integer :: iv
+    !----------------------------------------------------------
+    do iv=1, 5
+      call element_operation_kernel_matvec_Lift_hexahedral_P6( this%Lift_mat, vec_in(:,iv), vec_out(:,iv) )
+    end do
+    return
+  end subroutine element_operation_tensorprod3D_Lift_var5_P6
+  
+!> Apply a vertical modal filter which a coefficient with the highest vertical mode is set to zero
+!!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_VFilterPM1_P6( this, vec_in, vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirZ_P6
@@ -2152,7 +2448,9 @@ contains
     return
   end subroutine element_operation_tensorprod3D_VFilterPM1_P6 
 
-  !OCL SERIAL
+!> Apply a modal filter for tracer variables
+!!
+!OCL SERIAL
   subroutine element_operation_tensorprod3D_ModalFilter_tracer_P6( this, vec_in, vec_work, vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: &
       element_operation_kernel_matvec_ModalFilter_P6
@@ -2170,6 +2468,8 @@ contains
     return
   end subroutine element_operation_tensorprod3D_ModalFilter_tracer_P6 
   
+!> Apply a modal filter for five variables
+!!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_ModalFilter_var5_P6( this, vec_in, vec_work, vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: &
@@ -2236,8 +2536,8 @@ contains
     return
   end subroutine element_operation_tensorprod3D_Setup_ModalFilter_P7 
 
-  !> Setup modal filter for tracer
-  !!
+!> Setup modal filter for tracer
+!!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Setup_ModalFilter_tracer_P7( this, &
     MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h, &
@@ -2287,7 +2587,7 @@ contains
     return
   end subroutine element_operation_tensorprod3D_Dx_P7
 
-!> Calculate the differential in z-direction
+!> Calculate the differential in y-direction
 !!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Dy_P7( this, vec_in, vec_out )
@@ -2315,7 +2615,7 @@ contains
     return
   end subroutine element_operation_tensorprod3D_Dz_P7
 
-!> Calculate the Lifting term
+!> Calculate the lifting term
 !!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Lift_P7( this, vec_in, vec_out )
@@ -2353,35 +2653,34 @@ contains
     return
   end subroutine element_operation_tensorprod3D_DxDyDzLift_P7
 
-!> Calculate the 3D gradient
+!> Calculate the 3D divergence
+!!
+!! @param vec_in Array storing flux data (Fx,Fy,Fz) at nodes that we apply the differential matrices Dx, Dy, and Dz, respectively
+!! @param vec_in_lift Array storing surface flux data (Fs) at nodes that we apply the lifting operator
+!! @param vec_out Array storing the resulting data (Dx Fx, Dy Fy, Dz Fz, Lift Fs)
 !!
 !OCL SERIAL
-  subroutine element_operation_tensorprod3D_Div_P7(  this, vec_in_x, vec_in_y, vec_in_z, vec_in_lift, &
-    vec_out_dx, vec_out_dy, vec_out_dz, vec_out_lift )
+  subroutine element_operation_tensorprod3D_Div_P7(  this, vec_in, vec_in_lift, &
+    vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: &
       element_operation_kernel_matvec_divlike_dirXYZ_P7, &
       element_operation_kernel_matvec_Lift_hexahedral_P7
     implicit none
     class(ElementOperationTensorProd3D_P7), intent(in) :: this
-    real(RP), intent(in) :: vec_in_x(this%elem3D%Np)
-    real(RP), intent(in) :: vec_in_y(this%elem3D%Np)
-    real(RP), intent(in) :: vec_in_z(this%elem3D%Np)
+    real(RP), intent(in) :: vec_in(this%elem3D%Np,3)
     real(RP), intent(in) :: vec_in_lift(this%elem3D%NfpTot)
-    real(RP), intent(out) :: vec_out_dx(this%elem3D%Np)
-    real(RP), intent(out) :: vec_out_dy(this%elem3D%Np)
-    real(RP), intent(out) :: vec_out_dz(this%elem3D%Np)
-    real(RP), intent(out) :: vec_out_lift(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np,4)
     !----------------------------------------------------------
 
     call element_operation_kernel_matvec_Lift_hexahedral_P7( this%Lift_mat, vec_in_lift, &
-      vec_out_lift )      
+      vec_out(:,4) )      
 
-    call element_operation_kernel_matvec_divlike_dirXYZ_P7( this%D1D, this%D1D_tr, vec_in_x, vec_in_y, vec_in_z, &
-      vec_out_dx, vec_out_dy, vec_out_dz )
+    call element_operation_kernel_matvec_divlike_dirXYZ_P7( this%D1D, this%D1D_tr, vec_in(:,1), vec_in(:,2), vec_in(:,3), &
+      vec_out(:,1), vec_out(:,2), vec_out(:,3) )
     return
   end subroutine element_operation_tensorprod3D_Div_P7
 
-!> Calculate the 3D gradient
+!> Calculate the 3D gradient applied for five variables
 !!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Div_var5_P7(  this, vec_in, vec_in_lift, &
@@ -2408,7 +2707,49 @@ contains
     end do
     return
   end subroutine element_operation_tensorprod3D_Div_var5_P7
-    
+
+!> Calculate the 3D divergence applied for five variables
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Div_var5_2_P7(  this, vec_in, &
+    vec_out_d )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_divlike_dirXYZ_P7
+    implicit none
+    class(ElementOperationTensorProd3D_P7), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np,3,5)
+    real(RP), intent(out) :: vec_out_d(this%elem3D%Np,3,5)
+
+    integer :: iv
+    !----------------------------------------------------------
+
+    do iv=1, 5
+      call element_operation_kernel_matvec_divlike_dirXYZ_P7( this%D1D, this%D1D_tr, vec_in(:,1,iv), vec_in(:,2,iv), vec_in(:,3,iv), &
+        vec_out_d(:,1,iv), vec_out_d(:,2,iv), vec_out_d(:,3,iv) )
+    end do
+    return
+  end subroutine element_operation_tensorprod3D_Div_var5_2_P7
+
+!> Calculate the lifting term applied for five variables
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Lift_var5_P7( this, vec_in, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_Lift_hexahedral_P7
+    implicit none
+    class(ElementOperationTensorProd3D_P7), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%NfpTot,5)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np,5)
+
+    integer :: iv
+    !----------------------------------------------------------
+    do iv=1, 5
+      call element_operation_kernel_matvec_Lift_hexahedral_P7( this%Lift_mat, vec_in(:,iv), vec_out(:,iv) )
+    end do
+    return
+  end subroutine element_operation_tensorprod3D_Lift_var5_P7
+  
+!> Apply a vertical modal filter which a coefficient with the highest vertical mode is set to zero
+!!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_VFilterPM1_P7( this, vec_in, vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirZ_P7
@@ -2423,7 +2764,9 @@ contains
     return
   end subroutine element_operation_tensorprod3D_VFilterPM1_P7 
 
-  !OCL SERIAL
+!> Apply a modal filter for tracer variables
+!!
+!OCL SERIAL
   subroutine element_operation_tensorprod3D_ModalFilter_tracer_P7( this, vec_in, vec_work, vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: &
       element_operation_kernel_matvec_ModalFilter_P7
@@ -2441,6 +2784,8 @@ contains
     return
   end subroutine element_operation_tensorprod3D_ModalFilter_tracer_P7 
   
+!> Apply a modal filter for five variables
+!!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_ModalFilter_var5_P7( this, vec_in, vec_work, vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: &
@@ -2507,8 +2852,8 @@ contains
     return
   end subroutine element_operation_tensorprod3D_Setup_ModalFilter_P8 
 
-  !> Setup modal filter for tracer
-  !!
+!> Setup modal filter for tracer
+!!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Setup_ModalFilter_tracer_P8( this, &
     MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h, &
@@ -2558,7 +2903,7 @@ contains
     return
   end subroutine element_operation_tensorprod3D_Dx_P8
 
-!> Calculate the differential in z-direction
+!> Calculate the differential in y-direction
 !!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Dy_P8( this, vec_in, vec_out )
@@ -2586,7 +2931,7 @@ contains
     return
   end subroutine element_operation_tensorprod3D_Dz_P8
 
-!> Calculate the Lifting term
+!> Calculate the lifting term
 !!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Lift_P8( this, vec_in, vec_out )
@@ -2624,35 +2969,34 @@ contains
     return
   end subroutine element_operation_tensorprod3D_DxDyDzLift_P8
 
-!> Calculate the 3D gradient
+!> Calculate the 3D divergence
+!!
+!! @param vec_in Array storing flux data (Fx,Fy,Fz) at nodes that we apply the differential matrices Dx, Dy, and Dz, respectively
+!! @param vec_in_lift Array storing surface flux data (Fs) at nodes that we apply the lifting operator
+!! @param vec_out Array storing the resulting data (Dx Fx, Dy Fy, Dz Fz, Lift Fs)
 !!
 !OCL SERIAL
-  subroutine element_operation_tensorprod3D_Div_P8(  this, vec_in_x, vec_in_y, vec_in_z, vec_in_lift, &
-    vec_out_dx, vec_out_dy, vec_out_dz, vec_out_lift )
+  subroutine element_operation_tensorprod3D_Div_P8(  this, vec_in, vec_in_lift, &
+    vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: &
       element_operation_kernel_matvec_divlike_dirXYZ_P8, &
       element_operation_kernel_matvec_Lift_hexahedral_P8
     implicit none
     class(ElementOperationTensorProd3D_P8), intent(in) :: this
-    real(RP), intent(in) :: vec_in_x(this%elem3D%Np)
-    real(RP), intent(in) :: vec_in_y(this%elem3D%Np)
-    real(RP), intent(in) :: vec_in_z(this%elem3D%Np)
+    real(RP), intent(in) :: vec_in(this%elem3D%Np,3)
     real(RP), intent(in) :: vec_in_lift(this%elem3D%NfpTot)
-    real(RP), intent(out) :: vec_out_dx(this%elem3D%Np)
-    real(RP), intent(out) :: vec_out_dy(this%elem3D%Np)
-    real(RP), intent(out) :: vec_out_dz(this%elem3D%Np)
-    real(RP), intent(out) :: vec_out_lift(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np,4)
     !----------------------------------------------------------
 
     call element_operation_kernel_matvec_Lift_hexahedral_P8( this%Lift_mat, vec_in_lift, &
-      vec_out_lift )      
+      vec_out(:,4) )      
 
-    call element_operation_kernel_matvec_divlike_dirXYZ_P8( this%D1D, this%D1D_tr, vec_in_x, vec_in_y, vec_in_z, &
-      vec_out_dx, vec_out_dy, vec_out_dz )
+    call element_operation_kernel_matvec_divlike_dirXYZ_P8( this%D1D, this%D1D_tr, vec_in(:,1), vec_in(:,2), vec_in(:,3), &
+      vec_out(:,1), vec_out(:,2), vec_out(:,3) )
     return
   end subroutine element_operation_tensorprod3D_Div_P8
 
-!> Calculate the 3D gradient
+!> Calculate the 3D gradient applied for five variables
 !!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Div_var5_P8(  this, vec_in, vec_in_lift, &
@@ -2679,7 +3023,49 @@ contains
     end do
     return
   end subroutine element_operation_tensorprod3D_Div_var5_P8
-    
+
+!> Calculate the 3D divergence applied for five variables
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Div_var5_2_P8(  this, vec_in, &
+    vec_out_d )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_divlike_dirXYZ_P8
+    implicit none
+    class(ElementOperationTensorProd3D_P8), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np,3,5)
+    real(RP), intent(out) :: vec_out_d(this%elem3D%Np,3,5)
+
+    integer :: iv
+    !----------------------------------------------------------
+
+    do iv=1, 5
+      call element_operation_kernel_matvec_divlike_dirXYZ_P8( this%D1D, this%D1D_tr, vec_in(:,1,iv), vec_in(:,2,iv), vec_in(:,3,iv), &
+        vec_out_d(:,1,iv), vec_out_d(:,2,iv), vec_out_d(:,3,iv) )
+    end do
+    return
+  end subroutine element_operation_tensorprod3D_Div_var5_2_P8
+
+!> Calculate the lifting term applied for five variables
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Lift_var5_P8( this, vec_in, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_Lift_hexahedral_P8
+    implicit none
+    class(ElementOperationTensorProd3D_P8), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%NfpTot,5)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np,5)
+
+    integer :: iv
+    !----------------------------------------------------------
+    do iv=1, 5
+      call element_operation_kernel_matvec_Lift_hexahedral_P8( this%Lift_mat, vec_in(:,iv), vec_out(:,iv) )
+    end do
+    return
+  end subroutine element_operation_tensorprod3D_Lift_var5_P8
+  
+!> Apply a vertical modal filter which a coefficient with the highest vertical mode is set to zero
+!!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_VFilterPM1_P8( this, vec_in, vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirZ_P8
@@ -2694,7 +3080,9 @@ contains
     return
   end subroutine element_operation_tensorprod3D_VFilterPM1_P8 
 
-  !OCL SERIAL
+!> Apply a modal filter for tracer variables
+!!
+!OCL SERIAL
   subroutine element_operation_tensorprod3D_ModalFilter_tracer_P8( this, vec_in, vec_work, vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: &
       element_operation_kernel_matvec_ModalFilter_P8
@@ -2712,6 +3100,8 @@ contains
     return
   end subroutine element_operation_tensorprod3D_ModalFilter_tracer_P8 
   
+!> Apply a modal filter for five variables
+!!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_ModalFilter_var5_P8( this, vec_in, vec_work, vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: &
@@ -2778,8 +3168,8 @@ contains
     return
   end subroutine element_operation_tensorprod3D_Setup_ModalFilter_P9 
 
-  !> Setup modal filter for tracer
-  !!
+!> Setup modal filter for tracer
+!!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Setup_ModalFilter_tracer_P9( this, &
     MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h, &
@@ -2829,7 +3219,7 @@ contains
     return
   end subroutine element_operation_tensorprod3D_Dx_P9
 
-!> Calculate the differential in z-direction
+!> Calculate the differential in y-direction
 !!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Dy_P9( this, vec_in, vec_out )
@@ -2857,7 +3247,7 @@ contains
     return
   end subroutine element_operation_tensorprod3D_Dz_P9
 
-!> Calculate the Lifting term
+!> Calculate the lifting term
 !!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Lift_P9( this, vec_in, vec_out )
@@ -2895,35 +3285,34 @@ contains
     return
   end subroutine element_operation_tensorprod3D_DxDyDzLift_P9
 
-!> Calculate the 3D gradient
+!> Calculate the 3D divergence
+!!
+!! @param vec_in Array storing flux data (Fx,Fy,Fz) at nodes that we apply the differential matrices Dx, Dy, and Dz, respectively
+!! @param vec_in_lift Array storing surface flux data (Fs) at nodes that we apply the lifting operator
+!! @param vec_out Array storing the resulting data (Dx Fx, Dy Fy, Dz Fz, Lift Fs)
 !!
 !OCL SERIAL
-  subroutine element_operation_tensorprod3D_Div_P9(  this, vec_in_x, vec_in_y, vec_in_z, vec_in_lift, &
-    vec_out_dx, vec_out_dy, vec_out_dz, vec_out_lift )
+  subroutine element_operation_tensorprod3D_Div_P9(  this, vec_in, vec_in_lift, &
+    vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: &
       element_operation_kernel_matvec_divlike_dirXYZ_P9, &
       element_operation_kernel_matvec_Lift_hexahedral_P9
     implicit none
     class(ElementOperationTensorProd3D_P9), intent(in) :: this
-    real(RP), intent(in) :: vec_in_x(this%elem3D%Np)
-    real(RP), intent(in) :: vec_in_y(this%elem3D%Np)
-    real(RP), intent(in) :: vec_in_z(this%elem3D%Np)
+    real(RP), intent(in) :: vec_in(this%elem3D%Np,3)
     real(RP), intent(in) :: vec_in_lift(this%elem3D%NfpTot)
-    real(RP), intent(out) :: vec_out_dx(this%elem3D%Np)
-    real(RP), intent(out) :: vec_out_dy(this%elem3D%Np)
-    real(RP), intent(out) :: vec_out_dz(this%elem3D%Np)
-    real(RP), intent(out) :: vec_out_lift(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np,4)
     !----------------------------------------------------------
 
     call element_operation_kernel_matvec_Lift_hexahedral_P9( this%Lift_mat, vec_in_lift, &
-      vec_out_lift )      
+      vec_out(:,4) )      
 
-    call element_operation_kernel_matvec_divlike_dirXYZ_P9( this%D1D, this%D1D_tr, vec_in_x, vec_in_y, vec_in_z, &
-      vec_out_dx, vec_out_dy, vec_out_dz )
+    call element_operation_kernel_matvec_divlike_dirXYZ_P9( this%D1D, this%D1D_tr, vec_in(:,1), vec_in(:,2), vec_in(:,3), &
+      vec_out(:,1), vec_out(:,2), vec_out(:,3) )
     return
   end subroutine element_operation_tensorprod3D_Div_P9
 
-!> Calculate the 3D gradient
+!> Calculate the 3D gradient applied for five variables
 !!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Div_var5_P9(  this, vec_in, vec_in_lift, &
@@ -2950,7 +3339,49 @@ contains
     end do
     return
   end subroutine element_operation_tensorprod3D_Div_var5_P9
-    
+
+!> Calculate the 3D divergence applied for five variables
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Div_var5_2_P9(  this, vec_in, &
+    vec_out_d )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_divlike_dirXYZ_P9
+    implicit none
+    class(ElementOperationTensorProd3D_P9), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np,3,5)
+    real(RP), intent(out) :: vec_out_d(this%elem3D%Np,3,5)
+
+    integer :: iv
+    !----------------------------------------------------------
+
+    do iv=1, 5
+      call element_operation_kernel_matvec_divlike_dirXYZ_P9( this%D1D, this%D1D_tr, vec_in(:,1,iv), vec_in(:,2,iv), vec_in(:,3,iv), &
+        vec_out_d(:,1,iv), vec_out_d(:,2,iv), vec_out_d(:,3,iv) )
+    end do
+    return
+  end subroutine element_operation_tensorprod3D_Div_var5_2_P9
+
+!> Calculate the lifting term applied for five variables
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Lift_var5_P9( this, vec_in, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_Lift_hexahedral_P9
+    implicit none
+    class(ElementOperationTensorProd3D_P9), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%NfpTot,5)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np,5)
+
+    integer :: iv
+    !----------------------------------------------------------
+    do iv=1, 5
+      call element_operation_kernel_matvec_Lift_hexahedral_P9( this%Lift_mat, vec_in(:,iv), vec_out(:,iv) )
+    end do
+    return
+  end subroutine element_operation_tensorprod3D_Lift_var5_P9
+  
+!> Apply a vertical modal filter which a coefficient with the highest vertical mode is set to zero
+!!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_VFilterPM1_P9( this, vec_in, vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirZ_P9
@@ -2965,7 +3396,9 @@ contains
     return
   end subroutine element_operation_tensorprod3D_VFilterPM1_P9 
 
-  !OCL SERIAL
+!> Apply a modal filter for tracer variables
+!!
+!OCL SERIAL
   subroutine element_operation_tensorprod3D_ModalFilter_tracer_P9( this, vec_in, vec_work, vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: &
       element_operation_kernel_matvec_ModalFilter_P9
@@ -2983,6 +3416,8 @@ contains
     return
   end subroutine element_operation_tensorprod3D_ModalFilter_tracer_P9 
   
+!> Apply a modal filter for five variables
+!!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_ModalFilter_var5_P9( this, vec_in, vec_work, vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: &
@@ -3049,8 +3484,8 @@ contains
     return
   end subroutine element_operation_tensorprod3D_Setup_ModalFilter_P10 
 
-  !> Setup modal filter for tracer
-  !!
+!> Setup modal filter for tracer
+!!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Setup_ModalFilter_tracer_P10( this, &
     MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h, &
@@ -3100,7 +3535,7 @@ contains
     return
   end subroutine element_operation_tensorprod3D_Dx_P10
 
-!> Calculate the differential in z-direction
+!> Calculate the differential in y-direction
 !!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Dy_P10( this, vec_in, vec_out )
@@ -3128,7 +3563,7 @@ contains
     return
   end subroutine element_operation_tensorprod3D_Dz_P10
 
-!> Calculate the Lifting term
+!> Calculate the lifting term
 !!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Lift_P10( this, vec_in, vec_out )
@@ -3166,35 +3601,34 @@ contains
     return
   end subroutine element_operation_tensorprod3D_DxDyDzLift_P10
 
-!> Calculate the 3D gradient
+!> Calculate the 3D divergence
+!!
+!! @param vec_in Array storing flux data (Fx,Fy,Fz) at nodes that we apply the differential matrices Dx, Dy, and Dz, respectively
+!! @param vec_in_lift Array storing surface flux data (Fs) at nodes that we apply the lifting operator
+!! @param vec_out Array storing the resulting data (Dx Fx, Dy Fy, Dz Fz, Lift Fs)
 !!
 !OCL SERIAL
-  subroutine element_operation_tensorprod3D_Div_P10(  this, vec_in_x, vec_in_y, vec_in_z, vec_in_lift, &
-    vec_out_dx, vec_out_dy, vec_out_dz, vec_out_lift )
+  subroutine element_operation_tensorprod3D_Div_P10(  this, vec_in, vec_in_lift, &
+    vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: &
       element_operation_kernel_matvec_divlike_dirXYZ_P10, &
       element_operation_kernel_matvec_Lift_hexahedral_P10
     implicit none
     class(ElementOperationTensorProd3D_P10), intent(in) :: this
-    real(RP), intent(in) :: vec_in_x(this%elem3D%Np)
-    real(RP), intent(in) :: vec_in_y(this%elem3D%Np)
-    real(RP), intent(in) :: vec_in_z(this%elem3D%Np)
+    real(RP), intent(in) :: vec_in(this%elem3D%Np,3)
     real(RP), intent(in) :: vec_in_lift(this%elem3D%NfpTot)
-    real(RP), intent(out) :: vec_out_dx(this%elem3D%Np)
-    real(RP), intent(out) :: vec_out_dy(this%elem3D%Np)
-    real(RP), intent(out) :: vec_out_dz(this%elem3D%Np)
-    real(RP), intent(out) :: vec_out_lift(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np,4)
     !----------------------------------------------------------
 
     call element_operation_kernel_matvec_Lift_hexahedral_P10( this%Lift_mat, vec_in_lift, &
-      vec_out_lift )      
+      vec_out(:,4) )      
 
-    call element_operation_kernel_matvec_divlike_dirXYZ_P10( this%D1D, this%D1D_tr, vec_in_x, vec_in_y, vec_in_z, &
-      vec_out_dx, vec_out_dy, vec_out_dz )
+    call element_operation_kernel_matvec_divlike_dirXYZ_P10( this%D1D, this%D1D_tr, vec_in(:,1), vec_in(:,2), vec_in(:,3), &
+      vec_out(:,1), vec_out(:,2), vec_out(:,3) )
     return
   end subroutine element_operation_tensorprod3D_Div_P10
 
-!> Calculate the 3D gradient
+!> Calculate the 3D gradient applied for five variables
 !!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Div_var5_P10(  this, vec_in, vec_in_lift, &
@@ -3221,7 +3655,49 @@ contains
     end do
     return
   end subroutine element_operation_tensorprod3D_Div_var5_P10
-    
+
+!> Calculate the 3D divergence applied for five variables
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Div_var5_2_P10(  this, vec_in, &
+    vec_out_d )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_divlike_dirXYZ_P10
+    implicit none
+    class(ElementOperationTensorProd3D_P10), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np,3,5)
+    real(RP), intent(out) :: vec_out_d(this%elem3D%Np,3,5)
+
+    integer :: iv
+    !----------------------------------------------------------
+
+    do iv=1, 5
+      call element_operation_kernel_matvec_divlike_dirXYZ_P10( this%D1D, this%D1D_tr, vec_in(:,1,iv), vec_in(:,2,iv), vec_in(:,3,iv), &
+        vec_out_d(:,1,iv), vec_out_d(:,2,iv), vec_out_d(:,3,iv) )
+    end do
+    return
+  end subroutine element_operation_tensorprod3D_Div_var5_2_P10
+
+!> Calculate the lifting term applied for five variables
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Lift_var5_P10( this, vec_in, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_Lift_hexahedral_P10
+    implicit none
+    class(ElementOperationTensorProd3D_P10), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%NfpTot,5)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np,5)
+
+    integer :: iv
+    !----------------------------------------------------------
+    do iv=1, 5
+      call element_operation_kernel_matvec_Lift_hexahedral_P10( this%Lift_mat, vec_in(:,iv), vec_out(:,iv) )
+    end do
+    return
+  end subroutine element_operation_tensorprod3D_Lift_var5_P10
+  
+!> Apply a vertical modal filter which a coefficient with the highest vertical mode is set to zero
+!!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_VFilterPM1_P10( this, vec_in, vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirZ_P10
@@ -3236,7 +3712,9 @@ contains
     return
   end subroutine element_operation_tensorprod3D_VFilterPM1_P10 
 
-  !OCL SERIAL
+!> Apply a modal filter for tracer variables
+!!
+!OCL SERIAL
   subroutine element_operation_tensorprod3D_ModalFilter_tracer_P10( this, vec_in, vec_work, vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: &
       element_operation_kernel_matvec_ModalFilter_P10
@@ -3254,6 +3732,8 @@ contains
     return
   end subroutine element_operation_tensorprod3D_ModalFilter_tracer_P10 
   
+!> Apply a modal filter for five variables
+!!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_ModalFilter_var5_P10( this, vec_in, vec_work, vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: &
@@ -3320,8 +3800,8 @@ contains
     return
   end subroutine element_operation_tensorprod3D_Setup_ModalFilter_P11 
 
-  !> Setup modal filter for tracer
-  !!
+!> Setup modal filter for tracer
+!!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Setup_ModalFilter_tracer_P11( this, &
     MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h, &
@@ -3371,7 +3851,7 @@ contains
     return
   end subroutine element_operation_tensorprod3D_Dx_P11
 
-!> Calculate the differential in z-direction
+!> Calculate the differential in y-direction
 !!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Dy_P11( this, vec_in, vec_out )
@@ -3399,7 +3879,7 @@ contains
     return
   end subroutine element_operation_tensorprod3D_Dz_P11
 
-!> Calculate the Lifting term
+!> Calculate the lifting term
 !!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Lift_P11( this, vec_in, vec_out )
@@ -3437,35 +3917,34 @@ contains
     return
   end subroutine element_operation_tensorprod3D_DxDyDzLift_P11
 
-!> Calculate the 3D gradient
+!> Calculate the 3D divergence
+!!
+!! @param vec_in Array storing flux data (Fx,Fy,Fz) at nodes that we apply the differential matrices Dx, Dy, and Dz, respectively
+!! @param vec_in_lift Array storing surface flux data (Fs) at nodes that we apply the lifting operator
+!! @param vec_out Array storing the resulting data (Dx Fx, Dy Fy, Dz Fz, Lift Fs)
 !!
 !OCL SERIAL
-  subroutine element_operation_tensorprod3D_Div_P11(  this, vec_in_x, vec_in_y, vec_in_z, vec_in_lift, &
-    vec_out_dx, vec_out_dy, vec_out_dz, vec_out_lift )
+  subroutine element_operation_tensorprod3D_Div_P11(  this, vec_in, vec_in_lift, &
+    vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: &
       element_operation_kernel_matvec_divlike_dirXYZ_P11, &
       element_operation_kernel_matvec_Lift_hexahedral_P11
     implicit none
     class(ElementOperationTensorProd3D_P11), intent(in) :: this
-    real(RP), intent(in) :: vec_in_x(this%elem3D%Np)
-    real(RP), intent(in) :: vec_in_y(this%elem3D%Np)
-    real(RP), intent(in) :: vec_in_z(this%elem3D%Np)
+    real(RP), intent(in) :: vec_in(this%elem3D%Np,3)
     real(RP), intent(in) :: vec_in_lift(this%elem3D%NfpTot)
-    real(RP), intent(out) :: vec_out_dx(this%elem3D%Np)
-    real(RP), intent(out) :: vec_out_dy(this%elem3D%Np)
-    real(RP), intent(out) :: vec_out_dz(this%elem3D%Np)
-    real(RP), intent(out) :: vec_out_lift(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np,4)
     !----------------------------------------------------------
 
     call element_operation_kernel_matvec_Lift_hexahedral_P11( this%Lift_mat, vec_in_lift, &
-      vec_out_lift )      
+      vec_out(:,4) )      
 
-    call element_operation_kernel_matvec_divlike_dirXYZ_P11( this%D1D, this%D1D_tr, vec_in_x, vec_in_y, vec_in_z, &
-      vec_out_dx, vec_out_dy, vec_out_dz )
+    call element_operation_kernel_matvec_divlike_dirXYZ_P11( this%D1D, this%D1D_tr, vec_in(:,1), vec_in(:,2), vec_in(:,3), &
+      vec_out(:,1), vec_out(:,2), vec_out(:,3) )
     return
   end subroutine element_operation_tensorprod3D_Div_P11
 
-!> Calculate the 3D gradient
+!> Calculate the 3D gradient applied for five variables
 !!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Div_var5_P11(  this, vec_in, vec_in_lift, &
@@ -3492,7 +3971,49 @@ contains
     end do
     return
   end subroutine element_operation_tensorprod3D_Div_var5_P11
-    
+
+!> Calculate the 3D divergence applied for five variables
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Div_var5_2_P11(  this, vec_in, &
+    vec_out_d )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_divlike_dirXYZ_P11
+    implicit none
+    class(ElementOperationTensorProd3D_P11), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np,3,5)
+    real(RP), intent(out) :: vec_out_d(this%elem3D%Np,3,5)
+
+    integer :: iv
+    !----------------------------------------------------------
+
+    do iv=1, 5
+      call element_operation_kernel_matvec_divlike_dirXYZ_P11( this%D1D, this%D1D_tr, vec_in(:,1,iv), vec_in(:,2,iv), vec_in(:,3,iv), &
+        vec_out_d(:,1,iv), vec_out_d(:,2,iv), vec_out_d(:,3,iv) )
+    end do
+    return
+  end subroutine element_operation_tensorprod3D_Div_var5_2_P11
+
+!> Calculate the lifting term applied for five variables
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Lift_var5_P11( this, vec_in, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_Lift_hexahedral_P11
+    implicit none
+    class(ElementOperationTensorProd3D_P11), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%NfpTot,5)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np,5)
+
+    integer :: iv
+    !----------------------------------------------------------
+    do iv=1, 5
+      call element_operation_kernel_matvec_Lift_hexahedral_P11( this%Lift_mat, vec_in(:,iv), vec_out(:,iv) )
+    end do
+    return
+  end subroutine element_operation_tensorprod3D_Lift_var5_P11
+  
+!> Apply a vertical modal filter which a coefficient with the highest vertical mode is set to zero
+!!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_VFilterPM1_P11( this, vec_in, vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirZ_P11
@@ -3507,7 +4028,9 @@ contains
     return
   end subroutine element_operation_tensorprod3D_VFilterPM1_P11 
 
-  !OCL SERIAL
+!> Apply a modal filter for tracer variables
+!!
+!OCL SERIAL
   subroutine element_operation_tensorprod3D_ModalFilter_tracer_P11( this, vec_in, vec_work, vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: &
       element_operation_kernel_matvec_ModalFilter_P11
@@ -3525,6 +4048,8 @@ contains
     return
   end subroutine element_operation_tensorprod3D_ModalFilter_tracer_P11 
   
+!> Apply a modal filter for five variables
+!!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_ModalFilter_var5_P11( this, vec_in, vec_work, vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: &
@@ -3591,8 +4116,8 @@ contains
     return
   end subroutine element_operation_tensorprod3D_Setup_ModalFilter_P12 
 
-  !> Setup modal filter for tracer
-  !!
+!> Setup modal filter for tracer
+!!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Setup_ModalFilter_tracer_P12( this, &
     MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h, &
@@ -3642,7 +4167,7 @@ contains
     return
   end subroutine element_operation_tensorprod3D_Dx_P12
 
-!> Calculate the differential in z-direction
+!> Calculate the differential in y-direction
 !!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Dy_P12( this, vec_in, vec_out )
@@ -3670,7 +4195,7 @@ contains
     return
   end subroutine element_operation_tensorprod3D_Dz_P12
 
-!> Calculate the Lifting term
+!> Calculate the lifting term
 !!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Lift_P12( this, vec_in, vec_out )
@@ -3708,35 +4233,34 @@ contains
     return
   end subroutine element_operation_tensorprod3D_DxDyDzLift_P12
 
-!> Calculate the 3D gradient
+!> Calculate the 3D divergence
+!!
+!! @param vec_in Array storing flux data (Fx,Fy,Fz) at nodes that we apply the differential matrices Dx, Dy, and Dz, respectively
+!! @param vec_in_lift Array storing surface flux data (Fs) at nodes that we apply the lifting operator
+!! @param vec_out Array storing the resulting data (Dx Fx, Dy Fy, Dz Fz, Lift Fs)
 !!
 !OCL SERIAL
-  subroutine element_operation_tensorprod3D_Div_P12(  this, vec_in_x, vec_in_y, vec_in_z, vec_in_lift, &
-    vec_out_dx, vec_out_dy, vec_out_dz, vec_out_lift )
+  subroutine element_operation_tensorprod3D_Div_P12(  this, vec_in, vec_in_lift, &
+    vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: &
       element_operation_kernel_matvec_divlike_dirXYZ_P12, &
       element_operation_kernel_matvec_Lift_hexahedral_P12
     implicit none
     class(ElementOperationTensorProd3D_P12), intent(in) :: this
-    real(RP), intent(in) :: vec_in_x(this%elem3D%Np)
-    real(RP), intent(in) :: vec_in_y(this%elem3D%Np)
-    real(RP), intent(in) :: vec_in_z(this%elem3D%Np)
+    real(RP), intent(in) :: vec_in(this%elem3D%Np,3)
     real(RP), intent(in) :: vec_in_lift(this%elem3D%NfpTot)
-    real(RP), intent(out) :: vec_out_dx(this%elem3D%Np)
-    real(RP), intent(out) :: vec_out_dy(this%elem3D%Np)
-    real(RP), intent(out) :: vec_out_dz(this%elem3D%Np)
-    real(RP), intent(out) :: vec_out_lift(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np,4)
     !----------------------------------------------------------
 
     call element_operation_kernel_matvec_Lift_hexahedral_P12( this%Lift_mat, vec_in_lift, &
-      vec_out_lift )      
+      vec_out(:,4) )      
 
-    call element_operation_kernel_matvec_divlike_dirXYZ_P12( this%D1D, this%D1D_tr, vec_in_x, vec_in_y, vec_in_z, &
-      vec_out_dx, vec_out_dy, vec_out_dz )
+    call element_operation_kernel_matvec_divlike_dirXYZ_P12( this%D1D, this%D1D_tr, vec_in(:,1), vec_in(:,2), vec_in(:,3), &
+      vec_out(:,1), vec_out(:,2), vec_out(:,3) )
     return
   end subroutine element_operation_tensorprod3D_Div_P12
 
-!> Calculate the 3D gradient
+!> Calculate the 3D gradient applied for five variables
 !!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Div_var5_P12(  this, vec_in, vec_in_lift, &
@@ -3763,7 +4287,49 @@ contains
     end do
     return
   end subroutine element_operation_tensorprod3D_Div_var5_P12
-    
+
+!> Calculate the 3D divergence applied for five variables
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Div_var5_2_P12(  this, vec_in, &
+    vec_out_d )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_divlike_dirXYZ_P12
+    implicit none
+    class(ElementOperationTensorProd3D_P12), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np,3,5)
+    real(RP), intent(out) :: vec_out_d(this%elem3D%Np,3,5)
+
+    integer :: iv
+    !----------------------------------------------------------
+
+    do iv=1, 5
+      call element_operation_kernel_matvec_divlike_dirXYZ_P12( this%D1D, this%D1D_tr, vec_in(:,1,iv), vec_in(:,2,iv), vec_in(:,3,iv), &
+        vec_out_d(:,1,iv), vec_out_d(:,2,iv), vec_out_d(:,3,iv) )
+    end do
+    return
+  end subroutine element_operation_tensorprod3D_Div_var5_2_P12
+
+!> Calculate the lifting term applied for five variables
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Lift_var5_P12( this, vec_in, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_Lift_hexahedral_P12
+    implicit none
+    class(ElementOperationTensorProd3D_P12), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%NfpTot,5)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np,5)
+
+    integer :: iv
+    !----------------------------------------------------------
+    do iv=1, 5
+      call element_operation_kernel_matvec_Lift_hexahedral_P12( this%Lift_mat, vec_in(:,iv), vec_out(:,iv) )
+    end do
+    return
+  end subroutine element_operation_tensorprod3D_Lift_var5_P12
+  
+!> Apply a vertical modal filter which a coefficient with the highest vertical mode is set to zero
+!!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_VFilterPM1_P12( this, vec_in, vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirZ_P12
@@ -3778,7 +4344,9 @@ contains
     return
   end subroutine element_operation_tensorprod3D_VFilterPM1_P12 
 
-  !OCL SERIAL
+!> Apply a modal filter for tracer variables
+!!
+!OCL SERIAL
   subroutine element_operation_tensorprod3D_ModalFilter_tracer_P12( this, vec_in, vec_work, vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: &
       element_operation_kernel_matvec_ModalFilter_P12
@@ -3796,6 +4364,8 @@ contains
     return
   end subroutine element_operation_tensorprod3D_ModalFilter_tracer_P12 
   
+!> Apply a modal filter for five variables
+!!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_ModalFilter_var5_P12( this, vec_in, vec_work, vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: &
@@ -3862,8 +4432,8 @@ contains
     return
   end subroutine element_operation_tensorprod3D_Setup_ModalFilter_P13 
 
-  !> Setup modal filter for tracer
-  !!
+!> Setup modal filter for tracer
+!!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Setup_ModalFilter_tracer_P13( this, &
     MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h, &
@@ -3913,7 +4483,7 @@ contains
     return
   end subroutine element_operation_tensorprod3D_Dx_P13
 
-!> Calculate the differential in z-direction
+!> Calculate the differential in y-direction
 !!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Dy_P13( this, vec_in, vec_out )
@@ -3941,7 +4511,7 @@ contains
     return
   end subroutine element_operation_tensorprod3D_Dz_P13
 
-!> Calculate the Lifting term
+!> Calculate the lifting term
 !!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Lift_P13( this, vec_in, vec_out )
@@ -3979,35 +4549,34 @@ contains
     return
   end subroutine element_operation_tensorprod3D_DxDyDzLift_P13
 
-!> Calculate the 3D gradient
+!> Calculate the 3D divergence
+!!
+!! @param vec_in Array storing flux data (Fx,Fy,Fz) at nodes that we apply the differential matrices Dx, Dy, and Dz, respectively
+!! @param vec_in_lift Array storing surface flux data (Fs) at nodes that we apply the lifting operator
+!! @param vec_out Array storing the resulting data (Dx Fx, Dy Fy, Dz Fz, Lift Fs)
 !!
 !OCL SERIAL
-  subroutine element_operation_tensorprod3D_Div_P13(  this, vec_in_x, vec_in_y, vec_in_z, vec_in_lift, &
-    vec_out_dx, vec_out_dy, vec_out_dz, vec_out_lift )
+  subroutine element_operation_tensorprod3D_Div_P13(  this, vec_in, vec_in_lift, &
+    vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: &
       element_operation_kernel_matvec_divlike_dirXYZ_P13, &
       element_operation_kernel_matvec_Lift_hexahedral_P13
     implicit none
     class(ElementOperationTensorProd3D_P13), intent(in) :: this
-    real(RP), intent(in) :: vec_in_x(this%elem3D%Np)
-    real(RP), intent(in) :: vec_in_y(this%elem3D%Np)
-    real(RP), intent(in) :: vec_in_z(this%elem3D%Np)
+    real(RP), intent(in) :: vec_in(this%elem3D%Np,3)
     real(RP), intent(in) :: vec_in_lift(this%elem3D%NfpTot)
-    real(RP), intent(out) :: vec_out_dx(this%elem3D%Np)
-    real(RP), intent(out) :: vec_out_dy(this%elem3D%Np)
-    real(RP), intent(out) :: vec_out_dz(this%elem3D%Np)
-    real(RP), intent(out) :: vec_out_lift(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np,4)
     !----------------------------------------------------------
 
     call element_operation_kernel_matvec_Lift_hexahedral_P13( this%Lift_mat, vec_in_lift, &
-      vec_out_lift )      
+      vec_out(:,4) )      
 
-    call element_operation_kernel_matvec_divlike_dirXYZ_P13( this%D1D, this%D1D_tr, vec_in_x, vec_in_y, vec_in_z, &
-      vec_out_dx, vec_out_dy, vec_out_dz )
+    call element_operation_kernel_matvec_divlike_dirXYZ_P13( this%D1D, this%D1D_tr, vec_in(:,1), vec_in(:,2), vec_in(:,3), &
+      vec_out(:,1), vec_out(:,2), vec_out(:,3) )
     return
   end subroutine element_operation_tensorprod3D_Div_P13
 
-!> Calculate the 3D gradient
+!> Calculate the 3D gradient applied for five variables
 !!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Div_var5_P13(  this, vec_in, vec_in_lift, &
@@ -4034,7 +4603,49 @@ contains
     end do
     return
   end subroutine element_operation_tensorprod3D_Div_var5_P13
-    
+
+!> Calculate the 3D divergence applied for five variables
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Div_var5_2_P13(  this, vec_in, &
+    vec_out_d )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_divlike_dirXYZ_P13
+    implicit none
+    class(ElementOperationTensorProd3D_P13), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np,3,5)
+    real(RP), intent(out) :: vec_out_d(this%elem3D%Np,3,5)
+
+    integer :: iv
+    !----------------------------------------------------------
+
+    do iv=1, 5
+      call element_operation_kernel_matvec_divlike_dirXYZ_P13( this%D1D, this%D1D_tr, vec_in(:,1,iv), vec_in(:,2,iv), vec_in(:,3,iv), &
+        vec_out_d(:,1,iv), vec_out_d(:,2,iv), vec_out_d(:,3,iv) )
+    end do
+    return
+  end subroutine element_operation_tensorprod3D_Div_var5_2_P13
+
+!> Calculate the lifting term applied for five variables
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Lift_var5_P13( this, vec_in, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_Lift_hexahedral_P13
+    implicit none
+    class(ElementOperationTensorProd3D_P13), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%NfpTot,5)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np,5)
+
+    integer :: iv
+    !----------------------------------------------------------
+    do iv=1, 5
+      call element_operation_kernel_matvec_Lift_hexahedral_P13( this%Lift_mat, vec_in(:,iv), vec_out(:,iv) )
+    end do
+    return
+  end subroutine element_operation_tensorprod3D_Lift_var5_P13
+  
+!> Apply a vertical modal filter which a coefficient with the highest vertical mode is set to zero
+!!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_VFilterPM1_P13( this, vec_in, vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirZ_P13
@@ -4049,7 +4660,9 @@ contains
     return
   end subroutine element_operation_tensorprod3D_VFilterPM1_P13 
 
-  !OCL SERIAL
+!> Apply a modal filter for tracer variables
+!!
+!OCL SERIAL
   subroutine element_operation_tensorprod3D_ModalFilter_tracer_P13( this, vec_in, vec_work, vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: &
       element_operation_kernel_matvec_ModalFilter_P13
@@ -4067,6 +4680,8 @@ contains
     return
   end subroutine element_operation_tensorprod3D_ModalFilter_tracer_P13 
   
+!> Apply a modal filter for five variables
+!!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_ModalFilter_var5_P13( this, vec_in, vec_work, vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: &
@@ -4133,8 +4748,8 @@ contains
     return
   end subroutine element_operation_tensorprod3D_Setup_ModalFilter_P14 
 
-  !> Setup modal filter for tracer
-  !!
+!> Setup modal filter for tracer
+!!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Setup_ModalFilter_tracer_P14( this, &
     MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h, &
@@ -4184,7 +4799,7 @@ contains
     return
   end subroutine element_operation_tensorprod3D_Dx_P14
 
-!> Calculate the differential in z-direction
+!> Calculate the differential in y-direction
 !!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Dy_P14( this, vec_in, vec_out )
@@ -4212,7 +4827,7 @@ contains
     return
   end subroutine element_operation_tensorprod3D_Dz_P14
 
-!> Calculate the Lifting term
+!> Calculate the lifting term
 !!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Lift_P14( this, vec_in, vec_out )
@@ -4250,35 +4865,34 @@ contains
     return
   end subroutine element_operation_tensorprod3D_DxDyDzLift_P14
 
-!> Calculate the 3D gradient
+!> Calculate the 3D divergence
+!!
+!! @param vec_in Array storing flux data (Fx,Fy,Fz) at nodes that we apply the differential matrices Dx, Dy, and Dz, respectively
+!! @param vec_in_lift Array storing surface flux data (Fs) at nodes that we apply the lifting operator
+!! @param vec_out Array storing the resulting data (Dx Fx, Dy Fy, Dz Fz, Lift Fs)
 !!
 !OCL SERIAL
-  subroutine element_operation_tensorprod3D_Div_P14(  this, vec_in_x, vec_in_y, vec_in_z, vec_in_lift, &
-    vec_out_dx, vec_out_dy, vec_out_dz, vec_out_lift )
+  subroutine element_operation_tensorprod3D_Div_P14(  this, vec_in, vec_in_lift, &
+    vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: &
       element_operation_kernel_matvec_divlike_dirXYZ_P14, &
       element_operation_kernel_matvec_Lift_hexahedral_P14
     implicit none
     class(ElementOperationTensorProd3D_P14), intent(in) :: this
-    real(RP), intent(in) :: vec_in_x(this%elem3D%Np)
-    real(RP), intent(in) :: vec_in_y(this%elem3D%Np)
-    real(RP), intent(in) :: vec_in_z(this%elem3D%Np)
+    real(RP), intent(in) :: vec_in(this%elem3D%Np,3)
     real(RP), intent(in) :: vec_in_lift(this%elem3D%NfpTot)
-    real(RP), intent(out) :: vec_out_dx(this%elem3D%Np)
-    real(RP), intent(out) :: vec_out_dy(this%elem3D%Np)
-    real(RP), intent(out) :: vec_out_dz(this%elem3D%Np)
-    real(RP), intent(out) :: vec_out_lift(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np,4)
     !----------------------------------------------------------
 
     call element_operation_kernel_matvec_Lift_hexahedral_P14( this%Lift_mat, vec_in_lift, &
-      vec_out_lift )      
+      vec_out(:,4) )      
 
-    call element_operation_kernel_matvec_divlike_dirXYZ_P14( this%D1D, this%D1D_tr, vec_in_x, vec_in_y, vec_in_z, &
-      vec_out_dx, vec_out_dy, vec_out_dz )
+    call element_operation_kernel_matvec_divlike_dirXYZ_P14( this%D1D, this%D1D_tr, vec_in(:,1), vec_in(:,2), vec_in(:,3), &
+      vec_out(:,1), vec_out(:,2), vec_out(:,3) )
     return
   end subroutine element_operation_tensorprod3D_Div_P14
 
-!> Calculate the 3D gradient
+!> Calculate the 3D gradient applied for five variables
 !!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Div_var5_P14(  this, vec_in, vec_in_lift, &
@@ -4305,7 +4919,49 @@ contains
     end do
     return
   end subroutine element_operation_tensorprod3D_Div_var5_P14
-    
+
+!> Calculate the 3D divergence applied for five variables
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Div_var5_2_P14(  this, vec_in, &
+    vec_out_d )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_divlike_dirXYZ_P14
+    implicit none
+    class(ElementOperationTensorProd3D_P14), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np,3,5)
+    real(RP), intent(out) :: vec_out_d(this%elem3D%Np,3,5)
+
+    integer :: iv
+    !----------------------------------------------------------
+
+    do iv=1, 5
+      call element_operation_kernel_matvec_divlike_dirXYZ_P14( this%D1D, this%D1D_tr, vec_in(:,1,iv), vec_in(:,2,iv), vec_in(:,3,iv), &
+        vec_out_d(:,1,iv), vec_out_d(:,2,iv), vec_out_d(:,3,iv) )
+    end do
+    return
+  end subroutine element_operation_tensorprod3D_Div_var5_2_P14
+
+!> Calculate the lifting term applied for five variables
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Lift_var5_P14( this, vec_in, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_Lift_hexahedral_P14
+    implicit none
+    class(ElementOperationTensorProd3D_P14), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%NfpTot,5)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np,5)
+
+    integer :: iv
+    !----------------------------------------------------------
+    do iv=1, 5
+      call element_operation_kernel_matvec_Lift_hexahedral_P14( this%Lift_mat, vec_in(:,iv), vec_out(:,iv) )
+    end do
+    return
+  end subroutine element_operation_tensorprod3D_Lift_var5_P14
+  
+!> Apply a vertical modal filter which a coefficient with the highest vertical mode is set to zero
+!!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_VFilterPM1_P14( this, vec_in, vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirZ_P14
@@ -4320,7 +4976,9 @@ contains
     return
   end subroutine element_operation_tensorprod3D_VFilterPM1_P14 
 
-  !OCL SERIAL
+!> Apply a modal filter for tracer variables
+!!
+!OCL SERIAL
   subroutine element_operation_tensorprod3D_ModalFilter_tracer_P14( this, vec_in, vec_work, vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: &
       element_operation_kernel_matvec_ModalFilter_P14
@@ -4338,6 +4996,8 @@ contains
     return
   end subroutine element_operation_tensorprod3D_ModalFilter_tracer_P14 
   
+!> Apply a modal filter for five variables
+!!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_ModalFilter_var5_P14( this, vec_in, vec_work, vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: &
@@ -4404,8 +5064,8 @@ contains
     return
   end subroutine element_operation_tensorprod3D_Setup_ModalFilter_P15 
 
-  !> Setup modal filter for tracer
-  !!
+!> Setup modal filter for tracer
+!!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Setup_ModalFilter_tracer_P15( this, &
     MF_ETAC_h, MF_ALPHA_h, MF_ORDER_h, &
@@ -4455,7 +5115,7 @@ contains
     return
   end subroutine element_operation_tensorprod3D_Dx_P15
 
-!> Calculate the differential in z-direction
+!> Calculate the differential in y-direction
 !!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Dy_P15( this, vec_in, vec_out )
@@ -4483,7 +5143,7 @@ contains
     return
   end subroutine element_operation_tensorprod3D_Dz_P15
 
-!> Calculate the Lifting term
+!> Calculate the lifting term
 !!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Lift_P15( this, vec_in, vec_out )
@@ -4521,35 +5181,34 @@ contains
     return
   end subroutine element_operation_tensorprod3D_DxDyDzLift_P15
 
-!> Calculate the 3D gradient
+!> Calculate the 3D divergence
+!!
+!! @param vec_in Array storing flux data (Fx,Fy,Fz) at nodes that we apply the differential matrices Dx, Dy, and Dz, respectively
+!! @param vec_in_lift Array storing surface flux data (Fs) at nodes that we apply the lifting operator
+!! @param vec_out Array storing the resulting data (Dx Fx, Dy Fy, Dz Fz, Lift Fs)
 !!
 !OCL SERIAL
-  subroutine element_operation_tensorprod3D_Div_P15(  this, vec_in_x, vec_in_y, vec_in_z, vec_in_lift, &
-    vec_out_dx, vec_out_dy, vec_out_dz, vec_out_lift )
+  subroutine element_operation_tensorprod3D_Div_P15(  this, vec_in, vec_in_lift, &
+    vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: &
       element_operation_kernel_matvec_divlike_dirXYZ_P15, &
       element_operation_kernel_matvec_Lift_hexahedral_P15
     implicit none
     class(ElementOperationTensorProd3D_P15), intent(in) :: this
-    real(RP), intent(in) :: vec_in_x(this%elem3D%Np)
-    real(RP), intent(in) :: vec_in_y(this%elem3D%Np)
-    real(RP), intent(in) :: vec_in_z(this%elem3D%Np)
+    real(RP), intent(in) :: vec_in(this%elem3D%Np,3)
     real(RP), intent(in) :: vec_in_lift(this%elem3D%NfpTot)
-    real(RP), intent(out) :: vec_out_dx(this%elem3D%Np)
-    real(RP), intent(out) :: vec_out_dy(this%elem3D%Np)
-    real(RP), intent(out) :: vec_out_dz(this%elem3D%Np)
-    real(RP), intent(out) :: vec_out_lift(this%elem3D%Np)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np,4)
     !----------------------------------------------------------
 
     call element_operation_kernel_matvec_Lift_hexahedral_P15( this%Lift_mat, vec_in_lift, &
-      vec_out_lift )      
+      vec_out(:,4) )      
 
-    call element_operation_kernel_matvec_divlike_dirXYZ_P15( this%D1D, this%D1D_tr, vec_in_x, vec_in_y, vec_in_z, &
-      vec_out_dx, vec_out_dy, vec_out_dz )
+    call element_operation_kernel_matvec_divlike_dirXYZ_P15( this%D1D, this%D1D_tr, vec_in(:,1), vec_in(:,2), vec_in(:,3), &
+      vec_out(:,1), vec_out(:,2), vec_out(:,3) )
     return
   end subroutine element_operation_tensorprod3D_Div_P15
 
-!> Calculate the 3D gradient
+!> Calculate the 3D gradient applied for five variables
 !!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_Div_var5_P15(  this, vec_in, vec_in_lift, &
@@ -4576,7 +5235,49 @@ contains
     end do
     return
   end subroutine element_operation_tensorprod3D_Div_var5_P15
-    
+
+!> Calculate the 3D divergence applied for five variables
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Div_var5_2_P15(  this, vec_in, &
+    vec_out_d )
+    use scale_element_operation_tensorprod3D_kernel, only: &
+      element_operation_kernel_matvec_divlike_dirXYZ_P15
+    implicit none
+    class(ElementOperationTensorProd3D_P15), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%Np,3,5)
+    real(RP), intent(out) :: vec_out_d(this%elem3D%Np,3,5)
+
+    integer :: iv
+    !----------------------------------------------------------
+
+    do iv=1, 5
+      call element_operation_kernel_matvec_divlike_dirXYZ_P15( this%D1D, this%D1D_tr, vec_in(:,1,iv), vec_in(:,2,iv), vec_in(:,3,iv), &
+        vec_out_d(:,1,iv), vec_out_d(:,2,iv), vec_out_d(:,3,iv) )
+    end do
+    return
+  end subroutine element_operation_tensorprod3D_Div_var5_2_P15
+
+!> Calculate the lifting term applied for five variables
+!!
+!OCL SERIAL
+  subroutine element_operation_tensorprod3D_Lift_var5_P15( this, vec_in, vec_out )
+    use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_Lift_hexahedral_P15
+    implicit none
+    class(ElementOperationTensorProd3D_P15), intent(in) :: this
+    real(RP), intent(in) :: vec_in(this%elem3D%NfpTot,5)
+    real(RP), intent(out) :: vec_out(this%elem3D%Np,5)
+
+    integer :: iv
+    !----------------------------------------------------------
+    do iv=1, 5
+      call element_operation_kernel_matvec_Lift_hexahedral_P15( this%Lift_mat, vec_in(:,iv), vec_out(:,iv) )
+    end do
+    return
+  end subroutine element_operation_tensorprod3D_Lift_var5_P15
+  
+!> Apply a vertical modal filter which a coefficient with the highest vertical mode is set to zero
+!!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_VFilterPM1_P15( this, vec_in, vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: element_operation_kernel_matvec_dirZ_P15
@@ -4591,7 +5292,9 @@ contains
     return
   end subroutine element_operation_tensorprod3D_VFilterPM1_P15 
 
-  !OCL SERIAL
+!> Apply a modal filter for tracer variables
+!!
+!OCL SERIAL
   subroutine element_operation_tensorprod3D_ModalFilter_tracer_P15( this, vec_in, vec_work, vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: &
       element_operation_kernel_matvec_ModalFilter_P15
@@ -4609,6 +5312,8 @@ contains
     return
   end subroutine element_operation_tensorprod3D_ModalFilter_tracer_P15 
   
+!> Apply a modal filter for five variables
+!!
 !OCL SERIAL
   subroutine element_operation_tensorprod3D_ModalFilter_var5_P15( this, vec_in, vec_work, vec_out )
     use scale_element_operation_tensorprod3D_kernel, only: &

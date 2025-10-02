@@ -46,7 +46,7 @@ module mod_atmos_mesh_gm
   !> Derived type to manage a computational mesh of global atmospheric model
   !!
   type, extends(AtmosMesh), public :: AtmosMeshGM
-    type(MeshCubedSphereDom3D) :: mesh
+    type(MeshCubedSphereDom3D) :: mesh                                               !< Object for 3D cubed-sphere mesh
     type(MeshFieldCommCubedSphereDom3D) :: comm_list(ATM_MESH_MAX_COMMNUICATOR_NUM)
   contains
     procedure :: Init => AtmosMeshGM_Init
@@ -76,7 +76,7 @@ module mod_atmos_mesh_gm
 
 contains
 
-  !> Initialize a object to manage computational mesh
+  !> Initialize an object to manage computational mesh
   !!
 !OCL SERIAL
   subroutine AtmosMeshGM_Init( this )    
@@ -112,7 +112,8 @@ contains
     character(len=H_MID)  :: TOPO_IN_VARNAME     = 'topo'               !< Variable name of topography in the input file
     character(len=H_MID)  :: VERTICAL_COORD_NAME = "TERRAIN_FOLLOWING"  !< Type of the vertical coordinate
 
-    logical :: COMM_USE_MPI_PC    = .false.      !< Flag whether persistent communication is used in MPI
+    logical :: COMM_USE_MPI_PC             = .false. !< Flag whether persistent communication is used in MPI
+    logical :: COMM_USE_MPI_PC_FUJITSU_EXT
 
     character(len=H_SHORT) :: Element_operation_type = 'General' !< General or TensorProd3D
     character(len=H_SHORT) :: SpMV_storage_format    = 'ELL'     !< CSR or ELL
@@ -127,7 +128,8 @@ contains
       SpMV_storage_format,                         &
       VERTICAL_COORD_NAME,                         &
       TOPO_IN_BASENAME, TOPO_IN_VARNAME,           &
-      COMM_USE_MPI_PC
+      COMM_USE_MPI_PC,                             &
+      COMM_USE_MPI_PC_FUJITSU_EXT
     
     integer :: k
     logical :: is_spec_FZ
@@ -141,6 +143,11 @@ contains
     LOG_INFO("ATMOS_MESH_setup",*) 'Setup'
 
     FZ(:) = -1.0_RP
+#ifdef __FUJITSU
+    COMM_USE_MPI_PC_FUJITSU_EXT = .true.
+#else
+    COMM_USE_MPI_PC_FUJITSU_EXT = .false.
+#endif
 
     rewind(IO_FID_CONF)
     read(IO_FID_CONF,nml=PARAM_ATMOS_MESH,iostat=ierr)
@@ -202,12 +209,13 @@ contains
     call this%Setup_vcoordinate()
 
     !-
-    this%comm_use_mpi_pc = COMM_USE_MPI_PC
+    this%comm_use_mpi_pc             = COMM_USE_MPI_PC
+    this%comm_use_mpi_pc_fujitsu_ext = COMM_USE_MPI_PC_FUJITSU_EXT
 
     return
   end subroutine AtmosMeshGM_Init
 
-  !> Finalize a object to manage computational mesh
+  !> Finalize an object to manage computational mesh
   !!
 !OCL SERIAL
   subroutine AtmosMeshGM_Final(this)
@@ -227,23 +235,27 @@ contains
     return
   end subroutine AtmosMeshGM_Final
 
+  !> Create a communicator for data communication on global computational domain
+  !!
 !OCL SERIAL
   subroutine AtmosMeshGM_create_communicator( this, sfield_num, hvfield_num, htensorfield_num, &
     var_manager, field_list, commid )
     implicit none
     class(AtmosMeshGM), target, intent(inout) :: this
-    integer, intent(in) :: sfield_num
-    integer, intent(in) :: hvfield_num
-    integer, intent(in) :: htensorfield_num
-    class(ModelVarManager), intent(inout) :: var_manager
-    class(MeshField3D), intent(in) :: field_list(:)
-    integer, intent(out) :: commid
+    integer, intent(in) :: sfield_num        !< Number of scalar fields
+    integer, intent(in) :: hvfield_num       !< Number of horizontal vector fields
+    integer, intent(in) :: htensorfield_num  !< Number of horizontal tensor fields
+    class(ModelVarManager), intent(inout) :: var_manager !< Object to manage variables
+    class(MeshField3D), intent(in) :: field_list(:)      !< Array of 3D fields
+    integer, intent(out) :: commid           !< Communicator ID
     !-----------------------------------------------------
 
     commid = this%Get_communicatorID( ATM_MESH_MAX_COMMNUICATOR_NUM )
     call this%comm_list(commid)%Init( sfield_num, hvfield_num, htensorfield_num, this%mesh )
-    if ( this%comm_use_mpi_pc ) call this%comm_list(commid)%Prepare_PC()
-    call var_manager%MeshFieldComm_Prepair( this%comm_list(commid), field_list )
+    if ( this%comm_use_mpi_pc ) then
+      call this%comm_list(commid)%Prepare_PC( this%comm_use_mpi_pc_fujitsu_ext )
+    end if
+    call var_manager%MeshFieldComm_Prepare( this%comm_list(commid), field_list )
 
     return
   end subroutine AtmosMeshGM_create_communicator  
@@ -283,6 +295,7 @@ contains
 
   end subroutine AtmosMeshGM_setup_restartfile2
 
+!> Calculate horizontal vector components in longitude-latitude coordinates
 !OCL SERIAL
   subroutine AtmosMeshGM_calc_UVMet( this, U, V, &
     Umet, Vmet )
@@ -317,6 +330,7 @@ contains
     return
   end subroutine AtmosMeshGM_calc_UVMet
 
+!> Setup the vertical coordinate
 !OCL SERIAL
   subroutine AtmosMeshGM_setup_vcoordinate( this )
     use scale_meshfieldcomm_cubedspheredom2d, only: MeshFieldCommCubedSphereDom2D

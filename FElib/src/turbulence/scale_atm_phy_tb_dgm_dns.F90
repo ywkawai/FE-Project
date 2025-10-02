@@ -1,9 +1,7 @@
 !> module FElib / Atmosphere / Physics turbulence
 !!
 !! @par Description
-!!      Turbulnce process for DNS
-!!
-!! @author Team SCALE
+!!      Turbulence process for DNS
 !!
 !! @author Yuta Kawai, Team SCALE
 !<

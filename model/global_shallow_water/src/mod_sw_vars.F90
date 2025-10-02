@@ -1,4 +1,13 @@
 !-------------------------------------------------------------------------------
+!> module Global SW / Variables
+!!
+!! @par Description
+!!          Container for variables
+!!
+!! @author Yuta Kawai, Team SCALE
+!!
+!<
+!-------------------------------------------------------------------------------
 #include "scaleFElib.h"
 module mod_sw_vars
   !-----------------------------------------------------------------------------
@@ -253,7 +262,7 @@ contains
     end do
 
     call this%PROGVARS_comm%Init( 1, 1, 0, sw_mesh%mesh )
-    call this%PROGVARS_manager%MeshFieldComm_Prepair( this%PROGVARS_comm, this%PROG_VARS(:) )
+    call this%PROGVARS_manager%MeshFieldComm_Prepare( this%PROGVARS_comm, this%PROG_VARS(:) )
 
     LOG_NEWLINE
     LOG_INFO("SW_vars_setup",*) 'List of prognostic variables (SW) '
@@ -281,7 +290,7 @@ contains
     end do
 
     call this%AUXVARS_comm%Init(SW_AUXVARS_NUM, 0, 0, sw_mesh%mesh)
-    call this%AUXVARS_manager%MeshFieldComm_Prepair( this%AUXVARS_comm, this%AUX_VARS(:) )
+    call this%AUXVARS_manager%MeshFieldComm_Prepare( this%AUXVARS_comm, this%AUX_VARS(:) )
 
     call this%PROGVARS_comm%SetCovariantVec( 1, &
       this%AUX_VARS(SW_AUXVARS_u1_ID),          &

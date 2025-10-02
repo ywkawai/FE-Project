@@ -1,0 +1,134 @@
+\section{Download source codes and Setting computational environment} \label{sec:download}
+%====================================================================================
+
+\subsubsection{Get source codes} %\label{subsec:get_source_code}
+%-----------------------------------------------------------------------------------
+The source codes for the latest release can be downloaded
+from \url{https://ywkawai.github.io/FE-Project_web/download/}.\\
+The directory \texttt{FE-Project-{\version}/} can be seen when the tarball file of the source code is extracted.
+\begin{alltt}
+ $ tar -zxvf FE-Project-{\version}.tar.gz
+ $ ls ./FE-Project-{\version}/
+\end{alltt}
+
+\subsubsection{Set Makedef file and environmental variables} \label{subsec:environment}
+%-----------------------------------------------------------------------------------
+
+\scaledg is compiled using a Makedef file
+specified in the environment variable ``\verb|SCALE_FE_SYS|.''
+Several variations of the Makedef file are prepared in the directory \texttt{FE-Project-{\version}/sysdep/}.
+According to your computational environment, 
+choose a Makedef file in Table \ref{tab:makedef} and set the environment variable as
+\begin{verbatim}
+ $ export SCALE_FE_SYS="Linux64-gnu-ompi" (for example)
+\end{verbatim}
+If there is no Makedef file for your environment, 
+create a Makedif file by modifying any existing one.
+Because FE-Project uses SCALE library, 
+you need to set a directory including SCALE library as 
+\begin{verbatim}
+ $ export SCALE="~/workspace/scale-5.X.X/" (for example)
+\end{verbatim}
+
+\begin{table}[htb]
+\begin{center}
+\caption{Examples of environments and their corresponding Makedef files.}
+\begin{tabularx}{150mm}{|l|l|X|l|} \hline
+ \rowcolor[gray]{0.9} OS/Computer & Compiler & MPI & Makedef file \\ \hline
+                 & GNU & Open MPI & Makedef.Linux64-gnu-ompi \\ \cline{2-4}
+ Linux OS x86-64 & Intel OneAPI   & Intel MPI & Makedef.Linux64-llvm-intel-impi \\ \hline
+ Mac OS          & GNU            & Open MPI  & Makedef.MacOSX-gnu-ompi \\ \hline
+ Fugaku          & Fujitsu        & Fujitsu MPI & Makedef.FUGAKU \\ \hline
+\end{tabularx}
+\label{tab:makedef}
+\end{center}
+\end{table}
+
+
+All the environment variables applied at compile time are listed in Table \ref{tab:env_var_list}.
+For example, if you would like to enable a thread parallelization with OpenMP, 
+set a variable as
+\begin{verbatim}
+ $ export SCALE_ENABLE_OPENMP=T
+\end{verbatim}
+
+\begin{table}[htb]
+\begin{center}
+\caption{List of environment variables applied at compile time}
+\begin{tabularx}{150mm}{|l|X|} \hline
+ \rowcolor[gray]{0.9} Environment variable & Description \\ \hline
+ SCALE                    & Path of SCALE library (required) \\ \hline
+ SCALE\_FE\_SYS           & Selection of system (required) \\ \hline
+ SCALE\_ENABLE\_OPENMP    & Enable to use OpenMP \\ \hline
+%  SCALE\_ENABLE\_OPENACC   & Enable to use OpenACC \\ \hline
+ SCALE\_DEBUG             & Use compile option for debug \\ \hline
+ SCALE\_QUICKDEBUG        & Use compile option for quick debug (detect floating point error while maintaining speed-up option) \\ \hline
+%  SCALE\_USE\_SINGLEFP     & Use single precision floating-point number (for all sources) \\ \hline
+%  SCALE\_USE\_AGRESSIVEOPT & Conduct strong optimization (only for FX and intel, this can be a side effect) \\ \hline
+%  SCALE\_DISABLE\_INTELVEC & Suppress option for vectorization (only with Intel compiler) \\ \hline
+ SCALE\_NETCDF\_INCLUDE   & Include path of NetCDF library \\ \hline
+ SCALE\_NETCDF\_LIBS      & Directory path of NetCDF library and specifying libraries \\ \hline
+%  SCALE\_ENABLE\_PNETCDF   & Use Parallel NetCDF \\ \hline
+%  SCALE\_COMPAT\_NETCDF3   & Limit to NetCDF3-compatible features \\ \hline
+%  SCALE\_ENABLE\_MATHLIB   & Use numerical calculation library \\ \hline
+ SCALE\_MATHLIB\_LIBS     & Directory path of numerical library and specifying libraries \\ \hline
+%  SCALE\_ENABLE\_PAPI      & Use Performance Application Programming Interface (PAPI) \\ \hline
+%  SCALE\_PAPI\_INCLUDE     & Include path of PAPI library \\ \hline
+%  SCALE\_PAPI\_LIBS        & Directory path of PAPI library and specifying libraries \\ \hline
+%  SCALE\_DISABLE\_LOCALBIN & Disable making local binary files in directory for test cases \\ \hline
+%  SCALE\_IGNORE\_SRCDEP    & Ignore dependency check at the compile time \\ \hline
+%  SCALE\_ENABLE\_SDM       & Use Super Droplet Method (SDM) model \\ \hline
+\end{tabularx}
+\label{tab:env_var_list}
+\end{center}
+\end{table}
+
+
+For file I/O, \scaledg requires \netcdf.
+In the most cases, the pathes of \netcdf may be automatically found by using ``nc-config'' command.
+If the paths cannot be found automatically, 
+you should set the environmental variables for \netcdf as follows:
+\begin{verbatim}
+ $ export SCALE_NETCDF_INCLUDE="-I/opt/netcdf/include"
+ $ export SCALE_NETCDF_LIBS= \
+        "-L/opt/hdf5/lib64 -L/opt/netcdf/lib64 -lnetcdff -lnetcdf -lhdf5_hl -lhdf5 -lm -lz"
+\end{verbatim}
+
+
+\section{Compile} \label{sec:compile}
+%-----------------------------------------------------------------------------------
+
+\subsubsection{Compile of \scaledg}
+
+To build \scaledg and conduct a test case such as idealized mountain wave tests, 
+move to a directory of the test case and execute a command as 
+\begin{alltt}
+ $ cd FE-Project-{\version}/model/atm_nonhydro3d/test/case/mountain_wave/linear_hydrostatic_case/
+ $ make -j 4
+\end{alltt}
+The number of \verb|-j| option shows a number of parallel compile processes 
+and specify this number according to your environment.
+When a compilation is successful, 
+the following three executable files are generated in the current directory.
+\begin{verbatim}
+ scale-dg  scale-dg_init  scale-dg_pp
+\end{verbatim}
+
+Note that we prepare various numerical experiments are prepared. 
+The configuration files can be found in the directory of 
+FE-Project-{\version}/model/atm\_nonhydro3d/test/case/*. 
+It is useful for you to create a new experimental setting.
+
+\subsubsection{Points to note}
+
+\noindent If you want to compile them again, remove the created binary files by the following command:
+\begin{verbatim}
+ $ make clean
+\end{verbatim}
+Note that, this command does not remove the library already compiled.
+When you recompile the files by changing the compilation environment and options, 
+use the following command to remove all files created by compilation:
+\begin{verbatim}
+ $ make allclean
+\end{verbatim}
+

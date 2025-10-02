@@ -23,6 +23,7 @@ module scale_meshfieldcomm_cubedom3d
     MeshFieldCommBase,                               &
     MeshFieldCommBase_Init, MeshFieldCommBase_Final, &
     MeshFieldCommBase_extract_bounddata,             &
+    MeshFieldCommBase_extract_bounddata_2,           &
     MeshFieldCommBase_set_bounddata,                 &
     MeshFieldContainer
   use scale_localmesh_3d, only: Localmesh3d
@@ -36,9 +37,9 @@ module scale_meshfieldcomm_cubedom3d
   !++ Public type & procedure
   ! 
 
-
+  !> Base derived type to manage data communication with 3D cubic domain
   type, public, extends(MeshFieldCommBase) :: MeshFieldCommCubeDom3D
-    class(MeshCubeDom3D), pointer :: mesh3d
+    class(MeshCubeDom3D), pointer :: mesh3d !< Pointer to an object representing 3D cubic computational mesh
   contains
     procedure, public :: Init => MeshFieldCommCubeDom3D_Init
     procedure, public :: Put => MeshFieldCommCubeDom3D_put
@@ -62,20 +63,21 @@ module scale_meshfieldcomm_cubedom3d
   !
   !++ Private parameters & variables
   !
-  integer :: bufsize_per_field
-  integer, parameter :: COMM_FACE_NUM = 6
+  integer :: bufsize_per_field             !< Buffer size per a field
+  integer, parameter :: COMM_FACE_NUM = 6  !< Number of faces with data communication
 
 contains
+!> Initialize an object to manage data communication with 3D cubic domain
   subroutine MeshFieldCommCubeDom3D_Init( this, &
     sfield_num, hvfield_num, htensorfield_num, mesh3d )
 
     implicit none
     
     class(MeshFieldCommCubeDom3D), intent(inout) :: this
-    integer, intent(in) :: sfield_num
-    integer, intent(in) :: hvfield_num
-    integer, intent(in) :: htensorfield_num
-    class(MeshCubeDom3D), intent(in), target :: mesh3d
+    integer, intent(in) :: sfield_num                    !< Number of scalar fields
+    integer, intent(in) :: hvfield_num                   !< Number of horizontal vector fields
+    integer, intent(in) :: htensorfield_num              !< Number of horizontal vector fields
+    class(MeshCubeDom3D), intent(in), target :: mesh3d   !< Object to manage a 3D cubic computational mesh
     
     type(LocalMesh3D), pointer :: lcmesh
     type(ElementBase3D), pointer :: elem
@@ -101,6 +103,7 @@ contains
     return
   end subroutine MeshFieldCommCubeDom3D_Init
 
+!> Finalize an object to manage data communication with 3D cubic domain
   subroutine MeshFieldCommCubeDom3D_Final( this )
     implicit none    
     class(MeshFieldCommCubeDom3D), intent(inout) :: this
@@ -111,40 +114,43 @@ contains
     return
   end subroutine MeshFieldCommCubeDom3D_Final
 
+!> Put field data into temporary buffers
   subroutine MeshFieldCommCubeDom3D_put(this, field_list, varid_s)
     implicit none
     class(MeshFieldCommCubeDom3D), intent(inout) :: this
-    type(MeshFieldContainer), intent(in) :: field_list(:)
-    integer, intent(in) :: varid_s
+    type(MeshFieldContainer), intent(in) :: field_list(:)  !< Array of objects with 3D mesh field
+    integer, intent(in) :: varid_s                         !< Start index with variables when field_list(1) is written to buffers for data communication
   
-    integer :: i
-    integer :: n
-    type(LocalMesh3d), pointer :: lcmesh
-    integer :: field_num
+    ! integer :: i
+    ! integer :: n
+    ! type(LocalMesh3d), pointer :: lcmesh
+    ! integer :: field_num
     !-----------------------------------------------------------------------------
 
 !    call PROF_rapstart( 'meshfiled_comm_put', 3)
-    field_num = size(field_list)
-    do n=1, this%mesh%LOCAL_MESH_NUM
-      lcmesh => this%mesh3d%lcmesh_list(n)
-      do i=1, field_num
-        call MeshFieldCommBase_extract_bounddata( field_list(i)%field3d%local(n)%val, lcmesh%refElem, lcmesh, & ! (in)
-          this%send_buf(:,varid_s+i-1,n) )                                                                      ! (out)
-      end do
-    end do
+    ! field_num = size(field_list)
+    ! do n=1, this%mesh%LOCAL_MESH_NUM
+    !   lcmesh => this%mesh3d%lcmesh_list(n)
+    !   do i=1, field_num
+    !     call MeshFieldCommBase_extract_bounddata( field_list(i)%field3d%local(n)%val, lcmesh%refElem, lcmesh, & ! (in)
+    !       this%send_buf(:,varid_s+i-1,n) )                                                                      ! (out)
+    !   end do
+    ! end do
+    call MeshFieldCommBase_extract_bounddata_2( field_list, 3, varid_s, this%mesh3d%lcmesh_list, this%send_buf )
 !    call PROF_rapend( 'meshfiled_comm_put', 3)
 
     return
   end subroutine MeshFieldCommCubeDom3D_put
 
+!> Extract field data from temporary buffers
   subroutine MeshFieldCommCubeDom3D_get(this, field_list, varid_s)
     use scale_meshfieldcomm_base, only: &
       MeshFieldCommBase_wait_core
     implicit none
     
     class(MeshFieldCommCubeDom3D), intent(inout) :: this
-    type(MeshFieldContainer), intent(inout) :: field_list(:)
-    integer, intent(in) :: varid_s
+    type(MeshFieldContainer), intent(inout) :: field_list(:)  !< Array of objects with 3D mesh field
+    integer, intent(in) :: varid_s                            !< Start index with variables when field_list(1) is written to buffers for data communication
 
     integer :: i
     integer :: n
@@ -152,27 +158,34 @@ contains
     !-----------------------------------------------------------------------------
 
     if ( this%call_wait_flag_sub_get ) then
-      call MeshFieldCommBase_wait_core( this, this%commdata_list )
+      ! call PROF_rapstart( 'meshfiled_comm_wait_get', 2)
+      call MeshFieldCommBase_wait_core( this, this%commdata_list, &
+        field_list, 3, varid_s, this%mesh3d%lcmesh_list )
+      ! call PROF_rapend( 'meshfiled_comm_wait_get', 2)
+    else
+      ! call PROF_rapstart( 'meshfiled_comm_get', 2)
+      do i=1, size(field_list) 
+      do n=1, this%mesh3d%LOCAL_MESH_NUM
+        lcmesh => this%mesh3d%lcmesh_list(n)
+        call MeshFieldCommBase_set_bounddata( this%recv_buf(:,varid_s+i-1,n), lcmesh%refElem, lcmesh, & !(in)
+          field_list(i)%field3d%local(n)%val )                                                         !(out)
+      end do
+      end do
+      ! call PROF_rapend( 'meshfiled_comm_get', 2)
     end if
-
-!    call PROF_rapstart( 'meshfiled_comm_get', 3)
-    do i=1, size(field_list) 
-    do n=1, this%mesh3d%LOCAL_MESH_NUM
-      lcmesh => this%mesh3d%lcmesh_list(n)
-      call MeshFieldCommBase_set_bounddata( this%recv_buf(:,varid_s+i-1,n), lcmesh%refElem, lcmesh, & !(in)
-         field_list(i)%field3d%local(n)%val )                                                         !(out)
-    end do
-    end do
-!    call PROF_rapend( 'meshfiled_comm_get', 3)
 
     return
   end subroutine MeshFieldCommCubeDom3D_get
 
+!> Exchange field data between neighboring MPI processes
+!!
+!! @param do_wait Flag whether MPI_waitall is called and move tmp data of LocalMeshCommData object to a recv buffer
 !OCL SERIAL
   subroutine MeshFieldCommCubeDom3D_exchange( this, do_wait )
     use scale_meshfieldcomm_base, only: &
       MeshFieldCommBase_exchange_core,  &
       LocalMeshCommData
+    use scale_prof
     implicit none
   
     class(MeshFieldCommCubeDom3D), intent(inout), target :: this

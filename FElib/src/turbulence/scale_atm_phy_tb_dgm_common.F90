@@ -2,7 +2,7 @@
 !> module FElib / Fluid dyn solver / Atmosphere / Physics turbulence / Common
 !!
 !! @par Description
-!!      A coomon modules for atmospheric turbulent parameterization
+!!      A common modules for atmospheric turbulent parameterization
 !!
 !! @author Yuta Kawai, Team SCALE
 !<

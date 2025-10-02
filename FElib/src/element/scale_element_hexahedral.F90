@@ -26,6 +26,8 @@ module scale_element_hexahedral
   !
   !++ Public type & procedure
   !  
+  
+  !> Derived type representing a hexahedral element
   type, public, extends(ElementBase3D) :: HexahedralElement
   contains
     procedure :: Init => HexhedralElement_Init
@@ -33,7 +35,19 @@ module scale_element_hexahedral
     procedure :: GenIntGaussLegendreIntrpMat => HexhedralElement_gen_IntGaussLegendreIntrpMat
   end type HexahedralElement
 
+  !-----------------------------------------------------------------------------
+  !
+  !++ Private procedure
+  !   
+  private :: construct_Element
+
 contains
+!> Initialize an object to manage a hexahedral element
+!!
+!! @param elem Object of finite element
+!! @param elemOrder_h Polynomial order with 1D horizontal direction
+!! @param elemOrder_v Polynomial order with vertical direction
+!! @param LumpedMassMatFlag Flag whether mass lumping is considered
 !OCL SERIAL
   subroutine HexhedralElement_Init( &
       elem, elemOrder_h, elemOrder_v,      &
@@ -69,6 +83,9 @@ contains
     return
   end subroutine HexhedralElement_Init
 
+!> Finalize an object to manage a hexahedral element
+!!
+!! @param elem Object of finite element
 !OCL SERIAL  
   subroutine HexhedralElement_Final(elem)
     implicit none

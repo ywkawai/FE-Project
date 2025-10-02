@@ -1,0 +1,70 @@
+\section{Additional stabilization}
+%%
+\subsection{Modal filtering}
+%%
+
+For high-order DGM, 
+numerical instability is likely to occur in advection-dominated flows 
+because the numerical dissipations with the upwind numerical fluxes weaken. 
+Furthermore, 
+we adopted a collocation approach due to its computational efficiency. 
+One drawback is that 
+the aliasing errors with evaluations of the nonlinear terms can drive numerical instability. 
+To suppress this numerical instability, 
+a modal filter was used as an additional stabilization mechanism. 
+The filter matrix for the three-dimensional problem can be obtained as 
+%%
+\begin{equation}
+  \mathscr{F} =  V^{\rm 3D} C^{\rm 3D} V^{\rm 3D},   
+\end{equation}
+%%
+where 
+$V^{\rm 3D}$ represents the Vandermode matrix associated with the LGL interpolation nodes (in Eq.\,\eqref{eq:polynomial_expression}) 
+and  
+$C^{\rm 3D}$ represents the diagonal cutoff matrix. 
+The entries of $C^{\rm 3D}$ are defined as
+%%
+\begin{equation}
+  C^{\rm 3D}_{(m_1,m_2,m_3),(m'_1,m'_2,m'_3)} 
+ = 
+ \delta_{m_1,m'_1} \sigma^h_{m_1} \;
+ \delta_{m_2,m'_2} \sigma^h_{m_2} \;
+ \delta_{m_3,m'_3} \sigma^v_{m_3}, 
+\end{equation}
+%%
+where
+$\sigma^h_i$ and $\sigma^v_i$ represent 
+the decay coefficient for the one-dimensional horizontal and vertical modes $i$, respectively. 
+Based on \cite{hesthaven2007nodal}, 
+a typical choice of the coefficient for mode $i$ is provided 
+with an exponential function as 
+%%
+\begin{align}
+ \sigma_i = \begin{cases}
+   1 \;\; &{\rm if}\;\;  0 \leq i \leq p_c  \\
+   \exp \left[-\alpha_m \left( \dfrac{i-p_c}{p-p_c} \right)^{p_m} \right] \;\; &{\rm if} \;\; p_c \leq i \leq p, 
+ \end{cases}
+\label{eq:modal_filter_coefficient}
+\end{align}
+%%
+where 
+$p_c$, $p_m$, and $\alpha_m$ represent the cutoff parameter, 
+the order of the filter, and the non-dimensional decay strength, respectively. 
+In this study, $p_c$ was considered 0. 
+We applied the filter $\mathscr{F}$ to the solution vector $\bm{q}$ (in Eq.\,\eqref{eq:solution_vector})
+at the final stage of the RK scheme with a timestep $\Delta t$. 
+Then, the decay time scale for the highest mode can be regarded as approximately equal to $\Delta t/\alpha_m$. 
+We set the order $p_m$, and decay coefficient $\alpha_m$ such that 
+the strength of filter should ensure numerical stability while being as weak as possible. 
+
+
+\subsection{Buoyancy term}
+%%
+The balance between the pressure gradient and buoyancy terms should be carefully treated  
+in the discrete momentum equation \citep[e.g.,][]{Blaise2016StablizationDG,ORGIS2017461}. 
+In the above formulation, 
+because a different discretization space is used between the terms, 
+a numerical imbalance is possible and may cause spurious oscillations, which can destabilize the simulations. 
+To avoid this incompatibility, 
+the vertical polynomial order for the density in the buoyancy term was reduced by one 
+following \cite{Blaise2016StablizationDG}. 

@@ -6,12 +6,15 @@ BINDIR=${2}
 PPNAME=${3}
 INITNAME=${4}
 BINNAME=${5}
-PPCONF=${6}
-INITCONF=${7}
-RUNCONF=${8}
-PROCS=${9}
-eval DATPARAM=(`echo ${10} | tr -s '[' '"' | tr -s ']' '"'`)
-eval DATDISTS=(`echo ${11} | tr -s '[' '"' | tr -s ']' '"'`)
+POSTNAME=${6}
+PPCONF=${7}
+INITCONF=${8}
+RUNCONF=${9}
+POSTCONF=${10}
+PROCS=${11}
+PROCS_POST=${12}
+eval DATPARAM=(`echo ${13} | tr -s '[' '"' | tr -s ']' '"'`)
+eval DATDISTS=(`echo ${14} | tr -s '[' '"' | tr -s ']' '"'`)
 
 PROCLIST=(`echo ${PROCS} | tr -s ',' ' '`)
 TPROC=${PROCLIST[0]}
@@ -19,6 +22,7 @@ for n in ${PROCLIST[@]}
 do
    (( n > TPROC )) && TPROC=${n}
 done
+PROCLIST_POST=(`echo ${PROCS_POST} | tr -s ',' ' '`)
 
 if [ ! ${PPCONF} = "NONE" ]; then
    CONFLIST=(`echo ${PPCONF} | tr -s ',' ' '`)
@@ -52,6 +56,17 @@ elif [ ! ${BINNAME} = "NONE" ]; then
    RUN_MAIN=`echo -e "${RUN_MAIN}\n"${MPIEXEC} ${PROCLIST[i]} ${BINDIR}/${BINNAME}"|| exit 1"`
 fi
 
+if [ ! ${POSTCONF} = "NONE" ]; then
+   CONFLIST=(`echo ${POSTCONF} | tr -s ',' ' '`)
+   ndata=${#CONFLIST[@]}
+   FILES_LLIO=`echo -e ${FILES_LLIO} ${BINDIR}/${POSTNAME}`
+   for n in `seq 1 ${ndata}`
+   do
+      let i="n - 1"
+      RUN_POST=`echo -e "${RUN_POST}\n"${MPIEXEC} ${PROCLIST_POST[i]} ${BINDIR}/${POSTNAME} ${CONFLIST[i]} "|| exit 1"`
+      FILES_LLIO=`echo -e ${FILES_LLIO} ${CONFLIST[i]}`
+   done
+fi
 
 cat << EOF1 > ./run.sh
 #! /bin/bash -x
@@ -128,7 +143,7 @@ cat << EOF2 >> ./run.sh
 ${RUN_PP}
 ${RUN_INIT}
 ${RUN_MAIN}
-${RUN_N2G}
+${RUN_POST}
 
 ################################################################################
 EOF2

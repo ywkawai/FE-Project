@@ -1,0 +1,73 @@
+\section{Configure a target domain} \label{sec:domain}
+%=======================================================================
+
+%-----------------------------------------------------------------------
+\subsection{Set domain size and the number of horizontal and vertical elements} \label{subsec:relation_dom_reso3}
+%-----------------------------------------------------------------------
+
+For the regional model using the Cartesian coordinates,
+information with domain size and  DG mesh are specified in \namelist{PARAM_ATMOS} and \namelist{PARAM_ATMOS_MESH} in the configuration files.
+\editboxtwo{
+\verb|&PARAM_ATMOS| & \\
+\verb| ATMOS_MESH_TYPE = "REGIONAL", | & ; Mesh type \\
+\verb|/|\\
+}
+\editboxtwo{
+\verb|&PARAM_ATMOS_MESH| & \\
+\verb| NprcX = 2,|  & ; Number of MPI process in the $x$-direction \\
+\verb| NeX   = 2,|  & ; Number of finite element in the $x$-direction in each MPI process \\
+\verb| NprcY = 2,|  & ; Number of MPI process in the $y$-direction \\
+\verb| NeY   = 2,|  & ; Number of finite element in the $y$-direction in each MPI process \\
+\verb| NeZ   = 4,|  & ; Total number of finite element in the $z$-direction \\
+\verb| dom_xmin = 0D0,|    & ; Minimum $x$-coordinate value [m] \\
+\verb| dom_xmax = 100D3,|  & ; Maximum $x$-coordinate value [m] \\
+\verb| dom_ymin = 0D0,|    & ; Minimum $y$-coordinate value [m] \\
+\verb| dom_ymax = 100D3,|  & ; Maximum $y$-coordinate value [m] \\
+\verb| dom_zmin = 0D0,|   & ; Minimum vertical coordinate value \\
+\verb| dom_zmax = 30D3,|  & ; Maximum vertical coordinate value \\
+\verb| PolyOrder_h = 7,|  & ; Polynomial order for the horizontal direction \\
+\verb| PolyOrder_v = 7,|  & ; Polynomial order for the z-direction \\
+\verb| LumpedMassMatFlag = .false.,|  & ; Flag whether a mass lumping is applied \\
+\verb|/|\\
+}
+An arbitrary non-uniform element size can be specified in the vertical direction.
+%%
+\editboxtwo{
+\verb|&PARAM_ATMOS_MESH| & \\
+\verb| FZ = 0.0D0, 2760D0, 10340.0D0, 19528.0D0, 30000D0,|  & ;  Location at element face in the vertical direction [m] \\
+\verb|/|\\
+}
+
+
+For global model using cubed-sphere coordinates,
+information with domain size and  DG mesh are specified in \namelist{PARAM_ATMOS} and \namelist{PARAM_ATMOS_MESH} in the configuration files.
+\editboxtwo{
+\verb|&PARAM_ATMOS| & \\
+\verb| ATMOS_MESH_TYPE = "GLOBAL", | & ; Mesh type \\
+\verb|/|\\
+}
+\editboxtwo{
+\verb|&PARAM_ATMOS_MESH| & \\
+\verb| Nprc  = 6,|  & ; Total number of MPI processes \\
+\verb| NeGX  = 6,|  & ; Total number of finite element in the $x$-direction \\
+\verb| NeGY  = 6,|  & ; Total number of finite element in the $y$-direction \\
+\verb| NeZ   = 4,|  & ; Total number of finite element in the $z$-direction \\
+\verb| dom_zmin = 0D0,|  & ; Minimum vertical coordinate value \\
+\verb| dom_zmax = 30D3,|  & ; Maximum vertical coordinate value \\
+\verb| PolyOrder_h = 7,|  & ; Polynomial order for the horizontal direction \\
+\verb| PolyOrder_v = 7,|  & ; Polynomial order for the z-direction \\
+\verb| LumpedMassMatFlag = .false.,|  & ; Flag whether a mass lumping is applied \\
+\verb|/|\\
+} 
+We can set an arbitrary non-uniform element size in the vertical direction as mentioned above. 
+The planetary radius is set in \namelist{PARAM_CONST} as 
+\editboxtwo{
+\verb|&PARAM_ATMOS_MESH| & \\
+\verb| CONST_RADIUS  = 6.37122D6,|  & ;  \\
+}
+where 
+the default value is the radius of Earth. 
+
+
+
+%-----------------------------------------------------------------------

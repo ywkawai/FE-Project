@@ -1,0 +1,151 @@
+%-------------------------------------------------------------------------------
+\section{Regrid tool} \label{sec:regrid_tool}
+%-------------------------------------------------------------------------------
+
+\regridTool has the following features to reduce the annoyance of handling netCDF files output from \scaledg.
+\begin{itemize}
+ \item Combine the decomposed multiple files into a single file.
+ \item Convert a single file or multiple files into multiple files with different number of decomposition.
+ \item Regrid data from the original resolution to different resolutions.
+ \item Regrid data from the model-level to the different vertical coordinates such as hight-level and pressure-level.
+ \item Regrid data from the model grid to the geodesic (latitude-longitude) coordinates.
+\end{itemize}
+
+\subsection{Basic usage}
+
+The mesh settings for \regridTool are specified in \namelist{PARAM_REGRID_MESH}.
+%
+\editboxtwo{
+\verb|&PARAM_REGRID_MESH | & \\
+\verb| in_MeshType     = CUBEDSPHERE3D, | & ; Mesh type of input data \\
+\verb| out_MeshType    = LONLAT3D,      | & ; Mesh type of output data \\
+\verb|/                           | & \\
+}
+
+The settings of data interpolation for \regridTool are specified in \namelist{PARAM_REGRID_INTERP_FIELD}.
+%
+\editboxtwo{
+\verb|&PARAM_REGRID_INTERP_FIELD | & \\
+\verb| in_basename     = history,     | & ; Base name of input file(s) \\
+\verb| vars            = "W", "U", "V", | & ; Name of target variables \\
+\verb| out_tinterval   = 1, | & ; Time interval when outputing data (default: 1) \\
+\verb|/                           | & \\
+}
+
+
+The settings of output data for \regridTool are specified in \namelist{PARAM_REGRID_FILE}.
+%
+\editboxtwo{
+\verb|&PARAM_REGRID_FILE | & \\
+\verb| out_basename     = history,    | & ; Base name of output file(s) \\
+\verb| out_UniformGrid  = .false.,    | & ; Flag whether data is interpolated to a uniform gird when outputing files \\
+\verb|/                           | & \\
+}
+
+
+The detail settings of input or output mesh for \regridTool are specified as follows:
+The items in namelists are similar with that in configuration files for running \scaledg.
+
+For the 3D cubed-sphere mesh, the settings are specified as
+%%
+\editboxtwo{
+\verb|&PARAM_REGRID_(IN/OUT)MESH3D_CUBEDSPHERE | & \\
+\verb|  NLocalMeshPerPrc = 1,  | & ; \\
+\verb|  Nprc             = 24, | & ; \\
+\verb|  NeGX             = 8,  | & ; \\
+\verb|  NeGY             = 8,  | & ; \\
+\verb|  NeGZ             = 4,  | & ; \\
+\verb|  dom_zmin         = 0.0D0, | & ; \\
+\verb|  dom_zmax         = 30.0D3, | & ; \\
+\verb|  PolyOrder_h      = 7, | & ; \\
+\verb|  PolyOrder_v      = 7, | & ; \\
+\verb|  Fz               = 0.0D0, 3000D0, 8000.0D0, 15000.0D0, 30000.0D0, | & ; \\
+\verb|/ | & \\
+}
+For the 2D cubed-sphere mesh, 
+%%
+\editboxtwo{
+\verb|&PARAM_REGRID_(IN/OUT)MESH2D_CUBEDSPHERE | & \\
+\verb|  NLocalMeshPerPrc = 1,  | & ; \\
+\verb|  Nprc             = 24, | & ; \\
+\verb|  NeGX             = 8,  | & ; \\
+\verb|  NeGY             = 8,  | & ; \\
+\verb|  PolyOrder_h      = 7, | & ; \\
+\verb|/ | & \\
+}
+
+For the 3D structured mesh such as the Cartesian coordinates and longitude-latitude coordinates, 
+the settings are specified as
+%%
+\editboxtwo{
+\verb|&PARAM_REGRID_(IN/OUT)MESH3D_STRUCTURED | & \\
+\verb|  NprcX       = 4,  | & ; \\ 
+\verb|  NeX         = 16, | & ; \\ 
+\verb|  NprcY       = 2,  | & ; \\
+\verb|  NeY         = 16, | & ; \\
+\verb|  NeGZ        = 4,  | & ; \\
+\verb|  PolyOrder_h = 3,   | & ; \\
+\verb|  PolyOrder_v = 7,  | & ; \\
+\verb|  dom_xmin    =   0.0D0, | & ; \\
+\verb|  dom_xmax    = 360.0D0, | & ; \\
+\verb|  dom_ymin    = -90.0D0, | & ; \\
+\verb|  dom_ymax    =  90.0D0, | & ; \\
+\verb|  dom_zmin    = 0.0D0,   | & ; \\
+\verb|  dom_zmax    = 30.0D3,  | & ; \\ 
+\verb|  Fz          = 0.0D0, 3000D0, 8000.0D0, 15000.0D0, 30000.0D0,  | & ; \\
+\verb|/ | & \\
+}
+%%
+For the 2D structured mesh, 
+%%
+\editboxtwo{
+\verb|&PARAM_REGRID_(IN/OUT)MESH2D_STRUCTURED | & \\
+\verb|  NprcX       = 4,  | & ; \\ 
+\verb|  NeX         = 16, | & ; \\ 
+\verb|  NprcY       = 2,  | & ; \\
+\verb|  NeY         = 16, | & ; \\
+\verb|  PolyOrder_h = 3,   | & ; \\
+\verb|  dom_xmin    =   0.0D0, | & ; \\
+\verb|  dom_xmax    = 360.0D0, | & ; \\
+\verb|  dom_ymin    = -90.0D0, | & ; \\
+\verb|  dom_ymax    =  90.0D0, | & ; \\
+\verb|/ | & \\
+}
+
+
+\subsection{Regrid data from model-level coordinate to other vertical coordinate}
+
+For regriding data from model-level coordinate to other vertical coordinate, 
+we need add \namelist{PARAM_REGRID_VCOORD} to configuration files for \regridTool.
+
+If we want to interpolate data to pressure coordinate, 
+the namelist is specified as 
+\editboxtwo{
+\verb|&PARAM_REGRID_VCOORD | & \\
+\verb|  vintrp_name     = 'PRESSURE',  | & ; \\ 
+\verb|  out_NeZ     = 10, | & ; \\ 
+\verb|  out_PolyOrder_v = 3,  | & ; \\
+\verb|  out_dom_vmin    = 1000D0,  | & ; \\
+\verb|  out_dom_vmax    = 20D2,    | & ; \\
+\verb|  out_Fz          = 1000D2, 950D2, 850D2, 790D2, 680D2, 550D2, 400D2, 250D2, 100D2, 50D2, 30D2,  | & ; \\
+\verb|  PolyOrder_v     = 7,  | & ; \\
+\verb|  extrapolate     = .true., | & ; \\
+\verb|/ | & \\
+}
+
+If we want to interpolate data to actual height coordinate, 
+the namelist is specified as 
+\editboxtwo{
+\verb|&PARAM_REGRID_VCOORD | & \\
+\verb|  vintrp_name     = 'HEIGHT',  | & ; \\ 
+\verb|  out_NeZ         = 6, | & ; \\ 
+\verb|  out_PolyOrder_v = 7,  | & ; \\
+\verb|  out_dom_vmin    = 0D0,  | & ; \\
+\verb|  out_dom_vmax    = 40D2,    | & ; \\
+\verb|  out_Fz          = 0D0, 4.0D3, 9.D3, 15D3, 22.D3, 30.D3, 40.D3,  | & ; \\
+\verb|  PolyOrder_v     = 7,  | & ; \\
+\verb|  in_topofile_basename = "outdata/topo", | & ; \\
+\verb|  topo_varname         = "topo", | & ; \\
+\verb|/ | & \\
+}
+Note that topography data specified by in\_topofile\_basename need to be interpolated to a 2D mesh consistent to \namelist{PARAM_REGRID_(IN/OUT)MESH3D_*}. 

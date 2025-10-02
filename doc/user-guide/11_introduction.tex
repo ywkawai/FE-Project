@@ -1,0 +1,201 @@
+
+%==============================================================%
+This user's manual is intended for users
+of a regional and global atmospheric model \scaledg version \version.
+The structure of this document is as follows:
+Part \ref{part:overview} provides an overview of our model,
+Part \ref{part:install} describes how to install \scaledg
+Chapters \ref{chap:tutorial_ideal} and \ref{chap:tutorial_real}
+explain the basic use of \scaledg
+using examples of an idealized experiment and an realistic atmospheric experiment, respectively.
+Since these chapters are constructed as a series of tutorials, 
+it is recommended that beginning users of \scaledg read these chapters meticulously.
+Parts \ref{part:basic_usel} and \ref{part:advance_use}
+describe how to change the model configuration 
+and explain data format and available functions and tools.
+Since each section is closed itself basically, 
+these chapter can be utilized as a dictionary.
+
+% If you have any questions or comments, 
+% please contact us through the users’ mailing list\\ $\langle \verb|scale-users@ml.riken.jp|\rangle$.
+
+
+\section{What is FE-Project?} \label{subsec:scale_feature}
+%--------------------------------------------------------------%
+
+FE-project provides a library and sample programs for the discontinuous Galerkin methods
+(DGM). Furthermore, we provide an atmospheric model with a regional/global dynamical
+core based on DGM, SCALE-DG. In FE-Project, we use scalable Computing for Advanced
+Library and Environment (SCALE) (\scaleweb), which is a basic software library of weather and
+climate models of the earth and planets intended for widespread use.
+
+
+Our project has the following advantages:
+\begin{itemize}
+\item 
+FE-Project provides an open-source software under the `` MIT license''. It is free for use, modification, and redistribution, regardless of whether the user is a business or other enterprise.
+\item 
+FE-Project contains a regional and global atmospheric model called the \scaledg ( SCALE regional/global model with discontinuous Galerkin method).
+\item 
+In SCALE-DG, several physics processes are coupled to DG dynamical core using a framework for physical processes provided by SCALE library.
+\end{itemize}
+For the details of the license, the interested reader can refer to the file \texttt{FE-Project-\version/LICENSE} under the main directory. 
+% This explanation of its use is also provided on the SCALE webpage (\scaleweb).
+The general references of SCALE-DG are \cite{KT2023NumAccuracyDG,KT2025SCALEDG}. 
+If SCALE-DG is used in your studies, 
+please cite two our papers in addition to the reference papers of SCALE library \citep{nishizawa2015influence,sato2015impacts}. 
+
+
+In this section, 
+the concept of FE-Project and its relations to actual models are explained. 
+It can be skipped, as it is not related directly to its practical use.
+
+\clearpage
+\Item{Relations between FE-Project (\scaledg) and SCALE}
+
+\begin{figure}[htb]
+\begin{center}
+  \includegraphics[width=0.9\hsize]{./../figure/library.pdf}\\
+  \caption{Aims of \scalelib (cite: Fig.\,1.1.1 of SCALE users guide)}
+  \label{fig:scale}
+\end{center}
+\end{figure}
+\begin{figure}[hbt]
+\begin{center}
+  \includegraphics[width=0.9\hsize]{./../figure/scale.pdf}\\
+  \caption{Relationship between the library \scalelib and the model SCALE-RM (cite: Fig.\,1.1.2 of SCALE users guide)}
+  \label{fig:scale-rm}
+\end{center}
+\end{figure}
+
+\scalelib has been developed in RIKEN R-CCS with several outside contributors,
+and its improvement and extension continue.
+Figure \ref{fig:scale} shows the schematic concept of \scalelib.
+As shown in this figure, SCALE aims to resolve various problems.
+The development of \scalelib is considered in the context of its wide use
+by devices ranging from small PC clusters to next-generation supercomputers.
+For this purpose, scientists in meteorology/climate science
+and computer science are cooperating. 
+As shown in Fig. \ref{fig:scale-rm}, 
+\scalelib manages the parallel processes,
+file I/O, and inner-communication. 
+\scalelib also provides the solver for atmospheric flow ( dynamical core based on FVM with Arakawa C-grid)
+and physical processes such as micro-physics and radiation processes.
+SCALE-RM is a regional atmospheric model that fully uses \scalelib.
+
+%This has led to high computational performance of SCALE not only in supercomputers,
+%such as the K Computer and the Fujitsu FX10,
+%but also for general-purpose commercial computers,
+%such as Intel processor-based machines.
+
+
+
+Figure \ref{fig:FE-Project_relation} represents the relationship between the library \scalelib and FE-Project.
+FElib provides Fortran modules for DGM which mange finite element, data communication, various temporal schemes, 
+and many simple examples. 
+In FElib, \scalelib library is used for file IO, error handling, and physical processes, etc.
+\scaledg is constructed by combining functions provided by FElib.
+\scaledg itself reads the input data of atmospheric status as prognostic variable,
+and conducts time-integration.
+Users can select a scheme in every component according to simulations they want.
+
+
+\begin{figure}[hbt]
+\begin{center}
+  \includegraphics[width=0.9\hsize]{./../figure/FE-project_top.png}\\
+  \caption{Relationship between the library \scalelib and FE-Project including \scaledg}
+  \label{fig:FE-Project_relation}
+\end{center}
+\end{figure}
+
+
+\section{Structure of \scaledg}  \label{subsec:sturcture_scale_rm}
+%--------------------------------------------------------------%
+Several physics in \scalelib library are available in \scaledg.
+The components are categorized into three parts:
+framework, dynamical core, and physical processes.
+% Components with various schemes already implemented
+% in the current version of \scaledg are listed below\footnote{Refer to \citet{scale_2015},\citet{satoy_2015b}, and \citet{nishizawa_2015} for the details of the model structure and the discretization method.}.
+
+\subsubsection{Framework}
+\begin{itemize}
+ \item The three-dimensional (3D) Cartesian and cubed-sphere grid systems for regional and global models
+ \item 2D domain decomposition by Message Passing Interface (MPI) communication
+%  \item Several map projections commonly used
+%  \item Domain nesting system ( one-way, i.e., data transfer from parent domain to child domain. )
+%    \begin{itemize}
+%     \item  On-line nesting: concurrent execution of multiple domains).
+%     \item  Offline nesting: execution of computation in an inner domain after that in an outer domain.
+  %  \end{itemize}
+ \item Collective execution system of multiple cases, i.e., bulk job system
+ \item \netcdf file I/O based on CF (Climate and Forecast) convention\footnote{\url{http://cfconventions.org/}}
+  %  \begin{itemize}
+  %  \item Selection of {\netcdf}3 and {\netcdf}4 formats
+  %  \end{itemize}
+ \item Generation of initial data for an ideal experiment
+%  \item Generation of topographical and land-use data, converted from external data
+%  \item Generation of initial and boundary data from external data
+  %  \begin{itemize}
+  %   \item 
+%      Supporting inputs from the WRF-ARW\footnote{\url{http://www.wrf-model.org/}} and
+  %     \grads \footnote{\url{http://cola.gmu.edu/grads/}} formats.
+  %  \end{itemize}
+\end{itemize}
+
+\subsubsection{Dynamical core}
+\begin{itemize}
+ \item Governing equations: 3D fully compressible non-hydrostatic equations
+ \item Spatial discretization: nodal discontinuous Galerkin method \citep{hesthaven2007nodal}
+    \begin{itemize}
+      \item Polynomial order associated with numerical accuracy can be arbitrarily chosen
+      \item Numerical flux: Rusanov flux \citep{Rusanov1961}
+      \item Stabilization mechanisms: Inherent numerical dissipation with numerical fluxes and explicit modal filtering
+    \end{itemize}
+ \item Temporal discretization: various type of Runge--Kutta (RK) schemes
+    \begin{itemize}
+      \item Horizontally and vertically explicit (HEVE) strategy with full explicit RK schemes
+      \item Horizontally explicit and vertically implicit (HEVI) strategy with IMEX RK schemes
+    \end{itemize}
+ \item Guarantee of non-negative value for tracer advection:
+    \begin{itemize}
+      \item Preserving the non-negativity is ensured by a limiter \citep{LightPreserving2016}
+    \end{itemize}
+ \item Topography: Terrain-following coordinates
+\end{itemize}
+
+
+\subsubsection{Physical processes}
+\begin{itemize}
+\item Turbulence process: selectable from among the following
+  \begin{itemize}
+  \item \citet{smagorinsky1963general} \& \citet{lilly1962numerical}-type sub-grid scale turbulent model
+    with the corrections by \citet{brown1994largeeddy} and \citet{Scotti_1993}
+  % \item \citet{Deardorff_1980} sub-grid scale turbulent model
+  % \item MYNN level 2.5 boundary scheme ( \citet{my_1982,nakanishi_2004,nakanishi_2009} )
+  \end{itemize}
+\item Cloud microphysics: selectable from among the following
+  \begin{itemize}
+  \item 3-class 1 moment bulk scheme \citep{kessler_1969}
+  \item 6-class 1 moment bulk scheme \citep{tomita_2008}
+% \item 6-class 2 moment bulk scheme \citep{sn_2014}
+%  \item spectral bin scheme \citep{suzuki_etal_2010}
+  \end{itemize}
+% \item Radiation process: a k-distribution-based broadband radiation transfer model ( \citet{sekiguchi_2008} )
+\item Surface models
+  \begin{itemize}
+  % \item Land model: heat diffusion/bucket model
+  % \item Ocean model: selectable from among the following
+  %   \begin{itemize}
+  %   \item fixed to initial condition
+  %   \item input from external data
+  %   \item slab model
+  %   \end{itemize}
+  % \item Urban model: a single-layer canopy model \citep{kusaka_2001}
+  % \item Heat transfer coefficient at surface: selectable from among the following
+  %   \begin{itemize}
+  %   \item The bulk method using the universal function \citep{beljaars_1991,wilson_2001,nishizawa_2018}
+  %   \item Louis-type bulk method \citep{uno_1995}
+  %   \end{itemize}
+    \item Simple surface fluxes with a constant heat flux or constant bulk coefficients
+  \end{itemize}
+\end{itemize}

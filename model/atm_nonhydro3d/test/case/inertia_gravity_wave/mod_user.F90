@@ -26,6 +26,7 @@ module mod_user
   use scale_element_base, only: ElementBase3D
   use scale_element_hexahedral, only: HexahedralElement
   use scale_localmesh_3d, only: LocalMesh3D   
+  use scale_meshfield_base, only: MeshField3D
 
   use mod_user_base, only: UserBase
   use mod_experiment, only: Experiment
@@ -43,6 +44,7 @@ module mod_user
     generic :: mkinit => mkinit_
     procedure :: setup_ => USER_setup
     generic :: setup => setup_
+    procedure :: calc_tendency => USER_calc_tendency
   end type User
 
   !-----------------------------------------------------------------------------
@@ -57,6 +59,8 @@ module mod_user
   !
   !++ Private parameters & variables
   !
+
+  type(MeshField3D), private :: PRES_diff
 
   !-----------------------------------------------------------------------------
 contains
@@ -107,13 +111,33 @@ contains
     LOG_NML(PARAM_USER)
 
     call this%UserBase%Setup( atm, USER_do )
+
     !-
+    if ( USER_do ) call PRES_diff%Init( 'PRES_diff', 'Pa', atm%mesh%ptr_mesh )
 
     return
   end subroutine USER_setup
 
+!OCL SERIAL
+  subroutine USER_calc_tendency( this, atm )
+    use scale_file_history_meshfield, only: &
+      FILE_HISTORY_meshfield_in
+    implicit none
+
+    class(User), intent(inout) :: this
+    class(AtmosComponent), intent(inout) :: atm
+    !------------------------------------------
+
+    if ( this%USER_do ) then
+      call atm%vars%Calc_diagVar( 'PRES_diff', PRES_diff )
+      call FILE_HISTORY_meshfield_in( PRES_diff, "perturbation of PRES" )
+    end if
+
+    return
+  end subroutine USER_calc_tendency
 
   !------
+
 !OCL SERIAL  
   subroutine exp_SetInitCond_inertia_gravity_wave( this,                   &
     DENS_hyd, PRES_hyd, DDENS, MOMX, MOMY, MOMZ, DRHOT, tracer_field_list, &
@@ -163,14 +187,16 @@ contains
     real(RP) :: x_c, y_c
     real(RP) :: r_x, r_y
 
+    integer :: IntrpPolyOrder_h
+    integer :: IntrpPolyOrder_v
+
     namelist /PARAM_EXP/ &
       BruntVaisalaFreq,         &
+      IntrpPolyOrder_h,         &
+      IntrpPolyOrder_v,         &
       THETA0, DTHETA,           &
       x_c, y_c,                 &
       r_x, r_y
-
-    integer, parameter :: IntrpPolyOrder_h = 6
-    integer, parameter :: IntrpPolyOrder_v = 6
 
     type(HexahedralElement) :: elem_intrp
     real(RP), allocatable :: IntrpMat(:,:)
@@ -189,6 +215,9 @@ contains
     r_x = 5.0E3_RP; r_y = 5.0E3_RP
     THETA0  = 300.0_RP
     DTHETA  = 0.01_RP
+
+    IntrpPolyOrder_h = elem%PolyOrder_h
+    IntrpPolyOrder_v = elem%PolyOrder_v
 
     rewind(IO_FID_CONF)
     read(IO_FID_CONF,nml=PARAM_EXP,iostat=ierr)

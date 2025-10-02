@@ -57,6 +57,7 @@ module scale_atm_dyn_dgm_nonhydro3d_rhot_heve
   public :: atm_dyn_dgm_nonhydro3d_rhot_heve_Final
   public :: atm_dyn_dgm_nonhydro3d_rhot_heve_cal_tend_asis
   public :: atm_dyn_dgm_nonhydro3d_rhot_heve_cal_tend
+  public :: atm_dyn_dgm_nonhydro3d_rhot_heve_cal_tend_cco
 
   !-----------------------------------------------------------------------------
   !
@@ -92,11 +93,12 @@ contains
 
 !OCL SERIAL
   subroutine atm_dyn_dgm_nonhydro3d_rhot_heve_cal_tend_asis( &
-    DENS_dt, MOMX_dt, MOMY_dt, MOMZ_dt, RHOT_dt,                                   & ! (out)
-    DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DPRES_, DENS_hyd, PRES_hyd, PRES_hyd_ref, & ! (in)
-    CORIOLIS, Rtot, CVtot, CPtot, DPhydDx, DPhydDy,                                & ! (in)
-    element3D_operation, Dx, Dy, Dz, Sx, Sy, Sz, Lift,                             & ! (in)
-    lmesh, elem, lmesh2D, elem2D )                                                   ! (in)
+    DENS_dt, MOMX_dt, MOMY_dt, MOMZ_dt, RHOT_dt,         & ! (out)
+    DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DPRES_,         & ! (in)
+    DENS_hyd, PRES_hyd, PRES_hyd_ref, THERM_hyd,         & ! (in)
+    CORIOLIS, Rtot, CVtot, CPtot, DPhydDx, DPhydDy,      & ! (in)
+    element3D_operation, Dx, Dy, Dz, Sx, Sy, Sz, Lift,   & ! (in)
+    lmesh, elem, lmesh2D, elem2D )                         ! (in)
 
     use scale_atm_dyn_dgm_nonhydro3d_rhot_heve_numflux, only: &
       get_ebnd_flux => atm_dyn_dgm_nonhydro3d_rhot_heve_numflux_get_generalvc_asis
@@ -123,6 +125,7 @@ contains
     real(RP), intent(in)  :: DENS_hyd(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: PRES_hyd(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: PRES_hyd_ref(elem%Np,lmesh%NeA)
+    real(RP), intent(in)  :: THERM_hyd(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: CORIOLIS(elem2D%Np,lmesh2D%NeA)
     real(RP), intent(in)  :: Rtot(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: CVtot(elem%Np,lmesh%NeA)
@@ -287,11 +290,12 @@ contains
 
 !OCL SERIAL
   subroutine atm_dyn_dgm_nonhydro3d_rhot_heve_cal_tend( &
-    DENS_dt, MOMX_dt, MOMY_dt, MOMZ_dt, RHOT_dt,                                   & ! (out)
-    DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DPRES_, DENS_hyd, PRES_hyd, PRES_hyd_ref, & ! (in)
-    CORIOLIS, Rtot, CVtot, CPtot, DPhydDx, DPhydDy,                                & ! (in)
-    element3D_operation, Dx, Dy, Dz, Sx, Sy, Sz, Lift,                             & ! (in)
-    lmesh, elem, lmesh2D, elem2D )                                                   ! (in)
+    DENS_dt, MOMX_dt, MOMY_dt, MOMZ_dt, RHOT_dt,         & ! (out)
+    DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DPRES_,         & ! (in)
+    DENS_hyd, PRES_hyd, PRES_hyd_ref, THERM_hyd,         & ! (in)
+    CORIOLIS, Rtot, CVtot, CPtot, DPhydDx, DPhydDy,      & ! (in)
+    element3D_operation, Dx, Dy, Dz, Sx, Sy, Sz, Lift,   & ! (in)
+    lmesh, elem, lmesh2D, elem2D )                         ! (in)
 
     use scale_atm_dyn_dgm_nonhydro3d_rhot_heve_numflux, only: &
       get_ebnd_flux => atm_dyn_dgm_nonhydro3d_rhot_heve_numflux_get_generalvc
@@ -318,6 +322,7 @@ contains
     real(RP), intent(in)  :: DENS_hyd(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: PRES_hyd(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: PRES_hyd_ref(elem%Np,lmesh%NeA)
+    real(RP), intent(in)  :: THERM_hyd(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: CORIOLIS(elem2D%Np,lmesh2D%NeA)
     real(RP), intent(in)  :: Rtot(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: CVtot(elem%Np,lmesh%NeA)
@@ -327,10 +332,10 @@ contains
 
     real(RP) :: Flux(elem%Np,3,5), DFlux(elem%Np,4,5)
     real(RP) :: del_flux(elem%NfpTot,PRGVAR_NUM,lmesh%Ne)
-    real(RP) :: rdens_, u_, v_, w_, pt_
+    real(RP) :: u_, v_, w_, pt_
     real(RP) :: cor
     real(RP) :: drho(elem%Np)
-    real(RP) :: GsqrtV(elem%Np), RGsqrtV(elem%Np), RGsqrt(elem%Np)
+    real(RP) :: RDENS_(elem%Np), GsqrtV(elem%Np), RGsqrtV(elem%Np), RGsqrt(elem%Np)
     real(RP) :: Gsqrt_, GsqrtDPRES_, E11, E22, E33
 
     integer :: ke, ke2d
@@ -343,13 +348,13 @@ contains
 
     call PROF_rapstart('cal_dyn_tend_bndflux', 3)
     call get_ebnd_flux( &
-      del_flux,                                                               & ! (out)
-      DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DPRES_, DENS_hyd, PRES_hyd,        & ! (in)
-      Rtot, CVtot, CPtot,                                                     & ! (in)
-      lmesh%Gsqrt, lmesh%GI3(:,:,1), lmesh%GI3(:,:,2),                        & ! (in)    
-      lmesh%normal_fn(:,:,1), lmesh%normal_fn(:,:,2), lmesh%normal_fn(:,:,3), & ! (in)
-      lmesh%vmapM, lmesh%vmapP,                                               & ! (in)
-      lmesh, elem, lmesh2D, elem2D )                                            ! (in)
+      del_flux,                                                                   & ! (out)
+      DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DPRES_, DENS_hyd, PRES_hyd, THERM_hyd, & ! (in)
+      Rtot, CVtot, CPtot,                                                         & ! (in)
+      lmesh%Gsqrt, lmesh%GI3(:,:,1), lmesh%GI3(:,:,2),                            & ! (in)    
+      lmesh%normal_fn(:,:,1), lmesh%normal_fn(:,:,2), lmesh%normal_fn(:,:,3),     & ! (in)
+      lmesh%vmapM, lmesh%vmapP,                                                   & ! (in)
+      lmesh, elem, lmesh2D, elem2D )                                                ! (in)
     call PROF_rapend('cal_dyn_tend_bndflux', 3)
 
     call PROF_rapstart('cal_dyn_tend_interior', 3)
@@ -359,10 +364,10 @@ contains
     RovP0 = Rdry * rP0
     P0ovR = PRES00 / Rdry
 
-    !$omp parallel do private( ke, ke2d, p, cor,          &
-    !$omp rdens_, u_, v_, w_, pt_,                        &
-    !$omp drho,                                           &
-    !$omp RGsqrt, GsqrtV, RGsqrtV, Gsqrt_, GsqrtDPRES_,   &
+    !$omp parallel do private( ke, ke2d, p, cor,                 &
+    !$omp u_, v_, w_, pt_,                                       &
+    !$omp drho,                                                  &
+    !$omp RDENS_, RGsqrt, GsqrtV, RGsqrtV, Gsqrt_, GsqrtDPRES_,  &
     !$omp E11, E22, E33, DFlux, Flux    )
     do ke = lmesh%NeS, lmesh%NeE
       !--
@@ -372,6 +377,7 @@ contains
         GsqrtV(p)  = lmesh%Gsqrt(p,ke) / lmesh%GsqrtH(elem%IndexH2Dto3D(p),ke2d)
         RGsqrtV(p) = 1.0_RP / GsqrtV(p)
         RGsqrt(p) = 1.0_RP / lmesh%Gsqrt(p,ke)
+        RDENS_(p) = 1.0_RP / (DDENS_(p,ke) + DENS_hyd(p,ke))
       end do
 
       !--
@@ -386,33 +392,26 @@ contains
           + lmesh%GI3(p,ke,2) * MOMY_(p,ke) )
       end do
       do p=1, elem%Np
-        pt_ = ( P0ovR * (PRES_hyd(p,ke) * rP0)**rgamm + DRHOT_(p,ke) ) &
-            / ( DDENS_(p,ke) + DENS_hyd(p,ke) )
+        pt_ = ( THERM_hyd(p,ke) + DRHOT_(p,ke) ) * RDENS_(p)
 
         Flux(p,1,RHOT_VID) = Flux(p,1,DENS_VID) * pt_
         Flux(p,2,RHOT_VID) = Flux(p,2,DENS_VID) * pt_
         Flux(p,3,RHOT_VID) = Flux(p,3,DENS_VID) * pt_
-      end do
 
-      do p=1, elem%Np
-        w_ = MOMZ_(p,ke) / (DDENS_(p,ke) + DENS_hyd(p,ke))
-
+        w_ = MOMZ_(p,ke) * RDENS_(p)
         Flux(p,1,MOMZ_VID) = Flux(p,1,DENS_VID) * w_
         Flux(p,2,MOMZ_VID) = Flux(p,2,DENS_VID) * w_
-        Flux(p,3,MOMZ_VID) = Flux(p,3,DENS_VID) * w_ + lmesh%Gsqrt(p,ke) * RGsqrtV(p) * DPRES_(p,ke)
+        Flux(p,3,MOMZ_VID) = Flux(p,3,DENS_VID) * w_ + lmesh%Gsqrt(p,ke) * DPRES_(p,ke) * RGsqrtV(p)
       end do
-
       do p=1, elem%Np
         GsqrtDPRES_ = lmesh%Gsqrt(p,ke) * DPRES_(p,ke)
 
-        rdens_ = 1.0_RP / (DDENS_(p,ke) + DENS_hyd(p,ke))
-        u_ = MOMX_(p,ke) * rdens_
-        v_ = MOMY_(p,ke) * rdens_
-
+        u_ = MOMX_(p,ke) * RDENS_(p)
         Flux(p,1,MOMX_VID) = Flux(p,1,DENS_VID) * u_ + GsqrtDPRES_
         Flux(p,2,MOMX_VID) = Flux(p,2,DENS_VID) * u_ 
         Flux(p,3,MOMX_VID) = Flux(p,3,DENS_VID) * u_ + GsqrtDPRES_ * lmesh%GI3(p,ke,1)
 
+        v_ = MOMY_(p,ke) * RDENS_(p)
         Flux(p,1,MOMY_VID) = Flux(p,1,DENS_VID) * v_
         Flux(p,2,MOMY_VID) = Flux(p,2,DENS_VID) * v_ + GsqrtDPRES_ 
         Flux(p,3,MOMY_VID) = Flux(p,3,DENS_VID) * v_ + GsqrtDPRES_ * lmesh%GI3(p,ke,2) 
@@ -489,4 +488,193 @@ contains
     return
   end subroutine atm_dyn_dgm_nonhydro3d_rhot_heve_cal_tend
 
+
+!OCL SERIAL
+  subroutine atm_dyn_dgm_nonhydro3d_rhot_heve_cal_tend_cco( &
+    DENS_dt, MOMX_dt, MOMY_dt, MOMZ_dt, RHOT_dt,         & ! (out)
+    DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DPRES_,         & ! (in)
+    DENS_hyd, PRES_hyd, PRES_hyd_ref, THERM_hyd,         & ! (in)
+    CORIOLIS, Rtot, CVtot, CPtot, DPhydDx, DPhydDy,      & ! (in)
+    element3D_operation, Dx, Dy, Dz, Sx, Sy, Sz, Lift,   & ! (in)
+    lmesh, elem, lmesh2D, elem2D )                         ! (in)
+
+    use scale_atm_dyn_dgm_nonhydro3d_rhot_heve_numflux, only: &
+      get_ebnd_flux => atm_dyn_dgm_nonhydro3d_rhot_heve_numflux_get_generalvc
+
+    implicit none
+
+    class(LocalMesh3D), intent(in) :: lmesh
+    class(ElementBase3D), intent(in) :: elem
+    class(LocalMesh2D), intent(in) :: lmesh2D
+    class(ElementBase2D), intent(in) :: elem2D
+    class(ElementOperationBase3D), intent(in) :: element3D_operation
+    type(SparseMat), intent(in) :: Dx, Dy, Dz, Sx, Sy, Sz, Lift
+    real(RP), intent(out) :: DENS_dt(elem%Np,lmesh%NeA)
+    real(RP), intent(out) :: MOMX_dt(elem%Np,lmesh%NeA)
+    real(RP), intent(out) :: MOMY_dt(elem%Np,lmesh%NeA)
+    real(RP), intent(out) :: MOMZ_dt(elem%Np,lmesh%NeA)
+    real(RP), intent(out) :: RHOT_dt(elem%Np,lmesh%NeA)
+    real(RP), intent(in)  :: DDENS_(elem%Np,lmesh%NeA)
+    real(RP), intent(in)  :: MOMX_(elem%Np,lmesh%NeA)
+    real(RP), intent(in)  :: MOMY_(elem%Np,lmesh%NeA)
+    real(RP), intent(in)  :: MOMZ_(elem%Np,lmesh%NeA)
+    real(RP), intent(in)  :: DRHOT_(elem%Np,lmesh%NeA)
+    real(RP), intent(in)  :: DPRES_(elem%Np,lmesh%NeA)
+    real(RP), intent(in)  :: DENS_hyd(elem%Np,lmesh%NeA)
+    real(RP), intent(in)  :: PRES_hyd(elem%Np,lmesh%NeA)
+    real(RP), intent(in)  :: PRES_hyd_ref(elem%Np,lmesh%NeA)
+    real(RP), intent(in)  :: THERM_hyd(elem%Np,lmesh%NeA)
+    real(RP), intent(in)  :: CORIOLIS(elem2D%Np,lmesh2D%NeA)
+    real(RP), intent(in)  :: Rtot(elem%Np,lmesh%NeA)
+    real(RP), intent(in)  :: CVtot(elem%Np,lmesh%NeA)
+    real(RP), intent(in)  :: CPtot(elem%Np,lmesh%NeA)
+    real(RP), intent(in) :: DPhydDx(elem%Np,lmesh%NeA)
+    real(RP), intent(in) :: DPhydDy(elem%Np,lmesh%NeA)
+
+    real(RP) :: Flux(elem%Np,3,5), DFlux(elem%Np,3,5)
+    real(RP) :: u_, v_, w_, pt_
+    real(RP) :: cor
+    real(RP) :: drho(elem%Np)
+    real(RP) :: RDENS_(elem%Np), GsqrtV(elem%Np), RGsqrtV(elem%Np), RGsqrt(elem%Np)
+    real(RP) :: Gsqrt_, GsqrtDPRES_, E11, E22, E33
+
+    integer :: ke, ke2d
+    integer :: p
+
+    real(RP) :: gamm, rgamm    
+    real(RP) :: rP0
+    real(RP) :: RovP0, P0ovR    
+    !------------------------------------------------------------------------
+
+    call PROF_rapstart('cal_dyn_tend_interior', 3)
+    gamm  = CPDry / CvDry
+    rgamm = CvDry / CpDry
+    rP0   = 1.0_RP / PRES00
+    RovP0 = Rdry * rP0
+    P0ovR = PRES00 / Rdry
+
+    !$omp parallel do private( ke, ke2d, p, cor,                 &
+    !$omp u_, v_, w_, pt_,                                       &
+    !$omp drho,                                                  &
+    !$omp RDENS_, RGsqrt, GsqrtV, RGsqrtV, Gsqrt_, GsqrtDPRES_,  &
+    !$omp E11, E22, E33, DFlux, Flux    )
+    do ke = lmesh%NeS, lmesh%NeE
+      !--
+      ke2d = lmesh%EMap3Dto2D(ke)
+      
+      do p=1, elem%Np
+        GsqrtV(p)  = lmesh%Gsqrt(p,ke) / lmesh%GsqrtH(elem%IndexH2Dto3D(p),ke2d)
+        RGsqrtV(p) = 1.0_RP / GsqrtV(p)
+        RGsqrt(p) = 1.0_RP / lmesh%Gsqrt(p,ke)
+        RDENS_(p) = 1.0_RP / (DDENS_(p,ke) + DENS_hyd(p,ke))
+      end do
+
+      !--
+
+      do p=1, elem%Np
+        Gsqrt_ = lmesh%Gsqrt(p,ke)
+        Flux(p,1,DENS_VID) = Gsqrt_ * MOMX_(p,ke)
+        Flux(p,2,DENS_VID) = Gsqrt_ * MOMY_(p,ke)
+        Flux(p,3,DENS_VID) = Gsqrt_ * ( &
+            MOMZ_(p,ke) * RGsqrtV(p)        &
+          + lmesh%GI3(p,ke,1) * MOMX_(p,ke) &
+          + lmesh%GI3(p,ke,2) * MOMY_(p,ke) )
+      end do
+      do p=1, elem%Np
+        pt_ = ( THERM_hyd(p,ke) + DRHOT_(p,ke) ) * RDENS_(p)
+
+        Flux(p,1,RHOT_VID) = Flux(p,1,DENS_VID) * pt_
+        Flux(p,2,RHOT_VID) = Flux(p,2,DENS_VID) * pt_
+        Flux(p,3,RHOT_VID) = Flux(p,3,DENS_VID) * pt_
+
+        w_ = MOMZ_(p,ke) * RDENS_(p)
+        Flux(p,1,MOMZ_VID) = Flux(p,1,DENS_VID) * w_
+        Flux(p,2,MOMZ_VID) = Flux(p,2,DENS_VID) * w_
+        Flux(p,3,MOMZ_VID) = Flux(p,3,DENS_VID) * w_ + lmesh%Gsqrt(p,ke) * DPRES_(p,ke) * RGsqrtV(p)
+      end do
+      do p=1, elem%Np
+        GsqrtDPRES_ = lmesh%Gsqrt(p,ke) * DPRES_(p,ke)
+
+        u_ = MOMX_(p,ke) * RDENS_(p)
+        Flux(p,1,MOMX_VID) = Flux(p,1,DENS_VID) * u_ + GsqrtDPRES_
+        Flux(p,2,MOMX_VID) = Flux(p,2,DENS_VID) * u_ 
+        Flux(p,3,MOMX_VID) = Flux(p,3,DENS_VID) * u_ + GsqrtDPRES_ * lmesh%GI3(p,ke,1)
+
+        v_ = MOMY_(p,ke) * RDENS_(p)
+        Flux(p,1,MOMY_VID) = Flux(p,1,DENS_VID) * v_
+        Flux(p,2,MOMY_VID) = Flux(p,2,DENS_VID) * v_ + GsqrtDPRES_ 
+        Flux(p,3,MOMY_VID) = Flux(p,3,DENS_VID) * v_ + GsqrtDPRES_ * lmesh%GI3(p,ke,2) 
+      end do
+
+      call element3D_operation%Div_var5_2( &
+        Flux,                   & ! (in)
+        DFlux                   ) ! (out)
+
+      do p=1, elem%Np
+        E11 = lmesh%Escale(p,ke,1,1)
+        E22 = lmesh%Escale(p,ke,2,2)
+        E33 = lmesh%Escale(p,ke,3,3)
+
+        DENS_dt(p,ke) = - ( &
+              E11 * DFlux(p,1,DENS_VID)    &
+            + E22 * DFlux(p,2,DENS_VID)    &
+            + E33 * DFlux(p,3,DENS_VID)    &
+            ) * RGsqrt(p)
+          
+        RHOT_dt(p,ke) = - ( &
+              E11 * DFlux(p,1,RHOT_VID)    &
+            + E22 * DFlux(p,2,RHOT_VID)    &
+            + E33 * DFlux(p,3,RHOT_VID)    &
+            ) * RGsqrt(p)
+      end do
+
+      call element3D_operation%VFilterPM1( DDENS_(:,ke), & ! (in)
+        drho ) ! (out)      
+
+      do p=1, elem%Np
+        E11 = lmesh%Escale(p,ke,1,1)
+        E22 = lmesh%Escale(p,ke,2,2)
+        E33 = lmesh%Escale(p,ke,3,3)
+            
+        MOMZ_dt(p,ke) = - ( &
+              E11 * DFlux(p,1,MOMZ_VID)     &
+            + E22 * DFlux(p,2,MOMZ_VID)     &
+            + E33 * DFlux(p,3,MOMZ_VID)     &
+            ) * RGsqrt(p) &
+            - Grav * drho(p)            
+      end do
+
+      !--
+      do p=1, elem%Np
+        cor = CORIOLIS(elem%IndexH2Dto3D(p),ke2d)
+        MOMX_dt(p,ke) = - DPhydDx(p,ke) &
+                        + cor * MOMY_(p,ke)
+        MOMY_dt(p,ke) = - DPhydDy(p,ke) &
+                        - cor * MOMX_(p,ke)
+      end do
+
+      do p=1, elem%Np
+        E11 = lmesh%Escale(p,ke,1,1)
+        E22 = lmesh%Escale(p,ke,2,2)
+        E33 = lmesh%Escale(p,ke,3,3)
+  
+        MOMX_dt(p,ke) = MOMX_dt(p,ke) - ( &
+              E11 * DFlux(p,1,MOMX_VID)    &
+            + E22 * DFlux(p,2,MOMX_VID)    &
+            + E33 * DFlux(p,3,MOMX_VID)    &
+            ) * RGsqrt(p)
+        
+        MOMY_dt(p,ke) = MOMY_dt(p,ke) - ( &
+              E11 * DFlux(p,1,MOMY_VID)    &
+            + E22 * DFlux(p,2,MOMY_VID)    &
+            + E33 * DFlux(p,3,MOMY_VID)    &
+            ) * RGsqrt(p)
+      end do
+    end do
+
+    call PROF_rapend('cal_dyn_tend_interior', 3)
+
+    return
+  end subroutine atm_dyn_dgm_nonhydro3d_rhot_heve_cal_tend_cco
+  
 end module scale_atm_dyn_dgm_nonhydro3d_rhot_heve

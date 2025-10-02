@@ -213,7 +213,7 @@ contains
     return
   end subroutine element_operation_kernel_matvec_dirZ_P1
 
-!> Calculate a matrix-vector multiplication associated with Lift operations with hexahedral element of p=1
+!> Calculate a matrix-vector multiplication with lifting operations for a hexahedral element of order p=1
 !!
 !OCL SERIAL
   subroutine element_operation_kernel_matvec_Lift_hexahedral_P1( Lift, vec_in, vec_out )
@@ -346,6 +346,58 @@ contains
     return
   end subroutine element_operation_kernel_matvec_divlike_dirXYZ_P1
 
+!OCL SERIAL
+  subroutine element_operation_kernel_matvec_divlike_dirXYZ_var5_P1( &
+    Mat, Mat_tr, vec_in_x, vec_in_y, vec_in_z, &
+    vec_out_x, vec_out_y, vec_out_z  )
+    implicit none
+    real(RP), intent(in) :: Mat(2,2)
+    real(RP), intent(in) :: Mat_tr(2,2)
+    real(RP), intent(in) :: vec_in_x(2,2**2*5)
+    real(RP), intent(in) :: vec_in_y(2,2,2*5)
+    real(RP), intent(in) :: vec_in_z(2,2,2,5)
+    real(RP), intent(out) :: vec_out_x(2,2**2*5)
+    real(RP), intent(out) :: vec_out_y(2,2**2*5)
+    real(RP), intent(out) :: vec_out_z(2,2**2,5)
+
+    integer :: i, j, k, jkv, jk, v, kv
+    !----------------------------------------------------------
+
+    ! X-dir
+
+    do jkv=1, 2**2*5
+    do i=1, 2
+      vec_out_x(i,jkv) = Mat(i,1) * vec_in_x(1,jkv) &
+                      + Mat(i,2) * vec_in_x(2,jkv)
+    end do
+    end do
+
+    ! Y-dir
+    do kv=1, 2*5
+    do j=1, 2
+      jkv = j + (kv-1)*10
+      do i=1, 2
+        vec_out_y(i,jkv) = vec_in_y(i,1,kv) * Mat_tr(1,j) &
+                        + vec_in_y(i,2,kv) * Mat_tr(2,j) 
+      end do
+    end do
+    end do
+    
+    ! Z-dir
+    do v=1, 5
+    do k=1, 2
+    do j=1, 2
+      jk = j + (k-1)*2
+      do i=1, 2
+        vec_out_z(i,jk,v) = vec_in_z(i,j,1,v) * Mat_tr(1,k) &
+                        + vec_in_z(i,j,2,v) * Mat_tr(2,k) 
+      end do
+    end do
+    end do
+    end do
+    return
+  end subroutine element_operation_kernel_matvec_divlike_dirXYZ_var5_P1
+
 !> Calculate a matrix-vector multiplication associated with 3D modal filtering with p=1
 !!
 !OCL SERIAL
@@ -473,7 +525,7 @@ contains
     return
   end subroutine element_operation_kernel_matvec_dirZ_P2
 
-!> Calculate a matrix-vector multiplication associated with Lift operations with hexahedral element of p=2
+!> Calculate a matrix-vector multiplication with lifting operations for a hexahedral element of order p=2
 !!
 !OCL SERIAL
   subroutine element_operation_kernel_matvec_Lift_hexahedral_P2( Lift, vec_in, vec_out )
@@ -612,6 +664,61 @@ contains
     return
   end subroutine element_operation_kernel_matvec_divlike_dirXYZ_P2
 
+!OCL SERIAL
+  subroutine element_operation_kernel_matvec_divlike_dirXYZ_var5_P2( &
+    Mat, Mat_tr, vec_in_x, vec_in_y, vec_in_z, &
+    vec_out_x, vec_out_y, vec_out_z  )
+    implicit none
+    real(RP), intent(in) :: Mat(3,3)
+    real(RP), intent(in) :: Mat_tr(3,3)
+    real(RP), intent(in) :: vec_in_x(3,3**2*5)
+    real(RP), intent(in) :: vec_in_y(3,3,3*5)
+    real(RP), intent(in) :: vec_in_z(3,3,3,5)
+    real(RP), intent(out) :: vec_out_x(3,3**2*5)
+    real(RP), intent(out) :: vec_out_y(3,3**2*5)
+    real(RP), intent(out) :: vec_out_z(3,3**2,5)
+
+    integer :: i, j, k, jkv, jk, v, kv
+    !----------------------------------------------------------
+
+    ! X-dir
+
+    do jkv=1, 3**2*5
+    do i=1, 3
+      vec_out_x(i,jkv) = Mat(i,1) * vec_in_x(1,jkv) &
+                      + Mat(i,2) * vec_in_x(2,jkv) &
+                      + Mat(i,3) * vec_in_x(3,jkv)
+    end do
+    end do
+
+    ! Y-dir
+    do kv=1, 3*5
+    do j=1, 3
+      jkv = j + (kv-1)*15
+      do i=1, 3
+        vec_out_y(i,jkv) = vec_in_y(i,1,kv) * Mat_tr(1,j) &
+                        + vec_in_y(i,2,kv) * Mat_tr(2,j) &
+                        + vec_in_y(i,3,kv) * Mat_tr(3,j) 
+      end do
+    end do
+    end do
+    
+    ! Z-dir
+    do v=1, 5
+    do k=1, 3
+    do j=1, 3
+      jk = j + (k-1)*3
+      do i=1, 3
+        vec_out_z(i,jk,v) = vec_in_z(i,j,1,v) * Mat_tr(1,k) &
+                        + vec_in_z(i,j,2,v) * Mat_tr(2,k) &
+                        + vec_in_z(i,j,3,v) * Mat_tr(3,k) 
+      end do
+    end do
+    end do
+    end do
+    return
+  end subroutine element_operation_kernel_matvec_divlike_dirXYZ_var5_P2
+
 !> Calculate a matrix-vector multiplication associated with 3D modal filtering with p=2
 !!
 !OCL SERIAL
@@ -745,7 +852,7 @@ contains
     return
   end subroutine element_operation_kernel_matvec_dirZ_P3
 
-!> Calculate a matrix-vector multiplication associated with Lift operations with hexahedral element of p=3
+!> Calculate a matrix-vector multiplication with lifting operations for a hexahedral element of order p=3
 !!
 !OCL SERIAL
   subroutine element_operation_kernel_matvec_Lift_hexahedral_P3( Lift, vec_in, vec_out )
@@ -890,6 +997,64 @@ contains
     return
   end subroutine element_operation_kernel_matvec_divlike_dirXYZ_P3
 
+!OCL SERIAL
+  subroutine element_operation_kernel_matvec_divlike_dirXYZ_var5_P3( &
+    Mat, Mat_tr, vec_in_x, vec_in_y, vec_in_z, &
+    vec_out_x, vec_out_y, vec_out_z  )
+    implicit none
+    real(RP), intent(in) :: Mat(4,4)
+    real(RP), intent(in) :: Mat_tr(4,4)
+    real(RP), intent(in) :: vec_in_x(4,4**2*5)
+    real(RP), intent(in) :: vec_in_y(4,4,4*5)
+    real(RP), intent(in) :: vec_in_z(4,4,4,5)
+    real(RP), intent(out) :: vec_out_x(4,4**2*5)
+    real(RP), intent(out) :: vec_out_y(4,4**2*5)
+    real(RP), intent(out) :: vec_out_z(4,4**2,5)
+
+    integer :: i, j, k, jkv, jk, v, kv
+    !----------------------------------------------------------
+
+    ! X-dir
+
+    do jkv=1, 4**2*5
+    do i=1, 4
+      vec_out_x(i,jkv) = Mat(i,1) * vec_in_x(1,jkv) &
+                      + Mat(i,2) * vec_in_x(2,jkv) &
+                      + Mat(i,3) * vec_in_x(3,jkv) &
+                      + Mat(i,4) * vec_in_x(4,jkv)
+    end do
+    end do
+
+    ! Y-dir
+    do kv=1, 4*5
+    do j=1, 4
+      jkv = j + (kv-1)*20
+      do i=1, 4
+        vec_out_y(i,jkv) = vec_in_y(i,1,kv) * Mat_tr(1,j) &
+                        + vec_in_y(i,2,kv) * Mat_tr(2,j) &
+                        + vec_in_y(i,3,kv) * Mat_tr(3,j) &
+                        + vec_in_y(i,4,kv) * Mat_tr(4,j) 
+      end do
+    end do
+    end do
+    
+    ! Z-dir
+    do v=1, 5
+    do k=1, 4
+    do j=1, 4
+      jk = j + (k-1)*4
+      do i=1, 4
+        vec_out_z(i,jk,v) = vec_in_z(i,j,1,v) * Mat_tr(1,k) &
+                        + vec_in_z(i,j,2,v) * Mat_tr(2,k) &
+                        + vec_in_z(i,j,3,v) * Mat_tr(3,k) &
+                        + vec_in_z(i,j,4,v) * Mat_tr(4,k) 
+      end do
+    end do
+    end do
+    end do
+    return
+  end subroutine element_operation_kernel_matvec_divlike_dirXYZ_var5_P3
+
 !> Calculate a matrix-vector multiplication associated with 3D modal filtering with p=3
 !!
 !OCL SERIAL
@@ -1029,7 +1194,7 @@ contains
     return
   end subroutine element_operation_kernel_matvec_dirZ_P4
 
-!> Calculate a matrix-vector multiplication associated with Lift operations with hexahedral element of p=4
+!> Calculate a matrix-vector multiplication with lifting operations for a hexahedral element of order p=4
 !!
 !OCL SERIAL
   subroutine element_operation_kernel_matvec_Lift_hexahedral_P4( Lift, vec_in, vec_out )
@@ -1180,6 +1345,67 @@ contains
     return
   end subroutine element_operation_kernel_matvec_divlike_dirXYZ_P4
 
+!OCL SERIAL
+  subroutine element_operation_kernel_matvec_divlike_dirXYZ_var5_P4( &
+    Mat, Mat_tr, vec_in_x, vec_in_y, vec_in_z, &
+    vec_out_x, vec_out_y, vec_out_z  )
+    implicit none
+    real(RP), intent(in) :: Mat(5,5)
+    real(RP), intent(in) :: Mat_tr(5,5)
+    real(RP), intent(in) :: vec_in_x(5,5**2*5)
+    real(RP), intent(in) :: vec_in_y(5,5,5*5)
+    real(RP), intent(in) :: vec_in_z(5,5,5,5)
+    real(RP), intent(out) :: vec_out_x(5,5**2*5)
+    real(RP), intent(out) :: vec_out_y(5,5**2*5)
+    real(RP), intent(out) :: vec_out_z(5,5**2,5)
+
+    integer :: i, j, k, jkv, jk, v, kv
+    !----------------------------------------------------------
+
+    ! X-dir
+
+    do jkv=1, 5**2*5
+    do i=1, 5
+      vec_out_x(i,jkv) = Mat(i,1) * vec_in_x(1,jkv) &
+                      + Mat(i,2) * vec_in_x(2,jkv) &
+                      + Mat(i,3) * vec_in_x(3,jkv) &
+                      + Mat(i,4) * vec_in_x(4,jkv) &
+                      + Mat(i,5) * vec_in_x(5,jkv)
+    end do
+    end do
+
+    ! Y-dir
+    do kv=1, 5*5
+    do j=1, 5
+      jkv = j + (kv-1)*25
+      do i=1, 5
+        vec_out_y(i,jkv) = vec_in_y(i,1,kv) * Mat_tr(1,j) &
+                        + vec_in_y(i,2,kv) * Mat_tr(2,j) &
+                        + vec_in_y(i,3,kv) * Mat_tr(3,j) &
+                        + vec_in_y(i,4,kv) * Mat_tr(4,j) &
+                        + vec_in_y(i,5,kv) * Mat_tr(5,j) 
+      end do
+    end do
+    end do
+    
+    ! Z-dir
+    do v=1, 5
+    do k=1, 5
+    do j=1, 5
+      jk = j + (k-1)*5
+      do i=1, 5
+        vec_out_z(i,jk,v) = vec_in_z(i,j,1,v) * Mat_tr(1,k) &
+                        + vec_in_z(i,j,2,v) * Mat_tr(2,k) &
+                        + vec_in_z(i,j,3,v) * Mat_tr(3,k) &
+                        + vec_in_z(i,j,4,v) * Mat_tr(4,k) &
+                        + vec_in_z(i,j,5,v) * Mat_tr(5,k) 
+      end do
+    end do
+    end do
+    end do
+    return
+  end subroutine element_operation_kernel_matvec_divlike_dirXYZ_var5_P4
+
 !> Calculate a matrix-vector multiplication associated with 3D modal filtering with p=4
 !!
 !OCL SERIAL
@@ -1325,7 +1551,7 @@ contains
     return
   end subroutine element_operation_kernel_matvec_dirZ_P5
 
-!> Calculate a matrix-vector multiplication associated with Lift operations with hexahedral element of p=5
+!> Calculate a matrix-vector multiplication with lifting operations for a hexahedral element of order p=5
 !!
 !OCL SERIAL
   subroutine element_operation_kernel_matvec_Lift_hexahedral_P5( Lift, vec_in, vec_out )
@@ -1482,6 +1708,70 @@ contains
     return
   end subroutine element_operation_kernel_matvec_divlike_dirXYZ_P5
 
+!OCL SERIAL
+  subroutine element_operation_kernel_matvec_divlike_dirXYZ_var5_P5( &
+    Mat, Mat_tr, vec_in_x, vec_in_y, vec_in_z, &
+    vec_out_x, vec_out_y, vec_out_z  )
+    implicit none
+    real(RP), intent(in) :: Mat(6,6)
+    real(RP), intent(in) :: Mat_tr(6,6)
+    real(RP), intent(in) :: vec_in_x(6,6**2*5)
+    real(RP), intent(in) :: vec_in_y(6,6,6*5)
+    real(RP), intent(in) :: vec_in_z(6,6,6,5)
+    real(RP), intent(out) :: vec_out_x(6,6**2*5)
+    real(RP), intent(out) :: vec_out_y(6,6**2*5)
+    real(RP), intent(out) :: vec_out_z(6,6**2,5)
+
+    integer :: i, j, k, jkv, jk, v, kv
+    !----------------------------------------------------------
+
+    ! X-dir
+
+    do jkv=1, 6**2*5
+    do i=1, 6
+      vec_out_x(i,jkv) = Mat(i,1) * vec_in_x(1,jkv) &
+                      + Mat(i,2) * vec_in_x(2,jkv) &
+                      + Mat(i,3) * vec_in_x(3,jkv) &
+                      + Mat(i,4) * vec_in_x(4,jkv) &
+                      + Mat(i,5) * vec_in_x(5,jkv) &
+                      + Mat(i,6) * vec_in_x(6,jkv)
+    end do
+    end do
+
+    ! Y-dir
+    do kv=1, 6*5
+    do j=1, 6
+      jkv = j + (kv-1)*30
+      do i=1, 6
+        vec_out_y(i,jkv) = vec_in_y(i,1,kv) * Mat_tr(1,j) &
+                        + vec_in_y(i,2,kv) * Mat_tr(2,j) &
+                        + vec_in_y(i,3,kv) * Mat_tr(3,j) &
+                        + vec_in_y(i,4,kv) * Mat_tr(4,j) &
+                        + vec_in_y(i,5,kv) * Mat_tr(5,j) &
+                        + vec_in_y(i,6,kv) * Mat_tr(6,j) 
+      end do
+    end do
+    end do
+    
+    ! Z-dir
+    do v=1, 5
+    do k=1, 6
+    do j=1, 6
+      jk = j + (k-1)*6
+      do i=1, 6
+        vec_out_z(i,jk,v) = vec_in_z(i,j,1,v) * Mat_tr(1,k) &
+                        + vec_in_z(i,j,2,v) * Mat_tr(2,k) &
+                        + vec_in_z(i,j,3,v) * Mat_tr(3,k) &
+                        + vec_in_z(i,j,4,v) * Mat_tr(4,k) &
+                        + vec_in_z(i,j,5,v) * Mat_tr(5,k) &
+                        + vec_in_z(i,j,6,v) * Mat_tr(6,k) 
+      end do
+    end do
+    end do
+    end do
+    return
+  end subroutine element_operation_kernel_matvec_divlike_dirXYZ_var5_P5
+
 !> Calculate a matrix-vector multiplication associated with 3D modal filtering with p=5
 !!
 !OCL SERIAL
@@ -1633,7 +1923,7 @@ contains
     return
   end subroutine element_operation_kernel_matvec_dirZ_P6
 
-!> Calculate a matrix-vector multiplication associated with Lift operations with hexahedral element of p=6
+!> Calculate a matrix-vector multiplication with lifting operations for a hexahedral element of order p=6
 !!
 !OCL SERIAL
   subroutine element_operation_kernel_matvec_Lift_hexahedral_P6( Lift, vec_in, vec_out )
@@ -1796,6 +2086,73 @@ contains
     return
   end subroutine element_operation_kernel_matvec_divlike_dirXYZ_P6
 
+!OCL SERIAL
+  subroutine element_operation_kernel_matvec_divlike_dirXYZ_var5_P6( &
+    Mat, Mat_tr, vec_in_x, vec_in_y, vec_in_z, &
+    vec_out_x, vec_out_y, vec_out_z  )
+    implicit none
+    real(RP), intent(in) :: Mat(7,7)
+    real(RP), intent(in) :: Mat_tr(7,7)
+    real(RP), intent(in) :: vec_in_x(7,7**2*5)
+    real(RP), intent(in) :: vec_in_y(7,7,7*5)
+    real(RP), intent(in) :: vec_in_z(7,7,7,5)
+    real(RP), intent(out) :: vec_out_x(7,7**2*5)
+    real(RP), intent(out) :: vec_out_y(7,7**2*5)
+    real(RP), intent(out) :: vec_out_z(7,7**2,5)
+
+    integer :: i, j, k, jkv, jk, v, kv
+    !----------------------------------------------------------
+
+    ! X-dir
+
+    do jkv=1, 7**2*5
+    do i=1, 7
+      vec_out_x(i,jkv) = Mat(i,1) * vec_in_x(1,jkv) &
+                      + Mat(i,2) * vec_in_x(2,jkv) &
+                      + Mat(i,3) * vec_in_x(3,jkv) &
+                      + Mat(i,4) * vec_in_x(4,jkv) &
+                      + Mat(i,5) * vec_in_x(5,jkv) &
+                      + Mat(i,6) * vec_in_x(6,jkv) &
+                      + Mat(i,7) * vec_in_x(7,jkv)
+    end do
+    end do
+
+    ! Y-dir
+    do kv=1, 7*5
+    do j=1, 7
+      jkv = j + (kv-1)*35
+      do i=1, 7
+        vec_out_y(i,jkv) = vec_in_y(i,1,kv) * Mat_tr(1,j) &
+                        + vec_in_y(i,2,kv) * Mat_tr(2,j) &
+                        + vec_in_y(i,3,kv) * Mat_tr(3,j) &
+                        + vec_in_y(i,4,kv) * Mat_tr(4,j) &
+                        + vec_in_y(i,5,kv) * Mat_tr(5,j) &
+                        + vec_in_y(i,6,kv) * Mat_tr(6,j) &
+                        + vec_in_y(i,7,kv) * Mat_tr(7,j) 
+      end do
+    end do
+    end do
+    
+    ! Z-dir
+    do v=1, 5
+    do k=1, 7
+    do j=1, 7
+      jk = j + (k-1)*7
+      do i=1, 7
+        vec_out_z(i,jk,v) = vec_in_z(i,j,1,v) * Mat_tr(1,k) &
+                        + vec_in_z(i,j,2,v) * Mat_tr(2,k) &
+                        + vec_in_z(i,j,3,v) * Mat_tr(3,k) &
+                        + vec_in_z(i,j,4,v) * Mat_tr(4,k) &
+                        + vec_in_z(i,j,5,v) * Mat_tr(5,k) &
+                        + vec_in_z(i,j,6,v) * Mat_tr(6,k) &
+                        + vec_in_z(i,j,7,v) * Mat_tr(7,k) 
+      end do
+    end do
+    end do
+    end do
+    return
+  end subroutine element_operation_kernel_matvec_divlike_dirXYZ_var5_P6
+
 !> Calculate a matrix-vector multiplication associated with 3D modal filtering with p=6
 !!
 !OCL SERIAL
@@ -1953,7 +2310,7 @@ contains
     return
   end subroutine element_operation_kernel_matvec_dirZ_P7
 
-!> Calculate a matrix-vector multiplication associated with Lift operations with hexahedral element of p=7
+!> Calculate a matrix-vector multiplication with lifting operations for a hexahedral element of order p=7
 !!
 !OCL SERIAL
   subroutine element_operation_kernel_matvec_Lift_hexahedral_P7( Lift, vec_in, vec_out )
@@ -2122,6 +2479,76 @@ contains
     return
   end subroutine element_operation_kernel_matvec_divlike_dirXYZ_P7
 
+!OCL SERIAL
+  subroutine element_operation_kernel_matvec_divlike_dirXYZ_var5_P7( &
+    Mat, Mat_tr, vec_in_x, vec_in_y, vec_in_z, &
+    vec_out_x, vec_out_y, vec_out_z  )
+    implicit none
+    real(RP), intent(in) :: Mat(8,8)
+    real(RP), intent(in) :: Mat_tr(8,8)
+    real(RP), intent(in) :: vec_in_x(8,8**2*5)
+    real(RP), intent(in) :: vec_in_y(8,8,8*5)
+    real(RP), intent(in) :: vec_in_z(8,8,8,5)
+    real(RP), intent(out) :: vec_out_x(8,8**2*5)
+    real(RP), intent(out) :: vec_out_y(8,8**2*5)
+    real(RP), intent(out) :: vec_out_z(8,8**2,5)
+
+    integer :: i, j, k, jkv, jk, v, kv
+    !----------------------------------------------------------
+
+    ! X-dir
+
+    do jkv=1, 8**2*5
+    do i=1, 8
+      vec_out_x(i,jkv) = Mat(i,1) * vec_in_x(1,jkv) &
+                      + Mat(i,2) * vec_in_x(2,jkv) &
+                      + Mat(i,3) * vec_in_x(3,jkv) &
+                      + Mat(i,4) * vec_in_x(4,jkv) &
+                      + Mat(i,5) * vec_in_x(5,jkv) &
+                      + Mat(i,6) * vec_in_x(6,jkv) &
+                      + Mat(i,7) * vec_in_x(7,jkv) &
+                      + Mat(i,8) * vec_in_x(8,jkv)
+    end do
+    end do
+
+    ! Y-dir
+    do kv=1, 8*5
+    do j=1, 8
+      jkv = j + (kv-1)*40
+      do i=1, 8
+        vec_out_y(i,jkv) = vec_in_y(i,1,kv) * Mat_tr(1,j) &
+                        + vec_in_y(i,2,kv) * Mat_tr(2,j) &
+                        + vec_in_y(i,3,kv) * Mat_tr(3,j) &
+                        + vec_in_y(i,4,kv) * Mat_tr(4,j) &
+                        + vec_in_y(i,5,kv) * Mat_tr(5,j) &
+                        + vec_in_y(i,6,kv) * Mat_tr(6,j) &
+                        + vec_in_y(i,7,kv) * Mat_tr(7,j) &
+                        + vec_in_y(i,8,kv) * Mat_tr(8,j) 
+      end do
+    end do
+    end do
+    
+    ! Z-dir
+    do v=1, 5
+    do k=1, 8
+    do j=1, 8
+      jk = j + (k-1)*8
+      do i=1, 8
+        vec_out_z(i,jk,v) = vec_in_z(i,j,1,v) * Mat_tr(1,k) &
+                        + vec_in_z(i,j,2,v) * Mat_tr(2,k) &
+                        + vec_in_z(i,j,3,v) * Mat_tr(3,k) &
+                        + vec_in_z(i,j,4,v) * Mat_tr(4,k) &
+                        + vec_in_z(i,j,5,v) * Mat_tr(5,k) &
+                        + vec_in_z(i,j,6,v) * Mat_tr(6,k) &
+                        + vec_in_z(i,j,7,v) * Mat_tr(7,k) &
+                        + vec_in_z(i,j,8,v) * Mat_tr(8,k) 
+      end do
+    end do
+    end do
+    end do
+    return
+  end subroutine element_operation_kernel_matvec_divlike_dirXYZ_var5_P7
+
 !> Calculate a matrix-vector multiplication associated with 3D modal filtering with p=7
 !!
 !OCL SERIAL
@@ -2285,7 +2712,7 @@ contains
     return
   end subroutine element_operation_kernel_matvec_dirZ_P8
 
-!> Calculate a matrix-vector multiplication associated with Lift operations with hexahedral element of p=8
+!> Calculate a matrix-vector multiplication with lifting operations for a hexahedral element of order p=8
 !!
 !OCL SERIAL
   subroutine element_operation_kernel_matvec_Lift_hexahedral_P8( Lift, vec_in, vec_out )
@@ -2464,6 +2891,83 @@ contains
     return
   end subroutine element_operation_kernel_matvec_divlike_dirXYZ_P8
 
+!OCL SERIAL
+  subroutine element_operation_kernel_matvec_divlike_dirXYZ_var5_P8( &
+    Mat, Mat_tr, vec_in_x, vec_in_y, vec_in_z, &
+    vec_out_x, vec_out_y, vec_out_z  )
+    implicit none
+    real(RP), intent(in) :: Mat(9,9)
+    real(RP), intent(in) :: Mat_tr(9,9)
+    real(RP), intent(in) :: vec_in_x(9,9**2*5)
+    real(RP), intent(in) :: vec_in_y(9,9,9*5)
+    real(RP), intent(in) :: vec_in_z(9,9,9,5)
+    real(RP), intent(out) :: vec_out_x(9,9**2*5)
+    real(RP), intent(out) :: vec_out_y(9,9**2*5)
+    real(RP), intent(out) :: vec_out_z(9,9**2,5)
+
+    integer :: i, j, k, jkv, jk, v, kv
+    real(RP) :: tmp1, tmp2, tmp3
+    !----------------------------------------------------------
+
+    ! X-dir
+
+    do jkv=1, 9**2*5
+    do i=1, 9
+      tmp1 = Mat(i,1) * vec_in_x(1,jkv) &
+           + Mat(i,2) * vec_in_x(2,jkv) &
+           + Mat(i,3) * vec_in_x(3,jkv)
+      tmp2 = Mat(i,4) * vec_in_x(4,jkv) &
+           + Mat(i,5) * vec_in_x(5,jkv) &
+           + Mat(i,6) * vec_in_x(6,jkv)
+      tmp3 = Mat(i,7) * vec_in_x(7,jkv) &
+           + Mat(i,8) * vec_in_x(8,jkv) &
+           + Mat(i,9) * vec_in_x(9,jkv)
+      vec_out_x(i,jkv) = tmp1 + tmp2 + tmp3
+    end do
+    end do
+
+    ! Y-dir
+    do kv=1, 9*5
+    do j=1, 9
+      jkv = j + (kv-1)*45
+      do i=1, 9
+        tmp1 = vec_in_y(i,1,kv) * Mat_tr(1,j) &
+             + vec_in_y(i,2,kv) * Mat_tr(2,j) &
+             + vec_in_y(i,3,kv) * Mat_tr(3,j) 
+        tmp2 = vec_in_y(i,4,kv) * Mat_tr(4,j) &
+             + vec_in_y(i,5,kv) * Mat_tr(5,j) &
+             + vec_in_y(i,6,kv) * Mat_tr(6,j) 
+        tmp3 = vec_in_y(i,7,kv) * Mat_tr(7,j) &
+             + vec_in_y(i,8,kv) * Mat_tr(8,j) &
+             + vec_in_y(i,9,kv) * Mat_tr(9,j) 
+      vec_out_y(i,jkv) = tmp1 + tmp2 + tmp3
+      end do
+    end do
+    end do
+    
+    ! Z-dir
+    do v=1, 5
+    do k=1, 9
+    do j=1, 9
+      jk = j + (k-1)*9
+      do i=1, 9
+        tmp1 = vec_in_z(i,j,1,v) * Mat_tr(1,k) &
+             + vec_in_z(i,j,2,v) * Mat_tr(2,k) &
+             + vec_in_z(i,j,3,v) * Mat_tr(3,k) 
+        tmp2 = vec_in_z(i,j,4,v) * Mat_tr(4,k) &
+             + vec_in_z(i,j,5,v) * Mat_tr(5,k) &
+             + vec_in_z(i,j,6,v) * Mat_tr(6,k) 
+        tmp3 = vec_in_z(i,j,7,v) * Mat_tr(7,k) &
+             + vec_in_z(i,j,8,v) * Mat_tr(8,k) &
+             + vec_in_z(i,j,9,v) * Mat_tr(9,k) 
+      vec_out_z(i,jk,v) = tmp1 + tmp2 + tmp3
+      end do
+    end do
+    end do
+    end do
+    return
+  end subroutine element_operation_kernel_matvec_divlike_dirXYZ_var5_P8
+
 !> Calculate a matrix-vector multiplication associated with 3D modal filtering with p=8
 !!
 !OCL SERIAL
@@ -2637,7 +3141,7 @@ contains
     return
   end subroutine element_operation_kernel_matvec_dirZ_P9
 
-!> Calculate a matrix-vector multiplication associated with Lift operations with hexahedral element of p=9
+!> Calculate a matrix-vector multiplication with lifting operations for a hexahedral element of order p=9
 !!
 !OCL SERIAL
   subroutine element_operation_kernel_matvec_Lift_hexahedral_P9( Lift, vec_in, vec_out )
@@ -2822,6 +3326,86 @@ contains
     return
   end subroutine element_operation_kernel_matvec_divlike_dirXYZ_P9
 
+!OCL SERIAL
+  subroutine element_operation_kernel_matvec_divlike_dirXYZ_var5_P9( &
+    Mat, Mat_tr, vec_in_x, vec_in_y, vec_in_z, &
+    vec_out_x, vec_out_y, vec_out_z  )
+    implicit none
+    real(RP), intent(in) :: Mat(10,10)
+    real(RP), intent(in) :: Mat_tr(10,10)
+    real(RP), intent(in) :: vec_in_x(10,10**2*5)
+    real(RP), intent(in) :: vec_in_y(10,10,10*5)
+    real(RP), intent(in) :: vec_in_z(10,10,10,5)
+    real(RP), intent(out) :: vec_out_x(10,10**2*5)
+    real(RP), intent(out) :: vec_out_y(10,10**2*5)
+    real(RP), intent(out) :: vec_out_z(10,10**2,5)
+
+    integer :: i, j, k, jkv, jk, v, kv
+    real(RP) :: tmp1, tmp2, tmp3
+    !----------------------------------------------------------
+
+    ! X-dir
+
+    do jkv=1, 10**2*5
+    do i=1, 10
+      tmp1 = Mat(i,1) * vec_in_x(1,jkv) &
+           + Mat(i,2) * vec_in_x(2,jkv) &
+           + Mat(i,3) * vec_in_x(3,jkv)
+      tmp2 = Mat(i,4) * vec_in_x(4,jkv) &
+           + Mat(i,5) * vec_in_x(5,jkv) &
+           + Mat(i,6) * vec_in_x(6,jkv)
+      tmp3 = Mat(i,7) * vec_in_x(7,jkv) &
+           + Mat(i,8) * vec_in_x(8,jkv) &
+           + Mat(i,9) * vec_in_x(9,jkv) &
+           + Mat(i,10) * vec_in_x(10,jkv)
+      vec_out_x(i,jkv) = tmp1 + tmp2 + tmp3
+    end do
+    end do
+
+    ! Y-dir
+    do kv=1, 10*5
+    do j=1, 10
+      jkv = j + (kv-1)*50
+      do i=1, 10
+        tmp1 = vec_in_y(i,1,kv) * Mat_tr(1,j) &
+             + vec_in_y(i,2,kv) * Mat_tr(2,j) &
+             + vec_in_y(i,3,kv) * Mat_tr(3,j) 
+        tmp2 = vec_in_y(i,4,kv) * Mat_tr(4,j) &
+             + vec_in_y(i,5,kv) * Mat_tr(5,j) &
+             + vec_in_y(i,6,kv) * Mat_tr(6,j) 
+        tmp3 = vec_in_y(i,7,kv) * Mat_tr(7,j) &
+             + vec_in_y(i,8,kv) * Mat_tr(8,j) &
+             + vec_in_y(i,9,kv) * Mat_tr(9,j) &
+             + vec_in_y(i,10,kv) * Mat_tr(10,j) 
+      vec_out_y(i,jkv) = tmp1 + tmp2 + tmp3
+      end do
+    end do
+    end do
+    
+    ! Z-dir
+    do v=1, 5
+    do k=1, 10
+    do j=1, 10
+      jk = j + (k-1)*10
+      do i=1, 10
+        tmp1 = vec_in_z(i,j,1,v) * Mat_tr(1,k) &
+             + vec_in_z(i,j,2,v) * Mat_tr(2,k) &
+             + vec_in_z(i,j,3,v) * Mat_tr(3,k) 
+        tmp2 = vec_in_z(i,j,4,v) * Mat_tr(4,k) &
+             + vec_in_z(i,j,5,v) * Mat_tr(5,k) &
+             + vec_in_z(i,j,6,v) * Mat_tr(6,k) 
+        tmp3 = vec_in_z(i,j,7,v) * Mat_tr(7,k) &
+             + vec_in_z(i,j,8,v) * Mat_tr(8,k) &
+             + vec_in_z(i,j,9,v) * Mat_tr(9,k) &
+             + vec_in_z(i,j,10,v) * Mat_tr(10,k) 
+      vec_out_z(i,jk,v) = tmp1 + tmp2 + tmp3
+      end do
+    end do
+    end do
+    end do
+    return
+  end subroutine element_operation_kernel_matvec_divlike_dirXYZ_var5_P9
+
 !> Calculate a matrix-vector multiplication associated with 3D modal filtering with p=9
 !!
 !OCL SERIAL
@@ -3001,7 +3585,7 @@ contains
     return
   end subroutine element_operation_kernel_matvec_dirZ_P10
 
-!> Calculate a matrix-vector multiplication associated with Lift operations with hexahedral element of p=10
+!> Calculate a matrix-vector multiplication with lifting operations for a hexahedral element of order p=10
 !!
 !OCL SERIAL
   subroutine element_operation_kernel_matvec_Lift_hexahedral_P10( Lift, vec_in, vec_out )
@@ -3192,6 +3776,89 @@ contains
     return
   end subroutine element_operation_kernel_matvec_divlike_dirXYZ_P10
 
+!OCL SERIAL
+  subroutine element_operation_kernel_matvec_divlike_dirXYZ_var5_P10( &
+    Mat, Mat_tr, vec_in_x, vec_in_y, vec_in_z, &
+    vec_out_x, vec_out_y, vec_out_z  )
+    implicit none
+    real(RP), intent(in) :: Mat(11,11)
+    real(RP), intent(in) :: Mat_tr(11,11)
+    real(RP), intent(in) :: vec_in_x(11,11**2*5)
+    real(RP), intent(in) :: vec_in_y(11,11,11*5)
+    real(RP), intent(in) :: vec_in_z(11,11,11,5)
+    real(RP), intent(out) :: vec_out_x(11,11**2*5)
+    real(RP), intent(out) :: vec_out_y(11,11**2*5)
+    real(RP), intent(out) :: vec_out_z(11,11**2,5)
+
+    integer :: i, j, k, jkv, jk, v, kv
+    real(RP) :: tmp1, tmp2, tmp3
+    !----------------------------------------------------------
+
+    ! X-dir
+
+    do jkv=1, 11**2*5
+    do i=1, 11
+      tmp1 = Mat(i,1) * vec_in_x(1,jkv) &
+           + Mat(i,2) * vec_in_x(2,jkv) &
+           + Mat(i,3) * vec_in_x(3,jkv) &
+           + Mat(i,4) * vec_in_x(4,jkv)
+      tmp2 = Mat(i,5) * vec_in_x(5,jkv) &
+           + Mat(i,6) * vec_in_x(6,jkv) &
+           + Mat(i,7) * vec_in_x(7,jkv) &
+           + Mat(i,8) * vec_in_x(8,jkv)
+      tmp3 = Mat(i,9) * vec_in_x(9,jkv) &
+           + Mat(i,10) * vec_in_x(10,jkv) &
+           + Mat(i,11) * vec_in_x(11,jkv)
+      vec_out_x(i,jkv) = tmp1 + tmp2 + tmp3
+    end do
+    end do
+
+    ! Y-dir
+    do kv=1, 11*5
+    do j=1, 11
+      jkv = j + (kv-1)*55
+      do i=1, 11
+        tmp1 = vec_in_y(i,1,kv) * Mat_tr(1,j) &
+             + vec_in_y(i,2,kv) * Mat_tr(2,j) &
+             + vec_in_y(i,3,kv) * Mat_tr(3,j) &
+             + vec_in_y(i,4,kv) * Mat_tr(4,j) 
+        tmp2 = vec_in_y(i,5,kv) * Mat_tr(5,j) &
+             + vec_in_y(i,6,kv) * Mat_tr(6,j) &
+             + vec_in_y(i,7,kv) * Mat_tr(7,j) &
+             + vec_in_y(i,8,kv) * Mat_tr(8,j) 
+        tmp3 = vec_in_y(i,9,kv) * Mat_tr(9,j) &
+             + vec_in_y(i,10,kv) * Mat_tr(10,j) &
+             + vec_in_y(i,11,kv) * Mat_tr(11,j) 
+      vec_out_y(i,jkv) = tmp1 + tmp2 + tmp3
+      end do
+    end do
+    end do
+    
+    ! Z-dir
+    do v=1, 5
+    do k=1, 11
+    do j=1, 11
+      jk = j + (k-1)*11
+      do i=1, 11
+        tmp1 = vec_in_z(i,j,1,v) * Mat_tr(1,k) &
+             + vec_in_z(i,j,2,v) * Mat_tr(2,k) &
+             + vec_in_z(i,j,3,v) * Mat_tr(3,k) &
+             + vec_in_z(i,j,4,v) * Mat_tr(4,k) 
+        tmp2 = vec_in_z(i,j,5,v) * Mat_tr(5,k) &
+             + vec_in_z(i,j,6,v) * Mat_tr(6,k) &
+             + vec_in_z(i,j,7,v) * Mat_tr(7,k) &
+             + vec_in_z(i,j,8,v) * Mat_tr(8,k) 
+        tmp3 = vec_in_z(i,j,9,v) * Mat_tr(9,k) &
+             + vec_in_z(i,j,10,v) * Mat_tr(10,k) &
+             + vec_in_z(i,j,11,v) * Mat_tr(11,k) 
+      vec_out_z(i,jk,v) = tmp1 + tmp2 + tmp3
+      end do
+    end do
+    end do
+    end do
+    return
+  end subroutine element_operation_kernel_matvec_divlike_dirXYZ_var5_P10
+
 !> Calculate a matrix-vector multiplication associated with 3D modal filtering with p=10
 !!
 !OCL SERIAL
@@ -3377,7 +4044,7 @@ contains
     return
   end subroutine element_operation_kernel_matvec_dirZ_P11
 
-!> Calculate a matrix-vector multiplication associated with Lift operations with hexahedral element of p=11
+!> Calculate a matrix-vector multiplication with lifting operations for a hexahedral element of order p=11
 !!
 !OCL SERIAL
   subroutine element_operation_kernel_matvec_Lift_hexahedral_P11( Lift, vec_in, vec_out )
@@ -3574,6 +4241,92 @@ contains
     return
   end subroutine element_operation_kernel_matvec_divlike_dirXYZ_P11
 
+!OCL SERIAL
+  subroutine element_operation_kernel_matvec_divlike_dirXYZ_var5_P11( &
+    Mat, Mat_tr, vec_in_x, vec_in_y, vec_in_z, &
+    vec_out_x, vec_out_y, vec_out_z  )
+    implicit none
+    real(RP), intent(in) :: Mat(12,12)
+    real(RP), intent(in) :: Mat_tr(12,12)
+    real(RP), intent(in) :: vec_in_x(12,12**2*5)
+    real(RP), intent(in) :: vec_in_y(12,12,12*5)
+    real(RP), intent(in) :: vec_in_z(12,12,12,5)
+    real(RP), intent(out) :: vec_out_x(12,12**2*5)
+    real(RP), intent(out) :: vec_out_y(12,12**2*5)
+    real(RP), intent(out) :: vec_out_z(12,12**2,5)
+
+    integer :: i, j, k, jkv, jk, v, kv
+    real(RP) :: tmp1, tmp2, tmp3
+    !----------------------------------------------------------
+
+    ! X-dir
+
+    do jkv=1, 12**2*5
+    do i=1, 12
+      tmp1 = Mat(i,1) * vec_in_x(1,jkv) &
+           + Mat(i,2) * vec_in_x(2,jkv) &
+           + Mat(i,3) * vec_in_x(3,jkv) &
+           + Mat(i,4) * vec_in_x(4,jkv)
+      tmp2 = Mat(i,5) * vec_in_x(5,jkv) &
+           + Mat(i,6) * vec_in_x(6,jkv) &
+           + Mat(i,7) * vec_in_x(7,jkv) &
+           + Mat(i,8) * vec_in_x(8,jkv)
+      tmp3 = Mat(i,9) * vec_in_x(9,jkv) &
+           + Mat(i,10) * vec_in_x(10,jkv) &
+           + Mat(i,11) * vec_in_x(11,jkv) &
+           + Mat(i,12) * vec_in_x(12,jkv)
+      vec_out_x(i,jkv) = tmp1 + tmp2 + tmp3
+    end do
+    end do
+
+    ! Y-dir
+    do kv=1, 12*5
+    do j=1, 12
+      jkv = j + (kv-1)*60
+      do i=1, 12
+        tmp1 = vec_in_y(i,1,kv) * Mat_tr(1,j) &
+             + vec_in_y(i,2,kv) * Mat_tr(2,j) &
+             + vec_in_y(i,3,kv) * Mat_tr(3,j) &
+             + vec_in_y(i,4,kv) * Mat_tr(4,j) 
+        tmp2 = vec_in_y(i,5,kv) * Mat_tr(5,j) &
+             + vec_in_y(i,6,kv) * Mat_tr(6,j) &
+             + vec_in_y(i,7,kv) * Mat_tr(7,j) &
+             + vec_in_y(i,8,kv) * Mat_tr(8,j) 
+        tmp3 = vec_in_y(i,9,kv) * Mat_tr(9,j) &
+             + vec_in_y(i,10,kv) * Mat_tr(10,j) &
+             + vec_in_y(i,11,kv) * Mat_tr(11,j) &
+             + vec_in_y(i,12,kv) * Mat_tr(12,j) 
+      vec_out_y(i,jkv) = tmp1 + tmp2 + tmp3
+      end do
+    end do
+    end do
+    
+    ! Z-dir
+    do v=1, 5
+    do k=1, 12
+    do j=1, 12
+      jk = j + (k-1)*12
+      do i=1, 12
+        tmp1 = vec_in_z(i,j,1,v) * Mat_tr(1,k) &
+             + vec_in_z(i,j,2,v) * Mat_tr(2,k) &
+             + vec_in_z(i,j,3,v) * Mat_tr(3,k) &
+             + vec_in_z(i,j,4,v) * Mat_tr(4,k) 
+        tmp2 = vec_in_z(i,j,5,v) * Mat_tr(5,k) &
+             + vec_in_z(i,j,6,v) * Mat_tr(6,k) &
+             + vec_in_z(i,j,7,v) * Mat_tr(7,k) &
+             + vec_in_z(i,j,8,v) * Mat_tr(8,k) 
+        tmp3 = vec_in_z(i,j,9,v) * Mat_tr(9,k) &
+             + vec_in_z(i,j,10,v) * Mat_tr(10,k) &
+             + vec_in_z(i,j,11,v) * Mat_tr(11,k) &
+             + vec_in_z(i,j,12,v) * Mat_tr(12,k) 
+      vec_out_z(i,jk,v) = tmp1 + tmp2 + tmp3
+      end do
+    end do
+    end do
+    end do
+    return
+  end subroutine element_operation_kernel_matvec_divlike_dirXYZ_var5_P11
+
 !> Calculate a matrix-vector multiplication associated with 3D modal filtering with p=11
 !!
 !OCL SERIAL
@@ -3765,7 +4518,7 @@ contains
     return
   end subroutine element_operation_kernel_matvec_dirZ_P12
 
-!> Calculate a matrix-vector multiplication associated with Lift operations with hexahedral element of p=12
+!> Calculate a matrix-vector multiplication with lifting operations for a hexahedral element of order p=12
 !!
 !OCL SERIAL
   subroutine element_operation_kernel_matvec_Lift_hexahedral_P12( Lift, vec_in, vec_out )
@@ -3968,6 +4721,95 @@ contains
     return
   end subroutine element_operation_kernel_matvec_divlike_dirXYZ_P12
 
+!OCL SERIAL
+  subroutine element_operation_kernel_matvec_divlike_dirXYZ_var5_P12( &
+    Mat, Mat_tr, vec_in_x, vec_in_y, vec_in_z, &
+    vec_out_x, vec_out_y, vec_out_z  )
+    implicit none
+    real(RP), intent(in) :: Mat(13,13)
+    real(RP), intent(in) :: Mat_tr(13,13)
+    real(RP), intent(in) :: vec_in_x(13,13**2*5)
+    real(RP), intent(in) :: vec_in_y(13,13,13*5)
+    real(RP), intent(in) :: vec_in_z(13,13,13,5)
+    real(RP), intent(out) :: vec_out_x(13,13**2*5)
+    real(RP), intent(out) :: vec_out_y(13,13**2*5)
+    real(RP), intent(out) :: vec_out_z(13,13**2,5)
+
+    integer :: i, j, k, jkv, jk, v, kv
+    real(RP) :: tmp1, tmp2, tmp3
+    !----------------------------------------------------------
+
+    ! X-dir
+
+    do jkv=1, 13**2*5
+    do i=1, 13
+      tmp1 = Mat(i,1) * vec_in_x(1,jkv) &
+           + Mat(i,2) * vec_in_x(2,jkv) &
+           + Mat(i,3) * vec_in_x(3,jkv) &
+           + Mat(i,4) * vec_in_x(4,jkv)
+      tmp2 = Mat(i,5) * vec_in_x(5,jkv) &
+           + Mat(i,6) * vec_in_x(6,jkv) &
+           + Mat(i,7) * vec_in_x(7,jkv) &
+           + Mat(i,8) * vec_in_x(8,jkv)
+      tmp3 = Mat(i,9) * vec_in_x(9,jkv) &
+           + Mat(i,10) * vec_in_x(10,jkv) &
+           + Mat(i,11) * vec_in_x(11,jkv) &
+           + Mat(i,12) * vec_in_x(12,jkv) &
+           + Mat(i,13) * vec_in_x(13,jkv)
+      vec_out_x(i,jkv) = tmp1 + tmp2 + tmp3
+    end do
+    end do
+
+    ! Y-dir
+    do kv=1, 13*5
+    do j=1, 13
+      jkv = j + (kv-1)*65
+      do i=1, 13
+        tmp1 = vec_in_y(i,1,kv) * Mat_tr(1,j) &
+             + vec_in_y(i,2,kv) * Mat_tr(2,j) &
+             + vec_in_y(i,3,kv) * Mat_tr(3,j) &
+             + vec_in_y(i,4,kv) * Mat_tr(4,j) 
+        tmp2 = vec_in_y(i,5,kv) * Mat_tr(5,j) &
+             + vec_in_y(i,6,kv) * Mat_tr(6,j) &
+             + vec_in_y(i,7,kv) * Mat_tr(7,j) &
+             + vec_in_y(i,8,kv) * Mat_tr(8,j) 
+        tmp3 = vec_in_y(i,9,kv) * Mat_tr(9,j) &
+             + vec_in_y(i,10,kv) * Mat_tr(10,j) &
+             + vec_in_y(i,11,kv) * Mat_tr(11,j) &
+             + vec_in_y(i,12,kv) * Mat_tr(12,j) &
+             + vec_in_y(i,13,kv) * Mat_tr(13,j) 
+      vec_out_y(i,jkv) = tmp1 + tmp2 + tmp3
+      end do
+    end do
+    end do
+    
+    ! Z-dir
+    do v=1, 5
+    do k=1, 13
+    do j=1, 13
+      jk = j + (k-1)*13
+      do i=1, 13
+        tmp1 = vec_in_z(i,j,1,v) * Mat_tr(1,k) &
+             + vec_in_z(i,j,2,v) * Mat_tr(2,k) &
+             + vec_in_z(i,j,3,v) * Mat_tr(3,k) &
+             + vec_in_z(i,j,4,v) * Mat_tr(4,k) 
+        tmp2 = vec_in_z(i,j,5,v) * Mat_tr(5,k) &
+             + vec_in_z(i,j,6,v) * Mat_tr(6,k) &
+             + vec_in_z(i,j,7,v) * Mat_tr(7,k) &
+             + vec_in_z(i,j,8,v) * Mat_tr(8,k) 
+        tmp3 = vec_in_z(i,j,9,v) * Mat_tr(9,k) &
+             + vec_in_z(i,j,10,v) * Mat_tr(10,k) &
+             + vec_in_z(i,j,11,v) * Mat_tr(11,k) &
+             + vec_in_z(i,j,12,v) * Mat_tr(12,k) &
+             + vec_in_z(i,j,13,v) * Mat_tr(13,k) 
+      vec_out_z(i,jk,v) = tmp1 + tmp2 + tmp3
+      end do
+    end do
+    end do
+    end do
+    return
+  end subroutine element_operation_kernel_matvec_divlike_dirXYZ_var5_P12
+
 !> Calculate a matrix-vector multiplication associated with 3D modal filtering with p=12
 !!
 !OCL SERIAL
@@ -4165,7 +5007,7 @@ contains
     return
   end subroutine element_operation_kernel_matvec_dirZ_P13
 
-!> Calculate a matrix-vector multiplication associated with Lift operations with hexahedral element of p=13
+!> Calculate a matrix-vector multiplication with lifting operations for a hexahedral element of order p=13
 !!
 !OCL SERIAL
   subroutine element_operation_kernel_matvec_Lift_hexahedral_P13( Lift, vec_in, vec_out )
@@ -4374,6 +5216,98 @@ contains
     return
   end subroutine element_operation_kernel_matvec_divlike_dirXYZ_P13
 
+!OCL SERIAL
+  subroutine element_operation_kernel_matvec_divlike_dirXYZ_var5_P13( &
+    Mat, Mat_tr, vec_in_x, vec_in_y, vec_in_z, &
+    vec_out_x, vec_out_y, vec_out_z  )
+    implicit none
+    real(RP), intent(in) :: Mat(14,14)
+    real(RP), intent(in) :: Mat_tr(14,14)
+    real(RP), intent(in) :: vec_in_x(14,14**2*5)
+    real(RP), intent(in) :: vec_in_y(14,14,14*5)
+    real(RP), intent(in) :: vec_in_z(14,14,14,5)
+    real(RP), intent(out) :: vec_out_x(14,14**2*5)
+    real(RP), intent(out) :: vec_out_y(14,14**2*5)
+    real(RP), intent(out) :: vec_out_z(14,14**2,5)
+
+    integer :: i, j, k, jkv, jk, v, kv
+    real(RP) :: tmp1, tmp2, tmp3
+    !----------------------------------------------------------
+
+    ! X-dir
+
+    do jkv=1, 14**2*5
+    do i=1, 14
+      tmp1 = Mat(i,1) * vec_in_x(1,jkv) &
+           + Mat(i,2) * vec_in_x(2,jkv) &
+           + Mat(i,3) * vec_in_x(3,jkv) &
+           + Mat(i,4) * vec_in_x(4,jkv) &
+           + Mat(i,5) * vec_in_x(5,jkv)
+      tmp2 = Mat(i,6) * vec_in_x(6,jkv) &
+           + Mat(i,7) * vec_in_x(7,jkv) &
+           + Mat(i,8) * vec_in_x(8,jkv) &
+           + Mat(i,9) * vec_in_x(9,jkv) &
+           + Mat(i,10) * vec_in_x(10,jkv)
+      tmp3 = Mat(i,11) * vec_in_x(11,jkv) &
+           + Mat(i,12) * vec_in_x(12,jkv) &
+           + Mat(i,13) * vec_in_x(13,jkv) &
+           + Mat(i,14) * vec_in_x(14,jkv)
+      vec_out_x(i,jkv) = tmp1 + tmp2 + tmp3
+    end do
+    end do
+
+    ! Y-dir
+    do kv=1, 14*5
+    do j=1, 14
+      jkv = j + (kv-1)*70
+      do i=1, 14
+        tmp1 = vec_in_y(i,1,kv) * Mat_tr(1,j) &
+             + vec_in_y(i,2,kv) * Mat_tr(2,j) &
+             + vec_in_y(i,3,kv) * Mat_tr(3,j) &
+             + vec_in_y(i,4,kv) * Mat_tr(4,j) &
+             + vec_in_y(i,5,kv) * Mat_tr(5,j) 
+        tmp2 = vec_in_y(i,6,kv) * Mat_tr(6,j) &
+             + vec_in_y(i,7,kv) * Mat_tr(7,j) &
+             + vec_in_y(i,8,kv) * Mat_tr(8,j) &
+             + vec_in_y(i,9,kv) * Mat_tr(9,j) &
+             + vec_in_y(i,10,kv) * Mat_tr(10,j) 
+        tmp3 = vec_in_y(i,11,kv) * Mat_tr(11,j) &
+             + vec_in_y(i,12,kv) * Mat_tr(12,j) &
+             + vec_in_y(i,13,kv) * Mat_tr(13,j) &
+             + vec_in_y(i,14,kv) * Mat_tr(14,j) 
+      vec_out_y(i,jkv) = tmp1 + tmp2 + tmp3
+      end do
+    end do
+    end do
+    
+    ! Z-dir
+    do v=1, 5
+    do k=1, 14
+    do j=1, 14
+      jk = j + (k-1)*14
+      do i=1, 14
+        tmp1 = vec_in_z(i,j,1,v) * Mat_tr(1,k) &
+             + vec_in_z(i,j,2,v) * Mat_tr(2,k) &
+             + vec_in_z(i,j,3,v) * Mat_tr(3,k) &
+             + vec_in_z(i,j,4,v) * Mat_tr(4,k) &
+             + vec_in_z(i,j,5,v) * Mat_tr(5,k) 
+        tmp2 = vec_in_z(i,j,6,v) * Mat_tr(6,k) &
+             + vec_in_z(i,j,7,v) * Mat_tr(7,k) &
+             + vec_in_z(i,j,8,v) * Mat_tr(8,k) &
+             + vec_in_z(i,j,9,v) * Mat_tr(9,k) &
+             + vec_in_z(i,j,10,v) * Mat_tr(10,k) 
+        tmp3 = vec_in_z(i,j,11,v) * Mat_tr(11,k) &
+             + vec_in_z(i,j,12,v) * Mat_tr(12,k) &
+             + vec_in_z(i,j,13,v) * Mat_tr(13,k) &
+             + vec_in_z(i,j,14,v) * Mat_tr(14,k) 
+      vec_out_z(i,jk,v) = tmp1 + tmp2 + tmp3
+      end do
+    end do
+    end do
+    end do
+    return
+  end subroutine element_operation_kernel_matvec_divlike_dirXYZ_var5_P13
+
 !> Calculate a matrix-vector multiplication associated with 3D modal filtering with p=13
 !!
 !OCL SERIAL
@@ -4577,7 +5511,7 @@ contains
     return
   end subroutine element_operation_kernel_matvec_dirZ_P14
 
-!> Calculate a matrix-vector multiplication associated with Lift operations with hexahedral element of p=14
+!> Calculate a matrix-vector multiplication with lifting operations for a hexahedral element of order p=14
 !!
 !OCL SERIAL
   subroutine element_operation_kernel_matvec_Lift_hexahedral_P14( Lift, vec_in, vec_out )
@@ -4792,6 +5726,101 @@ contains
     return
   end subroutine element_operation_kernel_matvec_divlike_dirXYZ_P14
 
+!OCL SERIAL
+  subroutine element_operation_kernel_matvec_divlike_dirXYZ_var5_P14( &
+    Mat, Mat_tr, vec_in_x, vec_in_y, vec_in_z, &
+    vec_out_x, vec_out_y, vec_out_z  )
+    implicit none
+    real(RP), intent(in) :: Mat(15,15)
+    real(RP), intent(in) :: Mat_tr(15,15)
+    real(RP), intent(in) :: vec_in_x(15,15**2*5)
+    real(RP), intent(in) :: vec_in_y(15,15,15*5)
+    real(RP), intent(in) :: vec_in_z(15,15,15,5)
+    real(RP), intent(out) :: vec_out_x(15,15**2*5)
+    real(RP), intent(out) :: vec_out_y(15,15**2*5)
+    real(RP), intent(out) :: vec_out_z(15,15**2,5)
+
+    integer :: i, j, k, jkv, jk, v, kv
+    real(RP) :: tmp1, tmp2, tmp3
+    !----------------------------------------------------------
+
+    ! X-dir
+
+    do jkv=1, 15**2*5
+    do i=1, 15
+      tmp1 = Mat(i,1) * vec_in_x(1,jkv) &
+           + Mat(i,2) * vec_in_x(2,jkv) &
+           + Mat(i,3) * vec_in_x(3,jkv) &
+           + Mat(i,4) * vec_in_x(4,jkv) &
+           + Mat(i,5) * vec_in_x(5,jkv)
+      tmp2 = Mat(i,6) * vec_in_x(6,jkv) &
+           + Mat(i,7) * vec_in_x(7,jkv) &
+           + Mat(i,8) * vec_in_x(8,jkv) &
+           + Mat(i,9) * vec_in_x(9,jkv) &
+           + Mat(i,10) * vec_in_x(10,jkv)
+      tmp3 = Mat(i,11) * vec_in_x(11,jkv) &
+           + Mat(i,12) * vec_in_x(12,jkv) &
+           + Mat(i,13) * vec_in_x(13,jkv) &
+           + Mat(i,14) * vec_in_x(14,jkv) &
+           + Mat(i,15) * vec_in_x(15,jkv)
+      vec_out_x(i,jkv) = tmp1 + tmp2 + tmp3
+    end do
+    end do
+
+    ! Y-dir
+    do kv=1, 15*5
+    do j=1, 15
+      jkv = j + (kv-1)*75
+      do i=1, 15
+        tmp1 = vec_in_y(i,1,kv) * Mat_tr(1,j) &
+             + vec_in_y(i,2,kv) * Mat_tr(2,j) &
+             + vec_in_y(i,3,kv) * Mat_tr(3,j) &
+             + vec_in_y(i,4,kv) * Mat_tr(4,j) &
+             + vec_in_y(i,5,kv) * Mat_tr(5,j) 
+        tmp2 = vec_in_y(i,6,kv) * Mat_tr(6,j) &
+             + vec_in_y(i,7,kv) * Mat_tr(7,j) &
+             + vec_in_y(i,8,kv) * Mat_tr(8,j) &
+             + vec_in_y(i,9,kv) * Mat_tr(9,j) &
+             + vec_in_y(i,10,kv) * Mat_tr(10,j) 
+        tmp3 = vec_in_y(i,11,kv) * Mat_tr(11,j) &
+             + vec_in_y(i,12,kv) * Mat_tr(12,j) &
+             + vec_in_y(i,13,kv) * Mat_tr(13,j) &
+             + vec_in_y(i,14,kv) * Mat_tr(14,j) &
+             + vec_in_y(i,15,kv) * Mat_tr(15,j) 
+      vec_out_y(i,jkv) = tmp1 + tmp2 + tmp3
+      end do
+    end do
+    end do
+    
+    ! Z-dir
+    do v=1, 5
+    do k=1, 15
+    do j=1, 15
+      jk = j + (k-1)*15
+      do i=1, 15
+        tmp1 = vec_in_z(i,j,1,v) * Mat_tr(1,k) &
+             + vec_in_z(i,j,2,v) * Mat_tr(2,k) &
+             + vec_in_z(i,j,3,v) * Mat_tr(3,k) &
+             + vec_in_z(i,j,4,v) * Mat_tr(4,k) &
+             + vec_in_z(i,j,5,v) * Mat_tr(5,k) 
+        tmp2 = vec_in_z(i,j,6,v) * Mat_tr(6,k) &
+             + vec_in_z(i,j,7,v) * Mat_tr(7,k) &
+             + vec_in_z(i,j,8,v) * Mat_tr(8,k) &
+             + vec_in_z(i,j,9,v) * Mat_tr(9,k) &
+             + vec_in_z(i,j,10,v) * Mat_tr(10,k) 
+        tmp3 = vec_in_z(i,j,11,v) * Mat_tr(11,k) &
+             + vec_in_z(i,j,12,v) * Mat_tr(12,k) &
+             + vec_in_z(i,j,13,v) * Mat_tr(13,k) &
+             + vec_in_z(i,j,14,v) * Mat_tr(14,k) &
+             + vec_in_z(i,j,15,v) * Mat_tr(15,k) 
+      vec_out_z(i,jk,v) = tmp1 + tmp2 + tmp3
+      end do
+    end do
+    end do
+    end do
+    return
+  end subroutine element_operation_kernel_matvec_divlike_dirXYZ_var5_P14
+
 !> Calculate a matrix-vector multiplication associated with 3D modal filtering with p=14
 !!
 !OCL SERIAL
@@ -5001,7 +6030,7 @@ contains
     return
   end subroutine element_operation_kernel_matvec_dirZ_P15
 
-!> Calculate a matrix-vector multiplication associated with Lift operations with hexahedral element of p=15
+!> Calculate a matrix-vector multiplication with lifting operations for a hexahedral element of order p=15
 !!
 !OCL SERIAL
   subroutine element_operation_kernel_matvec_Lift_hexahedral_P15( Lift, vec_in, vec_out )
@@ -5221,6 +6250,104 @@ contains
     end do
     return
   end subroutine element_operation_kernel_matvec_divlike_dirXYZ_P15
+
+!OCL SERIAL
+  subroutine element_operation_kernel_matvec_divlike_dirXYZ_var5_P15( &
+    Mat, Mat_tr, vec_in_x, vec_in_y, vec_in_z, &
+    vec_out_x, vec_out_y, vec_out_z  )
+    implicit none
+    real(RP), intent(in) :: Mat(16,16)
+    real(RP), intent(in) :: Mat_tr(16,16)
+    real(RP), intent(in) :: vec_in_x(16,16**2*5)
+    real(RP), intent(in) :: vec_in_y(16,16,16*5)
+    real(RP), intent(in) :: vec_in_z(16,16,16,5)
+    real(RP), intent(out) :: vec_out_x(16,16**2*5)
+    real(RP), intent(out) :: vec_out_y(16,16**2*5)
+    real(RP), intent(out) :: vec_out_z(16,16**2,5)
+
+    integer :: i, j, k, jkv, jk, v, kv
+    real(RP) :: tmp1, tmp2, tmp3
+    !----------------------------------------------------------
+
+    ! X-dir
+
+    do jkv=1, 16**2*5
+    do i=1, 16
+      tmp1 = Mat(i,1) * vec_in_x(1,jkv) &
+           + Mat(i,2) * vec_in_x(2,jkv) &
+           + Mat(i,3) * vec_in_x(3,jkv) &
+           + Mat(i,4) * vec_in_x(4,jkv) &
+           + Mat(i,5) * vec_in_x(5,jkv)
+      tmp2 = Mat(i,6) * vec_in_x(6,jkv) &
+           + Mat(i,7) * vec_in_x(7,jkv) &
+           + Mat(i,8) * vec_in_x(8,jkv) &
+           + Mat(i,9) * vec_in_x(9,jkv) &
+           + Mat(i,10) * vec_in_x(10,jkv)
+      tmp3 = Mat(i,11) * vec_in_x(11,jkv) &
+           + Mat(i,12) * vec_in_x(12,jkv) &
+           + Mat(i,13) * vec_in_x(13,jkv) &
+           + Mat(i,14) * vec_in_x(14,jkv) &
+           + Mat(i,15) * vec_in_x(15,jkv) &
+           + Mat(i,16) * vec_in_x(16,jkv)
+      vec_out_x(i,jkv) = tmp1 + tmp2 + tmp3
+    end do
+    end do
+
+    ! Y-dir
+    do kv=1, 16*5
+    do j=1, 16
+      jkv = j + (kv-1)*80
+      do i=1, 16
+        tmp1 = vec_in_y(i,1,kv) * Mat_tr(1,j) &
+             + vec_in_y(i,2,kv) * Mat_tr(2,j) &
+             + vec_in_y(i,3,kv) * Mat_tr(3,j) &
+             + vec_in_y(i,4,kv) * Mat_tr(4,j) &
+             + vec_in_y(i,5,kv) * Mat_tr(5,j) 
+        tmp2 = vec_in_y(i,6,kv) * Mat_tr(6,j) &
+             + vec_in_y(i,7,kv) * Mat_tr(7,j) &
+             + vec_in_y(i,8,kv) * Mat_tr(8,j) &
+             + vec_in_y(i,9,kv) * Mat_tr(9,j) &
+             + vec_in_y(i,10,kv) * Mat_tr(10,j) 
+        tmp3 = vec_in_y(i,11,kv) * Mat_tr(11,j) &
+             + vec_in_y(i,12,kv) * Mat_tr(12,j) &
+             + vec_in_y(i,13,kv) * Mat_tr(13,j) &
+             + vec_in_y(i,14,kv) * Mat_tr(14,j) &
+             + vec_in_y(i,15,kv) * Mat_tr(15,j) &
+             + vec_in_y(i,16,kv) * Mat_tr(16,j) 
+      vec_out_y(i,jkv) = tmp1 + tmp2 + tmp3
+      end do
+    end do
+    end do
+    
+    ! Z-dir
+    do v=1, 5
+    do k=1, 16
+    do j=1, 16
+      jk = j + (k-1)*16
+      do i=1, 16
+        tmp1 = vec_in_z(i,j,1,v) * Mat_tr(1,k) &
+             + vec_in_z(i,j,2,v) * Mat_tr(2,k) &
+             + vec_in_z(i,j,3,v) * Mat_tr(3,k) &
+             + vec_in_z(i,j,4,v) * Mat_tr(4,k) &
+             + vec_in_z(i,j,5,v) * Mat_tr(5,k) 
+        tmp2 = vec_in_z(i,j,6,v) * Mat_tr(6,k) &
+             + vec_in_z(i,j,7,v) * Mat_tr(7,k) &
+             + vec_in_z(i,j,8,v) * Mat_tr(8,k) &
+             + vec_in_z(i,j,9,v) * Mat_tr(9,k) &
+             + vec_in_z(i,j,10,v) * Mat_tr(10,k) 
+        tmp3 = vec_in_z(i,j,11,v) * Mat_tr(11,k) &
+             + vec_in_z(i,j,12,v) * Mat_tr(12,k) &
+             + vec_in_z(i,j,13,v) * Mat_tr(13,k) &
+             + vec_in_z(i,j,14,v) * Mat_tr(14,k) &
+             + vec_in_z(i,j,15,v) * Mat_tr(15,k) &
+             + vec_in_z(i,j,16,v) * Mat_tr(16,k) 
+      vec_out_z(i,jk,v) = tmp1 + tmp2 + tmp3
+      end do
+    end do
+    end do
+    end do
+    return
+  end subroutine element_operation_kernel_matvec_divlike_dirXYZ_var5_P15
 
 !> Calculate a matrix-vector multiplication associated with 3D modal filtering with p=15
 !!

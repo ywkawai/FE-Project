@@ -8,7 +8,7 @@
 !!
 !<
 !-------------------------------------------------------------------------------
-#include "scalelib.h"
+#include "scaleFElib.h"
 module mod_mktopo_util
   !-----------------------------------------------------------------------------
   !
@@ -50,7 +50,7 @@ contains
     implicit none
 
     integer, intent(in) :: Np
-    real(RP), intent(out) :: topo(Np)
+    real(RP), intent(out) :: topo(Np) !< Height of topography [m]
     real(RP), intent(in) :: U0        !< The value of η at a reference level (position of the jet)
     real(RP), intent(in) :: ETA0      !< The parameter associated with zonal jet maximum amplitude  [m/s]
     real(RP), intent(in) :: lat(Np)   !< latitude [radian]

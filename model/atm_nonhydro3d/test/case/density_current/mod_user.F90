@@ -2,10 +2,14 @@
 !> module USER
 !!
 !! @par Description
-!!          User defined module for a test case of desity current
+!!          User defined module for a test case of density current based on Straka et al. (1993)
 !!
-!! @author Team SCALE
+!! @author Yuta Kawai, Team SCALE
 !!
+!! @par Reference
+!!  - Straka, J.M., Wilhelmson, R.B., Wicker, L.J., Anderson, J.R., Droegemeier, K.K. 1993: 
+!!    Numerical solutions of a non-linear density current: a benchmark solution and comparison. 
+!!    Int. J. Numer. Methods Fluids., 17, 1–22. 
 !<
 !-------------------------------------------------------------------------------
 #include "scalelib.h"
@@ -26,6 +30,7 @@ module mod_user
   use scale_element_base, only: ElementBase3D
   use scale_element_hexahedral, only: HexahedralElement
   use scale_localmesh_3d, only: LocalMesh3D    
+  use scale_meshfield_base, only: MeshField3D
 
   use mod_user_base, only: UserBase
   use mod_experiment, only: Experiment
@@ -43,6 +48,7 @@ module mod_user
     generic :: mkinit => mkinit_
     procedure :: setup_ => USER_setup
     generic :: setup => setup_
+    procedure :: calc_tendency => USER_calc_tendency
   end type User
 
   !-----------------------------------------------------------------------------
@@ -57,6 +63,8 @@ module mod_user
   !
   !++ Private parameters & variables
   !
+
+  type(MeshField3D), private :: PT_diff
 
   !-----------------------------------------------------------------------------
 contains
@@ -109,9 +117,30 @@ contains
     !-
     call this%UserBase%Setup( atm, USER_do )
 
+    !-
+    if ( USER_do ) call PT_diff%Init( 'PT_diff', 'K', atm%mesh%ptr_mesh )
+
     return
   end subroutine USER_setup
 
+!OCL SERIAL
+  subroutine USER_calc_tendency( this, atm )
+    use scale_file_history_meshfield, only: &
+      FILE_HISTORY_meshfield_in
+    implicit none
+
+    class(User), intent(inout) :: this
+    class(AtmosComponent), intent(inout) :: atm
+    !------------------------------------------
+
+    if ( this%USER_do ) then
+      call atm%vars%Calc_diagVar( 'PT_diff', PT_diff )
+      call FILE_HISTORY_meshfield_in( PT_diff, "perturbation of PT" )
+    end if
+
+    return
+  end subroutine USER_calc_tendency
+  
   !------
 !OCL SERIAL
   subroutine exp_SetInitCond_density_current( this,                      &
@@ -158,13 +187,16 @@ contains
     real(RP) :: x_c, y_c, z_c
     real(RP) :: r_x, r_y, r_z
 
-    namelist /PARAM_EXP/ &
-      THETA0, DTHETA,            &
-      x_c, y_c, z_c,            &
-      r_x, r_y, r_z
+    integer :: IntrpPolyOrder_h
+    integer :: IntrpPolyOrder_v
 
-    integer, parameter :: IntrpPolyOrder_h = 6
-    integer, parameter :: IntrpPolyOrder_v = 8
+    namelist /PARAM_EXP/ &
+      THETA0, DTHETA,    &
+      x_c, y_c, z_c,     &
+      r_x, r_y, r_z,     &
+      IntrpPolyOrder_h,  &
+      IntrpPolyOrder_v
+
     real(RP), allocatable :: THETA_purtub(:,:)
     
     real(RP) :: RovCp
@@ -179,6 +211,9 @@ contains
     r_x = 4.0E3_RP; r_y = 4.0E3_RP; r_z = 2.0E3_RP
     THETA0    = 300.0_RP
     DTHETA    = -15.0_RP
+
+    IntrpPolyOrder_h = elem%PolyOrder_h
+    IntrpPolyOrder_v = elem%PolyOrder_v
 
     rewind(IO_FID_CONF)
     read(IO_FID_CONF,nml=PARAM_EXP,iostat=ierr)

@@ -1,0 +1,67 @@
+\newcommand{\namelist}[1]{{\color{magenta}\texttt{[\detokenize{#1}]}}}
+\newcommand{\nmitem}[1]{{\color{magenta}\texttt{(\detokenize{#1})}}}
+%数式モード
+\newcommand{\nmitemeq}[1]{{\texttt{\detokenize{#1}}}}
+\newcommand{\XDIR}{X direction}
+\newcommand{\YDIR}{Y direction}
+\newcommand{\ZDIR}{Z direction}
+
+\newcommand{\proofcomment}[1]{{\color{red} \Large 校正コメント: #1}}
+\newcommand{\replycomment}[1]{{\color{blue} \Large 回答: #1}}
+
+\newcommand{\netcdf}{{netCDF }}
+\newcommand{\Netcdf}{{NetCDF }}
+\newcommand{\pnetcdf}{{PnetCDF }}
+\newcommand{\grads}{{GrADS }}
+\newcommand{\gphys}{{GPhys }}
+
+\newcommand{\scale}{{SCALE }}
+\newcommand{\scaledg}{{SCALE-DG }}
+\newcommand{\scalelib}{{SCALE }}
+\newcommand{\scalenetcdf}{{SCALE-netCDF }}
+\newcommand{\regridTool}{{regrid\_tool }}
+
+\newcommand{\scaleweb}{{\url{https://scale.riken.jp/}}}
+\newcommand{\scaledgweb}{{\url{https:///ywkawai.github.io/FE-Project_web/}}}
+\newcommand{\ppconf}{{the configuration file for the preprocess run }}
+\newcommand{\initconf}{{the configuration file for the initialization run }}
+\newcommand{\runconf}{{the configuration file for simulation run }}
+
+\newcommand{\Item}[1]{~\\\noindent{\bf \large \underline{#1}}\\}
+
+\newcommand{\msgbox}[1]{
+~\\~\\\noindent{\small {\rm
+\fbox{
+\begin{tabularx}{147mm}{l}
+#1
+\end{tabularx}
+}}}\\~\\
+}
+
+\newcommand{\editbox}[1]{
+~\\~\\\noindent{\small {\rm
+\ovalbox{
+\begin{tabularx}{147mm}{l}
+#1
+\end{tabularx}
+}}}\\~\\
+}
+
+\newcommand{\editboxtwo}[1]{
+~\\~\\\noindent{\small {\rm
+\ovalbox{
+\begin{tabularx}{147mm}{lX}
+#1
+\end{tabularx}
+}}}\\~\\
+}
+
+
+\newcommand{\msgboxtwo}[1]{
+~\\~\\\noindent{\small {\rm
+\fbox{
+\begin{tabularx}{147mm}{lX}
+#1
+\end{tabularx}
+}}}\\~\\
+}

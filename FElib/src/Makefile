@@ -34,18 +34,19 @@ endif
 
 
 OBJS_NAME_COMMON = \
-	scale_polynominal.o            \
-	scale_polygon.o                \
-	scale_sparsemat.o              \
-	scale_linalgebra.o             \
-	scale_time_manager.o           \
-	scale_quicksort.o              \
-	scale_timeint_rk_butcher_tab.o \
-	scale_timeint_rk.o             \
-	scale_linkedlist.o             \
-	scale_gmres.o                  \
-	scale_geographic_coord_cnv.o   \
-	scale_cubedsphere_coord_cnv.o  \
+	scale_polynominal.o             \
+	scale_polygon.o                 \
+	scale_sparsemat.o               \
+	scale_linalgebra.o              \
+	scale_time_manager.o            \
+	scale_fast_fourier_transform.o  \
+	scale_quicksort.o               \
+	scale_timeint_rk_butcher_tab.o  \
+	scale_timeint_rk.o              \
+	scale_linkedlist.o              \
+	scale_gmres.o                   \
+	scale_geographic_coord_cnv.o    \
+	scale_cubedsphere_coord_cnv.o   \
 	scale_coriolis_param.o
 
 OBJS_NAME_ELEMENT = \
@@ -54,6 +55,7 @@ OBJS_NAME_ELEMENT = \
 	scale_element_quadrilateral.o \
 	scale_element_hexahedral.o    \
 	scale_element_modalfilter.o   \
+	scale_element_SIACfilter.o    \
 	scale_element_operation_base.o                \
 	scale_element_operation_general.o	          \
 	scale_element_operation_tensorprod3D_kernel.o \
@@ -95,7 +97,8 @@ OBJS_NAME_DATA = \
 	scale_meshfield_statistics.o             \
 	scale_meshfield_fvm_util.o               \
 	scale_meshfield_analysis_numerror_base.o \
-	scale_meshfield_analysis_numerror.o
+	scale_meshfield_analysis_numerror.o      \
+	scale_meshfield_spectral_transform.o 
 
 OBJS_NAME_FILE = \
 	scale_file_common_meshfield.o  \
@@ -115,8 +118,10 @@ OBJS_NAME_FLUID_DYN_SOLVER = \
 	scale_atm_dyn_dgm_nonhydro3d_rhot_heve_numflux.o \
 	scale_atm_dyn_dgm_nonhydro3d_etot_heve.o         \
 	scale_atm_dyn_dgm_nonhydro3d_rhot_heve.o         \
-	scale_atm_dyn_dgm_nonhydro3d_etot_hevi_common.o  \
-	scale_atm_dyn_dgm_nonhydro3d_rhot_hevi_common.o  \
+	scale_atm_dyn_dgm_nonhydro3d_etot_hevi_common.o   \
+	scale_atm_dyn_dgm_nonhydro3d_rhot_hevi_common.o   \
+	scale_atm_dyn_dgm_nonhydro3d_rhot_hevi_common_2.o \
+	scale_atm_dyn_dgm_hevi_common_linalgebra.o       \
 	scale_atm_dyn_dgm_nonhydro3d_etot_hevi_numflux.o \
 	scale_atm_dyn_dgm_nonhydro3d_rhot_hevi_numflux.o \
 	scale_atm_dyn_dgm_nonhydro3d_etot_hevi.o         \
@@ -167,6 +172,8 @@ OBJS_NAME = \
 	$(OBJS_NAME_MICROPHYS)        \
 	$(OBJS_NAME_MODEL_FRAMEWORK)
 
+#------------------------------------------
+OBJS=$(patsubst %, $(BUILD_DIR)/%, $(OBJS_NAME))
 
 OBJS_NAME_SCALELIB = \
 	scale_precision.o        \
@@ -197,6 +204,7 @@ OBJS_NAME_SCALELIB = \
 	scale_random.o	      \
 	scale_sigvars.o       \
 	scale_statistics.o	  \
+	scale_specfunc.o      \
 	scale_tracer.o	      \
 	scale_vector.o	      \
 	scale_monitor.o	      \
@@ -204,7 +212,6 @@ OBJS_NAME_SCALELIB = \
 	scale_file_cartesC.o  \
 	scale_file_h.o	      \
 	scale_file_history.o  \
-	scale_file_netcdf.o   \
 	\
 	scale_atmos_adiabat.o     \
 	scale_atmos_aerosol.o     \
@@ -260,6 +267,12 @@ OBJS_NAME_SCALELIB = \
 	scale_spnudge.o \
 	scale_dft.o
 
+#------------------------------------------
+
+MODS = $(addprefix $(BUILD_DIR)/, \
+	$(shell echo $(patsubst $(BUILD_DIR)/%.o,%.mod, \
+	$(OBJS) ) | tr A-Z a-z) )
+
 MODS_SCALELIB = $(addprefix $(SCALE)/include/, \
 	$(shell echo $(patsubst %.o,%.mod, \
 	$(filter-out scale_sys_sigvars.o, \
@@ -268,8 +281,6 @@ MODS_SCALELIB = $(addprefix $(SCALE)/include/, \
 	$(filter-out read_toshiba_mpr.o, \
 	$(OBJS_NAME_SCALELIB) ))))) | tr A-Z a-z) )
 
-#------------------------------------------
-OBJS=$(patsubst %, $(BUILD_DIR)/%, $(OBJS_NAME))
 
 all:
 	$(MAKE) prep_scalelib
@@ -309,15 +320,17 @@ $(LIBDIR)/libscale_sub$(POSTFIX).a: $(SCALE)/lib/$(SCALE_LIBNAME)
 	install $(MODS_SCALELIB) $(MODDIR)/scalelib
 
 $(LIBDIR)/$(LIBNAME): $(LIBNAME)
+	@echo "Install $(LIBNAME).."
 	mkdir -p $(LIBDIR)
 	install $< $@
 
 $(LIBNAME): $(OBJS)
-	echo "build $(LIBNAME).."
+	@echo "build $(LIBNAME).."
 	$(AR) $(ARFLAGS) $@ $?
 	$(RANLIB) $@
 
 modules: $(OBJS)
+	@echo "Install modules.."
 	mkdir -p $(MODDIR)
 	install $(MODS) $(MODDIR)
 
@@ -330,6 +343,7 @@ distclean: clean
 	rm -rf libscale_sub.a
 
 allclean: distclean
+	rm -rf $(LIBDIR)/$(LIBNAME)
 
 dependency: prep_scalelib
 	./makedepend .
@@ -345,6 +359,7 @@ common/scale_quicksort.F90: scale_quicksort.F90.erb
 common/scale_timeint_rk.F90: scale_timeint_rk.F90.erb
 element/scale_element_operation_tensorprod3D_kernel.F90: scale_element_operation_tensorprod3D_kernel.F90.erb
 element/scale_element_operation_tensorprod3D.F90: scale_element_operation_tensorprod3D.F90.erb
+fluid_dyn_solver/scale_atm_dyn_dgm_hevi_common_linalgebra.F90: scale_atm_dyn_dgm_hevi_common_linalgebra.F90.erb
 
 $(BUILD_DIR)/%.o : %.F90
 	$(FC) $(FFLAGS) $(SCALE_INCLUDE) $(INCLUDE) -I$(SCALEFELIBDIR)/include -I$(BUILD_DIR) $(MODDIROPT) $(BUILD_DIR) -o $@ -c $<
@@ -353,6 +368,7 @@ $(BUILD_DIR)/%.o : %.F90
 
 include $(TOPDIR)/utils/make/Make_environments
 
+ifneq ($(SCALE_IGNORE_SRCDEP),T)
 -include depend
+endif
 
-# DO NOT DELETE

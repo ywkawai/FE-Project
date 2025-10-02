@@ -1,5 +1,5 @@
 !-------------------------------------------------------------------------------
-!> module ATMOSPHERE dynamics
+!> module Atmosphere / Dynamics
 !!
 !! @par Description
 !!          Container for variables with dynamics component
@@ -45,9 +45,11 @@ module mod_atmos_dyn_vars
   !
   !++ Public type & procedures
   !
+
+  !> Derived type to manage variables with atmospheric dynamics component
   type, public :: AtmosDynVars
-    type(MeshField2D), allocatable :: AUX_VARS2D(:)
-    type(ModelVarManager) :: AUXVARS2D_manager
+    type(MeshField2D), allocatable :: AUX_VARS2D(:) !< Array of 2D auxiliary variables
+    type(ModelVarManager) :: AUXVARS2D_manager      !< Object to manage 2D auxiliary variables
   contains
     procedure :: Init => AtmosDynVars_Init
     procedure :: Final => AtmosDynVars_Final
@@ -103,6 +105,11 @@ module mod_atmos_dyn_vars
   !-------------------
 
 contains
+
+!> Setup an object to manage variables with atmospheric dynamics component
+!!
+!! @param model_mesh Object to manage computational mesh of atmospheric model 
+!!
 !OCL SERIAL
   subroutine AtmosDynVars_Init( this, model_mesh )
     use scale_localmeshfield_base, only: LOCAL_MESHFIELD_TYPE_NODES_FACEVAL
@@ -161,6 +168,7 @@ contains
     return
   end subroutine AtmosDynVars_Init
 
+!> Finalize an object to manage variables with atmospheric dynamics component
   subroutine AtmosDynVars_Final( this )
     implicit none
     class(AtmosDynVars), intent(inout) :: this

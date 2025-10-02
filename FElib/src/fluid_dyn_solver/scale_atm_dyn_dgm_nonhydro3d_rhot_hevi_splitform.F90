@@ -78,7 +78,8 @@ module scale_atm_dyn_dgm_nonhydro3d_rhot_hevi_splitform
 
 contains
   subroutine atm_dyn_dgm_nonhydro3d_rhot_hevi_splitform_Init( mesh )
-
+    use scale_atm_dyn_dgm_nonhydro3d_rhot_hevi_common, only: &
+      atm_dyn_dgm_nonhydro3d_rhot_hevi_common_Init
     implicit none
     class(MeshBase3D), intent(in) :: mesh
 
@@ -87,7 +88,9 @@ contains
     !--------------------------------------------
 
     call atm_dyn_dgm_nonhydro3d_common_Init( mesh )
+    call atm_dyn_dgm_nonhydro3d_rhot_hevi_common_Init()
 
+    !-
     elem => mesh%refElem3D
 
     allocate( DxT1D_(elem%Nnode_h1D,elem%Nnode_h1D) )
@@ -113,9 +116,12 @@ contains
 
 
   subroutine atm_dyn_dgm_nonhydro3d_rhot_hevi_splitform_Final()
+    use scale_atm_dyn_dgm_nonhydro3d_rhot_hevi_common, only: &
+      atm_dyn_dgm_nonhydro3d_rhot_hevi_common_Final
     implicit none
     !--------------------------------------------
 
+    call atm_dyn_dgm_nonhydro3d_rhot_hevi_common_Final()
     call atm_dyn_dgm_nonhydro3d_common_Final()
 
     deallocate( DxT1D_, DyT1D_, DzT1D_ )
@@ -126,14 +132,15 @@ contains
   !-------------------------------
 
   subroutine atm_dyn_dgm_nonhydro3d_rhot_hevi_splitform_cal_tend( &
-    DENS_dt, MOMX_dt, MOMY_dt, MOMZ_dt, RHOT_dt,                                   & ! (out)
-    DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DPRES_, DENS_hyd, PRES_hyd, PRES_hyd_ref, & ! (in)
-    CORIOLIS, Rtot, CVtot, CPtot, DPhydDx, DPhydDy,                                & ! (in)
-    element3D_operation, Dx, Dy, Dz, Sx, Sy, Sz, Lift,                             & ! (in)
-    lmesh, elem, lmesh2D, elem2D )                                                   ! (in)
+    DENS_dt, MOMX_dt, MOMY_dt, MOMZ_dt, RHOT_dt,         & ! (out)
+    DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DPRES_,         & ! (in)
+    DENS_hyd, PRES_hyd, PRES_hyd_ref, THERM_hyd,         & ! (in)
+    CORIOLIS, Rtot, CVtot, CPtot, DPhydDx, DPhydDy,      & ! (in)
+    element3D_operation, Dx, Dy, Dz, Sx, Sy, Sz, Lift,   & ! (in)
+    lmesh, elem, lmesh2D, elem2D )                         ! (in)
 
     use scale_atm_dyn_dgm_nonhydro3d_rhot_hevi_numflux, only: &
-      atm_dyn_dgm_nonhydro3d_rhot_hevi_numflux_get_generalvc
+      get_ebnd_flux => atm_dyn_dgm_nonhydro3d_rhot_hevi_numflux_get_generalvc_asis
 
     implicit none
 
@@ -157,6 +164,7 @@ contains
     real(RP), intent(in)  :: DENS_hyd(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: PRES_hyd(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: PRES_hyd_ref(elem%Np,lmesh%NeA)
+    real(RP), intent(in)  :: THERM_hyd(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: CORIOLIS(elem2D%Np,lmesh2D%NeA)
     real(RP), intent(in)  :: Rtot(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: CVtot(elem%Np,lmesh%NeA)
@@ -182,7 +190,7 @@ contains
     !------------------------------------------------------------------------
 
     call PROF_rapstart( 'cal_dyn_tend_bndflux', 3)
-    call atm_dyn_dgm_nonhydro3d_rhot_hevi_numflux_get_generalvc( &
+    call get_ebnd_flux( &
       del_flux, del_flux_hyd,                                                 & ! (out)
       DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DPRES_, DENS_hyd, PRES_hyd,        & ! (in)
       Rtot, CVtot, CPtot,                                                     & ! (in)
@@ -330,10 +338,12 @@ contains
     lmesh, elem, lmesh2D, elem2D                             ) ! (in)
     
     use scale_atm_dyn_dgm_nonhydro3d_rhot_hevi_common, only: &
-      vi_eval_Ax => atm_dyn_dgm_nonhydro3d_rhot_hevi_common_eval_Ax,                  &
-      vi_eval_Ax_uv => atm_dyn_dgm_nonhydro3d_rhot_hevi_common_eval_Ax_uv,                  &
-      vi_construct_matbnd => atm_dyn_dgm_nonhydro3d_rhot_hevi_common_construct_matbnd, &
-      vi_construct_matbnd_uv => atm_dyn_dgm_nonhydro3d_rhot_hevi_common_construct_matbnd_uv
+      vi_eval_Ax => atm_dyn_dgm_nonhydro3d_rhot_hevi_common_eval_Ax,                         &
+      vi_eval_Ax_uv => atm_dyn_dgm_nonhydro3d_rhot_hevi_common_eval_Ax_uv,                   &
+      vi_construct_matbnd => atm_dyn_dgm_nonhydro3d_rhot_hevi_common_construct_matbnd,       &
+      vi_construct_matbnd_uv => atm_dyn_dgm_nonhydro3d_rhot_hevi_common_construct_matbnd_uv, &
+      VI_use_lapack_flag
+    use scale_linalgebra, only: linalgebra_SolveLinEq_BndMat
   
     implicit none
 
@@ -492,7 +502,8 @@ contains
           !$omp parallel private(ij, v, ke_z, info, ColMask)
           !$omp do
           do ij=1, elem%Nnode_h1D**2
-            call dgbsv( nz_1D_uv, kl_uv, ku_uv, 2, PmatBnd_uv(:,:,ij), 2*kl_uv+ku_uv+1, ipiv_uv(:,ij), b1D_uv(:,:,:,ij,ke_xy), nz_1D_uv, info)
+!            call dgbsv( nz_1D_uv, kl_uv, ku_uv, 2, PmatBnd_uv(:,:,ij), 2*kl_uv+ku_uv+1, ipiv_uv(:,ij), b1D_uv(:,:,:,ij,ke_xy), nz_1D_uv, info)
+            call linalgebra_SolveLinEq_BndMat( PmatBnd_uv(:,:,ij), b1D_uv(:,:,:,ij,ke_xy), ipiv_uv(:,ij), nz_1D_uv, kl_uv, ku_uv, 2, VI_use_lapack_flag )
 
             ColMask(:) = elem%Colmask(:,ij)
             do ke_z=1, lmesh%NeZ
@@ -540,7 +551,8 @@ contains
           !$omp parallel private(ij, v, ke_z, info, ColMask)
           !$omp do
           do ij=1, elem%Nnode_h1D**2
-            call dgbsv( nz_1D, kl, ku, 1, PmatBnd(:,:,ij), 2*kl+ku+1, ipiv(:,ij), b1D(:,:,:,ij,ke_xy), nz_1D, info)
+!            call dgbsv( nz_1D, kl, ku, 1, PmatBnd(:,:,ij), 2*kl+ku+1, ipiv(:,ij), b1D(:,:,:,ij,ke_xy), nz_1D, info)
+            call linalgebra_SolveLinEq_BndMat( PmatBnd(:,:,ij), b1D(:,:,:,ij,ke_xy), ipiv(:,ij), nz_1D, kl, ku, 1, VI_use_lapack_flag )
 
             ColMask(:) = elem%Colmask(:,ij)
             do ke_z=1, lmesh%NeZ

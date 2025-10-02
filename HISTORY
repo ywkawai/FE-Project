@@ -1,3 +1,21 @@
+= 2025-10-03 (1.0.0)
+* New features
+  * Support Tomita08 as a micro cloud physics schemes provided in SCALE library
+  * Enable to hide a wait with MPI communication by overlapping elementwise computations in a regional HEVE solve
+  * Add a module and sample program for a Smoothness-Increasing Accuracy-Increasing (SIAC) filter
+  * Add a tool to perform spectral analysis using DG data in 3D regional meshes
+  * Add a model description and a user guides of SCALE-DG (experimental)
+* Improvements
+  * Update configuration files for sample programs and test cases of atmospheric model
+  * Improve computational performance of vertical implicit solver in DG HEVI scheme
+  * Speed up the calculation of tracer advection
+  * Improve computational performance of a module to manage temporal integrations using RK schemes
+  * Modify build system to shorten the compilation time for each test case in atmospheric model
+  * Ensure to obtain same results when random numbers are used with a fixed seed for initial conditions of test cases
+* Fix bugs
+  * Fix a bug in initializing tracer variables for the case of ATMOS_HYDROMETOR_dry=T but QA > 0
+  * Fix a bug of post process when MPI_wait is called at any timing in 2D & 3D global model modes
+
 = 2025-04-01 (0.9.0)
 * New features
   * Add a module for DNS in turbulent schemes
@@ -20,7 +38,7 @@
   * Fix experimental setup of a benchmark test of dynamical core for tidally locked Earth atmosphere
 * Fix bugs
   * Modify a numerical flux for the case of global tracer advection
-  * Modify a bug with a flag whether restart files are outputed
+  * Modify a bug with a flag whether restart files are outputted
 
 = 2024-05-01 (0.8.0)
 * New features
@@ -54,7 +72,7 @@
   * Add test suites for 3D regional atmospheric model
     * Isentropic vortex
     * Kelvin Helmholtz wave
-    * Mountain wave: linear nonhydrostatic case (Giraldo and Restelli 2008) and Schaer-type mountain case (Schär et al. 2002)
+    * Mountain wave: linear nonhydrostatic case (Giraldo and Restelli 2008) and Schär-type mountain case (Schär et al. 2002)
 * Improvements
   * Modify mass and heat conservation in tracer negative fixer
   * Available to specify surface pressure when initial hydrostatic state is generated

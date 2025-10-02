@@ -2,7 +2,7 @@
 !> module FElib / File / Restart
 !!
 !! @par Description
-!!           A module for outputing data to restart simulations
+!!           A module for outputting data to restart simulations
 !!
 !! @author Yuta Kawai, Team SCALE
 !!
@@ -122,13 +122,13 @@ contains
   subroutine FILE_restart_meshfield_setup()
     implicit none
 
-    logical :: OUTPUT_FLAG                         = .false.   !< Output restart file?
+    logical :: OUTPUT_FLAG                         = .false.   !< Flag whether output restart file
     character(len=H_LONG) :: IN_BASENAME           = ''        !< Basename of the input  file
-    logical :: IN_POSTFIX_TIMELABEL                = .false.   !< Add timelabel to the basename of input  file?
+    logical :: IN_POSTFIX_TIMELABEL                = .false.   !< Flag whether timelabel is added to the basename of input  file
     character(len=H_LONG) :: OUT_BASENAME          = ''        !< Basename of the output file
-    logical :: OUT_POSTFIX_TIMELABEL               = .true.    !< Add timelabel to the basename of output file?
-    character(len=H_MID) :: OUT_TITLE              = ''        !< Title    of the output file
-    character(len=H_SHORT) :: OUT_DTYPE            = 'DEFAULT' !< REAL4 or REAL8
+    logical :: OUT_POSTFIX_TIMELABEL               = .true.    !< Flag whether timelabel is added to the basename of output file
+    character(len=H_MID) :: OUT_TITLE              = ''        !< Title of the output file
+    character(len=H_SHORT) :: OUT_DTYPE            = 'DEFAULT' !< Output data type (DEFAULT, REAL4 or REAL8)
 
     namelist / PARAM_RESTART / &
       OUTPUT_FLAG,           &

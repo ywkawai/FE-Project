@@ -1,7 +1,7 @@
-!> module common / Coordinate conversion with a geographic coordinate
+!> Module common / Coordinate conversion with a geographic coordinate
 !!
 !! @par Description
-!!      Coordinate conversion with a geographic coordinate
+!!      A module to provide coordinate conversions with a geographic coordinate
 !!
 !! @author Yuta Kawai, Team SCALE
 !!

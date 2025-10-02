@@ -7,7 +7,10 @@ This FE library requires following libraries:
   - MPI library
   - LAPACK
   - NetCDF
-  - SCALE library (https://scale.riken.jp). 
+  - SCALE library (https://scale.riken.jp)
+
+For visualization, we need a Python environment with several Python libraries such as Xarray and netCDF4.
+Note that the version of Matplotlib is assumed to be >= 3.8.
 
 We confirm that building our codes has succeeded in the following environments:
   - Ubuntu 24.04 LTS (for case of GNU compiler)
@@ -15,13 +18,19 @@ We confirm that building our codes has succeeded in the following environments:
     - OpenMPI 4.1.6
     - LAPACK 3.12.0
     - NetCDF 4.9.2
-    - SCALE library 5.5.4
+    - SCALE library 5.5.5
   - Ubuntu 22.04 LTS (for case of Intel oneAPI HPC Toolkit 2025.0)
     - Intel® Fortran Compiler
     - Intel MPI Library
     - Intel oneAPI Math Kernel Library
     - NetCDF 4.8.0
     - SCALE library develop version
+  - Ubuntu 22.04 LTS (for case of GNU compiler)
+    - GNU Fortran 11.4.0
+    - OpenMPI 4.1.2
+    - LAPACK 3.10.0
+    - NetCDF 4.8.1
+    - SCALE library 5.5.5
   - macOS Sequoia
     - GNU Fortran 13.2.0
     - OpenMPI 5.0.3
@@ -29,7 +38,7 @@ We confirm that building our codes has succeeded in the following environments:
     - NetCDF 4.9.2
     - SCALE library develop version
 
-Our codes are also verified in Fugaku and Odyssey (Fujitsu compiler). 
+Our codes are also verified in Fugaku and Odyssey with Fujitsu compiler. 
 
 ## Build FE-library
 
@@ -40,7 +49,7 @@ Our codes are also verified in Fugaku and Odyssey (Fujitsu compiler).
 
   - Set a directory in which SCALE library is contained
 
-  `% export SCALE="~/workspace/scale-5.5.4/"`   (for example)
+  `% export SCALE="~/workspace/scale-5.5.5/"`   (for example)
 
   - If you would like to enable a thread parallelization with OpenMP, set a variable as 
 
@@ -83,4 +92,17 @@ Our codes are also verified in Fugaku and Odyssey (Fujitsu compiler).
 
  `% make run`
 
- In the directory of 'visualize', several python scripts with matplotlib are prepared for visualizing simulation results.
+ The directory of 'visualize' includes several scripts using Python libraries. 
+ To visualize the simulation result using the scripts, 
+
+  `% make vis`
+
+## Switches for the compilation
+
+The following options is available by setting as environment variables, 
+ `% export OPTION_NAME=T`
+Switch options will be activated only when the value is "T"
+
+  - SCALE_ENABLE_OPENMP   : Enable a thread parallelization with OpenMP
+  - SCALE_IGNORE_SRCDEP   : Ignore source dependency at the compilation
+ 

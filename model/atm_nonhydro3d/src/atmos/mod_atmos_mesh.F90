@@ -41,14 +41,18 @@ module mod_atmos_mesh
   !
   !++ Public type & procedures
   !
+
+  !> Derived type to manage a computational mesh (base class)
+  !!
   type, abstract, extends(ModelMesh3D), public :: AtmosMesh
-    type(HexahedralElement) :: element
-    type(LineElement) :: element_v1D
+    type(HexahedralElement) :: element !< Object to manage 3D reference element
+    type(LineElement) :: element_v1D   !< Object to manage 1D reference element for the vertical direction
 
-    type(MeshTopography) :: topography
-    integer :: vcoord_type_id
+    type(MeshTopography) :: topography  !< Object to manage topography
+    integer :: vcoord_type_id           !< ID of vertical coordinate type
 
-    logical :: comm_use_mpi_pc
+    logical :: comm_use_mpi_pc              !< Flag whether persistent communication in MPI is used
+    logical :: comm_use_mpi_pc_fujitsu_ext  !< Flag whether Fujitsu extension in MPI persistent communication is used
   contains
     procedure :: AtmosMesh_Init
     procedure :: AtmosMesh_Final
@@ -124,6 +128,7 @@ module mod_atmos_mesh
 
 contains
 
+!> Setup an object to manage a computational mesh
   subroutine AtmosMesh_Init( this, mesh )
 
     use scale_FILE_monitor_meshfield, only: &
@@ -131,7 +136,7 @@ contains
     
     implicit none
     class(AtmosMesh), target, intent(inout) :: this
-    class(MeshBase3D), intent(in) :: mesh
+    class(MeshBase3D), intent(in) :: mesh            !< Object to manage 3D computational mesh
 
     class(MeshBase2D), pointer :: mesh2D
     !-------------------------------------------
@@ -148,6 +153,7 @@ contains
     return
   end subroutine AtmosMesh_Init
 
+!> Finalize an object to manage a computational mesh
   subroutine AtmosMesh_Final(this)
     implicit none
 

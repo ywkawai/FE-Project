@@ -37,6 +37,7 @@ module scale_meshfieldcomm_rectdom2d
   !++ Public type & procedure
   ! 
 
+  !> Base derived type to manage data communication with 2D rectangle domain
   type, public, extends(MeshFieldCommBase) :: MeshFieldCommRectDom2D
     class(MeshRectDom2D), pointer :: mesh2d
   contains

@@ -39,6 +39,8 @@ module scale_element_operation_base
     procedure(ElementOperationBase_DxDyDzLift), deferred, public :: DxDyDzLift
     procedure(ElementOperationBase_Div), deferred, public :: Div
     procedure(ElementOperationBase_Div_var5), deferred, public :: Div_var5
+    procedure(ElementOperationBase_Div_var5_2), deferred, public :: Div_var5_2
+    procedure(ElementOperationBase_Lift_var5), deferred, public :: Lift_var5
     procedure(ElementOperationBase_VFilterPM1), deferred, public :: VFilterPM1
     procedure(ElementOperationBase_Setup_ModalFilter), deferred, public :: Setup_ModalFilter
     procedure(ElementOperationBase_Setup_ModalFilter_tracer), deferred, public :: Setup_ModalFilter_tracer
@@ -95,19 +97,14 @@ module scale_element_operation_base
       real(RP), intent(out) :: vec_out_lift(this%elem3D%Np)
     end subroutine ElementOperationBase_DxDyDzLift
 
-    subroutine ElementOperationBase_Div( this, vec_in_x, vec_in_y, vec_in_z, vec_in_lift, &
-      vec_out_dx, vec_out_dy, vec_out_dz, vec_out_lift )
+    subroutine ElementOperationBase_Div( this, vec_in, vec_in_lift, &
+      vec_out )
       import ElementOperationBase3D      
       import RP
       class(ElementOperationBase3D), intent(in) :: this
-      real(RP), intent(in) :: vec_in_x(this%elem3D%Np)
-      real(RP), intent(in) :: vec_in_y(this%elem3D%Np)
-      real(RP), intent(in) :: vec_in_z(this%elem3D%Np)
+      real(RP), intent(in) :: vec_in(this%elem3D%Np,3)
       real(RP), intent(in) :: vec_in_lift(this%elem3D%NfpTot)
-      real(RP), intent(out) :: vec_out_dx(this%elem3D%Np)
-      real(RP), intent(out) :: vec_out_dy(this%elem3D%Np)
-      real(RP), intent(out) :: vec_out_dz(this%elem3D%Np)
-      real(RP), intent(out) :: vec_out_lift(this%elem3D%Np)
+      real(RP), intent(out) :: vec_out(this%elem3D%Np,4)
     end subroutine ElementOperationBase_Div
     
     subroutine ElementOperationBase_Div_var5( this, vec_in, vec_in_lift, &
@@ -119,6 +116,22 @@ module scale_element_operation_base
       real(RP), intent(in) :: vec_in_lift(this%elem3D%NfpTot,5)
       real(RP), intent(out) :: vec_out_d(this%elem3D%Np,4,5)
     end subroutine ElementOperationBase_Div_var5
+
+    subroutine ElementOperationBase_Div_var5_2( this, vec_in, &
+      vec_out_d )
+      import ElementOperationBase3D      
+      import RP
+      class(ElementOperationBase3D), intent(in) :: this
+      real(RP), intent(in) :: vec_in(this%elem3D%Np,3,5)
+      real(RP), intent(out) :: vec_out_d(this%elem3D%Np,3,5)
+    end subroutine ElementOperationBase_Div_var5_2
+    subroutine ElementOperationBase_Lift_var5( this, vec_in, vec_out )
+      import ElementOperationBase3D      
+      import RP
+      class(ElementOperationBase3D), intent(in) :: this
+      real(RP), intent(in) :: vec_in(this%elem3D%NfpTot,5)
+      real(RP), intent(out) :: vec_out(this%elem3D%Np,5)
+    end subroutine ElementOperationBase_Lift_var5
 
     subroutine ElementOperationBase_VFilterPM1( this, vec_in, vec_out )
       import ElementOperationBase3D      

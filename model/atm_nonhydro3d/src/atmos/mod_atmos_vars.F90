@@ -1,5 +1,5 @@
 !-------------------------------------------------------------------------------
-!> module ATMOSPHERE / Variables
+!> module Atmosphere / Physics / Variables
 !!
 !! @par Description
 !!          Container for atmospheric variables
@@ -51,7 +51,7 @@ module mod_atmos_vars
   use scale_atm_dyn_dgm_nonhydro3d_common, only: &
     PRGVAR_NUM, AUXVAR_NUM, PHYTEND_NUM1 => PHYTEND_NUM,                                        &
     PRGVAR_DDENS_ID, PRGVAR_THERM_ID, PRGVAR_MOMZ_ID, PRGVAR_MOMX_ID, PRGVAR_MOMY_ID,           &
-    AUXVAR_DENSHYDRO_ID, AUXVAR_PRESHYDRO_ID, AUXVAR_PRESHYDRO_REF_ID,                          &
+    AUXVAR_DENSHYDRO_ID, AUXVAR_PRESHYDRO_ID, AUXVAR_THERMHYDRO_ID, AUXVAR_PRESHYDRO_REF_ID,    &
     AUXVAR_Rtot_ID, AUXVAR_CPtot_ID, AUXVAR_CVtot_ID,                                           &
     AUXVAR_PRES_ID, AUXVAR_PT_ID, AUXVAR_Qdry_ID,                                               &
     PHYTEND_DENS_ID, PHYTEND_MOMX_ID, PHYTEND_MOMY_ID, PHYTEND_MOMZ_ID, PHYTEND_RHOT_ID,        &
@@ -67,27 +67,29 @@ module mod_atmos_vars
   !
   !++ Public type & procedures
   !
+
+  !> Derived type to manage variables with atmospheric component
   type, public :: AtmosVars
-    class(AtmosMesh), pointer :: mesh
+    class(AtmosMesh), pointer :: mesh                !< Pointer to an object to manage mesh for atmospheric component
 
     !- prognostic variables
-    type(MeshField3D), allocatable :: PROG_VARS(:)
-    type(ModelVarManager) :: PROGVARS_manager
+    type(MeshField3D), allocatable :: PROG_VARS(:) !< Array of 3D prognostic variables
+    type(ModelVarManager) :: PROGVARS_manager      !< Object to manage 3D prognostic variables
     integer :: PROG_VARS_commID
 
     !- tracer variables
-    type(MeshField3D), allocatable :: QTRC_VARS(:)
-    type(ModelVarManager) :: QTRCVARS_manager
+    type(MeshField3D), allocatable :: QTRC_VARS(:) !< Array of 3D tracer variables
+    type(ModelVarManager) :: QTRCVARS_manager      !< Object to manage 3D tracer variables
     integer :: QTRC_VARS_commID 
 
     !- auxiliary variables    
-    type(MeshField3D), allocatable :: AUX_VARS(:)
-    type(ModelVarManager) :: AUXVARS_manager 
+    type(MeshField3D), allocatable :: AUX_VARS(:)  !< Array of 3D auxiliary variables
+    type(ModelVarManager) :: AUXVARS_manager       !< Object to manage 3D auxiliary variables
     integer :: AUX_VARS_commID
 
     !- auxiliary variables (2D)
-    type(MeshField2D), allocatable :: AUX_VARS2D(:)
-    type(ModelVarManager) :: AUXVARS2D_manager 
+    type(MeshField2D), allocatable :: AUX_VARS2D(:) !< Array of 2D auxiliary variables
+    type(ModelVarManager) :: AUXVARS2D_manager      !< Object to manage 3D auxiliary variables
     
     !-
     type(ModelVarManager), pointer :: ptr_MP_AUXVARS2D_manager
@@ -97,8 +99,8 @@ module mod_atmos_vars
     type(MeshField3D) :: zero
 
     !- Tendency with physics
-    type(MeshField3D), allocatable :: PHY_TEND(:)
-    type(ModelVarManager) :: PHYTENDS_manager 
+    type(MeshField3D), allocatable :: PHY_TEND(:)  !< Array of tendency variables with physics
+    type(ModelVarManager) :: PHYTENDS_manager      !< Object to manage tendency variables with physics
     integer :: PHYTENDS_commID
     integer :: PHYTEND_NUM_TOT
 
@@ -106,7 +108,7 @@ module mod_atmos_vars
     integer, allocatable :: DIAGVARS2D_HISTID(:)
     integer, allocatable :: DIAGVARS3D_HISTID(:)
 
-    type(FILE_restart_meshfield_component) :: restart_file
+    type(FILE_restart_meshfield_component) :: restart_file !< Object to manage restart file for atmospheric component
     
     logical :: check_range
     logical :: check_total
@@ -221,6 +223,10 @@ module mod_atmos_vars
 
 contains
 
+!> Setup an object to manage variables with atmospheric component
+!!
+!! @param model_mesh Object to manage computational mesh of atmospheric model 
+!!
 !OCL SERIAL
   subroutine AtmosVars_Init( this, atm_mesh )
     use scale_atmos_hydrometeor, only: &
@@ -245,7 +251,7 @@ contains
     type(MeshField2D) :: diag_vars2D(ATMOS_DIAGVARS2D_NUM) ! dummy
     type(MeshField3D) :: diag_vars3D(ATMOS_DIAGVARS3D_NUM) ! dummy
 
-    logical :: CHECK_RANGE    = .false.
+    logical :: CHECK_RANGE    = .false.  !< Flag whether the range of values is checked
     logical :: CHECK_TOTAL    = .false.
 
     namelist / PARAM_ATMOS_VARS / &
@@ -323,7 +329,7 @@ contains
       this%PROG_VARS(:),                                  & ! (in)
       this%PROG_VARS_commID                               ) ! (out)
     
-    if ( .not. ATMOS_HYDROMETEOR_dry ) then
+    if ( QA > 0 ) then
       call atm_mesh%Create_communicator( &
         QA, 0, 0,                        & ! (in)
         this%QTRCVARS_manager,           & ! (inout)
@@ -453,6 +459,8 @@ contains
     return
   end subroutine AtmosVars_Init
 
+!> Finalize an object to manage variables with atmospheric component
+!!
 !OCL SERIAL
   subroutine AtmosVars_Final( this )
     implicit none
@@ -498,6 +506,8 @@ contains
     return
   end subroutine AtmosVars_Regist_physvar_manager
 
+!> Put data with atmospheric variables to history file
+!!
 !OCL SERIAL
   subroutine AtmosVars_history( this )
     use scale_file_history_meshfield, only: FILE_HISTORY_meshfield_put
@@ -570,6 +580,8 @@ contains
     return
   end subroutine AtmosVars_history
 
+!> Read data with atmospheric variables from restart file
+!!
 !OCL SERIAL
   subroutine AtmosVar_Read_restart_file( this, atmos_mesh, dyncore  )
 
@@ -619,9 +631,15 @@ contains
     LOG_INFO("ATMOSVar_read_restart_file",*) 'Close restart file (ATMOS) '
     call this%restart_file%Close()
 
-    !-- Diagnostic pressure
+    !-- Prepare diagnostic variables
+
+    ! Calculate specific heat
     call vars_calc_specific_heat( this )
-    
+
+    ! Set a basic state of thermodynamics variable
+    call dyncore%update_therm_hyd( this%AUXVARS_manager )
+
+    ! Calculate pressure
     call dyncore%calc_pressure( this%AUX_VARS(AUXVAR_PRES_ID), &
       this%PROGVARS_manager, this%AUXVARS_manager              )
 
@@ -652,6 +670,8 @@ contains
     return
   end subroutine AtmosVar_Read_restart_file
 
+!> Write data with atmospheric variables to restart file
+!!
 !OCL SERIAL
   subroutine AtmosVar_write_restart_file( this )
     use scale_atm_dyn_dgm_nonhydro3d_common, only: &
@@ -719,6 +739,9 @@ contains
     return
   end subroutine AtmosVar_write_restart_file
 
+
+!> Check the range of values with atmospheric variables
+!!
 !OCL SERIAL
   subroutine AtmosVars_Check( this, force )
 
@@ -792,6 +815,8 @@ contains
     return
   end subroutine AtmosVars_Check
 
+!> Put the stastics with atmospheric variables
+!!
 !OCL SERIAL
   subroutine AtmosVars_Monitor( this )
     use scale_file_monitor_meshfield, only: &
@@ -1073,8 +1098,9 @@ contains
    !-------------------------------------------------------
 
    !--
+
    if ( ATMOS_HYDROMETEOR_dry ) then
-     iq =0; tend_iq = PHYTEND_NUM1+1
+     iq = 0; tend_iq = PHYTEND_NUM1+1
    else
      iq = I_QV; tend_iq = PHYTEND_NUM1 + I_QV
    end if
@@ -1287,7 +1313,7 @@ contains
     call vars_calc_specific_heat( this )
     
     ! Calculate diagnostic variables
-    do varid=AUXVAR_DENSHYDRO_ID+1, AUXVAR_PT_ID
+    do varid=AUXVAR_THERMHYDRO_ID+1, AUXVAR_PT_ID
       field => this%AUX_VARS(varid)
       do n=1, field%mesh%LOCAL_MESH_NUM
         call AtmosVars_GetLocalMeshQTRCVarList( n, &
