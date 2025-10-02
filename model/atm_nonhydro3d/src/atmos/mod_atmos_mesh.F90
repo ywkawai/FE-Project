@@ -49,10 +49,10 @@ module mod_atmos_mesh
     type(LineElement) :: element_v1D   !< Object to manage 1D reference element for the vertical direction
 
     type(MeshTopography) :: topography  !< Object to manage topography
-    integer :: vcoord_type_id
+    integer :: vcoord_type_id           !< ID of vertical coordinate type
 
-    logical :: comm_use_mpi_pc
-    logical :: comm_use_mpi_pc_fujitsu_ext
+    logical :: comm_use_mpi_pc              !< Flag whether persistent communication in MPI is used
+    logical :: comm_use_mpi_pc_fujitsu_ext  !< Flag whether Fujitsu extension in MPI persistent communication is used
   contains
     procedure :: AtmosMesh_Init
     procedure :: AtmosMesh_Final

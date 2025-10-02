@@ -1,5 +1,5 @@
 !-------------------------------------------------------------------------------
-!> module ATMOSPHERE physics / sub-grid scale turbulence
+!> module Atmosphere / Physics / sub-grid scale turbulence
 !!
 !! @par Description
 !!          Container for variables with sub-grid scale turbulence model
@@ -91,7 +91,7 @@ module mod_atmos_phy_tb_vars
 contains
 !> Setup an object to manage variables with atmospheric SGS turbulent component
 !!
-!! @param model_mesh a object to manage computational mesh of atmospheric model 
+!! @param model_mesh Object to manage computational mesh of atmospheric model 
 !OCL SERIAL
   subroutine AtmosPhyTbVars_Init( this, model_mesh )
 

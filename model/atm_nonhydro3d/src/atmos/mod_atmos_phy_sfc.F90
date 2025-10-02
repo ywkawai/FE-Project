@@ -1,5 +1,5 @@
 !-------------------------------------------------------------------------------
-!> module ATMOSPHERE physics / surface process
+!> module Atmosphere / Physics / surface process
 !!
 !! @par Description
 !!          Module for surface process
@@ -90,10 +90,10 @@ module mod_atmos_phy_sfc
     
 contains
 
-!> Setup a component of surface process
+!> Setup an object to manage a component of surface process
 !!
-!! @param model_mesh a object to manage computational mesh of atmospheric model 
-!! @param tm_parent_comp a object to mange a temporal scheme in a parent component
+!! @param model_mesh Object to manage computational mesh of atmospheric model 
+!! @param tm_parent_comp Object to mange a temporal scheme in a parent component
 !!
 !OCL SERIAL
   subroutine AtmosPhySfc_setup( this, model_mesh, tm_parent_comp )
@@ -171,11 +171,11 @@ contains
 !> Calculate tendencies associated with a surface model
 !!
 !!
-!! @param model_mesh a object to manage computational mesh of atmospheric model 
-!! @param prgvars_list a object to mange prognostic variables with atmospheric dynamical core
-!! @param trcvars_list a object to mange auxiliary variables 
-!! @param forcing_list a object to mange forcing terms
-!! @param is_update Flag to speicfy whether the tendencies are updated in this call
+!! @param model_mesh Object to manage computational mesh of atmospheric model 
+!! @param prgvars_list Object to mange prognostic variables with atmospheric dynamical core
+!! @param trcvars_list Object to mange auxiliary variables 
+!! @param forcing_list Object to mange forcing terms
+!! @param is_update Flag to specify whether the tendencies are updated in this call
 !!
 !OCL SERIAL
   subroutine AtmosPhySfc_calc_tendency( &
@@ -259,10 +259,10 @@ contains
 
 !> Update variables in a surface model
 !!
-!! @param model_mesh a object to manage computational mesh of atmospheric model 
-!! @param prgvars_list a object to mange prognostic variables with atmospheric dynamical core
-!! @param trcvars_list a object to mange auxiliary variables 
-!! @param forcing_list a object to mange forcing terms
+!! @param model_mesh Object to manage computational mesh of atmospheric model 
+!! @param prgvars_list Object to mange prognostic variables with atmospheric dynamical core
+!! @param trcvars_list Object to mange auxiliary variables 
+!! @param forcing_list Object to mange forcing terms
 !! @param is_update Flag to speicfy whether the tendencies are updated in this call
 !!
 !OCL SERIAL

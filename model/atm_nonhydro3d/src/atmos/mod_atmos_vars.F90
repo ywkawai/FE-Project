@@ -1,5 +1,5 @@
 !-------------------------------------------------------------------------------
-!> module ATMOSPHERE / Variables
+!> module Atmosphere / Physics / Variables
 !!
 !! @par Description
 !!          Container for atmospheric variables
@@ -225,7 +225,7 @@ contains
 
 !> Setup an object to manage variables with atmospheric component
 !!
-!! @param model_mesh a object to manage computational mesh of atmospheric model 
+!! @param model_mesh Object to manage computational mesh of atmospheric model 
 !!
 !OCL SERIAL
   subroutine AtmosVars_Init( this, atm_mesh )

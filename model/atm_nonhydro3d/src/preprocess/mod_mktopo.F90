@@ -80,7 +80,7 @@ module mod_mktopo
   !++ Private variables
   !
   character(len=H_LONG)  :: OUT_BASENAME = ''     !< basename of the output file
-  character(len=H_MID)   :: OUT_VARNAME  = 'topo' !< variable name of topo in the output file
+  character(len=H_MID)   :: OUT_VARNAME  = 'topo' !< variable name of topography data in the output file
   character(len=H_MID)   :: OUT_TITLE    = 'SCALE-DG TOPOGRAPHY'  !< title    of the output file
   character(len=H_SHORT) :: OUT_DTYPE    = 'DEFAULT'              !< REAL4 or REAL8
   !-----------------------------------------------------------------------------  
@@ -272,8 +272,8 @@ contains
     class(MeshBase2D), intent(in), target :: mesh
     class(MeshField2D), intent(inout) :: topo
 
-    character(len=H_LONG) :: IN_BASENAME
-    character(len=H_MID) :: VARNAME
+    character(len=H_LONG) :: IN_BASENAME !< Basename of input file saving topography data
+    character(len=H_MID) :: VARNAME      !< Variable name with the topography data
 
     namelist / PARAM_MKTOPO_INPUT_FILE / &
       IN_BASENAME, &
@@ -322,7 +322,7 @@ contains
 
 
   !-----------------------------------------------------------------------------
-  !> Make flat mountain  
+  !> Make a flat mountain  
   !!
 !OCL SERIAL  
   subroutine MKTOPO_flat( mesh, topo )
@@ -369,7 +369,7 @@ contains
 
 
   !-----------------------------------------------------------------------------
-  !> Make mountain with bell shape
+  !> Make a mountain with a bell shape
   !!
 !OCL SERIAL
   subroutine MKTOPO_bellshape( mesh, topo )
@@ -439,7 +439,7 @@ contains
   end subroutine MKTOPO_bellshape
 
   !-----------------------------------------------------------------------------
-  !> Make Schaer-type mountain
+  !> Make a Schaer-type mountain
   !!
   !! @par Reference
   !! - Schaer et al., 2002, MWR, Vol.130, 2459-2480
@@ -502,7 +502,7 @@ contains
   end subroutine MKTOPO_Schaer_type_mountain
 
   !-----------------------------------------------------------------------------
-  !> Make mountain with bell shape (global)
+  !> Make a mountain with a bell shape (global)
   !!
   subroutine MKTOPO_bellshape_global( mesh, topo )
     implicit none
@@ -562,7 +562,7 @@ contains
   end subroutine MKTOPO_bellshape_global
 
   !-----------------------------------------------------------------------------
-  !> Make Schaer-type mountain (global)
+  !> Make a Schaer-type mountain (global)
   !!
   !! @par Reference
   !! - Klemp, J. B., Skamarock, W. C., & Park, S. H., 2015: Idealized global nonhydrostatic atmospheric test cases on a reduced‐radius sphere. Journal of Advances in Modeling Earth Systems, 7(3), 1155-1177.

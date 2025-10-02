@@ -77,7 +77,7 @@ contains
 
   !- AtmosMesh RM -----------------------------------------
 
-  !> Initialize a object to manage computational mesh
+  !> Initialize an object to manage computational mesh
   !!
   subroutine AtmosMeshRM_Init( this )
     use scale_file_base_meshfield, only: FILE_base_meshfield
@@ -225,7 +225,7 @@ contains
     return
   end subroutine AtmosMeshRM_Init
 
-  !> Finalize a object to manage computational mesh
+  !> Finalize an object to manage computational mesh
   !!
   subroutine AtmosMeshRM_Final(this)
     implicit none

@@ -46,7 +46,7 @@ module mod_atmos_mesh_gm
   !> Derived type to manage a computational mesh of global atmospheric model
   !!
   type, extends(AtmosMesh), public :: AtmosMeshGM
-    type(MeshCubedSphereDom3D) :: mesh
+    type(MeshCubedSphereDom3D) :: mesh                                               !< Object for 3D cubed-sphere mesh
     type(MeshFieldCommCubedSphereDom3D) :: comm_list(ATM_MESH_MAX_COMMNUICATOR_NUM)
   contains
     procedure :: Init => AtmosMeshGM_Init
@@ -76,7 +76,7 @@ module mod_atmos_mesh_gm
 
 contains
 
-  !> Initialize a object to manage computational mesh
+  !> Initialize an object to manage computational mesh
   !!
 !OCL SERIAL
   subroutine AtmosMeshGM_Init( this )    
@@ -215,7 +215,7 @@ contains
     return
   end subroutine AtmosMeshGM_Init
 
-  !> Finalize a object to manage computational mesh
+  !> Finalize an object to manage computational mesh
   !!
 !OCL SERIAL
   subroutine AtmosMeshGM_Final(this)

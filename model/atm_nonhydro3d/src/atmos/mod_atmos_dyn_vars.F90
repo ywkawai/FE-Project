@@ -1,5 +1,5 @@
 !-------------------------------------------------------------------------------
-!> module ATMOSPHERE dynamics
+!> module Atmosphere / Dynamics
 !!
 !! @par Description
 !!          Container for variables with dynamics component
@@ -108,7 +108,7 @@ contains
 
 !> Setup an object to manage variables with atmospheric dynamics component
 !!
-!! @param model_mesh a object to manage computational mesh of atmospheric model 
+!! @param model_mesh Object to manage computational mesh of atmospheric model 
 !!
 !OCL SERIAL
   subroutine AtmosDynVars_Init( this, model_mesh )
