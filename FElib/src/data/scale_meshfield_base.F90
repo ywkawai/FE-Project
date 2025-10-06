@@ -51,7 +51,7 @@ module scale_meshfield_base
     procedure(MeshFieldBase_get_LocalMeshField), deferred, public :: GetLocalMeshField
   end type MeshFieldBase
 
-  interface
+  abstract interface
     subroutine MeshFieldBase_get_LocalMeshField( this, domID, ptr_lcmeshField )
       import MeshFieldBase
       import LocalMeshFieldBase

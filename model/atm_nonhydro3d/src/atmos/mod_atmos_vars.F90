@@ -324,10 +324,10 @@ contains
     ! Setup communicator
     
     call atm_mesh%Create_communicator( &
-      PRGVAR_SCALAR_NUM, PRGVAR_HVEC_NUM, 0,              & ! (in)
-      this%PROGVARS_manager,                              & ! (inout)
-      this%PROG_VARS(:),                                  & ! (in)
-      this%PROG_VARS_commID                               ) ! (out)
+      PRGVAR_SCALAR_NUM, PRGVAR_HVEC_NUM, 0,  & ! (in)
+      this%PROGVARS_manager,                  & ! (inout)
+      this%PROG_VARS,                         & ! (in)
+      this%PROG_VARS_commID                   ) ! (out)
     
     if ( QA > 0 ) then
       call atm_mesh%Create_communicator( &
@@ -340,7 +340,7 @@ contains
     call atm_mesh%Create_communicator( &
       AUXVAR_NUM, 0, 0,                & ! (in)
       this%AUXVARS_manager,            & ! (inout)
-      this%AUX_VARS(:),                & ! (in)
+      this%AUX_VARS,                   & ! (in)
       this%AUX_VARS_commID             ) ! (out)
 
     ! Output list of prognostic variables
@@ -795,7 +795,7 @@ contains
         call vel_fields(iv)%Init( ATMOS_DIAGVARS3D_VINFO(iv_diag)%NAME, "",  mesh3D )
         call AtmosVars_CalcDiagvar( this, vel_fields(iv)%varname, vel_fields(iv) )
       end do
-      call MeshField_statistics_detail( vel_fields(:) )
+      call MeshField_statistics_detail( vel_fields )
       do iv=1, 3
         call vel_fields(iv)%Final()
       end do

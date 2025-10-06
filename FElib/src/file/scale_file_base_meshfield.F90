@@ -264,6 +264,7 @@ contains
                       fileexisted,             & ! [OUT]
                       rankid     = myrank,     & ! [IN]
                       time_units = tunits,     & ! [IN]
+                      aggregate  = .false.,    & ! [IN]
                       calendar   = calendar    ) ! [IN]
     
     if ( .not. fileexisted ) then
