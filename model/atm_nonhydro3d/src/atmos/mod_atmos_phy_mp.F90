@@ -702,52 +702,51 @@ contains
 
         !- Calculate terminal velocity 
 
-          do ke2D = 1, lcmesh%Ne2D
-            !$omp parallel do private( &
-            !$omp p2D, ke_z, iq, ColMask,                                   &
-            !$omp DENS2_tmp, REF_DENS_tmp, RHOQ2_tmp, TEMP2_tmp, PRES2_tmp, &
-            !$omp vterm_tmp ) 
-            do p2D = 1, elem3D%Nnode_h1D**2
-              ColMask(:) = elem3D%Colmask(:,p2D)
-              do ke_z = 1, lcmesh%NeZ
-                DENS2_tmp   (:,ke_z) = DENS2   (ColMask(:),ke_z,ke2D)
-                REF_DENS_tmp(:,ke_z) = REF_DENS(ColMask(:),ke_z,ke2D)
-                TEMP2_tmp   (:,ke_z) = TEMP2   (ColMask(:),ke_z,ke2D)
-                PRES2_tmp   (:,ke_z) = PRES2   (ColMask(:),ke_z,ke2D)
-              end do
-              do iq = this%vars%QS+1, this%vars%QE
-              do ke_z = 1, lcmesh%NeZ            
-                RHOQ2_tmp(:,ke_z,iq) = RHOQ2(ColMask(:),ke_z,ke2D,iq)
-              end do
-              end do
+        do ke2D = 1, lcmesh%Ne2D
+          !$omp parallel do private( &
+          !$omp p2D, ke_z, iq, ColMask,                                   &
+          !$omp DENS2_tmp, REF_DENS_tmp, RHOQ2_tmp, TEMP2_tmp, PRES2_tmp, &
+          !$omp vterm_tmp ) 
+          do p2D = 1, elem3D%Nnode_h1D**2
+            ColMask(:) = elem3D%Colmask(:,p2D)
+            do ke_z = 1, lcmesh%NeZ
+              DENS2_tmp   (:,ke_z) = DENS2   (ColMask(:),ke_z,ke2D)
+              REF_DENS_tmp(:,ke_z) = REF_DENS(ColMask(:),ke_z,ke2D)
+              TEMP2_tmp   (:,ke_z) = TEMP2   (ColMask(:),ke_z,ke2D)
+              PRES2_tmp   (:,ke_z) = PRES2   (ColMask(:),ke_z,ke2D)
+            end do
+            do iq = this%vars%QS+1, this%vars%QE
+            do ke_z = 1, lcmesh%NeZ            
+              RHOQ2_tmp(:,ke_z,iq) = RHOQ2(ColMask(:),ke_z,ke2D,iq)
+            end do
+            end do
 
-              select case( this%MP_TYPEID )
-              case( MP_TYPEID_KESSLER )
-                call ATMOS_PHY_MP_KESSLER_terminal_velocity( &
-                  elem3D%Nnode_v*lcmesh%NeZ, 1, elem3D%Nnode_v*lcmesh%NeZ, & ! (in)
-                  DENS2_tmp(:,:), RHOQ2_tmp(:,:,:), REF_DENS_tmp(:,:),     & ! (in)
-                  vterm_tmp(:,:,:)                                         ) ! (out)
-              case( MP_TYPEID_TOMITA08 )
-                call ATMOS_PHY_MP_TOMITA08_terminal_velocity( &
-                  elem3D%Nnode_v*lcmesh%NeZ, 1, elem3D%Nnode_v*lcmesh%NeZ, & ! (in)
-                  DENS2_tmp(:,:), TEMP2_tmp(:,:), RHOQ2_tmp(:,:,:),        & ! (in)
-                  vterm_tmp(:,:,:)                                         ) ! (out)
-              case( MP_TYPEID_SN14 )
-                call ATMOS_PHY_MP_SN14_terminal_velocity( &
-                  elem3D%Nnode_v*lcmesh%NeZ, 1, elem3D%Nnode_v*lcmesh%NeZ,          & ! (in)
-                  DENS2_tmp(:,:), TEMP2_tmp(:,:), RHOQ2_tmp(:,:,:), PRES2_tmp(:,:), & ! (in)
-                  vterm_tmp(:,:,:)                                                  ) ! (out)
-              end select   
+            select case( this%MP_TYPEID )
+            case( MP_TYPEID_KESSLER )
+              call ATMOS_PHY_MP_KESSLER_terminal_velocity( &
+                elem3D%Nnode_v*lcmesh%NeZ, 1, elem3D%Nnode_v*lcmesh%NeZ, & ! (in)
+                DENS2_tmp(:,:), RHOQ2_tmp(:,:,:), REF_DENS_tmp(:,:),     & ! (in)
+                vterm_tmp(:,:,:)                                         ) ! (out)
+            case( MP_TYPEID_TOMITA08 )
+              call ATMOS_PHY_MP_TOMITA08_terminal_velocity( &
+                elem3D%Nnode_v*lcmesh%NeZ, 1, elem3D%Nnode_v*lcmesh%NeZ, & ! (in)
+                DENS2_tmp(:,:), TEMP2_tmp(:,:), RHOQ2_tmp(:,:,:),        & ! (in)
+                vterm_tmp(:,:,:)                                         ) ! (out)
+            case( MP_TYPEID_SN14 )
+              call ATMOS_PHY_MP_SN14_terminal_velocity( &
+                elem3D%Nnode_v*lcmesh%NeZ, 1, elem3D%Nnode_v*lcmesh%NeZ,          & ! (in)
+                DENS2_tmp(:,:), TEMP2_tmp(:,:), RHOQ2_tmp(:,:,:), PRES2_tmp(:,:), & ! (in)
+                vterm_tmp(:,:,:)                                                  ) ! (out)
+            end select   
 
-              do iq = this%vars%QS+1, this%vars%QE
-              do ke_z = 1, lcmesh%NeZ            
-                vterm(ColMask(:),ke_z,ke2D,iq) = vterm_tmp(:,ke_z,iq)
-              end do
-              end do
+            do iq = this%vars%QS+1, this%vars%QE
+            do ke_z = 1, lcmesh%NeZ            
+              vterm(ColMask(:),ke_z,ke2D,iq) = vterm_tmp(:,ke_z,iq)
+            end do
             end do
           end do
+        end do
 
-        
         do iq = this%vars%QS+1, this%vars%QE
           if ( this%vars%vterm_hist_id(iq) > 0 ) then
             !$omp parallel do collapse(2) private(ke2D, ke_z, ke)
@@ -769,7 +768,7 @@ contains
           TEMP2, vterm,                                        & ! (in)
           this%dtsec_sedmientation, this%rnstep_sedmientation, & ! (in)
 !          Dz, Lift, nz, vmapM, vmapP, IntWeight,               & ! (in)
-          this%Dz, this%Lift, nz, vmapM, vmapP, IntWeight,               & ! (in)
+          this%Dz, this%Lift, nz, vmapM, vmapP, IntWeight,     & ! (in)
           this%vars%QE - this%vars%QS, QLA, QIA,               & ! (in)
           lcmesh, elem3D )
 

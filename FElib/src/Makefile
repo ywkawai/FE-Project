@@ -59,7 +59,8 @@ OBJS_NAME_ELEMENT = \
 	scale_element_operation_base.o                \
 	scale_element_operation_general.o	          \
 	scale_element_operation_tensorprod3D_kernel.o \
-	scale_element_operation_tensorprod3D.o
+	scale_element_operation_tensorprod3D.o        \
+	scale_element_interp_tensorprod3D.o
 
 OBJS_NAME_MESH = \
 	scale_meshutil_1d.o            \
@@ -151,7 +152,8 @@ OBJS_NAME_TURBULENCE = \
 	scale_atm_phy_tb_dgm_common.o 
 
 OBJS_NAME_MICROPHYS = \
-	scale_atm_phy_mp_dgm_common.o
+	scale_atm_phy_mp_dgm_common.o \
+	scale_atm_phy_mp_lscond.o
 
 OBJS_NAME_MODEL_FRAMEWORK = \
 	scale_model_meshbase_manager.o \
