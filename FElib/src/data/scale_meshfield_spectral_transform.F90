@@ -30,6 +30,7 @@ module scale_meshfield_spectral_transform
   use scale_mesh_base1d, only: MeshBase1D
   use scale_mesh_base2d, only: MeshBase2D
 
+  use scale_localmeshfield_base, only: LocalMeshField1D
   use scale_meshfield_base, only: &
     MeshField1D, MeshField2D, &
     MeshField1DList, MeshField2DList
@@ -579,6 +580,7 @@ contains
     class(LocalMesh1D), pointer :: lmesh
     integer :: ldom
     integer :: meshID
+    class(LocalMeshField1D), pointer :: lcfield
 
     integer :: kel, v
     integer :: k, kk
@@ -605,10 +607,11 @@ contains
       mesh1D => q_list(1,meshID)%ptr%mesh
       do ldom=1, mesh1D%LOCAL_MESH_NUM
         lmesh => mesh1D%lcmesh_list(ldom)
+        lcfield => q_list(v,meshID)%ptr%local(ldom)
         !$omp parallel do collapse(2)
         do kel=lmesh%NeS, lmesh%NeE
         do v=1, vec_size
-          q_tmp(:,v,kel) = q_list(v,meshID)%ptr%local(ldom)%val(:,kel)
+          q_tmp(:,v,kel) = lcfield%val(:,kel)
         end do
         end do      
         call spectral_transform1D_L2projection_lc( s_coef_lc, &
