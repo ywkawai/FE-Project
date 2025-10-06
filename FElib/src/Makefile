@@ -57,12 +57,20 @@ OBJS_NAME_ELEMENT = \
 	scale_element_hexahedral.o    \
 	scale_element_modalfilter.o   \
 	scale_element_SIACfilter.o    \
+<<<<<<< HEAD
 	scale_element_operation_base.o                    \
 	scale_element_operation_general.o	              \
 	scale_element_operation_tensorprod3D_kernel.o     \
 	scale_element_operation_tensorprod3D_kernel_gpu.o \
 	scale_element_operation_tensorprod3D.o            \
 	scale_element_operation_gpu_driver.o
+=======
+	scale_element_operation_base.o                \
+	scale_element_operation_general.o	          \
+	scale_element_operation_tensorprod3D_kernel.o \
+	scale_element_operation_tensorprod3D.o        \
+	scale_element_interp_tensorprod3D.o
+>>>>>>> 1128594 (Add a module to provide a large-scale condensation scheme)
 
 OBJS_NAME_MESH = \
 	scale_meshutil_1d.o            \
@@ -166,7 +174,8 @@ OBJS_NAME_TURBULENCE = \
 	scale_atm_phy_tb_dgm_common.o 
 
 OBJS_NAME_MICROPHYS = \
-	scale_atm_phy_mp_dgm_common.o
+	scale_atm_phy_mp_dgm_common.o \
+	scale_atm_phy_mp_lscond.o
 
 OBJS_NAME_MODEL_FRAMEWORK = \
 	scale_model_meshbase_manager.o \
