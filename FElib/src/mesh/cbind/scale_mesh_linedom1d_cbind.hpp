@@ -60,6 +60,8 @@ public:
         void* meshbase1D_handle = CMeshLineDom1D_get_MeshBase1D(handle_.get());
         return MeshBase1D(meshbase1D_handle);
     }
+
+    const cbind::Handle& get_Handle() const { return this->handle_; }
 private:
     cbind::Handle handle_;
 };

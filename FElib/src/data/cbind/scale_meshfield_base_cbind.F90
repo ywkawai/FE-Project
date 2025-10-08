@@ -8,6 +8,7 @@ module scale_meshfield_base_cbind
     logical_c2f => cbinding_util_logical_c2f, &
     string_c2f => cbinding_util_string_c2f
   use scale_meshfield_base, only: &
+    MeshFieldBase, &
     MeshField1D, MeshField2D, MeshField3D
   use scale_mesh_base1d, only: MeshBase1D
   use scale_mesh_base2d, only: MeshBase2D
@@ -19,6 +20,10 @@ module scale_meshfield_base_cbind
   !
   !++ Public type & procedure
   !
+  type, public, extends(CBindingBase) :: CMeshFieldBasePtr
+    class(MeshFieldBase), pointer :: obj
+  end type CMeshFieldBasePtr  
+
   type, public, extends(CBindingBase) :: CMeshField1D
     type(MeshField1D) :: obj
   end type CMeshField1D
@@ -75,6 +80,22 @@ contains
     call destroy_handle_1d(ptr)
     return
   end subroutine CMeshField1D_Final
+
+  function CMeshField1D_GetMeshFieldBase( ptr ) result( meshfieldbase_ptr ) bind(C, name="CMeshField1D_GetMeshFieldBase")
+    implicit none
+    type(c_ptr), value :: ptr
+    type(c_ptr) :: meshfieldbase_ptr 
+
+    type(CMeshField1D), pointer :: handle
+    type(CMeshFieldBasePtr), pointer :: meshfieldbase_fptr
+    !------------------------------------
+
+    call c_f_pointer(ptr, handle)
+    allocate(meshfieldbase_fptr)
+    meshfieldbase_fptr%obj => handle%obj
+    meshfieldbase_ptr = c_loc(meshfieldbase_fptr)
+    return
+  end function CMeshField1D_GetMeshFieldBase
 
   function CMeshField1D_GetLocalMeshField( ptr, domID ) result( lmeshfield) bind(C, name="CMeshField1D_GetLocalMeshField")
     use scale_localmeshfield_base_cbind, only: CLocalMeshField1DPtr
@@ -147,6 +168,22 @@ contains
     return
   end subroutine CMeshField2D_Final
 
+  function CMeshField2D_GetMeshFieldBase( ptr ) result( meshfieldbase_ptr ) bind(C, name="CMeshField2D_GetMeshFieldBase")
+    implicit none
+    type(c_ptr), value :: ptr
+    type(c_ptr) :: meshfieldbase_ptr 
+
+    type(CMeshField2D), pointer :: handle
+    type(CMeshFieldBasePtr), pointer :: meshfieldbase_fptr
+    !------------------------------------
+
+    call c_f_pointer(ptr, handle)
+    allocate(meshfieldbase_fptr)
+    meshfieldbase_fptr%obj => handle%obj
+    meshfieldbase_ptr = c_loc(meshfieldbase_fptr)
+    return
+  end function CMeshField2D_GetMeshFieldBase
+
 !--
   function CMeshField3D_Init(varname, units, mesh_ptr, data_type ) result(ptr) bind(C, name="CMeshField3D_Init")
     use scale_mesh_base3d_cbind, only: CMeshBase3DPtr
@@ -179,10 +216,28 @@ contains
     return
   end subroutine CMeshField3D_Final
 
+  function CMeshField3D_GetMeshFieldBase( ptr ) result( meshfieldbase_ptr ) bind(C, name="CMeshField3D_GetMeshFieldBase")
+    implicit none
+    type(c_ptr), value :: ptr
+    type(c_ptr) :: meshfieldbase_ptr 
+
+    type(CMeshField3D), pointer :: handle
+    type(CMeshFieldBasePtr), pointer :: meshfieldbase_fptr
+    !------------------------------------
+
+    call c_f_pointer(ptr, handle)
+    allocate(meshfieldbase_fptr)
+    meshfieldbase_fptr%obj => handle%obj
+    meshfieldbase_ptr = c_loc(meshfieldbase_fptr)
+    return
+  end function CMeshField3D_GetMeshFieldBase
+
 !*****
 DEF_C_BIND(CMeshField1D,"CMeshField1D",_1D)
 DEF_C_BIND(CMeshField2D,"CMeshField2D",_2D)
 DEF_C_BIND(CMeshField3D,"CMeshField3D",_3D)
+
+DEF_C_BIND_RELEASE_HANDLE(CMeshFieldBasePtr,"CMeshFieldBasePtr_release_handle",)
 !***** Getter
 !******
 

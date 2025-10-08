@@ -1,7 +1,10 @@
 
 #include "../../mesh/cbind/scale_mesh_base1d_cbind.hpp"
+#include "../../mesh/cbind/scale_mesh_linedom1d_cbind.hpp"
 #include "scale_localmeshfield_base_cbind.hpp"
 #include "scale_meshfield_base_cbind.hpp"
+#include "scale_meshfieldcomm_base_cbind.hpp"
+#include "scale_meshfieldcomm_1d_cbind.hpp"
 
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
@@ -41,8 +44,18 @@ void bind_data(py::module_ &m){
     pybind_LocalMeshField<LocalMeshField1D>(m, "LocalMeshField1D");
     pybind_LocalMeshField<LocalMeshField2D>(m, "LocalMeshField2D");
     pybind_LocalMeshField<LocalMeshField3D>(m, "LocalMeshField3D");
+    py::class_<MeshFieldContainer>(m, "MeshFieldContainer")
+        .def(py::init<>())
+        .def("set_field1D", &MeshFieldContainer::set_field1D);
+    py::class_<MeshFieldBase>(m, "MeshFieldBase");
     py::class_<MeshField1D>(m, "MeshField1D")
         .def(py::init<const std::string&, const std::string&, const MeshBase1D&, int>())
+        .def("get_MeshFieldBase", &MeshField1D::get_MeshFieldBase)
         .def("get_LocalMeshField", &MeshField1D::get_LocalMeshField)
         .def("print_val", &MeshField1D::print_val);
+    py::class_<MeshFieldComm1D>(m, "MeshFieldComm1D")
+        .def(py::init<int, int, const MeshLineDom1D&>())
+        .def("put", &MeshFieldComm1D::put_py)
+        .def("exchange", &MeshFieldComm1D::exchange)
+        .def("get", &MeshFieldComm1D::get_py);
 }

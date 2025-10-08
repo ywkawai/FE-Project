@@ -21,6 +21,10 @@ module scale_mesh_linedom1d_cbind
   type, public, extends(CBindingBase) :: CMeshLineDom1D
     type(MeshLineDom1D) :: obj
   end type CMeshLineDom1D
+  type, public, extends(CBindingBase) :: CMeshLineDom1DPtr
+    type(MeshLineDom1D), pointer :: obj
+  end type CMeshLineDom1DPtr
+
   !-----------------------------------------------------------------------------
   !
   !++ used modules
@@ -53,10 +57,10 @@ contains
 
     call c_f_pointer( refElem_ptr, refElem_fptr )
     if ( c_associated(FX_ptr) ) then
-      call handle%obj%Init( NeG, dom_xmin, dom_xmax, refElem_fptr, NLocalMeshPerPrc, nproc, myrank )
-    else
       call c_f_pointer( FX_ptr, FX_fptr, [NeG+1] )
       call handle%obj%Init( NeG, dom_xmin, dom_xmax, refElem_fptr, NLocalMeshPerPrc, nproc, myrank, FX_fptr )
+    else
+      call handle%obj%Init( NeG, dom_xmin, dom_xmax, refElem_fptr, NLocalMeshPerPrc, nproc, myrank )
     end if
     return
   end function CMeshLineDom1D_Init

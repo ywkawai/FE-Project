@@ -7,6 +7,7 @@ void bind_common(py::module_ &);
 void bind_element(py::module_ &);
 void bind_mesh(py::module_ &);
 void bind_data(py::module_ &);
+void bind_file(py::module_ &);
 
 PYBIND11_MODULE(ScaleFECore, m) {
     m.doc() = "ScaleFECore";
@@ -22,5 +23,7 @@ PYBIND11_MODULE(ScaleFECore, m) {
     //
     py::module_ data = m.def_submodule("data", "");
     bind_data(data);
-
+    //
+    py::module_ file = m.def_submodule("file", "");
+    bind_file(file);
 }

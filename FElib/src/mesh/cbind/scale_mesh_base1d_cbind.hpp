@@ -31,6 +31,11 @@ public:
     int get_NeG() const { return cbind::get_value<int>(handle_, &CMeshBase1D_get_NeG); }
 
     const cbind::Handle& get_Handle() const { return this->handle_; }
+
+    const static int DIMTYPE_NUM  = 2;
+    const static int DIMTYPEID_X = 1;
+    const static int DIMTYPEID_XT = 2;
+
 private:
     cbind::Handle handle_;
 };

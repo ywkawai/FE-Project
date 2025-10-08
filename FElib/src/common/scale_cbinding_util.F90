@@ -32,6 +32,7 @@ module scale_cbinding_util
   !++ Public procedure
   !  
   public :: cbinding_util_logical_c2f
+  public :: cbinding_util_logical_f2c
   interface cbinding_util_ArrayPtr_c2f
     module procedure cbinding_util_DArray1DPtr_c2f
     module procedure cbinding_util_DArray2DPtr_c2f
@@ -56,6 +57,15 @@ contains
     flag_f = ( flag_c .eqv. .true._c_bool )
     return
   end function cbinding_util_logical_c2f
+
+  function cbinding_util_logical_f2c( flag_f ) result( flag_c )
+    implicit none
+    logical, intent(in) :: flag_f
+    logical(c_bool) :: flag_c
+    !------------------------------
+    flag_c = flag_f
+    return
+  end function cbinding_util_logical_f2c
 
   function cbinding_util_DArray1DPtr_c2f( array_c, Nx ) result( array_f )
     implicit none
