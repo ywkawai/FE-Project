@@ -64,7 +64,7 @@ end subroutine Atmos_setup
 
 subroutine Atmos_calc_tendency( this, force )
   implicit none
-  class(AtmosComponent), intent(inout) :: this
+  class(AtmosComponent), intent(inout), target :: this
   logical, intent(in) :: force
 
   !--------------------------------------------------
@@ -79,7 +79,7 @@ end subroutine Atmos_calc_tendency
 
 subroutine Atmos_update( this )
   implicit none
-  class(AtmosComponent), intent(inout) :: this
+  class(AtmosComponent), intent(inout), target :: this
   !--------------------------------------------------
 
   LOG_INFO('AtmosComponent_update',*)

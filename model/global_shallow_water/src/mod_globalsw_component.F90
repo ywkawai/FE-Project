@@ -147,7 +147,7 @@ end subroutine SW_setup
 
 subroutine SW_update( this )
   implicit none
-  class(GlobalSWComponent), intent(inout) :: this
+  class(GlobalSWComponent), intent(inout), target :: this
 
   integer :: tm_process_id
   logical :: is_update
@@ -181,7 +181,7 @@ end subroutine SW_update
 
 subroutine SW_calc_tendency( this, force )
   implicit none
-  class(GlobalSWComponent), intent(inout) :: this
+  class(GlobalSWComponent), intent(inout), target :: this
   logical, intent(in) :: force
   !------------------------------------------------------------------------
   

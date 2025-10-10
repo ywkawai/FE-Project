@@ -52,13 +52,13 @@ module scale_model_component
 
     subroutine ModelComponent_calc_tendency( this, force )
       import ModelComponent
-      class(ModelComponent), intent(inout) :: this
+      class(ModelComponent), intent(inout), target :: this
       logical, intent(in) :: force
     end subroutine ModelComponent_calc_tendency
 
     subroutine ModelComponent_update( this )
       import ModelComponent
-      class(ModelComponent), intent(inout) :: this
+      class(ModelComponent), intent(inout), target :: this
     end subroutine ModelComponent_update
 
     subroutine ModelComponent_finalize( this )
