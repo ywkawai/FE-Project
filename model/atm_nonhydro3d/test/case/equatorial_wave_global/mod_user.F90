@@ -142,6 +142,7 @@ contains
       RHOH_p  => PHYTEND_RHOH_ID
 
     use mod_atmos_vars, only: &
+      AtmosVarsContainer,               &
       AtmosVars_GetLocalMeshPrgVars,    &
       AtmosVars_GetLocalMeshPhyAuxVars
 
@@ -150,6 +151,7 @@ contains
     class(AtmosComponent), intent(inout) :: atm
 
     class(LocalMesh3D), pointer :: lcmesh
+    type(AtmosVarsContainer), pointer :: vars_container
     class(LocalMeshFieldBase), pointer :: DDENS, MOMX, MOMY, MOMZ, DRHOT
     class(LocalMeshFieldBase), pointer :: DENS_hyd, PRES_hyd
     class(LocalMeshFieldBase), pointer :: Rtot, CVtot, CPtot
@@ -167,11 +169,13 @@ contains
     type(Experiment) :: exp_manager
     !------------------------------------------
 
+    call atm%vars%Get_container( vars_container )
+    
     if ( .not. is_Qheat_calculated ) then
       call exp_manager%Init( 'equatorial_wave_global' )
       call exp_manager%Regist_SetInitCond( exp_SetInitCond_equatorial_wave )
       call exp_manager%SetInitCond( atm%mesh, &
-        atm%vars%PROGVARS_manager, atm%vars%AUXVARS_manager, atm%vars%QTRCVARS_manager )
+        vars_container%PROGVARS_manager, vars_container%AUXVARS_manager, vars_container%QTRCVARS_manager )
       call exp_manager%Final()
 
       is_Qheat_calculated = .true.
@@ -183,27 +187,27 @@ contains
     fac = 1.0_RP!exp(-tsec * rtau2)
 
     do n=1, atm%mesh%ptr_mesh%LOCAL_MESH_NUM
-      call AtmosVars_GetLocalMeshPrgVars( n, atm%mesh%ptr_mesh,  &
-        atm%vars%PROGVARS_manager, atm%vars%AUXVARS_manager,     &
-        DDENS, MOMX, MOMY, MOMZ, DRHOT,                          &
-        DENS_hyd, PRES_hyd, Rtot, CVtot, CPtot, lcmesh           )      
+      call AtmosVars_GetLocalMeshPrgVars( n, atm%mesh%ptr_mesh,          &
+        vars_container%PROGVARS_manager, vars_container%AUXVARS_manager, &
+        DDENS, MOMX, MOMY, MOMZ, DRHOT,                                  &
+        DENS_hyd, PRES_hyd, Rtot, CVtot, CPtot, lcmesh                   )      
 
       call AtmosVars_GetLocalMeshPhyAuxVars( n, atm%mesh%ptr_mesh, &
-        atm%vars%AUXVARS_manager, PRES, PT                         )
+        vars_container%AUXVARS_manager, PRES, PT                   )
       
       allocate( DENS(lcmesh%refElem3D%Np) )
       !$omp parallel do private(DENS)
       do ke=lcmesh%NeS, lcmesh%NeE
         DENS(:) = DENS_hyd%val(:,ke) + DDENS%val(:,ke)
 
-        atm%vars%PHY_TEND(MOMX_p)%local(n)%val(:,ke) = atm%vars%PHY_TEND(MOMX_p)%local(n)%val(:,ke)   &
+        vars_container%PHY_TEND(MOMX_p)%local(n)%val(:,ke) = vars_container%PHY_TEND(MOMX_p)%local(n)%val(:,ke)   &
           - rtau * MOMX%val(:,ke)
-        atm%vars%PHY_TEND(MOMY_p)%local(n)%val(:,ke) = atm%vars%PHY_TEND(MOMY_p)%local(n)%val(:,ke)   &
+        vars_container%PHY_TEND(MOMY_p)%local(n)%val(:,ke) = vars_container%PHY_TEND(MOMY_p)%local(n)%val(:,ke)   &
           - rtau * MOMY%val(:,ke)
-        atm%vars%PHY_TEND(MOMZ_p)%local(n)%val(:,ke) = atm%vars%PHY_TEND(MOMZ_p)%local(n)%val(:,ke)   &
+        vars_container%PHY_TEND(MOMZ_p)%local(n)%val(:,ke) = vars_container%PHY_TEND(MOMZ_p)%local(n)%val(:,ke)   &
           - rtau * MOMZ%val(:,ke)
 
-        atm%vars%PHY_TEND(RHOH_p)%local(n)%val(:,ke) = atm%vars%PHY_TEND(RHOH_p)%local(n)%val(:,ke)   &
+        vars_container%PHY_TEND(RHOH_p)%local(n)%val(:,ke) = vars_container%PHY_TEND(RHOH_p)%local(n)%val(:,ke)   &
           + DENS(:) * ( q_heat%local(n)%val(:,ke) * fac                                                                         &
                       - rtau * CPtot%val(:,ke) * ( PRES%val(:,ke) / DENS(:) - PRES_hyd%val(:,ke) / DENS_hyd%val(:,ke) ) / Rdry  )
       end do

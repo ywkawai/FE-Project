@@ -210,6 +210,7 @@ contains
     use scale_file_history_meshfield, only: &
       FILE_HISTORY_meshfield_in    
     use mod_atmos_vars, only: &
+      AtmosVarsContainer,              &
       AtmosVars_GetLocalMeshPrgVars,   &
       AtmosVars_GetLocalMeshPhyTends,  &
       AtmosVars_GetLocalMeshPhyAuxVars      
@@ -226,6 +227,7 @@ contains
     class(LocalMesh3D), pointer :: lcmesh
     type(ElementBase3D), pointer :: elem3D
 
+    type(AtmosVarsContainer), pointer :: vars_container
     class(LocalMeshFieldBase), pointer :: DDENS, MOMX, MOMY, MOMZ, DRHOT
     class(LocalMeshFieldBase), pointer :: DENS_hyd, PRES_hyd
     class(LocalMeshFieldBase), pointer :: PRES, PT
@@ -241,22 +243,24 @@ contains
 
     dt = atm%time_manager%dtsec
 
+    call atm%vars%Get_container( vars_container )
+
     if ( .not. is_PREShyd_ref_set ) then
-      call atm%vars%AUXVARS_manager%Get3D( PRESHYD_VID, PRES_hyd_ )
-      call atm%vars%AUXVARS_manager%Get3D( PRESHYD_REF_VID, PRES_hyd_ref )
+      call vars_container%AUXVARS_manager%Get3D( PRESHYD_VID, PRES_hyd_ )
+      call vars_container%AUXVARS_manager%Get3D( PRESHYD_REF_VID, PRES_hyd_ref )
 
       do n=1, PRES_hyd_ref%mesh%LOCAL_MESH_NUM
         call AtmosVars_GetLocalMeshPrgVars( n, atm%mesh%ptr_mesh,  &
-        atm%vars%PROGVARS_manager, atm%vars%AUXVARS_manager,     &
-        DDENS, MOMX, MOMY, MOMZ, DRHOT,                          &
-        DENS_hyd, PRES_hyd, Rtot, CVtot, CPtot, lcmesh           )        
+        vars_container%PROGVARS_manager, vars_container%AUXVARS_manager, &
+        DDENS, MOMX, MOMY, MOMZ, DRHOT,                                  &
+        DENS_hyd, PRES_hyd, Rtot, CVtot, CPtot, lcmesh                   )        
 
         !$omp parallel do
         do ke=lcmesh%NeS, lcmesh%NeE
           PRES_hyd_ref%local(n)%val(:,ke) = PRES_hyd_%local(n)%val(:,ke)
         end do
       end do
-      call atm%vars%AUXVARS_manager%MeshFieldComm_Exchange()
+      call vars_container%AUXVARS_manager%MeshFieldComm_Exchange()
       call atm%dyn_proc%dyncore_driver%Update_phyd_hgrad( PRES_hyd_, PRES_hyd_ref, &
         PRES_hyd_%mesh, atm%mesh%element3D_operation )
 
@@ -265,16 +269,16 @@ contains
 
     do n=1, atm%mesh%ptr_mesh%LOCAL_MESH_NUM
       call AtmosVars_GetLocalMeshPrgVars( n, atm%mesh%ptr_mesh,  &
-        atm%vars%PROGVARS_manager, atm%vars%AUXVARS_manager,     &
-        DDENS, MOMX, MOMY, MOMZ, DRHOT,                          &
-        DENS_hyd, PRES_hyd, Rtot, CVtot, CPtot, lcmesh           )      
+        vars_container%PROGVARS_manager, vars_container%AUXVARS_manager, &
+        DDENS, MOMX, MOMY, MOMZ, DRHOT,                                  &
+        DENS_hyd, PRES_hyd, Rtot, CVtot, CPtot, lcmesh                   )      
 
       call AtmosVars_GetLocalMeshPhyAuxVars( n, atm%mesh%ptr_mesh, &
-        atm%vars%AUXVARS_manager, PRES, PT                         )
+        vars_container%AUXVARS_manager, PRES, PT                         )
 
       call AtmosVars_GetLocalMeshPhyTends( n,  atm%mesh%ptr_mesh, & 
-        atm%vars%PHYTENDS_manager,                     &
-        DENS_tp, MOMX_tp, MOMY_tp, MOMZ_tp, RHOT_tp,   &
+        vars_container%PHYTENDS_manager,                          &
+        DENS_tp, MOMX_tp, MOMY_tp, MOMZ_tp, RHOT_tp,              &
         RHOH_p  )
 
       !--

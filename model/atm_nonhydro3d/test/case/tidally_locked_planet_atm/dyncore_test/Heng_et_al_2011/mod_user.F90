@@ -2,14 +2,18 @@
 !> module USER
 !!
 !! @par Description
-!!          User defined module for a benchmark test of dynamical core for tidally locked Earth atmosphere proposed by Heng et al. (2011, Monthly Notices of the Royal Astronomical Society).
+!!          User defined module for a benchmark test of dynamical core for tidally locked Earth atmosphere proposed by Heng et al. (2011).
 !!          
 !!
-!! @author Team SCALE
+!! @author Yuta Kawai, Team SCALE
 !!
+!! @par Reference
+!!  - Heng, K., Menou, K., and Phillipps, P. J., 2011:
+!!    Atmospheric circulation of tidally locked exoplanets: a suite of benchmark tests for dynamical solvers. 
+!!    Mon. Not. R. Astron. Soc.,  413(4), 2380-2402.
 !<
 !-------------------------------------------------------------------------------
-#include "scalelib.h"
+#include "scaleFElib.h"
 module mod_user
 
   !-----------------------------------------------------------------------------
@@ -146,7 +150,8 @@ contains
       RHOH_p  => PHYTEND_RHOH_ID
 
     use mod_atmos_vars, only: &
-      AtmosVars_GetLocalMeshPrgVars,    &
+      AtmosVarsContainer,              &
+      AtmosVars_GetLocalMeshPrgVars,   &
       AtmosVars_GetLocalMeshPhyAuxVars
 
     implicit none
@@ -154,6 +159,7 @@ contains
     class(AtmosComponent), intent(inout) :: atm
 
     class(LocalMesh3D), pointer :: lcmesh
+    type(AtmosVarsContainer), pointer :: vars_container
     class(LocalMeshFieldBase), pointer :: DDENS, MOMX, MOMY, MOMZ, DRHOT
     class(LocalMeshFieldBase), pointer :: DENS_hyd, PRES_hyd
     class(LocalMeshFieldBase), pointer :: PRES, PT
@@ -174,14 +180,16 @@ contains
     dt = atm%time_manager%dtsec
     gamm = CpDry / CvDry 
 
+    call atm%vars%Get_container( vars_container )
+
     do n=1, atm%mesh%ptr_mesh%LOCAL_MESH_NUM
-      call AtmosVars_GetLocalMeshPrgVars( n, atm%mesh%ptr_mesh,  &
-        atm%vars%PROGVARS_manager, atm%vars%AUXVARS_manager,     &
-        DDENS, MOMX, MOMY, MOMZ, DRHOT,                          &
-        DENS_hyd, PRES_hyd, Rtot, CVtot, CPtot, lcmesh           )      
+      call AtmosVars_GetLocalMeshPrgVars( n, atm%mesh%ptr_mesh,          &
+        vars_container%PROGVARS_manager, vars_container%AUXVARS_manager, &
+        DDENS, MOMX, MOMY, MOMZ, DRHOT,                                  &
+        DENS_hyd, PRES_hyd, Rtot, CVtot, CPtot, lcmesh                   )      
 
       call AtmosVars_GetLocalMeshPhyAuxVars( n, atm%mesh%ptr_mesh, &
-        atm%vars%AUXVARS_manager, PRES, PT                         )
+        vars_container%AUXVARS_manager, PRES, PT                   )
       
       elem3D => lcmesh%refElem3D
 

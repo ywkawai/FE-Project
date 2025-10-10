@@ -137,6 +137,7 @@ module mod_atmos_vars
     procedure :: Init => AtmosVars_Init
     procedure :: Final => AtmosVars_Final
     procedure :: Setup_container => AtmosVars_Setup_container
+    procedure :: Get_container => AtmosVars_GetContainer
     procedure :: Calc_diagnostics => AtmosVars_CalculateDiagnostics
     procedure :: Calc_diagVar => AtmosVars_CalcDiagvar
     procedure :: Calc_diagVar2D => AtmosVars_CalcDiagvar2D
@@ -1019,6 +1020,24 @@ contains
   end subroutine AtmosVarsContainer_Monitor
 
   !----  Getter ---------------------------------------------------------------------------
+
+!OCL SERIAL
+  subroutine AtmosVars_GetContainer( this, container, container_type_id )
+    class(AtmosVars), intent(inout), target :: this
+    type(AtmosVarsContainer), intent(out), pointer :: container
+    integer, intent(in), optional :: container_type_id
+
+    integer :: container_type_id_
+    !----------------------------------------------------------
+    if ( present(container_type_id) ) then
+      container_type_id_ = container_type_id
+    else
+      container_type_id_ = 1
+    end if
+
+    container => this%container_list(container_type_id_)
+    return
+  end subroutine AtmosVars_GetContainer
 
 !OCL SERIAL
   subroutine AtmosVars_GetLocalMeshPrgVar( domID, mesh, prgvars_list, auxvars_list, &

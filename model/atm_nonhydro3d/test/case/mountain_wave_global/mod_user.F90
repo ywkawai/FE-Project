@@ -151,7 +151,8 @@ contains
       RHOH_p  => PHYTEND_RHOH_ID
 
     use mod_atmos_vars, only: &
-      AtmosVars_GetLocalMeshPrgVars,    &
+      AtmosVarsContainer,              &
+      AtmosVars_GetLocalMeshPrgVars,   &
       AtmosVars_GetLocalMeshPhyAuxVars
 
     implicit none
@@ -160,6 +161,8 @@ contains
 
     class(LocalMesh3D), pointer :: lcmesh
     class(ElementBase3D), pointer :: elem
+
+    type(AtmosVarsContainer), pointer :: vars_container
     class(LocalMeshFieldBase), pointer :: DDENS, MOMX, MOMY, MOMZ, DRHOT
     class(LocalMeshFieldBase), pointer :: DENS_hyd, PRES_hyd
     class(LocalMeshFieldBase), pointer :: PRES, PT
@@ -183,14 +186,16 @@ contains
 
     return
     
+    call atm%vars%Get_container( vars_container )
+
     do n=1, atm%mesh%ptr_mesh%LOCAL_MESH_NUM
       call AtmosVars_GetLocalMeshPrgVars( n, atm%mesh%ptr_mesh,  &
-        atm%vars%PROGVARS_manager, atm%vars%AUXVARS_manager,     &
+        vars_container%PROGVARS_manager, vars_container%AUXVARS_manager,     &
         DDENS, MOMX, MOMY, MOMZ, DRHOT,                          &
         DENS_hyd, PRES_hyd, Rtot, CVtot, CPtot, lcmesh           )     
       
       call AtmosVars_GetLocalMeshPhyAuxVars( n,  atm%mesh%ptr_mesh, &
-        atm%vars%AUXVARS_manager, PRES, PT                          )
+        vars_container%AUXVARS_manager, PRES, PT                          )
       
       elem => lcmesh%refElem3D
       allocate( DENS(elem%Np), sfac(elem%Np) )
@@ -216,14 +221,14 @@ contains
         sfac(:) = rtau * 0.5_RP * ( 1.0_RP - cos( PI * ( lcmesh%pos_en(:,ke,3) - 25.E3_RP ) / (40.E3_RP - 25.E3_RP) ) ) 
 
         where ( lcmesh%pos_en(:,ke,3) > 25.E3_RP ) 
-          atm%vars%PHY_TEND(MOMX_p)%local(n)%val(:,ke) = atm%vars%PHY_TEND(MOMX_p)%local(n)%val(:,ke)   &
+          vars_container%PHY_TEND(MOMX_p)%local(n)%val(:,ke) = vars_container%PHY_TEND(MOMX_p)%local(n)%val(:,ke)   &
             - sfac(:) * ( MOMX%val(:,ke) - DENS(:) * U_0(:,ke) )
-          atm%vars%PHY_TEND(MOMY_p)%local(n)%val(:,ke) = atm%vars%PHY_TEND(MOMY_p)%local(n)%val(:,ke)   &
+          vars_container%PHY_TEND(MOMY_p)%local(n)%val(:,ke) = vars_container%PHY_TEND(MOMY_p)%local(n)%val(:,ke)   &
             - sfac(:) * ( MOMY%val(:,ke) - DENS(:) * V_0(:,ke) )
-          atm%vars%PHY_TEND(MOMZ_p)%local(n)%val(:,ke) = atm%vars%PHY_TEND(MOMZ_p)%local(n)%val(:,ke)   &
+          vars_container%PHY_TEND(MOMZ_p)%local(n)%val(:,ke) = vars_container%PHY_TEND(MOMZ_p)%local(n)%val(:,ke)   &
             - sfac(:) * MOMZ%val(:,ke)
 
-          atm%vars%PHY_TEND(RHOH_p)%local(n)%val(:,ke) = atm%vars%PHY_TEND(RHOH_p)%local(n)%val(:,ke)   &
+          vars_container%PHY_TEND(RHOH_p)%local(n)%val(:,ke) = vars_container%PHY_TEND(RHOH_p)%local(n)%val(:,ke)   &
             - DENS(:) * sfac(:) * CpDry * ( PRES%val(:,ke) / DENS(:) - PRES_hyd%val(:,ke) / DENS_hyd%val(:,ke) ) / Rdry
         end where
       end do

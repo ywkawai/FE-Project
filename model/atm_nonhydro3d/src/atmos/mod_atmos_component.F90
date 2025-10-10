@@ -240,10 +240,14 @@ contains
     call PROF_rapstart( 'ATM_setup_vars', 1)
 
     call this%vars%Init( this%mesh )
-    call this%vars%Regist_physvar_manager( &
-      this%phy_mp_proc%vars%auxvars2D_manager )
 
-    call this%vars%Setup_container( this%phy_mp_proc%coarsend_dynvars_typeID, this%mesh )
+    if ( this%phy_mp_proc%IsActivated() ) then
+      call this%vars%Regist_physvar_manager( &
+        this%phy_mp_proc%vars%auxvars2D_manager )
+
+      call this%vars%Setup_container( this%phy_mp_proc%coarsend_dynvars_typeID, this%mesh )
+    end if
+    
     call PROF_rapend( 'ATM_setup_vars', 1)   
 
     return

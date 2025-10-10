@@ -137,7 +137,8 @@ contains
     use scale_time_manager, only:  TIME_NOWSTEP
     use scale_localmeshfield_base, only: LocalMeshFieldBase
     use mod_atmos_vars, only: &
-      AtmosVars_GetLocalMeshPrgVars,    &
+      AtmosVarsContainer,              &
+      AtmosVars_GetLocalMeshPrgVars,   &
       AtmosVars_GetLocalMeshPhyAuxVars   
     use scale_prc 
     implicit none
@@ -146,6 +147,7 @@ contains
     class(AtmosComponent), intent(inout) :: atm
 
     class(LocalMesh3D), pointer :: lcmesh
+    type(AtmosVarsContainer), pointer :: vars_container
     class(LocalMeshFieldBase), pointer :: DDENS, MOMX, MOMY, MOMZ, DRHOT
     class(LocalMeshFieldBase), pointer :: DENS_hyd, PRES_hyd
     class(LocalMeshFieldBase), pointer :: PRES, PT
@@ -164,11 +166,13 @@ contains
 
     time = atm%time_manager%dtsec * real( TIME_NOWSTEP - 1, kind=RP )
     
+    call atm%vars%Get_container( vars_container )
+    
     do n=1, atm%mesh%ptr_mesh%LOCAL_MESH_NUM
-      call AtmosVars_GetLocalMeshPrgVars( n, atm%mesh%ptr_mesh,  &
-        atm%vars%PROGVARS_manager, atm%vars%AUXVARS_manager,     &
-        DDENS, MOMX, MOMY, MOMZ, DRHOT,                          &
-        DENS_hyd, PRES_hyd, Rtot, CVtot, CPtot, lcmesh           )      
+      call AtmosVars_GetLocalMeshPrgVars( n, atm%mesh%ptr_mesh,          &
+        vars_container%PROGVARS_manager, vars_container%AUXVARS_manager, &
+        DDENS, MOMX, MOMY, MOMZ, DRHOT,                                  &
+        DENS_hyd, PRES_hyd, Rtot, CVtot, CPtot, lcmesh                   )      
       elem3D => lcmesh%refElem3D
 
       allocate( svec(elem3D%Np,lcmesh%Ne,2), W(elem3D%Np) )

@@ -176,7 +176,8 @@ contains
       RHOH_p  => PHYTEND_RHOH_ID
 
     use mod_atmos_vars, only: &
-      AtmosVars_GetLocalMeshPrgVars,    &
+      AtmosVarsContainer,              &
+      AtmosVars_GetLocalMeshPrgVars,   &
       AtmosVars_GetLocalMeshPhyAuxVars
 
     implicit none
@@ -185,6 +186,8 @@ contains
 
     class(LocalMesh3D), pointer :: lcmesh
     class(ElementBase3D), pointer :: elem
+
+    type(AtmosVarsContainer), pointer :: vars_container
     class(LocalMeshFieldBase), pointer :: DDENS, MOMX, MOMY, MOMZ, DRHOT
     class(LocalMeshFieldBase), pointer :: DENS_hyd, PRES_hyd
     class(LocalMeshFieldBase), pointer :: PRES, PT
@@ -209,14 +212,16 @@ contains
     sponge_lateral_x00 = Lx - SPONGE_LATERAL_WIDTH
     sponge_lateral_x0 = sponge_lateral_x00 + 0.5_RP * SPONGE_LATERAL_WIDTH
     
+    call atm%vars%Get_container( vars_container )
+
     do n=1, atm%mesh%ptr_mesh%LOCAL_MESH_NUM
-      call AtmosVars_GetLocalMeshPrgVars( n, atm%mesh%ptr_mesh,  &
-        atm%vars%PROGVARS_manager, atm%vars%AUXVARS_manager,     &
-        DDENS, MOMX, MOMY, MOMZ, DRHOT,                          &
-        DENS_hyd, PRES_hyd, Rtot, CVtot, CPtot, lcmesh           )      
+      call AtmosVars_GetLocalMeshPrgVars( n, atm%mesh%ptr_mesh,          &
+        vars_container%PROGVARS_manager, vars_container%AUXVARS_manager, &
+        DDENS, MOMX, MOMY, MOMZ, DRHOT,                                  &
+        DENS_hyd, PRES_hyd, Rtot, CVtot, CPtot, lcmesh                   )      
       
       call AtmosVars_GetLocalMeshPhyAuxVars( n,  atm%mesh%ptr_mesh, &
-        atm%vars%AUXVARS_manager, PRES, PT                          )
+        vars_container%AUXVARS_manager, PRES, PT                    )
       
       elem => lcmesh%refElem3D
       allocate( DENS(elem%Np), sfac(elem%Np), rsfac(elem%Np) )

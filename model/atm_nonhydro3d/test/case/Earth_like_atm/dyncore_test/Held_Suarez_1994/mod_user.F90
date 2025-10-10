@@ -5,11 +5,16 @@
 !!          User defined module for a benchmark test of dynamical core for Earth-like atmosphere proposed by Held and Suarez (1994).
 !!          
 !!
-!! @author Team SCALE
+!! @author Yuta Kawai, Team SCALE
+!!
+!! @par Reference
+!!  - Held, I. M. and Suarez, J. M., 1994:
+!!    Intercomparison of the Dynamical Cores of Atmospheric General Circulation Models. 
+!!    Bull. Amer. Meteor. Soc., 75, 1825–1830. 
 !!
 !<
 !-------------------------------------------------------------------------------
-#include "scalelib.h"
+#include "scaleFElib.h"
 module mod_user
 
   !-----------------------------------------------------------------------------
@@ -144,6 +149,7 @@ contains
       RHOH_p  => PHYTEND_RHOH_ID
 
     use mod_atmos_vars, only: &
+      AtmosVarsContainer,               &
       AtmosVars_GetLocalMeshPrgVars,    &
       AtmosVars_GetLocalMeshPhyAuxVars
 
@@ -152,6 +158,7 @@ contains
     class(AtmosComponent), intent(inout) :: atm
 
     class(LocalMesh3D), pointer :: lcmesh
+    type(AtmosVarsContainer), pointer :: vars_container
     class(LocalMeshFieldBase), pointer :: DDENS, MOMX, MOMY, MOMZ, DRHOT
     class(LocalMeshFieldBase), pointer :: DENS_hyd, PRES_hyd
     class(LocalMeshFieldBase), pointer :: PRES, PT
@@ -172,14 +179,16 @@ contains
     dt = atm%time_manager%dtsec
     gamm = CpDry / CvDry 
 
+    call atm%vars%Get_container( vars_container )
+
     do n=1, atm%mesh%ptr_mesh%LOCAL_MESH_NUM
       call AtmosVars_GetLocalMeshPrgVars( n, atm%mesh%ptr_mesh,  &
-        atm%vars%PROGVARS_manager, atm%vars%AUXVARS_manager,     &
-        DDENS, MOMX, MOMY, MOMZ, DRHOT,                          &
-        DENS_hyd, PRES_hyd, Rtot, CVtot, CPtot, lcmesh           )      
+        vars_container%PROGVARS_manager, vars_container%AUXVARS_manager, &
+        DDENS, MOMX, MOMY, MOMZ, DRHOT,                                  &
+        DENS_hyd, PRES_hyd, Rtot, CVtot, CPtot, lcmesh                   )      
 
       call AtmosVars_GetLocalMeshPhyAuxVars( n, atm%mesh%ptr_mesh, &
-        atm%vars%AUXVARS_manager, PRES, PT                         )
+        vars_container%AUXVARS_manager, PRES, PT                   )
       
       elem3D => lcmesh%refElem3D
 
