@@ -77,6 +77,8 @@ module mod_atmos_phy_mp
     type(sparsemat) :: Dz, Lift
     type(HexahedralElement) :: elem
     type(LineElement) :: elem_v1D
+
+    integer :: coarsend_dynvars_typeID
   contains
     procedure, public :: setup => AtmosPhyMp_setup 
     procedure, public :: calc_tendency => AtmosPhyMp_calc_tendency
@@ -173,6 +175,8 @@ contains
     real(RP) :: max_term_vel        
     real(RP) :: cldfrac_thleshold
 
+    integer :: coarsend_dynvars_typeid = 0
+
     namelist /PARAM_ATMOS_PHY_MP/ &
       TIME_DT,             &
       TIME_DT_UNIT,        &
@@ -182,7 +186,8 @@ contains
       limit_negative,      &
       ntmax_sedimentation, &
       max_term_vel,        &
-      cldfrac_thleshold
+      cldfrac_thleshold,   &
+      coarsend_dynvars_typeid
     
     class(AtmosMesh), pointer     :: atm_mesh
     class(MeshBase), pointer      :: ptr_mesh
@@ -226,6 +231,8 @@ contains
     this%do_negative_fixer = do_negative_fixer
     this%ntmax_sedimentation = ntmax_sedimentation
     this%max_term_vel        = max_term_vel
+
+    this%coarsend_dynvars_typeID = coarsend_dynvars_typeid
 
     LOG_NEWLINE
     LOG_INFO("ATMOS_PHY_MP_setup",*) 'Enable negative fixer?                    : ', this%do_negative_fixer

@@ -65,9 +65,9 @@ contains
     class(Experiment), intent(inout) :: exp
     !------------------------------------------
 
-    call exp%SetInitCond( atm%mesh,                        &
-      atm%vars%PROGVARS_manager, atm%vars%AUXVARS_manager, &
-      atm%vars%QTRCVARS_manager                            )
+    call exp%SetInitCond( atm%mesh, &
+      atm%vars%container%PROGVARS_manager, atm%vars%container%AUXVARS_manager, &
+      atm%vars%container%QTRCVARS_manager                                      )
     
     return
   end subroutine USER_base_mkinit

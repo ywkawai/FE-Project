@@ -134,16 +134,16 @@ contains
     !- Execute mkinit
     call PROF_rapstart('MkInit',1)
     call MKINIT( output, &
-      atmos%mesh,                  &
-      atmos%vars%PROGVARS_manager, &
-      atmos%vars%AUXVARS_manager,  &
-      atmos%vars%QTRCVARS_manager  )
+      atmos%mesh,                            &
+      atmos%vars%container%PROGVARS_manager, &
+      atmos%vars%container%AUXVARS_manager,  &
+      atmos%vars%container%QTRCVARS_manager  )
     
 !    call USER_mkinit( atmos )
     call user_%mkinit( atmos )
     if ( atmos%dyn_proc%dyncore_driver%ENTOT_CONSERVE_SCHEME_FLAG ) then
-      call set_total_energy( atmos%vars%PROGVARS_manager, &
-        atmos%vars%AUXVARS_manager, atmos%mesh )      
+      call set_total_energy( atmos%vars%container%PROGVARS_manager, &
+        atmos%vars%container%AUXVARS_manager, atmos%mesh )      
     end if
  
     call PROF_rapend  ('MkInit',1)

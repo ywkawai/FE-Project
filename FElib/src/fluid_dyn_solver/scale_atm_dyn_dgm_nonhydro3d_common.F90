@@ -215,7 +215,7 @@ contains
   subroutine atm_dyn_dgm_nonhydro3d_common_setup_variables( &
     prgvars, qtrcvars, auxvars, phytends,                             & ! (inout)
     prgvar_manager, qtrcvar_manager, auxvar_manager, phytend_manager, & ! (inout)
-    PHYTEND_NUM_TOT, mesh3D,                                          & ! (in)
+    reg_file_hist, do_setup_phytend, PHYTEND_NUM_TOT, mesh3D,         & ! (in)
     PRGVAR_VARINFO )                                                    ! (out)
 
     use scale_atmos_hydrometeor, only: &
@@ -234,8 +234,9 @@ contains
     type(ModelVarManager), intent(inout) :: qtrcvar_manager
     type(ModelVarManager), intent(inout) :: auxvar_manager
     type(ModelVarManager), intent(inout) :: phytend_manager
+    logical, intent(in) :: reg_file_hist
+    logical, intent(in) :: do_setup_phytend
     class(MeshBase3D), intent(in) :: mesh3D
-
     type(VariableInfo), intent(out) :: PRGVAR_VARINFO(PRGVAR_NUM)
 
     type(VariableInfo) :: AUXVAR_VARINFO(AUXVAR_NUM)
@@ -243,7 +244,6 @@ contains
 
     integer :: iv
     integer :: iq
-    logical :: reg_file_hist
 
     type(VariableInfo) :: qtrc_dry_vinfo_tmp
     type(VariableInfo) :: qtrc_dry_tp_vinfo_tmp
@@ -254,8 +254,7 @@ contains
     call atm_dyn_dgm_nonhydro3d_common_get_varinfo( PRGVAR_VARINFO, AUXVAR_VARINFO, PHYTEND_VARINFO ) ! (out)
 
     !- Initialize prognostic variables
-
-    reg_file_hist = .true.    
+  
     do iv = 1, PRGVAR_NUM
       call prgvar_manager%Regist(  &
         PRGVAR_VARINFO(iv), mesh3D,                           & ! (in) 
@@ -264,8 +263,6 @@ contains
     end do
 
     !- Initialize tracer variables
-
-    reg_file_hist = .true.
 
     if ( QA == 0 ) then
       ! Dummy
@@ -300,7 +297,6 @@ contains
 
     !- Initialize auxiliary variables
 
-    reg_file_hist = .true.
     do iv = 1, AUXVAR_NUM
       call auxvar_manager%Regist( &
         AUXVAR_VARINFO(iv), mesh3D,       & ! (in) 
@@ -310,46 +306,49 @@ contains
 
     !- Initialize the tendency of physical processes
 
-    reg_file_hist = .true.
-    do iv = 1, PHYTEND_NUM
-      call phytend_manager%Regist( &
-        PHYTEND_VARINFO(iv), mesh3D,     & ! (in) 
-        phytends(iv),                    & ! (inout)
-        reg_file_hist, fill_zero=.true.  ) ! (in)
-    end do
+    if ( do_setup_phytend ) then
 
-    if ( QA == 0 ) then
-      ! Dummy
-      qtrc_dry_tp_vinfo_tmp%ndims    = 3
-      qtrc_dry_tp_vinfo_tmp%dim_type = 'XYZ'
-      qtrc_dry_tp_vinfo_tmp%STDNAME  = ''
-
-      iv = PHYTEND_NUM + 1
-      qtrc_dry_tp_vinfo_tmp%keyID = iv
-      qtrc_dry_tp_vinfo_tmp%NAME  = "QV_tp"
-      qtrc_dry_tp_vinfo_tmp%DESC  = "tendency of physical process for QV"
-      qtrc_dry_tp_vinfo_tmp%UNIT  = "kg/m3/s"
-      call phytend_manager%Regist( &
-        qtrc_dry_tp_vinfo_tmp, mesh3D,   & ! (in) 
-        phytends(iv),                    & ! (inout)
-        .false., fill_zero=.true.        ) ! (in)
-    else
-      qtrc_tp_vinfo_tmp%ndims    = 3
-      qtrc_tp_vinfo_tmp%dim_type = 'XYZ'
-      qtrc_tp_vinfo_tmp%STDNAME  = ''
-
-      do iq = 1, QA
-        iv = PHYTEND_NUM + iq 
-        qtrc_tp_vinfo_tmp%keyID = iv
-        qtrc_tp_vinfo_tmp%NAME  = trim(TRACER_NAME(iq))//'_tp'
-        qtrc_tp_vinfo_tmp%DESC  = 'tendency of physical process for '//trim(TRACER_DESC(iq))
-        qtrc_tp_vinfo_tmp%UNIT  = trim(TRACER_UNIT(iq))//'/s'
-
+      do iv = 1, PHYTEND_NUM
         call phytend_manager%Regist( &
-          qtrc_tp_vinfo_tmp, mesh3D,       & ! (in) 
+          PHYTEND_VARINFO(iv), mesh3D,     & ! (in) 
           phytends(iv),                    & ! (inout)
           reg_file_hist, fill_zero=.true.  ) ! (in)
-      end do    
+      end do
+
+      if ( QA == 0 ) then
+        ! Dummy
+        qtrc_dry_tp_vinfo_tmp%ndims    = 3
+        qtrc_dry_tp_vinfo_tmp%dim_type = 'XYZ'
+        qtrc_dry_tp_vinfo_tmp%STDNAME  = ''
+
+        iv = PHYTEND_NUM + 1
+        qtrc_dry_tp_vinfo_tmp%keyID = iv
+        qtrc_dry_tp_vinfo_tmp%NAME  = "QV_tp"
+        qtrc_dry_tp_vinfo_tmp%DESC  = "tendency of physical process for QV"
+        qtrc_dry_tp_vinfo_tmp%UNIT  = "kg/m3/s"
+        call phytend_manager%Regist( &
+          qtrc_dry_tp_vinfo_tmp, mesh3D,   & ! (in) 
+          phytends(iv),                    & ! (inout)
+          .false., fill_zero=.true.        ) ! (in)
+      else
+        qtrc_tp_vinfo_tmp%ndims    = 3
+        qtrc_tp_vinfo_tmp%dim_type = 'XYZ'
+        qtrc_tp_vinfo_tmp%STDNAME  = ''
+
+        do iq = 1, QA
+          iv = PHYTEND_NUM + iq 
+          qtrc_tp_vinfo_tmp%keyID = iv
+          qtrc_tp_vinfo_tmp%NAME  = trim(TRACER_NAME(iq))//'_tp'
+          qtrc_tp_vinfo_tmp%DESC  = 'tendency of physical process for '//trim(TRACER_DESC(iq))
+          qtrc_tp_vinfo_tmp%UNIT  = trim(TRACER_UNIT(iq))//'/s'
+
+          call phytend_manager%Regist( &
+            qtrc_tp_vinfo_tmp, mesh3D,       & ! (in) 
+            phytends(iv),                    & ! (inout)
+            reg_file_hist, fill_zero=.true.  ) ! (in)
+        end do    
+      end if
+    
     end if
 
     return
