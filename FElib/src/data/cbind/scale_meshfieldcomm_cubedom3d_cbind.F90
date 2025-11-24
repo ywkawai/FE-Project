@@ -1,14 +1,14 @@
 #include "scaleFElib.h"
 #include "scale_c_binding.h"
-module scale_meshfieldcomm_1d_cbind
+module scale_meshfieldcomm_cubedom3d_cbind
   !-----------------------------------------------------------------------------
   use scale_precision
   use scale_cbinding_util, only: &
     CBindingBase, &
     logical_c2f => cbinding_util_logical_c2f, &
     string_c2f => cbinding_util_string_c2f
-  use scale_meshfieldcomm_1d, only: &
-    MeshFieldComm1D
+  use scale_meshfieldcomm_cubedom3d, only: &
+    MeshFieldCommCubeDom3D
   use scale_mesh_base1d, only: MeshBase1D
   use scale_mesh_base2d, only: MeshBase2D
   use scale_mesh_base3d, only: MeshBase3D
@@ -23,48 +23,47 @@ module scale_meshfieldcomm_1d_cbind
   !
   !++ Public type & procedure
   !
-  type, public, extends(CBindingBase) :: CMeshFieldComm1D
-    type(MeshFieldComm1D) :: obj
-  end type CMeshFieldComm1D
-  type, public, extends(CBindingBase) :: CMeshFieldComm1DPtr
-    type(MeshFieldComm1D), pointer :: obj
-  end type CMeshFieldComm1DPtr  
+  type, public, extends(CBindingBase) :: CMeshFieldCommCubeDom3D
+    type(MeshFieldCommCubeDom3D) :: obj
+  end type CMeshFieldCommCubeDom3D
+  type, public, extends(CBindingBase) :: CMeshFieldCommCubeDom3DPtr
+    type(MeshFieldCommCubeDom3D), pointer :: obj
+  end type CMeshFieldCommCubeDom3DPtr  
 
   !-----------------------------------------------------------------------------
   !
   !++ used modules
   !
 contains
-  function CMeshFieldComm1D_Init( sfield_num, hvfield_num, mesh1D_ptr) result(ptr) bind(C, name="CMeshFieldComm1D_Init")
-    use scale_mesh_linedom1d_cbind, only: CMeshLineDom1D
+  function CMeshFieldCommCubeDom3D_Init( sfield_num, hvfield_num, htensorfield_num, mesh3d_ptr) result(ptr) bind(C, name="CMeshFieldCommCubeDom3D_Init")
+    use scale_mesh_cubedom3d_cbind, only: CMeshCubeDom3D
     implicit none
     integer(c_int), value :: sfield_num
     integer(c_int), value :: hvfield_num
-    type(c_ptr), value :: mesh1D_ptr
+    integer(c_int), value :: htensorfield_num
+    type(c_ptr), value :: mesh3D_ptr
     type(c_ptr) :: ptr
 
-    type(CMeshFieldComm1D), pointer :: handle
-    type(CMeshLineDom1D), pointer :: mesh1D_fptr
+    type(CMeshFieldCommCubeDom3D), pointer :: handle
+    type(CMeshCubeDom3D), pointer :: mesh3D_fptr
     !------------------------------------
     
     call create_handle(handle, ptr)
-    call c_f_pointer( mesh1D_ptr, mesh1D_fptr )
+    call c_f_pointer( mesh3D_ptr, mesh3D_fptr )
 
-    call handle%obj%Init(sfield_num, hvfield_num, mesh1D_fptr%obj)
+    call handle%obj%Init(sfield_num, hvfield_num, htensorfield_num, mesh3D_fptr%obj)
     return
-  end function CMeshFieldComm1D_Init
+  end function CMeshFieldCommCubeDom3D_Init
 
-  subroutine CMeshFieldComm1D_Final( ptr ) bind(C, name="CMeshFieldComm1D_Final")
+  subroutine CMeshFieldCommCubeDom3D_Final( ptr ) bind(C, name="CMeshFieldCommCubeDom3D_Final")
     implicit none
     type(c_ptr), value :: ptr
-
-    type(CMeshFieldComm1D), pointer :: handle
     !------------------------------------
     call destroy_handle(ptr)
     return
-  end subroutine CMeshFieldComm1D_Final
+  end subroutine CMeshFieldCommCubeDom3D_Final
 
-  subroutine CMeshFieldComm1D_put( ptr, field_list_ptr, varnum, varid_s ) bind(C, name="CMeshFieldComm1D_Put")
+  subroutine CMeshFieldCommCubeDom3D_put( ptr, field_list_ptr, varnum, varid_s ) bind(C, name="CMeshFieldCommCubeDom3D_Put")
     use scale_meshfieldcomm_base, only: MeshFieldContainer
     implicit none
     type(c_ptr), value :: ptr
@@ -72,7 +71,7 @@ contains
     integer(c_int), value :: varnum
     integer(c_int), value :: varid_s
 
-    type(CMeshFieldComm1D), pointer :: handle
+    type(CMeshFieldCommCubeDom3D), pointer :: handle
 
     type(c_ptr), pointer :: field_list_tmp(:)
     type(CMeshFieldContainer), pointer :: item_fptr 
@@ -89,16 +88,16 @@ contains
     end do
     call handle%obj%Put( field_list, varid_s )
     return
-  end subroutine CMeshFieldComm1D_put
+  end subroutine CMeshFieldCommCubeDom3D_put
 
-  subroutine CMeshFieldComm1D_get( ptr, field_list_ptr, varnum, varid_s ) bind(C, name="CMeshFieldComm1D_Get")
+  subroutine CMeshFieldCommCubeDom3D_get( ptr, field_list_ptr, varnum, varid_s ) bind(C, name="CMeshFieldCommCubeDom3D_Get")
     implicit none
     type(c_ptr), value :: ptr
     type(c_ptr), value :: field_list_ptr
     integer(c_int), value :: varnum
     integer(c_int), value :: varid_s
 
-    type(CMeshFieldComm1D), pointer :: handle
+    type(CMeshFieldCommCubeDom3D), pointer :: handle
 
     type(c_ptr), pointer :: field_list_tmp(:)
     type(CMeshFieldContainer), pointer :: item_fptr 
@@ -115,26 +114,26 @@ contains
     end do
     call handle%obj%Get( field_list, varid_s )
     return
-  end subroutine CMeshFieldComm1D_get
+  end subroutine CMeshFieldCommCubeDom3D_get
 
-  subroutine CMeshFieldComm1D_exchange( ptr, do_wait ) bind(C, name="CMeshFieldComm1D_Exchange")
+  subroutine CMeshFieldCommCubeDom3D_exchange( ptr, do_wait ) bind(C, name="CMeshFieldCommCubeDom3D_Exchange")
     implicit none
     type(c_ptr), value :: ptr
     logical(c_bool), value :: do_wait
 
-    type(CMeshFieldComm1D), pointer :: handle
+    type(CMeshFieldCommCubeDom3D), pointer :: handle
     !------------------------------------
 
     call c_f_pointer(ptr, handle)
     call handle%obj%Exchange( logical_c2f(do_wait) )
     return
-  end subroutine CMeshFieldComm1D_exchange
+  end subroutine CMeshFieldCommCubeDom3D_exchange
 
-!-- private --
+!-- private -
 
 !*****
-DEF_C_BIND(CMeshFieldComm1D,"CMeshFieldComm1D",)
+DEF_C_BIND(CMeshFieldCommCubeDom3D,"CMeshFieldCommCubeDom3D",)
 !***** Getter
 !******
 
-end module scale_meshfieldcomm_1d_cbind
+end module scale_meshfieldcomm_cubedom3d_cbind

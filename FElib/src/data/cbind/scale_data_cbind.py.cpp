@@ -5,6 +5,7 @@
 #include "scale_meshfield_base_cbind.hpp"
 #include "scale_meshfieldcomm_base_cbind.hpp"
 #include "scale_meshfieldcomm_1d_cbind.hpp"
+#include "scale_meshfieldcomm_cubedom3d_cbind.hpp"
 
 #include <pybind11/pybind11.h>
 #include <pybind11/numpy.h>
@@ -58,4 +59,9 @@ void bind_data(py::module_ &m){
         .def("put", &MeshFieldComm1D::put_py)
         .def("exchange", &MeshFieldComm1D::exchange)
         .def("get", &MeshFieldComm1D::get_py);
+    py::class_<MeshFieldCommCubeDom3D>(m, "MeshFieldCommCubeDom3D")
+        .def(py::init<int, int, int, const MeshCubeDom3D&>())
+        .def("put", &MeshFieldCommCubeDom3D::put_py)
+        .def("exchange", &MeshFieldCommCubeDom3D::exchange)
+        .def("get", &MeshFieldCommCubeDom3D::get_py);
 }
