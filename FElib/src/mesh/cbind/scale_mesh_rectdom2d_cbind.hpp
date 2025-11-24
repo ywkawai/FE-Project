@@ -1,5 +1,4 @@
-#ifndef SCALE_MESH_RECTDOM2D_CBIND_H
-#define SCALE_MESH_RECTDOM2D_CBIND_H
+#pragma once
 
 #include <iostream>
 #include <cstdlib>
@@ -61,5 +60,3 @@ public:
 private:
     cbind::Handle handle_;
 };
-
-#endif

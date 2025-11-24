@@ -1,5 +1,4 @@
-#ifndef SCALE_MESH_LINEDOM1D_CBIND_H
-#define SCALE_MESH_LINEDOM1D_CBIND_H
+#pragma once
 
 #include <iostream>
 #include <cstdlib>
@@ -65,5 +64,3 @@ public:
 private:
     cbind::Handle handle_;
 };
-
-#endif
