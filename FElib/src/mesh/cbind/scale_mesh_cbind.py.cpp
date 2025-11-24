@@ -3,6 +3,7 @@
 #include "scale_localmesh3d_cbind.hpp"
 #include "scale_mesh_linedom1d_cbind.hpp"
 #include "scale_mesh_rectdom2d_cbind.hpp"
+#include "scale_mesh_cubedom3d_cbind.hpp"
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
@@ -79,4 +80,38 @@ void bind_mesh(py::module_ &m){
         .def("get_ymin_gl", &MeshRectDom2D::get_ymin_gl)
         .def("get_ymax_gl", &MeshRectDom2D::get_ymax_gl)
         .def("get_LocalMesh2D", &MeshRectDom2D::get_LocalMesh2D);
+    //
+    py::class_<MeshCubeDom3D>(m, "MeshCubeDom3D")
+        .def(py::init<int, int, int, double, double, double, double, double, double, bool, bool, bool, const HexahedralElement&, int, int, int, int, int, const std::vector<double>*>(),
+          py::arg("NeGX"),
+          py::arg("NeGY"),
+          py::arg("NeGZ"),
+          py::arg("dom_xmin"),
+          py::arg("dom_xmax"),
+          py::arg("dom_ymin"),
+          py::arg("dom_ymax"),
+          py::arg("dom_zmin"),
+          py::arg("dom_zmax"),
+          py::arg("is_PeriodicX"),
+          py::arg("is_PeriodicY"),
+          py::arg("is_PeriodicZ"),
+          py::arg("refElem"),
+          py::arg("NLocalMeshPerPrc"),
+          py::arg("NprcX"),
+          py::arg("NprcY"),
+          py::arg("nproc"),
+          py::arg("myrank"),
+          py::arg("FZ") = nullptr)       
+        .def("generate", &MeshCubeDom3D::generate)
+        .def("get_NeGX", &MeshCubeDom3D::get_NeGX)
+        .def("get_NeGY", &MeshCubeDom3D::get_NeGY)
+        .def("get_NprcX", &MeshCubeDom3D::get_NprcX)
+        .def("get_NprcY", &MeshCubeDom3D::get_NprcY)
+        .def("get_xmin_gl", &MeshCubeDom3D::get_xmin_gl)
+        .def("get_xmax_gl", &MeshCubeDom3D::get_xmax_gl)
+        .def("get_ymin_gl", &MeshCubeDom3D::get_ymin_gl)
+        .def("get_ymax_gl", &MeshCubeDom3D::get_ymax_gl)
+        .def("get_zmin_gl", &MeshCubeDom3D::get_zmin_gl)
+        .def("get_zmax_gl", &MeshCubeDom3D::get_zmax_gl)
+        .def("get_LocalMesh3D", &MeshCubeDom3D::get_LocalMesh3D);
 }
