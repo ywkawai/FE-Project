@@ -45,8 +45,8 @@ CFLAGS_DEBUG = -O0 -m64 -g
 
 CXX  = mpicxx
 
-CXXFLAGS_FAST  = -O3 -m64
-CXXFLAGS_DEBUG = -O0 -m64 -g
+CXXFLAGS_FAST  = -O3 -m64 -std=c++17
+CXXFLAGS_DEBUG = -O0 -m64 -g -std=c++17
 
 CXXLIBS = -lc++
 
@@ -79,7 +79,7 @@ LAPACK_LIBS    ?= -L/usr/local/opt/lapack/lib -llapack
 #SCALE_NETCDF_LIBS    = -L$(NETCDF)/lib  -lnetcdff -lnetcdf -lm -lz
 
 ##### MathLib
-SCALE_MATHLIB_LIBS=-L/usr/local/opt/lapack/lib -llapack
+SCALE_MATHLIB_LIBS ?= -L/usr/local/opt/lapack/lib -llapack
 
 
 ##### for frontend

@@ -24,6 +24,7 @@ VPATH = \
 	data:             \
 	data/cbind:       \
 	file:             \
+	file/cbind:       \
 	fluid_dyn_solver: \
 	surface:          \
 	turbulence:       \
@@ -166,31 +167,37 @@ OBJS_NAME_MODEL_FRAMEWORK = \
 	scale_model_var_manager.o
 
 OBJS_NAME_SCALEFELIB_CBINDING = \
-	scale_cbinding_util.o               \
-	scale_polynomial_cbind.o            \
-	scale_element_base1d_cbind.o        \
-	scale_element_base2d_cbind.o        \
-	scale_element_base3d_cbind.o        \
-	scale_element_line_cbind.o          \
-	scale_element_quadrilateral_cbind.o \
-	scale_element_hexahedral_cbind.o    \
-	scale_localmesh1d_cbind.o           \
-	scale_localmesh2d_cbind.o           \
-	scale_localmesh3d_cbind.o           \
-	scale_mesh_base1d_cbind.o           \
-	scale_mesh_base2d_cbind.o           \
-	scale_mesh_base3d_cbind.o           \
-	scale_mesh_linedom1d_cbind.o        \
-	scale_mesh_rectdom2d_cbind.o        \
-	scale_localmeshfield_base_cbind.o   \
-	scale_meshfield_base_cbind.o
-
+	scale_cbinding_util.o                 \
+	scale_scalelib_cbind.o                \
+	scale_polynomial_cbind.o              \
+	scale_element_base1d_cbind.o          \
+	scale_element_base2d_cbind.o          \
+	scale_element_base3d_cbind.o          \
+	scale_element_line_cbind.o            \
+	scale_element_quadrilateral_cbind.o   \
+	scale_element_hexahedral_cbind.o      \
+	scale_localmesh1d_cbind.o             \
+	scale_localmesh2d_cbind.o             \
+	scale_localmesh3d_cbind.o             \
+	scale_mesh_base1d_cbind.o             \
+	scale_mesh_base2d_cbind.o             \
+	scale_mesh_base3d_cbind.o             \
+	scale_mesh_linedom1d_cbind.o          \
+	scale_mesh_rectdom2d_cbind.o          \
+	scale_mesh_cubedom3d_cbind.o          \
+	scale_localmeshfield_base_cbind.o     \
+	scale_meshfield_base_cbind.o          \
+	scale_meshfieldcomm_base_cbind.o      \
+	scale_meshfieldcomm_1d_cbind.o        \
+	scale_meshfieldcomm_cubedom3d_cbind.o \
+	scale_file_base_meshfield_cbind.o
 
 OBJS_NAME_SCALEFELIB_PYBINDING = \
 	scale_common_cbind.py.o  \
 	scale_element_cbind.py.o \
 	scale_mesh_cbind.py.o    \
 	scale_data_cbind.py.o    \
+	scale_file_cbind.py.o    \
 	scale_FElib_cbind.py.o
 
 OBJS_NAME = \
