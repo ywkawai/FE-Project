@@ -82,6 +82,9 @@ OBJS_NAME_MESH = \
 	scale_mesh_cubedom3d.o         \
 	scale_mesh_cubedspheredom2d.o  \
 	scale_mesh_cubedspheredom3d.o  \
+	scale_mesh_hierarchy_base.o    \
+	scale_mesh_hierarchy_2d.o      \
+	scale_mesh_hierarchy_3d.o      \
 	scale_mesh_topography.o
 
 OBJS_NAME_DATA = \
