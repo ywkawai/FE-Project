@@ -16,6 +16,7 @@ module scale_mesh_hierarchy_base
   !
   !
   use scale_precision
+  use scale_io
 
   use scale_localmesh_base, only: LocalMeshBase
 
@@ -135,11 +136,14 @@ contains
 
     !-
     np_int = max(np_i,np_o)
+    write(*,*) "  p-MG transfer matrix 1D: np_i=", np_i, " np_o=", np_o, " np_int=", np_int
     
-    allocate( int_w(np_int), int_pts(np_int) )
+    allocate( int_pts(np_int) )
     int_pts(:) = Polynominal_GenGaussLegendrePt(np_int)
-    int_w(:) = Polynominal_GenGaussLegendrePtIntWeight(np_int)
 
+    allocate( int_w(np_int) )     
+    int_w(:) = Polynominal_GenGaussLegendrePtIntWeight(np_int)
+!return
     !-
     allocate( lag_i(np_int,np_i) )
     lag_i(:,:) = Polynominal_GenLagrangePoly(elem1D_i%PolyOrder, elem1D_i%x1, int_pts)
@@ -152,6 +156,7 @@ contains
       mat1D(po,pi) = sum( int_w(:) * lag_i(:,pi) * lag_o(:,po) )
     end do
     end do
+    mat1D(:,:) = matmul( elem1D_o%invM, mat1D )
 
     !-
     call elem1D_i%Final()

@@ -11,7 +11,7 @@ BINDIR2     = .
 include $(SYSDEP_DIR)/Makedef.$(SCALE_FE_SYS)
 include $(TOPDIR)/Mkinclude
 
-LIBS = $(LIBDIR)/libScaleFECore.a
+LIBS = $(LIBDIR)/libScaleFECore$(POSTFIX).a
 
 SAMPLE_AUX_DIR = $(SAMPLE_DIR)/auxiliary
 SAMPLE_AUX_INCLUDE = $(SAMPLE_AUX_DIR)/.libs

@@ -276,7 +276,7 @@ MODS = $(addprefix $(BUILD_DIR)/, \
 	$(shell echo $(patsubst $(BUILD_DIR)/%.o,%.mod, \
 	$(OBJS) ) | tr A-Z a-z) )
 
-MODS_SCALELIB = $(addprefix $(SCALE)/include/, \
+MODS_SCALELIB = $(addprefix $(SCALE)/include$(POSTFIX)/, \
 	$(shell echo $(patsubst %.o,%.mod, \
 	$(filter-out scale_sys_sigvars.o, \
 	$(filter-out scale_file_netcdf.o, \
