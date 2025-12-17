@@ -11,7 +11,7 @@ program test_multigrid2d
   use scale_io
   use scale_prof
 
-  use scale_element_base, only: ElementBase1D
+  use scale_element_base, only: ElementBase2D
   use scale_element_quadrilateral, only: QuadrilateralElement
   use scale_localmesh_2d, only: LocalMesh2D
   use scale_mesh_rectdom2d, only: MeshRectDom2D
@@ -25,27 +25,59 @@ program test_multigrid2d
   use scale_file_history, only: &
     FILE_HISTORY_set_nowdate
 
+  use mod_poisson2d_mg, only: Poisson2d_MG_solve
 
   implicit none
   !-----------------------------------------------------------------------------
 
   type(QuadrilateralElement)  :: refElem
   type(MeshRectDom2D), target :: mesh
-  type(MeshHierarchy2D) :: mesh_hierarchy
 
   type(MeshField2D) :: q
   type(MeshField2D) :: qexact
-  integer, save :: HST_ID(2)
 
+  type(MeshField2D) :: f
+
+  integer, save :: HST_ID(3)
   !-----------------------------------------------------------------------------
 
   call init()
+  !-
+  call FILE_HISTORY_meshfield_put( HST_ID(3), f )
+
+  call Poisson2d_MG_solve( q, &
+    f )
+
+  call FILE_HISTORY_meshfield_put( HST_ID(1), q )
+  call FILE_HISTORY_meshfield_write()
+  !-
   call final()
 
 contains
 !OCL SERIAL
+  subroutine set_rhs_lc( f_, lmesh, elem )
+    implicit none
+    class(LocalMesh2D), intent(in) :: lmesh
+    class(ElementBase2D), intent(in) :: elem
+    real(RP), intent(out) :: f_(elem%Np,lmesh%NeA)
+
+    integer :: ke
+    real(RP) :: x(elem%Np)
+    real(RP) :: y(elem%Np)
+    !-----------------------------------------
+
+    do ke=lmesh%NeS, lmesh%NeE
+      x(:) = lmesh%pos_en(:,ke,1)
+      y(:) = lmesh%pos_en(:,ke,2)
+      f_(:,ke) = sin( 2.0_RP * PI * x(:) ) &
+               * sin( 2.0_RP * PI * y(:) )
+    end do
+
+    return
+  end subroutine set_rhs_lc
 
   !> Initialization
+!OCL SERIAL
   subroutine init() 
     use scale_time_manager, only:           &
       TIME_manager_Init,                    &
@@ -71,27 +103,16 @@ contains
     logical, parameter :: LumpedMassMatFlag   = .false.
     character(len=H_SHORT) :: TINTEG_SCHEME_TYPE
 
-    integer, parameter :: pMG_LV_LIST_MAX = 16
-    integer :: P_LEVEL_NUM
-    integer :: P_LEVEL_LIST(pMG_LV_LIST_MAX)
-
-    integer, parameter :: hMG_LV_LIST_MAX = 16
-    integer :: H_LEVEL_NUM
-    integer :: NeGX_list(hMG_LV_LIST_MAX)
-    integer :: NeGY_list(hMG_LV_LIST_MAX)
-
     namelist /PARAM_TEST/ &
       NprcX, NprcY,                      &
-      NeGX, NeGY, PolyOrder,             &
-      H_LEVEL_NUM, NeGX_list, NeGY_list, &
-      P_LEVEL_NUM, P_LEVEL_LIST
+      NeGX, NeGY, PolyOrder
 
     integer :: comm, myrank, nprocs
     logical :: ismaster
     integer :: ierr
     
     class(LocalMesh2D), pointer :: lmesh    
-    integer :: idom
+    integer :: ldom
 
     character(len=H_MID) :: conf_name
     !-----------------------------------------------------------------------------
@@ -144,15 +165,13 @@ contains
       .true., .true.,                         &
       refElem, 1, NprcX, NprcY )
     call mesh%Generate()
-
-    call mesh_hierarchy%Init( mesh, &
-      P_LEVEL_LIST, P_LEVEL_NUM,                                      &
-      NeGX_list(1:H_LEVEL_NUM), NeGY_list(1:H_LEVEL_NUM), H_LEVEL_NUM )
-      
+    
     !-- setup fields
 
     call q%Init( "q", "1", mesh )
     call qexact%Init( "qexact", "1", mesh )
+
+    call f%Init( "f", "1", mesh )
 
 
     !-- setup history files    
@@ -160,13 +179,21 @@ contains
     call FILE_HISTORY_meshfield_setup( mesh2D_=mesh )
     call FILE_HISTORY_reg( q%varname, "q", q%unit, HST_ID(1), dim_type='XY')
     call FILE_HISTORY_reg( qexact%varname, "qexact", q%unit, HST_ID(2), dim_type='XY')
+    call FILE_HISTORY_reg( f%varname, "f", f%unit, HST_ID(3), dim_type='XY')
 
     !-- report information of time intervals
     call TIME_manager_report_timeintervals
 
-    !- setup poisson solver
-    call Poisson2d_mg_Init( mesh_hierarchy )
+    !- setup a poisson solver using multi-grid method
+    call Poisson2d_mg_Init( mesh )
+stop
+    !- set right-hand side and initial guess
+    do ldom=1, mesh%LOCAL_MESH_NUM
+      call set_rhs_lc( f%local(ldom)%val, mesh%lcmesh_list(ldom), refElem )
+      q%local(ldom)%val(:,:) = 0.0_RP
+    end do
 
+    call PROF_rapend( "init", 1 )
     return
   end subroutine init
 
@@ -190,7 +217,8 @@ contains
     call q%Final()
     call qexact%Final()
 
-    call mesh_hierarchy%Final()
+    call f%Final()
+
     call mesh%Final()    
     call refElem%Final()
 
