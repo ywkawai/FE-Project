@@ -308,7 +308,7 @@ contains
     lcmesh%NeA = lcmesh%Ne + 2
 
     !delx = (dom_xmax - dom_xmin)/dble(Nprc)
-    FX_lc(:) = Fx((i-1)*Ne+1:i*Ne)
+    FX_lc(:) = Fx((i-1)*Ne+1:i*Ne+1)
     lcmesh%xmin = FX_lc(1)
     lcmesh%xmax = FX_lc(Ne+1)
 
