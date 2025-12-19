@@ -20,6 +20,7 @@ module mod_poisson2d_mg
     hMG_FINEST_LEVEL => MESH_HIERARCHY_hMG_FINEST_LEVEL
 
   use scale_mesh_hierarchy_2d, only: MeshHierarchy2D
+  use scale_multigrid_solver_2d, only: MultiGridSolver2D
 
   use scale_meshfield_base, only: MeshField2D
   use scale_meshfieldcomm_rectdom2d, only: MeshFieldCommRectDom2D
@@ -63,6 +64,7 @@ module mod_poisson2d_mg
   integer, allocatable :: hMG_ITR_NUM_list(:)
 
   type(MeshHierarchy2D) :: mesh_hierarchy
+  type(MultiGridSolver2D) :: mg_solver
 
   real(RP) :: gtau
 
@@ -109,11 +111,13 @@ contains
 
     !- Setup an object to manage the mesh hierarchy
 
-    LOG_INFO("Poisson2D_MG_Init",*) "Setup mesh hierarchy"
+    LOG_INFO("Poisson2D_MG_Init",*) "Setup mesh hierarchy and MG solver"
 
     call mesh_hierarchy%Init( mesh, &
       P_LEVEL_LIST(1:P_LEVEL_NUM), P_LEVEL_NUM,                       &
       NeGX_list(1:H_LEVEL_NUM), NeGY_list(1:H_LEVEL_NUM), H_LEVEL_NUM )
+
+    call mg_solver%Init( mesh_hierarchy )
 
     !- Setup objects to manage the field set
     
@@ -139,9 +143,6 @@ contains
     !-
     LOG_INFO("Poisson2D_MG_Init",*) "Setup smoother"
     call Poisson2d_smoother_Init( mesh )
-
-    !-
-
     return
   end subroutine Poisson2d_mg_Init
 
@@ -167,6 +168,7 @@ contains
     end do
 
     !-
+    call mg_solver%Final()
     call mesh_hierarchy%Final()
     return
   end subroutine Poisson2d_mg_Final
@@ -262,25 +264,18 @@ contains
     !-
     if ( invoke_hMG ) then
       !- Restriction
-      call mesh_hierarchy%Operate_pMG_restriction( fields_h(hMG_FINEST_LEVEL)%f, &
+      call mg_solver%Operate_pMG_restriction( fields_h(hMG_FINEST_LEVEL)%f, &
         fields_p(mg_level)%res, mg_level )
 
       !- Advance node in the V-cycle
       call Poisson2d_hMG_Vcycle( hMG_FINEST_LEVEL, fields_h(hMG_FINEST_LEVEL)%f )
       
       !- Correction
-      call mesh_hierarchy%Operate_pMG_correction( fields_p(mg_level)%dq, &
+      call mg_solver%Operate_pMG_correction( fields_p(mg_level)%dq, &
         fields_h(hMG_FINEST_LEVEL)%dq, mg_level )
-      
-      ! do ldomID=1, fs_p%f%mesh%LOCAL_MESH_NUM
-      !   lmesh2D => fs_p%f%mesh%lcmesh_list(ldomID)
-      !   do ke=lmesh2D%NeS, lmesh2D%NeE
-      !     fields_p(mg_level)%f%local(ldomID)%val(:,ke) = fields_h(hMG_FINEST_LEVEL)%f%local(ldomID)%val(:,ke)
-      !   end do
-      ! end do
     else
       !- Restriction
-      call mesh_hierarchy%Operate_pMG_restriction( fields_p(mg_level+1)%f, &
+      call mg_solver%Operate_pMG_restriction( fields_p(mg_level+1)%f, &
         fields_p(mg_level)%res, mg_level )
       
       !- Advance node in the V-cycle
@@ -288,7 +283,7 @@ contains
 
       !- Correction
       ! LOG_INFO("Poisson2d_mg_Vcycle",*) "mg_level=", mg_level, "correction"
-      call mesh_hierarchy%Operate_pMG_correction( fields_p(mg_level)%dq, &
+      call mg_solver%Operate_pMG_correction( fields_p(mg_level)%dq, &
         fields_p(mg_level+1)%dq, mg_level )
     end if
 
@@ -303,7 +298,6 @@ contains
     end do
 
     LOG_INFO("Poisson2d_mg_Vcycle",*) "End: mg_level=", mg_level
-
     return
   end subroutine Poisson2d_mg_Vcycle
 
@@ -358,7 +352,7 @@ contains
 
     !-
     !- Restriction
-    call mesh_hierarchy%Operate_hMG_restriction( fields_h(mg_level+1)%f, &
+    call mg_solver%Operate_hMG_restriction( fields_h(mg_level+1)%f, &
       fields_h(mg_level)%res, mg_level )
 
     !- Advance node in the V-cycle
@@ -366,7 +360,7 @@ contains
 
     !- Correction
     ! LOG_INFO("Poisson2d_mg_Vcycle",*) "mg_level=", mg_level, "correction"
-    call mesh_hierarchy%Operate_hMG_correction( fields_h(mg_level)%dq, &
+    call mg_solver%Operate_hMG_correction( fields_h(mg_level)%dq, &
       fields_h(mg_level+1)%dq, mg_level )
 
     !- Post-relaxation

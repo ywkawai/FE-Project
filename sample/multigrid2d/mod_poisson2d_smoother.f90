@@ -39,22 +39,13 @@ module mod_poisson2d_smoother
   !
 
   !--
-  real(RP) :: gtau
 
 contains
   !> Initialization
   subroutine Poisson2d_smoother_Init( mesh )
     implicit none
     class(MeshBase2D), intent(in), target :: mesh
-
-    class(ElementBase2D), pointer :: elem2D
-    real(RP) :: hinv
-    real(RP) :: J
     !---------------------------------------------------------------------------
-    elem2D => mesh%refElem2D
-    hinv = mesh%lcmesh_list(1)%Fscale(1,1)
-    J = mesh%lcmesh_list(1)%J(1,1)
-    gtau = 3.0_RP * elem2D%Np * hinv
     return
   end subroutine Poisson2d_smoother_Init
 
@@ -66,6 +57,7 @@ contains
   end subroutine Poisson2d_smoother_Final
 
   !> Smoother
+!OCL SERIAL
   subroutine Poisson2d_smoother_advance_itr_1step( &
     q, res,                                  & 
     f, qx, qy,                               &
@@ -101,6 +93,7 @@ contains
     if ( zero_initial_guess ) then
       do ldomID=1, mesh2D%LOCAL_MESH_NUM
         lmesh2D => mesh2D%lcmesh_list(ldomID)
+        !$omp parallel do
         do ke=lmesh2D%NeS, lmesh2D%NeE
           q%local(ldomID)%val(:,ke) = 0.0_RP
         end do
@@ -117,6 +110,7 @@ contains
       res_lcdom_int0 = 0.0_RP
       do ldomID=1, mesh2D%LOCAL_MESH_NUM
         lmesh2D => mesh2D%lcmesh_list(ldomID)
+        !$omp parallel do reduction(+:res_lcdom_int0)
         do ke=lmesh2D%NeS, lmesh2D%NeE
           res_lcdom_int0 = res_lcdom_int0 + sum(res%local(ldomID)%val(:,ke)**2)
         end do
@@ -147,6 +141,7 @@ contains
       res_lcdom_int = 0.0_RP
       do ldomID=1, mesh2D%LOCAL_MESH_NUM
         lmesh2D => mesh2D%lcmesh_list(ldomID)
+        !$omp parallel do reduction(+:res_lcdom_int)
         do ke=lmesh2D%NeS, lmesh2D%NeE
           res_lcdom_int = res_lcdom_int + sum(res%local(ldomID)%val(:,ke)**2)
         end do
@@ -162,6 +157,7 @@ contains
     return
   end subroutine Poisson2d_smoother_advance_itr_1step
 
+!OCL SERIAL
   subroutine Poisson2d_smoother_advance_itr_1step_color( &
     q, res,                                  & 
     f, qx, qy,                               &
@@ -255,7 +251,8 @@ contains
     return
   end subroutine cal_grad_lc
 
-  subroutine cal_q_lc( q, res,                       &
+!OCL SERIAL
+  subroutine cal_q_lc0( q, res,                       &
     color_id, cal_res, is_mg_top_level, rhs, qx, qy, &
     vmapM, vmapP, lmesh, elem                        )
     use scale_linalgebra, only: Linalgebra_SolveLinEq
@@ -417,6 +414,195 @@ contains
         end if        
       end do
     end do
+    return
+  end subroutine cal_q_lc0  
+
+!OCL SERIAL
+  subroutine cal_q_lc( q, res,                       &
+    color_id, cal_res, is_mg_top_level, rhs, qx, qy, &
+    vmapM, vmapP, lmesh, elem                        )
+    use scale_linalgebra, only: Linalgebra_SolveLinEq
+    implicit none
+    class(LocalMesh2D), intent(in) :: lmesh
+    class(ElementBase2D), intent(in) :: elem
+    real(RP), intent(inout) :: q(elem%Np*lmesh%NeA)
+    real(RP), intent(out) :: res(elem%Np,lmesh%NeA)
+    real(RP), intent(in) :: rhs(elem%Np,lmesh%NeA)
+    real(RP), intent(in) :: qx(elem%Np*lmesh%NeA)
+    real(RP), intent(in) :: qy(elem%Np*lmesh%NeA)    
+    integer, intent(in) :: color_id
+    logical, intent(in) :: cal_res
+    logical, intent(in) :: is_mg_top_level
+    integer, intent(in) :: vmapM(elem%Nfp,elem%Nfaces,lmesh%Ne)
+    integer, intent(in) :: vmapP(elem%Nfp,elem%Nfaces,lmesh%Ne)
+
+    integer :: ke, ke2
+    integer :: i, j
+
+    integer :: p
+
+    integer :: j_int
+
+    integer :: f1, f2
+
+    real(RP) :: E11, E22
+
+    real(RP) :: Dx(elem%Np,elem%Np)
+    real(RP) :: Dy(elem%Np,elem%Np)
+    real(RP) :: Sx_tr0(elem%Np,elem%Np)
+    real(RP) :: Sy_tr0(elem%Np,elem%Np)
+    real(RP) :: Sx_tr(elem%Np,elem%Np)
+    real(RP) :: Sy_tr(elem%Np,elem%Np)
+
+    real(RP) :: GsqrtDx(elem%Np,elem%Np)
+    real(RP) :: GsqrtDy(elem%Np,elem%Np)
+    real(RP) :: GsqrtI(elem%Np,elem%Np)
+
+    real(RP) :: Dn1(elem%Np,elem%Np)    
+    real(RP) :: GsqrtDn1(elem%Np,elem%Np)
+
+    real(RP) :: OPT11(elem%Np,elem%Np)
+    real(RP) :: mmE(elem%Np,elem%Np)   
+    real(RP) :: Lift_(elem%Np,elem%Np)
+    real(RP) :: Lift_x(elem%Np,elem%Np)       
+    real(RP) :: Lift_y(elem%Np,elem%Np)
+    real(RP) :: Lift_x_q(elem%Np)       
+    real(RP) :: Lift_y_q(elem%Np)
+    real(RP) :: Msrc(elem%Np)
+
+    real(RP) :: massEdge(elem%Np,elem%Np,elem%Nfaces)
+    real(RP) :: Emat(elem%Np,elem%Nfp*elem%Nfaces)
+    integer :: Fm1(elem%Nfp)
+    integer :: id
+    real(RP) :: lnx, lny  
+
+    real(RP) :: q_(elem%Np)
+    real(RP) :: q_P(elem%Nfp)
+    real(RP) :: qx_P(elem%Nfp)
+    real(RP) :: qy_P(elem%Nfp)
+    real(RP) :: GsqrtDn2(elem%Nfp)
+
+    real(RP) :: gtau_
+
+    integer :: parity, parity_max
+    integer :: j0
+    integer :: ii, ncol
+    !---------------------------
+
+    Emat(:,:) = matmul(elem%M, elem%Lift)
+    massEdge(:,:,:)  = 0.0_RP
+    do f1=1, elem%Nfaces
+      Fm1 = elem%Fmask(:,f1)
+      massEdge(Fm1,Fm1,f1) = Emat(Fm1, (f1-1)*elem%Nfp+1:f1*elem%Nfp)
+    end do
+
+    parity_max = merge(0, 1, cal_res)
+
+    Sx_tr0(:,:) = matmul(transpose(elem%Dx1),elem%M)
+    Sy_tr0(:,:) = matmul(transpose(elem%Dx2),elem%M)
+
+   !$omp parallel private( j0, j_int, ncol, i, ke, &
+   !$omp E11, E22, Dx, Dy, Sx_tr, Sy_tr, GsqrtI, GsqrtDx, GsqrtDy,           &
+   !$omp Dn1, GsqrtDn1, GsqrtDn2, OPT11, mmE, Lift_, Lift_x, Lift_y, Lift_x_q, Lift_y_q,   &
+   !$omp Msrc, f1, ke2, f2, id, lnx, lny, Fm1, q_, q_P, qx_P, qy_P, gtau_, p     )
+
+    do parity=0, parity_max
+
+      if (cal_res) then
+        j0 = 1; j_int = 1; ncol = lmesh%NeX
+      else
+        j0 = 1 + modulo(parity-color_id, 2)
+        j_int = 2
+        ncol = (lmesh%NeX+1-parity)/2
+      end if
+
+      !$omp do collapse(2)
+      do j=j0, lmesh%NeY, j_int
+      do ii=1, ncol
+        
+        if (cal_res) then
+          i = ii
+        else
+          i = 2*ii - 1 + parity
+        end if
+        ke = i + (j-1)*lmesh%NeX
+        
+        ! Assume E11 and E22 are constant in an element
+        E11 = lmesh%Escale(1,ke,1,1)
+        E22 = lmesh%Escale(1,ke,2,2)
+
+        Dx(:,:) = E11 * elem%Dx1
+        Dy(:,:) = E22 * elem%Dx2
+        Sx_tr(:,:) = E11 * ( E11 * Sx_tr0(:,:) )
+        Sy_tr(:,:) = E22 * ( E22 * Sy_tr0(:,:) )
+
+        do p=1, elem%Np
+          GsqrtI(:,p) = lmesh%Gsqrt(:,ke)
+          GsqrtDx(:,p) = GsqrtI(:,p) * ( lmesh%GIJ(:,ke,1,1) * Dx(:,p) + lmesh%GIJ(:,ke,1,2) * Dy(:,p) )
+          GsqrtDy(:,p) = GsqrtI(:,p) * ( lmesh%GIJ(:,ke,2,1) * Dx(:,p) + lmesh%GIJ(:,ke,2,2) * Dy(:,p) )
+        end do
+
+        if ( is_mg_top_level ) then
+          Msrc(:) = matmul(elem%M, rhs(:,ke) * lmesh%Gsqrt(:,ke) )
+        else
+          Msrc(:) = rhs(:,ke)
+        end if
+
+        OPT11(:,:) = - ( matmul(Sx_tr, GsqrtDx) + matmul(Sy_tr, GsqrtDy) )
+
+        do f1=1, 4        
+          ke2 = lmesh%EToE(ke,f1); f2 = lmesh%EToF(ke,f1)
+          
+          id = 1 + (f1-1)*elem%Nfp
+          lnx = lmesh%normal_fn(id,ke,1)
+          lny = lmesh%normal_fn(id,ke,2)
+          Fm1(:) = elem%Fmask(:,f1)
+          
+          Dn1(:,:) = lnx * Dx(:,:) + lny * Dy(:,:)
+          GsqrtDn1(:,:) = lnx * GsqrtDx(:,:) + lny * GsqrtDy(:,:)
+          
+          mmE(:,:) = lmesh%Fscale(id,ke) * massEdge(:,:,f1)  
+                          
+          Lift_(:,:) = matmul(elem%invM, mmE)
+          do p=1, elem%Np
+            Lift_x(:,p) = lmesh%Gsqrt(:,ke) * ( lnx * lmesh%GIJ(:,ke,1,1) + lny * lmesh%GIJ(:,ke,1,2) ) * Lift_(:,p)
+            Lift_y(:,p) = lmesh%Gsqrt(:,ke) * ( lnx * lmesh%GIJ(:,ke,2,1) + lny * lmesh%GIJ(:,ke,2,2) ) * Lift_(:,p)
+          end do
+          
+          gtau_ = elem%PolyOrder * (elem%PolyOrder + 1 ) * lmesh%Fscale(id,ke) * 0.5_RP * 7.0_RP
+          
+          OPT11(:,:) = OPT11(:,:) + 0.5_RP * ( &
+            - gtau_ * mmE(:,:) + matmul(mmE, GsqrtDn1)         &
+            + ( matmul(Sx_tr,Lift_x) + matmul(Sy_tr,Lift_y) ) )
+          
+          q_P(:) = q(VMapP(:,f1,ke))
+          Lift_x_q(:) = matmul(Lift_x(:,Fm1), q_P(:))
+          Lift_y_q(:) = matmul(Lift_y(:,Fm1), q_P(:))
+          Msrc(:) = Msrc(:) + 0.5_RP * ( &
+            + matmul(Sx_tr,Lift_x_q) + matmul(Sy_tr,Lift_y_q) )
+
+          qx_P(:) = qx(VMapP(:,f1,ke))
+          qy_P(:) = qy(VMapP(:,f1,ke))
+          GsqrtDn2(:) = lmesh%Gsqrt(Fm1(:),ke) * ( lnx * qx_P(:) + lny * qy_P(:) )
+          Msrc(Fm1) = Msrc(Fm1) - 0.5_RP * (  &
+            matmul(mmE(Fm1,Fm1), gtau_ * q_P(:) + GsqrtDn2(:)) )
+        end do 
+        
+        if ( cal_res ) then
+          do p=1, elem%Np
+            q_(p) = q(p+(ke-1)*elem%Np)
+          end do
+          res(:,ke) = Msrc(:) - matmul(OPT11(:,:), q_(:))
+        else
+          call LinAlgebra_SolveLinEq( OPT11, Msrc, q_ )
+          do p=1, elem%Np
+            q(p+(ke-1)*elem%Np) = q_(p)
+          end do
+        end if        
+      end do
+      end do
+    end do
+    !$omp end parallel
     return
   end subroutine cal_q_lc  
 end module mod_poisson2d_smoother

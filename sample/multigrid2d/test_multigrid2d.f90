@@ -186,7 +186,7 @@ contains
 
     !- setup a poisson solver using multi-grid method
     call Poisson2d_mg_Init( mesh )
-stop
+
     !- set right-hand side and initial guess
     do ldom=1, mesh%LOCAL_MESH_NUM
       call set_rhs_lc( f%local(ldom)%val, mesh%lcmesh_list(ldom), refElem )

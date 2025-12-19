@@ -50,6 +50,7 @@ module scale_mesh_hierarchy_2d
   end type MeshPtr2D
 
   type, extends(MeshHierarchyLocalMGDataBase), public :: MeshHierarchyLocalMGData2D
+    integer, allocatable :: If2c_emap(:,:)
   contains
     procedure :: Init => MeshHierarchyLocalMGData2D_Init
     procedure :: Final => MeshHierarchyLocalMGData2D_Final
@@ -79,10 +80,6 @@ module scale_mesh_hierarchy_2d
   contains
     procedure :: Init => MeshHierarchy2D_Init
     procedure :: Final => MeshHierarchy2D_Final
-    procedure :: Operate_pMG_restriction => MeshHierarchy2D_Operate_pMG_restriction
-    procedure :: Operate_pMG_correction => MeshHierarchy2D_Operate_pMG_correction
-    procedure :: Operate_hMG_restriction => MeshHierarchy2D_Operate_hMG_restriction
-    procedure :: Operate_hMG_correction => MeshHierarchy2D_Operate_hMG_correction
   end type MeshHierarchy2D
 
   !-----------------------------------------------------------------------------
@@ -233,218 +230,7 @@ contains
     return
   end subroutine MeshHierarchy2D_Final
 
-!OCL SERIAL
-  subroutine MeshHierarchy2D_Operate_pMG_restriction( this, res_c, &
-    res, p_lev )
-    use scale_meshfield_base, only: MeshField2D
-    implicit none
-    class(MeshHierarchy2D), intent(in), target :: this
-    class(MeshField2D), intent(inout) :: res_c
-    class(MeshField2D), intent(in) :: res
-    integer, intent(in) :: p_lev
-
-    integer :: ldomID
-    class(MeshBase2D), pointer :: mesh2D
-    !------------------------------------------------
-
-    if ( this%NUM_pMG_LEVEL <  p_lev+1 ) then
-      call PRC_abort()
-    end if
-    mesh2D => this%p_mesh_list(p_lev)%ptr
-    do ldomID=1, mesh2D%LOCAL_MESH_NUM
-      call MeshHierarchy2D_pMG_operation( res_c%local(ldomID)%val,                  &
-        res%local(ldomID)%val, this%elem2D_list(p_lev), this%elem2D_list(p_lev+1),  &
-        mesh2D%lcmesh_list(ldomID), this%p_level(p_lev)%pMat1D_f2c, .false.         )
-    end do
-    return
-  end subroutine MeshHierarchy2D_Operate_pMG_restriction
-
-!OCL SERIAL
-  subroutine MeshHierarchy2D_Operate_pMG_correction( this, dq, &
-    cor_c, p_lev )
-    use scale_meshfield_base, only: MeshField2D
-    implicit none
-    class(MeshHierarchy2D), intent(in), target :: this
-    class(MeshField2D), intent(inout) :: dq
-    class(MeshField2D), intent(in) :: cor_c
-    integer, intent(in) :: p_lev
-
-    integer :: ldomID
-    class(MeshBase2D), pointer :: mesh2D
-    !------------------------------------------------
-
-    mesh2D => this%p_mesh_list(p_lev)%ptr
-    do ldomID=1, mesh2D%LOCAL_MESH_NUM
-      call MeshHierarchy2D_pMG_operation( dq%local(ldomID)%val,                      &
-        cor_c%local(ldomID)%val, this%elem2D_list(p_lev+1), this%elem2D_list(p_lev), &
-        mesh2D%lcmesh_list(ldomID), this%p_level(p_lev)%pMat1D_c2f, .true.           )
-    end do
-    return
-  end subroutine MeshHierarchy2D_Operate_pMG_correction
-
-!OCL SERIAL
-  subroutine MeshHierarchy2D_Operate_hMG_restriction( this, res_c, &
-    res, h_lev )
-    use scale_meshfield_base, only: MeshField2D
-    implicit none
-    class(MeshHierarchy2D), intent(in), target :: this
-    class(MeshField2D), intent(inout) :: res_c
-    class(MeshField2D), intent(in) :: res
-    integer, intent(in) :: h_lev
-
-    integer :: ldomID
-    class(MeshBase2D), pointer :: mesh2D
-    class(MeshBase2D), pointer :: mesh2D_c
-    !------------------------------------------------
-
-    mesh2D => this%h_mesh_list(h_lev)%ptr
-    mesh2D_c => this%h_mesh_list(h_lev+1)%ptr
-
-    do ldomID=1, mesh2D%LOCAL_MESH_NUM
-      call do_restricion( res_c%local(ldomID)%val,                   &
-        res%local(ldomID)%val, this%h_level(h_lev)%mg_local(ldomID), &
-        mesh2D%lcmesh_list(ldomID),                                  &
-        this%elem2D_list(this%NUM_pMG_LEVEL),                        &
-        mesh2D_c%lcmesh_list(ldomID)                                 )
-    end do
-    return
-  contains
-    subroutine do_restricion( res_c_lc,      &
-        res_lc, mg_local, lmesh, elem, lmesh_c )
-      implicit none
-      class(LocalMesh2D), intent(in) :: lmesh
-      class(ElementBase2D), intent(in) :: elem
-      class(LocalMesh2D), intent(in) :: lmesh_c
-      real(RP), intent(out) :: res_c_lc(elem%Np,lmesh_c%NeA)
-      real(RP), intent(in) :: res_lc(elem%Np,lmesh%NeA)
-      class(MeshHierarchyLocalMGData2D), intent(in) :: mg_local
-
-      integer :: ke, ke_c
-      integer :: p
-      real(RP) :: Ic2fT_lc(4,4)
-      real(RP) :: tmp_c(elem%Np,lmesh_c%Ne)
-      real(RP) :: tmp2(elem%Np)
-      !-----------------------------------------
-
-      do ke_c=lmesh_c%NeS, lmesh_c%NeE
-        tmp_c(:,ke_c) = 0.0_RP
-      end do
-      do ke=lmesh%NeS, lmesh%NeE
-        ke_c = mg_local%Ic2f_emap(ke)
-
-!        tmp2(:) = matmul( elem%M, res_lc(:,ke) )
-        tmp2(:) = res_lc(:,ke)
-        Ic2fT_lc(:,:) = transpose( mg_local%Ic2f(:,:,ke) )
-
-        tmp_c(:,ke_c) = tmp_c(:,ke_c) + matmul( Ic2fT_lc, tmp2(:) )
-      end do
-      do ke_c=lmesh_c%NeS, lmesh_c%NeE
-!        res_c_lc(:,ke_c) = matmul(lmesh_c%refElem2D%invM, tmp_c(:,ke_c))  * 0.25_RP
-!        res_c_lc(:,ke_c) = tmp_c(:,ke_c) * 0.25_RP
-      end do
-!      do ke=lmesh%NeS, lmesh%NeE
-        ! res_c_lc(:,ke_c) = res_c_lc(:,ke_c) + &
-        !         matmul( Ic2fT_lc, res_lc(:,ke) )
-!      end do
-      return
-    end subroutine do_restricion
-  end subroutine MeshHierarchy2D_Operate_hMG_restriction
-
-!OCL SERIAL
-  subroutine MeshHierarchy2D_Operate_hMG_correction( this, dq, &
-    cor_c, h_lev )
-    use scale_meshfield_base, only: MeshField2D
-    implicit none
-    class(MeshHierarchy2D), intent(in), target :: this
-    class(MeshField2D), intent(inout) :: dq
-    class(MeshField2D), intent(in) :: cor_c
-    integer, intent(in) :: h_lev
-
-    integer :: ldomID
-    class(MeshBase2D), pointer :: mesh2D
-    class(LocalMesh2D), pointer :: lcmesh2D
-
-    integer :: ke, ke_c
-    class(MeshHierarchyLocalMGData2D), pointer :: mg_local
-    !------------------------------------------------
-
-    mesh2D => this%h_mesh_list(h_lev)%ptr
-    do ldomID=1, mesh2D%LOCAL_MESH_NUM
-      lcmesh2D => mesh2D%lcmesh_list(ldomID)
-      mg_local => this%h_level(h_lev)%mg_local(ldomID)
-
-      do ke=lcmesh2D%NeS, lcmesh2D%NeE
-        ke_c = mg_local%Ic2f_emap(ke)
-        dq%local(ldomID)%val(:,ke) = dq%local(ldomID)%val(:,ke) + &
-             matmul( mg_local%Ic2f(:,:,ke), cor_c%local(ldomID)%val(:,ke_c) )
-      end do
-    end do
-    return
-  end subroutine MeshHierarchy2D_Operate_hMG_correction
-
 !-- private --------------------------------------------------------------
-
-!OCL SERIAL
-  subroutine MeshHierarchy2D_pMG_operation( q_o, &
-    q_i, elem2D_i, elem2D_o, lcmesh, pMat1D, is_added )
-    implicit none
-    class(ElementBase2D), intent(in) :: elem2D_i
-    class(ElementBase2D), intent(in) :: elem2D_o
-    class(LocalMesh2D), intent(in) :: lcmesh
-    real(RP), intent(inout) :: q_o(elem2D_o%Nfp,elem2D_o%Nfp,lcmesh%NeA)
-    real(RP), intent(in) :: q_i(elem2D_i%Nfp,elem2D_i%Nfp,lcmesh%NeA)
-    real(RP), intent(in) :: pMat1D(elem2D_o%Nfp,elem2D_i%Nfp)
-    logical, intent(in) :: is_added
-
-    integer :: ke
-
-    integer :: px, py
-    integer :: pxx, pyy
-    real(RP) :: tmp1
-    real(RP) :: tmp2(elem2D_o%Nfp,elem2D_i%Nfp)
-    real(RP) :: tmp3(elem2D_o%Nfp)
-
-    real(RP) :: mat_tr(elem2D_i%Nfp,elem2D_o%Nfp)
-    !-------------------------------------------
-
-    mat_tr(:,:) = transpose(pMat1D)
-
-    !$omp parallel do private(tmp1, tmp2, tmp3)
-    do ke=lcmesh%NeS, lcmesh%NeE
-      do py=1, elem2D_i%Nfp
-      do pxx=1, elem2D_o%Nfp
-        tmp1 = 0.0_RP
-        do px=1, elem2D_i%Nfp
-          tmp1 = tmp1 + mat_tr(px,pxx) * q_i(px,py,ke)
-        end do
-        tmp2(pxx,py) = tmp1
-      end do
-      end do
-
-      if ( is_added ) then
-        do pyy=1, elem2D_o%Nfp
-          tmp3(:) = 0.0_RP
-          do py=1, elem2D_i%Nfp
-            do px=1, elem2D_o%Nfp
-              tmp3(px) = tmp3(px) + mat_tr(py,pyy) * tmp2(px,py)
-            end do
-          end do
-          q_o(:,pyy,ke) = q_o(:,pyy,ke)  + tmp3(:)
-        end do
-      else
-        do pyy=1, elem2D_o%Nfp
-          tmp3(:) = 0.0_RP
-          do py=1, elem2D_i%Nfp
-            do px=1, elem2D_o%Nfp
-              tmp3(px) = tmp3(px) + mat_tr(py,pyy) * tmp2(px,py)
-            end do
-          end do
-          q_o(:,pyy,ke) = tmp3(:)
-        end do
-      end if
-    end do
-    return
-  end subroutine MeshHierarchy2D_pMG_operation
 
 !OCL SERIAL
   subroutine MeshHierarchyLevel2D_Init( this, &
@@ -567,8 +353,6 @@ contains
 
     integer :: p
     real(RP) :: r_c, s_c
-
-    integer :: l
     !-------------------------------------------------------------  
 
     call MeshHierarchyLocalMGDataBase_Init( this, &
@@ -591,6 +375,9 @@ contains
     ! and construct interpolation operator
 
 !    write(*,*) "  Constructing local MG data for h-mesh..."
+
+    allocate( this%If2c_emap(4,lcmesh2D%Ne/4) )
+
     do ke=lcmesh2D%NeS, lcmesh2D%NeE
       lcTileID_c = this%CoarseLocalMesh_tileIDlist(1)
       lcdomID_c = this%CoarseLocalMesh_lcdomIDlist(1)
@@ -600,6 +387,10 @@ contains
       i_c = (ke2i(ke)+1)/2; j_c = (ke2j(ke)+1)/2
       ke_c = i_c + (j_c-1)*lcmesh2D%NeX/2
       this%Ic2f_emap(ke) = ke_c
+
+      i = ke2i(ke) - 2*(i_c-1)
+      j = ke2j(ke) - 2*(j_c-1)
+      this%If2c_emap(i+(j-1)*4,ke_c) = ke
 
       i_EtoV(:) = lcmesh_c%EToV(ke_c,:)
       vx_c(:) = lcmesh_c%pos_ev(i_EtoV(:),1)

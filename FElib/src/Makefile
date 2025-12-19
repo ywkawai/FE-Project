@@ -19,6 +19,7 @@ VPATH = \
 	mesh:             \
 	data:             \
 	file:             \
+	multigrid_solver: \
 	fluid_dyn_solver: \
 	surface:          \
 	turbulence:       \
@@ -110,6 +111,9 @@ OBJS_NAME_FILE = \
 	scale_file_restart_meshfield.o \
 	scale_file_monitor_meshfield.o
 
+OBJS_NAME_MG_SOLVER = \
+	scale_multigrid_solver_2d.o
+
 OBJS_NAME_FLUID_DYN_SOLVER = \
 	scale_atm_dyn_dgm_modalfilter.o                  \
 	scale_atm_dyn_dgm_spongelayer.o                  \
@@ -169,6 +173,7 @@ OBJS_NAME = \
 	$(OBJS_NAME_MESH)             \
 	$(OBJS_NAME_DATA)		      \
 	$(OBJS_NAME_FILE)             \
+	$(OBJS_NAME_MG_SOLVER)        \
 	$(OBJS_NAME_FLUID_DYN_SOLVER) \
 	$(OBJS_NAME_SURFACE)          \
 	$(OBJS_NAME_TURBULENCE)       \
