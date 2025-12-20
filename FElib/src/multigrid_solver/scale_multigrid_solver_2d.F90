@@ -19,6 +19,8 @@ module scale_multigrid_solver_2d
   use scale_io
   use scale_prc, only: PRC_abort
 
+  use scale_sparsemat, only: SparseMat
+
   use scale_element_base, only: ElementBase2D
   use scale_element_quadrilateral, only: QuadrilateralElement
 
@@ -27,6 +29,7 @@ module scale_multigrid_solver_2d
   use scale_mesh_rectdom2d, only: MeshRectDom2D
 
   use scale_meshfield_base, only: MeshField2D
+  use scale_meshfieldcomm_rectdom2d, only: MeshFieldCommRectDom2D
 
   use scale_mesh_hierarchy_base, only: &
     MESH_HIERARCHY_pMG_FINEST_LEVEL, &
@@ -46,11 +49,38 @@ module scale_multigrid_solver_2d
   !
   !++ Public type & procedure
   ! 
+  type, public :: MGFieldSet2D
+    integer :: var_num
+    type(MeshField2D) :: dq
+    type(MeshField2D) :: f
+    type(MeshField2D) :: res
+    type(MeshField2D) :: qx
+    type(MeshField2D) :: qy
+    integer :: level_id
+
+    type(MeshFieldCommRectDom2D) :: var_comm
+    type(MeshFieldCommRectDom2D) :: aux_comm
+    type(SparseMat) :: Dx
+    type(SparseMat) :: Dy
+  contains
+    procedure :: Init => FieldSet_Init
+    procedure :: Final => FieldSet_Final
+  end type MGFieldSet2D
+
   type, public :: MultiGridSolver2D
     type(MeshHierarchy2D), pointer :: mesh_hierarchy_ptr
+
+    integer, allocatable :: p_itr_num_list(:)
+    integer, allocatable :: h_itr_num_list(:)
+
+    type(MGFieldSet2D), allocatable :: fields_h(:)
+    type(MGFieldSet2D), allocatable :: fields_p(:)
   contains
     procedure :: Init => MultiGridSolver2D_Init
     procedure :: Final => MultiGridSolver2D_Final
+    procedure :: Solve => MultiGridSolver2D_solve
+    procedure :: do_Vcycle => MultiGridSolver2D_do_Vcycle
+    !-
     procedure :: Operate_pMG_restriction => MultiGridSolver2D_Operate_pMG_restriction
     procedure :: Operate_pMG_correction => MultiGridSolver2D_Operate_pMG_correction
     procedure :: Operate_hMG_restriction => MultiGridSolver2D_Operate_hMG_restriction
@@ -74,13 +104,31 @@ module scale_multigrid_solver_2d
 contains
 !OCL SERIAL
   subroutine MultiGridSolver2D_Init( this, &
-    mesh_hierarachy  )
+    mesh_hierarchy  )
     implicit none
     class(MultiGridSolver2D), intent(inout) :: this
-    class(MeshHierarchy2D), intent(in), target :: mesh_hierarachy
+    class(MeshHierarchy2D), intent(in), target :: mesh_hierarchy
+
+    integer :: lev_p
+    integer :: lev_h
     !-------------------------------------------------------------
 
-    this%mesh_hierarchy_ptr => mesh_hierarachy
+    this%mesh_hierarchy_ptr => mesh_hierarchy
+
+    allocate( this%p_itr_num_list( mesh_hierarchy%NUM_pMG_LEVEL ) )
+    allocate( this%h_itr_num_list( mesh_hierarchy%NUM_hMG_LEVEL ) )
+
+    !--
+    allocate( this%fields_p( mesh_hierarchy%NUM_pMG_LEVEL ) )
+    do lev_p=1, mesh_hierarchy%NUM_pMG_LEVEL
+      call fields_p(lev_p)%Init( mesh_hierarchy%p_mesh_list(lev_p)%ptr, lev_p )
+    end do
+
+    !-
+    allocate( this%fields_h( mesh_hierarachy%NUM_hMG_LEVEL ) )
+    do lev_h=1, mesh_hierarchy%NUM_hMG_LEVEL
+      call this%fields_h(lev_h)%Init( mesh_hierarchy%h_mesh_list(lev_h)%ptr, lev_h )
+    end do
     return
   end subroutine MultiGridSolver2D_Init
 
@@ -89,9 +137,228 @@ contains
     implicit none
     class(MultiGridSolver2D), intent(inout) :: this
     !-------------------------------------------------------------
+
+    deallocate( this%p_itr_num_list )
+    deallocate( this%h_itr_num_list )
+
+    deallocate( this%fields_p )
+    deallocate( this%fields_h )
     return
   end subroutine MultiGridSolver2D_Final
 
+!OCL SERIAL
+  subroutine MultiGridSolver2D_solve(this, q, &
+    f )
+    implicit none
+    class(MultiGridSolver2D), intent(inout) :: this
+
+    class(MeshField2D), intent(inout), target :: q
+    class(MeshField2D), intent(inout) :: f
+
+    logical :: cal_res_flag
+    integer :: itr
+
+    class(LocalMesh2D), pointer :: lmesh
+    integer :: ldomID
+    integer :: ke
+    !-------------------------------------------------------------
+
+    do ldomID=1, q%mesh%LOCAL_MESH_NUM
+      lmesh => q%mesh%lcmesh_list(ldomID)
+      do ke=lmesh%NeS, lmesh%NeE
+        this%fields_p(pMG_FINEST_LEVEL)%dq%local(ldomID)%val(:,ke) = q%local(ldomID)%val(:,ke)
+      end do
+    end do
+
+    !-
+    do itr=1, 40
+      cal_res_flag = ( mod(itr,10) == 0 .or. itr == 1 )
+      call Poisson2d_mg_Vcycle( pMG_FINEST_LEVEL, f )
+    end do
+
+    !-
+    do ldomID=1, q%mesh%LOCAL_MESH_NUM
+      lmesh => q%mesh%lcmesh_list(ldomID)
+      do ke=lmesh%NeS, lmesh%NeE
+        q%local(ldomID)%val(:,ke) = this%fields_p(pMG_FINEST_LEVEL)%dq%local(ldomID)%val(:,ke)
+      end do
+    end do
+    return
+  end subroutine MultiGridSolver2D_solve
+
+!OCL SERIAL
+  subroutine MultiGridSolver2D_do_Vcycle(this, mg_level, f_in)
+    implicit none
+    class(MultiGridSolver2D), intent(inout) :: this
+    integer, intent(in) :: mg_level
+    type(MeshField2D), intent(inout) :: f_in
+
+    real(RP) :: itr_res_eps
+    integer :: m
+
+    logical :: invoke_hMG
+
+    integer :: itr_num
+    logical :: cal_res_flag
+
+    class(MGFieldSet2D), pointer :: fs_p
+
+    logical :: is_mg_top
+    logical :: zero_initial_guess
+
+    class(MeshHierarchy2D), pointer :: mesh_hierarchy
+    class(LocalMesh2D), pointer :: lmesh2D
+    integer :: ldomID
+    integer :: ke
+    !---------------------------------------------------------------------
+
+    invoke_hMG = ( mg_level+1 >= mesh_hierarchy%NUM_pMG_LEVEL .and. mesh_hierarchy%NUM_hMG_LEVEL > 0 )
+    is_mg_top = ( mg_level == 1 )
+
+    itr_num = pMG_ITR_NUM_list(mg_level)
+
+    mesh_hierarchy => this%mesh_hierarchy_ptr
+    fs_p => fields_p(mg_level)
+
+    LOG_INFO("Poisson2d_mg_Vcycle",*) "mg_level=", mg_level
+
+    !- Pre-relaxation
+    do m=1, itr_num
+      cal_res_flag = (m == 1 .or. m==itr_num .or. mod(m,5)==0)
+      zero_initial_guess = ( mg_level /= 1 .and. m==1 )
+
+      call Poisson2d_smoother_advance_itr_1step( fs_p%dq, fs_p%res, &
+        f_in, fs_p%qx, fs_p%qy, m, fs_p%var_comm, fs_p%aux_comm,    &
+        fs_p%Dx, fs_p%Dy, mesh_hierarchy%p_mesh_list(mg_level)%ptr, &
+        cal_res_flag, zero_initial_guess, is_mg_top )
+    end do
+    if ( mg_level == mesh_hierarchy%NUM_pMG_LEVEL .and. mesh_hierarchy%NUM_hMG_LEVEL == 0 ) then
+      LOG_INFO("Poisson2d_mg_Vcycle",*) "End: mg_level=", mg_level
+      return
+    end if
+
+    !-
+    if ( invoke_hMG ) then
+      !- Restriction
+      call this%Operate_pMG_restriction( fields_h(hMG_FINEST_LEVEL)%f, &
+        fields_p(mg_level)%res, mg_level )
+
+      !- Advance node in the V-cycle
+      call Poisson2d_hMG_Vcycle( hMG_FINEST_LEVEL, fields_h(hMG_FINEST_LEVEL)%f )
+      
+      !- Correction
+      call this%Operate_pMG_correction( fields_p(mg_level)%dq, &
+        fields_h(hMG_FINEST_LEVEL)%dq, mg_level )
+    else
+      !- Restriction
+      call this%Operate_pMG_restriction( fields_p(mg_level+1)%f, &
+        fields_p(mg_level)%res, mg_level )
+      
+      !- Advance node in the V-cycle
+      call Poisson2d_mg_Vcycle( mg_level+1, fields_p(mg_level+1)%f )
+
+      !- Correction
+      ! LOG_INFO("Poisson2d_mg_Vcycle",*) "mg_level=", mg_level, "correction"
+      call this%Operate_pMG_correction( fields_p(mg_level)%dq, &
+        fields_p(mg_level+1)%dq, mg_level )
+    end if
+
+    !- Post-relaxation
+    do m=1, itr_num
+      cal_res_flag = (m == 1 .or. m==ITR_NUM .or. mod(m,5)==0)
+
+      call Poisson2d_smoother_advance_itr_1step( fs_p%dq, fs_p%res, &
+        f_in, fs_p%qx, fs_p%qy, m, fs_p%var_comm, fs_p%aux_comm,    &
+        fs_p%Dx, fs_p%Dy, mesh_hierarchy%p_mesh_list(mg_level)%ptr, &
+        cal_res_flag, .false., is_mg_top )
+    end do
+
+    LOG_INFO("Poisson2d_mg_Vcycle",*) "End: mg_level=", mg_level
+
+    return
+  end subroutine MultiGridSolver2D_do_Vcycle
+
+!OCL SERIAL
+  recursive subroutine MultiGridSolver2D_do_hMG_Vcycle( mg_level, f_in )
+    use mod_poisson2d_smoother, only: Poisson2d_smoother_advance_itr_1step
+    implicit none
+    integer, intent(in) :: mg_level
+    type(MeshField2D), intent(inout) :: f_in
+
+    real(RP) :: itr_res_eps
+    integer :: m
+
+    integer :: itr_num
+    logical :: cal_res_flag
+
+    class(MeshHierarchy2D), pointer :: mesh_hierarchy
+    class(MGFieldSet2D), pointer :: fs_h
+
+    logical :: zero_initial_guess
+    !----------------------------------------------
+    itr_num = hMG_ITR_NUM_list(mg_level)
+
+    mesh_hierarchy => this%mesh_hierarchy_ptr
+    fs_h => fields_h(mg_level)
+
+    LOG_INFO("Poisson2d_hMG_Vcycle",*) "mg_level=", mg_level
+
+    if ( mg_level == mesh_hierarchy%NUM_hMG_LEVEL ) then
+      LOG_INFO("Poisson2d_hMG_Vcycle",*) "Check f", f_in%local(1)%val(:,1)
+
+      ! Direct solver
+      do m=1, itr_num
+        zero_initial_guess = ( m==1 )
+        cal_res_flag = (m == 1 .or. m==itr_num .or. mod(m,5)==0)
+
+        call Poisson2d_smoother_advance_itr_1step( fs_h%dq, fs_h%res, &
+          f_in, fs_h%qx, fs_h%qy, m, fs_h%var_comm, fs_h%aux_comm,    &
+          fs_h%Dx, fs_h%Dy, mesh_hierarchy%h_mesh_list(mg_level)%ptr, &
+          cal_res_flag, zero_initial_guess, .false. )
+      end do      
+      return
+    end if
+
+    !- Pre-relaxation
+    do m=1, itr_num
+      cal_res_flag = (m == 1 .or. m==ITR_NUM .or. mod(m,5)==0)
+      zero_initial_guess = ( m==1 )
+
+      call Poisson2d_smoother_advance_itr_1step( fs_h%dq, fs_h%res, &
+        f_in, fs_h%qx, fs_h%qy, m, fs_h%var_comm, fs_h%aux_comm,    &
+        fs_h%Dx, fs_h%Dy, mesh_hierarchy%h_mesh_list(mg_level)%ptr, &
+        cal_res_flag, zero_initial_guess, .false. )
+    end do
+
+    !-
+    !- Restriction
+    call mg_solver%Operate_hMG_restriction( fields_h(mg_level+1)%f, &
+      fields_h(mg_level)%res, mg_level )
+
+    !- Advance node in the V-cycle
+    call Poisson2d_hMG_Vcycle( mg_level+1, fields_h(mg_level+1)%f )
+
+    !- Correction
+    ! LOG_INFO("Poisson2d_mg_Vcycle",*) "mg_level=", mg_level, "correction"
+    call mg_solver%Operate_hMG_correction( fields_h(mg_level)%dq, &
+      fields_h(mg_level+1)%dq, mg_level )
+
+    !- Post-relaxation
+    do m=1, itr_num
+      cal_res_flag = (m == 1 .or. m==ITR_NUM .or. mod(m,5)==0)
+
+      call Poisson2d_smoother_advance_itr_1step( fs_h%dq, fs_h%res, &
+        f_in, fs_h%qx, fs_h%qy, m, fs_h%var_comm, fs_h%aux_comm,    &
+        fs_h%Dx, fs_h%Dy, mesh_hierarchy%h_mesh_list(mg_level)%ptr, &
+        cal_res_flag, .false., .false. )
+    end do
+
+    LOG_INFO("Poisson2d_hMG_Vcycle",*) "End: mg_level=", mg_level
+
+    return
+  end subroutine MultiGridSolver2D_do_hMG_Vcycle
+
+!--
 !OCL SERIAL
   subroutine MultiGridSolver2D_Operate_pMG_restriction( this, res_c, &
     res, p_lev )
@@ -328,4 +595,49 @@ contains
     end do
     return
   end subroutine MultiGridSolver2D_pMG_operation
+
+!-
+!OCL SERIAL
+  subroutine MGFieldSet2D_Init(this, mesh2D, level_id)
+    use scale_mesh_rectdom2d, only: MeshRectDom2D
+    implicit none
+    class(MGFieldSet2D), intent(inout) :: this
+    class(MeshBase2D), intent(in) :: mesh2D
+    integer, intent(in) :: level_id
+    !---------------------------------
+
+    this%level_id = level_id
+    call this%dq%Init( "dq", "1", mesh2D )    
+    call this%f%Init( "f", "1", mesh2D )
+    call this%res%Init( "res", "1", mesh2D )
+    call this%qx%Init( "qx", "1", mesh2D )
+    call this%qy%Init( "qy", "1", mesh2D )
+
+    select type(mesh2D)
+    type is (MeshRectDom2D)
+      call this%var_comm%Init( 1, 0, 0, mesh2D )
+      call this%aux_comm%Init( 0, 1, 0, mesh2D )
+    end select
+
+    call this%Dx%Init( mesh2D%refElem2D%Dx1, storage_format='ELL')
+    call this%Dy%Init( mesh2D%refElem2D%Dx2, storage_format='ELL')
+    return
+  end subroutine MGFieldSet2D_Init
+
+!OCL SERIAL
+  subroutine MGFieldSet2D_Final(this)
+    implicit none
+    class(MGFieldSet2D), intent(inout) :: this
+    !---------------------------------
+    call this%var_comm%Final()
+    call this%aux_comm%Final()
+
+    call this%dq%Final()    
+    call this%f%Final()    
+    call this%res%Final()
+    call this%qx%Final()
+    call this%qy%Final()
+    return
+  end subroutine MGFieldSet2D_Final
+
 end module scale_multigrid_solver_2d

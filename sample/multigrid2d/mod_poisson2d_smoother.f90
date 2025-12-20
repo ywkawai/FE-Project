@@ -100,22 +100,22 @@ contains
       end do
     end if
 
-    if ( cal_res_flag ) then
-      call Poisson2d_smoother_advance_itr_1step_color( &
-        q, res,                                  & 
-        f, qx, qy,                               &
-        itr, var_comm, aux_comm, Dx, Dy, mesh2D, &
-        cal_res_flag, 0, is_mg_top_level )
+    ! if ( cal_res_flag ) then
+    !   call Poisson2d_smoother_advance_itr_1step_color( &
+    !     q, res,                                  & 
+    !     f, qx, qy,                               &
+    !     itr, var_comm, aux_comm, Dx, Dy, mesh2D, &
+    !     cal_res_flag, 0, is_mg_top_level )
 
-      res_lcdom_int0 = 0.0_RP
-      do ldomID=1, mesh2D%LOCAL_MESH_NUM
-        lmesh2D => mesh2D%lcmesh_list(ldomID)
-        !$omp parallel do reduction(+:res_lcdom_int0)
-        do ke=lmesh2D%NeS, lmesh2D%NeE
-          res_lcdom_int0 = res_lcdom_int0 + sum(res%local(ldomID)%val(:,ke)**2)
-        end do
-      end do
-    end if
+    !   res_lcdom_int0 = 0.0_RP
+    !   do ldomID=1, mesh2D%LOCAL_MESH_NUM
+    !     lmesh2D => mesh2D%lcmesh_list(ldomID)
+    !     !$omp parallel do reduction(+:res_lcdom_int0)
+    !     do ke=lmesh2D%NeS, lmesh2D%NeE
+    !       res_lcdom_int0 = res_lcdom_int0 + sum(res%local(ldomID)%val(:,ke)**2)
+    !     end do
+    !   end do
+    ! end if
 
     ! Red
     call Poisson2d_smoother_advance_itr_1step_color( &
@@ -146,7 +146,8 @@ contains
           res_lcdom_int = res_lcdom_int + sum(res%local(ldomID)%val(:,ke)**2)
         end do
       end do
-      LOG_INFO("Poisson2d_smoother_advance_itr_1step",*) "itr=", itr, ": lc_res0=", sqrt(res_lcdom_int0), ", lc_res1=", sqrt(res_lcdom_int)
+      ! LOG_INFO("Poisson2d_smoother_advance_itr_1step",*) "itr=", itr, ": lc_res0=", sqrt(res_lcdom_int0), ", lc_res1=", sqrt(res_lcdom_int)
+      LOG_INFO("Poisson2d_smoother_advance_itr_1step",*) "itr=", itr, ": lc_res1=", sqrt(res_lcdom_int)
     end if
     
     var_comm_list(1)%field2d => q
@@ -201,12 +202,12 @@ contains
     end do
 
     !- 
-    aux_comm_list(1)%field2d => qx
-    aux_comm_list(2)%field2d => qy
+    ! aux_comm_list(1)%field2d => qx
+    ! aux_comm_list(2)%field2d => qy
 
-    call aux_comm%Put( aux_comm_list, 1 )
-    call aux_comm%Exchange()
-    call aux_comm%Get( aux_comm_list, 1 )
+    ! call aux_comm%Put( aux_comm_list, 1 )
+    ! call aux_comm%Exchange()
+    ! call aux_comm%Get( aux_comm_list, 1 )
 
     do ldomID=1, mesh2D%LOCAL_MESH_NUM
       lmesh2D => mesh2D%lcmesh_list(ldomID)
@@ -252,172 +253,6 @@ contains
   end subroutine cal_grad_lc
 
 !OCL SERIAL
-  subroutine cal_q_lc0( q, res,                       &
-    color_id, cal_res, is_mg_top_level, rhs, qx, qy, &
-    vmapM, vmapP, lmesh, elem                        )
-    use scale_linalgebra, only: Linalgebra_SolveLinEq
-    implicit none
-    class(LocalMesh2D), intent(in) :: lmesh
-    class(ElementBase2D), intent(in) :: elem
-    real(RP), intent(inout) :: q(elem%Np*lmesh%NeA)
-    real(RP), intent(out) :: res(elem%Np,lmesh%NeA)
-    real(RP), intent(in) :: rhs(elem%Np,lmesh%NeA)
-    real(RP), intent(in) :: qx(elem%Np*lmesh%NeA)
-    real(RP), intent(in) :: qy(elem%Np*lmesh%NeA)    
-    integer, intent(in) :: color_id
-    logical, intent(in) :: cal_res
-    logical, intent(in) :: is_mg_top_level
-    integer, intent(in) :: vmapM(elem%Nfp,elem%Nfaces,lmesh%Ne)
-    integer, intent(in) :: vmapP(elem%Nfp,elem%Nfaces,lmesh%Ne)
-
-    integer :: ke, ke2
-    integer :: i, j
-
-    integer :: p
-
-    integer :: is
-    integer :: i_int
-
-    integer :: f1, f2
-
-    real(RP) :: E11, E22
-
-    real(RP) :: Dx(elem%Np,elem%Np)
-    real(RP) :: Dy(elem%Np,elem%Np)
-    real(RP) :: Sx_tr(elem%Np,elem%Np)
-    real(RP) :: Sy_tr(elem%Np,elem%Np)
-    real(RP) :: Dx2(elem%Np,elem%Np)
-    real(RP) :: Dy2(elem%Np,elem%Np)
-
-    real(RP) :: GsqrtDx(elem%Np,elem%Np)
-    real(RP) :: GsqrtDy(elem%Np,elem%Np)
-    real(RP) :: GsqrtI(elem%Np,elem%Np)
-
-    real(RP) :: Dn1(elem%Np,elem%Np)    
-    real(RP) :: GsqrtDn1(elem%Np,elem%Np)
-    real(RP) :: GsqrtDn2(elem%Nfp)
-
-    real(RP) :: OPT11(elem%Np,elem%Np)
-    real(RP) :: mmE(elem%Np,elem%Np)   
-    real(RP) :: Lift_(elem%Np,elem%Np)
-    real(RP) :: Lift_x(elem%Np,elem%Np)       
-    real(RP) :: Lift_y(elem%Np,elem%Np)
-    real(RP) :: Lift_x_q(elem%Np)       
-    real(RP) :: Lift_y_q(elem%Np)
-    real(RP) :: Msrc(elem%Np)
-
-    real(RP) :: massEdge(elem%Np,elem%Np,elem%Nfaces)
-    real(RP) :: Emat(elem%Np,elem%Nfp*elem%Nfaces)
-    integer :: Fm(elem%Nfp), Fm1(elem%Nfp)
-    integer :: vidP(elem%Nfp), vidM(elem%Nfp)
-    integer :: id
-    real(RP) :: lnx, lny  
-
-    real(RP) :: q_(elem%Np)
-    real(RP) :: q_P(elem%Nfp)
-    real(RP) :: qx_P(elem%Nfp)
-    real(RP) :: qy_P(elem%Nfp)
-
-    real(RP) :: gtau_
-    !---------------------------
-
-    Emat(:,:) = matmul(elem%M, elem%Lift)
-    massEdge(:,:,:)  = 0.0_RP
-    do f1=1, elem%Nfaces
-      Fm = elem%Fmask(:,f1)
-      massEdge(Fm,Fm,f1) = Emat(Fm, (f1-1)*elem%Nfp+1:f1*elem%Nfp)
-    end do
-
-    do j=1, lmesh%NeY
-      if (cal_res) then
-        is = 1; i_int = 1
-      else
-        is = 1+mod(j+color_id,2); i_int = 2
-      end if      
-      do i=is, lmesh%NeX, i_int
-        ke = i + (j-1)*lmesh%NeX
-        
-        E11 = lmesh%Escale(1,ke,1,1)
-        E22 = lmesh%Escale(1,ke,2,2)
-
-        Dx(:,:) = E11 * elem%Dx1
-        Dy(:,:) = E22 * elem%Dx2
-        Sx_tr(:,:) = E11 * matmul(transpose(Dx),elem%M)
-        Sy_tr(:,:) = E22 * matmul(transpose(Dy),elem%M)
-
-        do p=1, elem%Np
-          GsqrtI(:,p) = lmesh%Gsqrt(:,ke)
-          GsqrtDx(:,p) = GsqrtI(:,p) * ( lmesh%GIJ(:,ke,1,1) * Dx(:,p) + lmesh%GIJ(:,ke,1,2) * Dy(:,p) )
-          GsqrtDy(:,p) = GsqrtI(:,p) * ( lmesh%GIJ(:,ke,2,1) * Dx(:,p) + lmesh%GIJ(:,ke,2,2) * Dy(:,p) )
-        end do
-
-        if ( is_mg_top_level ) then
-          Msrc(:) = matmul(elem%M, rhs(:,ke) * lmesh%Gsqrt(:,ke) )
-        else
-          Msrc(:) = rhs(:,ke)
-        end if
-
-        OPT11(:,:) = - ( matmul(Sx_tr, GsqrtDx) + matmul(Sy_tr, GsqrtDy) )
-        
-
-        do f1=1, 4        
-          ke2 = lmesh%EToE(ke,f1); f2 = lmesh%EToF(ke,f1)
-          
-          id = 1 + (f1-1)*elem%Nfp
-          lnx = lmesh%normal_fn(id,ke,1)
-          lny = lmesh%normal_fn(id,ke,2)
-          Fm1(:) = elem%Fmask(:,f1)
-          
-          Dn1(:,:) = lnx * Dx(:,:) + lny * Dy(:,:)
-          GsqrtDn1(:,:) = lnx * GsqrtDx(:,:) + lny * GsqrtDy(:,:)
-          
-          mmE(:,:) = lmesh%Fscale(id,ke) * massEdge(:,:,f1)  
-                           
-          Lift_(:,:) = matmul(elem%invM, mmE)
-          do p=1, elem%Np
-            Lift_x(:,p) = lmesh%Gsqrt(:,ke) * ( lnx * lmesh%GIJ(:,ke,1,1) + lny * lmesh%GIJ(:,ke,1,2) ) * Lift_(:,p)
-            Lift_y(:,p) = lmesh%Gsqrt(:,ke) * ( lnx * lmesh%GIJ(:,ke,2,1) + lny * lmesh%GIJ(:,ke,2,2) ) * Lift_(:,p)
-          end do
-          
-          gtau_ = elem%PolyOrder * (elem%PolyOrder + 1 ) * lmesh%Fscale(id,ke) * 0.5_RP * 7.0_RP
-          
-          OPT11(:,:) = OPT11(:,:) + 0.5_RP * ( &
-            - gtau_ * mmE(:,:) + matmul(mmE, GsqrtDn1)         &
-            + ( matmul(Sx_tr,Lift_x) + matmul(Sy_tr,Lift_y) ) )
-          
-          q_P(:) = q(VMapP(:,f1,ke))
-          Lift_x_q(:) = matmul(Lift_x(:,Fm1), q_P(:))
-          Lift_y_q(:) = matmul(Lift_y(:,Fm1), q_P(:))
-          Msrc(:) = Msrc(:) + 0.5_RP * ( &
-            + matmul(Sx_tr,Lift_x_q) + matmul(Sy_tr,Lift_y_q) )
-
-          qx_P(:) = qx(VMapP(:,f1,ke))
-          qy_P(:) = qy(VMapP(:,f1,ke))
-          GsqrtDn2(:) = lmesh%Gsqrt(Fm1(:),ke) * ( lnx * qx_P(:) + lny * qy_P(:) )
-          Msrc(Fm1) = Msrc(Fm1) - 0.5_RP * (  &
-            matmul(mmE(Fm1,Fm1), gtau_ * q_P(:) + GsqrtDn2(:)) )
-        end do 
-        
-        if ( cal_res ) then
-          do p=1, elem%Np
-            q_(p) = q(p+(ke-1)*elem%Np)
-          end do
-          q_(:) = Msrc(:) - matmul(OPT11(:,:), q_(:))
-          ! res(:,ke) = matmul(elem%invM, q_)
-          res(:,ke) = q_
-        else
-          call LinAlgebra_SolveLinEq( OPT11, Msrc, q_ )
-          !pold(:) = p(1+(k1-1)*elem%Np:k1*elem%Np)
-          do p=1, elem%Np
-            q(p+(ke-1)*elem%Np) = q_(p)
-          end do
-        end if        
-      end do
-    end do
-    return
-  end subroutine cal_q_lc0  
-
-!OCL SERIAL
   subroutine cal_q_lc( q, res,                       &
     color_id, cal_res, is_mg_top_level, rhs, qx, qy, &
     vmapM, vmapP, lmesh, elem                        )
@@ -440,8 +275,6 @@ contains
     integer :: i, j
 
     integer :: p
-
-    integer :: j_int
 
     integer :: f1, f2
 
@@ -486,6 +319,7 @@ contains
 
     integer :: parity, parity_max
     integer :: j0
+    integer :: j_int
     integer :: ii, ncol
     !---------------------------
 
