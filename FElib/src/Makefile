@@ -112,6 +112,8 @@ OBJS_NAME_FILE = \
 	scale_file_monitor_meshfield.o
 
 OBJS_NAME_MG_SOLVER = \
+	scale_multigrid_fieldset_base.o \
+	scale_multigrid_smoother_base.o \
 	scale_multigrid_solver_2d.o
 
 OBJS_NAME_FLUID_DYN_SOLVER = \

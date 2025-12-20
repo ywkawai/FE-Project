@@ -9,8 +9,7 @@ TOPDIR      = $(abspath ../..)
 SAMPLE_DIR  = ../
 
 BINNAME = test_multigrid2d
-OBJS    = mod_poisson2d_mg.o \
-		  mod_poisson2d_smoother.o
+OBJS    = mod_poisson2d_smoother.o
 
 RUNCONF         = test.conf
 TPROC           = 4
@@ -25,5 +24,4 @@ vis:
 clean_analysis:
 	rm -f analysis
 
-$(BUILD_DIR)/test_multigrid2d.o : $(BUILD_DIR)/mod_poisson2d_mg.o
-$(BUILD_DIR)/mod_poisson2d_mg.o : $(BUILD_DIR)/mod_poisson2d_smoother.o
+$(BUILD_DIR)/test_multigrid2d.o :$(BUILD_DIR)/mod_poisson2d_smoother.o

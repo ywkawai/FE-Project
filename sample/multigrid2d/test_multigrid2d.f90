@@ -25,7 +25,9 @@ program test_multigrid2d
   use scale_file_history, only: &
     FILE_HISTORY_set_nowdate
 
-  use mod_poisson2d_mg, only: Poisson2d_MG_solve
+  use scale_mesh_hierarchy_2d, only: MeshHierarchy2D
+  use scale_multigrid_solver_2d, only: MultiGridSolver2D
+  use mod_poisson2d_smoother, only: MGSmoother_Poisson2D
 
   implicit none
   !-----------------------------------------------------------------------------
@@ -39,13 +41,19 @@ program test_multigrid2d
   type(MeshField2D) :: f
 
   integer, save :: HST_ID(3)
+
+  !-
+  type(MeshHierarchy2D) :: mesh_hierarchy
+  type(MGSmoother_Poisson2D) :: smoother
+  type(MultiGridSolver2D) :: mg_solver
+
   !-----------------------------------------------------------------------------
 
   call init()
   !-
   call FILE_HISTORY_meshfield_put( HST_ID(3), f )
 
-  call Poisson2d_MG_solve( q, &
+  call mg_solver%Solve( q, &
     f )
 
   call FILE_HISTORY_meshfield_put( HST_ID(1), q )
@@ -86,10 +94,9 @@ contains
     use scale_file_history_meshfield, only: FILE_HISTORY_meshfield_setup  
     use scale_file_history, only: FILE_HISTORY_reg  
     use scale_polynominal, only: Polynominal_GenLagrangePoly
-
-    use mod_poisson2d_mg, only: Poisson2d_mg_Init
     implicit none
 
+    !-
     real(RP), parameter :: dom_xmin =   0.0_RP
     real(RP), parameter :: dom_xmax = + 1.0_RP
     real(RP), parameter :: dom_ymin =   0.0_RP
@@ -107,6 +114,24 @@ contains
       NprcX, NprcY,                      &
       NeGX, NeGY, PolyOrder
 
+    !-
+    integer, parameter :: pMG_LV_LIST_MAX = 16
+    integer :: P_LEVEL_NUM
+    integer :: P_LEVEL_LIST(pMG_LV_LIST_MAX)
+    integer :: P_ITR_NUM_LIST(pMG_LV_LIST_MAX)
+
+
+    integer, parameter :: hMG_LV_LIST_MAX = 16
+    integer :: H_LEVEL_NUM
+    integer :: NeGX_list(hMG_LV_LIST_MAX)
+    integer :: NeGY_list(hMG_LV_LIST_MAX)
+    integer :: H_ITR_NUM_LIST(hMG_LV_LIST_MAX)
+
+    namelist /PARAM_Poisson2D_MG/ &
+      H_LEVEL_NUM, NeGX_list, NeGY_list, H_ITR_NUM_LIST, &
+      P_LEVEL_NUM, P_LEVEL_LIST, P_ITR_NUM_LIST
+
+    !-
     integer :: comm, myrank, nprocs
     logical :: ismaster
     integer :: ierr
@@ -143,6 +168,17 @@ contains
     endif
     LOG_NML(PARAM_TEST)
     
+    !-- read namelist
+    rewind(IO_FID_CONF)
+    read(IO_FID_CONF,nml=PARAM_Poisson2D_MG,iostat=ierr)
+    if( ierr < 0 ) then !--- missing
+       LOG_INFO("Poisson2D_MG_Init",*) 'Not found namelist. Default used.'
+    elseif( ierr > 0 ) then !--- fatal error
+       LOG_ERROR("Poisson2D_MG_Init",*) 'Not appropriate names in namelist PARAM_Poisson2D_MG. Check!'
+       call PRC_abort
+    endif
+    LOG_NML(PARAM_Poisson2D_MG)
+
     !-- setup profiler
     call PROF_setup
     call PROF_rapstart( "total", 0 )
@@ -184,26 +220,39 @@ contains
     !-- report information of time intervals
     call TIME_manager_report_timeintervals
 
-    !- setup a poisson solver using multi-grid method
-    call Poisson2d_mg_Init( mesh )
+    !- Setup an object to manage the mesh hierarchy
 
-    !- set right-hand side and initial guess
+    LOG_INFO("Poisson2D_MG_Init",*) "Setup mesh hierarchy and MG solver"
+    call mesh_hierarchy%Init( mesh, &
+      P_LEVEL_LIST(1:P_LEVEL_NUM), P_LEVEL_NUM,                       &
+      NeGX_list(1:H_LEVEL_NUM), NeGY_list(1:H_LEVEL_NUM), H_LEVEL_NUM )
+
+    !- Setup an object to provide a smoother
+    LOG_INFO("Poisson2D_MG_Init",*) "Setup smoother"
+    call smoother%Init( mesh )
+
+    !- Setup an object to provide a MG solver   
+    LOG_INFO("Poisson2D_MG_Init",*) "Setup MG solver"    
+    call mg_solver%Init( mesh_hierarchy, smoother, 0, 2, &
+      P_ITR_NUM_LIST(1:P_LEVEL_NUM), H_ITR_NUM_LIST(1:H_LEVEL_NUM) )
+
+    
+    !- Set the right-hand side and initial guess
     do ldom=1, mesh%LOCAL_MESH_NUM
       call set_rhs_lc( f%local(ldom)%val, mesh%lcmesh_list(ldom), refElem )
       q%local(ldom)%val(:,:) = 0.0_RP
     end do
 
     call PROF_rapend( "init", 1 )
+    LOG_INFO("Poisson2D_MG_Init",*) "The setup has succeeded."    
     return
   end subroutine init
 
-  !> Finalization
+!> Finalization
   subroutine final()
     use scale_file_history_meshfield, only: &
       FILE_HISTORY_meshfield_finalize
     ! use scale_time_manager, only: TIME_manager_Final 
-    
-    use mod_poisson2d_mg, only: Poisson2d_mg_Final
     implicit none
     integer :: idom
     !------------------------------------------------------------------------
@@ -212,7 +261,9 @@ contains
 
     call FILE_HISTORY_meshfield_finalize()
 
-    call Poisson2d_mg_Final()
+    call smoother%Final()
+    call mg_solver%Final()
+    call mesh_hierarchy%Final()
     
     call q%Final()
     call qexact%Final()
@@ -227,6 +278,5 @@ contains
     call PROF_rapreport
     call PRC_MPIfinish()
     return
-  end subroutine final  
-
+  end subroutine final
 end program test_multigrid2d

@@ -20,6 +20,7 @@ module mod_poisson2d_smoother
   use scale_meshfieldcomm_base, only: MeshFieldContainer
   use scale_meshfieldcomm_rectdom2d, only: MeshFieldCommRectDom2D
 
+  use scale_multigrid_smoother_base, only: MGSmoother2DBase
   implicit none
   private
 
@@ -27,49 +28,59 @@ module mod_poisson2d_smoother
   !
   !++ Public parameters & variables
   !
-  public :: Poisson2d_smoother_Init
-  public :: Poisson2d_smoother_Final
+  type, public, extends(MGSmoother2DBase) :: MGSmoother_Poisson2D
+  contains
+    procedure :: Init => MGSmoother_Poisson2D_Init
+    procedure :: Final => MGSmoother_Poisson2D_Final
+    procedure :: Advance_itr_1step => MGSmoother_Poisson2D_advance_itr_1step
+  end type MGSmoother_Poisson2D
 
-  public :: Poisson2d_smoother_advance_itr_1step
   ! public :: poisson_smoother_evaluate_error_norm
 
   !-----------------------------------------------------------------------------
   !
   !++ Private procedures
   !
-
-  !--
-
+  private :: Poisson2d_smoother_advance_itr_1step_color
+  private :: cal_grad_lc
+  private :: cal_q_lc
+  
 contains
   !> Initialization
-  subroutine Poisson2d_smoother_Init( mesh )
+  subroutine MGSmoother_Poisson2D_Init( this, mesh )
     implicit none
+    class(MGSmoother_Poisson2D), intent(inout) :: this
     class(MeshBase2D), intent(in), target :: mesh
     !---------------------------------------------------------------------------
     return
-  end subroutine Poisson2d_smoother_Init
+  end subroutine MGSmoother_Poisson2D_Init
 
   !> Finalization
-  subroutine Poisson2d_smoother_Final()
+  subroutine MGSmoother_Poisson2D_Final(this)
     implicit none
+    class(MGSmoother_Poisson2D), intent(inout) :: this
     !---------------------------------------------------------------------------
     return
-  end subroutine Poisson2d_smoother_Final
+  end subroutine MGSmoother_Poisson2D_Final
 
   !> Smoother
 !OCL SERIAL
-  subroutine Poisson2d_smoother_advance_itr_1step( &
+  subroutine MGSmoother_Poisson2D_advance_itr_1step( this, &
     q, res,                                  & 
-    f, qx, qy,                               &
+    f, aux_var, aux_hvec_comp,               &
     itr, var_comm, aux_comm, Dx, Dy, mesh2D, &
-    cal_res_flag, zero_initial_guess, is_mg_top_level )
-    implicit none
+    cal_res_flag, zero_initial_guess,        &
+    mg_p_level, mg_h_level )
 
-    class(MeshField2D), intent(inout), target :: q
-    class(MeshField2D), intent(inout) :: res
-    class(MeshField2D), intent(in) :: f
-    class(MeshField2D), intent(inout), target :: qx
-    class(MeshField2D), intent(inout), target :: qy
+    use scale_mesh_hierarchy_base, only: &
+      pMG_FINEST_LEVEL => MESH_HIERARCHY_pMG_FINEST_LEVEL
+    implicit none
+    class(MGSmoother_Poisson2D), intent(inout) :: this
+    type(MeshField2D), intent(inout), target :: q
+    type(MeshField2D), intent(inout) :: res
+    type(MeshField2D), intent(in) :: f
+    type(MeshField2D), intent(inout), target :: aux_var(:)
+    type(MeshField2D), intent(inout), target :: aux_hvec_comp(:)
     integer, intent(in) :: itr
     class(MeshFieldCommRectDom2D), intent(inout) :: var_comm
     class(MeshFieldCommRectDom2D), intent(inout) :: aux_comm
@@ -78,7 +89,8 @@ contains
     class(MeshBase2D), intent(in), target :: mesh2D
     logical, intent(in) :: cal_res_flag
     logical, intent(in) :: zero_initial_guess
-    logical, intent(in) :: is_mg_top_level
+    integer, intent(in) :: mg_p_level
+    integer, intent(in) :: mg_h_level
 
     integer :: ldomID
     class(LocalMesh2D), pointer :: lmesh2D
@@ -88,7 +100,10 @@ contains
     real(RP) :: res_lcdom_int
 
     type(MeshFieldContainer) :: var_comm_list(1)
+    logical :: is_mg_top_level
     !---------------------------------------------------------------------------
+
+    is_mg_top_level = ( mg_p_level == pMG_FINEST_LEVEL )
 
     if ( zero_initial_guess ) then
       do ldomID=1, mesh2D%LOCAL_MESH_NUM
@@ -120,21 +135,21 @@ contains
     ! Red
     call Poisson2d_smoother_advance_itr_1step_color( &
       q, res,                                  & 
-      f, qx, qy,                               &
+      f, aux_hvec_comp(1), aux_hvec_comp(2),   &
       itr, var_comm, aux_comm, Dx, Dy, mesh2D, &
       .false., 0, is_mg_top_level )
 
     ! Red
     call Poisson2d_smoother_advance_itr_1step_color( &
       q, res,                                  & 
-      f, qx, qy,                               &
+      f, aux_hvec_comp(1), aux_hvec_comp(2),   &
       itr, var_comm, aux_comm, Dx, Dy, mesh2D, &
       .false., 1, is_mg_top_level )
       
     if ( cal_res_flag ) then
       call Poisson2d_smoother_advance_itr_1step_color( &
         q, res,                                  & 
-        f, qx, qy,                               &
+        f, aux_hvec_comp(1), aux_hvec_comp(2),   &
         itr, var_comm, aux_comm, Dx, Dy, mesh2D, &
         cal_res_flag, 0, is_mg_top_level )
 
@@ -154,9 +169,10 @@ contains
     call var_comm%Put( var_comm_list, 1 )
     call var_comm%Exchange()
     call var_comm%Get( var_comm_list, 1 )
-
     return
-  end subroutine Poisson2d_smoother_advance_itr_1step
+  end subroutine MGSmoother_Poisson2D_advance_itr_1step
+
+!-- private -----------------------
 
 !OCL SERIAL
   subroutine Poisson2d_smoother_advance_itr_1step_color( &
