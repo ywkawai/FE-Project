@@ -11,8 +11,8 @@ SAMPLE_DIR  = ../
 BINNAME = test_multigrid2d
 OBJS    = mod_poisson2d_smoother.o
 
-RUNCONF         = test.conf
-TPROC           = 4
+RUNCONF         = test2.conf
+TPROC           = 1
 OMP_NUM_THREADS = 1
 
 #------------------------------------------------------

@@ -1,8 +1,8 @@
 !-------------------------------------------------------------------------------
-!> module FElib / Mesh / 2D domain
+!> module FElib / Multigrid / Solver 2D
 !!
 !! @par Description
-!!      Manage mesh hierarchy of 2D domain for element-based methods
+!!      Manage a multigrid solver for 2D domain
 !!
 !! @author Yuta Kawai, Team SCALE
 !<
@@ -37,11 +37,14 @@ module scale_multigrid_solver_2d
     MESH_HIERARCHY_TYPE_pMG,                             &
     MESH_HIERARCHY_TYPE_hMG
   use scale_mesh_hierarchy_2d, only: &
-    MeshHierarchy2D, &
+    MeshHierarchy2D,      &
     MeshHierarchyLevel2D, &
     MeshHierarchyLocalMGData2D
   
-  use scale_multigrid_smoother_base, only: MGSmoother2DBase
+  use scale_multigrid_solver_base, only: MultiGridSolverBase
+  use scale_multigrid_smoother_base, only: &
+    MGSmoother2DBase, &
+    MGSmoother_PRE_ID, MGSmoother_POST_ID
   use scale_multigrid_fieldset_base, only: MGFieldSet2D
 
   !-----------------------------------------------------------------------------
@@ -52,15 +55,9 @@ module scale_multigrid_solver_2d
   !
   !++ Public type & procedure
   ! 
-  type, public :: MultiGridSolver2D
+  type, extends(MultiGridSolverBase), public :: MultiGridSolver2D
     type(MeshHierarchy2D), pointer :: mesh_hierarchy_ptr
     class(MGSmoother2DBase), pointer :: mg_smoother_ptr
-
-    integer, allocatable :: p_itr_num_list(:)
-    integer, allocatable :: h_itr_num_list(:)
-
-    integer :: current_p_lev
-    integer :: current_h_lev
 
     type(MGFieldSet2D), allocatable :: fields_h(:)
     type(MGFieldSet2D), allocatable :: fields_p(:)
@@ -95,14 +92,16 @@ contains
 !OCL SERIAL
   subroutine MultiGridSolver2D_Init( this, &
     mesh_hierarchy, mg_smoother,    &
-    aux_var_num, aux_vec_comp_num,  &
+    aux_var_num, aux_vec_num,       &
     p_itr_num_list, h_itr_num_list  )
+
+    use scale_multigrid_solver_base, only: MultiGridSolverBase_Init
     implicit none
     class(MultiGridSolver2D), intent(inout) :: this
     class(MeshHierarchy2D), intent(in), target :: mesh_hierarchy
     class(MGSmoother2DBase), intent(in), target :: mg_smoother
     integer, intent(in) :: aux_var_num
-    integer, intent(in) :: aux_vec_comp_num
+    integer, intent(in) :: aux_vec_num
     integer, intent(in) :: p_itr_num_list(mesh_hierarchy%NUM_pMG_LEVEL)
     integer, intent(in) :: h_itr_num_list(mesh_hierarchy%NUM_hMG_LEVEL)
 
@@ -110,40 +109,36 @@ contains
     integer :: lev_h
     !-------------------------------------------------------------
 
+    call MultiGridSolverBase_Init( this, mesh_hierarchy, p_itr_num_list, h_itr_num_list )
+
     this%mesh_hierarchy_ptr => mesh_hierarchy
     this%mg_smoother_ptr => mg_smoother
-
-    allocate( this%p_itr_num_list( mesh_hierarchy%NUM_pMG_LEVEL ) )
-    this%p_itr_num_list(:) = p_itr_num_list(:)
-
-    allocate( this%h_itr_num_list( mesh_hierarchy%NUM_hMG_LEVEL ) )
-    this%h_itr_num_list(:) = h_itr_num_list(:)
 
     !--
     allocate( this%fields_p( mesh_hierarchy%NUM_pMG_LEVEL ) )
     do lev_p=1, mesh_hierarchy%NUM_pMG_LEVEL
       call this%fields_p(lev_p)%Init( mesh_hierarchy%p_mesh_list(lev_p)%ptr, &
-        aux_var_num, aux_vec_comp_num, lev_p )
+        aux_var_num, aux_vec_num, lev_p )
     end do
 
     !-
     allocate( this%fields_h( mesh_hierarchy%NUM_hMG_LEVEL ) )
     do lev_h=1, mesh_hierarchy%NUM_hMG_LEVEL
       call this%fields_h(lev_h)%Init( mesh_hierarchy%h_mesh_list(lev_h)%ptr, &
-        aux_var_num, aux_vec_comp_num, lev_h )
+        aux_var_num, aux_vec_num, lev_h )
     end do
     return
   end subroutine MultiGridSolver2D_Init
 
 !OCL SERIAL
   subroutine MultiGridSolver2D_Final(this)
+    use scale_multigrid_solver_base, only: MultiGridSolverBase_Final
     implicit none
     class(MultiGridSolver2D), intent(inout) :: this
     !-------------------------------------------------------------
 
-    deallocate( this%p_itr_num_list )
-    deallocate( this%h_itr_num_list )
-
+    call MultiGridSolverBase_Final( this )
+    
     deallocate( this%fields_p )
     deallocate( this%fields_h )
     return
@@ -229,16 +224,18 @@ contains
       cal_res_flag = (m == 1 .or. m==itr_num .or. mod(m,5)==0)
       zero_initial_guess = ( mg_level /= 1 .and. m==1 )
 
-      call this%mg_smoother_ptr%Advance_itr_1step( fs_p%dq, fs_p%res,            &
-        f_in, fs_p%aux_var, fs_p%aux_var_hvec, m, fs_p%var_comm, fs_p%aux_comm,  &
-        fs_p%Dx, fs_p%Dy, mesh_hierarchy%p_mesh_list(mg_level)%ptr,              &
-        cal_res_flag, zero_initial_guess, this%current_p_lev, this%current_h_lev )
+      call this%mg_smoother_ptr%Advance_itr_1step( fs_p%dq, fs_p%res,             &
+        f_in, fs_p%aux_var, m, fs_p%var_comm_ptr, fs_p%aux_comm_ptr,              &
+        fs_p%Dx, fs_p%Dy, mesh_hierarchy%p_mesh_list(mg_level)%ptr,               &
+        cal_res_flag, zero_initial_guess, this%current_p_lev, this%current_h_lev, &
+        MGSmoother_PRE_ID )
     end do
     if ( mg_level == mesh_hierarchy%NUM_pMG_LEVEL .and. mesh_hierarchy%NUM_hMG_LEVEL == 0 ) then
       LOG_INFO("MultiGridSolver2D_do_Vcycle",*) "End: mg_h_level=", this%current_p_lev
       this%current_p_lev = this%current_p_lev - 1         
       return
     end if
+
 
     !-
     invoke_hMG = ( mg_level+1 >= mesh_hierarchy%NUM_pMG_LEVEL .and. mesh_hierarchy%NUM_hMG_LEVEL > 0 )
@@ -258,11 +255,11 @@ contains
       !- Restriction
       call this%Operate_pMG_restriction( this%fields_p(mg_level+1)%f, &
         this%fields_p(mg_level)%res, mg_level )
-      
+   
       !- Advance node in the V-cycle
       call this%do_Vcycle( mg_level+1, this%fields_p(mg_level+1)%f )
+      
       !- Correction
-      ! LOG_INFO("Poisson2d_mg_Vcycle",*) "mg_level=", mg_level, "correction"
       call this%Operate_pMG_correction( this%fields_p(mg_level)%dq, &
         this%fields_p(mg_level+1)%dq, mg_level )
     end if
@@ -271,10 +268,11 @@ contains
     do m=1, itr_num
       cal_res_flag = (m == 1 .or. m==ITR_NUM .or. mod(m,5)==0)
 
-      call this%mg_smoother_ptr%Advance_itr_1step( fs_p%dq, fs_p%res, &
-        f_in, fs_p%aux_var, fs_p%aux_var_hvec, m, fs_p%var_comm, fs_p%aux_comm, &
-        fs_p%Dx, fs_p%Dy, mesh_hierarchy%p_mesh_list(mg_level)%ptr,             &
-        cal_res_flag, .false., this%current_p_lev, this%current_h_lev           )
+      call this%mg_smoother_ptr%Advance_itr_1step( fs_p%dq, fs_p%res,  &
+        f_in, fs_p%aux_var, m, fs_p%var_comm_ptr, fs_p%aux_comm_ptr,   &
+        fs_p%Dx, fs_p%Dy, mesh_hierarchy%p_mesh_list(mg_level)%ptr,    &
+        cal_res_flag, .false., this%current_p_lev, this%current_h_lev, &
+        MGSmoother_POST_ID )
     end do
 
     LOG_INFO("MultiGridSolver2D_do_Vcycle",*) "End: mg_h_level=", this%current_p_lev
@@ -315,10 +313,11 @@ contains
         zero_initial_guess = ( m==1 )
         cal_res_flag = (m == 1 .or. m==itr_num .or. mod(m,5)==0)
 
-        call this%mg_smoother_ptr%Advance_itr_1step( fs_h%dq, fs_h%res,            &
-          f_in, fs_h%aux_var, fs_h%aux_var_hvec, m, fs_h%var_comm, fs_h%aux_comm,  &
-          fs_h%Dx, fs_h%Dy, mesh_hierarchy%h_mesh_list(mg_level)%ptr,              &
-          cal_res_flag, zero_initial_guess, this%current_p_lev, this%current_h_lev )
+        call this%mg_smoother_ptr%Advance_itr_1step( fs_h%dq, fs_h%res,             &
+          f_in, fs_h%aux_var, m, fs_h%var_comm_ptr, fs_h%aux_comm_ptr,              &
+          fs_h%Dx, fs_h%Dy, mesh_hierarchy%h_mesh_list(mg_level)%ptr,               &
+          cal_res_flag, zero_initial_guess, this%current_p_lev, this%current_h_lev, &
+          MGSmoother_PRE_ID )
       end do
 
       LOG_INFO("MultiGridSolver2D_do_hMG_Vcycle",*) "End: mg_h_lev=", this%current_h_lev
@@ -332,9 +331,10 @@ contains
       zero_initial_guess = ( m==1 )
 
       call this%mg_smoother_ptr%Advance_itr_1step( fs_h%dq, fs_h%res, &
-        f_in, fs_h%aux_var, fs_h%aux_var_hvec, m, fs_h%var_comm, fs_h%aux_comm,  &
-        fs_h%Dx, fs_h%Dy, mesh_hierarchy%h_mesh_list(mg_level)%ptr,              &
-        cal_res_flag, zero_initial_guess, this%current_p_lev, this%current_h_lev )
+        f_in, fs_h%aux_var, m, fs_h%var_comm_ptr, fs_h%aux_comm_ptr,              &
+        fs_h%Dx, fs_h%Dy, mesh_hierarchy%h_mesh_list(mg_level)%ptr,               &
+        cal_res_flag, zero_initial_guess, this%current_p_lev, this%current_h_lev, &
+        MGSmoother_PRE_ID )
     end do
 
     !-
@@ -346,7 +346,6 @@ contains
     call this%do_hMG_Vcycle( mg_level+1, this%fields_h(mg_level+1)%f )
 
     !- Correction
-    ! LOG_INFO("Poisson2d_mg_Vcycle",*) "mg_level=", mg_level, "correction"
     call this%Operate_hMG_correction( this%fields_h(mg_level)%dq, &
       this%fields_h(mg_level+1)%dq, mg_level )
 
@@ -354,10 +353,11 @@ contains
     do m=1, itr_num
       cal_res_flag = (m == 1 .or. m==ITR_NUM .or. mod(m,5)==0)
 
-      call this%mg_smoother_ptr%Advance_itr_1step( fs_h%dq, fs_h%res, &
-        f_in, fs_h%aux_var, fs_h%aux_var_hvec, m, fs_h%var_comm, fs_h%aux_comm, &
-        fs_h%Dx, fs_h%Dy, mesh_hierarchy%h_mesh_list(mg_level)%ptr,             &
-        cal_res_flag, .false., this%current_p_lev, this%current_h_lev           )
+      call this%mg_smoother_ptr%Advance_itr_1step( fs_h%dq, fs_h%res,  &
+        f_in, fs_h%aux_var, m, fs_h%var_comm_ptr, fs_h%aux_comm_ptr,   &
+        fs_h%Dx, fs_h%Dy, mesh_hierarchy%h_mesh_list(mg_level)%ptr,    &
+        cal_res_flag, .false., this%current_p_lev, this%current_h_lev, &
+        MGSmoother_POST_ID )
     end do
 
     LOG_INFO("MultiGridSolver2D_do_hMG_Vcycle",*) "End: mg_h_lev=", this%current_h_lev
@@ -499,6 +499,9 @@ contains
     real(RP) :: Ic2fT_lc(4,4)
     real(RP) :: tmp_c(elem%Np)
     real(RP) :: tmp2(elem%Np)
+
+    real(RP) :: int_tmp(lmesh_c%Ne)
+    real(RP) :: res_cor
     !-----------------------------------------
 
     !$omp parallel private(ke, ke_c, tmp2, tmp_c, Ic2fT_lc)
@@ -510,11 +513,13 @@ contains
         ke = mg_local%If2c_emap(k,ke_c)
 
         tmp2(:) = matmul( elem%M, res_lc(:,ke) )
+        ! tmp2(:) = res_lc(:,ke)
         Ic2fT_lc(:,:) = transpose( mg_local%Ic2f(:,:,ke) )
         tmp_c(:) = tmp_c(:) + matmul( Ic2fT_lc, tmp2(:) )
       end do
 
-      res_c_lc(:,ke_c) = matmul(lmesh_c%refElem2D%invM, tmp_c(:))  * 0.25_RP        
+      res_c_lc(:,ke_c) = matmul(lmesh_c%refElem2D%invM, tmp_c(:)) * 0.25_RP        
+      ! res_c_lc(:,ke_c) = tmp_c(:) * 0.25_RP
     end do
     !$omp end parallel
     return

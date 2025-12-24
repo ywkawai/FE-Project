@@ -32,6 +32,7 @@ module scale_mesh_hierarchy_base
   type, public :: MeshHierarchyLocalMGDataBase
     real(RP), allocatable :: Ic2f(:,:,:)
     integer, allocatable :: Ic2f_emap(:)
+    integer, allocatable :: If2c_emap(:,:)
 
     integer, allocatable :: CoarseLocalMesh_tileIDlist(:)
     integer, allocatable :: CoarseLocalMesh_lcdomIDlist(:)
@@ -136,14 +137,13 @@ contains
 
     !-
     np_int = max(np_i,np_o)
-    write(*,*) "  p-MG transfer matrix 1D: np_i=", np_i, " np_o=", np_o, " np_int=", np_int
     
     allocate( int_pts(np_int) )
     int_pts(:) = Polynominal_GenGaussLegendrePt(np_int)
 
     allocate( int_w(np_int) )     
     int_w(:) = Polynominal_GenGaussLegendrePtIntWeight(np_int)
-!return
+
     !-
     allocate( lag_i(np_int,np_i) )
     lag_i(:,:) = Polynominal_GenLagrangePoly(elem1D_i%PolyOrder, elem1D_i%x1, int_pts)

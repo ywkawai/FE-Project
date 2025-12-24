@@ -18,9 +18,11 @@ module mod_poisson2d_smoother
 
   use scale_meshfield_base, only: MeshField2D
   use scale_meshfieldcomm_base, only: MeshFieldContainer
+  use scale_meshfieldcomm_base, only: MeshFieldCommBase
   use scale_meshfieldcomm_rectdom2d, only: MeshFieldCommRectDom2D
 
-  use scale_multigrid_smoother_base, only: MGSmoother2DBase
+  use scale_multigrid_smoother_base, only: &
+    MGSmoother2DBase, MGSmoother_PRE_ID, MGSmoother_POST_ID
   implicit none
   private
 
@@ -36,6 +38,8 @@ module mod_poisson2d_smoother
   end type MGSmoother_Poisson2D
 
   ! public :: poisson_smoother_evaluate_error_norm
+  integer, parameter, public :: MGSmoother_Possion2D_AUX_SCALAR_NUM  = 0
+  integer, parameter, public :: MGSmoother_Possion2D_AUX_VEC_NUM     = 1
 
   !-----------------------------------------------------------------------------
   !
@@ -66,11 +70,11 @@ contains
   !> Smoother
 !OCL SERIAL
   subroutine MGSmoother_Poisson2D_advance_itr_1step( this, &
-    q, res,                                  & 
-    f, aux_var, aux_hvec_comp,               &
-    itr, var_comm, aux_comm, Dx, Dy, mesh2D, &
-    cal_res_flag, zero_initial_guess,        &
-    mg_p_level, mg_h_level )
+    q, res,                                    & 
+    f, aux_var,                                &
+    itr, var_comm, aux_comm, Dx, Dy, mesh2D,   &
+    cal_res_flag, zero_initial_guess,          &
+    mg_p_level, mg_h_level, pre_or_post_smooth )
 
     use scale_mesh_hierarchy_base, only: &
       pMG_FINEST_LEVEL => MESH_HIERARCHY_pMG_FINEST_LEVEL
@@ -80,10 +84,9 @@ contains
     type(MeshField2D), intent(inout) :: res
     type(MeshField2D), intent(in) :: f
     type(MeshField2D), intent(inout), target :: aux_var(:)
-    type(MeshField2D), intent(inout), target :: aux_hvec_comp(:)
     integer, intent(in) :: itr
-    class(MeshFieldCommRectDom2D), intent(inout) :: var_comm
-    class(MeshFieldCommRectDom2D), intent(inout) :: aux_comm
+    class(MeshFieldCommBase), intent(inout) :: var_comm
+    class(MeshFieldCommBase), intent(inout) :: aux_comm
     type(SparseMat), intent(in) :: Dx
     type(SparseMat), intent(in) :: Dy
     class(MeshBase2D), intent(in), target :: mesh2D
@@ -91,6 +94,7 @@ contains
     logical, intent(in) :: zero_initial_guess
     integer, intent(in) :: mg_p_level
     integer, intent(in) :: mg_h_level
+    integer, intent(in) :: pre_or_post_smooth
 
     integer :: ldomID
     class(LocalMesh2D), pointer :: lmesh2D
@@ -98,12 +102,22 @@ contains
 
     real(RP) :: res_lcdom_int0
     real(RP) :: res_lcdom_int
+    real(RP) :: res_lcdom_avg0
+    real(RP) :: res_lcdom_avg
 
     type(MeshFieldContainer) :: var_comm_list(1)
     logical :: is_mg_top_level
+
+    integer :: color_id_offset
     !---------------------------------------------------------------------------
 
     is_mg_top_level = ( mg_p_level == pMG_FINEST_LEVEL )
+
+    if ( pre_or_post_smooth == MGSmoother_PRE_ID ) then
+      color_id_offset = 2
+    else
+      color_id_offset = 1
+    end if
 
     if ( zero_initial_guess ) then
       do ldomID=1, mesh2D%LOCAL_MESH_NUM
@@ -115,41 +129,41 @@ contains
       end do
     end if
 
-    ! if ( cal_res_flag ) then
-    !   call Poisson2d_smoother_advance_itr_1step_color( &
-    !     q, res,                                  & 
-    !     f, qx, qy,                               &
-    !     itr, var_comm, aux_comm, Dx, Dy, mesh2D, &
-    !     cal_res_flag, 0, is_mg_top_level )
+    if ( cal_res_flag ) then
+      call Poisson2d_smoother_advance_itr_1step_color( &
+        q, res,                                  & 
+        f, aux_var(1), aux_var(2),               &
+        itr, var_comm, aux_comm, Dx, Dy, mesh2D, &
+        cal_res_flag, 0, is_mg_top_level )
 
-    !   res_lcdom_int0 = 0.0_RP
-    !   do ldomID=1, mesh2D%LOCAL_MESH_NUM
-    !     lmesh2D => mesh2D%lcmesh_list(ldomID)
-    !     !$omp parallel do reduction(+:res_lcdom_int0)
-    !     do ke=lmesh2D%NeS, lmesh2D%NeE
-    !       res_lcdom_int0 = res_lcdom_int0 + sum(res%local(ldomID)%val(:,ke)**2)
-    !     end do
-    !   end do
-    ! end if
-
-    ! Red
-    call Poisson2d_smoother_advance_itr_1step_color( &
-      q, res,                                  & 
-      f, aux_hvec_comp(1), aux_hvec_comp(2),   &
-      itr, var_comm, aux_comm, Dx, Dy, mesh2D, &
-      .false., 0, is_mg_top_level )
+      res_lcdom_int0 = 0.0_RP; 
+      do ldomID=1, mesh2D%LOCAL_MESH_NUM
+        lmesh2D => mesh2D%lcmesh_list(ldomID)
+        !$omp parallel do reduction(+:res_lcdom_int0)
+        do ke=lmesh2D%NeS, lmesh2D%NeE
+          res_lcdom_int0 = res_lcdom_int0 + sum(res%local(ldomID)%val(:,ke)**2)
+        end do
+      end do
+    end if
 
     ! Red
     call Poisson2d_smoother_advance_itr_1step_color( &
-      q, res,                                  & 
-      f, aux_hvec_comp(1), aux_hvec_comp(2),   &
-      itr, var_comm, aux_comm, Dx, Dy, mesh2D, &
-      .false., 1, is_mg_top_level )
+      q, res,                                          & 
+      f, aux_var(1), aux_var(2),                       &
+      itr, var_comm, aux_comm, Dx, Dy, mesh2D,         &
+      .false., mod(color_id_offset,2), is_mg_top_level )
+
+    ! Black
+    call Poisson2d_smoother_advance_itr_1step_color( &
+      q, res,                                            & 
+      f, aux_var(1), aux_var(2),                         &
+      itr, var_comm, aux_comm, Dx, Dy, mesh2D,           &
+      .false., mod(color_id_offset+1,2), is_mg_top_level )
       
     if ( cal_res_flag ) then
       call Poisson2d_smoother_advance_itr_1step_color( &
         q, res,                                  & 
-        f, aux_hvec_comp(1), aux_hvec_comp(2),   &
+        f, aux_var(1), aux_var(2),               &
         itr, var_comm, aux_comm, Dx, Dy, mesh2D, &
         cal_res_flag, 0, is_mg_top_level )
 
@@ -161,8 +175,8 @@ contains
           res_lcdom_int = res_lcdom_int + sum(res%local(ldomID)%val(:,ke)**2)
         end do
       end do
-      ! LOG_INFO("Poisson2d_smoother_advance_itr_1step",*) "itr=", itr, ": lc_res0=", sqrt(res_lcdom_int0), ", lc_res1=", sqrt(res_lcdom_int)
-      LOG_INFO("Poisson2d_smoother_advance_itr_1step",*) "itr=", itr, ": lc_res1=", sqrt(res_lcdom_int)
+      LOG_INFO("Poisson2d_smoother_advance_itr_1step",*) "itr=", itr, ": lc_res0=", sqrt(res_lcdom_int0), ", lc_res1=", sqrt(res_lcdom_int)
+      ! LOG_INFO("Poisson2d_smoother_advance_itr_1step",*) "itr=", itr, ": lc_res1=", sqrt(res_lcdom_int)
     end if
     
     var_comm_list(1)%field2d => q
@@ -188,8 +202,8 @@ contains
     class(MeshField2D), intent(inout), target :: qx
     class(MeshField2D), intent(inout), target :: qy
     integer, intent(in) :: itr
-    class(MeshFieldCommRectDom2D), intent(inout) :: var_comm
-    class(MeshFieldCommRectDom2D), intent(inout) :: aux_comm
+    class(MeshFieldCommBase), intent(inout) :: var_comm
+    class(MeshFieldCommBase), intent(inout) :: aux_comm
     type(SparseMat), intent(in) :: Dx
     type(SparseMat), intent(in) :: Dy
     class(MeshBase2D), intent(in), target :: mesh2D
@@ -218,17 +232,17 @@ contains
     end do
 
     !- 
-    ! aux_comm_list(1)%field2d => qx
-    ! aux_comm_list(2)%field2d => qy
+    aux_comm_list(1)%field2d => qx
+    aux_comm_list(2)%field2d => qy
 
-    ! call aux_comm%Put( aux_comm_list, 1 )
-    ! call aux_comm%Exchange()
-    ! call aux_comm%Get( aux_comm_list, 1 )
+    call aux_comm%Put( aux_comm_list, 1 )
+    call aux_comm%Exchange()
+    call aux_comm%Get( aux_comm_list, 1 )
 
     do ldomID=1, mesh2D%LOCAL_MESH_NUM
       lmesh2D => mesh2D%lcmesh_list(ldomID)
       call cal_q_lc( q%local(ldomID)%val, res%local(ldomID)%val,                                 &
-        color_id, cal_res_flag, is_mg_top_level,f%local(ldomID)%val, qx%local(ldomID)%val, qy%local(ldomID)%val, &
+        color_id, cal_res_flag, is_mg_top_level, f%local(ldomID)%val, qx%local(ldomID)%val, qy%local(ldomID)%val, &
         lmesh2D%VMapM, lmesh2D%VMapP, lmesh2D, lmesh2D%refElem2D )
     end do
     
@@ -337,12 +351,15 @@ contains
     integer :: j0
     integer :: j_int
     integer :: ii, ncol
+
+    real(RP) :: q_old
+    real(RP), parameter :: omg = 1.0_RP
     !---------------------------
 
     Emat(:,:) = matmul(elem%M, elem%Lift)
     massEdge(:,:,:)  = 0.0_RP
     do f1=1, elem%Nfaces
-      Fm1 = elem%Fmask(:,f1)
+      Fm1(:) = elem%Fmask(:,f1)
       massEdge(Fm1,Fm1,f1) = Emat(Fm1, (f1-1)*elem%Nfp+1:f1*elem%Nfp)
     end do
 
@@ -351,10 +368,10 @@ contains
     Sx_tr0(:,:) = matmul(transpose(elem%Dx1),elem%M)
     Sy_tr0(:,:) = matmul(transpose(elem%Dx2),elem%M)
 
-   !$omp parallel private( j0, j_int, ncol, i, ke, &
-   !$omp E11, E22, Dx, Dy, Sx_tr, Sy_tr, GsqrtI, GsqrtDx, GsqrtDy,           &
-   !$omp Dn1, GsqrtDn1, GsqrtDn2, OPT11, mmE, Lift_, Lift_x, Lift_y, Lift_x_q, Lift_y_q,   &
-   !$omp Msrc, f1, ke2, f2, id, lnx, lny, Fm1, q_, q_P, qx_P, qy_P, gtau_, p     )
+ !$omp parallel private( j0, j_int, ncol, i, ke, &
+ !$omp E11, E22, Dx, Dy, Sx_tr, Sy_tr, GsqrtI, GsqrtDx, GsqrtDy,           &
+ !$omp Dn1, GsqrtDn1, GsqrtDn2, OPT11, mmE, Lift_, Lift_x, Lift_y, Lift_x_q, Lift_y_q,   &
+ !$omp Msrc, f1, ke2, f2, id, lnx, lny, Fm1, q_, q_P, qx_P, qy_P, gtau_, p, q_old     )
 
     do parity=0, parity_max
 
@@ -366,7 +383,7 @@ contains
         ncol = (lmesh%NeX+1-parity)/2
       end if
 
-      !$omp do collapse(2)
+     !$omp do collapse(2)
       do j=j0, lmesh%NeY, j_int
       do ii=1, ncol
         
@@ -383,8 +400,8 @@ contains
 
         Dx(:,:) = E11 * elem%Dx1
         Dy(:,:) = E22 * elem%Dx2
-        Sx_tr(:,:) = E11 * ( E11 * Sx_tr0(:,:) )
-        Sy_tr(:,:) = E22 * ( E22 * Sy_tr0(:,:) )
+        Sx_tr(:,:) = E11 * Sx_tr0(:,:)
+        Sy_tr(:,:) = E22 * Sy_tr0(:,:)
 
         do p=1, elem%Np
           GsqrtI(:,p) = lmesh%Gsqrt(:,ke)
@@ -407,10 +424,7 @@ contains
           lnx = lmesh%normal_fn(id,ke,1)
           lny = lmesh%normal_fn(id,ke,2)
           Fm1(:) = elem%Fmask(:,f1)
-          
-          Dn1(:,:) = lnx * Dx(:,:) + lny * Dy(:,:)
-          GsqrtDn1(:,:) = lnx * GsqrtDx(:,:) + lny * GsqrtDy(:,:)
-          
+                    
           mmE(:,:) = lmesh%Fscale(id,ke) * massEdge(:,:,f1)  
                           
           Lift_(:,:) = matmul(elem%invM, mmE)
@@ -419,10 +433,15 @@ contains
             Lift_y(:,p) = lmesh%Gsqrt(:,ke) * ( lnx * lmesh%GIJ(:,ke,2,1) + lny * lmesh%GIJ(:,ke,2,2) ) * Lift_(:,p)
           end do
           
-          gtau_ = elem%PolyOrder * (elem%PolyOrder + 1 ) * lmesh%Fscale(id,ke) * 0.5_RP * 7.0_RP
-          
+          !-
+          gtau_ = elem%PolyOrder * (elem%PolyOrder + 1) * lmesh%Fscale(id,ke) * 0.5_RP * 1.2E0_RP
+
+          !-
+          Dn1(:,:) = lnx * Dx(:,:) + lny * Dy(:,:)
+          GsqrtDn1(:,:) = lnx * GsqrtDx(:,:) + lny * GsqrtDy(:,:)
+
           OPT11(:,:) = OPT11(:,:) + 0.5_RP * ( &
-            - gtau_ * mmE(:,:) + matmul(mmE, GsqrtDn1)         &
+            - gtau_ * mmE(:,:) + matmul(mmE, GsqrtDn1)        &
             + ( matmul(Sx_tr,Lift_x) + matmul(Sy_tr,Lift_y) ) )
           
           q_P(:) = q(VMapP(:,f1,ke))
@@ -446,7 +465,8 @@ contains
         else
           call LinAlgebra_SolveLinEq( OPT11, Msrc, q_ )
           do p=1, elem%Np
-            q(p+(ke-1)*elem%Np) = q_(p)
+            q_old = q(p+(ke-1)*elem%Np)
+            q(p+(ke-1)*elem%Np) = q_old + omg * ( q_(p) - q_old )
           end do
         end if        
       end do

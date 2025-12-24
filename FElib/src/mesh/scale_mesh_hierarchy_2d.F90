@@ -50,7 +50,6 @@ module scale_mesh_hierarchy_2d
   end type MeshPtr2D
 
   type, extends(MeshHierarchyLocalMGDataBase), public :: MeshHierarchyLocalMGData2D
-    integer, allocatable :: If2c_emap(:,:)
   contains
     procedure :: Init => MeshHierarchyLocalMGData2D_Init
     procedure :: Final => MeshHierarchyLocalMGData2D_Final
@@ -59,7 +58,6 @@ module scale_mesh_hierarchy_2d
   type, extends(MeshHierarchyLevelBase), public :: MeshHierarchyLevel2D
     type(MeshPtr2D), pointer :: fine_mesh => null()
     type(MeshPtr2D), pointer :: coarse_mesh => null()
-
     type(MeshHierarchyLocalMGData2D), allocatable :: mg_local(:)
 
     real(RP), allocatable :: pMat1D_f2c(:,:)
@@ -132,7 +130,8 @@ contains
       call PRC_abort
     end if
 
-    write(*,*) "Setting up p-mesh hierarchy..."
+    !- Setup p-mesh hierarchy
+
     allocate( this%elem2D_list(p_LEVEL_NUM) )
     do poly_lev=1, p_LEVEL_NUM
       call this%elem2D_list(poly_lev)%Init( porder_list(poly_lev), .false. )
@@ -159,12 +158,10 @@ contains
 
     !- Setup h-mesh hierarchy
 
-    write(*,*) "Setting up h-mesh hierarchy..."
     allocate( this%h_mesh_list(this%NUM_hMG_LEVEL) )
 
     this%h_mesh_list(MESH_HIERARCHY_hMG_FINEST_LEVEL)%ptr => this%p_mesh_list(this%NUM_pMG_LEVEL)%ptr
     do h_lev=MESH_HIERARCHY_hMG_FINEST_LEVEL + 1, this%NUM_hMG_LEVEL
-      write(*,*) "Constructing h-mesh level ", h_lev
       select type(parent_mesh)
       type is (MeshRectDom2D)
         call construct_rectdom2D_mesh( this, this%h_mesh_list(h_lev)%ptr, &
@@ -176,7 +173,6 @@ contains
     allocate( this%h_level(this%NUM_hMG_LEVEL) )
 
     do h_lev=MESH_HIERARCHY_hMG_FINEST_LEVEL, this%NUM_hMG_LEVEL
-      write(*,*) "Constructing h-mesh hierarchy level ", h_lev
       call this%h_level(h_lev)%Init( h_lev, this%h_mesh_list(h_lev)%ptr, &
         this%h_mesh_list, this%NUM_hMG_LEVEL, MESH_HIERARCHY_TYPE_hMG )
     end do
@@ -254,8 +250,6 @@ contains
 
     !- set mesh pointers with finer/coarser meshes
 
-    write(*,*) "Linking mesh hierarchy level ", level_id
-
     if ( level_id > 1 ) then
       this%fine_mesh => mesh_list(level_id-1)
     else
@@ -272,14 +266,10 @@ contains
     if ( hierarchy_type == MESH_HIERARCHY_TYPE_pMG &
          .and. level_id < LEVEL_NUM                ) then
       
-      write(*,*) "Initalizing p-mesh transfer matrices c2f for level ", level_id
-
       allocate( this%pMat1D_c2f(mesh2D%refElem2D%Nfp,this%coarse_mesh%ptr%refElem2D%Nfp) )
       call MeshHierarchy_construct_pMG_mat1D( this%pMat1D_c2f,   &
         this%coarse_mesh%ptr%refElem2D%Nfp, mesh2D%refElem2D%Nfp )
 
-      write(*,*) "Initalizing p-mesh transfer matrices f2c for level ", level_id
-        
       allocate( this%pMat1D_f2c(this%coarse_mesh%ptr%refElem2D%Nfp,mesh2D%refElem2D%Nfp) )
       call MeshHierarchy_construct_pMG_mat1D( this%pMat1D_f2c,   &
         mesh2D%refElem2D%Nfp, this%coarse_mesh%ptr%refElem2D%Nfp )
@@ -291,7 +281,6 @@ contains
 
       allocate( this%mg_local( mesh2D%LOCAL_MESH_NUM ) )
 
-      write(*,*) "  Initializing local MG data for h-mesh level ", level_id
       do ldom_id=1, mesh2D%LOCAL_MESH_NUM
         call this%mg_local(ldom_id)%Init( mesh_list(level_id)%ptr%lcmesh_list(ldom_id), &
           this%coarse_mesh%ptr%lcmesh_list, mesh_list(level_id)%ptr%refElem2D           )
@@ -363,7 +352,7 @@ contains
     this%CoarseLocalMesh_tileIDlist(1) = lcmesh2D%tileID
     this%CoarseLocalMesh_lcdomIDlist(1) = 1
 
-    ! Preparetion
+    ! Preparation
     do j=1, lcmesh2D%NeY
     do i=1, lcmesh2D%NeX
       ke = i + (j-1)*lcmesh2D%NeX
@@ -390,7 +379,7 @@ contains
 
       i = ke2i(ke) - 2*(i_c-1)
       j = ke2j(ke) - 2*(j_c-1)
-      this%If2c_emap(i+(j-1)*4,ke_c) = ke
+      this%If2c_emap(i+(j-1)*2,ke_c) = ke
 
       i_EtoV(:) = lcmesh_c%EToV(ke_c,:)
       vx_c(:) = lcmesh_c%pos_ev(i_EtoV(:),1)

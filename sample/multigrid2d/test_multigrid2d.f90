@@ -78,7 +78,7 @@ contains
       x(:) = lmesh%pos_en(:,ke,1)
       y(:) = lmesh%pos_en(:,ke,2)
       f_(:,ke) = sin( 2.0_RP * PI * x(:) ) &
-               * sin( 2.0_RP * PI * y(:) )
+               * sin( 2.0_RP * PI * y(:) ) * (2.0_RP*PI)**2 * 2.0_RP
     end do
 
     return
@@ -93,7 +93,10 @@ contains
     use scale_calendar, only: CALENDAR_setup
     use scale_file_history_meshfield, only: FILE_HISTORY_meshfield_setup  
     use scale_file_history, only: FILE_HISTORY_reg  
-    use scale_polynominal, only: Polynominal_GenLagrangePoly
+
+    use mod_poisson2d_smoother, only: &
+      MGSmoother_Possion2D_AUX_SCALAR_NUM, &
+      MGSmoother_Possion2D_AUX_VEC_NUM
     implicit none
 
     !-
@@ -233,8 +236,9 @@ contains
 
     !- Setup an object to provide a MG solver   
     LOG_INFO("Poisson2D_MG_Init",*) "Setup MG solver"    
-    call mg_solver%Init( mesh_hierarchy, smoother, 0, 2, &
-      P_ITR_NUM_LIST(1:P_LEVEL_NUM), H_ITR_NUM_LIST(1:H_LEVEL_NUM) )
+    call mg_solver%Init( mesh_hierarchy, smoother, &
+      MGSmoother_Possion2D_AUX_SCALAR_NUM, MGSmoother_Possion2D_AUX_VEC_NUM, &
+      P_ITR_NUM_LIST(1:P_LEVEL_NUM), H_ITR_NUM_LIST(1:H_LEVEL_NUM)           )
 
     
     !- Set the right-hand side and initial guess
