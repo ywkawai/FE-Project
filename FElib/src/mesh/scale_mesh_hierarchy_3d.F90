@@ -45,16 +45,20 @@ module scale_mesh_hierarchy_3d
   !
   !++ Public type & procedure
   ! 
+
+  !> Derived type to save a pointer to MeshBase3D
   type :: MeshPtr3D
     class(MeshBase3D), pointer :: ptr => null()
   end type MeshPtr3D
 
+  !> Derived type to manage 3D local mesh data for multigrid
   type, extends(MeshHierarchyLocalMGDataBase), public :: MeshHierarchyLocalMGData3D
   contains
     procedure :: Init => MeshHierarchyLocalMGData3D_Init
     procedure :: Final => MeshHierarchyLocalMGData3D_Final
   end type MeshHierarchyLocalMGData3D
 
+  !> Derived type to represent mesh hierarchy level in 3D domain
   type, extends(MeshHierarchyLevelBase), public :: MeshHierarchyLevel3D
     type(MeshPtr3D), pointer :: fine_mesh => null()
     type(MeshPtr3D), pointer :: coarse_mesh => null()
@@ -67,6 +71,7 @@ module scale_mesh_hierarchy_3d
     procedure :: Final => MeshHierarchyLevel3D_Final
   end type MeshHierarchyLevel3D
 
+  !> Derived type for mesh hierarchy in 3D domain
   type, extends(MeshHierarchyBase), public :: MeshHierarchy3D
     type(MeshHierarchyLevel3D), allocatable :: p_level(:)
     type(MeshHierarchyLevel3D), allocatable :: h_level(:)
@@ -95,6 +100,7 @@ module scale_mesh_hierarchy_3d
   !++ Private parameters & variables
   !
 contains
+  !> Initialize an object for mesh hierarchy in 3D domain
 !OCL SERIAL
   subroutine MeshHierarchy3D_Init( this, &
     parent_mesh,                                  &
@@ -102,13 +108,13 @@ contains
     NeGX_list, NeGY_list, NeGZ_list, h_LEVEL_NUM  )
     implicit none
     class(MeshHierarchy3D), intent(inout), target :: this
-    class(MeshBase3D), intent(in), target :: parent_mesh
-    integer, intent(in) :: p_LEVEL_NUM
-    integer, intent(in) :: porder_list(p_LEVEL_NUM)
-    integer, intent(in) :: h_LEVEL_NUM
-    integer, intent(in) :: NeGX_list(h_LEVEL_NUM)
-    integer, intent(in) :: NeGY_list(h_LEVEL_NUM)
-    integer, intent(in) :: NeGZ_list(h_LEVEL_NUM)
+    class(MeshBase3D), intent(in), target :: parent_mesh  !< Pointer to the finest mesh
+    integer, intent(in) :: p_LEVEL_NUM                    !< Number of p-mesh levels
+    integer, intent(in) :: porder_list(p_LEVEL_NUM)       !< Polynomial order list for p-mesh levels
+    integer, intent(in) :: h_LEVEL_NUM                    !< Number of h-mesh levels
+    integer, intent(in) :: NeGX_list(h_LEVEL_NUM)         !< Number of elements in x-direction for h-mesh levels
+    integer, intent(in) :: NeGY_list(h_LEVEL_NUM)         !< Number of elements in y-direction for h-mesh levels
+    integer, intent(in) :: NeGZ_list(h_LEVEL_NUM)         !< Number of elements in z-direction for h-mesh levels
 
     integer :: poly_lev
     integer :: h_lev
@@ -173,28 +179,31 @@ contains
 
     !- Setup h-mesh hierarchy
 
-    allocate( this%h_mesh_list(this%NUM_hMG_LEVEL) )
+    if ( this%NUM_hMG_LEVEL > 0 ) then
+      allocate( this%h_mesh_list(this%NUM_hMG_LEVEL) )
 
-    this%h_mesh_list(MESH_HIERARCHY_hMG_FINEST_LEVEL)%ptr => parent_mesh
-    do h_lev=MESH_HIERARCHY_hMG_FINEST_LEVEL + 1, this%NUM_hMG_LEVEL
-      select type(parent_mesh)
-      type is (MeshCubeDom3D)
-        call construct_cubedom3D_mesh( this, this%h_mesh_list(h_lev)%ptr,       &
-          NeGX_list(h_lev), NeGY_list(h_lev), NeGZ_list(h_lev), parent_mesh%FZ, &
-          parent_mesh, this%elem3D_list(p_LEVEL_NUM) )
-      end select
-    end do
+      this%h_mesh_list(MESH_HIERARCHY_hMG_FINEST_LEVEL)%ptr => parent_mesh
+      do h_lev=MESH_HIERARCHY_hMG_FINEST_LEVEL + 1, this%NUM_hMG_LEVEL
+        select type(parent_mesh)
+        type is (MeshCubeDom3D)
+          call construct_cubedom3D_mesh( this, this%h_mesh_list(h_lev)%ptr,       &
+            NeGX_list(h_lev), NeGY_list(h_lev), NeGZ_list(h_lev), parent_mesh%FZ, &
+            parent_mesh, this%elem3D_list(p_LEVEL_NUM) )
+        end select
+      end do
 
-    allocate( this%h_level(this%NUM_hMG_LEVEL) )
+      allocate( this%h_level(this%NUM_hMG_LEVEL) )
 
-    do h_lev=MESH_HIERARCHY_hMG_FINEST_LEVEL, this%NUM_hMG_LEVEL
-      call this%h_level(h_lev)%Init( h_lev, this%h_mesh_list(h_lev)%ptr, &
-        this%h_mesh_list, this%NUM_hMG_LEVEL, MESH_HIERARCHY_TYPE_hMG )
-    end do
+      do h_lev=MESH_HIERARCHY_hMG_FINEST_LEVEL, this%NUM_hMG_LEVEL
+        call this%h_level(h_lev)%Init( h_lev, this%h_mesh_list(h_lev)%ptr, &
+          this%h_mesh_list, this%NUM_hMG_LEVEL, MESH_HIERARCHY_TYPE_hMG )
+      end do
+    end if
 
     return
   end subroutine MeshHierarchy3D_Init
 
+  !> Finalize an object for mesh hierarchy in 3D domain
 !OCL SERIAL
   subroutine MeshHierarchy3D_Final(this)
     implicit none
@@ -222,19 +231,21 @@ contains
     deallocate( this%p_mesh_list )
 
     ! h-mesh hierarchy finalization
-    do h_lev=MESH_HIERARCHY_hMG_FINEST_LEVEL, this%NUM_hMG_LEVEL
-      call this%h_level(h_lev)%Final()
-    end do
-    deallocate( this%h_level )
+    if ( this%NUM_hMG_LEVEL > 0 ) then
+      do h_lev=MESH_HIERARCHY_hMG_FINEST_LEVEL, this%NUM_hMG_LEVEL
+        call this%h_level(h_lev)%Final()
+      end do
+      deallocate( this%h_level )
 
-    do h_lev=MESH_HIERARCHY_hMG_FINEST_LEVEL + 1, this%NUM_hMG_LEVEL
-      mesh3D_ptr => this%h_mesh_list(h_lev)%ptr
-      select type(mesh3D_ptr)
-      type is (MeshCubeDom3D)
-        call mesh3D_ptr%Final()
-      end select
-    end do
-    deallocate( this%h_mesh_list )
+      do h_lev=MESH_HIERARCHY_hMG_FINEST_LEVEL + 1, this%NUM_hMG_LEVEL
+        mesh3D_ptr => this%h_mesh_list(h_lev)%ptr
+        select type(mesh3D_ptr)
+        type is (MeshCubeDom3D)
+          call mesh3D_ptr%Final()
+        end select
+      end do
+      deallocate( this%h_mesh_list )
+    end if
     
     !-
     call MeshHierarchyBase_Final( this )
@@ -243,6 +254,7 @@ contains
 
 !-- private --------------------------------------------------------------
 
+  !> Initialize an object for mesh hierarchy level in 3D domain
 !OCL SERIAL
   subroutine MeshHierarchyLevel3D_Init( this, &
     level_id, mesh3D, mesh_list, LEVEL_NUM,   &
@@ -305,6 +317,7 @@ contains
     return
   end subroutine MeshHierarchyLevel3D_Init
 
+  !> Finalize an object for mesh hierarchy level in 3D domain
 !OCL SERIAL
   subroutine MeshHierarchyLevel3D_Final( this )
     implicit none
@@ -322,6 +335,7 @@ contains
     return
   end subroutine MeshHierarchyLevel3D_Final
 
+!> Initialize an object to manage 3D local mesh data for multigrid
 !OCL SERIAL
   subroutine MeshHierarchyLocalMGData3D_Init( this, &
     lcmesh3D, coarse_lcmesh_list, elem3D )
@@ -413,6 +427,7 @@ contains
     return
   end subroutine MeshHierarchyLocalMGData3D_Init
 
+!> Finalize an object to manage 3D local mesh data for multigrid
 !OCL SERIAL
   subroutine MeshHierarchyLocalMGData3D_Final( this )
     use scale_mesh_hierarchy_base, only: MeshHierarchyLocalMGDataBase_Final
@@ -440,9 +455,6 @@ contains
 
     type(MeshCubeDom3D), pointer :: child_mesh_ptr
     !-------------------------------------------------------------
-
-    write(*,*) "Fz=", FZ(:)
-    write(*,*) parent_mesh%isPeriodicX, parent_mesh%isPeriodicY, parent_mesh%isPeriodicZ
 
     allocate( child_mesh_ptr )
     call child_mesh_ptr%Init( NeGX, NeGY, NeGZ,                                            &

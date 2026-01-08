@@ -45,16 +45,20 @@ module scale_mesh_hierarchy_2d
   !
   !++ Public type & procedure
   ! 
+
+  !> Derived type to save a pointer to MeshBase2D
   type :: MeshPtr2D
     class(MeshBase2D), pointer :: ptr => null()
   end type MeshPtr2D
 
+  !> Derived type to manage 2D local mesh data for multigrid
   type, extends(MeshHierarchyLocalMGDataBase), public :: MeshHierarchyLocalMGData2D
   contains
     procedure :: Init => MeshHierarchyLocalMGData2D_Init
     procedure :: Final => MeshHierarchyLocalMGData2D_Final
   end type MeshHierarchyLocalMGData2D
 
+  !> Derived type to represent mesh hierarchy level in 2D domain
   type, extends(MeshHierarchyLevelBase), public :: MeshHierarchyLevel2D
     type(MeshPtr2D), pointer :: fine_mesh => null()
     type(MeshPtr2D), pointer :: coarse_mesh => null()
@@ -67,6 +71,7 @@ module scale_mesh_hierarchy_2d
     procedure :: Final => MeshHierarchyLevel2D_Final
   end type MeshHierarchyLevel2D
 
+  !> Derived type for mesh hierarchy in 2D domain
   type, extends(MeshHierarchyBase), public :: MeshHierarchy2D
     type(MeshHierarchyLevel2D), allocatable :: p_level(:)
     type(MeshHierarchyLevel2D), allocatable :: h_level(:)
@@ -95,6 +100,7 @@ module scale_mesh_hierarchy_2d
   !++ Private parameters & variables
   !
 contains
+  !> Initialize an object for mesh hierarchy in 2D domain
 !OCL SERIAL
   subroutine MeshHierarchy2D_Init( this, &
     parent_mesh,                       &
@@ -102,13 +108,13 @@ contains
     NeGX_list, NeGY_list, h_LEVEL_NUM  )
     implicit none
     class(MeshHierarchy2D), intent(inout), target :: this
-    class(MeshBase2D), intent(in), target :: parent_mesh
-    integer, intent(in) :: p_LEVEL_NUM
-    integer, intent(in) :: porder_list(p_LEVEL_NUM)
-    integer, intent(in) :: h_LEVEL_NUM
-    integer, intent(in) :: NeGX_list(h_LEVEL_NUM)
-    integer, intent(in) :: NeGY_list(h_LEVEL_NUM)
-
+    class(MeshBase2D), intent(in), target :: parent_mesh  !< Pointer to the finest mesh
+    integer, intent(in) :: p_LEVEL_NUM                    !< Number of p-mesh levels
+    integer, intent(in) :: porder_list(p_LEVEL_NUM)       !< Polynomial order list for p-mesh levels
+    integer, intent(in) :: h_LEVEL_NUM                    !< Number of h-mesh levels
+    integer, intent(in) :: NeGX_list(h_LEVEL_NUM)         !< Number of elements in x-direction for h-mesh levels
+    integer, intent(in) :: NeGY_list(h_LEVEL_NUM)         !< Number of elements in y-direction for h-mesh levels
+    
     integer :: poly_lev
     integer :: h_lev
 
@@ -180,6 +186,7 @@ contains
     return
   end subroutine MeshHierarchy2D_Init
 
+  !> Finalize an object for mesh hierarchy in 2D domain
 !OCL SERIAL
   subroutine MeshHierarchy2D_Final(this)
     implicit none
@@ -228,6 +235,7 @@ contains
 
 !-- private --------------------------------------------------------------
 
+  !> Initialize an object for mesh hierarchy level in 2D domain
 !OCL SERIAL
   subroutine MeshHierarchyLevel2D_Init( this, &
     level_id, mesh2D, mesh_list, LEVEL_NUM,   &
@@ -290,6 +298,7 @@ contains
     return
   end subroutine MeshHierarchyLevel2D_Init
 
+  !> Finalize an object for mesh hierarchy level in 2D domain
 !OCL SERIAL
   subroutine MeshHierarchyLevel2D_Final( this )
     implicit none
@@ -313,6 +322,7 @@ contains
     return
   end subroutine MeshHierarchyLevel2D_Final
 
+  !> Initialize an object for 2D local mesh data for multigrid
 !OCL SERIAL
   subroutine MeshHierarchyLocalMGData2D_Init( this, &
     lcmesh2D, coarse_lcmesh_list, elem2D )
@@ -397,6 +407,7 @@ contains
     return
   end subroutine MeshHierarchyLocalMGData2D_Init
 
+  !> Finalize an object for 2D local mesh data for multigrid
 !OCL SERIAL
   subroutine MeshHierarchyLocalMGData2D_Final( this )
     use scale_mesh_hierarchy_base, only: MeshHierarchyLocalMGDataBase_Final

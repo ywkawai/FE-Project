@@ -47,16 +47,19 @@ module scale_multigrid_fieldset_base
   !
   !++ Public type & procedure
   ! 
+
+  !> Base type for multigrid field set
   type :: MGFieldBase
-    integer :: var_num
-    integer :: level_id
+    integer :: var_num   !< Number of variables
+    integer :: level_id  !< Level ID in multigrid hierarchy
 
-    integer :: aux_var_num_tot
+    integer :: aux_var_num_tot !< Total number of auxiliary variables
 
-    class(MeshFieldCommBase), pointer :: var_comm_ptr
-    class(MeshFieldCommBase), pointer :: aux_comm_ptr
+    class(MeshFieldCommBase), pointer :: var_comm_ptr !< Pointer to communicator for main variables
+    class(MeshFieldCommBase), pointer :: aux_comm_ptr !< Pointer to communicator for auxiliary variables
   end type MGFieldBase
 
+  !> Derived type for 2D multigrid field set
   type, extends(MGFieldBase), public :: MGFieldSet2D
     type(MeshField2D) :: dq
     type(MeshField2D) :: f
@@ -65,22 +68,23 @@ module scale_multigrid_fieldset_base
 
     type(SparseMat) :: Dx
     type(SparseMat) :: Dy
+    type(SparseMat) :: Lift
   contains
     procedure :: Init => MGFieldSet2D_Init
     procedure :: Final => MGFieldSet2D_Final
   end type MGFieldSet2D
 
+  !> Derived type for 3D multigrid field set
   type, extends(MGFieldBase), public :: MGFieldSet3D
     type(MeshField3D) :: dq
     type(MeshField3D) :: f
     type(MeshField3D) :: res
     type(MeshField3D), allocatable :: aux_var(:)
 
-    ! type(MeshFieldCommCubeDom3D) :: var_comm
-    ! type(MeshFieldCommCubeDom3D) :: aux_comm
     type(SparseMat) :: Dx
     type(SparseMat) :: Dy
     type(SparseMat) :: Dz
+    type(SparseMat) :: Lift
   contains
     procedure :: Init => MGFieldSet3D_Init
     procedure :: Final => MGFieldSet3D_Final
@@ -89,6 +93,7 @@ module scale_multigrid_fieldset_base
 contains
 
 !- 2D
+  !> Initialize an object to manage multigrid field set in 2D
 !OCL SERIAL
   subroutine MGFieldSet2D_Init(this, mesh2D, aux_scalar_num, aux_vec_num, level_id)
     use scale_mesh_rectdom2d, only: MeshRectDom2D
@@ -148,9 +153,11 @@ contains
   
     call this%Dx%Init( mesh2D%refElem2D%Dx1, storage_format='ELL')
     call this%Dy%Init( mesh2D%refElem2D%Dx2, storage_format='ELL')
+    call this%Lift%Init( mesh2D%refElem2D%Lift, storage_format='ELL')
     return
   end subroutine MGFieldSet2D_Init
 
+  !> Finalize an object to manage multigrid field set in 2D
 !OCL SERIAL
   subroutine MGFieldSet2D_Final(this)
     implicit none
@@ -194,6 +201,7 @@ contains
   end subroutine MGFieldSet2D_Final
 
 !- 3D
+  !> Initialize an object to manage multigrid field set in 3D
 !OCL SERIAL
   subroutine MGFieldSet3D_Init(this, mesh3D, aux_scalar_num, aux_hvec_num, level_id)
     use scale_mesh_cubedom3d, only: MeshCubeDom3D
@@ -256,9 +264,11 @@ contains
     call this%Dx%Init( mesh3D%refElem3D%Dx1, storage_format='ELL')
     call this%Dy%Init( mesh3D%refElem3D%Dx2, storage_format='ELL')
     call this%Dz%Init( mesh3D%refElem3D%Dx3, storage_format='ELL')
+    call this%Lift%Init( mesh3D%refElem3D%Lift, storage_format='ELL')
     return
   end subroutine MGFieldSet3D_Init
 
+  !> Finalize an object to manage multigrid field set in 3D
 !OCL SERIAL
   subroutine MGFieldSet3D_Final(this)
     implicit none

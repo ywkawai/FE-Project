@@ -1,8 +1,8 @@
 !-------------------------------------------------------------------------------
-!> module FElib / Mesh / 1D domain
+!> module FElib / Mesh / Hierarchy base
 !!
 !! @par Description
-!!      Manage mesh data of 1D domain for element-based methods
+!!      A base module to provide a mesh hierarchy
 !!
 !! @author Yuta Kawai, Team SCALE
 !<
@@ -29,10 +29,11 @@ module scale_mesh_hierarchy_base
   !++ Public type & procedure
   ! 
 
+  !> Base type to manage local mesh data for multigrid
   type, public :: MeshHierarchyLocalMGDataBase
-    real(RP), allocatable :: Ic2f(:,:,:)
-    integer, allocatable :: Ic2f_emap(:)
-    integer, allocatable :: If2c_emap(:,:)
+    real(RP), allocatable :: Ic2f(:,:,:)    !< Matrix for correction operation in h-MG
+    integer, allocatable :: Ic2f_emap(:)    !< Mapping of elements used for correction operation in h-MG
+    integer, allocatable :: If2c_emap(:,:)  !< Mapping of elements used for restriction operation in h-MG
 
     integer, allocatable :: CoarseLocalMesh_tileIDlist(:)
     integer, allocatable :: CoarseLocalMesh_lcdomIDlist(:)
@@ -45,29 +46,27 @@ module scale_mesh_hierarchy_base
     integer :: level_id   = 0
   end type MeshHierarchyLevelBase
 
+  !> Base type for mesh hierarchy
   type, public :: MeshHierarchyBase
-    integer :: NUM_TOT_LEVEL
-    integer :: NUM_hMG_LEVEL
-    integer :: NUM_pMG_LEVEL
-
-    integer :: hMG_COARSEST_LEVEL
+    integer :: NUM_TOT_LEVEL   !< Total number of levels
+    integer :: NUM_hMG_LEVEL   !< Number of h-MG levels
+    integer :: NUM_pMG_LEVEL   !< Number of p-MG levels
   contains
   end type MeshHierarchyBase
-
   public :: MeshHierarchyBase_Init
   public :: MeshHierarchyBase_Final
-
+  
   public :: MeshHierarchy_construct_pMG_mat1D
   
   !-----------------------------------------------------------------------------
   !
   !++ Public parameters & variables
   !
-  integer, public, parameter :: MESH_HIERARCHY_pMG_FINEST_LEVEL = 1
-  integer, public, parameter :: MESH_HIERARCHY_hMG_FINEST_LEVEL = 1
+  integer, public, parameter :: MESH_HIERARCHY_pMG_FINEST_LEVEL = 1  !< Finest level index in p-MG
+  integer, public, parameter :: MESH_HIERARCHY_hMG_FINEST_LEVEL = 1  !< Finest level index in h-MG
 
-  integer, public, parameter :: MESH_HIERARCHY_TYPE_pMG         = 1
-  integer, public, parameter :: MESH_HIERARCHY_TYPE_hMG         = 2
+  integer, public, parameter :: MESH_HIERARCHY_TYPE_pMG         = 1  !< Type ID of mesh hierarchy: p-MG
+  integer, public, parameter :: MESH_HIERARCHY_TYPE_hMG         = 2  !< Type ID of mesh hierarchy: h-MG
 
   !-----------------------------------------------------------------------------
   !
@@ -79,26 +78,26 @@ module scale_mesh_hierarchy_base
   !++ Private parameters & variables
   !
 contains
+  !> Initialize a base object for mesh hierarchy
 !OCL SERIAL
   subroutine MeshHierarchyBase_Init( this, &
     p_LEVEL_NUM, &
     h_LEVEL_NUM  )
     implicit none
     class(MeshHierarchyBase), intent(inout) :: this
-    integer, intent(in) :: p_LEVEL_NUM
-    integer, intent(in) :: h_LEVEL_NUM
+    integer, intent(in) :: p_LEVEL_NUM   !< Number of p-mesh levels
+    integer, intent(in) :: h_LEVEL_NUM   !< Number of h-mesh levels
     !-------------------------------------------------------------
 
     this%NUM_TOT_LEVEL = 0
     this%NUM_hMG_LEVEL = h_LEVEL_NUM
     this%NUM_pMG_LEVEL = p_LEVEL_NUM
 
-    this%hMG_COARSEST_LEVEL = h_LEVEL_NUM
     this%NUM_TOT_LEVEL = this%NUM_hMG_LEVEL + this%NUM_pMG_LEVEL
-
     return
   end subroutine MeshHierarchyBase_Init
 
+  !> Finalize a base object for mesh hierarchy
 !OCL SERIAL
   subroutine MeshHierarchyBase_Final(this)
     implicit none
@@ -107,6 +106,7 @@ contains
     return
   end subroutine MeshHierarchyBase_Final
 
+  !> Construct a 1D p-multigrid matrix used for transfer between different p-levels
 !OCL SERIAL
   subroutine MeshHierarchy_construct_pMG_mat1D( mat1D, np_i, np_o )
     use scale_polynominal, only: &
@@ -115,9 +115,9 @@ contains
       Polynominal_GenGaussLegendrePtIntWeight
     use scale_element_line, only: LineElement
     implicit none
-    integer, intent(in) :: np_i
-    integer, intent(in) :: np_o
-    real(RP), intent(out) :: mat1D(np_o,np_i)
+    integer, intent(in) :: np_i               !< Number of points with input DOF
+    integer, intent(in) :: np_o               !< Number of points with output DOF
+    real(RP), intent(out) :: mat1D(np_o,np_i) !< Transfer matrix with p-MG
 
     type(LineElement) :: elem1D_i
     type(LineElement) :: elem1D_o
@@ -130,7 +130,7 @@ contains
     real(RP), allocatable :: int_pts(:)
 
     integer :: pi, po
-    !------------------------------------------
+    !---------------------------------------------------------------------
 
     call elem1D_i%Init( np_i-1, .false. )
     call elem1D_o%Init( np_o-1, .false. )
@@ -166,6 +166,7 @@ contains
   end subroutine MeshHierarchy_construct_pMG_mat1D
 
 !-
+  !> Initialize a base object to manage local multigrid data for mesh hierarchy
 !OCL SERIAL
   subroutine MeshHierarchyLocalMGDataBase_Init( this, &
     lcmesh )
@@ -182,6 +183,7 @@ contains
     return
   end subroutine MeshHierarchyLocalMGDataBase_Init
 
+  !> Finalize a base object to manage local multigrid data for mesh hierarchy
 !OCL SERIAL
   subroutine MeshHierarchyLocalMGDataBase_Final( this )
     implicit none
