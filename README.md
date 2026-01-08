@@ -15,12 +15,13 @@ We also provide sample programs and an atmospheric model for meteorological simu
 
 
 ## Models with FE library
+### Nonhydrostatic atmospheric model
+- Regional and Global models (SCALE-DG)
+- Simple 2D model with only dynamical process
+
 ### Shallow water model
 - Global shallow water model using cubed-sphere mesh
 
-### Nonhydrostatic atmospheric model
-- Simple 2D model with only dynamical process
-- Regional and Global models (SCALE-DG)
 
 ## Simple samples for introduction to DGM
 ### 1D problems 
@@ -33,6 +34,7 @@ We also provide sample programs and an atmospheric model for meteorological simu
   - Linear advection equation in a rectangle domain
     - various profiles of advected quantity and flow
   - Linear advection equation in a cubed-sphere domain
+  - Poisson equation in a rectangle domain with a multi-grid method
 
 ### 3D problems 
   - Linear advection equation in a cubic domain
@@ -40,6 +42,7 @@ We also provide sample programs and an atmospheric model for meteorological simu
   - Linear advection equation in a cubed-sphere domain
   - Euler equation in a cubic domain
     - Test the propagation of sound waves with HEVI temporal methods
+  - Poisson equation in a cubic domain with a multi-grid method
 
 ## Build FE library
 Please see ``INSTALL.md''.  

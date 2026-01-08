@@ -39,7 +39,7 @@ module scale_meshfieldcomm_cubedom3d
 
   !> Base derived type to manage data communication with 3D cubic domain
   type, public, extends(MeshFieldCommBase) :: MeshFieldCommCubeDom3D
-    class(MeshCubeDom3D), pointer :: mesh3d !< Pointer to an object representing 3D cubic computational mesh
+    class(MeshCubeDom3D), pointer :: mesh3d  !< Pointer to an object representing 3D cubic computational mesh
   contains
     procedure, public :: Init => MeshFieldCommCubeDom3D_Init
     procedure, public :: Put => MeshFieldCommCubeDom3D_put
@@ -63,7 +63,6 @@ module scale_meshfieldcomm_cubedom3d
   !
   !++ Private parameters & variables
   !
-  integer :: bufsize_per_field             !< Buffer size per a field
   integer, parameter :: COMM_FACE_NUM = 6  !< Number of faces with data communication
 
 contains
@@ -88,8 +87,8 @@ contains
     this%mesh3d => mesh3d
     lcmesh => mesh3d%lcmesh_list(1)
     elem => lcmesh%refElem3D
-    bufsize_per_field =  2*(lcmesh%NeX + lcmesh%NeY)*lcmesh%NeZ*elem%Nfp_h &
-                       + 2*lcmesh%NeX*lcmesh%NeY*elem%Nfp_v
+    this%bufsize_per_field =  2*(lcmesh%NeX + lcmesh%NeY)*lcmesh%NeZ*elem%Nfp_h &
+                            + 2*lcmesh%NeX*lcmesh%NeY*elem%Nfp_v
 
     do n=1, this%mesh3d%LOCAL_MESH_NUM
       lcmesh => this%mesh3d%lcmesh_list(n)
@@ -98,7 +97,7 @@ contains
         + (/ 0, 0, 0, 0, 1, 1 /) * lcmesh%NeX*lcmesh%NeY * lcmesh%refElem3D%Nfp_v
     end do
 
-    call MeshFieldCommBase_Init( this, sfield_num, hvfield_num, htensorfield_num, bufsize_per_field, COMM_FACE_NUM, Nnode_LCMeshFace, mesh3d )  
+    call MeshFieldCommBase_Init( this, sfield_num, hvfield_num, htensorfield_num, this%bufsize_per_field, COMM_FACE_NUM, Nnode_LCMeshFace, mesh3d )  
   
     return
   end subroutine MeshFieldCommCubeDom3D_Init
@@ -121,12 +120,8 @@ contains
     type(MeshFieldContainer), intent(in) :: field_list(:)  !< Array of objects with 3D mesh field
     integer, intent(in) :: varid_s                         !< Start index with variables when field_list(1) is written to buffers for data communication
   
-    ! integer :: i
-    ! integer :: n
-    ! type(LocalMesh3d), pointer :: lcmesh
-    ! integer :: field_num
     !-----------------------------------------------------------------------------
-
+    
 !    call PROF_rapstart( 'meshfiled_comm_put', 3)
     ! field_num = size(field_list)
     ! do n=1, this%mesh%LOCAL_MESH_NUM
@@ -203,7 +198,8 @@ contains
         commdata => this%commdata_list(f,n)
         call push_localsendbuf( commdata%send_buf(:,:),             &  ! (inout)
           this%send_buf(:,:,n), commdata%s_faceID, this%is_f(f,n),  &  ! (in)
-          commdata%Nnode_LCMeshFace, this%field_num_tot, lcmesh )      ! (in)
+          commdata%Nnode_LCMeshFace, this%bufsize_per_field,        &  ! (in)
+          this%field_num_tot, lcmesh )                                 ! (in)
       end do
     end do
 !    call PROF_rapend( 'meshfiled_comm_ex_push_buf', 3)
@@ -218,10 +214,11 @@ contains
 !----------------------------
 
 !OCL SERIAL
-  subroutine push_localsendbuf( lc_send_buf, send_buf, s_faceID, is, Nnode_LCMeshFace, var_num, lcmesh )
+  subroutine push_localsendbuf( lc_send_buf, send_buf, s_faceID, is, Nnode_LCMeshFace, bufsize_per_field, var_num, lcmesh )
     implicit none
 
     integer, intent(in) ::  Nnode_LCMeshFace
+    integer, intent(in) :: bufsize_per_field
     integer, intent(in) :: var_num
     type(LocalMesh3D), intent(in) :: lcmesh
     real(RP), intent(out) :: lc_send_buf(Nnode_LCMeshFace,var_num)

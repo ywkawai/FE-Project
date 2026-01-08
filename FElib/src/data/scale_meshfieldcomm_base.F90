@@ -62,6 +62,9 @@ module scale_meshfieldcomm_base
     integer :: field_num_tot     !< Total number of fields
     integer :: nfaces_comm       !< Number of faces where halo data is communicated
 
+
+    integer :: bufsize_per_field !< Buffer size per a field
+
     class(MeshBase), pointer :: mesh
     real(RP), allocatable :: send_buf(:,:,:) !< Buffer for sending data
     real(RP), allocatable :: recv_buf(:,:,:) !< Buffer for receiving data

@@ -19,6 +19,7 @@ VPATH = \
 	mesh:             \
 	data:             \
 	file:             \
+	multigrid_solver: \
 	fluid_dyn_solver: \
 	surface:          \
 	turbulence:       \
@@ -82,6 +83,9 @@ OBJS_NAME_MESH = \
 	scale_mesh_cubedom3d.o         \
 	scale_mesh_cubedspheredom2d.o  \
 	scale_mesh_cubedspheredom3d.o  \
+	scale_mesh_hierarchy_base.o    \
+	scale_mesh_hierarchy_2d.o      \
+	scale_mesh_hierarchy_3d.o      \
 	scale_mesh_topography.o
 
 OBJS_NAME_DATA = \
@@ -106,6 +110,13 @@ OBJS_NAME_FILE = \
 	scale_file_history_meshfield.o \
 	scale_file_restart_meshfield.o \
 	scale_file_monitor_meshfield.o
+
+OBJS_NAME_MG_SOLVER = \
+	scale_multigrid_fieldset_base.o \
+	scale_multigrid_smoother_base.o \
+	scale_multigrid_solver_base.o \
+	scale_multigrid_solver_2d.o   \
+	scale_multigrid_solver_3d.o
 
 OBJS_NAME_FLUID_DYN_SOLVER = \
 	scale_atm_dyn_dgm_modalfilter.o                  \
@@ -166,6 +177,7 @@ OBJS_NAME = \
 	$(OBJS_NAME_MESH)             \
 	$(OBJS_NAME_DATA)		      \
 	$(OBJS_NAME_FILE)             \
+	$(OBJS_NAME_MG_SOLVER)        \
 	$(OBJS_NAME_FLUID_DYN_SOLVER) \
 	$(OBJS_NAME_SURFACE)          \
 	$(OBJS_NAME_TURBULENCE)       \
@@ -273,7 +285,7 @@ MODS = $(addprefix $(BUILD_DIR)/, \
 	$(shell echo $(patsubst $(BUILD_DIR)/%.o,%.mod, \
 	$(OBJS) ) | tr A-Z a-z) )
 
-MODS_SCALELIB = $(addprefix $(SCALE)/include/, \
+MODS_SCALELIB = $(addprefix $(SCALE)/include$(POSTFIX)/, \
 	$(shell echo $(patsubst %.o,%.mod, \
 	$(filter-out scale_sys_sigvars.o, \
 	$(filter-out scale_file_netcdf.o, \

@@ -290,8 +290,6 @@ contains
     this%isGenerated = .true.
     this%mesh2D%isGenerated = .true.
     
-    deallocate( this%FZ )
-    
     return
   end subroutine MeshCubedSphereDom3D_generate
 
