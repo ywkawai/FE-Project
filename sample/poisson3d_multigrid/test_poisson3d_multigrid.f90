@@ -1,3 +1,11 @@
+!-------------------------------------------------------------------------------
+!> Program A sample program: 3-dimensional poisson equation
+!! This equation is solved with a multigrid method
+!! 
+!! 
+!! @author Yuta Kawai, Team SCALE
+!<
+!-------------------------------------------------------------------------------
 #include "scaleFElib.h"
 program test_multigrid3d
   !-----------------------------------------------------------------------------
@@ -51,6 +59,7 @@ program test_multigrid3d
 
   call init()
   !-
+  call FILE_HISTORY_meshfield_put( HST_ID(2), qexact )
   call FILE_HISTORY_meshfield_put( HST_ID(3), f )
 
   call mg_solver%Solve( q, &
@@ -63,11 +72,12 @@ program test_multigrid3d
 
 contains
 !OCL SERIAL
-  subroutine set_rhs_lc( f_, lmesh, elem )
+  subroutine set_rhs_lc( f_, qexact_, lmesh, elem )
     implicit none
     class(LocalMesh3D), intent(in) :: lmesh
     class(ElementBase3D), intent(in) :: elem
     real(RP), intent(out) :: f_(elem%Np,lmesh%NeA)
+    real(RP), intent(out) :: qexact_(elem%Np,lmesh%NeA)
 
     integer :: ke
     real(RP) :: x(elem%Np)
@@ -80,11 +90,11 @@ contains
       y(:) = lmesh%pos_en(:,ke,2)
       z(:) = lmesh%pos_en(:,ke,3)
       
-      f_(:,ke) = sin( 2.0_RP * PI * x(:) ) &
-               * sin( 2.0_RP * PI * y(:) ) &
-               * ( 2.0_RP * PI )**2 * 2.0_RP
-    end do
+      qexact_(:,ke) = - sin( 2.0_RP * PI * ( x(:) - 0.25_RP) ) &
+                      * sin( 2.0_RP * PI * ( y(:) - 0.25_RP) )
+      f_(:,ke) = - qexact_(:,ke) * (2.0_RP*PI)**2 * 2.0_RP
 
+    end do
     return
   end subroutine set_rhs_lc
 
@@ -94,6 +104,7 @@ contains
     use scale_time_manager, only:           &
       TIME_manager_Init,                    &
       TIME_manager_report_timeintervals
+    use scale_const, only: CONST_setup
     use scale_calendar, only: CALENDAR_setup
     use scale_file_history_meshfield, only: FILE_HISTORY_meshfield_setup  
     use scale_file_history, only: FILE_HISTORY_reg  
@@ -128,7 +139,6 @@ contains
     integer, parameter :: pMG_LV_LIST_MAX = 16
     integer :: P_LEVEL_NUM
     integer :: P_LEVEL_LIST(pMG_LV_LIST_MAX)
-    integer :: P_ITR_NUM_LIST(pMG_LV_LIST_MAX)
 
 
     integer, parameter :: hMG_LV_LIST_MAX = 16
@@ -136,11 +146,17 @@ contains
     integer :: NeGX_list(hMG_LV_LIST_MAX)
     integer :: NeGY_list(hMG_LV_LIST_MAX)
     integer :: NeGZ_list(hMG_LV_LIST_MAX)
-    integer :: H_ITR_NUM_LIST(hMG_LV_LIST_MAX)
+
+    integer :: MG_Vcyc_Num_Max = 10
+    real(RP) :: MG_Threshold_Ratio_Residual_L2 = 1.0e-6_RP
+    real(RP) :: MG_Threshold_Residual_L2  = 1.0E-12_RP
+    real(RP) :: MG_Threshold_Residual_Max = 1.0E-12_RP
 
     namelist /PARAM_Poisson3d_MG/ &
-      H_LEVEL_NUM, NeGX_list, NeGY_list, NeGZ_list, H_ITR_NUM_LIST, &
-      P_LEVEL_NUM, P_LEVEL_LIST, P_ITR_NUM_LIST
+      H_LEVEL_NUM, NeGX_list, NeGY_list, NeGZ_list,       &
+      P_LEVEL_NUM, P_LEVEL_LIST,                          &
+      MG_Vcyc_Num_Max, MG_Threshold_Ratio_Residual_L2,    &
+      MG_Threshold_Residual_L2, MG_Threshold_Residual_Max
 
     !-
     integer :: comm, myrank, nprocs
@@ -195,6 +211,9 @@ contains
     call PROF_rapstart( "total", 0 )
     call PROF_rapstart( "init", 1 )
 
+    ! setup constants
+    call CONST_setup
+
     !-- setup calendar & time manager
 
     call CALENDAR_setup
@@ -221,7 +240,7 @@ contains
     call f%Init( "f", "1", mesh )
 
 
-    !-- setup history files    
+    !-- setup history files
 
     call FILE_HISTORY_meshfield_setup( mesh3D_=mesh )
     call FILE_HISTORY_reg( q%varname, "q", q%unit, HST_ID(1), dim_type='XYZ')
@@ -229,6 +248,7 @@ contains
     call FILE_HISTORY_reg( f%varname, "f", f%unit, HST_ID(3), dim_type='XYZ')
 
     !-- report information of time intervals
+    
     call TIME_manager_report_timeintervals
 
     !- Setup an object to manage the mesh hierarchy
@@ -240,18 +260,21 @@ contains
 
     !- Setup an object to provide a smoother
     LOG_INFO("Poisson3d_MG_Init",*) "Setup smoother"
-    call smoother%Init( mesh )
-
-    !- Setup an object to provide a MG solver   
-    LOG_INFO("Poisson3d_MG_Init",*) "Setup MG solver"    
-    call mg_solver%Init( mesh_hierarchy, smoother, &
-      MGSmoother_Possion3D_AUX_SCALAR_NUM, MGSmoother_Possion3D_AUX_HVEC_NUM, &
-      P_ITR_NUM_LIST(1:P_LEVEL_NUM), H_ITR_NUM_LIST(1:H_LEVEL_NUM)            )
-
+    call smoother%Init( mesh, P_LEVEL_LIST(1:P_LEVEL_NUM) )
     
+    !- Setup an object to provide a MG solver   
+    LOG_INFO("Poisson3d_MG_Init",*) "Setup MG solver"
+    call mg_solver%Init( mesh_hierarchy, smoother, &
+      MGSmoother_Possion3D_AUX_SCALAR_NUM, MGSmoother_Possion3D_AUX_HVEC_NUM )
+
+    call mg_solver%Set_vcycle_parameter( MG_Vcyc_Num_Max, &
+      MG_Threshold_Ratio_Residual_L2,  &
+      MG_Threshold_Residual_L2,        &
+      MG_Threshold_Residual_Max )
+
     !- Set the right-hand side and initial guess
     do ldom=1, mesh%LOCAL_MESH_NUM
-      call set_rhs_lc( f%local(ldom)%val, mesh%lcmesh_list(ldom), refElem )
+      call set_rhs_lc( f%local(ldom)%val, qexact%local(ldom)%val, mesh%lcmesh_list(ldom), refElem )
       q%local(ldom)%val(:,:) = 0.0_RP
     end do
 

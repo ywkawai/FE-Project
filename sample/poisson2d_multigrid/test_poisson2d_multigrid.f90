@@ -1,5 +1,13 @@
+!-------------------------------------------------------------------------------
+!> Program A sample program: 2-dimensional poisson equation
+!! This equation is solved with a multigrid method
+!! 
+!! 
+!! @author Yuta Kawai, Team SCALE
+!<
+!-------------------------------------------------------------------------------
 #include "scaleFElib.h"
-program test_multigrid2d
+program test_poison2d_multigrid
   !-----------------------------------------------------------------------------
   !
   !++ used modules
@@ -51,6 +59,7 @@ program test_multigrid2d
 
   call init()
   !-
+  call FILE_HISTORY_meshfield_put( HST_ID(2), qexact )
   call FILE_HISTORY_meshfield_put( HST_ID(3), f )
 
   call mg_solver%Solve( q, &
@@ -63,11 +72,12 @@ program test_multigrid2d
 
 contains
 !OCL SERIAL
-  subroutine set_rhs_lc( f_, lmesh, elem )
+  subroutine set_rhs_lc( f_, qexact_, lmesh, elem )
     implicit none
     class(LocalMesh2D), intent(in) :: lmesh
     class(ElementBase2D), intent(in) :: elem
     real(RP), intent(out) :: f_(elem%Np,lmesh%NeA)
+    real(RP), intent(out) :: qexact_(elem%Np,lmesh%NeA)
 
     integer :: ke
     real(RP) :: x(elem%Np)
@@ -77,8 +87,10 @@ contains
     do ke=lmesh%NeS, lmesh%NeE
       x(:) = lmesh%pos_en(:,ke,1)
       y(:) = lmesh%pos_en(:,ke,2)
-      f_(:,ke) = sin( 2.0_RP * PI * x(:) ) &
-               * sin( 2.0_RP * PI * y(:) ) * (2.0_RP*PI)**2 * 2.0_RP
+
+      qexact_(:,ke) = - sin( 2.0_RP * PI * x(:) ) &
+                      * sin( 2.0_RP * PI * y(:) )
+      f_(:,ke) = - qexact_(:,ke) * (2.0_RP*PI)**2 * 2.0_RP
     end do
 
     return
@@ -121,18 +133,24 @@ contains
     integer, parameter :: pMG_LV_LIST_MAX = 16
     integer :: P_LEVEL_NUM
     integer :: P_LEVEL_LIST(pMG_LV_LIST_MAX)
-    integer :: P_ITR_NUM_LIST(pMG_LV_LIST_MAX)
 
 
     integer, parameter :: hMG_LV_LIST_MAX = 16
     integer :: H_LEVEL_NUM
     integer :: NeGX_list(hMG_LV_LIST_MAX)
     integer :: NeGY_list(hMG_LV_LIST_MAX)
-    integer :: H_ITR_NUM_LIST(hMG_LV_LIST_MAX)
+  
+    integer :: MG_Vcyc_Num_Max = 10
+    real(RP) :: MG_Threshold_Ratio_Residual_L2 = 1.0e-6_RP
+    real(RP) :: MG_Threshold_Residual_L2  = 1.0E-12_RP
+    real(RP) :: MG_Threshold_Residual_Max = 1.0E-12_RP
 
     namelist /PARAM_Poisson2D_MG/ &
-      H_LEVEL_NUM, NeGX_list, NeGY_list, H_ITR_NUM_LIST, &
-      P_LEVEL_NUM, P_LEVEL_LIST, P_ITR_NUM_LIST
+      H_LEVEL_NUM, NeGX_list, NeGY_list,                  &
+      P_LEVEL_NUM, P_LEVEL_LIST,                          &
+      MG_Vcyc_Num_Max, MG_Threshold_Ratio_Residual_L2,    &
+      MG_Threshold_Residual_L2, MG_Threshold_Residual_Max
+
 
     !-
     integer :: comm, myrank, nprocs
@@ -155,7 +173,7 @@ contains
     
     !-- setup scale_io
     conf_name = IO_ARG_getfname( ismaster )
-    call IO_setup( "test_multigrid2d", conf_name )
+    call IO_setup( "test_poison2d_multigrid", conf_name )
     
     !-- setup log
     call IO_LOG_setup( myrank, ismaster )   
@@ -232,18 +250,21 @@ contains
 
     !- Setup an object to provide a smoother
     LOG_INFO("Poisson2D_MG_Init",*) "Setup smoother"
-    call smoother%Init( mesh )
+    call smoother%Init( mesh, P_LEVEL_LIST(1:P_LEVEL_NUM) )
 
     !- Setup an object to provide a MG solver   
     LOG_INFO("Poisson2D_MG_Init",*) "Setup MG solver"    
     call mg_solver%Init( mesh_hierarchy, smoother, &
-      MGSmoother_Possion2D_AUX_SCALAR_NUM, MGSmoother_Possion2D_AUX_VEC_NUM, &
-      P_ITR_NUM_LIST(1:P_LEVEL_NUM), H_ITR_NUM_LIST(1:H_LEVEL_NUM)           )
+      MGSmoother_Possion2D_AUX_SCALAR_NUM, MGSmoother_Possion2D_AUX_VEC_NUM )
 
+    call mg_solver%Set_vcycle_parameter( MG_Vcyc_Num_Max, &
+      MG_Threshold_Ratio_Residual_L2,  &
+      MG_Threshold_Residual_L2,        &
+      MG_Threshold_Residual_Max )
     
     !- Set the right-hand side and initial guess
     do ldom=1, mesh%LOCAL_MESH_NUM
-      call set_rhs_lc( f%local(ldom)%val, mesh%lcmesh_list(ldom), refElem )
+      call set_rhs_lc( f%local(ldom)%val, qexact%local(ldom)%val, mesh%lcmesh_list(ldom), refElem )
       q%local(ldom)%val(:,:) = 0.0_RP
     end do
 
@@ -283,4 +304,4 @@ contains
     call PRC_MPIfinish()
     return
   end subroutine final
-end program test_multigrid2d
+end program test_poison2d_multigrid

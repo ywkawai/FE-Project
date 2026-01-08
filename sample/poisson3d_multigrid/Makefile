@@ -8,7 +8,7 @@ PWD         = $(shell pwd)
 TOPDIR      = $(abspath ../..)
 SAMPLE_DIR  = ../
 
-BINNAME = test_multigrid3d
+BINNAME = test_poisson3d_multigrid
 OBJS    = mod_poisson3d_smoother.o
 
 RUNCONF         = test.conf
@@ -24,4 +24,6 @@ vis:
 clean_analysis:
 	rm -f analysis
 
-$(BUILD_DIR)/test_multigrid3d.o :$(BUILD_DIR)/mod_poisson3d_smoother.o
+$(BUILD_DIR)/test_multigrid3d.o : \
+	$(BUILD_DIR)/mod_poisson3d_smoother.o
+
