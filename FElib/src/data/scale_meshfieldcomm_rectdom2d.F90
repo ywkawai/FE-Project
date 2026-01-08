@@ -63,7 +63,6 @@ module scale_meshfieldcomm_rectdom2d
   !
   !++ Private parameters & variables
   !
-  integer :: bufsize_per_field
   integer, parameter :: COMM_FACE_NUM = 4
 
 contains
@@ -84,14 +83,14 @@ contains
     
     this%mesh2d => mesh2d
     lcmesh => mesh2d%lcmesh_list(1)
-    bufsize_per_field = 2*(lcmesh%NeX + lcmesh%NeY)*lcmesh%refElem2D%Nfp
+    this%bufsize_per_field = 2*(lcmesh%NeX + lcmesh%NeY)*lcmesh%refElem2D%Nfp
 
     do n=1, this%mesh2d%LOCAL_MESH_NUM
       lcmesh => this%mesh2d%lcmesh_list(n)
       Nnode_LCMeshFace(:,n) = (/ lcmesh%NeX, lcmesh%NeY, lcmesh%NeX, lcmesh%NeY /) * lcmesh%refElem2D%Nfp
     end do
 
-    call MeshFieldCommBase_Init( this, sfield_num, hvfield_num, htensorfield_num, bufsize_per_field, COMM_FACE_NUM, Nnode_LCMeshFace, mesh2d)  
+    call MeshFieldCommBase_Init( this, sfield_num, hvfield_num, htensorfield_num, this%bufsize_per_field, COMM_FACE_NUM, Nnode_LCMeshFace, mesh2d)  
   
     return
   end subroutine MeshFieldCommRectDom2D_Init
@@ -178,7 +177,8 @@ contains
       commdata => this%commdata_list(f,n)
       call push_localsendbuf( commdata%send_buf(:,:),             &  ! (inout)
         this%send_buf(:,:,n), commdata%s_faceID, this%is_f(f,n),  &  ! (in)
-        commdata%Nnode_LCMeshFace, this%field_num_tot)               ! (in)
+        commdata%Nnode_LCMeshFace, this%bufsize_per_field,        &  ! (in)
+        this%field_num_tot )                                         ! (in)
     end do
     end do
 
@@ -194,11 +194,12 @@ contains
 !----------------------------
 
 !OCL SERIAL
-  subroutine push_localsendbuf( lc_send_buf, send_buf, s_faceID, is, Nnode_LCMeshFace, var_num )
+  subroutine push_localsendbuf( lc_send_buf, send_buf, s_faceID, is, Nnode_LCMeshFace, bufsize_per_field, var_num )
     implicit none
 
     integer, intent(in) :: var_num
     integer, intent(in) ::  Nnode_LCMeshFace
+    integer, intent(in) :: bufsize_per_field
     real(RP), intent(inout) :: lc_send_buf(Nnode_LCMeshFace,var_num)
     real(RP), intent(in) :: send_buf(bufsize_per_field,var_num)  
     integer, intent(in) :: s_faceID, is

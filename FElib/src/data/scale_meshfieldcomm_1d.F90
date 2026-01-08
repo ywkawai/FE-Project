@@ -80,12 +80,14 @@ contains
     !-----------------------------------------------------------------------------
     
     this%mesh1d => mesh1d 
+    this%bufsize_per_field =  mesh1d%refElem1D%Nfp * 2
+
     ! Dummy
     do n=1, this%mesh1d%LOCAL_MESH_NUM
       Nnode_LCMeshFace(:,n) = (/ 1, 1 /)
     end do
     
-    call MeshFieldCommBase_Init( this, sfield_num, hvfield_num, 0, mesh1d%refElem1D%Nfp * 2, 2, Nnode_LCMeshFace, mesh1d)  
+    call MeshFieldCommBase_Init( this, sfield_num, hvfield_num, 0, this%bufsize_per_field, 2, Nnode_LCMeshFace, mesh1d)  
   
     return
   end subroutine MeshFieldComm1D_Init
@@ -171,30 +173,29 @@ contains
     do n=1, this%mesh%LOCAL_MESH_NUM
     do f=1, this%nfaces_comm      
       commdata => this%commdata_list(f,n)
-      call push_localsendbuf( commdata%send_buf(:,:),      &  ! (inout)
-        this%send_buf(:,:,n), commdata%s_faceID, f,        &  ! (in)
-        commdata%Nnode_LCMeshFace, this%field_num_tot)        ! (in)
+      call push_localsendbuf( commdata%send_buf(:,:),      & ! (inout)
+        this%send_buf(:,:,n), commdata%s_faceID, f,        & ! (in)
+        commdata%Nnode_LCMeshFace, this%bufsize_per_field, & ! (in)
+        this%field_num_tot )                                 ! (in)
     end do
     end do
 
     !-----------------------
-
     call MeshFieldCommBase_exchange_core( this, this%commdata_list(:,:), do_wait )
-
-    !---------------------
 
     return
   end subroutine MeshFieldComm1D_exchange
 
 !----------------------------
 
-  subroutine push_localsendbuf( lc_send_buf, send_buf, s_faceID, f, Nnode_LCMeshFace, var_num )
+  subroutine push_localsendbuf( lc_send_buf, send_buf, s_faceID, f, Nnode_LCMeshFace, bufsize_per_field, var_num )
     implicit none
 
     integer, intent(in) :: var_num
     integer, intent(in) ::  Nnode_LCMeshFace
+    integer, intent(in) :: bufsize_per_field
     real(RP), intent(inout) :: lc_send_buf(Nnode_LCMeshFace,var_num)
-    real(RP), intent(in) :: send_buf(Nnode_LCMeshFace*2,var_num)  
+    real(RP), intent(in) :: send_buf(bufsize_per_field,var_num)  
     integer, intent(in) :: s_faceID, f
   
     integer :: is, ie, lincrement
