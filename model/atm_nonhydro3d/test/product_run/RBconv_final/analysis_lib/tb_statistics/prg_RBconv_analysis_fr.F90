@@ -176,6 +176,9 @@ program prg_RBconv_analysis
     call global_horizontal_mean( RHOT_V1D )
     call global_horizontal_mean( MOMZ_V1D )
 
+    call global_horizontal_mean( HWindVari_V1D )
+    call global_horizontal_mean( VWindVari_V1D )
+
     do n=1, mesh3D%LOCAL_MESH_NUM
       lcmesh3D => mesh3D%lcmesh_list(n)
       call analyze_lc_2( &
@@ -305,6 +308,7 @@ contains
     real(RP) :: DENS_lc(elem%Np)
     integer :: hSliceID(elem%Nnode_h1D**2)
     real(RP) :: int_w(elem%Nnode_h1D**2)
+    real(RP) :: vari_tmp(3)
 
     real(RP) :: DENS_z(elem%Np,lmesh%NeZ,lmesh%Ne2D)
     real(RP) :: DENS_reconst(elem%Np,lmesh%NeA)
@@ -353,7 +357,7 @@ contains
       MOMZ_z, del_flux_momz, lmesh, lmesh%refElem3D    )
 
     !$omp parallel do private( ke_x, ke_y, p, ke2D, ke, hSliceID, &
-    !$omp int_w, DENS_lc )
+    !$omp int_w, DENS_lc, vari_tmp )
     do ke_z=1, lmesh%NeZ
       do ke_y=1, lmesh%NeY
       do ke_x=1, lmesh%NeX
@@ -378,6 +382,13 @@ contains
                             + sum( int_w(:) * ( ( U_(hSliceID(:),ke) - U0 )**2 + V_(hSliceID(:),ke)**2 ) )
           VWindVari_V1D_(p,ke_z) = VWindVari_V1D_(p,ke_z) &
                             + sum( int_w(:) * W_(hSliceID(:),ke)**2 )
+
+          ! call calc_elem_hint_vari( vari_tmp(1), U_(hSliceID(:),ke) - U0, U_(hSliceID(:),ke) - U0, elemH2D%M, lmeshH2D%J(:,ke2D), elemH2D%Np )
+          ! call calc_elem_hint_vari( vari_tmp(2), V_(hSliceID(:),ke), V_(hSliceID(:),ke), elemH2D%M, lmeshH2D%J(:,ke2D), elemH2D%Np )
+          ! call calc_elem_hint_vari( vari_tmp(3), W_(hSliceID(:),ke), W_(hSliceID(:),ke), elemH2D%M, lmeshH2D%J(:,ke2D), elemH2D%Np )
+
+          ! HWindVari_V1D_(p,ke_z) = HWindVari_V1D_(p,ke_z) + vari_tmp(1) + vari_tmp(2)
+          ! VWindVari_V1D_(p,ke_z) = VWindVari_V1D_(p,ke_z) + vari_tmp(3)
         end do
       end do    
       end do  
@@ -580,6 +591,24 @@ contains
   end subroutine  analyze_lc_2
 
   !----------------------------------------------------------------------------
+
+!OCL SERIAL
+  subroutine calc_elem_hint_vari( hint_var, q1, q2, M_h, J_h, Np2D )
+    implicit none
+    integer, intent(in) :: Np2D
+    real(RP), intent(out) :: hint_var
+    real(RP), intent(in) :: q1(Np2D)
+    real(RP), intent(in) :: q2(Np2D)
+    real(RP), intent(in) :: M_h(Np2D,Np2D)
+    real(RP), intent(in) :: J_h(Np2D)
+
+    real(RP) :: tmp(Np2D)
+    !-----------------------------
+
+    tmp(:) = matmul(M_h, q2)
+    hint_var = sum(J_h(:) * q1(:) * tmp(:))
+    return
+  end subroutine calc_elem_hint_vari
 
 !OCL SERIAL
   subroutine initialize()
