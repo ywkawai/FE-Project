@@ -42,7 +42,7 @@ def get_moni_data_list(exp_dir, run_num, dtsec, run_num0=1, t_offset0=0.0, val_o
 
     return xr.concat(ds_list, "sec")
     
-def mkgraph(ds_list, varname, ylim, color_list, linestyle_list, lable_list):
+def mkgraph(ds_list, varname, ylim, color_list, linestyle_list, lable_list, out_pngfname=None):
     fig, ax = plt.subplots(figsize=(12,3))
     ax.set_ylim(ylim)
     ax.set_ylabel(varname, fontsize=15)
@@ -58,3 +58,6 @@ def mkgraph(ds_list, varname, ylim, color_list, linestyle_list, lable_list):
     ax.xaxis.set_minor_locator(ticker.MultipleLocator(1e4))
     ax.tick_params(which="both", labelsize=13)
     ax.legend(loc='upper left', bbox_to_anchor=(1, 1))
+
+    if out_pngfname is not None:
+        plt.savefig(out_pngfname, bbox_inches='tight')

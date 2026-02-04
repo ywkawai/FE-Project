@@ -113,7 +113,8 @@ def energy_spectra_analysis(exp_top_dir, exp_name, nx, penum, L,
                             OUTNC_suffix, 
                             nproc, gem_tmp_data_skip_flag):
   #----
-  tmp_dir=f"{exp_top_dir}/tmp_data_energy_spectra/tmp_{exp_name}"  
+  tmp_dir=f"{exp_top_dir}/tmp_data_energy_spectra/tmp_{exp_name}"
+  print(f"Create tmp nc data dir: {tmp_dir} ..")
   os.makedirs(tmp_dir, exist_ok=True)  
 
   time_list_ex = gen_tmp_nc( exp_top_dir, exp_name, dir_ind, ZLEVEL_list, TIME_list, penum, tmp_dir, runno_inidata, nproc, gem_tmp_data_skip_flag)
@@ -276,6 +277,42 @@ def create_fig_energy_spectra_diffm53(ke_spectra_list, zlev, figname,
 
   plt.savefig(figname)
   
+def create_fig_energy_spectra_diff_refexp(ke_spectra_list, ref_exp_name, zlev, cr, 
+                                           exp_ncut, exp_name_list, exp_label_list, 
+                                           exp_color_list, exp_ltype_list, exp_ltype_width,
+                                           figname ):
+  
+  fig, ax=plt.subplots(1,1,figsize=(12,6))
+  ax.set_xlim(1.0/3000.0,1.0/10.0)
+  ax.set_ylim(0.0,1.7)
+  ax.set_xscale("log")
+  ax.xaxis.set_major_formatter(FuncFormatter(xaxis_txt))
+  ax.xaxis.set_minor_formatter(FuncFormatter(xaxis_txt_minor))
+
+  ref = ke_spectra_list[ref_exp_name].sel(z=zlev)
+
+  ke_spectra_ratio_list = {}
+  for exp_name in exp_name_list:
+      if exp_name == ref_exp_name:
+          k = ref.k[0:-5]
+          ax.plot(k/(2.0*np.pi), k/k*cr, 
+                  color="gray", linestyle="-", linewidth=1 )
+          
+      ncut = np.min( [exp_ncut[exp_name], exp_ncut[ref_exp_name]] ) - 1
+      ke_spectra =  ke_spectra_list[exp_name].sel(z=zlev)
+      k = ke_spectra.k[0:ncut]
+      ke_spectra_ratio = ke_spectra[0:ncut]/ref[0:ncut]
+      ke_spectra_ratio_list[exp_name] = ke_spectra_ratio
+
+      ax.plot(k/(2.0*np.pi), ke_spectra_ratio, 
+              label=exp_label_list[exp_name], color=exp_color_list[exp_name], 
+              linestyle=exp_ltype_list[exp_name], linewidth=exp_ltype_width[exp_name] )
+
+  ax.legend(loc='lower left')
+  ax.tick_params(which="both", labelsize=16, length=3)
+  ax.set_xlabel("inverse of wavelength [m$^{-1}$]", fontsize=20)
+  plt.savefig(figname)
+
 def read_spectra_data(exp_name, tmp_dir, dir_ind, ke_spectra_3dvel_list, 
                       ncut, start_ind=1, OUTNC_suffix=""):
   di = dir_ind[0]

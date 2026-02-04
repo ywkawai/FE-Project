@@ -1,5 +1,6 @@
 import re
 
+
 def get_prof_rapreport(log_file):
     print(log_file)
     prof_lines = []    

@@ -1,0 +1,97 @@
+import os
+import sys
+import numpy as np
+sys.path.append(os.path.join(os.path.dirname('__file__'), '../../analysis_lib/'))
+import energy_spectra_common as common
+import eval_EffResol_NumEnAccum as analysis
+#--
+
+OUTDIR="comp_cost_info/"
+
+ref_exp_name ="Dx3.1m_P7"
+cr = 0.85
+
+exp_name_list = [
+  'Dx25m_P3', 
+  'Dx25m_P7', 
+  'Dx27m_P11', 
+  'Dx12.5m_P3',
+  'Dx12.5m_P7', 
+  'Dx13m_P11', 
+           
+]
+
+dir_ind_list = { 
+                'Dx25m_P3': np.arange(4,21, 1), 'Dx25m_P7': np.arange(4,21, 1), 'Dx27m_P11': np.arange(4,21, 1), 
+                'Dx12.5m_P3': np.arange(13,21, 1), 'Dx12.5m_P7': np.arange(12,21, 1),  'Dx13m_P11': np.arange(13,21, 1), 
+                 'Dx3.1m_P7': np.arange(13,101, 1),
+              }
+nx_list = {'Dx25m_P3': 128, 'Dx25m_P7': 128, 'Dx27m_P11': 120,
+           'Dx12.5m_P3':256, 'Dx12.5m_P7': 256, 'Dx13m_P11': 240, 
+           'Dx3.1m_P7': 1024
+        }
+exp_ncut = {
+  "Dx25m_P3": 64, "Dx25m_P7": 64, "Dx27m_P11": 60, 
+  "Dx12.5m_P3": 128, "Dx12.5m_P7": 128, "Dx13m_P11": 120, 
+  'Dx6.3m_P3':256, 'Dx6.3m_P7': 256, 'Dx6.7m_P11': 240, 
+  'Dx3.1m_P7': 512, 
+}
+
+
+ZLEVEL_list = [800]
+Lx = 3.2e3
+
+# Reference
+exp_name_ref = "Dx3.1m_P7"
+tmp_ref_dir = f"../../DNS_3/tmp_data_energy_spectra/tmp_{exp_name_ref}"
+
+#---------------------------------------------------------------------------------------
+ke_spectra_3dvel_list = {}
+ke_spectra_ratio_list = {}
+
+eff_resol_list = {}
+energy_accum_list = {}
+
+#--
+for exp_name in exp_name_list:
+    tmp_dir = f"../tmp_data_energy_spectra/tmp_{exp_name}"
+    print(f"tmp_dir={tmp_dir}")
+
+    common.read_spectra_data( exp_name, tmp_dir, dir_ind_list[exp_name], ke_spectra_3dvel_list, exp_ncut[exp_name] )
+
+#--
+# Reference data
+common.read_spectra_data( exp_name_ref, tmp_ref_dir, dir_ind_list[exp_name_ref], ke_spectra_3dvel_list, exp_ncut[exp_name_ref] )
+exp_name_list_ = exp_name_list.copy()
+exp_name_list_.append(exp_name_ref)
+
+ke_spectra_ref = ke_spectra_3dvel_list[ref_exp_name].isel(z=0)
+
+for exp_name in exp_name_list:        
+    ncut = np.min( [exp_ncut[exp_name], exp_ncut[ref_exp_name]] ) - 1
+    ke_spectra =  ke_spectra_3dvel_list[exp_name].isel(z=0)
+    k = ke_spectra.k[0:ncut]
+    ke_spectra_ratio = ke_spectra[0:ncut]/ke_spectra_ref[0:ncut]
+    ke_spectra_ratio_list[exp_name] = ke_spectra_ratio
+
+#-
+for exp_name in exp_name_list:
+    if exp_name == ref_exp_name:
+        break
+    ke_spectra_ratio =  ke_spectra_ratio_list[exp_name]
+    k_eff, eff_resol_list[exp_name] = analysis.eval_effective_resolution( ke_spectra_ratio[5:-5], 
+                                                                         cr, Lx/float(nx_list[exp_name]) )
+    
+    k1 = 2.0*np.pi/800.0; k2 = k_eff
+    ke_spectra_ = ke_spectra_3dvel_list[exp_name].isel(z=0)
+    abs_error, rel_error = analysis.eval_energy_pile_error(ke_spectra_, ke_spectra_ref, k1, k2)
+    energy_accum_list[exp_name] = rel_error * 100.0
+     
+    print(f"{exp_name} : {2.0*np.pi/k_eff:12.1f} {eff_resol_list[exp_name]:12.1f}  {100*rel_error:12.1f} %")
+
+#-
+num_energy_accum_equiv_dx_list = analysis.eval_energy_pile_error_equiv_dx(energy_accum_list)
+
+os.makedirs(OUTDIR, exist_ok=True)
+analysis.output_energy_spectra_eval(eff_resol_list, energy_accum_list, num_energy_accum_equiv_dx_list, 
+                                    f"{OUTDIR}/EffResol_NumEnAccum.dat")
