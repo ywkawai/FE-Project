@@ -19,8 +19,8 @@ exp_name_list = [
   'Dx13m_P11', 
 ]
 
-dir_ind_list = { 'Dx25m_P3': np.arange(4,21, 1), 'Dx25m_P7': np.arange(4,21, 1), 'Dx27m_P11': np.arange(4,21, 1), 
-                 'Dx12.5m_P3': np.arange(4,21, 1), 'Dx12.5m_P7': np.arange(4,21, 1), 'Dx13m_P11': np.arange(4,21, 1), 
+dir_ind_list = { 'Dx25m_P3': np.arange(4,25, 1), 'Dx25m_P7': np.arange(4,25, 1), 'Dx27m_P11': np.arange(4,25, 1), 
+                 'Dx12.5m_P3': np.arange(4,25, 1), 'Dx12.5m_P7': np.arange(4,25, 1), 'Dx13m_P11': np.arange(4,25, 1), 
                  'Dx3.1m_P7': np.arange(13,101, 1), 
 }
 

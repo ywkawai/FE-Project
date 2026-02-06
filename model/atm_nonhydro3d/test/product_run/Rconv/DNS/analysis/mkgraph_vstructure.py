@@ -17,9 +17,9 @@ exp_list = {
    "Dx25m_P7": {"run_s": 1, "start_time":0, "run_sm": 4,  "run_e": 24, "integ_time_per_run": 7200},            
    "Dx27m_P11": {"run_s": 3, "start_time":2*7200, "run_sm": 4,  "run_e": 24, "integ_time_per_run": 7200},   
 #--            
-   "Dx12.5m_P3": {"run_s": 3, "start_time":2*7200, "run_sm": 8,  "run_e": 24, "integ_time_per_run": 7200},       
+   "Dx12.5m_P3": {"run_s": 3, "start_time":2*7200, "run_sm": 8,  "run_e": 28, "integ_time_per_run": 7200},       
    "Dx12.5m_P7": {"run_s": 1, "start_time":0, "run_sm": 4,  "run_e": 24, "integ_time_per_run": 7200},    
-   "Dx13m_P11": {"run_s": 3, "start_time":2*7200, "run_sm": 8,  "run_e": 24, "integ_time_per_run": 7200},                             
+   "Dx13m_P11": {"run_s": 3, "start_time":2*7200, "run_sm": 8,  "run_e": 28, "integ_time_per_run": 7200},                             
 #--               
    "Dx6.3m_P3": {"run_s": 13, "start_time":19*3600, "run_sm": 13,  "run_e": 57, "integ_time_per_run": 3600},            
    "Dx6.3m_P7": {"run_s": 8, "start_time":7200*7, "run_sm": 8,  "run_e": 52, "integ_time_per_run": 3600},                  

@@ -4,11 +4,11 @@ sys.path.append(os.path.join(os.path.dirname('__file__'), '../../analysis_lib/')
 import comp_cost_analysis_common as common
 #---------------------------
 
-DG_dir = "../"
-DG_dir_DNS = "../../DNS_3/"
+DG_dir = "../analysis/"
+DG_dir_DNS = "../../DNS_3/analysis/"
 
-FV_dir = "../../../../../../../../scale_rbconv/scale-rm/test/case/rbconv_productrun/LES/"
-FV_dir_DNS = "../../../../../../../../scale_rbconv/scale-rm/test/case/rbconv_productrun/DNS/"
+FV_dir = "../../../../../../../../scale_rbconv/scale-rm/test/case/rbconv_productrun/LES/analysis/"
+FV_dir_DNS = "../../../../../../../../scale_rbconv/scale-rm/test/case/rbconv_productrun/DNS/analysis/"
 
 COMP_COST_OUTDIR = "comp_cost_info/"
 COMP_COST_FIG_OUTDIR = "fig_comp_cost_info/"
@@ -103,7 +103,7 @@ resol_table = {"Dx25m": "Dx25m", "Dx27m": "Dx25m",
                 "Dx6.25m": "Dx6.3m", "Dx6.3m": "Dx6.3m", "Dx6.7m": "Dx6.3m",}
 
 #---
-ds_comp_resource_dg = common.get_comp_resource_usage(f"{DG_dir_DNS}/{COMP_COST_OUTDIR}/comp_resourse_usage.dat")
+ds_comp_resource_dg = common.get_comp_resource_usage(f"{DG_dir_DNS}/{COMP_COST_OUTDIR}/comp_resource_usage.dat")
 eff_resol_dg, num_en_accum_dg, num_en_accum_dx_dg = common.get_EffResol_NumEnAccum(f"{DG_dir}/{COMP_COST_OUTDIR}/EffResol_NumEnAccum.dat")
 
 for exp_case in ds_comp_resource_dg.case.values:
@@ -112,7 +112,7 @@ for exp_case in ds_comp_resource_dg.case.values:
             ds_comp_resource_dg.NH.loc[dict(case=exp_case,section=sect)] = correct_fac_P11 * ds_comp_resource_dg.sel(case=exp_case,section=sect).NH.values
 
 
-ds_comp_resource_fv = common.get_comp_resource_usage(f"{FV_dir_DNS}/{COMP_COST_OUTDIR}/comp_resourse_usage.dat")
+ds_comp_resource_fv = common.get_comp_resource_usage(f"{FV_dir_DNS}/{COMP_COST_OUTDIR}/comp_resource_usage.dat")
 eff_resol_fv, num_en_accum_fv, num_en_accum_dx_fv = common.get_EffResol_NumEnAccum(f"{FV_dir}/{COMP_COST_OUTDIR}/EffResol_NumEnAccum.dat")
 
 common.print_sect_nh(ds_comp_resource_dg)
@@ -182,8 +182,8 @@ comp_cost_num_en_accum_fv, comp_cost_num_en_accum_normalized_fv = common.get_com
 common.mkgraph_compcost_eff_resol_en_accum( comp_cost_eff_resol_dg, comp_cost_num_en_accum_dg, comp_cost_eff_resol_fv, comp_cost_num_en_accum_fv, 
                                             Exp_label_list_dg, Exp_label_list_fv, 
                                             f"{COMP_COST_FIG_OUTDIR}/comp_cost_diagram.{FIG_EXT}",
-                                            ylim=[1e-1,7e2] )
+                                            ylim=[1e-1,1e3] )
 common.mkgraph_compcost_eff_resol_en_accum( comp_cost_eff_resol_dg, comp_cost_num_en_accum_dg, comp_cost_eff_resol_fv, comp_cost_num_en_accum_fv, 
                                             Exp_label_list_dg, Exp_label_list_fv, 
                                             f"{COMP_COST_FIG_OUTDIR}/comp_cost_diagram_with_lbl.{FIG_EXT}", True, 
-                                            ylim=[1e-1,7e2] )
+                                            ylim=[1e-1,1e3] )

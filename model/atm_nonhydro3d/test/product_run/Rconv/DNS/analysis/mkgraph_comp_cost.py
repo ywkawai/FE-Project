@@ -4,18 +4,19 @@ sys.path.append(os.path.join(os.path.dirname('__file__'), '../../analysis_lib/')
 import comp_cost_analysis_common as common
 #---------------------------
 
-DG_dir = "./"
-FV_dir = "../../../../../../../../scale_rbconv/scale-rm/test/case/rbconv_productrun/DNS/"
+DG_dir = "../analysis"
+FV_dir = "../../../../../../../../scale_rbconv/scale-rm/test/case/rbconv_productrun/DNS/analysis/"
+
 COMP_COST_OUTDIR = "comp_cost_info/"
 COMP_COST_FIG_OUTDIR = "fig_comp_cost_info/"
 FIG_EXT = "svg"
 
-dt_info_dg = { "P3": 5.0, "P7": 3.125, "P11": 2.5}
-ratio_cr_max_dg = {"P3": 1.25, "P7": 1.28, "P11": 1.02}
+dt_info_dg = { "P3": 5.0, "P7": 3.125, "P11": 2.5} # x 10^-2 [s]
+ratio_cr_max_dg = {"P3": 1.25, "P7": 1.28, "P11": 1.02} # Cr,max,RK4s10=0.70, 0.44, 0.32 for p=3,7,11 based on 3D sound wave and Rayleigh-convective adjustment tests
 rkstage_dg = 10
 
-dt_info_fv = { "UD3": 5.0, "UD7": 5.0}
-ratio_cr_max_fv = {"UD3": 1.20, "UD7": 1.20}
+dt_info_fv = { "UD3": 5.0, "UD7": 5.0} # x 10^-2 [s]
+ratio_cr_max_fv = {"UD3": 1.20, "UD7": 1.20} # Cr,max,RK4s4=0.85 based on 3D sound wave and Rayleigh-convective adjustment tests
 rkstage_fv = 4
 
 correct_fac_P11 = 1.3
@@ -118,7 +119,7 @@ resol_table = {"Dx25m": "Dx25m", "Dx27m": "Dx25m",
                 "Dx6.25m": "Dx6.3m", "Dx6.3m": "Dx6.3m", "Dx6.7m": "Dx6.3m",}
 
 #---
-ds_comp_resource_dg = common.get_comp_resource_usage(f"{DG_dir}/{COMP_COST_OUTDIR}/comp_resourse_usage.dat")
+ds_comp_resource_dg = common.get_comp_resource_usage(f"{DG_dir}/{COMP_COST_OUTDIR}/comp_resource_usage.dat")
 eff_resol_dg, num_en_accum_dg, num_en_accum_dx_dg = common.get_EffResol_NumEnAccum(f"{DG_dir}/{COMP_COST_OUTDIR}/EffResol_NumEnAccum.dat")
 
 for exp_case in ds_comp_resource_dg.case.values:
@@ -127,7 +128,7 @@ for exp_case in ds_comp_resource_dg.case.values:
             ds_comp_resource_dg.NH.loc[dict(case=exp_case,section=sect)] = correct_fac_P11 * ds_comp_resource_dg.sel(case=exp_case,section=sect).NH.values
 
 
-ds_comp_resource_fv = common.get_comp_resource_usage(f"{FV_dir}/{COMP_COST_OUTDIR}/comp_resourse_usage.dat")
+ds_comp_resource_fv = common.get_comp_resource_usage(f"{FV_dir}/{COMP_COST_OUTDIR}/comp_resource_usage.dat")
 eff_resol_fv, num_en_accum_fv, num_en_accum_dx_fv = common.get_EffResol_NumEnAccum(f"{FV_dir}/{COMP_COST_OUTDIR}/EffResol_NumEnAccum.dat")
 
 common.print_sect_nh(ds_comp_resource_dg)

@@ -10,6 +10,8 @@ OUTDIR="comp_cost_info/"
 
 ref_exp_name ="Dx3.1m_P7"
 cr = 0.85
+cr2 = 1.05
+
 
 exp_name_list = [
   'Dx25m_P3', 
@@ -22,8 +24,8 @@ exp_name_list = [
 ]
 
 dir_ind_list = { 
-                'Dx25m_P3': np.arange(4,21, 1), 'Dx25m_P7': np.arange(4,21, 1), 'Dx27m_P11': np.arange(4,21, 1), 
-                'Dx12.5m_P3': np.arange(13,21, 1), 'Dx12.5m_P7': np.arange(12,21, 1),  'Dx13m_P11': np.arange(13,21, 1), 
+                'Dx25m_P3': np.arange(4,25, 1), 'Dx25m_P7': np.arange(4,25, 1), 'Dx27m_P11': np.arange(4,25, 1), 
+                'Dx12.5m_P3': np.arange(4,25, 1), 'Dx12.5m_P7': np.arange(4,25, 1),  'Dx13m_P11': np.arange(4,25, 1), 
                  'Dx3.1m_P7': np.arange(13,101, 1),
               }
 nx_list = {'Dx25m_P3': 128, 'Dx25m_P7': 128, 'Dx27m_P11': 120,
@@ -84,13 +86,13 @@ for exp_name in exp_name_list:
     
     k1 = 2.0*np.pi/800.0; k2 = k_eff
     ke_spectra_ = ke_spectra_3dvel_list[exp_name].isel(z=0)
-    abs_error, rel_error = analysis.eval_energy_pile_error(ke_spectra_, ke_spectra_ref, k1, k2)
+    abs_error, rel_error = analysis.eval_energy_pile_error(ke_spectra_, ke_spectra_ref, k1, k2, cr=cr2)
     energy_accum_list[exp_name] = rel_error * 100.0
      
     print(f"{exp_name} : {2.0*np.pi/k_eff:12.1f} {eff_resol_list[exp_name]:12.1f}  {100*rel_error:12.1f} %")
 
 #-
-num_energy_accum_equiv_dx_list = analysis.eval_energy_pile_error_equiv_dx(energy_accum_list)
+num_energy_accum_equiv_dx_list = analysis.eval_energy_pile_error_equiv_dx(energy_accum_list, deg=1)
 
 os.makedirs(OUTDIR, exist_ok=True)
 analysis.output_energy_spectra_eval(eff_resol_list, energy_accum_list, num_energy_accum_equiv_dx_list, 
