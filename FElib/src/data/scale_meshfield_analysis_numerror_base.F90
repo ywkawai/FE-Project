@@ -2,7 +2,7 @@
 !> module FElib / Data / Statistics / numerical error
 !!
 !! @par Description
-!!           This module provides a base class useful for evaluating numerical errrors
+!!           This module provides a base class useful for evaluating numerical errors
 !!
 !! @author Yuta Kawai, Team SCALE
 !!
@@ -38,19 +38,29 @@ module scale_meshfield_analysis_numerror_base
   !
   !++ Public type & procedure
   ! 
-  type, public :: MeshFieldAnalysisNumerrorBase
-    integer :: var_num
-    integer :: log_fid
-    integer :: log_step_interval
-    integer :: log_rstep
-    logical :: output_error_first
 
-    integer :: PolyOrderErrorCheck
-    integer :: intrp_np
-    integer :: ndim
-    real(RP), allocatable :: IntrpMat(:,:)
-    real(RP), allocatable :: intw_intrp(:)
-    real(RP), allocatable :: epos_intrp(:,:) 
+  !> Derived type saving information for numerical error analysis
+  type, abstract, public :: MeshFieldAnalysisNumerrorInfoBase
+  end type MeshFieldAnalysisNumerrorInfoBase
+
+  !> Base type for numerical error analysis of mesh field
+  type, public :: MeshFieldAnalysisNumerrorBase
+    integer :: var_num             !< Number of variables to be analyzed
+    integer :: log_fid             !< File ID for log output
+    integer :: log_step_interval   !< Interval of time step for log output
+    integer :: log_rstep           !< Remaining step for log output
+    logical :: output_error_first  !< Flag for outputting error at the first time
+
+    class(MeshBase), pointer :: mesh !< Pointer to an object of type MeshBase
+
+    integer :: PolyOrderErrorCheck         !< Polynomial order when evaluating numerical errors
+    integer :: intrp_np                    !< Number of interpolation points
+    integer :: ndim                        !< Number of dimensions
+    real(RP), allocatable :: IntrpMat(:,:)   !< Interpolation matrix for numerical error evaluation
+    real(RP), allocatable :: intw_intrp(:)   !< Weights of integration for interpolation points
+    real(RP), allocatable :: epos_intrp(:,:) !< Positions of interpolation points
+
+    class(MeshFieldAnalysisNumerrorInfoBase), pointer :: info !< Pointer to information for numerical error analysis
   contains
     procedure :: Init_base => meshfield_analysis_numerror_base_Init 
     generic :: Init => Init_base
@@ -69,8 +79,38 @@ module scale_meshfield_analysis_numerror_base
 
   !-----------------------------------------------------------------------------
   !
-  !++ Private parameters & variables
+  !++ Private procedures & parameters & variables
   !
+  abstract interface 
+    subroutine evaluate_error_interface( this_, tsec, &
+      num_error_l1_lc_, num_error_l2_lc_, num_error_linf_lc_, &
+      numsol_mean, exactsol_mean )
+      import RP
+      import MeshFieldAnalysisNumerrorBase
+      class(MeshFieldAnalysisNumerrorBase), intent(in) :: this_
+      real(RP), intent(in) :: tsec
+      real(RP), intent(inout) :: num_error_l1_lc_(this_%var_num)
+      real(RP), intent(inout) :: num_error_l2_lc_(this_%var_num)
+      real(RP), intent(inout) :: num_error_linf_lc_(this_%var_num)    
+      real(RP), intent(inout) :: numsol_mean(this_%var_num) 
+      real(RP), intent(inout) :: exactsol_mean(this_%var_num) 
+    end subroutine evaluate_error_interface
+
+    subroutine calc_covariance_interface( this_, tsec, &
+      cov_numsol_numsol_lc, cov_numsol_exactsol_lc, cov_exactsol_exactsol_lc, &
+      numsol_mean, exactsol_mean                      )
+      import RP
+      import MeshFieldAnalysisNumerrorBase
+      class(MeshFieldAnalysisNumerrorBase), intent(in) :: this_
+      real(RP), intent(in) :: tsec
+      real(RP), intent(inout) :: cov_numsol_numsol_lc(this_%var_num)
+      real(RP), intent(inout) :: cov_numsol_exactsol_lc(this_%var_num)
+      real(RP), intent(inout) :: cov_exactsol_exactsol_lc(this_%var_num)
+      real(RP), intent(in) :: numsol_mean(this_%var_num) 
+      real(RP), intent(in) :: exactsol_mean(this_%var_num)   
+    end subroutine calc_covariance_interface
+  end interface
+
   private :: numerror_do_step
 
   !-----------------------------------------------------------------------------
@@ -81,18 +121,21 @@ module scale_meshfield_analysis_numerror_base
 contains
 
   !-----------------------------------------------------------------------------
-  !> Setup
+  !> Initialize an object for numerical error analysis
 !OCL SERIAL
-  subroutine meshfield_analysis_numerror_base_Init( this,                 &
-    porder_error_check, ndim, np, intrp_np, log_fname_base, log_step_interval )
+  subroutine meshfield_analysis_numerror_base_Init( this,                      &
+    porder_error_check, ndim, np, intrp_np, log_fname_base, log_step_interval, &
+    mesh, numerror_analysis_info )
     implicit none
     class(MeshFieldAnalysisNumerrorBase), intent(inout) :: this
-    integer, intent(in) :: porder_error_check
-    integer, intent(in) :: ndim
-    integer, intent(in) :: np
-    integer, intent(in) :: intrp_np
-    character(len=*), intent(in) :: log_fname_base
-    integer, intent(in) :: log_step_interval
+    integer, intent(in) :: porder_error_check      !< Polynomial order when evaluating numerical errors
+    integer, intent(in) :: ndim                    !< Number of dimensions
+    integer, intent(in) :: np                      !< Number of nodes per element
+    integer, intent(in) :: intrp_np                !< Number of interpolation points for numerical error evaluation
+    character(len=*), intent(in) :: log_fname_base !< Base name of log file for numerical error analysis
+    integer, intent(in) :: log_step_interval       !< Interval of time step for log output
+    class(MeshBase), intent(in), target :: mesh !< Mesh for numerical error analysis
+    class(MeshFieldAnalysisNumerrorInfoBase), intent(in), target :: numerror_analysis_info !< Information for numerical error analysis
 
     character(len=H_MID) :: fname
     integer :: ierr
@@ -127,11 +170,13 @@ contains
     allocate( this%intw_intrp(this%intrp_np) )
     allocate( this%epos_intrp(this%intrp_np,this%ndim) )
 
+    this%info => numerror_analysis_info
+    this%mesh => mesh
     return
   end subroutine meshfield_analysis_numerror_base_Init
 
   !-----------------------------------------------------------------------------
-  !> Finalization
+  !> Finalize an object for numerical error analysis
 !OCL SERIAL
   subroutine meshfield_analysis_numerror_base_Final( this )
     implicit none
@@ -142,17 +187,20 @@ contains
 
     close( this%log_fid )
     this%log_fid = -1
-    
+
+    this%info => null()
+    this%mesh => null()
     return
   end subroutine meshfield_analysis_numerror_base_Final
 
+  !> Register a variable for numerical error analysis
 !OCL SERIAL
   subroutine meshfield_analysis_numerror_base_regist( this, varname, unit, varid )
     implicit none
     class(MeshFieldAnalysisNumerrorBase), intent(inout) :: this
-    character(len=*), intent(in) :: varname
-    character(len=*), intent(in) :: unit
-    integer, intent(out) :: varid
+    character(len=*), intent(in) :: varname !< Name of variable to be analyzed
+    character(len=*), intent(in) :: unit    !< Unit of variable to be analyzed
+    integer, intent(out) :: varid           !< ID of variable to be analyzed
     !---------------------------------------------------------------------------
 
     this%var_num = this%var_num + 1
@@ -165,10 +213,10 @@ contains
       write(this%log_fid,'(A25)',advance='no') 'Ediss      ('//trim(varname)//')'
       write(this%log_fid,'(A25)',advance='no') 'Edisp      ('//trim(varname)//')'
     end if
-
     return
   end subroutine meshfield_analysis_numerror_base_regist
 
+  !> Evaluate numerical errors
 !OCL SERIAL
   subroutine meshfield_analysis_numerror_base_evaluate( &
     this, tstep, tsec, dom_vol, evaluate_error, calc_covariance )
@@ -180,33 +228,8 @@ contains
     integer, intent(in) :: tstep
     real(RP) :: tsec
     real(RP), intent(in) :: dom_vol
-    interface 
-      subroutine evaluate_error( this_, &
-        num_error_l1_lc_, num_error_l2_lc_, num_error_linf_lc_, &
-        numsol_mean, exactsol_mean )
-        import RP
-        import MeshFieldAnalysisNumerrorBase
-        class(MeshFieldAnalysisNumerrorBase), intent(in) :: this_
-        real(RP), intent(inout) :: num_error_l1_lc_(this_%var_num)
-        real(RP), intent(inout) :: num_error_l2_lc_(this_%var_num)
-        real(RP), intent(inout) :: num_error_linf_lc_(this_%var_num)    
-        real(RP), intent(inout) :: numsol_mean(this_%var_num) 
-        real(RP), intent(inout) :: exactsol_mean(this_%var_num) 
-      end subroutine evaluate_error
-
-      subroutine calc_covariance( this_, &
-        cov_numsol_numsol_lc, cov_numsol_exactsol_lc, cov_exactsol_exactsol_lc, &
-        numsol_mean, exactsol_mean                      )
-        import RP
-        import MeshFieldAnalysisNumerrorBase
-        class(MeshFieldAnalysisNumerrorBase), intent(in) :: this_
-        real(RP), intent(inout) :: cov_numsol_numsol_lc(this_%var_num)
-        real(RP), intent(inout) :: cov_numsol_exactsol_lc(this_%var_num)
-        real(RP), intent(inout) :: cov_exactsol_exactsol_lc(this_%var_num)
-        real(RP), intent(in) :: numsol_mean(this_%var_num) 
-        real(RP), intent(in) :: exactsol_mean(this_%var_num)   
-      end subroutine calc_covariance   
-    end interface
+    procedure(evaluate_error_interface) :: evaluate_error
+    procedure(calc_covariance_interface) :: calc_covariance
 
     logical :: do_check_numerror
 
@@ -246,7 +269,7 @@ contains
     num_error_linf_lc(:) = 0.0_RP
     sum_buf_lc(:,:)      = 0.0_RP
 
-    call evaluate_error( this, &
+    call evaluate_error( this, tsec, &
       sum_buf_lc(:,SUM_BUF_L1_ID), sum_buf_lc(:,SUM_BUF_L2_ID), num_error_linf_lc(:), &
       sum_buf_lc(:,SUM_BUF_MEAN_NUMSOL_ID), sum_buf_lc(:,SUM_BUF_MEAN_EXACTSOL_ID)    )
 
@@ -269,7 +292,7 @@ contains
     !--
     covariance_lc(:,:) = 0.0_RP
 
-    call calc_covariance( this, &
+    call calc_covariance( this, tsec, &
       covariance_lc(:,1), covariance_lc(:,2), covariance_lc(:,3),            &
       sum_buf(:,SUM_BUF_MEAN_NUMSOL_ID), sum_buf(:,SUM_BUF_MEAN_EXACTSOL_ID) )
     
@@ -304,6 +327,7 @@ contains
     return
   end subroutine meshfield_analysis_numerror_base_evaluate
 
+  !> Evaluate numerical errors at local mesh level
 !OCL SERIAL
   subroutine meshfield_analysis_numerror_base_evaluate_error_lc( base, &
     num_error_l1_lc, num_error_l2_lc, num_error_linf_lc, &
@@ -351,6 +375,7 @@ contains
     return
   end subroutine meshfield_analysis_numerror_base_evaluate_error_lc
 
+  !> Evaluate covariance of numerical and exact solutions at local mesh level
 !OCL SERIAL
   subroutine meshfield_analysis_numerror_base_evaluate_covariance_lc( base, &
     cov_numsol_numsol_lc, cov_numsol_exactsol_lc, cov_exactsol_exactsol_lc, &
@@ -398,6 +423,7 @@ contains
 
 !--- private
 
+  !> Get a flag whether to evaluate numerical errors at the current time step
 !OCL SERIAL
   function numerror_do_step( this, step ) result(do_flag)
     implicit none
