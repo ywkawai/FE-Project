@@ -43,13 +43,13 @@ program test_advect1d
   
   use scale_timeint_rk, only: timeint_rk  
 
-  use mod_advect1d_numerror, only: advect1d_numerror_eval
+  use mod_advect1d_numerror, only: Advect1DNumErrorAnalysis
   !-----------------------------------------------------------------------------
   implicit none
 
   character(len=H_SHORT) :: InitShapeName   !< The type of initial profile (sin, gaussian-hill, cosine-bell, top-hat)
-  real(RP), save :: InitShapeParams(2)
-  integer :: InitGPMatPolyOrder
+  real(RP), save :: InitShapeParams(2)      !< Parameters for the initial profile
+  integer :: InitGPMatPolyOrder             !< The polynomial order used for the Galerkin projection in setting initial conditions
   real(RP) :: ADV_VEL                       !< The constant speed of advection
   logical :: Do_NumErrorAnalysis            !< Flag wheter analysis of numerical error is performed
 
@@ -70,6 +70,8 @@ program test_advect1d
   integer :: rkstage
   integer :: tintbuf_ind
   integer, parameter :: RKVAR_Q = 1
+
+  type(Advect1DNumErrorAnalysis) :: numerror_analysis
   !-------------------------------------------------------
 
   call init()
@@ -117,9 +119,8 @@ program test_advect1d
 
     tsec_ = TIME_DTSEC * real(TIME_NOWSTEP-1, kind=RP)
     if ( Do_NumErrorAnalysis ) then
-      call advect1d_numerror_eval( qexact, & ! (out)
-        q, TIME_NOWSTEP, tsec_, ADV_VEL, InitShapeName, InitShapeParams, & ! (in)
-        mesh, mesh%refElem1D                                             ) ! (in)
+      call numerror_analysis%Eval( qexact, & ! (inout)
+        q, TIME_NOWSTEP, tsec_             ) ! (in)
     end if
 
     !* Output history file
@@ -251,9 +252,8 @@ contains
     end do
   
     if ( Do_NumErrorAnalysis ) then
-      call advect1d_numerror_eval( qexact, & ! (out)
-        q, 1, 0.0_RP, ADV_VEL, InitShapeName, InitShapeParams, & ! (in)
-        mesh, mesh%refElem1D                                   ) ! (in)
+      call numerror_analysis%Eval( qexact, & ! (inout)
+        q, 1, 0.0_RP ) ! (in)
     end if
 
     call FILE_HISTORY_meshfield_put( HST_ID(1), q )
@@ -273,7 +273,6 @@ contains
       TIME_manager_report_timeintervals
     use scale_file_history_meshfield, only: FILE_HISTORY_meshfield_setup  
     use scale_file_history, only: FILE_HISTORY_reg  
-    use mod_advect1d_numerror, only: advect1d_numerror_Init     
     implicit none
   
     real(RP), parameter :: dom_xmin =   0.0_RP
@@ -388,7 +387,7 @@ contains
 
     !-- setup a module for evaluating numerical errors 
     if ( Do_NumErrorAnalysis ) &
-      call advect1d_numerror_Init( refElem )
+      call numerror_analysis%Init( ADV_VEL, InitShapeName, InitShapeParams, mesh, refElem )
 
     !-- report information of time intervals
     call TIME_manager_report_timeintervals
@@ -402,14 +401,13 @@ contains
     use scale_file_history_meshfield, only: &
       FILE_HISTORY_meshfield_finalize
     use scale_time_manager, only: TIME_manager_Final 
-    use mod_advect1d_numerror, only: advect1d_numerror_Final   
     implicit none
     integer :: idom
     !------------------------------------------------------------------------
 
     call PROF_rapstart( "final", 1 )
     if ( Do_NumErrorAnalysis ) &
-      call advect1d_numerror_Final()
+      call numerror_analysis%Final()
 
     call FILE_HISTORY_meshfield_finalize()
 

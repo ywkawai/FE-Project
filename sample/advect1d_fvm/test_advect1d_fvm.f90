@@ -36,7 +36,7 @@ program test_advect1d_fvm
   use scale_timeint_rk, only: timeint_rk 
   use mod_operator_fvm, only: operator_fvm    
    
-  use mod_advect1d_fvm_numerror, only: advect1d_fvm_numerror_eval
+  use mod_advect1d_fvm_numerror, only: Advect1DNumErrorAnalysis
   !-----------------------------------------------------------------------------
   implicit none
 
@@ -59,6 +59,8 @@ program test_advect1d_fvm
   integer :: rkstage
   integer :: tintbuf_ind
   integer, parameter :: RKVAR_Q = 1
+
+  type(Advect1DNumErrorAnalysis) :: numerror_analysis
 
   character(len=H_MID), parameter :: APPNAME = "advect1d with FVM"
   !-------------------------------------------------------
@@ -97,9 +99,8 @@ program test_advect1d_fvm
 
     tsec_ = TIME_DTSEC * real(TIME_NOWSTEP-1, kind=RP)
     if ( Do_NumErrorAnalysis ) then
-      call advect1d_fvm_numerror_eval( qexact(:,IS,JS), & ! (out)
-        q(:,IS,JS), TIME_NOWSTEP, tsec_, ADV_VEL, InitShapeName, InitShapeParams, & ! (in)
-        CZ, FZ, KS, KE, KA, KHALO                                                 ) ! (in)
+      call numerror_analysis%Eval( qexact(:,IS,JS),  & ! (out)
+        q(:,IS,JS), TIME_NOWSTEP, tsec_, KA          ) ! (in)
     end if
 
     !* Output history file
@@ -173,9 +174,8 @@ contains
     u(:,:,:) = ADV_VEL
 
     if ( Do_NumErrorAnalysis ) then
-      call advect1d_fvm_numerror_eval( qexact(:,IS,JS),                 & ! (out)
-        q(:,IS,JS), 1, 0.0_RP, ADV_VEL, InitShapeName, InitShapeParams, & ! (in)
-        CZ, FZ, KS, KE, KA, KHALO                                       ) ! (in)
+      call numerror_analysis%Eval( qexact(:,IS,JS), & ! (out)
+        q(:,IS,JS), 1, 0.0_RP, KA                   ) ! (in)
     end if
 
     call FILE_HISTORY_put(HST_ID(1), q(KS:KE,IS,JS))
@@ -203,8 +203,6 @@ contains
       FILE_CARTESC_setup
     use mod_output_fvm, only: output_fvm_setup
     use scale_file_history, only: FILE_HISTORY_reg
-
-    use mod_advect1d_fvm_numerror, only: advect1d_fvm_numerror_Init
     implicit none
 
     real(RP), parameter :: dom_xmin =  0.0_RP
@@ -289,8 +287,9 @@ contains
     call FILE_HISTORY_reg( "qexact", "qexact", "1", HST_ID(2), dim_type='X')
 
     !-- setup a module for evaluating numerical errors 
-    if ( Do_NumErrorAnalysis ) &
-      call advect1d_fvm_numerror_Init( FZ, KS, KE, KA )
+    if ( Do_NumErrorAnalysis ) then
+      call numerror_analysis%Init( ADV_VEL, InitShapeName, InitShapeParams, FZ, KS, KE, KA, KHALO )
+    end if
 
     !-- report information of time intervals
     call TIME_manager_report_timeintervals
@@ -302,12 +301,11 @@ contains
   subroutine final()
     use mod_output_fvm, only: output_fvm_finalize
     use scale_time_manager, only: TIME_manager_Final 
-    use mod_advect1d_fvm_numerror, only: advect1d_fvm_numerror_Final   
     implicit none
     !-----------------------------------------
     call PROF_rapstart( "final", 1 )
     if ( Do_NumErrorAnalysis ) &
-      call advect1d_fvm_numerror_Final()
+      call numerror_analysis%Final()
     
     call optr_fvm%Final()
     call output_fvm_finalize

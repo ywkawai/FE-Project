@@ -9,7 +9,8 @@ module mod_advect2d_fvm_numerror
   use scale_localmesh_base, only: LocalMeshBase
   use scale_localmesh_2d, only: LocalMesh2D
   use scale_mesh_rectdom2d, only: MeshRectDom2D
-  use scale_meshfield_base, only: MeshField2D
+  use scale_meshfield_analysis_numerror_base, only: &
+    MeshFieldAnalysisNumerrorInfoBase
   use scale_meshfield_analysis_numerror, only: &
     MeshFieldAnalysisNumerror2D
 
@@ -18,33 +19,63 @@ module mod_advect2d_fvm_numerror
 
   !-----------------------------------------------------------------------------
   !
-  !++ Public parameters & variables
+  !++ Public types & variables
   !
-  public :: advect2d_fvm_numerror_Init
-  public :: advect2d_fvm_numerror_eval
-  public :: advect2d_fvm_numerror_Final
+  type, extends(MeshFieldAnalysisNumerrorInfoBase) :: Advect2D_Numerror_Info
+    character(len=H_SHORT) :: VelTypeName
+    real(RP) :: VelTypeParams(4)
+    character(len=H_SHORT) :: InitShapeName
+    real(RP) :: InitShapeParams(4)
+
+    integer ::  numerror_vid(1)
+
+    real(RP) :: dom_xmin, dom_xmax
+    real(RP) :: dom_ymin, dom_ymax
+
+    !-
+    type(MeshRectDom2D) :: mesh_dg
+    type(QuadrilateralElement) :: elem
+
+    !-
+    real(RP), pointer :: qtrc_exact(:,:)
+    real(RP), pointer :: qtrc(:,:)
+
+    !-
+    integer :: FV_IS, FV_IE, FV_IA, FV_IHALO
+    integer :: FV_JS, FV_JE, FV_JA, FV_JHALO
+  end type Advect2D_Numerror_Info
+
+  type, public :: Advect2DNumErrorAnalysis
+    type(Advect2D_Numerror_Info) :: info
+    type(MeshFieldAnalysisNumerror2D) :: numerror_analysis
+  contains
+    procedure :: Init => advect2d_fvm_numerror_Init
+    procedure :: Eval => advect2d_fvm_numerror_Eval
+    procedure :: Final => advect2d_fvm_numerror_Final
+  end type Advect2DNumErrorAnalysis
 
   !-----------------------------------------------------------------------------
   !
   !++ Private variables
   !
-  type(MeshRectDom2D) :: mesh_dg
-  type(QuadrilateralElement) :: elem
-
-  type(MeshFieldAnalysisNumerror2D) :: numerror_analysis
-  integer ::  numerror_vid(1)
-
 contains
   !> Initialization
-  subroutine advect2d_fvm_numerror_Init( FX, FY, IS, IE, IA, JS, JE, JA )
+  subroutine advect2d_fvm_numerror_Init( this, &
+    VelTypeName, VelTypeParams, InitShapeName, InitShapeParams, &
+    FX, FY, IS, IE, IA, IHALO, JS, JE, JA, JHALO )
     use scale_prc, only: &
       PRC_abort
     use scale_prc_cartesC, only: &
       PRC_NUM_X, PRC_NUM_Y, &
       PRC_PERIODIC_X, PRC_PERIODIC_Y
     implicit none
-    integer, intent(in) :: IS, IE, IA
-    integer, intent(in) :: JS, JE, JA
+    class(Advect2DNumErrorAnalysis), intent(inout) :: this
+    character(len=*), intent(in) :: VelTypeName
+    real(RP), intent(in) :: VelTypeParams(4)
+    character(len=*), intent(in) :: InitShapeName
+    real(RP), intent(in) :: InitShapeParams(4)
+    integer, intent(in) :: IS, IE, IA, IHALO
+    integer, intent(in) :: JS, JE, JA, JHALO
     real(RP), intent(in) :: FX(0:IA)
     real(RP), intent(in) :: FY(0:JA)
 
@@ -60,7 +91,7 @@ contains
     !----------------------------------------------
 
     LOG_NEWLINE
-    LOG_INFO("advect1d_fvm_numerror_init",*) 'Setup'
+    LOG_INFO("advect2d_fvm_numerror_init",*) 'Setup'
 
     polyOrderErrorCheck = 2
     LOG_STEP_INTERVAL   = 5
@@ -77,136 +108,147 @@ contains
     LOG_NML(PARAM_ADVECT2D_FVM_NUMERROR)
 
     !--
-    call elem%Init( polyOrderErrorCheck, .false. )
-    call mesh_dg%Init( IE-IS+1, JE-JS+1, FX(IS-1), FX(IE), FY(JS-1), FY(JE), PRC_PERIODIC_X, PRC_PERIODIC_Y, &
-      elem, 1, PRC_NUM_X, PRC_NUM_Y )
-    call mesh_dg%Generate()
+    call this%info%elem%Init( polyOrderErrorCheck, .false. )
+    call this%info%mesh_dg%Init( IE-IS+1, JE-JS+1, FX(IS-1), FX(IE), FY(JS-1), FY(JE), PRC_PERIODIC_X, PRC_PERIODIC_Y, &
+      this%info%elem, 1, PRC_NUM_X, PRC_NUM_Y )
+    call this%info%mesh_dg%Generate()
 
     !--
-    call numerror_analysis%Init( polyOrderErrorCheck, LOG_OUT_BASENAME, LOG_STEP_INTERVAL, elem )
-    call numerror_analysis%Regist( "q", "1", numerror_vid(1) )
+    call this%numerror_analysis%Init( &
+      polyOrderErrorCheck, LOG_OUT_BASENAME, LOG_STEP_INTERVAL, &
+      this%info%mesh_dg, this%info%elem, set_data_lc, this%info )
+    call this%numerror_analysis%Regist( "q", "1", this%info%numerror_vid(1) )
 
+    !-
+    this%info%VelTypeName = VelTypeName
+    this%info%VelTypeParams = VelTypeParams
+    this%info%InitShapeName = InitShapeName
+    this%info%InitShapeParams = InitShapeParams
+    this%info%dom_xmin = this%info%mesh_dg%xmin_gl
+    this%info%dom_xmax = this%info%mesh_dg%xmax_gl
+    this%info%dom_ymin = this%info%mesh_dg%ymin_gl
+    this%info%dom_ymax = this%info%mesh_dg%ymax_gl
+    this%info%FV_IS = IS
+    this%info%FV_IE = IE
+    this%info%FV_IA = IA
+    this%info%FV_IHALO = IHALO
+    this%info%FV_JS = JS
+    this%info%FV_JE = JE
+    this%info%FV_JA = JA
+    this%info%FV_JHALO = JHALO
     return
   end subroutine advect2d_fvm_numerror_Init
 
   !> Evaluate numerical errors
-  subroutine advect2d_fvm_numerror_eval( qtrc_exact,                               & ! (inout)
-    qtrc, istep, tsec, VelTypeName, VelTypeParams, InitShapeName, InitShapeParams, & ! (in)
-    CX, FX, CY, FY, IS, IE, IA, IHALO, JS, JE, JA, JHALO  ) ! (in)
+  subroutine advect2d_fvm_numerror_eval( this, &
+    qtrc_exact,               & ! (inout)
+    qtrc, istep, tsec, IA, JA ) ! (in)
+    implicit none
+    class(Advect2DNumErrorAnalysis), intent(inout) :: this
+    integer, intent(in) :: IA, JA
+    real(RP), intent(out), target :: qtrc_exact(IA,JA)
+    real(RP), intent(in), target :: qtrc(IA,JA)
+    integer, intent(in) :: istep
+    real(RP), intent(in) :: tsec
+    !------------------------------------------------------------------------
+    this%info%qtrc_exact => qtrc_exact
+    this%info%qtrc => qtrc
+    call this%numerror_analysis%Evaluate( istep, tsec ) 
+    return
+  end subroutine advect2d_fvm_numerror_eval
 
-    use scale_polynominal, only: Polynominal_genLegendrePoly
+!OCL SERIAL
+  subroutine set_data_lc( analysis, q, qexact, qexact_intrp, lcmesh, elem2D, intrp_epos, tsec )
     use mod_fieldutil, only: &
       get_upwind_pos2d => fieldutil_get_upwind_pos2d,        &
       get_profile2d_tracer => fieldutil_get_profile2d_tracer 
-
+    use scale_meshfield_fvm_util, only: MeshFieldFVMUtil_interp_FVtoDG
     implicit none
-    integer, intent(in) :: IS, IE, IA, IHALO
-    integer, intent(in) :: JS, JE, JA, JHALO
-    real(RP), intent(out) :: qtrc_exact(IA,JA)
-    real(RP), intent(in) :: qtrc(IA,JA)
-    integer, intent(in) :: istep
+    class(MeshFieldAnalysisNumerror2D), intent(in) :: analysis
+    class(LocalMesh2D), intent(in) :: lcmesh
+    class(ElementBase2D) :: elem2D
+    real(RP), intent(out) :: q(elem2D%Np,lcmesh%Ne,analysis%var_num)
+    real(RP), intent(out) :: qexact(elem2D%Np,lcmesh%Ne,analysis%var_num)
+    real(RP), intent(out) :: qexact_intrp(analysis%intrp_np,lcmesh%Ne,analysis%var_num)
+    real(RP), intent(in) :: intrp_epos(analysis%intrp_np,analysis%ndim)
     real(RP), intent(in) :: tsec
-    character(*), intent(in) :: VelTypeName
-    real(RP), intent(in) :: VelTypeParams(4)
-    character(*), intent(in) :: InitShapeName
-    real(RP), intent(in) :: InitShapeParams(2)
-    real(RP), intent(in) :: CX(IA)
-    real(RP), intent(in) :: FX(IA)
-    real(RP), intent(in) :: CY(JA)
-    real(RP), intent(in) :: FY(JA)
 
-    real(RP) :: dom_xmin, dom_xmax
-    real(RP) :: dom_ymin, dom_ymax
-    !------------------------------------------------------------------------
+    integer :: n
+    integer :: kelem, ke_x, ke_y
 
-    dom_xmin = mesh_dg%xmin_gl
-    dom_xmax = mesh_dg%xmax_gl
-    dom_ymin = mesh_dg%ymin_gl
-    dom_ymax = mesh_dg%ymax_gl
-    call numerror_analysis%Evaluate( istep, tsec, mesh_dg, set_data_lc ) 
+    integer :: vid
 
+    real(RP) :: vx(4), vy(4)
+    real(RP) :: x_uwind(elem2D%Np), y_vwind(elem2D%Np)
+    real(RP) :: x_uwind_intrp(analysis%intrp_np), y_vwind_intrp(analysis%intrp_np)
+    real(RP) :: pos_intrp(analysis%intrp_np,2)  
+    real(RP) :: int_w(elem2D%Np)
+    real(RP) :: qtrc_exact_dg(elem2D%Np)
+    real(RP) :: qtrc_dg(elem2D%Np,lcmesh%NeA)
+
+    class(Advect2D_Numerror_Info), pointer :: info 
+    class(MeshFieldAnalysisNumerrorInfoBase), pointer :: info_base
+    !---------------------------------------------
+
+    select type(info_base => analysis%info)
+    class is (Advect2D_Numerror_Info)
+      info => info_base
+    end select    
+
+    n = lcmesh%lcdomID
+
+    call MeshFieldFVMUtil_interp_FVtoDG( qtrc_dg, &
+      info%qtrc, lcmesh, elem2D,                         &
+      info%FV_IS, info%FV_IE, info%FV_IA, info%FV_IHALO, &
+      info%FV_JS, info%FV_JE, info%FV_JA, info%FV_JHALO, &
+      1 )
+
+    !$omp parallel do private(vid, ke_x, ke_y, kelem, vx, vy, x_uwind, y_vwind, x_uwind_intrp, y_vwind_intrp, pos_intrp, int_w, &
+    !$omp qtrc_exact_dg ) collapse(2)
+    do ke_y=1, lcmesh%NeY
+    do ke_x=1, lcmesh%NeX
+      kelem = ke_x + (ke_y-1)*lcmesh%NeX
+
+      vid = info%numerror_vid(1)
+
+      call get_upwind_pos2d( x_uwind, y_vwind, & !(out) 
+        lcmesh%pos_en(:,kelem,1), lcmesh%pos_en(:,kelem,2), info%VelTypeName, info%VelTypeParams, tsec, & ! (in)
+        info%dom_xmin, info%dom_xmax, info%dom_ymin, info%dom_ymax                                      ) ! (in)
+
+      vx(:) = lcmesh%pos_ev(lcmesh%EToV(kelem,:),1)
+      vy(:) = lcmesh%pos_ev(lcmesh%EToV(kelem,:),2)
+      pos_intrp(:,1) = vx(1) + 0.5_RP*( intrp_epos(:,1) + 1.0_RP ) * ( vx(2) - vx(1) )
+      pos_intrp(:,2) = vy(1) + 0.5_RP*( intrp_epos(:,2) + 1.0_RP ) * ( vy(3) - vy(1) )
+      call get_upwind_pos2d( x_uwind_intrp, y_vwind_intrp, & !(out) 
+        pos_intrp(:,1), pos_intrp(:,2), info%VelTypeName, info%VelTypeParams, tsec, & ! (in)
+        info%dom_xmin, info%dom_xmax, info%dom_ymin, info%dom_ymax                  ) ! (in)
+
+      call get_profile2d_tracer( qtrc_exact_dg(:),                             & ! (out)
+        info%InitShapeName, x_uwind, y_vwind, info%InitShapeParams, elem2D%Np  ) ! (in)
+
+      call get_profile2d_tracer( qexact_intrp(:,kelem,vid),                                       & ! (out)
+        info%InitShapeName, x_uwind_intrp, y_vwind_intrp, info%InitShapeParams, analysis%intrp_np ) ! (in)
+
+      int_w(:) = lcmesh%Gsqrt(:,kelem) * lcmesh%J(:,kelem) * elem2D%IntWeight_lgl(:)
+      int_w(:) = int_w(:) / sum(int_w(:))
+      info%qtrc_exact(info%FV_IHALO+ke_x,info%FV_JHALO+ke_y) = sum( int_w(:) * qtrc_exact_dg(:) )
+
+      q(:,kelem,vid) = qtrc_dg(:,kelem)
+      qexact(:,kelem,vid) = qtrc_exact_dg(:)
+    end do
+    end do
+    
     return
-
-  contains
-!OCL SERIAL
-    subroutine set_data_lc( this, q, qexact, qexact_intrp, lcmesh, elem2D, intrp_epos )
-      use scale_localmeshfield_base, only: LocalMeshFieldBase
-      use scale_meshfield_fvm_util, only: MeshFieldFVMUtil_interp_FVtoDG
-      implicit none
-      class(MeshFieldAnalysisNumerror2D), intent(in) :: this
-      class(LocalMesh2D), intent(in) :: lcmesh
-      class(ElementBase2D) :: elem2D
-      real(RP), intent(out) :: q(elem2D%Np,lcmesh%Ne,this%var_num)
-      real(RP), intent(out) :: qexact(elem2D%Np,lcmesh%Ne,this%var_num)
-      real(RP), intent(out) :: qexact_intrp(this%intrp_np,lcmesh%Ne,this%var_num)
-      real(RP), intent(in) :: intrp_epos(this%intrp_np,this%ndim)
-
-      integer :: n
-      integer :: kelem, ke_x, ke_y
-
-      integer :: vid
-
-      real(RP) :: vx(4), vy(4)
-      real(RP) :: x_uwind(elem%Np), y_vwind(elem%Np)
-      real(RP) :: x_uwind_intrp(this%intrp_np), y_vwind_intrp(this%intrp_np)
-      real(RP) :: pos_intrp(this%intrp_np,2)  
-      real(RP) :: int_w(elem%Np)
-      real(RP) :: qtrc_exact_dg(elem%Np)
-      real(RP) :: qtrc_dg(elem%Np,lcmesh%NeA)
-      !---------------------------------------------
-
-      n = lcmesh%lcdomID
-
-      call MeshFieldFVMUtil_interp_FVtoDG( qtrc_dg, &
-        qtrc, lcmesh, elem2D, IS, IE, IA, IHALO, JS, JE, JA, JHALO, &
-        1 )
-
-      !$omp parallel do private(vid, ke_x, ke_y, kelem, vx, vy, x_uwind, y_vwind, x_uwind_intrp, y_vwind_intrp, pos_intrp, int_w, &
-      !$omp qtrc_exact_dg ) collapse(2)
-      do ke_y=1, lcmesh%NeY
-      do ke_x=1, lcmesh%NeX
-        kelem = ke_x + (ke_y-1)*lcmesh%NeX
-
-        vid = numerror_vid(1)
-
-        call get_upwind_pos2d( x_uwind, y_vwind, & !(out) 
-          lcmesh%pos_en(:,kelem,1), lcmesh%pos_en(:,kelem,2), VelTypeName, VelTypeParams, tsec, & ! (in)
-          dom_xmin, dom_xmax, dom_ymin, dom_ymax                                                ) ! (in)
-
-        vx(:) = lcmesh%pos_ev(lcmesh%EToV(kelem,:),1)
-        vy(:) = lcmesh%pos_ev(lcmesh%EToV(kelem,:),2)
-        pos_intrp(:,1) = vx(1) + 0.5_RP*( intrp_epos(:,1) + 1.0_RP ) * ( vx(2) - vx(1) )
-        pos_intrp(:,2) = vy(1) + 0.5_RP*( intrp_epos(:,2) + 1.0_RP ) * ( vy(3) - vy(1) )
-        call get_upwind_pos2d( x_uwind_intrp, y_vwind_intrp, & !(out) 
-          pos_intrp(:,1), pos_intrp(:,2), VelTypeName, VelTypeParams, tsec, & ! (in)
-          dom_xmin, dom_xmax, dom_ymin, dom_ymax                            ) ! (in)
-
-        call get_profile2d_tracer( qtrc_exact_dg(:),                 & ! (out)
-          InitShapeName, x_uwind, y_vwind, InitShapeParams, elem%Np  ) ! (in)
-
-        call get_profile2d_tracer( qexact_intrp(:,kelem,vid),                         & ! (out)
-          InitShapeName, x_uwind_intrp, y_vwind_intrp, InitShapeParams, this%intrp_np ) ! (in)
-
-        int_w(:) = lcmesh%Gsqrt(:,kelem) * lcmesh%J(:,kelem) * elem%IntWeight_lgl(:)
-        int_w(:) = int_w(:) / sum(int_w(:))
-        qtrc_exact(IHALO+ke_x,JHALO+ke_y) = sum( int_w(:) * qtrc_exact_dg(:) )
-
-        q(:,kelem,vid) = qtrc_dg(:,kelem)
-        qexact(:,kelem,vid) = qtrc_exact_dg(:)
-      end do
-      end do
-      
-      return
-    end subroutine set_data_lc
-  end subroutine advect2d_fvm_numerror_eval
+  end subroutine set_data_lc
 
   !> Finalization
-  subroutine advect2d_fvm_numerror_Final()
+  subroutine advect2d_fvm_numerror_Final( this )
     implicit none
+    class(Advect2DNumErrorAnalysis), intent(inout) :: this
     !---------------------------------
-    call mesh_dg%Final()
-    call elem%Final()
-    call numerror_analysis%Final()
+    call this%info%mesh_dg%Final()
+    call this%info%elem%Final()
+    call this%numerror_analysis%Final()
     return
   end subroutine advect2d_fvm_numerror_Final
   
