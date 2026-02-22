@@ -270,9 +270,6 @@ OBJS_NAME_SCALELIB = \
 	scale_urban_grid_icoA_index.o    \
 	scale_urban_dyn_kusaka01.o	     \
 	\
-	scale_lake_grid_cartesC.o        \
-	scale_lake_grid_cartesC_index.o  \
-	\
 	scale_bulkflux.o	             \
 	scale_landuse.o                  \
 	scale_cpl_sfc_index.o            \
@@ -281,6 +278,12 @@ OBJS_NAME_SCALELIB = \
 	\
 	scale_spnudge.o \
 	scale_dft.o
+
+ifeq ($(SCALE_DEVELOP),T)
+OBJS_NAME_SCALELIB += \
+	scale_lake_grid_cartesC.o        \
+	scale_lake_grid_cartesC_index.o 
+endif
 
 #------------------------------------------
 
