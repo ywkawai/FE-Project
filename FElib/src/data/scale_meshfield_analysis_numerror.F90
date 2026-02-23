@@ -71,7 +71,7 @@ module scale_meshfield_analysis_numerror
       import MeshFieldAnalysisNumerror1D
       class(MeshFieldAnalysisNumerror1D), intent(in) :: this_
       class(LocalMesh1D), intent(in) :: lcmesh
-      class(ElementBase1D) :: elem1D
+      class(ElementBase1D), intent(in) :: elem1D
       real(RP), intent(out) :: q(elem1D%Np,lcmesh%Ne,this_%var_num)
       real(RP), intent(out) :: qexact(elem1D%Np,lcmesh%Ne,this_%var_num)
       real(RP), intent(out) :: qexact_intrp(this_%intrp_np,lcmesh%Ne,this_%var_num)
@@ -98,7 +98,7 @@ module scale_meshfield_analysis_numerror
       import MeshFieldAnalysisNumerror2D
       class(MeshFieldAnalysisNumerror2D), intent(in) :: this_
       class(LocalMesh2D), intent(in) :: lcmesh
-      class(ElementBase2D) :: elem2D
+      class(ElementBase2D), intent(in) :: elem2D
       real(RP), intent(out) :: q(elem2D%Np,lcmesh%Ne,this_%var_num)
       real(RP), intent(out) :: qexact(elem2D%Np,lcmesh%Ne,this_%var_num)
       real(RP), intent(out) :: qexact_intrp(this_%intrp_np,lcmesh%Ne,this_%var_num)
@@ -125,7 +125,7 @@ module scale_meshfield_analysis_numerror
       import MeshFieldAnalysisNumerror3D
       class(MeshFieldAnalysisNumerror3D), intent(in) :: this_
       class(LocalMesh3D), intent(in) :: lcmesh
-      class(ElementBase3D) :: elem3D
+      class(ElementBase3D), intent(in) :: elem3D
       real(RP), intent(out) :: q(elem3D%Np,lcmesh%Ne,this_%var_num)
       real(RP), intent(out) :: qexact(elem3D%Np,lcmesh%Ne,this_%var_num)
       real(RP), intent(out) :: qexact_intrp(this_%intrp_np,lcmesh%Ne,this_%var_num)

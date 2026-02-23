@@ -64,8 +64,8 @@ contains
     real(RP), intent(in) :: VelTypeParams(4)
     character(len=*), intent(in) :: InitShapeName
     real(RP), intent(in) :: InitShapeParams(4)
-    class(MeshRectDom2D), intent(in) :: mesh
-    class(QuadrilateralElement), intent(in) :: elem
+    type(MeshRectDom2D), intent(in) :: mesh
+    type(QuadrilateralElement), intent(in) :: elem
 
     integer :: ierr
 
@@ -135,7 +135,7 @@ contains
     implicit none
     class(MeshFieldAnalysisNumerror2D), intent(in) :: analysis
     class(LocalMesh2D), intent(in) :: lcmesh
-    class(ElementBase2D) :: elem2D
+    class(ElementBase2D), intent(in) :: elem2D
     real(RP), intent(out) :: q(elem2D%Np,lcmesh%Ne,analysis%var_num)
     real(RP), intent(out) :: qexact(elem2D%Np,lcmesh%Ne,analysis%var_num)
     real(RP), intent(out) :: qexact_intrp(analysis%intrp_np,lcmesh%Ne,analysis%var_num)

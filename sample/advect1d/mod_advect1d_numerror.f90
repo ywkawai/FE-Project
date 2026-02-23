@@ -20,14 +20,8 @@ module mod_advect1d_numerror
 
   !-----------------------------------------------------------------------------
   !
-  !++ Public infoeters & variables
+  !++ Public types & variables
   !
-
-  !-----------------------------------------------------------------------------
-  !
-  !++ Private procedures
-  !
-
   type, extends(MeshFieldAnalysisNumerrorInfoBase) :: Advect1D_Numerror_Info
     real(RP) :: ADV_VEL
     character(len=H_MID) :: InitShapeName
@@ -48,6 +42,10 @@ module mod_advect1d_numerror
     procedure :: Eval => advect1d_numerror_eval
     procedure :: Final => advect1d_numerror_Final
   end type Advect1DNumErrorAnalysis
+  !-----------------------------------------------------------------------------
+  !
+  !++ Private procedures
+  !
 
 contains
   !> Initialization
@@ -61,8 +59,8 @@ contains
     real(RP), intent(in) :: ADV_VEL
     character(*), intent(in) :: InitShapeName
     real(RP), intent(in) :: InitShapeParams(2)
-    class(MeshLineDom1D), intent(in) :: mesh
-    class(LineElement), intent(in) :: elem
+    type(MeshLineDom1D), intent(in) :: mesh
+    type(LineElement), intent(in) :: elem
 
     integer :: ierr
 

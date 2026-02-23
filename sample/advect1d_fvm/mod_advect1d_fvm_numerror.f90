@@ -154,7 +154,7 @@ contains
     implicit none
     class(MeshFieldAnalysisNumerror1D), intent(in) :: analysis
     class(LocalMesh1D), intent(in) :: lcmesh
-    class(ElementBase1D) :: elem1D
+    class(ElementBase1D), intent(in) :: elem1D
     real(RP), intent(out) :: q(elem1D%Np,lcmesh%Ne,analysis%var_num)
     real(RP), intent(out) :: qexact(elem1D%Np,lcmesh%Ne,analysis%var_num)
     real(RP), intent(out) :: qexact_intrp(analysis%intrp_np,lcmesh%Ne,analysis%var_num)
