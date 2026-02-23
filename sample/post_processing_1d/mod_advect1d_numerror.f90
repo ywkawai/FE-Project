@@ -10,6 +10,8 @@ module mod_advect1d_numerror
   use scale_localmesh_1d, only: LocalMesh1D
   use scale_mesh_linedom1d, only: MeshLineDom1D
   use scale_meshfield_base, only: MeshField1D
+  use scale_meshfield_analysis_numerror_base, only: &
+    MeshFieldAnalysisNumerrorInfoBase
   use scale_meshfield_analysis_numerror, only: &
     MeshFieldAnalysisNumerror1D
 
@@ -20,24 +22,47 @@ module mod_advect1d_numerror
   !
   !++ Public parameters & variables
   !
-  public :: advect1d_numerror_Init
-  public :: advect1d_numerror_eval
-  public :: advect1d_numerror_Final
+  !
+  !++ Public types & variables
+  !
+  type, extends(MeshFieldAnalysisNumerrorInfoBase) :: Advect1D_Numerror_Info
+    real(RP) :: ADV_VEL
+    character(len=H_MID) :: InitShapeName
+    real(RP) :: InitShapeParams(2)
+    real(RP) :: dom_xmin
+    real(RP) :: dom_xmax
+    integer ::  numerror_vid(1)
+    !-
+    type(MeshField1D), pointer :: qtrc_exact
+    type(MeshField1D), pointer :: qtrc
+  end type Advect1D_Numerror_Info
 
+  type, public :: Advect1DNumErrorAnalysis
+    type(Advect1D_Numerror_Info) :: info
+    type(MeshFieldAnalysisNumerror1D) :: numerror_analysis
+  contains
+    procedure :: Init => advect1d_numerror_Init
+    procedure :: Eval => advect1d_numerror_eval
+    procedure :: Final => advect1d_numerror_Final
+  end type Advect1DNumErrorAnalysis
   !-----------------------------------------------------------------------------
   !
   !++ Private procedures
   !
-  type(MeshFieldAnalysisNumerror1D) :: numerror_analysis
-  integer ::  numerror_vid(1)
-
 contains
   !> Initialization
-  subroutine advect1d_numerror_Init( elem )
+  subroutine advect1d_numerror_Init( this,   &
+    ADV_VEL, InitShapeName, InitShapeParams, &
+    mesh, elem )
     use scale_prc, only: &
        PRC_abort    
     implicit none
-    class(LineElement), intent(in) :: elem
+    class(Advect1DNumErrorAnalysis), intent(inout) :: this
+    real(RP), intent(in) :: ADV_VEL
+    character(*), intent(in) :: InitShapeName
+    real(RP), intent(in) :: InitShapeParams(2)
+    type(MeshLineDom1D), intent(in) :: mesh
+    type(LineElement), intent(in) :: elem
 
     integer :: ierr
 
@@ -69,101 +94,100 @@ contains
     LOG_NML(PARAM_ADVECT1D_NUMERROR)
 
     !--
-    call numerror_analysis%Init( polyOrderErrorCheck, LOG_OUT_BASENAME, LOG_STEP_INTERVAL, elem )
-    call numerror_analysis%Regist( "q", "1", numerror_vid(1) )
+    call this%numerror_analysis%Init( &
+      polyOrderErrorCheck, LOG_OUT_BASENAME, LOG_STEP_INTERVAL, &
+      mesh, elem, set_data_lc, this%info                        )
+    call this%numerror_analysis%Regist( "q", "1", this%info%numerror_vid(1) )
 
+    this%info%ADV_VEL = ADV_VEL
+    this%info%InitShapeName = InitShapeName
+    this%info%InitShapeParams = InitShapeParams
+    this%info%dom_xmin = mesh%xmin_gl
+    this%info%dom_xmax = mesh%xmax_gl
     return
   end subroutine advect1d_numerror_Init
 
   !> Evaluate numerical errors
-  subroutine advect1d_numerror_eval( qtrc_exact,                  & ! (inout)
-      qtrc, istep, tsec, ADV_VEL, InitShapeName, InitShapeParams, & ! (in)
-      mesh, elem                                                  ) ! (in)
+  subroutine advect1d_numerror_eval( this, qtrc_exact, & ! (inout)
+      qtrc, istep, tsec                                ) ! (in)
+    implicit none
+    class(Advect1DNumErrorAnalysis), intent(inout) :: this
+    class(MeshField1D), intent(inout), target :: qtrc_exact
+    class(MeshField1D), intent(in), target :: qtrc
+    integer, intent(in) :: istep
+    real(RP), intent(in) :: tsec
+    !------------------------------------------------------------------------
+    this%info%qtrc_exact => qtrc_exact
+    this%info%qtrc => qtrc
+    call this%numerror_analysis%Evaluate( istep, tsec ) 
+  end subroutine advect1d_numerror_eval
 
-    use scale_polynominal, only: Polynominal_genLegendrePoly
+!OCL SERIAL
+  subroutine set_data_lc( analysis,  &
+    q, qexact, qexact_intrp,         &
+    lcmesh, elem1D, intrp_epos, tsec )
     use mod_fieldutil, only: &
       get_upwind_pos1d => fieldutil_get_upwind_pos1d,        &
       get_profile1d_tracer => fieldutil_get_profile1d_tracer 
-
     implicit none
-    class(MeshField1D), intent(inout) :: qtrc_exact
-    class(MeshField1D), intent(in) :: qtrc
-    integer, intent(in) :: istep
+    class(MeshFieldAnalysisNumerror1D), intent(in) :: analysis
+    class(LocalMesh1D), intent(in) :: lcmesh
+    class(ElementBase1D), intent(in) :: elem1D
+    real(RP), intent(out) :: q(elem1D%Np,lcmesh%Ne,analysis%var_num)
+    real(RP), intent(out) :: qexact(elem1D%Np,lcmesh%Ne,analysis%var_num)
+    real(RP), intent(out) :: qexact_intrp(analysis%intrp_np,lcmesh%Ne,analysis%var_num)
+    real(RP), intent(in) :: intrp_epos(analysis%intrp_np,analysis%ndim)
     real(RP), intent(in) :: tsec
-    real(RP), intent(in) :: ADV_VEL
-    character(*), intent(in) :: InitShapeName
-    real(RP), intent(in) :: InitShapeParams(2)
-    class(MeshLineDom1D), intent(in) :: mesh
-    class(ElementBase1D), intent(in) :: elem
 
-    real(RP) :: dom_xmin, dom_xmax
+    integer :: n
+    integer :: ke
+    integer :: vid
 
-    !------------------------------------------------------------------------
+    real(RP) :: vx(2)
+    real(RP) :: x_uwind(elem1D%Np)
+    real(RP) :: x_uwind_intrp(analysis%intrp_np)
+    real(RP) :: pos_intrp(analysis%intrp_np)  
 
-    dom_xmin = mesh%xmin_gl
-    dom_xmax = mesh%xmax_gl
+    class(Advect1D_Numerror_Info), pointer :: info 
+    class(MeshFieldAnalysisNumerrorInfoBase), pointer :: info_base
+    !---------------------------------------------
 
-    call numerror_analysis%Evaluate( istep, tsec, mesh, set_data_lc ) 
+    select type(info_base => analysis%info)
+    class is (Advect1D_Numerror_Info)
+      info => info_base
+    end select
 
+    n = lcmesh%lcdomID
+
+    !$omp parallel do private(vid, ke, vx, x_uwind, x_uwind_intrp, pos_intrp)
+    do ke=lcmesh%NeS, lcmesh%NeE
+      vid = info%numerror_vid(1)
+
+      x_uwind(:) = get_upwind_pos1d( lcmesh%pos_en(:,ke,1), info%ADV_VEL, tsec, info%dom_xmin, info%dom_xmax )
+      vx(:) = lcmesh%pos_ev(lcmesh%EToV(ke,:),1)
+      pos_intrp(:) = vx(1) + 0.5_RP * ( intrp_epos(:,1) + 1.0_RP ) * ( vx(2) - vx(1) )
+      x_uwind_intrp(:) = get_upwind_pos1d(pos_intrp(:), info%ADV_VEL, tsec, info%dom_xmin, info%dom_xmax)
+
+      call get_profile1d_tracer( info%qtrc_exact%local(n)%val(:,ke),  & ! (out)
+        info%InitShapeName, x_uwind, info%InitShapeParams, elem1D%Np  ) ! (in)
+
+      call get_profile1d_tracer( qexact_intrp(:,ke,vid),                           & ! (out)
+        info%InitShapeName, x_uwind_intrp, info%InitShapeParams, analysis%intrp_np ) ! (in)
+
+      q(:,ke,vid) = info%qtrc%local(n)%val(:,ke)
+      qexact(:,ke,vid) = info%qtrc_exact%local(n)%val(:,ke)
+    end do
     return
-
-  contains
-!OCL SERIAL
-    subroutine set_data_lc( this, q, qexact, qexact_intrp, lcmesh, elem1D, intrp_epos )
-      use scale_localmeshfield_base, only: LocalMeshFieldBase
-      implicit none
-      class(MeshFieldAnalysisNumerror1D), intent(in) :: this
-      class(LocalMesh1D), intent(in) :: lcmesh
-      class(ElementBase1D) :: elem1D
-      real(RP), intent(out) :: q(elem1D%Np,lcmesh%Ne,this%var_num)
-      real(RP), intent(out) :: qexact(elem1D%Np,lcmesh%Ne,this%var_num)
-      real(RP), intent(out) :: qexact_intrp(this%intrp_np,lcmesh%Ne,this%var_num)
-      real(RP), intent(in) :: intrp_epos(this%intrp_np,this%ndim)
-
-      integer :: n
-      integer :: ke
-
-      integer :: vid
-
-      real(RP) :: vx(2)
-      real(RP) :: x_uwind(elem%Np)
-      real(RP) :: x_uwind_intrp(this%intrp_np)
-      real(RP) :: pos_intrp(this%intrp_np)  
-      !---------------------------------------------
-
-      n = lcmesh%lcdomID
-
-      !$omp parallel do private(vid, ke, vx, x_uwind, x_uwind_intrp, pos_intrp)
-      do ke=lcmesh%NeS, lcmesh%NeE
-
-        vid = numerror_vid(1)
-
-        x_uwind(:) = get_upwind_pos1d(lcmesh%pos_en(:,ke,1), ADV_VEL, tsec, dom_xmin, dom_xmax)
-        vx(:) = lcmesh%pos_ev(lcmesh%EToV(ke,:),1)
-        pos_intrp(:) = vx(1) + 0.5_RP*( intrp_epos(:,1) + 1.0_RP ) * ( vx(2) - vx(1) )
-        x_uwind_intrp(:) = get_upwind_pos1d(pos_intrp(:), ADV_VEL, tsec, dom_xmin, dom_xmax)
-
-        call get_profile1d_tracer( qtrc_exact%local(n)%val(:,ke),    & ! (out)
-          InitShapeName, x_uwind, InitShapeParams, elem%Np           ) ! (in)
-
-        call get_profile1d_tracer( qexact_intrp(:,ke,vid),                & ! (out)
-          InitShapeName, x_uwind_intrp, InitShapeParams(:), this%intrp_np )   ! (in)
-
-        q(:,ke,vid) = qtrc%local(n)%val(:,ke)
-        qexact(:,ke,vid) = qtrc_exact%local(n)%val(:,ke)
-      end do
-      
-      return
-    end subroutine set_data_lc
-  end subroutine advect1d_numerror_eval
+  end subroutine set_data_lc
 
   !> Finalization
-  subroutine advect1d_numerror_Final()
+  subroutine advect1d_numerror_Final( this )
     implicit none
+    class(Advect1DNumErrorAnalysis), intent(inout) :: this
     !---------------------------------
-    
-    call numerror_analysis%Final()
+    call this%numerror_analysis%Final()
     return
   end subroutine advect1d_numerror_Final
+
 
 end module mod_advect1d_numerror

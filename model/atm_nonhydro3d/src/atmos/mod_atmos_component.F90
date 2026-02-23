@@ -311,13 +311,15 @@ contains
         tp_list(v)%ptr%val(:,ke) = 0.0_RP
       end do
       end do
-      !$omp do collapse(2)
-      do iq=1, QA
-      do ke=lcmesh%NeS, lcmesh%NeE
-        tp_qtrc(iq)%ptr%val(:,ke) = 0.0_RP
-      end do
-      end do
-      !$omp end do
+      if ( QA > 0 ) then
+        !$omp do collapse(2)
+        do iq=1, QA
+        do ke=lcmesh%NeS, lcmesh%NeE
+          tp_qtrc(iq)%ptr%val(:,ke) = 0.0_RP
+        end do
+        end do
+        !$omp end do
+      end if
       !$omp end parallel
     end do
 

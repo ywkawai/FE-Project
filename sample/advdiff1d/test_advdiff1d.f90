@@ -43,7 +43,7 @@ program test_advdiff1d
 
   use scale_timeint_rk, only: timeint_rk
 
-  use mod_advdiff1d_numerror, only: advdiff1d_numerror_eval
+  use mod_advdiff1d_numerror, only: AdvDiff1DNumErrorAnalysis
   !-----------------------------------------------------------------------------
   implicit none
 
@@ -77,6 +77,8 @@ program test_advdiff1d
   integer :: tintbuf_ind
   integer, parameter :: RKVAR_Q = 1
   real(RP) :: tsec_
+
+  type(AdvDiff1DNumErrorAnalysis) :: numerror_analysis
   !-------------------------------------------------------
 
   call init()
@@ -144,9 +146,8 @@ program test_advdiff1d
     
     tsec_ = TIME_DTSEC * real(TIME_NOWSTEP-1, kind=RP)
     if ( Do_NumErrorAnalysis ) then
-      call advdiff1d_numerror_eval( qexact, & ! (out)
-        q, TIME_NOWSTEP, tsec_, ADV_VEL, DIFF_COEF, InitShapeName, InitShapeParams, & ! (in)
-        mesh, mesh%refElem1D                                                        ) ! (in)
+      call numerror_analysis%Eval( qexact, & ! (out)
+        q, TIME_NOWSTEP, tsec_             ) ! (in)
     end if
 
     !* Output history file
@@ -331,9 +332,8 @@ contains
     end do
 
     if ( Do_NumErrorAnalysis ) then
-      call advdiff1d_numerror_eval( qexact, & ! (out)
-        q, 1, 0.0_RP, ADV_VEL, DIFF_COEF, InitShapeName, InitShapeParams, & ! (in)
-        mesh, mesh%refElem1D                                              ) ! (in)
+      call numerror_analysis%Eval( qexact, & ! (out)
+        q, 1, 0.0_RP                       ) ! (in)
     end if
 
     call FILE_HISTORY_meshfield_put( HST_ID(1), q )
@@ -353,7 +353,6 @@ contains
       TIME_manager_report_timeintervals
     use scale_file_history_meshfield, only: FILE_HISTORY_meshfield_setup  
     use scale_file_history, only: FILE_HISTORY_reg       
-    use mod_advdiff1d_numerror, only: advdiff1d_numerror_Init     
     implicit none
   
     real(RP), parameter :: dom_xmin =  0.0_RP
@@ -473,7 +472,7 @@ contains
 
     !-- setup a module for evaluating numerical errors 
     if ( Do_NumErrorAnalysis ) &
-      call advdiff1d_numerror_Init( refElem )
+      call numerror_analysis%Init( ADV_VEL, DIFF_COEF, InitShapeName, InitShapeParams, mesh, refElem )
 
     !-- report information of time intervals
     call TIME_manager_report_timeintervals
@@ -487,12 +486,11 @@ contains
     use scale_file_history_meshfield, only: &
       FILE_HISTORY_meshfield_finalize
     use scale_time_manager, only: TIME_manager_Final   
-    use mod_advdiff1d_numerror, only: advdiff1d_numerror_Final
     implicit none
 
     call PROF_rapstart( "final", 1 )
     if ( Do_NumErrorAnalysis ) &
-      call advdiff1d_numerror_Final()
+      call numerror_analysis%Final()
 
     call FILE_HISTORY_meshfield_finalize()
 

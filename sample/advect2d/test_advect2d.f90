@@ -41,7 +41,7 @@ program test_advect2d
     
   use scale_timeint_rk, only: timeint_rk  
 
-  use mod_advect2d_numerror, only: advect2d_numerror_eval  
+  use mod_advect2d_numerror, only: Advect2DNumErrorAnalysis
   !-----------------------------------------------------------------------------
   implicit none
 
@@ -71,6 +71,8 @@ program test_advect2d
   integer :: rkstage
   integer :: tintbuf_ind
   integer, parameter :: RKVAR_Q = 1
+
+  type(Advect2DNumErrorAnalysis) :: numerror_analysis
   !-------------------------------------------------------
 
   call init()
@@ -123,9 +125,8 @@ program test_advect2d
     
     tsec_ = TIME_DTSEC * real(TIME_NOWSTEP-1, kind=RP)
     if ( Do_NumErrorAnalysis ) then
-      call advect2d_numerror_eval( qexact, & ! (out)
-        q, TIME_NOWSTEP, tsec_, VelTypeName, VelTypeParams, InitShapeName, InitShapeParams, & ! (in)
-        mesh, mesh%refElem2D                                                                ) ! (in)
+      call numerror_analysis%Eval( qexact, & ! (inout)
+        q, TIME_NOWSTEP, tsec_             ) ! (in)
     end if
     
     !* Output history file
@@ -298,9 +299,8 @@ contains
     call set_velocity( u, v, 0.0_RP )
 
     if ( Do_NumErrorAnalysis ) then
-      call advect2d_numerror_eval( qexact, & ! (out)
-        q, 1, 0.0_RP, VelTypeName, VelTypeParams, InitShapeName, InitShapeParams, & ! (in)
-        mesh, mesh%refElem2D                                                      ) ! (in)
+      call numerror_analysis%Eval( qexact, & ! (inout)
+        q, 1, 0.0_RP             ) ! (in)
     end if
 
     call FILE_HISTORY_meshfield_put(HST_ID(1), q)
@@ -317,7 +317,6 @@ contains
       TIME_manager_report_timeintervals
     use scale_file_history_meshfield, only: FILE_HISTORY_meshfield_setup  
     use scale_file_history, only: FILE_HISTORY_reg  
-    use mod_advect2d_numerror, only: advect2d_numerror_Init             
     implicit none
 
     real(RP), parameter :: dom_xmin =  0.0_RP
@@ -445,8 +444,11 @@ contains
     end do
 
     !-- setup a module for evaluating numerical errors 
-    if ( Do_NumErrorAnalysis ) &
-      call advect2d_numerror_Init( refElem )
+    if ( Do_NumErrorAnalysis ) then
+      call numerror_analysis%Init( &
+         VelTypeName, VelTypeParams, InitShapeName, InitShapeParams, & ! (in)
+         mesh, refElem ) ! (in)
+    end if
 
     !-- report information of time intervals
     call TIME_manager_report_timeintervals
@@ -459,14 +461,13 @@ contains
     use scale_file_history_meshfield, only: &
       FILE_HISTORY_meshfield_finalize
     use scale_time_manager, only: TIME_manager_Final  
-    use mod_advect2d_numerror, only: advect2d_numerror_Final   
     implicit none
     integer :: idom
     !------------------------------------------------------------------------
 
     call PROF_rapstart( "final", 1 )
     if ( Do_NumErrorAnalysis ) &
-      call advect2d_numerror_Final()
+      call numerror_analysis%Final()
 
     call FILE_HISTORY_meshfield_finalize()
 
@@ -477,7 +478,7 @@ contains
     call q%Final()
     call qexact%Final()
     call u%Final()
-    call V%Final()
+    call v%Final()
 
     call fields_comm%Final()
     call mesh%Final()
