@@ -260,7 +260,7 @@ contains
     class(MeshBase3D), intent(in), target :: mesh
     type(HexahedralElement), intent(in) :: refElem3D
     class(MeshFieldAnalysisNumerrorInfoBase), intent(in), target :: numerror_analysis_info
-    procedure(set_data_lc_3d), pointer :: set_data_lc
+    procedure(set_data_lc_3d) :: set_data_lc
     !---------------------------------------------------------------------------
 
     call this%MeshFieldAnalysisNumerrorBase%Init( &
