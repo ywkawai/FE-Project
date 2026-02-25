@@ -42,6 +42,7 @@ module scale_mesh_cubedom3d
   !
   !++ Public type & procedure
   ! 
+  !> Derived type to manage a cubic 3D computational domain
   type, extends(MeshBase3D), public :: MeshCubeDom3D
     integer :: NeGX
     integer :: NeGY
@@ -188,6 +189,7 @@ contains
     if (this%isGenerated) then
       if ( allocated(this%rcdomIJK2LCMeshID) ) then
         deallocate( this%rcdomIJK2LCMeshID )
+        !$acc exit data delete( this%rcdomIJK2LCMeshID )
       end if
     else
       if ( allocated( this%FZ ) ) deallocate( this%FZ )
@@ -284,6 +286,7 @@ contains
     return
   end subroutine MeshCubeDom3D_generate
 
+  !> Set geometric information of the local mesh with the vertical coordinate transformation
 !OCL SERIAL
   subroutine MeshCubeDom3D_set_geometric_with_vcoord(this, lcdomID, GsqrtV_lc, zlev_lc, G13_lc, G23_lc)
     implicit none
@@ -312,6 +315,7 @@ contains
       lcmesh%GI3(:,ke,2) = G23_lc(:,ke)
     end do
     !$omp end parallel
+    !$acc update device(lcmesh%zlev, lcmesh%Gsqrt, lcmesh%GI3)
 
     return
   end subroutine MeshCubeDom3D_set_geometric_with_vcoord
@@ -365,13 +369,16 @@ contains
     lcmesh%NeS = 1
     lcmesh%NeE = lcmesh%Ne
     lcmesh%NeA = lcmesh%Ne + 2*(NeX + NeY)*NeZ + 2*NeX*NeY
+    !$acc update device(lcmesh%Ne, lcmesh%Nv, lcmesh%NeS, lcmesh%NeE, lcmesh%NeA)
 
     lcmesh%NeX = NeX
     lcmesh%NeY = NeY
     lcmesh%NeZ = NeZ
+    !$acc update device(lcmesh%NeX, lcmesh%NeY, lcmesh%NeZ)
 
     lcmesh%Ne2D  = NeX * NeY
     lcmesh%Ne2DA = NeX * NeY + 2*(NeX + NeY)
+    !$acc update device(lcmesh%Ne2D, lcmesh%Ne2DA)
 
     !--
     delx = (dom_xmax - dom_xmin)/dble(NprcX)
@@ -383,6 +390,7 @@ contains
     lcmesh%ymax = dom_ymin +  j   *dely
     lcmesh%zmin = FZ_lc(1)
     lcmesh%zmax = FZ_lc(NeZ+1)
+    !$acc update device(lcmesh%xmin, lcmesh%xmax, lcmesh%ymin, lcmesh%ymax, lcmesh%zmin, lcmesh%zmax)
     
     !-
     allocate( lcmesh%pos_ev(lcmesh%Nv,3) )
@@ -394,10 +402,14 @@ contains
     allocate( lcmesh%VMapP(elem%NfpTot, lcmesh%Ne) )
     allocate( lcmesh%MapM(elem%NfpTot, lcmesh%Ne) )
     allocate( lcmesh%MapP(elem%NfpTot, lcmesh%Ne) )
+    !$acc enter data create( lcmesh%pos_ev, lcmesh%EToV, lcmesh%EToE, lcmesh%EToF, lcmesh%BCType, &
+    !$acc   lcmesh%VMapM, lcmesh%VMapP, lcmesh%MapM, lcmesh%MapP )
     
     allocate( lcmesh%EMap3Dto2D(lcmesh%Ne) )
+    !$acc enter data create( lcmesh%EMap3Dto2D )
 
     lcmesh%BCType(:,:) = BCTYPE_INTERIOR
+    !$acc update device(lcmesh%BCType)
     
     !----
 
@@ -405,6 +417,7 @@ contains
         lcmesh%NeX, lcmesh%xmin, lcmesh%xmax,                    & ! (in)
         lcmesh%NeY, lcmesh%ymin, lcmesh%ymax,                    & ! (in) 
         lcmesh%NeZ, lcmesh%zmin, lcmesh%zmax, FZ=FZ_lc           ) ! (in) 
+    !$acc update device(lcmesh%pos_ev, lcmesh%EToV)
     
     !---
     call MeshBase3D_setGeometricInfo( lcmesh, MeshCubeDom3D_coord_conv, MeshCubeDom3D_calc_normal )
@@ -412,7 +425,8 @@ contains
     !---
     call MeshUtil3D_genConnectivity( lcmesh%EToE, lcmesh%EToF, & ! (out)
         lcmesh%EToV, lcmesh%Ne, elem%Nfaces )                    ! (in)
-
+    !$acc update device(lcmesh%EToE, lcmesh%EToF)
+    
     !---
     call MeshUtil3D_BuildInteriorMap( lcmesh%VmapM, lcmesh%VMapP, lcmesh%MapM, lcmesh%MapP,           & ! (out)
       lcmesh%pos_en, lcmesh%pos_ev, lcmesh%EToE, lcmesh%EtoF, lcmesh%EtoV,                            & ! (in)
@@ -423,6 +437,8 @@ contains
       lcmesh%pos_en, lcmesh%xmin, lcmesh%xmax, lcmesh%ymin, lcmesh%ymax, lcmesh%zmin, lcmesh%zmax,      & ! (in)
       elem%Fmask_h, elem%Fmask_v, lcmesh%Ne, lcmesh%Nv, elem%Np, elem%Nfp_h, elem%Nfp_v, elem%NfpTot,   & ! (in)
       elem%Nfaces_h, elem%Nfaces_v, elem%Nfaces )                                                         ! (in)
+    !$acc update device(lcmesh%VMapM, lcmesh%VMapP, lcmesh%MapM, lcmesh%MapP)
+    !$acc enter data copyin(lcmesh%VMapB, lcmesh%MapB)
     
     !---
     !$omp parallel do collapse(2) private(ii,ke)
@@ -434,6 +450,7 @@ contains
     end do
     end do
     end do
+    !$acc update device(lcmesh%EMap3Dto2D)
 
     return
   end subroutine MeshCubeDom3D_setupLocalDom
@@ -470,6 +487,7 @@ contains
       this%LOCAL_MESH_NUM_global, 6, 8,                                                     & ! (in)
       this%isPeriodicX, this%isPeriodicY, this%isPeriodicZ,                                 & ! (in)
       this%NprcX, this%NprcY, this%NprcZ )                                                    ! (in)
+    !$acc update device(this%tileID_globalMap, this%tileFaceID_globalMap, this%tilePanelID_globalMap)
 
     !----
 
@@ -495,6 +513,7 @@ contains
       end if 
     end do
     end do
+    !$acc update device(this%tileID_global2localMap, this%PRCRank_globalMap)
 
     allocate( this%rcdomIJK2LCMeshID(ilc_count,jlc_count,klc_count) )
     do klc=1, klc_count
@@ -504,6 +523,7 @@ contains
     end do
     end do
     end do
+    !$acc enter data copyin(this%rcdomIJK2LCMeshID)
 
     return
   end subroutine MesshCubeDom3D_assignDomID

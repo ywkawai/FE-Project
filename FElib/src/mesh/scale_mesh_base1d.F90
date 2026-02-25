@@ -33,13 +33,17 @@ module scale_mesh_base1d
   !
   !++ Public type & procedure
   ! 
+  !> Derived type to manage a computational mesh (base type for 1D domain)
   type, abstract, public, extends(MeshBase) :: MeshBase1D
-    type(LocalMesh1D), allocatable :: lcmesh_list(:)
-    class(ElementBase1D), pointer :: refElem1D
+    type(LocalMesh1D), allocatable :: lcmesh_list(:) !< Array of local meshes in each MPI process
+    class(ElementBase1D), pointer :: refElem1D       !< Pointer to an object with a reference element for 1D
     
     integer, public :: NeG
     integer, public :: Nprc
-    real(RP), public :: xmin_gl, xmax_gl
+
+    real(RP), public :: xmin_gl !< Minimum x-coordinate of the global mesh
+    real(RP), public :: xmax_gl !< Maximum x-coordinate of the global mesh
+
     real(RP), public, allocatable :: FX(:)
   contains
     procedure(MeshBase1D_generate), deferred :: Generate 
@@ -75,6 +79,7 @@ module scale_mesh_base1d
   !
 
 contains
+  !> Initialize an object to manage a 1D computational mesh
 !OCL SERIAL
   subroutine MeshBase1D_Init( this,         &
     NeG,                                    &
@@ -116,6 +121,7 @@ contains
         this%FX(k) = this%FX(k-1) + dx
       end do
     end if
+    !$acc enter data create(this%FX)
 
     this%refElem1D => refElem
     call MeshBase_Init( this,          &
@@ -136,6 +142,7 @@ contains
     return
   end subroutine MeshBase1D_Init
 
+  !> Finalize an object to manage a 1D computational mesh
 !OCL SERIAL
   subroutine MeshBase1D_Final( this )
     implicit none    
@@ -224,6 +231,7 @@ contains
       lcmesh%Fscale(:,ke) = lcmesh%sJ(:,ke)/lcmesh%J(fmask(:),ke)
       lcmesh%Gsqrt(:,ke) = 1.0_RP
     end do
+    !$acc update device(lcmesh%pos_en, lcmesh%normal_fn, lcmesh%sJ, lcmesh%J, lcmesh%Escale, lcmesh%Fscale, lcmesh%Gsqrt)
 
     return
   end subroutine MeshBase1D_setGeometricInfo
@@ -261,6 +269,8 @@ contains
       this%PRCRank_globalMap(tileID)      = p - 1
     end do
     end do
+    !$acc update device(this%tileID_globalMap, this%tileFaceID_globalMap,                  &
+    !$acc   this%tilePanelID_globalMap, this%tileID_global2localMap, this%PRCRank_globalMap)
 
     return
   end subroutine MeshBase1D_assignDomID
@@ -298,6 +308,7 @@ contains
     elem => lcmesh%refElem1D
     lcmesh%tileID = tileID
     lcmesh%panelID = panelID
+    !$acc update device(lcmesh%tileID, lcmesh%panelID)
     
     !--
 
@@ -306,13 +317,15 @@ contains
     lcmesh%NeS = 1
     lcmesh%NeE = lcmesh%Ne
     lcmesh%NeA = lcmesh%Ne + 2
+    !$acc update device(lcmesh%Ne, lcmesh%Nv, lcmesh%NeS, lcmesh%NeE, lcmesh%NeA)
 
     !delx = (dom_xmax - dom_xmin)/dble(Nprc)
     FX_lc(:) = Fx((i-1)*Ne+1:i*Ne+1)
     lcmesh%xmin = FX_lc(1)
     lcmesh%xmax = FX_lc(Ne+1)
+    !$acc update device(lcmesh%xmin, lcmesh%xmax)
 
-    allocate(lcmesh%pos_ev(lcmesh%Nv,1))
+    allocate( lcmesh%pos_ev(lcmesh%Nv,1) )
     allocate( lcmesh%EToV(lcmesh%Ne,2) )
     allocate( lcmesh%EToE(lcmesh%Ne,elem%Nfaces) )
     allocate( lcmesh%EToF(lcmesh%Ne,elem%Nfaces) )
@@ -321,14 +334,17 @@ contains
     allocate( lcmesh%VMapP(elem%NfpTot, lcmesh%Ne) )
     allocate( lcmesh%MapM(elem%NfpTot, lcmesh%Ne) )
     allocate( lcmesh%MapP(elem%NfpTot, lcmesh%Ne) )
+    !$acc enter data create(lcmesh%pos_ev, lcmesh%EToV, lcmesh%EToE, lcmesh%EToF, lcmesh%BCType, &
+    !$acc   lcmesh%VMapM, lcmesh%VMapP, lcmesh%MapM, lcmesh%MapP)
 
     lcmesh%BCType(:,:) = BCTYPE_INTERIOR
+    !$acc update device(lcmesh%BCType)
 
     !----
 
     call MeshUtil1D_genLineDomain( lcmesh%pos_ev, lcmesh%EToV,   & ! (out)
-        lcmesh%Ne, lcmesh%xmin, lcmesh%xmax, FX=FX_lc   )            ! (in)
-
+        lcmesh%Ne, lcmesh%xmin, lcmesh%xmax, FX=FX_lc   )          ! (in)
+    !$acc update device(lcmesh%pos_ev, lcmesh%EToV)
 
     !---
     call MeshBase1D_setGeometricInfo( lcmesh )
@@ -337,16 +353,19 @@ contains
 
     call MeshUtil1D_genConnectivity( lcmesh%EToE, lcmesh%EToF, & ! (out)
         & lcmesh%EToV, lcmesh%Ne, elem%Nfaces )                  ! (in)
+    !$acc update device(lcmesh%EToE, lcmesh%EToF)
 
     !---
-    call MeshUtil1D_BuildInteriorMap( lcmesh%VmapM, lcmesh%VMapP, lcmesh%MapM, lcmesh%MapP,  &
-      & lcmesh%pos_en, lcmesh%pos_ev, lcmesh%EToE, lcmesh%EtoF, lcmesh%EtoV,                   &
-      & elem%Fmask, lcmesh%Ne, elem%Np, elem%Nfp, elem%Nfaces, lcmesh%Nv )
+    call MeshUtil1D_BuildInteriorMap( lcmesh%VmapM, lcmesh%VMapP, lcmesh%MapM, lcmesh%MapP,  & ! (out)
+      & lcmesh%pos_en, lcmesh%pos_ev, lcmesh%EToE, lcmesh%EtoF, lcmesh%EtoV,                 & ! (in)
+      & elem%Fmask, lcmesh%Ne, elem%Np, elem%Nfp, elem%Nfaces, lcmesh%Nv )                     ! (in)
 
-    call MeshUtil1D_genPatchBoundaryMap( lcmesh%VMapB, lcmesh%MapB, lcmesh%VMapP, &
-      & lcmesh%pos_en, lcmesh%xmin, lcmesh%xmax,                                  &
-      & elem%Fmask, lcmesh%Ne, elem%Np, elem%Nfp, elem%Nfaces, lcmesh%Nv)
-    
+    call MeshUtil1D_genPatchBoundaryMap( lcmesh%VMapB, lcmesh%MapB, lcmesh%VMapP, & ! (inout)
+      & lcmesh%pos_en, lcmesh%xmin, lcmesh%xmax,                                  & ! (in)
+      & elem%Fmask, lcmesh%Ne, elem%Np, elem%Nfp, elem%Nfaces, lcmesh%Nv )          ! (in)
+    !$acc update device(lcmesh%VMapM, lcmesh%VMapP, lcmesh%MapM, lcmesh%MapP)
+    !$acc enter data copyin(lcmesh%VMapB, lcmesh%MapB)
+
     return
   end subroutine MeshBase1D_setupLocalDom
 

@@ -28,17 +28,19 @@ module scale_mesh_base
   !++ Public type & procedure
   ! 
 
+  !> Derived type to manage an information of a mesh dimension
   type, public :: MeshDimInfo
-    character(len=H_SHORT) :: name
-    character(len=H_MID) :: desc
-    character(len=H_SHORT) :: unit
-    logical :: positive_down
+    character(len=H_SHORT) :: name !< Name of the dimension
+    character(len=H_MID) :: desc   !< Description of the dimension
+    character(len=H_SHORT) :: unit !< Unit of the dimension
+    logical :: positive_down       !< Flag whether the positive direction is downward (e.g., for vertical dimension)
   end type MeshDimInfo
 
+  !> Base type to manage a computational mesh
   type, abstract, public :: MeshBase
-    integer :: LOCAL_MESH_NUM
-    integer :: PRC_NUM
-    integer :: LOCAL_MESH_NUM_global
+    integer :: LOCAL_MESH_NUM         !< Number of local meshes in each MPI process
+    integer :: PRC_NUM                !< Number of MPI processes
+    integer :: LOCAL_MESH_NUM_global  !< Total number of local meshes across all MPI processes
     
     integer, allocatable :: tileID_globalMap(:,:)
     integer, allocatable :: tileFaceID_globalMap(:,:)
@@ -46,12 +48,12 @@ module scale_mesh_base
     integer, allocatable :: tileID_global2localMap(:)
     integer, allocatable :: PRCrank_globalMap(:)
 
-    class(ElementBase), pointer :: refElem
-    type(MeshDimInfo), allocatable :: dimInfo(:)
+    class(ElementBase), pointer :: refElem       !< Pointer to an object with a reference element
+    type(MeshDimInfo), allocatable :: dimInfo(:) !< Array of information for each dimension
 
-    real(RP) :: dom_vol
+    real(RP) :: dom_vol        !< Total volume of the computational domain
 
-    logical :: isGenerated
+    logical :: isGenerated     !< Flag whether the mesh is generated
   contains
     procedure(MeshBase_get_localmesh), deferred :: GetLocalMesh
     procedure :: SetDimInfo => MeshBase_SetDimInfo
@@ -87,6 +89,7 @@ module scale_mesh_base
   !
 
 contains
+  !> Initialize an object to manage a computational mesh
 !OCL SERIAL
   subroutine MeshBase_Init( this, &
      ndimtype, refElem, NLocalMeshPerPrc, NsideTile, &
@@ -97,11 +100,11 @@ contains
     implicit none
 
     class(MeshBase), intent(inout) :: this
-    integer, intent(in) :: ndimtype
-    class(ElementBase), intent(in), target :: refElem
-    integer, intent(in) :: NLocalMeshPerPrc
-    integer, intent(in) :: NsideTile
-    integer, intent(in), optional :: nprocs
+    integer, intent(in) :: ndimtype                      !< Number of DIMTYPE
+    class(ElementBase), intent(in), target :: refElem    !< An object with a reference element
+    integer, intent(in) :: NLocalMeshPerPrc              !< Number of local meshes in each MPI process
+    integer, intent(in) :: NsideTile                     !< Number of side tiles
+    integer, intent(in), optional :: nprocs              !< MPI processes (if not provided, it will be set to the value from PRC_nprocs)
 
     integer :: n
     !-----------------------------------------------------------------------------
@@ -123,12 +126,15 @@ contains
     allocate( this%tileID_global2localMap(this%LOCAL_MESH_NUM_global) )
     allocate( this%PRCRank_globalMap(this%LOCAL_MESH_NUM_global) )
     allocate( this%dimInfo(ndimtype) )
+    !$acc enter data create(this%tileID_globalMap, this%tileFaceID_globalMap, this%tilePanelID_globalMap, &
+    !$acc   this%tileID_global2localMap, this%PRCRank_globalMap, this%dimInfo )
     
     this%isGenerated = .false.
 
     return
   end subroutine MeshBase_Init
 
+  !> Finalize an object to manage a computational mesh
 !OCL SERIAL
   subroutine MeshBase_Final( this )
     implicit none
@@ -136,6 +142,8 @@ contains
     !-----------------------------------------------------------------------------
   
     if ( allocated(this%tileID_globalMap) ) then
+      !$acc exit data delete(this%tileID_globalMap, this%tileFaceID_globalMap, this%tilePanelID_globalMap, &
+      !$acc   this%tileID_global2localMap, this%PRCRank_globalMap, this%dimInfo)
       deallocate( this%tileID_globalMap )
       deallocate( this%tileFaceID_globalMap )
       deallocate( this%tilePanelID_globalMap )
@@ -143,12 +151,13 @@ contains
       deallocate( this%PRCRank_globalMap )
       deallocate( this%dimInfo )
     end if
-
     return
   end subroutine MeshBase_Final
 
 !OCL SERIAL
   subroutine MeshBase_setGeometricInfo( mesh, ndim )
+    use scale_element_base, only: ElementBase3D
+    use scale_localmesh_3d, only: LocalMesh3D
     implicit none
     
     class(LocalMeshBase), intent(inout) :: mesh
@@ -167,9 +176,9 @@ contains
     allocate( mesh%J(refElem%Np,mesh%Ne) )
     allocate( mesh%Fscale(refElem%NfpTot,mesh%Ne) )
     allocate( mesh%Escale(refElem%Np,mesh%Ne,ndim,ndim) )
-    allocate( mesh%Gsqrt(refElem%Np,mesh%Ne) )
-    allocate( mesh%G_ij(refElem%Np,mesh%Ne, ndim,ndim) )
-    allocate( mesh%GIJ (refElem%Np,mesh%Ne, ndim,ndim) )
+    allocate( mesh%Gsqrt(refElem%Np,mesh%NeA) )
+    !$acc enter data create(mesh%pos_en, mesh%normal_fn, mesh%sJ, mesh%J, &
+    !$acc   mesh%Fscale, mesh%Escale, mesh%Gsqrt)
 
     return
   end subroutine MeshBase_setGeometricInfo

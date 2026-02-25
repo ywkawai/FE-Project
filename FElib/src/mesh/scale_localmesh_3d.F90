@@ -52,11 +52,11 @@ module scale_localmesh_3d
     real(RP), allocatable :: zlev(:,:)     !< z-coordinates (actual level)
     real(RP), allocatable :: gam(:,:)      !< Factor for approximation with spherical shell domain (= r/a)
 
-    class(LocalMesh2D), pointer :: lcmesh2D
-    real(RP), allocatable :: lon2D(:,:)    !< Longitude coordinate with 2D mesh
-    real(RP), allocatable :: lat2D(:,:)    !< Latitude coordinate with 2D mesh
+    class(LocalMesh2D), pointer :: lcmesh2D !< Pointer to an object to manage 2D local computational domain
+    real(RP), allocatable :: lon2D(:,:)     !< Longitude coordinate with 2D mesh
+    real(RP), allocatable :: lat2D(:,:)     !< Latitude coordinate with 2D mesh
 
-    integer, allocatable :: EMap3Dto2D(:)  !< Array to map 3D element ID to 2D element ID
+    integer, allocatable :: EMap3Dto2D(:)   !< Array to map 3D element ID to 2D element ID
   contains
     procedure :: SetLocalMesh2D => LocalMesh3D_setLocalMesh2D 
     procedure :: GetVmapZ1D => LocalMesh3D_getVmapZ1D 
@@ -97,7 +97,7 @@ contains
     nullify( this%lcmesh2D )
 
     call LocalMeshBase_Init( this, lcdomID, refElem, 3, myrank )
-
+    !$acc enter data copyin(this)
     return
   end subroutine LocalMesh3D_Init
 
@@ -111,6 +111,9 @@ contains
 
     call LocalMeshBase_Final( this, is_generated )
     if (is_generated) then
+      !$acc exit data delete(this%G_ij, this%GIJ)
+      deallocate( this%G_ij, this%GIJ )
+      !$acc exit data delete( this%Sz, this%zS, this%GI3, this%GsqrtH, this%zlev, this%gam, this%lon2D, this%lat2D, this%EMap3Dto2D )
       deallocate( this%zS, this%Sz )
       deallocate( this%GI3, this%GsqrtH )
       deallocate( this%zlev )
@@ -118,6 +121,7 @@ contains
       deallocate( this%lon2D, this%lat2D )
       deallocate( this%EMap3Dto2D )
     end if
+    !$acc exit data delete(this)
 
     return
   end subroutine LocalMesh3D_Final
@@ -131,7 +135,6 @@ contains
     !-------------------------------------------------
 
     this%lcmesh2D => lcmesh2D
-
     return
   end subroutine LocalMesh3D_setLocalMesh2D
 

@@ -39,7 +39,7 @@ module scale_localmesh_base
     
     real(RP), allocatable :: pos_ev(:,:)      !< Position of vertices in finite elements in the local computational domain
     real(RP), allocatable :: pos_en(:,:,:)    !< Position of nodes in finite elements in the local computational domain
-    real(RP), allocatable :: normal_fn(:,:,:)
+    real(RP), allocatable :: normal_fn(:,:,:) !< Normal vector at face nodes in the local computational domain
 
     real(RP), allocatable :: sJ(:,:)
     real(RP), allocatable :: J(:,:)
@@ -50,8 +50,8 @@ module scale_localmesh_base
     integer, allocatable :: EToV(:,:)
     integer, allocatable :: EToE(:,:)
     integer, allocatable :: EToF(:,:)
-    integer, allocatable :: VMapM(:,:)
-    integer, allocatable :: VMapP(:,:)
+    integer, allocatable :: VMapM(:,:)       !< Mapping from local face nodes to local volume nodes (own element side)
+    integer, allocatable :: VMapP(:,:)       !< Mapping from local face nodes to local volume nodes (neighbor element side)
     integer, allocatable :: MapM(:,:)
     integer, allocatable :: MapP(:,:)
 
@@ -119,7 +119,6 @@ contains
     else
       this%PRC_myrank = PRC_myrank
     end if
-
     return
   end subroutine LocalMeshBase_Init
 
@@ -134,24 +133,29 @@ contains
     if ( is_generated ) then
       deallocate( this%pos_ev, this%pos_en, this%normal_fn )
       deallocate( this%sJ, this%J )
+      !$acc exit data delete(this%pos_ev, this%pos_en, this%normal_fn) 
+      !$acc exit data delete(this%sJ, this%J)
 
       deallocate( this%Escale, this%Fscale )
+      !$acc exit data delete(this%Escale, this%Fscale)
 
       deallocate( this%EToV, this%EToE, this%EToF )
+      !$acc exit data delete(this%EToV, this%EToE, this%EToF)
 
       if ( allocated(this%VMapM) ) then
         deallocate( this%VMapM, this%VMapP, this%MapM, this%MapP )
+        !$acc exit data delete(this%VMapM, this%VMapP, this%MapM, this%MapP)
       end if
       if ( allocated(this%VMapB) ) then
         deallocate( this%BCType )
         deallocate( this%VMapB, this%MapB )
+        !$acc exit data delete(this%BCType, this%VMapB, this%MapB)
       end if
-      if ( allocated(this%G_ij) ) then
-        deallocate( this%G_ij, this%GIJ )
+      if ( allocated(this%Gsqrt) ) then
         deallocate( this%Gsqrt )
+        !$acc exit data delete(this%Gsqrt)
       end if
     end if
-    
     return
   end subroutine LocalMeshBase_Final
 end module scale_localmesh_base
