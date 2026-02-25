@@ -116,8 +116,10 @@ contains
     select case( data_type_ )
     case (LOCAL_MESHFIELD_TYPE_NODES_VAL)
       allocate( this%val(lcmesh%refElem%Np,lcmesh%NeA) )
+      !$acc enter data create(this%val)
     case (LOCAL_MESHFIELD_TYPE_NODES_FACEVAL)
       allocate( this%face_val(lcmesh%refElem%NfpTot,lcmesh%Ne) )
+      !$acc enter data create(this%face_val)
     case default
       LOG_ERROR("LocalMeshFieldBase_Init",*) "Unexcepted data_type", data_type_
       call PRC_abort        
@@ -133,8 +135,14 @@ contains
     class(LocalMeshFieldBase), intent(inout) :: this
     !-----------------------------------------------------------------------------
 
-    if ( allocated(this%val) ) deallocate( this%val )
-    if ( allocated(this%face_val) ) deallocate( this%face_val )
+    if ( allocated(this%val) ) then
+      !$acc exit data delete(this%val)
+      deallocate( this%val )
+    end if
+    if ( allocated(this%face_val) ) then
+      !$acc exit data delete(this%face_val)
+      deallocate( this%face_val )
+    end if
 
     return
   end subroutine LocalMeshFieldBase_Final
