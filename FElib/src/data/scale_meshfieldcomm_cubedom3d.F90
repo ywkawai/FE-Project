@@ -131,7 +131,9 @@ contains
     !       this%send_buf(:,varid_s+i-1,n) )                                                                      ! (out)
     !   end do
     ! end do
-    call MeshFieldCommBase_extract_bounddata_2( field_list, 3, varid_s, this%mesh3d%lcmesh_list, this%send_buf )
+    call MeshFieldCommBase_extract_bounddata_2( &
+      field_list, 3, varid_s, this%mesh3d%lcmesh_list, size(this%mesh3d%lcmesh_list(1)%VMapB), & !(in)
+      this%send_buf ) ! (out)
 !    call PROF_rapend( 'meshfiled_comm_put', 3)
 
     return
