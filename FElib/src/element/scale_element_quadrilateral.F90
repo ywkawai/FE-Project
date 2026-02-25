@@ -146,6 +146,7 @@ contains
     elem%Fmask(:,2) = nodes_ij(elem%Nfp,:)
     elem%Fmask(:,3) = nodes_ij(:,elem%Nfp)
     elem%Fmask(:,4) = nodes_ij(1,:)
+    !$acc update device(elem%Fmask)
 
     !* Set the coordinates of LGL points, and the Vandermonde and differential matricies
 
@@ -174,6 +175,7 @@ contains
     end do
     end do
     elem%invV(:,:) = linAlgebra_inv(elem%V)
+    !$acc update device(elem%x1, elem%x2, elem%V, elem%Dx1, elem%Dx2, elem%invV)
     
     !* Set the weights at LGL points to integrate over element
 
@@ -186,6 +188,7 @@ contains
           intWeight_lgl1DPts(i) * intWeight_lgl1DPts(j)
     end do
     end do
+    !$acc update device(elem%IntWeight_lgl)
 
     !* Set the mass matrix
 
@@ -203,6 +206,7 @@ contains
       call ElementBase_construct_MassMat( elem%V, elem%Np, & ! (in)
         elem%M, elem%invM )                                  ! (out)
     end if
+    !$acc update device(elem%M, elem%invM)
 
     !* Set the stiffness matrix
 
@@ -210,6 +214,7 @@ contains
       elem%Sx1 )                                                                 ! (out)
     call ElementBase_construct_StiffMat( elem%M, elem%invM, elem%Dx2, elem%Np, & ! (in)
       elem%Sx2 )                                                                 ! (out)
+    !$acc update device(elem%Sx1, elem%Sx2)
 
     !* Set the lift matrix
 
@@ -234,9 +239,8 @@ contains
     end do
     call ElementBase_construct_LiftMat( elem%invM, EMat, elem%Np, elem%NfpTot, & ! (in)
       elem%Lift )                                                                ! (out)
+    !$acc update device(elem%Lift)
   
-    !* Construct filter matrix
-
     return
   end subroutine construct_Element
 

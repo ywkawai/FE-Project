@@ -176,6 +176,8 @@ contains
 
     elem%Fmask_v(:,1) = reshape(nodes_ijk(:,:,1), (/ elem%Nfp_v /))
     elem%Fmask_v(:,2) = reshape(nodes_ijk(:,:,elem%Nnode_v), (/ elem%Nfp_v /))
+
+    !$acc update device(elem%Fmask_h, elem%Fmask_v)
     
     !- ColMask
 
@@ -185,12 +187,14 @@ contains
       elem%Colmask(:,n) = nodes_ijk(i,j,:)
     end do
     end do
+    !$acc update device(elem%Colmask)
     
     != Hslice
 
     do k=1, elem%Nnode_v
       elem%Hslice(:,k) = reshape(nodes_ijk(:,:,k), (/ elem%Nfp_v /))
     end do
+    !$acc update device(elem%Hslice)
 
     !- IndexH2Dto3D
 
@@ -202,6 +206,7 @@ contains
     end do
     end do    
     end do
+    !$ecc update device(elem%IndexH2Dto3D)
 
     !- IndexH2Dto3D_bnd
 
@@ -225,6 +230,7 @@ contains
       end do  
       end do
     end do
+    !$acc update device(elem%IndexH2Dto3D_bnd)
 
     call elem2D%Final()
 
@@ -238,6 +244,7 @@ contains
     end do
     end do    
     end do
+    !$acc update device(elem%IndexZ1Dto3D)
     
     !* Set the coordinates of LGL points, and the Vandermonde and differential matricies
 
@@ -273,6 +280,7 @@ contains
     end do
     end do
     elem%invV(:,:) = linAlgebra_inv(elem%V)
+    !$acc update device(elem%x1, elem%x2, elem%x3, elem%V, elem%Dx1, elem%Dx2, elem%Dx3, elem%invV)
     
     !* Set the weights at LGL points to integrate over element
 
@@ -288,6 +296,7 @@ contains
     end do
     end do
     end do
+    !$acc update device(elem%IntWeight_lgl)
 
     !* Set the mass matrix
 
@@ -307,6 +316,7 @@ contains
       call ElementBase_construct_MassMat( elem%V, elem%Np, & ! (in)
         elem%M, elem%invM )                                  ! (out)
     end if
+    !$acc update device(elem%M, elem%invM)
 
     !* Set the stiffness matrix
 
@@ -316,7 +326,8 @@ contains
       elem%Sx2 )                                                                 ! (out)
     call ElementBase_construct_StiffMat( elem%M, elem%invM, elem%Dx3, elem%Np, & ! (in)
       elem%Sx3 )                                                                 ! (out)
-
+    !$acc update device(elem%Sx1, elem%Sx2, elem%Sx3)
+    
     !* Set the lift matrix
 
     do k=1, elem%Nnode_v
@@ -387,6 +398,7 @@ contains
 
     call ElementBase_construct_LiftMat( elem%invM, EMat, elem%Np, elem%NfpTot, & ! (in)
       elem%Lift )                                                                ! (out)
+    !$acc update device(elem%Lift)
 
     return
   end subroutine construct_Element

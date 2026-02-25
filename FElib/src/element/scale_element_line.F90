@@ -44,7 +44,7 @@ module scale_element_line
   
 contains
 
-!> Initialize an object to manage a hexahedral element
+!> Initialize an object to manage a line element
 !!
 !! @param elem Object of finite element
 !! @param elemOrder Polynomial order
@@ -90,9 +90,9 @@ contains
     return
   end subroutine LineElement_Final
 
+  !> Construct the element matrices and coordinates of LGL points
 !OCL SERIAL  
   subroutine construct_Element(elem)
-
     use scale_linalgebra, only: linalgebra_inv
     use scale_polynominal, only: &
       polynominal_genGaussLobattoPt, Polynominal_GenGaussLobattoPtIntWeight,   &
@@ -121,14 +121,13 @@ contains
     integer :: p1
     integer :: n, l, f
     integer :: Nord
-
     !-----------------------------------------------------------------------------
 
-    lglPts1D(:)      = polynominal_genGaussLobattoPt( elem%PolyOrder )
+    lglPts1D(:)   = polynominal_genGaussLobattoPt( elem%PolyOrder )
 
-    P1D_ori(:,:)     = polynominal_genLegendrePoly( elem%PolyOrder, lglPts1D )
+    P1D_ori(:,:)  = polynominal_genLegendrePoly( elem%PolyOrder, lglPts1D )
     DP1D_ori(:,:) = polynominal_genDLegendrePoly( elem%PolyOrder, lglPts1D, P1D_ori )
-    DLagr1D(:,:) = polynominal_GenDLagrangePoly_lglpt(elem%PolyOrder, lglPts1D)
+    DLagr1D(:,:)  = polynominal_GenDLagrangePoly_lglpt(elem%PolyOrder, lglPts1D)
     
     !* Preparation 
     
@@ -140,6 +139,7 @@ contains
     
     elem%Fmask(:,1) = 1
     elem%Fmask(:,2) = elem%Np
+    !$acc update device(elem%Fmask)
 
     !* Set the coordinates of LGL points, and the Vandermonde and differential matricies
 
@@ -156,9 +156,12 @@ contains
       end do
     end do
     elem%invV(:,:) = linAlgebra_inv(elem%V)
+    !$acc update device(elem%x1, elem%V, elem%Dx1, elem%invV)
     
     !* Set the weights at LGL points to integrate over element
+
     elem%IntWeight_lgl(:) = Polynominal_GenGaussLobattoPtIntWeight(elem%PolyOrder)
+    !$acc update device(elem%IntWeight_lgl)
 
     !* Set the mass matrix
 
@@ -173,10 +176,13 @@ contains
       call ElementBase_construct_MassMat( elem%V, elem%Np, & ! (in)
         elem%M, elem%invM )                                  ! (out)
     end if
+    !$acc update device(elem%M, elem%invM)
 
     !* Set the stiffness matrix
+
     call ElementBase_construct_StiffMat( elem%M, elem%invM, elem%Dx1, elem%Np, & ! (in)
       elem%Sx1 )                                                                 ! (out)
+    !$acc update device(elem%Sx1)
 
     !* Set the lift matrix
 
@@ -190,6 +196,7 @@ contains
     end do
     call ElementBase_construct_LiftMat( elem%invM, EMat, elem%Np, elem%NfpTot, & ! (in)
       elem%Lift )                                                                ! (out)
+    !$acc update device(elem%Lift)
 
     return
   end subroutine construct_Element
