@@ -42,6 +42,7 @@ module mod_fieldutil
 
   public :: fieldutil_get_profile3d_tracer
   public :: fieldutil_get_profile3d_flow
+  public :: fieldutil_get_upwind_pos3d  
 
   public :: fieldutil_get_profile3dGlobal_tracer
   public :: fieldutil_get_profile3dGlobal_flow
@@ -118,7 +119,7 @@ contains
         profile(:) = 1.0_RP
       end where
     case default
-      LOG_ERROR('fieldutil_get_profile2d',*) trim(profile_name)//' is not supported. Check!'
+      LOG_ERROR('fieldutil_get_profile1d_tracer',*) trim(profile_name)//' is not supported. Check!'
       call PRC_abort    
     end select
 
@@ -169,7 +170,7 @@ contains
         profile(:) = 1.0_RP
       end where
     case default
-      LOG_ERROR('fieldutil_get_profile2d',*) trim(profile_name)//' is not supported. Check!'
+      LOG_ERROR('fieldutil_get_profile2d_tracer',*) trim(profile_name)//' is not supported. Check!'
       call PRC_abort
     end select
 
@@ -218,7 +219,7 @@ contains
       flow_x(:) = + sin(PI*x(:))**2 * sin(2.0_RP*PI*y(:)) * fac
       flow_y(:) = - sin(PI*y(:))**2 * sin(2.0_RP*PI*x(:)) * fac
     case default
-      LOG_ERROR('fieldutil_get_flow2d',*) trim(profile_name)//' is not supported. Check!'
+      LOG_ERROR('fieldutil_get_profile2d_flow',*) trim(profile_name)//' is not supported. Check!'
       call PRC_abort
     end select
 
@@ -445,18 +446,45 @@ contains
     !   flow_y(:) = - sin(PI*y(:))**2 * sin(2.0_RP*PI*x(:)) * fac
     !   flow_z(:) = 0.0_RP
     case default
-      LOG_ERROR('fieldutil_get_flow3d',*) trim(profile_name)//' is not supported. Check!'
+      LOG_ERROR('fieldutil_get_profile3d_flow',*) trim(profile_name)//' is not supported. Check!'
       call PRC_abort
     end select
 
     return
   end subroutine fieldutil_get_profile3d_flow
 
+!OCL SERIAL
+  subroutine fieldutil_get_upwind_pos3d( uposx, uposy, uposz, &
+      posx, posy, posz, profile_name, params, nowtime, dom_xmin, dom_xmax, dom_ymin, dom_ymax, dom_zmin, dom_zmax) 
+    real(RP), intent(in) :: posx(:), posy(:), posz(:)
+    real(RP), intent(out) :: uposx(size(posx))
+    real(RP), intent(out) :: uposy(size(posy))
+    real(RP), intent(out) :: uposz(size(posz))
+    real(RP), intent(in) :: nowtime
+    character(*), intent(in) :: profile_name
+    real(RP), intent(in) :: params(:)
+    real(RP), intent(in) :: dom_xmin, dom_xmax
+    real(RP), intent(in) :: dom_ymin, dom_ymax
+    real(RP), intent(in) :: dom_zmin, dom_zmax
+    !-------
+
+    select case(profile_name)
+    case ('constant')
+      uposx(:) = fieldutil_get_upwind_pos1d(posx, params(1), nowtime, dom_xmin, dom_xmax)
+      uposy(:) = fieldutil_get_upwind_pos1d(posy, params(2), nowtime, dom_ymin, dom_ymax)
+      uposz(:) = fieldutil_get_upwind_pos1d(posz, params(3), nowtime, dom_zmin, dom_zmax)
+    case default
+      LOG_ERROR('fieldutil_get_upwind_pos3d',*) trim(profile_name)//' is not supported. Check!'
+      call PRC_abort
+    end select
+    return
+  end subroutine fieldutil_get_upwind_pos3d
+
   !-- 3d Global--------------------------------------------------------------
 
   !> Get 3D data whose value is set based on specified pattern. 
   !
-  ! Assume that range of domain is 0 <= x,y <= 1.
+  ! Assume that range of domain is 0 <= x,y,z <= 1.
   ! If the profile_name is 'sin', param1 and param2 are the wavenumbers in x- and y- directions, respectively. 
   ! If the profile_name is 'gaussian-hill', (param1,param2) is the coordinate of center position, param3 is the half of width. The shape is isotropic about the center of domain. 
   ! If the profile_name is 'cosine-bell', (param1,param2) is the coordinate of center position, param3 is the half of width. The shape is isotropic about the center of domain. 
