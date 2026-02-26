@@ -9,7 +9,8 @@ TOPDIR      = $(abspath ../..)
 SAMPLE_DIR  = ../
 
 BINNAME = test_advect2d
-OBJS = mod_advect2d_numerror.o
+OBJS = mod_advect2d_kernel.o \
+	   mod_advect2d_numerror.o
 
 RUNCONF         = test.conf
 TPROC           = 1
@@ -24,4 +25,4 @@ vis:
 clean_analysis:
 	rm -f analysis
 
-$(BUILD_DIR)/test_advect2d.o : $(BUILD_DIR)/mod_advect2d_numerror.o
+$(BUILD_DIR)/test_advect2d.o : $(BUILD_DIR)/mod_advect2d_kernel.o $(BUILD_DIR)/mod_advect2d_numerror.o

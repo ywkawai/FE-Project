@@ -42,6 +42,7 @@ module mod_advect1d_numerror
     procedure :: Eval => advect1d_numerror_eval
     procedure :: Final => advect1d_numerror_Final
   end type Advect1DNumErrorAnalysis
+
   !-----------------------------------------------------------------------------
   !
   !++ Private procedures
@@ -59,8 +60,8 @@ contains
     real(RP), intent(in) :: ADV_VEL
     character(*), intent(in) :: InitShapeName
     real(RP), intent(in) :: InitShapeParams(2)
-    type(MeshLineDom1D), intent(in) :: mesh
-    type(LineElement), intent(in) :: elem
+    class(MeshLineDom1D), intent(in) :: mesh
+    class(LineElement), intent(in) :: elem
 
     integer :: ierr
 

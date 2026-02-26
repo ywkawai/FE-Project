@@ -41,6 +41,7 @@ program test_advect2d
     
   use scale_timeint_rk, only: timeint_rk  
 
+  use mod_advect2d_kernel, only: advect2d_kernel_cal_tend
   use mod_advect2d_numerror, only: Advect2DNumErrorAnalysis
   !-----------------------------------------------------------------------------
   implicit none
@@ -106,20 +107,22 @@ program test_advect2d
       !* Update prognostic variables
       
       do domid=1, mesh%LOCAL_MESH_NUM
+        !$acc update device( q%local(domid)%val, u%local(domid)%val, v%local(domid)%val )
         lcmesh => mesh%lcmesh_list(domid)
         tintbuf_ind = tinteg_lc(domid)%tend_buf_indmap(rkstage)
 
         call PROF_rapstart( 'cal_tend', 1)
-        call cal_tend( &
+        call advect2d_kernel_cal_tend( &
            tinteg_lc(domid)%tend_buf2D_ex(:,:,RKVAR_Q,tintbuf_ind),    & ! (out)
            q%local(domid)%val, u%local(domid)%val, v%local(domid)%val, & ! (in)
-           lcmesh, lcmesh%refElem2D )                                    ! (in)
+           Dx, Dy, Lift, lcmesh, lcmesh%refElem2D )                      ! (in)
         call PROF_rapend( 'cal_tend', 1)
 
         call PROF_rapstart( 'update_var', 1)
         call tinteg_lc(domid)%Advance( rkstage, q%local(domid)%val, RKVAR_Q,    & ! (out)
                                    1, lcmesh%refElem%Np, lcmesh%NeS, lcmesh%NeE ) ! (in)
-        call PROF_rapend('update_var', 1)      
+        call PROF_rapend('update_var', 1)
+        !$acc update self( q%local(domid)%val )    
       end do
     end do
     
@@ -143,89 +146,6 @@ program test_advect2d
   call final()
 
 contains
-  !> Calculate the tendency
-  !! dqdt = - Dx ( uq ) - Dy ( vq ) + L ( < vec q>_numflx - vec q ).n
-  !!
-  subroutine cal_tend( dqdt, & ! (out)
-    q_, u_, v_, lmesh, elem  ) ! (in)
-
-    use scale_sparsemat, only: sparsemat_matmul
-    implicit none
-
-    class(LocalMesh2D), intent(in) :: lmesh
-    class(ElementBase2D), intent(in) :: elem
-    real(RP), intent(out) :: dqdt(elem%Np,lmesh%NeA)
-    real(RP), intent(in)  :: q_(elem%Np,lmesh%NeA)
-    real(RP), intent(in)  :: u_(elem%Np,lmesh%NeA)
-    real(RP), intent(in)  :: v_(elem%Np,lmesh%NeA)
-
-    real(RP) :: Fx(elem%Np), Fy(elem%Np), LiftBndFlx(elem%Np)
-    real(RP) :: del_flux(elem%NfpTot,lmesh%Ne)
-
-    integer :: ke
-    !------------------------------------------------------------------------
-
-    call PROF_rapstart( 'cal_tend_bndflux', 2)
-    call cal_elembnd_flux( del_flux,                              & ! (out)
-      q_, u_, v_, lmesh%normal_fn(:,:,1), lmesh%normal_fn(:,:,2), & ! (in)
-      lmesh%vmapM, lmesh%vmapP,                                   & ! (in)
-      lmesh, elem )                                                 ! (in)
-    call PROF_rapend( 'cal_tend_bndflux', 2)
-
-    !-----
-    call PROF_rapstart( 'cal_tend_interior', 2)
-    !$omp parallel do private(ke, Fx, Fy, LiftBndFlx)
-    do ke = lmesh%NeS, lmesh%NeE
-      call sparsemat_matmul(Dx, q_(:,ke)*u_(:,ke), Fx)
-      call sparsemat_matmul(Dy, q_(:,ke)*v_(:,ke), Fy)
-      call sparsemat_matmul(Lift, lmesh%Fscale(:,ke)*del_flux(:,ke), LiftBndFlx)
-
-      dqdt(:,ke) = - ( lmesh%Escale(:,ke,1,1) * Fx(:) &
-                     + lmesh%Escale(:,ke,2,2) * Fy(:) &
-                     + LiftBndFlx(:) )
-    end do
-    call PROF_rapend( 'cal_tend_interior', 2)
-
-    return
-  end subroutine cal_tend
-
-  subroutine cal_elembnd_flux( ebnd_flux, q_, u_, v_, nx, ny, vmapM, vmapP, lmesh, elem )
-    implicit none
-
-    class(LocalMesh2D), intent(in) :: lmesh
-    class(ElementBase2D), intent(in) :: elem  
-    real(RP), intent(out) ::  ebnd_flux(elem%NfpTot,lmesh%Ne)
-    real(RP), intent(in) ::  q_(elem%Np*lmesh%NeA)
-    real(RP), intent(in) ::  u_(elem%Np*lmesh%NeA)  
-    real(RP), intent(in) ::  v_(elem%Np*lmesh%NeA)  
-    real(RP), intent(in) :: nx(elem%NfpTot,lmesh%Ne)
-    real(RP), intent(in) :: ny(elem%NfpTot,lmesh%Ne)
-    integer, intent(in) :: vmapM(elem%NfpTot,lmesh%Ne)
-    integer, intent(in) :: vmapP(elem%NfpTot,lmesh%Ne)
-     
-    integer :: iP(elem%NfpTot), iM(elem%NfpTot)
-    real(RP) :: VelP(elem%NfpTot), VelM(elem%NfpTot)
-    real(RP) :: alpha(elem%NfpTot)
-
-    integer :: ke
-    !------------------------------------------------------------------------
-
-    !$omp parallel do private(ke, iM, iP, VelM, VelP, alpha)
-    do ke=1, lmesh%Ne
-      iM(:) = vmapM(:,ke); iP(:) = vmapP(:,ke)
-
-      VelM(:) = u_(iM(:)) * nx(:,ke) + v_(iM(:)) * ny(:,ke)
-      VelP(:) = u_(iP(:)) * nx(:,ke) + v_(iP(:)) * ny(:,ke)
-
-      alpha(:) = 0.5_RP * abs( VelM(:) + VelP(:) )
-      ebnd_flux(:,ke) = 0.5_RP * ( &
-          ( q_(iP(:)) * VelP(:) - q_(iM(:)) * VelM(:) ) &
-         - alpha(:) * ( q_(iP(:)) - q_(iM(:)) )         )
-    end do
-
-    return
-  end subroutine cal_elembnd_flux
-
   !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
   subroutine set_velocity( u_, v_, tsec )
@@ -328,7 +248,6 @@ contains
     integer :: NeGY                        
     integer :: PolyOrder                   
     integer, parameter :: NLocalMeshPerPrc = 1
-    logical :: InitCond_GalerkinProjFlag         
     logical, parameter :: LumpedMassMatFlag = .false.
     character(len=H_SHORT) :: TINTEG_SCHEME_TYPE
 
@@ -336,7 +255,6 @@ contains
       NeGX, NeGY, PolyOrder,          &
       TINTEG_SCHEME_TYPE,             &
       InitShapeName, InitShapeParams, &
-      InitCond_GalerkinProjFlag,      &
       InitGPMatPolyOrder,             &
       VelTypeName, VelTypeParams,     &
       Do_NumErrorAnalysis
@@ -371,8 +289,7 @@ contains
     InitShapeName      = 'sin'
     InitShapeParams(:) = (/ 1.0_RP, 1.0_RP, 0.0_RP, 0.0_RP /)
     VelTypeName        = 'const'
-    InitCond_GalerkinProjFlag = .false.
-    InitGPMatPolyOrder = 7
+    InitGPMatPolyOrder = PolyOrder
     VelTypeParams(:)   = (/ 1.0_RP, 1.0_RP, 0.0_RP, 0.0_RP /)
     Do_NumErrorAnalysis = .false.
 
