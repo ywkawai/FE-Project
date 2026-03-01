@@ -138,8 +138,8 @@ contains
   
     if (this%isGenerated) then
       if ( allocated(this%rcdomIJ2LCMeshID) ) then
-        deallocate( this%rcdomIJ2LCMeshID )
         !$acc exit data delete(this%rcdomIJ2LCMeshID)
+        deallocate( this%rcdomIJ2LCMeshID )
       end if
     end if
 

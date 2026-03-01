@@ -233,51 +233,51 @@ contains
     implicit none
     class(timeint_rk), intent(inout) :: this
     !----------------------------------------
-    
+
+    !$acc exit data delete( this%coef_a_ex, this%coef_b_ex, this%coef_c_ex, &
+    !$acc this%coef_sig_ex, this%coef_gam_ex )    
     deallocate( this%coef_a_ex, this%coef_b_ex, this%coef_c_ex )
     deallocate( this%coef_sig_ex, this%coef_gam_ex )
-    !$acc exit data delete( this%coef_a_ex, this%coef_b_ex, this%coef_c_ex, &
-    !$acc this%coef_sig_ex, this%coef_gam_ex )
 
 !    if (this%imex_flag) then
-      deallocate( this%coef_a_im, this%coef_b_im, this%coef_c_im )
       !$acc exit data delete( this%coef_a_im, this%coef_b_im, this%coef_c_im )
+      deallocate( this%coef_a_im, this%coef_b_im, this%coef_c_im )
 !    end if
 
+    !$acc exit data delete( this%size_each_var, this%tend_buf_indmap )
     deallocate( this%size_each_var, this%tend_buf_indmap )  
-    !$acc exit data delete( this%size_each_var, this%tend_buf_indmap )  
 
     select case(this%ndim)
     case(1)
+      !$acc exit data delete( this%var0_1d, this%tend_buf1D_ex )
       deallocate( this%var0_1d )
       deallocate( this%tend_buf1D_ex )
-      !$acc exit data delete( this%var0_1d, this%tend_buf1D_ex )
 !      if (this%imex_flag) then
-        deallocate( this%tend_buf1D_im )
         !$acc exit data delete( this%tend_buf1D_im )
+        deallocate( this%tend_buf1D_im )
 !      end if
-      deallocate( this%varTmp_1d )
       !$acc exit data delete( this%varTmp_1d )
+      deallocate( this%varTmp_1d )
     case(2)
+      !$acc exit data delete( this%var0_2d, this%tend_buf2D_ex )
       deallocate( this%var0_2d )
       deallocate( this%tend_buf2D_ex )
-      !$acc exit data delete( this%var0_2d, this%tend_buf2D_ex )
 !      if (this%imex_flag) then
-        deallocate( this%tend_buf2D_im )
         !$acc exit data delete( this%tend_buf2D_im )
+        deallocate( this%tend_buf2D_im )
 !      end if
-      deallocate( this%varTmp_2d )
       !$acc exit data delete( this%varTmp_2d )
+      deallocate( this%varTmp_2d )
     case(3)
+      !$acc exit data delete( this%var0_3d, this%tend_buf3D_ex )
       deallocate( this%var0_3d )
       deallocate( this%tend_buf3D_ex )
-      !$acc exit data delete( this%var0_3d, this%tend_buf3D_ex )
 !      if (this%imex_flag) then
-        deallocate( this%tend_buf3D_im )
         !$acc exit data delete( this%tend_buf3D_im )
+        deallocate( this%tend_buf3D_im )
 !      end if
-      deallocate( this%varTmp_3d )
       !$acc exit data delete( this%varTmp_3d )
+      deallocate( this%varTmp_3d )
     end select
 
     return

@@ -131,29 +131,29 @@ contains
     !-----------------------------------------------------------------------------
 
     if ( is_generated ) then
-      deallocate( this%pos_ev, this%pos_en, this%normal_fn )
-      deallocate( this%sJ, this%J )
       !$acc exit data delete(this%pos_ev, this%pos_en, this%normal_fn) 
       !$acc exit data delete(this%sJ, this%J)
+      deallocate( this%pos_ev, this%pos_en, this%normal_fn )
+      deallocate( this%sJ, this%J )
 
-      deallocate( this%Escale, this%Fscale )
       !$acc exit data delete(this%Escale, this%Fscale)
+      deallocate( this%Escale, this%Fscale )
 
-      deallocate( this%EToV, this%EToE, this%EToF )
       !$acc exit data delete(this%EToV, this%EToE, this%EToF)
+      deallocate( this%EToV, this%EToE, this%EToF )
 
       if ( allocated(this%VMapM) ) then
-        deallocate( this%VMapM, this%VMapP, this%MapM, this%MapP )
         !$acc exit data delete(this%VMapM, this%VMapP, this%MapM, this%MapP)
+        deallocate( this%VMapM, this%VMapP, this%MapM, this%MapP )
       end if
       if ( allocated(this%VMapB) ) then
+        !$acc exit data delete(this%BCType, this%VMapB, this%MapB)
         deallocate( this%BCType )
         deallocate( this%VMapB, this%MapB )
-        !$acc exit data delete(this%BCType, this%VMapB, this%MapB)
       end if
       if ( allocated(this%Gsqrt) ) then
-        deallocate( this%Gsqrt )
         !$acc exit data delete(this%Gsqrt)
+        deallocate( this%Gsqrt )
       end if
     end if
     return

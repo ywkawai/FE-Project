@@ -206,7 +206,7 @@ contains
     end do
     end do    
     end do
-    !$ecc update device(elem%IndexH2Dto3D)
+    !$acc update device(elem%IndexH2Dto3D)
 
     !- IndexH2Dto3D_bnd
 

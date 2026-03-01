@@ -228,16 +228,16 @@ contains
     class(SparseMat), intent(inout) :: this
     !--------------------------------------------------------------------------- 
 
-    deallocate( this%val )
-    deallocate( this%colIdx )
     !$acc exit data detach( this%val, this%colIdx )
     !$acc exit data delete( this%val, this%colIdx )
+    deallocate( this%val )
+    deallocate( this%colIdx )
     
     select case( this%storage_format_id )
     case( SPARSEMAT_STORAGE_TYPEID_CSR )
-      deallocate( this%rowPtr )
       !$acc exit data detach( this%rowPtr )
       !$acc exit data delete( this%rowPtr )
+      deallocate( this%rowPtr )
     end select
 
     !$acc exit data delete( this )
