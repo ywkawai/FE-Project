@@ -78,6 +78,7 @@ program test_advect2d
 
   call init()
 
+  tsec_ = 0.0_RP
   do
     !* Report current time
     call TIME_manager_checkstate
