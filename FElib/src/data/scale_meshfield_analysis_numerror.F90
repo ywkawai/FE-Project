@@ -56,7 +56,7 @@ module scale_meshfield_analysis_numerror
 
   !> Derived type for numerical error analysis of 1D field
   type, public, extends(MeshFieldAnalysisNumerrorBase) :: MeshFieldAnalysisNumerror1D
-    class(MeshBase1D), pointer :: mesh1D
+    class(MeshBase1D), pointer :: mesh1D               !< Pointer to an object of 1D mesh
     procedure(set_data_lc_1d), pointer :: set_data_lc
   contains
     procedure :: Init_1D => meshfield_analysis_numerror_1D_Init
@@ -83,7 +83,7 @@ module scale_meshfield_analysis_numerror
   !- 2D
   !> Derived type for numerical error analysis of 2D field
   type, public, extends(MeshFieldAnalysisNumerrorBase) :: MeshFieldAnalysisNumerror2D
-    class(MeshBase2D), pointer :: mesh2D
+    class(MeshBase2D), pointer :: mesh2D               !< Pointer to an object of 2D mesh
     procedure(set_data_lc_2d), pointer :: set_data_lc
   contains
     procedure :: Init_2D => meshfield_analysis_numerror_2D_Init
@@ -110,7 +110,7 @@ module scale_meshfield_analysis_numerror
   !- 3D
   !> Derived type for numerical error analysis of 3D field
   type, public, extends(MeshFieldAnalysisNumerrorBase) :: MeshFieldAnalysisNumerror3D
-    class(MeshBase3D), pointer :: mesh3D
+    class(MeshBase3D), pointer :: mesh3D               !< Pointer to an object of 3D mesh
     procedure(set_data_lc_3d), pointer :: set_data_lc
   contains
     procedure :: Init_3D => meshfield_analysis_numerror_3D_Init
@@ -279,12 +279,11 @@ contains
 
 !OCL SERIAL
   subroutine meshfield_analysis_numerror_3D_evaluate( &
-    this, tstep, tsec, mesh  )
+    this, tstep, tsec )
     implicit none
     class(MeshFieldAnalysisNumerror3D), intent(inout) :: this
     integer, intent(in) :: tstep
     real(RP), intent(in) :: tsec
-    class(MeshBase3D), target, intent(in) :: mesh
     procedure(set_data_lc_3d) :: set_data_lc
     !---------------------------------------------------------------------------
 

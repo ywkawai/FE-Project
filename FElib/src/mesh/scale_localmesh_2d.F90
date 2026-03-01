@@ -26,15 +26,20 @@ module scale_localmesh_2d
   !
   !++ Public type & procedure
   ! 
+  !> Derived type representing a local mesh for 2D domain
   type, extends(LocalMeshBase), public :: LocalMesh2D
+    type(ElementBase2D), pointer :: refElem2D !< Pointer to the reference element for 2D
+    
+    real(RP) :: xmin !< Minimum x-coordinate of the local mesh
+    real(RP) :: xmax !< Maximum x-coordinate of the local mesh
+    real(RP) :: ymin !< Minimum y-coordinate of the local mesh
+    real(RP) :: ymax !< Maximum y-coordinate of the local mesh
 
-    type(ElementBase2D), pointer :: refElem2D
-    real(RP) :: xmin, xmax
-    real(RP) :: ymin, ymax
-    integer :: NeX, NeY
+    integer :: NeX !< Number of elements in the x-direction
+    integer :: NeY !< Number of elements in the y-direction
 
-    real(RP), allocatable :: lon(:,:)     
-    real(RP), allocatable :: lat(:,:)     
+    real(RP), allocatable :: lon(:,:)  !< Array to save longitude coordinates of the local mesh nodes
+    real(RP), allocatable :: lat(:,:)  !< Array to save latitude coordinates of the local mesh nodes
   end type LocalMesh2D
 
   public :: LocalMesh2D_Init, LocalMesh2D_Final
@@ -55,6 +60,8 @@ module scale_localmesh_2d
   !
 
 contains
+
+  !> Initialize an object to manage a local mesh for 2D domain
 !OCL SERIAL
   subroutine LocalMesh2D_Init( this, &
     lcdomID, refElem, myrank )
@@ -69,10 +76,11 @@ contains
 
     this%refElem2D  => refElem
     call LocalMeshBase_Init(this, lcdomID, refElem, 2, myrank)
-
+    !$acc enter data copyin(this)
     return
   end subroutine LocalMesh2D_Init
 
+  !> Finalize an object to manage a local mesh for 2D domain
 !OCL SERIAL
   subroutine LocalMesh2D_Final( this, is_generated )
     implicit none
@@ -81,10 +89,13 @@ contains
     !-------------------------------------------------
 
     if (is_generated) then
+      !$acc exit data delete(this%G_ij, this%GIJ)
+      deallocate( this%G_ij, this%GIJ )
+      !$acc exit data delete(this%lon, this%lat)
       deallocate( this%lon, this%lat )
     end if
     call LocalMeshBase_Final( this, is_generated )
-
+    !$acc exit data delete(this)
     return
   end subroutine LocalMesh2D_Final
   

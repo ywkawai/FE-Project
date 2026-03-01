@@ -154,9 +154,8 @@ contains
 !OCL SERIAL
   subroutine ElementBase_Init( elem, lumpedmat_flag )
     implicit none
-
     class(ElementBase), intent(inout) :: elem
-    logical, intent(in) :: lumpedmat_flag
+    logical, intent(in) :: lumpedmat_flag      !< Flag whether mass lumping is considered
     !-----------------------------------------------------------------------------
 
     allocate( elem%M(elem%Np, elem%Np) )
@@ -165,10 +164,10 @@ contains
     allocate( elem%invV(elem%Np, elem%Np) )
     allocate( elem%Lift(elem%Np, elem%NfpTot) )    
     
-    allocate( elem%IntWeight_lgl(elem%Np) )  
-
+    allocate( elem%IntWeight_lgl(elem%Np) )
+    !$acc enter data create( elem%M, elem%invM, elem%V, elem%invV, elem%Lift, elem%IntWeight_lgl )
+    
     elem%LumpedMatFlag = lumpedmat_flag
-
     return
   end subroutine ElementBase_Init
 
@@ -176,11 +175,10 @@ contains
 !OCL SERIAL
   subroutine ElementBase_Final( elem )
     implicit none
-
     class(ElementBase), intent(inout) :: elem
     !-----------------------------------------------------------------------------
-    
     if ( allocated(elem%M) ) then
+      !$acc exit data delete( elem%M, elem%invM, elem%V, elem%invV, elem%Lift, elem%IntWeight_lgl )
       deallocate( elem%M )
       deallocate( elem%invM )
       deallocate( elem%V )
@@ -279,19 +277,21 @@ contains
 !OCL SERIAL
   subroutine ElementBase1D_Init( elem, lumpedmat_flag )
     implicit none
-
     class(ElementBase1D), intent(inout) :: elem
     logical, intent(in) :: lumpedmat_flag    
     !-----------------------------------------------------------------------------
 
     call ElementBase_Init( elem, lumpedmat_flag )
 
+    !$acc enter data create( elem )
+    !$acc update device( elem%Np, elem%Nfaces, elem%NfpTot, elem%Nv )
+
     allocate( elem%x1(elem%Np) )  
     allocate( elem%Fmask(elem%Nfp, elem%Nfaces) )
     
     allocate( elem%Dx1(elem%Np, elem%Np) )
     allocate( elem%Sx1(elem%Np, elem%Np) )
-
+    !$acc enter data create( elem%x1, elem%Dx1, elem%Sx1, elem%Fmask )
     return
   end subroutine ElementBase1D_Init
 
@@ -299,11 +299,12 @@ contains
 !OCL SERIAL
   subroutine ElementBase1D_Final( elem )
     implicit none
-
     class(ElementBase1D), intent(inout) :: elem
     !-----------------------------------------------------------------------------
 
     if ( allocated( elem%x1 ) )  then
+      !$acc exit data delete( elem%x1, elem%Dx1, elem%Sx1, elem%Fmask )
+      !$acc exit data delete( elem )
       deallocate( elem%x1 )
       deallocate( elem%Dx1 )
       deallocate( elem%Sx1 )
@@ -324,18 +325,21 @@ contains
 !OCL SERIAL
   subroutine ElementBase2D_Init( elem, lumpedmat_flag )
     implicit none
-
     class(ElementBase2D), intent(inout) :: elem
     logical, intent(in) :: lumpedmat_flag    
     !-----------------------------------------------------------------------------
 
     call ElementBase_Init( elem, lumpedmat_flag )
 
+    !$acc enter data create( elem )
+    !$acc update device( elem%Np, elem%Nfaces, elem%NfpTot, elem%Nv )
+
     allocate( elem%x1(elem%Np), elem%x2(elem%Np) )
     allocate( elem%Fmask(elem%Nfp, elem%Nfaces) )
 
     allocate( elem%Dx1(elem%Np, elem%Np), elem%Dx2(elem%Np, elem%Np) )
     allocate( elem%Sx1(elem%Np, elem%Np), elem%Sx2(elem%Np, elem%Np) )
+    !$acc enter data create( elem%x1, elem%x2, elem%Dx1, elem%Dx2, elem%Sx1, elem%Sx2, elem%Fmask )
 
     return
   end subroutine ElementBase2D_Init
@@ -344,11 +348,12 @@ contains
 !OCL SERIAL
   subroutine ElementBase2D_Final( elem )
     implicit none
-
     class(ElementBase2D), intent(inout) :: elem
     !-----------------------------------------------------------------------------
 
     if ( allocated( elem%x1 ) )  then
+      !$acc exit data delete( elem%x1, elem%x2, elem%Dx1, elem%Dx2, elem%Sx1, elem%Sx2, elem%Fmask )
+      !$acc exit data delete( elem )
       deallocate( elem%x1, elem%x2 )
       deallocate( elem%Fmask )
 
@@ -370,12 +375,14 @@ contains
 !OCL SERIAL
   subroutine ElementBase3D_Init( elem, lumpedmat_flag )
     implicit none
-
     class(ElementBase3D), intent(inout) :: elem
     logical, intent(in) :: lumpedmat_flag
     !-----------------------------------------------------------------------------
 
     call ElementBase_Init( elem, lumpedmat_flag )
+
+    !$acc enter data create( elem )
+    !$acc update device( elem%Np, elem%Nfaces, elem%NfpTot, elem%Nv )
 
     allocate( elem%x1(elem%Np), elem%x2(elem%Np), elem%x3(elem%Np) )
     allocate( elem%Dx1(elem%Np, elem%Np), elem%Dx2(elem%Np, elem%Np), elem%Dx3(elem%Np, elem%Np) )
@@ -386,7 +393,10 @@ contains
     allocate( elem%IndexH2Dto3D(elem%Np) )
     allocate( elem%IndexH2Dto3D_bnd(elem%NfpTot) )
     allocate( elem%IndexZ1Dto3D(elem%Np) )
-  
+    !$acc enter data create( elem%x1, elem%x2, elem%x3,                &
+    !$acc  elem%Dx1, elem%Dx2, elem%Dx3, elem%Sx1, elem%Sx2, elem%Sx3, &
+    !$acc  elem%Fmask_h, elem%Fmask_v, elem%Colmask, elem%Hslice,      &
+    !$acc  elem%IndexH2Dto3D, elem%IndexH2Dto3D_bnd, elem%IndexZ1Dto3D )
     return
   end subroutine ElementBase3D_Init
 
@@ -394,11 +404,15 @@ contains
 !OCL SERIAL
   subroutine ElementBase3D_Final( elem )
     implicit none
-
     class(ElementBase3D), intent(inout) :: elem
     !-----------------------------------------------------------------------------
 
     if ( allocated( elem%x1 ) )  then
+      !$acc exit data delete( elem%x1, elem%x2, elem%x3,                 &
+      !$acc  elem%Dx1, elem%Dx2, elem%Dx3, elem%Sx1, elem%Sx2, elem%Sx3, &
+      !$acc  elem%Fmask_h, elem%Fmask_v, elem%Colmask, elem%Hslice,      &
+      !$acc  elem%IndexH2Dto3D, elem%IndexH2Dto3D_bnd, elem%IndexZ1Dto3D )
+      !$acc exit data delete( elem )
       deallocate( elem%x1, elem%x2, elem%x3 )
       deallocate( elem%Dx1, elem%Dx2, elem%Dx3 )
       deallocate( elem%Sx1, elem%Sx2, elem%Sx3 )

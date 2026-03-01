@@ -146,11 +146,15 @@ contains
     integer, intent(in) :: size_each_var(ndim)
     !----------------------------------------
 
+    !$acc enter data create(this)
+
     this%dt = dt
     this%ndim = ndim
     this%var_num = var_num
     allocate( this%size_each_var(ndim) )
     this%size_each_var(:) = size_each_var(:)
+    !$acc enter data copyin( this%size_each_var )
+    !$acc enter data attach( this%size_each_var )
 
     call timeint_rk_butcher_tab_get_info( rk_scheme_name, & ! (in)
       this%nstage, this%tend_buf_size,                    & ! (out)
@@ -165,25 +169,40 @@ contains
     select case(this%ndim)
     case(1)
       allocate( this%tend_buf1D_ex(size_each_var(1), var_num, this%tend_buf_size) )
+      !$acc enter data create( this%tend_buf1D_ex )
       if ( this%imex_flag ) then
         allocate( this%tend_buf1D_im(size_each_var(1), var_num, this%tend_buf_size) )
+      else
+        allocate( this%tend_buf1D_im(1,1,1) ) ! dummy allocation to avoid error in the case of non-IMEX scheme
       end if
+      !$acc enter data create( this%tend_buf1D_im )
       allocate( this%var0_1D(size_each_var(1), var_num) )
       allocate( this%varTmp_1D(size_each_var(1), var_num) ) 
+      !$acc enter data create( this%var0_1D, this%varTmp_1D )
     case(2)
       allocate( this%tend_buf2D_ex(size_each_var(1),size_each_var(2), var_num, this%tend_buf_size) )
+      !$acc enter data create( this%tend_buf2D_ex )
       if ( this%imex_flag ) then
         allocate( this%tend_buf2D_im(size_each_var(1),size_each_var(2), var_num, this%tend_buf_size) )
+      else
+        allocate( this%tend_buf2D_im(1,1,1,1) ) ! dummy allocation to avoid error in the case of non-IMEX scheme
       end if
+      !$acc enter data create( this%tend_buf2D_im )
       allocate( this%var0_2D(size_each_var(1),size_each_var(2), var_num) )
       allocate( this%varTmp_2D(size_each_var(1),size_each_var(2), var_num) ) 
+      !$acc enter data create( this%var0_2D, this%varTmp_2D )
     case(3)
       allocate( this%tend_buf3D_ex(size_each_var(1),size_each_var(2),size_each_var(3), var_num, this%tend_buf_size) )
+      !$acc enter data create( this%tend_buf3D_ex )
       if ( this%imex_flag ) then
         allocate( this%tend_buf3D_im(size_each_var(1),size_each_var(2),size_each_var(3), var_num, this%tend_buf_size) )
+      else
+        allocate( this%tend_buf3D_im(1,1,1,1,1) ) ! dummy allocation to avoid error in the case of non-IMEX scheme
       end if
+      !$acc enter data create( this%tend_buf3D_im )
       allocate( this%var0_3D(size_each_var(1),size_each_var(2),size_each_var(3), var_num) )
       allocate( this%varTmp_3D(size_each_var(1),size_each_var(2),size_each_var(3), var_num) ) 
+      !$acc enter data create( this%var0_3D, this%varTmp_3D )
     end select
     allocate( this%tend_buf_indmap(this%nstage) )
 
@@ -194,6 +213,17 @@ contains
       this%coef_a_im, this%coef_b_im, this%coef_c_im, & ! (out)
       this%tend_buf_indmap                            ) ! (out)
 
+    !$acc enter data copyin( this%coef_a_ex, this%coef_b_ex, this%coef_c_ex, &
+    !$acc this%coef_sig_ex, this%coef_gam_ex,                                &
+    !$acc this%coef_a_im, this%coef_b_im, this%coef_c_im,                    &
+    !$acc this%tend_buf_indmap )      
+
+    !$acc enter data attach( this%coef_a_ex, this%coef_b_ex, this%coef_c_ex, &
+    !$acc this%coef_sig_ex, this%coef_gam_ex,                                &
+    !$acc this%coef_a_im, this%coef_b_im, this%coef_c_im,                    &
+    !$acc this%tend_buf_indmap )      
+
+    !$acc update device( this%dt, this%rk_scheme_id_ex, this%rk_scheme_id_im, this%nstage, this%tend_buf_size, this%var_num, this%low_storage_flag, this%imex_flag, this%ndim )
     return
   end subroutine timeint_rk_Init
 
@@ -203,30 +233,50 @@ contains
     implicit none
     class(timeint_rk), intent(inout) :: this
     !----------------------------------------
-    
+
+    !$acc exit data delete( this%coef_a_ex, this%coef_b_ex, this%coef_c_ex, &
+    !$acc this%coef_sig_ex, this%coef_gam_ex )    
     deallocate( this%coef_a_ex, this%coef_b_ex, this%coef_c_ex )
     deallocate( this%coef_sig_ex, this%coef_gam_ex )
+
 !    if (this%imex_flag) then
+      !$acc exit data delete( this%coef_a_im, this%coef_b_im, this%coef_c_im )
       deallocate( this%coef_a_im, this%coef_b_im, this%coef_c_im )
 !    end if
 
-    deallocate( this%size_each_var, this%tend_buf_indmap )    
+    !$acc exit data delete( this%size_each_var, this%tend_buf_indmap )
+    deallocate( this%size_each_var, this%tend_buf_indmap )  
 
     select case(this%ndim)
     case(1)
+      !$acc exit data delete( this%var0_1d, this%tend_buf1D_ex )
       deallocate( this%var0_1d )
       deallocate( this%tend_buf1D_ex )
-      if (this%imex_flag) deallocate( this%tend_buf1D_im )
+!      if (this%imex_flag) then
+        !$acc exit data delete( this%tend_buf1D_im )
+        deallocate( this%tend_buf1D_im )
+!      end if
+      !$acc exit data delete( this%varTmp_1d )
       deallocate( this%varTmp_1d )
     case(2)
+      !$acc exit data delete( this%var0_2d, this%tend_buf2D_ex )
       deallocate( this%var0_2d )
       deallocate( this%tend_buf2D_ex )
-      if (this%imex_flag) deallocate( this%tend_buf2D_im )
+!      if (this%imex_flag) then
+        !$acc exit data delete( this%tend_buf2D_im )
+        deallocate( this%tend_buf2D_im )
+!      end if
+      !$acc exit data delete( this%varTmp_2d )
       deallocate( this%varTmp_2d )
     case(3)
+      !$acc exit data delete( this%var0_3d, this%tend_buf3D_ex )
       deallocate( this%var0_3d )
       deallocate( this%tend_buf3D_ex )
-      if (this%imex_flag) deallocate( this%tend_buf3D_im )
+!      if (this%imex_flag) then
+        !$acc exit data delete( this%tend_buf3D_im )
+        deallocate( this%tend_buf3D_im )
+!      end if
+      !$acc exit data delete( this%varTmp_3d )
       deallocate( this%varTmp_3d )
     end select
 
@@ -277,7 +327,8 @@ contains
     real(RP), intent(inout) :: q(:)
     integer, intent(in) :: varID
     integer, intent(in) :: is, ie 
-    !----------------------------------------    
+    !----------------------------------------  
+    
     if (this%low_storage_flag) then
       call rk_advance_low_storage1D( this, nowstage, q, varID, is, ie , this%size_each_var(1), this%var_num, &
             this%var0_1D, this%varTmp_1d, this%tend_buf1D_ex )
@@ -442,7 +493,8 @@ contains
     real(RP), intent(inout) :: q(:,:)
     integer, intent(in) :: varID
     integer, intent(in) :: is, ie ,js, je 
-    !----------------------------------------    
+    !----------------------------------------  
+    
     if (this%low_storage_flag) then
       call rk_advance_low_storage2D( this, nowstage, q, varID, is, ie ,js, je , this%size_each_var(1),this%size_each_var(2), this%var_num, &
             this%var0_2D, this%varTmp_2d, this%tend_buf2D_ex )
@@ -619,7 +671,8 @@ contains
     real(RP), intent(inout) :: q(:,:,:)
     integer, intent(in) :: varID
     integer, intent(in) :: is, ie ,js, je ,ks, ke 
-    !----------------------------------------    
+    !----------------------------------------  
+    
     if (this%low_storage_flag) then
       call rk_advance_low_storage3D( this, nowstage, q, varID, is, ie ,js, je ,ks, ke , this%size_each_var(1),this%size_each_var(2),this%size_each_var(3), this%var_num, &
             this%var0_3D, this%varTmp_3d, this%tend_buf3D_ex )
@@ -835,10 +888,13 @@ contains
     if ( nowstage == this%nstage ) then
       !$omp parallel private(i)
       !$omp do
+      !$acc parallel present( q, varTmp_1d, tend_buf1D_ex ) 
+      !$acc loop
       do i=is, ie
         q(i) =  varTmp_1d(i,varID)                                             &
                 + sig_ss * q(i) + gam_ss * tend_buf1D_ex(i,varID,1)
       end do
+      !$acc end parallel
       !$omp end parallel
       call PROF_rapend( 'rk_advance_low_storage1D', 3)
 
@@ -846,8 +902,10 @@ contains
     end if
       
     !$omp parallel private(i)
+    !$acc parallel present( q, var0_1D, varTmp_1D, tend_buf1D_ex )
     if (nowstage == 1) then
       !$omp do
+      !$acc loop
       do i=is, ie
         var0_1D(i,varID)   = q(i)
         varTmp_1D(i,varID) = 0.0_RP
@@ -856,6 +914,7 @@ contains
 
     if ( abs(sig_Ns) > EPS .or. abs(gam_Ns) > EPS ) then
       !$omp do
+      !$acc loop
       do i=is, ie
         varTmp_1d(i,varID) = varTmp_1d(i,varID)      &
             + sig_Ns * q(i) + gam_Ns * tend_buf1D_ex(i,varID,1)
@@ -863,11 +922,12 @@ contains
     end if
 
     !$omp do
+    !$acc loop
     do i=is, ie
       q(i) = one_Minus_sig_ss * var0_1d(i,varID)                &
               + sig_ss * q(i) + gam_ss * tend_buf1D_ex(i,varID,1)
     end do
-
+    !$acc end parallel
     !$omp end parallel
 
     call PROF_rapend( 'rk_advance_low_storage1D', 3)
@@ -1125,12 +1185,15 @@ contains
     if ( nowstage == this%nstage ) then
       !$omp parallel private(i,j)
       !$omp do
+      !$acc parallel present( q, varTmp_2d, tend_buf2D_ex ) 
+      !$acc loop collapse(2)
       do j=js, je
       do i=is, ie
         q(i,j) =  varTmp_2d(i,j,varID)                                             &
                 + sig_ss * q(i,j) + gam_ss * tend_buf2D_ex(i,j,varID,1)
       end do
       end do
+      !$acc end parallel
       !$omp end parallel
       call PROF_rapend( 'rk_advance_low_storage2D', 3)
 
@@ -1138,8 +1201,10 @@ contains
     end if
       
     !$omp parallel private(i,j)
+    !$acc parallel present( q, var0_2D, varTmp_2D, tend_buf2D_ex )
     if (nowstage == 1) then
       !$omp do
+      !$acc loop collapse(2)
       do j=js, je
       do i=is, ie
         var0_2D(i,j,varID)   = q(i,j)
@@ -1150,6 +1215,7 @@ contains
 
     if ( abs(sig_Ns) > EPS .or. abs(gam_Ns) > EPS ) then
       !$omp do
+      !$acc loop collapse(2)
       do j=js, je
       do i=is, ie
         varTmp_2d(i,j,varID) = varTmp_2d(i,j,varID)      &
@@ -1159,13 +1225,14 @@ contains
     end if
 
     !$omp do
+    !$acc loop collapse(2)
     do j=js, je
     do i=is, ie
       q(i,j) = one_Minus_sig_ss * var0_2d(i,j,varID)                &
               + sig_ss * q(i,j) + gam_ss * tend_buf2D_ex(i,j,varID,1)
     end do
     end do
-
+    !$acc end parallel
     !$omp end parallel
 
     call PROF_rapend( 'rk_advance_low_storage2D', 3)
@@ -1445,6 +1512,8 @@ contains
     if ( nowstage == this%nstage ) then
       !$omp parallel private(i,j,k)
       !$omp do collapse(2)
+      !$acc parallel present( q, varTmp_3d, tend_buf3D_ex ) 
+      !$acc loop collapse(3)
       do k=ks, ke
       do j=js, je
       do i=is, ie
@@ -1453,6 +1522,7 @@ contains
       end do
       end do
       end do
+      !$acc end parallel
       !$omp end parallel
       call PROF_rapend( 'rk_advance_low_storage3D', 3)
 
@@ -1460,8 +1530,10 @@ contains
     end if
       
     !$omp parallel private(i,j,k)
+    !$acc parallel present( q, var0_3D, varTmp_3D, tend_buf3D_ex )
     if (nowstage == 1) then
       !$omp do collapse(2)
+      !$acc loop collapse(3)
       do k=ks, ke
       do j=js, je
       do i=is, ie
@@ -1474,6 +1546,7 @@ contains
 
     if ( abs(sig_Ns) > EPS .or. abs(gam_Ns) > EPS ) then
       !$omp do collapse(2)
+      !$acc loop collapse(3)
       do k=ks, ke
       do j=js, je
       do i=is, ie
@@ -1485,6 +1558,7 @@ contains
     end if
 
     !$omp do collapse(2)
+    !$acc loop collapse(3)
     do k=ks, ke
     do j=js, je
     do i=is, ie
@@ -1493,7 +1567,7 @@ contains
     end do
     end do
     end do
-
+    !$acc end parallel
     !$omp end parallel
 
     call PROF_rapend( 'rk_advance_low_storage3D', 3)
@@ -1785,6 +1859,7 @@ contains
 
     if ( this%nstage == 1 ) then
       !$omp parallel do
+      !$acc parallel loop collapse(1) present( q, varTmp_1d )
       do i=is, ie
         varTmp_1d(i,varID) = q(i)
       end do
@@ -1795,6 +1870,7 @@ contains
         coef_b_ex_dt = this%coef_b_ex(nowstage) * this%dt
         coef_b_im_dt = this%coef_b_im(nowstage) * this%dt
         !$omp parallel do
+        !$acc parallel loop collapse(1) present( q, varTmp_1d, tend_buf1D_ex, tend_buf1D_im )
         do i=is, ie
           q(i) =  varTmp_1d(i,varID) &
               + coef_b_ex_dt * tend_buf1D_ex(i,varID,tintbuf_ind) & 
@@ -1804,6 +1880,7 @@ contains
         coef_b_ex_dt = this%coef_b_ex(nowstage) * this%dt
 
         !$omp parallel do
+        !$acc parallel loop collapse(1) present( q, varTmp_1d, tend_buf1D_ex )
         do i=is, ie
           q(i) =  varTmp_1d(i,varID)                       &
                   + coef_b_ex_dt * tend_buf1D_ex(i,varID,tintbuf_ind)
@@ -1816,9 +1893,11 @@ contains
 
     !$omp parallel private( s, coef_a_ex_dt, coef_a_im_dt, coef_b_ex_dt, coef_b_im_dt ) &
     !$omp private( i )
+    !$acc parallel present( q, var0_1D, varTmp_1D, tend_buf1D_ex, tend_buf1D_im )
 
     if ( nowstage == 1 .and. (.not. this%imex_flag) ) then
       !$omp do
+      !$acc loop
       do i=is, ie
         var0_1D(i,varID) = q(i)
         varTmp_1D(i,varID) = q(i)
@@ -1830,6 +1909,7 @@ contains
       coef_b_im_dt = this%coef_b_im(nowstage) * this%dt
 
       !$omp do
+      !$acc loop
       do i=is, ie
         q(i) = var0_1d(i,varID)
         varTmp_1d(i,varID) =  varTmp_1d(i,varID)   &
@@ -1840,6 +1920,7 @@ contains
       coef_b_ex_dt = this%coef_b_ex(nowstage) * this%dt
 
       !$omp do
+      !$acc loop
       do i=is, ie
         q(i) = var0_1d(i,varID)
         varTmp_1d(i,varID) =  varTmp_1d(i,varID) &
@@ -1850,6 +1931,7 @@ contains
     if ( this%tend_buf_size == 1 .and. (.not. this%imex_flag) ) then
       coef_a_ex_dt = this%dt * this%coef_a_ex(nowstage+1,nowstage)
       !$omp do
+      !$acc loop
       do i=is, ie
         q(i) = var0_1d(i,varID)             &
             +  coef_a_ex_dt * tend_buf1D_ex(i,varID,1)
@@ -1858,6 +1940,7 @@ contains
       do s=1, nowstage
         coef_a_ex_dt = this%dt * this%coef_a_ex(nowstage+1,s)
       !$omp do
+      !$acc loop
       do i=is, ie
         q(i) = q(i)                            &
             +  coef_a_ex_dt * tend_buf1D_ex(i,varID,s)
@@ -1867,7 +1950,8 @@ contains
       do s=1, nowstage
         coef_a_ex_dt = this%dt * this%coef_a_ex(nowstage+1,s)
         coef_a_im_dt = this%dt * this%coef_a_im(nowstage+1,s)            
-        !$omp do
+      !$omp do
+      !$acc loop
         do i=is, ie
           q(i) = q(i)                                                 &
             + coef_a_ex_dt * tend_buf1D_ex(i,varID,s) &
@@ -1875,7 +1959,7 @@ contains
         end do
       end do
     end if
-
+    !$acc end parallel
     !$omp end parallel
     call PROF_rapend( 'rk_advance_general1D', 3)
 
@@ -2095,6 +2179,7 @@ contains
 
     if ( this%nstage == 1 ) then
       !$omp parallel do
+      !$acc parallel loop collapse(2) present( q, varTmp_2d )
       do j=js, je
       do i=is, ie
         varTmp_2d(i,j,varID) = q(i,j)
@@ -2107,6 +2192,7 @@ contains
         coef_b_ex_dt = this%coef_b_ex(nowstage) * this%dt
         coef_b_im_dt = this%coef_b_im(nowstage) * this%dt
         !$omp parallel do
+        !$acc parallel loop collapse(2) present( q, varTmp_2d, tend_buf2D_ex, tend_buf2D_im )
         do j=js, je
         do i=is, ie
           q(i,j) =  varTmp_2d(i,j,varID) &
@@ -2118,6 +2204,7 @@ contains
         coef_b_ex_dt = this%coef_b_ex(nowstage) * this%dt
 
         !$omp parallel do
+        !$acc parallel loop collapse(2) present( q, varTmp_2d, tend_buf2D_ex )
         do j=js, je
         do i=is, ie
           q(i,j) =  varTmp_2d(i,j,varID)                       &
@@ -2132,9 +2219,11 @@ contains
 
     !$omp parallel private( s, coef_a_ex_dt, coef_a_im_dt, coef_b_ex_dt, coef_b_im_dt ) &
     !$omp private( i,j )
+    !$acc parallel present( q, var0_2D, varTmp_2D, tend_buf2D_ex, tend_buf2D_im )
 
     if ( nowstage == 1 .and. (.not. this%imex_flag) ) then
       !$omp do
+      !$acc loop collapse(2)
       do j=js, je
       do i=is, ie
         var0_2D(i,j,varID) = q(i,j)
@@ -2148,6 +2237,7 @@ contains
       coef_b_im_dt = this%coef_b_im(nowstage) * this%dt
 
       !$omp do
+      !$acc loop collapse(2)
       do j=js, je
       do i=is, ie
         q(i,j) = var0_2d(i,j,varID)
@@ -2160,6 +2250,7 @@ contains
       coef_b_ex_dt = this%coef_b_ex(nowstage) * this%dt
 
       !$omp do
+      !$acc loop collapse(2)
       do j=js, je
       do i=is, ie
         q(i,j) = var0_2d(i,j,varID)
@@ -2172,6 +2263,7 @@ contains
     if ( this%tend_buf_size == 1 .and. (.not. this%imex_flag) ) then
       coef_a_ex_dt = this%dt * this%coef_a_ex(nowstage+1,nowstage)
       !$omp do
+      !$acc loop collapse(2)
       do j=js, je
       do i=is, ie
         q(i,j) = var0_2d(i,j,varID)             &
@@ -2182,6 +2274,7 @@ contains
       do s=1, nowstage
         coef_a_ex_dt = this%dt * this%coef_a_ex(nowstage+1,s)
       !$omp do
+      !$acc loop collapse(2)
       do j=js, je
       do i=is, ie
         q(i,j) = q(i,j)                            &
@@ -2193,7 +2286,8 @@ contains
       do s=1, nowstage
         coef_a_ex_dt = this%dt * this%coef_a_ex(nowstage+1,s)
         coef_a_im_dt = this%dt * this%coef_a_im(nowstage+1,s)            
-        !$omp do
+      !$omp do
+      !$acc loop collapse(2)
         do j=js, je
         do i=is, ie
           q(i,j) = q(i,j)                                                 &
@@ -2203,7 +2297,7 @@ contains
         end do
       end do
     end if
-
+    !$acc end parallel
     !$omp end parallel
     call PROF_rapend( 'rk_advance_general2D', 3)
 
@@ -2447,6 +2541,7 @@ contains
 
     if ( this%nstage == 1 ) then
       !$omp parallel do collapse(2)
+      !$acc parallel loop collapse(3) present( q, varTmp_3d )
       do k=ks, ke
       do j=js, je
       do i=is, ie
@@ -2461,6 +2556,7 @@ contains
         coef_b_ex_dt = this%coef_b_ex(nowstage) * this%dt
         coef_b_im_dt = this%coef_b_im(nowstage) * this%dt
         !$omp parallel do collapse(2)
+        !$acc parallel loop collapse(3) present( q, varTmp_3d, tend_buf3D_ex, tend_buf3D_im )
         do k=ks, ke
         do j=js, je
         do i=is, ie
@@ -2474,6 +2570,7 @@ contains
         coef_b_ex_dt = this%coef_b_ex(nowstage) * this%dt
 
         !$omp parallel do collapse(2)
+        !$acc parallel loop collapse(3) present( q, varTmp_3d, tend_buf3D_ex )
         do k=ks, ke
         do j=js, je
         do i=is, ie
@@ -2490,9 +2587,11 @@ contains
 
     !$omp parallel private( s, coef_a_ex_dt, coef_a_im_dt, coef_b_ex_dt, coef_b_im_dt ) &
     !$omp private( i,j,k )
+    !$acc parallel present( q, var0_3D, varTmp_3D, tend_buf3D_ex, tend_buf3D_im )
 
     if ( nowstage == 1 .and. (.not. this%imex_flag) ) then
       !$omp do collapse(2)
+      !$acc loop collapse(3)
       do k=ks, ke
       do j=js, je
       do i=is, ie
@@ -2508,6 +2607,7 @@ contains
       coef_b_im_dt = this%coef_b_im(nowstage) * this%dt
 
       !$omp do collapse(2)
+      !$acc loop collapse(3)
       do k=ks, ke
       do j=js, je
       do i=is, ie
@@ -2522,6 +2622,7 @@ contains
       coef_b_ex_dt = this%coef_b_ex(nowstage) * this%dt
 
       !$omp do collapse(2)
+      !$acc loop collapse(3)
       do k=ks, ke
       do j=js, je
       do i=is, ie
@@ -2536,6 +2637,7 @@ contains
     if ( this%tend_buf_size == 1 .and. (.not. this%imex_flag) ) then
       coef_a_ex_dt = this%dt * this%coef_a_ex(nowstage+1,nowstage)
       !$omp do collapse(2)
+      !$acc loop collapse(3)
       do k=ks, ke
       do j=js, je
       do i=is, ie
@@ -2548,6 +2650,7 @@ contains
       do s=1, nowstage
         coef_a_ex_dt = this%dt * this%coef_a_ex(nowstage+1,s)
       !$omp do collapse(2)
+      !$acc loop collapse(3)
       do k=ks, ke
       do j=js, je
       do i=is, ie
@@ -2562,6 +2665,7 @@ contains
         coef_a_ex_dt = this%dt * this%coef_a_ex(nowstage+1,s)
         coef_a_im_dt = this%dt * this%coef_a_im(nowstage+1,s)            
       !$omp do collapse(2)
+      !$acc loop collapse(3)
         do k=ks, ke
         do j=js, je
         do i=is, ie
@@ -2573,7 +2677,7 @@ contains
         end do
       end do
     end if
-
+    !$acc end parallel
     !$omp end parallel
     call PROF_rapend( 'rk_advance_general3D', 3)
 

@@ -26,10 +26,11 @@ module scale_localmesh_1d
   !
   !++ Public type & procedure
   ! 
+  !> Derived type representing a local mesh for 1D domain
   type, extends(LocalMeshBase), public :: LocalMesh1D
-
-    type(ElementBase1D), pointer :: refElem1D
-    real(RP) :: xmin, xmax 
+    type(ElementBase1D), pointer :: refElem1D !< Pointer to the reference element for 1D
+    real(RP) :: xmin !< Minimum x-coordinate of the local mesh
+    real(RP) :: xmax !< Maximum x-coordinate of the local mesh
   end type LocalMesh1D
 
   public :: LocalMesh1D_Init, LocalMesh1D_Final
@@ -50,6 +51,7 @@ module scale_localmesh_1d
   !
 
 contains
+  !> Initialize an object to manage a local mesh for 1D domain
 !OCL SERIAL
   subroutine LocalMesh1D_Init( this, &
     lcdomID, refElem, myrank )
@@ -64,10 +66,11 @@ contains
 
     this%refElem1D => refElem
     call LocalMeshBase_Init(this, lcdomID, refElem, 1, myrank)
-
+    !$acc enter data copyin(this)
     return
   end subroutine LocalMesh1D_Init
 
+  !> Finalize an object to manage a local mesh for 1D domain
 !OCL SERIAL
   subroutine LocalMesh1D_Final( this, is_generated )
     implicit none
@@ -77,7 +80,7 @@ contains
     !-------------------------------------------------
 
     call LocalMeshBase_Final( this, is_generated )
-
+    !$acc exit data delete(this)
     return
   end subroutine LocalMesh1D_Final
   

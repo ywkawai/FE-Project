@@ -33,6 +33,7 @@ module scale_mesh_base3d
   !
   !++ Public type & procedure
   ! 
+  !> Derived type to manage a computational mesh (base type for 3D domain)
   type, abstract, public, extends(MeshBase) :: MeshBase3D
     type(LocalMesh3D), allocatable :: lcmesh_list(:)
     type(ElementBase3D), pointer :: refElem3D
@@ -172,6 +173,7 @@ contains
 
 !OCL SERIAL
   subroutine MeshBase3D_setGeometricInfo( lcmesh, coord_conv, calc_normal )
+    use scale_mesh_base, only: MeshBase_setGeometricInfo
     implicit none
     
     type(LocalMesh3D), intent(inout) :: lcmesh
@@ -218,27 +220,22 @@ contains
 
     refElem => lcmesh%refElem3D
 
-    allocate( lcmesh%pos_en(refElem%Np,lcmesh%Ne,3) )
-    !allocate( mesh%fx(refElem%Nfaces*refElem%Nfp,mesh%Ne) )
-    !allocate( mesh%fy(refElem%Nfaces*refElem%Nfp,mesh%Ne) )
-    allocate( lcmesh%normal_fn(refElem%NfpTot,lcmesh%Ne,3) )
-    allocate( lcmesh%sJ(refElem%NfpTot,lcmesh%Ne) )
-    allocate( lcmesh%J(refElem%Np,lcmesh%Ne) )
-    allocate( lcmesh%Fscale(refElem%NfpTot,lcmesh%Ne) )
-    allocate( lcmesh%Escale(refElem%Np,lcmesh%Ne,3,3) )
+    call MeshBase_setGeometricInfo( lcmesh, 3 )
+
     allocate( lcmesh%zS(refElem%Np,lcmesh%Ne) )
     allocate( lcmesh%Sz(refElem%Np,lcmesh%Ne) )
-    allocate( lcmesh%Gsqrt(refElem%Np,lcmesh%NeA) )
+    allocate( lcmesh%zlev(refElem%Np,lcmesh%Ne) )
+    allocate( lcmesh%gam(refElem%Np,lcmesh%NeA) )
     allocate( lcmesh%GsqrtH(refElem%Nfp_v,lcmesh%Ne2D) )
     allocate( lcmesh%G_ij(refElem%Nfp_v,lcmesh%Ne2D,2,2) )
     allocate( lcmesh%GIJ (refElem%Nfp_v,lcmesh%Ne2D,2,2) )
     allocate( lcmesh%GI3 (refElem%Np,lcmesh%NeA,2) )
-    allocate( lcmesh%zlev(refElem%Np,lcmesh%Ne) )
-    allocate( lcmesh%gam(refElem%Np,lcmesh%NeA) )
-
     allocate( lcmesh%lon2D(refElem%Nfp_v,lcmesh%Ne2D) )
     allocate( lcmesh%lat2D(refElem%Nfp_v,lcmesh%Ne2D) )
-    
+    !$acc enter data create( lcmesh%zS, lcmesh%Sz, lcmesh%zlev, lcmesh%gam, &
+    !$acc   lcmesh%GsqrtH, lcmesh%G_ij, lcmesh%GIJ, lcmesh%GI3,             &
+    !$acc   lcmesh%lon2D, lcmesh%lat2D )
+
     do f=1, refElem%Nfaces_h
     do i=1, refElem%Nfp_h
       fid_h(i,f) = i + (f-1)*refElem%Nfp_h
@@ -309,6 +306,7 @@ contains
       lcmesh%zlev(:,ke) = lcmesh%pos_en(:,ke,3)
     end do
     !$omp end do
+    !$acc update device(lcmesh%pos_en, lcmesh%normal_fn, lcmesh%sJ, lcmesh%J, lcmesh%Escale, lcmesh%Fscale, lcmesh%zlev)
 
     !$omp workshare
     lcmesh%Gsqrt (:,:)   = 1.0_RP
@@ -325,7 +323,8 @@ contains
     lcmesh%GI3   (:,:,2)   = 0.0_RP
     lcmesh%gam   (:,:)     = 1.0_RP
     !$omp end workshare
-
+    !$acc update device(lcmesh%Gsqrt, lcmesh%GsqrtH, lcmesh%GIJ, lcmesh%G_ij, lcmesh%GI3, lcmesh%gam)
+    
     !$omp end parallel
 
     return

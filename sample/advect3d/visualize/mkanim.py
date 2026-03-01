@@ -12,7 +12,7 @@ vmax = float(args[3])
 levels_ = np.arange(-1.2,1.2+0.2,0.2)
 levels = np.delete(levels_, np.argmin(levels_**2))
 
-u = xr.open_mfdataset("history.pe000000.nc", decode_times=False, combine='by_coords')["q"]
+u = xr.open_mfdataset("history.pe000000.nc", decode_times=False, combine='by_coords')["q"].isel(z=16)
 x = u.coords["x"]
 y = u.coords["y"]
 time = u.coords["time"]
@@ -20,16 +20,15 @@ time = u.coords["time"]
 fig, ax = plt.subplots(figsize=(5,4.5))
 
 def setup_axes(ax):
-  ax.set_xlim(0.0, 1.0)
-  ax.set_ylim(0.0, 1.0)
-  ax.set_xlabel("x")
-  ax.set_ylabel("y")
-  ax.set_title("2D linear advection") 
+    ax.set_xlim(0.0, 1.0)
+    ax.set_ylim(0.0, 1.0)
+    ax.set_xlabel("x")
+    ax.set_ylabel("y")
+    ax.set_title("3D linear advection")
 
 def update(n):
   print(f"n={n}")
   ax.cla()
-  setup_axes(ax)
   setup_axes(ax)
   ax.contour(x, y, u.isel(time=n), levels=levels, colors="black", alpha=0.5)
   ax.contourf(x, y, u.isel(time=n), vmin=vmin, vmax=vmax, cmap="jet")

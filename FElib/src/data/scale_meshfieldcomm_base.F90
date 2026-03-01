@@ -500,7 +500,7 @@ contains
     end subroutine set_bounddata
   end subroutine MeshFieldCommBase_wait_core
 
-!> Extract halo data from data array with MeshField object and set it to the recieving buffer
+!> Extract halo data from data array with MeshField object and set it to the receiving buffer
 !OCL SERIAL
   subroutine MeshFieldCommBase_extract_bounddata(var, refElem, mesh, buf)
     implicit none
@@ -520,27 +520,36 @@ contains
     return
   end subroutine MeshFieldCommBase_extract_bounddata
 
-!> Extract halo data from data array with MeshField object and set it to the recieving buffer
+!> Extract halo data from data array with MeshField object and set it to the receiving buffer
+!!
+!! Note: We assume that the size of VmapB is the same for all local meshes. 
+!! For the future, this subroutine should be modified to handle the case with different sizes of VmapB among local meshes.
+!!
 !OCL SERIAL
-  subroutine MeshFieldCommBase_extract_bounddata_2(field_list, dim, varid_s, lcmesh_list, buf)
+  subroutine MeshFieldCommBase_extract_bounddata_2(field_list, dim, varid_s, lcmesh_list, vmapB_size, buf)
     implicit none
-    class(MeshFieldContainer), intent(in), target :: field_list(:)
+    type(MeshFieldContainer), intent(in), target :: field_list(:)
     integer, intent(in) :: varid_s
     integer, intent(in) :: dim
     class(LocalMeshBase), intent(in), target :: lcmesh_list(:)
-    real(RP), intent(out) :: buf(size(lcmesh_list(1)%VmapB),size(field_list),size(lcmesh_list))
+    integer, intent(in) :: vmapB_size                                            !< The size of VmapB (we assume that the size of VmapB is the same for all local meshes)
+    real(RP), intent(out) :: buf(vmapB_size,size(field_list),size(lcmesh_list))
 
     class(LocalMeshBase), pointer :: lcmesh
     integer :: varid
     integer :: i, n
+
+    integer :: field_num
     !-----------------------------------------------------------------------------
+
+    field_num = size(field_list)
 
     do n=1, size(lcmesh_list)
       lcmesh => lcmesh_list(n)
       i = 1
-      do while( i <= size(field_list) )
+      do while( i <= field_num )
         varid = varid_s + i - 1
-        if ( i+1 <= n ) then
+        if ( i+1 <= field_num ) then
           if (dim==1) then
             call extract_bounddata_var2( buf(:,varid,n), buf(:,varid+1,n), field_list(varid)%field1d%local(n)%val, field_list(varid+1)%field1d%local(n)%val, lcmesh, lcmesh%refElem )
           else if(dim==2) then
@@ -577,7 +586,7 @@ contains
       !-----------------------------
       !$omp parallel do
 !OCL PREFETCH
-      do ii=1, size(buf)
+      do ii=1, size(buf1_)
         buf1_(ii) = var1(lmesh%vmapB(ii))
         buf2_(ii) = var2(lmesh%vmapB(ii))
       end do
@@ -585,7 +594,7 @@ contains
     end subroutine extract_bounddata_var2
   end subroutine MeshFieldCommBase_extract_bounddata_2
 
-!> Extract halo data from the recieving buffer and set it to data array with MeshField object
+!> Extract halo data from the receiving buffer and set it to data array with MeshField object
   subroutine MeshFieldCommBase_set_bounddata(buf, refElem, mesh, var)
     implicit none
     
