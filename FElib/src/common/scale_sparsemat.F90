@@ -4,7 +4,7 @@
 !! @par Description
 !!          A module to treat sparse matrix and the associated operations
 !!
-!! @author Yuta Kawai, Team SCALE
+!! @author Yuta Kawai, Xuanzhengbo Ren, and Team SCALE
 !!
 !<
 #include "scaleFElib.h"
@@ -42,7 +42,7 @@ module scale_sparsemat
     integer :: rowPtrSize             !< Size of rowPtr
 
     ! for ELL format
-    integer :: col_size
+    integer :: col_size               !< Size of column of compressed matrix for ELL format (maximum number of nonzeros in a row)
 
     integer, private :: storage_format_id      !< Number of row of original matrix
   contains
@@ -85,6 +85,8 @@ module scale_sparsemat
   !-----------------------------------------------------------------------------
 
 contains
+  !> Initialize an object to manage a sparse matrix
+!OCL SERIAL
   subroutine sparsemat_Init( this, mat, &
       EPS, storage_format )
     implicit none
@@ -110,7 +112,6 @@ contains
 
     integer :: row_nonzero_counter(size(mat,1))
     integer :: col_size_l
-
     !--------------------------------------------------------------------------- 
  
     !$acc enter data create(this)
@@ -220,10 +221,11 @@ contains
     return
   end subroutine sparsemat_Init
 
+  !> Finalize an object to manage a sparse matrix
+!OCL SERIAL
   subroutine sparsemat_Final(this)
     implicit none
     class(SparseMat), intent(inout) :: this
-
     !--------------------------------------------------------------------------- 
 
     deallocate( this%val )
@@ -355,6 +357,7 @@ contains
     return 
   end function sparsemat_get_storage_format_id
 
+  !> Matrix-vector multiplication for a sparse matrix
 !OCL SERIAL  
   subroutine sparsemat_matmul1(A, b, c)
     implicit none
@@ -379,6 +382,8 @@ contains
     return
   end subroutine sparsemat_matmul1
 
+  !> Matrix-vector multiplication for a sparse matrix with two vectors
+  !! This routine computes c = A * (b1 .* b2), where .* is the element-wise multiplication.
 !OCL SERIAL  
   subroutine sparsemat_matmul1_2(A, b1, b2, c)
     implicit none
@@ -404,6 +409,7 @@ contains
     return
   end subroutine sparsemat_matmul1_2
 
+  !> Matrix-matrix multiplication for a sparse matrix
 !OCL SERIAL  
   subroutine sparsemat_matmul2(A, b, c)
     implicit none
@@ -428,6 +434,7 @@ contains
 
 !--- private ----------------------------------------------
 
+  !> Matrix-vector multiplication for a sparse matrix in CSR format
 !OCL SERIAL
   subroutine sparsemat_matmul_CSR_1(A, col_Ind, rowPtr, b, c, M, N, buf_size, rowPtr_size)
     implicit none
@@ -466,6 +473,8 @@ contains
     return
   end subroutine sparsemat_matmul_CSR_1
 
+  !> Matrix-vector multiplication for a sparse matrix in CSR format with two vectors
+  !! This routine computes c = A * (b1 .* b2), where .* is the element-wise multiplication.
 !OCL SERIAL
   subroutine sparsemat_matmul_CSR_1_2(A, col_Ind, rowPtr, b1, b2, c, M, N, buf_size, rowPtr_size)
     implicit none
@@ -505,6 +514,7 @@ contains
     return
   end subroutine sparsemat_matmul_CSR_1_2
 
+  !> Matrix-matrix multiplication for a sparse matrix in CSR format
 !OCL SERIAL
   subroutine sparsemat_matmul_CSR_2(A, col_Ind, rowPtr, b, c, M, N, buf_size, rowPtr_size, NQ)
     implicit none
@@ -539,6 +549,7 @@ contains
     return
   end subroutine sparsemat_matmul_CSR_2
 
+  !> Matrix-vector multiplication for a sparse matrix in ELL format
 !OCL SERIAL
   subroutine sparsemat_matmul_ELL_1(A, col_Ind, b, c, M, N, buf_size, col_size)
     implicit none
@@ -558,14 +569,14 @@ contains
 
     !$acc routine
 
-  #ifdef _OPENACC
+#ifdef _OPENACC
     !$acc loop vector
     do i=1, M
       c(i) = 0.0_RP
     end do
-  #else
+#else
     c(:) = 0.0_RP
-  #endif
+#endif
 
     do k=1, col_size
       kk = M * (k-1)
@@ -579,6 +590,8 @@ contains
     return
   end subroutine sparsemat_matmul_ELL_1
 
+  !> Matrix-vector multiplication for a sparse matrix in ELL format with two vectors
+  !! This routine computes c = A * (b1 .* b2), where .* is the element-wise multiplication.
 !OCL SERIAL
   subroutine sparsemat_matmul_ELL_1_2(A, col_Ind, b1, b2, c, M, N, buf_size, col_size)
     implicit none
@@ -599,14 +612,14 @@ contains
 
     !$acc routine
 
-  #ifdef _OPENACC
+#ifdef _OPENACC
     !$acc loop vector
     do i=1, M
       c(i) = 0.0_RP
     end do
-  #else
+#else
     c(:) = 0.0_RP
-  #endif
+#endif
 
     do k=1, col_size
       kk = M * (k-1)
@@ -620,6 +633,7 @@ contains
     return
   end subroutine sparsemat_matmul_ELL_1_2
 
+  !> Matrix-matrix multiplication for a sparse matrix in ELL format
 !OCL SERIAL
   subroutine sparsemat_matmul_ELL_2(A, col_Ind, b, c, M, N, buf_size, col_size, NQ)
     implicit none
