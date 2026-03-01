@@ -61,7 +61,7 @@ if [ ! ${RUNCONF} = "NONE" ]; then
    done
 elif [ ! ${BINNAME} = "NONE" ]; then
    FILES_LLIO=`echo -e ${FILES_LLIO} ${BINDIR}/${BINNAME}`
-   RUN_MAIN=`echo -e "${RUN_MAIN}\n"${MPIEXEC} ${PROCLIST[i]} ${BINDIR}/${BINNAME}"|| exit 1"`
+   RUN_MAIN=`echo -e "${RUN_MAIN}\n"${MPIEXEC} ${TPROC} ${BINDIR}/${BINNAME}"|| exit 1"`
 fi
 
 if [ ! ${POSTCONF} = "NONE" ]; then
@@ -168,8 +168,8 @@ if [ ${ndata} -gt 0 ]; then
          let "ip = ${np} - 1"
          PE=`printf %06d ${ip}`
 
-         src=${triple[1]}.pe${PE}${nc}
-         dst=${triple[2]}.pe${PE}${nc}
+         src=${triple[1]}.pe${PE}.nc
+         dst=${triple[2]}.pe${PE}.nc
 
          if [ -f ${src} ]; then
             echo "ln -svf ${src} ./${dst}" >> ./run.sh
