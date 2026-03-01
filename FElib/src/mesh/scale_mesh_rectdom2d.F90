@@ -35,18 +35,21 @@ module scale_mesh_rectdom2d
   ! 
   !> Derived type to manage a rectangular 2D computational domain
   type, extends(MeshBase2D), public :: MeshRectDom2D
-    integer :: NeGX
-    integer :: NeGY
+    integer :: NeGX    !< Number of elements in X direction (global)
+    integer :: NeGY    !< Number of elements in Y direction (global)
     
-    integer :: NprcX
-    integer :: NprcY
+    integer :: NprcX   !< Number of processes in X direction for domain decomposition
+    integer :: NprcY   !< Number of processes in Y direction for domain decomposition
 
-    real(RP), public :: xmin_gl, xmax_gl
-    real(RP), public :: ymin_gl, ymax_gl    
+    real(RP), public :: xmin_gl !< Minimum X coordinate of the global domain
+    real(RP), public :: xmax_gl !< Maximum X coordinate of the global domain
+    real(RP), public :: ymin_gl !< Minimum Y coordinate of the global domain
+    real(RP), public :: ymax_gl !< Maximum Y coordinate of the global domain
+
     integer, allocatable :: rcdomIJ2LCMeshID(:,:)
 
-    logical :: isPeriodicX
-    logical :: isPeriodicY
+    logical :: isPeriodicX  !< Flag whether the domain is periodic in X direction
+    logical :: isPeriodicY  !< Flag whether the domain is periodic in Y direction
   contains
     procedure :: Init => MeshRectDom2D_Init
     procedure :: Final => MeshRectDom2D_Final
@@ -86,20 +89,20 @@ contains
     implicit none
 
     class(MeshRectDom2D), intent(inout) :: this
-    integer, intent(in) :: NeGX
-    integer, intent(in) :: NeGY
-    real(RP), intent(in) :: dom_xmin
-    real(RP), intent(in) :: dom_xmax
-    real(RP), intent(in) :: dom_ymin
-    real(RP), intent(in) :: dom_ymax
-    logical, intent(in) :: isPeriodicX
-    logical, intent(in) :: isPeriodicY
-    type(QuadrilateralElement), intent(in), target :: refElem
-    integer, intent(in) :: NLocalMeshPerPrc
-    integer, intent(in) :: NprcX
-    integer, intent(in) :: NprcY
-    integer, intent(in), optional :: nproc
-    integer, intent(in), optional :: myrank
+    integer, intent(in) :: NeGX          !< Number of elements in X direction (global)
+    integer, intent(in) :: NeGY          !< Number of elements in Y direction (global)
+    real(RP), intent(in) :: dom_xmin     !< Minimum X coordinate of the global domain
+    real(RP), intent(in) :: dom_xmax     !< Maximum X coordinate of the global domain
+    real(RP), intent(in) :: dom_ymin     !< Minimum Y coordinate of the global domain
+    real(RP), intent(in) :: dom_ymax     !< Maximum Y coordinate of the global domain
+    logical, intent(in) :: isPeriodicX   !< Flag whether the domain is periodic in X direction
+    logical, intent(in) :: isPeriodicY   !< Flag whether the domain is periodic in Y direction
+    type(QuadrilateralElement), intent(in), target :: refElem !< Reference element for the 2D mesh
+    integer, intent(in) :: NLocalMeshPerPrc !< Number of local meshes managed by each process
+    integer, intent(in) :: NprcX            !< Number of processes in X direction for domain decomposition
+    integer, intent(in) :: NprcY            !< Number of processes in Y direction for domain decomposition
+    integer, intent(in), optional :: nproc  !< Total number of processes (if not provided, it will be determined from the parallel environment)
+    integer, intent(in), optional :: myrank !< Rank of the current process (if not provided, it will be determined from the parallel environment)
 
     !-----------------------------------------------------------------------------
     
@@ -145,10 +148,10 @@ contains
     return
   end subroutine MeshRectDom2D_Final
   
+  !> Generate meshes for the rectangular domain
+!OCL SERIAL
   subroutine MeshRectDom2D_generate( this )
-    
     implicit none
-
     class(MeshRectDom2D), intent(inout), target :: this
             
     integer :: n
@@ -163,7 +166,6 @@ contains
     integer :: TILE_NUM_PER_PANEL
     real(RP) :: delx, dely
     integer :: tileID
-    
     !-----------------------------------------------------------------------------
 
     TILE_NUM_PER_PANEL = this%LOCAL_MESH_NUM_global / 1

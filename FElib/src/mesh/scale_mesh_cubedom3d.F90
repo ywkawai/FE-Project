@@ -44,28 +44,31 @@ module scale_mesh_cubedom3d
   ! 
   !> Derived type to manage a cubic 3D computational domain
   type, extends(MeshBase3D), public :: MeshCubeDom3D
-    integer :: NeGX
-    integer :: NeGY
-    integer :: NeGZ
+    integer :: NeGX   !< Number of elements in X direction for the global mesh
+    integer :: NeGY   !< Number of elements in Y direction for the global mesh
+    integer :: NeGZ   !< Number of elements in Z direction for the global mesh
 
-    integer :: NprcX
-    integer :: NprcY
-    integer :: NprcZ
+    integer :: NprcX  !< Number of processes in X direction for domain decomposition
+    integer :: NprcY  !< Number of processes in Y direction for domain decomposition
+    integer :: NprcZ  !< Number of processes in Z direction for domain decomposition
     
-    real(RP), public :: xmin_gl, xmax_gl
-    real(RP), public :: ymin_gl, ymax_gl    
-    real(RP), public :: zmin_gl, zmax_gl
+    real(RP), public :: xmin_gl !< Minimum X coordinate of the global domain
+    real(RP), public :: xmax_gl !< Maximum X coordinate of the global domain
+    real(RP), public :: ymin_gl !< Minimum Y coordinate of the global domain
+    real(RP), public :: ymax_gl !< Maximum Y coordinate of the global domain
+    real(RP), public :: zmin_gl !< Minimum Z coordinate of the global domain
+    real(RP), public :: zmax_gl !< Maximum Z coordinate of the global domain
 
     real(RP), allocatable :: FZ(:)
 
     integer, allocatable :: rcdomIJK2LCMeshID(:,:,:)
 
-    logical :: isPeriodicX
-    logical :: isPeriodicY
-    logical :: isPeriodicZ
+    logical :: isPeriodicX  !< Flag whether the domain is periodic in X direction
+    logical :: isPeriodicY  !< Flag whether the domain is periodic in Y direction
+    logical :: isPeriodicZ  !< Flag whether the domain is periodic in Z direction
 
-    type(MeshRectDom2D) :: mesh2D
-    type(QuadrilateralElement) :: refElem2D
+    type(MeshRectDom2D) :: mesh2D             !< 2D mesh for the horizontal plane (X-Y plane)
+    type(QuadrilateralElement) :: refElem2D   !< Reference element for the 2D mesh
   contains
     procedure :: Init => MeshCubeDom3D_Init
     procedure :: Final => MeshCubeDom3D_Final
@@ -105,25 +108,25 @@ contains
     implicit none
 
     class(MeshCubeDom3D), intent(inout) :: this
-    integer, intent(in) :: NeGX
-    integer, intent(in) :: NeGY
-    integer, intent(in) :: NeGZ
-    real(RP), intent(in) :: dom_xmin
-    real(RP), intent(in) :: dom_xmax
-    real(RP), intent(in) :: dom_ymin
-    real(RP), intent(in) :: dom_ymax
-    real(RP), intent(in) :: dom_Zmin
-    real(RP), intent(in) :: dom_zmax
-    logical, intent(in) :: isPeriodicX
-    logical, intent(in) :: isPeriodicY
-    logical, intent(in) :: isPeriodicZ
-    type(HexahedralElement), intent(in), target :: refElem
-    integer, intent(in) :: NLocalMeshPerPrc
-    integer, intent(in) :: NprcX
-    integer, intent(in) :: NprcY
-    integer, intent(in), optional :: nproc
-    integer, intent(in), optional :: myrank
-    real(RP), intent(in), optional :: FZ(NeGZ+1)
+    integer, intent(in) :: NeGX          !< Number of elements in X direction for the global mesh
+    integer, intent(in) :: NeGY          !< Number of elements in Y direction for the global mesh
+    integer, intent(in) :: NeGZ          !< Number of elements in Z direction for the global mesh
+    real(RP), intent(in) :: dom_xmin     !< Minimum X coordinate of the global domain
+    real(RP), intent(in) :: dom_xmax     !< Maximum X coordinate of the global domain
+    real(RP), intent(in) :: dom_ymin     !< Minimum Y coordinate of the global domain
+    real(RP), intent(in) :: dom_ymax     !< Maximum Y coordinate of the global domain
+    real(RP), intent(in) :: dom_zmin     !< Minimum Z coordinate of the global domain
+    real(RP), intent(in) :: dom_zmax     !< Maximum Z coordinate of the global domain
+    logical, intent(in) :: isPeriodicX   !< Flag whether the domain is periodic in X direction
+    logical, intent(in) :: isPeriodicY   !< Flag whether the domain is periodic in Y direction
+    logical, intent(in) :: isPeriodicZ   !< Flag whether the domain is periodic in Z direction
+    type(HexahedralElement), intent(in), target :: refElem  !< Reference element for the 3D mesh
+    integer, intent(in) :: NLocalMeshPerPrc  !< Number of local meshes managed by each process
+    integer, intent(in) :: NprcX         !< Number of processes in X direction for domain decomposition
+    integer, intent(in) :: NprcY         !< Number of processes in Y direction for domain decomposition
+    integer, intent(in), optional :: nproc       !< Total number of processes (if not provided, it will be determined from the parallel environment)
+    integer, intent(in), optional :: myrank      !< Rank of the current process (if not provided, it will be determined from the parallel environment)
+    real(RP), intent(in), optional :: FZ(NeGZ+1) !< Optional array of Z coordinates for the mesh
 
     integer :: k
     real(RP) :: dz
@@ -154,8 +157,8 @@ contains
     if ( present(FZ) ) then
       this%FZ(:) = FZ(:)
     else
-      this%FZ(1          ) = dom_Zmin
-      this%FZ(this%NeGZ+1) = dom_Zmax
+      this%FZ(1          ) = dom_zmin
+      this%FZ(this%NeGZ+1) = dom_zmax
       dz = (dom_zmax - dom_zmin) / dble(this%NeGZ)
       do k=2, this%NeGZ
         this%FZ(k) = this%FZ(k-1) + dz
@@ -180,9 +183,7 @@ contains
 !> Finalize an object to manage a cubic 3D domain
 !OCL SERIAL
   subroutine MeshCubeDom3D_Final( this )
-    use scale_prc
     implicit none
-
     class(MeshCubeDom3D), intent(inout) :: this
     !-----------------------------------------------------------------------------
   
