@@ -500,7 +500,7 @@ contains
     end subroutine set_bounddata
   end subroutine MeshFieldCommBase_wait_core
 
-!> Extract halo data from data array with MeshField object and set it to the recieving buffer
+!> Extract halo data from data array with MeshField object and set it to the receiving buffer
 !OCL SERIAL
   subroutine MeshFieldCommBase_extract_bounddata(var, refElem, mesh, buf)
     implicit none
@@ -520,7 +520,7 @@ contains
     return
   end subroutine MeshFieldCommBase_extract_bounddata
 
-!> Extract halo data from data array with MeshField object and set it to the recieving buffer
+!> Extract halo data from data array with MeshField object and set it to the receiving buffer
 !!
 !! Note: We assume that the size of VmapB is the same for all local meshes. 
 !! For the future, this subroutine should be modified to handle the case with different sizes of VmapB among local meshes.
@@ -594,7 +594,7 @@ contains
     end subroutine extract_bounddata_var2
   end subroutine MeshFieldCommBase_extract_bounddata_2
 
-!> Extract halo data from the recieving buffer and set it to data array with MeshField object
+!> Extract halo data from the receiving buffer and set it to data array with MeshField object
   subroutine MeshFieldCommBase_set_bounddata(buf, refElem, mesh, var)
     implicit none
     
