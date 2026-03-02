@@ -94,7 +94,7 @@ contains
     real(RP) :: LiftBndFlux(elem%Np)
     !------------------------------------------------------------------------
 
-    !$omp parallel do private(ke)
+    !$omp parallel do private(ke, Fx,LiftBndFlux)
     do ke=lmesh%NeS, lmesh%NeE
       call sparsemat_matmul( Dx, q_(:,ke) * u_(:,ke), Fx )
       call sparsemat_matmul( Lift, lmesh%Fscale(:,ke) * ebnd_flux(:,ke), LiftBndFlux )

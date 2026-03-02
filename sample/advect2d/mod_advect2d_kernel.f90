@@ -68,9 +68,9 @@ contains
       q_, u_, v_, ebnd_flux,    & ! (in)
       Dx, Dy, Lift, lmesh, elem ) ! (in)
 #else
-    call cal_dqdt_gpu( dqdt,       & ! (out)
-        q_, u_, v_, ebnd_flux,     & ! (in)
-        Dx, Dy, Lift, lmesh, elem  ) ! (in)
+    call cal_dqdt_gpu( dqdt,     & ! (out)
+      q_, u_, v_, ebnd_flux,     & ! (in)
+      Dx, Dy, Lift, lmesh, elem  ) ! (in)
 #endif
     call PROF_rapend( 'cal_tend_interior', 2)
     !$acc end data
@@ -99,7 +99,7 @@ contains
     real(RP) :: LiftBndFlux(elem%Np)
     !------------------------------------------------------------------------
 
-    !$omp parallel do private(ke)
+    !$omp parallel do private(ke, Fx,Fy,LiftBndFlux)
     do ke=lmesh%NeS, lmesh%NeE
       call sparsemat_matmul( Dx, q_(:,ke) * u_(:,ke), Fx )
       call sparsemat_matmul( Dy, q_(:,ke) * v_(:,ke), Fy )
