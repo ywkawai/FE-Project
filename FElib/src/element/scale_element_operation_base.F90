@@ -28,8 +28,11 @@ module scale_element_operation_base
   !
   !++ Public type & procedure
   !  
+
+  !> Base type for elementwise operations
   type, public, abstract :: ElementOperationBase3D
-    class(ElementBase3D), pointer :: elem3D 
+    class(ElementBase3D), pointer :: elem3D !< Pointer to an object of 3D element
+    integer :: operator_type                !< Type of operator (e.g., general, tensor-product)
   contains
     procedure(ElementOperationBase_Final), deferred, public :: Final
     procedure(ElementOperationBase_Dx), deferred, public :: Dx
@@ -188,5 +191,13 @@ module scale_element_operation_base
     end subroutine ElementOperationBase_ModalFilter_var5
 
   end interface
+
+  !-----------------------------------------------------------------------------
+  !
+  !++ Public parameters
+  !  
+
+  integer, public :: ELEMENT_OPERATOR_TYPE_GENERAL      = 1 !< Type ID of general operator
+  integer, public :: ELEMENT_OPERATOR_TYPE_TENSORPROD3D = 2 !< Type ID of tensor-product operator for 3D elements
 contains
 end module scale_element_operation_base
