@@ -761,6 +761,7 @@ contains
         call File_common_meshfield_set_cartesbuf_field2D_local(  &
           lcmesh, buf(:,:), i0_s, j0_s,                          &
           field2d%local(n)%val(:,:)                              )
+        !$acc update device(field2d%local(n)%val)
 
         i0_s = i0_s + lcmesh%NeX * refElem%Nfp
       end do
@@ -833,6 +834,7 @@ contains
           call File_common_meshfield_set_cartesbuf_field2D_local(  &
             lcmesh, buf(:,:), i0_s, j0_s,                          &
             field2d%local(n)%val(:,:)                              )
+          !$acc update device(field2d%local(n)%val)
 
           i0_s = i0_s + lcmesh%NeX * refElem%Nfp
         end do
@@ -1391,6 +1393,7 @@ contains
           call File_common_meshfield_set_cartesbuf_field3D_local(  &
             lcmesh, buf(:,:,:), i0_s, j0_s, k0_s,                  &
             field3d%local(n)%val(:,:)                              )
+          !$acc update device(field3d%local(n)%val)
 
           i0_s = i0_s + lcmesh%NeX * refElem%Nnode_h1D
         end do
@@ -1432,6 +1435,7 @@ contains
             call File_common_meshfield_set_cartesbuf_field3D_local(  &
               lcmesh, buf(:,:,:), i0_s, j0_s, k0_s,                  &
               field3d%local(n)%val(:,:)                              )
+            !$acc update device(field3d%local(n)%val)
 
             i0_s = i0_s + lcmesh%NeX * refElem%Nnode_h1D
           end do

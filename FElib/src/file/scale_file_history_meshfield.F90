@@ -111,6 +111,7 @@ contains
 
 !----------------
 
+  !> Setup a module for file history
 !OCL SERIAL
   subroutine FILE_HISTORY_meshfield_setup( &
     mesh1D_, mesh2D_, mesh3D_,             &
@@ -132,15 +133,14 @@ contains
       CALENDAR_get_name
     implicit none
 
-    class(Meshbase1d), intent(in), target, optional :: mesh1D_
-    class(MeshRectDom2d), intent(in), target, optional :: mesh2D_
-    class(MeshCubeDom3D), intent(in), target, optional :: mesh3D_
-    class(MeshCubedSphereDom2D), intent(in), target, optional :: meshCubedsphere2D_
-    class(MeshCubedSphereDom3D), intent(in), target, optional :: meshCubedsphere3D_
+    class(MeshBase1d), intent(in), target, optional :: mesh1D_     !< An object of 1D mesh when the computational domain is 1D
+    class(MeshRectDom2d), intent(in), target, optional :: mesh2D_  !< An object of 2D mesh when the computational domain is rectangular
+    class(MeshCubeDom3D), intent(in), target, optional :: mesh3D_  !< An object of 3D mesh when the computational domain is cubed
+    class(MeshCubedSphereDom2D), intent(in), target, optional :: meshCubedsphere2D_ !< An object of 2D mesh when the computational domain is 2D cubed-sphere
+    class(MeshCubedSphereDom3D), intent(in), target, optional :: meshCubedsphere3D_ !< An object of 3D mesh when the computational domain is 3D cubed-sphere
 
     character(len=H_MID) :: FILE_HISTORY_MESHFILED_H_TITLE = 'SCALE-FEM FILE_HISTORY_MESHFIELD' !< title of the output file
     character(len=H_MID) :: FILE_HISTORY_MESHFIELD_T_SINCE
-
     
     character(len=FILE_HSHORT) :: calendar
     real(DP) :: start_daysec
@@ -207,6 +207,7 @@ contains
     return
   end subroutine FILE_HISTORY_meshfield_setup
 
+  !> Write history data to the file
 !OCL SERIAL
   subroutine FILE_HISTORY_meshfield_write()
     implicit none
@@ -216,6 +217,7 @@ contains
     return
   end subroutine FILE_HISTORY_meshfield_write
 
+  !> Finalize the file history module
 !OCL SERIAL
   subroutine FILE_HISTORY_meshfield_finalize()
     implicit none
@@ -240,8 +242,8 @@ contains
       
     allocate( buf(dims1D_size(1)) )
 
-    call File_common_meshfield_put_field1D_cartesbuf( mesh1D, field1d, buf(:) )
-    call FILE_HISTORY_put(hstid, buf)
+    call File_common_meshfield_put_field1D_cartesbuf( mesh1D, field1d, buf )
+    call FILE_HISTORY_put( hstid, buf )
 
     return
   end subroutine FILE_HISTORY_meshfield_put1D
@@ -283,12 +285,12 @@ contains
     allocate( buf(dims2D_size(1),dims2D_size(2)) )
     
     if ( associated(mesh2D) ) then
-      call File_common_meshfield_put_field2D_cartesbuf( mesh2D, field2d, buf(:,:) )
+      call File_common_meshfield_put_field2D_cartesbuf( mesh2D, field2d, buf )
     else if ( associated(meshCubedSphere2D) ) then
       call File_common_meshfield_put_field2D_cubedsphere_cartesbuf( &
-        meshCubedSphere2D, field2d, buf(:,:) )
+        meshCubedSphere2D, field2d, buf )
     end if
-    call FILE_HISTORY_put(hstid, buf)
+    call FILE_HISTORY_put( hstid, buf )
 
     return
   end subroutine FILE_HISTORY_meshfield_put2D
@@ -330,12 +332,12 @@ contains
 
     allocate( buf(dims3D_size(1,1),dims3D_size(2,1),dims3D_size(3,1)) )
     if ( associated(mesh3D) ) then
-      call File_common_meshfield_put_field3D_cartesbuf( mesh3D, field3d, buf(:,:,:) )
+      call File_common_meshfield_put_field3D_cartesbuf( mesh3D, field3d, buf )
     else if ( associated(meshCubedSphere3D) ) then
       call File_common_meshfield_put_field3D_cubedsphere_cartesbuf( &
-        meshCubedSphere3D, field3d, buf(:,:,:) )
+        meshCubedSphere3D, field3d, buf )
     end if
-    call FILE_HISTORY_put(hstid, buf)
+    call FILE_HISTORY_put( hstid, buf )
 
     return
   end subroutine FILE_HISTORY_meshfield_put3D
@@ -423,7 +425,7 @@ contains
     !-------------------------------------------------
     
     call File_common_meshfield_get_dims1D( mesh1D, & ! (in)
-      dimsinfo(:) )                                  ! (out)
+      dimsinfo    )                                  ! (out)
     
     dims1D_size(1) = dimsinfo(DIMTYPE_X)%size
     allocate( x(dims1D_size(1)) )
@@ -439,7 +441,7 @@ contains
     end do
     
     call FILE_HISTORY_Set_Axis( dimsinfo(DIMTYPE_X)%name, dimsinfo(DIMTYPE_X)%desc, &
-      dimsinfo(DIMTYPE_X)%unit, dimsinfo(DIMTYPE_X)%name, x(:))
+      dimsinfo(DIMTYPE_X)%unit, dimsinfo(DIMTYPE_X)%name, x )
 
     return
   end subroutine set_dim_axis1D
@@ -465,7 +467,7 @@ contains
     !-------------------------------------------------
     
     call File_common_meshfield_get_dims2D( mesh2D, & ! (in)
-      dimsinfo(:) )                                  ! (out)
+      dimsinfo    )                                  ! (out)
     
     dims2D_size(1) = dimsinfo(DIMTYPE_X)%size
     dims2D_size(2) = dimsinfo(DIMTYPE_Y)%size
@@ -510,7 +512,7 @@ contains
     !-------------------------------------------------
     
     call File_common_meshfield_get_dims3D( mesh3D, & ! (in)
-      dimsinfo(:) )                                  ! (out)
+      dimsinfo    )                                  ! (out)
   
     dims2D_size(1) = dimsinfo(DIMTYPE_X)%size
     dims2D_size(2) = dimsinfo(DIMTYPE_Y)%size  
@@ -558,7 +560,7 @@ contains
     !-------------------------------------------------
     
     call File_common_meshfield_get_dims( meshCubedSphere2D, & ! (in)
-      dimsinfo(:) )                                           ! (out)
+      dimsinfo    )                                           ! (out)
     
     dims2D_size(1) = dimsinfo(DIMTYPE_X)%size
     dims2D_size(2) = dimsinfo(DIMTYPE_Y)%size
@@ -576,8 +578,8 @@ contains
       call FILE_HISTORY_Set_Dim ( dimsinfo(n)%type, ndim, 1, dims(1:ndim,:), zs(:), start(1:ndim,:), count(1:ndim,:))
     end do
     
-    call FILE_HISTORY_Set_Axis( dimsinfo(DIMTYPE_X)%name, dimsinfo(DIMTYPE_X)%desc, dimsinfo(DIMTYPE_X)%unit, dimsinfo(DIMTYPE_X)%name, x(:))
-    call FILE_HISTORY_Set_Axis( dimsinfo(DIMTYPE_Y)%name, dimsinfo(DIMTYPE_Y)%desc, dimsinfo(DIMTYPE_Y)%unit, dimsinfo(DIMTYPE_Y)%name, y(:))
+    call FILE_HISTORY_Set_Axis( dimsinfo(DIMTYPE_X)%name, dimsinfo(DIMTYPE_X)%desc, dimsinfo(DIMTYPE_X)%unit, dimsinfo(DIMTYPE_X)%name, x )
+    call FILE_HISTORY_Set_Axis( dimsinfo(DIMTYPE_Y)%name, dimsinfo(DIMTYPE_Y)%desc, dimsinfo(DIMTYPE_Y)%unit, dimsinfo(DIMTYPE_Y)%name, y )
     
     return
   end subroutine set_dim_axis2D_cubedsphere
@@ -604,7 +606,7 @@ contains
     !-------------------------------------------------
     
     call File_common_meshfield_get_dims( meshCubedSphere3D, & ! (in)
-      dimsinfo(:) )                                           ! (out)
+      dimsinfo    )                                           ! (out)
 
     dims2D_size(1) = dimsinfo(DIMTYPE_X)%size
     dims2D_size(2) = dimsinfo(DIMTYPE_Y)%size
@@ -623,9 +625,9 @@ contains
       call FILE_HISTORY_Set_Dim ( dimsinfo(n)%type, ndim, 1, dims(1:ndim,:), zs(:), start(1:ndim,:), count(1:ndim,:))
     end do
     
-    call FILE_HISTORY_Set_Axis( dimsinfo(DIMTYPE_X)%name, dimsinfo(DIMTYPE_X)%desc, dimsinfo(DIMTYPE_X)%unit, dimsinfo(DIMTYPE_X)%name, x(:) )
-    call FILE_HISTORY_Set_Axis( dimsinfo(DIMTYPE_Y)%name, dimsinfo(DIMTYPE_Y)%desc, dimsinfo(DIMTYPE_Y)%unit, dimsinfo(DIMTYPE_Y)%name, y(:) )
-    call FILE_HISTORY_Set_Axis( dimsinfo(DIMTYPE_Z)%name, dimsinfo(DIMTYPE_Z)%desc, dimsinfo(DIMTYPE_Z)%unit, dimsinfo(DIMTYPE_Z)%name, z(:), &
+    call FILE_HISTORY_Set_Axis( dimsinfo(DIMTYPE_X)%name, dimsinfo(DIMTYPE_X)%desc, dimsinfo(DIMTYPE_X)%unit, dimsinfo(DIMTYPE_X)%name, x )
+    call FILE_HISTORY_Set_Axis( dimsinfo(DIMTYPE_Y)%name, dimsinfo(DIMTYPE_Y)%desc, dimsinfo(DIMTYPE_Y)%unit, dimsinfo(DIMTYPE_Y)%name, y )
+    call FILE_HISTORY_Set_Axis( dimsinfo(DIMTYPE_Z)%name, dimsinfo(DIMTYPE_Z)%desc, dimsinfo(DIMTYPE_Z)%unit, dimsinfo(DIMTYPE_Z)%name, z, &
       down=dimsinfo(DIMTYPE_Z)%positive_down(1) )
       
     return
