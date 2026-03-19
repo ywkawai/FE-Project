@@ -165,6 +165,8 @@ contains
     LOG_NML(PARAM_ATMOS_DYN_BND)
     
     !--
+    !$acc enter data create( this )
+
     allocate( this%velBC_ids(DOM_BND_NUM) )
     this%velBC_ids(domBnd_Btm_ID) = BndType_NameToID(btm_vel_bc)
     this%velBC_ids(domBnd_Top_ID) = BndType_NameToID(top_vel_bc)
@@ -172,6 +174,9 @@ contains
     this%velBC_ids(domBnd_South_ID) = BndType_NameToID(south_vel_bc)
     this%velBC_ids(domBnd_East_ID) = BndType_NameToID(east_vel_bc)
     this%velBC_ids(domBnd_West_ID) = BndType_NameToID(west_vel_bc)
+    !$acc enter data copyin( this%velBC_ids )
+
+    !--
 
     allocate( this%thermalBC_ids(DOM_BND_NUM) )
     this%thermalBC_ids(domBnd_Btm_ID) = BndType_NameToID(btm_thermal_bc)
@@ -180,7 +185,8 @@ contains
     this%thermalBC_ids(domBnd_South_ID) = BndType_NameToID(south_thermal_bc)    
     this%thermalBC_ids(domBnd_East_ID) = BndType_NameToID(east_thermal_bc)
     this%thermalBC_ids(domBnd_West_ID) = BndType_NameToID(west_thermal_bc)   
-    
+    !$acc enter data copyin( this%thermalBC_ids )
+
     allocate( this%thermal_fixval(DOM_BND_NUM) )
     this%thermal_fixval(domBnd_Btm_ID) = btm_thermal_fixval
     this%thermal_fixval(domBnd_Top_ID) = top_thermal_fixval
@@ -188,6 +194,7 @@ contains
     this%thermal_fixval(domBnd_South_ID) = south_thermal_fixval
     this%thermal_fixval(domBnd_East_ID) = east_thermal_fixval
     this%thermal_fixval(domBnd_West_ID) = west_thermal_fixval
+    !$acc enter data copyin( this%thermal_fixval )
 
     !------
 
@@ -209,10 +216,12 @@ contains
         call this%ThermalBC_list(n)%Final()
       end do
       deallocate( this%VelBC_list, this%ThermalBC_list )
+      !$acc exit data delete( this%VelBC_list, this%ThermalBC_list )
 
       deallocate( this%velBC_ids, this%thermalBC_ids )
+      !$acc exit data delete( this%velBC_ids, this%thermalBC_ids )
     end if
-
+    !$acc exit data delete( this )
     return
   end subroutine ATMOS_dyn_bnd_finalize  
 
@@ -233,6 +242,7 @@ contains
 
     allocate( this%VelBC_list(mesh%LOCAL_MESH_NUM) )
     allocate( this%ThermalBC_list(mesh%LOCAL_MESH_NUM) )
+    !$acc enter data create( this%VelBC_list, this%ThermalBC_list )
 
     nullify( lcmesh3D )
 
@@ -248,6 +258,7 @@ contains
         this%velBC_ids(:), this%thermalBC_ids(:),          & ! (in)
         this%thermal_fixval(:),                            & ! (in)
         lcmesh3D%VMapB, mesh, lcmesh3D, lcmesh3D%refElem3D ) ! (in)
+      
     end do
 
     return
@@ -266,7 +277,7 @@ contains
     use scale_mesh_bndinfo, only: &
       BND_TYPE_SLIP_ID, BND_TYPE_NOSLIP_ID, &
       BND_TYPE_ADIABAT_ID
-        
+    use scale_prc
     implicit none
 
     class(AtmDynBnd), intent(in) :: this    
@@ -303,12 +314,20 @@ contains
     real(RP) :: MOMW
     real(RP) :: GsqrtV, G11_, G12_, G22_
     real(RP) :: fac
+
+    integer :: IndexH2Dto3D_bnd(elem%NfpTot)
     !-----------------------------------------------
+        
+    IndexH2Dto3D_bnd(:) = elem%IndexH2Dto3D_bnd(:)
 
     !$omp parallel do collapse(2) private( &
     !$omp ke, p, ke2D, i, i_, iM, iP,      &
-    !$omp mom_normal, MOMW, GsqrtV, G11_, G12_, G22_, fac    )
+    !$omp mom_normal, MOMW, GsqrtV, G11_, G12_, G22_, fac )
+    !$acc parallel loop gang &
+    !$acc  present( DDENS, MOMX, MOMY, MOMZ, THERM, DENS_hyd, PRES_hyd,                                 &
+    !$acc           Gsqrt, GsqrtH, G11, G12, G22, G13, G23, nx, ny, nz, vmapM, vmapP, vmapB, lmesh,elem )
     do ke=lmesh%NeS, lmesh%NeE
+    !$acc loop vector
     do p=1, elem%NfpTot
       i = p + (ke-1)*elem%NfpTot
       iP = vmapP(i)
@@ -321,10 +340,10 @@ contains
         case ( BND_TYPE_SLIP_ID)
           ke2D = lmesh%EMap3Dto2D(ke)
 
-          GsqrtV = Gsqrt(iM) / GsqrtH(elem%IndexH2Dto3D_bnd(p),ke2D) 
-          G11_ = G11(elem%IndexH2Dto3D_bnd(p),ke2D)
-          G12_ = G12(elem%IndexH2Dto3D_bnd(p),ke2D)
-          G22_ = G22(elem%IndexH2Dto3D_bnd(p),ke2D)
+          GsqrtV = Gsqrt(iM) / GsqrtH(IndexH2Dto3D_bnd(p),ke2D) 
+          G11_ = G11(IndexH2Dto3D_bnd(p),ke2D)
+          G12_ = G12(IndexH2Dto3D_bnd(p),ke2D)
+          G22_ = G22(IndexH2Dto3D_bnd(p),ke2D)
 
           MOMW = MOMZ(iM) / GsqrtV &
              + G13(iM) * MOMX(iM) + G23(iM) * MOMY(iM)
@@ -334,7 +353,6 @@ contains
           MOMX(iP) = MOMX(iM) - 2.0_RP * mom_normal * ( nx(i) + fac * ( G11_ * G13(iM) + G12_ * G23(iM) ) )
           MOMY(iP) = MOMY(iM) - 2.0_RP * mom_normal * ( ny(i) + fac * ( G12_ * G13(iM) + G22_ * G23(iM) ) )
           MOMZ(iP) = MOMZ(iM) - 2.0_RP * mom_normal * fac / GsqrtV
-
         case ( BND_TYPE_NOSLIP_ID )
           MOMX(iP) = - MOMX(iM)
           MOMY(iP) = - MOMY(iM)
