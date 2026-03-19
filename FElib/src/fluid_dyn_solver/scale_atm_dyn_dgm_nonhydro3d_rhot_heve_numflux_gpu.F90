@@ -2,7 +2,7 @@
 !> module FElib / Fluid dyn solver / Atmosphere / Nonhydrostatic model / HEVE / Numflux
 !!
 !! @par Description
-!!      HEVE DGM scheme for Atmospheric dynamical process. 
+!!      An module for numerical fluxes for HEVE atmospheric dynamical process which runs on GPU.
 !!
 !! @author Yuta Kawai, Team SCALE
 !<

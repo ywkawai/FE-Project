@@ -2,7 +2,7 @@
 !> module FElib / Fluid dyn solver / Atmosphere / Regional nonhydrostatic model / HEVE
 !!
 !! @par Description
-!!      HEVE DGM scheme for Atmospheric dynamical process. 
+!!      HEVE DGM scheme for Atmospheric dynamical process which runs on GPU. 
 !!      The governing equations is a fully compressible nonhydrostatic equations, 
 !!      which consist of mass, momentum, and thermodynamics (density * potential temperature conservation) equations. 
 !!
@@ -70,6 +70,7 @@ module scale_atm_dyn_dgm_nonhydro3d_rhot_heve_gpu
   !-------------------
 
 contains
+  !> Initialize the module for HEVE scheme on GPU
   subroutine atm_dyn_dgm_nonhydro3d_rhot_heve_gpu_Init( mesh )
     implicit none
     class(MeshBase3D), intent(in) :: mesh
@@ -79,7 +80,7 @@ contains
     return
   end subroutine atm_dyn_dgm_nonhydro3d_rhot_heve_gpu_Init
 
-
+  !> Finalize the module for HEVE scheme on GPU
   subroutine atm_dyn_dgm_nonhydro3d_rhot_heve_gpu_Final()
     implicit none
     !--------------------------------------------
