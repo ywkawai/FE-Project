@@ -26,6 +26,8 @@ module scale_mesh_topography
   use scale_meshfieldcomm_base, only: &
     MeshFieldCommBase, MeshFieldContainer
 
+  use scale_sparsemat, only: SparseMat
+
   !-----------------------------------------------------------------------------
   implicit none
   private
@@ -34,6 +36,7 @@ module scale_mesh_topography
   !
   !++ Public type & procedure
   ! 
+  !> Derived type to manage topography datat and setup vertical coordinate metric
   type, public :: MeshTopography
     type(MeshField2D) :: topo 
   contains
@@ -75,11 +78,13 @@ contains
 !$omp parallel workshare
       this%topo%local(n)%val(:,:) = 0.0_RP
 !$omp end parallel workshare
+      !$acc update device(this%topo%local(n)%val)
     end do
 
     return
   end subroutine MeshTopography_Init
 
+  !> Finalize an object of MeshTopography
 !OCL SERIAL
   subroutine MeshTopography_Final( this )
     implicit none
@@ -88,25 +93,22 @@ contains
     !-----------------------------------------------------------------------------
           
     call this%topo%Final()
-
     return
   end subroutine MeshTopography_Final
   
+  !> Setup vertical coordinate metric with topography data
 !OCL SERIAL
   subroutine MeshTopography_set_vcoordinate( this, mesh3D, &
       vcoord_id, zTop, comm3D, comm2D                      )
-    
-    use scale_sparsemat, only: SparseMat
-    use scale_meshutil_vcoord, only: MeshUtil_VCoord_GetMetric
     use scale_meshfieldcomm_cubedspheredom3d, only: MeshFieldCommCubedSphereDom3D
     implicit none
 
-    class(MeshTopography), target, intent(inout) :: this
-    class(MeshBase3D), intent(inout), target :: mesh3D
-    integer, intent(in) :: vcoord_id
-    real(RP), intent(in) :: zTop
-    class(MeshFieldCommBase), intent(inout) :: comm3D
-    class(MeshFieldCommBase), intent(inout) :: comm2D
+    class(MeshTopography), target, intent(inout) :: this   !< Object of MeshTopography to manage topography data and vertical coordinate metric
+    class(MeshBase3D), intent(inout), target :: mesh3D     !< 3D mesh object
+    integer, intent(in) :: vcoord_id                       !< Vertical coordinate ID
+    real(RP), intent(in) :: zTop                           !< Height of the model domain
+    class(MeshFieldCommBase), intent(inout) :: comm3D      !< Object for 3D data communication
+    class(MeshFieldCommBase), intent(inout) :: comm2D      !< Object for 2D data communication
 
     type(SparseMat) :: Dx2D, Dy2D, Lift2D
     class(LocalMesh3D), pointer :: lcmesh
@@ -151,25 +153,14 @@ contains
     do n=1, mesh3D%LOCAL_MESH_NUM
       lcmesh => mesh3D%lcmesh_list(n)
       lcmesh2D => lcmesh%lcmesh2D
-      elem3D => lcmesh%refElem3D
-
-      call MeshUtil_VCoord_GetMetric( &
-        G13%local(n)%val, G23%local(n)%val, zlev%local(n)%val,  & ! (out)
-        GsqrtV%local(n)%val,                                    & ! (out)
-        this%topo%local(n)%val(:,:), zTop, vcoord_id,           & ! (in)
-        lcmesh, lcmesh%refElem3D, lcmesh2D, lcmesh2D%refElem2D, & ! (in)
-        Dx2D, Dy2D, Lift2D                                      ) ! (in)
-
-      !$omp parallel do private(ke2D)
-      do ke=lcmesh%NeS, lcmesh%NeE
-        ke2D = lcmesh%EMap3Dto2D(ke)
-        tmp_G13%local(n)%val(:,ke) = &
-          lcmesh%GIJ(elem3D%IndexH2Dto3D(:),ke2D,1,1) * G13%local(n)%val(:,ke) &
-        + lcmesh%GIJ(elem3D%IndexH2Dto3D(:),ke2D,1,2) * G23%local(n)%val(:,ke)
-        tmp_G23%local(n)%val(:,ke) = &
-          lcmesh%GIJ(elem3D%IndexH2Dto3D(:),ke2D,2,1) * G13%local(n)%val(:,ke) &
-        + lcmesh%GIJ(elem3D%IndexH2Dto3D(:),ke2D,2,2) * G23%local(n)%val(:,ke)
-      end do        
+      
+      call calc_vcoordinate_metrics_lc( &
+        G13%local(n)%val, G23%local(n)%val, tmp_G13%local(n)%val, tmp_G23%local(n)%val,     & ! (out)
+        zlev%local(n)%val, GsqrtV%local(n)%val,                                             & ! (out)
+        this%topo%local(n)%val, zTop, vcoord_id,                                            & ! (in)
+        lcmesh, lcmesh%refElem3D, lcmesh2D, lcmesh2D%refElem2D,                             & ! (in)
+        lcmesh%GIJ(:,:,1,1), lcmesh%GIJ(:,:,1,2), lcmesh%GIJ(:,:,2,1), lcmesh%GIJ(:,:,2,2), & ! (in)
+        Dx2D, Dy2D, Lift2D )                                                                  ! (in)
     end do
 
     ! Exchange metric data to fill halo
@@ -219,5 +210,57 @@ contains
 
     return
   end subroutine MeshTopography_set_vcoordinate
+
+!-- prviate ----
+
+!OCL SERIAL
+  subroutine calc_vcoordinate_metrics_lc( G13, G23, tmp_G13, tmp_G23, zlev, GsqrtV, &
+    topo, zTop, vcoord_id, lcmesh, elem3D, lcmesh2D, elem2D,      &
+    G11, G12, G21, G22, Dx2D, Dy2D, Lift2D )
+    use scale_element_base, only: ElementBase2D
+    use scale_meshutil_vcoord, only: MeshUtil_VCoord_GetMetric
+    implicit none
+    type(LocalMesh3D), intent(in) :: lcmesh
+    type(LocalMesh2D), intent(in) :: lcmesh2D
+    class(ElementBase3D), intent(in) :: elem3D
+    class(ElementBase2D), intent(in) :: elem2D
+    real(RP), intent(out) :: G13(elem3D%Np,lcmesh%NeA)
+    real(RP), intent(out) :: G23(elem3D%Np,lcmesh%NeA)
+    real(RP), intent(out) :: tmp_G13(elem3D%Np,lcmesh%NeA)
+    real(RP), intent(out) :: tmp_G23(elem3D%Np,lcmesh%NeA)
+    real(RP), intent(out) :: zlev(elem3D%Np,lcmesh%NeA)
+    real(RP), intent(out) :: GsqrtV(elem3D%Np,lcmesh%NeA)
+    real(RP), intent(in) :: topo(elem2D%Np,lcmesh2D%NeA)
+    real(RP), intent(in) :: zTop
+    integer, intent(in) :: vcoord_id
+    real(RP), intent(in) :: G11(elem2D%Np,lcmesh2D%Ne)
+    real(RP), intent(in) :: G12(elem2D%Np,lcmesh2D%Ne)
+    real(RP), intent(in) :: G21(elem2D%Np,lcmesh2D%Ne)
+    real(RP), intent(in) :: G22(elem2D%Np,lcmesh2D%Ne)
+    type(SparseMat), intent(in) :: Dx2D, Dy2D, Lift2D
+
+    integer :: IndexH2Dto3D(elem3D%Np)
+    integer :: ke, ke2D, p
+    !------------------------------------------------------------------------------
+
+    call MeshUtil_VCoord_GetMetric( &
+      G13, G23, zlev, GsqrtV,                                 & ! (out)
+      topo, zTop, vcoord_id,                                  & ! (in)
+      lcmesh, lcmesh%refElem3D, lcmesh2D, lcmesh2D%refElem2D, & ! (in)
+      Dx2D, Dy2D, Lift2D                                      ) ! (in)
+
+    IndexH2Dto3D(:) = elem3D%IndexH2Dto3D(:)
+    !$omp parallel do private(ke2D)
+    !$acc parallel loop private(ke2D) collapse(2) &
+    !$acc   present(G11, G12, G21, G22, G13, G23, tmp_G13, tmp_G23, lcmesh, elem3D) copyin(IndexH2Dto3D)
+    do ke=lcmesh%NeS, lcmesh%NeE
+    do p=1, elem3D%Np
+      ke2D = lcmesh%EMap3Dto2D(ke)
+      tmp_G13(p,ke) = G11(IndexH2Dto3D(p),ke2D) * G13(p,ke) + G12(IndexH2Dto3D(p),ke2D) * G23(p,ke)
+      tmp_G23(p,ke) = G21(IndexH2Dto3D(p),ke2D) * G13(p,ke) + G22(IndexH2Dto3D(p),ke2D) * G23(p,ke)
+    end do
+    end do
+    return
+  end subroutine calc_vcoordinate_metrics_lc
 
 end module scale_mesh_topography
