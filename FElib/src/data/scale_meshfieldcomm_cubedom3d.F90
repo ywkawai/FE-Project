@@ -119,7 +119,10 @@ contains
     class(MeshFieldCommCubeDom3D), intent(inout) :: this
     type(MeshFieldContainer), intent(in) :: field_list(:)  !< Array of objects with 3D mesh field
     integer, intent(in) :: varid_s                         !< Start index with variables when field_list(1) is written to buffers for data communication
-  
+
+    integer :: i, n
+    type(Localmesh3d), pointer :: lcmesh
+    integer :: field_num
     !-----------------------------------------------------------------------------
     
 !    call PROF_rapstart( 'meshfiled_comm_put', 3)
@@ -127,6 +130,7 @@ contains
     ! do n=1, this%mesh%LOCAL_MESH_NUM
     !   lcmesh => this%mesh3d%lcmesh_list(n)
     !   do i=1, field_num
+    !     !$acc update host( field_list(i)%field3d%local(n)%val )    
     !     call MeshFieldCommBase_extract_bounddata( field_list(i)%field3d%local(n)%val, lcmesh%refElem, lcmesh, & ! (in)
     !       this%send_buf(:,varid_s+i-1,n) )                                                                      ! (out)
     !   end do
@@ -165,7 +169,7 @@ contains
       do n=1, this%mesh3d%LOCAL_MESH_NUM
         lcmesh => this%mesh3d%lcmesh_list(n)
         call MeshFieldCommBase_set_bounddata( this%recv_buf(:,varid_s+i-1,n), lcmesh%refElem, lcmesh, & !(in)
-          field_list(i)%field3d%local(n)%val )                                                         !(out)
+          field_list(i)%field3d%local(n)%val )                                                          !(out)
       end do
       end do
       ! call PROF_rapend( 'meshfiled_comm_get', 2)
@@ -198,7 +202,7 @@ contains
       lcmesh => this%mesh3d%lcmesh_list(n)
       do f=1, this%nfaces_comm
         commdata => this%commdata_list(f,n)
-        call push_localsendbuf( commdata%send_buf(:,:),             &  ! (inout)
+        call push_localsendbuf( commdata%send_buf,                  &  ! (inout)
           this%send_buf(:,:,n), commdata%s_faceID, this%is_f(f,n),  &  ! (in)
           commdata%Nnode_LCMeshFace, this%bufsize_per_field,        &  ! (in)
           this%field_num_tot, lcmesh )                                 ! (in)
@@ -208,7 +212,7 @@ contains
 
     !-----------------------
 
-    call MeshFieldCommBase_exchange_core(this, this%commdata_list(:,:), do_wait )
+    call MeshFieldCommBase_exchange_core(this, this%commdata_list, do_wait )
 
     return
   end subroutine MeshFieldCommCubeDom3D_exchange

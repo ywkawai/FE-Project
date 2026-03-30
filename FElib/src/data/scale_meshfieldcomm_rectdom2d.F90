@@ -24,6 +24,7 @@ module scale_meshfieldcomm_rectdom2d
     MeshFieldCommBase,                               &
     MeshFieldCommBase_Init, MeshFieldCommBase_Final, &
     MeshFieldCommBase_extract_bounddata,             &
+    MeshFieldCommBase_extract_bounddata_2,           &
     MeshFieldCommBase_set_bounddata,                 &
     MeshFieldContainer
   use scale_localmesh_2d, only: Localmesh2d
@@ -39,7 +40,7 @@ module scale_meshfieldcomm_rectdom2d
 
   !> Base derived type to manage data communication with 2D rectangle domain
   type, public, extends(MeshFieldCommBase) :: MeshFieldCommRectDom2D
-    class(MeshRectDom2D), pointer :: mesh2d
+    class(MeshRectDom2D), pointer :: mesh2d  !< Pointer to an object representing 2D rectangular computational mesh
   contains
     procedure, public :: Init => MeshFieldCommRectDom2D_Init
     procedure, public :: Put => MeshFieldCommRectDom2D_put
@@ -63,18 +64,20 @@ module scale_meshfieldcomm_rectdom2d
   !
   !++ Private parameters & variables
   !
-  integer, parameter :: COMM_FACE_NUM = 4
+  integer, parameter :: COMM_FACE_NUM = 4  !< Number of faces with data communication
+
 
 contains
+!> Initialize an object to manage data communication with 2D rectangle domain
   subroutine MeshFieldCommRectDom2D_Init( this, &
     sfield_num, hvfield_num, htensorfield_num, mesh2d )
     implicit none
     
     class(MeshFieldCommRectDom2D), intent(inout) :: this
-    integer, intent(in) :: sfield_num
-    integer, intent(in) :: hvfield_num
-    integer, intent(in) :: htensorfield_num
-    class(MeshRectDom2D), intent(in), target :: mesh2d
+    integer, intent(in) :: sfield_num                    !< Number of scalar fields
+    integer, intent(in) :: hvfield_num                   !< Number of horizontal vector fields
+    integer, intent(in) :: htensorfield_num              !< Number of horizontal vector fields
+    class(MeshRectDom2D), intent(in), target :: mesh2d   !< Object to manage a 2D rectangular computational mesh
     
     type(LocalMesh2D), pointer :: lcmesh
     integer :: n
@@ -95,6 +98,7 @@ contains
     return
   end subroutine MeshFieldCommRectDom2D_Init
 
+!> Finalize an object to manage data communication with 2D rectangle domain
   subroutine MeshFieldCommRectDom2D_Final( this )
     implicit none
     
@@ -106,6 +110,7 @@ contains
     return
   end subroutine MeshFieldCommRectDom2D_Final
 
+!> Put field data into temporary buffers  
   subroutine MeshFieldCommRectDom2D_put(this, field_list, varid_s)
     implicit none
     class(MeshFieldCommRectDom2D), intent(inout) :: this
@@ -114,20 +119,24 @@ contains
   
     integer :: i
     integer :: n
-    type(Localmesh2d), pointer :: lcmesh
+    type(LocalMesh2D), pointer :: lcmesh
     !-----------------------------------------------------------------------------
 
-    do i=1, size(field_list)
-    do n=1, this%mesh%LOCAL_MESH_NUM
-      lcmesh => this%mesh2d%lcmesh_list(n)
-      call MeshFieldCommBase_extract_bounddata( field_list(i)%field2d%local(n)%val, lcmesh%refElem, lcmesh, & ! (in)
-        this%send_buf(:,varid_s+i-1,n) )                                                                  ! (out)
-    end do
-    end do
+    ! do i=1, size(field_list)
+    ! do n=1, this%mesh%LOCAL_MESH_NUM
+    !   lcmesh => this%mesh2d%lcmesh_list(n)
+    !   call MeshFieldCommBase_extract_bounddata( field_list(i)%field2d%local(n)%val, lcmesh%refElem, lcmesh, & ! (in)
+    !     this%send_buf(:,varid_s+i-1,n) )                                                                      ! (out)
+    ! end do
+    ! end do
+    call MeshFieldCommBase_extract_bounddata_2( &
+      field_list, 2, varid_s, this%mesh2d%lcmesh_list, size(this%mesh2d%lcmesh_list(1)%VMapB), & !(in)
+      this%send_buf ) ! (out)
 
     return
   end subroutine MeshFieldCommRectDom2D_put
 
+ !> Extract field data from temporary buffers 
   subroutine MeshFieldCommRectDom2D_get(this, field_list, varid_s)
     use scale_meshfieldcomm_base, only: &
       MeshFieldCommBase_wait_core
@@ -139,24 +148,27 @@ contains
 
     integer :: i
     integer :: n
-    type(Localmesh2d), pointer :: lcmesh
+    type(LocalMesh2D), pointer :: lcmesh
     !-----------------------------------------------------------------------------
 
     !--
-    if ( this%call_wait_flag_sub_get ) &
-      call MeshFieldCommBase_wait_core( this, this%commdata_list )
-
-    do i=1, size(field_list) 
-    do n=1, this%mesh2d%LOCAL_MESH_NUM
-      lcmesh => this%mesh2d%lcmesh_list(n)
-      call MeshFieldCommBase_set_bounddata( this%recv_buf(:,varid_s+i-1,n), lcmesh%refElem, lcmesh, & !(in)
-         field_list(i)%field2d%local(n)%val )                                                         !(out)
-    end do
-    end do
-
+    if ( this%call_wait_flag_sub_get ) then
+      call MeshFieldCommBase_wait_core( this, this%commdata_list, &
+        field_list, 2, varid_s, this%mesh2d%lcmesh_list )
+    else
+      do i=1, size(field_list) 
+      do n=1, this%mesh2d%LOCAL_MESH_NUM
+        lcmesh => this%mesh2d%lcmesh_list(n)
+        call MeshFieldCommBase_set_bounddata( this%recv_buf(:,varid_s+i-1,n), lcmesh%refElem, lcmesh, & !(in)
+          field_list(i)%field2d%local(n)%val )                                                         !(out)
+      end do
+      end do
+    end if
     return
   end subroutine MeshFieldCommRectDom2D_get
 
+!> Exchange field data between neighboring MPI processes
+!!
 !OCL SERIAL
   subroutine MeshFieldCommRectDom2D_exchange( this, do_wait )
     use scale_meshfieldcomm_base, only: &
@@ -175,16 +187,16 @@ contains
     do n=1, this%mesh%LOCAL_MESH_NUM
     do f=1, this%nfaces_comm
       commdata => this%commdata_list(f,n)
-      call push_localsendbuf( commdata%send_buf(:,:),             &  ! (inout)
+      call push_localsendbuf( commdata%send_buf,                  &  ! (inout)
         this%send_buf(:,:,n), commdata%s_faceID, this%is_f(f,n),  &  ! (in)
         commdata%Nnode_LCMeshFace, this%bufsize_per_field,        &  ! (in)
         this%field_num_tot )                                         ! (in)
     end do
     end do
-
+    !$acc wait(1)
     !-----------------------
 
-    call MeshFieldCommBase_exchange_core( this, this%commdata_list(:,:), do_wait )
+    call MeshFieldCommBase_exchange_core( this, this%commdata_list, do_wait )
 
     !---------------------
 
@@ -204,15 +216,30 @@ contains
     real(RP), intent(in) :: send_buf(bufsize_per_field,var_num)  
     integer, intent(in) :: s_faceID, is
   
-    integer :: ie
+    integer :: is_, ie, lincrement
+    integer :: i, v
     !-----------------------------------------------------------------------------
 
-    ie = is + Nnode_LCMeshFace - 1
     if ( s_faceID > 0 ) then
-      lc_send_buf(:,:) = send_buf(is:ie,:)   
+      is_ = is
+      ie  = is + Nnode_LCMeshFace - 1
+      lincrement = +1          
     else
-      lc_send_buf(:,:) = send_buf(ie:is:-1,:)   
+      is_ = is + Nnode_LCMeshFace - 1
+      ie  = is          
+      lincrement = -1          
     end if 
+
+#ifdef _OPENACC
+    !$acc parallel loop present(lc_send_buf, send_buf) async(1)
+    do v=1, var_num
+    do i=1, Nnode_LCMeshFace
+      lc_send_buf(i,v) = send_buf(is_+(i-1)*lincrement,v)
+    end do
+    end do
+#else
+    lc_send_buf(:,:) = send_buf(is_:ie:lincrement,:) 
+#endif   
     
     return
   end subroutine push_localsendbuf

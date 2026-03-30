@@ -180,21 +180,26 @@ contains
     class(LocalMeshBase), pointer :: lcmesh
     !-----------------------------------------------------------------------------
 
+    !$acc enter data create(this)
     this%mesh => mesh
     this%sfield_num = sfield_num
     this%hvfield_num = hvfield_num
     this%htensorfield_num = htensorfield_num
     this%field_num_tot = sfield_num + hvfield_num*2 + htensorfield_num*4
     this%nfaces_comm = comm_face_num
+    !$acc update device(this%sfield_num, this%hvfield_num, this%htensorfield_num, this%field_num_tot, this%nfaces_comm)
+    !$acc enter data attach(this%mesh)
 
     if (this%field_num_tot > 0) then
       allocate( this%send_buf(bufsize_per_field, this%field_num_tot, mesh%LOCAL_MESH_NUM) )
       allocate( this%recv_buf(bufsize_per_field, this%field_num_tot, mesh%LOCAL_MESH_NUM) )
       allocate( this%request_send(comm_face_num*mesh%LOCAL_MESH_NUM) )
       allocate( this%request_recv(comm_face_num*mesh%LOCAL_MESH_NUM) )
+      !$acc enter data create(this%send_buf, this%recv_buf, this%request_send, this%request_recv)
 
       allocate( this%commdata_list(comm_face_num,mesh%LOCAL_MESH_NUM) )
       allocate( this%is_f(comm_face_num,mesh%LOCAL_MESH_NUM) ) 
+      !$acc enter data create(this%is_f)
 
       do n=1, mesh%LOCAL_MESH_NUM
         this%is_f(1,n) = 1
@@ -206,7 +211,16 @@ contains
         do f=1, this%nfaces_comm
           call this%commdata_list(f,n)%Init( this, lcmesh, f, Nnode_LCMeshFace(f,n) )
         end do
-      end do  
+      end do
+      !$acc update device(this%is_f)
+      !$acc enter data copyin(this%commdata_list)
+#ifdef _OPENACC
+      do n=1, mesh%LOCAL_MESH_NUM
+      do f=1, this%nfaces_comm
+        call LocalMeshCommData_SetupForGPU( this%commdata_list(f,n) )
+      end do
+      end do
+#endif
     end if 
 
     this%MPI_pc_flag = .false.
@@ -235,7 +249,9 @@ contains
     !-----------------------------------------------------------------------------
 
     if (this%field_num_tot > 0) then
+      !$acc exit data delete(this%send_buf, this%recv_buf)
       deallocate( this%send_buf, this%recv_buf )
+      !$acc exit data delete(this%request_send, this%request_recv)
       deallocate( this%request_send, this%request_recv )
 
       do n=1, this%mesh%LOCAL_MESH_NUM
@@ -243,6 +259,7 @@ contains
         call this%commdata_list(f,n)%Final()
       end do
       end do     
+      !$acc exit data delete(this%commdata_list, this%is_f)
       deallocate( this%commdata_list, this%is_f )
 
       if ( this%MPI_pc_flag ) then
@@ -373,10 +390,11 @@ contains
       do n=1, this%mesh%LOCAL_MESH_NUM      
       do f=1, this%nfaces_comm
         call commdata_list(f,n)%SendRecv( &
-          this%req_counter, this%request_send(:), this%request_recv(:), & ! (inout)
-          commdata_list(:,:)                                            ) ! (inout) 
+          this%req_counter, this%request_send, this%request_recv, & ! (inout)
+          commdata_list                                           ) ! (inout) 
       end do
-      end do      
+      end do
+      !$acc wait(1)
     end if
 
 !    call PROF_rapend( 'meshfiled_comm_ex_core', 3)
@@ -434,6 +452,17 @@ contains
         call MPI_waitall( this%req_counter, this%request_send(1:this%req_counter), stat_send, ierr )
       end if
     end if
+
+#ifdef _OPENACC
+    do n=1, this%mesh%LOCAL_MESH_NUM
+    do f=1, this%nfaces_comm
+        if ( commdata_list(f,n)%s_rank /= commdata_list(f,n)%lcmesh%PRC_myrank ) then
+          !$acc update device( commdata_list(f,n)%recv_buf )
+        end if
+    end do
+    end do
+#endif
+
 !   call PROF_rapend( 'meshfiled_comm_wait_core', 2)
   
     !---------------------
@@ -452,21 +481,27 @@ contains
       end do
       
       !$omp parallel do private(var_id,n,i,f) collapse(3)
+      !!$acc parallel loop gang collapse(3) present(field_list, commdata_list) copyin(irs, ire, val_size)
       do n=1, this%mesh%LOCAL_MESH_NUM
       do i=1, size(field_list)
       do f=1, this%nfaces_comm
         var_id = varid_s + i - 1
+
         if (dim==1) then
           call set_bounddata( field_list(var_id)%field1d%local(n)%val, val_size(n), irs(f,n), ire(f,n), commdata_list(f,n)%recv_buf(:,var_id) )
+          !!$acc update device( field_list(var_id)%field1d%local(n)%val(irs(f,n):ire(f,n)) )
         else if (dim==2) then
           call set_bounddata( field_list(var_id)%field2d%local(n)%val, val_size(n), irs(f,n), ire(f,n), commdata_list(f,n)%recv_buf(:,var_id) )
+          !!$acc update device( field_list(var_id)%field2d%local(n)%val(irs(f,n):ire(f,n)) )
         else if (dim==3) then
           call set_bounddata( field_list(var_id)%field3d%local(n)%val, val_size(n), irs(f,n), ire(f,n), commdata_list(f,n)%recv_buf(:,var_id) )
+          !!$acc update device( field_list(var_id)%field3d%local(n)%val(irs(f,n):ire(f,n)) )
         end if
       end do ! end loop for face
       end do
       end do
     else
+      
       do n=1, this%mesh%LOCAL_MESH_NUM
         irs(1,n) = 1
         do f=1, this%nfaces_comm
@@ -476,10 +511,15 @@ contains
       end do
 
       !$omp parallel do private(n,var_id,f) collapse(3)
+      !$acc parallel loop gang collapse(3) present(this%recv_buf, commdata_list) copyin(irs, ire)
       do n=1, this%mesh%LOCAL_MESH_NUM
       do var_id=1, this%field_num_tot
       do f=1, this%nfaces_comm
+#ifdef _OPENACC
+        call set_bounddata( this%recv_buf(:,var_id,n), size(this%recv_buf(:,var_id,n)), irs(f,n), ire(f,n), commdata_list(f,n)%recv_buf(:,var_id) )
+#else        
         this%recv_buf(irs(f,n):ire(f,n),var_id,n) = commdata_list(f,n)%recv_buf(:,var_id)
+#endif
       end do ! end loop for face
       end do
       end do
@@ -494,8 +534,15 @@ contains
       real(RP), intent(inout) :: var(IA)
       integer, intent(in) :: irs_, ire_
       real(RP), intent(in) :: recv_buf(ire_-irs_+1)
+
+      integer :: ii
       !-----------------------------
-      var(irs_:ire_) = recv_buf(:)
+      !$acc routine vector
+
+      !$acc loop vector
+      do ii=1, size(recv_buf)
+        var(irs_+ii-1) = recv_buf(ii)
+      end do
       return
     end subroutine set_bounddata
   end subroutine MeshFieldCommBase_wait_core
@@ -513,12 +560,34 @@ contains
     integer :: i
     !-----------------------------------------------------------------------------
     !$omp parallel do
+    !$acc parallel loop present(var, mesh%VmapB, buf)
 !OCL PREFETCH
     do i=1, size(buf)
       buf(i) = var(mesh%VmapB(i))
     end do
     return
   end subroutine MeshFieldCommBase_extract_bounddata
+
+!> Extract halo data from data array with MeshField object and set it to the receiving buffer
+!OCL SERIAL
+  subroutine MeshFieldCommBase_extract_bounddata2(var, VMapB, VMapB_size, NpxNeA, buf)
+    implicit none
+    integer, intent(in) :: VMapB_size
+    integer, intent(in) :: NpxNeA
+    real(RP), intent(in) :: var(NpxNeA)
+    integer, intent(in) :: VMapB(VMapB_size)
+    real(RP), intent(out) :: buf(VMapB_size)
+
+    integer :: i
+    !-----------------------------------------------------------------------------
+    !$omp parallel do
+    !$acc parallel loop present(var, VmapB, buf) async(1)
+!OCL PREFETCH
+    do i=1, size(buf)
+      buf(i) = var(VmapB(i))
+    end do
+    return
+  end subroutine MeshFieldCommBase_extract_bounddata2  
 
 !> Extract halo data from data array with MeshField object and set it to the receiving buffer
 !!
@@ -552,24 +621,38 @@ contains
         if ( i+1 <= field_num ) then
           if (dim==1) then
             call extract_bounddata_var2( buf(:,varid,n), buf(:,varid+1,n), field_list(varid)%field1d%local(n)%val, field_list(varid+1)%field1d%local(n)%val, lcmesh, lcmesh%refElem )
+            !!$acc update host( field_list(varid)%field1d%local(n)%val(:,lcmesh%NeS:lcmesh%NeE), field_list(varid+1)%field1d%local(n)%val(:,lcmesh%NeS:lcmesh%NeE) )
+
           else if(dim==2) then
             call extract_bounddata_var2( buf(:,varid,n), buf(:,varid+1,n), field_list(varid)%field2d%local(n)%val, field_list(varid+1)%field2d%local(n)%val, lcmesh, lcmesh%refElem )
+            !!$acc update host( field_list(varid)%field2d%local(n)%val(:,lcmesh%NeS:lcmesh%NeE), field_list(varid+1)%field2d%local(n)%val(:,lcmesh%NeS:lcmesh%NeE) )
+
           else if(dim==3) then
             call extract_bounddata_var2( buf(:,varid,n), buf(:,varid+1,n), field_list(varid)%field3d%local(n)%val, field_list(varid+1)%field3d%local(n)%val, lcmesh, lcmesh%refElem )
+            !!$acc update host( field_list(varid)%field3d%local(n)%val(:,lcmesh%NeS:lcmesh%NeE), field_list(varid+1)%field3d%local(n)%val(:,lcmesh%NeS:lcmesh%NeE) )
+
           end if
           i = i + 2
         else
           if (dim==1) then
-            call MeshFieldCommBase_extract_bounddata( field_list(varid)%field1d%local(n)%val, lcmesh%refElem, lcmesh,  buf(:,varid,n) )
+            ! call MeshFieldCommBase_extract_bounddata( field_list(varid)%field1d%local(n)%val, lcmesh%refElem, lcmesh,  buf(:,varid,n) )
+            call MeshFieldCommBase_extract_bounddata2( field_list(varid)%field1d%local(n)%val, lcmesh%VMapB, size(lcmesh%VMapB), lcmesh%refElem%Np*lcmesh%NeA,  buf(:,varid,n) )
+            !!$acc update host( field_list(varid)%field1d%local(n)%val(:,lcmesh%NeS:lcmesh%NeE) )
           else if(dim==2) then
-            call MeshFieldCommBase_extract_bounddata( field_list(varid)%field2d%local(n)%val, lcmesh%refElem, lcmesh,  buf(:,varid,n) )
+            ! call MeshFieldCommBase_extract_bounddata( field_list(varid)%field2d%local(n)%val, lcmesh%refElem, lcmesh,  buf(:,varid,n) )
+            call MeshFieldCommBase_extract_bounddata2( field_list(varid)%field2d%local(n)%val, lcmesh%VMapB, size(lcmesh%VMapB), lcmesh%refElem%Np*lcmesh%NeA,  buf(:,varid,n) )
+            !!$acc update host( field_list(varid)%field2d%local(n)%val(:,lcmesh%NeS:lcmesh%NeE) )
           else if(dim==3) then
-            call MeshFieldCommBase_extract_bounddata( field_list(varid)%field3d%local(n)%val, lcmesh%refElem, lcmesh,  buf(:,varid,n) )
+            ! call MeshFieldCommBase_extract_bounddata( field_list(varid)%field3d%local(n)%val, lcmesh%refElem, lcmesh,  buf(:,varid,n) )
+            call MeshFieldCommBase_extract_bounddata2( field_list(varid)%field3d%local(n)%val, lcmesh%VMapB, size(lcmesh%VMapB), lcmesh%refElem%Np*lcmesh%NeA,  buf(:,varid,n) )
+            !!$acc update host( field_list(varid)%field3d%local(n)%val(:,lcmesh%NeS:lcmesh%NeE) )
           end if
           i = i + 1
         end if
       end do
+      !!$acc update host( buf(:,varid_s:field_num,n) )
     end do
+    !$acc wait(1)
     return
   contains
 !OCL SERIAL
@@ -585,6 +668,7 @@ contains
       integer :: ii
       !-----------------------------
       !$omp parallel do
+      !$acc parallel loop present(buf1_, buf2_, var1, var2, lmesh%vmapB)
 !OCL PREFETCH
       do ii=1, size(buf1_)
         buf1_(ii) = var1(lmesh%vmapB(ii))
@@ -602,14 +686,25 @@ contains
     class(LocalMeshBase), intent(in) :: mesh
     real(RP), intent(in) :: buf(size(mesh%VmapB))
     real(RP), intent(inout) :: var(refElem%Np * mesh%NeA)
+
+    integer :: ii, iis
     !-----------------------------------------------------------------------------
 
+#ifdef _OPENACC
+     iis = refElem%Np*mesh%NeE
+     !$acc parallel loop present(buf, var)
+     do ii=1, size(buf)
+       var(iis+ii) = buf(ii)
+     end do
+#else
     var(refElem%Np*mesh%NeE+1:refElem%Np*mesh%NeE+size(buf)) = buf(:)
+#endif
     return
   end subroutine MeshFieldCommBase_set_bounddata  
 
   !-------------------------------------------
   
+  !> Initialize an object to manage data communication of fields for a face on a local mesh
   subroutine LocalMeshCommData_Init( this, comm, lcmesh, faceID, Nnode_LCMeshFace )
     implicit none
 
@@ -623,9 +718,7 @@ contains
     this%lcmesh => lcmesh
     this%Nnode_LCMeshFace = Nnode_LCMeshFace
 
-    allocate( this%send_buf(Nnode_LCMeshFace, comm%field_num_tot))
-    allocate( this%recv_buf(Nnode_LCMeshFace, comm%field_num_tot))
-
+    !-
     this%s_tileID  = comm%mesh%tileID_globalMap(faceID, lcmesh%tileID)
     this%s_faceID  = comm%mesh%tileFaceID_globalMap(faceID, lcmesh%tileID)
     this%s_panelID = comm%mesh%tilePanelID_globalMap(faceID, lcmesh%tileID)      
@@ -633,9 +726,21 @@ contains
     this%s_tilelocalID = comm%mesh%tileID_global2localMap(this%s_tileID)
     this%faceID    = faceID
 
+    allocate( this%send_buf(Nnode_LCMeshFace, comm%field_num_tot))
+    allocate( this%recv_buf(Nnode_LCMeshFace, comm%field_num_tot))
     return
   end subroutine LocalMeshCommData_Init
 
+  subroutine LocalMeshCommData_SetupForGPU( this )
+    implicit none
+    type(LocalMeshCommData), intent(inout) :: this
+    !-----------------------------------------------------------------------------
+    !$acc enter data create(this%send_buf, this%recv_buf)
+    !$acc enter data attach(this%lcmesh)
+    return
+  end subroutine LocalMeshCommData_SetupForGPU
+
+  !> Send and receive halo data for a face on a local mesh
   subroutine LocalMeshCommData_SendRecv( this, &
     req_counter, req_send, req_recv,           &
     lccommdat_list )
@@ -660,6 +765,8 @@ contains
 
     if ( this%s_rank /= this%lcmesh%PRC_myrank ) then
 
+      !$acc update host(this%send_buf)
+
       req_counter = req_counter + 1
 
       tag = 10 * this%lcmesh%tileID + this%faceID
@@ -675,13 +782,34 @@ contains
        req_send(req_counter), ierr )
       
     else if ( this%s_rank == this%lcmesh%PRC_myrank ) then
+#ifdef _OPENACC
+      call set_recvbuf_from_sendbuf( lccommdat_list(abs(this%s_faceID), this%s_tilelocalID)%recv_buf, &
+        this%send_buf, size(this%send_buf) )
+#else      
       lccommdat_list(abs(this%s_faceID), this%s_tilelocalID)%recv_buf(:,:) &
         = this%send_buf(:,:)
+#endif
     end if         
     
     return
-  end subroutine LocalMeshCommData_sendrecv
+  contains
+    subroutine set_recvbuf_from_sendbuf( recv_buf, send_buf, buf_size )
+      implicit none
+      integer, intent(in) :: buf_size
+      real(RP), intent(out) :: recv_buf(buf_size)
+      real(RP), intent(in) :: send_buf(buf_size)
 
+      integer :: i
+      !-----------------------------
+      !$acc parallel loop present(recv_buf, send_buf) async(1)
+      do i=1, buf_size
+        recv_buf(i) = send_buf(i)
+      end do
+      return
+    end subroutine set_recvbuf_from_sendbuf
+  end subroutine LocalMeshCommData_SendRecv
+
+  !> Initialize persistent communication for sending halo data
   subroutine LocalMeshCommData_pc_init_send( this, &
     req_counter, req, obj_ind_ ,      &
     use_mpi_pc_fujisu_ext             )
@@ -730,6 +858,7 @@ contains
 
     return
   end subroutine LocalMeshCommData_pc_init_send
+  !> Initialize persistent communication for receiving halo data
   subroutine LocalMeshCommData_pc_init_recv( this, &
     req_counter, req, obj_ind_,       &
     use_mpi_pc_fujisu_ext             )
@@ -779,15 +908,16 @@ contains
     return
   end subroutine LocalMeshCommData_pc_init_recv
 
+  !> Finalize an object to manage data communication of fields for a face on a local mesh
   subroutine LocalMeshCommData_Final( this )
     implicit none
     
     class(LocalMeshCommData), intent(inout) :: this
     !-----------------------------------------------------------------------------
 
+    !$acc exit data delete(this%send_buf, this%recv_buf)
     deallocate( this%send_buf )
     deallocate( this%recv_buf )
-
     return
   end subroutine LocalMeshCommData_Final
 
