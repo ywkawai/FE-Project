@@ -468,7 +468,7 @@ contains
       lmesh%normal_fn(:,:,1), lmesh%normal_fn(:,:,2), lmesh%normal_fn(:,:,3),     & ! (in)
       lmesh%vmapM, lmesh%vmapP,                                                   & ! (in)
       lmesh, elem, lmesh2D, elem2D )
-    !!$acc wait(1)                                                      ! (in)
+    !$acc wait(1)                                                      ! (in)
     call PROF_rapend('cal_dyn_tend_bndflux', 3)
 
     call PROF_rapstart('cal_dyn_tend_interior', 3)

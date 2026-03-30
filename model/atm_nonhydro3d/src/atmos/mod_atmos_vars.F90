@@ -652,6 +652,7 @@ contains
       do ke=lcmesh3D%NeS, lcmesh3D%NeE
         Phyd_ref%local(domid)%val(:,ke) = 0.0_RP
       end do
+      !$acc update device(Phyd_ref%local(domid)%val)
     end do
 
     !-- Check read data
@@ -782,10 +783,16 @@ contains
         do n=1, mesh3D%LOCAL_MESH_NUM
           lcmesh => mesh3D%lcmesh_list(n)
           elem => lcmesh%refElem
+
           call this%PROG_VARS(iv)%GetLocalMeshField(n, lcfield)
+
           write(varname,'(a,i3.3,a)') this%PROG_VARS(iv)%varname//'(domID=', n, ')' 
-          call VALCHECK( elem%Np, 1, elem%Np, lcmesh%NeA, lcmesh%NeS, lcmesh%NeE, lcfield%val(:,:), &
-            PROGVARS_check_min(iv), PROGVARS_check_max(iv), trim(varname), __FILE__, __LINE__       )
+
+          ! Note : *acc update host* is called in VALCHECK of SCALE library. 
+          ! Thus, it is safe to call *acc update device* here to update the device data before calling VALCHECK.
+          !$acc update device(lcfield%val)
+          call VALCHECK( elem%Np, 1, elem%Np, lcmesh%NeA, lcmesh%NeS, lcmesh%NeE, lcfield%val, &
+            PROGVARS_check_min(iv), PROGVARS_check_max(iv), trim(varname), __FILE__, __LINE__  )
         end do
       end do
 
@@ -811,7 +818,6 @@ contains
       call work%Init("tmp", "", mesh3D)
       call work%Final()
     end if
-
     return
   end subroutine AtmosVars_Check
 
@@ -1337,6 +1343,8 @@ contains
           this%AUX_VARS(AUXVAR_CVtot_ID)%local(n)%val,             & 
           this%AUX_VARS(AUXVAR_CPtot_ID)%local(n)%val,             & 
           lcmesh3D, lcmesh3D%refElem3D )
+
+        !$acc update device(this%AUX_VARS(varid)%local(n)%val)
       end do
     end do
 
@@ -1737,6 +1745,12 @@ contains
           this%AUX_VARS(AUXVAR_CVtot_ID)%local(n)%val(:,ke),            & ! (out)
           this%AUX_VARS(AUXVAR_CPtot_ID)%local(n)%val(:,ke)             ) ! (out)
       end do
+      !$acc update device( &
+      !$acc  this%AUX_VARS(AUXVAR_QDRY_ID )%local(n)%val, &
+      !$acc  this%AUX_VARS(AUXVAR_Rtot_ID )%local(n)%val, &
+      !$acc  this%AUX_VARS(AUXVAR_CVtot_ID)%local(n)%val, &
+      !$acc  this%AUX_VARS(AUXVAR_CPtot_ID)%local(n)%val )
+
       deallocate(q_tmp)
     end do
   end subroutine vars_calc_specific_heat
