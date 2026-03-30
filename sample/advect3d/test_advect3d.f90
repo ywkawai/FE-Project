@@ -109,7 +109,6 @@ program test_advect3d
       !* Update prognostic variables
 
       do domid=1, mesh%LOCAL_MESH_NUM
-        !$acc update device(q%local(domid)%val, u%local(domid)%val, v%local(domid)%val, w%local(domid)%val)
         lcmesh => mesh%lcmesh_list(domid)
         tintbuf_ind = tinteg_lc(domid)%tend_buf_indmap(rkstage)
 
@@ -124,10 +123,12 @@ program test_advect3d
         call tinteg_lc(domid)%Advance( rkstage, q%local(domid)%val, RKVAR_Q,              &
                                    1, lcmesh%refElem%Np, lcmesh%NeS, lcmesh%NeE )
         call PROF_rapend('update_var', 1)
-        !$acc update host(q%local(domid)%val)
       end do
     end do
-    
+    do domid=1, mesh%LOCAL_MESH_NUM
+      !$acc update host( q%local(domid)%val )
+    end do 
+
     tsec_ = TIME_DTSEC * real(TIME_NOWSTEP-1, kind=RP)
     if ( Do_NumErrorAnalysis ) then
       call numerror_analysis%Eval( qexact, & ! (inout)
@@ -172,6 +173,7 @@ contains
           VelTypeName, lmesh%pos_en(:,ke,1), lmesh%pos_en(:,ke,2), lmesh%pos_en(:,ke,3),                    & ! (in)
           VelTypeParams, refElem%Np )                                                                         ! (in)
       end do
+      !$acc update device( u%local(idom)%val, v%local(idom)%val, w%local(idom)%val )
     end do
     
     return
@@ -228,6 +230,7 @@ contains
         
         q%local(idom)%val(:,ke) = matmul( GPMat, q_intrp )
       end do
+      !$acc update device( q%local(idom)%val )      
     end do
     call set_velocity( u, v, w, 0.0_RP )
 

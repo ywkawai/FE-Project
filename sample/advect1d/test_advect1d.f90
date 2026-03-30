@@ -100,11 +100,9 @@ program test_advect1d
       !* Update prognostic variables
 
       do domid=1, mesh%LOCAL_MESH_NUM
-
         lcmesh => mesh%lcmesh_list(domid)
         tintbuf_ind = tinteg_lc(domid)%tend_buf_indmap(rkstage)      
         
-        !$acc update device(q%local(domid)%val, u%local(domid)%val)
         call PROF_rapstart( 'cal_tend', 1)
         call advect1d_kernel_cal_tend( &
           tinteg_lc(domid)%tend_buf2D_ex(:,:,RKVAR_Q,tintbuf_ind), & ! (out)
@@ -116,8 +114,10 @@ program test_advect1d
         call tinteg_lc(domid)%Advance( rkstage, q%local(domid)%val, & ! (out) 
           RKVAR_Q, 1, lcmesh%refElem%Np, lcmesh%NeS, lcmesh%NeE     ) ! (in)
         call PROF_rapend('update_var', 1)
-        !$acc update host(q%local(domid)%val)
       end do
+    end do
+    do domid=1, mesh%LOCAL_MESH_NUM
+      !$acc update host(q%local(domid)%val)
     end do
 
     tsec_ = TIME_DTSEC * real(TIME_NOWSTEP-1, kind=RP)
@@ -173,6 +173,7 @@ contains
         q%local(idom)%val(:,ke) = matmul( GPMat, q_intrp )
         u%local(idom)%val(:,ke) = ADV_VEL
       end do
+      !$acc update device(q%local(idom)%val, u%local(idom)%val)
     end do
   
     if ( Do_NumErrorAnalysis ) then

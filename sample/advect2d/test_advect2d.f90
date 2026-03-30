@@ -91,6 +91,12 @@ program test_advect2d
 
     do rkstage=1, tinteg_lc(1)%nstage
 
+      !* Set velocity field
+
+      call PROF_rapstart( 'set_velocity', 1)
+      call set_velocity( u, v, tsec_ )
+      call PROF_rapend( 'set_velocity', 1)  
+
       !* Exchange halo data
 
       call PROF_rapstart( 'exchange_halo', 1)
@@ -99,16 +105,9 @@ program test_advect2d
       call fields_comm%Get(field_list, 1)
       call PROF_rapend( 'exchange_halo', 1)
 
-      !* Set velocity field
-
-      call PROF_rapstart( 'set_velocity', 1)
-      call set_velocity( u, v, tsec_ )
-      call PROF_rapend( 'set_velocity', 1)  
-
       !* Update prognostic variables
       
       do domid=1, mesh%LOCAL_MESH_NUM
-        !$acc update device( q%local(domid)%val, u%local(domid)%val, v%local(domid)%val )
         lcmesh => mesh%lcmesh_list(domid)
         tintbuf_ind = tinteg_lc(domid)%tend_buf_indmap(rkstage)
 
@@ -123,10 +122,12 @@ program test_advect2d
         call tinteg_lc(domid)%Advance( rkstage, q%local(domid)%val, RKVAR_Q,    & ! (out)
                                    1, lcmesh%refElem%Np, lcmesh%NeS, lcmesh%NeE ) ! (in)
         call PROF_rapend('update_var', 1)
-        !$acc update self( q%local(domid)%val )    
       end do
     end do
-    
+    do domid=1, mesh%LOCAL_MESH_NUM
+      !$acc update host( q%local(domid)%val )
+    end do    
+
     tsec_ = TIME_DTSEC * real(TIME_NOWSTEP-1, kind=RP)
     if ( Do_NumErrorAnalysis ) then
       call numerror_analysis%Eval( qexact, & ! (inout)
@@ -166,8 +167,9 @@ contains
       !$omp parallel do private(ke)
       do ke=lcmesh%NeS, lcmesh%NeE
         call fieldutil_get_profile2d_flow( u%local(idom)%val(:,ke), v%local(idom)%val(:,ke),         & ! (out)
-          VelTypeName, lcmesh%pos_en(:,ke,1), lcmesh%pos_en(:,ke,2), VelTypeParams, refElem%Np )       ! (in)
+          VelTypeName, lcmesh%pos_en(:,ke,1), lcmesh%pos_en(:,ke,2), VelTypeParams, refElem%Np )       ! (in)        
       end do
+      !$acc update device( u%local(idom)%val(:,lcmesh%NeS:lcmesh%NeE), v%local(idom)%val(:,lcmesh%NeS:lcmesh%NeE) )
     end do
     return
   end subroutine set_velocity
@@ -216,6 +218,7 @@ contains
              
         q%local(idom)%val(:,ke) = matmul( GPMat, q_intrp )
       end do
+      !$acc update device( q%local(idom)%val )
     end do
     call set_velocity( u, v, 0.0_RP )
 

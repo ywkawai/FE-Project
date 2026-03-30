@@ -167,23 +167,29 @@ contains
     type(SparseMat), intent(in) :: Lift
 
     integer :: ke, p
-    real(RP) :: Fx(elem%Np)
-    real(RP) :: Fy(elem%Np)
-    real(RP) :: LiftBndFlux(elem%Np)
+    real(RP) :: Fx(elem%Np,lmesh%Ne)
+    real(RP) :: Fy(elem%Np,lmesh%Ne)
+    real(RP) :: LiftBndFlux(elem%Np,lmesh%Ne)
     !------------------------------------------------------------------------
 
-    !$acc parallel loop gang private(Fx,Fy,LiftBndFlux) present(dqdt, q_, u_, v_, ebnd_flux, lmesh, elem)
+    !$acc data create(Fx,Fy,LiftBndFlux)
+    !$acc parallel loop gang present(dqdt, q_, u_, v_, ebnd_flux, lmesh, elem, Fx,Fy,LiftBndFlux) async(1)
     do ke=lmesh%NeS, lmesh%NeE
-      call sparsemat_matmul( Dx, q_(:,ke), u_(:,ke), Fx )
-      call sparsemat_matmul( Dy, q_(:,ke), v_(:,ke), Fy )
-      call sparsemat_matmul( Lift, lmesh%Fscale(:,ke), ebnd_flux(:,ke), LiftBndFlux )
-      !$acc loop vector independent
+      call sparsemat_matmul( Dx, q_(:,ke), u_(:,ke), Fx(:,ke) )
+      call sparsemat_matmul( Dy, q_(:,ke), v_(:,ke), Fy(:,ke) )
+      call sparsemat_matmul( Lift, lmesh%Fscale(:,ke), ebnd_flux(:,ke), LiftBndFlux(:,ke) )
+    end do
+    !$acc parallel loop gang present(dqdt,Fx,Fy,LiftBndFlux,lmesh, elem) async(1)
+    do ke=lmesh%NeS, lmesh%NeE
+      !$acc loop vector
       do p=1, elem%Np
-        dqdt(p,ke) = - (  lmesh%Escale(p,ke,1,1) * Fx(p) &
-                        + lmesh%Escale(p,ke,2,2) * Fy(p) &
-                        + LiftBndFlux(p) )
+        dqdt(p,ke) = - (  lmesh%Escale(p,ke,1,1) * Fx(p,ke) &
+                        + lmesh%Escale(p,ke,2,2) * Fy(p,ke) &
+                        + LiftBndFlux(p,ke) )
       end do
     end do
+    !$acc wait(1)
+    !$acc end data
     return
   end subroutine cal_dqdt_gpu
 
