@@ -228,7 +228,7 @@ contains
     select case (this%Nnode_h1D)
 % for p in 1..AUTOGEN_PMAX
     case (<%=p+1%>)
-        call element_operation_kernel_matvec_divlike_var5_P<%=p%>( &
+        call element_operation_kernel_matvec_divlike_var5_P<%=p%>_v2( &
           this%elem_optr_tensorprod3D_P<%=p%>%D1D, this%elem_optr_tensorprod3D_P<%=p%>%D1D_tr, this%elem_optr_tensorprod3D_P<%=p%>%Lift_mat, &
           Flux_x, Flux_y,  Flux_z, ebnd_flux, &
           E11, E22, E33, Gsqrt, Ne, &

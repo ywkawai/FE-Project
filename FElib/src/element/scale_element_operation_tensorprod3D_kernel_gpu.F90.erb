@@ -38,6 +38,7 @@ module scale_element_operation_tensorprod3D_kernel_gpu
   public :: element_operation_kernel_matvec_divlike_dirXY_var5_P<%=p%>
   public :: element_operation_kernel_matvec_divlike_dirZ_lift_var5_P<%=p%>
   public :: element_operation_kernel_matvec_divlike_var5_P<%=p%>
+  public :: element_operation_kernel_matvec_divlike_var5_P<%=p%>_v2
 % end
 
 contains
@@ -243,7 +244,7 @@ contains
     end do
     return
   end subroutine element_operation_kernel_matvec_divlike_dirXY_var5_P<%=p%>
-
+  
   subroutine element_operation_kernel_matvec_divlike_dirZ_lift_var5_P<%=p%>( &
     Mat_tr, Lift, vec_in_z, ebnd_flux, E33, Gsqrt, &
     div3D  )
@@ -474,6 +475,87 @@ contains
     end do
     return
   end subroutine element_operation_kernel_matvec_divlike_var5_P<%=p%>
+
+  subroutine element_operation_kernel_matvec_divlike_var5_P<%=p%>_v2( &
+    Mat, Mat_tr, Lift, vec_in_x, vec_in_y, vec_in_z, ebnd_flux, E11, E22, E33, Gsqrt, &
+    Ne, &
+    div3D  )
+    implicit none
+    real(RP), intent(in) :: Mat(<%=np%>,<%=np%>)
+    real(RP), intent(in) :: Mat_tr(<%=np%>,<%=np%>)
+    real(RP), intent(in) :: Lift(<%=np%>,<%=np%>,<%=np%>,6)
+    integer, intent(in) :: Ne
+    real(RP), intent(in) :: vec_in_x(<%=np%>,<%=np%>,5,<%=np%>,Ne)
+    real(RP), intent(in) :: vec_in_y(<%=np%>,<%=np%>,5,<%=np%>,Ne)
+    real(RP), intent(in) :: vec_in_z(<%=np%>,<%=np%>,5,<%=np%>,Ne)
+    real(RP), intent(in) :: ebnd_flux(<%=np%>,<%=np%>,6,5,Ne)
+    real(RP), intent(in) :: E11(<%=np%>,<%=np%>,<%=np%>,Ne)
+    real(RP), intent(in) :: E22(<%=np%>,<%=np%>,<%=np%>,Ne)
+    real(RP), intent(in) :: E33(<%=np%>,<%=np%>,<%=np%>,Ne)
+    real(RP), intent(in) :: Gsqrt(<%=np%>,<%=np%>,<%=np%>,Ne)
+    real(RP), intent(inout) :: div3D(<%=np%>,<%=np%>,5,<%=np%>,Ne)
+
+    integer :: ke
+    integer :: p, i, j, k, v
+    real(RP) :: tmp1
+    real(RP) :: tmp_lift
+    real(RP) :: tmp2, tmp3    
+
+    real(RP) :: invG, e33_
+    real(RP) :: div_x, div_xy
+    !----------------------------------------------------------
+
+    !$acc parallel loop gang collapse(2) present(Mat,Mat_tr,vec_in_x,vec_in_y,vec_in_z,Lift,ebnd_flux,E11,E22,E33,Gsqrt,div3D) async(1)
+    do ke=1, Ne
+    do k=1, <%=np%>
+      do v=1, 5
+        !$acc loop vector collapse(2)
+        do j=1, <%=np%>
+        do i=1, <%=np%>
+          ! X-dir
+          div_x = 0.0_RP
+          !$acc loop seq
+          do p=1, <%=np%>
+            div_x = div_x + Mat(i,p) * vec_in_x(p,j,v,k,ke)
+          end do
+
+          ! Y-dir
+          tmp1 = 0.0_RP
+          !$acc loop seq
+          do p=1, <%=np%>
+            tmp1 = tmp1 + vec_in_y(i,p,v,k,ke) * Mat_tr(p,j)
+          end do
+          div_xy = div_x * E11(i,j,k,ke) + tmp1 * E22(i,j,k,ke)
+
+          !- Lift
+
+          invG = 1.0_RP / Gsqrt(i,j,k,ke)
+          e33_ = E33(i,j,k,ke)
+
+
+          tmp1 = Lift(i,j,k,1) * ebnd_flux(i,k,1,v,ke) &
+              + Lift(i,j,k,3) * ebnd_flux(i,k,3,v,ke)
+          tmp2 = Lift(i,j,k,2) * ebnd_flux(j,k,2,v,ke) &
+              + Lift(i,j,k,4) * ebnd_flux(j,k,4,v,ke)
+          tmp3 = Lift(i,j,k,5) * ebnd_flux(i,j,5,v,ke) &
+              + Lift(i,j,k,6) * ebnd_flux(i,j,6,v,ke)
+          tmp_lift = tmp1 + tmp2 + tmp3
+
+          ! Z-dir
+          tmp1 = 0.0_RP
+          !$acc loop seq
+          do p=1, <%=np%>
+            tmp1 = tmp1 + vec_in_z(i,j,v,p,ke) * Mat_tr(p,k)
+          end do
+          div3D(i,j,v,k,ke) = ( div_xy + tmp1 * e33_ + tmp_lift ) * invG
+
+        end do
+        end do
+      end do
+    end do
+    end do
+    return
+  end subroutine element_operation_kernel_matvec_divlike_var5_P<%=p%>_v2
 
 % end
 

@@ -37,76 +37,91 @@ module scale_element_operation_tensorprod3D_kernel_gpu
   public :: element_operation_kernel_matvec_divlike_dirXY_var5_P1
   public :: element_operation_kernel_matvec_divlike_dirZ_lift_var5_P1
   public :: element_operation_kernel_matvec_divlike_var5_P1
+  public :: element_operation_kernel_matvec_divlike_var5_P1_v2
   public :: element_operation_kernel_matvec_dirZ_P2
   public :: element_operation_kernel_matvec_divlike_dirXY_P2
   public :: element_operation_kernel_matvec_divlike_dirXY_var5_P2
   public :: element_operation_kernel_matvec_divlike_dirZ_lift_var5_P2
   public :: element_operation_kernel_matvec_divlike_var5_P2
+  public :: element_operation_kernel_matvec_divlike_var5_P2_v2
   public :: element_operation_kernel_matvec_dirZ_P3
   public :: element_operation_kernel_matvec_divlike_dirXY_P3
   public :: element_operation_kernel_matvec_divlike_dirXY_var5_P3
   public :: element_operation_kernel_matvec_divlike_dirZ_lift_var5_P3
   public :: element_operation_kernel_matvec_divlike_var5_P3
+  public :: element_operation_kernel_matvec_divlike_var5_P3_v2
   public :: element_operation_kernel_matvec_dirZ_P4
   public :: element_operation_kernel_matvec_divlike_dirXY_P4
   public :: element_operation_kernel_matvec_divlike_dirXY_var5_P4
   public :: element_operation_kernel_matvec_divlike_dirZ_lift_var5_P4
   public :: element_operation_kernel_matvec_divlike_var5_P4
+  public :: element_operation_kernel_matvec_divlike_var5_P4_v2
   public :: element_operation_kernel_matvec_dirZ_P5
   public :: element_operation_kernel_matvec_divlike_dirXY_P5
   public :: element_operation_kernel_matvec_divlike_dirXY_var5_P5
   public :: element_operation_kernel_matvec_divlike_dirZ_lift_var5_P5
   public :: element_operation_kernel_matvec_divlike_var5_P5
+  public :: element_operation_kernel_matvec_divlike_var5_P5_v2
   public :: element_operation_kernel_matvec_dirZ_P6
   public :: element_operation_kernel_matvec_divlike_dirXY_P6
   public :: element_operation_kernel_matvec_divlike_dirXY_var5_P6
   public :: element_operation_kernel_matvec_divlike_dirZ_lift_var5_P6
   public :: element_operation_kernel_matvec_divlike_var5_P6
+  public :: element_operation_kernel_matvec_divlike_var5_P6_v2
   public :: element_operation_kernel_matvec_dirZ_P7
   public :: element_operation_kernel_matvec_divlike_dirXY_P7
   public :: element_operation_kernel_matvec_divlike_dirXY_var5_P7
   public :: element_operation_kernel_matvec_divlike_dirZ_lift_var5_P7
   public :: element_operation_kernel_matvec_divlike_var5_P7
+  public :: element_operation_kernel_matvec_divlike_var5_P7_v2
   public :: element_operation_kernel_matvec_dirZ_P8
   public :: element_operation_kernel_matvec_divlike_dirXY_P8
   public :: element_operation_kernel_matvec_divlike_dirXY_var5_P8
   public :: element_operation_kernel_matvec_divlike_dirZ_lift_var5_P8
   public :: element_operation_kernel_matvec_divlike_var5_P8
+  public :: element_operation_kernel_matvec_divlike_var5_P8_v2
   public :: element_operation_kernel_matvec_dirZ_P9
   public :: element_operation_kernel_matvec_divlike_dirXY_P9
   public :: element_operation_kernel_matvec_divlike_dirXY_var5_P9
   public :: element_operation_kernel_matvec_divlike_dirZ_lift_var5_P9
   public :: element_operation_kernel_matvec_divlike_var5_P9
+  public :: element_operation_kernel_matvec_divlike_var5_P9_v2
   public :: element_operation_kernel_matvec_dirZ_P10
   public :: element_operation_kernel_matvec_divlike_dirXY_P10
   public :: element_operation_kernel_matvec_divlike_dirXY_var5_P10
   public :: element_operation_kernel_matvec_divlike_dirZ_lift_var5_P10
   public :: element_operation_kernel_matvec_divlike_var5_P10
+  public :: element_operation_kernel_matvec_divlike_var5_P10_v2
   public :: element_operation_kernel_matvec_dirZ_P11
   public :: element_operation_kernel_matvec_divlike_dirXY_P11
   public :: element_operation_kernel_matvec_divlike_dirXY_var5_P11
   public :: element_operation_kernel_matvec_divlike_dirZ_lift_var5_P11
   public :: element_operation_kernel_matvec_divlike_var5_P11
+  public :: element_operation_kernel_matvec_divlike_var5_P11_v2
   public :: element_operation_kernel_matvec_dirZ_P12
   public :: element_operation_kernel_matvec_divlike_dirXY_P12
   public :: element_operation_kernel_matvec_divlike_dirXY_var5_P12
   public :: element_operation_kernel_matvec_divlike_dirZ_lift_var5_P12
   public :: element_operation_kernel_matvec_divlike_var5_P12
+  public :: element_operation_kernel_matvec_divlike_var5_P12_v2
   public :: element_operation_kernel_matvec_dirZ_P13
   public :: element_operation_kernel_matvec_divlike_dirXY_P13
   public :: element_operation_kernel_matvec_divlike_dirXY_var5_P13
   public :: element_operation_kernel_matvec_divlike_dirZ_lift_var5_P13
   public :: element_operation_kernel_matvec_divlike_var5_P13
+  public :: element_operation_kernel_matvec_divlike_var5_P13_v2
   public :: element_operation_kernel_matvec_dirZ_P14
   public :: element_operation_kernel_matvec_divlike_dirXY_P14
   public :: element_operation_kernel_matvec_divlike_dirXY_var5_P14
   public :: element_operation_kernel_matvec_divlike_dirZ_lift_var5_P14
   public :: element_operation_kernel_matvec_divlike_var5_P14
+  public :: element_operation_kernel_matvec_divlike_var5_P14_v2
   public :: element_operation_kernel_matvec_dirZ_P15
   public :: element_operation_kernel_matvec_divlike_dirXY_P15
   public :: element_operation_kernel_matvec_divlike_dirXY_var5_P15
   public :: element_operation_kernel_matvec_divlike_dirZ_lift_var5_P15
   public :: element_operation_kernel_matvec_divlike_var5_P15
+  public :: element_operation_kernel_matvec_divlike_var5_P15_v2
 
 contains
 !--- For p=1 ------------------------------------
@@ -210,7 +225,7 @@ contains
     end do
     return
   end subroutine element_operation_kernel_matvec_divlike_dirXY_var5_P1
-
+  
   subroutine element_operation_kernel_matvec_divlike_dirZ_lift_var5_P1( &
     Mat_tr, Lift, vec_in_z, ebnd_flux, E33, Gsqrt, &
     div3D  )
@@ -346,6 +361,87 @@ contains
     return
   end subroutine element_operation_kernel_matvec_divlike_var5_P1
 
+  subroutine element_operation_kernel_matvec_divlike_var5_P1_v2( &
+    Mat, Mat_tr, Lift, vec_in_x, vec_in_y, vec_in_z, ebnd_flux, E11, E22, E33, Gsqrt, &
+    Ne, &
+    div3D  )
+    implicit none
+    real(RP), intent(in) :: Mat(2,2)
+    real(RP), intent(in) :: Mat_tr(2,2)
+    real(RP), intent(in) :: Lift(2,2,2,6)
+    integer, intent(in) :: Ne
+    real(RP), intent(in) :: vec_in_x(2,2,5,2,Ne)
+    real(RP), intent(in) :: vec_in_y(2,2,5,2,Ne)
+    real(RP), intent(in) :: vec_in_z(2,2,5,2,Ne)
+    real(RP), intent(in) :: ebnd_flux(2,2,6,5,Ne)
+    real(RP), intent(in) :: E11(2,2,2,Ne)
+    real(RP), intent(in) :: E22(2,2,2,Ne)
+    real(RP), intent(in) :: E33(2,2,2,Ne)
+    real(RP), intent(in) :: Gsqrt(2,2,2,Ne)
+    real(RP), intent(inout) :: div3D(2,2,5,2,Ne)
+
+    integer :: ke
+    integer :: p, i, j, k, v
+    real(RP) :: tmp1
+    real(RP) :: tmp_lift
+    real(RP) :: tmp2, tmp3    
+
+    real(RP) :: invG, e33_
+    real(RP) :: div_x, div_xy
+    !----------------------------------------------------------
+
+    !$acc parallel loop gang collapse(2) present(Mat,Mat_tr,vec_in_x,vec_in_y,vec_in_z,Lift,ebnd_flux,E11,E22,E33,Gsqrt,div3D) async(1)
+    do ke=1, Ne
+    do k=1, 2
+      do v=1, 5
+        !$acc loop vector collapse(2)
+        do j=1, 2
+        do i=1, 2
+          ! X-dir
+          div_x = 0.0_RP
+          !$acc loop seq
+          do p=1, 2
+            div_x = div_x + Mat(i,p) * vec_in_x(p,j,v,k,ke)
+          end do
+
+          ! Y-dir
+          tmp1 = 0.0_RP
+          !$acc loop seq
+          do p=1, 2
+            tmp1 = tmp1 + vec_in_y(i,p,v,k,ke) * Mat_tr(p,j)
+          end do
+          div_xy = div_x * E11(i,j,k,ke) + tmp1 * E22(i,j,k,ke)
+
+          !- Lift
+
+          invG = 1.0_RP / Gsqrt(i,j,k,ke)
+          e33_ = E33(i,j,k,ke)
+
+
+          tmp1 = Lift(i,j,k,1) * ebnd_flux(i,k,1,v,ke) &
+              + Lift(i,j,k,3) * ebnd_flux(i,k,3,v,ke)
+          tmp2 = Lift(i,j,k,2) * ebnd_flux(j,k,2,v,ke) &
+              + Lift(i,j,k,4) * ebnd_flux(j,k,4,v,ke)
+          tmp3 = Lift(i,j,k,5) * ebnd_flux(i,j,5,v,ke) &
+              + Lift(i,j,k,6) * ebnd_flux(i,j,6,v,ke)
+          tmp_lift = tmp1 + tmp2 + tmp3
+
+          ! Z-dir
+          tmp1 = 0.0_RP
+          !$acc loop seq
+          do p=1, 2
+            tmp1 = tmp1 + vec_in_z(i,j,v,p,ke) * Mat_tr(p,k)
+          end do
+          div3D(i,j,v,k,ke) = ( div_xy + tmp1 * e33_ + tmp_lift ) * invG
+
+        end do
+        end do
+      end do
+    end do
+    end do
+    return
+  end subroutine element_operation_kernel_matvec_divlike_var5_P1_v2
+
 !--- For p=2 ------------------------------------
 
 !> Calculate a matrix-vector multiplication associated with mathematical operations in the z direction (third dimension of vec_in) with p=2
@@ -452,7 +548,7 @@ contains
     end do
     return
   end subroutine element_operation_kernel_matvec_divlike_dirXY_var5_P2
-
+  
   subroutine element_operation_kernel_matvec_divlike_dirZ_lift_var5_P2( &
     Mat_tr, Lift, vec_in_z, ebnd_flux, E33, Gsqrt, &
     div3D  )
@@ -592,6 +688,87 @@ contains
     return
   end subroutine element_operation_kernel_matvec_divlike_var5_P2
 
+  subroutine element_operation_kernel_matvec_divlike_var5_P2_v2( &
+    Mat, Mat_tr, Lift, vec_in_x, vec_in_y, vec_in_z, ebnd_flux, E11, E22, E33, Gsqrt, &
+    Ne, &
+    div3D  )
+    implicit none
+    real(RP), intent(in) :: Mat(3,3)
+    real(RP), intent(in) :: Mat_tr(3,3)
+    real(RP), intent(in) :: Lift(3,3,3,6)
+    integer, intent(in) :: Ne
+    real(RP), intent(in) :: vec_in_x(3,3,5,3,Ne)
+    real(RP), intent(in) :: vec_in_y(3,3,5,3,Ne)
+    real(RP), intent(in) :: vec_in_z(3,3,5,3,Ne)
+    real(RP), intent(in) :: ebnd_flux(3,3,6,5,Ne)
+    real(RP), intent(in) :: E11(3,3,3,Ne)
+    real(RP), intent(in) :: E22(3,3,3,Ne)
+    real(RP), intent(in) :: E33(3,3,3,Ne)
+    real(RP), intent(in) :: Gsqrt(3,3,3,Ne)
+    real(RP), intent(inout) :: div3D(3,3,5,3,Ne)
+
+    integer :: ke
+    integer :: p, i, j, k, v
+    real(RP) :: tmp1
+    real(RP) :: tmp_lift
+    real(RP) :: tmp2, tmp3    
+
+    real(RP) :: invG, e33_
+    real(RP) :: div_x, div_xy
+    !----------------------------------------------------------
+
+    !$acc parallel loop gang collapse(2) present(Mat,Mat_tr,vec_in_x,vec_in_y,vec_in_z,Lift,ebnd_flux,E11,E22,E33,Gsqrt,div3D) async(1)
+    do ke=1, Ne
+    do k=1, 3
+      do v=1, 5
+        !$acc loop vector collapse(2)
+        do j=1, 3
+        do i=1, 3
+          ! X-dir
+          div_x = 0.0_RP
+          !$acc loop seq
+          do p=1, 3
+            div_x = div_x + Mat(i,p) * vec_in_x(p,j,v,k,ke)
+          end do
+
+          ! Y-dir
+          tmp1 = 0.0_RP
+          !$acc loop seq
+          do p=1, 3
+            tmp1 = tmp1 + vec_in_y(i,p,v,k,ke) * Mat_tr(p,j)
+          end do
+          div_xy = div_x * E11(i,j,k,ke) + tmp1 * E22(i,j,k,ke)
+
+          !- Lift
+
+          invG = 1.0_RP / Gsqrt(i,j,k,ke)
+          e33_ = E33(i,j,k,ke)
+
+
+          tmp1 = Lift(i,j,k,1) * ebnd_flux(i,k,1,v,ke) &
+              + Lift(i,j,k,3) * ebnd_flux(i,k,3,v,ke)
+          tmp2 = Lift(i,j,k,2) * ebnd_flux(j,k,2,v,ke) &
+              + Lift(i,j,k,4) * ebnd_flux(j,k,4,v,ke)
+          tmp3 = Lift(i,j,k,5) * ebnd_flux(i,j,5,v,ke) &
+              + Lift(i,j,k,6) * ebnd_flux(i,j,6,v,ke)
+          tmp_lift = tmp1 + tmp2 + tmp3
+
+          ! Z-dir
+          tmp1 = 0.0_RP
+          !$acc loop seq
+          do p=1, 3
+            tmp1 = tmp1 + vec_in_z(i,j,v,p,ke) * Mat_tr(p,k)
+          end do
+          div3D(i,j,v,k,ke) = ( div_xy + tmp1 * e33_ + tmp_lift ) * invG
+
+        end do
+        end do
+      end do
+    end do
+    end do
+    return
+  end subroutine element_operation_kernel_matvec_divlike_var5_P2_v2
+
 !--- For p=3 ------------------------------------
 
 !> Calculate a matrix-vector multiplication associated with mathematical operations in the z direction (third dimension of vec_in) with p=3
@@ -703,7 +880,7 @@ contains
     end do
     return
   end subroutine element_operation_kernel_matvec_divlike_dirXY_var5_P3
-
+  
   subroutine element_operation_kernel_matvec_divlike_dirZ_lift_var5_P3( &
     Mat_tr, Lift, vec_in_z, ebnd_flux, E33, Gsqrt, &
     div3D  )
@@ -847,6 +1024,87 @@ contains
     return
   end subroutine element_operation_kernel_matvec_divlike_var5_P3
 
+  subroutine element_operation_kernel_matvec_divlike_var5_P3_v2( &
+    Mat, Mat_tr, Lift, vec_in_x, vec_in_y, vec_in_z, ebnd_flux, E11, E22, E33, Gsqrt, &
+    Ne, &
+    div3D  )
+    implicit none
+    real(RP), intent(in) :: Mat(4,4)
+    real(RP), intent(in) :: Mat_tr(4,4)
+    real(RP), intent(in) :: Lift(4,4,4,6)
+    integer, intent(in) :: Ne
+    real(RP), intent(in) :: vec_in_x(4,4,5,4,Ne)
+    real(RP), intent(in) :: vec_in_y(4,4,5,4,Ne)
+    real(RP), intent(in) :: vec_in_z(4,4,5,4,Ne)
+    real(RP), intent(in) :: ebnd_flux(4,4,6,5,Ne)
+    real(RP), intent(in) :: E11(4,4,4,Ne)
+    real(RP), intent(in) :: E22(4,4,4,Ne)
+    real(RP), intent(in) :: E33(4,4,4,Ne)
+    real(RP), intent(in) :: Gsqrt(4,4,4,Ne)
+    real(RP), intent(inout) :: div3D(4,4,5,4,Ne)
+
+    integer :: ke
+    integer :: p, i, j, k, v
+    real(RP) :: tmp1
+    real(RP) :: tmp_lift
+    real(RP) :: tmp2, tmp3    
+
+    real(RP) :: invG, e33_
+    real(RP) :: div_x, div_xy
+    !----------------------------------------------------------
+
+    !$acc parallel loop gang collapse(2) present(Mat,Mat_tr,vec_in_x,vec_in_y,vec_in_z,Lift,ebnd_flux,E11,E22,E33,Gsqrt,div3D) async(1)
+    do ke=1, Ne
+    do k=1, 4
+      do v=1, 5
+        !$acc loop vector collapse(2)
+        do j=1, 4
+        do i=1, 4
+          ! X-dir
+          div_x = 0.0_RP
+          !$acc loop seq
+          do p=1, 4
+            div_x = div_x + Mat(i,p) * vec_in_x(p,j,v,k,ke)
+          end do
+
+          ! Y-dir
+          tmp1 = 0.0_RP
+          !$acc loop seq
+          do p=1, 4
+            tmp1 = tmp1 + vec_in_y(i,p,v,k,ke) * Mat_tr(p,j)
+          end do
+          div_xy = div_x * E11(i,j,k,ke) + tmp1 * E22(i,j,k,ke)
+
+          !- Lift
+
+          invG = 1.0_RP / Gsqrt(i,j,k,ke)
+          e33_ = E33(i,j,k,ke)
+
+
+          tmp1 = Lift(i,j,k,1) * ebnd_flux(i,k,1,v,ke) &
+              + Lift(i,j,k,3) * ebnd_flux(i,k,3,v,ke)
+          tmp2 = Lift(i,j,k,2) * ebnd_flux(j,k,2,v,ke) &
+              + Lift(i,j,k,4) * ebnd_flux(j,k,4,v,ke)
+          tmp3 = Lift(i,j,k,5) * ebnd_flux(i,j,5,v,ke) &
+              + Lift(i,j,k,6) * ebnd_flux(i,j,6,v,ke)
+          tmp_lift = tmp1 + tmp2 + tmp3
+
+          ! Z-dir
+          tmp1 = 0.0_RP
+          !$acc loop seq
+          do p=1, 4
+            tmp1 = tmp1 + vec_in_z(i,j,v,p,ke) * Mat_tr(p,k)
+          end do
+          div3D(i,j,v,k,ke) = ( div_xy + tmp1 * e33_ + tmp_lift ) * invG
+
+        end do
+        end do
+      end do
+    end do
+    end do
+    return
+  end subroutine element_operation_kernel_matvec_divlike_var5_P3_v2
+
 !--- For p=4 ------------------------------------
 
 !> Calculate a matrix-vector multiplication associated with mathematical operations in the z direction (third dimension of vec_in) with p=4
@@ -963,7 +1221,7 @@ contains
     end do
     return
   end subroutine element_operation_kernel_matvec_divlike_dirXY_var5_P4
-
+  
   subroutine element_operation_kernel_matvec_divlike_dirZ_lift_var5_P4( &
     Mat_tr, Lift, vec_in_z, ebnd_flux, E33, Gsqrt, &
     div3D  )
@@ -1111,6 +1369,87 @@ contains
     return
   end subroutine element_operation_kernel_matvec_divlike_var5_P4
 
+  subroutine element_operation_kernel_matvec_divlike_var5_P4_v2( &
+    Mat, Mat_tr, Lift, vec_in_x, vec_in_y, vec_in_z, ebnd_flux, E11, E22, E33, Gsqrt, &
+    Ne, &
+    div3D  )
+    implicit none
+    real(RP), intent(in) :: Mat(5,5)
+    real(RP), intent(in) :: Mat_tr(5,5)
+    real(RP), intent(in) :: Lift(5,5,5,6)
+    integer, intent(in) :: Ne
+    real(RP), intent(in) :: vec_in_x(5,5,5,5,Ne)
+    real(RP), intent(in) :: vec_in_y(5,5,5,5,Ne)
+    real(RP), intent(in) :: vec_in_z(5,5,5,5,Ne)
+    real(RP), intent(in) :: ebnd_flux(5,5,6,5,Ne)
+    real(RP), intent(in) :: E11(5,5,5,Ne)
+    real(RP), intent(in) :: E22(5,5,5,Ne)
+    real(RP), intent(in) :: E33(5,5,5,Ne)
+    real(RP), intent(in) :: Gsqrt(5,5,5,Ne)
+    real(RP), intent(inout) :: div3D(5,5,5,5,Ne)
+
+    integer :: ke
+    integer :: p, i, j, k, v
+    real(RP) :: tmp1
+    real(RP) :: tmp_lift
+    real(RP) :: tmp2, tmp3    
+
+    real(RP) :: invG, e33_
+    real(RP) :: div_x, div_xy
+    !----------------------------------------------------------
+
+    !$acc parallel loop gang collapse(2) present(Mat,Mat_tr,vec_in_x,vec_in_y,vec_in_z,Lift,ebnd_flux,E11,E22,E33,Gsqrt,div3D) async(1)
+    do ke=1, Ne
+    do k=1, 5
+      do v=1, 5
+        !$acc loop vector collapse(2)
+        do j=1, 5
+        do i=1, 5
+          ! X-dir
+          div_x = 0.0_RP
+          !$acc loop seq
+          do p=1, 5
+            div_x = div_x + Mat(i,p) * vec_in_x(p,j,v,k,ke)
+          end do
+
+          ! Y-dir
+          tmp1 = 0.0_RP
+          !$acc loop seq
+          do p=1, 5
+            tmp1 = tmp1 + vec_in_y(i,p,v,k,ke) * Mat_tr(p,j)
+          end do
+          div_xy = div_x * E11(i,j,k,ke) + tmp1 * E22(i,j,k,ke)
+
+          !- Lift
+
+          invG = 1.0_RP / Gsqrt(i,j,k,ke)
+          e33_ = E33(i,j,k,ke)
+
+
+          tmp1 = Lift(i,j,k,1) * ebnd_flux(i,k,1,v,ke) &
+              + Lift(i,j,k,3) * ebnd_flux(i,k,3,v,ke)
+          tmp2 = Lift(i,j,k,2) * ebnd_flux(j,k,2,v,ke) &
+              + Lift(i,j,k,4) * ebnd_flux(j,k,4,v,ke)
+          tmp3 = Lift(i,j,k,5) * ebnd_flux(i,j,5,v,ke) &
+              + Lift(i,j,k,6) * ebnd_flux(i,j,6,v,ke)
+          tmp_lift = tmp1 + tmp2 + tmp3
+
+          ! Z-dir
+          tmp1 = 0.0_RP
+          !$acc loop seq
+          do p=1, 5
+            tmp1 = tmp1 + vec_in_z(i,j,v,p,ke) * Mat_tr(p,k)
+          end do
+          div3D(i,j,v,k,ke) = ( div_xy + tmp1 * e33_ + tmp_lift ) * invG
+
+        end do
+        end do
+      end do
+    end do
+    end do
+    return
+  end subroutine element_operation_kernel_matvec_divlike_var5_P4_v2
+
 !--- For p=5 ------------------------------------
 
 !> Calculate a matrix-vector multiplication associated with mathematical operations in the z direction (third dimension of vec_in) with p=5
@@ -1232,7 +1571,7 @@ contains
     end do
     return
   end subroutine element_operation_kernel_matvec_divlike_dirXY_var5_P5
-
+  
   subroutine element_operation_kernel_matvec_divlike_dirZ_lift_var5_P5( &
     Mat_tr, Lift, vec_in_z, ebnd_flux, E33, Gsqrt, &
     div3D  )
@@ -1384,6 +1723,87 @@ contains
     return
   end subroutine element_operation_kernel_matvec_divlike_var5_P5
 
+  subroutine element_operation_kernel_matvec_divlike_var5_P5_v2( &
+    Mat, Mat_tr, Lift, vec_in_x, vec_in_y, vec_in_z, ebnd_flux, E11, E22, E33, Gsqrt, &
+    Ne, &
+    div3D  )
+    implicit none
+    real(RP), intent(in) :: Mat(6,6)
+    real(RP), intent(in) :: Mat_tr(6,6)
+    real(RP), intent(in) :: Lift(6,6,6,6)
+    integer, intent(in) :: Ne
+    real(RP), intent(in) :: vec_in_x(6,6,5,6,Ne)
+    real(RP), intent(in) :: vec_in_y(6,6,5,6,Ne)
+    real(RP), intent(in) :: vec_in_z(6,6,5,6,Ne)
+    real(RP), intent(in) :: ebnd_flux(6,6,6,5,Ne)
+    real(RP), intent(in) :: E11(6,6,6,Ne)
+    real(RP), intent(in) :: E22(6,6,6,Ne)
+    real(RP), intent(in) :: E33(6,6,6,Ne)
+    real(RP), intent(in) :: Gsqrt(6,6,6,Ne)
+    real(RP), intent(inout) :: div3D(6,6,5,6,Ne)
+
+    integer :: ke
+    integer :: p, i, j, k, v
+    real(RP) :: tmp1
+    real(RP) :: tmp_lift
+    real(RP) :: tmp2, tmp3    
+
+    real(RP) :: invG, e33_
+    real(RP) :: div_x, div_xy
+    !----------------------------------------------------------
+
+    !$acc parallel loop gang collapse(2) present(Mat,Mat_tr,vec_in_x,vec_in_y,vec_in_z,Lift,ebnd_flux,E11,E22,E33,Gsqrt,div3D) async(1)
+    do ke=1, Ne
+    do k=1, 6
+      do v=1, 5
+        !$acc loop vector collapse(2)
+        do j=1, 6
+        do i=1, 6
+          ! X-dir
+          div_x = 0.0_RP
+          !$acc loop seq
+          do p=1, 6
+            div_x = div_x + Mat(i,p) * vec_in_x(p,j,v,k,ke)
+          end do
+
+          ! Y-dir
+          tmp1 = 0.0_RP
+          !$acc loop seq
+          do p=1, 6
+            tmp1 = tmp1 + vec_in_y(i,p,v,k,ke) * Mat_tr(p,j)
+          end do
+          div_xy = div_x * E11(i,j,k,ke) + tmp1 * E22(i,j,k,ke)
+
+          !- Lift
+
+          invG = 1.0_RP / Gsqrt(i,j,k,ke)
+          e33_ = E33(i,j,k,ke)
+
+
+          tmp1 = Lift(i,j,k,1) * ebnd_flux(i,k,1,v,ke) &
+              + Lift(i,j,k,3) * ebnd_flux(i,k,3,v,ke)
+          tmp2 = Lift(i,j,k,2) * ebnd_flux(j,k,2,v,ke) &
+              + Lift(i,j,k,4) * ebnd_flux(j,k,4,v,ke)
+          tmp3 = Lift(i,j,k,5) * ebnd_flux(i,j,5,v,ke) &
+              + Lift(i,j,k,6) * ebnd_flux(i,j,6,v,ke)
+          tmp_lift = tmp1 + tmp2 + tmp3
+
+          ! Z-dir
+          tmp1 = 0.0_RP
+          !$acc loop seq
+          do p=1, 6
+            tmp1 = tmp1 + vec_in_z(i,j,v,p,ke) * Mat_tr(p,k)
+          end do
+          div3D(i,j,v,k,ke) = ( div_xy + tmp1 * e33_ + tmp_lift ) * invG
+
+        end do
+        end do
+      end do
+    end do
+    end do
+    return
+  end subroutine element_operation_kernel_matvec_divlike_var5_P5_v2
+
 !--- For p=6 ------------------------------------
 
 !> Calculate a matrix-vector multiplication associated with mathematical operations in the z direction (third dimension of vec_in) with p=6
@@ -1510,7 +1930,7 @@ contains
     end do
     return
   end subroutine element_operation_kernel_matvec_divlike_dirXY_var5_P6
-
+  
   subroutine element_operation_kernel_matvec_divlike_dirZ_lift_var5_P6( &
     Mat_tr, Lift, vec_in_z, ebnd_flux, E33, Gsqrt, &
     div3D  )
@@ -1666,6 +2086,87 @@ contains
     return
   end subroutine element_operation_kernel_matvec_divlike_var5_P6
 
+  subroutine element_operation_kernel_matvec_divlike_var5_P6_v2( &
+    Mat, Mat_tr, Lift, vec_in_x, vec_in_y, vec_in_z, ebnd_flux, E11, E22, E33, Gsqrt, &
+    Ne, &
+    div3D  )
+    implicit none
+    real(RP), intent(in) :: Mat(7,7)
+    real(RP), intent(in) :: Mat_tr(7,7)
+    real(RP), intent(in) :: Lift(7,7,7,6)
+    integer, intent(in) :: Ne
+    real(RP), intent(in) :: vec_in_x(7,7,5,7,Ne)
+    real(RP), intent(in) :: vec_in_y(7,7,5,7,Ne)
+    real(RP), intent(in) :: vec_in_z(7,7,5,7,Ne)
+    real(RP), intent(in) :: ebnd_flux(7,7,6,5,Ne)
+    real(RP), intent(in) :: E11(7,7,7,Ne)
+    real(RP), intent(in) :: E22(7,7,7,Ne)
+    real(RP), intent(in) :: E33(7,7,7,Ne)
+    real(RP), intent(in) :: Gsqrt(7,7,7,Ne)
+    real(RP), intent(inout) :: div3D(7,7,5,7,Ne)
+
+    integer :: ke
+    integer :: p, i, j, k, v
+    real(RP) :: tmp1
+    real(RP) :: tmp_lift
+    real(RP) :: tmp2, tmp3    
+
+    real(RP) :: invG, e33_
+    real(RP) :: div_x, div_xy
+    !----------------------------------------------------------
+
+    !$acc parallel loop gang collapse(2) present(Mat,Mat_tr,vec_in_x,vec_in_y,vec_in_z,Lift,ebnd_flux,E11,E22,E33,Gsqrt,div3D) async(1)
+    do ke=1, Ne
+    do k=1, 7
+      do v=1, 5
+        !$acc loop vector collapse(2)
+        do j=1, 7
+        do i=1, 7
+          ! X-dir
+          div_x = 0.0_RP
+          !$acc loop seq
+          do p=1, 7
+            div_x = div_x + Mat(i,p) * vec_in_x(p,j,v,k,ke)
+          end do
+
+          ! Y-dir
+          tmp1 = 0.0_RP
+          !$acc loop seq
+          do p=1, 7
+            tmp1 = tmp1 + vec_in_y(i,p,v,k,ke) * Mat_tr(p,j)
+          end do
+          div_xy = div_x * E11(i,j,k,ke) + tmp1 * E22(i,j,k,ke)
+
+          !- Lift
+
+          invG = 1.0_RP / Gsqrt(i,j,k,ke)
+          e33_ = E33(i,j,k,ke)
+
+
+          tmp1 = Lift(i,j,k,1) * ebnd_flux(i,k,1,v,ke) &
+              + Lift(i,j,k,3) * ebnd_flux(i,k,3,v,ke)
+          tmp2 = Lift(i,j,k,2) * ebnd_flux(j,k,2,v,ke) &
+              + Lift(i,j,k,4) * ebnd_flux(j,k,4,v,ke)
+          tmp3 = Lift(i,j,k,5) * ebnd_flux(i,j,5,v,ke) &
+              + Lift(i,j,k,6) * ebnd_flux(i,j,6,v,ke)
+          tmp_lift = tmp1 + tmp2 + tmp3
+
+          ! Z-dir
+          tmp1 = 0.0_RP
+          !$acc loop seq
+          do p=1, 7
+            tmp1 = tmp1 + vec_in_z(i,j,v,p,ke) * Mat_tr(p,k)
+          end do
+          div3D(i,j,v,k,ke) = ( div_xy + tmp1 * e33_ + tmp_lift ) * invG
+
+        end do
+        end do
+      end do
+    end do
+    end do
+    return
+  end subroutine element_operation_kernel_matvec_divlike_var5_P6_v2
+
 !--- For p=7 ------------------------------------
 
 !> Calculate a matrix-vector multiplication associated with mathematical operations in the z direction (third dimension of vec_in) with p=7
@@ -1797,7 +2298,7 @@ contains
     end do
     return
   end subroutine element_operation_kernel_matvec_divlike_dirXY_var5_P7
-
+  
   subroutine element_operation_kernel_matvec_divlike_dirZ_lift_var5_P7( &
     Mat_tr, Lift, vec_in_z, ebnd_flux, E33, Gsqrt, &
     div3D  )
@@ -1957,6 +2458,87 @@ contains
     return
   end subroutine element_operation_kernel_matvec_divlike_var5_P7
 
+  subroutine element_operation_kernel_matvec_divlike_var5_P7_v2( &
+    Mat, Mat_tr, Lift, vec_in_x, vec_in_y, vec_in_z, ebnd_flux, E11, E22, E33, Gsqrt, &
+    Ne, &
+    div3D  )
+    implicit none
+    real(RP), intent(in) :: Mat(8,8)
+    real(RP), intent(in) :: Mat_tr(8,8)
+    real(RP), intent(in) :: Lift(8,8,8,6)
+    integer, intent(in) :: Ne
+    real(RP), intent(in) :: vec_in_x(8,8,5,8,Ne)
+    real(RP), intent(in) :: vec_in_y(8,8,5,8,Ne)
+    real(RP), intent(in) :: vec_in_z(8,8,5,8,Ne)
+    real(RP), intent(in) :: ebnd_flux(8,8,6,5,Ne)
+    real(RP), intent(in) :: E11(8,8,8,Ne)
+    real(RP), intent(in) :: E22(8,8,8,Ne)
+    real(RP), intent(in) :: E33(8,8,8,Ne)
+    real(RP), intent(in) :: Gsqrt(8,8,8,Ne)
+    real(RP), intent(inout) :: div3D(8,8,5,8,Ne)
+
+    integer :: ke
+    integer :: p, i, j, k, v
+    real(RP) :: tmp1
+    real(RP) :: tmp_lift
+    real(RP) :: tmp2, tmp3    
+
+    real(RP) :: invG, e33_
+    real(RP) :: div_x, div_xy
+    !----------------------------------------------------------
+
+    !$acc parallel loop gang collapse(2) present(Mat,Mat_tr,vec_in_x,vec_in_y,vec_in_z,Lift,ebnd_flux,E11,E22,E33,Gsqrt,div3D) async(1)
+    do ke=1, Ne
+    do k=1, 8
+      do v=1, 5
+        !$acc loop vector collapse(2)
+        do j=1, 8
+        do i=1, 8
+          ! X-dir
+          div_x = 0.0_RP
+          !$acc loop seq
+          do p=1, 8
+            div_x = div_x + Mat(i,p) * vec_in_x(p,j,v,k,ke)
+          end do
+
+          ! Y-dir
+          tmp1 = 0.0_RP
+          !$acc loop seq
+          do p=1, 8
+            tmp1 = tmp1 + vec_in_y(i,p,v,k,ke) * Mat_tr(p,j)
+          end do
+          div_xy = div_x * E11(i,j,k,ke) + tmp1 * E22(i,j,k,ke)
+
+          !- Lift
+
+          invG = 1.0_RP / Gsqrt(i,j,k,ke)
+          e33_ = E33(i,j,k,ke)
+
+
+          tmp1 = Lift(i,j,k,1) * ebnd_flux(i,k,1,v,ke) &
+              + Lift(i,j,k,3) * ebnd_flux(i,k,3,v,ke)
+          tmp2 = Lift(i,j,k,2) * ebnd_flux(j,k,2,v,ke) &
+              + Lift(i,j,k,4) * ebnd_flux(j,k,4,v,ke)
+          tmp3 = Lift(i,j,k,5) * ebnd_flux(i,j,5,v,ke) &
+              + Lift(i,j,k,6) * ebnd_flux(i,j,6,v,ke)
+          tmp_lift = tmp1 + tmp2 + tmp3
+
+          ! Z-dir
+          tmp1 = 0.0_RP
+          !$acc loop seq
+          do p=1, 8
+            tmp1 = tmp1 + vec_in_z(i,j,v,p,ke) * Mat_tr(p,k)
+          end do
+          div3D(i,j,v,k,ke) = ( div_xy + tmp1 * e33_ + tmp_lift ) * invG
+
+        end do
+        end do
+      end do
+    end do
+    end do
+    return
+  end subroutine element_operation_kernel_matvec_divlike_var5_P7_v2
+
 !--- For p=8 ------------------------------------
 
 !> Calculate a matrix-vector multiplication associated with mathematical operations in the z direction (third dimension of vec_in) with p=8
@@ -2095,7 +2677,7 @@ contains
     end do
     return
   end subroutine element_operation_kernel_matvec_divlike_dirXY_var5_P8
-
+  
   subroutine element_operation_kernel_matvec_divlike_dirZ_lift_var5_P8( &
     Mat_tr, Lift, vec_in_z, ebnd_flux, E33, Gsqrt, &
     div3D  )
@@ -2258,6 +2840,87 @@ contains
     return
   end subroutine element_operation_kernel_matvec_divlike_var5_P8
 
+  subroutine element_operation_kernel_matvec_divlike_var5_P8_v2( &
+    Mat, Mat_tr, Lift, vec_in_x, vec_in_y, vec_in_z, ebnd_flux, E11, E22, E33, Gsqrt, &
+    Ne, &
+    div3D  )
+    implicit none
+    real(RP), intent(in) :: Mat(9,9)
+    real(RP), intent(in) :: Mat_tr(9,9)
+    real(RP), intent(in) :: Lift(9,9,9,6)
+    integer, intent(in) :: Ne
+    real(RP), intent(in) :: vec_in_x(9,9,5,9,Ne)
+    real(RP), intent(in) :: vec_in_y(9,9,5,9,Ne)
+    real(RP), intent(in) :: vec_in_z(9,9,5,9,Ne)
+    real(RP), intent(in) :: ebnd_flux(9,9,6,5,Ne)
+    real(RP), intent(in) :: E11(9,9,9,Ne)
+    real(RP), intent(in) :: E22(9,9,9,Ne)
+    real(RP), intent(in) :: E33(9,9,9,Ne)
+    real(RP), intent(in) :: Gsqrt(9,9,9,Ne)
+    real(RP), intent(inout) :: div3D(9,9,5,9,Ne)
+
+    integer :: ke
+    integer :: p, i, j, k, v
+    real(RP) :: tmp1
+    real(RP) :: tmp_lift
+    real(RP) :: tmp2, tmp3    
+
+    real(RP) :: invG, e33_
+    real(RP) :: div_x, div_xy
+    !----------------------------------------------------------
+
+    !$acc parallel loop gang collapse(2) present(Mat,Mat_tr,vec_in_x,vec_in_y,vec_in_z,Lift,ebnd_flux,E11,E22,E33,Gsqrt,div3D) async(1)
+    do ke=1, Ne
+    do k=1, 9
+      do v=1, 5
+        !$acc loop vector collapse(2)
+        do j=1, 9
+        do i=1, 9
+          ! X-dir
+          div_x = 0.0_RP
+          !$acc loop seq
+          do p=1, 9
+            div_x = div_x + Mat(i,p) * vec_in_x(p,j,v,k,ke)
+          end do
+
+          ! Y-dir
+          tmp1 = 0.0_RP
+          !$acc loop seq
+          do p=1, 9
+            tmp1 = tmp1 + vec_in_y(i,p,v,k,ke) * Mat_tr(p,j)
+          end do
+          div_xy = div_x * E11(i,j,k,ke) + tmp1 * E22(i,j,k,ke)
+
+          !- Lift
+
+          invG = 1.0_RP / Gsqrt(i,j,k,ke)
+          e33_ = E33(i,j,k,ke)
+
+
+          tmp1 = Lift(i,j,k,1) * ebnd_flux(i,k,1,v,ke) &
+              + Lift(i,j,k,3) * ebnd_flux(i,k,3,v,ke)
+          tmp2 = Lift(i,j,k,2) * ebnd_flux(j,k,2,v,ke) &
+              + Lift(i,j,k,4) * ebnd_flux(j,k,4,v,ke)
+          tmp3 = Lift(i,j,k,5) * ebnd_flux(i,j,5,v,ke) &
+              + Lift(i,j,k,6) * ebnd_flux(i,j,6,v,ke)
+          tmp_lift = tmp1 + tmp2 + tmp3
+
+          ! Z-dir
+          tmp1 = 0.0_RP
+          !$acc loop seq
+          do p=1, 9
+            tmp1 = tmp1 + vec_in_z(i,j,v,p,ke) * Mat_tr(p,k)
+          end do
+          div3D(i,j,v,k,ke) = ( div_xy + tmp1 * e33_ + tmp_lift ) * invG
+
+        end do
+        end do
+      end do
+    end do
+    end do
+    return
+  end subroutine element_operation_kernel_matvec_divlike_var5_P8_v2
+
 !--- For p=9 ------------------------------------
 
 !> Calculate a matrix-vector multiplication associated with mathematical operations in the z direction (third dimension of vec_in) with p=9
@@ -2401,7 +3064,7 @@ contains
     end do
     return
   end subroutine element_operation_kernel_matvec_divlike_dirXY_var5_P9
-
+  
   subroutine element_operation_kernel_matvec_divlike_dirZ_lift_var5_P9( &
     Mat_tr, Lift, vec_in_z, ebnd_flux, E33, Gsqrt, &
     div3D  )
@@ -2568,6 +3231,87 @@ contains
     return
   end subroutine element_operation_kernel_matvec_divlike_var5_P9
 
+  subroutine element_operation_kernel_matvec_divlike_var5_P9_v2( &
+    Mat, Mat_tr, Lift, vec_in_x, vec_in_y, vec_in_z, ebnd_flux, E11, E22, E33, Gsqrt, &
+    Ne, &
+    div3D  )
+    implicit none
+    real(RP), intent(in) :: Mat(10,10)
+    real(RP), intent(in) :: Mat_tr(10,10)
+    real(RP), intent(in) :: Lift(10,10,10,6)
+    integer, intent(in) :: Ne
+    real(RP), intent(in) :: vec_in_x(10,10,5,10,Ne)
+    real(RP), intent(in) :: vec_in_y(10,10,5,10,Ne)
+    real(RP), intent(in) :: vec_in_z(10,10,5,10,Ne)
+    real(RP), intent(in) :: ebnd_flux(10,10,6,5,Ne)
+    real(RP), intent(in) :: E11(10,10,10,Ne)
+    real(RP), intent(in) :: E22(10,10,10,Ne)
+    real(RP), intent(in) :: E33(10,10,10,Ne)
+    real(RP), intent(in) :: Gsqrt(10,10,10,Ne)
+    real(RP), intent(inout) :: div3D(10,10,5,10,Ne)
+
+    integer :: ke
+    integer :: p, i, j, k, v
+    real(RP) :: tmp1
+    real(RP) :: tmp_lift
+    real(RP) :: tmp2, tmp3    
+
+    real(RP) :: invG, e33_
+    real(RP) :: div_x, div_xy
+    !----------------------------------------------------------
+
+    !$acc parallel loop gang collapse(2) present(Mat,Mat_tr,vec_in_x,vec_in_y,vec_in_z,Lift,ebnd_flux,E11,E22,E33,Gsqrt,div3D) async(1)
+    do ke=1, Ne
+    do k=1, 10
+      do v=1, 5
+        !$acc loop vector collapse(2)
+        do j=1, 10
+        do i=1, 10
+          ! X-dir
+          div_x = 0.0_RP
+          !$acc loop seq
+          do p=1, 10
+            div_x = div_x + Mat(i,p) * vec_in_x(p,j,v,k,ke)
+          end do
+
+          ! Y-dir
+          tmp1 = 0.0_RP
+          !$acc loop seq
+          do p=1, 10
+            tmp1 = tmp1 + vec_in_y(i,p,v,k,ke) * Mat_tr(p,j)
+          end do
+          div_xy = div_x * E11(i,j,k,ke) + tmp1 * E22(i,j,k,ke)
+
+          !- Lift
+
+          invG = 1.0_RP / Gsqrt(i,j,k,ke)
+          e33_ = E33(i,j,k,ke)
+
+
+          tmp1 = Lift(i,j,k,1) * ebnd_flux(i,k,1,v,ke) &
+              + Lift(i,j,k,3) * ebnd_flux(i,k,3,v,ke)
+          tmp2 = Lift(i,j,k,2) * ebnd_flux(j,k,2,v,ke) &
+              + Lift(i,j,k,4) * ebnd_flux(j,k,4,v,ke)
+          tmp3 = Lift(i,j,k,5) * ebnd_flux(i,j,5,v,ke) &
+              + Lift(i,j,k,6) * ebnd_flux(i,j,6,v,ke)
+          tmp_lift = tmp1 + tmp2 + tmp3
+
+          ! Z-dir
+          tmp1 = 0.0_RP
+          !$acc loop seq
+          do p=1, 10
+            tmp1 = tmp1 + vec_in_z(i,j,v,p,ke) * Mat_tr(p,k)
+          end do
+          div3D(i,j,v,k,ke) = ( div_xy + tmp1 * e33_ + tmp_lift ) * invG
+
+        end do
+        end do
+      end do
+    end do
+    end do
+    return
+  end subroutine element_operation_kernel_matvec_divlike_var5_P9_v2
+
 !--- For p=10 ------------------------------------
 
 !> Calculate a matrix-vector multiplication associated with mathematical operations in the z direction (third dimension of vec_in) with p=10
@@ -2716,7 +3460,7 @@ contains
     end do
     return
   end subroutine element_operation_kernel_matvec_divlike_dirXY_var5_P10
-
+  
   subroutine element_operation_kernel_matvec_divlike_dirZ_lift_var5_P10( &
     Mat_tr, Lift, vec_in_z, ebnd_flux, E33, Gsqrt, &
     div3D  )
@@ -2887,6 +3631,87 @@ contains
     return
   end subroutine element_operation_kernel_matvec_divlike_var5_P10
 
+  subroutine element_operation_kernel_matvec_divlike_var5_P10_v2( &
+    Mat, Mat_tr, Lift, vec_in_x, vec_in_y, vec_in_z, ebnd_flux, E11, E22, E33, Gsqrt, &
+    Ne, &
+    div3D  )
+    implicit none
+    real(RP), intent(in) :: Mat(11,11)
+    real(RP), intent(in) :: Mat_tr(11,11)
+    real(RP), intent(in) :: Lift(11,11,11,6)
+    integer, intent(in) :: Ne
+    real(RP), intent(in) :: vec_in_x(11,11,5,11,Ne)
+    real(RP), intent(in) :: vec_in_y(11,11,5,11,Ne)
+    real(RP), intent(in) :: vec_in_z(11,11,5,11,Ne)
+    real(RP), intent(in) :: ebnd_flux(11,11,6,5,Ne)
+    real(RP), intent(in) :: E11(11,11,11,Ne)
+    real(RP), intent(in) :: E22(11,11,11,Ne)
+    real(RP), intent(in) :: E33(11,11,11,Ne)
+    real(RP), intent(in) :: Gsqrt(11,11,11,Ne)
+    real(RP), intent(inout) :: div3D(11,11,5,11,Ne)
+
+    integer :: ke
+    integer :: p, i, j, k, v
+    real(RP) :: tmp1
+    real(RP) :: tmp_lift
+    real(RP) :: tmp2, tmp3    
+
+    real(RP) :: invG, e33_
+    real(RP) :: div_x, div_xy
+    !----------------------------------------------------------
+
+    !$acc parallel loop gang collapse(2) present(Mat,Mat_tr,vec_in_x,vec_in_y,vec_in_z,Lift,ebnd_flux,E11,E22,E33,Gsqrt,div3D) async(1)
+    do ke=1, Ne
+    do k=1, 11
+      do v=1, 5
+        !$acc loop vector collapse(2)
+        do j=1, 11
+        do i=1, 11
+          ! X-dir
+          div_x = 0.0_RP
+          !$acc loop seq
+          do p=1, 11
+            div_x = div_x + Mat(i,p) * vec_in_x(p,j,v,k,ke)
+          end do
+
+          ! Y-dir
+          tmp1 = 0.0_RP
+          !$acc loop seq
+          do p=1, 11
+            tmp1 = tmp1 + vec_in_y(i,p,v,k,ke) * Mat_tr(p,j)
+          end do
+          div_xy = div_x * E11(i,j,k,ke) + tmp1 * E22(i,j,k,ke)
+
+          !- Lift
+
+          invG = 1.0_RP / Gsqrt(i,j,k,ke)
+          e33_ = E33(i,j,k,ke)
+
+
+          tmp1 = Lift(i,j,k,1) * ebnd_flux(i,k,1,v,ke) &
+              + Lift(i,j,k,3) * ebnd_flux(i,k,3,v,ke)
+          tmp2 = Lift(i,j,k,2) * ebnd_flux(j,k,2,v,ke) &
+              + Lift(i,j,k,4) * ebnd_flux(j,k,4,v,ke)
+          tmp3 = Lift(i,j,k,5) * ebnd_flux(i,j,5,v,ke) &
+              + Lift(i,j,k,6) * ebnd_flux(i,j,6,v,ke)
+          tmp_lift = tmp1 + tmp2 + tmp3
+
+          ! Z-dir
+          tmp1 = 0.0_RP
+          !$acc loop seq
+          do p=1, 11
+            tmp1 = tmp1 + vec_in_z(i,j,v,p,ke) * Mat_tr(p,k)
+          end do
+          div3D(i,j,v,k,ke) = ( div_xy + tmp1 * e33_ + tmp_lift ) * invG
+
+        end do
+        end do
+      end do
+    end do
+    end do
+    return
+  end subroutine element_operation_kernel_matvec_divlike_var5_P10_v2
+
 !--- For p=11 ------------------------------------
 
 !> Calculate a matrix-vector multiplication associated with mathematical operations in the z direction (third dimension of vec_in) with p=11
@@ -3040,7 +3865,7 @@ contains
     end do
     return
   end subroutine element_operation_kernel_matvec_divlike_dirXY_var5_P11
-
+  
   subroutine element_operation_kernel_matvec_divlike_dirZ_lift_var5_P11( &
     Mat_tr, Lift, vec_in_z, ebnd_flux, E33, Gsqrt, &
     div3D  )
@@ -3215,6 +4040,87 @@ contains
     return
   end subroutine element_operation_kernel_matvec_divlike_var5_P11
 
+  subroutine element_operation_kernel_matvec_divlike_var5_P11_v2( &
+    Mat, Mat_tr, Lift, vec_in_x, vec_in_y, vec_in_z, ebnd_flux, E11, E22, E33, Gsqrt, &
+    Ne, &
+    div3D  )
+    implicit none
+    real(RP), intent(in) :: Mat(12,12)
+    real(RP), intent(in) :: Mat_tr(12,12)
+    real(RP), intent(in) :: Lift(12,12,12,6)
+    integer, intent(in) :: Ne
+    real(RP), intent(in) :: vec_in_x(12,12,5,12,Ne)
+    real(RP), intent(in) :: vec_in_y(12,12,5,12,Ne)
+    real(RP), intent(in) :: vec_in_z(12,12,5,12,Ne)
+    real(RP), intent(in) :: ebnd_flux(12,12,6,5,Ne)
+    real(RP), intent(in) :: E11(12,12,12,Ne)
+    real(RP), intent(in) :: E22(12,12,12,Ne)
+    real(RP), intent(in) :: E33(12,12,12,Ne)
+    real(RP), intent(in) :: Gsqrt(12,12,12,Ne)
+    real(RP), intent(inout) :: div3D(12,12,5,12,Ne)
+
+    integer :: ke
+    integer :: p, i, j, k, v
+    real(RP) :: tmp1
+    real(RP) :: tmp_lift
+    real(RP) :: tmp2, tmp3    
+
+    real(RP) :: invG, e33_
+    real(RP) :: div_x, div_xy
+    !----------------------------------------------------------
+
+    !$acc parallel loop gang collapse(2) present(Mat,Mat_tr,vec_in_x,vec_in_y,vec_in_z,Lift,ebnd_flux,E11,E22,E33,Gsqrt,div3D) async(1)
+    do ke=1, Ne
+    do k=1, 12
+      do v=1, 5
+        !$acc loop vector collapse(2)
+        do j=1, 12
+        do i=1, 12
+          ! X-dir
+          div_x = 0.0_RP
+          !$acc loop seq
+          do p=1, 12
+            div_x = div_x + Mat(i,p) * vec_in_x(p,j,v,k,ke)
+          end do
+
+          ! Y-dir
+          tmp1 = 0.0_RP
+          !$acc loop seq
+          do p=1, 12
+            tmp1 = tmp1 + vec_in_y(i,p,v,k,ke) * Mat_tr(p,j)
+          end do
+          div_xy = div_x * E11(i,j,k,ke) + tmp1 * E22(i,j,k,ke)
+
+          !- Lift
+
+          invG = 1.0_RP / Gsqrt(i,j,k,ke)
+          e33_ = E33(i,j,k,ke)
+
+
+          tmp1 = Lift(i,j,k,1) * ebnd_flux(i,k,1,v,ke) &
+              + Lift(i,j,k,3) * ebnd_flux(i,k,3,v,ke)
+          tmp2 = Lift(i,j,k,2) * ebnd_flux(j,k,2,v,ke) &
+              + Lift(i,j,k,4) * ebnd_flux(j,k,4,v,ke)
+          tmp3 = Lift(i,j,k,5) * ebnd_flux(i,j,5,v,ke) &
+              + Lift(i,j,k,6) * ebnd_flux(i,j,6,v,ke)
+          tmp_lift = tmp1 + tmp2 + tmp3
+
+          ! Z-dir
+          tmp1 = 0.0_RP
+          !$acc loop seq
+          do p=1, 12
+            tmp1 = tmp1 + vec_in_z(i,j,v,p,ke) * Mat_tr(p,k)
+          end do
+          div3D(i,j,v,k,ke) = ( div_xy + tmp1 * e33_ + tmp_lift ) * invG
+
+        end do
+        end do
+      end do
+    end do
+    end do
+    return
+  end subroutine element_operation_kernel_matvec_divlike_var5_P11_v2
+
 !--- For p=12 ------------------------------------
 
 !> Calculate a matrix-vector multiplication associated with mathematical operations in the z direction (third dimension of vec_in) with p=12
@@ -3373,7 +4279,7 @@ contains
     end do
     return
   end subroutine element_operation_kernel_matvec_divlike_dirXY_var5_P12
-
+  
   subroutine element_operation_kernel_matvec_divlike_dirZ_lift_var5_P12( &
     Mat_tr, Lift, vec_in_z, ebnd_flux, E33, Gsqrt, &
     div3D  )
@@ -3552,6 +4458,87 @@ contains
     return
   end subroutine element_operation_kernel_matvec_divlike_var5_P12
 
+  subroutine element_operation_kernel_matvec_divlike_var5_P12_v2( &
+    Mat, Mat_tr, Lift, vec_in_x, vec_in_y, vec_in_z, ebnd_flux, E11, E22, E33, Gsqrt, &
+    Ne, &
+    div3D  )
+    implicit none
+    real(RP), intent(in) :: Mat(13,13)
+    real(RP), intent(in) :: Mat_tr(13,13)
+    real(RP), intent(in) :: Lift(13,13,13,6)
+    integer, intent(in) :: Ne
+    real(RP), intent(in) :: vec_in_x(13,13,5,13,Ne)
+    real(RP), intent(in) :: vec_in_y(13,13,5,13,Ne)
+    real(RP), intent(in) :: vec_in_z(13,13,5,13,Ne)
+    real(RP), intent(in) :: ebnd_flux(13,13,6,5,Ne)
+    real(RP), intent(in) :: E11(13,13,13,Ne)
+    real(RP), intent(in) :: E22(13,13,13,Ne)
+    real(RP), intent(in) :: E33(13,13,13,Ne)
+    real(RP), intent(in) :: Gsqrt(13,13,13,Ne)
+    real(RP), intent(inout) :: div3D(13,13,5,13,Ne)
+
+    integer :: ke
+    integer :: p, i, j, k, v
+    real(RP) :: tmp1
+    real(RP) :: tmp_lift
+    real(RP) :: tmp2, tmp3    
+
+    real(RP) :: invG, e33_
+    real(RP) :: div_x, div_xy
+    !----------------------------------------------------------
+
+    !$acc parallel loop gang collapse(2) present(Mat,Mat_tr,vec_in_x,vec_in_y,vec_in_z,Lift,ebnd_flux,E11,E22,E33,Gsqrt,div3D) async(1)
+    do ke=1, Ne
+    do k=1, 13
+      do v=1, 5
+        !$acc loop vector collapse(2)
+        do j=1, 13
+        do i=1, 13
+          ! X-dir
+          div_x = 0.0_RP
+          !$acc loop seq
+          do p=1, 13
+            div_x = div_x + Mat(i,p) * vec_in_x(p,j,v,k,ke)
+          end do
+
+          ! Y-dir
+          tmp1 = 0.0_RP
+          !$acc loop seq
+          do p=1, 13
+            tmp1 = tmp1 + vec_in_y(i,p,v,k,ke) * Mat_tr(p,j)
+          end do
+          div_xy = div_x * E11(i,j,k,ke) + tmp1 * E22(i,j,k,ke)
+
+          !- Lift
+
+          invG = 1.0_RP / Gsqrt(i,j,k,ke)
+          e33_ = E33(i,j,k,ke)
+
+
+          tmp1 = Lift(i,j,k,1) * ebnd_flux(i,k,1,v,ke) &
+              + Lift(i,j,k,3) * ebnd_flux(i,k,3,v,ke)
+          tmp2 = Lift(i,j,k,2) * ebnd_flux(j,k,2,v,ke) &
+              + Lift(i,j,k,4) * ebnd_flux(j,k,4,v,ke)
+          tmp3 = Lift(i,j,k,5) * ebnd_flux(i,j,5,v,ke) &
+              + Lift(i,j,k,6) * ebnd_flux(i,j,6,v,ke)
+          tmp_lift = tmp1 + tmp2 + tmp3
+
+          ! Z-dir
+          tmp1 = 0.0_RP
+          !$acc loop seq
+          do p=1, 13
+            tmp1 = tmp1 + vec_in_z(i,j,v,p,ke) * Mat_tr(p,k)
+          end do
+          div3D(i,j,v,k,ke) = ( div_xy + tmp1 * e33_ + tmp_lift ) * invG
+
+        end do
+        end do
+      end do
+    end do
+    end do
+    return
+  end subroutine element_operation_kernel_matvec_divlike_var5_P12_v2
+
 !--- For p=13 ------------------------------------
 
 !> Calculate a matrix-vector multiplication associated with mathematical operations in the z direction (third dimension of vec_in) with p=13
@@ -3715,7 +4702,7 @@ contains
     end do
     return
   end subroutine element_operation_kernel_matvec_divlike_dirXY_var5_P13
-
+  
   subroutine element_operation_kernel_matvec_divlike_dirZ_lift_var5_P13( &
     Mat_tr, Lift, vec_in_z, ebnd_flux, E33, Gsqrt, &
     div3D  )
@@ -3898,6 +4885,87 @@ contains
     return
   end subroutine element_operation_kernel_matvec_divlike_var5_P13
 
+  subroutine element_operation_kernel_matvec_divlike_var5_P13_v2( &
+    Mat, Mat_tr, Lift, vec_in_x, vec_in_y, vec_in_z, ebnd_flux, E11, E22, E33, Gsqrt, &
+    Ne, &
+    div3D  )
+    implicit none
+    real(RP), intent(in) :: Mat(14,14)
+    real(RP), intent(in) :: Mat_tr(14,14)
+    real(RP), intent(in) :: Lift(14,14,14,6)
+    integer, intent(in) :: Ne
+    real(RP), intent(in) :: vec_in_x(14,14,5,14,Ne)
+    real(RP), intent(in) :: vec_in_y(14,14,5,14,Ne)
+    real(RP), intent(in) :: vec_in_z(14,14,5,14,Ne)
+    real(RP), intent(in) :: ebnd_flux(14,14,6,5,Ne)
+    real(RP), intent(in) :: E11(14,14,14,Ne)
+    real(RP), intent(in) :: E22(14,14,14,Ne)
+    real(RP), intent(in) :: E33(14,14,14,Ne)
+    real(RP), intent(in) :: Gsqrt(14,14,14,Ne)
+    real(RP), intent(inout) :: div3D(14,14,5,14,Ne)
+
+    integer :: ke
+    integer :: p, i, j, k, v
+    real(RP) :: tmp1
+    real(RP) :: tmp_lift
+    real(RP) :: tmp2, tmp3    
+
+    real(RP) :: invG, e33_
+    real(RP) :: div_x, div_xy
+    !----------------------------------------------------------
+
+    !$acc parallel loop gang collapse(2) present(Mat,Mat_tr,vec_in_x,vec_in_y,vec_in_z,Lift,ebnd_flux,E11,E22,E33,Gsqrt,div3D) async(1)
+    do ke=1, Ne
+    do k=1, 14
+      do v=1, 5
+        !$acc loop vector collapse(2)
+        do j=1, 14
+        do i=1, 14
+          ! X-dir
+          div_x = 0.0_RP
+          !$acc loop seq
+          do p=1, 14
+            div_x = div_x + Mat(i,p) * vec_in_x(p,j,v,k,ke)
+          end do
+
+          ! Y-dir
+          tmp1 = 0.0_RP
+          !$acc loop seq
+          do p=1, 14
+            tmp1 = tmp1 + vec_in_y(i,p,v,k,ke) * Mat_tr(p,j)
+          end do
+          div_xy = div_x * E11(i,j,k,ke) + tmp1 * E22(i,j,k,ke)
+
+          !- Lift
+
+          invG = 1.0_RP / Gsqrt(i,j,k,ke)
+          e33_ = E33(i,j,k,ke)
+
+
+          tmp1 = Lift(i,j,k,1) * ebnd_flux(i,k,1,v,ke) &
+              + Lift(i,j,k,3) * ebnd_flux(i,k,3,v,ke)
+          tmp2 = Lift(i,j,k,2) * ebnd_flux(j,k,2,v,ke) &
+              + Lift(i,j,k,4) * ebnd_flux(j,k,4,v,ke)
+          tmp3 = Lift(i,j,k,5) * ebnd_flux(i,j,5,v,ke) &
+              + Lift(i,j,k,6) * ebnd_flux(i,j,6,v,ke)
+          tmp_lift = tmp1 + tmp2 + tmp3
+
+          ! Z-dir
+          tmp1 = 0.0_RP
+          !$acc loop seq
+          do p=1, 14
+            tmp1 = tmp1 + vec_in_z(i,j,v,p,ke) * Mat_tr(p,k)
+          end do
+          div3D(i,j,v,k,ke) = ( div_xy + tmp1 * e33_ + tmp_lift ) * invG
+
+        end do
+        end do
+      end do
+    end do
+    end do
+    return
+  end subroutine element_operation_kernel_matvec_divlike_var5_P13_v2
+
 !--- For p=14 ------------------------------------
 
 !> Calculate a matrix-vector multiplication associated with mathematical operations in the z direction (third dimension of vec_in) with p=14
@@ -4066,7 +5134,7 @@ contains
     end do
     return
   end subroutine element_operation_kernel_matvec_divlike_dirXY_var5_P14
-
+  
   subroutine element_operation_kernel_matvec_divlike_dirZ_lift_var5_P14( &
     Mat_tr, Lift, vec_in_z, ebnd_flux, E33, Gsqrt, &
     div3D  )
@@ -4253,6 +5321,87 @@ contains
     return
   end subroutine element_operation_kernel_matvec_divlike_var5_P14
 
+  subroutine element_operation_kernel_matvec_divlike_var5_P14_v2( &
+    Mat, Mat_tr, Lift, vec_in_x, vec_in_y, vec_in_z, ebnd_flux, E11, E22, E33, Gsqrt, &
+    Ne, &
+    div3D  )
+    implicit none
+    real(RP), intent(in) :: Mat(15,15)
+    real(RP), intent(in) :: Mat_tr(15,15)
+    real(RP), intent(in) :: Lift(15,15,15,6)
+    integer, intent(in) :: Ne
+    real(RP), intent(in) :: vec_in_x(15,15,5,15,Ne)
+    real(RP), intent(in) :: vec_in_y(15,15,5,15,Ne)
+    real(RP), intent(in) :: vec_in_z(15,15,5,15,Ne)
+    real(RP), intent(in) :: ebnd_flux(15,15,6,5,Ne)
+    real(RP), intent(in) :: E11(15,15,15,Ne)
+    real(RP), intent(in) :: E22(15,15,15,Ne)
+    real(RP), intent(in) :: E33(15,15,15,Ne)
+    real(RP), intent(in) :: Gsqrt(15,15,15,Ne)
+    real(RP), intent(inout) :: div3D(15,15,5,15,Ne)
+
+    integer :: ke
+    integer :: p, i, j, k, v
+    real(RP) :: tmp1
+    real(RP) :: tmp_lift
+    real(RP) :: tmp2, tmp3    
+
+    real(RP) :: invG, e33_
+    real(RP) :: div_x, div_xy
+    !----------------------------------------------------------
+
+    !$acc parallel loop gang collapse(2) present(Mat,Mat_tr,vec_in_x,vec_in_y,vec_in_z,Lift,ebnd_flux,E11,E22,E33,Gsqrt,div3D) async(1)
+    do ke=1, Ne
+    do k=1, 15
+      do v=1, 5
+        !$acc loop vector collapse(2)
+        do j=1, 15
+        do i=1, 15
+          ! X-dir
+          div_x = 0.0_RP
+          !$acc loop seq
+          do p=1, 15
+            div_x = div_x + Mat(i,p) * vec_in_x(p,j,v,k,ke)
+          end do
+
+          ! Y-dir
+          tmp1 = 0.0_RP
+          !$acc loop seq
+          do p=1, 15
+            tmp1 = tmp1 + vec_in_y(i,p,v,k,ke) * Mat_tr(p,j)
+          end do
+          div_xy = div_x * E11(i,j,k,ke) + tmp1 * E22(i,j,k,ke)
+
+          !- Lift
+
+          invG = 1.0_RP / Gsqrt(i,j,k,ke)
+          e33_ = E33(i,j,k,ke)
+
+
+          tmp1 = Lift(i,j,k,1) * ebnd_flux(i,k,1,v,ke) &
+              + Lift(i,j,k,3) * ebnd_flux(i,k,3,v,ke)
+          tmp2 = Lift(i,j,k,2) * ebnd_flux(j,k,2,v,ke) &
+              + Lift(i,j,k,4) * ebnd_flux(j,k,4,v,ke)
+          tmp3 = Lift(i,j,k,5) * ebnd_flux(i,j,5,v,ke) &
+              + Lift(i,j,k,6) * ebnd_flux(i,j,6,v,ke)
+          tmp_lift = tmp1 + tmp2 + tmp3
+
+          ! Z-dir
+          tmp1 = 0.0_RP
+          !$acc loop seq
+          do p=1, 15
+            tmp1 = tmp1 + vec_in_z(i,j,v,p,ke) * Mat_tr(p,k)
+          end do
+          div3D(i,j,v,k,ke) = ( div_xy + tmp1 * e33_ + tmp_lift ) * invG
+
+        end do
+        end do
+      end do
+    end do
+    end do
+    return
+  end subroutine element_operation_kernel_matvec_divlike_var5_P14_v2
+
 !--- For p=15 ------------------------------------
 
 !> Calculate a matrix-vector multiplication associated with mathematical operations in the z direction (third dimension of vec_in) with p=15
@@ -4426,7 +5575,7 @@ contains
     end do
     return
   end subroutine element_operation_kernel_matvec_divlike_dirXY_var5_P15
-
+  
   subroutine element_operation_kernel_matvec_divlike_dirZ_lift_var5_P15( &
     Mat_tr, Lift, vec_in_z, ebnd_flux, E33, Gsqrt, &
     div3D  )
@@ -4616,6 +5765,87 @@ contains
     end do
     return
   end subroutine element_operation_kernel_matvec_divlike_var5_P15
+
+  subroutine element_operation_kernel_matvec_divlike_var5_P15_v2( &
+    Mat, Mat_tr, Lift, vec_in_x, vec_in_y, vec_in_z, ebnd_flux, E11, E22, E33, Gsqrt, &
+    Ne, &
+    div3D  )
+    implicit none
+    real(RP), intent(in) :: Mat(16,16)
+    real(RP), intent(in) :: Mat_tr(16,16)
+    real(RP), intent(in) :: Lift(16,16,16,6)
+    integer, intent(in) :: Ne
+    real(RP), intent(in) :: vec_in_x(16,16,5,16,Ne)
+    real(RP), intent(in) :: vec_in_y(16,16,5,16,Ne)
+    real(RP), intent(in) :: vec_in_z(16,16,5,16,Ne)
+    real(RP), intent(in) :: ebnd_flux(16,16,6,5,Ne)
+    real(RP), intent(in) :: E11(16,16,16,Ne)
+    real(RP), intent(in) :: E22(16,16,16,Ne)
+    real(RP), intent(in) :: E33(16,16,16,Ne)
+    real(RP), intent(in) :: Gsqrt(16,16,16,Ne)
+    real(RP), intent(inout) :: div3D(16,16,5,16,Ne)
+
+    integer :: ke
+    integer :: p, i, j, k, v
+    real(RP) :: tmp1
+    real(RP) :: tmp_lift
+    real(RP) :: tmp2, tmp3    
+
+    real(RP) :: invG, e33_
+    real(RP) :: div_x, div_xy
+    !----------------------------------------------------------
+
+    !$acc parallel loop gang collapse(2) present(Mat,Mat_tr,vec_in_x,vec_in_y,vec_in_z,Lift,ebnd_flux,E11,E22,E33,Gsqrt,div3D) async(1)
+    do ke=1, Ne
+    do k=1, 16
+      do v=1, 5
+        !$acc loop vector collapse(2)
+        do j=1, 16
+        do i=1, 16
+          ! X-dir
+          div_x = 0.0_RP
+          !$acc loop seq
+          do p=1, 16
+            div_x = div_x + Mat(i,p) * vec_in_x(p,j,v,k,ke)
+          end do
+
+          ! Y-dir
+          tmp1 = 0.0_RP
+          !$acc loop seq
+          do p=1, 16
+            tmp1 = tmp1 + vec_in_y(i,p,v,k,ke) * Mat_tr(p,j)
+          end do
+          div_xy = div_x * E11(i,j,k,ke) + tmp1 * E22(i,j,k,ke)
+
+          !- Lift
+
+          invG = 1.0_RP / Gsqrt(i,j,k,ke)
+          e33_ = E33(i,j,k,ke)
+
+
+          tmp1 = Lift(i,j,k,1) * ebnd_flux(i,k,1,v,ke) &
+              + Lift(i,j,k,3) * ebnd_flux(i,k,3,v,ke)
+          tmp2 = Lift(i,j,k,2) * ebnd_flux(j,k,2,v,ke) &
+              + Lift(i,j,k,4) * ebnd_flux(j,k,4,v,ke)
+          tmp3 = Lift(i,j,k,5) * ebnd_flux(i,j,5,v,ke) &
+              + Lift(i,j,k,6) * ebnd_flux(i,j,6,v,ke)
+          tmp_lift = tmp1 + tmp2 + tmp3
+
+          ! Z-dir
+          tmp1 = 0.0_RP
+          !$acc loop seq
+          do p=1, 16
+            tmp1 = tmp1 + vec_in_z(i,j,v,p,ke) * Mat_tr(p,k)
+          end do
+          div3D(i,j,v,k,ke) = ( div_xy + tmp1 * e33_ + tmp_lift ) * invG
+
+        end do
+        end do
+      end do
+    end do
+    end do
+    return
+  end subroutine element_operation_kernel_matvec_divlike_var5_P15_v2
 
 
 end module scale_element_operation_tensorprod3D_kernel_gpu
