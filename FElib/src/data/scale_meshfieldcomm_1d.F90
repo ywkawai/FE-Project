@@ -153,6 +153,7 @@ contains
           field_list(i)%field1d%local(n)%val )                                                          !(out)
       end do
       end do
+      !$acc wait(1)
     end if
 
     return

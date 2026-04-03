@@ -481,7 +481,7 @@ contains
       end do
       
       !$omp parallel do private(var_id,n,i,f) collapse(3)
-      !!$acc parallel loop gang collapse(3) present(field_list, commdata_list) copyin(irs, ire, val_size)
+      !$acc parallel loop gang collapse(3) present(field_list, commdata_list) copyin(irs, ire, val_size)
       do n=1, this%mesh%LOCAL_MESH_NUM
       do i=1, size(field_list)
       do f=1, this%nfaces_comm
@@ -489,17 +489,31 @@ contains
 
         if (dim==1) then
           call set_bounddata( field_list(var_id)%field1d%local(n)%val, val_size(n), irs(f,n), ire(f,n), commdata_list(f,n)%recv_buf(:,var_id) )
-          !!$acc update device( field_list(var_id)%field1d%local(n)%val(irs(f,n):ire(f,n)) )
         else if (dim==2) then
           call set_bounddata( field_list(var_id)%field2d%local(n)%val, val_size(n), irs(f,n), ire(f,n), commdata_list(f,n)%recv_buf(:,var_id) )
-          !!$acc update device( field_list(var_id)%field2d%local(n)%val(irs(f,n):ire(f,n)) )
         else if (dim==3) then
           call set_bounddata( field_list(var_id)%field3d%local(n)%val, val_size(n), irs(f,n), ire(f,n), commdata_list(f,n)%recv_buf(:,var_id) )
-          !!$acc update device( field_list(var_id)%field3d%local(n)%val(irs(f,n):ire(f,n)) )
         end if
       end do ! end loop for face
       end do
       end do
+#ifdef _OPENACC
+      do n=1, this%mesh%LOCAL_MESH_NUM
+      do i=1, size(field_list)
+      do f=1, this%nfaces_comm
+        var_id = varid_s + i - 1
+        if (dim==1) then
+          !$acc update device( field_list(var_id)%field1d%local(n)%val(irs(f,n):ire(f,n)) )
+        else if (dim==2) then
+          !$acc update device( field_list(var_id)%field2d%local(n)%val(irs(f,n):ire(f,n)) )
+        else if (dim==3) then
+          !$acc update device( field_list(var_id)%field3d%local(n)%val(irs(f,n):ire(f,n)) )
+        end if
+      end do ! end loop for face
+      end do
+      end do
+#endif
+
     else
       
       do n=1, this%mesh%LOCAL_MESH_NUM
@@ -621,31 +635,19 @@ contains
         if ( i+1 <= field_num ) then
           if (dim==1) then
             call extract_bounddata_var2( buf(:,varid,n), buf(:,varid+1,n), field_list(varid)%field1d%local(n)%val, field_list(varid+1)%field1d%local(n)%val, lcmesh, lcmesh%refElem )
-            !!$acc update host( field_list(varid)%field1d%local(n)%val(:,lcmesh%NeS:lcmesh%NeE), field_list(varid+1)%field1d%local(n)%val(:,lcmesh%NeS:lcmesh%NeE) )
-
           else if(dim==2) then
             call extract_bounddata_var2( buf(:,varid,n), buf(:,varid+1,n), field_list(varid)%field2d%local(n)%val, field_list(varid+1)%field2d%local(n)%val, lcmesh, lcmesh%refElem )
-            !!$acc update host( field_list(varid)%field2d%local(n)%val(:,lcmesh%NeS:lcmesh%NeE), field_list(varid+1)%field2d%local(n)%val(:,lcmesh%NeS:lcmesh%NeE) )
-
           else if(dim==3) then
             call extract_bounddata_var2( buf(:,varid,n), buf(:,varid+1,n), field_list(varid)%field3d%local(n)%val, field_list(varid+1)%field3d%local(n)%val, lcmesh, lcmesh%refElem )
-            !!$acc update host( field_list(varid)%field3d%local(n)%val(:,lcmesh%NeS:lcmesh%NeE), field_list(varid+1)%field3d%local(n)%val(:,lcmesh%NeS:lcmesh%NeE) )
-
           end if
           i = i + 2
         else
           if (dim==1) then
-            ! call MeshFieldCommBase_extract_bounddata( field_list(varid)%field1d%local(n)%val, lcmesh%refElem, lcmesh,  buf(:,varid,n) )
             call MeshFieldCommBase_extract_bounddata2( field_list(varid)%field1d%local(n)%val, lcmesh%VMapB, size(lcmesh%VMapB), lcmesh%refElem%Np*lcmesh%NeA,  buf(:,varid,n) )
-            !!$acc update host( field_list(varid)%field1d%local(n)%val(:,lcmesh%NeS:lcmesh%NeE) )
           else if(dim==2) then
-            ! call MeshFieldCommBase_extract_bounddata( field_list(varid)%field2d%local(n)%val, lcmesh%refElem, lcmesh,  buf(:,varid,n) )
             call MeshFieldCommBase_extract_bounddata2( field_list(varid)%field2d%local(n)%val, lcmesh%VMapB, size(lcmesh%VMapB), lcmesh%refElem%Np*lcmesh%NeA,  buf(:,varid,n) )
-            !!$acc update host( field_list(varid)%field2d%local(n)%val(:,lcmesh%NeS:lcmesh%NeE) )
           else if(dim==3) then
-            ! call MeshFieldCommBase_extract_bounddata( field_list(varid)%field3d%local(n)%val, lcmesh%refElem, lcmesh,  buf(:,varid,n) )
             call MeshFieldCommBase_extract_bounddata2( field_list(varid)%field3d%local(n)%val, lcmesh%VMapB, size(lcmesh%VMapB), lcmesh%refElem%Np*lcmesh%NeA,  buf(:,varid,n) )
-            !!$acc update host( field_list(varid)%field3d%local(n)%val(:,lcmesh%NeS:lcmesh%NeE) )
           end if
           i = i + 1
         end if
@@ -665,14 +667,15 @@ contains
       real(RP), intent(inout) :: var1(elem%Np*lmesh%NeA)
       real(RP), intent(inout) :: var2(elem%Np*lmesh%NeA)
 
-      integer :: ii
+      integer :: ii, b
       !-----------------------------
       !$omp parallel do
-      !$acc parallel loop present(buf1_, buf2_, var1, var2, lmesh%vmapB)
+      !$acc parallel loop present(buf1_, buf2_, var1, var2, lmesh%vmapB) async(1)
 !OCL PREFETCH
       do ii=1, size(buf1_)
-        buf1_(ii) = var1(lmesh%vmapB(ii))
-        buf2_(ii) = var2(lmesh%vmapB(ii))
+        b = lmesh%vmapB(ii)
+        buf1_(ii) = var1(b)
+        buf2_(ii) = var2(b)
       end do
       return
     end subroutine extract_bounddata_var2
@@ -692,7 +695,7 @@ contains
 
 #ifdef _OPENACC
      iis = refElem%Np*mesh%NeE
-     !$acc parallel loop present(buf, var)
+     !$acc parallel loop present(buf, var) async(1)
      do ii=1, size(buf)
        var(iis+ii) = buf(ii)
      end do

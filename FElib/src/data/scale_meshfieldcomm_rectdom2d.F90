@@ -15,6 +15,7 @@ module scale_meshfieldcomm_rectdom2d
   !
   use scale_precision
   use scale_io
+  use scale_prof
 
   use scale_element_base, only: &
     ElementBase, ElementBase2D
@@ -122,6 +123,7 @@ contains
     type(LocalMesh2D), pointer :: lcmesh
     !-----------------------------------------------------------------------------
 
+    call PROF_rapstart( 'comm_put', 1)
     ! do i=1, size(field_list)
     ! do n=1, this%mesh%LOCAL_MESH_NUM
     !   lcmesh => this%mesh2d%lcmesh_list(n)
@@ -133,6 +135,7 @@ contains
       field_list, 2, varid_s, this%mesh2d%lcmesh_list, size(this%mesh2d%lcmesh_list(1)%VMapB), & !(in)
       this%send_buf ) ! (out)
 
+    call PROF_rapend( 'comm_put', 1)
     return
   end subroutine MeshFieldCommRectDom2D_put
 
@@ -150,6 +153,7 @@ contains
     integer :: n
     type(LocalMesh2D), pointer :: lcmesh
     !-----------------------------------------------------------------------------
+    call PROF_rapstart( 'comm_get', 1)
 
     !--
     if ( this%call_wait_flag_sub_get ) then
@@ -163,7 +167,10 @@ contains
           field_list(i)%field2d%local(n)%val )                                                         !(out)
       end do
       end do
+      !$acc wait(1)
     end if
+    call PROF_rapend( 'comm_get', 1)
+
     return
   end subroutine MeshFieldCommRectDom2D_get
 
@@ -184,6 +191,8 @@ contains
     type(LocalMeshCommData), pointer :: commdata
     !-----------------------------------------------------------------------------
 
+    call PROF_rapstart( 'comm_exchange_1', 1)
+
     do n=1, this%mesh%LOCAL_MESH_NUM
     do f=1, this%nfaces_comm
       commdata => this%commdata_list(f,n)
@@ -194,11 +203,16 @@ contains
     end do
     end do
     !$acc wait(1)
+
+    call PROF_rapend( 'comm_exchange_1', 1)
     !-----------------------
+
+    call PROF_rapstart( 'comm_exchange_2', 1)
 
     call MeshFieldCommBase_exchange_core( this, this%commdata_list, do_wait )
 
     !---------------------
+    call PROF_rapend( 'comm_exchange_2', 1)
 
     return
   end subroutine MeshFieldCommRectDom2D_exchange
@@ -231,7 +245,7 @@ contains
     end if 
 
 #ifdef _OPENACC
-    !$acc parallel loop present(lc_send_buf, send_buf) async(1)
+    !$acc parallel loop collapse(2)present(lc_send_buf, send_buf) async(1)
     do v=1, var_num
     do i=1, Nnode_LCMeshFace
       lc_send_buf(i,v) = send_buf(is_+(i-1)*lincrement,v)
