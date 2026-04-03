@@ -183,21 +183,28 @@ contains
     real(RP) :: total
 
     class(ElementBase), pointer :: elem
-    integer :: ke
+    integer :: ke, p
+    integer :: NeS, NeE, Np
     !---------------------------------------------------------------------------
 
     total = 0.0_RP
     elem => lcmesh%refElem
 
+    Np = elem%Np; NeS = lcmesh%NeS; NeE = lcmesh%NeE
+
     if ( present(field_val) ) then
       !$omp parallel do reduction(+:total)
-      do ke=lcmesh%NeS, lcmesh%NeE
-        total = total &
-              + sum( elem%IntWeight_lgl(:) * lcmesh%J(:,ke) * lcmesh%Gsqrt(:,ke) * field_val(:,ke) )
+      !$acc parallel loop gang present(field_val, lcmesh%J, lcmesh%Gsqrt) reduction(+:total) copy(total) copyin(elem%IntWeight_lgl)
+      do ke=NeS, NeE
+        !$acc loop vector reduction(+:total)
+        do p=1, Np
+          total = total &
+                + elem%IntWeight_lgl(p) * lcmesh%J(p,ke) * lcmesh%Gsqrt(p,ke) * field_val(p,ke)
+        end do
       end do
     else
       !$omp parallel do reduction(+:total)
-      do ke=lcmesh%NeS, lcmesh%NeE
+      do ke=NeS, NeE
         total = total + sum( elem%IntWeight_lgl(:) * lcmesh%J(:,ke) * lcmesh%Gsqrt(:,ke) )
       end do
     end if
