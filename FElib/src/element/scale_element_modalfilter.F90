@@ -90,6 +90,7 @@ contains
     end do
     this%FilterMat(:,:) = matmul(this%FilterMat, elem%invV)
     this%FilterMat(:,:) = matmul(elem%V, this%FilterMat)
+    !$acc enter data copyin(this%FilterMat)
     
     return
   end subroutine ModalFilter_Init_line
@@ -130,7 +131,7 @@ contains
     end do
     this%FilterMat(:,:) = matmul(this%FilterMat, elem%invV)
     this%FilterMat(:,:) = matmul(elem%V, this%FilterMat)
-    
+    !$acc enter data copyin(this%FilterMat)
     return
   end subroutine ModalFilter_Init_quadrilateral
 
@@ -181,7 +182,7 @@ contains
     end do
     this%FilterMat(:,:) = matmul(this%FilterMat, elem%invV)
     this%FilterMat(:,:) = matmul(elem%V, this%FilterMat)
-    
+    !$acc enter data copyin(this%FilterMat)
     return
   end subroutine ModalFilter_Init_hexahedral
 
@@ -191,8 +192,10 @@ contains
     class(ModalFilter), intent(inout) :: this
     !--------------------------------------------
 
-    if( allocated(this%FilterMat) ) deallocate( this%FilterMat )
-    
+    if( allocated(this%FilterMat) ) then
+      !$acc exit data delete(this%FilterMat)
+      deallocate( this%FilterMat )
+    end if
     return
   end subroutine ModalFilter_Final
 

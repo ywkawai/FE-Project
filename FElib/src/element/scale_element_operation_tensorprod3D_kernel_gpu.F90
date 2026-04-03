@@ -38,90 +38,105 @@ module scale_element_operation_tensorprod3D_kernel_gpu
   public :: element_operation_kernel_matvec_divlike_dirZ_lift_var5_P1
   public :: element_operation_kernel_matvec_divlike_var5_P1
   public :: element_operation_kernel_matvec_divlike_var5_P1_v2
+  public :: element_operation_kernel_matvec_ModalFilter_P1
   public :: element_operation_kernel_matvec_dirZ_P2
   public :: element_operation_kernel_matvec_divlike_dirXY_P2
   public :: element_operation_kernel_matvec_divlike_dirXY_var5_P2
   public :: element_operation_kernel_matvec_divlike_dirZ_lift_var5_P2
   public :: element_operation_kernel_matvec_divlike_var5_P2
   public :: element_operation_kernel_matvec_divlike_var5_P2_v2
+  public :: element_operation_kernel_matvec_ModalFilter_P2
   public :: element_operation_kernel_matvec_dirZ_P3
   public :: element_operation_kernel_matvec_divlike_dirXY_P3
   public :: element_operation_kernel_matvec_divlike_dirXY_var5_P3
   public :: element_operation_kernel_matvec_divlike_dirZ_lift_var5_P3
   public :: element_operation_kernel_matvec_divlike_var5_P3
   public :: element_operation_kernel_matvec_divlike_var5_P3_v2
+  public :: element_operation_kernel_matvec_ModalFilter_P3
   public :: element_operation_kernel_matvec_dirZ_P4
   public :: element_operation_kernel_matvec_divlike_dirXY_P4
   public :: element_operation_kernel_matvec_divlike_dirXY_var5_P4
   public :: element_operation_kernel_matvec_divlike_dirZ_lift_var5_P4
   public :: element_operation_kernel_matvec_divlike_var5_P4
   public :: element_operation_kernel_matvec_divlike_var5_P4_v2
+  public :: element_operation_kernel_matvec_ModalFilter_P4
   public :: element_operation_kernel_matvec_dirZ_P5
   public :: element_operation_kernel_matvec_divlike_dirXY_P5
   public :: element_operation_kernel_matvec_divlike_dirXY_var5_P5
   public :: element_operation_kernel_matvec_divlike_dirZ_lift_var5_P5
   public :: element_operation_kernel_matvec_divlike_var5_P5
   public :: element_operation_kernel_matvec_divlike_var5_P5_v2
+  public :: element_operation_kernel_matvec_ModalFilter_P5
   public :: element_operation_kernel_matvec_dirZ_P6
   public :: element_operation_kernel_matvec_divlike_dirXY_P6
   public :: element_operation_kernel_matvec_divlike_dirXY_var5_P6
   public :: element_operation_kernel_matvec_divlike_dirZ_lift_var5_P6
   public :: element_operation_kernel_matvec_divlike_var5_P6
   public :: element_operation_kernel_matvec_divlike_var5_P6_v2
+  public :: element_operation_kernel_matvec_ModalFilter_P6
   public :: element_operation_kernel_matvec_dirZ_P7
   public :: element_operation_kernel_matvec_divlike_dirXY_P7
   public :: element_operation_kernel_matvec_divlike_dirXY_var5_P7
   public :: element_operation_kernel_matvec_divlike_dirZ_lift_var5_P7
   public :: element_operation_kernel_matvec_divlike_var5_P7
   public :: element_operation_kernel_matvec_divlike_var5_P7_v2
+  public :: element_operation_kernel_matvec_ModalFilter_P7
   public :: element_operation_kernel_matvec_dirZ_P8
   public :: element_operation_kernel_matvec_divlike_dirXY_P8
   public :: element_operation_kernel_matvec_divlike_dirXY_var5_P8
   public :: element_operation_kernel_matvec_divlike_dirZ_lift_var5_P8
   public :: element_operation_kernel_matvec_divlike_var5_P8
   public :: element_operation_kernel_matvec_divlike_var5_P8_v2
+  public :: element_operation_kernel_matvec_ModalFilter_P8
   public :: element_operation_kernel_matvec_dirZ_P9
   public :: element_operation_kernel_matvec_divlike_dirXY_P9
   public :: element_operation_kernel_matvec_divlike_dirXY_var5_P9
   public :: element_operation_kernel_matvec_divlike_dirZ_lift_var5_P9
   public :: element_operation_kernel_matvec_divlike_var5_P9
   public :: element_operation_kernel_matvec_divlike_var5_P9_v2
+  public :: element_operation_kernel_matvec_ModalFilter_P9
   public :: element_operation_kernel_matvec_dirZ_P10
   public :: element_operation_kernel_matvec_divlike_dirXY_P10
   public :: element_operation_kernel_matvec_divlike_dirXY_var5_P10
   public :: element_operation_kernel_matvec_divlike_dirZ_lift_var5_P10
   public :: element_operation_kernel_matvec_divlike_var5_P10
   public :: element_operation_kernel_matvec_divlike_var5_P10_v2
+  public :: element_operation_kernel_matvec_ModalFilter_P10
   public :: element_operation_kernel_matvec_dirZ_P11
   public :: element_operation_kernel_matvec_divlike_dirXY_P11
   public :: element_operation_kernel_matvec_divlike_dirXY_var5_P11
   public :: element_operation_kernel_matvec_divlike_dirZ_lift_var5_P11
   public :: element_operation_kernel_matvec_divlike_var5_P11
   public :: element_operation_kernel_matvec_divlike_var5_P11_v2
+  public :: element_operation_kernel_matvec_ModalFilter_P11
   public :: element_operation_kernel_matvec_dirZ_P12
   public :: element_operation_kernel_matvec_divlike_dirXY_P12
   public :: element_operation_kernel_matvec_divlike_dirXY_var5_P12
   public :: element_operation_kernel_matvec_divlike_dirZ_lift_var5_P12
   public :: element_operation_kernel_matvec_divlike_var5_P12
   public :: element_operation_kernel_matvec_divlike_var5_P12_v2
+  public :: element_operation_kernel_matvec_ModalFilter_P12
   public :: element_operation_kernel_matvec_dirZ_P13
   public :: element_operation_kernel_matvec_divlike_dirXY_P13
   public :: element_operation_kernel_matvec_divlike_dirXY_var5_P13
   public :: element_operation_kernel_matvec_divlike_dirZ_lift_var5_P13
   public :: element_operation_kernel_matvec_divlike_var5_P13
   public :: element_operation_kernel_matvec_divlike_var5_P13_v2
+  public :: element_operation_kernel_matvec_ModalFilter_P13
   public :: element_operation_kernel_matvec_dirZ_P14
   public :: element_operation_kernel_matvec_divlike_dirXY_P14
   public :: element_operation_kernel_matvec_divlike_dirXY_var5_P14
   public :: element_operation_kernel_matvec_divlike_dirZ_lift_var5_P14
   public :: element_operation_kernel_matvec_divlike_var5_P14
   public :: element_operation_kernel_matvec_divlike_var5_P14_v2
+  public :: element_operation_kernel_matvec_ModalFilter_P14
   public :: element_operation_kernel_matvec_dirZ_P15
   public :: element_operation_kernel_matvec_divlike_dirXY_P15
   public :: element_operation_kernel_matvec_divlike_dirXY_var5_P15
   public :: element_operation_kernel_matvec_divlike_dirZ_lift_var5_P15
   public :: element_operation_kernel_matvec_divlike_var5_P15
   public :: element_operation_kernel_matvec_divlike_var5_P15_v2
+  public :: element_operation_kernel_matvec_ModalFilter_P15
 
 contains
 !--- For p=1 ------------------------------------
@@ -441,6 +456,70 @@ contains
     end do
     return
   end subroutine element_operation_kernel_matvec_divlike_var5_P1_v2
+
+
+!> Calculate a matrix-vector multiplication associated with 3D modal filtering with p=1
+!!
+!OCL SERIAL
+  subroutine element_operation_kernel_matvec_ModalFilter_P1( Mat_h1D, Mat_h1D_tr, Mat_v1D_tr, vec_in, vec_work, &
+    Ne,      &
+    vec_out  )
+    implicit none
+    integer, intent(in) :: Ne
+    real(RP), intent(in) :: Mat_h1D(2,2)
+    real(RP), intent(in) :: Mat_h1D_tr(2,2)
+    real(RP), intent(in) :: Mat_v1D_tr(2,2)
+    real(RP), intent(in) :: vec_in(2,2,2,Ne)
+    real(RP), intent(out) :: vec_work(2,2,2,Ne)
+    real(RP), intent(out) :: vec_out(2,2,2,Ne)
+
+    integer :: ke
+    integer :: i, j, k
+    !----------------------------------------------------------
+
+    ! X-dir
+    !$acc parallel loop gang collapse(2) present(Mat_h1D,Mat_h1D_tr,Mat_v1D_tr,vec_in,vec_work,vec_out) async(1)
+    do ke=1, Ne
+    do k=1, 2
+      !$acc loop vector collapse(2)
+      do j=1, 2
+      do i=1, 2
+        vec_out(i,j,k,ke) = Mat_h1D(i,1) * vec_in(1,j,k,ke) &
+                       + Mat_h1D(i,2) * vec_in(2,j,k,ke)
+      end do
+      end do
+    end do
+    end do
+    
+    ! Y-dir
+    !$acc parallel loop gang collapse(2) present(Mat_h1D,Mat_h1D_tr,Mat_v1D_tr,vec_in,vec_work,vec_out) async(1)
+    do ke=1, Ne
+    do k=1, 2
+      !$acc loop vector collapse(2)
+      do j=1, 2
+      do i=1, 2
+        vec_work(i,j,k,ke) = vec_out(i,1,k,ke) * Mat_h1D_tr(1,j) &
+                        + vec_out(i,2,k,ke) * Mat_h1D_tr(2,j) 
+      end do
+      end do
+    end do
+    end do
+    
+    ! Z-dir
+    !$acc parallel loop gang collapse(2) present(Mat_h1D,Mat_h1D_tr,Mat_v1D_tr,vec_in,vec_work,vec_out) async(1)
+    do ke=1, Ne
+    do k=1, 2
+      !$acc loop vector collapse(2)
+      do j=1, 2
+      do i=1, 2
+        vec_out(i,j,k,ke) = vec_work(i,j,1,ke) * Mat_v1D_tr(1,k) &
+                       + vec_work(i,j,2,ke) * Mat_v1D_tr(2,k) 
+      end do
+      end do
+    end do
+    end do
+    return
+  end subroutine element_operation_kernel_matvec_ModalFilter_P1
 
 !--- For p=2 ------------------------------------
 
@@ -768,6 +847,73 @@ contains
     end do
     return
   end subroutine element_operation_kernel_matvec_divlike_var5_P2_v2
+
+
+!> Calculate a matrix-vector multiplication associated with 3D modal filtering with p=2
+!!
+!OCL SERIAL
+  subroutine element_operation_kernel_matvec_ModalFilter_P2( Mat_h1D, Mat_h1D_tr, Mat_v1D_tr, vec_in, vec_work, &
+    Ne,      &
+    vec_out  )
+    implicit none
+    integer, intent(in) :: Ne
+    real(RP), intent(in) :: Mat_h1D(3,3)
+    real(RP), intent(in) :: Mat_h1D_tr(3,3)
+    real(RP), intent(in) :: Mat_v1D_tr(3,3)
+    real(RP), intent(in) :: vec_in(3,3,3,Ne)
+    real(RP), intent(out) :: vec_work(3,3,3,Ne)
+    real(RP), intent(out) :: vec_out(3,3,3,Ne)
+
+    integer :: ke
+    integer :: i, j, k
+    !----------------------------------------------------------
+
+    ! X-dir
+    !$acc parallel loop gang collapse(2) present(Mat_h1D,Mat_h1D_tr,Mat_v1D_tr,vec_in,vec_work,vec_out) async(1)
+    do ke=1, Ne
+    do k=1, 3
+      !$acc loop vector collapse(2)
+      do j=1, 3
+      do i=1, 3
+        vec_out(i,j,k,ke) = Mat_h1D(i,1) * vec_in(1,j,k,ke) &
+                       + Mat_h1D(i,2) * vec_in(2,j,k,ke) &
+                       + Mat_h1D(i,3) * vec_in(3,j,k,ke)
+      end do
+      end do
+    end do
+    end do
+    
+    ! Y-dir
+    !$acc parallel loop gang collapse(2) present(Mat_h1D,Mat_h1D_tr,Mat_v1D_tr,vec_in,vec_work,vec_out) async(1)
+    do ke=1, Ne
+    do k=1, 3
+      !$acc loop vector collapse(2)
+      do j=1, 3
+      do i=1, 3
+        vec_work(i,j,k,ke) = vec_out(i,1,k,ke) * Mat_h1D_tr(1,j) &
+                        + vec_out(i,2,k,ke) * Mat_h1D_tr(2,j) &
+                        + vec_out(i,3,k,ke) * Mat_h1D_tr(3,j) 
+      end do
+      end do
+    end do
+    end do
+    
+    ! Z-dir
+    !$acc parallel loop gang collapse(2) present(Mat_h1D,Mat_h1D_tr,Mat_v1D_tr,vec_in,vec_work,vec_out) async(1)
+    do ke=1, Ne
+    do k=1, 3
+      !$acc loop vector collapse(2)
+      do j=1, 3
+      do i=1, 3
+        vec_out(i,j,k,ke) = vec_work(i,j,1,ke) * Mat_v1D_tr(1,k) &
+                       + vec_work(i,j,2,ke) * Mat_v1D_tr(2,k) &
+                       + vec_work(i,j,3,ke) * Mat_v1D_tr(3,k) 
+      end do
+      end do
+    end do
+    end do
+    return
+  end subroutine element_operation_kernel_matvec_ModalFilter_P2
 
 !--- For p=3 ------------------------------------
 
@@ -1104,6 +1250,76 @@ contains
     end do
     return
   end subroutine element_operation_kernel_matvec_divlike_var5_P3_v2
+
+
+!> Calculate a matrix-vector multiplication associated with 3D modal filtering with p=3
+!!
+!OCL SERIAL
+  subroutine element_operation_kernel_matvec_ModalFilter_P3( Mat_h1D, Mat_h1D_tr, Mat_v1D_tr, vec_in, vec_work, &
+    Ne,      &
+    vec_out  )
+    implicit none
+    integer, intent(in) :: Ne
+    real(RP), intent(in) :: Mat_h1D(4,4)
+    real(RP), intent(in) :: Mat_h1D_tr(4,4)
+    real(RP), intent(in) :: Mat_v1D_tr(4,4)
+    real(RP), intent(in) :: vec_in(4,4,4,Ne)
+    real(RP), intent(out) :: vec_work(4,4,4,Ne)
+    real(RP), intent(out) :: vec_out(4,4,4,Ne)
+
+    integer :: ke
+    integer :: i, j, k
+    !----------------------------------------------------------
+
+    ! X-dir
+    !$acc parallel loop gang collapse(2) present(Mat_h1D,Mat_h1D_tr,Mat_v1D_tr,vec_in,vec_work,vec_out) async(1)
+    do ke=1, Ne
+    do k=1, 4
+      !$acc loop vector collapse(2)
+      do j=1, 4
+      do i=1, 4
+        vec_out(i,j,k,ke) = Mat_h1D(i,1) * vec_in(1,j,k,ke) &
+                       + Mat_h1D(i,2) * vec_in(2,j,k,ke) &
+                       + Mat_h1D(i,3) * vec_in(3,j,k,ke) &
+                       + Mat_h1D(i,4) * vec_in(4,j,k,ke)
+      end do
+      end do
+    end do
+    end do
+    
+    ! Y-dir
+    !$acc parallel loop gang collapse(2) present(Mat_h1D,Mat_h1D_tr,Mat_v1D_tr,vec_in,vec_work,vec_out) async(1)
+    do ke=1, Ne
+    do k=1, 4
+      !$acc loop vector collapse(2)
+      do j=1, 4
+      do i=1, 4
+        vec_work(i,j,k,ke) = vec_out(i,1,k,ke) * Mat_h1D_tr(1,j) &
+                        + vec_out(i,2,k,ke) * Mat_h1D_tr(2,j) &
+                        + vec_out(i,3,k,ke) * Mat_h1D_tr(3,j) &
+                        + vec_out(i,4,k,ke) * Mat_h1D_tr(4,j) 
+      end do
+      end do
+    end do
+    end do
+    
+    ! Z-dir
+    !$acc parallel loop gang collapse(2) present(Mat_h1D,Mat_h1D_tr,Mat_v1D_tr,vec_in,vec_work,vec_out) async(1)
+    do ke=1, Ne
+    do k=1, 4
+      !$acc loop vector collapse(2)
+      do j=1, 4
+      do i=1, 4
+        vec_out(i,j,k,ke) = vec_work(i,j,1,ke) * Mat_v1D_tr(1,k) &
+                       + vec_work(i,j,2,ke) * Mat_v1D_tr(2,k) &
+                       + vec_work(i,j,3,ke) * Mat_v1D_tr(3,k) &
+                       + vec_work(i,j,4,ke) * Mat_v1D_tr(4,k) 
+      end do
+      end do
+    end do
+    end do
+    return
+  end subroutine element_operation_kernel_matvec_ModalFilter_P3
 
 !--- For p=4 ------------------------------------
 
@@ -1449,6 +1665,79 @@ contains
     end do
     return
   end subroutine element_operation_kernel_matvec_divlike_var5_P4_v2
+
+
+!> Calculate a matrix-vector multiplication associated with 3D modal filtering with p=4
+!!
+!OCL SERIAL
+  subroutine element_operation_kernel_matvec_ModalFilter_P4( Mat_h1D, Mat_h1D_tr, Mat_v1D_tr, vec_in, vec_work, &
+    Ne,      &
+    vec_out  )
+    implicit none
+    integer, intent(in) :: Ne
+    real(RP), intent(in) :: Mat_h1D(5,5)
+    real(RP), intent(in) :: Mat_h1D_tr(5,5)
+    real(RP), intent(in) :: Mat_v1D_tr(5,5)
+    real(RP), intent(in) :: vec_in(5,5,5,Ne)
+    real(RP), intent(out) :: vec_work(5,5,5,Ne)
+    real(RP), intent(out) :: vec_out(5,5,5,Ne)
+
+    integer :: ke
+    integer :: i, j, k
+    !----------------------------------------------------------
+
+    ! X-dir
+    !$acc parallel loop gang collapse(2) present(Mat_h1D,Mat_h1D_tr,Mat_v1D_tr,vec_in,vec_work,vec_out) async(1)
+    do ke=1, Ne
+    do k=1, 5
+      !$acc loop vector collapse(2)
+      do j=1, 5
+      do i=1, 5
+        vec_out(i,j,k,ke) = Mat_h1D(i,1) * vec_in(1,j,k,ke) &
+                       + Mat_h1D(i,2) * vec_in(2,j,k,ke) &
+                       + Mat_h1D(i,3) * vec_in(3,j,k,ke) &
+                       + Mat_h1D(i,4) * vec_in(4,j,k,ke) &
+                       + Mat_h1D(i,5) * vec_in(5,j,k,ke)
+      end do
+      end do
+    end do
+    end do
+    
+    ! Y-dir
+    !$acc parallel loop gang collapse(2) present(Mat_h1D,Mat_h1D_tr,Mat_v1D_tr,vec_in,vec_work,vec_out) async(1)
+    do ke=1, Ne
+    do k=1, 5
+      !$acc loop vector collapse(2)
+      do j=1, 5
+      do i=1, 5
+        vec_work(i,j,k,ke) = vec_out(i,1,k,ke) * Mat_h1D_tr(1,j) &
+                        + vec_out(i,2,k,ke) * Mat_h1D_tr(2,j) &
+                        + vec_out(i,3,k,ke) * Mat_h1D_tr(3,j) &
+                        + vec_out(i,4,k,ke) * Mat_h1D_tr(4,j) &
+                        + vec_out(i,5,k,ke) * Mat_h1D_tr(5,j) 
+      end do
+      end do
+    end do
+    end do
+    
+    ! Z-dir
+    !$acc parallel loop gang collapse(2) present(Mat_h1D,Mat_h1D_tr,Mat_v1D_tr,vec_in,vec_work,vec_out) async(1)
+    do ke=1, Ne
+    do k=1, 5
+      !$acc loop vector collapse(2)
+      do j=1, 5
+      do i=1, 5
+        vec_out(i,j,k,ke) = vec_work(i,j,1,ke) * Mat_v1D_tr(1,k) &
+                       + vec_work(i,j,2,ke) * Mat_v1D_tr(2,k) &
+                       + vec_work(i,j,3,ke) * Mat_v1D_tr(3,k) &
+                       + vec_work(i,j,4,ke) * Mat_v1D_tr(4,k) &
+                       + vec_work(i,j,5,ke) * Mat_v1D_tr(5,k) 
+      end do
+      end do
+    end do
+    end do
+    return
+  end subroutine element_operation_kernel_matvec_ModalFilter_P4
 
 !--- For p=5 ------------------------------------
 
@@ -1803,6 +2092,82 @@ contains
     end do
     return
   end subroutine element_operation_kernel_matvec_divlike_var5_P5_v2
+
+
+!> Calculate a matrix-vector multiplication associated with 3D modal filtering with p=5
+!!
+!OCL SERIAL
+  subroutine element_operation_kernel_matvec_ModalFilter_P5( Mat_h1D, Mat_h1D_tr, Mat_v1D_tr, vec_in, vec_work, &
+    Ne,      &
+    vec_out  )
+    implicit none
+    integer, intent(in) :: Ne
+    real(RP), intent(in) :: Mat_h1D(6,6)
+    real(RP), intent(in) :: Mat_h1D_tr(6,6)
+    real(RP), intent(in) :: Mat_v1D_tr(6,6)
+    real(RP), intent(in) :: vec_in(6,6,6,Ne)
+    real(RP), intent(out) :: vec_work(6,6,6,Ne)
+    real(RP), intent(out) :: vec_out(6,6,6,Ne)
+
+    integer :: ke
+    integer :: i, j, k
+    !----------------------------------------------------------
+
+    ! X-dir
+    !$acc parallel loop gang collapse(2) present(Mat_h1D,Mat_h1D_tr,Mat_v1D_tr,vec_in,vec_work,vec_out) async(1)
+    do ke=1, Ne
+    do k=1, 6
+      !$acc loop vector collapse(2)
+      do j=1, 6
+      do i=1, 6
+        vec_out(i,j,k,ke) = Mat_h1D(i,1) * vec_in(1,j,k,ke) &
+                       + Mat_h1D(i,2) * vec_in(2,j,k,ke) &
+                       + Mat_h1D(i,3) * vec_in(3,j,k,ke) &
+                       + Mat_h1D(i,4) * vec_in(4,j,k,ke) &
+                       + Mat_h1D(i,5) * vec_in(5,j,k,ke) &
+                       + Mat_h1D(i,6) * vec_in(6,j,k,ke)
+      end do
+      end do
+    end do
+    end do
+    
+    ! Y-dir
+    !$acc parallel loop gang collapse(2) present(Mat_h1D,Mat_h1D_tr,Mat_v1D_tr,vec_in,vec_work,vec_out) async(1)
+    do ke=1, Ne
+    do k=1, 6
+      !$acc loop vector collapse(2)
+      do j=1, 6
+      do i=1, 6
+        vec_work(i,j,k,ke) = vec_out(i,1,k,ke) * Mat_h1D_tr(1,j) &
+                        + vec_out(i,2,k,ke) * Mat_h1D_tr(2,j) &
+                        + vec_out(i,3,k,ke) * Mat_h1D_tr(3,j) &
+                        + vec_out(i,4,k,ke) * Mat_h1D_tr(4,j) &
+                        + vec_out(i,5,k,ke) * Mat_h1D_tr(5,j) &
+                        + vec_out(i,6,k,ke) * Mat_h1D_tr(6,j) 
+      end do
+      end do
+    end do
+    end do
+    
+    ! Z-dir
+    !$acc parallel loop gang collapse(2) present(Mat_h1D,Mat_h1D_tr,Mat_v1D_tr,vec_in,vec_work,vec_out) async(1)
+    do ke=1, Ne
+    do k=1, 6
+      !$acc loop vector collapse(2)
+      do j=1, 6
+      do i=1, 6
+        vec_out(i,j,k,ke) = vec_work(i,j,1,ke) * Mat_v1D_tr(1,k) &
+                       + vec_work(i,j,2,ke) * Mat_v1D_tr(2,k) &
+                       + vec_work(i,j,3,ke) * Mat_v1D_tr(3,k) &
+                       + vec_work(i,j,4,ke) * Mat_v1D_tr(4,k) &
+                       + vec_work(i,j,5,ke) * Mat_v1D_tr(5,k) &
+                       + vec_work(i,j,6,ke) * Mat_v1D_tr(6,k) 
+      end do
+      end do
+    end do
+    end do
+    return
+  end subroutine element_operation_kernel_matvec_ModalFilter_P5
 
 !--- For p=6 ------------------------------------
 
@@ -2166,6 +2531,85 @@ contains
     end do
     return
   end subroutine element_operation_kernel_matvec_divlike_var5_P6_v2
+
+
+!> Calculate a matrix-vector multiplication associated with 3D modal filtering with p=6
+!!
+!OCL SERIAL
+  subroutine element_operation_kernel_matvec_ModalFilter_P6( Mat_h1D, Mat_h1D_tr, Mat_v1D_tr, vec_in, vec_work, &
+    Ne,      &
+    vec_out  )
+    implicit none
+    integer, intent(in) :: Ne
+    real(RP), intent(in) :: Mat_h1D(7,7)
+    real(RP), intent(in) :: Mat_h1D_tr(7,7)
+    real(RP), intent(in) :: Mat_v1D_tr(7,7)
+    real(RP), intent(in) :: vec_in(7,7,7,Ne)
+    real(RP), intent(out) :: vec_work(7,7,7,Ne)
+    real(RP), intent(out) :: vec_out(7,7,7,Ne)
+
+    integer :: ke
+    integer :: i, j, k
+    !----------------------------------------------------------
+
+    ! X-dir
+    !$acc parallel loop gang collapse(2) present(Mat_h1D,Mat_h1D_tr,Mat_v1D_tr,vec_in,vec_work,vec_out) async(1)
+    do ke=1, Ne
+    do k=1, 7
+      !$acc loop vector collapse(2)
+      do j=1, 7
+      do i=1, 7
+        vec_out(i,j,k,ke) = Mat_h1D(i,1) * vec_in(1,j,k,ke) &
+                       + Mat_h1D(i,2) * vec_in(2,j,k,ke) &
+                       + Mat_h1D(i,3) * vec_in(3,j,k,ke) &
+                       + Mat_h1D(i,4) * vec_in(4,j,k,ke) &
+                       + Mat_h1D(i,5) * vec_in(5,j,k,ke) &
+                       + Mat_h1D(i,6) * vec_in(6,j,k,ke) &
+                       + Mat_h1D(i,7) * vec_in(7,j,k,ke)
+      end do
+      end do
+    end do
+    end do
+    
+    ! Y-dir
+    !$acc parallel loop gang collapse(2) present(Mat_h1D,Mat_h1D_tr,Mat_v1D_tr,vec_in,vec_work,vec_out) async(1)
+    do ke=1, Ne
+    do k=1, 7
+      !$acc loop vector collapse(2)
+      do j=1, 7
+      do i=1, 7
+        vec_work(i,j,k,ke) = vec_out(i,1,k,ke) * Mat_h1D_tr(1,j) &
+                        + vec_out(i,2,k,ke) * Mat_h1D_tr(2,j) &
+                        + vec_out(i,3,k,ke) * Mat_h1D_tr(3,j) &
+                        + vec_out(i,4,k,ke) * Mat_h1D_tr(4,j) &
+                        + vec_out(i,5,k,ke) * Mat_h1D_tr(5,j) &
+                        + vec_out(i,6,k,ke) * Mat_h1D_tr(6,j) &
+                        + vec_out(i,7,k,ke) * Mat_h1D_tr(7,j) 
+      end do
+      end do
+    end do
+    end do
+    
+    ! Z-dir
+    !$acc parallel loop gang collapse(2) present(Mat_h1D,Mat_h1D_tr,Mat_v1D_tr,vec_in,vec_work,vec_out) async(1)
+    do ke=1, Ne
+    do k=1, 7
+      !$acc loop vector collapse(2)
+      do j=1, 7
+      do i=1, 7
+        vec_out(i,j,k,ke) = vec_work(i,j,1,ke) * Mat_v1D_tr(1,k) &
+                       + vec_work(i,j,2,ke) * Mat_v1D_tr(2,k) &
+                       + vec_work(i,j,3,ke) * Mat_v1D_tr(3,k) &
+                       + vec_work(i,j,4,ke) * Mat_v1D_tr(4,k) &
+                       + vec_work(i,j,5,ke) * Mat_v1D_tr(5,k) &
+                       + vec_work(i,j,6,ke) * Mat_v1D_tr(6,k) &
+                       + vec_work(i,j,7,ke) * Mat_v1D_tr(7,k) 
+      end do
+      end do
+    end do
+    end do
+    return
+  end subroutine element_operation_kernel_matvec_ModalFilter_P6
 
 !--- For p=7 ------------------------------------
 
@@ -2538,6 +2982,88 @@ contains
     end do
     return
   end subroutine element_operation_kernel_matvec_divlike_var5_P7_v2
+
+
+!> Calculate a matrix-vector multiplication associated with 3D modal filtering with p=7
+!!
+!OCL SERIAL
+  subroutine element_operation_kernel_matvec_ModalFilter_P7( Mat_h1D, Mat_h1D_tr, Mat_v1D_tr, vec_in, vec_work, &
+    Ne,      &
+    vec_out  )
+    implicit none
+    integer, intent(in) :: Ne
+    real(RP), intent(in) :: Mat_h1D(8,8)
+    real(RP), intent(in) :: Mat_h1D_tr(8,8)
+    real(RP), intent(in) :: Mat_v1D_tr(8,8)
+    real(RP), intent(in) :: vec_in(8,8,8,Ne)
+    real(RP), intent(out) :: vec_work(8,8,8,Ne)
+    real(RP), intent(out) :: vec_out(8,8,8,Ne)
+
+    integer :: ke
+    integer :: i, j, k
+    !----------------------------------------------------------
+
+    ! X-dir
+    !$acc parallel loop gang collapse(2) present(Mat_h1D,Mat_h1D_tr,Mat_v1D_tr,vec_in,vec_work,vec_out) async(1)
+    do ke=1, Ne
+    do k=1, 8
+      !$acc loop vector collapse(2)
+      do j=1, 8
+      do i=1, 8
+        vec_out(i,j,k,ke) = Mat_h1D(i,1) * vec_in(1,j,k,ke) &
+                       + Mat_h1D(i,2) * vec_in(2,j,k,ke) &
+                       + Mat_h1D(i,3) * vec_in(3,j,k,ke) &
+                       + Mat_h1D(i,4) * vec_in(4,j,k,ke) &
+                       + Mat_h1D(i,5) * vec_in(5,j,k,ke) &
+                       + Mat_h1D(i,6) * vec_in(6,j,k,ke) &
+                       + Mat_h1D(i,7) * vec_in(7,j,k,ke) &
+                       + Mat_h1D(i,8) * vec_in(8,j,k,ke)
+      end do
+      end do
+    end do
+    end do
+    
+    ! Y-dir
+    !$acc parallel loop gang collapse(2) present(Mat_h1D,Mat_h1D_tr,Mat_v1D_tr,vec_in,vec_work,vec_out) async(1)
+    do ke=1, Ne
+    do k=1, 8
+      !$acc loop vector collapse(2)
+      do j=1, 8
+      do i=1, 8
+        vec_work(i,j,k,ke) = vec_out(i,1,k,ke) * Mat_h1D_tr(1,j) &
+                        + vec_out(i,2,k,ke) * Mat_h1D_tr(2,j) &
+                        + vec_out(i,3,k,ke) * Mat_h1D_tr(3,j) &
+                        + vec_out(i,4,k,ke) * Mat_h1D_tr(4,j) &
+                        + vec_out(i,5,k,ke) * Mat_h1D_tr(5,j) &
+                        + vec_out(i,6,k,ke) * Mat_h1D_tr(6,j) &
+                        + vec_out(i,7,k,ke) * Mat_h1D_tr(7,j) &
+                        + vec_out(i,8,k,ke) * Mat_h1D_tr(8,j) 
+      end do
+      end do
+    end do
+    end do
+    
+    ! Z-dir
+    !$acc parallel loop gang collapse(2) present(Mat_h1D,Mat_h1D_tr,Mat_v1D_tr,vec_in,vec_work,vec_out) async(1)
+    do ke=1, Ne
+    do k=1, 8
+      !$acc loop vector collapse(2)
+      do j=1, 8
+      do i=1, 8
+        vec_out(i,j,k,ke) = vec_work(i,j,1,ke) * Mat_v1D_tr(1,k) &
+                       + vec_work(i,j,2,ke) * Mat_v1D_tr(2,k) &
+                       + vec_work(i,j,3,ke) * Mat_v1D_tr(3,k) &
+                       + vec_work(i,j,4,ke) * Mat_v1D_tr(4,k) &
+                       + vec_work(i,j,5,ke) * Mat_v1D_tr(5,k) &
+                       + vec_work(i,j,6,ke) * Mat_v1D_tr(6,k) &
+                       + vec_work(i,j,7,ke) * Mat_v1D_tr(7,k) &
+                       + vec_work(i,j,8,ke) * Mat_v1D_tr(8,k) 
+      end do
+      end do
+    end do
+    end do
+    return
+  end subroutine element_operation_kernel_matvec_ModalFilter_P7
 
 !--- For p=8 ------------------------------------
 
@@ -2920,6 +3446,95 @@ contains
     end do
     return
   end subroutine element_operation_kernel_matvec_divlike_var5_P8_v2
+
+
+!> Calculate a matrix-vector multiplication associated with 3D modal filtering with p=8
+!!
+!OCL SERIAL
+  subroutine element_operation_kernel_matvec_ModalFilter_P8( Mat_h1D, Mat_h1D_tr, Mat_v1D_tr, vec_in, vec_work, &
+    Ne,      &
+    vec_out  )
+    implicit none
+    integer, intent(in) :: Ne
+    real(RP), intent(in) :: Mat_h1D(9,9)
+    real(RP), intent(in) :: Mat_h1D_tr(9,9)
+    real(RP), intent(in) :: Mat_v1D_tr(9,9)
+    real(RP), intent(in) :: vec_in(9,9,9,Ne)
+    real(RP), intent(out) :: vec_work(9,9,9,Ne)
+    real(RP), intent(out) :: vec_out(9,9,9,Ne)
+
+    integer :: ke
+    integer :: i, j, k
+    real(RP) :: tmp1, tmp2, tmp3
+    !----------------------------------------------------------
+
+    ! X-dir
+    !$acc parallel loop gang collapse(2) present(Mat_h1D,Mat_h1D_tr,Mat_v1D_tr,vec_in,vec_work,vec_out) async(1)
+    do ke=1, Ne
+    do k=1, 9
+      !$acc loop vector collapse(2)
+      do j=1, 9
+      do i=1, 9
+        tmp1 = Mat_h1D(i,1) * vec_in(1,j,k,ke) &
+             + Mat_h1D(i,2) * vec_in(2,j,k,ke) &
+             + Mat_h1D(i,3) * vec_in(3,j,k,ke)
+        tmp2 = Mat_h1D(i,4) * vec_in(4,j,k,ke) &
+             + Mat_h1D(i,5) * vec_in(5,j,k,ke) &
+             + Mat_h1D(i,6) * vec_in(6,j,k,ke)
+        tmp3 = Mat_h1D(i,7) * vec_in(7,j,k,ke) &
+             + Mat_h1D(i,8) * vec_in(8,j,k,ke) &
+             + Mat_h1D(i,9) * vec_in(9,j,k,ke)
+        vec_out(i,j,k,ke) = tmp1 + tmp2 + tmp3
+      end do
+      end do
+    end do
+    end do
+    
+    ! Y-dir
+    !$acc parallel loop gang collapse(2) present(Mat_h1D,Mat_h1D_tr,Mat_v1D_tr,vec_in,vec_work,vec_out) async(1)
+    do ke=1, Ne
+    do k=1, 9
+      !$acc loop vector collapse(2)
+      do j=1, 9
+      do i=1, 9
+        tmp1 = vec_out(i,1,k,ke) * Mat_h1D_tr(1,j) &
+             + vec_out(i,2,k,ke) * Mat_h1D_tr(2,j) &
+             + vec_out(i,3,k,ke) * Mat_h1D_tr(3,j) 
+        tmp2 = vec_out(i,4,k,ke) * Mat_h1D_tr(4,j) &
+             + vec_out(i,5,k,ke) * Mat_h1D_tr(5,j) &
+             + vec_out(i,6,k,ke) * Mat_h1D_tr(6,j) 
+        tmp3 = vec_out(i,7,k,ke) * Mat_h1D_tr(7,j) &
+             + vec_out(i,8,k,ke) * Mat_h1D_tr(8,j) &
+             + vec_out(i,9,k,ke) * Mat_h1D_tr(9,j) 
+        vec_work(i,j,k,ke) = tmp1 + tmp2 + tmp3
+      end do
+      end do
+    end do
+    end do
+    
+    ! Z-dir
+    !$acc parallel loop gang collapse(2) present(Mat_h1D,Mat_h1D_tr,Mat_v1D_tr,vec_in,vec_work,vec_out) async(1)
+    do ke=1, Ne
+    do k=1, 9
+      !$acc loop vector collapse(2)
+      do j=1, 9
+      do i=1, 9
+        tmp1 = vec_work(i,j,1,ke) * Mat_v1D_tr(1,k) &
+             + vec_work(i,j,2,ke) * Mat_v1D_tr(2,k) &
+             + vec_work(i,j,3,ke) * Mat_v1D_tr(3,k) 
+        tmp2 = vec_work(i,j,4,ke) * Mat_v1D_tr(4,k) &
+             + vec_work(i,j,5,ke) * Mat_v1D_tr(5,k) &
+             + vec_work(i,j,6,ke) * Mat_v1D_tr(6,k) 
+        tmp3 = vec_work(i,j,7,ke) * Mat_v1D_tr(7,k) &
+             + vec_work(i,j,8,ke) * Mat_v1D_tr(8,k) &
+             + vec_work(i,j,9,ke) * Mat_v1D_tr(9,k) 
+        vec_out(i,j,k,ke) = tmp1 + tmp2 + tmp3
+      end do
+      end do
+    end do
+    end do
+    return
+  end subroutine element_operation_kernel_matvec_ModalFilter_P8
 
 !--- For p=9 ------------------------------------
 
@@ -3311,6 +3926,98 @@ contains
     end do
     return
   end subroutine element_operation_kernel_matvec_divlike_var5_P9_v2
+
+
+!> Calculate a matrix-vector multiplication associated with 3D modal filtering with p=9
+!!
+!OCL SERIAL
+  subroutine element_operation_kernel_matvec_ModalFilter_P9( Mat_h1D, Mat_h1D_tr, Mat_v1D_tr, vec_in, vec_work, &
+    Ne,      &
+    vec_out  )
+    implicit none
+    integer, intent(in) :: Ne
+    real(RP), intent(in) :: Mat_h1D(10,10)
+    real(RP), intent(in) :: Mat_h1D_tr(10,10)
+    real(RP), intent(in) :: Mat_v1D_tr(10,10)
+    real(RP), intent(in) :: vec_in(10,10,10,Ne)
+    real(RP), intent(out) :: vec_work(10,10,10,Ne)
+    real(RP), intent(out) :: vec_out(10,10,10,Ne)
+
+    integer :: ke
+    integer :: i, j, k
+    real(RP) :: tmp1, tmp2, tmp3
+    !----------------------------------------------------------
+
+    ! X-dir
+    !$acc parallel loop gang collapse(2) present(Mat_h1D,Mat_h1D_tr,Mat_v1D_tr,vec_in,vec_work,vec_out) async(1)
+    do ke=1, Ne
+    do k=1, 10
+      !$acc loop vector collapse(2)
+      do j=1, 10
+      do i=1, 10
+        tmp1 = Mat_h1D(i,1) * vec_in(1,j,k,ke) &
+             + Mat_h1D(i,2) * vec_in(2,j,k,ke) &
+             + Mat_h1D(i,3) * vec_in(3,j,k,ke)
+        tmp2 = Mat_h1D(i,4) * vec_in(4,j,k,ke) &
+             + Mat_h1D(i,5) * vec_in(5,j,k,ke) &
+             + Mat_h1D(i,6) * vec_in(6,j,k,ke)
+        tmp3 = Mat_h1D(i,7) * vec_in(7,j,k,ke) &
+             + Mat_h1D(i,8) * vec_in(8,j,k,ke) &
+             + Mat_h1D(i,9) * vec_in(9,j,k,ke) &
+             + Mat_h1D(i,10) * vec_in(10,j,k,ke)
+        vec_out(i,j,k,ke) = tmp1 + tmp2 + tmp3
+      end do
+      end do
+    end do
+    end do
+    
+    ! Y-dir
+    !$acc parallel loop gang collapse(2) present(Mat_h1D,Mat_h1D_tr,Mat_v1D_tr,vec_in,vec_work,vec_out) async(1)
+    do ke=1, Ne
+    do k=1, 10
+      !$acc loop vector collapse(2)
+      do j=1, 10
+      do i=1, 10
+        tmp1 = vec_out(i,1,k,ke) * Mat_h1D_tr(1,j) &
+             + vec_out(i,2,k,ke) * Mat_h1D_tr(2,j) &
+             + vec_out(i,3,k,ke) * Mat_h1D_tr(3,j) 
+        tmp2 = vec_out(i,4,k,ke) * Mat_h1D_tr(4,j) &
+             + vec_out(i,5,k,ke) * Mat_h1D_tr(5,j) &
+             + vec_out(i,6,k,ke) * Mat_h1D_tr(6,j) 
+        tmp3 = vec_out(i,7,k,ke) * Mat_h1D_tr(7,j) &
+             + vec_out(i,8,k,ke) * Mat_h1D_tr(8,j) &
+             + vec_out(i,9,k,ke) * Mat_h1D_tr(9,j) &
+             + vec_out(i,10,k,ke) * Mat_h1D_tr(10,j) 
+        vec_work(i,j,k,ke) = tmp1 + tmp2 + tmp3
+      end do
+      end do
+    end do
+    end do
+    
+    ! Z-dir
+    !$acc parallel loop gang collapse(2) present(Mat_h1D,Mat_h1D_tr,Mat_v1D_tr,vec_in,vec_work,vec_out) async(1)
+    do ke=1, Ne
+    do k=1, 10
+      !$acc loop vector collapse(2)
+      do j=1, 10
+      do i=1, 10
+        tmp1 = vec_work(i,j,1,ke) * Mat_v1D_tr(1,k) &
+             + vec_work(i,j,2,ke) * Mat_v1D_tr(2,k) &
+             + vec_work(i,j,3,ke) * Mat_v1D_tr(3,k) 
+        tmp2 = vec_work(i,j,4,ke) * Mat_v1D_tr(4,k) &
+             + vec_work(i,j,5,ke) * Mat_v1D_tr(5,k) &
+             + vec_work(i,j,6,ke) * Mat_v1D_tr(6,k) 
+        tmp3 = vec_work(i,j,7,ke) * Mat_v1D_tr(7,k) &
+             + vec_work(i,j,8,ke) * Mat_v1D_tr(8,k) &
+             + vec_work(i,j,9,ke) * Mat_v1D_tr(9,k) &
+             + vec_work(i,j,10,ke) * Mat_v1D_tr(10,k) 
+        vec_out(i,j,k,ke) = tmp1 + tmp2 + tmp3
+      end do
+      end do
+    end do
+    end do
+    return
+  end subroutine element_operation_kernel_matvec_ModalFilter_P9
 
 !--- For p=10 ------------------------------------
 
@@ -3711,6 +4418,101 @@ contains
     end do
     return
   end subroutine element_operation_kernel_matvec_divlike_var5_P10_v2
+
+
+!> Calculate a matrix-vector multiplication associated with 3D modal filtering with p=10
+!!
+!OCL SERIAL
+  subroutine element_operation_kernel_matvec_ModalFilter_P10( Mat_h1D, Mat_h1D_tr, Mat_v1D_tr, vec_in, vec_work, &
+    Ne,      &
+    vec_out  )
+    implicit none
+    integer, intent(in) :: Ne
+    real(RP), intent(in) :: Mat_h1D(11,11)
+    real(RP), intent(in) :: Mat_h1D_tr(11,11)
+    real(RP), intent(in) :: Mat_v1D_tr(11,11)
+    real(RP), intent(in) :: vec_in(11,11,11,Ne)
+    real(RP), intent(out) :: vec_work(11,11,11,Ne)
+    real(RP), intent(out) :: vec_out(11,11,11,Ne)
+
+    integer :: ke
+    integer :: i, j, k
+    real(RP) :: tmp1, tmp2, tmp3
+    !----------------------------------------------------------
+
+    ! X-dir
+    !$acc parallel loop gang collapse(2) present(Mat_h1D,Mat_h1D_tr,Mat_v1D_tr,vec_in,vec_work,vec_out) async(1)
+    do ke=1, Ne
+    do k=1, 11
+      !$acc loop vector collapse(2)
+      do j=1, 11
+      do i=1, 11
+        tmp1 = Mat_h1D(i,1) * vec_in(1,j,k,ke) &
+             + Mat_h1D(i,2) * vec_in(2,j,k,ke) &
+             + Mat_h1D(i,3) * vec_in(3,j,k,ke) &
+             + Mat_h1D(i,4) * vec_in(4,j,k,ke)
+        tmp2 = Mat_h1D(i,5) * vec_in(5,j,k,ke) &
+             + Mat_h1D(i,6) * vec_in(6,j,k,ke) &
+             + Mat_h1D(i,7) * vec_in(7,j,k,ke) &
+             + Mat_h1D(i,8) * vec_in(8,j,k,ke)
+        tmp3 = Mat_h1D(i,9) * vec_in(9,j,k,ke) &
+             + Mat_h1D(i,10) * vec_in(10,j,k,ke) &
+             + Mat_h1D(i,11) * vec_in(11,j,k,ke)
+        vec_out(i,j,k,ke) = tmp1 + tmp2 + tmp3
+      end do
+      end do
+    end do
+    end do
+    
+    ! Y-dir
+    !$acc parallel loop gang collapse(2) present(Mat_h1D,Mat_h1D_tr,Mat_v1D_tr,vec_in,vec_work,vec_out) async(1)
+    do ke=1, Ne
+    do k=1, 11
+      !$acc loop vector collapse(2)
+      do j=1, 11
+      do i=1, 11
+        tmp1 = vec_out(i,1,k,ke) * Mat_h1D_tr(1,j) &
+             + vec_out(i,2,k,ke) * Mat_h1D_tr(2,j) &
+             + vec_out(i,3,k,ke) * Mat_h1D_tr(3,j) &
+             + vec_out(i,4,k,ke) * Mat_h1D_tr(4,j) 
+        tmp2 = vec_out(i,5,k,ke) * Mat_h1D_tr(5,j) &
+             + vec_out(i,6,k,ke) * Mat_h1D_tr(6,j) &
+             + vec_out(i,7,k,ke) * Mat_h1D_tr(7,j) &
+             + vec_out(i,8,k,ke) * Mat_h1D_tr(8,j) 
+        tmp3 = vec_out(i,9,k,ke) * Mat_h1D_tr(9,j) &
+             + vec_out(i,10,k,ke) * Mat_h1D_tr(10,j) &
+             + vec_out(i,11,k,ke) * Mat_h1D_tr(11,j) 
+        vec_work(i,j,k,ke) = tmp1 + tmp2 + tmp3
+      end do
+      end do
+    end do
+    end do
+    
+    ! Z-dir
+    !$acc parallel loop gang collapse(2) present(Mat_h1D,Mat_h1D_tr,Mat_v1D_tr,vec_in,vec_work,vec_out) async(1)
+    do ke=1, Ne
+    do k=1, 11
+      !$acc loop vector collapse(2)
+      do j=1, 11
+      do i=1, 11
+        tmp1 = vec_work(i,j,1,ke) * Mat_v1D_tr(1,k) &
+             + vec_work(i,j,2,ke) * Mat_v1D_tr(2,k) &
+             + vec_work(i,j,3,ke) * Mat_v1D_tr(3,k) &
+             + vec_work(i,j,4,ke) * Mat_v1D_tr(4,k) 
+        tmp2 = vec_work(i,j,5,ke) * Mat_v1D_tr(5,k) &
+             + vec_work(i,j,6,ke) * Mat_v1D_tr(6,k) &
+             + vec_work(i,j,7,ke) * Mat_v1D_tr(7,k) &
+             + vec_work(i,j,8,ke) * Mat_v1D_tr(8,k) 
+        tmp3 = vec_work(i,j,9,ke) * Mat_v1D_tr(9,k) &
+             + vec_work(i,j,10,ke) * Mat_v1D_tr(10,k) &
+             + vec_work(i,j,11,ke) * Mat_v1D_tr(11,k) 
+        vec_out(i,j,k,ke) = tmp1 + tmp2 + tmp3
+      end do
+      end do
+    end do
+    end do
+    return
+  end subroutine element_operation_kernel_matvec_ModalFilter_P10
 
 !--- For p=11 ------------------------------------
 
@@ -4120,6 +4922,104 @@ contains
     end do
     return
   end subroutine element_operation_kernel_matvec_divlike_var5_P11_v2
+
+
+!> Calculate a matrix-vector multiplication associated with 3D modal filtering with p=11
+!!
+!OCL SERIAL
+  subroutine element_operation_kernel_matvec_ModalFilter_P11( Mat_h1D, Mat_h1D_tr, Mat_v1D_tr, vec_in, vec_work, &
+    Ne,      &
+    vec_out  )
+    implicit none
+    integer, intent(in) :: Ne
+    real(RP), intent(in) :: Mat_h1D(12,12)
+    real(RP), intent(in) :: Mat_h1D_tr(12,12)
+    real(RP), intent(in) :: Mat_v1D_tr(12,12)
+    real(RP), intent(in) :: vec_in(12,12,12,Ne)
+    real(RP), intent(out) :: vec_work(12,12,12,Ne)
+    real(RP), intent(out) :: vec_out(12,12,12,Ne)
+
+    integer :: ke
+    integer :: i, j, k
+    real(RP) :: tmp1, tmp2, tmp3
+    !----------------------------------------------------------
+
+    ! X-dir
+    !$acc parallel loop gang collapse(2) present(Mat_h1D,Mat_h1D_tr,Mat_v1D_tr,vec_in,vec_work,vec_out) async(1)
+    do ke=1, Ne
+    do k=1, 12
+      !$acc loop vector collapse(2)
+      do j=1, 12
+      do i=1, 12
+        tmp1 = Mat_h1D(i,1) * vec_in(1,j,k,ke) &
+             + Mat_h1D(i,2) * vec_in(2,j,k,ke) &
+             + Mat_h1D(i,3) * vec_in(3,j,k,ke) &
+             + Mat_h1D(i,4) * vec_in(4,j,k,ke)
+        tmp2 = Mat_h1D(i,5) * vec_in(5,j,k,ke) &
+             + Mat_h1D(i,6) * vec_in(6,j,k,ke) &
+             + Mat_h1D(i,7) * vec_in(7,j,k,ke) &
+             + Mat_h1D(i,8) * vec_in(8,j,k,ke)
+        tmp3 = Mat_h1D(i,9) * vec_in(9,j,k,ke) &
+             + Mat_h1D(i,10) * vec_in(10,j,k,ke) &
+             + Mat_h1D(i,11) * vec_in(11,j,k,ke) &
+             + Mat_h1D(i,12) * vec_in(12,j,k,ke)
+        vec_out(i,j,k,ke) = tmp1 + tmp2 + tmp3
+      end do
+      end do
+    end do
+    end do
+    
+    ! Y-dir
+    !$acc parallel loop gang collapse(2) present(Mat_h1D,Mat_h1D_tr,Mat_v1D_tr,vec_in,vec_work,vec_out) async(1)
+    do ke=1, Ne
+    do k=1, 12
+      !$acc loop vector collapse(2)
+      do j=1, 12
+      do i=1, 12
+        tmp1 = vec_out(i,1,k,ke) * Mat_h1D_tr(1,j) &
+             + vec_out(i,2,k,ke) * Mat_h1D_tr(2,j) &
+             + vec_out(i,3,k,ke) * Mat_h1D_tr(3,j) &
+             + vec_out(i,4,k,ke) * Mat_h1D_tr(4,j) 
+        tmp2 = vec_out(i,5,k,ke) * Mat_h1D_tr(5,j) &
+             + vec_out(i,6,k,ke) * Mat_h1D_tr(6,j) &
+             + vec_out(i,7,k,ke) * Mat_h1D_tr(7,j) &
+             + vec_out(i,8,k,ke) * Mat_h1D_tr(8,j) 
+        tmp3 = vec_out(i,9,k,ke) * Mat_h1D_tr(9,j) &
+             + vec_out(i,10,k,ke) * Mat_h1D_tr(10,j) &
+             + vec_out(i,11,k,ke) * Mat_h1D_tr(11,j) &
+             + vec_out(i,12,k,ke) * Mat_h1D_tr(12,j) 
+        vec_work(i,j,k,ke) = tmp1 + tmp2 + tmp3
+      end do
+      end do
+    end do
+    end do
+    
+    ! Z-dir
+    !$acc parallel loop gang collapse(2) present(Mat_h1D,Mat_h1D_tr,Mat_v1D_tr,vec_in,vec_work,vec_out) async(1)
+    do ke=1, Ne
+    do k=1, 12
+      !$acc loop vector collapse(2)
+      do j=1, 12
+      do i=1, 12
+        tmp1 = vec_work(i,j,1,ke) * Mat_v1D_tr(1,k) &
+             + vec_work(i,j,2,ke) * Mat_v1D_tr(2,k) &
+             + vec_work(i,j,3,ke) * Mat_v1D_tr(3,k) &
+             + vec_work(i,j,4,ke) * Mat_v1D_tr(4,k) 
+        tmp2 = vec_work(i,j,5,ke) * Mat_v1D_tr(5,k) &
+             + vec_work(i,j,6,ke) * Mat_v1D_tr(6,k) &
+             + vec_work(i,j,7,ke) * Mat_v1D_tr(7,k) &
+             + vec_work(i,j,8,ke) * Mat_v1D_tr(8,k) 
+        tmp3 = vec_work(i,j,9,ke) * Mat_v1D_tr(9,k) &
+             + vec_work(i,j,10,ke) * Mat_v1D_tr(10,k) &
+             + vec_work(i,j,11,ke) * Mat_v1D_tr(11,k) &
+             + vec_work(i,j,12,ke) * Mat_v1D_tr(12,k) 
+        vec_out(i,j,k,ke) = tmp1 + tmp2 + tmp3
+      end do
+      end do
+    end do
+    end do
+    return
+  end subroutine element_operation_kernel_matvec_ModalFilter_P11
 
 !--- For p=12 ------------------------------------
 
@@ -4538,6 +5438,107 @@ contains
     end do
     return
   end subroutine element_operation_kernel_matvec_divlike_var5_P12_v2
+
+
+!> Calculate a matrix-vector multiplication associated with 3D modal filtering with p=12
+!!
+!OCL SERIAL
+  subroutine element_operation_kernel_matvec_ModalFilter_P12( Mat_h1D, Mat_h1D_tr, Mat_v1D_tr, vec_in, vec_work, &
+    Ne,      &
+    vec_out  )
+    implicit none
+    integer, intent(in) :: Ne
+    real(RP), intent(in) :: Mat_h1D(13,13)
+    real(RP), intent(in) :: Mat_h1D_tr(13,13)
+    real(RP), intent(in) :: Mat_v1D_tr(13,13)
+    real(RP), intent(in) :: vec_in(13,13,13,Ne)
+    real(RP), intent(out) :: vec_work(13,13,13,Ne)
+    real(RP), intent(out) :: vec_out(13,13,13,Ne)
+
+    integer :: ke
+    integer :: i, j, k
+    real(RP) :: tmp1, tmp2, tmp3
+    !----------------------------------------------------------
+
+    ! X-dir
+    !$acc parallel loop gang collapse(2) present(Mat_h1D,Mat_h1D_tr,Mat_v1D_tr,vec_in,vec_work,vec_out) async(1)
+    do ke=1, Ne
+    do k=1, 13
+      !$acc loop vector collapse(2)
+      do j=1, 13
+      do i=1, 13
+        tmp1 = Mat_h1D(i,1) * vec_in(1,j,k,ke) &
+             + Mat_h1D(i,2) * vec_in(2,j,k,ke) &
+             + Mat_h1D(i,3) * vec_in(3,j,k,ke) &
+             + Mat_h1D(i,4) * vec_in(4,j,k,ke)
+        tmp2 = Mat_h1D(i,5) * vec_in(5,j,k,ke) &
+             + Mat_h1D(i,6) * vec_in(6,j,k,ke) &
+             + Mat_h1D(i,7) * vec_in(7,j,k,ke) &
+             + Mat_h1D(i,8) * vec_in(8,j,k,ke)
+        tmp3 = Mat_h1D(i,9) * vec_in(9,j,k,ke) &
+             + Mat_h1D(i,10) * vec_in(10,j,k,ke) &
+             + Mat_h1D(i,11) * vec_in(11,j,k,ke) &
+             + Mat_h1D(i,12) * vec_in(12,j,k,ke) &
+             + Mat_h1D(i,13) * vec_in(13,j,k,ke)
+        vec_out(i,j,k,ke) = tmp1 + tmp2 + tmp3
+      end do
+      end do
+    end do
+    end do
+    
+    ! Y-dir
+    !$acc parallel loop gang collapse(2) present(Mat_h1D,Mat_h1D_tr,Mat_v1D_tr,vec_in,vec_work,vec_out) async(1)
+    do ke=1, Ne
+    do k=1, 13
+      !$acc loop vector collapse(2)
+      do j=1, 13
+      do i=1, 13
+        tmp1 = vec_out(i,1,k,ke) * Mat_h1D_tr(1,j) &
+             + vec_out(i,2,k,ke) * Mat_h1D_tr(2,j) &
+             + vec_out(i,3,k,ke) * Mat_h1D_tr(3,j) &
+             + vec_out(i,4,k,ke) * Mat_h1D_tr(4,j) 
+        tmp2 = vec_out(i,5,k,ke) * Mat_h1D_tr(5,j) &
+             + vec_out(i,6,k,ke) * Mat_h1D_tr(6,j) &
+             + vec_out(i,7,k,ke) * Mat_h1D_tr(7,j) &
+             + vec_out(i,8,k,ke) * Mat_h1D_tr(8,j) 
+        tmp3 = vec_out(i,9,k,ke) * Mat_h1D_tr(9,j) &
+             + vec_out(i,10,k,ke) * Mat_h1D_tr(10,j) &
+             + vec_out(i,11,k,ke) * Mat_h1D_tr(11,j) &
+             + vec_out(i,12,k,ke) * Mat_h1D_tr(12,j) &
+             + vec_out(i,13,k,ke) * Mat_h1D_tr(13,j) 
+        vec_work(i,j,k,ke) = tmp1 + tmp2 + tmp3
+      end do
+      end do
+    end do
+    end do
+    
+    ! Z-dir
+    !$acc parallel loop gang collapse(2) present(Mat_h1D,Mat_h1D_tr,Mat_v1D_tr,vec_in,vec_work,vec_out) async(1)
+    do ke=1, Ne
+    do k=1, 13
+      !$acc loop vector collapse(2)
+      do j=1, 13
+      do i=1, 13
+        tmp1 = vec_work(i,j,1,ke) * Mat_v1D_tr(1,k) &
+             + vec_work(i,j,2,ke) * Mat_v1D_tr(2,k) &
+             + vec_work(i,j,3,ke) * Mat_v1D_tr(3,k) &
+             + vec_work(i,j,4,ke) * Mat_v1D_tr(4,k) 
+        tmp2 = vec_work(i,j,5,ke) * Mat_v1D_tr(5,k) &
+             + vec_work(i,j,6,ke) * Mat_v1D_tr(6,k) &
+             + vec_work(i,j,7,ke) * Mat_v1D_tr(7,k) &
+             + vec_work(i,j,8,ke) * Mat_v1D_tr(8,k) 
+        tmp3 = vec_work(i,j,9,ke) * Mat_v1D_tr(9,k) &
+             + vec_work(i,j,10,ke) * Mat_v1D_tr(10,k) &
+             + vec_work(i,j,11,ke) * Mat_v1D_tr(11,k) &
+             + vec_work(i,j,12,ke) * Mat_v1D_tr(12,k) &
+             + vec_work(i,j,13,ke) * Mat_v1D_tr(13,k) 
+        vec_out(i,j,k,ke) = tmp1 + tmp2 + tmp3
+      end do
+      end do
+    end do
+    end do
+    return
+  end subroutine element_operation_kernel_matvec_ModalFilter_P12
 
 !--- For p=13 ------------------------------------
 
@@ -4965,6 +5966,110 @@ contains
     end do
     return
   end subroutine element_operation_kernel_matvec_divlike_var5_P13_v2
+
+
+!> Calculate a matrix-vector multiplication associated with 3D modal filtering with p=13
+!!
+!OCL SERIAL
+  subroutine element_operation_kernel_matvec_ModalFilter_P13( Mat_h1D, Mat_h1D_tr, Mat_v1D_tr, vec_in, vec_work, &
+    Ne,      &
+    vec_out  )
+    implicit none
+    integer, intent(in) :: Ne
+    real(RP), intent(in) :: Mat_h1D(14,14)
+    real(RP), intent(in) :: Mat_h1D_tr(14,14)
+    real(RP), intent(in) :: Mat_v1D_tr(14,14)
+    real(RP), intent(in) :: vec_in(14,14,14,Ne)
+    real(RP), intent(out) :: vec_work(14,14,14,Ne)
+    real(RP), intent(out) :: vec_out(14,14,14,Ne)
+
+    integer :: ke
+    integer :: i, j, k
+    real(RP) :: tmp1, tmp2, tmp3
+    !----------------------------------------------------------
+
+    ! X-dir
+    !$acc parallel loop gang collapse(2) present(Mat_h1D,Mat_h1D_tr,Mat_v1D_tr,vec_in,vec_work,vec_out) async(1)
+    do ke=1, Ne
+    do k=1, 14
+      !$acc loop vector collapse(2)
+      do j=1, 14
+      do i=1, 14
+        tmp1 = Mat_h1D(i,1) * vec_in(1,j,k,ke) &
+             + Mat_h1D(i,2) * vec_in(2,j,k,ke) &
+             + Mat_h1D(i,3) * vec_in(3,j,k,ke) &
+             + Mat_h1D(i,4) * vec_in(4,j,k,ke) &
+             + Mat_h1D(i,5) * vec_in(5,j,k,ke)
+        tmp2 = Mat_h1D(i,6) * vec_in(6,j,k,ke) &
+             + Mat_h1D(i,7) * vec_in(7,j,k,ke) &
+             + Mat_h1D(i,8) * vec_in(8,j,k,ke) &
+             + Mat_h1D(i,9) * vec_in(9,j,k,ke) &
+             + Mat_h1D(i,10) * vec_in(10,j,k,ke)
+        tmp3 = Mat_h1D(i,11) * vec_in(11,j,k,ke) &
+             + Mat_h1D(i,12) * vec_in(12,j,k,ke) &
+             + Mat_h1D(i,13) * vec_in(13,j,k,ke) &
+             + Mat_h1D(i,14) * vec_in(14,j,k,ke)
+        vec_out(i,j,k,ke) = tmp1 + tmp2 + tmp3
+      end do
+      end do
+    end do
+    end do
+    
+    ! Y-dir
+    !$acc parallel loop gang collapse(2) present(Mat_h1D,Mat_h1D_tr,Mat_v1D_tr,vec_in,vec_work,vec_out) async(1)
+    do ke=1, Ne
+    do k=1, 14
+      !$acc loop vector collapse(2)
+      do j=1, 14
+      do i=1, 14
+        tmp1 = vec_out(i,1,k,ke) * Mat_h1D_tr(1,j) &
+             + vec_out(i,2,k,ke) * Mat_h1D_tr(2,j) &
+             + vec_out(i,3,k,ke) * Mat_h1D_tr(3,j) &
+             + vec_out(i,4,k,ke) * Mat_h1D_tr(4,j) &
+             + vec_out(i,5,k,ke) * Mat_h1D_tr(5,j) 
+        tmp2 = vec_out(i,6,k,ke) * Mat_h1D_tr(6,j) &
+             + vec_out(i,7,k,ke) * Mat_h1D_tr(7,j) &
+             + vec_out(i,8,k,ke) * Mat_h1D_tr(8,j) &
+             + vec_out(i,9,k,ke) * Mat_h1D_tr(9,j) &
+             + vec_out(i,10,k,ke) * Mat_h1D_tr(10,j) 
+        tmp3 = vec_out(i,11,k,ke) * Mat_h1D_tr(11,j) &
+             + vec_out(i,12,k,ke) * Mat_h1D_tr(12,j) &
+             + vec_out(i,13,k,ke) * Mat_h1D_tr(13,j) &
+             + vec_out(i,14,k,ke) * Mat_h1D_tr(14,j) 
+        vec_work(i,j,k,ke) = tmp1 + tmp2 + tmp3
+      end do
+      end do
+    end do
+    end do
+    
+    ! Z-dir
+    !$acc parallel loop gang collapse(2) present(Mat_h1D,Mat_h1D_tr,Mat_v1D_tr,vec_in,vec_work,vec_out) async(1)
+    do ke=1, Ne
+    do k=1, 14
+      !$acc loop vector collapse(2)
+      do j=1, 14
+      do i=1, 14
+        tmp1 = vec_work(i,j,1,ke) * Mat_v1D_tr(1,k) &
+             + vec_work(i,j,2,ke) * Mat_v1D_tr(2,k) &
+             + vec_work(i,j,3,ke) * Mat_v1D_tr(3,k) &
+             + vec_work(i,j,4,ke) * Mat_v1D_tr(4,k) &
+             + vec_work(i,j,5,ke) * Mat_v1D_tr(5,k) 
+        tmp2 = vec_work(i,j,6,ke) * Mat_v1D_tr(6,k) &
+             + vec_work(i,j,7,ke) * Mat_v1D_tr(7,k) &
+             + vec_work(i,j,8,ke) * Mat_v1D_tr(8,k) &
+             + vec_work(i,j,9,ke) * Mat_v1D_tr(9,k) &
+             + vec_work(i,j,10,ke) * Mat_v1D_tr(10,k) 
+        tmp3 = vec_work(i,j,11,ke) * Mat_v1D_tr(11,k) &
+             + vec_work(i,j,12,ke) * Mat_v1D_tr(12,k) &
+             + vec_work(i,j,13,ke) * Mat_v1D_tr(13,k) &
+             + vec_work(i,j,14,ke) * Mat_v1D_tr(14,k) 
+        vec_out(i,j,k,ke) = tmp1 + tmp2 + tmp3
+      end do
+      end do
+    end do
+    end do
+    return
+  end subroutine element_operation_kernel_matvec_ModalFilter_P13
 
 !--- For p=14 ------------------------------------
 
@@ -5401,6 +6506,113 @@ contains
     end do
     return
   end subroutine element_operation_kernel_matvec_divlike_var5_P14_v2
+
+
+!> Calculate a matrix-vector multiplication associated with 3D modal filtering with p=14
+!!
+!OCL SERIAL
+  subroutine element_operation_kernel_matvec_ModalFilter_P14( Mat_h1D, Mat_h1D_tr, Mat_v1D_tr, vec_in, vec_work, &
+    Ne,      &
+    vec_out  )
+    implicit none
+    integer, intent(in) :: Ne
+    real(RP), intent(in) :: Mat_h1D(15,15)
+    real(RP), intent(in) :: Mat_h1D_tr(15,15)
+    real(RP), intent(in) :: Mat_v1D_tr(15,15)
+    real(RP), intent(in) :: vec_in(15,15,15,Ne)
+    real(RP), intent(out) :: vec_work(15,15,15,Ne)
+    real(RP), intent(out) :: vec_out(15,15,15,Ne)
+
+    integer :: ke
+    integer :: i, j, k
+    real(RP) :: tmp1, tmp2, tmp3
+    !----------------------------------------------------------
+
+    ! X-dir
+    !$acc parallel loop gang collapse(2) present(Mat_h1D,Mat_h1D_tr,Mat_v1D_tr,vec_in,vec_work,vec_out) async(1)
+    do ke=1, Ne
+    do k=1, 15
+      !$acc loop vector collapse(2)
+      do j=1, 15
+      do i=1, 15
+        tmp1 = Mat_h1D(i,1) * vec_in(1,j,k,ke) &
+             + Mat_h1D(i,2) * vec_in(2,j,k,ke) &
+             + Mat_h1D(i,3) * vec_in(3,j,k,ke) &
+             + Mat_h1D(i,4) * vec_in(4,j,k,ke) &
+             + Mat_h1D(i,5) * vec_in(5,j,k,ke)
+        tmp2 = Mat_h1D(i,6) * vec_in(6,j,k,ke) &
+             + Mat_h1D(i,7) * vec_in(7,j,k,ke) &
+             + Mat_h1D(i,8) * vec_in(8,j,k,ke) &
+             + Mat_h1D(i,9) * vec_in(9,j,k,ke) &
+             + Mat_h1D(i,10) * vec_in(10,j,k,ke)
+        tmp3 = Mat_h1D(i,11) * vec_in(11,j,k,ke) &
+             + Mat_h1D(i,12) * vec_in(12,j,k,ke) &
+             + Mat_h1D(i,13) * vec_in(13,j,k,ke) &
+             + Mat_h1D(i,14) * vec_in(14,j,k,ke) &
+             + Mat_h1D(i,15) * vec_in(15,j,k,ke)
+        vec_out(i,j,k,ke) = tmp1 + tmp2 + tmp3
+      end do
+      end do
+    end do
+    end do
+    
+    ! Y-dir
+    !$acc parallel loop gang collapse(2) present(Mat_h1D,Mat_h1D_tr,Mat_v1D_tr,vec_in,vec_work,vec_out) async(1)
+    do ke=1, Ne
+    do k=1, 15
+      !$acc loop vector collapse(2)
+      do j=1, 15
+      do i=1, 15
+        tmp1 = vec_out(i,1,k,ke) * Mat_h1D_tr(1,j) &
+             + vec_out(i,2,k,ke) * Mat_h1D_tr(2,j) &
+             + vec_out(i,3,k,ke) * Mat_h1D_tr(3,j) &
+             + vec_out(i,4,k,ke) * Mat_h1D_tr(4,j) &
+             + vec_out(i,5,k,ke) * Mat_h1D_tr(5,j) 
+        tmp2 = vec_out(i,6,k,ke) * Mat_h1D_tr(6,j) &
+             + vec_out(i,7,k,ke) * Mat_h1D_tr(7,j) &
+             + vec_out(i,8,k,ke) * Mat_h1D_tr(8,j) &
+             + vec_out(i,9,k,ke) * Mat_h1D_tr(9,j) &
+             + vec_out(i,10,k,ke) * Mat_h1D_tr(10,j) 
+        tmp3 = vec_out(i,11,k,ke) * Mat_h1D_tr(11,j) &
+             + vec_out(i,12,k,ke) * Mat_h1D_tr(12,j) &
+             + vec_out(i,13,k,ke) * Mat_h1D_tr(13,j) &
+             + vec_out(i,14,k,ke) * Mat_h1D_tr(14,j) &
+             + vec_out(i,15,k,ke) * Mat_h1D_tr(15,j) 
+        vec_work(i,j,k,ke) = tmp1 + tmp2 + tmp3
+      end do
+      end do
+    end do
+    end do
+    
+    ! Z-dir
+    !$acc parallel loop gang collapse(2) present(Mat_h1D,Mat_h1D_tr,Mat_v1D_tr,vec_in,vec_work,vec_out) async(1)
+    do ke=1, Ne
+    do k=1, 15
+      !$acc loop vector collapse(2)
+      do j=1, 15
+      do i=1, 15
+        tmp1 = vec_work(i,j,1,ke) * Mat_v1D_tr(1,k) &
+             + vec_work(i,j,2,ke) * Mat_v1D_tr(2,k) &
+             + vec_work(i,j,3,ke) * Mat_v1D_tr(3,k) &
+             + vec_work(i,j,4,ke) * Mat_v1D_tr(4,k) &
+             + vec_work(i,j,5,ke) * Mat_v1D_tr(5,k) 
+        tmp2 = vec_work(i,j,6,ke) * Mat_v1D_tr(6,k) &
+             + vec_work(i,j,7,ke) * Mat_v1D_tr(7,k) &
+             + vec_work(i,j,8,ke) * Mat_v1D_tr(8,k) &
+             + vec_work(i,j,9,ke) * Mat_v1D_tr(9,k) &
+             + vec_work(i,j,10,ke) * Mat_v1D_tr(10,k) 
+        tmp3 = vec_work(i,j,11,ke) * Mat_v1D_tr(11,k) &
+             + vec_work(i,j,12,ke) * Mat_v1D_tr(12,k) &
+             + vec_work(i,j,13,ke) * Mat_v1D_tr(13,k) &
+             + vec_work(i,j,14,ke) * Mat_v1D_tr(14,k) &
+             + vec_work(i,j,15,ke) * Mat_v1D_tr(15,k) 
+        vec_out(i,j,k,ke) = tmp1 + tmp2 + tmp3
+      end do
+      end do
+    end do
+    end do
+    return
+  end subroutine element_operation_kernel_matvec_ModalFilter_P14
 
 !--- For p=15 ------------------------------------
 
@@ -5846,6 +7058,116 @@ contains
     end do
     return
   end subroutine element_operation_kernel_matvec_divlike_var5_P15_v2
+
+
+!> Calculate a matrix-vector multiplication associated with 3D modal filtering with p=15
+!!
+!OCL SERIAL
+  subroutine element_operation_kernel_matvec_ModalFilter_P15( Mat_h1D, Mat_h1D_tr, Mat_v1D_tr, vec_in, vec_work, &
+    Ne,      &
+    vec_out  )
+    implicit none
+    integer, intent(in) :: Ne
+    real(RP), intent(in) :: Mat_h1D(16,16)
+    real(RP), intent(in) :: Mat_h1D_tr(16,16)
+    real(RP), intent(in) :: Mat_v1D_tr(16,16)
+    real(RP), intent(in) :: vec_in(16,16,16,Ne)
+    real(RP), intent(out) :: vec_work(16,16,16,Ne)
+    real(RP), intent(out) :: vec_out(16,16,16,Ne)
+
+    integer :: ke
+    integer :: i, j, k
+    real(RP) :: tmp1, tmp2, tmp3
+    !----------------------------------------------------------
+
+    ! X-dir
+    !$acc parallel loop gang collapse(2) present(Mat_h1D,Mat_h1D_tr,Mat_v1D_tr,vec_in,vec_work,vec_out) async(1)
+    do ke=1, Ne
+    do k=1, 16
+      !$acc loop vector collapse(2)
+      do j=1, 16
+      do i=1, 16
+        tmp1 = Mat_h1D(i,1) * vec_in(1,j,k,ke) &
+             + Mat_h1D(i,2) * vec_in(2,j,k,ke) &
+             + Mat_h1D(i,3) * vec_in(3,j,k,ke) &
+             + Mat_h1D(i,4) * vec_in(4,j,k,ke) &
+             + Mat_h1D(i,5) * vec_in(5,j,k,ke)
+        tmp2 = Mat_h1D(i,6) * vec_in(6,j,k,ke) &
+             + Mat_h1D(i,7) * vec_in(7,j,k,ke) &
+             + Mat_h1D(i,8) * vec_in(8,j,k,ke) &
+             + Mat_h1D(i,9) * vec_in(9,j,k,ke) &
+             + Mat_h1D(i,10) * vec_in(10,j,k,ke)
+        tmp3 = Mat_h1D(i,11) * vec_in(11,j,k,ke) &
+             + Mat_h1D(i,12) * vec_in(12,j,k,ke) &
+             + Mat_h1D(i,13) * vec_in(13,j,k,ke) &
+             + Mat_h1D(i,14) * vec_in(14,j,k,ke) &
+             + Mat_h1D(i,15) * vec_in(15,j,k,ke) &
+             + Mat_h1D(i,16) * vec_in(16,j,k,ke)
+        vec_out(i,j,k,ke) = tmp1 + tmp2 + tmp3
+      end do
+      end do
+    end do
+    end do
+    
+    ! Y-dir
+    !$acc parallel loop gang collapse(2) present(Mat_h1D,Mat_h1D_tr,Mat_v1D_tr,vec_in,vec_work,vec_out) async(1)
+    do ke=1, Ne
+    do k=1, 16
+      !$acc loop vector collapse(2)
+      do j=1, 16
+      do i=1, 16
+        tmp1 = vec_out(i,1,k,ke) * Mat_h1D_tr(1,j) &
+             + vec_out(i,2,k,ke) * Mat_h1D_tr(2,j) &
+             + vec_out(i,3,k,ke) * Mat_h1D_tr(3,j) &
+             + vec_out(i,4,k,ke) * Mat_h1D_tr(4,j) &
+             + vec_out(i,5,k,ke) * Mat_h1D_tr(5,j) 
+        tmp2 = vec_out(i,6,k,ke) * Mat_h1D_tr(6,j) &
+             + vec_out(i,7,k,ke) * Mat_h1D_tr(7,j) &
+             + vec_out(i,8,k,ke) * Mat_h1D_tr(8,j) &
+             + vec_out(i,9,k,ke) * Mat_h1D_tr(9,j) &
+             + vec_out(i,10,k,ke) * Mat_h1D_tr(10,j) 
+        tmp3 = vec_out(i,11,k,ke) * Mat_h1D_tr(11,j) &
+             + vec_out(i,12,k,ke) * Mat_h1D_tr(12,j) &
+             + vec_out(i,13,k,ke) * Mat_h1D_tr(13,j) &
+             + vec_out(i,14,k,ke) * Mat_h1D_tr(14,j) &
+             + vec_out(i,15,k,ke) * Mat_h1D_tr(15,j) &
+             + vec_out(i,16,k,ke) * Mat_h1D_tr(16,j) 
+        vec_work(i,j,k,ke) = tmp1 + tmp2 + tmp3
+      end do
+      end do
+    end do
+    end do
+    
+    ! Z-dir
+    !$acc parallel loop gang collapse(2) present(Mat_h1D,Mat_h1D_tr,Mat_v1D_tr,vec_in,vec_work,vec_out) async(1)
+    do ke=1, Ne
+    do k=1, 16
+      !$acc loop vector collapse(2)
+      do j=1, 16
+      do i=1, 16
+        tmp1 = vec_work(i,j,1,ke) * Mat_v1D_tr(1,k) &
+             + vec_work(i,j,2,ke) * Mat_v1D_tr(2,k) &
+             + vec_work(i,j,3,ke) * Mat_v1D_tr(3,k) &
+             + vec_work(i,j,4,ke) * Mat_v1D_tr(4,k) &
+             + vec_work(i,j,5,ke) * Mat_v1D_tr(5,k) 
+        tmp2 = vec_work(i,j,6,ke) * Mat_v1D_tr(6,k) &
+             + vec_work(i,j,7,ke) * Mat_v1D_tr(7,k) &
+             + vec_work(i,j,8,ke) * Mat_v1D_tr(8,k) &
+             + vec_work(i,j,9,ke) * Mat_v1D_tr(9,k) &
+             + vec_work(i,j,10,ke) * Mat_v1D_tr(10,k) 
+        tmp3 = vec_work(i,j,11,ke) * Mat_v1D_tr(11,k) &
+             + vec_work(i,j,12,ke) * Mat_v1D_tr(12,k) &
+             + vec_work(i,j,13,ke) * Mat_v1D_tr(13,k) &
+             + vec_work(i,j,14,ke) * Mat_v1D_tr(14,k) &
+             + vec_work(i,j,15,ke) * Mat_v1D_tr(15,k) &
+             + vec_work(i,j,16,ke) * Mat_v1D_tr(16,k) 
+        vec_out(i,j,k,ke) = tmp1 + tmp2 + tmp3
+      end do
+      end do
+    end do
+    end do
+    return
+  end subroutine element_operation_kernel_matvec_ModalFilter_P15
 
 
 end module scale_element_operation_tensorprod3D_kernel_gpu

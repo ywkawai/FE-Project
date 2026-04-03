@@ -66,6 +66,7 @@ module scale_element_operation_gpu_driver
   public :: ElementOperationGPU_DivVar5_z_lift
   public :: ElementOperationGPU_DivVar5  
   public :: ElementOperationGPU_VFilterPM1
+  public :: ElementOperationGPU_ModalFilter_var5
 
 contains
   !> Initialize an object of ElementOperationGPUDriver 
@@ -517,95 +518,93 @@ contains
     real(RP), intent(out) :: div3D(this%Nnode_h1D,this%Nnode_h1D,5,this%Nnode_v,Ne)
     !----------------------------------------------------------
 
-    !!$acc routine gang
-
     select case (this%Nnode_h1D)
     case (2)
-        call element_operation_kernel_matvec_divlike_var5_P1_v2( &
+        call element_operation_kernel_matvec_divlike_var5_P1( &
           this%elem_optr_tensorprod3D_P1%D1D, this%elem_optr_tensorprod3D_P1%D1D_tr, this%elem_optr_tensorprod3D_P1%Lift_mat, &
           Flux_x, Flux_y,  Flux_z, ebnd_flux, &
           E11, E22, E33, Gsqrt, Ne, &
           div3D )
     case (3)
-        call element_operation_kernel_matvec_divlike_var5_P2_v2( &
+        call element_operation_kernel_matvec_divlike_var5_P2( &
           this%elem_optr_tensorprod3D_P2%D1D, this%elem_optr_tensorprod3D_P2%D1D_tr, this%elem_optr_tensorprod3D_P2%Lift_mat, &
           Flux_x, Flux_y,  Flux_z, ebnd_flux, &
           E11, E22, E33, Gsqrt, Ne, &
           div3D )
     case (4)
-        call element_operation_kernel_matvec_divlike_var5_P3_v2( &
+        call element_operation_kernel_matvec_divlike_var5_P3( &
           this%elem_optr_tensorprod3D_P3%D1D, this%elem_optr_tensorprod3D_P3%D1D_tr, this%elem_optr_tensorprod3D_P3%Lift_mat, &
           Flux_x, Flux_y,  Flux_z, ebnd_flux, &
           E11, E22, E33, Gsqrt, Ne, &
           div3D )
     case (5)
-        call element_operation_kernel_matvec_divlike_var5_P4_v2( &
+        call element_operation_kernel_matvec_divlike_var5_P4( &
           this%elem_optr_tensorprod3D_P4%D1D, this%elem_optr_tensorprod3D_P4%D1D_tr, this%elem_optr_tensorprod3D_P4%Lift_mat, &
           Flux_x, Flux_y,  Flux_z, ebnd_flux, &
           E11, E22, E33, Gsqrt, Ne, &
           div3D )
     case (6)
-        call element_operation_kernel_matvec_divlike_var5_P5_v2( &
+        call element_operation_kernel_matvec_divlike_var5_P5( &
           this%elem_optr_tensorprod3D_P5%D1D, this%elem_optr_tensorprod3D_P5%D1D_tr, this%elem_optr_tensorprod3D_P5%Lift_mat, &
           Flux_x, Flux_y,  Flux_z, ebnd_flux, &
           E11, E22, E33, Gsqrt, Ne, &
           div3D )
     case (7)
-        call element_operation_kernel_matvec_divlike_var5_P6_v2( &
+        call element_operation_kernel_matvec_divlike_var5_P6( &
           this%elem_optr_tensorprod3D_P6%D1D, this%elem_optr_tensorprod3D_P6%D1D_tr, this%elem_optr_tensorprod3D_P6%Lift_mat, &
           Flux_x, Flux_y,  Flux_z, ebnd_flux, &
           E11, E22, E33, Gsqrt, Ne, &
           div3D )
     case (8)
-        call element_operation_kernel_matvec_divlike_var5_P7_v2( &
+        call element_operation_kernel_matvec_divlike_var5_P7( &
           this%elem_optr_tensorprod3D_P7%D1D, this%elem_optr_tensorprod3D_P7%D1D_tr, this%elem_optr_tensorprod3D_P7%Lift_mat, &
           Flux_x, Flux_y,  Flux_z, ebnd_flux, &
           E11, E22, E33, Gsqrt, Ne, &
           div3D )
     case (9)
-        call element_operation_kernel_matvec_divlike_var5_P8_v2( &
+        call element_operation_kernel_matvec_divlike_var5_P8( &
           this%elem_optr_tensorprod3D_P8%D1D, this%elem_optr_tensorprod3D_P8%D1D_tr, this%elem_optr_tensorprod3D_P8%Lift_mat, &
           Flux_x, Flux_y,  Flux_z, ebnd_flux, &
           E11, E22, E33, Gsqrt, Ne, &
           div3D )
     case (10)
-        call element_operation_kernel_matvec_divlike_var5_P9_v2( &
+        call element_operation_kernel_matvec_divlike_var5_P9( &
           this%elem_optr_tensorprod3D_P9%D1D, this%elem_optr_tensorprod3D_P9%D1D_tr, this%elem_optr_tensorprod3D_P9%Lift_mat, &
           Flux_x, Flux_y,  Flux_z, ebnd_flux, &
           E11, E22, E33, Gsqrt, Ne, &
           div3D )
     case (11)
-        call element_operation_kernel_matvec_divlike_var5_P10_v2( &
+        call element_operation_kernel_matvec_divlike_var5_P10( &
           this%elem_optr_tensorprod3D_P10%D1D, this%elem_optr_tensorprod3D_P10%D1D_tr, this%elem_optr_tensorprod3D_P10%Lift_mat, &
           Flux_x, Flux_y,  Flux_z, ebnd_flux, &
           E11, E22, E33, Gsqrt, Ne, &
           div3D )
     case (12)
-        call element_operation_kernel_matvec_divlike_var5_P11_v2( &
+        call element_operation_kernel_matvec_divlike_var5_P11( &
           this%elem_optr_tensorprod3D_P11%D1D, this%elem_optr_tensorprod3D_P11%D1D_tr, this%elem_optr_tensorprod3D_P11%Lift_mat, &
           Flux_x, Flux_y,  Flux_z, ebnd_flux, &
           E11, E22, E33, Gsqrt, Ne, &
           div3D )
     case (13)
-        call element_operation_kernel_matvec_divlike_var5_P12_v2( &
+        call element_operation_kernel_matvec_divlike_var5_P12( &
           this%elem_optr_tensorprod3D_P12%D1D, this%elem_optr_tensorprod3D_P12%D1D_tr, this%elem_optr_tensorprod3D_P12%Lift_mat, &
           Flux_x, Flux_y,  Flux_z, ebnd_flux, &
           E11, E22, E33, Gsqrt, Ne, &
           div3D )
     case (14)
-        call element_operation_kernel_matvec_divlike_var5_P13_v2( &
+        call element_operation_kernel_matvec_divlike_var5_P13( &
           this%elem_optr_tensorprod3D_P13%D1D, this%elem_optr_tensorprod3D_P13%D1D_tr, this%elem_optr_tensorprod3D_P13%Lift_mat, &
           Flux_x, Flux_y,  Flux_z, ebnd_flux, &
           E11, E22, E33, Gsqrt, Ne, &
           div3D )
     case (15)
-        call element_operation_kernel_matvec_divlike_var5_P14_v2( &
+        call element_operation_kernel_matvec_divlike_var5_P14( &
           this%elem_optr_tensorprod3D_P14%D1D, this%elem_optr_tensorprod3D_P14%D1D_tr, this%elem_optr_tensorprod3D_P14%Lift_mat, &
           Flux_x, Flux_y,  Flux_z, ebnd_flux, &
           E11, E22, E33, Gsqrt, Ne, &
           div3D )
     case (16)
-        call element_operation_kernel_matvec_divlike_var5_P15_v2( &
+        call element_operation_kernel_matvec_divlike_var5_P15( &
           this%elem_optr_tensorprod3D_P15%D1D, this%elem_optr_tensorprod3D_P15%D1D_tr, this%elem_optr_tensorprod3D_P15%Lift_mat, &
           Flux_x, Flux_y,  Flux_z, ebnd_flux, &
           E11, E22, E33, Gsqrt, Ne, &
@@ -613,5 +612,102 @@ contains
     end select
     return
   end subroutine ElementOperationGPU_DivVar5
+
+
+!> Apply a modal filter for five variables
+!!
+  subroutine ElementOperationGPU_ModalFilter_var5( this, vec_in, vec_work, Ne, &
+    vec_out )
+    use scale_element_operation_tensorprod3D_kernel_gpu, only: &
+      element_operation_kernel_matvec_ModalFilter_P15
+
+    implicit none
+    type(ElementOperationGPUDriver), intent(in) :: this
+    integer, intent(in) :: Ne
+    real(RP), intent(in) :: vec_in(this%Nnode_h1D**2*this%Nnode_v,Ne,5)
+    real(RP), intent(out) :: vec_work(this%Nnode_h1D**2*this%Nnode_v,Ne)
+    real(RP), intent(out) :: vec_out(this%Nnode_h1D**2*this%Nnode_v,Ne,5)
+    integer :: iv
+    !---------------------------------------------
+
+    select case (this%Nnode_h1D)
+    case (2)
+      do iv=1, 5
+        call element_operation_kernel_matvec_ModalFilter_P1( this%elem_optr_tensorprod3D_P1%MFilter_h1D, this%elem_optr_tensorprod3D_P1%MFilter_h1D_tr, this%elem_optr_tensorprod3D_P1%MFilter_v1D_tr, vec_in(:,:,iv), vec_work, Ne, &
+          vec_out(:,:,iv) )
+      end do
+    case (3)
+      do iv=1, 5
+        call element_operation_kernel_matvec_ModalFilter_P2( this%elem_optr_tensorprod3D_P2%MFilter_h1D, this%elem_optr_tensorprod3D_P2%MFilter_h1D_tr, this%elem_optr_tensorprod3D_P2%MFilter_v1D_tr, vec_in(:,:,iv), vec_work, Ne, &
+          vec_out(:,:,iv) )
+      end do
+    case (4)
+      do iv=1, 5
+        call element_operation_kernel_matvec_ModalFilter_P3( this%elem_optr_tensorprod3D_P3%MFilter_h1D, this%elem_optr_tensorprod3D_P3%MFilter_h1D_tr, this%elem_optr_tensorprod3D_P3%MFilter_v1D_tr, vec_in(:,:,iv), vec_work, Ne, &
+          vec_out(:,:,iv) )
+      end do
+    case (5)
+      do iv=1, 5
+        call element_operation_kernel_matvec_ModalFilter_P4( this%elem_optr_tensorprod3D_P4%MFilter_h1D, this%elem_optr_tensorprod3D_P4%MFilter_h1D_tr, this%elem_optr_tensorprod3D_P4%MFilter_v1D_tr, vec_in(:,:,iv), vec_work, Ne, &
+          vec_out(:,:,iv) )
+      end do
+    case (6)
+      do iv=1, 5
+        call element_operation_kernel_matvec_ModalFilter_P5( this%elem_optr_tensorprod3D_P5%MFilter_h1D, this%elem_optr_tensorprod3D_P5%MFilter_h1D_tr, this%elem_optr_tensorprod3D_P5%MFilter_v1D_tr, vec_in(:,:,iv), vec_work, Ne, &
+          vec_out(:,:,iv) )
+      end do
+    case (7)
+      do iv=1, 5
+        call element_operation_kernel_matvec_ModalFilter_P6( this%elem_optr_tensorprod3D_P6%MFilter_h1D, this%elem_optr_tensorprod3D_P6%MFilter_h1D_tr, this%elem_optr_tensorprod3D_P6%MFilter_v1D_tr, vec_in(:,:,iv), vec_work, Ne, &
+          vec_out(:,:,iv) )
+      end do
+    case (8)
+      do iv=1, 5
+        call element_operation_kernel_matvec_ModalFilter_P7( this%elem_optr_tensorprod3D_P7%MFilter_h1D, this%elem_optr_tensorprod3D_P7%MFilter_h1D_tr, this%elem_optr_tensorprod3D_P7%MFilter_v1D_tr, vec_in(:,:,iv), vec_work, Ne, &
+          vec_out(:,:,iv) )
+      end do
+    case (9)
+      do iv=1, 5
+        call element_operation_kernel_matvec_ModalFilter_P8( this%elem_optr_tensorprod3D_P8%MFilter_h1D, this%elem_optr_tensorprod3D_P8%MFilter_h1D_tr, this%elem_optr_tensorprod3D_P8%MFilter_v1D_tr, vec_in(:,:,iv), vec_work, Ne, &
+          vec_out(:,:,iv) )
+      end do
+    case (10)
+      do iv=1, 5
+        call element_operation_kernel_matvec_ModalFilter_P9( this%elem_optr_tensorprod3D_P9%MFilter_h1D, this%elem_optr_tensorprod3D_P9%MFilter_h1D_tr, this%elem_optr_tensorprod3D_P9%MFilter_v1D_tr, vec_in(:,:,iv), vec_work, Ne, &
+          vec_out(:,:,iv) )
+      end do
+    case (11)
+      do iv=1, 5
+        call element_operation_kernel_matvec_ModalFilter_P10( this%elem_optr_tensorprod3D_P10%MFilter_h1D, this%elem_optr_tensorprod3D_P10%MFilter_h1D_tr, this%elem_optr_tensorprod3D_P10%MFilter_v1D_tr, vec_in(:,:,iv), vec_work, Ne, &
+          vec_out(:,:,iv) )
+      end do
+    case (12)
+      do iv=1, 5
+        call element_operation_kernel_matvec_ModalFilter_P11( this%elem_optr_tensorprod3D_P11%MFilter_h1D, this%elem_optr_tensorprod3D_P11%MFilter_h1D_tr, this%elem_optr_tensorprod3D_P11%MFilter_v1D_tr, vec_in(:,:,iv), vec_work, Ne, &
+          vec_out(:,:,iv) )
+      end do
+    case (13)
+      do iv=1, 5
+        call element_operation_kernel_matvec_ModalFilter_P12( this%elem_optr_tensorprod3D_P12%MFilter_h1D, this%elem_optr_tensorprod3D_P12%MFilter_h1D_tr, this%elem_optr_tensorprod3D_P12%MFilter_v1D_tr, vec_in(:,:,iv), vec_work, Ne, &
+          vec_out(:,:,iv) )
+      end do
+    case (14)
+      do iv=1, 5
+        call element_operation_kernel_matvec_ModalFilter_P13( this%elem_optr_tensorprod3D_P13%MFilter_h1D, this%elem_optr_tensorprod3D_P13%MFilter_h1D_tr, this%elem_optr_tensorprod3D_P13%MFilter_v1D_tr, vec_in(:,:,iv), vec_work, Ne, &
+          vec_out(:,:,iv) )
+      end do
+    case (15)
+      do iv=1, 5
+        call element_operation_kernel_matvec_ModalFilter_P14( this%elem_optr_tensorprod3D_P14%MFilter_h1D, this%elem_optr_tensorprod3D_P14%MFilter_h1D_tr, this%elem_optr_tensorprod3D_P14%MFilter_v1D_tr, vec_in(:,:,iv), vec_work, Ne, &
+          vec_out(:,:,iv) )
+      end do
+    case (16)
+      do iv=1, 5
+        call element_operation_kernel_matvec_ModalFilter_P15( this%elem_optr_tensorprod3D_P15%MFilter_h1D, this%elem_optr_tensorprod3D_P15%MFilter_h1D_tr, this%elem_optr_tensorprod3D_P15%MFilter_v1D_tr, vec_in(:,:,iv), vec_work, Ne, &
+          vec_out(:,:,iv) )
+      end do
+    end select
+    return
+  end subroutine ElementOperationGPU_ModalFilter_var5
 
 end module scale_element_operation_gpu_driver
