@@ -26,6 +26,7 @@ module scale_file_history_meshfield
     FILE_HISTORY_write,       &
     FILE_HISTORY_Set_Dim,     &
     FILE_HISTORY_Set_Axis,    &
+    FILE_HISTORY_query,       &
     FILE_HISTORY_finalize
 
   use scale_element_base, only: ElementBase1D, ElementBase2D, ElementBase3D
@@ -237,9 +238,22 @@ contains
     integer, intent(in) :: hstid
     class(MeshField1D), intent(in) :: field1d
 
+    logical :: do_put
+    integer :: ldomID
     real(RP), allocatable :: buf(:)
     !-------------------------------------------------
-      
+    
+    call FILE_HISTORY_query( hstid, do_put )
+    if ( .not. do_put ) return
+
+    !-
+#ifdef _OPENACC
+    do ldomID=1, mesh1D%LOCAL_MESH_NUM
+      !$acc update host( field1d%local(ldomID)%val ) async(1)
+    end do
+    !$acc wait(1)
+#endif    
+    !-
     allocate( buf(dims1D_size(1)) )
 
     call File_common_meshfield_put_field1D_cartesbuf( mesh1D, field1d, buf )
@@ -279,9 +293,21 @@ contains
     integer, intent(in) :: hstid
     class(MeshField2D), intent(in) :: field2d
 
+    logical :: do_put
+    integer :: ldomID
     real(RP), allocatable :: buf(:,:)
     !-------------------------------------------------
 
+    call FILE_HISTORY_query( hstid, do_put )
+    if ( .not. do_put ) return
+
+    !-
+#ifdef _OPENACC
+    do ldomID=1, mesh2D%LOCAL_MESH_NUM
+      !$acc update host( field2d%local(ldomID)%val ) async(1)
+    end do
+    !$acc wait(1)
+#endif    
     allocate( buf(dims2D_size(1),dims2D_size(2)) )
     
     if ( associated(mesh2D) ) then
@@ -326,11 +352,24 @@ contains
     integer, intent(in) :: hstid
     class(MeshField3D), intent(in) :: field3d
 
+    logical :: do_put
+    integer :: ldomID
     real(RP), allocatable :: buf(:,:,:)
-
     !-------------------------------------------------
 
+    call FILE_HISTORY_query( hstid, do_put )
+    if ( .not. do_put ) return
+
+    !-
+#ifdef _OPENACC
+    do ldomID=1, mesh3D%LOCAL_MESH_NUM
+      !$acc update host( field3d%local(ldomID)%val ) async(1)
+    end do
+    !$acc wait(1)
+#endif
+
     allocate( buf(dims3D_size(1,1),dims3D_size(2,1),dims3D_size(3,1)) )
+
     if ( associated(mesh3D) ) then
       call File_common_meshfield_put_field3D_cartesbuf( mesh3D, field3d, buf )
     else if ( associated(meshCubedSphere3D) ) then
@@ -368,8 +407,7 @@ contains
     field, desc, ndim, standard_name, dim_type  )
 
     use scale_file_history, only: &
-      FILE_HISTORY_reg,           &
-      FILE_HISTORY_query
+      FILE_HISTORY_reg
     
     implicit none
 
