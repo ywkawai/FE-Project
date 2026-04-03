@@ -142,7 +142,7 @@ contains
     real(RP), intent(in) :: PotTemp0
     real(RP), intent(in) :: PRES_sfc
 
-    integer :: ke
+    integer :: ke, p
 
     real(RP) :: exner(elem%Np)
     real(RP) :: exner_sfc
@@ -155,11 +155,15 @@ contains
     exner_sfc = (PRES_sfc / PRES00)**RovCP
 
     !$omp parallel do private(exner)
+    !$acc parallel loop gang private(exner) present(DENS_hyd, PRES_hyd, x, y, z, lcmesh3D, elem)
     do ke=lcmesh3D%NeS, lcmesh3D%NeE
-      ! Cp * PT0 * d exner / dz = - g
-      exner(:) = exner_sfc - Grav / (CpDry * PotTemp0) * z(:,ke)
-      PRES_hyd(:,ke) = PRES00 * exner(:)**CPovR
-      DENS_hyd(:,ke) =  PRES_hyd(:,ke) / ( Rdry * exner(:) * PotTemp0 )
+      !$acc loop vector
+      do p=1, elem%Np
+        ! Cp * PT0 * d exner / dz = - g
+        exner(p) = exner_sfc - Grav / (CpDry * PotTemp0) * z(p,ke)
+        PRES_hyd(p,ke) = PRES00 * exner(p)**CPovR
+        DENS_hyd(p,ke) =  PRES_hyd(p,ke) / ( Rdry * exner(p) * PotTemp0 )
+      end do
     end do
 
     return

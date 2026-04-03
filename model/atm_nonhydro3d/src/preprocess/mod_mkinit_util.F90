@@ -171,8 +171,10 @@ contains
     !$omp parallel private( &
     !$omp q_intrp, vx, vy, vz,               &
     !$omp x_intrp, y_intrp, z_intrp, r_intrp )
+    !$acc data create( x_intrp, y_intrp, z_intrp, z_func) copyin(IntrpMat)
 
     !$omp do
+    !$acc parallel loop private(vx, vy, vz) present(lcmesh3D, elem_intrp, x_intrp, y_intrp, z_intrp, z_func)
     do ke=lcmesh3D%NeS, lcmesh3D%NeE
 
       vx(:) = lcmesh3D%pos_ev(lcmesh3D%EToV(ke,:),1)
@@ -191,6 +193,7 @@ contains
       select case(z_func_type)
       case ('sin')
         !$omp do
+        !$acc parallel loop present(z_func, z_intrp) copyin(z_func_params)
         do ke=lcmesh3D%NeS, lcmesh3D%NeE
           z_func(:,ke) = sin( z_func_params(1) * PI * z_intrp(:,ke) / z_func_params(2) )
         end do
@@ -199,6 +202,7 @@ contains
     end if
 
     !$omp do
+    !$acc parallel loop private( r_intrp, q_intrp ) present(x_intrp, y_intrp, z_intrp, z_func, q)
     do ke=lcmesh3D%NeS, lcmesh3D%NeE
       r_intrp(:) = sqrt( &
           ( (x_intrp(:,ke) - xc) / rx )**2 &
@@ -213,6 +217,8 @@ contains
       q(:,ke) = matmul(IntrpMat, q_intrp(:) * z_func(:,ke))
     end do
     !$omp end do
+
+    !$acc end data
     !$omp end parallel
 
     call elem_intrp%Final()
