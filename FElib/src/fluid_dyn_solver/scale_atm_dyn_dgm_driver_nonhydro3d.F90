@@ -903,8 +903,6 @@ contains
           call PROF_rapend( 'ATM_DYN_tavg_mflx', 2)
         end if
 
-        !!$acc update device( this%tint(n)%tend_buf2D_ex(:,:,:,tintbuf_ind) )
-        
         call PROF_rapstart( 'ATM_DYN_update_advance', 2)      
         call this%tint(n)%Advance_varlist( rkstage, rkvar_list(:,n), rkvar_IDs, 1, lcmesh3D%refElem%Np, lcmesh3D%NeS, lcmesh3D%NeE )  
         call PROF_rapend( 'ATM_DYN_update_advance', 2)        
@@ -946,11 +944,7 @@ contains
       PRES_hyd, DENS_hyd, THERM_hyd,                  & ! (in)
       Rtot, CVtot, CPtot,                             & ! (in)
       mesh3D, this%ENTOT_CONSERVE_SCHEME_FLAG )         ! (in)
-    call PROF_rapend( 'ATM_DYN_update_post', 2)      
-
-    do n=1, mesh3D%LOCAL_MESH_NUM
-      !$acc update host( DDENS%local(n)%val, MOMX%local(n)%val, MOMY%local(n)%val, MOMZ%local(n)%val, THERM%local(n)%val, PRES%local(n)%val, DPRES%local(n)%val )
-    end do
+    call PROF_rapend( 'ATM_DYN_update_post', 2)
 
     return
   end subroutine AtmDynDGMDriver_nonhydro3d_update
@@ -1070,6 +1064,8 @@ contains
 
     do n=1, mesh3D%LOCAL_MESH_NUM
       lcmesh3D => mesh3D%lcmesh_list(n)
+      !$acc update host( PRES_hyd%local(n)%val, PRES_hyd_ref%local(n)%val )
+      
       call atm_dyn_dgm_nonhydro3d_common_calc_phyd_hgrad_lc( &
         this%AUX_DYNVARS3D(AUXDYNVARS3D_DPhydDx_ID)%local(n)%val, & ! (out)
         this%AUX_DYNVARS3D(AUXDYNVARS3D_DPhydDy_ID)%local(n)%val, & ! (out)

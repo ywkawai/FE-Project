@@ -767,6 +767,8 @@ contains
 
     type(MeshField3D) :: vel_fields(3)
     type(MeshField3D) :: work
+
+    integer :: ldomID
     !--------------------------------------------------------------------------
 
     if ( present(force) ) then
@@ -789,8 +791,6 @@ contains
           write(varname,'(a,i3.3,a)') this%PROG_VARS(iv)%varname//'(domID=', n, ')' 
 
           ! Note : *acc update host* is called in VALCHECK of SCALE library. 
-          ! Thus, it is safe to call *acc update device* here to update the device data before calling VALCHECK.
-          !$acc update device(lcfield%val)
           call VALCHECK( elem%Np, 1, elem%Np, lcmesh%NeA, lcmesh%NeS, lcmesh%NeE, lcfield%val, &
             PROGVARS_check_min(iv), PROGVARS_check_max(iv), trim(varname), __FILE__, __LINE__  )
         end do
@@ -801,6 +801,11 @@ contains
         iv_diag = ATMOS_DIAGVARS_U_ID + iv - 1
         call vel_fields(iv)%Init( ATMOS_DIAGVARS3D_VINFO(iv_diag)%NAME, "",  mesh3D )
         call AtmosVars_CalcDiagvar( this, vel_fields(iv)%varname, vel_fields(iv) )
+#ifdef _OPENACC        
+        do ldomID=1, mesh3D%LOCAL_MESH_NUM
+          !$acc update host(vel_fields(iv)%local(ldomID)%val)
+        end do
+#endif        
       end do
       call MeshField_statistics_detail( vel_fields )
       do iv=1, 3
@@ -1344,9 +1349,10 @@ contains
           this%AUX_VARS(AUXVAR_CPtot_ID)%local(n)%val,             & 
           lcmesh3D, lcmesh3D%refElem3D )
 
-        !$acc update device(this%AUX_VARS(varid)%local(n)%val)
+        !!$acc update device(this%AUX_VARS(varid)%local(n)%val)
       end do
     end do
+    !$acc wait(1)
 
     return
   end subroutine AtmosVars_CalculateDiagnostics
@@ -1426,7 +1432,7 @@ contains
         call field_work_UVmet(2)%Final()
       end if
     end do
-
+    !$acc wait(1)
     return
   end subroutine AtmosVars_CalcDiagvar
 
@@ -1451,7 +1457,7 @@ contains
         this%ptr_MP_AUXVARS2D_manager,                                       &
         field_work%mesh, lcmesh2D, lcmesh2D%refElem2D                        )
     end do
-
+    !$acc wait(1)
     return
   end subroutine AtmosVars_CalcDiagvar2D
 
@@ -1495,154 +1501,224 @@ contains
     real(RP), intent(in) :: CPtot(elem%Np,lcmesh%NeA)
 
     integer :: ke, ke2D
+    integer :: p
     integer :: iq
-    real(RP) :: DENS(elem%Np), TEMP(elem%Np)
-    real(RP) :: mom_u1(elem%Np), mom_u2(elem%Np), G_11(elem%Np), G_12(elem%Np), G_22(elem%Np)
-    real(RP) :: PSAT(elem%Np)
+    real(RP) :: DENS
+    real(RP) :: mom_u1, mom_u2, G_11, G_12, G_22
+    real(RP) :: TEMP(elem%Np), PSAT(elem%Np)
 
     integer :: iq_QV
+    integer :: IndexH2Dto3D(elem%Np)
+
+    integer :: Ne, Np
     !-------------------------------------------------------------------------
+
+    Ne = lcmesh%Ne; Np = elem%Np
 
     select case(trim(field_name))
     case('DENS')
       !$omp parallel do
-      do ke=1, lcmesh%Ne
-        var_out(:,ke) = DDENS_(:,ke) + DENS_hyd(:,ke)
+      !$acc parallel loop collapse(2) present(DDENS_, DENS_hyd, var_out) async(1)
+      do ke=1, Ne
+      do p=1, Np
+        var_out(p,ke) = DDENS_(p,ke) + DENS_hyd(p,ke)
+      end do
       end do
     
     case('U')
       !$omp parallel do private (DENS)
-      do ke=1, lcmesh%Ne
-        DENS(:) = DDENS_(:,ke) + DENS_hyd(:,ke)
-        var_out(:,ke) = MOMX_(:,ke) / DENS(:)
+      !$acc parallel loop collapse(2) present(DDENS_, DENS_hyd, MOMX_, var_out) async(1)
+      do ke=1, Ne
+      do p=1, Np
+        DENS = DDENS_(p,ke) + DENS_hyd(p,ke)
+        var_out(p,ke) = MOMX_(p,ke) / DENS
+      end do
       end do
     
     case('V')
       !$omp parallel do private (DENS)
-      do ke=1, lcmesh%Ne
-        DENS(:) = DDENS_(:,ke) + DENS_hyd(:,ke)
-        var_out(:,ke) = MOMY_(:,ke) / DENS(:)
+      !$acc parallel loop collapse(2) present(DDENS_, DENS_hyd, MOMY_, var_out) async(1)
+      do ke=1, Ne
+      do p=1, Np
+        DENS = DDENS_(p,ke) + DENS_hyd(p,ke)
+        var_out(p,ke) = MOMY_(p,ke) / DENS
+      end do
       end do  
           
     case('W')
       !$omp parallel do private (DENS)
-      do ke=1, lcmesh%Ne
-        DENS(:) = DDENS_(:,ke) + DENS_hyd(:,ke)
-        var_out(:,ke) = MOMZ_(:,ke) / DENS(:)
+      !$acc parallel loop collapse(2) present(DDENS_, DENS_hyd, MOMZ_, var_out) async(1)
+      do ke=1, Ne
+      do p=1, Np
+        DENS = DDENS_(p,ke) + DENS_hyd(p,ke)
+        var_out(p,ke) = MOMZ_(p,ke) / DENS
+      end do
       end do
     
     case ( 'PRES' )
     case('PRES_diff')  
       !$omp parallel do
-      do ke=1, lcmesh%Ne
-        var_out(:,ke) = PRES_(:,ke) - PRES_hyd(:,ke)
+      !$acc parallel loop collapse(2) present(PRES_, PRES_hyd, var_out) async(1)
+      do ke=1, Ne
+      do p=1, Np
+        var_out(p,ke) = PRES_(p,ke) - PRES_hyd(p,ke)
+      end do
       end do
     
     case('T')
       !$omp parallel do
-      do ke=1, lcmesh%Ne
-        var_out(:,ke) = PRES_(:,ke) / (Rtot(:,ke) * (DDENS_(:,ke) + DENS_hyd(:,ke)) )
+      !$acc parallel loop collapse(2) present(PRES_, Rtot, DDENS_, DENS_hyd, var_out) async(1)
+      do ke=1, Ne
+      do p=1, Np
+        var_out(p,ke) = PRES_(p,ke) / (Rtot(p,ke) * (DDENS_(p,ke) + DENS_hyd(p,ke)) )
+      end do
       end do
     
     case('T_diff')
       !$omp parallel do
-      do ke=1, lcmesh%Ne
-        var_out(:,ke) = PRES_(:,ke) / ( Rtot(:,ke) * (DDENS_(:,ke) + DENS_hyd(:,ke)) ) &
-                      - PRES_hyd(:,ke) / ( Rdry * DENS_hyd(:,ke) )
+      !$acc parallel loop collapse(2) present(PRES_, Rtot, DDENS_, DENS_hyd, PRES_hyd, var_out) async(1)
+      do ke=1, Ne
+      do p=1, Np
+        var_out(p,ke) = PRES_(p,ke) / ( Rtot(p,ke) * (DDENS_(p,ke) + DENS_hyd(p,ke)) ) &
+                      - PRES_hyd(p,ke) / ( Rdry * DENS_hyd(p,ke) )
+      end do
       end do
     
     case('PT')
-      !$omp parallel do private( DENS )
-      do ke=1, lcmesh%Ne
-        DENS(:) = DDENS_(:,ke) + DENS_hyd(:,ke)
-        var_out(:,ke) = PRES_(:,ke) / (Rtot(:,ke) * DENS(:) ) * ( PRES00 / PRES_(:,ke) )**( Rtot(:,ke) / CPtot(:,ke) )
+      !$omp parallel do private(DENS)
+      !$acc parallel loop collapse(2) present(PRES_, Rtot, CVtot, CPtot, DDENS_, DENS_hyd, var_out) async(1)
+      do ke=1, Ne
+      do p=1, Np
+        DENS = DDENS_(p,ke) + DENS_hyd(p,ke)
+        var_out(p,ke) = PRES_(p,ke) / (Rtot(p,ke) * DENS ) * ( PRES00 / PRES_(p,ke) )**( Rtot(p,ke) / CPtot(p,ke) )
       end do 
+      end do
     
     case('PT_diff')
       !$omp parallel do private( DENS )
-      do ke=1, lcmesh%Ne
-        DENS(:) = DDENS_(:,ke) + DENS_hyd(:,ke)
-        var_out(:,ke) = PRES_(:,ke) / (Rtot(:,ke) * DENS(:) ) * ( PRES00 / PRES_(:,ke) )**( Rtot(:,ke) / CPtot(:,ke) ) &
-                      - PRES00/Rdry * (PRES_hyd(:,ke)/PRES00)**(CVdry/CPdry) / DENS_hyd(:,ke)
+      !$acc parallel loop collapse(2) present(PRES_, Rtot, CVtot, CPtot, DDENS_, DENS_hyd, PRES_hyd, var_out) async(1)
+      do ke=1, Ne
+      do p=1, Np
+        DENS = DDENS_(p,ke) + DENS_hyd(p,ke)
+        var_out(p,ke) = PRES_(p,ke) / (Rtot(p,ke) * DENS ) * ( PRES00 / PRES_(p,ke) )**( Rtot(p,ke) / CPtot(p,ke) ) &
+                      - PRES00/Rdry * (PRES_hyd(p,ke)/PRES00)**(CVdry/CPdry) / DENS_hyd(p,ke)
       end do 
+      end do
     
     case( 'RH', 'RHL' )
       if ( ATMOS_HYDROMETEOR_dry ) then
-        var_out(:,ke) = 0.0_RP
+        !$omp parallel do
+        !$acc parallel loop collapse(2) present(var_out) async(1)
+        do ke=1, Ne
+        do p=1, Np
+          var_out(p,ke) = 0.0_RP
+        end do
+        end do
       else
         call TRACER_inq_id( "QV", iq_QV )
 
         !$omp parallel do private (TEMP, PSAT)
-        do ke=1, lcmesh%Ne
-          TEMP(:) = PRES_(:,ke) / (Rtot(:,ke) * (DDENS_(:,ke) + DENS_hyd(:,ke)) )
+        !$acc parallel loop gang private(TEMP, PSAT) present(PRES_, Rtot, DDENS_, DENS_hyd, var_out) async(1)
+        do ke=1, Ne
+          !$acc loop vector
+          do p=1, Np
+            TEMP(p) = PRES_(p,ke) / (Rtot(p,ke) * (DDENS_(p,ke) + DENS_hyd(p,ke)) )
+#ifdef _OPENACC
+            call ATMOS_SATURATION_psat_liq( TEMP(p), & ! (in)
+              PSAT(p)                                ) ! (out)
+#endif
+          end do
 
+#ifndef _OPENACC
           call ATMOS_SATURATION_psat_liq( &
-            elem%Np, 1, elem%Np, TEMP(:),     & ! (in)
+            Np, 1, Np, TEMP(:),     & ! (in)
             PSAT(:)                           ) ! (out)
+#endif
 
-          var_out(:,ke) = ( DDENS_(:,ke) + DENS_hyd(:,ke) ) * QTRC(iq_QV)%ptr%val(:,ke) &
-                        / PSAT(:) * Rvap * TEMP(:) * 100.0_RP
+          !$acc loop vector
+          do p=1, Np
+            var_out(p,ke) = ( DDENS_(p,ke) + DENS_hyd(p,ke) ) * QTRC(iq_QV)%ptr%val(p,ke) &
+                          / PSAT(p) * Rvap * TEMP(p) * 100.0_RP
+          end do
         end do 
       end if
     
     case('ENGK')
+      IndexH2Dto3D(:) = elem%IndexH2Dto3D(:)
+
       !$omp parallel do private (ke2D, DENS, mom_u1, mom_u2, G_11, G_12, G_22)
-      do ke=1, lcmesh%Ne
+      !$acc parallel loop collapse(2) present(DDENS_, DENS_hyd, MOMX_, MOMY_, MOMZ_, var_out, lcmesh,elem) copyin(IndexH2Dto3D) async(1)
+      do ke=1, Ne
+      do p=1, Np
         ke2D = lcmesh%EMap3Dto2D(ke)
+        
+        DENS = DDENS_(p,ke) + DENS_hyd(p,ke)
+        G_11 = lcmesh%G_ij(IndexH2Dto3D(p),ke2D,1,1)
+        G_12 = lcmesh%G_ij(IndexH2Dto3D(p),ke2D,1,2)
+        G_22 = lcmesh%G_ij(IndexH2Dto3D(p),ke2D,2,2)
 
-        DENS(:) = DDENS_(:,ke) + DENS_hyd(:,ke)
-        G_11(:) = lcmesh%G_ij(elem%IndexH2Dto3D,ke2D,1,1)
-        G_12(:) = lcmesh%G_ij(elem%IndexH2Dto3D,ke2D,1,2)
-        G_22(:) = lcmesh%G_ij(elem%IndexH2Dto3D,ke2D,2,2)
+        mom_u1 = G_11 * MOMX_(p,ke) + G_12 * MOMY_(p,ke)
+        mom_u2 = G_12 * MOMX_(p,ke) + G_22 * MOMY_(p,ke)
 
-        mom_u1(:) = G_11(:) * MOMX_(:,ke) + G_12(:) * MOMY_(:,ke)
-        mom_u2(:) = G_12(:) * MOMX_(:,ke) + G_22(:) * MOMY_(:,ke)
-
-        var_out(:,ke) = 0.5_RP * ( MOMX_(:,ke) * mom_u1(:) + MOMY_(:,ke) * mom_u2(:) + MOMZ_(:,ke)**2 ) / DENS(:)
+        var_out(p,ke) = 0.5_RP * ( MOMX_(p,ke) * mom_u1 + MOMY_(p,ke) * mom_u2 + MOMZ_(p,ke)**2 ) / DENS
+      end do
       end do
     
     case('ENGP')
       !$omp parallel do private (DENS)
-      do ke=1, lcmesh%Ne
-        DENS(:) = DDENS_(:,ke) + DENS_hyd(:,ke)
-        var_out(:,ke) = DENS(:) * Grav * lcmesh%zlev(:,ke)
+      !$acc parallel loop collapse(2) present(DDENS_, DENS_hyd, var_out, lcmesh) async(1)
+      do ke=1, Ne
+      do p=1, Np
+        DENS = DDENS_(p,ke) + DENS_hyd(p,ke)
+        var_out(p,ke) = DENS * Grav * lcmesh%zlev(p,ke)
+      end do
       end do
     
     case('ENGI')
       !$omp parallel do private (DENS, iq)
-      do ke=1, lcmesh%Ne
-        DENS(:) = DDENS_(:,ke) + DENS_hyd(:,ke)
-        var_out(:,ke) = QDRY_(:,ke) * PRES_(:,ke) / Rtot(:,ke) * CVdry
+      !$acc parallel loop collapse(2) present(DDENS_, DENS_hyd, PRES_, Rtot, QDRY_, var_out) async(1)
+      do ke=1, Ne
+      do p=1, Np
+        DENS = DDENS_(p,ke) + DENS_hyd(p,ke)
+        var_out(p,ke) = QDRY_(p,ke) * PRES_(p,ke) / Rtot(p,ke) * CVdry
+        !$acc loop seq
         do iq = 1, QA
-          var_out(:,ke) = var_out(:,ke) &
-            + QTRC(iq)%ptr%val(:,ke) * ( PRES_(:,ke) / Rtot(:,ke) * TRACER_CV(iq) + DENS(:) * TRACER_ENGI0(iq) )
+          var_out(p,ke) = var_out(p,ke) &
+            + QTRC(iq)%ptr%val(p,ke) * ( PRES_(p,ke) / Rtot(p,ke) * TRACER_CV(iq) + DENS * TRACER_ENGI0(iq) )
         end do
+      end do
       end do
     
     case('ENGT')
+      IndexH2Dto3D(:) = elem%IndexH2Dto3D(:)
+
       !$omp parallel do private (ke2D, DENS, mom_u1, mom_u2, iq, G_11, G_12, G_22)
-      do ke=1, lcmesh%Ne
+      !$acc parallel loop collapse(2) present(DDENS_, DENS_hyd, MOMX_, MOMY_, MOMZ_, PRES_, Rtot, QDRY_, var_out, lcmesh, elem) copyin(IndexH2Dto3D) async(1)
+      do ke=1, Ne
+      do p=1, Np
         ke2D = lcmesh%EMap3Dto2D(ke)
 
-        DENS(:) = DDENS_(:,ke) + DENS_hyd(:,ke)
+        DENS = DDENS_(p,ke) + DENS_hyd(p,ke)
 
-        G_11(:) = lcmesh%G_ij(elem%IndexH2Dto3D,ke2D,1,1)
-        G_12(:) = lcmesh%G_ij(elem%IndexH2Dto3D,ke2D,1,2)
-        G_22(:) = lcmesh%G_ij(elem%IndexH2Dto3D,ke2D,2,2)
-        mom_u1(:) = G_11(:) * MOMX_(:,ke) + G_12(:) * MOMY_(:,ke)
-        mom_u2(:) = G_12(:) * MOMX_(:,ke) + G_22(:) * MOMY_(:,ke)
+        G_11 = lcmesh%G_ij(IndexH2Dto3D(p),ke2D,1,1)
+        G_12 = lcmesh%G_ij(IndexH2Dto3D(p),ke2D,1,2)
+        G_22 = lcmesh%G_ij(IndexH2Dto3D(p),ke2D,2,2)
+        mom_u1 = G_11 * MOMX_(p,ke) + G_12 * MOMY_(p,ke)
+        mom_u2 = G_12 * MOMX_(p,ke) + G_22 * MOMY_(p,ke)
 
         ! ENGI
-        var_out(:,ke) = QDRY_(:,ke) * PRES_(:,ke) / Rtot(:,ke) * CVdry
+        var_out(p,ke) = QDRY_(p,ke) * PRES_(p,ke) / Rtot(p,ke) * CVdry
+        !$acc loop seq
         do iq = 1, QA
-          var_out(:,ke) = var_out(:,ke) &
-            + QTRC(iq)%ptr%val(:,ke) * ( PRES_(:,ke) / Rtot(:,ke) * TRACER_CV(iq) + DENS(:) * TRACER_ENGI0(iq) )
+          var_out(p,ke) = var_out(p,ke) &
+            + QTRC(iq)%ptr%val(p,ke) * ( PRES_(p,ke) / Rtot(p,ke) * TRACER_CV(iq) + DENS * TRACER_ENGI0(iq) )
         end do
         ! ENGT
-        var_out(:,ke) = &
-            0.5_RP * ( MOMX_(:,ke) * mom_u1(:) + MOMY_(:,ke) * mom_u2(:) + MOMZ_(:,ke)**2 ) / DENS(:) & ! ENGK       
-          + var_out(:,ke)                                                                             & ! ENGI
-          + DENS(:) * Grav * lcmesh%pos_en(:,ke,3)                                                      ! ENGP
+        var_out(p,ke) = &
+            0.5_RP * ( MOMX_(p,ke) * mom_u1 + MOMY_(p,ke) * mom_u2 + MOMZ_(p,ke)**2 ) / DENS & ! ENGK       
+          + var_out(p,ke)                                                                    & ! ENGI
+          + DENS * Grav * lcmesh%pos_en(p,ke,3)                                                ! ENGP
+      end do
       end do
     
     case default
@@ -1670,7 +1746,7 @@ contains
     class(ModelVarManager), intent(inout) :: MP_auxvars2D
     class(MeshBase2D), intent(in) :: mesh2D
 
-    integer :: ke
+    integer :: ke, p
 
     class(LocalMeshFieldBase), pointer :: SFLX_rain_MP, SFLX_snow_MP, SFLX_ENGI_MP
     !-------------------------------------------------------------------------
@@ -1685,13 +1761,19 @@ contains
     select case(trim(field_name))
     case('RAIN')
       !$omp parallel do
+      !$acc parallel loop collapse(2) present(SFLX_rain_MP%val, var_out) async(1)
       do ke=lcmesh%NeS, lcmesh%NeE
-        var_out(:,ke) = SFLX_rain_MP%val(:,ke)
+      do p=1, elem%Np
+        var_out(p,ke) = SFLX_rain_MP%val(p,ke)
+      end do
       end do
     case('SNOW')
       !$omp parallel do
+      !$acc parallel loop collapse(2) present(var_out, SFLX_snow_MP) async(1)
       do ke=lcmesh%NeS, lcmesh%NeE
-        var_out(:,ke) = SFLX_snow_MP%val(:,ke)
+      do p=1, elem%Np
+        var_out(p,ke) = SFLX_snow_MP%val(p,ke)
+      end do
       end do
     case default
       LOG_ERROR("AtmosVars_calc_diagnoseVar2D_lc",*) 'The name of diagnostic variable is not suported. Check!', field_name

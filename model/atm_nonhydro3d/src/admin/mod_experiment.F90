@@ -297,7 +297,6 @@ contains
           mesh%xmin_gl, mesh%xmax_gl, mesh%ymin_gl, mesh%ymax_gl, mesh%zmin_gl, mesh%zmax_gl, & ! (in)
           lcmesh3D, lcmesh3D%refElem3D )                                                        ! (in)   
       end select
-      !$acc update device( DENS_hyd%val, PRES_hyd%val, DDENS%val, MOMX%val, MOMY%val, MOMZ%val, DRHOT%val )
     end do
 
     !------------------------------------------------------
@@ -332,8 +331,6 @@ contains
         DENS_hyd%val, PRES_hyd%val,                          & ! (out)
         DDENS%val, MOMX%val, MOMY%val, MOMZ%val, DRHOT%val,  & ! (out)
         lcmesh3D, lcmesh3D%refElem3D )                         ! (in)
-
-      !$acc update device( DENS_hyd%val, PRES_hyd%val, DDENS%val, MOMX%val, MOMY%val, MOMZ%val, DRHOT%val )
     end do
 
     call atm_auxvars_manager%Get(AUXVAR_DENSHYDRO_ID, field_ptr)

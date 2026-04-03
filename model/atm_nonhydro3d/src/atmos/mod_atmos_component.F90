@@ -277,7 +277,8 @@ contains
     integer :: n
     integer :: v
     integer :: iq
-    integer :: ke
+    integer :: ke, p
+    integer :: Np
     !------------------------------------------------------------------
     
     call PROF_rapstart( 'ATM_tendency', 1)
@@ -296,32 +297,53 @@ contains
     if ( QA > 0 ) call this%vars%QTRCVARS_manager%MeshFieldComm_Exchange()
     call PROF_rapend( 'ATM_exchange_prgv', 2)
 
+
     ! reset tendencies of physics
+
+    !$acc data create( tp_list, tp_qtrc )
 
     do n=1, mesh%LOCAL_MESH_NUM
       call AtmosVars_GetLocalMeshPhyTends( n, mesh, this%vars%PHYTENDS_manager ,   & ! (in)
         tp_list(DENS_tp)%ptr, tp_list(MOMX_tp)%ptr, tp_list(MOMY_tp)%ptr,          & ! (out)
         tp_list(MOMZ_tp)%ptr, tp_list(RHOT_tp)%ptr, tp_list(RHOH_p )%ptr, tp_qtrc, & ! (out)
         lcmesh                                                                     ) ! (out)
-      
+      !$acc enter data attach( tp_list(DENS_tp)%ptr, tp_list(MOMX_tp)%ptr, tp_list(MOMY_tp)%ptr, tp_list(MOMZ_tp)%ptr, tp_list(RHOT_tp)%ptr, tp_list(RHOH_p )%ptr, lcmesh )
+
+      Np = lcmesh%refElem%Np
       !$omp parallel private(v,iq,ke)
+
       !$omp do collapse(2)
       do v=1, PHYTEND_NUM1
-      do ke=lcmesh%NeS, lcmesh%NeE
-        tp_list(v)%ptr%val(:,ke) = 0.0_RP
-      end do
+        !$acc parallel loop gang present( tp_list(v)%ptr%val ) async(1)
+        do ke=lcmesh%NeS, lcmesh%NeE
+          !$acc loop vector
+          do p=1, Np
+            tp_list(v)%ptr%val(p,ke) = 0.0_RP
+          end do
+        end do
       end do
       if ( QA > 0 ) then
+#ifdef _OPENACC        
+        do iq=1, QA
+          !$acc enter data attach( tp_qtrc(iq)%ptr )
+        end do
+#endif        
         !$omp do collapse(2)
         do iq=1, QA
-        do ke=lcmesh%NeS, lcmesh%NeE
-          tp_qtrc(iq)%ptr%val(:,ke) = 0.0_RP
-        end do
+          !$acc parallel loop gang present( tp_qtrc(iq)%ptr%val ) async(1)
+          do ke=lcmesh%NeS, lcmesh%NeE
+            !$acc loop vector
+            do p=1, Np
+              tp_qtrc(iq)%ptr%val(p,ke) = 0.0_RP
+            end do
+          end do
         end do
         !$omp end do
       end if
       !$omp end parallel
     end do
+    !$acc wait(1)
+    !$acc end data
 
     ! Cloud Microphysics
 
