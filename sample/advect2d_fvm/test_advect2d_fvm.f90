@@ -189,23 +189,31 @@ contains
     real(RP), intent(inout) :: v_(KA,IA,JA)
     real(RP), intent(in) :: tsec
 
-    real(DP) :: y_tmp(IA), v_uyz(IA), u_xvz(IA)
-    integer :: j
+    real(RP) :: x_tmp(IA,JA), y_tmp(IA,JA)
+    real(RP) :: v_uyz(IA,JA), u_xvz(IA,JA)
+    integer :: i, j
     !-----------------------------------------------
 
     VelTypeParams(4) = tsec
 
     do j=JS, JE
-      y_tmp(:) = CY(j)      
-      call fieldutil_get_profile2d_flow( u_(KS,IS-1:IE,j), v_uyz(IS-1:IE), & ! (out)
-        VelTypeName, FX(IS-1:IE), y_tmp(IS-1:IE), VelTypeParams, IE-IS+2   ) ! (in)
+    do i=IS-1, IE
+      x_tmp(i,j) = FX(i)
+      y_tmp(i,j) = CY(j)
     end do
-    do j=JS-1, JE
-      y_tmp(:) = FY(j)      
-      call fieldutil_get_profile2d_flow( u_xvz(IS:IE), v_(KS,IS:IE,j), & ! (out)
-        VelTypeName, CX(IS:IE), y_tmp(IS:IE), VelTypeParams, IE-IS+1   ) ! (in)
     end do
+    call fieldutil_get_profile2d_flow( u_(KS,:,:), v_uyz(:,:),       & ! (out)
+      VelTypeName, x_tmp, y_tmp, VelTypeParams, IS-1,IE,IA, JS,JE,JA ) ! (in)
 
+    do j=JS-1, JE
+    do i=IS, IE
+      x_tmp(i,j) = CX(i)
+      y_tmp(i,j) = FY(j)
+    end do
+    end do
+    call fieldutil_get_profile2d_flow( u_xvz, v_(KS,:,:),            & ! (out)
+      VelTypeName, x_tmp, y_tmp, VelTypeParams, IS,IE,IA, JS-1,JE,JA ) ! (in)
+    
     return
   end subroutine set_velocity
 

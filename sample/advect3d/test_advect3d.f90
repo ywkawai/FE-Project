@@ -77,10 +77,10 @@ program test_advect3d
   !-------------------------------------------------------
 
   call init()
-  call set_initcond()
 
   tsec_ = 0.0_RP  
   do
+    
     !* Report current time
     call TIME_manager_checkstate
 
@@ -92,6 +92,12 @@ program test_advect3d
       
     do rkstage=1, tinteg_lc(1)%nstage
 
+      !* Set velocity field
+
+      call PROF_rapstart( 'set_velocity', 1)
+      call set_velocity( u, v, w, tsec_ )
+      call PROF_rapend( 'set_velocity', 1)  
+
       !* Exchange halo data
 
       call PROF_rapstart( 'exchange_halo', 1)
@@ -99,12 +105,6 @@ program test_advect3d
       call fields_comm%Exchange()
       call fields_comm%Get(field_list, 1)
       call PROF_rapend( 'exchange_halo', 1)
-
-      !* Set velocity field
-
-      call PROF_rapstart( 'set_velocity', 1)
-      call set_velocity( u, v, w, tsec_ )
-      call PROF_rapend( 'set_velocity', 1)  
 
       !* Update prognostic variables
 
@@ -125,9 +125,6 @@ program test_advect3d
         call PROF_rapend('update_var', 1)
       end do
     end do
-    do domid=1, mesh%LOCAL_MESH_NUM
-      !$acc update host( q%local(domid)%val )
-    end do 
 
     tsec_ = TIME_DTSEC * real(TIME_NOWSTEP-1, kind=RP)
     if ( Do_NumErrorAnalysis ) then
@@ -168,14 +165,11 @@ contains
     VelTypeParams(5) = tsec
     do idom=1, mesh%LOCAL_MESH_NUM
       lmesh => mesh%lcmesh_list(idom)
-      do ke=lmesh%NeS, lmesh%NeE
-        call get_profile3d_flow( u%local(idom)%val(:,ke), v%local(idom)%val(:,ke), w%local(idom)%val(:,ke), & ! (out)
-          VelTypeName, lmesh%pos_en(:,ke,1), lmesh%pos_en(:,ke,2), lmesh%pos_en(:,ke,3),                    & ! (in)
-          VelTypeParams, refElem%Np )                                                                         ! (in)
-      end do
-      !$acc update device( u%local(idom)%val, v%local(idom)%val, w%local(idom)%val )
-    end do
-    
+      call get_profile3d_flow( &
+        u%local(idom)%val(:,lmesh%NeS:lmesh%NeE), v%local(idom)%val(:,lmesh%NeS:lmesh%NeE), w%local(idom)%val(:,lmesh%NeS:lmesh%NeE), & ! (out)
+        VelTypeName, lmesh%pos_en(:,:,1), lmesh%pos_en(:,:,2), lmesh%pos_en(:,:,3),                                                   & ! (in)
+        VelTypeParams, 1,refElem%Np,refElem%Np, lmesh%NeS,lmesh%NeE,lmesh%NeA, 1,1,1 )                                                  ! (in)
+    end do    
     return
   end subroutine set_velocity
 
@@ -344,7 +338,7 @@ contains
     call Dx%Init(refElem%Dx1, storage_format='ELL')
     call Dy%Init(refElem%Dx2, storage_format='ELL')
     call Dz%Init(refElem%Dx3, storage_format='ELL')
-    call Lift%Init(refElem%Lift)
+    call Lift%Init(refElem%Lift, storage_format='ELL')
 
     !-- setup mesh
 

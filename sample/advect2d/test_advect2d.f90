@@ -124,9 +124,6 @@ program test_advect2d
         call PROF_rapend('update_var', 1)
       end do
     end do
-    do domid=1, mesh%LOCAL_MESH_NUM
-      !$acc update host( q%local(domid)%val )
-    end do    
 
     tsec_ = TIME_DTSEC * real(TIME_NOWSTEP-1, kind=RP)
     if ( Do_NumErrorAnalysis ) then
@@ -157,19 +154,15 @@ contains
     type(MeshField2D), intent(inout) :: v_ 
     real(RP), intent(in) :: tsec
 
-    integer :: idom, ke
+    integer :: idom
     !----------------------------------------
 
     VelTypeParams(4) = tsec
 
     do idom=1, mesh%LOCAL_MESH_NUM
       lcmesh => mesh%lcmesh_list(idom)
-      !$omp parallel do private(ke)
-      do ke=lcmesh%NeS, lcmesh%NeE
-        call fieldutil_get_profile2d_flow( u%local(idom)%val(:,ke), v%local(idom)%val(:,ke),         & ! (out)
-          VelTypeName, lcmesh%pos_en(:,ke,1), lcmesh%pos_en(:,ke,2), VelTypeParams, refElem%Np )       ! (in)        
-      end do
-      !$acc update device( u%local(idom)%val(:,lcmesh%NeS:lcmesh%NeE), v%local(idom)%val(:,lcmesh%NeS:lcmesh%NeE) )
+      call fieldutil_get_profile2d_flow( u%local(idom)%val(:,lcmesh%NeS:lcmesh%NeE), v%local(idom)%val(:,lcmesh%NeS:lcmesh%NeE),   & ! (out)
+        VelTypeName, lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2), VelTypeParams, 1, refElem%Np, refElem%Np, 1, lcmesh%Ne, lcmesh%Ne ) ! (in)
     end do
     return
   end subroutine set_velocity

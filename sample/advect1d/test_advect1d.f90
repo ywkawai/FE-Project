@@ -116,9 +116,6 @@ program test_advect1d
         call PROF_rapend('update_var', 1)
       end do
     end do
-    do domid=1, mesh%LOCAL_MESH_NUM
-      !$acc update host(q%local(domid)%val)
-    end do
 
     tsec_ = TIME_DTSEC * real(TIME_NOWSTEP-1, kind=RP)
     if ( Do_NumErrorAnalysis ) then

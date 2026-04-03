@@ -165,6 +165,7 @@ contains
     end select
 
     n = lcmesh%lcdomID
+    !$acc update host( info%qtrc%local(n)%val )
 
     !$omp parallel do private(vid, ke, vx, vy, vz, x_uwind, y_vwind, z_wwind, x_uwind_intrp, y_vwind_intrp, z_wwind_intrp, pos_intrp)
     do ke=lcmesh%NeS, lcmesh%NeE
@@ -194,6 +195,8 @@ contains
       q(:,ke,vid) = info%qtrc%local(n)%val(:,ke)
       qexact(:,ke,vid) = info%qtrc_exact%local(n)%val(:,ke)
     end do
+
+    !$acc update device( info%qtrc_exact%local(n)%val )    
     return
   end subroutine set_data_lc
 
