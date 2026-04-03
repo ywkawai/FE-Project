@@ -13,8 +13,8 @@ OBJS = mod_advect3d_kernel.o    \
 			 mod_advect3d_numerror.o
 
 RUNCONF         = test.conf
-TPROC           = 4
-OMP_NUM_THREADS = 2
+TPROC           = 1
+OMP_NUM_THREADS = 4
 
 #-------------------------------------------------------
 include $(SAMPLE_DIR)/Makefile.common
