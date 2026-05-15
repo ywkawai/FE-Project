@@ -773,17 +773,16 @@ contains
     type(MeshField3D), intent(inout) :: w_ 
     real(RP), intent(in) :: tsec
     
-    integer :: n, ke
+    integer :: n
     !----------------------------------------
     
     VelTypeParams(5) = tsec
     do n=1, mesh%LOCAL_MESH_NUM
       lcmesh => mesh%lcmesh_list(n)
-      do ke=lcmesh%NeS, lcmesh%NeE
-        call get_profile3d_flow( u%local(n)%val(:,ke), v%local(n)%val(:,ke), w%local(n)%val(:,ke),  & ! (out)
-          VelTypeName, lcmesh%pos_en(:,ke,1), lcmesh%pos_en(:,ke,2), lcmesh%pos_en(:,ke,3),         & ! (in)
-          VelTypeParams, refElem%Np )                                                                 ! (in)
-      end do
+      call get_profile3d_flow( &
+        u%local(n)%val, v%local(n)%val, w%local(n)%val,                                 & ! (out)
+        VelTypeName, lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2), lcmesh%pos_en(:,:,3),  & ! (in)
+        VelTypeParams, 1,refElem%Np,refElem%Np, lcmesh%NeS,lcmesh%NeE,lcmesh%NeA, 1,1,1 ) ! (in)                                                 ! (in)
     end do
     
     return
