@@ -534,7 +534,7 @@ contains
     gam_Ns = this%dt * this%coef_gam_ex(this%nstage+1,nowstage)
 
     if ( nowstage == this%nstage ) then
-      !$omp parallel private(<%=ind_ary%>) async(1)
+      !$omp parallel private(<%=ind_ary%>)
 % if (d > 2) then
       !$omp do collapse(<%=(d-1)%>)
 % else

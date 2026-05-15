@@ -909,7 +909,7 @@ contains
     gam_Ns = this%dt * this%coef_gam_ex(this%nstage+1,nowstage)
 
     if ( nowstage == this%nstage ) then
-      !$omp parallel private(i) async(1)
+      !$omp parallel private(i)
       !$omp do
       !$acc parallel present( q, varTmp_1d, tend_buf1D_ex ) async(1)
       !$acc loop
@@ -1210,7 +1210,7 @@ contains
     gam_Ns = this%dt * this%coef_gam_ex(this%nstage+1,nowstage)
 
     if ( nowstage == this%nstage ) then
-      !$omp parallel private(i,j) async(1)
+      !$omp parallel private(i,j)
       !$omp do
       !$acc parallel present( q, varTmp_2d, tend_buf2D_ex ) async(1)
       !$acc loop collapse(2)
@@ -1541,7 +1541,7 @@ contains
     gam_Ns = this%dt * this%coef_gam_ex(this%nstage+1,nowstage)
 
     if ( nowstage == this%nstage ) then
-      !$omp parallel private(i,j,k) async(1)
+      !$omp parallel private(i,j,k)
       !$omp do collapse(2)
       !$acc parallel present( q, varTmp_3d, tend_buf3D_ex ) async(1)
       !$acc loop collapse(3)
