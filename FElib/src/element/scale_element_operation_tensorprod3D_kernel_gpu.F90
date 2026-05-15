@@ -335,22 +335,11 @@ contains
           ! Y-dir
           tmp1 = vec_in_y(i,1,v,k,ke) * Mat_tr(1,j) &
                + vec_in_y(i,2,v,k,ke) * Mat_tr(2,j) 
-!          div3D(i,j,v,k,ke) = div_x + tmp1 * E22(i,j,k,ke)
            div_xy = div_x + tmp1 * E22(i,j,k,ke)
-        !end do
-        !end do
-      !end do
-    !end do
-    !end do
 
-    !!$acc parallel loop gang collapse(2) present(Mat_tr,Lift,vec_in_z,ebnd_flux,E33,Gsqrt,div3D)
-    !do ke=1, Ne
-      ! Z-dir
-      !do k=1, 2      
-      !do v=1, 5    
-        !!$acc loop vector collapse(2)
-        !do j=1, 2
-        !do i=1, 2
+
+          ! Z-dir
+
           invG = 1.0_RP / Gsqrt(i,j,k,ke)
           e33_ = E33(i,j,k,ke)
 
@@ -365,7 +354,7 @@ contains
 
           tmp1 = vec_in_z(i,j,v,1,ke) * Mat_tr(1,k) &
               + vec_in_z(i,j,v,2,ke) * Mat_tr(2,k) 
-!          div3D(i,j,v,k,ke) = ( div3D(i,j,v,k,ke) + tmp1 * e33_ + tmp_lift ) * invG
+
           div3D(i,j,v,k,ke) = ( div_xy + tmp1 * e33_ + tmp_lift ) * invG
 
         end do
@@ -396,14 +385,75 @@ contains
     real(RP), intent(inout) :: div3D(2,2,5,2,Ne)
 
     integer :: ke
-    integer :: p, i, j, k, v
+    integer :: p, i, j, k, v, n
     real(RP) :: tmp1
     real(RP) :: tmp_lift
     real(RP) :: tmp2, tmp3    
 
     real(RP) :: invG, e33_
     real(RP) :: div_x, div_xy
+
+    real(RP) :: tmp_vec_in_y(2)
+
+    real(RP) :: s1, s2, s3, s4
+    real(RP) :: e11_
     !----------------------------------------------------------
+
+    !$acc parallel loop gang collapse(2) present(Mat,vec_in_x,E11,div3D) async(1) 
+    do ke=1, Ne
+    do k=1, 2
+      !$acc loop vector collapse(2)
+      do j=1, 2
+      do i=1, 2
+        e11_ = E11(i,j,k,ke) 
+        ! X-dir
+        s1 = ( Mat_tr(1,i) * vec_in_x(1,j,1,k,ke) &
+
+              + Mat_tr(2,i) * vec_in_x(2,j,1,k,ke) )
+        s2 = ( Mat_tr(1,i) * vec_in_x(1,j,2,k,ke) &
+
+              + Mat_tr(2,i) * vec_in_x(2,j,2,k,ke) )
+        div3D(i,j,1,k,ke) = s1 * e11_
+        div3D(i,j,2,k,ke) = s2 * e11_
+
+        s1 = ( Mat_tr(1,i) * vec_in_x(1,j,3,k,ke) &
+
+              + Mat_tr(2,i) * vec_in_x(2,j,3,k,ke) )
+        s2 = ( Mat_tr(1,i) * vec_in_x(1,j,4,k,ke) &
+
+              + Mat_tr(2,i) * vec_in_x(2,j,4,k,ke) )
+        div3D(i,j,3,k,ke) = s1 * e11_
+        div3D(i,j,4,k,ke) = s2 * e11_
+
+        s1 = ( Mat_tr(1,i) * vec_in_x(1,j,5,k,ke) &
+
+              + Mat_tr(2,i) * vec_in_x(2,j,5,k,ke) )
+        div3D(i,j,5,k,ke) = s1 * e11_
+      end do
+      end do
+    end do
+    end do
+
+    !$acc parallel loop gang collapse(2) private(tmp_vec_in_y)present(Mat,Mat_tr,vec_in_x,vec_in_y,vec_in_z,Lift,ebnd_flux,E11,E22,E33,Gsqrt,div3D) async(1)
+    do ke=1, Ne
+    do k=1, 2
+      do v=1, 5
+        !$acc loop vector collapse(2)
+        do j=1, 2
+        do i=1, 2
+
+          ! Y-dir
+          tmp_vec_in_y(:) = vec_in_y(i,:,v,k,ke)
+
+          tmp1 = tmp_vec_in_y(1) * Mat_tr(1,j) &
+               + tmp_vec_in_y(2) * Mat_tr(2,j) 
+!          div3D(i,j,v,k,ke) = div_x + tmp1 * E22(i,j,k,ke)
+           div3D(i,j,v,k,ke) = div3D(i,j,v,k,ke) + tmp1 * E22(i,j,k,ke)
+        end do
+        end do
+      end do
+    end do
+    end do
 
     !$acc parallel loop gang collapse(2) present(Mat,Mat_tr,vec_in_x,vec_in_y,vec_in_z,Lift,ebnd_flux,E11,E22,E33,Gsqrt,div3D) async(1)
     do ke=1, Ne
@@ -412,22 +462,6 @@ contains
         !$acc loop vector collapse(2)
         do j=1, 2
         do i=1, 2
-          ! X-dir
-          div_x = 0.0_RP
-          !$acc loop seq
-          do p=1, 2
-            div_x = div_x + Mat(i,p) * vec_in_x(p,j,v,k,ke)
-          end do
-
-          ! Y-dir
-          tmp1 = 0.0_RP
-          !$acc loop seq
-          do p=1, 2
-            tmp1 = tmp1 + vec_in_y(i,p,v,k,ke) * Mat_tr(p,j)
-          end do
-          div_xy = div_x * E11(i,j,k,ke) + tmp1 * E22(i,j,k,ke)
-
-          !- Lift
 
           invG = 1.0_RP / Gsqrt(i,j,k,ke)
           e33_ = E33(i,j,k,ke)
@@ -441,19 +475,17 @@ contains
               + Lift(i,j,k,6) * ebnd_flux(i,j,6,v,ke)
           tmp_lift = tmp1 + tmp2 + tmp3
 
-          ! Z-dir
-          tmp1 = 0.0_RP
-          !$acc loop seq
-          do p=1, 2
-            tmp1 = tmp1 + vec_in_z(i,j,v,p,ke) * Mat_tr(p,k)
-          end do
-          div3D(i,j,v,k,ke) = ( div_xy + tmp1 * e33_ + tmp_lift ) * invG
+          tmp1 = vec_in_z(i,j,v,1,ke) * Mat_tr(1,k) &
+              + vec_in_z(i,j,v,2,ke) * Mat_tr(2,k) 
+!          div3D(i,j,v,k,ke) = ( div3D(i,j,v,k,ke) + tmp1 * e33_ + tmp_lift ) * invG
+          div3D(i,j,v,k,ke) = ( div3D(i,j,v,k,ke) + tmp1 * e33_ + tmp_lift ) * invG
 
         end do
         end do
       end do
     end do
     end do
+
     return
   end subroutine element_operation_kernel_matvec_divlike_var5_P1_v2
 
@@ -725,22 +757,11 @@ contains
           tmp1 = vec_in_y(i,1,v,k,ke) * Mat_tr(1,j) &
                + vec_in_y(i,2,v,k,ke) * Mat_tr(2,j) &
                + vec_in_y(i,3,v,k,ke) * Mat_tr(3,j) 
-!          div3D(i,j,v,k,ke) = div_x + tmp1 * E22(i,j,k,ke)
            div_xy = div_x + tmp1 * E22(i,j,k,ke)
-        !end do
-        !end do
-      !end do
-    !end do
-    !end do
 
-    !!$acc parallel loop gang collapse(2) present(Mat_tr,Lift,vec_in_z,ebnd_flux,E33,Gsqrt,div3D)
-    !do ke=1, Ne
-      ! Z-dir
-      !do k=1, 3      
-      !do v=1, 5    
-        !!$acc loop vector collapse(2)
-        !do j=1, 3
-        !do i=1, 3
+
+          ! Z-dir
+
           invG = 1.0_RP / Gsqrt(i,j,k,ke)
           e33_ = E33(i,j,k,ke)
 
@@ -756,7 +777,7 @@ contains
           tmp1 = vec_in_z(i,j,v,1,ke) * Mat_tr(1,k) &
               + vec_in_z(i,j,v,2,ke) * Mat_tr(2,k) &
               + vec_in_z(i,j,v,3,ke) * Mat_tr(3,k) 
-!          div3D(i,j,v,k,ke) = ( div3D(i,j,v,k,ke) + tmp1 * e33_ + tmp_lift ) * invG
+
           div3D(i,j,v,k,ke) = ( div_xy + tmp1 * e33_ + tmp_lift ) * invG
 
         end do
@@ -787,14 +808,81 @@ contains
     real(RP), intent(inout) :: div3D(3,3,5,3,Ne)
 
     integer :: ke
-    integer :: p, i, j, k, v
+    integer :: p, i, j, k, v, n
     real(RP) :: tmp1
     real(RP) :: tmp_lift
     real(RP) :: tmp2, tmp3    
 
     real(RP) :: invG, e33_
     real(RP) :: div_x, div_xy
+
+    real(RP) :: tmp_vec_in_y(3)
+
+    real(RP) :: s1, s2, s3, s4
+    real(RP) :: e11_
     !----------------------------------------------------------
+
+    !$acc parallel loop gang collapse(2) present(Mat,vec_in_x,E11,div3D) async(1) 
+    do ke=1, Ne
+    do k=1, 3
+      !$acc loop vector collapse(2)
+      do j=1, 3
+      do i=1, 3
+        e11_ = E11(i,j,k,ke) 
+        ! X-dir
+        s1 = ( Mat_tr(1,i) * vec_in_x(1,j,1,k,ke) &
+
+              + Mat_tr(2,i) * vec_in_x(2,j,1,k,ke) &
+              + Mat_tr(3,i) * vec_in_x(3,j,1,k,ke) )
+        s2 = ( Mat_tr(1,i) * vec_in_x(1,j,2,k,ke) &
+
+              + Mat_tr(2,i) * vec_in_x(2,j,2,k,ke) &
+              + Mat_tr(3,i) * vec_in_x(3,j,2,k,ke) )
+        div3D(i,j,1,k,ke) = s1 * e11_
+        div3D(i,j,2,k,ke) = s2 * e11_
+
+        s1 = ( Mat_tr(1,i) * vec_in_x(1,j,3,k,ke) &
+
+              + Mat_tr(2,i) * vec_in_x(2,j,3,k,ke) &
+              + Mat_tr(3,i) * vec_in_x(3,j,3,k,ke) )
+        s2 = ( Mat_tr(1,i) * vec_in_x(1,j,4,k,ke) &
+
+              + Mat_tr(2,i) * vec_in_x(2,j,4,k,ke) &
+              + Mat_tr(3,i) * vec_in_x(3,j,4,k,ke) )
+        div3D(i,j,3,k,ke) = s1 * e11_
+        div3D(i,j,4,k,ke) = s2 * e11_
+
+        s1 = ( Mat_tr(1,i) * vec_in_x(1,j,5,k,ke) &
+
+              + Mat_tr(2,i) * vec_in_x(2,j,5,k,ke) &
+              + Mat_tr(3,i) * vec_in_x(3,j,5,k,ke) )
+        div3D(i,j,5,k,ke) = s1 * e11_
+      end do
+      end do
+    end do
+    end do
+
+    !$acc parallel loop gang collapse(2) private(tmp_vec_in_y)present(Mat,Mat_tr,vec_in_x,vec_in_y,vec_in_z,Lift,ebnd_flux,E11,E22,E33,Gsqrt,div3D) async(1)
+    do ke=1, Ne
+    do k=1, 3
+      do v=1, 5
+        !$acc loop vector collapse(2)
+        do j=1, 3
+        do i=1, 3
+
+          ! Y-dir
+          tmp_vec_in_y(:) = vec_in_y(i,:,v,k,ke)
+
+          tmp1 = tmp_vec_in_y(1) * Mat_tr(1,j) &
+               + tmp_vec_in_y(2) * Mat_tr(2,j) &
+               + tmp_vec_in_y(3) * Mat_tr(3,j) 
+!          div3D(i,j,v,k,ke) = div_x + tmp1 * E22(i,j,k,ke)
+           div3D(i,j,v,k,ke) = div3D(i,j,v,k,ke) + tmp1 * E22(i,j,k,ke)
+        end do
+        end do
+      end do
+    end do
+    end do
 
     !$acc parallel loop gang collapse(2) present(Mat,Mat_tr,vec_in_x,vec_in_y,vec_in_z,Lift,ebnd_flux,E11,E22,E33,Gsqrt,div3D) async(1)
     do ke=1, Ne
@@ -803,22 +891,6 @@ contains
         !$acc loop vector collapse(2)
         do j=1, 3
         do i=1, 3
-          ! X-dir
-          div_x = 0.0_RP
-          !$acc loop seq
-          do p=1, 3
-            div_x = div_x + Mat(i,p) * vec_in_x(p,j,v,k,ke)
-          end do
-
-          ! Y-dir
-          tmp1 = 0.0_RP
-          !$acc loop seq
-          do p=1, 3
-            tmp1 = tmp1 + vec_in_y(i,p,v,k,ke) * Mat_tr(p,j)
-          end do
-          div_xy = div_x * E11(i,j,k,ke) + tmp1 * E22(i,j,k,ke)
-
-          !- Lift
 
           invG = 1.0_RP / Gsqrt(i,j,k,ke)
           e33_ = E33(i,j,k,ke)
@@ -832,19 +904,18 @@ contains
               + Lift(i,j,k,6) * ebnd_flux(i,j,6,v,ke)
           tmp_lift = tmp1 + tmp2 + tmp3
 
-          ! Z-dir
-          tmp1 = 0.0_RP
-          !$acc loop seq
-          do p=1, 3
-            tmp1 = tmp1 + vec_in_z(i,j,v,p,ke) * Mat_tr(p,k)
-          end do
-          div3D(i,j,v,k,ke) = ( div_xy + tmp1 * e33_ + tmp_lift ) * invG
+          tmp1 = vec_in_z(i,j,v,1,ke) * Mat_tr(1,k) &
+              + vec_in_z(i,j,v,2,ke) * Mat_tr(2,k) &
+              + vec_in_z(i,j,v,3,ke) * Mat_tr(3,k) 
+!          div3D(i,j,v,k,ke) = ( div3D(i,j,v,k,ke) + tmp1 * e33_ + tmp_lift ) * invG
+          div3D(i,j,v,k,ke) = ( div3D(i,j,v,k,ke) + tmp1 * e33_ + tmp_lift ) * invG
 
         end do
         end do
       end do
     end do
     end do
+
     return
   end subroutine element_operation_kernel_matvec_divlike_var5_P2_v2
 
@@ -1127,22 +1198,11 @@ contains
                + vec_in_y(i,2,v,k,ke) * Mat_tr(2,j) &
                + vec_in_y(i,3,v,k,ke) * Mat_tr(3,j) &
                + vec_in_y(i,4,v,k,ke) * Mat_tr(4,j) 
-!          div3D(i,j,v,k,ke) = div_x + tmp1 * E22(i,j,k,ke)
            div_xy = div_x + tmp1 * E22(i,j,k,ke)
-        !end do
-        !end do
-      !end do
-    !end do
-    !end do
 
-    !!$acc parallel loop gang collapse(2) present(Mat_tr,Lift,vec_in_z,ebnd_flux,E33,Gsqrt,div3D)
-    !do ke=1, Ne
-      ! Z-dir
-      !do k=1, 4      
-      !do v=1, 5    
-        !!$acc loop vector collapse(2)
-        !do j=1, 4
-        !do i=1, 4
+
+          ! Z-dir
+
           invG = 1.0_RP / Gsqrt(i,j,k,ke)
           e33_ = E33(i,j,k,ke)
 
@@ -1159,7 +1219,7 @@ contains
               + vec_in_z(i,j,v,2,ke) * Mat_tr(2,k) &
               + vec_in_z(i,j,v,3,ke) * Mat_tr(3,k) &
               + vec_in_z(i,j,v,4,ke) * Mat_tr(4,k) 
-!          div3D(i,j,v,k,ke) = ( div3D(i,j,v,k,ke) + tmp1 * e33_ + tmp_lift ) * invG
+
           div3D(i,j,v,k,ke) = ( div_xy + tmp1 * e33_ + tmp_lift ) * invG
 
         end do
@@ -1190,14 +1250,87 @@ contains
     real(RP), intent(inout) :: div3D(4,4,5,4,Ne)
 
     integer :: ke
-    integer :: p, i, j, k, v
+    integer :: p, i, j, k, v, n
     real(RP) :: tmp1
     real(RP) :: tmp_lift
     real(RP) :: tmp2, tmp3    
 
     real(RP) :: invG, e33_
     real(RP) :: div_x, div_xy
+
+    real(RP) :: tmp_vec_in_y(4)
+
+    real(RP) :: s1, s2, s3, s4
+    real(RP) :: e11_
     !----------------------------------------------------------
+
+    !$acc parallel loop gang collapse(2) present(Mat,vec_in_x,E11,div3D) async(1) 
+    do ke=1, Ne
+    do k=1, 4
+      !$acc loop vector collapse(2)
+      do j=1, 4
+      do i=1, 4
+        e11_ = E11(i,j,k,ke) 
+        ! X-dir
+        s1 = ( Mat_tr(1,i) * vec_in_x(1,j,1,k,ke) &
+
+              + Mat_tr(2,i) * vec_in_x(2,j,1,k,ke) &
+              + Mat_tr(3,i) * vec_in_x(3,j,1,k,ke) &
+              + Mat_tr(4,i) * vec_in_x(4,j,1,k,ke) )
+        s2 = ( Mat_tr(1,i) * vec_in_x(1,j,2,k,ke) &
+
+              + Mat_tr(2,i) * vec_in_x(2,j,2,k,ke) &
+              + Mat_tr(3,i) * vec_in_x(3,j,2,k,ke) &
+              + Mat_tr(4,i) * vec_in_x(4,j,2,k,ke) )
+        div3D(i,j,1,k,ke) = s1 * e11_
+        div3D(i,j,2,k,ke) = s2 * e11_
+
+        s1 = ( Mat_tr(1,i) * vec_in_x(1,j,3,k,ke) &
+
+              + Mat_tr(2,i) * vec_in_x(2,j,3,k,ke) &
+              + Mat_tr(3,i) * vec_in_x(3,j,3,k,ke) &
+              + Mat_tr(4,i) * vec_in_x(4,j,3,k,ke) )
+        s2 = ( Mat_tr(1,i) * vec_in_x(1,j,4,k,ke) &
+
+              + Mat_tr(2,i) * vec_in_x(2,j,4,k,ke) &
+              + Mat_tr(3,i) * vec_in_x(3,j,4,k,ke) &
+              + Mat_tr(4,i) * vec_in_x(4,j,4,k,ke) )
+        div3D(i,j,3,k,ke) = s1 * e11_
+        div3D(i,j,4,k,ke) = s2 * e11_
+
+        s1 = ( Mat_tr(1,i) * vec_in_x(1,j,5,k,ke) &
+
+              + Mat_tr(2,i) * vec_in_x(2,j,5,k,ke) &
+              + Mat_tr(3,i) * vec_in_x(3,j,5,k,ke) &
+              + Mat_tr(4,i) * vec_in_x(4,j,5,k,ke) )
+        div3D(i,j,5,k,ke) = s1 * e11_
+      end do
+      end do
+    end do
+    end do
+
+    !$acc parallel loop gang collapse(2) private(tmp_vec_in_y)present(Mat,Mat_tr,vec_in_x,vec_in_y,vec_in_z,Lift,ebnd_flux,E11,E22,E33,Gsqrt,div3D) async(1)
+    do ke=1, Ne
+    do k=1, 4
+      do v=1, 5
+        !$acc loop vector collapse(2)
+        do j=1, 4
+        do i=1, 4
+
+          ! Y-dir
+          tmp_vec_in_y(:) = vec_in_y(i,:,v,k,ke)
+
+          tmp1 = tmp_vec_in_y(1) * Mat_tr(1,j) &
+               + tmp_vec_in_y(2) * Mat_tr(2,j) &
+               + tmp_vec_in_y(3) * Mat_tr(3,j) &
+               + tmp_vec_in_y(4) * Mat_tr(4,j) 
+!          div3D(i,j,v,k,ke) = div_x + tmp1 * E22(i,j,k,ke)
+           div3D(i,j,v,k,ke) = div3D(i,j,v,k,ke) + tmp1 * E22(i,j,k,ke)
+        end do
+        end do
+      end do
+    end do
+    end do
 
     !$acc parallel loop gang collapse(2) present(Mat,Mat_tr,vec_in_x,vec_in_y,vec_in_z,Lift,ebnd_flux,E11,E22,E33,Gsqrt,div3D) async(1)
     do ke=1, Ne
@@ -1206,22 +1339,6 @@ contains
         !$acc loop vector collapse(2)
         do j=1, 4
         do i=1, 4
-          ! X-dir
-          div_x = 0.0_RP
-          !$acc loop seq
-          do p=1, 4
-            div_x = div_x + Mat(i,p) * vec_in_x(p,j,v,k,ke)
-          end do
-
-          ! Y-dir
-          tmp1 = 0.0_RP
-          !$acc loop seq
-          do p=1, 4
-            tmp1 = tmp1 + vec_in_y(i,p,v,k,ke) * Mat_tr(p,j)
-          end do
-          div_xy = div_x * E11(i,j,k,ke) + tmp1 * E22(i,j,k,ke)
-
-          !- Lift
 
           invG = 1.0_RP / Gsqrt(i,j,k,ke)
           e33_ = E33(i,j,k,ke)
@@ -1235,19 +1352,19 @@ contains
               + Lift(i,j,k,6) * ebnd_flux(i,j,6,v,ke)
           tmp_lift = tmp1 + tmp2 + tmp3
 
-          ! Z-dir
-          tmp1 = 0.0_RP
-          !$acc loop seq
-          do p=1, 4
-            tmp1 = tmp1 + vec_in_z(i,j,v,p,ke) * Mat_tr(p,k)
-          end do
-          div3D(i,j,v,k,ke) = ( div_xy + tmp1 * e33_ + tmp_lift ) * invG
+          tmp1 = vec_in_z(i,j,v,1,ke) * Mat_tr(1,k) &
+              + vec_in_z(i,j,v,2,ke) * Mat_tr(2,k) &
+              + vec_in_z(i,j,v,3,ke) * Mat_tr(3,k) &
+              + vec_in_z(i,j,v,4,ke) * Mat_tr(4,k) 
+!          div3D(i,j,v,k,ke) = ( div3D(i,j,v,k,ke) + tmp1 * e33_ + tmp_lift ) * invG
+          div3D(i,j,v,k,ke) = ( div3D(i,j,v,k,ke) + tmp1 * e33_ + tmp_lift ) * invG
 
         end do
         end do
       end do
     end do
     end do
+
     return
   end subroutine element_operation_kernel_matvec_divlike_var5_P3_v2
 
@@ -1541,22 +1658,11 @@ contains
                + vec_in_y(i,3,v,k,ke) * Mat_tr(3,j) &
                + vec_in_y(i,4,v,k,ke) * Mat_tr(4,j) &
                + vec_in_y(i,5,v,k,ke) * Mat_tr(5,j) 
-!          div3D(i,j,v,k,ke) = div_x + tmp1 * E22(i,j,k,ke)
            div_xy = div_x + tmp1 * E22(i,j,k,ke)
-        !end do
-        !end do
-      !end do
-    !end do
-    !end do
 
-    !!$acc parallel loop gang collapse(2) present(Mat_tr,Lift,vec_in_z,ebnd_flux,E33,Gsqrt,div3D)
-    !do ke=1, Ne
-      ! Z-dir
-      !do k=1, 5      
-      !do v=1, 5    
-        !!$acc loop vector collapse(2)
-        !do j=1, 5
-        !do i=1, 5
+
+          ! Z-dir
+
           invG = 1.0_RP / Gsqrt(i,j,k,ke)
           e33_ = E33(i,j,k,ke)
 
@@ -1574,7 +1680,7 @@ contains
               + vec_in_z(i,j,v,3,ke) * Mat_tr(3,k) &
               + vec_in_z(i,j,v,4,ke) * Mat_tr(4,k) &
               + vec_in_z(i,j,v,5,ke) * Mat_tr(5,k) 
-!          div3D(i,j,v,k,ke) = ( div3D(i,j,v,k,ke) + tmp1 * e33_ + tmp_lift ) * invG
+
           div3D(i,j,v,k,ke) = ( div_xy + tmp1 * e33_ + tmp_lift ) * invG
 
         end do
@@ -1605,14 +1711,93 @@ contains
     real(RP), intent(inout) :: div3D(5,5,5,5,Ne)
 
     integer :: ke
-    integer :: p, i, j, k, v
+    integer :: p, i, j, k, v, n
     real(RP) :: tmp1
     real(RP) :: tmp_lift
     real(RP) :: tmp2, tmp3    
 
     real(RP) :: invG, e33_
     real(RP) :: div_x, div_xy
+
+    real(RP) :: tmp_vec_in_y(5)
+
+    real(RP) :: s1, s2, s3, s4
+    real(RP) :: e11_
     !----------------------------------------------------------
+
+    !$acc parallel loop gang collapse(2) present(Mat,vec_in_x,E11,div3D) async(1) 
+    do ke=1, Ne
+    do k=1, 5
+      !$acc loop vector collapse(2)
+      do j=1, 5
+      do i=1, 5
+        e11_ = E11(i,j,k,ke) 
+        ! X-dir
+        s1 = ( Mat_tr(1,i) * vec_in_x(1,j,1,k,ke) &
+
+              + Mat_tr(2,i) * vec_in_x(2,j,1,k,ke) &
+              + Mat_tr(3,i) * vec_in_x(3,j,1,k,ke) &
+              + Mat_tr(4,i) * vec_in_x(4,j,1,k,ke) &
+              + Mat_tr(5,i) * vec_in_x(5,j,1,k,ke) )
+        s2 = ( Mat_tr(1,i) * vec_in_x(1,j,2,k,ke) &
+
+              + Mat_tr(2,i) * vec_in_x(2,j,2,k,ke) &
+              + Mat_tr(3,i) * vec_in_x(3,j,2,k,ke) &
+              + Mat_tr(4,i) * vec_in_x(4,j,2,k,ke) &
+              + Mat_tr(5,i) * vec_in_x(5,j,2,k,ke) )
+        div3D(i,j,1,k,ke) = s1 * e11_
+        div3D(i,j,2,k,ke) = s2 * e11_
+
+        s1 = ( Mat_tr(1,i) * vec_in_x(1,j,3,k,ke) &
+
+              + Mat_tr(2,i) * vec_in_x(2,j,3,k,ke) &
+              + Mat_tr(3,i) * vec_in_x(3,j,3,k,ke) &
+              + Mat_tr(4,i) * vec_in_x(4,j,3,k,ke) &
+              + Mat_tr(5,i) * vec_in_x(5,j,3,k,ke) )
+        s2 = ( Mat_tr(1,i) * vec_in_x(1,j,4,k,ke) &
+
+              + Mat_tr(2,i) * vec_in_x(2,j,4,k,ke) &
+              + Mat_tr(3,i) * vec_in_x(3,j,4,k,ke) &
+              + Mat_tr(4,i) * vec_in_x(4,j,4,k,ke) &
+              + Mat_tr(5,i) * vec_in_x(5,j,4,k,ke) )
+        div3D(i,j,3,k,ke) = s1 * e11_
+        div3D(i,j,4,k,ke) = s2 * e11_
+
+        s1 = ( Mat_tr(1,i) * vec_in_x(1,j,5,k,ke) &
+
+              + Mat_tr(2,i) * vec_in_x(2,j,5,k,ke) &
+              + Mat_tr(3,i) * vec_in_x(3,j,5,k,ke) &
+              + Mat_tr(4,i) * vec_in_x(4,j,5,k,ke) &
+              + Mat_tr(5,i) * vec_in_x(5,j,5,k,ke) )
+        div3D(i,j,5,k,ke) = s1 * e11_
+      end do
+      end do
+    end do
+    end do
+
+    !$acc parallel loop gang collapse(2) private(tmp_vec_in_y)present(Mat,Mat_tr,vec_in_x,vec_in_y,vec_in_z,Lift,ebnd_flux,E11,E22,E33,Gsqrt,div3D) async(1)
+    do ke=1, Ne
+    do k=1, 5
+      do v=1, 5
+        !$acc loop vector collapse(2)
+        do j=1, 5
+        do i=1, 5
+
+          ! Y-dir
+          tmp_vec_in_y(:) = vec_in_y(i,:,v,k,ke)
+
+          tmp1 = tmp_vec_in_y(1) * Mat_tr(1,j) &
+               + tmp_vec_in_y(2) * Mat_tr(2,j) &
+               + tmp_vec_in_y(3) * Mat_tr(3,j) &
+               + tmp_vec_in_y(4) * Mat_tr(4,j) &
+               + tmp_vec_in_y(5) * Mat_tr(5,j) 
+!          div3D(i,j,v,k,ke) = div_x + tmp1 * E22(i,j,k,ke)
+           div3D(i,j,v,k,ke) = div3D(i,j,v,k,ke) + tmp1 * E22(i,j,k,ke)
+        end do
+        end do
+      end do
+    end do
+    end do
 
     !$acc parallel loop gang collapse(2) present(Mat,Mat_tr,vec_in_x,vec_in_y,vec_in_z,Lift,ebnd_flux,E11,E22,E33,Gsqrt,div3D) async(1)
     do ke=1, Ne
@@ -1621,22 +1806,6 @@ contains
         !$acc loop vector collapse(2)
         do j=1, 5
         do i=1, 5
-          ! X-dir
-          div_x = 0.0_RP
-          !$acc loop seq
-          do p=1, 5
-            div_x = div_x + Mat(i,p) * vec_in_x(p,j,v,k,ke)
-          end do
-
-          ! Y-dir
-          tmp1 = 0.0_RP
-          !$acc loop seq
-          do p=1, 5
-            tmp1 = tmp1 + vec_in_y(i,p,v,k,ke) * Mat_tr(p,j)
-          end do
-          div_xy = div_x * E11(i,j,k,ke) + tmp1 * E22(i,j,k,ke)
-
-          !- Lift
 
           invG = 1.0_RP / Gsqrt(i,j,k,ke)
           e33_ = E33(i,j,k,ke)
@@ -1650,19 +1819,20 @@ contains
               + Lift(i,j,k,6) * ebnd_flux(i,j,6,v,ke)
           tmp_lift = tmp1 + tmp2 + tmp3
 
-          ! Z-dir
-          tmp1 = 0.0_RP
-          !$acc loop seq
-          do p=1, 5
-            tmp1 = tmp1 + vec_in_z(i,j,v,p,ke) * Mat_tr(p,k)
-          end do
-          div3D(i,j,v,k,ke) = ( div_xy + tmp1 * e33_ + tmp_lift ) * invG
+          tmp1 = vec_in_z(i,j,v,1,ke) * Mat_tr(1,k) &
+              + vec_in_z(i,j,v,2,ke) * Mat_tr(2,k) &
+              + vec_in_z(i,j,v,3,ke) * Mat_tr(3,k) &
+              + vec_in_z(i,j,v,4,ke) * Mat_tr(4,k) &
+              + vec_in_z(i,j,v,5,ke) * Mat_tr(5,k) 
+!          div3D(i,j,v,k,ke) = ( div3D(i,j,v,k,ke) + tmp1 * e33_ + tmp_lift ) * invG
+          div3D(i,j,v,k,ke) = ( div3D(i,j,v,k,ke) + tmp1 * e33_ + tmp_lift ) * invG
 
         end do
         end do
       end do
     end do
     end do
+
     return
   end subroutine element_operation_kernel_matvec_divlike_var5_P4_v2
 
@@ -1967,22 +2137,11 @@ contains
                + vec_in_y(i,4,v,k,ke) * Mat_tr(4,j) &
                + vec_in_y(i,5,v,k,ke) * Mat_tr(5,j) &
                + vec_in_y(i,6,v,k,ke) * Mat_tr(6,j) 
-!          div3D(i,j,v,k,ke) = div_x + tmp1 * E22(i,j,k,ke)
            div_xy = div_x + tmp1 * E22(i,j,k,ke)
-        !end do
-        !end do
-      !end do
-    !end do
-    !end do
 
-    !!$acc parallel loop gang collapse(2) present(Mat_tr,Lift,vec_in_z,ebnd_flux,E33,Gsqrt,div3D)
-    !do ke=1, Ne
-      ! Z-dir
-      !do k=1, 6      
-      !do v=1, 5    
-        !!$acc loop vector collapse(2)
-        !do j=1, 6
-        !do i=1, 6
+
+          ! Z-dir
+
           invG = 1.0_RP / Gsqrt(i,j,k,ke)
           e33_ = E33(i,j,k,ke)
 
@@ -2001,7 +2160,7 @@ contains
               + vec_in_z(i,j,v,4,ke) * Mat_tr(4,k) &
               + vec_in_z(i,j,v,5,ke) * Mat_tr(5,k) &
               + vec_in_z(i,j,v,6,ke) * Mat_tr(6,k) 
-!          div3D(i,j,v,k,ke) = ( div3D(i,j,v,k,ke) + tmp1 * e33_ + tmp_lift ) * invG
+
           div3D(i,j,v,k,ke) = ( div_xy + tmp1 * e33_ + tmp_lift ) * invG
 
         end do
@@ -2032,14 +2191,99 @@ contains
     real(RP), intent(inout) :: div3D(6,6,5,6,Ne)
 
     integer :: ke
-    integer :: p, i, j, k, v
+    integer :: p, i, j, k, v, n
     real(RP) :: tmp1
     real(RP) :: tmp_lift
     real(RP) :: tmp2, tmp3    
 
     real(RP) :: invG, e33_
     real(RP) :: div_x, div_xy
+
+    real(RP) :: tmp_vec_in_y(6)
+
+    real(RP) :: s1, s2, s3, s4
+    real(RP) :: e11_
     !----------------------------------------------------------
+
+    !$acc parallel loop gang collapse(2) present(Mat,vec_in_x,E11,div3D) async(1) 
+    do ke=1, Ne
+    do k=1, 6
+      !$acc loop vector collapse(2)
+      do j=1, 6
+      do i=1, 6
+        e11_ = E11(i,j,k,ke) 
+        ! X-dir
+        s1 = ( Mat_tr(1,i) * vec_in_x(1,j,1,k,ke) &
+
+              + Mat_tr(2,i) * vec_in_x(2,j,1,k,ke) &
+              + Mat_tr(3,i) * vec_in_x(3,j,1,k,ke) &
+              + Mat_tr(4,i) * vec_in_x(4,j,1,k,ke) &
+              + Mat_tr(5,i) * vec_in_x(5,j,1,k,ke) &
+              + Mat_tr(6,i) * vec_in_x(6,j,1,k,ke) )
+        s2 = ( Mat_tr(1,i) * vec_in_x(1,j,2,k,ke) &
+
+              + Mat_tr(2,i) * vec_in_x(2,j,2,k,ke) &
+              + Mat_tr(3,i) * vec_in_x(3,j,2,k,ke) &
+              + Mat_tr(4,i) * vec_in_x(4,j,2,k,ke) &
+              + Mat_tr(5,i) * vec_in_x(5,j,2,k,ke) &
+              + Mat_tr(6,i) * vec_in_x(6,j,2,k,ke) )
+        div3D(i,j,1,k,ke) = s1 * e11_
+        div3D(i,j,2,k,ke) = s2 * e11_
+
+        s1 = ( Mat_tr(1,i) * vec_in_x(1,j,3,k,ke) &
+
+              + Mat_tr(2,i) * vec_in_x(2,j,3,k,ke) &
+              + Mat_tr(3,i) * vec_in_x(3,j,3,k,ke) &
+              + Mat_tr(4,i) * vec_in_x(4,j,3,k,ke) &
+              + Mat_tr(5,i) * vec_in_x(5,j,3,k,ke) &
+              + Mat_tr(6,i) * vec_in_x(6,j,3,k,ke) )
+        s2 = ( Mat_tr(1,i) * vec_in_x(1,j,4,k,ke) &
+
+              + Mat_tr(2,i) * vec_in_x(2,j,4,k,ke) &
+              + Mat_tr(3,i) * vec_in_x(3,j,4,k,ke) &
+              + Mat_tr(4,i) * vec_in_x(4,j,4,k,ke) &
+              + Mat_tr(5,i) * vec_in_x(5,j,4,k,ke) &
+              + Mat_tr(6,i) * vec_in_x(6,j,4,k,ke) )
+        div3D(i,j,3,k,ke) = s1 * e11_
+        div3D(i,j,4,k,ke) = s2 * e11_
+
+        s1 = ( Mat_tr(1,i) * vec_in_x(1,j,5,k,ke) &
+
+              + Mat_tr(2,i) * vec_in_x(2,j,5,k,ke) &
+              + Mat_tr(3,i) * vec_in_x(3,j,5,k,ke) &
+              + Mat_tr(4,i) * vec_in_x(4,j,5,k,ke) &
+              + Mat_tr(5,i) * vec_in_x(5,j,5,k,ke) &
+              + Mat_tr(6,i) * vec_in_x(6,j,5,k,ke) )
+        div3D(i,j,5,k,ke) = s1 * e11_
+      end do
+      end do
+    end do
+    end do
+
+    !$acc parallel loop gang collapse(2) private(tmp_vec_in_y)present(Mat,Mat_tr,vec_in_x,vec_in_y,vec_in_z,Lift,ebnd_flux,E11,E22,E33,Gsqrt,div3D) async(1)
+    do ke=1, Ne
+    do k=1, 6
+      do v=1, 5
+        !$acc loop vector collapse(2)
+        do j=1, 6
+        do i=1, 6
+
+          ! Y-dir
+          tmp_vec_in_y(:) = vec_in_y(i,:,v,k,ke)
+
+          tmp1 = tmp_vec_in_y(1) * Mat_tr(1,j) &
+               + tmp_vec_in_y(2) * Mat_tr(2,j) &
+               + tmp_vec_in_y(3) * Mat_tr(3,j) &
+               + tmp_vec_in_y(4) * Mat_tr(4,j) &
+               + tmp_vec_in_y(5) * Mat_tr(5,j) &
+               + tmp_vec_in_y(6) * Mat_tr(6,j) 
+!          div3D(i,j,v,k,ke) = div_x + tmp1 * E22(i,j,k,ke)
+           div3D(i,j,v,k,ke) = div3D(i,j,v,k,ke) + tmp1 * E22(i,j,k,ke)
+        end do
+        end do
+      end do
+    end do
+    end do
 
     !$acc parallel loop gang collapse(2) present(Mat,Mat_tr,vec_in_x,vec_in_y,vec_in_z,Lift,ebnd_flux,E11,E22,E33,Gsqrt,div3D) async(1)
     do ke=1, Ne
@@ -2048,22 +2292,6 @@ contains
         !$acc loop vector collapse(2)
         do j=1, 6
         do i=1, 6
-          ! X-dir
-          div_x = 0.0_RP
-          !$acc loop seq
-          do p=1, 6
-            div_x = div_x + Mat(i,p) * vec_in_x(p,j,v,k,ke)
-          end do
-
-          ! Y-dir
-          tmp1 = 0.0_RP
-          !$acc loop seq
-          do p=1, 6
-            tmp1 = tmp1 + vec_in_y(i,p,v,k,ke) * Mat_tr(p,j)
-          end do
-          div_xy = div_x * E11(i,j,k,ke) + tmp1 * E22(i,j,k,ke)
-
-          !- Lift
 
           invG = 1.0_RP / Gsqrt(i,j,k,ke)
           e33_ = E33(i,j,k,ke)
@@ -2077,19 +2305,21 @@ contains
               + Lift(i,j,k,6) * ebnd_flux(i,j,6,v,ke)
           tmp_lift = tmp1 + tmp2 + tmp3
 
-          ! Z-dir
-          tmp1 = 0.0_RP
-          !$acc loop seq
-          do p=1, 6
-            tmp1 = tmp1 + vec_in_z(i,j,v,p,ke) * Mat_tr(p,k)
-          end do
-          div3D(i,j,v,k,ke) = ( div_xy + tmp1 * e33_ + tmp_lift ) * invG
+          tmp1 = vec_in_z(i,j,v,1,ke) * Mat_tr(1,k) &
+              + vec_in_z(i,j,v,2,ke) * Mat_tr(2,k) &
+              + vec_in_z(i,j,v,3,ke) * Mat_tr(3,k) &
+              + vec_in_z(i,j,v,4,ke) * Mat_tr(4,k) &
+              + vec_in_z(i,j,v,5,ke) * Mat_tr(5,k) &
+              + vec_in_z(i,j,v,6,ke) * Mat_tr(6,k) 
+!          div3D(i,j,v,k,ke) = ( div3D(i,j,v,k,ke) + tmp1 * e33_ + tmp_lift ) * invG
+          div3D(i,j,v,k,ke) = ( div3D(i,j,v,k,ke) + tmp1 * e33_ + tmp_lift ) * invG
 
         end do
         end do
       end do
     end do
     end do
+
     return
   end subroutine element_operation_kernel_matvec_divlike_var5_P5_v2
 
@@ -2405,22 +2635,11 @@ contains
                + vec_in_y(i,5,v,k,ke) * Mat_tr(5,j) &
                + vec_in_y(i,6,v,k,ke) * Mat_tr(6,j) &
                + vec_in_y(i,7,v,k,ke) * Mat_tr(7,j) 
-!          div3D(i,j,v,k,ke) = div_x + tmp1 * E22(i,j,k,ke)
            div_xy = div_x + tmp1 * E22(i,j,k,ke)
-        !end do
-        !end do
-      !end do
-    !end do
-    !end do
 
-    !!$acc parallel loop gang collapse(2) present(Mat_tr,Lift,vec_in_z,ebnd_flux,E33,Gsqrt,div3D)
-    !do ke=1, Ne
-      ! Z-dir
-      !do k=1, 7      
-      !do v=1, 5    
-        !!$acc loop vector collapse(2)
-        !do j=1, 7
-        !do i=1, 7
+
+          ! Z-dir
+
           invG = 1.0_RP / Gsqrt(i,j,k,ke)
           e33_ = E33(i,j,k,ke)
 
@@ -2440,7 +2659,7 @@ contains
               + vec_in_z(i,j,v,5,ke) * Mat_tr(5,k) &
               + vec_in_z(i,j,v,6,ke) * Mat_tr(6,k) &
               + vec_in_z(i,j,v,7,ke) * Mat_tr(7,k) 
-!          div3D(i,j,v,k,ke) = ( div3D(i,j,v,k,ke) + tmp1 * e33_ + tmp_lift ) * invG
+
           div3D(i,j,v,k,ke) = ( div_xy + tmp1 * e33_ + tmp_lift ) * invG
 
         end do
@@ -2471,14 +2690,105 @@ contains
     real(RP), intent(inout) :: div3D(7,7,5,7,Ne)
 
     integer :: ke
-    integer :: p, i, j, k, v
+    integer :: p, i, j, k, v, n
     real(RP) :: tmp1
     real(RP) :: tmp_lift
     real(RP) :: tmp2, tmp3    
 
     real(RP) :: invG, e33_
     real(RP) :: div_x, div_xy
+
+    real(RP) :: tmp_vec_in_y(7)
+
+    real(RP) :: s1, s2, s3, s4
+    real(RP) :: e11_
     !----------------------------------------------------------
+
+    !$acc parallel loop gang collapse(2) present(Mat,vec_in_x,E11,div3D) async(1) 
+    do ke=1, Ne
+    do k=1, 7
+      !$acc loop vector collapse(2)
+      do j=1, 7
+      do i=1, 7
+        e11_ = E11(i,j,k,ke) 
+        ! X-dir
+        s1 = ( Mat_tr(1,i) * vec_in_x(1,j,1,k,ke) &
+
+              + Mat_tr(2,i) * vec_in_x(2,j,1,k,ke) &
+              + Mat_tr(3,i) * vec_in_x(3,j,1,k,ke) &
+              + Mat_tr(4,i) * vec_in_x(4,j,1,k,ke) &
+              + Mat_tr(5,i) * vec_in_x(5,j,1,k,ke) &
+              + Mat_tr(6,i) * vec_in_x(6,j,1,k,ke) &
+              + Mat_tr(7,i) * vec_in_x(7,j,1,k,ke) )
+        s2 = ( Mat_tr(1,i) * vec_in_x(1,j,2,k,ke) &
+
+              + Mat_tr(2,i) * vec_in_x(2,j,2,k,ke) &
+              + Mat_tr(3,i) * vec_in_x(3,j,2,k,ke) &
+              + Mat_tr(4,i) * vec_in_x(4,j,2,k,ke) &
+              + Mat_tr(5,i) * vec_in_x(5,j,2,k,ke) &
+              + Mat_tr(6,i) * vec_in_x(6,j,2,k,ke) &
+              + Mat_tr(7,i) * vec_in_x(7,j,2,k,ke) )
+        div3D(i,j,1,k,ke) = s1 * e11_
+        div3D(i,j,2,k,ke) = s2 * e11_
+
+        s1 = ( Mat_tr(1,i) * vec_in_x(1,j,3,k,ke) &
+
+              + Mat_tr(2,i) * vec_in_x(2,j,3,k,ke) &
+              + Mat_tr(3,i) * vec_in_x(3,j,3,k,ke) &
+              + Mat_tr(4,i) * vec_in_x(4,j,3,k,ke) &
+              + Mat_tr(5,i) * vec_in_x(5,j,3,k,ke) &
+              + Mat_tr(6,i) * vec_in_x(6,j,3,k,ke) &
+              + Mat_tr(7,i) * vec_in_x(7,j,3,k,ke) )
+        s2 = ( Mat_tr(1,i) * vec_in_x(1,j,4,k,ke) &
+
+              + Mat_tr(2,i) * vec_in_x(2,j,4,k,ke) &
+              + Mat_tr(3,i) * vec_in_x(3,j,4,k,ke) &
+              + Mat_tr(4,i) * vec_in_x(4,j,4,k,ke) &
+              + Mat_tr(5,i) * vec_in_x(5,j,4,k,ke) &
+              + Mat_tr(6,i) * vec_in_x(6,j,4,k,ke) &
+              + Mat_tr(7,i) * vec_in_x(7,j,4,k,ke) )
+        div3D(i,j,3,k,ke) = s1 * e11_
+        div3D(i,j,4,k,ke) = s2 * e11_
+
+        s1 = ( Mat_tr(1,i) * vec_in_x(1,j,5,k,ke) &
+
+              + Mat_tr(2,i) * vec_in_x(2,j,5,k,ke) &
+              + Mat_tr(3,i) * vec_in_x(3,j,5,k,ke) &
+              + Mat_tr(4,i) * vec_in_x(4,j,5,k,ke) &
+              + Mat_tr(5,i) * vec_in_x(5,j,5,k,ke) &
+              + Mat_tr(6,i) * vec_in_x(6,j,5,k,ke) &
+              + Mat_tr(7,i) * vec_in_x(7,j,5,k,ke) )
+        div3D(i,j,5,k,ke) = s1 * e11_
+      end do
+      end do
+    end do
+    end do
+
+    !$acc parallel loop gang collapse(2) private(tmp_vec_in_y)present(Mat,Mat_tr,vec_in_x,vec_in_y,vec_in_z,Lift,ebnd_flux,E11,E22,E33,Gsqrt,div3D) async(1)
+    do ke=1, Ne
+    do k=1, 7
+      do v=1, 5
+        !$acc loop vector collapse(2)
+        do j=1, 7
+        do i=1, 7
+
+          ! Y-dir
+          tmp_vec_in_y(:) = vec_in_y(i,:,v,k,ke)
+
+          tmp1 = tmp_vec_in_y(1) * Mat_tr(1,j) &
+               + tmp_vec_in_y(2) * Mat_tr(2,j) &
+               + tmp_vec_in_y(3) * Mat_tr(3,j) &
+               + tmp_vec_in_y(4) * Mat_tr(4,j) &
+               + tmp_vec_in_y(5) * Mat_tr(5,j) &
+               + tmp_vec_in_y(6) * Mat_tr(6,j) &
+               + tmp_vec_in_y(7) * Mat_tr(7,j) 
+!          div3D(i,j,v,k,ke) = div_x + tmp1 * E22(i,j,k,ke)
+           div3D(i,j,v,k,ke) = div3D(i,j,v,k,ke) + tmp1 * E22(i,j,k,ke)
+        end do
+        end do
+      end do
+    end do
+    end do
 
     !$acc parallel loop gang collapse(2) present(Mat,Mat_tr,vec_in_x,vec_in_y,vec_in_z,Lift,ebnd_flux,E11,E22,E33,Gsqrt,div3D) async(1)
     do ke=1, Ne
@@ -2487,22 +2797,6 @@ contains
         !$acc loop vector collapse(2)
         do j=1, 7
         do i=1, 7
-          ! X-dir
-          div_x = 0.0_RP
-          !$acc loop seq
-          do p=1, 7
-            div_x = div_x + Mat(i,p) * vec_in_x(p,j,v,k,ke)
-          end do
-
-          ! Y-dir
-          tmp1 = 0.0_RP
-          !$acc loop seq
-          do p=1, 7
-            tmp1 = tmp1 + vec_in_y(i,p,v,k,ke) * Mat_tr(p,j)
-          end do
-          div_xy = div_x * E11(i,j,k,ke) + tmp1 * E22(i,j,k,ke)
-
-          !- Lift
 
           invG = 1.0_RP / Gsqrt(i,j,k,ke)
           e33_ = E33(i,j,k,ke)
@@ -2516,19 +2810,22 @@ contains
               + Lift(i,j,k,6) * ebnd_flux(i,j,6,v,ke)
           tmp_lift = tmp1 + tmp2 + tmp3
 
-          ! Z-dir
-          tmp1 = 0.0_RP
-          !$acc loop seq
-          do p=1, 7
-            tmp1 = tmp1 + vec_in_z(i,j,v,p,ke) * Mat_tr(p,k)
-          end do
-          div3D(i,j,v,k,ke) = ( div_xy + tmp1 * e33_ + tmp_lift ) * invG
+          tmp1 = vec_in_z(i,j,v,1,ke) * Mat_tr(1,k) &
+              + vec_in_z(i,j,v,2,ke) * Mat_tr(2,k) &
+              + vec_in_z(i,j,v,3,ke) * Mat_tr(3,k) &
+              + vec_in_z(i,j,v,4,ke) * Mat_tr(4,k) &
+              + vec_in_z(i,j,v,5,ke) * Mat_tr(5,k) &
+              + vec_in_z(i,j,v,6,ke) * Mat_tr(6,k) &
+              + vec_in_z(i,j,v,7,ke) * Mat_tr(7,k) 
+!          div3D(i,j,v,k,ke) = ( div3D(i,j,v,k,ke) + tmp1 * e33_ + tmp_lift ) * invG
+          div3D(i,j,v,k,ke) = ( div3D(i,j,v,k,ke) + tmp1 * e33_ + tmp_lift ) * invG
 
         end do
         end do
       end do
     end do
     end do
+
     return
   end subroutine element_operation_kernel_matvec_divlike_var5_P6_v2
 
@@ -2855,22 +3152,11 @@ contains
                + vec_in_y(i,6,v,k,ke) * Mat_tr(6,j) &
                + vec_in_y(i,7,v,k,ke) * Mat_tr(7,j) &
                + vec_in_y(i,8,v,k,ke) * Mat_tr(8,j) 
-!          div3D(i,j,v,k,ke) = div_x + tmp1 * E22(i,j,k,ke)
            div_xy = div_x + tmp1 * E22(i,j,k,ke)
-        !end do
-        !end do
-      !end do
-    !end do
-    !end do
 
-    !!$acc parallel loop gang collapse(2) present(Mat_tr,Lift,vec_in_z,ebnd_flux,E33,Gsqrt,div3D)
-    !do ke=1, Ne
-      ! Z-dir
-      !do k=1, 8      
-      !do v=1, 5    
-        !!$acc loop vector collapse(2)
-        !do j=1, 8
-        !do i=1, 8
+
+          ! Z-dir
+
           invG = 1.0_RP / Gsqrt(i,j,k,ke)
           e33_ = E33(i,j,k,ke)
 
@@ -2891,7 +3177,7 @@ contains
               + vec_in_z(i,j,v,6,ke) * Mat_tr(6,k) &
               + vec_in_z(i,j,v,7,ke) * Mat_tr(7,k) &
               + vec_in_z(i,j,v,8,ke) * Mat_tr(8,k) 
-!          div3D(i,j,v,k,ke) = ( div3D(i,j,v,k,ke) + tmp1 * e33_ + tmp_lift ) * invG
+
           div3D(i,j,v,k,ke) = ( div_xy + tmp1 * e33_ + tmp_lift ) * invG
 
         end do
@@ -2922,14 +3208,111 @@ contains
     real(RP), intent(inout) :: div3D(8,8,5,8,Ne)
 
     integer :: ke
-    integer :: p, i, j, k, v
+    integer :: p, i, j, k, v, n
     real(RP) :: tmp1
     real(RP) :: tmp_lift
     real(RP) :: tmp2, tmp3    
 
     real(RP) :: invG, e33_
     real(RP) :: div_x, div_xy
+
+    real(RP) :: tmp_vec_in_y(8)
+
+    real(RP) :: s1, s2, s3, s4
+    real(RP) :: e11_
     !----------------------------------------------------------
+
+    !$acc parallel loop gang collapse(2) present(Mat,vec_in_x,E11,div3D) async(1) 
+    do ke=1, Ne
+    do k=1, 8
+      !$acc loop vector collapse(2)
+      do j=1, 8
+      do i=1, 8
+        e11_ = E11(i,j,k,ke) 
+        ! X-dir
+        s1 = ( Mat_tr(1,i) * vec_in_x(1,j,1,k,ke) &
+
+              + Mat_tr(2,i) * vec_in_x(2,j,1,k,ke) &
+              + Mat_tr(3,i) * vec_in_x(3,j,1,k,ke) &
+              + Mat_tr(4,i) * vec_in_x(4,j,1,k,ke) &
+              + Mat_tr(5,i) * vec_in_x(5,j,1,k,ke) &
+              + Mat_tr(6,i) * vec_in_x(6,j,1,k,ke) &
+              + Mat_tr(7,i) * vec_in_x(7,j,1,k,ke) &
+              + Mat_tr(8,i) * vec_in_x(8,j,1,k,ke) )
+        s2 = ( Mat_tr(1,i) * vec_in_x(1,j,2,k,ke) &
+
+              + Mat_tr(2,i) * vec_in_x(2,j,2,k,ke) &
+              + Mat_tr(3,i) * vec_in_x(3,j,2,k,ke) &
+              + Mat_tr(4,i) * vec_in_x(4,j,2,k,ke) &
+              + Mat_tr(5,i) * vec_in_x(5,j,2,k,ke) &
+              + Mat_tr(6,i) * vec_in_x(6,j,2,k,ke) &
+              + Mat_tr(7,i) * vec_in_x(7,j,2,k,ke) &
+              + Mat_tr(8,i) * vec_in_x(8,j,2,k,ke) )
+        div3D(i,j,1,k,ke) = s1 * e11_
+        div3D(i,j,2,k,ke) = s2 * e11_
+
+        s1 = ( Mat_tr(1,i) * vec_in_x(1,j,3,k,ke) &
+
+              + Mat_tr(2,i) * vec_in_x(2,j,3,k,ke) &
+              + Mat_tr(3,i) * vec_in_x(3,j,3,k,ke) &
+              + Mat_tr(4,i) * vec_in_x(4,j,3,k,ke) &
+              + Mat_tr(5,i) * vec_in_x(5,j,3,k,ke) &
+              + Mat_tr(6,i) * vec_in_x(6,j,3,k,ke) &
+              + Mat_tr(7,i) * vec_in_x(7,j,3,k,ke) &
+              + Mat_tr(8,i) * vec_in_x(8,j,3,k,ke) )
+        s2 = ( Mat_tr(1,i) * vec_in_x(1,j,4,k,ke) &
+
+              + Mat_tr(2,i) * vec_in_x(2,j,4,k,ke) &
+              + Mat_tr(3,i) * vec_in_x(3,j,4,k,ke) &
+              + Mat_tr(4,i) * vec_in_x(4,j,4,k,ke) &
+              + Mat_tr(5,i) * vec_in_x(5,j,4,k,ke) &
+              + Mat_tr(6,i) * vec_in_x(6,j,4,k,ke) &
+              + Mat_tr(7,i) * vec_in_x(7,j,4,k,ke) &
+              + Mat_tr(8,i) * vec_in_x(8,j,4,k,ke) )
+        div3D(i,j,3,k,ke) = s1 * e11_
+        div3D(i,j,4,k,ke) = s2 * e11_
+
+        s1 = ( Mat_tr(1,i) * vec_in_x(1,j,5,k,ke) &
+
+              + Mat_tr(2,i) * vec_in_x(2,j,5,k,ke) &
+              + Mat_tr(3,i) * vec_in_x(3,j,5,k,ke) &
+              + Mat_tr(4,i) * vec_in_x(4,j,5,k,ke) &
+              + Mat_tr(5,i) * vec_in_x(5,j,5,k,ke) &
+              + Mat_tr(6,i) * vec_in_x(6,j,5,k,ke) &
+              + Mat_tr(7,i) * vec_in_x(7,j,5,k,ke) &
+              + Mat_tr(8,i) * vec_in_x(8,j,5,k,ke) )
+        div3D(i,j,5,k,ke) = s1 * e11_
+      end do
+      end do
+    end do
+    end do
+
+    !$acc parallel loop gang collapse(2) private(tmp_vec_in_y)present(Mat,Mat_tr,vec_in_x,vec_in_y,vec_in_z,Lift,ebnd_flux,E11,E22,E33,Gsqrt,div3D) async(1)
+    do ke=1, Ne
+    do k=1, 8
+      do v=1, 5
+        !$acc loop vector collapse(2)
+        do j=1, 8
+        do i=1, 8
+
+          ! Y-dir
+          tmp_vec_in_y(:) = vec_in_y(i,:,v,k,ke)
+
+          tmp1 = tmp_vec_in_y(1) * Mat_tr(1,j) &
+               + tmp_vec_in_y(2) * Mat_tr(2,j) &
+               + tmp_vec_in_y(3) * Mat_tr(3,j) &
+               + tmp_vec_in_y(4) * Mat_tr(4,j) &
+               + tmp_vec_in_y(5) * Mat_tr(5,j) &
+               + tmp_vec_in_y(6) * Mat_tr(6,j) &
+               + tmp_vec_in_y(7) * Mat_tr(7,j) &
+               + tmp_vec_in_y(8) * Mat_tr(8,j) 
+!          div3D(i,j,v,k,ke) = div_x + tmp1 * E22(i,j,k,ke)
+           div3D(i,j,v,k,ke) = div3D(i,j,v,k,ke) + tmp1 * E22(i,j,k,ke)
+        end do
+        end do
+      end do
+    end do
+    end do
 
     !$acc parallel loop gang collapse(2) present(Mat,Mat_tr,vec_in_x,vec_in_y,vec_in_z,Lift,ebnd_flux,E11,E22,E33,Gsqrt,div3D) async(1)
     do ke=1, Ne
@@ -2938,22 +3321,6 @@ contains
         !$acc loop vector collapse(2)
         do j=1, 8
         do i=1, 8
-          ! X-dir
-          div_x = 0.0_RP
-          !$acc loop seq
-          do p=1, 8
-            div_x = div_x + Mat(i,p) * vec_in_x(p,j,v,k,ke)
-          end do
-
-          ! Y-dir
-          tmp1 = 0.0_RP
-          !$acc loop seq
-          do p=1, 8
-            tmp1 = tmp1 + vec_in_y(i,p,v,k,ke) * Mat_tr(p,j)
-          end do
-          div_xy = div_x * E11(i,j,k,ke) + tmp1 * E22(i,j,k,ke)
-
-          !- Lift
 
           invG = 1.0_RP / Gsqrt(i,j,k,ke)
           e33_ = E33(i,j,k,ke)
@@ -2967,19 +3334,23 @@ contains
               + Lift(i,j,k,6) * ebnd_flux(i,j,6,v,ke)
           tmp_lift = tmp1 + tmp2 + tmp3
 
-          ! Z-dir
-          tmp1 = 0.0_RP
-          !$acc loop seq
-          do p=1, 8
-            tmp1 = tmp1 + vec_in_z(i,j,v,p,ke) * Mat_tr(p,k)
-          end do
-          div3D(i,j,v,k,ke) = ( div_xy + tmp1 * e33_ + tmp_lift ) * invG
+          tmp1 = vec_in_z(i,j,v,1,ke) * Mat_tr(1,k) &
+              + vec_in_z(i,j,v,2,ke) * Mat_tr(2,k) &
+              + vec_in_z(i,j,v,3,ke) * Mat_tr(3,k) &
+              + vec_in_z(i,j,v,4,ke) * Mat_tr(4,k) &
+              + vec_in_z(i,j,v,5,ke) * Mat_tr(5,k) &
+              + vec_in_z(i,j,v,6,ke) * Mat_tr(6,k) &
+              + vec_in_z(i,j,v,7,ke) * Mat_tr(7,k) &
+              + vec_in_z(i,j,v,8,ke) * Mat_tr(8,k) 
+!          div3D(i,j,v,k,ke) = ( div3D(i,j,v,k,ke) + tmp1 * e33_ + tmp_lift ) * invG
+          div3D(i,j,v,k,ke) = ( div3D(i,j,v,k,ke) + tmp1 * e33_ + tmp_lift ) * invG
 
         end do
         end do
       end do
     end do
     end do
+
     return
   end subroutine element_operation_kernel_matvec_divlike_var5_P7_v2
 
@@ -3318,22 +3689,11 @@ contains
           tmp3 = vec_in_y(i,7,v,k,ke) * Mat_tr(7,j) &
                + vec_in_y(i,8,v,k,ke) * Mat_tr(8,j) &
                + vec_in_y(i,9,v,k,ke) * Mat_tr(9,j) 
-!          div3D(i,j,v,k,ke) = div_x + ( tmp1 + tmp2 + tmp3 ) * E22(i,j,k,ke)
           div_xy = div_x + ( tmp1 + tmp2 + tmp3 ) * E22(i,j,k,ke)
-        !end do
-        !end do
-      !end do
-    !end do
-    !end do
 
-    !!$acc parallel loop gang collapse(2) present(Mat_tr,Lift,vec_in_z,ebnd_flux,E33,Gsqrt,div3D)
-    !do ke=1, Ne
-      ! Z-dir
-      !do k=1, 9      
-      !do v=1, 5    
-        !!$acc loop vector collapse(2)
-        !do j=1, 9
-        !do i=1, 9
+
+          ! Z-dir
+
           invG = 1.0_RP / Gsqrt(i,j,k,ke)
           e33_ = E33(i,j,k,ke)
 
@@ -3355,7 +3715,7 @@ contains
           tmp3 = vec_in_z(i,j,v,7,ke) * Mat_tr(7,k) &
                + vec_in_z(i,j,v,8,ke) * Mat_tr(8,k) &
                + vec_in_z(i,j,v,9,ke) * Mat_tr(9,k) 
-!          div3D(i,j,v,k,ke) = ( div3D(i,j,v,k,ke) + ( tmp1 + tmp2 + tmp3 ) * e33_ + tmp_lift ) * invG
+
           div3D(i,j,v,k,ke) = ( div_xy + ( tmp1 + tmp2 + tmp3 ) * e33_ + tmp_lift ) * invG
 
         end do
@@ -3386,14 +3746,113 @@ contains
     real(RP), intent(inout) :: div3D(9,9,5,9,Ne)
 
     integer :: ke
-    integer :: p, i, j, k, v
+    integer :: p, i, j, k, v, n
     real(RP) :: tmp1
     real(RP) :: tmp_lift
     real(RP) :: tmp2, tmp3    
 
     real(RP) :: invG, e33_
     real(RP) :: div_x, div_xy
+
+    real(RP) :: tmp_vec_in_y(9)
+
+    real(RP) :: s1, s2, s3, s4
+    real(RP) :: e11_
     !----------------------------------------------------------
+
+    !$acc parallel loop gang collapse(2) present(Mat,vec_in_x,E11,div3D) async(1) 
+    do ke=1, Ne
+    do k=1, 9
+      !$acc loop vector collapse(2)
+      do j=1, 9
+      do i=1, 9
+        e11_ = E11(i,j,k,ke) 
+        ! X-dir
+        s1 = ( Mat_tr(1,i) * vec_in_x(1,j,1,k,ke) &
+
+              + Mat_tr(2,i) * vec_in_x(2,j,1,k,ke) &
+              + Mat_tr(3,i) * vec_in_x(3,j,1,k,ke) &
+              + Mat_tr(4,i) * vec_in_x(4,j,1,k,ke) &
+              + Mat_tr(5,i) * vec_in_x(5,j,1,k,ke) &
+              + Mat_tr(6,i) * vec_in_x(6,j,1,k,ke) &
+              + Mat_tr(7,i) * vec_in_x(7,j,1,k,ke) &
+              + Mat_tr(8,i) * vec_in_x(8,j,1,k,ke) &
+              + Mat_tr(9,i) * vec_in_x(9,j,1,k,ke) )
+        s2 = ( Mat_tr(1,i) * vec_in_x(1,j,2,k,ke) &
+
+              + Mat_tr(2,i) * vec_in_x(2,j,2,k,ke) &
+              + Mat_tr(3,i) * vec_in_x(3,j,2,k,ke) &
+              + Mat_tr(4,i) * vec_in_x(4,j,2,k,ke) &
+              + Mat_tr(5,i) * vec_in_x(5,j,2,k,ke) &
+              + Mat_tr(6,i) * vec_in_x(6,j,2,k,ke) &
+              + Mat_tr(7,i) * vec_in_x(7,j,2,k,ke) &
+              + Mat_tr(8,i) * vec_in_x(8,j,2,k,ke) &
+              + Mat_tr(9,i) * vec_in_x(9,j,2,k,ke) )
+        div3D(i,j,1,k,ke) = s1 * e11_
+        div3D(i,j,2,k,ke) = s2 * e11_
+
+        s1 = ( Mat_tr(1,i) * vec_in_x(1,j,3,k,ke) &
+
+              + Mat_tr(2,i) * vec_in_x(2,j,3,k,ke) &
+              + Mat_tr(3,i) * vec_in_x(3,j,3,k,ke) &
+              + Mat_tr(4,i) * vec_in_x(4,j,3,k,ke) &
+              + Mat_tr(5,i) * vec_in_x(5,j,3,k,ke) &
+              + Mat_tr(6,i) * vec_in_x(6,j,3,k,ke) &
+              + Mat_tr(7,i) * vec_in_x(7,j,3,k,ke) &
+              + Mat_tr(8,i) * vec_in_x(8,j,3,k,ke) &
+              + Mat_tr(9,i) * vec_in_x(9,j,3,k,ke) )
+        s2 = ( Mat_tr(1,i) * vec_in_x(1,j,4,k,ke) &
+
+              + Mat_tr(2,i) * vec_in_x(2,j,4,k,ke) &
+              + Mat_tr(3,i) * vec_in_x(3,j,4,k,ke) &
+              + Mat_tr(4,i) * vec_in_x(4,j,4,k,ke) &
+              + Mat_tr(5,i) * vec_in_x(5,j,4,k,ke) &
+              + Mat_tr(6,i) * vec_in_x(6,j,4,k,ke) &
+              + Mat_tr(7,i) * vec_in_x(7,j,4,k,ke) &
+              + Mat_tr(8,i) * vec_in_x(8,j,4,k,ke) &
+              + Mat_tr(9,i) * vec_in_x(9,j,4,k,ke) )
+        div3D(i,j,3,k,ke) = s1 * e11_
+        div3D(i,j,4,k,ke) = s2 * e11_
+
+        s1 = ( Mat_tr(1,i) * vec_in_x(1,j,5,k,ke) &
+
+              + Mat_tr(2,i) * vec_in_x(2,j,5,k,ke) &
+              + Mat_tr(3,i) * vec_in_x(3,j,5,k,ke) &
+              + Mat_tr(4,i) * vec_in_x(4,j,5,k,ke) &
+              + Mat_tr(5,i) * vec_in_x(5,j,5,k,ke) &
+              + Mat_tr(6,i) * vec_in_x(6,j,5,k,ke) &
+              + Mat_tr(7,i) * vec_in_x(7,j,5,k,ke) &
+              + Mat_tr(8,i) * vec_in_x(8,j,5,k,ke) &
+              + Mat_tr(9,i) * vec_in_x(9,j,5,k,ke) )
+        div3D(i,j,5,k,ke) = s1 * e11_
+      end do
+      end do
+    end do
+    end do
+
+    !$acc parallel loop gang collapse(2) private(tmp_vec_in_y)present(Mat,Mat_tr,vec_in_x,vec_in_y,vec_in_z,Lift,ebnd_flux,E11,E22,E33,Gsqrt,div3D) async(1)
+    do ke=1, Ne
+    do k=1, 9
+      do v=1, 5
+        !$acc loop vector collapse(2)
+        do j=1, 9
+        do i=1, 9
+
+          ! Y-dir
+          tmp_vec_in_y(:) = vec_in_y(i,:,v,k,ke)
+
+          tmp1 = tmp_vec_in_y(1) * Mat_tr(1,j) &
+               + tmp_vec_in_y(2) * Mat_tr(2,j) &
+               + tmp_vec_in_y(6) * Mat_tr(6,j) 
+          tmp3 = tmp_vec_in_y(7) * Mat_tr(7,j) &
+               + tmp_vec_in_y(8) * Mat_tr(8,j) &
+               + tmp_vec_in_y(9) * Mat_tr(9,j) 
+          div3D(i,j,v,k,ke) = div3D(i,j,v,k,ke) + ( tmp1 + tmp2 + tmp3 ) * E22(i,j,k,ke)
+        end do
+        end do
+      end do
+    end do
+    end do
 
     !$acc parallel loop gang collapse(2) present(Mat,Mat_tr,vec_in_x,vec_in_y,vec_in_z,Lift,ebnd_flux,E11,E22,E33,Gsqrt,div3D) async(1)
     do ke=1, Ne
@@ -3402,22 +3861,6 @@ contains
         !$acc loop vector collapse(2)
         do j=1, 9
         do i=1, 9
-          ! X-dir
-          div_x = 0.0_RP
-          !$acc loop seq
-          do p=1, 9
-            div_x = div_x + Mat(i,p) * vec_in_x(p,j,v,k,ke)
-          end do
-
-          ! Y-dir
-          tmp1 = 0.0_RP
-          !$acc loop seq
-          do p=1, 9
-            tmp1 = tmp1 + vec_in_y(i,p,v,k,ke) * Mat_tr(p,j)
-          end do
-          div_xy = div_x * E11(i,j,k,ke) + tmp1 * E22(i,j,k,ke)
-
-          !- Lift
 
           invG = 1.0_RP / Gsqrt(i,j,k,ke)
           e33_ = E33(i,j,k,ke)
@@ -3431,19 +3874,24 @@ contains
               + Lift(i,j,k,6) * ebnd_flux(i,j,6,v,ke)
           tmp_lift = tmp1 + tmp2 + tmp3
 
-          ! Z-dir
-          tmp1 = 0.0_RP
-          !$acc loop seq
-          do p=1, 9
-            tmp1 = tmp1 + vec_in_z(i,j,v,p,ke) * Mat_tr(p,k)
-          end do
-          div3D(i,j,v,k,ke) = ( div_xy + tmp1 * e33_ + tmp_lift ) * invG
+          tmp1 = vec_in_z(i,j,v,1,ke) * Mat_tr(1,k) &
+               + vec_in_z(i,j,v,2,ke) * Mat_tr(2,k) &
+               + vec_in_z(i,j,v,3,ke) * Mat_tr(3,k) 
+          tmp2 = vec_in_z(i,j,v,4,ke) * Mat_tr(4,k) &
+               + vec_in_z(i,j,v,5,ke) * Mat_tr(5,k) &
+               + vec_in_z(i,j,v,6,ke) * Mat_tr(6,k) 
+          tmp3 = vec_in_z(i,j,v,7,ke) * Mat_tr(7,k) &
+               + vec_in_z(i,j,v,8,ke) * Mat_tr(8,k) &
+               + vec_in_z(i,j,v,9,ke) * Mat_tr(9,k) 
+!          div3D(i,j,v,k,ke) = ( div3D(i,j,v,k,ke) + ( tmp1 + tmp2 + tmp3 ) * e33_ + tmp_lift ) * invG
+          div3D(i,j,v,k,ke) = ( div3D(i,j,v,k,ke) + ( tmp1 + tmp2 + tmp3 ) * e33_ + tmp_lift ) * invG
 
         end do
         end do
       end do
     end do
     end do
+
     return
   end subroutine element_operation_kernel_matvec_divlike_var5_P8_v2
 
@@ -3797,22 +4245,11 @@ contains
                + vec_in_y(i,8,v,k,ke) * Mat_tr(8,j) &
                + vec_in_y(i,9,v,k,ke) * Mat_tr(9,j) &
                + vec_in_y(i,10,v,k,ke) * Mat_tr(10,j) 
-!          div3D(i,j,v,k,ke) = div_x + ( tmp1 + tmp2 + tmp3 ) * E22(i,j,k,ke)
           div_xy = div_x + ( tmp1 + tmp2 + tmp3 ) * E22(i,j,k,ke)
-        !end do
-        !end do
-      !end do
-    !end do
-    !end do
 
-    !!$acc parallel loop gang collapse(2) present(Mat_tr,Lift,vec_in_z,ebnd_flux,E33,Gsqrt,div3D)
-    !do ke=1, Ne
-      ! Z-dir
-      !do k=1, 10      
-      !do v=1, 5    
-        !!$acc loop vector collapse(2)
-        !do j=1, 10
-        !do i=1, 10
+
+          ! Z-dir
+
           invG = 1.0_RP / Gsqrt(i,j,k,ke)
           e33_ = E33(i,j,k,ke)
 
@@ -3835,7 +4272,7 @@ contains
                + vec_in_z(i,j,v,8,ke) * Mat_tr(8,k) &
                + vec_in_z(i,j,v,9,ke) * Mat_tr(9,k) &
                + vec_in_z(i,j,v,10,ke) * Mat_tr(10,k) 
-!          div3D(i,j,v,k,ke) = ( div3D(i,j,v,k,ke) + ( tmp1 + tmp2 + tmp3 ) * e33_ + tmp_lift ) * invG
+
           div3D(i,j,v,k,ke) = ( div_xy + ( tmp1 + tmp2 + tmp3 ) * e33_ + tmp_lift ) * invG
 
         end do
@@ -3866,14 +4303,119 @@ contains
     real(RP), intent(inout) :: div3D(10,10,5,10,Ne)
 
     integer :: ke
-    integer :: p, i, j, k, v
+    integer :: p, i, j, k, v, n
     real(RP) :: tmp1
     real(RP) :: tmp_lift
     real(RP) :: tmp2, tmp3    
 
     real(RP) :: invG, e33_
     real(RP) :: div_x, div_xy
+
+    real(RP) :: tmp_vec_in_y(10)
+
+    real(RP) :: s1, s2, s3, s4
+    real(RP) :: e11_
     !----------------------------------------------------------
+
+    !$acc parallel loop gang collapse(2) present(Mat,vec_in_x,E11,div3D) async(1) 
+    do ke=1, Ne
+    do k=1, 10
+      !$acc loop vector collapse(2)
+      do j=1, 10
+      do i=1, 10
+        e11_ = E11(i,j,k,ke) 
+        ! X-dir
+        s1 = ( Mat_tr(1,i) * vec_in_x(1,j,1,k,ke) &
+
+              + Mat_tr(2,i) * vec_in_x(2,j,1,k,ke) &
+              + Mat_tr(3,i) * vec_in_x(3,j,1,k,ke) &
+              + Mat_tr(4,i) * vec_in_x(4,j,1,k,ke) &
+              + Mat_tr(5,i) * vec_in_x(5,j,1,k,ke) &
+              + Mat_tr(6,i) * vec_in_x(6,j,1,k,ke) &
+              + Mat_tr(7,i) * vec_in_x(7,j,1,k,ke) &
+              + Mat_tr(8,i) * vec_in_x(8,j,1,k,ke) &
+              + Mat_tr(9,i) * vec_in_x(9,j,1,k,ke) &
+              + Mat_tr(10,i) * vec_in_x(10,j,1,k,ke) )
+        s2 = ( Mat_tr(1,i) * vec_in_x(1,j,2,k,ke) &
+
+              + Mat_tr(2,i) * vec_in_x(2,j,2,k,ke) &
+              + Mat_tr(3,i) * vec_in_x(3,j,2,k,ke) &
+              + Mat_tr(4,i) * vec_in_x(4,j,2,k,ke) &
+              + Mat_tr(5,i) * vec_in_x(5,j,2,k,ke) &
+              + Mat_tr(6,i) * vec_in_x(6,j,2,k,ke) &
+              + Mat_tr(7,i) * vec_in_x(7,j,2,k,ke) &
+              + Mat_tr(8,i) * vec_in_x(8,j,2,k,ke) &
+              + Mat_tr(9,i) * vec_in_x(9,j,2,k,ke) &
+              + Mat_tr(10,i) * vec_in_x(10,j,2,k,ke) )
+        div3D(i,j,1,k,ke) = s1 * e11_
+        div3D(i,j,2,k,ke) = s2 * e11_
+
+        s1 = ( Mat_tr(1,i) * vec_in_x(1,j,3,k,ke) &
+
+              + Mat_tr(2,i) * vec_in_x(2,j,3,k,ke) &
+              + Mat_tr(3,i) * vec_in_x(3,j,3,k,ke) &
+              + Mat_tr(4,i) * vec_in_x(4,j,3,k,ke) &
+              + Mat_tr(5,i) * vec_in_x(5,j,3,k,ke) &
+              + Mat_tr(6,i) * vec_in_x(6,j,3,k,ke) &
+              + Mat_tr(7,i) * vec_in_x(7,j,3,k,ke) &
+              + Mat_tr(8,i) * vec_in_x(8,j,3,k,ke) &
+              + Mat_tr(9,i) * vec_in_x(9,j,3,k,ke) &
+              + Mat_tr(10,i) * vec_in_x(10,j,3,k,ke) )
+        s2 = ( Mat_tr(1,i) * vec_in_x(1,j,4,k,ke) &
+
+              + Mat_tr(2,i) * vec_in_x(2,j,4,k,ke) &
+              + Mat_tr(3,i) * vec_in_x(3,j,4,k,ke) &
+              + Mat_tr(4,i) * vec_in_x(4,j,4,k,ke) &
+              + Mat_tr(5,i) * vec_in_x(5,j,4,k,ke) &
+              + Mat_tr(6,i) * vec_in_x(6,j,4,k,ke) &
+              + Mat_tr(7,i) * vec_in_x(7,j,4,k,ke) &
+              + Mat_tr(8,i) * vec_in_x(8,j,4,k,ke) &
+              + Mat_tr(9,i) * vec_in_x(9,j,4,k,ke) &
+              + Mat_tr(10,i) * vec_in_x(10,j,4,k,ke) )
+        div3D(i,j,3,k,ke) = s1 * e11_
+        div3D(i,j,4,k,ke) = s2 * e11_
+
+        s1 = ( Mat_tr(1,i) * vec_in_x(1,j,5,k,ke) &
+
+              + Mat_tr(2,i) * vec_in_x(2,j,5,k,ke) &
+              + Mat_tr(3,i) * vec_in_x(3,j,5,k,ke) &
+              + Mat_tr(4,i) * vec_in_x(4,j,5,k,ke) &
+              + Mat_tr(5,i) * vec_in_x(5,j,5,k,ke) &
+              + Mat_tr(6,i) * vec_in_x(6,j,5,k,ke) &
+              + Mat_tr(7,i) * vec_in_x(7,j,5,k,ke) &
+              + Mat_tr(8,i) * vec_in_x(8,j,5,k,ke) &
+              + Mat_tr(9,i) * vec_in_x(9,j,5,k,ke) &
+              + Mat_tr(10,i) * vec_in_x(10,j,5,k,ke) )
+        div3D(i,j,5,k,ke) = s1 * e11_
+      end do
+      end do
+    end do
+    end do
+
+    !$acc parallel loop gang collapse(2) private(tmp_vec_in_y)present(Mat,Mat_tr,vec_in_x,vec_in_y,vec_in_z,Lift,ebnd_flux,E11,E22,E33,Gsqrt,div3D) async(1)
+    do ke=1, Ne
+    do k=1, 10
+      do v=1, 5
+        !$acc loop vector collapse(2)
+        do j=1, 10
+        do i=1, 10
+
+          ! Y-dir
+          tmp_vec_in_y(:) = vec_in_y(i,:,v,k,ke)
+
+          tmp1 = tmp_vec_in_y(1) * Mat_tr(1,j) &
+               + tmp_vec_in_y(2) * Mat_tr(2,j) &
+               + tmp_vec_in_y(6) * Mat_tr(6,j) 
+          tmp3 = tmp_vec_in_y(7) * Mat_tr(7,j) &
+               + tmp_vec_in_y(8) * Mat_tr(8,j) &
+               + tmp_vec_in_y(9) * Mat_tr(9,j) &
+               + tmp_vec_in_y(10) * Mat_tr(10,j) 
+          div3D(i,j,v,k,ke) = div3D(i,j,v,k,ke) + ( tmp1 + tmp2 + tmp3 ) * E22(i,j,k,ke)
+        end do
+        end do
+      end do
+    end do
+    end do
 
     !$acc parallel loop gang collapse(2) present(Mat,Mat_tr,vec_in_x,vec_in_y,vec_in_z,Lift,ebnd_flux,E11,E22,E33,Gsqrt,div3D) async(1)
     do ke=1, Ne
@@ -3882,22 +4424,6 @@ contains
         !$acc loop vector collapse(2)
         do j=1, 10
         do i=1, 10
-          ! X-dir
-          div_x = 0.0_RP
-          !$acc loop seq
-          do p=1, 10
-            div_x = div_x + Mat(i,p) * vec_in_x(p,j,v,k,ke)
-          end do
-
-          ! Y-dir
-          tmp1 = 0.0_RP
-          !$acc loop seq
-          do p=1, 10
-            tmp1 = tmp1 + vec_in_y(i,p,v,k,ke) * Mat_tr(p,j)
-          end do
-          div_xy = div_x * E11(i,j,k,ke) + tmp1 * E22(i,j,k,ke)
-
-          !- Lift
 
           invG = 1.0_RP / Gsqrt(i,j,k,ke)
           e33_ = E33(i,j,k,ke)
@@ -3911,19 +4437,25 @@ contains
               + Lift(i,j,k,6) * ebnd_flux(i,j,6,v,ke)
           tmp_lift = tmp1 + tmp2 + tmp3
 
-          ! Z-dir
-          tmp1 = 0.0_RP
-          !$acc loop seq
-          do p=1, 10
-            tmp1 = tmp1 + vec_in_z(i,j,v,p,ke) * Mat_tr(p,k)
-          end do
-          div3D(i,j,v,k,ke) = ( div_xy + tmp1 * e33_ + tmp_lift ) * invG
+          tmp1 = vec_in_z(i,j,v,1,ke) * Mat_tr(1,k) &
+               + vec_in_z(i,j,v,2,ke) * Mat_tr(2,k) &
+               + vec_in_z(i,j,v,3,ke) * Mat_tr(3,k) 
+          tmp2 = vec_in_z(i,j,v,4,ke) * Mat_tr(4,k) &
+               + vec_in_z(i,j,v,5,ke) * Mat_tr(5,k) &
+               + vec_in_z(i,j,v,6,ke) * Mat_tr(6,k) 
+          tmp3 = vec_in_z(i,j,v,7,ke) * Mat_tr(7,k) &
+               + vec_in_z(i,j,v,8,ke) * Mat_tr(8,k) &
+               + vec_in_z(i,j,v,9,ke) * Mat_tr(9,k) &
+               + vec_in_z(i,j,v,10,ke) * Mat_tr(10,k) 
+!          div3D(i,j,v,k,ke) = ( div3D(i,j,v,k,ke) + ( tmp1 + tmp2 + tmp3 ) * e33_ + tmp_lift ) * invG
+          div3D(i,j,v,k,ke) = ( div3D(i,j,v,k,ke) + ( tmp1 + tmp2 + tmp3 ) * e33_ + tmp_lift ) * invG
 
         end do
         end do
       end do
     end do
     end do
+
     return
   end subroutine element_operation_kernel_matvec_divlike_var5_P9_v2
 
@@ -4288,22 +4820,11 @@ contains
           tmp3 = vec_in_y(i,9,v,k,ke) * Mat_tr(9,j) &
                + vec_in_y(i,10,v,k,ke) * Mat_tr(10,j) &
                + vec_in_y(i,11,v,k,ke) * Mat_tr(11,j) 
-!          div3D(i,j,v,k,ke) = div_x + ( tmp1 + tmp2 + tmp3 ) * E22(i,j,k,ke)
           div_xy = div_x + ( tmp1 + tmp2 + tmp3 ) * E22(i,j,k,ke)
-        !end do
-        !end do
-      !end do
-    !end do
-    !end do
 
-    !!$acc parallel loop gang collapse(2) present(Mat_tr,Lift,vec_in_z,ebnd_flux,E33,Gsqrt,div3D)
-    !do ke=1, Ne
-      ! Z-dir
-      !do k=1, 11      
-      !do v=1, 5    
-        !!$acc loop vector collapse(2)
-        !do j=1, 11
-        !do i=1, 11
+
+          ! Z-dir
+
           invG = 1.0_RP / Gsqrt(i,j,k,ke)
           e33_ = E33(i,j,k,ke)
 
@@ -4327,7 +4848,7 @@ contains
           tmp3 = vec_in_z(i,j,v,9,ke) * Mat_tr(9,k) &
                + vec_in_z(i,j,v,10,ke) * Mat_tr(10,k) &
                + vec_in_z(i,j,v,11,ke) * Mat_tr(11,k) 
-!          div3D(i,j,v,k,ke) = ( div3D(i,j,v,k,ke) + ( tmp1 + tmp2 + tmp3 ) * e33_ + tmp_lift ) * invG
+
           div3D(i,j,v,k,ke) = ( div_xy + ( tmp1 + tmp2 + tmp3 ) * e33_ + tmp_lift ) * invG
 
         end do
@@ -4358,14 +4879,124 @@ contains
     real(RP), intent(inout) :: div3D(11,11,5,11,Ne)
 
     integer :: ke
-    integer :: p, i, j, k, v
+    integer :: p, i, j, k, v, n
     real(RP) :: tmp1
     real(RP) :: tmp_lift
     real(RP) :: tmp2, tmp3    
 
     real(RP) :: invG, e33_
     real(RP) :: div_x, div_xy
+
+    real(RP) :: tmp_vec_in_y(11)
+
+    real(RP) :: s1, s2, s3, s4
+    real(RP) :: e11_
     !----------------------------------------------------------
+
+    !$acc parallel loop gang collapse(2) present(Mat,vec_in_x,E11,div3D) async(1) 
+    do ke=1, Ne
+    do k=1, 11
+      !$acc loop vector collapse(2)
+      do j=1, 11
+      do i=1, 11
+        e11_ = E11(i,j,k,ke) 
+        ! X-dir
+        s1 = ( Mat_tr(1,i) * vec_in_x(1,j,1,k,ke) &
+
+              + Mat_tr(2,i) * vec_in_x(2,j,1,k,ke) &
+              + Mat_tr(3,i) * vec_in_x(3,j,1,k,ke) &
+              + Mat_tr(4,i) * vec_in_x(4,j,1,k,ke) &
+              + Mat_tr(5,i) * vec_in_x(5,j,1,k,ke) &
+              + Mat_tr(6,i) * vec_in_x(6,j,1,k,ke) &
+              + Mat_tr(7,i) * vec_in_x(7,j,1,k,ke) &
+              + Mat_tr(8,i) * vec_in_x(8,j,1,k,ke) &
+              + Mat_tr(9,i) * vec_in_x(9,j,1,k,ke) &
+              + Mat_tr(10,i) * vec_in_x(10,j,1,k,ke) &
+              + Mat_tr(11,i) * vec_in_x(11,j,1,k,ke) )
+        s2 = ( Mat_tr(1,i) * vec_in_x(1,j,2,k,ke) &
+
+              + Mat_tr(2,i) * vec_in_x(2,j,2,k,ke) &
+              + Mat_tr(3,i) * vec_in_x(3,j,2,k,ke) &
+              + Mat_tr(4,i) * vec_in_x(4,j,2,k,ke) &
+              + Mat_tr(5,i) * vec_in_x(5,j,2,k,ke) &
+              + Mat_tr(6,i) * vec_in_x(6,j,2,k,ke) &
+              + Mat_tr(7,i) * vec_in_x(7,j,2,k,ke) &
+              + Mat_tr(8,i) * vec_in_x(8,j,2,k,ke) &
+              + Mat_tr(9,i) * vec_in_x(9,j,2,k,ke) &
+              + Mat_tr(10,i) * vec_in_x(10,j,2,k,ke) &
+              + Mat_tr(11,i) * vec_in_x(11,j,2,k,ke) )
+        div3D(i,j,1,k,ke) = s1 * e11_
+        div3D(i,j,2,k,ke) = s2 * e11_
+
+        s1 = ( Mat_tr(1,i) * vec_in_x(1,j,3,k,ke) &
+
+              + Mat_tr(2,i) * vec_in_x(2,j,3,k,ke) &
+              + Mat_tr(3,i) * vec_in_x(3,j,3,k,ke) &
+              + Mat_tr(4,i) * vec_in_x(4,j,3,k,ke) &
+              + Mat_tr(5,i) * vec_in_x(5,j,3,k,ke) &
+              + Mat_tr(6,i) * vec_in_x(6,j,3,k,ke) &
+              + Mat_tr(7,i) * vec_in_x(7,j,3,k,ke) &
+              + Mat_tr(8,i) * vec_in_x(8,j,3,k,ke) &
+              + Mat_tr(9,i) * vec_in_x(9,j,3,k,ke) &
+              + Mat_tr(10,i) * vec_in_x(10,j,3,k,ke) &
+              + Mat_tr(11,i) * vec_in_x(11,j,3,k,ke) )
+        s2 = ( Mat_tr(1,i) * vec_in_x(1,j,4,k,ke) &
+
+              + Mat_tr(2,i) * vec_in_x(2,j,4,k,ke) &
+              + Mat_tr(3,i) * vec_in_x(3,j,4,k,ke) &
+              + Mat_tr(4,i) * vec_in_x(4,j,4,k,ke) &
+              + Mat_tr(5,i) * vec_in_x(5,j,4,k,ke) &
+              + Mat_tr(6,i) * vec_in_x(6,j,4,k,ke) &
+              + Mat_tr(7,i) * vec_in_x(7,j,4,k,ke) &
+              + Mat_tr(8,i) * vec_in_x(8,j,4,k,ke) &
+              + Mat_tr(9,i) * vec_in_x(9,j,4,k,ke) &
+              + Mat_tr(10,i) * vec_in_x(10,j,4,k,ke) &
+              + Mat_tr(11,i) * vec_in_x(11,j,4,k,ke) )
+        div3D(i,j,3,k,ke) = s1 * e11_
+        div3D(i,j,4,k,ke) = s2 * e11_
+
+        s1 = ( Mat_tr(1,i) * vec_in_x(1,j,5,k,ke) &
+
+              + Mat_tr(2,i) * vec_in_x(2,j,5,k,ke) &
+              + Mat_tr(3,i) * vec_in_x(3,j,5,k,ke) &
+              + Mat_tr(4,i) * vec_in_x(4,j,5,k,ke) &
+              + Mat_tr(5,i) * vec_in_x(5,j,5,k,ke) &
+              + Mat_tr(6,i) * vec_in_x(6,j,5,k,ke) &
+              + Mat_tr(7,i) * vec_in_x(7,j,5,k,ke) &
+              + Mat_tr(8,i) * vec_in_x(8,j,5,k,ke) &
+              + Mat_tr(9,i) * vec_in_x(9,j,5,k,ke) &
+              + Mat_tr(10,i) * vec_in_x(10,j,5,k,ke) &
+              + Mat_tr(11,i) * vec_in_x(11,j,5,k,ke) )
+        div3D(i,j,5,k,ke) = s1 * e11_
+      end do
+      end do
+    end do
+    end do
+
+    !$acc parallel loop gang collapse(2) private(tmp_vec_in_y)present(Mat,Mat_tr,vec_in_x,vec_in_y,vec_in_z,Lift,ebnd_flux,E11,E22,E33,Gsqrt,div3D) async(1)
+    do ke=1, Ne
+    do k=1, 11
+      do v=1, 5
+        !$acc loop vector collapse(2)
+        do j=1, 11
+        do i=1, 11
+
+          ! Y-dir
+          tmp_vec_in_y(:) = vec_in_y(i,:,v,k,ke)
+
+          tmp1 = tmp_vec_in_y(1) * Mat_tr(1,j) &
+               + tmp_vec_in_y(2) * Mat_tr(2,j) &
+               + tmp_vec_in_y(3) * Mat_tr(3,j) &
+               + tmp_vec_in_y(8) * Mat_tr(8,j) 
+          tmp3 = tmp_vec_in_y(9) * Mat_tr(9,j) &
+               + tmp_vec_in_y(10) * Mat_tr(10,j) &
+               + tmp_vec_in_y(11) * Mat_tr(11,j) 
+          div3D(i,j,v,k,ke) = div3D(i,j,v,k,ke) + ( tmp1 + tmp2 + tmp3 ) * E22(i,j,k,ke)
+        end do
+        end do
+      end do
+    end do
+    end do
 
     !$acc parallel loop gang collapse(2) present(Mat,Mat_tr,vec_in_x,vec_in_y,vec_in_z,Lift,ebnd_flux,E11,E22,E33,Gsqrt,div3D) async(1)
     do ke=1, Ne
@@ -4374,22 +5005,6 @@ contains
         !$acc loop vector collapse(2)
         do j=1, 11
         do i=1, 11
-          ! X-dir
-          div_x = 0.0_RP
-          !$acc loop seq
-          do p=1, 11
-            div_x = div_x + Mat(i,p) * vec_in_x(p,j,v,k,ke)
-          end do
-
-          ! Y-dir
-          tmp1 = 0.0_RP
-          !$acc loop seq
-          do p=1, 11
-            tmp1 = tmp1 + vec_in_y(i,p,v,k,ke) * Mat_tr(p,j)
-          end do
-          div_xy = div_x * E11(i,j,k,ke) + tmp1 * E22(i,j,k,ke)
-
-          !- Lift
 
           invG = 1.0_RP / Gsqrt(i,j,k,ke)
           e33_ = E33(i,j,k,ke)
@@ -4403,19 +5018,26 @@ contains
               + Lift(i,j,k,6) * ebnd_flux(i,j,6,v,ke)
           tmp_lift = tmp1 + tmp2 + tmp3
 
-          ! Z-dir
-          tmp1 = 0.0_RP
-          !$acc loop seq
-          do p=1, 11
-            tmp1 = tmp1 + vec_in_z(i,j,v,p,ke) * Mat_tr(p,k)
-          end do
-          div3D(i,j,v,k,ke) = ( div_xy + tmp1 * e33_ + tmp_lift ) * invG
+          tmp1 = vec_in_z(i,j,v,1,ke) * Mat_tr(1,k) &
+               + vec_in_z(i,j,v,2,ke) * Mat_tr(2,k) &
+               + vec_in_z(i,j,v,3,ke) * Mat_tr(3,k) &
+               + vec_in_z(i,j,v,4,ke) * Mat_tr(4,k) 
+          tmp2 = vec_in_z(i,j,v,5,ke) * Mat_tr(5,k) &
+               + vec_in_z(i,j,v,6,ke) * Mat_tr(6,k) &
+               + vec_in_z(i,j,v,7,ke) * Mat_tr(7,k) &
+               + vec_in_z(i,j,v,8,ke) * Mat_tr(8,k) 
+          tmp3 = vec_in_z(i,j,v,9,ke) * Mat_tr(9,k) &
+               + vec_in_z(i,j,v,10,ke) * Mat_tr(10,k) &
+               + vec_in_z(i,j,v,11,ke) * Mat_tr(11,k) 
+!          div3D(i,j,v,k,ke) = ( div3D(i,j,v,k,ke) + ( tmp1 + tmp2 + tmp3 ) * e33_ + tmp_lift ) * invG
+          div3D(i,j,v,k,ke) = ( div3D(i,j,v,k,ke) + ( tmp1 + tmp2 + tmp3 ) * e33_ + tmp_lift ) * invG
 
         end do
         end do
       end do
     end do
     end do
+
     return
   end subroutine element_operation_kernel_matvec_divlike_var5_P10_v2
 
@@ -4791,22 +5413,11 @@ contains
                + vec_in_y(i,10,v,k,ke) * Mat_tr(10,j) &
                + vec_in_y(i,11,v,k,ke) * Mat_tr(11,j) &
                + vec_in_y(i,12,v,k,ke) * Mat_tr(12,j) 
-!          div3D(i,j,v,k,ke) = div_x + ( tmp1 + tmp2 + tmp3 ) * E22(i,j,k,ke)
           div_xy = div_x + ( tmp1 + tmp2 + tmp3 ) * E22(i,j,k,ke)
-        !end do
-        !end do
-      !end do
-    !end do
-    !end do
 
-    !!$acc parallel loop gang collapse(2) present(Mat_tr,Lift,vec_in_z,ebnd_flux,E33,Gsqrt,div3D)
-    !do ke=1, Ne
-      ! Z-dir
-      !do k=1, 12      
-      !do v=1, 5    
-        !!$acc loop vector collapse(2)
-        !do j=1, 12
-        !do i=1, 12
+
+          ! Z-dir
+
           invG = 1.0_RP / Gsqrt(i,j,k,ke)
           e33_ = E33(i,j,k,ke)
 
@@ -4831,7 +5442,7 @@ contains
                + vec_in_z(i,j,v,10,ke) * Mat_tr(10,k) &
                + vec_in_z(i,j,v,11,ke) * Mat_tr(11,k) &
                + vec_in_z(i,j,v,12,ke) * Mat_tr(12,k) 
-!          div3D(i,j,v,k,ke) = ( div3D(i,j,v,k,ke) + ( tmp1 + tmp2 + tmp3 ) * e33_ + tmp_lift ) * invG
+
           div3D(i,j,v,k,ke) = ( div_xy + ( tmp1 + tmp2 + tmp3 ) * e33_ + tmp_lift ) * invG
 
         end do
@@ -4862,14 +5473,130 @@ contains
     real(RP), intent(inout) :: div3D(12,12,5,12,Ne)
 
     integer :: ke
-    integer :: p, i, j, k, v
+    integer :: p, i, j, k, v, n
     real(RP) :: tmp1
     real(RP) :: tmp_lift
     real(RP) :: tmp2, tmp3    
 
     real(RP) :: invG, e33_
     real(RP) :: div_x, div_xy
+
+    real(RP) :: tmp_vec_in_y(12)
+
+    real(RP) :: s1, s2, s3, s4
+    real(RP) :: e11_
     !----------------------------------------------------------
+
+    !$acc parallel loop gang collapse(2) present(Mat,vec_in_x,E11,div3D) async(1) 
+    do ke=1, Ne
+    do k=1, 12
+      !$acc loop vector collapse(2)
+      do j=1, 12
+      do i=1, 12
+        e11_ = E11(i,j,k,ke) 
+        ! X-dir
+        s1 = ( Mat_tr(1,i) * vec_in_x(1,j,1,k,ke) &
+
+              + Mat_tr(2,i) * vec_in_x(2,j,1,k,ke) &
+              + Mat_tr(3,i) * vec_in_x(3,j,1,k,ke) &
+              + Mat_tr(4,i) * vec_in_x(4,j,1,k,ke) &
+              + Mat_tr(5,i) * vec_in_x(5,j,1,k,ke) &
+              + Mat_tr(6,i) * vec_in_x(6,j,1,k,ke) &
+              + Mat_tr(7,i) * vec_in_x(7,j,1,k,ke) &
+              + Mat_tr(8,i) * vec_in_x(8,j,1,k,ke) &
+              + Mat_tr(9,i) * vec_in_x(9,j,1,k,ke) &
+              + Mat_tr(10,i) * vec_in_x(10,j,1,k,ke) &
+              + Mat_tr(11,i) * vec_in_x(11,j,1,k,ke) &
+              + Mat_tr(12,i) * vec_in_x(12,j,1,k,ke) )
+        s2 = ( Mat_tr(1,i) * vec_in_x(1,j,2,k,ke) &
+
+              + Mat_tr(2,i) * vec_in_x(2,j,2,k,ke) &
+              + Mat_tr(3,i) * vec_in_x(3,j,2,k,ke) &
+              + Mat_tr(4,i) * vec_in_x(4,j,2,k,ke) &
+              + Mat_tr(5,i) * vec_in_x(5,j,2,k,ke) &
+              + Mat_tr(6,i) * vec_in_x(6,j,2,k,ke) &
+              + Mat_tr(7,i) * vec_in_x(7,j,2,k,ke) &
+              + Mat_tr(8,i) * vec_in_x(8,j,2,k,ke) &
+              + Mat_tr(9,i) * vec_in_x(9,j,2,k,ke) &
+              + Mat_tr(10,i) * vec_in_x(10,j,2,k,ke) &
+              + Mat_tr(11,i) * vec_in_x(11,j,2,k,ke) &
+              + Mat_tr(12,i) * vec_in_x(12,j,2,k,ke) )
+        div3D(i,j,1,k,ke) = s1 * e11_
+        div3D(i,j,2,k,ke) = s2 * e11_
+
+        s1 = ( Mat_tr(1,i) * vec_in_x(1,j,3,k,ke) &
+
+              + Mat_tr(2,i) * vec_in_x(2,j,3,k,ke) &
+              + Mat_tr(3,i) * vec_in_x(3,j,3,k,ke) &
+              + Mat_tr(4,i) * vec_in_x(4,j,3,k,ke) &
+              + Mat_tr(5,i) * vec_in_x(5,j,3,k,ke) &
+              + Mat_tr(6,i) * vec_in_x(6,j,3,k,ke) &
+              + Mat_tr(7,i) * vec_in_x(7,j,3,k,ke) &
+              + Mat_tr(8,i) * vec_in_x(8,j,3,k,ke) &
+              + Mat_tr(9,i) * vec_in_x(9,j,3,k,ke) &
+              + Mat_tr(10,i) * vec_in_x(10,j,3,k,ke) &
+              + Mat_tr(11,i) * vec_in_x(11,j,3,k,ke) &
+              + Mat_tr(12,i) * vec_in_x(12,j,3,k,ke) )
+        s2 = ( Mat_tr(1,i) * vec_in_x(1,j,4,k,ke) &
+
+              + Mat_tr(2,i) * vec_in_x(2,j,4,k,ke) &
+              + Mat_tr(3,i) * vec_in_x(3,j,4,k,ke) &
+              + Mat_tr(4,i) * vec_in_x(4,j,4,k,ke) &
+              + Mat_tr(5,i) * vec_in_x(5,j,4,k,ke) &
+              + Mat_tr(6,i) * vec_in_x(6,j,4,k,ke) &
+              + Mat_tr(7,i) * vec_in_x(7,j,4,k,ke) &
+              + Mat_tr(8,i) * vec_in_x(8,j,4,k,ke) &
+              + Mat_tr(9,i) * vec_in_x(9,j,4,k,ke) &
+              + Mat_tr(10,i) * vec_in_x(10,j,4,k,ke) &
+              + Mat_tr(11,i) * vec_in_x(11,j,4,k,ke) &
+              + Mat_tr(12,i) * vec_in_x(12,j,4,k,ke) )
+        div3D(i,j,3,k,ke) = s1 * e11_
+        div3D(i,j,4,k,ke) = s2 * e11_
+
+        s1 = ( Mat_tr(1,i) * vec_in_x(1,j,5,k,ke) &
+
+              + Mat_tr(2,i) * vec_in_x(2,j,5,k,ke) &
+              + Mat_tr(3,i) * vec_in_x(3,j,5,k,ke) &
+              + Mat_tr(4,i) * vec_in_x(4,j,5,k,ke) &
+              + Mat_tr(5,i) * vec_in_x(5,j,5,k,ke) &
+              + Mat_tr(6,i) * vec_in_x(6,j,5,k,ke) &
+              + Mat_tr(7,i) * vec_in_x(7,j,5,k,ke) &
+              + Mat_tr(8,i) * vec_in_x(8,j,5,k,ke) &
+              + Mat_tr(9,i) * vec_in_x(9,j,5,k,ke) &
+              + Mat_tr(10,i) * vec_in_x(10,j,5,k,ke) &
+              + Mat_tr(11,i) * vec_in_x(11,j,5,k,ke) &
+              + Mat_tr(12,i) * vec_in_x(12,j,5,k,ke) )
+        div3D(i,j,5,k,ke) = s1 * e11_
+      end do
+      end do
+    end do
+    end do
+
+    !$acc parallel loop gang collapse(2) private(tmp_vec_in_y)present(Mat,Mat_tr,vec_in_x,vec_in_y,vec_in_z,Lift,ebnd_flux,E11,E22,E33,Gsqrt,div3D) async(1)
+    do ke=1, Ne
+    do k=1, 12
+      do v=1, 5
+        !$acc loop vector collapse(2)
+        do j=1, 12
+        do i=1, 12
+
+          ! Y-dir
+          tmp_vec_in_y(:) = vec_in_y(i,:,v,k,ke)
+
+          tmp1 = tmp_vec_in_y(1) * Mat_tr(1,j) &
+               + tmp_vec_in_y(2) * Mat_tr(2,j) &
+               + tmp_vec_in_y(3) * Mat_tr(3,j) &
+               + tmp_vec_in_y(8) * Mat_tr(8,j) 
+          tmp3 = tmp_vec_in_y(9) * Mat_tr(9,j) &
+               + tmp_vec_in_y(10) * Mat_tr(10,j) &
+               + tmp_vec_in_y(11) * Mat_tr(11,j) &
+               + tmp_vec_in_y(12) * Mat_tr(12,j) 
+          div3D(i,j,v,k,ke) = div3D(i,j,v,k,ke) + ( tmp1 + tmp2 + tmp3 ) * E22(i,j,k,ke)
+        end do
+        end do
+      end do
+    end do
+    end do
 
     !$acc parallel loop gang collapse(2) present(Mat,Mat_tr,vec_in_x,vec_in_y,vec_in_z,Lift,ebnd_flux,E11,E22,E33,Gsqrt,div3D) async(1)
     do ke=1, Ne
@@ -4878,22 +5605,6 @@ contains
         !$acc loop vector collapse(2)
         do j=1, 12
         do i=1, 12
-          ! X-dir
-          div_x = 0.0_RP
-          !$acc loop seq
-          do p=1, 12
-            div_x = div_x + Mat(i,p) * vec_in_x(p,j,v,k,ke)
-          end do
-
-          ! Y-dir
-          tmp1 = 0.0_RP
-          !$acc loop seq
-          do p=1, 12
-            tmp1 = tmp1 + vec_in_y(i,p,v,k,ke) * Mat_tr(p,j)
-          end do
-          div_xy = div_x * E11(i,j,k,ke) + tmp1 * E22(i,j,k,ke)
-
-          !- Lift
 
           invG = 1.0_RP / Gsqrt(i,j,k,ke)
           e33_ = E33(i,j,k,ke)
@@ -4907,19 +5618,27 @@ contains
               + Lift(i,j,k,6) * ebnd_flux(i,j,6,v,ke)
           tmp_lift = tmp1 + tmp2 + tmp3
 
-          ! Z-dir
-          tmp1 = 0.0_RP
-          !$acc loop seq
-          do p=1, 12
-            tmp1 = tmp1 + vec_in_z(i,j,v,p,ke) * Mat_tr(p,k)
-          end do
-          div3D(i,j,v,k,ke) = ( div_xy + tmp1 * e33_ + tmp_lift ) * invG
+          tmp1 = vec_in_z(i,j,v,1,ke) * Mat_tr(1,k) &
+               + vec_in_z(i,j,v,2,ke) * Mat_tr(2,k) &
+               + vec_in_z(i,j,v,3,ke) * Mat_tr(3,k) &
+               + vec_in_z(i,j,v,4,ke) * Mat_tr(4,k) 
+          tmp2 = vec_in_z(i,j,v,5,ke) * Mat_tr(5,k) &
+               + vec_in_z(i,j,v,6,ke) * Mat_tr(6,k) &
+               + vec_in_z(i,j,v,7,ke) * Mat_tr(7,k) &
+               + vec_in_z(i,j,v,8,ke) * Mat_tr(8,k) 
+          tmp3 = vec_in_z(i,j,v,9,ke) * Mat_tr(9,k) &
+               + vec_in_z(i,j,v,10,ke) * Mat_tr(10,k) &
+               + vec_in_z(i,j,v,11,ke) * Mat_tr(11,k) &
+               + vec_in_z(i,j,v,12,ke) * Mat_tr(12,k) 
+!          div3D(i,j,v,k,ke) = ( div3D(i,j,v,k,ke) + ( tmp1 + tmp2 + tmp3 ) * e33_ + tmp_lift ) * invG
+          div3D(i,j,v,k,ke) = ( div3D(i,j,v,k,ke) + ( tmp1 + tmp2 + tmp3 ) * e33_ + tmp_lift ) * invG
 
         end do
         end do
       end do
     end do
     end do
+
     return
   end subroutine element_operation_kernel_matvec_divlike_var5_P11_v2
 
@@ -5306,22 +6025,11 @@ contains
                + vec_in_y(i,11,v,k,ke) * Mat_tr(11,j) &
                + vec_in_y(i,12,v,k,ke) * Mat_tr(12,j) &
                + vec_in_y(i,13,v,k,ke) * Mat_tr(13,j) 
-!          div3D(i,j,v,k,ke) = div_x + ( tmp1 + tmp2 + tmp3 ) * E22(i,j,k,ke)
           div_xy = div_x + ( tmp1 + tmp2 + tmp3 ) * E22(i,j,k,ke)
-        !end do
-        !end do
-      !end do
-    !end do
-    !end do
 
-    !!$acc parallel loop gang collapse(2) present(Mat_tr,Lift,vec_in_z,ebnd_flux,E33,Gsqrt,div3D)
-    !do ke=1, Ne
-      ! Z-dir
-      !do k=1, 13      
-      !do v=1, 5    
-        !!$acc loop vector collapse(2)
-        !do j=1, 13
-        !do i=1, 13
+
+          ! Z-dir
+
           invG = 1.0_RP / Gsqrt(i,j,k,ke)
           e33_ = E33(i,j,k,ke)
 
@@ -5347,7 +6055,7 @@ contains
                + vec_in_z(i,j,v,11,ke) * Mat_tr(11,k) &
                + vec_in_z(i,j,v,12,ke) * Mat_tr(12,k) &
                + vec_in_z(i,j,v,13,ke) * Mat_tr(13,k) 
-!          div3D(i,j,v,k,ke) = ( div3D(i,j,v,k,ke) + ( tmp1 + tmp2 + tmp3 ) * e33_ + tmp_lift ) * invG
+
           div3D(i,j,v,k,ke) = ( div_xy + ( tmp1 + tmp2 + tmp3 ) * e33_ + tmp_lift ) * invG
 
         end do
@@ -5378,14 +6086,136 @@ contains
     real(RP), intent(inout) :: div3D(13,13,5,13,Ne)
 
     integer :: ke
-    integer :: p, i, j, k, v
+    integer :: p, i, j, k, v, n
     real(RP) :: tmp1
     real(RP) :: tmp_lift
     real(RP) :: tmp2, tmp3    
 
     real(RP) :: invG, e33_
     real(RP) :: div_x, div_xy
+
+    real(RP) :: tmp_vec_in_y(13)
+
+    real(RP) :: s1, s2, s3, s4
+    real(RP) :: e11_
     !----------------------------------------------------------
+
+    !$acc parallel loop gang collapse(2) present(Mat,vec_in_x,E11,div3D) async(1) 
+    do ke=1, Ne
+    do k=1, 13
+      !$acc loop vector collapse(2)
+      do j=1, 13
+      do i=1, 13
+        e11_ = E11(i,j,k,ke) 
+        ! X-dir
+        s1 = ( Mat_tr(1,i) * vec_in_x(1,j,1,k,ke) &
+
+              + Mat_tr(2,i) * vec_in_x(2,j,1,k,ke) &
+              + Mat_tr(3,i) * vec_in_x(3,j,1,k,ke) &
+              + Mat_tr(4,i) * vec_in_x(4,j,1,k,ke) &
+              + Mat_tr(5,i) * vec_in_x(5,j,1,k,ke) &
+              + Mat_tr(6,i) * vec_in_x(6,j,1,k,ke) &
+              + Mat_tr(7,i) * vec_in_x(7,j,1,k,ke) &
+              + Mat_tr(8,i) * vec_in_x(8,j,1,k,ke) &
+              + Mat_tr(9,i) * vec_in_x(9,j,1,k,ke) &
+              + Mat_tr(10,i) * vec_in_x(10,j,1,k,ke) &
+              + Mat_tr(11,i) * vec_in_x(11,j,1,k,ke) &
+              + Mat_tr(12,i) * vec_in_x(12,j,1,k,ke) &
+              + Mat_tr(13,i) * vec_in_x(13,j,1,k,ke) )
+        s2 = ( Mat_tr(1,i) * vec_in_x(1,j,2,k,ke) &
+
+              + Mat_tr(2,i) * vec_in_x(2,j,2,k,ke) &
+              + Mat_tr(3,i) * vec_in_x(3,j,2,k,ke) &
+              + Mat_tr(4,i) * vec_in_x(4,j,2,k,ke) &
+              + Mat_tr(5,i) * vec_in_x(5,j,2,k,ke) &
+              + Mat_tr(6,i) * vec_in_x(6,j,2,k,ke) &
+              + Mat_tr(7,i) * vec_in_x(7,j,2,k,ke) &
+              + Mat_tr(8,i) * vec_in_x(8,j,2,k,ke) &
+              + Mat_tr(9,i) * vec_in_x(9,j,2,k,ke) &
+              + Mat_tr(10,i) * vec_in_x(10,j,2,k,ke) &
+              + Mat_tr(11,i) * vec_in_x(11,j,2,k,ke) &
+              + Mat_tr(12,i) * vec_in_x(12,j,2,k,ke) &
+              + Mat_tr(13,i) * vec_in_x(13,j,2,k,ke) )
+        div3D(i,j,1,k,ke) = s1 * e11_
+        div3D(i,j,2,k,ke) = s2 * e11_
+
+        s1 = ( Mat_tr(1,i) * vec_in_x(1,j,3,k,ke) &
+
+              + Mat_tr(2,i) * vec_in_x(2,j,3,k,ke) &
+              + Mat_tr(3,i) * vec_in_x(3,j,3,k,ke) &
+              + Mat_tr(4,i) * vec_in_x(4,j,3,k,ke) &
+              + Mat_tr(5,i) * vec_in_x(5,j,3,k,ke) &
+              + Mat_tr(6,i) * vec_in_x(6,j,3,k,ke) &
+              + Mat_tr(7,i) * vec_in_x(7,j,3,k,ke) &
+              + Mat_tr(8,i) * vec_in_x(8,j,3,k,ke) &
+              + Mat_tr(9,i) * vec_in_x(9,j,3,k,ke) &
+              + Mat_tr(10,i) * vec_in_x(10,j,3,k,ke) &
+              + Mat_tr(11,i) * vec_in_x(11,j,3,k,ke) &
+              + Mat_tr(12,i) * vec_in_x(12,j,3,k,ke) &
+              + Mat_tr(13,i) * vec_in_x(13,j,3,k,ke) )
+        s2 = ( Mat_tr(1,i) * vec_in_x(1,j,4,k,ke) &
+
+              + Mat_tr(2,i) * vec_in_x(2,j,4,k,ke) &
+              + Mat_tr(3,i) * vec_in_x(3,j,4,k,ke) &
+              + Mat_tr(4,i) * vec_in_x(4,j,4,k,ke) &
+              + Mat_tr(5,i) * vec_in_x(5,j,4,k,ke) &
+              + Mat_tr(6,i) * vec_in_x(6,j,4,k,ke) &
+              + Mat_tr(7,i) * vec_in_x(7,j,4,k,ke) &
+              + Mat_tr(8,i) * vec_in_x(8,j,4,k,ke) &
+              + Mat_tr(9,i) * vec_in_x(9,j,4,k,ke) &
+              + Mat_tr(10,i) * vec_in_x(10,j,4,k,ke) &
+              + Mat_tr(11,i) * vec_in_x(11,j,4,k,ke) &
+              + Mat_tr(12,i) * vec_in_x(12,j,4,k,ke) &
+              + Mat_tr(13,i) * vec_in_x(13,j,4,k,ke) )
+        div3D(i,j,3,k,ke) = s1 * e11_
+        div3D(i,j,4,k,ke) = s2 * e11_
+
+        s1 = ( Mat_tr(1,i) * vec_in_x(1,j,5,k,ke) &
+
+              + Mat_tr(2,i) * vec_in_x(2,j,5,k,ke) &
+              + Mat_tr(3,i) * vec_in_x(3,j,5,k,ke) &
+              + Mat_tr(4,i) * vec_in_x(4,j,5,k,ke) &
+              + Mat_tr(5,i) * vec_in_x(5,j,5,k,ke) &
+              + Mat_tr(6,i) * vec_in_x(6,j,5,k,ke) &
+              + Mat_tr(7,i) * vec_in_x(7,j,5,k,ke) &
+              + Mat_tr(8,i) * vec_in_x(8,j,5,k,ke) &
+              + Mat_tr(9,i) * vec_in_x(9,j,5,k,ke) &
+              + Mat_tr(10,i) * vec_in_x(10,j,5,k,ke) &
+              + Mat_tr(11,i) * vec_in_x(11,j,5,k,ke) &
+              + Mat_tr(12,i) * vec_in_x(12,j,5,k,ke) &
+              + Mat_tr(13,i) * vec_in_x(13,j,5,k,ke) )
+        div3D(i,j,5,k,ke) = s1 * e11_
+      end do
+      end do
+    end do
+    end do
+
+    !$acc parallel loop gang collapse(2) private(tmp_vec_in_y)present(Mat,Mat_tr,vec_in_x,vec_in_y,vec_in_z,Lift,ebnd_flux,E11,E22,E33,Gsqrt,div3D) async(1)
+    do ke=1, Ne
+    do k=1, 13
+      do v=1, 5
+        !$acc loop vector collapse(2)
+        do j=1, 13
+        do i=1, 13
+
+          ! Y-dir
+          tmp_vec_in_y(:) = vec_in_y(i,:,v,k,ke)
+
+          tmp1 = tmp_vec_in_y(1) * Mat_tr(1,j) &
+               + tmp_vec_in_y(2) * Mat_tr(2,j) &
+               + tmp_vec_in_y(3) * Mat_tr(3,j) &
+               + tmp_vec_in_y(8) * Mat_tr(8,j) 
+          tmp3 = tmp_vec_in_y(9) * Mat_tr(9,j) &
+               + tmp_vec_in_y(10) * Mat_tr(10,j) &
+               + tmp_vec_in_y(11) * Mat_tr(11,j) &
+               + tmp_vec_in_y(12) * Mat_tr(12,j) &
+               + tmp_vec_in_y(13) * Mat_tr(13,j) 
+          div3D(i,j,v,k,ke) = div3D(i,j,v,k,ke) + ( tmp1 + tmp2 + tmp3 ) * E22(i,j,k,ke)
+        end do
+        end do
+      end do
+    end do
+    end do
 
     !$acc parallel loop gang collapse(2) present(Mat,Mat_tr,vec_in_x,vec_in_y,vec_in_z,Lift,ebnd_flux,E11,E22,E33,Gsqrt,div3D) async(1)
     do ke=1, Ne
@@ -5394,22 +6224,6 @@ contains
         !$acc loop vector collapse(2)
         do j=1, 13
         do i=1, 13
-          ! X-dir
-          div_x = 0.0_RP
-          !$acc loop seq
-          do p=1, 13
-            div_x = div_x + Mat(i,p) * vec_in_x(p,j,v,k,ke)
-          end do
-
-          ! Y-dir
-          tmp1 = 0.0_RP
-          !$acc loop seq
-          do p=1, 13
-            tmp1 = tmp1 + vec_in_y(i,p,v,k,ke) * Mat_tr(p,j)
-          end do
-          div_xy = div_x * E11(i,j,k,ke) + tmp1 * E22(i,j,k,ke)
-
-          !- Lift
 
           invG = 1.0_RP / Gsqrt(i,j,k,ke)
           e33_ = E33(i,j,k,ke)
@@ -5423,19 +6237,28 @@ contains
               + Lift(i,j,k,6) * ebnd_flux(i,j,6,v,ke)
           tmp_lift = tmp1 + tmp2 + tmp3
 
-          ! Z-dir
-          tmp1 = 0.0_RP
-          !$acc loop seq
-          do p=1, 13
-            tmp1 = tmp1 + vec_in_z(i,j,v,p,ke) * Mat_tr(p,k)
-          end do
-          div3D(i,j,v,k,ke) = ( div_xy + tmp1 * e33_ + tmp_lift ) * invG
+          tmp1 = vec_in_z(i,j,v,1,ke) * Mat_tr(1,k) &
+               + vec_in_z(i,j,v,2,ke) * Mat_tr(2,k) &
+               + vec_in_z(i,j,v,3,ke) * Mat_tr(3,k) &
+               + vec_in_z(i,j,v,4,ke) * Mat_tr(4,k) 
+          tmp2 = vec_in_z(i,j,v,5,ke) * Mat_tr(5,k) &
+               + vec_in_z(i,j,v,6,ke) * Mat_tr(6,k) &
+               + vec_in_z(i,j,v,7,ke) * Mat_tr(7,k) &
+               + vec_in_z(i,j,v,8,ke) * Mat_tr(8,k) 
+          tmp3 = vec_in_z(i,j,v,9,ke) * Mat_tr(9,k) &
+               + vec_in_z(i,j,v,10,ke) * Mat_tr(10,k) &
+               + vec_in_z(i,j,v,11,ke) * Mat_tr(11,k) &
+               + vec_in_z(i,j,v,12,ke) * Mat_tr(12,k) &
+               + vec_in_z(i,j,v,13,ke) * Mat_tr(13,k) 
+!          div3D(i,j,v,k,ke) = ( div3D(i,j,v,k,ke) + ( tmp1 + tmp2 + tmp3 ) * e33_ + tmp_lift ) * invG
+          div3D(i,j,v,k,ke) = ( div3D(i,j,v,k,ke) + ( tmp1 + tmp2 + tmp3 ) * e33_ + tmp_lift ) * invG
 
         end do
         end do
       end do
     end do
     end do
+
     return
   end subroutine element_operation_kernel_matvec_divlike_var5_P12_v2
 
@@ -5833,22 +6656,11 @@ contains
                + vec_in_y(i,12,v,k,ke) * Mat_tr(12,j) &
                + vec_in_y(i,13,v,k,ke) * Mat_tr(13,j) &
                + vec_in_y(i,14,v,k,ke) * Mat_tr(14,j) 
-!          div3D(i,j,v,k,ke) = div_x + ( tmp1 + tmp2 + tmp3 ) * E22(i,j,k,ke)
           div_xy = div_x + ( tmp1 + tmp2 + tmp3 ) * E22(i,j,k,ke)
-        !end do
-        !end do
-      !end do
-    !end do
-    !end do
 
-    !!$acc parallel loop gang collapse(2) present(Mat_tr,Lift,vec_in_z,ebnd_flux,E33,Gsqrt,div3D)
-    !do ke=1, Ne
-      ! Z-dir
-      !do k=1, 14      
-      !do v=1, 5    
-        !!$acc loop vector collapse(2)
-        !do j=1, 14
-        !do i=1, 14
+
+          ! Z-dir
+
           invG = 1.0_RP / Gsqrt(i,j,k,ke)
           e33_ = E33(i,j,k,ke)
 
@@ -5875,7 +6687,7 @@ contains
                + vec_in_z(i,j,v,12,ke) * Mat_tr(12,k) &
                + vec_in_z(i,j,v,13,ke) * Mat_tr(13,k) &
                + vec_in_z(i,j,v,14,ke) * Mat_tr(14,k) 
-!          div3D(i,j,v,k,ke) = ( div3D(i,j,v,k,ke) + ( tmp1 + tmp2 + tmp3 ) * e33_ + tmp_lift ) * invG
+
           div3D(i,j,v,k,ke) = ( div_xy + ( tmp1 + tmp2 + tmp3 ) * e33_ + tmp_lift ) * invG
 
         end do
@@ -5906,14 +6718,141 @@ contains
     real(RP), intent(inout) :: div3D(14,14,5,14,Ne)
 
     integer :: ke
-    integer :: p, i, j, k, v
+    integer :: p, i, j, k, v, n
     real(RP) :: tmp1
     real(RP) :: tmp_lift
     real(RP) :: tmp2, tmp3    
 
     real(RP) :: invG, e33_
     real(RP) :: div_x, div_xy
+
+    real(RP) :: tmp_vec_in_y(14)
+
+    real(RP) :: s1, s2, s3, s4
+    real(RP) :: e11_
     !----------------------------------------------------------
+
+    !$acc parallel loop gang collapse(2) present(Mat,vec_in_x,E11,div3D) async(1) 
+    do ke=1, Ne
+    do k=1, 14
+      !$acc loop vector collapse(2)
+      do j=1, 14
+      do i=1, 14
+        e11_ = E11(i,j,k,ke) 
+        ! X-dir
+        s1 = ( Mat_tr(1,i) * vec_in_x(1,j,1,k,ke) &
+
+              + Mat_tr(2,i) * vec_in_x(2,j,1,k,ke) &
+              + Mat_tr(3,i) * vec_in_x(3,j,1,k,ke) &
+              + Mat_tr(4,i) * vec_in_x(4,j,1,k,ke) &
+              + Mat_tr(5,i) * vec_in_x(5,j,1,k,ke) &
+              + Mat_tr(6,i) * vec_in_x(6,j,1,k,ke) &
+              + Mat_tr(7,i) * vec_in_x(7,j,1,k,ke) &
+              + Mat_tr(8,i) * vec_in_x(8,j,1,k,ke) &
+              + Mat_tr(9,i) * vec_in_x(9,j,1,k,ke) &
+              + Mat_tr(10,i) * vec_in_x(10,j,1,k,ke) &
+              + Mat_tr(11,i) * vec_in_x(11,j,1,k,ke) &
+              + Mat_tr(12,i) * vec_in_x(12,j,1,k,ke) &
+              + Mat_tr(13,i) * vec_in_x(13,j,1,k,ke) &
+              + Mat_tr(14,i) * vec_in_x(14,j,1,k,ke) )
+        s2 = ( Mat_tr(1,i) * vec_in_x(1,j,2,k,ke) &
+
+              + Mat_tr(2,i) * vec_in_x(2,j,2,k,ke) &
+              + Mat_tr(3,i) * vec_in_x(3,j,2,k,ke) &
+              + Mat_tr(4,i) * vec_in_x(4,j,2,k,ke) &
+              + Mat_tr(5,i) * vec_in_x(5,j,2,k,ke) &
+              + Mat_tr(6,i) * vec_in_x(6,j,2,k,ke) &
+              + Mat_tr(7,i) * vec_in_x(7,j,2,k,ke) &
+              + Mat_tr(8,i) * vec_in_x(8,j,2,k,ke) &
+              + Mat_tr(9,i) * vec_in_x(9,j,2,k,ke) &
+              + Mat_tr(10,i) * vec_in_x(10,j,2,k,ke) &
+              + Mat_tr(11,i) * vec_in_x(11,j,2,k,ke) &
+              + Mat_tr(12,i) * vec_in_x(12,j,2,k,ke) &
+              + Mat_tr(13,i) * vec_in_x(13,j,2,k,ke) &
+              + Mat_tr(14,i) * vec_in_x(14,j,2,k,ke) )
+        div3D(i,j,1,k,ke) = s1 * e11_
+        div3D(i,j,2,k,ke) = s2 * e11_
+
+        s1 = ( Mat_tr(1,i) * vec_in_x(1,j,3,k,ke) &
+
+              + Mat_tr(2,i) * vec_in_x(2,j,3,k,ke) &
+              + Mat_tr(3,i) * vec_in_x(3,j,3,k,ke) &
+              + Mat_tr(4,i) * vec_in_x(4,j,3,k,ke) &
+              + Mat_tr(5,i) * vec_in_x(5,j,3,k,ke) &
+              + Mat_tr(6,i) * vec_in_x(6,j,3,k,ke) &
+              + Mat_tr(7,i) * vec_in_x(7,j,3,k,ke) &
+              + Mat_tr(8,i) * vec_in_x(8,j,3,k,ke) &
+              + Mat_tr(9,i) * vec_in_x(9,j,3,k,ke) &
+              + Mat_tr(10,i) * vec_in_x(10,j,3,k,ke) &
+              + Mat_tr(11,i) * vec_in_x(11,j,3,k,ke) &
+              + Mat_tr(12,i) * vec_in_x(12,j,3,k,ke) &
+              + Mat_tr(13,i) * vec_in_x(13,j,3,k,ke) &
+              + Mat_tr(14,i) * vec_in_x(14,j,3,k,ke) )
+        s2 = ( Mat_tr(1,i) * vec_in_x(1,j,4,k,ke) &
+
+              + Mat_tr(2,i) * vec_in_x(2,j,4,k,ke) &
+              + Mat_tr(3,i) * vec_in_x(3,j,4,k,ke) &
+              + Mat_tr(4,i) * vec_in_x(4,j,4,k,ke) &
+              + Mat_tr(5,i) * vec_in_x(5,j,4,k,ke) &
+              + Mat_tr(6,i) * vec_in_x(6,j,4,k,ke) &
+              + Mat_tr(7,i) * vec_in_x(7,j,4,k,ke) &
+              + Mat_tr(8,i) * vec_in_x(8,j,4,k,ke) &
+              + Mat_tr(9,i) * vec_in_x(9,j,4,k,ke) &
+              + Mat_tr(10,i) * vec_in_x(10,j,4,k,ke) &
+              + Mat_tr(11,i) * vec_in_x(11,j,4,k,ke) &
+              + Mat_tr(12,i) * vec_in_x(12,j,4,k,ke) &
+              + Mat_tr(13,i) * vec_in_x(13,j,4,k,ke) &
+              + Mat_tr(14,i) * vec_in_x(14,j,4,k,ke) )
+        div3D(i,j,3,k,ke) = s1 * e11_
+        div3D(i,j,4,k,ke) = s2 * e11_
+
+        s1 = ( Mat_tr(1,i) * vec_in_x(1,j,5,k,ke) &
+
+              + Mat_tr(2,i) * vec_in_x(2,j,5,k,ke) &
+              + Mat_tr(3,i) * vec_in_x(3,j,5,k,ke) &
+              + Mat_tr(4,i) * vec_in_x(4,j,5,k,ke) &
+              + Mat_tr(5,i) * vec_in_x(5,j,5,k,ke) &
+              + Mat_tr(6,i) * vec_in_x(6,j,5,k,ke) &
+              + Mat_tr(7,i) * vec_in_x(7,j,5,k,ke) &
+              + Mat_tr(8,i) * vec_in_x(8,j,5,k,ke) &
+              + Mat_tr(9,i) * vec_in_x(9,j,5,k,ke) &
+              + Mat_tr(10,i) * vec_in_x(10,j,5,k,ke) &
+              + Mat_tr(11,i) * vec_in_x(11,j,5,k,ke) &
+              + Mat_tr(12,i) * vec_in_x(12,j,5,k,ke) &
+              + Mat_tr(13,i) * vec_in_x(13,j,5,k,ke) &
+              + Mat_tr(14,i) * vec_in_x(14,j,5,k,ke) )
+        div3D(i,j,5,k,ke) = s1 * e11_
+      end do
+      end do
+    end do
+    end do
+
+    !$acc parallel loop gang collapse(2) private(tmp_vec_in_y)present(Mat,Mat_tr,vec_in_x,vec_in_y,vec_in_z,Lift,ebnd_flux,E11,E22,E33,Gsqrt,div3D) async(1)
+    do ke=1, Ne
+    do k=1, 14
+      do v=1, 5
+        !$acc loop vector collapse(2)
+        do j=1, 14
+        do i=1, 14
+
+          ! Y-dir
+          tmp_vec_in_y(:) = vec_in_y(i,:,v,k,ke)
+
+          tmp1 = tmp_vec_in_y(1) * Mat_tr(1,j) &
+               + tmp_vec_in_y(2) * Mat_tr(2,j) &
+               + tmp_vec_in_y(3) * Mat_tr(3,j) &
+               + tmp_vec_in_y(4) * Mat_tr(4,j) &
+               + tmp_vec_in_y(10) * Mat_tr(10,j) 
+          tmp3 = tmp_vec_in_y(11) * Mat_tr(11,j) &
+               + tmp_vec_in_y(12) * Mat_tr(12,j) &
+               + tmp_vec_in_y(13) * Mat_tr(13,j) &
+               + tmp_vec_in_y(14) * Mat_tr(14,j) 
+          div3D(i,j,v,k,ke) = div3D(i,j,v,k,ke) + ( tmp1 + tmp2 + tmp3 ) * E22(i,j,k,ke)
+        end do
+        end do
+      end do
+    end do
+    end do
 
     !$acc parallel loop gang collapse(2) present(Mat,Mat_tr,vec_in_x,vec_in_y,vec_in_z,Lift,ebnd_flux,E11,E22,E33,Gsqrt,div3D) async(1)
     do ke=1, Ne
@@ -5922,22 +6861,6 @@ contains
         !$acc loop vector collapse(2)
         do j=1, 14
         do i=1, 14
-          ! X-dir
-          div_x = 0.0_RP
-          !$acc loop seq
-          do p=1, 14
-            div_x = div_x + Mat(i,p) * vec_in_x(p,j,v,k,ke)
-          end do
-
-          ! Y-dir
-          tmp1 = 0.0_RP
-          !$acc loop seq
-          do p=1, 14
-            tmp1 = tmp1 + vec_in_y(i,p,v,k,ke) * Mat_tr(p,j)
-          end do
-          div_xy = div_x * E11(i,j,k,ke) + tmp1 * E22(i,j,k,ke)
-
-          !- Lift
 
           invG = 1.0_RP / Gsqrt(i,j,k,ke)
           e33_ = E33(i,j,k,ke)
@@ -5951,19 +6874,29 @@ contains
               + Lift(i,j,k,6) * ebnd_flux(i,j,6,v,ke)
           tmp_lift = tmp1 + tmp2 + tmp3
 
-          ! Z-dir
-          tmp1 = 0.0_RP
-          !$acc loop seq
-          do p=1, 14
-            tmp1 = tmp1 + vec_in_z(i,j,v,p,ke) * Mat_tr(p,k)
-          end do
-          div3D(i,j,v,k,ke) = ( div_xy + tmp1 * e33_ + tmp_lift ) * invG
+          tmp1 = vec_in_z(i,j,v,1,ke) * Mat_tr(1,k) &
+               + vec_in_z(i,j,v,2,ke) * Mat_tr(2,k) &
+               + vec_in_z(i,j,v,3,ke) * Mat_tr(3,k) &
+               + vec_in_z(i,j,v,4,ke) * Mat_tr(4,k) &
+               + vec_in_z(i,j,v,5,ke) * Mat_tr(5,k) 
+          tmp2 = vec_in_z(i,j,v,6,ke) * Mat_tr(6,k) &
+               + vec_in_z(i,j,v,7,ke) * Mat_tr(7,k) &
+               + vec_in_z(i,j,v,8,ke) * Mat_tr(8,k) &
+               + vec_in_z(i,j,v,9,ke) * Mat_tr(9,k) &
+               + vec_in_z(i,j,v,10,ke) * Mat_tr(10,k) 
+          tmp3 = vec_in_z(i,j,v,11,ke) * Mat_tr(11,k) &
+               + vec_in_z(i,j,v,12,ke) * Mat_tr(12,k) &
+               + vec_in_z(i,j,v,13,ke) * Mat_tr(13,k) &
+               + vec_in_z(i,j,v,14,ke) * Mat_tr(14,k) 
+!          div3D(i,j,v,k,ke) = ( div3D(i,j,v,k,ke) + ( tmp1 + tmp2 + tmp3 ) * e33_ + tmp_lift ) * invG
+          div3D(i,j,v,k,ke) = ( div3D(i,j,v,k,ke) + ( tmp1 + tmp2 + tmp3 ) * e33_ + tmp_lift ) * invG
 
         end do
         end do
       end do
     end do
     end do
+
     return
   end subroutine element_operation_kernel_matvec_divlike_var5_P13_v2
 
@@ -6372,22 +7305,11 @@ contains
                + vec_in_y(i,13,v,k,ke) * Mat_tr(13,j) &
                + vec_in_y(i,14,v,k,ke) * Mat_tr(14,j) &
                + vec_in_y(i,15,v,k,ke) * Mat_tr(15,j) 
-!          div3D(i,j,v,k,ke) = div_x + ( tmp1 + tmp2 + tmp3 ) * E22(i,j,k,ke)
           div_xy = div_x + ( tmp1 + tmp2 + tmp3 ) * E22(i,j,k,ke)
-        !end do
-        !end do
-      !end do
-    !end do
-    !end do
 
-    !!$acc parallel loop gang collapse(2) present(Mat_tr,Lift,vec_in_z,ebnd_flux,E33,Gsqrt,div3D)
-    !do ke=1, Ne
-      ! Z-dir
-      !do k=1, 15      
-      !do v=1, 5    
-        !!$acc loop vector collapse(2)
-        !do j=1, 15
-        !do i=1, 15
+
+          ! Z-dir
+
           invG = 1.0_RP / Gsqrt(i,j,k,ke)
           e33_ = E33(i,j,k,ke)
 
@@ -6415,7 +7337,7 @@ contains
                + vec_in_z(i,j,v,13,ke) * Mat_tr(13,k) &
                + vec_in_z(i,j,v,14,ke) * Mat_tr(14,k) &
                + vec_in_z(i,j,v,15,ke) * Mat_tr(15,k) 
-!          div3D(i,j,v,k,ke) = ( div3D(i,j,v,k,ke) + ( tmp1 + tmp2 + tmp3 ) * e33_ + tmp_lift ) * invG
+
           div3D(i,j,v,k,ke) = ( div_xy + ( tmp1 + tmp2 + tmp3 ) * e33_ + tmp_lift ) * invG
 
         end do
@@ -6446,14 +7368,147 @@ contains
     real(RP), intent(inout) :: div3D(15,15,5,15,Ne)
 
     integer :: ke
-    integer :: p, i, j, k, v
+    integer :: p, i, j, k, v, n
     real(RP) :: tmp1
     real(RP) :: tmp_lift
     real(RP) :: tmp2, tmp3    
 
     real(RP) :: invG, e33_
     real(RP) :: div_x, div_xy
+
+    real(RP) :: tmp_vec_in_y(15)
+
+    real(RP) :: s1, s2, s3, s4
+    real(RP) :: e11_
     !----------------------------------------------------------
+
+    !$acc parallel loop gang collapse(2) present(Mat,vec_in_x,E11,div3D) async(1) 
+    do ke=1, Ne
+    do k=1, 15
+      !$acc loop vector collapse(2)
+      do j=1, 15
+      do i=1, 15
+        e11_ = E11(i,j,k,ke) 
+        ! X-dir
+        s1 = ( Mat_tr(1,i) * vec_in_x(1,j,1,k,ke) &
+
+              + Mat_tr(2,i) * vec_in_x(2,j,1,k,ke) &
+              + Mat_tr(3,i) * vec_in_x(3,j,1,k,ke) &
+              + Mat_tr(4,i) * vec_in_x(4,j,1,k,ke) &
+              + Mat_tr(5,i) * vec_in_x(5,j,1,k,ke) &
+              + Mat_tr(6,i) * vec_in_x(6,j,1,k,ke) &
+              + Mat_tr(7,i) * vec_in_x(7,j,1,k,ke) &
+              + Mat_tr(8,i) * vec_in_x(8,j,1,k,ke) &
+              + Mat_tr(9,i) * vec_in_x(9,j,1,k,ke) &
+              + Mat_tr(10,i) * vec_in_x(10,j,1,k,ke) &
+              + Mat_tr(11,i) * vec_in_x(11,j,1,k,ke) &
+              + Mat_tr(12,i) * vec_in_x(12,j,1,k,ke) &
+              + Mat_tr(13,i) * vec_in_x(13,j,1,k,ke) &
+              + Mat_tr(14,i) * vec_in_x(14,j,1,k,ke) &
+              + Mat_tr(15,i) * vec_in_x(15,j,1,k,ke) )
+        s2 = ( Mat_tr(1,i) * vec_in_x(1,j,2,k,ke) &
+
+              + Mat_tr(2,i) * vec_in_x(2,j,2,k,ke) &
+              + Mat_tr(3,i) * vec_in_x(3,j,2,k,ke) &
+              + Mat_tr(4,i) * vec_in_x(4,j,2,k,ke) &
+              + Mat_tr(5,i) * vec_in_x(5,j,2,k,ke) &
+              + Mat_tr(6,i) * vec_in_x(6,j,2,k,ke) &
+              + Mat_tr(7,i) * vec_in_x(7,j,2,k,ke) &
+              + Mat_tr(8,i) * vec_in_x(8,j,2,k,ke) &
+              + Mat_tr(9,i) * vec_in_x(9,j,2,k,ke) &
+              + Mat_tr(10,i) * vec_in_x(10,j,2,k,ke) &
+              + Mat_tr(11,i) * vec_in_x(11,j,2,k,ke) &
+              + Mat_tr(12,i) * vec_in_x(12,j,2,k,ke) &
+              + Mat_tr(13,i) * vec_in_x(13,j,2,k,ke) &
+              + Mat_tr(14,i) * vec_in_x(14,j,2,k,ke) &
+              + Mat_tr(15,i) * vec_in_x(15,j,2,k,ke) )
+        div3D(i,j,1,k,ke) = s1 * e11_
+        div3D(i,j,2,k,ke) = s2 * e11_
+
+        s1 = ( Mat_tr(1,i) * vec_in_x(1,j,3,k,ke) &
+
+              + Mat_tr(2,i) * vec_in_x(2,j,3,k,ke) &
+              + Mat_tr(3,i) * vec_in_x(3,j,3,k,ke) &
+              + Mat_tr(4,i) * vec_in_x(4,j,3,k,ke) &
+              + Mat_tr(5,i) * vec_in_x(5,j,3,k,ke) &
+              + Mat_tr(6,i) * vec_in_x(6,j,3,k,ke) &
+              + Mat_tr(7,i) * vec_in_x(7,j,3,k,ke) &
+              + Mat_tr(8,i) * vec_in_x(8,j,3,k,ke) &
+              + Mat_tr(9,i) * vec_in_x(9,j,3,k,ke) &
+              + Mat_tr(10,i) * vec_in_x(10,j,3,k,ke) &
+              + Mat_tr(11,i) * vec_in_x(11,j,3,k,ke) &
+              + Mat_tr(12,i) * vec_in_x(12,j,3,k,ke) &
+              + Mat_tr(13,i) * vec_in_x(13,j,3,k,ke) &
+              + Mat_tr(14,i) * vec_in_x(14,j,3,k,ke) &
+              + Mat_tr(15,i) * vec_in_x(15,j,3,k,ke) )
+        s2 = ( Mat_tr(1,i) * vec_in_x(1,j,4,k,ke) &
+
+              + Mat_tr(2,i) * vec_in_x(2,j,4,k,ke) &
+              + Mat_tr(3,i) * vec_in_x(3,j,4,k,ke) &
+              + Mat_tr(4,i) * vec_in_x(4,j,4,k,ke) &
+              + Mat_tr(5,i) * vec_in_x(5,j,4,k,ke) &
+              + Mat_tr(6,i) * vec_in_x(6,j,4,k,ke) &
+              + Mat_tr(7,i) * vec_in_x(7,j,4,k,ke) &
+              + Mat_tr(8,i) * vec_in_x(8,j,4,k,ke) &
+              + Mat_tr(9,i) * vec_in_x(9,j,4,k,ke) &
+              + Mat_tr(10,i) * vec_in_x(10,j,4,k,ke) &
+              + Mat_tr(11,i) * vec_in_x(11,j,4,k,ke) &
+              + Mat_tr(12,i) * vec_in_x(12,j,4,k,ke) &
+              + Mat_tr(13,i) * vec_in_x(13,j,4,k,ke) &
+              + Mat_tr(14,i) * vec_in_x(14,j,4,k,ke) &
+              + Mat_tr(15,i) * vec_in_x(15,j,4,k,ke) )
+        div3D(i,j,3,k,ke) = s1 * e11_
+        div3D(i,j,4,k,ke) = s2 * e11_
+
+        s1 = ( Mat_tr(1,i) * vec_in_x(1,j,5,k,ke) &
+
+              + Mat_tr(2,i) * vec_in_x(2,j,5,k,ke) &
+              + Mat_tr(3,i) * vec_in_x(3,j,5,k,ke) &
+              + Mat_tr(4,i) * vec_in_x(4,j,5,k,ke) &
+              + Mat_tr(5,i) * vec_in_x(5,j,5,k,ke) &
+              + Mat_tr(6,i) * vec_in_x(6,j,5,k,ke) &
+              + Mat_tr(7,i) * vec_in_x(7,j,5,k,ke) &
+              + Mat_tr(8,i) * vec_in_x(8,j,5,k,ke) &
+              + Mat_tr(9,i) * vec_in_x(9,j,5,k,ke) &
+              + Mat_tr(10,i) * vec_in_x(10,j,5,k,ke) &
+              + Mat_tr(11,i) * vec_in_x(11,j,5,k,ke) &
+              + Mat_tr(12,i) * vec_in_x(12,j,5,k,ke) &
+              + Mat_tr(13,i) * vec_in_x(13,j,5,k,ke) &
+              + Mat_tr(14,i) * vec_in_x(14,j,5,k,ke) &
+              + Mat_tr(15,i) * vec_in_x(15,j,5,k,ke) )
+        div3D(i,j,5,k,ke) = s1 * e11_
+      end do
+      end do
+    end do
+    end do
+
+    !$acc parallel loop gang collapse(2) private(tmp_vec_in_y)present(Mat,Mat_tr,vec_in_x,vec_in_y,vec_in_z,Lift,ebnd_flux,E11,E22,E33,Gsqrt,div3D) async(1)
+    do ke=1, Ne
+    do k=1, 15
+      do v=1, 5
+        !$acc loop vector collapse(2)
+        do j=1, 15
+        do i=1, 15
+
+          ! Y-dir
+          tmp_vec_in_y(:) = vec_in_y(i,:,v,k,ke)
+
+          tmp1 = tmp_vec_in_y(1) * Mat_tr(1,j) &
+               + tmp_vec_in_y(2) * Mat_tr(2,j) &
+               + tmp_vec_in_y(3) * Mat_tr(3,j) &
+               + tmp_vec_in_y(4) * Mat_tr(4,j) &
+               + tmp_vec_in_y(10) * Mat_tr(10,j) 
+          tmp3 = tmp_vec_in_y(11) * Mat_tr(11,j) &
+               + tmp_vec_in_y(12) * Mat_tr(12,j) &
+               + tmp_vec_in_y(13) * Mat_tr(13,j) &
+               + tmp_vec_in_y(14) * Mat_tr(14,j) &
+               + tmp_vec_in_y(15) * Mat_tr(15,j) 
+          div3D(i,j,v,k,ke) = div3D(i,j,v,k,ke) + ( tmp1 + tmp2 + tmp3 ) * E22(i,j,k,ke)
+        end do
+        end do
+      end do
+    end do
+    end do
 
     !$acc parallel loop gang collapse(2) present(Mat,Mat_tr,vec_in_x,vec_in_y,vec_in_z,Lift,ebnd_flux,E11,E22,E33,Gsqrt,div3D) async(1)
     do ke=1, Ne
@@ -6462,22 +7517,6 @@ contains
         !$acc loop vector collapse(2)
         do j=1, 15
         do i=1, 15
-          ! X-dir
-          div_x = 0.0_RP
-          !$acc loop seq
-          do p=1, 15
-            div_x = div_x + Mat(i,p) * vec_in_x(p,j,v,k,ke)
-          end do
-
-          ! Y-dir
-          tmp1 = 0.0_RP
-          !$acc loop seq
-          do p=1, 15
-            tmp1 = tmp1 + vec_in_y(i,p,v,k,ke) * Mat_tr(p,j)
-          end do
-          div_xy = div_x * E11(i,j,k,ke) + tmp1 * E22(i,j,k,ke)
-
-          !- Lift
 
           invG = 1.0_RP / Gsqrt(i,j,k,ke)
           e33_ = E33(i,j,k,ke)
@@ -6491,19 +7530,30 @@ contains
               + Lift(i,j,k,6) * ebnd_flux(i,j,6,v,ke)
           tmp_lift = tmp1 + tmp2 + tmp3
 
-          ! Z-dir
-          tmp1 = 0.0_RP
-          !$acc loop seq
-          do p=1, 15
-            tmp1 = tmp1 + vec_in_z(i,j,v,p,ke) * Mat_tr(p,k)
-          end do
-          div3D(i,j,v,k,ke) = ( div_xy + tmp1 * e33_ + tmp_lift ) * invG
+          tmp1 = vec_in_z(i,j,v,1,ke) * Mat_tr(1,k) &
+               + vec_in_z(i,j,v,2,ke) * Mat_tr(2,k) &
+               + vec_in_z(i,j,v,3,ke) * Mat_tr(3,k) &
+               + vec_in_z(i,j,v,4,ke) * Mat_tr(4,k) &
+               + vec_in_z(i,j,v,5,ke) * Mat_tr(5,k) 
+          tmp2 = vec_in_z(i,j,v,6,ke) * Mat_tr(6,k) &
+               + vec_in_z(i,j,v,7,ke) * Mat_tr(7,k) &
+               + vec_in_z(i,j,v,8,ke) * Mat_tr(8,k) &
+               + vec_in_z(i,j,v,9,ke) * Mat_tr(9,k) &
+               + vec_in_z(i,j,v,10,ke) * Mat_tr(10,k) 
+          tmp3 = vec_in_z(i,j,v,11,ke) * Mat_tr(11,k) &
+               + vec_in_z(i,j,v,12,ke) * Mat_tr(12,k) &
+               + vec_in_z(i,j,v,13,ke) * Mat_tr(13,k) &
+               + vec_in_z(i,j,v,14,ke) * Mat_tr(14,k) &
+               + vec_in_z(i,j,v,15,ke) * Mat_tr(15,k) 
+!          div3D(i,j,v,k,ke) = ( div3D(i,j,v,k,ke) + ( tmp1 + tmp2 + tmp3 ) * e33_ + tmp_lift ) * invG
+          div3D(i,j,v,k,ke) = ( div3D(i,j,v,k,ke) + ( tmp1 + tmp2 + tmp3 ) * e33_ + tmp_lift ) * invG
 
         end do
         end do
       end do
     end do
     end do
+
     return
   end subroutine element_operation_kernel_matvec_divlike_var5_P14_v2
 
@@ -6923,22 +7973,11 @@ contains
                + vec_in_y(i,14,v,k,ke) * Mat_tr(14,j) &
                + vec_in_y(i,15,v,k,ke) * Mat_tr(15,j) &
                + vec_in_y(i,16,v,k,ke) * Mat_tr(16,j) 
-!          div3D(i,j,v,k,ke) = div_x + ( tmp1 + tmp2 + tmp3 ) * E22(i,j,k,ke)
           div_xy = div_x + ( tmp1 + tmp2 + tmp3 ) * E22(i,j,k,ke)
-        !end do
-        !end do
-      !end do
-    !end do
-    !end do
 
-    !!$acc parallel loop gang collapse(2) present(Mat_tr,Lift,vec_in_z,ebnd_flux,E33,Gsqrt,div3D)
-    !do ke=1, Ne
-      ! Z-dir
-      !do k=1, 16      
-      !do v=1, 5    
-        !!$acc loop vector collapse(2)
-        !do j=1, 16
-        !do i=1, 16
+
+          ! Z-dir
+
           invG = 1.0_RP / Gsqrt(i,j,k,ke)
           e33_ = E33(i,j,k,ke)
 
@@ -6967,7 +8006,7 @@ contains
                + vec_in_z(i,j,v,14,ke) * Mat_tr(14,k) &
                + vec_in_z(i,j,v,15,ke) * Mat_tr(15,k) &
                + vec_in_z(i,j,v,16,ke) * Mat_tr(16,k) 
-!          div3D(i,j,v,k,ke) = ( div3D(i,j,v,k,ke) + ( tmp1 + tmp2 + tmp3 ) * e33_ + tmp_lift ) * invG
+
           div3D(i,j,v,k,ke) = ( div_xy + ( tmp1 + tmp2 + tmp3 ) * e33_ + tmp_lift ) * invG
 
         end do
@@ -6998,14 +8037,153 @@ contains
     real(RP), intent(inout) :: div3D(16,16,5,16,Ne)
 
     integer :: ke
-    integer :: p, i, j, k, v
+    integer :: p, i, j, k, v, n
     real(RP) :: tmp1
     real(RP) :: tmp_lift
     real(RP) :: tmp2, tmp3    
 
     real(RP) :: invG, e33_
     real(RP) :: div_x, div_xy
+
+    real(RP) :: tmp_vec_in_y(16)
+
+    real(RP) :: s1, s2, s3, s4
+    real(RP) :: e11_
     !----------------------------------------------------------
+
+    !$acc parallel loop gang collapse(2) present(Mat,vec_in_x,E11,div3D) async(1) 
+    do ke=1, Ne
+    do k=1, 16
+      !$acc loop vector collapse(2)
+      do j=1, 16
+      do i=1, 16
+        e11_ = E11(i,j,k,ke) 
+        ! X-dir
+        s1 = ( Mat_tr(1,i) * vec_in_x(1,j,1,k,ke) &
+
+              + Mat_tr(2,i) * vec_in_x(2,j,1,k,ke) &
+              + Mat_tr(3,i) * vec_in_x(3,j,1,k,ke) &
+              + Mat_tr(4,i) * vec_in_x(4,j,1,k,ke) &
+              + Mat_tr(5,i) * vec_in_x(5,j,1,k,ke) &
+              + Mat_tr(6,i) * vec_in_x(6,j,1,k,ke) &
+              + Mat_tr(7,i) * vec_in_x(7,j,1,k,ke) &
+              + Mat_tr(8,i) * vec_in_x(8,j,1,k,ke) &
+              + Mat_tr(9,i) * vec_in_x(9,j,1,k,ke) &
+              + Mat_tr(10,i) * vec_in_x(10,j,1,k,ke) &
+              + Mat_tr(11,i) * vec_in_x(11,j,1,k,ke) &
+              + Mat_tr(12,i) * vec_in_x(12,j,1,k,ke) &
+              + Mat_tr(13,i) * vec_in_x(13,j,1,k,ke) &
+              + Mat_tr(14,i) * vec_in_x(14,j,1,k,ke) &
+              + Mat_tr(15,i) * vec_in_x(15,j,1,k,ke) &
+              + Mat_tr(16,i) * vec_in_x(16,j,1,k,ke) )
+        s2 = ( Mat_tr(1,i) * vec_in_x(1,j,2,k,ke) &
+
+              + Mat_tr(2,i) * vec_in_x(2,j,2,k,ke) &
+              + Mat_tr(3,i) * vec_in_x(3,j,2,k,ke) &
+              + Mat_tr(4,i) * vec_in_x(4,j,2,k,ke) &
+              + Mat_tr(5,i) * vec_in_x(5,j,2,k,ke) &
+              + Mat_tr(6,i) * vec_in_x(6,j,2,k,ke) &
+              + Mat_tr(7,i) * vec_in_x(7,j,2,k,ke) &
+              + Mat_tr(8,i) * vec_in_x(8,j,2,k,ke) &
+              + Mat_tr(9,i) * vec_in_x(9,j,2,k,ke) &
+              + Mat_tr(10,i) * vec_in_x(10,j,2,k,ke) &
+              + Mat_tr(11,i) * vec_in_x(11,j,2,k,ke) &
+              + Mat_tr(12,i) * vec_in_x(12,j,2,k,ke) &
+              + Mat_tr(13,i) * vec_in_x(13,j,2,k,ke) &
+              + Mat_tr(14,i) * vec_in_x(14,j,2,k,ke) &
+              + Mat_tr(15,i) * vec_in_x(15,j,2,k,ke) &
+              + Mat_tr(16,i) * vec_in_x(16,j,2,k,ke) )
+        div3D(i,j,1,k,ke) = s1 * e11_
+        div3D(i,j,2,k,ke) = s2 * e11_
+
+        s1 = ( Mat_tr(1,i) * vec_in_x(1,j,3,k,ke) &
+
+              + Mat_tr(2,i) * vec_in_x(2,j,3,k,ke) &
+              + Mat_tr(3,i) * vec_in_x(3,j,3,k,ke) &
+              + Mat_tr(4,i) * vec_in_x(4,j,3,k,ke) &
+              + Mat_tr(5,i) * vec_in_x(5,j,3,k,ke) &
+              + Mat_tr(6,i) * vec_in_x(6,j,3,k,ke) &
+              + Mat_tr(7,i) * vec_in_x(7,j,3,k,ke) &
+              + Mat_tr(8,i) * vec_in_x(8,j,3,k,ke) &
+              + Mat_tr(9,i) * vec_in_x(9,j,3,k,ke) &
+              + Mat_tr(10,i) * vec_in_x(10,j,3,k,ke) &
+              + Mat_tr(11,i) * vec_in_x(11,j,3,k,ke) &
+              + Mat_tr(12,i) * vec_in_x(12,j,3,k,ke) &
+              + Mat_tr(13,i) * vec_in_x(13,j,3,k,ke) &
+              + Mat_tr(14,i) * vec_in_x(14,j,3,k,ke) &
+              + Mat_tr(15,i) * vec_in_x(15,j,3,k,ke) &
+              + Mat_tr(16,i) * vec_in_x(16,j,3,k,ke) )
+        s2 = ( Mat_tr(1,i) * vec_in_x(1,j,4,k,ke) &
+
+              + Mat_tr(2,i) * vec_in_x(2,j,4,k,ke) &
+              + Mat_tr(3,i) * vec_in_x(3,j,4,k,ke) &
+              + Mat_tr(4,i) * vec_in_x(4,j,4,k,ke) &
+              + Mat_tr(5,i) * vec_in_x(5,j,4,k,ke) &
+              + Mat_tr(6,i) * vec_in_x(6,j,4,k,ke) &
+              + Mat_tr(7,i) * vec_in_x(7,j,4,k,ke) &
+              + Mat_tr(8,i) * vec_in_x(8,j,4,k,ke) &
+              + Mat_tr(9,i) * vec_in_x(9,j,4,k,ke) &
+              + Mat_tr(10,i) * vec_in_x(10,j,4,k,ke) &
+              + Mat_tr(11,i) * vec_in_x(11,j,4,k,ke) &
+              + Mat_tr(12,i) * vec_in_x(12,j,4,k,ke) &
+              + Mat_tr(13,i) * vec_in_x(13,j,4,k,ke) &
+              + Mat_tr(14,i) * vec_in_x(14,j,4,k,ke) &
+              + Mat_tr(15,i) * vec_in_x(15,j,4,k,ke) &
+              + Mat_tr(16,i) * vec_in_x(16,j,4,k,ke) )
+        div3D(i,j,3,k,ke) = s1 * e11_
+        div3D(i,j,4,k,ke) = s2 * e11_
+
+        s1 = ( Mat_tr(1,i) * vec_in_x(1,j,5,k,ke) &
+
+              + Mat_tr(2,i) * vec_in_x(2,j,5,k,ke) &
+              + Mat_tr(3,i) * vec_in_x(3,j,5,k,ke) &
+              + Mat_tr(4,i) * vec_in_x(4,j,5,k,ke) &
+              + Mat_tr(5,i) * vec_in_x(5,j,5,k,ke) &
+              + Mat_tr(6,i) * vec_in_x(6,j,5,k,ke) &
+              + Mat_tr(7,i) * vec_in_x(7,j,5,k,ke) &
+              + Mat_tr(8,i) * vec_in_x(8,j,5,k,ke) &
+              + Mat_tr(9,i) * vec_in_x(9,j,5,k,ke) &
+              + Mat_tr(10,i) * vec_in_x(10,j,5,k,ke) &
+              + Mat_tr(11,i) * vec_in_x(11,j,5,k,ke) &
+              + Mat_tr(12,i) * vec_in_x(12,j,5,k,ke) &
+              + Mat_tr(13,i) * vec_in_x(13,j,5,k,ke) &
+              + Mat_tr(14,i) * vec_in_x(14,j,5,k,ke) &
+              + Mat_tr(15,i) * vec_in_x(15,j,5,k,ke) &
+              + Mat_tr(16,i) * vec_in_x(16,j,5,k,ke) )
+        div3D(i,j,5,k,ke) = s1 * e11_
+      end do
+      end do
+    end do
+    end do
+
+    !$acc parallel loop gang collapse(2) private(tmp_vec_in_y)present(Mat,Mat_tr,vec_in_x,vec_in_y,vec_in_z,Lift,ebnd_flux,E11,E22,E33,Gsqrt,div3D) async(1)
+    do ke=1, Ne
+    do k=1, 16
+      do v=1, 5
+        !$acc loop vector collapse(2)
+        do j=1, 16
+        do i=1, 16
+
+          ! Y-dir
+          tmp_vec_in_y(:) = vec_in_y(i,:,v,k,ke)
+
+          tmp1 = tmp_vec_in_y(1) * Mat_tr(1,j) &
+               + tmp_vec_in_y(2) * Mat_tr(2,j) &
+               + tmp_vec_in_y(3) * Mat_tr(3,j) &
+               + tmp_vec_in_y(4) * Mat_tr(4,j) &
+               + tmp_vec_in_y(10) * Mat_tr(10,j) 
+          tmp3 = tmp_vec_in_y(11) * Mat_tr(11,j) &
+               + tmp_vec_in_y(12) * Mat_tr(12,j) &
+               + tmp_vec_in_y(13) * Mat_tr(13,j) &
+               + tmp_vec_in_y(14) * Mat_tr(14,j) &
+               + tmp_vec_in_y(15) * Mat_tr(15,j) &
+               + tmp_vec_in_y(16) * Mat_tr(16,j) 
+          div3D(i,j,v,k,ke) = div3D(i,j,v,k,ke) + ( tmp1 + tmp2 + tmp3 ) * E22(i,j,k,ke)
+        end do
+        end do
+      end do
+    end do
+    end do
 
     !$acc parallel loop gang collapse(2) present(Mat,Mat_tr,vec_in_x,vec_in_y,vec_in_z,Lift,ebnd_flux,E11,E22,E33,Gsqrt,div3D) async(1)
     do ke=1, Ne
@@ -7014,22 +8192,6 @@ contains
         !$acc loop vector collapse(2)
         do j=1, 16
         do i=1, 16
-          ! X-dir
-          div_x = 0.0_RP
-          !$acc loop seq
-          do p=1, 16
-            div_x = div_x + Mat(i,p) * vec_in_x(p,j,v,k,ke)
-          end do
-
-          ! Y-dir
-          tmp1 = 0.0_RP
-          !$acc loop seq
-          do p=1, 16
-            tmp1 = tmp1 + vec_in_y(i,p,v,k,ke) * Mat_tr(p,j)
-          end do
-          div_xy = div_x * E11(i,j,k,ke) + tmp1 * E22(i,j,k,ke)
-
-          !- Lift
 
           invG = 1.0_RP / Gsqrt(i,j,k,ke)
           e33_ = E33(i,j,k,ke)
@@ -7043,19 +8205,31 @@ contains
               + Lift(i,j,k,6) * ebnd_flux(i,j,6,v,ke)
           tmp_lift = tmp1 + tmp2 + tmp3
 
-          ! Z-dir
-          tmp1 = 0.0_RP
-          !$acc loop seq
-          do p=1, 16
-            tmp1 = tmp1 + vec_in_z(i,j,v,p,ke) * Mat_tr(p,k)
-          end do
-          div3D(i,j,v,k,ke) = ( div_xy + tmp1 * e33_ + tmp_lift ) * invG
+          tmp1 = vec_in_z(i,j,v,1,ke) * Mat_tr(1,k) &
+               + vec_in_z(i,j,v,2,ke) * Mat_tr(2,k) &
+               + vec_in_z(i,j,v,3,ke) * Mat_tr(3,k) &
+               + vec_in_z(i,j,v,4,ke) * Mat_tr(4,k) &
+               + vec_in_z(i,j,v,5,ke) * Mat_tr(5,k) 
+          tmp2 = vec_in_z(i,j,v,6,ke) * Mat_tr(6,k) &
+               + vec_in_z(i,j,v,7,ke) * Mat_tr(7,k) &
+               + vec_in_z(i,j,v,8,ke) * Mat_tr(8,k) &
+               + vec_in_z(i,j,v,9,ke) * Mat_tr(9,k) &
+               + vec_in_z(i,j,v,10,ke) * Mat_tr(10,k) 
+          tmp3 = vec_in_z(i,j,v,11,ke) * Mat_tr(11,k) &
+               + vec_in_z(i,j,v,12,ke) * Mat_tr(12,k) &
+               + vec_in_z(i,j,v,13,ke) * Mat_tr(13,k) &
+               + vec_in_z(i,j,v,14,ke) * Mat_tr(14,k) &
+               + vec_in_z(i,j,v,15,ke) * Mat_tr(15,k) &
+               + vec_in_z(i,j,v,16,ke) * Mat_tr(16,k) 
+!          div3D(i,j,v,k,ke) = ( div3D(i,j,v,k,ke) + ( tmp1 + tmp2 + tmp3 ) * e33_ + tmp_lift ) * invG
+          div3D(i,j,v,k,ke) = ( div3D(i,j,v,k,ke) + ( tmp1 + tmp2 + tmp3 ) * e33_ + tmp_lift ) * invG
 
         end do
         end do
       end do
     end do
     end do
+
     return
   end subroutine element_operation_kernel_matvec_divlike_var5_P15_v2
 

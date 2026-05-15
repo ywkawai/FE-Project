@@ -520,91 +520,91 @@ contains
 
     select case (this%Nnode_h1D)
     case (2)
-        call element_operation_kernel_matvec_divlike_var5_P1( &
+        call element_operation_kernel_matvec_divlike_var5_P1_v2( &
           this%elem_optr_tensorprod3D_P1%D1D, this%elem_optr_tensorprod3D_P1%D1D_tr, this%elem_optr_tensorprod3D_P1%Lift_mat, &
           Flux_x, Flux_y,  Flux_z, ebnd_flux, &
           E11, E22, E33, Gsqrt, Ne, &
           div3D )
     case (3)
-        call element_operation_kernel_matvec_divlike_var5_P2( &
+        call element_operation_kernel_matvec_divlike_var5_P2_v2( &
           this%elem_optr_tensorprod3D_P2%D1D, this%elem_optr_tensorprod3D_P2%D1D_tr, this%elem_optr_tensorprod3D_P2%Lift_mat, &
           Flux_x, Flux_y,  Flux_z, ebnd_flux, &
           E11, E22, E33, Gsqrt, Ne, &
           div3D )
     case (4)
-        call element_operation_kernel_matvec_divlike_var5_P3( &
+        call element_operation_kernel_matvec_divlike_var5_P3_v2( &
           this%elem_optr_tensorprod3D_P3%D1D, this%elem_optr_tensorprod3D_P3%D1D_tr, this%elem_optr_tensorprod3D_P3%Lift_mat, &
           Flux_x, Flux_y,  Flux_z, ebnd_flux, &
           E11, E22, E33, Gsqrt, Ne, &
           div3D )
     case (5)
-        call element_operation_kernel_matvec_divlike_var5_P4( &
+        call element_operation_kernel_matvec_divlike_var5_P4_v2( &
           this%elem_optr_tensorprod3D_P4%D1D, this%elem_optr_tensorprod3D_P4%D1D_tr, this%elem_optr_tensorprod3D_P4%Lift_mat, &
           Flux_x, Flux_y,  Flux_z, ebnd_flux, &
           E11, E22, E33, Gsqrt, Ne, &
           div3D )
     case (6)
-        call element_operation_kernel_matvec_divlike_var5_P5( &
+        call element_operation_kernel_matvec_divlike_var5_P5_v2( &
           this%elem_optr_tensorprod3D_P5%D1D, this%elem_optr_tensorprod3D_P5%D1D_tr, this%elem_optr_tensorprod3D_P5%Lift_mat, &
           Flux_x, Flux_y,  Flux_z, ebnd_flux, &
           E11, E22, E33, Gsqrt, Ne, &
           div3D )
     case (7)
-        call element_operation_kernel_matvec_divlike_var5_P6( &
+        call element_operation_kernel_matvec_divlike_var5_P6_v2( &
           this%elem_optr_tensorprod3D_P6%D1D, this%elem_optr_tensorprod3D_P6%D1D_tr, this%elem_optr_tensorprod3D_P6%Lift_mat, &
           Flux_x, Flux_y,  Flux_z, ebnd_flux, &
           E11, E22, E33, Gsqrt, Ne, &
           div3D )
     case (8)
-        call element_operation_kernel_matvec_divlike_var5_P7( &
+        call element_operation_kernel_matvec_divlike_var5_P7_v2( &
           this%elem_optr_tensorprod3D_P7%D1D, this%elem_optr_tensorprod3D_P7%D1D_tr, this%elem_optr_tensorprod3D_P7%Lift_mat, &
           Flux_x, Flux_y,  Flux_z, ebnd_flux, &
           E11, E22, E33, Gsqrt, Ne, &
           div3D )
     case (9)
-        call element_operation_kernel_matvec_divlike_var5_P8( &
+        call element_operation_kernel_matvec_divlike_var5_P8_v2( &
           this%elem_optr_tensorprod3D_P8%D1D, this%elem_optr_tensorprod3D_P8%D1D_tr, this%elem_optr_tensorprod3D_P8%Lift_mat, &
           Flux_x, Flux_y,  Flux_z, ebnd_flux, &
           E11, E22, E33, Gsqrt, Ne, &
           div3D )
     case (10)
-        call element_operation_kernel_matvec_divlike_var5_P9( &
+        call element_operation_kernel_matvec_divlike_var5_P9_v2( &
           this%elem_optr_tensorprod3D_P9%D1D, this%elem_optr_tensorprod3D_P9%D1D_tr, this%elem_optr_tensorprod3D_P9%Lift_mat, &
           Flux_x, Flux_y,  Flux_z, ebnd_flux, &
           E11, E22, E33, Gsqrt, Ne, &
           div3D )
     case (11)
-        call element_operation_kernel_matvec_divlike_var5_P10( &
+        call element_operation_kernel_matvec_divlike_var5_P10_v2( &
           this%elem_optr_tensorprod3D_P10%D1D, this%elem_optr_tensorprod3D_P10%D1D_tr, this%elem_optr_tensorprod3D_P10%Lift_mat, &
           Flux_x, Flux_y,  Flux_z, ebnd_flux, &
           E11, E22, E33, Gsqrt, Ne, &
           div3D )
     case (12)
-        call element_operation_kernel_matvec_divlike_var5_P11( &
+        call element_operation_kernel_matvec_divlike_var5_P11_v2( &
           this%elem_optr_tensorprod3D_P11%D1D, this%elem_optr_tensorprod3D_P11%D1D_tr, this%elem_optr_tensorprod3D_P11%Lift_mat, &
           Flux_x, Flux_y,  Flux_z, ebnd_flux, &
           E11, E22, E33, Gsqrt, Ne, &
           div3D )
     case (13)
-        call element_operation_kernel_matvec_divlike_var5_P12( &
+        call element_operation_kernel_matvec_divlike_var5_P12_v2( &
           this%elem_optr_tensorprod3D_P12%D1D, this%elem_optr_tensorprod3D_P12%D1D_tr, this%elem_optr_tensorprod3D_P12%Lift_mat, &
           Flux_x, Flux_y,  Flux_z, ebnd_flux, &
           E11, E22, E33, Gsqrt, Ne, &
           div3D )
     case (14)
-        call element_operation_kernel_matvec_divlike_var5_P13( &
+        call element_operation_kernel_matvec_divlike_var5_P13_v2( &
           this%elem_optr_tensorprod3D_P13%D1D, this%elem_optr_tensorprod3D_P13%D1D_tr, this%elem_optr_tensorprod3D_P13%Lift_mat, &
           Flux_x, Flux_y,  Flux_z, ebnd_flux, &
           E11, E22, E33, Gsqrt, Ne, &
           div3D )
     case (15)
-        call element_operation_kernel_matvec_divlike_var5_P14( &
+        call element_operation_kernel_matvec_divlike_var5_P14_v2( &
           this%elem_optr_tensorprod3D_P14%D1D, this%elem_optr_tensorprod3D_P14%D1D_tr, this%elem_optr_tensorprod3D_P14%Lift_mat, &
           Flux_x, Flux_y,  Flux_z, ebnd_flux, &
           E11, E22, E33, Gsqrt, Ne, &
           div3D )
     case (16)
-        call element_operation_kernel_matvec_divlike_var5_P15( &
+        call element_operation_kernel_matvec_divlike_var5_P15_v2( &
           this%elem_optr_tensorprod3D_P15%D1D, this%elem_optr_tensorprod3D_P15%D1D_tr, this%elem_optr_tensorprod3D_P15%Lift_mat, &
           Flux_x, Flux_y,  Flux_z, ebnd_flux, &
           E11, E22, E33, Gsqrt, Ne, &
