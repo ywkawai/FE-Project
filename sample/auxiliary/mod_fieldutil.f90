@@ -451,10 +451,6 @@ contains
     integer :: i, j, k
     !------------------------------------------------------------------------
 
-    flow_x(:) = 0.0_RP
-    flow_y(:) = 0.0_RP
-    flow_z(:) = 0.0_RP
-
     select case(profile_name)
     case ('constant')
       !$omp parallel do collapse(2)
