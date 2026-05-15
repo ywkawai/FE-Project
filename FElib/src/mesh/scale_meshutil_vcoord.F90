@@ -159,8 +159,8 @@ contains
           GsqrtV(p,ke) = 1.0_RP - topo(IndexH2Dto3D(p),ke2D) / zTop ! dz/dzeta
 
           coef3D = - coef3D / GsqrtV(p,ke)
-          G13(p,ke) = 0.0_RP!coef3D * GradZs(IndexH2Dto3D(p),ke2D,1)
-          G23(p,ke) = 0.0_RP!coef3D * GradZs(IndexH2Dto3D(p),ke2D,2)
+          G13(p,ke) = coef3D * GradZs(IndexH2Dto3D(p),ke2D,1)
+          G23(p,ke) = coef3D * GradZs(IndexH2Dto3D(p),ke2D,2)
         end do
       end do
       !$omp end do

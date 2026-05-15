@@ -83,11 +83,11 @@ contains
       !$omp parallel do private( tmp, tmp_out, work, kk, RGsqrt )
       do ke=lmesh%NeS, lmesh%NeE
         do kk=1, elem%Np
-          tmp(kk,ke_,1) = lmesh%Gsqrt(kk,ke) * DDENS_(kk,ke)
-          tmp(kk,ke_,2) = lmesh%Gsqrt(kk,ke) * MOMX_(kk,ke)
-          tmp(kk,ke_,3) = lmesh%Gsqrt(kk,ke) * MOMY_(kk,ke)
-          tmp(kk,ke_,4) = lmesh%Gsqrt(kk,ke) * MOMZ_(kk,ke)
-          tmp(kk,ke_,5) = lmesh%Gsqrt(kk,ke) * DRHOT_(kk,ke)
+          tmp(kk,ke,1) = lmesh%Gsqrt(kk,ke) * DDENS_(kk,ke)
+          tmp(kk,ke,2) = lmesh%Gsqrt(kk,ke) * MOMX_(kk,ke)
+          tmp(kk,ke,3) = lmesh%Gsqrt(kk,ke) * MOMY_(kk,ke)
+          tmp(kk,ke,4) = lmesh%Gsqrt(kk,ke) * MOMZ_(kk,ke)
+          tmp(kk,ke,5) = lmesh%Gsqrt(kk,ke) * DRHOT_(kk,ke)
         end do
 
         call elem_operation%ModalFilter_var5( tmp, work, &

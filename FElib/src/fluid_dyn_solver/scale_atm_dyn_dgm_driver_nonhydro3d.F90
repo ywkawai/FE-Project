@@ -1161,7 +1161,6 @@ contains
       !$omp end do
     end if
     !$omp end parallel
-    !$omp end parallel
     return
   end subroutine add_phy_tend
 
