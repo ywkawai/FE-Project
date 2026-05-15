@@ -261,6 +261,7 @@ contains
         PRGVAR_VARINFO(iv), mesh3D,                           & ! (in) 
         prgvars(iv),                                          & ! (inout)
         reg_file_hist,  monitor_flag=.true., fill_zero=.true. ) ! (out)
+      !$acc update device( prgvars(iv) )
     end do
 
     !- Initialize tracer variables

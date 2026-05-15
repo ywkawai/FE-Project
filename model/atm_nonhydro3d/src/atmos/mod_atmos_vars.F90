@@ -311,6 +311,7 @@ contains
     allocate( this%PROG_VARS(PRGVAR_NUM) )
     allocate( this%QTRC_VARS(0:QA) )
     allocate( this%AUX_VARS(AUXVAR_NUM) )
+    !$acc enter data create( this%PROG_VARS, this%QTRC_VARS, this%AUX_VARS )
 
     this%PHYTEND_NUM_TOT = PHYTEND_NUM1 + max(1,QA)
     allocate( this%PHY_TEND(this%PHYTEND_NUM_TOT) )
@@ -471,6 +472,8 @@ contains
     LOG_INFO('AtmosVars_Final',*)
 
     call this%restart_file%Final()
+
+    !$acc exit data delete( this%PROG_VARS, this%QTRC_VARS, this%AUX_VARS, this%PHY_TEND )
 
     call this%PROGVARS_manager%Final()
     deallocate( this%PROG_VARS )
@@ -1348,8 +1351,6 @@ contains
           this%AUX_VARS(AUXVAR_CVtot_ID)%local(n)%val,             & 
           this%AUX_VARS(AUXVAR_CPtot_ID)%local(n)%val,             & 
           lcmesh3D, lcmesh3D%refElem3D )
-
-        !!$acc update device(this%AUX_VARS(varid)%local(n)%val)
       end do
     end do
     !$acc wait(1)
@@ -1797,44 +1798,63 @@ contains
     implicit none
     class(AtmosVars), intent(inout), target :: this
 
+    class(MeshBase3D), pointer :: mesh3D
     class(LocalMesh3D), pointer :: lcmesh3D
     integer :: n
     integer :: varid
-    integer :: ke
+    integer :: ke, p
     integer :: iq
 
     class(ElementBase3D), pointer :: elem3D
 
     real(RP), allocatable :: q_tmp(:,:)
+    class(LocalMeshFieldBase), pointer :: Qdry, Rtot, CVtot, CPtot
+    type(LocalMeshFieldBaseList) :: QTRC(QA)    
     !-------------------------------------------------------
 
+    mesh3D => this%AUX_VARS(1)%mesh
+
     ! Calculate specific heat
-    do n=1, this%AUX_VARS(1)%mesh%LOCAL_MESH_NUM
-      lcmesh3D => this%AUX_VARS(1)%mesh%lcmesh_list(n)
+    do n=1, mesh3D%LOCAL_MESH_NUM
+      lcmesh3D => mesh3D%lcmesh_list(n)
       elem3D => lcmesh3D%refElem3D
+      !$acc enter data attach(lcmesh3D, elem3D)
+
       allocate( q_tmp(elem3D%Np,QA) )
 
+      call AtmosVars_GetLocalMeshQTRCVarList( n, &
+        mesh3D, this%QTRCVARS_manager,  &
+        1, QTRC, lcmesh3D )
+#ifdef _OPENACC
+      do iq=1, QA
+        !$acc enter data attach(QTRC(iq)%ptr)
+      end do
+#endif        
+
+      Qdry => this%AUX_VARS(AUXVAR_QDRY_ID )%local(n)
+      Rtot => this%AUX_VARS(AUXVAR_Rtot_ID )%local(n)
+      CVtot => this%AUX_VARS(AUXVAR_CVtot_ID)%local(n)
+      CPtot => this%AUX_VARS(AUXVAR_CPtot_ID)%local(n)
+      !$acc enter data attach(Qdry, Rtot, CVtot, CPtot)
+
       !$omp parallel do private(ke, iq, q_tmp)
+      !$acc parallel loop gang private(q_tmp) present(Qdry%val, Rtot%val, CVtot%val, CPtot%val, TRACER_MASS, TRACER_R, TRACER_CV, TRACER_CP, lcmesh3D,elem3D)
       do ke = lcmesh3D%NeS, lcmesh3D%NeE
         do iq = 1, QA
-          q_tmp(:,iq) = this%QTRC_VARS(iq)%local(n)%val(:,ke)
+        !$acc loop vector
+        do p=1, elem3D%Np
+          q_tmp(p,iq) = QTRC(iq)%ptr%val(p,ke)
         end do
+        end do
+
         call ATMOS_THERMODYN_specific_heat( &
-          elem3D%Np, 1, elem3D%Np, QA,                                         & ! (in)
-          q_tmp(:,:), TRACER_MASS(:), TRACER_R(:), TRACER_CV(:), TRACER_CP(:), & ! (in)
-          this%AUX_VARS(AUXVAR_QDRY_ID )%local(n)%val(:,ke),            & ! (out)
-          this%AUX_VARS(AUXVAR_Rtot_ID )%local(n)%val(:,ke),            & ! (out)
-          this%AUX_VARS(AUXVAR_CVtot_ID)%local(n)%val(:,ke),            & ! (out)
-          this%AUX_VARS(AUXVAR_CPtot_ID)%local(n)%val(:,ke)             ) ! (out)
+          elem3D%Np, 1, elem3D%Np, QA,                                       & ! (in)
+          q_tmp, TRACER_MASS, TRACER_R, TRACER_CV, TRACER_CP,                & ! (in)
+          Qdry%val(:,ke), Rtot%val(:,ke), CVtot%val(:,ke), CPtot%val(:,ke)   ) ! (out)
       end do
-      !$acc update device( &
-      !$acc  this%AUX_VARS(AUXVAR_QDRY_ID )%local(n)%val, &
-      !$acc  this%AUX_VARS(AUXVAR_Rtot_ID )%local(n)%val, &
-      !$acc  this%AUX_VARS(AUXVAR_CVtot_ID)%local(n)%val, &
-      !$acc  this%AUX_VARS(AUXVAR_CPtot_ID)%local(n)%val )
 
       deallocate(q_tmp)
     end do
+    return
   end subroutine vars_calc_specific_heat
-
 end module mod_atmos_vars
