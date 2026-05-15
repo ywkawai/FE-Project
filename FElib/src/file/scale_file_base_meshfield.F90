@@ -393,12 +393,22 @@ contains
     real(RP), allocatable :: buf(:)
     integer :: dims(1)
     integer :: start(1)
+    
+    integer :: ldomID
     !-------------------------------------------------
 
     if ( this%fid /= -1 ) then
       start(:) = 1
       dims(1) = this%dimsinfo(MF1D_DIMTYPE_X)%size
       allocate( buf(dims(1)) )
+
+#ifdef _OPENACC
+    do ldomID=1, this%mesh1D%LOCAL_MESH_NUM
+      !$acc update host( field1d%local(ldomID)%val ) async(1)
+    end do
+    !$acc wait(1)
+#endif      
+
       call File_common_meshfield_put_field1D_cartesbuf( this%mesh1D, field1d, buf(:), &
         this%force_uniform_grid )
 
@@ -430,6 +440,8 @@ contains
     real(RP), allocatable :: buf(:,:)
     integer :: dims(2)
     integer :: start(2)
+
+    integer :: ldomID
     !-------------------------------------------------
 
     if ( this%fid /= -1 ) then
@@ -437,6 +449,14 @@ contains
       dims(1) = this%dimsinfo(MF2D_DIMTYPE_X)%size
       dims(2) = this%dimsinfo(MF2D_DIMTYPE_Y)%size
       allocate( buf(dims(1),dims(2)) )
+
+#ifdef _OPENACC
+    do ldomID=1, this%mesh2D%LOCAL_MESH_NUM
+      !$acc update host( field2d%local(ldomID)%val ) async(1)
+    end do
+    !$acc wait(1)
+#endif      
+
       if ( associated(this%mesh2D) ) then
         call File_common_meshfield_put_field2D_cartesbuf( this%mesh2D, field2d, buf(:,:), &
           this%force_uniform_grid )
@@ -474,6 +494,8 @@ contains
     real(RP), allocatable :: buf(:,:,:)
     integer :: dims(3)
     integer :: start(3)
+
+    integer :: ldomID
     !-------------------------------------------------
   
     if ( this%fid /= -1 ) then
@@ -482,6 +504,13 @@ contains
       dims(2) = this%dimsinfo(MF3D_DIMTYPE_Y)%size
       dims(3) = this%dimsinfo(MF3D_DIMTYPE_Z)%size
       allocate( buf(dims(1),dims(2),dims(3)) )
+
+#ifdef _OPENACC
+    do ldomID=1, this%mesh3D%LOCAL_MESH_NUM
+      !$acc update host( field3d%local(ldomID)%val ) async(1)
+    end do
+    !$acc wait(1)
+#endif      
 
       if ( associated(this%mesh3D) ) then
         call File_common_meshfield_put_field3D_cartesbuf( this%mesh3D, field3d, buf(:,:,:), &

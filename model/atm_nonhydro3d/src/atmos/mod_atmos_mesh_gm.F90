@@ -239,7 +239,8 @@ contains
   !!
 !OCL SERIAL
   subroutine AtmosMeshGM_create_communicator( this, sfield_num, hvfield_num, htensorfield_num, &
-    var_manager, field_list, commid )
+    var_manager, field_list, commid, &
+    field_list_is, field_list_ie     )
     implicit none
     class(AtmosMeshGM), target, intent(inout) :: this
     integer, intent(in) :: sfield_num        !< Number of scalar fields
@@ -248,6 +249,8 @@ contains
     class(ModelVarManager), intent(inout) :: var_manager !< Object to manage variables
     class(MeshField3D), intent(in) :: field_list(:)      !< Array of 3D fields
     integer, intent(out) :: commid           !< Communicator ID
+    integer, intent(in), optional :: field_list_is  !< Starting index of the field list for communication (optional)
+    integer, intent(in), optional :: field_list_ie  !< Ending index of the field list for communication (optional)
     !-----------------------------------------------------
 
     commid = this%Get_communicatorID( ATM_MESH_MAX_COMMNUICATOR_NUM )
@@ -255,7 +258,7 @@ contains
     if ( this%comm_use_mpi_pc ) then
       call this%comm_list(commid)%Prepare_PC( this%comm_use_mpi_pc_fujitsu_ext )
     end if
-    call var_manager%MeshFieldComm_Prepare( this%comm_list(commid), field_list )
+    call var_manager%MeshFieldComm_Prepare( this%comm_list(commid), field_list, field_list_is, field_list_ie )
 
     return
   end subroutine AtmosMeshGM_create_communicator  

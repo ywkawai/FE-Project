@@ -171,8 +171,10 @@ contains
     !$omp parallel private( &
     !$omp q_intrp, vx, vy, vz,               &
     !$omp x_intrp, y_intrp, z_intrp, r_intrp )
+    !$acc data create( x_intrp, y_intrp, z_intrp, z_func) copyin(IntrpMat)
 
     !$omp do
+    !$acc parallel loop private(vx, vy, vz) present(lcmesh3D, elem_intrp, x_intrp, y_intrp, z_intrp, z_func)
     do ke=lcmesh3D%NeS, lcmesh3D%NeE
 
       vx(:) = lcmesh3D%pos_ev(lcmesh3D%EToV(ke,:),1)
@@ -191,6 +193,7 @@ contains
       select case(z_func_type)
       case ('sin')
         !$omp do
+        !$acc parallel loop present(z_func, z_intrp) copyin(z_func_params)
         do ke=lcmesh3D%NeS, lcmesh3D%NeE
           z_func(:,ke) = sin( z_func_params(1) * PI * z_intrp(:,ke) / z_func_params(2) )
         end do
@@ -199,6 +202,7 @@ contains
     end if
 
     !$omp do
+    !$acc parallel loop private( r_intrp, q_intrp ) present(x_intrp, y_intrp, z_intrp, z_func, q)
     do ke=lcmesh3D%NeS, lcmesh3D%NeE
       r_intrp(:) = sqrt( &
           ( (x_intrp(:,ke) - xc) / rx )**2 &
@@ -213,6 +217,8 @@ contains
       q(:,ke) = matmul(IntrpMat, q_intrp(:) * z_func(:,ke))
     end do
     !$omp end do
+
+    !$acc end data
     !$omp end parallel
 
     call elem_intrp%Final()
@@ -355,14 +361,16 @@ contains
 
   interface
     subroutine func( q_intrp, &
-        x, y, z, elem_intrp   )
+        x, y, z, lcmesh3D, elem_intrp   )
+      import LocalMesh3D
       import ElementBase3D
       import RP
+      class(LocalMesh3D), intent(in) :: lcmesh3D
       class(ElementBase3D), intent(in) :: elem_intrp
-      real(RP), intent(out) :: q_intrp(elem_intrp%Np)
-      real(RP), intent(in) :: x(elem_intrp%Np)
-      real(RP), intent(in) :: y(elem_intrp%Np)
-      real(RP), intent(in) :: z(elem_intrp%Np)
+      real(RP), intent(out) :: q_intrp(elem_intrp%Np,lcmesh3D%Ne)
+      real(RP), intent(in) :: x(elem_intrp%Np,lcmesh3D%Ne)
+      real(RP), intent(in) :: y(elem_intrp%Np,lcmesh3D%Ne)
+      real(RP), intent(in) :: z(elem_intrp%Np,lcmesh3D%Ne)
     end subroutine func
   end interface
 
@@ -371,9 +379,11 @@ contains
   real(RP) :: vx(elem%Nv), vy(elem%Nv), vz(elem%Nv)
 
   real(RP), allocatable :: IntrpMat(:,:)
-  real(RP), allocatable :: q_intrp(:)
+  real(RP), allocatable :: q_intrp(:,:)
 
-  integer :: ke
+  integer :: ke, p
+  integer :: i, j
+  real(RP) :: s
   !-----------------------------------------------
 
   call elem_intrp%Init( IntrpPolyOrder_h, IntrpPolyOrder_v, .false. )
@@ -382,28 +392,44 @@ contains
   call mkinitutil_gen_GPMat( IntrpMat, elem_intrp, elem )
 
   allocate( x_intrp(elem_intrp%Np,lcmesh3D%Ne), y_intrp(elem_intrp%Np,lcmesh3D%Ne), z_intrp(elem_intrp%Np,lcmesh3D%Ne) )
-  allocate( q_intrp(elem_intrp%Np) )
+  allocate( q_intrp(elem_intrp%Np,lcmesh3D%Ne) )
+
+  !$acc data create( x_intrp, y_intrp, z_intrp, q_intrp ) copyin(IntrpMat)
 
   !$omp parallel do private(vx, vy, vz)
+  !$acc parallel loop gang private(vx, vy, vz) present(x_intrp, y_intrp, z_intrp, lcmesh3D,elem_intrp)
   do ke=lcmesh3D%NeS, lcmesh3D%NeE
     vx(:) = lcmesh3D%pos_ev(lcmesh3D%EToV(ke,:),1)
     vy(:) = lcmesh3D%pos_ev(lcmesh3D%EToV(ke,:),2)
     vz(:) = lcmesh3D%pos_ev(lcmesh3D%EToV(ke,:),3)
-    x_intrp(:,ke) = vx(1) + 0.5_RP * ( elem_intrp%x1(:) + 1.0_RP ) * ( vx(2) - vx(1) ) 
-    y_intrp(:,ke) = vy(1) + 0.5_RP * ( elem_intrp%x2(:) + 1.0_RP ) * ( vy(4) - vy(1) )
-    z_intrp(:,ke) = vz(1) + 0.5_RP * ( elem_intrp%x3(:) + 1.0_RP ) * ( vz(5) - vz(1) )
+    !$acc loop vector
+    do p=1, elem_intrp%Np
+      x_intrp(p,ke) = vx(1) + 0.5_RP * ( elem_intrp%x1(p) + 1.0_RP ) * ( vx(2) - vx(1) ) 
+      y_intrp(p,ke) = vy(1) + 0.5_RP * ( elem_intrp%x2(p) + 1.0_RP ) * ( vy(4) - vy(1) )
+      z_intrp(p,ke) = vz(1) + 0.5_RP * ( elem_intrp%x3(p) + 1.0_RP ) * ( vz(5) - vz(1) )
+    end do
   end do
 
-  !$omp parallel do private( q_intrp )
+  call func( q_intrp,              & ! (out)
+    x_intrp, y_intrp, z_intrp,     & ! (in)
+    lcmesh3D, elem_intrp           ) ! (in)
+
+  !$omp parallel do private( s )
+  !$acc parallel loop gang private(s) present(x_intrp, y_intrp, z_intrp, q_intrp, q, IntrpMat, lcmesh3D,elem_intrp,elem)
   do ke=lcmesh3D%NeS, lcmesh3D%NeE
-
-    call func( q_intrp,                                & ! (out)
-      x_intrp(:,ke), y_intrp(:,ke), z_intrp(:,ke),     & ! (in)
-      elem_intrp                                       ) ! (in)
-    
     ! Perform Galerkin projection
-    q(:,ke) = matmul( IntrpMat, q_intrp )
+    !$acc loop worker
+    do i=1, elem%Np
+      s = 0.0_RP
+      !$acc loop vector reduction(+:s)
+      do j=1, elem_intrp%Np
+        s = s + IntrpMat(i,j) * q_intrp(j,ke)
+      end do
+      q(i,ke) = s
+    end do
   end do
+
+  !$acc end data
 
   call elem_intrp%Final()
 

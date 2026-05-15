@@ -35,6 +35,8 @@ module scale_element_operation_general
   !
   !++ Public type & procedure
   !  
+
+  !> Derived type for elementwise operations with arbitary elements
   type, public, extends(ElementOperationBase3D) :: ElementOperationGeneral
     type(SparseMat), pointer :: Dx_sm
     type(SparseMat), pointer :: Dy_sm
@@ -76,6 +78,7 @@ contains
 !OCL SERIAL
   subroutine element_operation_general_Init( this, elem3D, &
       Dx, Dy, Dz, Lift )
+    use scale_element_operation_base, only: ELEMENT_OPERATOR_TYPE_GENERAL
     implicit none
     class(ElementOperationGeneral), intent(inout) :: this
     class(ElementBase3D), intent(in), target :: elem3D
@@ -85,6 +88,8 @@ contains
     type(SparseMat), intent(in), target :: Lift
     !----------------------------------------------------------
 
+    this%operator_type = ELEMENT_OPERATOR_TYPE_GENERAL
+    
     this%elem3D => elem3D
     this%Dx_sm => Dx
     this%Dy_sm => Dy

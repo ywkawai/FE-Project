@@ -125,6 +125,7 @@ contains
       call PRC_abort        
     end select
 
+    !$acc enter data copyin(this)
     return
   end subroutine LocalMeshFieldBase_Init
 
@@ -143,7 +144,7 @@ contains
       !$acc exit data delete(this%face_val)
       deallocate( this%face_val )
     end if
-
+    !$acc exit data delete(this)
     return
   end subroutine LocalMeshFieldBase_Final
 

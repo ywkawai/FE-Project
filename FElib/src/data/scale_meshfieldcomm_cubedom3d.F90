@@ -119,9 +119,13 @@ contains
     class(MeshFieldCommCubeDom3D), intent(inout) :: this
     type(MeshFieldContainer), intent(in) :: field_list(:)  !< Array of objects with 3D mesh field
     integer, intent(in) :: varid_s                         !< Start index with variables when field_list(1) is written to buffers for data communication
-  
+
+    integer :: i, n
+    type(Localmesh3d), pointer :: lcmesh
+    integer :: field_num
     !-----------------------------------------------------------------------------
-    
+
+    call PROF_rapstart( 'comm_put', 1)    
 !    call PROF_rapstart( 'meshfiled_comm_put', 3)
     ! field_num = size(field_list)
     ! do n=1, this%mesh%LOCAL_MESH_NUM
@@ -135,6 +139,7 @@ contains
       field_list, 3, varid_s, this%mesh3d%lcmesh_list, size(this%mesh3d%lcmesh_list(1)%VMapB), & !(in)
       this%send_buf ) ! (out)
 !    call PROF_rapend( 'meshfiled_comm_put', 3)
+    call PROF_rapend( 'comm_put', 1)
 
     return
   end subroutine MeshFieldCommCubeDom3D_put
@@ -153,6 +158,7 @@ contains
     integer :: n
     type(Localmesh3d), pointer :: lcmesh
     !-----------------------------------------------------------------------------
+    call PROF_rapstart( 'comm_get', 1)
 
     if ( this%call_wait_flag_sub_get ) then
       ! call PROF_rapstart( 'meshfiled_comm_wait_get', 2)
@@ -165,11 +171,13 @@ contains
       do n=1, this%mesh3d%LOCAL_MESH_NUM
         lcmesh => this%mesh3d%lcmesh_list(n)
         call MeshFieldCommBase_set_bounddata( this%recv_buf(:,varid_s+i-1,n), lcmesh%refElem, lcmesh, & !(in)
-          field_list(i)%field3d%local(n)%val )                                                         !(out)
+          field_list(i)%field3d%local(n)%val )                                                          !(out)
       end do
       end do
+      !$acc wait(1)
       ! call PROF_rapend( 'meshfiled_comm_get', 2)
     end if
+    call PROF_rapend( 'comm_get', 1)
 
     return
   end subroutine MeshFieldCommCubeDom3D_get
@@ -193,22 +201,28 @@ contains
     type(LocalMeshCommData), pointer :: commdata
     !-----------------------------------------------------------------------------
     
+    call PROF_rapstart( 'comm_exchange_1', 1)
+
 !    call PROF_rapstart( 'meshfiled_comm_ex_push_buf', 3)
     do n=1, this%mesh%LOCAL_MESH_NUM
       lcmesh => this%mesh3d%lcmesh_list(n)
       do f=1, this%nfaces_comm
         commdata => this%commdata_list(f,n)
-        call push_localsendbuf( commdata%send_buf(:,:),             &  ! (inout)
+        call push_localsendbuf( commdata%send_buf,                  &  ! (inout)
           this%send_buf(:,:,n), commdata%s_faceID, this%is_f(f,n),  &  ! (in)
           commdata%Nnode_LCMeshFace, this%bufsize_per_field,        &  ! (in)
           this%field_num_tot, lcmesh )                                 ! (in)
       end do
     end do
+    !$acc wait(1)
 !    call PROF_rapend( 'meshfiled_comm_ex_push_buf', 3)
+    call PROF_rapend( 'comm_exchange_1', 1)
 
     !-----------------------
+    call PROF_rapstart( 'comm_exchange_2', 1)
 
-    call MeshFieldCommBase_exchange_core(this, this%commdata_list(:,:), do_wait )
+    call MeshFieldCommBase_exchange_core(this, this%commdata_list, do_wait )
+    call PROF_rapend( 'comm_exchange_2', 1)
 
     return
   end subroutine MeshFieldCommCubeDom3D_exchange
@@ -234,6 +248,7 @@ contains
 
     if ( s_faceID > 0 ) then
       !$omp parallel do
+      !$acc parallel loop collapse(2) present(lc_send_buf, send_buf) async(1)
       do vid=1, var_num
       do i=1, Nnode_LCMeshFace
         lc_send_buf(i,vid) = send_buf(is+i-1,vid)

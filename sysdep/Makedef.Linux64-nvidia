@@ -50,7 +50,8 @@ CFLAGS_DEBUG = -O0
 
 FFLAGS_OPENMP = -mp -llapack -lblas
 
-FFLAGS_OPENACC = -gpu=cc80 -acc -cuda -Minfo=accel -cudalib=cusparse -DUSE_CUDALIB -llapack -lblas
+NVIDIA_GPU_COMPATIBILITY ?= 80
+FFLAGS_OPENACC = -gpu=lineinfo -gpu=cc$(NVIDIA_GPU_COMPATIBILITY) -acc -cuda -Minfo=accel -cudalib=cusparse -DUSE_CUDALIB -llapack -lblas
 #FFLAGS_OPENACC = -acc -ta=tesla,cuda8.0,cc60 -Mcuda -Minfo=accel
 
 FFLAGS_SYSDEPEND = -DNVIDIA

@@ -188,36 +188,56 @@ contains
   !
 !OCL SERIAL
   subroutine fieldutil_get_profile2d_flow( flow_x, flow_y, &
-    profile_name, x, y, params, N)
+    profile_name, x, y, params, IS,IE,IA, JS,JE,JA)
 
     implicit none
     !--------------------------------
-    integer, intent(in) :: N
-    real(RP), intent(out) :: flow_x(N)
-    real(RP), intent(out) :: flow_y(N)
+    integer, intent(in) :: IA, JA
+    real(RP), intent(out) :: flow_x(IA,JA)
+    real(RP), intent(out) :: flow_y(IA,JA)
     character(*), intent(in) :: profile_name
-    real(RP), intent(in) :: x(N)
-    real(RP), intent(in) :: y(N)
+    real(RP), intent(in) :: x(IA,JA)
+    real(RP), intent(in) :: y(IA,JA)
     real(RP), intent(in) :: params(:)
+    integer, intent(in) :: IS, IE, JS, JE
 
-    real(RP) :: dist(N)
     real(RP) :: fac
-    !------------------------------------------------------------------------
 
-    flow_x(:) = 0.0_RP
-    flow_y(:) = 0.0_RP
+    integer :: i, j
+    !------------------------------------------------------------------------
 
     select case(profile_name)
     case ('constant')
-      flow_x(:) = params(1)
-      flow_y(:) = params(2)
+      !$omp parallel do
+      !$acc parallel loop gang present(flow_x, flow_y, x, y) copyin(params)
+      do j=JS, JE
+        !$acc loop vector
+        do i=IS, IE
+          flow_x(i,j) = params(1)
+          flow_y(i,j) = params(2)
+        end do
+      end do
     case ('rigid-body-rot')
-      flow_x(:) = - 2.0_RP*PI/params(3)*(y(:) - params(1))
-      flow_y(:) = + 2.0_RP*PI/params(3)*(x(:) - params(2))
+      !$omp parallel do
+      !$acc parallel loop gang present(flow_x, flow_y, x, y) copyin(params)
+      do j=JS, JE
+        !$acc loop vector
+        do i=IS, IE
+          flow_x(i,j) = - 2.0_RP*PI/params(3)*(y(i,j) - params(1))
+          flow_y(i,j) = + 2.0_RP*PI/params(3)*(x(i,j) - params(2))
+        end do
+      end do
     case ('swirling')
       fac = cos(PI*params(4)/params(3))
-      flow_x(:) = + sin(PI*x(:))**2 * sin(2.0_RP*PI*y(:)) * fac
-      flow_y(:) = - sin(PI*y(:))**2 * sin(2.0_RP*PI*x(:)) * fac
+      !$omp parallel do
+      !$acc parallel loop gang present(flow_x, flow_y, x, y) copyin(params)
+      do j=JS, JE
+        !$acc loop vector
+        do i=IS, IE
+          flow_x(i,j) = + sin(PI*x(i,j))**2 * sin(2.0_RP*PI*y(i,j)) * fac
+          flow_y(i,j) = - sin(PI*y(i,j))**2 * sin(2.0_RP*PI*x(i,j)) * fac
+        end do
+      end do
     case default
       LOG_ERROR('fieldutil_get_profile2d_flow',*) trim(profile_name)//' is not supported. Check!'
       call PRC_abort
@@ -409,33 +429,42 @@ contains
   !-------------------------------
 
   subroutine fieldutil_get_profile3d_flow( flow_x, flow_y, flow_z, &
-    profile_name, x, y, z, params, N)
+    profile_name, x, y, z, params, IS,IE,IA, JS,JE,JA, KS,KE,KA)
 
     implicit none
     !--------------------------------
-    integer, intent(in) :: N
-    real(RP), intent(out) :: flow_x(N)
-    real(RP), intent(out) :: flow_y(N)
-    real(RP), intent(out) :: flow_z(N)
+    integer, intent(in) :: IS, IE, IA
+    integer, intent(in) :: JS, JE, JA
+    integer, intent(in) :: KS, KE, KA
+    real(RP), intent(out) :: flow_x(IA,JA,KA)
+    real(RP), intent(out) :: flow_y(IA,JA,KA)
+    real(RP), intent(out) :: flow_z(IA,JA,KA)
     character(*), intent(in) :: profile_name
-    real(RP), intent(in) :: x(N)
-    real(RP), intent(in) :: y(N)
-    real(RP), intent(in) :: z(N)
+    real(RP), intent(in) :: x(IA,JA,KA)
+    real(RP), intent(in) :: y(IA,JA,KA)
+    real(RP), intent(in) :: z(IA,JA,KA)
     real(RP), intent(in) :: params(:)
 
-    real(RP) :: dist(N)
+    real(RP) :: dist(IA,JA,KA)
     real(RP) :: fac
-    !------------------------------------------------------------------------
 
-    flow_x(:) = 0.0_RP
-    flow_y(:) = 0.0_RP
-    flow_z(:) = 0.0_RP
+    integer :: i, j, k
+    !------------------------------------------------------------------------
 
     select case(profile_name)
     case ('constant')
-      flow_x(:) = params(1)
-      flow_y(:) = params(2)
-      flow_z(:) = params(3)
+      !$omp parallel do collapse(2)
+      !$acc parallel loop gang collapse(2) present(flow_x, flow_y, flow_z) copyin(params)
+      do k=KS, KE
+      do j=JS, JE
+        !$acc loop vector
+        do i=IS, IE
+            flow_x(i,j,k) = params(1)
+            flow_y(i,j,k) = params(2)
+            flow_z(i,j,k) = params(3)
+        end do
+      end do
+      end do
     ! case ('rigid-body-rot')
     !   flow_x(:) = - 2.0_RP*PI/params(4)*(y(:) - params(1))
     !   flow_y(:) = + 2.0_RP*PI/params(4)*(x(:) - params(2))

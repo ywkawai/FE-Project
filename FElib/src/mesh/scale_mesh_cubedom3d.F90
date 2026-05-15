@@ -298,25 +298,37 @@ contains
     real(RP), intent(in) :: G13_lc(this%refElem3D%Np,this%lcmesh_list(lcdomID)%NeA)
     real(RP), intent(in) :: G23_lc(this%refElem3D%Np,this%lcmesh_list(lcdomID)%NeA)
 
-    integer :: ke
+    integer :: ke, p
     class(LocalMesh3D), pointer :: lcmesh
+    integer :: Np
     !-------------------------------------------------------
 
     lcmesh => this%lcmesh_list(lcdomID)
+    Np = lcmesh%refElem%Np
 
     !$omp parallel private(ke)
     !$omp do
+    !$acc parallel present(lcmesh%zlev, lcmesh%Gsqrt, lcmesh%GI3, zlev_lc, GsqrtV_lc, G13_lc, G23_lc)
+    !$acc loop gang
     do ke=lcmesh%NeS, lcmesh%NeE
-      lcmesh%zlev(:,ke) = zlev_lc(:,ke)
+      !$acc loop vector
+      do p=1, Np
+        lcmesh%zlev(p,ke) = zlev_lc(p,ke)
+      end do
     end do
     !$omp do
+    !$acc loop gang
     do ke=lcmesh%NeS, lcmesh%NeA
-      lcmesh%Gsqrt(:,ke) = GsqrtV_lc(:,ke)
-      lcmesh%GI3(:,ke,1) = G13_lc(:,ke)
-      lcmesh%GI3(:,ke,2) = G23_lc(:,ke)
+      !$acc loop vector
+      do p=1, Np
+        lcmesh%Gsqrt(p,ke) = GsqrtV_lc(p,ke)
+        lcmesh%GI3(p,ke,1) = G13_lc(p,ke)
+        lcmesh%GI3(p,ke,2) = G23_lc(p,ke)
+      end do
     end do
+    !$acc end parallel
     !$omp end parallel
-    !$acc update device(lcmesh%zlev, lcmesh%Gsqrt, lcmesh%GI3)
+    !$acc update host(lcmesh%zlev, lcmesh%Gsqrt, lcmesh%GI3)
 
     return
   end subroutine MeshCubeDom3D_set_geometric_with_vcoord

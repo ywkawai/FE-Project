@@ -261,6 +261,7 @@ contains
         PRGVAR_VARINFO(iv), mesh3D,                           & ! (in) 
         prgvars(iv),                                          & ! (inout)
         reg_file_hist,  monitor_flag=.true., fill_zero=.true. ) ! (out)
+      !$acc update device( prgvars(iv) )
     end do
 
     !- Initialize tracer variables
@@ -432,6 +433,7 @@ contains
     return
   end subroutine atm_dyn_dgm_nonhydro3d_common_calc_therm_phyd
 
+  !> Calculate pressure from the deviation of density-weighted potential temperature (DRHOT)
 !OCL SERIAL
   subroutine atm_dyn_dgm_nonhydro3d_common_DRHOT2PRES( PRES, DPRES, &
     DRHOT, PRES_hyd, THERM_hyd, Rtot, CVtot, CPtot,                 &
@@ -455,19 +457,32 @@ contains
     real(RP), intent(in) :: CVtot(elem3D%Np,lcmesh%NeA) 
     real(RP), intent(in) :: CPtot(elem3D%Np,lcmesh%NeA) 
 
-    integer :: ke
+    integer :: ke, p
     real(RP) :: RHOT(elem3D%Np)
+    real(RP) :: RHOT_
     real(RP) :: rP0
     !---------------------------------------------------------------
 
     rP0 = 1.0_RP / PRES00
     !$omp parallel do private( RHOT )
+    !$acc parallel loop gang present( PRES, DPRES, DRHOT, PRES_hyd, THERM_hyd, Rtot, CVtot, CPtot, lcmesh,elem3D )
     do ke=lcmesh%NeS, lcmesh%NeE
 !      RHOT(:) = PRES00 / Rdry * ( PRES_hyd(:,ke) / PRES00 )**(CvDry/CpDry) + DRHOT(:,ke)
+
+#ifdef _OPENACC
+      !$acc loop vector
+      do p=1, elem3D%Np
+        RHOT_ = PRES00 / Rdry * ( PRES_hyd(p,ke) / PRES00 )**(CVdry/CPdry) + DRHOT(p,ke)
+
+        PRES(p,ke) = PRES00 * ( Rtot(p,ke) * rP0 * RHOT_ )**( CPtot(p,ke) / CVtot(p,ke) )
+        DPRES(p,ke) = PRES(p,ke) - PRES_hyd(p,ke)
+      end do
+#else
       RHOT(:) = THERM_hyd(:,ke) + DRHOT(:,ke)
 
       PRES(:,ke) = PRES00 * ( Rtot(:,ke) * rP0 * RHOT(:) )**( CPtot(:,ke) / CVtot(:,ke) )
       DPRES(:,ke) = PRES(:,ke) - PRES_hyd(:,ke)
+#endif
     end do
 
     return
@@ -592,15 +607,22 @@ contains
     real(RP), intent(out) :: RHOT_hyd(elem3D%Np,lcmesh%NeA) 
     real(RP), intent(in) :: PRES_hyd(elem3D%Np,lcmesh%NeA)
 
-    integer :: ke
+    integer :: ke, p
     real(RP) :: rP0
     !---------------------------------------------------------------
 
     rP0 = 1.0_RP / PRES00
 
     !$omp parallel do
+    !$acc parallel loop gang present( RHOT_hyd, PRES_hyd, lcmesh, elem3D )
     do ke=lcmesh%NeS, lcmesh%NeE
+#ifdef _OPENACC
+      do p=1, elem3D%Np
+        RHOT_hyd(p,ke) = PRES00 / Rdry * ( PRES_hyd(p,ke) / PRES00 )**(CVdry/CPdry) 
+      end do
+#else
       RHOT_hyd(:,ke) = PRES00 / Rdry * ( PRES_hyd(:,ke) / PRES00 )**(CvDry/CpDry) 
+#endif
     end do
 
     return

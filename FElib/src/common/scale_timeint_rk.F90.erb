@@ -88,6 +88,7 @@ module scale_timeint_rk
     generic, public :: StoreImplicit => StoreImplicit1D, StoreImplicit2D, StoreImplicit3D
   end type timeint_rk
 
+  !> Derived type to store pointer to variable data when using varlist in RK advance procedures
   type, public :: timeint_rk_var
     real(RP), pointer :: var1D(:)
     real(RP), pointer :: var2D(:,:)
@@ -297,8 +298,10 @@ contains
     !----------------------------------------  
     
     if (this%low_storage_flag) then
+      call PROF_rapstart( 'rk_advance_low_storage<%=d%>D', 3) 
       call rk_advance_low_storage<%=d%>D( this, nowstage, q, varID, <%=ind_arg%>, <%=ind_ary_all%>, this%var_num, &
             this%var0_<%=d%>D, this%varTmp_<%=d%>d, this%tend_buf<%=d%>D_ex )
+      call PROF_rapend( 'rk_advance_low_storage<%=d%>D', 3) 
     else
       if ( this%imex_flag ) then
         call rk_advance_general<%=d%>D( this, nowstage, q, varID, <%=ind_arg%>, <%=ind_ary_all%>, this%var_num, &
@@ -337,6 +340,7 @@ contains
     n = size(varIDs)
 
     if (this%low_storage_flag) then
+      call PROF_rapstart( 'rk_advance_varlist_low_storage<%=d%>D', 3) 
       i = 1
       do while(i <= n)
          if ( i+1 <= n ) then
@@ -349,6 +353,8 @@ contains
           i = i + 1
         end if
       end do
+      !$acc wait(1)
+      call PROF_rapend( 'rk_advance_varlist_low_storage<%=d%>D', 3) 
     else
       do i=1, n
         call this%Advance<%=d%>D( nowstage, var_list(i)%var<%=d%>D, varIDs(i), <%=ind_arg%> )
@@ -418,11 +424,17 @@ contains
     !----------------------------------------    
  
     !$omp parallel private(<%=ind_ary%>)
+    !$acc parallel present( q, this%var0_<%=d%>D )
 % if (d > 2) then
     !$omp do collapse(<%=(d-1)%>)
 %else
     !$omp do
-%end        
+%end
+% if (d >= 2) then
+    !$acc loop collapse(<%=(d)%>)
+%else
+    !$acc loop
+%end   
 %for i in 1..d
     do <%=ind_name[d-i]%>=<%=ind_range_list[d-i]%>
 %end
@@ -430,7 +442,8 @@ contains
 % for i in 1..d
     end do
 % end
-      !$omp end parallel
+    !$acc end parallel
+    !$omp end parallel
 
     return
   end subroutine timeint_rk_store_var0_<%=d%>D
@@ -514,8 +527,6 @@ contains
 
     !----------------------------------------    
 
-    call PROF_rapstart( 'rk_advance_low_storage<%=d%>D', 3) 
-
     sig_ss = this%coef_sig_ex(nowstage+1,nowstage)
     sig_Ns = this%coef_sig_ex(this%nstage+1,nowstage)
     one_Minus_sig_ss = 1.0_RP - sig_ss
@@ -523,13 +534,13 @@ contains
     gam_Ns = this%dt * this%coef_gam_ex(this%nstage+1,nowstage)
 
     if ( nowstage == this%nstage ) then
-      !$omp parallel private(<%=ind_ary%>)
+      !$omp parallel private(<%=ind_ary%>) async(1)
 % if (d > 2) then
       !$omp do collapse(<%=(d-1)%>)
 % else
       !$omp do
 % end 
-      !$acc parallel present( q, varTmp_<%=d%>d, tend_buf<%=d%>D_ex ) 
+      !$acc parallel present( q, varTmp_<%=d%>d, tend_buf<%=d%>D_ex ) async(1)
 % if (d >= 2) then
       !$acc loop collapse(<%=(d)%>)
 % else
@@ -545,13 +556,12 @@ contains
 % end
       !$acc end parallel
       !$omp end parallel
-      call PROF_rapend( 'rk_advance_low_storage<%=d%>D', 3)
 
       return
     end if
       
     !$omp parallel private(<%=ind_ary%>)
-    !$acc parallel present( q, var0_<%=d%>D, varTmp_<%=d%>D, tend_buf<%=d%>D_ex )
+    !$acc parallel present( q, var0_<%=d%>D, varTmp_<%=d%>D, tend_buf<%=d%>D_ex ) async(1)
     if (nowstage == 1) then
 % if (d > 2) then
       !$omp do collapse(<%=(d-1)%>)
@@ -615,8 +625,6 @@ contains
     !$acc end parallel
     !$omp end parallel
 
-    call PROF_rapend( 'rk_advance_low_storage<%=d%>D', 3)
-
     return
   end subroutine rk_advance_low_storage<%=d%>D
 
@@ -659,8 +667,6 @@ contains
 
     !----------------------------------------    
 
-    call PROF_rapstart( 'rk_advance_low_storage<%=d%>D', 3) 
-
     sig_ss = this%coef_sig_ex(nowstage+1,nowstage)
     sig_Ns = this%coef_sig_ex(this%nstage+1,nowstage)
     one_Minus_sig_ss = 1.0_RP - sig_ss
@@ -673,7 +679,13 @@ contains
       !$omp do collapse(<%=(d-1)%>)
 % else
       !$omp do
-% end        
+% end
+      !$acc parallel present( q1, q2, varTmp_<%=d%>d, tend_buf<%=d%>D_ex ) async(1)
+% if (d >= 2) then
+      !$acc loop collapse(<%=(d)%>)
+% else
+      !$acc loop
+% end
 % for i in 1..d
       do <%=ind_name[d-i]%>=<%=ind_range_list[d-i]%>
 % end 
@@ -684,19 +696,25 @@ contains
 % for i in 1..d
       end do
 % end
+      !$acc end parallel
       !$omp end parallel
-      call PROF_rapend( 'rk_advance_low_storage<%=d%>D', 3)
 
       return
     end if
       
     !$omp parallel private(<%=ind_ary%>)
+    !$acc parallel present( q1, q2, var0_<%=d%>D, varTmp_<%=d%>D, tend_buf<%=d%>D_ex ) async(1)
     if (nowstage == 1) then
 % if (d > 2) then
       !$omp do collapse(<%=(d-1)%>)
 %else
       !$omp do
-%end        
+%end
+% if (d >= 2) then
+      !$acc loop collapse(<%=(d)%>)
+%else
+      !$acc loop
+%end   
 %for i in 1..d
       do <%=ind_name[d-i]%>=<%=ind_range_list[d-i]%>
 %end
@@ -715,7 +733,12 @@ contains
       !$omp do collapse(<%=(d-1)%>)
 % else
       !$omp do
-% end        
+% end
+% if (d >= 2) then
+      !$acc loop collapse(<%=(d)%>)
+%else
+      !$acc loop
+%end 
 % for i in 1..d
       do <%=ind_name[d-i]%>=<%=ind_range_list[d-i]%>
 % end
@@ -732,7 +755,12 @@ contains
     !$omp do collapse(<%=(d-1)%>)
 %else
     !$omp do
-%end        
+%end
+% if (d >= 2) then
+    !$acc loop collapse(<%=(d)%>)
+%else
+    !$acc loop
+%end 
 % for i in 1..d
     do <%=ind_name[d-i]%>=<%=ind_range_list[d-i]%>
 %end
@@ -743,10 +771,8 @@ contains
 % for i in 1..d
     end do
 % end
-
+    !$acc end parallel
     !$omp end parallel
-
-    call PROF_rapend( 'rk_advance_low_storage<%=d%>D', 3)
 
     return
   end subroutine rk_advance_low_storage<%=d%>D_var2
@@ -809,10 +835,16 @@ contains
 
     if ( nowstage == this%nstage ) then
       !$omp parallel private(<%=ind_ary%>)
+      !$acc parallel present( q, varTmp_<%=d%>d, tend_buf<%=d%>D_ex, DDENS, DDENS0, DENS_hyd )
 % if (d > 2) then
       !$omp do collapse(<%=(d-1)%>)
 % else
       !$omp do
+% end
+% if (d >= 2) then
+      !$acc loop collapse(<%=(d)%>)
+% else
+      !$acc loop
 % end        
 % for i in 1..d
       do <%=ind_name[d-i]%>=<%=ind_range_list[d-i]%>
@@ -824,6 +856,7 @@ contains
 % for i in 1..d
       end do
 % end
+      !$acc end parallel
       !$omp end parallel
       call PROF_rapend( 'rk_advance_trcvar_low_storage<%=d%>D', 3)
 
@@ -833,12 +866,18 @@ contains
     c_ss   = this%coef_c_ex(nowstage+1) 
 
     !$omp parallel private(<%=ind_ary%>,dens_ss,dens_ssm1)
+    !$acc parallel present( q, varTmp_<%=d%>d, tend_buf<%=d%>D_ex, DDENS, DDENS0, DENS_hyd )
     if (nowstage == 1) then
 % if (d > 2) then
       !$omp do collapse(<%=(d-1)%>)
 %else
       !$omp do
-%end        
+%end
+% if (d >= 2) then
+      !$acc loop collapse(<%=(d)%>)
+% else
+      !$acc loop
+% end 
 %for i in 1..d
       do <%=ind_name[d-i]%>=<%=ind_range_list[d-i]%>
 %end
@@ -854,7 +893,12 @@ contains
       !$omp do collapse(<%=(d-1)%>)
 % else
       !$omp do
-% end        
+% end
+% if (d >= 2) then
+      !$acc loop collapse(<%=(d)%>)
+% else
+      !$acc loop
+% end       
 % for i in 1..d
       do <%=ind_name[d-i]%>=<%=ind_range_list[d-i]%>
 % end
@@ -870,7 +914,12 @@ contains
     !$omp do collapse(<%=(d-1)%>)
 %else
     !$omp do
-%end        
+%end
+% if (d >= 2) then
+      !$acc loop collapse(<%=(d)%>)
+% else
+      !$acc loop
+% end       
 % for i in 1..d
     do <%=ind_name[d-i]%>=<%=ind_range_list[d-i]%>
 %end
@@ -883,7 +932,7 @@ contains
 % for i in 1..d
     end do
 % end
-
+    !$acc end parallel
     !$omp end parallel
 
     call PROF_rapend( 'rk_advance_trcvar_low_storage<%=d%>D', 3)
@@ -1205,7 +1254,12 @@ contains
       !$omp parallel do collapse(<%=(d-1)%>)
 % else
       !$omp parallel do
-% end   
+% end
+% if (d >= 2) then
+      !$acc parallel loop collapse(<%=(d)%>) present( q, varTmp_<%=d%>d, DDENS0, DENS_hyd )
+% else
+      !$acc parallel loop present( q, varTmp_<%=d%>d, DDENS0, DENS_hyd )
+% end
 % for i in 1..d
       do <%=ind_name[d-i]%>=<%=ind_range_list[d-i]%>
 % end
@@ -1221,7 +1275,12 @@ contains
       !$omp parallel do collapse(<%=(d-1)%>)
 % else
       !$omp parallel do
-% end   
+% end
+% if (d >= 2) then
+      !$acc parallel loop collapse(<%=(d)%>) present( q, varTmp_<%=d%>d, DDENS, DENS_hyd )
+% else
+      !$acc parallel loop present( q, varTmp_<%=d%>d, DDENS, DENS_hyd )
+% end
 % for i in 1..d
       do <%=ind_name[d-i]%>=<%=ind_range_list[d-i]%>
 % end
@@ -1240,12 +1299,18 @@ contains
 
     !$omp parallel private( s, dens_, coef_a_ex, coef_a_ex_dt, coef_b_ex_dt ) &
     !$omp private( <%=ind_ary%> )
+    !$acc parallel present( q, var0_<%=d%>D, varTmp_<%=d%>D, tend_buf<%=d%>D_ex, DDENS, DDENS0, DENS_hyd )
 
     if ( nowstage == 1 .and. (.not. this%imex_flag) ) then
 % if (d > 2) then
       !$omp do collapse(<%=(d-1)%>)
 % else
       !$omp do
+% end
+% if (d >= 2) then
+      !$acc loop collapse(<%=(d)%>)
+% else
+      !$acc loop
 % end
 % for i in 1..d
       do <%=ind_name[d-i]%>=<%=ind_range_list[d-i]%>
@@ -1262,7 +1327,12 @@ contains
     !$omp do collapse(<%=(d-1)%>)
 % else
     !$omp do
-% end 
+% end
+% if (d >= 2) then
+      !$acc loop collapse(<%=(d)%>)
+% else
+    !$acc loop
+% end
 % for i in 1..d
     do <%=ind_name[d-i]%>=<%=ind_range_list[d-i]%>
 % end 
@@ -1280,7 +1350,12 @@ contains
       !$omp do collapse(<%=(d-1)%>)
 % else
       !$omp do
-% end  
+% end
+% if (d >= 2) then
+      !$acc loop collapse(<%=(d)%>)
+% else
+      !$acc loop
+% end
 % for i in 1..d
       do <%=ind_name[d-i]%>=<%=ind_range_list[d-i]%>
 % end
@@ -1299,7 +1374,12 @@ contains
         !$omp do collapse(<%=(d-1)%>)
 % else
         !$omp do
-% end     
+% end
+% if (d >= 2) then
+        !$acc loop collapse(<%=(d)%>)
+% else
+        !$acc loop
+% end
 % for i in 1..d
         do <%=ind_name[d-i]%>=<%=ind_range_list[d-i]%>
 % end 
@@ -1313,7 +1393,12 @@ contains
       !$omp do collapse(<%=(d-1)%>)
 % else
       !$omp do
-% end     
+% end
+% if (d >= 2) then
+      !$acc loop collapse(<%=(d)%>)
+% else
+      !$acc loop
+% end  
 % for i in 1..d
       do <%=ind_name[d-i]%>=<%=ind_range_list[d-i]%>
 % end 
@@ -1323,7 +1408,7 @@ contains
       end do
 % end
     end if
-
+    !$acc end parallel
     !$omp end parallel
     call PROF_rapend( 'rk_advance_trcvar_generall<%=d%>D', 3)
 
@@ -1365,13 +1450,19 @@ contains
     coef_a_im_dt = this%dt * this%coef_a_im(nowstage,nowstage)
 
     !$omp parallel
+    !$acc parallel present( q, var0_<%=d%>D, varTmp_<%=d%>D, tend_buf<%=d%>D_im )
 
     if ( nowstage == 1 ) then
 % if (d > 2) then
       !$omp do collapse(<%=(d-1)%>)
 % else
       !$omp do
-% end      
+% end
+% if (d >= 2) then
+      !$acc loop collapse(<%=(d)%>)
+% else
+      !$acc loop
+% end
 % for i in 1..d
       do <%=ind_name[d-i]%>=<%=ind_range_list[d-i]%>
 % end      
@@ -1386,7 +1477,12 @@ contains
     !$omp do collapse(<%=(d-1)%>)
 % else
     !$omp do
-% end     
+% end
+% if (d >= 2) then
+    !$acc loop collapse(<%=(d)%>)
+% else
+    !$acc loop
+% end
 % for i in 1..d
     do <%=ind_name[d-i]%>=<%=ind_range_list[d-i]%>
 % end      
@@ -1395,6 +1491,7 @@ contains
 % for i in 1..d
     end do
 % end
+    !$acc end parallel
     !$omp end parallel
 
     return

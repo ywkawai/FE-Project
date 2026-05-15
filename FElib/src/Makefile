@@ -57,10 +57,12 @@ OBJS_NAME_ELEMENT = \
 	scale_element_hexahedral.o    \
 	scale_element_modalfilter.o   \
 	scale_element_SIACfilter.o    \
-	scale_element_operation_base.o                \
-	scale_element_operation_general.o	          \
-	scale_element_operation_tensorprod3D_kernel.o \
-	scale_element_operation_tensorprod3D.o
+	scale_element_operation_base.o                    \
+	scale_element_operation_general.o	              \
+	scale_element_operation_tensorprod3D_kernel.o     \
+	scale_element_operation_tensorprod3D_kernel_gpu.o \
+	scale_element_operation_tensorprod3D.o            \
+	scale_element_operation_gpu_driver.o
 
 OBJS_NAME_MESH = \
 	scale_meshutil_1d.o            \
@@ -119,31 +121,33 @@ OBJS_NAME_MG_SOLVER = \
 	scale_multigrid_solver_3d.o
 
 OBJS_NAME_FLUID_DYN_SOLVER = \
-	scale_atm_dyn_dgm_modalfilter.o                  \
-	scale_atm_dyn_dgm_spongelayer.o                  \
-	scale_atm_dyn_dgm_hydrostatic.o                  \
-	scale_atm_dyn_dgm_nonhydro3d_numdiff.o           \
-	scale_atm_dyn_dgm_nonhydro2d.o                   \
-	scale_atm_dyn_dgm_nonhydro3d_common.o            \
-	scale_atm_dyn_dgm_nonhydro3d_etot_heve_numflux.o \
-	scale_atm_dyn_dgm_nonhydro3d_rhot_heve_numflux.o \
-	scale_atm_dyn_dgm_nonhydro3d_etot_heve.o         \
-	scale_atm_dyn_dgm_nonhydro3d_rhot_heve.o         \
-	scale_atm_dyn_dgm_nonhydro3d_etot_hevi_common.o   \
-	scale_atm_dyn_dgm_nonhydro3d_rhot_hevi_common.o   \
-	scale_atm_dyn_dgm_nonhydro3d_rhot_hevi_common_2.o \
-	scale_atm_dyn_dgm_hevi_common_linalgebra.o       \
-	scale_atm_dyn_dgm_nonhydro3d_etot_hevi_numflux.o \
-	scale_atm_dyn_dgm_nonhydro3d_rhot_hevi_numflux.o \
-	scale_atm_dyn_dgm_nonhydro3d_etot_hevi.o         \
-	scale_atm_dyn_dgm_nonhydro3d_rhot_hevi.o         \
-	scale_atm_dyn_dgm_nonhydro3d_rhot_heve_splitform.o \
-	scale_atm_dyn_dgm_nonhydro3d_rhot_hevi_splitform.o \
-	scale_atm_dyn_dgm_nonhydro3d_hevi_gmres.o        \
-	scale_atm_dyn_dgm_globalnonhydro3d_rhot_heve.o   \
-	scale_atm_dyn_dgm_globalnonhydro3d_etot_heve.o   \
-	scale_atm_dyn_dgm_globalnonhydro3d_rhot_hevi.o   \
-	scale_atm_dyn_dgm_globalnonhydro3d_etot_hevi.o   \
+	scale_atm_dyn_dgm_modalfilter.o                      \
+	scale_atm_dyn_dgm_spongelayer.o                      \
+	scale_atm_dyn_dgm_hydrostatic.o                      \
+	scale_atm_dyn_dgm_nonhydro3d_numdiff.o               \
+	scale_atm_dyn_dgm_nonhydro2d.o                       \
+	scale_atm_dyn_dgm_nonhydro3d_common.o                \
+	scale_atm_dyn_dgm_nonhydro3d_etot_heve_numflux.o     \
+	scale_atm_dyn_dgm_nonhydro3d_rhot_heve_numflux.o     \
+	scale_atm_dyn_dgm_nonhydro3d_rhot_heve_numflux_gpu.o \
+	scale_atm_dyn_dgm_nonhydro3d_etot_heve.o             \
+	scale_atm_dyn_dgm_nonhydro3d_rhot_heve.o             \
+	scale_atm_dyn_dgm_nonhydro3d_rhot_heve_gpu.o         \
+	scale_atm_dyn_dgm_nonhydro3d_etot_hevi_common.o      \
+	scale_atm_dyn_dgm_nonhydro3d_rhot_hevi_common.o      \
+	scale_atm_dyn_dgm_nonhydro3d_rhot_hevi_common_2.o    \
+	scale_atm_dyn_dgm_hevi_common_linalgebra.o           \
+	scale_atm_dyn_dgm_nonhydro3d_etot_hevi_numflux.o     \
+	scale_atm_dyn_dgm_nonhydro3d_rhot_hevi_numflux.o     \
+	scale_atm_dyn_dgm_nonhydro3d_etot_hevi.o             \
+	scale_atm_dyn_dgm_nonhydro3d_rhot_hevi.o             \
+	scale_atm_dyn_dgm_nonhydro3d_rhot_heve_splitform.o   \
+	scale_atm_dyn_dgm_nonhydro3d_rhot_hevi_splitform.o   \
+	scale_atm_dyn_dgm_nonhydro3d_hevi_gmres.o            \
+	scale_atm_dyn_dgm_globalnonhydro3d_rhot_heve.o       \
+	scale_atm_dyn_dgm_globalnonhydro3d_etot_heve.o       \
+	scale_atm_dyn_dgm_globalnonhydro3d_rhot_hevi.o       \
+	scale_atm_dyn_dgm_globalnonhydro3d_etot_hevi.o       \
 	scale_atm_dyn_dgm_bnd.o                          \
 	scale_atm_dyn_dgm_driver_base.o                  \
 	scale_atm_dyn_dgm_driver_nonhydro3d.o            \
@@ -376,7 +380,9 @@ dependency: prep_scalelib
 common/scale_quicksort.F90: scale_quicksort.F90.erb
 common/scale_timeint_rk.F90: scale_timeint_rk.F90.erb
 element/scale_element_operation_tensorprod3D_kernel.F90: scale_element_operation_tensorprod3D_kernel.F90.erb
+element/scale_element_operation_tensorprod3D_kernel_gpu.F90: scale_element_operation_tensorprod3D_kernel.F90.erb
 element/scale_element_operation_tensorprod3D.F90: scale_element_operation_tensorprod3D.F90.erb
+element/scale_element_operation_gpu_driver.F90: scale_element_operation_gpu_driver.F90.erb
 fluid_dyn_solver/scale_atm_dyn_dgm_hevi_common_linalgebra.F90: scale_atm_dyn_dgm_hevi_common_linalgebra.F90.erb
 
 $(BUILD_DIR)/%.o : %.F90

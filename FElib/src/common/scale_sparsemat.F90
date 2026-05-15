@@ -65,8 +65,8 @@ module scale_sparsemat
   !
   !++ Public parameters & variables
   !
-  integer, public, parameter :: SPARSEMAT_STORAGE_TYPEID_CSR = 1
-  integer, public, parameter :: SPARSEMAT_STORAGE_TYPEID_ELL = 2
+  integer, public, parameter :: SPARSEMAT_STORAGE_TYPEID_CSR = 1  !< Storage format ID for CSR format
+  integer, public, parameter :: SPARSEMAT_STORAGE_TYPEID_ELL = 2  !< Storage format ID for ELL format
 
   !-----------------------------------------------------------------------------
   !
@@ -368,7 +368,7 @@ contains
 
     !--------------------------------------------------------------------------- 
 
-    !$acc routine
+    !$acc routine vector
 
     select case( A%storage_format_id )
     case( SPARSEMAT_STORAGE_TYPEID_CSR )
@@ -395,7 +395,7 @@ contains
 
     !--------------------------------------------------------------------------- 
 
-    !$acc routine
+    !$acc routine vector
 
     select case( A%storage_format_id )
     case( SPARSEMAT_STORAGE_TYPEID_CSR )
@@ -455,7 +455,7 @@ contains
 
     !--------------------------------------------------------------------------- 
 
-    !$acc routine
+    !$acc routine vector
   
     !call mkl_dcsrgemv( 'N', rowPtr_size-1, A, rowPtr, col_Ind, b, c)
 
@@ -496,7 +496,7 @@ contains
 
     !--------------------------------------------------------------------------- 
 
-    !$acc routine
+    !$acc routine vector
   
     !call mkl_dcsrgemv( 'N', rowPtr_size-1, A, rowPtr, col_Ind, b, c)
 
@@ -567,7 +567,7 @@ contains
     integer :: j_ptr
     !--------------------------------------------------------------------------- 
 
-    !$acc routine
+    !$acc routine vector
 
 #ifdef _OPENACC
     !$acc loop vector
@@ -610,7 +610,7 @@ contains
     integer :: j_ptr
     !--------------------------------------------------------------------------- 
 
-    !$acc routine
+    !$acc routine vector
 
 #ifdef _OPENACC
     !$acc loop vector

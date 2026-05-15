@@ -69,6 +69,11 @@ module scale_atm_dyn_dgm_driver_nonhydro3d
     atm_dyn_dgm_nonhydro3d_rhot_heve_cal_tend_asis, &
     atm_dyn_dgm_nonhydro3d_rhot_heve_cal_tend,      &
     atm_dyn_dgm_nonhydro3d_rhot_heve_cal_tend_cco
+  use scale_atm_dyn_dgm_nonhydro3d_rhot_heve_gpu, only: &
+    atm_dyn_dgm_nonhydro3d_rhot_heve_gpu_Init,          &
+    atm_dyn_dgm_nonhydro3d_rhot_heve_gpu_Final,         &
+    atm_dyn_dgm_nonhydro3d_rhot_heve_cal_tend_gpu,      &
+    atm_dyn_dgm_nonhydro3d_rhot_heve_cal_tend_gpu2
   use scale_atm_dyn_dgm_nonhydro3d_rhot_heve_numflux, only: &
     atm_dyn_dgm_nonhydro3d_rhot_heve_add_bnd_contrib_generalvc
 
@@ -398,6 +403,18 @@ contains
       this%cal_tend_ex => atm_dyn_dgm_nonhydro3d_rhot_heve_cal_tend
       this%cal_vi => null()
       this%dynsolver_final => atm_dyn_dgm_nonhydro3d_rhot_heve_Final
+    case("NONHYDRO3D_HEVE_GPU")
+      this%EQS_TYPEID = EQS_TYPEID_NONHYD3D_HEVE
+      call atm_dyn_dgm_nonhydro3d_rhot_heve_gpu_Init( mesh3D )
+      this%cal_tend_ex => atm_dyn_dgm_nonhydro3d_rhot_heve_cal_tend_gpu
+      this%cal_vi => null()
+      this%dynsolver_final => atm_dyn_dgm_nonhydro3d_rhot_heve_gpu_Final
+    case("NONHYDRO3D_HEVE_GPU2")
+      this%EQS_TYPEID = EQS_TYPEID_NONHYD3D_HEVE
+      call atm_dyn_dgm_nonhydro3d_rhot_heve_gpu_Init( mesh3D )
+      this%cal_tend_ex => atm_dyn_dgm_nonhydro3d_rhot_heve_cal_tend_gpu2
+      this%cal_vi => null()
+      this%dynsolver_final => atm_dyn_dgm_nonhydro3d_rhot_heve_gpu_Final
     case("NONHYDRO3D_HEVE_CCO")
       this%EQS_TYPEID = EQS_TYPEID_NONHYD3D_HEVE
       call atm_dyn_dgm_nonhydro3d_rhot_heve_Init( mesh3D )
@@ -533,8 +550,9 @@ contains
     call model_mesh3D%Create_communicator( &
       1, 0, 0,                         & ! (in) 
       this%AUXDYNVAR3D_manager,        & ! (in)
-      this%AUX_DYNVARS3D(1:1),         & ! (in)
-      this%AUXDYNVAR3D_commid          ) ! (out)
+      this%AUX_DYNVARS3D,              & ! (in)
+      this%AUXDYNVAR3D_commid,         & ! (out)
+      field_list_is=1, field_list_ie=1 ) ! (in)
 
 
     !- initialize an object to manage boundary conditions
@@ -576,7 +594,6 @@ contains
     else
       ret = .true.
     end if
-
     return
   end function AtmDynDGMDriver_nonhydro3d_Is_THERMVAR_RHOT
 
@@ -739,7 +756,8 @@ contains
       call PROF_rapstart( 'ATM_DYN_exchange_prgv', 2)
       call PROG_VARS%MeshFieldComm_Exchange( do_wait )
       call PROF_rapend( 'ATM_DYN_exchange_prgv', 2)
-  
+
+
       !- Calculate pressure perturbation
 
       call PROF_rapstart( 'ATM_DYN_cal_pres', 2)
@@ -763,14 +781,14 @@ contains
 
           !- Apply boundary conditions
           call PROF_rapstart( 'ATM_DYN_applyBC_prgv', 2)
-          call this%boundary_cond%ApplyBC_PROGVARS_lc( n,                                                                   & ! (in)
-            DDENS%local(n)%val, MOMX%local(n)%val, MOMY%local(n)%val, MOMZ%local(n)%val, THERM%local(n)%val,                & ! (inout)
-            DENS_hyd%local(n)%val, PRES_hyd%local(n)%val,                                                                   & ! (in)
-            lcmesh3D%Gsqrt(:,:), lcmesh3D%GsqrtH(:,:), lcmesh3D%GIJ(:,:,1,1), lcmesh3D%GIJ(:,:,1,2), lcmesh3D%GIJ(:,:,2,2), & ! (in)
-            lcmesh3D%GI3(:,:,1), lcmesh3D%GI3(:,:,2),                                                                       & ! (in)
-            lcmesh3D%normal_fn(:,:,1), lcmesh3D%normal_fn(:,:,2), lcmesh3D%normal_fn(:,:,3),                                & ! (in)
-            lcmesh3D%vmapM, lcmesh3D%vmapP, lcmesh3D%vmapB,                                                                 & ! (in)
-            lcmesh3D, lcmesh3D%refElem3D, lcmesh3D%lcmesh2D, lcmesh3D%lcmesh2D%refElem2D                                    ) ! (in)
+          call this%boundary_cond%ApplyBC_PROGVARS_lc( n,                                                         & ! (in)
+            DDENS%local(n)%val, MOMX%local(n)%val, MOMY%local(n)%val, MOMZ%local(n)%val, THERM%local(n)%val,      & ! (inout)
+            DENS_hyd%local(n)%val, PRES_hyd%local(n)%val,                                                         & ! (in)
+            lcmesh3D%Gsqrt, lcmesh3D%GsqrtH, lcmesh3D%GIJ(:,:,1,1), lcmesh3D%GIJ(:,:,1,2), lcmesh3D%GIJ(:,:,2,2), & ! (in)
+            lcmesh3D%GI3(:,:,1), lcmesh3D%GI3(:,:,2),                                                             & ! (in)
+            lcmesh3D%normal_fn(:,:,1), lcmesh3D%normal_fn(:,:,2), lcmesh3D%normal_fn(:,:,3),                      & ! (in)
+            lcmesh3D%vmapM, lcmesh3D%vmapP, lcmesh3D%vmapB,                                                       & ! (in)
+            lcmesh3D, lcmesh3D%refElem3D, lcmesh3D%lcmesh2D, lcmesh3D%lcmesh2D%refElem2D                          ) ! (in)
           call PROF_rapend( 'ATM_DYN_applyBC_prgv', 2)
         end do
       end if
@@ -839,14 +857,14 @@ contains
 
           !- Apply boundary conditions
           call PROF_rapstart( 'ATM_DYN_applyBC_prgv', 2)
-          call this%boundary_cond%ApplyBC_PROGVARS_lc( n,                                                                   & ! (in)
-            DDENS%local(n)%val, MOMX%local(n)%val, MOMY%local(n)%val, MOMZ%local(n)%val, THERM%local(n)%val,                & ! (inout)
-            DENS_hyd%local(n)%val, PRES_hyd%local(n)%val,                                                                   & ! (in)
-            lcmesh3D%Gsqrt(:,:), lcmesh3D%GsqrtH(:,:), lcmesh3D%GIJ(:,:,1,1), lcmesh3D%GIJ(:,:,1,2), lcmesh3D%GIJ(:,:,2,2), & ! (in)
-            lcmesh3D%GI3(:,:,1), lcmesh3D%GI3(:,:,2),                                                                       & ! (in)
-            lcmesh3D%normal_fn(:,:,1), lcmesh3D%normal_fn(:,:,2), lcmesh3D%normal_fn(:,:,3),                                & ! (in)
-            lcmesh3D%vmapM, lcmesh3D%vmapP, lcmesh3D%vmapB,                                                                 & ! (in)
-            lcmesh3D, lcmesh3D%refElem3D, lcmesh3D%lcmesh2D, lcmesh3D%lcmesh2D%refElem2D                                    ) ! (in)
+          call this%boundary_cond%ApplyBC_PROGVARS_lc( n,                                                         & ! (in)
+            DDENS%local(n)%val, MOMX%local(n)%val, MOMY%local(n)%val, MOMZ%local(n)%val, THERM%local(n)%val,      & ! (inout)
+            DENS_hyd%local(n)%val, PRES_hyd%local(n)%val,                                                         & ! (in)
+            lcmesh3D%Gsqrt, lcmesh3D%GsqrtH, lcmesh3D%GIJ(:,:,1,1), lcmesh3D%GIJ(:,:,1,2), lcmesh3D%GIJ(:,:,2,2), & ! (in)
+            lcmesh3D%GI3(:,:,1), lcmesh3D%GI3(:,:,2),                                                             & ! (in)
+            lcmesh3D%normal_fn(:,:,1), lcmesh3D%normal_fn(:,:,2), lcmesh3D%normal_fn(:,:,3),                      & ! (in)
+            lcmesh3D%vmapM, lcmesh3D%vmapP, lcmesh3D%vmapB,                                                       & ! (in)
+            lcmesh3D, lcmesh3D%refElem3D, lcmesh3D%lcmesh2D, lcmesh3D%lcmesh2D%refElem2D                          ) ! (in)
           call PROF_rapend( 'ATM_DYN_applyBC_prgv', 2)
 
           call PROF_rapstart( 'ATM_DYN_ebnd_flux', 2)
@@ -884,10 +902,10 @@ contains
             this%hevi_flag                                                                  ) ! (in)
           call PROF_rapend( 'ATM_DYN_tavg_mflx', 2)
         end if
-        
+
         call PROF_rapstart( 'ATM_DYN_update_advance', 2)      
-        call this%tint(n)%Advance_varlist( rkstage, rkvar_list(:,n), rkvar_IDs(:), 1, lcmesh3D%refElem%Np, lcmesh3D%NeS, lcmesh3D%NeE )        
-        call PROF_rapend( 'ATM_DYN_update_advance', 2)
+        call this%tint(n)%Advance_varlist( rkstage, rkvar_list(:,n), rkvar_IDs, 1, lcmesh3D%refElem%Np, lcmesh3D%NeS, lcmesh3D%NeE )  
+        call PROF_rapend( 'ATM_DYN_update_advance', 2)        
       end do
     
     end do ! end for RK loop
@@ -926,7 +944,7 @@ contains
       PRES_hyd, DENS_hyd, THERM_hyd,                  & ! (in)
       Rtot, CVtot, CPtot,                             & ! (in)
       mesh3D, this%ENTOT_CONSERVE_SCHEME_FLAG )         ! (in)
-    call PROF_rapend( 'ATM_DYN_update_post', 2)      
+    call PROF_rapend( 'ATM_DYN_update_post', 2)
 
     return
   end subroutine AtmDynDGMDriver_nonhydro3d_update
@@ -1046,11 +1064,16 @@ contains
 
     do n=1, mesh3D%LOCAL_MESH_NUM
       lcmesh3D => mesh3D%lcmesh_list(n)
+      !$acc update host( PRES_hyd%local(n)%val, PRES_hyd_ref%local(n)%val )
+      
       call atm_dyn_dgm_nonhydro3d_common_calc_phyd_hgrad_lc( &
         this%AUX_DYNVARS3D(AUXDYNVARS3D_DPhydDx_ID)%local(n)%val, & ! (out)
         this%AUX_DYNVARS3D(AUXDYNVARS3D_DPhydDy_ID)%local(n)%val, & ! (out)
         PRES_hyd%local(n)%val, PRES_hyd_ref%local(n)%val,         & ! (in)
         element_operation, lcmesh3D, lcmesh3D%refElem3D           ) ! (in)
+
+      !$acc update device( this%AUX_DYNVARS3D(AUXDYNVARS3D_DPhydDx_ID)%local(n)%val, &
+      !$acc                this%AUX_DYNVARS3D(AUXDYNVARS3D_DPhydDy_ID)%local(n)%val  )
     end do
 
     return
@@ -1084,15 +1107,17 @@ contains
 
     integer :: ke, p
     real(RP) :: EXNER(elem3D%Np)
+    real(RP) :: EXNER_
     real(RP) :: rP0
     !---------------------------------------------------------------------------------
 
     rP0   = 1.0_RP / PRES00
 
     !$omp parallel private( EXNER, ke )
-    
+    !$acc parallel loop gang present( dyn_tends, DENS_tp, MOMX_tp, MOMY_tp, MOMZ_tp, lcmesh,elem3D)
     !$omp do
     do ke=lcmesh%NeS, lcmesh%NeE
+      !$acc loop vector
       do p=1, elem3D%Np
         dyn_tends(p,ke,DENS_VID) = dyn_tends(p,ke,DENS_VID) + DENS_tp(p,ke)
         dyn_tends(p,ke,MOMZ_VID) = dyn_tends(p,ke,MOMZ_VID) + MOMZ_tp(p,ke)
@@ -1114,12 +1139,24 @@ contains
       !$omp end do
     else
       !$omp do
+      !$acc parallel loop gang present( dyn_tends, RHOT_tp, RHOH_p, PRES, Rtot, CPtot, lcmesh,elem3D)
       do ke=lcmesh%NeS, lcmesh%NeE
+#ifdef _OPENACC
+        !$acc loop vector
+        do p=1, elem3D%Np
+          EXNER_ = ( PRES(p,ke) * rP0 )**( Rtot(p,ke) / CPtot(p,ke) )
+
+          dyn_tends(p,ke,THERM_VID) = dyn_tends(p,ke,THERM_VID) &
+                                        + RHOT_tp(p,ke)                           &
+                                        + RHOH_p  (p,ke) / ( CPtot(p,ke) * EXNER_ )
+        end do
+#else        
         EXNER(:) = ( PRES(:,ke) * rP0 )**( Rtot(:,ke) / CPtot(:,ke) )
 
         dyn_tends(:,ke,THERM_VID) = dyn_tends(:,ke,THERM_VID) &
                                        + RHOT_tp(:,ke)                             &
                                        + RHOH_p  (:,ke) / ( CPtot(:,ke) * EXNER(:) )
+#endif
       end do
       !$omp end do
     end if

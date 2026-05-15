@@ -126,9 +126,11 @@ contains
     class(LocalMeshFieldBase), pointer :: Rtot, CPtot, CVtot
 
     integer :: n
-    integer :: ke
+    integer :: ke, p
     class(LocalMesh3D), pointer :: lcmesh3D
     class(MeshBase3D), pointer :: mesh
+
+    integer :: Np
     !---------------------------------------------------------------------------
 
     mesh => model_mesh%ptr_mesh
@@ -149,18 +151,24 @@ contains
           DDENS, MOMX, MOMY, MOMZ, DRHOT,                 &
           DENS_hyd, PRES_hyd, Rtot, CVtot, CPtot,         &
           lcmesh3D                                        )
+        !$acc enter data attach(DDENS%val, MOMX%val, MOMY%val, MOMZ%val, DRHOT%val, Rtot%val, CVtot%val, CPtot%val, lcmesh3D)
 
+        Np = lcmesh3D%refElem%Np
         !$omp parallel do
+        !$acc parallel loop gang present(DDENS%val, MOMX%val, MOMY%val, MOMZ%val, DRHOT%val, DENS_hyd%val, Rtot%val, CVtot%val, CPtot%val, lcmesh3D)
         do ke=lcmesh3D%NeS, lcmesh3D%NeE
-          MOMX %val(:,ke) = 0.0_RP
-          MOMY %val(:,ke) = 0.0_RP
-          MOMZ %val(:,ke) = 0.0_RP
-          DDENS%val(:,ke) = 0.0_RP
-          DRHOT%val(:,ke) = 0.0_RP
+          !$acc loop vector
+          do p=1, Np
+            MOMX %val(p,ke) = 0.0_RP
+            MOMY %val(p,ke) = 0.0_RP
+            MOMZ %val(p,ke) = 0.0_RP
+            DDENS%val(p,ke) = 0.0_RP
+            DRHOT%val(p,ke) = 0.0_RP
 
-          CPtot%val(:,ke) = CPdry
-          CVtot%val(:,ke) = CVdry
-          Rtot%val(:,ke) = Rdry
+            CPtot%val(p,ke) = CPdry
+            CVtot%val(p,ke) = CVdry
+            Rtot%val(p,ke) = Rdry
+          end do
         end do
       end do
       ! call PROF_rapend  ('_MkInit_main',3)

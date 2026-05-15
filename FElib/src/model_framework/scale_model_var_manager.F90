@@ -409,24 +409,39 @@ contains
   
 !OCL SERIAL
   subroutine ModelVarManager_meshfiled_comm_prepare( this, &
-      comm,  fields )
+      comm,  fields, fields_is, fields_ie )
     implicit none
     class(ModelVarManager), intent(inout) :: this
     class(MeshFieldCommBase), target, intent(in) :: comm
     class(MeshFieldBase), target, intent(in) :: fields(:)
+    integer, intent(in), optional :: fields_is
+    integer, intent(in), optional :: fields_ie
 
     integer :: v
     integer :: nFields
     class(MeshFieldBase), pointer :: ptr_field
+
+    integer :: is, ie
     !------------------------------------------------
 
     this%ptr_comm => comm
 
-    nFields = size(fields)
+    if ( present(fields_is) ) then
+      is = fields_is
+    else
+      is = 1
+    end if
+    if ( present(fields_ie) ) then
+      ie = fields_ie
+    else
+      ie = size(fields)
+    end if
+
+    nFields = ie - is + 1
     allocate( this%comm_list(nFields) )
 
-    do v = 1, size(fields)
-      ptr_field => fields(v)
+    do v = 1, nFields
+      ptr_field => fields(is + v - 1)
       select type( ptr_field )
       type is (MeshField1D)
         this%comm_list(v)%field1d => ptr_field
@@ -436,7 +451,6 @@ contains
         this%comm_list(v)%field3d => ptr_field               
       end select
     end do
-
     return
   end subroutine ModelVarManager_meshfiled_comm_prepare
 

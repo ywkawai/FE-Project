@@ -128,7 +128,7 @@ contains
     !--------------------------------------------------
 
     LOG_INFO('AtmosDynVars_Init',*)
-
+    
     nullify( atm_mesh )
     select type(model_mesh)
     class is (AtmosMesh)
