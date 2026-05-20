@@ -232,6 +232,7 @@ contains
 %end
     end select
 
+    !$acc exit data delete(this)
     return
   end subroutine timeint_rk_Final
 
