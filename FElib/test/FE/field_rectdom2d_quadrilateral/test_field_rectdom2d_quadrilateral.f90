@@ -98,6 +98,7 @@ contains
     integer, intent(in) :: tileID, k, p
     real(RP) :: val
     !----------------------------
+    !$acc routine seq    
     val = tileID*1000000 + k*1000 + p
   end function get_field_val_func
 
