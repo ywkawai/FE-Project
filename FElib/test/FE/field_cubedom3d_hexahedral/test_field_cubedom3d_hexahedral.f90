@@ -79,6 +79,7 @@ program test_field3d
 
     write(*,*) "Check interior & halo data.."
     write(*,*) "tileID=", lcmesh%tileID
+    !$acc update host(q%local(n)%val)
     call check_interior_data(n, mesh%lcmesh_list(n), q%local(n)%val, q%local(n)%val)
     call check_halo_data(n, mesh%lcmesh_list(n), q%local(n)%val, q%local(n)%val)
 
@@ -94,15 +95,49 @@ program test_field3d
 
 contains
 
-  elemental function get_field_val(tileID, k, p) result(val)
-    implicit none
+  subroutine get_field_val(val, lmesh, elem)
+    class(LocalMesh3D), intent(in) :: lmesh
+    class(HexahedralElement), intent(in) :: elem
+    real(RP), intent(out) :: val(elem%Np,lmesh%NeA)
 
-    integer, intent(in) :: tileID, k, p
-    real(RP) :: val
+    integer :: tileID, ke, p
     !----------------------------
-    val = dble(tileID*1000000 + k*1000 + p)
-    return
-  end function get_field_val
+
+    tileID = lmesh%tileID
+    !$acc parallel loop collapse(2) present(lmesh,val)
+    do ke=lmesh%NeS, lmesh%NeE
+    do p=1, elem%Np
+      val(p,ke) = get_field_val_func(tileID, ke, p)
+    end do
+    end do
+  end subroutine get_field_val
+
+  elemental function get_field_val_func(tileID,ke,p) result(val)
+    integer, intent(in) :: tileID, ke, p
+    real(RP) :: val
+    !---
+    !$acc routine seq
+    val = tileID*1000000 + ke*1000 + p
+  end function get_field_val_func
+  
+  subroutine get_field_u(val, lmesh, elem)
+    class(LocalMesh3D), intent(in) :: lmesh
+    class(HexahedralElement), intent(in) :: elem
+    real(RP), intent(out) :: val(elem%Np,lmesh%NeA)
+
+    integer :: ke, p
+    !----------------------------
+
+    !$acc parallel loop collapse(2) present(lmesh,val)
+    do ke=lmesh%NeS, lmesh%NeE
+    do p=1, elem%Np
+      val(p,ke) = sin( PI * lmesh%pos_en(p,ke,1) ) &
+                * sin( PI * lmesh%pos_en(p,ke,2) ) &
+                * sin( PI * lmesh%pos_en(p,ke,3) ) 
+    end do
+    end do
+  end subroutine get_field_u
+
 
   subroutine init()
     use scale_calendar, only: CALENDAR_setup
@@ -110,8 +145,6 @@ contains
 
     integer :: comm, myrank, nprocs
     logical :: ismaster
-    
-    integer :: ke, p
     !---------
 
     call PRC_MPIstart( comm )
@@ -165,15 +198,10 @@ contains
     do n=1, mesh%LOCAL_MESH_NUM
       lcmesh => mesh%lcmesh_list(n)
 
-      do ke=lcmesh%NeS, lcmesh%NeE
-      do p=1, refElem%Np
-        q%local(n)%val(p,ke) = get_field_val(lcmesh%tileID, ke, p)
-
-        u%local(n)%val(p,ke) = sin( PI * lcmesh%pos_en(p,ke,1) ) &
-                             * sin( PI * lcmesh%pos_en(p,ke,2) ) &
-                             * sin( PI * lcmesh%pos_en(p,ke,3) )                            
-      end do
-      end do
+      call get_field_val( q%local(n)%val, &
+        mesh%lcmesh_list(n), refElem )
+      call get_field_u( u%local(n)%val, &
+        mesh%lcmesh_list(n), refElem )
     end do
     !---
 
@@ -240,15 +268,16 @@ contains
     
     integer :: ke, f, p
     integer :: iM, iP, fnid
-    integer :: ans(refElem%Np)
+    real(RP) :: ans(refElem%Np,lcmesh_%NeA)
     !------------------------------
 
+    !$acc data create(ans)
+    call get_field_val( ans, &
+      lcmesh_, refElem )
+    !$acc update host(ans)
+    
     do ke=lcmesh_%NeS, lcmesh_%NeE
-      do p=1, refElem%Np
-        ans(p) = get_field_val(lcmesh_%tileID,ke,p)
-      end do
-
-      call assert(ke, int(lcfield(:,ke)), ans(:), 'check_interior_data', 'q', refElem%Np)
+      call assert(ke, int(lcfield(:,ke)), int(ans(:,ke)), 'check_interior_data', 'q', refElem%Np)
       do f=1, refElem%Nfaces_h
       do p=1, refElem%Nfp_h
         fnid = p + (f-1)*refElem%Nfp_h
@@ -270,7 +299,7 @@ contains
       end do
       end do
     end do
-
+    !$acc end data
     return
   end subroutine check_interior_data
 
@@ -315,7 +344,7 @@ contains
     do i=1, NeX
       ke = i + (NeY-1)*NeX  + (k-1)*NeX*NeY
       do fp=1, Nfp_h
-        ans_bx(fp,i,k) = get_field_val(mesh%tileID_globalMap(1,tileID), ke, refElem%Fmask_h(fp,3))
+        ans_bx(fp,i,k) = get_field_val_func(mesh%tileID_globalMap(1,tileID), ke, refElem%Fmask_h(fp,3))
       end do
     end do
     end do
@@ -328,7 +357,7 @@ contains
     do j=1, NeY
       ke = 1 + (j-1)*NeX + (k-1)*NeX*NeY
       do fp=1, Nfp_h
-        ans_by(fp,j,k) = get_field_val(mesh%tileID_globalMap(2,tileID), ke, refElem%Fmask_h(fp,4))
+        ans_by(fp,j,k) = get_field_val_func(mesh%tileID_globalMap(2,tileID), ke, refElem%Fmask_h(fp,4))
       end do
     end do
     end do
@@ -341,7 +370,7 @@ contains
     do i=1, NeX
       ke = i + (k-1)*NeX*NeY
       do fp=1, Nfp_h
-        ans_bx(fp,i,k) = get_field_val(mesh%tileID_globalMap(3,tileID), ke, refElem%Fmask_h(fp,1))
+        ans_bx(fp,i,k) = get_field_val_func(mesh%tileID_globalMap(3,tileID), ke, refElem%Fmask_h(fp,1))
       end do
     end do
     end do
@@ -354,7 +383,7 @@ contains
     do j=1, NeY
       ke = NeX + (j-1)*NeX + (k-1)*NeX*NeY
       do fp=1, Nfp_h
-        ans_by(fp,j,k) = get_field_val(mesh%tileID_globalMap(4,tileID), ke, refElem%Fmask_h(fp,2))
+        ans_by(fp,j,k) = get_field_val_func(mesh%tileID_globalMap(4,tileID), ke, refElem%Fmask_h(fp,2))
       end do
     end do
     end do
@@ -367,7 +396,7 @@ contains
     do i=1, NeX
       ke = i + (j-1)*NeX + (NeZ-1)*NeX*NeY
       do fp=1, Nfp_v
-        ans_bz(fp,i,j) = get_field_val(mesh%tileID_globalMap(5,tileID), ke, refElem%Fmask_v(fp,2))
+        ans_bz(fp,i,j) = get_field_val_func(mesh%tileID_globalMap(5,tileID), ke, refElem%Fmask_v(fp,2))
       end do
     end do
     end do
@@ -380,7 +409,7 @@ contains
     do i=1, NeX
       ke = i + (j-1)*NeX
       do fp=1, Nfp_v
-        ans_bz(fp,i,j) = get_field_val(mesh%tileID_globalMap(6,tileID), ke, refElem%Fmask_v(fp,1))
+        ans_bz(fp,i,j) = get_field_val_func(mesh%tileID_globalMap(6,tileID), ke, refElem%Fmask_v(fp,1))
       end do
     end do
     end do
@@ -406,30 +435,34 @@ contains
     real(RP) :: Fx(elem%Np), Fy(elem%Np), Fz(elem%Np), LiftDelFlux(elem%Np)
     !------------------------------------------------
 
+    !$acc data create(del_flux)
+
     call calc_grad_delflx( del_flux,                                              &
       u_, lmesh%normal_fn(:,:,1), lmesh%normal_fn(:,:,2), lmesh%normal_fn(:,:,3), &
-      lmesh%VMapM, lmesh%VMapP, lmesh, elem )
+      lmesh%Fscale, lmesh%VMapM, lmesh%VMapP, lmesh, elem )
     
     !$omp parallel do private(Fx, Fy, Fz, LiftDelFlux)
+    !$acc parallel loop private(Fx, Fy, Fz, LiftDelFlux) present(lmesh,u_,del_flux,dudx_,dudy_,dudz_)
     do ke=1, lmesh%Ne
       call sparsemat_matmul(Dx, u_(:,ke), Fx)
-      call sparsemat_matmul(Lift, lmesh%Fscale(:,ke)*del_flux(:,ke,1), LiftDelFlux )
+      call sparsemat_matmul(Lift, del_flux(:,ke,1), LiftDelFlux )
       dudx_(:,ke) = lmesh%Escale(:,ke,1,1) * Fx(:) + LiftDelFlux(:)
 
       call sparsemat_matmul(Dy, u_(:,ke), Fy)
-      call sparsemat_matmul(Lift, lmesh%Fscale(:,ke)*del_flux(:,ke,2), LiftDelFlux )
+      call sparsemat_matmul(Lift, del_flux(:,ke,2), LiftDelFlux )
       dudy_(:,ke) = lmesh%Escale(:,ke,2,2) * Fy(:) + LiftDelFlux(:)
 
       call sparsemat_matmul(Dz, u_(:,ke), Fz)
-      call sparsemat_matmul(Lift, lmesh%Fscale(:,ke)*del_flux(:,ke,3), LiftDelFlux )
+      call sparsemat_matmul(Lift, del_flux(:,ke,3), LiftDelFlux )
       dudz_(:,ke) = lmesh%Escale(:,ke,3,3) * Fz(:) + LiftDelFlux(:)
     end do
 
+    !$acc end data
     return
   end subroutine calc_grad
 
-  subroutine calc_grad_delflx( del_flux,        &
-      u_, nx, ny, nz, VMapM, VMapP, lmesh, elem )
+  subroutine calc_grad_delflx( del_flux,                &
+      u_, nx, ny, nz, Fscale, VMapM, VMapP, lmesh, elem )
           
     class(LocalMesh3D), intent(in) :: lmesh
     class(ElementBase3D), intent(in) :: elem
@@ -438,6 +471,7 @@ contains
     real(RP), intent(in) :: nx(elem%NfpTot*lmesh%Ne)
     real(RP), intent(in) :: ny(elem%NfpTot*lmesh%Ne)
     real(RP), intent(in) :: nz(elem%NfpTot*lmesh%Ne)
+    real(RP), intent(in) :: Fscale(elem%NfpTot*lmesh%Ne) 
     integer, intent(in) :: VMapM(elem%NfpTot*lmesh%Ne)
     integer, intent(in) :: VMapP(elem%NfpTot*lmesh%Ne)
   
@@ -447,9 +481,11 @@ contains
     !-----------------------------------------
 
     !$omp parallel do private(iM, iP, del)
+    !$acc parallel loop private(iM, iP, del) present(u_,nx,ny,nz,Fscale,VMapM,VMapP,del_flux)
     do i=1, elem%NfpTot*lmesh%Ne
       iM = VMapM(i); iP = VMapP(i)
-      del = 0.5_RP * (u_(iP) - u_(iM))
+      del = 0.5_RP * (u_(iP) - u_(iM)) * Fscale(i)
+
       del_flux(i,1) = del * nx(i)
       del_flux(i,2) = del * ny(i)
       del_flux(i,3) = del * nz(i)
