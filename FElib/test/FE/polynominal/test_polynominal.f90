@@ -8,36 +8,41 @@ program test_polynominal
   !----------------------------------------------
   
   !* n=1
-  real(RP), parameter :: lgl_pts_n1(2) = (/ -1.0_RP, 1.0_RP /)
-  real(RP), parameter :: lgl_intw_n1(2) = (/ 1.0_RP, 1.0_RP /)
+  real(RP), parameter :: lgl_pts_n1(2) = [ -1.0_RP, 1.0_RP ]
+  real(RP), parameter :: lgl_intw_n1(2) = [ 1.0_RP, 1.0_RP ]
   
-  real(RP), parameter :: gl_pts_n1(1) = (/ 0.0_RP /)
-  real(RP), parameter :: gl_intw_n1(1) = (/ 2.0_RP /)
+  real(RP), parameter :: gl_pts_n1(1) = [ 0.0_RP ]
+  real(RP), parameter :: gl_intw_n1(1) = [ 2.0_RP ]
 
   !* n=2
-  real(RP), parameter :: lgl_pts_n2(3) = (/ -1.0_RP, 0.0_RP, 1.0_RP /)
-  real(RP), parameter :: lgl_intw_n2(3) = (/ 1.0_RP/3.0_RP, 4.0_RP/3.0_RP, 1.0_RP/3.0_RP /)
+  real(RP), parameter :: lgl_pts_n2(3) = [ -1.0_RP, 0.0_RP, 1.0_RP ]
+  real(RP), parameter :: lgl_intw_n2(3) = [ 1.0_RP/3.0_RP, 4.0_RP/3.0_RP, 1.0_RP/3.0_RP ]
   
-  real(RP), parameter :: gl_pts_n2(2) = (/ -1.0_RP/sqrt(3.0_RP), 1.0_RP/sqrt(3.0_RP) /)
-  real(RP), parameter :: gl_intw_n2(2) = (/ 1.0_RP, 1.0_RP /)
+  real(RP), parameter :: gl_N2 = sqrt(1.0_RP / 3.0_RP)  
+  real(RP), parameter :: gl_pts_n2(2) = [ -gl_N2, gl_N2 ]
+  real(RP), parameter :: gl_intw_n2(2) = [ 1.0_RP, 1.0_RP ]
 
   !* n=3
-  real(RP), parameter :: lgl_pts_n3(4) = (/ -1.0_RP, - sqrt(1.0_RP/5.0_RP), + sqrt(1.0_RP/5.0_RP), 1.0_RP /)
-  real(RP), parameter :: lgl_intw_n3(4) = (/ 1.0_RP/6.0_RP, 5.0_RP/6.0_RP, 5.0_RP/6.0_RP, 1.0_RP/6.0_RP /)
+  real(RP), parameter :: x_N3 = sqrt(1.0_RP / 5.0_RP)
+  real(RP), parameter :: lgl_pts_n3(4) = [ -1.0_RP, -x_N3, x_N3, 1.0_RP ]
+  real(RP), parameter :: lgl_intw_n3(4) = [ 1.0_RP/6.0_RP, 5.0_RP/6.0_RP, 5.0_RP/6.0_RP, 1.0_RP/6.0_RP ]
 
-  real(RP), parameter :: gl_pts_n3(3) = (/ -sqrt(3.0_RP)/sqrt(5.0_RP), 0.0_RP, sqrt(3.0_RP)/sqrt(5.0_RP) /)
-  real(RP), parameter :: gl_intw_n3(3) = (/ 5.0_RP/9.0_RP, 8.0_RP/9.0_RP, 5.0_RP/9.0_RP /)
+  real(RP), parameter :: gl_N3 = sqrt(3.0_RP / 5.0_RP)
+  real(RP), parameter :: gl_pts_n3(3) = [ -gl_N3, 0.0_RP, gl_N3 ]
+  real(RP), parameter :: gl_intw_n3(3) = [ 5.0_RP/9.0_RP, 8.0_RP/9.0_RP, 5.0_RP/9.0_RP ]
 
   !* n=4
-  real(RP), parameter :: lgl_pts_n4(5) = (/ -1.0_RP,  -sqrt(21.0_RP)/7.0_RP, 0.0_RP, +sqrt(21.0_RP)/7.0_RP, 1.0_RP /)
-  real(RP), parameter :: lgl_intw_n4(5) = (/ 1.0_RP/10.0_RP, 49.0_RP/90.0_RP, 32.0_RP/45.0_RP, 49.0_RP/90.0_RP, 1.0_RP/10.0_RP /)
+  real(RP), parameter :: x_N4 = sqrt(21.0_RP)/7.0_RP
+  real(RP), parameter :: lgl_pts_n4(5) = [ -1.0_RP,  -x_N4, 0.0_RP, x_N4, 1.0_RP ]
+  real(RP), parameter :: lgl_intw_n4(5) = [ 1.0_RP/10.0_RP, 49.0_RP/90.0_RP, 32.0_RP/45.0_RP, 49.0_RP/90.0_RP, 1.0_RP/10.0_RP ]
 
-  real(DP), parameter :: gl_pts_n4(4) = (/ &
-    -sqrt(3.0_RP + 2.0_RP*sqrt(6.0_RP/5.0_RP))/sqrt(7.0_RP), -sqrt(3.0_RP - 2.0_RP*sqrt(6.0_RP/5.0_RP))/sqrt(7.0_RP), &
-    +sqrt(3.0_RP - 2.0_RP*sqrt(6.0_RP/5.0_RP))/sqrt(7.0_RP), +sqrt(3.0_RP + 2.0_RP*sqrt(6.0_RP/5.0_RP))/sqrt(7.0_RP) /)
-  real(DP), parameter :: gl_intw_n4(4) = (/ &
-    (18.0_RP - sqrt(30.0_RP))/36.0_RP, (18.0_RP + sqrt(30.0_RP))/36.0_RP, &
-    (18.0_RP + sqrt(30.0_RP))/36.0_RP, (18.0_RP - sqrt(30.0_RP))/36.0_RP /)  
+  real(DP), parameter :: gl1_N4 = sqrt(3.0_RP + 2.0_RP*sqrt(6.0_RP/5.0_RP))/sqrt(7.0_RP)
+  real(DP), parameter :: gl2_N4 = sqrt(3.0_RP - 2.0_RP*sqrt(6.0_RP/5.0_RP))/sqrt(7.0_RP)
+  real(DP), parameter :: gl_pts_n4(4) = [ -gl1_N4, -gl2_N4, gl2_N4, gl1_N4 ]
+
+  real(DP), parameter :: intw1_N4 = (18.0_RP + sqrt(30.0_RP))/36.0_RP
+  real(DP), parameter :: intw2_N4 = (18.0_RP - sqrt(30.0_RP))/36.0_RP
+  real(DP), parameter :: gl_intw_n4(4) = [ intw2_N4, intw1_N4, intw1_N4, intw2_N4 ]
 
  !----------------------------------------------------------------------------------------
 

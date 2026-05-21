@@ -136,29 +136,34 @@ contains
     call tint%Init( tint_type_name, &
       dt, 2, 2, (/ 1, 1 /) )
     
+    !$acc data copyin( u, v )
     do n = 1, nstep
       do rkstage = 1, tint%nstage
         tintbuf_ind = tint%tend_buf_indmap(rkstage)
 
+        !$acc serial present( tint%tend_buf2D_ex, u, v )
         tint%tend_buf2D_ex(1,1,ID_U,tintbuf_ind) &
           = + omg * v(1,1)
         tint%tend_buf2D_ex(1,1,ID_V,tintbuf_ind) &
           = - omg * u(1,1)
+        !$acc end serial
 
         call tint%Advance( rkstage, u, ID_U, &
           1, 1, 1, 1 )
         call tint%Advance( rkstage, v, ID_V, &
           1, 1, 1, 1 )
       end do
-
+      
       if ( mod(n,save_error_dstep) == 0 ) then
+        !$acc update host( u )
         err_count = err_count + 1
         ans_mem(err_count) = cos(omg * dble(n)*dt)
         error_mem(err_count) = u(1,1) - ans_mem(err_count)
-!        write(*,'(4f12.5)') n*dt, u, ans_mem(err_count), error_mem(err_count) 
+        ! write(*,'(4f12.5)') n*dt, u, ans_mem(err_count), error_mem(err_count) 
       end if
     end do
-    
+    !$acc end data
+
     !-
     call tint%Final()
 
@@ -212,6 +217,7 @@ contains
     call tint%Init( tint_type_name, &
       dt, 2, 2, (/ 1, 1 /) )
     
+    !$acc data copyin( u, v )
     do n = 1, nstep
       do rkstage = 1, tint%nstage
         tintbuf_ind = tint%tend_buf_indmap(rkstage)
@@ -221,15 +227,19 @@ contains
         coef = implicit_fac * omg
 
         if ( abs(implicit_fac) > 0.0_RP ) then
+          !$acc serial present( tint%tend_buf2D_im, u, v )
           ui = ( u(1,1) + coef * v(1,1) ) / ( 1.0_RP + coef**2 )
           vi = ( v(1,1) - coef * u(1,1) ) / ( 1.0_RP + coef**2 ) 
           tint%tend_buf2D_im(1,1,ID_U,tintbuf_ind) = ( ui - u(1,1) ) / implicit_fac
           tint%tend_buf2D_im(1,1,ID_V,tintbuf_ind) = ( vi - v(1,1) ) / implicit_fac
+          !$acc end serial
         else
+          !$acc serial present( tint%tend_buf2D_im, u, v )
           tint%tend_buf2D_im(1,1,ID_U,tintbuf_ind) &
             = + omg * v(1,1)
           tint%tend_buf2D_im(1,1,ID_V,tintbuf_ind) &
             = - omg * u(1,1)
+          !$acc end serial
         end if
 
         call tint%StoreImplicit( rkstage, u, ID_U, &
@@ -239,10 +249,12 @@ contains
 
         !--
         
+        !$acc serial present( tint%tend_buf2D_ex, u, v )
         tint%tend_buf2D_ex(1,1,ID_U,tintbuf_ind) &
           = - r * u(1,1)
         tint%tend_buf2D_ex(1,1,ID_V,tintbuf_ind) &
           = 0.0_RP
+        !$acc end serial
 
         call tint%Advance( rkstage, u, ID_U, &
           1, 1, 1, 1 )
@@ -251,6 +263,8 @@ contains
       end do
 
       if ( mod(n,save_error_dstep) == 0 ) then
+        !$acc update host( u )
+
         err_count = err_count + 1
         ans_mem(err_count) = &
             ( cos(omgg * dble(n)*dt) - r/(2.0_RP * omgg) * sin(omgg * dble(n)*dt) ) &
@@ -259,6 +273,7 @@ contains
 !        write(*,'(4f12.5)') n*dt, u, ans_mem(err_count), error_mem(err_count) 
       end if
     end do
+    !$acc end data
     
     !-
     call tint%Final()

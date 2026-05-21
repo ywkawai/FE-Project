@@ -281,6 +281,7 @@ contains
       deallocate( this%varTmp_3d )
     end select
 
+    !$acc exit data delete(this)
     return
   end subroutine timeint_rk_Final
 

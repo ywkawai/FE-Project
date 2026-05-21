@@ -78,7 +78,7 @@ contains
     real(RP) :: dat_in(elem%Np)
     real(RP) :: dat_in_vec(elem%Np,3)
 
-    real(RP) :: dat_out_grad(elem%Np,3)
+    real(RP) :: dat_out_grad(elem%Np,4)
     real(RP) :: dat_out_grad_ans(elem%Np,3)
 
     real(RP) :: dat_in_f(elem%NfpTot)
@@ -135,12 +135,12 @@ contains
     call assert( dat_out_lift, dat_out_lift_ans, 'Check values', 'Lift', elem%Np )
 
     !--
-    call elem_oper%Div( dat_in_vec(:,1), dat_in_vec(:,2), dat_in_vec(:,3), dat_in_f, &
-      dat_out_grad(:,1), dat_out_grad(:,2), dat_out_grad(:,3), dat_out_lift )
+    call elem_oper%Div( dat_in_vec, dat_in_f, &
+      dat_out_grad )
     dat_out_div(:) = ( Escale(1,:) * dat_out_grad(:,1) &
                      + Escale(2,:) * dat_out_grad(:,2) &
                      + Escale(3,:) * dat_out_grad(:,3) &
-                     + dat_out_lift(:) ) / Gsqrt(:)
+                     + dat_out_grad(:,4) ) / Gsqrt(:)
     call assert( dat_out_div, dat_out_div_ans(:), 'Check values', 'Div', elem%Np )
 
     return
