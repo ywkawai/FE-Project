@@ -148,7 +148,7 @@ contains
       TRACER_regist
     use mod_atmos_phy_sfc_vars, only: &
       ATMOS_PHY_SF_SVAR_TEMP_ID
-    use scale_polynominal
+    use scale_polynomial
     implicit none
     class(User), intent(inout) :: this    
     class(AtmosComponent), intent(inout), target :: atm

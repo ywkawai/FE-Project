@@ -714,8 +714,8 @@ contains
 
 !OCL SERIAL
   subroutine prep_VIntrp( IntrpMat, VIntrp_k1, VIntrp_k2, VIntrp_coef1, target_lev, lmesh3D, elem3D )
-    use scale_polynominal, only: &
-      Polynominal_GenLagrangePoly
+    use scale_polynomial, only: &
+      Polynomial_GenLagrangePoly
     implicit none
     class(ElementBase3D), intent(in) :: elem3D
     class(LocalMesh3D), intent(in) :: lmesh3D
@@ -773,7 +773,7 @@ contains
     k = pz1 + (VIntrp_k1-1)*elem3D%Nnode_v
     kk = pz2 + (VIntrp_k2-1)*elem3D%Nnode_v
 
-    lag_poly(:,:) = Polynominal_GenLagrangePoly( elem3D%PolyOrder_v, elem3D%x3(elem3D%Colmask(:,1)), (/ lev_uniform_xi(k), lev_uniform_xi(kk) /) )
+    lag_poly(:,:) = Polynomial_GenLagrangePoly( elem3D%PolyOrder_v, elem3D%x3(elem3D%Colmask(:,1)), (/ lev_uniform_xi(k), lev_uniform_xi(kk) /) )
     IntrpMat(:,:) = transpose(lag_poly)
     VIntrp_coef1 = ( lev_uniform(kk) - target_lev ) / ( lev_uniform(kk) - lev_uniform(k) )
 

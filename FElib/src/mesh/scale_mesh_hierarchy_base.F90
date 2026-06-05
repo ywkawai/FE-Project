@@ -109,10 +109,10 @@ contains
   !> Construct a 1D p-multigrid matrix used for transfer between different p-levels
 !OCL SERIAL
   subroutine MeshHierarchy_construct_pMG_mat1D( mat1D, np_i, np_o )
-    use scale_polynominal, only: &
-      Polynominal_GenLagrangePoly, &
-      Polynominal_GenGaussLegendrePt,        &
-      Polynominal_GenGaussLegendrePtIntWeight
+    use scale_polynomial, only: &
+      Polynomial_GenLagrangePoly, &
+      Polynomial_GenGaussLegendrePt,        &
+      Polynomial_GenGaussLegendrePtIntWeight
     use scale_element_line, only: LineElement
     implicit none
     integer, intent(in) :: np_i               !< Number of points with input DOF
@@ -139,17 +139,17 @@ contains
     np_int = max(np_i,np_o)
     
     allocate( int_pts(np_int) )
-    int_pts(:) = Polynominal_GenGaussLegendrePt(np_int)
+    int_pts(:) = Polynomial_GenGaussLegendrePt(np_int)
 
     allocate( int_w(np_int) )     
-    int_w(:) = Polynominal_GenGaussLegendrePtIntWeight(np_int)
+    int_w(:) = Polynomial_GenGaussLegendrePtIntWeight(np_int)
 
     !-
     allocate( lag_i(np_int,np_i) )
-    lag_i(:,:) = Polynominal_GenLagrangePoly(elem1D_i%PolyOrder, elem1D_i%x1, int_pts)
+    lag_i(:,:) = Polynomial_GenLagrangePoly(elem1D_i%PolyOrder, elem1D_i%x1, int_pts)
 
     allocate( lag_o(np_int,np_o) )
-    lag_o(:,:) = Polynominal_GenLagrangePoly(elem1D_o%PolyOrder, elem1D_o%x1, int_pts)
+    lag_o(:,:) = Polynomial_GenLagrangePoly(elem1D_o%PolyOrder, elem1D_o%x1, int_pts)
 
     do pi=1, np_i
     do po=1, np_o

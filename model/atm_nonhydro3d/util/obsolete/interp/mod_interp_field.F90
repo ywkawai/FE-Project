@@ -252,8 +252,8 @@ contains
       FILE_base_meshfield
     use scale_mesh_base3d, only: &
       MF3D_XYZT => MeshBase3D_DIMTYPEID_XYZT
-    use scale_polynominal, only: &
-      Polynominal_GenLegendrePoly_sub
+    use scale_polynomial, only: &
+      Polynomial_GenLegendrePoly_sub
     use mod_interp_mesh, only: &
       in_NprcX, in_NprcY, in_NeX, in_NeY, in_NeZ,  &
       in_elem3D,                                   &
@@ -385,9 +385,9 @@ contains
             oy(1) = - 1.0_RP + 2.0_RP * (out_lcmesh%pos_en(p,ke3D,2) - vy(1)) / (vy(3) - vy(1))
             oz(1) = - 1.0_RP + 2.0_RP * (out_lcmesh%pos_en(p,ke3D,3) - vz(1)) / (vz(5) - vz(1))
 
-            call Polynominal_GenLegendrePoly_sub( in_elem3D%PolyOrder_h, ox, P1D_ori_x )
-            call Polynominal_GenLegendrePoly_sub( in_elem3D%PolyOrder_h, oy, P1D_ori_y )
-            call Polynominal_GenLegendrePoly_sub( in_elem3D%PolyOrder_v, oz, P1D_ori_z )
+            call Polynomial_GenLegendrePoly_sub( in_elem3D%PolyOrder_h, ox, P1D_ori_x )
+            call Polynomial_GenLegendrePoly_sub( in_elem3D%PolyOrder_h, oy, P1D_ori_y )
+            call Polynomial_GenLegendrePoly_sub( in_elem3D%PolyOrder_v, oz, P1D_ori_z )
 
             out_val(p,ke3D) = 0.0_RP
             do p3=1, in_elem3D%Nnode_v

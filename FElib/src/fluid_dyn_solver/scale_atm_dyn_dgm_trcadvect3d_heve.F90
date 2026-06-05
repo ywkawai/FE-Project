@@ -73,7 +73,7 @@ contains
 
 !OCL SERIAL
   subroutine atm_dyn_dgm_trcadvect3d_heve_Init( mesh, FaceIntMat )
-    use scale_polynominal, only: Polynominal_GenGaussLobattoPtIntWeight
+    use scale_polynomial, only: Polynomial_GenGaussLobattoPtIntWeight
     implicit none
     class(MeshBase3D), intent(in), target :: mesh
     type(SparseMat), intent(inout) :: FaceIntMat
@@ -102,8 +102,8 @@ contains
     allocate( intWeight_h(elem%Nnode_h1D*elem%Nnode_v) )
     allocate( intWeight_v(elem%Nnode_h1D**2) )
 
-    intWeight_lgl1DPts_h(:) = Polynominal_GenGaussLobattoPtIntWeight(elem%PolyOrder_h)
-    intWeight_lgl1DPts_v(:) = Polynominal_GenGaussLobattoPtIntWeight(elem%PolyOrder_v)
+    intWeight_lgl1DPts_h(:) = Polynomial_GenGaussLobattoPtIntWeight(elem%PolyOrder_h)
+    intWeight_lgl1DPts_v(:) = Polynomial_GenGaussLobattoPtIntWeight(elem%PolyOrder_v)
 
     do f=1, elem%Nfaces_h
       do k=1, elem%Nnode_v

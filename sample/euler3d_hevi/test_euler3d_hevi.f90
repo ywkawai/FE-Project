@@ -1062,8 +1062,8 @@ contains
 
   subroutine set_initcond()
     use scale_linalgebra, only: linalgebra_inv
-    use scale_polynominal, only: &
-      Polynominal_GenLagrangePoly, Polynominal_GenGaussLobattoPt, Polynominal_GenGaussLegendrePt
+    use scale_polynomial, only: &
+      Polynomial_GenLagrangePoly, Polynomial_GenGaussLobattoPt, Polynomial_GenGaussLegendrePt
     implicit none
 
 

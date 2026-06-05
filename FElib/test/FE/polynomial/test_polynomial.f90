@@ -1,8 +1,8 @@
 #include "scalelib.h"
-program test_polynominal
+program test_polynomial
   use scale_precision
   use scale_io
-  use scale_polynominal
+  use scale_polynomial
   implicit none
 
   !----------------------------------------------
@@ -46,7 +46,7 @@ program test_polynominal
 
  !----------------------------------------------------------------------------------------
 
-  write(*,*) "Start test_polynominal..."
+  write(*,*) "Start test_polynomial..."
 
   call chechk_value(1, lgl_pts_n1, lgl_intw_n1, gl_pts_n1, gl_intw_n1)
   call chechk_value(2, lgl_pts_n2, lgl_intw_n2, gl_pts_n2, gl_intw_n2)
@@ -55,7 +55,7 @@ program test_polynominal
 
   call output_expandfunc(4, 200)
 
-  write(*,*) "test_polynominal has been succeeded!"
+  write(*,*) "test_polynomial has been succeeded!"
 
 contains
   subroutine chechk_value(Norder, lgl_pts_ans, lgl_intw_ans, gl_pts_ans, gl_intw_ans)
@@ -76,12 +76,12 @@ contains
 
    !--------------------------------------------------------------------
 
-    LGLpts(:) = Polynominal_GenGaussLobattoPt(Norder)
-    Legendre_LGLPts(:,:) = Polynominal_GenLegendrePoly(Norder, LGLpts)
-    LGL_intw(:) = Polynominal_GenGaussLobattoPtIntWeight(Norder)
+    LGLpts(:) = Polynomial_GenGaussLobattoPt(Norder)
+    Legendre_LGLPts(:,:) = Polynomial_GenLegendrePoly(Norder, LGLpts)
+    LGL_intw(:) = Polynomial_GenGaussLobattoPtIntWeight(Norder)
 
-    GLpts(:) = Polynominal_GenGaussLegendrePt(Norder)
-    GL_intw(:) = Polynominal_GenGaussLegendrePtIntWeight(Norder)
+    GLpts(:) = Polynomial_GenGaussLegendrePt(Norder)
+    GL_intw(:) = Polynomial_GenGaussLegendrePtIntWeight(Norder)
 
     write(*,*) "******** Norder=", Norder
     
@@ -143,12 +143,12 @@ contains
       pts(i) = pts(i-1) + 2.0_RP/dble(Nnode_intrp-1)
     end do 
 
-    val_Legendre(:,:) = Polynominal_GenLegendrePoly(Norder, pts)
+    val_Legendre(:,:) = Polynomial_GenLegendrePoly(Norder, pts)
     do n=0, Norder
-      write(*,*) 'output legendre polynominal: N=', n
+      write(*,*) 'output legendre polynomial: N=', n
       write(file_name,'(A,I2.2,A)') 'legendreN',n,'.dat'
       open(10, file=trim(file_name))
-      write(10,*) '#-- Legende polynominal: Norder=', n
+      write(10,*) '#-- Legende polynomial: Norder=', n
       write(10,*) '# x   Pn(x)'
       ! output
       do i=1, Nnode_intrp
@@ -157,13 +157,13 @@ contains
       close(10)
     end do
 
-    lgl_pts(:) = Polynominal_GenGaussLobattoPt(Norder)
-    val_Lagrange(:,:) = Polynominal_GenLagrangePoly(Norder, lgl_pts, pts)
+    lgl_pts(:) = Polynomial_GenGaussLobattoPt(Norder)
+    val_Lagrange(:,:) = Polynomial_GenLagrangePoly(Norder, lgl_pts, pts)
     do n=0, Norder
-      write(*,*) 'output lagrange polynominal: N=', n
+      write(*,*) 'output lagrange polynomial: N=', n
       write(file_name,'(A,I2.2,A)') 'lagrangeN',n,'.dat'
       open(10, file=trim(file_name))
-      write(10,*) '#-- Lagrange polynominal: n=', n
+      write(10,*) '#-- Lagrange polynomial: n=', n
       write(10,*) '# x   phi_n(x)'
       ! output
       do i=1, Nnode_intrp
@@ -173,4 +173,4 @@ contains
     end do    
   end subroutine output_expandfunc
 
-end program test_polynominal
+end program test_polynomial

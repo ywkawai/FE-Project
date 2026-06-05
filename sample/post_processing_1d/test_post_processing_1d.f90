@@ -414,7 +414,7 @@ contains
       TIME_manager_report_timeintervals
     use scale_file_history_meshfield, only: FILE_HISTORY_meshfield_setup  
     use scale_file_history, only: FILE_HISTORY_reg  
-    use scale_polynominal, only: Polynominal_GenLagrangePoly, Polynominal_GenLegendrePoly
+    use scale_polynomial, only: Polynomial_GenLagrangePoly, Polynomial_GenLegendrePoly
     implicit none
     real(RP), parameter :: dom_xmin =   0.0_RP
     real(RP), parameter :: dom_xmax = + 1.0_RP
@@ -561,9 +561,9 @@ contains
     end do
 
     allocate( IntrpMatSampling(NsamplePtPerElem,refElem%Np) )
-    ! IntrpMatSampling(:,:) = Polynominal_GenLagrangePoly( refElem%PolyOrder, refElem%x1, sampling_x_per_elem(:) )
+    ! IntrpMatSampling(:,:) = Polynomial_GenLagrangePoly( refElem%PolyOrder, refElem%x1, sampling_x_per_elem(:) )
     allocate( P_1D_ori(NsamplePtPerElem,refElem%Np) )
-    P_1D_ori(:,:) = Polynominal_GenLegendrePoly( refElem%PolyOrder, sampling_x_per_elem(:) )
+    P_1D_ori(:,:) = Polynomial_GenLegendrePoly( refElem%PolyOrder, sampling_x_per_elem(:) )
     do p=1, refElem%Np
       P_1D_ori(:,p) = P_1D_ori(:,p) * sqrt(real(p-1,kind=RP) + 0.5_RP)
     end do

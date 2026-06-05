@@ -268,7 +268,7 @@ contains
     use scale_file_history_meshfield, only: FILE_HISTORY_meshfield_setup  
     use scale_file_history, only: FILE_HISTORY_reg  
 !    use mod_advect1d_numerror, only: advect1d_numerror_Init     
-    use scale_polynominal, only: Polynominal_GenLagrangePoly
+    use scale_polynomial, only: Polynomial_GenLagrangePoly
     implicit none
     real(RP), parameter :: dom_xmin =   0.0_RP
     real(RP), parameter :: dom_xmax = + 1.0_RP
@@ -435,7 +435,7 @@ contains
     end do
 
     allocate( IntrpMatSampling(NsamplePtPerElem1D,refElem%Nfp) )
-    IntrpMatSampling(:,:) = Polynominal_GenLagrangePoly( refElem%PolyOrder, refElem%x1, sampling_1d_per_elem(:) )
+    IntrpMatSampling(:,:) = Polynomial_GenLagrangePoly( refElem%PolyOrder, refElem%x1, sampling_1d_per_elem(:) )
 
     delx = ( dom_xmax - dom_xmin ) / real(lmesh%NeX, kind=RP)
     do ke=1, lmesh%NeX

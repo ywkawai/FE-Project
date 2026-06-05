@@ -8,7 +8,7 @@ PWD         = $(shell pwd)
 TOPDIR      = $(abspath ../../../..)
 FELIB_TEST_DIR = ../../
 
-BINNAME = test_polynominal
+BINNAME = test_polynomial
 OBJS    =
 
 TPROC           = 1
