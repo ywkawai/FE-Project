@@ -4,11 +4,11 @@
 !! @par Description
 !!          User defined module for a test case of rising warm bubble with moist process
 !!
-!! @author Team SCALE
+!! @author Yuta Kawai, Team SCALE
 !!
 !<
 !-------------------------------------------------------------------------------
-#include "scalelib.h"
+#include "scaleFElib.h"
 module mod_user
 
   !-----------------------------------------------------------------------------

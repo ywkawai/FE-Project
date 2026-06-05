@@ -7,11 +7,18 @@
 !!          is constant values and the level of tropopause is explicity specified. This experimental setup is considered to be useful to explore qualitative features 
 !!          of atmospheric flows on generalized Earth-like planet. 
 !!
-!! @author Team SCALE
+!! @author Yuta Kawai, Team SCALE
 !!
+!! @par Reference
+!!  - Held and Suarez 1994:
+!!    A proposal for the intercomparison of the dynamical cores of atmospheric general circulation models
+!!    Bulletin of the American Meteorological Society, 75, 1825–1830
+!!  - Menou and Rauscher 2009:
+!!    Atmospheric circulation of hot Jupiters: a shallow three-dimensional model
+!!    The Astrophysical Journal, 700, 887–897
 !<
 !-------------------------------------------------------------------------------
-#include "scalelib.h"
+#include "scaleFElib.h"
 module mod_user
 
   !-----------------------------------------------------------------------------
@@ -287,8 +294,20 @@ subroutine USER_mkinit ( this, atm )
         MOMX%val(:,ke) = MOMX%val(:,ke) / ( 1.0_RP + dt * rtauV )
         MOMY%val(:,ke) = MOMY%val(:,ke) / ( 1.0_RP + dt * rtauV )
 
-        !- For the case of d DRHOT /dt = dens * Cp * ( Teq - T ) / tauT     
-        !  <- It is based on the forcing form in Held and Surez in which the temperature evolution equation is assumed to be dT/dt = R/Cp * T/p * dp/dt + (Teq - T) / tauT
+        !-- For the case where diabatic heating is calculated by Q = dens * CVtot * ( Teq - T ) / tauT  <- ( Ullrich and Jablonowski (2012, JCP) )
+        !  D(DRHOT)/Dt = 1/(CPtot * EXNER) * Q
+        !           = dens / (GamTot * EXNER ) * ( Teq - T ) / tauT
+        !           = dens PT / GamTot * ( Teq/T - 1 ) / tauT
+        ! Then,
+        ! DRHOT%val(:,ke) = DRHOT%val(:,ke) &
+        !                 - dt * krad / gamm * ( 1.0_RP - Teq(:) / T(:) ) * DENS(:) * PT%val(:,ke)     &
+        !                 / ( 1.0_RP + dt * krad / gamm * ( 1.0_RP + (gamm - 1.0_RP) * Teq(:) / T(:) ) )
+
+        !- For the case where diabatic heating is calculated by Q = dens * CPtot * ( Teq - T ) / tauT
+        !  It is based on the forcing form in Held-Suarez test in which the temperature evolution equation is assumed to be dT/dt = R/Cp * T/p * dp/dt + (Teq - T) / tauT
+        !  D(DRHOT)/Dt = 1/(CPtot * EXNER) * Q
+        !           = dens / EXNER * ( Teq - T ) / tauT
+        !           = dens PT * ( Teq/T - 1 ) / tauT
         DRHOT%val(:,ke) = DRHOT%val(:,ke) &
                         - dt * krad * ( 1.0_RP - Teq(:) / T(:) ) * DENS(:) * PT%val(:,ke)     &
                         / ( 1.0_RP + dt * krad * ( 1.0_RP + (gamm - 1.0_RP) * Teq(:) / T(:) ) )  

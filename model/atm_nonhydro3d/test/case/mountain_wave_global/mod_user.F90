@@ -5,6 +5,8 @@
 !!          User defined module for a test case of mountain wave in global model (Test Case 3 in Tomita and Satoh (2004))
 !!
 !! @author Yuta Kawai, Team SCALE
+!!
+!! @par Reference
 !!  - Tomita, H and M. Satoh, 2004:
 !!    A New Dynamical Framework of Nonhydrostatic Global Model Using the Icosahedral Grid. 
 !!    Fluid Dyn. Res., 34, 357 

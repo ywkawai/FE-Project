@@ -115,7 +115,7 @@ module scale_element_base
     integer :: Nnode_v                   !< Number of nodes along the vertical coordinate
     integer :: Nfaces_v                  !< Number of nodes on an vertical face of the reference element
     integer :: Nfp_v                     !< Number of vertical faces of the reference element
-    integer, allocatable :: Fmask_v(:,:) !< Number of vertical faces of the reference element
+    integer, allocatable :: Fmask_v(:,:) !< Array saving indices to extract nodal values on the vertical faces
 
     integer, allocatable :: Colmask(:,:)        !< Array saving indices to extract nodal values on the vertical columns
     integer, allocatable :: Hslice(:,:)         !< Array saving indices to extract nodal values on the horizontal plane

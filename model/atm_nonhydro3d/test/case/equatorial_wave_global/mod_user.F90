@@ -5,13 +5,15 @@
 !!          User defined module for a test case of equatorial wave (Test Case 4 in Tomita and Satoh (2004))
 !!
 !! @author Yuta Kawai, Team SCALE
+!!
+!! @par Reference
 !!  - Tomita, H and M. Satoh, 2004:
 !!    A New Dynamical Framework of Nonhydrostatic Global Model Using the Icosahedral Grid. 
 !!    Fluid Dyn. Res., 34, 357 
 !!
 !<
 !-------------------------------------------------------------------------------
-#include "scalelib.h"
+#include "scaleFElib.h"
 module mod_user
 
   !-----------------------------------------------------------------------------

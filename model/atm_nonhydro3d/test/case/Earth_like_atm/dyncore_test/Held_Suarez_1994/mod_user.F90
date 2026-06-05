@@ -5,11 +5,15 @@
 !!          User defined module for a benchmark test of dynamical core for Earth-like atmosphere proposed by Held and Suarez (1994).
 !!          
 !!
-!! @author Team SCALE
+!! @author Yuta Kawai, Team SCALE
 !!
+!! @par Reference
+!!  - Held and Suarez 1994:
+!!    A proposal for the intercomparison of the dynamical cores of atmospheric general circulation models
+!!    Bulletin of the American Meteorological Society, 75, 1825–1830
 !<
 !-------------------------------------------------------------------------------
-#include "scalelib.h"
+#include "scaleFElib.h"
 module mod_user
 
   !-----------------------------------------------------------------------------
@@ -209,13 +213,20 @@ contains
         MOMX%val(:,ke) = MOMX%val(:,ke) / ( 1.0_RP + dt * rtauV )
         MOMY%val(:,ke) = MOMY%val(:,ke) / ( 1.0_RP + dt * rtauV )
 
-        !-- For the case of d DRHOT / dt = dens * Cv * ( Teq - T ) / tauT <- ( Ullrich and Jablonowski (2012, JCP) )
+        !-- For the case where diabatic heating is calculated by Q = dens * CVtot * ( Teq - T ) / tauT  <- ( Ullrich and Jablonowski (2012, JCP) )
+        !  D(DRHOT)/Dt = 1/(CPtot * EXNER) * Q
+        !           = dens / (GamTot * EXNER ) * ( Teq - T ) / tauT
+        !           = dens PT / GamTot * ( Teq/T - 1 ) / tauT
+        ! Then,
         ! DRHOT%val(:,ke) = DRHOT%val(:,ke) &
         !                 - dt * rtauT(:) / gamm * ( 1.0_RP - Teq(:) / T(:) ) * DENS(:) * PT%val(:,ke)     &
         !                 / ( 1.0_RP + dt * rtauT(:) / gamm * ( 1.0_RP + (gamm - 1.0_RP) * Teq(:) / T(:) ) )
 
-        !- For the case of d DRHOT /dt = dens * Cp * ( Teq - T ) / tauT     
-        !  <- It is based on the forcing form in Held and Surez in which the temperature evolution equation is assumed to be dT/dt = R/Cp * T/p * dp/dt + (Teq - T) / tauT
+        !- For the case where diabatic heating is calculated by Q = dens * CPtot * ( Teq - T ) / tauT
+        !  It is based on the forcing form in Held-Suarez test in which the temperature evolution equation is assumed to be dT/dt = R/Cp * T/p * dp/dt + (Teq - T) / tauT
+        !  D(DRHOT)/Dt = 1/(CPtot * EXNER) * Q
+        !           = dens / EXNER * ( Teq - T ) / tauT
+        !           = dens PT * ( Teq/T - 1 ) / tauT
         DRHOT%val(:,ke) = DRHOT%val(:,ke) &
                         - dt * rtauT(:) * ( 1.0_RP - Teq(:) / T(:) ) * DENS(:) * PT%val(:,ke)     &
                         / ( 1.0_RP + dt * rtauT(:) * ( 1.0_RP + (gamm - 1.0_RP) * Teq(:) / T(:) ) )  
