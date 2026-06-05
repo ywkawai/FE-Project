@@ -18,8 +18,8 @@ module scale_meshfield_spectral_transform
   use scale_prc, only: &
     PRC_abort
   
-  use scale_polynominal, only: &
-    Polynominal_GenLagrangePoly
+  use scale_polynomial, only: &
+    Polynomial_GenLagrangePoly
   use scale_element_base, only: &
     ElementBase1D, ElementBase2D, ElementBase3D
   use scale_element_line, only: &
@@ -265,7 +265,7 @@ contains
       do i=1, this%NsamplePtPerElem
         this%FFT_Xi(i) = -1.0_RP + real(i - 0.5_RP,kind=RP) * dx
       end do
-      this%FFTIntrpMat(:,:) = Polynominal_GenLagrangePoly( elem_dummy%PolyOrder, elem_dummy%x1, this%FFT_xi )
+      this%FFTIntrpMat(:,:) = Polynomial_GenLagrangePoly( elem_dummy%PolyOrder, elem_dummy%x1, this%FFT_xi )
 
       call this%fft%Init( NsamplePtPerElem * mesh1D%NeG )
     end if
@@ -416,7 +416,7 @@ contains
       do i=1, this%NsamplePtPerElem1D
         this%FFT_Xi(i) = -1.0_RP + real(i - 0.5_RP,kind=RP) * dx
       end do
-      this%FFTIntrpMat(:,:) = Polynominal_GenLagrangePoly( elem_dummy%PolyOrder, elem_dummy%x1, this%FFT_xi )
+      this%FFTIntrpMat(:,:) = Polynomial_GenLagrangePoly( elem_dummy%PolyOrder, elem_dummy%x1, this%FFT_xi )
 
       call this%fft_x%Init( this%NsamplePtPerElem1D * this%NeGX )
       call this%fft_y%Init( this%NsamplePtPerElem1D * this%NeGY )

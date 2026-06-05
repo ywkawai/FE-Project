@@ -790,8 +790,8 @@ contains
 
   subroutine set_initcond()
     use scale_linalgebra, only: linalgebra_inv
-    use scale_polynominal, only: &
-      Polynominal_GenLagrangePoly, Polynominal_GenGaussLobattoPt, Polynominal_GenGaussLegendrePt
+    use scale_polynomial, only: &
+      Polynomial_GenLagrangePoly, Polynomial_GenGaussLobattoPt, Polynomial_GenGaussLegendrePt
     implicit none
 
     real(RP) :: q_intrp(PolyOrderErrorCheck**3)
@@ -821,11 +821,11 @@ contains
 
     if (InitCond_GalerkinProjFlag) then
 
-      lgl1D_h(:) = Polynominal_GenGaussLobattoPt(refElem%PolyOrder_h)
-      lgl1D_v(:) = Polynominal_GenGaussLobattoPt(refElem%PolyOrder_v)
-      r_int1D_i(:) = Polynominal_GenGaussLegendrePt( PolyOrderErrorCheck )
-      lagrange_intrp1D_h(:,:) = Polynominal_GenLagrangePoly(refElem%PolyOrder_h, lgl1D_h, r_int1D_i)
-      lagrange_intrp1D_v(:,:) = Polynominal_GenLagrangePoly(refElem%PolyOrder_v, lgl1D_v, r_int1D_i)
+      lgl1D_h(:) = Polynomial_GenGaussLobattoPt(refElem%PolyOrder_h)
+      lgl1D_v(:) = Polynomial_GenGaussLobattoPt(refElem%PolyOrder_v)
+      r_int1D_i(:) = Polynomial_GenGaussLegendrePt( PolyOrderErrorCheck )
+      lagrange_intrp1D_h(:,:) = Polynomial_GenLagrangePoly(refElem%PolyOrder_h, lgl1D_h, r_int1D_i)
+      lagrange_intrp1D_v(:,:) = Polynomial_GenLagrangePoly(refElem%PolyOrder_v, lgl1D_v, r_int1D_i)
 
       do p3_=1, PolyOrderErrorCheck
       do p2_=1, PolyOrderErrorCheck

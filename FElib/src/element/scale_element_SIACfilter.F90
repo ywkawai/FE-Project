@@ -82,9 +82,9 @@ contains
   subroutine SIAC_filter_Init( this, &
     r, l, &
     x_pts_per_elem, elem1D )
-    use scale_polynominal, only: &
-      Polynominal_GenLagrangePoly, &
-      Polynominal_GenLegendrePoly
+    use scale_polynomial, only: &
+      Polynomial_GenLagrangePoly, &
+      Polynomial_GenLegendrePoly
     implicit none
     class(SIAC_filter), intent(inout) :: this
     integer, intent(in) :: r
@@ -129,20 +129,20 @@ contains
       x1 = x_pts_per_elem(i)
 
       int_x_tmp(:) = x0 + 0.5_RP * (x1 - x0) * ( 1.0_RP + this%int_x(:) )
-      P1D_ori(:,:) = Polynominal_GenLegendrePoly( elem1D%PolyOrder, int_x_tmp(:) )
+      P1D_ori(:,:) = Polynomial_GenLegendrePoly( elem1D%PolyOrder, int_x_tmp(:) )
       do p=1, elem1D%Np
         P1D_ori(:,p) = P1D_ori(:,p) * sqrt(real(p-1,kind=RP) + 0.5_RP)
       end do
       this%IntrpMat(:,:,1,i) = matmul( P1D_ori, elem1D%invV )
-      ! this%IntrpMat(:,:,1,i) = Polynominal_GenLagrangePoly( elem1D%PolyOrder, elem1D%x1, int_x_tmp(:) )
+      ! this%IntrpMat(:,:,1,i) = Polynomial_GenLagrangePoly( elem1D%PolyOrder, elem1D%x1, int_x_tmp(:) )
       
       int_x_tmp(:) = x1 + 0.5_RP * (x2 - x1) * ( 1.0_RP + this%int_x(:) )
-      P1D_ori(:,:) = Polynominal_GenLegendrePoly( elem1D%PolyOrder, int_x_tmp(:) )
+      P1D_ori(:,:) = Polynomial_GenLegendrePoly( elem1D%PolyOrder, int_x_tmp(:) )
       do p=1, elem1D%Np
         P1D_ori(:,p) = P1D_ori(:,p) * sqrt(real(p-1,kind=RP) + 0.5_RP)
       end do
       this%IntrpMat(:,:,2,i) = matmul( P1D_ori, elem1D%invV )
-      ! this%IntrpMat(:,:,2,i) = Polynominal_GenLagrangePoly( elem1D%PolyOrder, elem1D%x1, int_x_tmp(:) )
+      ! this%IntrpMat(:,:,2,i) = Polynomial_GenLagrangePoly( elem1D%PolyOrder, elem1D%x1, int_x_tmp(:) )
     end do
 
     !---
@@ -347,7 +347,7 @@ contains
   subroutine calculate_kernel_func_coef( coef, &
     r, l, int_xi, int_w, NintPts )
     use scale_linalgebra, only: linalgebra_SolveLinEq
-    use scale_polynominal, only: Polynominal_GenLegendrePoly
+    use scale_polynomial, only: Polynomial_GenLegendrePoly
     implicit none
     integer, intent(in) :: r
     integer, intent(in) :: l !< l=k+1
@@ -409,7 +409,7 @@ contains
 
           ! int_tmp = int_tmp &
           !   + sum( int_w2(:) * psi(:) * ( x_intrp(:) - x_gam )**i )          
-          P(:,0:i) = Polynominal_GenLegendrePoly( i, x_intrp(:) - x_gam )
+          P(:,0:i) = Polynomial_GenLegendrePoly( i, x_intrp(:) - x_gam )
           int_tmp = int_tmp &
             + sum( int_w2(:) * psi(:) * P(:,i) )
 
@@ -429,7 +429,7 @@ contains
     ! b(:) = 0.0_RP
     ! b(0) = 1.0_RP
     zero(:) = 0.0_RP
-    P_x0(:,:) = Polynominal_GenLegendrePoly( r, zero(:) )
+    P_x0(:,:) = Polynomial_GenLegendrePoly( r, zero(:) )
     b(:) = P_x0(1,:)
 
     do j=0, r

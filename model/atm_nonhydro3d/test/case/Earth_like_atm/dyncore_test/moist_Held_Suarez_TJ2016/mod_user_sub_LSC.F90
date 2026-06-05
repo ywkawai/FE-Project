@@ -89,8 +89,8 @@ module mod_user_sub_LSC
 
 contains
   subroutine USER_sub_LSC_Init( mesh3D )
-    use scale_polynominal, only: &
-      Polynominal_GenLagrangePoly
+    use scale_polynomial, only: &
+      Polynomial_GenLagrangePoly
     implicit none
     class(MeshBase3D), intent(in) :: mesh3D
 
@@ -188,7 +188,7 @@ contains
     !                     IntWGL(:), x_gl(:), y_gl(:) )
     
     ! allocate( IntrpGL_lag1D(GL_PolyOrder_h,refElem1D_dummy%PolyOrder+1) )
-    ! IntrpGL_lag1D(:,:) = Polynominal_GenLagrangePoly( refElem1D_dummy%PolyOrder, refElem1D_dummy%x1, x_gl(1:GL_PolyOrder_h) )
+    ! IntrpGL_lag1D(:,:) = Polynomial_GenLagrangePoly( refElem1D_dummy%PolyOrder, refElem1D_dummy%x1, x_gl(1:GL_PolyOrder_h) )
     ! do p2_=1, refElem1D_dummy%Np
     ! do p1_=1, refElem1D_dummy%Np
     !   p_ = p1_ + (p2_-1)*refElem1D_dummy%Np

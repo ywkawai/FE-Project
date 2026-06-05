@@ -102,10 +102,10 @@ contains
   subroutine construct_Element(elem)
 
     use scale_linalgebra, only: linalgebra_inv
-    use scale_polynominal, only: &
-      polynominal_genGaussLobattoPt, Polynominal_GenGaussLobattoPtIntWeight,   &
-      polynominal_genLegendrePoly, Polynominal_genDLegendrePoly,               &
-      polynominal_genLagrangePoly, polynominal_genDLagrangePoly_lglpt
+    use scale_polynomial, only: &
+      polynomial_genGaussLobattoPt, Polynomial_GenGaussLobattoPtIntWeight,   &
+      polynomial_genLegendrePoly, Polynomial_genDLegendrePoly,               &
+      polynomial_genLagrangePoly, polynomial_genDLagrangePoly_lglpt
     use scale_element_base, only: & 
       ElementBase_construct_MassMat, ElementBase_construct_StiffMat, &
       ElementBase_construct_LiftMat
@@ -147,15 +147,15 @@ contains
     type(QuadrilateralElement) :: elem2D
     !-----------------------------------------------------------------------------
 
-    lglPts1D_h(:)      = polynominal_genGaussLobattoPt( elem%PolyOrder_h )
-    P1D_ori_h(:,:)     = polynominal_genLegendrePoly( elem%PolyOrder_h, lglPts1D_h )
-    DP1D_ori_h(:,:) = polynominal_genDLegendrePoly( elem%PolyOrder_h, lglPts1D_h, P1D_ori_h )
-    DLagr1D_h(:,:) = polynominal_GenDLagrangePoly_lglpt( elem%PolyOrder_h, lglPts1D_h )
+    lglPts1D_h(:)      = polynomial_genGaussLobattoPt( elem%PolyOrder_h )
+    P1D_ori_h(:,:)     = polynomial_genLegendrePoly( elem%PolyOrder_h, lglPts1D_h )
+    DP1D_ori_h(:,:) = polynomial_genDLegendrePoly( elem%PolyOrder_h, lglPts1D_h, P1D_ori_h )
+    DLagr1D_h(:,:) = polynomial_GenDLagrangePoly_lglpt( elem%PolyOrder_h, lglPts1D_h )
 
-    lglPts1D_v(:)      = polynominal_genGaussLobattoPt( elem%PolyOrder_v )
-    P1D_ori_v(:,:)     = polynominal_genLegendrePoly( elem%PolyOrder_v, lglPts1D_v )
-    DP1D_ori_v(:,:) = polynominal_genDLegendrePoly( elem%PolyOrder_v, lglPts1D_v, P1D_ori_v )
-    DLagr1D_v(:,:) = polynominal_GenDLagrangePoly_lglpt( elem%PolyOrder_v, lglPts1D_v )
+    lglPts1D_v(:)      = polynomial_genGaussLobattoPt( elem%PolyOrder_v )
+    P1D_ori_v(:,:)     = polynomial_genLegendrePoly( elem%PolyOrder_v, lglPts1D_v )
+    DP1D_ori_v(:,:) = polynomial_genDLegendrePoly( elem%PolyOrder_v, lglPts1D_v, P1D_ori_v )
+    DLagr1D_v(:,:) = polynomial_GenDLagrangePoly_lglpt( elem%PolyOrder_v, lglPts1D_v )
     
     !* Preparation 
 
@@ -284,8 +284,8 @@ contains
     
     !* Set the weights at LGL points to integrate over element
 
-    intWeight_lgl1DPts_h(:) = Polynominal_GenGaussLobattoPtIntWeight(elem%PolyOrder_h)
-    intWeight_lgl1DPts_v(:) = Polynominal_GenGaussLobattoPtIntWeight(elem%PolyOrder_v)
+    intWeight_lgl1DPts_h(:) = Polynomial_GenGaussLobattoPtIntWeight(elem%PolyOrder_h)
+    intWeight_lgl1DPts_v(:) = Polynomial_GenGaussLobattoPtIntWeight(elem%PolyOrder_v)
 
     do k=1, elem%Nnode_v
     do j=1, elem%Nnode_h1D
@@ -407,10 +407,10 @@ contains
   function HexhedralElement_gen_IntGaussLegendreIntrpMat( this, IntrpPolyOrder, &
     intw_intrp, x_intrp, y_intrp, z_intrp ) result(IntrpMat)
 
-    use scale_polynominal, only: &
-      Polynominal_genLegendrePoly,    &
-      Polynominal_GenGaussLegendrePt, &
-      Polynominal_GenGaussLegendrePtIntWeight
+    use scale_polynomial, only: &
+      Polynomial_genLegendrePoly,    &
+      Polynomial_GenGaussLegendrePt, &
+      Polynomial_GenGaussLegendrePtIntWeight
     
     implicit none
 
@@ -432,10 +432,10 @@ contains
     integer :: n_, l_, m_
     !-----------------------------------------------------
 
-    r_int1D_i(:) = Polynominal_GenGaussLegendrePt( IntrpPolyOrder )
-    r_int1Dw_i(:) = Polynominal_GenGaussLegendrePtIntWeight( IntrpPolyOrder )
-    P_int1D_ori_h(:,:) = Polynominal_GenLegendrePoly( this%PolyOrder_h, r_int1D_i)
-    P_int1D_ori_v(:,:) = Polynominal_GenLegendrePoly( this%PolyOrder_v, r_int1D_i)
+    r_int1D_i(:) = Polynomial_GenGaussLegendrePt( IntrpPolyOrder )
+    r_int1Dw_i(:) = Polynomial_GenGaussLegendrePtIntWeight( IntrpPolyOrder )
+    P_int1D_ori_h(:,:) = Polynomial_GenLegendrePoly( this%PolyOrder_h, r_int1D_i)
+    P_int1D_ori_v(:,:) = Polynomial_GenLegendrePoly( this%PolyOrder_v, r_int1D_i)
 
     do p3_=1, IntrpPolyOrder
     do p2_=1, IntrpPolyOrder

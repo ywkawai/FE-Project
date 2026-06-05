@@ -371,8 +371,8 @@ contains
 
   subroutine set_initcond()
     use scale_linalgebra, only: linalgebra_inv
-    use scale_polynominal, only: &
-      Polynominal_GenLagrangePoly, Polynominal_GenGaussLobattoPt, Polynominal_GenGaussLegendrePt
+    use scale_polynomial, only: &
+      Polynomial_GenLagrangePoly, Polynomial_GenGaussLobattoPt, Polynomial_GenGaussLegendrePt
     implicit none
 
     real(RP) :: q_intrp(PolyOrderErrorCheck**3)
@@ -414,9 +414,9 @@ contains
 
     ! if (InitCond_GalerkinProjFlag) then
 
-    !   lgl1D(:) = Polynominal_GenGaussLobattoPt(refElem%PolyOrder)
-    !   r_int1D_i(:) = Polynominal_GenGaussLegendrePt( PolyOrderErrorCheck )
-    !   lagrange_intrp1D(:,:) = Polynominal_GenLagrangePoly(refElem%PolyOrder, lgl1D, r_int1D_i)
+    !   lgl1D(:) = Polynomial_GenGaussLobattoPt(refElem%PolyOrder)
+    !   r_int1D_i(:) = Polynomial_GenGaussLegendrePt( PolyOrderErrorCheck )
+    !   lagrange_intrp1D(:,:) = Polynomial_GenLagrangePoly(refElem%PolyOrder, lgl1D, r_int1D_i)
     !   do p2_=1, PolyOrderErrorCheck
     !   do p1_=1, PolyOrderErrorCheck
     !     n_= p1_ + (p2_-1)*PolyOrderErrorCheck
