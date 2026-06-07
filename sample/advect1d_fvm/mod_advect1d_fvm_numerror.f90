@@ -43,6 +43,9 @@ module mod_advect1d_fvm_numerror
 
     !-
     integer :: FV_IS, FV_IE, FV_IA, FV_IHALO
+  contains
+    procedure :: Init => advect1d_numerror_info_Init
+    procedure :: Final => advect1d_numerror_info_Final
   end type Advect1D_Numerror_Info
 
   type, public :: Advect1DNumErrorAnalysis
@@ -103,26 +106,14 @@ contains
     LOG_NML(PARAM_ADVECT1D_FVM_NUMERROR)
 
     !--
-    call this%info%elem%Init( polyOrderErrorCheck, .false. )
-    call this%info%mesh_dg%Init( IE-IS+1, FX(IS-1), FX(IE), this%info%elem, 1 )
-    call this%info%mesh_dg%Generate()
+    call this%info%Init( polyOrderErrorCheck, IS, IE, IA, IHALO, FX, &
+      InitShapeName, InitShapeParams, ADV_VEL )
 
     !--
     call this%numerror_analysis%Init( &
       polyOrderErrorCheck, LOG_OUT_BASENAME, LOG_STEP_INTERVAL, &
       this%info%mesh_dg, this%info%elem, set_data_lc, this%info )
     call this%numerror_analysis%Regist( "q", "1", this%info%numerror_vid(1) )
-
-    !-
-    this%info%ADV_VEL = ADV_VEL
-    this%info%InitShapeName = InitShapeName
-    this%info%InitShapeParams = InitShapeParams
-    this%info%dom_xmin = this%info%mesh_dg%xmin_gl
-    this%info%dom_xmax = this%info%mesh_dg%xmax_gl
-    this%info%FV_IS = IS
-    this%info%FV_IE = IE
-    this%info%FV_IA = IA
-    this%info%FV_IHALO = IHALO
     return
   end subroutine advect1d_fvm_numerror_Init
 
@@ -184,6 +175,7 @@ contains
     end select
 
     n = lcmesh%lcdomID
+    !$acc update host( info%qtrc )
 
     call interp_FVtoDG_1D( qtrc_dg, &
       info%qtrc, lcmesh, lcmesh%refElem1D, info%FV_IS, info%FV_IE, info%FV_IA, info%FV_IHALO, 2 )
@@ -212,7 +204,8 @@ contains
       q(:,kelem,vid) = qtrc_dg(:,kelem)
       qexact(:,kelem,vid) = qtrc_exact_dg(:)
     end do
-    
+
+    !$acc update device( info%qtrc_exact )
     return
   end subroutine set_data_lc
 
@@ -221,13 +214,51 @@ contains
     implicit none
     class(Advect1DNumErrorAnalysis), intent(inout) :: this
     !---------------------------------
-    call this%info%mesh_dg%Final()
-    call this%info%elem%Final()
+    call this%info%Final()
     call this%numerror_analysis%Final()
     return
   end subroutine advect1d_fvm_numerror_Final
 
-!- private
+!- private --------------------
+
+  subroutine advect1d_numerror_info_Init( this, &
+    polyOrder, IS, IE, IA, IHALO, FX,       &
+    InitShapeName, InitShapeParams, ADV_VEL )
+    implicit none
+    class(Advect1D_Numerror_Info), intent(inout) :: this
+    integer, intent(in) :: polyOrder
+    integer, intent(in) :: IS, IE, IA, IHALO
+    real(RP), intent(in) :: FX(0:IA)
+    character(*), intent(in) :: InitShapeName
+    real(RP), intent(in) :: InitShapeParams(2)
+    real(RP), intent(in) :: ADV_VEL
+    !----------------------------------------------
+
+    call this%elem%Init( polyOrder, .false. )
+    call this%mesh_dg%Init( IE-IS+1, FX(IS-1), FX(IE), this%elem, 1 )
+    call this%mesh_dg%Generate()
+
+    this%ADV_VEL = ADV_VEL
+    this%InitShapeName = InitShapeName
+    this%InitShapeParams = InitShapeParams
+    this%dom_xmin = this%mesh_dg%xmin_gl
+    this%dom_xmax = this%mesh_dg%xmax_gl
+    this%FV_IS = IS
+    this%FV_IE = IE
+    this%FV_IA = IA
+    this%FV_IHALO = IHALO
+    return
+  end subroutine advect1d_numerror_info_Init
+
+  subroutine advect1d_numerror_info_Final( this )
+    implicit none
+    class(Advect1D_Numerror_Info), intent(inout) :: this
+    !---------------------------------
+    call this%mesh_dg%Final()
+    call this%elem%Final()
+    return
+  end subroutine advect1d_numerror_info_Final
+
   subroutine interp_FVtoDG_1D( out_dg, &
     in_fv, lcmesh, elem1D_, IS, IE, IA, IHALO, interp_ord )
     implicit none

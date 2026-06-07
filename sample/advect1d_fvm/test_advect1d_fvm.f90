@@ -129,16 +129,18 @@ contains
     real(RP) :: qflux(KA,IA,JA)
 
     !------------------------------------------------------------------------
+    !$acc data create( qflux )
     call PROF_rapstart( 'cal_tend_flux', 2)
     call optr_fvm%C_flux_XYW( qflux, u_, q_ )
     call PROF_rapend( 'cal_tend_flux', 2)
 
     call PROF_rapstart( 'cal_tend_dqdt', 2)
+    !$acc parallel loop present( qflux, dqdt, RCDZ )
     do k=KS, KE
       dqdt(k,IS,JS) = - (qflux(k,IS,JS) - qflux(k-1,IS,JS)) * RCDZ(k)
     end do
     call PROF_rapend( 'cal_tend_dqdt', 2)
-
+    !$acc end data
     return
   end subroutine cal_dyn_tend
  
@@ -150,6 +152,7 @@ contains
 
     integer :: k 
     !-------------------------------
+    !$acc parallel loop present(var)
     do k=1, KHALO
       var(KS-k) = var(KE-k+1)
       var(KE+k) = var(KS+k-1)
@@ -172,6 +175,7 @@ contains
     end do
     end do
     u(:,:,:) = ADV_VEL
+    !$acc update device( q, u )
 
     if ( Do_NumErrorAnalysis ) then
       call numerror_analysis%Eval( qexact(:,IS,JS), & ! (out)
@@ -281,6 +285,7 @@ contains
     !-- setup variables and history files
 
     allocate( q(KA,IA,JA), qexact(KA,IA,JA), u(KA,IA,JA) )
+    !$acc enter data create( q, qexact, u )
 
     call output_fvm_setup('linedom1d')
     call FILE_HISTORY_reg( "q", "q", "1", HST_ID(1), dim_type='X')
@@ -312,6 +317,9 @@ contains
     call tinteg%Final()
     call TIME_manager_Final
     
+    deallocate( q, qexact, u )
+    !$acc exit data delete( q, qexact, u )
+
     call PROF_rapend( "final", 1 )  
     call SCALE_finalize()
 
