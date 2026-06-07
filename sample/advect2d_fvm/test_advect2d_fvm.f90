@@ -90,7 +90,7 @@ program test_advect2d_fvm
       !* Exchange halo data
 
       call PROF_rapstart( 'exchange_halo', 1)
-      call excahge_halo( q(KS,:,:) )
+      call excahge_halo( q )
       call PROF_rapend( 'exchange_halo', 1)
 
       call PROF_rapstart( 'set_velocity', 1)
@@ -101,18 +101,18 @@ program test_advect2d_fvm
 
       call PROF_rapstart( 'cal_tend', 1)
       tintbuf_ind = tinteg%tend_buf_indmap(rkstage)
-      call cal_tend( tinteg%tend_buf2D_ex(:,:,RKVAR_Q,tintbuf_ind), q, u, v )
+      call cal_tend( tinteg%tend_buf3D_ex(:,:,:,RKVAR_Q,tintbuf_ind), q, u, v )
       call PROF_rapend( 'cal_tend', 1) 
 
       call PROF_rapstart( 'update_var', 1)
-      call tinteg%Advance(rkstage, q(KS,:,:), RKVAR_Q, IS, IE, JS, JE)
+      call tinteg%Advance(rkstage, q, RKVAR_Q, KS, KE, IS, IE, JS, JE)
       call PROF_rapend('update_var', 1)
     end do
 
     tsec_ = TIME_DTSEC * real(TIME_NOWSTEP-1, kind=RP)
     if ( Do_NumErrorAnalysis ) then
-      call numerror_analysis%Eval( qexact(KS,:,:),   & ! (out)
-        q(KS,:,:), TIME_NOWSTEP, tsec_,  IA, JA      ) ! (in)
+      call numerror_analysis%Eval( qexact,   & ! (out)
+        q, TIME_NOWSTEP, tsec_,  KA, IA, JA  ) ! (in)
     end if
 
     !* Output history file
@@ -132,7 +132,7 @@ contains
   !!
   subroutine cal_tend( dqdt, q_, u_, v_ )
     implicit none
-    real(RP), intent(out) :: dqdt(KS:KS,IA,JA)
+    real(RP), intent(out) :: dqdt(KA,IA,JA)
     real(RP), intent(in) :: q_(KA,IA,JA)
     real(RP), intent(in)  :: u_(KA,IA,JA)
     real(RP), intent(in)  :: v_(KA,IA,JA)
@@ -141,6 +141,7 @@ contains
     real(RP) :: qflux(KA,IA,JA,2)
     !------------------------------------------------------------------------
 
+    !$acc data create( qflux )
     call PROF_rapstart( 'cal_tend_flux', 2)
     call optr_fvm%C_flux_UYZ( qflux(:,:,:,1), u_, q_ )
     call optr_fvm%C_flux_XVZ( qflux(:,:,:,2), v_, q_ )
@@ -149,6 +150,7 @@ contains
     !----
 
     call PROF_rapstart( 'cal_tend_dqdt', 2)
+    !$acc parallel loop collapse(2) present( qflux, dqdt, RCDX, RCDY )
     do j=JS, JE
     do i=IS, IE
       dqdt(KS,i,j) = - (qflux(KS,i,j,1) - qflux(KS,i-1,j,1)) * RCDX(i) &
@@ -156,29 +158,32 @@ contains
     end do
     end do
     call PROF_rapend( 'cal_tend_dqdt', 2)
-
+    !$acc end data
     return
   end subroutine cal_tend
  
   !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
   subroutine excahge_halo(var)
-    real(RP), intent(inout) :: var(IA,JA)
+    real(RP), intent(inout) :: var(KA,IA,JA)
     integer :: i, j
 
-    do j=IS, IE
+    !$acc parallel loop collapse(2) present(var)
+    do j=JS, JE
     do i=1, IHALO
-      var(IS-i,j) = var(IE-i+1,j)
-      var(IE+i,j) = var(IS+i-1,j)
+      var(KS,IS-i,j) = var(KS,IE-i+1,j)
+      var(KS,IE+i,j) = var(KS,IS+i-1,j)
     end do
     end do
 
+    !$acc parallel loop collapse(2) present(var)
     do j=1, JHALO
     do i=IS, IE
-      var(i,JS-j) = var(i,JE-j+1)
-      var(i,JE+j) = var(i,JS+j-1)
+      var(KS,i,JS-j) = var(KS,i,JE-j+1)
+      var(KS,i,JE+j) = var(KS,i,JS+j-1)
     end do
     end do
+    return
   end subroutine excahge_halo
 
   !> Set velocity data at tsec
@@ -190,30 +195,50 @@ contains
     real(RP), intent(in) :: tsec
 
     real(RP) :: x_tmp(IA,JA), y_tmp(IA,JA)
-    real(RP) :: v_uyz(IA,JA), u_xvz(IA,JA)
+    real(RP) :: u_uyz(IA,JA), v_uyz(IA,JA)
+    real(RP) :: u_xvz(IA,JA), v_xvz(IA,JA)
     integer :: i, j
     !-----------------------------------------------
 
+    !$acc data create( x_tmp, y_tmp, u_uyz, v_uyz, u_xvz, v_xvz )
     VelTypeParams(4) = tsec
 
+    !$acc parallel loop collapse(2) present(x_tmp,y_tmp,FX,CY)
     do j=JS, JE
     do i=IS-1, IE
       x_tmp(i,j) = FX(i)
       y_tmp(i,j) = CY(j)
     end do
     end do
-    call fieldutil_get_profile2d_flow( u_(KS,:,:), v_uyz(:,:),       & ! (out)
+    
+    call fieldutil_get_profile2d_flow( u_uyz, v_uyz,                 & ! (out)
       VelTypeName, x_tmp, y_tmp, VelTypeParams, IS-1,IE,IA, JS,JE,JA ) ! (in)
 
+    !$acc parallel loop collapse(2) present(x_tmp,y_tmp,CX,FY)
     do j=JS-1, JE
     do i=IS, IE
       x_tmp(i,j) = CX(i)
       y_tmp(i,j) = FY(j)
     end do
     end do
-    call fieldutil_get_profile2d_flow( u_xvz, v_(KS,:,:),            & ! (out)
+    call fieldutil_get_profile2d_flow( u_xvz, v_xvz,                 & ! (out)
       VelTypeName, x_tmp, y_tmp, VelTypeParams, IS,IE,IA, JS-1,JE,JA ) ! (in)
-    
+
+    !$acc parallel present( u_, v_, u_uyz, v_uyz, u_xvz, v_xvz )
+    !$acc loop
+    do j=JS, JE
+    do i=IS-1, IE
+      u_(KS,i,j) = u_uyz(i,j)
+    end do
+    end do
+    !$acc loop
+    do j=JS-1, JE
+    do i=IS, IE
+      v_(KS,i,j) = v_xvz(i,j)
+    end do
+    end do
+    !$acc end parallel
+    !$acc end data
     return
   end subroutine set_velocity
 
@@ -232,11 +257,12 @@ contains
       call fieldutil_get_profile2d_tracer ( q(KS,IS:IE,j),               & ! (out)
         InitShapeName, CX(IS:IE), y_tmp(KS:KE), InitShapeParams, IE-IS+1 )  ! (in)
     end do
+    !$acc update device( q )
     call set_velocity( u, v, 0.0_RP )
 
     if ( Do_NumErrorAnalysis ) then
-      call numerror_analysis%Eval( qexact(KS,:,:), & ! (out)
-        q(KS,:,:), 1, 0.0_RP, IA, JA               ) ! (in)
+      call numerror_analysis%Eval( qexact, & ! (out)
+        q, 1, 0.0_RP, KA, IA, JA           ) ! (in)
     end if
     call FILE_HISTORY_put(HST_ID(1), q(KS,IS:IE,JS:JE))
     call FILE_HISTORY_put(HST_ID(2), qexact(KS,IS:IE,JS:JE))
@@ -340,12 +366,13 @@ contains
 
     !-- setup a module for time integrator
     call tinteg%Init( TINTEG_SCHEME_TYPE, TIME_DTSEC, 1, &
-                      2, (/ IA, JA /) )
+                      3, (/ KA, IA, JA /) )
     
     !-- setup variables and history files
 
     allocate( q(KA,IA,JA), qexact(KA,IA,JA) )
     allocate( u(KA,IA,JA), v(KA,IA,JA) )
+    !$acc enter data create( q, qexact, u, v )
 
     call output_fvm_setup( 'rectdom2d' )
     call FILE_HISTORY_reg( "q", "q", "1", HST_ID(1), dim_type='XY')
@@ -355,7 +382,7 @@ contains
     if ( Do_NumErrorAnalysis ) then
       call numerror_analysis%Init( &
         VelTypeName, VelTypeParams, InitShapeName, InitShapeParams, & ! (in)
-        FX, FY, IS, IE, IA, IHALO, JS, JE, JA, JHALO                ) ! (in)
+        FX, FY, IS, IE, IA, IHALO, JS, JE, JA, JHALO, KS            ) ! (in)
     end if
 
     !-- report information of time intervals
@@ -379,6 +406,9 @@ contains
     call output_fvm_finalize
     call tinteg%Final()
     call TIME_manager_Final
+
+    !$acc exit data delete( q, qexact, u, v )
+    deallocate( q, qexact, u, v )
 
     call PROF_rapend( "final", 1 )
     call SCALE_finalize()

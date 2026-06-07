@@ -37,12 +37,16 @@ module mod_advect2d_fvm_numerror
     type(QuadrilateralElement) :: elem
 
     !-
-    real(RP), pointer :: qtrc_exact(:,:)
-    real(RP), pointer :: qtrc(:,:)
+    real(RP), pointer :: qtrc_exact(:,:,:)
+    real(RP), pointer :: qtrc(:,:,:)
 
     !-
     integer :: FV_IS, FV_IE, FV_IA, FV_IHALO
     integer :: FV_JS, FV_JE, FV_JA, FV_JHALO
+    integer :: FV_KS
+  contains
+    procedure :: Init => advect2d_numerror_info_Init
+    procedure :: Final => advect2d_numerror_info_Final
   end type Advect2D_Numerror_Info
 
   type, public :: Advect2DNumErrorAnalysis
@@ -62,12 +66,9 @@ contains
   !> Initialization
   subroutine advect2d_fvm_numerror_Init( this, &
     VelTypeName, VelTypeParams, InitShapeName, InitShapeParams, &
-    FX, FY, IS, IE, IA, IHALO, JS, JE, JA, JHALO )
+    FX, FY, IS, IE, IA, IHALO, JS, JE, JA, JHALO, KS )
     use scale_prc, only: &
       PRC_abort
-    use scale_prc_cartesC, only: &
-      PRC_NUM_X, PRC_NUM_Y, &
-      PRC_PERIODIC_X, PRC_PERIODIC_Y
     implicit none
     class(Advect2DNumErrorAnalysis), intent(inout) :: this
     character(len=*), intent(in) :: VelTypeName
@@ -76,6 +77,7 @@ contains
     real(RP), intent(in) :: InitShapeParams(4)
     integer, intent(in) :: IS, IE, IA, IHALO
     integer, intent(in) :: JS, JE, JA, JHALO
+    integer, intent(in) :: KS
     real(RP), intent(in) :: FX(0:IA)
     real(RP), intent(in) :: FY(0:JA)
 
@@ -108,46 +110,26 @@ contains
     LOG_NML(PARAM_ADVECT2D_FVM_NUMERROR)
 
     !--
-    call this%info%elem%Init( polyOrderErrorCheck, .false. )
-    call this%info%mesh_dg%Init( IE-IS+1, JE-JS+1, FX(IS-1), FX(IE), FY(JS-1), FY(JE), PRC_PERIODIC_X, PRC_PERIODIC_Y, &
-      this%info%elem, 1, PRC_NUM_X, PRC_NUM_Y )
-    call this%info%mesh_dg%Generate()
+    call this%info%Init( polyOrderErrorCheck, IS, IE, IA, IHALO, FX, JS, JE, JA, JHALO, FY, KS, &
+      VelTypeName, VelTypeParams, InitShapeName, InitShapeParams )
 
     !--
     call this%numerror_analysis%Init( &
       polyOrderErrorCheck, LOG_OUT_BASENAME, LOG_STEP_INTERVAL, &
       this%info%mesh_dg, this%info%elem, set_data_lc, this%info )
     call this%numerror_analysis%Regist( "q", "1", this%info%numerror_vid(1) )
-
-    !-
-    this%info%VelTypeName = VelTypeName
-    this%info%VelTypeParams = VelTypeParams
-    this%info%InitShapeName = InitShapeName
-    this%info%InitShapeParams = InitShapeParams
-    this%info%dom_xmin = this%info%mesh_dg%xmin_gl
-    this%info%dom_xmax = this%info%mesh_dg%xmax_gl
-    this%info%dom_ymin = this%info%mesh_dg%ymin_gl
-    this%info%dom_ymax = this%info%mesh_dg%ymax_gl
-    this%info%FV_IS = IS
-    this%info%FV_IE = IE
-    this%info%FV_IA = IA
-    this%info%FV_IHALO = IHALO
-    this%info%FV_JS = JS
-    this%info%FV_JE = JE
-    this%info%FV_JA = JA
-    this%info%FV_JHALO = JHALO
     return
   end subroutine advect2d_fvm_numerror_Init
 
   !> Evaluate numerical errors
   subroutine advect2d_fvm_numerror_eval( this, &
-    qtrc_exact,               & ! (inout)
-    qtrc, istep, tsec, IA, JA ) ! (in)
+    qtrc_exact,                   & ! (inout)
+    qtrc, istep, tsec, KA, IA, JA ) ! (in)
     implicit none
     class(Advect2DNumErrorAnalysis), intent(inout) :: this
-    integer, intent(in) :: IA, JA
-    real(RP), intent(out), target :: qtrc_exact(IA,JA)
-    real(RP), intent(in), target :: qtrc(IA,JA)
+    integer, intent(in) :: KA, IA, JA
+    real(RP), intent(out), target :: qtrc_exact(KA,IA,JA)
+    real(RP), intent(in), target :: qtrc(KA,IA,JA)
     integer, intent(in) :: istep
     real(RP), intent(in) :: tsec
     !------------------------------------------------------------------------
@@ -188,6 +170,8 @@ contains
 
     class(Advect2D_Numerror_Info), pointer :: info 
     class(MeshFieldAnalysisNumerrorInfoBase), pointer :: info_base
+
+    integer :: KS
     !---------------------------------------------
 
     select type(info_base => analysis%info)
@@ -196,9 +180,12 @@ contains
     end select    
 
     n = lcmesh%lcdomID
+    !$acc update host( info%qtrc )
 
+    KS = info%FV_KS
+    
     call MeshFieldFVMUtil_interp_FVtoDG( qtrc_dg, &
-      info%qtrc, lcmesh, elem2D,                         &
+      info%qtrc(KS,:,:), lcmesh, elem2D,                 &
       info%FV_IS, info%FV_IE, info%FV_IA, info%FV_IHALO, &
       info%FV_JS, info%FV_JE, info%FV_JA, info%FV_JHALO, &
       1 )
@@ -231,13 +218,14 @@ contains
 
       int_w(:) = lcmesh%Gsqrt(:,kelem) * lcmesh%J(:,kelem) * elem2D%IntWeight_lgl(:)
       int_w(:) = int_w(:) / sum(int_w(:))
-      info%qtrc_exact(info%FV_IHALO+ke_x,info%FV_JHALO+ke_y) = sum( int_w(:) * qtrc_exact_dg(:) )
+      info%qtrc_exact(KS,info%FV_IHALO+ke_x,info%FV_JHALO+ke_y) = sum( int_w(:) * qtrc_exact_dg(:) )
 
       q(:,kelem,vid) = qtrc_dg(:,kelem)
       qexact(:,kelem,vid) = qtrc_exact_dg(:)
     end do
     end do
     
+    !$acc update device( info%qtrc_exact )
     return
   end subroutine set_data_lc
 
@@ -246,10 +234,65 @@ contains
     implicit none
     class(Advect2DNumErrorAnalysis), intent(inout) :: this
     !---------------------------------
-    call this%info%mesh_dg%Final()
-    call this%info%elem%Final()
+    call this%info%Final()
     call this%numerror_analysis%Final()
     return
   end subroutine advect2d_fvm_numerror_Final
   
+!- private --------------------
+
+  subroutine advect2d_numerror_info_Init( this, &
+    polyOrder, IS, IE, IA, IHALO, FX,  JS, JE, JA, JHALO, FY, KS, &
+    VelTypeName, VelTypeParams, InitShapeName, InitShapeParams )
+    use scale_prc_cartesC, only: &
+      PRC_NUM_X, PRC_NUM_Y, &
+      PRC_PERIODIC_X, PRC_PERIODIC_Y    
+    implicit none
+    class(Advect2D_Numerror_Info), intent(inout) :: this
+    integer, intent(in) :: polyOrder
+    integer, intent(in) :: IS, IE, IA, IHALO
+    real(RP), intent(in) :: FX(0:IA)
+    integer, intent(in) :: JS, JE, JA, JHALO
+    real(RP), intent(in) :: FY(0:JA)
+    integer, intent(in) :: KS
+    character(len=*), intent(in) :: VelTypeName
+    real(RP), intent(in) :: VelTypeParams(4)
+    character(len=*), intent(in) :: InitShapeName
+    real(RP), intent(in) :: InitShapeParams(4)
+    !----------------------------------------------
+
+    call this%elem%Init( polyOrder, .false. )
+    call this%mesh_dg%Init( IE-IS+1, JE-JS+1, FX(IS-1), FX(IE), FY(JS-1), FY(JE), PRC_PERIODIC_X, PRC_PERIODIC_Y, &
+      this%elem, 1, PRC_NUM_X, PRC_NUM_Y )
+    call this%mesh_dg%Generate()
+
+    this%VelTypeName = VelTypeName
+    this%VelTypeParams = VelTypeParams
+    this%InitShapeName = InitShapeName
+    this%InitShapeParams = InitShapeParams
+    this%dom_xmin = this%mesh_dg%xmin_gl
+    this%dom_xmax = this%mesh_dg%xmax_gl
+    this%dom_ymin = this%mesh_dg%ymin_gl
+    this%dom_ymax = this%mesh_dg%ymax_gl
+    this%FV_IS = IS
+    this%FV_IE = IE
+    this%FV_IA = IA
+    this%FV_IHALO = IHALO
+    this%FV_JS = JS
+    this%FV_JE = JE
+    this%FV_JA = JA
+    this%FV_JHALO = JHALO
+    this%FV_KS = KS
+    return
+  end subroutine advect2d_numerror_info_Init
+
+  subroutine advect2d_numerror_info_Final( this )
+    implicit none
+    class(Advect2D_Numerror_Info), intent(inout) :: this
+    !---------------------------------
+    call this%mesh_dg%Final()
+    call this%elem%Final()
+    return
+  end subroutine advect2d_numerror_info_Final
+
 end module mod_advect2d_fvm_numerror
