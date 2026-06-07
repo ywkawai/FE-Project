@@ -316,9 +316,9 @@ contains
     call output_fvm_finalize
     call tinteg%Final()
     call TIME_manager_Final
-    
+
+    !$acc exit data delete( q, qexact, u )    
     deallocate( q, qexact, u )
-    !$acc exit data delete( q, qexact, u )
 
     call PROF_rapend( "final", 1 )  
     call SCALE_finalize()

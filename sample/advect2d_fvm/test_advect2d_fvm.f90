@@ -169,7 +169,7 @@ contains
     integer :: i, j
 
     !$acc parallel loop collapse(2) present(var)
-    do j=IS, IE
+    do j=JS, JE
     do i=1, IHALO
       var(KS,IS-i,j) = var(KS,IE-i+1,j)
       var(KS,IE+i,j) = var(KS,IS+i-1,j)
@@ -407,8 +407,8 @@ contains
     call tinteg%Final()
     call TIME_manager_Final
 
-    deallocate( q, qexact, u, v )
     !$acc exit data delete( q, qexact, u, v )
+    deallocate( q, qexact, u, v )
 
     call PROF_rapend( "final", 1 )
     call SCALE_finalize()
