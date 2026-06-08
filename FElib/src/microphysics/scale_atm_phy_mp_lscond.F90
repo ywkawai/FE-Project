@@ -235,7 +235,7 @@ contains
     real(RP) :: dDENS(elem%Np)
     real(RP) :: dInternalEn(elem%Np)
 
-    real(RP) :: vint_weight(elem%Nnode_v,elem%Nnode_v)
+    real(RP) :: vint_weight(elem%Nnode_v,elem%Nnode_h1D**2)
     real(RP) :: condens_vint_lc(elem%Nnode_h1D**2)
     real(RP) :: ien_vint_lc(elem%Nnode_h1D**2)
 
@@ -327,7 +327,7 @@ contains
     do ke2D = 1, lcmesh%Ne2D
     do ke_z = 1, lcmesh%NeZ  
       !* It is better to update CPtot and CVtot after updating DENS, 
-      !* but we tetatively skip the update of them in the precipitation process to avoid the complexity of the code.
+      !* but we tentatively skip the update of them in the precipitation process to avoid the complexity of the code.
       !
       ! CPtot(:,ke_z,ke2D) = RHOCP(:,ke_z,ke2D) / DENS(:,ke_z,ke2D)
       ! CVtot(:,ke_z,ke2D) = RHOCV(:,ke_z,ke2D) / DENS(:,ke_z,ke2D)
