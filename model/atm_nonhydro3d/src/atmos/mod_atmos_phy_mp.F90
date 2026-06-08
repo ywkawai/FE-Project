@@ -22,7 +22,7 @@ module mod_atmos_phy_mp
     UNDEF8 => CONST_UNDEF8
   use scale_tracer, only: QA
 
-  use scale_sparsemat, only: sparsemat
+  use scale_sparsemat, only: SparseMat
   use scale_element_line, only: LineElement
   use scale_element_hexahedral, only: HexahedralElement
 
@@ -64,17 +64,17 @@ module mod_atmos_phy_mp
 
     logical, private :: do_precipitation    !< Apply sedimentation (precipitation)?
     logical, private :: do_negative_fixer   !< Apply negative fixer?
-    real(RP), private :: limit_negative     !< Abort if abs(fixed negative value) > abs(MP_limit_negative)
+    ! real(RP), private :: limit_negative     !< Abort if abs(fixed negative value) > abs(MP_limit_negative)
     integer, private :: ntmax_sedimentation !< Number of time step for sedimentation
     real(RP), private :: max_term_vel       !< Terminal velocity for calculate dt of sedimentation
-    real(RP), private :: cldfrac_thleshold  !< Threshold for cloud fraction
+    real(RP), private :: cldfrac_threshold  !< Threshold for cloud fraction
 
     real(DP), private :: dtsec                !< Timestep with cloud microphysics component
     integer, private :: nstep_sedmientation
     real(RP), private :: rnstep_sedmientation
     real(DP), private :: dtsec_sedmientation
 
-    type(sparsemat) :: Dz, Lift
+    type(SparseMat) :: Dz, Lift
     type(HexahedralElement) :: elem
     type(LineElement) :: elem_v1D
   contains
@@ -87,13 +87,7 @@ module mod_atmos_phy_mp
 
   !-----------------------------------------------------------------------------
   !++ Public parameters & variables
-  !-----------------------------------------------------------------------------
-
-  integer, parameter :: MP_TYPEID_KESSLER  = 1 !< Type ID of a 3-class 1 moment bulk scheme (Kessler, 1969)
-  integer, parameter :: MP_TYPEID_TOMITA08 = 2 !< Type ID of a 6-class 1 moment bulk scheme (Tomita, 2008)
-  integer, parameter :: MP_TYPEID_SN14     = 3 !< Type ID of a 6-class 2 moment bulk scheme (Seiki and Nakajima, 2014)
-  integer, parameter :: MP_TYPEID_LSCOND   = 4 !< Type ID of a large-scale condensation scheme
-
+  !
   !-----------------------------------------------------------------------------
   !
   !++ Private procedure
@@ -102,7 +96,10 @@ module mod_atmos_phy_mp
   !
   !++ Private parameters & variables
   !
-  !-----------------------------------------------------------------------------
+  integer, parameter :: MP_TYPEID_KESSLER  = 1 !< Type ID of a 3-class 1 moment bulk scheme (Kessler, 1969)
+  integer, parameter :: MP_TYPEID_TOMITA08 = 2 !< Type ID of a 6-class 1 moment bulk scheme (Tomita, 2008)
+  integer, parameter :: MP_TYPEID_SN14     = 3 !< Type ID of a 6-class 2 moment bulk scheme (Seiki and Nakajima, 2014)
+  integer, parameter :: MP_TYPEID_LSCOND   = 4 !< Type ID of a large-scale condensation scheme
     
   logical :: Flag_LT = .false. ! Tentative
 
@@ -161,17 +158,17 @@ contains
     class(ModelMeshBase), target, intent(in) :: model_mesh
     class(TIME_manager_component), intent(inout) :: tm_parent_comp
 
-    real(DP) :: TIME_DT                             = UNDEF8 !< Timestep for cloud micro physics
+    real(DP) :: TIME_DT                             = UNDEF8 !< Timestep for cloud microphysics
     character(len=H_SHORT) :: TIME_DT_UNIT          = 'SEC'  !< Unit of timestep
 
-    character(len=H_MID) :: MP_TYPE = 'KESSLER'              !< Type of a cloud cloud micro physics scheme
+    character(len=H_MID) :: MP_TYPE = 'KESSLER'              !< Type of a cloud microphysics scheme
 
     logical :: do_precipitation     !< Flag whether sedimentation (precipitation) is applied
     logical :: do_negative_fixer    !< Flag whether negative fixer is applied
-    real(RP) :: limit_negative
-    integer :: ntmax_sedimentation  
-    real(RP) :: max_term_vel        
-    real(RP) :: cldfrac_thleshold
+    ! real(RP) :: limit_negative
+    integer :: ntmax_sedimentation  !< Number of time step for sedimentation
+    real(RP) :: max_term_vel        !< Maximum terminal velocity of sedimentation
+    real(RP) :: cldfrac_threshold
 
     namelist /PARAM_ATMOS_PHY_MP/ &
       TIME_DT,             &
@@ -179,10 +176,10 @@ contains
       MP_TYPE,             &
       do_precipitation,    &
       do_negative_fixer,   &
-      limit_negative,      &
+      ! limit_negative,    &
       ntmax_sedimentation, &
       max_term_vel,        &
-      cldfrac_thleshold
+      cldfrac_threshold
     
     class(AtmosMesh), pointer     :: atm_mesh
     class(MeshBase), pointer      :: ptr_mesh
@@ -192,7 +189,6 @@ contains
     integer :: ierr
 
     integer :: QS_MP, QE_MP, QA_MP
-    integer :: QS2
 
     integer :: nstep_max
     !--------------------------------------------------
@@ -202,11 +198,11 @@ contains
     LOG_NEWLINE
     LOG_INFO("ATMOS_PHY_MP_setup",*) 'Setup'
 
-    cldfrac_thleshold = EPS
+    cldfrac_threshold = EPS
 
     do_precipitation    = .true.
     do_negative_fixer   = .true.
-    limit_negative      = 0.1_RP
+!    limit_negative      = 0.1_RP
     ntmax_sedimentation = 1
     max_term_vel        = 10.0_RP
     
@@ -221,18 +217,19 @@ contains
     endif
     LOG_NML(PARAM_ATMOS_PHY_MP)
 
-    this%cldfrac_thleshold = cldfrac_thleshold
+    this%cldfrac_threshold = cldfrac_threshold
     this%do_precipitation  = do_precipitation
     this%do_negative_fixer = do_negative_fixer
     this%ntmax_sedimentation = ntmax_sedimentation
     this%max_term_vel        = max_term_vel
+    ! this%limit_negative      = limit_negative
 
     LOG_NEWLINE
     LOG_INFO("ATMOS_PHY_MP_setup",*) 'Enable negative fixer?                    : ', this%do_negative_fixer
-    LOG_INFO("ATMOS_PHY_MP_setup",*) 'Value limit of negative fixer (abs)       : ', abs(this%limit_negative)
+    ! LOG_INFO("ATMOS_PHY_MP_setup",*) 'Value limit of negative fixer (abs)       : ', abs(this%limit_negative)
     LOG_INFO("ATMOS_PHY_MP_setup",*) 'Enable sedimentation (precipitation)?     : ', this%do_precipitation
 
-    !- get mesh --------------------------------------------------
+    !- Get atmospheric mesh --------------------------------------------------
 
     call model_mesh%GetModelMesh( ptr_mesh )
     select type(model_mesh)
@@ -336,7 +333,8 @@ contains
       call ATMOS_PHY_MP_lscond_setup
     end select
 
-    !
+    !- Initialize objects for precipitation processes
+
     call this%elem%Init( elem3D%PolyOrder_h, elem3D%PolyOrder_v, .true. )
     call this%Dz%Init( this%elem%Dx3, storage_format='ELL' )
     call this%Lift%Init( this%elem%Lift, storage_format='ELL' )
@@ -446,6 +444,8 @@ contains
           lcmesh, lcmesh%refElem3D, lcmesh%lcmesh2D, lcmesh%lcmesh2D%refElem2D, this%elem_v1D ) ! (in)
       end if
       
+      !- Add tendencies calculated in this component to the total tendencies
+
       !$omp parallel private(ke, iq)
       !$omp do
       do ke = lcmesh%NeS, lcmesh%NeE
@@ -516,6 +516,12 @@ contains
     end select
 
     call this%vars%Final()
+
+    !- Finalize objects for precipitation processes
+    call this%elem%Final()
+    call this%Dz%Final(); call this%Lift%Final()
+    call this%elem_v1D%Final()
+
     return
   end subroutine AtmosPhyMp_finalize
   
@@ -622,7 +628,7 @@ contains
     integer :: domid
     integer :: ke
     integer :: ke2D, ke_z
-    integer :: p2D, pv1D, p
+    integer :: p2D
     integer :: ColMask(elem3D%Nnode_v)
 
     integer :: step
@@ -651,6 +657,8 @@ contains
 
 
     lscond_flag = .false.
+
+    !- Calculate tendencies of cloud microphysics processes ----------------------
 
     select case( this%MP_TYPEID )
     case( MP_TYPEID_KESSLER )
@@ -686,6 +694,8 @@ contains
         - ( CPtot_t(:,ke) + log( PRES(:,ke) / PRE00 ) * ( CVtot(:,ke) / CPtot(:,ke) * CPtot_t(:,ke) - CVtot_t(:,ke) ) ) &
         * PRES(:,ke) / Rtot(:,ke)
     end do
+
+    !- Calculate precipitation processes if enabled ----------------------
 
     if ( this%do_precipitation ) then
 
@@ -804,7 +814,7 @@ contains
           end if
         end do 
 
-        !- Precipiation of hydrometers
+        !- Precipitation of hydrometers
 
         if ( lscond_flag ) then
           call ATMOS_PHY_MP_lscond_precipitation( &
@@ -885,6 +895,8 @@ contains
     return
   end subroutine AtmosPhyMp_calc_tendency_core
 
+  !> Calculate tendencies of cloud microphysics processes with Kessler scheme
+  !!
 !OCL SERIAL
   subroutine calc_tendency_Kessler( this, &
     RHOQ_t_MP, CPtot_t, CVtot_t, RHOE_t, EVAPORATE,  & ! (out)
@@ -962,6 +974,8 @@ contains
     return
   end subroutine calc_tendency_Kessler
 
+  !> Calculate tendencies of cloud microphysics processes with Tomita　(2008)
+  !!
 !OCL SERIAL
   subroutine calc_tendency_Tomita08( this, &
     RHOQ_t_MP, CPtot_t, CVtot_t, RHOE_t, EVAPORATE,  & ! (out)
@@ -1066,6 +1080,8 @@ contains
     return
   end subroutine calc_tendency_Tomita08
 
+  !> Calculate tendencies of cloud microphysics processes with Seiki and Nakajima (2014)
+  !!
 !OCL SERIAL
   subroutine calc_tendency_SN14( this, &
     RHOQ_t_MP, CPtot_t, CVtot_t, RHOE_t, EVAPORATE,  & ! (out)
@@ -1171,6 +1187,8 @@ contains
     return
   end subroutine calc_tendency_SN14 
   
+  !> Calculate tendencies of large-scale condensation processes
+  !!
 !OCL SERIAL
   subroutine calc_tendency_lscond( this, &
     RHOQ_t_MP, CPtot_t, CVtot_t, RHOE_t, EVAPORATE,  & ! (out)
