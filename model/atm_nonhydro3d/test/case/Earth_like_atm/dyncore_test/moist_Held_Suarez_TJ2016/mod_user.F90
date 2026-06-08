@@ -68,8 +68,6 @@ module mod_user
     AtmosVars_GetLocalMeshPhyAuxVars, &
     AtmosVars_GetLocalMeshQTRC_Qv
 
-  use mod_user_sub_LSC, only: &
-    USER_sub_LSC_Init, USER_sub_LSC_calc_tendency
   use mod_user_sub_BLmixing, only: &
     USER_sub_BLmixing_Init, USER_sub_BLmixing_calc_tendency
   use mod_user_sub_Filter, only: &
@@ -213,8 +211,6 @@ contains
       end do
     end do
 
-    !- Setup LSC 
-    call USER_sub_LSC_Init( atm%mesh%ptr_mesh )
     !- Setup BL mixing
     call USER_sub_BLmixing_Init( atm%mesh%ptr_mesh )
 
@@ -255,10 +251,6 @@ contains
     !   call newFilter%Apply( atm%vars%PHY_TEND(RHOH_p+1), atm%mesh%ptr_mesh )
     ! end if
 
-    !-- Large-scale condensation
-    call USER_sub_LSC_calc_tendency( atm%vars, &
-      atm%mesh%ptr_mesh, dt )
-    
     !-- Boundary layer mixing
     call USER_sub_BLmixing_calc_tendency( atm%vars, &
       atm%mesh%DOptrMat(3), atm%mesh%LiftOptrMat, atm%mesh%ptr_mesh )

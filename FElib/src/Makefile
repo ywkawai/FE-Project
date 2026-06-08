@@ -166,7 +166,8 @@ OBJS_NAME_TURBULENCE = \
 	scale_atm_phy_tb_dgm_common.o 
 
 OBJS_NAME_MICROPHYS = \
-	scale_atm_phy_mp_dgm_common.o
+	scale_atm_phy_mp_dgm_common.o \
+	scale_atm_phy_mp_lscond.o
 
 OBJS_NAME_MODEL_FRAMEWORK = \
 	scale_model_meshbase_manager.o \
