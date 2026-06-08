@@ -105,19 +105,23 @@ contains
     return
   end subroutine ATMOS_PHY_MP_lscond_setup
 
-!> Calculate a state after the saturation process
-!!
+  !> Calculate a state after the saturation process
+  !!
 !OCL SERIAL
   subroutine ATMOS_PHY_MP_lscond_adjustment( &
     KA, KS, KE, IA, IS, IE, JA, JS, JE, & ! (in)
     DENS, PRES,                         & ! (in)
+    dt,                                 & ! (in)
     TEMP, QTRC, CPtot, CVtot,           & ! (inout)
     RHOE_t, EVAPORATE                   ) ! (out)
 
     use scale_atmos_saturation, only: &
       ATMOS_SATURATION_pres2qsat_liq
     use scale_atmos_hydrometeor, only: &
-      CV_WATER      
+      CP_VAPOR, &
+      CP_WATER, &
+      CV_VAPOR, &
+      CV_WATER
     use scale_const, only: &
       CL => CONST_CL
     implicit none
@@ -126,6 +130,7 @@ contains
     integer, intent(in) :: JA, JS, JE
     real(RP), intent(in) :: DENS(KA,IA,JA)
     real(RP), intent(in) :: PRES(KA,IA,JA)
+    real(RP), intent(in) :: dt
     real(RP), intent(inout) :: TEMP(KA,IA,JA) 
     real(RP), intent(inout) :: QTRC(KA,IA,JA,QA_MP)
     real(RP), intent(inout) :: CPtot(KA,IA,JA) 
@@ -134,11 +139,18 @@ contains
     real(RP), intent(out) :: EVAPORATE(KA,IA,JA)
 
     real(RP) :: Qsat(KA,IA,JA)
-    real(RP) :: tmp(KA)
+    real(RP) :: d_qc(KA)
+    real(RP) :: d_cv(KA)
+    real(RP) :: d_cp(KA)
+    real(RP) :: d_e(KA)
+    real(RP) :: cptot_(KA)
+    real(RP) :: cvtot_(KA)
     real(RP) :: coef1
     real(RP) :: coef2
 
     integer :: i, j
+
+    real(RP) :: rdt
     !----------------------------------------------
 
     call ATMOS_SATURATION_pres2qsat_liq( &
@@ -149,27 +161,47 @@ contains
 
     coef1 = LHV0**2 / ( CVDry * Rvap )
     coef2 = Rvap / LHV0
+    rdt = 1.0_RP / dt
 
-    !$omp parallel do private(i,j, tmp) collapse(2)
+    !$omp parallel do private(i,j, d_qc, d_cv, d_cp, d_e, cptot_, cvtot_) collapse(2)
     do j=JS, JE
     do i=IS, IE
-      tmp(:) = max( ( QTRC(:,i,j,I_QV) - Qsat(:,i,j) ) / ( 1.0_RP + coef1 / TEMP(:,i,j)**2 * ( 1.0_RP - coef2 * TEMP(:,i,j) ) * Qsat(:,i,j) ), &
-                    0.0_RP )
+      d_qc(:) = max( ( QTRC(:,i,j,I_QV) - Qsat(:,i,j) ) / ( 1.0_RP + coef1 / TEMP(:,i,j)**2 * ( 1.0_RP - coef2 * TEMP(:,i,j) ) * Qsat(:,i,j) ), &
+                     0.0_RP )
 
-      QTRC(:,i,j,I_QV) = QTRC(:,i,j,I_QV) - tmp(:)
-      QTRC(:,i,j,I_QC) = tmp(:)
+      QTRC(:,i,j,I_QV) = QTRC(:,i,j,I_QV) - d_qc(:)
+      QTRC(:,i,j,I_QC) = d_qc(:)
 
-      RHOE_t(:,i,j) = LHV0 * DENS(:,i,j) * tmp(:)
+      d_cp(:) = - CP_VAPOR * d_qc(:) &
+                + CP_WATER * d_qc(:)
+      cptot_(:) = CPtot(:,i,j) + d_cp(:)
+
+      d_cv(:) = - CV_VAPOR * d_qc(:) &
+                + CV_WATER * d_qc(:)
+      cvtot_(:) = CVtot(:,i,j) + d_cv(:)
+
+      d_e(:) = LHV0 * d_qc(:)
+      RHOE_t(:,i,j) = DENS(:,i,j) * d_e(:) * rdt
+
+      !* It is better to update CPtot and CVtot after updating QTRC, 
+      !* but we tetatively skip the update of them in the adjustment process to avoid the complexity of the code.
+      !
+      ! TEMP(:,i,j) = ( TEMP(:,i,j) * CVtot(:,i,j) + d_e(:) ) / cvtot_(:)
+      ! CPtot(:,i,j) = cptot_(:)
+      ! CVtot(:,i,j) = cvtot_(:)
     end do
     end do
+
     return
   end subroutine ATMOS_PHY_MP_lscond_adjustment
 
+  !> Calculate a state after the precipitation process
+  !!
 !OCL SERIAL
   subroutine ATMOS_PHY_MP_lscond_precipitation( &
     DENS, RHOQ, CPtot, CVtot, RHOE,            & ! (inout)
     sflx_rain, sflx_snow, esflx,               & ! (inout)
-    TEMP,                                      & ! (in)
+    TEMP, dt,                                  & ! (in)
     QHA, QLA, QIA, lcmesh, elem, elem1D        ) ! (in)
     
     use scale_const, only: &
@@ -193,6 +225,7 @@ contains
     real(RP), intent(inout) :: sflx_snow(elem%Nfp_v,lcmesh%Ne2DA)
     real(RP), intent(inout) :: esflx    (elem%Nfp_v,lcmesh%Ne2DA)
     real(RP), intent(in) :: TEMP (elem%Np,lcmesh%NeZ,lcmesh%Ne2D)
+    real(RP), intent(in) :: dt
     integer, intent(in) :: QLA, QIA
     class(ElementBase1D), intent(in) :: elem1D
 
@@ -216,6 +249,8 @@ contains
     integer :: ke_z
     integer :: ke
     integer :: iq
+
+    real(RP) :: rdt
     !-------------------------------------------------------
 
     do iq = 1, QHA
@@ -231,6 +266,8 @@ contains
       end if
     end do
 
+    rdt = 1.0_RP / dt
+
     !$omp parallel do collapse(2)
     do ke2D = 1, lcmesh%Ne2D
     do ke_z = 1, lcmesh%NeZ
@@ -240,6 +277,8 @@ contains
     end do
 
     do iq = 1, QHA
+      !$omp parallel do private(ke2D,ke_z,ke,p2D, &
+      !$omp dDENS, vint_weight, condens_vint_lc, dInternalEn, ien_vint_lc)
       do ke2D = 1, lcmesh%Ne2D
       do ke_z = 1, lcmesh%NeZ
         ke = ke2D + (ke_z-1)*lcmesh%Ne2D
@@ -255,14 +294,12 @@ contains
           condens_vint_lc(p2D) = sum( vint_weight(:,p2D) * dDENS(elem%Colmask(:,p2D)) )
         end do
       
-        if ( ke_z == 1 ) then
-          if ( iq > QLA ) then ! ice water
-              sflx_snow(:,ke2D) = sflx_snow(:,ke2D)  &
-                                + condens_vint_lc(:)
-          else                 ! liquid water
-              sflx_rain(:,ke2D) = sflx_rain(:,ke2D)  &
-                                + condens_vint_lc(:)
-          end if
+        if ( iq > QLA ) then ! ice water
+            sflx_snow(:,ke2D) = sflx_snow(:,ke2D)  &
+                              + condens_vint_lc(:) * rdt
+        else                 ! liquid water
+            sflx_rain(:,ke2D) = sflx_rain(:,ke2D)  &
+                              + condens_vint_lc(:) * rdt
         end if
 
         !--- update density
@@ -278,13 +315,10 @@ contains
         do p2D=1, elem%Nnode_h1D**2
           ien_vint_lc(p2D) = sum( vint_weight(:,p2D) * dInternalEn(elem%Colmask(:,p2D))  )
         end do
+        esflx(:,ke2D) = esflx(:,ke2D) &
+                      + ien_vint_lc(:) * rdt
 
         RHOE(:,ke_z,ke2D) = RHOE(:,ke_z,ke2D) + dInternalEn(:)
-
-        if ( ke_z == 1 ) then
-          esflx(:,ke2D) = esflx(:,ke2D) &
-                        + ien_vint_lc(:)
-        end if
       end do
       end do
     end do
@@ -292,14 +326,19 @@ contains
     !$omp parallel do collapse(2)
     do ke2D = 1, lcmesh%Ne2D
     do ke_z = 1, lcmesh%NeZ  
-      CPtot(:,ke_z,ke2D) = RHOCP(:,ke_z,ke2D) / DENS(:,ke_z,ke2D)
-      CVtot(:,ke_z,ke2D) = RHOCV(:,ke_z,ke2D) / DENS(:,ke_z,ke2D)
+      !* It is better to update CPtot and CVtot after updating DENS, 
+      !* but we tetatively skip the update of them in the precipitation process to avoid the complexity of the code.
+      !
+      ! CPtot(:,ke_z,ke2D) = RHOCP(:,ke_z,ke2D) / DENS(:,ke_z,ke2D)
+      ! CVtot(:,ke_z,ke2D) = RHOCV(:,ke_z,ke2D) / DENS(:,ke_z,ke2D)
     end do
     end do
 
     return
   end subroutine ATMOS_PHY_MP_lscond_precipitation
 
+  !> Calculate a tendency of momentum due to the precipitation process
+  !!
 !OCL SERIAL
   subroutine ATMOS_PHY_MP_lscond_precipitation_momentum( &
     MOMU_t, MOMV_t, MOMZ_t,                & ! (out)
