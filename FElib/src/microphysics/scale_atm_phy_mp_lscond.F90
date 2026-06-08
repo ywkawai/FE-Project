@@ -170,7 +170,7 @@ contains
                      0.0_RP )
 
       QTRC(:,i,j,I_QV) = QTRC(:,i,j,I_QV) - d_qc(:)
-      QTRC(:,i,j,I_QC) = d_qc(:)
+      QTRC(:,i,j,I_QC) = QTRC(:,i,j,I_QC) + d_qc(:)
 
       d_cp(:) = - CP_VAPOR * d_qc(:) &
                 + CP_WATER * d_qc(:)
