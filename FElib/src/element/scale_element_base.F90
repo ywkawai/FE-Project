@@ -393,7 +393,7 @@ contains
     !---------------------------------------------
 
     call ElementBase2D_gen_NodalTransferMat( elem, elem_in, &
-        elem_in%PolyOrder,                                  &
+        elem%PolyOrder,                                     &
         L2ProjMat )
     return
   end subroutine ElementBase2D_gen_L2ProjMat
