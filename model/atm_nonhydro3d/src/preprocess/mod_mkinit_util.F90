@@ -38,75 +38,12 @@ module mod_mkinit_util
   !
   !++ Public procedure
   !
-  public :: mkinitutil_gen_GPMat 
-  public :: mkinitutil_gen_Vm1Mat 
   public :: mkinitutil_calc_cosinebell
   public :: mkinitutil_calc_cosinebell_global
   public :: mkinitutil_GalerkinProjection
   public :: mkinitutil_GalerkinProjection_global
 
 contains
-
-!OCL SERIAL
-  subroutine mkinitutil_gen_GPMat( GPMat, &
-    elem_intrp, elem )
-    implicit none
-
-    class(ElementBase3D), intent(in) :: elem_intrp
-    class(ElementBase3D), intent(in) :: elem
-    real(RP), intent(out) :: GPMat(elem%Np,elem_intrp%Np)
-
-    integer :: p1, p2, p3, p_
-    integer :: p_intrp
-
-    real(RP) :: InvV_intrp(elem%Np,elem_intrp%Np)
-    !---------------------------------------------
-
-    InvV_intrp(:,:) = 0.0_RP
-    do p3=1, elem%PolyOrder_v+1
-    do p2=1, elem%PolyOrder_h+1
-    do p1=1, elem%PolyOrder_h+1
-      p_ = p1 + (p2-1)*(elem%PolyOrder_h + 1) + (p3-1)*(elem%PolyOrder_h + 1)**2
-      p_intrp = p1 + (p2-1)*(elem_intrp%PolyOrder_h + 1) + (p3-1)*(elem_intrp%PolyOrder_h + 1)**2
-      InvV_intrp(p_,:) = elem_intrp%invV(p_intrp,:)
-    end do
-    end do
-    end do
-    GPMat(:,:) = matmul(elem%V, InvV_intrp)
-
-    return
-  end subroutine mkinitutil_gen_GPMat
-
-!OCL SERIAL  
-  subroutine mkinitutil_gen_Vm1Mat( Vm1Mat, &
-    elem_intrp, elem )
-    implicit none
-
-    class(ElementBase3D), intent(in) :: elem_intrp
-    class(ElementBase3D), intent(in) :: elem
-    real(RP), intent(out) :: Vm1Mat(elem%Np,elem_intrp%Np)
-
-    integer :: p1, p2, p3, p_
-    integer :: p_intrp
-
-    real(RP) :: InvV_intrpVm1(elem%Np,elem_intrp%Np)
-    !---------------------------------------------
-
-    InvV_intrpVm1(:,:) = 0.0_RP
-    do p3=1, elem%PolyOrder_v
-    do p2=1, elem%PolyOrder_h+1
-    do p1=1, elem%PolyOrder_h+1
-      p_ = p1 + (p2-1)*(elem%PolyOrder_h + 1) + (p3-1)*(elem%PolyOrder_h + 1)**2
-      p_intrp = p1 + (p2-1)*(elem_intrp%PolyOrder_h + 1) + (p3-1)*(elem_intrp%PolyOrder_h + 1)**2
-      InvV_intrpVm1(p_,:) = elem_intrp%invV(p_intrp,:)
-    end do
-    end do
-    end do
-    Vm1Mat(:,:) = matmul(elem%V, InvV_intrpVm1)
-
-    return
-  end subroutine mkinitutil_gen_Vm1Mat
-
   !> Calculate the distribution function of a cosine bell in regional domain
   !! 
   !! If the vertical dependence is considered, specify z_func_type and z_func_params.
@@ -146,7 +83,7 @@ contains
     real(RP), allocatable :: z_func(:,:)
     real(RP) :: vx(elem%Nv), vy(elem%Nv), vz(elem%Nv)
 
-    real(RP), allocatable :: IntrpMat(:,:)
+    real(RP), allocatable :: L2ProjMat(:,:)
     real(RP), allocatable :: q_intrp(:)
 
     integer :: exponent    
@@ -160,8 +97,9 @@ contains
 
     call elem_intrp%Init( IntrpPolyOrder_h, IntrpPolyOrder_v, .false. )
 
-    allocate( IntrpMat(elem%Np,elem_intrp%Np) )
-    call mkinitutil_gen_GPMat( IntrpMat, elem_intrp, elem )
+    allocate( L2ProjMat(elem%Np,elem_intrp%Np) )
+    call elem%Generate_L2ProjMat( elem_intrp, & ! (in)
+      L2ProjMat ) ! (out)
 
     allocate( x_intrp(elem_intrp%Np,lcmesh3D%Ne), y_intrp(elem_intrp%Np,lcmesh3D%Ne), z_intrp(elem_intrp%Np,lcmesh3D%Ne) )
     allocate( z_func(elem_intrp%Np,lcmesh3D%Ne))
@@ -171,7 +109,7 @@ contains
     !$omp parallel private( &
     !$omp q_intrp, vx, vy, vz,               &
     !$omp x_intrp, y_intrp, z_intrp, r_intrp )
-    !$acc data create( x_intrp, y_intrp, z_intrp, z_func) copyin(IntrpMat)
+    !$acc data create( x_intrp, y_intrp, z_intrp, z_func) copyin(L2ProjMat)
 
     !$omp do
     !$acc parallel loop private(vx, vy, vz) present(lcmesh3D, elem_intrp, x_intrp, y_intrp, z_intrp, z_func)
@@ -214,7 +152,7 @@ contains
       elsewhere
         q_intrp(:) = 0.0_RP
       end where
-      q(:,ke) = matmul(IntrpMat, q_intrp(:) * z_func(:,ke))
+      q(:,ke) = matmul(L2ProjMat, q_intrp(:) * z_func(:,ke))
     end do
     !$omp end do
 
@@ -270,7 +208,7 @@ contains
     real(RP), allocatable :: r_intrp(:)
     real(RP) :: vx(elem%Nv), vy(elem%Nv), vz(elem%Nv)
 
-    real(RP), allocatable :: IntrpMat(:,:)
+    real(RP), allocatable :: L2ProjMat(:,:)
     real(RP), allocatable :: q_intrp(:)
 
     integer :: exponent
@@ -285,8 +223,9 @@ contains
 
     call elem_intrp%Init( IntrpPolyOrder_h, IntrpPolyOrder_v, .false. )
 
-    allocate( IntrpMat(elem%Np,elem_intrp%Np) )
-    call mkinitutil_gen_GPMat( IntrpMat, elem_intrp, elem )
+    allocate( L2ProjMat(elem%Np,elem_intrp%Np) )
+    call elem%Generate_L2ProjMat( elem_intrp, & ! (in)
+      L2ProjMat ) ! (out)
 
     allocate( x_intrp(elem_intrp%Np,lcmesh3D%Ne), y_intrp(elem_intrp%Np,lcmesh3D%Ne), z_intrp(elem_intrp%Np,lcmesh3D%Ne) )
     allocate( gam_intrp(elem_intrp%Np,lcmesh3D%Ne) )
@@ -336,7 +275,7 @@ contains
       end where
 
       ! Perform Galerkin projection
-      q(:,ke) = matmul(IntrpMat, q_intrp(:) * z_func(:,ke))
+      q(:,ke) = matmul(L2ProjMat, q_intrp(:) * z_func(:,ke))
     end do
 
     call elem_intrp%Final()
@@ -378,7 +317,7 @@ contains
   real(RP), allocatable :: x_intrp(:,:), y_intrp(:,:), z_intrp(:,:)
   real(RP) :: vx(elem%Nv), vy(elem%Nv), vz(elem%Nv)
 
-  real(RP), allocatable :: IntrpMat(:,:)
+  real(RP), allocatable :: L2ProjMat(:,:)
   real(RP), allocatable :: q_intrp(:,:)
 
   integer :: ke, p
@@ -388,13 +327,14 @@ contains
 
   call elem_intrp%Init( IntrpPolyOrder_h, IntrpPolyOrder_v, .false. )
 
-  allocate( IntrpMat(elem%Np,elem_intrp%Np) )
-  call mkinitutil_gen_GPMat( IntrpMat, elem_intrp, elem )
+  allocate( L2ProjMat(elem%Np,elem_intrp%Np) )
+  call elem%Generate_L2ProjMat( elem_intrp, & ! (in)
+    L2ProjMat ) ! (out)
 
   allocate( x_intrp(elem_intrp%Np,lcmesh3D%Ne), y_intrp(elem_intrp%Np,lcmesh3D%Ne), z_intrp(elem_intrp%Np,lcmesh3D%Ne) )
   allocate( q_intrp(elem_intrp%Np,lcmesh3D%Ne) )
 
-  !$acc data create( x_intrp, y_intrp, z_intrp, q_intrp ) copyin(IntrpMat)
+  !$acc data create( x_intrp, y_intrp, z_intrp, q_intrp ) copyin(L2ProjMat)
 
   !$omp parallel do private(vx, vy, vz)
   !$acc parallel loop gang private(vx, vy, vz) present(x_intrp, y_intrp, z_intrp, lcmesh3D,elem_intrp)
@@ -415,7 +355,7 @@ contains
     lcmesh3D, elem_intrp           ) ! (in)
 
   !$omp parallel do private( s )
-  !$acc parallel loop gang private(s) present(x_intrp, y_intrp, z_intrp, q_intrp, q, IntrpMat, lcmesh3D,elem_intrp,elem)
+  !$acc parallel loop gang private(s) present(x_intrp, y_intrp, z_intrp, q_intrp, q, L2ProjMat, lcmesh3D,elem_intrp,elem)
   do ke=lcmesh3D%NeS, lcmesh3D%NeE
     ! Perform Galerkin projection
     !$acc loop worker
@@ -423,7 +363,7 @@ contains
       s = 0.0_RP
       !$acc loop vector reduction(+:s)
       do j=1, elem_intrp%Np
-        s = s + IntrpMat(i,j) * q_intrp(j,ke)
+        s = s + L2ProjMat(i,j) * q_intrp(j,ke)
       end do
       q(i,ke) = s
     end do
@@ -474,7 +414,7 @@ end subroutine mkinitutil_GalerkinProjection
     real(RP), allocatable :: lon_intrp(:,:), lat_intrp(:,:)
     real(RP) :: vx(elem%Nv), vy(elem%Nv), vz(elem%Nv)
 
-    real(RP), allocatable :: IntrpMat(:,:)
+    real(RP), allocatable :: L2ProjMat(:,:)
     real(RP), allocatable :: q_intrp(:)
 
     integer :: ke
@@ -482,8 +422,9 @@ end subroutine mkinitutil_GalerkinProjection
 
     call elem_intrp%Init( IntrpPolyOrder_h, IntrpPolyOrder_v, .false. )
 
-    allocate( IntrpMat(elem%Np,elem_intrp%Np) )
-    call mkinitutil_gen_GPMat( IntrpMat, elem_intrp, elem )
+    allocate( L2ProjMat(elem%Np,elem_intrp%Np) )
+    call elem%Generate_L2ProjMat( elem_intrp, & ! (in)
+      L2ProjMat ) ! (out)
 
     allocate( x_intrp(elem_intrp%Np,lcmesh3D%Ne), y_intrp(elem_intrp%Np,lcmesh3D%Ne), z_intrp(elem_intrp%Np,lcmesh3D%Ne) )
     allocate( gam_intrp(elem_intrp%Np,lcmesh3D%Ne) )
@@ -514,11 +455,10 @@ end subroutine mkinitutil_GalerkinProjection
         elem_intrp, rplanet                              ) ! (in)
       
       ! Perform Galerkin projection
-      q(:,ke) = matmul( IntrpMat, q_intrp )
+      q(:,ke) = matmul( L2ProjMat, q_intrp )
     end do
 
     call elem_intrp%Final()
-  
     return
   end subroutine mkinitutil_GalerkinProjection_global
 

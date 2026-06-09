@@ -112,20 +112,9 @@ contains
     implicit none
     class(ElementBase3D), intent(in), target :: elem3D
     real(RP), intent(out) :: IntrpMat_VPOrdM1(elem3D%Np,elem3D%Np)
-
-    integer :: p1, p2, p_
-    real(RP) :: invV_VPOrdM1(elem3D%Np,elem3D%Np)
     !----------------------------------------------------------
-
-    InvV_VPOrdM1(:,:) = elem3D%invV(:,:)
-    do p2=1, elem3D%Nnode_h1D
-    do p1=1, elem3D%Nnode_h1D
-      p_ = p1 + (p2-1)*elem3D%Nnode_h1D + (elem3D%Nnode_v-1)*elem3D%Nnode_h1D**2
-      InvV_VPOrdM1(p_,:) = 0.0_RP
-    end do
-    end do
-    IntrpMat_VPOrdM1(:,:) = matmul(elem3D%V, invV_VPOrdM1)
-
+    call elem3D%Generate_ModalTruncationMat( elem3D%PolyOrder_h, elem3D%PolyOrder_v-1, & ! (in)
+      IntrpMat_VPOrdM1 ) ! (out)
     return
   end subroutine element_operation_general_generate_VPOrdM1
 
