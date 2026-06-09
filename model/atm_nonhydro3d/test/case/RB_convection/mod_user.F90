@@ -507,8 +507,6 @@ contains
       hydrostatic_calc_basicstate_constBVFreq, &
       hydrostaic_build_rho_XYZ 
     
-    use mod_mkinit_util, only: &
-      mkinitutil_gen_GPMat
     use mod_experiment, only: &
       TracerLocalMeshField_ptr
     
@@ -550,7 +548,7 @@ contains
       IntrpPolyOrder_v
 
     type(HexahedralElement) :: elem_intrp
-    real(RP), allocatable :: IntrpMat(:,:)
+    real(RP), allocatable :: GPMat(:,:)
     real(RP), allocatable :: x_intrp(:), y_intrp(:), z_intrp(:)
     real(RP) :: vx(elem%Nv), vy(elem%Nv), vz(elem%Nv)    
     
@@ -567,7 +565,7 @@ contains
     real(RP) :: bnd_SFC_PRES(elem%Nnode_h1D**2,lcmesh%Ne2DA)
     real(RP) :: rndm(elem%Np,lcmesh%Ne)
 
-    integer :: ke, ke2D, ke_x, Ke_y, ke_z
+    integer :: ke, ke2D, ke_x, ke_y, ke_z
     integer :: ierr
     !-----------------------------------------------------------------------------
 
@@ -592,8 +590,9 @@ contains
 
     call elem_intrp%Init( IntrpPolyOrder_h, IntrpPolyOrder_v, .false. )
     
-    allocate( IntrpMat(elem%Np,elem_intrp%Np) )
-    call mkinitutil_gen_GPMat( IntrpMat, elem_intrp, elem )
+    allocate( GPMat(elem%Np,elem_intrp%Np) )
+    call elem%Generate_L2ProjMat( elem_intrp, & ! (in)
+      GPMat ) ! (out)
 
     allocate( x_intrp(elem_intrp%Np), y_intrp(elem_intrp%Np), z_intrp(elem_intrp%Np) )
 
@@ -629,7 +628,7 @@ contains
         y_intrp(:) = vy(1) + 0.5_RP*(elem_intrp%x2(:) + 1.0_RP)*(vy(4) - vy(1))
         z_intrp(:) = vz(1) + 0.5_RP*(elem_intrp%x3(:) + 1.0_RP)*(vz(5) - vz(1))
   
-        PT(:) = matmul( IntrpMat, & 
+        PT(:) = matmul( GPMat, & 
             THETA0 * exp( BruntVaisalaFreq**2 / Grav * z_intrp(:) ) &
           + DTHETA / ( 1.0_RP + ((x_intrp(:) - x_c)/r_x)**2 + ((y_intrp(:) - y_c)/r_y)**2   + ((z_intrp(:) - z_c)/r_z)**2 ) )
 
@@ -671,7 +670,7 @@ contains
         ke2D = ke_x + (ke_y-1)*lcmesh%NeX
         ke = ke2D + (ke_z-1)*lcmesh%NeX*lcmesh%NeY
         DRHOT(:,ke) = &
-            ( DENS_hyd(:,ke) + DDENS(:,ke) ) * PT_zxy(:,ke_z,ke_x,Ke_y) &
+            ( DENS_hyd(:,ke) + DDENS(:,ke) ) * PT_zxy(:,ke_z,ke_x,ke_y) &
           - DENS_hyd(:,ke) * PT_hyd(:,ke)
       end do
       end do

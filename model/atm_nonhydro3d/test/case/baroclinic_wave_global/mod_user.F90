@@ -170,8 +170,6 @@ contains
     x, y, z, dom_xmin, dom_xmax, dom_ymin, dom_ymax, dom_zmin, dom_zmax,   &
     lcmesh, elem )
     
-    use mod_mkinit_util, only: &
-      mkinitutil_gen_GPMat
     use mod_experiment, only: &
       TracerLocalMeshField_ptr      
     implicit none
@@ -206,7 +204,7 @@ contains
     integer :: ke
 
     type(HexahedralElement) :: elem_intrp
-    real(RP), allocatable :: IntrpMat(:,:)
+    real(RP), allocatable :: GPMat(:,:)
 
     real(RP), allocatable :: PRES_balance(:,:)
     real(RP), allocatable :: TEMP_balance(:,:)
@@ -236,8 +234,9 @@ contains
     
     call elem_intrp%Init( IniIntrpPolyOrder_h, IniIntrpPolyOrder_v, elem%IsLumpedMatrix() )
 
-    allocate( IntrpMat(elem%Np,elem_intrp%Np) )
-    call mkinitutil_gen_GPMat( IntrpMat, elem_intrp, elem )
+    allocate( GPMat(elem%Np,elem_intrp%Np) )
+    call elem%Generate_L2ProjMat( elem_intrp, & ! (in)
+      GPMat ) ! (out)
 
     !---
 
@@ -255,11 +254,11 @@ contains
     do ke = lcmesh%NeS, lcmesh%NeE
       DENS_ip(:) = PRES_balance(:,ke) / ( Rdry * TEMP_balance(:,ke) )
 
-      PRES_hyd(:,ke) = matmul( IntrpMat, PRES_balance(:,ke) )
-      DENS_hyd(:,ke) = matmul( IntrpMat, DENS_ip(:) )
+      PRES_hyd(:,ke) = matmul( GPMat, PRES_balance(:,ke) )
+      DENS_hyd(:,ke) = matmul( GPMat, DENS_ip(:) )
 
-      MOMX(:,ke) = matmul( IntrpMat, DENS_ip(:) * ( U_balance(:,ke) + U_dash(:,ke) ) )
-      MOMY(:,ke) = matmul( IntrpMat, DENS_ip(:) * ( V_balance(:,ke) + V_dash(:,ke) ) )
+      MOMX(:,ke) = matmul( GPMat, DENS_ip(:) * ( U_balance(:,ke) + U_dash(:,ke) ) )
+      MOMY(:,ke) = matmul( GPMat, DENS_ip(:) * ( V_balance(:,ke) + V_dash(:,ke) ) )
     end do
 
     !------
