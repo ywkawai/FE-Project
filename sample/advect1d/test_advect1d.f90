@@ -280,13 +280,13 @@ contains
     call mesh%Init( NeGX, dom_xmin, dom_xmax, refElem, 1 )
     call mesh%Generate()
 
-    !-- seup fields
+    !-- setup fields
 
     call q%Init( "q", "1", mesh )
     call u%Init( "u", "m/s", mesh )
     call qexact%Init( "qexact", "1", mesh )
 
-    !-- seup data communicators
+    !-- setup data communicators
 
     field_list(1)%field1d => q
     field_list(2)%field1d => u  

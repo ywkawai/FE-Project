@@ -84,7 +84,7 @@ contains
     implicit none
     class(LocalMesh2D), intent(in) :: lmesh
     class(ElementBase2D), intent(in) :: elem
-    real(RP), intent(out) :: dqdt(elem%Np,lmesh%Ne)
+    real(RP), intent(out) :: dqdt(elem%Np,lmesh%NeA)
     real(RP), intent(in) :: q_(elem%Np,lmesh%NeA)
     real(RP), intent(in) :: u_(elem%Np,lmesh%NeA)
     real(RP), intent(in) :: v_(elem%Np,lmesh%NeA)
@@ -157,7 +157,7 @@ contains
     implicit none
     class(LocalMesh2D), intent(in) :: lmesh
     class(ElementBase2D), intent(in) :: elem
-    real(RP), intent(out) :: dqdt(elem%Np,lmesh%Ne)
+    real(RP), intent(out) :: dqdt(elem%Np,lmesh%NeA)
     real(RP), intent(in) :: q_(elem%Np,lmesh%NeA)
     real(RP), intent(in) :: u_(elem%Np,lmesh%NeA)
     real(RP), intent(in) :: v_(elem%Np,lmesh%NeA)

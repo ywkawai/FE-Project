@@ -242,7 +242,7 @@ contains
     call elem%Generate_L2ProjMat( elem_intrp, & ! (in)
       GPMat ) ! (out)
 
-    allocate( IntrpVm1Mat(elem%Np,elem_intrp%Np) )
+    allocate( IntrpVm1Mat(elem%Np,elem%Np) )
     call elem%Generate_ModalTruncationMat( elem%PolyOrder_h, elem%PolyOrder_v-1, & ! (in)
       IntrpVm1Mat ) ! (out)
 
@@ -342,7 +342,8 @@ contains
       ln_eta_intrp(:) = log(pres_hyd_intrp(:) / REF_PRES)
 
       dens_hyd_intrp(:) = pres_hyd_intrp(:) / ( Rdry * temp_hyd_intrp(:) )
-      DENS_hyd(:,ke) = matmul(IntrpVM1Mat, dens_hyd_intrp) 
+      DENS_hyd(:,ke) = matmul(GPMat, dens_hyd_intrp) 
+      DENS_hyd(:,ke) = matmul(IntrpVm1Mat, DENS_hyd(:,ke))
       DDENS(:,ke) = 0.0_RP 
 
       vx(:) = lcmesh%pos_ev(lcmesh%EToV(ke,:),1)

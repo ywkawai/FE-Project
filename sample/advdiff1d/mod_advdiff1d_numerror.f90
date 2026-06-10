@@ -208,6 +208,7 @@ contains
     end select  
 
     n = lcmesh%lcdomID
+    !$acc update host( info%qtrc%local(n)%val )
 
     allocate( s_qtrc(-info%qexact_mmax/2:info%qexact_mmax/2) )
 
@@ -232,6 +233,8 @@ contains
       q(:,ke,vid) = info%qtrc%local(n)%val(:,ke)
       qexact(:,ke,vid) = info%qtrc_exact%local(n)%val(:,ke)
     end do
+
+    !$acc update device( info%qtrc_exact%local(n)%val ) 
     return
   end subroutine set_data_lc
 
