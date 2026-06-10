@@ -328,19 +328,19 @@ contains
     
     call mesh%Generate()
     
-    !-- seup fields
+    !-- setup fields
 
     call q%Init( "q", "1", mesh )
     call qexact%Init( "qexact", "1", mesh )
     call u%Init( "u", "m/s", mesh )
     call v%Init( "v", "m/s", mesh )
     
-    !-- seup data communicators
+    !-- setup data communicators
 
-    call fields_comm%Init(3, 0, 0, mesh)
     field_list(1)%field2d => q
     field_list(2)%field2d => u
     field_list(3)%field2d => v
+    call fields_comm%Init( size(field_list), 0, 0, mesh )
   
     !-- setup history files    
 

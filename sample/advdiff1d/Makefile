@@ -9,7 +9,8 @@ TOPDIR      = $(abspath ../..)
 SAMPLE_DIR  = ../
 
 BINNAME = test_advdiff1d
-OBJS = mod_advdiff1d_numerror.o
+OBJS = mod_advdiff1d_kernel.o   \
+	   mod_advdiff1d_numerror.o
 
 RUNCONF         = test.conf
 TPROC           = 1
@@ -24,4 +25,6 @@ vis:
 clean_analysis:
 	rm -f analysis
 
-$(BUILD_DIR)/test_advdiff1d.o : $(BUILD_DIR)/mod_advdiff1d_numerror.o
+$(BUILD_DIR)/test_advdiff1d.o : \
+	$(BUILD_DIR)/mod_advdiff1d_kernel.o \
+	$(BUILD_DIR)/mod_advdiff1d_numerror.o

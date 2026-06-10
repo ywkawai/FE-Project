@@ -43,6 +43,8 @@ program test_advdiff1d
 
   use scale_timeint_rk, only: timeint_rk
 
+  use mod_advdiff1d_kernel, only: &
+    advdiff1d_kernel_cal_aux, advdiff1d_kernel_cal_tend
   use mod_advdiff1d_numerror, only: AdvDiff1DNumErrorAnalysis
   !-----------------------------------------------------------------------------
   implicit none
@@ -58,6 +60,9 @@ program test_advdiff1d
   type(sparsemat) :: Dx, Lift
 
   type(MeshLineDom1D), target :: mesh
+  type(LocalMesh1D), pointer :: lcmesh
+  integer :: domid
+
   type(MeshField1D), target :: q, qexact 
   type(MeshField1D), target :: dqdx
   type(MeshField1D), target :: u
@@ -66,17 +71,13 @@ program test_advdiff1d
   type(MeshFieldContainer), save :: field_list(2)
   type(MeshFieldContainer), save :: auxvars_list(1)
 
-  integer, save :: HST_ID(2)
+  integer, save :: HST_ID(3)
 
-  integer :: domid, k, p
-  type(LocalMesh1D), pointer :: lcmesh
-  
+  real(RP) :: tsec_
   type(timeint_rk), allocatable :: tinteg_lc(:)
-  integer :: nowstep
   integer :: rkstage
   integer :: tintbuf_ind
   integer, parameter :: RKVAR_Q = 1
-  real(RP) :: tsec_
 
   type(AdvDiff1DNumErrorAnalysis) :: numerror_analysis
   !-------------------------------------------------------
@@ -109,9 +110,8 @@ program test_advdiff1d
         lcmesh => mesh%lcmesh_list(domid)
 
         call PROF_rapstart( 'cal_prg_tend', 1)
-        call cal_aux( dqdx%local(domid)%val, &
-          q%local(domid)%val,                &
-          lcmesh, lcmesh%refElem1D       )
+        call advdiff1d_kernel_cal_aux( dqdx%local(domid)%val,    & ! (out)
+          q%local(domid)%val, Dx, Lift, lcmesh, lcmesh%refElem1D ) ! (in)
         call PROF_rapend( 'cal_prg_tend', 1) 
       end do
 
@@ -131,10 +131,10 @@ program test_advdiff1d
         tintbuf_ind = tinteg_lc(domid)%tend_buf_indmap(rkstage)      
         
         call PROF_rapstart( 'cal_prg_tend', 1)
-        call cal_prg_tend( &
-          tinteg_lc(domid)%tend_buf2D_ex(:,:,RKVAR_Q,tintbuf_ind), &
-          q%local(domid)%val, dqdx%local(domid)%val, u%local(domid)%val,   &
-          lcmesh, lcmesh%refElem1D )
+        call advdiff1d_kernel_cal_tend( &
+          tinteg_lc(domid)%tend_buf2D_ex(:,:,RKVAR_Q,tintbuf_ind),                  & ! (out)
+          q%local(domid)%val, dqdx%local(domid)%val, u%local(domid)%val, DIFF_COEF, & ! (in)
+          Dx, Lift, lcmesh, lcmesh%refElem1D )                                        ! (in)
         call PROF_rapend( 'cal_prg_tend', 1) 
 
         call PROF_rapstart( 'update_var', 1)
@@ -143,7 +143,9 @@ program test_advdiff1d
         call PROF_rapend('update_var', 1)
       end do
     end do
-    
+    !$acc update host( q%local(1)%val )
+    write(*,*) "q=", q%local(1)%val(1:refElem%Np,lcmesh%NeS:lcmesh%NeE)
+
     tsec_ = TIME_DTSEC * real(TIME_NOWSTEP-1, kind=RP)
     if ( Do_NumErrorAnalysis ) then
       call numerror_analysis%Eval( qexact, & ! (out)
@@ -153,7 +155,8 @@ program test_advdiff1d
     !* Output history file
 
     call FILE_HISTORY_meshfield_put(HST_ID(1), q)
-    call FILE_HISTORY_meshfield_put(HST_ID(2), qexact)
+    call FILE_HISTORY_meshfield_put(HST_ID(2), dqdx)
+    call FILE_HISTORY_meshfield_put(HST_ID(3), qexact)
     call FILE_HISTORY_meshfield_write()
 
     if (TIME_DOend) exit
@@ -162,139 +165,7 @@ program test_advdiff1d
   call final()
 
 contains
-  subroutine cal_prg_tend( dqdt, q_, dqdx_, u_, lmesh, elem)
-    use scale_sparsemat, only: sparsemat_matmul
-    implicit none
-
-    class(LocalMesh1D), intent(in) :: lmesh
-    class(ElementBase1D), intent(in) :: elem
-    real(RP), intent(out) :: dqdt(elem%Np,lmesh%NeA)
-    real(RP), intent(in)  :: q_(elem%Np,lmesh%NeA)
-    real(RP), intent(in)  :: dqdx_(elem%Np,lmesh%NeA)
-    real(RP), intent(in)  :: u_(elem%Np,lmesh%NeA)
-
-    real(RP) :: Fx(elem%Np), LiftDelFlx(elem%Np)
-    real(RP) :: del_flux(elem%NfpTot,lmesh%Ne)
-
-    integer :: ke
-    !------------------------------------------------------------------------
-
-    call PROF_rapstart( 'cal_dyn_tend_bndflux', 2)
-    call cal_del_flux_prg( del_flux,           & ! (out)
-      q_, dqdx_, u_, lmesh%normal_fn(:,:,1),   & ! (in)
-      lmesh%vmapM, lmesh%vmapP, lmesh, elem )    ! (in)
-    call PROF_rapend( 'cal_dyn_tend_bndflux', 2)
-
-    !-----
-    call PROF_rapstart( 'cal_dyn_tend_interior', 2)
-    !$omp parallel do private(Fx, LiftDelFlx)
-    do ke = lmesh%NeS, lmesh%NeE
-      call sparsemat_matmul(Dx, q_(:,ke) * u_(:,ke) - DIFF_COEF * dqdx_(:,ke), Fx)
-      call sparsemat_matmul(Lift, lmesh%Fscale(:,ke) * del_flux(:,ke), LiftDelFlx)
-
-      dqdt(:,ke) = - (  lmesh%Escale(:,ke,1,1) * Fx(:) &
-                     + LiftDelFlx(:) )
-    end do
-    call PROF_rapend( 'cal_dyn_tend_interior', 2)
-
-    return
-  end subroutine cal_prg_tend
-
-  subroutine cal_del_flux_prg( del_flux, q_, dqdx_, u_, nx, vmapM, vmapP, lmesh, elem )    
-    implicit none
-
-    class(LocalMesh1D), intent(in) :: lmesh
-    class(ElementBase1D), intent(in) :: elem  
-    real(RP), intent(out) ::  del_flux(elem%NfpTot*lmesh%Ne)
-    real(RP), intent(in) ::  q_(elem%Np*lmesh%NeA)
-    real(RP), intent(in) ::  u_(elem%Np*lmesh%NeA)  
-    real(RP), intent(in) ::  dqdx_(elem%Np*lmesh%NeA)
-    real(RP), intent(in) :: nx(elem%NfpTot*lmesh%Ne)
-    integer, intent(in) :: vmapM(elem%NfpTot*lmesh%Ne)
-    integer, intent(in) :: vmapP(elem%NfpTot*lmesh%Ne)
-     
-    integer :: i, iP, iM
-    real(RP) :: alpha
-    !------------------------------------------------------------------------
-
-    !$omp parallel do private(iM, iP, alpha)
-    do i=1, elem%NfpTot*lmesh%Ne
-      iM = vmapM(i); iP = vmapP(i)
-
-      alpha = 0.5_RP * abs( u_(iP) + u_(iM) )
-      del_flux(i) = 0.5_RP * (                          &
-          ( q_(iP) * u_(iP) - q_(iM) * u_(iM) ) * nx(i) &
-        - alpha * ( q_(iP) - q_(iM) )                   & 
-        - DIFF_COEF * ( 1.0_RP - nx(i) )                &
-           * ( dqdx_(iP) - dqdx_(iM) ) * nx(i)          )
-    end do
-
-    return
-  end subroutine cal_del_flux_prg
-
-  subroutine cal_aux( dqdx_, q_, lmesh, elem)
-    use scale_sparsemat, only: sparsemat_matmul
-    implicit none
-
-    class(LocalMesh1D), intent(in) :: lmesh
-    class(ElementBase1D), intent(in) :: elem
-    real(RP), intent(out) :: dqdx_(elem%Np,lmesh%NeA)
-    real(RP), intent(in) :: q_(elem%Np,lmesh%NeA)
-
-    real(RP) :: Fx(elem%Np), LiftDelFlx(elem%Np)
-    real(RP) :: del_flux(elem%NfpTot,lmesh%Ne)
-
-    integer :: ke
-    !------------------------------------------------------------------------
-
-    call PROF_rapstart( 'cal_dyn_tend_bndflux', 2)
-    call cal_bnd_flux_aux( del_flux,           & ! (out)
-      q_, lmesh%normal_fn(:,:,1),              & ! (in)
-      lmesh%vmapM, lmesh%vmapP, lmesh, elem )    ! (in)
-    call PROF_rapend( 'cal_dyn_tend_bndflux', 2)
-
-    !-----
-    call PROF_rapstart( 'cal_dyn_tend_interior', 2)
-    !$omp parallel do private(Fx, LiftDelFlx)
-    do ke = lmesh%NeS, lmesh%NeE
-      call sparsemat_matmul(Dx, q_(:,ke), Fx)
-      call sparsemat_matmul(Lift, lmesh%Fscale(:,ke)*del_flux(:,ke), LiftDelFlx)
-
-      dqdx_(:,ke) = lmesh%Escale(:,ke,1,1) * Fx(:) &
-                 + LiftDelFlx(:)
-    end do
-    call PROF_rapend( 'cal_dyn_tend_interior', 2)
-
-    return
-  end subroutine cal_aux
-
-  subroutine cal_bnd_flux_aux( del_flux, q_, nx, vmapM, vmapP, lmesh, elem )
-    implicit none
-
-    class(LocalMesh1D), intent(in) :: lmesh
-    class(ElementBase1D), intent(in) :: elem  
-    real(RP), intent(out) ::  del_flux(elem%NfpTot*lmesh%Ne)
-    real(RP), intent(in) ::  q_(elem%Np*lmesh%NeA)
-    real(RP), intent(in) :: nx(elem%NfpTot*lmesh%Ne)
-    integer, intent(in) :: vmapM(elem%NfpTot*lmesh%Ne)
-    integer, intent(in) :: vmapP(elem%NfpTot*lmesh%Ne)
-     
-    integer :: i, iP, iM
-    real(RP) :: delVar
-    !------------------------------------------------------------------------
-
-    !$omp parallel do private(i, iM, iP, delVar)
-    do i=1, elem%NfpTot*lmesh%Ne
-      iM = vmapM(i); iP = vmapP(i)
-      delVar = 0.5_RP * ( q_(iP) - q_(iM) )
-      del_flux(i) = ( 1.0_RP + nx(i) ) * delVar * nx(i)
-    end do
-
-    return
-  end subroutine cal_bnd_flux_aux  
-
-  !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
+  !> Set inital data
   subroutine set_initcond()
     use mod_fieldutil, only: fieldutil_get_profile1d_tracer 
     implicit none
@@ -329,6 +200,7 @@ contains
         q%local(idom)%val(:,ke) = matmul( GPMat, q_intrp )
         u%local(idom)%val(:,ke) = ADV_VEL
       end do
+      !$acc update device(q%local(idom)%val, u%local(idom)%val)
     end do
 
     if ( Do_NumErrorAnalysis ) then
@@ -337,7 +209,8 @@ contains
     end if
 
     call FILE_HISTORY_meshfield_put( HST_ID(1), q )
-    call FILE_HISTORY_meshfield_put( HST_ID(2), qexact )
+    call FILE_HISTORY_meshfield_put( HST_ID(2), dqdx )
+    call FILE_HISTORY_meshfield_put( HST_ID(3), qexact )
     call FILE_HISTORY_meshfield_write()   
 
     call intrpElem%Final()
@@ -440,26 +313,28 @@ contains
     call mesh%Init( NeGX, dom_xmin, dom_xmax, refElem, NLocalMeshPerPrc )
     call mesh%Generate()
 
-    !-- seup fields
+    !-- setup fields
 
     call q%Init( "q", "1", mesh )
     call qexact%Init( "qexact", "1", mesh )
-    call dqdx%Init( "q", "1", mesh )
+    call dqdx%Init( "dqdx", "1", mesh )
     call u%Init( "u", "m/s", mesh )
 
-    !-- seup data communicators
+    !-- setup data communicators
 
-    call fields_comm%Init(2, 0, mesh)
-    call auxvars_comm%Init(1, 0, mesh)
     field_list(1)%field1d => q
     field_list(2)%field1d => u
+    call fields_comm%Init( size(field_list), 0, mesh )
+
     auxvars_list(1)%field1d => dqdx
+    call auxvars_comm%Init( size(auxvars_list), 0, mesh )
       
     !-- setup history files    
 
     call FILE_HISTORY_meshfield_setup( mesh )
     call FILE_HISTORY_reg( q%varname, "q", q%unit, HST_ID(1), dim_type='X')
-    call FILE_HISTORY_reg( qexact%varname, "qexact", q%unit, HST_ID(2), dim_type='X')
+    call FILE_HISTORY_reg( dqdx%varname, "dqdx", dqdx%unit, HST_ID(2), dim_type='X')
+    call FILE_HISTORY_reg( qexact%varname, "qexact", qexact%unit, HST_ID(3), dim_type='X')
 
     !-- setup for time integrator
 
@@ -515,5 +390,4 @@ contains
 
     return
   end subroutine final
-
 end program test_advdiff1d
