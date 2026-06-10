@@ -143,8 +143,6 @@ program test_advdiff1d
         call PROF_rapend('update_var', 1)
       end do
     end do
-    !$acc update host( q%local(1)%val )
-    write(*,*) "q=", q%local(1)%val(1:refElem%Np,lcmesh%NeS:lcmesh%NeE)
 
     tsec_ = TIME_DTSEC * real(TIME_NOWSTEP-1, kind=RP)
     if ( Do_NumErrorAnalysis ) then

@@ -241,7 +241,7 @@ contains
       ebnd_flux(:,ke) = 0.5_RP * ( &  
           ( qP(:) * uP(:) - qM(:) * uM(:) ) * nx(:,ke) &
            - alpha(:) * ( qP(:) - qM(:) )              &
-           - DIFF_COEF * ( 1.0_RP + nx(:,ke) )         &
+           - DIFF_COEF * ( 1.0_RP - nx(:,ke) )         &
               * ( dqdxP(:) - dqdxM(:) ) * nx(:,ke)     )  
     end do
     return
@@ -367,7 +367,7 @@ contains
     real(RP) :: alpha
     !------------------------------------------------------------------------
 
-    !$acc parallel loop collapse(2) present(ebnd_flux, q_, u_, nx, vmapM, vmapP, lmesh, elem)
+    !$acc parallel loop collapse(2) present(ebnd_flux, q_, dqdx_, u_, nx, vmapM, vmapP, lmesh, elem)
     do ke=lmesh%NeS, lmesh%NeE
     do p=1, elem%NfpTot
       iM = vmapM(p,ke); iP = vmapP(p,ke)
