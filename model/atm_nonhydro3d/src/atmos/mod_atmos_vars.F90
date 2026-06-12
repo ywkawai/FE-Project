@@ -85,10 +85,11 @@ module mod_atmos_vars
     logical :: init_containers_item_flag(ATM_VARS_CONTAINER_LIST_MAX)       !< Flag whether the item of container_list is initialized or not. 
     
     type(AtmosVarsContainer), pointer :: container              !< Pointer to a primary container to manage variables
-    type(ModelVarManager), pointer :: PROGVARS_manager          !< Object to manage prognostic variables with primary container
-    type(ModelVarManager), pointer :: QTRCVARS_manager          !< Object to manage tracer variables with primary container
-    type(ModelVarManager), pointer :: AUXVARS_manager           !< Object to manage auxiliary variables with primary container
-    type(ModelVarManager), pointer :: AUXVARS2D_manager         !< Object to manage 2D auxiliary variables with primary container
+    type(ModelVarManager), pointer :: PROGVARS_manager          !< Pointer to manage prognostic variables with primary container
+    type(ModelVarManager), pointer :: QTRCVARS_manager          !< Pointer to manage tracer variables with primary container
+    type(ModelVarManager), pointer :: AUXVARS_manager           !< Pointer to manage auxiliary variables with primary container
+    type(ModelVarManager), pointer :: AUXVARS2D_manager         !< Pointer to manage 2D auxiliary variables with primary container
+    type(ModelVarManager), pointer :: PHYTENDS_manager          !< Pointer to manage tendency variables with physics
    
     !-
     type(ModelVarManager), pointer :: ptr_MP_AUXVARS2D_manager
@@ -393,6 +394,7 @@ contains
         this%QTRCVARS_manager => this%container%QTRCVARS_manager
         this%AUXVARS_manager  => this%container%AUXVARS_manager
         this%AUXVARS2D_manager  => this%container%AUXVARS2D_manager
+        this%PHYTENDS_manager  => this%container%PHYTENDS_manager
       end if
     end if
     return    
