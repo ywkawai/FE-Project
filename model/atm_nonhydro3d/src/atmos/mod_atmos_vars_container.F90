@@ -86,7 +86,7 @@ module mod_atmos_vars_container
 
     !-
     integer :: container_type
-    integer :: coarsend_type
+    integer :: coarsened_type
 
   contains
     procedure :: Init => AtmosVarsContainer_Init
@@ -187,7 +187,7 @@ contains
 
       this%PHYTEND_NUM_TOT = PHYTEND_NUM1 + max(1,QA)
       allocate( this%PHY_TEND(this%PHYTEND_NUM_TOT) )
-      !$acc enter data create( this%PPHY_TEND )
+      !$acc enter data create( this%PHY_TEND )
     end if
 
     call atm_dyn_dgm_nonhydro3d_common_setup_variables( &

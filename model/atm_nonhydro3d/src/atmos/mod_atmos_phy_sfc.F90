@@ -131,6 +131,8 @@ contains
     LOG_NEWLINE
     LOG_INFO("ATMOS_PHY_SFC_setup",*) 'Setup'
 
+    this%atm_var_container_typeid = ATM_VARS_CONTAINER_PRIMARY_ID
+
     !--- read namelist
     rewind(IO_FID_CONF)
     read(IO_FID_CONF,nml=PARAM_ATMOS_PHY_SFC,iostat=ierr)
@@ -141,8 +143,6 @@ contains
       call PRC_abort
     endif
     LOG_NML(PARAM_ATMOS_PHY_SFC)
-
-    this%atm_var_container_typeid = ATM_VARS_CONTAINER_PRIMARY_ID
 
     !--- Regist this compoent in the time manager
     

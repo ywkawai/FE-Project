@@ -38,7 +38,6 @@ module scale_element_operation_tensorprod3d_interp
     integer :: Np3D
     real(RP), allocatable :: IntrpMat1D_gll2gl(:,:)
     real(RP), allocatable :: IntrpMat1D_gll2gl_tr(:,:)
-    real(RP), allocatable :: IntW1D_gl(:)
 
     real(RP),  allocatable :: V1D_GL(:,:)
     real(RP),  allocatable :: inv_V1D_GL(:,:)
@@ -104,7 +103,6 @@ contains
 
     allocate( this%IntrpMat1D_gll2gl(this%NnodeH1D_GL,elem%Nnode_h1D) )
     allocate( this%IntrpMat1D_gll2gl_tr(elem%Nnode_h1D,this%NnodeH1D_GL) )
-    allocate( this%IntW1D_gl(this%NnodeH1D_GL) )
 
     !-
     call elem1D%Init( elem%PolyOrder_h, .false. )
@@ -114,7 +112,6 @@ contains
 
     do p1_=1,this%NnodeH1D_GL
       n_ = p1_
-      this%IntW1D_gl(n_) = r_int1D_i(p1_)
       do p1=1, elem%Nnode_h1D
         l_ = p1
         Vint1D(n_,l_) = P_int1D_ori_h(p1_,p1) * sqrt( real(p1-1,kind=RP) + 0.5_RP )
@@ -144,8 +141,7 @@ contains
     Vint1D_gl(:,:) = 0.0_RP
     do p1_=1,this%elem%Nnode_h1D
       n_ = p1_
-      this%IntW1D_gl(n_) = r_int1D_i(p1)
-      do p1=1, elem%PolyOrder_h+1
+      do p1=1, this%NnodeH1D_GL
         l_ = p1
         Vint1D_gl(n_,l_) = P1D_gll_h(p1_,p1) * sqrt( real(p1-1,kind=RP) + 0.5_RP )
       end do
@@ -164,7 +160,6 @@ contains
     class(ElementOptrTensorProd3DInterp), intent(inout) :: this
     !----------------------------------------
     deallocate( this%IntrpMat1D_gll2gl, this%IntrpMat1D_gll2gl_tr )
-    deallocate( this%IntW1D_gl )
 
     deallocate( this%V1D_GL, this%inv_V1D_GL )
     deallocate( this%IntrpMat1D_gl2gll, this%IntrpMat1D_gl2gll_tr )
