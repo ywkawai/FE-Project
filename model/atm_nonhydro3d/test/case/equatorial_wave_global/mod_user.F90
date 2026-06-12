@@ -198,14 +198,14 @@ contains
       do ke=lcmesh%NeS, lcmesh%NeE
         DENS(:) = DENS_hyd%val(:,ke) + DDENS%val(:,ke)
 
-        atm%vars%PHY_TEND(MOMX_p)%local(n)%val(:,ke) = atm%vars%PHY_TEND(MOMX_p)%local(n)%val(:,ke)   &
+        atm%vars%container%PHY_TEND(MOMX_p)%local(n)%val(:,ke) = atm%vars%container%PHY_TEND(MOMX_p)%local(n)%val(:,ke)   &
           - rtau * MOMX%val(:,ke)
-        atm%vars%PHY_TEND(MOMY_p)%local(n)%val(:,ke) = atm%vars%PHY_TEND(MOMY_p)%local(n)%val(:,ke)   &
+        atm%vars%container%PHY_TEND(MOMY_p)%local(n)%val(:,ke) = atm%vars%container%PHY_TEND(MOMY_p)%local(n)%val(:,ke)   &
           - rtau * MOMY%val(:,ke)
-        atm%vars%PHY_TEND(MOMZ_p)%local(n)%val(:,ke) = atm%vars%PHY_TEND(MOMZ_p)%local(n)%val(:,ke)   &
+        atm%vars%container%PHY_TEND(MOMZ_p)%local(n)%val(:,ke) = atm%vars%container%PHY_TEND(MOMZ_p)%local(n)%val(:,ke)   &
           - rtau * MOMZ%val(:,ke)
 
-        atm%vars%PHY_TEND(RHOH_p)%local(n)%val(:,ke) = atm%vars%PHY_TEND(RHOH_p)%local(n)%val(:,ke)   &
+        atm%vars%container%PHY_TEND(RHOH_p)%local(n)%val(:,ke) = atm%vars%container%PHY_TEND(RHOH_p)%local(n)%val(:,ke)   &
           + DENS(:) * ( q_heat%local(n)%val(:,ke) * fac                                                                         &
                       - rtau * CPtot%val(:,ke) * ( PRES%val(:,ke) / DENS(:) - PRES_hyd%val(:,ke) / DENS_hyd%val(:,ke) ) / Rdry  )
       end do

@@ -218,14 +218,14 @@ contains
         sfac(:) = rtau * 0.5_RP * ( 1.0_RP - cos( PI * ( lcmesh%pos_en(:,ke,3) - 25.E3_RP ) / (40.E3_RP - 25.E3_RP) ) ) 
 
         where ( lcmesh%pos_en(:,ke,3) > 25.E3_RP ) 
-          atm%vars%PHY_TEND(MOMX_p)%local(n)%val(:,ke) = atm%vars%PHY_TEND(MOMX_p)%local(n)%val(:,ke)   &
+          atm%vars%container%PHY_TEND(MOMX_p)%local(n)%val(:,ke) = atm%vars%container%PHY_TEND(MOMX_p)%local(n)%val(:,ke)   &
             - sfac(:) * ( MOMX%val(:,ke) - DENS(:) * U_0(:,ke) )
-          atm%vars%PHY_TEND(MOMY_p)%local(n)%val(:,ke) = atm%vars%PHY_TEND(MOMY_p)%local(n)%val(:,ke)   &
+          atm%vars%container%PHY_TEND(MOMY_p)%local(n)%val(:,ke) = atm%vars%container%PHY_TEND(MOMY_p)%local(n)%val(:,ke)   &
             - sfac(:) * ( MOMY%val(:,ke) - DENS(:) * V_0(:,ke) )
-          atm%vars%PHY_TEND(MOMZ_p)%local(n)%val(:,ke) = atm%vars%PHY_TEND(MOMZ_p)%local(n)%val(:,ke)   &
+          atm%vars%container%PHY_TEND(MOMZ_p)%local(n)%val(:,ke) = atm%vars%container%PHY_TEND(MOMZ_p)%local(n)%val(:,ke)   &
             - sfac(:) * MOMZ%val(:,ke)
 
-          atm%vars%PHY_TEND(RHOH_p)%local(n)%val(:,ke) = atm%vars%PHY_TEND(RHOH_p)%local(n)%val(:,ke)   &
+          atm%vars%container%PHY_TEND(RHOH_p)%local(n)%val(:,ke) = atm%vars%container%PHY_TEND(RHOH_p)%local(n)%val(:,ke)   &
             - DENS(:) * sfac(:) * CpDry * ( PRES%val(:,ke) / DENS(:) - PRES_hyd%val(:,ke) / DENS_hyd%val(:,ke) ) / Rdry
         end where
       end do
