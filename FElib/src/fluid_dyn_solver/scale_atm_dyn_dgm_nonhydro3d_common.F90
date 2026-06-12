@@ -108,42 +108,32 @@ module scale_atm_dyn_dgm_nonhydro3d_common
   !-------------------
   
 contains
+  !> Initialize a common module for atmospheric nonhydrostatic dynamical core
   subroutine atm_dyn_dgm_nonhydro3d_common_Init( mesh )
-
     implicit none
     class(MeshBase3D), intent(in) :: mesh
 
-    integer :: p1, p2, p_
     type(ElementBase3D), pointer :: elem
-    real(RP) :: invV_VPOrdM1(mesh%refElem3D%Np,mesh%refElem3D%Np)
-
     !--------------------------------------------
 
     elem => mesh%refElem3D
     allocate( IntrpMat_VPOrdM1(elem%Np,elem%Np) )
-    
-    InvV_VPOrdM1(:,:) = elem%invV
-    do p2=1, elem%Nnode_h1D
-    do p1=1, elem%Nnode_h1D
-      p_ = p1 + (p2-1)*elem%Nnode_h1D + (elem%Nnode_v-1)*elem%Nnode_h1D**2
-      InvV_VPOrdM1(p_,:) = 0.0_RP
-    end do
-    end do
-    IntrpMat_VPOrdM1(:,:) = matmul(elem%V, invV_VPOrdM1)
-
+    call mesh%refElem3D%Generate_ModalTruncationMat( elem%PolyOrder_h, elem%PolyOrder_v-1, & ! (in)
+      IntrpMat_VPOrdM1 ) ! (out)
     return
   end subroutine atm_dyn_dgm_nonhydro3d_common_Init
 
 
+  !> Finalize a common module for atmospheric nonhydrostatic dynamical core
   subroutine atm_dyn_dgm_nonhydro3d_common_Final()
     implicit none
     !--------------------------------------------
     
     deallocate( IntrpMat_VPOrdM1 )
-    
     return
   end subroutine atm_dyn_dgm_nonhydro3d_common_Final  
 
+  !> Get variable information for atmospheric nonhydrostatic dynamical core
   subroutine atm_dyn_dgm_nonhydro3d_common_get_varinfo( &
     prgvar_info, auxvar_info, phytend_info              )
 
@@ -212,10 +202,11 @@ contains
     return
   end subroutine atm_dyn_dgm_nonhydro3d_common_get_varinfo
 
+  !> Setup variable managers for atmospheric nonhydrostatic dynamical core
   subroutine atm_dyn_dgm_nonhydro3d_common_setup_variables( &
     prgvars, qtrcvars, auxvars, phytends,                             & ! (inout)
     prgvar_manager, qtrcvar_manager, auxvar_manager, phytend_manager, & ! (inout)
-    PHYTEND_NUM_TOT, mesh3D,                                          & ! (in)
+    reg_file_hist, do_setup_phytend, PHYTEND_NUM_TOT, mesh3D,         & ! (in)
     PRGVAR_VARINFO )                                                    ! (out)
 
     use scale_atmos_hydrometeor, only: &
@@ -226,24 +217,24 @@ contains
     use scale_meshfield_base, only: MeshField3D
     implicit none
     integer, intent(in) :: PHYTEND_NUM_TOT
-    type(MeshField3D), intent(inout) :: prgvars(PRGVAR_NUM)
-    type(MeshField3D), intent(inout) :: qtrcvars(0:QA)    
-    type(MeshField3D), intent(inout) :: auxvars(AUXVAR_NUM)
-    type(MeshField3D), intent(inout) :: phytends(PHYTEND_NUM_TOT)
-    type(ModelVarManager), intent(inout) :: prgvar_manager
-    type(ModelVarManager), intent(inout) :: qtrcvar_manager
-    type(ModelVarManager), intent(inout) :: auxvar_manager
-    type(ModelVarManager), intent(inout) :: phytend_manager
-    class(MeshBase3D), intent(in) :: mesh3D
-
-    type(VariableInfo), intent(out) :: PRGVAR_VARINFO(PRGVAR_NUM)
+    type(MeshField3D), intent(inout) :: prgvars(PRGVAR_NUM)       !< Array of objects to manage prognostic variables
+    type(MeshField3D), intent(inout) :: qtrcvars(0:QA)            !< Array of objects to manage tracer variables
+    type(MeshField3D), intent(inout) :: auxvars(AUXVAR_NUM)       !< Array of objects to manage auxiliary variables
+    type(MeshField3D), intent(inout) :: phytends(PHYTEND_NUM_TOT) !< Array of objects to manage physics tendency variables
+    type(ModelVarManager), intent(inout) :: prgvar_manager        !< Object to manage prognostic variables
+    type(ModelVarManager), intent(inout) :: qtrcvar_manager       !< Object to manage tracer variables
+    type(ModelVarManager), intent(inout) :: auxvar_manager        !< Object to manage auxiliary variables
+    type(ModelVarManager), intent(inout) :: phytend_manager       !< Object to manage physics tendency variables
+    logical, intent(in) :: reg_file_hist                          !< Flag whether variables are registered for history file output or not
+    logical, intent(in) :: do_setup_phytend                       !< Flag whether to setup physics tendency variables or not
+    class(MeshBase3D), intent(in) :: mesh3D                       !< Object to manage 3D mesh
+    type(VariableInfo), intent(out) :: PRGVAR_VARINFO(PRGVAR_NUM) !< Variable information with prognostic variables
 
     type(VariableInfo) :: AUXVAR_VARINFO(AUXVAR_NUM)
     type(VariableInfo) :: PHYTEND_VARINFO(PHYTEND_NUM)
 
     integer :: iv
     integer :: iq
-    logical :: reg_file_hist
 
     type(VariableInfo) :: qtrc_dry_vinfo_tmp
     type(VariableInfo) :: qtrc_dry_tp_vinfo_tmp
@@ -255,7 +246,6 @@ contains
 
     !- Initialize prognostic variables
 
-    reg_file_hist = .true.    
     do iv = 1, PRGVAR_NUM
       call prgvar_manager%Regist(  &
         PRGVAR_VARINFO(iv), mesh3D,                           & ! (in) 
@@ -265,8 +255,6 @@ contains
     end do
 
     !- Initialize tracer variables
-
-    reg_file_hist = .true.
 
     if ( QA == 0 ) then
       ! Dummy
@@ -301,7 +289,6 @@ contains
 
     !- Initialize auxiliary variables
 
-    reg_file_hist = .true.
     do iv = 1, AUXVAR_NUM
       call auxvar_manager%Regist( &
         AUXVAR_VARINFO(iv), mesh3D,       & ! (in) 
@@ -311,46 +298,49 @@ contains
 
     !- Initialize the tendency of physical processes
 
-    reg_file_hist = .true.
-    do iv = 1, PHYTEND_NUM
-      call phytend_manager%Regist( &
-        PHYTEND_VARINFO(iv), mesh3D,     & ! (in) 
-        phytends(iv),                    & ! (inout)
-        reg_file_hist, fill_zero=.true.  ) ! (in)
-    end do
+    if ( do_setup_phytend ) then
 
-    if ( QA == 0 ) then
-      ! Dummy
-      qtrc_dry_tp_vinfo_tmp%ndims    = 3
-      qtrc_dry_tp_vinfo_tmp%dim_type = 'XYZ'
-      qtrc_dry_tp_vinfo_tmp%STDNAME  = ''
-
-      iv = PHYTEND_NUM + 1
-      qtrc_dry_tp_vinfo_tmp%keyID = iv
-      qtrc_dry_tp_vinfo_tmp%NAME  = "QV_tp"
-      qtrc_dry_tp_vinfo_tmp%DESC  = "tendency of physical process for QV"
-      qtrc_dry_tp_vinfo_tmp%UNIT  = "kg/m3/s"
-      call phytend_manager%Regist( &
-        qtrc_dry_tp_vinfo_tmp, mesh3D,   & ! (in) 
-        phytends(iv),                    & ! (inout)
-        .false., fill_zero=.true.        ) ! (in)
-    else
-      qtrc_tp_vinfo_tmp%ndims    = 3
-      qtrc_tp_vinfo_tmp%dim_type = 'XYZ'
-      qtrc_tp_vinfo_tmp%STDNAME  = ''
-
-      do iq = 1, QA
-        iv = PHYTEND_NUM + iq 
-        qtrc_tp_vinfo_tmp%keyID = iv
-        qtrc_tp_vinfo_tmp%NAME  = trim(TRACER_NAME(iq))//'_tp'
-        qtrc_tp_vinfo_tmp%DESC  = 'tendency of physical process for '//trim(TRACER_DESC(iq))
-        qtrc_tp_vinfo_tmp%UNIT  = trim(TRACER_UNIT(iq))//'/s'
-
+      do iv = 1, PHYTEND_NUM    
         call phytend_manager%Regist( &
-          qtrc_tp_vinfo_tmp, mesh3D,       & ! (in) 
+          PHYTEND_VARINFO(iv), mesh3D,     & ! (in) 
           phytends(iv),                    & ! (inout)
           reg_file_hist, fill_zero=.true.  ) ! (in)
-      end do    
+      end do
+
+      if ( QA == 0 ) then
+        ! Dummy
+        qtrc_dry_tp_vinfo_tmp%ndims    = 3
+        qtrc_dry_tp_vinfo_tmp%dim_type = 'XYZ'
+        qtrc_dry_tp_vinfo_tmp%STDNAME  = ''
+
+        iv = PHYTEND_NUM + 1
+        qtrc_dry_tp_vinfo_tmp%keyID = iv
+        qtrc_dry_tp_vinfo_tmp%NAME  = "QV_tp"
+        qtrc_dry_tp_vinfo_tmp%DESC  = "tendency of physical process for QV"
+        qtrc_dry_tp_vinfo_tmp%UNIT  = "kg/m3/s"
+        call phytend_manager%Regist( &
+          qtrc_dry_tp_vinfo_tmp, mesh3D,   & ! (in) 
+          phytends(iv),                    & ! (inout)
+          .false., fill_zero=.true.        ) ! (in)
+      else
+        qtrc_tp_vinfo_tmp%ndims    = 3
+        qtrc_tp_vinfo_tmp%dim_type = 'XYZ'
+        qtrc_tp_vinfo_tmp%STDNAME  = ''
+
+        do iq = 1, QA
+          iv = PHYTEND_NUM + iq 
+          qtrc_tp_vinfo_tmp%keyID = iv
+          qtrc_tp_vinfo_tmp%NAME  = trim(TRACER_NAME(iq))//'_tp'
+          qtrc_tp_vinfo_tmp%DESC  = 'tendency of physical process for '//trim(TRACER_DESC(iq))
+          qtrc_tp_vinfo_tmp%UNIT  = trim(TRACER_UNIT(iq))//'/s'
+
+          call phytend_manager%Regist( &
+            qtrc_tp_vinfo_tmp, mesh3D,       & ! (in) 
+            phytends(iv),                    & ! (inout)
+            reg_file_hist, fill_zero=.true.  ) ! (in)
+        end do    
+      end if
+
     end if
 
     return

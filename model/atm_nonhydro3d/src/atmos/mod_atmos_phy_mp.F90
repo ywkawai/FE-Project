@@ -62,6 +62,8 @@ module mod_atmos_phy_mp
     integer :: MP_TYPEID         !< Type id of cloud microphysics scheme
     type(AtmosPhyMpVars) :: vars !< Object to manage variables with cloud microphysics
 
+    integer :: coarsend_dynvars_typeID    
+
     logical, private :: do_precipitation    !< Apply sedimentation (precipitation)?
     logical, private :: do_negative_fixer   !< Apply negative fixer?
     ! real(RP), private :: limit_negative     !< Abort if abs(fixed negative value) > abs(MP_limit_negative)
@@ -169,6 +171,7 @@ contains
     integer :: ntmax_sedimentation  !< Number of time step for sedimentation
     real(RP) :: max_term_vel        !< Maximum terminal velocity of sedimentation
     real(RP) :: cldfrac_threshold
+    integer :: coarsend_dynvars_typeid = 0
 
     namelist /PARAM_ATMOS_PHY_MP/ &
       TIME_DT,             &
@@ -179,7 +182,8 @@ contains
       ! limit_negative,    &
       ntmax_sedimentation, &
       max_term_vel,        &
-      cldfrac_threshold
+      cldfrac_threshold,   &
+      coarsend_dynvars_typeid
     
     class(AtmosMesh), pointer     :: atm_mesh
     class(MeshBase), pointer      :: ptr_mesh
@@ -206,6 +210,8 @@ contains
     ntmax_sedimentation = 1
     max_term_vel        = 10.0_RP
     
+    this%coarsend_dynvars_typeID = coarsend_dynvars_typeid
+
     !--- read namelist
     rewind(IO_FID_CONF)
     read(IO_FID_CONF,nml=PARAM_ATMOS_PHY_MP,iostat=ierr)

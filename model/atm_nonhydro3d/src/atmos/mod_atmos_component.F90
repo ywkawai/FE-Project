@@ -33,7 +33,9 @@ module mod_atmos_component
   use mod_atmos_mesh_rm, only: AtmosMeshRM
   use mod_atmos_mesh_gm, only: AtmosMeshGM
 
-  use mod_atmos_vars, only: AtmosVars
+  use mod_atmos_vars, only: &
+    AtmosVars, AtmosVarsContainer, &
+    ATM_VARS_CONTAINER_PRIMARY_ID
 
   use mod_atmos_dyn, only: AtmosDyn
   use mod_atmos_phy_sfc, only: AtmosPhySfc
@@ -232,18 +234,21 @@ contains
 !OCL SERIAL
   subroutine Atmos_setup_vars( this )
     implicit none
-
     class(AtmosComponent), intent(inout) :: this
     !----------------------------------------------------------
 
     call PROF_rapstart( 'ATM_setup_vars', 1)
 
     call this%vars%Init( this%mesh )
-    call this%vars%Regist_physvar_manager( &
-      this%phy_mp_proc%vars%auxvars2D_manager )
 
-    call PROF_rapend( 'ATM_setup_vars', 1)   
+    if ( this%phy_mp_proc%IsActivated() ) then
+      call this%vars%Regist_physvar_manager( &
+        this%phy_mp_proc%vars%auxvars2D_manager )
 
+      call this%vars%Setup_container( this%phy_mp_proc%coarsend_dynvars_typeID, this%mesh )
+    end if
+
+    call PROF_rapend( 'ATM_setup_vars', 1)
     return
   end subroutine Atmos_setup_vars
 
@@ -279,6 +284,8 @@ contains
     integer :: iq
     integer :: ke, p
     integer :: Np
+
+    class(AtmosVarsContainer), pointer :: vars_container    
     !------------------------------------------------------------------
     
     call PROF_rapstart( 'ATM_tendency', 1)
@@ -293,8 +300,8 @@ contains
 
     !* Exchange halo data ( for physics )
     call PROF_rapstart( 'ATM_exchange_prgv', 2)
-    call this%vars%PROGVARS_manager%MeshFieldComm_Exchange()
-    if ( QA > 0 ) call this%vars%QTRCVARS_manager%MeshFieldComm_Exchange()
+    call this%vars%container%PROGVARS_manager%MeshFieldComm_Exchange()
+    if ( QA > 0 ) call this%vars%container%QTRCVARS_manager%MeshFieldComm_Exchange()
     call PROF_rapend( 'ATM_exchange_prgv', 2)
 
 
@@ -303,10 +310,10 @@ contains
     !$acc data create( tp_list, tp_qtrc )
 
     do n=1, mesh%LOCAL_MESH_NUM
-      call AtmosVars_GetLocalMeshPhyTends( n, mesh, this%vars%PHYTENDS_manager ,   & ! (in)
-        tp_list(DENS_tp)%ptr, tp_list(MOMX_tp)%ptr, tp_list(MOMY_tp)%ptr,          & ! (out)
-        tp_list(MOMZ_tp)%ptr, tp_list(RHOT_tp)%ptr, tp_list(RHOH_p )%ptr, tp_qtrc, & ! (out)
-        lcmesh                                                                     ) ! (out)
+      call AtmosVars_GetLocalMeshPhyTends( n, mesh, this%vars%container%PHYTENDS_manager , & ! (in)
+        tp_list(DENS_tp)%ptr, tp_list(MOMX_tp)%ptr, tp_list(MOMY_tp)%ptr,                  & ! (out)
+        tp_list(MOMZ_tp)%ptr, tp_list(RHOT_tp)%ptr, tp_list(RHOH_p )%ptr, tp_qtrc,         & ! (out)
+        lcmesh                                                                             ) ! (out)
       !$acc enter data attach( tp_list(DENS_tp)%ptr, tp_list(MOMX_tp)%ptr, tp_list(MOMY_tp)%ptr, tp_list(MOMZ_tp)%ptr, tp_list(RHOT_tp)%ptr, tp_list(RHOH_p )%ptr, lcmesh )
 
       Np = lcmesh%refElem%Np
@@ -351,9 +358,13 @@ contains
       call PROF_rapstart('ATM_Microphysics', 1)
       tm_process_id = this%phy_mp_proc%tm_process_id
       is_update = this%time_manager%Do_process(tm_process_id) .or. force
+
+      call this%vars%Get_container( this%phy_mp_proc%coarsend_dynvars_typeID, & ! (in)
+        vars_container ) ! (out)
+      
       call this%phy_mp_proc%calc_tendency( &
-          this%mesh, this%vars%PROGVARS_manager, this%vars%QTRCVARS_manager, &
-          this%vars%AUXVARS_manager, this%vars%PHYTENDS_manager, is_update   )
+        this%mesh, vars_container%PROGVARS_manager, vars_container%QTRCVARS_manager, &
+        vars_container%AUXVARS_manager, vars_container%PHYTENDS_manager, is_update   )
       call PROF_rapend('ATM_Microphysics', 1)
     end if
     
@@ -366,9 +377,13 @@ contains
       call PROF_rapstart('ATM_Turbulence', 1)
       tm_process_id = this%phy_tb_proc%tm_process_id
       is_update = this%time_manager%Do_process(tm_process_id) .or. force
+
+      call this%vars%Get_container( ATM_VARS_CONTAINER_PRIMARY_ID, & ! (in)
+        vars_container ) ! (out)
+      
       call this%phy_tb_proc%calc_tendency( &
-          this%mesh, this%vars%PROGVARS_manager, this%vars%QTRCVARS_manager, &
-          this%vars%AUXVARS_manager, this%vars%PHYTENDS_manager, is_update   )
+        this%mesh, vars_container%PROGVARS_manager, vars_container%QTRCVARS_manager, &
+        vars_container%AUXVARS_manager, vars_container%PHYTENDS_manager, is_update   )
       call PROF_rapend('ATM_Turbulence', 1)
     end if
 
@@ -383,9 +398,13 @@ contains
       call PROF_rapstart('ATM_SurfaceFlux', 1)
       tm_process_id = this%phy_sfc_proc%tm_process_id
       is_update = this%time_manager%Do_process(tm_process_id) .or. force
+
+      call this%vars%Get_container( ATM_VARS_CONTAINER_PRIMARY_ID, & ! (in)
+        vars_container ) ! (out)
+      
       call this%phy_sfc_proc%calc_tendency( &
-          this%mesh, this%vars%PROGVARS_manager, this%vars%QTRCVARS_manager, &
-          this%vars%AUXVARS_manager, this%vars%PHYTENDS_manager, is_update   )
+        this%mesh, vars_container%PROGVARS_manager, vars_container%QTRCVARS_manager, &
+        vars_container%AUXVARS_manager, vars_container%PHYTENDS_manager, is_update   )
       call PROF_rapend('ATM_SurfaceFlux', 1)
     end if
     
@@ -406,11 +425,16 @@ contains
     integer :: tm_process_id
     logical :: is_update
     integer :: inner_itr
+
+    class(AtmosVarsContainer), pointer :: vars_container    
     !--------------------------------------------------
     call PROF_rapstart( 'ATM_update', 1)
 
     !########## Dynamics ########## 
 
+    call this%vars%Get_container( ATM_VARS_CONTAINER_PRIMARY_ID, & ! (in)
+      vars_container ) ! (out)
+        
     if ( this%dyn_proc%IsActivated() ) then
       call PROF_rapstart('ATM_Dynamics', 1)
       tm_process_id = this%dyn_proc%tm_process_id
@@ -419,16 +443,16 @@ contains
       LOG_PROGRESS(*) 'atmosphere / dynamics'   
       do inner_itr=1, this%time_manager%Get_process_inner_itr_num( tm_process_id )
         call this%dyn_proc%update( &
-          this%mesh, this%vars%PROGVARS_manager, this%vars%QTRCVARS_manager, &
-          this%vars%AUXVARS_manager, this%vars%PHYTENDS_manager, is_update   )
+          this%mesh, vars_container%PROGVARS_manager, vars_container%QTRCVARS_manager, &
+          vars_container%AUXVARS_manager, vars_container%PHYTENDS_manager, is_update   )
       end do
       call PROF_rapend('ATM_Dynamics', 1)
     end if
     
     !########## Calculate diagnostic variables ##########  
 
-    call this%vars%Calc_diagnostics()
-    call this%vars%AUXVARS_manager%MeshFieldComm_Exchange()
+    call vars_container%Calc_diagnostics()
+    call vars_container%AUXVARS_manager%MeshFieldComm_Exchange()
 
     !########## Adjustment ##########
     ! Microphysics
@@ -476,8 +500,8 @@ contains
 
     do n=1, mesh2D%LOCAL_MESH_NUM
       call AtmosVars_GetLocalMeshSfcVar( n, &
-        mesh2D, this%vars%AUXVARS2D_manager, & ! (in)
-        PREC, PREC_ENGI, lcmesh              ) ! (out)
+        mesh2D, this%vars%container%AUXVARS2D_manager, & ! (in)
+        PREC, PREC_ENGI, lcmesh                        ) ! (out)
 
       !$omp parallel do private(ke)
       do ke=lcmesh%NeS, lcmesh%NeE
