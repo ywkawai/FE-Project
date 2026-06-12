@@ -2,14 +2,18 @@
 !> module USER
 !!
 !! @par Description
-!!          User defined module for a benchmark test of dynamical core for tidally locked Earth atmosphere proposed by Heng et al. (2011, Monthly Notices of the Royal Astronomical Society).
+!!          User defined module for a benchmark test of dynamical core for tidally locked Earth atmosphere proposed by Heng et al. (2011).
 !!          
 !!
-!! @author Team SCALE
+!! @author Yuta Kawai, Team SCALE
 !!
+!! @par Reference
+!!  - Heng, K., Menou, K., and Phillipps, P. J., 2011:
+!!    Atmospheric circulation of tidally locked exoplanets: a suite of benchmark tests for dynamical solvers. 
+!!    Mon. Not. R. Astron. Soc.,  413(4), 2380-2402.
 !<
 !-------------------------------------------------------------------------------
-#include "scalelib.h"
+#include "scaleFElib.h"
 module mod_user
 
   !-----------------------------------------------------------------------------

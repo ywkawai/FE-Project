@@ -62,6 +62,7 @@ OBJS_NAME_ELEMENT = \
 	scale_element_operation_tensorprod3D_kernel.o     \
 	scale_element_operation_tensorprod3D_kernel_gpu.o \
 	scale_element_operation_tensorprod3D.o            \
+	scale_element_operation_tensorprod3D_interp.o     \
 	scale_element_operation_gpu_driver.o
 
 OBJS_NAME_MESH = \

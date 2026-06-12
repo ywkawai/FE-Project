@@ -56,6 +56,8 @@ module mod_atmos_phy_sfc
   type, extends(ModelComponentProc), public :: AtmosPhySfc
     class(AtmosMesh), pointer :: mesh !< Pointer to a object to manage the mesh with atmospheric component
 
+    integer :: atm_var_container_typeid !< Type ID of variable container for surface process
+
     integer :: SFCFLX_TYPEID          !< Type id of surface scheme
     type(AtmosPhySfcVars) :: vars     !< A object to manage variables with surface component
   contains
@@ -104,19 +106,22 @@ contains
     use scale_atm_phy_sf_bulk_simple, only: &
        ATMOS_PHY_SF_simple_setup
 
+    use mod_atmos_vars, only: ATM_VARS_CONTAINER_PRIMARY_ID
+
     implicit none
     class(AtmosPhySfc), intent(inout) :: this
     class(ModelMeshBase), target, intent(in) :: model_mesh
     class(TIME_manager_component), intent(inout) :: tm_parent_comp
 
-    real(DP) :: TIME_DT                             = UNDEF8  !< Timestep for surface process
-    character(len=H_SHORT) :: TIME_DT_UNIT          = 'SEC'   !< Unit of timestep
-
-    character(len=H_MID) :: SFCFLX_TYPE = "CONST"             !< Type of surface flux scheme
+    real(DP) :: TIME_DT                       = UNDEF8  !< Timestep for surface process
+    character(len=H_SHORT) :: TIME_DT_UNIT    = 'SEC'   !< Unit of timestep
+    character(len=H_MID) :: SFCFLX_TYPE       = "CONST" !< Type of surface flux scheme
+    integer :: atm_var_container_typeid                 !< Type ID of variable container for surface process
     namelist /PARAM_ATMOS_PHY_SFC/ &
-      TIME_DT,          &
-      TIME_DT_UNIT,     &
-      SFCFLX_TYPE
+      TIME_DT,                 &
+      TIME_DT_UNIT,            &
+      SFCFLX_TYPE,             &
+      atm_var_container_typeid
     
     integer :: ierr
     !--------------------------------------------------
@@ -125,6 +130,8 @@ contains
 
     LOG_NEWLINE
     LOG_INFO("ATMOS_PHY_SFC_setup",*) 'Setup'
+
+    this%atm_var_container_typeid = ATM_VARS_CONTAINER_PRIMARY_ID
 
     !--- read namelist
     rewind(IO_FID_CONF)

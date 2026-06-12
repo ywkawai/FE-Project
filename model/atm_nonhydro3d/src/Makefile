@@ -57,6 +57,7 @@ SUB_OBJS = \
 	mod_atmos_mesh.o             \
 	mod_atmos_mesh_rm.o          \
 	mod_atmos_mesh_gm.o          \
+	mod_atmos_vars_container.o    \
 	mod_atmos_vars.o             \
 	mod_user_base.o              \
 	mod_experiment.o             \
