@@ -1,0 +1,49 @@
+\section{Microphysics}\label{sec:microphys}
+{\bf \Large
+\begin{tabular}{ccc}
+\hline
+  Corresponding author & : & Yuta Kawai\\
+\hline
+\end{tabular}
+}
+
+To represent cloud-microphysics processes, 
+we provide two microphysics schemes using SCALE library: 
+three-class one-moment bulk and six-class one-moment bulk schemes.
+
+In addition, 
+a large-scale condensation scheme can be used. 
+It is useful to investigate a feedback mechanism between the equations of motion and moisture within simplified physics.
+
+\subsection{Three-class one-moment bulk scheme}
+%%
+As a three-class one-moment bulk microphysics scheme, 
+the Kessler parameterization \citep{kessler_1969} can be used. 
+In this scheme, 
+the distribution function of particle size is expressed only by mass concentration. 
+Considering two categories of water in cloud and rain, 
+the ratios of the densities of cloud and rain to total air density are calculated.
+
+The details of formulation are found in Section 8.3.1 of SCALE description \citep{scale_library}.
+
+\subsection{Six-class one-moment bulk scheme}
+%%
+A six-class one-moment bulk microphysics scheme is based on \citet{tomita_2008}. 
+This scheme calculates mass exchange among six categories of water substances, 
+which are water vapor, cloud water, rain, cloud ice, snow, and graupel.  
+Although the scheme largely follows \citet{lin_etal_1983}, 
+the original method of \citet{lin_etal_1983} is modified as follows: 
+Both cloud water and cloud ice are generated only by a saturation adjustment process, 
+and wet growth process of graupel is omitted.
+\citet{tomita_2008} indicates that these modifications result in 20\% reduction in computational cost 
+without significant changes on physical performance.
+
+The details of formulation are found in Section 8.3.2 of SCALE description \citep{scale_library}.
+
+
+\subsection{Large-scale condensation scheme}
+%
+If the moisture content exceeds the saturation value, the excess moisture is converted to cloud water.
+The latent heat is released to the atmosphere, and the cloud water is removed with a certain timescale.
+The typical timescale is set to about O($10^3$) seconds when horizontal grid spacing is O($10^2$) km.
+
