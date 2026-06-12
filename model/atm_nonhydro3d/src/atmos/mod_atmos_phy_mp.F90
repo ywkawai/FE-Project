@@ -62,7 +62,7 @@ module mod_atmos_phy_mp
     integer :: MP_TYPEID         !< Type id of cloud microphysics scheme
     type(AtmosPhyMpVars) :: vars !< Object to manage variables with cloud microphysics
 
-    integer :: coarsend_dynvars_typeID    
+    integer :: atm_var_container_typeid     !< Type ID of variable container for cloud microphysics
 
     logical, private :: do_precipitation    !< Apply sedimentation (precipitation)?
     logical, private :: do_negative_fixer   !< Apply negative fixer?
@@ -154,6 +154,7 @@ contains
     !------------------------------
     use scale_time_manager, only: TIME_manager_component    
     use mod_atmos_mesh, only: AtmosMesh
+    use mod_atmos_vars, only: ATM_VARS_CONTAINER_PRIMARY_ID
 
     implicit none
     class(AtmosPhyMp), intent(inout) :: this
@@ -171,7 +172,8 @@ contains
     integer :: ntmax_sedimentation  !< Number of time step for sedimentation
     real(RP) :: max_term_vel        !< Maximum terminal velocity of sedimentation
     real(RP) :: cldfrac_threshold
-    integer :: coarsend_dynvars_typeid = 0
+
+    integer :: atm_var_container_typeid = 1
 
     namelist /PARAM_ATMOS_PHY_MP/ &
       TIME_DT,             &
@@ -183,7 +185,7 @@ contains
       ntmax_sedimentation, &
       max_term_vel,        &
       cldfrac_threshold,   &
-      coarsend_dynvars_typeid
+      atm_var_container_typeid
     
     class(AtmosMesh), pointer     :: atm_mesh
     class(MeshBase), pointer      :: ptr_mesh
@@ -210,7 +212,7 @@ contains
     ntmax_sedimentation = 1
     max_term_vel        = 10.0_RP
     
-    this%coarsend_dynvars_typeID = coarsend_dynvars_typeid
+    this%atm_var_container_typeid = ATM_VARS_CONTAINER_PRIMARY_ID
 
     !--- read namelist
     rewind(IO_FID_CONF)

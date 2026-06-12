@@ -88,7 +88,7 @@ module mod_atmos_component
   !-----------------------------------------------------------------------------
 contains
 
-!> Setup an object to mange atmospheric component
+  !> Setup an object to mange atmospheric component
 !OCL SERIAL
   subroutine Atmos_setup( this )
     use scale_const, only: &
@@ -230,7 +230,7 @@ contains
     return
   end subroutine Atmos_setup
 
-!> Setup variables with the atmospheric component
+  !> Setup variables with the atmospheric component
 !OCL SERIAL
   subroutine Atmos_setup_vars( this )
     implicit none
@@ -245,8 +245,12 @@ contains
       call this%vars%Regist_physvar_manager( &
         this%phy_mp_proc%vars%auxvars2D_manager )
 
-      call this%vars%Setup_container( this%phy_mp_proc%coarsend_dynvars_typeID, this%mesh )
+      call this%vars%Setup_container( this%phy_mp_proc%atm_var_container_typeid, this%mesh )
     end if
+    if ( this%phy_sfc_proc%IsActivated() ) then
+      call this%vars%Setup_container( this%phy_sfc_proc%atm_var_container_typeid, this%mesh )
+    end if
+
 
     call PROF_rapend( 'ATM_setup_vars', 1)
     return
@@ -359,7 +363,7 @@ contains
       tm_process_id = this%phy_mp_proc%tm_process_id
       is_update = this%time_manager%Do_process(tm_process_id) .or. force
 
-      call this%vars%Get_container( this%phy_mp_proc%coarsend_dynvars_typeID, & ! (in)
+      call this%vars%Get_container( this%phy_mp_proc%atm_var_container_typeid, & ! (in)
         vars_container ) ! (out)
       
       call this%phy_mp_proc%calc_tendency( &
@@ -399,7 +403,7 @@ contains
       tm_process_id = this%phy_sfc_proc%tm_process_id
       is_update = this%time_manager%Do_process(tm_process_id) .or. force
 
-      call this%vars%Get_container( ATM_VARS_CONTAINER_PRIMARY_ID, & ! (in)
+      call this%vars%Get_container( this%phy_sfc_proc%atm_var_container_typeid, & ! (in)
         vars_container ) ! (out)
       
       call this%phy_sfc_proc%calc_tendency( &
