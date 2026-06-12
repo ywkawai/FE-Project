@@ -62,8 +62,7 @@ module scale_meshfieldcomm_base
     integer :: field_num_tot     !< Total number of fields
     integer :: nfaces_comm       !< Number of faces where halo data is communicated
 
-
-    integer :: bufsize_per_field !< Buffer size per a field
+    integer :: bufsize_per_field !< Buffer size per a field data
 
     class(MeshBase), pointer :: mesh
     real(RP), allocatable :: send_buf(:,:,:) !< Buffer for sending data
@@ -82,6 +81,11 @@ module scale_meshfieldcomm_base
     logical :: call_wait_flag_sub_get     !< Flag whether MPI_wait need to be called before getting halo data from recv_buf
 
     integer :: obj_ind
+
+    !-
+    logical :: use_vmap_wide_flag
+    integer, allocatable :: VMapB_size(:)
+    integer, allocatable :: VMapB2(:)
   contains
     procedure(MeshFieldCommBase_put), public, deferred :: Put   
     procedure(MeshFieldCommBase_get), public, deferred :: Get
@@ -94,7 +98,9 @@ module scale_meshfieldcomm_base
   public :: MeshFieldCommBase_wait_core
   public :: MeshFieldCommBase_extract_bounddata
   public :: MeshFieldCommBase_extract_bounddata_2
+  public :: MeshFieldCommBase_extract_bounddata_3
   public :: MeshFieldCommBase_set_bounddata
+  public :: MeshFieldCommBase_set_bounddata_3
 
   !> Container to save a pointer of MeshField(1D, 2D, 3D) object
   type, public :: MeshFieldContainer
@@ -269,7 +275,6 @@ contains
         deallocate( this%request_pc ) 
       end if
     end if
-
     return
   end subroutine MeshFieldCommBase_Final
 
@@ -681,6 +686,80 @@ contains
     end subroutine extract_bounddata_var2
   end subroutine MeshFieldCommBase_extract_bounddata_2
 
+!> Extract halo data from data array with MeshField object and set it to the recieving buffer
+!OCL SERIAL
+  subroutine MeshFieldCommBase_extract_bounddata_3(field_list, dim, varid_s, lcmesh_list, VMapB2, VMapB2_size, buf)
+    implicit none
+    class(MeshFieldContainer), intent(in), target :: field_list(:)
+    integer, intent(in) :: varid_s
+    integer, intent(in) :: dim
+    class(LocalMeshBase), intent(in), target :: lcmesh_list(:)
+    integer, intent(in) :: VMapB2_size
+    integer, intent(in) :: VMapB2(VMapB2_size)
+    real(RP), intent(out) :: buf(VMapB2_size,size(field_list),size(lcmesh_list))
+
+    class(LocalMeshBase), pointer :: lcmesh
+    integer :: varid
+    integer :: i, n
+    !-----------------------------------------------------------------------------
+
+    do n=1, size(lcmesh_list)
+      lcmesh => lcmesh_list(n)
+      i = 1
+      do while( i <= size(field_list) )
+        varid = varid_s + i - 1
+        if ( i+1 <= n ) then
+          if (dim==1) then
+            call extract_bounddata_var2( buf(:,varid,n), buf(:,varid+1,n), &
+              VMapB2, VMapB2_size, field_list(varid)%field1d%local(n)%val, field_list(varid+1)%field1d%local(n)%val, lcmesh%refElem%Np * lcmesh%NeA )
+          else if(dim==2) then
+            call extract_bounddata_var2( buf(:,varid,n), buf(:,varid+1,n), &
+              VMapB2, VMapB2_size, field_list(varid)%field2d%local(n)%val, field_list(varid+1)%field2d%local(n)%val, lcmesh%refElem%Np * lcmesh%NeA )
+          else if(dim==3) then
+            call extract_bounddata_var2( buf(:,varid,n), buf(:,varid+1,n), &
+              VMapB2, VMapB2_size, field_list(varid)%field3d%local(n)%val, field_list(varid+1)%field3d%local(n)%val, lcmesh%refElem%Np * lcmesh%NeA )
+          end if
+          i = i + 2
+        else
+          if (dim==1) then
+            call MeshFieldCommBase_extract_bounddata2( field_list(varid)%field1d%local(n)%val, VMapB2, VMapB2_size, lcmesh%refElem%Np*lcmesh%NeA,  &
+              buf(:,varid,n) )
+          else if(dim==2) then
+            call MeshFieldCommBase_extract_bounddata2( field_list(varid)%field2d%local(n)%val, VMapB2, VMapB2_size, lcmesh%refElem%Np*lcmesh%NeA,  &
+              buf(:,varid,n) )
+          else if(dim==3) then
+            call MeshFieldCommBase_extract_bounddata2( field_list(varid)%field3d%local(n)%val, VMapB2, VMapB2_size, lcmesh%refElem%Np*lcmesh%NeA,  &
+              buf(:,varid,n) )
+          end if
+          i = i + 1
+        end if
+      end do
+    end do
+    return
+  contains
+!OCL SERIAL
+    subroutine extract_bounddata_var2( buf1_, buf2_, VMapB, VMapB_size, var1, var2, varSize )
+      implicit none
+      integer, intent(in) :: vmapB_size
+      real(RP), intent(out) :: buf1_(vmapB_size)
+      real(RP), intent(out) :: buf2_(vmapB_size)
+      integer, intent(in) :: vmapB(vmapB_size)
+      integer, intent(in) :: varSize
+      real(RP), intent(inout) :: var1(varSize)
+      real(RP), intent(inout) :: var2(varSize)
+
+      integer :: ii
+      !-----------------------------
+      !$omp parallel do
+!OCL PREFETCH
+      do ii=1, vmapB_size
+        buf1_(ii) = var1(vmapB(ii))
+        buf2_(ii) = var2(vmapB(ii))
+      end do
+      return
+    end subroutine extract_bounddata_var2
+  end subroutine MeshFieldCommBase_extract_bounddata_3
+
 !> Extract halo data from the receiving buffer and set it to data array with MeshField object
   subroutine MeshFieldCommBase_set_bounddata(buf, refElem, mesh, var)
     implicit none
@@ -705,6 +784,22 @@ contains
     return
   end subroutine MeshFieldCommBase_set_bounddata  
 
+!> Extract halo data from the recieving buffer and set it to data array with MeshField object
+  subroutine MeshFieldCommBase_set_bounddata_3(buf, refElem, mesh, vmapB, vmapB_size, var)
+    implicit none
+    
+    class(ElementBase), intent(in) :: refElem
+    class(LocalMeshBase), intent(in) :: mesh
+    integer, intent(in) :: vmapB_size
+    integer, intent(in) :: vmapB(vmapB_size)
+    real(RP), intent(in) :: buf(vmapB_size)
+    real(RP), intent(inout) :: var(refElem%Np * mesh%NeA)
+    !-----------------------------------------------------------------------------
+
+    var(refElem%Np*mesh%NeE+1:refElem%Np*mesh%NeE+size(buf)) = buf(:)
+    return
+  end subroutine MeshFieldCommBase_set_bounddata_3
+  
   !-------------------------------------------
   
   !> Initialize an object to manage data communication of fields for a face on a local mesh

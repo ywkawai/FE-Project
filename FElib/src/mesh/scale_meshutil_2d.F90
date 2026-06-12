@@ -14,6 +14,7 @@ module scale_meshutil_2d
   !++ used modules
   !
   use scale_precision
+  use scale_io
 
   !-----------------------------------------------------------------------------
   implicit none
@@ -27,6 +28,7 @@ module scale_meshutil_2d
   public :: MeshUtil2D_genConnectivity
   public :: MeshUtil2D_buildInteriorMap
   public :: MeshUtil2D_genPatchBoundaryMap
+  public :: MeshUtil2D_genPatchBoundaryMap_wide
   public :: MeshUtil2D_buildGlobalMap
 
 contains
@@ -448,6 +450,87 @@ contains
      end subroutine eval_domain_boundary
      
   end subroutine MeshUtil2D_genPatchBoundaryMap
+
+
+!OCL SERIAL
+  subroutine MeshUtil2D_genPatchBoundaryMap_wide( VMapB2, &
+    VMapB, HaloSize,                                      &
+    NeX, NeY, Nfp )
+    use scale_prc, only: PRC_abort
+    implicit none
+    integer, intent(in) :: HaloSize
+    integer, intent(in) :: NeX
+    integer, intent(in) :: NeY
+    integer, intent(in) :: Nfp
+    integer, intent(inout) :: VMapB2(  2*(NeX + NeY)*Nfp*HaloSize )
+    integer, intent(in) :: VMapB( 2*(NeX + NeY)*Nfp )
+
+    integer :: f
+    integer :: iso, isso, i, ii
+    integer :: ke, p, ph, pv
+    !------------------------------------------------------------
+  
+    if ( HaloSize > Nfp ) then
+      LOG_INFO("MeshUtil2D_genPatchBoundaryMap_wide",*) "HaloSize should be <= Nfp. Check!"
+      call PRC_abort
+    end if
+
+    !--
+    f = 1
+    iso = 0; isso = 0
+    do ke=1, NeX
+      do ph=1, HaloSize
+        do p=1, Nfp
+          i  = iso  + p              + (ke-1)*Nfp
+          ii = isso + p + (ph-1)*Nfp + (ke-1)*Nfp*HaloSize
+          VMapB2(ii) = VMapB(i) + (ph-1)*Nfp
+        end do
+      end do
+    end do
+
+    !--
+    f = 2
+    iso  = iso  + NeX * Nfp
+    isso = isso + NeX * Nfp*HaloSize
+    do ke=1, NeY
+      do ph=1, HaloSize
+        do p=1, Nfp
+          i  = iso  + p              + (ke-1)*Nfp
+          ii = isso + p + (ph-1)*Nfp + (ke-1)*Nfp*HaloSize
+          VMapB2(ii) = VMapB(i) - (ph-1)
+        end do
+      end do
+    end do
+
+    !--
+    f = 3
+    iso  = iso  + NeY * Nfp
+    isso = isso + NeY * Nfp*HaloSize
+    do ke=1, NeX
+      do ph=1, HaloSize
+        do p=1, Nfp
+          i  = iso  + p              + (ke-1)*Nfp
+          ii = isso + p + (ph-1)*Nfp + (ke-1)*Nfp*HaloSize
+          VMapB2(ii) = VMapB(i) - (ph-1)*Nfp
+        end do
+      end do
+    end do
+
+    !--
+    f = 4
+    iso  = iso  + NeX * Nfp
+    isso = isso + NeX * Nfp*HaloSize
+    do ke=1, NeY
+      do ph=1, HaloSize
+        do p=1, Nfp
+          i  = iso  + p              + (ke-1)*Nfp
+          ii = isso + p + (ph-1)*Nfp + (ke-1)*Nfp*HaloSize
+          VMapB2(ii) = VMapB(i) + (ph-1)
+        end do
+      end do
+    end do
+    return
+  end subroutine MeshUtil2D_genPatchBoundaryMap_wide
 
 !OCL SERIAL
   subroutine MeshUtil2D_buildGlobalMap( &

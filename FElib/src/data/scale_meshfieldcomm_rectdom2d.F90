@@ -26,7 +26,9 @@ module scale_meshfieldcomm_rectdom2d
     MeshFieldCommBase_Init, MeshFieldCommBase_Final, &
     MeshFieldCommBase_extract_bounddata,             &
     MeshFieldCommBase_extract_bounddata_2,           &
+    MeshFieldCommBase_extract_bounddata_3,           &
     MeshFieldCommBase_set_bounddata,                 &
+    MeshFieldCommBase_set_bounddata_3,               &
     MeshFieldContainer
   use scale_localmesh_2d, only: Localmesh2d
    
@@ -42,6 +44,8 @@ module scale_meshfieldcomm_rectdom2d
   !> Base derived type to manage data communication with 2D rectangle domain
   type, public, extends(MeshFieldCommBase) :: MeshFieldCommRectDom2D
     class(MeshRectDom2D), pointer :: mesh2d  !< Pointer to an object representing 2D rectangular computational mesh
+
+    integer :: haloSize_1D  !< Halo size in 1D direction
   contains
     procedure, public :: Init => MeshFieldCommRectDom2D_Init
     procedure, public :: Put => MeshFieldCommRectDom2D_put
@@ -70,8 +74,11 @@ module scale_meshfieldcomm_rectdom2d
 
 contains
 !> Initialize an object to manage data communication with 2D rectangle domain
-  subroutine MeshFieldCommRectDom2D_Init( this, &
-    sfield_num, hvfield_num, htensorfield_num, mesh2d )
+  subroutine MeshFieldCommRectDom2D_Init( this,        &
+    sfield_num, hvfield_num, htensorfield_num, mesh2d, &
+    haloSize_1D )
+
+    use scale_meshutil_2d, only: MeshUtil2D_genPatchBoundaryMap_wide
     implicit none
     
     class(MeshFieldCommRectDom2D), intent(inout) :: this
@@ -79,15 +86,29 @@ contains
     integer, intent(in) :: hvfield_num                   !< Number of horizontal vector fields
     integer, intent(in) :: htensorfield_num              !< Number of horizontal vector fields
     class(MeshRectDom2D), intent(in), target :: mesh2d   !< Object to manage a 2D rectangular computational mesh
+    integer, intent(in), optional :: haloSize_1D         !< Halo size in 1D direction (default: 1)
     
     type(LocalMesh2D), pointer :: lcmesh
+    type(ElementBase2D), pointer :: elem
     integer :: n
     integer :: Nnode_LCMeshFace(COMM_FACE_NUM,mesh2d%LOCAL_MESH_NUM)
     !-----------------------------------------------------------------------------
     
     this%mesh2d => mesh2d
     lcmesh => mesh2d%lcmesh_list(1)
-    this%bufsize_per_field = 2*(lcmesh%NeX + lcmesh%NeY)*lcmesh%refElem2D%Nfp
+    elem => lcmesh%refElem2D
+
+    !-
+    if ( present(haloSize_1D) ) then
+      this%haloSize_1D = haloSize_1D
+    else
+      this%haloSize_1D = 1
+    end if
+
+    !-
+    allocate( this%VMapB_size(this%mesh2d%LOCAL_MESH_NUM) )
+
+    this%bufsize_per_field = 2 * (lcmesh%NeX + lcmesh%NeY) * elem%Nfp*this%haloSize_1D
 
     do n=1, this%mesh2d%LOCAL_MESH_NUM
       lcmesh => this%mesh2d%lcmesh_list(n)
@@ -96,6 +117,29 @@ contains
 
     call MeshFieldCommBase_Init( this, sfield_num, hvfield_num, htensorfield_num, this%bufsize_per_field, COMM_FACE_NUM, Nnode_LCMeshFace, mesh2d)  
   
+    !-
+    if ( this%haloSize_1D > 1 ) then
+      this%use_vmap_wide_flag = .true.
+      allocate( this%VMapB2(this%bufsize_per_field) )
+
+      lcmesh => this%mesh2d%lcmesh_list(1)      
+      call MeshUtil2D_genPatchBoundaryMap_wide( this%VMapB2, &
+        lcmesh%VMapB, this%haloSize_1D,                      &
+        lcmesh%NeX, lcmesh%NeY,                              &
+        elem%Nfp )
+    else
+      this%use_vmap_wide_flag = .false.
+    end if
+
+    do n=1, this%mesh2d%LOCAL_MESH_NUM
+      lcmesh => this%mesh2d%lcmesh_list(n)
+      if ( this%use_vmap_wide_flag ) then
+        this%VMapB_size(n) = size(this%VMapB2)        
+      else
+        this%VMapB_size(n) = size(lcmesh%VMapB)
+      end if
+    end do
+
     return
   end subroutine MeshFieldCommRectDom2D_Init
 
@@ -106,6 +150,9 @@ contains
     class(MeshFieldCommRectDom2D), intent(inout) :: this
     !-----------------------------------------------------------------------------
 
+    if ( this%use_vmap_wide_flag ) then
+      deallocate( this%VMapB2 )
+    end if
     call MeshFieldCommBase_Final( this )
 
     return
@@ -116,25 +163,17 @@ contains
     implicit none
     class(MeshFieldCommRectDom2D), intent(inout) :: this
     type(MeshFieldContainer), intent(in) :: field_list(:)
-    integer, intent(in) :: varid_s
-  
-    integer :: i
-    integer :: n
-    type(LocalMesh2D), pointer :: lcmesh
+    integer, intent(in) :: varid_s  
     !-----------------------------------------------------------------------------
 
     call PROF_rapstart( 'comm_put', 1)
-    ! do i=1, size(field_list)
-    ! do n=1, this%mesh%LOCAL_MESH_NUM
-    !   lcmesh => this%mesh2d%lcmesh_list(n)
-    !   call MeshFieldCommBase_extract_bounddata( field_list(i)%field2d%local(n)%val, lcmesh%refElem, lcmesh, & ! (in)
-    !     this%send_buf(:,varid_s+i-1,n) )                                                                      ! (out)
-    ! end do
-    ! end do
-    call MeshFieldCommBase_extract_bounddata_2( &
-      field_list, 2, varid_s, this%mesh2d%lcmesh_list, size(this%mesh2d%lcmesh_list(1)%VMapB), & !(in)
-      this%send_buf ) ! (out)
-
+    if ( this%use_vmap_wide_flag ) then
+       call MeshFieldCommBase_extract_bounddata_3( field_list, 2, varid_s, this%mesh2d%lcmesh_list, this%VMapB2, this%VMapB_size(1), this%send_buf )
+    else
+      call MeshFieldCommBase_extract_bounddata_2( &
+        field_list, 2, varid_s, this%mesh2d%lcmesh_list, size(this%mesh2d%lcmesh_list(1)%VMapB), & !(in)
+        this%send_buf ) ! (out)
+    end if
     call PROF_rapend( 'comm_put', 1)
     return
   end subroutine MeshFieldCommRectDom2D_put
@@ -163,8 +202,14 @@ contains
       do i=1, size(field_list) 
       do n=1, this%mesh2d%LOCAL_MESH_NUM
         lcmesh => this%mesh2d%lcmesh_list(n)
-        call MeshFieldCommBase_set_bounddata( this%recv_buf(:,varid_s+i-1,n), lcmesh%refElem, lcmesh, & !(in)
-          field_list(i)%field2d%local(n)%val )                                                         !(out)
+        if ( this%use_vmap_wide_flag ) then
+          call MeshFieldCommBase_set_bounddata_3( this%recv_buf(:,varid_s+i-1,n), lcmesh%refElem, lcmesh, & ! (in)
+            this%VMapB2, this%VMapB_size(1),                                                              & ! (in)
+            field_list(i)%field2d%local(n)%val )                                                            ! (inout)
+        else        
+          call MeshFieldCommBase_set_bounddata( this%recv_buf(:,varid_s+i-1,n), lcmesh%refElem, lcmesh, & !(in)
+            field_list(i)%field2d%local(n)%val )                                                         !(out)
+        end if
       end do
       end do
       !$acc wait(1)
