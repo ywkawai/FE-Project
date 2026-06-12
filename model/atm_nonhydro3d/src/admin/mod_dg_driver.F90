@@ -174,6 +174,7 @@ contains
       !* output history files *************************
 
       if ( atmos%IsActivated() ) call atmos%vars%History()
+      if ( atmos%dyn_proc%IsActivated() ) call atmos%dyn_proc%dyn_vars%History()
       if ( atmos%phy_tb_proc%IsActivated() ) call atmos%phy_tb_proc%vars%History()
       if ( atmos%phy_mp_proc%IsActivated() ) call atmos%phy_mp_proc%vars%History()
       if ( atmos%phy_sfc_proc%IsActivated() ) call atmos%phy_sfc_proc%vars%History()

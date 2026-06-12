@@ -185,6 +185,7 @@ contains
     return
   end subroutine AtmosDynVars_Final
 
+  !> Output history files for variables with atmospheric dynamics component
   subroutine AtmosDynVars_History( this )
     use scale_file_history_meshfield, only: FILE_HISTORY_meshfield_put
     implicit none
