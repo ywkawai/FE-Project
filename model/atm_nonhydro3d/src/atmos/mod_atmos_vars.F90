@@ -376,6 +376,11 @@ contains
     class(AtmosMesh), target, intent(inout) :: atm_mesh
     !---------------------------------------------
     
+    if ( container_type < ATM_VARS_CONTAINER_PRIMARY_ID .or. container_type > ATM_VARS_CONTAINER_LIST_MAX ) then
+      LOG_ERROR("ATMOS_vars_setup_container",*) 'container_type is out of range. Check!', container_type
+      call PRC_abort
+    end if
+
     if ( .not. this%init_containers_item_flag(container_type) ) then
       LOG_INFO("ATMOS_vars_setup_container",*) 'container_type: ', container_type
 
@@ -403,6 +408,11 @@ contains
     integer, intent(in) :: container_type            !< Type of container to get. 1: primary container, >=2: other containers
     class(AtmosVarsContainer), pointer :: container  !< Pointer to a container to manage variables with atmospheric component
     !---------------------------------------------
+
+    if ( container_type < ATM_VARS_CONTAINER_PRIMARY_ID .or. container_type > ATM_VARS_CONTAINER_LIST_MAX ) then
+      LOG_ERROR("ATMOS_vars_get_container",*) 'container_type is out of range. Check!', container_type
+      call PRC_abort
+    end if
 
     if ( this%init_containers_item_flag(container_type) ) then
       container => this%container_list(container_type)
