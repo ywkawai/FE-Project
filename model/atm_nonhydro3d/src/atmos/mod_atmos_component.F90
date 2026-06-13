@@ -356,6 +356,12 @@ contains
     !$acc wait(1)
     !$acc end data
 
+    ! Preprocessing for variables before calculating physics tendencies
+
+    call PROF_rapstart('ATM_PreOptrForPhys', 1)
+    call this%vars%PreprocOperationForPhys( this%dyn_proc%dyncore_driver )
+    call PROF_rapend('ATM_PreOptrForPhys', 1)
+
     ! Cloud Microphysics
 
     if ( this%phy_mp_proc%IsActivated() ) then

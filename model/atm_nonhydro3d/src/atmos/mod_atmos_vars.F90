@@ -104,6 +104,8 @@ module mod_atmos_vars
 
     type(FILE_restart_meshfield_component) :: restart_file !< Object to manage restart file for atmospheric component
     
+    character(len=H_MID) :: phy_preproc_file_basename !< Basename of configuration file for preprocesses before physics
+
     logical :: check_range
     logical :: check_total
 
@@ -115,6 +117,7 @@ module mod_atmos_vars
     procedure :: Calc_diagnostics => AtmosVars_CalculateDiagnostics
     procedure :: Calc_diagVar => AtmosVars_CalcDiagvar
     procedure :: Calc_diagVar2D => AtmosVars_CalcDiagvar2D
+    procedure :: PreprocOperationForPhys => AtmosVars_PreprocOperationForPhys
     procedure :: History => AtmosVars_History
     procedure :: Check   => AtmosVars_Check
     procedure :: Monitor => AtmosVars_Monitor
@@ -232,7 +235,10 @@ contains
     logical :: CHECK_RANGE    = .false.  !< Flag whether the range of values is checked
     logical :: CHECK_TOTAL    = .false.
 
+    character(len=H_MID) :: PHY_PREPROC_FILE_BASENAME = 'phy_preoperation' !< Basename of configuration file for preprocesses before physics
+
     namelist / PARAM_ATMOS_VARS / &
+      PHY_PREPROC_FILE_BASENAME, &
       CHECK_RANGE, &
       CHECK_TOTAL
 
@@ -270,6 +276,8 @@ contains
        call PRC_abort
     endif
     LOG_NML(PARAM_ATMOS_VARS)
+
+    this%phy_preproc_file_basename = PHY_PREPROC_FILE_BASENAME
 
     !- Set the pointer of mesh
     this%mesh => atm_mesh
@@ -386,7 +394,7 @@ contains
       LOG_INFO("ATMOS_vars_setup_container",*) 'container_type: ', container_type
 
       this%init_containers_item_flag(container_type) = .true.
-      call this%container_list(container_type)%Init( container_type, atm_mesh )
+      call this%container_list(container_type)%Init( container_type, this%phy_preproc_file_basename, atm_mesh )
 
       if ( container_type == 1 ) then
         this%container => this%container_list(container_type)
@@ -864,6 +872,26 @@ contains
 
     return
   end subroutine AtmosVars_Monitor_core
+
+  !> Preprocess operation for physical processes
+  !!
+!OCL SERIAL
+  subroutine AtmosVars_PreprocOperationForPhys( this, dyncore )
+    use scale_atm_dyn_dgm_driver_nonhydro3d, only: AtmDynDGMDriver_nonhydro3d
+    implicit none
+    class(AtmosVars), intent(inout) :: this
+    class(AtmDynDGMDriver_nonhydro3d), intent(in) :: dyncore
+
+    integer :: ic
+    !--------------------------------------------------------------------------
+
+    do ic=ATM_VARS_CONTAINER_PRIMARY_ID+1, ATM_VARS_CONTAINER_LIST_MAX
+      if ( this%init_containers_item_flag(ic) ) then
+        call this%container_list(ic)%Preproc_opearation_for_phys( this%container, dyncore )
+      end if
+    end do
+    return
+  end subroutine AtmosVars_PreprocOperationForPhys
 
   !-----------------------------------------------------------------------------
   !> Calculate diagnostic variables

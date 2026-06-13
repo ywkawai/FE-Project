@@ -45,7 +45,11 @@ module mod_atmos_vars_container
     PHYTEND_RHOH_ID
 
   use mod_atmos_mesh, only: AtmosMesh  
-
+  use mod_atmos_phy_preproc, only: &
+    PhysPreProcBase,        &
+    PhysPreProcNone,        &
+    PhysPreProcModalFilter, &
+    PhysPreProcGlobalFilter
   !-----------------------------------------------------------------------------
   implicit none
   private
@@ -86,7 +90,8 @@ module mod_atmos_vars_container
 
     !-
     integer :: container_type
-    integer :: coarsened_type
+    integer :: phy_preproc_operation_type
+    class(PhysPreProcBase), allocatable :: phy_preproc
 
   contains
     procedure :: Init => AtmosVarsContainer_Init
@@ -94,6 +99,9 @@ module mod_atmos_vars_container
     procedure :: Calc_diagnostics => AtmosVarsContainer_calculateDiagnostics
     procedure :: Calc_diagVar => AtmosVarsContainer_CalcDiagvar
     procedure :: Calc_SpecificHeat => AtmosVarsContainer_calc_specific_heat
+    procedure :: Preproc_opearation_for_phys => AtmosVarsContainer_physics_preoperation
+
+    procedure, private :: Setup_phys_preoperation
   end type AtmosVarsContainer
 
   integer, parameter, public :: ATM_VARS_CONTAINER_PRIMARY_ID = 1
@@ -129,10 +137,17 @@ module mod_atmos_vars_container
     VariableInfo( ATMOS_AUXVARS2D_PREC_ID     ,      'PREC', 'surface precipitaion flux'        , 'kg/m2/s', 2, 'XY', 'precipitation_flux'  ), &
     VariableInfo( ATMOS_AUXVARS2D_PREC_ENGI_ID, 'PREC_ENGI', 'internal energy of precipitation' ,    'J/m2', 2, 'XY', ''  )                    /
 
+  !
+  integer, parameter :: PHY_PREOPERATION_TYPEID_NONE         = 0
+  integer, parameter :: PHY_PREOPERATION_TYPEID_MODALFILTER  = 1
+  integer, parameter :: PHY_PREOPERATION_TYPEID_GLOBALFILTER = 2
+
 contains
 
 !OCL SERIAL
-  subroutine AtmosVarsContainer_Init( this, container_type, atm_mesh )
+  subroutine AtmosVarsContainer_Init( this, &
+    container_type, phy_preproc_file_basename,     &
+    atm_mesh )
     use scale_tracer, only: &
       TRACER_NAME, TRACER_DESC, TRACER_UNIT
     use scale_atm_dyn_dgm_nonhydro3d_common, only: &
@@ -142,7 +157,7 @@ contains
     implicit none
     class(AtmosVarsContainer), intent(inout) :: this
     integer, intent(in) :: container_type
-
+    character(len=*), intent(in) :: phy_preproc_file_basename
     class(AtmosMesh), target, intent(inout) :: atm_mesh
 
     integer :: iv
@@ -251,6 +266,9 @@ contains
           reg_file_hist, fill_zero=.true.      ) ! (in)
       end do
     end if
+
+    !- Setup preoperation before physics
+    call this%Setup_phys_preoperation( phy_preproc_file_basename, mesh3D, mesh3D%refElem3D )
 
     return
   end subroutine AtmosVarsContainer_Init
@@ -497,6 +515,42 @@ contains
     return
   end subroutine AtmosVarsContainer_calc_specific_heat
 
+
+!OCL SERIAL  
+  subroutine AtmosVarsContainer_physics_preoperation( this, &
+    container_ori, dyncore )
+    use scale_file_history_meshfield, only: &
+      FILE_HISTORY_meshfield_in
+    use scale_atm_dyn_dgm_driver_nonhydro3d, only: AtmDynDGMDriver_nonhydro3d
+    implicit none
+    class(AtmosVarsContainer), intent(inout), target :: this
+    class(AtmosVarsContainer), intent(in), target :: container_ori
+    class(AtmDynDGMDriver_nonhydro3d), intent(in) :: dyncore
+
+    integer :: n
+    integer :: iv
+
+    character(len=H_SHORT) :: varname_ori
+    character(len=H_SHORT) :: typeid_s
+    !----------------------------------------------
+
+    if ( this%container_type == ATM_VARS_CONTAINER_PRIMARY_ID ) return
+
+    LOG_INFO("AtmosVarsContainer_physics_preoperation",*) "..."
+    
+    call this%phy_preproc%Operate( this%PROG_VARS, this%QTRC_VARS, this%AUX_VARS,  & ! (inout)
+      container_ori%PROG_VARS, container_ori%QTRC_VARS, container_ori%AUX_VARS ) ! (in)
+
+    call this%Calc_SpecificHeat()
+
+    call dyncore%update_therm_hyd( this%AUXVARS_manager )
+    call dyncore%calc_pressure( this%AUX_VARS(AUXVAR_PRES_ID), &
+      this%PROGVARS_manager, this%AUXVARS_manager              )
+    
+    call this%Calc_diagnostics()
+
+    return
+  end subroutine AtmosVarsContainer_physics_preoperation
 
   !----  Getter ---------------------------------------------------------------------------
 
@@ -888,7 +942,99 @@ contains
   end subroutine AtmosVars_GetLocalMeshQTRCPhyTend  
   
 !-- private -----------------------------------------------------------------------
-    
+!OCL SERIAL
+  subroutine setup_phys_preoperation( this, phy_preproc_file_basename, mesh3D, elem3D )
+    use scale_prc, only: PRC_isMaster
+    implicit none
+    class(AtmosVarsContainer), intent(inout) :: this
+    character(len=*), intent(in) :: phy_preproc_file_basename
+    class(MeshBase3D), intent(in) :: mesh3D
+    class(ElementBase3D), intent(in) :: elem3D
+
+    integer :: fid
+    character(len=H_SHORT) :: PHY_PREPROC_OPERATION_TYPE = 'None' ! ModalFilter / GlobalFilter
+    real(RP) :: MF_ALPHA_h
+    integer :: MF_ORDER_h
+    real(RP) :: MF_ALPHA_v
+    integer :: MF_ORDER_v
+
+    character(len=H_SHORT) :: GLFilterOptrType
+    character(len=H_SHORT) :: GLFilterShape
+    real(RP) :: GLFilterWidthFac
+    integer :: Nnode_h1D_reconst
+    namelist / PARAM_ATMOS_VARS_CONTAINER / &
+      PHY_PREPROC_OPERATION_TYPE, &
+      MF_ALPHA_h, MF_ORDER_h, &
+      MF_ALPHA_v, MF_ORDER_v, &
+      GLFilterOptrType, GLFilterShape, GLFilterWidthFac, Nnode_h1D_reconst
+
+    character(len=H_LONG) :: cnfname
+    integer :: ierr
+
+    class(PhysPreProcBase), pointer :: phys_pp_ptr
+    !----------------------------------------
+
+    if ( this%container_type == 1 ) then
+      this%phy_preproc_operation_type = PHY_PREOPERATION_TYPEID_NONE
+      return
+    end if
+
+    !--
+    MF_ALPHA_h = 0.0_RP; MF_ORDER_h = 16
+    MF_ALPHA_v = 0.0_RP; MF_ORDER_v = 16
+
+    GLFilterOptrType = ''
+    GLFilterShape    = 'GAUSSIAN'
+    GLFilterWidthFac = 1.0_RP
+
+    Nnode_h1D_reconst = -1
+
+    write(cnfname,'(A,I2.2,A)') trim(phy_preproc_file_basename), this%container_type, ".conf"
+    fid = IO_CNF_open(trim(cnfname), PRC_isMaster)
+
+    rewind(fid)
+    read(fid,nml=PARAM_ATMOS_VARS_CONTAINER,iostat=ierr)
+    if( ierr < 0 ) then !--- missing
+      LOG_INFO("ATMOS_vars_container/setup_phys_preoperation",*) 'Not found namelist. Default used.'
+    elseif( ierr > 0 ) then !--- fatal error
+      LOG_ERROR("ATMOS_vars_container/setup_phys_preoperation",*) 'Invalid names in namelist PARAM_ATMOS_VARS_CONTAINER. Check!'
+      call PRC_abort
+    endif
+    LOG_NML(PARAM_ATMOS_VARS_CONTAINER)
+    close(fid)
+
+    !--
+    select case( PHY_PREPROC_OPERATION_TYPE ) 
+    case( 'None' )
+      this%phy_preproc_operation_type = PHY_PREOPERATION_TYPEID_NONE
+      allocate( PhysPreProcNone :: this%phy_preproc )
+    case( 'ModalFilter' )
+      this%phy_preproc_operation_type = PHY_PREOPERATION_TYPEID_MODALFILTER 
+      allocate( PhysPreProcModalFilter :: this%phy_preproc )
+    case( 'GlobalFilter' )
+      this%phy_preproc_operation_type = PHY_PREOPERATION_TYPEID_GLOBALFILTER
+      allocate( PhysPreProcGlobalFilter :: this%phy_preproc )
+    case default
+      LOG_ERROR("ATMOS_vars_container/setup_phys_preoperation",*) 'Unsupported PHY_PREPROC_OPERATION_TYPE is specified. Check!', PHY_PREPROC_OPERATION_TYPE
+      call PRC_abort
+    end select
+
+    select type( phys_pp_ptr => this%phy_preproc )
+    class is (PhysPreProcNone)
+      call phys_pp_ptr%Init( mesh3D )
+    class is (PhysPreProcModalFilter)
+      call phys_pp_ptr%Init( MF_ALPHA_h, MF_ORDER_h, MF_ALPHA_v, MF_ORDER_v, mesh3D )
+    class is (PhysPreProcGlobalFilter)
+      if ( Nnode_h1D_reconst < 0 ) Nnode_h1D_reconst = elem3D%Nnode_h1D
+      call phys_pp_ptr%Init( GLFilterOptrType, &
+        GLFilterShape, GLFilterWidthFac, &
+        Nnode_h1D_reconst,               &
+        mesh3D )
+    end select
+
+    return
+  end subroutine setup_phys_preoperation
+
 !OCL SERIAL
   subroutine vars_calc_diagnoseVar_lc( field_name, var_out,  &
     DDENS_, MOMX_, MOMY_, MOMZ_, PRES_, QDRY_, QTRC,         &
