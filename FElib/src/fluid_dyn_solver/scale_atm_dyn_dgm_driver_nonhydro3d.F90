@@ -979,7 +979,7 @@ contains
 
     implicit none
 
-    class(AtmDynDGMDriver_nonhydro3d), intent(inout) :: this
+    class(AtmDynDGMDriver_nonhydro3d), intent(in) :: this
     class(MeshField3D), intent(inout) :: PRES
     class(ModelVarManager), intent(inout) :: PROG_VARS
     class(ModelVarManager), intent(inout) :: AUX_VARS
@@ -1024,7 +1024,7 @@ contains
     use scale_atm_dyn_dgm_nonhydro3d_common, only: &
       atm_dyn_dgm_nonhydro3d_common_calc_therm_phyd
     implicit none
-    class(AtmDynDGMDriver_nonhydro3d), intent(inout) :: this
+    class(AtmDynDGMDriver_nonhydro3d), intent(in) :: this
     class(ModelVarManager), intent(inout) :: AUX_VARS
     
     class(MeshField3D), pointer :: PRES_hyd, DENS_hyd, THERM_hyd
