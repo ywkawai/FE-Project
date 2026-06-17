@@ -262,7 +262,7 @@ contains
     call FILE_monitor_meshfield_setup( TIME_DTSEC )
 
     ! setup submodels
-    call  atmos%setup()
+    call atmos%setup()
     call user_%setup( atmos )
 
     call atmos%setup_vars()

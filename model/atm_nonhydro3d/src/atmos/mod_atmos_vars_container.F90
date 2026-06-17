@@ -186,8 +186,6 @@ contains
     call mesh3D%GetMesh2D( mesh2D )
 
     !-
-    this%container_type = container_type
-
     call this%PROGVARS_manager%Init()
     call this%QTRCVARS_manager%Init()
     call this%AUXVARS_manager%Init()
@@ -268,6 +266,8 @@ contains
     end if
 
     !- Setup preoperation before physics
+    this%container_type = container_type
+
     call this%Setup_phys_preoperation( phy_preproc_file_basename, mesh3D, mesh3D%refElem3D )
 
     return
@@ -440,7 +440,6 @@ contains
     !$acc wait(1)
     return
   end subroutine AtmosVarsContainer_CalcDiagvar
-  
 
 !OCL SERIAL  
   subroutine AtmosVarsContainer_calc_specific_heat( this )
@@ -515,7 +514,6 @@ contains
     return
   end subroutine AtmosVarsContainer_calc_specific_heat
 
-
 !OCL SERIAL  
   subroutine AtmosVarsContainer_physics_preoperation( this, &
     container_ori, dyncore )
@@ -548,6 +546,26 @@ contains
       this%PROGVARS_manager, this%AUXVARS_manager              )
     
     call this%Calc_diagnostics()
+
+    !- Tentative : Register the variables for file history
+
+    write(typeid_s,'(I2.2)') this%container_type
+    varname_ori = this%PROG_VARS(PRGVAR_DDENS_ID)%varname
+    this%PROG_VARS(PRGVAR_DDENS_ID)%varname = trim(varname_ori) // "_"//trim(typeid_s)
+    call FILE_HISTORY_meshfield_in( this%PROG_VARS(PRGVAR_DDENS_ID), "" )
+    this%PROG_VARS(PRGVAR_DDENS_ID)%varname = varname_ori
+
+    varname_ori = this%AUX_VARS(AUXVAR_PRES_ID)%varname
+    this%AUX_VARS(AUXVAR_PRES_ID)%varname = trim(varname_ori) // "_"//trim(typeid_s)
+    call FILE_HISTORY_meshfield_in( this%AUX_VARS(AUXVAR_PRES_ID), "" )
+    this%AUX_VARS(AUXVAR_PRES_ID)%varname = varname_ori
+
+    do iv=1, 3
+      varname_ori = this%QTRC_VARS(iv)%varname
+      this%QTRC_VARS(iv)%varname = trim(varname_ori) // "_"//trim(typeid_s)
+      call FILE_HISTORY_meshfield_in( this%QTRC_VARS(iv), "" )
+      this%QTRC_VARS(iv)%varname = varname_ori
+    end do
 
     return
   end subroutine AtmosVarsContainer_physics_preoperation
@@ -974,7 +992,9 @@ contains
     class(PhysPreProcBase), pointer :: phys_pp_ptr
     !----------------------------------------
 
-    if ( this%container_type == 1 ) then
+    LOG_INFO("ATMOS_vars_container/setup_phys_preoperation",*) "Setting up physical pre-operation for container type ", this%container_type
+    
+    if ( this%container_type == ATM_VARS_CONTAINER_PRIMARY_ID ) then
       this%phy_preproc_operation_type = PHY_PREOPERATION_TYPEID_NONE
       return
     end if

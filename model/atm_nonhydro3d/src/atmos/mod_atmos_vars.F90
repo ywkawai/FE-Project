@@ -396,7 +396,7 @@ contains
       this%init_containers_item_flag(container_type) = .true.
       call this%container_list(container_type)%Init( container_type, this%phy_preproc_file_basename, atm_mesh )
 
-      if ( container_type == 1 ) then
+      if ( container_type == ATM_VARS_CONTAINER_PRIMARY_ID ) then
         this%container => this%container_list(container_type)
         this%PROGVARS_manager => this%container%PROGVARS_manager
         this%QTRCVARS_manager => this%container%QTRCVARS_manager
