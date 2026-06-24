@@ -1156,13 +1156,14 @@ contains
       TEMP1(:,ke) = PRES(:,ke) / ( DENS(:,ke) * Rtot(:,ke) )
       CPtot1(:,ke) = CPtot(:,ke)
       CVtot1(:,ke) = CVtot(:,ke)
+
+      RHOQV_t(:,ke) = 0.0_RP
     end do
     !$omp end do
     !$omp do collapse(2)
     do iq = this%vars%QS, this%vars%QE
     do ke = lcmesh%NeS, lcmesh%NeE
       QTRC1(:,ke,iq) = QTRC(iq)%ptr%val(:,ke)
-      RHOQV_t(:,ke) = 0.0_RP
     end do
     end do
     !$omp end do
@@ -1180,7 +1181,7 @@ contains
     do iq = this%vars%QS+1, this%vars%QE      
       RHOQ_t(:) = ( QTRC1(:,ke,iq) - QTRC(iq)%ptr%val(:,ke) ) * DENS(:,ke) * rdt_MP
 
-      RHOQ_pri(:) = DENS(:,ke) * QTRC_pri(iq)%ptr%val(:,ke)
+      RHOQ_pri(:) = DENS_pri(:,ke) * QTRC_pri(iq)%ptr%val(:,ke)
       RHOQ_t_cor(:) = max( RHOQ_t(:), - RHOQ_pri(:) * rdt_MP )
 
       RHOQV_t(:,ke) = RHOQV_t(:,ke) - RHOQ_t_cor(:)

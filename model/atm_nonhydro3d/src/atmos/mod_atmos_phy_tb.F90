@@ -203,6 +203,10 @@ contains
     
     !-
     if ( this%gFilter_flag ) then
+      if ( PostGLFilter_Nnodeh1D_reconst < 0 ) then
+        elem3D=> atm_mesh%ptr_mesh%lcmesh_list(1)%refElem3D
+        PostGLFilter_Nnodeh1D_reconst = elem3D%Nnode_h1D
+      end if
       call this%gFilter_phy_tb%Init( PostGLFilter_Type, &
         PostGLFilter_ConvFilterShape, PostGLFilter_GaussinWidthFac, &
         PostGLFilter_Nnodeh1D_reconst,                              &

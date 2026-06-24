@@ -701,14 +701,18 @@ contains
     class(LocalMeshBase), pointer :: lcmesh
     integer :: varid
     integer :: i, n
+
+    integer :: field_num
     !-----------------------------------------------------------------------------
+
+    field_num = size(field_list)
 
     do n=1, size(lcmesh_list)
       lcmesh => lcmesh_list(n)
       i = 1
-      do while( i <= size(field_list) )
+      do while( i <= field_num )
         varid = varid_s + i - 1
-        if ( i+1 <= n ) then
+        if ( i+1 <= field_num ) then
           if (dim==1) then
             call extract_bounddata_var2( buf(:,varid,n), buf(:,varid+1,n), &
               VMapB2, VMapB2_size, field_list(varid)%field1d%local(n)%val, field_list(varid+1)%field1d%local(n)%val, lcmesh%refElem%Np * lcmesh%NeA )
