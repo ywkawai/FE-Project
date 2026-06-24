@@ -4,14 +4,15 @@ $(BUILD_DIR)/mod_atmos_dyn_vars.o: atmos/mod_atmos_dyn_vars.F90 $(DEPENDLIB) $(B
 $(BUILD_DIR)/mod_atmos_mesh.o: atmos/mod_atmos_mesh.F90 $(DEPENDLIB)
 $(BUILD_DIR)/mod_atmos_mesh_gm.o: atmos/mod_atmos_mesh_gm.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_mesh.o
 $(BUILD_DIR)/mod_atmos_mesh_rm.o: atmos/mod_atmos_mesh_rm.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_mesh.o
-$(BUILD_DIR)/mod_atmos_phy_mp.o: atmos/mod_atmos_phy_mp.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_mesh.o $(BUILD_DIR)/mod_atmos_phy_mp_vars.o $(BUILD_DIR)/mod_atmos_vars.o
+$(BUILD_DIR)/mod_atmos_phy_mp.o: atmos/mod_atmos_phy_mp.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_mesh.o $(BUILD_DIR)/mod_atmos_phy_mp_vars.o $(BUILD_DIR)/mod_atmos_vars.o $(BUILD_DIR)/mod_atmos_vars_container.o
 $(BUILD_DIR)/mod_atmos_phy_mp_vars.o: atmos/mod_atmos_phy_mp_vars.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_mesh.o
+$(BUILD_DIR)/mod_atmos_phy_preproc.o: atmos/mod_atmos_phy_preproc.F90 $(DEPENDLIB)
 $(BUILD_DIR)/mod_atmos_phy_sfc.o: atmos/mod_atmos_phy_sfc.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_mesh.o $(BUILD_DIR)/mod_atmos_phy_sfc_vars.o $(BUILD_DIR)/mod_atmos_vars.o
 $(BUILD_DIR)/mod_atmos_phy_sfc_vars.o: atmos/mod_atmos_phy_sfc_vars.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_mesh.o
 $(BUILD_DIR)/mod_atmos_phy_tb.o: atmos/mod_atmos_phy_tb.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_mesh.o $(BUILD_DIR)/mod_atmos_phy_tb_vars.o $(BUILD_DIR)/mod_atmos_vars.o
 $(BUILD_DIR)/mod_atmos_phy_tb_vars.o: atmos/mod_atmos_phy_tb_vars.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_mesh.o
 $(BUILD_DIR)/mod_atmos_vars.o: atmos/mod_atmos_vars.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_mesh.o $(BUILD_DIR)/mod_atmos_phy_mp_vars.o $(BUILD_DIR)/mod_atmos_vars_container.o
-$(BUILD_DIR)/mod_atmos_vars_container.o: atmos/mod_atmos_vars_container.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_mesh.o
+$(BUILD_DIR)/mod_atmos_vars_container.o: atmos/mod_atmos_vars_container.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_mesh.o $(BUILD_DIR)/mod_atmos_phy_preproc.o
 $(BUILD_DIR_LOCAL)/mod_dg_driver.o: admin/mod_dg_driver.F90 $(DEPENDLIB_LOCAL) $(BUILD_DIR)/mod_atmos_component.o $(BUILD_DIR_LOCAL)/mod_user.o
 $(BUILD_DIR_LOCAL)/mod_dg_launcher.o: admin/mod_dg_launcher.F90 $(DEPENDLIB_LOCAL) $(BUILD_DIR_LOCAL)/mod_dg_driver.o $(BUILD_DIR_LOCAL)/mod_dg_prep.o
 $(BUILD_DIR_LOCAL)/mod_dg_prep.o: admin/mod_dg_prep.F90 $(DEPENDLIB_LOCAL) $(BUILD_DIR)/mod_atmos_component.o $(BUILD_DIR)/mod_atmos_mesh.o $(BUILD_DIR)/mod_atmos_vars.o $(BUILD_DIR)/mod_mkinit.o $(BUILD_DIR)/mod_mktopo.o $(BUILD_DIR_LOCAL)/mod_user.o
@@ -32,6 +33,7 @@ MODS =	\
 	mod_atmos_mesh_rm.mod	\
 	mod_atmos_phy_mp.mod	\
 	mod_atmos_phy_mp_vars.mod	\
+	mod_atmos_phy_preproc.mod	\
 	mod_atmos_phy_sfc.mod	\
 	mod_atmos_phy_sfc_vars.mod	\
 	mod_atmos_phy_tb.mod	\

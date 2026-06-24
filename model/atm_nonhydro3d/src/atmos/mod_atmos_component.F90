@@ -223,7 +223,7 @@ contains
     call this%phy_tb_proc%SetDynBC( this%dyn_proc%dyncore_driver%boundary_cond )
 
     LOG_NEWLINE
-    LOG_INFO('AtmosComponent_setup',*) 'Finish setup of each atmospheric components.'
+    LOG_INFO('AtmosComponent_setup',*) 'Finish setup of each atmospheric component.'
 
     call PROF_rapend( 'ATM_setup', 1)
 
@@ -246,6 +246,7 @@ contains
         this%phy_mp_proc%vars%auxvars2D_manager )
 
       call this%vars%Setup_container( this%phy_mp_proc%atm_var_container_typeid, this%mesh )
+      call this%phy_mp_proc%Set_primary_atmvars_container( this%vars%container )
     end if
     if ( this%phy_sfc_proc%IsActivated() ) then
       call this%vars%Setup_container( this%phy_sfc_proc%atm_var_container_typeid, this%mesh )
@@ -275,7 +276,6 @@ contains
     class(AtmosComponent), intent(inout) :: this
     logical, intent(in) :: force
 
-
     class(MeshBase), pointer :: mesh
     class(LocalMesh3D), pointer :: lcmesh
     type(LocalMeshFieldBaseList) :: tp_list(PHYTEND_NUM1)
@@ -289,13 +289,16 @@ contains
     integer :: ke, p
     integer :: Np
 
+    class(AtmosVarsContainer), pointer :: vars_primary_container
     class(AtmosVarsContainer), pointer :: vars_container    
     !------------------------------------------------------------------
     
     call PROF_rapstart( 'ATM_tendency', 1)
     !LOG_INFO('AtmosComponent_calc_tendency',*)
 
-    call this%mesh%GetModelMesh( mesh )  
+    call this%mesh%GetModelMesh( mesh )
+    call this%vars%Get_container( ATM_VARS_CONTAINER_PRIMARY_ID, & ! (in)
+      vars_primary_container ) ! (out)
 
     !########## Get Surface Boundary from coupler ##########
     
@@ -309,7 +312,7 @@ contains
     call PROF_rapend( 'ATM_exchange_prgv', 2)
 
 
-    ! reset tendencies of physics
+    !- Reset tendencies of physics
 
     !$acc data create( tp_list, tp_qtrc )
 
@@ -356,7 +359,13 @@ contains
     !$acc wait(1)
     !$acc end data
 
-    ! Cloud Microphysics
+    !- Preprocessing for variables before calculating physics tendencies
+
+    call PROF_rapstart('ATM_PreOptrForPhys', 1)
+    call this%vars%PreprocOperationForPhys( this%dyn_proc%dyncore_driver )
+    call PROF_rapend('ATM_PreOptrForPhys', 1)
+
+    !- Cloud Microphysics
 
     if ( this%phy_mp_proc%IsActivated() ) then
       call PROF_rapstart('ATM_Microphysics', 1)
@@ -368,14 +377,14 @@ contains
       
       call this%phy_mp_proc%calc_tendency( &
         this%mesh, vars_container%PROGVARS_manager, vars_container%QTRCVARS_manager, &
-        vars_container%AUXVARS_manager, vars_container%PHYTENDS_manager, is_update   )
+        vars_container%AUXVARS_manager, vars_primary_container%PHYTENDS_manager, is_update   )
       call PROF_rapend('ATM_Microphysics', 1)
     end if
     
-    ! Radiation
+    !- Radiation
 
 
-    ! Turbulence
+    !- Turbulence
 
     if ( this%phy_tb_proc%IsActivated() ) then
       call PROF_rapstart('ATM_Turbulence', 1)
@@ -387,16 +396,16 @@ contains
       
       call this%phy_tb_proc%calc_tendency( &
         this%mesh, vars_container%PROGVARS_manager, vars_container%QTRCVARS_manager, &
-        vars_container%AUXVARS_manager, vars_container%PHYTENDS_manager, is_update   )
+        vars_container%AUXVARS_manager, vars_primary_container%PHYTENDS_manager, is_update   )
       call PROF_rapend('ATM_Turbulence', 1)
     end if
 
-    ! Cumulus
+    !- Cumulus
 
 
 !    if ( .not. CPL_sw ) then    
     
-    ! Surface flux
+    !- Surface flux
     
     if ( this%phy_sfc_proc%IsActivated() ) then
       call PROF_rapstart('ATM_SurfaceFlux', 1)
@@ -408,11 +417,11 @@ contains
       
       call this%phy_sfc_proc%calc_tendency( &
         this%mesh, vars_container%PROGVARS_manager, vars_container%QTRCVARS_manager, &
-        vars_container%AUXVARS_manager, vars_container%PHYTENDS_manager, is_update   )
+        vars_container%AUXVARS_manager, vars_primary_container%PHYTENDS_manager, is_update   )
       call PROF_rapend('ATM_SurfaceFlux', 1)
     end if
     
-    ! Planetary Boundary layer
+    !- Planetary boundary layer
 
 !   end if
 

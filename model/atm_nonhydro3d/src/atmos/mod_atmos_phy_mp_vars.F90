@@ -101,7 +101,7 @@ module mod_atmos_phy_mp_vars
                   'kg/m2/s2',  3, 'XYZ',  ''                                                          ), &
     VariableInfo( ATMOS_PHY_MP_RHOT_t_ID, 'MP_RHOT_t', 'tendency of rho*PT in MP process',               &
                   'kg/m3.K/s', 3, 'XYZ',  ''                                                          ), &
-    VariableInfo( ATMOS_PHY_MP_RHOH_ID  , 'mp_RHOH', 'diabatic heating rate in MP process',              &
+    VariableInfo( ATMOS_PHY_MP_RHOH_ID  , 'MP_RHOH', 'diabatic heating rate in MP process',              &
                   'J/kg/s',   3, 'XYZ',  ''                                                           ), & 
     VariableInfo( ATMOS_PHY_MP_EVAPORATE_ID, 'mp_EVAPORATE', 'number concentration of evaporated cloud', &
                   'm-3'   ,   3, 'XYZ',  ''                                                           )  /                   

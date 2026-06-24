@@ -108,7 +108,7 @@ module mod_atmos_mesh
       class(AtmosMesh), target, intent(inout) :: this
     end subroutine AtmosMesh_setup_vcoord
   end interface
-  integer, parameter, public :: ATM_MESH_MAX_COMMNUICATOR_NUM = 10
+  integer, parameter, public :: ATM_MESH_MAX_COMMNUICATOR_NUM = 16
 
   !-----------------------------------------------------------------------------
   !

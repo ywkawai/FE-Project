@@ -24,7 +24,9 @@ module scale_meshfieldcomm_cubedom3d
     MeshFieldCommBase_Init, MeshFieldCommBase_Final, &
     MeshFieldCommBase_extract_bounddata,             &
     MeshFieldCommBase_extract_bounddata_2,           &
+    MeshFieldCommBase_extract_bounddata_3,           &
     MeshFieldCommBase_set_bounddata,                 &
+    MeshFieldCommBase_set_bounddata_3,               &
     MeshFieldContainer
   use scale_localmesh_3d, only: Localmesh3d
   use scale_prof
@@ -40,6 +42,9 @@ module scale_meshfieldcomm_cubedom3d
   !> Base derived type to manage data communication with 3D cubic domain
   type, public, extends(MeshFieldCommBase) :: MeshFieldCommCubeDom3D
     class(MeshCubeDom3D), pointer :: mesh3d  !< Pointer to an object representing 3D cubic computational mesh
+
+    integer :: haloSize_h1D !< Halo size for 1D horizontal direction
+    integer :: haloSize_v   !< Halo size for vertical direction
   contains
     procedure, public :: Init => MeshFieldCommCubeDom3D_Init
     procedure, public :: Put => MeshFieldCommCubeDom3D_put
@@ -67,9 +72,11 @@ module scale_meshfieldcomm_cubedom3d
 
 contains
 !> Initialize an object to manage data communication with 3D cubic domain
-  subroutine MeshFieldCommCubeDom3D_Init( this, &
-    sfield_num, hvfield_num, htensorfield_num, mesh3d )
+  subroutine MeshFieldCommCubeDom3D_Init( this,        &
+    sfield_num, hvfield_num, htensorfield_num, mesh3d, &
+    haloSize_h1D, haloSize_v )
 
+    use scale_meshutil_3d, only: MeshUtil3D_genPatchBoundaryMap_wide
     implicit none
     
     class(MeshFieldCommCubeDom3D), intent(inout) :: this
@@ -77,6 +84,8 @@ contains
     integer, intent(in) :: hvfield_num                   !< Number of horizontal vector fields
     integer, intent(in) :: htensorfield_num              !< Number of horizontal vector fields
     class(MeshCubeDom3D), intent(in), target :: mesh3d   !< Object to manage a 3D cubic computational mesh
+    integer, intent(in), optional :: haloSize_h1D        !< Halo size for 1D horizontal direction (if not given, halo size of mesh3d is used)
+    integer, intent(in), optional :: haloSize_v          !< Halo size for vertical direction (if not given, halo size of mesh3d is used)
     
     type(LocalMesh3D), pointer :: lcmesh
     type(ElementBase3D), pointer :: elem
@@ -87,18 +96,59 @@ contains
     this%mesh3d => mesh3d
     lcmesh => mesh3d%lcmesh_list(1)
     elem => lcmesh%refElem3D
-    this%bufsize_per_field =  2*(lcmesh%NeX + lcmesh%NeY)*lcmesh%NeZ*elem%Nfp_h &
-                            + 2*lcmesh%NeX*lcmesh%NeY*elem%Nfp_v
+
+
+    !-
+    if ( present(haloSize_h1D) ) then
+      this%haloSize_h1D = haloSize_h1D
+    else
+      this%haloSize_h1D = 1
+    end if
+    if ( present(haloSize_v) ) then
+      this%haloSize_v = haloSize_v
+    else
+      this%haloSize_v = 1
+    end if
+
+    !-
+    allocate( this%VMapB_size(this%mesh3d%LOCAL_MESH_NUM) )
+
+    this%bufsize_per_field =  2 * (lcmesh%NeX + lcmesh%NeY) * lcmesh%NeZ*elem%Nfp_h*this%haloSize_h1D &
+                            + 2 * lcmesh%NeX*lcmesh%NeY * elem%Nfp_v*this%haloSize_v
+    
 
     do n=1, this%mesh3d%LOCAL_MESH_NUM
       lcmesh => this%mesh3d%lcmesh_list(n)
       Nnode_LCMeshFace(:,n) = &
-          (/ lcmesh%NeX, lcmesh%NeY, lcmesh%NeX, lcmesh%NeY, 0, 0 /) * lcmesh%NeZ * lcmesh%refElem3D%Nfp_h &
-        + (/ 0, 0, 0, 0, 1, 1 /) * lcmesh%NeX*lcmesh%NeY * lcmesh%refElem3D%Nfp_v
+          (/ lcmesh%NeX, lcmesh%NeY, lcmesh%NeX, lcmesh%NeY, 0, 0 /) * lcmesh%NeZ * lcmesh%refElem3D%Nfp_h*this%haloSize_h1D &
+        + (/ 0, 0, 0, 0, 1, 1 /) * lcmesh%NeX*lcmesh%NeY * lcmesh%refElem3D%Nfp_v*this%haloSize_v
     end do
 
     call MeshFieldCommBase_Init( this, sfield_num, hvfield_num, htensorfield_num, this%bufsize_per_field, COMM_FACE_NUM, Nnode_LCMeshFace, mesh3d )  
   
+    !-
+    if ( this%haloSize_h1D > 1 .or. this%haloSize_v > 1) then
+      this%use_vmap_wide_flag = .true.
+      allocate( this%VMapB2(this%bufsize_per_field) )
+
+      lcmesh => this%mesh3d%lcmesh_list(1)      
+      call MeshUtil3D_genPatchBoundaryMap_wide( this%VMapB2, &
+        lcmesh%VMapB, this%haloSize_h1D, this%haloSize_v,    &
+        lcmesh%NeX, lcmesh%NeY, lcmesh%NeZ,                  &
+        elem%Nfp_h, elem%Nfp_v, elem%Nnode_h1D, elem%Nnode_v )
+    else
+      this%use_vmap_wide_flag = .false.
+    end if
+
+    do n=1, this%mesh3d%LOCAL_MESH_NUM
+      lcmesh => this%mesh3d%lcmesh_list(n)
+      if ( this%use_vmap_wide_flag ) then
+        this%VMapB_size(n) = size(this%VMapB2)        
+      else
+        this%VMapB_size(n) = size(lcmesh%VMapB)
+      end if
+    end do
+
     return
   end subroutine MeshFieldCommCubeDom3D_Init
 
@@ -108,8 +158,11 @@ contains
     class(MeshFieldCommCubeDom3D), intent(inout) :: this
     !-----------------------------------------------------------------------------
 
+    if (this%use_vmap_wide_flag ) then
+      deallocate( this%VMapB2 )
+    endif
+        
     call MeshFieldCommBase_Final( this )
-
     return
   end subroutine MeshFieldCommCubeDom3D_Final
 
@@ -127,17 +180,14 @@ contains
 
     call PROF_rapstart( 'comm_put', 1)    
 !    call PROF_rapstart( 'meshfiled_comm_put', 3)
-    ! field_num = size(field_list)
-    ! do n=1, this%mesh%LOCAL_MESH_NUM
-    !   lcmesh => this%mesh3d%lcmesh_list(n)
-    !   do i=1, field_num
-    !     call MeshFieldCommBase_extract_bounddata( field_list(i)%field3d%local(n)%val, lcmesh%refElem, lcmesh, & ! (in)
-    !       this%send_buf(:,varid_s+i-1,n) )                                                                      ! (out)
-    !   end do
-    ! end do
-    call MeshFieldCommBase_extract_bounddata_2( &
-      field_list, 3, varid_s, this%mesh3d%lcmesh_list, size(this%mesh3d%lcmesh_list(1)%VMapB), & !(in)
-      this%send_buf ) ! (out)
+    if ( this%use_vmap_wide_flag ) then
+      call MeshFieldCommBase_extract_bounddata_3( field_list, 3, varid_s, this%mesh3d%lcmesh_list, this%VMapB2, this%VMapB_size(1), & ! (in)
+        this%send_buf ) ! (out)
+    else    
+      call MeshFieldCommBase_extract_bounddata_2( &
+        field_list, 3, varid_s, this%mesh3d%lcmesh_list, size(this%mesh3d%lcmesh_list(1)%VMapB), & !(in)
+        this%send_buf ) ! (out)
+    end if
 !    call PROF_rapend( 'meshfiled_comm_put', 3)
     call PROF_rapend( 'comm_put', 1)
 
@@ -170,8 +220,14 @@ contains
       do i=1, size(field_list) 
       do n=1, this%mesh3d%LOCAL_MESH_NUM
         lcmesh => this%mesh3d%lcmesh_list(n)
-        call MeshFieldCommBase_set_bounddata( this%recv_buf(:,varid_s+i-1,n), lcmesh%refElem, lcmesh, & !(in)
-          field_list(i)%field3d%local(n)%val )                                                          !(out)
+        if ( this%use_vmap_wide_flag ) then
+          call MeshFieldCommBase_set_bounddata_3( this%recv_buf(:,varid_s+i-1,n), lcmesh%refElem, lcmesh, & ! (in)
+            this%VMapB2, this%VMapB_size(1),                                                              & ! (in)          
+            field_list(i)%field3d%local(n)%val )                                                            !(out)
+        else
+          call MeshFieldCommBase_set_bounddata( this%recv_buf(:,varid_s+i-1,n), lcmesh%refElem, lcmesh, & !(in)
+            field_list(i)%field3d%local(n)%val )                                                          !(out)
+        end if
       end do
       end do
       !$acc wait(1)

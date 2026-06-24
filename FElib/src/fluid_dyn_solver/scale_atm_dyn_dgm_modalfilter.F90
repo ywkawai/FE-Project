@@ -231,7 +231,7 @@ contains
 !OCL SERIAL
   subroutine atm_dyn_dgm_tracer_modalfilter_apply(  &
     QTRC_,                                   & ! (inout)
-    DENS_hyd_, DDENS_,                       & ! (inout)
+    DENS_hyd_, DDENS_,                       & ! (in)
     lmesh, elem, elem_operation              ) ! (in)
 
     implicit none
@@ -239,7 +239,7 @@ contains
     class(LocalMeshBase), intent(in) :: lmesh
     class(ElementBase), intent(in) :: elem    
     real(RP), intent(inout)  :: QTRC_(elem%Np,lmesh%NeA)
-    real(RP), intent(inout)  :: DENS_hyd_(elem%Np,lmesh%NeA)
+    real(RP), intent(in)  :: DENS_hyd_(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: DDENS_(elem%Np,lmesh%NeA)
     class(ElementOperationBase3D), intent(in) :: elem_operation
 
