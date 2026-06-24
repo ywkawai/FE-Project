@@ -46,6 +46,10 @@ module mod_atmos_phy_tb
     AtmPhyTbDGMDriver
   use mod_atmos_phy_tb_vars, only: AtmosPhyTbVars
 
+  use scale_element_modalfilter, only: ModalFilter
+  use scale_meshfield_filter_operation_3d, only: &
+    MeshFieldFilterOperation3D  
+    
   !-----------------------------------------------------------------------------
   implicit none
   private
@@ -62,6 +66,12 @@ module mod_atmos_phy_tb
 
     type(AtmosPhyTbVars) :: vars          !< Object to manage variables with SGS turbulent model
     type(AtmDynBnd), pointer :: dyn_bnd   !< Pointer to object for treating boundary conditions with atmospheric dynamics  
+
+    logical :: gFilter_flag                            !< Flag to specify whether quasi-global filter is applied for SGS eddy viscosity and diffusivity
+    type(MeshFieldFilterOperation3D) :: gFilter_phy_tb !< Quasi-global filter for SGS eddy viscosity and diffusivity
+
+    logical :: modalFilter_flag          !< Flag to specify whether modal filter is applied for SGS eddy viscosity and diffusivity
+    type(ModalFilter) :: modalfilter_3D  !< Modal filter for SGS eddy viscosity and diffusivity
   contains
     procedure, public :: setup => AtmosPhyTb_setup 
     procedure, public :: calc_tendency => AtmosPhyTb_calc_tendency
@@ -94,6 +104,7 @@ contains
   subroutine AtmosPhyTb_setup( this, model_mesh, tm_parent_comp )
     use mod_atmos_mesh, only: AtmosMesh
     use scale_time_manager, only: TIME_manager_component
+    use scale_element_hexahedral, only: HexahedralElement
 
     implicit none
     class(AtmosPhyTb), intent(inout) :: this
@@ -104,16 +115,38 @@ contains
     character(len=H_SHORT) :: TIME_DT_UNIT          = 'SEC'   !< Unit of timestep
 
     character(len=H_MID) :: TB_TYPE = 'SMAGORINSKY'           !< Type of sub-grid scale turbulent scheme
+
+    character(len=H_SHORT) :: PostGLFilter_Type = 'None'
+    character(len=H_SHORT) :: PostGLFilter_ConvFilterShape = 'GAUSSIAN'
+    integer :: PostGLFilter_Nnodeh1D_reconst = -1
+    real(RP) :: PostGLFilter_GaussinWidthFac = 1.5_RP
+    real(RP) :: PostModalFilter_ALPHA_h = 0.0_RP
+    real(RP) :: PostModalFilter_EtaC_h  = 0.0_RP
+    integer :: PostModalFilter_ORDER_h  = 16    
+    real(RP) :: PostModalFilter_ALPHA_v = 0.0_RP
+    integer :: PostModalFilter_ORDER_v = 16
+
     namelist /PARAM_ATMOS_PHY_TB/ &
       TIME_DT,          & 
       TIME_DT_UNIT,     &
-      TB_TYPE
+      TB_TYPE,          &
+      PostGLFilter_Type, &
+      PostGLFilter_Nnodeh1D_reconst, &
+      PostGLFilter_GaussinWidthFac, &
+      PostModalFilter_ALPHA_h, & 
+      PostModalFilter_EtaC_h, &
+      PostModalFilter_ORDER_h, &
+      PostModalFilter_ALPHA_v, &
+      PostModalFilter_ORDER_v      
+
     
     class(AtmosMesh), pointer     :: atm_mesh
     class(MeshBase), pointer      :: ptr_mesh
     real(DP) :: dtsec
 
     integer :: ierr
+    class(ElementBase3D), pointer :: elem3D
+    type(HexahedralElement) :: elem3D_hex
     !--------------------------------------------------
 
     if (.not. this%IsActivated()) return
@@ -156,6 +189,35 @@ contains
     !--
     this%dyn_bnd => null()
 
+
+    !--
+    select case( trim(PostGLFilter_Type) )
+    case ('ConvolFilter', 'Reconstruction', 'Reconstruction2')
+      this%gFilter_flag = .true.
+    case ('None', 'ModalFilter')
+      this%gFilter_flag = .false.
+    case default
+      LOG_INFO("ATMOS_PHY_TB_setup",*) 'Not appropriate names of PostGLFilter_Type in namelist PARAM_ATMOS_PHY_TB. Check!'
+      call PRC_abort
+    end select
+    
+    !-
+    if ( this%gFilter_flag ) then
+      call this%gFilter_phy_tb%Init( PostGLFilter_Type, &
+        PostGLFilter_ConvFilterShape, PostGLFilter_GaussinWidthFac, &
+        PostGLFilter_Nnodeh1D_reconst,                              &
+        2, 0, 0, atm_mesh%ptr_mesh            )
+    end if
+    if ( PostModalFilter_ALPHA_h > 0.0_RP .or. PostModalFilter_ALPHA_v > 0.0_RP ) then
+      this%modalFilter_flag = .true.
+      elem3D=> atm_mesh%ptr_mesh%lcmesh_list(1)%refElem3D
+      call elem3D_hex%Init( elem3D%PolyOrder_h, elem3D%PolyOrder_v, .false. )
+      call this%modalfilter_3D%Init( elem3D_hex, PostModalFilter_EtaC_h, PostModalFilter_ALPHA_h, PostModalFilter_ORDER_h, 0.0_RP, PostModalFilter_ALPHA_v, PostModalFilter_ORDER_v )
+      call elem3D_hex%Final()
+    else
+      this%modalFilter_flag = .false.
+    end if
+
     return
   end subroutine AtmosPhyTb_setup
 
@@ -177,6 +239,9 @@ contains
       TRACER_ADVC   
     use scale_atm_dyn_dgm_nonhydro3d_common, only: &
       PRGVAR_DDENS_ID
+    use scale_atm_phy_tb_dgm_common, only: &
+      NU_VID => ATMOS_PHY_TB_DIAG_NU_ID, KH_VID => ATMOS_PHY_TB_DIAG_KH_ID
+
     use mod_atmos_vars, only: &
       AtmosVars_GetLocalMeshPrgVars,    &
       AtmosVars_GetLocalMeshPrgVar,     &
@@ -229,7 +294,9 @@ contains
         this%dyn_bnd,                                                              &
         model_mesh%DOptrMat(1), model_mesh%DOptrMat(2), model_mesh%DOptrMat(3),    &
         model_mesh%SOptrMat(1), model_mesh%SOptrMat(2), model_mesh%SOptrMat(3),    &
-        model_mesh%LiftOptrMat, mesh3D                                             )
+        model_mesh%LiftOptrMat, mesh3D,                                            &
+        this%gFilter_flag, this%gFilter_phy_tb, this%vars%diagvars(NU_VID:KH_VID), &
+        this%modalFilter_flag, this%modalfilter_3D )
     end if
       
     call PROF_rapstart('ATM_PHY_TB_add_tend', 2)
