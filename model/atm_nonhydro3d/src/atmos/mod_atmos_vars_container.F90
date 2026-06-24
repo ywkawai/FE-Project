@@ -61,7 +61,7 @@ module mod_atmos_vars_container
 
   !> Derived type to manage a set of variables (prognostic variables, tracer variables, auxiliary variables, and tendencies of physical processes) with atmospheric component
   type, public :: AtmosVarsContainer
-    class(AtmosMesh), pointer :: mesh                !< Pointer to an object to manage mesh for atmospheric component
+    class(AtmosMesh), pointer :: mesh              !< Pointer to an object to manage mesh for atmospheric component
 
     !- prognostic variables
     type(MeshField3D), allocatable :: PROG_VARS(:) !< Array of 3D prognostic variables
@@ -86,7 +86,7 @@ module mod_atmos_vars_container
     type(MeshField3D), allocatable :: PHY_TEND(:)  !< Array of tendency variables with physics
     type(ModelVarManager) :: PHYTENDS_manager      !< Object to manage tendency variables with physics
     integer :: PHYTENDS_commID
-    integer :: PHYTEND_NUM_TOT
+    integer :: PHYTEND_NUM_TOT                     !< Total number of tendency variables with physics
 
     !-
     integer :: container_type
@@ -144,6 +144,7 @@ module mod_atmos_vars_container
 
 contains
 
+  !> Initalize an object to manage a set of variables with atmospheric component
 !OCL SERIAL
   subroutine AtmosVarsContainer_Init( this, &
     container_type, phy_preproc_file_basename,     &
@@ -267,13 +268,12 @@ contains
 
     !- Setup preoperation before physics
     this%container_type = container_type
-
     call this%Setup_phys_preoperation( phy_preproc_file_basename, mesh3D, mesh3D%refElem3D )
 
     return
   end subroutine AtmosVarsContainer_Init
 
-
+  !> Finalize an object to manage a set of variables with atmospheric component
 !OCL SERIAL
   subroutine AtmosVarsContainer_Final( this )
     implicit none
@@ -304,6 +304,7 @@ contains
     return
   end subroutine AtmosVarsContainer_Final
 
+  !> Calculate diagnostic variables from prognostic variables and auxiliary variables
 !OCL SERIAL  
   subroutine AtmosVarsContainer_CalculateDiagnostics( this )    
     use scale_const, only: &
@@ -363,7 +364,7 @@ contains
     return
   end subroutine AtmosVarsContainer_CalculateDiagnostics
 
-
+  !> Calcualte a diagnostic variable from prognostic variables and auxiliary variables
 !OCL SERIAL
   subroutine AtmosVarsContainer_CalcDiagvar( this, field_name, field_work ) 
     use scale_const, only: &
@@ -378,8 +379,8 @@ contains
 
     implicit none
     class(AtmosVarsContainer), intent(inout) :: this
-    character(*), intent(in) :: field_name
-    type(MeshField3D), intent(inout) :: field_work
+    character(*), intent(in) :: field_name         !< Name of the diagnostic variable to be calculated
+    type(MeshField3D), intent(inout) :: field_work !< A work space for the diagnostic variable to be calculated
 
     class(LocalMesh3D), pointer :: lcmesh3D
     integer :: n
@@ -441,6 +442,7 @@ contains
     return
   end subroutine AtmosVarsContainer_CalcDiagvar
 
+  !> Calculate specific heat coefficients which are weighted by the mass of dry air and tracers
 !OCL SERIAL  
   subroutine AtmosVarsContainer_calc_specific_heat( this )
     use scale_const, only: &
@@ -514,22 +516,33 @@ contains
     return
   end subroutine AtmosVarsContainer_calc_specific_heat
 
+  !> Perform preprocessing operation for variables used in physics
 !OCL SERIAL  
   subroutine AtmosVarsContainer_physics_preoperation( this, &
     container_ori, dyncore )
     use scale_file_history_meshfield, only: &
       FILE_HISTORY_meshfield_in
     use scale_atm_dyn_dgm_driver_nonhydro3d, only: AtmDynDGMDriver_nonhydro3d
+
+    use scale_atmos_hydrometeor, only: &
+      QLA, QIA
+    use scale_atm_phy_mp_dgm_common, only: &
+      atm_phy_mp_dgm_common_negative_fixer    
     implicit none
     class(AtmosVarsContainer), intent(inout), target :: this
     class(AtmosVarsContainer), intent(in), target :: container_ori
     class(AtmDynDGMDriver_nonhydro3d), intent(in) :: dyncore
 
     integer :: n
-    integer :: iv
+    integer :: iv, iq
 
     character(len=H_SHORT) :: varname_ori
     character(len=H_SHORT) :: typeid_s
+
+    class(MeshBase3D), pointer :: mesh3D
+    class(LocalMesh3D), pointer :: lcmesh3D
+    integer :: trcid_list(QA)
+    type(LocalMeshFieldBaseList) :: lc_qtrc(QA)
     !----------------------------------------------
 
     if ( this%container_type == ATM_VARS_CONTAINER_PRIMARY_ID ) return
@@ -544,7 +557,26 @@ contains
     call dyncore%update_therm_hyd( this%AUXVARS_manager )
     call dyncore%calc_pressure( this%AUX_VARS(AUXVAR_PRES_ID), &
       this%PROGVARS_manager, this%AUXVARS_manager              )
-    
+
+    !- Apply negative fixer for prognostic variables and auxiliary variables which are used in physics
+    do iq=1, QA 
+      trcid_list(iq) = iq
+    end do
+
+    mesh3D => this%AUX_VARS(1)%mesh
+    do n=1, mesh3D%LOCAL_MESH_NUM
+      call this%QTRCVARS_manager%GetLocalMeshFieldList( trcid_list, n, lc_qtrc )
+
+      lcmesh3D => mesh3D%lcmesh_list(n)
+      call atm_phy_mp_dgm_common_negative_fixer( &
+        lc_qtrc, this%PROG_VARS(PRGVAR_DDENS_ID)%local(n)%val, this%AUX_VARS(AUXVAR_PRES_ID)%local(n)%val, &
+        this%AUX_VARS(AUXVAR_CVtot_ID)%local(n)%val, this%AUX_VARS(AUXVAR_CPtot_ID)%local(n)%val, &
+        this%AUX_VARS(AUXVAR_Rtot_ID)%local(n)%val, &        
+        this%AUX_VARS(AUXVAR_DENSHYDRO_ID)%local(n)%val, this%AUX_VARS(AUXVAR_PRESHYDRO_ID)%local(n)%val, &
+        1.0_RP, lcmesh3D, lcmesh3D%refElem3D, QA, QLA, QIA )
+    end do
+
+    !-
     call this%Calc_diagnostics()
 
     !- Tentative : Register the variables for file history

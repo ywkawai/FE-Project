@@ -2,7 +2,7 @@
 !> module Atmosphere / Physics / Preprocessing
 !!
 !! @par Description
-!!          A module to provide prepost operations for varaibles before evaluating physics tendencies
+!!          A module to provide preprocessing operations for variables before evaluating physics tendencies
 !!
 !! @author Yuta Kawai, Team SCALE
 !!
@@ -55,6 +55,8 @@ module mod_atmos_phy_preproc
   !
   !++ Public type & procedures
   !
+
+  !> Base type for preprocessing operations for variables before evaluating physics tendencies
   type, abstract, public :: PhysPreProcBase
     class(MeshBase3D), pointer :: mesh3D
   contains
@@ -85,6 +87,7 @@ module mod_atmos_phy_preproc
     end subroutine PhysPreProcModalBase_Final
   end interface
 
+  !> Derived type to represent no preprocessing operation for variables before evaluating physics tendencies  
   type, extends(PhysPreProcBase), public :: PhysPreProcNone
   contains
     procedure :: Init => PhysPreProcNone_Init
@@ -92,6 +95,7 @@ module mod_atmos_phy_preproc
     procedure :: Operate => PhysPreProcNone_Operate
   end type PhysPreProcNone
 
+  !> Derived type to represent modal filtering operation for variables before evaluating physics tendencies
   type, extends(PhysPreProcBase), public :: PhysPreProcModalFilter
     type(ModalFilter) :: mFilter
     class(ElementOperationTensorProd3D), allocatable :: elem_optr
@@ -101,6 +105,7 @@ module mod_atmos_phy_preproc
     procedure :: Operate => PhysPreProcModalFilter_Operate
   end type PhysPreProcModalFilter
 
+  !> Derived type to represent quasi-global filtering operation for variables before evaluating physics tendencies
   type, extends(PhysPreProcBase), public :: PhysPreProcGlobalFilter
     type(MeshFieldFilterOperation3D) :: gFilter_prgvar
     type(MeshFieldFilterOperation3D) :: gFilter_trcvar
@@ -122,6 +127,7 @@ module mod_atmos_phy_preproc
   !
 contains
 !--
+  !> Initialize an object to represent no preprocessing operation before evaluating physics tendencies
 !OCL SERIAL
   subroutine PhysPreProcNone_Init( this, mesh3D )
     implicit none
@@ -132,6 +138,7 @@ contains
     return
   end subroutine PhysPreProcNone_Init
 
+  !> Finalize an object to represent no preprocessing operation before evaluating physics tendencies
 !OCL SERIAL
   subroutine PhysPreProcNone_Final( this )
     implicit none
@@ -140,6 +147,8 @@ contains
     return
   end subroutine PhysPreProcNone_Final  
 
+  !> Perform no preprocessing operation before evaluating physics tendencies
+  !! This subroutine simply copies the input variables to the output variables without any modification.
 !OCL SERIAL
   subroutine PhysPreProcNone_Operate( this, &
     PRG_VARS, QTRC_VARS, AUX_VARS,    &
@@ -183,6 +192,7 @@ contains
   end subroutine PhysPreProcNone_Operate
 
 !--------------------------------------------
+  !> Initialize an object to represent modal filtering operation before evaluating physics tendencies
 !OCL SERIAL
   subroutine PhysPreProcModalFilter_Init( this,     &
     MF_ALPHA_h, MF_ORDER_h, MF_ALPHA_v, MF_ORDER_v, &
@@ -206,6 +216,7 @@ contains
     return
   end subroutine PhysPreProcModalFilter_Init
 
+  !> Finalize an object to represent modal filtering operation before evaluating physics tendencies
 !OCL SERIAL
   subroutine PhysPreProcModalFilter_Final( this )
     use scale_element_hexahedral, only: HexahedralElement
@@ -220,6 +231,7 @@ contains
     return
   end subroutine PhysPreProcModalFilter_Final  
 
+  !> Perform modal filtering operation before evaluating physics tendencies
 !OCL SERIAL
   subroutine PhysPreProcModalFilter_Operate( this, &
     PRG_VARS, QTRC_VARS, AUX_VARS,    &
@@ -264,6 +276,7 @@ contains
   end subroutine PhysPreProcModalFilter_Operate
 
 !-- 
+  !> Initialize an object to represent quasi-global filtering operation before evaluating physics tendencies
 !OCL SERIAL
   subroutine PhysPreProcGlobalFilter_Init( this, &
     GLFilterOptrType, GLFilterShape, GLFilterWidthFac,  &
@@ -296,6 +309,7 @@ contains
     return
   end subroutine PhysPreProcGlobalFilter_Init
 
+  !> Finalize an object to represent quasi-global filtering operation before evaluating physics tendencies
 !OCL SERIAL
   subroutine PhysPreProcGlobalFilter_Final( this )
     use scale_element_hexahedral, only: HexahedralElement
@@ -314,6 +328,7 @@ contains
     return
   end subroutine PhysPreProcGlobalFilter_Final  
 
+  !> Perform quasi-global filtering operation before evaluating physics tendencies
 !OCL SERIAL
   subroutine PhysPreProcGlobalFilter_Operate( this, &
     PRG_VARS, QTRC_VARS, AUX_VARS,   &
