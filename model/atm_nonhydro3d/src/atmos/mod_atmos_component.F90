@@ -41,6 +41,9 @@ module mod_atmos_component
   use mod_atmos_phy_sfc, only: AtmosPhySfc
   use mod_atmos_phy_tb , only: AtmosPhyTb
   use mod_atmos_phy_mp , only: AtmosPhyMp
+  use mod_atmos_phy_rd , only: AtmosPhyRd
+  use mod_atmos_phy_cp , only: AtmosPhyCp
+  use mod_atmos_phy_bl, only: AtmosPhyBl
 
   !-----------------------------------------------------------------------------
   implicit none
@@ -63,7 +66,9 @@ module mod_atmos_component
     type(AtmosPhySfc) :: phy_sfc_proc   !< Object to manage surface process
     type(AtmosPhyTb ) :: phy_tb_proc    !< Object to manage sub-grid scale turbulence process
     type(AtmosPhyMp ) :: phy_mp_proc    !< Object to manage cloud microphysics process
-
+    type(AtmosPhyRd ) :: phy_rd_proc    !< Object to manage radiation process
+    type(AtmosPhyCp ) :: phy_cp_proc    !< Object to manage cumulus parameterization process
+    type(AtmosPhyBl ) :: phy_bl_proc    !< Object to manage PBL turbulence parameterization process
   contains
     procedure, public :: setup => Atmos_setup 
     procedure, public :: setup_vars => Atmos_setup_vars    
@@ -122,6 +127,9 @@ contains
     logical :: ATMOS_PHY_SF_DO = .false. !< Flag whether surface process is considered
     logical :: ATMOS_PHY_TB_DO = .false. !< Flag whether SGS turbulent process is considered
     logical :: ATMOS_PHY_MP_DO = .false. !< Flag whether cloud microphysics process is considered
+    logical :: ATMOS_PHY_RD_DO = .false. !< Flag whether radiation process is considered
+    logical :: ATMOS_PHY_CP_DO = .false. !< Flag whether cumulus parameterization process is considered
+    logical :: ATMOS_PHY_BL_DO = .false. !< Flag whether PBL turbulence parameterization process is considered
     character(len=H_SHORT) :: ATMOS_MESH_TYPE = 'REGIONAL'  !< Name of mesh type for atmospheric component ('REGIONAL' or 'GLOBAL')
 
     logical :: ATMOS_USE_QV    = .false. !< Flag whether QV is used although cloud microphysics is not considered
@@ -138,6 +146,9 @@ contains
       ATMOS_PHY_SF_DO,       &
       ATMOS_PHY_TB_DO,       &
       ATMOS_PHY_MP_DO,       &    
+      ATMOS_PHY_RD_DO,       &
+      ATMOS_PHY_CP_DO,       &
+      ATMOS_PHY_BL_DO,       &
       ATMOS_USE_QV
     
     integer :: ierr
@@ -221,6 +232,20 @@ contains
     call this%phy_tb_proc%ModelComponentProc_Init( 'AtmosPhysTb', ATMOS_PHY_TB_DO )
     call this%phy_tb_proc%setup( this%mesh, this%time_manager )
     call this%phy_tb_proc%SetDynBC( this%dyn_proc%dyncore_driver%boundary_cond )
+
+    !- Setup the module for atmosphere / physics / radiation
+    call this%phy_rd_proc%ModelComponentProc_Init( 'AtmosPhysRd', ATMOS_PHY_RD_DO )
+    call this%phy_rd_proc%setup( this%mesh, this%time_manager )
+
+    !- Setup the module for atmosphere / physics / cumulus parameterization
+    call this%phy_cp_proc%ModelComponentProc_Init( 'AtmosPhysCp', ATMOS_PHY_CP_DO )
+    call this%phy_cp_proc%setup( this%mesh, this%time_manager )
+
+    !- Setup the module for atmosphere / physics / PBL turbulence parameterization
+    call this%phy_bl_proc%ModelComponentProc_Init( 'AtmosPhysBl', ATMOS_PHY_BL_DO )
+    call this%phy_bl_proc%setup( this%mesh, this%time_manager )
+
+    !- Setup
 
     LOG_NEWLINE
     LOG_INFO('AtmosComponent_setup',*) 'Finish setup of each atmospheric component.'
@@ -383,6 +408,19 @@ contains
     
     !- Radiation
 
+    if ( this%phy_rd_proc%IsActivated() ) then
+      call PROF_rapstart('ATM_Radiation', 1)
+      tm_process_id = this%phy_rd_proc%tm_process_id
+      is_update = this%time_manager%Do_process(tm_process_id) .or. force
+
+      call this%vars%Get_container( this%phy_rd_proc%atm_var_container_typeid, & ! (in)
+        vars_container ) ! (out)
+      
+      call this%phy_rd_proc%calc_tendency( &
+        this%mesh, vars_container%PROGVARS_manager, vars_container%QTRCVARS_manager, &
+        vars_container%AUXVARS_manager, vars_primary_container%PHYTENDS_manager, is_update   )
+      call PROF_rapend('ATM_Radiation', 1)
+    end if
 
     !- Turbulence
 
@@ -400,7 +438,21 @@ contains
       call PROF_rapend('ATM_Turbulence', 1)
     end if
 
-    !- Cumulus
+    !- Cumulus parameterization
+
+    if ( this%phy_cp_proc%IsActivated() ) then
+      call PROF_rapstart('ATM_Cumulus', 1)
+      tm_process_id = this%phy_cp_proc%tm_process_id
+      is_update = this%time_manager%Do_process(tm_process_id) .or. force
+
+      call this%vars%Get_container( this%phy_cp_proc%atm_var_container_typeid, & ! (in)
+        vars_container ) ! (out)
+      
+      call this%phy_cp_proc%calc_tendency( &
+        this%mesh, vars_container%PROGVARS_manager, vars_container%QTRCVARS_manager, &
+        vars_container%AUXVARS_manager, vars_primary_container%PHYTENDS_manager, is_update   )
+      call PROF_rapend('ATM_Cumulus', 1)
+    end if
 
 
 !    if ( .not. CPL_sw ) then    
@@ -422,6 +474,20 @@ contains
     end if
     
     !- Planetary boundary layer
+
+    if ( this%phy_bl_proc%IsActivated() ) then
+      call PROF_rapstart('ATM_PBL', 1)
+      tm_process_id = this%phy_bl_proc%tm_process_id
+      is_update = this%time_manager%Do_process(tm_process_id) .or. force
+
+      call this%vars%Get_container( this%phy_bl_proc%atm_var_container_typeid, & ! (in)
+        vars_container ) ! (out)
+      
+      call this%phy_bl_proc%calc_tendency( &
+        this%mesh, vars_container%PROGVARS_manager, vars_container%QTRCVARS_manager, &
+        vars_container%AUXVARS_manager, vars_primary_container%PHYTENDS_manager, is_update   )
+      call PROF_rapend('ATM_PBL', 1)
+    end if
 
 !   end if
 
@@ -555,7 +621,9 @@ contains
     call this%phy_sfc_proc%finalize()
     call this%phy_tb_proc%finalize()
     call this%phy_mp_proc%finalize()
-    
+    call this%phy_rd_proc%finalize()
+    call this%phy_cp_proc%finalize()
+    call this%phy_bl_proc%finalize()
     call this%vars%Final()
 
     select case( this%mesh_type )
