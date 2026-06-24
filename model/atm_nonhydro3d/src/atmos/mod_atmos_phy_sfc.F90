@@ -54,12 +54,12 @@ module mod_atmos_phy_sfc
   !> Derived type to manage a component of surface process
   !!
   type, extends(ModelComponentProc), public :: AtmosPhySfc
-    class(AtmosMesh), pointer :: mesh !< Pointer to a object to manage the mesh with atmospheric component
+    class(AtmosMesh), pointer :: mesh    !< Pointer to a object to manage the mesh with atmospheric component
 
     integer :: atm_var_container_typeid !< Type ID of variable container for surface process
 
-    integer :: SFCFLX_TYPEID          !< Type id of surface scheme
-    type(AtmosPhySfcVars) :: vars     !< A object to manage variables with surface component
+    integer :: SFCFLX_TYPEID            !< Type id of surface scheme
+    type(AtmosPhySfcVars) :: vars       !< An object to manage variables with surface component
   contains
     procedure, public :: setup => AtmosPhySfc_setup 
     procedure, public :: calc_tendency => AtmosPhySfc_calc_tendency
@@ -71,8 +71,8 @@ module mod_atmos_phy_sfc
   !++ Public parameters & variables
   !-----------------------------------------------------------------------------
 
-  integer, parameter :: SFCFLX_TYPEID_CONST           = 1
-  integer, parameter :: SFCFLX_TYPEID_SIMPLE          = 2
+  integer, parameter :: SFCFLX_TYPEID_CONST           = 1 !< Type ID of constant surface flux scheme
+  integer, parameter :: SFCFLX_TYPEID_SIMPLE          = 2 !< Type ID of simple bulk surface flux scheme
 
   !-----------------------------------------------------------------------------
   !
@@ -131,7 +131,7 @@ contains
     LOG_NEWLINE
     LOG_INFO("ATMOS_PHY_SFC_setup",*) 'Setup'
 
-    this%atm_var_container_typeid = ATM_VARS_CONTAINER_PRIMARY_ID
+    atm_var_container_typeid = ATM_VARS_CONTAINER_PRIMARY_ID
 
     !--- read namelist
     rewind(IO_FID_CONF)
@@ -143,6 +143,8 @@ contains
       call PRC_abort
     endif
     LOG_NML(PARAM_ATMOS_PHY_SFC)
+
+    this%atm_var_container_typeid = atm_var_container_typeid
 
     !--- Regist this compoent in the time manager
     
@@ -307,6 +309,7 @@ contains
 
 !- private ------------------------------------------------
 
+  !> Calculate tendencies associated with a surface model
 !OCL SERIAL  
   subroutine cal_tend_from_sfcflx( this, is_update_sflx, &
     DENS_tp, MOMX_tp, MOMY_tp, MOMZ_tp, RHOH_p, RHOQV_tp, &
