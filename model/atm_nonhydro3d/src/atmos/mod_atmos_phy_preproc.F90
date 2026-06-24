@@ -303,7 +303,7 @@ contains
     
     allocate( this%RHOQ(0:QA) )
     do iq=0, QA
-      write(varname,'(a,i)') 'RHOQ', iq
+      write(varname,'(a,I2.2)') 'RHOQ', iq
       call this%RHOQ(iq)%Init( trim(varname), "kg/m3", mesh3D )
     end do
     return
