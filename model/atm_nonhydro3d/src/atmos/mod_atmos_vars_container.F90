@@ -99,7 +99,7 @@ module mod_atmos_vars_container
     procedure :: Calc_diagnostics => AtmosVarsContainer_calculateDiagnostics
     procedure :: Calc_diagVar => AtmosVarsContainer_CalcDiagvar
     procedure :: Calc_SpecificHeat => AtmosVarsContainer_calc_specific_heat
-    procedure :: Preproc_opearation_for_phys => AtmosVarsContainer_physics_preoperation
+    procedure :: Preproc_operation_for_phys => AtmosVarsContainer_physics_preoperation
 
     procedure, private :: Setup_phys_preoperation
   end type AtmosVarsContainer
@@ -299,6 +299,9 @@ contains
 
       call this%AUXVARS2D_manager%Final()
       deallocate( this%AUX_VARS2D )
+    else
+      ! Finalize preoperation before physics
+      call this%phy_preproc%Final()
     end if
 
     return

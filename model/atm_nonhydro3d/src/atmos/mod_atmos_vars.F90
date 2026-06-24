@@ -887,7 +887,7 @@ contains
 
     do ic=ATM_VARS_CONTAINER_PRIMARY_ID+1, ATM_VARS_CONTAINER_LIST_MAX
       if ( this%init_containers_item_flag(ic) ) then
-        call this%container_list(ic)%Preproc_opearation_for_phys( this%container, dyncore )
+        call this%container_list(ic)%Preproc_operation_for_phys( this%container, dyncore )
       end if
     end do
     return
