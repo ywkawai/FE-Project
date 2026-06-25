@@ -95,7 +95,7 @@ module mod_atmos_phy_mp
     type(ModalFilter) :: modalfilter_h2D !< Modal filter in horizontal direction
     type(ModalFilter) :: modalfilter_3D  !< Modal filter in 3D
 
-    logical :: PostFilterOnlyApplyRHOH
+    logical :: PostFilterOnlyApplyRHOH   !< Flag whether the post filter is applied only to RHOH or not
   contains
     procedure, public :: setup => AtmosPhyMp_setup 
     procedure, public :: calc_tendency => AtmosPhyMp_calc_tendency
@@ -192,7 +192,7 @@ contains
     real(RP) :: max_term_vel        !< Maximum terminal velocity of sedimentation
     real(RP) :: cldfrac_threshold
 
-    integer :: atm_var_container_typeid = 1
+    integer :: atm_var_container_typeid                  !< ID of variable container for cloud microphysics
     character(len=H_SHORT) :: PostGLFilter_Type = 'None'
     character(len=H_SHORT) :: PostGLFilter_ConvFilterShape = 'GAUSSIAN'
     integer :: PostGLFilter_Nnodeh1D_reconst = -1
@@ -562,6 +562,8 @@ contains
 
         call PROF_rapend('ATM_PHY_MP_get_localmesh_ptr', 2)   
 
+        !- Calculate tendencies associated with cloud microphysics
+        
         call PROF_rapstart('ATM_PHY_MP_cal_tend', 2)
           call this%calc_tendency_core( &
             mp_DENS_t%val, mp_MOMX_t%val, mp_MOMY_t%val, mp_MOMZ_t%val, mp_RHOQ_t,                       & ! (out)
