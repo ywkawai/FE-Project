@@ -78,14 +78,14 @@ module mod_atmos_phy_cp_vars
 
   type(VariableInfo), public :: ATMOS_PHY_CP_TEND_VINFO(ATMOS_PHY_CP_TENDS_NUM1)
   DATA ATMOS_PHY_CP_TEND_VINFO / &
-    VariableInfo( ATMOS_PHY_CP_DENS_t_ID, 'CP_DENS_t', 'tendency of density in CP process',           &
-                  'kg/m3',  3, 'XYZ',  ''                                                          ), &
-    VariableInfo( ATMOS_PHY_CP_RHOW_t_ID, 'CP_RHOW_t', 'tendency of water vapor in CP process',       &
-                  'kg/m3',  3, 'XYZ',  ''                                                          ), &
-    VariableInfo( ATMOS_PHY_CP_RHOT_t_ID, 'CP_RHOT_t', 'tendency of rho*PT in CP process',            &
-                  'kg/m3.K/s', 3, 'XYZ',  ''                                                       ), &
-    VariableInfo( ATMOS_PHY_CP_RHOQV_t_ID, 'CP_RHOQV_t', 'tendency of rho*QV in CP process',          &
-                  'kg/m3', 3, 'XYZ',  ''                                                           )  /
+    VariableInfo( ATMOS_PHY_CP_DENS_t_ID, 'CP_DENS_t', 'tendency of density in CP process',          &
+                  'kg/m3/s',  3, 'XYZ',  ''                                                       ), &
+    VariableInfo( ATMOS_PHY_CP_RHOW_t_ID, 'CP_RHOW_t', 'tendency of water vapor in CP process',      &
+                  'kg/m3/s',  3, 'XYZ',  ''                                                       ), &
+    VariableInfo( ATMOS_PHY_CP_RHOT_t_ID, 'CP_RHOT_t', 'tendency of rho*PT in CP process',           &
+                  'kg/m3.K/s', 3, 'XYZ',  ''                                                      ), &
+    VariableInfo( ATMOS_PHY_CP_RHOQV_t_ID, 'CP_RHOQV_t', 'tendency of rho*QV in CP process',         &
+                  'kg/m3/s', 3, 'XYZ',  ''                                                        )  /
 
   integer, public, parameter :: ATMOS_PHY_CP_AUX2D_SFLX_RAIN_ID   = 1
   integer, public, parameter :: ATMOS_PHY_CP_AUX2D_SFLX_SNOW_ID   = 2
@@ -216,7 +216,7 @@ contains
 
      call this%tends_manager%Final()
      deallocate( this%tends )
-     
+
      call this%auxvars2D_manager%Final()
      deallocate( this%auxvars2D )
 

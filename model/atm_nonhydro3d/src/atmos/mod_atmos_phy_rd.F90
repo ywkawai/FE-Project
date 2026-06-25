@@ -95,10 +95,10 @@ contains
     class(ModelMeshBase), target, intent(in) :: model_mesh
     class(TIME_manager_component), intent(inout) :: tm_parent_comp
 
-    real(DP) :: TIME_DT                             = UNDEF8 !< Timestep for cloud microphysics
+    real(DP) :: TIME_DT                             = UNDEF8 !< Timestep for radiation
     character(len=H_SHORT) :: TIME_DT_UNIT          = 'SEC'  !< Unit of timestep
 
-    character(len=H_MID) :: RD_TYPE = 'NONE'              !< Type of a radiation scheme
+    character(len=H_MID) :: RD_TYPE = 'NONE'                 !< Type of a radiation scheme
     integer :: atm_var_container_typeid
 
     namelist /PARAM_ATMOS_PHY_RD/ &
