@@ -135,6 +135,8 @@ contains
     endif
     LOG_NML(PARAM_ATMOS_PHY_BL)
  
+    this%atm_var_container_typeid = atm_var_container_typeid
+        
     !- Get atmospheric mesh --------------------------------------------------
 
     call model_mesh%GetModelMesh( ptr_mesh )

@@ -211,6 +211,15 @@ contains
     implicit none
     class(AtmosPhyCpVars), intent(inout) :: this
     !----------------------------------------------------
+
+     LOG_INFO('AtmosPhyCpVars_Final',*)
+
+     call this%tends_manager%Final()
+     deallocate( this%tends )
+     
+     call this%auxvars2D_manager%Final()
+     deallocate( this%auxvars2D )
+
     return
   end subroutine AtmosPhyCpVars_Final
 
