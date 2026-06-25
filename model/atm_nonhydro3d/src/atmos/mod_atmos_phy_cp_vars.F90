@@ -56,6 +56,9 @@ module mod_atmos_phy_cp_vars
     type(MeshField3D), allocatable :: tends(:)     !< Array of tendency variables
     type(ModelVarManager) :: tends_manager         !< Object to manage tendencies
 
+    type(MeshField2D), allocatable :: auxvars2D(:) !< Array of 2D auxiliary variables
+    type(ModelVarManager) :: auxvars2D_manager     !< Object to manage 2D auxiliary variables
+
     integer :: TENDS_NUM_TOT                        !< Number of tendency variables with cumulus parameterization
   contains
     procedure :: Init => AtmosPhyCpVars_Init
@@ -83,6 +86,20 @@ module mod_atmos_phy_cp_vars
                   'kg/m3.K/s', 3, 'XYZ',  ''                                                       ), &
     VariableInfo( ATMOS_PHY_CP_RHOQV_t_ID, 'CP_RHOQV_t', 'tendency of rho*QV in CP process',          &
                   'kg/m3', 3, 'XYZ',  ''                                                           )  /
+
+  integer, public, parameter :: ATMOS_PHY_CP_AUX2D_SFLX_RAIN_ID   = 1
+  integer, public, parameter :: ATMOS_PHY_CP_AUX2D_SFLX_SNOW_ID   = 2
+  integer, public, parameter :: ATMOS_PHY_CP_AUX2D_SFLX_ENGI_ID   = 3
+  integer, public, parameter :: ATMOS_PHY_CP_AUX2D_NUM            = 3
+
+  type(VariableInfo), public :: ATMOS_PHY_CP_AUX2D_VINFO(ATMOS_PHY_CP_AUX2D_NUM)
+  DATA ATMOS_PHY_CP_AUX2D_VINFO / &
+    VariableInfo( ATMOS_PHY_CP_AUX2D_SFLX_RAIN_ID, 'CP_SFLX_RAIN', 'precipitation flux (liquid) in CP process',    &
+                  'kg/m2/s',  2, 'XY',  ''                                                                      ), &
+    VariableInfo( ATMOS_PHY_CP_AUX2D_SFLX_SNOW_ID, 'CP_SFLX_SNOW', 'precipitation flux (solid) in CP process',     &
+                  'kg/m2/s',  2, 'XY',  ''                                                                      ), &
+    VariableInfo( ATMOS_PHY_CP_AUX2D_SFLX_ENGI_ID, 'CP_SFLX_ENGI', 'internal energy flux flux in CP process',      &
+                  'J/m2/s',   2, 'XY',  ''                                                                      )  /
 
   !-----------------------------------------------------------------------------
   !
@@ -168,6 +185,22 @@ contains
         this%tends(iv)%local(n)%val(:,:) = 0.0_RP
       end do         
     end do    
+
+    !--
+    
+    call this%auxvars2D_manager%Init()
+    allocate( this%auxvars2D(ATMOS_PHY_CP_AUX2D_NUM) )
+
+    reg_file_hist = .true.    
+    do iv = 1, ATMOS_PHY_CP_AUX2D_NUM
+      call this%auxvars2D_manager%Regist( &
+        ATMOS_PHY_CP_AUX2D_VINFO(iv), mesh2D,    & ! (in) 
+        this%auxvars2D(iv), reg_file_hist        ) ! (out)
+      
+      do n = 1, mesh3D%LOCAL_MESH_NUM
+        this%auxvars2D(iv)%local(n)%val(:,:) = 0.0_RP
+      end do         
+    end do
 
     return
   end subroutine AtmosPhyCpVars_Init

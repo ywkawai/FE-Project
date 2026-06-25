@@ -1,8 +1,8 @@
 !-------------------------------------------------------------------------------
-!> module Atmosphere / Physics / cloud microphysics
+!> module Atmosphere / Physics / Radiation
 !!
 !! @par Description
-!!          Module for cloud microphysics
+!!          Module for radiation component in atmospheric model
 !!
 !! @author Yuta Kawai, Team SCALE
 !!
@@ -133,10 +133,21 @@ contains
     endif
     LOG_NML(PARAM_ATMOS_PHY_RD)
 
+    this%atm_var_container_typeid = atm_var_container_typeid
+
     !--- Register this component in the time manager
     
     call tm_parent_comp%Regist_process( 'ATMOS_PHY_RD', TIME_DT, TIME_DT_UNIT, & ! (in)
       this%tm_process_id )                                                       ! (out) 
+
+    !--- Set the type of radiation scheme
+    
+    select case ( RD_TYPE )
+    case default
+      LOG_ERROR("ATMOS_PHY_RD_setup",*) 'Not appropriate RD_TYPE. Check!'
+      call PRC_abort
+    end select
+
 
     !- Initialize the variables 
     call this%vars%Init( model_mesh )
