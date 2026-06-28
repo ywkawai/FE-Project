@@ -173,6 +173,9 @@ OBJS_NAME_MICROPHYS = \
 	scale_atm_phy_mp_dgm_common.o \
 	scale_atm_phy_mp_lscond.o
 
+OBJS_NAME_RADIATION = \
+	scale_atm_phy_rd_dgm_gray.o
+
 OBJS_NAME_MODEL_FRAMEWORK = \
 	scale_model_meshbase_manager.o \
 	scale_model_mesh_manager.o     \

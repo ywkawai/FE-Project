@@ -79,6 +79,8 @@ module mod_atmos_phy_rd
   !
   !++ Private parameters & variables
   !
+  integer, parameter :: RD_TYPEID_GRAYRAD  = 1 !< Type ID of a gray radiation scheme
+
 contains
 
 !> Setup a component of radiation in atmospheric model
@@ -143,6 +145,8 @@ contains
     !--- Set the type of radiation scheme
     
     select case ( RD_TYPE )
+    case ("GRAYRAD")
+      this%RD_TYPEID = RD_TYPEID_GRAYRAD
     case default
       LOG_ERROR("ATMOS_PHY_RD_setup",*) 'Not appropriate RD_TYPE. Check!'
       call PRC_abort
@@ -168,6 +172,7 @@ contains
   subroutine AtmosPhyRd_calc_tendency( &
     this, model_mesh, prgvars_list, trcvars_list, &
     auxvars_list, forcing_list, is_update         )
+      
     implicit none
     class(AtmosPhyRd), intent(inout) :: this
     class(ModelMeshBase), intent(in) :: model_mesh
@@ -177,6 +182,13 @@ contains
     class(ModelVarManager), intent(inout) :: forcing_list
     logical, intent(in) :: is_update
     !------------------------------------------------------------------------
+
+    if (.not. this%IsActivated()) return
+
+    select case( this%RD_TYPEID )
+    case ( RD_TYPEID_GRAYRAD )
+    end select
+
     return
   end subroutine AtmosPhyRd_calc_tendency
 
@@ -215,14 +227,68 @@ contains
     !--------------------------------------------------
     if (.not. this%IsActivated()) return
 
-    ! select case ( this%RD_TYPEID )
-    ! case( RD_TYPEID_LSCOND )
-    ! end select
+    select case ( this%RD_TYPEID )
+    case( RD_TYPEID_GRAYRAD )
+    end select
 
     call this%vars%Final()
     return
   end subroutine AtmosPhyRd_finalize
 
 !- private ------------------------------------------------
+!OCL SERIAL
+  subroutine AtmosPhyRd_calc_tendency_core( this, &
+    DDENS, PRES, SFC_TEMP, &
+    DENS_hyd, Rtot, &
+    lcmesh, elem3D, lcmesh2D, elem2D, elem_v1D )
+    implicit none
+    class(AtmosPhyRd), intent(inout) :: this
+    class(LocalMesh3D), intent(in) :: lcmesh
+    class(ElementBase3D), intent(in) :: elem3D
+    class(LocalMesh2D), intent(in) :: lcmesh2D
+    class(ElementBase2D), intent(in) :: elem2D
+    class(ElementBase1D), intent(in) :: elem_v1D    
+    real(RP), intent(in) :: DDENS(elem3D%Np,lcmesh%NeA)
+    real(RP), intent(in) :: PRES(elem3D%Np,lcmesh%NeA)
+    real(RP), intent(in) :: SFC_TEMP(elem2D%Np,lcmesh2D%NeA)
+    real(RP), intent(in) :: DENS_hyd(elem3D%Np,lcmesh%NeA)
+    real(RP), intent(in) :: Rtot(elem3D%Np,lcmesh%NeA)
 
+    real(RP) :: flux_rad(elem3D%Nnode_v,lcmesh%NeZ,elem3D%Nnode_h1D**2,lcmesh%Ne2D,2,2,2)
+    real(RP) :: flux_rad_top(elem3D%Nnode_h1D**2,lcmesh%Ne2D,2,2,2)
+    real(RP) :: TEMP(elem3D%Nnode_v,lcmesh%NeZ,,elem3D%Nnode_h1D**2,lcmesh%Ne2D)
+    real(RP) :: DENS(elem3D%Nnode_v,lcmesh%NeZ,,elem3D%Nnode_h1D**2,lcmesh%Ne2D)
+    
+    ! real(RP) :: flux_up(elem3D%Nnode_v,lcmesh%NeZ,elem3D%Nnode_h1D**2,lcmesh%Ne2D)
+    ! real(RP) :: flux_dn(elem3D%Nnode_v,lcmesh%NeZ,elem3D%Nnode_h1D**2,lcmesh%Ne2D)
+    ! real(RP) :: flux_net(elem3D%Nnode_v,lcmesh%NeZ,elem3D%Nnode_h1D**2,lcmesh%Ne2D)
+    ! real(RP) :: flux_net_sfc(elem3D%Nnode_h1D**2,lcmesh%Ne2D)
+    ! real(RP) :: flux_net_toa(elem3D%Nnode_h1D**2,lcmesh%Ne2D)
+    ! real(RP) :: flux_net_tom(elem3D%Nnode_h1D**2,lcmesh%Ne2D)
+
+    integer :: ke, ke_h, ke_z
+    integer :: p, ph, pz
+
+    real(RP) :: dens_
+    !--------------------------------------------------
+
+    !$omp parallel do private(ke,p, dens_) collapse(2)
+    do ke_z=1, lcmesh%NeZ
+    do ke_h=1, lcmesh%Ne2D
+      ke = ke_h + (ke_z-1)*lcmesh%Ne2D
+      do pz=1, elem3D%Nnode_v
+      do ph=1, elem3D%Nnode_h1D**2
+        p = ph + (pz-1)*elem3D%Nnode_h1D**2
+        dens_ = DENS_hyd(p,ke) + DDENS(p,ke)
+        
+        TEMP(pz,ke_z,ph,ke_h) = PRES(p,ke) / ( Rtot(p,ke) * dens_ )
+        DENS(pz,ke_z,ph,ke_h) = dens_
+      end do
+      end do
+    end do
+    end do
+
+
+    return
+  end subroutine AtmosPhyRd_calc_tendency_core
 end module mod_atmos_phy_rd
