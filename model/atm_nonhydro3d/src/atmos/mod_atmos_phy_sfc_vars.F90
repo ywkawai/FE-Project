@@ -25,6 +25,7 @@ module mod_atmos_phy_sfc_vars
     MeshBase3D,                              &
     DIMTYPE_XYZ  => MeshBase3D_DIMTYPEID_XYZ
   use scale_localmesh_base, only: LocalMeshBase
+  use scale_localmesh_2d, only: LocalMesh2D
   use scale_localmesh_3d, only: LocalMesh3D
   use scale_localmeshfield_base, only: LocalMeshFieldBase
   use scale_meshfield_base, only: &
@@ -63,6 +64,7 @@ module mod_atmos_phy_sfc_vars
     procedure :: Init => AtmosPhySfcVars_Init
     procedure :: Final => AtmosPhySfcVars_Final
     procedure :: History => AtmosPhySfcVars_history
+    procedure :: SetDefaultVal => AtmosPhySfcVars_set_default_val
   end type AtmosPhySfcVars
 
   integer, public, parameter :: ATMOS_PHY_SF_SVAR_TEMP_ID  = 1
@@ -203,6 +205,31 @@ contains
 
     return
   end subroutine AtmosPhySfcVars_Final
+
+  !> Set default value for surface variables
+!OCL SERIAL
+  subroutine AtmosPhySfcVars_set_default_val( this, &
+    SFC_TEMP )
+    implicit none
+    class(AtmosPhySfcVars), intent(inout), target :: this
+    real(RP), intent(in) :: SFC_TEMP
+
+    integer :: ldomID
+    class(MeshBase2D), pointer :: mesh2D
+    class(LocalMesh2D), pointer :: lcmesh2D
+    integer :: ke
+    !--------------------------------------------------
+
+    mesh2D => this%SFC_FLX(ATMOS_PHY_SF_SVAR_TEMP_ID)%mesh
+
+    do ldomID=1, mesh2D%LOCAL_MESH_NUM
+      lcmesh2D => mesh2D%lcmesh_list(ldomID)
+      do ke=lcmesh2D%NeS, lcmesh2D%NeE
+        this%SFC_VARS(ATMOS_PHY_SF_SVAR_TEMP_ID)%local(ldomID)%val(:,ke) = SFC_TEMP
+      end do
+    end do
+    return
+  end subroutine AtmosPhySfcVars_set_default_val
 
 !OCL SERIAL
   subroutine AtmosPhySfcVars_history( this )
