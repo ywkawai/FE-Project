@@ -203,12 +203,27 @@ contains
     return
   end subroutine AtmosPhyRdVars_Final
 
+  !> Write history data of variables with radiation component
 !OCL SERIAL
   subroutine AtmosPhyRdVars_history( this )
     use scale_file_history_meshfield, only: FILE_HISTORY_meshfield_put
     implicit none
     class(AtmosPhyRdVars), intent(inout) :: this
+
+    integer :: v
+    integer :: hst_id
     !----------------------------------------------------
+
+    do v = 1, this%TENDS_NUM_TOT
+      hst_id = this%tends(v)%hist_id
+      if ( hst_id > 0 ) call FILE_HISTORY_meshfield_put( hst_id, this%tends(v) )
+    end do
+
+    do v = 1, ATMOS_PHY_RD_AUX2D_NUM
+      hst_id = this%auxvars2D(v)%hist_id
+      if ( hst_id > 0 ) call FILE_HISTORY_meshfield_put( hst_id, this%auxvars2D(v) )
+    end do
+
     return
   end subroutine AtmosPhyRdVars_history
 

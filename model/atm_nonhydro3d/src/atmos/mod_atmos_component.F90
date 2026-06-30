@@ -258,6 +258,8 @@ contains
   !> Setup variables with the atmospheric component
 !OCL SERIAL
   subroutine Atmos_setup_vars( this )
+    use mod_atmos_phy_sfc_vars, only: &
+      SFCTEMP_ID => ATMOS_PHY_SF_SVAR_TEMP_ID
     implicit none
     class(AtmosComponent), intent(inout) :: this
     !----------------------------------------------------------
@@ -275,6 +277,9 @@ contains
     end if
     if ( this%phy_sfc_proc%IsActivated() ) then
       call this%vars%Setup_container( this%phy_sfc_proc%atm_var_container_typeid, this%mesh )
+    end if
+    if ( this%phy_rd_proc%IsActivated() ) then
+      call this%phy_rd_proc%SetSfcTemp( this%phy_sfc_proc%vars%SFC_VARS(SFCTEMP_ID) )
     end if
 
 

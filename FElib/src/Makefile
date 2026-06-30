@@ -24,6 +24,7 @@ VPATH = \
 	surface:          \
 	turbulence:       \
 	microphysics:     \
+	radiation:        \
 	model_framework:
 
 LIBVERSION = $(shell git rev-parse --short HEAD 2> /dev/null)
@@ -152,6 +153,7 @@ OBJS_NAME_FLUID_DYN_SOLVER = \
 	scale_atm_dyn_dgm_globalnonhydro3d_etot_heve.o       \
 	scale_atm_dyn_dgm_globalnonhydro3d_rhot_hevi.o       \
 	scale_atm_dyn_dgm_globalnonhydro3d_etot_hevi.o       \
+	scale_atm_dyn_dgm_none.o                             \
 	scale_atm_dyn_dgm_bnd.o                          \
 	scale_atm_dyn_dgm_driver_base.o                  \
 	scale_atm_dyn_dgm_driver_nonhydro3d.o            \
@@ -174,7 +176,8 @@ OBJS_NAME_MICROPHYS = \
 	scale_atm_phy_mp_lscond.o
 
 OBJS_NAME_RADIATION = \
-	scale_atm_phy_rd_dgm_gray.o
+	scale_atm_phy_rd_dgm_gray.o   \
+	scale_atm_phy_rd_dgm_common.o
 
 OBJS_NAME_MODEL_FRAMEWORK = \
 	scale_model_meshbase_manager.o \
@@ -194,6 +197,7 @@ OBJS_NAME = \
 	$(OBJS_NAME_SURFACE)          \
 	$(OBJS_NAME_TURBULENCE)       \
 	$(OBJS_NAME_MICROPHYS)        \
+	$(OBJS_NAME_RADIATION)        \
 	$(OBJS_NAME_MODEL_FRAMEWORK)
 
 #------------------------------------------
@@ -246,6 +250,8 @@ OBJS_NAME_SCALELIB = \
 	scale_atmos_phy_mp_sn14.o	  \
 	scale_atmos_phy_mp_suzuki10.o \
 	scale_atmos_phy_mp_tomita08.o \
+	\
+	scale_atmos_phy_rd_common.o \
 	\
 	scale_atmos_phy_sf_bulk.o  \
 	scale_atmos_phy_sf_const.o \
