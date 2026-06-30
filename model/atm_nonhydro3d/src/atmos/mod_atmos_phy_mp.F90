@@ -78,15 +78,16 @@ module mod_atmos_phy_mp
     real(RP), private :: cldfrac_threshold  !< Threshold for cloud fraction
 
     real(DP), private :: dtsec                !< Timestep with cloud microphysics component
-    integer, private :: nstep_sedmientation
+    integer, private :: nstep_sedmientation   !< Number of substep for sedimentation
     real(RP), private :: rnstep_sedmientation
     real(DP), private :: dtsec_sedmientation
 
-    type(SparseMat) :: Dz, Lift
-    type(HexahedralElement) :: elem
-    type(LineElement) :: elem_v1D
+    type(SparseMat) :: Dz                     !< Object to manage a sparse matrix for vertical derivative for sedimentation
+    type(SparseMat) :: Lift                   !< Object to manage a sparse matrix for lifting for sedimentation
+    type(HexahedralElement) :: elem           !< Object to manage a hexahedral element for sedimentation
+    type(LineElement) :: elem_v1D             !< Object to manage a 1D element for sedimentation
 
-    type(AtmosVarsContainer), pointer :: primary_atmvars_container
+    type(AtmosVarsContainer), pointer :: primary_atmvars_container !< Pointer to the primary atmospheric variable container
 
     logical :: gFilter_flag
     type(MeshFieldFilterOperation3D) :: gFilter_phy_mp !< Filter for cloud microphysics variables
@@ -204,7 +205,6 @@ contains
     integer :: PostModalFilter_ORDER_v = 16
     logical :: PostFilterOnlyApplyRHOH = .false.
 
-
     namelist /PARAM_ATMOS_PHY_MP/ &
       TIME_DT,             &
       TIME_DT_UNIT,        &
@@ -226,13 +226,12 @@ contains
       PostModalFilter_ORDER_v, &
       PostFilterOnlyApplyRHOH
 
-    
+    integer :: ierr
+
     class(AtmosMesh), pointer     :: atm_mesh
     class(MeshBase), pointer      :: ptr_mesh
     class(LocalMesh3D), pointer :: lcmesh3D
     class(ElementBase3D), pointer :: elem3D
-
-    integer :: ierr
 
     integer :: QS_MP, QE_MP, QA_MP
 
@@ -406,7 +405,8 @@ contains
       call PRC_abort
     end select
     
-    !-
+    !- Setup filtering for cloud microphysics variables
+
     this%PostFilterOnlyApplyRHOH = PostFilterOnlyApplyRHOH
     if ( this%PostFilterOnlyApplyRHOH ) then
       PostFilteredTendNum = 1
@@ -464,12 +464,11 @@ contains
       AtmosVars_GetLocalMeshPhyAuxVars,  &
       AtmosVars_GetLocalMeshQTRCVarList, & 
       AtmosVars_GetLocalMeshPhyTends
-    use mod_atmos_phy_mp_vars, only:           &
-      AtmosPhyMPVars_GetLocalMeshFields_tend,  &
+    use mod_atmos_phy_mp_vars, only: &
+      AtmosPhyMPVars_GetLocalMeshFields_tend,   &
       AtmosPhyMpVars_GetLocalMeshFields_sfcflx, &
       ATMOS_PHY_MP_RHOH_ID
 
-    
     implicit none
     
     class(AtmosPhyMp), intent(inout) :: this
@@ -623,7 +622,7 @@ contains
 
     end if
 
-      !- Add tendencies calculated in this component to the total tendencies
+    !- Add tendencies calculated in this component to the total tendencies
 
     do n=1, mesh%LOCAL_MESH_NUM  
       call AtmosVars_GetLocalMeshPhyTends( n,        &
@@ -655,8 +654,6 @@ contains
       end do 
       !$omp end do
       !$omp end parallel
-
-      call PROF_rapend('ATM_PHY_MP_cal_tend', 2)
     end do
 
     return  
@@ -716,6 +713,7 @@ contains
   
 !- private ------------------------------------------------
 
+  !> Calculate tendencies associated with cloud microphysics and precipitation for each local mesh
 !OCL SERIAL
   subroutine AtmosPhyMp_calc_tendency_core( this, &
     DENS_t_MP, RHOU_t_MP, RHOV_t_MP, MOMZ_t_MP, RHOQ_t_MP,  & ! (out)
@@ -1086,7 +1084,8 @@ contains
       !$omp end do
       !$omp end parallel
 
-      !- precipiation of momentum
+      !- Precipitation of momentum
+
       if ( lscond_flag ) then
         call ATMOS_PHY_MP_lscond_precipitation_momentum( &
           RHOU_t_MP, RHOV_t_MP, MOMZ_t_MP,          & ! (out)
