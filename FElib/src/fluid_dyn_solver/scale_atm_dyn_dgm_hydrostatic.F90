@@ -49,11 +49,11 @@ module scale_atm_dyn_dgm_hydrostatic
   public :: hydrostatic_calc_basicstate_constTLAPS
   public :: hydrostatic_calc_basicstate_constPTLAPS
   public :: hydrostatic_calc_basicstate_constBVFreq
-  public :: hydrostaic_build_rho_XYZ
+  public :: hydrostatic_build_rho_XYZ
 
-  interface hydrostaic_build_rho_XYZ
-    module procedure hydrostaic_build_rho_XYZ_dry
-    module procedure hydrostaic_build_rho_XYZ_moist
+  interface hydrostatic_build_rho_XYZ
+    module procedure hydrostatic_build_rho_XYZ_dry
+    module procedure hydrostatic_build_rho_XYZ_moist
   end interface
   
   !-----------------------------------------------------------------------------
@@ -347,7 +347,7 @@ contains
   !! @param elem A object to manage a 3D finite element     
   !! @param bnd_SFC_PRES Surface pressure which is given as surface boundary condition [Pa]
 !OCL SERIAL
-  subroutine hydrostaic_build_rho_XYZ_dry(   &
+  subroutine hydrostatic_build_rho_XYZ_dry(   &
     DDENS,                                   &
     DENS_hyd, PRES_hyd,                      &
     POT,                                     &
@@ -379,7 +379,7 @@ contains
     !$omp end workshare
     !$omp end parallel
 
-    call hydrostaic_build_rho_XYZ_moist(   &
+    call hydrostatic_build_rho_XYZ_moist(   &
       DDENS,                                   &
       DENS_hyd, PRES_hyd,                      &
       POT, Rtot, CPtot_ov_CVtot,               &
@@ -387,7 +387,7 @@ contains
       bnd_SFC_PRES                             )
     
     return
-  end subroutine hydrostaic_build_rho_XYZ_dry
+  end subroutine hydrostatic_build_rho_XYZ_dry
 
   !> Build density in hydrostatic balance state of moist atmosphere
   !!
@@ -404,7 +404,7 @@ contains
   !! @param elem A object to manage a 3D finite element     
   !! @param bnd_SFC_PRES Surface pressure which is given as surface boundary condition [Pa]
 !OCL SERIAL
-  subroutine hydrostaic_build_rho_XYZ_moist( &
+  subroutine hydrostatic_build_rho_XYZ_moist( &
     DDENS,                                   &
     DENS_hyd, PRES_hyd,                      &
     POT, Rtot, CPtot_ov_CVtot,               &
@@ -579,7 +579,7 @@ contains
     call Lift%Final()
 
     return
-  end subroutine hydrostaic_build_rho_XYZ_moist
+  end subroutine hydrostatic_build_rho_XYZ_moist
 
 !-- private ---------------------------------
 

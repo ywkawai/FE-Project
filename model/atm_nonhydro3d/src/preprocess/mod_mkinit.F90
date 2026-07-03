@@ -37,7 +37,7 @@ module mod_mkinit
   use scale_mesh_base3d, only: MeshBase3D
   use scale_localmeshfield_base, only: LocalMeshFieldBase
   use scale_atm_dyn_dgm_hydrostatic, only: &
-    hydrostaic_build_rho_XYZ
+    hydrostatic_build_rho_XYZ
 
   use mod_atmos_component, only: &
     AtmosComponent

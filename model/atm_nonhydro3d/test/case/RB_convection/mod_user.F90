@@ -505,7 +505,7 @@ contains
       RANDOM_uniform
     use scale_atm_dyn_dgm_hydrostatic, only: &
       hydrostatic_calc_basicstate_constBVFreq, &
-      hydrostaic_build_rho_XYZ 
+      hydrostatic_build_rho_XYZ 
     
     use mod_experiment, only: &
       TracerLocalMeshField_ptr
@@ -658,7 +658,7 @@ contains
       end do
       end do
 
-      call hydrostaic_build_rho_XYZ( DDENS, &
+      call hydrostatic_build_rho_XYZ( DDENS, &
         DENS_hyd, PRES_hyd, PT_zxy,                                         &
         lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2), lcmesh%pos_en(:,:,3),   &
         lcmesh, elem, bnd_SFC_PRES=bnd_SFC_PRES                             )
