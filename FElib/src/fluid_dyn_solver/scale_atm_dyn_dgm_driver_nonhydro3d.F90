@@ -897,7 +897,7 @@ contains
       do n=1, mesh3D%LOCAL_MESH_NUM
         lcmesh3D => mesh3D%lcmesh_list(n)
 
-        if ( QA > 0 ) then
+        if ( QA > 0 .and. this%EQS_TYPEID /= EQS_TYPEID_NONE ) then
           call PROF_rapstart( 'ATM_DYN_tavg_mflx', 2)
           if (this%tint(1)%imex_flag) then
             tavg_coef_MFLXZ(:) = this%tint(n)%coef_b_im(:)
