@@ -32,7 +32,7 @@ module mod_atmos_phy_rd
     ElementBase1D, ElementBase2D, ElementBase3D
 
   use scale_meshfield_base, only: &
-    MeshFieldBase, MeshField3D
+    MeshFieldBase, MeshField2D, MeshField3D
   use scale_localmeshfield_base, only: &
     LocalMeshFieldBase, LocalMeshFieldBaseList
 
@@ -41,9 +41,10 @@ module mod_atmos_phy_rd
   use scale_model_component_proc, only:  ModelComponentProc
 
   use mod_atmos_phy_rd_vars, only: AtmosPhyRdVars
-
   use mod_atmos_vars_container, only: &
     AtmosVarsContainer
+
+  use scale_atm_phy_rd_dgm_gray, only: AtmPhyRadGray
 
   !-----------------------------------------------------------------------------
   implicit none
@@ -57,15 +58,21 @@ module mod_atmos_phy_rd
   !!
   type, extends(ModelComponentProc), public :: AtmosPhyRd
     integer :: RD_TYPEID         !< Type id of radiation scheme
-    type(AtmosPhyRdVars) :: vars !< Object to manage variables with radiation
 
-    integer :: atm_var_container_typeid     !< Type ID of variable container for radiation
+    type(AtmosPhyRdVars) :: vars               !< Object to manage variables with radiation
+    type(MeshField2D), pointer :: SFC_TEMP_ptr !< Pointer to an object with surface temperature field
 
+    integer :: atm_var_container_typeid        !< Type ID of variable container for radiation
+
+    !-
+    type(AtmPhyRadGray) :: gray_rad !< Object to manage a gray-radiation scheme
   contains
-    procedure :: setup => AtmosPhyRd_setup
-    procedure :: calc_tendency => AtmosPhyRd_calc_tendency
-    procedure :: update => AtmosPhyRd_update
-    procedure :: finalize => AtmosPhyRd_finalize
+    procedure, public :: setup => AtmosPhyRd_setup
+    procedure, public :: calc_tendency => AtmosPhyRd_calc_tendency
+    procedure, public :: update => AtmosPhyRd_update
+    procedure, public :: finalize => AtmosPhyRd_finalize
+    procedure, public :: SetSfcTemp => AtmosPhyRd_set_SfcTemp
+    procedure, private :: calc_tendency_core => AtmosPhyRd_calc_tendency_core
   end type AtmosPhyRd
 
   !-----------------------------------------------------------------------------
@@ -79,6 +86,8 @@ module mod_atmos_phy_rd
   !
   !++ Private parameters & variables
   !
+  integer, parameter :: RD_TYPEID_GRAYRAD  = 1 !< Type ID of a gray radiation scheme
+
 contains
 
 !> Setup a component of radiation in atmospheric model
@@ -143,6 +152,9 @@ contains
     !--- Set the type of radiation scheme
     
     select case ( RD_TYPE )
+    case ("GRAYRAD")
+      this%RD_TYPEID = RD_TYPEID_GRAYRAD
+      call this%gray_rad%Init()
     case default
       LOG_ERROR("ATMOS_PHY_RD_setup",*) 'Not appropriate RD_TYPE. Check!'
       call PRC_abort
@@ -154,6 +166,16 @@ contains
 
     return
   end subroutine AtmosPhyRd_setup
+
+!OCL SERIAL
+  subroutine AtmosPhyRd_set_SfcTemp( this, sfc_temp )
+    implicit none
+    class(AtmosPhyRd), intent(inout) :: this
+    type(MeshField2D), target, intent(in) :: sfc_temp
+    !-----------------------------------------------------
+    this%SFC_TEMP_ptr => sfc_temp
+    return
+  end subroutine AtmosPhyRd_set_SfcTemp
 
 !> Calculate tendencies associated with radiation in atmospheric model
 !!
@@ -168,6 +190,15 @@ contains
   subroutine AtmosPhyRd_calc_tendency( &
     this, model_mesh, prgvars_list, trcvars_list, &
     auxvars_list, forcing_list, is_update         )
+    use scale_atm_phy_rd_dgm_common, only: ATM_PHY_RD_DGM_calc_heating
+    use mod_atmos_vars, only: &
+      AtmosVars_GetLocalMeshPrgVars,     &
+      AtmosVars_GetLocalMeshPhyAuxVars,  &
+      AtmosVars_GetLocalMeshQTRC_Qv,     &
+      AtmosVars_GetLocalMeshPhyTends
+    use mod_atmos_phy_rd_vars, only: &
+      RD_RHOH_ID => ATMOS_PHY_RD_RHOH_ID
+
     implicit none
     class(AtmosPhyRd), intent(inout) :: this
     class(ModelMeshBase), intent(in) :: model_mesh
@@ -176,7 +207,83 @@ contains
     class(ModelVarManager), intent(inout) :: auxvars_list
     class(ModelVarManager), intent(inout) :: forcing_list
     logical, intent(in) :: is_update
+
+    class(MeshBase), pointer :: mesh
+    class(LocalMesh3D), pointer :: lcmesh
+    class(LocalMesh2D), pointer :: lcmesh2D
+
+    class(LocalMeshFieldBase), pointer :: DDENS, MOMX, MOMY, MOMZ, DRHOT
+    class(LocalMeshFieldBase), pointer :: Rtot, CVtot, CPtot
+    class(LocalMeshFieldBase), pointer :: DENS_hyd, PRES_hyd
+    class(LocalMeshFieldBase), pointer :: PRES, PT
+    class(LocalMeshFieldBase), pointer :: QV, QV_tp
+    class(LocalMeshFieldBase), pointer :: rd_RHOH
+    class(LocalMeshFieldBase), pointer :: DENS_tp, MOMX_tp, MOMY_tp, MOMZ_tp, RHOT_tp, RHOH_p
+
+    integer :: n
+    integer :: ke
     !------------------------------------------------------------------------
+
+    if (.not. this%IsActivated()) return
+
+    LOG_PROGRESS(*) 'atmosphere / physics / radiation'
+
+    call model_mesh%GetModelMesh( mesh )
+
+    if (is_update) then
+    
+      do n=1, mesh%LOCAL_MESH_NUM
+        call PROF_rapstart('ATM_PHY_RD_get_localmesh_ptr', 2)    
+
+        !- Get pointers to the fields in the variable container for cloud microphysics
+        call AtmosVars_GetLocalMeshPrgVars( n,  &
+          mesh, prgvars_list, auxvars_list,       &
+          DDENS, MOMX, MOMY, MOMZ, DRHOT,         &
+          DENS_hyd, PRES_hyd, Rtot, CVtot, CPtot, &
+          lcmesh                                  )
+
+        call AtmosVars_GetLocalMeshPhyAuxVars( n,  &
+          mesh, auxvars_list,                      &
+          PRES, PT )
+
+        call AtmosVars_GetLocalMeshQTRC_Qv( n, &
+          mesh, trcvars_list, forcing_list,    &
+          QV, QV_tp )
+        call PROF_rapend('ATM_PHY_RD_get_localmesh_ptr', 2)
+
+        !- Calculate tendencies associated with radiation
+
+        call PROF_rapstart('ATM_PHY_RD_cal_tend', 2)
+        lcmesh2D => lcmesh%lcmesh2D
+        call this%vars%tends(RD_RHOH_ID)%GetLocalMeshField( n, rd_RHOH )
+        call this%calc_tendency_core( rd_RHOH%val,                & ! (out)
+          DDENS%val, PRES%val, QV%val,                            & ! (in)
+          this%SFC_TEMP_ptr%local(n)%val,                         & ! (in)
+          DENS_hyd%val, Rtot%val, CVtot%val,                      & ! (in)
+          lcmesh, lcmesh%refElem3D, lcmesh2D, lcmesh2D%refElem2D, & ! (in)
+          model_mesh%element3D_operation )                          ! (in)
+        call PROF_rapend('ATM_PHY_RD_cal_tend', 2)
+      end do
+    
+    end if
+
+    !- Add tendencies calculated in this component to the total tendencies
+
+    do n=1, mesh%LOCAL_MESH_NUM
+      call AtmosVars_GetLocalMeshPhyTends( n,        &
+        mesh, forcing_list,                          &
+        DENS_tp, MOMX_tp, MOMY_tp, MOMZ_tp, RHOT_tp, &
+        RHOH_p, lcmesh3D=lcmesh )
+
+      call this%vars%tends(RD_RHOH_ID)%GetLocalMeshField( n, rd_RHOH )
+      !$omp parallel private(ke)
+      !$omp do
+      do ke=lcmesh%NeS, lcmesh%NeE
+        RHOH_p %val(:,ke) = RHOH_p %val(:,ke) + rd_RHOH%val(:,ke)
+      end do
+      !$omp end parallel
+    end do
+
     return
   end subroutine AtmosPhyRd_calc_tendency
 
@@ -215,14 +322,91 @@ contains
     !--------------------------------------------------
     if (.not. this%IsActivated()) return
 
-    ! select case ( this%RD_TYPEID )
-    ! case( RD_TYPEID_LSCOND )
-    ! end select
+    select case ( this%RD_TYPEID )
+    case( RD_TYPEID_GRAYRAD )
+      call this%gray_rad%Final()
+    end select
 
     call this%vars%Final()
     return
   end subroutine AtmosPhyRd_finalize
 
 !- private ------------------------------------------------
+!OCL SERIAL
+  subroutine AtmosPhyRd_calc_tendency_core( this, &
+    RHOH,                              &
+    DDENS, PRES, QV, SFC_TEMP,         &
+    DENS_hyd, Rtot, CVtot,             &
+    lcmesh, elem3D, lcmesh2D, elem2D,  &
+    elem3D_operation )
+    use scale_element_operation_base, only: ElementOperationBase3D
+    use scale_atm_phy_rd_dgm_common, only: ATM_PHY_RD_DGM_calc_heating
+    implicit none
+    class(AtmosPhyRd), intent(inout) :: this
+    class(LocalMesh3D), intent(in) :: lcmesh
+    class(ElementBase3D), intent(in) :: elem3D
+    class(LocalMesh2D), intent(in) :: lcmesh2D
+    class(ElementBase2D), intent(in) :: elem2D
+    real(RP), intent(out) :: RHOH(elem3D%Np,lcmesh%NeA)  
+    real(RP), intent(in) :: DDENS(elem3D%Np,lcmesh%NeA)
+    real(RP), intent(in) :: PRES(elem3D%Np,lcmesh%NeA)
+    real(RP), intent(in) :: QV(elem3D%Np,lcmesh%NeA)
+    real(RP), intent(in) :: SFC_TEMP(elem2D%Np,lcmesh2D%NeA)
+    real(RP), intent(in) :: DENS_hyd(elem3D%Np,lcmesh%NeA)
+    real(RP), intent(in) :: Rtot(elem3D%Np,lcmesh%NeA)
+    real(RP), intent(in) :: CVtot(elem3D%Np,lcmesh%NeA)
+    class(ElementOperationBase3D), intent(in) :: elem3D_operation
 
+    real(RP) :: flux_rad(elem3D%Np,lcmesh%Ne,2,2,2)
+    real(RP) :: flux_rad_top(elem3D%Nnode_h1D**2,lcmesh%Ne2D,2,2,2)
+    real(RP) :: TEMP_(elem3D%Nnode_v,lcmesh%NeZ,elem3D%Nnode_h1D**2,lcmesh%Ne2D)
+    real(RP) :: DENS_(elem3D%Nnode_v,lcmesh%NeZ,elem3D%Nnode_h1D**2,lcmesh%Ne2D)
+    real(RP) :: PRES_(elem3D%Nnode_v,lcmesh%NeZ,elem3D%Nnode_h1D**2,lcmesh%Ne2D)
+    real(RP) :: QV_(elem3D%Nnode_v,lcmesh%NeZ,elem3D%Nnode_h1D**2,lcmesh%Ne2D)
+    
+    ! real(RP) :: flux_up(elem3D%Nnode_v,lcmesh%NeZ,elem3D%Nnode_h1D**2,lcmesh%Ne2D)
+    ! real(RP) :: flux_dn(elem3D%Nnode_v,lcmesh%NeZ,elem3D%Nnode_h1D**2,lcmesh%Ne2D)
+    ! real(RP) :: flux_net(elem3D%Nnode_v,lcmesh%NeZ,elem3D%Nnode_h1D**2,lcmesh%Ne2D)
+    ! real(RP) :: flux_net_sfc(elem3D%Nnode_h1D**2,lcmesh%Ne2D)
+    ! real(RP) :: flux_net_toa(elem3D%Nnode_h1D**2,lcmesh%Ne2D)
+    ! real(RP) :: flux_net_tom(elem3D%Nnode_h1D**2,lcmesh%Ne2D)
+
+    integer :: ke, ke_h, ke_z
+    integer :: p, ph, pz
+
+    real(RP) :: dens_tmp
+    !--------------------------------------------------
+
+    !$omp parallel do private(ke,p, dens_tmp) collapse(2)
+    do ke_z=1, lcmesh%NeZ
+    do ke_h=1, lcmesh%Ne2D
+      ke = ke_h + (ke_z-1)*lcmesh%Ne2D
+      do pz=1, elem3D%Nnode_v
+      do ph=1, elem3D%Nnode_h1D**2
+        p = ph + (pz-1)*elem3D%Nnode_h1D**2
+        dens_tmp = DENS_hyd(p,ke) + DDENS(p,ke)
+        
+        PRES_(pz,ke_z,ph,ke_h) = PRES(p,ke)
+        TEMP_(pz,ke_z,ph,ke_h) = PRES(p,ke) / ( Rtot(p,ke) * dens_tmp )
+        DENS_(pz,ke_z,ph,ke_h) = dens_tmp
+        QV_(pz,ke_z,ph,ke_h)   = QV(p,ke)
+      end do
+      end do
+    end do
+    end do
+
+    select case( this%RD_TYPEID )
+    case ( RD_TYPEID_GRAYRAD )
+      call this%gray_rad%calculate_rad_flux( flux_rad(:,:,:,:,1), &
+        PRES_, TEMP_, DENS_, QV_, SFC_TEMP, &
+        lcmesh, elem3D, lcmesh2D, elem2D )
+    end select
+
+    call ATM_PHY_RD_DGM_calc_heating( RHOH, &
+      flux_rad(:,:,:,:,1), DDENS, DENS_hyd, CVtot, &
+      lcmesh, elem3D, elem2D, &
+      elem3D_operation )
+
+    return
+  end subroutine AtmosPhyRd_calc_tendency_core
 end module mod_atmos_phy_rd

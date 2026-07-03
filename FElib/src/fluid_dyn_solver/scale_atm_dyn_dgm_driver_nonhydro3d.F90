@@ -133,6 +133,11 @@ module scale_atm_dyn_dgm_driver_nonhydro3d
     atm_dyn_dgm_globalnonhydro3d_etot_hevi_cal_tend,       &
     atm_dyn_dgm_globalnonhydro3d_etot_hevi_cal_vi
   
+  use scale_atm_dyn_dgm_none, only: &
+    atm_dyn_dgm_none_Init,          &
+    atm_dyn_dgm_none_Final,         &
+    atm_dyn_dgm_none_cal_tend
+  
   use scale_atm_dyn_dgm_bnd, only: AtmDynBnd
   use scale_atm_dyn_dgm_spongelayer, only: AtmDynSpongeLayer
 
@@ -302,6 +307,7 @@ module scale_atm_dyn_dgm_driver_nonhydro3d
   !
   !++ Public parameters & variables
   !
+  integer, public, parameter :: EQS_TYPEID_NONE                      = 0
   integer, public, parameter :: EQS_TYPEID_NONHYD3D_HEVE             = 1
   integer, public, parameter :: EQS_TYPEID_NONHYD3D_HEVE_ENTOT       = 2
   integer, public, parameter :: EQS_TYPEID_GLOBALNONHYD3D_HEVE       = 3
@@ -390,6 +396,13 @@ contains
     this%hide_mpi_comm_flag         = hide_mpi_comm_flag
 
     select case(eqs_type_name)
+    !-- NONE ------------------
+    case("NONE")
+      this%EQS_TYPEID = EQS_TYPEID_NONE
+      call atm_dyn_dgm_none_Init( mesh3D )
+      this%cal_tend_ex => atm_dyn_dgm_none_cal_tend
+      this%cal_vi => null()
+      this%dynsolver_final => atm_dyn_dgm_none_Final
     !-- HEVE ------------------
     case("NONHYDRO3D_HEVE_ASIS", "NONHYDRO3D_RHOT_HEVE_ASIS")
       this%EQS_TYPEID = EQS_TYPEID_NONHYD3D_HEVE
@@ -884,7 +897,7 @@ contains
       do n=1, mesh3D%LOCAL_MESH_NUM
         lcmesh3D => mesh3D%lcmesh_list(n)
 
-        if ( QA > 0 ) then
+        if ( QA > 0 .and. this%EQS_TYPEID /= EQS_TYPEID_NONE ) then
           call PROF_rapstart( 'ATM_DYN_tavg_mflx', 2)
           if (this%tint(1)%imex_flag) then
             tavg_coef_MFLXZ(:) = this%tint(n)%coef_b_im(:)
