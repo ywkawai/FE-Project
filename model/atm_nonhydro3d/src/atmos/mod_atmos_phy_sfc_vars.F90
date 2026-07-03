@@ -223,7 +223,7 @@ contains
     integer :: ke
     !--------------------------------------------------
 
-    mesh2D => this%SFC_FLX(ATMOS_PHY_SF_SVAR_TEMP_ID)%mesh
+    mesh2D => this%SFC_VARS(ATMOS_PHY_SF_SVAR_TEMP_ID)%mesh
 
     do ldomID=1, mesh2D%LOCAL_MESH_NUM
       lcmesh2D => mesh2D%lcmesh_list(ldomID)

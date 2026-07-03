@@ -279,6 +279,10 @@ contains
       call this%vars%Setup_container( this%phy_sfc_proc%atm_var_container_typeid, this%mesh )
     end if
     if ( this%phy_rd_proc%IsActivated() ) then
+       if ( .not. this%phy_sfc_proc%IsActivated() ) then
+         LOG_ERROR('ATM_setup_vars',*) 'ATMOS_PHY_RD_DO requires ATMOS_PHY_SF_DO to provide SFC_TEMP.'
+         call PRC_abort
+       end if      
       call this%phy_rd_proc%SetSfcTemp( this%phy_sfc_proc%vars%SFC_VARS(SFCTEMP_ID) )
     end if
 

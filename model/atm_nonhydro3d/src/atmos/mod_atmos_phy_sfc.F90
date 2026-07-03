@@ -180,7 +180,7 @@ contains
       this%mesh => model_mesh
     end select
 
-    !-- Set defult values
+    !-- Set default values
     call this%vars%SetDefaultVal( DEFAULT_SFC_TEMP )
 
     return
