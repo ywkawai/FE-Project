@@ -457,8 +457,7 @@ contains
         deallocate( var2D_id_list_r, var2D_id_list_i, var2D_id_spectra_1d )
       end if
     end if
-
-    deallocate( vars2D_list, vars_list )
+    
     return
   end subroutine vars_final
 
