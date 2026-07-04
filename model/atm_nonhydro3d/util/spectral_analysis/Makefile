@@ -18,8 +18,9 @@ LIBS = $(LIBDIR)/libScaleFECore.a
 VPATH = plugin:
 
 OBJS = \
-	mod_spectral_analysis_vars.o \
-	mod_spectral_analysis_mesh.o \
+	mod_spectral_analysis_vintrp.o \
+	mod_spectral_analysis_vars.o   \
+	mod_spectral_analysis_mesh.o   \
 	mod_spectral_analysis.o
 
 
@@ -45,6 +46,7 @@ $(BUILD_DIR)/$(BINNAME) : $(BUILD_DIR)/prg_$(BINNAME).o  $(patsubst %,$(BUILD_DI
 $(BUILD_DIR)/prg_$(BINNAME).o : prg_$(BINNAME).F90 $(patsubst %,$(BUILD_DIR)/%,$(OBJS))
 
 #$(BUILD_DIR)/mod_regrid_operate_field.o    : $(BUILD_DIR)/mod_regrid_interp_vcoord.o $(BUILD_DIR)/mod_regrid_file.o $(BUILD_DIR)/mod_regrid_interp_vcoord.o $(BUILD_DIR)/mod_regrid_vec_conversion.o $(BUILD_DIR)/mod_regrid_interp_field.o $(BUILD_DIR)/mod_regrid_outvar_info.o $(BUILD_DIR)/mod_regrid_mesh_base.o $(BUILD_DIR)/mod_regrid_nodemap.o mod_regrid_operate_field.F90
+$(BUILD_DIR)/mod_spectral_analysis_vars.o : $(BUILD_DIR)/mod_spectral_analysis_vintrp.o
 
 distclean: clean
 	rm -f $(BINDIR)/$(BINNAME)

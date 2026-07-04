@@ -162,7 +162,7 @@ contains
       CP_WATER    
     use scale_atm_dyn_dgm_hydrostatic, only: &
       hydrostatic_calc_basicstate_constT, &
-      hydrostaic_build_rho_XYZ
+      hydrostatic_build_rho_XYZ
     use mod_experiment, only: &
       TracerLocalMeshField_ptr
     
@@ -270,7 +270,7 @@ contains
         end do
         end do
 
-        call hydrostaic_build_rho_XYZ( DDENS, & ! (out)
+        call hydrostatic_build_rho_XYZ( DDENS, & ! (out)
           DENS_hyd, PRES_hyd, PT_tmp,         & ! (in)
           Rtot, CPtot_ov_CVtot,               & ! (in)
           x, y, z, lcmesh, elem,              & ! (in)
