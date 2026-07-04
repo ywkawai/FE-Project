@@ -1,5 +1,15 @@
+!-------------------------------------------------------------------------------
+!> module Variable containers for spectral analysis
+!!
+!! @author Yuta Kawai, Team SCALE
+!<
+!-------------------------------------------------------------------------------
 #include "scaleFElib.h"
 module mod_spectral_analysis_vars
+  !-----------------------------------------------------------------------------
+  !
+  !++ Used modules
+  !
   use scale_precision
   use scale_io
   use scale_prof
@@ -18,21 +28,29 @@ module mod_spectral_analysis_vars
   use scale_file_base_meshfield, only: FILE_base_meshfield
 
   use netcdf
+  !-----------------------------------------------------------------------------
   implicit none
   private
-
+  !-----------------------------------------------------------------------------
+  !
+  !++ Public procedure
+  !
   public :: vars_init
   public :: vars_final
   public :: vars_read
   public :: vars_write
 
+  !-----------------------------------------------------------------------------
+  !
+  !++ Public parameters & variables
+  !
   character(len=H_SHORT), public, allocatable :: vars2D_list(:)
   character(len=H_SHORT), public, allocatable :: vars_list(:)
   integer, public :: var_num_step
 
-  integer, public :: var2DNum
-  integer, public :: varNum0
-  integer, public :: varNum
+  integer, public :: var2DNum   !< Number of 2D variables for spectral analysis
+  integer, public :: varNum0    !< Number of 3D variables for spectral analysis (excluding kinetic energy analysis variables)
+  integer, public :: varNum     !< Total number of 3D variables for spectral analysis (including kinetic energy analysis variables)
 
   real(RP), public, allocatable :: g_var2D(:,:,:,:)
   type(MeshField2D), public, allocatable :: g_var2D_list(:,:)
@@ -52,66 +70,88 @@ module mod_spectral_analysis_vars
   integer, public, parameter :: KE_RsqrtVmet_ID = 2
   integer, public, parameter :: KE_RsqrtWmet_ID = 3
 
-  integer :: ncido
-  integer :: k_wave_number_dim_id
-  integer :: l_wave_number_dim_id
-  integer :: oneD_wave_number_dim_id
-  integer :: level_dim_id
-  integer :: time_dim_id
-  integer :: k_wave_number_id
-  integer :: l_wave_number_id
-  integer :: oneD_wave_number_id
-  integer :: level_id
-  integer :: time_id
-  integer, allocatable :: var2D_id_list_r(:)
-  integer, allocatable :: var2D_id_list_i(:)
-  integer, allocatable :: var_id_list_r(:)
-  integer, allocatable :: var_id_list_i(:)
-  integer :: kin_energy_spectra_h_id
-  integer :: kin_energy_spectra_v_id
-  integer :: kin_energy_spectra_1d_h_id
-  integer :: kin_energy_spectra_1d_v_id
+  !-----------------------------------------------------------------------------
+  !
+  !++ Private procedures & variables
+  !
+    
+  integer :: ncido                     !< NetCDF file ID for output
+  integer :: k_wave_number_dim_id      !< Dimension ID for k wave number in output NetCDF file
+  integer :: l_wave_number_dim_id      !< Dimension ID for l wave number in output NetCDF file
+  integer :: oneD_wave_number_dim_id   !< Dimension ID for 1D wave number in output NetCDF file
+  integer :: level_dim_id              !< Dimension ID for vertical level in output NetCDF file
+  integer :: time_dim_id               !< Dimension ID for time in output NetCDF file
+  integer :: k_wave_number_id          !< Variable ID for k wave number in output NetCDF file
+  integer :: l_wave_number_id          !< Variable ID for l wave number in output NetCDF file
+  integer :: oneD_wave_number_id       !< Variable ID for 1D wave number in output NetCDF file
+  integer :: level_id                  !< Variable ID for vertical level in output NetCDF file
+  integer :: time_id                   !< Variable ID for time in output NetCDF file
 
-  type(FILE_base_meshfield), allocatable :: in_files(:)
-  type(FILE_base_meshfield), allocatable :: in_bs_files(:)
-  type(FILE_base_meshfield), allocatable :: in_files_2d(:)
+  integer, allocatable :: var2D_id_list_r(:)     !< 2D Variable IDs for output NetCDF file (real part) 
+  integer, allocatable :: var2D_id_list_i(:)     !< 2D Variable IDs for output NetCDF file (imaginary part)
+  integer, allocatable :: var2D_id_spectra_1d(:) !< 2D Variable IDs for 1D spectra output NetCDF file
+  logical :: vars2D_full_output_flag             !< Flag whether to output full 2D spectral data for each 2D variable
+
+  integer, allocatable :: var_id_list_r(:)       !< 3D Variable IDs for output NetCDF file (real part)
+  integer, allocatable :: var_id_list_i(:)       !< 3D Variable IDs for output NetCDF file (imaginary part)
+  integer, allocatable :: var_id_spectra_1d(:)   !< 3D Variable IDs for 1D spectra output NetCDF file
+  logical :: vars_full_output_flag               !< Flag whether to output full 2D spectral data for each 3D variable
+
+  integer :: kin_energy_spectra_h_id             !< ID for horizontal kinetic energy spectra output NetCDF file
+  integer :: kin_energy_spectra_v_id             !< ID for vertical kinetic energy spectra output NetCDF file
+  integer :: kin_energy_spectra_1d_h_id          !< ID for horizontal kinetic energy 1D spectra output NetCDF file
+  integer :: kin_energy_spectra_1d_v_id          !< ID for vertical kinetic energy 1D spectra output NetCDF file
+
+  type(FILE_base_meshfield), allocatable :: in_files(:)    !< Array of objects to read 3D variables from input files
+  type(FILE_base_meshfield), allocatable :: in_bs_files(:) !< Array of objects to read 3D variables from input files (basic state)
+  type(FILE_base_meshfield), allocatable :: in_files_2d(:) !< Array of objects to read 2D variables from input files
 
   real(DP) :: output_dt
   real(DP) :: start_sec
 
   logical :: output_flag
-  logical :: KinEnergyAnalysisFlag
 
-  integer :: s_ks, s_ke
-  integer :: s_ls, s_le
+  logical :: KinEnergyAnalysisFlag
+  character(len=H_SHORT) :: KEAnalysisVarPostfix
+
+  integer :: s_ks  !< Starting index of k wave number
+  integer :: s_ke  !< Ending index of k wave number
+  integer :: s_ls  !< Starting index of l wave number
+  integer :: s_le  !< Ending index of l wave number
 
   real(RP), allocatable :: VIntrpMat(:,:,:)
   real(RP), allocatable :: VIntrp_coef1(:)
   integer, allocatable :: VIntrp_keZ1(:), VIntrp_keZ2(:)
 
-  integer, parameter :: ZintrpType_Nearest_ID = 1
-  integer, parameter :: ZintrpType_SamplingUniPt_LinInterp_ID = 2
-  integer :: ZintrpType_ID
+  integer :: ZintrpType_ID                                         !< ID of vertical interpolation type
+  integer, parameter :: ZintrpType_Nearest_ID                 = 1  !< ID of vertical interpolation type: Nearest
+  integer, parameter :: ZintrpType_SamplingUniPt_LinInterp_ID = 2  !< ID of vertical interpolation type: Sampling at uniform points with linear interpolation
 
 contains
+  !> Setup variables for spectral analysis
 !OCL SERIAL
   subroutine vars_init( &
-    vars2D, vars, KinEnergyAnalysisFlag_,                            &
-    levels, level_units, zintrp_type_name,                           &
-    Np2D, Ne2D, mesh3D_list, target_proc_s,                          &
-    in_fbasename, in_bs_fbasename, out_fbasename, myrank,            &
+    vars2D, vars2D_full_output_flag_,                     &
+    vars, vars_full_output_flag_,                         &
+    KinEnergyAnalysisFlag_, KinEnergyAnalysisVarPostfix_, &
+    levels, level_units, zintrp_type_name,                &
+    Np2D, Ne2D, mesh3D_list, target_proc_s,               &
+    in_fbasename, in_bs_fbasename, out_fbasename, myrank, &
     s_ks_, s_ke_, s_ls_, s_le_ )
 
     use scale_const, only: EPS => CONST_EPS
     implicit none
-    character(len=H_SHORT), intent(in) :: vars2D(:)
-    character(len=H_SHORT), intent(in) :: vars(:)
-    logical, intent(in) :: KinEnergyAnalysisFlag_
-    real(RP), intent(in) :: levels(:)
-    character(len=*), intent(in) :: level_units
-    character(len=*), intent(in) :: zintrp_type_name
-    integer, intent(in) :: Np2D
-    integer, intent(in) :: Ne2D
+    character(len=H_SHORT), intent(in) :: vars2D(:)  !< Array of 2D variable names
+    logical, intent(in) :: vars2D_full_output_flag_  !< Flag whether to output full 2D spectral data for each 2D variable
+    character(len=H_SHORT), intent(in) :: vars(:)    !< Array of 3D variable names
+    logical, intent(in) :: vars_full_output_flag_    !< Flag whether to output full 2D spectral data for each 3D variable
+    logical, intent(in) :: KinEnergyAnalysisFlag_                       !< Flag whether to perform kinetic energy spectrum analysis
+    character(len=H_SHORT), intent(in) :: KinEnergyAnalysisVarPostfix_  !< Postfix for variables used in kinetic energy analysis
+    real(RP), intent(in) :: levels(:)                                   !< Array of vertical levels
+    character(len=*), intent(in) :: level_units                         !< Units of vertical levels
+    character(len=*), intent(in) :: zintrp_type_name                    !< Name of vertical interpolation type
+    integer, intent(in) :: Np2D                                         !< Number of nodes in 2D element
+    integer, intent(in) :: Ne2D                                         !< Number of elements in 2D mesh
     type(MeshCubeDom3D), intent(in), target :: mesh3D_list(:)
     integer, intent(in) :: target_proc_s
     character(len=*), intent(in) :: in_fbasename
@@ -142,8 +182,15 @@ contains
 
     s_ks = s_ks_; s_ke = s_ke_
     s_ls = s_ls_; s_le = s_le_
+
+    vars2D_full_output_flag = vars2D_full_output_flag_
+    vars_full_output_flag = vars_full_output_flag_
+
     KinEnergyAnalysisFlag = KinEnergyAnalysisFlag_
-    !-
+
+    lmesh3D => mesh3D_list(1)%lcmesh_list(1)
+
+    !- Setup variable names for spectral analysis
 
     var2DNum = 0
     do nn= 1, size(vars2D)
@@ -168,21 +215,28 @@ contains
     end do
     varNum = varNum0
 
-    if ( KinEnergyAnalysisFlag ) varNum = varNum0 + 3
+    if ( KinEnergyAnalysisFlag ) varNum = varNum0 + 6
 
     allocate( vars_list(varNum) )
     do nn=1, varNum0
       vars_list(nn) = vars(nn)
     end do
     if ( KinEnergyAnalysisFlag ) then
+      KEAnalysisVarPostfix = KinEnergyAnalysisVarPostfix_
       vars_list(varNum0+1) = 'RsqrtUmet'
       vars_list(varNum0+2) = 'RsqrtVmet'
       vars_list(varNum0+3) = 'RsqrtW'
+      vars_list(varNum0+4) = 'U'//trim(KEAnalysisVarPostfix)
+      vars_list(varNum0+5) = 'V'//trim(KEAnalysisVarPostfix)
+      vars_list(varNum0+6) = 'W'//trim(KEAnalysisVarPostfix)
     end if
 
-    !--
+    !- Setup variables for spectral analysis
+    
     mesh_num = size(mesh3D_list)
     LevelNum = size(levels)
+
+    ! 2D variables
     if (var2DNum > 0) then
       allocate( g_var2D(var2DNum,Np2D,Ne2D,mesh_num) )
       allocate( g_var2D_list(var2DNum,mesh_num) )
@@ -193,11 +247,9 @@ contains
       end do
       
       allocate( s_var2D(s_ks:s_ke,s_ls:s_le,2,var2DNum) )
-      s_var2D(:,:,:,:) = 0.0_RP
-
-      allocate( var2D_id_list_r(var2DNum) )
-      allocate( var2D_id_list_i(var2DNum) )  
+      s_var2D(:,:,:,:) = 0.0_RP  
     end if
+    ! 3D variables
     if (varNum > 0) then
       allocate( g_var3D(varNum,LevelNum,Np2D,Ne2D,mesh_num) )
       allocate( g_var3D_list(LevelNum,varNum,mesh_num) )
@@ -210,20 +262,11 @@ contains
       end do
 
       allocate( s_var3D(s_ks:s_ke,s_ls:s_le,2,LevelNum,varNum) )
-      s_var3D(:,:,:,:,:) = 0.0_RP
-
-      allocate( var_id_list_r(varNum) )
-      allocate( var_id_list_i(varNum) )  
+      s_var3D(:,:,:,:,:) = 0.0_RP  
     end if
 
-    !---
-    if ( in_fbasename /= "" ) then
-      allocate( in_files(mesh_num) )
-      allocate( in_files_2d(mesh_num) )
-    end if
+    ! Basic state variables
     if ( in_bs_fbasename /= "" ) then
-      LOG_INFO("VARS_INIT",*) "Data file with basic state:", trim(in_bs_fbasename)
-      allocate( in_bs_files(mesh_num) )
       allocate( g_bs_var3D(2,LevelNum,Np2D,Ne2D,mesh_num) )
 
       allocate( g_bs_var3D_list(LevelNum,2,mesh_num) )
@@ -235,7 +278,8 @@ contains
       end do
     end if
     
-    !-------------
+    !- Setup vertical interpolation strategy used in spectral analysis
+
     select case( trim(zintrp_type_name) )
     case( "Nearest" )
       ZintrpType_ID = ZintrpType_Nearest_ID
@@ -246,8 +290,6 @@ contains
       call PRC_abort
     end select
 
-    lmesh3D => mesh3D_list(1)%lcmesh_list(1)
-
     allocate( VIntrpMat(lmesh3D%refElem3D%Nnode_v,2,LevelNum))
     allocate( VIntrp_keZ1(LevelNum), VIntrp_keZ2(LevelNum) )
     allocate( VIntrp_coef1(LevelNum) )
@@ -257,7 +299,18 @@ contains
         levels(k), lmesh3D, lmesh3D%refElem3D )
     end do
 
-    !-------------
+    !- Setup objects to read data files -----------
+
+    if ( in_fbasename /= "" ) then
+      LOG_INFO("VARS_INIT",*) "Data file:", trim(in_fbasename)
+      allocate( in_files(mesh_num) )
+      allocate( in_files_2d(mesh_num) )
+    end if
+    if ( in_bs_fbasename /= "" ) then
+      LOG_INFO("VARS_INIT",*) "Data file with basic state:", trim(in_bs_fbasename)
+      allocate( in_bs_files(mesh_num) )
+    end if
+
     do m=1, mesh_num
       target_myrank = target_proc_s + m - 1      
       !-
@@ -265,18 +318,18 @@ contains
         call in_files(m)%Init( varNum, mesh3D=mesh3D_list(m) )
         call in_files(m)%Open( in_fbasename, myrank=target_myrank )
       end if
-
-      if ( allocated(in_bs_files) ) then
-        call in_bs_files(m)%Init( 2, mesh3D=mesh3D_list(m) )
-        call in_bs_files(m)%Open( in_bs_fbasename, myrank=target_myrank )  
-      end if
-
       if ( allocated(in_files_2d) ) then
         call in_files_2d(m)%Init( var2DNum, mesh2D=mesh3D_list(m)%mesh2D )
         call in_files_2d(m)%Open( in_fbasename, myrank=target_myrank )
       end if
+
+      if ( allocated(in_bs_files) ) then
+        call in_bs_files(m)%Init( 2, mesh3D=mesh3D_list(m) )
+        call in_bs_files(m)%Open( in_bs_fbasename, myrank=target_myrank )  
+      end if      
     end do
 
+    ! Get the number of time steps and output interval from the input files
     if ( allocated(in_files) .and. varNum > 0) then
       call in_files(1)%Get_VarStepSize( trim(vars_list(1)),   & ! (in)
         var_num_step                                          ) ! (out)
@@ -293,7 +346,7 @@ contains
         time_end=time_endsec                        ) ! (out)
       output_dt = time_endsec - start_sec 
     end if
-    if ( ( .not. allocated(in_files_2d) ) .and. ( .not. allocated(in_files_2d) ) ) then
+    if ( ( .not. allocated(in_files_2d) ) .and. ( .not. allocated(in_files) ) ) then
       output_dt = 0.0_RP; var_num_step = 0
     end if
 
@@ -301,7 +354,8 @@ contains
       var_num_step   = 1
     end if
 
-    !--
+    !- Setup wave number arrays
+    
     do k=s_ks, s_ke
       k_wave_number(k) = k
     end do
@@ -312,13 +366,17 @@ contains
       l_wave_number(l) = l
     end do
 
-    !--
+    !- Setup output variables with spectral analysis
+
     if (myrank==0) then
       output_flag = .true.
     else
       output_flag = .false.
     end if
     if (output_flag) then
+
+      ! Define dimensions in the output NetCDF file
+    
       call nc_check( nf90_create( trim(out_fbasename)//".nc", NF90_clobber, ncido) )
       call nc_check( nf90_def_dim( ncido, 'k', s_ke-s_ks+1, k_wave_number_dim_id ) )
       call nc_check( nf90_def_dim( ncido, 'l', s_le-s_ls+1, l_wave_number_dim_id ) )
@@ -338,24 +396,55 @@ contains
       if (varNum > 0)  call nc_check( nf90_put_att( ncido, level_id, 'units', trim(level_units) ) )
       call nc_check( nf90_put_att( ncido, time_id, 'units', 'sec' ) )
 
-      do nn=1, varNum
-        call nc_check( nf90_def_var( ncido, trim(vars_list(nn))//"_r", &
-          NF90_DOUBLE, (/ k_wave_number_dim_id, l_wave_number_dim_id, level_dim_id, time_dim_id /), var_id_list_r(nn) ) )
-        call nc_check( nf90_def_var( ncido, trim(vars_list(nn))//"_i", &
-          NF90_DOUBLE, (/ k_wave_number_dim_id, l_wave_number_dim_id, level_dim_id, time_dim_id /), var_id_list_i(nn) ) )
-      end do
-      do nn=1, var2DNum  
-        call nc_check( nf90_def_var( ncido, trim(vars2D_list(nn))//"_r", &
-          NF90_DOUBLE, (/ k_wave_number_dim_id, l_wave_number_dim_id, time_dim_id /), var2D_id_list_r(nn) ) )
-        call nc_check( nf90_def_var( ncido, trim(vars2D_list(nn))//"_i", &
-          NF90_DOUBLE, (/ k_wave_number_dim_id, l_wave_number_dim_id, time_dim_id /), var2D_id_list_i(nn) ) )
+      ! Define variables in the output NetCDF file
+
+      if ( varNum0 > 0 ) then
+        allocate( var_id_list_r(varNum0) )
+        allocate( var_id_list_i(varNum0) )
+        allocate( var_id_spectra_1d(varNum0) )
+        var_id_list_r(:) = -1
+        var_id_list_i(:) = -1
+      end if
+      do nn=1, varNum0
+        if ( vars_full_output_flag ) then
+          call nc_check( nf90_def_var( ncido, trim(vars_list(nn))//"_r", &
+            NF90_DOUBLE, (/ k_wave_number_dim_id, l_wave_number_dim_id, level_dim_id, time_dim_id /), var_id_list_r(nn) ) )
+          call nc_check( nf90_def_var( ncido, trim(vars_list(nn))//"_i", &
+            NF90_DOUBLE, (/ k_wave_number_dim_id, l_wave_number_dim_id, level_dim_id, time_dim_id /), var_id_list_i(nn) ) )
+        end if
+        call nc_check( nf90_def_var( ncido, trim(vars_list(nn))//"_1D", &
+          NF90_DOUBLE, (/ oneD_wave_number_dim_id, level_dim_id, time_dim_id /), var_id_spectra_1d(nn) ) )
       end do
 
+      if ( var2DNum > 0 ) then
+        allocate( var2D_id_list_r(var2DNum) )
+        allocate( var2D_id_list_i(var2DNum) )
+        allocate( var2D_id_spectra_1d(var2DNum) )
+        var2D_id_list_r(:) = -1
+        var2D_id_list_i(:) = -1
+      end if
+      do nn=1, var2DNum  
+        if ( vars2D_full_output_flag ) then
+          call nc_check( nf90_def_var( ncido, trim(vars2D_list(nn))//"_r", &
+            NF90_DOUBLE, (/ k_wave_number_dim_id, l_wave_number_dim_id, time_dim_id /), var2D_id_list_r(nn) ) )
+          call nc_check( nf90_def_var( ncido, trim(vars2D_list(nn))//"_i", &
+            NF90_DOUBLE, (/ k_wave_number_dim_id, l_wave_number_dim_id, time_dim_id /), var2D_id_list_i(nn) ) )
+        end if
+        call nc_check( nf90_def_var( ncido, trim(vars2D_list(nn))//"_1D", &
+          NF90_DOUBLE, (/ oneD_wave_number_dim_id, time_dim_id /), var2D_id_spectra_1d(nn) ) )
+      end do
+
+      ! Define variables for kinetic energy spectra
+
       if ( KinEnergyAnalysisFlag ) then
-        call nc_check( nf90_def_var( ncido, "kin_energy_spectra_h", &
-          NF90_DOUBLE, (/ k_wave_number_dim_id, l_wave_number_dim_id, level_dim_id, time_dim_id /), kin_energy_spectra_h_id ) )
-        call nc_check( nf90_def_var( ncido, "kin_energy_spectra_v", &
-          NF90_DOUBLE, (/ k_wave_number_dim_id, l_wave_number_dim_id, level_dim_id, time_dim_id /), kin_energy_spectra_v_id ) )
+        if ( vars_full_output_flag ) then
+          call nc_check( nf90_def_var( ncido, "kin_energy_spectra_h", &
+            NF90_DOUBLE, (/ k_wave_number_dim_id, l_wave_number_dim_id, level_dim_id, time_dim_id /), kin_energy_spectra_h_id ) )
+          call nc_check( nf90_def_var( ncido, "kin_energy_spectra_v", &
+            NF90_DOUBLE, (/ k_wave_number_dim_id, l_wave_number_dim_id, level_dim_id, time_dim_id /), kin_energy_spectra_v_id ) )
+        else
+          kin_energy_spectra_h_id = -1; kin_energy_spectra_v_id = -1
+        end if
         call nc_check( nf90_def_var( ncido, "kin_energy_spectra_1d_h", &
           NF90_DOUBLE, (/ oneD_wave_number_dim_id, level_dim_id, time_dim_id /), kin_energy_spectra_1d_h_id ) )
         call nc_check( nf90_def_var( ncido, "kin_energy_spectra_1d_v", &
@@ -363,6 +452,8 @@ contains
       end if
       call nc_check( nf90_enddef(ncido) )
       
+      ! Put wave number and level data into the output NetCDF file
+
       call nc_check( nf90_put_var(ncido, k_wave_number_id, k_wave_number ) )
       call nc_check( nf90_put_var(ncido, l_wave_number_id, l_wave_number ) )
       call nc_check( nf90_put_var(ncido, oneD_wave_number_id, oneD_wave_number ) )
@@ -372,6 +463,7 @@ contains
     return
   end subroutine vars_init
 
+  !> Finalize variables for spectral analysis
 !OCL SERIAL
   subroutine vars_final()
     implicit none
@@ -403,11 +495,16 @@ contains
 
     if (output_flag) then
       call nc_check( nf90_close(ncido) )
+      deallocate( var_id_list_r, var_id_list_i, var_id_spectra_1d )
+      deallocate( var2D_id_list_r, var2D_id_list_i, var2D_id_spectra_1d )
     end if
 
+    deallocate( vars2D_list, vars_list )
     return
   end subroutine vars_final
 
+  !> Output variables for spectral analysis
+!OCL SERIAL
   subroutine vars_write( istep, LevelNum )
     implicit none
     integer, intent(in) :: istep
@@ -419,6 +516,8 @@ contains
 
     real(RP) :: s_kin1D_buf(0:s_ke,LevelNum)
 
+    real(RP) :: s_power_buf(s_ks:s_ke,s_ls:s_le,LevelNum)
+
     integer :: k
     integer :: s_kall, s_lall
     integer :: s_K1Dall
@@ -426,58 +525,91 @@ contains
 
     LOG_INFO("vars_write",*) "istep=", istep !, ":",  start_sec, output_dt, start_sec + istep * output_dt
     if (output_flag) then
+
       call nc_check( nf90_put_var( ncido, time_id, (/ start_sec + istep * output_dt /), &
         start=[istep], count=[1]) )
+      
       s_kall = s_ke - s_ks + 1
       s_lall = s_le - s_ls + 1
       s_K1Dall = s_ke + 1
-      do vid=1, varNum
+
+      !- Output spectral data with 3D variables
+
+      do vid=1, varNum0
+        !$omp parallel do
         do k=1, LevelNum
           s_var3D_r_buf(:,:,k) = s_var3D(:,:,1,k,vid)
           s_var3D_i_buf(:,:,k) = s_var3D(:,:,2,k,vid)
+          s_power_buf(:,:,k) = s_var3D(:,:,1,k,vid)**2 + s_var3D(:,:,2,k,vid)**2
+          call calc_oneD_spectra( s_power_buf(:,:,k), s_kin1D_buf(:,k) )
         end do
-        call nc_check( nf90_put_var( ncido, var_id_list_r(vid), s_var3D_r_buf, &
-          start=[1,1,1,istep], count=[s_kall,s_lall,LevelNum,1]) )
-        call nc_check( nf90_put_var( ncido, var_id_list_i(vid), s_var3D_i_buf, &
-          start=[1,1,1,istep], count=[s_kall,s_lall,LevelNum,1]) )
+        if ( vars_full_output_flag ) then
+          call nc_check( nf90_put_var( ncido, var_id_list_r(vid), s_var3D_r_buf, &
+            start=[1,1,1,istep], count=[s_kall,s_lall,LevelNum,1]) )
+          call nc_check( nf90_put_var( ncido, var_id_list_i(vid), s_var3D_i_buf, &
+            start=[1,1,1,istep], count=[s_kall,s_lall,LevelNum,1]) )
+        end if
+        call nc_check( nf90_put_var( ncido, var_id_spectra_1d(vid), s_kin1D_buf, &
+          start=[1,1,istep], count=[s_K1Dall,LevelNum,1]) )
       end do
+
+      !- Output spectral data with 2D variables
+
       do vid=1, var2DNum
-        call nc_check( nf90_put_var( ncido, var2D_id_list_r(vid), s_var2D(:,:,1,vid), &
-          start=[1,1,istep], count=[s_kall,s_lall,1]) )
-        call nc_check( nf90_put_var( ncido, var2D_id_list_i(vid), s_var2D(:,:,2,vid), &
-          start=[1,1,istep], count=[s_kall,s_lall,1]) )
+        s_power_buf(:,:,1) = s_var2D(:,:,1,vid)**2 + s_var2D(:,:,2,vid)**2
+        call calc_oneD_spectra( s_power_buf(:,:,1), s_kin1D_buf(:,1) )
+        if ( vars2D_full_output_flag ) then
+          call nc_check( nf90_put_var( ncido, var2D_id_list_r(vid), s_var2D(:,:,1,vid), &
+            start=[1,1,istep], count=[s_kall,s_lall,1]) )
+          call nc_check( nf90_put_var( ncido, var2D_id_list_i(vid), s_var2D(:,:,2,vid), &
+            start=[1,1,istep], count=[s_kall,s_lall,1]) )
+        end if
+        call nc_check( nf90_put_var( ncido, var2D_id_spectra_1d(vid), s_kin1D_buf(:,1), &
+          start=[1,istep], count=[s_K1Dall,1]) )
       end do
+
+      !- Output kinetic energy spectra
+
       if ( KinEnergyAnalysisFlag ) then
+        ! Output horizontal kinetic energy spectra
+        !$omp parallel do
         do k=1, LevelNum
-          s_var3D_r_buf(:,:,k) = 0.5_RP * ( s_var3D(:,:,1,k,varNum0+1)**2 + s_var3D(:,:,2,k,varNum0+1)**2 &
-                                          + s_var3D(:,:,1,k,varNum0+2)**2 + s_var3D(:,:,2,k,varNum0+2)**2 )
-          call calc_oneD_spectra( s_var3D_r_buf(:,:,k), s_kin1D_buf(:,k) )
+          s_power_buf(:,:,k) = 0.5_RP * ( s_var3D(:,:,1,k,varNum0+1)**2 + s_var3D(:,:,2,k,varNum0+1)**2 &
+                                        + s_var3D(:,:,1,k,varNum0+2)**2 + s_var3D(:,:,2,k,varNum0+2)**2 )
+          call calc_oneD_spectra( s_power_buf(:,:,k), s_kin1D_buf(:,k) )
         end do
-        call nc_check( nf90_put_var( ncido, kin_energy_spectra_h_id, s_var3D_r_buf, &
-          start=[1,1,1,istep], count=[s_kall,s_lall,LevelNum,1]) )        
+        if ( vars_full_output_flag ) then
+          call nc_check( nf90_put_var( ncido, kin_energy_spectra_h_id, s_power_buf, &
+            start=[1,1,1,istep], count=[s_kall,s_lall,LevelNum,1]) )
+        end if
         call nc_check( nf90_put_var( ncido, kin_energy_spectra_1d_h_id, s_kin1D_buf, &
           start=[1,1,istep], count=[s_K1Dall,LevelNum,1]) )
         
+        ! Output vertical kinetic energy spectra
+        !$omp parallel do
         do k=1, LevelNum
-          s_var3D_r_buf(:,:,k) = 0.5_RP * ( s_var3D(:,:,1,k,varNum0+3)**2 + s_var3D(:,:,2,k,varNum0+3)**2 )
-          call calc_oneD_spectra( s_var3D_r_buf(:,:,k), s_kin1D_buf(:,k) )
+          s_power_buf(:,:,k) = 0.5_RP * ( s_var3D(:,:,1,k,varNum0+3)**2 + s_var3D(:,:,2,k,varNum0+3)**2 )
+          call calc_oneD_spectra( s_power_buf(:,:,k), s_kin1D_buf(:,k) )
         end do
-        call nc_check( nf90_put_var( ncido, kin_energy_spectra_v_id, s_var3D_r_buf, &
-          start=[1,1,1,istep], count=[s_kall,s_lall,LevelNum,1]) )
+        if ( vars_full_output_flag ) then
+          call nc_check( nf90_put_var( ncido, kin_energy_spectra_v_id, s_power_buf, &
+            start=[1,1,1,istep], count=[s_kall,s_lall,LevelNum,1]) )
+        end if
         call nc_check( nf90_put_var( ncido, kin_energy_spectra_1d_v_id, s_kin1D_buf, &
           start=[1,1,istep], count=[s_K1Dall,LevelNum,1]) )
       end if
     end if
+
     return
   contains
-!OCL SERAIL
+    !> Calculate ring-averaged 1D spectra from 2D spectra
     subroutine calc_oneD_spectra( s_2D, s_1D )
       implicit none
       real(RP), intent(in) :: s_2D(s_ks:s_ke,s_ls:s_le)
       real(RP), intent(out) :: s_1D(0:s_ke)
       
       integer :: k1D, kk, ll
-      real(RP) :: dk, dist
+      real(RP) :: dist
       !---------------------------------------------
 
       s_1D(:) = 0.0_RP
@@ -495,6 +627,7 @@ contains
     end subroutine calc_oneD_spectra
   end subroutine vars_write
 
+  !> Read variables from input files for spectral analysis
 !OCL SERIAL
   subroutine vars_read( istep, mesh3D_list, levels )
     use scale_meshfield_base, only: MeshField2D, MeshField3D
@@ -507,14 +640,11 @@ contains
     type(MeshCubeDom3D), intent(in), target :: mesh3D_list(:)
     real(RP), intent(in) :: levels(:)
 
-    type(MeshField3D) :: tmp_field3D
-    type(MeshField2D) :: tmp_field2D
-
     integer :: m
     integer :: vid
     character(len=H_SHORT) :: varname
-    integer :: ke2D, ke
-    integer :: p, pp, ph, pz
+    integer :: ke2D
+    integer :: ph
     integer :: k
 
     class(LocalMesh3D), pointer :: lcmesh3D
@@ -562,12 +692,25 @@ contains
         call get_gvar3D( istep, in_files(m), varname, mesh3D_list(m), levels, &
           g_var3D_list(:,vid,m) )
 
-        if ( trim(varname) == "U" ) vid_U = vid
-        if ( trim(varname) == "V" ) vid_V = vid
-        if ( trim(varname) == "W" ) vid_W = vid
+        if ( trim(varname) == "U"//trim(KEAnalysisVarPostfix) ) vid_U = vid
+        if ( trim(varname) == "V"//trim(KEAnalysisVarPostfix) ) vid_V = vid
+        if ( trim(varname) == "W"//trim(KEAnalysisVarPostfix) ) vid_W = vid
       end do
 
-      if ( vid_U > 0 .and. vid_V > 0 .and. vid_W > 0 ) then
+      if ( KinEnergyAnalysisFlag ) then
+        if (vid_U < 0 ) then
+          vid_U = varNum0 + 4
+          call get_gvar3D( istep, in_files(m), "U"//trim(KEAnalysisVarPostfix), mesh3D_list(m), levels, g_var3D_list(:,vid_U,m) )
+        end if
+        if (vid_V < 0 ) then
+          vid_V = varNum0 + 5
+          call get_gvar3D( istep, in_files(m), "V"//trim(KEAnalysisVarPostfix), mesh3D_list(m), levels, g_var3D_list(:,vid_V,m) )
+        end if
+        if (vid_W < 0 ) then
+          vid_W = varNum0 + 6
+          call get_gvar3D( istep, in_files(m), "W"//trim(KEAnalysisVarPostfix), mesh3D_list(m), levels, g_var3D_list(:,vid_W,m) )
+        end if
+
         ! allocate( tmp_U(lcmesh2D%refElem2D%Np,lcmesh2D%Ne) )
         ! allocate( tmp_V(lcmesh2D%refElem2D%Np,lcmesh2D%Ne) )
         ! allocate( tmp_Umet(lcmesh2D%refElem2D%Np,lcmesh2D%Ne) )
@@ -587,41 +730,39 @@ contains
         !   g_var3D(vid_V,k,:,:,m) = tmp_Vmet(:,:)
         ! end do
         
-        if ( KinEnergyAnalysisFlag ) then
-          do k=1, LayerNum
-            call g_tmp_ddens(k)%Init("DDENS", "", mesh3D_list(m)%mesh2D )
+        do k=1, LayerNum
+          call g_tmp_ddens(k)%Init("DDENS"//trim(KEAnalysisVarPostfix), "", mesh3D_list(m)%mesh2D )
+        end do
+        allocate( RsqrtDENS(lcmesh2D%refElem2D%Np,lcmesh2D%Ne,LayerNum) )
+
+        call get_gvar3D( istep, in_files(m), "DDENS"//trim(KEAnalysisVarPostfix), mesh3D_list(m), levels, &
+          g_tmp_ddens )
+
+        !$omp parallel private(k,ke2D,ph)
+        !$omp do collapse(2)
+        do k=1, LayerNum
+        do ke2D=lcmesh2D%NeS, lcmesh2D%NeE
+          do ph=1, lcmesh2D%refElem2D%Np
+            RsqrtDENS(ph,ke2D,k) = sqrt( g_bs_var3D_list(k,BS_DENSHYD_ID,m)%local(1)%val(ph,ke2D) + g_tmp_ddens(k)%local(1)%val(ph,ke2D) )
           end do
-          allocate( RsqrtDENS(lcmesh2D%refElem2D%Np,lcmesh2D%Ne,LayerNum) )
-
-          call get_gvar3D( istep, in_files(m), "DDENS", mesh3D_list(m), levels, &
-            g_tmp_ddens )
-
-          !$omp parallel private(k,ke2D,ph)
-          !$omp do collapse(2)
-          do k=1, LayerNum
+        end do
+        end do
+        !$omp do collapse(2)
+        do k=1, LayerNum
           do ke2D=lcmesh2D%NeS, lcmesh2D%NeE
-            do ph=1, lcmesh2D%refElem2D%Np
-              RsqrtDENS(ph,ke2D,k) = sqrt( g_bs_var3D_list(k,BS_DENSHYD_ID,m)%local(1)%val(ph,ke2D) + g_tmp_ddens(k)%local(1)%val(ph,ke2D) )
-            end do
+          do ph=1, lcmesh2D%refElem2D%Np  
+            g_var3D_list(k,varNum0+1,m)%local(1)%val(ph,ke2D) = RsqrtDENS(ph,ke2D,k) * g_var3D_list(k,vid_U,m)%local(1)%val(ph,ke2D)
+            g_var3D_list(k,varNum0+2,m)%local(1)%val(ph,ke2D) = RsqrtDENS(ph,ke2D,k) * g_var3D_list(k,vid_V,m)%local(1)%val(ph,ke2D)
+            g_var3D_list(k,varNum0+3,m)%local(1)%val(ph,ke2D) = RsqrtDENS(ph,ke2D,k) * g_var3D_list(k,vid_W,m)%local(1)%val(ph,ke2D)
           end do
           end do
-          !$omp do collapse(2)
-          do k=1, LayerNum
-            do ke2D=lcmesh2D%NeS, lcmesh2D%NeE
-            do ph=1, lcmesh2D%refElem2D%Np  
-              g_var3D_list(k,varNum0+1,m)%local(1)%val(ph,ke2D) = RsqrtDENS(ph,ke2D,k) * g_var3D_list(k,vid_U,m)%local(1)%val(ph,ke2D)
-              g_var3D_list(k,varNum0+2,m)%local(1)%val(ph,ke2D) = RsqrtDENS(ph,ke2D,k) * g_var3D_list(k,vid_V,m)%local(1)%val(ph,ke2D)
-              g_var3D_list(k,varNum0+3,m)%local(1)%val(ph,ke2D) = RsqrtDENS(ph,ke2D,k) * g_var3D_list(k,vid_W,m)%local(1)%val(ph,ke2D)
-            end do
-            end do
-          end do
-          !$omp end parallel
+        end do
+        !$omp end parallel
 
-          do k=1, LayerNum
-            call g_tmp_ddens(k)%Final()
-          end do
-          deallocate( RsqrtDENS )
-        end if
+        do k=1, LayerNum
+          call g_tmp_ddens(k)%Final()
+        end do
+        deallocate( RsqrtDENS )
 
         ! deallocate( tmp_U, tmp_V, tmp_Umet, tmp_Vmet, gam )
       end if
@@ -629,7 +770,8 @@ contains
     return
   end subroutine vars_read
 
-!-------
+!-- private subroutines ---------------------------------------------------
+
 !OCL SERIAL
   subroutine get_gvar3D( istep, in_file, varname, mesh3D, levels, &
     gvar_out )

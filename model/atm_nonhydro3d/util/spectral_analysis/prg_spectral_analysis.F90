@@ -5,12 +5,16 @@
 !!          SCALE: Scalable Computing by Advanced Library and Environment
 !!          spectral analysis tool for models based DG methods
 !!
-!! @author Team SCALE
+!! @author Yuta Kawai, Team SCALE
 !!
 !<
 !-------------------------------------------------------------------------------
 #include "scaleFElib.h"
 program prg_spectral_analysis
+  !-----------------------------------------------------------------------------
+  !
+  !++ Used modules
+  !  
   use mpi
   use scale_precision
   use scale_io
@@ -20,7 +24,7 @@ program prg_spectral_analysis
     EPS => CONST_EPS, &
     PI => CONST_PI,   &
     RPlanet => CONST_RADIUS
-
+  !-
   use scale_localmesh_2d, only: LocalMesh2D
   use scale_localmesh_3d, only: LocalMesh3D
   use scale_element_base, only: ElementBase2D, ElementBase3D
@@ -29,11 +33,10 @@ program prg_spectral_analysis
 
   use scale_mesh_cubedom3d, only: MeshCubeDom3D
   use scale_mesh_cubedspheredom3d, only: MeshCubedSphereDom3D
-
+  !-
   use mod_spectral_analysis, only: &
     spectral_analysis_Init, &
     spectral_analysis_do
-  
   use mod_spectral_analysis_mesh, only: &
     MeshList
   use mod_spectral_analysis_vars, only: &
@@ -42,30 +45,41 @@ program prg_spectral_analysis
     g_var3D_list, s_var3D,   &
     g_var2D_list, s_var2D
   implicit none
+  !-----------------------------------------------------------------------------
+  !
 
   ! MPI parameters
-  integer                 :: nprocs                      ! number of processes               (execution)
-  integer                 :: myrank                      ! my rank                           (execution)
-  logical                 :: ismaster                    ! master process?                   (execution)
-  integer                 :: target_proc_s
-  integer                 :: target_proc_e
-  integer                 :: target_proc_num_tot
-  integer                 :: target_proc_num
+
+  integer                 :: nprocs                      !< Number of MPI processes for analysis
+  integer                 :: myrank                      !< My MPI rank                             
+  logical                 :: ismaster                    !< Flag whether this is the master process?
+  integer                 :: target_proc_s               !< Start rank of target MPI processes for analysis
+  integer                 :: target_proc_e               !< End rank of target MPI processes for analysis
+  integer                 :: target_proc_num             !< Number of target MPI processes for analysis
+
+  ! Mesh variables
 
   type(MeshList), target :: mesh_list
-  integer :: LevelNum
-  real(RP), allocatable :: levels(:)
+  integer :: LevelNum                  !< Number of target levels for spectral analysis of 3D variables
+  real(RP), allocatable :: levels(:)   !< Array of target levels for spectral analysis of 3D variables
 
-  integer :: ST_NintGLPt
-  integer :: ST_NsamplePtPerElem1D
-  integer :: ST_ks, ST_ke
-  integer :: ST_ls, ST_le
+  ! Spectral analysis parameters
 
-  integer :: num_step
-  integer :: istep
+  integer :: ST_NintGLPt              !< Number of Gauss-Legendre quadrature points used when calculating spectral coefficients (for L2 projection method)
+  integer :: ST_NsamplePtPerElem1D    !< Number of equidistant sample points per element when calculating spectral coefficients (for uniform sampling method)
+  
+  integer :: ST_ks  !< Starting index of k wave number
+  integer :: ST_ke  !< Ending index of k wave number
+  integer :: ST_ls  !< Starting index of l wave number
+  integer :: ST_le  !< Ending index of l wave number
 
-  integer :: m, l
-  !--------
+  !-
+  integer :: istep !< Time step index for spectral analysis
+
+  ! integer :: m, l
+
+  !-------------------------------------------------------------------
+
 
   call initialize()
 
@@ -93,6 +107,7 @@ program prg_spectral_analysis
 
 contains
 !--
+  !> Initialize the spectral analysis tool
   subroutine initialize()
     use scale_prc, only: &
       PRC_MPIstart,         &
@@ -114,61 +129,68 @@ contains
     implicit none
 
     integer :: ierr
-    integer :: comm                     ! communicator   (execution)
-    logical :: fileexist
-    character(len=H_LONG) :: cnf_fname  ! config file for launcher
+    integer :: comm                     !< MPI communicator   (execution)
+    character(len=H_LONG) :: cnf_fname  !< Name of the configuration file
 
-    character(len=H_LONG) :: in_bs_filebase
-    character(len=H_LONG) :: in_filebase
-    character(len=H_LONG) :: out_filebase
+    character(len=H_LONG) :: in_bs_filebase !< Base name of the input file saving basic state
+    character(len=H_LONG) :: in_filebase    !< Base name of the input file saving 3D and 2D variables
+    character(len=H_LONG) :: out_filebase   !< Base name of the output file saving spectral analysis results
 
-    integer :: m
-    integer :: ke2D
+    integer :: target_proc_num_tot          !< Total number of MPI processes which were used for the original simulation
 
-    integer :: k
     integer, parameter :: Layer_nmax = 1000
-    real(RP) :: TARGET_LEVELS(Layer_nmax)
-    character(len=H_SHORT) :: level_units
+    real(RP) :: TARGET_LEVELS(Layer_nmax)              !< Target levels for spectral analysis of 3D variables
+    character(len=H_SHORT) :: level_units              !< Units of target levels (e.g., Pa or m)
 
     integer, parameter :: VarNum_nmax = 20
-    character(len=H_SHORT)  :: vars(VarNum_nmax) = ''       ! name of variables
+    character(len=H_SHORT)  :: vars(VarNum_nmax) = ''  !< Name of variables
+    logical :: vars_full_output_flag = .false.         !< Flag whether to output full 2D spectral data for each variable at certain level
 
     integer, parameter :: Var2DNum_nmax = 20
-    character(len=H_SHORT)  :: vars2D(VarNum_nmax) = ''     ! name of variables
+    character(len=H_SHORT)  :: vars2D(Var2DNum_nmax) = ''  !< Name of 2D variables
+    logical :: vars2D_full_output_flag = .false.           !< Flag whether to output full 2D spectral data for each variable
 
-    logical :: KinEnergyAnalysisFlag = .false. 
+    logical :: KinEnergyAnalysisFlag = .false.                   !< Flag whether to output kinetic energy spectrum
+    character(len=H_SHORT) :: KinEnergyAnalysisVarPostfix = ''   !< Postfix of variable name (U, V, and W) used for kinetic energy analysis
 
-    character(len=H_MID) :: SpectralAnalysisType = 'Uniform_Sampling' ! or 'L2_Projection'
-    character(len=H_MID) :: ZInterpType_name     = 'SamplingUniPt_LinearIntrp' ! or 'Nearest
+    character(len=H_MID) :: SpectralAnalysisType = 'Uniform_Sampling' ! Type of spectral analysis (How to calculate spectral coefficients: 'Uniform_Sampling' or 'L2_Projection')
+    character(len=H_MID) :: ZInterpType_name  = 'SamplingUniPt_LinearIntrp' !< Type of vertical interpolation ('SamplingUniPt_LinearIntrp' or 'Nearest')
 
     !-
     namelist / PARAM_SPECTRAL_ANALYSIS / &
-        in_bs_filebase,           &
-        in_filebase,              &
-        out_filebase,             &
-        target_proc_num_tot,      &
-        LevelNum,                 &
-        TARGET_LEVELS,            &
-        level_units,              &
-        ZInterpType_name,         &
-        VARS, VARS2D,             &
-        KinEnergyAnalysisFlag,    &
-        SpectralAnalysisType,     &
-        ST_ks, ST_ke,             &
-        ST_ls, ST_le,             &
-        ST_NsamplePtPerElem1D,    &
+        in_bs_filebase,              &
+        in_filebase,                 &
+        out_filebase,                &
+        target_proc_num_tot,         &
+        LevelNum,                    &
+        TARGET_LEVELS,               &
+        level_units,                 &
+        ZInterpType_name,            &
+        VARS,                        &
+        vars_full_output_flag,       &
+        VARS2D,                      &
+        vars2D_full_output_flag,     &
+        KinEnergyAnalysisFlag,       &
+        KinEnergyAnalysisVarPostfix, &
+        SpectralAnalysisType,        &
+        ST_ks, ST_ke,                &
+        ST_ls, ST_le,                &
+        ST_NsamplePtPerElem1D,       &
         ST_NintGLPt
     
     integer :: Ne2D
     class(LocalMesh2D), pointer :: lcmesh2D
     class(ElementBase2D), pointer :: elem2D
-    class(ElementBase3D), pointer :: elem3D
+
+    integer :: m
+    integer :: ke2D
+    integer :: k
     !-----------------------------------------------------------------------
 
-    ! start MPI
+    ! Start MPI
     call PRC_MPIstart( comm ) ! [OUT]
 
-    ! setup MPI communicator
+    ! Setup MPI communicator
     call PRC_SINGLECOM_setup( comm,    & ! [IN]
                               nprocs,  & ! [OUT]
                               myrank,  & ! [OUT]
@@ -179,24 +201,25 @@ contains
 
     cnf_fname = IO_ARG_getfname( ismaster )
 
-    ! setup standard I/O
+    ! Setup standard I/O
     call IO_setup( "Spectral Analysis", cnf_fname )
 
-    ! setup Log
+    ! Setup log
     call IO_LOG_setup( myrank, ismaster )
-    ! setup constants
+    ! Setup constants
     call CONST_setup
-    ! setup fie I/O
+    ! Setup file I/O
     call FILE_setup( myrank )
     
     LOG_NEWLINE
     LOG_INFO("Spectral Analysis",*) 'Setup'
 
-    !-
+    !- Read configuration file
+
     in_filebase    = "./in_data/topo"
     in_bs_filebase = ""
     out_filebase   = "./out_data/topo"
-    LevelNum = 1
+    LevelNum    =  1
     level_units = "Pa"
    
     rewind(IO_FID_CONF)
@@ -209,7 +232,8 @@ contains
     endif
     LOG_NML(PARAM_SPECTRAL_ANALYSIS)
 
-    !-
+    !- Setup target levels for 3D variables
+    
     if ( LevelNum > 0 ) then
       allocate( levels(LevelNum) )
       do k=1, LevelNum
@@ -217,7 +241,8 @@ contains
       end do
     end if
 
-    !--
+    !- Calculate target MPI processes for spectral analysis
+
     target_proc_num = target_proc_num_tot / nprocs
     target_proc_s = myrank * target_proc_num
     target_proc_e = ( myrank + 1 ) * target_proc_num - 1
@@ -225,12 +250,21 @@ contains
     LOG_INFO("Spectral analysis setup",*) 'target_proc_num:', target_proc_num
     LOG_INFO("Spectral analysis setup",*) 'target_proc:', target_proc_s, target_proc_e
 
+    !- Initialize mesh
+
     call mesh_list%Init( target_proc_num, target_proc_s )
 
     elem2D => mesh_list%mesh3D_list(1)%refElem2D
     lcmesh2D => mesh_list%mesh3D_list(1)%mesh2D%lcmesh_list(1)
     Ne2D = lcmesh2D%Ne
-    call vars_init( vars2D, vars, KinEnergyAnalysisFlag,     &
+
+    !- Inialize variables and spectral analysis tool
+
+    call vars_init( &
+      vars2D, vars2D_full_output_flag,                       &
+      vars, vars_full_output_flag,                           &
+      KinEnergyAnalysisFlag,                                 &
+      KinEnergyAnalysisVarPostfix,                           &
       levels, level_units, ZInterpType_name,                 &
       elem2D%Np, Ne2D, mesh_list%mesh3D_list, target_proc_s, &
       in_filebase, in_bs_filebase, out_filebase, myrank,     &
@@ -240,7 +274,7 @@ contains
       ST_ks, ST_ke, ST_ls, ST_le, size(vars_list), LevelNum, size(vars2D_list), &
       mesh_list%mesh3D_list(1), ST_NintGLPt, ST_NsamplePtPerElem1D )
     
-    !--- Test data
+    !- Prepare test data
     
     do m=1, target_proc_num
       elem2D => mesh_list%mesh3D_list(m)%refElem2D
@@ -273,11 +307,14 @@ contains
         !   * cos(5.0_RP * lcmesh2D%lon(:,ke2D))
       end do
     end do
-    
+
+    !-
+    LOG_INFO("Spectral analysis setup",*) "Successfully initialized spectral analysis tool"
     call flush(IO_FID_LOG)    
     return
   end subroutine initialize
 
+  !> Finalize the spectral analysis tool
 !OCL SERIAL  
   subroutine finalize()
     use scale_prc, only: &
@@ -285,18 +322,19 @@ contains
       PRC_MPIfinish
     use scale_file, only: &
       FILE_close_all
-
+    !-
     use mod_spectral_analysis_vars, only: vars_final
     implicit none
     !-----------------------------------------------------------------------
 
     LOG_INFO("final",*) "Final"
 
-    !
+    ! Finalize variable module
     call vars_final()
+    ! Finalize mesh module
     call mesh_list%Final()
 
-    ! stop MPI
+    ! Stop MPI
     call PRC_mpibarrier
     call PRC_MPIfinish 
 
