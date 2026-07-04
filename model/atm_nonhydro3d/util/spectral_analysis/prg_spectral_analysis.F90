@@ -92,6 +92,7 @@ program prg_spectral_analysis
       size(vars_list), size(vars2D_list), mesh_list%mesh_num_x, mesh_list%mesh_num_y, LevelNum, &
       ST_ks, ST_ke, ST_ls, ST_le, s_var3D, s_var2D )
 
+    LOG_INFO('Spectral analysis',*) "Write vars: istep=", istep
     call vars_write( istep, LevelNum )
 
     call flush(IO_FID_LOG)  

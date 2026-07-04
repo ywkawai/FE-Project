@@ -19,13 +19,12 @@ module mod_spectral_analysis_vars
   use scale_localmesh_3d, only: LocalMesh3D
   use scale_element_base, only: ElementBase2D, ElementBase3D
   use scale_element_hexahedral, only: HexahedralElement
-  use scale_localmesh_2d, only: LocalMesh2D
   use scale_mesh_cubedom3d, only: MeshCubeDom3D
   
-  use scale_meshfield_base, only: &
-    MeshField2D
-
+  use scale_meshfield_base, only: MeshField2D
   use scale_file_base_meshfield, only: FILE_base_meshfield
+
+  use mod_spectral_analysis_vintrp, only: SpectralAnalysisVIntrp
 
   use netcdf
   !-----------------------------------------------------------------------------
@@ -44,31 +43,30 @@ module mod_spectral_analysis_vars
   !
   !++ Public parameters & variables
   !
-  character(len=H_SHORT), public, allocatable :: vars2D_list(:)
-  character(len=H_SHORT), public, allocatable :: vars_list(:)
-  integer, public :: var_num_step
+  character(len=H_SHORT), public, allocatable :: vars2D_list(:) !< Array of 2D variable names
+  character(len=H_SHORT), public, allocatable :: vars_list(:)   !< Array of variable names
+  integer, public :: var_num_step !< Number of time steps for spectral analysis
 
   integer, public :: var2DNum   !< Number of 2D variables for spectral analysis
   integer, public :: varNum0    !< Number of 3D variables for spectral analysis (excluding kinetic energy analysis variables)
   integer, public :: varNum     !< Total number of 3D variables for spectral analysis (including kinetic energy analysis variables)
 
-  real(RP), public, allocatable :: g_var2D(:,:,:,:)
   type(MeshField2D), public, allocatable :: g_var2D_list(:,:)
   real(RP), public, allocatable :: s_var2D(:,:,:,:)
 
-  real(RP), public, allocatable :: g_var3D(:,:,:,:,:)
   type(MeshField2D), public, allocatable :: g_var3D_list(:,:,:)
   real(RP), public, allocatable :: s_var3D(:,:,:,:,:)
 
-  real(RP), public, allocatable :: g_bs_var3D(:,:,:,:,:)
   type(MeshField2D), allocatable :: g_bs_var3D_list(:,:,:)
   integer, public, parameter :: BS_PRESHYD_ID = 1
   integer, public, parameter :: BS_DENSHYD_ID = 2
 
-  real(RP), public, allocatable :: g_ke_var3D(:,:,:,:,:)
   integer, public, parameter :: KE_RsqrtUmet_ID = 1
   integer, public, parameter :: KE_RsqrtVmet_ID = 2
   integer, public, parameter :: KE_RsqrtWmet_ID = 3
+  integer, public, parameter :: KE_U_ID         = 4
+  integer, public, parameter :: KE_V_ID         = 5
+  integer, public, parameter :: KE_W_ID         = 6
 
   !-----------------------------------------------------------------------------
   !
@@ -119,13 +117,7 @@ module mod_spectral_analysis_vars
   integer :: s_ls  !< Starting index of l wave number
   integer :: s_le  !< Ending index of l wave number
 
-  real(RP), allocatable :: VIntrpMat(:,:,:)
-  real(RP), allocatable :: VIntrp_coef1(:)
-  integer, allocatable :: VIntrp_keZ1(:), VIntrp_keZ2(:)
-
-  integer :: ZintrpType_ID                                         !< ID of vertical interpolation type
-  integer, parameter :: ZintrpType_Nearest_ID                 = 1  !< ID of vertical interpolation type: Nearest
-  integer, parameter :: ZintrpType_SamplingUniPt_LinInterp_ID = 2  !< ID of vertical interpolation type: Sampling at uniform points with linear interpolation
+  type(SpectralAnalysisVIntrp) :: VIntrpTool !< Object to manage vertical interpolation for spectral analysis
 
 contains
   !> Setup variables for spectral analysis
@@ -192,30 +184,18 @@ contains
 
     !- Setup variable names for spectral analysis
 
-    var2DNum = 0
-    do nn= 1, size(vars2D)
-      if ( vars2D(nn) == '' ) then
-        exit
-      else
-        var2DNum = var2DNum + 1
-      end if
-    end do
+    var2DNum = count_named_entries( vars2D )
     allocate( vars2D_list(var2DNum) )
     do nn=1, var2DNum
       vars2D_list(nn) = vars2D(nn)
     end do
 
-    varNum0 = 0
-    do nn= 1, size(vars)
-      if ( vars(nn) == '' ) then
-        exit
-      else
-        varNum0 = varNum0 + 1
-      end if
-    end do
-    varNum = varNum0
-
-    if ( KinEnergyAnalysisFlag ) varNum = varNum0 + 6
+    varNum0 = count_named_entries( vars )
+    if ( KinEnergyAnalysisFlag ) then
+      varNum = varNum0 + 6
+    else
+      varNum = varNum0
+    end if
 
     allocate( vars_list(varNum) )
     do nn=1, varNum0
@@ -223,12 +203,12 @@ contains
     end do
     if ( KinEnergyAnalysisFlag ) then
       KEAnalysisVarPostfix = KinEnergyAnalysisVarPostfix_
-      vars_list(varNum0+1) = 'RsqrtUmet'
-      vars_list(varNum0+2) = 'RsqrtVmet'
-      vars_list(varNum0+3) = 'RsqrtW'
-      vars_list(varNum0+4) = 'U'//trim(KEAnalysisVarPostfix)
-      vars_list(varNum0+5) = 'V'//trim(KEAnalysisVarPostfix)
-      vars_list(varNum0+6) = 'W'//trim(KEAnalysisVarPostfix)
+      vars_list(varNum0+KE_RsqrtUmet_ID) = 'RsqrtUmet'
+      vars_list(varNum0+KE_RsqrtVmet_ID) = 'RsqrtVmet'
+      vars_list(varNum0+KE_RsqrtWmet_ID) = 'RsqrtW'
+      vars_list(varNum0+KE_U_ID) = 'U'//trim(KEAnalysisVarPostfix)
+      vars_list(varNum0+KE_V_ID) = 'V'//trim(KEAnalysisVarPostfix)
+      vars_list(varNum0+KE_W_ID) = 'W'//trim(KEAnalysisVarPostfix)
     end if
 
     !- Setup variables for spectral analysis
@@ -238,7 +218,6 @@ contains
 
     ! 2D variables
     if (var2DNum > 0) then
-      allocate( g_var2D(var2DNum,Np2D,Ne2D,mesh_num) )
       allocate( g_var2D_list(var2DNum,mesh_num) )
       do v=1, var2DNum
       do m=1, mesh_num
@@ -251,7 +230,6 @@ contains
     end if
     ! 3D variables
     if (varNum > 0) then
-      allocate( g_var3D(varNum,LevelNum,Np2D,Ne2D,mesh_num) )
       allocate( g_var3D_list(LevelNum,varNum,mesh_num) )
       do m=1, mesh_num
       do l=1, LevelNum
@@ -267,8 +245,6 @@ contains
 
     ! Basic state variables
     if ( in_bs_fbasename /= "" ) then
-      allocate( g_bs_var3D(2,LevelNum,Np2D,Ne2D,mesh_num) )
-
       allocate( g_bs_var3D_list(LevelNum,2,mesh_num) )
       do m=1, mesh_num
       do l=1, LevelNum
@@ -280,24 +256,7 @@ contains
     
     !- Setup vertical interpolation strategy used in spectral analysis
 
-    select case( trim(zintrp_type_name) )
-    case( "Nearest" )
-      ZintrpType_ID = ZintrpType_Nearest_ID
-    case( "SamplingUniPt_LinearIntrp" )
-      ZintrpType_ID = ZintrpType_SamplingUniPt_LinInterp_ID
-    case default
-      LOG_INFO("SpectralAnalysis_vars_Init",*) "The specified zintrp_type_name is invalid. Check!", trim(zintrp_type_name)
-      call PRC_abort
-    end select
-
-    allocate( VIntrpMat(lmesh3D%refElem3D%Nnode_v,2,LevelNum))
-    allocate( VIntrp_keZ1(LevelNum), VIntrp_keZ2(LevelNum) )
-    allocate( VIntrp_coef1(LevelNum) )
-
-    do k=1, LevelNum
-      call prep_VIntrp( VIntrpMat(:,:,k), VIntrp_keZ1(k), VIntrp_keZ2(k), VIntrp_coef1(k), &
-        levels(k), lmesh3D, lmesh3D%refElem3D )
-    end do
+    call VIntrpTool%Init( zintrp_type_name, levels, lmesh3D )
 
     !- Setup objects to read data files -----------
 
@@ -399,39 +358,29 @@ contains
       ! Define variables in the output NetCDF file
 
       if ( varNum0 > 0 ) then
-        allocate( var_id_list_r(varNum0) )
-        allocate( var_id_list_i(varNum0) )
+        allocate( var_id_list_r(varNum0), var_id_list_i(varNum0) )
         allocate( var_id_spectra_1d(varNum0) )
         var_id_list_r(:) = -1
         var_id_list_i(:) = -1
       end if
       do nn=1, varNum0
-        if ( vars_full_output_flag ) then
-          call nc_check( nf90_def_var( ncido, trim(vars_list(nn))//"_r", &
-            NF90_DOUBLE, (/ k_wave_number_dim_id, l_wave_number_dim_id, level_dim_id, time_dim_id /), var_id_list_r(nn) ) )
-          call nc_check( nf90_def_var( ncido, trim(vars_list(nn))//"_i", &
-            NF90_DOUBLE, (/ k_wave_number_dim_id, l_wave_number_dim_id, level_dim_id, time_dim_id /), var_id_list_i(nn) ) )
-        end if
-        call nc_check( nf90_def_var( ncido, trim(vars_list(nn))//"_1D", &
-          NF90_DOUBLE, (/ oneD_wave_number_dim_id, level_dim_id, time_dim_id /), var_id_spectra_1d(nn) ) )
+        call define_spectral_output_var( ncido, trim(vars_list(nn)), vars_full_output_flag, & ! (in)
+          (/ k_wave_number_dim_id, l_wave_number_dim_id, level_dim_id, time_dim_id /),      & ! (in)
+          (/ oneD_wave_number_dim_id, level_dim_id, time_dim_id /),                         & ! (in)
+          var_id_list_r(nn), var_id_list_i(nn), var_id_spectra_1d(nn) ) ! (out)
       end do
 
       if ( var2DNum > 0 ) then
-        allocate( var2D_id_list_r(var2DNum) )
-        allocate( var2D_id_list_i(var2DNum) )
+        allocate( var2D_id_list_r(var2DNum), var2D_id_list_i(var2DNum) )
         allocate( var2D_id_spectra_1d(var2DNum) )
         var2D_id_list_r(:) = -1
         var2D_id_list_i(:) = -1
       end if
-      do nn=1, var2DNum  
-        if ( vars2D_full_output_flag ) then
-          call nc_check( nf90_def_var( ncido, trim(vars2D_list(nn))//"_r", &
-            NF90_DOUBLE, (/ k_wave_number_dim_id, l_wave_number_dim_id, time_dim_id /), var2D_id_list_r(nn) ) )
-          call nc_check( nf90_def_var( ncido, trim(vars2D_list(nn))//"_i", &
-            NF90_DOUBLE, (/ k_wave_number_dim_id, l_wave_number_dim_id, time_dim_id /), var2D_id_list_i(nn) ) )
-        end if
-        call nc_check( nf90_def_var( ncido, trim(vars2D_list(nn))//"_1D", &
-          NF90_DOUBLE, (/ oneD_wave_number_dim_id, time_dim_id /), var2D_id_spectra_1d(nn) ) )
+      do nn=1, var2DNum
+        call define_spectral_output_var( ncido, trim(vars2D_list(nn)), vars2D_full_output_flag, & ! (in)
+          (/ k_wave_number_dim_id, l_wave_number_dim_id, time_dim_id /),                        & ! (in)
+          (/ oneD_wave_number_dim_id, time_dim_id /),                                           & ! (in)
+          var2D_id_list_r(nn), var2D_id_list_i(nn), var2D_id_spectra_1d(nn) ) ! (out)
       end do
 
       ! Define variables for kinetic energy spectra
@@ -471,6 +420,10 @@ contains
     integer :: m
     !----------------------------
 
+    deallocate( vars_list, vars2D_list )
+
+    call VIntrpTool%Final()
+
     if ( allocated( in_files) ) then
       do m=1, size(in_files)
         call in_files(m)%Close()
@@ -494,9 +447,15 @@ contains
     end if
 
     if (output_flag) then
+      ! Close the output NetCDF file
       call nc_check( nf90_close(ncido) )
-      deallocate( var_id_list_r, var_id_list_i, var_id_spectra_1d )
-      deallocate( var2D_id_list_r, var2D_id_list_i, var2D_id_spectra_1d )
+
+      if ( varNum0 > 0 ) then
+        deallocate( var_id_list_r, var_id_list_i, var_id_spectra_1d )
+      end if
+      if ( var2DNum > 0 ) then
+        deallocate( var2D_id_list_r, var2D_id_list_i, var2D_id_spectra_1d )
+      end if
     end if
 
     deallocate( vars2D_list, vars_list )
@@ -574,8 +533,8 @@ contains
         ! Output horizontal kinetic energy spectra
         !$omp parallel do
         do k=1, LevelNum
-          s_power_buf(:,:,k) = 0.5_RP * ( s_var3D(:,:,1,k,varNum0+1)**2 + s_var3D(:,:,2,k,varNum0+1)**2 &
-                                        + s_var3D(:,:,1,k,varNum0+2)**2 + s_var3D(:,:,2,k,varNum0+2)**2 )
+          s_power_buf(:,:,k) = 0.5_RP * ( s_var3D(:,:,1,k,varNum0+KE_RsqrtUmet_ID)**2 + s_var3D(:,:,2,k,varNum0+KE_RsqrtUmet_ID)**2 &
+                                        + s_var3D(:,:,1,k,varNum0+KE_RsqrtVmet_ID)**2 + s_var3D(:,:,2,k,varNum0+KE_RsqrtVmet_ID)**2 )
           call calc_oneD_spectra( s_power_buf(:,:,k), s_kin1D_buf(:,k) )
         end do
         if ( vars_full_output_flag ) then
@@ -588,7 +547,7 @@ contains
         ! Output vertical kinetic energy spectra
         !$omp parallel do
         do k=1, LevelNum
-          s_power_buf(:,:,k) = 0.5_RP * ( s_var3D(:,:,1,k,varNum0+3)**2 + s_var3D(:,:,2,k,varNum0+3)**2 )
+          s_power_buf(:,:,k) = 0.5_RP * ( s_var3D(:,:,1,k,varNum0+KE_RsqrtWmet_ID)**2 + s_var3D(:,:,2,k,varNum0+KE_RsqrtWmet_ID)**2 )
           call calc_oneD_spectra( s_power_buf(:,:,k), s_kin1D_buf(:,k) )
         end do
         if ( vars_full_output_flag ) then
@@ -646,6 +605,7 @@ contains
     integer :: ke2D
     integer :: ph
     integer :: k
+    integer :: ldomID
 
     class(LocalMesh3D), pointer :: lcmesh3D
     class(LocalMesh2D), pointer :: lcmesh2D
@@ -699,36 +659,38 @@ contains
 
       if ( KinEnergyAnalysisFlag ) then
         if (vid_U < 0 ) then
-          vid_U = varNum0 + 4
+          vid_U = varNum0 + KE_U_ID
           call get_gvar3D( istep, in_files(m), "U"//trim(KEAnalysisVarPostfix), mesh3D_list(m), levels, g_var3D_list(:,vid_U,m) )
         end if
         if (vid_V < 0 ) then
-          vid_V = varNum0 + 5
+          vid_V = varNum0 + KE_V_ID
           call get_gvar3D( istep, in_files(m), "V"//trim(KEAnalysisVarPostfix), mesh3D_list(m), levels, g_var3D_list(:,vid_V,m) )
         end if
         if (vid_W < 0 ) then
-          vid_W = varNum0 + 6
+          vid_W = varNum0 + KE_W_ID
           call get_gvar3D( istep, in_files(m), "W"//trim(KEAnalysisVarPostfix), mesh3D_list(m), levels, g_var3D_list(:,vid_W,m) )
         end if
 
+        !- Tentative implementation of coordinate conversion for global model data (Cubed-sphere to lon-lat) for kinetic energy analysis
         ! allocate( tmp_U(lcmesh2D%refElem2D%Np,lcmesh2D%Ne) )
         ! allocate( tmp_V(lcmesh2D%refElem2D%Np,lcmesh2D%Ne) )
         ! allocate( tmp_Umet(lcmesh2D%refElem2D%Np,lcmesh2D%Ne) )
         ! allocate( tmp_Vmet(lcmesh2D%refElem2D%Np,lcmesh2D%Ne) )
         ! allocate( gam(lcmesh2D%refElem2D%Np,lcmesh2D%Ne) )
-  
+        !
         ! gam(:,:) = 1.0_RP
         ! do k = 1, LayerNum
         !   tmp_U(:,:) = g_var3D(vid_U,k,:,:,m)
         !   tmp_V(:,:) = g_var3D(vid_V,k,:,:,m)
-
+        !
         !   call CubedSphereCoordCnv_CS2LonLatVec( lcmesh2D%panelID, lcmesh2D%pos_en(:,:,1), lcmesh2D%pos_en(:,:,2), gam(:,:), &
         !     lcmesh2D%Ne*lcmesh2D%refElem2D%Np, tmp_U, tmp_V, &
         !     tmp_Umet, tmp_Vmet )
-          
+        !  
         !   g_var3D(vid_U,k,:,:,m) = tmp_Umet(:,:)
         !   g_var3D(vid_V,k,:,:,m) = tmp_Vmet(:,:)
         ! end do
+        !---------------------------------------------------------------------------------
         
         do k=1, LayerNum
           call g_tmp_ddens(k)%Init("DDENS"//trim(KEAnalysisVarPostfix), "", mesh3D_list(m)%mesh2D )
@@ -751,9 +713,9 @@ contains
         do k=1, LayerNum
           do ke2D=lcmesh2D%NeS, lcmesh2D%NeE
           do ph=1, lcmesh2D%refElem2D%Np  
-            g_var3D_list(k,varNum0+1,m)%local(1)%val(ph,ke2D) = RsqrtDENS(ph,ke2D,k) * g_var3D_list(k,vid_U,m)%local(1)%val(ph,ke2D)
-            g_var3D_list(k,varNum0+2,m)%local(1)%val(ph,ke2D) = RsqrtDENS(ph,ke2D,k) * g_var3D_list(k,vid_V,m)%local(1)%val(ph,ke2D)
-            g_var3D_list(k,varNum0+3,m)%local(1)%val(ph,ke2D) = RsqrtDENS(ph,ke2D,k) * g_var3D_list(k,vid_W,m)%local(1)%val(ph,ke2D)
+            g_var3D_list(k,varNum0+KE_RsqrtUmet_ID,m)%local(1)%val(ph,ke2D) = RsqrtDENS(ph,ke2D,k) * g_var3D_list(k,vid_U,m)%local(1)%val(ph,ke2D)
+            g_var3D_list(k,varNum0+KE_RsqrtVmet_ID,m)%local(1)%val(ph,ke2D) = RsqrtDENS(ph,ke2D,k) * g_var3D_list(k,vid_V,m)%local(1)%val(ph,ke2D)
+            g_var3D_list(k,varNum0+KE_RsqrtWmet_ID,m)%local(1)%val(ph,ke2D) = RsqrtDENS(ph,ke2D,k) * g_var3D_list(k,vid_W,m)%local(1)%val(ph,ke2D)
           end do
           end do
         end do
@@ -787,154 +749,75 @@ contains
     real(RP), intent(in) :: levels(:)
     type(MeshField2D), intent(inout) :: gvar_out(size(levels))
 
-    class(LocalMesh3D), pointer :: lcmesh3D
-    class(ElementBase3D), pointer :: elem3D
-
     type(MeshField3D) :: tmp_field3D
+    class(LocalMesh3D), pointer :: lcmesh3D
 
-    integer :: LayerNum
-
-    integer :: ke2D, ke, ke2
-    integer :: ke_z1, ke_z2
-    integer :: p, pp, ph, pz
     integer :: k
-    real(RP), allocatable :: tmp3D_zxy(:,:,:)
-    real(RP) :: coef1, coef2
     !---------------------------------------------------
 
-    LayerNum = size(levels)
-
     call tmp_field3D%Init( varname, "", mesh3D )
-    call in_file%Read_Var( &
-      MF3D_XYZT, varname, tmp_field3D, step=istep )
+    call in_file%Read_Var( MF3D_XYZT, varname, tmp_field3D, step=istep )
     
     lcmesh3D => mesh3D%lcmesh_list(1)
-    elem3D => lcmesh3D%refElem3D
-
-    allocate( tmp3D_zxy(elem3D%Nnode_v,elem3D%Nnode_h1D**2,2) )
-
-    do k = 1, LayerNum
-      if ( ZintrpType_ID == ZintrpType_Nearest_ID ) then
-        do ke = lcmesh3D%NeS, lcmesh3D%NeE
-            ke2D = lcmesh3D%EMap3Dto2D(ke)
-            do pz=1, elem3D%Nnode_v
-            do ph=1, elem3D%Nnode_h1D**2
-              p = ph + (pz-1)*elem3D%Nnode_h1D**2
-              pp = ph + min(pz,elem3D%Nnode_v-1)*elem3D%Nnode_h1D**2
-              if ( lcmesh3D%pos_en(p,ke,3) <= levels(k)   &
-                .and. lcmesh3D%pos_en(pp,ke,3) >= levels(k) ) then
-    !            LOG_INFO("get_gvar3D",*) trim(varname), ": level=", levels(k), "k,pz=", k, pz, "val=", tmp_field3D%local(1)%val(p,ke)
-                gvar_out(k)%local(1)%val(ph,ke2D) = tmp_field3D%local(1)%val(p,ke)
-              end if
-            end do
-            end do
-          end do
-      else if ( ZintrpType_ID == ZintrpType_SamplingUniPt_LinInterp_ID ) then
-        coef1 = VIntrp_coef1(k); coef2 = 1.0_RP - coef1
-        !$omp parallel do private(ke2D, ke_z1, ke_z2, ke, ke2, ph, tmp3D_zxy)
-        do ke2D=1, lcmesh3D%Ne2D
-          ke_z1 = VIntrp_keZ1(k); ke_z2 = VIntrp_keZ2(k)
-          ke = ke2D + (ke_z1-1)*lcmesh3D%Ne2D
-          ke2 = ke2D + (ke_z2-1)*lcmesh3D%Ne2D
-          do ph=1, elem3D%Nnode_h1D**2
-            tmp3D_zxy(:,ph,1) = tmp_field3D%local(1)%val(elem3D%Colmask(:,ph),ke)
-            tmp3D_zxy(:,ph,2) = tmp_field3D%local(1)%val(elem3D%Colmask(:,ph),ke2)
-          end do
-          do ph=1, elem3D%Nnode_h1D**2
-            gvar_out(k)%local(1)%val(ph,ke2D) = &
-                coef1 * sum( VIntrpMat(:,1,k) * tmp3D_zxy(:,ph,1) ) &
-              + coef2 * sum( VIntrpMat(:,2,k) * tmp3D_zxy(:,ph,2) ) 
-          end do
-        end do
-      end if
+    do k = 1, size(levels)
+      call VIntrpTool%GetLevelValue( k, levels(k), lcmesh3D, lcmesh3D%refElem3D, tmp_field3D, & ! (in)
+        gvar_out(k) ) ! (inout)
     end do
 
     call tmp_field3D%Final()
-
     return
   end subroutine get_gvar3D
 
+  !> Count the number of non-empty entries at the head of a namelist name array
 !OCL SERIAL
-  subroutine prep_VIntrp( IntrpMat, VIntrp_k1, VIntrp_k2, VIntrp_coef1, target_lev, lmesh3D, elem3D )
-    use scale_polynomial, only: &
-      Polynomial_GenLagrangePoly
+  pure function count_named_entries( names ) result( n )
     implicit none
-    class(ElementBase3D), intent(in) :: elem3D
-    class(LocalMesh3D), intent(in) :: lmesh3D
-    real(RP), intent(out) :: IntrpMat(elem3D%Nnode_v,2)
-    integer, intent(out) :: VIntrp_k1, VIntrp_k2
-    real(RP), intent(out) :: VIntrp_coef1
-    real(RP), intent(in) :: target_lev
-
-    integer :: ke, ke_z, ke_z2
-    integer :: pz, pz1, pz2
-    integer :: k, kk
-    real(RP) :: vz(8)
-    real(RP) :: delz
-    real(RP) :: lev_uniform(elem3D%Nnode_v*lmesh3D%NeZ)
-    real(RP) :: lev_uniform_xi(elem3D%Nnode_v*lmesh3D%NeZ)
-
-    real(RP) :: lag_poly(2,elem3D%Nnode_v)
-    !---------------------------------
-
-    !$omp parallel do private(ke,pz,k,vz,delz)
-    do ke_z=1, lmesh3D%NeZ
-      ke = 1 + (ke_z-1)*lmesh3D%Ne2D
-      vz(:) = lmesh3D%pos_ev(lmesh3D%EToV(ke,:),3)
-      delz = ( vz(5) - vz(1) ) / real(elem3D%Nnode_v, kind=RP)
-      do pz=1, elem3D%Nnode_v
-        k = pz + (ke_z-1)*elem3D%Nnode_v
-        lev_uniform(k) = vz(1) + (pz - 0.5_RP)*delz
-        lev_uniform_xi(k) = - 1.0_RP + 2.0_RP * ( lev_uniform(k) - vz(1) ) / ( vz(5) - vz(1) )
-      end do
+    character(len=*), intent(in) :: names(:)
+    integer :: n
+    integer :: nn
+    !---------------------------------------------
+    n = 0
+    do nn = 1, size(names)
+      if ( names(nn) == '' ) exit
+      n = n + 1
     end do
-    VIntrp_k1 = -1
-    VIntrp_k2 = -1
-    do ke_z=1, lmesh3D%NeZ
-    do pz=1, elem3D%Nnode_v
-      k = pz+(ke_z-1)*elem3D%Nnode_v
-      kk = min(k+1, size(lev_uniform))
-      if ( lev_uniform(k) <= target_lev .and. target_lev <= lev_uniform(kk) ) then
-        if ( pz+1 > elem3D%Nnode_v ) then
-          ke_z2 = ke_z + 1; pz2 = 1
-        else
-          ke_z2 = ke_z; pz2 = pz + 1
-        end if
-        VIntrp_k1 = ke_z; VIntrp_k2 = ke_z2; pz1 = pz
-        exit
-      end if
-    end do
-    end do
+    return
+  end function count_named_entries
 
-    if ( VIntrp_k1 < 0 .or. VIntrp_k2 < 0 ) then
-      LOG_INFO("prep_VIntrp",*) "The specified level is invalid. Check!", target_lev
-      call PRC_abort
+  !-
+  ! Define spectral output variables in the output NetCDF file
+!OCL SERIAL
+  subroutine define_spectral_output_var( ncid, varname, full_flag, full_dimids, oneD_dimids, &
+      id_r, id_i, id_1d )
+    implicit none
+    integer, intent(in) :: ncid
+    character(len=*), intent(in) :: varname
+    logical, intent(in) :: full_flag
+    integer, intent(in) :: full_dimids(:)
+    integer, intent(in) :: oneD_dimids(:)
+
+    integer, intent(out) :: id_r, id_i, id_1d
+    !---------------------------------------------
+
+    id_r = -1; id_i = -1
+
+    if ( full_flag ) then
+      call nc_check( nf90_def_var( ncid, trim(varname)//"_r", NF90_DOUBLE, full_dimids, id_r ) )
+      call nc_check( nf90_def_var( ncid, trim(varname)//"_i", NF90_DOUBLE, full_dimids, id_i ) )
     end if
-
-    !-
-    k = pz1 + (VIntrp_k1-1)*elem3D%Nnode_v
-    kk = pz2 + (VIntrp_k2-1)*elem3D%Nnode_v
-
-    lag_poly(:,:) = Polynomial_GenLagrangePoly( elem3D%PolyOrder_v, elem3D%x3(elem3D%Colmask(:,1)), (/ lev_uniform_xi(k), lev_uniform_xi(kk) /) )
-    IntrpMat(:,:) = transpose(lag_poly)
-    VIntrp_coef1 = ( lev_uniform(kk) - target_lev ) / ( lev_uniform(kk) - lev_uniform(k) )
-
-    LOG_INFO("prep_VIntrp",*) "k1,k2=", VIntrp_k1, VIntrp_k2, ": pz1, pz2=", pz1, pz2
-    LOG_INFO("prep_VIntrp",*) "lev=", lev_uniform(k), lev_uniform(kk)
-    LOG_INFO("prep_VIntrp",*) "lev_xi=", lev_uniform_xi(k), lev_uniform_xi(kk)
-    LOG_INFO("prep_VIntrp",*) "VIntrp_coef1=", VIntrp_coef1
-
+    call nc_check( nf90_def_var( ncid, trim(varname)//"_1D", NF90_DOUBLE, oneD_dimids, id_1d ) )
 
     return
-  end subroutine prep_VIntrp
+  end subroutine define_spectral_output_var
 
 !OCL SERIAL
   subroutine nc_check( status )
     implicit none
     integer, intent (in) :: status
+    !---------------------------------------------
     if(status /= nf90_noerr) then 
       LOG_INFO('NetCDF_check',*) trim(nf90_strerror(status))
-      call flush(IO_FID_CONF)
+      call flush(IO_FID_LOG)
       call PRC_abort
     end if
 
