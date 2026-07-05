@@ -14,15 +14,16 @@ In the DG framework, the surface fluxes are imposed as lower-boundary conditions
 \subsection{Constant flux}
 %%
 This option prescribes constant surface heat and moisture fluxes independently of the atmospheric state.
-On the other hand, the surface momentum flux is calculated using a prescribed friction velocity $u_*$, 
-which is related to the surface stress as follows:
+On the other hand, the surface momentum flux is calculated 
+using either a prescribed bulk coefficient for momentum $C_m$ or a prescribed friction velocity $u_*$. 
+The surface momentum flux is writen as
 %%
 \begin{align}
   F_{\rho \bm{u},{\rm sfc}} = -C_m |\tilde{\bm{u}}| \widetilde{\rho \bm{u}}
 \end{align}
 %%
-where the tilde denotes the value at the lowest model level of the atmosphere, 
-and $C_m=$ is the drag coefficient defined as
+where the tilde denotes the value at the lowest model level of the atmosphere. 
+When the friction velocity is prescribed, $C_m$ is diagnosed as
 %%
 \begin{align}
   C_m = \left(\dfrac{u_*}{|\tilde{\bm{u}}|}\right)^2.
