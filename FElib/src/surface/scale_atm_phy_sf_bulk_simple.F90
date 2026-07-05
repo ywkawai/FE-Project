@@ -68,7 +68,6 @@ module scale_atm_phy_sf_bulk_simple
 
     namelist / PARAM_ATMOS_PHY_SF_SIMPLE / &
        ATMOS_PHY_SF_U_minM,         &
-       ATMOS_PHY_SF_U_maxM,         &
        ATMOS_PHY_SF_Const_Cm,       &
        ATMOS_PHY_SF_Const_Ch,       &
        ATMOS_PHY_SF_Const_Ce,       &

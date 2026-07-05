@@ -32,7 +32,7 @@ When the friction velocity is prescribed, $C_m$ is diagnosed as
 
 
 In SCALE-DG, the constant-flux scheme is calculated using the SCALE library module {\tt scale\_atmos\_phy\_sf\_const.F90}. 
-The minimum and maximum values of the wind speed and $C_m$ can be limited to avoid numerical instability.
+The minimum values of the wind speed and $C_m$ can be modified from the default values (i.e., zero) to avoid numerical instability.
 
 
 \subsection{Simple bulk flux scheme}
@@ -58,4 +58,4 @@ The surface specific humidity is calculated from the surface temperature and the
 where $\epsilon$ is the ratio of the molecular weight of water vapor to that of dry air,
 and $p_{\rm sat,sfc}$ is the saturation vapor pressure at $T_{\rm sfc}$.
 
-The minimum and maximum values of the wind speed can be limited to avoid numerical instability.
+The minimum values of the wind speed can be modified from the default values (i.e., zero) to avoid numerical instability.
