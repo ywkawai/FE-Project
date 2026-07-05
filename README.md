@@ -2,47 +2,47 @@
 
 ## What is this project?
 In [FE-Project](https://ywkawai.github.io/FE-Project_web/), 
-we develop a library for fluid simulations with the discontinuous Galerkin method (DGM). 
+we develop a library for fluid simulations using the discontinuous Galerkin method (DGM). 
 We also provide sample programs and an atmospheric model for meteorological simulations (SCALE-DG). 
 
-- Example of simulation results by nonhydrostatic atmospheric models with nodal DGM
+- Examples of simulation results from SCALE-DG
 
 ![A simulation of density current](https://github.com/ywkawai/FE-project/wiki/gallery/atm_nonhydro2d/density_current/density_current.gif)
 
 ![A simulation of idealized baroclinic instability](https://github.com/ywkawai/FE-project/wiki/gallery/atm_nonhydro3d/baroc_wave/BarocWave.gif)
 
- For more animations, please see 'FE-project gallery' channel on YouTube (url: https://www.youtube.com/channel/UCO17OQtKHwkkQwmHD9y9mQg/featured) or Wiki of FE-project on github. 
+ For more animations, please see the ''FE-project gallery'' channel on YouTube (url: https://www.youtube.com/channel/UCO17OQtKHwkkQwmHD9y9mQg/featured). 
 
 
 ## Models with FE library
 ### Nonhydrostatic atmospheric model
-- Regional and Global models (SCALE-DG)
+- Regional and global models (SCALE-DG)
 - Simple 2D model with only dynamical process
 
 ### Shallow water model
-- Global shallow water model using cubed-sphere mesh
+- Global shallow water model using a cubed-sphere mesh
 
 
-## Simple samples for introduction to DGM
+## Simple samples for an introduction to DGM
 ### 1D problems 
   - Linear advection equation
-    - various profiles of advected quantity
-    - the eigenvalue analysis
+    - Various profiles of the advected quantity
+    - Eigenvalue analysis
   - Linear advection-diffusion equation
 
 ### 2D problems 
-  - Linear advection equation in a rectangle domain
-    - various profiles of advected quantity and flow
+  - Linear advection equation in a rectangular domain
+    - Various profiles of the advected quantity and flow
   - Linear advection equation in a cubed-sphere domain
-  - Poisson equation in a rectangle domain with a multi-grid method
+  - Poisson equation in a rectangular domain with a multigrid method
 
 ### 3D problems 
   - Linear advection equation in a cubic domain
-    - various profiles of advected quantity
+    - Various profiles of the advected quantity
   - Linear advection equation in a cubed-sphere domain
   - Euler equation in a cubic domain
-    - Test the propagation of sound waves with HEVI temporal methods
-  - Poisson equation in a cubic domain with a multi-grid method
+    - Test case for the propagation of sound waves with HEVI temporal methods
+  - Poisson equation in a cubic domain with a multigrid method
 
 ## Build FE library
 Please see ``INSTALL.md''.  
@@ -55,11 +55,11 @@ Please see ``INSTALL.md''.
 
 ## Acknowledgements
 This project is supported by 
-[Developing strategies coupling high-order dynamical core and physics processes considering future high-resolution atmospheric simulations](https://kaken.nii.ac.jp/ja/grant/KAKENHI-PROJECT-25K17471/)(MEXT KAKENHI Grant Number 25K17471), 
-[the Transformaive Research Areas B: DNA Climate Science](https://dna-climate.org/) (MEXT KAKENHI Grant Number JP20H05731), 
-[Moonshot Goal8 Realization of a society safe from the threat of extreme winds and rains by controlling and modifying the weather by 2050](https://www.jst.go.jp/moonshot/program/goal8/) ([Development of an atmospheric simulation model for probability estimation for local atmospheric phenomena](https://moonshot8-modeldev.riken.jp)), JICA and JST SATREPS (grant Number: JPMJSA2109), JST AIP Grant Number JPMJCR19U2, and the Foundation for Computational Science (FOCUS) Establishing Supercomputing Center of Excellence. 
+[Developing strategies coupling for high-order dynamical core and physics processes considering future high-resolution atmospheric simulations](https://kaken.nii.ac.jp/ja/grant/KAKENHI-PROJECT-25K17471/)(MEXT KAKENHI Grant Number 25K17471), 
+[the Transformative Research Areas B: DNA Climate Science](https://dna-climate.org/) (MEXT KAKENHI Grant Number JP20H05731), 
+[Moonshot Goal 8: Realization of a society safe from the threat of extreme winds and rains by controlling and modifying the weather by 2050](https://www.jst.go.jp/moonshot/program/goal8/) ([Development of an atmospheric simulation model for probability estimation for local atmospheric phenomena](https://moonshot8-modeldev.riken.jp)), JICA and JST SATREPS (grant Number: JPMJSA2109), JST AIP Grant Number JPMJCR19U2, and the Foundation for Computational Science (FOCUS) Establishing Supercomputing Center of Excellence. 
 The model development and validation experiments are
-performed using supercomputers (Oackbridge-CX and Wisteria) at the University of Tokyo and Fugaku at RIKEN (Project ID: ra000005, hp200271, hp230278).
+performed using supercomputers (Oakbridge-CX and Wisteria) at the University of Tokyo and Fugaku at RIKEN (Project IDs: ra000005, hp200271, hp230278).
 
 ## General references
 - Kawai, Y. and H. Tomita, 2025, Development of a high-order global dynamical core using the discontinuous Galerkin method for an atmospheric large-eddy simulation (LES) and proposal of test cases: SCALE-DG v0.8.0. Geosci. Model Dev., 18, 725-762.
