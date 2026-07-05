@@ -1,0 +1,60 @@
+\section{Surface flux}
+{\bf \Large 
+\begin{tabular}{ccc}
+\hline
+  Corresponding author & : & Yuta Kawai\\
+\hline
+\end{tabular}
+}
+
+Surface fluxes represent the exchange of momentum, heat, and moisture between the surface and the lowest model level of the atmosphere.
+SCALE-DG provides two surface-flux parameterizations: a constant-flux and a simple bulk-flux scheme.
+In the DG framework, the surface fluxes are imposed as lower-boundary conditions at the model bottom. 
+
+\subsection{Constant flux}
+%%
+This option prescribes constant surface heat and moisture fluxes independently of the atmospheric state.
+On the other hand, the surface momentum flux is calculated using a prescribed friction velocity $u_*$, 
+which is related to the surface stress as follows:
+%%
+\begin{align}
+  F_{\rho \bm{u},{\rm sfc}} = -C_m |\tilde{\bm{u}}| \widetilde{\rho \bm{u}}
+\end{align}
+%%
+where the tilde denotes the value at the lowest model level of the atmosphere, 
+and $C_m=$ is the drag coefficient defined as
+%%
+\begin{align}
+  C_m = \left(\dfrac{u_*}{|\tilde{\bm{u}}|}\right)^2.
+\end{align}
+%%
+
+
+In SCALE-DG, the constant-flux scheme is calculated using the SCALE library module {\tt scale\_atmos\_phy\_sf\_const.F90}. 
+The minimum and maximum values of the wind speed and $C_m$ can be limited to avoid numerical instability.
+
+
+\subsection{Simple bulk flux scheme}
+%%
+This option calculates the surface fluxes 
+based on constant values of the bulk drag coefficient $C_m$, the heat-transfer coefficient $C_h$, and the moisture-transfer coefficient $C_e$.
+The surface momentum, sensible heat, and latent heat fluxes are calculated as
+%%
+\begin{align}
+  F_{\rho \bm{u},{\rm sfc}} &= -C_m |\tilde{\bm{u}}| \widetilde{\rho \bm{u}},\\
+  F_{{\rm SH, sfc}} &= C_h |\tilde{\bm{u}}| \tilde{\rho} (T_{\rm sfc} - \tilde{T}),\\
+  F_{{\rm LH, sfc}} &= L C_e |\tilde{\bm{u}}| \tilde{\rho} (q_{\rm sfc} - \tilde{q}).
+\end{align}
+%%
+where the tildes denote the values at the lowest model level of the atmosphere, 
+and $T_{\rm sfc}$ and $q_{\rm sfc}$ are the surface temperature and surface specific humidity, respectively.
+The surface specific humidity is calculated from the surface temperature and the surface pressure using the Clausius-Clapeyron equation as
+%%
+\begin{align}
+  q_{\rm sfc} = \dfrac{\epsilon p_{\rm sat,sfc}}{p_{\rm sfc} - (1-\epsilon) p_{\rm sat,sfc}},
+\end{align}
+%%
+where $\epsilon$ is the ratio of the molecular weight of water vapor to that of dry air,
+and $p_{\rm sat,sfc}$ is the saturation vapor pressure at $T_{\rm sfc}$.
+
+The minimum and maximum values of the wind speed can be limited to avoid numerical instability.
