@@ -109,25 +109,39 @@ We applied the filter to the solution vector
 at the final stage of the RK scheme with a timestep $\Delta t$. 
 Then, the decay timescale for the highest mode is approximately $\Delta t/\alpha_m$.
 
+
+In \scaledg, modal filters can be configured separately for dynamical variables and tracer variables.
 The switch of modal filtering exists in \namelist{PARAM_ATMOS_DYN} 
 and 
-the parameters are specified in \namelist{PARAM_ATMOS_DYN_MODALFILTER} as 
+the parameters are specified in \namelist{PARAM_ATMOS_DYN_MODALFILTER} and \namelist{PARAM_ATMOS_DYN_TRACER_MODALFILTER}. 
+The flag for modal filtering is set as 
 \editboxtwo{
  \verb|&PARAM_ATMOS_DYN  | & \\
- \verb|MODALFILTER_FLAG    = .true.,|  & ; Flag to set whether a modal filtering is used \\
+ \verb|MODALFILTER_FLAG           = .true.,|  & ; Flag to set whether a modal filtering is used \\
+ \verb|TRACERADV_MODALFILTER_FLAG = .true.,| & ; Flag to set whether a modal filtering is used for tracer variables \\
 \verb|/             | & \\
 }
+For the modal filtering of dynamical variables, the parameters are set as
 \editboxtwo{
  \verb|&PARAM_ATMOS_DYN_MODALFILTER  | & \\
- \verb|MF_ALPHA_h          = 1D-1,| & ; Order of modal filter in the horizontal direction  \\
- \verb|MF_ORDER_h          = 16,  | & ; Non-dimensional strength of modal filter in the horizontal direction \\
- \verb|MF_ALPHA_v          = 1D-1,| & ; Order of modal filter in the vertical direction  \\
- \verb|MF_ORDER_v          = 16,  | & ; Non-dimensional strength of modal filter in the vertical direction \\
+ \verb|MF_ALPHA_h          = 1D-1,| & ; Order of horizontal modal filter  \\
+ \verb|MF_ORDER_h          = 16,  | & ; Non-dimensional strength of horizontal modal filter \\
+ \verb|MF_ALPHA_v          = 1D-1,| & ; Order of vertical modal filter  \\
+ \verb|MF_ORDER_v          = 16,  | & ; Non-dimensional strength of vertical modal filter \\
 \verb|/             | & \\
+}
+while for the modal filtering of tracer variables, the parameters are set as
+\editboxtwo{
+ \verb|&PARAM_ATMOS_DYN_TRACER_MODALFILTER | & \\
+ \verb|MF_ALPHA_h = 1D-1,| & ; Non-dimensional strength of horizontal modal filter \\
+ \verb|MF_ORDER_h = 16, |  & ; Order of horizontal modal filter \\
+ \verb|MF_ALPHA_v = 1D-1,| & ; Non-dimensional strength of vertical modal filter \\
+ \verb|MF_ORDER_v = 16, |  & ; Order of vertical modal filter \\
+ \verb|/ | & \\
 }
 
 We set the order $p_m$, and decay coefficient $\alpha_m$ such that 
-the strength of filter should ensure numerical stability while being as weak as possible. 
+the filter is as weak as possible while maintaining numerical stability. 
 
 \section{Setting for boundary condition} \label{sec:atm_dynamics_bc}
 
