@@ -1,6 +1,89 @@
 \section{Cloud Micro-Physics} \label{sec:basic_usel_microphys}
 %------------------------------------------------------
-The cloud micro-physics scheme is configured in \nmitem{ATMOS_PHY_MP_TYPE} in \namelist{PARAM_ATMOS} in files \verb|init.conf| and \verb|run.conf|, respectively.
-Note that it is necessary to specify the same scheme for \nmitem{ATMOS_PHY_MP_TYPE} in the configuration files for both init and run executions.
-The update interval for the cloud micro-physics scheme is specified in \namelist{PARAM_TIME}. Refer to Section \ref{sec:timeintiv} for the detailed configuration of calling timing.
-The following example shows the configuration for cases involving a six-class one-moment bulk scheme that contains ice phase clouds:
+Cloud microphysics is configured by two namelists.
+First, the cloud microphysics component is activated by \nmitem{ATMOS_PHY_MP_DO} in \namelist{PARAM_ATMOS}.
+Then, the microphysics scheme and its calling interval are specified in \namelist{PARAM_ATMOS_PHY_MP}.
+
+\editboxtwo{
+ \verb|&PARAM_ATMOS | & \\
+ \verb|ATMOS_PHY_MP_DO = .true.,| & ; Enable cloud microphysics \\
+ \verb|/ | & \\
+}
+\editboxtwo{
+ \verb|&PARAM_ATMOS_PHY_MP | & \\
+ \verb|MP_TYPE      = "TOMITA08",| & ; Choose from cloud microphysics schemes in Table \ref{tab:mp_scheme_list} \\
+ \verb|TIME_DT      = 60.D0,|      & ; Time interval of cloud microphysics process \\
+ \verb|TIME_DT_UNIT = "SEC",|      & ; Unit for \verb|TIME_DT| \\
+ \verb|do_precipitation    = .true.,|  & ; Enable sedimentation of precipitation particles \\
+ \verb|do_negative_fixer   = .true.,|  & ; Enable negative-value fixer for water substances \\
+ \verb|ntmax_sedimentation = 1,|       & ; Number of substeps for sedimentation \\
+ \verb|/ | & \\
+}
+
+The available choices of \nmitem{MP_TYPE} are listed in Table \ref{tab:mp_scheme_list}.
+Several options common to cloud microphysics schemes can be specified in \namelist{PARAM_ATMOS_PHY_MP}.
+\nmitem{TIME_DT} and \nmitem{TIME_DT_UNIT} specify the time interval of the cloud microphysics process.
+\nmitem{do_precipitation} controls whether sedimentation of precipitation particles is calculated.
+When precipitation is calculated, 
+\nmitem{do_negative_fixer} controls the fixer for negative values of water substances 
+and \nmitem{ntmax_sedimentation} specifies the number of substeps with which sedimentation is calculated.
+
+The Kessler and Tomita08 schemes use the cloud microphysics components provided by the SCALE library.
+Therefore, the scheme-dependent parameters are basically the same as those used in SCALE-RM.
+For the detailed description of these parameters, 
+refer to the SCALE-RM User's Guide.
+
+%%%%%%%%%%%
+\begin{table}[t]
+\caption{Cloud microphysics schemes available in \scaledg.}
+\label{tab:mp_scheme_list}
+\begin{center}
+\begin{tabularx}{150mm}{lXX}
+\hline
+\rowcolor[gray]{0.9}
+\verb|MP_TYPE| & Description & Reference \\
+\hline
+\verb|KESSLER|  & Three-class one-moment bulk scheme & \cite{kessler_1969} \\
+\verb|TOMITA08| & Six-class one-moment bulk scheme   & \cite{tomita_2008} \\
+\verb|LSCOND|   & Large-scale condensation scheme    &  \\
+\hline
+\end{tabularx}
+\end{center}
+\end{table}
+%%%%%%%%%%%
+
+
+Note that it is necessary to specify the same scheme for \nmitem{MP_TYPE} in the configuration files for both init and run executions.
+
+
+%------------------------------------------------------------------------
+\subsection{Kessler scheme}
+\label{subsec:physics_mp_kessler}
+%%
+This is a three-class one-moment bulk microphysics scheme based on \cite{kessler_1969}.
+It treats warm-rain processes using water vapor, cloud water, and rain water.
+Since ice-phase water substances are not included, this scheme is mainly suitable for idealized warm-cloud experiments
+or for cases where a simple and computationally inexpensive cloud microphysics scheme is sufficient.
+This scheme uses the SCALE library, and its parameters are configured as in SCALE-RM. 
+
+%------------------------------------------------------------------------
+\subsection{Tomita08 scheme}
+\label{subsec:physics_mp_tomita08}
+%%
+This is a six-class one-moment bulk microphysics scheme based on \cite{tomita_2008}.
+It treats water vapor, cloud water, rain water, cloud ice, snow, and graupel.
+This scheme is appropriate for experiments where mixed-phase cloud and precipitation processes should be represented.
+This scheme uses the SCALE library, and its parameters are configured as in SCALE-RM. 
+
+%------------------------------------------------------------------------
+\subsection{Large-scale condensation scheme}
+\label{subsec:physics_mp_lscond}
+%%
+The large-scale condensation scheme is a simplified moist-physics scheme.
+It represents condensation and associated latent heating without explicitly calculating detailed bulk microphysical conversion processes among several hydrometeor categories.
+This scheme is useful for idealized moist experiments where the feedback between moisture and atmospheric motion is required, 
+but detailed cloud microphysics is not the main target.
+The precipitation is not explicitly calculated in this scheme, 
+and the condensed water is removed from the atmosphere with a timescale of microphysics timestep.
+
+
