@@ -35,8 +35,9 @@ you need to set a directory including SCALE library as
 \caption{Examples of environments and their corresponding Makedef files.}
 \begin{tabularx}{150mm}{|l|l|X|l|} \hline
  \rowcolor[gray]{0.9} OS/Computer & Compiler & MPI & Makedef file \\ \hline
-                 & GNU & Open MPI & Makedef.Linux64-gnu-ompi \\ \cline{2-4}
- Linux OS x86-64 & Intel OneAPI   & Intel MPI & Makedef.Linux64-llvm-intel-impi \\ \hline
+                 & GNU            & Open MPI & Makedef.Linux64-gnu-ompi \\ \cline{2-4}
+ Linux OS x86-64 & Intel OneAPI   & Intel MPI & Makedef.Linux64-llvm-intel-impi \\ \cline{2-4}
+                 & NVIDIA HPC SDK & CUDA-aware Open MPI & Makedef.Linux64-nvidia \\ \hline
  Mac OS          & GNU            & Open MPI  & Makedef.MacOSX-gnu-ompi \\ \hline
  Fugaku          & Fujitsu        & Fujitsu MPI & Makedef.FUGAKU \\ \hline
 \end{tabularx}
@@ -60,9 +61,10 @@ set a variable as
  SCALE                    & Path of SCALE library (required) \\ \hline
  SCALE\_FE\_SYS           & Selection of system (required) \\ \hline
  SCALE\_ENABLE\_OPENMP    & Enable to use OpenMP \\ \hline
-%  SCALE\_ENABLE\_OPENACC   & Enable to use OpenACC \\ \hline
  SCALE\_DEBUG             & Use compile option for debug \\ \hline
  SCALE\_QUICKDEBUG        & Use compile option for quick debug (detect floating point error while maintaining speed-up option) \\ \hline
+ SCALE\_ENABLE\_OPENACC   & Enable to use OpenACC \\ 
+ NVIDIA\_GPU\_COMPATIBILITY & Compute capability of the target NVIDIA GPU used by NVIDIA HPC SDK. \\ \hline
 %  SCALE\_USE\_SINGLEFP     & Use single precision floating-point number (for all sources) \\ \hline
 %  SCALE\_USE\_AGRESSIVEOPT & Conduct strong optimization (only for FX and intel, this can be a side effect) \\ \hline
 %  SCALE\_DISABLE\_INTELVEC & Suppress option for vectorization (only with Intel compiler) \\ \hline
