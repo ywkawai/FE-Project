@@ -13,9 +13,9 @@ The turbulence scheme and its calling interval are specified in \namelist{PARAM_
 }
 \editboxtwo{
 \verb|&PARAM_ATMOS_PHY_TB | & \\
-\verb|TB_TYPE      = “SMAGORINSKY”,| & ; Choose from turbulence schemes in Table \ref{tab:tb_scheme_list} \\
+\verb|TB_TYPE      = "SMAGORINSKY",| & ; Choose from turbulence schemes in Table \ref{tab:tb_scheme_list} \\
 \verb|TIME_DT      = 60.D0,|         & ; Time interval of turbulence process \\
-\verb|TIME_DT_UNIT = “SEC”,|         & ; Unit for \verb|TIME_DT| \\
+\verb|TIME_DT_UNIT = "SEC",|         & ; Unit for \verb|TIME_DT| \\
 \verb|/ | & \\
 }
 
@@ -100,9 +100,9 @@ constant viscosity and diffusivity can be used by setting \nmitem{TB_TYPE} to \v
 %%
 \editboxtwo{
 \verb|&PARAM_ATMOS_PHY_TB | & \\
-\verb|TB_TYPE      = “DNS”,| & ; Constant viscosity and diffusivity \\
+\verb|TB_TYPE      = "DNS",| & ; Constant viscosity and diffusivity \\
 \verb|TIME_DT      = 60.D0,| & ; Time interval of turbulence process \\
-\verb|TIME_DT_UNIT = “SEC”,| & ; Unit for \verb|TIME_DT| \\
+\verb|TIME_DT_UNIT = "SEC",| & ; Unit for \verb|TIME_DT| \\
 \verb|/ | & \\
 }
 

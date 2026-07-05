@@ -1,11 +1,11 @@
 \section{Discretization of tracer transport equations}
 %%
 A strategy to ensure non-negativity for tracer variables follows \citet{LightPreserving2016}.
-The element-mean nonegativity is satisfied by applying a flux-corrected transport (FCT) scheme at each stage in Runge--Kutta schemes. 
+The element-mean non-negativity is satisfied by applying a flux-corrected transport (FCT) scheme at each stage in Runge--Kutta schemes. 
 After the last stage, 
 a nonlinear truncation and mass aware rescaling (TMAR) limiter is used to eliminate negatives at nodes within the element.
 
 
 The discretization of tracer transport equations should be consistent to the mass conservation equation for the total density. 
 Otherwise, consistency with continuity (CWC) would be violated, which may produce spurious sources and sinks of tracer mass.
-To satisfy of “narrow CWC”,  mass flux temporally averaged during the dynamics is used.
+To satisfy of ``narrow CWC'',  mass flux temporally averaged during the dynamics is used.
