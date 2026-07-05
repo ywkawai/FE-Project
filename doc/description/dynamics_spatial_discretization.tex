@@ -63,7 +63,9 @@ a strong form of the semi-discretized equations can be obtained as
 \label{eq:semidiscrete_eqs}
 \end{align}
 %%
-where $(\bm{F}_1,\bm{F}_2,\bm{F}_3)=(\bm{f}+\bm{f}_{\rm SGS},\bm{g}+\bm{g}_{\rm SGS},\bm{h}+\bm{h}_{\rm SGS})$ is the flux vector tensor, 
+where 
+%$\bm{q}^e_{\rm dyn}=( \sqrt{G} \rho', \sqrt{G} \rho u^\xi, \sqrt{G} \rho u^\eta, \sqrt{G} \rho u^\zeta, \sqrt{G} (\rho \theta)')$ is the solution vector without tracer variables, 
+$(\bm{F}_1,\bm{F}_2,\bm{F}_3)=(\bm{f}+\bm{f}_{\rm SGS},\bm{g}+\bm{g}_{\rm SGS},\bm{h}+\bm{h}_{\rm SGS})$ is the flux vector tensor, 
 $\hat{\bm{F}}$ is the numerical flux at the element boundary $\partial\Omega_E$, 
 and 
 $\bm{n}$ is the outward unit vector normal to $\partial\Omega_E$; 
@@ -73,7 +75,8 @@ and local coordinates within each element.
 Note that, because of the linear mapping in Eq.\,\eqref{eq:linear_mapping}, 
 the associated geometric factors such as $J^E$ and $J^{\partial E}$ have constant values  
 when the volume and surface integrals are calculated. 
-For the turbulent model,  
+
+For turbulent models,  
 we need to evaluate 
 the eddy viscous flux tensor and diffusion flux, 
 which include a few gradient terms with quantities such as $\bm{\chi}=(u^\xi,u^\eta,u^\zeta,\theta,q_{v,l,s})$, 
@@ -102,6 +105,7 @@ the density gradient is calculated by
   + \int_{\partial \Omega_{e}} (\hat{\rho} - \rho^e)\bm{n}_{\tilde{x}^j}  \cdot \bm{n} \; l_{\bm{m}} (\tilde{\bm{x}}) \; J^{\partial E} \; dS. 
 \end{align}
 %%
+
 
 
 \subsubsection{Numerical flux}

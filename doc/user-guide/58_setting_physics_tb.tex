@@ -1,0 +1,116 @@
+%------------------------------------------------------
+\section{Turbulence}
+\label{sec:basic_usel_turbulence}
+%------------------------------------------------------
+The turbulence scheme represents the sub-grid scale turbulent transport of momentum, heat, and tracers.
+The turbulence component is activated by \nmitem{ATMOS_PHY_TB_DO} in \namelist{PARAM_ATMOS}.
+The turbulence scheme and its calling interval are specified in \namelist{PARAM_ATMOS_PHY_TB}.
+
+\editboxtwo{
+\verb|&PARAM_ATMOS | & \\
+\verb|ATMOS_PHY_TB_DO = .true.,| & ; Enable turbulence process \\
+\verb|/ | & \\
+}
+\editboxtwo{
+\verb|&PARAM_ATMOS_PHY_TB | & \\
+\verb|TB_TYPE      = "SMAGORINSKY",| & ; Choose from turbulence schemes in Table \ref{tab:tb_scheme_list} \\
+\verb|TIME_DT      = 60.D0,|         & ; Time interval of turbulence process \\
+\verb|TIME_DT_UNIT = "SEC",|         & ; Unit for \verb|TIME_DT| \\
+\verb|/ | & \\
+}
+
+The available choices of \nmitem{TB_TYPE} are listed in Table \ref{tab:tb_scheme_list}.
+\nmitem{TIME_DT} and \nmitem{TIME_DT_UNIT} specify the time interval of the turbulence process.
+
+%%%%%%%%%%%
+\begin{table}[t]
+\caption{Turbulence schemes available in \scaledg.}
+\label{tab:tb_scheme_list}
+\begin{center}
+\begin{tabularx}{150mm}{lXX}
+\hline
+\rowcolor[gray]{0.9}
+\verb|TB_TYPE| & Description & Note \\
+\hline
+\verb|SMAGORINSKY|         & Smagorinsky--Lilly type SGS turbulence scheme & for regional model \\
+\verb|SMAGORINSKY_GLOBAL|  & Smagorinsky--Lilly type SGS turbulence scheme & for global model \\
+\verb|DNS|                 & Constant viscosity and diffusivity & mainly for idealized experiments \\
+\hline
+\end{tabularx}
+\end{center}
+\end{table}
+%%%%%%%%%%%
+
+
+%------------------------------------------------------
+\subsection{Smagorinsky--Lilly type scheme}
+\label{subsec:physics_tb_smagorinsky}
+%%
+The Smagorinsky--Lilly type scheme is a sub-grid scale turbulence model based on \cite{smagorinsky1963general} and \cite{lilly1962numerical}.
+The eddy viscosity is diagnosed from the local strain rate and a characteristic filter length.
+The stratification effect is also taken into account following \cite{brown1994largeeddy}.
+This scheme is suitable for large-eddy simulations and high-resolution experiments where sub-grid scale turbulent transport should be represented.
+For the detailed formulation, refer to the model description.
+
+The scheme-dependent parameters are specified in \namelist{PARAM_ATMOS_PHY_TB_DGM_SMG}.
+%%
+\editboxtwo{
+\verb|&PARAM_ATMOS_PHY_TB_DGM_SMG | & \\
+\verb|Cs             = 0.13D0,|    & ; Smagorinsky constant \\
+\verb|NU_MAX         = 10000.D0,|  & ; Maximum eddy viscosity \\
+\verb|filter_fac     = 2.0D0,|     & ; Factor for the filter length \\
+\verb|consistent_tke = .true.,|    & ; Use TKE consistently in the SGS stress \\
+\verb|/ | & \\
+}
+\nmitem{Cs} specifies the Smagorinsky constant.
+\nmitem{NU_MAX} specifies the upper limit of eddy viscosity.
+\nmitem{filter_fac} controls the characteristic filter length used in the SGS model.
+\nmitem{consistent_tke} controls whether the parameterized turbulent kinetic energy is included consistently in the SGS stress.
+
+
+The parameterized eddy viscosity, eddy diffusivity, and turbulent kinetic energy can be output as history variables, 
+for example, \verb|NU|, \verb|KH|, and \verb|TKE|.
+
+
+%------------------------------------------------------
+\subsection{Smagorinsky--Lilly type scheme for global model}
+\label{subsec:physics_tb_smagorinsky_global}
+%%
+The scheme-dependent parameters are specified in \namelist{PARAM_ATMOS_PHY_TB_DGM_GLOBALSMG}.
+%%
+\editboxtwo{
+\verb|&PARAM_ATMOS_PHY_TB_DGM_GLOBALSMG | & \\
+\verb|Cs             = 0.13D0,|    & ; Smagorinsky constant \\
+\verb|NU_MAX         = 10000.D0,|  & ; Maximum eddy viscosity \\
+\verb|filter_fac     = 2.0D0,|     & ; Factor for the filter length \\
+\verb|consistent_tke = .true.,|    & ; Use TKE consistently in the SGS stress \\
+\verb|/ | & \\
+}
+%%
+The parameters have the same meaning as those in \namelist{PARAM_ATMOS_PHY_TB_DGM_SMG}.
+The global version should be used with the global dynamical core.
+
+
+%------------------------------------------------------
+\subsection{Constant viscosity and diffusivity}
+\label{subsec:physics_tb_dns}
+%%
+For idealized experiments or direct numerical simulations (DNS), 
+constant viscosity and diffusivity can be used by setting \nmitem{TB_TYPE} to \verb|DNS|.
+%%
+\editboxtwo{
+\verb|&PARAM_ATMOS_PHY_TB | & \\
+\verb|TB_TYPE      = "DNS",| & ; Constant viscosity and diffusivity \\
+\verb|TIME_DT      = 60.D0,| & ; Time interval of turbulence process \\
+\verb|TIME_DT_UNIT = "SEC",| & ; Unit for \verb|TIME_DT| \\
+\verb|/ | & \\
+}
+
+The scheme-dependent parameters are specified in \namelist{PARAM_ATMOS_PHY_TB_DGM_DNS}.
+%%
+\editboxtwo{
+\verb|&PARAM_ATMOS_PHY_TB_DGM_DNS | & \\
+\verb|DNS_NU = 0.D0,| & ; Constant viscosity \\
+\verb|DNS_MU = 0.D0,| & ; Constant diffusivity \\
+\verb|/ | & \\
+}
