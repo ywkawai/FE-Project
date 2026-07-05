@@ -50,6 +50,7 @@ Please see ``INSTALL.md''.
 ## Contributors
 - Yuta Kawai
 - Xuanzhengbo Ren
+- Seiya Nishizawa
 - Hirofumi Tomita
 
 ## Acknowledgements
