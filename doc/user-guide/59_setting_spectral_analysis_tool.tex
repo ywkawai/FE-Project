@@ -1,0 +1,86 @@
+%-------------------------------------------------------------------------------
+\section{Spectral analysis tool}
+\label{sec:postprocess_spectral_analysis}
+%-------------------------------------------------------------------------------
+
+\verb|spectral_analysis| is a post-processing tool for calculating horizontal spectra from the output files of \scaledg.
+It reads variables in the SCALE-netCDF files and outputs spectral coefficients and one-dimensional spectra to a NetCDF file.
+This tool is useful, for example, for analyzing kinetic energy spectra at specified vertical levels.
+Currently, this tool is available only for the output data of regional simulations on the Cartesian coordinates.
+
+To compile \verb|spectral_analysis|, execute the following command under the top directory after the compilation of \scaledg:
+%%
+\begin{verbatim}
+$ cd model/atm_nonhydro3d/util/spectral_analysis/
+$ make
+\end{verbatim}
+%%
+If the compilation succeeds, the executable binary file is generated under the \verb|bin| directory.
+
+The basic settings are specified in \namelist{PARAM_SPECTRAL_ANALYSIS}.
+For example,
+
+\editboxtwo{
+\verb|&PARAM_SPECTRAL_ANALYSIS | & \\
+\verb|in_bs_filebase      = "init_00010101-000000.000",| & ; Base name of input file for basic state \\
+\verb|in_filebase         = "history",|                  & ; Base name of input history files \\
+\verb|out_filebase        = "energy_spectra",|           & ; Base name of output file \\
+\verb|target_proc_num_tot = 32,|                         & ; Total number of MPI processes used in the original run \\
+\verb|LevelNum            = 1,|                          & ; Number of target vertical levels \\
+\verb|TARGET_LEVELS       = 800.D0,|                     & ; Target vertical levels \\
+\verb|level_units         = "m",|                        & ; Unit of target vertical levels \\
+\verb|VARS                = "U", "V", "W",|              & ; Target 3D variables \\
+\verb|SpectralAnalysisType = "Uniform_Sampling",|        & ; Type of spectral analysis \\
+\verb|ST_NsamplePtPerElem1D = 8,|                        & ; Number of sampling points per element \\
+\verb|ST_ks = -64, ST_ke = 64,|                          & ; Range of wavenumber in the first direction \\
+\verb|ST_ls = -64, ST_le = 64,|                          & ; Range of wavenumber in the second direction \\
+\verb|KinEnergyAnalysisFlag = .true.,|                   & ; Output kinetic energy spectra \\
+\verb|/ | & \\
+}
+%%
+\nmitem{in_filebase} specifies the base name of the input history files, and \nmitem{out_filebase} specifies the base name of the output NetCDF file.
+\nmitem{target_proc_num_tot} should be set to the total number of MPI processes used in the original simulation.
+\nmitem{TARGET_LEVELS} and \nmitem{level_units} specify the vertical levels at which three-dimensional variables are analyzed.
+\nmitem{VARS} specifies the target three-dimensional variables.
+Two-dimensional variables can also be analyzed by specifying \nmitem{VARS2D}.
+\nmitem{SpectralAnalysisType} can be set to \verb|Uniform_Sampling| or \verb|L2_Projection|.
+
+
+The mesh information of the original output is specified in
+\namelist{PARAM_SPECTRAL_ANALYSIS_MESH}.
+
+\editboxtwo{
+\verb|&PARAM_SPECTRAL_ANALYSIS_MESH | & \\
+\verb|dom_xmin = -1.6D3, dom_xmax = 1.6D3,| & ; Domain range in the $x$-direction \\
+\verb|dom_ymin = -1.6D3, dom_ymax = 1.6D3,| & ; Domain range in the $y$-direction \\
+\verb|dom_zmin = 0.D0,   dom_zmax = 1.6D3,| & ; Domain range in the $z$-direction \\
+\verb|NprcX = 8,|                            & ; Number of MPI processes in the $x$-direction in the original run \\
+\verb|NeX   = 2,|                            & ; Number of elements in the $x$-direction in each MPI process \\
+\verb|NprcY = 4,|                            & ; Number of MPI processes in the $y$-direction in the original run \\
+\verb|NeY   = 4,|                            & ; Number of elements in the $y$-direction in each MPI process \\
+\verb|NeZ   = 8,|                            & ; Number of elements in the $z$-direction \\
+\verb|PolyOrder_h = 7,|                      & ; Polynomial order in the horizontal direction \\
+\verb|PolyOrder_v = 7,|                      & ; Polynomial order in the vertical direction \\
+\verb|/ | & \\
+}
+
+
+The execution of \verb|spectral_analysis| is as follows:
+%%
+\begin{verbatim}
+$ mpirun -n 4 ./spectral_analysis spectral_analysis.conf
+\end{verbatim}
+%%
+In this example, \verb|spectral_analysis| is executed with four MPI processes. 
+The last argument specifies the configuration file.
+Note that the number of MPI processes used is constrained by the current implementation.
+\begin{itemize}
+    \item The number of MPI processes used for \verb|spectral_analysis| must be a divisor of \nmitem{target_proc_num_tot} and must not exceed \nmitem{target_proc_num_tot}.
+    \item When \nmitem{SpectralAnalysisType} is set to \verb|Uniform_Sampling|, the number of MPI processes used for \verb|spectral_analysis| should be the same as \nmitem{NprcY}.
+\end{itemize}
+
+
+The output file is generated as \verb|[out_filebase].nc|.
+The output contains wavenumber coordinates and spectra of the specified
+variables. When \nmitem{KinEnergyAnalysisFlag} is set to \verb|.true.|,
+horizontal and vertical kinetic energy spectra are also output.
