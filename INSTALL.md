@@ -12,7 +12,7 @@ This FE library requires the following software and libraries:
 For visualization, a Python environment with several Python libraries, such as Xarray and netCDF4, is required.
 Note that Matplotlib version 3.8 or later is assumed.
 
-We have confirmed that building our codes can be built successfully in the following environments:
+We have confirmed that our codes can be built successfully in the following environments:
 - Ubuntu 24.04 LTS (with GNU compiler)
   - GNU Fortran 13.2.0
   - Open MPI 4.1.6
@@ -48,55 +48,55 @@ Our codes have also been verified on Fugaku and Odyssey with Fujitsu compilers.
 ## Build FE-library
 
 1. Preparation
-- Set the SCALE_FE_SYS environment variable. See the sysdep directory for available system-dependent settings.
+  - Set the SCALE_FE_SYS environment variable. See the sysdep directory for available system-dependent settings.
 
-  `% export SCALE_FE_SYS=MacOSX-gnu-ompi`   (for example)
+    `% export SCALE_FE_SYS=MacOSX-gnu-ompi`   (for example)
 
-- Set the directory that contains SCALE library.
+  - Set the directory that contains SCALE library.
 
-  `% export SCALE="~/workspace/scale-5.5.5/"`   (for example)
+    `% export SCALE="~/workspace/scale-5.5.5/"`   (for example)
 
-- To enable thread parallelization with OpenMP, set the following variable:
-  `% export SCALE_ENABLE_OPENMP=T`
+  - To enable thread parallelization with OpenMP, set the following variable:
+    `% export SCALE_ENABLE_OPENMP=T`
 
-- Set the directory that contains the NetCDF library, if necessary.
+  - Set the directory that contains the NetCDF library, if necessary.
 
-  `% export NETCDF="/ap/netcdf4-fortran/4.7.3/"`   (for example)
+    `% export NETCDF="/ap/netcdf4-fortran/4.7.3/"`   (for example)
 
-- If a development version of the SCALE library is used, set the following variable:
+  - If a development version of the SCALE library is used, set the following variable:
 
-  `% export SCALE_DEVELOP=T`
+    `% export SCALE_DEVELOP=T`
 
 
 2. Build the library in the FElib source directory.
 
- `% cd rootdir/FElib/src/`
+    `% cd rootdir/FElib/src/`
 
- `% make`
+    `% make`
 
 ## Compile and Run Simple Sample Programs
 
 For example, in the case of sample/advect1d, 
  
- `% cd rootdir/sample/advect1d/`
+  `% cd rootdir/sample/advect1d/`
 
- `% make`
+  `% make`
 
- `% make run`
+  `% make run`
 
 
 ## Compile and Run Atmospheric Models
 
  To build the three-dimensional nonhydrostatic atmospheric model (SCALE-DG) and conduct an idealized test case, such as the density-current case, run the following commands:
  
- `% cd rootdir/model/atm_nonhydro3d/test/case/density_current`
+  `% cd rootdir/model/atm_nonhydro3d/test/case/density_current`
 
- `% make`
+  `% make`
 
- `% make run`
+  `% make run`
 
  The visualize directory includes several scripts using Python libraries.
- To visualize the simulation results using these scripts, run
+ To visualize the simulation results using these scripts, run:
 
   `% make vis`
 
@@ -104,10 +104,11 @@ For example, in the case of sample/advect1d,
 
 The following options are available as environment variables:
 
- `% export OPTION_NAME=T`
+  `% export OPTION_NAME=T`
 
 Switch options are activated only when the value is set to T.
 
 - SCALE_ENABLE_OPENMP   : Enable thread parallelization with OpenMP
+- SCALE_ENABLE_OPENACC  : Enable OpenACC directives for GPU execution in supported programs and components (experimental)
 - SCALE_IGNORE_SRCDEP   : Ignore source dependency during compilation
  
