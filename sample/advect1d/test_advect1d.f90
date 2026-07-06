@@ -43,18 +43,19 @@ program test_advect1d
   
   use scale_timeint_rk, only: timeint_rk  
 
-  use mod_advect1d_numerror, only: advect1d_numerror_eval
+  use mod_advect1d_kernel, only: advect1d_kernel_cal_tend
+  use mod_advect1d_numerror, only: Advect1DNumErrorAnalysis
   !-----------------------------------------------------------------------------
   implicit none
 
   character(len=H_SHORT) :: InitShapeName   !< The type of initial profile (sin, gaussian-hill, cosine-bell, top-hat)
-  real(RP), save :: InitShapeParams(2)
-  integer :: InitGPMatPolyOrder
+  real(RP), save :: InitShapeParams(2)      !< Parameters for the initial profile
+  integer :: InitGPMatPolyOrder             !< The polynomial order used for the Galerkin projection in setting initial conditions
   real(RP) :: ADV_VEL                       !< The constant speed of advection
   logical :: Do_NumErrorAnalysis            !< Flag wheter analysis of numerical error is performed
 
   type(LineElement)  :: refElem
-  type(sparsemat) :: Dx, Lift
+  type(SparseMat) :: Dx, Lift
 
   type(MeshLineDom1D), target :: mesh
   type(LocalMesh1D), pointer :: lcmesh
@@ -70,6 +71,8 @@ program test_advect1d
   integer :: rkstage
   integer :: tintbuf_ind
   integer, parameter :: RKVAR_Q = 1
+
+  type(Advect1DNumErrorAnalysis) :: numerror_analysis
   !-------------------------------------------------------
 
   call init()
@@ -97,15 +100,14 @@ program test_advect1d
       !* Update prognostic variables
 
       do domid=1, mesh%LOCAL_MESH_NUM
-
         lcmesh => mesh%lcmesh_list(domid)
         tintbuf_ind = tinteg_lc(domid)%tend_buf_indmap(rkstage)      
         
         call PROF_rapstart( 'cal_tend', 1)
-        call cal_tend( &
+        call advect1d_kernel_cal_tend( &
           tinteg_lc(domid)%tend_buf2D_ex(:,:,RKVAR_Q,tintbuf_ind), & ! (out)
           q%local(domid)%val, u%local(domid)%val,                  & ! (in)
-          lcmesh, lcmesh%refElem1D )                                 ! (in)
+          Dx, Lift, lcmesh, lcmesh%refElem1D )                       ! (in)
         call PROF_rapend( 'cal_tend', 1) 
 
         call PROF_rapstart( 'update_var', 1)
@@ -117,9 +119,8 @@ program test_advect1d
 
     tsec_ = TIME_DTSEC * real(TIME_NOWSTEP-1, kind=RP)
     if ( Do_NumErrorAnalysis ) then
-      call advect1d_numerror_eval( qexact, & ! (out)
-        q, TIME_NOWSTEP, tsec_, ADV_VEL, InitShapeName, InitShapeParams, & ! (in)
-        mesh, mesh%refElem1D                                             ) ! (in)
+      call numerror_analysis%Eval( qexact, & ! (inout)
+        q, TIME_NOWSTEP, tsec_             ) ! (in)
     end if
 
     !* Output history file
@@ -134,85 +135,6 @@ program test_advect1d
   call final()
 
 contains
-
-  !> Calculate the tendency
-  !! dqdt = - Dx ( uq ) + L ( <u q>_numflx - uq )
-  !!
-  subroutine cal_tend( dqdt, & ! (out)
-    q_, u_, lmesh, elem      ) ! (in)
-
-    use scale_sparsemat, only: sparsemat_matmul
-    implicit none
-
-    class(LocalMesh1D), intent(in) :: lmesh
-    class(ElementBase1D), intent(in) :: elem
-    real(RP), intent(out) :: dqdt(elem%Np,lmesh%NeA)
-    real(RP), intent(in)  :: q_(elem%Np,lmesh%NeA)
-    real(RP), intent(in)  :: u_(elem%Np,lmesh%NeA)
-
-    real(RP) :: Fx(elem%Np), LiftBndFlux(elem%Np)
-    real(RP) :: ebnd_flux(elem%NfpTot,lmesh%Ne)
-
-    integer :: ke
-    !------------------------------------------------------------------------
-
-    call PROF_rapstart( 'cal_tend_bndflux', 2)
-    call cal_elembnd_flux( ebnd_flux,        & ! (out)
-      q_, u_, lmesh%normal_fn(:,:,1),        & ! (in)
-      lmesh%vmapM, lmesh%vmapP, lmesh, elem  ) ! (in)
-    call PROF_rapend( 'cal_tend_bndflux', 2)
-
-    call PROF_rapstart( 'cal_tend_interior', 2)
-    do ke=lmesh%NeS, lmesh%NeE
-      call sparsemat_matmul( Dx, q_(:,ke) * u_(:,ke), Fx )
-      call sparsemat_matmul( Lift, lmesh%Fscale(:,ke) * ebnd_flux(:,ke), LiftBndFlux )
-
-      dqdt(:,ke) = - (  lmesh%Escale(:,ke,1,1) * Fx(:) &
-                      + LiftBndFlux )
-    end do
-    call PROF_rapend( 'cal_tend_interior', 2)
-
-    return
-  end subroutine cal_tend
-
-  !> Calculate the contribution at element boundaries: 
-  !! 0.5 * [ ( [qu]^+ [qu]^- ) - ( [qu]^+ [qu]^- ) ] - [qu]^-
-  subroutine cal_elembnd_flux( ebnd_flux,   & ! (out)
-      q_, u_, nx, vmapM, vmapP, lmesh, elem ) ! (in)
-    implicit none
-
-    class(LocalMesh1D), intent(in) :: lmesh
-    class(ElementBase1D), intent(in) :: elem  
-    real(RP), intent(out) ::  ebnd_flux(elem%NfpTot,lmesh%Ne) !< Flux at element boundaries
-    real(RP), intent(in) ::  q_(elem%Np*lmesh%NeA)
-    real(RP), intent(in) ::  u_(elem%Np*lmesh%NeA)  
-    real(RP), intent(in) :: nx(elem%NfpTot,lmesh%Ne)          !< Normal vector at element boundaries
-    integer, intent(in) :: vmapM(elem%NfpTot,lmesh%Ne)        !< Mapping array to convert the node id for boundary data (outside own element) into that of all nodes
-    integer, intent(in) :: vmapP(elem%NfpTot,lmesh%Ne)        !< Mapping array to convert the node id for boundary data (inside) own element) into that of all nodes
-     
-    integer :: ke
-    integer :: iP(elem%NfpTot), iM(elem%NfpTot)
-    real(RP) :: uP(elem%NfpTot), uM(elem%NfpTot)
-    real(RP) :: qP(elem%NfpTot), qM(elem%NfpTot)
-    real(RP) :: alpha(elem%NfpTot)
-    !------------------------------------------------------------------------
-
-    do ke=lmesh%NeS, lmesh%NeE
-      iM(:) = vmapM(:,ke); iP(:) = vmapP(:,ke)
-      uM(:) = u_(iM(:)); uP(:) = u_(iP(:))
-      qM(:) = q_(iM(:)); qP(:) = q_(iP(:))
-
-      alpha = 0.5_RP * abs( uP(:) + uM(:) )
-      ebnd_flux(:,ke) = 0.5_RP * ( &  
-          ( qP(:) * uP(:) - qM(:) * uM(:) ) * nx(:,ke) &
-           - alpha(:) * ( qP(:) - qM(:) )              )  
-    end do
-
-    return
-  end subroutine cal_elembnd_flux
-
-  !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
   !> Set inital data
   subroutine set_initcond()
     use mod_fieldutil, only: fieldutil_get_profile1d_tracer 
@@ -248,12 +170,12 @@ contains
         q%local(idom)%val(:,ke) = matmul( GPMat, q_intrp )
         u%local(idom)%val(:,ke) = ADV_VEL
       end do
+      !$acc update device(q%local(idom)%val, u%local(idom)%val)
     end do
   
     if ( Do_NumErrorAnalysis ) then
-      call advect1d_numerror_eval( qexact, & ! (out)
-        q, 1, 0.0_RP, ADV_VEL, InitShapeName, InitShapeParams, & ! (in)
-        mesh, mesh%refElem1D                                   ) ! (in)
+      call numerror_analysis%Eval( qexact, & ! (inout)
+        q, 1, 0.0_RP ) ! (in)
     end if
 
     call FILE_HISTORY_meshfield_put( HST_ID(1), q )
@@ -273,7 +195,6 @@ contains
       TIME_manager_report_timeintervals
     use scale_file_history_meshfield, only: FILE_HISTORY_meshfield_setup  
     use scale_file_history, only: FILE_HISTORY_reg  
-    use mod_advect1d_numerror, only: advect1d_numerror_Init     
     implicit none
   
     real(RP), parameter :: dom_xmin =   0.0_RP
@@ -322,7 +243,7 @@ contains
 
     InitShapeName      = 'sin'; 
     InitShapeParams    = (/ 1.0_RP, 0.0_RP /)
-    InitGPMatPolyOrder = 7
+    InitGPMatPolyOrder = PolyOrder
     ADV_VEL            = 1.0_RP
     TINTEG_SCHEME_TYPE = 'ERK_SSP_3s3o'
     Do_NumErrorAnalysis = .false.
@@ -359,13 +280,13 @@ contains
     call mesh%Init( NeGX, dom_xmin, dom_xmax, refElem, 1 )
     call mesh%Generate()
 
-    !-- seup fields
+    !-- setup fields
 
     call q%Init( "q", "1", mesh )
     call u%Init( "u", "m/s", mesh )
     call qexact%Init( "qexact", "1", mesh )
 
-    !-- seup data communicators
+    !-- setup data communicators
 
     field_list(1)%field1d => q
     field_list(2)%field1d => u  
@@ -388,7 +309,7 @@ contains
 
     !-- setup a module for evaluating numerical errors 
     if ( Do_NumErrorAnalysis ) &
-      call advect1d_numerror_Init( refElem )
+      call numerror_analysis%Init( ADV_VEL, InitShapeName, InitShapeParams, mesh, refElem )
 
     !-- report information of time intervals
     call TIME_manager_report_timeintervals
@@ -402,14 +323,13 @@ contains
     use scale_file_history_meshfield, only: &
       FILE_HISTORY_meshfield_finalize
     use scale_time_manager, only: TIME_manager_Final 
-    use mod_advect1d_numerror, only: advect1d_numerror_Final   
     implicit none
     integer :: idom
     !------------------------------------------------------------------------
 
     call PROF_rapstart( "final", 1 )
     if ( Do_NumErrorAnalysis ) &
-      call advect1d_numerror_Final()
+      call numerror_analysis%Final()
 
     call FILE_HISTORY_meshfield_finalize()
 

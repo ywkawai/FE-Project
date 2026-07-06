@@ -1,8 +1,8 @@
 !-------------------------------------------------------------------------------
-!> module Atmosphere / Physics / Variables
+!> module Atmosphere / Variables
 !!
 !! @par Description
-!!          Container for atmospheric variables
+!!          Module to manage variables with atmospheric component
 !!
 !! @author Yuta Kawai, Team SCALE
 !!
@@ -18,10 +18,7 @@ module mod_atmos_vars
   use scale_io
   use scale_prc
   use scale_debug
-  use scale_tracer, only: &
-    QA, TRACER_NAME, TRACER_DESC, TRACER_UNIT
-  use scale_atmos_hydrometeor, only: &
-    ATMOS_HYDROMETEOR_dry
+  use scale_tracer, only: QA
 
   use scale_element_base, only: &
     ElementBase, ElementBase2D, ElementBase3D
@@ -58,6 +55,17 @@ module mod_atmos_vars
     PHYTEND_RHOH_ID    
 
   use mod_atmos_mesh, only: AtmosMesh
+
+  use mod_atmos_vars_container, only: &
+    AtmosVarsContainer, &
+    AtmosVars_GetLocalMeshPrgVar, AtmosVars_GetLocalMeshPrgVars,       &
+    AtmosVars_GetLocalMeshSfcVar,                                      &
+    AtmosVars_GetLocalMeshQTRCVar, AtmosVars_GetLocalMeshQTRCVarList,  &
+    AtmosVars_GetLocalMeshQTRC_Qv,                                     &
+    AtmosVars_GetLocalMeshPhyAuxVars,                                  &
+    AtmosVars_GetLocalMeshPhyTends, AtmosVars_GetLocalMeshQTRCPhyTend, &
+    ATMOS_AUXVARS2D_NUM,                                               &
+    ATM_VARS_CONTAINER_PRIMARY_ID
     
   !-----------------------------------------------------------------------------
   implicit none
@@ -67,30 +75,22 @@ module mod_atmos_vars
   !
   !++ Public type & procedures
   !
+  integer, parameter :: ATM_VARS_CONTAINER_LIST_MAX = 16
 
   !> Derived type to manage variables with atmospheric component
   type, public :: AtmosVars
-    class(AtmosMesh), pointer :: mesh                !< Pointer to an object to manage mesh for atmospheric component
+    class(AtmosMesh), pointer :: mesh                !< Pointer to an object to manage a primary mesh for atmospheric component
 
-    !- prognostic variables
-    type(MeshField3D), allocatable :: PROG_VARS(:) !< Array of 3D prognostic variables
-    type(ModelVarManager) :: PROGVARS_manager      !< Object to manage 3D prognostic variables
-    integer :: PROG_VARS_commID
-
-    !- tracer variables
-    type(MeshField3D), allocatable :: QTRC_VARS(:) !< Array of 3D tracer variables
-    type(ModelVarManager) :: QTRCVARS_manager      !< Object to manage 3D tracer variables
-    integer :: QTRC_VARS_commID 
-
-    !- auxiliary variables    
-    type(MeshField3D), allocatable :: AUX_VARS(:)  !< Array of 3D auxiliary variables
-    type(ModelVarManager) :: AUXVARS_manager       !< Object to manage 3D auxiliary variables
-    integer :: AUX_VARS_commID
-
-    !- auxiliary variables (2D)
-    type(MeshField2D), allocatable :: AUX_VARS2D(:) !< Array of 2D auxiliary variables
-    type(ModelVarManager) :: AUXVARS2D_manager      !< Object to manage 3D auxiliary variables
+    type(AtmosVarsContainer) :: container_list(ATM_VARS_CONTAINER_LIST_MAX) !< Array of containers to manage variables. The first one is the primary container.
+    logical :: init_containers_item_flag(ATM_VARS_CONTAINER_LIST_MAX)       !< Flag whether the item of container_list is initialized or not. 
     
+    type(AtmosVarsContainer), pointer :: container              !< Pointer to a primary container to manage variables
+    type(ModelVarManager), pointer :: PROGVARS_manager          !< Pointer to manage prognostic variables with primary container
+    type(ModelVarManager), pointer :: QTRCVARS_manager          !< Pointer to manage tracer variables with primary container
+    type(ModelVarManager), pointer :: AUXVARS_manager           !< Pointer to manage auxiliary variables with primary container
+    type(ModelVarManager), pointer :: AUXVARS2D_manager         !< Pointer to manage 2D auxiliary variables with primary container
+    type(ModelVarManager), pointer :: PHYTENDS_manager          !< Pointer to manage tendency variables with physics
+   
     !-
     type(ModelVarManager), pointer :: ptr_MP_AUXVARS2D_manager
 
@@ -98,27 +98,26 @@ module mod_atmos_vars
     type(MeshField3D), pointer :: QV
     type(MeshField3D) :: zero
 
-    !- Tendency with physics
-    type(MeshField3D), allocatable :: PHY_TEND(:)  !< Array of tendency variables with physics
-    type(ModelVarManager) :: PHYTENDS_manager      !< Object to manage tendency variables with physics
-    integer :: PHYTENDS_commID
-    integer :: PHYTEND_NUM_TOT
-
     !--
     integer, allocatable :: DIAGVARS2D_HISTID(:)
     integer, allocatable :: DIAGVARS3D_HISTID(:)
 
     type(FILE_restart_meshfield_component) :: restart_file !< Object to manage restart file for atmospheric component
     
+    character(len=H_MID) :: phy_preproc_file_basename !< Basename of configuration file for preprocesses before physics
+
     logical :: check_range
     logical :: check_total
 
   contains
     procedure :: Init => AtmosVars_Init
     procedure :: Final => AtmosVars_Final
+    procedure :: Setup_container => AtmosVars_Setup_container   
+    procedure :: Get_container => AtmosVars_Get_container 
     procedure :: Calc_diagnostics => AtmosVars_CalculateDiagnostics
     procedure :: Calc_diagVar => AtmosVars_CalcDiagvar
     procedure :: Calc_diagVar2D => AtmosVars_CalcDiagvar2D
+    procedure :: PreprocOperationForPhys => AtmosVars_PreprocOperationForPhys
     procedure :: History => AtmosVars_History
     procedure :: Check   => AtmosVars_Check
     procedure :: Monitor => AtmosVars_Monitor
@@ -127,6 +126,9 @@ module mod_atmos_vars
     procedure :: Regist_physvar_manager => AtmosVars_Regist_physvar_manager
   end type AtmosVars
 
+  ! Cascade
+  public :: AtmosVarsContainer
+  public :: ATM_VARS_CONTAINER_PRIMARY_ID
   public :: AtmosVars_GetLocalMeshPrgVar
   public :: AtmosVars_GetLocalMeshPrgVars
   public :: AtmosVars_GetLocalMeshSfcVar
@@ -143,20 +145,7 @@ module mod_atmos_vars
   !
   real(RP), parameter :: PROGVARS_check_min(PRGVAR_NUM) = (/ -1.0_RP, -100.0_RP, -200.0_RP, -200.0_RP, -200.0_RP /)
   real(RP), parameter :: PROGVARS_check_max(PRGVAR_NUM) = (/  1.0_RP,   100.0_RP, 200.0_RP,  200.0_RP,  200.0_RP /)
-              
-
-  ! Surface variables
-  
-  integer, public, parameter :: ATMOS_AUXVARS2D_PREC_ID      = 1
-  integer, public, parameter :: ATMOS_AUXVARS2D_PREC_ENGI_ID = 2
-  integer, public, parameter :: ATMOS_AUXVARS2D_NUM          = 2
-
-  type(VariableInfo), public :: ATMOS_AUXVARS2D_VINFO(ATMOS_AUXVARS2D_NUM)
-  DATA ATMOS_AUXVARS2D_VINFO / &
-    VariableInfo( ATMOS_AUXVARS2D_PREC_ID     ,      'PREC', 'surface precipitaion flux'        , 'kg/m2/s', 2, 'XY', 'precipitation_flux'  ), &
-    VariableInfo( ATMOS_AUXVARS2D_PREC_ENGI_ID, 'PREC_ENGI', 'internal energy of precipitation' ,    'J/m2', 2, 'XY', ''  )                    /
-  
-                    
+                      
 
   ! Diagnostic variables
 
@@ -205,9 +194,7 @@ module mod_atmos_vars
   !
   !++ Private procedures & variables
   !
-  !-------------------
-
-  private :: vars_calc_diagnoseVar_lc
+  
   private :: vars_calc_diagnoseVar2D_lc
 
   ! for monitor
@@ -229,22 +216,16 @@ contains
 !!
 !OCL SERIAL
   subroutine AtmosVars_Init( this, atm_mesh )
-    use scale_atmos_hydrometeor, only: &
-      ATMOS_HYDROMETEOR_dry
+    use scale_atm_dyn_dgm_nonhydro3d_common, only: &
+      PRGVAR_SCALAR_NUM, PRGVAR_HVEC_NUM    
     use scale_file_monitor_meshfield, only:    &
       MONITOR_reg => FILE_monitor_meshfield_reg
-
-    use scale_atm_dyn_dgm_nonhydro3d_common, only: &
-      PRGVAR_SCALAR_NUM, PRGVAR_HVEC_NUM,          &
-      atm_dyn_dgm_nonhydro3d_common_setup_variables
     implicit none
 
     class(AtmosVars), target, intent(inout) :: this
     class(AtmosMesh), target, intent(inout) :: atm_mesh
 
-    integer :: n
     integer :: iv
-    integer :: iq
     logical :: reg_file_hist
 
     type(ModelVarManager) :: diagvar_manager               ! dummy
@@ -254,7 +235,10 @@ contains
     logical :: CHECK_RANGE    = .false.  !< Flag whether the range of values is checked
     logical :: CHECK_TOTAL    = .false.
 
+    character(len=H_MID) :: PHY_PREPROC_FILE_BASENAME = 'phy_preoperation' !< Basename of configuration file for preprocesses before physics
+
     namelist / PARAM_ATMOS_VARS / &
+      PHY_PREPROC_FILE_BASENAME, &
       CHECK_RANGE, &
       CHECK_TOTAL
 
@@ -278,8 +262,6 @@ contains
 
     class(MeshBase3D), pointer :: mesh3D
     class(MeshBase2D), pointer :: mesh2D
-
-    type(VariableInfo) :: prgvar_info(PRGVAR_NUM)
     !--------------------------------------------------
 
     LOG_INFO('AtmosVars_Init',*)
@@ -295,6 +277,8 @@ contains
     endif
     LOG_NML(PARAM_ATMOS_VARS)
 
+    this%phy_preproc_file_basename = PHY_PREPROC_FILE_BASENAME
+
     !- Set the pointer of mesh
     this%mesh => atm_mesh
     mesh3D => atm_mesh%ptr_mesh
@@ -303,76 +287,8 @@ contains
     !- Initialize variables associated with dynamical core 
     !  (prognostic variables, tracer variables, 3D auxiliary variables, and tendencies of physical processes)
 
-    call this%PROGVARS_manager%Init()
-    call this%QTRCVARS_manager%Init()
-    call this%AUXVARS_manager%Init()
-    call this%PHYTENDS_manager%Init()
-
-    allocate( this%PROG_VARS(PRGVAR_NUM) )
-    allocate( this%QTRC_VARS(0:QA) )
-    allocate( this%AUX_VARS(AUXVAR_NUM) )
-
-    this%PHYTEND_NUM_TOT = PHYTEND_NUM1 + max(1,QA)
-    allocate( this%PHY_TEND(this%PHYTEND_NUM_TOT) )
-
-    call atm_dyn_dgm_nonhydro3d_common_setup_variables( &
-      this%PROG_VARS, this%QTRC_VARS, this%AUX_VARS, this%PHY_TEND,                              & ! (inout)
-      this%PROGVARS_manager, this%QTRCVARS_manager, this%AUXVARS_manager, this%PHYTENDS_manager, & ! (inout)
-      this%PHYTEND_NUM_TOT, mesh3D,                                                              & ! (in)
-      prgvar_info ) ! (out)
- 
-    ! Setup communicator
-    
-    call atm_mesh%Create_communicator( &
-      PRGVAR_SCALAR_NUM, PRGVAR_HVEC_NUM, 0,              & ! (in)
-      this%PROGVARS_manager,                              & ! (inout)
-      this%PROG_VARS(:),                                  & ! (in)
-      this%PROG_VARS_commID                               ) ! (out)
-    
-    if ( QA > 0 ) then
-      call atm_mesh%Create_communicator( &
-        QA, 0, 0,                        & ! (in)
-        this%QTRCVARS_manager,           & ! (inout)
-        this%QTRC_VARS(1:QA),            & ! (in)
-        this%QTRC_VARS_commID            ) ! (out)
-    end if
-
-    call atm_mesh%Create_communicator( &
-      AUXVAR_NUM, 0, 0,                & ! (in)
-      this%AUXVARS_manager,            & ! (inout)
-      this%AUX_VARS(:),                & ! (in)
-      this%AUX_VARS_commID             ) ! (out)
-
-    ! Output list of prognostic variables
-
-    LOG_NEWLINE
-    LOG_INFO("ATMOS_vars_setup",*) 'List of prognostic variables (ATMOS) '
-    LOG_INFO_CONT('(1x,A,A24,A,A48,A,A12,A)') &
-               '      |', 'VARNAME                 ','|', &
-               'DESCRIPTION                                     ', '[', 'UNIT        ', ']'
-    do iv = 1, PRGVAR_NUM
-      LOG_INFO_CONT('(1x,A,I3,A,A24,A,A48,A,A12,A)') &
-      'NO.',iv,'|',prgvar_info(iv)%NAME,'|', prgvar_info(iv)%DESC,'[', prgvar_info(iv)%UNIT,']'
-    end do
-    do iv = 1, QA
-      LOG_INFO_CONT('(1x,A,I3,A,A24,A,A48,A,A12,A)') &
-      'NO.',PRGVAR_NUM+iv,'|',TRACER_NAME(iv),'|', TRACER_DESC(iv),'[', TRACER_UNIT(iv),']'
-    end do
-    LOG_NEWLINE
-
-
-    !- Initialize 2D auxiliary variables
-    call this%AUXVARS2D_manager%Init()
-    allocate( this%AUX_VARS2D(ATMOS_AUXVARS2D_NUM) )
-    
-    reg_file_hist = .true.
-    do iv = 1, ATMOS_AUXVARS2D_NUM
-      call this%AUXVARS2D_manager%Regist(    &
-        ATMOS_AUXVARS2D_VINFO(iv), mesh2D,   & ! (in) 
-        this%AUX_VARS2D(iv),                 & ! (inout)
-        reg_file_hist, fill_zero=.true.      ) ! (in)
-    end do
-  
+    this%init_containers_item_flag(:) = .false.
+    call this%Setup_container( 1, atm_mesh )  
 
     !- Initialize diagnostic variables for output
 
@@ -459,33 +375,81 @@ contains
     return
   end subroutine AtmosVars_Init
 
-!> Finalize an object to manage variables with atmospheric component
-!!
+  !> Setup a container to manage variables with atmospheric component
+  !!
+!OCL SERIAL
+  subroutine AtmosVars_Setup_container( this, container_type, atm_mesh )
+    implicit none
+    class(AtmosVars), intent(inout), target :: this
+    integer, intent(in) :: container_type                   !< Type of container to setup. 1: primary container, >=2: other containers
+    class(AtmosMesh), target, intent(inout) :: atm_mesh
+    !---------------------------------------------
+    
+    if ( container_type < ATM_VARS_CONTAINER_PRIMARY_ID .or. container_type > ATM_VARS_CONTAINER_LIST_MAX ) then
+      LOG_ERROR("ATMOS_vars_setup_container",*) 'container_type is out of range. Check!', container_type
+      call PRC_abort
+    end if
+
+    if ( .not. this%init_containers_item_flag(container_type) ) then
+      LOG_INFO("ATMOS_vars_setup_container",*) 'container_type: ', container_type
+
+      this%init_containers_item_flag(container_type) = .true.
+      call this%container_list(container_type)%Init( container_type, this%phy_preproc_file_basename, atm_mesh )
+
+      if ( container_type == ATM_VARS_CONTAINER_PRIMARY_ID ) then
+        this%container => this%container_list(container_type)
+        this%PROGVARS_manager => this%container%PROGVARS_manager
+        this%QTRCVARS_manager => this%container%QTRCVARS_manager
+        this%AUXVARS_manager  => this%container%AUXVARS_manager
+        this%AUXVARS2D_manager  => this%container%AUXVARS2D_manager
+        this%PHYTENDS_manager  => this%container%PHYTENDS_manager
+      end if
+    end if
+    return    
+  end subroutine AtmosVars_Setup_container
+
+  !> Get a container to manage variables with atmospheric component
+  !!
+!OCL SERIAL
+  subroutine AtmosVars_Get_container( this, container_type, &
+    container )
+    implicit none
+    class(AtmosVars), intent(inout), target :: this
+    integer, intent(in) :: container_type            !< Type of container to get. 1: primary container, >=2: other containers
+    class(AtmosVarsContainer), pointer :: container  !< Pointer to a container to manage variables with atmospheric component
+    !---------------------------------------------
+
+    if ( container_type < ATM_VARS_CONTAINER_PRIMARY_ID .or. container_type > ATM_VARS_CONTAINER_LIST_MAX ) then
+      LOG_ERROR("ATMOS_vars_get_container",*) 'container_type is out of range. Check!', container_type
+      call PRC_abort
+    end if
+
+    if ( this%init_containers_item_flag(container_type) ) then
+      container => this%container_list(container_type)
+    else
+      LOG_ERROR("ATMOS_vars_get_container",*) 'Not initialized container. Check!'
+      call PRC_abort
+    end if
+    return
+  end subroutine AtmosVars_Get_container
+
+  !> Finalize an object to manage variables with atmospheric component
+  !!
 !OCL SERIAL
   subroutine AtmosVars_Final( this )
     implicit none
     class(AtmosVars), intent(inout) :: this
 
+    integer :: i    
     !--------------------------------------------------
 
     LOG_INFO('AtmosVars_Final',*)
 
     call this%restart_file%Final()
 
-    call this%PROGVARS_manager%Final()
-    deallocate( this%PROG_VARS )
-
-    call this%QTRCVARS_manager%Final()
-    deallocate( this%QTRC_VARS )
-
-    call this%AUXVARS_manager%Final()
-    deallocate( this%AUX_VARS )
-
-    call this%AUXVARS2D_manager%Final()
-    deallocate( this%AUX_VARS2D )
-
-    call this%PHYTENDS_manager%Final()
-    deallocate( this%PHY_TEND )
+    do i=1, ATM_VARS_CONTAINER_LIST_MAX
+      if ( this%init_containers_item_flag(i) ) call this%container_list(i)%Final()
+    end do
 
     deallocate( this%DIAGVARS3D_HISTID )
 
@@ -506,13 +470,13 @@ contains
     return
   end subroutine AtmosVars_Regist_physvar_manager
 
-!> Put data with atmospheric variables to history file
-!!
+  !> Put data with atmospheric variables to history file
+  !!
 !OCL SERIAL
   subroutine AtmosVars_history( this )
     use scale_file_history_meshfield, only: FILE_HISTORY_meshfield_put
     implicit none
-    class(AtmosVars), intent(inout) :: this
+    class(AtmosVars), intent(inout), target :: this
   
     integer :: v
     integer :: hst_id
@@ -524,33 +488,34 @@ contains
     class(MeshBase2D), pointer :: mesh2D
     !-------------------------------------------------------------------------
 
-    mesh3D => this%PROG_VARS(1)%mesh
+    mesh3D => this%container%PROG_VARS(1)%mesh
     call mesh3D%GetMesh2D(mesh2D)
 
+    !-
+    call this%container%Calc_diagnostics()
+
     do v = 1, PRGVAR_NUM
-      hst_id = this%PROG_VARS(v)%hist_id
-      if ( hst_id > 0 ) call FILE_HISTORY_meshfield_put( hst_id, this%PROG_VARS(v) )
+      hst_id = this%container%PROG_VARS(v)%hist_id
+      if ( hst_id > 0 ) call FILE_HISTORY_meshfield_put( hst_id, this%container%PROG_VARS(v) )
     end do
 
     do v = 1, QA
-      hst_id = this%QTRC_VARS(v)%hist_id
-      if ( hst_id > 0 ) call FILE_HISTORY_meshfield_put( hst_id, this%QTRC_VARS(v) )
+      hst_id = this%container%QTRC_VARS(v)%hist_id
+      if ( hst_id > 0 ) call FILE_HISTORY_meshfield_put( hst_id, this%container%QTRC_VARS(v) )
     end do
 
-    call this%Calc_diagnostics()
-    
     do v = 1, AUXVAR_NUM
-      hst_id = this%AUX_VARS(v)%hist_id
-      if ( hst_id > 0 ) call FILE_HISTORY_meshfield_put( hst_id, this%AUX_VARS(v) )
+      hst_id = this%container%AUX_VARS(v)%hist_id
+      if ( hst_id > 0 ) call FILE_HISTORY_meshfield_put( hst_id, this%container%AUX_VARS(v) )
     end do
     do v = 1, ATMOS_AUXVARS2D_NUM
-      hst_id = this%AUX_VARS2D(v)%hist_id
-      if ( hst_id > 0 ) call FILE_HISTORY_meshfield_put( hst_id, this%AUX_VARS2D(v) )
+      hst_id = this%container%AUX_VARS2D(v)%hist_id
+      if ( hst_id > 0 ) call FILE_HISTORY_meshfield_put( hst_id, this%container%AUX_VARS2D(v) )
     end do
 
-    do v = 1, this%PHYTEND_NUM_TOT
-      hst_id = this%PHY_TEND(v)%hist_id
-      if ( hst_id > 0 ) call FILE_HISTORY_meshfield_put( hst_id, this%PHY_TEND(v) )
+    do v = 1, this%container%PHYTEND_NUM_TOT
+      hst_id = this%container%PHY_TEND(v)%hist_id
+      if ( hst_id > 0 ) call FILE_HISTORY_meshfield_put( hst_id, this%container%PHY_TEND(v) )
     end do
 
     !- Output diagnostic variables
@@ -615,16 +580,16 @@ contains
     !- Read restart file
     
     do iv=1, PRGVAR_NUM
-      call this%restart_file%Read_var( DIMTYPE_XYZ, this%PROG_VARS(iv)%varname, &
-        this%PROG_VARS(iv)                                                      )
+      call this%restart_file%Read_var( DIMTYPE_XYZ, this%container%PROG_VARS(iv)%varname, &
+        this%container%PROG_VARS(iv)                                                      )
     end do
     do iv=1, AUXVAR_DENSHYDRO_ID
-      call this%restart_file%Read_var( DIMTYPE_XYZ, this%AUX_VARS(iv)%varname, &
-        this%AUX_VARS(iv)                                                      )
+      call this%restart_file%Read_var( DIMTYPE_XYZ, this%container%AUX_VARS(iv)%varname, &
+        this%container%AUX_VARS(iv)                                                      )
     end do
     do iv=1, QA
-      call this%restart_file%Read_var( DIMTYPE_XYZ, this%QTRC_VARS(iv)%varname, &
-        this%QTRC_VARS(iv)                                                      )
+      call this%restart_file%Read_var( DIMTYPE_XYZ, this%container%QTRC_VARS(iv)%varname, &
+        this%container%QTRC_VARS(iv)                                                      )
     end do
 
     !- Close restart file
@@ -634,17 +599,17 @@ contains
     !-- Prepare diagnostic variables
 
     ! Calculate specific heat
-    call vars_calc_specific_heat( this )
+    call this%container%Calc_SpecificHeat()
 
     ! Set a basic state of thermodynamics variable
-    call dyncore%update_therm_hyd( this%AUXVARS_manager )
+    call dyncore%update_therm_hyd( this%container%AUXVARS_manager )
 
     ! Calculate pressure
-    call dyncore%calc_pressure( this%AUX_VARS(AUXVAR_PRES_ID), &
-      this%PROGVARS_manager, this%AUXVARS_manager              )
+    call dyncore%calc_pressure( this%container%AUX_VARS(AUXVAR_PRES_ID), &
+      this%container%PROGVARS_manager, this%container%AUXVARS_manager    )
 
     ! Set reference value of hydrostatic pressure
-    Phyd_ref => this%AUX_VARS(AUXVAR_PRESHYDRO_REF_ID)
+    Phyd_ref => this%container%AUX_VARS(AUXVAR_PRESHYDRO_REF_ID)
     mesh3D => Phyd_ref%mesh
     do domid=1, mesh3D%LOCAL_MESH_NUM
       lcmesh3D => mesh3D%lcmesh_list(domid)
@@ -652,6 +617,7 @@ contains
       do ke=lcmesh3D%NeS, lcmesh3D%NeE
         Phyd_ref%local(domid)%val(:,ke) = 0.0_RP
       end do
+      !$acc update device(Phyd_ref%local(domid)%val)
     end do
 
     !-- Check read data
@@ -661,10 +627,10 @@ contains
     call this%Calc_diagnostics()   
 
     !-- Communicate halo data of hydrostatic & diagnostic variables
-    call this%AUXVARS_manager%MeshFieldComm_Exchange()
+    call this%container%AUXVARS_manager%MeshFieldComm_Exchange()
 
     !-- Set horizontal gradient of hydrostatic pressure
-    call dyncore%update_phyd_hgrad( this%AUX_VARS(AUXVAR_PRESHYDRO_ID), Phyd_ref, &
+    call dyncore%update_phyd_hgrad( this%container%AUX_VARS(AUXVAR_PRESHYDRO_ID), Phyd_ref, &
       mesh3D, atmos_mesh%element3D_operation )
 
     return
@@ -673,7 +639,9 @@ contains
 !> Write data with atmospheric variables to restart file
 !!
 !OCL SERIAL
-  subroutine AtmosVar_write_restart_file( this )
+  subroutine AtmosVar_Write_restart_file( this )
+    use scale_tracer, only: &
+      TRACER_DESC    
     use scale_atm_dyn_dgm_nonhydro3d_common, only: &
       atm_dyn_dgm_nonhydro3d_common_get_varinfo
     
@@ -687,7 +655,7 @@ contains
     !---------------------------------------
     
     LOG_NEWLINE
-    LOG_INFO("ATMOSVar_write_restart_file",*) 'Create restart file (ATMOS) '
+    LOG_INFO("ATMOSVar_Write_restart_file",*) 'Create restart file (ATMOS) '
 
     !- Check data which will be written to restart file
     call this%Check( force = .true. )
@@ -702,18 +670,18 @@ contains
 
     do iv=1, PRGVAR_NUM
       rf_vid = iv
-      call this%restart_file%Def_var( this%PROG_VARS(iv),  &
-        prgvar_info(iv)%DESC, rf_vid, DIMTYPE_XYZ          )
+      call this%restart_file%Def_var( this%container%PROG_VARS(iv),  &
+        prgvar_info(iv)%DESC, rf_vid, DIMTYPE_XYZ                    )
     end do
     do iv=1, AUXVAR_DENSHYDRO_ID
       rf_vid = PRGVAR_NUM + iv
-      call this%restart_file%Def_var( this%AUX_VARS(iv),   &
-        auxvar_info(iv)%DESC, rf_vid, DIMTYPE_XYZ          )
+      call this%restart_file%Def_var( this%container%AUX_VARS(iv),   &
+        auxvar_info(iv)%DESC, rf_vid, DIMTYPE_XYZ                    )
     end do
     do iv=1, QA
       rf_vid = rf_vid + 1
-      call this%restart_file%Def_var( this%QTRC_VARS(iv), &
-        TRACER_DESC(iv), rf_vid, DIMTYPE_XYZ              )    
+      call this%restart_file%Def_var( this%container%QTRC_VARS(iv), &
+        TRACER_DESC(iv), rf_vid, DIMTYPE_XYZ                        )    
     end do
 
     call this%restart_file%End_def()
@@ -721,23 +689,23 @@ contains
     !- Write restart file
     do iv=1, PRGVAR_NUM
       rf_vid = iv
-      call this%restart_file%Write_var(rf_vid, this%PROG_VARS(iv) )
+      call this%restart_file%Write_var(rf_vid, this%container%PROG_VARS(iv) )
     end do
     do iv=1, AUXVAR_DENSHYDRO_ID
       rf_vid = PRGVAR_NUM + iv
-      call this%restart_file%Write_var(rf_vid, this%AUX_VARS(iv) )
+      call this%restart_file%Write_var(rf_vid, this%container%AUX_VARS(iv) )
     end do
     do iv=1, QA
       rf_vid = rf_vid + 1
-      call this%restart_file%Write_var(rf_vid, this%QTRC_VARS(iv) )
+      call this%restart_file%Write_var(rf_vid, this%container%QTRC_VARS(iv) )
     end do
 
     !- Close restart file
-    LOG_INFO("ATMOSVar_write_restart_file",*) 'Close restart file (ATMOS) '
+    LOG_INFO("ATMOSVar_Write_restart_file",*) 'Close restart file (ATMOS) '
     call this%restart_file%Close()
 
     return
-  end subroutine AtmosVar_write_restart_file
+  end subroutine AtmosVar_Write_restart_file
 
 
 !> Check the range of values with atmospheric variables
@@ -764,8 +732,11 @@ contains
     type(ElementBase), pointer :: elem
     character(len=H_MID) :: varname
 
+    type(MeshField3D), pointer :: var    
     type(MeshField3D) :: vel_fields(3)
     type(MeshField3D) :: work
+
+    integer :: ldomID
     !--------------------------------------------------------------------------
 
     if ( present(force) ) then
@@ -775,39 +746,42 @@ contains
     end if
 
     if (check) then
+      mesh3D => this%container%PROG_VARS(1)%mesh
+
       do iv=1, PRGVAR_NUM
         if ( iv == PRGVAR_THERM_ID ) cycle
         
-        mesh3D => this%PROG_VARS(iv)%mesh
+        var => this%container%PROG_VARS(iv)        
         do n=1, mesh3D%LOCAL_MESH_NUM
           lcmesh => mesh3D%lcmesh_list(n)
           elem => lcmesh%refElem
-          call this%PROG_VARS(iv)%GetLocalMeshField(n, lcfield)
-          write(varname,'(a,i3.3,a)') this%PROG_VARS(iv)%varname//'(domID=', n, ')' 
-          call VALCHECK( elem%Np, 1, elem%Np, lcmesh%NeA, lcmesh%NeS, lcmesh%NeE, lcfield%val(:,:), &
-            PROGVARS_check_min(iv), PROGVARS_check_max(iv), trim(varname), __FILE__, __LINE__       )
+
+          call var%GetLocalMeshField(n, lcfield)
+
+          write(varname,'(a,i3.3,a)') var%varname//'(domID=', n, ')' 
+
+          ! Note : *acc update host* is called in VALCHECK of SCALE library. 
+          call VALCHECK( elem%Np, 1, elem%Np, lcmesh%NeA, lcmesh%NeS, lcmesh%NeE, lcfield%val, &
+            PROGVARS_check_min(iv), PROGVARS_check_max(iv), trim(varname), __FILE__, __LINE__  )
         end do
       end do
 
-      mesh3D => this%PROG_VARS(1)%mesh
       do iv=1, 3
         iv_diag = ATMOS_DIAGVARS_U_ID + iv - 1
         call vel_fields(iv)%Init( ATMOS_DIAGVARS3D_VINFO(iv_diag)%NAME, "",  mesh3D )
         call AtmosVars_CalcDiagvar( this, vel_fields(iv)%varname, vel_fields(iv) )
+#ifdef _OPENACC        
+        do ldomID=1, mesh3D%LOCAL_MESH_NUM
+          !$acc update host(vel_fields(iv)%local(ldomID)%val)
+        end do
+#endif        
       end do
-      call MeshField_statistics_detail( vel_fields(:) )
+      call MeshField_statistics_detail( vel_fields )
       do iv=1, 3
         call vel_fields(iv)%Final()
       end do
-    end if
 
-    if ( present(force) ) then
-      check = force
-    else
-      check = this%check_total
-    end if
-    if (check) then
-      mesh3D => this%PROG_VARS(1)%mesh
+      ! Check total
       call work%Init("tmp", "", mesh3D)
       call work%Final()
     end if
@@ -819,11 +793,18 @@ contains
 !!
 !OCL SERIAL
   subroutine AtmosVars_Monitor( this )
-    use scale_file_monitor_meshfield, only: &
-      FILE_monitor_meshfield_put
-
     implicit none
     class(AtmosVars), intent(inout) :: this
+    !--------------------------------------------------------------------------
+    call AtmosVars_Monitor_core( this%container )
+    return
+  end subroutine AtmosVars_Monitor
+!OCL SERIAL
+  subroutine AtmosVars_Monitor_core( this )  
+    use scale_file_monitor_meshfield, only: &
+      FILE_monitor_meshfield_put
+    implicit none
+    class(AtmosVarsContainer), intent(inout) :: this
 
     integer :: iv
     class(MeshBase3D), pointer :: mesh3D
@@ -871,554 +852,66 @@ contains
     !##### Energy Budget #####
 
     if ( DV_MONIT_id(IM_ENGT) > 0 ) then
-      call AtmosVars_CalcDiagvar( this, 'ENGT', work )
+      call this%Calc_diagVar( 'ENGT', work )
       call FILE_monitor_meshfield_put( DV_MONIT_id(IM_ENGT), work )
     end if
     if ( DV_MONIT_id(IM_ENGP) > 0 ) then
-      call AtmosVars_CalcDiagvar( this, 'ENGP', work )
+      call this%Calc_diagVar( 'ENGP', work )
       call FILE_monitor_meshfield_put( DV_MONIT_id(IM_ENGP), work )
     end if
     if ( DV_MONIT_id(IM_ENGK) > 0 ) then
-      call AtmosVars_CalcDiagvar( this, 'ENGK', work )
+      call this%Calc_diagVar( 'ENGK', work )
       call FILE_monitor_meshfield_put( DV_MONIT_id(IM_ENGK), work )
     end if
     if ( DV_MONIT_id(IM_ENGI) > 0 ) then
-      call AtmosVars_CalcDiagvar( this, 'ENGI', work )
+      call this%Calc_diagVar( 'ENGI', work )
       call FILE_monitor_meshfield_put( DV_MONIT_id(IM_ENGI), work )
     end if
 
     call work%Final()
 
     return
-  end subroutine AtmosVars_Monitor
+  end subroutine AtmosVars_Monitor_core
 
-  !----  Getter ---------------------------------------------------------------------------
-
+  !> Preprocess operation for physical processes
+  !!
 !OCL SERIAL
-  subroutine AtmosVars_GetLocalMeshPrgVar( domID, mesh, prgvars_list, auxvars_list, &
-     varid,                                                                         &
-     var, DENS_hyd, PRES_hyd, lcmesh3D                                              )
-   
+  subroutine AtmosVars_PreprocOperationForPhys( this, dyncore )
+    use scale_atm_dyn_dgm_driver_nonhydro3d, only: AtmDynDGMDriver_nonhydro3d
     implicit none
+    class(AtmosVars), intent(inout) :: this
+    class(AtmDynDGMDriver_nonhydro3d), intent(in) :: dyncore
 
-    integer, intent(in) :: domID
-    class(MeshBase), intent(in) :: mesh
-    class(ModelVarManager), intent(inout) :: prgvars_list
-    class(ModelVarManager), intent(inout) :: auxvars_list
-    integer, intent(in) :: varid
-    class(LocalMeshFieldBase), pointer, intent(out) :: var
-    class(LocalMeshFieldBase), pointer, intent(out), optional :: DENS_hyd, PRES_hyd
-    class(LocalMesh3D), pointer, intent(out), optional :: lcmesh3D
+    integer :: ic
+    !--------------------------------------------------------------------------
 
-    class(MeshFieldBase), pointer :: field
-    class(LocalMeshBase), pointer :: lcmesh
-    !-------------------------------------------------------
-
-    !--
-    call prgvars_list%Get(varid, field)
-    call field%GetLocalMeshField(domID, var)
-
-    if (present(DENS_hyd)) then
-      call auxvars_list%Get(AUXVAR_DENSHYDRO_ID, field)
-      call field%GetLocalMeshField(domID, DENS_hyd)
-    end if
-    if (present(PRES_hyd)) then
-      call auxvars_list%Get(AUXVAR_PRESHYDRO_ID, field)
-      call field%GetLocalMeshField(domID, PRES_hyd)
-    end if
-
-    if (present(lcmesh3D)) then
-      call mesh%GetLocalMesh( domID, lcmesh )
-      nullify( lcmesh3D )
-
-      select type(lcmesh)
-      type is (LocalMesh3D)
-        if (present(lcmesh3D)) lcmesh3D => lcmesh
-      end select
-    end if
-
-    return
-  end subroutine AtmosVars_GetLocalMeshPrgVar
-
-!OCL SERIAL
-  subroutine AtmosVars_GetLocalMeshPrgVars( domID, mesh, prgvars_list, auxvars_list, &
-    DDENS, MOMX, MOMY, MOMZ, THERM,                                                  &
-    DENS_hyd, PRES_hyd, Rtot, CVtot, CPtot,                                          &
-    lcmesh3D                                                                         )
-    implicit none
-    integer, intent(in) :: domID
-    class(MeshBase), intent(in) :: mesh
-    class(ModelVarManager), intent(inout) :: prgvars_list
-    class(ModelVarManager), intent(inout) :: auxvars_list
-    class(LocalMeshFieldBase), pointer, intent(out) :: DDENS, MOMX, MOMY, MOMZ, THERM
-    class(LocalMeshFieldBase), pointer, intent(out) :: DENS_hyd, PRES_hyd
-    class(LocalMeshFieldBase), pointer, intent(out) :: Rtot, CVtot, CPtot
-    class(LocalMesh3D), pointer, intent(out), optional :: lcmesh3D
-
-    class(MeshFieldBase), pointer :: field
-    class(LocalMeshBase), pointer :: lcmesh
-    !-------------------------------------------------------
-
-    !--
-    call prgvars_list%Get(PRGVAR_DDENS_ID, field)
-    call field%GetLocalMeshField(domID, DDENS)
-
-    call prgvars_list%Get(PRGVAR_MOMX_ID, field)
-    call field%GetLocalMeshField(domID, MOMX)
-    
-    call prgvars_list%Get(PRGVAR_MOMY_ID, field)
-    call field%GetLocalMeshField(domID, MOMY)
-
-    call prgvars_list%Get(PRGVAR_MOMZ_ID, field)
-    call field%GetLocalMeshField(domID, MOMZ)
-
-    call prgvars_list%Get(PRGVAR_THERM_ID, field)
-    call field%GetLocalMeshField(domID, THERM)
-  
-    !--
-    call auxvars_list%Get(AUXVAR_DENSHYDRO_ID, field)
-    call field%GetLocalMeshField(domID, DENS_hyd)
-
-    call auxvars_list%Get(AUXVAR_PRESHYDRO_ID, field)
-    call field%GetLocalMeshField(domID, PRES_hyd)
-
-    call auxvars_list%Get(AUXVAR_Rtot_ID, field)
-    call field%GetLocalMeshField(domID, Rtot)
-
-    call auxvars_list%Get(AUXVAR_CVtot_ID, field)
-    call field%GetLocalMeshField(domID, CVtot)
-
-    call auxvars_list%Get(AUXVAR_CPtot_ID, field)
-    call field%GetLocalMeshField(domID, CPtot)
-
-    !---
-    
-    if ( present(lcmesh3D) ) then
-      call mesh%GetLocalMesh( domID, lcmesh )
-      nullify( lcmesh3D )
-
-      select type(lcmesh)
-      type is (LocalMesh3D)
-        if (present(lcmesh3D)) lcmesh3D => lcmesh
-      end select
-    end if
-
-    return
-  end subroutine AtmosVars_GetLocalMeshPrgVars
-
-!OCL SERIAL
-  subroutine AtmosVars_GetLocalMeshSfcVar( domID, mesh, auxvars2D_list, &
-    PREC, PREC_ENGI, lcmesh2D                                           )
-
-   implicit none
-   integer, intent(in) :: domID
-   class(MeshBase), intent(in) :: mesh
-   class(ModelVarManager), intent(inout) :: auxvars2D_list
-   class(LocalMeshFieldBase), pointer, intent(out) :: PREC, PREC_ENGI
-   class(LocalMesh2D), pointer, intent(out), optional :: lcmesh2D
-
-   class(MeshFieldBase), pointer :: field
-   class(LocalMeshBase), pointer :: lcmesh
-   !-------------------------------------------------------
-
-   !--
-   call auxvars2D_list%Get(ATMOS_AUXVARS2D_PREC_ID, field)
-   call field%GetLocalMeshField(domID, PREC)
-
-   call auxvars2D_list%Get(ATMOS_AUXVARS2D_PREC_ENGI_ID, field)
-   call field%GetLocalMeshField(domID, PREC_ENGI)
-
-   if (present(lcmesh2D)) then
-     call mesh%GetLocalMesh( domID, lcmesh )
-     nullify( lcmesh2D )
-
-     select type(lcmesh)
-     type is (LocalMesh2D)
-       if (present(lcmesh2D)) lcmesh2D => lcmesh
-     end select
-   end if
-
-   return
- end subroutine AtmosVars_GetLocalMeshSfcVar
-
-!OCL SERIAL
-  subroutine AtmosVars_GetLocalMeshQTRCVar( domID, mesh, trcvars_list,  &
-    varid,                                                              &
-    var, lcmesh3D                                                       )
-
-   implicit none
-   integer, intent(in) :: domID
-   class(MeshBase), intent(in) :: mesh
-   class(ModelVarManager), intent(inout) :: trcvars_list
-   integer, intent(in) :: varid
-   class(LocalMeshFieldBase), pointer, intent(out) :: var
-   class(LocalMesh3D), pointer, intent(out), optional :: lcmesh3D
-
-   class(MeshFieldBase), pointer :: field
-   class(LocalMeshBase), pointer :: lcmesh
-   !-------------------------------------------------------
-
-   !--
-   call trcvars_list%Get(varid, field)
-   call field%GetLocalMeshField(domID, var)
-
-   if (present(lcmesh3D)) then
-     call mesh%GetLocalMesh( domID, lcmesh )
-     nullify( lcmesh3D )
-
-     select type(lcmesh)
-     type is (LocalMesh3D)
-       if (present(lcmesh3D)) lcmesh3D => lcmesh
-     end select
-   end if
-
-   return
-  end subroutine AtmosVars_GetLocalMeshQTRCVar
-
-!OCL SERIAL
-  subroutine AtmosVars_GetLocalMeshQTRC_Qv( domID, mesh, trcvars_list, forcing_list, &
-    var, var_tp, lcmesh3D                                               )
-
-    use scale_atmos_hydrometeor, only: &
-      ATMOS_HYDROMETEOR_dry, &
-      I_QV    
-   implicit none
-   integer, intent(in) :: domID
-   class(MeshBase), intent(in) :: mesh
-   class(ModelVarManager), intent(inout) :: trcvars_list
-   class(ModelVarManager), intent(inout) :: forcing_list
-   class(LocalMeshFieldBase), pointer, intent(out) :: var
-   class(LocalMeshFieldBase), pointer, intent(out) :: var_tp
-   class(LocalMesh3D), pointer, intent(out), optional :: lcmesh3D
-
-   class(MeshFieldBase), pointer :: field
-   class(LocalMeshBase), pointer :: lcmesh
-
-   integer :: iq, tend_iq
-   !-------------------------------------------------------
-
-   !--
-
-   if ( ATMOS_HYDROMETEOR_dry ) then
-     iq = 0; tend_iq = PHYTEND_NUM1+1
-   else
-     iq = I_QV; tend_iq = PHYTEND_NUM1 + I_QV
-   end if
-
-   call trcvars_list%Get(iq, field)
-   call field%GetLocalMeshField(domID, var)
-
-   call forcing_list%Get(tend_iq, field)
-   call field%GetLocalMeshField(domID, var_tp)
-
-   if (present(lcmesh3D)) then
-     call mesh%GetLocalMesh( domID, lcmesh )
-     nullify( lcmesh3D )
-
-     select type(lcmesh)
-     type is (LocalMesh3D)
-       if (present(lcmesh3D)) lcmesh3D => lcmesh
-     end select
-   end if
-
-   return
-  end subroutine AtmosVars_GetLocalMeshQTRC_Qv
-
-!OCL SERIAL
-  subroutine AtmosVars_GetLocalMeshQTRCVarList( domID, mesh, trcvars_list,  &
-    varid_s,                                                                &
-    var_list, lcmesh3D                                                      )
-
-    implicit none
-    integer, intent(in) :: domID
-    class(MeshBase), intent(in) :: mesh
-    class(ModelVarManager), intent(inout) :: trcvars_list
-    integer, intent(in) :: varid_s
-    type(LocalMeshFieldBaseList), intent(out) :: var_list(:)
-    class(LocalMesh3D), pointer, intent(out), optional :: lcmesh3D
-
-    class(MeshFieldBase), pointer :: field
-    class(LocalMeshBase), pointer :: lcmesh
-
-    integer :: iq
-    !-------------------------------------------------------
-
-    !--
-    do iq = varid_s, varid_s + size(var_list) - 1
-      call trcvars_list%Get(iq, field)
-      call field%GetLocalMeshField(domID, var_list(iq-varid_s+1)%ptr)
+    do ic=ATM_VARS_CONTAINER_PRIMARY_ID+1, ATM_VARS_CONTAINER_LIST_MAX
+      if ( this%init_containers_item_flag(ic) ) then
+        call this%container_list(ic)%Preproc_operation_for_phys( this%container, dyncore )
+      end if
     end do
-    if (present(lcmesh3D)) then
-      call mesh%GetLocalMesh( domID, lcmesh )
-      nullify( lcmesh3D )
-
-      select type(lcmesh)
-      type is (LocalMesh3D)
-        if (present(lcmesh3D)) lcmesh3D => lcmesh
-      end select
-    end if
-
     return
-  end subroutine AtmosVars_GetLocalMeshQTRCVarList
-
-!OCL SERIAL
-  subroutine AtmosVars_GetLocalMeshPhyAuxVars( domID, mesh, phyauxvars_list, &
-    PRES, PT,                                                                &
-    lcmesh3D                                                                 )
-
-    implicit none
-    integer, intent(in) :: domID
-    class(MeshBase), intent(in) :: mesh
-    class(ModelVarManager), intent(inout) :: phyauxvars_list
-    class(LocalMeshFieldBase), pointer, intent(out) :: PRES, PT
-    class(LocalMesh3D), pointer, intent(out), optional :: lcmesh3D
-
-    class(MeshFieldBase), pointer :: field
-    class(LocalMeshBase), pointer :: lcmesh
-    !-------------------------------------------------------
-
-    !--    
-    call phyauxvars_list%Get(AUXVAR_PRES_ID, field)
-    call field%GetLocalMeshField(domID, PRES)
-
-    call phyauxvars_list%Get(AUXVAR_PT_ID, field)
-    call field%GetLocalMeshField(domID, PT)
-
-    !---
-    
-    if (present(lcmesh3D)) then
-      call mesh%GetLocalMesh( domID, lcmesh )
-      nullify( lcmesh3D )
-
-      select type(lcmesh)
-      type is (LocalMesh3D)
-        if (present(lcmesh3D)) lcmesh3D => lcmesh
-      end select
-    end if
-
-    return
-  end subroutine AtmosVars_GetLocalMeshPhyAuxVars
-
-!OCL SERIAL
-  subroutine AtmosVars_GetLocalMeshPhyTends( domID, mesh, phytends_list,  &
-    DENS_tp, MOMX_tp, MOMY_tp, MOMZ_tp, RHOT_tp, RHOH_p,                  &
-    RHOQ_tp,                                                              &
-    lcmesh3D                                                              )
-
-    implicit none
-    integer, intent(in) :: domID
-    class(MeshBase), intent(in) :: mesh
-    class(ModelVarManager), intent(inout) :: phytends_list
-    class(LocalMeshFieldBase), pointer, intent(out) :: DENS_tp, MOMX_tp, MOMY_tp, MOMZ_tp, RHOT_tp
-    class(LocalMeshFieldBase), pointer, intent(out) :: RHOH_p
-    type(LocalMeshFieldBaseList), intent(inout), optional :: RHOQ_tp(QA)
-    class(LocalMesh3D), pointer, intent(out), optional :: lcmesh3D
-
-    class(MeshFieldBase), pointer :: field
-    class(LocalMeshBase), pointer :: lcmesh
-
-    integer :: iq
-    !-------------------------------------------------------
-
-    !--
-    call phytends_list%Get(PHYTEND_DENS_ID, field)
-    call field%GetLocalMeshField(domID, DENS_tp)
-
-    call phytends_list%Get(PHYTEND_MOMX_ID, field)
-    call field%GetLocalMeshField(domID, MOMX_tp)
-    
-    call phytends_list%Get(PHYTEND_MOMY_ID, field)
-    call field%GetLocalMeshField(domID, MOMY_tp)
-
-    call phytends_list%Get(PHYTEND_MOMZ_ID, field)
-    call field%GetLocalMeshField(domID, MOMZ_tp)
-
-    call phytends_list%Get(PHYTEND_RHOT_ID, field)
-    call field%GetLocalMeshField(domID, RHOT_tp)
-
-    call phytends_list%Get(PHYTEND_RHOH_ID, field)
-    call field%GetLocalMeshField(domID, RHOH_p)
-
-    if ( present(RHOQ_tp) ) then
-      do iq = 1, QA
-        call phytends_list%Get(PHYTEND_NUM1+iq, field)
-        call field%GetLocalMeshField(domID, RHOQ_tp(iq)%ptr)  
-      end do
-    end if
-
-    !---
-    if ( present(lcmesh3D) ) then
-      call mesh%GetLocalMesh( domID, lcmesh )
-      nullify( lcmesh3D )
-
-      select type(lcmesh)
-      type is (LocalMesh3D)
-        if ( present(lcmesh3D) ) lcmesh3D => lcmesh
-      end select
-    end if
-
-    return
-  end subroutine AtmosVars_GetLocalMeshPhyTends
-
-!OCL SERIAL
-  subroutine AtmosVars_GetLocalMeshQTRCPhyTend( domID, mesh, phytends_list,  &
-    qtrcid,                                                                  &
-    RHOQ_tp                                                                  )
-
-    implicit none
-    integer, intent(in) :: domID
-    class(MeshBase), intent(in) :: mesh
-    class(ModelVarManager), intent(inout) :: phytends_list
-    integer, intent(in) :: qtrcid
-    class(LocalMeshFieldBase), pointer, intent(out) :: RHOQ_tp
-
-    class(MeshFieldBase), pointer :: field
-    class(LocalMeshBase), pointer :: lcmesh
-    !-------------------------------------------------------
-
-    call phytends_list%Get(PHYTEND_NUM1 + qtrcid, field)
-    call field%GetLocalMeshField(domID, RHOQ_tp)
-
-    return
-  end subroutine AtmosVars_GetLocalMeshQTRCPhyTend  
+  end subroutine AtmosVars_PreprocOperationForPhys
 
   !-----------------------------------------------------------------------------
   !> Calculate diagnostic variables
 !OCL SERIAL  
   subroutine AtmosVars_CalculateDiagnostics( this )
-    use scale_const, only: &
-      Rdry => CONST_Rdry,      &
-      CPdry => CONST_CPdry,    &
-      CVdry => CONST_CVdry,    &
-      PRES00 => CONST_PRE00
-    use scale_tracer, only: &
-      TRACER_MASS, TRACER_R, TRACER_CV, TRACER_CP    
-    use scale_atmos_thermodyn, only: &
-      ATMOS_THERMODYN_specific_heat
     implicit none
     class(AtmosVars), intent(inout), target :: this
-
-    class(LocalMesh3D), pointer :: lcmesh3D
-    integer :: n
-    integer :: varid
-    integer :: ke
-
-    class(MeshField3D), pointer :: field
-    class(ElementBase3D), pointer :: elem3D
-
-    type(LocalMeshFieldBaseList) :: QTRC(QA)
     !-------------------------------------------------------
-
-    ! Calculate specific heat
-    call vars_calc_specific_heat( this )
-    
-    ! Calculate diagnostic variables
-    do varid=AUXVAR_THERMHYDRO_ID+1, AUXVAR_PT_ID
-      field => this%AUX_VARS(varid)
-      do n=1, field%mesh%LOCAL_MESH_NUM
-        call AtmosVars_GetLocalMeshQTRCVarList( n, &
-          field%mesh, this%QTRCVARS_manager,       &
-          1, QTRC, lcmesh3D )
-
-        elem3D => lcmesh3D%refElem3D
-
-        call vars_calc_diagnoseVar_lc( &
-          field%varname, field%local(n)%val,                       &
-          this%PROG_VARS(PRGVAR_DDENS_ID)%local(n)%val,            &
-          this%PROG_VARS(PRGVAR_MOMX_ID)%local(n)%val,             &
-          this%PROG_VARS(PRGVAR_MOMY_ID)%local(n)%val,             &
-          this%PROG_VARS(PRGVAR_MOMZ_ID)%local(n)%val,             &
-          this%AUX_VARS(AUXVAR_PRES_ID)%local(n)%val,              &
-          this%AUX_VARS(AUXVAR_QDRY_ID)%local(n)%val,              &
-          QTRC,                                                    &
-          this%AUX_VARS(AUXVAR_DENSHYDRO_ID)%local(n)%val,         & 
-          this%AUX_VARS(AUXVAR_PRESHYDRO_ID)%local(n)%val,         &
-          this%AUX_VARS(AUXVAR_Rtot_ID )%local(n)%val,             & 
-          this%AUX_VARS(AUXVAR_CVtot_ID)%local(n)%val,             & 
-          this%AUX_VARS(AUXVAR_CPtot_ID)%local(n)%val,             & 
-          lcmesh3D, lcmesh3D%refElem3D )
-      end do
-    end do
-
+    call this%container%Calc_diagnostics()
     return
   end subroutine AtmosVars_CalculateDiagnostics
 
 !OCL SERIAL
   subroutine AtmosVars_CalcDiagvar( this, field_name, field_work ) 
-    use scale_const, only: &
-      Rdry => CONST_Rdry,      &
-      CPdry => CONST_CPdry,    &
-      CVdry => CONST_CVdry,    &
-      PRES00 => CONST_PRE00
-    use scale_tracer, only: &
-      TRACER_MASS, TRACER_R, TRACER_CV, TRACER_CP    
-    use scale_atmos_thermodyn, only: &
-      ATMOS_THERMODYN_specific_heat
-
     implicit none
     class(AtmosVars), intent(inout) :: this
     character(*), intent(in) :: field_name
     type(MeshField3D), intent(inout) :: field_work
-
-    class(LocalMesh3D), pointer :: lcmesh3D
-    class(ElementBase3D), pointer :: elem3D
-    integer :: n
-    integer :: ke
-    integer :: iq
-
-    type(MeshField3D) :: field_work_UVmet(2)
-    logical :: is_UVmet
-    integer :: UVmet_i
-
-    type(LocalMeshFieldBaseList) :: QTRC(QA)
     !--------------------------------------------------
-
-    is_UVmet = .false.
-    if ( field_name == 'Umet' ) then
-      is_UVmet = .true.; UVmet_i = 1
-    else if ( field_name == 'Vmet' ) then      
-      is_UVmet = .true.; UVmet_i = 2
-    end if
-
-    field_work%varname = field_name
-
-    do n=1, field_work%mesh%LOCAL_MESH_NUM
-      call AtmosVars_GetLocalMeshQTRCVarList( n, &
-        field_work%mesh, this%QTRCVARS_manager,  &
-        1, QTRC, lcmesh3D )
-      
-      if ( .not. is_UVmet ) then
-        call vars_calc_diagnoseVar_lc( field_name, field_work%local(n)%val,  &
-          this%PROG_VARS(PRGVAR_DDENS_ID)%local(n)%val,               &
-          this%PROG_VARS(PRGVAR_MOMX_ID)%local(n)%val,                &
-          this%PROG_VARS(PRGVAR_MOMY_ID)%local(n)%val,                &
-          this%PROG_VARS(PRGVAR_MOMZ_ID)%local(n)%val,                &
-          this%AUX_VARS(AUXVAR_PRES_ID)%local(n)%val,                 &
-          this%AUX_VARS(AUXVAR_QDRY_ID)%local(n)%val,                 &
-          QTRC,                                                       &
-          this%AUX_VARS(AUXVAR_DENSHYDRO_ID)%local(n)%val,            & 
-          this%AUX_VARS(AUXVAR_PRESHYDRO_ID)%local(n)%val,            &
-          this%AUX_VARS(AUXVAR_Rtot_ID )%local(n)%val,                & 
-          this%AUX_VARS(AUXVAR_CVtot_ID)%local(n)%val,                & 
-          this%AUX_VARS(AUXVAR_CPtot_ID)%local(n)%val,                & 
-          lcmesh3D, lcmesh3D%refElem3D )
-      else
-        call field_work_UVmet(1)%Init( 'Umet', '', field_work%mesh )
-        call field_work_UVmet(2)%Init( 'Vmet', '', field_work%mesh )
-        call this%mesh%Calc_UVmet( &
-          this%PROG_VARS(PRGVAR_MOMX_ID), this%PROG_VARS(PRGVAR_MOMY_ID), & ! (in)
-          field_work_UVmet(1), field_work_UVmet(2)                        ) ! (inout)
-        !$omp parallel do
-        do ke=lcmesh3D%NeS, lcmesh3D%NeE
-          field_work%local(n)%val(:,ke) = field_work_UVmet(UVmet_i)%local(n)%val(:,ke) &
-            / ( this%AUX_VARS (AUXVAR_DENSHYDRO_ID)%local(n)%val(:,ke)                 &
-              + this%PROG_VARS(PRGVAR_DDENS_ID   )%local(n)%val(:,ke)                  )
-        end do
-        call field_work_UVmet(1)%Final()
-        call field_work_UVmet(2)%Final()
-      end if
-    end do
-
+    call this%container%Calc_diagVar( field_name, field_work )
     return
   end subroutine AtmosVars_CalcDiagvar
 
@@ -1430,7 +923,6 @@ contains
     type(MeshField2D), intent(inout), target :: field_work
 
     class(LocalMesh2D), pointer :: lcmesh2D
-    class(ElementBase2D), pointer :: elem2D
 
     integer :: n
     !--------------------------------------------------
@@ -1443,208 +935,11 @@ contains
         this%ptr_MP_AUXVARS2D_manager,                                       &
         field_work%mesh, lcmesh2D, lcmesh2D%refElem2D                        )
     end do
-
+    !$acc wait(1)
     return
   end subroutine AtmosVars_CalcDiagvar2D
 
-!-- private -----------------------------------------------------------------------
-    
-!OCL SERIAL
-  subroutine vars_calc_diagnoseVar_lc( field_name, var_out,  &
-    DDENS_, MOMX_, MOMY_, MOMZ_, PRES_, QDRY_, QTRC,         &
-    DENS_hyd, PRES_hyd, Rtot, CVtot, CPTot,                  &
-    lcmesh, elem )
-
-    use scale_const, only: &
-      GRAV => CONST_GRAV,   &
-      Rdry => CONST_Rdry,   &
-      Rvap => CONST_Rvap,   &
-      CPdry => CONST_CPdry, &
-      CVdry => CONST_CVdry, &
-      PRES00 => CONST_PRE00
-    use scale_tracer, only: &
-      TRACER_inq_id,          &
-      TRACER_CV, TRACER_ENGI0
-    use scale_atmos_saturation, only: &
-      ATMOS_SATURATION_psat_liq
-    implicit none
-
-    class(LocalMesh3D), intent(in) :: lcmesh
-    class(ElementBase3D), intent(in) :: elem
-    character(*), intent(in) :: field_name
-    real(RP), intent(out) :: var_out(elem%Np,lcmesh%NeA)
-    real(RP), intent(in) :: DDENS_(elem%Np,lcmesh%NeA)
-    real(RP), intent(in) :: MOMX_(elem%Np,lcmesh%NeA)
-    real(RP), intent(in) :: MOMY_(elem%Np,lcmesh%NeA)
-    real(RP), intent(in) :: MOMZ_(elem%Np,lcmesh%NeA)
-    real(RP), intent(in) :: PRES_(elem%Np,lcmesh%NeA)
-    real(RP), intent(in) :: QDRY_(elem%Np,lcmesh%NeA)
-    type(LocalMeshFieldBaseList), intent(in) :: QTRC(QA)
-    real(RP), intent(in) :: DENS_hyd(elem%Np,lcmesh%NeA)
-    real(RP), intent(in) :: PRES_hyd(elem%Np,lcmesh%NeA)
-    real(RP), intent(in) :: Rtot (elem%Np,lcmesh%NeA)
-    real(RP), intent(in) :: CVtot(elem%Np,lcmesh%NeA)
-    real(RP), intent(in) :: CPtot(elem%Np,lcmesh%NeA)
-
-    integer :: ke, ke2D
-    integer :: iq
-    real(RP) :: DENS(elem%Np), TEMP(elem%Np)
-    real(RP) :: mom_u1(elem%Np), mom_u2(elem%Np), G_11(elem%Np), G_12(elem%Np), G_22(elem%Np)
-    real(RP) :: PSAT(elem%Np)
-
-    integer :: iq_QV
-    !-------------------------------------------------------------------------
-
-    select case(trim(field_name))
-    case('DENS')
-      !$omp parallel do
-      do ke=1, lcmesh%Ne
-        var_out(:,ke) = DDENS_(:,ke) + DENS_hyd(:,ke)
-      end do
-    
-    case('U')
-      !$omp parallel do private (DENS)
-      do ke=1, lcmesh%Ne
-        DENS(:) = DDENS_(:,ke) + DENS_hyd(:,ke)
-        var_out(:,ke) = MOMX_(:,ke) / DENS(:)
-      end do
-    
-    case('V')
-      !$omp parallel do private (DENS)
-      do ke=1, lcmesh%Ne
-        DENS(:) = DDENS_(:,ke) + DENS_hyd(:,ke)
-        var_out(:,ke) = MOMY_(:,ke) / DENS(:)
-      end do  
-          
-    case('W')
-      !$omp parallel do private (DENS)
-      do ke=1, lcmesh%Ne
-        DENS(:) = DDENS_(:,ke) + DENS_hyd(:,ke)
-        var_out(:,ke) = MOMZ_(:,ke) / DENS(:)
-      end do
-    
-    case ( 'PRES' )
-    case('PRES_diff')  
-      !$omp parallel do
-      do ke=1, lcmesh%Ne
-        var_out(:,ke) = PRES_(:,ke) - PRES_hyd(:,ke)
-      end do
-    
-    case('T')
-      !$omp parallel do
-      do ke=1, lcmesh%Ne
-        var_out(:,ke) = PRES_(:,ke) / (Rtot(:,ke) * (DDENS_(:,ke) + DENS_hyd(:,ke)) )
-      end do
-    
-    case('T_diff')
-      !$omp parallel do
-      do ke=1, lcmesh%Ne
-        var_out(:,ke) = PRES_(:,ke) / ( Rtot(:,ke) * (DDENS_(:,ke) + DENS_hyd(:,ke)) ) &
-                      - PRES_hyd(:,ke) / ( Rdry * DENS_hyd(:,ke) )
-      end do
-    
-    case('PT')
-      !$omp parallel do private( DENS )
-      do ke=1, lcmesh%Ne
-        DENS(:) = DDENS_(:,ke) + DENS_hyd(:,ke)
-        var_out(:,ke) = PRES_(:,ke) / (Rtot(:,ke) * DENS(:) ) * ( PRES00 / PRES_(:,ke) )**( Rtot(:,ke) / CPtot(:,ke) )
-      end do 
-    
-    case('PT_diff')
-      !$omp parallel do private( DENS )
-      do ke=1, lcmesh%Ne
-        DENS(:) = DDENS_(:,ke) + DENS_hyd(:,ke)
-        var_out(:,ke) = PRES_(:,ke) / (Rtot(:,ke) * DENS(:) ) * ( PRES00 / PRES_(:,ke) )**( Rtot(:,ke) / CPtot(:,ke) ) &
-                      - PRES00/Rdry * (PRES_hyd(:,ke)/PRES00)**(CVdry/CPdry) / DENS_hyd(:,ke)
-      end do 
-    
-    case( 'RH', 'RHL' )
-      if ( ATMOS_HYDROMETEOR_dry ) then
-        var_out(:,ke) = 0.0_RP
-      else
-        call TRACER_inq_id( "QV", iq_QV )
-
-        !$omp parallel do private (TEMP, PSAT)
-        do ke=1, lcmesh%Ne
-          TEMP(:) = PRES_(:,ke) / (Rtot(:,ke) * (DDENS_(:,ke) + DENS_hyd(:,ke)) )
-
-          call ATMOS_SATURATION_psat_liq( &
-            elem%Np, 1, elem%Np, TEMP(:),     & ! (in)
-            PSAT(:)                           ) ! (out)
-
-          var_out(:,ke) = ( DDENS_(:,ke) + DENS_hyd(:,ke) ) * QTRC(iq_QV)%ptr%val(:,ke) &
-                        / PSAT(:) * Rvap * TEMP(:) * 100.0_RP
-        end do 
-      end if
-    
-    case('ENGK')
-      !$omp parallel do private (ke2D, DENS, mom_u1, mom_u2, G_11, G_12, G_22)
-      do ke=1, lcmesh%Ne
-        ke2D = lcmesh%EMap3Dto2D(ke)
-
-        DENS(:) = DDENS_(:,ke) + DENS_hyd(:,ke)
-        G_11(:) = lcmesh%G_ij(elem%IndexH2Dto3D,ke2D,1,1)
-        G_12(:) = lcmesh%G_ij(elem%IndexH2Dto3D,ke2D,1,2)
-        G_22(:) = lcmesh%G_ij(elem%IndexH2Dto3D,ke2D,2,2)
-
-        mom_u1(:) = G_11(:) * MOMX_(:,ke) + G_12(:) * MOMY_(:,ke)
-        mom_u2(:) = G_12(:) * MOMX_(:,ke) + G_22(:) * MOMY_(:,ke)
-
-        var_out(:,ke) = 0.5_RP * ( MOMX_(:,ke) * mom_u1(:) + MOMY_(:,ke) * mom_u2(:) + MOMZ_(:,ke)**2 ) / DENS(:)
-      end do
-    
-    case('ENGP')
-      !$omp parallel do private (DENS)
-      do ke=1, lcmesh%Ne
-        DENS(:) = DDENS_(:,ke) + DENS_hyd(:,ke)
-        var_out(:,ke) = DENS(:) * Grav * lcmesh%zlev(:,ke)
-      end do
-    
-    case('ENGI')
-      !$omp parallel do private (DENS, iq)
-      do ke=1, lcmesh%Ne
-        DENS(:) = DDENS_(:,ke) + DENS_hyd(:,ke)
-        var_out(:,ke) = QDRY_(:,ke) * PRES_(:,ke) / Rtot(:,ke) * CVdry
-        do iq = 1, QA
-          var_out(:,ke) = var_out(:,ke) &
-            + QTRC(iq)%ptr%val(:,ke) * ( PRES_(:,ke) / Rtot(:,ke) * TRACER_CV(iq) + DENS(:) * TRACER_ENGI0(iq) )
-        end do
-      end do
-    
-    case('ENGT')
-      !$omp parallel do private (ke2D, DENS, mom_u1, mom_u2, iq, G_11, G_12, G_22)
-      do ke=1, lcmesh%Ne
-        ke2D = lcmesh%EMap3Dto2D(ke)
-
-        DENS(:) = DDENS_(:,ke) + DENS_hyd(:,ke)
-
-        G_11(:) = lcmesh%G_ij(elem%IndexH2Dto3D,ke2D,1,1)
-        G_12(:) = lcmesh%G_ij(elem%IndexH2Dto3D,ke2D,1,2)
-        G_22(:) = lcmesh%G_ij(elem%IndexH2Dto3D,ke2D,2,2)
-        mom_u1(:) = G_11(:) * MOMX_(:,ke) + G_12(:) * MOMY_(:,ke)
-        mom_u2(:) = G_12(:) * MOMX_(:,ke) + G_22(:) * MOMY_(:,ke)
-
-        ! ENGI
-        var_out(:,ke) = QDRY_(:,ke) * PRES_(:,ke) / Rtot(:,ke) * CVdry
-        do iq = 1, QA
-          var_out(:,ke) = var_out(:,ke) &
-            + QTRC(iq)%ptr%val(:,ke) * ( PRES_(:,ke) / Rtot(:,ke) * TRACER_CV(iq) + DENS(:) * TRACER_ENGI0(iq) )
-        end do
-        ! ENGT
-        var_out(:,ke) = &
-            0.5_RP * ( MOMX_(:,ke) * mom_u1(:) + MOMY_(:,ke) * mom_u2(:) + MOMZ_(:,ke)**2 ) / DENS(:) & ! ENGK       
-          + var_out(:,ke)                                                                             & ! ENGI
-          + DENS(:) * Grav * lcmesh%pos_en(:,ke,3)                                                      ! ENGP
-      end do
-    
-    case default
-      LOG_ERROR("AtmosVars_calc_diagnoseVar_lc",*) 'The name of diagnostic variable is not suported. Check!', field_name
-      call PRC_abort
-    
-    end select
-
-    return
-  end subroutine vars_calc_diagnoseVar_lc
+!--- private -----
 
 !OCL SERIAL
   subroutine vars_calc_diagnoseVar2D_lc( field_name, & ! (in)
@@ -1662,7 +957,7 @@ contains
     class(ModelVarManager), intent(inout) :: MP_auxvars2D
     class(MeshBase2D), intent(in) :: mesh2D
 
-    integer :: ke
+    integer :: ke, p
 
     class(LocalMeshFieldBase), pointer :: SFLX_rain_MP, SFLX_snow_MP, SFLX_ENGI_MP
     !-------------------------------------------------------------------------
@@ -1677,13 +972,19 @@ contains
     select case(trim(field_name))
     case('RAIN')
       !$omp parallel do
+      !$acc parallel loop collapse(2) present(SFLX_rain_MP%val, var_out) async(1)
       do ke=lcmesh%NeS, lcmesh%NeE
-        var_out(:,ke) = SFLX_rain_MP%val(:,ke)
+      do p=1, elem%Np
+        var_out(p,ke) = SFLX_rain_MP%val(p,ke)
+      end do
       end do
     case('SNOW')
       !$omp parallel do
+      !$acc parallel loop collapse(2) present(var_out, SFLX_snow_MP) async(1)
       do ke=lcmesh%NeS, lcmesh%NeE
-        var_out(:,ke) = SFLX_snow_MP%val(:,ke)
+      do p=1, elem%Np
+        var_out(p,ke) = SFLX_snow_MP%val(p,ke)
+      end do
       end do
     case default
       LOG_ERROR("AtmosVars_calc_diagnoseVar2D_lc",*) 'The name of diagnostic variable is not suported. Check!', field_name
@@ -1691,54 +992,5 @@ contains
     end select
 
     return
-  end subroutine vars_calc_diagnoseVar2D_lc
-
-!OCL SERIAL  
-  subroutine vars_calc_specific_heat( this )
-    use scale_const, only: &
-      Rdry => CONST_Rdry,      &
-      CPdry => CONST_CPdry,    &
-      CVdry => CONST_CVdry,    &
-      PRES00 => CONST_PRE00
-    use scale_tracer, only: &
-      TRACER_MASS, TRACER_R, TRACER_CV, TRACER_CP    
-    use scale_atmos_thermodyn, only: &
-      ATMOS_THERMODYN_specific_heat
-    implicit none
-    class(AtmosVars), intent(inout), target :: this
-
-    class(LocalMesh3D), pointer :: lcmesh3D
-    integer :: n
-    integer :: varid
-    integer :: ke
-    integer :: iq
-
-    class(ElementBase3D), pointer :: elem3D
-
-    real(RP), allocatable :: q_tmp(:,:)
-    !-------------------------------------------------------
-
-    ! Calculate specific heat
-    do n=1, this%AUX_VARS(1)%mesh%LOCAL_MESH_NUM
-      lcmesh3D => this%AUX_VARS(1)%mesh%lcmesh_list(n)
-      elem3D => lcmesh3D%refElem3D
-      allocate( q_tmp(elem3D%Np,QA) )
-
-      !$omp parallel do private(ke, iq, q_tmp)
-      do ke = lcmesh3D%NeS, lcmesh3D%NeE
-        do iq = 1, QA
-          q_tmp(:,iq) = this%QTRC_VARS(iq)%local(n)%val(:,ke)
-        end do
-        call ATMOS_THERMODYN_specific_heat( &
-          elem3D%Np, 1, elem3D%Np, QA,                                         & ! (in)
-          q_tmp(:,:), TRACER_MASS(:), TRACER_R(:), TRACER_CV(:), TRACER_CP(:), & ! (in)
-          this%AUX_VARS(AUXVAR_QDRY_ID )%local(n)%val(:,ke),            & ! (out)
-          this%AUX_VARS(AUXVAR_Rtot_ID )%local(n)%val(:,ke),            & ! (out)
-          this%AUX_VARS(AUXVAR_CVtot_ID)%local(n)%val(:,ke),            & ! (out)
-          this%AUX_VARS(AUXVAR_CPtot_ID)%local(n)%val(:,ke)             ) ! (out)
-      end do
-      deallocate(q_tmp)
-    end do
-  end subroutine vars_calc_specific_heat
-
+  end subroutine vars_calc_diagnoseVar2D_lc  
 end module mod_atmos_vars

@@ -104,9 +104,13 @@ contains
       ptr_out_mesh => out_mesh
 
       if ( out_mesh%polyorder_v < 0 ) then
-        call gen_GPMat2D( GPMat, out_mesh_GP%elem2D, out_mesh%elem2D )
+        allocate( GPMat(out_mesh%elem2D%Np,out_mesh_GP%elem2D%Np) )
+        call out_mesh%elem2D%Generate_L2ProjMat( out_mesh_GP%elem2D, & ! (in)
+          GPMat ) ! (out)
       else
-        call gen_GPMat3D( GPMat, out_mesh_GP%elem3D, out_mesh%elem3D )
+        allocate( GPMat(out_mesh%elem3D%Np,out_mesh_GP%elem3D%Np) )
+        call out_mesh%elem3D%Generate_L2ProjMat( out_mesh_GP%elem3D, & ! (in)
+          GPMat ) ! (out)
       end if
     end if
 
@@ -138,70 +142,4 @@ contains
 
     return
   end subroutine regrid_mesh_Final
-  
-
-!------------------
-
-!OCL SERIAL
-  subroutine gen_GPMat3D( GPMat_, &
-    elem_intrp, elem )
-    implicit none
-
-    class(ElementBase3D), intent(in) :: elem_intrp
-    class(ElementBase3D), intent(in) :: elem
-    real(RP), intent(out), allocatable :: GPMat_(:,:)
-
-    integer :: p1, p2, p3, p_
-    integer :: p_intrp
-
-    real(RP) :: InvV_intrp(elem%Np,elem_intrp%Np)
-    !---------------------------------------------
-
-    allocate( GPMat_(elem%Np,elem_intrp%Np) )
-
-    InvV_intrp(:,:) = 0.0_RP
-    do p3=1, elem%PolyOrder_v+1
-    do p2=1, elem%PolyOrder_h+1
-    do p1=1, elem%PolyOrder_h+1
-      p_ = p1 + (p2-1)*(elem%PolyOrder_h + 1) + (p3-1)*(elem%PolyOrder_h + 1)**2
-      p_intrp = p1 + (p2-1)*(elem_intrp%PolyOrder_h + 1) + (p3-1)*(elem_intrp%PolyOrder_h + 1)**2
-      InvV_intrp(p_,:) = elem_intrp%invV(p_intrp,:)
-    end do
-    end do
-    end do
-    GPMat_(:,:) = matmul(elem%V, InvV_intrp)
-
-    return
-  end subroutine gen_GPMat3D
-
-!OCL SERIAL
-  subroutine gen_GPMat2D( GPMat_, &
-    elem_intrp, elem )
-    implicit none
-
-    class(ElementBase2D), intent(in) :: elem_intrp
-    class(ElementBase2D), intent(in) :: elem
-    real(RP), intent(out), allocatable :: GPMat_(:,:)
-
-    integer :: p1, p2, p_
-    integer :: p_intrp
-
-    real(RP) :: InvV_intrp(elem%Np,elem_intrp%Np)
-    !---------------------------------------------
-
-    allocate( GPMat_(elem%Np,elem_intrp%Np) )
-
-    InvV_intrp(:,:) = 0.0_RP
-    do p2=1, elem%PolyOrder+1
-    do p1=1, elem%PolyOrder+1
-      p_ = p1 + (p2-1)*(elem%PolyOrder + 1)
-      p_intrp = p1 + (p2-1)*(elem_intrp%PolyOrder + 1)
-      InvV_intrp(p_,:) = elem_intrp%invV(p_intrp,:)
-    end do
-    end do
-    GPMat_(:,:) = matmul(elem%V, InvV_intrp)
-
-    return
-  end subroutine gen_GPMat2D  
-
 end module mod_regrid_mesh

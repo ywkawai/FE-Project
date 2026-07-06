@@ -8,7 +8,7 @@
 !!
 !<
 !-------------------------------------------------------------------------------
-#include "scalelib.h"
+#include "scaleFElib.h"
 module mod_user
 
   !-----------------------------------------------------------------------------
@@ -156,7 +156,7 @@ contains
       hydrostatic_calc_basicstate_constBVFreq
     
     use mod_mkinit_util, only: &
-      mkinitutil_gen_GPMat
+      mkinitutil_GalerkinProjection
     use mod_experiment, only: &
       TracerLocalMeshField_ptr
     
@@ -198,16 +198,12 @@ contains
       x_c, y_c,                 &
       r_x, r_y
 
-    type(HexahedralElement) :: elem_intrp
-    real(RP), allocatable :: IntrpMat(:,:)
-    real(RP), allocatable :: x_intrp(:), y_intrp(:), z_intrp(:)
-    real(RP) :: vx(elem%Nv), vy(elem%Nv), vz(elem%Nv)    
+    real(RP) :: PT(elem%Np,lcmesh%NeA)
     
     real(RP) :: RovCp
-    real(RP) :: PT  (elem%Np)
-    real(RP) :: DENS(elem%Np)
+    real(RP) :: DENS
 
-    integer :: ke
+    integer :: ke, p
     integer :: ierr
     !-----------------------------------------------------------------------------
 
@@ -230,42 +226,54 @@ contains
     LOG_NML(PARAM_EXP)
 
     !---
+    !$acc data create( PT )
 
-    call elem_intrp%Init( IntrpPolyOrder_h, IntrpPolyOrder_v, .false. )
-    
-    allocate( IntrpMat(elem%Np,elem_intrp%Np) )
-    call mkinitutil_gen_GPMat( IntrpMat, elem_intrp, elem )
-
-    allocate( x_intrp(elem_intrp%Np), y_intrp(elem_intrp%Np), z_intrp(elem_intrp%Np) )
-    
     call hydrostatic_calc_basicstate_constBVFreq( DENS_hyd, PRES_hyd, & ! (out)
       BruntVaisalaFreq, THETA0, PRES00, x, y, z, lcmesh, elem         ) ! (in)
+
+    call mkinitutil_GalerkinProjection( PT,                     & ! (out)
+      calc_PT, IntrpPolyOrder_h, IntrpPolyOrder_v, lcmesh, elem ) ! (in)
     
     !---
     RovCp = Rdry / CpDry
 
-    !$omp parallel do private( PT, DENS,        &
-    !$omp vx, vy, vz, x_intrp, y_intrp, z_intrp )
+    !$omp parallel do private( DENS )
+    !$acc parallel loop gang present(DENS_hyd, PRES_hyd, PT, DDENS, x, y, z, lcmesh, elem)
     do ke=lcmesh%NeS, lcmesh%NeE
-      vx(:) = lcmesh%pos_ev(lcmesh%EToV(ke,:),1)
-      vy(:) = lcmesh%pos_ev(lcmesh%EToV(ke,:),2)
-      vz(:) = lcmesh%pos_ev(lcmesh%EToV(ke,:),3)
-      x_intrp(:) = vx(1) + 0.5_RP*(elem_intrp%x1(:) + 1.0_RP)*(vx(2) - vx(1))
-      y_intrp(:) = vy(1) + 0.5_RP*(elem_intrp%x2(:) + 1.0_RP)*(vy(4) - vy(1))
-      z_intrp(:) = vz(1) + 0.5_RP*(elem_intrp%x3(:) + 1.0_RP)*(vz(5) - vz(1))
-
-      PT(:) = matmul( IntrpMat, &
-                THETA0 * exp( BruntVaisalaFreq**2 / Grav * z_intrp(:) )                  &
-              + DTHETA * sin( PI * z_intrp(:) / (dom_zmax - dom_zmin) )                  &
-                / ( 1.0_RP + ((x_intrp(:) - x_c)/r_x)**2 + ((y_intrp(:) - y_c)/r_y)**2 ) )
-      
-      DENS(:) = PRES_hyd(:,ke) / ( Rdry * PT(:) * (PRES_hyd(:,ke)/PRES00)**(RovCp) )
-      DDENS(:,ke) = DENS(:) - DENS_hyd(:,ke)
+     !$acc loop vector
+      do p=1, elem%Np        
+        DENS = PRES_hyd(p,ke) / ( Rdry * PT(p,ke) * (PRES_hyd(p,ke)/PRES00)**(RovCp) )
+        DDENS(p,ke) = DENS - DENS_hyd(p,ke)
+      end do
     end do
 
-    call elem_intrp%Final()
-
+    !$acc end data
     return
+  contains
+!OCL SERIAL
+    subroutine calc_PT( PT_intrp, &
+        x_, y_, z_, lcmesh3D, elem_intrp   )
+      implicit none
+      class(LocalMesh3D), intent(in) :: lcmesh3D
+      class(ElementBase3D), intent(in) :: elem_intrp
+      real(RP), intent(out) :: PT_intrp(elem_intrp%Np,lcmesh3D%Ne)
+      real(RP), intent(in) :: x_(elem_intrp%Np,lcmesh3D%Ne)
+      real(RP), intent(in) :: y_(elem_intrp%Np,lcmesh3D%Ne)
+      real(RP), intent(in) :: z_(elem_intrp%Np,lcmesh3D%Ne)
+
+      integer :: ke, p
+      !-------------------------------------------
+      !$omp parallel do
+      !$acc parallel loop gang present(x_, y_, z_, lcmesh3D, elem_intrp)
+      do ke=lcmesh3D%NeS, lcmesh3D%NeE
+        !$acc loop vector
+        do p=1, elem_intrp%Np
+          PT_intrp(p,ke) = THETA0 * exp( BruntVaisalaFreq**2 / Grav * z_(p,ke) )              &
+                         + DTHETA * sin( PI * z_(p,ke) / (dom_zmax - dom_zmin) )              &
+                           / ( 1.0_RP + ((x_(p,ke) - x_c)/r_x)**2 + ((y_(p,ke) - y_c)/r_y)**2 )
+        end do
+      end do
+    end subroutine calc_PT
   end subroutine exp_SetInitCond_inertia_gravity_wave
 
 end module mod_user

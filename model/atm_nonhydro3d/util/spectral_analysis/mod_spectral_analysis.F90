@@ -1,5 +1,14 @@
+!-------------------------------------------------------------------------------
+!> module Driver module for spectral analysis
+!!
+!! @author Yuta Kawai, Team SCALE
+!<-
 #include "scalelib.h"
 module mod_spectral_analysis
+  !-----------------------------------------------------------------------------
+  !
+  !++ Used modules
+  !  
   use scale_precision
   use scale_io
   use scale_prof
@@ -22,16 +31,26 @@ module mod_spectral_analysis
     MeshField_SpetralTransform2D, &
     ST_EVALTYPE_SAMPLE_UNIFORM_PTS, &
     ST_EVALTYPE_L2PROJECTION_1
+  !-----------------------------------------------------------------------------
   implicit none
   private
 
+  !-----------------------------------------------------------------------------
+  !
+  !++ Public procedure
+  !
   public :: spectral_analysis_Init
   public :: spectral_analysis_do
 
+  !-----------------------------------------------------------------------------
+  !
+  !++ Private procedures & variables
+  !  
   type(MeshField_SpetralTransform2D) :: ST_tool
   integer :: varNumTot
   
 contains
+  !> Setup a module for spectral analysis
 !OCL SERIAL
   subroutine spectral_analysis_Init( eval_type, ks, ke, ls, le, var_num, LayerNum, var2D_num, mesh3D, &
     GLQuadOrd, NsamplePerElem1D )
@@ -49,6 +68,7 @@ contains
     !----------------------------------------------
 
     varNumTot = var_num * LayerNum + var2D_num
+
     select case(trim(eval_type))
     case( "Uniform_Sampling" )
       call ST_tool%Init( ST_EVALTYPE_SAMPLE_UNIFORM_PTS, ks, ke, ls, ke, mesh3D%mesh2D, varNumTot, NsamplePtPerElem1D=NsamplePerElem1D )
@@ -61,6 +81,7 @@ contains
     return
   end subroutine spectral_analysis_Init
 
+  !> Perform spectral analysis for given variables
 !OCL SERIAL
   subroutine spectral_analysis_do( g_var_list, g_var2D_list, &
     var_num, var2D_num, mesh_num_x, mesh_num_y, LayerNum,    &

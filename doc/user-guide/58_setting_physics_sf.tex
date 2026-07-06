@@ -1,0 +1,93 @@
+%------------------------------------------------------
+\section{Surface flux}
+\label{sec:basic_usel_surface_flux}
+%------------------------------------------------------
+
+Surface fluxes represent the exchange of momentum, heat, and moisture
+between the surface and the atmosphere.
+Surface fluxes are configured by two namelists.
+First, the surface flux component is activated by \nmitem{ATMOS_PHY_SF_DO} in \namelist{PARAM_ATMOS}.
+Then, the surface flux scheme and its calling interval are specified in \namelist{PARAM_ATMOS_PHY_SFC}.
+
+\editboxtwo{
+ \verb|&PARAM_ATMOS | & \\
+ \verb|ATMOS_PHY_SF_DO = .true.,| & ; Enable surface flux process \\
+ \verb|/ | & \\
+}
+\editboxtwo{
+ \verb|&PARAM_ATMOS_PHY_SFC | & \\
+ \verb|SFCFLX_TYPE  = "CONST",| & ; Choose from surface flux schemes in Table \ref{tab:sfcflx_scheme_list} \\
+ \verb|TIME_DT      = 60.D0,|   & ; Time interval of surface flux process \\
+ \verb|TIME_DT_UNIT = "SEC",|   & ; Unit for \verb|TIME_DT| \\
+ \verb|/ | & \\
+}
+
+The available choices of \nmitem{SFCFLX_TYPE} are listed in Table \ref{tab:sfcflx_scheme_list}.
+The constant surface-flux scheme uses the corresponding SCALE library component, and its parameters are configured as in SCALE-RM.
+\nmitem{TIME_DT} and \nmitem{TIME_DT_UNIT} specify the time interval of the surface-flux process.
+
+
+%%%%%%%%%%%
+\begin{table}[t]
+\caption{Surface flux schemes available in \scaledg.}
+\label{tab:sfcflx_scheme_list}
+\begin{center}
+\begin{tabularx}{150mm}{lX}
+\hline
+\rowcolor[gray]{0.9}
+\verb|SFCFLX_TYPE| & Description \\
+\hline
+\verb|CONST|  & Constant surface-flux scheme \\
+\verb|SIMPLE| & Simple bulk surface-flux scheme with constant bulk coefficients \\
+\hline
+\end{tabularx}
+\end{center}
+\end{table}
+%%%%%%%%%%%
+
+The surface temperature used in the surface-flux calculation is stored as \nmitem{SFC_TEMP}.
+If no other component updates it, its default value can be specified by \nmitem{ATMOS_PHY_SFC_DEFAULT_SFC_TEMP} in \namelist{PARAM_ATMOS_PHY_SFC} as 
+\editboxtwo{
+ \verb|&PARAM_ATMOS_PHY_SFC | & \\
+ \verb|ATMOS_PHY_SFC_DEFAULT_SFC_TEMP = 300.D0,| & ; Default surface temperature [K] \\
+ \verb|/ | & \\
+}
+
+The surface flux variables can be output as history variables.
+For example, \verb|SFLX_MU|, \verb|SFLX_MV|, and \verb|SFLX_MW| are
+the momentum fluxes, \verb|SFLX_SH| and \verb|SFLX_LH| are the sensible
+and latent heat fluxes, and \verb|SFLX_QV| is the water vapor flux.
+The surface temperature is output as \verb|SFC_TEMP|.
+
+
+%------------------------------------------------------------------------
+\subsection{Constant surface-flux scheme}
+\label{subsec:physics_sf_const}
+%%
+This scheme prescribes horizontally uniform sensible and latent heat fluxes.
+The surface momentum flux is calculated using prescribed parameters such as a bulk coefficient for momentum or friction velocity.
+This option is useful for idealized experiments where simple surface forcing is sufficient.
+This scheme uses the SCALE library, 
+and its parameters are configured by \namelist{PARAM_ATMOS_PHY_SF_CONST} as in SCALE-RM.
+
+
+%------------------------------------------------------------------------
+\subsection{Simple bulk surface-flux scheme}
+\label{subsec:physics_sf_simple}
+%%
+This scheme calculates surface momentum, sensible heat, and latent heat fluxes using constant bulk coefficients.
+The surface moisture is diagnosed from the surface temperature and surface pressure with an evaporation efficiency.
+This option is useful for idealized experiments where the surface fluxes should depend on the near-surface atmospheric state 
+while keeping the parameterization simple.
+
+The scheme-dependent parameters are specified in \namelist{PARAM_ATMOS_PHY_SF_SIMPLE}.
+%%
+\editboxtwo{
+ \verb|&PARAM_ATMOS_PHY_SF_SIMPLE | & \\
+ \verb|ATMOS_PHY_SF_CONST_CM  = 1.1D-3,| & ; Constant bulk coefficient for momentum \\
+ \verb|ATMOS_PHY_SF_CONST_CH  = 4.4D-3,| & ; Constant bulk coefficient for heat \\
+ \verb|ATMOS_PHY_SF_CONST_CE  = 4.4D-3,| & ; Constant bulk coefficient for evaporation \\
+ \verb|ATMOS_PHY_SF_BULK_BETA = 1.0D0,|  & ; Evaporation efficiency \\
+ \verb|ATMOS_PHY_SF_U_MINM    = 0.D0,|   & ; Minimum wind speed for surface fluxes [m/s] \\
+ \verb|/ | & \\
+}

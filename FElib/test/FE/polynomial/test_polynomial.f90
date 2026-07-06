@@ -1,47 +1,52 @@
 #include "scalelib.h"
-program test_polynominal
+program test_polynomial
   use scale_precision
   use scale_io
-  use scale_polynominal
+  use scale_polynomial
   implicit none
 
   !----------------------------------------------
   
   !* n=1
-  real(RP), parameter :: lgl_pts_n1(2) = (/ -1.0_RP, 1.0_RP /)
-  real(RP), parameter :: lgl_intw_n1(2) = (/ 1.0_RP, 1.0_RP /)
+  real(RP), parameter :: lgl_pts_n1(2) = [ -1.0_RP, 1.0_RP ]
+  real(RP), parameter :: lgl_intw_n1(2) = [ 1.0_RP, 1.0_RP ]
   
-  real(RP), parameter :: gl_pts_n1(1) = (/ 0.0_RP /)
-  real(RP), parameter :: gl_intw_n1(1) = (/ 2.0_RP /)
+  real(RP), parameter :: gl_pts_n1(1) = [ 0.0_RP ]
+  real(RP), parameter :: gl_intw_n1(1) = [ 2.0_RP ]
 
   !* n=2
-  real(RP), parameter :: lgl_pts_n2(3) = (/ -1.0_RP, 0.0_RP, 1.0_RP /)
-  real(RP), parameter :: lgl_intw_n2(3) = (/ 1.0_RP/3.0_RP, 4.0_RP/3.0_RP, 1.0_RP/3.0_RP /)
+  real(RP), parameter :: lgl_pts_n2(3) = [ -1.0_RP, 0.0_RP, 1.0_RP ]
+  real(RP), parameter :: lgl_intw_n2(3) = [ 1.0_RP/3.0_RP, 4.0_RP/3.0_RP, 1.0_RP/3.0_RP ]
   
-  real(RP), parameter :: gl_pts_n2(2) = (/ -1.0_RP/sqrt(3.0_RP), 1.0_RP/sqrt(3.0_RP) /)
-  real(RP), parameter :: gl_intw_n2(2) = (/ 1.0_RP, 1.0_RP /)
+  real(RP), parameter :: gl_N2 = sqrt(1.0_RP / 3.0_RP)  
+  real(RP), parameter :: gl_pts_n2(2) = [ -gl_N2, gl_N2 ]
+  real(RP), parameter :: gl_intw_n2(2) = [ 1.0_RP, 1.0_RP ]
 
   !* n=3
-  real(RP), parameter :: lgl_pts_n3(4) = (/ -1.0_RP, - sqrt(1.0_RP/5.0_RP), + sqrt(1.0_RP/5.0_RP), 1.0_RP /)
-  real(RP), parameter :: lgl_intw_n3(4) = (/ 1.0_RP/6.0_RP, 5.0_RP/6.0_RP, 5.0_RP/6.0_RP, 1.0_RP/6.0_RP /)
+  real(RP), parameter :: x_N3 = sqrt(1.0_RP / 5.0_RP)
+  real(RP), parameter :: lgl_pts_n3(4) = [ -1.0_RP, -x_N3, x_N3, 1.0_RP ]
+  real(RP), parameter :: lgl_intw_n3(4) = [ 1.0_RP/6.0_RP, 5.0_RP/6.0_RP, 5.0_RP/6.0_RP, 1.0_RP/6.0_RP ]
 
-  real(RP), parameter :: gl_pts_n3(3) = (/ -sqrt(3.0_RP)/sqrt(5.0_RP), 0.0_RP, sqrt(3.0_RP)/sqrt(5.0_RP) /)
-  real(RP), parameter :: gl_intw_n3(3) = (/ 5.0_RP/9.0_RP, 8.0_RP/9.0_RP, 5.0_RP/9.0_RP /)
+  real(RP), parameter :: gl_N3 = sqrt(3.0_RP / 5.0_RP)
+  real(RP), parameter :: gl_pts_n3(3) = [ -gl_N3, 0.0_RP, gl_N3 ]
+  real(RP), parameter :: gl_intw_n3(3) = [ 5.0_RP/9.0_RP, 8.0_RP/9.0_RP, 5.0_RP/9.0_RP ]
 
   !* n=4
-  real(RP), parameter :: lgl_pts_n4(5) = (/ -1.0_RP,  -sqrt(21.0_RP)/7.0_RP, 0.0_RP, +sqrt(21.0_RP)/7.0_RP, 1.0_RP /)
-  real(RP), parameter :: lgl_intw_n4(5) = (/ 1.0_RP/10.0_RP, 49.0_RP/90.0_RP, 32.0_RP/45.0_RP, 49.0_RP/90.0_RP, 1.0_RP/10.0_RP /)
+  real(RP), parameter :: x_N4 = sqrt(21.0_RP)/7.0_RP
+  real(RP), parameter :: lgl_pts_n4(5) = [ -1.0_RP,  -x_N4, 0.0_RP, x_N4, 1.0_RP ]
+  real(RP), parameter :: lgl_intw_n4(5) = [ 1.0_RP/10.0_RP, 49.0_RP/90.0_RP, 32.0_RP/45.0_RP, 49.0_RP/90.0_RP, 1.0_RP/10.0_RP ]
 
-  real(DP), parameter :: gl_pts_n4(4) = (/ &
-    -sqrt(3.0_RP + 2.0_RP*sqrt(6.0_RP/5.0_RP))/sqrt(7.0_RP), -sqrt(3.0_RP - 2.0_RP*sqrt(6.0_RP/5.0_RP))/sqrt(7.0_RP), &
-    +sqrt(3.0_RP - 2.0_RP*sqrt(6.0_RP/5.0_RP))/sqrt(7.0_RP), +sqrt(3.0_RP + 2.0_RP*sqrt(6.0_RP/5.0_RP))/sqrt(7.0_RP) /)
-  real(DP), parameter :: gl_intw_n4(4) = (/ &
-    (18.0_RP - sqrt(30.0_RP))/36.0_RP, (18.0_RP + sqrt(30.0_RP))/36.0_RP, &
-    (18.0_RP + sqrt(30.0_RP))/36.0_RP, (18.0_RP - sqrt(30.0_RP))/36.0_RP /)  
+  real(DP), parameter :: gl1_N4 = sqrt(3.0_RP + 2.0_RP*sqrt(6.0_RP/5.0_RP))/sqrt(7.0_RP)
+  real(DP), parameter :: gl2_N4 = sqrt(3.0_RP - 2.0_RP*sqrt(6.0_RP/5.0_RP))/sqrt(7.0_RP)
+  real(DP), parameter :: gl_pts_n4(4) = [ -gl1_N4, -gl2_N4, gl2_N4, gl1_N4 ]
+
+  real(DP), parameter :: intw1_N4 = (18.0_RP + sqrt(30.0_RP))/36.0_RP
+  real(DP), parameter :: intw2_N4 = (18.0_RP - sqrt(30.0_RP))/36.0_RP
+  real(DP), parameter :: gl_intw_n4(4) = [ intw2_N4, intw1_N4, intw1_N4, intw2_N4 ]
 
  !----------------------------------------------------------------------------------------
 
-  write(*,*) "Start test_polynominal..."
+  write(*,*) "Start test_polynomial..."
 
   call chechk_value(1, lgl_pts_n1, lgl_intw_n1, gl_pts_n1, gl_intw_n1)
   call chechk_value(2, lgl_pts_n2, lgl_intw_n2, gl_pts_n2, gl_intw_n2)
@@ -50,7 +55,7 @@ program test_polynominal
 
   call output_expandfunc(4, 200)
 
-  write(*,*) "test_polynominal has been succeeded!"
+  write(*,*) "test_polynomial has been succeeded!"
 
 contains
   subroutine chechk_value(Norder, lgl_pts_ans, lgl_intw_ans, gl_pts_ans, gl_intw_ans)
@@ -71,12 +76,12 @@ contains
 
    !--------------------------------------------------------------------
 
-    LGLpts(:) = Polynominal_GenGaussLobattoPt(Norder)
-    Legendre_LGLPts(:,:) = Polynominal_GenLegendrePoly(Norder, LGLpts)
-    LGL_intw(:) = Polynominal_GenGaussLobattoPtIntWeight(Norder)
+    LGLpts(:) = Polynomial_GenGaussLobattoPt(Norder)
+    Legendre_LGLPts(:,:) = Polynomial_GenLegendrePoly(Norder, LGLpts)
+    LGL_intw(:) = Polynomial_GenGaussLobattoPtIntWeight(Norder)
 
-    GLpts(:) = Polynominal_GenGaussLegendrePt(Norder)
-    GL_intw(:) = Polynominal_GenGaussLegendrePtIntWeight(Norder)
+    GLpts(:) = Polynomial_GenGaussLegendrePt(Norder)
+    GL_intw(:) = Polynomial_GenGaussLegendrePtIntWeight(Norder)
 
     write(*,*) "******** Norder=", Norder
     
@@ -138,12 +143,12 @@ contains
       pts(i) = pts(i-1) + 2.0_RP/dble(Nnode_intrp-1)
     end do 
 
-    val_Legendre(:,:) = Polynominal_GenLegendrePoly(Norder, pts)
+    val_Legendre(:,:) = Polynomial_GenLegendrePoly(Norder, pts)
     do n=0, Norder
-      write(*,*) 'output legendre polynominal: N=', n
+      write(*,*) 'output legendre polynomial: N=', n
       write(file_name,'(A,I2.2,A)') 'legendreN',n,'.dat'
       open(10, file=trim(file_name))
-      write(10,*) '#-- Legende polynominal: Norder=', n
+      write(10,*) '#-- Legende polynomial: Norder=', n
       write(10,*) '# x   Pn(x)'
       ! output
       do i=1, Nnode_intrp
@@ -152,13 +157,13 @@ contains
       close(10)
     end do
 
-    lgl_pts(:) = Polynominal_GenGaussLobattoPt(Norder)
-    val_Lagrange(:,:) = Polynominal_GenLagrangePoly(Norder, lgl_pts, pts)
+    lgl_pts(:) = Polynomial_GenGaussLobattoPt(Norder)
+    val_Lagrange(:,:) = Polynomial_GenLagrangePoly(Norder, lgl_pts, pts)
     do n=0, Norder
-      write(*,*) 'output lagrange polynominal: N=', n
+      write(*,*) 'output lagrange polynomial: N=', n
       write(file_name,'(A,I2.2,A)') 'lagrangeN',n,'.dat'
       open(10, file=trim(file_name))
-      write(10,*) '#-- Lagrange polynominal: n=', n
+      write(10,*) '#-- Lagrange polynomial: n=', n
       write(10,*) '# x   phi_n(x)'
       ! output
       do i=1, Nnode_intrp
@@ -168,4 +173,4 @@ contains
     end do    
   end subroutine output_expandfunc
 
-end program test_polynominal
+end program test_polynomial

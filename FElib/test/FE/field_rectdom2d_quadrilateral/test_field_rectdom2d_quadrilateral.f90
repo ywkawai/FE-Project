@@ -67,6 +67,7 @@ program test_field2d
     
     write(*,*) "Check interior & halo data.."
     write(*,*) "tileID=", lcmesh%tileID
+    !$acc update host(q%local(n)%val)
     call check_interior_data(n, mesh%lcmesh_list(n), q%local(n)%val, q%local(n)%val)
     call check_halo_data(n, mesh%lcmesh_list(n), q%local(n)%val, q%local(n)%val)
   end do
@@ -76,20 +77,36 @@ program test_field2d
 
 contains
 
-  elemental function get_field_val(tileID, k, p) result(val)
+  subroutine get_field_val(val, lmesh, elem)
+    class(LocalMesh2D), intent(in) :: lmesh
+    class(QuadrilateralElement), intent(in) :: elem
+    real(RP), intent(out) :: val(elem%Np,lmesh%NeA)
+
+    integer :: tileID, ke, p
+    !----------------------------
+
+    tileID = lmesh%tileID
+    !$acc parallel loop collapse(2) present(lmesh,val)
+    do ke=lmesh%NeS, lmesh%NeE
+    do p=1, elem%Np
+      val(p,ke) = get_field_val_func(tileID, ke, p)
+    end do
+    end do
+  end subroutine get_field_val
+
+  elemental function get_field_val_func(tileID, k, p) result(val)
     integer, intent(in) :: tileID, k, p
     real(RP) :: val
     !----------------------------
+    !$acc routine seq    
     val = tileID*1000000 + k*1000 + p
-  end function get_field_val
+  end function get_field_val_func
 
   subroutine init()
     use scale_calendar, only: CALENDAR_setup
 
     integer :: comm, myrank, nprocs
     logical :: ismaster
-    
-    integer :: k, p
     !---------
 
     call PRC_MPIstart( comm )
@@ -131,12 +148,8 @@ contains
 
     !---
     do n=1, mesh%LOCAL_MESH_NUM
-      lcmesh => mesh%lcmesh_list(n)
-      do k=lcmesh%NeS, lcmesh%NeE
-      do p=1, refElem%Np
-        q%local(n)%val(p,k) = get_field_val(lcmesh%tileID, k, p)
-      end do
-      end do
+      call get_field_val( q%local(n)%val, &
+        mesh%lcmesh_list(n), refElem)
     end do
 
     call FILE_HISTORY_meshfield_put(HST_ID(1), q)
@@ -181,30 +194,32 @@ contains
     real(RP), intent(in) :: lcfield(refElem%Np,lcmesh_%NeA)
     real(RP), intent(in) :: lcfield_fl(refElem%Np*lcmesh_%NeA)
     
-    integer :: k, f, p
+    integer :: ke, f, p
     integer :: iM, iP, fnid
-    integer :: ans(refElem%Np)
+    real(RP) :: ans(refElem%Np,lcmesh_%NeA)
     !------------------------------
 
-    do k=lcmesh_%NeS, lcmesh_%NeE
-      do p=1, refElem%Np
-        ans(p) = get_field_val(lcmesh_%tileID,k,p)
-      end do
+    !$acc data create(ans)
+    call get_field_val( ans, &
+      lcmesh_, refElem )
+    !$acc update host(ans)
 
-      call assert(k, int(lcfield(:,k)), ans(:), 'check_interior_data', 'q', refElem%Np)
+    do ke=lcmesh_%NeS, lcmesh_%NeE
+
+      call assert(ke, int(lcfield(:,ke)), int(ans(:,ke)), 'check_interior_data', 'q', refElem%Np)
       do f=1, refElem%Nfaces
       do p=1, refElem%Nfp
         fnid = p+(f-1)*refElem%Nfp
-        iM = lcmesh_%VMapM(fnid,k)
-        iP = lcmesh_%VMapP(fnid,k)
-        write(*,'(a,3(i3),a,i10,a,i10,a,3i4)') "k , f, p =", k,f,p,           &
+        iM = lcmesh_%VMapM(fnid,ke)
+        iP = lcmesh_%VMapP(fnid,ke)
+        write(*,'(a,3(i3),a,i10,a,i10,a,3i4)') "k , f, p =", ke,f,p,        &
           " : q- = ", int(lcfield_fl(iM)), ",  q+ =", int(lcfield_fl(iP)),  &
-          ", normal=", int(lcmesh_%normal_fn(fnid,k,:))
+          ", normal=", int(lcmesh_%normal_fn(fnid,ke,:))
       end do
       end do
 
     end do
-
+    !$acc end data
   end subroutine check_interior_data
 
   subroutine check_halo_data(n, lcmesh_, lcfield, lcfield_fl)
@@ -235,7 +250,7 @@ contains
     do i=1, lcmesh_%NeX
       k = i + (lcmesh_%NeY-1)*lcmesh_%NeX
       do fp=1, refElem%Nfp
-        ans_bx(fp,i) = get_field_val(mesh%tileID_globalMap(1,tileID), k, refElem%Fmask(fp,3))
+        ans_bx(fp,i) = get_field_val_func(mesh%tileID_globalMap(1,tileID), k, refElem%Fmask(fp,3))
       end do
     end do
     call assert( -1, int(lcfield_fl(haloInd_s:haloInd_e)), ans_bx(:,:),     &
@@ -246,7 +261,7 @@ contains
     do j=1, lcmesh_%NeY
       k = 1 + (j-1)*lcmesh_%NeX
       do fp=1, refElem%Nfp
-        ans_by(fp,j) = get_field_val(mesh%tileID_globalMap(2,tileID), k, refElem%Fmask(fp,4))
+        ans_by(fp,j) = get_field_val_func(mesh%tileID_globalMap(2,tileID), k, refElem%Fmask(fp,4))
       end do
     end do
     call assert( -1, int(lcfield_fl(haloInd_s:haloInd_e)), ans_by(:,:),     &
@@ -257,7 +272,7 @@ contains
     do i=1, lcmesh_%NeX
       k = i
       do fp=1, refElem%Nfp
-        ans_bx(fp,i) = get_field_val(mesh%tileID_globalMap(3,tileID), k, refElem%Fmask(fp,1))
+        ans_bx(fp,i) = get_field_val_func(mesh%tileID_globalMap(3,tileID), k, refElem%Fmask(fp,1))
       end do
     end do
     call assert( -1, int(lcfield_fl(haloInd_s:haloInd_e)), ans_bx(:,:),     &
@@ -268,7 +283,7 @@ contains
     do j=1, lcmesh_%NeY
       k = lcmesh_%NeX + (j-1)*lcmesh_%NeX
       do fp=1, refElem%Nfp
-        ans_by(fp,j) = get_field_val(mesh%tileID_globalMap(4,tileID), k, refElem%Fmask(fp,2))
+        ans_by(fp,j) = get_field_val_func(mesh%tileID_globalMap(4,tileID), k, refElem%Fmask(fp,2))
       end do
     end do    
     call assert( -1, int(lcfield_fl(haloInd_s:haloInd_e)), ans_by(:,:),     &

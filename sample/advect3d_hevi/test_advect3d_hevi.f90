@@ -773,17 +773,16 @@ contains
     type(MeshField3D), intent(inout) :: w_ 
     real(RP), intent(in) :: tsec
     
-    integer :: n, ke
+    integer :: n
     !----------------------------------------
     
     VelTypeParams(5) = tsec
     do n=1, mesh%LOCAL_MESH_NUM
       lcmesh => mesh%lcmesh_list(n)
-      do ke=lcmesh%NeS, lcmesh%NeE
-        call get_profile3d_flow( u%local(n)%val(:,ke), v%local(n)%val(:,ke), w%local(n)%val(:,ke),  & ! (out)
-          VelTypeName, lcmesh%pos_en(:,ke,1), lcmesh%pos_en(:,ke,2), lcmesh%pos_en(:,ke,3),         & ! (in)
-          VelTypeParams, refElem%Np )                                                                 ! (in)
-      end do
+      call get_profile3d_flow( &
+        u%local(n)%val, v%local(n)%val, w%local(n)%val,                                 & ! (out)
+        VelTypeName, lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2), lcmesh%pos_en(:,:,3),  & ! (in)
+        VelTypeParams, 1,refElem%Np,refElem%Np, lcmesh%NeS,lcmesh%NeE,lcmesh%NeA, 1,1,1 ) ! (in)                                                 ! (in)
     end do
     
     return
@@ -791,8 +790,8 @@ contains
 
   subroutine set_initcond()
     use scale_linalgebra, only: linalgebra_inv
-    use scale_polynominal, only: &
-      Polynominal_GenLagrangePoly, Polynominal_GenGaussLobattoPt, Polynominal_GenGaussLegendrePt
+    use scale_polynomial, only: &
+      Polynomial_GenLagrangePoly, Polynomial_GenGaussLobattoPt, Polynomial_GenGaussLegendrePt
     implicit none
 
     real(RP) :: q_intrp(PolyOrderErrorCheck**3)
@@ -822,11 +821,11 @@ contains
 
     if (InitCond_GalerkinProjFlag) then
 
-      lgl1D_h(:) = Polynominal_GenGaussLobattoPt(refElem%PolyOrder_h)
-      lgl1D_v(:) = Polynominal_GenGaussLobattoPt(refElem%PolyOrder_v)
-      r_int1D_i(:) = Polynominal_GenGaussLegendrePt( PolyOrderErrorCheck )
-      lagrange_intrp1D_h(:,:) = Polynominal_GenLagrangePoly(refElem%PolyOrder_h, lgl1D_h, r_int1D_i)
-      lagrange_intrp1D_v(:,:) = Polynominal_GenLagrangePoly(refElem%PolyOrder_v, lgl1D_v, r_int1D_i)
+      lgl1D_h(:) = Polynomial_GenGaussLobattoPt(refElem%PolyOrder_h)
+      lgl1D_v(:) = Polynomial_GenGaussLobattoPt(refElem%PolyOrder_v)
+      r_int1D_i(:) = Polynomial_GenGaussLegendrePt( PolyOrderErrorCheck )
+      lagrange_intrp1D_h(:,:) = Polynomial_GenLagrangePoly(refElem%PolyOrder_h, lgl1D_h, r_int1D_i)
+      lagrange_intrp1D_v(:,:) = Polynomial_GenLagrangePoly(refElem%PolyOrder_v, lgl1D_v, r_int1D_i)
 
       do p3_=1, PolyOrderErrorCheck
       do p2_=1, PolyOrderErrorCheck

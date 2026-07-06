@@ -195,8 +195,8 @@ contains
 !OCL SERIAL
   subroutine File_common_meshfield_put_field1D_cartesbuf( mesh1D, field1D, &
     buf, force_uniform_grid )
-    use scale_polynominal, only: &
-      Polynominal_GenLegendrePoly_sub
+    use scale_polynomial, only: &
+      Polynomial_GenLegendrePoly_sub
     implicit none
     class(MeshBase1D), target, intent(in) :: mesh1D
     class(MeshField1D), intent(in) :: field1d
@@ -241,7 +241,7 @@ contains
           spectral_coef(:) = matmul(refElem%invV(:,:), field1d%local(n)%val(:,kelem1))
           do i2=1, Np
             ox = - 1.0_RP + 2.0_RP * (x_local(i2) - x_local0) / delx  
-            call Polynominal_GenLegendrePoly_sub( refElem%PolyOrder, ox, P1D_ori_x(:,:) )
+            call Polynomial_GenLegendrePoly_sub( refElem%PolyOrder, ox, P1D_ori_x(:,:) )
   
             i = i0_s + i2 + (kelem1-1)*Np 
             buf(i) = 0.0_RP 
@@ -572,8 +572,8 @@ contains
 !OCL SERIAL
   subroutine File_common_meshfield_put_field2D_cartesbuf( mesh2D, field2D, &
     buf, force_uniform_grid )
-    use scale_polynominal, only: &
-      Polynominal_GenLegendrePoly_sub
+    use scale_polynomial, only: &
+      Polynomial_GenLegendrePoly_sub
     implicit none
     class(MeshRectDom2D), target, intent(in) :: mesh2D
     class(MeshField2D), intent(in) :: field2d
@@ -635,8 +635,8 @@ contains
               ox(1) = - 1.0_RP + 2.0_RP * (x_local(i2) - x_local0) / delx
               oy(1) = - 1.0_RP + 2.0_RP * (y_local(j2) - y_local0) / dely
     
-              call Polynominal_GenLegendrePoly_sub( refElem%PolyOrder, ox, P1D_ori_x(:,:) ) 
-              call Polynominal_GenLegendrePoly_sub( refElem%PolyOrder, oy, P1D_ori_y(:,:) ) 
+              call Polynomial_GenLegendrePoly_sub( refElem%PolyOrder, ox, P1D_ori_x(:,:) ) 
+              call Polynomial_GenLegendrePoly_sub( refElem%PolyOrder, oy, P1D_ori_y(:,:) ) 
     
               i = i0_s + i2 + (i1-1)*Nfp
               j = j0_s + j2 + (j1-1)*Nfp
@@ -684,8 +684,8 @@ contains
 !OCL SERIAL
   subroutine File_common_meshfield_put_field2D_cubedsphere_cartesbuf( mesh2D, field2D, &
     buf )
-    use scale_polynominal, only: &
-      polynominal_genLegendrePoly
+    use scale_polynomial, only: &
+      polynomial_genLegendrePoly
     implicit none
     class(MeshCubedSphereDom2D), target, intent(in) :: mesh2D
     class(MeshField2D), intent(in) :: field2d
@@ -761,6 +761,7 @@ contains
         call File_common_meshfield_set_cartesbuf_field2D_local(  &
           lcmesh, buf(:,:), i0_s, j0_s,                          &
           field2d%local(n)%val(:,:)                              )
+        !$acc update device(field2d%local(n)%val)
 
         i0_s = i0_s + lcmesh%NeX * refElem%Nfp
       end do
@@ -833,6 +834,7 @@ contains
           call File_common_meshfield_set_cartesbuf_field2D_local(  &
             lcmesh, buf(:,:), i0_s, j0_s,                          &
             field2d%local(n)%val(:,:)                              )
+          !$acc update device(field2d%local(n)%val)
 
           i0_s = i0_s + lcmesh%NeX * refElem%Nfp
         end do
@@ -1163,8 +1165,8 @@ contains
 !OCL_SERIAL
   subroutine File_common_meshfield_put_field3D_cartesbuf( mesh3D, field3D, &
     buf, force_uniform_grid )
-    use scale_polynominal, only: &
-      Polynominal_GenLegendrePoly_sub
+    use scale_polynomial, only: &
+      Polynomial_GenLegendrePoly_sub
     implicit none
     class(MeshCubeDom3D), target, intent(in) :: mesh3D
     class(MeshField3D), intent(in) :: field3d
@@ -1245,9 +1247,9 @@ contains
                 oy(1) = - 1.0_RP + 2.0_RP * (y_local(j2) - y_local0) / dely
                 oz(1) = - 1.0_RP + 2.0_RP * (z_local(k2) - z_local0) / delz
       
-                call Polynominal_GenLegendrePoly_sub( refElem%PolyOrder_h, ox, P1D_ori_x )
-                call Polynominal_GenLegendrePoly_sub( refElem%PolyOrder_h, oy, P1D_ori_y )
-                call Polynominal_GenLegendrePoly_sub( refElem%PolyOrder_v, oz, P1D_ori_z )
+                call Polynomial_GenLegendrePoly_sub( refElem%PolyOrder_h, ox, P1D_ori_x )
+                call Polynomial_GenLegendrePoly_sub( refElem%PolyOrder_h, oy, P1D_ori_y )
+                call Polynomial_GenLegendrePoly_sub( refElem%PolyOrder_v, oz, P1D_ori_z )
 
                 i = i0_s + i2 + (i1-1)*Nnode_h1D
                 j = j0_s + j2 + (j1-1)*Nnode_h1D
@@ -1391,6 +1393,7 @@ contains
           call File_common_meshfield_set_cartesbuf_field3D_local(  &
             lcmesh, buf(:,:,:), i0_s, j0_s, k0_s,                  &
             field3d%local(n)%val(:,:)                              )
+          !$acc update device(field3d%local(n)%val)
 
           i0_s = i0_s + lcmesh%NeX * refElem%Nnode_h1D
         end do
@@ -1432,6 +1435,7 @@ contains
             call File_common_meshfield_set_cartesbuf_field3D_local(  &
               lcmesh, buf(:,:,:), i0_s, j0_s, k0_s,                  &
               field3d%local(n)%val(:,:)                              )
+            !$acc update device(field3d%local(n)%val)
 
             i0_s = i0_s + lcmesh%NeX * refElem%Nnode_h1D
           end do

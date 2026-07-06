@@ -49,11 +49,11 @@ module scale_atm_dyn_dgm_hydrostatic
   public :: hydrostatic_calc_basicstate_constTLAPS
   public :: hydrostatic_calc_basicstate_constPTLAPS
   public :: hydrostatic_calc_basicstate_constBVFreq
-  public :: hydrostaic_build_rho_XYZ
+  public :: hydrostatic_build_rho_XYZ
 
-  interface hydrostaic_build_rho_XYZ
-    module procedure hydrostaic_build_rho_XYZ_dry
-    module procedure hydrostaic_build_rho_XYZ_moist
+  interface hydrostatic_build_rho_XYZ
+    module procedure hydrostatic_build_rho_XYZ_dry
+    module procedure hydrostatic_build_rho_XYZ_moist
   end interface
   
   !-----------------------------------------------------------------------------
@@ -142,9 +142,9 @@ contains
     real(RP), intent(in) :: PotTemp0
     real(RP), intent(in) :: PRES_sfc
 
-    integer :: ke
+    integer :: ke, p
 
-    real(RP) :: exner(elem%Np)
+    real(RP) :: exner
     real(RP) :: exner_sfc
     real(RP) :: RovCP
     real(RP) :: CPovR
@@ -155,11 +155,15 @@ contains
     exner_sfc = (PRES_sfc / PRES00)**RovCP
 
     !$omp parallel do private(exner)
+    !$acc parallel loop gang present(DENS_hyd, PRES_hyd, x, y, z, lcmesh3D, elem)
     do ke=lcmesh3D%NeS, lcmesh3D%NeE
-      ! Cp * PT0 * d exner / dz = - g
-      exner(:) = exner_sfc - Grav / (CpDry * PotTemp0) * z(:,ke)
-      PRES_hyd(:,ke) = PRES00 * exner(:)**CPovR
-      DENS_hyd(:,ke) =  PRES_hyd(:,ke) / ( Rdry * exner(:) * PotTemp0 )
+      !$acc loop vector
+      do p=1, elem%Np
+        ! Cp * PT0 * d exner / dz = - g
+        exner = exner_sfc - Grav / (CpDry * PotTemp0) * z(p,ke)
+        PRES_hyd(p,ke) = PRES00 * exner**CPovR
+        DENS_hyd(p,ke) =  PRES_hyd(p,ke) / ( Rdry * exner * PotTemp0 )
+      end do
     end do
 
     return
@@ -195,10 +199,10 @@ contains
     real(RP), intent(in) :: PotTemp0
     real(RP), intent(in) :: PRES_sfc
 
-    integer :: ke
+    integer :: ke, p
 
-    real(RP) :: PT(elem%NP)
-    real(RP) :: exner(elem%Np)
+    real(RP) :: PT
+    real(RP) :: exner
     real(RP) :: exner_sfc
     real(RP) :: RovCP
     real(RP) :: CPovR
@@ -209,14 +213,17 @@ contains
     exner_sfc = (PRES_sfc / PRES00)**RovCP
 
     !$omp parallel do private(PT, exner)
+    !$acc parallel loop gang present(DENS_hyd, PRES_hyd, x, y, z, lcmesh3D, elem)
     do ke=lcmesh3D%NeS, lcmesh3D%NeE
-      ! d exner / dz = - g / ( Cp * PT0 ) * exp (- N2/g * z)
-      ! exner = exner(zs) - g^2 / (Cp * N^2) [ 1/PT (z) - 1/PT(zs) ] 
-      PT(:) = PotTemp0 * exp( BruntVaisalaFreq**2 / Grav * z(:,ke) )
-      exner(:) = exner_sfc + Grav**2 / ( CpDry * BruntVaisalaFreq**2 ) * ( 1.0_RP / PT(:) - 1.0_RP / PotTemp0 )
+      do p=1, elem%Np
+        ! d exner / dz = - g / ( Cp * PT0 ) * exp (- N2/g * z)
+        ! exner = exner(zs) - g^2 / (Cp * N^2) [ 1/PT (z) - 1/PT(zs) ] 
+        PT = PotTemp0 * exp( BruntVaisalaFreq**2 / Grav * z(p,ke) )
+        exner = exner_sfc + Grav**2 / ( CpDry * BruntVaisalaFreq**2 ) * ( 1.0_RP / PT - 1.0_RP / PotTemp0 )
 
-      PRES_hyd(:,ke) = PRES00 * exner(:)**CPovR
-      DENS_hyd(:,ke) =  PRES_hyd(:,ke) / ( Rdry * exner(:) * PT(:) )
+        PRES_hyd(p,ke) = PRES00 * exner**CPovR
+        DENS_hyd(p,ke) =  PRES_hyd(p,ke) / ( Rdry * exner * PT )
+      end do
     end do
 
     return
@@ -340,7 +347,7 @@ contains
   !! @param elem A object to manage a 3D finite element     
   !! @param bnd_SFC_PRES Surface pressure which is given as surface boundary condition [Pa]
 !OCL SERIAL
-  subroutine hydrostaic_build_rho_XYZ_dry(   &
+  subroutine hydrostatic_build_rho_XYZ_dry(   &
     DDENS,                                   &
     DENS_hyd, PRES_hyd,                      &
     POT,                                     &
@@ -372,7 +379,7 @@ contains
     !$omp end workshare
     !$omp end parallel
 
-    call hydrostaic_build_rho_XYZ_moist(   &
+    call hydrostatic_build_rho_XYZ_moist(   &
       DDENS,                                   &
       DENS_hyd, PRES_hyd,                      &
       POT, Rtot, CPtot_ov_CVtot,               &
@@ -380,7 +387,7 @@ contains
       bnd_SFC_PRES                             )
     
     return
-  end subroutine hydrostaic_build_rho_XYZ_dry
+  end subroutine hydrostatic_build_rho_XYZ_dry
 
   !> Build density in hydrostatic balance state of moist atmosphere
   !!
@@ -397,7 +404,7 @@ contains
   !! @param elem A object to manage a 3D finite element     
   !! @param bnd_SFC_PRES Surface pressure which is given as surface boundary condition [Pa]
 !OCL SERIAL
-  subroutine hydrostaic_build_rho_XYZ_moist( &
+  subroutine hydrostatic_build_rho_XYZ_moist( &
     DDENS,                                   &
     DENS_hyd, PRES_hyd,                      &
     POT, Rtot, CPtot_ov_CVtot,               &
@@ -572,7 +579,7 @@ contains
     call Lift%Final()
 
     return
-  end subroutine hydrostaic_build_rho_XYZ_moist
+  end subroutine hydrostatic_build_rho_XYZ_moist
 
 !-- private ---------------------------------
 

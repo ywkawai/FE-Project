@@ -42,29 +42,33 @@ module scale_mesh_cubedom3d
   !
   !++ Public type & procedure
   ! 
+  !> Derived type to manage a cubic 3D computational domain
   type, extends(MeshBase3D), public :: MeshCubeDom3D
-    integer :: NeGX
-    integer :: NeGY
-    integer :: NeGZ
+    integer :: NeGX   !< Number of elements in X direction for the global mesh
+    integer :: NeGY   !< Number of elements in Y direction for the global mesh
+    integer :: NeGZ   !< Number of elements in Z direction for the global mesh
 
-    integer :: NprcX
-    integer :: NprcY
-    integer :: NprcZ
+    integer :: NprcX  !< Number of processes in X direction for domain decomposition
+    integer :: NprcY  !< Number of processes in Y direction for domain decomposition
+    integer :: NprcZ  !< Number of processes in Z direction for domain decomposition
     
-    real(RP), public :: xmin_gl, xmax_gl
-    real(RP), public :: ymin_gl, ymax_gl    
-    real(RP), public :: zmin_gl, zmax_gl
+    real(RP), public :: xmin_gl !< Minimum X coordinate of the global domain
+    real(RP), public :: xmax_gl !< Maximum X coordinate of the global domain
+    real(RP), public :: ymin_gl !< Minimum Y coordinate of the global domain
+    real(RP), public :: ymax_gl !< Maximum Y coordinate of the global domain
+    real(RP), public :: zmin_gl !< Minimum Z coordinate of the global domain
+    real(RP), public :: zmax_gl !< Maximum Z coordinate of the global domain
 
     real(RP), allocatable :: FZ(:)
 
     integer, allocatable :: rcdomIJK2LCMeshID(:,:,:)
 
-    logical :: isPeriodicX
-    logical :: isPeriodicY
-    logical :: isPeriodicZ
+    logical :: isPeriodicX  !< Flag whether the domain is periodic in X direction
+    logical :: isPeriodicY  !< Flag whether the domain is periodic in Y direction
+    logical :: isPeriodicZ  !< Flag whether the domain is periodic in Z direction
 
-    type(MeshRectDom2D) :: mesh2D
-    type(QuadrilateralElement) :: refElem2D
+    type(MeshRectDom2D) :: mesh2D             !< 2D mesh for the horizontal plane (X-Y plane)
+    type(QuadrilateralElement) :: refElem2D   !< Reference element for the 2D mesh
   contains
     procedure :: Init => MeshCubeDom3D_Init
     procedure :: Final => MeshCubeDom3D_Final
@@ -104,25 +108,25 @@ contains
     implicit none
 
     class(MeshCubeDom3D), intent(inout) :: this
-    integer, intent(in) :: NeGX
-    integer, intent(in) :: NeGY
-    integer, intent(in) :: NeGZ
-    real(RP), intent(in) :: dom_xmin
-    real(RP), intent(in) :: dom_xmax
-    real(RP), intent(in) :: dom_ymin
-    real(RP), intent(in) :: dom_ymax
-    real(RP), intent(in) :: dom_Zmin
-    real(RP), intent(in) :: dom_zmax
-    logical, intent(in) :: isPeriodicX
-    logical, intent(in) :: isPeriodicY
-    logical, intent(in) :: isPeriodicZ
-    type(HexahedralElement), intent(in), target :: refElem
-    integer, intent(in) :: NLocalMeshPerPrc
-    integer, intent(in) :: NprcX
-    integer, intent(in) :: NprcY
-    integer, intent(in), optional :: nproc
-    integer, intent(in), optional :: myrank
-    real(RP), intent(in), optional :: FZ(NeGZ+1)
+    integer, intent(in) :: NeGX          !< Number of elements in X direction for the global mesh
+    integer, intent(in) :: NeGY          !< Number of elements in Y direction for the global mesh
+    integer, intent(in) :: NeGZ          !< Number of elements in Z direction for the global mesh
+    real(RP), intent(in) :: dom_xmin     !< Minimum X coordinate of the global domain
+    real(RP), intent(in) :: dom_xmax     !< Maximum X coordinate of the global domain
+    real(RP), intent(in) :: dom_ymin     !< Minimum Y coordinate of the global domain
+    real(RP), intent(in) :: dom_ymax     !< Maximum Y coordinate of the global domain
+    real(RP), intent(in) :: dom_zmin     !< Minimum Z coordinate of the global domain
+    real(RP), intent(in) :: dom_zmax     !< Maximum Z coordinate of the global domain
+    logical, intent(in) :: isPeriodicX   !< Flag whether the domain is periodic in X direction
+    logical, intent(in) :: isPeriodicY   !< Flag whether the domain is periodic in Y direction
+    logical, intent(in) :: isPeriodicZ   !< Flag whether the domain is periodic in Z direction
+    type(HexahedralElement), intent(in), target :: refElem  !< Reference element for the 3D mesh
+    integer, intent(in) :: NLocalMeshPerPrc  !< Number of local meshes managed by each process
+    integer, intent(in) :: NprcX         !< Number of processes in X direction for domain decomposition
+    integer, intent(in) :: NprcY         !< Number of processes in Y direction for domain decomposition
+    integer, intent(in), optional :: nproc       !< Total number of processes (if not provided, it will be determined from the parallel environment)
+    integer, intent(in), optional :: myrank      !< Rank of the current process (if not provided, it will be determined from the parallel environment)
+    real(RP), intent(in), optional :: FZ(NeGZ+1) !< Optional array of Z coordinates for the mesh
 
     integer :: k
     real(RP) :: dz
@@ -153,8 +157,8 @@ contains
     if ( present(FZ) ) then
       this%FZ(:) = FZ(:)
     else
-      this%FZ(1          ) = dom_Zmin
-      this%FZ(this%NeGZ+1) = dom_Zmax
+      this%FZ(1          ) = dom_zmin
+      this%FZ(this%NeGZ+1) = dom_zmax
       dz = (dom_zmax - dom_zmin) / dble(this%NeGZ)
       do k=2, this%NeGZ
         this%FZ(k) = this%FZ(k-1) + dz
@@ -179,14 +183,13 @@ contains
 !> Finalize an object to manage a cubic 3D domain
 !OCL SERIAL
   subroutine MeshCubeDom3D_Final( this )
-    use scale_prc
     implicit none
-
     class(MeshCubeDom3D), intent(inout) :: this
     !-----------------------------------------------------------------------------
   
     if (this%isGenerated) then
       if ( allocated(this%rcdomIJK2LCMeshID) ) then
+        !$acc exit data delete( this%rcdomIJK2LCMeshID )
         deallocate( this%rcdomIJK2LCMeshID )
       end if
     else
@@ -281,11 +284,10 @@ contains
     this%isGenerated = .true.
     this%mesh2D%isGenerated = .true.
     
-    deallocate( this%FZ )
-
     return
   end subroutine MeshCubeDom3D_generate
 
+  !> Set geometric information of the local mesh with the vertical coordinate transformation
 !OCL SERIAL
   subroutine MeshCubeDom3D_set_geometric_with_vcoord(this, lcdomID, GsqrtV_lc, zlev_lc, G13_lc, G23_lc)
     implicit none
@@ -296,24 +298,37 @@ contains
     real(RP), intent(in) :: G13_lc(this%refElem3D%Np,this%lcmesh_list(lcdomID)%NeA)
     real(RP), intent(in) :: G23_lc(this%refElem3D%Np,this%lcmesh_list(lcdomID)%NeA)
 
-    integer :: ke
+    integer :: ke, p
     class(LocalMesh3D), pointer :: lcmesh
+    integer :: Np
     !-------------------------------------------------------
 
     lcmesh => this%lcmesh_list(lcdomID)
+    Np = lcmesh%refElem%Np
 
     !$omp parallel private(ke)
     !$omp do
+    !$acc parallel present(lcmesh%zlev, lcmesh%Gsqrt, lcmesh%GI3, zlev_lc, GsqrtV_lc, G13_lc, G23_lc)
+    !$acc loop gang
     do ke=lcmesh%NeS, lcmesh%NeE
-      lcmesh%zlev(:,ke) = zlev_lc(:,ke)
+      !$acc loop vector
+      do p=1, Np
+        lcmesh%zlev(p,ke) = zlev_lc(p,ke)
+      end do
     end do
     !$omp do
+    !$acc loop gang
     do ke=lcmesh%NeS, lcmesh%NeA
-      lcmesh%Gsqrt(:,ke) = GsqrtV_lc(:,ke)
-      lcmesh%GI3(:,ke,1) = G13_lc(:,ke)
-      lcmesh%GI3(:,ke,2) = G23_lc(:,ke)
+      !$acc loop vector
+      do p=1, Np
+        lcmesh%Gsqrt(p,ke) = GsqrtV_lc(p,ke)
+        lcmesh%GI3(p,ke,1) = G13_lc(p,ke)
+        lcmesh%GI3(p,ke,2) = G23_lc(p,ke)
+      end do
     end do
+    !$acc end parallel
     !$omp end parallel
+    !$acc update host(lcmesh%zlev, lcmesh%Gsqrt, lcmesh%GI3)
 
     return
   end subroutine MeshCubeDom3D_set_geometric_with_vcoord
@@ -367,13 +382,16 @@ contains
     lcmesh%NeS = 1
     lcmesh%NeE = lcmesh%Ne
     lcmesh%NeA = lcmesh%Ne + 2*(NeX + NeY)*NeZ + 2*NeX*NeY
+    !$acc update device(lcmesh%Ne, lcmesh%Nv, lcmesh%NeS, lcmesh%NeE, lcmesh%NeA)
 
     lcmesh%NeX = NeX
     lcmesh%NeY = NeY
     lcmesh%NeZ = NeZ
+    !$acc update device(lcmesh%NeX, lcmesh%NeY, lcmesh%NeZ)
 
     lcmesh%Ne2D  = NeX * NeY
     lcmesh%Ne2DA = NeX * NeY + 2*(NeX + NeY)
+    !$acc update device(lcmesh%Ne2D, lcmesh%Ne2DA)
 
     !--
     delx = (dom_xmax - dom_xmin)/dble(NprcX)
@@ -385,6 +403,7 @@ contains
     lcmesh%ymax = dom_ymin +  j   *dely
     lcmesh%zmin = FZ_lc(1)
     lcmesh%zmax = FZ_lc(NeZ+1)
+    !$acc update device(lcmesh%xmin, lcmesh%xmax, lcmesh%ymin, lcmesh%ymax, lcmesh%zmin, lcmesh%zmax)
     
     !-
     allocate( lcmesh%pos_ev(lcmesh%Nv,3) )
@@ -396,10 +415,14 @@ contains
     allocate( lcmesh%VMapP(elem%NfpTot, lcmesh%Ne) )
     allocate( lcmesh%MapM(elem%NfpTot, lcmesh%Ne) )
     allocate( lcmesh%MapP(elem%NfpTot, lcmesh%Ne) )
+    !$acc enter data create( lcmesh%pos_ev, lcmesh%EToV, lcmesh%EToE, lcmesh%EToF, lcmesh%BCType, &
+    !$acc   lcmesh%VMapM, lcmesh%VMapP, lcmesh%MapM, lcmesh%MapP )
     
     allocate( lcmesh%EMap3Dto2D(lcmesh%Ne) )
+    !$acc enter data create( lcmesh%EMap3Dto2D )
 
     lcmesh%BCType(:,:) = BCTYPE_INTERIOR
+    !$acc update device(lcmesh%BCType)
     
     !----
 
@@ -407,6 +430,7 @@ contains
         lcmesh%NeX, lcmesh%xmin, lcmesh%xmax,                    & ! (in)
         lcmesh%NeY, lcmesh%ymin, lcmesh%ymax,                    & ! (in) 
         lcmesh%NeZ, lcmesh%zmin, lcmesh%zmax, FZ=FZ_lc           ) ! (in) 
+    !$acc update device(lcmesh%pos_ev, lcmesh%EToV)
     
     !---
     call MeshBase3D_setGeometricInfo( lcmesh, MeshCubeDom3D_coord_conv, MeshCubeDom3D_calc_normal )
@@ -414,7 +438,8 @@ contains
     !---
     call MeshUtil3D_genConnectivity( lcmesh%EToE, lcmesh%EToF, & ! (out)
         lcmesh%EToV, lcmesh%Ne, elem%Nfaces )                    ! (in)
-
+    !$acc update device(lcmesh%EToE, lcmesh%EToF)
+    
     !---
     call MeshUtil3D_BuildInteriorMap( lcmesh%VmapM, lcmesh%VMapP, lcmesh%MapM, lcmesh%MapP,           & ! (out)
       lcmesh%pos_en, lcmesh%pos_ev, lcmesh%EToE, lcmesh%EtoF, lcmesh%EtoV,                            & ! (in)
@@ -425,6 +450,8 @@ contains
       lcmesh%pos_en, lcmesh%xmin, lcmesh%xmax, lcmesh%ymin, lcmesh%ymax, lcmesh%zmin, lcmesh%zmax,      & ! (in)
       elem%Fmask_h, elem%Fmask_v, lcmesh%Ne, lcmesh%Nv, elem%Np, elem%Nfp_h, elem%Nfp_v, elem%NfpTot,   & ! (in)
       elem%Nfaces_h, elem%Nfaces_v, elem%Nfaces )                                                         ! (in)
+    !$acc update device(lcmesh%VMapM, lcmesh%VMapP, lcmesh%MapM, lcmesh%MapP)
+    !$acc enter data copyin(lcmesh%VMapB, lcmesh%MapB)
     
     !---
     !$omp parallel do collapse(2) private(ii,ke)
@@ -436,6 +463,7 @@ contains
     end do
     end do
     end do
+    !$acc update device(lcmesh%EMap3Dto2D)
 
     return
   end subroutine MeshCubeDom3D_setupLocalDom
@@ -472,6 +500,7 @@ contains
       this%LOCAL_MESH_NUM_global, 6, 8,                                                     & ! (in)
       this%isPeriodicX, this%isPeriodicY, this%isPeriodicZ,                                 & ! (in)
       this%NprcX, this%NprcY, this%NprcZ )                                                    ! (in)
+    !$acc update device(this%tileID_globalMap, this%tileFaceID_globalMap, this%tilePanelID_globalMap)
 
     !----
 
@@ -497,6 +526,7 @@ contains
       end if 
     end do
     end do
+    !$acc update device(this%tileID_global2localMap, this%PRCRank_globalMap)
 
     allocate( this%rcdomIJK2LCMeshID(ilc_count,jlc_count,klc_count) )
     do klc=1, klc_count
@@ -506,6 +536,7 @@ contains
     end do
     end do
     end do
+    !$acc enter data copyin(this%rcdomIJK2LCMeshID)
 
     return
   end subroutine MesshCubeDom3D_assignDomID

@@ -25,6 +25,7 @@ module mod_atmos_phy_sfc_vars
     MeshBase3D,                              &
     DIMTYPE_XYZ  => MeshBase3D_DIMTYPEID_XYZ
   use scale_localmesh_base, only: LocalMeshBase
+  use scale_localmesh_2d, only: LocalMesh2D
   use scale_localmesh_3d, only: LocalMesh3D
   use scale_localmeshfield_base, only: LocalMeshFieldBase
   use scale_meshfield_base, only: &
@@ -42,7 +43,6 @@ module mod_atmos_phy_sfc_vars
   !-----------------------------------------------------------------------------
   implicit none
   private
-
 
   !-----------------------------------------------------------------------------
   !
@@ -63,14 +63,19 @@ module mod_atmos_phy_sfc_vars
     procedure :: Init => AtmosPhySfcVars_Init
     procedure :: Final => AtmosPhySfcVars_Final
     procedure :: History => AtmosPhySfcVars_history
+    procedure :: SetDefaultVal => AtmosPhySfcVars_set_default_val
   end type AtmosPhySfcVars
 
+  ! Variable information for surface variables
+  
   integer, public, parameter :: ATMOS_PHY_SF_SVAR_TEMP_ID  = 1
   integer, public, parameter :: ATMOS_PHY_SF_SVAR_NUM      = 1
   type(VariableInfo), public :: ATMOS_PHY_SF_SVAR_VINFO(ATMOS_PHY_SF_SVAR_NUM)
   DATA ATMOS_PHY_SF_SVAR_VINFO / &
     VariableInfo( ATMOS_PHY_SF_SVAR_NUM, 'SFC_TEMP', 'surface skin temperature',    &
                   'K',  2, 'XY',  ''                                             )  /
+
+  ! Variable information for surface fluxes
 
   integer, public, parameter :: ATMOS_PHY_SF_SFLX_MU_ID  = 1
   integer, public, parameter :: ATMOS_PHY_SF_SFLX_MV_ID  = 2
@@ -185,8 +190,8 @@ contains
     return
   end subroutine AtmosPhySfcVars_Init
 
-!> Finalize an object to manage variables with a surface component 
-!!
+  !> Finalize an object to manage variables with a surface component 
+  !!
   subroutine AtmosPhySfcVars_Final( this )
     implicit none
     class(AtmosPhySfcVars), intent(inout) :: this
@@ -204,6 +209,33 @@ contains
     return
   end subroutine AtmosPhySfcVars_Final
 
+  !> Set default value for surface variables
+!OCL SERIAL
+  subroutine AtmosPhySfcVars_set_default_val( this, &
+    SFC_TEMP )
+    implicit none
+    class(AtmosPhySfcVars), intent(inout), target :: this
+    real(RP), intent(in) :: SFC_TEMP
+
+    integer :: ldomID
+    class(MeshBase2D), pointer :: mesh2D
+    class(LocalMesh2D), pointer :: lcmesh2D
+    integer :: ke
+    !--------------------------------------------------
+
+    mesh2D => this%SFC_VARS(ATMOS_PHY_SF_SVAR_TEMP_ID)%mesh
+
+    do ldomID=1, mesh2D%LOCAL_MESH_NUM
+      lcmesh2D => mesh2D%lcmesh_list(ldomID)
+      !$omp parallel do
+      do ke=lcmesh2D%NeS, lcmesh2D%NeE
+        this%SFC_VARS(ATMOS_PHY_SF_SVAR_TEMP_ID)%local(ldomID)%val(:,ke) = SFC_TEMP
+      end do
+    end do
+    return
+  end subroutine AtmosPhySfcVars_set_default_val
+
+  !> Write history data for surface variables
 !OCL SERIAL
   subroutine AtmosPhySfcVars_history( this )
     use scale_file_history_meshfield, only: FILE_HISTORY_meshfield_put
@@ -228,6 +260,8 @@ contains
     return
   end subroutine AtmosPhySfcVars_history
 
+  !> Get local mesh fields for surface variables
+!OCL SERIAL
   subroutine AtmosPhySfcVars_GetLocalMeshFields( domID, mesh, svars_list, sflx_list, &
     SFC_TEMP, SFLX_MU, SFLX_MV, SFLX_MW, SFLX_SH, SFLX_LH, SFLX_QV,              &
     lcmesh3D                                                                     &

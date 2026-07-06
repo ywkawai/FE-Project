@@ -14,6 +14,7 @@ module scale_meshutil_3d
   !++ used modules
   !
   use scale_precision
+  use scale_io
 
   !-----------------------------------------------------------------------------
   implicit none
@@ -27,10 +28,12 @@ module scale_meshutil_3d
   public :: MeshUtil3D_genConnectivity
   public :: MeshUtil3D_buildInteriorMap
   public :: MeshUtil3D_genPatchBoundaryMap
+  public :: MeshUtil3D_genPatchBoundaryMap_wide
   public :: MeshUtil3D_buildGlobalMap
 
 contains
 
+  !> Calculate position of vertices and generate array to map element to vertices for 3D cubic mesh
 !OCL SERIAL
   subroutine MeshUtil3D_genCubeDomain( pos_v, EToV,        &
     Ke_x, xmin, xmax, Ke_y, ymin, ymax, Ke_z, zmin, zmax,  &
@@ -636,6 +639,112 @@ contains
       return
     end subroutine eval_domain_boundary
   end subroutine MeshUtil3D_genPatchBoundaryMap
+
+!OCL SERIAL
+  subroutine MeshUtil3D_genPatchBoundaryMap_wide( VMapB2, &
+    VMapB, HaloSize_h, HaloSize_v,                  &
+    NeX, NeY, NeZ, Nfp_h, Nfp_v, Nnode_h1D, Nnode_v )
+    use scale_prc, only: PRC_abort
+    implicit none
+    integer, intent(in) :: HaloSize_h
+    integer, intent(in) :: HaloSize_v
+    integer, intent(in) :: NeX
+    integer, intent(in) :: NeY
+    integer, intent(in) :: NeZ
+    integer, intent(in) :: Nfp_h
+    integer, intent(in) :: Nfp_v
+    integer, intent(in) :: Nnode_h1D
+    integer, intent(in) :: Nnode_v
+    integer, intent(inout) :: VMapB2(  2*(NeX + NeY)*NeZ*Nfp_h*HaloSize_h &
+                                     + 2*NeX*NeY*Nfp_v*HaloSize_v )
+    integer, intent(in) :: VMapB(  2*(NeX + NeY)*NeZ*Nfp_h &
+                                 + 2*NeX*NeY*Nfp_v )
+
+    integer :: f
+    integer :: iso, isso, i, ii
+    integer :: ke, p, ph, pv
+    !------------------------------------------------------------
+  
+    if ( HaloSize_h > Nnode_h1D ) then
+      LOG_INFO("MeshUtil3D_genPatchBoundaryMap_wide",*) "HaloSize_h should be <= Nnode_h1D. Check!"
+      call PRC_abort
+    end if
+    if ( HaloSize_v /= 1 ) then
+      LOG_INFO("MeshUtil3D_genPatchBoundaryMap_wide",*) "HaloSize_v should be 1. Check!"
+      call PRC_abort
+    end if
+
+    !--
+    f = 1
+    iso = 0; isso = 0
+    do ke=1, NeX * NeZ
+      do ph=1, HaloSize_h
+        do p=1, Nfp_h
+          i  = iso  + p                + (ke-1)*Nfp_h
+          ii = isso + p + (ph-1)*Nfp_h + (ke-1)*Nfp_h*HaloSize_h
+          VMapB2(ii) = VMapB(i) + (ph-1)*Nnode_h1D
+        end do
+      end do
+    end do
+
+    !--
+    f = 2
+    iso  = iso  + NeX*NeZ * Nfp_h
+    isso = isso + NeX*NeZ * Nfp_h*HaloSize_h
+    do ke=1, NeY * NeZ
+      do ph=1, HaloSize_h
+        do p=1, Nfp_h
+          i  = iso  + p                + (ke-1)*Nfp_h
+          ii = isso + p + (ph-1)*Nfp_h + (ke-1)*Nfp_h*HaloSize_h
+          VMapB2(ii) = VMapB(i) - (ph-1)
+        end do
+      end do
+    end do
+
+    !--
+    f = 3
+    iso  = iso  + NeY*NeZ * Nfp_h
+    isso = isso + NeY*NeZ * Nfp_h*HaloSize_h
+    do ke=1, NeX * NeZ
+      do ph=1, HaloSize_h
+        do p=1, Nfp_h
+          i  = iso  + p                + (ke-1)*Nfp_h
+          ii = isso + p + (ph-1)*Nfp_h + (ke-1)*Nfp_h*HaloSize_h
+          VMapB2(ii) = VMapB(i) - (ph-1)*Nnode_h1D
+        end do
+      end do
+    end do
+
+    !--
+    f = 4
+    iso  = iso  + NeX*NeZ * Nfp_h
+    isso = isso + NeX*NeZ * Nfp_h*HaloSize_h
+    do ke=1, NeY * NeZ
+      do ph=1, HaloSize_h
+        do p=1, Nfp_h
+          i  = iso  + p                + (ke-1)*Nfp_h
+          ii = isso + p + (ph-1)*Nfp_h + (ke-1)*Nfp_h*HaloSize_h
+          VMapB2(ii) = VMapB(i) + (ph-1)
+        end do
+      end do
+    end do
+
+    !-- Upper & lower faces
+
+    do f=1, 2
+      iso  = 2*(NeX + NeY)*NeZ*Nfp_h            + (f-1) * NeX*NeY*Nfp_v
+      isso = 2*(NeX + NeY)*NeZ*Nfp_h*HaloSize_h + (f-1) * NeX*NeY*Nfp_v*HaloSize_v
+      do ke=1, NeX * NeY
+        do p=1, Nfp_v
+          i  = iso  + p + (ke-1)*Nfp_v
+          ii = isso + p + (ke-1)*Nfp_v*HaloSize_v
+          VMapB2(ii) = VMapB(i)
+        end do
+      end do
+    end do
+
+    return
+  end subroutine MeshUtil3D_genPatchBoundaryMap_wide
 
 !OCL SERIAL
   subroutine MeshUtil3D_buildGlobalMap( &

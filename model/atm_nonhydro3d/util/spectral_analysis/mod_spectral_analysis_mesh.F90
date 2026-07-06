@@ -1,5 +1,14 @@
+!-------------------------------------------------------------------------------
+!> module to manage meshes for spectral analysis
+!!
+!! @author Yuta Kawai, Team SCALE
+!<-
 #include "scaleFElib.h"
 module mod_spectral_analysis_mesh
+  !-----------------------------------------------------------------------------
+  !
+  !++ Used modules
+  !
   use scale_precision
   use scale_io
   use scale_prof
@@ -16,22 +25,33 @@ module mod_spectral_analysis_mesh
 
   use scale_mesh_cubedom3d, only: MeshCubeDom3D
   use scale_mesh_cubedspheredom3d, only: MeshCubedSphereDom3D
-
+  !-----------------------------------------------------------------------------
   implicit none
   private
+  !-----------------------------------------------------------------------------
+  !
+  !++ Public type & procedure
+  !
 
+  !> Derived type to manage multiple meshes for spectral analysis
   type, public :: MeshList
-    integer :: mesh_num
-    integer :: mesh_num_x
-    integer :: mesh_num_y
-    type(MeshCubeDom3D), allocatable :: mesh3D_list(:)
-    type(HexahedralElement) :: refElem3D
+    integer :: mesh_num     !< Number of meshes
+    integer :: mesh_num_x   !< Number of meshes in x-direction
+    integer :: mesh_num_y   !< Number of meshes in y-direction
+
+    type(MeshCubeDom3D), allocatable :: mesh3D_list(:)  !< Array of 3D meshes for spectral analysis
+    type(HexahedralElement) :: refElem3D                !< Object of reference element for 3D mesh
   contains
     procedure :: Init => MeshList_Init
     procedure :: Final => MeshList_Final
   end type
 
 contains
+
+  !> Initialize an object to manage multiple meshes for spectral analysis
+  !! @param[inout] this Object of MeshList
+  !! @param[in] target_proc_num Number of processes to be used for spectral analysis
+  !! @param[in] target_proc_s Starting rank of processes to be used for spectral analysis
 !OCL SERIAL
   subroutine MeshList_init( this, target_proc_num, target_proc_s )   
     use scale_element_quadrilateral, only: &
@@ -45,24 +65,25 @@ contains
 
     logical :: SHALLOW_ATM_APPROX_FLAG = .true.
 
-    integer :: NprcX = 2
-    integer :: NprcY = 2
-    integer :: NeX   = 2
-    integer :: NeY   = 2
-    integer :: NeZ   = 4
-    integer, parameter :: NLocalMeshPerPrc = 1
+    integer :: NprcX = 2   !< Number of MPI processes in x-direction
+    integer :: NprcY = 2   !< Number of MPI processes in y-direction
+    integer :: NeX   = 2   !< Number of elements in x-direction
+    integer :: NeY   = 2   !< Number of elements in y-direction
+    integer :: NeZ   = 4   !< Number of elements in z-direction
+    integer, parameter :: NLocalMeshPerPrc = 1  !< Number of local meshes per process
     
-    integer :: PolyOrder_h = 7
-    integer :: PolyOrder_v = 7
+    integer :: PolyOrder_h = 7   !< Polynomial order in horizontal direction
+    integer :: PolyOrder_v = 7   !< Polynomial order in vertical direction
 
-    real(RP) :: dom_xmin, dom_xmax
-    real(RP) :: dom_ymin, dom_ymax
-    real(RP) :: dom_zmin, dom_zmax
+    real(RP) :: dom_xmin   !< Minimum x-coordinate of the domain
+    real(RP) :: dom_xmax   !< Maximum x-coordinate of the domain
+    real(RP) :: dom_ymin   !< Minimum y-coordinate of the domain
+    real(RP) :: dom_ymax   !< Maximum y-coordinate of the domain
+    real(RP) :: dom_zmin   !< Minimum z-coordinate of the domain
+    real(RP) :: dom_zmax   !< Maximum z-coordinate of the domain
 
-    integer :: k
-    logical :: is_spec_FZ    
     integer, parameter :: FZ_nmax = 1000
-    real(RP) :: FZ(FZ_nmax)
+    real(RP) :: FZ(FZ_nmax)  !< Array of vertical coordinates
 
     namelist / PARAM_SPECTRAL_ANALYSIS_MESH / &
         dom_xmin, dom_xmax,          &
@@ -76,6 +97,9 @@ contains
     
     integer :: m
     integer :: target_myrank
+
+    integer :: k
+    logical :: is_spec_FZ 
     !-------------------------------------------
 
     FZ(:) = - 1.0_RP
@@ -90,7 +114,8 @@ contains
     endif
     LOG_NML(PARAM_SPECTRAL_ANALYSIS_MESH)
     
-    !--
+    !- Check if FZ is specified
+
     is_spec_FZ = .true.
     do k=1, NeZ+1
       if (FZ(k) < 0.0_RP) then
@@ -98,7 +123,8 @@ contains
       end if
     end do
     
-    !--
+    !- Setup meshes
+    
     call this%refElem3D%Init(PolyOrder_h, PolyOrder_v, .false.)
 
     this%mesh_num = target_proc_num
@@ -125,6 +151,7 @@ contains
     return
   end subroutine MeshList_init
 
+  !> Finalize an object to manage multiple meshes for spectral analysis
 !OCL SERIAL
   subroutine MeshList_final( this )
     use scale_prc

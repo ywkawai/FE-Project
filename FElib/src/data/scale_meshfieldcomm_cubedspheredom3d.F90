@@ -75,7 +75,6 @@ module scale_meshfieldcomm_cubedspheredom3d
   !
   !++ Private parameters & variables
   !
-  integer :: bufsize_per_field             !< Buffer size per a field
   integer, parameter :: COMM_FACE_NUM = 6  !< Number of faces with data communication
 
 contains
@@ -101,8 +100,8 @@ contains
     lcmesh => mesh3d%lcmesh_list(1)
     elem => lcmesh%refElem3D
 
-    bufsize_per_field =  2*(lcmesh%NeX + lcmesh%NeY)*lcmesh%NeZ*elem%Nfp_h &
-                       + 2*lcmesh%NeX*lcmesh%NeY*elem%Nfp_v
+    this%bufsize_per_field =  2*(lcmesh%NeX + lcmesh%NeY)*lcmesh%NeZ*elem%Nfp_h &
+                            + 2*lcmesh%NeX*lcmesh%NeY*elem%Nfp_v
 
     allocate( this%Nnode_LCMeshAllFace(mesh3d%LOCAL_MESH_NUM) )
     do n=1, this%mesh3d%LOCAL_MESH_NUM
@@ -113,7 +112,7 @@ contains
       this%Nnode_LCMeshAllFace(n) = sum(Nnode_LCMeshFace(:,n))
     end do
 
-    call MeshFieldCommBase_Init( this, sfield_num, hvfield_num, htensorfield_num, bufsize_per_field, COMM_FACE_NUM, Nnode_LCMeshFace, mesh3d )  
+    call MeshFieldCommBase_Init( this, sfield_num, hvfield_num, htensorfield_num, this%bufsize_per_field, COMM_FACE_NUM, Nnode_LCMeshFace, mesh3d )  
   
     if (hvfield_num > 0) then
       allocate( this%vec_covariant_comp_ptrlist(hvfield_num) )
@@ -302,8 +301,8 @@ contains
         commdata => this%commdata_list(f,n)
         call push_localsendbuf( commdata%send_buf(:,:),            &  ! (inout)
           this%send_buf(:,:,n), commdata%s_faceID, this%is_f(f,n), &  ! (in)
-          commdata%Nnode_LCMeshFace, this%field_num_tot,           &  ! (in)
-          lcmesh, elem                                             )  ! (in)
+          commdata%Nnode_LCMeshFace, this%bufsize_per_field,       &  ! (in)
+          this%field_num_tot, lcmesh, elem                         )  ! (in)
         
         if ( commdata%s_panelID /= lcmesh%panelID ) then
           if ( this%hvfield_num > 0 ) then
@@ -311,8 +310,9 @@ contains
             allocate( lcfpos3D(commdata%Nnode_LCMeshFace,2), unity_fac(commdata%Nnode_LCMeshFace) )
             allocate( tmp_svec3D(commdata%Nnode_LCMeshFace,2) )
 
-            call push_localsendbuf( lcfpos3D,                                          &
-              fpos3D, commdata%s_faceID, this%is_f(f,n), commdata%Nnode_LCMeshFace, 2, &
+            call push_localsendbuf( lcfpos3D,                            &
+              fpos3D, commdata%s_faceID, this%is_f(f,n),                 &
+              commdata%Nnode_LCMeshFace, this%Nnode_LCMeshAllFace(n), 2, &
               lcmesh, elem )
             unity_fac(:) = 1.0_RP
 
@@ -336,7 +336,8 @@ contains
             allocate( tmp2_htensor3D(commdata%Nnode_LCMeshFace,2,2) )
 
             call push_localsendbuf( lcfpos3D,                                          &
-              fpos3D, commdata%s_faceID, this%is_f(f,n), commdata%Nnode_LCMeshFace, 2, &
+              fpos3D, commdata%s_faceID, this%is_f(f,n),                 &
+              commdata%Nnode_LCMeshFace, this%Nnode_LCMeshAllFace(n), 2, &
               lcmesh, elem )
             unity_fac(:) = 1.0_RP
             
@@ -427,9 +428,9 @@ contains
           if ( this%hvfield_num > 0 ) then
 
             allocate( lcfpos3D(commdata%Nnode_LCMeshFace,2), unity_fac(commdata%Nnode_LCMeshFace) )
-            call push_localsendbuf( lcfpos3D,                          &
-              fpos3D, f, this%is_f(f,n), commdata%Nnode_LCMeshFace, 2, &
-              lcmesh, elem )
+            call push_localsendbuf( lcfpos3D,                       &
+              fpos3D, f, this%is_f(f,n), commdata%Nnode_LCMeshFace, &
+              this%Nnode_LCMeshAllFace(n), 2, lcmesh, elem )
             unity_fac(:) = 1.0_RP
             
             do varid=this%sfield_num+1, this%sfield_num+2*this%hvfield_num-1, 2
@@ -447,8 +448,9 @@ contains
             allocate( tmp1_htensor3D(commdata%Nnode_LCMeshFace,2,2) )
             unity_fac(:) = 1.0_RP
 
-            call push_localsendbuf( lcfpos3D,                          &
-              fpos3D, f, this%is_f(f,n), commdata%Nnode_LCMeshFace, 2, &
+            call push_localsendbuf( lcfpos3D,                            &
+              fpos3D, f, this%is_f(f,n),                                 &
+              commdata%Nnode_LCMeshFace, this%Nnode_LCMeshAllFace(n), 2, &
               lcmesh, elem )
             
             do varid=this%sfield_num+2*this%hvfield_num+1, this%field_num_tot-3, 4
@@ -487,12 +489,13 @@ contains
   end subroutine post_exchange_core
 
 !OCL SERIAL
-  subroutine push_localsendbuf( lc_send_buf, send_buf, s_faceID, is, Nnode_LCMeshFace, var_num, &
+  subroutine push_localsendbuf( lc_send_buf, send_buf, s_faceID, is, Nnode_LCMeshFace, bufsize_per_field, var_num, &
       mesh3D, elem3D )
     implicit none
 
     integer, intent(in) :: var_num
     integer, intent(in) ::  Nnode_LCMeshFace
+    integer, intent(in) :: bufsize_per_field
     real(RP), intent(inout) :: lc_send_buf(Nnode_LCMeshFace,var_num)
     real(RP), intent(in) :: send_buf(bufsize_per_field,var_num)  
     integer, intent(in) :: s_faceID, is

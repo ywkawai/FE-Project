@@ -58,6 +58,7 @@ module scale_mesh_linedom1d
   !
 
 contains
+  !> Initialize an object to manage a 1D domain
   subroutine MeshLineDom1D_Init(this,       & ! (inout)
     NeG,                                    & ! (in)
     dom_xmin, dom_xmax,                     & ! (in)
@@ -67,14 +68,14 @@ contains
     implicit none
 
     class(MeshLineDom1D), intent(inout) :: this
-    integer, intent(in) :: NeG
-    real(RP), intent(in) :: dom_xmin
-    real(RP), intent(in) :: dom_xmax   
-    type(LineElement), intent(in), target :: refElem
-    integer, intent(in) :: NLocalMeshPerPrc
-    integer, intent(in), optional :: nproc
-    integer, intent(in), optional :: myrank
-    real(RP), intent(in), optional :: FX(NeG+1)
+    integer, intent(in) :: NeG                       !< Total number of elements in the 1D domain
+    real(RP), intent(in) :: dom_xmin                 !< Minimum coordinate of the 1D domain
+    real(RP), intent(in) :: dom_xmax                 !< Maximum coordinate of the 1D domain
+    type(LineElement), intent(in), target :: refElem !< Reference element for the 1D mesh
+    integer, intent(in) :: NLocalMeshPerPrc          !< Number of local meshes managed by each process
+    integer, intent(in), optional :: nproc           !< Total number of processes (if not provided, it will be determined internally)
+    integer, intent(in), optional :: myrank          !< Rank of the current process (if not provided, it will be determined internally)
+    real(RP), intent(in), optional :: FX(NeG+1)      !< Coordinates of the element boundaries (if not provided, they will be generated internally)
     !-----------------------------------------------------------------------------
 
     call MeshBase1D_Init(this, &
@@ -87,6 +88,7 @@ contains
 
   end subroutine MeshLineDom1D_Init
 
+  !> Finalize an object to manage a 1D domain
   subroutine MeshLineDom1D_Final( this ) ! (inout)
     implicit none
     class(MeshLineDom1D), intent(inout) :: this
@@ -96,6 +98,8 @@ contains
 
   end subroutine MeshLineDom1D_Final
   
+  !> Generate meshes for the 1D domain
+!OCL SERIAL
   subroutine MeshLineDom1D_generate( this ) ! (inout)
     implicit none
     class(MeshLineDom1D), intent(inout), target :: this

@@ -161,8 +161,8 @@ contains
 
 !- Private subroutines -------------------
   subroutine prepair_filter_matrix( this, elem3D, FilterShape, FilterWidthFac )
-    use scale_polynominal, only: &
-      Polynominal_GenLagrangePoly
+    use scale_polynomial, only: &
+      Polynomial_GenLagrangePoly
     implicit none
     class(Filter), intent(inout) :: this
     class(ElementBase3D), intent(in) :: elem3D
@@ -189,7 +189,7 @@ contains
     allocate( this%FilterMat_h1D(elem1D%Np,-elem1D%Np+1:elem1D%Np+elem1D%Np) )
     allocate( lag(elem1D_intrp%Np,elem1D%PolyOrder+1) )
     allocate( filter_func(elem1D_intrp%Np) )
-    lag(:,:) = Polynominal_GenLagrangePoly( elem1D%PolyOrder, elem1D%x1, elem1D_intrp%x1 )
+    lag(:,:) = Polynomial_GenLagrangePoly( elem1D%PolyOrder, elem1D%x1, elem1D_intrp%x1 )
 
     this%FilterMat_h1D(:,:) = 0.0_RP
 

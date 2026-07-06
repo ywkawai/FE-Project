@@ -19,10 +19,12 @@ VPATH = \
 	mesh:             \
 	data:             \
 	file:             \
+	multigrid_solver: \
 	fluid_dyn_solver: \
 	surface:          \
 	turbulence:       \
 	microphysics:     \
+	radiation:        \
 	model_framework:
 
 LIBVERSION = $(shell git rev-parse --short HEAD 2> /dev/null)
@@ -34,7 +36,7 @@ endif
 
 
 OBJS_NAME_COMMON = \
-	scale_polynominal.o             \
+	scale_polynomial.o             \
 	scale_polygon.o                 \
 	scale_sparsemat.o               \
 	scale_linalgebra.o              \
@@ -56,10 +58,13 @@ OBJS_NAME_ELEMENT = \
 	scale_element_hexahedral.o    \
 	scale_element_modalfilter.o   \
 	scale_element_SIACfilter.o    \
-	scale_element_operation_base.o                \
-	scale_element_operation_general.o	          \
-	scale_element_operation_tensorprod3D_kernel.o \
-	scale_element_operation_tensorprod3D.o
+	scale_element_operation_base.o                    \
+	scale_element_operation_general.o	              \
+	scale_element_operation_tensorprod3D_kernel.o     \
+	scale_element_operation_tensorprod3D_kernel_gpu.o \
+	scale_element_operation_tensorprod3D.o            \
+	scale_element_operation_tensorprod3D_interp.o     \
+	scale_element_operation_gpu_driver.o
 
 OBJS_NAME_MESH = \
 	scale_meshutil_1d.o            \
@@ -82,6 +87,9 @@ OBJS_NAME_MESH = \
 	scale_mesh_cubedom3d.o         \
 	scale_mesh_cubedspheredom2d.o  \
 	scale_mesh_cubedspheredom3d.o  \
+	scale_mesh_hierarchy_base.o    \
+	scale_mesh_hierarchy_2d.o      \
+	scale_mesh_hierarchy_3d.o      \
 	scale_mesh_topography.o
 
 OBJS_NAME_DATA = \
@@ -96,6 +104,9 @@ OBJS_NAME_DATA = \
 	scale_meshfieldcomm_cubedspheredom3d.o   \
 	scale_meshfield_statistics.o             \
 	scale_meshfield_fvm_util.o               \
+	scale_meshfield_filter_operation_base.o  \
+	scale_meshfield_filter_operation_2d.o    \
+	scale_meshfield_filter_operation_3d.o    \
 	scale_meshfield_analysis_numerror_base.o \
 	scale_meshfield_analysis_numerror.o      \
 	scale_meshfield_spectral_transform.o 
@@ -107,32 +118,42 @@ OBJS_NAME_FILE = \
 	scale_file_restart_meshfield.o \
 	scale_file_monitor_meshfield.o
 
+OBJS_NAME_MG_SOLVER = \
+	scale_multigrid_fieldset_base.o \
+	scale_multigrid_smoother_base.o \
+	scale_multigrid_solver_base.o \
+	scale_multigrid_solver_2d.o   \
+	scale_multigrid_solver_3d.o
+
 OBJS_NAME_FLUID_DYN_SOLVER = \
-	scale_atm_dyn_dgm_modalfilter.o                  \
-	scale_atm_dyn_dgm_spongelayer.o                  \
-	scale_atm_dyn_dgm_hydrostatic.o                  \
-	scale_atm_dyn_dgm_nonhydro3d_numdiff.o           \
-	scale_atm_dyn_dgm_nonhydro2d.o                   \
-	scale_atm_dyn_dgm_nonhydro3d_common.o            \
-	scale_atm_dyn_dgm_nonhydro3d_etot_heve_numflux.o \
-	scale_atm_dyn_dgm_nonhydro3d_rhot_heve_numflux.o \
-	scale_atm_dyn_dgm_nonhydro3d_etot_heve.o         \
-	scale_atm_dyn_dgm_nonhydro3d_rhot_heve.o         \
-	scale_atm_dyn_dgm_nonhydro3d_etot_hevi_common.o   \
-	scale_atm_dyn_dgm_nonhydro3d_rhot_hevi_common.o   \
-	scale_atm_dyn_dgm_nonhydro3d_rhot_hevi_common_2.o \
-	scale_atm_dyn_dgm_hevi_common_linalgebra.o       \
-	scale_atm_dyn_dgm_nonhydro3d_etot_hevi_numflux.o \
-	scale_atm_dyn_dgm_nonhydro3d_rhot_hevi_numflux.o \
-	scale_atm_dyn_dgm_nonhydro3d_etot_hevi.o         \
-	scale_atm_dyn_dgm_nonhydro3d_rhot_hevi.o         \
-	scale_atm_dyn_dgm_nonhydro3d_rhot_heve_splitform.o \
-	scale_atm_dyn_dgm_nonhydro3d_rhot_hevi_splitform.o \
-	scale_atm_dyn_dgm_nonhydro3d_hevi_gmres.o        \
-	scale_atm_dyn_dgm_globalnonhydro3d_rhot_heve.o   \
-	scale_atm_dyn_dgm_globalnonhydro3d_etot_heve.o   \
-	scale_atm_dyn_dgm_globalnonhydro3d_rhot_hevi.o   \
-	scale_atm_dyn_dgm_globalnonhydro3d_etot_hevi.o   \
+	scale_atm_dyn_dgm_modalfilter.o                      \
+	scale_atm_dyn_dgm_spongelayer.o                      \
+	scale_atm_dyn_dgm_hydrostatic.o                      \
+	scale_atm_dyn_dgm_nonhydro3d_numdiff.o               \
+	scale_atm_dyn_dgm_nonhydro2d.o                       \
+	scale_atm_dyn_dgm_nonhydro3d_common.o                \
+	scale_atm_dyn_dgm_nonhydro3d_etot_heve_numflux.o     \
+	scale_atm_dyn_dgm_nonhydro3d_rhot_heve_numflux.o     \
+	scale_atm_dyn_dgm_nonhydro3d_rhot_heve_numflux_gpu.o \
+	scale_atm_dyn_dgm_nonhydro3d_etot_heve.o             \
+	scale_atm_dyn_dgm_nonhydro3d_rhot_heve.o             \
+	scale_atm_dyn_dgm_nonhydro3d_rhot_heve_gpu.o         \
+	scale_atm_dyn_dgm_nonhydro3d_etot_hevi_common.o      \
+	scale_atm_dyn_dgm_nonhydro3d_rhot_hevi_common.o      \
+	scale_atm_dyn_dgm_nonhydro3d_rhot_hevi_common_2.o    \
+	scale_atm_dyn_dgm_hevi_common_linalgebra.o           \
+	scale_atm_dyn_dgm_nonhydro3d_etot_hevi_numflux.o     \
+	scale_atm_dyn_dgm_nonhydro3d_rhot_hevi_numflux.o     \
+	scale_atm_dyn_dgm_nonhydro3d_etot_hevi.o             \
+	scale_atm_dyn_dgm_nonhydro3d_rhot_hevi.o             \
+	scale_atm_dyn_dgm_nonhydro3d_rhot_heve_splitform.o   \
+	scale_atm_dyn_dgm_nonhydro3d_rhot_hevi_splitform.o   \
+	scale_atm_dyn_dgm_nonhydro3d_hevi_gmres.o            \
+	scale_atm_dyn_dgm_globalnonhydro3d_rhot_heve.o       \
+	scale_atm_dyn_dgm_globalnonhydro3d_etot_heve.o       \
+	scale_atm_dyn_dgm_globalnonhydro3d_rhot_hevi.o       \
+	scale_atm_dyn_dgm_globalnonhydro3d_etot_hevi.o       \
+	scale_atm_dyn_dgm_none.o                             \
 	scale_atm_dyn_dgm_bnd.o                          \
 	scale_atm_dyn_dgm_driver_base.o                  \
 	scale_atm_dyn_dgm_driver_nonhydro3d.o            \
@@ -151,7 +172,12 @@ OBJS_NAME_TURBULENCE = \
 	scale_atm_phy_tb_dgm_common.o 
 
 OBJS_NAME_MICROPHYS = \
-	scale_atm_phy_mp_dgm_common.o
+	scale_atm_phy_mp_dgm_common.o \
+	scale_atm_phy_mp_lscond.o
+
+OBJS_NAME_RADIATION = \
+	scale_atm_phy_rd_dgm_gray.o   \
+	scale_atm_phy_rd_dgm_common.o
 
 OBJS_NAME_MODEL_FRAMEWORK = \
 	scale_model_meshbase_manager.o \
@@ -166,10 +192,12 @@ OBJS_NAME = \
 	$(OBJS_NAME_MESH)             \
 	$(OBJS_NAME_DATA)		      \
 	$(OBJS_NAME_FILE)             \
+	$(OBJS_NAME_MG_SOLVER)        \
 	$(OBJS_NAME_FLUID_DYN_SOLVER) \
 	$(OBJS_NAME_SURFACE)          \
 	$(OBJS_NAME_TURBULENCE)       \
 	$(OBJS_NAME_MICROPHYS)        \
+	$(OBJS_NAME_RADIATION)        \
 	$(OBJS_NAME_MODEL_FRAMEWORK)
 
 #------------------------------------------
@@ -223,6 +251,8 @@ OBJS_NAME_SCALELIB = \
 	scale_atmos_phy_mp_suzuki10.o \
 	scale_atmos_phy_mp_tomita08.o \
 	\
+	scale_atmos_phy_rd_common.o \
+	\
 	scale_atmos_phy_sf_bulk.o  \
 	scale_atmos_phy_sf_const.o \
 	\
@@ -267,13 +297,19 @@ OBJS_NAME_SCALELIB = \
 	scale_spnudge.o \
 	scale_dft.o
 
+ifeq ($(SCALE_DEVELOP),T)
+OBJS_NAME_SCALELIB += \
+	scale_lake_grid_cartesC.o        \
+	scale_lake_grid_cartesC_index.o 
+endif
+
 #------------------------------------------
 
 MODS = $(addprefix $(BUILD_DIR)/, \
 	$(shell echo $(patsubst $(BUILD_DIR)/%.o,%.mod, \
 	$(OBJS) ) | tr A-Z a-z) )
 
-MODS_SCALELIB = $(addprefix $(SCALE)/include/, \
+MODS_SCALELIB = $(addprefix $(SCALE)/include$(POSTFIX)/, \
 	$(shell echo $(patsubst %.o,%.mod, \
 	$(filter-out scale_sys_sigvars.o, \
 	$(filter-out scale_file_netcdf.o, \
@@ -358,7 +394,9 @@ dependency: prep_scalelib
 common/scale_quicksort.F90: scale_quicksort.F90.erb
 common/scale_timeint_rk.F90: scale_timeint_rk.F90.erb
 element/scale_element_operation_tensorprod3D_kernel.F90: scale_element_operation_tensorprod3D_kernel.F90.erb
+element/scale_element_operation_tensorprod3D_kernel_gpu.F90: scale_element_operation_tensorprod3D_kernel.F90.erb
 element/scale_element_operation_tensorprod3D.F90: scale_element_operation_tensorprod3D.F90.erb
+element/scale_element_operation_gpu_driver.F90: scale_element_operation_gpu_driver.F90.erb
 fluid_dyn_solver/scale_atm_dyn_dgm_hevi_common_linalgebra.F90: scale_atm_dyn_dgm_hevi_common_linalgebra.F90.erb
 
 $(BUILD_DIR)/%.o : %.F90

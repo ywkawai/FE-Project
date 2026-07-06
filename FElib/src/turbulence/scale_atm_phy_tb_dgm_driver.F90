@@ -422,12 +422,18 @@ contains
     TB_TENDS, PROG_VARS, TRC_VARS, AUX_VARS,   &
     AUX_TB_VARS,  DIAG_TB_VARS,                &
     boundary_cond,                             &
-    Dx, Dy, Dz, Sx, Sy, Sz, Lift, mesh3D       )
+    Dx, Dy, Dz, Sx, Sy, Sz, Lift, mesh3D,      &
+    gfilter_flag, gfilter, diag_nu_kh,         &
+    modal_filter_flag, modal_filter )
 
     use scale_tracer, only: &
       QA, TRACER_ADVC, TRACER_NAME
       
     use scale_model_var_manager, only: ModelVarManager
+
+    use scale_meshfield_filter_operation_3d, only: &
+      MeshFieldFilterOperation3D
+    use scale_element_modalfilter, only: ModalFilter
     implicit none
 
     class(AtmPhyTbDGMDriver), intent(inout) :: this
@@ -442,6 +448,11 @@ contains
     type(SparseMat), intent(in) :: Dx, Dy, Dz
     type(SparseMat), intent(in) :: Sx, Sy, Sz
     type(SparseMat), intent(in) :: Lift
+    logical, intent(in) :: gfilter_flag
+    class(MeshFieldFilterOperation3D), intent(inout) :: gfilter
+    type(MeshField3D), intent(inout) :: diag_nu_kh(2)
+    logical, intent(in) :: modal_filter_flag
+    type(ModalFilter), intent(in) :: modal_filter
 
     class(LocalMesh3D), pointer :: lcmesh3D
     integer :: n
@@ -550,6 +561,24 @@ contains
     call PROF_rapstart('ATM_PHY_TB_exchange_prgv', 2)
     call AUX_TB_VARS%MeshFieldComm_Exchange()
     call PROF_rapend('ATM_PHY_TB_exchange_prgv', 2)
+
+    if ( gfilter_flag ) then
+      call PROF_rapstart('ATM_PHY_TB_filter_NU_KH', 2)
+      call gfilter%Apply( diag_nu_kh, mesh3D )
+      call PROF_rapend('ATM_PHY_TB_filter_NU_KH', 2)
+    end if
+    if ( modal_filter_flag ) then
+      call PROF_rapstart('ATM_PHY_TB_filter_NU_KH', 2)
+      do n=1, mesh3D%LOCAL_MESH_NUM
+        lcmesh3D => mesh3D%lcmesh_list(n)
+        !$omp parallel do
+        do ke=lcmesh3D%NeS, lcmesh3D%NeE
+          NU%local(n)%val(:,ke) = matmul( modal_filter%FilterMat, NU%local(n)%val(:,ke) )
+          KH%local(n)%val(:,ke) = matmul( modal_filter%FilterMat, KH%local(n)%val(:,ke) )
+        end do
+      end do
+      call PROF_rapend('ATM_PHY_TB_filter_NU_KH', 2)
+    end if
 
     do n=1, mesh3D%LOCAL_MESH_NUM
       lcmesh3D => mesh3D%lcmesh_list(n)

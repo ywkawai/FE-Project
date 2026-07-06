@@ -8,7 +8,7 @@
 !!
 !<
 !-------------------------------------------------------------------------------
-#include "scalelib.h"
+#include "scaleFElib.h"
 module mod_user
 
   !-----------------------------------------------------------------------------
@@ -132,7 +132,7 @@ contains
       RANDOM_uniform      
     use scale_atm_dyn_dgm_hydrostatic, only: &
       hydrostatic_calc_basicstate_constPT, &
-      hydrostaic_build_rho_XYZ
+      hydrostatic_build_rho_XYZ
     use mod_experiment, only: &
       TracerLocalMeshField_ptr
     
@@ -223,7 +223,7 @@ contains
     end do
     end do
 
-    call hydrostaic_build_rho_XYZ( DDENS, & ! (out)
+    call hydrostatic_build_rho_XYZ( DDENS, & ! (out)
       DENS_hyd, PRES_hyd, PT_tmp,         & ! (in)
       x, y, z, lcmesh, elem               ) ! (in)
       

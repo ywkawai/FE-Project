@@ -41,7 +41,8 @@ program test_advect2d
     
   use scale_timeint_rk, only: timeint_rk  
 
-  use mod_advect2d_numerror, only: advect2d_numerror_eval  
+  use mod_advect2d_kernel, only: advect2d_kernel_cal_tend
+  use mod_advect2d_numerror, only: Advect2DNumErrorAnalysis
   !-----------------------------------------------------------------------------
   implicit none
 
@@ -71,10 +72,13 @@ program test_advect2d
   integer :: rkstage
   integer :: tintbuf_ind
   integer, parameter :: RKVAR_Q = 1
+
+  type(Advect2DNumErrorAnalysis) :: numerror_analysis
   !-------------------------------------------------------
 
   call init()
 
+  tsec_ = 0.0_RP
   do
     !* Report current time
     call TIME_manager_checkstate
@@ -87,6 +91,12 @@ program test_advect2d
 
     do rkstage=1, tinteg_lc(1)%nstage
 
+      !* Set velocity field
+
+      call PROF_rapstart( 'set_velocity', 1)
+      call set_velocity( u, v, tsec_ )
+      call PROF_rapend( 'set_velocity', 1)  
+
       !* Exchange halo data
 
       call PROF_rapstart( 'exchange_halo', 1)
@@ -95,12 +105,6 @@ program test_advect2d
       call fields_comm%Get(field_list, 1)
       call PROF_rapend( 'exchange_halo', 1)
 
-      !* Set velocity field
-
-      call PROF_rapstart( 'set_velocity', 1)
-      call set_velocity( u, v, tsec_ )
-      call PROF_rapend( 'set_velocity', 1)  
-
       !* Update prognostic variables
       
       do domid=1, mesh%LOCAL_MESH_NUM
@@ -108,24 +112,23 @@ program test_advect2d
         tintbuf_ind = tinteg_lc(domid)%tend_buf_indmap(rkstage)
 
         call PROF_rapstart( 'cal_tend', 1)
-        call cal_tend( &
+        call advect2d_kernel_cal_tend( &
            tinteg_lc(domid)%tend_buf2D_ex(:,:,RKVAR_Q,tintbuf_ind),    & ! (out)
            q%local(domid)%val, u%local(domid)%val, v%local(domid)%val, & ! (in)
-           lcmesh, lcmesh%refElem2D )                                    ! (in)
+           Dx, Dy, Lift, lcmesh, lcmesh%refElem2D )                      ! (in)
         call PROF_rapend( 'cal_tend', 1)
 
         call PROF_rapstart( 'update_var', 1)
         call tinteg_lc(domid)%Advance( rkstage, q%local(domid)%val, RKVAR_Q,    & ! (out)
                                    1, lcmesh%refElem%Np, lcmesh%NeS, lcmesh%NeE ) ! (in)
-        call PROF_rapend('update_var', 1)      
+        call PROF_rapend('update_var', 1)
       end do
     end do
-    
+
     tsec_ = TIME_DTSEC * real(TIME_NOWSTEP-1, kind=RP)
     if ( Do_NumErrorAnalysis ) then
-      call advect2d_numerror_eval( qexact, & ! (out)
-        q, TIME_NOWSTEP, tsec_, VelTypeName, VelTypeParams, InitShapeName, InitShapeParams, & ! (in)
-        mesh, mesh%refElem2D                                                                ) ! (in)
+      call numerror_analysis%Eval( qexact, & ! (inout)
+        q, TIME_NOWSTEP, tsec_             ) ! (in)
     end if
     
     !* Output history file
@@ -142,89 +145,6 @@ program test_advect2d
   call final()
 
 contains
-  !> Calculate the tendency
-  !! dqdt = - Dx ( uq ) - Dy ( vq ) + L ( < vec q>_numflx - vec q ).n
-  !!
-  subroutine cal_tend( dqdt, & ! (out)
-    q_, u_, v_, lmesh, elem  ) ! (in)
-
-    use scale_sparsemat, only: sparsemat_matmul
-    implicit none
-
-    class(LocalMesh2D), intent(in) :: lmesh
-    class(ElementBase2D), intent(in) :: elem
-    real(RP), intent(out) :: dqdt(elem%Np,lmesh%NeA)
-    real(RP), intent(in)  :: q_(elem%Np,lmesh%NeA)
-    real(RP), intent(in)  :: u_(elem%Np,lmesh%NeA)
-    real(RP), intent(in)  :: v_(elem%Np,lmesh%NeA)
-
-    real(RP) :: Fx(elem%Np), Fy(elem%Np), LiftBndFlx(elem%Np)
-    real(RP) :: del_flux(elem%NfpTot,lmesh%Ne)
-
-    integer :: ke
-    !------------------------------------------------------------------------
-
-    call PROF_rapstart( 'cal_tend_bndflux', 2)
-    call cal_elembnd_flux( del_flux,                              & ! (out)
-      q_, u_, v_, lmesh%normal_fn(:,:,1), lmesh%normal_fn(:,:,2), & ! (in)
-      lmesh%vmapM, lmesh%vmapP,                                   & ! (in)
-      lmesh, elem )                                                 ! (in)
-    call PROF_rapend( 'cal_tend_bndflux', 2)
-
-    !-----
-    call PROF_rapstart( 'cal_tend_interior', 2)
-    !$omp parallel do private(ke, Fx, Fy, LiftBndFlx)
-    do ke = lmesh%NeS, lmesh%NeE
-      call sparsemat_matmul(Dx, q_(:,ke)*u_(:,ke), Fx)
-      call sparsemat_matmul(Dy, q_(:,ke)*v_(:,ke), Fy)
-      call sparsemat_matmul(Lift, lmesh%Fscale(:,ke)*del_flux(:,ke), LiftBndFlx)
-
-      dqdt(:,ke) = - ( lmesh%Escale(:,ke,1,1) * Fx(:) &
-                     + lmesh%Escale(:,ke,2,2) * Fy(:) &
-                     + LiftBndFlx(:) )
-    end do
-    call PROF_rapend( 'cal_tend_interior', 2)
-
-    return
-  end subroutine cal_tend
-
-  subroutine cal_elembnd_flux( ebnd_flux, q_, u_, v_, nx, ny, vmapM, vmapP, lmesh, elem )
-    implicit none
-
-    class(LocalMesh2D), intent(in) :: lmesh
-    class(ElementBase2D), intent(in) :: elem  
-    real(RP), intent(out) ::  ebnd_flux(elem%NfpTot,lmesh%Ne)
-    real(RP), intent(in) ::  q_(elem%Np*lmesh%NeA)
-    real(RP), intent(in) ::  u_(elem%Np*lmesh%NeA)  
-    real(RP), intent(in) ::  v_(elem%Np*lmesh%NeA)  
-    real(RP), intent(in) :: nx(elem%NfpTot,lmesh%Ne)
-    real(RP), intent(in) :: ny(elem%NfpTot,lmesh%Ne)
-    integer, intent(in) :: vmapM(elem%NfpTot,lmesh%Ne)
-    integer, intent(in) :: vmapP(elem%NfpTot,lmesh%Ne)
-     
-    integer :: iP(elem%NfpTot), iM(elem%NfpTot)
-    real(RP) :: VelP(elem%NfpTot), VelM(elem%NfpTot)
-    real(RP) :: alpha(elem%NfpTot)
-
-    integer :: ke
-    !------------------------------------------------------------------------
-
-    !$omp parallel do private(ke, iM, iP, VelM, VelP, alpha)
-    do ke=1, lmesh%Ne
-      iM(:) = vmapM(:,ke); iP(:) = vmapP(:,ke)
-
-      VelM(:) = u_(iM(:)) * nx(:,ke) + v_(iM(:)) * ny(:,ke)
-      VelP(:) = u_(iP(:)) * nx(:,ke) + v_(iP(:)) * ny(:,ke)
-
-      alpha(:) = 0.5_RP * abs( VelM(:) + VelP(:) )
-      ebnd_flux(:,ke) = 0.5_RP * ( &
-          ( q_(iP(:)) * VelP(:) - q_(iM(:)) * VelM(:) ) &
-         - alpha(:) * ( q_(iP(:)) - q_(iM(:)) )         )
-    end do
-
-    return
-  end subroutine cal_elembnd_flux
-
   !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
   subroutine set_velocity( u_, v_, tsec )
@@ -234,18 +154,15 @@ contains
     type(MeshField2D), intent(inout) :: v_ 
     real(RP), intent(in) :: tsec
 
-    integer :: idom, ke
+    integer :: idom
     !----------------------------------------
 
     VelTypeParams(4) = tsec
 
     do idom=1, mesh%LOCAL_MESH_NUM
       lcmesh => mesh%lcmesh_list(idom)
-      !$omp parallel do private(ke)
-      do ke=lcmesh%NeS, lcmesh%NeE
-        call fieldutil_get_profile2d_flow( u%local(idom)%val(:,ke), v%local(idom)%val(:,ke),         & ! (out)
-          VelTypeName, lcmesh%pos_en(:,ke,1), lcmesh%pos_en(:,ke,2), VelTypeParams, refElem%Np )       ! (in)
-      end do
+      call fieldutil_get_profile2d_flow( u%local(idom)%val(:,lcmesh%NeS:lcmesh%NeE), v%local(idom)%val(:,lcmesh%NeS:lcmesh%NeE),   & ! (out)
+        VelTypeName, lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2), VelTypeParams, 1, refElem%Np, refElem%Np, 1, lcmesh%Ne, lcmesh%Ne ) ! (in)
     end do
     return
   end subroutine set_velocity
@@ -294,13 +211,13 @@ contains
              
         q%local(idom)%val(:,ke) = matmul( GPMat, q_intrp )
       end do
+      !$acc update device( q%local(idom)%val )
     end do
     call set_velocity( u, v, 0.0_RP )
 
     if ( Do_NumErrorAnalysis ) then
-      call advect2d_numerror_eval( qexact, & ! (out)
-        q, 1, 0.0_RP, VelTypeName, VelTypeParams, InitShapeName, InitShapeParams, & ! (in)
-        mesh, mesh%refElem2D                                                      ) ! (in)
+      call numerror_analysis%Eval( qexact, & ! (inout)
+        q, 1, 0.0_RP             ) ! (in)
     end if
 
     call FILE_HISTORY_meshfield_put(HST_ID(1), q)
@@ -317,7 +234,6 @@ contains
       TIME_manager_report_timeintervals
     use scale_file_history_meshfield, only: FILE_HISTORY_meshfield_setup  
     use scale_file_history, only: FILE_HISTORY_reg  
-    use mod_advect2d_numerror, only: advect2d_numerror_Init             
     implicit none
 
     real(RP), parameter :: dom_xmin =  0.0_RP
@@ -329,7 +245,6 @@ contains
     integer :: NeGY                        
     integer :: PolyOrder                   
     integer, parameter :: NLocalMeshPerPrc = 1
-    logical :: InitCond_GalerkinProjFlag         
     logical, parameter :: LumpedMassMatFlag = .false.
     character(len=H_SHORT) :: TINTEG_SCHEME_TYPE
 
@@ -337,7 +252,6 @@ contains
       NeGX, NeGY, PolyOrder,          &
       TINTEG_SCHEME_TYPE,             &
       InitShapeName, InitShapeParams, &
-      InitCond_GalerkinProjFlag,      &
       InitGPMatPolyOrder,             &
       VelTypeName, VelTypeParams,     &
       Do_NumErrorAnalysis
@@ -372,8 +286,7 @@ contains
     InitShapeName      = 'sin'
     InitShapeParams(:) = (/ 1.0_RP, 1.0_RP, 0.0_RP, 0.0_RP /)
     VelTypeName        = 'const'
-    InitCond_GalerkinProjFlag = .false.
-    InitGPMatPolyOrder = 7
+    InitGPMatPolyOrder = PolyOrder
     VelTypeParams(:)   = (/ 1.0_RP, 1.0_RP, 0.0_RP, 0.0_RP /)
     Do_NumErrorAnalysis = .false.
 
@@ -415,19 +328,19 @@ contains
     
     call mesh%Generate()
     
-    !-- seup fields
+    !-- setup fields
 
     call q%Init( "q", "1", mesh )
     call qexact%Init( "qexact", "1", mesh )
     call u%Init( "u", "m/s", mesh )
     call v%Init( "v", "m/s", mesh )
     
-    !-- seup data communicators
+    !-- setup data communicators
 
-    call fields_comm%Init(3, 0, 0, mesh)
     field_list(1)%field2d => q
     field_list(2)%field2d => u
     field_list(3)%field2d => v
+    call fields_comm%Init( size(field_list), 0, 0, mesh )
   
     !-- setup history files    
 
@@ -445,8 +358,11 @@ contains
     end do
 
     !-- setup a module for evaluating numerical errors 
-    if ( Do_NumErrorAnalysis ) &
-      call advect2d_numerror_Init( refElem )
+    if ( Do_NumErrorAnalysis ) then
+      call numerror_analysis%Init( &
+         VelTypeName, VelTypeParams, InitShapeName, InitShapeParams, & ! (in)
+         mesh, refElem ) ! (in)
+    end if
 
     !-- report information of time intervals
     call TIME_manager_report_timeintervals
@@ -459,14 +375,13 @@ contains
     use scale_file_history_meshfield, only: &
       FILE_HISTORY_meshfield_finalize
     use scale_time_manager, only: TIME_manager_Final  
-    use mod_advect2d_numerror, only: advect2d_numerror_Final   
     implicit none
     integer :: idom
     !------------------------------------------------------------------------
 
     call PROF_rapstart( "final", 1 )
     if ( Do_NumErrorAnalysis ) &
-      call advect2d_numerror_Final()
+      call numerror_analysis%Final()
 
     call FILE_HISTORY_meshfield_finalize()
 
@@ -477,7 +392,7 @@ contains
     call q%Final()
     call qexact%Final()
     call u%Final()
-    call V%Final()
+    call v%Final()
 
     call fields_comm%Final()
     call mesh%Final()

@@ -101,14 +101,14 @@ contains
     this%KS = KS; this%KE = KE; this%KA = KA
     this%IS = IS; this%IE = IE; this%IA = IA
     this%JS = JS; this%JE = JE; this%JA = JA
-
+    !$acc enter data copyin( this )
     return
   end subroutine operator_fvm_Init
 
   subroutine operator_fvm_Final( this )
     class(operator_fvm), intent(inout) :: this
     !----------------------------------------
-    
+    !$acc exit data delete( this )
     return
   end subroutine operator_fvm_Final
 
@@ -126,6 +126,7 @@ contains
 
     select case( this%flux_scheme_id )
     case (FLUX_SCHEME_ID_UD1)
+      !$acc parallel loop collapse(2) present(vel, q, flux)
       do j=this%JS, this%JE
       do i=this%IS, this%IE
       do k=this%KS-1, this%KE
@@ -136,6 +137,7 @@ contains
       end do
       end do  
     case (FLUX_SCHEME_ID_CD2)
+      !$acc parallel loop collapse(2) present(vel, q, flux)
       do j=this%JS, this%JE
       do i=this%IS, this%IE
       do k=this%KS-1, this%KE
@@ -144,6 +146,7 @@ contains
       end do
       end do
     case (FLUX_SCHEME_ID_UD3)
+      !$acc parallel loop collapse(2) present(vel, q, flux)
       do j=this%JS, this%JE
       do i=this%IS, this%IE
       do k=this%KS-1, this%KE
@@ -154,6 +157,7 @@ contains
       end do
       end do 
     case (FLUX_SCHEME_ID_CD4)
+      !$acc parallel loop collapse(2) present(vel, q, flux)
       do j=this%JS, this%JE
       do i=this%IS, this%IE
       do k=this%KS-1, this%KE
@@ -162,6 +166,7 @@ contains
       end do
       end do      
     case (FLUX_SCHEME_ID_UD5)
+      !$acc parallel loop collapse(2) present(vel, q, flux)
       do j=this%JS, this%JE
       do i=this%IS, this%IE
       do k=this%KS-1, this%KE
@@ -190,6 +195,7 @@ contains
 
     select case( this%flux_scheme_id )
     case (FLUX_SCHEME_ID_UD1)
+      !$acc parallel loop collapse(2) present(vel, q, flux)
       do j=this%JS, this%JE
       do i=this%IS-1, this%IE
       do k=this%KS, this%KE
@@ -200,6 +206,7 @@ contains
       end do
       end do  
     case (FLUX_SCHEME_ID_CD2)
+      !$acc parallel loop collapse(2) present(vel, q, flux)
       do j=this%JS, this%JE
       do i=this%IS-1, this%IE
       do k=this%KS, this%KE
@@ -208,6 +215,7 @@ contains
       end do
       end do
     case (FLUX_SCHEME_ID_UD3)
+      !$acc parallel loop collapse(2) present(vel, q, flux)
       do j=this%JS, this%JE
       do i=this%IS-1, this%IE
       do k=this%KS, this%KE
@@ -218,6 +226,7 @@ contains
       end do
       end do 
     case (FLUX_SCHEME_ID_CD4)
+      !$acc parallel loop collapse(2) present(vel, q, flux)
       do j=this%JS, this%JE
       do i=this%IS-1, this%IE
       do k=this%KS, this%KE
@@ -226,6 +235,7 @@ contains
       end do
       end do      
     case (FLUX_SCHEME_ID_UD5)
+      !$acc parallel loop collapse(2) present(vel, q, flux)
       do j=this%JS, this%JE
       do i=this%IS-1, this%IE
       do k=this%KS, this%KE
@@ -254,6 +264,7 @@ contains
 
     select case( this%flux_scheme_id )
     case (FLUX_SCHEME_ID_UD1)
+      !$acc parallel loop collapse(2) present(vel, q, flux)
       do j=this%JS, this%JE
       do i=this%IS-1, this%IE
       do k=this%KS, this%KE
@@ -264,6 +275,7 @@ contains
       end do
       end do  
     case (FLUX_SCHEME_ID_CD2)
+      !$acc parallel loop collapse(2) present(vel, q, flux)
       do j=this%JS-1, this%JE
       do i=this%IS, this%IE
       do k=this%KS, this%KE
@@ -272,6 +284,7 @@ contains
       end do
       end do
     case (FLUX_SCHEME_ID_UD3)
+      !$acc parallel loop collapse(2) present(vel, q, flux)
       do j=this%JS-1, this%JE
       do i=this%IS, this%IE
       do k=this%KS, this%KE
@@ -282,6 +295,7 @@ contains
       end do
       end do   
     case (FLUX_SCHEME_ID_CD4)
+      !$acc parallel loop collapse(2) present(vel, q, flux)
       do j=this%JS-1, this%JE
       do i=this%IS, this%IE
       do k=this%KS, this%KE
@@ -290,6 +304,7 @@ contains
       end do
       end do      
     case (FLUX_SCHEME_ID_UD5)
+      !$acc parallel loop collapse(2) present(vel, q, flux)
       do j=this%JS-1, this%JE
       do i=this%IS, this%IE
       do k=this%KS, this%KE

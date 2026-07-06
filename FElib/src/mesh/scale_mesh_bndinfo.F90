@@ -25,6 +25,7 @@ module scale_mesh_bndinfo
   !++ Public type & procedures
   !
 
+  !> Derived type to manage boundary information of computational domain
   type, public :: MeshBndInfo
     integer, allocatable :: list(:)
     real(RP), allocatable :: val(:)
@@ -63,6 +64,7 @@ module scale_mesh_bndinfo
   !-------------------
  
 contains
+  !> Initialize an object to manage boundary information
 !OCL SERIAL
   subroutine MeshBndInfo_Init(this, list_size, tag)
     use scale_const, only: &
@@ -77,6 +79,7 @@ contains
 
     allocate( this%list(list_size) )
     allocate( this%val(list_size) )
+    !$acc enter data create( this%list, this%val )
 
     !$omp parallel do
     do i = 1, list_size
@@ -93,15 +96,21 @@ contains
     return
   end subroutine MeshBndInfo_Init
 
+  !> Finalize an object to manage boundary information
 !OCL SERIAL
   subroutine MeshBndInfo_Final(this)
     implicit none
     class(MeshBndInfo), intent(inout) :: this
     !------------------------------------------------------
 
-    if (allocated(this%list)) deallocate(this%list)
-    if (allocated(this%val)) deallocate(this%val)
-    
+    if (allocated(this%list)) then
+      !$acc exit data delete(this%list)
+      deallocate(this%list)
+    end if
+    if (allocated(this%val)) then
+      !$acc exit data delete(this%val)
+      deallocate(this%val)
+    end if
     return
   end subroutine MeshBndInfo_Final  
 
@@ -116,12 +125,14 @@ contains
     !------------------------------------------------------
 
     this%list(is:ie) = bnd_type_id
+    !$acc update device( this%list(is:ie) )
     if ( present(val) ) then
       this%val(is:ie) = val
+      !$acc update device( this%val(is:ie) )
     end if
 
     return
-  end subroutine MeshBndInfo_set_by_Id
+  end subroutine MeshBndInfo_set_by_ID
 
 !OCL SERIAL
   subroutine MeshBndInfo_set_by_name(this, is, ie, bnd_type_name, val)

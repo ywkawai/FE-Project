@@ -4,7 +4,7 @@
 !! @par Description
 !!          User defined module for moist Held and Suarez test proposed by Thatcher and Jablonowski (2016).
 !!          
-!! @author Team SCALE
+!! @author Yuta Kawai, Team SCALE
 !!
 !! @par Reference
 !!  - Thatcher and  Jablonowski 2016:
@@ -68,8 +68,6 @@ module mod_user
     AtmosVars_GetLocalMeshPhyAuxVars, &
     AtmosVars_GetLocalMeshQTRC_Qv
 
-  use mod_user_sub_LSC, only: &
-    USER_sub_LSC_Init, USER_sub_LSC_calc_tendency
   use mod_user_sub_BLmixing, only: &
     USER_sub_BLmixing_Init, USER_sub_BLmixing_calc_tendency
   use mod_user_sub_Filter, only: &
@@ -148,7 +146,7 @@ contains
       TRACER_regist
     use mod_atmos_phy_sfc_vars, only: &
       ATMOS_PHY_SF_SVAR_TEMP_ID
-    use scale_polynominal
+    use scale_polynomial
     implicit none
     class(User), intent(inout) :: this    
     class(AtmosComponent), intent(inout), target :: atm
@@ -213,8 +211,6 @@ contains
       end do
     end do
 
-    !- Setup LSC 
-    call USER_sub_LSC_Init( atm%mesh%ptr_mesh )
     !- Setup BL mixing
     call USER_sub_BLmixing_Init( atm%mesh%ptr_mesh )
 
@@ -255,10 +251,6 @@ contains
     !   call newFilter%Apply( atm%vars%PHY_TEND(RHOH_p+1), atm%mesh%ptr_mesh )
     ! end if
 
-    !-- Large-scale condensation
-    call USER_sub_LSC_calc_tendency( atm%vars, &
-      atm%mesh%ptr_mesh, dt )
-    
     !-- Boundary layer mixing
     call USER_sub_BLmixing_calc_tendency( atm%vars, &
       atm%mesh%DOptrMat(3), atm%mesh%LiftOptrMat, atm%mesh%ptr_mesh )
@@ -335,8 +327,20 @@ contains
         MOMY%val(:,ke) = MOMY%val(:,ke) / ( 1.0_RP + dt * rtauV )
 
         !--
-        !- For the case of d DRHOT /dt = dens * Cp * ( Teq - T ) / tauT     
-        !  <- It is based on the forcing form in Held and Surez in which the temperature evolution equation is assumed to be dT/dt = R/Cp * T/p * dp/dt + (Teq - T) / tauT
+        !-- For the case where diabatic heating is calculated by Q = dens * CVtot * ( Teq - T ) / tauT  <- ( Ullrich and Jablonowski (2012, JCP) )
+        !  D(DRHOT)/Dt = 1/(CPtot * EXNER) * Q
+        !           = dens / (GamTot * EXNER ) * ( Teq - T ) / tauT
+        !           = dens PT / GamTot * ( Teq/T - 1 ) / tauT
+        ! Then,
+        ! DRHOT%val(:,ke) = DRHOT%val(:,ke) &
+        !                 - dt * rtauT(:) / gamm * ( 1.0_RP - Teq(:) / T(:) ) * DENS(:) * PT%val(:,ke)     &
+        !                 / ( 1.0_RP + dt * rtauT(:) / gamm * ( 1.0_RP + (gamm - 1.0_RP) * Teq(:) / T(:) ) )
+
+        !- For the case where diabatic heating is calculated by Q = dens * CPtot * ( Teq - T ) / tauT
+        !  It is based on the forcing form in Held-Suarez test in which the temperature evolution equation is assumed to be dT/dt = R/Cp * T/p * dp/dt + (Teq - T) / tauT
+        !  D(DRHOT)/Dt = 1/(CPtot * EXNER) * Q
+        !           = dens / EXNER * ( Teq - T ) / tauT
+        !           = dens PT * ( Teq/T - 1 ) / tauT
         DRHOT%val(:,ke) = DRHOT%val(:,ke) &
                         - dt * rtauT(:) * ( 1.0_RP - Teq(:) / T(:) ) * DENS(:) * PT%val(:,ke)     &
                         / ( 1.0_RP + dt * rtauT(:) * ( 1.0_RP + (gamm - 1.0_RP) * Teq(:) / T(:) ) )  

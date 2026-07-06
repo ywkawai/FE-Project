@@ -43,7 +43,7 @@ program test_post_processing_1d
 
   use scale_timeint_rk, only: timeint_rk  
 
-  use mod_advect1d_numerror, only: advect1d_numerror_eval
+  use mod_advect1d_numerror, only: Advect1DNumErrorAnalysis
 
   use scale_element_SIACfilter, only: SIAC_filter
   use scale_meshfield_spectral_transform, only: &
@@ -101,6 +101,8 @@ program test_post_processing_1d
   integer :: st_k_id
   integer :: st_q_r_id
   integer :: st_q_i_id
+
+  type(Advect1DNumErrorAnalysis) :: numerror_analysis
   !-----------------------------------------------------------------------------
 
   call init()
@@ -150,9 +152,8 @@ program test_post_processing_1d
 
     tsec_ = TIME_DTSEC * real(TIME_NOWSTEP-1, kind=RP)
     if ( Do_NumErrorAnalysis ) then
-      call advect1d_numerror_eval( qexact, & ! (out)
-        q, TIME_NOWSTEP, tsec_, ADV_VEL, InitShapeName, InitShapeParams, & ! (in)
-        mesh, mesh%refElem1D                                             ) ! (in)
+      call numerror_analysis%Eval( qexact, & ! (out)
+        q, TIME_NOWSTEP, tsec_             ) ! (in)
     end if
 
     !* Output history file
@@ -393,9 +394,8 @@ contains
     end do
 
     if ( Do_NumErrorAnalysis ) then
-      call advect1d_numerror_eval( qexact, & ! (out)
-        q, 1, 0.0_RP, ADV_VEL, InitShapeName, InitShapeParams, & ! (in)
-        mesh, mesh%refElem1D                                   ) ! (in)
+      call numerror_analysis%Eval( qexact, & ! (out)
+        q, 1, 0.0_RP                       ) ! (in)
     end if
 
     call FILE_HISTORY_meshfield_put( HST_ID(1), q )
@@ -414,8 +414,7 @@ contains
       TIME_manager_report_timeintervals
     use scale_file_history_meshfield, only: FILE_HISTORY_meshfield_setup  
     use scale_file_history, only: FILE_HISTORY_reg  
-    use mod_advect1d_numerror, only: advect1d_numerror_Init     
-    use scale_polynominal, only: Polynominal_GenLagrangePoly, Polynominal_GenLegendrePoly
+    use scale_polynomial, only: Polynomial_GenLagrangePoly, Polynomial_GenLegendrePoly
     implicit none
     real(RP), parameter :: dom_xmin =   0.0_RP
     real(RP), parameter :: dom_xmax = + 1.0_RP
@@ -545,7 +544,7 @@ contains
 
     !-- setup a module for evaluating numerical errors 
     if ( Do_NumErrorAnalysis ) &
-      call advect1d_numerror_Init( refElem )
+      call numerror_analysis%Init( ADV_VEL, InitShapeName, InitShapeParams, mesh, refElem )
 
     !-- report information of time intervals
     call TIME_manager_report_timeintervals
@@ -562,9 +561,9 @@ contains
     end do
 
     allocate( IntrpMatSampling(NsamplePtPerElem,refElem%Np) )
-    ! IntrpMatSampling(:,:) = Polynominal_GenLagrangePoly( refElem%PolyOrder, refElem%x1, sampling_x_per_elem(:) )
+    ! IntrpMatSampling(:,:) = Polynomial_GenLagrangePoly( refElem%PolyOrder, refElem%x1, sampling_x_per_elem(:) )
     allocate( P_1D_ori(NsamplePtPerElem,refElem%Np) )
-    P_1D_ori(:,:) = Polynominal_GenLegendrePoly( refElem%PolyOrder, sampling_x_per_elem(:) )
+    P_1D_ori(:,:) = Polynomial_GenLegendrePoly( refElem%PolyOrder, sampling_x_per_elem(:) )
     do p=1, refElem%Np
       P_1D_ori(:,p) = P_1D_ori(:,p) * sqrt(real(p-1,kind=RP) + 0.5_RP)
     end do
@@ -623,14 +622,13 @@ contains
     use scale_file_history_meshfield, only: &
       FILE_HISTORY_meshfield_finalize
     use scale_time_manager, only: TIME_manager_Final 
-    use mod_advect1d_numerror, only: advect1d_numerror_Final   
     implicit none
     integer :: idom
     !------------------------------------------------------------------------
 
     call PROF_rapstart( "final", 1 )
     if ( Do_NumErrorAnalysis ) &
-      call advect1d_numerror_Final()
+      call numerror_analysis%Final()
 
     call FILE_HISTORY_meshfield_finalize()
 

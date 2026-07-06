@@ -1,4 +1,4 @@
-!> Module common / Polynominal
+!> Module common / Polynomial
 !!
 !! @par Description
 !!      A module to provide utilities for polynomials
@@ -8,7 +8,7 @@
 !! @author Yuta Kawai, Team SCALE
 !!
 #include "scaleFElib.h"
-module scale_polynominal
+module scale_polynomial
   !-----------------------------------------------------------------------------
   !
   !++ used modules
@@ -26,18 +26,18 @@ module scale_polynominal
   !++ Public procedure
   !  
 
-  public :: Polynominal_GenLegendrePoly
-  public :: Polynominal_GenLegendrePoly_sub
-  public :: Polynominal_GenDLegendrePoly
+  public :: Polynomial_GenLegendrePoly
+  public :: Polynomial_GenLegendrePoly_sub
+  public :: Polynomial_GenDLegendrePoly
 
-  public :: Polynominal_GenGaussLobattoPt
-  public :: Polynominal_GenGaussLobattoPtIntWeight
+  public :: Polynomial_GenGaussLobattoPt
+  public :: Polynomial_GenGaussLobattoPtIntWeight
 
-  public :: Polynominal_GenGaussLegendrePt
-  public :: Polynominal_GenGaussLegendrePtIntWeight
+  public :: Polynomial_GenGaussLegendrePt
+  public :: Polynomial_GenGaussLegendrePtIntWeight
 
-  public :: Polynominal_GenLagrangePoly
-  public :: Polynominal_GenDLagrangePoly_lglpt
+  public :: Polynomial_GenLagrangePoly
+  public :: Polynomial_GenDLagrangePoly_lglpt
   
   !-----------------------------------------------------------------------------
   !
@@ -64,7 +64,7 @@ contains
   !! @param x_lgl Positions of GLL points
   !! @param x Positions where the Lagrange basis functions are evaluated 
 !OCL SERIAL
-  function Polynominal_GenLagrangePoly(Nord, x_lgl, x) result(l)
+  function Polynomial_GenLagrangePoly(Nord, x_lgl, x) result(l)
     implicit none
     
     integer, intent(in) :: Nord
@@ -81,9 +81,9 @@ contains
     ! real(RP) :: int_w(Nord+1)
     !---------------------------------------------------------------------------
 
-    P_lgl(:,:)  = Polynominal_GenLegendrePoly(Nord, x_lgl)
-    P (:,:)  = Polynominal_GenLegendrePoly(Nord, x)
-    Pr(:,:) = Polynominal_GenDLegendrePoly(Nord, x, P)
+    P_lgl(:,:)  = Polynomial_GenLegendrePoly(Nord, x_lgl)
+    P (:,:)  = Polynomial_GenLegendrePoly(Nord, x)
+    Pr(:,:) = Polynomial_GenDLegendrePoly(Nord, x, P)
 
     do n=1, Nord+1
       do i=1, size(x)
@@ -99,7 +99,7 @@ contains
 
     !- Calculate interpolation coefficient based on barycentric form
     ! Eq. (3.46) in Wang, Huybrechs & Vandewalle (2012): Explicit barycentric weights for polynomial interpolation in the roots or extrema of classical orthogonal polynomials 
-    ! int_w(:) = Polynominal_GenGaussLobattoPtIntWeight( Nord )
+    ! int_w(:) = Polynomial_GenGaussLobattoPtIntWeight( Nord )
     ! do n=1, Nord+1
     !   w(n) = (-1)**mod(n-1,2) * sqrt(int_w(n))
     ! end do
@@ -116,14 +116,14 @@ contains
     ! end do
 
     return
-  end function Polynominal_GenLagrangePoly
+  end function Polynomial_GenLagrangePoly
 
   !> A function to obtain the differential values of Lagrange basis functions at the GLL points
   !!
   !! @param Nord Order of Lagrange polynomial
   !! @param x_lgl Positions of GLL points
 !OCL SERIAL
-  function Polynominal_GenDLagrangePoly_lglpt(Nord, x_lgl) result(lr)
+  function Polynomial_GenDLagrangePoly_lglpt(Nord, x_lgl) result(lr)
     implicit none
 
     integer, intent(in) :: Nord
@@ -135,7 +135,7 @@ contains
     real(RP) :: lr_nn
     !---------------------------------------------------------------------------
 
-    P(:,:)  = Polynominal_GenLegendrePoly(Nord, x_lgl)
+    P(:,:)  = Polynomial_GenLegendrePoly(Nord, x_lgl)
 
     do n=1, Nord+1
       lr_nn = 0.0_RP
@@ -158,7 +158,7 @@ contains
     end do
     
     return
-  end function Polynominal_GenDLagrangePoly_lglpt
+  end function Polynomial_GenDLagrangePoly_lglpt
 
   !> A function to obtain the values of Legendre polynomials which are evaluated at arbitrary points. 
   !!
@@ -166,7 +166,7 @@ contains
   !! @param x Positions where the Legendre polynomials are evaluated
   !! @param P Values of the Legendre polynomials at x
 !OCL SERIAL
-  subroutine Polynominal_GenLegendrePoly_sub(Nord, x, P)
+  subroutine Polynomial_GenLegendrePoly_sub(Nord, x, P)
     implicit none
 
     integer, intent(in) :: Nord
@@ -177,7 +177,7 @@ contains
     !---------------------------------------------------------------------------
 
     if (Nord < 0) then
-       LOG_ERROR("Polynominal_GenLegendrePoly",*)   "Nord must be larger than 0."
+       LOG_ERROR("Polynomial_GenLegendrePoly",*)   "Nord must be larger than 0."
     end if
 
     P(:,1) = 1.0_RP
@@ -189,7 +189,7 @@ contains
     end do
     
     return    
-  end subroutine Polynominal_GenLegendrePoly_sub
+  end subroutine Polynomial_GenLegendrePoly_sub
 
   !> A function to obtain the values of Legendre polynomials which are evaluated at arbitrary points.   
   !!
@@ -197,7 +197,7 @@ contains
   !! @param x Positions where the Legendre polynomials are evaluated
   !! @param P Values of the Legendre polynomials at x
 !OCL SERIAL
-  function Polynominal_GenLegendrePoly(Nord, x) result(P)
+  function Polynomial_GenLegendrePoly(Nord, x) result(P)
     implicit none
 
     integer, intent(in) :: Nord
@@ -205,10 +205,10 @@ contains
     real(RP) :: P(size(x), Nord+1)
     !---------------------------------------------------------------------------
 
-    call Polynominal_GenLegendrePoly_sub( Nord, x(:), & ! (in)
+    call Polynomial_GenLegendrePoly_sub( Nord, x(:), & ! (in)
        P(:,:)                                         ) ! (out)
     return    
-  end function Polynominal_GenLegendrePoly
+  end function Polynomial_GenLegendrePoly
 
   !> A function to obtain differential values of Legendre polynomials which are evaluated at arbitrary points. 
   !! 
@@ -216,7 +216,7 @@ contains
   !! @param x Positions where the Legendre polynomials are evaluated
   !! @param P Values of the Legendre polynomials at x
 !OCL SERIAL
-  function Polynominal_GenDLegendrePoly(Nord, x, P) result(GradP)
+  function Polynomial_GenDLegendrePoly(Nord, x, P) result(GradP)
     implicit none
  
     integer, intent(in) :: Nord
@@ -228,7 +228,7 @@ contains
     !---------------------------------------------------------------------------
 
     if (Nord < 0) then
-      LOG_ERROR("Polynominal_GenDLegendrePoly",*)   "Nord must be larger than 0."
+      LOG_ERROR("Polynomial_GenDLegendrePoly",*)   "Nord must be larger than 0."
     end if
 
     GradP(:,1) = 0.0_RP
@@ -240,14 +240,14 @@ contains
     end do
 
     return    
-  end function Polynominal_GenDLegendrePoly
+  end function Polynomial_GenDLegendrePoly
 
   !> A function to calculate the Legendre-Gauss-Lobatto (LGL) points.
   !!
   !! @param Nord Order of Lagrange polynomial
   !! @param pts Position of the LGL points
 !OCL SERIAL
-  function Polynominal_GenGaussLobattoPt(Nord) result(pts)
+  function Polynomial_GenGaussLobattoPt(Nord) result(pts)
     implicit none
 
     integer, intent(in) :: Nord
@@ -261,14 +261,14 @@ contains
 
     call gen_JacobiGaussQuadraturePts( 1, 1, Nord-2, pts(2:Nord) )
     return   
-  end function Polynominal_GenGaussLobattoPt
+  end function Polynomial_GenGaussLobattoPt
 
   !> A function to calculate the Gauss-Lobbato weights. 
   !!  
   !! @param Nord Order of Lagrange polynomial
   !! @param int_weight_lgl Gauss-Lobbato weights
 !OCL SERIAL
-  function Polynominal_GenGaussLobattoPtIntWeight(Nord) result(int_weight_lgl)
+  function Polynomial_GenGaussLobattoPtIntWeight(Nord) result(int_weight_lgl)
     implicit none
 
     integer, intent(in) :: Nord
@@ -278,20 +278,20 @@ contains
     real(RP) :: P1D_ori(Nord+1, Nord+1)
     !---------------------------------------------------------------------------
 
-    lglPts1D(:)      = polynominal_genGaussLobattoPt( Nord )
-    P1D_ori(:,:)     = polynominal_genLegendrePoly( Nord, lglPts1D )
+    lglPts1D(:)      = polynomial_genGaussLobattoPt( Nord )
+    P1D_ori(:,:)     = polynomial_genLegendrePoly( Nord, lglPts1D )
 
     int_weight_lgl(:) = 2.0_RP/(dble(Nord*(Nord+1))*P1D_ori(:,Nord+1)**2)
 
     return
-  end function Polynominal_GenGaussLobattoPtIntWeight
+  end function Polynomial_GenGaussLobattoPtIntWeight
 
   !> A function to calculate the Gauss-Legendre (GL) points.
   !!
   !! @param Nord Order of the Legendre polynomial
   !! @param pts Position of the GL points
 !OCL SERIAL
-  function Polynominal_GenGaussLegendrePt(Nord) result(pts)
+  function Polynomial_GenGaussLegendrePt(Nord) result(pts)
     implicit none
 
     integer, intent(in) :: Nord
@@ -300,14 +300,14 @@ contains
 
     call gen_JacobiGaussQuadraturePts( 0, 0, Nord-1, pts(:) )
     return   
-  end function Polynominal_GenGaussLegendrePt
+  end function Polynomial_GenGaussLegendrePt
 
   !> A function to calculate the Gauss-Legendre (GL) weights. 
   !! 
   !! @param Nord Order of the Legendre polynomial
   !! @param int_weight_gl Gauss-Legendre weights
 !OCL SERIAL
-  function Polynominal_GenGaussLegendrePtIntWeight(Nord) result(int_weight_gl)
+  function Polynomial_GenGaussLegendrePtIntWeight(Nord) result(int_weight_gl)
     implicit none
 
     integer, intent(in) :: Nord
@@ -318,14 +318,14 @@ contains
     real(RP) :: dP1D_ori(Nord, Nord+1)
     !---------------------------------------------------------------------------
 
-    glPts1D(:)    = polynominal_genGaussLegendrePt( Nord )
-    P1D_ori(:,:)    = Polynominal_GenLegendrePoly( Nord, glPts1D )   
-    dP1D_ori(:,:) = polynominal_genDLegendrePoly( Nord, glPts1D, P1D_ori )
+    glPts1D(:)    = polynomial_genGaussLegendrePt( Nord )
+    P1D_ori(:,:)    = Polynomial_GenLegendrePoly( Nord, glPts1D )   
+    dP1D_ori(:,:) = polynomial_genDLegendrePoly( Nord, glPts1D, P1D_ori )
 
     int_weight_gl(:) = 2.0_RP / ( (1.0_RP - glPts1D(:)**2) * dP1D_ori(:,Nord+1)**2 )
 
     return
-  end function Polynominal_GenGaussLegendrePtIntWeight
+  end function Polynomial_GenGaussLegendrePtIntWeight
 
   !- private -------------------------------
 
@@ -372,4 +372,4 @@ contains
     return
   end subroutine gen_JacobiGaussQuadraturePts
 
-end module scale_polynominal
+end module scale_polynomial

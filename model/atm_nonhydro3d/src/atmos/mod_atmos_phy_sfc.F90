@@ -54,10 +54,12 @@ module mod_atmos_phy_sfc
   !> Derived type to manage a component of surface process
   !!
   type, extends(ModelComponentProc), public :: AtmosPhySfc
-    class(AtmosMesh), pointer :: mesh !< Pointer to a object to manage the mesh with atmospheric component
+    class(AtmosMesh), pointer :: mesh    !< Pointer to a object to manage the mesh with atmospheric component
 
-    integer :: SFCFLX_TYPEID          !< Type id of surface scheme
-    type(AtmosPhySfcVars) :: vars     !< A object to manage variables with surface component
+    integer :: atm_var_container_typeid !< Type ID of variable container for surface process
+
+    integer :: SFCFLX_TYPEID            !< Type id of surface scheme
+    type(AtmosPhySfcVars) :: vars       !< An object to manage variables with surface component
   contains
     procedure, public :: setup => AtmosPhySfc_setup 
     procedure, public :: calc_tendency => AtmosPhySfc_calc_tendency
@@ -69,8 +71,8 @@ module mod_atmos_phy_sfc
   !++ Public parameters & variables
   !-----------------------------------------------------------------------------
 
-  integer, parameter :: SFCFLX_TYPEID_CONST           = 1
-  integer, parameter :: SFCFLX_TYPEID_SIMPLE          = 2
+  integer, parameter :: SFCFLX_TYPEID_CONST           = 1 !< Type ID of constant surface flux scheme
+  integer, parameter :: SFCFLX_TYPEID_SIMPLE          = 2 !< Type ID of simple bulk surface flux scheme
 
   !-----------------------------------------------------------------------------
   !
@@ -104,27 +106,38 @@ contains
     use scale_atm_phy_sf_bulk_simple, only: &
        ATMOS_PHY_SF_simple_setup
 
+    use mod_atmos_vars, only: ATM_VARS_CONTAINER_PRIMARY_ID
+
     implicit none
     class(AtmosPhySfc), intent(inout) :: this
     class(ModelMeshBase), target, intent(in) :: model_mesh
     class(TIME_manager_component), intent(inout) :: tm_parent_comp
 
-    real(DP) :: TIME_DT                             = UNDEF8  !< Timestep for surface process
-    character(len=H_SHORT) :: TIME_DT_UNIT          = 'SEC'   !< Unit of timestep
-
-    character(len=H_MID) :: SFCFLX_TYPE = "CONST"             !< Type of surface flux scheme
+    real(DP) :: TIME_DT                       = UNDEF8   !< Timestep for surface process
+    character(len=H_SHORT) :: TIME_DT_UNIT    = 'SEC'    !< Unit of timestep
+    character(len=H_MID) :: SFCFLX_TYPE       = "CONST"  !< Type of surface flux scheme
+    integer :: atm_var_container_typeid                  !< Type ID of variable container for surface process
+    real(RP) :: DEFAULT_SFC_TEMP              = 300.0_RP !< Default value of surface temperature
     namelist /PARAM_ATMOS_PHY_SFC/ &
-      TIME_DT,          &
-      TIME_DT_UNIT,     &
-      SFCFLX_TYPE
+      TIME_DT,                  &
+      TIME_DT_UNIT,             &
+      SFCFLX_TYPE,              &
+      atm_var_container_typeid, &
+      DEFAULT_SFC_TEMP
     
     integer :: ierr
+
+    integer :: ldomID
+    class(LocalMesh2D), pointer :: lcmesh2D
+    integer :: ke
     !--------------------------------------------------
 
     if (.not. this%IsActivated()) return
 
     LOG_NEWLINE
     LOG_INFO("ATMOS_PHY_SFC_setup",*) 'Setup'
+
+    atm_var_container_typeid = ATM_VARS_CONTAINER_PRIMARY_ID
 
     !--- read namelist
     rewind(IO_FID_CONF)
@@ -136,6 +149,8 @@ contains
       call PRC_abort
     endif
     LOG_NML(PARAM_ATMOS_PHY_SFC)
+
+    this%atm_var_container_typeid = atm_var_container_typeid
 
     !--- Regist this compoent in the time manager
     
@@ -164,6 +179,9 @@ contains
     class is (AtmosMesh)
       this%mesh => model_mesh
     end select
+
+    !-- Set default values
+    call this%vars%SetDefaultVal( DEFAULT_SFC_TEMP )
 
     return
   end subroutine AtmosPhySfc_setup
@@ -220,39 +238,44 @@ contains
     if (.not. this%IsActivated()) return
 
     call model_mesh%GetModelMesh( mesh )
-    do n=1, mesh%LOCAL_MESH_NUM
-      call PROF_rapstart( 'ATM_PHY_SFC_get_localmesh_ptr', 2)         
-      call AtmosVars_GetLocalMeshPrgVars( n,  &
-        mesh, prgvars_list, auxvars_list,       &
-        DDENS, MOMX, MOMY, MOMZ, DRHOT,         &
-        DENS_hyd, PRES_hyd, Rtot, CVtot, CPtot, &
-        lcmesh                                  )
-      call AtmosVars_GetLocalMeshPhyTends( n,        &
-        mesh, forcing_list,                          &
-        DENS_tp, MOMX_tp, MOMY_tp, MOMZ_tp, RHOT_tp, &
-        RHOH_p  )
-      call AtmosVars_GetLocalMeshQTRC_Qv( n, mesh, trcvars_list, forcing_list, &
-        QV, RHOQv_tp )
-      call AtmosVars_GetLocalMeshPhyAuxVars( n,      &
-        mesh, auxvars_list,                          &
-        PRES, PT )
 
-      call AtmosPhySfcVars_GetLocalMeshFields( n,    &
-        mesh, this%vars%SFCVARS_manager, this%vars%SFCFLX_manager, &
-        SFC_TEMP, SFLX_MU, SFLX_MV, SFLX_MW, SFLX_SH, SFLX_LH, SFLX_QV )
-      call PROF_rapend( 'ATM_PHY_SFC_get_localmesh_ptr', 2)   
+    if (is_update) then
 
-      call PROF_rapstart( 'ATM_PHY_SFC_cal_tend', 2)
-      call cal_tend_from_sfcflx( this, is_update,                                     &
-        DENS_tp%val, MOMX_tp%val, MOMY_tp%val, MOMZ_tp%val, RHOH_p%val, RHOQv_tp%val, &
-        SFLX_MU%val, SFLX_MV%val, SFLX_MW%val, SFLX_SH%val, SFLX_LH%val, SFLX_QV%val, &
-        DDENS%val, MOMX%val, MOMY%val, MOMZ%val, DRHOT%val, QV%val,                   &
-        DENS_hyd%val, PRES_hyd%val,                                                   &
-        PRES%val, PT%val, Rtot%val, SFC_TEMP%val,                                     &
-        model_mesh%DOptrMat(3), model_mesh%SOptrMat(3), model_mesh%LiftOptrMat,       &
-        lcmesh, lcmesh%refElem3D, lcmesh%lcmesh2D, lcmesh%lcmesh2D%refElem2D          )
-      call PROF_rapend( 'ATM_PHY_SFC_cal_tend', 2)
-    end do
+      do n=1, mesh%LOCAL_MESH_NUM
+        call PROF_rapstart( 'ATM_PHY_SFC_get_localmesh_ptr', 2)         
+        call AtmosVars_GetLocalMeshPrgVars( n,  &
+          mesh, prgvars_list, auxvars_list,       &
+          DDENS, MOMX, MOMY, MOMZ, DRHOT,         &
+          DENS_hyd, PRES_hyd, Rtot, CVtot, CPtot, &
+          lcmesh                                  )
+        call AtmosVars_GetLocalMeshPhyTends( n,        &
+          mesh, forcing_list,                          &
+          DENS_tp, MOMX_tp, MOMY_tp, MOMZ_tp, RHOT_tp, &
+          RHOH_p  )
+        call AtmosVars_GetLocalMeshQTRC_Qv( n, mesh, trcvars_list, forcing_list, &
+          QV, RHOQv_tp )
+        call AtmosVars_GetLocalMeshPhyAuxVars( n,      &
+          mesh, auxvars_list,                          &
+          PRES, PT )
+
+        call AtmosPhySfcVars_GetLocalMeshFields( n,    &
+          mesh, this%vars%SFCVARS_manager, this%vars%SFCFLX_manager, &
+          SFC_TEMP, SFLX_MU, SFLX_MV, SFLX_MW, SFLX_SH, SFLX_LH, SFLX_QV )
+        call PROF_rapend( 'ATM_PHY_SFC_get_localmesh_ptr', 2)   
+
+        call PROF_rapstart( 'ATM_PHY_SFC_cal_tend', 2)
+        call cal_tend_from_sfcflx( this, is_update,                                     &
+          DENS_tp%val, MOMX_tp%val, MOMY_tp%val, MOMZ_tp%val, RHOH_p%val, RHOQv_tp%val, &
+          SFLX_MU%val, SFLX_MV%val, SFLX_MW%val, SFLX_SH%val, SFLX_LH%val, SFLX_QV%val, &
+          DDENS%val, MOMX%val, MOMY%val, MOMZ%val, DRHOT%val, QV%val,                   &
+          DENS_hyd%val, PRES_hyd%val,                                                   &
+          PRES%val, PT%val, Rtot%val, SFC_TEMP%val,                                     &
+          model_mesh%DOptrMat(3), model_mesh%SOptrMat(3), model_mesh%LiftOptrMat,       &
+          lcmesh, lcmesh%refElem3D, lcmesh%lcmesh2D, lcmesh%lcmesh2D%refElem2D          )
+        call PROF_rapend( 'ATM_PHY_SFC_cal_tend', 2)
+      end do
+
+    end if
 
     return  
   end subroutine AtmosPhySfc_calc_tendency
@@ -300,6 +323,7 @@ contains
 
 !- private ------------------------------------------------
 
+  !> Calculate tendencies associated with a surface model
 !OCL SERIAL  
   subroutine cal_tend_from_sfcflx( this, is_update_sflx, &
     DENS_tp, MOMX_tp, MOMY_tp, MOMZ_tp, RHOH_p, RHOQV_tp, &

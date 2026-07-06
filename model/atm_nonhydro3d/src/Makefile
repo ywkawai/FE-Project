@@ -48,15 +48,23 @@ SUB_OBJS = \
 	mod_atmos_component.o        \
 	mod_atmos_dyn.o              \
 	mod_atmos_dyn_vars.o         \
+	mod_atmos_phy_preproc.o      \
 	mod_atmos_phy_sfc.o          \
 	mod_atmos_phy_sfc_vars.o     \
 	mod_atmos_phy_mp.o           \
 	mod_atmos_phy_mp_vars.o      \
 	mod_atmos_phy_tb.o           \
 	mod_atmos_phy_tb_vars.o      \
+	mod_atmos_phy_cp.o           \
+	mod_atmos_phy_cp_vars.o      \
+	mod_atmos_phy_rd.o           \
+	mod_atmos_phy_rd_vars.o      \
+	mod_atmos_phy_bl.o           \
+	mod_atmos_phy_bl_vars.o      \
 	mod_atmos_mesh.o             \
 	mod_atmos_mesh_rm.o          \
 	mod_atmos_mesh_gm.o          \
+	mod_atmos_vars_container.o   \
 	mod_atmos_vars.o             \
 	mod_user_base.o              \
 	mod_experiment.o             \

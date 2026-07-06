@@ -14,7 +14,6 @@ CODE_DIR    = .
 ORG_SRCS    = mod_user.F90    \
 	mod_user_sub_data.F90     \
 	mod_user_sub_Filter.F90   \
-	mod_user_sub_LSC.F90      \
 	mod_user_sub_BLmixing.F90
 
 # parameters for run

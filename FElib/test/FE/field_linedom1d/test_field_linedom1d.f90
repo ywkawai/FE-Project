@@ -64,6 +64,7 @@ program test_field1d
 
     write(*,*) "Check interior & halo data.."
     write(*,*) "tileID=", lcmesh%tileID
+    !$acc update host(q%local(n)%val)
     call check_interior_data(n, mesh%lcmesh_list(n), q%local(n)%val, q%local(n)%val)
     call check_halo_data(n, mesh%lcmesh_list(n), q%local(n)%val, q%local(n)%val)
   end do
@@ -73,20 +74,36 @@ program test_field1d
 
 contains
 
-  elemental function get_field_val(tileID, k, p) result(val)
-    integer, intent(in) :: tileID, k, p
-    real(RP) :: val
+  subroutine get_field_val(val, lmesh, elem)
+    class(LocalMesh1D), intent(in) :: lmesh
+    class(LineElement), intent(in) :: elem
+    real(RP), intent(out) :: val(elem%Np,lmesh%NeA)
+
+    integer :: tileID, ke, p
     !----------------------------
-    val = tileID*1000000 + k*1000 + p
-  end function get_field_val
+
+    tileID = lmesh%tileID
+    !$acc parallel loop collapse(2) present(lmesh,val)
+    do ke=lmesh%NeS, lmesh%NeE
+    do p=1, elem%Np
+      val(p,ke) = get_field_val_func(tileID, ke, p)
+    end do
+    end do
+  end subroutine get_field_val
+
+  elemental function get_field_val_func(tileID,ke,p) result(val)
+    integer, intent(in) :: tileID, ke, p
+    real(RP) :: val
+    !---
+    !$acc routine seq
+    val = tileID*1000000 + ke*1000 + p
+  end function get_field_val_func
   
   subroutine init()
     use scale_calendar, only: CALENDAR_setup
 
     integer :: comm, myrank, nprocs
     logical :: ismaster
-    integer :: n, k, p
-
     !---------
     call PRC_MPIstart( comm )
     
@@ -124,12 +141,8 @@ contains
 
     !---
     do n=1, mesh%LOCAL_MESH_NUM
-      lcmesh => mesh%lcmesh_list(n)
-      do k=lcmesh%NeS, lcmesh%NeE
-      do p=1, refElem%Np
-        q%local(n)%val(p,k) = get_field_val(lcmesh%tileID,k,p)
-      end do
-      end do
+      call get_field_val( q%local(n)%val, &
+        mesh%lcmesh_list(n), refElem)
     end do
     call FILE_HISTORY_meshfield_put(HST_ID(1), q)
     call FILE_HISTORY_meshfield_write()    
@@ -171,30 +184,30 @@ contains
     real(RP), intent(in) :: lcfield(refElem%Np,lcmesh_%NeA)
     real(RP), intent(in) :: lcfield_fl(refElem%Np*lcmesh_%NeA)
     
-    integer :: k, f, p
+    integer :: ke, f, p
     integer :: iM, iP, fnid
-    integer :: ans(refElem%Np)
+    real(RP) :: ans(refElem%Np,lcmesh_%NeA)
     !------------------------------
 
-    do k=lcmesh_%NeS, lcmesh_%NeE
-      do p=1, refElem%Np
-        ans(p) = get_field_val(lcmesh_%tileID,k,p)
-      end do
+    !$acc data create(ans)
+    call get_field_val( ans, &
+      lcmesh_, refElem )
+    !$acc update host(ans)
 
-      call assert(k, int(lcfield(:,k)), ans(:), 'check_interior_data', 'q', refElem%Np)
+    do ke=lcmesh_%NeS, lcmesh_%NeE
+      call assert(ke, int(lcfield(:,ke)), int(ans(:,ke)), 'check_interior_data', 'q', refElem%Np)
       do f=1, refElem%Nfaces
       do p=1, refElem%Nfp
         fnid = p+(f-1)*refElem%Nfp
-        iM = lcmesh_%VMapM(fnid,k)
-        iP = lcmesh_%VMapP(fnid,k)
-        write(*,'(a,3(i3),a,i10,a,i10,a,i10)') "k , f, p =", k,f,p,           &
+        iM = lcmesh_%VMapM(fnid,ke)
+        iP = lcmesh_%VMapP(fnid,ke)
+        write(*,'(a,3(i3),a,i10,a,i10,a,i10)') "k , f, p =", ke,f,p,           &
           " : q- = ", int(lcfield_fl(iM)), ",  q+ =", int(lcfield_fl(iP)),  &
-          ", nx=", int(lcmesh_%normal_fn(fnid,k,1))
+          ", nx=", int(lcmesh_%normal_fn(fnid,ke,1))
       end do
       end do
-
     end do
-
+    !$acc end data
   end subroutine check_interior_data
 
   subroutine check_halo_data(n, lcmesh_, lcfield, lcfield_fl)
@@ -217,8 +230,8 @@ contains
     haloInd_s = refElem%Np*lcmesh_%Ne + 1
     haloInd_e = haloInd_s + 2 - 1
 
-    ans(1) = get_field_val(mesh%tileID_globalMap(1,n), lcmesh_%Ne, refElem%Np) 
-    ans(2) = get_field_val(mesh%tileID_globalMap(2,n), 1, 1) 
+    ans(1) = get_field_val_func(mesh%tileID_globalMap(1,n), lcmesh_%Ne, refElem%Np) 
+    ans(2) = get_field_val_func(mesh%tileID_globalMap(2,n), 1, 1) 
     
     call assert( -1, int(lcfield_fl(haloInd_s:haloInd_e)), ans(:), &
                  'check_halo_data', 'q_halo', 2)

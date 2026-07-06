@@ -199,6 +199,7 @@ contains
     class(ElementBase), pointer :: refElem
 
     integer :: iv
+    integer :: ldomID
     !-----------------------------------------------------------------------------
 
     mesh3D => model_mesh3D%ptr_mesh
@@ -278,9 +279,15 @@ contains
       this%AUX_TRCVARS3D(:),           & ! (in)
       this%AUXTRCVAR3D_commid          ) ! (out)
 
-    !-    
+    !-
+      
     call this%alphaDensM%Init( "alphaDensM", "kg/m3.m/s", mesh3D, LOCAL_MESHFIELD_TYPE_NODES_FACEVAL )
     call this%alphaDensP%Init( "alphaDensP", "kg/m3.m/s", mesh3D, LOCAL_MESHFIELD_TYPE_NODES_FACEVAL )
+    !$omp parallel do
+    do ldomID=1, mesh3D%LOCAL_MESH_NUM
+      this%alphaDensM%local(ldomID)%face_val(:,:) = 0.0_RP
+      this%alphaDensP%local(ldomID)%face_val(:,:) = 0.0_RP
+    end do
   
     !- initialize an object to manage boundary conditions
     this%boundary_cond => boundary_cond

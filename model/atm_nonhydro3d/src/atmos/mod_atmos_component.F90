@@ -33,12 +33,17 @@ module mod_atmos_component
   use mod_atmos_mesh_rm, only: AtmosMeshRM
   use mod_atmos_mesh_gm, only: AtmosMeshGM
 
-  use mod_atmos_vars, only: AtmosVars
+  use mod_atmos_vars, only: &
+    AtmosVars, AtmosVarsContainer, &
+    ATM_VARS_CONTAINER_PRIMARY_ID
 
   use mod_atmos_dyn, only: AtmosDyn
   use mod_atmos_phy_sfc, only: AtmosPhySfc
   use mod_atmos_phy_tb , only: AtmosPhyTb
   use mod_atmos_phy_mp , only: AtmosPhyMp
+  use mod_atmos_phy_rd , only: AtmosPhyRd
+  use mod_atmos_phy_cp , only: AtmosPhyCp
+  use mod_atmos_phy_bl, only: AtmosPhyBl
 
   !-----------------------------------------------------------------------------
   implicit none
@@ -61,7 +66,9 @@ module mod_atmos_component
     type(AtmosPhySfc) :: phy_sfc_proc   !< Object to manage surface process
     type(AtmosPhyTb ) :: phy_tb_proc    !< Object to manage sub-grid scale turbulence process
     type(AtmosPhyMp ) :: phy_mp_proc    !< Object to manage cloud microphysics process
-
+    type(AtmosPhyRd ) :: phy_rd_proc    !< Object to manage radiation process
+    type(AtmosPhyCp ) :: phy_cp_proc    !< Object to manage cumulus parameterization process
+    type(AtmosPhyBl ) :: phy_bl_proc    !< Object to manage PBL turbulence parameterization process
   contains
     procedure, public :: setup => Atmos_setup 
     procedure, public :: setup_vars => Atmos_setup_vars    
@@ -86,7 +93,7 @@ module mod_atmos_component
   !-----------------------------------------------------------------------------
 contains
 
-!> Setup an object to mange atmospheric component
+  !> Setup an object to mange atmospheric component
 !OCL SERIAL
   subroutine Atmos_setup( this )
     use scale_const, only: &
@@ -120,6 +127,9 @@ contains
     logical :: ATMOS_PHY_SF_DO = .false. !< Flag whether surface process is considered
     logical :: ATMOS_PHY_TB_DO = .false. !< Flag whether SGS turbulent process is considered
     logical :: ATMOS_PHY_MP_DO = .false. !< Flag whether cloud microphysics process is considered
+    logical :: ATMOS_PHY_RD_DO = .false. !< Flag whether radiation process is considered
+    logical :: ATMOS_PHY_CP_DO = .false. !< Flag whether cumulus parameterization process is considered
+    logical :: ATMOS_PHY_BL_DO = .false. !< Flag whether PBL turbulence parameterization process is considered
     character(len=H_SHORT) :: ATMOS_MESH_TYPE = 'REGIONAL'  !< Name of mesh type for atmospheric component ('REGIONAL' or 'GLOBAL')
 
     logical :: ATMOS_USE_QV    = .false. !< Flag whether QV is used although cloud microphysics is not considered
@@ -136,6 +146,9 @@ contains
       ATMOS_PHY_SF_DO,       &
       ATMOS_PHY_TB_DO,       &
       ATMOS_PHY_MP_DO,       &    
+      ATMOS_PHY_RD_DO,       &
+      ATMOS_PHY_CP_DO,       &
+      ATMOS_PHY_BL_DO,       &
       ATMOS_USE_QV
     
     integer :: ierr
@@ -220,30 +233,61 @@ contains
     call this%phy_tb_proc%setup( this%mesh, this%time_manager )
     call this%phy_tb_proc%SetDynBC( this%dyn_proc%dyncore_driver%boundary_cond )
 
+    !- Setup the module for atmosphere / physics / radiation
+    call this%phy_rd_proc%ModelComponentProc_Init( 'AtmosPhysRd', ATMOS_PHY_RD_DO )
+    call this%phy_rd_proc%setup( this%mesh, this%time_manager )
+
+    !- Setup the module for atmosphere / physics / cumulus parameterization
+    call this%phy_cp_proc%ModelComponentProc_Init( 'AtmosPhysCp', ATMOS_PHY_CP_DO )
+    call this%phy_cp_proc%setup( this%mesh, this%time_manager )
+
+    !- Setup the module for atmosphere / physics / PBL turbulence parameterization
+    call this%phy_bl_proc%ModelComponentProc_Init( 'AtmosPhysBl', ATMOS_PHY_BL_DO )
+    call this%phy_bl_proc%setup( this%mesh, this%time_manager )
+
+    !- Setup
+
     LOG_NEWLINE
-    LOG_INFO('AtmosComponent_setup',*) 'Finish setup of each atmospheric components.'
+    LOG_INFO('AtmosComponent_setup',*) 'Finish setup of each atmospheric component.'
 
     call PROF_rapend( 'ATM_setup', 1)
 
     return
   end subroutine Atmos_setup
 
-!> Setup variables with the atmospheric component
+  !> Setup variables with the atmospheric component
 !OCL SERIAL
   subroutine Atmos_setup_vars( this )
+    use mod_atmos_phy_sfc_vars, only: &
+      SFCTEMP_ID => ATMOS_PHY_SF_SVAR_TEMP_ID
     implicit none
-
     class(AtmosComponent), intent(inout) :: this
     !----------------------------------------------------------
 
     call PROF_rapstart( 'ATM_setup_vars', 1)
 
     call this%vars%Init( this%mesh )
-    call this%vars%Regist_physvar_manager( &
-      this%phy_mp_proc%vars%auxvars2D_manager )
 
-    call PROF_rapend( 'ATM_setup_vars', 1)   
+    if ( this%phy_mp_proc%IsActivated() ) then
+      call this%vars%Regist_physvar_manager( &
+        this%phy_mp_proc%vars%auxvars2D_manager )
 
+      call this%vars%Setup_container( this%phy_mp_proc%atm_var_container_typeid, this%mesh )
+      call this%phy_mp_proc%Set_primary_atmvars_container( this%vars%container )
+    end if
+    if ( this%phy_sfc_proc%IsActivated() ) then
+      call this%vars%Setup_container( this%phy_sfc_proc%atm_var_container_typeid, this%mesh )
+    end if
+    if ( this%phy_rd_proc%IsActivated() ) then
+       if ( .not. this%phy_sfc_proc%IsActivated() ) then
+         LOG_ERROR('ATM_setup_vars',*) 'ATMOS_PHY_RD_DO requires ATMOS_PHY_SF_DO to provide SFC_TEMP.'
+         call PRC_abort
+       end if      
+      call this%phy_rd_proc%SetSfcTemp( this%phy_sfc_proc%vars%SFC_VARS(SFCTEMP_ID) )
+    end if
+
+
+    call PROF_rapend( 'ATM_setup_vars', 1)
     return
   end subroutine Atmos_setup_vars
 
@@ -266,7 +310,6 @@ contains
     class(AtmosComponent), intent(inout) :: this
     logical, intent(in) :: force
 
-
     class(MeshBase), pointer :: mesh
     class(LocalMesh3D), pointer :: lcmesh
     type(LocalMeshFieldBaseList) :: tp_list(PHYTEND_NUM1)
@@ -277,13 +320,19 @@ contains
     integer :: n
     integer :: v
     integer :: iq
-    integer :: ke
+    integer :: ke, p
+    integer :: Np
+
+    class(AtmosVarsContainer), pointer :: vars_primary_container
+    class(AtmosVarsContainer), pointer :: vars_container    
     !------------------------------------------------------------------
     
     call PROF_rapstart( 'ATM_tendency', 1)
     !LOG_INFO('AtmosComponent_calc_tendency',*)
 
-    call this%mesh%GetModelMesh( mesh )  
+    call this%mesh%GetModelMesh( mesh )
+    call this%vars%Get_container( ATM_VARS_CONTAINER_PRIMARY_ID, & ! (in)
+      vars_primary_container ) ! (out)
 
     !########## Get Surface Boundary from coupler ##########
     
@@ -292,80 +341,162 @@ contains
 
     !* Exchange halo data ( for physics )
     call PROF_rapstart( 'ATM_exchange_prgv', 2)
-    call this%vars%PROGVARS_manager%MeshFieldComm_Exchange()
-    if ( QA > 0 ) call this%vars%QTRCVARS_manager%MeshFieldComm_Exchange()
+    call this%vars%container%PROGVARS_manager%MeshFieldComm_Exchange()
+    if ( QA > 0 ) call this%vars%container%QTRCVARS_manager%MeshFieldComm_Exchange()
     call PROF_rapend( 'ATM_exchange_prgv', 2)
 
-    ! reset tendencies of physics
+
+    !- Reset tendencies of physics
+
+    !$acc data create( tp_list, tp_qtrc )
 
     do n=1, mesh%LOCAL_MESH_NUM
-      call AtmosVars_GetLocalMeshPhyTends( n, mesh, this%vars%PHYTENDS_manager ,   & ! (in)
-        tp_list(DENS_tp)%ptr, tp_list(MOMX_tp)%ptr, tp_list(MOMY_tp)%ptr,          & ! (out)
-        tp_list(MOMZ_tp)%ptr, tp_list(RHOT_tp)%ptr, tp_list(RHOH_p )%ptr, tp_qtrc, & ! (out)
-        lcmesh                                                                     ) ! (out)
-      
+      call AtmosVars_GetLocalMeshPhyTends( n, mesh, this%vars%container%PHYTENDS_manager , & ! (in)
+        tp_list(DENS_tp)%ptr, tp_list(MOMX_tp)%ptr, tp_list(MOMY_tp)%ptr,                  & ! (out)
+        tp_list(MOMZ_tp)%ptr, tp_list(RHOT_tp)%ptr, tp_list(RHOH_p )%ptr, tp_qtrc,         & ! (out)
+        lcmesh                                                                             ) ! (out)
+      !$acc enter data attach( tp_list(DENS_tp)%ptr, tp_list(MOMX_tp)%ptr, tp_list(MOMY_tp)%ptr, tp_list(MOMZ_tp)%ptr, tp_list(RHOT_tp)%ptr, tp_list(RHOH_p )%ptr, lcmesh )
+
+      Np = lcmesh%refElem%Np
       !$omp parallel private(v,iq,ke)
+
       !$omp do collapse(2)
       do v=1, PHYTEND_NUM1
-      do ke=lcmesh%NeS, lcmesh%NeE
-        tp_list(v)%ptr%val(:,ke) = 0.0_RP
+        !$acc parallel loop gang present( tp_list(v)%ptr%val ) async(1)
+        do ke=lcmesh%NeS, lcmesh%NeE
+          !$acc loop vector
+          do p=1, Np
+            tp_list(v)%ptr%val(p,ke) = 0.0_RP
+          end do
+        end do
       end do
-      end do
-      !$omp do collapse(2)
-      do iq=1, QA
-      do ke=lcmesh%NeS, lcmesh%NeE
-        tp_qtrc(iq)%ptr%val(:,ke) = 0.0_RP
-      end do
-      end do
-      !$omp end do
+      if ( QA > 0 ) then
+#ifdef _OPENACC        
+        do iq=1, QA
+          !$acc enter data attach( tp_qtrc(iq)%ptr )
+        end do
+#endif        
+        !$omp do collapse(2)
+        do iq=1, QA
+          !$acc parallel loop gang present( tp_qtrc(iq)%ptr%val ) async(1)
+          do ke=lcmesh%NeS, lcmesh%NeE
+            !$acc loop vector
+            do p=1, Np
+              tp_qtrc(iq)%ptr%val(p,ke) = 0.0_RP
+            end do
+          end do
+        end do
+        !$omp end do
+      end if
       !$omp end parallel
     end do
+    !$acc wait(1)
+    !$acc end data
 
-    ! Cloud Microphysics
+    !- Preprocessing for variables before calculating physics tendencies
+
+    call PROF_rapstart('ATM_PreOptrForPhys', 1)
+    call this%vars%PreprocOperationForPhys( this%dyn_proc%dyncore_driver )
+    call PROF_rapend('ATM_PreOptrForPhys', 1)
+
+    !- Cloud Microphysics
 
     if ( this%phy_mp_proc%IsActivated() ) then
       call PROF_rapstart('ATM_Microphysics', 1)
       tm_process_id = this%phy_mp_proc%tm_process_id
       is_update = this%time_manager%Do_process(tm_process_id) .or. force
+
+      call this%vars%Get_container( this%phy_mp_proc%atm_var_container_typeid, & ! (in)
+        vars_container ) ! (out)
+      
       call this%phy_mp_proc%calc_tendency( &
-          this%mesh, this%vars%PROGVARS_manager, this%vars%QTRCVARS_manager, &
-          this%vars%AUXVARS_manager, this%vars%PHYTENDS_manager, is_update   )
+        this%mesh, vars_container%PROGVARS_manager, vars_container%QTRCVARS_manager, &
+        vars_container%AUXVARS_manager, vars_primary_container%PHYTENDS_manager, is_update   )
       call PROF_rapend('ATM_Microphysics', 1)
     end if
     
-    ! Radiation
+    !- Radiation
 
+    if ( this%phy_rd_proc%IsActivated() ) then
+      call PROF_rapstart('ATM_Radiation', 1)
+      tm_process_id = this%phy_rd_proc%tm_process_id
+      is_update = this%time_manager%Do_process(tm_process_id) .or. force
 
-    ! Turbulence
+      call this%vars%Get_container( this%phy_rd_proc%atm_var_container_typeid, & ! (in)
+        vars_container ) ! (out)
+      
+      call this%phy_rd_proc%calc_tendency( &
+        this%mesh, vars_container%PROGVARS_manager, vars_container%QTRCVARS_manager, &
+        vars_container%AUXVARS_manager, vars_primary_container%PHYTENDS_manager, is_update   )
+      call PROF_rapend('ATM_Radiation', 1)
+    end if
+
+    !- Turbulence
 
     if ( this%phy_tb_proc%IsActivated() ) then
       call PROF_rapstart('ATM_Turbulence', 1)
       tm_process_id = this%phy_tb_proc%tm_process_id
       is_update = this%time_manager%Do_process(tm_process_id) .or. force
+
+      call this%vars%Get_container( ATM_VARS_CONTAINER_PRIMARY_ID, & ! (in)
+        vars_container ) ! (out)
+      
       call this%phy_tb_proc%calc_tendency( &
-          this%mesh, this%vars%PROGVARS_manager, this%vars%QTRCVARS_manager, &
-          this%vars%AUXVARS_manager, this%vars%PHYTENDS_manager, is_update   )
+        this%mesh, vars_container%PROGVARS_manager, vars_container%QTRCVARS_manager, &
+        vars_container%AUXVARS_manager, vars_primary_container%PHYTENDS_manager, is_update   )
       call PROF_rapend('ATM_Turbulence', 1)
     end if
 
-    ! Cumulus
+    !- Cumulus parameterization
+
+    if ( this%phy_cp_proc%IsActivated() ) then
+      call PROF_rapstart('ATM_Cumulus', 1)
+      tm_process_id = this%phy_cp_proc%tm_process_id
+      is_update = this%time_manager%Do_process(tm_process_id) .or. force
+
+      call this%vars%Get_container( this%phy_cp_proc%atm_var_container_typeid, & ! (in)
+        vars_container ) ! (out)
+      
+      call this%phy_cp_proc%calc_tendency( &
+        this%mesh, vars_container%PROGVARS_manager, vars_container%QTRCVARS_manager, &
+        vars_container%AUXVARS_manager, vars_primary_container%PHYTENDS_manager, is_update   )
+      call PROF_rapend('ATM_Cumulus', 1)
+    end if
 
 
 !    if ( .not. CPL_sw ) then    
     
-    ! Surface flux
+    !- Surface flux
     
     if ( this%phy_sfc_proc%IsActivated() ) then
       call PROF_rapstart('ATM_SurfaceFlux', 1)
       tm_process_id = this%phy_sfc_proc%tm_process_id
       is_update = this%time_manager%Do_process(tm_process_id) .or. force
+
+      call this%vars%Get_container( this%phy_sfc_proc%atm_var_container_typeid, & ! (in)
+        vars_container ) ! (out)
+      
       call this%phy_sfc_proc%calc_tendency( &
-          this%mesh, this%vars%PROGVARS_manager, this%vars%QTRCVARS_manager, &
-          this%vars%AUXVARS_manager, this%vars%PHYTENDS_manager, is_update   )
+        this%mesh, vars_container%PROGVARS_manager, vars_container%QTRCVARS_manager, &
+        vars_container%AUXVARS_manager, vars_primary_container%PHYTENDS_manager, is_update   )
       call PROF_rapend('ATM_SurfaceFlux', 1)
     end if
     
-    ! Planetary Boundary layer
+    !- Planetary boundary layer
+
+    if ( this%phy_bl_proc%IsActivated() ) then
+      call PROF_rapstart('ATM_PBL', 1)
+      tm_process_id = this%phy_bl_proc%tm_process_id
+      is_update = this%time_manager%Do_process(tm_process_id) .or. force
+
+      call this%vars%Get_container( this%phy_bl_proc%atm_var_container_typeid, & ! (in)
+        vars_container ) ! (out)
+      
+      call this%phy_bl_proc%calc_tendency( &
+        this%mesh, vars_container%PROGVARS_manager, vars_container%QTRCVARS_manager, &
+        vars_container%AUXVARS_manager, vars_primary_container%PHYTENDS_manager, is_update   )
+      call PROF_rapend('ATM_PBL', 1)
+    end if
 
 !   end if
 
@@ -382,11 +513,16 @@ contains
     integer :: tm_process_id
     logical :: is_update
     integer :: inner_itr
+
+    class(AtmosVarsContainer), pointer :: vars_container    
     !--------------------------------------------------
     call PROF_rapstart( 'ATM_update', 1)
 
     !########## Dynamics ########## 
 
+    call this%vars%Get_container( ATM_VARS_CONTAINER_PRIMARY_ID, & ! (in)
+      vars_container ) ! (out)
+        
     if ( this%dyn_proc%IsActivated() ) then
       call PROF_rapstart('ATM_Dynamics', 1)
       tm_process_id = this%dyn_proc%tm_process_id
@@ -395,16 +531,16 @@ contains
       LOG_PROGRESS(*) 'atmosphere / dynamics'   
       do inner_itr=1, this%time_manager%Get_process_inner_itr_num( tm_process_id )
         call this%dyn_proc%update( &
-          this%mesh, this%vars%PROGVARS_manager, this%vars%QTRCVARS_manager, &
-          this%vars%AUXVARS_manager, this%vars%PHYTENDS_manager, is_update   )
+          this%mesh, vars_container%PROGVARS_manager, vars_container%QTRCVARS_manager, &
+          vars_container%AUXVARS_manager, vars_container%PHYTENDS_manager, is_update   )
       end do
       call PROF_rapend('ATM_Dynamics', 1)
     end if
     
     !########## Calculate diagnostic variables ##########  
 
-    call this%vars%Calc_diagnostics()
-    call this%vars%AUXVARS_manager%MeshFieldComm_Exchange()
+    call vars_container%Calc_diagnostics()
+    call vars_container%AUXVARS_manager%MeshFieldComm_Exchange()
 
     !########## Adjustment ##########
     ! Microphysics
@@ -452,8 +588,8 @@ contains
 
     do n=1, mesh2D%LOCAL_MESH_NUM
       call AtmosVars_GetLocalMeshSfcVar( n, &
-        mesh2D, this%vars%AUXVARS2D_manager, & ! (in)
-        PREC, PREC_ENGI, lcmesh              ) ! (out)
+        mesh2D, this%vars%container%AUXVARS2D_manager, & ! (in)
+        PREC, PREC_ENGI, lcmesh                        ) ! (out)
 
       !$omp parallel do private(ke)
       do ke=lcmesh%NeS, lcmesh%NeE
@@ -494,7 +630,9 @@ contains
     call this%phy_sfc_proc%finalize()
     call this%phy_tb_proc%finalize()
     call this%phy_mp_proc%finalize()
-    
+    call this%phy_rd_proc%finalize()
+    call this%phy_cp_proc%finalize()
+    call this%phy_bl_proc%finalize()
     call this%vars%Final()
 
     select case( this%mesh_type )

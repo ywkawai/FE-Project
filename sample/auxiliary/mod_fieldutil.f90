@@ -42,6 +42,7 @@ module mod_fieldutil
 
   public :: fieldutil_get_profile3d_tracer
   public :: fieldutil_get_profile3d_flow
+  public :: fieldutil_get_upwind_pos3d  
 
   public :: fieldutil_get_profile3dGlobal_tracer
   public :: fieldutil_get_profile3dGlobal_flow
@@ -118,7 +119,7 @@ contains
         profile(:) = 1.0_RP
       end where
     case default
-      LOG_ERROR('fieldutil_get_profile2d',*) trim(profile_name)//' is not supported. Check!'
+      LOG_ERROR('fieldutil_get_profile1d_tracer',*) trim(profile_name)//' is not supported. Check!'
       call PRC_abort    
     end select
 
@@ -169,7 +170,7 @@ contains
         profile(:) = 1.0_RP
       end where
     case default
-      LOG_ERROR('fieldutil_get_profile2d',*) trim(profile_name)//' is not supported. Check!'
+      LOG_ERROR('fieldutil_get_profile2d_tracer',*) trim(profile_name)//' is not supported. Check!'
       call PRC_abort
     end select
 
@@ -187,38 +188,58 @@ contains
   !
 !OCL SERIAL
   subroutine fieldutil_get_profile2d_flow( flow_x, flow_y, &
-    profile_name, x, y, params, N)
+    profile_name, x, y, params, IS,IE,IA, JS,JE,JA)
 
     implicit none
     !--------------------------------
-    integer, intent(in) :: N
-    real(RP), intent(out) :: flow_x(N)
-    real(RP), intent(out) :: flow_y(N)
+    integer, intent(in) :: IA, JA
+    real(RP), intent(out) :: flow_x(IA,JA)
+    real(RP), intent(out) :: flow_y(IA,JA)
     character(*), intent(in) :: profile_name
-    real(RP), intent(in) :: x(N)
-    real(RP), intent(in) :: y(N)
+    real(RP), intent(in) :: x(IA,JA)
+    real(RP), intent(in) :: y(IA,JA)
     real(RP), intent(in) :: params(:)
+    integer, intent(in) :: IS, IE, JS, JE
 
-    real(RP) :: dist(N)
     real(RP) :: fac
-    !------------------------------------------------------------------------
 
-    flow_x(:) = 0.0_RP
-    flow_y(:) = 0.0_RP
+    integer :: i, j
+    !------------------------------------------------------------------------
 
     select case(profile_name)
     case ('constant')
-      flow_x(:) = params(1)
-      flow_y(:) = params(2)
+      !$omp parallel do
+      !$acc parallel loop gang present(flow_x, flow_y, x, y) copyin(params)
+      do j=JS, JE
+        !$acc loop vector
+        do i=IS, IE
+          flow_x(i,j) = params(1)
+          flow_y(i,j) = params(2)
+        end do
+      end do
     case ('rigid-body-rot')
-      flow_x(:) = - 2.0_RP*PI/params(3)*(y(:) - params(1))
-      flow_y(:) = + 2.0_RP*PI/params(3)*(x(:) - params(2))
+      !$omp parallel do
+      !$acc parallel loop gang present(flow_x, flow_y, x, y) copyin(params)
+      do j=JS, JE
+        !$acc loop vector
+        do i=IS, IE
+          flow_x(i,j) = - 2.0_RP*PI/params(3)*(y(i,j) - params(1))
+          flow_y(i,j) = + 2.0_RP*PI/params(3)*(x(i,j) - params(2))
+        end do
+      end do
     case ('swirling')
       fac = cos(PI*params(4)/params(3))
-      flow_x(:) = + sin(PI*x(:))**2 * sin(2.0_RP*PI*y(:)) * fac
-      flow_y(:) = - sin(PI*y(:))**2 * sin(2.0_RP*PI*x(:)) * fac
+      !$omp parallel do
+      !$acc parallel loop gang present(flow_x, flow_y, x, y) copyin(params)
+      do j=JS, JE
+        !$acc loop vector
+        do i=IS, IE
+          flow_x(i,j) = + sin(PI*x(i,j))**2 * sin(2.0_RP*PI*y(i,j)) * fac
+          flow_y(i,j) = - sin(PI*y(i,j))**2 * sin(2.0_RP*PI*x(i,j)) * fac
+        end do
+      end do
     case default
-      LOG_ERROR('fieldutil_get_flow2d',*) trim(profile_name)//' is not supported. Check!'
+      LOG_ERROR('fieldutil_get_profile2d_flow',*) trim(profile_name)//' is not supported. Check!'
       call PRC_abort
     end select
 
@@ -408,33 +429,42 @@ contains
   !-------------------------------
 
   subroutine fieldutil_get_profile3d_flow( flow_x, flow_y, flow_z, &
-    profile_name, x, y, z, params, N)
+    profile_name, x, y, z, params, IS,IE,IA, JS,JE,JA, KS,KE,KA)
 
     implicit none
     !--------------------------------
-    integer, intent(in) :: N
-    real(RP), intent(out) :: flow_x(N)
-    real(RP), intent(out) :: flow_y(N)
-    real(RP), intent(out) :: flow_z(N)
+    integer, intent(in) :: IS, IE, IA
+    integer, intent(in) :: JS, JE, JA
+    integer, intent(in) :: KS, KE, KA
+    real(RP), intent(out) :: flow_x(IA,JA,KA)
+    real(RP), intent(out) :: flow_y(IA,JA,KA)
+    real(RP), intent(out) :: flow_z(IA,JA,KA)
     character(*), intent(in) :: profile_name
-    real(RP), intent(in) :: x(N)
-    real(RP), intent(in) :: y(N)
-    real(RP), intent(in) :: z(N)
+    real(RP), intent(in) :: x(IA,JA,KA)
+    real(RP), intent(in) :: y(IA,JA,KA)
+    real(RP), intent(in) :: z(IA,JA,KA)
     real(RP), intent(in) :: params(:)
 
-    real(RP) :: dist(N)
+    real(RP) :: dist(IA,JA,KA)
     real(RP) :: fac
-    !------------------------------------------------------------------------
 
-    flow_x(:) = 0.0_RP
-    flow_y(:) = 0.0_RP
-    flow_z(:) = 0.0_RP
+    integer :: i, j, k
+    !------------------------------------------------------------------------
 
     select case(profile_name)
     case ('constant')
-      flow_x(:) = params(1)
-      flow_y(:) = params(2)
-      flow_z(:) = params(3)
+      !$omp parallel do collapse(2)
+      !$acc parallel loop gang collapse(2) present(flow_x, flow_y, flow_z) copyin(params)
+      do k=KS, KE
+      do j=JS, JE
+        !$acc loop vector
+        do i=IS, IE
+            flow_x(i,j,k) = params(1)
+            flow_y(i,j,k) = params(2)
+            flow_z(i,j,k) = params(3)
+        end do
+      end do
+      end do
     ! case ('rigid-body-rot')
     !   flow_x(:) = - 2.0_RP*PI/params(4)*(y(:) - params(1))
     !   flow_y(:) = + 2.0_RP*PI/params(4)*(x(:) - params(2))
@@ -445,18 +475,45 @@ contains
     !   flow_y(:) = - sin(PI*y(:))**2 * sin(2.0_RP*PI*x(:)) * fac
     !   flow_z(:) = 0.0_RP
     case default
-      LOG_ERROR('fieldutil_get_flow3d',*) trim(profile_name)//' is not supported. Check!'
+      LOG_ERROR('fieldutil_get_profile3d_flow',*) trim(profile_name)//' is not supported. Check!'
       call PRC_abort
     end select
 
     return
   end subroutine fieldutil_get_profile3d_flow
 
+!OCL SERIAL
+  subroutine fieldutil_get_upwind_pos3d( uposx, uposy, uposz, &
+      posx, posy, posz, profile_name, params, nowtime, dom_xmin, dom_xmax, dom_ymin, dom_ymax, dom_zmin, dom_zmax) 
+    real(RP), intent(in) :: posx(:), posy(:), posz(:)
+    real(RP), intent(out) :: uposx(size(posx))
+    real(RP), intent(out) :: uposy(size(posy))
+    real(RP), intent(out) :: uposz(size(posz))
+    real(RP), intent(in) :: nowtime
+    character(*), intent(in) :: profile_name
+    real(RP), intent(in) :: params(:)
+    real(RP), intent(in) :: dom_xmin, dom_xmax
+    real(RP), intent(in) :: dom_ymin, dom_ymax
+    real(RP), intent(in) :: dom_zmin, dom_zmax
+    !-------
+
+    select case(profile_name)
+    case ('constant')
+      uposx(:) = fieldutil_get_upwind_pos1d(posx, params(1), nowtime, dom_xmin, dom_xmax)
+      uposy(:) = fieldutil_get_upwind_pos1d(posy, params(2), nowtime, dom_ymin, dom_ymax)
+      uposz(:) = fieldutil_get_upwind_pos1d(posz, params(3), nowtime, dom_zmin, dom_zmax)
+    case default
+      LOG_ERROR('fieldutil_get_upwind_pos3d',*) trim(profile_name)//' is not supported. Check!'
+      call PRC_abort
+    end select
+    return
+  end subroutine fieldutil_get_upwind_pos3d
+
   !-- 3d Global--------------------------------------------------------------
 
   !> Get 3D data whose value is set based on specified pattern. 
   !
-  ! Assume that range of domain is 0 <= x,y <= 1.
+  ! Assume that range of domain is 0 <= x,y,z <= 1.
   ! If the profile_name is 'sin', param1 and param2 are the wavenumbers in x- and y- directions, respectively. 
   ! If the profile_name is 'gaussian-hill', (param1,param2) is the coordinate of center position, param3 is the half of width. The shape is isotropic about the center of domain. 
   ! If the profile_name is 'cosine-bell', (param1,param2) is the coordinate of center position, param3 is the half of width. The shape is isotropic about the center of domain. 

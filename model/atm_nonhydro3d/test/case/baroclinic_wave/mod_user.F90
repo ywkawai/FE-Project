@@ -140,9 +140,6 @@ contains
     x, y, z, dom_xmin, dom_xmax, dom_ymin, dom_ymax, dom_zmin, dom_zmax,   &
     lcmesh, elem )
     
-    use mod_mkinit_util, only: &
-      mkinitutil_gen_GPMat,    &
-      mkinitutil_gen_Vm1Mat
     use mod_experiment, only: &
       TracerLocalMeshField_ptr
     implicit none
@@ -208,7 +205,7 @@ contains
     type(HexahedralElement) :: elem_intrp
     real(RP), allocatable :: x_intrp(:), y_intrp(:), z_intrp(:)
     real(RP) :: vx(elem%Nv), vy(elem%Nv), vz(elem%Nv)
-    real(RP), allocatable :: IntrpMat(:,:)
+    real(RP), allocatable :: GPMat(:,:)
     real(RP), allocatable :: IntrpVM1Mat(:,:)
     integer :: p_intrp
 
@@ -241,11 +238,13 @@ contains
     
     call elem_intrp%Init( IntrpPolyOrder_h, IntrpPolyOrder_v, elem%IsLumpedMatrix() )
 
-    allocate( IntrpMat(elem%Np,elem_intrp%Np) )
-    call mkinitutil_gen_GPMat( IntrpMat, elem_intrp, elem )
+    allocate( GPMat(elem%Np,elem_intrp%Np) )
+    call elem%Generate_L2ProjMat( elem_intrp, & ! (in)
+      GPMat ) ! (out)
 
-    allocate( IntrpVm1Mat(elem%Np,elem_intrp%Np) )
-    call mkinitutil_gen_Vm1Mat( IntrpVM1Mat, elem_intrp, elem )
+    allocate( IntrpVm1Mat(elem%Np,elem%Np) )
+    call elem%Generate_ModalTruncationMat( elem%PolyOrder_h, elem%PolyOrder_v-1, & ! (in)
+      IntrpVm1Mat ) ! (out)
 
     !---
 
@@ -338,12 +337,13 @@ contains
 
       rhot_hyd_intrp(:) = PRES00 / Rdry * (pres_hyd_intrp(:) / PRES00)**RGamma
 
-      PRES_hyd(:,ke) = matmul(IntrpMat, pres_hyd_intrp(:))    
+      PRES_hyd(:,ke) = matmul(GPMat, pres_hyd_intrp(:))    
       DRHOT(:,ke) =  0.0_RP
       ln_eta_intrp(:) = log(pres_hyd_intrp(:) / REF_PRES)
 
       dens_hyd_intrp(:) = pres_hyd_intrp(:) / ( Rdry * temp_hyd_intrp(:) )
-      DENS_hyd(:,ke) = matmul(IntrpVM1Mat, dens_hyd_intrp) 
+      DENS_hyd(:,ke) = matmul(GPMat, dens_hyd_intrp) 
+      DENS_hyd(:,ke) = matmul(IntrpVm1Mat, DENS_hyd(:,ke))
       DDENS(:,ke) = 0.0_RP 
 
       vx(:) = lcmesh%pos_ev(lcmesh%EToV(ke,:),1)
@@ -352,7 +352,7 @@ contains
       y_intrp(:) = vy(1) + 0.5_RP*(elem_intrp%x2(:) + 1.0_RP)*(vy(4) - vy(1))
 
       MOMX(:,ke) =  & 
-        + matmul( IntrpMat,                                                                       &
+        + matmul( GPMat,                                                                       &
           dens_hyd_intrp(:) * (                                                                   &
           - U0 * sin(PI * y_intrp(:) / Ly)**2 * ln_eta_intrp(:) * exp(- (ln_eta_intrp(:) / b)**2) &
           + Up * exp(- ( (x_intrp - Xc)**2 + (y_intrp - Yc)**2 ) / Lp**2 )                      ) )

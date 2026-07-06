@@ -330,7 +330,7 @@ contains
       call this%geostrophic_balance_correction_lc( &
         DENS_hyd%val, PRES_hyd%val,                          & ! (out)
         DDENS%val, MOMX%val, MOMY%val, MOMZ%val, DRHOT%val,  & ! (out)
-        lcmesh3D, lcmesh3D%refElem3D )                         ! (in) 
+        lcmesh3D, lcmesh3D%refElem3D )                         ! (in)
     end do
 
     call atm_auxvars_manager%Get(AUXVAR_DENSHYDRO_ID, field_ptr)

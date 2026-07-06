@@ -4,11 +4,11 @@
 !! @par Description
 !!          User defined module for a test case of rising warm bubble with moist process
 !!
-!! @author Team SCALE
+!! @author Yuta Kawai,Team SCALE
 !!
 !<
 !-------------------------------------------------------------------------------
-#include "scalelib.h"
+#include "scaleFElib.h"
 module mod_user
 
   !-----------------------------------------------------------------------------
@@ -140,7 +140,7 @@ contains
       CP_WATER
     use scale_atm_dyn_dgm_hydrostatic, only: &
       hydrostatic_calc_basicstate_constPT, &
-      hydrostaic_build_rho_XYZ
+      hydrostatic_build_rho_XYZ
     use mod_mkinit_util, only: &
       mkinitutil_calc_cosinebell
     use mod_experiment, only: &
@@ -284,7 +284,7 @@ contains
     end do
     end do
 
-    call hydrostaic_build_rho_XYZ( DDENS,  & ! (out)
+    call hydrostatic_build_rho_XYZ( DDENS,  & ! (out)
       DENS_hyd, PRES_hyd, PT_tmp,          & ! (in)
       x, y, z, lcmesh, elem, bnd_SFC_PRES  ) ! (in)
       
@@ -355,7 +355,7 @@ contains
     end do
     end do
 
-    call hydrostaic_build_rho_XYZ( DDENS, & ! (out)
+    call hydrostatic_build_rho_XYZ( DDENS, & ! (out)
       DENS_hyd, PRES_hyd, PT_tmp,         & ! (in)
       Rtot, CPtot_ov_CVtot,               & ! (in)
       x, y, z, lcmesh, elem               ) ! (in)

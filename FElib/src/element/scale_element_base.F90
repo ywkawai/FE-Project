@@ -81,6 +81,10 @@ module scale_element_base
 
     real(RP), allocatable :: Sx1(:,:)  !< Elementwise stiffness matrix for the x1-coordinate direction
     real(RP), allocatable :: Sx2(:,:)  !< Elementwise stiffness matrix for the x2-coordinate direction
+  contains
+    procedure :: Generate_L2ProjMat => ElementBase2D_gen_L2ProjMat
+    procedure :: Generate_InterpMat => ElementBase2D_gen_InterpMat
+    procedure :: Generate_ModalTruncationMat => ElementBase2D_gen_ModalTruncationMat  
   end type ElementBase2D
 
   public :: ElementBase2D_Init
@@ -115,7 +119,7 @@ module scale_element_base
     integer :: Nnode_v                   !< Number of nodes along the vertical coordinate
     integer :: Nfaces_v                  !< Number of nodes on an vertical face of the reference element
     integer :: Nfp_v                     !< Number of vertical faces of the reference element
-    integer, allocatable :: Fmask_v(:,:) !< Number of vertical faces of the reference element
+    integer, allocatable :: Fmask_v(:,:) !< Array saving indices to extract nodal values on the vertical faces
 
     integer, allocatable :: Colmask(:,:)        !< Array saving indices to extract nodal values on the vertical columns
     integer, allocatable :: Hslice(:,:)         !< Array saving indices to extract nodal values on the horizontal plane
@@ -134,6 +138,10 @@ module scale_element_base
     real(RP), allocatable :: Sx1(:,:) !< Elementwise stiffness matrix for the x1-coordinate direction
     real(RP), allocatable :: Sx2(:,:) !< Elementwise stiffness matrix for the x2-coordinate direction    
     real(RP), allocatable :: Sx3(:,:) !< Elementwise stiffness matrix for the x3-coordinate direction
+  contains
+    procedure :: Generate_L2ProjMat => ElementBase3D_gen_L2ProjMat
+    procedure :: Generate_InterpMat => ElementBase3D_gen_InterpMat
+    procedure :: Generate_ModalTruncationMat => ElementBase3D_gen_ModalTruncationMat
   end type ElementBase3D
   
   public :: ElementBase3D_Init
@@ -147,16 +155,18 @@ module scale_element_base
   private :: ElementBase_Init
   private :: ElementBase_Final
 
+  private :: ElementBase2D_gen_NodalTransferMat
+  private :: ElementBase3D_gen_NodalTransferMat
+
 contains
   !-- Base Element ------------------------------------------------------------------------------
 
-!> Initialize a base object to manage a reference element
+  !> Initialize a base object to manage a reference element
 !OCL SERIAL
   subroutine ElementBase_Init( elem, lumpedmat_flag )
     implicit none
-
     class(ElementBase), intent(inout) :: elem
-    logical, intent(in) :: lumpedmat_flag
+    logical, intent(in) :: lumpedmat_flag      !< Flag whether mass lumping is considered
     !-----------------------------------------------------------------------------
 
     allocate( elem%M(elem%Np, elem%Np) )
@@ -165,22 +175,21 @@ contains
     allocate( elem%invV(elem%Np, elem%Np) )
     allocate( elem%Lift(elem%Np, elem%NfpTot) )    
     
-    allocate( elem%IntWeight_lgl(elem%Np) )  
-
+    allocate( elem%IntWeight_lgl(elem%Np) )
+    !$acc enter data create( elem%M, elem%invM, elem%V, elem%invV, elem%Lift, elem%IntWeight_lgl )
+    
     elem%LumpedMatFlag = lumpedmat_flag
-
     return
   end subroutine ElementBase_Init
 
-!> Finalize a base object to manage a reference element
+  !> Finalize a base object to manage a reference element
 !OCL SERIAL
   subroutine ElementBase_Final( elem )
     implicit none
-
     class(ElementBase), intent(inout) :: elem
     !-----------------------------------------------------------------------------
-    
     if ( allocated(elem%M) ) then
+      !$acc exit data delete( elem%M, elem%invM, elem%V, elem%invV, elem%Lift, elem%IntWeight_lgl )
       deallocate( elem%M )
       deallocate( elem%invM )
       deallocate( elem%V )
@@ -192,7 +201,7 @@ contains
     return
   end subroutine ElementBase_Final
 
-!> Get a flag whether the lumped mass matrix is used
+  !> Get a flag whether the lumped mass matrix is used
 !OCL SERIAL
   function ElementBase_isLumpedMatrix( elem ) result(lumpedmat_flag)
     implicit none
@@ -205,9 +214,9 @@ contains
   end function ElementBase_isLumpedMatrix
 
 
-!> Construct mass matrix
-!!  M^-1 = V V^T
-!!  M = ( M^-1 )^-1
+  !> Construct mass matrix
+  !!  M^-1 = V V^T
+  !!  M = ( M^-1 )^-1
 !OCL SERIAL
   subroutine ElementBase_construct_MassMat( V, Np, &
     MassMat, invMassMat )
@@ -230,8 +239,8 @@ contains
     return
   end subroutine ElementBase_construct_MassMat
 
-!> Construct stiffness matrix
-!!  StiffMat_i = M^-1 ( M D_xi )^T
+  !> Construct stiffness matrix
+  !!  StiffMat_i = M^-1 ( M D_xi )^T
 !OCL SERIAL
   subroutine ElementBase_construct_StiffMat( MassMat, invMassMat, DMat, Np, &
       StiffMat )
@@ -253,8 +262,8 @@ contains
     return
   end subroutine ElementBase_construct_StiffMat
 
-!> Construct stiffness matrix
-!!  StiffMat_i = M^-1 ( M D_xi )^T
+  !> Construct stiffness matrix
+  !!  StiffMat_i = M^-1 ( M D_xi )^T
 !OCL SERIAL
   subroutine ElementBase_construct_LiftMat( invM, EMat, Np, NfpTot, &
       LiftMat )
@@ -272,26 +281,28 @@ contains
 
   !-- 1D Element ------------------------------------------------------------------------------
 
-!> Initialize an object to manage a 1D reference element
-!!
-!! @param elem Object of finite element
-!! @param elem Flag whether mass lumping is considered
+  !> Initialize an object to manage a 1D reference element
+  !!
+  !! @param elem Object of finite element
+  !! @param elem Flag whether mass lumping is considered
 !OCL SERIAL
   subroutine ElementBase1D_Init( elem, lumpedmat_flag )
     implicit none
-
     class(ElementBase1D), intent(inout) :: elem
     logical, intent(in) :: lumpedmat_flag    
     !-----------------------------------------------------------------------------
 
     call ElementBase_Init( elem, lumpedmat_flag )
 
+    !$acc enter data create( elem )
+    !$acc update device( elem%Np, elem%Nfaces, elem%NfpTot, elem%Nv )
+
     allocate( elem%x1(elem%Np) )  
     allocate( elem%Fmask(elem%Nfp, elem%Nfaces) )
     
     allocate( elem%Dx1(elem%Np, elem%Np) )
     allocate( elem%Sx1(elem%Np, elem%Np) )
-
+    !$acc enter data create( elem%x1, elem%Dx1, elem%Sx1, elem%Fmask )
     return
   end subroutine ElementBase1D_Init
 
@@ -299,11 +310,12 @@ contains
 !OCL SERIAL
   subroutine ElementBase1D_Final( elem )
     implicit none
-
     class(ElementBase1D), intent(inout) :: elem
     !-----------------------------------------------------------------------------
 
     if ( allocated( elem%x1 ) )  then
+      !$acc exit data delete( elem%x1, elem%Dx1, elem%Sx1, elem%Fmask )
+      !$acc exit data delete( elem )
       deallocate( elem%x1 )
       deallocate( elem%Dx1 )
       deallocate( elem%Sx1 )
@@ -317,38 +329,42 @@ contains
 
   !-- 2D Element ------------------------------------------------------------------------------
 
-!> Initialize an object to manage a 2D reference element
-!!
-!! @param elem Object of finite element
-!! @param elem Flag whether mass lumping is considered
+  !> Initialize an object to manage a 2D reference element
+  !!
+  !! @param elem Object of finite element
+  !! @param elem Flag whether mass lumping is considered
 !OCL SERIAL
   subroutine ElementBase2D_Init( elem, lumpedmat_flag )
     implicit none
-
     class(ElementBase2D), intent(inout) :: elem
     logical, intent(in) :: lumpedmat_flag    
     !-----------------------------------------------------------------------------
 
     call ElementBase_Init( elem, lumpedmat_flag )
 
+    !$acc enter data create( elem )
+    !$acc update device( elem%Np, elem%Nfaces, elem%NfpTot, elem%Nv )
+
     allocate( elem%x1(elem%Np), elem%x2(elem%Np) )
     allocate( elem%Fmask(elem%Nfp, elem%Nfaces) )
 
     allocate( elem%Dx1(elem%Np, elem%Np), elem%Dx2(elem%Np, elem%Np) )
     allocate( elem%Sx1(elem%Np, elem%Np), elem%Sx2(elem%Np, elem%Np) )
+    !$acc enter data create( elem%x1, elem%x2, elem%Dx1, elem%Dx2, elem%Sx1, elem%Sx2, elem%Fmask )
 
     return
   end subroutine ElementBase2D_Init
 
-!> Finalize an object to manage a 2D reference element
+  !> Finalize an object to manage a 2D reference element
 !OCL SERIAL
   subroutine ElementBase2D_Final( elem )
     implicit none
-
     class(ElementBase2D), intent(inout) :: elem
     !-----------------------------------------------------------------------------
 
     if ( allocated( elem%x1 ) )  then
+      !$acc exit data delete( elem%x1, elem%x2, elem%Dx1, elem%Dx2, elem%Sx1, elem%Sx2, elem%Fmask )
+      !$acc exit data delete( elem )
       deallocate( elem%x1, elem%x2 )
       deallocate( elem%Fmask )
 
@@ -361,6 +377,64 @@ contains
     return
   end subroutine ElementBase2D_Final
 
+  !> Generate a projection matrix for L2 projection.
+  !! This matrix maps nodal values on elem_in to nodal values on elem. It is intended for p-restriction, i.e. elem order <= elem_in order.
+  !!
+  !! With an orthogonal Legendre modal basis, this corresponds to L2 projection onto the polynomial space represented by elem.
+  !!
+!OCL SERIAL
+  subroutine ElementBase2D_gen_L2ProjMat( elem, &
+      elem_in,  &
+      L2ProjMat )
+    implicit none
+    class(ElementBase2D), intent(in) :: elem
+    class(ElementBase2D), intent(in) :: elem_in
+    real(RP), intent(out) :: L2ProjMat(elem%Np,elem_in%Np)
+    !---------------------------------------------
+
+    call ElementBase2D_gen_NodalTransferMat( elem, elem_in, &
+        elem%PolyOrder,                                     &
+        L2ProjMat )
+    return
+  end subroutine ElementBase2D_gen_L2ProjMat
+
+  !> Generate an interpolation matrix by p-prolongation.
+  !! This matrix maps nodal values on elem_in to nodal values on elem. It is intended for p-prolongation, i.e. elem order >= elem_in order.
+  !!
+  !! In Legendre modal space, higher modes not present in elem_in are set to zero.
+!OCL SERIAL
+  subroutine ElementBase2D_gen_InterpMat( elem, &
+      elem_in,  &
+      InterpMat )
+    implicit none
+    class(ElementBase2D), intent(in) :: elem
+    class(ElementBase2D), intent(in) :: elem_in
+    real(RP), intent(out) :: InterpMat(elem%Np,elem_in%Np)
+    !---------------------------------------------
+
+    call ElementBase2D_gen_NodalTransferMat( elem, elem_in, &
+        elem_in%PolyOrder,                                  &
+        InterpMat )
+    return
+  end subroutine ElementBase2D_gen_InterpMat  
+  
+  !> Generate a nodal-to-nodal transfer matrix to remove several high modes
+!OCL SERIAL
+  subroutine ElementBase2D_gen_ModalTruncationMat( elem, &
+      polyOrder_tr, &
+      TruncateMat )
+    implicit none
+    class(ElementBase2D), intent(in) :: elem
+    integer, intent(in) :: polyOrder_tr
+    real(RP), intent(out) :: TruncateMat(elem%Np,elem%Np)
+    !---------------------------------------------
+
+    call ElementBase2D_gen_NodalTransferMat( elem, elem, &
+      polyOrder_tr,                                      &
+      TruncateMat )
+    return
+  end subroutine ElementBase2D_gen_ModalTruncationMat
+
   !-- 3D Element ------------------------------------------------------------------------------
   
 !> Initialize an object to manage a 3D reference element
@@ -370,12 +444,14 @@ contains
 !OCL SERIAL
   subroutine ElementBase3D_Init( elem, lumpedmat_flag )
     implicit none
-
     class(ElementBase3D), intent(inout) :: elem
     logical, intent(in) :: lumpedmat_flag
     !-----------------------------------------------------------------------------
 
     call ElementBase_Init( elem, lumpedmat_flag )
+
+    !$acc enter data create( elem )
+    !$acc update device( elem%Np, elem%Nfaces, elem%NfpTot, elem%Nv )
 
     allocate( elem%x1(elem%Np), elem%x2(elem%Np), elem%x3(elem%Np) )
     allocate( elem%Dx1(elem%Np, elem%Np), elem%Dx2(elem%Np, elem%Np), elem%Dx3(elem%Np, elem%Np) )
@@ -386,7 +462,10 @@ contains
     allocate( elem%IndexH2Dto3D(elem%Np) )
     allocate( elem%IndexH2Dto3D_bnd(elem%NfpTot) )
     allocate( elem%IndexZ1Dto3D(elem%Np) )
-  
+    !$acc enter data create( elem%x1, elem%x2, elem%x3,                &
+    !$acc  elem%Dx1, elem%Dx2, elem%Dx3, elem%Sx1, elem%Sx2, elem%Sx3, &
+    !$acc  elem%Fmask_h, elem%Fmask_v, elem%Colmask, elem%Hslice,      &
+    !$acc  elem%IndexH2Dto3D, elem%IndexH2Dto3D_bnd, elem%IndexZ1Dto3D )
     return
   end subroutine ElementBase3D_Init
 
@@ -394,11 +473,15 @@ contains
 !OCL SERIAL
   subroutine ElementBase3D_Final( elem )
     implicit none
-
     class(ElementBase3D), intent(inout) :: elem
     !-----------------------------------------------------------------------------
 
     if ( allocated( elem%x1 ) )  then
+      !$acc exit data delete( elem%x1, elem%x2, elem%x3,                 &
+      !$acc  elem%Dx1, elem%Dx2, elem%Dx3, elem%Sx1, elem%Sx2, elem%Sx3, &
+      !$acc  elem%Fmask_h, elem%Fmask_v, elem%Colmask, elem%Hslice,      &
+      !$acc  elem%IndexH2Dto3D, elem%IndexH2Dto3D_bnd, elem%IndexZ1Dto3D )
+      !$acc exit data delete( elem )
       deallocate( elem%x1, elem%x2, elem%x3 )
       deallocate( elem%Dx1, elem%Dx2, elem%Dx3 )
       deallocate( elem%Sx1, elem%Sx2, elem%Sx3 )
@@ -412,5 +495,144 @@ contains
 
     return
   end subroutine ElementBase3D_Final
+
+  !> Generate a projection matrix for L2 projection.
+  !! This matrix maps nodal values on elem_in to nodal values on elem. It is intended for p-restriction, i.e. elem order <= elem_in order.
+  !!
+  !! With an orthogonal Legendre modal basis, this corresponds to L2 projection onto the polynomial space represented by elem.
+  !!
+!OCL SERIAL
+  subroutine ElementBase3D_gen_L2ProjMat( elem, &
+      elem_in,  &
+      L2ProjMat )
+    implicit none
+    class(ElementBase3D), intent(in) :: elem
+    class(ElementBase3D), intent(in) :: elem_in
+    real(RP), intent(out) :: L2ProjMat(elem%Np,elem_in%Np)
+    !---------------------------------------------
+
+    call ElementBase3D_gen_NodalTransferMat( elem, elem_in, &
+        elem%PolyOrder_h, elem%PolyOrder_v,                 &
+        L2ProjMat )
+    return
+  end subroutine ElementBase3D_gen_L2ProjMat
+
+  !> Generate an interpolation matrix by p-prolongation.
+  !! This matrix maps nodal values on elem_in to nodal values on elem. It is intended for p-prolongation, i.e. elem order >= elem_in order.
+  !!
+  !! In Legendre modal space, higher modes not present in elem_in are set to zero.
+!OCL SERIAL
+  subroutine ElementBase3D_gen_InterpMat( elem, &
+      elem_in,  &
+      InterpMat )
+    implicit none
+
+    class(ElementBase3D), intent(in) :: elem
+    class(ElementBase3D), intent(in) :: elem_in
+    real(RP), intent(out) :: InterpMat(elem%Np,elem_in%Np)
+    !---------------------------------------------
+
+    call ElementBase3D_gen_NodalTransferMat( elem, elem_in, &
+        elem_in%PolyOrder_h, elem_in%PolyOrder_v,           &
+        InterpMat )
+    return
+  end subroutine ElementBase3D_gen_InterpMat  
+  
+  !> Generate a nodal-to-nodal transfer matrix to remove several high modes
+!OCL SERIAL
+  subroutine ElementBase3D_gen_ModalTruncationMat( elem, &
+      polyOrder_h_tr, polyOrder_v_tr, &
+      TruncateMat )
+    implicit none
+
+    class(ElementBase3D), intent(in) :: elem
+    integer, intent(in) :: polyOrder_h_tr
+    integer, intent(in) :: polyOrder_v_tr
+    real(RP), intent(out) :: TruncateMat(elem%Np,elem%Np)
+    !---------------------------------------------
+
+    call ElementBase3D_gen_NodalTransferMat( elem, elem, &
+      polyOrder_h_tr, polyOrder_v_tr,                    &
+      TruncateMat )
+    return
+  end subroutine ElementBase3D_gen_ModalTruncationMat
+
+!--- private procedures ------------------------------------------------------------------------------
+
+
+  !> Generate a nodal-to-nodal transfer matrix for 2D element.
+  !!   Mat = V_elem  * S * invV_elem_in
+  !! This matrix maps nodal values on elem_in to nodal values on elem.
+  !! In modal space, common modes are copied and the other modes are zero.
+  !!
+  !! If elem has lower order than elem_in, this corresponds to modal truncation, i.e. L2 projection under an orthogonal Legendre modal basis.
+  !! If elem has higher order than elem_in, this corresponds to p-prolongation by modal zero-padding.
+!OCL SERIAL
+  subroutine ElementBase2D_gen_NodalTransferMat( elem, elem_in, &
+    pmax, &
+    TransferMat )
+    implicit none
+    class(ElementBase2D), intent(in) :: elem                  !< Object to manage a reference element
+    class(ElementBase2D), intent(in) :: elem_in               !< Object to manage a reference element
+    integer, intent(in) :: pmax                               !< Maximum polynomial order of the common modes between elem and elem_in
+    real(RP), intent(out) :: TransferMat(elem%Np,elem_in%Np)  !< Nodal-to-nodal transfer matrix from elem_in to elem
+
+    integer :: p1, p2
+    integer :: p_out, p_in
+
+    real(RP) :: InvV_in(elem%Np,elem_in%Np)
+    !---------------------------------------------
+
+    InvV_in(:,:) = 0.0_RP
+    do p2=1, pmax+1
+    do p1=1, pmax+1
+      p_out = p1 + (p2-1)*(elem%PolyOrder    + 1)
+      p_in  = p1 + (p2-1)*(elem_in%PolyOrder + 1)
+      InvV_in(p_out,:) = elem_in%invV(p_in,:)
+    end do
+    end do
+
+    TransferMat(:,:) = matmul(elem%V, InvV_in)
+    return
+  end subroutine ElementBase2D_gen_NodalTransferMat
+  
+  !> Generate a nodal-to-nodal transfer matrix for 3D element.
+  !!   Mat = V_elem  * S * invV_elem_in
+  !! This matrix maps nodal values on elem_in to nodal values on elem.
+  !! In modal space, common modes are copied and the other modes are zero.
+  !!
+  !! If elem has lower order than elem_in, this corresponds to modal truncation, i.e. L2 projection under an orthogonal Legendre modal basis.
+  !! If elem has higher order than elem_in, this corresponds to p-prolongation by modal zero-padding.
+!OCL SERIAL
+  subroutine ElementBase3D_gen_NodalTransferMat( elem, elem_in, &
+    pmax_h, pmax_v, &
+    TransferMat )
+    implicit none
+    class(ElementBase3D), intent(in) :: elem                  !< Object to manage a reference element
+    class(ElementBase3D), intent(in) :: elem_in               !< Object to manage a reference element
+    integer, intent(in) :: pmax_h                             !< Maximum polynomial order of the common modes between elem and elem_in
+    integer, intent(in) :: pmax_v                             !< Maximum polynomial order of the common modes between elem and elem_in
+    real(RP), intent(out) :: TransferMat(elem%Np,elem_in%Np)  !< Nodal-to-nodal transfer matrix from elem_in to elem
+
+    integer :: p1, p2, p3
+    integer :: p_out, p_in
+
+    real(RP) :: InvV_in(elem%Np,elem_in%Np)
+    !---------------------------------------------
+
+    InvV_in(:,:) = 0.0_RP
+    do p3=1, pmax_v+1
+    do p2=1, pmax_h+1
+    do p1=1, pmax_h+1
+      p_out = p1 + (p2-1)*(elem%PolyOrder_h    + 1) + (p3-1)*(elem%PolyOrder_h    + 1)**2
+      p_in  = p1 + (p2-1)*(elem_in%PolyOrder_h + 1) + (p3-1)*(elem_in%PolyOrder_h + 1)**2
+      InvV_in(p_out,:) = elem_in%invV(p_in,:)
+    end do
+    end do
+    end do
+
+    TransferMat(:,:) = matmul(elem%V, InvV_in)
+    return
+  end subroutine ElementBase3D_gen_NodalTransferMat
 
 end module scale_element_base

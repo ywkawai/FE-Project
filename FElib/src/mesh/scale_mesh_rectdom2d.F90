@@ -33,19 +33,23 @@ module scale_mesh_rectdom2d
   !
   !++ Public type & procedure
   ! 
+  !> Derived type to manage a rectangular 2D computational domain
   type, extends(MeshBase2D), public :: MeshRectDom2D
-    integer :: NeGX
-    integer :: NeGY
+    integer :: NeGX    !< Number of elements in X direction (global)
+    integer :: NeGY    !< Number of elements in Y direction (global)
     
-    integer :: NprcX
-    integer :: NprcY
+    integer :: NprcX   !< Number of processes in X direction for domain decomposition
+    integer :: NprcY   !< Number of processes in Y direction for domain decomposition
 
-    real(RP), public :: xmin_gl, xmax_gl
-    real(RP), public :: ymin_gl, ymax_gl    
+    real(RP), public :: xmin_gl !< Minimum X coordinate of the global domain
+    real(RP), public :: xmax_gl !< Maximum X coordinate of the global domain
+    real(RP), public :: ymin_gl !< Minimum Y coordinate of the global domain
+    real(RP), public :: ymax_gl !< Maximum Y coordinate of the global domain
+
     integer, allocatable :: rcdomIJ2LCMeshID(:,:)
 
-    logical :: isPeriodicX
-    logical :: isPeriodicY
+    logical :: isPeriodicX  !< Flag whether the domain is periodic in X direction
+    logical :: isPeriodicY  !< Flag whether the domain is periodic in Y direction
   contains
     procedure :: Init => MeshRectDom2D_Init
     procedure :: Final => MeshRectDom2D_Final
@@ -72,6 +76,8 @@ module scale_mesh_rectdom2d
   !
 
 contains
+  !> Initialize an object to manage a 2D rectangular computational mesh
+!OCL SERIAL
   subroutine MeshRectDom2D_Init(this,       &
     NeGX, NeGY,                             &
     dom_xmin, dom_xmax, dom_ymin, dom_ymax, &
@@ -83,20 +89,20 @@ contains
     implicit none
 
     class(MeshRectDom2D), intent(inout) :: this
-    integer, intent(in) :: NeGX
-    integer, intent(in) :: NeGY
-    real(RP), intent(in) :: dom_xmin
-    real(RP), intent(in) :: dom_xmax
-    real(RP), intent(in) :: dom_ymin
-    real(RP), intent(in) :: dom_ymax
-    logical, intent(in) :: isPeriodicX
-    logical, intent(in) :: isPeriodicY
-    type(QuadrilateralElement), intent(in), target :: refElem
-    integer, intent(in) :: NLocalMeshPerPrc
-    integer, intent(in) :: NprcX
-    integer, intent(in) :: NprcY
-    integer, intent(in), optional :: nproc
-    integer, intent(in), optional :: myrank
+    integer, intent(in) :: NeGX          !< Number of elements in X direction (global)
+    integer, intent(in) :: NeGY          !< Number of elements in Y direction (global)
+    real(RP), intent(in) :: dom_xmin     !< Minimum X coordinate of the global domain
+    real(RP), intent(in) :: dom_xmax     !< Maximum X coordinate of the global domain
+    real(RP), intent(in) :: dom_ymin     !< Minimum Y coordinate of the global domain
+    real(RP), intent(in) :: dom_ymax     !< Maximum Y coordinate of the global domain
+    logical, intent(in) :: isPeriodicX   !< Flag whether the domain is periodic in X direction
+    logical, intent(in) :: isPeriodicY   !< Flag whether the domain is periodic in Y direction
+    type(QuadrilateralElement), intent(in), target :: refElem !< Reference element for the 2D mesh
+    integer, intent(in) :: NLocalMeshPerPrc !< Number of local meshes managed by each process
+    integer, intent(in) :: NprcX            !< Number of processes in X direction for domain decomposition
+    integer, intent(in) :: NprcY            !< Number of processes in Y direction for domain decomposition
+    integer, intent(in), optional :: nproc  !< Total number of processes (if not provided, it will be determined from the parallel environment)
+    integer, intent(in), optional :: myrank !< Rank of the current process (if not provided, it will be determined from the parallel environment)
 
     !-----------------------------------------------------------------------------
     
@@ -121,16 +127,18 @@ contains
     return
   end subroutine MeshRectDom2D_Init
 
+  !> Finalize an object to manage a 2D rectangular computational mesh
+!OCL SERIAL
   subroutine MeshRectDom2D_Final( this )
-    
+    implicit none
     class(MeshRectDom2D), intent(inout) :: this
 
     integer :: n
-
     !-----------------------------------------------------------------------------
   
     if (this%isGenerated) then
       if ( allocated(this%rcdomIJ2LCMeshID) ) then
+        !$acc exit data delete(this%rcdomIJ2LCMeshID)
         deallocate( this%rcdomIJ2LCMeshID )
       end if
     end if
@@ -140,10 +148,10 @@ contains
     return
   end subroutine MeshRectDom2D_Final
   
+  !> Generate meshes for the rectangular domain
+!OCL SERIAL
   subroutine MeshRectDom2D_generate( this )
-    
     implicit none
-
     class(MeshRectDom2D), intent(inout), target :: this
             
     integer :: n
@@ -158,7 +166,6 @@ contains
     integer :: TILE_NUM_PER_PANEL
     real(RP) :: delx, dely
     integer :: tileID
-    
     !-----------------------------------------------------------------------------
 
     TILE_NUM_PER_PANEL = this%LOCAL_MESH_NUM_global / 1
@@ -234,6 +241,7 @@ contains
     elem => lcmesh%refElem2D
     lcmesh%tileID = tileID
     lcmesh%panelID = panelID
+    !$acc update device(lcmesh%tileID, lcmesh%panelID)
     
     !--
 
@@ -242,9 +250,11 @@ contains
     lcmesh%NeS = 1
     lcmesh%NeE = lcmesh%Ne
     lcmesh%NeA = lcmesh%Ne + 2*(NeX + NeY)
+    !$acc update device(lcmesh%Ne, lcmesh%Nv, lcmesh%NeS, lcmesh%NeE, lcmesh%NeA)
 
     lcmesh%NeX = NeX
     lcmesh%NeY = NeY
+    !$acc update device(lcmesh%NeX, lcmesh%NeY)
 
     delx = (dom_xmax - dom_xmin)/dble(NprcX)
     dely = (dom_ymax - dom_ymin)/dble(NprcY)
@@ -253,6 +263,7 @@ contains
     lcmesh%xmax = dom_xmin +  i   *delx
     lcmesh%ymin = dom_ymin + (j-1)*dely
     lcmesh%ymax = dom_ymin +  j   *dely
+    !$acc update device(lcmesh%xmin, lcmesh%xmax, lcmesh%ymin, lcmesh%ymax)
 
     allocate( lcmesh%pos_ev(lcmesh%Nv,2) )
     allocate( lcmesh%EToV(lcmesh%Ne,elem%Nv) )
@@ -263,22 +274,27 @@ contains
     allocate( lcmesh%VMapP(elem%NfpTot, lcmesh%Ne) )
     allocate( lcmesh%MapM(elem%NfpTot, lcmesh%Ne) )
     allocate( lcmesh%MapP(elem%NfpTot, lcmesh%Ne) )
+    !$acc enter data create(lcmesh%pos_ev, lcmesh%EToV, lcmesh%EToE, lcmesh%EToF, lcmesh%BCType, &
+    !$acc   lcmesh%VMapM, lcmesh%VMapP, lcmesh%MapM, lcmesh%MapP)
 
     lcmesh%BCType(:,:) = BCTYPE_INTERIOR
+    !$acc update device(lcmesh%BCType)
 
     !----
 
     call MeshUtil2D_genRectDomain( lcmesh%pos_ev, lcmesh%EToV,   & ! (out)
       lcmesh%NeX, lcmesh%xmin, lcmesh%xmax,                      & ! (in)
       lcmesh%NeY, lcmesh%ymin, lcmesh%ymax )                       ! (in)
+    !$acc update device(lcmesh%pos_ev, lcmesh%EToV)
     
     !---
-    call MeshBase2D_setGeometricInfo(lcmesh, MeshRectDom2D_coord_conv, MeshRectDom2D_calc_normal )
+    call MeshBase2D_setGeometricInfo( lcmesh, MeshRectDom2D_coord_conv, MeshRectDom2D_calc_normal )
 
     !---
 
     call MeshUtil2D_genConnectivity( lcmesh%EToE, lcmesh%EToF, & ! (out)
       lcmesh%EToV, lcmesh%Ne, elem%Nfaces )                      ! (in)
+    !$acc update device(lcmesh%EToE, lcmesh%EToF)
 
     !---
     call MeshUtil2D_BuildInteriorMap( lcmesh%VmapM, lcmesh%VMapP, lcmesh%MapM, lcmesh%MapP, &
@@ -288,6 +304,8 @@ contains
     call MeshUtil2D_genPatchBoundaryMap( lcmesh%VMapB, lcmesh%MapB, lcmesh%VMapP, &
       lcmesh%pos_en, lcmesh%xmin, lcmesh%xmax, lcmesh%ymin, lcmesh%ymax,          &
       elem%Fmask, lcmesh%Ne, elem%Np, elem%Nfp, elem%Nfaces, lcmesh%Nv)
+    !$acc update device(lcmesh%VMapM, lcmesh%VMapP, lcmesh%MapM, lcmesh%MapP)
+    !$acc enter data copyin(lcmesh%VMapB, lcmesh%MapB)
     
     return
   end subroutine MeshRectDom2D_setupLocalDom
@@ -322,6 +340,7 @@ contains
       this%tileID_globalMap, this%tileFaceID_globalMap, this%tilePanelID_globalMap, & ! (out)
       this%LOCAL_MESH_NUM_global, this%isPeriodicX, this%isPeriodicY,               & ! (in)
       this%NprcX, this%NprcY )                                                        ! (in)
+    !$acc update device(this%tileID_globalMap, this%tileFaceID_globalMap, this%tilePanelID_globalMap)
 
     !----
     
@@ -345,6 +364,7 @@ contains
       end if 
     end do
     end do
+    !$acc update device(this%tileID_global2localMap, this%PRCRank_globalMap)
 
     allocate( this%rcdomIJ2LCMeshID(ilc_count,jlc_count) )
     do jlc=1, jlc_count
@@ -352,13 +372,13 @@ contains
       this%rcdomIJ2LCMeshID(ilc,jlc) = ilc + (jlc - 1)*ilc_count
     end do
     end do
+    !$acc enter data copyin(this%rcdomIJ2LCMeshID)
 
     return
   end subroutine MeshRectDom2D_assignDomID
   
   subroutine MeshRectDom2D_coord_conv( x, y, xr, xs, yr, ys, &
     vx, vy, elem )
-
     implicit none
 
     type(ElementBase2D), intent(in) :: elem
@@ -381,7 +401,6 @@ contains
 
   subroutine MeshRectDom2D_calc_normal( normal_fn, &
     Escale_f, fid, elem )
-
     implicit none
 
     type(ElementBase2D), intent(in) :: elem

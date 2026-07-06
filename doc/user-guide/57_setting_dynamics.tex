@@ -109,25 +109,39 @@ We applied the filter to the solution vector
 at the final stage of the RK scheme with a timestep $\Delta t$. 
 Then, the decay timescale for the highest mode is approximately $\Delta t/\alpha_m$.
 
+
+In \scaledg, modal filters can be configured separately for dynamical variables and tracer variables.
 The switch of modal filtering exists in \namelist{PARAM_ATMOS_DYN} 
 and 
-the parameters are specified in \namelist{PARAM_ATMOS_DYN_MODALFILTER} as 
+the parameters are specified in \namelist{PARAM_ATMOS_DYN_MODALFILTER} and \namelist{PARAM_ATMOS_DYN_TRACER_MODALFILTER}. 
+The flag for modal filtering is set as 
 \editboxtwo{
  \verb|&PARAM_ATMOS_DYN  | & \\
- \verb|MODALFILTER_FLAG    = .true.,|  & ; Flag to set whether a modal filtering is used \\
+ \verb|MODALFILTER_FLAG           = .true.,|  & ; Flag to set whether a modal filtering is used \\
+ \verb|TRACERADV_MODALFILTER_FLAG = .true.,| & ; Flag to set whether a modal filtering is used for tracer variables \\
 \verb|/             | & \\
 }
+For the modal filtering of dynamical variables, the parameters are set as
 \editboxtwo{
  \verb|&PARAM_ATMOS_DYN_MODALFILTER  | & \\
- \verb|MF_ALPHA_h          = 1D-1,| & ; Order of modal filter in the horizontal direction  \\
- \verb|MF_ORDER_h          = 16,  | & ; Non-dimensional strength of modal filter in the horizontal direction \\
- \verb|MF_ALPHA_v          = 1D-1,| & ; Order of modal filter in the vertical direction  \\
- \verb|MF_ORDER_v          = 16,  | & ; Non-dimensional strength of modal filter in the vertical direction \\
+ \verb|MF_ALPHA_h          = 1D-1,| & ; Non-dimensional strength of horizontal modal filter  \\
+ \verb|MF_ORDER_h          = 16,  | & ; Order of horizontal modal filter \\
+ \verb|MF_ALPHA_v          = 1D-1,| & ; Non-dimensional strength of vertical modal filter  \\
+ \verb|MF_ORDER_v          = 16,  | & ; Order of vertical modal filter \\
 \verb|/             | & \\
+}
+while for the modal filtering of tracer variables, the parameters are set as
+\editboxtwo{
+ \verb|&PARAM_ATMOS_DYN_TRACER_MODALFILTER | & \\
+ \verb|MF_ALPHA_h = 1D-1,| & ; Non-dimensional strength of horizontal modal filter \\
+ \verb|MF_ORDER_h = 16, |  & ; Order of horizontal modal filter \\
+ \verb|MF_ALPHA_v = 1D-1,| & ; Non-dimensional strength of vertical modal filter \\
+ \verb|MF_ORDER_v = 16, |  & ; Order of vertical modal filter \\
+ \verb|/ | & \\
 }
 
 We set the order $p_m$, and decay coefficient $\alpha_m$ such that 
-the strength of filter should ensure numerical stability while being as weak as possible. 
+the filter is as weak as possible while maintaining numerical stability. 
 
 \section{Setting for boundary condition} \label{sec:atm_dynamics_bc}
 
@@ -196,4 +210,29 @@ the Coriolis parameter is nonzero for the default and depends on the latitude.
 The angular velocity of rotation is set by \nmitem{CONST_OHM} parameter of \namelist{PARAM_CONST}.
 If the Coriolis force is not considered, you should set \nmitem{CONST_OHM} to be zero. 
 
+
+%————————————————————————
+\section{Setting for shallow-atmosphere approximation}
+\label{sec:shallow_atmosphere_approx}
+%%
+For the global model, the shallow-atmosphere approximation can be switched by \nmitem{SHALLOW_ATM_APPROX_FLAG} in \namelist{PARAM_ATMOS_MESH}.
+
+\editboxtwo{
+\verb|&PARAM_ATMOS_MESH | & \\
+\verb|SHALLOW_ATM_APPROX_FLAG = .true.,| & ; Enable shallow-atmosphere approximation \\
+\verb|/ | & \\
+}
+
+By default, the shallow-atmosphere approximation is applied, 
+and the metric terms and the Coriolis terms are simplified consistently with the governing equations under this approximation.
+When \nmitem{SHALLOW_ATM_APPROX_FLAG} is set to \verb|.false.|, 
+the deep-atmosphere formulation is used, 
+and the radial variation of the geometry is retained in the global dynamical core.
+
+
+Currently, the deep-atmosphere formulation is available only for
+\verb|GLOBALNONHYDRO3D_RHOT_HEVE| and
+\verb|GLOBALNONHYDRO3D_RHOT_HEVE_ASIS|.
+When the other global dynamical-core options are used,
+\nmitem{SHALLOW_ATM_APPROX_FLAG} should be set to \verb|.true.|.
 

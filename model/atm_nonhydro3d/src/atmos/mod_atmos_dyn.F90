@@ -288,6 +288,7 @@ contains
 
     class(MeshBase), pointer :: mesh
     class(MeshBase3D), pointer :: mesh3D
+    class(MeshField3D), pointer :: tmpvar
     !--------------------------------------------------
     
     call PROF_rapstart( 'ATM_DYN_update', 1)   
@@ -318,6 +319,7 @@ contains
 
       call PROF_rapend( 'ATM_DYN_core', 2)
 
+      call prgvars_list%Get3D( 3, tmpvar )
     end if
 
     !-- Tracer advection (prepair) ------------------------------------------------
@@ -377,6 +379,7 @@ contains
 
   !--- private ---------------
 
+  !> Setup Coriolis parameter
 !OCL SERIAL
   subroutine setup_coriolis_parameter( this, atm_mesh )
 
@@ -434,7 +437,9 @@ contains
         coriolis%val(:,lcmesh2D%NeS:lcmesh2D%NeE),                       & ! (out)
         CORIOLIS_type, lcmesh2D%refElem2D%Np * lcmesh2D%Ne,              & ! (in)
         lcmesh2D%pos_en(:,:,2), CORIOLIS_f0, CORIOLIS_beta, CORIOLIS_y0, & ! (in)
-        lcmesh3D%lat2D(:,:)                                              ) ! (in)
+        lcmesh3D%lat2D                                                   ) ! (in)
+      
+      !$acc update device( coriolis%val )
     end do
 
     return

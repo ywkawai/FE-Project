@@ -4,7 +4,7 @@
 !! @par Description
 !!          A module to treat sparse matrix and the associated operations
 !!
-!! @author Yuta Kawai, Team SCALE
+!! @author Yuta Kawai, Xuanzhengbo Ren, and Team SCALE
 !!
 !<
 #include "scaleFElib.h"
@@ -42,7 +42,7 @@ module scale_sparsemat
     integer :: rowPtrSize             !< Size of rowPtr
 
     ! for ELL format
-    integer :: col_size
+    integer :: col_size               !< Size of column of compressed matrix for ELL format (maximum number of nonzeros in a row)
 
     integer, private :: storage_format_id      !< Number of row of original matrix
   contains
@@ -56,6 +56,7 @@ module scale_sparsemat
 
   interface sparsemat_matmul
     module procedure sparsemat_matmul1
+    module procedure sparsemat_matmul1_2
     module procedure sparsemat_matmul2
   end interface
   public :: sparsemat_matmul
@@ -64,8 +65,8 @@ module scale_sparsemat
   !
   !++ Public parameters & variables
   !
-  integer, public, parameter :: SPARSEMAT_STORAGE_TYPEID_CSR = 1
-  integer, public, parameter :: SPARSEMAT_STORAGE_TYPEID_ELL = 2
+  integer, public, parameter :: SPARSEMAT_STORAGE_TYPEID_CSR = 1  !< Storage format ID for CSR format
+  integer, public, parameter :: SPARSEMAT_STORAGE_TYPEID_ELL = 2  !< Storage format ID for ELL format
 
   !-----------------------------------------------------------------------------
   !
@@ -84,6 +85,8 @@ module scale_sparsemat
   !-----------------------------------------------------------------------------
 
 contains
+  !> Initialize an object to manage a sparse matrix
+!OCL SERIAL
   subroutine sparsemat_Init( this, mat, &
       EPS, storage_format )
     implicit none
@@ -109,9 +112,10 @@ contains
 
     integer :: row_nonzero_counter(size(mat,1))
     integer :: col_size_l
-
     !--------------------------------------------------------------------------- 
  
+    !$acc enter data create(this)
+
     this%M = size(mat,1)
     this%N = size(mat,2)
 
@@ -186,6 +190,8 @@ contains
     case ('CSR')
       allocate( this%rowPtr(rowptr_counter) )
       this%rowPtr(:) = tmp_rowptr(1:rowptr_counter)
+      !$acc enter data copyin( this%rowPtr )
+      !$acc enter data attach( this%rowPtr )
       this%rowPtrSize = rowptr_counter
     case('ELL')
       do l=2, val_counter
@@ -194,6 +200,10 @@ contains
         end if
       end do
     end select
+    !$acc enter data copyin( this%val, this%colIdx )
+    !$acc enter data attach( this%val, this%colIdx )
+
+    !$acc update device( this%M, this%N, this%nnz, this%rowPtrSize, this%storage_format_id, this%col_size )
 
     !write(*,*) "--- Mat ------"
     !write(*,*) "shape:", shape(mat)
@@ -211,20 +221,28 @@ contains
     return
   end subroutine sparsemat_Init
 
+  !> Finalize an object to manage a sparse matrix
+!OCL SERIAL
   subroutine sparsemat_Final(this)
     implicit none
     class(SparseMat), intent(inout) :: this
-
     !--------------------------------------------------------------------------- 
 
+    !$acc exit data detach( this%val, this%colIdx )
+    !$acc exit data delete( this%val, this%colIdx )
     deallocate( this%val )
     deallocate( this%colIdx )
-
+    
     select case( this%storage_format_id )
     case( SPARSEMAT_STORAGE_TYPEID_CSR )
+      !$acc exit data detach( this%rowPtr )
+      !$acc exit data delete( this%rowPtr )
       deallocate( this%rowPtr )
     end select
 
+    !$acc exit data delete( this )
+
+    !write(*,*) "--- Finalize sparsemat ---"
     return
   end subroutine sparsemat_Final
 
@@ -339,6 +357,7 @@ contains
     return 
   end function sparsemat_get_storage_format_id
 
+  !> Matrix-vector multiplication for a sparse matrix
 !OCL SERIAL  
   subroutine sparsemat_matmul1(A, b, c)
     implicit none
@@ -348,6 +367,8 @@ contains
     real(RP), intent(out) :: c(A%M)
 
     !--------------------------------------------------------------------------- 
+
+    !$acc routine vector
 
     select case( A%storage_format_id )
     case( SPARSEMAT_STORAGE_TYPEID_CSR )
@@ -361,6 +382,34 @@ contains
     return
   end subroutine sparsemat_matmul1
 
+  !> Matrix-vector multiplication for a sparse matrix with two vectors
+  !! This routine computes c = A * (b1 .* b2), where .* is the element-wise multiplication.
+!OCL SERIAL  
+  subroutine sparsemat_matmul1_2(A, b1, b2, c)
+    implicit none
+
+    type(sparsemat), intent(in) :: A
+    real(RP), intent(in ) :: b1(:)
+    real(RP), intent(in ) :: b2(:)
+    real(RP), intent(out) :: c(A%M)
+
+    !--------------------------------------------------------------------------- 
+
+    !$acc routine vector
+
+    select case( A%storage_format_id )
+    case( SPARSEMAT_STORAGE_TYPEID_CSR )
+      call sparsemat_matmul_CSR_1_2( A%val, A%colIdx, A%rowPtr, b1, b2, c, &
+        A%M, A%N, A%nnz, A%rowPtrSize                          )
+    case( SPARSEMAT_STORAGE_TYPEID_ELL )
+      call sparsemat_matmul_ELL_1_2( A%val, A%colIdx, b1, b2, c, &
+        A%M, A%N, A%nnz, A%col_size                              )
+    end select
+
+    return
+  end subroutine sparsemat_matmul1_2
+
+  !> Matrix-matrix multiplication for a sparse matrix
 !OCL SERIAL  
   subroutine sparsemat_matmul2(A, b, c)
     implicit none
@@ -385,6 +434,7 @@ contains
 
 !--- private ----------------------------------------------
 
+  !> Matrix-vector multiplication for a sparse matrix in CSR format
 !OCL SERIAL
   subroutine sparsemat_matmul_CSR_1(A, col_Ind, rowPtr, b, c, M, N, buf_size, rowPtr_size)
     implicit none
@@ -401,23 +451,70 @@ contains
 
     integer :: p, j
     integer :: j1, j2
+    real(RP) :: s
 
     !--------------------------------------------------------------------------- 
 
+    !$acc routine vector
+  
     !call mkl_dcsrgemv( 'N', rowPtr_size-1, A, rowPtr, col_Ind, b, c)
-    j1 = rowPtr(1)
+
+    !$acc loop vector
     do p=1, rowPtr_size-1
+       j1 = rowPtr(p)
        j2 = rowPtr(p+1) 
-       c(p) = 0.0_RP
+       s = 0.0_RP
        do j=j1, j2-1
-          c(p) = c(p) + A(j) * b(col_Ind(j))
+          s = s + A(j) * b(col_Ind(j))
        end do
-       j1 = j2
+       c(p) = s
     end do
 
     return
   end subroutine sparsemat_matmul_CSR_1
 
+  !> Matrix-vector multiplication for a sparse matrix in CSR format with two vectors
+  !! This routine computes c = A * (b1 .* b2), where .* is the element-wise multiplication.
+!OCL SERIAL
+  subroutine sparsemat_matmul_CSR_1_2(A, col_Ind, rowPtr, b1, b2, c, M, N, buf_size, rowPtr_size)
+    implicit none
+
+    integer, intent(in) :: M
+    integer, intent(in) :: N
+    integer, intent(in) :: buf_size
+    integer, intent(in) :: rowPtr_size
+    real(RP), intent(in) :: A(buf_size)
+    integer, intent(in) :: col_Ind(buf_size)
+    integer, intent(in) :: rowPtr(rowPtr_size)
+    real(RP), intent(in ) :: b1(N)
+    real(RP), intent(in ) :: b2(N)
+    real(RP), intent(out) :: c(M)
+
+    integer :: p, j
+    integer :: j1, j2
+    real(RP) :: s
+
+    !--------------------------------------------------------------------------- 
+
+    !$acc routine vector
+  
+    !call mkl_dcsrgemv( 'N', rowPtr_size-1, A, rowPtr, col_Ind, b, c)
+
+    !$acc loop vector
+    do p=1, rowPtr_size-1
+       j1 = rowPtr(p)
+       j2 = rowPtr(p+1) 
+       s = 0.0_RP
+       do j=j1, j2-1
+          s = s + A(j) * b1(col_Ind(j)) * b2(col_Ind(j))
+       end do
+       c(p) = s
+    end do
+
+    return
+  end subroutine sparsemat_matmul_CSR_1_2
+
+  !> Matrix-matrix multiplication for a sparse matrix in CSR format
 !OCL SERIAL
   subroutine sparsemat_matmul_CSR_2(A, col_Ind, rowPtr, b, c, M, N, buf_size, rowPtr_size, NQ)
     implicit none
@@ -452,6 +549,7 @@ contains
     return
   end subroutine sparsemat_matmul_CSR_2
 
+  !> Matrix-vector multiplication for a sparse matrix in ELL format
 !OCL SERIAL
   subroutine sparsemat_matmul_ELL_1(A, col_Ind, b, c, M, N, buf_size, col_size)
     implicit none
@@ -469,9 +567,20 @@ contains
     integer :: j_ptr
     !--------------------------------------------------------------------------- 
 
+    !$acc routine vector
+
+#ifdef _OPENACC
+    !$acc loop vector
+    do i=1, M
+      c(i) = 0.0_RP
+    end do
+#else
     c(:) = 0.0_RP
+#endif
+
     do k=1, col_size
       kk = M * (k-1)
+      !$acc loop vector
       do i=1, M
         j_ptr = kk + i        
         c(i) = c(i) + A(j_ptr) * b(col_Ind(j_ptr))
@@ -481,6 +590,50 @@ contains
     return
   end subroutine sparsemat_matmul_ELL_1
 
+  !> Matrix-vector multiplication for a sparse matrix in ELL format with two vectors
+  !! This routine computes c = A * (b1 .* b2), where .* is the element-wise multiplication.
+!OCL SERIAL
+  subroutine sparsemat_matmul_ELL_1_2(A, col_Ind, b1, b2, c, M, N, buf_size, col_size)
+    implicit none
+
+    integer, intent(in) :: M
+    integer, intent(in) :: N
+    integer, intent(in) :: buf_size
+    integer, intent(in) :: col_size
+    real(RP), intent(in) :: A(buf_size)
+    integer, intent(in) :: col_Ind(buf_size)
+    real(RP), intent(in ) :: b1(N)
+    real(RP), intent(in ) :: b2(N)
+    real(RP), intent(out) :: c(M)
+
+    integer :: k, kk, i
+    integer :: j_ptr
+    !--------------------------------------------------------------------------- 
+
+    !$acc routine vector
+
+#ifdef _OPENACC
+    !$acc loop vector
+    do i=1, M
+      c(i) = 0.0_RP
+    end do
+#else
+    c(:) = 0.0_RP
+#endif
+
+    do k=1, col_size
+      kk = M * (k-1)
+      !$acc loop vector
+      do i=1, M
+        j_ptr = kk + i        
+        c(i) = c(i) + A(j_ptr) * b1(col_Ind(j_ptr)) * b2(col_Ind(j_ptr))
+      end do
+    end do
+
+    return
+  end subroutine sparsemat_matmul_ELL_1_2
+
+  !> Matrix-matrix multiplication for a sparse matrix in ELL format
 !OCL SERIAL
   subroutine sparsemat_matmul_ELL_2(A, col_Ind, b, c, M, N, buf_size, col_size, NQ)
     implicit none

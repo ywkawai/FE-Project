@@ -31,9 +31,10 @@ module scale_mesh_base2d
   !
   !++ Public type & procedure
   ! 
+  !> Derived type to manage a computational mesh (base type for 2D domain)
   type, abstract, public, extends(MeshBase) :: MeshBase2D
-    type(LocalMesh2D), allocatable :: lcmesh_list(:)
-    type(ElementBase2D), pointer :: refElem2D
+    type(LocalMesh2D), allocatable :: lcmesh_list(:) !< Array of local meshes in each MPI process
+    type(ElementBase2D), pointer :: refElem2D        !< Pointer to an object with a reference element for 2D
   contains
     procedure(MeshBase2D_generate), deferred :: Generate 
     procedure :: GetLocalMesh => MeshBase2D_get_localmesh
@@ -70,13 +71,13 @@ module scale_mesh_base2d
   !
 
 contains
+  !> Initialize an object to manage a 2D computational mesh
 !OCL SERIAL
   subroutine MeshBase2D_Init(this, &
     refElem, NLocalMeshPerPrc,     &
     nprocs, myrank                 )
     
     implicit none
-
     class(MeshBase2D), intent(inout) :: this
     class(ElementBase2D), intent(in), target :: refElem
     integer, intent(in) :: NLocalMeshPerPrc
@@ -105,10 +106,10 @@ contains
     return
   end subroutine MeshBase2D_Init
 
+  !> Finalize an object to manage a 2D computational mesh
 !OCL SERIAL
   subroutine MeshBase2D_Final( this )
     implicit none
-    
     class(MeshBase2D), intent(inout) :: this
     integer :: n
     !-----------------------------------------------------------------------------
@@ -130,7 +131,6 @@ contains
   subroutine MeshBase2D_get_localmesh( this, id, ptr_lcmesh )
     use scale_localmesh_base, only: LocalMeshBase
     implicit none
-
     class(MeshBase2D), target, intent(in) :: this
     integer, intent(in) :: id
     class(LocalMeshBase), pointer, intent(out) :: ptr_lcmesh
@@ -142,9 +142,8 @@ contains
 
 !OCL SERIAL
   subroutine MeshBase2D_setGeometricInfo( lcmesh, coord_conv, calc_normal )
-
+    use scale_mesh_base, only: MeshBase_setGeometricInfo
     implicit none
-    
     type(LocalMesh2D), intent(inout) :: lcmesh
     interface
       subroutine coord_conv( x, y, xr, xs, yr, ys, &
@@ -184,20 +183,14 @@ contains
 
     refElem => lcmesh%refElem2D
 
-    allocate( lcmesh%pos_en(refElem%Np,lcmesh%Ne,2) )
-    !allocate( mesh%fx(refElem%Nfaces*refElem%Nfp,mesh%Ne) )
-    !allocate( mesh%fy(refElem%Nfaces*refElem%Nfp,mesh%Ne) )
-    allocate( lcmesh%normal_fn(refElem%NfpTot,lcmesh%Ne,2) )
-    allocate( lcmesh%sJ(refElem%NfpTot,lcmesh%Ne) )
-    allocate( lcmesh%J(refElem%Np,lcmesh%Ne) )
-    allocate( lcmesh%Fscale(refElem%NfpTot,lcmesh%Ne) )
-    allocate( lcmesh%Escale(refElem%Np,lcmesh%Ne,2,2) )
-    allocate( lcmesh%Gsqrt(refElem%Np,lcmesh%NeA) )
-    allocate( lcmesh%G_ij(refElem%Np,lcmesh%Ne, 2, 2) )
-    allocate( lcmesh%GIJ (refElem%Np,lcmesh%Ne, 2, 2) )
+    call MeshBase_setGeometricInfo(lcmesh, 2)
+
+    allocate( lcmesh%G_ij(refElem%Np,lcmesh%Ne,2,2) )
+    allocate( lcmesh%GIJ (refElem%Np,lcmesh%Ne,2,2) )
     allocate( lcmesh%lon(refElem%Np,lcmesh%Ne) )
     allocate( lcmesh%lat(refElem%Np,lcmesh%Ne) )
-    
+    !$acc enter data create(lcmesh%G_ij, lcmesh%GIJ, lcmesh%lon, lcmesh%lat)
+
     fmask(:) = reshape(refElem%Fmask, shape(fmask))
     do f=1, refElem%Nfaces
     do i=1, refElem%Nfp
@@ -244,6 +237,7 @@ contains
 
       lcmesh%Fscale(:,ke) = lcmesh%sJ(:,ke)/lcmesh%J(fmask(:),ke)       
     end do
+    !$acc update device(lcmesh%pos_en, lcmesh%normal_fn, lcmesh%sJ, lcmesh%J, lcmesh%Escale, lcmesh%Fscale)
 
     !$omp parallel
     !$omp workshare
@@ -258,6 +252,7 @@ contains
     lcmesh%G_ij  (:,:,2,2) = 1.0_RP
     !$omp end workshare
     !$omp end parallel
+    !$acc update device(lcmesh%Gsqrt, lcmesh%GIJ, lcmesh%G_ij)
 
     return
   end subroutine MeshBase2D_setGeometricInfo

@@ -5,7 +5,7 @@
 !!          SCALE: Scalable Computing by Advanced Library and Environment
 !!          regrid tool for models based DG methods
 !!
-!! @author Team SCALE
+!! @author Yuta kawai, Team SCALE
 !!
 !<
 !-------------------------------------------------------------------------------

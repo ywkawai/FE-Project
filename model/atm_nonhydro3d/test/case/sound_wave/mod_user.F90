@@ -8,7 +8,7 @@
 !!
 !<
 !-------------------------------------------------------------------------------
-#include "scalelib.h"
+#include "scaleFElib.h"
 module mod_user
 
   !-----------------------------------------------------------------------------
@@ -198,7 +198,7 @@ contains
   
     real(RP) :: rgamm
 
-    integer :: ke
+    integer :: ke, p
     integer :: ierr
     !-----------------------------------------------------------------------------
 
@@ -226,11 +226,13 @@ contains
     !---
 
     allocate( PRES_purtub(elem%Np,lcmesh%NeA) )
+    !$acc data create( PRES_purtub )
+
     call mkinitutil_calc_cosinebell( &
       PRES_purtub,                           &
       DPRES, r_x, r_y, r_z, x_c, y_c, z_c,   &
       x, y, z, lcmesh, elem,                 &
-      IntrpPolyOrder_h, IntrpPolyOrder_v     )  
+      IntrpPolyOrder_h, IntrpPolyOrder_v     )
     
     call hydrostatic_calc_basicstate_constPT( DENS_hyd, PRES_hyd,                      &
       TEMP0, PRES00, lcmesh%pos_en(:,:,1), lcmesh%pos_en(:,:,2), lcmesh%pos_en(:,:,3), &
@@ -240,12 +242,17 @@ contains
     rgamm = CvDry / CpDry
 
     !$omp parallel do
+    !$acc parallel loop gang present(DRHOT, PRES_hyd,PRES_purtub, lcmesh, elem)
     do ke=lcmesh%NeS, lcmesh%NeE
-      DRHOT(:,ke) = PRES00/Rdry * ( &
-          ( ( PRES_hyd(:,ke) + PRES_purtub(:,ke) ) / PRES00 )**rgamm &
-        - ( PRES_hyd(:,ke) / PRES00 )**rgamm                         )
+      !$acc loop vector
+      do p=1, elem%Np
+        DRHOT(p,ke) = PRES00/Rdry * ( &
+            ( ( PRES_hyd(p,ke) + PRES_purtub(p,ke) ) / PRES00 )**rgamm &
+          - ( PRES_hyd(p,ke) / PRES00 )**rgamm                         )
+      end do
     end do
 
+    !$acc end data
     return
   end subroutine exp_SetInitCond_sound_wave
 

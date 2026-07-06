@@ -18,12 +18,12 @@ program test_eigen_analysis
   use,intrinsic :: iso_fortran_env
 
   use scale_element_line, only: LineElement
-  use scale_polynominal, only: &
-    Polynominal_GenLagrangePoly
-  use scale_polynominal, only: &
-    polynominal_genLegendrePoly,  &
-    polynominal_genDLegendrePoly, &
-    Polynominal_GenLagrangePoly
+  use scale_polynomial, only: &
+    Polynomial_GenLagrangePoly
+  use scale_polynomial, only: &
+    polynomial_genLegendrePoly,  &
+    polynomial_genDLegendrePoly, &
+    Polynomial_GenLagrangePoly
   use scale_linalgebra, only: &
     linalgebra_SolveLinEq
   implicit none
@@ -153,8 +153,8 @@ contains
       phiM1(:) = 0.0_RP; phiP1(:) = 0.0_RP
       phiM1(1) = 1.0_RP; phiP1(porder+1) = 1.0_RP
     else if (basis_type == 'modal' ) then
-      P1D_ (:,:) = Polynominal_GenLegendrePoly( elem%PolyOrder, elem%x1(:) )
-      DP1D_(:,:) = polynominal_genDLegendrePoly( elem%PolyOrder, elem%x1(:), P1D_(:,:) )
+      P1D_ (:,:) = Polynomial_GenLegendrePoly( elem%PolyOrder, elem%x1(:) )
+      DP1D_(:,:) = polynomial_genDLegendrePoly( elem%PolyOrder, elem%x1(:), P1D_(:,:) )
       ! normalization
       do p1=1, porder+1
         P1D_ (:,p1) =  P1D_(:,p1) * sqrt(dble(p1-1) + 0.5_RP)
@@ -420,7 +420,7 @@ contains
   !----------------------------
 
   subroutine calc_muhat( muhat, wnum, elem, basis_type, Minv )
-    use scale_polynominal, only: Polynominal_GenLegendrePoly
+    use scale_polynomial, only: Polynomial_GenLegendrePoly
     implicit none
     type(LineElement), intent(in) :: elem
     complex(RP), intent(out) :: muhat(elem%Np)
@@ -440,9 +440,9 @@ contains
     call elem_int%Init(Porder_int, .false.)
 
     if (basis_type == 'nodal' ) then
-      basis(:,:) = Polynominal_GenLagrangePoly(elem%PolyOrder, elem%x1(:), elem_int%x1(:))
+      basis(:,:) = Polynomial_GenLagrangePoly(elem%PolyOrder, elem%x1(:), elem_int%x1(:))
     else if (basis_type == 'modal' ) then
-      basis(:,:) = Polynominal_GenLegendrePoly(elem%PolyOrder, elem_int%x1(:))
+      basis(:,:) = Polynomial_GenLegendrePoly(elem%PolyOrder, elem_int%x1(:))
       ! normalization
       do pp=1, elem%PolyOrder+1
         basis(:,pp) = basis(:,pp) * sqrt(dble(pp-1) + 0.5_RP)

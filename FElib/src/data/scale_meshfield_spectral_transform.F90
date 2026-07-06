@@ -18,8 +18,8 @@ module scale_meshfield_spectral_transform
   use scale_prc, only: &
     PRC_abort
   
-  use scale_polynominal, only: &
-    Polynominal_GenLagrangePoly
+  use scale_polynomial, only: &
+    Polynomial_GenLagrangePoly
   use scale_element_base, only: &
     ElementBase1D, ElementBase2D, ElementBase3D
   use scale_element_line, only: &
@@ -30,6 +30,9 @@ module scale_meshfield_spectral_transform
   use scale_mesh_base1d, only: MeshBase1D
   use scale_mesh_base2d, only: MeshBase2D
 
+  use scale_localmeshfield_base, only: &
+    LocalMeshField1D,      &
+    LocalMeshFieldBaseList
   use scale_meshfield_base, only: &
     MeshField1D, MeshField2D, &
     MeshField1DList, MeshField2DList
@@ -262,7 +265,7 @@ contains
       do i=1, this%NsamplePtPerElem
         this%FFT_Xi(i) = -1.0_RP + real(i - 0.5_RP,kind=RP) * dx
       end do
-      this%FFTIntrpMat(:,:) = Polynominal_GenLagrangePoly( elem_dummy%PolyOrder, elem_dummy%x1, this%FFT_xi )
+      this%FFTIntrpMat(:,:) = Polynomial_GenLagrangePoly( elem_dummy%PolyOrder, elem_dummy%x1, this%FFT_xi )
 
       call this%fft%Init( NsamplePtPerElem * mesh1D%NeG )
     end if
@@ -413,7 +416,7 @@ contains
       do i=1, this%NsamplePtPerElem1D
         this%FFT_Xi(i) = -1.0_RP + real(i - 0.5_RP,kind=RP) * dx
       end do
-      this%FFTIntrpMat(:,:) = Polynominal_GenLagrangePoly( elem_dummy%PolyOrder, elem_dummy%x1, this%FFT_xi )
+      this%FFTIntrpMat(:,:) = Polynomial_GenLagrangePoly( elem_dummy%PolyOrder, elem_dummy%x1, this%FFT_xi )
 
       call this%fft_x%Init( this%NsamplePtPerElem1D * this%NeGX )
       call this%fft_y%Init( this%NsamplePtPerElem1D * this%NeGY )
@@ -551,7 +554,7 @@ contains
 
     use mpi
     use scale_prc, only: &
-      PRC_LOCAL_COMM_WORLD    
+      PRC_LOCAL_COMM_WORLD 
     implicit none
     integer, intent(in) :: ks, ke
     integer, intent(in) :: Np
@@ -579,6 +582,7 @@ contains
     class(LocalMesh1D), pointer :: lmesh
     integer :: ldom
     integer :: meshID
+    type(LocalMeshFieldBaseList) :: lcfields(var_num)
 
     integer :: kel, v
     integer :: k, kk
@@ -603,12 +607,15 @@ contains
     
     do meshID=1, mesh_num
       mesh1D => q_list(1,meshID)%ptr%mesh
+
       do ldom=1, mesh1D%LOCAL_MESH_NUM
-        lmesh => mesh1D%lcmesh_list(ldom)
+        do v=1, var_num
+          lcfields(v)%ptr => q_list(v,meshID)%ptr%local(ldom)
+        end do
         !$omp parallel do collapse(2)
         do kel=lmesh%NeS, lmesh%NeE
         do v=1, vec_size
-          q_tmp(:,v,kel) = q_list(v,meshID)%ptr%local(ldom)%val(:,kel)
+          q_tmp(:,v,kel) = lcfields(v)%ptr%val(:,kel)
         end do
         end do      
         call spectral_transform1D_L2projection_lc( s_coef_lc, &
@@ -936,6 +943,8 @@ contains
     integer :: kel, v
     integer :: k, kk, l
     integer :: ierr
+
+    type(LocalMeshFieldBaseList) :: lcfields(var_num)
     !-----------------------------------------------
 
     vec_size = var_num
@@ -959,11 +968,14 @@ contains
       mesh2D => q_list(1,meshID)%ptr%mesh
       do ldom=1, mesh2D%LOCAL_MESH_NUM
         lmesh => mesh2D%lcmesh_list(ldom)
-        
+
+        do v=1, var_num
+          lcfields(v)%ptr => q_list(v,meshID)%ptr%local(ldom)
+        end do
         !$omp parallel do collapse(2)
         do kel=lmesh%NeS, lmesh%NeE
         do v=1, vec_size
-          q_tmp(:,v,kel) = q_list(v,meshID)%ptr%local(ldom)%val(:,kel)
+          q_tmp(:,v,kel) = lcfields(v)%ptr%val(:,kel)
         end do
         end do      
         call spectral_transform2D_L2projection_lc( s_coef_lc, &
