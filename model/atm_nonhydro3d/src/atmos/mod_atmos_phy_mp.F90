@@ -1025,11 +1025,11 @@ contains
 
         if ( lscond_flag ) then
           call ATMOS_PHY_MP_lscond_precipitation( &
-            DENS2, RHOQ2, CPtot2, CVtot2, RHOE2,    & ! (inout)
-            SFLX_rain, SFLX_snow, SFLX_ENGI,        & ! (inout)
-            TEMP2, this%dtsec_sedmientation,        & ! (in)
-            this%vars%QE - this%vars%QS, QLA, QIA,  & ! (in)
-            lcmesh, elem3D, elem_v1D )                ! (in)
+            DENS2_pri, RHOQ2_pri, CPtot2, CVtot2, RHOE2, & ! (inout)
+            SFLX_rain, SFLX_snow, SFLX_ENGI,             & ! (inout)
+            TEMP2, this%dtsec_sedmientation,             & ! (in)
+            this%vars%QE - this%vars%QS, QLA, QIA,       & ! (in)
+            lcmesh, elem3D, elem_v1D )                     ! (in)
         else
           call atm_phy_mp_dgm_common_precipitation( &
             DENS2_pri, RHOQ2_pri, CPtot2, CVtot2, RHOE2,         & ! (inout)
