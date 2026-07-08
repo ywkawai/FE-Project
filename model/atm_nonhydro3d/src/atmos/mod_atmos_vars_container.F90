@@ -801,7 +801,7 @@ contains
    class(ModelVarManager), intent(inout) :: trcvars_list
    class(ModelVarManager), intent(inout) :: forcing_list
    class(LocalMeshFieldBase), pointer, intent(out) :: var
-   class(LocalMeshFieldBase), pointer, intent(out) :: var_tp
+   class(LocalMeshFieldBase), pointer, intent(out), optional :: var_tp
    class(LocalMesh3D), pointer, intent(out), optional :: lcmesh3D
 
    class(MeshFieldBase), pointer :: field
@@ -822,7 +822,7 @@ contains
    call field%GetLocalMeshField(domID, var)
 
    call forcing_list%Get(tend_iq, field)
-   call field%GetLocalMeshField(domID, var_tp)
+   if (present(var_tp)) call field%GetLocalMeshField(domID, var_tp)
 
    if (present(lcmesh3D)) then
      call mesh%GetLocalMesh( domID, lcmesh )

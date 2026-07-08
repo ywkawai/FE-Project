@@ -64,9 +64,11 @@ module mod_user
     RHOH_p  => PHYTEND_RHOH_ID
 
   use mod_atmos_vars, only: &
+    AtmosVarsContainer, &
     AtmosVars_GetLocalMeshPrgVars,    &
     AtmosVars_GetLocalMeshPhyAuxVars, &
-    AtmosVars_GetLocalMeshQTRC_Qv
+    AtmosVars_GetLocalMeshQTRC_Qv,    &
+    ATM_VARS_CONTAINER_PRIMARY_ID
 
   use mod_user_sub_BLmixing, only: &
     USER_sub_BLmixing_Init, USER_sub_BLmixing_calc_tendency
@@ -121,6 +123,9 @@ module mod_user
   logical :: APPLY_NewFilter
   type(Filter) :: newFilter
 
+  integer :: BL_VARS_CONTAINER_ID
+  logical :: is_setup_bl_vars_container
+
 contains
 
 !OCL SERIAL
@@ -157,6 +162,7 @@ contains
     real(RP) :: FilterWidthFac
     namelist / PARAM_USER / &
        USER_do, &
+       BL_VARS_CONTAINER_ID, &
        APPLY_NewFilter, FilterShape, FilterWidthFac
     integer :: ierr    
 
@@ -182,6 +188,8 @@ contains
     APPLY_NewFilter = .false.
     FilterShape     = "GAUSSIAN"
     FilterWidthFac  = 1.0_RP
+
+    BL_VARS_CONTAINER_ID = ATM_VARS_CONTAINER_PRIMARY_ID
 
     !--- read namelist
     rewind(IO_FID_CONF)
@@ -213,6 +221,7 @@ contains
 
     !- Setup BL mixing
     call USER_sub_BLmixing_Init( atm%mesh%ptr_mesh )
+    is_setup_bl_vars_container = .false.
 
     !-
     call newFilter%Init( FilterShape, FilterWidthFac, atm%mesh%ptr_mesh )
@@ -226,6 +235,7 @@ contains
     use scale_file_history_meshfield, only: &
       FILE_HISTORY_meshfield_in    
     use scale_atm_dyn_dgm_nonhydro3d_common, only: &
+      PHYTEND_NUM1 => PHYTEND_NUM, &
       DENS_p  => PHYTEND_DENS_ID, &
       MOMX_p  => PHYTEND_MOMX_ID, &
       MOMY_p  => PHYTEND_MOMY_ID, &
@@ -236,23 +246,25 @@ contains
     class(User), intent(inout) :: this 
     class(AtmosComponent), intent(inout) :: atm
 
-    real(RP) :: dt
+    class(AtmosVarsContainer), pointer :: vars_container
+    class(AtmosVarsContainer), pointer :: vars_container_BL
     !----------------------------
 
-    dt = atm%time_manager%dtsec
+    call atm%vars%Get_container( ATM_VARS_CONTAINER_PRIMARY_ID, vars_container )
 
-    ! if ( APPLY_NewFilter ) then
-    !   call newFilter%Apply( atm%vars%PHY_TEND(DENS_p), atm%mesh%ptr_mesh )
-    !   call newFilter%Apply( atm%vars%PHY_TEND(MOMX_p), atm%mesh%ptr_mesh )
-    !   call newFilter%Apply( atm%vars%PHY_TEND(MOMY_p), atm%mesh%ptr_mesh )
-    !   call newFilter%Apply( atm%vars%PHY_TEND(MOMZ_p), atm%mesh%ptr_mesh )
-    !   call newFilter%Apply( atm%vars%PHY_TEND(RHOT_p), atm%mesh%ptr_mesh )
-    !   call newFilter%Apply( atm%vars%PHY_TEND(RHOH_p), atm%mesh%ptr_mesh )
-    !   call newFilter%Apply( atm%vars%PHY_TEND(RHOH_p+1), atm%mesh%ptr_mesh )
-    ! end if
+    if ( .not. is_setup_bl_vars_container )  then
+        call atm%vars%Setup_container( BL_VARS_CONTAINER_ID, atm%mesh )
+        is_setup_bl_vars_container = .true.
+
+        call atm%vars%container_list(BL_VARS_CONTAINER_ID)%Preproc_operation_for_phys( atm%vars%container, atm%dyn_proc%dyncore_driver )
+    end if
+    call atm%vars%Get_container( BL_VARS_CONTAINER_ID, vars_container_BL )
 
     !-- Boundary layer mixing
-    call USER_sub_BLmixing_calc_tendency( atm%vars, &
+    call USER_sub_BLmixing_calc_tendency( &
+      vars_container%PHY_TEND(MOMX_p), vars_container%PHY_TEND(MOMY_p), &
+      vars_container%PHY_TEND(RHOT_p), vars_container%PHY_TEND(PHYTEND_NUM1+1), &
+      vars_container, vars_container_BL, &
       atm%mesh%DOptrMat(3), atm%mesh%LiftOptrMat, atm%mesh%ptr_mesh )
 
     return
