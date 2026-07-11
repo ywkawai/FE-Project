@@ -327,6 +327,7 @@ contains
 
       VDiffCoef_save(:,ke) = VDiffCoef(:,ke_z,ke_xy)
       VViscCoef_save(:,ke) = VViscCoef(:,ke_z,ke_xy)
+      HFLX_save(:,ke) = 0.0_RP
     end do
     end do
 

@@ -482,6 +482,7 @@ contains
 
     class(MeshBase), pointer :: mesh
     class(LocalMesh3D), pointer :: lcmesh
+    class(LocalMesh2D), pointer :: lcmesh2D
     class(ElementBase3D), pointer :: refElem3D
     class(ElementBase2D), pointer :: refElem2D
 
@@ -505,8 +506,8 @@ contains
     integer :: ke
     integer :: iq
 
-    real(RP), allocatable :: FilterMat(:,:,:)
-    real(RP), allocatable :: FilterMat2D(:,:,:)
+    real(RP), allocatable :: FilterMat(:,:)
+    real(RP), allocatable :: FilterMat2D(:,:)
     !--------------------------------------------------
 
     if (.not. this%IsActivated()) return
@@ -597,37 +598,39 @@ contains
             mp_DENS_t, mp_MOMX_t, mp_MOMY_t, mp_MOMZ_t, mp_RHOT_t, mp_RHOH, mp_EVAP, &
             mp_RHOQ_t, lcmesh                                                        )
 
+          lcmesh2D => lcmesh%lcmesh2D
           refElem3D => lcmesh%refElem3D
-          refElem2D => lcmesh%lcmesh2D%refElem2D
+          refElem2D => lcmesh2D%refElem2D
 
-          allocate( FilterMat(refElem3D%Np,refElem3D%Np,lcmesh%Ne) )
-          allocate( FIlterMat2D(refElem2D%Np,refElem2D%Np,lcmesh%lcmesh2D%Ne) )
-          call this%create_PostFilter( FilterMat, FilterMat2D, &
-            lcmesh, refElem3D, lcmesh%lcmesh2D, refElem2D )
+          allocate( FilterMat(refElem3D%Np,refElem3D%Np) )
+          allocate( FilterMat2D(refElem2D%Np,refElem2D%Np) )
 
-          !$omp parallel private(ke, iq)
+          !$omp parallel private(ke, iq, FilterMat, FilterMat2D)
           !$omp do
           do ke=lcmesh%NeS, lcmesh%NeE
+            call this%create_PostFilter( FilterMat,                           & ! (out)
+              this%modalfilter_3D%FilterMat, lcmesh%Gsqrt(:,ke), refElem3D%Np ) ! (in)
 
             if ( .not. this%PostFilterOnlyApplyRHOH ) then
-              mp_DENS_t%val(:,ke) = matmul( FilterMat(:,:,ke), mp_DENS_t%val(:,ke) )
-              mp_MOMX_t%val(:,ke) = matmul( FilterMat(:,:,ke), mp_MOMX_t%val(:,ke) )
-              mp_MOMY_t%val(:,ke) = matmul( FilterMat(:,:,ke), mp_MOMY_t%val(:,ke) )
-              mp_MOMZ_t%val(:,ke) = matmul( FilterMat(:,:,ke), mp_MOMZ_t%val(:,ke) )
+              mp_DENS_t%val(:,ke) = matmul( FilterMat, mp_DENS_t%val(:,ke) )
+              mp_MOMX_t%val(:,ke) = matmul( FilterMat, mp_MOMX_t%val(:,ke) )
+              mp_MOMY_t%val(:,ke) = matmul( FilterMat, mp_MOMY_t%val(:,ke) )
+              mp_MOMZ_t%val(:,ke) = matmul( FilterMat, mp_MOMZ_t%val(:,ke) )
+
+              do iq=this%vars%QS, this%vars%QE
+                mp_RHOQ_t(iq)%ptr%val(:,ke) = matmul( FilterMat, mp_RHOQ_t(iq)%ptr%val(:,ke) )
+              end do
             end if
-            mp_RHOH %val(:,ke) = matmul( FilterMat(:,:,ke), mp_RHOH %val(:,ke) )
+            
+            mp_RHOH %val(:,ke) = matmul( FilterMat, mp_RHOH %val(:,ke) )
           end do
           if ( .not. this%PostFilterOnlyApplyRHOH ) then
             !$omp do
-            do ke=lcmesh%lcmesh2D%NeS, lcmesh%lcmesh2D%NeE
-              this%vars%auxvars2D(1)%local(n)%val(:,ke) = matmul( FilterMat2D(:,:,ke), this%vars%auxvars2D(1)%local(n)%val(:,ke) )
-            end do
-            !$omp end do
-            !$omp do collapse(2)
-            do iq=this%vars%QS, this%vars%QE
-              do ke=lcmesh%NeS, lcmesh%NeE
-                mp_RHOQ_t(iq)%ptr%val(:,ke) = matmul( FilterMat(:,:,ke), mp_RHOQ_t(iq)%ptr%val(:,ke) )
-              end do
+            do ke=lcmesh2D%NeS, lcmesh2D%NeE
+              call this%create_PostFilter( FilterMat2D,                            & ! (out)
+                this%modalfilter_h2D%FilterMat, lcmesh2D%Gsqrt(:,ke), refElem2D%Np ) ! (in)
+                       
+              this%vars%auxvars2D(1)%local(n)%val(:,ke) = matmul( FilterMat2D, this%vars%auxvars2D(1)%local(n)%val(:,ke) )
             end do
             !$omp end do
           end if
@@ -971,11 +974,12 @@ contains
         do p2D = 1, elem3D%Nnode_h1D**2
           ColMask(:) = elem3D%Colmask(:,p2D)
           do ke_z = 1, lcmesh%NeZ
+            ke = ke2D + (ke_z-1)*lcmesh%Ne2D
+
             DENS2_tmp   (:,ke_z) = DENS(ColMask(:),ke)
             REF_DENS_tmp(:,ke_z) = DENS_hyd(ColMask(:),ke)
             PRES2_tmp   (:,ke_z) = PRES(ColMask(:),ke)
 
-            ke = ke2D + (ke_z-1)*lcmesh%Ne2D
             TEMP2_tmp   (:,ke_z) = PRES2_tmp(:,ke_z) / ( DENS2_tmp(:,ke_z) * Rtot(ColMask(:),ke) )
           end do
           do iq = this%vars%QS+1, this%vars%QE
@@ -1501,48 +1505,25 @@ contains
   end subroutine calc_tendency_lscond
   
 !OCL SERIAL
-  subroutine AtmosPhyMp_create_PostFilter( this, FilterMat, FilterMat2D, &
-    lcmesh, elem3D, lcmesh2D, elem2D )
+  subroutine AtmosPhyMp_create_PostFilter( this, FilterMat, &
+    MFilter, Gsqrt, Np )
     implicit none
     class(AtmosPhyMp), intent(inout) :: this
-    class(LocalMesh3D), intent(in) :: lcmesh
-    class(ElementBase3D), intent(in) :: elem3D
-    class(LocalMesh2D), intent(in) :: lcmesh2D
-    class(ElementBase2D), intent(in) :: elem2D
-    real(RP), intent(out) :: FilterMat(elem3D%Np,elem3D%Np,lcmesh%Ne)
-    real(RP), intent(out) :: FilterMat2D(elem2D%Np,elem2D%Np,lcmesh2D%Ne)
+    integer, intent(in) :: Np
+    real(RP), intent(out) :: FilterMat(Np,Np)
+    real(RP), intent(in) :: MFilter(Np,Np)
+    real(RP), intent(in) :: Gsqrt(Np)
 
-    integer :: ke, ke2D
     integer :: p
-
-    real(RP) :: Gsqrt_(elem3D%Np)
-    real(RP) :: Gsqrt2D_(elem2D%Np)
     !------------------------------------------------------------
 
-    !$omp parallel private(ke, ke2D, p, Gsqrt_, Gsqrt2D_)
-    !$omp do
-    do ke=lcmesh%NeS, lcmesh%NeE
-      FilterMat(:,:,ke) = this%modalfilter_3D%FilterMat(:,:)
-      Gsqrt_(:) = lcmesh%Gsqrt(:,ke)
-      do p=1, elem3D%Np
-        FilterMat(:,p,ke) = FilterMat(:,p,ke) * Gsqrt_(p)
-      end do
-      do p=1, elem3D%Np
-        FilterMat(p,:,ke) = FilterMat(p,:,ke) / Gsqrt_(p)
-      end do
+    FilterMat(:,:) = MFilter(:,:)
+    do p=1, Np
+      FilterMat(:,p) = FilterMat(:,p) * Gsqrt(p)
     end do
-    !$omp do
-    do ke2D=lcmesh2D%NeS, lcmesh2D%NeE
-      FilterMat2D(:,:,ke2D) = this%modalfilter_h2D%FilterMat(:,:)
-      Gsqrt2D_(:) = lcmesh2D%Gsqrt(:,ke2D)
-      do p=1, elem2D%Np
-        FilterMat2D(:,p,ke2D) = FilterMat2D(:,p,ke2D) * Gsqrt2D_(p)
-      end do
-      do p=1, elem2D%Np
-        FilterMat2D(p,:,ke2D) = FilterMat2D(p,:,ke2D) / Gsqrt2D_(p)
-      end do
+    do p=1, Np
+      FilterMat(p,:) = FilterMat(p,:) / Gsqrt(p)
     end do
-    !$omp end parallel
     return
   end subroutine AtmosPhyMp_create_PostFilter
 end module mod_atmos_phy_mp
