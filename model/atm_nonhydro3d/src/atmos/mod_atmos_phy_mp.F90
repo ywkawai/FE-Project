@@ -78,9 +78,9 @@ module mod_atmos_phy_mp
     real(RP), private :: cldfrac_threshold  !< Threshold for cloud fraction
 
     real(DP), private :: dtsec                !< Timestep with cloud microphysics component
-    integer, private :: nstep_sedmientation   !< Number of substep for sedimentation
-    real(RP), private :: rnstep_sedmientation
-    real(DP), private :: dtsec_sedmientation
+    integer, private :: nstep_sedimentation   !< Number of substep for sedimentation
+    real(RP), private :: rnstep_sedimentation !< Reciprocal of nstep_sedimentation
+    real(DP), private :: dtsec_sedimentation  !< Timestep for sedimentation
 
     type(SparseMat) :: Dz                     !< Object to manage a sparse matrix for vertical derivative for sedimentation
     type(SparseMat) :: Lift                   !< Object to manage a sparse matrix for lifting for sedimentation
@@ -89,10 +89,10 @@ module mod_atmos_phy_mp
 
     type(AtmosVarsContainer), pointer :: primary_atmvars_container !< Pointer to the primary atmospheric variable container
 
-    logical :: gFilter_flag
+    logical :: gFilter_flag                            !< Flag whether the post quasi-global filter is applied or not
     type(MeshFieldFilterOperation3D) :: gFilter_phy_mp !< Filter for cloud microphysics variables
 
-    logical :: modalFilter_flag
+    logical :: modalFilter_flag          !< Flag whether the post modal filter is applied or not
     type(ModalFilter) :: modalfilter_h2D !< Modal filter in horizontal direction
     type(ModalFilter) :: modalfilter_3D  !< Modal filter in 3D
 
@@ -104,6 +104,8 @@ module mod_atmos_phy_mp
     procedure, public :: finalize => AtmosPhyMp_finalize
     procedure, public :: Set_primary_atmvars_container => AtmosPhyMp_set_primary_atmvars_container
     procedure, private :: calc_tendency_core => AtmosPhyMp_calc_tendency_core
+!-
+    procedure, private :: create_PostFilter => AtmosPhyMp_create_PostFilter
   end type AtmosPhyMp
 
   !-----------------------------------------------------------------------------
@@ -298,16 +300,16 @@ contains
     nstep_max = 0 ! ceiling( this%dtsec * this%max_term_vel / maxval( CDZ) )
     this%ntmax_sedimentation = max( ntmax_sedimentation, nstep_max )
 
-    this%nstep_sedmientation = ntmax_sedimentation
-    this%rnstep_sedmientation = 1.0_RP / real(ntmax_sedimentation,kind=RP)
-    this%dtsec_sedmientation  = this%dtsec * this%rnstep_sedmientation
+    this%nstep_sedimentation = ntmax_sedimentation
+    this%rnstep_sedimentation = 1.0_RP / real(ntmax_sedimentation,kind=RP)
+    this%dtsec_sedimentation  = this%dtsec * this%rnstep_sedimentation
   
     LOG_NEWLINE
     LOG_INFO("ATMOS_PHY_MP_setup",*) 'Enable negative fixer?                    : ', this%do_negative_fixer
     !LOG_INFO("ATMOS_PHY_MP_setup",*) 'Value limit of negative fixer (abs)       : ', abs(MP_limit_negative)
     LOG_INFO("ATMOS_PHY_MP_setup",*) 'Enable sedimentation (precipitation)?     : ', this%do_precipitation
     LOG_INFO("ATMOS_PHY_MP_setup",*) 'Timestep of sedimentation is divided into : ', this%ntmax_sedimentation, 'step'
-    LOG_INFO("ATMOS_PHY_MP_setup",*) 'DT of sedimentation                       : ', this%dtsec_sedmientation, '[s]'
+    LOG_INFO("ATMOS_PHY_MP_setup",*) 'DT of sedimentation                       : ', this%dtsec_sedimentation, '[s]'
 
     !--- Set the type of microphysics scheme
 
@@ -468,7 +470,6 @@ contains
       AtmosPhyMPVars_GetLocalMeshFields_tend,   &
       AtmosPhyMpVars_GetLocalMeshFields_sfcflx, &
       ATMOS_PHY_MP_RHOH_ID
-
     implicit none
     
     class(AtmosPhyMp), intent(inout) :: this
@@ -481,6 +482,9 @@ contains
 
     class(MeshBase), pointer :: mesh
     class(LocalMesh3D), pointer :: lcmesh
+    class(LocalMesh2D), pointer :: lcmesh2D
+    class(ElementBase3D), pointer :: refElem3D
+    class(ElementBase2D), pointer :: refElem2D
 
     class(LocalMeshFieldBase), pointer :: DDENS, MOMX, MOMY, MOMZ, DRHOT
     class(LocalMeshFieldBase), pointer :: Rtot, CVtot, CPtot
@@ -501,6 +505,9 @@ contains
     integer :: n
     integer :: ke
     integer :: iq
+
+    real(RP), allocatable :: FilterMat(:,:)
+    real(RP), allocatable :: FilterMat2D(:,:)
     !--------------------------------------------------
 
     if (.not. this%IsActivated()) return
@@ -591,32 +598,45 @@ contains
             mp_DENS_t, mp_MOMX_t, mp_MOMY_t, mp_MOMZ_t, mp_RHOT_t, mp_RHOH, mp_EVAP, &
             mp_RHOQ_t, lcmesh                                                        )
 
-          !$omp parallel private(ke, iq)
+          lcmesh2D => lcmesh%lcmesh2D
+          refElem3D => lcmesh%refElem3D
+          refElem2D => lcmesh2D%refElem2D
+
+          allocate( FilterMat(refElem3D%Np,refElem3D%Np) )
+          allocate( FilterMat2D(refElem2D%Np,refElem2D%Np) )
+
+          !$omp parallel private(ke, iq, FilterMat, FilterMat2D)
           !$omp do
           do ke=lcmesh%NeS, lcmesh%NeE
+            call this%create_PostFilter( FilterMat,                           & ! (out)
+              this%modalfilter_3D%FilterMat, lcmesh%Gsqrt(:,ke), refElem3D%Np ) ! (in)
+
             if ( .not. this%PostFilterOnlyApplyRHOH ) then
-              mp_DENS_t%val(:,ke) = matmul( this%modalfilter_3D%FilterMat, mp_DENS_t%val(:,ke) )
-              mp_MOMX_t%val(:,ke) = matmul( this%modalfilter_3D%FilterMat, mp_MOMX_t%val(:,ke) )
-              mp_MOMY_t%val(:,ke) = matmul( this%modalfilter_3D%FilterMat, mp_MOMY_t%val(:,ke) )
-              mp_MOMZ_t%val(:,ke) = matmul( this%modalfilter_3D%FilterMat, mp_MOMZ_t%val(:,ke) )
+              mp_DENS_t%val(:,ke) = matmul( FilterMat, mp_DENS_t%val(:,ke) )
+              mp_MOMX_t%val(:,ke) = matmul( FilterMat, mp_MOMX_t%val(:,ke) )
+              mp_MOMY_t%val(:,ke) = matmul( FilterMat, mp_MOMY_t%val(:,ke) )
+              mp_MOMZ_t%val(:,ke) = matmul( FilterMat, mp_MOMZ_t%val(:,ke) )
+
+              do iq=this%vars%QS, this%vars%QE
+                mp_RHOQ_t(iq)%ptr%val(:,ke) = matmul( FilterMat, mp_RHOQ_t(iq)%ptr%val(:,ke) )
+              end do
             end if
-            mp_RHOH %val(:,ke) = matmul( this%modalfilter_3D%FilterMat, mp_RHOH %val(:,ke) )
+            
+            mp_RHOH %val(:,ke) = matmul( FilterMat, mp_RHOH %val(:,ke) )
           end do
           if ( .not. this%PostFilterOnlyApplyRHOH ) then
             !$omp do
-            do ke=lcmesh%lcmesh2D%NeS, lcmesh%lcmesh2D%NeE
-              this%vars%auxvars2D(1)%local(n)%val(:,ke) = matmul( this%modalfilter_h2D%FilterMat, this%vars%auxvars2D(1)%local(n)%val(:,ke) )
-            end do
-            !$omp end do
-            !$omp do collapse(2)
-            do iq=this%vars%QS, this%vars%QE
-              do ke=lcmesh%NeS, lcmesh%NeE
-                mp_RHOQ_t(iq)%ptr%val(:,ke) = matmul( this%modalfilter_3D%FilterMat, mp_RHOQ_t(iq)%ptr%val(:,ke) )
-              end do
+            do ke=lcmesh2D%NeS, lcmesh2D%NeE
+              call this%create_PostFilter( FilterMat2D,                            & ! (out)
+                this%modalfilter_h2D%FilterMat, lcmesh2D%Gsqrt(:,ke), refElem2D%Np ) ! (in)
+                       
+              this%vars%auxvars2D(1)%local(n)%val(:,ke) = matmul( FilterMat2D, this%vars%auxvars2D(1)%local(n)%val(:,ke) )
             end do
             !$omp end do
           end if
           !$omp end parallel
+
+          deallocate( FilterMat, FilterMat2D )
         end do
       end if
 
@@ -796,30 +816,29 @@ contains
     real(RP) :: CVtot_t(elem3D%Np,lcmesh%NeA)
 
     real(RP) :: vterm(elem3D%Np,lcmesh%NeZ,lcmesh%Ne2D,this%vars%QS+1:this%vars%QE)
-    real(RP) :: DENS0(elem3D%Np,lcmesh%NeZ,lcmesh%Ne2D)    
-    real(RP) :: DENS2(elem3D%Np,lcmesh%NeZ,lcmesh%Ne2D)
+
     real(RP) :: DENS0_pri(elem3D%Np,lcmesh%NeZ,lcmesh%Ne2D)
     real(RP) :: DENS2_pri(elem3D%Np,lcmesh%NeZ,lcmesh%Ne2D)
-    real(RP) :: REF_DENS(elem3D%Np,lcmesh%NeZ,lcmesh%Ne2D)
-    real(RP) :: RHOU2(elem3D%Np,lcmesh%NeZ,lcmesh%Ne2D)
-    real(RP) :: RHOV2(elem3D%Np,lcmesh%NeZ,lcmesh%Ne2D)
-    real(RP) :: MOMZ2(elem3D%Np,lcmesh%NeZ,lcmesh%Ne2D)
-    real(RP) :: TEMP2(elem3D%Np,lcmesh%NeZ,lcmesh%Ne2D)
-    real(RP) :: PRES2(elem3D%Np,lcmesh%NeZ,lcmesh%Ne2D)
-    real(RP) :: CPtot2(elem3D%Np,lcmesh%NeZ,lcmesh%Ne2D)
-    real(RP) :: CVtot2(elem3D%Np,lcmesh%NeZ,lcmesh%Ne2D)
-    real(RP) :: RHOE (elem3D%Np,lcmesh%NeZ,lcmesh%Ne2D)
-    real(RP) :: RHOE2(elem3D%Np,lcmesh%NeZ,lcmesh%Ne2D)
-    real(RP) :: RHOQ (elem3D%Np,lcmesh%NeZ,lcmesh%Ne2D,this%vars%QS+1:this%vars%QE)
+    real(RP) :: RHOU2_pri(elem3D%Np,lcmesh%NeZ,lcmesh%Ne2D)
+    real(RP) :: RHOV2_pri(elem3D%Np,lcmesh%NeZ,lcmesh%Ne2D)
+    real(RP) :: MOMZ2_pri(elem3D%Np,lcmesh%NeZ,lcmesh%Ne2D)
+    real(RP) :: TEMP2_pri(elem3D%Np,lcmesh%NeZ,lcmesh%Ne2D)
+    real(RP) :: CPtot2_pri(elem3D%Np,lcmesh%NeZ,lcmesh%Ne2D)
+    real(RP) :: CVtot2_pri(elem3D%Np,lcmesh%NeZ,lcmesh%Ne2D)
+    real(RP) :: RHOE_pri (elem3D%Np,lcmesh%NeZ,lcmesh%Ne2D)
+    real(RP) :: RHOE2_pri(elem3D%Np,lcmesh%NeZ,lcmesh%Ne2D)
+
     real(RP) :: RHOQ_pri(elem3D%Np,lcmesh%NeZ,lcmesh%Ne2D,this%vars%QS+1:this%vars%QE)
     real(RP) :: RHOQ2(elem3D%Np,lcmesh%NeZ,lcmesh%Ne2D,this%vars%QS+1:this%vars%QE)
     real(RP) :: RHOQ2_pri(elem3D%Np,lcmesh%NeZ,lcmesh%Ne2D,this%vars%QS+1:this%vars%QE)
+
     real(RP) :: RHOQ2_tmp(elem3D%Nnode_v,lcmesh%NeZ,this%vars%QS+1:this%vars%QE)
     real(RP) :: DENS2_tmp(elem3D%Nnode_v,lcmesh%NeZ)
     real(RP) :: TEMP2_tmp(elem3D%Nnode_v,lcmesh%NeZ)
     real(RP) :: PRES2_tmp(elem3D%Nnode_v,lcmesh%NeZ)
     real(RP) :: REF_DENS_tmp(elem3D%Nnode_v,lcmesh%NeZ)
     real(RP) :: vterm_tmp(elem3D%Nnode_v,lcmesh%NeZ,this%vars%QS+1:this%vars%QE)
+
     real(RP) :: FLX_hydro(elem3D%Np,lcmesh%NeZ,lcmesh%Ne2D)
     real(RP) :: CP_t(elem3D%Np), CV_t(elem3D%Np)
 
@@ -906,23 +925,20 @@ contains
       do ke_z = 1, lcmesh%NeZ
         ke = ke2D + (ke_z-1)*lcmesh%Ne2D
 
-        DENS0(:,ke_z,ke2D) = DENS(:,ke)        
-        DENS2(:,ke_z,ke2D) = DENS(:,ke)
         DENS0_pri(:,ke_z,ke2D) = DENS_hyd(:,ke) + DDENS_pri(:,ke)
         DENS2_pri(:,ke_z,ke2D) = DENS_hyd(:,ke) + DDENS_pri(:,ke)
-        REF_DENS(:,ke_z,ke2D) = DENS_hyd(:,ke)
-        RHOU2(:,ke_z,ke2D) = RHOU(:,ke)
-        RHOV2(:,ke_z,ke2D) = RHOV(:,ke)
-        MOMZ2(:,ke_z,ke2D) = MOMZ(:,ke)
-        TEMP2(:,ke_z,ke2D) = PRES_pri(:,ke) / ( DENS0_pri(:,ke_z,ke2D) * Rtot_pri(:,ke) )
-        PRES2(:,ke_z,ke2D) = PRES_pri(:,ke)
-        CPtot2(:,ke_z,ke2D) = CPtot_pri(:,ke)
-        CVtot2(:,ke_z,ke2D) = CVtot_pri(:,ke)
-        RHOE (:,ke_z,ke2D) = TEMP2(:,ke_z,ke2D) * CVtot_pri(:,ke) * DENS0_pri(:,ke_z,ke2D)
-        RHOE2(:,ke_z,ke2D) = RHOE(:,ke_z,ke2D)
+
+        RHOU2_pri(:,ke_z,ke2D) = RHOU(:,ke)
+        RHOV2_pri(:,ke_z,ke2D) = RHOV(:,ke)
+        MOMZ2_pri(:,ke_z,ke2D) = MOMZ(:,ke)
+
+        TEMP2_pri(:,ke_z,ke2D) = PRES_pri(:,ke) / ( DENS0_pri(:,ke_z,ke2D) * Rtot_pri(:,ke) )
+        CPtot2_pri(:,ke_z,ke2D) = CPtot_pri(:,ke)
+        CVtot2_pri(:,ke_z,ke2D) = CVtot_pri(:,ke)
+        RHOE_pri (:,ke_z,ke2D) = TEMP2_pri(:,ke_z,ke2D) * CVtot_pri(:,ke) * DENS0_pri(:,ke_z,ke2D)
+        RHOE2_pri(:,ke_z,ke2D) = RHOE_pri(:,ke_z,ke2D)
 
         nz(:,ke_z,ke2D) = lcmesh%normal_fn(:,ke,3)
-
         FLX_hydro(:,ke_z,ke2D) = 0.0_RP
       end do
       end do
@@ -932,11 +948,10 @@ contains
       do ke2D = 1, lcmesh%Ne2D
       do ke_z = 1, lcmesh%NeZ
         ke = ke2D + (ke_z-1)*lcmesh%Ne2D
-        RHOQ (:,ke_z,ke2D,iq) = DENS2(:,ke_z,ke2D) * QTRC(iq)%ptr%val(:,ke) &
+        RHOQ2(:,ke_z,ke2D,iq) = DENS(:,ke) * QTRC(iq)%ptr%val(:,ke) &
                               + RHOQ_t_MP(iq)%ptr%val(:,ke) * this%dtsec
         RHOQ_pri(:,ke_z,ke2D,iq) = DENS0_pri(:,ke_z,ke2D) * QTRC_pri(iq)%ptr%val(:,ke) &
                               + RHOQ_t_MP(iq)%ptr%val(:,ke) * this%dtsec
-        RHOQ2(:,ke_z,ke2D,iq) = RHOQ(:,ke_z,ke2D,iq)
         RHOQ2_pri(:,ke_z,ke2D,iq) = RHOQ_pri(:,ke_z,ke2D,iq)
       end do
       end do
@@ -949,103 +964,97 @@ contains
       !$omp end workshare
       !$omp end parallel
 
-      do iq = this%vars%QS+1, this%vars%QE
-        if ( this%vars%vterm_hist_id(iq) > 0 ) then
-          !$omp parallel do
-          do ke = lcmesh%NeS, lcmesh%NeE
-            this%vars%vterm_hist(iq)%local(domid)%val(:,ke) = 0.0_RP
+      !- Calculate terminal velocity which is diagnosed using coarse-grained MP variables
+
+      do ke2D = 1, lcmesh%Ne2D
+        !$omp parallel do private( &
+        !$omp p2D, ke_z, iq, ColMask,                                   &
+        !$omp DENS2_tmp, REF_DENS_tmp, RHOQ2_tmp, TEMP2_tmp, PRES2_tmp, &
+        !$omp vterm_tmp ) 
+        do p2D = 1, elem3D%Nnode_h1D**2
+          ColMask(:) = elem3D%Colmask(:,p2D)
+          do ke_z = 1, lcmesh%NeZ
+            ke = ke2D + (ke_z-1)*lcmesh%Ne2D
+
+            DENS2_tmp   (:,ke_z) = DENS(ColMask(:),ke)
+            REF_DENS_tmp(:,ke_z) = DENS_hyd(ColMask(:),ke)
+            PRES2_tmp   (:,ke_z) = PRES(ColMask(:),ke)
+
+            TEMP2_tmp   (:,ke_z) = PRES2_tmp(:,ke_z) / ( DENS2_tmp(:,ke_z) * Rtot(ColMask(:),ke) )
           end do
-        end if
-      end do
-
-      do step = 1, this%nstep_sedmientation
-
-        !- Calculate terminal velocity 
-
-        do ke2D = 1, lcmesh%Ne2D
-          !$omp parallel do private( &
-          !$omp p2D, ke_z, iq, ColMask,                                   &
-          !$omp DENS2_tmp, REF_DENS_tmp, RHOQ2_tmp, TEMP2_tmp, PRES2_tmp, &
-          !$omp vterm_tmp ) 
-          do p2D = 1, elem3D%Nnode_h1D**2
-            ColMask(:) = elem3D%Colmask(:,p2D)
-            do ke_z = 1, lcmesh%NeZ
-              DENS2_tmp   (:,ke_z) = DENS2   (ColMask(:),ke_z,ke2D)
-              REF_DENS_tmp(:,ke_z) = REF_DENS(ColMask(:),ke_z,ke2D)
-              TEMP2_tmp   (:,ke_z) = TEMP2   (ColMask(:),ke_z,ke2D)
-              PRES2_tmp   (:,ke_z) = PRES2   (ColMask(:),ke_z,ke2D)
-            end do
-            do iq = this%vars%QS+1, this%vars%QE
-            do ke_z = 1, lcmesh%NeZ            
+          do iq = this%vars%QS+1, this%vars%QE
+          do ke_z = 1, lcmesh%NeZ            
 !              RHOQ2_tmp(:,ke_z,iq) = RHOQ2_pri(ColMask(:),ke_z,ke2D,iq)
-              RHOQ2_tmp(:,ke_z,iq) = RHOQ2(ColMask(:),ke_z,ke2D,iq)
-            end do
-            end do
+            RHOQ2_tmp(:,ke_z,iq) = RHOQ2(ColMask(:),ke_z,ke2D,iq)
+          end do
+          end do
 
-            select case( this%MP_TYPEID )
-            case( MP_TYPEID_KESSLER )
-              call ATMOS_PHY_MP_KESSLER_terminal_velocity( &
-                elem3D%Nnode_v*lcmesh%NeZ, 1, elem3D%Nnode_v*lcmesh%NeZ, & ! (in)
-                DENS2_tmp(:,:), RHOQ2_tmp(:,:,:), REF_DENS_tmp(:,:),     & ! (in)
-                vterm_tmp(:,:,:)                                         ) ! (out)
-            case( MP_TYPEID_TOMITA08 )
-              call ATMOS_PHY_MP_TOMITA08_terminal_velocity( &
-                elem3D%Nnode_v*lcmesh%NeZ, 1, elem3D%Nnode_v*lcmesh%NeZ, & ! (in)
-                DENS2_tmp(:,:), TEMP2_tmp(:,:), RHOQ2_tmp(:,:,:),        & ! (in)
-                vterm_tmp(:,:,:)                                         ) ! (out)
-            case( MP_TYPEID_SN14 )
-              call ATMOS_PHY_MP_SN14_terminal_velocity( &
-                elem3D%Nnode_v*lcmesh%NeZ, 1, elem3D%Nnode_v*lcmesh%NeZ,          & ! (in)
-                DENS2_tmp(:,:), TEMP2_tmp(:,:), RHOQ2_tmp(:,:,:), PRES2_tmp(:,:), & ! (in)
-                vterm_tmp(:,:,:)                                                  ) ! (out)
-            end select   
+          select case( this%MP_TYPEID )
+          case( MP_TYPEID_KESSLER )
+            call ATMOS_PHY_MP_KESSLER_terminal_velocity( &
+              elem3D%Nnode_v*lcmesh%NeZ, 1, elem3D%Nnode_v*lcmesh%NeZ, & ! (in)
+              DENS2_tmp(:,:), RHOQ2_tmp(:,:,:), REF_DENS_tmp(:,:),     & ! (in)
+              vterm_tmp(:,:,:)                                         ) ! (out)
+          case( MP_TYPEID_TOMITA08 )
+            call ATMOS_PHY_MP_TOMITA08_terminal_velocity( &
+              elem3D%Nnode_v*lcmesh%NeZ, 1, elem3D%Nnode_v*lcmesh%NeZ, & ! (in)
+              DENS2_tmp(:,:), TEMP2_tmp(:,:), RHOQ2_tmp(:,:,:),        & ! (in)
+              vterm_tmp(:,:,:)                                         ) ! (out)
+          case( MP_TYPEID_SN14 )
+            call ATMOS_PHY_MP_SN14_terminal_velocity( &
+              elem3D%Nnode_v*lcmesh%NeZ, 1, elem3D%Nnode_v*lcmesh%NeZ,          & ! (in)
+              DENS2_tmp(:,:), TEMP2_tmp(:,:), RHOQ2_tmp(:,:,:), PRES2_tmp(:,:), & ! (in)
+              vterm_tmp(:,:,:)                                                  ) ! (out)
+          end select   
 
-            do iq = this%vars%QS+1, this%vars%QE
-            do ke_z = 1, lcmesh%NeZ            
-              vterm(ColMask(:),ke_z,ke2D,iq) = vterm_tmp(:,ke_z,iq)
-            end do
-            end do
+          do iq = this%vars%QS+1, this%vars%QE
+          do ke_z = 1, lcmesh%NeZ            
+            vterm(ColMask(:),ke_z,ke2D,iq) = vterm_tmp(:,ke_z,iq)
+          end do
           end do
         end do
+      end do
 
-        do iq = this%vars%QS+1, this%vars%QE
-          if ( this%vars%vterm_hist_id(iq) > 0 ) then
-            !$omp parallel do collapse(2) private(ke2D, ke_z, ke)
-            do ke2D = 1, lcmesh%Ne2D
-            do ke_z = 1, lcmesh%NeZ
-              ke = ke2D + (ke_z-1)*lcmesh%Ne2D
-              this%vars%vterm_hist(iq)%local(domid)%val(:,ke) = &
-                this%vars%vterm_hist(iq)%local(domid)%val(:,ke) + vterm(:,ke_z,ke2D,iq) * this%rnstep_sedmientation
-            end do
-            end do
-          end if
-        end do 
+      do iq = this%vars%QS+1, this%vars%QE
+        if ( this%vars%vterm_hist_id(iq) > 0 ) then
+          !$omp parallel do collapse(2) private(ke2D, ke_z, ke)
+          do ke2D = 1, lcmesh%Ne2D
+          do ke_z = 1, lcmesh%NeZ
+            ke = ke2D + (ke_z-1)*lcmesh%Ne2D
+            this%vars%vterm_hist(iq)%local(domid)%val(:,ke) = vterm(:,ke_z,ke2D,iq)
+          end do
+          end do
+        end if
+      end do 
 
-        !- Precipitation of hydrometers
+
+      !- Sedimentation of hydrometers
+
+      do step = 1, this%nstep_sedimentation
 
         if ( lscond_flag ) then
           call ATMOS_PHY_MP_lscond_precipitation( &
-            DENS2, RHOQ2, CPtot2, CVtot2, RHOE2,    & ! (inout)
-            SFLX_rain, SFLX_snow, SFLX_ENGI,        & ! (inout)
-            TEMP2, this%dtsec_sedmientation,        & ! (in)
-            this%vars%QE - this%vars%QS, QLA, QIA,  & ! (in)
-            lcmesh, elem3D, elem_v1D )                ! (in)
+            DENS2_pri, RHOQ2_pri, CPtot2_pri, CVtot2_pri, RHOE2_pri, & ! (inout)
+            SFLX_rain, SFLX_snow, SFLX_ENGI,                         & ! (inout)
+            TEMP2_pri, this%dtsec_sedimentation,                     & ! (in)
+            this%vars%QE - this%vars%QS, QLA, QIA,                   & ! (in)
+            lcmesh, elem3D, elem_v1D )                                 ! (in)
         else
           call atm_phy_mp_dgm_common_precipitation( &
-            DENS2_pri, RHOQ2_pri, CPtot2, CVtot2, RHOE2,         & ! (inout)
-            FLX_hydro, SFLX_rain, SFLX_snow, SFLX_ENGI,          & ! (inout)
-            TEMP2, vterm,                                        & ! (in)
-            this%dtsec_sedmientation, this%rnstep_sedmientation, & ! (in)
-            this%Dz, this%Lift, nz, vmapM, vmapP, IntWeight,     & ! (in)
-            this%vars%QE - this%vars%QS, QLA, QIA,               & ! (in)
-            lcmesh, elem3D )                                       ! (in)
+            DENS2_pri, RHOQ2_pri, CPtot2_pri, CVtot2_pri, RHOE2_pri, & ! (inout)
+            FLX_hydro, SFLX_rain, SFLX_snow, SFLX_ENGI,              & ! (inout)
+            TEMP2_pri, vterm,                                        & ! (in)
+            this%dtsec_sedimentation, this%rnstep_sedimentation,     & ! (in)
+            this%Dz, this%Lift, nz, vmapM, vmapP, IntWeight,         & ! (in)
+            this%vars%QE - this%vars%QS, QLA, QIA,                   & ! (in)
+            lcmesh, elem3D )                                           ! (in)
         end if
 
         !$omp parallel do private(ke2D, ke_z, ke) collapse(2)
         do ke2D = 1, lcmesh%Ne2D
         do ke_z = 1, lcmesh%NeZ
           ke = ke2D + (ke_z-1)*lcmesh%Ne2D
-          TEMP2(:,ke_z,ke2D) = RHOE2(:,ke_z,ke2D) / ( DENS2_pri(:,ke_z,ke2D) * CVtot2(:,ke_z,ke2D) )
+          TEMP2_pri(:,ke_z,ke2D) = RHOE2_pri(:,ke_z,ke2D) / ( DENS2_pri(:,ke_z,ke2D) * CVtot2_pri(:,ke_z,ke2D) )
         end do
         end do 
         
@@ -1061,10 +1070,10 @@ contains
         ke = ke2D + (ke_z-1)*lcmesh%Ne2D
         DENS_t_MP(:,ke) = ( DENS2_pri(:,ke_z,ke2D) - DENS0_pri(:,ke_z,ke2D) ) * rdt_MP
 
-        CP_t(:) = ( CPtot2(:,ke_z,ke2D) - CPtot_pri(:,ke) ) * rdt_MP
-        CV_t(:) = ( CVtot2(:,ke_z,ke2D) - CVtot_pri(:,ke) ) * rdt_MP
+        CP_t(:) = ( CPtot2_pri(:,ke_z,ke2D) - CPtot_pri(:,ke) ) * rdt_MP
+        CV_t(:) = ( CVtot2_pri(:,ke_z,ke2D) - CVtot_pri(:,ke) ) * rdt_MP
         RHOH_MP(:,ke) = RHOH_MP(:,ke) &
-          + ( RHOE2(:,ke_z,ke2D) - RHOE(:,ke_z,ke2D) ) * rdt_MP &
+          + ( RHOE2_pri(:,ke_z,ke2D) - RHOE_pri(:,ke_z,ke2D) ) * rdt_MP &
           - ( CP_t(:) &
               + log( PRES_pri(:,ke) / PRE00 ) * ( CVtot_pri(:,ke) / CPtot_pri(:,ke) * CP_t(:) - CV_t(:) ) &
             ) * PRES_pri(:,ke) / Rtot_pri(:,ke)
@@ -1084,19 +1093,19 @@ contains
       !$omp end do
       !$omp end parallel
 
-      !- Precipitation of momentum
+      !- Sedimentation of momentum
 
       if ( lscond_flag ) then
         call ATMOS_PHY_MP_lscond_precipitation_momentum( &
-          RHOU_t_MP, RHOV_t_MP, MOMZ_t_MP,          & ! (out)
-          DENS0, RHOU2, RHOV2, MOMZ2, DENS2,        & ! (in)
-          rdt_MP, lcmesh, elem3D                    ) ! (in)
+          RHOU_t_MP, RHOV_t_MP, MOMZ_t_MP,                       & ! (out)
+          DENS0_pri, RHOU2_pri, RHOV2_pri, MOMZ2_pri, DENS2_pri, & ! (in)
+          rdt_MP, lcmesh, elem3D                                 ) ! (in)
       else
         call atm_phy_mp_dgm_common_precipitation_momentum( &
-          RHOU_t_MP, RHOV_t_MP, MOMZ_t_MP,          & ! (out)
-          DENS0_pri, RHOU2, RHOV2, MOMZ2, FLX_hydro,    & ! (in)
-          this%Dz, this%Lift, nz, vmapM, vmapP,     & ! (in)
-          lcmesh, elem3D                            ) ! (in)
+          RHOU_t_MP, RHOV_t_MP, MOMZ_t_MP,                       & ! (out)
+          DENS0_pri, RHOU2_pri, RHOV2_pri, MOMZ2_pri, FLX_hydro, & ! (in)
+          this%Dz, this%Lift, nz, vmapM, vmapP,                  & ! (in)
+          lcmesh, elem3D                                         ) ! (in)
       end if
     end if ! end if do_precipitation
 
@@ -1495,4 +1504,26 @@ contains
     return
   end subroutine calc_tendency_lscond
   
+!OCL SERIAL
+  subroutine AtmosPhyMp_create_PostFilter( this, FilterMat, &
+    MFilter, Gsqrt, Np )
+    implicit none
+    class(AtmosPhyMp), intent(inout) :: this
+    integer, intent(in) :: Np
+    real(RP), intent(out) :: FilterMat(Np,Np)
+    real(RP), intent(in) :: MFilter(Np,Np)
+    real(RP), intent(in) :: Gsqrt(Np)
+
+    integer :: p
+    !------------------------------------------------------------
+
+    FilterMat(:,:) = MFilter(:,:)
+    do p=1, Np
+      FilterMat(:,p) = FilterMat(:,p) * Gsqrt(p)
+    end do
+    do p=1, Np
+      FilterMat(p,:) = FilterMat(p,:) / Gsqrt(p)
+    end do
+    return
+  end subroutine AtmosPhyMp_create_PostFilter
 end module mod_atmos_phy_mp
