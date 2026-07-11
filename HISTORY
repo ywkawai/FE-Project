@@ -1,7 +1,12 @@
+= 2026-07-11 (1.1.1)
+* Fix bugs
+  * Fix bugs introduced in new variable container framework.
+
 = 2026-07-06 (1.1.0)
 
 * New features
   * Begin introducing OpenACC/GPU support in FElib and sample programs, including device-data management and NVIDIA-oriented build and run configurations.
+  * Add multigrid-method modules in the DG framework and sample programs for 2D and 3D Poisson problems.  
   * Add an atmospheric-variable container framework that enables physics components to use atmospheric states that may differ from those used by the DG dynamical core.
   * Add preprocessing and smoothing options for atmospheric variables used in physics processes, including modal and quasi-global filtering strategies.
   * Add a gray radiation scheme with optical-depth calculations, a radiation driver interface, history output, and a test case.
