@@ -23,6 +23,8 @@ module mod_dg_prep
 
   use mod_atmos_component, only: &
     AtmosComponent
+  use mod_ocean_component, only: &
+    OceanComponent
   
   use scale_file_history_meshfield, only: &
     FILE_HISTORY_meshfield_write
@@ -65,6 +67,7 @@ module mod_dg_prep
   character(len=H_MID), private, parameter :: MODELNAME = "SCALE-DG ver. "//VERSION
 
   type(AtmosComponent) :: atmos
+  type(OceanComponent) :: ocean
   type(User) :: user_
 
 contains
@@ -212,10 +215,12 @@ contains
     call FILE_restart_meshfield_setup
 
     ! setup submodels
-    call  atmos%setup()
+    call atmos%setup()
+    call ocean%setup()
     call user_%setup( atmos )
 
     call atmos%setup_vars()
+    if ( ocean%IsActivated() ) call ocean%setup_vars()
 
     ! setup mktopo
     call MKTOPO_setup
@@ -229,7 +234,10 @@ contains
   end subroutine initialize
 
   subroutine finalize()
-    use scale_file_history_meshfield, only: FILE_HISTORY_meshfield_finalize
+    use scale_file_history_meshfield, only: &
+      FILE_HISTORY_meshfield_finalize
+    use scale_file_restart_meshfield, only: &
+      FILE_restart_meshfield_finalize
     use scale_time_manager, only: TIME_manager_Final   
     implicit none
     
@@ -238,10 +246,14 @@ contains
     call PROF_rapstart('All', 1)
 
     !-
+    call PROF_rapstart('File', 2)
     call FILE_HISTORY_meshfield_finalize()
+    call FILE_restart_meshfield_finalize()
+    call PROF_rapend  ('File', 2)
 
     ! finalization submodels
-    call  atmos%finalize()
+    call atmos%finalize()
+    call ocean%finalize()
 
     !-
     call TIME_manager_Final()
@@ -318,11 +330,14 @@ contains
   end subroutine set_total_energy
 
   subroutine restart_write
-    implicit none    
+    implicit none
     !----------------------------------------
 
+    if ( atmos%isActivated() ) call atmos%vars%Write_restart_file_prep()
+    if ( ocean%isActivated() ) call ocean%vars%Write_restart_file_prep()
+    !-
     if ( atmos%isActivated() ) call atmos%vars%Write_restart_file()
-
+    if ( ocean%isActivated() ) call ocean%vars%Write_restart_file()
     return
   end subroutine restart_write
 
