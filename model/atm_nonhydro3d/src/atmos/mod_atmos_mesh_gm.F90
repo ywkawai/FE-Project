@@ -277,9 +277,9 @@ contains
 
 !OCL SERIAL
   subroutine AtmosMeshGM_setup_restartfile2( this, restart_file, &
-    in_basename, in_postfix_timelabel,                         &
-    out_basename, out_postfix_timelabel,                       &
-    out_dtype, out_title, var_num                              )
+    in_basename, in_postfix_timelabel,                           &
+    out_basename, out_postfix_timelabel,                         &
+    out_dtype, out_title, var_num, dim_name_postfix              )                            
     implicit none
     class(AtmosMeshGM), target, intent(inout) :: this
     class(FILE_restart_meshfield_component), intent(inout) :: restart_file
@@ -290,10 +290,12 @@ contains
     character(*), intent(in) :: out_title
     character(*), intent(in) :: out_dtype  
     integer, intent(in) :: var_num  
+    character(len=*), intent(in) :: dim_name_postfix
     !-----------------------------------------------------------
 
-    call restart_file%Init('ATMOS', in_basename, in_postfix_timelabel,    &
-      out_basename, out_postfix_timelabel, out_dtype, out_title, var_num, &
+    call restart_file%Init('ATMOS', in_basename, in_postfix_timelabel, &
+      out_basename, out_postfix_timelabel, out_dtype, out_title,       &
+      var_num, dim_name_postfix,                                       &
       meshcubedsphere3D=this%mesh )
 
   end subroutine AtmosMeshGM_setup_restartfile2

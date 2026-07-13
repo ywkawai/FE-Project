@@ -76,7 +76,7 @@ module mod_atmos_mesh
     subroutine AtmosMesh_setup_restartfile2( this, restart_file, &
       in_basename, in_postfix_timelabel,                         &
       out_basename, out_postfix_timelabel,                       &
-      out_dtype, out_title, var_num                              )
+      out_dtype, out_title, var_num, dim_name_postfix            )
       import AtmosMesh
       import FILE_restart_meshfield_component
       class(AtmosMesh), target, intent(inout) :: this
@@ -88,6 +88,7 @@ module mod_atmos_mesh
       character(*), intent(in) :: out_title
       character(*), intent(in) :: out_dtype  
       integer, intent(in) :: var_num  
+      character(*), intent(in) :: dim_name_postfix
     end subroutine AtmosMesh_setup_restartfile2
   end interface
   interface

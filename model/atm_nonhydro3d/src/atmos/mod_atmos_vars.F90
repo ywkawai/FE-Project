@@ -122,6 +122,7 @@ module mod_atmos_vars
     procedure :: Check   => AtmosVars_Check
     procedure :: Monitor => AtmosVars_Monitor
     procedure :: Read_restart_file => AtmosVar_Read_restart_file
+    procedure :: Write_restart_file_prep => AtmosVar_Write_restart_file_prep
     procedure :: Write_restart_file => AtmosVar_Write_restart_file
     procedure :: Regist_physvar_manager => AtmosVars_Regist_physvar_manager
   end type AtmosVars
@@ -339,7 +340,7 @@ contains
       call atm_mesh%Setup_restartfile( this%restart_file,           &
         IN_BASENAME, IN_POSTFIX_TIMELABEL,                          &
         OUT_BASENAME, OUT_POSTFIX_TIMELABEL, OUT_DTYPE, OUT_TITLE,  &
-        PRGVAR_NUM + AUXVAR_NUM                                     )
+        PRGVAR_NUM + AUXVAR_NUM, ""                                 )
     else
       call atm_mesh%Setup_restartfile( this%restart_file, &
         PRGVAR_NUM + AUXVAR_NUM                           )
@@ -639,7 +640,7 @@ contains
 !> Write data with atmospheric variables to restart file
 !!
 !OCL SERIAL
-  subroutine AtmosVar_Write_restart_file( this )
+  subroutine AtmosVar_Write_restart_file_prep( this )
     use scale_tracer, only: &
       TRACER_DESC    
     use scale_atm_dyn_dgm_nonhydro3d_common, only: &
@@ -683,6 +684,18 @@ contains
       call this%restart_file%Def_var( this%container%QTRC_VARS(iv), &
         TRACER_DESC(iv), rf_vid, DIMTYPE_XYZ                        )    
     end do
+    return
+  end subroutine AtmosVar_Write_restart_file_prep
+
+!> Write data with atmospheric variables to restart file
+!!
+!OCL SERIAL
+  subroutine AtmosVar_Write_restart_file( this )
+    implicit none
+    class(AtmosVars), intent(inout) :: this
+
+    integer :: iv, rf_vid 
+    !---------------------------------------
 
     call this%restart_file%End_def()
 
@@ -706,7 +719,6 @@ contains
 
     return
   end subroutine AtmosVar_Write_restart_file
-
 
 !> Check the range of values with atmospheric variables
 !!
