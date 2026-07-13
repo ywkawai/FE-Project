@@ -15,6 +15,8 @@ module scale_file_history_meshfield
   !
   use scale_precision
   use scale_io
+  use scale_prc, only: &
+    PRC_abort
 
   use scale_file_history, only: &
     FILE_HISTORY_Setup, &
@@ -50,8 +52,36 @@ module scale_file_history_meshfield
   private
   !-----------------------------------------------------------------------------
   !
-  !++ Public procedures
+  !++ Public type and procedures
   !
+
+  integer,          parameter :: nzs = 1
+
+  type :: FileHistoryMeshFieldComp
+    class(MeshBase1D), pointer :: mesh1D
+    class(MeshRectDom2D), pointer :: mesh2D
+    class(MeshCubeDom3D), pointer :: mesh3D
+    class(MeshCubedSphereDom2D), pointer :: meshCubedSphere2D
+    class(MeshCubedSphereDom3D), pointer :: meshCubedSphere3D
+
+    integer :: dims1D_size(1)
+    integer :: dims2D_size(2)
+    integer :: dims3D_size(3,nzs)
+
+    character(len=H_SHORT) :: dim_name_postfix
+  contains
+    procedure :: Init => FileHistoryMeshFieldComp_Init
+    procedure :: Final => FileHistoryMeshFieldComp_Final
+    procedure, private :: set_dim_axis1D
+    procedure, private :: set_dim_axis2D
+    procedure, private :: set_dim_axis3D
+    procedure, private :: set_dim_axis2D_cubedsphere
+    procedure, private :: set_dim_axis3D_cubedsphere
+  end type FileHistoryMeshFieldComp
+
+  integer, parameter :: COMPONENT_NUM_MAX = 32
+  type(FileHistoryMeshFieldComp), target :: comp(COMPONENT_NUM_MAX)  !< Array of registered components
+
   public :: FILE_HISTORY_meshfield_setup
   public :: FILE_HISTORY_meshfield_put
   public :: FILE_HISTORY_meshfield_in
@@ -79,44 +109,95 @@ module scale_file_history_meshfield
   !++ Private procedures
   !
   private :: history_in_regvar
-  private :: set_dim_axis1D
-  private :: set_dim_axis2D
-  private :: set_dim_axis3D
-  private :: set_dim_axis2D_cubedsphere
-  private :: set_dim_axis3D_cubedsphere
 
   !-----------------------------------------------------------------------------
   !
   !++ Private variables
   !
-  !-------------------
-  integer,          parameter :: nzs = 1
+  !----------------------------------------------------------------------------
+
+  integer :: comp_num  = 0                                 !< Number of registered components
+  type(FileHistoryMeshFieldComp), pointer :: default_comp
+
   character(len=8), parameter :: zs(nzs) = (/  "model   " /)
 
   integer  :: FILE_HISTORY_MESHFIELD_STARTDATE(6) !< start time [YYYY MM DD HH MM SS]
-  real(DP) :: FILE_HISTORY_MESHFIELD_STARTSUBSEC      !< subsecond part of start time [millisec]
+  real(DP) :: FILE_HISTORY_MESHFIELD_STARTSUBSEC  !< subsecond part of start time [millisec]
 
-  class(MeshBase1D), pointer :: mesh1D
-  class(MeshRectDom2D), pointer :: mesh2D
-  class(MeshCubeDom3D), pointer :: mesh3D
-  class(MeshCubedSphereDom2D), pointer :: meshCubedSphere2D
-  class(MeshCubedSphereDom3D), pointer :: meshCubedSphere3D
-
-  integer :: dims1D_size(1)
-  integer :: dims2D_size(2)
-  integer :: dims3D_size(3,nzs)
 
   logical, private :: FILE_HISTORY_FILEMESHFILED_DISABLE = .true.
 
 contains
 
 !----------------
+!OCL SERIAL
+  subroutine FileHistoryMeshFieldComp_Init( this, &
+    mesh1D_, mesh2D_, mesh3D_,                    &
+    meshcubedsphere2D_, meshcubedsphere3D_,       & 
+    dim_name_postfix )
+    implicit none
+    class(FileHistoryMeshFieldComp), intent(inout) :: this
+
+    class(MeshBase1d), intent(in), target, optional :: mesh1D_     !< An object of 1D mesh when the computational domain is 1D
+    class(MeshRectDom2d), intent(in), target, optional :: mesh2D_  !< An object of 2D mesh when the computational domain is rectangular
+    class(MeshCubeDom3D), intent(in), target, optional :: mesh3D_  !< An object of 3D mesh when the computational domain is cubed
+    class(MeshCubedSphereDom2D), intent(in), target, optional :: meshCubedsphere2D_ !< An object of 2D mesh when the computational domain is 2D cubed-sphere
+    class(MeshCubedSphereDom3D), intent(in), target, optional :: meshCubedsphere3D_ !< An object of 3D mesh when the computational domain is 3D cubed-sphere
+    character(len=*), intent(in), optional :: dim_name_postfix     !< Postfix for dimension names
+    !-----------------------------------------------
+
+    if ( present(dim_name_postfix) ) then
+      this%dim_name_postfix = dim_name_postfix
+    else
+      this%dim_name_postfix = ''
+    end if
+
+    !- Set a pointer to the  variable of mesh 
+    !  and set the dimension information for each axis
+    
+    nullify( this%mesh1D, this%mesh2D, this%mesh3D )
+    nullify( this%meshCubedSphere2D, this%meshCubedsphere3D )
+
+    if ( present(mesh1D_) ) then
+      this%mesh1D => mesh1D_
+      call this%set_dim_axis1D()
+    else if ( present(mesh2D_) ) then
+      this%mesh2D => mesh2D_
+      call this%set_dim_axis2D()
+    else if ( present(mesh3D_) ) then
+      this%mesh3D => mesh3D_
+      this%mesh2D => mesh3D_%mesh2D
+      call this%set_dim_axis3D()
+    else if ( present(meshCubedsphere2D_) ) then
+      this%meshCubedSphere2D => meshCubedsphere2D_
+      call this%set_dim_axis2D_cubedsphere()
+    else if ( present(meshCubedsphere3D_) ) then
+      this%meshCubedSphere3D => meshCubedsphere3D_
+      this%meshCubedSphere2D => meshCubedSphere3D_%mesh2D
+      call this%set_dim_axis3D_cubedsphere()
+    else
+      LOG_ERROR("FileHistoryMeshFieldComp_Init",*)   "Any mesh (mesh1d/2d/3d) are not specified."
+      call PRC_abort
+    end if
+
+    return
+  end subroutine FileHistoryMeshFieldComp_Init
+
+!OCL SERIAL
+  subroutine FileHistoryMeshFieldComp_Final( this )
+    implicit none
+    class(FileHistoryMeshFieldComp), intent(inout) :: this
+    !-----------------------------------------------
+    return
+  end subroutine FileHistoryMeshFieldComp_Final
 
   !> Setup a module for file history
 !OCL SERIAL
   subroutine FILE_HISTORY_meshfield_setup( &
-    mesh1D_, mesh2D_, mesh3D_,             &
-    meshcubedsphere2D_, meshcubedsphere3D_ )
+    mesh1D_, mesh2D_, mesh3D_,              &
+    meshcubedsphere2D_, meshcubedsphere3D_, &
+    dim_name_postfix_,                      &
+    registered_comp_id                      )
 
     use scale_file_h, only: &
       FILE_HSHORT
@@ -135,75 +216,75 @@ contains
     implicit none
 
     class(MeshBase1d), intent(in), target, optional :: mesh1D_     !< An object of 1D mesh when the computational domain is 1D
-    class(MeshRectDom2d), intent(in), target, optional :: mesh2D_  !< An object of 2D mesh when the computational domain is rectangular
-    class(MeshCubeDom3D), intent(in), target, optional :: mesh3D_  !< An object of 3D mesh when the computational domain is cubed
+    class(MeshRectDom2d)       , intent(in), target, optional :: mesh2D_            !< An object of 2D mesh when the computational domain is rectangular
+    class(MeshCubeDom3D)       , intent(in), target, optional :: mesh3D_            !< An object of 3D mesh when the computational domain is cubed
     class(MeshCubedSphereDom2D), intent(in), target, optional :: meshCubedsphere2D_ !< An object of 2D mesh when the computational domain is 2D cubed-sphere
     class(MeshCubedSphereDom3D), intent(in), target, optional :: meshCubedsphere3D_ !< An object of 3D mesh when the computational domain is 3D cubed-sphere
+    character(len=*), intent(in), optional :: dim_name_postfix_    !< Postfix for dimension names
+    integer, intent(out), optional :: registered_comp_id
 
-    character(len=H_MID) :: FILE_HISTORY_MESHFILED_H_TITLE = 'SCALE-FEM FILE_HISTORY_MESHFIELD' !< title of the output file
+    character(len=H_MID) :: FILE_HISTORY_MESHFILED_H_TITLE = 'SCALE-DG FILE_HISTORY_MESHFIELD' !< title of the output file
     character(len=H_MID) :: FILE_HISTORY_MESHFIELD_T_SINCE
     
     character(len=FILE_HSHORT) :: calendar
     real(DP) :: start_daysec
+
+    class(FileHistoryMeshFieldComp), pointer :: target_comp
+    integer :: registered_comp_id_
     !---------------------------------------------------------------------------
 
-    FILE_HISTORY_MESHFIELD_STARTDATE(:) = TIME_NOWDATE
-    FILE_HISTORY_MESHFIELD_STARTSUBSEC  = TIME_NOWSUBSEC
-
-    start_daysec = TIME_STARTDAYSEC
-    if ( TIME_NOWDATE(1) > 0 ) then
-      write(FILE_HISTORY_MESHFIELD_T_SINCE,'(I4.4,5(A1,I2.2))') TIME_NOWDATE(1), &
-                                                          '-', TIME_NOWDATE(2), &
-                                                          '-', TIME_NOWDATE(3), &
-                                                          ' ', TIME_NOWDATE(4), &
-                                                          ':', TIME_NOWDATE(5), &
-                                                          ':', TIME_NOWDATE(6)
-      start_daysec = TIME_NOWSUBSEC
-    else
-      FILE_HISTORY_MESHFIELD_T_SINCE = ''
-    endif
-
-    ! get calendar name
-    call CALENDAR_get_name( calendar )
-
-    call FILE_HISTORY_Setup( FILE_HISTORY_MESHFILED_H_TITLE,        & ! [IN]
-      H_SOURCE, H_INSTITUTE,                                        & ! [IN]
-      start_daysec, TIME_DTSEC,                                     & ! [IN]
-      time_since = FILE_HISTORY_MESHFIELD_T_SINCE,                  & ! [IN]
-      calendar = calendar,                                          & ! [IN]
-      default_zcoord = 'model',                                     & ! [IN]
-      myrank = PRC_myrank                        )                    ! [IN]
-
-    call FILE_HISTORY_Set_NowDate( TIME_NOWDATE, TIME_NOWSUBSEC, TIME_NOWSTEP )
-
-    !- Set a pointer to the  variable of mesh 
-    
-    nullify( mesh1D, mesh2D, mesh3D )
-    nullify( meshCubedSphere2D, meshCubedsphere3D )
-
-    if ( present(mesh1D_) ) then
-      mesh1D => mesh1D_
-      call set_dim_axis1D()
-    else if ( present(mesh2D_) ) then
-      mesh2D => mesh2D_
-      call set_dim_axis2D()
-    else if ( present(mesh3D_) ) then
-      mesh3D => mesh3D_
-      mesh2D => mesh3D%mesh2D
-      call set_dim_axis3D()
-    else if ( present(meshCubedsphere2D_) ) then
-      meshCubedSphere2D => meshCubedsphere2D_
-      call set_dim_axis2D_cubedsphere()
-    else if ( present(meshCubedsphere3D_) ) then
-      meshCubedSphere3D => meshCubedsphere3D_
-      meshCubedSphere2D => meshCubedSphere3D%mesh2D
-      call set_dim_axis3D_cubedsphere()
-    else
-      LOG_ERROR("FILE_HISTORY_meshfield_setup",*)   "Any mesh (mesh1d/2d/3d) are not specified."
+    !-
+    if ( comp_num >= COMPONENT_NUM_MAX ) then
+      LOG_ERROR("FILE_base_meshfield_register_comp",*) 'Exceeding maximum number of components. Check!'
       call PRC_abort
     end if
 
-    FILE_HISTORY_FILEMESHFILED_DISABLE = .false. 
+    comp_num = comp_num + 1
+    registered_comp_id_ = comp_num
+    if ( present(registered_comp_id) ) then
+      registered_comp_id = registered_comp_id_
+    end if
+
+    target_comp => comp(registered_comp_id_)
+    call target_comp%Init( mesh1D_, mesh2D_, mesh3D_, &
+      meshCubedsphere2D_, meshCubedsphere3D_ ,        &
+      dim_name_postfix_ )
+
+    !-
+    if ( registered_comp_id_ == 1 ) then
+      default_comp => comp(registered_comp_id_)
+
+      FILE_HISTORY_MESHFIELD_STARTDATE(:) = TIME_NOWDATE
+      FILE_HISTORY_MESHFIELD_STARTSUBSEC  = TIME_NOWSUBSEC
+
+      start_daysec = TIME_STARTDAYSEC
+      if ( TIME_NOWDATE(1) > 0 ) then
+        write(FILE_HISTORY_MESHFIELD_T_SINCE,'(I4.4,5(A1,I2.2))') TIME_NOWDATE(1), &
+                                                            '-', TIME_NOWDATE(2), &
+                                                            '-', TIME_NOWDATE(3), &
+                                                            ' ', TIME_NOWDATE(4), &
+                                                            ':', TIME_NOWDATE(5), &
+                                                            ':', TIME_NOWDATE(6)
+        start_daysec = TIME_NOWSUBSEC
+      else
+        FILE_HISTORY_MESHFIELD_T_SINCE = ''
+      endif
+
+      ! get calendar name
+      call CALENDAR_get_name( calendar )
+
+      call FILE_HISTORY_Setup( FILE_HISTORY_MESHFILED_H_TITLE,        & ! [IN]
+        H_SOURCE, H_INSTITUTE,                                        & ! [IN]
+        start_daysec, TIME_DTSEC,                                     & ! [IN]
+        time_since = FILE_HISTORY_MESHFIELD_T_SINCE,                  & ! [IN]
+        calendar = calendar,                                          & ! [IN]
+        default_zcoord = 'model',                                     & ! [IN]
+        myrank = PRC_myrank                        )                    ! [IN]
+
+      call FILE_HISTORY_Set_NowDate( TIME_NOWDATE, TIME_NOWSUBSEC, TIME_NOWSTEP )
+
+      FILE_HISTORY_FILEMESHFILED_DISABLE = .false. 
+    end if
 
     return
   end subroutine FILE_HISTORY_meshfield_setup
@@ -225,49 +306,59 @@ contains
     !-------------------------------------------------
 
     call FILE_HISTORY_finalize()
+    call default_comp%Final()
     return
   end subroutine FILE_HISTORY_meshfield_finalize
 
   !-- 1D
 
 !OCL SERIAL
-  subroutine FILE_HISTORY_meshfield_put1D(hstid, field1d)
+  subroutine FILE_HISTORY_meshfield_put1D(hstid, field1d, &
+    registered_comp_id )
     use scale_file_common_meshfield, only: &
       File_common_meshfield_put_field1D_cartesbuf
     implicit none
     integer, intent(in) :: hstid
     class(MeshField1D), intent(in) :: field1d
+    integer, intent(in), optional :: registered_comp_id
 
     logical :: do_put
     integer :: ldomID
     real(RP), allocatable :: buf(:)
-    !-------------------------------------------------
+
+    class(FileHistoryMeshFieldComp), pointer :: target_comp
+    !---------------------------------------------------------------------------
+
+    call history_get_comp( registered_comp_id, & ! (in)
+      target_comp ) ! (out)
     
     call FILE_HISTORY_query( hstid, do_put )
     if ( .not. do_put ) return
 
     !-
 #ifdef _OPENACC
-    do ldomID=1, mesh1D%LOCAL_MESH_NUM
+    do ldomID=1,target_comp%mesh1D%LOCAL_MESH_NUM
       !$acc update host( field1d%local(ldomID)%val ) async(1)
     end do
     !$acc wait(1)
 #endif    
     !-
-    allocate( buf(dims1D_size(1)) )
+    allocate( buf(target_comp%dims1D_size(1)) )
 
-    call File_common_meshfield_put_field1D_cartesbuf( mesh1D, field1d, buf )
+    call File_common_meshfield_put_field1D_cartesbuf( target_comp%mesh1D, field1d, buf )
     call FILE_HISTORY_put( hstid, buf )
 
     return
   end subroutine FILE_HISTORY_meshfield_put1D
 
 !OCL SERIAL
-  subroutine FILE_HISTORY_meshfield_in1D( field1d, desc, standard_name )
+  subroutine FILE_HISTORY_meshfield_in1D( field1d, desc, standard_name, &
+    registered_comp_id )
     implicit none
     class(MeshField1D), intent(in) :: field1d
     character(len=*), intent(in) :: desc                     !< description of the item
     character(len=*), intent(in), optional :: standard_name
+    integer, intent(in), optional :: registered_comp_id
 
     integer :: hstid
     logical :: do_put
@@ -276,7 +367,7 @@ contains
     call history_in_regvar( hstid, do_put,    & ! (out)
       field1d, desc, 1, standard_name, 'XYZ'  ) ! (in)
 
-    if ( do_put ) call FILE_HISTORY_meshfield_put( hstid, field1d )
+    if ( do_put ) call FILE_HISTORY_meshfield_put( hstid, field1d, registered_comp_id )
 
     return
   end subroutine FILE_HISTORY_meshfield_in1D
@@ -284,7 +375,8 @@ contains
   !-- 2D
 
 !OCL SERIAL
-  subroutine FILE_HISTORY_meshfield_put2D(hstid, field2d)
+  subroutine FILE_HISTORY_meshfield_put2D(hstid, field2d, &
+    registered_comp_id )
     use scale_file_common_meshfield, only: &
       File_common_meshfield_put_field2D_cartesbuf,            &
       File_common_meshfield_put_field2D_cubedsphere_cartesbuf
@@ -292,29 +384,35 @@ contains
     implicit none
     integer, intent(in) :: hstid
     class(MeshField2D), intent(in) :: field2d
+    integer, intent(in), optional :: registered_comp_id
 
     logical :: do_put
     integer :: ldomID
     real(RP), allocatable :: buf(:,:)
-    !-------------------------------------------------
+    
+    class(FileHistoryMeshFieldComp), pointer :: target_comp
+    !---------------------------------------------------------------------------
 
+    call history_get_comp( registered_comp_id, & ! (in)
+      target_comp ) ! (out)
+    
     call FILE_HISTORY_query( hstid, do_put )
     if ( .not. do_put ) return
 
     !-
 #ifdef _OPENACC
-    do ldomID=1, mesh2D%LOCAL_MESH_NUM
+    do ldomID=1, target_comp%mesh2D%LOCAL_MESH_NUM
       !$acc update host( field2d%local(ldomID)%val ) async(1)
     end do
     !$acc wait(1)
 #endif    
-    allocate( buf(dims2D_size(1),dims2D_size(2)) )
+    allocate( buf(target_comp%dims2D_size(1),target_comp%dims2D_size(2)) )
     
-    if ( associated(mesh2D) ) then
-      call File_common_meshfield_put_field2D_cartesbuf( mesh2D, field2d, buf )
-    else if ( associated(meshCubedSphere2D) ) then
+    if ( associated(target_comp%mesh2D) ) then
+      call File_common_meshfield_put_field2D_cartesbuf( target_comp%mesh2D, field2d, buf )
+    else if ( associated(target_comp%meshCubedSphere2D) ) then
       call File_common_meshfield_put_field2D_cubedsphere_cartesbuf( &
-        meshCubedSphere2D, field2d, buf )
+        target_comp%meshCubedSphere2D, field2d, buf )
     end if
     call FILE_HISTORY_put( hstid, buf )
 
@@ -322,11 +420,13 @@ contains
   end subroutine FILE_HISTORY_meshfield_put2D
 
 !OCL SERIAL
-  subroutine FILE_HISTORY_meshfield_in2D( field2d, desc, standard_name )
+  subroutine FILE_HISTORY_meshfield_in2D( field2d, desc, standard_name, &
+    registered_comp_id )
     implicit none
     class(MeshField2D), intent(in) :: field2d
     character(len=*), intent(in) :: desc                     !< description of the item
     character(len=*), intent(in), optional :: standard_name
+    integer, intent(in), optional :: registered_comp_id
 
     integer :: hstid
     logical :: do_put
@@ -335,7 +435,7 @@ contains
     call history_in_regvar( hstid, do_put,  & ! (out)
       field2d, desc, 2, standard_name, 'XY' ) ! (in)
 
-    if ( do_put ) call FILE_HISTORY_meshfield_put( hstid, field2d )
+    if ( do_put ) call FILE_HISTORY_meshfield_put( hstid, field2d, registered_comp_id )
 
     return
   end subroutine FILE_HISTORY_meshfield_in2D
@@ -343,7 +443,8 @@ contains
   !-- 3D
 
 !OCL SERIAL
-  subroutine FILE_HISTORY_meshfield_put3D(hstid, field3d)
+  subroutine FILE_HISTORY_meshfield_put3D(hstid, field3d, &
+    registered_comp_id )
     use scale_file_common_meshfield, only: &
       File_common_meshfield_put_field3D_cartesbuf,            &
       File_common_meshfield_put_field3D_cubedsphere_cartesbuf
@@ -351,30 +452,36 @@ contains
     implicit none
     integer, intent(in) :: hstid
     class(MeshField3D), intent(in) :: field3d
+    integer, intent(in), optional :: registered_comp_id
 
     logical :: do_put
     integer :: ldomID
     real(RP), allocatable :: buf(:,:,:)
-    !-------------------------------------------------
+
+    class(FileHistoryMeshFieldComp), pointer :: target_comp
+    !---------------------------------------------------------------------------
+
+    call history_get_comp( registered_comp_id, & ! (in)
+      target_comp ) ! (out)
 
     call FILE_HISTORY_query( hstid, do_put )
     if ( .not. do_put ) return
 
     !-
 #ifdef _OPENACC
-    do ldomID=1, mesh3D%LOCAL_MESH_NUM
+    do ldomID=1, target_comp%mesh3D%LOCAL_MESH_NUM
       !$acc update host( field3d%local(ldomID)%val ) async(1)
     end do
     !$acc wait(1)
 #endif
 
-    allocate( buf(dims3D_size(1,1),dims3D_size(2,1),dims3D_size(3,1)) )
+    allocate( buf(target_comp%dims3D_size(1,1),target_comp%dims3D_size(2,1),target_comp%dims3D_size(3,1)) )
 
-    if ( associated(mesh3D) ) then
-      call File_common_meshfield_put_field3D_cartesbuf( mesh3D, field3d, buf )
-    else if ( associated(meshCubedSphere3D) ) then
+    if ( associated(target_comp%mesh3D) ) then
+      call File_common_meshfield_put_field3D_cartesbuf( target_comp%mesh3D, field3d, buf )
+    else if ( associated(target_comp%meshCubedSphere3D) ) then
       call File_common_meshfield_put_field3D_cubedsphere_cartesbuf( &
-        meshCubedSphere3D, field3d, buf )
+        target_comp%meshCubedSphere3D, field3d, buf )
     end if
     call FILE_HISTORY_put( hstid, buf )
 
@@ -382,11 +489,13 @@ contains
   end subroutine FILE_HISTORY_meshfield_put3D
   
 !OCL SERIAL
-  subroutine FILE_HISTORY_meshfield_in3D( field3d, desc, standard_name )
+  subroutine FILE_HISTORY_meshfield_in3D( field3d, desc, standard_name, &
+    registered_comp_id )
     implicit none
     class(MeshField3D), intent(in) :: field3d
     character(len=*), intent(in) :: desc                     !< description of the item
     character(len=*), intent(in), optional :: standard_name
+    integer, intent(in), optional :: registered_comp_id
 
     integer :: hstid
     logical :: do_put
@@ -395,12 +504,12 @@ contains
     call history_in_regvar( hstid, do_put,   & ! (out)
       field3d, desc, 3, standard_name, 'XYZ' ) ! (in)
 
-    if ( do_put ) call FILE_HISTORY_meshfield_put( hstid, field3d )
+    if ( do_put ) call FILE_HISTORY_meshfield_put( hstid, field3d, registered_comp_id )
 
     return
   end subroutine FILE_HISTORY_meshfield_in3D
 
-!----------------
+!- Private subroutines ---------------
 
 !OCL SERIAL
   subroutine history_in_regvar( hstid, do_put,  &
@@ -444,7 +553,28 @@ contains
   end subroutine history_in_regvar
 
 !OCL SERIAL
-  subroutine set_dim_axis1D()
+  subroutine history_get_comp( comp_id, & ! (in)
+    comp_ptr ) ! (out)
+    implicit none
+    integer, intent(in), optional :: comp_id
+    type(FileHistoryMeshFieldComp), intent(out), pointer :: comp_ptr
+    !--------------------------------------------------------------
+
+    if ( .not. present(comp_id) ) then
+      comp_ptr => default_comp
+      return
+    end if
+
+    if ( comp_id < 1 .or. comp_id > comp_num ) then
+      LOG_ERROR("FILE_history_get_comp",*) 'Invalid component ID. Check!'
+      call PRC_abort
+    end if
+    comp_ptr => comp(comp_id)
+    return
+  end subroutine history_get_comp
+
+!OCL SERIAL
+  subroutine set_dim_axis1D( comp )
     use scale_file_common_meshfield, only: &
       FILE_common_meshfield_diminfo,    &
       File_common_meshfield_get_dims1D, &
@@ -454,6 +584,7 @@ contains
       DIMTYPE_X   => MeshBase1D_DIMTYPEID_X
   
     implicit none
+    class(FileHistoryMeshFieldComp), intent(inout) :: comp
 
     type(FILE_common_meshfield_diminfo) :: dimsinfo(DIMTYPE_NUM)
     real(RP), allocatable :: x(:)
@@ -462,13 +593,13 @@ contains
     integer :: n, ndim
     !-------------------------------------------------
     
-    call File_common_meshfield_get_dims1D( mesh1D, & ! (in)
-      dimsinfo    )                                  ! (out)
+    call File_common_meshfield_get_dims1D( comp%mesh1D, comp%dim_name_postfix, & ! (in)
+      dimsinfo    )                                                              ! (out)
     
-    dims1D_size(1) = dimsinfo(DIMTYPE_X)%size
-    allocate( x(dims1D_size(1)) )
-    call File_common_meshfield_get_axis1D( mesh1D, dimsinfo, & ! (in)
-      x )                                                      ! (out)
+    comp%dims1D_size(1) = dimsinfo(DIMTYPE_X)%size
+    allocate( x(comp%dims1D_size(1)) )
+    call File_common_meshfield_get_axis1D( comp%mesh1D, dimsinfo, & ! (in)
+      x )                                                           ! (out)
 
     start(:,:) = 1
     do n=1, DIMTYPE_NUM
@@ -485,7 +616,7 @@ contains
   end subroutine set_dim_axis1D
 
 !OCL SERIAL
-  subroutine set_dim_axis2D()
+  subroutine set_dim_axis2D( comp )
     use scale_file_common_meshfield, only: &
       FILE_common_meshfield_diminfo,       &
       File_common_meshfield_get_dims2D,    &
@@ -496,6 +627,7 @@ contains
       DIMTYPE_Y   => MeshBase2D_DIMTYPEID_Y
    
     implicit none
+    class(FileHistoryMeshFieldComp), intent(inout) :: comp
 
     type(FILE_common_meshfield_diminfo) :: dimsinfo(DIMTYPE_NUM)
     real(RP), allocatable :: x(:), y(:)
@@ -504,14 +636,14 @@ contains
     integer :: n, ndim
     !-------------------------------------------------
     
-    call File_common_meshfield_get_dims2D( mesh2D, & ! (in)
-      dimsinfo    )                                  ! (out)
+    call File_common_meshfield_get_dims2D( comp%mesh2D, comp%dim_name_postfix, & ! (in)
+      dimsinfo    )                                                              ! (out)
     
-    dims2D_size(1) = dimsinfo(DIMTYPE_X)%size
-    dims2D_size(2) = dimsinfo(DIMTYPE_Y)%size
-    allocate( x(dims2D_size(1)), y(dims2D_size(2)) )
-    call File_common_meshfield_get_axis2D( mesh2D, dimsinfo, & ! (in)
-      x, y )                                                   ! (out)
+    comp%dims2D_size(1) = dimsinfo(DIMTYPE_X)%size
+    comp%dims2D_size(2) = dimsinfo(DIMTYPE_Y)%size
+    allocate( x(comp%dims2D_size(1)), y(comp%dims2D_size(2)) )
+    call File_common_meshfield_get_axis2D( comp%mesh2D, dimsinfo, & ! (in)
+      x, y )                                                        ! (out)
 
     start(:,:) = 1
 
@@ -529,7 +661,7 @@ contains
   end subroutine set_dim_axis2D
 
 !OCL SERIAL
-  subroutine set_dim_axis3D()
+  subroutine set_dim_axis3D( comp )
     use scale_file_common_meshfield, only: &
       FILE_common_meshfield_diminfo,       &
       File_common_meshfield_get_dims3D,    &
@@ -541,6 +673,7 @@ contains
       DIMTYPE_Z   => MeshBase3D_DIMTYPEID_Z
 
     implicit none
+    class(FileHistoryMeshFieldComp), intent(inout) :: comp
 
     type(FILE_common_meshfield_diminfo) :: dimsinfo(DIMTYPE_NUM)
     real(RP), allocatable :: x(:), y(:), z(:)
@@ -549,17 +682,17 @@ contains
     integer :: n, ndim
     !-------------------------------------------------
     
-    call File_common_meshfield_get_dims3D( mesh3D, & ! (in)
-      dimsinfo    )                                  ! (out)
+    call File_common_meshfield_get_dims3D( comp%mesh3D, comp%dim_name_postfix, & ! (in)
+      dimsinfo    )                                                              ! (out)
   
-    dims2D_size(1) = dimsinfo(DIMTYPE_X)%size
-    dims2D_size(2) = dimsinfo(DIMTYPE_Y)%size  
-    dims3D_size(1,1) = dimsinfo(DIMTYPE_X)%size
-    dims3D_size(2,1) = dimsinfo(DIMTYPE_Y)%size
-    dims3D_size(3,1) = dimsinfo(DIMTYPE_Z)%size
-    allocate( x(dims3D_size(1,1)), y(dims3D_size(2,1)), z(dims3D_size(3,1)) )
-    call File_common_meshfield_get_axis3D( mesh3D, dimsinfo, & ! (in)
-      x, y, z )                                                ! (out)
+    comp%dims2D_size(1) = dimsinfo(DIMTYPE_X)%size
+    comp%dims2D_size(2) = dimsinfo(DIMTYPE_Y)%size  
+    comp%dims3D_size(1,1) = dimsinfo(DIMTYPE_X)%size
+    comp%dims3D_size(2,1) = dimsinfo(DIMTYPE_Y)%size
+    comp%dims3D_size(3,1) = dimsinfo(DIMTYPE_Z)%size
+    allocate( x(comp%dims3D_size(1,1)), y(comp%dims3D_size(2,1)), z(comp%dims3D_size(3,1)) )
+    call File_common_meshfield_get_axis3D( comp%mesh3D, dimsinfo, & ! (in)
+      x, y, z )                                                     ! (out)
 
     start(:,:) = 1
     do n=1, DIMTYPE_NUM
@@ -578,7 +711,7 @@ contains
   end subroutine set_dim_axis3D
 
 !OCL SERIAL
-  subroutine set_dim_axis2D_cubedsphere()
+  subroutine set_dim_axis2D_cubedsphere( comp )
     use scale_file_common_meshfield, only: &
       FILE_common_meshfield_diminfo,  &
       File_common_meshfield_get_dims, &
@@ -589,6 +722,7 @@ contains
       DIMTYPE_Y  => MeshBase2D_DIMTYPEID_Y
 
     implicit none
+    class(FileHistoryMeshFieldComp), intent(inout) :: comp
 
     type(FILE_common_meshfield_diminfo) :: dimsinfo(DIMTYPE_NUM)
     real(RP), allocatable :: x(:), y(:)
@@ -597,15 +731,15 @@ contains
     integer :: n, ndim
     !-------------------------------------------------
     
-    call File_common_meshfield_get_dims( meshCubedSphere2D, & ! (in)
-      dimsinfo    )                                           ! (out)
+    call File_common_meshfield_get_dims( comp%meshCubedSphere2D, comp%dim_name_postfix, & ! (in)
+      dimsinfo    )                                                                       ! (out)
     
-    dims2D_size(1) = dimsinfo(DIMTYPE_X)%size
-    dims2D_size(2) = dimsinfo(DIMTYPE_Y)%size
-    allocate( x(dims2D_size(1)), y(dims2D_size(2)) )
+    comp%dims2D_size(1) = dimsinfo(DIMTYPE_X)%size
+    comp%dims2D_size(2) = dimsinfo(DIMTYPE_Y)%size
+    allocate( x(comp%dims2D_size(1)), y(comp%dims2D_size(2)) )
     
-    call File_common_meshfield_get_axis( meshCubedSphere2D, dimsinfo, & ! (in)
-      x, y )                                                            ! (out)
+    call File_common_meshfield_get_axis( comp%meshCubedSphere2D, dimsinfo, & ! (in)
+      x, y )                                                                 ! (out)
     
     start(:,:) = 1
 
@@ -623,7 +757,7 @@ contains
   end subroutine set_dim_axis2D_cubedsphere
 
 !OCL SERIAL
-  subroutine set_dim_axis3D_cubedsphere()
+  subroutine set_dim_axis3D_cubedsphere( comp )
     use scale_file_common_meshfield, only: &
       FILE_common_meshfield_diminfo,  &
       File_common_meshfield_get_dims, &
@@ -635,6 +769,7 @@ contains
       DIMTYPE_Z   => MeshBase3D_DIMTYPEID_Z
 
     implicit none
+    class(FileHistoryMeshFieldComp), intent(inout) :: comp
 
     type(FILE_common_meshfield_diminfo) :: dimsinfo(DIMTYPE_NUM)
     real(RP), allocatable :: x(:), y(:), z(:)
@@ -643,17 +778,17 @@ contains
     integer :: n, ndim
     !-------------------------------------------------
     
-    call File_common_meshfield_get_dims( meshCubedSphere3D, & ! (in)
-      dimsinfo    )                                           ! (out)
+    call File_common_meshfield_get_dims( comp%meshCubedSphere3D, comp%dim_name_postfix, & ! (in)
+      dimsinfo    )                                                                       ! (out)
 
-    dims2D_size(1) = dimsinfo(DIMTYPE_X)%size
-    dims2D_size(2) = dimsinfo(DIMTYPE_Y)%size
-    dims3D_size(1,1) = dimsinfo(DIMTYPE_X)%size
-    dims3D_size(2,1) = dimsinfo(DIMTYPE_Y)%size
-    dims3D_size(3,1) = dimsinfo(DIMTYPE_Z)%size
-    allocate( x(dims3D_size(1,1)), y(dims3D_size(2,1)), z(dims3D_size(3,1)) )
-    call File_common_meshfield_get_axis( meshCubedSphere3D, dimsinfo, & ! (in)
-      x, y, z )                                                         ! (out)
+    comp%dims2D_size(1) = dimsinfo(DIMTYPE_X)%size
+    comp%dims2D_size(2) = dimsinfo(DIMTYPE_Y)%size
+    comp%dims3D_size(1,1) = dimsinfo(DIMTYPE_X)%size
+    comp%dims3D_size(2,1) = dimsinfo(DIMTYPE_Y)%size
+    comp%dims3D_size(3,1) = dimsinfo(DIMTYPE_Z)%size
+    allocate( x(comp%dims3D_size(1,1)), y(comp%dims3D_size(2,1)), z(comp%dims3D_size(3,1)) )
+    call File_common_meshfield_get_axis( comp%meshCubedSphere3D, dimsinfo, & ! (in)
+      x, y, z )                                                              ! (out)
 
     start(:,:) = 1
     do n=1, DIMTYPE_NUM

@@ -125,10 +125,11 @@ contains
   !- 1D ---------------
 
 !OCL SERIAL
-  subroutine File_common_meshfield_get_dims1D( mesh1D, dimsinfo )
+  subroutine File_common_meshfield_get_dims1D( mesh1D, dim_name_postfix, & ! (in)
+    dimsinfo ) ! (out)
     implicit none
-
     class(MeshBase1D), target, intent(in) :: mesh1D
+    character(len=H_SHORT), intent(in) :: dim_name_postfix
     type(FILE_common_meshfield_diminfo), intent(out) :: dimsinfo(MeshBase1D_DIMTYPE_NUM)
 
     integer :: i_size
@@ -140,11 +141,13 @@ contains
 
     dimInfo_x => mesh1D%dimInfo(MeshBase1D_DIMTYPEID_X)
     call set_dimension( dimsinfo(MeshBase1D_DIMTYPEID_X),    &
-      dimInfo_x, "X", 1, (/ dimInfo_x%name /), (/ i_size /)  )
+      dimInfo_x, "X", 1, (/ dimInfo_x%name /), (/ i_size /), &
+      dim_name_postfix )
 
     dimInfo => mesh1D%dimInfo(MeshBase1D_DIMTYPEID_XT)
-    call set_dimension( dimsinfo(MeshBase1D_DIMTYPEID_XT),  &
-      dimInfo, "XT", 1, (/ diminfo_x%name /), (/ i_size  /) )
+    call set_dimension( dimsinfo(MeshBase1D_DIMTYPEID_XT),   &
+      dimInfo, "XT", 1, (/ diminfo_x%name /), (/ i_size  /), &
+      dim_name_postfix )
 
     return
   end subroutine File_common_meshfield_get_dims1D
@@ -334,10 +337,12 @@ contains
   !- 2D ---------------
 
 !OCL SERIAL
-  subroutine File_common_meshfield_get_dims2D( mesh2D, dimsinfo )
+  subroutine File_common_meshfield_get_dims2D( mesh2D, dim_name_postfix, & ! (in)
+    dimsinfo ) ! (out)
     implicit none
 
     class(MeshRectDom2D), target, intent(in) :: mesh2D
+    character(len=H_SHORT), intent(in) :: dim_name_postfix
     type(FILE_common_meshfield_diminfo), intent(out) :: dimsinfo(MeshBase2D_DIMTYPE_NUM)
 
     type(LocalMesh2D), pointer :: lcmesh
@@ -364,31 +369,35 @@ contains
     end do
   
     diminfo_x => mesh2D%dimInfo(MeshBase2D_DIMTYPEID_X)
-    call set_dimension( dimsinfo(MeshBase2D_DIMTYPEID_X),   &
-      dimInfo_x, "X", 1, (/ diminfo_x%name /), (/ i_size /) )
+    call set_dimension( dimsinfo(MeshBase2D_DIMTYPEID_X),    &
+      dimInfo_x, "X", 1, (/ diminfo_x%name /), (/ i_size /), &
+      dim_name_postfix )
 
     diminfo_y => mesh2D%dimInfo(MeshBase2D_DIMTYPEID_Y)
-    call set_dimension( dimsinfo(MeshBase2D_DIMTYPEID_Y),   &
-      diminfo_y, "Y", 1, (/ diminfo_y%name /), (/ j_size /) )
+    call set_dimension( dimsinfo(MeshBase2D_DIMTYPEID_Y),    &
+      diminfo_y, "Y", 1, (/ diminfo_y%name /), (/ j_size /), &
+      dim_name_postfix )
 
     diminfo => mesh2D%dimInfo(MeshBase2D_DIMTYPEID_XY)
     call set_dimension( dimsinfo(MeshBase2D_DIMTYPEID_XY),    &
       diminfo, "XY", 2, (/ diminfo_x%name, diminfo_y%name /), &
-      (/ i_size, j_size /) )
+      (/ i_size, j_size /), dim_name_postfix )
 
     diminfo => mesh2D%dimInfo(MeshBase2D_DIMTYPEID_XYT)
     call set_dimension( dimsinfo(MeshBase2D_DIMTYPEID_XYT),    &
       diminfo, "XYT", 2, (/ diminfo_x%name, diminfo_y%name /), &
-      (/ i_size, j_size /) )
+      (/ i_size, j_size /), dim_name_postfix )
   
     return
   end subroutine File_common_meshfield_get_dims2D
 
 !OCL SERIAL
-  subroutine File_common_meshfield_get_dims2D_cubedsphere( mesh2D, dimsinfo )
+  subroutine File_common_meshfield_get_dims2D_cubedsphere( mesh2D, dim_name_postfix, & ! (in)
+    dimsinfo ) ! (out)
     implicit none
 
     class(MeshCubedSphereDom2D), target, intent(in) :: mesh2D
+    character(len=H_SHORT), intent(in) :: dim_name_postfix
     type(FILE_common_meshfield_diminfo), intent(out) :: dimsinfo(MeshBase2D_DIMTYPE_NUM)
 
     type(LocalMesh2D), pointer :: lcmesh
@@ -418,22 +427,24 @@ contains
     j_size = j_size * size(mesh2D%rcdomIJP2LCMeshID,3)
   
     diminfo_x => mesh2D%dimInfo(MeshBase2D_DIMTYPEID_X)
-    call set_dimension( dimsinfo(MeshBase2D_DIMTYPEID_X),   &
-      dimInfo_x, "X", 1, (/ diminfo_x%name /), (/ i_size /) )
+    call set_dimension( dimsinfo(MeshBase2D_DIMTYPEID_X),    &
+      diminfo_x, "X", 1, (/ diminfo_x%name /), (/ i_size /), &
+      dim_name_postfix )
 
     diminfo_y => mesh2D%dimInfo(MeshBase2D_DIMTYPEID_Y)
     call set_dimension( dimsinfo(MeshBase2D_DIMTYPEID_Y),   &
-      diminfo_y, "Y", 1, (/ diminfo_y%name /), (/ j_size /) )
+      diminfo_y, "Y", 1, (/ diminfo_y%name /), (/ j_size /), &
+      dim_name_postfix )
 
     diminfo => mesh2D%dimInfo(MeshBase2D_DIMTYPEID_XY)
     call set_dimension( dimsinfo(MeshBase2D_DIMTYPEID_XY),    &
       diminfo, "XY", 2, (/ diminfo_x%name, diminfo_y%name /), &
-      (/ i_size, j_size /) )
+      (/ i_size, j_size /), dim_name_postfix )
 
     diminfo => mesh2D%dimInfo(MeshBase2D_DIMTYPEID_XYT)
     call set_dimension( dimsinfo(MeshBase2D_DIMTYPEID_XYT),    &
       diminfo, "XYT", 2, (/ diminfo_x%name, diminfo_y%name /), &
-      (/ i_size, j_size /) )
+      (/ i_size, j_size /), dim_name_postfix )
 
     return
   end subroutine File_common_meshfield_get_dims2D_cubedsphere
@@ -505,7 +516,7 @@ contains
   end subroutine File_common_meshfield_get_axis2D
 
 !OCL SERIAL
-  subroutine File_common_meshfield_get_axis2D_cubedsphere( mesh2D, dimsinfo, x, y  )
+  subroutine File_common_meshfield_get_axis2D_cubedsphere( mesh2D, dimsinfo, x, y )
     use scale_const, only: &
       PI => CONST_PI
     implicit none
@@ -849,10 +860,12 @@ contains
   !- 3D ------------
 
 !OCL SERIAL
-  subroutine File_common_meshfield_get_dims3D( mesh3D, dimsinfo )
+  subroutine File_common_meshfield_get_dims3D( mesh3D, dim_name_postfix, & ! (in)
+    dimsinfo ) ! (out)
     implicit none
 
     class(MeshCubeDom3D), target, intent(in) :: mesh3D
+    character(len=H_SHORT), intent(in) :: dim_name_postfix
     type(FILE_common_meshfield_diminfo), intent(out) :: dimsinfo(MESHBASE3D_DIMTYPE_NUM)
 
     type(LocalMesh3D), pointer :: lcmesh
@@ -887,50 +900,55 @@ contains
     end do  
 
     diminfo_x => mesh3D%dimInfo(MeshBase3D_DIMTYPEID_X)
-    call set_dimension( dimsinfo(MeshBase3D_DIMTYPEID_X),   &
-      dimInfo_x, "X", 1, (/ diminfo_x%name /), (/ i_size /) )
+    call set_dimension( dimsinfo(MeshBase3D_DIMTYPEID_X),    &
+      dimInfo_x, "X", 1, (/ diminfo_x%name /), (/ i_size /), &
+      dim_name_postfix )
 
     diminfo_y => mesh3D%dimInfo(MeshBase3D_DIMTYPEID_Y)
-    call set_dimension( dimsinfo(MeshBase3D_DIMTYPEID_Y),   &
-      diminfo_y, "Y", 1, (/ diminfo_y%name /), (/ j_size /) )
+    call set_dimension( dimsinfo(MeshBase3D_DIMTYPEID_Y),    &
+      diminfo_y, "Y", 1, (/ diminfo_y%name /), (/ j_size /), &
+      dim_name_postfix )
 
     diminfo_z => mesh3D%dimInfo(MeshBase3D_DIMTYPEID_Z)
-    call set_dimension( dimsinfo(MeshBase3D_DIMTYPEID_Z),    &
-      diminfo_z, "Z", 1, (/ diminfo_z%name /), (/ k_size /), &
-      positive_down=(/ dimInfo_z%positive_down /)            )
+    call set_dimension( dimsinfo(MeshBase3D_DIMTYPEID_Z),           &
+      diminfo_z, "Z", 1, (/ diminfo_z%name /), (/ k_size /),        &
+      dim_name_postfix, positive_down=(/ dimInfo_z%positive_down /) )
   
     diminfo => mesh3D%dimInfo(MeshBase3D_DIMTYPEID_ZT)
-    call set_dimension( dimsinfo(MeshBase3D_DIMTYPEID_ZT), &
-      diminfo, "ZT", 1, (/ diminfo_z%name /), (/ k_size /) )
+    call set_dimension( dimsinfo(MeshBase3D_DIMTYPEID_ZT),  &
+      diminfo, "ZT", 1, (/ diminfo_z%name /), (/ k_size /), &
+      dim_name_postfix )
 
     diminfo => mesh3D%dimInfo(MeshBase3D_DIMTYPEID_XY)
     call set_dimension( dimsinfo(MeshBase3D_DIMTYPEID_XY),     &
       diminfo, "XY", 2, (/ diminfo_x%name, diminfo_y%name  /), &
-      (/ i_size, j_size /) )
+      (/ i_size, j_size /), dim_name_postfix )
   
     diminfo => mesh3D%dimInfo(MeshBase3D_DIMTYPEID_XYT)
     call set_dimension( dimsinfo(MeshBase3D_DIMTYPEID_XYT),     &
       diminfo, "XY", 2, (/ diminfo_x%name, diminfo_y%name  /),  &
-      (/ i_size, j_size /) )
+      (/ i_size, j_size /), dim_name_postfix )
     
     diminfo => mesh3D%dimInfo(MeshBase3D_DIMTYPEID_XYZ)
-    call set_dimension( dimsinfo(MeshBase3D_DIMTYPEID_XYZ), &
+    call set_dimension( dimsinfo(MeshBase3D_DIMTYPEID_XYZ),                    &
       diminfo, "XYZ", 3, (/ diminfo_x%name, diminfo_y%name, diminfo_z%name /), &
-      (/ i_size, j_size, k_size /) )
+      (/ i_size, j_size, k_size /), dim_name_postfix )
   
     diminfo => mesh3D%dimInfo(MeshBase3D_DIMTYPEID_XYZT)
-    call set_dimension( dimsinfo(MeshBase3D_DIMTYPEID_XYZT), &
+    call set_dimension( dimsinfo(MeshBase3D_DIMTYPEID_XYZT),                    &
       diminfo, "XYZT", 3, (/ diminfo_x%name, diminfo_y%name, diminfo_z%name /), &
-      (/ i_size, j_size, k_size /) )
+      (/ i_size, j_size, k_size /), dim_name_postfix )
 
     return
   end subroutine File_common_meshfield_get_dims3D
 
 !OCL SERIAL
-  subroutine File_common_meshfield_get_dims3D_cubedsphere( mesh3D, dimsinfo )
+  subroutine File_common_meshfield_get_dims3D_cubedsphere( mesh3D, dim_name_postfix, & ! (in)
+    dimsinfo ) ! (out)
     implicit none
 
     class(MeshCubedSphereDom3D), target, intent(in) :: mesh3D
+    character(len=H_SHORT), intent(in) :: dim_name_postfix
     type(FILE_common_meshfield_diminfo), intent(out) :: dimsinfo(MESHBASE3D_DIMTYPE_NUM)
 
     type(LocalMesh3D), pointer :: lcmesh
@@ -968,41 +986,48 @@ contains
     k_size = k_size * size(mesh3D%rcdomIJKP2LCMeshID,4)
   
     diminfo_x => mesh3D%dimInfo(MeshBase3D_DIMTYPEID_X)
-    call set_dimension( dimsinfo(MeshBase3D_DIMTYPEID_X),   &
-      dimInfo_x, "X", 1, (/ diminfo_x%name /), (/ i_size /) )
+    call set_dimension( dimsinfo(MeshBase3D_DIMTYPEID_X),    &
+      diminfo_x, "X", 1, (/ diminfo_x%name /), (/ i_size /), &
+      dim_name_postfix )
 
     diminfo_y => mesh3D%dimInfo(MeshBase3D_DIMTYPEID_Y)
-    call set_dimension( dimsinfo(MeshBase3D_DIMTYPEID_Y),   &
-      diminfo_y, "Y", 1, (/ diminfo_y%name /), (/ j_size /) )
+    call set_dimension( dimsinfo(MeshBase3D_DIMTYPEID_Y),    &
+      diminfo_y, "Y", 1, (/ diminfo_y%name /), (/ j_size /), &
+      dim_name_postfix )
 
     diminfo_z => mesh3D%dimInfo(MeshBase3D_DIMTYPEID_Z)
-    call set_dimension( dimsinfo(MeshBase3D_DIMTYPEID_Z),    &
-      diminfo_z, "Z", 1, (/ diminfo_z%name /), (/ k_size /), &
-      positive_down=(/ dimInfo_z%positive_down /)            )
+    call set_dimension( dimsinfo(MeshBase3D_DIMTYPEID_Z),           &
+      diminfo_z, "Z", 1, (/ diminfo_z%name /), (/ k_size /),        &
+      dim_name_postfix, positive_down=(/ diminfo_z%positive_down /) )
   
     diminfo => mesh3D%dimInfo(MeshBase3D_DIMTYPEID_ZT)
-    call set_dimension( dimsinfo(MeshBase3D_DIMTYPEID_ZT), &
-      diminfo, "ZT", 1, (/ diminfo_z%name /), (/ k_size /) )
+    call set_dimension( dimsinfo(MeshBase3D_DIMTYPEID_ZT),  &
+      diminfo, "ZT", 1, (/ diminfo_z%name /), (/ k_size /), &
+      dim_name_postfix )
 
     diminfo => mesh3D%dimInfo(MeshBase3D_DIMTYPEID_XY)
     call set_dimension( dimsinfo(MeshBase3D_DIMTYPEID_XY),     &
       diminfo, "XY", 2, (/ diminfo_x%name, diminfo_y%name  /), &
-      (/ i_size, j_size /) )
+      (/ i_size, j_size /), &
+      dim_name_postfix )
   
     diminfo => mesh3D%dimInfo(MeshBase3D_DIMTYPEID_XYT)
     call set_dimension( dimsinfo(MeshBase3D_DIMTYPEID_XYT),     &
       diminfo, "XY", 2, (/ diminfo_x%name, diminfo_y%name  /),  &
-      (/ i_size, j_size /) )
+      (/ i_size, j_size /), &
+      dim_name_postfix )
   
     diminfo => mesh3D%dimInfo(MeshBase3D_DIMTYPEID_XYZ)
-    call set_dimension( dimsinfo(MeshBase3D_DIMTYPEID_XYZ), &
+    call set_dimension( dimsinfo(MeshBase3D_DIMTYPEID_XYZ),                    &
       diminfo, "XYZ", 3, (/ diminfo_x%name, diminfo_y%name, diminfo_z%name /), &
-      (/ i_size, j_size, k_size /) )
+      (/ i_size, j_size, k_size /), &
+      dim_name_postfix )
   
     diminfo => mesh3D%dimInfo(MeshBase3D_DIMTYPEID_XYZT)
-    call set_dimension( dimsinfo(MeshBase3D_DIMTYPEID_XYZT), &
+    call set_dimension( dimsinfo(MeshBase3D_DIMTYPEID_XYZT),                    &
       diminfo, "XYZT", 3, (/ diminfo_x%name, diminfo_y%name, diminfo_z%name /), &
-      (/ i_size, j_size, k_size /) )
+      (/ i_size, j_size, k_size /),                                             &
+      dim_name_postfix )
 
     return
   end subroutine File_common_meshfield_get_dims3D_cubedsphere
@@ -1543,7 +1568,10 @@ contains
     return
   end subroutine get_uniform_grid1D
 
-  subroutine set_dimension( dim, diminfo, dim_type, ndims, dims, count, positive_down )
+  !> Set dimension information for file output
+  subroutine set_dimension( dim,           & ! (out)
+    diminfo, dim_type, ndims, dims, count, & ! (in)
+    dim_postfix, positive_down             )  ! (in)
     implicit none
 
     type(FILE_common_meshfield_diminfo), intent(out) :: dim
@@ -1552,19 +1580,20 @@ contains
     integer, intent(in) :: ndims
     character(len=*), intent(in) :: dims(ndims)
     integer, intent(in) :: count(ndims)
+    character(*), intent(in) :: dim_postfix
     logical, intent(in), optional :: positive_down(ndims)
 
     integer :: d
     !----------------------------------------------------
 
-    dim%name = diminfo%name
+    dim%name = trim(diminfo%name) // trim(dim_postfix)
     dim%unit = diminfo%unit
     dim%desc = diminfo%desc
-    dim%type = dim_type
+    dim%type = trim(dim_type) // trim(dim_postfix)
     dim%ndim = ndims
     dim%size = 1
     do d=1, ndims
-      dim%dims(d) = dims(d)
+      dim%dims(d) = trim(dims(d)) // trim(dim_postfix)
       dim%count(d) = count(d)
       dim%size = dim%size * count(d)
       if ( present(positive_down) ) then
