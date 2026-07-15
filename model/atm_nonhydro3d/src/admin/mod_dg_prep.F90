@@ -25,6 +25,8 @@ module mod_dg_prep
     AtmosComponent
   use mod_ocean_component, only: &
     OceanComponent
+  use mod_cpl_component, only: &
+    CouplerComponent
   
   use scale_file_history_meshfield, only: &
     FILE_HISTORY_meshfield_write
@@ -68,6 +70,7 @@ module mod_dg_prep
 
   type(AtmosComponent) :: atmos
   type(OceanComponent) :: ocean
+  type(CouplerComponent) :: coupler
   type(User) :: user_
 
 contains
@@ -148,6 +151,8 @@ contains
       call set_total_energy( atmos%vars%container%PROGVARS_manager, &
         atmos%vars%container%AUXVARS_manager, atmos%mesh )
     end if
+    
+    if ( ocean%IsActivated() ) call user_%mkinit_ocn( ocean )
  
     call PROF_rapend  ('MkInit',1)
     call PROF_rapend('Main_prep', 0)
@@ -217,10 +222,15 @@ contains
     ! setup submodels
     call atmos%setup()
     call ocean%setup()
+    call coupler%setup()
+    call coupler%evaluate_activation( ocean )
     call user_%setup( atmos )
 
     call atmos%setup_vars()
+    call atmos%set_coupler( coupler )
+
     if ( ocean%IsActivated() ) call ocean%setup_vars()
+    if ( coupler%IsActivated() ) call coupler%setup_vars( atmos%mesh%ptr_mesh, ocean%mesh%ptr_mesh )
 
     ! setup mktopo
     call MKTOPO_setup
@@ -254,6 +264,7 @@ contains
     ! finalization submodels
     call atmos%finalize()
     call ocean%finalize()
+    call coupler%finalize()
 
     !-
     call TIME_manager_Final()
@@ -331,13 +342,35 @@ contains
 
   subroutine restart_write
     implicit none
+    
+    logical :: is_restart_write_atmos
+    logical :: is_restart_write_ocean
     !----------------------------------------
 
-    if ( atmos%isActivated() ) call atmos%vars%Write_restart_file_prep()
-    if ( ocean%isActivated() ) call ocean%vars%Write_restart_file_prep()
-    !-
-    if ( atmos%isActivated() ) call atmos%vars%Write_restart_file()
-    if ( ocean%isActivated() ) call ocean%vars%Write_restart_file()
+    is_restart_write_atmos = atmos%IsActivated() 
+    is_restart_write_ocean  = ocean%IsActivated()  
+
+    !- Preprocess
+    if ( is_restart_write_atmos ) then
+      call atmos%vars%Write_restart_file_prep()
+      if ( atmos%phy_rd_proc%IsActivated() ) call atmos%phy_rd_proc%vars%Write_restart_file_prep()
+    end if
+    if ( is_restart_write_ocean ) call ocean%vars%Write_restart_file_prep()
+
+    !- Write
+    if ( is_restart_write_atmos ) then
+      call atmos%vars%Write_restart_file()
+      if ( atmos%phy_rd_proc%IsActivated() ) call atmos%phy_rd_proc%vars%Write_restart_file()
+    end if  
+    if ( is_restart_write_ocean ) call ocean%vars%Write_restart_file()
+
+    !- Postprocess
+    if ( is_restart_write_atmos ) then
+      call atmos%vars%Write_restart_file_post()
+      if ( atmos%phy_rd_proc%IsActivated() ) call atmos%phy_rd_proc%vars%Write_restart_file_post()
+    end if
+    if ( is_restart_write_ocean ) call ocean%vars%Write_restart_file_post()
+
     return
   end subroutine restart_write
 
