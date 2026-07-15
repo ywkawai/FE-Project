@@ -44,6 +44,7 @@ module mod_atmos_component
   use mod_atmos_phy_rd , only: AtmosPhyRd
   use mod_atmos_phy_cp , only: AtmosPhyCp
   use mod_atmos_phy_bl, only: AtmosPhyBl
+  use mod_cpl_component, only: CouplerComponent
 
   !-----------------------------------------------------------------------------
   implicit none
@@ -69,12 +70,17 @@ module mod_atmos_component
     type(AtmosPhyRd ) :: phy_rd_proc    !< Object to manage radiation process
     type(AtmosPhyCp ) :: phy_cp_proc    !< Object to manage cumulus parameterization process
     type(AtmosPhyBl ) :: phy_bl_proc    !< Object to manage PBL turbulence parameterization process
+
+    type(CouplerComponent), pointer :: coupler_ptr !< Pointer of coupler component
   contains
     procedure, public :: setup => Atmos_setup 
-    procedure, public :: setup_vars => Atmos_setup_vars    
+    procedure, public :: setup_vars => Atmos_setup_vars  
+    procedure, public :: set_coupler => Atmos_set_coupler  
     procedure, public :: calc_tendency => Atmos_calc_tendency
+    procedure, public :: calc_tendency_from_sflux => Atmos_calc_tendency_from_sflux
     procedure, public :: update => Atmos_update
     procedure, public :: set_surface => Atmos_set_surface
+    procedure, public :: get_surface => Atmos_get_surface
     procedure, public :: finalize => Atmos_finalize
   end type AtmosComponent
 
@@ -291,6 +297,17 @@ contains
     return
   end subroutine Atmos_setup_vars
 
+!> Set coupler component to the atmospheric component
+!OCL SERIAL
+  subroutine Atmos_set_coupler( this, coupler )
+    implicit none
+    class(AtmosComponent), intent(inout) :: this
+    class(CouplerComponent), target, intent(inout) :: coupler
+    !----------------------------------------------------------
+    this%coupler_ptr => coupler
+    return
+  end subroutine Atmos_set_coupler
+
 !> Calculate tendencies with the atmospheric component
 !OCL SERIAL
   subroutine Atmos_calc_tendency( this, force )
@@ -324,7 +341,8 @@ contains
     integer :: Np
 
     class(AtmosVarsContainer), pointer :: vars_primary_container
-    class(AtmosVarsContainer), pointer :: vars_container    
+    class(AtmosVarsContainer), pointer :: vars_container
+    
     !------------------------------------------------------------------
     
     call PROF_rapstart( 'ATM_tendency', 1)
@@ -464,8 +482,84 @@ contains
     end if
 
 
-!    if ( .not. CPL_sw ) then    
+    if ( .not. this%coupler_ptr%IsActivated() ) then
     
+      !- Surface flux
+      
+      if ( this%phy_sfc_proc%IsActivated() ) then
+        call PROF_rapstart('ATM_SurfaceFlux', 1)
+        tm_process_id = this%phy_sfc_proc%tm_process_id
+        is_update = this%time_manager%Do_process(tm_process_id) .or. force
+
+        call this%vars%Get_container( this%phy_sfc_proc%atm_var_container_typeid, & ! (in)
+          vars_container ) ! (out)
+        
+        call this%phy_sfc_proc%calc_tendency( &
+          this%mesh, vars_container%PROGVARS_manager, vars_container%QTRCVARS_manager, &
+          vars_container%AUXVARS_manager, vars_primary_container%PHYTENDS_manager, is_update   )
+        call PROF_rapend('ATM_SurfaceFlux', 1)
+      end if
+      
+      !- Planetary boundary layer
+
+      if ( this%phy_bl_proc%IsActivated() ) then
+        call PROF_rapstart('ATM_PBL', 1)
+        tm_process_id = this%phy_bl_proc%tm_process_id
+        is_update = this%time_manager%Do_process(tm_process_id) .or. force
+
+        call this%vars%Get_container( this%phy_bl_proc%atm_var_container_typeid, & ! (in)
+          vars_container ) ! (out)
+        
+        call this%phy_bl_proc%calc_tendency( &
+          this%mesh, vars_container%PROGVARS_manager, vars_container%QTRCVARS_manager, &
+          vars_container%AUXVARS_manager, vars_primary_container%PHYTENDS_manager, is_update   )
+        call PROF_rapend('ATM_PBL', 1)
+      end if
+
+    end if
+
+    !* setup surface condition
+    call this%set_surface( countup=.true. )
+
+    call PROF_rapend( 'ATM_tendency', 1)
+    return  
+  end subroutine Atmos_calc_tendency
+
+!> Calculate tendencies with surface flux based on surface quantities managed by coupler component
+!OCL SERIAL
+  subroutine Atmos_calc_tendency_from_sflux( this, force )
+    use scale_tracer, only: QA
+    use scale_atm_dyn_dgm_nonhydro3d_common, only: &
+      PHYTEND_NUM1 => PHYTEND_NUM, &
+      DENS_tp => PHYTEND_DENS_ID,  &
+      MOMX_tp => PHYTEND_MOMX_ID,  &
+      MOMY_tp => PHYTEND_MOMY_ID,  &
+      MOMZ_tp => PHYTEND_MOMZ_ID,  &
+      RHOT_tp =>  PHYTEND_RHOT_ID, &
+      RHOH_p => PHYTEND_RHOH_ID    
+    use mod_atmos_vars, only: &
+      AtmosVars_GetLocalMeshPhyTends
+
+    implicit none
+    class(AtmosComponent), intent(inout) :: this
+    logical, intent(in) :: force
+
+    integer :: tm_process_id
+    logical :: is_update
+
+    class(AtmosVarsContainer), pointer :: vars_primary_container
+    class(AtmosVarsContainer), pointer :: vars_container
+    !------------------------------------------------------------
+
+    if ( .not. this%coupler_ptr%IsActivated() ) return
+
+    call this%vars%Get_container( ATM_VARS_CONTAINER_PRIMARY_ID, & ! (in)
+      vars_primary_container ) ! (out)
+
+    !- Get surface quantities
+    
+    call this%Get_surface()
+
     !- Surface flux
     
     if ( this%phy_sfc_proc%IsActivated() ) then
@@ -497,12 +591,8 @@ contains
         vars_container%AUXVARS_manager, vars_primary_container%PHYTENDS_manager, is_update   )
       call PROF_rapend('ATM_PBL', 1)
     end if
-
-!   end if
-
-    call PROF_rapend( 'ATM_tendency', 1)
-    return  
-  end subroutine Atmos_calc_tendency
+    return
+  end subroutine Atmos_calc_tendency_from_sflux
 
 !> Update variables with the atmospheric component
 !OCL SERIAL
@@ -556,14 +646,22 @@ contains
     return  
   end subroutine Atmos_update
 
+  !> Set atmospheric quantites to coupler component
 !OCL SERIAL
-  subroutine Atmos_set_surface( this )
+  subroutine Atmos_set_surface( this, countup )
     use mod_atmos_vars, only: &
       AtmosVars_GetLocalMeshSfcVar
+    use mod_atmos_vars_container, only: &
+      PREC_ENGI_ID => ATMOS_AUXVARS2D_PREC_ENGI_ID
     use mod_atmos_phy_mp_vars, only: &
       AtmosPhyMpVars_GetLocalMeshFields_sfcflx
+    use mod_atmos_phy_rd_vars, only: &
+      RD_SFLX_LW_dif_ID => ATMOS_PHY_RD_AUX2D_SFLX_LW_dn_ID, &
+      RD_SFLX_SW_dir_ID => ATMOS_PHY_RD_AUX2D_SFLX_SW_dn_ID
+    use mod_cpl_component, only: CouplerComponent
     implicit none
     class(AtmosComponent), intent(inout) :: this
+    logical, intent(in) :: countup
 
     class(MeshBase), pointer :: mesh
     class(MeshBase2D), pointer :: mesh2D
@@ -608,12 +706,43 @@ contains
           PREC_ENGI%val(:,ke) = PREC_ENGI%val(:,ke) + SFLX_ENGI_MP%val(:,ke)
         end do
       end if
-   end do
+    end do
+
+    if ( this%coupler_ptr%IsActivated() ) then
+      call this%coupler_ptr%vars%PutAtm( &
+        this%phy_rd_proc%vars%auxvars2D(RD_SFLX_SW_dir_ID), &
+        this%phy_rd_proc%vars%auxvars2D(RD_SFLX_LW_dif_ID), &
+        this%vars%container%AUX_VARS2D(PREC_ENGI_ID),       &
+        countup )
+    end if
 
     call PROF_rapend( 'ATM_sfc_exch', 1)
 
     return
   end subroutine Atmos_set_surface
+
+  !> Get surface quantities from coupler component
+!OCL SERIAL
+  subroutine Atmos_get_surface( this )
+    use mod_atmos_vars, only: &
+      AtmosVars_GetLocalMeshSfcVar
+    use mod_atmos_phy_sfc_vars, only: &
+      SFCTEMP_ID => ATMOS_PHY_SF_SVAR_TEMP_ID, &
+      SFCALB_ID => ATMOS_PHY_SF_SVAR_ALB_ID
+    use mod_cpl_component, only: CouplerComponent      
+    implicit none
+    class(AtmosComponent), intent(inout), target :: this
+    !--------------------------------------------------
+
+    if ( .not. this%coupler_ptr%IsActivated() ) return
+
+    call PROF_rapstart( 'ATM_sfc_exch', 1)
+    call this%coupler_ptr%vars%Get_SFC_ATM( &
+      this%phy_sfc_proc%vars%SFC_VARS(SFCTEMP_ID), &
+      this%phy_sfc_proc%vars%SFC_VARS(SFCALB_ID)   )
+    call PROF_rapend( 'ATM_sfc_exch', 1)
+    return
+  end subroutine Atmos_get_surface
 
 !> Finalize an object to manage the atmospheric component
 !OCL SERIAL

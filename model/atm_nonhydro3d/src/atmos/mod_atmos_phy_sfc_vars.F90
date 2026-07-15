@@ -69,11 +69,14 @@ module mod_atmos_phy_sfc_vars
   ! Variable information for surface variables
   
   integer, public, parameter :: ATMOS_PHY_SF_SVAR_TEMP_ID  = 1
-  integer, public, parameter :: ATMOS_PHY_SF_SVAR_NUM      = 1
+  integer, public, parameter :: ATMOS_PHY_SF_SVAR_ALB_ID   = 2
+  integer, public, parameter :: ATMOS_PHY_SF_SVAR_NUM      = 2
   type(VariableInfo), public :: ATMOS_PHY_SF_SVAR_VINFO(ATMOS_PHY_SF_SVAR_NUM)
   DATA ATMOS_PHY_SF_SVAR_VINFO / &
-    VariableInfo( ATMOS_PHY_SF_SVAR_NUM, 'SFC_TEMP', 'surface skin temperature',    &
-                  'K',  2, 'XY',  ''                                             )  /
+    VariableInfo( ATMOS_PHY_SF_SVAR_TEMP_ID, 'SFC_TEMP', 'surface skin temperature',  &
+                  'K',  2, 'XY',  'surface_temp'                                  ),  &
+    VariableInfo( ATMOS_PHY_SF_SVAR_ALB_ID  , 'SFC_ALB', 'surface albedo',              &
+                  '1',  2, 'XY',  ''                                              )   /
 
   ! Variable information for surface fluxes
 

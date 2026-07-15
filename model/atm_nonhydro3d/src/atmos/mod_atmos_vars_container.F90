@@ -149,6 +149,8 @@ contains
   subroutine AtmosVarsContainer_Init( this, &
     container_type, phy_preproc_file_basename,     &
     atm_mesh )
+    use scale_const, only: &
+       UNDEF => CONST_UNDEF    
     use scale_tracer, only: &
       TRACER_NAME, TRACER_DESC, TRACER_UNIT
     use scale_atm_dyn_dgm_nonhydro3d_common, only: &
@@ -162,6 +164,7 @@ contains
     class(AtmosMesh), target, intent(inout) :: atm_mesh
 
     integer :: iv
+    integer :: idom
 
     type(VariableInfo) :: prgvar_info(PRGVAR_NUM)
     logical :: do_setup_phytend
@@ -262,7 +265,10 @@ contains
         call this%AUXVARS2D_manager%Regist(    &
           ATMOS_AUXVARS2D_VINFO(iv), mesh2D,   & ! (in) 
           this%AUX_VARS2D(iv),                 & ! (inout)
-          reg_file_hist, fill_zero=.true.      ) ! (in)
+          reg_file_hist                        ) ! (in)
+        do idom=1, mesh2D%LOCAL_MESH_NUM
+          this%AUX_VARS2D(iv)%local(idom)%val(:,:) = UNDEF
+        end do
       end do
     end if
 

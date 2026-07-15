@@ -121,9 +121,10 @@ module mod_atmos_vars
     procedure :: History => AtmosVars_History
     procedure :: Check   => AtmosVars_Check
     procedure :: Monitor => AtmosVars_Monitor
-    procedure :: Read_restart_file => AtmosVar_Read_restart_file
-    procedure :: Write_restart_file_prep => AtmosVar_Write_restart_file_prep
-    procedure :: Write_restart_file => AtmosVar_Write_restart_file
+    procedure :: Read_restart_file => AtmosVars_Read_restart_file
+    procedure :: Write_restart_file_prep => AtmosVars_Write_restart_file_prep
+    procedure :: Write_restart_file => AtmosVars_Write_restart_file
+    procedure :: Write_restart_file_post => AtmosVars_Write_restart_file_post
     procedure :: Regist_physvar_manager => AtmosVars_Regist_physvar_manager
   end type AtmosVars
 
@@ -549,12 +550,9 @@ contains
 !> Read data with atmospheric variables from restart file
 !!
 !OCL SERIAL
-  subroutine AtmosVar_Read_restart_file( this, atmos_mesh, dyncore  )
-
-    use scale_meshfieldcomm_cubedom3d, only: MeshFieldCommCubeDom3D
+  subroutine AtmosVars_Read_restart_file( this, atmos_mesh, dyncore  )
     use scale_meshfieldcomm_base, only: MeshFieldContainer
     use scale_atm_dyn_dgm_driver_nonhydro3d, only: AtmDynDGMDriver_nonhydro3d
-
     use scale_atm_dyn_dgm_nonhydro3d_common, only: &
       AUXVAR_DENSHYDRO_ID    
     implicit none
@@ -573,7 +571,7 @@ contains
     !---------------------------------------
 
     LOG_NEWLINE
-    LOG_INFO("ATMOSVar_read_restart_file",*) 'Open restart file (ATMOS) '
+    LOG_INFO("AtmosVars_Read_restart_file",*) 'Open restart file (ATMOS) '
         
     !- Open restart file
     call this%restart_file%Open()
@@ -594,7 +592,7 @@ contains
     end do
 
     !- Close restart file
-    LOG_INFO("ATMOSVar_read_restart_file",*) 'Close restart file (ATMOS) '
+    LOG_INFO("AtmosVars_Read_restart_file",*) 'Close restart file (ATMOS) '
     call this%restart_file%Close()
 
     !-- Prepare diagnostic variables
@@ -635,12 +633,12 @@ contains
       mesh3D, atmos_mesh%element3D_operation )
 
     return
-  end subroutine AtmosVar_Read_restart_file
+  end subroutine AtmosVars_Read_restart_file
 
 !> Write data with atmospheric variables to restart file
 !!
 !OCL SERIAL
-  subroutine AtmosVar_Write_restart_file_prep( this )
+  subroutine AtmosVars_Write_restart_file_prep( this )
     use scale_tracer, only: &
       TRACER_DESC    
     use scale_atm_dyn_dgm_nonhydro3d_common, only: &
@@ -656,7 +654,7 @@ contains
     !---------------------------------------
     
     LOG_NEWLINE
-    LOG_INFO("ATMOSVar_Write_restart_file",*) 'Create restart file (ATMOS) '
+    LOG_INFO("AtmosVars_Write_restart_file",*) 'Create restart file (ATMOS) '
 
     !- Check data which will be written to restart file
     call this%Check( force = .true. )
@@ -685,12 +683,12 @@ contains
         TRACER_DESC(iv), rf_vid, DIMTYPE_XYZ                        )    
     end do
     return
-  end subroutine AtmosVar_Write_restart_file_prep
+  end subroutine AtmosVars_Write_restart_file_prep
 
 !> Write data with atmospheric variables to restart file
 !!
 !OCL SERIAL
-  subroutine AtmosVar_Write_restart_file( this )
+  subroutine AtmosVars_Write_restart_file( this )
     implicit none
     class(AtmosVars), intent(inout) :: this
 
@@ -712,13 +710,21 @@ contains
       rf_vid = rf_vid + 1
       call this%restart_file%Write_var(rf_vid, this%container%QTRC_VARS(iv) )
     end do
-
-    !- Close restart file
-    LOG_INFO("ATMOSVar_Write_restart_file",*) 'Close restart file (ATMOS) '
-    call this%restart_file%Close()
-
     return
-  end subroutine AtmosVar_Write_restart_file
+  end subroutine AtmosVars_Write_restart_file
+
+  !> Close restart file with atmospheric variables
+  !!
+!OCL SERIAL
+  subroutine AtmosVars_Write_restart_file_post( this )
+    implicit none
+    class(AtmosVars), intent(inout) :: this
+    !---------------------------------------
+    LOG_INFO("AtmosVars_Write_restart_file_post",*) 'Close restart file (ATMOS) '
+
+    call this%restart_file%Close()
+    return
+  end subroutine AtmosVars_Write_restart_file_post
 
 !> Check the range of values with atmospheric variables
 !!
