@@ -42,6 +42,7 @@ VPATH = \
 	admin:              \
 	atmos:              \
 	ocean:              \
+	coupler:            \
 	user:               \
 	preprocess:
 
@@ -73,6 +74,9 @@ SUB_OBJS = \
 	mod_ocean_mesh_rm.o          \
 	mod_ocean_mesh_gm.o          \
 	mod_ocean_vars.o             \
+	\
+	mod_cpl_component.o          \
+	mod_cpl_vars.o               \
 	\
 	mod_user_base.o              \
 	mod_experiment.o             \
