@@ -67,6 +67,9 @@ module mod_ocean_vars
     type(MeshField2D), allocatable :: AUX_VARS2D(:) !< Array of 2D auxiliary variables
     type(ModelVarManager) :: AUXVARS2D_manager      !< An object to manage 2D auxiliary variables
 
+    !- atmospheric variables (2D)
+    type(MeshField2D), allocatable :: ATM_VARS2D(:) !< Array of 2D atmospheric variables
+
     !- history file
     integer :: hist_comp_id = -1 !< Component ID for history file
 
@@ -79,7 +82,10 @@ module mod_ocean_vars
     procedure :: Read_restart_file => OceanVars_Read_restart_file
     procedure :: Write_restart_file_prep => OceanVars_Write_restart_file_prep
     procedure :: Write_restart_file => OceanVars_Write_restart_file
+    procedure :: Write_restart_file_post => OceanVars_Write_restart_file_post
   end type OceanVars
+
+  public :: OceanVars_GetLocalMeshPrgVars
 
   !-----------------------------------------------------------------------------
   !
@@ -110,6 +116,11 @@ module mod_ocean_vars
   integer, public, parameter :: AUXVAR2D_SFC_ALB_VIS_dir_ID = 6
   integer, public, parameter :: AUXVAR2D_SFC_ALB_VIS_dif_ID = 7
   integer, public, parameter :: AUXVAR2D_NUM                = 7
+
+  ! Lower atmosphere variables received from CPL buffer
+  integer, public, parameter :: ATMVAR2D_SFLX_RD_SW_DIR_ID = 1
+  integer, public, parameter :: ATMVAR2D_SFLX_RD_LW_DIF_ID = 2
+  integer, public, parameter :: ATMVAR2D_NUM               = 2
 
   ! Diagnostic variables
 
@@ -201,10 +212,12 @@ contains
 
     allocate( this%PROG_VARS(PRGVAR_NUM) )
     allocate( this%AUX_VARS2D(AUXVAR2D_NUM) )
-    !$acc enter data create( this%PROG_VARS, this%AUX_VARS2D )
+    allocate( this%ATM_VARS2D(ATMVAR2D_NUM) )
+    !$acc enter data create( this%PROG_VARS, this%AUX_VARS2D, this%ATM_VARS2D )
 
     !- Initialize prognostic variables
 
+    reg_file_hist = .true.
     do iv = 1, PRGVAR_NUM
       call this%PROGVARS_manager%Regist(  &
         PRGVAR_VARINFO(iv), mesh3D,                           & ! (in) 
@@ -215,11 +228,20 @@ contains
 
     !- Initialize auxiliary variables (2D)
 
+    reg_file_hist = .true.
     do iv = 1, AUXVAR2D_NUM
       call this%AUXVARS2D_manager%Regist( &
         AUXVAR2D_VARINFO(iv), mesh2D,         & ! (in) 
         this%AUX_VARS2D(iv),                  & ! (inout)
         reg_file_hist, fill_zero=.true.       ) ! (in)
+      !$acc update device( this%AUX_VARS2D(iv) )
+    end do
+
+    !- Initialize atmospheric variables (2D)
+
+    do iv =1, ATMVAR2D_NUM
+      call this%ATM_VARS2D(iv)%Init( "", "", mesh2D )
+      !$acc update device( this%ATM_VARS2D(iv) )
     end do
 
     !-- Setup information for input/output restart files. 
@@ -257,10 +279,23 @@ contains
     implicit none
     class(OceanVars), intent(inout) :: this
 
-    integer :: i    
+    integer :: iv
     !--------------------------------------------------
 
     LOG_INFO('OceanVars_Final',*)
+
+    !$acc exit data delete( this%PROG_VARS, this%AUX_VARS2D, this%ATM_VARS2D )
+
+    call this%PROGVARS_manager%Final()
+    deallocate( this%PROG_VARS )
+
+    call this%AUXVARS2D_manager%Final()
+    deallocate( this%AUX_VARS2D )
+
+    do iv=1, ATMVAR2D_NUM
+      call this%ATM_VARS2D(iv)%Final()
+    end do
+    deallocate( this%ATM_VARS2D )
 
     call this%restart_file%Final()
     return
@@ -415,18 +450,106 @@ contains
     !- Write restart file
     do iv=1, PRGVAR_NUM
       rf_vid = iv
-      call this%restart_file%Write_var(rf_vid, this%PROG_VARS(iv) )
+      call this%restart_file%Write_var( rf_vid, this%PROG_VARS(iv) )
     end do
     do iv=1, AUXVAR2D_NUM
       rf_vid = PRGVAR_NUM + iv
-      call this%restart_file%Write_var(rf_vid, this%AUX_VARS2D(iv) )
+      call this%restart_file%Write_var( rf_vid, this%AUX_VARS2D(iv) )
     end do
-
-    !- Close restart file
-    LOG_INFO("OceanVars_Write_restart_file",*) 'Close restart file (OCEAN) '
-    call this%restart_file%Close()
-
     return
   end subroutine OceanVars_Write_restart_file
 
+  !> Close restart file for oceanic variables
+!OCL SERIAL
+  subroutine OceanVars_Write_restart_file_post( this )
+    implicit none
+    class(OceanVars), intent(inout) :: this
+    !---------------------------------------
+    LOG_INFO("OceanVars_Write_restart_file",*) 'Close restart file (OCEAN) '
+    call this%restart_file%Close()
+    return
+  end subroutine OceanVars_Write_restart_file_post
+
+!OCL SERIAL
+!OCL SERIAL
+  subroutine OceanVars_GetLocalMeshPrgVars( domID, mesh, prgvars_list, auxvars2D_list, &
+    U, V, W, THERM, SALT,                                                            &
+    SFC_TEMP, &
+    SFC_ALB_IR_dir, SFC_ALB_IR_dif, SFC_ALB_NIR_dir, SFC_ALB_NIR_dif,                &
+    SFC_ALB_VIS_dir, SFC_ALB_VIS_dif,                                                &
+    lcmesh3D                                                                         )
+    implicit none
+    integer, intent(in) :: domID
+    class(MeshBase), intent(in) :: mesh
+    class(ModelVarManager), intent(inout) :: prgvars_list
+    class(ModelVarManager), intent(inout) :: auxvars2D_list
+    class(LocalMeshFieldBase), pointer, intent(out) :: U, V, W, THERM, SALT
+    class(LocalMeshFieldBase), pointer, intent(out) :: SFC_TEMP
+    class(LocalMeshFieldBase), pointer, intent(out), optional :: SFC_ALB_IR_dir, SFC_ALB_IR_dif
+    class(LocalMeshFieldBase), pointer, intent(out), optional :: SFC_ALB_NIR_dir, SFC_ALB_NIR_dif
+    class(LocalMeshFieldBase), pointer, intent(out), optional :: SFC_ALB_VIS_dir, SFC_ALB_VIS_dif
+    class(LocalMesh3D), pointer, intent(out), optional :: lcmesh3D
+
+    class(MeshFieldBase), pointer :: field
+    class(LocalMeshBase), pointer :: lcmesh
+    !-------------------------------------------------------
+
+    !--
+    call prgvars_list%Get(PRGVAR_U_ID, field)
+    call field%GetLocalMeshField(domID, U)
+
+    call prgvars_list%Get(PRGVAR_V_ID, field)
+    call field%GetLocalMeshField(domID, V)
+
+    call prgvars_list%Get(PRGVAR_W_ID, field)
+    call field%GetLocalMeshField(domID, W)
+
+    call prgvars_list%Get(PRGVAR_THERM_ID, field)
+    call field%GetLocalMeshField(domID, THERM)
+  
+    call prgvars_list%Get(PRGVAR_SALT_ID, field)
+    call field%GetLocalMeshField(domID, SALT)
+
+    call auxvars2D_list%Get(AUXVAR2D_SFC_TEMP_ID, field)
+    call field%GetLocalMeshField(domID, SFC_TEMP)
+
+    if ( present(SFC_ALB_IR_dir) ) then
+      call auxvars2D_list%Get(AUXVAR2D_SFC_ALB_IR_dir_ID, field)
+      call field%GetLocalMeshField(domID, SFC_ALB_IR_dir)
+    end if
+    if ( present(SFC_ALB_IR_dif) ) then
+      call auxvars2D_list%Get(AUXVAR2D_SFC_ALB_IR_dif_ID, field)
+      call field%GetLocalMeshField(domID, SFC_ALB_IR_dif)
+    end if
+    if ( present(SFC_ALB_NIR_dir) ) then
+      call auxvars2D_list%Get(AUXVAR2D_SFC_ALB_NIR_dir_ID, field)
+      call field%GetLocalMeshField(domID, SFC_ALB_NIR_dir)
+    end if
+    if ( present(SFC_ALB_NIR_dif) ) then
+      call auxvars2D_list%Get(AUXVAR2D_SFC_ALB_NIR_dif_ID, field)
+      call field%GetLocalMeshField(domID, SFC_ALB_NIR_dif)
+    end if
+    if ( present(SFC_ALB_VIS_dir) ) then
+      call auxvars2D_list%Get(AUXVAR2D_SFC_ALB_VIS_dir_ID, field)
+      call field%GetLocalMeshField(domID, SFC_ALB_VIS_dir)
+    end if
+    if ( present(SFC_ALB_VIS_dif) ) then
+      call auxvars2D_list%Get(AUXVAR2D_SFC_ALB_VIS_dif_ID, field)
+      call field%GetLocalMeshField(domID, SFC_ALB_VIS_dif)
+    end if  
+
+    !---
+    
+    if ( present(lcmesh3D) ) then
+      call mesh%GetLocalMesh( domID, lcmesh )
+      nullify( lcmesh3D )
+
+      select type(lcmesh)
+      type is (LocalMesh3D)
+        if (present(lcmesh3D)) lcmesh3D => lcmesh
+      end select
+    end if
+
+    return
+  end subroutine OceanVars_GetLocalMeshPrgVars
 end module mod_ocean_vars

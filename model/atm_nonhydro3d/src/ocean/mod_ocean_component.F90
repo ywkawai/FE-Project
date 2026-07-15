@@ -37,6 +37,7 @@ module mod_ocean_component
     OceanVars
 
 !   use mod_ocean_dyn, only: OceanDyn
+  use mod_cpl_component, only: CouplerComponent
 
   !-----------------------------------------------------------------------------
   implicit none
@@ -55,13 +56,17 @@ module mod_ocean_component
     type(OceanMeshRM) :: mesh_rm        !< Object to manage mesh for the case of regional mode
     type(OceanMeshGM) :: mesh_gm        !< Object to manage mesh for the case of global mode
 
-        ! type(OceanDyn) :: dyn_proc          !< Object to manage dynamical process
+    ! type(OceanDyn) :: dyn_proc          !< Object to manage dynamical process
+
+    type(CouplerComponent), pointer :: coupler_ptr !< Pointer of coupler component
   contains
     procedure, public :: setup => Ocean_setup 
-    procedure, public :: setup_vars => Ocean_setup_vars    
+    procedure, public :: setup_vars => Ocean_setup_vars   
+    procedure, public :: set_coupler => Ocean_set_coupler 
     procedure, public :: calc_tendency => Ocean_calc_tendency
     procedure, public :: update => Ocean_update
     procedure, public :: set_surface => Ocean_set_surface
+    procedure, public :: get_surface => Ocean_get_surface
     procedure, public :: finalize => Ocean_finalize
   end type OceanComponent
 
@@ -198,6 +203,17 @@ contains
     return
   end subroutine Ocean_setup_vars
 
+!> Set coupler component to the oceanic component
+!OCL SERIAL
+  subroutine Ocean_set_coupler( this, coupler )
+    implicit none
+    class(OceanComponent), intent(inout) :: this
+    class(CouplerComponent), target, intent(inout) :: coupler
+    !----------------------------------------------------------
+    this%coupler_ptr => coupler
+    return
+  end subroutine Ocean_set_coupler  
+
 !> Calculate tendencies with the oceanic component
 !OCL SERIAL
   subroutine Ocean_calc_tendency( this, force )
@@ -211,6 +227,9 @@ contains
     
     call PROF_rapstart( 'Ocean_calc_tendency', 1)
     call PROF_rapend( 'Ocean_calc_tendency', 1)
+
+    call this%set_surface( countup=.true. )
+
     return  
   end subroutine Ocean_calc_tendency
 
@@ -229,15 +248,42 @@ contains
     return  
   end subroutine Ocean_update
 
+  !> Set ocean quantities to coupler component
 !OCL SERIAL
-  subroutine Ocean_set_surface( this )
+  subroutine Ocean_set_surface( this, countup )
     implicit none
     class(OceanComponent), intent(inout) :: this
+    logical, intent(in) :: countup
     !--------------------------------------------------
+
     call PROF_rapstart( 'OCN_sfc_exch', 1)
+
+    call this%coupler_ptr%vars%PutOCN( this%vars, countup )
+
     call PROF_rapend( 'OCN_sfc_exch', 1)
     return
   end subroutine Ocean_set_surface
+
+  !> Get atmospheric quantities from coupler component
+!OCL SERIAL
+  subroutine Ocean_get_surface( this, countup )
+    use mod_ocean_vars, only: &
+      SFLX_RD_SW_DIR_ID => ATMVAR2D_SFLX_RD_SW_DIR_ID, &
+      SFLX_RD_LW_DIF_ID => ATMVAR2D_SFLX_RD_LW_DIF_ID
+    implicit none
+    class(OceanComponent), intent(inout) :: this
+    logical, intent(in) :: countup
+    !--------------------------------------------------
+
+    call PROF_rapstart( 'OCN_sfc_exch', 1)
+
+    call this%coupler_ptr%vars%Get_ATM_OCN( &
+      this%vars%ATM_VARS2D(SFLX_RD_SW_DIR_ID), &
+      this%vars%ATM_VARS2D(SFLX_RD_LW_DIF_ID)  )
+    
+    call PROF_rapend( 'OCN_sfc_exch', 1)
+    return
+  end subroutine Ocean_get_surface
 
 !> Finalize an object to manage the ocean component
 !OCL SERIAL
