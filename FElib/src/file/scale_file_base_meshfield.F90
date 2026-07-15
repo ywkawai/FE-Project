@@ -62,16 +62,18 @@ module scale_file_base_meshfield
 
   !> Derived type to manage file output with MeshField data for each component
   type :: FileBaseMeshFieldComp
+    character(len=H_SHORT) :: comp_name         !< Name of the component
     integer, allocatable :: vars_ncid(:)        !< Array to save variable IDs provided by NetCDF library
     character(len=H_SHORT) :: dim_name_postfix  !< Postfix of dimension name for each component
 
     integer :: write_buf_amount
 
-    class(MeshBase1D), pointer :: mesh1D
-    class(MeshRectDom2D), pointer :: mesh2D
-    class(MeshCubedSphereDom2D), pointer :: meshCS2D
-    class(MeshCubeDom3D), pointer :: mesh3D  
-    class(MeshCubedSphereDom3D), pointer :: meshCS3D
+    integer :: mesh_type_id                           !< Mesh type ID
+    class(MeshBase1D), pointer :: mesh1D              !< Pointer to 1D mesh object
+    class(MeshRectDom2D), pointer :: mesh2D           !< Pointer to 2D rectangular mesh object
+    class(MeshCubedSphereDom2D), pointer :: meshCS2D  !< Pointer to 2D cubed-sphere mesh object
+    class(MeshCubeDom3D), pointer :: mesh3D           !< Pointer to 3D cube mesh object
+    class(MeshCubedSphereDom3D), pointer :: meshCS3D  !< Pointer to 3D cubed-sphere mesh object
     type(FILE_common_meshfield_diminfo), allocatable :: dimsinfo(:)
 
     logical :: force_uniform_grid
@@ -146,6 +148,12 @@ module scale_file_base_meshfield
   
   private :: def_axes
   private :: write_axes
+
+  integer, parameter :: MESHTYPE_1D             = 1
+  integer, parameter :: MESHTYPE_2D_RECTDOM     = 2
+  integer, parameter :: MESHTYPE_2D_CUBEDSPHERE = 3
+  integer, parameter :: MESHTYPE_3D_CUBEDOM     = 4
+  integer, parameter :: MESHTYPE_3D_CUBEDSPHERE = 5
   
 contains
   !> Initialize an object to manage file output with MeshField data.
@@ -243,6 +251,7 @@ contains
     registered_comp_id = this%comp_num
 
     comp_ptr => this%comp(registered_comp_id)
+    comp_ptr%comp_name = trim(comp_name)
     comp_ptr%write_buf_amount = 0
     comp_ptr%dim_name_postfix = trim(dim_name_postfix)
 
@@ -259,6 +268,7 @@ contains
   
     if (present(mesh1D)) then
       comp_ptr%mesh1D => mesh1D
+      comp_ptr%mesh_type_id = MESHTYPE_1D
       check_specify_mesh = .true.
   
       allocate( comp_ptr%dimsinfo(MF1D_DTYPE_NUM) )
@@ -267,6 +277,7 @@ contains
     end if
     if (present(mesh2D)) then
       comp_ptr%mesh2D => mesh2D
+      comp_ptr%mesh_type_id = MESHTYPE_2D_RECTDOM
       check_specify_mesh = .true.
   
       allocate( comp_ptr%dimsinfo(MF2D_DTYPE_NUM) )
@@ -275,6 +286,7 @@ contains
     end if
     if (present(meshCubedSphere2D)) then
       comp_ptr%meshCS2D => meshCubedSphere2D
+      comp_ptr%mesh_type_id = MESHTYPE_2D_CUBEDSPHERE
       check_specify_mesh = .true.
   
       allocate( comp_ptr%dimsinfo(MF2D_DTYPE_NUM) )
@@ -283,6 +295,8 @@ contains
     end if
     if (present(mesh3D)) then
       comp_ptr%mesh3D => mesh3D
+      comp_ptr%mesh2D => mesh3D%mesh2D
+      comp_ptr%mesh_type_id = MESHTYPE_3D_CUBEDOM
       check_specify_mesh = .true.
   
       allocate( comp_ptr%dimsinfo(MF3D_DTYPE_NUM) )
@@ -291,6 +305,8 @@ contains
     end if
     if (present(meshCubedSphere3D)) then
       comp_ptr%meshCS3D => meshCubedSphere3D
+      comp_ptr%meshCS2D => meshCubedSphere3D%mesh2D
+      comp_ptr%mesh_type_id = MESHTYPE_3D_CUBEDSPHERE
       check_specify_mesh = .true.
   
       allocate( comp_ptr%dimsinfo(MF3D_DTYPE_NUM) )
@@ -593,7 +609,6 @@ contains
         call File_common_meshfield_put_field2D_cubedsphere_cartesbuf( &
           comp_ptr%meshCS2D, field2d, buf(:,:)                            )
       end if
-
       call FILE_Write( comp_ptr%vars_ncid(vid), buf(:,:),   & ! (in)
         sec_str, sec_end, start=start                       ) ! (in)
     end if
@@ -1144,36 +1159,26 @@ contains
     character(*), intent(in) :: dtype
     integer :: d
     integer :: i_dtype
+    integer :: ndim
     !------------
 
     i_dtype = get_dtype( dtype )
 
-    if ( associated(this%mesh1D) ) then
-      do d=1, 1
-        call FILE_Def_Axis( fid, &
-          this%dimsinfo(d)%name, this%dimsinfo(d)%desc, this%dimsinfo(d)%unit, &
-          this%dimsinfo(d)%name, i_dtype, this%dimsinfo(d)%size                )
-      end do
-    end if
+    select case ( this%mesh_type_id )
+    case ( MESHTYPE_1D )
+      ndim = 1
+    case ( MESHTYPE_2D_RECTDOM, MESHTYPE_2D_CUBEDSPHERE )
+      ndim = 2
+    case ( MESHTYPE_3D_CUBEDOM, MESHTYPE_3D_CUBEDSPHERE )
+      ndim = 3
+    end select
 
-    if (      associated(this%mesh2D)   &
-         .or. associated(this%meshCS2D) ) then
-      do d=1, 2
-        call FILE_Def_Axis( fid, &
-          this%dimsinfo(d)%name, this%dimsinfo(d)%desc, this%dimsinfo(d)%unit, &
-          this%dimsinfo(d)%name, i_dtype, this%dimsinfo(d)%size                )
-      end do
-    end if
-
-    if (      associated(this%mesh3D)   &
-         .or. associated(this%meshCS3D) ) then
-      do d=1, 3
-        call FILE_Def_Axis( fid, &
-          this%dimsinfo(d)%name, this%dimsinfo(d)%desc, this%dimsinfo(d)%unit, &
-          this%dimsinfo(d)%name, i_dtype, this%dimsinfo(d)%size                )
-      end do
-    end if
-
+    !- Define axes
+    do d=1, ndim
+      call FILE_Def_Axis( fid, &
+        this%dimsinfo(d)%name, this%dimsinfo(d)%desc, this%dimsinfo(d)%unit, &
+        this%dimsinfo(d)%name, i_dtype, this%dimsinfo(d)%size                )
+    end do
     return
   end subroutine def_axes
 
@@ -1195,52 +1200,38 @@ contains
     real(RP), allocatable :: x(:)
     real(RP), allocatable :: y(:)
     real(RP), allocatable :: z(:)
+
+    logical :: force_uniform_grid
     !------------
 
-    if ( associated(this%mesh1D) ) then
+    if ( this%mesh_type_id == MESHTYPE_2D_CUBEDSPHERE .or. this%mesh_type_id == MESHTYPE_3D_CUBEDSPHERE ) then
+      force_uniform_grid = .false.
+    else
+      force_uniform_grid = this%force_uniform_grid
+    end if
+
+    select case ( this%mesh_type_id )
+    case ( MESHTYPE_1D ) ! 1D mesh
       allocate( x(this%dimsinfo(1)%size) )
-      call File_common_meshfield_get_axis( this%mesh1D, this%dimsinfo, x(:), this%force_uniform_grid )
+      call File_common_meshfield_get_axis( this%mesh1D, this%dimsinfo, x(:), force_uniform_grid )
 
       call FILE_Write_Axis( fid, this%dimsinfo(1)%name, x(:), start(1:1) )
-    end if
-
-    if ( associated(this%mesh2D)  ) then
+    case ( MESHTYPE_2D_RECTDOM, MESHTYPE_2D_CUBEDSPHERE ) ! 2D mesh
       allocate( x(this%dimsinfo(1)%size), y(this%dimsinfo(2)%size) )
-      call File_common_meshfield_get_axis( this%mesh2D, this%dimsinfo, x(:), y(:), this%force_uniform_grid )
+      call File_common_meshfield_get_axis( this%mesh2D, this%dimsinfo, x(:), y(:), force_uniform_grid )
 
       call FILE_Write_Axis( fid, this%dimsinfo(1)%name, x(:), start(1:1) )
       call FILE_Write_Axis( fid, this%dimsinfo(2)%name, y(:), start(2:2) )
-    end if
-
-    if ( associated(this%meshCS2D)  ) then
-      allocate( x(this%dimsinfo(1)%size), y(this%dimsinfo(2)%size) )
-      call File_common_meshfield_get_axis( this%meshCS2D, this%dimsinfo, x(:), y(:) )
-
-      call FILE_Write_Axis( fid, this%dimsinfo(1)%name, x(:), start(1:1) )
-      call FILE_Write_Axis( fid, this%dimsinfo(2)%name, y(:), start(2:2) )
-    end if
-
-    if ( associated(this%mesh3D) ) then
+    case ( MESHTYPE_3D_CUBEDOM, MESHTYPE_3D_CUBEDSPHERE ) ! 3D mesh
       allocate( x(this%dimsinfo(1)%size), y(this%dimsinfo(2)%size), z(this%dimsinfo(3)%size) )
-      call File_common_meshfield_get_axis( this%mesh3D, this%dimsinfo, x(:), y(:), z(:), this%force_uniform_grid )
+      call File_common_meshfield_get_axis( this%mesh3D, this%dimsinfo, x(:), y(:), z(:), force_uniform_grid )
 
       call FILE_Write_Axis( fid, this%dimsinfo(1)%name, x(:), start(1:1) )
       call FILE_Write_Axis( fid, this%dimsinfo(2)%name, y(:), start(2:2) )
       call FILE_Write_Axis( fid, this%dimsinfo(3)%name, z(:), start(3:3) )
       if ( this%dimsinfo(3)%positive_down(1) ) &
         call FILE_Set_Attribute( fid, this%dimsinfo(3)%name, "positive", "down" )
-    end if  
-
-    if ( associated(this%meshCS3D) ) then
-      allocate( x(this%dimsinfo(1)%size), y(this%dimsinfo(2)%size), z(this%dimsinfo(3)%size) )
-      call File_common_meshfield_get_axis( this%meshCS3D, this%dimsinfo, x(:), y(:), z(:) )
-
-      call FILE_Write_Axis( fid, this%dimsinfo(1)%name, x(:), start(1:1) )
-      call FILE_Write_Axis( fid, this%dimsinfo(2)%name, y(:), start(2:2) )
-      call FILE_Write_Axis( fid, this%dimsinfo(3)%name, z(:), start(3:3) )
-      if ( this%dimsinfo(3)%positive_down(1) ) &
-        call FILE_Set_Attribute( fid, this%dimsinfo(3)%name, "positive", "down" )
-    end if  
+    end select
 
     return
   end subroutine write_axes

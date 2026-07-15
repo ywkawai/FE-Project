@@ -83,7 +83,6 @@ module scale_file_restart_meshfield
 
   !> Derived type to manage restart file with each component
   type, extends(FILE_restart_meshfield), public :: FILE_restart_meshfield_component
-    character(len=H_SHORT) :: comp_name  !< Name of the component
     integer :: registered_comp_id        !< ID of the component registered for restart file
   contains
     procedure :: Init1 => FILE_restart_meshfield_component_Init1
@@ -326,14 +325,14 @@ contains
     !--------------------------------------------------------------
 
     if ( this%in_basename == '' ) then
-      LOG_INFO(trim(this%comp_name)//"_vars_restart_open",*) 'restart file is not specified. Check!'
+      LOG_INFO("FILE_restart_meshfield_component_open",*) 'Restart file is not specified. Check!'
       call PRC_abort
       return
     end if
 
     if ( this%is_file_ptr_main ) then
       if ( is_file_main_opened ) then
-        LOG_INFO(trim(this%comp_name)//"_vars_restart_open",*) 'Main restart file is already opened. Skipping opening.'
+        LOG_INFO("FILE_restart_meshfield_component_open",*) 'Main restart file is already opened. Skipping opening.'
       else
         is_file_main_opened = .true.
       end if
@@ -351,7 +350,7 @@ contains
     !--------------------------------
 
     LOG_NEWLINE
-    LOG_INFO(trim(this%comp_name)//"_vars_restart_open",*) 'Open restart file'
+    LOG_INFO("FILE_restart_meshfield_component_open",*) 'Open restart file'
     call this%file_ptr%open( basename, myrank=PRC_myrank )
 
     return
@@ -381,7 +380,7 @@ contains
 
     if ( this%is_file_ptr_main ) then
       if ( is_file_main_created ) then
-        LOG_INFO(trim(this%comp_name)//"_vars_restart_create",*) 'Main restart file is already created. Skipping creation.'
+        LOG_INFO("FILE_restart_meshfield_component_create",*) 'Main restart file is already created. Skipping creation.'
       else
         is_file_main_created = .true.
       end if
@@ -390,7 +389,7 @@ contains
     !--------------------------------
 
     LOG_NEWLINE
-    LOG_INFO(trim(this%comp_name)//"_vars_restart_create",*) 'Create restart file'
+    LOG_INFO("FILE_restart_meshfield_component_create",*) 'Create restart file'
 
     if ( this%out_postfix_timelabel ) then
         call TIME_gettimelabel( timelabel )
@@ -399,7 +398,7 @@ contains
         basename = trim(this%out_basename)
     endif
 
-    LOG_INFO(trim(this%comp_name)//"_vars_restart_create",*) 'basename: ', trim(basename)
+    LOG_INFO("FILE_restart_meshfield_component_create",*) 'basename: ', trim(basename)
 
     
     call this%file_ptr%Create( basename, this%out_title, this%out_dtype,       & ! (in)
@@ -442,7 +441,7 @@ contains
 
     if ( this%is_file_ptr_main ) then
       if ( is_file_main_enddef ) then
-        LOG_INFO(trim(this%comp_name)//"_vars_restart_close",*) 'Main restart file is already in enddef mode. Skipping enddef.'
+        LOG_INFO("FILE_restart_meshfield_component_enddef",*) 'Main restart file is already in enddef mode. Skipping enddef.'
       else
         is_file_main_enddef = .true.
       end if
@@ -546,7 +545,7 @@ contains
 
     if ( this%is_file_ptr_main ) then
       if ( is_file_main_closed ) then
-        LOG_INFO(trim(this%comp_name)//"_vars_restart_close",*) 'Main restart file is already closed. Skipping closure.'
+        LOG_INFO("FILE_restart_meshfield_component_close",*) 'Main restart file is already closed. Skipping closure.'
       else
         is_file_main_closed = .true.
       end if
@@ -554,7 +553,7 @@ contains
         
     if ( this%file_ptr%fid /= -1 ) then
       LOG_NEWLINE
-      LOG_INFO(trim(this%comp_name)//"_vars_restart_close",*) 'Close restart file'
+      LOG_INFO("FILE_restart_meshfield_component_close",*) 'Close restart file'
       call this%file_ptr%Close()
     end if
 
