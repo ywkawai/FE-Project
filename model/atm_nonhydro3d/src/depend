@@ -29,12 +29,14 @@ $(BUILD_DIR)/mod_mkinit.o: preprocess/mod_mkinit.F90 $(DEPENDLIB) $(BUILD_DIR)/m
 $(BUILD_DIR)/mod_mkinit_util.o: preprocess/mod_mkinit_util.F90 $(DEPENDLIB)
 $(BUILD_DIR)/mod_mktopo.o: preprocess/mod_mktopo.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_component.o $(BUILD_DIR)/mod_atmos_mesh.o $(BUILD_DIR)/mod_mktopo_util.o
 $(BUILD_DIR)/mod_mktopo_util.o: preprocess/mod_mktopo_util.F90 $(DEPENDLIB)
-$(BUILD_DIR)/mod_ocean_component.o: ocean/mod_ocean_component.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_cpl_component.o $(BUILD_DIR)/mod_ocean_mesh.o $(BUILD_DIR)/mod_ocean_mesh_gm.o $(BUILD_DIR)/mod_ocean_mesh_rm.o $(BUILD_DIR)/mod_ocean_vars.o
+$(BUILD_DIR)/mod_ocean_component.o: ocean/mod_ocean_component.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_cpl_component.o $(BUILD_DIR)/mod_ocean_dyn.o $(BUILD_DIR)/mod_ocean_mesh.o $(BUILD_DIR)/mod_ocean_mesh_gm.o $(BUILD_DIR)/mod_ocean_mesh_rm.o $(BUILD_DIR)/mod_ocean_vars.o
+$(BUILD_DIR)/mod_ocean_dyn.o: ocean/mod_ocean_dyn.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_ocean_dyn_vars.o $(BUILD_DIR)/mod_ocean_mesh.o $(BUILD_DIR)/mod_ocean_vars.o
+$(BUILD_DIR)/mod_ocean_dyn_vars.o: ocean/mod_ocean_dyn_vars.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_ocean_mesh.o
 $(BUILD_DIR)/mod_ocean_mesh.o: ocean/mod_ocean_mesh.F90 $(DEPENDLIB)
 $(BUILD_DIR)/mod_ocean_mesh_gm.o: ocean/mod_ocean_mesh_gm.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_ocean_mesh.o
 $(BUILD_DIR)/mod_ocean_mesh_rm.o: ocean/mod_ocean_mesh_rm.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_ocean_mesh.o
 $(BUILD_DIR)/mod_ocean_vars.o: ocean/mod_ocean_vars.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_ocean_mesh.o
-$(BUILD_DIR_LOCAL)/mod_user.o: user/mod_user.F90 $(DEPENDLIB_LOCAL) $(BUILD_DIR)/mod_atmos_component.o $(BUILD_DIR)/mod_user_base.o
+$(BUILD_DIR_LOCAL)/mod_user.o: user/mod_user.F90 $(DEPENDLIB_LOCAL) $(BUILD_DIR)/mod_atmos_component.o $(BUILD_DIR)/mod_ocean_component.o $(BUILD_DIR)/mod_user_base.o
 $(BUILD_DIR)/mod_user_base.o: user/mod_user_base.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_component.o $(BUILD_DIR)/mod_experiment.o $(BUILD_DIR)/mod_ocean_component.o
 
 MODS =	\
@@ -70,6 +72,8 @@ MODS =	\
 	mod_mktopo.mod	\
 	mod_mktopo_util.mod	\
 	mod_ocean_component.mod	\
+	mod_ocean_dyn.mod	\
+	mod_ocean_dyn_vars.mod	\
 	mod_ocean_mesh.mod	\
 	mod_ocean_mesh_gm.mod	\
 	mod_ocean_mesh_rm.mod	\

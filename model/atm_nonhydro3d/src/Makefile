@@ -70,6 +70,8 @@ SUB_OBJS = \
 	mod_atmos_vars.o             \
 	\
 	mod_ocean_component.o        \
+	mod_ocean_dyn.o              \
+	mod_ocean_dyn_vars.o         \
 	mod_ocean_mesh.o             \
 	mod_ocean_mesh_rm.o          \
 	mod_ocean_mesh_gm.o          \
