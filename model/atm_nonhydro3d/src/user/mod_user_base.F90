@@ -35,8 +35,8 @@ module mod_user_base
   contains
     procedure :: mkinit_base => USER_base_mkinit
     generic :: mkinit => mkinit_base
-    procedure :: mkinit_base_ocn => USER_base_mkinit_ocn
-    generic :: mkinit_ocn => mkinit_base_ocn
+    procedure :: mkinit_base_ocn => USER_base_mkinit_ocn_exp
+    procedure :: mkinit_ocn => USER_base_mkinit_ocn
     procedure :: mkfinal => USER_base_mkfinal
     procedure :: setup_base => USER_base_setup
     generic :: setup => setup_base
@@ -74,7 +74,7 @@ contains
     return
   end subroutine USER_base_mkinit
 
-  subroutine USER_base_mkinit_ocn( this, ocn, exp )
+  subroutine USER_base_mkinit_ocn_exp( this, ocn, exp )
     implicit none
     class(UserBase), intent(inout) :: this
     class(OceanComponent), intent(inout) :: ocn
@@ -83,6 +83,14 @@ contains
 
     call exp%SetInitCond_ocn( ocn%mesh,                     &
       ocn%vars%PROGVARS_manager, ocn%vars%AUXVARS2D_manager )
+    return
+  end subroutine USER_base_mkinit_ocn_exp
+
+  subroutine USER_base_mkinit_ocn( this, ocn )
+    implicit none
+    class(UserBase), intent(inout) :: this
+    class(OceanComponent), intent(inout), target :: ocn
+    !------------------------------------------
     return
   end subroutine USER_base_mkinit_ocn
 
