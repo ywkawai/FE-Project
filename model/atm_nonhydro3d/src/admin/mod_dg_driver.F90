@@ -29,6 +29,10 @@ module mod_dg_driver
   
   use mod_atmos_component, only: &
     AtmosComponent
+  use mod_ocean_component, only: &
+    OceanComponent
+  use mod_cpl_component, only: &
+    CouplerComponent
   use mod_user, only: &
     User
 
@@ -61,6 +65,8 @@ module mod_dg_driver
   character(len=H_MID), private, parameter :: MODELNAME = "SCALE-DG ver. "//VERSION
 
   type(AtmosComponent) :: atmos
+  type(OceanComponent) :: ocean
+  type(CouplerComponent) :: coupler
   type(User) :: user_
 
 contains
@@ -144,12 +150,8 @@ contains
       !- USER
       call user_%update_pre( atmos )
 
-      !- ATMOS
-      if ( atmos%IsActivated() .and. atmos%time_manager%do_step ) then
-       call atmos%update()
-      end if
-
-      !- USER
+      if ( ocean%IsActivated() .and. ocean%time_manager%do_step ) call ocean%update()
+      if ( atmos%IsActivated() .and. atmos%time_manager%do_step ) call atmos%update()
       call user_%update( atmos )
 
       !* restart and monitor output *******************
@@ -158,17 +160,11 @@ contains
       call FILE_MONITOR_meshfield_write('MAIN', TIME_NOWSTEP)
 
 
-      !* setup surface condition
-      if ( atmos%IsActivated() ) call atmos%set_surface()
+      !* calc tendencies and diagnostics *************
 
-      !* calc tendencies and diagnostices *************
-
-      !- ATMOS 
-      if ( atmos%IsActivated() .and. atmos%time_manager%do_step ) then
-        call atmos%calc_tendency( force=.false. )
-      end if
-
-      !- USER
+      if ( atmos  %IsActivated() .and. atmos%time_manager%do_step ) call atmos%calc_tendency( force=.false. )
+      if ( ocean  %IsActivated() .and. ocean%time_manager%do_step ) call ocean%calc_tendency( force=.false. )
+      if ( coupler%IsActivated() .and. atmos%time_manager%do_step ) call atmos%calc_tendency_from_sflux(force=.false.)
       call user_%calc_tendency( atmos )
   
       !* output history files *************************
@@ -180,6 +176,7 @@ contains
       if ( atmos%phy_sfc_proc%IsActivated() ) call atmos%phy_sfc_proc%vars%History()
       if ( atmos%phy_rd_proc%IsActivated() ) call atmos%phy_rd_proc%vars%History()
 
+      if ( ocean%IsActivated() ) call ocean%vars%History()
 
       call FILE_HISTORY_meshfield_write
       
@@ -262,12 +259,21 @@ contains
     ! setup monitor
     call FILE_monitor_meshfield_setup( TIME_DTSEC )
 
-    ! setup submodels
+    ! setup sub-models
     call atmos%setup()
+    call ocean%setup()
+    call coupler%setup()
     call user_%setup( atmos )
+
+    call coupler%evaluate_activation( ocean )
+    call atmos%set_coupler( coupler )
+    call ocean%set_coupler( coupler )
 
     call atmos%setup_vars()
 
+    if ( ocean%IsActivated() ) call ocean%setup_vars()
+    if ( coupler%IsActivated() ) call coupler%setup_vars( atmos%mesh%ptr_mesh, ocean%mesh%ptr_mesh )
+    
     ! report information of time intervals
     call TIME_manager_report_timeintervals
 
@@ -284,6 +290,8 @@ contains
       FILE_Close_All
     use scale_file_history_meshfield, only: &
       FILE_HISTORY_meshfield_finalize
+    use scale_file_restart_meshfield, only: &
+      FILE_restart_meshfield_finalize
     use scale_file_monitor_meshfield, only: &
       FILE_monitor_meshfield_final
     use scale_time_manager, only: &
@@ -301,10 +309,13 @@ contains
     !-
     call PROF_rapstart('File', 2)
     call FILE_HISTORY_meshfield_finalize
+    call FILE_restart_meshfield_finalize
     call PROF_rapend  ('File', 2)
 
-    ! finalization submodels
-    call  atmos%finalize()
+    ! finalization sub-models
+    call atmos%finalize()
+    call ocean%finalize()
+    call coupler%finalize()
     call user_%final()
 
     !-
@@ -318,20 +329,30 @@ contains
 
 !OCL SERIAL
   subroutine restart_read()
-    implicit none    
+    implicit none
     !----------------------------------------
 
     !- read restart data
+
     if ( atmos%isActivated() ) then
       call atmos%vars%Read_restart_file( atmos%mesh, atmos%dyn_proc%dyncore_driver )
+      if ( atmos%phy_rd_proc%IsActivated() ) call atmos%phy_rd_proc%vars%Read_restart_file()
     end if
+    if ( ocean%isActivated() ) then
+      call ocean%vars%Read_restart_file( ocean%mesh )
+    end if
+
+    !- Setup surface condition
+
+    if ( atmos%isActivated() ) call atmos%set_surface( countup=.false. )
+    if ( ocean%isActivated() ) call ocean%set_surface( countup=.false. )
 
     !- Calculate the tendencies
 
-    if ( atmos%IsActivated() ) then
-      call atmos%calc_tendency( force= .true. )
-    end if
-    
+    if ( atmos%IsActivated() ) call atmos%calc_tendency( force= .true. )
+    if ( ocean%IsActivated() ) call ocean%calc_tendency( force= .true. )
+    if ( coupler%IsActivated() ) call atmos%calc_tendency_from_sflux(force=.true.)
+
     call user_%calc_tendency( atmos )
 
     !- History & Monitor 
@@ -349,21 +370,52 @@ contains
       call atmos%vars%Monitor()
     end if
 
+    if ( ocean%isActivated() ) then
+      call ocean%vars%History()
+    end if
+
     return
   end subroutine restart_read
 
 !OCL SERIAL
-  subroutine restart_write
+  subroutine restart_write()
     use scale_file_restart_meshfield, only: &
       restart_file    
-    implicit none    
+    implicit none
+
+    logical :: is_restart_write_atmos
+    logical :: is_restart_write_ocean
     !----------------------------------------
 
     if ( .not. restart_file%flag_output ) return
     
-    if ( atmos%isActivated() .and. atmos%time_manager%do_restart) then
-      call atmos%vars%Write_restart_file()
+    is_restart_write_atmos = atmos%isActivated() .and. atmos%time_manager%do_restart
+    is_restart_write_ocean  = ocean%isActivated()  .and. ocean%time_manager%do_restart
+
+    !- Preprocess
+    if ( is_restart_write_atmos ) then
+      call atmos%vars%Write_restart_file_prep()
+      if ( atmos%phy_rd_proc%IsActivated() ) call atmos%phy_rd_proc%vars%Write_restart_file_prep()
     end if
+    if ( is_restart_write_ocean ) then
+      call ocean%vars%Write_restart_file_prep()
+    end if
+
+    !- Write
+    if ( is_restart_write_atmos ) then
+      call atmos%vars%Write_restart_file()
+      if ( atmos%phy_rd_proc%IsActivated() ) call atmos%phy_rd_proc%vars%Write_restart_file()
+    end if
+    if ( is_restart_write_ocean ) then
+      call ocean%vars%Write_restart_file()
+    end if
+
+    !- Postprocess
+    if ( is_restart_write_atmos ) then
+      call atmos%vars%Write_restart_file_post()
+      if ( atmos%phy_rd_proc%IsActivated() ) call atmos%phy_rd_proc%vars%Write_restart_file_post()
+    end if
+    if ( is_restart_write_ocean ) call ocean%vars%Write_restart_file_post()
 
     return
   end subroutine restart_write

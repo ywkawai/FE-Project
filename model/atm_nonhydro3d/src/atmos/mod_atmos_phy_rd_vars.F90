@@ -22,19 +22,19 @@ module mod_atmos_phy_rd_vars
   use scale_mesh_base, only: MeshBase
   use scale_mesh_base2d, only: MeshBase2D
   use scale_mesh_base3d, only: &
-    MeshBase3D,                              &
-    DIMTYPE_XYZ  => MeshBase3D_DIMTYPEID_XYZ
+    MeshBase3D,                               &
+    DIMTYPE_XYZ  => MeshBase3D_DIMTYPEID_XYZ, &
+    DIMTYPE_XY   => MeshBase3D_DIMTYPEID_XY
   use scale_localmesh_base, only: LocalMeshBase
   use scale_localmesh_3d, only: LocalMesh3D
   use scale_localmeshfield_base, only: &
     LocalMeshFieldBase, LocalMeshFieldBaseList
   use scale_meshfield_base, only: &
     MeshFieldBase, MeshField2D, MeshField3D
+  use scale_meshfieldcomm_base, only: MeshFieldContainer
 
   use scale_file_restart_meshfield, only: &
     FILE_restart_meshfield_component
-  
-  use scale_meshfieldcomm_base, only: MeshFieldContainer
   
   use scale_model_var_manager, only: &
     ModelVarManager, VariableInfo
@@ -59,11 +59,19 @@ module mod_atmos_phy_rd_vars
     type(MeshField2D), allocatable :: auxvars2D(:) !< Array of 2D auxiliary variables
     type(ModelVarManager) :: auxvars2D_manager     !< Object to manage 2D auxiliary variables
 
+    type(MeshField2D), allocatable :: sflx_rad_dn(:) !< Array of downward radiative fluxes at the surface
+
     integer :: TENDS_NUM_TOT                       !< Number of tendency variables with cloud microphysics
+
+    type(FILE_restart_meshfield_component) restart_file !< Restart file for variables with radiation component
   contains
     procedure :: Init => AtmosPhyRdVars_Init
     procedure :: Final => AtmosPhyRdVars_Final
     procedure :: History => AtmosPhyRdVars_history
+    procedure :: Read_restart_file => AtmosPhyRdVars_Read_restart_file
+    procedure :: Write_restart_file_prep => AtmosPhyRdVars_Write_restart_file_prep
+    procedure :: Write_restart_file => AtmosPhyRdVars_Write_restart_file
+    procedure :: Write_restart_file_post => AtmosPhyRdVars_Write_restart_file_post
   end type AtmosPhyRdVars
   
   !-----------------------------------------------------------------------------
@@ -85,6 +93,7 @@ module mod_atmos_phy_rd_vars
   integer, public, parameter :: ATMOS_PHY_RD_AUX2D_SFLX_LW_dn_ID   = 2  !< ID of downward longwave surface flux
   integer, public, parameter :: ATMOS_PHY_RD_AUX2D_SFLX_SW_up_ID   = 3  !< ID of upward shortwave surface flux
   integer, public, parameter :: ATMOS_PHY_RD_AUX2D_SFLX_SW_dn_ID   = 4  !< ID of downward shortwave surface flux
+  integer, public, parameter :: ATMOS_PHY_RD_RESTART_VAR_NUM       = 4  !< Number of restart variables for radiation component
   ! Radiative fluxes at the top of the model
   integer, public, parameter :: ATMOS_PHY_RD_AUX2D_TOMFLX_LW_up_ID = 5  !< ID of upward longwave flux at the top of the model
   integer, public, parameter :: ATMOS_PHY_RD_AUX2D_TOMFLX_LW_dn_ID = 6  !< ID of downward longwave flux at the top of the model
@@ -108,6 +117,11 @@ module mod_atmos_phy_rd_vars
     VariableInfo( ATMOS_PHY_RD_AUX2D_SOLINS_ID      , 'RD_SolINS'      , 'solar insolation flux at the top of the model'  , 'W/m2', 2, 'XY', '' ), &
     VariableInfo( ATMOS_PHY_RD_AUX2D_COSSZA_ID      , 'RD_cosSZA'      , 'cosine of solar zenith angle'                   ,    '1', 2, 'XY', '' )  /
   
+  !-
+  integer, public, parameter :: ATMOS_PHY_RD_SFLX_dn_SW_dir = 1  !< ID of downward direct shortwave flux at the surface
+  integer, public, parameter :: ATMOS_PHY_RD_SFLX_dn_SW_dif = 2  !< ID of downward diffuse shortwave flux at the surface
+  integer, public, parameter :: ATMOS_PHY_RD_SFLX_dn_LW     = 3  !< ID of downward longwave flux at the surface
+  integer, public, parameter :: ATMOS_PHY_RD_SFLX_dn_NUM    = 3  !< Number of downward radiative fluxes
   !-----------------------------------------------------------------------------
   !
   !++ Private procedures
@@ -178,10 +192,15 @@ contains
         ATMOS_PHY_RD_AUX2D_VINFO(iv), mesh2D, & ! (in) 
         this%auxvars2D(iv), reg_file_hist     ) ! (out)
       
-      do n = 1, mesh3D%LOCAL_MESH_NUM
+      do n = 1, mesh2D%LOCAL_MESH_NUM
         this%auxvars2D(iv)%local(n)%val(:,:) = 0.0_RP
       end do         
     end do
+
+    !- Setup restart file for variables with radiation component
+    call atm_mesh%Setup_restartfile( this%restart_file, &
+      ATMOS_PHY_RD_RESTART_VAR_NUM                      )
+    
     return
   end subroutine AtmosPhyRdVars_Init
 
@@ -226,5 +245,93 @@ contains
 
     return
   end subroutine AtmosPhyRdVars_history
+
+!> Read data with atmospheric variables with radiation component from restart file
+!!
+!OCL SERIAL
+  subroutine AtmosPhyRdVars_Read_restart_file( this )
+    use scale_meshfieldcomm_base, only: MeshFieldContainer
+    implicit none
+    
+    class(AtmosPhyRdVars), intent(inout), target :: this
+
+    integer :: iv
+    !--------------------------------------------------------------------
+
+    LOG_NEWLINE
+    LOG_INFO("AtmosPhyRdVars_Read_restart_file",*) 'Open restart file (ATMOS/Physics radiation) '
+
+    !- Open restart file
+    call this%restart_file%Open()
+
+    !- Read restart file
+
+    do iv=ATMOS_PHY_RD_AUX2D_SFLX_LW_up_ID, ATMOS_PHY_RD_AUX2D_SFLX_SW_dn_ID
+      call this%restart_file%Read_var( DIMTYPE_XY, this%auxvars2D(iv)%varname, &
+        this%auxvars2D(iv) )
+    end do
+
+    !- Close restart file
+    LOG_INFO("AtmosPhyRdVars_Read_restart_file",*) 'Close restart file (ATMOS/Physics radiation) '
+    call this%restart_file%Close()
+    return
+  end subroutine AtmosPhyRdVars_Read_restart_file
+
+!> Write data with atmospheric variables with radiation component to restart file
+!!
+!OCL SERIAL
+  subroutine AtmosPhyRdVars_Write_restart_file_prep( this )
+    implicit none
+    class(AtmosPhyRdVars), intent(inout) :: this
+
+    integer :: iv, rf_vid
+    !---------------------------------------
+
+    LOG_NEWLINE
+    LOG_INFO("AtmosPhyRdVars_Write_restart_file_prep",*) 'Define variables with ATMOS/Physics radiation'
+
+    !- Create restart file
+    call this%restart_file%Create()
+    call PRC_mpibarrier()
+
+    !- Define variables
+
+    do iv=ATMOS_PHY_RD_AUX2D_SFLX_LW_up_ID, ATMOS_PHY_RD_AUX2D_SFLX_SW_dn_ID
+      rf_vid = iv
+      call this%restart_file%Def_var( this%auxvars2D(iv),     &
+        ATMOS_PHY_RD_AUX2D_VINFO(iv)%DESC, rf_vid, DIMTYPE_XY )
+    end do
+    return
+  end subroutine AtmosPhyRdVars_Write_restart_file_prep
+
+!> Write data with atmospheric variables with radiation component to restart file
+!!
+!OCL SERIAL
+  subroutine AtmosPhyRdVars_Write_restart_file( this )
+    implicit none
+    class(AtmosPhyRdVars), intent(inout) :: this
+
+    integer :: iv, rf_vid 
+    !---------------------------------------
+    !- Write restart file
+    do iv=ATMOS_PHY_RD_AUX2D_SFLX_LW_up_ID, ATMOS_PHY_RD_AUX2D_SFLX_SW_dn_ID
+      rf_vid = iv
+      call this%restart_file%Write_var(rf_vid, this%auxvars2D(iv) )
+    end do
+    return
+  end subroutine AtmosPhyRdVars_Write_restart_file
+
+  !> Close restart file with atmospheric radiation component
+  !!
+!OCL SERIAL
+  subroutine AtmosPhyRdVars_Write_restart_file_post( this )
+    implicit none
+    class(AtmosPhyRdVars), intent(inout) :: this
+    !---------------------------------------
+    LOG_INFO("AtmosPhyRdVars_Write_restart_file_post",*) 'Close restart file (ATMOS/Physics radiation) '
+
+    call this%restart_file%Close()
+    return
+  end subroutine AtmosPhyRdVars_Write_restart_file_post
 
 end module mod_atmos_phy_rd_vars

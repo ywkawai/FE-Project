@@ -140,7 +140,7 @@ contains
 
 !OCL SERIAL
   subroutine atm_phy_rd_dgm_gray_flux( this, &
-    flux, &
+    flux, flux_top, sflx_dn,         &
     PRES, TEMP, DENS, QV, SFC_TEMP,  &
     lcmesh, elem3D, lcmesh2D, elem2D )
     use scale_const, only: &
@@ -153,6 +153,8 @@ contains
     class(LocalMesh2D), intent(in) :: lcmesh2D
     class(ElementBase2D), intent(in) :: elem2D
     real(RP), intent(out) :: flux(elem3D%Nnode_h1D**2,elem3D%Nnode_v,lcmesh%Ne2D,lcmesh%NeZ,2,2)
+    real(RP), intent(out) :: flux_top(elem2D%Np,lcmesh2D%Ne,2,2)
+    real(RP), intent(out) :: sflx_dn(elem2D%Np,lcmesh2D%Ne,2)
     real(RP), intent(in) :: PRES(elem3D%Nnode_v,lcmesh%NeZ,elem3D%Nnode_h1D**2,lcmesh%Ne2D)
     real(RP), intent(in) :: TEMP(elem3D%Nnode_v,lcmesh%NeZ,elem3D%Nnode_h1D**2,lcmesh%Ne2D)
     real(RP), intent(in) :: DENS(elem3D%Nnode_v,lcmesh%NeZ,elem3D%Nnode_h1D**2,lcmesh%Ne2D)
@@ -224,6 +226,13 @@ contains
         flux(p_h,p_z,ke_h,ke_z,I_SW,I_dn) = 0.0_RP
       end do
       end do
+
+      flux_top(p_h,ke_h,I_LW,I_up) = flux_up(elem3D%Nnode_v,lcmesh%NeZ)
+      flux_top(p_h,ke_h,I_LW,I_dn) = flux_dn(elem3D%Nnode_v,lcmesh%NeZ)
+      flux_top(p_h,ke_h,I_SW,I_up) = 0.0_RP
+      flux_top(p_h,ke_h,I_SW,I_dn) = 0.0_RP
+      sflx_dn(p_h,ke_h,I_LW) = flux_dn(1,1)
+      sflx_dn(p_h,ke_h,I_SW) = 0.0_RP
     end do
     end do
     return

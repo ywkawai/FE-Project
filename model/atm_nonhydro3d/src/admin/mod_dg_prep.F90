@@ -23,6 +23,10 @@ module mod_dg_prep
 
   use mod_atmos_component, only: &
     AtmosComponent
+  use mod_ocean_component, only: &
+    OceanComponent
+  use mod_cpl_component, only: &
+    CouplerComponent
   
   use scale_file_history_meshfield, only: &
     FILE_HISTORY_meshfield_write
@@ -65,6 +69,8 @@ module mod_dg_prep
   character(len=H_MID), private, parameter :: MODELNAME = "SCALE-DG ver. "//VERSION
 
   type(AtmosComponent) :: atmos
+  type(OceanComponent) :: ocean
+  type(CouplerComponent) :: coupler
   type(User) :: user_
 
 contains
@@ -145,6 +151,8 @@ contains
       call set_total_energy( atmos%vars%container%PROGVARS_manager, &
         atmos%vars%container%AUXVARS_manager, atmos%mesh )
     end if
+    
+    if ( ocean%IsActivated() ) call user_%mkinit_ocn( ocean )
  
     call PROF_rapend  ('MkInit',1)
     call PROF_rapend('Main_prep', 0)
@@ -212,10 +220,17 @@ contains
     call FILE_restart_meshfield_setup
 
     ! setup submodels
-    call  atmos%setup()
+    call atmos%setup()
+    call ocean%setup()
+    call coupler%setup()
+    call coupler%evaluate_activation( ocean )
     call user_%setup( atmos )
 
     call atmos%setup_vars()
+    call atmos%set_coupler( coupler )
+
+    if ( ocean%IsActivated() ) call ocean%setup_vars()
+    if ( coupler%IsActivated() ) call coupler%setup_vars( atmos%mesh%ptr_mesh, ocean%mesh%ptr_mesh )
 
     ! setup mktopo
     call MKTOPO_setup
@@ -229,7 +244,10 @@ contains
   end subroutine initialize
 
   subroutine finalize()
-    use scale_file_history_meshfield, only: FILE_HISTORY_meshfield_finalize
+    use scale_file_history_meshfield, only: &
+      FILE_HISTORY_meshfield_finalize
+    use scale_file_restart_meshfield, only: &
+      FILE_restart_meshfield_finalize
     use scale_time_manager, only: TIME_manager_Final   
     implicit none
     
@@ -238,10 +256,15 @@ contains
     call PROF_rapstart('All', 1)
 
     !-
+    call PROF_rapstart('File', 2)
     call FILE_HISTORY_meshfield_finalize()
+    call FILE_restart_meshfield_finalize()
+    call PROF_rapend  ('File', 2)
 
     ! finalization submodels
-    call  atmos%finalize()
+    call atmos%finalize()
+    call ocean%finalize()
+    call coupler%finalize()
 
     !-
     call TIME_manager_Final()
@@ -318,10 +341,35 @@ contains
   end subroutine set_total_energy
 
   subroutine restart_write
-    implicit none    
+    implicit none
+    
+    logical :: is_restart_write_atmos
+    logical :: is_restart_write_ocean
     !----------------------------------------
 
-    if ( atmos%isActivated() ) call atmos%vars%Write_restart_file()
+    is_restart_write_atmos = atmos%IsActivated() 
+    is_restart_write_ocean  = ocean%IsActivated()  
+
+    !- Preprocess
+    if ( is_restart_write_atmos ) then
+      call atmos%vars%Write_restart_file_prep()
+      if ( atmos%phy_rd_proc%IsActivated() ) call atmos%phy_rd_proc%vars%Write_restart_file_prep()
+    end if
+    if ( is_restart_write_ocean ) call ocean%vars%Write_restart_file_prep()
+
+    !- Write
+    if ( is_restart_write_atmos ) then
+      call atmos%vars%Write_restart_file()
+      if ( atmos%phy_rd_proc%IsActivated() ) call atmos%phy_rd_proc%vars%Write_restart_file()
+    end if  
+    if ( is_restart_write_ocean ) call ocean%vars%Write_restart_file()
+
+    !- Postprocess
+    if ( is_restart_write_atmos ) then
+      call atmos%vars%Write_restart_file_post()
+      if ( atmos%phy_rd_proc%IsActivated() ) call atmos%phy_rd_proc%vars%Write_restart_file_post()
+    end if
+    if ( is_restart_write_ocean ) call ocean%vars%Write_restart_file_post()
 
     return
   end subroutine restart_write

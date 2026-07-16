@@ -1,15 +1,15 @@
 !-------------------------------------------------------------------------------
-!> module Atmosphere / Mesh
+!> module Ocean / Mesh
 !!
 !! @par Description
-!!          Base module for mesh with atmospheric model
+!!          Base module for mesh with ocean model
 !!
 !! @author Yuta kawai, Team SCALE
 !!
 !<
 !-------------------------------------------------------------------------------
 #include "scaleFElib.h"
-module mod_atmos_mesh
+module mod_ocean_mesh
   !-----------------------------------------------------------------------------
   !
   !++ Used modules
@@ -44,7 +44,7 @@ module mod_atmos_mesh
 
   !> Derived type to manage a computational mesh (base class)
   !!
-  type, abstract, extends(ModelMesh3D), public :: AtmosMesh
+  type, abstract, extends(ModelMesh3D), public :: OceanMesh
     type(HexahedralElement) :: element !< Object to manage 3D reference element
     type(LineElement) :: element_v1D   !< Object to manage 1D reference element for the vertical direction
 
@@ -54,32 +54,34 @@ module mod_atmos_mesh
     logical :: comm_use_mpi_pc              !< Flag whether persistent communication in MPI is used
     logical :: comm_use_mpi_pc_fujitsu_ext  !< Flag whether Fujitsu extension in MPI persistent communication is used
   contains
-    procedure :: AtmosMesh_Init
-    procedure :: AtmosMesh_Final
-    procedure(AtmosMesh_setup_restartfile1), public, deferred :: Setup_restartfile1
-    procedure(AtmosMesh_setup_restartfile2), public, deferred :: Setup_restartfile2
-    procedure(AtmosMesh_calc_UVMet), public, deferred :: Calc_UVmet
+    procedure :: OceanMesh_Init
+    procedure :: OceanMesh_Final
+    procedure(OceanMesh_setup_restartfile1), public, deferred :: Setup_restartfile1
+    procedure(OceanMesh_setup_restartfile2), public, deferred :: Setup_restartfile2
+    procedure(OceanMesh_calc_UVMet), public, deferred :: Calc_UVmet
     generic :: Setup_restartfile => Setup_restartfile1, Setup_restartfile2
-    procedure(AtmosMesh_setup_vcoord), public, deferred :: Setup_vcoordinate
-  end type AtmosMesh
+    procedure(OceanMesh_setup_vcoord), public, deferred :: Setup_vcoordinate
+    procedure :: Read_topography_file => OceanMesh_read_topography_file
+  end type OceanMesh
 
   interface
-    subroutine AtmosMesh_setup_restartfile1( this, restart_file, var_num )
-      import AtmosMesh
+    subroutine OceanMesh_setup_restartfile1( this, restart_file, var_num, dim_name_postfix )
+      import OceanMesh
       import FILE_restart_meshfield_component
-      class(AtmosMesh), target, intent(inout) :: this
+      class(OceanMesh), target, intent(inout) :: this
       class(FILE_restart_meshfield_component), intent(inout) :: restart_file
-      integer, intent(in) :: var_num  
-    end subroutine AtmosMesh_setup_restartfile1
+      integer, intent(in) :: var_num
+      character(*), intent(in) :: dim_name_postfix
+    end subroutine OceanMesh_setup_restartfile1
   end interface
   interface
-    subroutine AtmosMesh_setup_restartfile2( this, restart_file, &
+    subroutine OceanMesh_setup_restartfile2( this, restart_file, &
       in_basename, in_postfix_timelabel,                         &
       out_basename, out_postfix_timelabel,                       &
       out_dtype, out_title, var_num, dim_name_postfix            )
-      import AtmosMesh
+      import OceanMesh
       import FILE_restart_meshfield_component
-      class(AtmosMesh), target, intent(inout) :: this
+      class(OceanMesh), target, intent(inout) :: this
       class(FILE_restart_meshfield_component), intent(inout) :: restart_file
       character(*), intent(in) :: in_basename
       logical, intent(in) :: in_postfix_timelabel
@@ -89,27 +91,27 @@ module mod_atmos_mesh
       character(*), intent(in) :: out_dtype  
       integer, intent(in) :: var_num  
       character(*), intent(in) :: dim_name_postfix
-    end subroutine AtmosMesh_setup_restartfile2
+    end subroutine OceanMesh_setup_restartfile2
   end interface
   interface
-    subroutine AtmosMesh_calc_UVMet( this, U, V, &
+    subroutine OceanMesh_calc_UVMet( this, U, V, &
         Umet, Vmet )
-        import AtmosMesh
+        import OceanMesh
         import MeshField3D
-        class(AtmosMesh), target, intent(in) :: this
+        class(OceanMesh), target, intent(in) :: this
         type(MeshField3D), intent(in) :: U
         type(MeshField3D), intent(in) :: V
         type(MeshField3D), intent(inout) :: Umet
         type(MeshField3D), intent(inout) :: Vmet
-    end subroutine AtmosMesh_calc_UVMet
+    end subroutine OceanMesh_calc_UVMet
   end interface
   interface 
-    subroutine AtmosMesh_setup_vcoord( this )
-      import AtmosMesh
-      class(AtmosMesh), target, intent(inout) :: this
-    end subroutine AtmosMesh_setup_vcoord
+    subroutine OceanMesh_setup_vcoord( this )
+      import OceanMesh
+      class(OceanMesh), target, intent(inout) :: this
+    end subroutine OceanMesh_setup_vcoord
   end interface
-  integer, parameter, public :: ATM_MESH_MAX_COMMNUICATOR_NUM = 16
+  integer, parameter, public :: OCN_MESH_MAX_COMMNUICATOR_NUM = 16
 
   !-----------------------------------------------------------------------------
   !
@@ -130,13 +132,13 @@ module mod_atmos_mesh
 contains
 
 !> Setup an object to manage a computational mesh
-  subroutine AtmosMesh_Init( this, mesh )
+  subroutine OceanMesh_Init( this, mesh )
 
     use scale_FILE_monitor_meshfield, only: &
       FILE_monitor_meshfield_set_dim
     
     implicit none
-    class(AtmosMesh), target, intent(inout) :: this
+    class(OceanMesh), target, intent(inout) :: this
     class(MeshBase3D), intent(in) :: mesh            !< Object to manage 3D computational mesh
 
     class(MeshBase2D), pointer :: mesh2D
@@ -145,20 +147,20 @@ contains
     call this%ModelMesh3D_Init( mesh )
 
     !-
-    call FILE_monitor_meshfield_set_dim( mesh, 'ATM3D' )
+    call FILE_monitor_meshfield_set_dim( mesh, 'OCN3D' )
     
     !-
     call mesh%GetMesh2D( mesh2D )
     call this%topography%Init( "topo", mesh2D )
 
     return
-  end subroutine AtmosMesh_Init
+  end subroutine OceanMesh_Init
 
 !> Finalize an object to manage a computational mesh
-  subroutine AtmosMesh_Final(this)
+  subroutine OceanMesh_Final(this)
     implicit none
 
-    class(AtmosMesh), intent(inout) :: this
+    class(OceanMesh), intent(inout) :: this
     !-------------------------------------------
 
     call this%topography%Final()
@@ -168,6 +170,56 @@ contains
     call this%element_v1D%Final()
 
     return
-  end subroutine AtmosMesh_Final
+  end subroutine OceanMesh_Final
 
-end module mod_atmos_mesh
+!OCL SERIAL
+  subroutine OceanMesh_read_topography_file( this,      &
+    TOPO_IN_BASENAME, TOPO_IN_VARNAME, mesh2D, dom_zmin )
+    use scale_file_base_meshfield, only: FILE_base_meshfield
+    use scale_mesh_rectdom2d, only: MeshRectDom2D
+    use scale_mesh_cubedspheredom2d, only: MeshCubedSphereDom2D
+    use scale_mesh_base2d, only: &
+      MFTYPE2D_XY => MeshBase2D_DIMTYPEID_XY    
+    implicit none
+    class(OceanMesh), target, intent(inout) :: this
+    character(*), intent(in) :: TOPO_IN_BASENAME
+    character(*), intent(in) :: TOPO_IN_VARNAME
+    class(MeshBase2D), intent(in), target :: mesh2D
+    real(RP), intent(in) :: dom_zmin
+
+    type(FILE_base_meshfield) :: file_topo
+
+    integer :: idom, ke2D
+    class(LocalMesh2D), pointer :: lcmesh2D
+    !-------------------------------------------
+
+    if ( trim(TOPO_IN_BASENAME) /= '' ) then
+      LOG_INFO("OCEAN_MESH_setup",*) 'Read topography data'
+
+      select type(mesh2D)
+      type is (MeshRectDom2D)
+        call file_topo%Init(1, mesh2D=mesh2D )
+      type is (MeshCubedSphereDom2D)
+        call file_topo%Init(1, meshCubedSphere2D=mesh2D )
+      end select
+
+      call file_topo%Open( TOPO_IN_BASENAME, myrank=PRC_myrank )
+      call file_topo%Read_Var( MFTYPE2D_XY, TOPO_IN_VARNAME, this%topography%topo )
+      call file_topo%Close()
+      call file_topo%Final()
+    else
+      LOG_INFO("OCEAN_MESH_setup",*) 'No topography data is specified. Set the topography to a constant value: ', dom_zmin
+
+      do idom=1, mesh2D%LOCAL_MESH_NUM
+        lcmesh2D => mesh2D%lcmesh_list(idom)
+        !$omp parallel do
+        do ke2D=lcmesh2D%NeS, lcmesh2D%NeE
+          this%topography%topo%local(idom)%val(:,ke2D) = dom_zmin
+        end do
+      end do
+    end if
+    
+    return
+  end subroutine OceanMesh_read_topography_file
+
+end module mod_ocean_mesh

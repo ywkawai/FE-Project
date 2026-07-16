@@ -41,6 +41,8 @@ VPATH = \
 	$(BUILD_DIR_LOCAL): \
 	admin:              \
 	atmos:              \
+	ocean:              \
+	coupler:            \
 	user:               \
 	preprocess:
 
@@ -66,6 +68,18 @@ SUB_OBJS = \
 	mod_atmos_mesh_gm.o          \
 	mod_atmos_vars_container.o   \
 	mod_atmos_vars.o             \
+	\
+	mod_ocean_component.o        \
+	mod_ocean_dyn.o              \
+	mod_ocean_dyn_vars.o         \
+	mod_ocean_mesh.o             \
+	mod_ocean_mesh_rm.o          \
+	mod_ocean_mesh_gm.o          \
+	mod_ocean_vars.o             \
+	\
+	mod_cpl_component.o          \
+	mod_cpl_vars.o               \
+	\
 	mod_user_base.o              \
 	mod_experiment.o             \
 	\

@@ -197,8 +197,11 @@ contains
       AtmosVars_GetLocalMeshQTRC_Qv,     &
       AtmosVars_GetLocalMeshPhyTends
     use mod_atmos_phy_rd_vars, only: &
-      RD_RHOH_ID => ATMOS_PHY_RD_RHOH_ID
-
+      RD_RHOH_ID => ATMOS_PHY_RD_RHOH_ID, &
+      SFLX_SW_up_ID => ATMOS_PHY_RD_AUX2D_SFLX_SW_up_ID, &
+      SFLX_SW_dn_ID => ATMOS_PHY_RD_AUX2D_SFLX_SW_dn_ID, &
+      SFLX_LW_up_ID => ATMOS_PHY_RD_AUX2D_SFLX_LW_up_ID, &
+      SFLX_LW_dn_ID => ATMOS_PHY_RD_AUX2D_SFLX_LW_dn_ID
     implicit none
     class(AtmosPhyRd), intent(inout) :: this
     class(ModelMeshBase), intent(in) :: model_mesh
@@ -257,6 +260,10 @@ contains
         lcmesh2D => lcmesh%lcmesh2D
         call this%vars%tends(RD_RHOH_ID)%GetLocalMeshField( n, rd_RHOH )
         call this%calc_tendency_core( rd_RHOH%val,                & ! (out)
+          this%vars%auxvars2D(SFLX_SW_up_ID)%local(n)%val,        & ! (out)
+          this%vars%auxvars2D(SFLX_SW_dn_ID)%local(n)%val,        & ! (out)
+          this%vars%auxvars2D(SFLX_LW_up_ID)%local(n)%val,        & ! (out)
+          this%vars%auxvars2D(SFLX_LW_dn_ID)%local(n)%val,        & ! (out)
           DDENS%val, PRES%val, QV%val,                            & ! (in)
           this%SFC_TEMP_ptr%local(n)%val,                         & ! (in)
           DENS_hyd%val, Rtot%val, CVtot%val,                      & ! (in)
@@ -334,11 +341,14 @@ contains
 !- private ------------------------------------------------
 !OCL SERIAL
   subroutine AtmosPhyRd_calc_tendency_core( this, &
-    RHOH,                              &
-    DDENS, PRES, QV, SFC_TEMP,         &
-    DENS_hyd, Rtot, CVtot,             &
-    lcmesh, elem3D, lcmesh2D, elem2D,  &
+    RHOH,                                           &
+    SFLX_SW_up, SFLX_SW_dn, SFLX_LW_up, SFLX_LW_dn, &
+    DDENS, PRES, QV, SFC_TEMP,                      &
+    DENS_hyd, Rtot, CVtot,                          &
+    lcmesh, elem3D, lcmesh2D, elem2D,               &
     elem3D_operation )
+    use scale_atmos_phy_rd_common, only: &
+      I_up, I_dn, I_LW, I_SW
     use scale_element_operation_base, only: ElementOperationBase3D
     use scale_atm_phy_rd_dgm_common, only: ATM_PHY_RD_DGM_calc_heating
     implicit none
@@ -347,7 +357,11 @@ contains
     class(ElementBase3D), intent(in) :: elem3D
     class(LocalMesh2D), intent(in) :: lcmesh2D
     class(ElementBase2D), intent(in) :: elem2D
-    real(RP), intent(out) :: RHOH(elem3D%Np,lcmesh%NeA)  
+    real(RP), intent(out) :: RHOH(elem3D%Np,lcmesh%NeA)
+    real(RP), intent(out) :: SFLX_SW_up(elem2D%Np,lcmesh2D%NeA)
+    real(RP), intent(out) :: SFLX_SW_dn(elem2D%Np,lcmesh2D%NeA)
+    real(RP), intent(out) :: SFLX_LW_up(elem2D%Np,lcmesh2D%NeA)
+    real(RP), intent(out) :: SFLX_LW_dn(elem2D%Np,lcmesh2D%NeA)
     real(RP), intent(in) :: DDENS(elem3D%Np,lcmesh%NeA)
     real(RP), intent(in) :: PRES(elem3D%Np,lcmesh%NeA)
     real(RP), intent(in) :: QV(elem3D%Np,lcmesh%NeA)
@@ -359,6 +373,7 @@ contains
 
     real(RP) :: flux_rad(elem3D%Np,lcmesh%Ne,2,2,2)
     real(RP) :: flux_rad_top(elem3D%Nnode_h1D**2,lcmesh%Ne2D,2,2,2)
+    real(RP) :: sflux_rad_dn(elem3D%Nnode_h1D**2,lcmesh%Ne2D,2,2)
     real(RP) :: TEMP_(elem3D%Nnode_v,lcmesh%NeZ,elem3D%Nnode_h1D**2,lcmesh%Ne2D)
     real(RP) :: DENS_(elem3D%Nnode_v,lcmesh%NeZ,elem3D%Nnode_h1D**2,lcmesh%Ne2D)
     real(RP) :: PRES_(elem3D%Nnode_v,lcmesh%NeZ,elem3D%Nnode_h1D**2,lcmesh%Ne2D)
@@ -397,9 +412,16 @@ contains
 
     select case( this%RD_TYPEID )
     case ( RD_TYPEID_GRAYRAD )
-      call this%gray_rad%calculate_rad_flux( flux_rad(:,:,:,:,1), &
-        PRES_, TEMP_, DENS_, QV_, SFC_TEMP, &
-        lcmesh, elem3D, lcmesh2D, elem2D )
+      call this%gray_rad%calculate_rad_flux( &
+        flux_rad(:,:,:,:,1), flux_rad_top(:,:,:,:,1), sflux_rad_dn(:,:,:,1), & ! (out)
+        PRES_, TEMP_, DENS_, QV_, SFC_TEMP,                         & ! (in)
+        lcmesh, elem3D, lcmesh2D, elem2D )                            ! (in)
+      
+      !$omp parallel do
+      do ke=lcmesh2D%NeS, lcmesh2D%NeE
+        SFLX_SW_dn(:,ke) = sflux_rad_dn(:,ke,I_SW,1)
+        SFLX_LW_dn(:,ke) = sflux_rad_dn(:,ke,I_LW,1)
+      end do
     end select
 
     call ATM_PHY_RD_DGM_calc_heating( RHOH, &

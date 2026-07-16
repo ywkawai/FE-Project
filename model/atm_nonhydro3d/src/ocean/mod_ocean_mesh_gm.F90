@@ -1,15 +1,15 @@
 !-------------------------------------------------------------------------------
-!> module Atmosphere / Mesh
+!> module Ocean / Mesh
 !!
 !! @par Description
-!!          Module for mesh with atmospheric global model
+!!          Module for mesh with ocean global model
 !!
 !! @author Yuta kawai, Team SCALE
 !!
 !<
 !-------------------------------------------------------------------------------
 #include "scaleFElib.h"
-module mod_atmos_mesh_gm
+module mod_ocean_mesh_gm
   !-----------------------------------------------------------------------------
   !
   !++ Used modules
@@ -26,14 +26,13 @@ module mod_atmos_mesh_gm
   use scale_localmesh_3d, only: LocalMesh3D
   use scale_meshfieldcomm_cubedspheredom3d, only: MeshFieldCommCubedSphereDom3D
   use scale_sparsemat, only: sparsemat
-  use scale_file_base_meshfield, only: FILE_base_meshfield
   use scale_file_restart_meshfield, only: FILE_restart_meshfield_component
 
   use scale_model_var_manager, only: ModelVarManager
   use scale_model_mesh_manager, only: ModelMesh3D
 
-  use mod_atmos_mesh, only: &
-    AtmosMesh, ATM_MESH_MAX_COMMNUICATOR_NUM
+  use mod_ocean_mesh, only: &
+    OceanMesh, OCN_MESH_MAX_COMMNUICATOR_NUM
   
   !-----------------------------------------------------------------------------
   implicit none
@@ -43,20 +42,20 @@ module mod_atmos_mesh_gm
   !++ Public type & procedures
   !
 
-  !> Derived type to manage a computational mesh of global atmospheric model
+  !> Derived type to manage a computational mesh of global ocean model
   !!
-  type, extends(AtmosMesh), public :: AtmosMeshGM
+  type, extends(OceanMesh), public :: OceanMeshGM
     type(MeshCubedSphereDom3D) :: mesh                                               !< Object for 3D cubed-sphere mesh
-    type(MeshFieldCommCubedSphereDom3D) :: comm_list(ATM_MESH_MAX_COMMNUICATOR_NUM)
+    type(MeshFieldCommCubedSphereDom3D) :: comm_list(OCN_MESH_MAX_COMMNUICATOR_NUM)
   contains
-    procedure :: Init => AtmosMeshGM_Init
-    procedure :: Final => AtmosMeshGM_Final
-    procedure :: Create_communicator => AtmosMeshGM_Create_communicator
-    procedure :: Setup_restartfile1 => AtmosMeshGM_setup_restartfile1
-    procedure :: Setup_restartfile2 => AtmosMeshGM_setup_restartfile2
-    procedure :: Calc_UVmet => AtmosMeshGM_calc_UVMet
-    procedure :: Setup_vcoordinate => AtmosMeshGM_setup_vcoordinate
-  end type AtmosMeshGM
+    procedure :: Init => OceanMeshGM_Init
+    procedure :: Final => OceanMeshGM_Final
+    procedure :: Create_communicator => OceanMeshGM_Create_communicator
+    procedure :: Setup_restartfile1 => OceanMeshGM_setup_restartfile1
+    procedure :: Setup_restartfile2 => OceanMeshGM_setup_restartfile2
+    procedure :: Calc_UVmet => OceanMeshGM_calc_UVMet
+    procedure :: Setup_vcoordinate => OceanMeshGM_setup_vcoordinate
+  end type OceanMeshGM
 
   !-----------------------------------------------------------------------------
   !
@@ -79,16 +78,15 @@ contains
   !> Initialize an object to manage computational mesh
   !!
 !OCL SERIAL
-  subroutine AtmosMeshGM_Init( this )    
+  subroutine OceanMeshGM_Init( this )    
     use scale_const, only: &
       RPlanet => CONST_RADIUS
-    use scale_mesh_base2d, only: &
-      MFTYPE2D_XY => MeshBase2D_DIMTYPEID_XY
+    use scale_mesh_base2d, only: MeshBase2D
     use scale_meshutil_vcoord, only: &
       MeshUtil_get_VCoord_TypeID
     
     implicit none
-    class(AtmosMeshGM), target, intent(inout) :: this
+    class(OceanMeshGM), target, intent(inout) :: this
 
     real(RP) :: dom_zmin          = 0.0_RP      !< Minimum vertical coordinate value of the computational domain
     real(RP) :: dom_zmax          = 10.0E3_RP   !< Maximum vertical coordinate value of the computational domain
@@ -98,7 +96,7 @@ contains
     real(RP) :: FZ(FZ_nmax)                  !< Values of the vertically computational coordinate at the element boundaries
 
     !* Global
-    logical :: SHALLOW_ATM_APPROX_FLAG = .true.  !< Flag whether the shallow atmosphere approximation is applied
+    logical :: SHALLOW_OCN_APPROX_FLAG = .true.  !< Flag whether the shallow ocean approximation is applied
     integer  :: NeGX               = 2           !< Number of finite element in the y-coordinate direction in each panel of the cubed-sphere mesh
     integer  :: NeGY               = 2           !< Number of finite element in the y-coordinate direction in each panel of the cubed-sphere mesh
     integer  :: NeZ                = 2           !< Number of finite element in the vertical direction in each MPI process
@@ -118,8 +116,8 @@ contains
     character(len=H_SHORT) :: Element_operation_type = 'General' !< General or TensorProd3D
     character(len=H_SHORT) :: SpMV_storage_format    = 'ELL'     !< CSR or ELL
     
-    namelist / PARAM_ATMOS_MESH / &
-      SHALLOW_ATM_APPROX_FLAG,                     &
+    namelist / PARAM_OCEAN_MESH / &
+      SHALLOW_OCN_APPROX_FLAG,                     &
       dom_zmin, dom_zmax,                          &
       FZ, isPeriodicZ,                             &
       NeGX, NeGY, NeZ, NLocalMeshPerPrc, Nprc,     &
@@ -135,12 +133,10 @@ contains
     logical :: is_spec_FZ
     
     integer :: ierr
-
-    type(FILE_base_meshfield) :: file_topo
     !-------------------------------------------
 
     LOG_NEWLINE
-    LOG_INFO("ATMOS_MESH_setup",*) 'Setup'
+    LOG_INFO("OCN_MESH_setup",*) 'Setup'
 
     FZ(:) = -1.0_RP
 #ifdef __FUJITSU
@@ -150,14 +146,14 @@ contains
 #endif
 
     rewind(IO_FID_CONF)
-    read(IO_FID_CONF,nml=PARAM_ATMOS_MESH,iostat=ierr)
+    read(IO_FID_CONF,nml=PARAM_OCEAN_MESH,iostat=ierr)
     if( ierr < 0 ) then !--- missing
-      LOG_INFO("ATMOS_MESH_setup",*) 'Not found namelist. Default used.'
+      LOG_INFO("OCN_MESH_setup",*) 'Not found namelist. Default used.'
     elseif( ierr > 0 ) then !--- fatal error
-      LOG_ERROR("ATMOS_MESH_setup",*) 'Not appropriate names in namelist PARAM_ATM_MESH. Check!'
+      LOG_ERROR("OCN_MESH_setup",*) 'Not appropriate names in namelist PARAM_OCEAN_MESH. Check!'
       call PRC_abort
     endif
-    LOG_NML(PARAM_ATMOS_MESH)
+    LOG_NML(PARAM_OCEAN_MESH)
 
     !----
 
@@ -178,32 +174,25 @@ contains
       call this%mesh%Init( &
         NeGX, NeGY, NeZ, RPlanet, dom_zmin, dom_zmax,          &
         this%element, NLocalMeshPerPrc, nproc=Nprc,            &
-        FZ=FZ(1:NeZ+1), shallow_approx=SHALLOW_ATM_APPROX_FLAG )
+        FZ=FZ(1:NeZ+1), shallow_approx=SHALLOW_OCN_APPROX_FLAG )
     else
       call this%mesh%Init( &
         NeGX, NeGY, NeZ, RPlanet, dom_zmin, dom_zmax, &
         this%element, NLocalMeshPerPrc, nproc=Nprc,   &
-        shallow_approx=SHALLOW_ATM_APPROX_FLAG        )
+        shallow_approx=SHALLOW_OCN_APPROX_FLAG        )
     end if
     
     call this%mesh%Generate()
     
     !-
 
-    call this%AtmosMesh_Init( this%mesh )
+    call this%OceanMesh_Init( this%mesh )
     call this%PrepairElementOperation( Element_operation_type, SpMV_storage_format )
 
     !- Set topography & vertical coordinate
     
-    if ( TOPO_IN_BASENAME /= '' ) then
-      LOG_INFO("ATMOS_MESH_setup",*) 'Read topography data'
-
-      call file_topo%Init(1, meshcubedsphere2D=this%mesh%mesh2D )
-      call file_topo%Open( TOPO_IN_BASENAME, myrank=PRC_myrank )
-      call file_topo%Read_Var( MFTYPE2D_XY, TOPO_IN_VARNAME, this%topography%topo )
-      call file_topo%Close()
-      call file_topo%Final()
-    end if
+    call this%Read_topography_file( TOPO_IN_BASENAME, TOPO_IN_VARNAME, &
+      this%mesh%mesh2D, dom_zmin )
 
     this%vcoord_type_id = MeshUtil_get_VCoord_TypeID( VERTICAL_COORD_NAME )
     call this%Setup_vcoordinate()
@@ -213,15 +202,15 @@ contains
     this%comm_use_mpi_pc_fujitsu_ext = COMM_USE_MPI_PC_FUJITSU_EXT
 
     return
-  end subroutine AtmosMeshGM_Init
+  end subroutine OceanMeshGM_Init
 
   !> Finalize an object to manage computational mesh
   !!
 !OCL SERIAL
-  subroutine AtmosMeshGM_Final(this)
+  subroutine OceanMeshGM_Final(this)
     implicit none
 
-    class(AtmosMeshGM), intent(inout) :: this
+    class(OceanMeshGM), intent(inout) :: this
     integer :: commid
     !-------------------------------------------
 
@@ -230,19 +219,19 @@ contains
     end do
 
     call this%mesh%Final()
-    call this%AtmosMesh_Final()
+    call this%OceanMesh_Final()
     
     return
-  end subroutine AtmosMeshGM_Final
+  end subroutine OceanMeshGM_Final
 
   !> Create a communicator for data communication on global computational domain
   !!
 !OCL SERIAL
-  subroutine AtmosMeshGM_create_communicator( this, sfield_num, hvfield_num, htensorfield_num, &
+  subroutine OceanMeshGM_create_communicator( this, sfield_num, hvfield_num, htensorfield_num, &
     var_manager, field_list, commid, &
     field_list_is, field_list_ie     )
     implicit none
-    class(AtmosMeshGM), target, intent(inout) :: this
+    class(OceanMeshGM), target, intent(inout) :: this
     integer, intent(in) :: sfield_num        !< Number of scalar fields
     integer, intent(in) :: hvfield_num       !< Number of horizontal vector fields
     integer, intent(in) :: htensorfield_num  !< Number of horizontal tensor fields
@@ -253,7 +242,7 @@ contains
     integer, intent(in), optional :: field_list_ie  !< Ending index of the field list for communication (optional)
     !-----------------------------------------------------
 
-    commid = this%Get_communicatorID( ATM_MESH_MAX_COMMNUICATOR_NUM )
+    commid = this%Get_communicatorID( OCN_MESH_MAX_COMMNUICATOR_NUM )
     call this%comm_list(commid)%Init( sfield_num, hvfield_num, htensorfield_num, this%mesh )
     if ( this%comm_use_mpi_pc ) then
       call this%comm_list(commid)%Prepare_PC( this%comm_use_mpi_pc_fujitsu_ext )
@@ -261,27 +250,28 @@ contains
     call var_manager%MeshFieldComm_Prepare( this%comm_list(commid), field_list, field_list_is, field_list_ie )
 
     return
-  end subroutine AtmosMeshGM_create_communicator  
+  end subroutine OceanMeshGM_create_communicator
 
 !OCL SERIAL
-  subroutine AtmosMeshGM_setup_restartfile1( this, restart_file, var_num )
+  subroutine OceanMeshGM_setup_restartfile1( this, restart_file, var_num, dim_name_postfix )
     implicit none
-    class(AtmosMeshGM), target, intent(inout) :: this
+    class(OceanMeshGM), target, intent(inout) :: this
     class(FILE_restart_meshfield_component), intent(inout) :: restart_file
-    integer, intent(in) :: var_num  
+    integer, intent(in) :: var_num
+    character(*), intent(in) :: dim_name_postfix
     !------------------------------------------------
 
-    call restart_file%Init('ATMOS', var_num, meshcubedsphere3D=this%mesh )
+    call restart_file%Init( 'OCEAN', var_num, dim_name_postfix, meshcubedsphere3D=this%mesh )
     return
-  end subroutine AtmosMeshGM_setup_restartfile1
+  end subroutine OceanMeshGM_setup_restartfile1
 
 !OCL SERIAL
-  subroutine AtmosMeshGM_setup_restartfile2( this, restart_file, &
+  subroutine OceanMeshGM_setup_restartfile2( this, restart_file, &
     in_basename, in_postfix_timelabel,                           &
     out_basename, out_postfix_timelabel,                         &
-    out_dtype, out_title, var_num, dim_name_postfix              )                            
+    out_dtype, out_title, var_num, dim_name_postfix              )
     implicit none
-    class(AtmosMeshGM), target, intent(inout) :: this
+    class(OceanMeshGM), target, intent(inout) :: this
     class(FILE_restart_meshfield_component), intent(inout) :: restart_file
     character(*), intent(in) :: in_basename
     logical, intent(in) :: in_postfix_timelabel
@@ -290,25 +280,25 @@ contains
     character(*), intent(in) :: out_title
     character(*), intent(in) :: out_dtype  
     integer, intent(in) :: var_num  
-    character(len=*), intent(in) :: dim_name_postfix
+    character(*), intent(in) :: dim_name_postfix
     !-----------------------------------------------------------
 
-    call restart_file%Init('ATMOS', in_basename, in_postfix_timelabel, &
-      out_basename, out_postfix_timelabel, out_dtype, out_title,       &
-      var_num, dim_name_postfix,                                       &
+    call restart_file%Init( 'OCEAN', in_basename, in_postfix_timelabel, &
+      out_basename, out_postfix_timelabel, out_dtype, out_title,        &
+      var_num, dim_name_postfix,                                        &
       meshcubedsphere3D=this%mesh )
 
-  end subroutine AtmosMeshGM_setup_restartfile2
+  end subroutine OceanMeshGM_setup_restartfile2
 
 !> Calculate horizontal vector components in longitude-latitude coordinates
 !OCL SERIAL
-  subroutine AtmosMeshGM_calc_UVMet( this, U, V, &
+  subroutine OceanMeshGM_calc_UVMet( this, U, V, &
     Umet, Vmet )
 
     use scale_cubedsphere_coord_cnv, only: &
       CubedSphereCoordCnv_CS2LonLatVec
     implicit none
-    class(AtmosMeshGM), target, intent(in) :: this
+    class(OceanMeshGM), target, intent(in) :: this
     type(MeshField3D), intent(in) :: U
     type(MeshField3D), intent(in) :: V
     type(MeshField3D), intent(inout) :: Umet
@@ -333,14 +323,14 @@ contains
     end do
 
     return
-  end subroutine AtmosMeshGM_calc_UVMet
+  end subroutine OceanMeshGM_calc_UVMet
 
 !> Setup the vertical coordinate
 !OCL SERIAL
-  subroutine AtmosMeshGM_setup_vcoordinate( this )
+  subroutine OceanMeshGM_setup_vcoordinate( this )
     use scale_meshfieldcomm_cubedspheredom2d, only: MeshFieldCommCubedSphereDom2D
     implicit none
-    class(AtmosMeshGM), TARGET, INTENT(INOUT) :: this
+    class(OceanMeshGM), TARGET, INTENT(INOUT) :: this
 
     type(MeshFieldCommCubedSphereDom3D) :: comm3D
     type(MeshFieldCommCubedSphereDom2D) :: comm2D
@@ -356,6 +346,6 @@ contains
     call comm3D%Final()
 
     return
-  end SUBROUTINE AtmosMeshGM_setup_vcoordinate
+  end subroutine OceanMeshGM_setup_vcoordinate
 
-end module mod_atmos_mesh_gm
+end module mod_ocean_mesh_gm
