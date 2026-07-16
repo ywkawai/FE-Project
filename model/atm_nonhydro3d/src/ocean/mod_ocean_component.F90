@@ -52,7 +52,7 @@ module mod_ocean_component
     ATM_QV_ID   => ATMVAR2D_ATM_QV_ID,               &
     SFLX_RD_SW_DIR_ID => ATMVAR2D_SFLX_RD_SW_DIR_ID, &
     SFLX_RD_LW_DIF_ID => ATMVAR2D_SFLX_RD_LW_DIF_ID, &
-    ZLEV_A_ID => ATMVAR2D_LOWEST_LAYER_ZLEV_ID
+    DZ_A_ID => ATMVAR2D_LOWEST_LAYER_DZ_ID
 
 
   use mod_ocean_dyn, only: OceanDyn
@@ -285,11 +285,11 @@ contains
         this%vars%ATM_VARS2D(ATM_TEMP_ID)%local(idom)%val, &
         this%vars%ATM_VARS2D(ATM_DENS_ID)%local(idom)%val, &
         this%vars%ATM_VARS2D(ATM_PRES_ID)%local(idom)%val, &
-        this%vars%ATM_VARS2D(ATM_W_ID)%local(idom)%val, &
-        this%vars%ATM_VARS2D(ATM_U_ID)%local(idom)%val, &
-        this%vars%ATM_VARS2D(ATM_V_ID)%local(idom)%val, &
+        this%vars%ATM_VARS2D(ATM_W_ID)%local(idom)%val,  &
+        this%vars%ATM_VARS2D(ATM_U_ID)%local(idom)%val,  &
+        this%vars%ATM_VARS2D(ATM_V_ID)%local(idom)%val,  &
         this%vars%ATM_VARS2D(ATM_QV_ID)%local(idom)%val, &
-        this%vars%ATM_VARS2D(ZLEV_A_ID)%local(idom)%val, &
+        this%vars%ATM_VARS2D(DZ_A_ID)%local(idom)%val,   &
         lmesh2D, lmesh2D%refElem2D )
 
       !- Calculate ground heat flux
@@ -438,7 +438,7 @@ contains
       this%vars%ATM_VARS2D(ATM_QV_ID),         &
       this%vars%ATM_VARS2D(SFLX_RD_SW_DIR_ID), &
       this%vars%ATM_VARS2D(SFLX_RD_LW_DIF_ID), &
-      this%vars%ATM_VARS2D(ZLEV_A_ID) )
+      this%vars%ATM_VARS2D(DZ_A_ID) )
     
     call PROF_rapend( 'OCN_sfc_exch', 1)
     return

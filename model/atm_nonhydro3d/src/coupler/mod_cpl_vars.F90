@@ -308,7 +308,7 @@ contains
 !OCL SERIAL
   subroutine CouplerVars_get_ATM_OCN( this,          &
     ATM_SFC_DENS, ATM_SFC_PRES, ATM_TEMP, ATM_PRES, ATM_W, ATM_U, ATM_V, ATM_QV, &
-    RD_SFLX_SW_DIR, RD_SFLX_LW_DIF, ZLEV_A )
+    RD_SFLX_SW_DIR, RD_SFLX_LW_DIF, DZ_A )
     implicit none
     class(CouplerVars), intent(inout) :: this
     type(MeshField2D), intent(inout) :: ATM_SFC_DENS
@@ -321,7 +321,7 @@ contains
     type(MeshField2D), intent(inout) :: ATM_QV
     type(MeshField2D), intent(inout) :: RD_SFLX_SW_DIR
     type(MeshField2D), intent(inout) :: RD_SFLX_LW_DIF
-    type(MeshField2D), intent(inout) :: ZLEV_A
+    type(MeshField2D), intent(inout) :: DZ_A
 
     integer :: ldomID
     !----------------------------------------------------------------
@@ -348,7 +348,7 @@ contains
         ATM_W%local(ldomID)%val, ATM_U%local(ldomID)%val, ATM_V%local(ldomID)%val, ATM_QV%local(ldomID)%val, &
         RD_SFLX_SW_DIR%local(ldomID)%val,  &
         RD_SFLX_LW_DIF%local(ldomID)%val, &
-        ZLEV_A%local(ldomID)%val )
+        DZ_A%local(ldomID)%val )
     end do
 
     this%CNT_putATM_OCN = 0.0_RP
@@ -551,7 +551,7 @@ contains
     ATM_SFC_DENS, ATM_SFC_PRES, ATM_TEMP, ATM_PRES, ATM_W, ATM_U, ATM_V, ATM_QV, &
 !    ATM_SFLX_ENGI, &
     ATM_RD_SFLX_SW_DIR, ATM_RD_SFLX_LW_DIF, &
-    ZLEV_A )
+    DZ_A )
     implicit none
     class(CouplerVars), intent(inout) :: this
     class(LocalMesh3D), intent(in) :: lmesh3D_a
@@ -582,7 +582,7 @@ contains
     ! real(RP), intent(out) :: ATM_SFLX_ENGI(elem_o%Np,lmesh_o%NeA)
     real(RP), intent(out) :: ATM_RD_SFLX_SW_DIR(elem_o%Np,lmesh_o%NeA)
     real(RP), intent(out) :: ATM_RD_SFLX_LW_DIF(elem_o%Np,lmesh_o%NeA)
-    real(RP), intent(out) :: ZLEV_A(elem_o%Np,lmesh_o%NeA)
+    real(RP), intent(out) :: DZ_A(elem_o%Np,lmesh_o%NeA)
 
     integer :: ke
     !----------------------------------------------------------------
@@ -602,7 +602,7 @@ contains
       ATM_RD_SFLX_SW_DIR(:,ke) = O_ATM_RD_SFLX_SW_DIR(:,ke)
       ATM_RD_SFLX_LW_DIF(:,ke) = O_ATM_RD_SFLX_LW_DIF(:,ke)
 
-      ZLEV_A(:,ke) = lmesh3D_a%zlev(elem3D_a%Hslice(:,2),ke)
+      DZ_A(:,ke) = lmesh3D_a%zlev(elem3D_a%Hslice(:,2),ke) - lmesh3D_a%zlev(elem3D_a%Hslice(:,1),ke)
     end do
     return
   end subroutine get_ATM_OCN_local

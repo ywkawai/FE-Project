@@ -1,4 +1,4 @@
-#! /bin/bash -x
+#!/bin/bash -x
 
 echo "+make directory"
 mkdir -p analysis

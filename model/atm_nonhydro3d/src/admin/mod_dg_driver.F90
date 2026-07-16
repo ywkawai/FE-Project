@@ -336,7 +336,7 @@ contains
 
     if ( atmos%isActivated() ) then
       call atmos%vars%Read_restart_file( atmos%mesh, atmos%dyn_proc%dyncore_driver )
-      if ( atmos%phy_rd_proc%IsActivated() ) call atmos%phy_rd_proc%vars%Read_restart_file( atmos%vars%restart_file )
+      if ( atmos%phy_rd_proc%IsActivated() ) call atmos%phy_rd_proc%vars%Read_restart_file()
     end if
     if ( ocean%isActivated() ) then
       call ocean%vars%Read_restart_file( ocean%mesh )

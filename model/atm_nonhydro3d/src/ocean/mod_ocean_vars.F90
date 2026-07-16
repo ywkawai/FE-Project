@@ -147,7 +147,7 @@ module mod_ocean_vars
   integer, public, parameter :: ATMVAR2D_ATM_QV_ID         = 9
   integer, public, parameter :: ATMVAR2D_SFLX_RD_SW_DIR_ID = 10
   integer, public, parameter :: ATMVAR2D_SFLX_RD_LW_DIF_ID = 11
-  integer, public, parameter :: ATMVAR2D_LOWEST_LAYER_ZLEV_ID = 12
+  integer, public, parameter :: ATMVAR2D_LOWEST_LAYER_DZ_ID = 12
   integer, public, parameter :: ATMVAR2D_NUM               = 12
 
   ! Ocean surface fluxes sent to CPL buffer

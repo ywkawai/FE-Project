@@ -45,7 +45,7 @@ module mod_cpl_component
   end type CouplerComponent
 
 contains
-  !> Setup coupler component 
+  !> Initialize an object to manage coupler component 
   subroutine Coupler_setup( this )
     class(CouplerComponent), intent(inout), target :: this
     !------------------------------------------------------------------------------
@@ -73,6 +73,7 @@ contains
     return
   end subroutine Coupler_evaluate_activation
 
+  !> Setup variables with coupler component
   subroutine Coupler_setup_vars( this, &
     atm_mesh, ocn_mesh )
     implicit none
@@ -94,11 +95,14 @@ contains
     return
   end subroutine Coupler_setup_vars
 
+  !> Finalize an object to manage coupler component
   subroutine Coupler_finalize(this)
     class(CouplerComponent), intent(inout) :: this
     !------------------------------------------------------------------------------
     LOG_INFO('CouplerComponent_finalize',*)
     if ( .not. this%IsActivated() ) return
+
+    call this%vars%Final()
     return
   end subroutine Coupler_finalize
 

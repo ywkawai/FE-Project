@@ -31,10 +31,6 @@ module mod_atmos_phy_rd_vars
     LocalMeshFieldBase, LocalMeshFieldBaseList
   use scale_meshfield_base, only: &
     MeshFieldBase, MeshField2D, MeshField3D
-
-  use scale_file_restart_meshfield, only: &
-    FILE_restart_meshfield_component
-  
   use scale_meshfieldcomm_base, only: MeshFieldContainer
 
   use scale_file_restart_meshfield, only: &
@@ -253,12 +249,11 @@ contains
 !> Read data with atmospheric variables with radiation component from restart file
 !!
 !OCL SERIAL
-  subroutine AtmosPhyRdVars_Read_restart_file( this, restart_file )
+  subroutine AtmosPhyRdVars_Read_restart_file( this )
     use scale_meshfieldcomm_base, only: MeshFieldContainer
     implicit none
     
     class(AtmosPhyRdVars), intent(inout), target :: this
-    class(FILE_restart_meshfield_component), intent(inout) :: restart_file
 
     integer :: iv
     !--------------------------------------------------------------------
@@ -267,18 +262,18 @@ contains
     LOG_INFO("AtmosPhyRdVars_Read_restart_file",*) 'Open restart file (ATMOS/Physics radiation) '
 
     !- Open restart file
-    call restart_file%Open()
+    call this%restart_file%Open()
 
     !- Read restart file
 
     do iv=ATMOS_PHY_RD_AUX2D_SFLX_LW_up_ID, ATMOS_PHY_RD_AUX2D_SFLX_SW_dn_ID
-      call restart_file%Read_var( DIMTYPE_XY, this%auxvars2D(iv)%varname, &
+      call this%restart_file%Read_var( DIMTYPE_XY, this%auxvars2D(iv)%varname, &
         this%auxvars2D(iv) )
     end do
 
     !- Close restart file
     LOG_INFO("AtmosPhyRdVars_Read_restart_file",*) 'Close restart file (ATMOS/Physics radiation) '
-    call restart_file%Close()
+    call this%restart_file%Close()
     return
   end subroutine AtmosPhyRdVars_Read_restart_file
 
