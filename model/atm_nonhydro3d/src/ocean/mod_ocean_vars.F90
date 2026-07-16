@@ -63,12 +63,29 @@ module mod_ocean_vars
     type(MeshField3D), allocatable :: PROG_VARS(:) !< Array of 3D prognostic variables
     type(ModelVarManager) :: PROGVARS_manager      !< An object to manage prognostic variables
 
+    !- tracer variables (Dummy for future use)
+    type(MeshField3D), allocatable :: QTRC_VARS(:) !< Array of 3D tracer variables
+    type(ModelVarManager) :: QTRCVARS_manager      !< An object to manage tracer variables
+
+    !- auxiliary variables (3D) (Dummy for future use)
+    type(MeshField3D), allocatable :: AUX_VARS(:)  !< Array of 3D auxiliary variables
+    type(ModelVarManager) :: AUXVARS_manager       !< Object to manage 3D auxiliary variables
+
     !- auxiliary variables (2D)
     type(MeshField2D), allocatable :: AUX_VARS2D(:) !< Array of 2D auxiliary variables
     type(ModelVarManager) :: AUXVARS2D_manager      !< An object to manage 2D auxiliary variables
 
     !- atmospheric variables (2D)
     type(MeshField2D), allocatable :: ATM_VARS2D(:) !< Array of 2D atmospheric variables
+
+    !- ocean surface fluxes sent to CPL buffer
+    type(MeshField2D), allocatable :: OCN_SFLX(:)  !< Array of 2D ocean surface fluxes sent to CPL buffer
+
+    !- Tendency with physics
+    type(MeshField3D), allocatable :: PHY_TEND(:)  !< Array of tendency variables with physics
+    type(ModelVarManager) :: PHYTENDS_manager      !< Object to manage tendency variables with physics
+    integer :: PHYTENDS_commID
+    integer :: PHYTEND_NUM_TOT                     !< Total number of tendency variables with physics
 
     !- history file
     integer :: hist_comp_id = -1 !< Component ID for history file
@@ -106,7 +123,8 @@ module mod_ocean_vars
   integer, public, parameter :: PHYTEND_W_ID        = 3
   integer, public, parameter :: PHYTEND_THERM_ID    = 4
   integer, public, parameter :: PHYTEND_SALT_ID     = 5
-  integer, public, parameter :: PHYTEND_NUM         = 5
+  integer, public, parameter :: PHYTEND_RHOH_ID     = 6
+  integer, public, parameter :: PHYTEND_NUM         = 6
 
   integer, public, parameter :: AUXVAR2D_SFC_TEMP_ID        = 1
   integer, public, parameter :: AUXVAR2D_SFC_ALB_IR_dir_ID  = 2
@@ -118,9 +136,27 @@ module mod_ocean_vars
   integer, public, parameter :: AUXVAR2D_NUM                = 7
 
   ! Lower atmosphere variables received from CPL buffer
-  integer, public, parameter :: ATMVAR2D_SFLX_RD_SW_DIR_ID = 1
-  integer, public, parameter :: ATMVAR2D_SFLX_RD_LW_DIF_ID = 2
-  integer, public, parameter :: ATMVAR2D_NUM               = 2
+  integer, public, parameter :: ATMVAR2D_SFC_DENS_ID   = 1
+  integer, public, parameter :: ATMVAR2D_SFC_PRES_ID   = 2
+  integer, public, parameter :: ATMVAR2D_ATM_TEMP_ID       = 3
+  integer, public, parameter :: ATMVAR2D_ATM_DENS_ID       = 4
+  integer, public, parameter :: ATMVAR2D_ATM_PRES_ID       = 5
+  integer, public, parameter :: ATMVAR2D_ATM_W_ID          = 6
+  integer, public, parameter :: ATMVAR2D_ATM_U_ID          = 7
+  integer, public, parameter :: ATMVAR2D_ATM_V_ID          = 8
+  integer, public, parameter :: ATMVAR2D_ATM_QV_ID         = 9
+  integer, public, parameter :: ATMVAR2D_SFLX_RD_SW_DIR_ID = 10
+  integer, public, parameter :: ATMVAR2D_SFLX_RD_LW_DIF_ID = 11
+  integer, public, parameter :: ATMVAR2D_LOWEST_LAYER_ZLEV_ID = 12
+  integer, public, parameter :: ATMVAR2D_NUM               = 12
+
+  ! Ocean surface fluxes sent to CPL buffer
+  integer, public, parameter :: OCN_SFLX_MW_ID = 1 !< w-momentum flux at the ocean surface    [kg/m/s2]
+  integer, public, parameter :: OCN_SFLX_MU_ID = 2 !< u-momentum flux at the ocean surface    [kg/m/s2]
+  integer, public, parameter :: OCN_SFLX_MV_ID = 3 !< v-momentum flux at the ocean surface    [kg/m/s2]
+  integer, public, parameter :: OCN_SFLX_SH_ID = 4 !< sensible heat flux at the ocean surface  [W/m2]
+  integer, public, parameter :: OCN_SFLX_LH_ID = 5 !< latent heat flux at the ocean surface    [W/m2]
+  integer, public, parameter :: OCN_SFLX_NUM   = 5 !< Number of ocean surface fluxes
 
   ! Diagnostic variables
 
@@ -158,6 +194,22 @@ module mod_ocean_vars
                   '1', 1, 'XY_O', 'sea_surface_albedo_vis_dir'                     ), &
     VariableInfo( AUXVAR2D_SFC_ALB_VIS_dif_ID , 'OCEAN_SFC_ALB_VIS_DIF', 'ocean surface albedo VIS (diffuse)', &
                   '1', 1, 'XY_O', 'sea_surface_albedo_vis_dif'                     )  /
+
+    type(VariableInfo) :: PHYTEND_VARINFO(PHYTEND_NUM)
+    DATA PHYTEND_VARINFO / &
+      VariableInfo( PHYTEND_U_ID, 'U_tp', 'U_tp',                                          &
+                    'm2/s2'    ,  3, 'XYZ_O',  'tendency of physical process for U' ),     &
+      VariableInfo( PHYTEND_V_ID, 'V_tp', 'V_tp',                                          &
+                    'm2/s2'    ,  3, 'XYZ_O',  'tendency of physical process for V' ),     &
+      VariableInfo( PHYTEND_W_ID, 'W_tp', 'W_tp',                                          &
+                    'm2/s2'    ,  3, 'XYZ_O',  'tendency of physical process for W' ),     &
+      VariableInfo( PHYTEND_THERM_ID, 'THERM_tp', 'THERM_tp',                              &
+                    'K/s'      ,  3, 'XYZ_O',  'tendency of physical process for THERM' ), &
+      VariableInfo( PHYTEND_SALT_ID, 'SALT_tp', 'SALT_tp',                                 &
+                    'PSU/s'    ,  3, 'XYZ_O',  'tendency of physical process for SALT' ),  &
+      VariableInfo( PHYTEND_RHOH_ID,  'RHOH_p',  'RHOH_p',                                 &
+                    'kg/m3.J/s',  3, 'XYZ_O',  'tendency of physical process for RHOH' )   /
+
 
 contains
 
@@ -209,11 +261,16 @@ contains
     !-
     call this%PROGVARS_manager%Init()
     call this%AUXVARS2D_manager%Init()
+    call this%PHYTENDS_manager%Init()
+
+    this%PHYTEND_NUM_TOT = PHYTEND_NUM
 
     allocate( this%PROG_VARS(PRGVAR_NUM) )
     allocate( this%AUX_VARS2D(AUXVAR2D_NUM) )
+    allocate( this%OCN_SFLX(OCN_SFLX_NUM) )
+    allocate( this%PHY_TEND(PHYTEND_NUM) )
     allocate( this%ATM_VARS2D(ATMVAR2D_NUM) )
-    !$acc enter data create( this%PROG_VARS, this%AUX_VARS2D, this%ATM_VARS2D )
+    !$acc enter data create( this%PROG_VARS, this%AUX_VARS2D, this%PHY_TEND, this%ATM_VARS2D, this%OCN_SFLX )
 
     !- Initialize prognostic variables
 
@@ -235,6 +292,23 @@ contains
         this%AUX_VARS2D(iv),                  & ! (inout)
         reg_file_hist, fill_zero=.true.       ) ! (in)
       !$acc update device( this%AUX_VARS2D(iv) )
+    end do
+
+    !- Initialize ocean surface fluxes sent to CPL buffer
+    do iv = 1, OCN_SFLX_NUM
+      call this%OCN_SFLX(iv)%Init( "", "", mesh2D )
+      !$acc update device( this%OCN_SFLX(iv) )
+    end do
+
+    !- Initialize tendency variables with physics
+
+    reg_file_hist = .true.
+    do iv=1, PHYTEND_NUM
+      call this%PHYTENDS_manager%Regist( &
+        PHYTEND_VARINFO(iv), mesh3D,         & ! (in) 
+        this%PHY_TEND(iv),                   & ! (inout)
+        reg_file_hist, fill_zero=.true.      ) ! (in)
+      !$acc update device( this%PHY_TEND(iv) )
     end do
 
     !- Initialize atmospheric variables (2D)
@@ -284,13 +358,21 @@ contains
 
     LOG_INFO('OceanVars_Final',*)
 
-    !$acc exit data delete( this%PROG_VARS, this%AUX_VARS2D, this%ATM_VARS2D )
+    !$acc exit data delete( this%PROG_VARS, this%AUX_VARS2D, this%PHY_TEND, this%ATM_VARS2D )
 
     call this%PROGVARS_manager%Final()
     deallocate( this%PROG_VARS )
 
     call this%AUXVARS2D_manager%Final()
     deallocate( this%AUX_VARS2D )
+
+    do iv=1, OCN_SFLX_NUM
+      call this%OCN_SFLX(iv)%Final()
+    end do
+    deallocate( this%OCN_SFLX )
+
+    call this%PHYTENDS_manager%Final()
+    deallocate( this%PHY_TEND )
 
     do iv=1, ATMVAR2D_NUM
       call this%ATM_VARS2D(iv)%Final()
