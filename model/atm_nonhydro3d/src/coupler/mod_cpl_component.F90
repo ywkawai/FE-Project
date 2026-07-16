@@ -89,7 +89,7 @@ contains
     call atm_mesh%GetMesh2D( atm_mesh2D )
     call ocn_mesh%GetMesh2D( ocn_mesh2D )
 
-    call this%vars%Init( atm_mesh2D, ocn_mesh2D )
+    call this%vars%Init( atm_mesh, atm_mesh2D, ocn_mesh2D )
     call PROF_rapend( 'Coupler_setup_vars', 1)
     return
   end subroutine Coupler_setup_vars

@@ -305,6 +305,10 @@ contains
     class(CouplerComponent), target, intent(inout) :: coupler
     !----------------------------------------------------------
     this%coupler_ptr => coupler
+
+    if ( this%phy_sfc_proc%IsActivated() ) then
+      call this%phy_sfc_proc%set_coupler_flag( coupler%IsActivated() )
+    end if
     return
   end subroutine Atmos_set_coupler
 
@@ -649,6 +653,12 @@ contains
   !> Set atmospheric quantites to coupler component
 !OCL SERIAL
   subroutine Atmos_set_surface( this, countup )
+    use scale_atmos_hydrometeor, only: &
+      ATMOS_HYDROMETEOR_dry, &
+      I_QV    
+    use scale_atm_dyn_dgm_nonhydro3d_common, only: &
+      PRGVAR_DDENS_ID, PRGVAR_MOMZ_ID, PRGVAR_MOMX_ID, PRGVAR_MOMY_ID, &
+      AUXVAR_DENSHYDRO_ID, AUXVAR_Rtot_ID, AUXVAR_PRES_ID
     use mod_atmos_vars, only: &
       AtmosVars_GetLocalMeshSfcVar
     use mod_atmos_vars_container, only: &
@@ -672,6 +682,7 @@ contains
     class(LocalMeshFieldBase), pointer :: PREC, PREC_ENGI
     class(LocalMeshFieldBase), pointer :: SFLX_rain_MP, SFLX_snow_MP, SFLX_ENGI_MP
 
+    integer :: iq
     !--------------------------------------------------
 
     call PROF_rapstart( 'ATM_sfc_exch', 1)
@@ -709,7 +720,20 @@ contains
     end do
 
     if ( this%coupler_ptr%IsActivated() ) then
+      if ( ATMOS_HYDROMETEOR_dry ) then
+        iq = 0
+      else
+        iq = I_QV
+      end if    
       call this%coupler_ptr%vars%PutAtm( &
+        this%vars%container%PROG_VARS(PRGVAR_DDENS_ID),     &
+        this%vars%container%PROG_VARS(PRGVAR_MOMZ_ID),      &
+        this%vars%container%PROG_VARS(PRGVAR_MOMX_ID),      &
+        this%vars%container%PROG_VARS(PRGVAR_MOMY_ID),      &
+        this%vars%container%QTRC_VARS(iq),                  &
+        this%vars%container%AUX_VARS(AUXVAR_PRES_ID),       &
+        this%vars%container%AUX_VARS(AUXVAR_Rtot_ID),       &
+        this%vars%container%AUX_VARS(AUXVAR_DENSHYDRO_ID),  &
         this%phy_rd_proc%vars%auxvars2D(RD_SFLX_SW_dir_ID), &
         this%phy_rd_proc%vars%auxvars2D(RD_SFLX_LW_dif_ID), &
         this%vars%container%AUX_VARS2D(PREC_ENGI_ID),       &
@@ -728,7 +752,12 @@ contains
       AtmosVars_GetLocalMeshSfcVar
     use mod_atmos_phy_sfc_vars, only: &
       SFCTEMP_ID => ATMOS_PHY_SF_SVAR_TEMP_ID, &
-      SFCALB_ID => ATMOS_PHY_SF_SVAR_ALB_ID
+      SFCALB_ID => ATMOS_PHY_SF_SVAR_ALB_ID,   &
+      SFLX_MW_ID => ATMOS_PHY_SF_SFLX_MW_ID,   &
+      SFLX_MU_ID => ATMOS_PHY_SF_SFLX_MU_ID,   &
+      SFLX_MV_ID => ATMOS_PHY_SF_SFLX_MV_ID,   &
+      SFLX_SH_ID => ATMOS_PHY_SF_SFLX_SH_ID,   &
+      SFLX_LH_ID => ATMOS_PHY_SF_SFLX_LH_ID
     use mod_cpl_component, only: CouplerComponent      
     implicit none
     class(AtmosComponent), intent(inout), target :: this
@@ -739,7 +768,12 @@ contains
     call PROF_rapstart( 'ATM_sfc_exch', 1)
     call this%coupler_ptr%vars%Get_SFC_ATM( &
       this%phy_sfc_proc%vars%SFC_VARS(SFCTEMP_ID), &
-      this%phy_sfc_proc%vars%SFC_VARS(SFCALB_ID)   )
+      this%phy_sfc_proc%vars%SFC_VARS(SFCALB_ID),  &
+      this%phy_sfc_proc%vars%SFC_FLX(SFLX_MW_ID),  &
+      this%phy_sfc_proc%vars%SFC_FLX(SFLX_MU_ID),  &
+      this%phy_sfc_proc%vars%SFC_FLX(SFLX_MV_ID),  &
+      this%phy_sfc_proc%vars%SFC_FLX(SFLX_SH_ID),  &
+      this%phy_sfc_proc%vars%SFC_FLX(SFLX_LH_ID)   )
     call PROF_rapend( 'ATM_sfc_exch', 1)
     return
   end subroutine Atmos_get_surface
