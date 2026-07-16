@@ -63,6 +63,8 @@ module mod_atmos_phy_rd_vars
     type(MeshField2D), allocatable :: auxvars2D(:) !< Array of 2D auxiliary variables
     type(ModelVarManager) :: auxvars2D_manager     !< Object to manage 2D auxiliary variables
 
+    type(MeshField2D), allocatable :: sflx_rad_dn(:) !< Array of downward radiative fluxes at the surface
+
     integer :: TENDS_NUM_TOT                       !< Number of tendency variables with cloud microphysics
 
     type(FILE_restart_meshfield_component) restart_file !< Restart file for variables with radiation component
@@ -119,6 +121,11 @@ module mod_atmos_phy_rd_vars
     VariableInfo( ATMOS_PHY_RD_AUX2D_SOLINS_ID      , 'RD_SolINS'      , 'solar insolation flux at the top of the model'  , 'W/m2', 2, 'XY', '' ), &
     VariableInfo( ATMOS_PHY_RD_AUX2D_COSSZA_ID      , 'RD_cosSZA'      , 'cosine of solar zenith angle'                   ,    '1', 2, 'XY', '' )  /
   
+  !-
+  integer, public, parameter :: ATMOS_PHY_RD_SFLX_dn_SW_dir = 1  !< ID of downward direct shortwave flux at the surface
+  integer, public, parameter :: ATMOS_PHY_RD_SFLX_dn_SW_dif = 2  !< ID of downward diffuse shortwave flux at the surface
+  integer, public, parameter :: ATMOS_PHY_RD_SFLX_dn_LW     = 3  !< ID of downward longwave flux at the surface
+  integer, public, parameter :: ATMOS_PHY_RD_SFLX_dn_NUM    = 3  !< Number of downward radiative fluxes
   !-----------------------------------------------------------------------------
   !
   !++ Private procedures
