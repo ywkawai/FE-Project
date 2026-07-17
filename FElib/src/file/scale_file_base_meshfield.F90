@@ -1241,15 +1241,20 @@ contains
     comp_ptr ) ! (out)
     implicit none
     class(FILE_base_meshfield), intent(in), target :: this
-    integer, intent(in) :: comp_id
+    integer, intent(in), optional :: comp_id
     type(FileBaseMeshFieldComp), intent(out), pointer :: comp_ptr
     !--------------------------------------------------------------
 
-    if ( comp_id < 1 .or. comp_id > this%comp_num ) then
-      LOG_ERROR("FILE_base_meshfield_get_comp",*) 'Invalid component ID. Check!'
-      call PRC_abort
+    if ( present(comp_id) ) then
+      if ( comp_id < 1 .or. comp_id > this%comp_num ) then
+        LOG_ERROR("FILE_base_meshfield_get_comp",*) 'Invalid component ID. Check!'
+        call PRC_abort
+      end if
+      comp_ptr => this%comp(comp_id)
+    else
+      comp_ptr => this%comp(this%main_comp_id)
     end if
-    comp_ptr => this%comp(comp_id)
     return
   end subroutine FILE_base_meshfield_get_comp
+
 end module scale_file_base_meshfield
