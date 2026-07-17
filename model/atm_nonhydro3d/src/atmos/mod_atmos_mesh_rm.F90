@@ -80,7 +80,6 @@ contains
   !> Initialize an object to manage computational mesh
   !!
   subroutine AtmosMeshRM_Init( this )
-    use scale_file_base_meshfield, only: FILE_base_meshfield
     use scale_mesh_base2d, only: &
       MFTYPE2D_XY => MeshBase2D_DIMTYPEID_XY
     use scale_meshutil_vcoord, only: &
@@ -143,8 +142,6 @@ contains
     logical :: is_spec_FZ
 
     integer :: ierr
-
-    type(FILE_base_meshfield) :: file_topo
     !-------------------------------------------
 
     LOG_NEWLINE
@@ -204,16 +201,8 @@ contains
     call this%PrepairElementOperation(  Element_operation_type, SpMV_storage_format )
 
     !- Set topography & vertical coordinate
-
-    if ( TOPO_IN_BASENAME /= '' ) then
-      LOG_INFO("ATMOS_MESH_setup",*) 'Read topography data'
-
-      call file_topo%Init(1, mesh2D=this%mesh%mesh2D )
-      call file_topo%Open( TOPO_IN_BASENAME, myrank=PRC_myrank )
-      call file_topo%Read_Var( MFTYPE2D_XY, TOPO_IN_VARNAME, this%topography%topo )
-      call file_topo%Close()
-      call file_topo%Final()
-    end if
+    
+    call this%Read_topography_file( TOPO_IN_BASENAME, TOPO_IN_VARNAME, this%mesh%mesh2D, dom_zmin )
 
     this%vcoord_type_id = MeshUtil_get_VCoord_TypeID( VERTICAL_COORD_NAME )
     call this%Setup_vcoordinate()
