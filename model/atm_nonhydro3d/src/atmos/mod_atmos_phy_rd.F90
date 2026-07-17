@@ -44,7 +44,7 @@ module mod_atmos_phy_rd
   use mod_atmos_vars_container, only: &
     AtmosVarsContainer
 
-  use scale_atm_phy_rd_dgm_gray, only: AtmPhyRadGray
+  use scale_atm_phy_rd_dgm_simple, only: AtmPhyRadSimple
 
   !-----------------------------------------------------------------------------
   implicit none
@@ -67,7 +67,7 @@ module mod_atmos_phy_rd
     integer :: atm_var_container_typeid        !< Type ID of variable container for radiation
 
     !-
-    type(AtmPhyRadGray) :: gray_rad !< Object to manage a gray-radiation scheme
+    type(AtmPhyRadSimple) :: simple_rad !< Object to manage a simplified-radiation scheme
   contains
     procedure, public :: setup => AtmosPhyRd_setup
     procedure, public :: calc_tendency => AtmosPhyRd_calc_tendency
@@ -88,7 +88,7 @@ module mod_atmos_phy_rd
   !
   !++ Private parameters & variables
   !
-  integer, parameter :: RD_TYPEID_GRAYRAD  = 1 !< Type ID of a gray radiation scheme
+  integer, parameter :: RD_TYPEID_SIMPLE  = 1 !< Type ID of a simple radiation scheme
 
   integer, parameter :: RD_INSOLATION_TYPEID_NONE   = 0 !< Type ID of no solar insolation
   integer, parameter :: RD_INSOLATION_TYPEID_SIMPLE = 1 !< Type ID of a simple solar insolation scheme
@@ -160,9 +160,9 @@ contains
     !--- Set the type of radiation scheme
     
     select case ( RD_TYPE )
-    case ("GRAYRAD")
-      this%RD_TYPEID = RD_TYPEID_GRAYRAD
-      call this%gray_rad%Init()
+    case ("SIMPLE")
+      this%RD_TYPEID = RD_TYPEID_SIMPLE
+      call this%simple_rad%Init()
     case default
       LOG_ERROR("ATMOS_PHY_RD_setup",*) 'Not appropriate RD_TYPE. Check!'
       call PRC_abort
@@ -367,8 +367,8 @@ contains
     if (.not. this%IsActivated()) return
 
     select case ( this%RD_TYPEID )
-    case( RD_TYPEID_GRAYRAD )
-      call this%gray_rad%Final()
+    case( RD_TYPEID_SIMPLE )
+      call this%simple_rad%Final()
     end select
 
     call this%vars%Final()
@@ -452,8 +452,8 @@ contains
     end do
 
     select case( this%RD_TYPEID )
-    case ( RD_TYPEID_GRAYRAD )
-      call this%gray_rad%calculate_rad_flux( &
+    case ( RD_TYPEID_SIMPLE )
+      call this%simple_rad%calculate_rad_flux( &
         flux_rad(:,:,:,:,1), flux_rad_top(:,:,:,:,1), sflux_rad_dn(:,:,:,1), & ! (out)
         SOLINS, PRES_, TEMP_, DENS_, QV_, SFC_TEMP, SFC_ALB,                 & ! (in)
         lcmesh, elem3D, lcmesh2D, elem2D )                                     ! (in)
