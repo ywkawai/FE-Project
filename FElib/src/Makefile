@@ -176,7 +176,8 @@ OBJS_NAME_MICROPHYS = \
 	scale_atm_phy_mp_lscond.o
 
 OBJS_NAME_RADIATION = \
-	scale_atm_phy_rd_dgm_gray.o   \
+	scale_atm_phy_rd_solarins_simple.o \
+	scale_atm_phy_rd_dgm_gray.o        \
 	scale_atm_phy_rd_dgm_common.o
 
 OBJS_NAME_MODEL_FRAMEWORK = \
@@ -211,6 +212,7 @@ OBJS_NAME_SCALELIB = \
 	scale_prc_cartesC.o      \
 	scale_comm_cartesC.o     \
 	scale_atmos_thermodyn.o  \
+	scale_atmos_solarins.o   \
 	scale_atmos_saturation.o \
 	scale_atmos_grid_cartesC_index.o   \
 	scale_atmos_grid_cartesC.o         \
