@@ -177,7 +177,7 @@ OBJS_NAME_MICROPHYS = \
 
 OBJS_NAME_RADIATION = \
 	scale_atm_phy_rd_solarins_simple.o \
-	scale_atm_phy_rd_dgm_gray.o        \
+	scale_atm_phy_rd_dgm_simple.o      \
 	scale_atm_phy_rd_dgm_common.o
 
 OBJS_NAME_MODEL_FRAMEWORK = \
