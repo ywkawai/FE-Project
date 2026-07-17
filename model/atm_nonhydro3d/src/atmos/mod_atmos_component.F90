@@ -265,7 +265,8 @@ contains
 !OCL SERIAL
   subroutine Atmos_setup_vars( this )
     use mod_atmos_phy_sfc_vars, only: &
-      SFCTEMP_ID => ATMOS_PHY_SF_SVAR_TEMP_ID
+      SFCTEMP_ID => ATMOS_PHY_SF_SVAR_TEMP_ID, &
+      SFC_ALB_ID => ATMOS_PHY_SF_SVAR_ALB_ID
     implicit none
     class(AtmosComponent), intent(inout) :: this
     !----------------------------------------------------------
@@ -289,7 +290,8 @@ contains
          LOG_ERROR('ATM_setup_vars',*) 'ATMOS_PHY_RD_DO requires ATMOS_PHY_SF_DO to provide SFC_TEMP.'
          call PRC_abort
        end if      
-      call this%phy_rd_proc%SetSfcTemp( this%phy_sfc_proc%vars%SFC_VARS(SFCTEMP_ID) )
+      call this%phy_rd_proc%SetSfcVars( this%phy_sfc_proc%vars%SFC_VARS(SFCTEMP_ID), &
+                                        this%phy_sfc_proc%vars%SFC_VARS(SFC_ALB_ID) )
     end if
 
 

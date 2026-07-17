@@ -39,8 +39,17 @@ module scale_atm_phy_rd_dgm_gray
 
   type, public :: AtmPhyRadGray
     integer :: optdep_type                  !< Type of optical depth calculation
+
+    !
     real(RP) :: OPTDEP_VALLIS_EQ5_PARAMS(4) !< Parameters associated with optical depth calculation (Eq.5 in Vallis et al. (2018))
                                             !! A, mu, B, C
+
+    real(RP) :: OPTDEP_VALLIS_EQ6a_PARAMS(3) !< Parameters associated with optical depth calculation (Eq.6a in Vallis et al. (2018))
+                                             !! a_SW, b_SW, c_SW
+    real(RP) :: OPTDEP_VALLIS_EQ6b_PARAMS(4) !< Parameters associated with optical depth calculation (Eq.6b in Vallis et al. (2018))
+                                             !! a_LW, b_LW, c_LW, d_LW
+    real(RP) :: OPTDEP_VALLIS_EQ6c_PARAMS(4) !< Parameters associated with optical depth calculation (Eq.6c in Vallis et al. (2018))
+                                             !! a_win, b_win, c_win, d_win
 
     real(RP) :: pCO2 !< CO2 concentration in ppmv
     real(RP) :: diffFactor !< Diffusivity factor for the two-stream approximation
@@ -62,7 +71,9 @@ module scale_atm_phy_rd_dgm_gray
   !
   !++ Private parameters & variables
   !  
-  integer, parameter :: OPTDEP_TYPE_VALLIS2018_EQ5 = 1
+  integer, parameter :: OPTDEP_TYPE_VALLIS2018_EQ5 = 1 !< An idealized radiation scheme based on Eq.5
+                                                       !! This is gray in infrared so that a single optical thickness is defined for the entire longwave spectrum, 
+                                                       !! which includes a parameterization of long-wave absorption by CO2.
 
 contains
   !> Initialize an object to represent a gray-radiation scheme
@@ -138,11 +149,12 @@ contains
     return
   end subroutine atm_phy_rd_dgm_gray_Final
 
+  !> Calculate radiative fluxes using a gray-radiation scheme
 !OCL SERIAL
   subroutine atm_phy_rd_dgm_gray_flux( this, &
-    flux, flux_top, sflx_dn,         &
-    PRES, TEMP, DENS, QV, SFC_TEMP,  &
-    lcmesh, elem3D, lcmesh2D, elem2D )
+    flux, flux_top, sflx_dn,                         & ! (out)
+    SOLINS, PRES, TEMP, DENS, QV, SFC_TEMP, SFC_ALB, & ! (in)
+    lcmesh, elem3D, lcmesh2D, elem2D )                 ! (in)
     use scale_const, only: &
       PI => CONST_PI, &
       STB => CONST_STB
@@ -159,21 +171,22 @@ contains
     real(RP), intent(in) :: TEMP(elem3D%Nnode_v,lcmesh%NeZ,elem3D%Nnode_h1D**2,lcmesh%Ne2D)
     real(RP), intent(in) :: DENS(elem3D%Nnode_v,lcmesh%NeZ,elem3D%Nnode_h1D**2,lcmesh%Ne2D)
     real(RP), intent(in) :: QV(elem3D%Nnode_v,lcmesh%NeZ,elem3D%Nnode_h1D**2,lcmesh%Ne2D)
+    real(RP), intent(in) :: SOLINS(elem2D%Np,lcmesh2D%NeA)
+    real(RP), intent(in) :: SFC_ALB(elem2D%Np,lcmesh2D%NeA)
     real(RP), intent(in) :: SFC_TEMP(elem2D%Np,lcmesh2D%NeA)
 
     integer :: ke, ke_z, ke_h
     integer :: p, p_z, p_h
 
-    real(RP) :: dtau(elem3D%Nnode_v-1,lcmesh%NeZ)
-    real(RP) :: TransFunc(elem3D%Nnode_v,lcmesh%NeZ)
+    real(RP) :: dtau(elem3D%Nnode_v-1,lcmesh%NeZ,2)
     real(RP) :: CO2(elem3D%Nnode_v,lcmesh%NeZ)
-    real(RP) :: trans(elem3D%Nnode_v-1,lcmesh%NeZ) !< Transmission across the layer
+    real(RP) :: trans(elem3D%Nnode_v-1,lcmesh%NeZ,2) !< Transmission across the layer
     real(RP) :: Src(elem3D%Nnode_v-1,lcmesh%NeZ)   !< Source term across the layer
     real(RP) :: temp_
     real(RP) :: D
 
-    real(RP) :: flux_up(elem3D%Nnode_v,lcmesh%NeZ)
-    real(RP) :: flux_dn(elem3D%Nnode_v,lcmesh%NeZ)
+    real(RP) :: flux_up(elem3D%Nnode_v,lcmesh%NeZ,2)
+    real(RP) :: flux_dn(elem3D%Nnode_v,lcmesh%NeZ,2)
     !--------------------------------------------------------------------
     !--------------------------------------------------------------------
 
@@ -187,7 +200,7 @@ contains
         PRES(:,:,p_h,ke_h), QV(:,:,p_h,ke_h), CO2(:,:), &
         elem3D%Nnode_v, lcmesh%NeZ                      )
 
-      trans(:,:) = exp(- D * dtau(:,:))
+      trans(:,:,:) = exp(- D * dtau(:,:,:))
 
       !--
       do ke_z=1, lcmesh%NeZ
@@ -197,42 +210,48 @@ contains
       end do
       end do
 
-      flux_dn(elem3D%Nnode_v,lcmesh%NeZ) = 0.0_RP
+      flux_dn(elem3D%Nnode_v,lcmesh%NeZ,I_LW) = 0.0_RP
+      flux_dn(elem3D%Nnode_v,lcmesh%NeZ,I_SW) = SOLINS(p_h,ke_h)
       do ke_z=lcmesh%NeZ, 1, -1
         do p_z=elem3D%Nnode_v-1, 1, -1
-          flux_dn(p_z,ke_z) = flux_dn(p_z+1,ke_z) * trans(p_z,ke_z) + Src(p_z,ke_z) * ( 1.0_RP - trans(p_z,ke_z) )
+          flux_dn(p_z,ke_z,I_LW) = flux_dn(p_z+1,ke_z,I_LW) * trans(p_z,ke_z,I_LW) + Src(p_z,ke_z) * ( 1.0_RP - trans(p_z,ke_z,I_LW) )
+          flux_dn(p_z,ke_z,I_SW) = flux_dn(p_z+1,ke_z,I_SW) * trans(p_z,ke_z,I_SW)
         end do
         if ( ke_z > 1 ) then
-          flux_dn(elem3D%Nnode_v,ke_z-1) = flux_dn(1,ke_z)
+          flux_dn(elem3D%Nnode_v,ke_z-1,I_LW) = flux_dn(1,ke_z,I_LW)
+          flux_dn(elem3D%Nnode_v,ke_z-1,I_SW) = flux_dn(1,ke_z,I_SW)
         end if
       end do
 
-      flux_up(1,1) = SFC_TEMP(p_h,ke_h)**4 * STB
+      flux_up(1,1,I_LW) = SFC_TEMP(p_h,ke_h)**4 * STB
+      flux_up(1,1,I_SW) = SFC_ALB(p_h,ke_h) * flux_dn(1,1,I_SW)
       do ke_z=1, lcmesh%NeZ
         do p_z=1, elem3D%Nnode_v-1
-          flux_up(p_z+1,ke_z) = flux_up(p_z,ke_z) * trans(p_z,ke_z) + Src(p_z,ke_z) * ( 1.0_RP - trans(p_z,ke_z) )
+          flux_up(p_z+1,ke_z,I_LW) = flux_up(p_z,ke_z,I_LW) * trans(p_z,ke_z,I_LW) + Src(p_z,ke_z) * ( 1.0_RP - trans(p_z,ke_z,I_LW) )
+          flux_up(p_z+1,ke_z,I_SW) = flux_up(p_z,ke_z,I_SW) * trans(p_z,ke_z,I_SW)
         end do
         if ( ke_z < lcmesh%NeZ ) then
-          flux_up(1,ke_z+1) = flux_up(elem3D%Nnode_v,ke_z)
+          flux_up(1,ke_z+1,I_LW) = flux_up(elem3D%Nnode_v,ke_z,I_LW)
+          flux_up(1,ke_z+1,I_SW) = flux_up(elem3D%Nnode_v,ke_z,I_SW)
         end if
       end do
 
       do ke_z=1, lcmesh%NeZ
       do p_z=1, elem3D%Nnode_v
-        flux(p_h,p_z,ke_h,ke_z,I_LW,I_up) = flux_up(p_z,ke_z)
-        flux(p_h,p_z,ke_h,ke_z,I_LW,I_dn) = flux_dn(p_z,ke_z)
+        flux(p_h,p_z,ke_h,ke_z,I_LW,I_up) = flux_up(p_z,ke_z,I_LW)
+        flux(p_h,p_z,ke_h,ke_z,I_LW,I_dn) = flux_dn(p_z,ke_z,I_LW)
 
-        flux(p_h,p_z,ke_h,ke_z,I_SW,I_up) = 0.0_RP
-        flux(p_h,p_z,ke_h,ke_z,I_SW,I_dn) = 0.0_RP
+        flux(p_h,p_z,ke_h,ke_z,I_SW,I_up) = flux_up(p_z,ke_z,I_SW)
+        flux(p_h,p_z,ke_h,ke_z,I_SW,I_dn) = flux_dn(p_z,ke_z,I_SW)
       end do
       end do
 
-      flux_top(p_h,ke_h,I_LW,I_up) = flux_up(elem3D%Nnode_v,lcmesh%NeZ)
-      flux_top(p_h,ke_h,I_LW,I_dn) = flux_dn(elem3D%Nnode_v,lcmesh%NeZ)
-      flux_top(p_h,ke_h,I_SW,I_up) = 0.0_RP
-      flux_top(p_h,ke_h,I_SW,I_dn) = 0.0_RP
-      sflx_dn(p_h,ke_h,I_LW) = flux_dn(1,1)
-      sflx_dn(p_h,ke_h,I_SW) = 0.0_RP
+      flux_top(p_h,ke_h,I_LW,I_up) = flux_up(elem3D%Nnode_v,lcmesh%NeZ,I_LW)
+      flux_top(p_h,ke_h,I_LW,I_dn) = flux_dn(elem3D%Nnode_v,lcmesh%NeZ,I_LW)
+      flux_top(p_h,ke_h,I_SW,I_up) = flux_up(elem3D%Nnode_v,lcmesh%NeZ,I_SW)
+      flux_top(p_h,ke_h,I_SW,I_dn) = flux_dn(elem3D%Nnode_v,lcmesh%NeZ,I_SW)
+      sflx_dn(p_h,ke_h,I_LW) = flux_dn(1,1,I_LW)
+      sflx_dn(p_h,ke_h,I_SW) = flux_dn(1,1,I_SW)
     end do
     end do
     return
@@ -246,7 +265,7 @@ contains
     class(AtmPhyRadGray), intent(in) :: this
     integer, intent(in) :: Nnode_v
     integer, intent(in) :: NeZ
-    real(RP), intent(out) :: dtau(Nnode_v-1,NeZ)
+    real(RP), intent(out) :: dtau(Nnode_v-1,NeZ,2)
     real(RP), intent(in) :: pres(Nnode_v,NeZ)
     real(RP), intent(in) :: qv(Nnode_v,NeZ)
     real(RP), intent(in) :: CO2(Nnode_v,NeZ)
@@ -267,7 +286,8 @@ contains
     do p_z=1, Nnode_v-1
       qv_tmp = 0.5_RP * ( qv(p_z,ke_z) + qv(p_z+1,ke_z) )
       dsig = max( pres(p_z,ke_z) - pres(p_z+1,ke_z), 0.0_RP ) / P0
-      dtau(p_z,ke_z) = ( A + B * qv_tmp + C * log( CO2(p_z,ke_z) / 360.0_RP ) ) * dsig
+      dtau(p_z,ke_z,I_LW) = ( A + B * qv_tmp + C * log( CO2(p_z,ke_z) / 360.0_RP ) ) * dsig
+      dtau(p_z,ke_z,I_SW) = 0.0_RP * dsig
     end do
     end do
     return
