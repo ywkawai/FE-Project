@@ -414,6 +414,7 @@ contains
 
     real(RP) :: flux_rad(elem3D%Np,lcmesh%Ne,2,2,2)
     real(RP) :: flux_rad_top(elem3D%Nnode_h1D**2,lcmesh%Ne2D,2,2,2)
+    real(RP) :: sflux_rad_up(elem3D%Nnode_h1D**2,lcmesh%Ne2D,2,2)
     real(RP) :: sflux_rad_dn(elem3D%Nnode_h1D**2,lcmesh%Ne2D,2,2)
     real(RP) :: TEMP_(elem3D%Nnode_v,lcmesh%NeZ,elem3D%Nnode_h1D**2,lcmesh%Ne2D)
     real(RP) :: DENS_(elem3D%Nnode_v,lcmesh%NeZ,elem3D%Nnode_h1D**2,lcmesh%Ne2D)
@@ -453,15 +454,17 @@ contains
 
     select case( this%RD_TYPEID )
     case ( RD_TYPEID_SIMPLE )
-      call this%simple_rad%calculate_rad_flux( &
-        flux_rad(:,:,:,:,1), flux_rad_top(:,:,:,:,1), sflux_rad_dn(:,:,:,1), & ! (out)
-        SOLINS, PRES_, TEMP_, DENS_, QV_, SFC_TEMP, SFC_ALB,                 & ! (in)
-        lcmesh, elem3D, lcmesh2D, elem2D )                                     ! (in)
+      call this%simple_rad%calculate_rad_flux( flux_rad(:,:,:,:,1),            & ! (out)
+        flux_rad_top(:,:,:,:,1), sflux_rad_up(:,:,:,1), sflux_rad_dn(:,:,:,1), & ! (out)
+        SOLINS, PRES_, TEMP_, DENS_, QV_, SFC_TEMP, SFC_ALB,                   & ! (in)
+        lcmesh, elem3D, lcmesh2D, elem2D )                                       ! (in)
       
       !$omp parallel do
       do ke=lcmesh2D%NeS, lcmesh2D%NeE
         SFLX_SW_dn(:,ke) = sflux_rad_dn(:,ke,I_SW,1)
         SFLX_LW_dn(:,ke) = sflux_rad_dn(:,ke,I_LW,1)
+        SFLX_SW_up(:,ke) = sflux_rad_up(:,ke,I_SW,1)
+        SFLX_LW_up(:,ke) = sflux_rad_up(:,ke,I_LW,1)
       end do
     end select
 
