@@ -229,7 +229,7 @@ contains
     character(len=FILE_HSHORT) :: calendar
     real(DP) :: start_daysec
 
-    class(FileHistoryMeshFieldComp), pointer :: target_comp
+    type(FileHistoryMeshFieldComp), pointer :: target_comp
     integer :: registered_comp_id_
     !---------------------------------------------------------------------------
 
@@ -326,7 +326,7 @@ contains
     integer :: ldomID
     real(RP), allocatable :: buf(:)
 
-    class(FileHistoryMeshFieldComp), pointer :: target_comp
+    type(FileHistoryMeshFieldComp), pointer :: target_comp
     !---------------------------------------------------------------------------
 
     call history_get_comp( registered_comp_id, & ! (in)
@@ -390,7 +390,7 @@ contains
     integer :: ldomID
     real(RP), allocatable :: buf(:,:)
     
-    class(FileHistoryMeshFieldComp), pointer :: target_comp
+    type(FileHistoryMeshFieldComp), pointer :: target_comp
     !---------------------------------------------------------------------------
 
     call history_get_comp( registered_comp_id, & ! (in)
@@ -458,7 +458,7 @@ contains
     integer :: ldomID
     real(RP), allocatable :: buf(:,:,:)
 
-    class(FileHistoryMeshFieldComp), pointer :: target_comp
+    type(FileHistoryMeshFieldComp), pointer :: target_comp
     !---------------------------------------------------------------------------
 
     call history_get_comp( registered_comp_id, & ! (in)

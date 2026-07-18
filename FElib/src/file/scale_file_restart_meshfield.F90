@@ -211,7 +211,7 @@ contains
     class(FILE_restart_meshfield_component), intent(inout) :: this
     character(*), intent(in) :: comp_name
     integer, intent(in) :: var_num
-    character(len=H_SHORT), optional, intent(in) :: dim_name_postfix
+    character(len=*), optional, intent(in) :: dim_name_postfix
     class(MeshBase1D), target, optional, intent(in) :: mesh1D
     class(MeshRectDom2D), target, optional, intent(in) :: mesh2D
     class(MeshCubedSphereDom2D), target, optional, intent(in) :: meshCubedSphere2D
@@ -281,7 +281,7 @@ contains
     character(*), intent(in) :: out_title
     character(*), intent(in) :: out_dtype
     integer, intent(in) :: var_num
-    character(len=H_SHORT), intent(in) :: dim_name_postfix
+    character(len=*), intent(in) :: dim_name_postfix
     class(MeshBase1D), target, optional, intent(in) :: mesh1D
     class(MeshRectDom2D), target, optional, intent(in) :: mesh2D
     class(MeshCubedSphereDom2D), target, optional, intent(in) :: meshCubedSphere2D

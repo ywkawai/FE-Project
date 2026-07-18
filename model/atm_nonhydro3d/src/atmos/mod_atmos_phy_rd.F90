@@ -44,7 +44,7 @@ module mod_atmos_phy_rd
   use mod_atmos_vars_container, only: &
     AtmosVarsContainer
 
-  use scale_atm_phy_rd_dgm_gray, only: AtmPhyRadGray
+  use scale_atm_phy_rd_dgm_simple, only: AtmPhyRadSimple
 
   !-----------------------------------------------------------------------------
   implicit none
@@ -57,21 +57,23 @@ module mod_atmos_phy_rd
   !> Derived type to manage a component of radiation in atmospheric model
   !!
   type, extends(ModelComponentProc), public :: AtmosPhyRd
-    integer :: RD_TYPEID         !< Type id of radiation scheme
+    integer :: RD_TYPEID          !< Type id of radiation scheme
+    integer :: RD_SOLARINS_TYPEID !< Type id of solar insolation scheme
 
     type(AtmosPhyRdVars) :: vars               !< Object to manage variables with radiation
     type(MeshField2D), pointer :: SFC_TEMP_ptr !< Pointer to an object with surface temperature field
+    type(MeshField2D), pointer :: SFC_ALB_ptr  !< Pointer to an object with surface albedo field
 
     integer :: atm_var_container_typeid        !< Type ID of variable container for radiation
 
     !-
-    type(AtmPhyRadGray) :: gray_rad !< Object to manage a gray-radiation scheme
+    type(AtmPhyRadSimple) :: simple_rad !< Object to manage a simplified-radiation scheme
   contains
     procedure, public :: setup => AtmosPhyRd_setup
     procedure, public :: calc_tendency => AtmosPhyRd_calc_tendency
     procedure, public :: update => AtmosPhyRd_update
     procedure, public :: finalize => AtmosPhyRd_finalize
-    procedure, public :: SetSfcTemp => AtmosPhyRd_set_SfcTemp
+    procedure, public :: SetSfcVars => AtmosPhyRd_set_SfcVars
     procedure, private :: calc_tendency_core => AtmosPhyRd_calc_tendency_core
   end type AtmosPhyRd
 
@@ -86,8 +88,10 @@ module mod_atmos_phy_rd
   !
   !++ Private parameters & variables
   !
-  integer, parameter :: RD_TYPEID_GRAYRAD  = 1 !< Type ID of a gray radiation scheme
+  integer, parameter :: RD_TYPEID_SIMPLE  = 1 !< Type ID of a simple radiation scheme
 
+  integer, parameter :: RD_INSOLATION_TYPEID_NONE   = 0 !< Type ID of no solar insolation
+  integer, parameter :: RD_INSOLATION_TYPEID_SIMPLE = 1 !< Type ID of a simple solar insolation scheme
 contains
 
 !> Setup a component of radiation in atmospheric model
@@ -99,6 +103,8 @@ contains
     use mod_atmos_mesh, only: AtmosMesh
     use scale_time_manager, only: TIME_manager_component
     use mod_atmos_vars, only: ATM_VARS_CONTAINER_PRIMARY_ID
+    use scale_atm_phy_rd_solarins_simple, only: &
+      atm_phy_rd_solarins_simple_setup
     implicit none
     class(AtmosPhyRd), intent(inout) :: this
     class(ModelMeshBase), target, intent(in) :: model_mesh
@@ -107,13 +113,15 @@ contains
     real(DP) :: TIME_DT                             = UNDEF8 !< Timestep for radiation
     character(len=H_SHORT) :: TIME_DT_UNIT          = 'SEC'  !< Unit of timestep
 
-    character(len=H_MID) :: RD_TYPE = 'NONE'                 !< Type of a radiation scheme
+    character(len=H_MID) :: RD_TYPE          = 'NONE'        !< Type of a radiation scheme [NONE, GRAYRAD]
+    character(len=H_MID) :: RD_SOLARINS_TYPE = 'SIMPLE'      !< Type of solar insolation scheme [NONE, SIMPLE, REAL]
     integer :: atm_var_container_typeid
 
     namelist /PARAM_ATMOS_PHY_RD/ &
       TIME_DT,             &
       TIME_DT_UNIT,        &
       RD_TYPE,             &
+      RD_SOLARINS_TYPE,    &
       atm_var_container_typeid
 
     class(AtmosMesh), pointer     :: atm_mesh
@@ -152,11 +160,22 @@ contains
     !--- Set the type of radiation scheme
     
     select case ( RD_TYPE )
-    case ("GRAYRAD")
-      this%RD_TYPEID = RD_TYPEID_GRAYRAD
-      call this%gray_rad%Init()
+    case ("SIMPLE")
+      this%RD_TYPEID = RD_TYPEID_SIMPLE
+      call this%simple_rad%Init()
     case default
       LOG_ERROR("ATMOS_PHY_RD_setup",*) 'Not appropriate RD_TYPE. Check!'
+      call PRC_abort
+    end select
+
+    select case ( RD_SOLARINS_TYPE )
+    case ("SIMPLE")
+      this%RD_SOLARINS_TYPEID = RD_INSOLATION_TYPEID_SIMPLE
+      call atm_phy_rd_solarins_simple_setup()
+    case ("NONE")
+      this%RD_SOLARINS_TYPEID = RD_INSOLATION_TYPEID_NONE
+    case default
+      LOG_ERROR("ATMOS_PHY_RD_setup",*) 'Not appropriate RD_SOLARINS_TYPE. Check!'
       call PRC_abort
     end select
 
@@ -168,14 +187,16 @@ contains
   end subroutine AtmosPhyRd_setup
 
 !OCL SERIAL
-  subroutine AtmosPhyRd_set_SfcTemp( this, sfc_temp )
+  subroutine AtmosPhyRd_set_SfcVars( this, sfc_temp, sfc_alb )
     implicit none
     class(AtmosPhyRd), intent(inout) :: this
     type(MeshField2D), target, intent(in) :: sfc_temp
+    type(MeshField2D), target, intent(in) :: sfc_alb
     !-----------------------------------------------------
     this%SFC_TEMP_ptr => sfc_temp
+    this%SFC_ALB_ptr => sfc_alb
     return
-  end subroutine AtmosPhyRd_set_SfcTemp
+  end subroutine AtmosPhyRd_set_SfcVars
 
 !> Calculate tendencies associated with radiation in atmospheric model
 !!
@@ -191,6 +212,7 @@ contains
     this, model_mesh, prgvars_list, trcvars_list, &
     auxvars_list, forcing_list, is_update         )
     use scale_atm_phy_rd_dgm_common, only: ATM_PHY_RD_DGM_calc_heating
+    use scale_atm_phy_rd_solarins_simple, only: atm_phy_rd_solarins_simple_get
     use mod_atmos_vars, only: &
       AtmosVars_GetLocalMeshPrgVars,     &
       AtmosVars_GetLocalMeshPhyAuxVars,  &
@@ -198,6 +220,8 @@ contains
       AtmosVars_GetLocalMeshPhyTends
     use mod_atmos_phy_rd_vars, only: &
       RD_RHOH_ID => ATMOS_PHY_RD_RHOH_ID, &
+      SOLINS_ID => ATMOS_PHY_RD_AUX2D_SOLINS_ID,         &
+      COS_SZA_ID => ATMOS_PHY_RD_AUX2D_COSSZA_ID,        &
       SFLX_SW_up_ID => ATMOS_PHY_RD_AUX2D_SFLX_SW_up_ID, &
       SFLX_SW_dn_ID => ATMOS_PHY_RD_AUX2D_SFLX_SW_dn_ID, &
       SFLX_LW_up_ID => ATMOS_PHY_RD_AUX2D_SFLX_LW_up_ID, &
@@ -257,15 +281,28 @@ contains
         !- Calculate tendencies associated with radiation
 
         call PROF_rapstart('ATM_PHY_RD_cal_tend', 2)
+        
         lcmesh2D => lcmesh%lcmesh2D
+
+        select case ( this%RD_SOLARINS_TYPEID )
+        case ( RD_INSOLATION_TYPEID_SIMPLE )
+          call atm_phy_rd_solarins_simple_get( &
+            this%vars%auxvars2D(SOLINS_ID)%local(n)%val(:,lcmesh2D%NeS:lcmesh2D%NeE),  & ! (out)
+            this%vars%auxvars2D(COS_SZA_ID)%local(n)%val(:,lcmesh2D%NeS:lcmesh2D%NeE), & ! (out)
+            lcmesh2D%lat, lcmesh2D%Ne * lcmesh2D%refElem2D%Np )
+        end select
+
         call this%vars%tends(RD_RHOH_ID)%GetLocalMeshField( n, rd_RHOH )
         call this%calc_tendency_core( rd_RHOH%val,                & ! (out)
           this%vars%auxvars2D(SFLX_SW_up_ID)%local(n)%val,        & ! (out)
           this%vars%auxvars2D(SFLX_SW_dn_ID)%local(n)%val,        & ! (out)
           this%vars%auxvars2D(SFLX_LW_up_ID)%local(n)%val,        & ! (out)
           this%vars%auxvars2D(SFLX_LW_dn_ID)%local(n)%val,        & ! (out)
+          this%vars%auxvars2D(SOLINS_ID)%local(n)%val,            & ! (in)
+          this%vars%auxvars2D(COS_SZA_ID)%local(n)%val,           & ! (in)
           DDENS%val, PRES%val, QV%val,                            & ! (in)
           this%SFC_TEMP_ptr%local(n)%val,                         & ! (in)
+          this%SFC_ALB_ptr%local(n)%val,                          & ! (in)
           DENS_hyd%val, Rtot%val, CVtot%val,                      & ! (in)
           lcmesh, lcmesh%refElem3D, lcmesh2D, lcmesh2D%refElem2D, & ! (in)
           model_mesh%element3D_operation )                          ! (in)
@@ -330,8 +367,8 @@ contains
     if (.not. this%IsActivated()) return
 
     select case ( this%RD_TYPEID )
-    case( RD_TYPEID_GRAYRAD )
-      call this%gray_rad%Final()
+    case( RD_TYPEID_SIMPLE )
+      call this%simple_rad%Final()
     end select
 
     call this%vars%Final()
@@ -341,12 +378,13 @@ contains
 !- private ------------------------------------------------
 !OCL SERIAL
   subroutine AtmosPhyRd_calc_tendency_core( this, &
-    RHOH,                                           &
-    SFLX_SW_up, SFLX_SW_dn, SFLX_LW_up, SFLX_LW_dn, &
-    DDENS, PRES, QV, SFC_TEMP,                      &
-    DENS_hyd, Rtot, CVtot,                          &
-    lcmesh, elem3D, lcmesh2D, elem2D,               &
-    elem3D_operation )
+    RHOH,                                           & ! (out)
+    SFLX_SW_up, SFLX_SW_dn, SFLX_LW_up, SFLX_LW_dn, & ! (out)
+    SOLINS, COS_SZA,                                & ! (in)
+    DDENS, PRES, QV, SFC_TEMP, SFC_ALB,             & ! (in)
+    DENS_hyd, Rtot, CVtot,                          & ! (in)
+    lcmesh, elem3D, lcmesh2D, elem2D,               & ! (in)
+    elem3D_operation )                                ! (in)
     use scale_atmos_phy_rd_common, only: &
       I_up, I_dn, I_LW, I_SW
     use scale_element_operation_base, only: ElementOperationBase3D
@@ -362,10 +400,13 @@ contains
     real(RP), intent(out) :: SFLX_SW_dn(elem2D%Np,lcmesh2D%NeA)
     real(RP), intent(out) :: SFLX_LW_up(elem2D%Np,lcmesh2D%NeA)
     real(RP), intent(out) :: SFLX_LW_dn(elem2D%Np,lcmesh2D%NeA)
+    real(RP), intent(in) :: SOLINS(elem2D%Np,lcmesh2D%NeA)
+    real(RP), intent(in) :: COS_SZA(elem2D%Np,lcmesh2D%NeA)
     real(RP), intent(in) :: DDENS(elem3D%Np,lcmesh%NeA)
     real(RP), intent(in) :: PRES(elem3D%Np,lcmesh%NeA)
     real(RP), intent(in) :: QV(elem3D%Np,lcmesh%NeA)
     real(RP), intent(in) :: SFC_TEMP(elem2D%Np,lcmesh2D%NeA)
+    real(RP), intent(in) :: SFC_ALB(elem2D%Np,lcmesh2D%NeA)
     real(RP), intent(in) :: DENS_hyd(elem3D%Np,lcmesh%NeA)
     real(RP), intent(in) :: Rtot(elem3D%Np,lcmesh%NeA)
     real(RP), intent(in) :: CVtot(elem3D%Np,lcmesh%NeA)
@@ -373,6 +414,7 @@ contains
 
     real(RP) :: flux_rad(elem3D%Np,lcmesh%Ne,2,2,2)
     real(RP) :: flux_rad_top(elem3D%Nnode_h1D**2,lcmesh%Ne2D,2,2,2)
+    real(RP) :: sflux_rad_up(elem3D%Nnode_h1D**2,lcmesh%Ne2D,2,2)
     real(RP) :: sflux_rad_dn(elem3D%Nnode_h1D**2,lcmesh%Ne2D,2,2)
     real(RP) :: TEMP_(elem3D%Nnode_v,lcmesh%NeZ,elem3D%Nnode_h1D**2,lcmesh%Ne2D)
     real(RP) :: DENS_(elem3D%Nnode_v,lcmesh%NeZ,elem3D%Nnode_h1D**2,lcmesh%Ne2D)
@@ -411,16 +453,18 @@ contains
     end do
 
     select case( this%RD_TYPEID )
-    case ( RD_TYPEID_GRAYRAD )
-      call this%gray_rad%calculate_rad_flux( &
-        flux_rad(:,:,:,:,1), flux_rad_top(:,:,:,:,1), sflux_rad_dn(:,:,:,1), & ! (out)
-        PRES_, TEMP_, DENS_, QV_, SFC_TEMP,                         & ! (in)
-        lcmesh, elem3D, lcmesh2D, elem2D )                            ! (in)
+    case ( RD_TYPEID_SIMPLE )
+      call this%simple_rad%calculate_rad_flux( flux_rad(:,:,:,:,1),            & ! (out)
+        flux_rad_top(:,:,:,:,1), sflux_rad_up(:,:,:,1), sflux_rad_dn(:,:,:,1), & ! (out)
+        SOLINS, PRES_, TEMP_, DENS_, QV_, SFC_TEMP, SFC_ALB,                   & ! (in)
+        lcmesh, elem3D, lcmesh2D, elem2D )                                       ! (in)
       
       !$omp parallel do
       do ke=lcmesh2D%NeS, lcmesh2D%NeE
         SFLX_SW_dn(:,ke) = sflux_rad_dn(:,ke,I_SW,1)
         SFLX_LW_dn(:,ke) = sflux_rad_dn(:,ke,I_LW,1)
+        SFLX_SW_up(:,ke) = sflux_rad_up(:,ke,I_SW,1)
+        SFLX_LW_up(:,ke) = sflux_rad_up(:,ke,I_LW,1)
       end do
     end select
 
