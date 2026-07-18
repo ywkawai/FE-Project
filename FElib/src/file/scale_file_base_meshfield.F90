@@ -172,7 +172,7 @@ contains
     class(FILE_base_meshfield), intent(inout) :: this
     integer, intent(in) :: var_num                                    !< Number of output variables
     character(len=*), optional, intent(in) :: comp_name               !< Name of the main component
-    character(len=H_SHORT), optional, intent(in) :: dim_name_postfix  !< Postfix of dimension name for each component
+    character(len=*), optional, intent(in) :: dim_name_postfix        !< Postfix of dimension name for each component
     class(MeshBase1D), target, optional, intent(in) :: mesh1D                      !< 1D mesh object
     class(MeshRectDom2D), target, optional, intent(in) :: mesh2D                   !< 2D rectangular mesh object
     class(MeshCubedSphereDom2D), target, optional, intent(in) :: meshCubedSphere2D !< 2D cubed-sphere mesh object   
