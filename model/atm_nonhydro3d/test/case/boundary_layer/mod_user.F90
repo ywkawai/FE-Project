@@ -165,7 +165,6 @@ contains
       hydrostatic_build_rho_XYZ
     use mod_experiment, only: &
       TracerLocalMeshField_ptr
-    
     implicit none
 
     class(Experiment), intent(inout) :: this
@@ -186,10 +185,10 @@ contains
     real(RP), intent(in) :: dom_ymin, dom_ymax
     real(RP), intent(in) :: dom_zmin, dom_zmax
     
-    real(RP) :: U0       = 0.0_RP !< Initial horizontal velocity [m/s]
-    real(RP) :: TEMP0    = 250.0_RP !< Initial temperature [K]
-    real(RP) :: SFC_PRES = 1.0E5_RP !< Surface pressure [Pa]
-    real(RP) :: PTLAPS   = 0.0_RP !< Potential temperature lapse rate [K/km]
+    real(RP) :: U0       = 0.0_RP     !< Initial horizontal velocity [m/s]
+    real(RP) :: TEMP0    = 250.0_RP   !< Initial temperature [K]
+    real(RP) :: SFC_PRES = 1.0E5_RP   !< Surface pressure [Pa]
+    real(RP) :: PTLAPS   = 0.0_RP     !< Potential temperature lapse rate [K/m]
     real(RP) :: VSHEAR_HVEL = 0.01_RP !< Vertical shear of horizontal velocity [m/s/m]
 
     real(RP) :: ENV_RH   =  0.0_RP  !< Relative Humidity of environment [%]

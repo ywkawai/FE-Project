@@ -232,8 +232,6 @@ contains
       NU_ID => ATMOS_PHY_BL_DIAG_NU_ID,     &
       KH_ID => ATMOS_PHY_BL_DIAG_KH_ID
 
-    use scale_atm_phy_bl_dgm_common, only: &
-      atm_phy_bl_dgm_common_calc_tendency
     implicit none
     class(AtmosPhyBl), intent(inout) :: this
     class(ModelMeshBase), intent(in) :: model_mesh

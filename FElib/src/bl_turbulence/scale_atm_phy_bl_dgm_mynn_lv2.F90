@@ -166,8 +166,8 @@ contains
     real(RP), intent(in)  :: MOMY_ (elem%Np,lmesh%NeA)   !< Momentum in x2 direction
     real(RP), intent(in)  :: MOMZ_ (elem%Np,lmesh%NeA)   !< Momentum in x3 direction
     real(RP), intent(in)  :: DRHOT_(elem%Np,lmesh%NeA)   !< Density x potential temperature perturbation
-    real(RP), intent(in)  :: DENS_hyd(elem%Np,lmesh%NeA) !< Reference pressure in hydrostatic balance
-    real(RP), intent(in)  :: PRES_hyd(elem%Np,lmesh%NeA) !< Reference density in hydrostatic balance
+    real(RP), intent(in)  :: DENS_hyd(elem%Np,lmesh%NeA) !< Reference density in hydrostatic balance
+    real(RP), intent(in)  :: PRES_hyd(elem%Np,lmesh%NeA) !< Reference pressure in hydrostatic balance
     real(RP), intent(in)  :: PRES(elem%Np,lmesh%NeA)     !< Pressure
     real(RP), intent(in)  :: PT(elem%Np,lmesh%NeA)       !< Potential temperature
     type(SparseMat), intent(in) :: Dz, Lift

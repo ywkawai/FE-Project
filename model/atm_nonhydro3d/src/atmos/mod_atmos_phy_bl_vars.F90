@@ -97,7 +97,7 @@ module mod_atmos_phy_bl_vars
 
   type(VariableInfo) :: ATMOS_PHY_BL_DIAG_VINFO(ATMOS_PHY_BL_DIAG_NUM)
   DATA ATMOS_PHY_BL_DIAG_VINFO / &
-    VariableInfo( ATMOS_PHY_BL_DIAG_TKE_ID, 'TKE', 'SGS turbluence kinetic energy',   &
+    VariableInfo( ATMOS_PHY_BL_DIAG_TKE_ID, 'TKE', 'SGS turbulence kinetic energy',   &
                   'm2/s2',  3, 'XYZ',  ''                                          ), &
     VariableInfo( ATMOS_PHY_BL_DIAG_NU_ID, 'NU', 'eddy viscosity',                    &
                   'm2/s',  3, 'XYZ',  ''                                           ), &
@@ -207,6 +207,14 @@ contains
     implicit none
     class(AtmosPhyBlVars), intent(inout) :: this
     !----------------------------------------------------
+
+    LOG_INFO('AtmosPhyBlVars_Final',*)
+
+    call this%tends_manager%Final()
+    deallocate( this%tends )
+
+    call this%diagvars_manager%Final()
+    deallocate( this%diagvars )
     return
   end subroutine AtmosPhyBlVars_Final
 
