@@ -320,17 +320,23 @@ contains
     CPovR = CpDry / Rdry
     exner_sfc = (PRES_sfc / PRES00)**RovCP
 
-    !$omp parallel do private(PT, exner)
-    do ke=lcmesh3D%NeS, lcmesh3D%NeE
-      ! d exner / dz = - g / ( Cp * PT0 ) / (1 + PTLAPS/PT0 * z)
-      ! exner = exner(zs) - g / (Cp * PTLAPS ) * log[ 1 + PTLAPS/PT0 * z ] 
-      PT(:) = PotTemp0 + PTLAPS * z(:,ke)
-      exner(:) = exner_sfc - Grav / ( CpDry * PTLAPS ) * log( 1.0_RP + PTLAPS / PotTemp0 * z(:,ke) )
+    if ( PTLAPS == 0.0_RP ) then
+      call hydrostatic_calc_basicstate_constPT( &
+        DENS_hyd, PRES_hyd,                         &
+        PotTemp0, PRES_sfc, x, y, z, lcmesh3D, elem )
+    else
+      !$omp parallel do private(PT, exner)
+      do ke=lcmesh3D%NeS, lcmesh3D%NeE
+        ! d exner / dz = - g / ( Cp * PT0 ) / (1 + PTLAPS/PT0 * z)
+        ! exner = exner(zs) - g / (Cp * PTLAPS ) * log[ 1 + PTLAPS/PT0 * z ] 
+        PT(:) = PotTemp0 + PTLAPS * z(:,ke)
+        exner(:) = exner_sfc - Grav / ( CpDry * PTLAPS ) * log( 1.0_RP + PTLAPS / PotTemp0 * z(:,ke) )
 
-      PRES_hyd(:,ke) = PRES00 * exner(:)**CPovR
-      DENS_hyd(:,ke) =  PRES_hyd(:,ke) / ( Rdry * exner(:) * PT(:) )
-    end do
-
+        PRES_hyd(:,ke) = PRES00 * exner(:)**CPovR
+        DENS_hyd(:,ke) =  PRES_hyd(:,ke) / ( Rdry * exner(:) * PT(:) )
+      end do
+    end if
+    
     return
   end subroutine hydrostatic_calc_basicstate_constPTLAPS
 
