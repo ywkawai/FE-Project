@@ -23,6 +23,7 @@ VPATH = \
 	fluid_dyn_solver: \
 	surface:          \
 	turbulence:       \
+	bl_turbulence:    \
 	microphysics:     \
 	radiation:        \
 	model_framework:
@@ -171,6 +172,10 @@ OBJS_NAME_TURBULENCE = \
 	scale_atm_phy_tb_dgm_globalsmg.o \
 	scale_atm_phy_tb_dgm_common.o 
 
+OBJS_NAME_BL_TURBULENCE = \
+	scale_atm_phy_bl_dgm_mynn_lv2.o \
+	scale_atm_phy_bl_dgm_common.o
+
 OBJS_NAME_MICROPHYS = \
 	scale_atm_phy_mp_dgm_common.o \
 	scale_atm_phy_mp_lscond.o
@@ -197,6 +202,7 @@ OBJS_NAME = \
 	$(OBJS_NAME_FLUID_DYN_SOLVER) \
 	$(OBJS_NAME_SURFACE)          \
 	$(OBJS_NAME_TURBULENCE)       \
+	$(OBJS_NAME_BL_TURBULENCE)    \
 	$(OBJS_NAME_MICROPHYS)        \
 	$(OBJS_NAME_RADIATION)        \
 	$(OBJS_NAME_MODEL_FRAMEWORK)

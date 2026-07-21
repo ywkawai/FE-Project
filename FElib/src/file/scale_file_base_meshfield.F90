@@ -1200,32 +1200,39 @@ contains
     real(RP), allocatable :: x(:)
     real(RP), allocatable :: y(:)
     real(RP), allocatable :: z(:)
-
-    logical :: force_uniform_grid
     !------------
-
-    if ( this%mesh_type_id == MESHTYPE_2D_CUBEDSPHERE .or. this%mesh_type_id == MESHTYPE_3D_CUBEDSPHERE ) then
-      force_uniform_grid = .false.
-    else
-      force_uniform_grid = this%force_uniform_grid
-    end if
 
     select case ( this%mesh_type_id )
     case ( MESHTYPE_1D ) ! 1D mesh
       allocate( x(this%dimsinfo(1)%size) )
-      call File_common_meshfield_get_axis( this%mesh1D, this%dimsinfo, x(:), force_uniform_grid )
-
-      call FILE_Write_Axis( fid, this%dimsinfo(1)%name, x(:), start(1:1) )
     case ( MESHTYPE_2D_RECTDOM, MESHTYPE_2D_CUBEDSPHERE ) ! 2D mesh
       allocate( x(this%dimsinfo(1)%size), y(this%dimsinfo(2)%size) )
-      call File_common_meshfield_get_axis( this%mesh2D, this%dimsinfo, x(:), y(:), force_uniform_grid )
+    case ( MESHTYPE_3D_CUBEDOM, MESHTYPE_3D_CUBEDSPHERE ) ! 3D mesh
+      allocate( x(this%dimsinfo(1)%size), y(this%dimsinfo(2)%size), z(this%dimsinfo(3)%size) )
+    end select
 
+    !-
+    select case ( this%mesh_type_id )
+    case ( MESHTYPE_1D )             ! 1D mesh
+      call File_common_meshfield_get_axis( this%mesh1D, this%dimsinfo, x(:), this%force_uniform_grid )
+    case ( MESHTYPE_2D_RECTDOM )     ! 2D mesh
+      call File_common_meshfield_get_axis( this%mesh2D, this%dimsinfo, x(:), y(:), this%force_uniform_grid )
+    case ( MESHTYPE_2D_CUBEDSPHERE ) ! 2D mesh
+      call File_common_meshfield_get_axis( this%meshCS2D, this%dimsinfo, x(:), y(:) )
+    case ( MESHTYPE_3D_CUBEDOM )     ! 3D mesh
+      call File_common_meshfield_get_axis( this%mesh3D, this%dimsinfo, x(:), y(:), z(:), this%force_uniform_grid )
+    case ( MESHTYPE_3D_CUBEDSPHERE ) ! 3D mesh
+      call File_common_meshfield_get_axis( this%meshCS3D, this%dimsinfo, x(:), y(:), z(:) )
+    end select
+
+    !-
+    select case ( this%mesh_type_id )
+    case ( MESHTYPE_1D ) ! 1D mesh
+      call FILE_Write_Axis( fid, this%dimsinfo(1)%name, x(:), start(1:1) )
+    case ( MESHTYPE_2D_RECTDOM, MESHTYPE_2D_CUBEDSPHERE ) ! 2D mesh
       call FILE_Write_Axis( fid, this%dimsinfo(1)%name, x(:), start(1:1) )
       call FILE_Write_Axis( fid, this%dimsinfo(2)%name, y(:), start(2:2) )
     case ( MESHTYPE_3D_CUBEDOM, MESHTYPE_3D_CUBEDSPHERE ) ! 3D mesh
-      allocate( x(this%dimsinfo(1)%size), y(this%dimsinfo(2)%size), z(this%dimsinfo(3)%size) )
-      call File_common_meshfield_get_axis( this%mesh3D, this%dimsinfo, x(:), y(:), z(:), force_uniform_grid )
-
       call FILE_Write_Axis( fid, this%dimsinfo(1)%name, x(:), start(1:1) )
       call FILE_Write_Axis( fid, this%dimsinfo(2)%name, y(:), start(2:2) )
       call FILE_Write_Axis( fid, this%dimsinfo(3)%name, z(:), start(3:3) )

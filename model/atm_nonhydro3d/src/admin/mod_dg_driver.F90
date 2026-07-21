@@ -175,6 +175,7 @@ contains
       if ( atmos%phy_mp_proc%IsActivated() ) call atmos%phy_mp_proc%vars%History()
       if ( atmos%phy_sfc_proc%IsActivated() ) call atmos%phy_sfc_proc%vars%History()
       if ( atmos%phy_rd_proc%IsActivated() ) call atmos%phy_rd_proc%vars%History()
+      if ( atmos%phy_bl_proc%IsActivated() ) call atmos%phy_bl_proc%vars%History()
 
       if ( ocean%IsActivated() ) call ocean%vars%History()
 
@@ -359,14 +360,11 @@ contains
 
     if ( atmos%isActivated() ) then
       call atmos%vars%History()
-      if ( atmos%phy_sfc_proc%IsActivated() ) &
-        call atmos%phy_sfc_proc%vars%History()
-      if ( atmos%phy_tb_proc%IsActivated() )  &
-        call atmos%phy_tb_proc%vars%History()
-      if ( atmos%phy_mp_proc%IsActivated() )  &
-        call atmos%phy_mp_proc%vars%History()
-      if ( atmos%phy_rd_proc%IsActivated() )  &
-        call atmos%phy_rd_proc%vars%History()
+      if ( atmos%phy_sfc_proc%IsActivated() ) call atmos%phy_sfc_proc%vars%History()
+      if ( atmos%phy_tb_proc%IsActivated() ) call atmos%phy_tb_proc%vars%History()
+      if ( atmos%phy_mp_proc%IsActivated() ) call atmos%phy_mp_proc%vars%History()
+      if ( atmos%phy_rd_proc%IsActivated() ) call atmos%phy_rd_proc%vars%History()
+      if ( atmos%phy_bl_proc%IsActivated() ) call atmos%phy_bl_proc%vars%History()
       call atmos%vars%Monitor()
     end if
 

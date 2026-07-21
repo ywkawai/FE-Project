@@ -250,6 +250,7 @@ contains
     !- Setup the module for atmosphere / physics / PBL turbulence parameterization
     call this%phy_bl_proc%ModelComponentProc_Init( 'AtmosPhysBl', ATMOS_PHY_BL_DO )
     call this%phy_bl_proc%setup( this%mesh, this%time_manager )
+    call this%phy_bl_proc%SetDynBC( this%dyn_proc%dyncore_driver%boundary_cond )
 
     !- Setup
 
