@@ -998,7 +998,7 @@ contains
 
     tintbuf_ind = this%tend_buf_indmap(nowstage)
 
-    if ( this%nstage == 1 ) then
+    if ( this%nstage == 1 .and. (.not. this%imex_flag) ) then
 % if (d > 2) then
       !$omp parallel do collapse(<%=(d-1)%>)
 % else
@@ -1008,6 +1008,7 @@ contains
 % for i in 1..d
       do <%=ind_name[d-i]%>=<%=ind_range_list[d-i]%>
 % end
+        var0_<%=d%>d(<%=ind_ary%>,varID) = q(<%=ind_ary%>)
         varTmp_<%=d%>d(<%=ind_ary%>,varID) = q(<%=ind_ary%>)
 % for i in 1..d
       end do
@@ -1059,27 +1060,6 @@ contains
     !$omp parallel private( s, coef_a_ex_dt, coef_a_im_dt, coef_b_ex_dt, coef_b_im_dt ) &
     !$omp private( <%=ind_ary%> )
     !$acc parallel present( q, var0_<%=d%>D, varTmp_<%=d%>D, tend_buf<%=d%>D_ex, tend_buf<%=d%>D_im )
-
-    if ( nowstage == 1 .and. (.not. this%imex_flag) ) then
-% if (d > 2) then
-      !$omp do collapse(<%=(d-1)%>)
-% else
-      !$omp do
-% end
-% if (d >= 2) then
-      !$acc loop collapse(<%=(d)%>)
-% else
-      !$acc loop
-% end
-% for i in 1..d
-      do <%=ind_name[d-i]%>=<%=ind_range_list[d-i]%>
-% end      
-        var0_<%=d%>D(<%=ind_ary%>,varID) = q(<%=ind_ary%>)
-        varTmp_<%=d%>D(<%=ind_ary%>,varID) = q(<%=ind_ary%>)
-% for i in 1..d
-      end do
-% end
-    end if 
 
     if ( this%imex_flag ) then
       coef_b_ex_dt = this%coef_b_ex(nowstage) * this%dt
