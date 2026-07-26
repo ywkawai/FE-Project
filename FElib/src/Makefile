@@ -25,6 +25,7 @@ VPATH = \
 	turbulence:       \
 	bl_turbulence:    \
 	microphysics:     \
+	cumulus:          \
 	radiation:        \
 	model_framework:
 
@@ -180,6 +181,9 @@ OBJS_NAME_MICROPHYS = \
 	scale_atm_phy_mp_dgm_common.o \
 	scale_atm_phy_mp_lscond.o
 
+OBJS_NAME_CP = \
+	scale_atm_phy_cp_dgm_mconv_adjustment.o
+
 OBJS_NAME_RADIATION = \
 	scale_atm_phy_rd_solarins_simple.o \
 	scale_atm_phy_rd_dgm_simple.o      \
@@ -204,6 +208,7 @@ OBJS_NAME = \
 	$(OBJS_NAME_TURBULENCE)       \
 	$(OBJS_NAME_BL_TURBULENCE)    \
 	$(OBJS_NAME_MICROPHYS)        \
+	$(OBJS_NAME_CP)               \
 	$(OBJS_NAME_RADIATION)        \
 	$(OBJS_NAME_MODEL_FRAMEWORK)
 
