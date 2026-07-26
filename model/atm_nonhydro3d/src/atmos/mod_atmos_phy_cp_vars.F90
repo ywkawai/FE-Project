@@ -63,6 +63,7 @@ module mod_atmos_phy_cp_vars
   contains
     procedure :: Init => AtmosPhyCpVars_Init
     procedure :: Final => AtmosPhyCpVars_Final
+    procedure :: Setup => AtmosPhyCpVars_Setup
     procedure :: History => AtmosPhyCpVars_history
   end type AtmosPhyCpVars
 
@@ -111,6 +112,17 @@ contains
   !> Setup an object to manage variables with a cumulus parameterization component  
 !OCL SERIAL
   subroutine AtmosPhyCpVars_Init( this, model_mesh )
+    implicit none
+    class(AtmosPhyCpVars), target, intent(inout) :: this
+    class(ModelMeshBase), target, intent(in) :: model_mesh
+    !----------------------------------------------------
+
+    LOG_INFO('AtmosPhyCpVars_Init',*)
+    return
+  end subroutine AtmosPhyCpVars_Init
+
+  !> Setup variable objects with cumulus parameterization component
+  subroutine AtmosPhyCpVars_Setup( this, model_mesh )
     use scale_atmos_hydrometeor, only: &
        N_HYD, &
        HYD_NAME
@@ -118,7 +130,6 @@ contains
       TRACER_NAME, TRACER_DESC, TRACER_UNIT
     use scale_file_history, only: &
       FILE_HISTORY_reg
-
     implicit none
     class(AtmosPhyCpVars), target, intent(inout) :: this
     class(ModelMeshBase), target, intent(in) :: model_mesh
@@ -136,7 +147,6 @@ contains
     type(VariableInfo) :: qtrc_vterm_vinfo_tmp
     !----------------------------------------------------
 
-    LOG_INFO('AtmosPhyCpVars_Init',*)
 
     this%TENDS_NUM_TOT = ATMOS_PHY_CP_TENDS_NUM1 + N_HYD
 
@@ -205,7 +215,7 @@ contains
     end do
 
     return
-  end subroutine AtmosPhyCpVars_Init
+  end subroutine AtmosPhyCpVars_Setup
 
   !> Finalize an object to manage variables with cumulus parameterization component  
 !OCL SERIAL

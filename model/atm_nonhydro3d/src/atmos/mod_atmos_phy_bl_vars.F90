@@ -67,6 +67,7 @@ module mod_atmos_phy_bl_vars
   contains
     procedure :: Init => AtmosPhyBlVars_Init
     procedure :: Final => AtmosPhyBlVars_Final
+    procedure :: Setup => AtmosPhyBlVars_Setup
     procedure :: History => AtmosPhyBlVars_history
   end type AtmosPhyBlVars
 
@@ -113,18 +114,35 @@ contains
 !OCL SERIAL
   subroutine AtmosPhyBlVars_Init( this, model_mesh, &
     QS_BL, QE_BL, QA_BL )
-
-    use scale_tracer, only: &
-      TRACER_NAME, TRACER_DESC, TRACER_UNIT
-    use scale_file_history, only: &
-      FILE_HISTORY_reg
-
     implicit none
     class(AtmosPhyBlVars), target, intent(inout) :: this
     class(ModelMeshBase), target, intent(in) :: model_mesh
     integer, intent(in) :: QS_BL
     integer, intent(in) :: QE_BL
     integer, intent(in) :: QA_BL
+    !----------------------------------------------------
+
+    LOG_INFO('AtmosPhyBlVars_Init',*)
+
+    this%QS = QS_BL
+    this%QE = QE_BL
+    this%QA = QA_BL
+    this%TENDS_NUM_TOT = ATMOS_PHY_BL_TENDS_NUM1 + QE_BL - QS_BL + 1
+
+    return
+  end subroutine AtmosPhyBlVars_Init
+
+  !> Setup variable objects
+!OCL SERIAL
+  subroutine AtmosPhyBlVars_Setup( this, model_mesh )
+    use scale_tracer, only: &
+      TRACER_NAME, TRACER_DESC, TRACER_UNIT, &
+      QA
+    use scale_file_history, only: &
+      FILE_HISTORY_reg
+    implicit none
+    class(AtmosPhyBlVars), target, intent(inout) :: this
+    class(ModelMeshBase), target, intent(in) :: model_mesh
 
     integer :: iv
     integer :: iq
@@ -138,13 +156,6 @@ contains
     type(VariableInfo) :: qtrc_tp_vinfo_tmp
     type(VariableInfo) :: qtrc_vterm_vinfo_tmp
     !----------------------------------------------------
-
-    LOG_INFO('AtmosPhyBlVars_Init',*)
-
-    this%QS = QS_BL
-    this%QE = QE_BL
-    this%QA = QA_BL
-    this%TENDS_NUM_TOT = ATMOS_PHY_BL_TENDS_NUM1 + QE_BL - QS_BL + 1
 
     !- Initialize auxiliary and diagnostic variables
 
@@ -199,7 +210,7 @@ contains
     end do
 
     return
-  end subroutine AtmosPhyBlVars_Init
+  end subroutine AtmosPhyBlVars_Setup
 
   !> Finalize an object to manage variables with planetary boundary layer (PBL) turbulence parameterization component  
 !OCL SERIAL
