@@ -186,7 +186,7 @@ contains
     real(RP), intent(in) :: dom_zmin, dom_zmax
     
     real(RP) :: U0       = 0.0_RP     !< Initial horizontal velocity [m/s]
-    real(RP) :: TEMP0    = 250.0_RP   !< Initial temperature [K]
+    real(RP) :: SFC_POTT = 250.0_RP   !< Initial surface potential temperature [K]
     real(RP) :: SFC_PRES = 1.0E5_RP   !< Surface pressure [Pa]
     real(RP) :: PTLAPS   = 0.0_RP     !< Potential temperature lapse rate [K/m]
     real(RP) :: VSHEAR_HVEL = 0.01_RP !< Vertical shear of horizontal velocity [m/s/m]
@@ -194,8 +194,8 @@ contains
     real(RP) :: ENV_RH   =  0.0_RP  !< Relative Humidity of environment [%]
     integer :: NITER_RH  = 3
     namelist /PARAM_EXP/ &
-      TEMP0,       &
       PTLAPS,      &
+      SFC_POTT,    &
       U0,          &
       VSHEAR_HVEL, &
       ENV_RH, &
@@ -213,10 +213,19 @@ contains
     real(RP) :: Rtot  (elem%Np,lcmesh%NeZ,lcmesh%NeX,lcmesh%NeY)
     real(RP) :: CPtot(elem%Np,lcmesh%NeZ,lcmesh%NeX,lcmesh%NeY)
     real(RP) :: CPtot_ov_CVtot(elem%Np,lcmesh%NeZ,lcmesh%NeX,lcmesh%NeY)
+
+    real(RP) :: sfc_rhot(elem%Nfp_v)
     real(RP) :: bnd_SFC_PRES(elem%Nnode_h1D**2,lcmesh%lcmesh2D%NeA)
+
+    real(RP) :: temp_z(elem%Nnode_v,lcmesh%NeZ)
+    real(RP) :: pres_z(elem%Nnode_v,lcmesh%NeZ)
+    real(RP) :: dens_z(elem%Nnode_v,lcmesh%NeZ)
+    real(RP) :: qv_z  (elem%Nnode_v,lcmesh%NeZ)
+    real(RP) :: rtot_z(elem%Nnode_v,lcmesh%NeZ)
+    real(RP) :: cptot_z(elem%Nnode_v,lcmesh%NeZ)
+    real(RP) :: cvtot_z(elem%Nnode_v,lcmesh%NeZ)
+    real(RP) :: psat_z(elem%Nnode_v,lcmesh%NeZ)
     real(RP) :: QV(elem%Np)
-    real(RP) :: PRES(elem%Np)
-    real(RP) :: psat0
 
     integer :: itr
     !-----------------------------------------------------------------------------
@@ -234,8 +243,8 @@ contains
     !---
 
     call hydrostatic_calc_basicstate_constPTLAPS( &
-      DENS_hyd, PRES_hyd,                            & ! (out)
-      PTLAPS, TEMP0, SFC_PRES, x, y, z, lcmesh, elem ) ! (in)
+      DENS_hyd, PRES_hyd,                               & ! (out)
+      PTLAPS, SFC_POTT, SFC_PRES, x, y, z, lcmesh, elem ) ! (in)
 
     !$omp parallel do collapse(3) private(ke_z,ke_x,ke_y,ke,ke2D)
     do ke_y=1, lcmesh%NeY
@@ -243,7 +252,7 @@ contains
     do ke_z=1, lcmesh%NeZ
       ke2D = ke_x + (ke_y-1)*lcmesh%NeX
       ke = ke2D + (ke_z-1)*lcmesh%NeX*lcmesh%NeY
-      PT_tmp(:,ke_z,ke_x,ke_y) = TEMP0 + PTLAPS * z(:,ke)
+      PT_tmp(:,ke_z,ke_x,ke_y) = SFC_POTT + PTLAPS * z(:,ke)
       RHOT_hyd(:,ke) = DENS_hyd(:,ke) * PT_tmp(:,ke_z,ke_x,ke_y)
     end do
     end do
@@ -256,12 +265,31 @@ contains
       LOG_INFO("BOUNDARY_LAYER_setup",*) 'NITER_RH = ', NITER_RH
 
       call TRACER_inq_id( "QV", iq_QV )
-      call ATMOS_SATURATION_psat_all( TEMP0, psat0 )
 
       do itr=1, NITER_RH
         LOG_INFO("BOUNDARY_LAYER_setup",*) 'RH iteration: ', itr
 
-        !$omp parallel do collapse(3) private(ke_z,ke_x,ke_y,ke,ke2D,p3,p2D,p, QV,PRES)
+        do ke_z=1, lcmesh%NeZ
+        do p3=1, elem%Nnode_v
+          ke = 1 + (ke_z - 1)*lcmesh%Ne2D
+          p  = 1 + (p3 - 1)*elem%Nnode_h1D**2
+
+          QV(p) = tracer_field_list(iq_QV)%ptr%val(p,ke)
+          rtot_z (p3,ke_z) = Rdry  * ( 1.0_RP - QV(p) ) + Rvap     * QV(p)
+          cptot_z(p3,ke_z) = CPdry * ( 1.0_RP - QV(p) ) + CP_VAPOR * QV(p)
+          cvtot_z(p3,ke_z) = CVdry * ( 1.0_RP - QV(p) ) + CV_VAPOR * QV(p)
+
+          dens_z(p3,ke_z) = DENS_hyd(p,ke) + DDENS(p,ke)
+          pres_z(p3,ke_z) = PRES00 * ( rtot_z(p3,ke_z) / PRES00 * dens_z(p3,ke_z) * PT_tmp(p,ke_z,1,1) )**(cptot_z(p3,ke_z)/cvtot_z(p3,ke_z))
+          temp_z(p3,ke_z) = pres_z(p3,ke_z) / ( rtot_z(p3,ke_z) * dens_z(p3,ke_z) )
+        end do
+        end do
+        call ATMOS_SATURATION_psat_all( &
+          elem%Nnode_v, 1, elem%Nnode_v, lcmesh%NeZ, 1, lcmesh%NeZ, &
+          temp_z,                                           &
+          psat_z                                            ) ! [OUT]
+
+        !$omp parallel do collapse(3) private(ke_z,ke_x,ke_y,ke,ke2D,p3,p2D,p, QV,sfc_rhot)
         do ke_y=1, lcmesh%NeY
         do ke_x=1, lcmesh%NeX
         do ke_z=1, lcmesh%NeZ
@@ -271,7 +299,7 @@ contains
           do p3=1, elem%Nnode_v
           do p2D=1, elem%Nnode_h1D**2
             p = p2D + (p3 - 1)*elem%Nnode_h1D**2
-            QV(p) = ENV_RH * 1.0E-2_RP * psat0 / ( ( DENS_hyd(p,ke) + DDENS(p,ke) ) * Rvap * TEMP0 )
+            QV(p) = ENV_RH * 1.0E-2_RP * psat_z(p3,ke_z) / ( ( DENS_hyd(p,ke) + DDENS(p,ke) ) * Rvap * temp_z(p3,ke_z) )
           end do
           end do
           tracer_field_list(iq_QV)%ptr%val(:,ke) = QV(:)
@@ -281,10 +309,9 @@ contains
           CPtot_ov_CVtot(:,ke_z,ke_x,ke_y) = CPtot(:,ke_z,ke_x,ke_y)                         &
                                           / ( CVdry * ( 1.0_RP - QV(:) ) + CV_VAPOR * QV(:) )
 
-          PRES(:) = ( DENS_hyd(:,ke) + DDENS(:,ke) ) * Rtot(:,ke_z,ke_x,ke_y) * TEMP0
-          PT_tmp(:,ke_z,ke_x,ke_y) = TEMP0 * ( PRES00 / PRES(:) )**( Rtot(:,ke_z,ke_x,ke_y) / CPtot(:,ke_z,ke_x,ke_y) )
           if ( ke_z == 1 ) then
-            bnd_SFC_PRES(:,ke2D) = PRES(elem%Hslice(:,1))
+            sfc_rhot(:) = ( DDENS(elem%Hslice(:,1),ke2D) + DENS_hyd(elem%Hslice(:,1),ke2D) ) * PT_tmp(elem%Hslice(:,1),ke_z,ke_x,ke_y)        
+            bnd_SFC_PRES(:,ke2D) = PRES00 * ( Rtot(elem%Hslice(:,1),ke_z,ke_x,ke_y) * sfc_rhot(:) / PRES00 )**CPtot_ov_CVtot(elem%Hslice(:,1),ke_z,ke_x,ke_y)
           end if
         end do
         end do
@@ -304,6 +331,7 @@ contains
     do ke_z=1, lcmesh%NeZ
       ke2D = ke_x + (ke_y-1)*lcmesh%NeX
       ke = ke2D + (ke_z-1)*lcmesh%NeX*lcmesh%NeY
+
       DRHOT(:,ke) = ( DENS_hyd(:,ke) + DDENS(:,ke) ) * PT_tmp(:,ke_z,ke_x,ke_y) &
         - RHOT_hyd(:,ke)
 
