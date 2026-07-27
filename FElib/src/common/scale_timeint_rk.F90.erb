@@ -1004,7 +1004,7 @@ contains
 % else
       !$omp parallel do
 % end
-      !$acc parallel loop collapse(<%=(d)%>) present( q, varTmp_<%=d%>d )
+      !$acc parallel loop collapse(<%=(d)%>) present( q, var0_<%=d%>d, varTmp_<%=d%>d )
 % for i in 1..d
       do <%=ind_name[d-i]%>=<%=ind_range_list[d-i]%>
 % end

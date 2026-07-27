@@ -1897,7 +1897,7 @@ contains
 
     if ( nowstage == 1 .and. (.not. this%imex_flag) ) then
       !$omp parallel do
-      !$acc parallel loop collapse(1) present( q, varTmp_1d )
+      !$acc parallel loop collapse(1) present( q, var0_1d, varTmp_1d )
       do i=is, ie
         var0_1d(i,varID) = q(i)
         varTmp_1d(i,varID) = q(i)
@@ -2221,7 +2221,7 @@ contains
 
     if ( nowstage == 1 .and. (.not. this%imex_flag) ) then
       !$omp parallel do
-      !$acc parallel loop collapse(2) present( q, varTmp_2d )
+      !$acc parallel loop collapse(2) present( q, var0_2d, varTmp_2d )
       do j=js, je
       do i=is, ie
         var0_2d(i,j,varID) = q(i,j)
@@ -2585,7 +2585,7 @@ contains
 
     if ( nowstage == 1 .and. (.not. this%imex_flag) ) then
       !$omp parallel do collapse(2)
-      !$acc parallel loop collapse(3) present( q, varTmp_3d )
+      !$acc parallel loop collapse(3) present( q, var0_3d, varTmp_3d )
       do k=ks, ke
       do j=js, je
       do i=is, ie
