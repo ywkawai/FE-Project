@@ -63,8 +63,11 @@ module mod_atmos_phy_cp_vars
   contains
     procedure :: Init => AtmosPhyCpVars_Init
     procedure :: Final => AtmosPhyCpVars_Final
+    procedure :: Setup => AtmosPhyCpVars_Setup
     procedure :: History => AtmosPhyCpVars_history
   end type AtmosPhyCpVars
+
+  public :: AtmosPhyCpVars_GetLocalMeshFields_tend
 
   !-----------------------------------------------------------------------------
   !
@@ -109,6 +112,17 @@ contains
   !> Setup an object to manage variables with a cumulus parameterization component  
 !OCL SERIAL
   subroutine AtmosPhyCpVars_Init( this, model_mesh )
+    implicit none
+    class(AtmosPhyCpVars), target, intent(inout) :: this
+    class(ModelMeshBase), target, intent(in) :: model_mesh
+    !----------------------------------------------------
+
+    LOG_INFO('AtmosPhyCpVars_Init',*)
+    return
+  end subroutine AtmosPhyCpVars_Init
+
+  !> Setup variable objects with cumulus parameterization component
+  subroutine AtmosPhyCpVars_Setup( this, model_mesh )
     use scale_atmos_hydrometeor, only: &
        N_HYD, &
        HYD_NAME
@@ -116,7 +130,6 @@ contains
       TRACER_NAME, TRACER_DESC, TRACER_UNIT
     use scale_file_history, only: &
       FILE_HISTORY_reg
-
     implicit none
     class(AtmosPhyCpVars), target, intent(inout) :: this
     class(ModelMeshBase), target, intent(in) :: model_mesh
@@ -134,7 +147,6 @@ contains
     type(VariableInfo) :: qtrc_vterm_vinfo_tmp
     !----------------------------------------------------
 
-    LOG_INFO('AtmosPhyCpVars_Init',*)
 
     this%TENDS_NUM_TOT = ATMOS_PHY_CP_TENDS_NUM1 + N_HYD
 
@@ -203,7 +215,7 @@ contains
     end do
 
     return
-  end subroutine AtmosPhyCpVars_Init
+  end subroutine AtmosPhyCpVars_Setup
 
   !> Finalize an object to manage variables with cumulus parameterization component  
 !OCL SERIAL
@@ -224,11 +236,71 @@ contains
   end subroutine AtmosPhyCpVars_Final
 
 !OCL SERIAL
+  subroutine AtmosPhyCpVars_GetLocalMeshFields_tend( domID, mesh, bl_tends_list, &
+    cp_DENS_t, cp_RHOT_t, cp_RHOQv_t,                                             &
+    lcmesh3D                                                                     &
+    )
+
+    use scale_mesh_base, only: MeshBase
+    use scale_meshfield_base, only: MeshFieldBase
+    implicit none
+
+    integer, intent(in) :: domID
+    class(MeshBase), intent(in) :: mesh
+    class(ModelVarManager), intent(inout) :: bl_tends_list
+    class(LocalMeshFieldBase), pointer, intent(out) :: cp_DENS_t
+    class(LocalMeshFieldBase), pointer, intent(out) :: cp_RHOT_t
+    class(LocalMeshFieldBase), pointer, intent(out) :: cp_RHOQv_t
+    class(LocalMesh3D), pointer, intent(out), optional :: lcmesh3D
+
+    class(MeshFieldBase), pointer :: field   
+    class(LocalMeshBase), pointer :: lcmesh
+
+    integer :: iq
+    !-------------------------------------------------------
+
+    !--
+    call bl_tends_list%Get(ATMOS_PHY_CP_DENS_t_ID, field)
+    call field%GetLocalMeshField(domID, cp_DENS_t)
+
+    call bl_tends_list%Get(ATMOS_PHY_CP_RHOT_t_ID, field)
+    call field%GetLocalMeshField(domID, cp_RHOT_t)
+
+    call bl_tends_list%Get(ATMOS_PHY_CP_RHOQv_t_ID, field)
+    call field%GetLocalMeshField(domID, cp_RHOQv_t)
+
+    if (present(lcmesh3D)) then
+      call mesh%GetLocalMesh( domID, lcmesh )
+      nullify( lcmesh3D )
+
+      select type(lcmesh)
+      type is (LocalMesh3D)
+        if (present(lcmesh3D)) lcmesh3D => lcmesh
+      end select
+    end if
+
+    return
+  end subroutine AtmosPhyCpVars_GetLocalMeshFields_tend
+
+!OCL SERIAL
   subroutine AtmosPhyCpVars_history( this )
     use scale_file_history_meshfield, only: FILE_HISTORY_meshfield_put
     implicit none
     class(AtmosPhyCpVars), intent(inout) :: this
+
+    integer :: v
+    integer :: hst_id
     !----------------------------------------------------
+
+    do v=1, this%TENDS_NUM_TOT
+      hst_id = this%tends(v)%hist_id
+      if ( hst_id > 0 ) call FILE_HISTORY_meshfield_put( hst_id, this%tends(v) )
+    end do
+
+    do v=1, ATMOS_PHY_CP_AUX2D_NUM
+      hst_id = this%auxvars2D(v)%hist_id
+      if ( hst_id > 0 ) call FILE_HISTORY_meshfield_put( hst_id, this%auxvars2D(v) )
+    end do
     return
   end subroutine AtmosPhyCpVars_history
 

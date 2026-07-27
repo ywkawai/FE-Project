@@ -528,6 +528,7 @@ contains
       end do ! end for RK loop
 
       do n=1, mesh3D%LOCAL_MESH_NUM
+        lcmesh3D => mesh3D%lcmesh_list(n)
         !$omp parallel do
         do ke=lcmesh3D%NeS, lcmesh3D%NeE
           QTRC%local(n)%val(:,ke) = ( DENS_hyd%local(n)%val(:,ke) + DDENS_TRC%local(n)%val(:,ke) ) &

@@ -18,6 +18,8 @@ module scale_atm_phy_bl_dgm_common
   use scale_prof
   use scale_const, only: &
     EPS  => CONST_EPS
+  use scale_tracer, only: QA
+
   use scale_sparsemat  
   use scale_element_base, only: &
     ElementBase1D, ElementBase2D, ElementBase3D
@@ -25,7 +27,7 @@ module scale_atm_phy_bl_dgm_common
   use scale_localmesh_2d, only: LocalMesh2D  
   use scale_localmesh_3d, only: LocalMesh3D
   use scale_mesh_base3d, only: MeshBase3D
-  use scale_localmeshfield_base, only: LocalMeshField3D
+  use scale_localmeshfield_base, only: LocalMeshField3D, LocalMeshFieldBaseList
   use scale_meshfield_base, only: MeshField3D
 
   use scale_element_operation_base, only: ElementOperationBase3D
@@ -49,10 +51,11 @@ module scale_atm_phy_bl_dgm_common
   !++ Private parameters & variables
   !
 contains
+  !> Calculate tendency with PBL turbulence models
 !OCL SERIAL
   subroutine atm_phy_bl_dgm_common_calc_tendency( &
-    RHOU_tp, RHOV_tp, DRHOT_tp,            & ! (out)
-    DDENS_, MOMX_, MOMY_, DRHOT_,          & ! (in)
+    RHOU_tp, RHOV_tp, DRHOT_tp, RHOQ_tp_list, & ! (out)
+    DDENS_, MOMX_, MOMY_, DRHOT_, RHOQ_list,  & ! (in)
     PT_, DENS_hyd, PRES_hyd, NU, KH,       & ! (in)
     element3D_operation, C_IP, dtsec,      & ! (in)
     lmesh, elem, elem1D, is_bound,         & ! (in)
@@ -66,10 +69,12 @@ contains
     real(RP), intent(out) :: RHOU_tp(elem%Np,lmesh%NeA)
     real(RP), intent(out) :: RHOV_tp(elem%Np,lmesh%NeA)
     real(RP), intent(out) :: DRHOT_tp(elem%Np,lmesh%NeA)
+    type(LocalMeshFieldBaseList), intent(inout) :: RHOQ_tp_list(QA)
     real(RP), intent(in) :: DDENS_(elem%Np,lmesh%NeA)
     real(RP), intent(in) :: MOMX_(elem%Np,lmesh%NeA)
     real(RP), intent(in) :: MOMY_(elem%Np,lmesh%NeA)
     real(RP), intent(in) :: DRHOT_(elem%Np,lmesh%NeA)
+    type(LocalMeshFieldBaseList), intent(in) :: RHOQ_list(QA)
     real(RP), intent(in) :: PT_(elem%Np,lmesh%NeA)
     real(RP), intent(in) :: DENS_hyd(elem%Np,lmesh%NeA)
     real(RP), intent(in) :: PRES_hyd(elem%Np,lmesh%NeA)
@@ -84,7 +89,10 @@ contains
     class(LocalMesh2D), pointer :: lmesh2D
     class(ElementBase2D), pointer :: elem2D
 
-    real(RP) :: PROG_VARS (elem%Np,lmesh%NeX*lmesh%NeY,lmesh%NeZ,3)
+    integer :: iq
+    real(RP) :: RHOQ00_(elem%Np,QA,lmesh%Ne)
+
+    real(RP) :: PROG_VARS (elem%Np,lmesh%NeX*lmesh%NeY,lmesh%NeZ,3+QA)
     real(RP) :: alph_M(elem%NfpTot,lmesh%Ne)
     real(RP) :: alph_H(elem%NfpTot,lmesh%Ne)
     real(RP) :: GsqrtV(elem%Np,lmesh%Ne)
@@ -102,7 +110,7 @@ contains
     real(RP), allocatable :: BndMatD(:,:,:,:,:)
     real(RP), allocatable :: G(:,:,:,:,:,:)
 
-    real(RP) :: impl_fac
+    real(RP) :: impl_fac, r_impl_fac
     !------------------------------------------------------------------------
 
     lmesh2D => lmesh%lcmesh2D
@@ -113,12 +121,21 @@ contains
     call atm_dyn_dgm_hevi_common_linalgebra_get_param( im, jm, & ! (out)
       elem%Nnode_v )
 
-    allocate( b1D_ij(im*elem%Nnode_v,3,jm,lmesh%Ne2D,lmesh%NeZ) )
+    allocate( b1D_ij(im*elem%Nnode_v,3+QA,jm,lmesh%Ne2D,lmesh%NeZ) )
     allocate( BndMatD(im*elem%Nnode_v,elem%Nnode_v,jm,lmesh%Ne2D,2) )
     allocate( BndMatL(im*elem%Nnode_v,elem%Nnode_v,jm,lmesh%Ne2D,2) )
     allocate( G(im*elem%Nnode_v,elem%Nnode_v,jm,lmesh%Ne2D,lmesh%NeZ,2) )
 
-    !$omp parallel do collapse(2) private( ke, ke2D )
+    !$omp parallel private( ke, ke2D )
+    !$omp do collapse(2)
+    do iq = 1, QA
+    do ke=lmesh%NeS, lmesh%NeE
+      RHOQ00_(:,iq,ke) = RHOQ_list(iq)%ptr%val(:,ke)
+    end do
+    end do
+    !$omp end do
+
+    !$omp do collapse(2)
     do ke_z =1, lmesh%NeZ
     do ke_xy=1, lmesh%NeX * lmesh%NeY
       ke = ke_xy + (ke_z-1)*lmesh%Ne2D
@@ -129,17 +146,22 @@ contains
       PROG_VARS(:,ke_xy,ke_z,1) = MOMX_ (:,ke)
       PROG_VARS(:,ke_xy,ke_z,2) = MOMY_ (:,ke)
       PROG_VARS(:,ke_xy,ke_z,3) = DENS(:,ke) * PT_(:,ke)
+      do iq = 1, QA
+        PROG_VARS(:,ke_xy,ke_z,3+iq) = RHOQ00_(:,iq,ke)
+      end do
 
       do p=1, elem%Np
         GsqrtV(p,ke)  = lmesh%Gsqrt(p,ke) / lmesh%GsqrtH(elem%IndexH2Dto3D(p),ke2D)
       end do
     end do
     end do
+    !$omp end do
+    !$omp end parallel
 
-    call eval_Ax( RHOU_tp, RHOV_tp, DRHOT_tp, alph_M, alph_H,   & !(out)
-      PROG_VARS, MOMX_, MOMY_, PT_, NU, KH, DENS, GsqrtV,       & !(in)
-      impl_fac, dtsec, lmesh, elem, vmapM, vmapP, is_bound,     & !(in)
-      element3D_operation, C_IP, im, jm, b1D_ij, use_delta_form ) !(in)
+    call eval_Ax( RHOU_tp, RHOV_tp, DRHOT_tp, RHOQ_tp_list, alph_M, alph_H, & !(out)
+      PROG_VARS, MOMX_, MOMY_, PT_, RHOQ00_, NU, KH, DENS, GsqrtV,          & !(in)
+      impl_fac, dtsec, lmesh, elem, vmapM, vmapP, is_bound,                 & !(in)
+      element3D_operation, C_IP, im, jm, b1D_ij, use_delta_form             ) !(in)
 
     call vi_solve( PROG_VARS,                      & ! (inout)
       BndMatL, BndMatD, G, b1D_ij,                 & ! (inout)
@@ -147,13 +169,19 @@ contains
       im, jm, lmesh, elem, elem1D, use_delta_form  ) ! (in)
 
     !---
-    !$omp parallel do collapse(2) private( ke )
+    r_impl_fac = 1.0_RP / impl_fac
+
+    !$omp parallel do collapse(2) private( ke, iq )
     do ke_z =1, lmesh%NeZ
     do ke_xy=1, lmesh%NeX * lmesh%NeY
       ke = ke_xy + (ke_z-1)*lmesh%Ne2D
-      RHOU_tp (:,ke) = ( PROG_VARS(:,ke_xy,ke_z,1) - MOMX_ (:,ke) ) / impl_fac
-      RHOV_tp (:,ke) = ( PROG_VARS(:,ke_xy,ke_z,2) - MOMY_ (:,ke) ) / impl_fac
-      DRHOT_tp(:,ke) = ( PROG_VARS(:,ke_xy,ke_z,3) - DENS(:,ke) * PT_(:,ke) ) / impl_fac
+      RHOU_tp (:,ke) = ( PROG_VARS(:,ke_xy,ke_z,1) - MOMX_ (:,ke) ) * r_impl_fac
+      RHOV_tp (:,ke) = ( PROG_VARS(:,ke_xy,ke_z,2) - MOMY_ (:,ke) ) * r_impl_fac
+      DRHOT_tp(:,ke) = ( PROG_VARS(:,ke_xy,ke_z,3) - DENS(:,ke) * PT_(:,ke) ) * r_impl_fac
+
+      do iq=1, QA
+        RHOQ_tp_list(iq)%ptr%val(:,ke) = ( PROG_VARS(:,ke_xy,ke_z,3+iq) - RHOQ00_(:,iq,ke) ) * r_impl_fac
+      end do
     end do
     end do
 
@@ -162,6 +190,7 @@ contains
 
 !- Private subroutines -----------------------------
 
+  !> Solve the block tridiagonal system which is generated by the vertical diffusion equation for PBL turbulence models
 !OCL SERIAL
   subroutine vi_solve( PROG_VARS,                & ! (inout)
     BndMatL, BndMatD, G, b1D_ij,                 & ! (inout)
@@ -172,11 +201,11 @@ contains
     class(LocalMesh3D), intent(in) :: lmesh
     class(ElementBase3D), intent(in) :: elem
     class(ElementBase1D), intent(in) :: elem1D
-    real(RP), intent(inout) :: PROG_VARS(elem%Nnode_h1D**2,elem%Nnode_v,lmesh%Ne2D,lmesh%NeZ,3)
+    real(RP), intent(inout) :: PROG_VARS(elem%Nnode_h1D**2,elem%Nnode_v,lmesh%Ne2D,lmesh%NeZ,3+QA)
     real(RP), intent(inout) :: BndMatL(im*elem%Nnode_v,elem%Nnode_v,jm,lmesh%Ne2D,2)
     real(RP), intent(inout) :: BndMatD(im*elem%Nnode_v,elem%Nnode_v,jm,lmesh%Ne2D,2)
     real(RP), intent(inout) :: G(im*elem%Nnode_v,elem%Nnode_v,jm,lmesh%Ne2D,lmesh%NeZ,2)
-    real(RP), intent(inout) :: b1D_ij(im*elem%Nnode_v,3,jm,lmesh%Ne2D,lmesh%NeZ)
+    real(RP), intent(inout) :: b1D_ij(im*elem%Nnode_v,3+QA,jm,lmesh%Ne2D,lmesh%NeZ)
     real(RP), intent(in) :: DENS(elem%Np,lmesh%Ne)
     real(RP), intent(in) :: NU(elem%Np,lmesh%NeA)
     real(RP), intent(in) :: KH(elem%Np,lmesh%NeA)
@@ -189,9 +218,11 @@ contains
     integer :: ke_z, ke_xy
     integer :: i, j, ij
     integer :: pv, pv1, pv2, pp, p2
+    integer :: iv
 
     real(RP) :: tmp(im*elem%Nnode_v,2)
-    real(RP) :: tmp_b(im*elem%Nnode_v,3)
+    real(RP) :: tmp_b(im*elem%Nnode_v,2)
+    real(RP) :: tmp_b2(im*elem%Nnode_v)
     !-------------------------------------------------------
 
     do ke_z=1, lmesh%NeZ
@@ -206,7 +237,7 @@ contains
         impl_fac, dtsec, C_IP, lmesh, elem, im, jm, ke_z           ) ! (in)
     
       if ( ke_z > 1 ) then
-        !$omp parallel do collapse(2) private( pp, p2, tmp, tmp_b )
+        !$omp parallel do collapse(2) private( pp, p2, tmp, tmp_b,tmp_b2 )
         do ke_xy=1, lmesh%NeX * lmesh%NeY
         do j=1, jm
           !* D_k <- D_k - L_k * G_{k-1} ------------------
@@ -233,13 +264,25 @@ contains
             pp = i + (pv1-1)*im; p2 = i + (pv -1)*im
             tmp_b(pp,1) = tmp_b(pp,1) + BndMatL(pp,pv,j,ke_xy,1) * b1D_ij(p2,1,j,ke_xy,ke_z-1)
             tmp_b(pp,2) = tmp_b(pp,2) + BndMatL(pp,pv,j,ke_xy,1) * b1D_ij(p2,2,j,ke_xy,ke_z-1)
-            tmp_b(pp,3) = tmp_b(pp,3) + BndMatL(pp,pv,j,ke_xy,2) * b1D_ij(p2,3,j,ke_xy,ke_z-1)
           end do
           end do
           end do
           b1D_ij(:,1,j,ke_xy,ke_z) = b1D_ij(:,1,j,ke_xy,ke_z) - tmp_b(:,1)
           b1D_ij(:,2,j,ke_xy,ke_z) = b1D_ij(:,2,j,ke_xy,ke_z) - tmp_b(:,2)
-          b1D_ij(:,3,j,ke_xy,ke_z) = b1D_ij(:,3,j,ke_xy,ke_z) - tmp_b(:,3)
+
+          do iv=3, 3+QA
+            tmp_b2(:) = 0.0_RP
+            do pv=1, elem%Nnode_v
+            do pv1=1, elem%Nnode_v
+            do i=1, im
+              pp = i + (pv1-1)*im; p2 = i + (pv -1)*im
+              tmp_b2(pp) = tmp_b2(pp) + BndMatL(pp,pv,j,ke_xy,2) * b1D_ij(p2,iv,j,ke_xy,ke_z-1)
+            end do
+            end do
+            end do
+            b1D_ij(:,iv,j,ke_xy,ke_z) = b1D_ij(:,iv,j,ke_xy,ke_z) - tmp_b2(:)
+          end do
+
         end do
         end do
       end if
@@ -249,7 +292,7 @@ contains
 
     end do
     do ke_z=lmesh%NeZ-1, 1, -1
-      !$omp parallel do collapse(2) private( pp, p2, tmp_b )
+      !$omp parallel do collapse(2) private( pp, p2, tmp_b,tmp_b2 )
       do ke_xy=1, lmesh%NeX * lmesh%NeY
       do j=1, jm
         tmp_b(:,:) = 0.0_RP
@@ -259,13 +302,25 @@ contains
           pp = i + (pv -1)*im; p2 = i + (pv2-1)*im
           tmp_b(pp,1) = tmp_b(pp,1) + G(pp,pv2,j,ke_xy,ke_z,1) * b1D_ij(p2,1,j,ke_xy,ke_z+1)
           tmp_b(pp,2) = tmp_b(pp,2) + G(pp,pv2,j,ke_xy,ke_z,1) * b1D_ij(p2,2,j,ke_xy,ke_z+1)
-          tmp_b(pp,3) = tmp_b(pp,3) + G(pp,pv2,j,ke_xy,ke_z,2) * b1D_ij(p2,3,j,ke_xy,ke_z+1)
         end do
         end do
         end do
         b1D_ij(:,1,j,ke_xy,ke_z) = b1D_ij(:,1,j,ke_xy,ke_z) - tmp_b(:,1)
         b1D_ij(:,2,j,ke_xy,ke_z) = b1D_ij(:,2,j,ke_xy,ke_z) - tmp_b(:,2)
-        b1D_ij(:,3,j,ke_xy,ke_z) = b1D_ij(:,3,j,ke_xy,ke_z) - tmp_b(:,3)
+
+        do iv=3, 3+QA
+          tmp_b2(:) = 0.0_RP
+          do pv2=1, elem%Nnode_v
+          do pv =1, elem%Nnode_v
+          do i=1, im
+            pp = i + (pv -1)*im; p2 = i + (pv2-1)*im
+            tmp_b2(pp) = tmp_b2(pp) + G(pp,pv2,j,ke_xy,ke_z,2) * b1D_ij(p2,iv,j,ke_xy,ke_z+1)
+          end do
+          end do
+          end do
+          b1D_ij(:,iv,j,ke_xy,ke_z) = b1D_ij(:,iv,j,ke_xy,ke_z) - tmp_b2(:)
+        end do
+
       end do
       end do      
     end do
@@ -274,24 +329,24 @@ contains
     do ke_z=1, lmesh%NeZ
     do ke_xy=1, lmesh%NeX * lmesh%NeY
       do j=1, jm
-        if ( use_delta_form ) then 
-            do pv=1, elem%Nnode_v
-            do i=1, im    
-              p2 = i + (pv-1)*im; pp = i + (j-1)*im
-              PROG_VARS(pp,pv,ke_xy,ke_z,1) = PROG_VARS(pp,pv,ke_xy,ke_z,1) + b1D_ij(p2,1,j,ke_xy,ke_z)
-              PROG_VARS(pp,pv,ke_xy,ke_z,2) = PROG_VARS(pp,pv,ke_xy,ke_z,2) + b1D_ij(p2,2,j,ke_xy,ke_z)
-              PROG_VARS(pp,pv,ke_xy,ke_z,3) = PROG_VARS(pp,pv,ke_xy,ke_z,3) + b1D_ij(p2,3,j,ke_xy,ke_z)
-            end do
-            end do
+        if ( use_delta_form ) then
+          do iv=1, 3+QA
+          do pv=1, elem%Nnode_v
+          do i=1, im    
+            p2 = i + (pv-1)*im; pp = i + (j-1)*im
+            PROG_VARS(pp,pv,ke_xy,ke_z,iv) = PROG_VARS(pp,pv,ke_xy,ke_z,iv) + b1D_ij(p2,iv,j,ke_xy,ke_z)
+          end do
+          end do
+          end do
         else
-            do pv=1, elem%Nnode_v
-            do i=1, im    
-              p2 = i + (pv-1)*im; pp = i + (j-1)*im
-              PROG_VARS(pp,pv,ke_xy,ke_z,1) = b1D_ij(p2,1,j,ke_xy,ke_z)
-              PROG_VARS(pp,pv,ke_xy,ke_z,2) = b1D_ij(p2,2,j,ke_xy,ke_z)
-              PROG_VARS(pp,pv,ke_xy,ke_z,3) = b1D_ij(p2,3,j,ke_xy,ke_z)
-            end do
-            end do
+          do iv=1, 3+QA
+          do pv=1, elem%Nnode_v
+          do i=1, im    
+            p2 = i + (pv-1)*im; pp = i + (j-1)*im
+            PROG_VARS(pp,pv,ke_xy,ke_z,iv) = b1D_ij(p2,iv,j,ke_xy,ke_z)
+          end do
+          end do
+          end do
         end if
       end do
     end do
@@ -300,8 +355,9 @@ contains
     return
   end subroutine vi_solve
 
+  !> Solve the linear system associated with the diagonal block of the block tridiagonal system
 !OCL SERIAL
-  subroutine linkernel_solve_sip( b, G1, G2, & ! (inout)
+  subroutine linkernel_solve_sip( b, G1, G2,        & ! (inout)
     BndMatD1, BndMatD2, nv, im, jm, Ne2D, top_flag  ) ! (in)
     implicit none
 
@@ -309,7 +365,7 @@ contains
     integer, intent(in) :: im
     integer, intent(in) :: jm
     integer, intent(in) :: Ne2D
-    real(RP), intent(inout) :: b(im*nv,3,jm,Ne2D)
+    real(RP), intent(inout) :: b(im*nv,3+QA,jm,Ne2D)
     real(RP), intent(inout) :: G1(im*nv,nv,jm,Ne2D)
     real(RP), intent(inout) :: G2(im*nv,nv,jm,Ne2D)
     real(RP), intent(in) :: BndMatD1(im*nv,nv,jm,Ne2D)
@@ -329,7 +385,7 @@ contains
     real(RP) :: Amat1(nv,nv)
     real(RP) :: RHS1(nv,nv+2)
     real(RP) :: Amat2(nv,nv)
-    real(RP) :: RHS2(nv,nv+2)
+    real(RP) :: RHS2(nv,nv+1+QA)
     !------------------------------------------------------------
 
     !$omp parallel do collapse(2) &
@@ -351,40 +407,44 @@ contains
         RHS2(:,:) = 0.0_RP
 
         if ( top_flag ) then
-            nrhs1 = 2
-            do iv=1, 2
-            do pv1=1, nv
-              pp = i + (pv1-1)*im
-              RHS1(pv1,iv) = b(pp,iv,j,ke_xy)
-            end do
-            end do
+          nrhs1 = 2
+          do iv=1, 2
+          do pv1=1, nv
+            pp = i + (pv1-1)*im
+            RHS1(pv1,iv) = b(pp,iv,j,ke_xy)
+          end do
+          end do
 
-            nrhs2 = 1
-            do pv1=1, nv
-              pp = i + (pv1-1)*im
-              RHS2(pv1,1) = b(pp,3,j,ke_xy)
-            end do
+          nrhs2 = 1 + QA
+          do iv=1, 1+QA
+          do pv1=1, nv
+            pp = i + (pv1-1)*im
+            RHS2(pv1,iv) = b(pp,2+iv,j,ke_xy)
+          end do
+          end do
         else
-            nrhs1 = nv + 2
-            nrhs2 = nv + 1
+          nrhs1 = nv + 2
+          nrhs2 = nv + 1 + QA
 
-            do pv2=1, nv
-            do pv1=1, nv
-              pp = i + (pv1-1)*im
-              RHS1(pv1,pv2) = G1(pp,pv2,j,ke_xy)
-              RHS2(pv1,pv2) = G2(pp,pv2,j,ke_xy)
-            end do
-            end do
-            do iv=1, 2
-            do pv1=1, nv
-              pp = i + (pv1-1)*im
-              RHS1(pv1,nv+iv) = b(pp,iv,j,ke_xy)
-            end do
-            end do
-            do pv1=1, nv
-              pp = i + (pv1-1)*im
-              RHS2(pv1,nv+1) = b(pp,3,j,ke_xy)
-            end do
+          do pv2=1, nv
+          do pv1=1, nv
+            pp = i + (pv1-1)*im
+            RHS1(pv1,pv2) = G1(pp,pv2,j,ke_xy)
+            RHS2(pv1,pv2) = G2(pp,pv2,j,ke_xy)
+          end do
+          end do
+          do iv=1, 2
+          do pv1=1, nv
+            pp = i + (pv1-1)*im
+            RHS1(pv1,nv+iv) = b(pp,iv,j,ke_xy)
+          end do
+          end do
+          do iv=1, 1+QA
+          do pv1=1, nv
+            pp = i + (pv1-1)*im
+            RHS2(pv1,nv+iv) = b(pp,2+iv,j,ke_xy)
+          end do
+          end do
 
         end if
 
@@ -413,50 +473,55 @@ contains
         end if
 
         if ( top_flag ) then
-            ! At the top level RHS(:,1:2) contains D^{-1} b.
-            do iv=1, 2
-            do pv1=1, nv
-              pp = i + (pv1-1)*im
-              b(pp,iv,j,ke_xy) = RHS1(pv1,iv)
-            end do
-            end do
-            do pv1=1, nv
-              pp = i + (pv1-1)*im
-              b(pp,3,j,ke_xy) = RHS2(pv1,1)
-            end do
+          ! At the top level RHS(:,1:2) contains D^{-1} b.
+          do iv=1, 2
+          do pv1=1, nv
+            pp = i + (pv1-1)*im
+            b(pp,iv,j,ke_xy) = RHS1(pv1,iv)
+          end do
+          end do
+          do iv=1, 1+QA
+          do pv1=1, nv
+            pp = i + (pv1-1)*im
+            b(pp,2+iv,j,ke_xy) = RHS2(pv1,iv) 
+          end do
+          end do
 
-            ! Not used in backward substitution.
-            do pv2=1, nv
-            do pv1=1, nv
-              pp = i + (pv1-1)*im
-              G1(pp,pv2,j,ke_xy) = 0.0_RP
-              G2(pp,pv2,j,ke_xy) = 0.0_RP
-            end do
-            end do
+          ! Not used in backward substitution.
+          do pv2=1, nv
+          do pv1=1, nv
+            pp = i + (pv1-1)*im
+            G1(pp,pv2,j,ke_xy) = 0.0_RP
+            G2(pp,pv2,j,ke_xy) = 0.0_RP
+          end do
+          end do
 
         else
-            ! RHS(:,1:nv) now contains D^{-1} U.
-            do pv2=1, nv
-            do pv1=1, nv
-              pp = i + (pv1-1)*im
-              G1(pp,pv2,j,ke_xy) = RHS1(pv1,pv2)
-              G2(pp,pv2,j,ke_xy) = RHS2(pv1,pv2)
-            end do
-            end do
-            ! RHS(:,nv+1:nv+2) contains D^{-1} b.
-            do iv=1, 2
-            do pv1=1, nv
-              pp = i + (pv1-1)*im
-              b(pp,iv,j,ke_xy) = RHS1(pv1,nv+iv)
-            end do
-            end do
-            do pv1=1, nv
-              pp = i + (pv1-1)*im
-              b(pp,3,j,ke_xy) = RHS2(pv1,nv+1)
-            end do
+          ! RHS(:,1:nv) now contains D^{-1} U.
+          do pv2=1, nv
+          do pv1=1, nv
+            pp = i + (pv1-1)*im
+            G1(pp,pv2,j,ke_xy) = RHS1(pv1,pv2)
+            G2(pp,pv2,j,ke_xy) = RHS2(pv1,pv2)
+          end do
+          end do
+          ! RHS1(:,nv+1:nv+2) contains D^{-1} b.
+          do iv=1, 2
+          do pv1=1, nv
+            pp = i + (pv1-1)*im
+            b(pp,iv,j,ke_xy) = RHS1(pv1,nv+iv)
+          end do
+          end do
+          ! RHS2(:,nv+1:nv+1+QA) contains D^{-1} b.
+          do iv=1, 1+QA
+          do pv1=1, nv
+            pp = i + (pv1-1)*im
+            b(pp,2+iv,j,ke_xy) = RHS2(pv1,nv+iv)
+          end do
+          end do
         end if
 
-        end do ! i
+      end do ! i
     end do ! j
     end do ! ke_xy
     !$omp end parallel do
@@ -464,6 +529,7 @@ contains
     return
   end subroutine linkernel_solve_sip
 
+  !> Construct the block tridiagonal matrix for the vertical diffusion equation
 !OCL SERIAL
   subroutine construct_matbnd_sip( BndMatL, BndMatD, BndMatU, & ! (out)
     RHO, KDIFF, GsqrtV, Dx1D, M1D,invM1D,                     & ! (in)
@@ -721,8 +787,8 @@ contains
   end subroutine construct_sip_face_blocks_lgl
     
 !OCL SERIAL
-  subroutine eval_Ax( MOMX_t, MOMY_t, DRHOT_t, alph_M, alph_H, &
-    PROG_VARS, MOMX00, MOMY00, PT00, NU, KH, DENS, GsqrtV, impl_fac, dt, &
+  subroutine eval_Ax( MOMX_t, MOMY_t, DRHOT_t, RHOQ_t_list, alph_M, alph_H, &
+    PROG_VARS, MOMX00, MOMY00, PT00, RHOQ00, NU, KH, DENS, GsqrtV, impl_fac, dt, &
     lmesh, elem, vmapM, vmapP, is_bound, element3D_operation, C_IP,  &
     im, jm, b, use_delta_form )
     implicit none
@@ -731,12 +797,14 @@ contains
     real(RP), intent(out) :: MOMX_t(elem%Np,lmesh%Ne)
     real(RP), intent(out) :: MOMY_t(elem%Np,lmesh%Ne)
     real(RP), intent(out) :: DRHOT_t(elem%Np,lmesh%Ne)
+    type(LocalMeshFieldBaseList), intent(inout) :: RHOQ_t_list(QA)
     real(RP), intent(out) :: alph_M(elem%NfpTot,lmesh%Ne)
     real(RP), intent(out) :: alph_H(elem%NfpTot,lmesh%Ne)
-    real(RP), intent(in) :: PROG_VARS(elem%Np,lmesh%NeX*lmesh%NeY*lmesh%NeZ,3)
+    real(RP), intent(in) :: PROG_VARS(elem%Np,lmesh%NeX*lmesh%NeY*lmesh%NeZ,3+QA)
     real(RP), intent(in) :: MOMX00(elem%Np,lmesh%NeA)
     real(RP), intent(in) :: MOMY00(elem%Np,lmesh%NeA)
     real(RP), intent(in) :: PT00(elem%Np,lmesh%NeA)
+    real(RP), intent(in) :: RHOQ00(elem%Np,QA,lmesh%Ne)
     real(RP), intent(in) :: NU(elem%Np,lmesh%NeA)
     real(RP), intent(in) :: KH(elem%Np,lmesh%NeA)
     real(RP), intent(in) :: DENS(elem%Np,lmesh%Ne)
@@ -749,23 +817,25 @@ contains
     class(ElementOperationBase3D), intent(in) :: element3D_operation
     real(RP), intent(in) :: C_IP
     integer, intent(in) :: im, jm
-    real(RP), intent(out), optional :: b(im,elem%Nnode_v,3,jm,lmesh%Ne)
+    real(RP), intent(out), optional :: b(im,elem%Nnode_v,3+QA,jm,lmesh%Ne)
     logical, intent(in), optional :: use_delta_form
     
     real(RP) :: Flux(elem%Np,3), DFlux(elem%Np,2,3)
+    real(RP) :: Flux_q(elem%Np), DFlux_q(elem%Np,2)
     real(RP) :: RDENS(elem%Np)
     real(RP) :: RGsqrtV
     real(RP) :: E33
 
-    real(RP) :: DIFF_flux_z_broken(elem%Np,lmesh%NeA,3)
-    real(RP) :: DIFF_flux_z(elem%Np,lmesh%NeA,3)
+    real(RP) :: DIFF_flux_z_broken(elem%Np,lmesh%NeA,3+QA)
+    real(RP) :: DIFF_flux_z(elem%Np,lmesh%NeA,3+QA)
     
     real(RP) :: del_flux(elem%NfpTot,3,lmesh%Ne)
+    real(RP) :: del_flux_q(elem%NfpTot,QA,lmesh%Ne)
 
     integer :: ke_xy, ke_z
     integer :: ke, ke2D
     integer :: p, fp
-    integer :: iv
+    integer :: iv, iq
 
     integer :: i, j
     integer :: pv
@@ -782,12 +852,12 @@ contains
     end if
 
     if ( flag_use_delta_form ) then
-      call cal_grad_del_flux( del_flux,                       & ! (out)
+      call cal_grad_del_flux( del_flux, del_flux_q,           & ! (out)
         PROG_VARS, DENS,                                      & ! (in)
         lmesh%normal_fn(:,:,3), lmesh%Fscale, vmapM, vmapP,   & ! (in)
         lmesh, elem, lmesh%lcmesh2D, lmesh%lcmesh2D%refElem2D ) ! (in)
 
-      !$omp parallel do collapse(2) private( ke, ke2D, DFlux, RDENS, RGsqrtV, E33 )
+      !$omp parallel do collapse(2) private( ke,ke2D,iv, DFlux,DFlux_q, RDENS, RGsqrtV, E33 )
       do ke_z=1, lmesh%NeZ
       do ke_xy=1, lmesh%NeX*lmesh%NeY
         ke = ke_xy + (ke_z-1)*lmesh%NeX*lmesh%NeY
@@ -810,17 +880,30 @@ contains
           DIFF_flux_z(p,ke,2) = DENS(p,ke) * NU(p,ke) * ( E33 * DFlux(p,1,2) + DFlux(p,2,2) ) * RGsqrtV
           DIFF_flux_z(p,ke,3) = DENS(p,ke) * KH(p,ke) * ( E33 * DFlux(p,1,3) + DFlux(p,2,3) ) * RGsqrtV
         end do
+
+        do iq=1, QA
+          iv = 3 + iq
+          call element3D_operation%Dz( PROG_VARS(:,ke,iv) * RDENS(:), DFlux_q(:,1) )
+          call element3D_operation%Lift( del_flux_q(:,iq,ke), DFlux_q(:,2) )
+          do p=1, elem%Np
+            RGsqrtV = 1.0_RP / GsqrtV(p,ke)
+            E33 = lmesh%Escale(p,ke,3,3)
+            DIFF_flux_z_broken(p,ke,iv) = DENS(p,ke) * KH(p,ke) * E33 * DFlux_q(p,1) * RGsqrtV
+            DIFF_flux_z(p,ke,iv) = DENS(p,ke) * KH(p,ke) * ( E33 * DFlux_q(p,1) + DFlux_q(p,2) ) * RGsqrtV
+          end do
+        end do
+
       end do
       end do
 
       !---------------------------------------------------------
 
-      call cal_del_flux( del_flux, alph_M, alph_H,                      & ! (out)
+      call cal_del_flux( del_flux, del_flux_q, alph_M, alph_H,          & ! (out)
         DIFF_flux_z, DIFF_flux_z_broken, PROG_VARS, DENS, NU, KH, C_IP, & ! (in)
         lmesh%normal_fn(:,:,3), lmesh%Fscale, vmapM, vmapP, is_bound,   & ! (in)
         lmesh, elem, lmesh%lcmesh2D, lmesh%lcmesh2D%refElem2D )           ! (in)
 
-      !$omp parallel do collapse(2) private( ke, ke2D, DFlux, RGsqrtV, E33 )
+      !$omp parallel do collapse(2) private( ke,iv, ke2D, DFlux,DFlux_q, RGsqrtV, E33 )
       do ke_z=1, lmesh%NeZ
       do ke_xy=1, lmesh%NeX*lmesh%NeY
         ke = ke_xy + (ke_z-1)*lmesh%NeX*lmesh%NeY
@@ -837,43 +920,81 @@ contains
           MOMY_t (p,ke) = ( E33 * DFlux(p,1,2) + DFlux(p,2,2) ) * RGsqrtV
           DRHOT_t(p,ke) = ( E33 * DFlux(p,1,3) + DFlux(p,2,3) ) * RGsqrtV
         end do
+
+        do iq=1, QA
+          iv = 3 + iq
+          call element3D_operation%Dz( DIFF_flux_z(:,ke,iv), DFlux_q(:,1) )
+          call element3D_operation%Lift( del_flux_q(:,iq,ke), DFlux_q(:,2) )
+          do p=1, elem%Np
+            RGsqrtV = 1.0_RP / GsqrtV(p,ke)
+            E33 = lmesh%Escale(p,ke,3,3)
+            RHOQ_t_list(iq)%ptr%val(p,ke) = ( E33 * DFlux_q(p,1) + DFlux_q(p,2) ) * RGsqrtV
+          end do
+        end do
+
       end do
       end do
     end if
 
     if ( flag_cal_b ) then
       if ( use_delta_form ) then
-        !$omp parallel do private(p)
+        !$omp parallel do private(p,iv)
         do ke=1, lmesh%Ne
         do pv=1, elem%Nnode_v
-        do j=1, jm
-        do i=1, im
-            p  = i + (j-1)*im + (pv-1)*im*jm
-            b(i,pv,1,j,ke) = impl_fac * MOMX_t(p,ke)  &
-                        - PROG_VARS  (p,ke,1)      &
-                        + MOMX00(p,ke)
-            b(i,pv,2,j,ke) = impl_fac * MOMY_t(p,ke)  &
-                        - PROG_VARS  (p,ke,2)      &
-                        + MOMY00(p,ke)
-            b(i,pv,3,j,ke) = impl_fac * DRHOT_t(p,ke) &
-                        - PROG_VARS  (p,ke,3)      &
-                        + DENS(p,ke) * PT00(p,ke)
-        end do
-        end do
+
+          do j=1, jm
+          do i=1, im
+              p  = i + (j-1)*im + (pv-1)*im*jm
+              b(i,pv,1,j,ke) = impl_fac * MOMX_t(p,ke)  &
+                          - PROG_VARS  (p,ke,1)      &
+                          + MOMX00(p,ke)
+              b(i,pv,2,j,ke) = impl_fac * MOMY_t(p,ke)  &
+                          - PROG_VARS  (p,ke,2)      &
+                          + MOMY00(p,ke)
+              b(i,pv,3,j,ke) = impl_fac * DRHOT_t(p,ke) &
+                          - PROG_VARS  (p,ke,3)      &
+                          + DENS(p,ke) * PT00(p,ke)
+          end do
+          end do
+          !-
+          do iq=1, QA
+            iv = 3 + iq
+            do j=1, jm
+            do i=1, im
+                p  = i + (j-1)*im + (pv-1)*im*jm
+                b(i,pv,iv,j,ke) = impl_fac * RHOQ_t_list(iq)%ptr%val(p,ke) &
+                            - PROG_VARS  (p,ke,iv)                         &
+                            + RHOQ00(p,iq,ke)
+            end do
+            end do
+          end do
+
         end do
         end do
       else
-        !$omp parallel do private(p)
+        !$omp parallel do private(p,iv)
         do ke=1, lmesh%Ne
         do pv=1, elem%Nnode_v
-        do j=1, jm
-        do i=1, im
-            p  = i + (j-1)*im + (pv-1)*im*jm
-            b(i,pv,1,j,ke) = MOMX00(p,ke)
-            b(i,pv,2,j,ke) = MOMY00(p,ke)
-            b(i,pv,3,j,ke) = DENS(p,ke) * PT00(p,ke)
-        end do
-        end do
+
+          do j=1, jm
+          do i=1, im
+              p  = i + (j-1)*im + (pv-1)*im*jm
+              b(i,pv,1,j,ke) = MOMX00(p,ke)
+              b(i,pv,2,j,ke) = MOMY00(p,ke)
+              b(i,pv,3,j,ke) = DENS(p,ke) * PT00(p,ke)
+          end do
+          end do
+          !-
+          do iq=1, QA
+            iv = 3 + iq
+            do j=1, jm
+            do i=1, im
+                p  = i + (j-1)*im + (pv-1)*im*jm
+                b(i,pv,iv,j,ke) = RHOQ00(p,iq,ke)
+            end do
+            end do
+          end do
+
         end do
         end do
       end if
@@ -882,7 +1003,7 @@ contains
   end subroutine eval_Ax
 
 !OCL SERIAL
-  subroutine cal_del_flux( del_flux, alph_M, alph_H, &
+  subroutine cal_del_flux( del_flux, del_flux_q, alph_M, alph_H, &
     DIFF_flux_z, DIFF_flux_z_broken, PROG_VARS, DENS, NU, KH, C_IP,  &
     nz, Fscale, vmapM, vmapP, is_bound, lmesh, elem, lmesh2D, elem2D   )
     implicit none
@@ -891,11 +1012,12 @@ contains
     class(LocalMesh2D), intent(in) :: lmesh2D
     class(ElementBase2D), intent(in) :: elem2D
     real(RP), intent(out) :: del_flux(elem%NfpTot,3,lmesh%Ne)
+    real(RP), intent(out) :: del_flux_q(elem%NfpTot,QA,lmesh%Ne)
     real(RP), intent(out) :: alph_M(elem%NfpTot,lmesh%Ne)
     real(RP), intent(out) :: alph_H(elem%NfpTot,lmesh%Ne)
-    real(RP), intent(in) :: DIFF_flux_z(elem%Np*lmesh%NeA,3)
-    real(RP), intent(in) :: DIFF_flux_z_broken(elem%Np*lmesh%NeA,3)
-    real(RP), intent(in) :: PROG_VARS(elem%Np*lmesh%NeX*lmesh%NeY*lmesh%NeZ,3)
+    real(RP), intent(in) :: DIFF_flux_z(elem%Np*lmesh%NeA,3+QA)
+    real(RP), intent(in) :: DIFF_flux_z_broken(elem%Np*lmesh%NeA,3+QA)
+    real(RP), intent(in) :: PROG_VARS(elem%Np*lmesh%NeX*lmesh%NeY*lmesh%NeZ,3+QA)
     real(RP), intent(in) :: DENS(elem%Np*lmesh%NeA)
     real(RP), intent(in) :: NU(elem%Np*lmesh%NeA)
     real(RP), intent(in) :: KH(elem%Np*lmesh%NeA)
@@ -907,16 +1029,19 @@ contains
     logical, intent(in) :: is_bound(elem%NfpTot,lmesh%Ne)
 
     integer :: ke, ke_z, ke_xy
+    integer :: iq
+
     integer :: iP(elem%NfpTot), iM(elem%NfpTot)
     real(RP) :: DIFF_flux_z_P(elem%NfpTot,3)
 
     real(RP) :: coef(elem%NfpTot)
     real(RP) :: RDENS_M(elem%NfpTot), RDENS_P(elem%NfpTot)
     real(RP) :: numflux(elem%NfpTot,3)
+    real(RP) :: numflux_q(elem%NfpTot)
     !------------------------------------------------
 
     !$omp parallel do collapse(2) &
-    !$omp private( ke, iM, iP, alph_M, alph_H, coef, RDENS_M, RDENS_P, numflux )
+    !$omp private( ke,iq, iM,iP, coef, RDENS_M, RDENS_P, numflux,numflux_q )
     do ke_z=1, lmesh%NeZ
     do ke_xy=1, lmesh%NeX*lmesh%NeY
       ke = ke_xy + (ke_z-1)*lmesh%Ne2D
@@ -931,6 +1056,8 @@ contains
 
       where ( is_bound(:,ke) )
         numflux(:,1) = 0.0_RP
+        numflux(:,2) = 0.0_RP
+        numflux(:,3) = 0.0_RP
       elsewhere
         numflux(:,1) = 0.5_RP * ( DIFF_flux_z_broken(iP,1) + DIFF_flux_z(iM,1) )
         numflux(:,2) = 0.5_RP * ( DIFF_flux_z_broken(iP,2) + DIFF_flux_z(iM,2) )
@@ -946,6 +1073,17 @@ contains
     
       del_flux(:,3,ke) = coef(:) * ( numflux(:,3) - DIFF_flux_z(iM,3) ) &
                        + alph_H(:,ke) * Fscale(:,ke) * ( PROG_VARS(iP,3) * RDENS_P(:) - PROG_VARS(iM,3) * RDENS_M(:) )
+               
+      do iq=1, QA
+        where ( is_bound(:,ke) )
+          numflux_q(:) = 0.0_RP
+        elsewhere
+          numflux_q(:) = 0.5_RP * ( DIFF_flux_z_broken(iP,3+iq) + DIFF_flux_z(iM,3+iq) )
+        end where
+
+        del_flux_q(:,iq,ke) = coef(:) * ( numflux_q(:) - DIFF_flux_z(iM,3+iq) ) &
+                            + alph_H(:,ke) * Fscale(:,ke) * ( PROG_VARS(iP,3+iq) * RDENS_P(:) - PROG_VARS(iM,3+iq) * RDENS_M(:) )
+      end do
     end do
     end do
 
@@ -953,7 +1091,7 @@ contains
   end subroutine cal_del_flux
 
 !OCL SERIAL
-  subroutine cal_grad_del_flux( del_flux, &
+  subroutine cal_grad_del_flux( del_flux, del_flux_q, &
     PROG_VARS, DENS, nz, Fscale,vmapM, vmapP, &
     lmesh, elem, lmesh2D, elem2D              )
     implicit none
@@ -962,7 +1100,8 @@ contains
     class(LocalMesh2D), intent(in) :: lmesh2D
     class(ElementBase2D), intent(in) :: elem2D
     real(RP), intent(out) :: del_flux(elem%NfpTot,3,lmesh%Ne)
-    real(RP), intent(in) :: PROG_VARS(elem%Np*lmesh%NeX*lmesh%NeY*lmesh%NeZ,3)
+    real(RP), intent(out) :: del_flux_q(elem%NfpTot,QA,lmesh%Ne)
+    real(RP), intent(in) :: PROG_VARS(elem%Np*lmesh%NeX*lmesh%NeY*lmesh%NeZ,3+QA)
     real(RP), intent(in) :: DENS(elem%Np*lmesh%Ne)
     real(RP), intent(in) :: nz(elem%NfpTot,lmesh%Ne)
     real(RP), intent(in) :: Fscale(elem%NfpTot,lmesh%Ne)
@@ -970,6 +1109,7 @@ contains
     integer, intent(in) :: vmapP(elem%NfpTot,lmesh%Ne)
 
     integer :: ke, ke_z, ke_xy
+    integer :: iq
     integer :: iP(elem%NfpTot), iM(elem%NfpTot)
 
     real(RP) :: coef(elem%NfpTot)
@@ -977,7 +1117,7 @@ contains
     !------------------------------------------------
 
     !$omp parallel do collapse(2) &
-    !$omp private( ke, iM, iP, coef, RDENS_M, RDENS_P )
+    !$omp private( ke,iq, iM,iP, coef, RDENS_M, RDENS_P )
     do ke_z=1, lmesh%NeZ
     do ke_xy=1, lmesh%NeX*lmesh%NeY
       ke = ke_xy + (ke_z-1)*lmesh%Ne2D
@@ -990,6 +1130,10 @@ contains
       del_flux(:,1,ke) = coef(:) * ( PROG_VARS(iP,1) * RDENS_P(:) - PROG_VARS(iM,1) * RDENS_M(:) )
       del_flux(:,2,ke) = coef(:) * ( PROG_VARS(iP,2) * RDENS_P(:) - PROG_VARS(iM,2) * RDENS_M(:) )
       del_flux(:,3,ke) = coef(:) * ( PROG_VARS(iP,3) * RDENS_P(:) - PROG_VARS(iM,3) * RDENS_M(:) )
+
+      do iq=1, QA
+        del_flux_q(:,iq,ke) = coef(:) * ( PROG_VARS(iP,3+iq) * RDENS_P(:) - PROG_VARS(iM,3+iq) * RDENS_M(:) )
+      end do
     end do
     end do
 

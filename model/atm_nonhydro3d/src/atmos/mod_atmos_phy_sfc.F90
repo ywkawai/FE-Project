@@ -161,7 +161,7 @@ contains
       this%tm_process_id )                                                        ! (out)
 
     !- initialize the variables 
-    call this%vars%Init( model_mesh )      
+    call this%vars%Init( model_mesh, DEFAULT_SFC_TEMP )      
 
     !--- Set the type of surface flux scheme
 
@@ -182,9 +182,6 @@ contains
     class is (AtmosMesh)
       this%mesh => model_mesh
     end select
-
-    !-- Set default values
-    call this%vars%SetDefaultVal( DEFAULT_SFC_TEMP )
 
     return
   end subroutine AtmosPhySfc_setup

@@ -212,7 +212,8 @@ contains
   subroutine AtmosPhyBl_calc_tendency( &
     this, model_mesh, prgvars_list, trcvars_list, &
     auxvars_list, forcing_list, is_update         )
-    use scale_tracer, only: QA
+    use scale_tracer, only: &
+      TRACER_ADVC, QA
     use scale_atm_phy_bl_dgm_mynn_lv2, only: &
       atm_phy_bl_dgm_mynn_lv2_cal_VViscDiffCoef
     use scale_atm_phy_bl_dgm_common, only: &
@@ -252,10 +253,13 @@ contains
     class(LocalMeshFieldBase), pointer :: DDENS, MOMX, MOMY, MOMZ, DRHOT
     class(LocalMeshFieldBase), pointer :: DENS_hyd, PRES_hyd, Rtot, CVtot, CPtot
     class(LocalMeshFieldBase), pointer :: PRES, PT
+    type(LocalMeshFieldBaseList) :: RHOQ_list(QA)
 
     class(LocalMeshFieldBase), pointer :: DENS_tp, MOMX_tp, MOMY_tp, MOMZ_tp, RHOT_tp, RHOH_P
     type(LocalMeshFieldBaseList) :: RHOQ_tp(QA)
     class(LocalMeshFieldBase), pointer :: bl_RHOU_t, bl_RHOV_t, bl_RHOT_t
+    class(LocalMeshFieldBase), pointer :: bl_RHOQ_t
+    type(LocalMeshFieldBaseList) :: bl_RHOQ_t_list(QA)
 
     type DYN_BNDInfo
       logical, allocatable :: is_bound(:,:)
@@ -290,10 +294,14 @@ contains
           mesh, auxvars_list,                      &
           PRES, PT )
 
-        call AtmosPhyBLVars_GetLocalMeshFields_tend( n,  &
-          mesh, this%vars%tends_manager,                 &
-          bl_RHOU_t, bl_RHOV_t, bl_RHOT_t                )          
-        
+        call AtmosVars_GetLocalMeshQTRCVarList( n,    &
+          mesh, trcvars_list,                         &
+          1, RHOQ_list )
+
+        call AtmosPhyBLVars_GetLocalMeshFields_tend( n,   &
+          mesh, this%vars%tends_manager,                  &
+          bl_RHOU_t, bl_RHOV_t, bl_RHOT_t, bl_RHOQ_t_list )          
+     
         !-
         allocate( bnd_info(n)%is_bound(lcmesh%refElem3D%NfpTot,lcmesh%Ne) )
         call this%dyn_bnd%Inquire_bound_flag(  bnd_info(n)%is_bound, & ! (out)
@@ -303,18 +311,20 @@ contains
         select case( this%BL_TYPEID )
         case( BL_TYPEID_MYNN_LEVEL2 )
           call atm_phy_bl_dgm_mynn_lv2_cal_VViscDiffCoef( &
-            this%vars%diagvars(NU_ID)%local(n)%val,             & ! (out)
-            this%vars%diagvars(KH_ID)%local(n)%val,             & ! (out)
-            this%vars%diagvars(TKE_ID)%local(n)%val,            & ! (out)
-            DDENS%val, MOMX%val, MOMY%val, MOMZ%val, DRHOT%val, & ! (in)
-            DENS_hyd%val, PRES_hyd%val, PRES%val, PT%val,       & ! (in)
-            model_mesh%DOptrMat(3), model_mesh%LiftOptrMat,     & ! (in)
-            lcmesh, lcmesh%refElem3D, bnd_info(n)%is_bound      ) ! (in)
+            this%vars%diagvars(NU_ID)%local(n)%val,                 & ! (out)
+            this%vars%diagvars(KH_ID)%local(n)%val,                 & ! (out)
+            this%vars%diagvars(TKE_ID)%local(n)%val,                & ! (out)
+            DDENS%val, MOMX%val, MOMY%val, MOMZ%val, DRHOT%val,     & ! (in)
+            DENS_hyd%val, PRES_hyd%val, Rtot%val, PRES%val, PT%val, & ! (in)
+            model_mesh%DOptrMat(3), model_mesh%LiftOptrMat,         & ! (in)
+            lcmesh, lcmesh%refElem3D, bnd_info(n)%is_bound          ) ! (in)
         end select
 
         call atm_phy_bl_dgm_common_calc_tendency( &
           bl_RHOU_t%val, bl_RHOV_t%val, bl_RHOT_t%val,    & ! (out)
+          bl_RHOQ_t_list,                                 & ! (out)
           DDENS%val, MOMX%val, MOMY%val, DRHOT%val,       & ! (in)
+          RHOQ_list,                                      & ! (in)
           PT%val, DENS_hyd%val, PRES_hyd%val,             & ! (in)
           this%vars%diagvars(NU_ID)%local(n)%val,         & ! (in)
           this%vars%diagvars(KH_ID)%local(n)%val,         & ! (in)
@@ -339,9 +349,9 @@ contains
         RHOH_p, RHOQ_tp  )
 
       call AtmosPhyBLVars_GetLocalMeshFields_tend( n,  &
-        mesh, this%vars%tends_manager,                 &
-        bl_RHOU_t, bl_RHOV_t, bl_RHOT_t,               &
-        lcmesh                                         )
+        mesh, this%vars%tends_manager,                   &
+        bl_RHOU_t, bl_RHOV_t, bl_RHOT_t, bl_RHOQ_t_list, &
+        lcmesh                                           )
 
       !$omp parallel private(ke, iq)
       !$omp do
@@ -350,10 +360,19 @@ contains
         MOMY_tp%val(:,ke) = MOMY_tp%val(:,ke) + bl_RHOV_t%val(:,ke)
         RHOT_tp%val(:,ke) = RHOT_tp%val(:,ke) + bl_RHOT_t%val(:,ke)
       end do
+      !$omp end do    
+      do iq=1, QA
+        if ( .not. TRACER_ADVC(iq) ) cycle
+        !$omp do
+        do ke=lcmesh%NeS, lcmesh%NeE
+         RHOQ_tp(iq)%ptr%val(:,ke) = RHOQ_tp(iq)%ptr%val(:,ke)        &
+                                   + bl_RHOQ_t_list(iq)%ptr%val(:,ke)
+        end do
+        !$omp end do
+      end do
       !$omp end parallel
     end do
     call PROF_rapend('ATM_PHY_BL_add_tend', 2)
-
 
     return
   end subroutine AtmosPhyBl_calc_tendency

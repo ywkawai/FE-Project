@@ -274,27 +274,46 @@ contains
 
     call PROF_rapstart( 'ATM_setup_vars', 1)
 
+    LOG_INFO('AtmosComponent_setup_vars',*) 'Atmosphere model components '
+
     call this%vars%Init( this%mesh )
 
+    !- Cloud microphysics component
     if ( this%phy_mp_proc%IsActivated() ) then
-      call this%vars%Regist_physvar_manager( &
-        this%phy_mp_proc%vars%auxvars2D_manager )
-
-      call this%vars%Setup_container( this%phy_mp_proc%atm_var_container_typeid, this%mesh )
+      call this%phy_mp_proc%vars%Setup( this%mesh )
       call this%phy_mp_proc%Set_primary_atmvars_container( this%vars%container )
+
+      call this%vars%Regist_physvar_manager( this%phy_mp_proc%vars%auxvars2D_manager )
+      call this%vars%Setup_container( this%phy_mp_proc%atm_var_container_typeid, this%mesh )
     end if
+    !- Surface component
     if ( this%phy_sfc_proc%IsActivated() ) then
+      call this%phy_sfc_proc%vars%Setup( this%mesh )
+
       call this%vars%Setup_container( this%phy_sfc_proc%atm_var_container_typeid, this%mesh )
     end if
+    !- Turbulence component
+    if ( this%phy_tb_proc%IsActivated() ) then
+      call this%phy_tb_proc%vars%Setup( this%mesh )
+    end if
+    !- Radiation component
     if ( this%phy_rd_proc%IsActivated() ) then
-       if ( .not. this%phy_sfc_proc%IsActivated() ) then
-         LOG_ERROR('ATM_setup_vars',*) 'ATMOS_PHY_RD_DO requires ATMOS_PHY_SF_DO to provide SFC_TEMP.'
-         call PRC_abort
-       end if      
+      if ( .not. this%phy_sfc_proc%IsActivated() ) then
+        LOG_ERROR('ATM_setup_vars',*) 'ATMOS_PHY_RD_DO requires ATMOS_PHY_SF_DO to provide SFC_TEMP.'
+        call PRC_abort
+      end if
+      call this%phy_rd_proc%vars%Setup( this%mesh )
       call this%phy_rd_proc%SetSfcVars( this%phy_sfc_proc%vars%SFC_VARS(SFCTEMP_ID), &
                                         this%phy_sfc_proc%vars%SFC_VARS(SFC_ALB_ID) )
     end if
-
+    !- Cumulus parameterization component
+    if ( this%phy_cp_proc%IsActivated() ) then
+      call this%phy_cp_proc%vars%Setup( this%mesh )
+    end if
+    !- PBL component
+    if ( this%phy_bl_proc%IsActivated() ) then
+      call this%phy_bl_proc%vars%Setup( this%mesh )
+    end if
 
     call PROF_rapend( 'ATM_setup_vars', 1)
     return

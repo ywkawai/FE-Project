@@ -67,6 +67,7 @@ module mod_atmos_phy_rd_vars
   contains
     procedure :: Init => AtmosPhyRdVars_Init
     procedure :: Final => AtmosPhyRdVars_Final
+    procedure :: Setup => AtmosPhyRdVars_Setup
     procedure :: History => AtmosPhyRdVars_history
     procedure :: Read_restart_file => AtmosPhyRdVars_Read_restart_file
     procedure :: Write_restart_file_prep => AtmosPhyRdVars_Write_restart_file_prep
@@ -151,6 +152,31 @@ contains
     !----------------------------------------------------
 
     LOG_INFO('AtmosPhyRdVars_Init',*)
+    return
+  end subroutine AtmosPhyRdVars_Init
+
+  !> Setup variables objects with radiation component
+  subroutine AtmosPhyRdVars_Setup( this, model_mesh )
+    use scale_tracer, only: &
+      TRACER_NAME, TRACER_DESC, TRACER_UNIT
+    use scale_file_history, only: &
+      FILE_HISTORY_reg
+
+    implicit none
+    class(AtmosPhyRdVars), target, intent(inout) :: this
+    class(ModelMeshBase), target, intent(in) :: model_mesh
+
+    class(AtmosMesh), pointer :: atm_mesh
+    class(MeshBase2D), pointer :: mesh2D
+    class(MeshBase3D), pointer :: mesh3D
+
+    integer :: iv
+    integer :: iq
+    integer :: n
+    logical :: reg_file_hist
+    !----------------------------------------------------
+
+    LOG_INFO('AtmosPhyRdVars_Init',*)
 
     this%TENDS_NUM_TOT = ATMOS_PHY_RD_TENDS_NUM1
 
@@ -200,9 +226,9 @@ contains
     !- Setup restart file for variables with radiation component
     call atm_mesh%Setup_restartfile( this%restart_file, &
       ATMOS_PHY_RD_RESTART_VAR_NUM                      )
-    
+
     return
-  end subroutine AtmosPhyRdVars_Init
+  end subroutine AtmosPhyRdVars_Setup
 
   !> Finalize an object to manage variables with radiation component  
 !OCL SERIAL

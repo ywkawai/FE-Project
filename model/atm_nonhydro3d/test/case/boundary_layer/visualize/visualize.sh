@@ -12,11 +12,13 @@ mkdir -p analysis
 ### make figures ###
 echo "+mkgraph"
 python ../common/cmd_mkgraph.py history.pe00\*.nc@T,x=0e0,y=0e0 analysis/T.png --prc_num_xy 1 1 --figsize 8 4
-python ../common/cmd_mkgraph.py history.pe00\*.nc@BL_RHOU_t,x=0e0,y=0e0 analysis/BL_RHOU_t.png --prc_num_xy 1 1 --figsize 8 4 --range -4e-4 4e-4
-python ../common/cmd_mkgraph.py history.pe00\*.nc@BL_RHOT_t,x=0e0,y=0e0 analysis/BL_RHOT_t.png --prc_num_xy 1 1 --figsize 8 4
+python ../common/cmd_mkgraph.py history.pe00\*.nc@U,x=0e0,y=0e0 analysis/U.png --prc_num_xy 1 1 --figsize 8 4
+python ../common/cmd_mkgraph.py history.pe00\*.nc@QV,x=0e0,y=0e0 analysis/QV.png --prc_num_xy 1 1 --figsize 8 4 --range 1e-4 3e-4
 python ../common/cmd_mkgraph.py history.pe00\*.nc@NU,x=0e0,y=0e0 analysis/NU.png --prc_num_xy 1 1 --figsize 8 4 --range 0 30
 python ../common/cmd_mkgraph.py history.pe00\*.nc@KH,x=0e0,y=0e0 analysis/KH.png --prc_num_xy 1 1 --figsize 8 4 --range 0 30
-python ../common/cmd_mkgraph.py history.pe00\*.nc@U,x=0e0,y=0e0 analysis/U.png --prc_num_xy 1 1 --figsize 8 4
+python ../common/cmd_mkgraph.py history.pe00\*.nc@BL_RHOU_t,x=0e0,y=0e0 analysis/BL_RHOU_t.png --prc_num_xy 1 1 --figsize 8 4 --range -4e-4 4e-4
+python ../common/cmd_mkgraph.py history.pe00\*.nc@BL_RHOT_t,x=0e0,y=0e0 analysis/BL_RHOT_t.png --prc_num_xy 1 1 --figsize 8 4
+python ../common/cmd_mkgraph.py history.pe00\*.nc@BL_QV_t,x=0e0,y=0e0 analysis/BL_QV_t.png --prc_num_xy 1 1 --figsize 8 4 --range 0 5e-8
 
 ### make animation ###
 # echo "+make animation"

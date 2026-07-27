@@ -62,8 +62,8 @@ module mod_atmos_phy_sfc_vars
   contains
     procedure :: Init => AtmosPhySfcVars_Init
     procedure :: Final => AtmosPhySfcVars_Final
+    procedure :: Setup => AtmosPhySfcVars_Setup
     procedure :: History => AtmosPhySfcVars_history
-    procedure :: SetDefaultVal => AtmosPhySfcVars_set_default_val
   end type AtmosPhySfcVars
 
   ! Variable information for surface variables
@@ -119,7 +119,30 @@ contains
 !> Setup an object to manage variables with a surface component 
 !!
 !! @param model_mesh Object to manage computational mesh of atmospheric model 
-  subroutine AtmosPhySfcVars_Init( this, model_mesh )
+  subroutine AtmosPhySfcVars_Init( this, model_mesh, &
+    DEFAULT_SFC_TEMP )
+    implicit none
+    class(AtmosPhySfcVars), target, intent(inout) :: this
+    class(ModelMeshBase), target, intent(in) :: model_mesh
+    real(RP), intent(in) :: DEFAULT_SFC_TEMP
+
+    integer :: v
+    integer :: n
+    logical :: reg_file_hist
+
+    class(AtmosMesh), pointer :: atm_mesh
+    class(MeshBase2D), pointer :: mesh2D
+    class(MeshBase3D), pointer :: mesh3D
+    !--------------------------------------------------
+
+    LOG_INFO('AtmosPhySfcVars_Init',*)
+
+    ATMOS_PHY_SFC_DEFAULT_SFC_TEMP = DEFAULT_SFC_TEMP
+    return
+  end subroutine AtmosPhySfcVars_Init
+
+  !> Setup variable objects with a surface component
+  subroutine AtmosPhySfcVars_Setup( this, model_mesh )
     implicit none
     class(AtmosPhySfcVars), target, intent(inout) :: this
     class(ModelMeshBase), target, intent(in) :: model_mesh
@@ -131,27 +154,10 @@ contains
     class(AtmosMesh), pointer :: atm_mesh
     class(MeshBase2D), pointer :: mesh2D
     class(MeshBase3D), pointer :: mesh3D
-
-    namelist / PARAM_ATMOS_PHY_SFC_VARS / &
-      ATMOS_PHY_SFC_DEFAULT_SFC_TEMP
-      
-    integer :: ierr
     !--------------------------------------------------
-
-    LOG_INFO('AtmosPhySfcVars_Init',*)
 
     this%SFCFLX_NUM_TOT = ATMOS_PHY_SF_SFLX_NUM1
 
-    !--- read namelist
-    rewind(IO_FID_CONF)
-    read(IO_FID_CONF,nml=PARAM_ATMOS_PHY_SFC_VARS,iostat=ierr)
-    if( ierr < 0 ) then !--- missing
-       LOG_INFO("ATMOS_PHY_SFC_vars_setup",*) 'Not found namelist. Default used.'
-    elseif( ierr > 0 ) then !--- fatal error
-       LOG_ERROR("ATMOS_PHY_SFC_vars_setup",*) 'Not appropriate names in namelist PARAM_ATMOS_PHY_SFC_VARS. Check!'
-       call PRC_abort
-    endif
-    LOG_NML(PARAM_ATMOS_PHY_SFC_VARS)
 
     !- Initialize auxiliary and diagnostic variables
 
@@ -191,7 +197,7 @@ contains
     end do
 
     return
-  end subroutine AtmosPhySfcVars_Init
+  end subroutine AtmosPhySfcVars_Setup
 
   !> Finalize an object to manage variables with a surface component 
   !!
@@ -211,32 +217,6 @@ contains
 
     return
   end subroutine AtmosPhySfcVars_Final
-
-  !> Set default value for surface variables
-!OCL SERIAL
-  subroutine AtmosPhySfcVars_set_default_val( this, &
-    SFC_TEMP )
-    implicit none
-    class(AtmosPhySfcVars), intent(inout), target :: this
-    real(RP), intent(in) :: SFC_TEMP
-
-    integer :: ldomID
-    class(MeshBase2D), pointer :: mesh2D
-    class(LocalMesh2D), pointer :: lcmesh2D
-    integer :: ke
-    !--------------------------------------------------
-
-    mesh2D => this%SFC_VARS(ATMOS_PHY_SF_SVAR_TEMP_ID)%mesh
-
-    do ldomID=1, mesh2D%LOCAL_MESH_NUM
-      lcmesh2D => mesh2D%lcmesh_list(ldomID)
-      !$omp parallel do
-      do ke=lcmesh2D%NeS, lcmesh2D%NeE
-        this%SFC_VARS(ATMOS_PHY_SF_SVAR_TEMP_ID)%local(ldomID)%val(:,ke) = SFC_TEMP
-      end do
-    end do
-    return
-  end subroutine AtmosPhySfcVars_set_default_val
 
   !> Write history data for surface variables
 !OCL SERIAL
