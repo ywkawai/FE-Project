@@ -17,6 +17,7 @@ module mod_atmos_phy_bl_vars
   use scale_precision
   use scale_io
   use scale_prc
+  use scale_tracer, only: QA
 
   use scale_element_base, only: ElementBase3D
   use scale_mesh_base, only: MeshBase
@@ -127,8 +128,6 @@ contains
     this%QS = QS_BL
     this%QE = QE_BL
     this%QA = QA_BL
-    this%TENDS_NUM_TOT = ATMOS_PHY_BL_TENDS_NUM1 + QE_BL - QS_BL + 1
-
     return
   end subroutine AtmosPhyBlVars_Init
 
@@ -157,6 +156,8 @@ contains
     type(VariableInfo) :: qtrc_vterm_vinfo_tmp
     !----------------------------------------------------
 
+    this%TENDS_NUM_TOT = ATMOS_PHY_BL_TENDS_NUM1 + QA
+
     !- Initialize auxiliary and diagnostic variables
 
     nullify( atm_mesh )
@@ -184,7 +185,7 @@ contains
     qtrc_tp_vinfo_tmp%dim_type = 'XYZ'
     qtrc_tp_vinfo_tmp%STDNAME  = ''
     
-    do iq = 1, this%QA
+    do iq = 1, QA
       iv = ATMOS_PHY_BL_TENDS_NUM1 + iq 
       qtrc_tp_vinfo_tmp%keyID = iv
       qtrc_tp_vinfo_tmp%NAME  = 'BL_'//trim(TRACER_NAME(this%QS+iq-1))//'_t'
@@ -231,7 +232,7 @@ contains
 
 !OCL SERIAL
   subroutine AtmosPhyBlVars_GetLocalMeshFields_tend( domID, mesh, bl_tends_list, &
-    bl_RHOU_t, bl_RHOV_t, bl_RHOT_t,                                             &
+    bl_RHOU_t, bl_RHOV_t, bl_RHOT_t, bl_RHOQ_t,                                  &
     lcmesh3D                                                                     &
     )
 
@@ -245,6 +246,7 @@ contains
     class(LocalMeshFieldBase), pointer, intent(out) :: bl_RHOU_t
     class(LocalMeshFieldBase), pointer, intent(out) :: bl_RHOV_t
     class(LocalMeshFieldBase), pointer, intent(out) :: bl_RHOT_t
+    type(LocalMeshFieldBaseList), intent(out), optional :: bl_RHOQ_t(:)
     class(LocalMesh3D), pointer, intent(out), optional :: lcmesh3D
 
     class(MeshFieldBase), pointer :: field   
@@ -262,6 +264,14 @@ contains
 
     call bl_tends_list%Get(ATMOS_PHY_BL_RHOT_t_ID, field)
     call field%GetLocalMeshField(domID, bl_RHOT_t)
+
+    !---
+    if ( present(bl_RHOQ_t) ) then
+      do iq = 1, size(bl_RHOQ_t)
+        call bl_tends_list%Get(ATMOS_PHY_BL_TENDS_NUM1 + iq, field)
+        call field%GetLocalMeshField(domID, bl_RHOQ_t(iq)%ptr)
+      end do    
+    end if
 
     if (present(lcmesh3D)) then
       call mesh%GetLocalMesh( domID, lcmesh )
