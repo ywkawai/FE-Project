@@ -1895,7 +1895,7 @@ contains
 
     tintbuf_ind = this%tend_buf_indmap(nowstage)
 
-    if ( this%nstage == 1 .and. (.not. this%imex_flag) ) then
+    if ( nowstage == 1 .and. (.not. this%imex_flag) ) then
       !$omp parallel do
       !$acc parallel loop collapse(1) present( q, varTmp_1d )
       do i=is, ie
@@ -2219,7 +2219,7 @@ contains
 
     tintbuf_ind = this%tend_buf_indmap(nowstage)
 
-    if ( this%nstage == 1 .and. (.not. this%imex_flag) ) then
+    if ( nowstage == 1 .and. (.not. this%imex_flag) ) then
       !$omp parallel do
       !$acc parallel loop collapse(2) present( q, varTmp_2d )
       do j=js, je
@@ -2583,7 +2583,7 @@ contains
 
     tintbuf_ind = this%tend_buf_indmap(nowstage)
 
-    if ( this%nstage == 1 .and. (.not. this%imex_flag) ) then
+    if ( nowstage == 1 .and. (.not. this%imex_flag) ) then
       !$omp parallel do collapse(2)
       !$acc parallel loop collapse(3) present( q, varTmp_3d )
       do k=ks, ke

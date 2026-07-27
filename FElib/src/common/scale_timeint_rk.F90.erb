@@ -998,7 +998,7 @@ contains
 
     tintbuf_ind = this%tend_buf_indmap(nowstage)
 
-    if ( this%nstage == 1 .and. (.not. this%imex_flag) ) then
+    if ( nowstage == 1 .and. (.not. this%imex_flag) ) then
 % if (d > 2) then
       !$omp parallel do collapse(<%=(d-1)%>)
 % else
