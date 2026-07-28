@@ -1,0 +1,57 @@
+\section{Ocean model}
+{\bf \Large 
+\begin{tabular}{ccc}
+\hline
+  Corresponding author & : & Yuta Kawai\\
+\hline
+\end{tabular}
+}
+
+\subsection{A single-layered slab ocean model}
+%%
+This model only treats a thermodynamics in a single-layer ocean, 
+which calculate the evolution of sea temperature. 
+
+The governing equation is described using the internal energy of ocean as
+%%
+\begin{align}
+  \dfrac{\partial (C_o e_{{\rm in},o})}{\partial t} =&
+  R_{\rm SW,dn} - R_{\rm SW,up} + R_{\rm LW,dn} - R_{\rm LW,up} - F_{\rm SH} - F_{\rm LH} \nonumber \\
+  +& e_{\rm in,precip} + Q_{\rm ext}, \label{eq:goevern_eq_slab_ocean}
+\end{align}
+%%
+where $C_o$ is the heat capacity of the slab ocean 
+and 
+$e_{{\rm in},o}$ is the internal energy. 
+For the radiative fluxes at the surface $R_{*,*}$, 
+the lower subscripts SW, LW, dn, and up denotes shortwave, longwave, downward, and upward, respectively.
+$F_{\rm SH}$ and $F_{\rm LH}$ are the sensible heat and latent heat fluxes, respectively.
+$e_{\rm precip}$ is the internal energy flux due to the precipitation. 
+Finally, $Q_{\rm ext}$ is the heat flux with sources of external heating.
+
+$C_o$ is calculated as
+\begin{align}
+  C_o = \rho_o c_{p,o} h_o,
+\end{align}
+where $\rho_o$ and $c_{p,o}$ are the density and specific heat of ocean, respectively,
+and $h_o$ is the depth of the slab ocean. 
+
+
+$R_{\rm SW,dn}$ and $R_{\rm LW,dn}$ are provided by the radiation schemes described in Sec.\,\ref{sec:radiation}.
+On the other hand, using the surface albedo $\alpha_o$ and the sea surface temperature $T_s$ diagnosed by the ocean model,
+$R_{\rm SW,up}$ is calculated as
+%%
+\begin{align}
+  R_{\rm SW,up} = \alpha_o R_{\rm SW,dn},
+\end{align}
+%%
+and $R_{\rm LW,up}$ is calculated based on the Stefan-Boltzmann law as
+\begin{align}
+  R_{\rm LW,up} = \sigma T_s^4,
+\end{align}
+where $\sigma$ is the Stefan-Boltzmann constant. 
+$F_{\rm SH}$ and $F_{\rm LH}$ are provided by the surface flux schemes, 
+and the simple bulk-flux scheme described in Sec.\,\ref{ssec:simple_sfcflux_bulk} is used in the current implementation.
+
+In the temporal discretization in Eq.\,\eqref{eq:goevern_eq_slab_ocean}, the forward Euler method is used 
+because the temporal variation of $e_{{\rm in},o}$ is relatively slow due to the large heat capacity of the slab ocean.
