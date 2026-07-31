@@ -1,0 +1,65 @@
+\section{Ocean model}
+{\bf \Large 
+\begin{tabular}{ccc}
+\hline
+  Corresponding author & : & Yuta Kawai\\
+\hline
+\end{tabular}
+}
+
+\subsection{A single-layer slab ocean model}
+%%
+The current version of SCALE-DG provides a simple single-layer slab ocean model.
+The model represents only the thermodynamics of the upper ocean and predicts the evolution of the sea surface temperature (SST).
+The slab ocean is treated independently at each DG node, without horizontal ocean circulation or vertical mixing below the mixed layer. 
+This model is intended for idealized experiments and for studies in which ocean dynamics play only a secondary role.
+This model treats only the thermodynamics of a single-layer ocean and predicts the evolution of the sea surface temperature.
+
+The governing equation is described using the internal energy of ocean as
+%%
+\begin{align}
+  \dfrac{\partial (C_o e_{{\rm in},o})}{\partial t} =&
+  R_{\rm SW,dn} - R_{\rm SW,up} + R_{\rm LW,dn} - R_{\rm LW,up} - F_{\rm SH} - F_{\rm LH} \nonumber \\
+  +& e_{\rm in,precip} + Q_{\rm ext}, \label{eq:govern_eq_slab_ocean}
+\end{align}
+%%
+where $C_o$ is the heat capacity of the slab ocean and $e_{{\rm in},o}$ is its internal energy.
+For the surface radiation fluxes $R_{*,*}$, the subscripts SW, LW, dn, and up denote shortwave radiation,
+longwave radiation, downward, and upward fluxes, respectively.
+$F_{\rm SH}$ and $F_{\rm LH}$ are the sensible and latent heat fluxes exchanged between the ocean and the atmosphere.
+$e_{\rm in,precip}$ represents the internal energy supplied by precipitation.
+Finally, $Q_{\rm ext}$ denotes an externally prescribed heat source,
+such as an idealized ocean heat transport or a prescribed Q-flux.
+
+The heat capacity of the slab ocean is assumed to be constant and is calculated as
+%%
+\begin{align}
+  C_o = \rho_o c_{p,o} h_o,
+\end{align}
+%%
+where $\rho_o$ and $c_{p,o}$ are the density and specific heat capacity of seawater,
+respectively, and $h_o$ is the prescribed depth of the slab ocean.
+Increasing $h_o$ increases the thermal inertia of the ocean 
+and therefore lengthens the response time of the SST to atmospheric forcing.
+
+The downward radiative fluxes, $R_{\rm SW,dn}$ and $R_{\rm LW,dn}$, are provided by the radiation schemes described in Sec.\,\ref{sec:radiation}.
+The upward shortwave radiation is calculated using the prescribed ocean surface albedo $\alpha_o$ as
+%%
+\begin{align}
+  R_{\rm SW,up} = \alpha_o R_{\rm SW,dn},
+\end{align}
+%%
+whereas the upward longwave radiation is diagnosed from the SST according to the Stefan--Boltzmann law,
+%%
+\begin{align}
+  R_{\rm LW,up} = \sigma_{\rm SB} T_s^4,
+\end{align}
+%%
+where $\sigma_{\rm SB}$ is the Stefan--Boltzmann constant and
+$T_s$ is the sea surface temperature diagnosed from the internal energy of the slab ocean.
+The sensible and latent heat fluxes are supplied by the surface-flux scheme.
+In the current implementation, the simple bulk-flux scheme described in Sec.\,\ref{ssec:simple_sfcflux_bulk} is used.
+
+Because the slab ocean possesses a much larger heat capacity than the atmosphere,
+its characteristic evolution time is much longer than the atmospheric time step.
+Therefore, the governing equation Eq.\,\eqref{eq:govern_eq_slab_ocean} is integrated using the forward Euler method. 

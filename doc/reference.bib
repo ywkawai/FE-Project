@@ -146,6 +146,7 @@ year            = {1971}
   publisher={Springer Science \& Business Media}, 
   doi = {10.1007/978-0-387-72067-8}
 }
+% Diffusion operator in DGM
 @article{BASSI1997267,
 	author = {F. Bassi and S. Rebay},
 	journal = {Journal of Computational Physics},
@@ -154,6 +155,16 @@ year            = {1971}
 	title = {{A} {H}igh-{O}rder {A}ccurate {D}iscontinuous {F}inite {E}lement {M}ethod for the {N}umerical {S}olution of the {C}ompressible {N}avier--{S}tokes {E}quations},
 	volume = {131},
 	year = {1997},
+}
+@article{Arnold2002,
+  author  = {Douglas N. Arnold and Franco Brezzi and Bernardo Cockburn and L. Donatella Marini},
+  title   = {Unified Analysis of Discontinuous Galerkin Methods for Elliptic Problems},
+  journal = {SIAM Journal on Numerical Analysis},
+  volume  = {39},
+  number  = {5},
+  pages   = {1749--1779},
+  year    = {2002},
+  doi     = {10.1137/S0036142901384162}
 }
 % Stabilization in high-order FEM
 @article{WINTERS20181,
@@ -509,8 +520,6 @@ year            = {1971}
   volume  = {5},
   pages   = {2306--2308},
 }
-
-
 % Formulation of eddy viscous terms in cubed sphere coordinate
 @article{Rancic2017Nonhydro, 
 	author = {Miodrag Ran{\v c}i{\'c} and R. James Purser and Du{\v s}an Jovi{\'c} and Ratko Vasic and Thomas Black},
@@ -522,6 +531,19 @@ year            = {1971}
 	volume = {145},
 	year = {2017},
 	doi = {10.1175/MWR-D-16-0178.1}
+}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% RANS, turbulent models
+@article{Nakanishi2006,
+  author  = {Nakanishi, Mikio and Niino, Hiroshi},
+  title   = {An Improved Mellor--Yamada Level-3 Model: Its Numerical Stability and Application to a Regional Prediction of Advection Fog},
+  journal = {Boundary-Layer Meteorology},
+  year    = {2006},
+  volume  = {119},
+  number  = {2},
+  pages   = {397--407},
+  doi     = {10.1007/s10546-005-9030-8}  
 }
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -639,4 +661,86 @@ year            = {1971}
   author={Tiedtke, M},
   journal={Lecture Notes NWP Course Parametrization of Diabatic Processes, European Centre for Medium-Range Weather Forecasts, Reading, UK},
   year={1987}
+}
+
+% Radiation
+@book{Liou2002,
+  author    = {Kuo-Nan Liou},
+  title     = {An Introduction to Atmospheric Radiation},
+  edition   = {2},
+  publisher = {Academic Press},
+  address   = {San Diego},
+  year      = {2002},
+  isbn      = {9780124514515}
+}
+@article{Toon1989,
+  author  = {Owen B. Toon and Carole P. McKay and Terence P. Ackerman and K. Santhanam},
+  title   = {Rapid Calculation of Radiative Heating Rates and Photodissociation Rates in Inhomogeneous Multiple Scattering Atmospheres},
+  journal = {Journal of Geophysical Research},
+  volume  = {94},
+  number  = {D13},
+  pages   = {16287--16301},
+  year    = {1989},
+}
+
+@article{Frierson2006,
+  author = {Frierson, Dargan M. W. and Held, Isaac M. and Zurita-Gotor, Pablo},
+  title = {A Gray-Radiation Aquaplanet Moist {GCM}.
+           Part I: Static Stability and Eddy Scale},
+  journal = {Journal of the Atmospheric Sciences},
+  year = {2006},
+  volume = {63},
+  number = {10},
+  pages = {2548--2566},
+}
+@article{Byrne2013,
+  author = {Byrne, Michael P. and O'Gorman, Paul A.},
+  title = {Land--Ocean Warming Contrast over a Wide Range of Climates:
+           Convective Quasi-Equilibrium Theory and Idealized Simulations},
+  journal = {Journal of Climate},
+  year = {2013},
+  volume = {26},
+  number = {12},
+  pages = {4000--4016},
+}
+@article{Geen2016,
+  author = {Geen, Ruth and Czaja, Arnaud and Haigh, Joanna D.},
+  title = {The Effects of Increasing Humidity on Heat Transport by Extratropical Waves},
+  journal = {Geophysical Research Letters},
+  year = {2016},
+  volume = {43},
+  number = {15},
+  pages = {8314--8321},
+  doi = {10.1002/2016GL070214}
+}
+@article{Vallis2018,
+  author = {
+    Vallis, Geoffrey K.
+    and Colyer, Greg
+    and Geen, Ruth
+    and Gerber, Edwin
+    and Jucker, Martin
+    and Maher, Penelope
+    and Paterson, Alexander
+    and Pietschnig, Marianne
+    and Penn, James
+    and Thomson, Stephen I.
+  },
+  title = { {Isca}, v1.0: a framework for the global modelling of the atmospheres of Earth and other planets at varying levels of complexity},
+  journal = {Geoscientific Model Development},
+  year = {2018},
+  volume = {11},
+  number = {3},
+  pages = {843--859},
+  doi = {10.5194/gmd-11-843-2018}
+}
+@article{Ricchiazzi1998,
+  author = {Ricchiazzi, Paul and Yang, Shiren and Gautier, Catherine and Sowle, Leslie},
+  title = {{SBDART}: A Research and Teaching Software Tool for
+           Plane-Parallel Radiative Transfer in the Earth's Atmosphere},
+  journal = {Bulletin of the American Meteorological Society},
+  year = {1998},
+  volume = {79},
+  number = {10},
+  pages = {2101--2114},
 }

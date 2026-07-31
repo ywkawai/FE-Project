@@ -7,7 +7,11 @@
 \end{tabular}
 }
 
-\subsection{Smagorinsky-type model}
+This section describes the subgrid-scale (SGS) turbulence model used for large-eddy simulation (LES) in SCALE-DG. 
+In LES, the large energy-containing turbulent eddies are explicitly resolved by the numerical model, 
+while the effects of unresolved SGS motions are represented through eddy-viscosity models. 
+
+\subsection{Smagorinsky-type model}\label{sec:turbulence_model_SMG}
 %% 
 As a turbulent model, 
 this subsection describes 
@@ -126,3 +130,13 @@ $\nu^*_\textrm{SGS}$ is the eddy diffusion coefficient.
 For further details of the turbulent model, 
 refer to Sect.\,2.2 of \cite{nishizawa2015influence}. 
 
+\subsection{Common formulation}
+%%
+Although the formulations of the SGS turbulence models may differ, 
+they all provide the parameterized SGS momentum and scalar fluxes required by the governing equations.
+Once evaluated, these fluxes are incorporated into the governing equations as viscous and diffusive flux terms.
+Their spatial discretization follows the common DG formulation for the diffusion terms described in Sect.~\ref{sec:dynamics_spatial_discretization}.
+
+The SGS flux terms are treated explicitly in time.
+In the present implementation, their tendencies are integrated using the forward Euler method.
+Therefore, the timestep must satisfy the stability constraint associated with the SGS eddy viscosity and diffusivity.
