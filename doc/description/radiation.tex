@@ -81,7 +81,7 @@ The equation for the radiative fluxes is obtained by integrating Eq.\,\eqref{eq:
  - 2\pi (1-\omega_\lambda) B_\lambda
  - \dfrac{\omega_\lambda}{2}\int_0^1 d\mu \int_{4\pi} P_\lambda(\bm{\Omega},\bm{\Omega}') I_\lambda(\bm{\Omega}') d\Omega', \\
   \dfrac{dF_\lambda^\downarrow}{d\tau_{\lambda,z}} =& 
- - 4\pi J_\lambda^\uparrow 
+ - 4\pi J_\lambda^\downarrow 
  + 2\pi (1-\omega_\lambda) B_\lambda
  + \dfrac{\omega_\lambda}{2}\int_{-1}^0 d\mu \int_{4\pi} P_\lambda(\bm{\Omega},\bm{\Omega}') I_\lambda(\bm{\Omega}') d\Omega'. \label{eq:rte_general_form_plane_parallel_flux}
 \end{align}
@@ -117,7 +117,7 @@ Then, the two-stream equations can therefore be written schematically as
 \label{eq:rte_twostream_approx}
 \end{align}
 %%
-where $D_\lambda^\uparrow$ and $D_\lambda^\downarrow$ the diffusivity factors determined by the adopted angular quadrature,
+where $D_\lambda^\uparrow$ and $D_\lambda^\downarrow$ are the diffusivity factors determined by the adopted angular quadrature,
 $S_\lambda^\uparrow$ and $S_\lambda^\downarrow$ denote the corresponding hemispherically averaged source functions.
 Note that the source term $\pi S_\lambda$ is not obtained by directly evaluating $2\pi\int_0^1 S_\lambda\,d\mu$. 
 Rather, it appears as part of the angular closure introduced in the two-stream approximation.
@@ -182,8 +182,8 @@ while the \cite{Byrne2013} set is also available as an alternative.
 This scheme has two infrared bands and one shortwave band, as described in \cite{Geen2016}, 
 which provides an intermediate complexity between gray radiation and more sophisticated radiation schemes.
 All bands were originally parameterized by fitting to data from SBDART for a range of atmospheric profiles. 
-\cite{Vallis2018} include the CO2 absorption in each band and changes the functional form of the non-window optical depth.
-The upward flux of shortwave radiation is assumed to be transparent.
+ \cite{Vallis2018} includes the CO$_2$ absorption in each band and changes the functional form of the non-window optical depth.
+ The upward flux of shortwave radiation is assumed to be transparent.
 
 Following Eq.\,(6) in \cite{Vallis2018},
 the optical thickness in the shortwave band ($< 4~\mu\mathrm{m}$) is parameterized as

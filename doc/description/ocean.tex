@@ -13,14 +13,14 @@ The current version of SCALE-DG provides a simple single-layer slab ocean model.
 The model represents only the thermodynamics of the upper ocean and predicts the evolution of the sea surface temperature (SST).
 The slab ocean is treated independently at each DG node, without horizontal ocean circulation or vertical mixing below the mixed layer. 
 This model is intended for idealized experiments and for studies in which ocean dynamics play only a secondary role.
-This model only treats a thermodynamics in a single-layer ocean, which calculate the evolution of sea temperature. 
+This model treats only the thermodynamics of a single-layer ocean and predicts the evolution of the sea surface temperature.
 
 The governing equation is described using the internal energy of ocean as
 %%
 \begin{align}
   \dfrac{\partial (C_o e_{{\rm in},o})}{\partial t} =&
   R_{\rm SW,dn} - R_{\rm SW,up} + R_{\rm LW,dn} - R_{\rm LW,up} - F_{\rm SH} - F_{\rm LH} \nonumber \\
-  +& e_{\rm in,precip} + Q_{\rm ext}, \label{eq:goevern_eq_slab_ocean}
+  +& e_{\rm in,precip} + Q_{\rm ext}, \label{eq:govern_eq_slab_ocean}
 \end{align}
 %%
 where $C_o$ is the heat capacity of the slab ocean and $e_{{\rm in},o}$ is its internal energy.
@@ -62,4 +62,4 @@ In the current implementation, the simple bulk-flux scheme described in Sec.\,\r
 
 Because the slab ocean possesses a much larger heat capacity than the atmosphere,
 its characteristic evolution time is much longer than the atmospheric time step.
-Therefore, the governing equation (Eq.\,\eqref{eq:goevern_eq_slab_ocean}) is integrated using the forward Euler method. 
+Therefore, the governing equation Eq.\,\eqref{eq:govern_eq_slab_ocean} is integrated using the forward Euler method. 
