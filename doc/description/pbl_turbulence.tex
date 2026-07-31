@@ -1,0 +1,212 @@
+
+\section{Boundary layer turbulence model}
+{\bf \Large
+\begin{tabular}{ccc}
+\hline
+  Corresponding author & : & Yuta Kawai\\
+\hline
+\end{tabular}
+}
+
+\subsection{Basic formulation of PBL parameterizations}
+%%
+Unlike the SGS turbulence models described in the previous section, 
+PBL parameterizations represent the turbulent transport associated with the entire planetary boundary layer (PBL), 
+including energetic turbulent eddies that are not explicitly resolved by mesoscale atmospheric simulations.
+Under the assumption of local horizontal homogeneity, the resolved mean fields are considered to vary more weakly in the horizontal directions than in the vertical direction over the characteristic scales of boundary-layer turbulence.
+Conventional PBL parameterizations are therefore commonly formulated as one-dimensional vertical-column models.
+The principal effects of unresolved turbulence are represented through vertical fluxes of momentum, heat, moisture, and other scalars.
+Horizontal subgrid-scale mixing, when required, is generally treated separately.
+
+
+To describe the evolution of the resolved mean state, 
+the governing equations are Reynolds-averaged using the Reynolds decomposition as
+$\phi = \overline{\phi} + \phi'$
+where the overbar and prime denote the ensemble-mean and turbulent components, respectively.
+The mean horizontal momentum equations contain the vertical turbulent momentum fluxes as
+%
+\begin{align}
+ \frac{\partial \overline{u}}{\partial t} &= -\frac{\partial \overline{u'w'}}{\partial z} + \mathcal{F}_u, \\
+ \frac{\partial \overline{v}}{\partial t} &= -\frac{\partial \overline{v'w'}}{\partial z} + \mathcal{F}_v,
+\end{align}
+%
+where $\mathcal{F}_u$ and $\mathcal{F}_v$ denote the resolved dynamical forcing terms.
+Similarly, the mean equation for a scalar quantity $\phi$ is written as
+%
+\begin{equation}
+ \frac{\partial \overline{\phi}}{\partial t} = -\frac{\partial \overline{\phi'w'}}{\partial z} + \mathcal{F}_{\phi}.
+\end{equation}
+%%
+These equations are not closed because the turbulent fluxes, such as $\overline{u'w'}$ and $\overline{\phi'w'}$, are additional unknowns,
+which constitutes the central problem of turbulence closure.
+
+In first-order closure models, the turbulent fluxes are directly assumed to be proportional to the corresponding gradients of the resolved mean fields.
+In higher-order closure models, including the Mellor--Yamada (MY) family, the turbulent fluxes are instead determined from prognostic or diagnostic equations for second-order turbulent moments.
+These equations describe the balances among shear production, buoyancy production or destruction, pressure correlations, turbulent transport, and viscous dissipation.
+After suitable closure approximations are introduced, the second-moment equations form a closed system.
+
+
+In the MY level-2 closure, the local time tendencies and turbulent transport terms in the second-moment equations are neglected.
+The second moments are therefore assumed to be in local equilibrium, and their governing equations reduce to a set of algebraic relations.
+By solving these relations, the vertical turbulent fluxes can be represented by the local gradients of the resolved mean fields as
+%
+\begin{align}
+ \overline{u'w'}
+ &= -K_M \frac{\partial \overline{u}}{\partial z}, \label{eq:eddy_visc_hypo}\\
+ \overline{\phi'w'}
+ &= -K_H \frac{\partial \overline{\phi}}{\partial z} \label{eq:eddy_diff_hypo},
+\end{align}
+%
+where $K_M$ and $K_H$ denote the eddy viscosity and eddy diffusivity, respectively.
+Thus, in the MY framework, the gradient-diffusion form is not merely imposed as an independent empirical assumption, 
+but arises as a constitutive relation obtained from the locally equilibrated second-moment equations.
+The eddy viscosity and diffusivity are written as
+%
+\begin{align}
+ K_M &= l q S_M, \\
+ K_H &= l q S_H,
+\label{eq:eddy_viscdiff_1.5ord_tb_closure}
+\end{align}
+%
+where $l$ is the turbulent mixing length, 
+$q=\sqrt{\overline{u'^2}+\overline{v'^2}+\overline{w'^2}}=\sqrt{2e}$ is the turbulent velocity scale,
+and $S_M$ and $S_H$ are stability functions for momentum and scalar transport, respectively.
+The factors $lq$ provide the characteristic turbulent diffusivity scale, 
+whereas the stability functions arise from the algebraic solution of the second-moment equations and represent the effects of shear and buoyancy on the turbulent fluxes.
+Under unstable stratification, buoyancy production enhances turbulent motions and generally increases the mixing coefficients.
+Under stable stratification, buoyancy suppresses vertical motions and reduces turbulent transport.
+Different PBL parameterization schemes therefore differ mainly in the closure assumptions used to determine $l$, $q$, $S_M$, and $S_H$, 
+and in whether these quantities are diagnosed or predicted.
+
+
+\subsection{Mellor--Yamada Nakanishi--Niino (MYNN) level 2.0 model}
+%%
+This model employs the local-equilibrium form of the MYNN second-moment closure.
+In this model, the turbulent velocity scale $q$ is diagnosed from the local balance of turbulent kinetic energy (TKE), 
+rather than predicted from a time-dependent TKE equation.
+The local TKE balance is written as
+%%
+\begin{equation}
+P + B - \varepsilon = 0,
+\end{equation}
+%%
+where $P$ is the shear production, $B$ is the buoyancy production, and $\varepsilon$ is the dissipation rate of TKE. 
+For a horizontally homogeneous flow, these terms are expressed as
+%%
+\begin{align}
+  P =  \dfrac{\partial \bar{u}}{\partial z} \overline{u'w'}
+     +  \dfrac{\partial \bar{v}}{\partial z} \overline{v'w'}, \;\;\;
+  B =   - \dfrac{g}{\theta_0} \overline{\theta'w'}, \;\;\;
+  \varepsilon = \dfrac{q^3}{B_1 l},
+\label{eq:mynn_l2_tke_terms}
+\end{align}
+%%
+where $\theta_0$ is a reference potential temperature and $B_1$ is a closure constant.
+Using the gradient-diffusion relations in Eqs.\,\eqref{eq:eddy_visc_hypo} and \eqref{eq:eddy_diff_hypo},
+the production terms become
+%
+\begin{align}
+ P \sim K_M S^2, \;\; B \sim -K_H N^2, 
+\label{eq:mynn_l2_production}
+\end{align}
+%
+where $S^2$ and $N^2$ are the squared magnitude of the vertical wind shear and the squared Brunt--V\"ais\"al\"a frequency, respectively.
+
+
+Substituting $K_M=lqS_M$ and $K_H=lqS_H$ into the local TKE balance provides
+%%
+\begin{equation}
+lq\left(S_M S^2-S_H N^2\right) - \frac{q^3}{B_1l} = 0.
+\end{equation}
+%%
+The diagnosed turbulent velocity scale therefore satisfies
+%%
+\begin{equation}
+q^2 = B_1 l^2 S_M S^2(1-R_f)
+\label{eq:TKE_local_equilibrium}
+\end{equation}
+%%
+where $R_f$ is the flux Richardson number as
+%
+\begin{equation}
+R_f = \frac{S_HN^2}{S_MS^2} = \frac{K_HN^2}{K_MS^2}.
+\label{eq:mynn_flux_richardson}
+\end{equation}
+%
+
+The stability functions are obtained by solving the locally equilibrated algebraic equations for the Reynolds stresses, turbulent heat fluxes, and scalar variance.
+Although the detailed elimination of the individual second moments is omitted here, the resulting functions can be expressed in the form
+%
+\begin{align}
+S_H = S_H(R_f), \;\;
+S_M = S_M(R_f).
+\label{eq:mynn_stability_functions_rf}
+\end{align}
+%
+Thus, the effects of shear and stratification on momentum and heat transport are represented through a single nondimensional parameter, $R_f$.
+
+The flux Richardson number is related to the gradient Richardson number $Ri=N^2/S^2$ through the stability functions as
+%
+\begin{equation}
+Ri = R_f\frac{S_M(R_f)}{S_H(R_f)}.
+\label{eq:mynn_ri_rf_relation}
+\end{equation}
+%
+Because the ratio $S_M/S_H$ is itself a known function of $R_f$, this algebraic relation can be inverted to obtain
+%
+\begin{equation}
+R_f=R_f(Ri), 
+\label{eq:mynn_ri_rf_relation_quadratic}
+\end{equation}
+%
+which corresponds to solving a quadratic equation for $R_f$.
+
+
+The diagnostic procedure of the MYNN level 2.0 closure may therefore be summarized as
+%
+\begin{equation}
+Ri
+;\longrightarrow;
+R_f
+;\longrightarrow;
+\left(S_M,S_H\right)
+;\longrightarrow;
+q
+;\longrightarrow;
+\left(K_M,K_H\right).
+\label{eq:mynn_l2_diagnostic_sequence}
+\end{equation}
+%
+$Ri$ is first calculated from the resolved vertical gradients.
+The flux Richardson number is then obtained from the algebraic MYNN relation in Eq.\,\eqref{eq:mynn_ri_rf_relation_quadratic},
+followed by the evaluation of the stability functions in Eq.\,\eqref{eq:mynn_stability_functions_rf}.
+The turbulent velocity scale is diagnosed from Eq.\,\eqref{eq:TKE_local_equilibrium}, 
+and the eddy viscosity and diffusivity are finally evaluated using Eq.\,\eqref{eq:eddy_viscdiff_1.5ord_tb_closure}.
+The mixing length $l$ is specified through a separate MYNN mixing-length formulation.
+
+The complete algebraic formulation, including the closure constants and analytical expressions for the stability functions,
+is given in Appendix A of \cite{Nakanishi2006}.
+
+
+\subsection{Common formulation}
+%%
+Although different PBL parameterization schemes employ different formulations for the turbulent mixing coefficients, 
+their effects are incorporated into the governing equations in SCALE-DG through a common vertical diffusion operator.
+For momentum, potential temperature, moisture, and other prognostic scalars, the turbulent fluxes are represented by the gradient-diffusion relations,
+and the corresponding tendency is written in the generic form
+%
+\begin{equation}
+\frac{\partial \rho\phi}{\partial t} = \frac{\partial}{\partial z}\left(\rho K_\phi \frac{\partial \phi}{\partial z}\right),
+\end{equation}
+%
+where $K_\phi$ denotes the turbulent diffusion coefficient determined by the selected PBL parameterization.
+
+The vertical diffusion operators are spatially discretized using the symmetric interior penalty (SIP) formulation\citep{Arnold2002}.
+This formulation weakly couples neighboring DG elements through consistent numerical fluxes and penalty terms, 
+providing a stable and high-order discretization of the diffusion operator.
+We evaluate the turbulent diffusion coefficients at the LGL nodes and enter the SIP discretization as spatially varying diffusion coefficients.
+
+
+The characteristic time scale associated with vertical turbulent diffusion is often much shorter than that of the resolved atmospheric dynamics, especially under strongly mixed boundary-layer conditions.
+To avoid the severe timestep restriction imposed by explicit integration, 
+the vertical diffusion terms are integrated implicitly using the backward Euler method. 
