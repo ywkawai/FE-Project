@@ -85,7 +85,7 @@ public:
         return data_[i * n1_ + j];
     }
 
-    const T& operator()(size_type i, size_type j) const
+    constexpr T& operator()(size_type i, size_type j) const noexcept
     {
         return data_[i * n1_ + j];
     }
