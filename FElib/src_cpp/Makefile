@@ -17,7 +17,8 @@ VPATH = \
 	common:
 
 OBJS_NAME_COMMON = \
-	scale_sparsemat.o
+	scale_sparsemat.o   \
+	scale_polynomial.o
 
 OBJS_NAME = \
 	$(OBJS_NAME_COMMON)
