@@ -188,8 +188,8 @@ contains
     do iq = 1, QA
       iv = ATMOS_PHY_BL_TENDS_NUM1 + iq 
       qtrc_tp_vinfo_tmp%keyID = iv
-      qtrc_tp_vinfo_tmp%NAME  = 'BL_'//trim(TRACER_NAME(this%QS+iq-1))//'_t'
-      qtrc_tp_vinfo_tmp%DESC  = 'tendency of rho*'//trim(TRACER_NAME(this%QS+iq-1))//' in BL process'
+      qtrc_tp_vinfo_tmp%NAME  = 'BL_'//trim(TRACER_NAME(iq))//'_t'
+      qtrc_tp_vinfo_tmp%DESC  = 'tendency of rho*'//trim(TRACER_NAME(iq))//' in BL process'
       qtrc_tp_vinfo_tmp%UNIT  = 'kg/m3/s'
 
       reg_file_hist = .true.

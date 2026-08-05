@@ -234,8 +234,8 @@ contains
       lmesh, elem, is_bound )                                                           ! (in)
 
     !$omp parallel &
-    !$omp private( Fz, LiftDelFlx, DENS, RDENS, RHOT, Q, DdensDz, DVelDz, DptDz, DrtotDz, &
-    !$omp N2, S2, Ri, Rf, discriminant, denom_m, denom_h, S_M, S_H, mixlen, kz            )
+    !$omp private( ke2D, Fz, LiftDelFlx, DENS, RDENS, RHOT, Q, DdensDz, DVelDz, DptDz, DrtotDz, &
+    !$omp N2, S2, Ri, Rf, discriminant, denom_m, denom_h, S_M, S_H, mixlen, kz                  )
 
     !$omp do
     do ke2D=lmesh2D%NeS, lmesh2D%NeE

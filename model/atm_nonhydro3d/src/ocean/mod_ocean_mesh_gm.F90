@@ -195,7 +195,9 @@ contains
       this%mesh%mesh2D, dom_zmin )
 
     this%vcoord_type_id = MeshUtil_get_VCoord_TypeID( VERTICAL_COORD_NAME )
-    call this%Setup_vcoordinate()
+    ! We tentatively disable the setup of vertical coordinate in ocean component. 
+    ! For future, we will implement a more flexible setup of vertical coordinate.
+    ! call this%Setup_vcoordinate()
 
     !-
     this%comm_use_mpi_pc             = COMM_USE_MPI_PC
