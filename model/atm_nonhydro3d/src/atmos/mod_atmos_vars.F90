@@ -1018,7 +1018,7 @@ contains
     select case(trim(field_name))
     case('RAIN')
       !$omp parallel 
-      !$acc parallel present(SFLX_rain_MP%val, var_out) async(1)
+      !$acc parallel present(var_out) async(1)
       !$omp do
       !$acc loop collapse(2) 
       do ke=lcmesh%NeS, lcmesh%NeE
@@ -1048,7 +1048,7 @@ contains
       !$acc end parallel
     case('SNOW')
       !$omp parallel 
-      !$acc parallel present(SFLX_snow_MP%val, var_out) async(1)
+      !$acc parallel present(var_out) async(1)
       !$omp do
       !$acc loop collapse(2) 
       do ke=lcmesh%NeS, lcmesh%NeE
