@@ -283,7 +283,7 @@ contains
       call this%phy_mp_proc%vars%Setup( this%mesh )
       call this%phy_mp_proc%Set_primary_atmvars_container( this%vars%container )
 
-      call this%vars%Regist_physvar_manager( this%phy_mp_proc%vars%auxvars2D_manager )
+      call this%vars%Regist_physvar_manager( mp_AUXVARS2D_manager=this%phy_mp_proc%vars%auxvars2D_manager )
       call this%vars%Setup_container( this%phy_mp_proc%atm_var_container_typeid, this%mesh )
     end if
     !- Surface component
@@ -309,6 +309,7 @@ contains
     !- Cumulus parameterization component
     if ( this%phy_cp_proc%IsActivated() ) then
       call this%phy_cp_proc%vars%Setup( this%mesh )
+      call this%vars%Regist_physvar_manager( cp_AUXVARS2D_manager=this%phy_cp_proc%vars%auxvars2D_manager )
     end if
     !- PBL component
     if ( this%phy_bl_proc%IsActivated() ) then
@@ -687,6 +688,8 @@ contains
       PREC_ENGI_ID => ATMOS_AUXVARS2D_PREC_ENGI_ID
     use mod_atmos_phy_mp_vars, only: &
       AtmosPhyMpVars_GetLocalMeshFields_sfcflx
+    use mod_atmos_phy_cp_vars, only: &
+      AtmosPhyCpVars_GetLocalMeshFields_sfcflx
     use mod_atmos_phy_rd_vars, only: &
       RD_SFLX_LW_dif_ID => ATMOS_PHY_RD_AUX2D_SFLX_LW_dn_ID, &
       RD_SFLX_SW_dir_ID => ATMOS_PHY_RD_AUX2D_SFLX_SW_dn_ID
@@ -703,6 +706,7 @@ contains
 
     class(LocalMeshFieldBase), pointer :: PREC, PREC_ENGI
     class(LocalMeshFieldBase), pointer :: SFLX_rain_MP, SFLX_snow_MP, SFLX_ENGI_MP
+    class(LocalMeshFieldBase), pointer :: SFLX_rain_CP, SFLX_snow_CP, SFLX_ENGI_CP
 
     integer :: iq
     !--------------------------------------------------
@@ -715,7 +719,7 @@ contains
       call mesh%GetMesh2D( mesh2D )
     end select
 
-    !- sum of rainfall from mp and cp
+    !- Sum up precipitation and energy fluxes from cloud microphysics and cumulus parameterization components
 
     do n=1, mesh2D%LOCAL_MESH_NUM
       call AtmosVars_GetLocalMeshSfcVar( n, &
@@ -737,6 +741,18 @@ contains
         do ke=lcmesh%NeS, lcmesh%NeE
           PREC     %val(:,ke) = PREC     %val(:,ke) + SFLX_rain_MP%val(:,ke) + SFLX_snow_MP%val(:,ke)
           PREC_ENGI%val(:,ke) = PREC_ENGI%val(:,ke) + SFLX_ENGI_MP%val(:,ke)
+        end do
+      end if
+
+      if ( this%phy_cp_proc%IsActivated() ) then
+        call AtmosPhyCpVars_GetLocalMeshFields_sfcflx( n, &
+          mesh2D, this%phy_cp_proc%vars%auxvars2D_manager, & ! (in)
+          SFLX_rain_CP, SFLX_snow_CP, SFLX_ENGI_CP         ) ! (out)
+
+        !$omp parallel do private(ke)
+        do ke=lcmesh%NeS, lcmesh%NeE
+          PREC     %val(:,ke) = PREC     %val(:,ke) + SFLX_rain_CP%val(:,ke) + SFLX_snow_CP%val(:,ke)
+          PREC_ENGI%val(:,ke) = PREC_ENGI%val(:,ke) + SFLX_ENGI_CP%val(:,ke)
         end do
       end if
     end do
@@ -779,7 +795,8 @@ contains
       SFLX_MU_ID => ATMOS_PHY_SF_SFLX_MU_ID,   &
       SFLX_MV_ID => ATMOS_PHY_SF_SFLX_MV_ID,   &
       SFLX_SH_ID => ATMOS_PHY_SF_SFLX_SH_ID,   &
-      SFLX_LH_ID => ATMOS_PHY_SF_SFLX_LH_ID
+      SFLX_LH_ID => ATMOS_PHY_SF_SFLX_LH_ID,   &
+      SFLX_QV_ID => ATMOS_PHY_SF_SFLX_QV_ID
     use mod_cpl_component, only: CouplerComponent      
     implicit none
     class(AtmosComponent), intent(inout), target :: this
@@ -795,7 +812,8 @@ contains
       this%phy_sfc_proc%vars%SFC_FLX(SFLX_MU_ID),  &
       this%phy_sfc_proc%vars%SFC_FLX(SFLX_MV_ID),  &
       this%phy_sfc_proc%vars%SFC_FLX(SFLX_SH_ID),  &
-      this%phy_sfc_proc%vars%SFC_FLX(SFLX_LH_ID)   )
+      this%phy_sfc_proc%vars%SFC_FLX(SFLX_LH_ID),  &
+      this%phy_sfc_proc%vars%SFC_FLX(SFLX_QV_ID)   )
     call PROF_rapend( 'ATM_sfc_exch', 1)
     return
   end subroutine Atmos_get_surface
