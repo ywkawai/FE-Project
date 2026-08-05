@@ -518,10 +518,10 @@ contains
     integer :: ke2D, ij
 
     real(RP) :: DZ1     (elem%Np,lmesh%NeA)
-    real(RP) :: Z1      (elem%Np,lmesh%NeA)
-    real(RP) :: ATM_W_lc(elem%Np,lmesh%Ne)
-    real(RP) :: ATM_U_lc(elem%Np,lmesh%Ne)
-    real(RP) :: ATM_V_lc(elem%Np,lmesh%Ne)
+    real(RP) :: Z1      (elem%Np,lmesh%Ne)
+    real(RP) :: ATM_W_lc(elem%Np,lmesh%NeA)
+    real(RP) :: ATM_U_lc(elem%Np,lmesh%NeA)
+    real(RP) :: ATM_V_lc(elem%Np,lmesh%NeA)
     !--------------------------------------------------
 
     !$omp parallel do collapse(2)
@@ -540,7 +540,7 @@ contains
 
     call convert_UV2LocalOrthVec( &
       this%mesh%ptr_mesh, lmesh%pos_en(:,:,1), lmesh%pos_en(:,:,2), Z1(:,:), elem%Np*lmesh%Ne, &
-      ATM_U_lc, ATM_V_lc ) ! (inout)
+      ATM_U_lc(:,lmesh%NeS:lmesh%NeE), ATM_V_lc(:,lmesh%NeS:lmesh%NeE) ) ! (inout)
 
     call ATMOS_PHY_SF_simple_flux( &
       elem%Np, 1, elem%Np, lmesh%NeA, 1, lmesh%Ne,                               & ! (in)

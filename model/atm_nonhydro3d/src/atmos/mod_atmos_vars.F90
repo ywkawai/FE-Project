@@ -375,6 +375,11 @@ contains
     LOG_INFO("ATMOS_vars_setup",*) 'Check value range of variables?     : ', CHECK_RANGE
     LOG_INFO("ATMOS_vars_setup",*) 'Check total value of variables?     : ', CHECK_TOTAL
 
+    !-- Set the pointer of 2D auxiliary variable manager with MP and CP components to output precipitation fluxes
+
+    nullify( this%ptr_MP_AUXVARS2D_manager )
+    nullify( this%ptr_CP_AUXVARS2D_manager )
+
     return
   end subroutine AtmosVars_Init
 
