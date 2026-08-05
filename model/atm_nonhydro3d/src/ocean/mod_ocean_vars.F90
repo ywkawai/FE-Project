@@ -156,7 +156,8 @@ module mod_ocean_vars
   integer, public, parameter :: OCN_SFLX_MV_ID = 3 !< v-momentum flux at the ocean surface    [kg/m/s2]
   integer, public, parameter :: OCN_SFLX_SH_ID = 4 !< sensible heat flux at the ocean surface  [W/m2]
   integer, public, parameter :: OCN_SFLX_LH_ID = 5 !< latent heat flux at the ocean surface    [W/m2]
-  integer, public, parameter :: OCN_SFLX_NUM   = 5 !< Number of ocean surface fluxes
+  integer, public, parameter :: OCN_SFLX_QV_ID = 6 !< water vapor flux at the ocean surface    [kg/m2/s]
+  integer, public, parameter :: OCN_SFLX_NUM   = 6 !< Number of ocean surface fluxes
 
   ! Diagnostic variables
 

@@ -82,8 +82,9 @@ module mod_cpl_vars
   integer, parameter, public :: OCN_SFLX_MV_ID    = 4
   integer, parameter, public :: OCN_SFLX_SH_ID    = 5
   integer, parameter, public :: OCN_SFLX_LH_ID    = 6
-  integer, parameter, public :: OCN_SFC_ALBEDO_ID = 7
-  integer, parameter, public :: OCN_VAR_NUM       = 7
+  integer, parameter, public :: OCN_SFLX_QV_ID    = 7
+  integer, parameter, public :: OCN_SFC_ALBEDO_ID = 8
+  integer, parameter, public :: OCN_VAR_NUM       = 8
 
   ! Output to ocean component
   integer, parameter, public :: OCN_ATM_SFC_DENS_ID    = 1
@@ -226,7 +227,8 @@ contains
       SFLX_MU_ID => OCN_SFLX_MU_ID,        &
       SFLX_MV_ID => OCN_SFLX_MV_ID,        &
       SFLX_SH_ID => OCN_SFLX_SH_ID,        &
-      SFLX_LH_ID => OCN_SFLX_LH_ID
+      SFLX_LH_ID => OCN_SFLX_LH_ID,        &
+      SFLX_QV_ID => OCN_SFLX_QV_ID
     implicit none
     class(CouplerVars), intent(inout) :: this
     type(OceanVars), intent(in) :: ocn_vars
@@ -246,13 +248,15 @@ contains
         ocn_vars%OCN_SFLX(SFLX_MV_ID)%local(ldomID)%val,     &
         ocn_vars%OCN_SFLX(SFLX_SH_ID)%local(ldomID)%val,     &
         ocn_vars%OCN_SFLX(SFLX_LH_ID)%local(ldomID)%val,     &
+        ocn_vars%OCN_SFLX(SFLX_QV_ID)%local(ldomID)%val,     &
         !-
         this%OCN_vars(OCN_SFC_TEMP_ID)%local(ldomID)%val,    &
         this%OCN_vars(OCN_SFLX_MW_ID)%local(ldomID)%val,     &
         this%OCN_vars(OCN_SFLX_MU_ID)%local(ldomID)%val,     &
         this%OCN_vars(OCN_SFLX_MV_ID)%local(ldomID)%val,     &
         this%OCN_vars(OCN_SFLX_SH_ID)%local(ldomID)%val,     &
-        this%OCN_vars(OCN_SFLX_LH_ID)%local(ldomID)%val      )
+        this%OCN_vars(OCN_SFLX_LH_ID)%local(ldomID)%val,     &
+        this%OCN_vars(OCN_SFLX_QV_ID)%local(ldomID)%val      )
     end do
 
     ! Update counter
@@ -265,9 +269,10 @@ contains
 
   !> Get SFC variables from CPL buffer for ATM component
 !OCL SERIAL
-  subroutine CouplerVars_get_SFC_ATM( this,     &
-    SFC_TEMP, SFC_ALBEDO,                       &
-    SFLX_MW, SFLX_MU, SFLX_MV, SFLX_SH, SFLX_LH )
+  subroutine CouplerVars_get_SFC_ATM( this,      &
+    SFC_TEMP, SFC_ALBEDO,                        &
+    SFLX_MW, SFLX_MU, SFLX_MV, SFLX_SH, SFLX_LH, &
+    SFLX_QV )
     implicit none
     class(CouplerVars), intent(inout) :: this
     type(MeshField2D), intent(inout) :: SFC_TEMP
@@ -277,6 +282,7 @@ contains
     type(MeshField2D), intent(inout) :: SFLX_MV
     type(MeshField2D), intent(inout) :: SFLX_SH
     type(MeshField2D), intent(inout) :: SFLX_LH
+    type(MeshField2D), intent(inout) :: SFLX_QV
 
     integer :: ldomID
     class(LocalMesh2D), pointer :: lmesh, lmesh_o
@@ -295,11 +301,12 @@ contains
         this%OCN_vars(OCN_SFLX_MV_ID)%local(ldomID)%val,          &
         this%OCN_vars(OCN_SFLX_SH_ID)%local(ldomID)%val,          &
         this%OCN_vars(OCN_SFLX_LH_ID)%local(ldomID)%val,          &
+        this%OCN_vars(OCN_SFLX_QV_ID)%local(ldomID)%val,          &
         !-
         SFC_TEMP%local(ldomID)%val, SFC_ALBEDO%local(ldomID)%val, &
         SFLX_MW%local(ldomID)%val, SFLX_MU%local(ldomID)%val,     &
         SFLX_MV%local(ldomID)%val, SFLX_SH%local(ldomID)%val,     &
-        SFLX_LH%local(ldomID)%val )
+        SFLX_LH%local(ldomID)%val, SFLX_QV%local(ldomID)%val      )
     end do
     return
   end subroutine CouplerVars_get_SFC_ATM
@@ -395,7 +402,7 @@ contains
     real(RP), intent(out) :: O_ATM_SFLX_ENGI(elem2D_a%Np,lmesh2D_a%NeA)
 
     integer :: ke2D
-    integer :: coef1, coef2
+    real(RP) :: coef1, coef2
 
     integer :: hSlice0(elem2D_a%Np), hSlice1(elem2D_a%Np)
     real(RP) :: dens_(elem2D_a%Np)
@@ -419,7 +426,7 @@ contains
 
       O_ATM_TEMP(:,ke2D) = O_ATM_TEMP(:,ke2D) * coef1 + temp_(:)
       O_ATM_PRES(:,ke2D) = O_ATM_PRES(:,ke2D) * coef1 + ATM_PRES(hSlice0(:),ke2D)
-      O_ATM_W(:,ke2D)    = O_ATM_W(:,ke2D) * coef1 + ATM_MOMZ(hSlice0(:),ke2D) / dens_(:)
+      O_ATM_W(:,ke2D)    = O_ATM_W(:,ke2D) * coef1 + ATM_MOMZ(hSlice1(:),ke2D) / dens_(:)
       O_ATM_U(:,ke2D)    = O_ATM_U(:,ke2D) * coef1 + ATM_MOMX(hSlice0(:),ke2D) / dens_(:)
       O_ATM_V(:,ke2D)    = O_ATM_V(:,ke2D) * coef1 + ATM_MOMY(hSlice0(:),ke2D) / dens_(:)
       O_ATM_QV(:,ke2D)   = O_ATM_QV(:,ke2D) * coef1 + ATM_QV(hSlice0(:),ke2D)
@@ -451,8 +458,8 @@ contains
 !OCL SERIAL
   subroutine putOCN_local( this, &
     lmesh_o, elem_o, &
-    SFC_TEMP, SFLX_MW, SFLX_MU, SFLX_MV, SFLX_SH, SFLX_LH, &
-    SFC_TEMP_out, SFLX_MW_out, SFLX_MU_out, SFLX_MV_out, SFLX_SH_out, SFLX_LH_out )
+    SFC_TEMP, SFLX_MW, SFLX_MU, SFLX_MV, SFLX_SH, SFLX_LH, SFLX_QV, &
+    SFC_TEMP_out, SFLX_MW_out, SFLX_MU_out, SFLX_MV_out, SFLX_SH_out, SFLX_LH_out, SFLX_QV_out )
     implicit none
     class(CouplerVars), intent(inout) :: this
     class(LocalMesh2D), intent(in) :: lmesh_o
@@ -463,12 +470,14 @@ contains
     real(RP), intent(in) :: SFLX_MV(elem_o%Np,lmesh_o%NeA)
     real(RP), intent(in) :: SFLX_SH(elem_o%Np,lmesh_o%NeA)
     real(RP), intent(in) :: SFLX_LH(elem_o%Np,lmesh_o%NeA)
+    real(RP), intent(in) :: SFLX_QV(elem_o%Np,lmesh_o%NeA)
     real(RP), intent(out) :: SFC_TEMP_out(elem_o%Np,lmesh_o%NeA)
     real(RP), intent(out) :: SFLX_MW_out(elem_o%Np,lmesh_o%NeA)
     real(RP), intent(out) :: SFLX_MU_out(elem_o%Np,lmesh_o%NeA)
     real(RP), intent(out) :: SFLX_MV_out(elem_o%Np,lmesh_o%NeA)
     real(RP), intent(out) :: SFLX_SH_out(elem_o%Np,lmesh_o%NeA)
     real(RP), intent(out) :: SFLX_LH_out(elem_o%Np,lmesh_o%NeA)
+    real(RP), intent(out) :: SFLX_QV_out(elem_o%Np,lmesh_o%NeA)
 
     integer :: ke
     real(RP) :: coef1, coef2
@@ -486,6 +495,7 @@ contains
       SFLX_MV_out(:,ke) = SFLX_MV_out(:,ke) * coef1 + SFLX_MV(:,ke)
       SFLX_SH_out(:,ke) = SFLX_SH_out(:,ke) * coef1 + SFLX_SH(:,ke)
       SFLX_LH_out(:,ke) = SFLX_LH_out(:,ke) * coef1 + SFLX_LH(:,ke)
+      SFLX_QV_out(:,ke) = SFLX_QV_out(:,ke) * coef1 + SFLX_QV(:,ke)
     end do
     !$omp do
     do ke=lmesh_o%NeS, lmesh_o%NeE
@@ -495,6 +505,7 @@ contains
       SFLX_MV_out(:,ke) = SFLX_MV_out(:,ke) * coef2
       SFLX_SH_out(:,ke) = SFLX_SH_out(:,ke) * coef2
       SFLX_LH_out(:,ke) = SFLX_LH_out(:,ke) * coef2
+      SFLX_QV_out(:,ke) = SFLX_QV_out(:,ke) * coef2
     end do
     !$omp end parallel
     return
@@ -503,8 +514,8 @@ contains
 !OCL SERIAL
   subroutine get_SFC_ATM_local( this, &
     lmesh_a, elem_a, lmesh_o, elem_o, &
-    O_SFC_TEMP, O_SFC_ALBEDO, O_SFLX_MW, O_SFLX_MU, O_SFLX_MV, O_SFLX_SH, O_SFLX_LH, &
-    SFC_TEMP, SFC_ALBEDO, SFLX_MW, SFLX_MU, SFLX_MV, SFLX_SH, SFLX_LH )
+    O_SFC_TEMP, O_SFC_ALBEDO, O_SFLX_MW, O_SFLX_MU, O_SFLX_MV, O_SFLX_SH, O_SFLX_LH, O_SFLX_QV, &
+    SFC_TEMP, SFC_ALBEDO, SFLX_MW, SFLX_MU, SFLX_MV, SFLX_SH, SFLX_LH, SFLX_QV )
     implicit none
     class(CouplerVars), intent(inout) :: this
     class(LocalMesh2D), intent(in) :: lmesh_a
@@ -518,6 +529,7 @@ contains
     real(RP), intent(in) :: O_SFLX_MV(elem_o%Np,lmesh_o%NeA)
     real(RP), intent(in) :: O_SFLX_SH(elem_o%Np,lmesh_o%NeA)
     real(RP), intent(in) :: O_SFLX_LH(elem_o%Np,lmesh_o%NeA)
+    real(RP), intent(in) :: O_SFLX_QV(elem_o%Np,lmesh_o%NeA)
     real(RP), intent(out) :: SFC_TEMP(elem_a%Np,lmesh_a%NeA)
     real(RP), intent(out) :: SFC_ALBEDO(elem_a%Np,lmesh_a%NeA)
     real(RP), intent(out) :: SFLX_MW(elem_a%Np,lmesh_a%NeA)
@@ -525,6 +537,7 @@ contains
     real(RP), intent(out) :: SFLX_MV(elem_a%Np,lmesh_a%NeA)
     real(RP), intent(out) :: SFLX_SH(elem_a%Np,lmesh_a%NeA)
     real(RP), intent(out) :: SFLX_LH(elem_a%Np,lmesh_a%NeA)
+    real(RP), intent(out) :: SFLX_QV(elem_a%Np,lmesh_a%NeA)
 
     integer :: ke
     !----------------------------------------------------------------
@@ -538,6 +551,7 @@ contains
       SFLX_MV(:,ke) = O_SFLX_MV(:,ke)
       SFLX_SH(:,ke) = O_SFLX_SH(:,ke)
       SFLX_LH(:,ke) = O_SFLX_LH(:,ke)
+      SFLX_QV(:,ke) = O_SFLX_QV(:,ke)
     end do
     return
   end subroutine get_SFC_ATM_local

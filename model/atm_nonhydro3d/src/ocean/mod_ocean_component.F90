@@ -242,6 +242,7 @@ contains
       SFLX_MV_ID => OCN_SFLX_MV_ID, &
       SFLX_SH_ID => OCN_SFLX_SH_ID, &
       SFLX_LH_ID => OCN_SFLX_LH_ID, &
+      SFLX_QV_ID => OCN_SFLX_QV_ID, &
       SFLX_RD_SW_DIR_ID => ATMVAR2D_SFLX_RD_SW_DIR_ID, &
       SFLX_RD_LW_DIF_ID => ATMVAR2D_SFLX_RD_LW_DIF_ID, &
       RHOH_ID => PHYTEND_RHOH_ID
@@ -272,12 +273,13 @@ contains
 
       !- Calculate surface fluxes
 
-      call calculate_surface_flux( &
+      call calculate_surface_flux( this, &
         this%vars%OCN_SFLX(SFLX_MW_ID)%local(idom)%val, &
         this%vars%OCN_SFLX(SFLX_MU_ID)%local(idom)%val, &
         this%vars%OCN_SFLX(SFLX_MV_ID)%local(idom)%val, &
         this%vars%OCN_SFLX(SFLX_SH_ID)%local(idom)%val, &
         this%vars%OCN_SFLX(SFLX_LH_ID)%local(idom)%val, &
+        this%vars%OCN_SFLX(SFLX_QV_ID)%local(idom)%val, &
         !-
         this%vars%AUX_VARS2D(SFC_TEMP_ID)%local(idom)%val, &
         this%vars%ATM_VARS2D(ATM_SFC_DENS_ID)%local(idom)%val, &
@@ -292,13 +294,15 @@ contains
         this%vars%ATM_VARS2D(DZ_A_ID)%local(idom)%val,   &
         lmesh2D, lmesh2D%refElem2D )
 
-      !- Calculate ground heat flux
+      !- Calculate ocean surface heat flux
       
-      call calculate_ground_heat_flux( SFLX_GH,                  & ! (out)
+      call calculate_sfc_heat_flux( SFLX_GH,                     & ! (out)
         this%vars%AUX_VARS2D(SFC_TEMP_ID)%local(idom)%val,       & ! (in)
         this%vars%ATM_VARS2D(SFLX_RD_SW_DIR_ID)%local(idom)%val, & ! (in)
         this%vars%ATM_VARS2D(SFLX_RD_LW_DIF_ID)%local(idom)%val, & ! (in)
         this%vars%AUX_VARS2D(ALB_VIS_DIR_ID)%local(idom)%val,    & ! (in)
+        this%vars%OCN_SFLX(SFLX_SH_ID)%local(idom)%val,          & ! (in)
+        this%vars%OCN_SFLX(SFLX_LH_ID)%local(idom)%val,          & ! (in)
         lmesh2D, lmesh2D%refElem2D )                               ! (in)
 
       !- Calculate tendencies with physics
@@ -475,7 +479,8 @@ contains
 
   !> Calculate momentum and heat flux at the surface (tentative)
 !OCL SERIAL
-  subroutine calculate_surface_flux( SFLX_MW, SFLX_MU, SFLX_MV, SFLX_SH, SFLX_LH, &
+  subroutine calculate_surface_flux( this, &
+    SFLX_MW, SFLX_MU, SFLX_MV, SFLX_SH, SFLX_LH, SFLX_QV, &
     SFC_TEMP, SFC_DENS, SFC_PRES,                                       &
     ATM_TEMP, ATM_DENS, ATM_PRES, ATM_W, ATM_U, ATM_V, ATM_QV, zlev_a, &
     lmesh, elem )
@@ -484,6 +489,7 @@ contains
     use scale_atm_phy_sf_bulk_simple, only: &
        ATMOS_PHY_SF_simple_flux
     implicit none
+    class(OceanComponent), intent(in) :: this
     class(LocalMesh2D), intent(in) :: lmesh
     class(ElementBase2D), intent(in) :: elem
     real(RP), intent(out) :: SFLX_MW(elem%Np,lmesh%NeA)
@@ -491,6 +497,7 @@ contains
     real(RP), intent(out) :: SFLX_MV(elem%Np,lmesh%NeA)
     real(RP), intent(out) :: SFLX_SH(elem%Np,lmesh%NeA)
     real(RP), intent(out) :: SFLX_LH(elem%Np,lmesh%NeA)
+    real(RP), intent(out) :: SFLX_QV(elem%Np,lmesh%NeA)
     real(RP), intent(in) :: SFC_TEMP(elem%Np,lmesh%NeA)
     real(RP), intent(in) :: SFC_DENS(elem%Np,lmesh%NeA)
     real(RP), intent(in) :: SFC_PRES(elem%Np,lmesh%NeA)
@@ -503,8 +510,6 @@ contains
     real(RP), intent(in) :: ATM_QV(elem%Np,lmesh%NeA)
     real(RP), intent(in) :: zlev_a(elem%Np,lmesh%NeA)
     
-    real(RP) :: SFLX_QV(elem%Np,lmesh%NeA)
-
     ! dummy
     real(RP) :: U10(elem%Np,lmesh%NeA)
     real(RP) :: V10(elem%Np,lmesh%NeA)
@@ -514,11 +519,18 @@ contains
 
     real(RP) :: DZ1     (elem%Np,lmesh%NeA)
     real(RP) :: Z1      (elem%Np,lmesh%NeA)
+    real(RP) :: ATM_W_lc(elem%Np,lmesh%Ne)
+    real(RP) :: ATM_U_lc(elem%Np,lmesh%Ne)
+    real(RP) :: ATM_V_lc(elem%Np,lmesh%Ne)
     !--------------------------------------------------
 
     !$omp parallel do collapse(2)
     do ke2D=lmesh%NeS, lmesh%NeE
     do ij=1, elem%Np
+
+      ATM_W_lc(ij,ke2D) = ATM_W(ij,ke2D)
+      ATM_U_lc(ij,ke2D) = ATM_U(ij,ke2D)
+      ATM_V_lc(ij,ke2D) = ATM_V(ij,ke2D)
 
       Z1(ij,ke2D) = zlev_a(ij,ke2D)
       DZ1(ij,ke2D) = Z1(ij,ke2D) - zlev_a(ij,ke2D)
@@ -526,26 +538,35 @@ contains
     end do
     end do
 
-    call ATMOS_PHY_SF_simple_flux( &
-      elem%Np, 1, elem%Np, lmesh%NeA, 1, lmesh%Ne,                      & ! (in)
-      ATM_W(:,:), ATM_U(:,:), ATM_V(:,:), ATM_TEMP(:,:), ATM_PRES(:,:), & ! (in) Note: ATM_PRES is not used
-      ATM_QV(:,:),                                                      & ! (in)
-      SFC_DENS(:,:), SFC_TEMP(:,:), SFC_PRES(:,:),                      & ! (in)
-      DZ1(:,:),                                                         & ! (in)
-      SFLX_MW(:,:), SFLX_MU(:,:), SFLX_MV(:,:),                         & ! (out)
-      SFLX_SH(:,:), SFLX_LH(:,:), SFLX_QV(:,:),                         & ! (out)
-      U10(:,:), V10(:,:)                                                ) ! (out)
+    call convert_UV2LocalOrthVec( &
+      this%mesh%ptr_mesh, lmesh%pos_en(:,:,1), lmesh%pos_en(:,:,2), Z1(:,:), elem%Np*lmesh%Ne, &
+      ATM_U_lc, ATM_V_lc ) ! (inout)
 
+    call ATMOS_PHY_SF_simple_flux( &
+      elem%Np, 1, elem%Np, lmesh%NeA, 1, lmesh%Ne,                               & ! (in)
+      ATM_W_lc(:,:), ATM_U_lc(:,:), ATM_V_lc(:,:), ATM_TEMP(:,:), ATM_PRES(:,:), & ! (in) Note: ATM_PRES is not used
+      ATM_QV(:,:),                                                               & ! (in)
+      SFC_DENS(:,:), SFC_TEMP(:,:), SFC_PRES(:,:),                               & ! (in)
+      DZ1(:,:),                                                                  & ! (in)
+      SFLX_MW(:,:), SFLX_MU(:,:), SFLX_MV(:,:),                                  & ! (out)
+      SFLX_SH(:,:), SFLX_LH(:,:), SFLX_QV(:,:),                                  & ! (out)
+      U10(:,:), V10(:,:)                                                         ) ! (out)
+
+    call convert_LocalOrth2UVVec( &
+      this%mesh%ptr_mesh, lmesh%pos_en(:,:,1), lmesh%pos_en(:,:,2), Z1(:,:), elem%Np*lmesh%Ne, &
+      SFLX_MU(:,lmesh%NeS:lmesh%NeE), SFLX_MV(:,lmesh%NeS:lmesh%NeE) ) ! (inout)
+    
     return
   end subroutine calculate_surface_flux
 
   !> Calculate ground heat flux (tentative)
   !!
 !OCL SERIAL
-  subroutine calculate_ground_heat_flux( sflx_GH, &
-    SFC_TEMP, & 
+  subroutine calculate_sfc_heat_flux( sflx_GH, &
+    SFC_TEMP,                             & 
     SFLX_RD_SW_dn_dir, SFLX_RD_LW_dn_dif, &
-    SFC_ALB_dir_vis, &
+    SFC_ALB_dir_vis,                      &
+    SFLX_SH, SFLX_LH,                     &
     lmesh, elem )
     use scale_const, only: &
        STB   => CONST_STB
@@ -557,6 +578,8 @@ contains
     real(RP), intent(in) :: SFLX_RD_SW_dn_dir(elem%Np,lmesh%NeA)
     real(RP), intent(in) :: SFLX_RD_LW_dn_dif(elem%Np,lmesh%NeA)
     real(RP), intent(in) :: SFC_ALB_dir_vis(elem%Np,lmesh%NeA)
+    real(RP), intent(in) :: SFLX_SH(elem%Np,lmesh%NeA)
+    real(RP), intent(in) :: SFLX_LH(elem%Np,lmesh%NeA)
 
     integer :: ke
     real(RP) :: emis(elem%Np)
@@ -572,10 +595,10 @@ contains
       SWD(:) = SFLX_RD_SW_dn_dir(:,ke)
       SWU(:) = SFC_ALB_dir_vis(:,ke) * SWD(:)
 
-      sflx_GH(:,ke) = SWD(:) - SWU(:) + LWD(:) - LWU(:)
+      sflx_GH(:,ke) = SWD(:) - SWU(:) + LWD(:) - LWU(:) - SFLX_SH(:,ke) - SFLX_LH(:,ke)
     end do
     return
-  end subroutine calculate_ground_heat_flux
+  end subroutine calculate_sfc_heat_flux
 
 !OCL SERIAL
   subroutine calculate_phys_tendency( RHOH, &
@@ -618,4 +641,55 @@ contains
     !$omp end parallel
     return
   end subroutine calculate_phys_tendency
+
+!OCL SERIAL
+  subroutine convert_UV2LocalOrthVec( mesh, x1, x2, r, N, & ! (in)
+    U, V ) ! (inout)
+    use scale_cubedsphere_coord_cnv, only: &
+      CubedSphereCoordCnv_CS2LocalOrthVec_alpha
+    use scale_mesh_cubedspheredom3d, only: MeshCubedSphereDom3D
+
+    implicit none
+    integer, intent(in) :: N
+    class(MeshBase3D), intent(in) :: mesh
+    real(RP), intent(in) :: x1(N)
+    real(RP), intent(in) :: x2(N)
+    real(RP), intent(in) :: r(N)
+    real(RP), intent(inout) :: U(N)
+    real(RP), intent(inout) :: V(N)
+
+    select type(mesh)
+    type is (MeshCubedSphereDom3D)
+      call CubedSphereCoordCnv_CS2LocalOrthVec_alpha( &
+        x1, x2, r, N, & ! (in)
+        U, V          ) ! (inout)
+    end select
+    return
+  end subroutine convert_UV2LocalOrthVec
+
+!OCL SERIAL
+  subroutine convert_LocalOrth2UVVec( mesh, x1, x2, r, N, & ! (in)
+    U, V ) ! (inout)
+    use scale_cubedsphere_coord_cnv, only: &
+      CubedSphereCoordCnv_LocalOrth2CSVec_alpha
+    use scale_mesh_cubedspheredom3d, only: MeshCubedSphereDom3D
+
+    implicit none
+    integer, intent(in) :: N
+    class(MeshBase3D), intent(in) :: mesh
+    real(RP), intent(in) :: x1(N)
+    real(RP), intent(in) :: x2(N)
+    real(RP), intent(in) :: r(N)
+    real(RP), intent(inout) :: U(N)
+    real(RP), intent(inout) :: V(N)
+
+    select type(mesh)
+    type is (MeshCubedSphereDom3D)
+      call CubedSphereCoordCnv_LocalOrth2CSVec_alpha( &
+        x1, x2, r, N, & ! (in)
+        U, V          ) ! (inout)
+    end select
+    return
+  end subroutine convert_LocalOrth2UVVec 
+
 end module mod_ocean_component
