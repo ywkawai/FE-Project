@@ -253,7 +253,7 @@ contains
     class(LocalMeshFieldBase), pointer :: DDENS, MOMX, MOMY, MOMZ, DRHOT
     class(LocalMeshFieldBase), pointer :: DENS_hyd, PRES_hyd, Rtot, CVtot, CPtot
     class(LocalMeshFieldBase), pointer :: PRES, PT
-    type(LocalMeshFieldBaseList) :: RHOQ_list(QA)
+    type(LocalMeshFieldBaseList) :: QTRC_list(QA)
 
     class(LocalMeshFieldBase), pointer :: DENS_tp, MOMX_tp, MOMY_tp, MOMZ_tp, RHOT_tp, RHOH_P
     type(LocalMeshFieldBaseList) :: RHOQ_tp(QA)
@@ -296,7 +296,7 @@ contains
 
         call AtmosVars_GetLocalMeshQTRCVarList( n,    &
           mesh, trcvars_list,                         &
-          1, RHOQ_list )
+          1, QTRC_list )
 
         call AtmosPhyBLVars_GetLocalMeshFields_tend( n,   &
           mesh, this%vars%tends_manager,                  &
@@ -324,7 +324,7 @@ contains
           bl_RHOU_t%val, bl_RHOV_t%val, bl_RHOT_t%val,    & ! (out)
           bl_RHOQ_t_list,                                 & ! (out)
           DDENS%val, MOMX%val, MOMY%val, DRHOT%val,       & ! (in)
-          RHOQ_list,                                      & ! (in)
+          QTRC_list,                                      & ! (in)
           PT%val, DENS_hyd%val, PRES_hyd%val,             & ! (in)
           this%vars%diagvars(NU_ID)%local(n)%val,         & ! (in)
           this%vars%diagvars(KH_ID)%local(n)%val,         & ! (in)
@@ -365,8 +365,8 @@ contains
         if ( .not. TRACER_ADVC(iq) ) cycle
         !$omp do
         do ke=lcmesh%NeS, lcmesh%NeE
-         RHOQ_tp(iq)%ptr%val(:,ke) = RHOQ_tp(iq)%ptr%val(:,ke)        &
-                                   + bl_RHOQ_t_list(iq)%ptr%val(:,ke)
+          RHOQ_tp(iq)%ptr%val(:,ke) = RHOQ_tp(iq)%ptr%val(:,ke)        &
+                                    + bl_RHOQ_t_list(iq)%ptr%val(:,ke)
         end do
         !$omp end do
       end do

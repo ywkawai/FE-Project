@@ -489,7 +489,7 @@ contains
 
       call convert_LocalOrth2UVVec( &
         this%mesh%ptr_mesh, lcmesh2D%pos_en(:,:,1), lcmesh2D%pos_en(:,:,2), Z1(:,:), elem2D%Np*lcmesh2D%Ne, &
-        SFLX_MU, SFLX_MV ) ! (inout)
+        SFLX_MU(:,lcmesh2D%NeS:lcmesh2D%NeE), SFLX_MV(:,lcmesh2D%NeS:lcmesh2D%NeE) ) ! (inout)
 
     end if
 
@@ -551,12 +551,12 @@ contains
     class(LocalMesh2D), intent(in) :: lmesh2D
     class(ElementBase2D), intent(in) :: elem2D   
     real(RP), intent(out) ::  del_flux(elem%NfpTot*lmesh%Ne,5)
-    real(RP), intent(in) :: sflx_mu(elem2D%Np,lmesh2D%Ne)
-    real(RP), intent(in) :: sflx_mv(elem2D%Np,lmesh2D%Ne)
-    real(RP), intent(in) :: sflx_mw(elem2D%Np,lmesh2D%Ne)
-    real(RP), intent(in) :: sflx_sh(elem2D%Np,lmesh2D%Ne)
-    real(RP), intent(in) :: sflx_qv(elem2D%Np,lmesh2D%Ne)
-    real(RP), intent(in) :: SFC_TEMP(elem2D%Np,lmesh2D%Ne)
+    real(RP), intent(in) :: sflx_mu(elem2D%Np,lmesh2D%NeA)
+    real(RP), intent(in) :: sflx_mv(elem2D%Np,lmesh2D%NeA)
+    real(RP), intent(in) :: sflx_mw(elem2D%Np,lmesh2D%NeA)
+    real(RP), intent(in) :: sflx_sh(elem2D%Np,lmesh2D%NeA)
+    real(RP), intent(in) :: sflx_qv(elem2D%Np,lmesh2D%NeA)
+    real(RP), intent(in) :: SFC_TEMP(elem2D%Np,lmesh2D%NeA)
     real(RP), intent(in) :: nz(elem%NfpTot*lmesh%Ne)
 
     integer :: ke2D, p

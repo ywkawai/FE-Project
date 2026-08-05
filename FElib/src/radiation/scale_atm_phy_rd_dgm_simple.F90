@@ -433,7 +433,8 @@ contains
       A = this%OPTDEP_VALLIS_EQ5_PARAMS(1) * this%OPTDEP_VALLIS_EQ5_PARAMS(2)
       B = this%OPTDEP_VALLIS_EQ5_PARAMS(3)
       C = this%OPTDEP_VALLIS_EQ5_PARAMS(4)
-
+      dtau_sw_kadd = 0.0_RP
+      
       do ke_z=1, NeZ
       do p_z=1, Nnode_v-1
         qv_tmp = 0.5_RP * ( qv(p_z,ke_z) + qv(p_z+1,ke_z) )

@@ -55,11 +55,11 @@ contains
 !OCL SERIAL
   subroutine atm_phy_bl_dgm_common_calc_tendency( &
     RHOU_tp, RHOV_tp, DRHOT_tp, RHOQ_tp_list, & ! (out)
-    DDENS_, MOMX_, MOMY_, DRHOT_, RHOQ_list,  & ! (in)
-    PT_, DENS_hyd, PRES_hyd, NU, KH,       & ! (in)
-    element3D_operation, C_IP, dtsec,      & ! (in)
-    lmesh, elem, elem1D, is_bound,         & ! (in)
-    use_delta_form                         ) ! (in)
+    DDENS_, MOMX_, MOMY_, DRHOT_, QTRC_list,  & ! (in)
+    PT_, DENS_hyd, PRES_hyd, NU, KH,          & ! (in)
+    element3D_operation, C_IP, dtsec,         & ! (in)
+    lmesh, elem, elem1D, is_bound,            & ! (in)
+    use_delta_form                            ) ! (in)
     use scale_atm_dyn_dgm_hevi_common_linalgebra, only: &
       atm_dyn_dgm_hevi_common_linalgebra_get_param
     implicit none
@@ -74,7 +74,7 @@ contains
     real(RP), intent(in) :: MOMX_(elem%Np,lmesh%NeA)
     real(RP), intent(in) :: MOMY_(elem%Np,lmesh%NeA)
     real(RP), intent(in) :: DRHOT_(elem%Np,lmesh%NeA)
-    type(LocalMeshFieldBaseList), intent(in) :: RHOQ_list(QA)
+    type(LocalMeshFieldBaseList), intent(in) :: QTRC_list(QA)
     real(RP), intent(in) :: PT_(elem%Np,lmesh%NeA)
     real(RP), intent(in) :: DENS_hyd(elem%Np,lmesh%NeA)
     real(RP), intent(in) :: PRES_hyd(elem%Np,lmesh%NeA)
@@ -90,7 +90,7 @@ contains
     class(ElementBase2D), pointer :: elem2D
 
     integer :: iq
-    real(RP) :: RHOQ00_(elem%Np,QA,lmesh%Ne)
+    real(RP) :: QTRC00_(elem%Np,QA,lmesh%Ne)
 
     real(RP) :: PROG_VARS (elem%Np,lmesh%NeX*lmesh%NeY,lmesh%NeZ,3+QA)
     real(RP) :: alph_M(elem%NfpTot,lmesh%Ne)
@@ -130,7 +130,7 @@ contains
     !$omp do collapse(2)
     do iq = 1, QA
     do ke=lmesh%NeS, lmesh%NeE
-      RHOQ00_(:,iq,ke) = RHOQ_list(iq)%ptr%val(:,ke)
+      QTRC00_(:,iq,ke) = QTRC_list(iq)%ptr%val(:,ke)
     end do
     end do
     !$omp end do
@@ -147,7 +147,7 @@ contains
       PROG_VARS(:,ke_xy,ke_z,2) = MOMY_ (:,ke)
       PROG_VARS(:,ke_xy,ke_z,3) = DENS(:,ke) * PT_(:,ke)
       do iq = 1, QA
-        PROG_VARS(:,ke_xy,ke_z,3+iq) = RHOQ00_(:,iq,ke)
+        PROG_VARS(:,ke_xy,ke_z,3+iq) = DENS(:,ke) * QTRC00_(:,iq,ke)
       end do
 
       do p=1, elem%Np
@@ -159,7 +159,7 @@ contains
     !$omp end parallel
 
     call eval_Ax( RHOU_tp, RHOV_tp, DRHOT_tp, RHOQ_tp_list, alph_M, alph_H, & !(out)
-      PROG_VARS, MOMX_, MOMY_, PT_, RHOQ00_, NU, KH, DENS, GsqrtV,          & !(in)
+      PROG_VARS, MOMX_, MOMY_, PT_, QTRC00_, NU, KH, DENS, GsqrtV,          & !(in)
       impl_fac, dtsec, lmesh, elem, vmapM, vmapP, is_bound,                 & !(in)
       element3D_operation, C_IP, im, jm, b1D_ij, use_delta_form             ) !(in)
 
@@ -180,7 +180,7 @@ contains
       DRHOT_tp(:,ke) = ( PROG_VARS(:,ke_xy,ke_z,3) - DENS(:,ke) * PT_(:,ke) ) * r_impl_fac
 
       do iq=1, QA
-        RHOQ_tp_list(iq)%ptr%val(:,ke) = ( PROG_VARS(:,ke_xy,ke_z,3+iq) - RHOQ00_(:,iq,ke) ) * r_impl_fac
+        RHOQ_tp_list(iq)%ptr%val(:,ke) = ( PROG_VARS(:,ke_xy,ke_z,3+iq) - DENS(:,ke) * QTRC00_(:,iq,ke) ) * r_impl_fac
       end do
     end do
     end do
@@ -788,7 +788,7 @@ contains
     
 !OCL SERIAL
   subroutine eval_Ax( MOMX_t, MOMY_t, DRHOT_t, RHOQ_t_list, alph_M, alph_H, &
-    PROG_VARS, MOMX00, MOMY00, PT00, RHOQ00, NU, KH, DENS, GsqrtV, impl_fac, dt, &
+    PROG_VARS, MOMX00, MOMY00, PT00, QTRC00, NU, KH, DENS, GsqrtV, impl_fac, dt, &
     lmesh, elem, vmapM, vmapP, is_bound, element3D_operation, C_IP,  &
     im, jm, b, use_delta_form )
     implicit none
@@ -804,7 +804,7 @@ contains
     real(RP), intent(in) :: MOMX00(elem%Np,lmesh%NeA)
     real(RP), intent(in) :: MOMY00(elem%Np,lmesh%NeA)
     real(RP), intent(in) :: PT00(elem%Np,lmesh%NeA)
-    real(RP), intent(in) :: RHOQ00(elem%Np,QA,lmesh%Ne)
+    real(RP), intent(in) :: QTRC00(elem%Np,QA,lmesh%Ne)
     real(RP), intent(in) :: NU(elem%Np,lmesh%NeA)
     real(RP), intent(in) :: KH(elem%Np,lmesh%NeA)
     real(RP), intent(in) :: DENS(elem%Np,lmesh%Ne)
@@ -964,7 +964,7 @@ contains
                 p  = i + (j-1)*im + (pv-1)*im*jm
                 b(i,pv,iv,j,ke) = impl_fac * RHOQ_t_list(iq)%ptr%val(p,ke) &
                             - PROG_VARS  (p,ke,iv)                         &
-                            + RHOQ00(p,iq,ke)
+                            + DENS(p,ke) * QTRC00(p,iq,ke)
             end do
             end do
           end do
@@ -990,7 +990,7 @@ contains
             do j=1, jm
             do i=1, im
                 p  = i + (j-1)*im + (pv-1)*im*jm
-                b(i,pv,iv,j,ke) = RHOQ00(p,iq,ke)
+                b(i,pv,iv,j,ke) = DENS(p,ke) * QTRC00(p,iq,ke)
             end do
             end do
           end do

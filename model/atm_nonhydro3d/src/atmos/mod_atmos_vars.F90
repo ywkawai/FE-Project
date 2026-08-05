@@ -93,6 +93,7 @@ module mod_atmos_vars
    
     !-
     type(ModelVarManager), pointer :: ptr_MP_AUXVARS2D_manager
+    type(ModelVarManager), pointer :: ptr_CP_AUXVARS2D_manager
 
     logical :: moist
     type(MeshField3D), pointer :: QV
@@ -374,6 +375,11 @@ contains
     LOG_INFO("ATMOS_vars_setup",*) 'Check value range of variables?     : ', CHECK_RANGE
     LOG_INFO("ATMOS_vars_setup",*) 'Check total value of variables?     : ', CHECK_TOTAL
 
+    !-- Set the pointer of 2D auxiliary variable manager with MP and CP components to output precipitation fluxes
+
+    nullify( this%ptr_MP_AUXVARS2D_manager )
+    nullify( this%ptr_CP_AUXVARS2D_manager )
+
     return
   end subroutine AtmosVars_Init
 
@@ -458,17 +464,24 @@ contains
     return
   end subroutine AtmosVars_Final
 
+  !> Set the pointer of 2D ModelVarManager with cloud microphysics or cumlus parameterization
+  !! to output surface variables with precipitation fluxes
 !OCL SERIAL
   subroutine AtmosVars_Regist_physvar_manager( this, &
-    mp_AUXVARS2D_manager )
+    mp_AUXVARS2D_manager, cp_AUXVARS2D_manager )
     implicit none
 
     class(AtmosVars), target, intent(inout) :: this
-    type(ModelVarManager), intent(in), target :: mp_AUXVARS2D_manager
+    type(ModelVarManager), intent(in), target, optional:: mp_AUXVARS2D_manager
+    type(ModelVarManager), intent(in), target, optional:: cp_AUXVARS2D_manager
     !----------------------------------------------
 
-    this%ptr_MP_AUXVARS2D_manager => mp_AUXVARS2D_manager
-
+    if ( present(mp_AUXVARS2D_manager) ) then
+      this%ptr_MP_AUXVARS2D_manager => mp_AUXVARS2D_manager
+    end if
+    if ( present(cp_AUXVARS2D_manager) ) then
+      this%ptr_CP_AUXVARS2D_manager => cp_AUXVARS2D_manager
+    end if
     return
   end subroutine AtmosVars_Regist_physvar_manager
 
@@ -950,7 +963,7 @@ contains
     do n=1, field_work%mesh%LOCAL_MESH_NUM
       lcmesh2D => field_work%mesh%lcmesh_list(n)
       call vars_calc_diagnoseVar2D_lc( field_name, field_work%local(n)%val,  &
-        this%ptr_MP_AUXVARS2D_manager,                                       &
+        this%ptr_MP_AUXVARS2D_manager, this%ptr_CP_AUXVARS2D_manager,        &
         field_work%mesh, lcmesh2D, lcmesh2D%refElem2D                        )
     end do
     !$acc wait(1)
@@ -962,48 +975,107 @@ contains
 !OCL SERIAL
   subroutine vars_calc_diagnoseVar2D_lc( field_name, & ! (in)
     var_out,                                         & ! (out)
-    MP_auxvars2D, mesh2D, lcmesh, elem )               ! (in)
+    MP_auxvars2D, CP_auxvars2D, mesh2D, lcmesh, elem )  ! (in)
 
     use mod_atmos_phy_mp_vars, only: &
       AtmosPhyMpVars_GetLocalMeshFields_sfcflx
+    use mod_atmos_phy_cp_vars, only: &
+      AtmosPhyCpVars_GetLocalMeshFields_sfcflx
 
     implicit none
     class(LocalMesh2D), intent(in) :: lcmesh
     class(ElementBase2D), intent(in) :: elem
     character(*), intent(in) :: field_name
     real(RP), intent(out) :: var_out(elem%Np,lcmesh%NeA)
-    class(ModelVarManager), intent(inout) :: MP_auxvars2D
+    type(ModelVarManager), intent(inout), pointer :: MP_auxvars2D
+    type(ModelVarManager), intent(inout), pointer :: CP_auxvars2D
     class(MeshBase2D), intent(in) :: mesh2D
 
     integer :: ke, p
 
+    logical :: sw_MP, sw_CP
     class(LocalMeshFieldBase), pointer :: SFLX_rain_MP, SFLX_snow_MP, SFLX_ENGI_MP
+    class(LocalMeshFieldBase), pointer :: SFLX_rain_CP, SFLX_snow_CP, SFLX_ENGI_CP
     !-------------------------------------------------------------------------
+
+    sw_MP = associated(MP_auxvars2D)
+    sw_CP = associated(CP_auxvars2D)
 
     select case(trim(field_name))
     case('RAIN', 'SNOW')
-      call AtmosPhyMpVars_GetLocalMeshFields_sfcflx( &
-        lcmesh%lcdomID, mesh2D, MP_auxvars2D,        &
-        SFLX_rain_MP, SFLX_snow_MP, SFLX_ENGI_MP     )
+      if ( sw_MP ) then
+        call AtmosPhyMpVars_GetLocalMeshFields_sfcflx( &
+          lcmesh%lcdomID, mesh2D, MP_auxvars2D,        &
+          SFLX_rain_MP, SFLX_snow_MP, SFLX_ENGI_MP     )
+      end if
+      if ( sw_CP ) then
+        call AtmosPhyCpVars_GetLocalMeshFields_sfcflx( &
+          lcmesh%lcdomID, mesh2D, CP_auxvars2D,        &
+          SFLX_rain_CP, SFLX_snow_CP, SFLX_ENGI_CP     )
+      end if
     end select
 
     select case(trim(field_name))
     case('RAIN')
-      !$omp parallel do
-      !$acc parallel loop collapse(2) present(SFLX_rain_MP%val, var_out) async(1)
+      !$omp parallel 
+      !$acc parallel present(var_out) async(1)
+      !$omp do
+      !$acc loop collapse(2) 
       do ke=lcmesh%NeS, lcmesh%NeE
       do p=1, elem%Np
-        var_out(p,ke) = SFLX_rain_MP%val(p,ke)
+        var_out(p,ke) = 0.0_RP
       end do
       end do
+      if ( sw_MP ) then
+        !$omp do
+        !$acc loop collapse(2)
+        do ke=lcmesh%NeS, lcmesh%NeE
+        do p=1, elem%Np
+          var_out(p,ke) = var_out(p,ke) + SFLX_rain_MP%val(p,ke)
+        end do
+        end do
+      end if
+      if ( sw_CP ) then
+        !$omp do
+        !$acc loop collapse(2)
+        do ke=lcmesh%NeS, lcmesh%NeE
+        do p=1, elem%Np
+          var_out(p,ke) = var_out(p,ke) + SFLX_rain_CP%val(p,ke)
+        end do
+        end do
+      end if
+      !$omp end parallel
+      !$acc end parallel
     case('SNOW')
-      !$omp parallel do
-      !$acc parallel loop collapse(2) present(var_out, SFLX_snow_MP) async(1)
+      !$omp parallel 
+      !$acc parallel present(var_out) async(1)
+      !$omp do
+      !$acc loop collapse(2) 
       do ke=lcmesh%NeS, lcmesh%NeE
       do p=1, elem%Np
-        var_out(p,ke) = SFLX_snow_MP%val(p,ke)
+        var_out(p,ke) = 0.0_RP
       end do
       end do
+      if ( sw_MP ) then
+        !$omp do
+        !$acc loop collapse(2)
+        do ke=lcmesh%NeS, lcmesh%NeE
+        do p=1, elem%Np
+          var_out(p,ke) = var_out(p,ke) + SFLX_snow_MP%val(p,ke)
+        end do
+        end do
+      end if
+      if ( sw_CP ) then
+        !$omp do
+        !$acc loop collapse(2)
+        do ke=lcmesh%NeS, lcmesh%NeE
+        do p=1, elem%Np
+          var_out(p,ke) = var_out(p,ke) + SFLX_snow_CP%val(p,ke)
+        end do
+        end do
+      end if
+      !$omp end parallel
+      !$acc end parallel
     case default
       LOG_ERROR("AtmosVars_calc_diagnoseVar2D_lc",*) 'The name of diagnostic variable is not suported. Check!', field_name
       call PRC_abort

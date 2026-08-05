@@ -68,6 +68,7 @@ module mod_atmos_phy_cp_vars
   end type AtmosPhyCpVars
 
   public :: AtmosPhyCpVars_GetLocalMeshFields_tend
+  public :: AtmosPhyCPVars_GetLocalMeshFields_sfcflx
 
   !-----------------------------------------------------------------------------
   !
@@ -281,6 +282,36 @@ contains
 
     return
   end subroutine AtmosPhyCpVars_GetLocalMeshFields_tend
+
+!OCL SERIAL
+  subroutine AtmosPhyCPVars_GetLocalMeshFields_sfcflx( domID, mesh, sfcflx_list, &
+    SFLX_rain, SFLX_snow, SFLX_engi                                              )
+    
+    use scale_mesh_base, only: MeshBase
+    use scale_meshfield_base, only: MeshFieldBase
+    implicit none
+
+    integer, intent(in) :: domID
+    class(MeshBase), intent(in) :: mesh
+    class(ModelVarManager), intent(inout) :: sfcflx_list
+    class(LocalMeshFieldBase), pointer, intent(out) :: SFLX_rain
+    class(LocalMeshFieldBase), pointer, intent(out) :: SFLX_snow
+    class(LocalMeshFieldBase), pointer, intent(out) :: SFLX_engi
+
+    class(MeshFieldBase), pointer :: field
+    !-------------------------------------------------------
+
+    call sfcflx_list%Get(ATMOS_PHY_CP_AUX2D_SFLX_RAIN_ID, field)
+    call field%GetLocalMeshField(domID, SFLX_rain)
+
+    call sfcflx_list%Get(ATMOS_PHY_CP_AUX2D_SFLX_SNOW_ID, field)
+    call field%GetLocalMeshField(domID, SFLX_snow)
+
+    call sfcflx_list%Get(ATMOS_PHY_CP_AUX2D_SFLX_engi_ID, field)
+    call field%GetLocalMeshField(domID, SFLX_engi)
+    
+    return
+  end subroutine AtmosPhyCPVars_GetLocalMeshFields_sfcflx
 
 !OCL SERIAL
   subroutine AtmosPhyCpVars_history( this )
