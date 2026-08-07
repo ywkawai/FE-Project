@@ -1,0 +1,156 @@
+%-------------------------------------------------------------------------------
+\section{Ocean model} \label{sec:basic_usel_ocean}
+%-------------------------------------------------------------------------------
+
+The ocean component is activated and configured in \namelist{PARAM_OCEAN}.
+The computational mesh for the ocean component is selected by \nmitem{OCEAN_MESH_TYPE}, 
+and the ocean dynamics is enabled by \nmitem{OCEAN_DYN_DO}.
+
+\editboxtwo{
+ \verb|&PARAM_OCEAN | & \\
+ \verb|ACTIVATE_FLAG   = .true.,|     & ; Enable the ocean component \\
+ \verb|OCEAN_MESH_TYPE = "GLOBAL",|   & ; Type of ocean mesh: REGIONAL or GLOBAL \\
+ \verb|OCEAN_DYN_DO    = .true.,|     & ; Enable ocean dynamics \\
+ \verb|TIME_DT          = 3600.D0,|   & ; Time step of the ocean component \\
+ \verb|TIME_DT_UNIT     = "SEC",|      & ; Unit for \verb|TIME_DT| \\
+ \verb|/ | & \\
+}
+
+\nmitem{OCEAN_MESH_TYPE} can be set to \verb|"REGIONAL"| or \verb|"GLOBAL"|.
+
+
+%-------------------------------------------------------------------------------
+\subsection{Setting grids for ocean model}
+\label{subsec:ocean_mesh}
+%-------------------------------------------------------------------------------
+
+The computational grid of the ocean model is configured in \namelist{PARAM_OCEAN_MESH}.
+The available parameters depend on the mesh type selected by \nmitem{OCEAN_MESH_TYPE} in \namelist{PARAM_OCEAN}.
+
+At present, the horizontal mesh configuration of the ocean component must be identical to that of the atmospheric component.
+Therefore, the horizontal domain size, MPI decomposition, number of horizontal elements, and horizontal polynomial order should be specified consistently for both components.
+This restriction arises from the present atmosphere--ocean coupling,
+which exchanges two-dimensional fields without horizontal remapping.
+
+
+%------------------------------------------------------------------------
+\subsubsection{Regional mesh}
+%------------------------------------------------------------------------
+
+For the regional ocean model using the Cartesian coordinates,
+the computational domain and DG mesh are specified in \namelist{PARAM_OCEAN_MESH}.
+
+\editboxtwo{
+ \verb|&PARAM_OCEAN_MESH | & \\
+ \verb|NprcX       = 1,|       & ; Number of MPI processes in the x-direction \\
+ \verb|NprcY       = 1,|       & ; Number of MPI processes in the y-direction \\
+ \verb|NeX         = 2,|       & ; Number of elements in x per MPI process \\
+ \verb|NeY         = 2,|       & ; Number of elements in y per MPI process \\
+ \verb|NeZ         = 1,|       & ; Number of vertical elements \\
+ \verb|dom_xmin    = 0.D0,|    & ; Minimum x-coordinate [m] \\
+ \verb|dom_xmax    = 100.D3,|  & ; Maximum x-coordinate [m] \\
+ \verb|dom_ymin    = 0.D0,|    & ; Minimum y-coordinate [m] \\
+ \verb|dom_ymax    = 100.D3,|  & ; Maximum y-coordinate [m] \\
+ \verb|dom_zmin    = 0.D0,|    & ; Minimum vertical coordinate [m] \\
+ \verb|dom_zmax    = 50.D0,|   & ; Maximum vertical coordinate [m] \\
+ \verb|PolyOrder_h = 2,|       & ; Horizontal polynomial order \\
+ \verb|PolyOrder_v = 1,|       & ; Vertical polynomial order \\
+ \verb|/ | & \\
+}
+
+An arbitrary non-uniform element spacing can also be specified in the vertical direction by giving the locations of all element boundaries using \nmitem{FZ}.
+\editboxtwo{
+ \verb|&PARAM_OCEAN_MESH | & \\
+ \verb|FZ = 0.D0, 10.D0, 50.D0,| & ; Vertical element boundaries [m] \\
+ \verb|/ | & \\
+}
+
+%------------------------------------------------------------------------
+\subsubsection{Global mesh}
+%------------------------------------------------------------------------
+
+For the global ocean model using the cubed-sphere coordinates,
+the grid is also configured in \namelist{PARAM_OCEAN_MESH}.
+
+\editboxtwo{
+ \verb|&PARAM_OCEAN_MESH | & \\
+ \verb|Nprc                    = 6,|      & ; Total number of MPI processes \\
+ \verb|NeGX                    = 6,|      & ; Number of elements in each cubed-sphere panel \\
+ \verb|NeGY                    = 6,|      & ; Number of elements in each cubed-sphere panel \\
+ \verb|NeZ                     = 1,|      & ; Number of vertical elements \\
+ \verb|PolyOrder_h             = 2,|      & ; Horizontal polynomial order \\
+ \verb|PolyOrder_v             = 1,|      & ; Vertical polynomial order \\
+ \verb|dom_zmin                = 0.D0,|   & ; Minimum vertical coordinate [m] \\
+ \verb|dom_zmax                = 50.D0,|  & ; Maximum vertical coordinate [m] \\
+ \verb|SHALLOW_OCN_APPROX_FLAG = .true.,| & ; Apply shallow-ocean approximation \\
+ \verb|/ | & \\
+}
+
+%-------------------------------------------------------------------------------
+\subsection{Ocean-model configurations}
+\label{subsec:ocean_model_config}
+%-------------------------------------------------------------------------------
+
+Currently, SCALE-DG provides two ocean-model options: the slab ocean model and a fixed sea-surface temperature option.
+The slab ocean model predicts the mixed-layer temperature by solving the heat budget of a prescribed mixed layer, 
+while the fixed-temperature option keeps the initial sea-surface temperature unchanged throughout the simulation.
+These are configured in \namelist{PARAM_OCEAN_DYN}.
+
+A typical configuration is
+%%
+\editboxtwo{
+ \verb|&PARAM_OCEAN_DYN | & \\
+ \verb|EQS_TYPE      = "SLAB",| & ; Ocean model; SLAB or FIXED\_INIT\_TEMP \\
+ \verb|TIME_DT       = 3600.D0,| & ; Time interval of ocean dynamics \\
+ \verb|TIME_DT_UNIT  = "SEC",| & ; Unit for \verb|TIME_DT| \\
+ \verb|/ | & \\
+}
+When \verb|EQS_TYPE="SLAB"| is selected, the ocean temperature evolves according to the heat budget of the slab ocean.
+When \verb|EQS_TYPE="FIXED_INIT_TEMP"| is selected, the initially specified ocean temperature is kept fixed.
+For the slab ocean model, the temperature is advanced with a forward Euler method using \nmitem{TIME_DT}. 
+
+
+\subsubsection{Note}
+For the slab ocean model, the ocean temperature is assumed to be vertically uniform.
+Therefore, a zeroth-order polynomial would be the natural choice in the vertical direction.
+However, the current mesh implementation does not support \verb|PolyOrder_v=0|.
+Thus, \nmitem{PolyOrder_v} must be set to one or larger.
+
+Although multiple vertical nodal values are therefore retained redundantly, 
+the slab-ocean temperature tendency is applied uniformly to all vertical degrees of freedom, so that the slab-ocean calculation is effectively vertically uniform.
+
+%-------------------------------------------------------------------------------
+\subsection{Surface fluxes and atmosphere--ocean exchange}
+\label{subsec:ocean_surface_flux}
+%-------------------------------------------------------------------------------
+
+
+For the surface-flux calculation, the ocean component receives the near-surface atmospheric state from the atmosphere through the coupler,
+including density, pressure, temperature, wind velocity, specific humidity, and the thickness of the lowest atmospheric layer.
+The downward direct shortwave and downward diffuse longwave radiative fluxes are also passed from the atmospheric radiation component to the ocean component.
+
+
+Using these atmospheric quantities together with the ocean surface temperature, 
+the ocean component calculates the surface momentum, sensible-heat, latent-heat, and water-vapor fluxes using surface-flux schemes.
+The ocean surface temperature and these surface fluxes are then returned
+to the atmospheric component through the coupler and used as the lower boundary condition of the atmosphere.
+
+
+In the current SCALE-DG, the ocean surface fluxes are calculated using the simple bulk surface-flux scheme described in Section~\ref{subsec:physics_sf_simple}.
+The same module and its parameters are shared with the atmospheric surface-flux component.
+Therefore, the atmospheric surface-flux component should be enabled
+and the simple bulk scheme should be selected as follows:
+\editboxtwo{
+ \verb|&PARAM_ATMOS | & \\
+ \verb|ATMOS_PHY_SF_DO = .true.,| & ; Enable the surface-flux component \\
+ \verb|/ | & \\
+}
+\editboxtwo{
+ \verb|&PARAM_ATMOS_PHY_SFC | & \\
+ \verb|SFCFLX_TYPE = "SIMPLE",| & ; Use the simple bulk surface-flux scheme \\
+ \verb|TIME_DT      = 600.D0,|   & ; Time interval of the atmospheric surface process \\
+ \verb|TIME_DT_UNIT = "SEC",|    & ; Unit for \verb|TIME_DT| \\
+ \verb|/ | & \\
+}
+The parameters of the simple bulk surface-flux scheme are specified in \namelist{PARAM_ATMOS_PHY_SF_SIMPLE}. 
+See Section~\ref{subsec:physics_sf_simple} for details.

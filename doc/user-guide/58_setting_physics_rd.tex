@@ -1,0 +1,152 @@
+\section{Radiation scheme} \label{sec:basic_usel_radiation}
+%-------------------------------------------------------------------------------
+The radiation process is configured by two namelists.
+First, the radiation component is enabled by \nmitem{ATMOS_PHY_RD_DO} in \namelist{PARAM_ATMOS}.
+Then, the radiation scheme and its calling interval are specified in \namelist{PARAM_ATMOS_PHY_RD}.
+
+\editboxtwo{
+ \verb|&PARAM_ATMOS | & \\
+ \verb|ATMOS_PHY_RD_DO = .true.,| & ; Enable radiation \\
+ \verb|/ | & \\
+}
+\editboxtwo{
+ \verb|&PARAM_ATMOS_PHY_RD | & \\
+ \verb|RD_TYPE          = "SIMPLE",| & ; Choose from radiation schemes in Table \ref{tab:rd_scheme_list} \\
+ \verb|RD_SOLARINS_TYPE = "SIMPLE",| & ; Type of incoming solar-insolation scheme \\ 
+ \verb|TIME_DT      = 600.D0,|      & ; Time interval of the radiation process \\
+ \verb|TIME_DT_UNIT = "SEC",|      & ; Unit for \verb|TIME_DT| \\
+ \verb|/ | & \\
+}
+
+The available choices of \nmitem{RD_TYPE} are listed in Table \ref{tab:rd_scheme_list}.
+The incoming solar-insolation scheme is selected by \nmitem{RD_SOLARINS_TYPE}.
+Currently, \verb|"SIMPLE"| and \verb|"NONE"| are available.
+When \verb|"SIMPLE"| is selected, its detailed configuration is given in \namelist{PARAM_ATMOS_SOLARINS_SIMPLE} (Section~\ref{subsec:physics_rd_solar_radiation}).
+
+%%%%%%%%%%%
+\begin{table}[htbp]
+\caption{Radiation schemes available in \scaledg.}
+\label{tab:rd_scheme_list}
+\begin{center}
+\begin{tabularx}{150mm}{lXX}
+\hline
+\rowcolor[gray]{0.9}
+\verb|RD_TYPE| & Description & Reference \\
+\hline
+\verb|SIMPLE|  & Simplified radiation scheme & \cite{Geen2016,Vallis2018} \\
+\hline
+\end{tabularx}
+\end{center}
+\end{table}
+%%%%%%%%%%%
+
+%------------------------------------------------------------------------
+\subsection{Configuration of incoming solar radiation}
+\label{subsec:physics_rd_solar_radiation}
+
+The incoming solar radiation used by the simplified radiation scheme is prescribed by an idealized solar-insolation model.
+Two types of idealized forcing are currently available: a spatially uniform constant flux and an annual-mean insolation that varies with latitude.
+These settings are configured in \namelist{PARAM_ATMOS_SOLARINS_SIMPLE}.
+
+
+The choice of \nmitem{SOLARINS_TYPE} determines how the incoming solar flux is specified.
+%%
+\editboxtwo{
+\verb|&PARAM_ATMOS_SOLARINS_SIMPLE | & \\
+\verb|SOLARINS_TYPE          = "ANNUAL_MEAN",| & ; Type of idealized solar insolation; \\
+                                               & ;   ANNUAL\_MEAN or CONST \\
+\verb|ORBIT_REFERENCE_YEAR   = 2000,|           & ; Reference year for orbital parameters \\
+\verb|ANNUAL_MEAN_YEAR       = 2000,|           & ; Year used for the annual-mean calculation \\
+\verb|ANNUAL_SAMPLES_PER_DAY = 1,|              & ; Number of samples per day \\
+\verb|/ | & \\
+}
+When \verb|SOLARINS_TYPE="ANNUAL_MEAN"| is selected, the daily-mean solar insolation is calculated from the orbital configuration and latitude and then averaged over \nmitem{ANNUAL_MEAN_YEAR}.
+The default is \verb|"ANNUAL_MEAN"|.
+\nmitem{ORBIT_REFERENCE_YEAR} specifies the reference year used to initialize the orbital parameters in the SCALE solar-insolation module.
+\nmitem{ANNUAL_SAMPLES_PER_DAY} specifies the number of equally spaced samples used within each day when forming the annual mean.
+The default value is one sample per day.
+
+
+When \verb|SOLARINS_TYPE="CONST"| is selected, \nmitem{CONST_FLUX} is applied uniformly over the model domain.
+%%
+\editboxtwo{
+\verb|&PARAM_ATMOS_SOLARINS_SIMPLE | & \\
+\verb|SOLARINS_TYPE          = "CONST",| & ; Type of idealized solar insolation; \\
+\verb|CONST_FLUX             = 340.D0,|         & ; Constant incoming solar flux [W m$^{-2}$] \\
+\verb|/ | & \\
+}
+
+
+%------------------------------------------------------------------------
+\subsection{Simplified radiation scheme}
+\label{subsec:physics_rd_simple}
+%%
+
+The simplified radiation schemes are intended for idealized atmospheric experiments.
+Compared with comprehensive radiative transfer models, they employ simplified spectral representations 
+while retaining the dominant radiative heating processes.
+
+Two formulations are available: a gray longwave radiation scheme and a two-band longwave plus one-band shortwave radiation scheme.
+The formulation and its optical-depth parameters are configured in \namelist{PARAM_ATMOS_PHY_RD_DGM_SIMPLE}.  
+The default is the gray longwave radiation scheme.
+
+
+\subsubsection{Gray longwave radiation scheme}
+A basic configuration using the default parameters is, for example,
+%%
+\editboxtwo{
+\verb|&PARAM_ATMOS_PHY_RD_DGM_SIMPLE | & \\
+\verb|SIMPLE_RD_TYPE                  = "Gray",|  & ; Type of simplified radiation scheme \\
+\verb|V2018_GRAY_OPTDEPTH_PARAMS_TYPE = "V2018",| & ; Parameter set for gray optical depth \\
+\verb|DiffusivityFactor               = 1.D0,|    & ; Diffusivity factor for two-stream approximation \\
+\verb|pCO2                            = 360.D0,|  & ; CO$_2$ concentration [ppmv] \\
+\verb|/ | & \\
+}
+
+For the gray scheme, the optical-depth parameters are controlled by \nmitem{V2018_GRAY_OPTDEPTH_PARAMS_TYPE}.
+The available choices are \verb|"BO2013"|, \verb|"V2018"|, and \verb|"USER"|, with \verb|"V2018"| as the default.
+When \verb|"USER"| is selected, the four coefficients \nmitem{V2018_GRAY_OPTDEPTH_LW_PARAMS} must be specified in the order $A,\mu,B,C$, 
+corresponding to Eq.~(5) of \cite{Vallis2018}.
+
+The preset coefficient values used internally are $(A,\mu,B,C)=(0.8678,1.0,1997.9,0.0)$ for \verb|"BO2013"| and
+$(0.1627,1.0,1997.9,0.17)$ for \verb|"V2018"|.
+
+For the gray radiation scheme, the shortwave optical depth is set to zero.
+Therefore, the prescribed incoming solar flux reaches the surface without attenuation by atmospheric shortwave absorption.
+
+
+\subsubsection{Two-band longwave and one-band shortwave scheme}
+
+\editboxtwo{
+\verb|&PARAM_ATMOS_PHY_RD_DGM_SIMPLE | & \\
+\verb|SIMPLE_RD_TYPE = "LWbnd2+SWbnd1",| & ; Two LW bands and one SW band \\
+\verb|V2018_LWbnd2SWbnd1_OPTDEPTH_PARAMS_TYPE = "V2018",| & ; Optical-depth parameter set \\
+\verb|V2018_LWbnd2SWbnd1_OPTDEPTH_SW_kadd = 4,| & ; Number of layers added above the model top \\
+\verb|V2018_LWbnd2SWbnd1_OPTDEPTH_SW_QV_above_MOT = 1.D-3,| & ; Specific humidity above the model top \\
+\verb|DiffusivityFactor = 1.D0,| & ; Diffusivity factor \\
+\verb|pCO2              = 360.D0,| & ; CO$_2$ concentration [ppmv] \\
+\verb|/ | & \\
+}
+
+For this scheme, \nmitem{V2018_LWbnd2SWbnd1_OPTDEPTH_PARAMS_TYPE} can be set to \verb|"V2018"| or \verb|"USER"|.
+When \verb|"V2018"| is selected, the optical-depth coefficients and the longwave spectral fractions are prescribed internally following \cite{Vallis2018}.
+When \verb|"USER"| is selected, the user specifies
+\nmitem{V2018_LWbnd2SWbnd1_OPTDEPTH_{SW,LW,LW_window}_PARAMS} 
+and \nmitem{V2018_LWbnd2SWbnd1_LW_window_FRAC}. 
+
+The shortwave coefficients contain $a_{\rm SW}$ and $c_{\rm SW}$;
+the non-window longwave coefficients contain $a_{\rm LW}$, $b_{\rm LW}$, $c_{\rm LW}$, $d_{\rm LW}$;
+and the longwave-window coefficients contain $a_{\rm win}$, $b_{\rm win}$, $c_{\rm win}$, $d_{\rm win}$.
+The window fraction specifies the fraction of the longwave spectrum assigned to the $8-14~\mu\mathrm{m}$ window band.
+
+The vertical coordinate in SCALE-DG is based on the height-based terrain-following coordinate.
+Thus, the optical depth above the model top is not well defined.
+To address this, the two parameters
+\nmitem{V2018_LWbnd2SWbnd1_OPTDEPTH_SW_kadd} and
+\nmitem{V2018_LWbnd2SWbnd1_OPTDEPTH_SW_QV_above_MOT} control the treatment of shortwave optical thickness above the model top; 
+their default values are $4$ and $10^{-3}$, respectively.
+
+\subsubsection{Common parameters for simplified radiation schemes}
+\nmitem{DiffusivityFactor} is the diffusivity factor used in the two-stream approximation. Although a value around 1.66 is commonly used for a plane-parallel atmosphere with isotropic scattering, 
+the present idealized scheme uses 1.0 following \cite{Vallis2018}.
+\nmitem{pCO2} specifies the CO$_2$ concentration in ppmv and has a default value of 360.  
