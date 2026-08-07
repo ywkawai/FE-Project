@@ -2,11 +2,12 @@
 
 \section{Planetary Boundary Layer Scheme} \label{sec:basic_usel_pbl}
 %------------------------------------------------------
-The planetary boundary layer (PBL) scheme is parameterized vertical mixing by the PBL turbulence
-It is used for Reynolds-Averaged Navier-Stokes equations (RANS) simulations.
-The PBL scheme is specified in configured by two namelists.
-First, the PBL component is activated by \nmitem{ATMOS_PHY_BL_DO} in \namelist{PARAM_ATMOS}.
-Then, the PBL scheme and its calling interval are specified in \namelist{PARAM_ATMOS_PHY_RD}.
+The planetary boundary layer (PBL) scheme parameterizes vertical turbulent mixing in the atmospheric boundary layer.
+It is intended for Reynolds-averaged Navier--Stokes (RANS) simulations.
+The PBL process is configured by two namelists.
+First, the PBL component is enabled by
+\nmitem{ATMOS_PHY_BL_DO} in \namelist{PARAM_ATMOS}.
+Then, the PBL scheme and its calling interval are specified in \namelist{PARAM_ATMOS_PHY_BL}.
 
 \editboxtwo{
  \verb|&PARAM_ATMOS | & \\
@@ -39,3 +40,9 @@ The available choices of \nmitem{BL_TYPE} are listed in Table \ref{tab:bl_scheme
 \end{center}
 \end{table}
 %%%%%%%%%%%
+
+%------------------------------------------------------
+\subsection{MYNN level 2 scheme}
+\label{subsec:physics_bl_mynn}
+The current implementation provides the Mellor--Yamada--Nakanishi--Niino (MYNN) level 2 turbulence closure scheme\cite{Nakanishi2006}.
+The MYNN level 2 scheme diagnoses turbulent diffusion coefficients for momentum and scalars from the local stability of the atmosphere and applies vertical turbulent mixing within the planetary boundary layer.
