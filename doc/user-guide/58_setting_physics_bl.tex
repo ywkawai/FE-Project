@@ -1,0 +1,41 @@
+%Setting the physical process
+
+\section{Planetary Boundary Layer Scheme} \label{sec:basic_usel_pbl}
+%------------------------------------------------------
+The planetary boundary layer (PBL) scheme is parameterized vertical mixing by the PBL turbulence
+It is used for Reynolds-Averaged Navier-Stokes equations (RANS) simulations.
+The PBL scheme is specified in configured by two namelists.
+First, the PBL component is activated by \nmitem{ATMOS_PHY_BL_DO} in \namelist{PARAM_ATMOS}.
+Then, the PBL scheme and its calling interval are specified in \namelist{PARAM_ATMOS_PHY_RD}.
+
+\editboxtwo{
+ \verb|&PARAM_ATMOS | & \\
+ \verb|ATMOS_PHY_BL_DO = .true.,| & ; Enable planetary boundary layer parameterization \\
+ \verb|/ | & \\
+}
+\editboxtwo{
+ \verb|&PARAM_ATMOS_PHY_BL | & \\
+ \verb|BL_TYPE      = "MYNN_LEVEL2",| & ; Choose from PBL schemes in Table \ref{tab:bl_scheme_list} \\
+ \verb|TIME_DT      = 600.D0,|      & ; Time interval of PBL process \\
+ \verb|TIME_DT_UNIT = "SEC",|      & ; Unit for \verb|TIME_DT| \\
+ \verb|/ | & \\
+}
+
+The available choices of \nmitem{BL_TYPE} are listed in Table \ref{tab:bl_scheme_list}.
+
+%%%%%%%%%%%
+\begin{table}[htbp]
+\caption{Planetary boundary layer schemes available in \scaledg.}
+\label{tab:bl_scheme_list}
+\begin{center}
+\begin{tabularx}{150mm}{lXX}
+\hline
+\rowcolor[gray]{0.9}
+\verb|BL_TYPE| & Description & Reference \\
+\hline
+\verb|MYNN_LEVEL2|  & MYNN level 2 scheme & \cite{Nakanishi2006} \\
+\hline
+\end{tabularx}
+\end{center}
+\end{table}
+%%%%%%%%%%%
