@@ -132,7 +132,7 @@ framework, dynamical core, and physical processes.
   %  \begin{itemize}
   %  \item Selection of {\netcdf}3 and {\netcdf}4 formats
   %  \end{itemize}
- \item Generation of initial data for an ideal experiment
+ \item Generation of initial data for idealized experiments
 %  \item Generation of topographical and land-use data, converted from external data
 %  \item Generation of initial and boundary data from external data
   %  \begin{itemize}
@@ -171,6 +171,7 @@ framework, dynamical core, and physical processes.
   \item \citet{smagorinsky1963general} \& \citet{lilly1962numerical}-type sub-grid scale turbulent model
     with the corrections by \citet{brown1994largeeddy} and \citet{Scotti_1993}
   % \item \citet{Deardorff_1980} sub-grid scale turbulent model
+  \item MYNN level 2.0 boundary layer scheme 
   % \item MYNN level 2.5 boundary scheme ( \citet{my_1982,nakanishi_2004,nakanishi_2009} )
   \end{itemize}
 \item Cloud microphysics: selectable from among the following
@@ -179,17 +180,27 @@ framework, dynamical core, and physical processes.
   \item 6-class 1 moment bulk scheme \citep{tomita_2008}
 % \item 6-class 2 moment bulk scheme \citep{sn_2014}
 %  \item spectral bin scheme \citep{suzuki_etal_2010}
+   \item Large-scale condensation scheme
   \end{itemize}
-% \item Radiation process: a k-distribution-based broadband radiation transfer model ( \citet{sekiguchi_2008} )
-\item Surface models
+\item Cumulus process
+  \begin{itemize}
+  \item Moist convective adjustment
+  \end{itemize}
+\item Radiation process: selectable from among the following
+  \begin{itemize}
+    \item Gray radiation scheme
+    \item Two-band infrared and one-band solar radiation scheme
+%  \item a k-distribution-based broadband radiation transfer model ( \citet{sekiguchi_2008} )
+  \end{itemize}
+\item Surface processes
   \begin{itemize}
   % \item Land model: heat diffusion/bucket model
-  % \item Ocean model: selectable from among the following
-  %   \begin{itemize}
-  %   \item fixed to initial condition
-  %   \item input from external data
-  %   \item slab model
-  %   \end{itemize}
+    \item Ocean model: selectable from among the following
+    \begin{itemize}
+      \item Fixed to initial condition
+  %   \item Input from external data
+      \item Slab model
+    \end{itemize}
   % \item Urban model: a single-layer canopy model \citep{kusaka_2001}
   % \item Heat transfer coefficient at surface: selectable from among the following
   %   \begin{itemize}
