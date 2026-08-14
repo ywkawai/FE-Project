@@ -3,6 +3,21 @@
 #include <cstddef>
 #include <stdexcept>
 
+// ArrayView's underlying pointer is qualified `restrict`: each ArrayView is
+// assumed to be the only path used to access the memory it points to for as
+// long as that ArrayView object exists (i.e. two ArrayViews alive at once
+// must not alias each other's data). This lets the compiler vectorize loops
+// that read/write through operator() without proving non-aliasing itself.
+// Violating this assumption (e.g. constructing two ArrayViews over
+// overlapping memory and writing through both) is undefined behavior.
+// `restrict` is a GNU/Clang extension (not in the C++17 standard), so it is
+// only enabled for compilers that support it.
+#if defined(__GNUC__) || defined(__clang__)
+#define FELIB_RESTRICT __restrict__
+#else
+#define FELIB_RESTRICT
+#endif
+
 namespace FElib {
 namespace utility {
 
@@ -17,7 +32,7 @@ public:
 
     ArrayView() = default;
 
-    ArrayView(T* data, size_type n0)
+    ArrayView(T* FELIB_RESTRICT data, size_type n0)
         : data_(data), n0_(n0)
     {
         if (data == nullptr && n0 != 0) {
@@ -59,7 +74,7 @@ public:
     }
 
 private:
-    T* data_ = nullptr;
+    T* FELIB_RESTRICT data_ = nullptr;
     size_type n0_ = 0;
 };
 
@@ -71,7 +86,7 @@ public:
 
     ArrayView() = default;
 
-    ArrayView(T* data, size_type n0, size_type n1)
+    ArrayView(T* FELIB_RESTRICT data, size_type n0, size_type n1)
         : data_(data), n0_(n0), n1_(n1)
     {
         if (data == nullptr && n0 * n1 != 0) {
@@ -85,7 +100,7 @@ public:
         return data_[i * n1_ + j];
     }
 
-    constexpr T& operator()(size_type i, size_type j) const noexcept
+    constexpr const T& operator()(size_type i, size_type j) const noexcept
     {
         return data_[i * n1_ + j];
     }
@@ -113,7 +128,7 @@ public:
     }
 
 private:
-    T* data_ = nullptr;
+    T* FELIB_RESTRICT data_ = nullptr;
     size_type n0_ = 0;
     size_type n1_ = 0;
 };
@@ -126,7 +141,7 @@ public:
 
     ArrayView() = default;
 
-    ArrayView(T* data, size_type n0, size_type n1, size_type n2)
+    ArrayView(T* FELIB_RESTRICT data, size_type n0, size_type n1, size_type n2)
         : data_(data), n0_(n0), n1_(n1), n2_(n2)
     {
         if (data == nullptr && n0 * n1 * n2 != 0) {
@@ -140,7 +155,7 @@ public:
         return data_[(i * n1_ + j) * n2_ + k];
     }
 
-    const T& operator()(size_type i, size_type j, size_type k) const
+    constexpr const T& operator()(size_type i, size_type j, size_type k) const noexcept
     {
         return data_[(i * n1_ + j) * n2_ + k];
     }
@@ -169,7 +184,7 @@ public:
     }
 
 private:
-    T* data_ = nullptr;
+    T* FELIB_RESTRICT data_ = nullptr;
     size_type n0_ = 0;
     size_type n1_ = 0;
     size_type n2_ = 0;
