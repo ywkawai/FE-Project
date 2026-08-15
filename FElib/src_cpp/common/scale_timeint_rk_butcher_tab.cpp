@@ -5,68 +5,13 @@
 #include <string>
 #include <vector>
 
+#include "scale_linalgebra.hpp"
+
 namespace FElib {
 namespace common {
 namespace timeint_rk_butcher_tab {
 
 namespace {
-
-// LAPACK's LU factorization/solve, as linked via SCALE_MATHLIB_LIBS.
-// Used only by SolveLinEq() below to convert the Shu-Osher form into the
-// Butcher form (ShuOsher2Butcher). scale_linalgebra.F90 (the Fortran module
-// that provides this on the Fortran side) has not been ported to C++ yet, so
-// this is a small private helper scoped to this file rather than a call into
-// a shared FElib::common::linalgebra module -- see PORTING_STATUS.md.
-extern "C" {
-void dgetrf_(const int* m, const int* n, double* a, const int* lda, int* ipiv, int* info);
-void dgetrs_(const char* trans, const int* n, const int* nrhs, const double* a, const int* lda,
-             const int* ipiv, double* b, const int* ldb, int* info);
-}
-
-//! Solve A X = B for X, where A is n x n and B/X are n x nrhs.
-//! A, B, X all use the row-major ArrayView convention (A(i,j), not LAPACK's
-//! native column-major layout), so this builds column-major scratch copies
-//! for the LAPACK call rather than reinterpreting the row-major buffers
-//! directly (which would silently solve a transposed system instead).
-void SolveLinEq(ArrayView<const Real, 2> A, ArrayView<const Real, 2> B, ArrayView<Real, 2> X)
-{
-    const int n = static_cast<int>(A.extent(0));
-    const int nrhs = static_cast<int>(B.extent(1));
-
-    std::vector<Real> a_col(static_cast<std::size_t>(n) * n);
-    for (int j = 0; j < n; ++j) {
-        for (int i = 0; i < n; ++i) {
-            a_col[static_cast<std::size_t>(j) * n + i] = A(i, j);
-        }
-    }
-
-    std::vector<int> ipiv(n);
-    int info = 0;
-    dgetrf_(&n, &n, a_col.data(), &n, ipiv.data(), &info);
-    if (info != 0) {
-        throw std::runtime_error("timeint_rk_butcher_tab::SolveLinEq: matrix is singular (dgetrf info=" +
-                                  std::to_string(info) + ")");
-    }
-
-    std::vector<Real> b_col(static_cast<std::size_t>(n) * nrhs);
-    for (int j = 0; j < nrhs; ++j) {
-        for (int i = 0; i < n; ++i) {
-            b_col[static_cast<std::size_t>(j) * n + i] = B(i, j);
-        }
-    }
-
-    dgetrs_("N", &n, &nrhs, a_col.data(), &n, ipiv.data(), b_col.data(), &n, &info);
-    if (info != 0) {
-        throw std::runtime_error("timeint_rk_butcher_tab::SolveLinEq: dgetrs failed (info=" +
-                                  std::to_string(info) + ")");
-    }
-
-    for (int j = 0; j < nrhs; ++j) {
-        for (int i = 0; i < n; ++i) {
-            X(i, j) = b_col[static_cast<std::size_t>(j) * n + i];
-        }
-    }
-}
 
 //! Convert the Shu-Osher form (sig, gam) into the Butcher form (a, b).
 //! For details of the strategy, see Higueras and Roldan (2019).
@@ -93,8 +38,8 @@ void ShuOsher2Butcher(ArrayView<const Real, 2> sig, ArrayView<const Real, 2> gam
     }
 
     // A = L^-1 GAM
-    SolveLinEq(ArrayView<const Real, 2>(L.data(), nstage, nstage),
-               ArrayView<const Real, 2>(gam_top.data(), nstage, nstage), a);
+    linalgebra::SolveLinEq(ArrayView<const Real, 2>(L.data(), nstage, nstage),
+                            ArrayView<const Real, 2>(gam_top.data(), nstage, nstage), a);
 
     // b(n) = GAM(nstage, n) + sum_k SIG(nstage, k) * A(k, n)
     for (int n = 0; n < nstage; ++n) {
