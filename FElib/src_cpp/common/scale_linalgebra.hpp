@@ -1,14 +1,14 @@
 /*
  * @par Description
- * Linear algebra utilities. Only `SolveLinEq` is ported so far -- the part
- * of FElib/src/common/scale_linalgebra.F90 needed by
- * scale_timeint_rk_butcher_tab.cpp's ShuOsher2Butcher (which mirrors the
- * Fortran source's own dependency: `ShuOsher2Butcher` calls
- * `linalgebra_SolveLinEq`). `linalgebra_inv`, `linalgebra_LU`,
- * `linalgebra_SolveLinEq_BndMat`, and `linalgebra_SolveLinEq_GMRES` are not
- * ported yet; see PORTING_STATUS.md for the remaining scope and open
- * questions (an apparent bug in the Fortran ILU(0) preconditioner, a
- * SparseMat API extension GMRES would need, etc.).
+ * Linear algebra utilities. Only `SolveLinEq` and `Inv` are ported so far --
+ * the parts of FElib/src/common/scale_linalgebra.F90 needed by
+ * scale_timeint_rk_butcher_tab.cpp's ShuOsher2Butcher (`linalgebra_SolveLinEq`)
+ * and by FElib/src_cpp/element/scale_element_base.cpp's ConstructMassMat and
+ * scale_element_line.cpp's element construction (`linalgebra_inv`).
+ * `linalgebra_LU`, `linalgebra_SolveLinEq_BndMat`, and
+ * `linalgebra_SolveLinEq_GMRES` are not ported yet; see PORTING_STATUS.md for
+ * the remaining scope and open questions (an apparent bug in the Fortran
+ * ILU(0) preconditioner, a SparseMat API extension GMRES would need, etc.).
  *
  * @author Yuta Kawai, Team SCALE
  */
@@ -40,6 +40,14 @@ void SolveLinEq(ArrayView<const Real, 2> A, ArrayView<const Real, 1> b, ArrayVie
 
 //! Convenience overload: allocates and returns x, length b.extent(0).
 std::vector<Real> SolveLinEq(ArrayView<const Real, 2> A, ArrayView<const Real, 1> b);
+
+//! Compute Ainv, the inverse of the n x n matrix A.
+//! @throws std::invalid_argument if A is not square, or Ainv's shape doesn't match A's.
+//! @throws std::runtime_error if A is singular (LAPACK dgetrf/dgetri reports a failure).
+void Inv(ArrayView<const Real, 2> A, ArrayView<Real, 2> Ainv);
+
+//! Convenience overload: allocates and returns Ainv, shape (A.extent(0), A.extent(1)) row-major.
+std::vector<Real> Inv(ArrayView<const Real, 2> A);
 
 }  // namespace linalgebra
 }  // namespace common

@@ -1,5 +1,5 @@
-// Unit test of scale_linalgebra (SolveLinEq only -- see PORTING_STATUS.md
-// for why linalgebra_inv/LU/SolveLinEq_BndMat/SolveLinEq_GMRES are not
+// Unit test of scale_linalgebra (SolveLinEq and Inv only -- see
+// PORTING_STATUS.md for why LU/SolveLinEq_BndMat/SolveLinEq_GMRES are not
 // ported yet). The 4x4 system/answer below is copied from
 // FElib/test/common/linalgebra/test_linalgebra.f90's test_SolveLinEq so the
 // two versions are checked against the same reference values.
@@ -12,6 +12,7 @@
 #include "cpp_test_harness.hpp"
 #include "scale_linalgebra.hpp"
 
+using FElib::common::linalgebra::Inv;
 using FElib::common::linalgebra::SolveLinEq;
 using FElib::utility::ArrayView;
 using namespace FElib::test;
@@ -76,6 +77,42 @@ void TestSolveLinEqMatrix()
     Check(MaxAbsDiff(X, X2) < kCheckEps, "SolveLinEq(matrix RHS, convenience wrapper) matches the out-arg core");
 }
 
+void TestInv()
+{
+    ArrayView<const double, 2> A(kA.data(), kN, kN);
+
+    const auto ainv = Inv(A);
+    ArrayView<const double, 2> AinvView(ainv.data(), kN, kN);
+
+    // A * Ainv must be the identity matrix.
+    double max_err = 0.0;
+    for (int i = 0; i < kN; ++i) {
+        for (int j = 0; j < kN; ++j) {
+            double s = 0.0;
+            for (int k = 0; k < kN; ++k) s += A(i, k) * AinvView(k, j);
+            const double expect = (i == j) ? 1.0 : 0.0;
+            max_err = std::max(max_err, std::abs(s - expect));
+        }
+    }
+    Check(max_err < kCheckEps, "Inv: A * Inv(A) == I");
+
+    // Inv(A) solving A*x=e_j must agree with Inv(A)'s j-th column (both come
+    // from the same underlying LAPACK routines, but via independent call
+    // paths: SolveLinEq vs. dgetri).
+    for (int j = 0; j < kN; ++j) {
+        std::vector<double> e(kN, 0.0);
+        e[j] = 1.0;
+        const auto x = SolveLinEq(A, ArrayView<const double, 1>(e.data(), kN));
+        double col_err = 0.0;
+        for (int i = 0; i < kN; ++i) col_err = std::max(col_err, std::abs(x[i] - AinvView(i, j)));
+        Check(col_err < kCheckEps, "Inv: column " + std::to_string(j) + " matches SolveLinEq(A, e_j)");
+    }
+
+    std::vector<double> ainv_core(kN * kN);
+    Inv(A, ArrayView<double, 2>(ainv_core.data(), kN, kN));
+    Check(MaxAbsDiff(ainv, ainv_core) < kCheckEps, "Inv: convenience wrapper matches the out-arg core");
+}
+
 void TestValidation()
 {
     // Non-square A.
@@ -97,6 +134,11 @@ void TestValidation()
     ArrayView<const double, 2> A_singular(a_singular.data(), kN, kN);
     CheckThrows([&] { SolveLinEq(A_singular, b, ArrayView<double, 1>(x.data(), kN)); },
                 "SolveLinEq with a singular A throws");
+    CheckThrows([&] { Inv(A_singular); }, "Inv with a singular A throws");
+
+    const std::vector<double> a_nonsquare2(kN * (kN + 1), 1.0);
+    ArrayView<const double, 2> A_nonsquare2(a_nonsquare2.data(), kN, kN + 1);
+    CheckThrows([&] { Inv(A_nonsquare2); }, "Inv with non-square A throws");
 }
 
 }  // namespace
@@ -106,6 +148,7 @@ int main()
     return RunTestMain("test_linalgebra_cpp", [] {
         TestSolveLinEqVector();
         TestSolveLinEqMatrix();
+        TestInv();
         TestValidation();
     });
 }
