@@ -1,0 +1,71 @@
+################################################################################
+#
+# Shared build recipe for FElib/test/*_cpp unit tests (test_XXX_cpp), included
+# by each test's own thin Makefile.
+#
+# These tests have no MPI/scale_io dependency, so (unlike the Fortran tests
+# under FElib/test/*) they do not use this directory's Makefile.common
+# jobshell-based `run` target; they link directly against the installed
+# libScaleFECoreCpp$(POSTFIX).a and run as plain host executables.
+#
+# The including Makefile must set, before the `include`:
+#   TOPDIR        - repo root, e.g. $(abspath ../../../..)
+#   SCALEFELIBDIR - $(TOPDIR)/FElib
+#   BINNAME       - e.g. test_polynomial_cpp (source file must be BINNAME.cpp)
+# and may optionally set:
+#   NEEDS_LAPACK  - non-empty if the test (or the library code it exercises)
+#                   calls LAPACK directly, so the final link needs
+#                   $(SCALE_MATHLIB_LIBS) (-llapack -lblas)
+#
+################################################################################
+
+SYSDEP_DIR := $(TOPDIR)/sysdep
+
+BUILD_DIR = "undefined"
+include $(SYSDEP_DIR)/Makedef.$(SCALE_FE_SYS)
+include $(TOPDIR)/Mkinclude
+
+LIBCPP = $(LIBDIR)/libScaleFECoreCpp$(POSTFIX).a
+
+ifdef NEEDS_LAPACK
+LINK_LIBS = $(LIBCPP) $(SCALE_MATHLIB_LIBS)
+else
+LINK_LIBS = $(LIBCPP)
+endif
+
+all: build
+
+build: $(BINNAME)
+	@echo "Complete making $(BINNAME)."
+
+$(BINNAME): $(BUILD_DIR)/$(BINNAME).o $(LIBCPP)
+	$(CXX) $(CXXFLAGS) -o $@ $(BUILD_DIR)/$(BINNAME).o $(LINK_LIBS)
+
+$(BUILD_DIR)/$(BINNAME).o: $(BINNAME).cpp | $(BUILD_DIR)
+	$(CXX) $(CXXFLAGS) -I$(SCALEFELIBDIR)/src_cpp -I$(SCALEFELIBDIR)/src_cpp/common -I$(SCALEFELIBDIR)/test -MMD -MP -o $@ -c $<
+
+$(BUILD_DIR):
+	mkdir -p $@
+
+$(LIBCPP):
+	@echo "$(LIBCPP) not found -- build and install it first:"
+	@echo "  \$$(MAKE) -C $(SCALEFELIBDIR)/src_cpp build install"
+	@exit 1
+
+run: $(BINNAME)
+	./$(BINNAME)
+
+check: run
+
+clean:
+	rm -rf $(BUILD_DIR)
+
+distclean: clean
+	rm -f $(BINNAME)
+
+.SUFFIXES:
+.SUFFIXES: .o .cpp .d
+
+.PHONY : all build run check clean distclean
+
+-include $(BUILD_DIR)/$(BINNAME).d

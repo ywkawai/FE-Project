@@ -9,10 +9,10 @@
 #include <cmath>
 #include <cstdlib>
 #include <iostream>
-#include <stdexcept>
 #include <string>
 #include <vector>
 
+#include "cpp_test_harness.hpp"
 #include "scale_sparsemat.hpp"
 
 using FElib::common::MatMat;
@@ -23,34 +23,9 @@ using FElib::common::SparseMat;
 using FElib::common::StorageFormat;
 using FElib::common::ToString;
 using FElib::utility::ArrayView;
+using namespace FElib::test;
 
 namespace {
-
-int g_checks = 0;
-int g_failures = 0;
-
-void Check(bool cond, const std::string& what)
-{
-    ++g_checks;
-    if (cond) {
-        std::cout << "  ok: " << what << "\n";
-    } else {
-        std::cerr << "  FAILED: " << what << "\n";
-        ++g_failures;
-    }
-}
-
-template <typename Fn>
-void CheckThrows(Fn&& fn, const std::string& what)
-{
-    bool threw = false;
-    try {
-        fn();
-    } catch (const std::exception&) {
-        threw = true;
-    }
-    Check(threw, what + " (expected an exception)");
-}
 
 // Same 5x5 matrix as FElib/test/common/sparsemat/test_sparsemat.f90.
 constexpr std::size_t kN = 5;
@@ -117,9 +92,7 @@ void TestMatVec(StorageFormat format)
 
     MatVec(mat, ArrayView<const double, 1>(x.data(), kN), ArrayView<double, 1>(b.data(), kN));
 
-    bool ok = true;
-    for (std::size_t i = 0; i < kN; ++i) ok = ok && std::abs(b[i] - bAns[i]) < kEps;
-    Check(ok, "MatVec result matches dense matmul");
+    Check(MaxAbsDiff(b, bAns) < kEps, "MatVec result matches dense matmul");
 }
 
 void TestMatVec2(StorageFormat format)
@@ -141,9 +114,7 @@ void TestMatVec2(StorageFormat format)
     MatVec2(mat, ArrayView<const double, 1>(b1.data(), kN), ArrayView<const double, 1>(b2.data(), kN),
             ArrayView<double, 1>(c.data(), kN));
 
-    bool ok = true;
-    for (std::size_t i = 0; i < kN; ++i) ok = ok && std::abs(c[i] - cAns[i]) < kEps;
-    Check(ok, "MatVec2 result matches dense c=A*(b1.*b2)");
+    Check(MaxAbsDiff(c, cAns) < kEps, "MatVec2 result matches dense c=A*(b1.*b2)");
 }
 
 void TestMatMat(StorageFormat format)
@@ -171,9 +142,7 @@ void TestMatMat(StorageFormat format)
 
     MatMat(mat, ArrayView<const double, 2>(B.data(), kN, kNQ), ArrayView<double, 2>(C.data(), kN, kNQ));
 
-    bool ok = true;
-    for (std::size_t idx = 0; idx < kN * kNQ; ++idx) ok = ok && std::abs(C[idx] - CAns[idx]) < kEps;
-    Check(ok, "MatMat (batched, NQ=2) result matches dense reference");
+    Check(MaxAbsDiff(C, CAns) < kEps, "MatMat (batched, NQ=2) result matches dense reference");
 }
 
 void TestReplaceVal(StorageFormat format)
@@ -303,30 +272,22 @@ void TestEllAllZeroFirstRow()
 
 int main()
 {
-    std::cout << "- Start test_sparsemat_cpp ..\n";
-
-    TestConstructionConsistency(StorageFormat::CSR);
-    TestConstructionConsistency(StorageFormat::ELL);
-    TestMatVec(StorageFormat::CSR);
-    TestMatVec(StorageFormat::ELL);
-    TestMatVec2(StorageFormat::CSR);
-    TestMatVec2(StorageFormat::ELL);
-    TestMatMat(StorageFormat::CSR);
-    TestMatMat(StorageFormat::ELL);
-    TestReplaceVal(StorageFormat::CSR);
-    TestReplaceVal(StorageFormat::ELL);
-    TestOutOfRangeIndex(StorageFormat::CSR);
-    TestOutOfRangeIndex(StorageFormat::ELL);
-    TestShapeValidation();
-    TestInvalidStorageFormatString();
-    TestEpsBoundaryAsymmetry();
-    TestEllAllZeroFirstRow();
-
-    std::cout << g_checks << " checks run, " << g_failures << " failed.\n";
-    if (g_failures == 0) {
-        std::cout << "test_sparsemat_cpp has been succeeded!\n";
-        return 0;
-    }
-    std::cerr << "test_sparsemat_cpp FAILED.\n";
-    return 1;
+    return RunTestMain("test_sparsemat_cpp", [] {
+        TestConstructionConsistency(StorageFormat::CSR);
+        TestConstructionConsistency(StorageFormat::ELL);
+        TestMatVec(StorageFormat::CSR);
+        TestMatVec(StorageFormat::ELL);
+        TestMatVec2(StorageFormat::CSR);
+        TestMatVec2(StorageFormat::ELL);
+        TestMatMat(StorageFormat::CSR);
+        TestMatMat(StorageFormat::ELL);
+        TestReplaceVal(StorageFormat::CSR);
+        TestReplaceVal(StorageFormat::ELL);
+        TestOutOfRangeIndex(StorageFormat::CSR);
+        TestOutOfRangeIndex(StorageFormat::ELL);
+        TestShapeValidation();
+        TestInvalidStorageFormatString();
+        TestEpsBoundaryAsymmetry();
+        TestEllAllZeroFirstRow();
+    });
 }

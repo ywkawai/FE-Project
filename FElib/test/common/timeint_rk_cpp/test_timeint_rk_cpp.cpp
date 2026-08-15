@@ -18,6 +18,7 @@
 #include <tuple>
 #include <vector>
 
+#include "cpp_test_harness.hpp"
 #include "scale_timeint_rk.hpp"
 #include "scale_timeint_rk_butcher_tab.hpp"
 
@@ -25,22 +26,9 @@ using FElib::common::TimeIntRK;
 using FElib::utility::ArrayView;
 using FElib::utility::BoxRange;
 using FElib::utility::ForEachIndex;
+using namespace FElib::test;
 
 namespace {
-
-int g_checks = 0;
-int g_failures = 0;
-
-void Check(bool cond, const std::string& what)
-{
-    ++g_checks;
-    if (cond) {
-        std::cout << "  ok: " << what << "\n";
-    } else {
-        std::cerr << "  FAILED: " << what << "\n";
-        ++g_failures;
-    }
-}
 
 template <int Rank, typename T>
 ArrayView<T, Rank> MakeView(T* data, const std::array<std::size_t, Rank>& extents)
@@ -425,20 +413,12 @@ void TestTracerMassConservationForScheme(std::string_view scheme, const std::arr
 
 int main()
 {
-    std::cout << "- Start test_timeint_rk_cpp ..\n";
-
-    TestConvergenceRates();
-    TestShuOsherToButcher();
-    TestMultiPointConsistency();
-    TestLargeBoxParallelPath();
-    TestTracerMassConservationForScheme<1>("ERK_SSP_3s3o", {5});
-    TestTracerMassConservationForScheme<2>("ERK_4s4o", {2, 3});
-
-    std::cout << g_checks << " checks run, " << g_failures << " failed.\n";
-    if (g_failures == 0) {
-        std::cout << "test_timeint_rk_cpp has been succeeded!\n";
-        return 0;
-    }
-    std::cerr << "test_timeint_rk_cpp FAILED.\n";
-    return 1;
+    return RunTestMain("test_timeint_rk_cpp", [] {
+        TestConvergenceRates();
+        TestShuOsherToButcher();
+        TestMultiPointConsistency();
+        TestLargeBoxParallelPath();
+        TestTracerMassConservationForScheme<1>("ERK_SSP_3s3o", {5});
+        TestTracerMassConservationForScheme<2>("ERK_4s4o", {2, 3});
+    });
 }
