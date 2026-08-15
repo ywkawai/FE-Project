@@ -2,11 +2,10 @@
 
 #include <cmath>
 #include <cstdlib>
-#include <iostream>
-#include <stdexcept>
 #include <string>
 #include <vector>
 
+#include "cpp_test_harness.hpp"
 #include "scale_polynomial.hpp"
 
 using FElib::common::polynomial::GenDLagrangePoly_lglpt;
@@ -18,41 +17,9 @@ using FElib::common::polynomial::GenGaussLobattoPtIntWeight;
 using FElib::common::polynomial::GenLagrangePoly;
 using FElib::common::polynomial::GenLegendrePoly;
 using FElib::utility::ArrayView;
+using namespace FElib::test;
 
 namespace {
-
-int g_checks = 0;
-int g_failures = 0;
-
-void Check(bool cond, const std::string& what)
-{
-    ++g_checks;
-    if (cond) {
-        std::cout << "  ok: " << what << "\n";
-    } else {
-        std::cerr << "  FAILED: " << what << "\n";
-        ++g_failures;
-    }
-}
-
-template <typename Fn>
-void CheckThrows(Fn&& fn, const std::string& what)
-{
-    bool threw = false;
-    try {
-        fn();
-    } catch (const std::exception&) {
-        threw = true;
-    }
-    Check(threw, what + " (expected an exception)");
-}
-
-double MaxAbsDiff(const std::vector<double>& a, const std::vector<double>& b)
-{
-    double m = 0.0;
-    for (std::size_t i = 0; i < a.size(); ++i) m = std::max(m, std::abs(a[i] - b[i]));
-    return m;
-}
 
 constexpr double kCheckEps = 5.0e-15;
 
@@ -311,21 +278,13 @@ void TestValidation()
 
 int main()
 {
-    std::cout << "- Start test_polynomial_cpp ..\n";
-
-    TestClosedFormReferences();
-    TestLegendreSanity();
-    TestLagrangeKroneckerDelta();
-    TestDifferentiationMatrixIdentities();
-    TestGaussLegendreExactness();
-    TestDualApiConsistency();
-    TestValidation();
-
-    std::cout << g_checks << " checks run, " << g_failures << " failed.\n";
-    if (g_failures == 0) {
-        std::cout << "test_polynomial_cpp has been succeeded!\n";
-        return 0;
-    }
-    std::cerr << "test_polynomial_cpp FAILED.\n";
-    return 1;
+    return RunTestMain("test_polynomial_cpp", [] {
+        TestClosedFormReferences();
+        TestLegendreSanity();
+        TestLagrangeKroneckerDelta();
+        TestDifferentiationMatrixIdentities();
+        TestGaussLegendreExactness();
+        TestDualApiConsistency();
+        TestValidation();
+    });
 }
