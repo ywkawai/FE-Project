@@ -14,7 +14,7 @@ include $(TOPDIR)/Mkinclude
 LIBNAME = libScaleFECoreCpp$(POSTFIX).a
 
 VPATH = \
-	common:
+	common:element:
 
 OBJS_NAME_COMMON = \
 	scale_sparsemat.o   \
@@ -23,8 +23,13 @@ OBJS_NAME_COMMON = \
 	scale_timeint_rk_butcher_tab.o \
 	scale_timeint_rk.o
 
+OBJS_NAME_ELEMENT = \
+	scale_element_base.o \
+	scale_element_line.o
+
 OBJS_NAME = \
-	$(OBJS_NAME_COMMON)
+	$(OBJS_NAME_COMMON) \
+	$(OBJS_NAME_ELEMENT)
 
 #------------------------------------------
 OBJS = $(patsubst %, $(BUILD_DIR)/%, $(OBJS_NAME))
@@ -65,7 +70,7 @@ allclean: distclean
 .SUFFIXES: .o .cpp .d
 
 $(BUILD_DIR)/%.o : %.cpp | $(BUILD_DIR)
-	$(CXX) $(CXXFLAGS) -I$(SCALEFELIBDIR)/src_cpp -MMD -MP -o $@ -c $<
+	$(CXX) $(CXXFLAGS) -I$(SCALEFELIBDIR)/src_cpp -I$(SCALEFELIBDIR)/src_cpp/common -MMD -MP -o $@ -c $<
 
 .PHONY : all build install clean distclean allclean
 

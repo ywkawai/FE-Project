@@ -9,11 +9,12 @@ namespace linalgebra {
 
 namespace {
 
-// LAPACK's LU factorization/solve, as linked via SCALE_MATHLIB_LIBS.
+// LAPACK's LU factorization/solve/inverse, as linked via SCALE_MATHLIB_LIBS.
 extern "C" {
 void dgetrf_(const int* m, const int* n, double* a, const int* lda, int* ipiv, int* info);
 void dgetrs_(const char* trans, const int* n, const int* nrhs, const double* a, const int* lda,
              const int* ipiv, double* b, const int* ldb, int* info);
+void dgetri_(const int* n, double* a, const int* lda, const int* ipiv, double* work, const int* lwork, int* info);
 }
 
 }  // namespace
@@ -97,6 +98,53 @@ std::vector<Real> SolveLinEq(ArrayView<const Real, 2> A, ArrayView<const Real, 1
     std::vector<Real> x(b.extent(0));
     SolveLinEq(A, b, ArrayView<Real, 1>(x.data(), x.size()));
     return x;
+}
+
+void Inv(ArrayView<const Real, 2> A, ArrayView<Real, 2> Ainv)
+{
+    if (A.extent(0) != A.extent(1)) {
+        throw std::invalid_argument("linalgebra::Inv: A must be square");
+    }
+    const std::size_t n = A.extent(0);
+    if (Ainv.extent(0) != n || Ainv.extent(1) != n) {
+        throw std::invalid_argument("linalgebra::Inv: Ainv's shape must match A's shape");
+    }
+    const int n_i = static_cast<int>(n);
+
+    // Same row-major -> column-major scratch-copy rationale as SolveLinEq().
+    std::vector<Real> a_col(n * n);
+    for (std::size_t j = 0; j < n; ++j) {
+        for (std::size_t i = 0; i < n; ++i) {
+            a_col[j * n + i] = A(i, j);
+        }
+    }
+
+    std::vector<int> ipiv(n);
+    int info = 0;
+    dgetrf_(&n_i, &n_i, a_col.data(), &n_i, ipiv.data(), &info);
+    if (info != 0) {
+        throw std::runtime_error("linalgebra::Inv: matrix is singular (dgetrf info=" + std::to_string(info) + ")");
+    }
+
+    std::vector<Real> work(n);
+    dgetri_(&n_i, a_col.data(), &n_i, ipiv.data(), work.data(), &n_i, &info);
+    if (info != 0) {
+        throw std::runtime_error("linalgebra::Inv: matrix inversion failed (dgetri info=" + std::to_string(info) +
+                                  ")");
+    }
+
+    for (std::size_t j = 0; j < n; ++j) {
+        for (std::size_t i = 0; i < n; ++i) {
+            Ainv(i, j) = a_col[j * n + i];
+        }
+    }
+}
+
+std::vector<Real> Inv(ArrayView<const Real, 2> A)
+{
+    std::vector<Real> ainv(A.extent(0) * A.extent(1));
+    Inv(A, ArrayView<Real, 2>(ainv.data(), A.extent(0), A.extent(1)));
+    return ainv;
 }
 
 }  // namespace linalgebra
