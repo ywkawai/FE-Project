@@ -152,6 +152,7 @@ OBJS_NAME_FLUID_DYN_SOLVER = \
 	scale_atm_dyn_dgm_nonhydro3d_rhot_hevi_splitform.o   \
 	scale_atm_dyn_dgm_nonhydro3d_hevi_gmres.o            \
 	scale_atm_dyn_dgm_globalnonhydro3d_rhot_heve.o       \
+	scale_atm_dyn_dgm_globalnonhydro3d_rhot_heve_gpu.o   \
 	scale_atm_dyn_dgm_globalnonhydro3d_etot_heve.o       \
 	scale_atm_dyn_dgm_globalnonhydro3d_rhot_hevi.o       \
 	scale_atm_dyn_dgm_globalnonhydro3d_etot_hevi.o       \
