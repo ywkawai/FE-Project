@@ -51,13 +51,18 @@ contains
     !---------------------------------------------------------  
 
     !$omp parallel private(p)
+    !$acc parallel present(orth_p, geo_p)
+
     !$omp do
+    !$acc loop
     do p=1, Np
       geo_p(p,3) = sqrt( orth_p(p,1)**2 + orth_p(p,2)**2 + orth_p(p,3)**2 )
       geo_p(p,2) = asin( orth_p(p,3) / geo_p(p,3) )
       geo_p(p,1) = atan( orth_p(p,2) / orth_p(p,1) )
     end do
+    
     !$omp do
+    !$acc loop
     do p=1, Np
       if ( geo_p(p,1) <= 0.0_RP .and. orth_p(p,1) < 0.0_RP ) then
         geo_p(p,1) = geo_p(p,1) + PI
@@ -70,7 +75,10 @@ contains
         geo_p(p,1) = sign(1.0_RP, orth_p(p,2)) * 0.5_RP * PI
       end if   
     end do
+
+    !$acc end parallel
     !$omp end parallel
+
 
     return
   end subroutine GeographicCoordCnv_orth_to_geo_pos
