@@ -99,16 +99,20 @@ contains
     real(RP), intent(in) :: Temp0
     real(RP), intent(in) :: PRES_sfc
 
-    integer :: ke
+    integer :: ke, p
     real(RP) :: H0
     !-----------------------------------------------
 
     H0 = Rdry * Temp0 / Grav
 
     !$omp parallel do
+    !$acc parallel loop gang present(DENS_hyd, PRES_hyd, x, y, z, lcmesh3D, elem)
     do ke=lcmesh3D%NeS, lcmesh3D%NeE
-      PRES_hyd(:,ke) = PRES_sfc * exp( - z(:,ke) / H0 )
-      DENS_hyd(:,ke) = PRES_hyd(:,ke) / ( Rdry * Temp0 )
+      !$acc loop vector
+      do p=1, elem%Np
+        PRES_hyd(p,ke) = PRES_sfc * exp( - z(p,ke) / H0 )
+        DENS_hyd(p,ke) = PRES_hyd(p,ke) / ( Rdry * Temp0 )
+      end do
     end do
 
     return

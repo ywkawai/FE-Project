@@ -107,8 +107,7 @@ contains
     allocate( q_intrp(elem_intrp%Np) )
 
     !$omp parallel private( &
-    !$omp q_intrp, vx, vy, vz,               &
-    !$omp x_intrp, y_intrp, z_intrp, r_intrp )
+    !$omp q_intrp, vx, vy, vz, r_intrp )
     !$acc data create( x_intrp, y_intrp, z_intrp, z_func) copyin(L2ProjMat)
 
     !$omp do
@@ -235,7 +234,12 @@ contains
     allocate( q_intrp(elem_intrp%Np) )
 
 
-    !$omp parallel do private(vx, vy, vz)
+    !$omp parallel private( &
+    !$omp q_intrp, vx, vy, vz, r_intrp )
+    !$acc data create( x_intrp, y_intrp, z_intrp, lon_intrp, lat_intrp, gam_intrp, z_func) copyin(L2ProjMat)
+
+    !$omp do
+    !$acc parallel loop private(vx, vy, vz) present(lcmesh3D, elem_intrp, x_intrp, y_intrp, z_intrp, z_func, gam_intrp)
     do ke=lcmesh3D%NeS, lcmesh3D%NeE
       vx(:) = lcmesh3D%pos_ev(lcmesh3D%EToV(ke,:),1)
       vy(:) = lcmesh3D%pos_ev(lcmesh3D%EToV(ke,:),2)
@@ -247,6 +251,7 @@ contains
 
       z_func(:,ke) = 1.0_RP
     end do
+    !$omp end do
 
     call CubedSphereCoordCnv_CS2LonLatPos( lcmesh3D%panelID, x_intrp, y_intrp, gam_intrp, & ! (in)
       elem_intrp%Np * lcmesh3D%Ne,                                                        & ! (in)
@@ -257,13 +262,15 @@ contains
       select case(z_func_type)
       case ('sin')
         !$omp parallel do
+        !$acc parallel loop present(z_func, z_intrp) copyin(z_func_params)
         do ke=lcmesh3D%NeS, lcmesh3D%NeE
           z_func(:,ke) = sin( z_func_params(1) * PI * z_intrp(:,ke) / z_func_params(2) )
         end do
       end select
     end if
 
-    !$omp parallel do private( r_intrp, q_intrp )
+    !$omp do
+    !$acc parallel loop private( r_intrp, q_intrp ) present(x_intrp, y_intrp, z_intrp, z_func, lon_intrp, lat_intrp, q)
     do ke=lcmesh3D%NeS, lcmesh3D%NeE
 
       ! Calculate the horizontal function
@@ -277,6 +284,10 @@ contains
       ! Perform Galerkin projection
       q(:,ke) = matmul(L2ProjMat, q_intrp(:) * z_func(:,ke))
     end do
+    !$omp end do
+
+    !$acc end data
+    !$omp end parallel
 
     call elem_intrp%Final()
 

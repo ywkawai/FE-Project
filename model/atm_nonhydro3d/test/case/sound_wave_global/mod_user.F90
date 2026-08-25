@@ -202,7 +202,7 @@ contains
   
     real(RP) :: rgamm
 
-    integer :: ke
+    integer :: ke, p
     integer :: ierr
     !-----------------------------------------------------------------------------
 
@@ -234,12 +234,15 @@ contains
     rgamm = CvDry / CpDry
 
     !$omp parallel do
+    !$acc parallel loop gang present(DRHOT, PRES_hyd,PRES_purtub, lcmesh, elem)
     do ke=lcmesh%NeS, lcmesh%NeE
-      DRHOT(:,ke) = PRES00/Rdry * ( &
-         ( ( PRES_hyd(:,ke) + PRES_purtub(:,ke) ) / PRES00 )**rgamm  &
-       - ( PRES_hyd(:,ke) / PRES00 )**rgamm                          )
+      do p=1, elem%Np
+        DRHOT(p,ke) = PRES00/Rdry * ( &
+          ( ( PRES_hyd(p,ke) + PRES_purtub(p,ke) ) / PRES00 )**rgamm  &
+        - ( PRES_hyd(p,ke) / PRES00 )**rgamm                          )
 
-      DDENS(:,ke) = PRES_purtub(:,ke) / ( Rdry * TEMP0 )      
+        DDENS(p,ke) = PRES_purtub(p,ke) / ( Rdry * TEMP0 )      
+      end do
     end do
 
     return
