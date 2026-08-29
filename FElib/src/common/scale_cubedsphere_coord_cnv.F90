@@ -367,11 +367,13 @@ contains
     integer :: gpu_async_id_
     !-----------------------------------------------------------------------------
     
+  #ifdef _OPENACC
     if (present(gpu_async_id)) then
       gpu_async_id_ = gpu_async_id
     else
       gpu_async_id_ = acc_async_sync
     end if
+  #endif
 
     !$acc data create(cos_Lat) present(alpha, beta, gam, VecLon, VecLat, VecAlpha, VecBeta)
 
