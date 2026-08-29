@@ -63,6 +63,7 @@ module scale_atm_dyn_dgm_driver_nonhydro3d
     PHYTEND_RHOH_ID,                                                                        &
     atm_dyn_dgm_nonhydro3d_common_calc_pressure
 
+  !- REGIONAL / RHOT / HEVE
   use scale_atm_dyn_dgm_nonhydro3d_rhot_heve, only: &
     atm_dyn_dgm_nonhydro3d_rhot_heve_Init,          &
     atm_dyn_dgm_nonhydro3d_rhot_heve_Final,         &
@@ -77,11 +78,13 @@ module scale_atm_dyn_dgm_driver_nonhydro3d
   use scale_atm_dyn_dgm_nonhydro3d_rhot_heve_numflux, only: &
     atm_dyn_dgm_nonhydro3d_rhot_heve_add_bnd_contrib_generalvc
 
+  !- REGIONAL / ETOT / HEVE
   use scale_atm_dyn_dgm_nonhydro3d_etot_heve, only: &
     atm_dyn_dgm_nonhydro3d_etot_heve_Init,          &
     atm_dyn_dgm_nonhydro3d_etot_heve_Final,         &
     atm_dyn_dgm_nonhydro3d_etot_heve_cal_tend
     
+  !- REGIONAL / RHOT / HEVI
   use scale_atm_dyn_dgm_nonhydro3d_rhot_hevi, only: &
     atm_dyn_dgm_nonhydro3d_rhot_hevi_Init,          &
     atm_dyn_dgm_nonhydro3d_rhot_hevi_Final,         &
@@ -90,35 +93,46 @@ module scale_atm_dyn_dgm_driver_nonhydro3d
     atm_dyn_dgm_nonhydro3d_rhot_hevi_cal_tend,      &
     atm_dyn_dgm_nonhydro3d_rhot_hevi_cal_vi
 
+  !- REGIONAL / ETOT / HEVI
   use scale_atm_dyn_dgm_nonhydro3d_etot_hevi, only: &
     atm_dyn_dgm_nonhydro3d_etot_hevi_Init,          &
     atm_dyn_dgm_nonhydro3d_etot_hevi_Final,         &
     atm_dyn_dgm_nonhydro3d_etot_hevi_cal_tend,      &
     atm_dyn_dgm_nonhydro3d_etot_hevi_cal_vi
 
+  !- REGIONAL / RHOT / HEVE SPLITFORM
   use scale_atm_dyn_dgm_nonhydro3d_rhot_heve_splitform, only: &
     atm_dyn_dgm_nonhydro3d_rhot_heve_splitform_Init,          &
     atm_dyn_dgm_nonhydro3d_rhot_heve_splitform_Final,         &
     atm_dyn_dgm_nonhydro3d_rhot_heve_splitform_cal_tend
 
+  !- REGIONAL / RHOT / HEVI SPLITFORM
   use scale_atm_dyn_dgm_nonhydro3d_rhot_hevi_splitform, only: &
     atm_dyn_dgm_nonhydro3d_rhot_hevi_splitform_Init,          &
     atm_dyn_dgm_nonhydro3d_rhot_hevi_splitform_Final,         &
     atm_dyn_dgm_nonhydro3d_rhot_hevi_splitform_cal_tend,      &
     atm_dyn_dgm_nonhydro3d_rhot_hevi_splitform_cal_vi    
   
+  !- GLOBAL / RHOT / HEVE
   use scale_atm_dyn_dgm_globalnonhydro3d_rhot_heve, only: &
     atm_dyn_dgm_globalnonhydro3d_rhot_heve_Init,                      &
     atm_dyn_dgm_globalnonhydro3d_rhot_heve_Final,                     &
     atm_dyn_dgm_globalnh3d_rhot_heve_cal_tend_shallow_atm_asis,       &
     atm_dyn_dgm_globalnonhydro3d_rhot_heve_cal_tend_shallow_atm,      &
     atm_dyn_dgm_globalnonhydro3d_rhot_heve_cal_tend_deep_atm
-
+  use scale_atm_dyn_dgm_globalnonhydro3d_rhot_heve_gpu, only: &
+    atm_dyn_dgm_globalnonhydro3d_rhot_heve_gpu_Init,                 &
+    atm_dyn_dgm_globalnonhydro3d_rhot_heve_gpu_cal_tend_shallow_atm, &
+    atm_dyn_dgm_globalnonhydro3d_rhot_heve_gpu_cal_tend_deep_atm,    &
+    atm_dyn_dgm_globalnonhydro3d_rhot_heve_gpu_Final
+  
+  !- GLOBAL / ETOT / HEVE
   use scale_atm_dyn_dgm_globalnonhydro3d_etot_heve, only: &
     atm_dyn_dgm_globalnonhydro3d_etot_heve_Init,          &
     atm_dyn_dgm_globalnonhydro3d_etot_heve_Final,         &
     atm_dyn_dgm_globalnonhydro3d_etot_heve_cal_tend
 
+  !- GLOBAL / RHOT / HEVI
   use scale_atm_dyn_dgm_globalnonhydro3d_rhot_hevi, only:  &
     atm_dyn_dgm_globalnonhydro3d_rhot_hevi_Init,           &
     atm_dyn_dgm_globalnonhydro3d_rhot_hevi_Final,          &
@@ -126,18 +140,21 @@ module scale_atm_dyn_dgm_driver_nonhydro3d
     atm_dyn_dgm_globalnonhydro3d_rhot_hevi_cal_vi_asis,    &
     atm_dyn_dgm_globalnonhydro3d_rhot_hevi_cal_tend,       &
     atm_dyn_dgm_globalnonhydro3d_rhot_hevi_cal_vi
-
+  
+  !- GLOBAL / ETOT / HEVI
   use scale_atm_dyn_dgm_globalnonhydro3d_etot_hevi, only:  &
     atm_dyn_dgm_globalnonhydro3d_etot_hevi_Init,           &
     atm_dyn_dgm_globalnonhydro3d_etot_hevi_Final,          &
     atm_dyn_dgm_globalnonhydro3d_etot_hevi_cal_tend,       &
     atm_dyn_dgm_globalnonhydro3d_etot_hevi_cal_vi
   
+  !- NONE
   use scale_atm_dyn_dgm_none, only: &
     atm_dyn_dgm_none_Init,          &
     atm_dyn_dgm_none_Final,         &
     atm_dyn_dgm_none_cal_tend
   
+  !---------
   use scale_atm_dyn_dgm_bnd, only: AtmDynBnd
   use scale_atm_dyn_dgm_spongelayer, only: AtmDynSpongeLayer
 
@@ -340,6 +357,8 @@ module scale_atm_dyn_dgm_driver_nonhydro3d
   !
   !-------------------
 
+  private :: add_phy_tend
+  private :: add_phy_tend_new
   private :: setup_modalfilter
   
 contains
@@ -461,6 +480,16 @@ contains
       end if
       this%cal_vi => null()
       this%dynsolver_final => atm_dyn_dgm_globalnonhydro3d_rhot_heve_Final
+    case("GLOBALNONHYDRO3D_HEVE_GPU", "GLOBALNONHYDRO3D_RHOT_HEVE_GPU")
+      this%EQS_TYPEID = EQS_TYPEID_GLOBALNONHYD3D_HEVE
+      call atm_dyn_dgm_globalnonhydro3d_rhot_heve_gpu_Init( mesh3D )
+      if ( gm_mesh3D%shallow_approx ) then
+        this%cal_tend_ex => atm_dyn_dgm_globalnonhydro3d_rhot_heve_gpu_cal_tend_shallow_atm
+      else
+        this%cal_tend_ex => atm_dyn_dgm_globalnonhydro3d_rhot_heve_gpu_cal_tend_deep_atm
+      end if
+      this%cal_vi => null()
+      this%dynsolver_final => atm_dyn_dgm_globalnonhydro3d_rhot_heve_gpu_Final
     case("GLOBALNONHYDRO3D_ETOT_HEVE")
       this%EQS_TYPEID = EQS_TYPEID_GLOBALNONHYD3D_HEVE_ENTOT
       call atm_dyn_dgm_globalnonhydro3d_etot_heve_Init( mesh3D )
@@ -593,8 +622,8 @@ contains
     return
   end subroutine AtmDynDGMDriver_nonhydro3d_Init
 
+  !> Get a flag whether density-weighted potential temperature is used for a prognostic thermodynamic variable
 !OCL SERIAL
-!> Get a flag whether density-weighted potential temperature is used for a prognostic thermodynamic variable
   function AtmDynDGMDriver_nonhydro3d_Is_THERMVAR_RHOT( this ) result(ret)
     implicit none
 
@@ -610,6 +639,7 @@ contains
     return
   end function AtmDynDGMDriver_nonhydro3d_Is_THERMVAR_RHOT
 
+  !> Update the prognostic variables for the non-hydrostatic 3D atmospheric dynamical core
 !OCL SERIAL
   subroutine AtmDynDGMDriver_nonhydro3d_update( this, &
     PROG_VARS, AUX_VARS, PHYTENDS,                       &
@@ -986,6 +1016,7 @@ contains
     return
   end subroutine AtmDynDGMDriver_nonhydro3d_Final
 
+  !> Calculate the pressure using the prognostic variables with the non-hydrostatic 3D atmospheric dynamical core
 !OCL SERIAL
   subroutine AtmDynDGMDriver_nonhydro3d_calc_pressure( this, &
     PRES, PROG_VARS, AUX_VARS                                )
@@ -1030,7 +1061,8 @@ contains
 
     return
   end subroutine AtmDynDGMDriver_nonhydro3d_calc_pressure
-    
+  
+  !> Update the hydrostatic part of thermodynamic prognostic variable (THERM_hyd)
 !OCL SERIAL
   subroutine AtmDynDGMDriver_nonhydro3d_update_thermhyd( this, &
     AUX_VARS                                                   )    
@@ -1058,6 +1090,7 @@ contains
     return
   end subroutine AtmDynDGMDriver_nonhydro3d_update_thermhyd
 
+  !> Calculate the horizontal gradient of the hydrostatic pressure
 !OCL SERIAL
   subroutine AtmDynDGMDriver_nonhydro3d_update_phyd_hgrad( this, &
     PRES_hyd, PRES_hyd_ref,                    & ! (in)

@@ -292,7 +292,7 @@ contains
     integer, intent(in) :: vmapP(elem%NfpTot,lmesh%Ne)
     integer, intent(in) :: iM2Dto3D(elem%NfpTot)
     
-    integer :: ke, fp, i, iP, iM
+    integer :: ke, fp, iP, iM
     integer :: ke2D
     real(RP) :: Vel_M, Vel_P, alpha
     real(RP) :: DPRES_M, DPRES_P
@@ -309,14 +309,11 @@ contains
     real(RP) :: G13_M, G13_P
     real(RP) :: G23_M, G23_P
     real(RP) :: Gnn_M, Gnn_P
-    real(RP) :: rgam2_
+    real(RP) :: rgam2_M, rgam2_P
 
-    real(RP) :: gamm, rgamm    
-    real(RP) :: rP0
-    real(RP) :: RovP0, P0ovR
+    real(RP) :: gamm  
     
     real(RP) :: tmp1
-    real(RP) :: del_flux_tmp_momz, del_flux_tmp_momx, del_flux_tmp_momy
     real(RP) :: GsqrtDPres_M, GsqrtDPres_P
     real(RP) :: nx_, ny_, nz_, fscale_
 
@@ -329,18 +326,16 @@ contains
     !------------------------------------------------------------------------
 
     gamm  = CPDry / CvDry
-    rgamm = CvDry / CpDry
-    rP0   = 1.0_RP / PRES00
-    RovP0 = Rdry * rP0
-    P0ovR = PRES00 / Rdry
 
     NeS = lmesh%NeS; NeE = lmesh%NeE
     NfpTot = elem%NfpTot
 
-    !$acc parallel present( DDENS_,MOMX_,MOMY_,MOMZ_,DRHOT_,DPRES, &
-    !$acc                             DENS_hyd,PRES_hyd,THERM_hyd,           &
-    !$acc                             Gsqrt,G13,G23,nx,ny,nz,vmapM,vmapP,    &
-    !$acc                             del_flux, lmesh, elem )
+    !$acc parallel present( &
+    !$acc   DDENS_,MOMX_,MOMY_,MOMZ_,DRHOT_,DPRES, &
+    !$acc   DENS_hyd,PRES_hyd,THERM_hyd,            &
+    !$acc   Gsqrt,G11,G12,G22,G13,G23,gam,           &
+    !$acc   nx,ny,nz,vmapM,vmapP,iM2Dto3D,           &
+    !$acc   del_flux,lmesh,elem )    
     !$acc loop gang 
     do ke=NeS, NeE
       !$acc loop vector
@@ -354,12 +349,17 @@ contains
         !-
         Gsqrt_M = Gsqrt(iM)
         Gsqrt_P = Gsqrt(iP)
-        GsqrtV_M = Gsqrt_M
-        GsqrtV_P = Gsqrt_P
 
+        !-
+        rgam2_M = 1.0_RP / gam(iM)**2
+        GsqrtV_M = Gsqrt_M * rgam2_M / GsqrtH(iM2Dto3D(fp),ke2D)
         RGsqrtV_M = 1.0_RP / GsqrtV_M
+
+        rgam2_P = 1.0_RP / gam(iP)**2
+        GsqrtV_P = Gsqrt_P * rgam2_P / GsqrtH(iM2Dto3D(fp),ke2D)
         RGsqrtV_P = 1.0_RP / GsqrtV_P
 
+        !-
         G13_M = G13(iM)
         G13_P = G13(iP)
         G23_M = G23(iM)
@@ -398,32 +398,27 @@ contains
 
         !--
 
-        tmp1 = abs( nx_ ) + abs( ny_ )
         G11_ = G11(iM2Dto3D(fp),ke2D)
         G12_ = G12(iM2Dto3D(fp),ke2D)
         G22_ = G22(iM2Dto3D(fp),ke2D)
+        tmp1 = abs( G11_ * nx_ ) + abs( G22_ * ny_ )
 
-        rgam2_ = 1.0_RP / gam(iM)**2
-        Gxz_M = rgam2_ * ( G11_ * G13_M + G12_ * G23_M )
-        Gyz_M = rgam2_ * ( G12_ * G13_M + G22_ * G23_M )
-        G1n_M = rgam2_ * ( G11_ * nx_ + G12_ * ny_ + Gxz_M * nz_ )
-        G2n_M = rgam2_ * ( G12_ * nx_ + G22_ * ny_ + Gyz_M * nz_ )
-        Gnn_M = rgam2_ * tmp1 &
+        Gxz_M = rgam2_M * ( G11_ * G13_M + G12_ * G23_M )
+        Gyz_M = rgam2_M * ( G12_ * G13_M + G22_ * G23_M )
+        G1n_M = rgam2_M * ( G11_ * nx_ + G12_ * ny_  )
+        G2n_M = rgam2_M * ( G12_ * nx_ + G22_ * ny_  )
+        Gnn_M = rgam2_M * tmp1 &
               + ( 1.0_RP * RGsqrtV_M**2 + G13_M * Gxz_M + G23_M * Gyz_M ) * abs( nz_ )
 
-        rgam2_ = 1.0_RP / gam(iP)**2
-        Gxz_P = rgam2_ * ( G11_ * G13_P + G12_ * G23_P )
-        Gyz_P = rgam2_ * ( G12_ * G13_P + G22_ * G23_P )
-        G1n_P = rgam2_ * ( G11_ * nx_ + G12_ * ny_ + Gxz_P * nz_ )
-        G2n_P = rgam2_ * ( G12_ * nx_ + G22_ * ny_ + Gyz_P * nz_ )
-        Gnn_P = rgam2_ * tmp1 &
+        Gxz_P = rgam2_P * ( G11_ * G13_P + G12_ * G23_P )
+        Gyz_P = rgam2_P * ( G12_ * G13_P + G22_ * G23_P )
+        G1n_P = rgam2_P * ( G11_ * nx_ + G12_ * ny_  )
+        G2n_P = rgam2_P * ( G12_ * nx_ + G22_ * ny_  )
+        Gnn_P = rgam2_P * tmp1 &
               + ( 1.0_RP * RGsqrtV_P**2 + G13_P * Gxz_P + G23_P * Gyz_P ) * abs( nz_ )
 
         alpha = max( sqrt( Gnn_M * gamm * ( PRES_hyd(iM) + DPRES_M ) * Gsqrt_M / GsqrtDens_M ) + abs(Vel_M), &
                      sqrt( Gnn_P * gamm * ( PRES_hyd(iP) + DPRES_P ) * Gsqrt_P / GsqrtDens_P ) + abs(Vel_P)  )
-
-
-        !-
 
         !---------------------------------------
         fscale_ = 0.5_RP * lmesh%Fscale(fp,ke)

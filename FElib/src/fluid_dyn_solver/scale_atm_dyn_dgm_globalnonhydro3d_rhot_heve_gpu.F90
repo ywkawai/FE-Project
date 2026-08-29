@@ -182,7 +182,7 @@ contains
       DENS_hyd, THERM_hyd, DPhydDx, DPhydDy,                               & ! (in)
       lmesh%Gsqrt,lmesh%GsqrtH,lmesh%GI3(:,:,1),lmesh%GI3(:,:,2),          & ! (in)
       lmesh%Escale(:,:,1,1), lmesh%Escale(:,:,2,2), lmesh%Escale(:,:,3,3), & ! (in)
-      lmesh%pos_en(:,:,1), lmesh%pos_en(:,:,2),                            & ! (in)
+      lmesh2D%pos_en(:,:,1), lmesh2D%pos_en(:,:,2),                        & ! (in)
       Flux2D, FluxZ_store, tend_tmp, drho,                                 & ! (in)
       element3D_operation_driver, lmesh%EMap3Dto2D, IndexH2Dto3D,          & ! (in)
       lmesh,elem, lmesh%NeS, lmesh%NeE, lmesh%NeA, lmesh%Ne2DA, elem%Nnode_h1D, elem%Nnode_v ) ! (in)                     ! (in)    
@@ -190,6 +190,8 @@ contains
     call PROF_rapend('cal_dyn_tend_interior', 3)
     
     !$acc end data
+
+    call element3D_operation_driver%Final()
     return
   end subroutine atm_dyn_dgm_globalnonhydro3d_rhot_heve_gpu_cal_tend_shallow_atm
 
@@ -197,7 +199,7 @@ contains
     DENS_dt, MOMX_dt, MOMY_dt, MOMZ_dt, RHOT_dt,                  & ! (out)
     DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DPRES_, del_flux,        & ! (in)
     DENS_hyd, THERM_hyd, DPhydDx, DphydDy,                        & ! (in)
-    Gsqrt,GsqrtH,G13,G23, E11,E22,E33, alph, beta,                & ! (in)
+    Gsqrt,GsqrtH,G13,G23, E11,E22,E33, alph2D, beta2D,            & ! (in)
     Flux2D, FluxZ_store, tend_tmp, drho,                          & ! (in)
     element3D_operation_driver,                                   & ! (in)
     EMap3Dto2D, IndexH2Dto3D, lmesh,elem, NeS, NeE, NeA, Ne2DA, Nnode_h1D, Nnode_v ) ! (in)
@@ -238,8 +240,8 @@ contains
     real(RP), intent(in)  :: E11(Nnode_h1D**2,Nnode_v,lmesh%Ne)
     real(RP), intent(in)  :: E22(Nnode_h1D**2,Nnode_v,lmesh%Ne)
     real(RP), intent(in)  :: E33(Nnode_h1D**2,Nnode_v,lmesh%Ne)
-    real(RP), intent(in)  :: alph(Nnode_h1D**2,lmesh%Ne2D)
-    real(RP), intent(in)  :: beta(Nnode_h1D**2,lmesh%Ne2D)
+    real(RP), intent(in)  :: alph2D(Nnode_h1D**2,lmesh%Ne2D)
+    real(RP), intent(in)  :: beta2D(Nnode_h1D**2,lmesh%Ne2D)
     real(RP), intent(out) :: Flux2D(elem%Nnode_h1D**2,5,elem%Nnode_v,lmesh%Ne,2)
     real(RP), intent(out) :: FluxZ_store(elem%Nnode_h1D**2,5,elem%Nnode_v,lmesh%Ne)
     real(RP), intent(out) :: tend_tmp(elem%Nnode_h1D**2,5,elem%Nnode_v,lmesh%Ne)
@@ -279,17 +281,18 @@ contains
     do ke = NeS, NeE
     do pz=1, Nnode_v
       ke2d = EMap3Dto2D(ke)
+
       !$acc loop vector
       do ph=1, Nnode_h1D**2
         Gsqrt_ = Gsqrt(ph,pz,ke)
         GsqrtV  = Gsqrt_ / GsqrtH(ph,ke2d)
         RGsqrtV = 1.0_RP / GsqrtV
         RGsqrt  = 1.0_RP / Gsqrt_
-        RDENS_  = 1.0_RP / (DDENS_(ph,pz,ke) + DENS_hyd(ph,pz,ke))
+        RDENS_  = 1.0_RP / ( DDENS_(ph,pz,ke) + DENS_hyd(ph,pz,ke) )
 
-        G11 = lmesh%GIJ(IndexH2Dto3D(ph,pz),ke2d,1,1)
-        G12 = lmesh%GIJ(IndexH2Dto3D(ph,pz),ke2d,1,2)
-        G22 = lmesh%GIJ(IndexH2Dto3D(ph,pz),ke2d,2,2)
+        G11 = lmesh%GIJ(ph,ke2d,1,1)
+        G12 = lmesh%GIJ(ph,ke2d,1,2)
+        G22 = lmesh%GIJ(ph,ke2d,2,2)
 
         !-
         mflxX = Gsqrt_ * MOMX_(ph,pz,ke)
@@ -350,13 +353,13 @@ contains
 
 
         MOMZ_dt(ph,pz,ke) = - tend_tmp(ph,MOMZ_VID,pz,ke) &
-                          - Grav * drho(ph,pz,ke)
+                            - Grav * drho(ph,pz,ke)
       end do
       !$acc loop vector
       do ph=1, Nnode_h1D**2
-        !-
-        X = tan(alph(ph,ke2d))
-        Y = tan(beta(ph,ke2d))
+        !-        
+        X = tan(alph2D(ph,ke2d))
+        Y = tan(beta2D(ph,ke2d))
         twoOVdel2 = 2.0_RP / ( 1.0_RP + X**2 + Y**2 )
 
         cor_x = s * OHM * twoOVdel2 * ( - X * Y             * MOMX_(ph,pz,ke) + ( 1.0_RP + Y**2 ) * MOMY_(ph,pz,ke) )
@@ -366,11 +369,24 @@ contains
           cor_y = s * Y * cor_y
         end if
 
+        G11 = lmesh%GIJ(ph,ke2d,1,1)
+        G12 = lmesh%GIJ(ph,ke2d,1,2)
+        G22 = lmesh%GIJ(ph,ke2d,2,2)
+
+        RDENS_  = 1.0_RP / ( DDENS_(ph,pz,ke) + DENS_hyd(ph,pz,ke) )
+        u_ = MOMX_(ph,pz,ke) * RDENS_
+        v_ = MOMY_(ph,pz,ke) * RDENS_
+
+
         MOMX_dt(ph,pz,ke) = - tend_tmp(ph,MOMX_VID,pz,ke) &
-                          - DPhydDx(ph,pz,ke) &
+                          - ( G11 * DPhydDx(ph,pz,ke) + G12 * DPhydDy(ph,pz,ke) )     &
+                          - twoOVdel2 * Y *                                           &
+                            ( X * Y * u_ + ( 1.0_RP + Y**2 ) * v_ ) * MOMX_(ph,pz,ke) &
                           + cor_x
         MOMY_dt(ph,pz,ke) = - tend_tmp(ph,MOMY_VID,pz,ke) &
-                          - DPhydDy(ph,pz,ke) &
+                          - ( G12 * DPhydDx(ph,pz,ke) + G22 * DPhydDy(ph,pz,ke) )       &
+                          - twoOVdel2 * Y *                                             &
+                            ( - ( 1.0_RP + X**2 ) * u_ + X * Y * v_ ) * MOMY_(ph,pz,ke) &
                           - cor_y
       end do
     end do
