@@ -747,7 +747,7 @@ contains
     integer :: vmap_b
     !------------------------------------------------------------
 
-  #ifdef _OPENACC
+#ifdef _OPENACC
     iis = elem%Np*mesh%NeE
     !$acc parallel loop present(buf_U, buf_V, G_ij, u1, u2, VMapB)
     do ii=1, bufsize_per_field
@@ -755,12 +755,12 @@ contains
       u1(iis+ii) = G_ij(vmap_b,1,1) * buf_U(ii) + G_ij(vmap_b,1,2) * buf_V(ii)
       u2(iis+ii) = G_ij(vmap_b,2,1) * buf_U(ii) + G_ij(vmap_b,2,2) * buf_V(ii)
     end do
-  #else
+#else
     u1(elem%Np*mesh%NeE+1:elem%Np*mesh%NeE+bufsize_per_field) &
       = G_ij(VMapB,1,1) * buf_U(:) + G_ij(VMapB,1,2) * buf_V(:)
     u2(elem%Np*mesh%NeE+1:elem%Np*mesh%NeE+bufsize_per_field) &
       = G_ij(VMapB,2,1) * buf_U(:) + G_ij(VMapB,2,2) * buf_V(:)
-  #endif
+#endif
     return
   end subroutine set_boundary_data3D_u1u2
 
