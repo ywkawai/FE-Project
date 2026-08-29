@@ -316,7 +316,7 @@ contains
       end do
       end do
     else
-      LOG_INFO("MeshFieldCommCubeDom3D",'(a,i)') "Encountered s_faceID <= 0 in push_localsendbuf. Check! s_faceID=", s_faceID
+      LOG_INFO("MeshFieldCommCubeDom3D",'(a,i0)') "Encountered s_faceID <= 0 in push_localsendbuf. Check! s_faceID=", s_faceID
       call PRC_abort
     end if 
     return

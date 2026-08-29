@@ -271,6 +271,7 @@ contains
   subroutine push_localsendbuf( lc_send_buf, &
     send_buf, s_faceID, is, Nnode_LCMeshFace, bufsize_per_field, var_num, &
     lcmesh, haloSize_1D )
+    use scale_prc, only: PRC_abort
     implicit none
 
     integer, intent(in) :: var_num
@@ -296,51 +297,10 @@ contains
       end do
       end do
     else if ( s_faceID < 0 ) then
-      Nfp = lcmesh%refElem2D%Nfp
-      Ne_h1D = Nnode_LCMeshFace / ( Nfp * haloSize_1D )
-      call revert_hori( lc_send_buf, &
-        send_buf, is, Ne_h1D, haloSize_1D, Nfp )
+      LOG_INFO("MeshFieldCommRectDom2D",'(a,i0)') "Encountered s_faceID <= 0 in push_localsendbuf. Check! s_faceID=", s_faceID
+      call PRC_abort
     end if
-
     return
-  contains
-    !> Revert the horizontal ordering of the local send buffer for negative s_faceID
-    subroutine revert_hori( revert, ori, is_, Ne_h1D_, haloSize_1D_, Nfp_ )
-      implicit none
-      integer, intent(in) :: is_
-      integer, intent(in) :: Ne_h1D_
-      integer, intent(in) :: haloSize_1D_
-      integer, intent(in) :: Nfp_
-
-      real(RP), intent(out) :: revert(Nfp_, haloSize_1D_, Ne_h1D_, var_num)
-      real(RP), intent(in) :: ori(bufsize_per_field,var_num)
-
-      integer :: p, ph, i, v
-      integer :: p_, i_
-      integer :: id_src
-      !---------------------------------------------------------------------------
-
-      !$acc parallel loop collapse(4) present(revert, ori) async(1)
-      do v=1, var_num
-      do i=1, Ne_h1D_
-      do ph=1, haloSize_1D_
-      do p=1, Nfp_
-        ! reverse orientation along the face
-        i_ = Ne_h1D_ - i + 1
-        p_ = Nfp_ - p + 1
-        ! source ordering: (p, ph, i)
-        id_src = is_ - 1 &
-          + p_ &
-          + (ph-1) * Nfp_ &
-          + (i_-1) * Nfp_ * haloSize_1D_
-
-        revert(p,ph,i,v) = ori(id_src,v)
-      end do
-      end do
-      end do
-      end do
-      return
-    end subroutine revert_hori
   end subroutine push_localsendbuf
 
 end module scale_meshfieldcomm_rectdom2d
