@@ -368,7 +368,7 @@ contains
           this%field_num_tot, lcmesh, this%HaloSize_1D              ) ! (in)
         
         if ( commdata%s_panelID /= lcmesh%panelID &
-            .and. ( this%hvfield_num > 0 .and. this%htensorfield_num > 0 ) ) then
+            .and. ( this%hvfield_num > 0 .or. this%htensorfield_num > 0 ) ) then
           
           allocate( lcfpos2D(commdata%Nnode_LCMeshFace,2), unity_fac(commdata%Nnode_LCMeshFace) )
           unity_fac(:) = 1.0_RP
@@ -382,6 +382,7 @@ contains
 
         if ( commdata%s_panelID /= lcmesh%panelID ) then
           if ( this%hvfield_num > 0 ) then
+            allocate( tmp_svec2D(commdata%Nnode_LCMeshFace,2) )
             !$acc enter data create(tmp_svec2D) async(1)
 
             do varid=this%sfield_num+1, this%field_num_tot-1,2

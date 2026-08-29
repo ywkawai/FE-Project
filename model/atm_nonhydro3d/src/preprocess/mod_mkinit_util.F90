@@ -108,8 +108,7 @@ contains
     allocate( r_intrp(elem_intrp%Np) )
     allocate( q_intrp(elem_intrp%Np) )
 
-    !$omp parallel private( &
-    !$omp q_intrp, vx, vy, vz, r_intrp )
+    !$omp parallel private( q_intrp, vx, vy, vz, r_intrp, s )
     !$acc data create( x_intrp, y_intrp, z_intrp, z_func) copyin(L2ProjMat)
 
     !$omp do
@@ -246,8 +245,7 @@ contains
     allocate( q_intrp(elem_intrp%Np) )
 
 
-    !$omp parallel private( &
-    !$omp q_intrp, vx, vy, vz, r_intrp )
+    !$omp parallel private( q_intrp, vx, vy, vz, r_intrp, s )
     !$acc data create( x_intrp, y_intrp, z_intrp, lon_intrp, lat_intrp, gam_intrp, z_func) copyin(L2ProjMat)
 
     !$omp do
@@ -273,7 +271,7 @@ contains
     if ( present(z_func_type) ) then
       select case(z_func_type)
       case ('sin')
-        !$omp parallel do
+        !$omp do
         !$acc parallel loop present(z_func, z_intrp) copyin(z_func_params)
         do ke=lcmesh3D%NeS, lcmesh3D%NeE
           z_func(:,ke) = sin( z_func_params(1) * PI * z_intrp(:,ke) / z_func_params(2) )
