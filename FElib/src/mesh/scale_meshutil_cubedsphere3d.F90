@@ -22,11 +22,11 @@ module scale_meshutil_cubedsphere3d
   use scale_prc
 
   use scale_meshutil_3d, only: &
-    MeshUtilCubedSphere3D_genCubeDomain    => MeshUtil3D_genCubeDomain,        &
-    MeshUtilCubedSphere3D_genConnectivity  => MeshUtil3D_genConnectivity,      &
-    MeshUtilCubedSphere3D_BuildInteriorMap => MeshUtil3D_BuildInteriorMap,     &
-    MeshUtilCubedSphere3D_genPatchBoundaryMap => MeshUtil3D_genPatchBoundaryMap
-  !-----------------------------------------------------------------------------
+    MeshUtilCubedSphere3D_genCubeDomain    => MeshUtil3D_genCubeDomain,                   &
+    MeshUtilCubedSphere3D_genConnectivity  => MeshUtil3D_genConnectivity,                 &
+    MeshUtilCubedSphere3D_BuildInteriorMap => MeshUtil3D_BuildInteriorMap,                &
+    MeshUtilCubedSphere3D_genPatchBoundaryMap => MeshUtil3D_genPatchBoundaryMap,          &
+    MeshUtilCubedSphere3D_genPatchBoundaryMap_wide => MeshUtil3D_genPatchBoundaryMap_wide
   implicit none
   private
   
@@ -39,6 +39,7 @@ module scale_meshutil_cubedsphere3d
   public :: MeshUtilCubedSphere3D_buildInteriorMap
   public :: MeshUtilCubedSphere3D_buildGlobalMap
   public :: MeshUtilCubedSphere3D_genPatchBoundaryMap
+  public :: MeshUtilCubedSphere3D_genPatchBoundaryMap_wide
   
 contains
 !OCL SERIAL
