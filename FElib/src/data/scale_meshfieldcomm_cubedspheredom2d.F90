@@ -337,7 +337,7 @@ contains
     ! call PROF_rapstart( 'comm_exchange', 2)
 
     if ( present(do_wait) ) then
-      if ( do_wait == .false. ) then
+      if ( .not. do_wait ) then
         LOG_INFO("MeshFieldCommCubedSphereDom2D_exchange",*) "do_wait=False is not currently supported. Check!"
         call PRC_abort
       end if
