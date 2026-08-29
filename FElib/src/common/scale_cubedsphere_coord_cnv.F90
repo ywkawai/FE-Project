@@ -32,6 +32,10 @@ module scale_cubedsphere_coord_cnv
   use scale_io
   use scale_prc
 
+#ifdef _OPENACC
+    use openacc, only: acc_async_sync
+#endif
+
   !-----------------------------------------------------------------------------
   implicit none
   private
@@ -65,12 +69,9 @@ module scale_cubedsphere_coord_cnv
   !++ Public parameters & variables
   !
   !-----------------------------------------------------------------------------
-
   !
   !++ Private type & procedure
   !
-  !-----------------------------------------------------------------------------
-
   !-----------------------------------------------------------------------------
   !
   !++ Private parameters & variables
@@ -79,8 +80,8 @@ module scale_cubedsphere_coord_cnv
 
 
 contains
-!> Calculate longitude and latitude coordinates from local coordinates using the central angles in an equiangular gnomonic cubed-sphere projection
-!!
+  !> Calculate longitude and latitude coordinates from local coordinates using the central angles in an equiangular gnomonic cubed-sphere projection
+  !!
 !OCL SERIAL
   subroutine CubedSphereCoordCnv_CS2LonLatPos( &
     panelID, alpha, beta, gam, Np,             & ! (in)
@@ -140,14 +141,14 @@ contains
     return
   end subroutine CubedSphereCoordCnv_CS2LonLatPos
 
-!> Covert the components of a vector in local coordinates with an equiangular gnomonic cubed-sphere projection to those in longitude and latitude coordinates
-!!
+  !> Convert the components of a vector in local coordinates with an equiangular gnomonic cubed-sphere projection to those in longitude and latitude coordinates
+  !!
 !OCL SERIAL
   subroutine CubedSphereCoordCnv_CS2LonLatVec( &
     panelID, alpha, beta, gam, Np,         & ! (in)
     VecAlpha, VecBeta,                     & ! (in)
     VecLon, VecLat,                        & ! (out)
-    lat                                    ) ! (in, optional)
+    lat, gpu_async_id                      ) ! (in, optional)
 
     use scale_const, only: &
       EPS => CONST_EPS
@@ -163,6 +164,7 @@ contains
     real(RP), intent(out) :: VecLon(Np)  !< A component of vector in the longitude-coordinate
     real(RP), intent(out) :: VecLat(Np)  !< A component of vector in the latitude-coordinate
     real(RP), intent(in), optional :: lat(Np) !< latitude [rad]
+    integer, intent(in), optional :: gpu_async_id !< GPU asynchronous ID
 
     integer :: p
     real(RP) :: X ,Y, del2
@@ -170,7 +172,17 @@ contains
 
     real(RP) :: radius
     real(RP) :: cos_Lat(Np)
+
+    integer :: gpu_async_id_
     !-----------------------------------------------------------------------------
+
+#ifdef _OPENACC
+    if (present(gpu_async_id)) then
+      gpu_async_id_ = gpu_async_id
+    else
+      gpu_async_id_ = acc_async_sync
+    end if
+#endif
 
     !$acc data create(cos_Lat) present(alpha, beta, gam, VecLon, VecLat, VecAlpha, VecBeta)
 
@@ -186,14 +198,14 @@ contains
     case( 1, 2, 3, 4 )
       if (.not. present(lat)) then
         !$omp parallel do
-        !$acc parallel loop
+        !$acc parallel loop async(gpu_async_id_)
         do p=1, Np
           cos_Lat(p) = cos( atan( tan( beta(p) ) * cos( alpha(p) ) ) )
         end do
       end if
 
       !$omp parallel do private( X, Y, del2, radius )
-      !$acc parallel loop
+      !$acc parallel loop async(gpu_async_id_)
       do p=1, Np
         X = tan( alpha(p) )
         Y = tan( beta (p) )
@@ -216,7 +228,7 @@ contains
     select case( panelID )
     case( 5, 6 )
       !$omp parallel do private( X, Y, del2, radius )
-      !$acc parallel loop
+      !$acc parallel loop async(gpu_async_id_)
       do p=1, Np
         X = tan( alpha(p) )
         Y = tan( beta (p) )
@@ -239,8 +251,8 @@ contains
     return
   end subroutine CubedSphereCoordCnv_CS2LonLatVec
 
-!> Calculate local coordinates using the central angles in an equiangular gnomonic cubed-sphere projection from longitude and latitude coordinates
-!!
+  !> Calculate local coordinates using the central angles in an equiangular gnomonic cubed-sphere projection from longitude and latitude coordinates
+  !!
 !OCL SERIAL
   subroutine CubedSphereCoordCnv_LonLat2CSPos(  &
     panelID, lon, lat, Np,                 & ! (in)
@@ -321,14 +333,14 @@ contains
     return
   end subroutine CubedSphereCoordCnv_LonLat2CSPos
 
-!> Covert the components of a vector in longitude and latitude coordinates to those in local coordinates with an equiangular gnomonic cubed-sphere projection
-!!
+  !> Convert the components of a vector in longitude and latitude coordinates to those in local coordinates with an equiangular gnomonic cubed-sphere projection
+  !!
 !OCL SERIAL
   subroutine CubedSphereCoordCnv_LonLat2CSVec( &
     panelID, alpha, beta, gam, Np,         & ! (in)
     VecLon, VecLat,                        & ! (in)
     VecAlpha, VecBeta,                     & ! (out)
-    lat )                                    ! (in, optional)
+    lat, gpu_async_id )                      ! (in, optional)
 
     implicit none
 
@@ -341,7 +353,8 @@ contains
     real(DP), intent(in) :: VecLat(Np)    !< A component of vector in the latitude-coordinate
     real(DP), intent(out) :: VecAlpha(Np) !< A component of vector in the alpha-coordinate
     real(DP), intent(out) :: VecBeta (Np) !< A component of vector in the beta-coordinate
-    real(RP), intent(in), optional :: lat(Np) !< latitude [rad]
+    real(RP), intent(in), optional :: lat(Np)     !< latitude [rad]
+    integer, intent(in), optional :: gpu_async_id !< GPU asynchronous ID for OpenACC operations
 
     integer :: p
     real(RP) :: X ,Y, del2
@@ -350,13 +363,21 @@ contains
     real(RP) :: radius
     real(RP) :: cos_Lat(Np)
     real(RP) :: VecLon_ov_cosLat
+
+    integer :: gpu_async_id_
     !-----------------------------------------------------------------------------
     
+    if (present(gpu_async_id)) then
+      gpu_async_id_ = gpu_async_id
+    else
+      gpu_async_id_ = acc_async_sync
+    end if
+
     !$acc data create(cos_Lat) present(alpha, beta, gam, VecLon, VecLat, VecAlpha, VecBeta)
 
     if (present(lat)) then
       !$omp parallel do
-      !$acc parallel loop
+      !$acc parallel loop async(gpu_async_id_)
       do p=1, Np
         cos_Lat(p) = cos(lat(p))
       end do
@@ -366,14 +387,14 @@ contains
     case( 1, 2, 3, 4 )
       if (.not. present(lat)) then
         !$omp parallel do
-        !$acc parallel loop
+        !$acc parallel loop async(gpu_async_id_)
         do p=1, Np
           cos_Lat(p) = cos( atan( tan( beta(p) ) * cos( alpha(p) ) ) )
         end do
       end if
   
       !$omp parallel do private( X, Y, del2, radius, VecLon_ov_cosLat )
-      !$acc parallel loop
+      !$acc parallel loop async(gpu_async_id_)
       do p=1, Np
         X = tan( alpha(p) )
         Y = tan( beta (p) )
@@ -397,7 +418,7 @@ contains
     select case( panelID )
     case( 5, 6 )
       !$omp parallel do private( X, Y, del2, radius, VecLon_ov_cosLat )
-      !$acc parallel loop
+      !$acc parallel loop async(gpu_async_id_)
       do p=1, Np
         X = tan( alpha(p) )
         Y = tan( beta (p) )
@@ -421,8 +442,8 @@ contains
     return
   end subroutine CubedSphereCoordCnv_LonLat2CSVec
 
-!> Calculate Cartesian coordinates from local coordinates using the central angles in an equiangular gnomonic cubed-sphere projection
-!!
+  !> Calculate the Cartesian coordinates from local coordinates using the central angles in an equiangular gnomonic cubed-sphere projection
+  !!
 !OCL SERIAL
   subroutine CubedSphereCoordCnv_CS2CartPos( &
     panelID, alpha, beta, gam, Np,           & ! (in)
@@ -518,8 +539,8 @@ contains
     return
   end subroutine CubedSphereCoordCnv_CS2CartPos
 
-!> Covert the components of a vector in local coordinates with an equiangular gnomonic cubed-sphere projection to those in the Cartesian coordinates
-!!
+  !> Convert the components of a vector in local coordinates with an equiangular gnomonic cubed-sphere projection to those in the Cartesian coordinates
+  !!
 !OCL SERIAL
   subroutine CubedSphereCoordCnv_Cart2CSVec( &
     panelID, alpha, beta, gam, Np,         & ! (in)
@@ -771,8 +792,8 @@ contains
     return
   end subroutine CubedSphereCoordCnv_LocalOrth2CSVec_alpha_1
 
-!> Calculate the metrics associated with an equiangular gnomonic cubed-sphere projection to those in longitude and latitude coordinates
-!!
+  !> Calculate the metrics associated with an equiangular gnomonic cubed-sphere projection to those in longitude and latitude coordinates
+  !!
 !OCL SERIAL  
   subroutine CubedSphereCoordCnv_GetMetric( &
     alpha, beta, Np, radius,            & ! (in)
