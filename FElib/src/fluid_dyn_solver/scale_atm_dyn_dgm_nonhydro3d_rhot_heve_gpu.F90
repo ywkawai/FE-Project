@@ -388,11 +388,7 @@ contains
     use scale_atm_dyn_dgm_nonhydro3d_rhot_heve_numflux_gpu, only: &
       get_ebnd_flux => atm_dyn_dgm_nonhydro3d_rhot_heve_numflux_get_generalvc_gpu
     use scale_element_operation_gpu_driver, only: &
-      ElementOperationGPUDriver, &
-      Div_kplane => ElementOperationGPU_Div_kplane, &
-      DivVar5_kplane => ElementOperationGPU_DivVar5_kplane, &
-      DivVar5_z_lift => ElementOperationGPU_DivVar5_z_lift, &
-      VFilterPM1 => ElementOperationGPU_VFilterPM1
+      ElementOperationGPUDriver
     implicit none
 
     class(LocalMesh3D), intent(in) :: lmesh
@@ -423,25 +419,14 @@ contains
     real(RP), intent(in) :: DPhydDx(elem%Np,lmesh%NeA)
     real(RP), intent(in) :: DPhydDy(elem%Np,lmesh%NeA)
 
-    real(RP) :: Flux2D(elem%Nnode_h1D**2,5,elem%Nnode_v,lmesh%Ne,2)
-    real(RP) :: mflxX, mflxY, mflxZ
-    real(RP) :: FluxZ_store(elem%Nnode_h1D**2,5,elem%Nnode_v,lmesh%Ne)
-    real(RP) :: del_flux(elem%NfpTot,PRGVAR_NUM,lmesh%Ne)
-    real(RP) :: u_, v_, w_, pt_
-    real(RP) :: cor
-    real(RP) :: drho(elem%Np,lmesh%Ne)
-    real(RP) :: RDENS_, GsqrtH, GsqrtV, RGsqrtV, RGsqrt
-    real(RP) :: Gsqrt_, GsqrtDPRES_
-
-    integer :: ke, ke2d
-    integer :: p, ph, pz
-    integer :: iv
-    
-    integer :: IndexH2Dto3D(elem%Np)
-    integer :: EMap3Dto2D(lmesh%Ne)
-
     type(ElementOperationGPUDriver) :: element3D_operation_driver
     real(RP) :: tend_tmp(elem%Nnode_h1D**2,5,elem%Nnode_v,lmesh%Ne)
+    real(RP) :: Flux2D(elem%Nnode_h1D**2,5,elem%Nnode_v,lmesh%Ne,2)
+    real(RP) :: FluxZ_store(elem%Nnode_h1D**2,5,elem%Nnode_v,lmesh%Ne)
+    real(RP) :: del_flux(elem%NfpTot,PRGVAR_NUM,lmesh%Ne)
+    real(RP) :: drho(elem%Np,lmesh%Ne)
+
+    integer :: IndexH2Dto3D(elem%Np)
 
     integer :: NeS, NeE, Nnode_h1D, Nnode_v
     !------------------------------------------------------------------------
@@ -493,9 +478,9 @@ contains
     DENS_dt, MOMX_dt, MOMY_dt, MOMZ_dt, RHOT_dt,                  & ! (out)
     DDENS_, MOMX_, MOMY_, MOMZ_, DRHOT_, DPRES_, del_flux,        & ! (in)
     DENS_hyd, THERM_hyd, Coriolis, DPhydDx, DphydDy,              & ! (in)
-    Gsqrt,GsqrtH,G13,G23, E11,E22,E33, & ! (in)
-    Flux2D, FluxZ_store, tend_tmp, drho, & ! (in)
-    element3D_operation_driver, & ! (in)
+    Gsqrt,GsqrtH,G13,G23, E11,E22,E33,                            & ! (in)
+    Flux2D, FluxZ_store, tend_tmp, drho,                          & ! (in)
+    element3D_operation_driver,                                   & ! (in)
     EMap3Dto2D, lmesh,elem, NeS, NeE, NeA, Ne2DA, Nnode_h1D, Nnode_v )                         ! (in)
     use scale_element_operation_gpu_driver, only: &
       ElementOperationGPUDriver, &

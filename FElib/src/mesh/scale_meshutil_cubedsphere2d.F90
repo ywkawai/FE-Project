@@ -25,7 +25,9 @@ module scale_meshutil_cubedsphere2d
     MeshUtilCubedSphere2D_genRectDomain    => MeshUtil2D_genRectDomain,    &
     MeshUtilCubedSphere2D_genConnectivity  => MeshUtil2D_genConnectivity,  &
     MeshUtilCubedSphere2D_BuildInteriorMap => MeshUtil2D_BuildInteriorMap, &
-    MeshUtilCubedSphere2D_genPatchBoundaryMap => MeshUtil2D_genPatchBoundaryMap
+    MeshUtilCubedSphere2D_genPatchBoundaryMap => MeshUtil2D_genPatchBoundaryMap, &
+    MeshUtilCubedSphere2D_genPatchBoundaryMap_wide => MeshUtil2D_genPatchBoundaryMap_wide
+
   !-----------------------------------------------------------------------------
   implicit none
   private
@@ -39,6 +41,7 @@ module scale_meshutil_cubedsphere2d
   public :: MeshUtilCubedSphere2D_buildInteriorMap
   public :: MeshUtilCubedSphere2D_buildGlobalMap
   public :: MeshUtilCubedSphere2D_genPatchBoundaryMap
+  public :: MeshUtilCubedSphere2D_genPatchBoundaryMap_wide
   public :: MeshUtilCubedSphere2D_modifyConnectivity
   public :: MeshUtilCubedSphere2D_GetPanelConnectivity
   public :: MeshUtilCubedSphere2D_getPanelID

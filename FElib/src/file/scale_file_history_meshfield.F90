@@ -337,7 +337,7 @@ contains
 
     !-
 #ifdef _OPENACC
-    do ldomID=1,target_comp%mesh1D%LOCAL_MESH_NUM
+    do ldomID=1, field1d%mesh%LOCAL_MESH_NUM
       !$acc update host( field1d%local(ldomID)%val ) async(1)
     end do
     !$acc wait(1)
@@ -401,7 +401,7 @@ contains
 
     !-
 #ifdef _OPENACC
-    do ldomID=1, target_comp%mesh2D%LOCAL_MESH_NUM
+    do ldomID=1, field2d%mesh%LOCAL_MESH_NUM
       !$acc update host( field2d%local(ldomID)%val ) async(1)
     end do
     !$acc wait(1)
@@ -469,7 +469,7 @@ contains
 
     !-
 #ifdef _OPENACC
-    do ldomID=1, target_comp%mesh3D%LOCAL_MESH_NUM
+    do ldomID=1, field3d%mesh%LOCAL_MESH_NUM
       !$acc update host( field3d%local(ldomID)%val ) async(1)
     end do
     !$acc wait(1)

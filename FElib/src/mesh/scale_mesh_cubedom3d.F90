@@ -373,8 +373,10 @@ contains
     !-----------------------------------------------------------------------------
 
     elem => lcmesh%refElem3D
+    
     lcmesh%tileID = tileID
     lcmesh%panelID = panelID
+    !$acc update device(lcmesh%tileID, lcmesh%panelID)
     
     !--
     lcmesh%Ne   = NeX * NeY * NeZ

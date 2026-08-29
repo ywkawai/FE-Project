@@ -112,7 +112,7 @@ contains
 
     do n=1, this%mesh2d%LOCAL_MESH_NUM
       lcmesh => this%mesh2d%lcmesh_list(n)
-      Nnode_LCMeshFace(:,n) = (/ lcmesh%NeX, lcmesh%NeY, lcmesh%NeX, lcmesh%NeY /) * lcmesh%refElem2D%Nfp
+      Nnode_LCMeshFace(:,n) = (/ lcmesh%NeX, lcmesh%NeY, lcmesh%NeX, lcmesh%NeY /) * lcmesh%refElem2D%Nfp*this%haloSize_1D
     end do
 
     call MeshFieldCommBase_Init( this, sfield_num, hvfield_num, htensorfield_num, this%bufsize_per_field, COMM_FACE_NUM, Nnode_LCMeshFace, mesh2d)  
@@ -233,19 +233,21 @@ contains
     logical, intent(in), optional :: do_wait
 
     integer :: n, f
+    type(LocalMesh2D), pointer :: lcmesh
     type(LocalMeshCommData), pointer :: commdata
     !-----------------------------------------------------------------------------
 
     call PROF_rapstart( 'comm_exchange_1', 1)
 
     do n=1, this%mesh%LOCAL_MESH_NUM
-    do f=1, this%nfaces_comm
-      commdata => this%commdata_list(f,n)
-      call push_localsendbuf( commdata%send_buf,                  &  ! (inout)
-        this%send_buf(:,:,n), commdata%s_faceID, this%is_f(f,n),  &  ! (in)
-        commdata%Nnode_LCMeshFace, this%bufsize_per_field,        &  ! (in)
-        this%field_num_tot )                                         ! (in)
-    end do
+      lcmesh => this%mesh2d%lcmesh_list(n)
+      do f=1, this%nfaces_comm
+        commdata => this%commdata_list(f,n)
+        call push_localsendbuf( commdata%send_buf,                  &  ! (inout)
+          this%send_buf(:,:,n), commdata%s_faceID, this%is_f(f,n),  &  ! (in)
+          commdata%Nnode_LCMeshFace, this%bufsize_per_field,        &  ! (in)
+          this%field_num_tot, lcmesh, this%HaloSize_1D )               ! (in)
+      end do
     end do
     !$acc wait(1)
 
@@ -264,42 +266,40 @@ contains
 
 !----------------------------
 
+  !> Push temporary buffer of the local send data to the communication buffer
 !OCL SERIAL
-  subroutine push_localsendbuf( lc_send_buf, send_buf, s_faceID, is, Nnode_LCMeshFace, bufsize_per_field, var_num )
+  subroutine push_localsendbuf( lc_send_buf, &
+    send_buf, s_faceID, is, Nnode_LCMeshFace, bufsize_per_field, var_num, &
+    lcmesh, haloSize_1D )
+    use scale_prc, only: PRC_abort
     implicit none
 
     integer, intent(in) :: var_num
-    integer, intent(in) ::  Nnode_LCMeshFace
+    integer, intent(in) :: Nnode_LCMeshFace
     integer, intent(in) :: bufsize_per_field
     real(RP), intent(inout) :: lc_send_buf(Nnode_LCMeshFace,var_num)
-    real(RP), intent(in) :: send_buf(bufsize_per_field,var_num)  
+    real(RP), intent(in) :: send_buf(bufsize_per_field,var_num)
     integer, intent(in) :: s_faceID, is
-  
-    integer :: is_, ie, lincrement
+    type(LocalMesh2D), intent(in) :: lcmesh
+    integer, intent(in) :: haloSize_1D
+
     integer :: i, v
+    integer :: Ne_h1D
+    integer :: Nfp
     !-----------------------------------------------------------------------------
 
     if ( s_faceID > 0 ) then
-      is_ = is
-      ie  = is + Nnode_LCMeshFace - 1
-      lincrement = +1          
-    else
-      is_ = is + Nnode_LCMeshFace - 1
-      ie  = is          
-      lincrement = -1          
-    end if 
-
-#ifdef _OPENACC
-    !$acc parallel loop collapse(2)present(lc_send_buf, send_buf) async(1)
-    do v=1, var_num
-    do i=1, Nnode_LCMeshFace
-      lc_send_buf(i,v) = send_buf(is_+(i-1)*lincrement,v)
-    end do
-    end do
-#else
-    lc_send_buf(:,:) = send_buf(is_:ie:lincrement,:) 
-#endif   
-    
+      !$omp parallel do
+      !$acc parallel loop collapse(2) present(lc_send_buf, send_buf) async(1)
+      do v=1, var_num
+      do i=1, Nnode_LCMeshFace
+        lc_send_buf(i,v) = send_buf(is+i-1,v)
+      end do
+      end do
+    else if ( s_faceID < 0 ) then
+      LOG_INFO("MeshFieldCommRectDom2D",'(a,i0)') "Encountered s_faceID <= 0 in push_localsendbuf. Check! s_faceID=", s_faceID
+      call PRC_abort
+    end if
     return
   end subroutine push_localsendbuf
 

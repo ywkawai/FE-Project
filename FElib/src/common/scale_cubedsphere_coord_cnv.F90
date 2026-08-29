@@ -32,6 +32,10 @@ module scale_cubedsphere_coord_cnv
   use scale_io
   use scale_prc
 
+#ifdef _OPENACC
+    use openacc, only: acc_async_sync
+#endif
+
   !-----------------------------------------------------------------------------
   implicit none
   private
@@ -65,12 +69,9 @@ module scale_cubedsphere_coord_cnv
   !++ Public parameters & variables
   !
   !-----------------------------------------------------------------------------
-
   !
   !++ Private type & procedure
   !
-  !-----------------------------------------------------------------------------
-
   !-----------------------------------------------------------------------------
   !
   !++ Private parameters & variables
@@ -79,8 +80,8 @@ module scale_cubedsphere_coord_cnv
 
 
 contains
-!> Calculate longitude and latitude coordinates from local coordinates using the central angles in an equiangular gnomonic cubed-sphere projection
-!!
+  !> Calculate longitude and latitude coordinates from local coordinates using the central angles in an equiangular gnomonic cubed-sphere projection
+  !!
 !OCL SERIAL
   subroutine CubedSphereCoordCnv_CS2LonLatPos( &
     panelID, alpha, beta, gam, Np,             & ! (in)
@@ -105,37 +106,33 @@ contains
 
     select case( panelID )
     case( 1, 2, 3, 4 )
-      !$omp parallel 
-      !$omp do
+      !$omp parallel do
+      !$acc parallel loop present(alpha, beta, lon, lat)
       do p=1, Np
         lon(p) = alpha(p) + 0.5_RP * PI * dble(panelID - 1)
         lat(p) = atan( tan( beta(p) ) * cos( alpha(p) ) )
+
+        if ( lon(p) < 0.0_RP ) lon(p) = lon(p) + 2.0_RP * PI
       end do
-      !$omp workshare
-      where( lon(:) < 0.0_RP )
-        lon(:) = lon(:) + 2.0_RP * PI
-      end where
-      !$omp end workshare
-      !$omp end parallel
+      !$omp end parallel do
     case(5, 6)
+      !$acc data create(CartPos, GeogPos) present(alpha, beta, gam, lon, lat)
       call CubedSphereCoordCnv_CS2CartPos( panelID, alpha, beta, gam, Np, & ! (in)
         CartPos(:,1), CartPos(:,2), CartPos(:,3)                          ) ! (out)
       
       call GeographicCoordCnv_orth_to_geo_pos( CartPos(:,:), Np, & ! (in)
         GeogPos(:,:) ) ! (out)
       
-      !$omp parallel 
-      !$omp do
+      !$omp parallel do
+      !$acc parallel loop
       do p=1, Np
         lon(p) = GeogPos(p,1)
         lat(p) = GeogPos(p,2)
+
+        if ( alpha(p) < 0.0_RP ) lon(p) = lon(p) + 2.0_RP * PI
       end do
-      !$omp workshare
-      where( alpha < 0.0_RP )
-        lon(:) = lon(:) + 2.0_RP * PI
-      end where
-      !$omp end workshare
-      !$omp end parallel
+      !$omp end parallel do
+      !$acc end data
     case default
       LOG_ERROR("CubedSphereCoordCnv_CS2LonLatPos",'(a,i2,a)') "panelID ", panelID, " is invalid. Check!"
       call PRC_abort
@@ -144,14 +141,14 @@ contains
     return
   end subroutine CubedSphereCoordCnv_CS2LonLatPos
 
-!> Covert the components of a vector in local coordinates with an equiangular gnomonic cubed-sphere projection to those in longitude and latitude coordinates
-!!
+  !> Convert the components of a vector in local coordinates with an equiangular gnomonic cubed-sphere projection to those in longitude and latitude coordinates
+  !!
 !OCL SERIAL
   subroutine CubedSphereCoordCnv_CS2LonLatVec( &
     panelID, alpha, beta, gam, Np,         & ! (in)
     VecAlpha, VecBeta,                     & ! (in)
     VecLon, VecLat,                        & ! (out)
-    lat                                    ) ! (in, optional)
+    lat, gpu_async_id                      ) ! (in, optional)
 
     use scale_const, only: &
       EPS => CONST_EPS
@@ -167,6 +164,7 @@ contains
     real(RP), intent(out) :: VecLon(Np)  !< A component of vector in the longitude-coordinate
     real(RP), intent(out) :: VecLat(Np)  !< A component of vector in the latitude-coordinate
     real(RP), intent(in), optional :: lat(Np) !< latitude [rad]
+    integer, intent(in), optional :: gpu_async_id !< GPU asynchronous ID
 
     integer :: p
     real(RP) :: X ,Y, del2
@@ -174,10 +172,23 @@ contains
 
     real(RP) :: radius
     real(RP) :: cos_Lat(Np)
+
+    integer :: gpu_async_id_
     !-----------------------------------------------------------------------------
+
+#ifdef _OPENACC
+    if (present(gpu_async_id)) then
+      gpu_async_id_ = gpu_async_id
+    else
+      gpu_async_id_ = acc_async_sync
+    end if
+#endif
+
+    !$acc data create(cos_Lat) present(alpha, beta, gam, VecLon, VecLat, VecAlpha, VecBeta)
 
     if (present(lat)) then
       !$omp parallel do
+      !$acc parallel loop
       do p=1, Np
         cos_Lat(p) = cos(lat(p))
       end do
@@ -187,12 +198,14 @@ contains
     case( 1, 2, 3, 4 )
       if (.not. present(lat)) then
         !$omp parallel do
+        !$acc parallel loop async(gpu_async_id_)
         do p=1, Np
           cos_Lat(p) = cos( atan( tan( beta(p) ) * cos( alpha(p) ) ) )
         end do
       end if
 
       !$omp parallel do private( X, Y, del2, radius )
+      !$acc parallel loop async(gpu_async_id_)
       do p=1, Np
         X = tan( alpha(p) )
         Y = tan( beta (p) )
@@ -215,6 +228,7 @@ contains
     select case( panelID )
     case( 5, 6 )
       !$omp parallel do private( X, Y, del2, radius )
+      !$acc parallel loop async(gpu_async_id_)
       do p=1, Np
         X = tan( alpha(p) )
         Y = tan( beta (p) )
@@ -232,18 +246,19 @@ contains
       end do
     end select
 
+    !$acc end data
+
     return
   end subroutine CubedSphereCoordCnv_CS2LonLatVec
 
-!> Calculate local coordinates using the central angles in an equiangular gnomonic cubed-sphere projection from longitude and latitude coordinates
-!!
+  !> Calculate local coordinates using the central angles in an equiangular gnomonic cubed-sphere projection from longitude and latitude coordinates
+  !!
 !OCL SERIAL
   subroutine CubedSphereCoordCnv_LonLat2CSPos(  &
     panelID, lon, lat, Np,                 & ! (in)
     alpha, beta                            ) ! (out)
 
     implicit none
-
     integer, intent(in) :: panelID      !< Panel ID of cubed-sphere coordinates
     integer, intent(in) :: Np           !< Array size
     real(RP), intent(in) :: lon(Np)     !< Longitude coordinate [rad]
@@ -256,27 +271,34 @@ contains
     real(RP) :: lon_(Np)
     !-----------------------------------------------------------------------------
 
+    !$acc data create(lon_) present(lon, lat, alpha, beta)
+
     select case(panelID)
     case ( 1, 2, 3, 4 )
       !$omp parallel
       if ( panelID == 1 ) then
-        !$omp workshare
-        where (lon(:) >= 2.0_RP * PI - 0.25_RP * PI )
-          lon_(:) = lon(:) - 2.0_RP * PI
-        elsewhere
-          lon_(:) = lon(:)
-        end where
-        !$omp end workshare
+        !$omp do
+        !$acc parallel loop
+        do p=1, Np
+          if ( lon(p) >= 2.0_RP * PI - 0.25_RP * PI ) then
+            lon_(p) = lon(p) - 2.0_RP * PI
+          else
+            lon_(p) = lon(p)
+          end if
+        end do
       else
-        !$omp workshare
-        where (lon(:) < 0.0_RP )
-          lon_(:) = lon(:) + 2.0_RP * PI
-        elsewhere
-          lon_(:) = lon(:)
-        end where    
-        !$omp end workshare
+        !$omp do
+        !$acc parallel loop
+        do p=1, Np
+          if ( lon(p) < 0.0_RP ) then
+            lon_(p) = lon(p) + 2.0_RP * PI
+          else
+            lon_(p) = lon(p)
+          end if
+        end do
       end if
       !$omp do
+      !$acc parallel loop
       do p=1, Np
         alpha(p) = lon_(p) - 0.5_RP * PI * ( dble(panelID) - 1.0_RP )
         beta (p) = atan( tan(lat(p)) / cos(alpha(p)) )
@@ -285,6 +307,7 @@ contains
     case ( 5 )
       !$omp parallel private(tan_lat)   
       !$omp do
+      !$acc parallel loop
       do p=1, Np
         tan_lat = tan(lat(p)) 
         alpha(p) = + atan( sin(lon(p)) / tan_lat )
@@ -294,6 +317,7 @@ contains
     case ( 6 )
       !$omp parallel private(tan_lat)    
       !$omp do
+      !$acc parallel loop
       do p=1, Np
         tan_lat = tan(lat(p)) 
         alpha(p) = - atan( sin(lon(p)) / tan_lat )
@@ -305,17 +329,18 @@ contains
       call PRC_abort
     end select
 
+    !$acc end data
     return
   end subroutine CubedSphereCoordCnv_LonLat2CSPos
 
-!> Covert the components of a vector in longitude and latitude coordinates to those in local coordinates with an equiangular gnomonic cubed-sphere projection
-!!
+  !> Convert the components of a vector in longitude and latitude coordinates to those in local coordinates with an equiangular gnomonic cubed-sphere projection
+  !!
 !OCL SERIAL
   subroutine CubedSphereCoordCnv_LonLat2CSVec( &
     panelID, alpha, beta, gam, Np,         & ! (in)
     VecLon, VecLat,                        & ! (in)
     VecAlpha, VecBeta,                     & ! (out)
-    lat )                                    ! (in, optional)
+    lat, gpu_async_id )                      ! (in, optional)
 
     implicit none
 
@@ -328,7 +353,8 @@ contains
     real(DP), intent(in) :: VecLat(Np)    !< A component of vector in the latitude-coordinate
     real(DP), intent(out) :: VecAlpha(Np) !< A component of vector in the alpha-coordinate
     real(DP), intent(out) :: VecBeta (Np) !< A component of vector in the beta-coordinate
-    real(RP), intent(in), optional :: lat(Np) !< latitude [rad]
+    real(RP), intent(in), optional :: lat(Np)     !< latitude [rad]
+    integer, intent(in), optional :: gpu_async_id !< GPU asynchronous ID for OpenACC operations
 
     integer :: p
     real(RP) :: X ,Y, del2
@@ -337,10 +363,23 @@ contains
     real(RP) :: radius
     real(RP) :: cos_Lat(Np)
     real(RP) :: VecLon_ov_cosLat
+
+    integer :: gpu_async_id_
     !-----------------------------------------------------------------------------
+    
+#ifdef _OPENACC
+    if (present(gpu_async_id)) then
+      gpu_async_id_ = gpu_async_id
+    else
+      gpu_async_id_ = acc_async_sync
+    end if
+#endif
+
+    !$acc data create(cos_Lat) present(alpha, beta, gam, VecLon, VecLat, VecAlpha, VecBeta)
 
     if (present(lat)) then
       !$omp parallel do
+      !$acc parallel loop async(gpu_async_id_)
       do p=1, Np
         cos_Lat(p) = cos(lat(p))
       end do
@@ -350,12 +389,14 @@ contains
     case( 1, 2, 3, 4 )
       if (.not. present(lat)) then
         !$omp parallel do
+        !$acc parallel loop async(gpu_async_id_)
         do p=1, Np
           cos_Lat(p) = cos( atan( tan( beta(p) ) * cos( alpha(p) ) ) )
         end do
       end if
   
       !$omp parallel do private( X, Y, del2, radius, VecLon_ov_cosLat )
+      !$acc parallel loop async(gpu_async_id_)
       do p=1, Np
         X = tan( alpha(p) )
         Y = tan( beta (p) )
@@ -379,6 +420,7 @@ contains
     select case( panelID )
     case( 5, 6 )
       !$omp parallel do private( X, Y, del2, radius, VecLon_ov_cosLat )
+      !$acc parallel loop async(gpu_async_id_)
       do p=1, Np
         X = tan( alpha(p) )
         Y = tan( beta (p) )
@@ -397,11 +439,13 @@ contains
       end do
     end select
 
+    !$acc end data
+
     return
   end subroutine CubedSphereCoordCnv_LonLat2CSVec
 
-!> Calculate Cartesian coordinates from local coordinates using the central angles in an equiangular gnomonic cubed-sphere projection
-!!
+  !> Calculate the Cartesian coordinates from local coordinates using the central angles in an equiangular gnomonic cubed-sphere projection
+  !!
 !OCL SERIAL
   subroutine CubedSphereCoordCnv_CS2CartPos( &
     panelID, alpha, beta, gam, Np,           & ! (in)
@@ -425,6 +469,7 @@ contains
     select case(panelID)
     case(1)
       !$omp parallel do private(x1, x2, fac)
+      !$acc parallel loop present(alpha, beta, gam, X, Y, Z)
       do p=1, Np
         x1 = tan( alpha(p) )
         x2 = tan( beta (p) )
@@ -435,6 +480,7 @@ contains
       end do
     case(2)
       !$omp parallel do private(x1, x2, fac)
+      !$acc parallel loop present(alpha, beta, gam, X, Y, Z)
       do p=1, Np
         x1 = tan( alpha(p) )
         x2 = tan( beta (p) )
@@ -445,6 +491,7 @@ contains
       end do
     case(3)
       !$omp parallel do private(x1, x2, fac)
+      !$acc parallel loop present(alpha, beta, gam, X, Y, Z)
       do p=1, Np
         x1 = tan( alpha(p) )
         x2 = tan( beta (p) )
@@ -455,6 +502,7 @@ contains
       end do
     case(4)
       !$omp parallel do private(x1, x2, fac)
+      !$acc parallel loop present(alpha, beta, gam, X, Y, Z)
       do p=1, Np
         x1 = tan( alpha(p) )
         x2 = tan( beta (p) )
@@ -465,6 +513,7 @@ contains
       end do
     case(5)
       !$omp parallel do private(x1, x2, fac)
+      !$acc parallel loop present(alpha, beta, gam, X, Y, Z)
       do p=1, Np
         x1 = tan( alpha(p) )
         x2 = tan( beta (p) )
@@ -475,6 +524,7 @@ contains
       end do
     case(6)
       !$omp parallel do private(x1, x2, fac)
+      !$acc parallel loop present(alpha, beta, gam, X, Y, Z)
       do p=1, Np
         x1 = tan( alpha(p) )
         x2 = tan( beta (p) )
@@ -491,8 +541,8 @@ contains
     return
   end subroutine CubedSphereCoordCnv_CS2CartPos
 
-!> Covert the components of a vector in local coordinates with an equiangular gnomonic cubed-sphere projection to those in the Cartesian coordinates
-!!
+  !> Convert the components of a vector in local coordinates with an equiangular gnomonic cubed-sphere projection to those in the Cartesian coordinates
+  !!
 !OCL SERIAL
   subroutine CubedSphereCoordCnv_Cart2CSVec( &
     panelID, alpha, beta, gam, Np,         & ! (in)
@@ -520,6 +570,7 @@ contains
     select case( panelID )
     case(1)
       !$omp parallel do private(x1, x2, r_sec2_alpha, r_sec2_beta, fac)
+      !$acc parallel loop present(alpha, beta, gam, Vec_x, Vec_y, Vec_z, VecAlpha, VecBeta)
       do p=1, Np
         x1 = tan( alpha(p) )
         x2 = tan( beta (p) )
@@ -532,6 +583,7 @@ contains
       end do      
     case(2)
       !$omp parallel do private(x1, x2, r_sec2_alpha, r_sec2_beta, fac)
+      !$acc parallel loop present(alpha, beta, gam, Vec_x, Vec_y, Vec_z, VecAlpha, VecBeta)
       do p=1, Np
         x1 = tan( alpha(p) )
         x2 = tan( beta (p) )
@@ -544,6 +596,7 @@ contains
       end do
     case(3)
       !$omp parallel do private(x1, x2, r_sec2_alpha, r_sec2_beta, fac)
+      !$acc parallel loop present(alpha, beta, gam, Vec_x, Vec_y, Vec_z, VecAlpha, VecBeta)
       do p=1, Np
         x1 = tan( alpha(p) )
         x2 = tan( beta (p) )
@@ -556,6 +609,7 @@ contains
       end do
     case(4)
       !$omp parallel do private(x1, x2, r_sec2_alpha, r_sec2_beta, fac)
+      !$acc parallel loop present(alpha, beta, gam, Vec_x, Vec_y, Vec_z, VecAlpha, VecBeta)
       do p=1, Np
         x1 = tan( alpha(p) )
         x2 = tan( beta (p) )
@@ -568,6 +622,7 @@ contains
       end do
     case ( 5 )
       !$omp parallel do private(x1, x2, r_sec2_alpha, r_sec2_beta, fac)
+      !$acc parallel loop present(alpha, beta, gam, Vec_x, Vec_y, Vec_z, VecAlpha, VecBeta)
       do p=1, Np
         x1 = tan( alpha(p) )
         x2 = tan( beta (p) )
@@ -580,6 +635,7 @@ contains
       end do
     case ( 6 )
       !$omp parallel do private(x1, x2, r_sec2_alpha, r_sec2_beta, fac)
+      !$acc parallel loop present(alpha, beta, gam, Vec_x, Vec_y, Vec_z, VecAlpha, VecBeta)
       do p=1, Np
         x1 = tan( alpha(p) )
         x2 = tan( beta (p) )
@@ -619,6 +675,7 @@ contains
     !-----------------------------------------------------------------------------
 
     !$omp parallel do private(x1, x2, del, fac, tmp)
+    !$acc parallel loop present(alpha, beta, radius, VecOrth1, VecOrth2)
     do p=1, Np
       x1 = tan( alpha(p) )
       x2 = tan( beta (p) )
@@ -650,12 +707,16 @@ contains
     real(RP), intent(out) :: VecOrth1(Np)
     real(RP), intent(out) :: VecOrth2(Np)
 
+    integer :: p
     !-----------------------------------------------------------------------------
 
-    !$omp parallel workshare
-    VecOrth1(:) = VecAlpha(:)
-    VecOrth2(:) = VecBeta(:)
-    !$omp end parallel workshare
+    !$omp parallel do
+    !$acc parallel loop present(VecAlpha, VecBeta, VecOrth1, VecOrth2)
+    do p=1, Np
+      VecOrth1(p) = VecAlpha(p)
+      VecOrth2(p) = VecBeta(p)
+    end do
+    !$omp end parallel do
 
     call CubedSphereCoordCnv_CS2LocalOrthVec_alpha_0( &
       alpha, beta, radius, Np,                      & ! (in)
@@ -685,6 +746,7 @@ contains
     !-----------------------------------------------------------------------------
 
     !$omp parallel do private(x1, x2, del, fac, tmp)
+    !$acc parallel loop present(alpha, beta, radius, VecAlpha, VecBeta)
     do p=1, Np
       x1 = tan( alpha(p) )
       x2 = tan( beta (p) )
@@ -704,9 +766,7 @@ contains
     alpha, beta, radius, Np,                      & ! (in)
     VecOrth1, VecOrth2,                           & ! (in)
     VecAlpha, VecBeta                             ) ! (out)
-
     implicit none
-    
     integer, intent(in) :: Np
     real(RP), intent(in) :: alpha(Np)
     real(RP), intent(in) :: beta (Np)
@@ -715,12 +775,17 @@ contains
     real(RP), intent(in) :: VecOrth2(Np)
     real(RP), intent(out) :: VecAlpha(Np)
     real(RP), intent(out) :: VecBeta (Np)    
+
+    integer :: p
     !-----------------------------------------------------------------------------
 
-    !$omp parallel workshare
-    VecAlpha(:) = VecOrth1(:)
-    VecBeta(:) = VecOrth2(:)
-    !$omp end parallel workshare
+    !$omp parallel do
+    !$acc parallel loop present(VecOrth1, VecOrth2, VecAlpha, VecBeta)
+    do p=1, Np
+      VecAlpha(p) = VecOrth1(p)
+      VecBeta (p) = VecOrth2(p)
+    end do
+    !$omp end parallel do
 
     call CubedSphereCoordCnv_LocalOrth2CSVec_alpha_0( &
       alpha, beta, radius, Np,                        & ! (in)
@@ -729,8 +794,8 @@ contains
     return
   end subroutine CubedSphereCoordCnv_LocalOrth2CSVec_alpha_1
 
-!> Calculate the metrics associated with an equiangular gnomonic cubed-sphere projection to those in longitude and latitude coordinates
-!!
+  !> Calculate the metrics associated with an equiangular gnomonic cubed-sphere projection to those in longitude and latitude coordinates
+  !!
 !OCL SERIAL  
   subroutine CubedSphereCoordCnv_GetMetric( &
     alpha, beta, Np, radius,            & ! (in)
@@ -759,6 +824,7 @@ contains
     !$omp parallel do private( &
     !$omp X, Y, r2, OnePlusX2, OnePlusY2, fac,    &
     !$omp G_ij_, GIJ_                             )
+    !$acc parallel loop private(G_ij_, GIJ_) present(alpha, beta, G_ij, GIJ, Gsqrt)
     do p=1, Np
       X = tan(alpha(p))
       Y = tan(beta (p))

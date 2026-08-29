@@ -136,6 +136,7 @@ contains
         lcmesh%VMapB, this%haloSize_h1D, this%haloSize_v,    &
         lcmesh%NeX, lcmesh%NeY, lcmesh%NeZ,                  &
         elem%Nfp_h, elem%Nfp_v, elem%Nnode_h1D, elem%Nnode_v )
+      !$acc enter data copyin(this%VMapB2)
     else
       this%use_vmap_wide_flag = .false.
     end if
@@ -148,6 +149,7 @@ contains
         this%VMapB_size(n) = size(lcmesh%VMapB)
       end if
     end do
+    !$acc enter data copyin(this%VMapB_size)
 
     return
   end subroutine MeshFieldCommCubeDom3D_Init
@@ -178,7 +180,7 @@ contains
     integer :: field_num
     !-----------------------------------------------------------------------------
 
-    call PROF_rapstart( 'comm_put', 1)    
+!    call PROF_rapstart( 'comm_put', 2)    
 !    call PROF_rapstart( 'meshfiled_comm_put', 3)
     if ( this%use_vmap_wide_flag ) then
       call MeshFieldCommBase_extract_bounddata_3( field_list, 3, varid_s, this%mesh3d%lcmesh_list, this%VMapB2, this%VMapB_size(1), & ! (in)
@@ -189,7 +191,7 @@ contains
         this%send_buf ) ! (out)
     end if
 !    call PROF_rapend( 'meshfiled_comm_put', 3)
-    call PROF_rapend( 'comm_put', 1)
+!    call PROF_rapend( 'comm_put', 2)
 
     return
   end subroutine MeshFieldCommCubeDom3D_put
@@ -208,7 +210,7 @@ contains
     integer :: n
     type(Localmesh3d), pointer :: lcmesh
     !-----------------------------------------------------------------------------
-    call PROF_rapstart( 'comm_get', 1)
+!    call PROF_rapstart( 'comm_get', 2)
 
     if ( this%call_wait_flag_sub_get ) then
       ! call PROF_rapstart( 'meshfiled_comm_wait_get', 2)
@@ -233,7 +235,7 @@ contains
       !$acc wait(1)
       ! call PROF_rapend( 'meshfiled_comm_get', 2)
     end if
-    call PROF_rapend( 'comm_get', 1)
+!    call PROF_rapend( 'comm_get', 2)
 
     return
   end subroutine MeshFieldCommCubeDom3D_get
@@ -257,7 +259,7 @@ contains
     type(LocalMeshCommData), pointer :: commdata
     !-----------------------------------------------------------------------------
     
-    call PROF_rapstart( 'comm_exchange_1', 1)
+!    call PROF_rapstart( 'comm_exchange_1', 2)
 
 !    call PROF_rapstart( 'meshfiled_comm_ex_push_buf', 3)
     do n=1, this%mesh%LOCAL_MESH_NUM
@@ -267,18 +269,18 @@ contains
         call push_localsendbuf( commdata%send_buf,                  &  ! (inout)
           this%send_buf(:,:,n), commdata%s_faceID, this%is_f(f,n),  &  ! (in)
           commdata%Nnode_LCMeshFace, this%bufsize_per_field,        &  ! (in)
-          this%field_num_tot, lcmesh )                                 ! (in)
+          this%field_num_tot, lcmesh, this%haloSize_h1D )              ! (in)
       end do
     end do
     !$acc wait(1)
 !    call PROF_rapend( 'meshfiled_comm_ex_push_buf', 3)
-    call PROF_rapend( 'comm_exchange_1', 1)
+!    call PROF_rapend( 'comm_exchange_1', 2)
 
     !-----------------------
-    call PROF_rapstart( 'comm_exchange_2', 1)
+!    call PROF_rapstart( 'comm_exchange_2', 2)
 
     call MeshFieldCommBase_exchange_core(this, this%commdata_list, do_wait )
-    call PROF_rapend( 'comm_exchange_2', 1)
+!    call PROF_rapend( 'comm_exchange_2', 2)
 
     return
   end subroutine MeshFieldCommCubeDom3D_exchange
@@ -286,16 +288,19 @@ contains
 !----------------------------
 
 !OCL SERIAL
-  subroutine push_localsendbuf( lc_send_buf, send_buf, s_faceID, is, Nnode_LCMeshFace, bufsize_per_field, var_num, lcmesh )
+  subroutine push_localsendbuf( lc_send_buf, &
+    send_buf, s_faceID, is, Nnode_LCMeshFace, bufsize_per_field, var_num, &
+    lcmesh, haloSize_h1D )
+    use scale_prc, only: PRC_abort
     implicit none
-
     integer, intent(in) ::  Nnode_LCMeshFace
     integer, intent(in) :: bufsize_per_field
     integer, intent(in) :: var_num
-    type(LocalMesh3D), intent(in) :: lcmesh
     real(RP), intent(out) :: lc_send_buf(Nnode_LCMeshFace,var_num)
     real(RP), intent(in) :: send_buf(bufsize_per_field,var_num)  
     integer, intent(in) :: s_faceID, is
+    type(LocalMesh3D), intent(in) :: lcmesh
+    integer, intent(in) :: haloSize_h1D
   
     integer :: ie
     integer :: vid, i
@@ -310,36 +315,10 @@ contains
         lc_send_buf(i,vid) = send_buf(is+i-1,vid)
       end do
       end do
-    else if ( -5 < s_faceID .and. s_faceID < 0) then
-      e3D => lcmesh%refElem3D
-      ie = is + Nnode_LCMeshFace - 1  
-      call revert_hori( lc_send_buf(:,:), send_buf(is:ie,:), Nnode_LCMeshFace/lcmesh%NeZ, lcmesh%NeZ )      
+    else
+      LOG_INFO("MeshFieldCommCubeDom3D",'(a,i0)') "Encountered s_faceID <= 0 in push_localsendbuf. Check! s_faceID=", s_faceID
+      call PRC_abort
     end if 
-
     return
-  contains
-    subroutine revert_hori(revert, ori, Ne_h1D, NeZ)
-      integer, intent(in) :: Ne_h1D, NeZ
-      real(RP), intent(out) :: revert(e3D%Nnode_h1D, e3D%Nnode_v, Ne_h1D, NeZ, var_num)
-      real(RP), intent(in)  :: ori(e3D%Nnode_h1D, e3D%Nnode_v, Ne_h1D, NeZ, var_num)
-      
-      integer :: p1, p3, i, k, n
-      integer :: i_, p1_
-      !-----------------------------------------------------------------------------
-      
-      do n=1, var_num
-      do k=1, NeZ
-      do i=1, Ne_h1D
-        i_ = Ne_h1D - i + 1
-        do p3=1, e3D%Nnode_v
-        do p1=1, e3D%Nnode_h1D
-          p1_ = e3D%Nnode_h1D - p1 + 1
-          revert(p1,p3,i,k,n) = ori(p1_,p3,i_,k,n)
-        end do
-        end do
-      end do
-      end do
-      end do
-    end subroutine revert_hori    
   end subroutine push_localsendbuf
 end module scale_meshfieldcomm_cubedom3d

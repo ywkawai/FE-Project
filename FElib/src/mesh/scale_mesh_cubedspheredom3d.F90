@@ -42,33 +42,38 @@ module scale_mesh_cubedspheredom3d
   !-----------------------------------------------------------------------------
   !
   !++ Public type & procedure
-  ! 
+  !
+
+  !> Derived type to manage a cubed-sphere 3D computational domain
   type, extends(MeshBase3D), public :: MeshCubedSphereDom3D
-    integer :: NeGX
-    integer :: NeGY
-    integer :: NeGZ
+    integer :: NeGX   !< Number of elements in X direction in a panel of the cubed-sphere mesh
+    integer :: NeGY   !< Number of elements in Y direction in a panel of the cubed-sphere mesh
+    integer :: NeGZ   !< Number of elements in Z direction in a panel of the cubed-sphere mesh
     
-    real(RP), public :: xmin_gl, xmax_gl
-    real(RP), public :: ymin_gl, ymax_gl
-    real(RP), public :: zmin_gl, zmax_gl
+    real(RP), public :: xmin_gl !< Minimum x-coordinate in a panel of the cubed-sphere mesh
+    real(RP), public :: xmax_gl !< Maximum x-coordinate in a panel of the cubed-sphere mesh
+    real(RP), public :: ymin_gl !< Minimum y-coordinate in a panel of the cubed-sphere mesh
+    real(RP), public :: ymax_gl !< Maximum y-coordinate in a panel of the cubed-sphere mesh
+    real(RP), public :: zmin_gl !< Minimum z-coordinate of the global domain
+    real(RP), public :: zmax_gl !< Maximum z-coordinate of the global domain
 
     real(RP), allocatable :: FZ(:)
 
-    integer, allocatable :: rcdomIJKP2LCMeshID(:,:,:,:)
+    integer, allocatable :: rcdomIJKP2LCMeshID(:,:,:,:) !< Mapping from (i,j,k,panel) to local mesh ID
 
-    real(RP) :: RPlanet
+    real(RP) :: RPlanet       !< Radius of the planet (or sphere) for the cubed-sphere mesh
 
     type(MeshCubedSphereDom2D) :: mesh2D
     type(QuadrilateralElement) :: refElem2D
 
-    logical :: shallow_approx
+    logical :: shallow_approx !< Flag to indicate if the shallow water approximation is used
   contains
     procedure :: Init => MeshCubedSphereDom3D_Init
     procedure :: Final => MeshCubedSphereDom3D_Final
     procedure :: Generate => MeshCubedSphereDom3D_generate
-    procedure :: AssignDomID => MesshCubedSphereDom3D_assignDomID
+    procedure :: AssignDomID => MeshCubedSphereDom3D_assignDomID
     procedure :: GetMesh2D => MeshCubedSphereDom3D_getMesh2D
-    procedure :: Set_geometric_with_vcoord => MeshCubeDom3D_set_geometric_with_vcoord
+    procedure :: Set_geometric_with_vcoord => MeshCubedSphereDom3D_set_geometric_with_vcoord
   end type MeshCubedSphereDom3D
 
   !-----------------------------------------------------------------------------
@@ -92,6 +97,7 @@ module scale_mesh_cubedspheredom3d
   !
 
 contains
+  !> Initialize an object to manage a cubed-sphere 3D computational domain
 !OCL SERIAL
   subroutine MeshCubedSphereDom3D_Init( this, &
     NeGX, NeGY, NeGZ, RPlanet,                &
@@ -176,6 +182,7 @@ contains
     return
   end subroutine MeshCubedSphereDom3D_Init
 
+  !> Finalize an object managing a cubed-sphere 3D computational domain
 !OCL SERIAL
   subroutine MeshCubedSphereDom3D_Final( this )
     implicit none
@@ -184,6 +191,7 @@ contains
     
     if (this%isGenerated) then
       if ( allocated(this%rcdomIJKP2LCMeshID) ) then
+        !$acc exit data delete( this%rcdomIJKP2LCMeshID )
         deallocate( this%rcdomIJKP2LCMeshID )
       end if
     else
@@ -209,6 +217,7 @@ contains
     return
   end subroutine MeshCubedSphereDom3D_getMesh2D
 
+  !> Generate the cubed-sphere 3D computational domain
 !OCL SERIAL
   subroutine MeshCubedSphereDom3D_generate( this )
     use scale_mesh_cubedspheredom2d, only: &
@@ -293,8 +302,9 @@ contains
     return
   end subroutine MeshCubedSphereDom3D_generate
 
+  !> Set the geometric information of the local mesh with the vertical coordinate transformation
 !OCL SERIAL
-  subroutine MeshCubeDom3D_set_geometric_with_vcoord(this, lcdomID, GsqrtV_lc, zlev_lc, G13_lc, G23_lc)
+  subroutine MeshCubedSphereDom3D_set_geometric_with_vcoord(this, lcdomID, GsqrtV_lc, zlev_lc, G13_lc, G23_lc)
     implicit none
     class(MeshCubedSphereDom3D), intent(inout), target :: this
     integer, intent(in) :: lcdomID
@@ -303,33 +313,49 @@ contains
     real(RP), intent(in) :: G13_lc(this%refElem3D%Np,this%lcmesh_list(lcdomID)%NeA)
     real(RP), intent(in) :: G23_lc(this%refElem3D%Np,this%lcmesh_list(lcdomID)%NeA)
 
-    integer :: ke
+    integer :: ke, p
+    integer :: Np
     class(LocalMesh3D), pointer :: lcmesh
+    real(RP) :: s
     !-------------------------------------------------------
 
     lcmesh => this%lcmesh_list(lcdomID)
+    Np = lcmesh%refElem3D%Np
 
-    !$omp parallel private(ke)
+    if ( this%shallow_approx ) then
+      s = 0.0_RP
+    else
+      s = 1.0_RP / this%RPlanet
+    end if
+
+    !$omp parallel
     !$omp do
+    !$acc parallel present(lcmesh%zlev, lcmesh%gam, lcmesh%Gsqrt, lcmesh%GI3, zlev_lc, GsqrtV_lc, G13_lc, G23_lc)
+    !$acc loop gang
     do ke=lcmesh%NeS, lcmesh%NeE
-      lcmesh%zlev(:,ke) = zlev_lc(:,ke)
+      !$acc loop vector
+      do p=1, Np
+        lcmesh%zlev(p,ke) = zlev_lc(p,ke)
+      end do
     end do
     !$omp do
+    !$acc loop gang
     do ke=lcmesh%NeS, lcmesh%NeA   
-      if ( this%shallow_approx ) then
-        lcmesh%gam(:,ke) = 1.0_RP
-      else
-        lcmesh%gam(:,ke) = 1.0_RP + zlev_lc(:,ke) / this%RPlanet
-      end if
+      !$acc loop vector
+      do p=1, Np
+        lcmesh%gam(p,ke) = 1.0_RP + s * zlev_lc(p,ke)
 
-      lcmesh%Gsqrt(:,ke) = GsqrtV_lc(:,ke) * lcmesh%gam(:,ke)**2 * lcmesh%Gsqrt(:,ke)
-      lcmesh%GI3(:,ke,1) = G13_lc(:,ke)
-      lcmesh%GI3(:,ke,2) = G23_lc(:,ke)
+        lcmesh%Gsqrt(p,ke) = GsqrtV_lc(p,ke) * lcmesh%gam(p,ke)**2 * lcmesh%Gsqrt(p,ke)
+        lcmesh%GI3(p,ke,1) = G13_lc(p,ke)
+        lcmesh%GI3(p,ke,2) = G23_lc(p,ke)
+      end do
     end do
+    !$acc end parallel
     !$omp end parallel
+    !$acc update host(lcmesh%zlev, lcmesh%gam, lcmesh%Gsqrt, lcmesh%GI3)
 
     return
-  end subroutine MeshCubeDom3D_set_geometric_with_vcoord
+  end subroutine MeshCubedSphereDom3D_set_geometric_with_vcoord
 
   !- private ------------------------------
 
@@ -372,8 +398,10 @@ contains
     !-----------------------------------------------------------------------------
 
     elem => lcmesh%refElem3D
+
     lcmesh%tileID = tileID
     lcmesh%panelID = panelID
+    !$acc update device(lcmesh%tileID, lcmesh%panelID)
         
     !--
     lcmesh%Ne   = NeX * NeY * NeZ
@@ -381,13 +409,16 @@ contains
     lcmesh%NeS = 1
     lcmesh%NeE = lcmesh%Ne
     lcmesh%NeA = lcmesh%Ne + 2*(NeX + NeY)*NeZ + 2*NeX*NeY
+    !$acc update device(lcmesh%Ne, lcmesh%Nv, lcmesh%NeS, lcmesh%NeE, lcmesh%NeA)
 
     lcmesh%NeX = NeX
     lcmesh%NeY = NeY
     lcmesh%NeZ = NeZ
+    !$acc update device(lcmesh%NeX, lcmesh%NeY, lcmesh%NeZ)
 
     lcmesh%Ne2D  = NeX * NeY
     lcmesh%Ne2DA = NeX * NeY + 2*(NeX + NeY)
+    !$acc update device(lcmesh%Ne2D, lcmesh%Ne2DA)
 
     !--
     delx = ( dom_xmax - dom_xmin ) / dble(NprcX)
@@ -399,6 +430,7 @@ contains
     lcmesh%ymax = dom_ymin +  j   *dely
     lcmesh%zmin = FZ_lc(1)
     lcmesh%zmax = FZ_lc(NeZ+1)
+    !$acc update device(lcmesh%xmin, lcmesh%xmax, lcmesh%ymin, lcmesh%ymax, lcmesh%zmin, lcmesh%zmax)
 
     !--
     allocate( lcmesh%pos_ev(lcmesh%Nv,3) )
@@ -410,16 +442,21 @@ contains
     allocate( lcmesh%VMapP(elem%NfpTot, lcmesh%Ne) )
     allocate( lcmesh%MapM(elem%NfpTot, lcmesh%Ne) )
     allocate( lcmesh%MapP(elem%NfpTot, lcmesh%Ne) )
+    !$acc enter data create( lcmesh%pos_ev, lcmesh%EToV, lcmesh%EToE, lcmesh%EToF, lcmesh%BCType, &
+    !$acc   lcmesh%VMapM, lcmesh%VMapP, lcmesh%MapM, lcmesh%MapP )
 
     allocate( lcmesh%EMap3Dto2D(lcmesh%Ne) )
+    !$acc enter data create( lcmesh%EMap3Dto2D )
 
     lcmesh%BCType(:,:) = BCTYPE_INTERIOR
+    !$acc update device(lcmesh%BCType)
 
     !----
     call MeshUtilCubedSphere3D_genCubeDomain( lcmesh%pos_ev, lcmesh%EToV, & ! (out)
       lcmesh%NeX, lcmesh%xmin, lcmesh%xmax,                               & ! (in)
       lcmesh%NeY, lcmesh%ymin, lcmesh%ymax,                               & ! (in) 
       lcmesh%NeZ, lcmesh%zmin, lcmesh%zmax, FZ=FZ_lc                      ) ! (in) 
+    !$acc update device(lcmesh%pos_ev, lcmesh%EToV)
     
     !---
     call MeshBase3D_setGeometricInfo(lcmesh, MeshCubedSphereDom3D_coord_conv, MeshCubedSphereDom3D_calc_normal )
@@ -427,18 +464,20 @@ contains
     !---
     call MeshUtilCubedSphere3D_genConnectivity( lcmesh%EToE, lcmesh%EToF, & ! (out)
       lcmesh%EToV, lcmesh%Ne, elem%Nfaces )                                 ! (in)
+    !$acc update device(lcmesh%EToE, lcmesh%EToF)
     
     !---
     call MeshUtilCubedSphere3D_BuildInteriorMap( lcmesh%VmapM, lcmesh%VMapP, lcmesh%MapM, lcmesh%MapP,  & ! (out)
       lcmesh%pos_en, lcmesh%pos_ev, lcmesh%EToE, lcmesh%EtoF, lcmesh%EtoV,                              & ! (in)
       elem%Fmask_h, elem%Fmask_v, lcmesh%Ne, lcmesh%Nv, elem%Np, elem%Nfp_h, elem%Nfp_v, elem%NfpTot,   & ! (in)
       elem%Nfaces_h, elem%Nfaces_v, elem%Nfaces ) 
-
     
     call MeshUtilCubedSphere3D_genPatchBoundaryMap( lcmesh%VMapB, lcmesh%MapB, lcmesh%VMapP,            & !(out)
       lcmesh%pos_en, lcmesh%xmin, lcmesh%xmax, lcmesh%ymin, lcmesh%ymax, lcmesh%zmin, lcmesh%zmax,      & ! (in)
       elem%Fmask_h, elem%Fmask_v, lcmesh%Ne, lcmesh%Nv, elem%Np, elem%Nfp_h, elem%Nfp_v, elem%NfpTot,   & ! (in)
       elem%Nfaces_h, elem%Nfaces_v, elem%Nfaces )  
+    !$acc update device(lcmesh%VMapM, lcmesh%VMapP, lcmesh%MapM, lcmesh%MapP)
+    !$acc enter data copyin(lcmesh%VMapB, lcmesh%MapB)
     
     !---
     !$omp parallel do collapse(2) private(ii,ke)
@@ -450,12 +489,13 @@ contains
     end do
     end do
     end do
+    !$acc update device(lcmesh%EMap3Dto2D)
     
     return
   end subroutine MeshCubedSphereDom3D_setupLocalDom
 
 !OCL SERIAL
-  subroutine MesshCubedSphereDom3D_assignDomID( this, &
+  subroutine MeshCubedSphereDom3D_assignDomID( this, &
     NprcX_lc, NprcY_lc, NprcZ_lc,                     &
     tileID_table, panelID_table,                      &
     pi_table, pj_table, pk_table )
@@ -489,6 +529,7 @@ contains
       panelID_table, pi_table, pj_table, pk_table,                                  & ! (out)
       this%tileID_globalMap, this%tileFaceID_globalMap, this%tilePanelID_globalMap, & ! (out)
       this%LOCAL_MESH_NUM_global, NprcZ_lc )                                          ! (in)
+    !$acc update device(this%tileID_globalMap, this%tileFaceID_globalMap, this%tilePanelID_globalMap)
 
     !----
     
@@ -517,6 +558,7 @@ contains
       end if 
     end do
     end do
+    !$acc update device(this%tileID_global2localMap, this%PRCRank_globalMap)
 
     allocate( this%rcdomIJKP2LCMeshID(ilc_count,jlc_count,klc_count,plc_count) )
     do plc=1, plc_count
@@ -529,9 +571,10 @@ contains
     end do
     end do
     end do
+    !$acc enter data copyin(this%rcdomIJKP2LCMeshID)
 
     return
-  end subroutine MesshCubedSphereDom3D_assignDomID
+  end subroutine MeshCubedSphereDom3D_assignDomID
 
 !OCL SERIAL
   subroutine MeshCubedSphereDom3D_coord_conv( x, y, z, xX, xY, xZ, yX, yY, yZ, zX, zY, zZ, &
@@ -605,50 +648,68 @@ contains
     class(MeshCubedSphereDom3D), intent(inout), target :: this
 
     integer :: n
-    integer :: ke, ke2D
+    integer :: ke, ke2D, p
+    integer :: Np
 
     class(LocalMesh3D), pointer :: lcmesh
     class(LocalMesh2D), pointer :: lcmesh2D
+    class(ElementBase3D), pointer :: elem
     class(ElementBase2D), pointer :: elem2D
 
     real(RP), allocatable :: gam2D(:,:)
+    integer, allocatable :: IndexH2Dto3D(:)
+    real(RP) :: s
     !----------------------------------------------------
+
+    if ( this%shallow_approx ) then
+      s = 0.0_RP
+    else
+      s = 1.0_RP / this%RPlanet
+    end if
 
     do n=1, this%mesh2D%LOCAL_MESH_NUM
       lcmesh => this%lcmesh_list(n)
       lcmesh2D => this%mesh2D%lcmesh_list(n)
+      elem => lcmesh%refElem3D
       elem2D => lcmesh2D%refElem2D
+      Np = elem%Np
 
       allocate( gam2D(elem2D%Np,lcmesh2D%Ne) )
+      allocate( IndexH2Dto3D(elem%Np) )
       gam2D(:,:) = 1.0_RP
+      IndexH2Dto3D(:) = elem%IndexH2Dto3D(:)
+
+      !$acc data copyin( gam2D, IndexH2Dto3D )
 
       call CubedSphereCoordCnv_CS2LonLatPos( &
         lcmesh2D%panelID, lcmesh2D%pos_en(:,:,1), lcmesh2D%pos_en(:,:,2), gam2D(:,:), & ! (in)
         lcmesh2D%Ne * elem2D%Np,                                                      & ! (in)
         lcmesh%lon2D(:,:), lcmesh%lat2D(:,:)                                          ) ! (out)
-
+      !$acc update host(lcmesh%lon2D, lcmesh%lat2D)
+      
       call CubedSphereCoordCnv_GetMetric( &
         lcmesh2D%pos_en(:,:,1), lcmesh2D%pos_en(:,:,2), elem2D%Np * lcmesh2D%Ne, this%RPlanet, & ! (in)
         lcmesh%G_ij, lcmesh%GIJ, lcmesh%GsqrtH                                                 ) ! (out)
-
+      !$acc update host(lcmesh%G_ij, lcmesh%GIJ, lcmesh%GsqrtH)
+      
       !$omp parallel do private(ke2D)
+      !$acc parallel loop gang present(lcmesh%GsqrtH, lcmesh%GIJ, lcmesh%G_ij, lcmesh%pos_en, lcmesh%gam, lcmesh%EMap3Dto2D)
       do ke=lcmesh%NeS, lcmesh%NeE
         ke2D = lcmesh%EMap3Dto2D(ke)
-
-        if ( this%shallow_approx ) then
-          lcmesh%gam(:,ke) = 1.0_RP
-        else
-          lcmesh%gam(:,ke) = 1.0_RP + lcmesh%pos_en(:,ke,3) / this%RPlanet
-        end if
-        lcmesh%Gsqrt(:,ke) = lcmesh%GsqrtH(lcmesh%refElem3D%IndexH2Dto3D(:),ke2D)        
+        !$acc loop vector
+        do p=1, Np
+          lcmesh%gam(p,ke) = 1.0_RP + s * lcmesh%pos_en(p,ke,3)
+          lcmesh%Gsqrt(p,ke) = lcmesh%GsqrtH(IndexH2Dto3D(p),ke2D)        
+        end do
       end do
-
+      
       call fill_halo_metric( lcmesh%Gsqrt, lcmesh%gam, lcmesh%VMapM, lcmesh%VMapP, lcmesh, lcmesh%refElem3D )
+      !$acc update host(lcmesh%gam, lcmesh%Gsqrt)
 
-      deallocate( gam2D )
+      !$acc end data
+      deallocate( gam2D, IndexH2Dto3D )
       !--
     end do
-
 
     return
   end subroutine MeshCubedSphereDom3D_set_metric
@@ -664,12 +725,16 @@ contains
     real(RP), intent(inout) :: gam(elem%Np*lmesh%NeA)
 
     integer :: i, iM, iP
+    integer :: NpxNe
     !------------------------------------------------
 
+    NpxNe = elem%Np * lmesh%Ne
+
     !$omp parallel do private(i, iM, iP)
+    !$acc parallel loop present(Gsqrt, gam, vmapM, vmapP)
     do i=1, elem%NfpTot*lmesh%Ne
       iM = vmapM(i); iP = vmapP(i)
-      if ( iP > elem%Np * lmesh%Ne ) then
+      if ( iP > NpxNe ) then
         Gsqrt(iP) = Gsqrt(iM)
         gam(iP) = gam(iM)
       end if

@@ -541,7 +541,7 @@ contains
       allocate( buf(dims(1)) )
 
 #ifdef _OPENACC
-      do ldomID=1, comp_ptr%mesh1D%LOCAL_MESH_NUM
+      do ldomID=1, field1d%mesh%LOCAL_MESH_NUM
         !$acc update host( field1d%local(ldomID)%val ) async(1)
       end do
       !$acc wait(1)
@@ -596,7 +596,7 @@ contains
       allocate( buf(dims(1),dims(2)) )
 
 #ifdef _OPENACC
-      do ldomID=1, comp_ptr%mesh2D%LOCAL_MESH_NUM
+      do ldomID=1, field2d%mesh%LOCAL_MESH_NUM
         !$acc update host( field2d%local(ldomID)%val ) async(1)
       end do
       !$acc wait(1)
@@ -606,8 +606,7 @@ contains
         call File_common_meshfield_put_field2D_cartesbuf( comp_ptr%mesh2D, field2d, buf(:,:), &
           comp_ptr%force_uniform_grid )
       else if ( associated(comp_ptr%meshCS2D) ) then
-        call File_common_meshfield_put_field2D_cubedsphere_cartesbuf( &
-          comp_ptr%meshCS2D, field2d, buf(:,:)                            )
+        call File_common_meshfield_put_field2D_cubedsphere_cartesbuf( comp_ptr%meshCS2D, field2d, buf(:,:) )
       end if
       call FILE_Write( comp_ptr%vars_ncid(vid), buf(:,:),   & ! (in)
         sec_str, sec_end, start=start                       ) ! (in)
@@ -658,7 +657,7 @@ contains
       allocate( buf(dims(1),dims(2),dims(3)) )
 
 #ifdef _OPENACC
-      do ldomID=1, comp_ptr%mesh3D%LOCAL_MESH_NUM
+      do ldomID=1, field3d%mesh%LOCAL_MESH_NUM
         !$acc update host( field3d%local(ldomID)%val ) async(1)
       end do
       !$acc wait(1)
@@ -668,8 +667,7 @@ contains
         call File_common_meshfield_put_field3D_cartesbuf( comp_ptr%mesh3D, field3d, buf(:,:,:), &
           comp_ptr%force_uniform_grid )
       else if ( associated(comp_ptr%meshCS3D) ) then
-        call File_common_meshfield_put_field3D_cubedsphere_cartesbuf( &
-          comp_ptr%meshCS3D, field3d, buf(:,:,:)                          )
+        call File_common_meshfield_put_field3D_cubedsphere_cartesbuf( comp_ptr%meshCS3D, field3d, buf(:,:,:) )
       end if
 
       call FILE_Write( comp_ptr%vars_ncid(vid), buf(:,:,:),     & ! (in)
