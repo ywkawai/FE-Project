@@ -76,6 +76,7 @@ contains
     integer, intent(in), optional :: cosbell_exponent  !< parameter to ensure 2*cosbell_exponent-1 continuous derivatives
 
     integer :: ke
+    integer :: i, j
 
     type(HexahedralElement) :: elem_intrp
     real(RP), allocatable :: x_intrp(:,:), y_intrp(:,:), z_intrp(:,:)
@@ -85,6 +86,7 @@ contains
 
     real(RP), allocatable :: L2ProjMat(:,:)
     real(RP), allocatable :: q_intrp(:)
+    real(RP) :: s
 
     integer :: exponent    
     !-----------------------------------------------
@@ -151,7 +153,17 @@ contains
       elsewhere
         q_intrp(:) = 0.0_RP
       end where
-      q(:,ke) = matmul(L2ProjMat, q_intrp(:) * z_func(:,ke))
+
+      ! Perform Galerkin projection
+      !$acc loop worker
+      do i=1, elem%Np
+        s = 0.0_RP
+        !$acc loop vector reduction(+:s)
+        do j=1, elem_intrp%Np
+          s = s + L2ProjMat(i,j) * q_intrp(j) * z_func(j,ke)
+        end do
+        q(i,ke) = s
+      end do
     end do
     !$omp end do
 
@@ -159,7 +171,6 @@ contains
     !$omp end parallel
 
     call elem_intrp%Final()
-
     return
   end subroutine mkinitutil_calc_cosinebell
 
@@ -198,6 +209,7 @@ contains
     integer, intent(in), optional :: cosbell_exponent      !< parameter to ensure 2*cosbell_exponent-1 continuous derivatives
 
     integer :: ke
+    integer :: i, j
 
     type(HexahedralElement) :: elem_intrp
     real(RP), allocatable :: x_intrp(:,:), y_intrp(:,:), z_intrp(:,:)
@@ -209,9 +221,9 @@ contains
 
     real(RP), allocatable :: L2ProjMat(:,:)
     real(RP), allocatable :: q_intrp(:)
+    real(RP) :: s
 
     integer :: exponent
-
     !-----------------------------------------------
 
     if ( present(cosbell_exponent) ) then
@@ -255,7 +267,7 @@ contains
 
     call CubedSphereCoordCnv_CS2LonLatPos( lcmesh3D%panelID, x_intrp, y_intrp, gam_intrp, & ! (in)
       elem_intrp%Np * lcmesh3D%Ne,                                                        & ! (in)
-      lon_intrp(:,:), lat_intrp(:,:) )                                                      ! (out)
+      lon_intrp, lat_intrp )                                                                ! (out)
 
     ! Calculate the vertical function
     if ( present(z_func_type) ) then
@@ -270,7 +282,7 @@ contains
     end if
 
     !$omp do
-    !$acc parallel loop private( r_intrp, q_intrp ) present(x_intrp, y_intrp, z_intrp, z_func, lon_intrp, lat_intrp, q)
+    !$acc parallel loop private(r_intrp, q_intrp) present(x_intrp, y_intrp, z_intrp, z_func, lon_intrp, lat_intrp, q)
     do ke=lcmesh3D%NeS, lcmesh3D%NeE
 
       ! Calculate the horizontal function
@@ -282,7 +294,15 @@ contains
       end where
 
       ! Perform Galerkin projection
-      q(:,ke) = matmul(L2ProjMat, q_intrp(:) * z_func(:,ke))
+      !$acc loop worker
+      do i=1, elem%Np
+        s = 0.0_RP
+        !$acc loop vector reduction(+:s)
+        do j=1, elem_intrp%Np
+          s = s + L2ProjMat(i,j) * q_intrp(j) * z_func(j,ke)
+        end do
+        q(i,ke) = s
+      end do
     end do
     !$omp end do
 
@@ -290,7 +310,6 @@ contains
     !$omp end parallel
 
     call elem_intrp%Final()
-
     return
   end subroutine mkinitutil_calc_cosinebell_global
 
@@ -366,7 +385,7 @@ contains
     lcmesh3D, elem_intrp           ) ! (in)
 
   !$omp parallel do private( s )
-  !$acc parallel loop gang private(s) present(x_intrp, y_intrp, z_intrp, q_intrp, q, L2ProjMat, lcmesh3D,elem_intrp,elem)
+  !$acc parallel loop gang private(s) present(q_intrp, q, L2ProjMat, lcmesh3D,elem_intrp,elem)
   do ke=lcmesh3D%NeS, lcmesh3D%NeE
     ! Perform Galerkin projection
     !$acc loop worker
@@ -383,7 +402,6 @@ contains
   !$acc end data
 
   call elem_intrp%Final()
-
   return
 end subroutine mkinitutil_GalerkinProjection
 
@@ -406,16 +424,18 @@ end subroutine mkinitutil_GalerkinProjection
     real(RP), intent(in) :: rplanet
 
     interface
-      subroutine func( q_intrp,             &
-          lon, lat, z, elem_intrp, rplanet_ )
+      subroutine func( q_intrp, &
+          lon, lat, z, lcmesh3D, elem_intrp, rplanet   )
+        import LocalMesh3D
         import ElementBase3D
         import RP
+        class(LocalMesh3D), intent(in) :: lcmesh3D
         class(ElementBase3D), intent(in) :: elem_intrp
-        real(RP), intent(out) :: q_intrp(elem_intrp%Np)
-        real(RP), intent(in) :: lon(elem_intrp%Np)
-        real(RP), intent(in) :: lat(elem_intrp%Np)
-        real(RP), intent(in) :: z(elem_intrp%Np)
-        real(RP), intent(in) :: rplanet_
+        real(RP), intent(out) :: q_intrp(elem_intrp%Np,lcmesh3D%Ne)
+        real(RP), intent(in) :: lon(elem_intrp%Np,lcmesh3D%Ne)
+        real(RP), intent(in) :: lat(elem_intrp%Np,lcmesh3D%Ne)
+        real(RP), intent(in) :: z(elem_intrp%Np,lcmesh3D%Ne)
+        real(RP), intent(in) :: rplanet
       end subroutine func
     end interface
 
@@ -426,9 +446,12 @@ end subroutine mkinitutil_GalerkinProjection
     real(RP) :: vx(elem%Nv), vy(elem%Nv), vz(elem%Nv)
 
     real(RP), allocatable :: L2ProjMat(:,:)
-    real(RP), allocatable :: q_intrp(:)
+    real(RP), allocatable :: q_intrp(:,:)
 
     integer :: ke
+    integer :: i, j
+
+    real(RP) :: s
     !-----------------------------------------------
 
     call elem_intrp%Init( IntrpPolyOrder_h, IntrpPolyOrder_v, .false. )
@@ -440,9 +463,12 @@ end subroutine mkinitutil_GalerkinProjection
     allocate( x_intrp(elem_intrp%Np,lcmesh3D%Ne), y_intrp(elem_intrp%Np,lcmesh3D%Ne), z_intrp(elem_intrp%Np,lcmesh3D%Ne) )
     allocate( gam_intrp(elem_intrp%Np,lcmesh3D%Ne) )
     allocate( lon_intrp(elem_intrp%Np,lcmesh3D%Ne), lat_intrp(elem_intrp%Np,lcmesh3D%Ne) )
-    allocate( q_intrp(elem_intrp%Np) )
+    allocate( q_intrp(elem_intrp%Np,lcmesh3D%Ne) )
+
+    !$acc data create( x_intrp, y_intrp, z_intrp, gam_intrp, lon_intrp, lat_intrp, q_intrp ) copyin(L2ProjMat)
 
     !$omp parallel do private(vx, vy, vz)
+    !$acc parallel loop private(vx, vy, vz) present(x_intrp, y_intrp, z_intrp, gam_intrp, L2ProjMat)
     do ke=lcmesh3D%NeS, lcmesh3D%NeE
       vx(:) = lcmesh3D%pos_ev(lcmesh3D%EToV(ke,:),1)
       vy(:) = lcmesh3D%pos_ev(lcmesh3D%EToV(ke,:),2)
@@ -458,16 +484,26 @@ end subroutine mkinitutil_GalerkinProjection
       elem_intrp%Np * lcmesh3D%Ne,                                                        & ! (in)
       lon_intrp(:,:), lat_intrp(:,:) )                                                      ! (out)
 
-    !$omp parallel do private( q_intrp )
-    do ke=lcmesh3D%NeS, lcmesh3D%NeE
+    call func( q_intrp,              & ! (out)
+      lon_intrp, lat_intrp, z_intrp, & ! (in)
+      lcmesh3D, elem_intrp, rplanet  ) ! (in)
 
-      call func( q_intrp,                                & ! (out)
-        lon_intrp(:,ke), lat_intrp(:,ke), z_intrp(:,ke), & ! (in)
-        elem_intrp, rplanet                              ) ! (in)
-      
+    !$omp parallel do private( s )
+    !$acc parallel loop gang private(s) present(q_intrp, q, L2ProjMat, lcmesh3D,elem_intrp,elem)
+    do ke=lcmesh3D%NeS, lcmesh3D%NeE
       ! Perform Galerkin projection
-      q(:,ke) = matmul( L2ProjMat, q_intrp )
+      !$acc loop worker
+      do i=1, elem%Np
+        s = 0.0_RP
+        !$acc loop vector reduction(+:s)
+        do j=1, elem_intrp%Np
+          s = s + L2ProjMat(i,j) * q_intrp(j,ke)
+        end do
+        q(i,ke) = s
+      end do
     end do
+
+    !$acc end data
 
     call elem_intrp%Final()
     return

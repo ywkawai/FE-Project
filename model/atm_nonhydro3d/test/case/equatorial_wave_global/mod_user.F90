@@ -303,27 +303,37 @@ contains
     return
   contains
 !OCL SERIAL
-    subroutine func_qheat( q_intrp,           &
-      lon, lat, zlev, elem_intrp, rplanet_    )
+    subroutine func_qheat( q_intrp, &
+      lon, lat, zlev, lcmesh3D, elem_intrp, rplanet_ )
       implicit none
+      class(LocalMesh3D), intent(in) :: lcmesh3D
       class(ElementBase3D), intent(in) :: elem_intrp
-      real(RP), intent(out) :: q_intrp(elem_intrp%Np)
-      real(RP), intent(in) :: lon(elem_intrp%Np)
-      real(RP), intent(in) :: lat(elem_intrp%Np)
-      real(RP), intent(in) :: zlev(elem_intrp%Np)
+      real(RP), intent(out) :: q_intrp(elem_intrp%Np,lcmesh3D%Ne)
+      real(RP), intent(in) :: lon(elem_intrp%Np,lcmesh3D%Ne)
+      real(RP), intent(in) :: lat(elem_intrp%Np,lcmesh3D%Ne)
+      real(RP), intent(in) :: zlev(elem_intrp%Np,lcmesh3D%Ne)
       real(RP), intent(in) :: rplanet_
 
-      real(RP) :: lon_(elem_intrp%Np)
+      integer :: ke, p
+      real(RP) :: lon_
+      integer :: Np
       !------------------------------------------
 
-      lon_(:) = PI - lon(:)
-      where ( abs(lon_(:)) < DLon .and. abs(lat(:)) < DLat )
-        q_intrp(:) = ( CpDry - Rdry ) * Q0 * cos(0.5_RP * PI * lon_(:) / DLon)**2  &
-                                      * cos(0.5_RP * PI * lat (:) / DLat)**2       &
-                                      * sin( real(nv,kind=RP) * PI * zlev(:) / Zt )
-      elsewhere
-        q_intrp(:) = 0.0_RP
-      end where
+      Np = elem_intrp%Np
+      !$omp parallel do private(lon_)
+      !$acc parallel loop collapse(2)
+      do ke=lcmesh3D%NeS, lcmesh3D%NeE
+      do p=1, Np
+        lon_ = PI - lon(p,ke)
+        if ( abs(lon_) < DLon .and. abs(lat(p,ke)) < DLat ) then
+          q_intrp(p,ke) = ( CpDry - Rdry ) * Q0 * cos(0.5_RP * PI * lon_ / DLon)**2    &
+                                        * cos(0.5_RP * PI * lat (p,ke) / DLat)**2      &
+                                        * sin( real(nv,kind=RP) * PI * zlev(p,ke) / Zt )
+        else
+          q_intrp(p,ke) = 0.0_RP
+        end if
+      end do
+      end do
 
       return
     end subroutine func_qheat

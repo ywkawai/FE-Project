@@ -106,7 +106,7 @@ contains
     H0 = Rdry * Temp0 / Grav
 
     !$omp parallel do
-    !$acc parallel loop gang present(DENS_hyd, PRES_hyd, x, y, z, lcmesh3D, elem)
+    !$acc parallel loop gang present(DENS_hyd, PRES_hyd, z, lcmesh3D, elem)
     do ke=lcmesh3D%NeS, lcmesh3D%NeE
       !$acc loop vector
       do p=1, elem%Np
@@ -159,7 +159,7 @@ contains
     exner_sfc = (PRES_sfc / PRES00)**RovCP
 
     !$omp parallel do private(exner)
-    !$acc parallel loop gang present(DENS_hyd, PRES_hyd, x, y, z, lcmesh3D, elem)
+    !$acc parallel loop gang present(DENS_hyd, PRES_hyd, z, lcmesh3D, elem)
     do ke=lcmesh3D%NeS, lcmesh3D%NeE
       !$acc loop vector
       do p=1, elem%Np
@@ -217,7 +217,7 @@ contains
     exner_sfc = (PRES_sfc / PRES00)**RovCP
 
     !$omp parallel do private(PT, exner)
-    !$acc parallel loop gang present(DENS_hyd, PRES_hyd, x, y, z, lcmesh3D, elem)
+    !$acc parallel loop collapse(2) present(DENS_hyd, PRES_hyd, z, lcmesh3D, elem)
     do ke=lcmesh3D%NeS, lcmesh3D%NeE
       do p=1, elem%Np
         ! d exner / dz = - g / ( Cp * PT0 ) * exp (- N2/g * z)
@@ -263,19 +263,22 @@ contains
     real(RP), intent(in) :: Temp0
     real(RP), intent(in) :: PRES_sfc
 
-    integer :: ke
+    integer :: ke, p
 
     real(RP) :: fac
-    real(RP) :: TEMP(elem%Np)
+    real(RP) :: TEMP
     !-----------------------------------------------
 
     fac = GRAV / ( Rdry * TLAPS )
 
     !$omp parallel do private(TEMP)
+    !$acc parallel loop collapse(2) present(DENS_hyd, PRES_hyd, z, lcmesh3D, elem)
     do ke=lcmesh3D%NeS, lcmesh3D%NeE
-      TEMP(:) = Temp0 * ( 1.0_RP - TLAPS / Temp0 * z(:,ke) )
-      PRES_hyd(:,ke) = PRES00 * ( TEMP(:) / Temp0 )**fac
-      DENS_hyd(:,ke) =  PRES_hyd(:,ke) / ( Rdry * TEMP(:) )
+      do p=1, elem%Np
+        TEMP = Temp0 * ( 1.0_RP - TLAPS / Temp0 * z(p,ke) )
+        PRES_hyd(p,ke) = PRES_sfc * ( TEMP / Temp0 )**fac
+        DENS_hyd(p,ke) =  PRES_hyd(p,ke) / ( Rdry * TEMP )
+      end do
     end do
 
     return
@@ -311,10 +314,10 @@ contains
     real(RP), intent(in) :: PotTemp0
     real(RP), intent(in) :: PRES_sfc
 
-    integer :: ke
+    integer :: ke, p
 
-    real(RP) :: PT(elem%NP)
-    real(RP) :: exner(elem%Np)
+    real(RP) :: PT
+    real(RP) :: exner
     real(RP) :: exner_sfc
     real(RP) :: RovCP
     real(RP) :: CPovR
@@ -330,14 +333,17 @@ contains
         PotTemp0, PRES_sfc, x, y, z, lcmesh3D, elem )
     else
       !$omp parallel do private(PT, exner)
+      !$acc parallel loop collapse(2) present(DENS_hyd,PRES_hyd,z)
       do ke=lcmesh3D%NeS, lcmesh3D%NeE
-        ! d exner / dz = - g / ( Cp * PT0 ) / (1 + PTLAPS/PT0 * z)
-        ! exner = exner(zs) - g / (Cp * PTLAPS ) * log[ 1 + PTLAPS/PT0 * z ] 
-        PT(:) = PotTemp0 + PTLAPS * z(:,ke)
-        exner(:) = exner_sfc - Grav / ( CpDry * PTLAPS ) * log( 1.0_RP + PTLAPS / PotTemp0 * z(:,ke) )
+        do p=1, elem%Np
+          ! d exner / dz = - g / ( Cp * PT0 ) / (1 + PTLAPS/PT0 * z)
+          ! exner = exner(zs) - g / (Cp * PTLAPS ) * log[ 1 + PTLAPS/PT0 * z ] 
+          PT = PotTemp0 + PTLAPS * z(p,ke)
+          exner = exner_sfc - Grav / ( CpDry * PTLAPS ) * log( 1.0_RP + PTLAPS / PotTemp0 * z(p,ke) )
 
-        PRES_hyd(:,ke) = PRES00 * exner(:)**CPovR
-        DENS_hyd(:,ke) =  PRES_hyd(:,ke) / ( Rdry * exner(:) * PT(:) )
+          PRES_hyd(p,ke) = PRES00 * exner**CPovR
+          DENS_hyd(p,ke) =  PRES_hyd(p,ke) / ( Rdry * exner * PT )
+        end do
       end do
     end if
     

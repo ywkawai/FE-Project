@@ -221,6 +221,8 @@ contains
     !---
 
     allocate( PRES_purtub(elem%Np,lcmesh%NeA) )
+    !$acc data create(PRES_purtub)
+
     call mkinitutil_calc_cosinebell_global( PRES_purtub,  & ! (out)
       DPRES, rh, lonc, latc, RPlanet,                     & ! (in)
       x, y, z, lcmesh, elem,                              & ! (in)
@@ -245,6 +247,7 @@ contains
       end do
     end do
 
+    !$acc end data
     return
   end subroutine exp_SetInitCond_sound_wave
 
