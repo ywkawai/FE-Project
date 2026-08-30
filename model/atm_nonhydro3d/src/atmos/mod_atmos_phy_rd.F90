@@ -68,6 +68,9 @@ module mod_atmos_phy_rd
 
     !-
     type(AtmPhyRadSimple) :: simple_rad !< Object to manage a simplified-radiation scheme
+
+    ! type(MeshField3D) :: radflux_LW_dn_save
+    ! type(MeshField3D) :: radflux_LW_up_save
   contains
     procedure, public :: setup => AtmosPhyRd_setup
     procedure, public :: calc_tendency => AtmosPhyRd_calc_tendency
@@ -88,17 +91,17 @@ module mod_atmos_phy_rd
   !
   !++ Private parameters & variables
   !
-  integer, parameter :: RD_TYPEID_SIMPLE  = 1 !< Type ID of a simple radiation scheme
+  integer, parameter :: RD_TYPEID_SIMPLE  = 1           !< Type ID of a simple radiation scheme
 
   integer, parameter :: RD_INSOLATION_TYPEID_NONE   = 0 !< Type ID of no solar insolation
   integer, parameter :: RD_INSOLATION_TYPEID_SIMPLE = 1 !< Type ID of a simple solar insolation scheme
 contains
 
-!> Setup a component of radiation in atmospheric model
-!!
-!! @param model_mesh Object to manage computational mesh of atmospheric model 
-!! @param tm_parent_comp Object to mange a temporal scheme in a parent component
-!!
+  !> Setup a component of radiation in atmospheric model
+  !!
+  !! @param model_mesh Object to manage computational mesh of atmospheric model 
+  !! @param tm_parent_comp Object to mange a temporal scheme in a parent component
+  !!
   subroutine AtmosPhyRd_setup( this, model_mesh, tm_parent_comp )
     use mod_atmos_mesh, only: AtmosMesh
     use scale_time_manager, only: TIME_manager_component
@@ -128,6 +131,8 @@ contains
     class(MeshBase), pointer      :: ptr_mesh
     class(LocalMesh3D), pointer :: lcmesh3D
     class(ElementBase3D), pointer :: elem3D
+
+    class(MeshBase3D), pointer :: mesh3D
 
     integer :: ierr
     !-----------------------------------------------------
@@ -183,6 +188,14 @@ contains
     !- Initialize the variables 
     call this%vars%Init( model_mesh )
 
+    select type(model_mesh)
+    class is (AtmosMesh)
+      atm_mesh => model_mesh
+    end select
+    mesh3D => atm_mesh%ptr_mesh 
+    ! call this%radflux_LW_dn_save%Init( "RADFLUX_LW_dn", "W/m2", mesh3D )
+    ! call this%radflux_LW_up_save%Init( "RADFLUX_LW_up", "W/m2", mesh3D )
+
     return
   end subroutine AtmosPhyRd_setup
 
@@ -198,15 +211,15 @@ contains
     return
   end subroutine AtmosPhyRd_set_SfcVars
 
-!> Calculate tendencies associated with radiation in atmospheric model
-!!
-!!
-!! @param model_mesh Object to manage computational mesh of atmospheric model 
-!! @param prgvars_list Object to manage prognostic variables with atmospheric dynamical core
-!! @param trcvars_list Object to manage auxiliary variables 
-!! @param forcing_list Object to manage forcing terms
-!! @param is_update Flag to speicfy whether the tendencies are updated in this call
-!!
+  !> Calculate tendencies associated with radiation in atmospheric model
+  !!
+  !!
+  !! @param model_mesh Object to manage computational mesh of atmospheric model 
+  !! @param prgvars_list Object to manage prognostic variables with atmospheric dynamical core
+  !! @param trcvars_list Object to manage auxiliary variables 
+  !! @param forcing_list Object to manage forcing terms
+  !! @param is_update Flag to speicfy whether the tendencies are updated in this call
+  !!
 !OCL SERIAL
   subroutine AtmosPhyRd_calc_tendency( &
     this, model_mesh, prgvars_list, trcvars_list, &
@@ -225,7 +238,8 @@ contains
       SFLX_SW_up_ID => ATMOS_PHY_RD_AUX2D_SFLX_SW_up_ID, &
       SFLX_SW_dn_ID => ATMOS_PHY_RD_AUX2D_SFLX_SW_dn_ID, &
       SFLX_LW_up_ID => ATMOS_PHY_RD_AUX2D_SFLX_LW_up_ID, &
-      SFLX_LW_dn_ID => ATMOS_PHY_RD_AUX2D_SFLX_LW_dn_ID
+      SFLX_LW_dn_ID => ATMOS_PHY_RD_AUX2D_SFLX_LW_dn_ID, &
+      TOMFLX_LW_up_ID => ATMOS_PHY_RD_AUX2D_TOMFLX_LW_up_ID
     implicit none
     class(AtmosPhyRd), intent(inout) :: this
     class(ModelMeshBase), intent(in) :: model_mesh
@@ -298,6 +312,7 @@ contains
           this%vars%auxvars2D(SFLX_SW_dn_ID)%local(n)%val,        & ! (out)
           this%vars%auxvars2D(SFLX_LW_up_ID)%local(n)%val,        & ! (out)
           this%vars%auxvars2D(SFLX_LW_dn_ID)%local(n)%val,        & ! (out)
+          this%vars%auxvars2D(TOMFLX_LW_up_ID)%local(n)%val,      & ! (out)
           this%vars%auxvars2D(SOLINS_ID)%local(n)%val,            & ! (in)
           this%vars%auxvars2D(COS_SZA_ID)%local(n)%val,           & ! (in)
           DDENS%val, PRES%val, QV%val,                            & ! (in)
@@ -331,14 +346,14 @@ contains
     return
   end subroutine AtmosPhyRd_calc_tendency
 
-!> Update variables in a component of radiation in atmospheric model
-!!
-!! @param model_mesh Object to manage computational mesh of atmospheric model 
-!! @param prgvars_list Object to manage prognostic variables with atmospheric dynamical core
-!! @param trcvars_list Object to manage auxiliary variables 
-!! @param forcing_list Object to manage forcing terms
-!! @param is_update Flag to speicfy whether the tendencies are updated in this call
-!!
+  !> Update variables in a component of radiation in atmospheric model
+  !!
+  !! @param model_mesh Object to manage computational mesh of atmospheric model 
+  !! @param prgvars_list Object to manage prognostic variables with atmospheric dynamical core
+  !! @param trcvars_list Object to manage auxiliary variables 
+  !! @param forcing_list Object to manage forcing terms
+  !! @param is_update Flag to speicfy whether the tendencies are updated in this call
+  !!
 !OCL SERIAL  
   subroutine AtmosPhyRd_update( this, model_mesh, &
     prgvars_list, trcvars_list,                   &
@@ -356,8 +371,8 @@ contains
     return
   end subroutine AtmosPhyRd_update
 
-!> Finalize a component of radiation in atmospheric model
-!!
+  !> Finalize a component of radiation in atmospheric model
+  !!
 !OCL SERIAL  
   subroutine AtmosPhyRd_finalize( this )
     implicit none
@@ -380,6 +395,7 @@ contains
   subroutine AtmosPhyRd_calc_tendency_core( this, &
     RHOH,                                           & ! (out)
     SFLX_SW_up, SFLX_SW_dn, SFLX_LW_up, SFLX_LW_dn, & ! (out)
+    TOMFLX_LW_up,                                   & ! (out)
     SOLINS, COS_SZA,                                & ! (in)
     DDENS, PRES, QV, SFC_TEMP, SFC_ALB,             & ! (in)
     DENS_hyd, Rtot, CVtot,                          & ! (in)
@@ -389,6 +405,9 @@ contains
       I_up, I_dn, I_LW, I_SW
     use scale_element_operation_base, only: ElementOperationBase3D
     use scale_atm_phy_rd_dgm_common, only: ATM_PHY_RD_DGM_calc_heating
+
+    use scale_meshfield_base, only: MeshField3D
+    use scale_file_history_meshfield, only: FILE_HISTORY_meshfield_in
     implicit none
     class(AtmosPhyRd), intent(inout) :: this
     class(LocalMesh3D), intent(in) :: lcmesh
@@ -400,6 +419,7 @@ contains
     real(RP), intent(out) :: SFLX_SW_dn(elem2D%Np,lcmesh2D%NeA)
     real(RP), intent(out) :: SFLX_LW_up(elem2D%Np,lcmesh2D%NeA)
     real(RP), intent(out) :: SFLX_LW_dn(elem2D%Np,lcmesh2D%NeA)
+    real(RP), intent(out) :: TOMFLX_LW_up(elem2D%Np,lcmesh2D%NeA)
     real(RP), intent(in) :: SOLINS(elem2D%Np,lcmesh2D%NeA)
     real(RP), intent(in) :: COS_SZA(elem2D%Np,lcmesh2D%NeA)
     real(RP), intent(in) :: DDENS(elem3D%Np,lcmesh%NeA)
@@ -465,7 +485,15 @@ contains
         SFLX_LW_dn(:,ke) = sflux_rad_dn(:,ke,I_LW,1)
         SFLX_SW_up(:,ke) = sflux_rad_up(:,ke,I_SW,1)
         SFLX_LW_up(:,ke) = sflux_rad_up(:,ke,I_LW,1)
+
+        TOMFLX_LW_up(:,ke) = flux_rad_top(:,ke,I_LW,1,1)
       end do
+
+!     !$omp parallel do
+!     do ke=lcmesh%NeS, lcmesh%NeE
+!       this%radflux_LW_dn_save%local(1)%val(:,ke) = flux_rad(:,ke,I_LW,I_dn,1)
+!       this%radflux_LW_up_save%local(1)%val(:,ke) = flux_rad(:,ke,I_LW,I_up,1)
+!     end do
     end select
 
     call ATM_PHY_RD_DGM_calc_heating( RHOH, &
@@ -473,6 +501,8 @@ contains
       lcmesh, elem3D, elem2D, &
       elem3D_operation )
 
-    return
+!      call FILE_HISTORY_meshfield_in( this%radflux_LW_dn_save, 'RADFLUX_LW_dn' )
+!      call FILE_HISTORY_meshfield_in( this%radflux_LW_up_save, 'RADFLUX_LW_up' )
+      return
   end subroutine AtmosPhyRd_calc_tendency_core
 end module mod_atmos_phy_rd

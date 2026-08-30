@@ -11,6 +11,13 @@
 !!    Paterson, A., Pietschnig, M., Penn, J., and Thomson, S.I. 2018:
 !!    Isca, v1.0: a framework for the global modelling of the atmospheres of Earth and other planets at varying levels of complexity.
 !!    Geosci. Model Dev., 11, 843–859.
+!!  - Frierson, D.M.W., Held, I.M., and Zurita-Gotor, P. 2006:
+!!    A gray-radiation aquaplanet moist GCM. Part I: Static stability and eddy scale.
+!!    J. Atmos. Sci., 63, 2548–2566.
+!!  - Byrne, M.P., and O’Gorman, P.A. 2013:
+!!    Land–ocean warming contrast over a wide range of climates:
+!!    convective quasi-equilibrium theory and idealized simulations.
+!!    J. Climate, 26, 4000–4016.
 !!  - Geen, R., Czaja, A., and Haigh, J.D. 2016:
 !!    The effects of increasing humidity on heat transport by extratropical waves.
 !!    Geophys. Res. Lett., 43, 8314–8321.
@@ -66,7 +73,7 @@ module scale_atm_phy_rd_dgm_simple
     real(RP) :: OPTDEP_VALLIS_EQ7b_PARAMS(4) !< Parameters associated with optical depth calculation (Eq.7b in Vallis et al. (2018))
                                              !! a_win, b_win, c_win, d_win
     integer :: OPTDEP_VALLIS_EQ6a_kadd          !< Number of layers above the model top in the SW optical depth calculation.
-    real(RP) :: OPTDEP_VALLIS_EQ6a_QV_above_MOT !< Optical thickness for shortwave radiation above the model top.
+    real(RP) :: OPTDEP_VALLIS_EQ6a_QV_above_MOT !< Specific humidity above the model top used in the SW optical depth calculation.
 
     real(RP) :: diffFactor            !< Diffusivity factor for the two-stream approximation
     real(RP) :: FRAC_LW(N_LW_BND_MAX) !< The fraction of the longwave spectrum at each band
@@ -468,9 +475,10 @@ contains
       tau_sw_ = 0.0_RP
       do k=1, this%OPTDEP_VALLIS_EQ6a_kadd
         b_sw = exp( 1.887E-2_RP / ( tau_sw_ + 9.522E-3_RP ) + 1.603_RP / ( tau_sw_ + 5.194E-1_RP )**2 )
-        dtau_sw_kadd = ( a_sw  + b_sw * qv_tmp +  c_sw * ln_CO2ov360ppm ) * dsig
-        tau_sw_ = tau_sw_ + dtau_sw_kadd
+        dtau_sw_kadd_tmp = ( a_sw  + b_sw * qv_tmp +  c_sw * ln_CO2ov360ppm ) * dsig
+        tau_sw_ = tau_sw_ + dtau_sw_kadd_tmp
       end do
+      dtau_sw_kadd = tau_sw_
 
       !-
       do ke_z=NeZ, 1, -1
