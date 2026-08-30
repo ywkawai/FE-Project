@@ -310,6 +310,10 @@ contains
     if ( this%phy_cp_proc%IsActivated() ) then
       call this%phy_cp_proc%vars%Setup( this%mesh )
       call this%vars%Regist_physvar_manager( cp_AUXVARS2D_manager=this%phy_cp_proc%vars%auxvars2D_manager )
+
+      if ( this%phy_mp_proc%IsActivated() ) then
+        call this%phy_mp_proc%Set_CP_tends_manager( this%phy_cp_proc%vars%tends_manager )
+      end if      
     end if
     !- PBL component
     if ( this%phy_bl_proc%IsActivated() ) then
@@ -320,7 +324,7 @@ contains
     return
   end subroutine Atmos_setup_vars
 
-!> Set coupler component to the atmospheric component
+  !> Set coupler component to the atmospheric component
 !OCL SERIAL
   subroutine Atmos_set_coupler( this, coupler )
     implicit none
@@ -335,7 +339,7 @@ contains
     return
   end subroutine Atmos_set_coupler
 
-!> Calculate tendencies with the atmospheric component
+  !> Calculate tendencies with the atmospheric component
 !OCL SERIAL
   subroutine Atmos_calc_tendency( this, force )
     use scale_tracer, only: QA
@@ -378,8 +382,9 @@ contains
     call this%mesh%GetModelMesh( mesh )
     call this%vars%Get_container( ATM_VARS_CONTAINER_PRIMARY_ID, & ! (in)
       vars_primary_container ) ! (out)
-
-    !########## Get Surface Boundary from coupler ##########
+    
+    !########## Get Surface Boundary from coupler ##########    
+    call this%Get_surface()
     
     
     !########## calculate tendency ##########
@@ -444,6 +449,22 @@ contains
     call this%vars%PreprocOperationForPhys( this%dyn_proc%dyncore_driver )
     call PROF_rapend('ATM_PreOptrForPhys', 1)
 
+    !- Cumulus parameterization
+
+    if ( this%phy_cp_proc%IsActivated() ) then
+      call PROF_rapstart('ATM_Cumulus', 1)
+      tm_process_id = this%phy_cp_proc%tm_process_id
+      is_update = this%time_manager%Do_process(tm_process_id) .or. force
+
+      call this%vars%Get_container( this%phy_cp_proc%atm_var_container_typeid, & ! (in)
+        vars_container ) ! (out)
+      
+      call this%phy_cp_proc%calc_tendency( &
+        this%mesh, vars_container%PROGVARS_manager, vars_container%QTRCVARS_manager, &
+        vars_container%AUXVARS_manager, vars_primary_container%PHYTENDS_manager, is_update   )
+      call PROF_rapend('ATM_Cumulus', 1)
+    end if
+
     !- Cloud Microphysics
 
     if ( this%phy_mp_proc%IsActivated() ) then
@@ -490,22 +511,6 @@ contains
         this%mesh, vars_container%PROGVARS_manager, vars_container%QTRCVARS_manager, &
         vars_container%AUXVARS_manager, vars_primary_container%PHYTENDS_manager, is_update   )
       call PROF_rapend('ATM_Turbulence', 1)
-    end if
-
-    !- Cumulus parameterization
-
-    if ( this%phy_cp_proc%IsActivated() ) then
-      call PROF_rapstart('ATM_Cumulus', 1)
-      tm_process_id = this%phy_cp_proc%tm_process_id
-      is_update = this%time_manager%Do_process(tm_process_id) .or. force
-
-      call this%vars%Get_container( this%phy_cp_proc%atm_var_container_typeid, & ! (in)
-        vars_container ) ! (out)
-      
-      call this%phy_cp_proc%calc_tendency( &
-        this%mesh, vars_container%PROGVARS_manager, vars_container%QTRCVARS_manager, &
-        vars_container%AUXVARS_manager, vars_primary_container%PHYTENDS_manager, is_update   )
-      call PROF_rapend('ATM_Cumulus', 1)
     end if
 
 
@@ -583,8 +588,7 @@ contains
     call this%vars%Get_container( ATM_VARS_CONTAINER_PRIMARY_ID, & ! (in)
       vars_primary_container ) ! (out)
 
-    !- Get surface quantities
-    
+    !########## Get Surface Boundary from coupler ##########    
     call this%Get_surface()
 
     !- Surface flux
@@ -621,7 +625,7 @@ contains
     return
   end subroutine Atmos_calc_tendency_from_sflux
 
-!> Update variables with the atmospheric component
+  !> Update variables with the atmospheric component
 !OCL SERIAL
   subroutine Atmos_update( this )
     implicit none
@@ -818,7 +822,7 @@ contains
     return
   end subroutine Atmos_get_surface
 
-!> Finalize an object to manage the atmospheric component
+  !> Finalize an object to manage the atmospheric component
 !OCL SERIAL
   subroutine Atmos_finalize( this )
     implicit none
