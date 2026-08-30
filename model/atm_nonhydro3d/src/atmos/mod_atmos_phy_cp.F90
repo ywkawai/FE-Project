@@ -88,11 +88,11 @@ module mod_atmos_phy_cp
   
 contains
 
-!> Setup a component of cumulus parameterization in atmospheric model
-!!
-!! @param model_mesh Object to manage computational mesh of atmospheric model 
-!! @param tm_parent_comp Object to mange a temporal scheme in a parent component
-!!
+  !> Setup a component of cumulus parameterization in atmospheric model
+  !!
+  !! @param model_mesh Object to manage computational mesh of atmospheric model 
+  !! @param tm_parent_comp Object to mange a temporal scheme in a parent component
+  !!
   subroutine AtmosPhyCp_setup( this, model_mesh, tm_parent_comp )
     use scale_atmos_hydrometeor, only: &
        N_HYD    
@@ -110,8 +110,8 @@ contains
     real(DP) :: TIME_DT                             = UNDEF8 !< Timestep for cumulus parameterization
     character(len=H_SHORT) :: TIME_DT_UNIT          = 'SEC'  !< Unit of timestep
 
-    character(len=H_MID) :: CP_TYPE = 'NONE'              !< Type of a cumulus parameterization scheme
-    integer :: atm_var_container_typeid
+    character(len=H_MID) :: CP_TYPE = 'NONE'                 !< Type of a cumulus parameterization scheme
+    integer :: atm_var_container_typeid                      !< Type ID of variable container for cumulus parameterization
 
     namelist /PARAM_ATMOS_PHY_CP/ &
       TIME_DT,             &
@@ -182,15 +182,15 @@ contains
     return
   end subroutine AtmosPhyCp_setup
 
-!> Calculate tendencies associated with cumulus parameterization in atmospheric model
-!!
-!!
-!! @param model_mesh Object to manage computational mesh of atmospheric model 
-!! @param prgvars_list Object to manage prognostic variables with atmospheric dynamical core
-!! @param trcvars_list Object to manage auxiliary variables 
-!! @param forcing_list Object to manage forcing terms
-!! @param is_update Flag to speicfy whether the tendencies are updated in this call
-!!
+  !> Calculate tendencies associated with cumulus parameterization in atmospheric model
+  !!
+  !!
+  !! @param model_mesh Object to manage computational mesh of atmospheric model 
+  !! @param prgvars_list Object to manage prognostic variables with atmospheric dynamical core
+  !! @param trcvars_list Object to manage auxiliary variables 
+  !! @param forcing_list Object to manage forcing terms
+  !! @param is_update Flag to speicfy whether the tendencies are updated in this call
+  !!
 !OCL SERIAL
   subroutine AtmosPhyCp_calc_tendency( &
     this, model_mesh, prgvars_list, trcvars_list, &
@@ -208,7 +208,8 @@ contains
       AtmosVars_GetLocalMeshQTRC_Qv
     use mod_atmos_phy_cp_vars, only: &
       AtmosPhyCpVars_GetLocalMeshFields_tend, &
-      SFLX_RAIN_ID => ATMOS_PHY_CP_AUX2D_SFLX_RAIN_ID 
+      SFLX_RAIN_ID => ATMOS_PHY_CP_AUX2D_SFLX_RAIN_ID, &
+      SFLX_ENGI_ID => ATMOS_PHY_CP_AUX2D_SFLX_ENGI_ID
     implicit none
     class(AtmosPhyCp), intent(inout) :: this
     class(ModelMeshBase), intent(in) :: model_mesh
@@ -272,6 +273,7 @@ contains
           call atm_phy_cp_dgm_mconv_adjustment_calc_tendency( &
             cp_DENS_t%val, cp_RHOT_t%val, cp_RHOQv_t%val,     & ! (out)
             this%vars%auxvars2D(SFLX_RAIN_ID)%local(n)%val,   & ! (out)
+            this%vars%auxvars2D(SFLX_ENGI_ID)%local(n)%val,   & ! (out)
             DDENS%val, DRHOT%val, QV%val, PT%val, PRES%val,   & ! (in)
             DENS_hyd%val, Rtot%val, CPtot%val, this%dtsec,    & ! (in)
             lcmesh, lcmesh%refElem3D, this%v_elem1D           ) ! (in)
