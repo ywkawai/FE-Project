@@ -505,9 +505,9 @@ contains
           if ( rkstage == this%tint(1)%nstage .and. this%MODALFILTER_FLAG ) then
             call PROF_rapstart( 'ATM_DYN_update_qtrc_modalfilter', 3)
             call atm_dyn_dgm_tracer_modalfilter_apply( &
-              QTRC_tmp%local(n)%val,                              & ! (inout)
-              DENS_hyd%local(n)%val, DDENS_TRC%local(n)%val,      & ! (in)
-              lcmesh3D, lcmesh3D%refElem3D, element_operation     ) ! (in)
+              QTRC_tmp%local(n)%val,                                             & ! (inout)
+              DENS_hyd%local(n)%val, DDENS_TRC%local(n)%val, DDENS%local(n)%val, & ! (in)
+              lcmesh3D, lcmesh3D%refElem3D, element_operation                    ) ! (in)
             call PROF_rapend( 'ATM_DYN_update_qtrc_modalfilter', 3)
           end if
 
