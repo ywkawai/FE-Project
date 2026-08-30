@@ -199,6 +199,10 @@ contains
 
     real(RP) :: mixlen(elem%Np)                    ! Mixing length
     real(RP) :: zsfc(elem%Nnode_h1D**2,lmesh%Ne2D) ! Surface height
+    real(RP) :: dz1(elem%Nnode_h1D**2,lmesh%Ne2D)  ! Vertical grid spacing at the first layer
+    integer :: HSlice_b(elem%Nnode_h1D**2)
+    integer :: HSlice_t(elem%Nnode_h1D**2)
+  
     real(RP) :: kz
 
     integer :: ke, ke2D
@@ -226,6 +230,9 @@ contains
     lmesh2D => lmesh%lcmesh2D
     elem2D  => lmesh2D%refElem2D
 
+    HSlice_b(:) = elem%Hslice(:,1)
+    HSlice_t(:) = elem%Hslice(:,elem%Nnode_v)
+
     !---------------------------------
 
     call cal_del_flux_grad( del_flux_rho, del_flux_mom, del_flux_rhot, del_flux_Rtot, & ! (out)
@@ -239,7 +246,8 @@ contains
 
     !$omp do
     do ke2D=lmesh2D%NeS, lmesh2D%NeE
-      zsfc(:,ke2D) = lmesh%zlev(elem%Hslice(:,1),ke2D)
+      zsfc(:,ke2D) = lmesh%zlev(HSlice_b,ke2D)
+      dz1(:,ke2D)  =  ( lmesh%zlev(HSlice_t,ke2D) - lmesh%zlev(HSlice_b,ke2D) ) / real(elem%Nnode_v,kind=RP) * 0.5_RP      
     end do
     !$omp end do
     !$omp do
@@ -313,7 +321,7 @@ contains
       do pz=1, elem%Nnode_v
       do ph=1, elem%Nnode_h1D**2
         p = ph + (pz-1)*elem%Nnode_h1D**2
-        kz = KARMAN * ( lmesh%zlev(p,ke) - zsfc(ph,ke2D) )
+        kz = KARMAN * max( lmesh%zlev(p,ke) - zsfc(ph,ke2D), dz1(ph,ke2D) )
 
         mixlen(p) = kz * L_INF  / max( kz + L_INF, L_MIN )
       end do
