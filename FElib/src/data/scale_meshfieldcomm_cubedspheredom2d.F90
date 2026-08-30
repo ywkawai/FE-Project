@@ -479,7 +479,7 @@ contains
           !$acc enter data create(lcfpos2D) copyin(unity_fac) async(1)
 
           call push_localsendbuf( lcfpos2D,                            &
-            fpos2D, commdata%s_faceID, this%is_f(f,n),                 &
+            fpos2D, f, this%is_f(f,n),                                 &
             commdata%Nnode_LCMeshFace, this%Nnode_LCMeshAllFace(n), 2, &
             lcmesh, this%HaloSize_1D )
         end if

@@ -130,15 +130,16 @@ contains
   end subroutine MeshUtilCubedSphere2D_buildGlobalMap
 
   !----
+  !> Modify the mesh connectivity with a cubic domain decomposition to support the cubed sphere mesh
 !OCL SERIAL
   subroutine MeshUtilCubedSphere2D_modifyConnectivity( tilePanelID_map, tileID_map, tileFaceID_map, &
     panelID_table, pi_table, pj_table, NeX, NeY, Ntile, Nface )
 
     integer, intent(in) :: Ntile
     integer, intent(in) :: Nface
-    integer, intent(out) :: tileID_map(Nface,Ntile)
-    integer, intent(out) :: tileFaceID_map(Nface,Ntile)
-    integer, intent(out) :: tilePanelID_map(Nface,Ntile)
+    integer, intent(inout) :: tileID_map(Nface,Ntile)
+    integer, intent(inout) :: tileFaceID_map(Nface,Ntile)
+    integer, intent(inout) :: tilePanelID_map(Nface,Ntile)
     integer, intent(in) :: panelID_table(Ntile)
     integer, intent(in) :: pi_table(Ntile)
     integer, intent(in) :: pj_table(Ntile)
