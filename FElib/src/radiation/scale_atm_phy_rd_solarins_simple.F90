@@ -4,6 +4,11 @@
 !!      A module for idealized solar insolation scheme
 !!
 !! @author Yuta Kawai, Team SCALE
+!!
+!! @par Reference
+!!  - Frierson, D.M.W., Held, I.M., and Zurita-Gotor, P. 2006:
+!!    A gray-radiation aquaplanet moist GCM. Part I: Static stability and eddy scale.
+!!    J. Atmos. Sci., 63, 2548–2566.
 !<
 !-------------------------------------------------------------------------------
 #include "scaleFElib.h"
@@ -35,24 +40,33 @@ module scale_atm_phy_rd_solarins_simple
   !-----------------------------------------------------------------------------
   !++ Public parameters & variables
   !
+
   !-----------------------------------------------------------------------------
-  !
   !++ Private procedure
   !
+  private :: annual_mean_insol
+  private :: daily_mean_insol
+  private :: days_in_month
+  private :: is_leap_year
+  private :: seconds_to_hms
+
   !-----------------------------------------------------------------------------
   !
   !++ Private parameters & variables
   !
-  integer :: SOLARINS_TYPE_ID
+  integer :: SOLARINS_TYPE_ID !< Solar insolation type ID
 
-  integer, parameter :: SOLARINS_SIMPLE_TYPE_ID_CONST    = 1
-  integer, parameter :: SOLARINS_SIMPLE_TYPE_ANNUAL_MEAN = 2
+  integer, parameter :: SOLARINS_SIMPLE_TYPE_ID_CONST        = 1 !< Type ID for constant solar insolation
+  integer, parameter :: SOLARINS_SIMPLE_TYPE_ID_ANNUAL_MEAN  = 2 !< Type ID for annual mean solar insolation
+  integer, parameter :: SOLARINS_SIMPLE_TYPE_ID_FRIERSON2006 = 3 !< Type ID for an idealized solar insolation based on Frierson et al. (2006)
 
-  real(RP) :: CONST_FLUX            = 340.0_RP
-  integer :: ORBIT_REFERENCE_YEAR   = 2000
-  integer :: ANNUAL_MEAN_YEAR       = 2000
-  integer :: ANNUAL_SAMPLES_PER_DAY = 1
-  logical :: CACHE_ANNUAL_MEAN      = .true.
+
+  real(RP) :: CONST_FLUX            = 340.0_RP !< Constant solar flux value [W/m2]
+  
+  integer :: ORBIT_REFERENCE_YEAR   = 2000   !< Reference year for orbital calculations
+  integer :: ANNUAL_MEAN_YEAR       = 2000   !< Year for computing annual mean insolation
+  integer :: ANNUAL_SAMPLES_PER_DAY = 1      !< Number of samples per day for annual mean calculation
+  logical :: CACHE_ANNUAL_MEAN      = .true. !< Flag to cache annual mean insolation
 
   integer, parameter :: DATE_YEAR   = 1
   integer, parameter :: DATE_MONTH  = 2
@@ -62,7 +76,11 @@ module scale_atm_phy_rd_solarins_simple
   integer, parameter :: DATE_SECOND = 6
   integer, parameter :: DATE_SIZE = 6
 
+  !-
+  real(RP) :: FRIERSON2006_DELTA_s = 1.4E0_RP !< Parameter for  latitudinal variation (Delta_s) in Frierson et al. (2006) insolation scheme
+
 contains
+  !> Setup the simplified solar insolation module. 
   subroutine atm_phy_rd_solarins_simple_setup()
     use scale_atmos_solarins, only: &
         ATMOS_SOLARINS_setup    
@@ -97,7 +115,9 @@ contains
     case ('CONST')
        SOLARINS_TYPE_ID = SOLARINS_SIMPLE_TYPE_ID_CONST
     case ('ANNUAL_MEAN')
-       SOLARINS_TYPE_ID = SOLARINS_SIMPLE_TYPE_ANNUAL_MEAN
+       SOLARINS_TYPE_ID = SOLARINS_SIMPLE_TYPE_ID_ANNUAL_MEAN
+    case ('FRIERSON2006')
+       SOLARINS_TYPE_ID = SOLARINS_SIMPLE_TYPE_ID_FRIERSON2006
     case default
        LOG_ERROR("ATMOS_PHY_RD_SOLARINS_SIMPLE_setup",*) 'Not appropriate SOLARINS_TYPE. Check!'
        call PRC_abort
@@ -114,29 +134,36 @@ contains
   subroutine atm_phy_rd_solarins_simple_update()
   end subroutine atm_phy_rd_solarins_simple_update
 
+  !> Get solar insolation and cosine of the solar zenith angle for the given latitude array.
 !OCL SERIAL
   subroutine atm_phy_rd_solarins_simple_get( solins, cosSZA, &
     lat, Np )
+    use scale_atmos_solarins, only: &
+        ATMOS_SOLARINS_constant
     implicit none
-    integer, intent(in) :: Np
-    real(RP), intent(out) :: solins(Np)
-    real(RP), intent(out) :: cosSZA(Np)
-    real(RP), intent(in) :: lat(Np)
+    integer, intent(in) :: Np           !< Number of points
+    real(RP), intent(out) :: solins(Np) !< Solar insolation [W/m2] for each latitude point
+    real(RP), intent(out) :: cosSZA(Np) !< Cosine of the solar zenith angle for each latitude point
+    real(RP), intent(in) :: lat(Np)     !< Array storing latitude values [radians] for each point
     !------------------------------------------------------------------------------
 
     select case (SOLARINS_TYPE_ID)
     case (SOLARINS_SIMPLE_TYPE_ID_CONST)
       solins(:) = CONST_FLUX
       cosSZA(:) = UNDEF
-    case (SOLARINS_SIMPLE_TYPE_ANNUAL_MEAN)
+    case (SOLARINS_SIMPLE_TYPE_ID_ANNUAL_MEAN)
       call annual_mean_insol( solins, & ! (out)
         lat, Np )                       ! (in)
+      cosSZA(:) = UNDEF
+    case (SOLARINS_SIMPLE_TYPE_ID_FRIERSON2006)
+      solins(:) = 0.25_RP * ATMOS_SOLARINS_constant &
+                * ( 1.0_RP + 0.25_RP * FRIERSON2006_DELTA_s * ( 1.0_RP - 3.0_RP * sin(lat(:))**2 ) )
       cosSZA(:) = UNDEF
     end select
     return
   end subroutine atm_phy_rd_solarins_simple_get
 
-  !- Private subroutines ------------------------------------
+!- Private subroutines ------------------------------------
   subroutine annual_mean_insol( solins, &
     lat, Np )
     use scale_atmos_solarins, only: &

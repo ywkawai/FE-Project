@@ -28,28 +28,22 @@ module scale_atm_phy_cp_dgm_mconv_adjustment
   use scale_prof
   use scale_const, only: &
     GRAV => CONST_GRAV,   &
-    LHV0 => CONST_LHV0,   &
     CPdry => CONST_CPDRY, &
-    CVdry => CONST_CVdry, &
     Rdry => CONST_Rdry,   &
     Rvap => CONST_Rvap,   &
     PRES0 => CONST_PRE00, &
     EPS => CONST_EPS
   use scale_atmos_hydrometeor, only: &
-    CV_VAPOR, &
-    CP_VAPOR
+    CP_VAPOR, &
+    LHV
   use scale_atmos_saturation, only: &
     ATMOS_SATURATION_psat_liq,     &
     ATMOS_SATURATION_pres2qsat_liq
 
   use scale_element_base, only: &
     ElementBase1D, ElementBase2D, ElementBase3D
-  use scale_element_hexahedral, only: HexahedralElement
   use scale_localmesh_2d, only: LocalMesh2D  
   use scale_localmesh_3d, only: LocalMesh3D
-  use scale_mesh_base3d, only: MeshBase3D
-  use scale_localmeshfield_base, only: LocalMeshField3D
-  use scale_meshfield_base, only: MeshField3D
 
   !-----------------------------------------------------------------------------
   implicit none
@@ -79,18 +73,18 @@ module scale_atm_phy_cp_dgm_mconv_adjustment
   integer, parameter :: MCA_MAX_WATER_ITER  = 60
 
   ! Column-energy root solve
-  real(RP), parameter :: MCA_COLUMN_ENERGY_RTOL   = 5.0E-8_RP
+  real(RP), parameter :: MCA_COLUMN_ENERGY_RTOL   = 5.0E-7_RP
   real(RP), parameter :: MCA_COLUMN_ENERGY_ATOL   = 1.0_RP
-  real(RP), parameter :: MCA_BOUNDARY_ENERGY_RTOL = 1.0E-7_RP
+  real(RP), parameter :: MCA_BOUNDARY_ENERGY_RTOL = 1.0E-6_RP
 
   ! Local saturated-MSE solve for moist-adiabat integration
-  real(RP), parameter :: MCA_LOCAL_HMSE_RTOL = 1.0E-11_RP
-  real(RP), parameter :: MCA_LOCAL_HMSE_ATOL = 1.0E-8_RP
-  real(RP), parameter :: MCA_TEMP_TOL        = 1.0E-8_RP
+  real(RP), parameter :: MCA_LOCAL_HMSE_RTOL = 1.0E-9_RP
+  real(RP), parameter :: MCA_LOCAL_HMSE_ATOL = 1.0E-4_RP
+  real(RP), parameter :: MCA_TEMP_TOL        = 1.0E-5_RP
 
   ! Water-feasibility constraint
-  real(RP), parameter :: MCA_WATER_RTOL = 1.0E-12_RP
-  real(RP), parameter :: MCA_WATER_ATOL = 1.0E-12_RP
+  real(RP), parameter :: MCA_WATER_RTOL = 1.0E-9_RP
+  real(RP), parameter :: MCA_WATER_ATOL = 1.0E-10_RP
 
   ! Saturation and instability thresholds
   real(RP), parameter :: MCA_RH_FORCED_SATURATION = 0.999_RP
@@ -121,9 +115,14 @@ contains
   !> Calculate tendencies with moist convective adjustment scheme
 !OCL SERIAL
   subroutine atm_phy_cp_dgm_mconv_adjustment_calc_tendency( &
-    DENS_t, RHOT_t, RHOQV_t, SFLX_RAIN,                & ! (out)
+    DENS_t, RHOT_t, RHOQV_t, SFLX_RAIN, SFLX_ENGI,     & ! (out)
     DDENS, DRHOT, QV, PT, PRES, DENS_hyd, Rtot, CPtot, & ! (in)
     dtsec, lmesh, elem, elem1D                         ) ! (in)
+
+    use scale_tracer, only: &
+      TRACER_CV    
+    use scale_atmos_hydrometeor, only: &
+      CV_WATER, I_QV    
     implicit none
     class(LocalMesh3D), intent(in) :: lmesh
     class(ElementBase3D), intent(in) :: elem
@@ -132,6 +131,7 @@ contains
     real(RP), intent(out) :: RHOT_t(elem%Np,lmesh%NeA)
     real(RP), intent(out) :: RHOQV_t(elem%Np,lmesh%NeA)
     real(RP), intent(out) :: SFLX_RAIN(elem%Nnode_h1D**2,lmesh%Ne2DA)
+    real(RP), intent(out) :: SFLX_ENGI(elem%Nnode_h1D**2,lmesh%Ne2DA)
     real(RP), intent(in) :: DDENS(elem%Np,lmesh%NeA)
     real(RP), intent(in) :: DRHOT(elem%Np,lmesh%NeA)
     real(RP), intent(in) :: QV(elem%Np,lmesh%NeA)
@@ -172,14 +172,18 @@ contains
     logical  :: unstable_core_mask(elem%Nnode_v,lmesh%NeZ)    
     logical :: forced_saturation_mask(elem%Nnode_v,lmesh%NeZ)
     logical :: adjustment_mask(elem%Nnode_v,lmesh%NeZ)
-    
+
+    logical :: current_saturation_mask(elem%Nnode_v,lmesh%NeZ)
+    logical :: persistent_saturation_mask(elem%Nnode_v,lmesh%NeZ)
+
+    logical :: physical_active_mask(elem%Nnode_v,lmesh%NeZ)
     integer :: iter_adj
     real(RP) :: temp_adj(elem%Nnode_v,lmesh%NeZ)
     real(RP) :: qvap_adj(elem%Nnode_v,lmesh%NeZ)
     real(RP) :: rhoqvap_adj(elem%Nnode_v,lmesh%NeZ)
     real(RP) :: rhoprecip_adj(elem%Nnode_v,lmesh%NeZ)    ! Water-vapor mass density diagnosed to be removed as precipitation during the current adjustment iteration [kg m-3]
     real(RP) :: rhoprecip_accum(elem%Nnode_v,lmesh%NeZ)  ! Accumulated vapor mass density removed as precipitation [kg m-3]
-    real(RP) :: rhoqdry_adj(elem%Nnode_v,lmesh%NeZ)
+    real(RP) :: precip_engi_accum 
 
     real(RP), allocatable :: zlev_diag(:)
     integer :: nlev_diag
@@ -212,13 +216,14 @@ contains
     !$omp zlev_diag,                                                                                &
     !$omp lbase, ltop, lbase_try, ltop_try, zbase_try, ztop_try, iter_expand, mask_expanded,        &
     !$omp is_unstable, unstable_core_mask, forced_saturation_mask, adjustment_mask,                 &
-    !$omp temp_adj, qdry, qvap_adj, rhoqdry_adj, rhoqvap_adj, rhoprecip_adj, rhoprecip_accum,       &
+    !$omp current_saturation_mask, persistent_saturation_mask, physical_active_mask,                &
+    !$omp temp_adj, qdry, qvap_adj, rhoqvap_adj, rhoprecip_adj, rhoprecip_accum,                    &
     !$omp profile_converged, profile_status, do_adjustment, adjustment_converged,                   &
     !$omp int_weight,elem_width_z, debug_flag, lactive_base, lactive_top, active_region_initialized )
     do ke_xy=1, lmesh%Ne2D
     do ph=1, elem%Nnode_h1D**2
     
-      ! if ( lmesh%PRC_myrank == 1 .and. ph == 8 .and. ke_xy == 8 ) then
+      ! if ( lmesh%PRC_myrank == 1 .and. ph == 32 .and. ke_xy == 13 ) then
       !   debug_flag = .true.
       ! else
         debug_flag = .false.
@@ -265,14 +270,19 @@ contains
       active_region_initialized = .false.
       lactive_base = 0
       lactive_top  = 0
-      forced_saturation_mask(:,:) = .false.
+
+      forced_saturation_mask(:,:)     = .false.
+      current_saturation_mask(:,:)    = .false.
+      persistent_saturation_mask(:,:) = .false.
+      physical_active_mask(:,:)       = .false.
 
       do iter_adj=1, MCA_MAX_ADJUST_ITER
 
         qvap_adj(:,:) = rhoqvap_adj(:,:) / dens_z(:,:)
 
         ! Reconstruct the saturation constraint from the current state.
-        forced_saturation_mask(:,:) = .false.        
+        current_saturation_mask(:,:) = .false.
+        forced_saturation_mask(:,:)  = .false.        
 
         !- Diagnose unstable layers 
 
@@ -290,30 +300,42 @@ contains
         end if
         do_adjustment = .true.
 
-        ! Maintain the smallest diagnostic-level interval containing all unstable or expanded regions encountered during this column adjustment. 
+        ! Maintain the smallest diagnostic-level interval containing
+        ! all physically diagnosed unstable regions belonging to the
+        ! current connected convective-adjustment event.        
         if ( .not. active_region_initialized ) then
           lactive_base = lbase
           lactive_top  = ltop
           active_region_initialized = .true.
         else if ( lbase <= lactive_top + 1 .and. &
                   ltop  >= lactive_base - 1 ) then
-          ! The new unstable layer overlaps or directly touches the previously active connected layer.
-          lactive_base = min(lactive_base, lbase)
-          lactive_top  = max(lactive_top,  ltop)        
-        else
-          ! Union of the previously adjusted region and the newly diagnosed unstable region.
+          ! Overlapping or directly touching region:
+          ! continue the same connected adjustment.
           lactive_base = min(lactive_base, lbase)
           lactive_top  = max(lactive_top,  ltop)
+        else
+          ! Disconnected instability:
+          ! start a new independent adjustment region.
+          lactive_base = lbase
+          lactive_top  = ltop
+          persistent_saturation_mask(:,:) = .false.
         end if
 
         if ( debug_flag ) then
           write(*,*) "   persistent active region=", lactive_base, lactive_top
         end if        
 
+        ! Construct the physically connected active region.
+        ! This does not include numerical expansion used only for water/energy feasibility.
+        call make_dg_vertical_range_mask( &
+          physical_active_mask,                                    & ! (out)
+          zlev_z, zlev_diag(lactive_base), zlev_diag(lactive_top), & ! (in)
+          elem%Nnode_v, lmesh%NeZ                                  ) ! (in)
+        
         ! Mark nearly saturated DG nodes inside the diagnosed unstable core. 
         ! These nodes will be constrained to saturation in each trial moist-neutral profile.
         call make_dg_vertical_range_mask( &
-          unstable_core_mask,                                 & ! (out)
+          unstable_core_mask,                        & ! (out)
           zlev_z, zlev_diag(lbase), zlev_diag(ltop), & ! (in)
           elem%Nnode_v, lmesh%NeZ                    ) ! (in)        
 
@@ -324,10 +346,14 @@ contains
               qsat ) ! (out)
 
             rh_z = qvap_adj(pz,ke_z) / max(qsat, EPS)
-            forced_saturation_mask(pz,ke_z) = rh_z >= MCA_RH_FORCED_SATURATION
+            current_saturation_mask(pz,ke_z) = rh_z >= MCA_RH_FORCED_SATURATION
           end if
         end do
         end do
+
+        ! Keep saturation constraints inherited from previous adjustment iterations within this connected convective event.
+
+        forced_saturation_mask(:,:) = persistent_saturation_mask(:,:) .or. current_saturation_mask(:,:)
 
         !- Construct a moist-neutral profile.
         !  If no water-feasible and energy-conserving solution exists, expand the adjustment layer and retry.        
@@ -336,7 +362,7 @@ contains
         ltop_try  = lactive_top
 
         profile_converged     = .false.
-        profile_status            = MCA_PROFILE_ENERGY_MAXITER
+        profile_status        = MCA_PROFILE_ENERGY_MAXITER
 
         do iter_expand=0, MCA_MAX_MASK_EXPAND
           zbase_try = zlev_diag(lbase_try)
@@ -354,7 +380,7 @@ contains
             write(*,*) "   saturation, mixing nodes=", count(forced_saturation_mask), count(adjustment_mask)
           end if
 
-          !- Solve for a water-feasible and energy-conserving saturated profile in the adjustment layer
+          !- Solve for a water-feasible and energy-conserving trial moist-neutral profile
 
           call solve_moist_neutral_adjustment( &
             temp_adj, qvap_adj, rhoqvap_adj, rhoprecip_adj, profile_converged, profile_status,       & ! (out)
@@ -362,18 +388,29 @@ contains
             int_weight, adjustment_mask, forced_saturation_mask, elem%Nnode_v, lmesh%NeZ, debug_flag ) ! (in)
 
           if ( profile_converged ) then
-            ! The region added by water-feasibility expansion also becomes part of the persistent active region.
-            lactive_base = min(lactive_base, lbase_try)
-            lactive_top  = max(lactive_top,  ltop_try)
+            ! Update the persistent saturation history using the post-adjustment state in the physically connected region.
+            do ke_z = 1, lmesh%NeZ
+            do pz = 1, elem%Nnode_v
+              if ( physical_active_mask(pz,ke_z) ) then
+              
+                call ATMOS_SATURATION_pres2qsat_liq( temp_adj(pz,ke_z), pres_z(pz,ke_z), &
+                  qsat )
+            
+                rh_z = qvap_adj(pz,ke_z) / qsat
+                if ( rh_z >= MCA_RH_FORCED_SATURATION ) then
+                  persistent_saturation_mask(pz,ke_z) = .true.
+                end if
+              end if
+            end do
+            end do
 
             if ( debug_flag ) then
-              write(*,*) "Moist-neutral profile converged: iter_expand=", iter_expand, "final: lbase, ltop=", lbase_try, ltop_try, ", zbase, ztop=", zbase_try, ztop_try
-
-              ! write(*,*) " check:"
-              ! call diagnose_convective_layer( lbase, ltop, is_unstable, zlev_diag,   & ! (out)
-              !   temp_aj, qvap_aj, pres_z, zlev_z, lmesh, elem, nlev_diag, debug_flag, .true., lbase_try, ltop_try ) ! (in)
+              write(*,*) "Moist-neutral profile converged: iter_expand=", iter_expand
+              write(*,*) "final solve region: lbase, ltop=", lbase_try, ltop_try
+              write(*,*) "physical active region=", lactive_base, lactive_top
+              write(*,*) "persistent saturated nodes=", count(persistent_saturation_mask)
             end if
-            exit            
+            exit
           end if
 
           select case ( profile_status )
@@ -422,6 +459,14 @@ contains
         temp_z(:,:) = temp_adj(:,:)
         qvap_z(:,:) = qvap_adj(:,:)
       
+        do ke_z = 1, lmesh%NeZ
+        do pz   = 1, elem%Nnode_v
+          qdry = 1.0_RP - qvap_z(pz,ke_z)
+          rtot_ = Rdry * qdry &
+                + Rvap * qvap_z(pz,ke_z)
+          pres_z(pz,ke_z) = dens_z(pz,ke_z) * rtot_  * temp_z(pz,ke_z)
+        enddo
+        enddo        
       end do ! End loop for iteration
   
       if ( do_adjustment .and. ( .not. adjustment_converged ) ) then
@@ -432,7 +477,11 @@ contains
       
       !- Convert the adjusted state to DG tendencies
 
+      SFLX_RAIN(ph,ke_xy) = 0.0_RP
+      SFLX_ENGI(ph,ke_xy) = 0.0_RP
+
       if ( do_adjustment ) then
+
         do ke_z=1, lmesh%NeZ
           ke = ke_xy + (ke_z-1)*lmesh%Ne2D
 
@@ -446,6 +495,11 @@ contains
 
             pres_z(pz,ke_z) = dens_z(pz,ke_z) * rtot_ * temp_z(pz,ke_z)
             pott_z(pz,ke_z) = temp_adj(pz,ke_z) * ( PRES0 / pres_z(pz,ke_z) )**( rtot_ / cptot_ )
+
+            SFLX_RAIN(ph,ke_xy) = SFLX_RAIN(ph,ke_xy) &
+                                - rhoprecip_accum(pz,ke_z) * int_weight(pz,ke_z) / dtsec
+            SFLX_ENGI(ph,ke_xy) = SFLX_ENGI(ph,ke_xy) &
+                                - temp_adj(pz,ke_z) * rhoprecip_accum(pz,ke_z) * int_weight(pz,ke_z) * cptot_ / dtsec
           end do
 
           do pz=1, elem%Nnode_v
@@ -456,8 +510,13 @@ contains
           end do
         end do
 
-        SFLX_RAIN(ph,ke_xy) = sum( rhoprecip_accum(:,:) * int_weight(:,:) ) / dtsec
-
+        if ( debug_flag ) then
+          write(*,*) " MCA summary:"
+          write(*,*) "   del_DENS: ", dens_z(:,:) - dens_ini(:,:)
+          write(*,*) "   del_RHOT: ", dens_z(:,:) * pott_z(:,:) - dens_ini(:,:) * pott_ini(:,:)
+          write(*,*) "   del_RHOQV: ", dens_z(:,:) * qvap_z(:,:) - rhoqvap_ini(:,:)
+          write(*,*) "----------------------------------------------------------------"
+        end if
       else
         do ke_z=1, lmesh%NeZ
           ke = ke_xy + (ke_z-1)*lmesh%Ne2D
@@ -468,7 +527,6 @@ contains
             RHOQV_t(p,ke) = 0.0_RP
           end do
         end do
-        SFLX_RAIN(ph,ke_xy) = 0.0_RP
       end if
 
     end do ! end loop for ph
@@ -581,7 +639,7 @@ contains
       rh_z(pz,ke_z) = qvap_z(pz,ke_z) / max(qsat, EPS)
 
       cptot = CPdry * (1.0_RP - qsat) + CP_VAPOR * qsat
-      hmse_sat_z(pz,ke_z) = cptot * temp_z(pz,ke_z) + GRAV * zlev_z(pz,ke_z) + LHV0 * qsat
+      hmse_sat_z(pz,ke_z) = cptot * temp_z(pz,ke_z) + GRAV * zlev_z(pz,ke_z) + LHV * qsat
     end do
     end do
 
@@ -682,7 +740,8 @@ contains
 
     expanded = .false.
 
-    ! Symmetrically expand by one diagnostic level whenever possible.
+    ! Expand by one diagnostic level on each side where possible.
+
     if ( can_expand_below ) then
       lbase = lbase - 1
       expanded = .true.
@@ -703,17 +762,17 @@ contains
   !!
 !OCL SERIAL
   subroutine solve_moist_neutral_adjustment( &
-    temp_adj, qvap_adj, rhoqvap_aj, rhoprecip_aj, converged, profile_status, & ! (out)
-    qvap, pres, zlev, dens, temp,                                            & ! (in)
-    int_weight, mix_mask, saturation_mask, npz, nez, debug_flag              ) ! (in)
+    temp_adj, qvap_adj, rhoqvap_adj, rhoprecip_adj, converged, profile_status, & ! (out)
+    qvap, pres, zlev, dens, temp,                                              & ! (in)
+    int_weight, mix_mask, saturation_mask, npz, nez, debug_flag                ) ! (in)
 
     implicit none
     integer, intent(in) :: npz
     integer, intent(in) :: nez
     real(RP), intent(out) :: temp_adj(npz,nez)
     real(RP), intent(out) :: qvap_adj(npz,nez)
-    real(RP), intent(out) :: rhoqvap_aj(npz,nez)
-    real(RP), intent(out) :: rhoprecip_aj(npz,nez)
+    real(RP), intent(out) :: rhoqvap_adj(npz,nez)
+    real(RP), intent(out) :: rhoprecip_adj(npz,nez)
     logical, intent(out) :: converged
     integer, intent(out) :: profile_status
     real(RP), intent(in) :: qvap(npz,nez)
@@ -738,17 +797,21 @@ contains
     ! Energy root bracket
     real(RP) :: tbase_lo, tbase_mid, tbase_hi
     real(RP) :: residual_lo, residual_hi
+
+    real(RP) :: water_tmin, energy_tmin    
+    real(RP) :: water_wlo, water_whi
+    real(RP) :: energy_wlo, energy_whi
+
     real(RP) :: energy_lo, energy_hi
     real(RP) :: water_lo, water_hi
 
     ! Water-feasible upper-bound search
     real(RP) :: twater_lo, twater_mid, twater_hi
-    real(RP) :: tbase_water_max
-    real(RP) :: water_mid
-    real(RP) :: energy_dummy
+    real(RP) :: water_mid, energy_mid
 
     ! Work arrays
     real(RP) :: temp_trial(npz,nez)
+    real(RP) :: pres_trial(npz,nez)
     real(RP) :: qvap_trial(npz,nez)
 
     ! Precipitation diagnostics
@@ -783,8 +846,8 @@ contains
 
     temp_adj(:,:) = temp(:,:)
     qvap_adj(:,:) = qvap(:,:)
-    rhoqvap_aj(:,:) = dens(:,:) * qvap(:,:)
-    rhoprecip_aj(:,:) = 0.0_RP
+    rhoqvap_adj(:,:) = dens(:,:) * qvap(:,:)
+    rhoprecip_adj(:,:) = 0.0_RP
 
     !- Calculate initial column-integrated MSE
 
@@ -814,7 +877,7 @@ contains
     if ( .not. found_base ) then
       profile_status = MCA_PROFILE_NO_ADJUSTED_NODE
       if ( debug_flag ) then
-        write(*,*) "construct_moist_neutral_profile: No adjusted DG node was found."
+        write(*,*) "solve_moist_neutral_adjustment: No adjusted DG node was found."
       end if
       return
     end if
@@ -833,48 +896,56 @@ contains
 
     water_tol = MCA_WATER_ATOL + MCA_WATER_RTOL * max(abs(water_mass_ini),1.0_RP)    
 
-    !- Step 1:
+    != Step 1:
     ! Determine the upper limit of the water-feasible base temperature.
     ! A trial moist-neutral profile is water-feasible when its vapor mass does not exceed the initial vapor mass in the adjustment region.
 
     twater_lo = tbase_mid - MCA_TBASE_RANGE
     twater_hi = tbase_mid + MCA_TBASE_RANGE
 
-    ! Evaluate the water mass at the lower bound of the temperature range
+    !- Evaluate the water mass at the lower bound of the temperature range
 
-    call evaluate_trial_moist_neutral_profile( temp_trial, qvap_trial, water_lo, energy_dummy, adiabat_profile_ok, & ! (out)
-      twater_lo, temp, qvap, dens, pres, zlev, int_weight, mix_mask, saturation_mask, nez, npz, debug_flag         ) ! (in)
+    pres_trial(:,:) = pres(:,:)
+    call evaluate_trial_moist_neutral_profile( temp_trial, qvap_trial, water_tmin, energy_tmin, adiabat_profile_ok, & ! (out)
+      pres_trial,                                                                                                 & ! (inout)
+      twater_lo, temp, qvap, dens, zlev, int_weight, mix_mask, saturation_mask, nez, npz, debug_flag  ) ! (in)
 
-    if ( adiabat_profile_ok ) then
-      water_lo_feasible = ( water_lo <= water_mass_ini + water_tol )
-    else
+    if ( .not. adiabat_profile_ok ) then
       profile_status = MCA_PROFILE_ADIABAT_FAILURE
       if ( debug_flag ) then
-        write(*,*) "construct_moist_neutral_profile: Moist-adiabat integration failed. tbase_lo=", twater_lo
+        write(*,*) "solve_moist_neutral_adjustment: Moist-adiabat integration failed. tbase_lo=", twater_lo
       end if
       return
     end if
 
+    water_lo_feasible = ( water_tmin <= water_mass_ini + water_tol )
     if ( .not. water_lo_feasible ) then
       profile_status = MCA_PROFILE_NO_WATER_FEASIBLE_STATE
 
       if ( debug_flag ) then
         write(*,*) "No water-feasible saturated profile exists."
-        write(*,*) "  tbase_lo=", twater_lo, "water_mass_lo=", water_lo, "water_mass_ini =", water_mass_ini
+        write(*,*) "  tbase_lo=", twater_lo, "water_mass_lo=", water_tmin, "water_mass_ini =", water_mass_ini
       end if
       return
     end if  
-    
-    ! Evaluate the water mass at the upper bound of the temperature range
 
-    call evaluate_trial_moist_neutral_profile( temp_trial, qvap_trial, water_hi, energy_dummy, adiabat_profile_ok, & ! (out)
-      twater_hi, temp, qvap, dens, pres, zlev, int_weight, mix_mask, saturation_mask, nez, npz, debug_flag         ) ! (in)
+    ! Initialize the feasible side of the water-search bracket.
+    water_wlo  = water_tmin
+    energy_wlo = energy_tmin    
+
+    
+    !- Evaluate the water mass at the upper bound of the temperature range
+
+    pres_trial(:,:) = pres(:,:)
+    call evaluate_trial_moist_neutral_profile( temp_trial, qvap_trial, water_whi, energy_whi, adiabat_profile_ok, & ! (out)
+      pres_trial,                                                                                     & ! (inout)
+      twater_hi, temp, qvap, dens, zlev, int_weight, mix_mask, saturation_mask, nez, npz, debug_flag  ) ! (in)
 
     if ( adiabat_profile_ok ) then
-      water_hi_feasible = ( water_hi <= water_mass_ini + water_tol )
+      water_hi_feasible = ( water_whi <= water_mass_ini + water_tol )
     else
       water_hi_feasible = .false.
-      water_hi = huge(1.0_RP)
+      water_whi = huge(1.0_RP)
 
       if ( debug_flag ) then
         write(*,*) "High-temperature trial profile is not admissible."
@@ -886,8 +957,8 @@ contains
 
     if ( debug_flag ) then
       write(*,*) "Water feasibility at initial bounds:"
-      write(*,*) "  t_lo, water_lo  =", twater_lo, water_lo
-      write(*,*) "  t_hi, water_hi  =", twater_hi, water_hi
+      write(*,*) "  t_lo, water_lo  =", twater_lo, water_tmin
+      write(*,*) "  t_hi, water_hi  =", twater_hi, water_whi
       write(*,*) "  lower feasible  =", water_lo_feasible
       write(*,*) "  upper feasible  =", water_hi_feasible      
       write(*,*) "  water_mass_ini  =", water_mass_ini
@@ -895,11 +966,7 @@ contains
     end if
 
 
-    if ( water_hi_feasible ) then
-      ! If the high side is still feasible, the chosen initial temperature range does not yet contain the water or thermodynamic upper boundary.
-      tbase_water_max = twater_hi
-    else    
-
+    if ( .not. water_hi_feasible ) then
       ! Search for the maximum base temperature for which the moist-adiabat construction succeeds 
       ! and the resulting vapor mass remains feasible.      
       ! The lower endpoint is always:
@@ -910,83 +977,74 @@ contains
       !   - water infeasible, or
       !   - thermodynamically inadmissible
 
-      do iter_water = 1, MCA_MAX_WATER_ITER
-        twater_mid = 0.5_RP * (twater_lo + twater_hi)
+      pres_trial(:,:) = pres(:,:)
 
-        call evaluate_trial_moist_neutral_profile( temp_trial, qvap_trial, water_mid, energy_dummy, adiabat_profile_ok, & ! (out)
-          twater_mid, temp, qvap, dens, pres, zlev, int_weight, mix_mask, saturation_mask, nez, npz, debug_flag         ) ! (in)
+      do iter_water = 1, MCA_MAX_WATER_ITER
+        twater_mid = 0.5_RP * ( twater_lo + twater_hi )
+
+        call evaluate_trial_moist_neutral_profile( temp_trial, qvap_trial, water_mid, energy_mid, adiabat_profile_ok, & ! (out)
+          pres_trial,                                                                                                   & ! (inout)
+          twater_mid, temp, qvap, dens, zlev, int_weight, mix_mask, saturation_mask, nez, npz, debug_flag         ) ! (in)
 
         if ( .not. adiabat_profile_ok ) then
           ! Thermodynamically inadmissible midpoint:
           ! move the upper boundary downward.
           twater_hi = twater_mid
-          water_hi  = huge(1.0_RP)
+          water_whi  = huge(1.0_RP)
+          energy_whi = huge(1.0_RP)
 
-          if ( debug_flag ) then
-            write(*,*) "water iter=", iter_water
-            write(*,*) "  inadmissible midpoint=", twater_mid, "  new bracket=", twater_lo, twater_hi
-          end if
+          ! if ( debug_flag ) then
+          !   write(*,*) "water iter=", iter_water
+          !   write(*,*) "  inadmissible midpoint=", twater_mid, "  new bracket=", twater_lo, twater_hi
+          ! end if
 
           if ( abs(twater_hi - twater_lo) <= MCA_TEMP_TOL ) exit
-
           cycle
         end if
 
         if ( water_mid <= water_mass_ini + water_tol ) then
           ! Admissible and water feasible.
           twater_lo = twater_mid
-          water_lo  = water_mid
+          water_wlo  = water_mid
+          energy_wlo = energy_mid
         else
           ! Admissible but water infeasible.
           twater_hi = twater_mid
-          water_hi  = water_mid
+          water_whi  = water_mid
+          energy_whi = energy_mid
         end if
 
-        if ( debug_flag ) then
-          write(*,*) "water iter=", iter_water, ", tbase=", twater_lo, twater_mid, twater_hi, ", water=", water_lo, water_mid, water_hi, ", target=", water_mass_ini
-        end if
+        ! if ( debug_flag ) then
+        !   write(*,*) "water iter=", iter_water, ", tbase=", twater_lo, twater_mid, twater_hi, ", water=", water_wlo, water_mid, water_whi, ", target=", water_mass_ini
+        ! end if
 
         if ( abs(twater_hi - twater_lo) <= MCA_TEMP_TOL ) exit
         if ( abs(water_mid - water_mass_ini) <= water_tol ) exit
       end do
-
-      ! The lower endpoint is maintained on the valid and water-feasible side.      
-      tbase_water_max = twater_lo      
     end if
 
+    ! Lower endpoint of the energy root search.
+    tbase_lo = tbase_mid - MCA_TBASE_RANGE
+    water_lo = water_tmin
+    energy_lo = energy_tmin    
+
+    if ( water_hi_feasible ) then
+      ! Initial upper bound itself is water feasible.
+      tbase_hi = twater_hi
+      water_hi = water_whi
+      energy_hi = energy_whi
+    else
+      ! The final feasible lower side of the water bracket
+      ! is the maximum admissible/water-feasible base temperature.
+      tbase_hi = twater_lo
+      water_hi = water_wlo
+      energy_hi = energy_wlo
+    end if
 
     !- Step 2:
     ! Evaluate the energy residual at both ends of the water-feasible interval.
 
-    tbase_lo = tbase_mid - MCA_TBASE_RANGE
-    tbase_hi = tbase_water_max
-
-    !-
-    call evaluate_trial_moist_neutral_profile( temp_trial, qvap_trial, water_lo, energy_lo, adiabat_profile_ok, & ! (out)
-      tbase_lo, temp, qvap, dens, pres, zlev, int_weight, mix_mask, saturation_mask, nez, npz, debug_flag       ) ! (in)
-
-    if ( .not. adiabat_profile_ok ) then
-      profile_status = MCA_PROFILE_ADIABAT_FAILURE
-      return
-    end if
-
     residual_lo = energy_lo - energy_target
-
-    !-
-    call evaluate_trial_moist_neutral_profile( temp_trial, qvap_trial, water_hi, energy_hi, adiabat_profile_ok, & ! (out)
-      tbase_hi, temp, qvap, dens, pres, zlev, int_weight, mix_mask, saturation_mask, nez, npz, debug_flag       ) ! (in)
-
-    if ( .not. adiabat_profile_ok ) then
-      profile_status = MCA_PROFILE_ADIABAT_FAILURE
-
-      if ( debug_flag ) then
-        write(*,*) "Internal inconsistency:"
-        write(*,*) "  tbase_water_max should be admissible but evaluation failed."
-        write(*,*) "  tbase_hi=", tbase_hi
-      end if
-      return
-    end if
-
     residual_hi = energy_hi - energy_target
 
     if ( debug_flag ) then
@@ -1005,9 +1063,10 @@ contains
 
     ! Check whether either endpoint is already an energy root.
     if ( abs(residual_lo) <= boundary_energy_tol ) then
-
+      pres_trial(:,:) = pres(:,:)
       call evaluate_trial_moist_neutral_profile( temp_adj, qvap_adj, water_mass_adj, energy_trial, adiabat_profile_ok, & ! (out)
-        tbase_lo, temp, qvap, dens, pres, zlev, int_weight, mix_mask, saturation_mask, nez, npz, debug_flag            ) ! (in)
+        pres_trial,                                                                                                    & ! (inout)
+        tbase_lo, temp, qvap, dens, zlev, int_weight, mix_mask, saturation_mask, nez, npz, debug_flag            ) ! (in)
 
       if ( .not. adiabat_profile_ok ) then
         profile_status = MCA_PROFILE_ADIABAT_FAILURE
@@ -1017,9 +1076,10 @@ contains
       profile_status = MCA_PROFILE_SUCCESS
 
     else if ( abs(residual_hi) <= boundary_energy_tol ) then
-
+      pres_trial(:,:) = pres(:,:)
       call evaluate_trial_moist_neutral_profile( temp_adj, qvap_adj, water_mass_adj, energy_trial, adiabat_profile_ok, & ! (out)
-        tbase_hi, temp, qvap, dens, pres, zlev, int_weight, mix_mask, saturation_mask, nez, npz, debug_flag            ) ! (in)
+        pres_trial,                                                                                                    & ! (inout)
+        tbase_hi, temp, qvap, dens, zlev, int_weight, mix_mask, saturation_mask, nez, npz, debug_flag                  ) ! (in)
 
       if ( .not. adiabat_profile_ok ) then
         profile_status = MCA_PROFILE_ADIABAT_FAILURE
@@ -1047,12 +1107,16 @@ contains
     ! If the endpoint check found a valid bracket, solve the column-energy constraint by bisection.
     
     if ( .not. converged ) then
+      
+      pres_trial(:,:) = pres(:,:)
+
       do iter=1, MCA_MAX_ENERGY_ITER
 
         tbase_mid = 0.5_RP * ( tbase_lo + tbase_hi )
 
         call evaluate_trial_moist_neutral_profile( temp_adj, qvap_adj, water_trial, energy_trial, adiabat_profile_ok, & ! (out)
-          tbase_mid, temp, qvap, dens, pres, zlev, int_weight, mix_mask, saturation_mask, nez, npz, debug_flag        ) ! (in)
+          pres_trial,                                                                                                 & ! (inout)
+          tbase_mid, temp, qvap, dens, zlev, int_weight, mix_mask, saturation_mask, nez, npz, debug_flag              ) ! (in)
 
         if ( .not. adiabat_profile_ok ) then
           profile_status = MCA_PROFILE_ADIABAT_FAILURE
@@ -1079,13 +1143,13 @@ contains
 
         residual = energy_trial - energy_target
 
-        if ( debug_flag ) then
-          write(*,*) "energy iter=", iter
-          write(*,*) "  tbase=", tbase_lo, tbase_mid, tbase_hi
-          write(*,*) "  energy_trial=", energy_trial, ", energy_target=", energy_target
-          write(*,*) "  residual=", residual
-          write(*,*) "  water_trial=", water_trial
-        end if
+        ! if ( debug_flag ) then
+        !   write(*,*) "energy iter=", iter
+        !   write(*,*) "  tbase=", tbase_lo, tbase_mid, tbase_hi
+        !   write(*,*) "  energy_trial=", energy_trial, ", energy_target=", energy_target
+        !   write(*,*) "  residual=", residual
+        !   write(*,*) "  water_trial=", water_trial
+        ! end if
 
         if ( abs(residual) <= energy_tol ) then
           water_mass_adj = water_trial
@@ -1122,14 +1186,14 @@ contains
     ! Step 4:
     ! Convert the converged vapor mixing ratio to density form and diagnose precipitation.
 
-    rhoqvap_aj(:,:) = dens(:,:) * qvap_adj(:,:)
+    rhoqvap_adj(:,:) = dens(:,:) * qvap_adj(:,:)
 
     precip_mass_total = max( 0.0_RP, water_mass_ini - water_mass_adj )
     positive_cond_mass = 0.0_RP
     do ke_z=1, nez
     do pz=1, npz
       if ( mix_mask(pz,ke_z) ) then
-        precip_mass_local = max( 0.0_RP, dens(pz,ke_z) * qvap(pz,ke_z) - rhoqvap_aj(pz,ke_z) )
+        precip_mass_local = max( 0.0_RP, dens(pz,ke_z) * qvap(pz,ke_z) - rhoqvap_adj(pz,ke_z) )
 
         positive_cond_mass = positive_cond_mass + precip_mass_local * int_weight(pz,ke_z)
       end if
@@ -1143,8 +1207,8 @@ contains
       do ke_z=1, nez
       do pz=1, npz
         if ( mix_mask(pz,ke_z) ) then
-          precip_mass_local = max( 0.0_RP, dens(pz,ke_z) * qvap(pz,ke_z) - rhoqvap_aj(pz,ke_z) )
-          rhoprecip_aj(pz,ke_z) = precip_scale * precip_mass_local
+          precip_mass_local = max( 0.0_RP, dens(pz,ke_z) * qvap(pz,ke_z) - rhoqvap_adj(pz,ke_z) )
+          rhoprecip_adj(pz,ke_z) = precip_scale * precip_mass_local
         end if
       end do
       end do
@@ -1156,7 +1220,8 @@ contains
 !OCL SERIAL
   subroutine evaluate_trial_moist_neutral_profile( &
     temp_work, qvap_work, water_mass, energy, profile_ok,  & ! (out)
-    tbase, temp, qvap, dens, pres, zlev, int_weight,       & ! (in)
+    pres_work,                                             & ! (inout)
+    tbase, temp, qvap, dens, zlev, int_weight,             & ! (in)
     adj_mask, forced_saturation_mask, nez, npz, debug_flag ) ! (in)
     implicit none
 
@@ -1167,10 +1232,10 @@ contains
     real(RP), intent(out) :: water_mass
     real(RP), intent(out) :: energy
     logical,  intent(out) :: profile_ok
+    real(RP), intent(inout)  :: pres_work(npz,nez)
     real(RP), intent(in)  :: tbase
     real(RP), intent(in)  :: temp(npz,nez)
     real(RP), intent(in)  :: qvap(npz,nez)
-    real(RP), intent(in)  :: pres(npz,nez)
     real(RP), intent(in)  :: zlev(npz,nez)
     real(RP), intent(in)  :: dens(npz,nez)
     real(RP), intent(in)  :: int_weight(npz,nez)
@@ -1180,18 +1245,34 @@ contains
 
     real(RP) :: qsat_work(npz,nez)
 
+real(RP) :: pres_new(npz,nez)
+real(RP) :: qdry_work
+real(RP) :: rtot_work
+real(RP) :: pres_err
+integer, parameter :: MCA_MAX_PRES_ITER = 5
+real(RP), parameter :: MCA_PRES_RTOL = 1.0E-6_RP
+integer :: iter_pres
+
     integer :: ke_z, pz
     !------------------------------------------------
 
     temp_work(:,:) = temp(:,:)
     qvap_work(:,:) = qvap(:,:)
-    qsat_work(:,:) = 0.0_RP
+    qsat_work(:,:) = 0.0_RP  
 
-    !- Evaluate the reference temperature profile over mix_mask.
+do iter_pres = 1, MCA_MAX_PRES_ITER
+! Reset trial fields before rebuilding the profile.
+temp_work(:,:) = temp(:,:)
+qvap_work(:,:) = qvap(:,:)
+qsat_work(:,:) = 0.0_RP
+! Preserve pressure outside adj_mask.
+pres_new(:,:) = pres_work(:,:)
+
+    !- Evaluate the reference temperature profile over adj_mask.
 
     call build_moist_adiabat_temperature( &
-      temp_work, qsat_work, profile_ok,                 & ! (inout,out)
-      tbase, pres, zlev, adj_mask, npz, nez, debug_flag ) ! (in)
+      temp_work, qsat_work, profile_ok,                      & ! (inout,out)
+      tbase, pres_work, zlev, adj_mask, npz, nez, debug_flag ) ! (in)
 
     if ( .not. profile_ok ) then
       water_mass = huge(1.0_RP)
@@ -1220,7 +1301,43 @@ contains
     end do
     end do    
 
-    !- Column water over the full mixing region.
+
+! 4. Pressure convergence check.
+!------------------------------------------------------------
+  pres_err = 0.0_RP
+  do ke_z = 1, nez
+  do pz = 1, npz
+    if ( adj_mask(pz,ke_z) ) then
+      qdry_work = 1.0_RP - qvap_work(pz,ke_z)
+      rtot_work = Rdry * qdry_work &
+                + Rvap * qvap_work(pz,ke_z)
+      pres_new(pz,ke_z) = dens(pz,ke_z) &
+                        * rtot_work         &
+                        * temp_work(pz,ke_z)
+
+      pres_err = max( pres_err, &
+        abs( pres_new(pz,ke_z) - pres_work(pz,ke_z) ) &
+        / max( abs(pres_work(pz,ke_z)), 1.0_RP ) )
+    end if
+  end do
+  end do
+
+pres_work(:,:) = pres_new(:,:)
+if ( pres_err <= MCA_PRES_RTOL ) exit 
+if ( iter_pres == MCA_MAX_PRES_ITER ) then
+  profile_ok = .false.
+  water_mass = huge(1.0_RP)
+  energy     = huge(1.0_RP)
+  if ( debug_flag ) then
+    write(*,*) "evaluate_trial_moist_neutral_profile: Pressure iteration failed to converge."
+    write(*,*) "  pres_err=", pres_err, "MCA_PRES_RTOL=", MCA_PRES_RTOL
+  end if
+  return
+end if
+
+end do
+
+    !- Column water over the full adjustment region.
 
     water_mass = 0.0_RP
     do ke_z = 1, nez
@@ -1231,7 +1348,7 @@ contains
     end do
     end do
 
-    !- Column MSE over the full mixing region.
+    !- Column MSE over the full adjustment region.
 
     call integ_masked_column_mse( energy, & ! (out)
       temp_work, qvap_work, zlev, dens,   & ! (in)
@@ -1276,7 +1393,7 @@ contains
         
         energy = energy + int_weight(pz,ke_z) * dens(pz,ke_z) * &
           ( cptot * temp(pz,ke_z) + GRAV * zlev(pz,ke_z)        &
-          + LHV0 * qv(pz,ke_z)                                  )
+          + LHV * qv(pz,ke_z)                                   )
       end if
     end do
     end do
@@ -1361,14 +1478,18 @@ contains
     real(RP), intent(in)  :: zlev1
 
     real(RP) :: temp_lo, temp_mid, temp_hi
-    real(RP) :: f_lo, f_mid, f_hi
-    real(RP) :: hs_target, hs_mid
+    real(RP) :: temp_cur, temp_new
+    real(RP) :: f_lo, f_hi, f_cur
+    real(RP) :: hs_target, hs_cur
+    real(RP) :: dhs_dtemp
     real(RP) :: temp_tol,  energy_tol
 
     integer :: iter
 
     integer, parameter :: MAX_ITER = 60
     real(RP), parameter :: TEMP_RANGE = 40.0_RP
+
+    logical :: use_newton
     !----------------------------------------------------
 
     converged = .false.
@@ -1380,12 +1501,12 @@ contains
     temp_hi = temp0 + TEMP_RANGE
 
     call saturated_mse_point( temp_lo, pres1, zlev1, &
-      hs_mid )
-    f_lo = hs_mid - hs_target
+      hs_cur )
+    f_lo = hs_cur - hs_target
 
     call saturated_mse_point( temp_hi, pres1, zlev1, &
-      hs_mid )
-    f_hi = hs_mid - hs_target
+      hs_cur )
+    f_hi = hs_cur - hs_target
 
     if ( f_lo * f_hi > 0.0_RP ) then
       return
@@ -1394,32 +1515,54 @@ contains
     energy_tol = MCA_LOCAL_HMSE_ATOL + MCA_LOCAL_HMSE_RTOL * abs(hs_target)
     temp_tol   = MCA_TEMP_TOL
 
+    temp_cur = min( max(temp0, temp_lo), temp_hi )
+
     do iter = 1, MAX_ITER
-      temp_mid = 0.5_RP * ( temp_lo + temp_hi )
-
-      call saturated_mse_point( temp_mid, pres1, zlev1, &
-        hs_mid )
-
-      f_mid = hs_mid - hs_target
-
-      if ( f_lo * f_mid <= 0.0_RP ) then
-        temp_hi = temp_mid
-        f_hi    = f_mid
-      else
-        temp_lo = temp_mid
-        f_lo    = f_mid
-      end if
-
-      if (     ( abs(temp_hi - temp_lo) <= temp_tol ) &
-          .or. ( abs(f_mid) <= energy_tol )           ) then
-        temp1 = temp_mid
+      
+      call saturated_mse_point_with_derivative( temp_cur, pres1, zlev1, &
+        hs_cur, dhs_dtemp )
+      
+      f_cur = hs_cur - hs_target
+      if ( abs(f_cur) <= energy_tol ) then
+        temp1 = temp_cur
         converged = .true.
         return
       end if
-      
+
+      ! Update bracket using current function value.      
+      if ( f_lo * f_cur <= 0.0_RP ) then
+        temp_hi = temp_cur
+        f_hi    = f_cur
+      else
+        temp_lo = temp_cur
+        f_lo    = f_cur
+      end if
+
+      ! A sufficiently small bracket is also convergence.
+      if ( abs(temp_hi - temp_lo) <= temp_tol ) then
+        temp1 = 0.5_RP * (temp_lo + temp_hi)
+        converged = .true.
+        return
+      end if      
+
+      ! Safeguarded Newton step.
+
+      use_newton = .false.
+      if ( abs(dhs_dtemp) > EPS ) then
+        temp_new = temp_cur - f_cur / dhs_dtemp
+        if ( temp_new > temp_lo .and. temp_new < temp_hi ) then
+          use_newton = .true.
+        end if
+      end if
+
+      if ( .not. use_newton ) then
+        temp_new = 0.5_RP * (temp_lo + temp_hi)
+      end if
+
+      temp_cur = temp_new
     end do
 
-    temp1 = temp_mid
+    temp1 = temp_cur
     return
   contains
     subroutine saturated_mse_point( &
@@ -1436,12 +1579,48 @@ contains
       call ATMOS_SATURATION_pres2qsat_liq( &
         temp, pres, qsat )
 
-      cptot = CPdry * (1.0_RP-qsat) + CP_VAPOR * qsat
+      cptot = CPdry * ( 1.0_RP - qsat ) + CP_VAPOR * qsat
 
-      hmse_sat = cptot * temp + GRAV * zlev  + LHV0 * qsat
+      hmse_sat = cptot * temp + GRAV * zlev  + LHV * qsat
       return
     end subroutine saturated_mse_point
   end subroutine solve_next_moist_adiabat_temp
 
+  subroutine saturated_mse_point_with_derivative( &
+      temp, pres, zlev, hmse_sat, dhmse_dtemp )
+      use scale_atmos_saturation, only: ATMOS_SATURATION_dqs_dtem_dpre_liq
+      implicit none
+      real(RP), intent(in)  :: temp
+      real(RP), intent(in)  :: pres
+      real(RP), intent(in)  :: zlev
+      real(RP), intent(out) :: hmse_sat
+      real(RP), intent(out) :: dhmse_dtemp
+
+      real(RP) :: qsat
+      real(RP) :: dqsat_dtemp
+      real(RP) :: dqsat_dpres
+      real(RP) :: cptot
+      real(RP) :: qdry_dummy
+      !--------------------------------------------------
+
+      call ATMOS_SATURATION_pres2qsat_liq( temp, pres, &
+        qsat )
+      call ATMOS_SATURATION_dqs_dtem_dpre_liq( temp, pres, qdry_dummy, &
+        dqsat_dtemp, dqsat_dpres )
+      
+      cptot = CPdry * (1.0_RP - qsat) &
+            + CP_VAPOR * qsat
+
+      hmse_sat = cptot * temp + GRAV * zlev  + LHV * qsat
+
+      ! h_s = cp(qs) T + gz + Lv qs
+      !   where cp(qs) = Cp_d + (Cp_v-Cp_d) qs
+      !
+      ! * dh_s/dT = cp(qs) + T (Cp_v-Cp_d) dqs/dT + Lv dqs/dT
+
+      dhmse_dtemp = cptot &
+                  + ( ( CP_VAPOR - CPdry ) * temp + LHV ) * dqsat_dtemp
+      return
+    end subroutine saturated_mse_point_with_derivative  
 end module scale_atm_phy_cp_dgm_mconv_adjustment
 
