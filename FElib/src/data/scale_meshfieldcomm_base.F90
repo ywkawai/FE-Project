@@ -259,6 +259,13 @@ contains
     !-----------------------------------------------------------------------------
 
     if (this%field_num_tot > 0) then
+      if ( this%MPI_pc_flag ) then
+        do ireq=1, this%req_counter
+          call MPI_request_free( this%request_pc(ireq), ierr )
+        end do           
+        deallocate( this%request_pc ) 
+      end if
+
       !$acc exit data delete(this%send_buf, this%recv_buf)
       deallocate( this%send_buf, this%recv_buf )
       !$acc exit data delete(this%request_send, this%request_recv)
@@ -383,6 +390,7 @@ contains
     !
     if ( this%MPI_pc_flag ) then
 #ifdef _OPENACC
+#ifndef GPU_AWARE_MPI
       do n=1, this%mesh%LOCAL_MESH_NUM      
       do f=1, this%nfaces_comm
         lcommdata => commdata_list(f,n)
@@ -391,9 +399,10 @@ contains
         end if
       end do
       end do
-      !$acc wait(1)
-
 #endif
+      !$acc wait(1)
+#endif
+
       !$omp parallel
       !$omp master
       if ( this%use_mpi_pc_fujitsu_ext ) then
@@ -424,6 +433,10 @@ contains
       !$acc wait(1)
       !$omp end parallel
     else
+
+#if defined(_OPENACC) && defined(GPU_AWARE_MPI)
+      !$acc wait(1)
+#endif
       this%req_counter = 0
       do n=1, this%mesh%LOCAL_MESH_NUM      
       do f=1, this%nfaces_comm
@@ -432,7 +445,6 @@ contains
           commdata_list                                           ) ! (inout) 
       end do
       end do
-      !$acc wait(1)
     end if
 
 !    call PROF_rapend( 'meshfiled_comm_ex_core', 3)
@@ -491,7 +503,7 @@ contains
       end if
     end if
 
-#ifdef _OPENACC
+#if defined(_OPENACC) && !defined(GPU_AWARE_MPI)
     do n=1, this%mesh%LOCAL_MESH_NUM
     do f=1, this%nfaces_comm
         if ( commdata_list(f,n)%s_rank /= commdata_list(f,n)%lcmesh%PRC_myrank ) then
@@ -535,22 +547,6 @@ contains
       end do ! end loop for face
       end do
       end do
-#ifdef _OPENACC
-      do n=1, this%mesh%LOCAL_MESH_NUM
-      do i=1, size(field_list)
-      do f=1, this%nfaces_comm
-        var_id = varid_s + i - 1
-        if (dim==1) then
-          !$acc update device( field_list(var_id)%field1d%local(n)%val(irs(f,n):ire(f,n)) ) async(1)
-        else if (dim==2) then
-          !$acc update device( field_list(var_id)%field2d%local(n)%val(irs(f,n):ire(f,n)) ) async(1)
-        else if (dim==3) then
-          !$acc update device( field_list(var_id)%field3d%local(n)%val(irs(f,n):ire(f,n)) ) async(1)
-        end if
-      end do ! end loop for face
-      end do
-      end do
-#endif
 
     else
       
@@ -902,10 +898,12 @@ contains
     !-------------------------------------------
 
     if ( this%s_rank /= this%lcmesh%PRC_myrank ) then
-
+#ifdef GPU_AWARE_MPI
+      !$acc host_data use_device(this%send_buf, this%recv_buf)
+#else
       !$acc update host(this%send_buf) async(1)
       !$acc wait(1)
-
+#endif
       req_counter = req_counter + 1
 
       tag = 10 * this%lcmesh%tileID + this%faceID
@@ -919,6 +917,9 @@ contains
       call MPI_isend( this%send_buf(1,1), bufsize, MPI_DOUBLE_PRECISION, &
        this%s_rank, tag, PRC_LOCAL_COMM_WORLD,                           &
        req_send(req_counter), ierr )
+#ifdef GPU_AWARE_MPI
+      !$acc end host_data
+#endif
       
     else if ( this%s_rank == this%lcmesh%PRC_myrank ) then
 #ifdef _OPENACC
@@ -990,9 +991,16 @@ contains
           req(req_counter), ierr )
 #endif
       else
+
+#ifdef GPU_AWARE_MPI
+        !$acc host_data use_device(this%send_buf)
+#endif
         call MPI_send_init( this%send_buf(1,1), bufsize, MPI_DOUBLE_PRECISION, &
           this%s_rank, tag, PRC_LOCAL_COMM_WORLD,                              &
           req(req_counter), ierr )
+#ifdef GPU_AWARE_MPI
+        !$acc end host_data
+#endif
       end if
     end if         
 
@@ -1039,9 +1047,15 @@ contains
           req(req_counter), ierr )
 #endif
       else 
+#ifdef GPU_AWARE_MPI
+        !$acc host_data use_device(this%recv_buf)
+#endif
         call MPI_recv_init( this%recv_buf(1,1), bufsize, MPI_DOUBLE_PRECISION, &
           this%s_rank, tag, PRC_LOCAL_COMM_WORLD,                              &
           req(req_counter), ierr )
+#ifdef GPU_AWARE_MPI
+        !$acc end host_data
+#endif
       end if
     end if         
 
