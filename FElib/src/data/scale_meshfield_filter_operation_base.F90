@@ -57,10 +57,17 @@ module scale_meshfield_filter_operation_base
     !- Modal Filter
     type(ModalFilter) :: m_filter
 
+    !- Interface Correction
+    integer :: IF_r = 8
+    real(RP), allocatable :: IF_gL(:)
+    real(RP), allocatable :: IF_gR(:)
+
   contains
     procedure, private :: Prepair_FilterMat => MeshFieldFilterOperationBase_prepair_filter_matrix
     procedure, private :: Prepair_ReconstMat => MeshFieldFilterOperationBase_prepair_reconstruct_matrix
     procedure, private :: Prepair_ReconstMat2 => MeshFieldFilterOperationBase_prepair_reconstruct2_matrix
+    procedure, private :: Prepair_ReconstMat2_GL => MeshFieldFilterOperationBase_prepair_reconstruct2_GL_matrix
+    procedure, private :: Prepair_InterfaceCorrection => MeshFieldFilterOperationBase_prepair_interface_correction
   end type MeshFieldFilterOperationBase
 
   public :: MeshFieldFilterOperationBase_Init
@@ -69,6 +76,7 @@ module scale_meshfield_filter_operation_base
   public :: MeshFieldFilterOperationBase_apply_filter1d_x
   public :: MeshFieldFilterOperationBase_apply_reconst1d_x
   public :: MeshFieldFilterOperationBase_apply_reconst1d_x_2
+  public :: MeshFieldFilterOperationBase_apply_interface_correction1d_x
   public :: MeshFieldFilterOperationBase_apply_filter1d_y
   public :: MeshFieldFilterOperationBase_apply_reconst1d_y
   public :: MeshFieldFilterOperationBase_apply_reconst1d_y_2
@@ -90,16 +98,19 @@ module scale_meshfield_filter_operation_base
   !++ Private parameters & variables
   !
 
-  integer, parameter, public :: FILTER_OPTRTYPE_CONVFILTER   = 1
-  integer, parameter, public :: FILTER_OPTRTYPE_RECONSTRUCT  = 2
-  integer, parameter, public :: FILTER_OPTRTYPE_RECONSTRUCT2 = 3
-  integer, parameter, public :: FILTER_OPTRTYPE_MODALFILTER  = 4
+  integer, parameter, public :: FILTER_OPTRTYPE_CONVFILTER           = 1
+  integer, parameter, public :: FILTER_OPTRTYPE_RECONSTRUCT          = 2
+  integer, parameter, public :: FILTER_OPTRTYPE_RECONSTRUCT2         = 3
+  integer, parameter, public :: FILTER_OPTRTYPE_RECONSTRUCT2_GL      = 4
+  integer, public, parameter :: FILTER_OPTRTYPE_INTERFACE_CORRECTION = 5
+  integer, parameter, public :: FILTER_OPTRTYPE_MODALFILTER          = 6
 
 contains
 !OCL SERIAL
   subroutine MeshFieldFilterOperationBase_Init( this, &
-    Nnode_h1D, &
-    FilterOptrType, FilterShape, FilterWidthFac, Nnode_h1D_reconst )
+    Nnode_h1D,                                                      &
+    FilterOptrType, FilterShape, FilterWidthFac, Nnode_h1D_reconst, &
+    Nnode_h1D_GL, IF_r )
     implicit none
     class(MeshFieldFilterOperationBase), intent(inout) :: this
     integer, intent(in) :: Nnode_h1D
@@ -107,6 +118,8 @@ contains
     character(*), intent(in) :: FilterShape
     real(RP), intent(in) :: FilterWidthFac
     integer, intent(in) :: Nnode_h1D_reconst
+    integer, intent(in), optional :: Nnode_h1D_GL
+    integer, intent(in), optional :: IF_r
     !------------------------------
 
     select case(FilterOptrType)
@@ -121,6 +134,13 @@ contains
       call this%Prepair_ReconstMat2( Nnode_h1D, Nnode_h1D_reconst )
       this%operator_type = FILTER_OPTRTYPE_RECONSTRUCT2
       this%Nnode_h1D_reconst = Nnode_h1D_reconst
+    case ('Reconstruction2_GL')
+      call this%Prepair_ReconstMat2_GL( Nnode_h1D, Nnode_h1D_GL,Nnode_h1D_reconst )
+      this%operator_type = FILTER_OPTRTYPE_RECONSTRUCT2_GL
+      this%Nnode_h1D_reconst = Nnode_h1D_reconst
+    case ('InterfaceCorrection')
+      call this%Prepair_InterfaceCorrection( Nnode_h1D, IF_r )
+      this%operator_type = FILTER_OPTRTYPE_INTERFACE_CORRECTION
     case default
       LOG_INFO('MeshFieldFilterOperationBase_Init',*) "Unsupported filter operation is specified. Check!", trim(FilterOptrType)
       call PRC_abort
@@ -141,6 +161,9 @@ contains
     end if
     if ( allocated(this%Ml_tr) ) then
       deallocate( this%Ml_tr, this%Mc_tr, this%Mr_tr )
+    end if
+    if ( allocated(this%IF_gL) ) then
+      deallocate( this%IF_gL, this%IF_gR )
     end if
 
     return
@@ -261,6 +284,56 @@ contains
     end do
     return
   end subroutine MeshFieldFilterOperationBase_apply_reconst1d_x_2
+
+!OCL SERIAL
+  subroutine MeshFieldFilterOperationBase_apply_interface_correction1d_x( q, q0, gL, gR, &
+    Npx, Npy, Npz, Ne, lmesh )    
+    implicit none
+    class(LocalMeshBase), intent(in) :: lmesh
+    integer, intent(in) :: Npx, Npy, Npz, Ne    
+    real(RP), intent(out) :: q(Npx,Npy,Npz,lmesh%NeA)
+    real(RP), intent(in) :: q0(-Npx+1:2*Npx,-Npy+1:2*Npy,Npz,Ne)
+    real(RP), intent(in)  :: gL(Npx)
+    real(RP), intent(in)  :: gR(Npx)
+
+    integer :: ke, px, py, pz
+
+    real(RP) :: qL, qR
+    real(RP) :: qPL, qPR
+    real(RP) :: qstarL, qstarR
+    real(RP) :: dqL, dqR
+    !-----------------------------------------------------
+
+    !$omp parallel do private(ke, px,py,pz,qL,qR,qPL,qPR,qstarL,qstarR,dqL,dqR) collapse(3)
+    do ke=1, Ne
+      do pz=1, Npz
+      do py=1, Npy
+        ! Current-element traces
+        qL = q0(1,   py,pz,ke)
+        qR = q0(Npx, py,pz,ke)
+        ! Neighbor traces
+        qPL = q0(0,     py,pz,ke)
+        qPR = q0(Npx+1, py,pz,ke)
+
+        ! Common interface values
+        qstarL = 0.5_RP * ( qL + qPL )
+        qstarR = 0.5_RP * ( qR + qPR )
+
+        dqL = qstarL - qL
+        dqR = qstarR - qR
+
+        do px=1, Npx
+          q(px,py,pz,ke) = q0(px,py,pz,ke) &
+            + dqL * gL(px)   &
+            + dqR * gR(px)
+        end do
+
+      end do
+      end do
+    end do
+
+    return
+  end subroutine MeshFieldFilterOperationBase_apply_interface_correction1d_x  
 
 !OCL SERIAL
   subroutine MeshFieldFilterOperationBase_apply_filter1d_y( q, q0, Filter1D, Npx, Npy, Npz, Ne, NeA, Nnode_h1D )
@@ -781,6 +854,273 @@ contains
     call modalFilter1D%Final()
     return
   end subroutine MeshFieldFilterOperationBase_prepair_reconstruct2_matrix
+
+!OCL SERIAL
+subroutine MeshFieldFilterOperationBase_prepair_reconstruct2_GL_matrix( this, &
+    Nnode_h1D, Nnode_h1D_GL, Nnode_h1D_reconst )
+
+  use scale_polynomial, only: &
+    Polynomial_GenLagrangePoly, &
+    Polynomial_GenGaussLegendrePt, &
+    Polynomial_GenGaussLegendrePtIntWeight
+  use scale_element_line, only: LineElement
+
+  implicit none
+
+  class(MeshFieldFilterOperationBase), intent(inout) :: this
+  integer, intent(in) :: Nnode_h1D
+  integer, intent(in) :: Nnode_h1D_GL
+  integer, intent(in) :: Nnode_h1D_reconst
+
+  integer :: pg, p1, p2
+
+  real(RP) :: x0
+  real(RP) :: xr_rec, xl_rec
+  real(RP) :: xr, xl
+  real(RP) :: coef_l, coef_c, coef_r
+
+  type(LineElement) :: elem1D
+  type(LineElement) :: elem1D_reconst
+
+  real(RP), allocatable :: lagr_l(:,:)
+  real(RP), allocatable :: lagr_c(:,:)
+  real(RP), allocatable :: lagr_r(:,:)
+
+  real(RP), allocatable :: rec_lagr_l(:,:)
+  real(RP), allocatable :: rec_lagr_c(:,:)
+  real(RP), allocatable :: rec_lagr_r(:,:)
+
+  integer :: NIntNode
+  real(RP), allocatable :: r_int1D(:)
+  real(RP), allocatable :: w_int1D(:)
+  real(RP), allocatable :: x_int(:)
+
+  real(RP) :: M_h1D_l(Nnode_h1D_reconst,Nnode_h1D)
+  real(RP) :: M_h1D_c(Nnode_h1D_reconst,Nnode_h1D)
+  real(RP) :: M_h1D_r(Nnode_h1D_reconst,Nnode_h1D)
+
+  real(RP) :: Minv(Nnode_h1D_reconst,Nnode_h1D_reconst)
+
+  real(RP) :: Minv_Ml(Nnode_h1D_reconst,Nnode_h1D)
+  real(RP) :: Minv_Mc(Nnode_h1D_reconst,Nnode_h1D)
+  real(RP) :: Minv_Mr(Nnode_h1D_reconst,Nnode_h1D)
+
+  real(RP) :: IntrpMat(1,Nnode_h1D_reconst)
+  real(RP) :: tmpMat(1,Nnode_h1D)
+
+  real(RP) :: x_c(1)
+
+  integer :: PolyOrder
+  integer :: PolyOrder_reconst
+
+  real(RP) :: x_GL(Nnode_h1D_GL)
+  !------------------------------------------------------------
+
+  PolyOrder         = Nnode_h1D         - 1
+  PolyOrder_reconst = Nnode_h1D_reconst - 1
+
+  ! Original DG element:
+  !     DOFs are located at LGL nodes.
+  call elem1D%Init( PolyOrder, .false. )
+
+  this%hHaloSize = elem1D%Np
+
+
+  ! Polynomial space used for patch reconstruction.
+  call elem1D_reconst%Init( PolyOrder_reconst, .false. )
+
+  ! GL points at which reconstructed values are required.
+  x_GL(:) = Polynomial_GenGaussLegendrePt( Nnode_h1D_GL )
+
+  ! Quadrature used to construct projection matrices.
+  ! Keep the same choice as Reconstruction2.
+  !
+  NIntNode = ceiling( &
+       0.5_RP * real(PolyOrder + PolyOrder_reconst,kind=RP) ) + 1
+
+  allocate( r_int1D(NIntNode) )
+  allocate( w_int1D(NIntNode) )
+  allocate( x_int(NIntNode) )
+
+  r_int1D(:) = Polynomial_GenGaussLegendrePt( NIntNode )
+  w_int1D(:) = Polynomial_GenGaussLegendrePtIntWeight( NIntNode )
+
+  allocate( lagr_l(NIntNode,Nnode_h1D) )
+  allocate( lagr_c(NIntNode,Nnode_h1D) )
+  allocate( lagr_r(NIntNode,Nnode_h1D) )
+
+  allocate( rec_lagr_l(NIntNode,Nnode_h1D_reconst) )
+  allocate( rec_lagr_c(NIntNode,Nnode_h1D_reconst) )
+  allocate( rec_lagr_r(NIntNode,Nnode_h1D_reconst) )
+
+  ! Inverse mass matrix in reconstruction space.
+  Minv(:,:) = elem1D_reconst%invM(:,:)
+
+  ! The target point is always mapped onto the center of the reconstructed patch.
+  x_c(1) = 0.0_RP
+  IntrpMat(:,:) = Polynomial_GenLagrangePoly( elem1D_reconst%PolyOrder, elem1D_reconst%x1, x_c )
+
+
+  allocate( this%Ml_tr(Nnode_h1D,Nnode_h1D_GL) )
+  allocate( this%Mc_tr(Nnode_h1D,Nnode_h1D_GL) )
+  allocate( this%Mr_tr(Nnode_h1D,Nnode_h1D_GL) )
+  
+  this%Ml_tr(:,:) = 0.0_RP
+  this%Mc_tr(:,:) = 0.0_RP
+  this%Mr_tr(:,:) = 0.0_RP
+
+  !- Loop over arbitrary-order GL nodes.
+  !
+
+  do pg = 1, Nnode_h1D_GL
+
+    x0 = x_GL(pg)
+
+    !==========================================================
+    ! Left element contribution
+    !
+    ! Original-coordinate interval: [x0, 1]
+    ! is mapped to the left part of the reconstructed patch.
+    !==========================================================
+
+    xl_rec = -1.0_RP
+    xr_rec = xl_rec + 0.5_RP * (1.0_RP - x0)
+
+    coef_l = 0.5_RP * (xr_rec - xl_rec)
+
+    x_int(:) = xl_rec &
+             + coef_l * (1.0_RP + r_int1D(:))
+
+    rec_lagr_l(:,:) = Polynomial_GenLagrangePoly( &
+         PolyOrder_reconst, &
+         elem1D_reconst%x1, &
+         x_int )
+
+    xl = x0
+    xr = 1.0_RP
+
+    x_int(:) = xl &
+             + 0.5_RP * (xr-xl) * (1.0_RP+r_int1D(:))
+
+    lagr_l(:,:) = Polynomial_GenLagrangePoly( &
+         elem1D%PolyOrder, &
+         elem1D%x1, &
+         x_int )
+
+    !==========================================================
+    ! Center element contribution
+    !==========================================================
+
+    xl_rec = xr_rec
+    xr_rec = xl_rec + 1.0_RP
+
+    coef_c = 0.5_RP * (xr_rec-xl_rec)
+
+    x_int(:) = xl_rec &
+             + coef_c * (1.0_RP+r_int1D(:))
+
+    rec_lagr_c(:,:) = Polynomial_GenLagrangePoly( &
+         PolyOrder_reconst, &
+         elem1D_reconst%x1, &
+         x_int )
+
+    x_int(:) = r_int1D(:)
+
+    lagr_c(:,:) = Polynomial_GenLagrangePoly( &
+         elem1D%PolyOrder, &
+         elem1D%x1, &
+         x_int )
+
+    !==========================================================
+    ! Right element contribution
+    !
+    ! Original-coordinate interval: [-1, x0]
+    ! is mapped to the right part of the reconstructed patch.
+    !==========================================================
+
+    xl_rec = xr_rec
+    xr_rec = xl_rec + 0.5_RP * (x0 + 1.0_RP)
+    coef_r = 0.5_RP * (xr_rec-xl_rec)
+    x_int(:) = xl_rec + coef_r * (1.0_RP+r_int1D(:))
+    rec_lagr_r(:,:) = Polynomial_GenLagrangePoly( PolyOrder_reconst, elem1D_reconst%x1, x_int )
+
+    xl = -1.0_RP
+    xr = x0
+    x_int(:) = xl + 0.5_RP * (xr-xl) * (1.0_RP+r_int1D(:))
+    lagr_r(:,:) = Polynomial_GenLagrangePoly( elem1D%PolyOrder, elem1D%x1, x_int )
+
+    !==========================================================
+    ! Cross mass matrices
+    !==========================================================
+
+    do p2 = 1, Nnode_h1D
+      do p1 = 1, Nnode_h1D_reconst
+        M_h1D_l(p1,p2) = coef_l * sum( w_int1D(:) * lagr_l(:,p2) * rec_lagr_l(:,p1) )
+        M_h1D_c(p1,p2) = coef_c * sum( w_int1D(:) * lagr_c(:,p2) * rec_lagr_c(:,p1) )
+        M_h1D_r(p1,p2) = coef_r * sum( w_int1D(:) * lagr_r(:,p2) * rec_lagr_r(:,p1) )
+      end do
+    end do
+
+    !==========================================================
+    ! Reconstruction coefficients
+    !==========================================================
+
+    Minv_Ml(:,:) = matmul( Minv, M_h1D_l )
+    Minv_Mc(:,:) = matmul( Minv, M_h1D_c )
+    Minv_Mr(:,:) = matmul( Minv, M_h1D_r )
+
+    !==========================================================
+    ! Evaluate reconstructed polynomial at patch center.
+    !
+    ! The center corresponds to x0 in the original
+    ! central element.
+    !==========================================================
+
+    tmpMat(:,:) = matmul( IntrpMat, Minv_Ml )
+    this%Ml_tr(:,pg) = tmpMat(1,:)
+
+    tmpMat(:,:) = matmul( IntrpMat, Minv_Mc )
+    this%Mc_tr(:,pg) = tmpMat(1,:)
+
+    tmpMat(:,:) = matmul( IntrpMat, Minv_Mr )
+    this%Mr_tr(:,pg) = tmpMat(1,:)
+  end do
+
+  !------------------------------------------------------------
+
+  deallocate( lagr_l, lagr_c, lagr_r )
+  deallocate( rec_lagr_l, rec_lagr_c, rec_lagr_r )
+  deallocate( r_int1D, w_int1D, x_int )
+
+  call elem1D%Final()
+  call elem1D_reconst%Final()
+  return
+end subroutine MeshFieldFilterOperationBase_prepair_reconstruct2_GL_matrix  
+
+!OCL SERIAL
+  subroutine MeshFieldFilterOperationBase_prepair_interface_correction( this, Nnode_h1D, IF_r )
+    use scale_element_line, only: LineElement
+    implicit none
+    class(MeshFieldFilterOperationBase), intent(inout) :: this
+    integer, intent(in) :: Nnode_h1D
+    integer, intent(in) :: IF_r
+
+    type(LineElement) :: elem1D
+    !---------------------------------------------
+
+    this%IF_r = IF_r
+    call elem1D%Init( Nnode_h1D-1, .false. )
+
+    this%hHaloSize = elem1D%Np
+
+    allocate( this%IF_gL(elem1D%Np) )
+    allocate( this%IF_gR(elem1D%Np) )
+    this%IF_gL(:) = ( 0.5_RP * ( 1.0_RP - elem1D%x1(:) ) )**IF_r
+    this%IF_gR(:) = ( 0.5_RP * ( 1.0_RP + elem1D%x1(:) ) )**IF_r
+
+    call elem1D%Final()
+    return
+  end subroutine MeshFieldFilterOperationBase_prepair_interface_correction
 
 !OCL SERIAL
   subroutine calc_filter_kenrnel( filter_kernel, &
