@@ -293,7 +293,7 @@ contains
       !$acc parallel loop collapse(2) present(lc_send_buf, send_buf) async(1)
       do v=1, var_num
       do i=1, Nnode_LCMeshFace
-        lc_send_buf(i,v) = send_buf(is+i-1,v)
+        lc_send_buf(i,v) = send_buf((is-1)*haloSize_1D+i,v)
       end do
       end do
     else if ( s_faceID < 0 ) then
