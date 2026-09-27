@@ -108,6 +108,8 @@ contains
     
     if (present(Nnode_1D_GL)) then
       this%Nnode_GL = Nnode_1D_GL
+    else
+      this%Nnode_GL = mesh1D%refElem1D%Np
     end if
 
     select type(mesh1D)
