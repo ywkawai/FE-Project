@@ -23,7 +23,10 @@ module scale_meshfieldcomm_1d
     MeshFieldCommBase,                               &
     MeshFieldCommBase_Init, MeshFieldCommBase_Final, &
     MeshFieldCommBase_extract_bounddata,             &
+    MeshFieldCommBase_extract_bounddata_2,           &
+    MeshFieldCommBase_extract_bounddata_3,           &
     MeshFieldCommBase_set_bounddata,                 &
+    MeshFieldCommBase_set_bounddata_3,               &
     MeshFieldContainer
   use scale_localmesh_1d, only: LocalMesh1D
    
@@ -39,6 +42,8 @@ module scale_meshfieldcomm_1d
   !> Base derived type to manage data communication with 1D domain
   type, public, extends(MeshFieldCommBase) :: MeshFieldComm1D
     class(MeshBase1D), pointer :: mesh1d  !< Pointer to an object representing 1D computational mesh
+
+    integer :: haloSize_1D  !< Halo size in 1D direction
   contains
     procedure, public :: Init => MeshFieldComm1D_Init
     procedure, public :: Put => MeshFieldComm1D_put
@@ -67,41 +72,77 @@ module scale_meshfieldcomm_1d
 contains
 !> Initialize an object to manage data communication with 1D domain
   subroutine MeshFieldComm1D_Init( this, &
-    sfield_num, hvfield_num, mesh1d )
+    sfield_num, hvfield_num, mesh1d,     &
+    haloSize_1D )
 
+    use scale_meshutil_1d, only: MeshUtil1D_genPatchBoundaryMap_wide
     implicit none
     
     class(MeshFieldComm1D), intent(inout) :: this
     integer, intent(in) :: sfield_num                    !< Number of scalar fields
     integer, intent(in) :: hvfield_num                   !< Number of vector fields
     class(MeshBase1D), intent(in), target :: mesh1d      !< Object to manage a 1D computational mesh
+    integer, intent(in), optional :: haloSize_1D         !< Halo size in 1D direction (default: 1)
 
+    type(LocalMesh1D), pointer :: lcmesh
+    type(ElementBase1D), pointer :: elem
     integer :: n
     integer :: Nnode_LCMeshFace(COMM_FACE_NUM,mesh1d%LOCAL_MESH_NUM)
     !-----------------------------------------------------------------------------
     
     this%mesh1d => mesh1d 
-    this%bufsize_per_field =  mesh1d%refElem1D%Nfp * 2
+    lcmesh => mesh1d%lcmesh_list(1)
+    elem => lcmesh%refElem1D
 
-    ! Dummy
+    !-
+    if ( present(haloSize_1D) ) then
+      this%haloSize_1D = haloSize_1D
+    else
+      this%haloSize_1D = 1
+    end if
+    
+    !-
+    allocate( this%VMapB_size(this%mesh1d%LOCAL_MESH_NUM) )
+
+    this%bufsize_per_field =  mesh1d%refElem1D%Nfp * 2 * this%haloSize_1D
+
     do n=1, this%mesh1d%LOCAL_MESH_NUM
-      Nnode_LCMeshFace(:,n) = (/ 1, 1 /)
+      Nnode_LCMeshFace(:,n) = (/ 1, 1 /) * this%haloSize_1D
     end do
     
     call MeshFieldCommBase_Init( this, sfield_num, hvfield_num, 0, this%bufsize_per_field, 2, Nnode_LCMeshFace, mesh1d)  
   
+    if ( this%haloSize_1D > 1 ) then
+      this%use_vmap_wide_flag = .true.
+      allocate( this%VMapB2(this%bufsize_per_field) )
+
+      lcmesh => this%mesh1d%lcmesh_list(1)      
+      call MeshUtil1D_genPatchBoundaryMap_wide( this%VMapB2, &
+        lcmesh%VMapB, this%haloSize_1D,                      &
+        lcmesh%Ne,                                           &
+        elem%Np )
+    else
+      this%use_vmap_wide_flag = .false.
+    end if
+
+    do n=1, this%mesh1d%LOCAL_MESH_NUM
+      lcmesh => this%mesh1d%lcmesh_list(n)
+      if ( this%use_vmap_wide_flag ) then
+        this%VMapB_size(n) = size(this%VMapB2)        
+      else
+        this%VMapB_size(n) = size(lcmesh%VMapB)
+      end if
+    end do
     return
   end subroutine MeshFieldComm1D_Init
 
 !> Finalize an object to manage data communication with 1D domain  
   subroutine MeshFieldComm1D_Final( this )
     implicit none
-    
     class(MeshFieldComm1D), intent(inout) :: this
     !-----------------------------------------------------------------------------
 
     call MeshFieldCommBase_Final( this )
-
     return
   end subroutine MeshFieldComm1D_Final
 
@@ -117,13 +158,13 @@ contains
     type(LocalMesh1D), pointer :: lcmesh
     !-----------------------------------------------------------------------------
     
-    do i=1, size(field_list)
-    do n=1, this%mesh%LOCAL_MESH_NUM
-      lcmesh => this%mesh1d%lcmesh_list(n)
-      call MeshFieldCommBase_extract_bounddata( field_list(i)%field1d%local(n)%val, lcmesh%refElem, lcmesh, & ! (in)
-        this%send_buf(:,varid_s+i-1,n) )                                                                      ! (out)
-    end do
-    end do
+    if ( this%use_vmap_wide_flag ) then
+       call MeshFieldCommBase_extract_bounddata_3( field_list, 1, varid_s, this%mesh1d%lcmesh_list, this%VMapB2, this%VMapB_size(1), this%send_buf )
+    else
+      call MeshFieldCommBase_extract_bounddata_2( &
+        field_list, 1, varid_s, this%mesh1d%lcmesh_list, size(this%mesh1d%lcmesh_list(1)%VMapB), & !(in)
+        this%send_buf ) ! (out)
+    end if
 
     return
   end subroutine MeshFieldComm1D_put
@@ -149,8 +190,14 @@ contains
       do i=1, size(field_list) 
       do n=1, this%mesh1D%LOCAL_MESH_NUM
         lcmesh => this%mesh1D%lcmesh_list(n)
-        call MeshFieldCommBase_set_bounddata( this%recv_buf(:,varid_s+i-1,n), lcmesh%refElem, lcmesh, & !(in)
-          field_list(i)%field1d%local(n)%val )                                                          !(out)
+        if ( this%use_vmap_wide_flag ) then
+          call MeshFieldCommBase_set_bounddata_3( this%recv_buf(:,varid_s+i-1,n), lcmesh%refElem, lcmesh, & ! (in)
+            this%VMapB2, this%VMapB_size(1),                                                              & ! (in)
+            field_list(i)%field1d%local(n)%val )                                                            ! (inout)
+        else        
+          call MeshFieldCommBase_set_bounddata( this%recv_buf(:,varid_s+i-1,n), lcmesh%refElem, lcmesh, & !(in)
+            field_list(i)%field1d%local(n)%val )                                                         !(out)
+        end if
       end do
       end do
       !$acc wait(1)
@@ -182,10 +229,10 @@ contains
     do n=1, this%mesh%LOCAL_MESH_NUM
     do f=1, this%nfaces_comm      
       commdata => this%commdata_list(f,n)
-      call push_localsendbuf( commdata%send_buf,           & ! (inout)
-        this%send_buf(:,:,n), commdata%s_faceID, f,        & ! (in)
-        commdata%Nnode_LCMeshFace, this%bufsize_per_field, & ! (in)
-        this%field_num_tot )                                 ! (in)
+      call push_localsendbuf( commdata%send_buf,                       & ! (inout)
+        this%send_buf(:,:,n), commdata%s_faceID, f,                    & ! (in)
+        commdata%Nnode_LCMeshFace, this%bufsize_per_field,             & ! (in)
+        this%field_num_tot, this%mesh1D%lcmesh_list(n), this%haloSize_1D ) ! (in)
     end do
     end do
     !$acc wait(1)
@@ -197,39 +244,38 @@ contains
 
 !----------------------------
 
-  subroutine push_localsendbuf( lc_send_buf, send_buf, s_faceID, f, Nnode_LCMeshFace, bufsize_per_field, var_num )
+  subroutine push_localsendbuf( lc_send_buf, &
+    send_buf, s_faceID, is, Nnode_LCMeshFace, bufsize_per_field, var_num, &
+    lcmesh, haloSize_1D )
+    use scale_prc, only: PRC_abort
     implicit none
 
     integer, intent(in) :: var_num
-    integer, intent(in) ::  Nnode_LCMeshFace
+    integer, intent(in) :: Nnode_LCMeshFace
     integer, intent(in) :: bufsize_per_field
     real(RP), intent(inout) :: lc_send_buf(Nnode_LCMeshFace,var_num)
-    real(RP), intent(in) :: send_buf(bufsize_per_field,var_num)  
-    integer, intent(in) :: s_faceID, f
-  
-    integer :: is, ie, lincrement
+    real(RP), intent(in) :: send_buf(bufsize_per_field,var_num)
+    integer, intent(in) :: s_faceID, is
+    type(LocalMesh1D), intent(in) :: lcmesh
+    integer, intent(in) :: haloSize_1D
+
     integer :: i, v
+    integer :: Ne_h1D
+    integer :: Nfp
     !-----------------------------------------------------------------------------
-  
+
     if ( s_faceID > 0 ) then
-      is = 1 + (f-1)*Nnode_LCMeshFace
-      ie = is + Nnode_LCMeshFace - 1
-      lincrement = +1          
-    else
-      is   = f*Nnode_LCMeshFace
-      ie   = 1 + (f-1)*Nnode_LCMeshFace          
-      lincrement = -1          
-    end if 
-#ifdef _OPENACC
-    !$acc parallel loop present(lc_send_buf, send_buf) async(1)
-    do v=1, var_num
-    do i=1, Nnode_LCMeshFace
-      lc_send_buf(i,v) = send_buf(is+(i-1)*lincrement,v)
-    end do
-    end do
-#else
-    lc_send_buf(:,:) = send_buf(is:ie:lincrement,:) 
-#endif   
+      !$omp parallel do
+      !$acc parallel loop collapse(2) present(lc_send_buf, send_buf) async(1)
+      do v=1, var_num
+      do i=1, Nnode_LCMeshFace
+        lc_send_buf(i,v) = send_buf((is-1)*haloSize_1D+i,v)
+      end do
+      end do
+    else if ( s_faceID < 0 ) then
+      LOG_INFO("MeshFieldComm1D",'(a,i0)') "Encountered s_faceID <= 0 in push_localsendbuf. Check! s_faceID=", s_faceID
+      call PRC_abort
+    end if
     return
   end subroutine push_localsendbuf
 

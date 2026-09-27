@@ -107,6 +107,7 @@ OBJS_NAME_DATA = \
 	scale_meshfield_statistics.o             \
 	scale_meshfield_fvm_util.o               \
 	scale_meshfield_filter_operation_base.o  \
+	scale_meshfield_filter_operation_1d.o    \
 	scale_meshfield_filter_operation_2d.o    \
 	scale_meshfield_filter_operation_3d.o    \
 	scale_meshfield_analysis_numerror_base.o \

@@ -14,6 +14,7 @@ module scale_meshutil_1d
   !++ used modules
   !
   use scale_precision
+  use scale_io
 
   !-----------------------------------------------------------------------------
   implicit none
@@ -27,6 +28,7 @@ module scale_meshutil_1d
   public :: MeshUtil1D_genConnectivity
   public :: MeshUtil1D_buildInteriorMap
   public :: MeshUtil1D_genPatchBoundaryMap
+  public :: MeshUtil1D_genPatchBoundaryMap_wide
   public :: MeshUtil1D_genPeriodicBoundaryMap
   public :: MeshUtil1D_buildGlobalMap
 
@@ -411,6 +413,49 @@ contains
       return
     end subroutine eval_domain_boundary
   end subroutine MeshUtil1D_genPatchBoundaryMap
+
+!OCL SERIAL
+  subroutine MeshUtil1D_genPatchBoundaryMap_wide( VMapB2, &
+    VMapB, HaloSize,                                      &
+    NeX, Np )
+    use scale_prc, only: PRC_abort
+    implicit none
+    integer, intent(in) :: HaloSize
+    integer, intent(in) :: NeX
+    integer, intent(in) :: Np
+    integer, intent(inout) :: VMapB2(2*HaloSize)
+    integer, intent(in) :: VMapB(2)
+
+    integer :: f
+    integer :: iso, isso, i, ii
+    integer :: ke, p, ph, pv
+    !------------------------------------------------------------
+  
+    if ( HaloSize > Np ) then
+      LOG_INFO("MeshUtil1D_genPatchBoundaryMap_wide",*) "HaloSize should be <= Np. Check!"
+      call PRC_abort
+    end if
+
+    !--
+    f = 1
+    iso = 0; isso = 0
+    do ph=1, HaloSize
+      i  = iso  + 1
+      ii = isso + ph
+      VMapB2(ii) = VMapB(i) + (ph-1)
+    end do
+
+    !--
+    f = 2
+    iso  = iso  + 1
+    isso = isso + HaloSize
+    do ph=1, HaloSize
+      i  = iso  + 1
+      ii = isso + ph
+      VMapB2(ii) = VMapB(i) - (ph-1)
+    end do
+    return
+  end subroutine MeshUtil1D_genPatchBoundaryMap_wide
 
 !OCL SERIAL
   subroutine MeshUtil1D_genPeriodicBoundaryMap( EToE, EToF, VMapP, & ! (inout)

@@ -54,7 +54,6 @@ module scale_meshfieldcomm_cubedspheredom3d
   type, public, extends(MeshFieldCommBase) :: MeshFieldCommCubedSphereDom3D
     class(MeshCubedSphereDom3D), pointer :: mesh3d                          !< Pointer to an object representing 3D cubed-sphere computational mesh
     type(VecCovariantComp), allocatable :: vec_covariant_comp_ptrlist(:)
-    integer, allocatable :: Nnode_LCMeshAllFace(:)
 
     integer :: haloSize_h1D !< Halo size for 1D horizontal direction
     integer :: haloSize_v   !< Halo size for vertical direction  
@@ -125,7 +124,6 @@ contains
     end if
 
     !-
-    allocate( this%Nnode_LCMeshAllFace(mesh3d%LOCAL_MESH_NUM) )    
     allocate( this%VMapB_size(this%mesh3d%LOCAL_MESH_NUM) )
 
     this%bufsize_per_field =  2*(lcmesh%NeX + lcmesh%NeY)*lcmesh%NeZ*elem%Nfp_h*this%haloSize_h1D &
@@ -136,10 +134,7 @@ contains
       Nnode_LCMeshFace(:,n) = &
           (/ lcmesh%NeX, lcmesh%NeY, lcmesh%NeX, lcmesh%NeY, 0, 0 /) * lcmesh%NeZ * lcmesh%refElem3D%Nfp_h*this%haloSize_h1D &
         + (/ 0, 0, 0, 0, 1, 1 /) * lcmesh%NeX*lcmesh%NeY * lcmesh%refElem3D%Nfp_v*this%haloSize_v
-
-      this%Nnode_LCMeshAllFace(n) = sum(Nnode_LCMeshFace(:,n))        
     end do
-    !$acc enter data copyin(this%Nnode_LCMeshAllFace)
 
     call MeshFieldCommBase_Init( this, sfield_num, hvfield_num, htensorfield_num, this%bufsize_per_field, COMM_FACE_NUM, Nnode_LCMeshFace, mesh3d )  
   
@@ -178,14 +173,9 @@ contains
 
 !> Finalize an object to manage data communication with 3D cubed-sphere computational mesh
   subroutine MeshFieldCommCubedSphereDom3D_Final( this )
-
     implicit none
-    
     class(MeshFieldCommCubedSphereDom3D), intent(inout) :: this
     !-----------------------------------------------------------------------------
-
-    !$acc exit data delete(this%Nnode_LCMeshAllFace, this%VMapB_size)
-    deallocate( this%Nnode_LCMeshAllFace, this%VMapB_size )
 
     if ( this%hvfield_num > 0 ) then
       deallocate( this%vec_covariant_comp_ptrlist )

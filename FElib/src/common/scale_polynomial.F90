@@ -38,6 +38,7 @@ module scale_polynomial
 
   public :: Polynomial_GenLagrangePoly
   public :: Polynomial_GenDLagrangePoly_lglpt
+  public :: Polynomial_GenDLagrangePoly
   
   !-----------------------------------------------------------------------------
   !
@@ -118,7 +119,7 @@ contains
     return
   end function Polynomial_GenLagrangePoly
 
-  !> A function to obtain the differential values of Lagrange basis functions at the GLL points
+  !> Differential values of Lagrange basis functions at the GLL points
   !!
   !! @param Nord Order of Lagrange polynomial
   !! @param x_lgl Positions of GLL points
@@ -128,7 +129,7 @@ contains
 
     integer, intent(in) :: Nord
     real(RP), intent(in) :: x_lgl(Nord+1)
-    real(RP) :: lr(Nord+1, Nord+1)
+    real(RP) :: lr(Nord+1, Nord+1) !> lr(n,k) = derivative of k-th Lagrange basis at x_lgl(n)
 
     integer :: n, k
     real(RP) :: P(Nord+1,Nord+1)
@@ -159,6 +160,89 @@ contains
     
     return
   end function Polynomial_GenDLagrangePoly_lglpt
+
+  !> Differential values of Lagrange basis functions defined at GLL nodes, evaluated at arbitrary points.
+  !!
+  !! @param Nord    Polynomial order
+  !! @param x_lgl   GLL interpolation nodes
+  !! @param Neval   Number of evaluation points
+  !! @param x_eval  Evaluation points
+!OCL SERIAL
+  function Polynomial_GenDLagrangePoly( Nord, x_lgl, x_eval ) result(lr)
+    implicit none
+    integer, intent(in) :: Nord
+    real(RP), intent(in) :: x_lgl(Nord+1)
+    real(RP), intent(in) :: x_eval(:)
+    real(RP) :: lr(size(x_eval),Nord+1) !> lr(m,k) = derivative of k-th Lagrange basis at x_eval(m)
+
+    real(RP) :: P(Nord+1,Nord+1)
+    real(RP) :: bw(Nord+1)       ! Barycentric weights. Common normalization factor is unnecessary.
+
+    real(RP) :: a(Nord+1)
+    real(RP) :: S1, S2
+    real(RP) :: dx
+    real(RP) :: tol
+
+    integer :: k, j, m
+    integer :: knode
+    !-------------------------------------------------------------
+
+    P(:,:) = Polynomial_GenLegendrePoly(Nord, x_lgl)
+    bw(:) = 1.0_RP / P(:,Nord+1)
+
+    tol = 100.0_RP * epsilon(1.0_RP)
+
+    do m = 1, size(x_eval)
+
+      !- Check whether evaluation point coincides with a GLL node
+      knode = 0
+      do k=1, Nord+1
+        if ( abs(x_eval(m)-x_lgl(k)) <= tol ) then
+          knode = k
+          exit
+        end if
+      end do
+
+      if ( knode /= 0 ) then
+        !* Evaluation exactly at a GLL node. Use the existing nodal formula.
+        do k = 1, Nord+1
+          if ( k /= knode ) then
+            lr(m,k) = P(knode,Nord+1) / ( P(k,Nord+1) * ( x_lgl(knode)-x_lgl(k) ) )
+          else
+            lr(m,k) = 0.0_RP
+          end if
+        end do
+
+        ! Sum of derivatives of all basis functions is zero: sum_k l'_k(x) = 0
+        lr(m,knode) = -sum(lr(m,:))
+
+      else
+        !* General evaluation point
+        !  l'_k(x) = l_k(x) * [ ( sum_j w_j/(x - x_j,lgl)**2 ) / [sum_j a_j(x)] - 1 / ( x - x_k,lgl ) ]
+        ! where
+        !  l_k(x) = a_k(x) / sum_j a_j(x),
+        !  a_k(x) = w_k / ( x - x_k,lgl )
+
+        S1 = 0.0_RP; S2 = 0.0_RP
+        do j = 1, Nord+1
+          dx = x_eval(m) - x_lgl(j)
+          
+          a(j) = bw(j) / dx
+          S1 = S1 + a(j)
+          S2 = S2 + bw(j) / ( dx * dx )
+        end do
+
+        !　l'_k(x)
+        do k = 1, Nord+1
+          dx = x_eval(m) - x_lgl(k)
+          lr(m,k) = ( a(k) / S1 ) * ( S2 / S1 - 1.0_RP / dx )
+        end do
+
+      end if
+
+    end do
+    return
+  end function Polynomial_GenDLagrangePoly
 
   !> A function to obtain the values of Legendre polynomials which are evaluated at arbitrary points. 
   !!

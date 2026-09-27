@@ -146,15 +146,10 @@ contains
 !> Finalize an object to manage data communication with 2D rectangle domain
   subroutine MeshFieldCommRectDom2D_Final( this )
     implicit none
-    
     class(MeshFieldCommRectDom2D), intent(inout) :: this
     !-----------------------------------------------------------------------------
 
-    if ( this%use_vmap_wide_flag ) then
-      deallocate( this%VMapB2 )
-    end if
     call MeshFieldCommBase_Final( this )
-
     return
   end subroutine MeshFieldCommRectDom2D_Final
 
@@ -293,7 +288,7 @@ contains
       !$acc parallel loop collapse(2) present(lc_send_buf, send_buf) async(1)
       do v=1, var_num
       do i=1, Nnode_LCMeshFace
-        lc_send_buf(i,v) = send_buf(is+i-1,v)
+        lc_send_buf(i,v) = send_buf((is-1)*haloSize_1D+i,v)
       end do
       end do
     else if ( s_faceID < 0 ) then
