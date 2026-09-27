@@ -117,7 +117,6 @@ contains
 
     this%bufsize_per_field = 2*(lcmesh%NeX + lcmesh%NeY) * elem%Nfp*this%haloSize_1D
 
-    allocate( this%Nnode_LCMeshAllFace(mesh2d%LOCAL_MESH_NUM) )
     do n=1, this%mesh2d%LOCAL_MESH_NUM
       lcmesh => this%mesh2d%lcmesh_list(n)
       Nnode_LCMeshFace(:,n) = (/ lcmesh%NeX, lcmesh%NeY, lcmesh%NeX, lcmesh%NeY /) * lcmesh%refElem2D%Nfp*this%haloSize_1D

@@ -124,7 +124,6 @@ contains
     end if
 
     !-
-    allocate( this%Nnode_LCMeshAllFace(mesh3d%LOCAL_MESH_NUM) )    
     allocate( this%VMapB_size(this%mesh3d%LOCAL_MESH_NUM) )
 
     this%bufsize_per_field =  2*(lcmesh%NeX + lcmesh%NeY)*lcmesh%NeZ*elem%Nfp_h*this%haloSize_h1D &
