@@ -11,7 +11,7 @@ The cumulus parameterization scheme and its calling interval are specified in [\
 }
 \editboxtwo{
  \verb|&PARAM_ATMOS_PHY_CP | & \\
- \verb|CP_TYPE      = "MCA",| & ; Choose from cumulus parameterization schemes in Table \ref{tab:cp_scheme_list} \\
+ \verb|CP_TYPE      = "MOIST_CONV_ADJUSTMENT",| & ; Choose from cumulus parameterization schemes in Table \ref{tab:cp_scheme_list} \\
  \verb|TIME_DT      = 60.D0,| & ; Time interval of cumulus parameterization process \\
  \verb|TIME_DT_UNIT = "SEC",| & ; Unit for \verb|TIME_DT| \\
  \verb|/ | & \\
@@ -29,7 +29,7 @@ The available choices of (\verb|CP_TYPE|) are listed in Table \ref{tab:cp_scheme
 \rowcolor[gray]{0.9}
 \verb|CP_TYPE| & Description & Reference \\
 \hline
-\verb|MCA| & Moist convective adjustment scheme & \cite{manabe1965} \\
+\verb|MOIST_CONV_ADJUSTMENT| & Moist convective adjustment scheme & \cite{manabe1965} \\
 \hline
 \end{tabularx}
 \end{center}
