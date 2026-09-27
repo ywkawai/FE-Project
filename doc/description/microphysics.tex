@@ -56,43 +56,77 @@ specific humidity $q_v$ is reduced toward $q_{v,s}$.
 The excess water vapor is converted to cloud water, which is removed as precipitation.
 The temperature is increased by the release of latent heat. 
 
-To calculate the adjusted state,
-an implicit treatment is required because the $q_{v,s}$ is the function of temperature based on the Clausius-Clapeyron equation.
-The tendencies of temperature and specific humidity are given by
+During the moist adjustment, 
+the moist internal energy is assumed to be conserved:
 %%
-\begin{align*}
-  \dfrac{T^{**} - T^*}{\tau_{\rm LSC}} &= \dfrac{L}{C_{p,d}} C_{\rm rate}, \\
-  \dfrac{q_v^{**} - q_v^*}{\tau_{\rm LSC}} &= - C_{\rm rate},
-\end{align*}
+\begin{align}
+ \delta ( C_{v,{\rm tot}} T + L q_v + L_l q_c ) = 0,
+\end{align}
 %%
-where the double and single asterisks denote the adjusted and the unadjusted states, respectively;
-$\tau_{\rm LSC}$ is the prescribed adjustment timescale for the large-scale condensation process;
-$L$ is the latent heat of vaporization;
-and $C_{\rm rate}$ is the condensation rate defined as
+where $C_{v,{\rm tot}} = (1-q_v- q_c) C_{v,d} + q_v C_{v,v} + q_c C_{v,l}$, 
+and $L$ and $L_l$ denote the latent heats of vaporization and fusion, respectively.
+Following the definition adopted in the SCALE library, 
+the moist internal energy is defined by taking liquid water as the reference state and, thus, $L_l=0$.
+Since cloud water is produced by condensation of water vapor, 
+$\delta q_c=-\delta q_v$. 
+Retaining terms to first order in the adjustment increments, 
+we obtain
 %%
-\begin{align*}
-  C_{\rm rate} = \dfrac{q_v^* - q_{v,s}(T^{**})}{\tau_{\rm LSC}}.
-\end{align*}
+\begin{align}
+C^*_{v,{\rm tot}} \delta T = [L + (C_{v,v} - C_{v,l})T^*]\delta q_c,
+\label{eq:moist_adjustment_delta}
+\end{align}
 %%
-In idealized experiments, 
-$q_{v,s}(T^*)$ is often linearized around $T^*$ as
+where the single asterisks denote the unadjusted states.
+The amount of condensed water is determined by the difference between the unadjusted specific humidity and the saturation specific humidity at the unadjusted temperature:
 %%
-\begin{align*}
-  q_{v,s}(T^{**}) \approx q_{v,s}(T^*) + \dfrac{dq_{v,s}}{dT}\Big|_{T=T^*} (T^{**} - T^*)
-\end{align*}
+\begin{align}
+\delta q_c = q_v^* - q_{v,s}(T^* + \delta T).
+\label{eq:delta_qc}
+\end{align}
 %%
-where $dq_{v,s}/dT$ is given by the Clausius-Clapeyron equation as
+Because the $q_{v,s}$ depends on temperature through the Clausius-Clapeyron equation, 
+Eqs.~\eqref{eq:moist_adjustment_delta} and \eqref{eq:delta_qc} form an implicit system.
+For idealized experiments, $q_{v,s}$ is often linearized around $T^*$ as
+%%
+\begin{align}
+  q_{v,s}(T^*+\delta T) \approx q_{v,s}(T^*) + \dfrac{dq_{v,s}}{dT}\Big|_{T=T^*} \delta T.
+\label{eq:delta_qc_linearized}
+\end{align}
+%%
+Neglecting the pressure dependence during the adjustment,
+the temperature derivative of the saturation specific humidity is approximated using the Clausius--Clapeyron relation as
 %%
 \begin{align*}
   \dfrac{dq_{v,s}}{dT} \simeq \dfrac{L q_{v,s}}{R_v T^2}.
 \end{align*}
 %%
-Then, the condensation rate is given by
+Combining Eqs.~\eqref{eq:moist_adjustment_delta} and \eqref{eq:delta_qc_linearized} gives
 %%
 \begin{align}
-  C_{\rm rate} = \dfrac{1}{\tau_{\rm LSC}} \; \dfrac{q_v^* - q_{v,s}(T^*)}{1 + \frac{L}{C_{p,d}} \frac{dq_{v,s}}{dT}\Big|_{T=T^*}}.
+%% \delta T = \dfrac{L + (C_{v,v}-C_{v,l})T^*}{C^*_{v,{\rm tot}} + [L + (C_{v,v}-C_{v,l})T^*] \frac{dq_{v,s}^*}{dT}} (q_v^* -q_{v,s}(T^*)), \\
+ \delta q_c = C^*_{v,{\rm tot}} \dfrac{q_v^* -q_{v,s}(T^*)}{C^*_{v,{\rm tot}} + [L + (C_{v,v}-C_{v,l})T^*] \frac{dq_{v,s}^*}{dT}\Big|_{T=T^*}}.
 \end{align}
 %%
+When an simplified moist thermodynamics is used, 
+$C_{v,v}=C_{v,l}$ and $C^*_{v,{\rm tot}} \approx C_{v,d}$.
+Then, $\delta q_c$ simplifies to
+%%
+\begin{align}
+  \delta q_c = \dfrac{q_v^* - q_{v,s}(T^*)}{1 + \frac{L}{C_{v,d}} \frac{dq_{v,s}^*}{dT}\Big|_{T=T^*}}, 
+\end{align}
+%%
+%which corresponds to Eq.\,(2) in \cite{thatcher2016}.
+Here, $\delta q_c$ is introduced as an intermediate quantity representing the amount of condensed water.
+The condensate is subsequently removed as precipitation and is not retained as prognostic cloud water in this scheme.
+
+Finally, the condensation rate is defined as
+%%
+\begin{align*}
+  C_{\rm rate} = \dfrac{\delta q_c}{\tau_{\rm LSC}}
+\end{align*}
+%%
+where $\tau_{\rm LSC}$ is the prescribed adjustment timescale for the large-scale condensation process.
 For the diabatic heating in the density-weighted potential temperature in Eq.\,\eqref{eq:diabatic_heating} 
 and the source terms in the mass equations of water vapor, 
 we have
@@ -100,3 +134,5 @@ we have
   Q_{\rm LSC} &= \rho L C_{\rm rate}, \\
   S_{\rho q_v,{\rm LSC}} &= - \rho C_{\rm rate}.
 \end{align}
+
+
