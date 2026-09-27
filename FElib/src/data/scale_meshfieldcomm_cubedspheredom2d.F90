@@ -50,7 +50,6 @@ module scale_meshfieldcomm_cubedspheredom2d
   type, public, extends(MeshFieldCommBase) :: MeshFieldCommCubedSphereDom2D
     class(MeshCubedSphereDom2D), pointer :: mesh2d                         !< Pointer to an object representing 2D cubed-sphere computational mesh
     type(VecCovariantComp), allocatable :: vec_covariant_comp_ptrlist(:)
-    integer, allocatable :: Nnode_LCMeshAllFace(:)
 
     integer :: haloSize_1D !< Halo size for 1D direction
   contains
@@ -122,9 +121,7 @@ contains
     do n=1, this%mesh2d%LOCAL_MESH_NUM
       lcmesh => this%mesh2d%lcmesh_list(n)
       Nnode_LCMeshFace(:,n) = (/ lcmesh%NeX, lcmesh%NeY, lcmesh%NeX, lcmesh%NeY /) * lcmesh%refElem2D%Nfp*this%haloSize_1D
-      this%Nnode_LCMeshAllFace(n) = sum(Nnode_LCMeshFace(:,n))
     end do
-    !$acc enter data copyin(this%Nnode_LCMeshAllFace)
 
     call MeshFieldCommBase_Init( this, sfield_num, hvfield_num, htensorfield_num, this%bufsize_per_field, COMM_FACE_NUM, Nnode_LCMeshFace, mesh2d)  
 
@@ -167,9 +164,6 @@ contains
     
     class(MeshFieldCommCubedSphereDom2D), intent(inout) :: this
     !-----------------------------------------------------------------------------
-
-    !$acc exit data delete(this%Nnode_LCMeshAllFace, this%VMapB_size)
-    deallocate( this%Nnode_LCMeshAllFace, this%VMapB_size )
 
     if ( this%hvfield_num > 0 ) then
       deallocate( this%vec_covariant_comp_ptrlist )

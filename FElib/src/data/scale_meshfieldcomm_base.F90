@@ -72,6 +72,7 @@ module scale_meshfieldcomm_base
 
     type(LocalMeshCommData), allocatable :: commdata_list(:,:)
     integer, allocatable :: is_f(:,:)
+    integer, allocatable :: Nnode_LCMeshAllFace(:)
 
     logical :: MPI_pc_flag                !< Flag whether persistent communication is used
     logical :: use_mpi_pc_fujitsu_ext     !< Flag whether Fujitsu extension routines are used for persistent communication
@@ -206,20 +207,22 @@ contains
 
       allocate( this%commdata_list(comm_face_num,mesh%LOCAL_MESH_NUM) )
       allocate( this%is_f(comm_face_num,mesh%LOCAL_MESH_NUM) ) 
-      !$acc enter data create(this%is_f)
+      allocate( this%Nnode_LCMeshAllFace(mesh%LOCAL_MESH_NUM) )
+      !$acc enter data create(this%is_f, this%Nnode_LCMeshAllFace)
 
       do n=1, mesh%LOCAL_MESH_NUM
         this%is_f(1,n) = 1
         do f=2, this%nfaces_comm
           this%is_f(f,n) = this%is_f(f-1,n) + Nnode_LCMeshFace(f-1,n)
         end do
+        this%Nnode_LCMeshAllFace(n) = sum(Nnode_LCMeshFace(:,n))
 
         call mesh%GetLocalMesh(n, lcmesh)
         do f=1, this%nfaces_comm
           call this%commdata_list(f,n)%Init( this, lcmesh, f, Nnode_LCMeshFace(f,n) )
         end do
       end do
-      !$acc update device(this%is_f)
+      !$acc update device(this%is_f, this%Nnode_LCMeshAllFace)
       !$acc enter data copyin(this%commdata_list)
 #ifdef _OPENACC
       do n=1, mesh%LOCAL_MESH_NUM
@@ -266,8 +269,8 @@ contains
         call this%commdata_list(f,n)%Final()
       end do
       end do     
-      !$acc exit data delete(this%commdata_list, this%is_f)
-      deallocate( this%commdata_list, this%is_f )
+      !$acc exit data delete(this%commdata_list, this%is_f, this%Nnode_LCMeshAllFace)
+      deallocate( this%commdata_list, this%is_f, this%Nnode_LCMeshAllFace )
 
       if ( this%MPI_pc_flag ) then
         do ireq=1, this%req_counter
@@ -278,12 +281,14 @@ contains
     end if
 
     if ( allocated(this%VMapB_size) ) then
+      !$acc exit data delete(this%VMapB_size)
       deallocate(this%VMapB_size)
     end if
     if ( this%use_vmap_wide_flag ) then
+      !$acc exit data delete(this%VMapB2)
       deallocate( this%VMapB2 )
     end if
-        
+
     return
   end subroutine MeshFieldCommBase_Final
 
