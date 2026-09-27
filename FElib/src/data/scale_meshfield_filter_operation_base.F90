@@ -135,7 +135,7 @@ contains
       this%operator_type = FILTER_OPTRTYPE_RECONSTRUCT2
       this%Nnode_h1D_reconst = Nnode_h1D_reconst
     case ('Reconstruction2_GL')
-      call this%Prepair_ReconstMat2_GL( Nnode_h1D, Nnode_h1D_GL,Nnode_h1D_reconst )
+      call this%Prepair_ReconstMat2_GL( Nnode_h1D, Nnode_h1D_reconst, Nnode_h1D_GL )
       this%operator_type = FILTER_OPTRTYPE_RECONSTRUCT2_GL
       this%Nnode_h1D_reconst = Nnode_h1D_reconst
     case ('InterfaceCorrection')
@@ -857,7 +857,7 @@ contains
 
 !OCL SERIAL
 subroutine MeshFieldFilterOperationBase_prepair_reconstruct2_GL_matrix( this, &
-    Nnode_h1D, Nnode_h1D_GL, Nnode_h1D_reconst )
+    Nnode_h1D, Nnode_h1D_reconst, Nnode_h1D_GL )
 
   use scale_polynomial, only: &
     Polynomial_GenLagrangePoly, &
@@ -869,8 +869,8 @@ subroutine MeshFieldFilterOperationBase_prepair_reconstruct2_GL_matrix( this, &
 
   class(MeshFieldFilterOperationBase), intent(inout) :: this
   integer, intent(in) :: Nnode_h1D
-  integer, intent(in) :: Nnode_h1D_GL
   integer, intent(in) :: Nnode_h1D_reconst
+  integer, intent(in), optional :: Nnode_h1D_GL
 
   integer :: pg, p1, p2
 
@@ -913,11 +913,18 @@ subroutine MeshFieldFilterOperationBase_prepair_reconstruct2_GL_matrix( this, &
   integer :: PolyOrder
   integer :: PolyOrder_reconst
 
-  real(RP) :: x_GL(Nnode_h1D_GL)
+  integer :: Nnode_h1D_GL_
+  real(RP), allocatable :: x_GL(:)
   !------------------------------------------------------------
 
   PolyOrder         = Nnode_h1D         - 1
   PolyOrder_reconst = Nnode_h1D_reconst - 1
+
+  if ( present(Nnode_h1D_GL) ) then
+    Nnode_h1D_GL_ = Nnode_h1D_GL
+  else
+    Nnode_h1D_GL_ = Nnode_h1D
+  end if
 
   ! Original DG element:
   !     DOFs are located at LGL nodes.
@@ -930,7 +937,8 @@ subroutine MeshFieldFilterOperationBase_prepair_reconstruct2_GL_matrix( this, &
   call elem1D_reconst%Init( PolyOrder_reconst, .false. )
 
   ! GL points at which reconstructed values are required.
-  x_GL(:) = Polynomial_GenGaussLegendrePt( Nnode_h1D_GL )
+  allocate( x_GL(Nnode_h1D_GL_) )
+  x_GL(:) = Polynomial_GenGaussLegendrePt( Nnode_h1D_GL_ )
 
   ! Quadrature used to construct projection matrices.
   ! Keep the same choice as Reconstruction2.
@@ -961,9 +969,9 @@ subroutine MeshFieldFilterOperationBase_prepair_reconstruct2_GL_matrix( this, &
   IntrpMat(:,:) = Polynomial_GenLagrangePoly( elem1D_reconst%PolyOrder, elem1D_reconst%x1, x_c )
 
 
-  allocate( this%Ml_tr(Nnode_h1D,Nnode_h1D_GL) )
-  allocate( this%Mc_tr(Nnode_h1D,Nnode_h1D_GL) )
-  allocate( this%Mr_tr(Nnode_h1D,Nnode_h1D_GL) )
+  allocate( this%Ml_tr(Nnode_h1D,Nnode_h1D_GL_) )
+  allocate( this%Mc_tr(Nnode_h1D,Nnode_h1D_GL_) )
+  allocate( this%Mr_tr(Nnode_h1D,Nnode_h1D_GL_) )
   
   this%Ml_tr(:,:) = 0.0_RP
   this%Mc_tr(:,:) = 0.0_RP
@@ -972,7 +980,7 @@ subroutine MeshFieldFilterOperationBase_prepair_reconstruct2_GL_matrix( this, &
   !- Loop over arbitrary-order GL nodes.
   !
 
-  do pg = 1, Nnode_h1D_GL
+  do pg = 1, Nnode_h1D_GL_
 
     x0 = x_GL(pg)
 
@@ -1103,20 +1111,24 @@ end subroutine MeshFieldFilterOperationBase_prepair_reconstruct2_GL_matrix
     implicit none
     class(MeshFieldFilterOperationBase), intent(inout) :: this
     integer, intent(in) :: Nnode_h1D
-    integer, intent(in) :: IF_r
+    integer, intent(in), optional :: IF_r
 
     type(LineElement) :: elem1D
     !---------------------------------------------
 
-    this%IF_r = IF_r
+    if ( present(IF_r) ) then
+      this%IF_r = IF_r
+    else
+      this%IF_r = Nnode_h1D
+    end if
     call elem1D%Init( Nnode_h1D-1, .false. )
 
     this%hHaloSize = elem1D%Np
 
     allocate( this%IF_gL(elem1D%Np) )
     allocate( this%IF_gR(elem1D%Np) )
-    this%IF_gL(:) = ( 0.5_RP * ( 1.0_RP - elem1D%x1(:) ) )**IF_r
-    this%IF_gR(:) = ( 0.5_RP * ( 1.0_RP + elem1D%x1(:) ) )**IF_r
+    this%IF_gL(:) = ( 0.5_RP * ( 1.0_RP - elem1D%x1(:) ) )**this%IF_r
+    this%IF_gR(:) = ( 0.5_RP * ( 1.0_RP + elem1D%x1(:) ) )**this%IF_r
 
     call elem1D%Final()
     return
