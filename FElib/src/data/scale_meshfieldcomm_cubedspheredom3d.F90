@@ -178,9 +178,7 @@ contains
 
 !> Finalize an object to manage data communication with 3D cubed-sphere computational mesh
   subroutine MeshFieldCommCubedSphereDom3D_Final( this )
-
     implicit none
-    
     class(MeshFieldCommCubedSphereDom3D), intent(inout) :: this
     !-----------------------------------------------------------------------------
 

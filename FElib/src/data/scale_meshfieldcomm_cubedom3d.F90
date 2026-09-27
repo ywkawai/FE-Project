@@ -158,12 +158,7 @@ contains
   subroutine MeshFieldCommCubeDom3D_Final( this )
     implicit none    
     class(MeshFieldCommCubeDom3D), intent(inout) :: this
-    !-----------------------------------------------------------------------------
-
-    if (this%use_vmap_wide_flag ) then
-      deallocate( this%VMapB2 )
-    endif
-        
+    !-----------------------------------------------------------------------------        
     call MeshFieldCommBase_Final( this )
     return
   end subroutine MeshFieldCommCubeDom3D_Final

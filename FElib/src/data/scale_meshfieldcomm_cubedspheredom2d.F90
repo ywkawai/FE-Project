@@ -176,7 +176,6 @@ contains
     end if
 
     call MeshFieldCommBase_Final( this )
-
     return
   end subroutine MeshFieldCommCubedSphereDom2D_Final
 

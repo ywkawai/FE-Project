@@ -139,15 +139,10 @@ contains
 !> Finalize an object to manage data communication with 1D domain  
   subroutine MeshFieldComm1D_Final( this )
     implicit none
-    
     class(MeshFieldComm1D), intent(inout) :: this
     !-----------------------------------------------------------------------------
 
-    if ( this%use_vmap_wide_flag ) then
-      deallocate( this%VMapB2 )
-    end if
     call MeshFieldCommBase_Final( this )
-
     return
   end subroutine MeshFieldComm1D_Final
 

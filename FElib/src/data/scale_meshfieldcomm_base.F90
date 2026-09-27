@@ -276,6 +276,14 @@ contains
         deallocate( this%request_pc ) 
       end if
     end if
+
+    if ( allocated(this%VMapB_size) ) then
+      deallocate(this%VMapB_size)
+    end if
+    if ( this%use_vmap_wide_flag ) then
+      deallocate( this%VMapB2 )
+    end if
+        
     return
   end subroutine MeshFieldCommBase_Final
 

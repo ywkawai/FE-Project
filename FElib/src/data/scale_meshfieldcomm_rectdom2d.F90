@@ -146,15 +146,10 @@ contains
 !> Finalize an object to manage data communication with 2D rectangle domain
   subroutine MeshFieldCommRectDom2D_Final( this )
     implicit none
-    
     class(MeshFieldCommRectDom2D), intent(inout) :: this
     !-----------------------------------------------------------------------------
 
-    if ( this%use_vmap_wide_flag ) then
-      deallocate( this%VMapB2 )
-    end if
     call MeshFieldCommBase_Final( this )
-
     return
   end subroutine MeshFieldCommRectDom2D_Final
 
