@@ -378,11 +378,14 @@ In terms of $C_p^*$ and $R^*$,
 a diabatic heating contribution $H_{\rho \theta}$ included in $\bm{S}_{\rho \theta,\textrm{phys}}$ can be written as
 %%
 \begin{align}
-  H_{\rho \theta} = \dfrac{1}{C_p^*} \left(\dfrac{P_0}{p}\right)^{\frac{R^*}{C_p^*}} Q,
+  H_{\rho \theta} &= \dfrac{1}{C_p^*} \left(\dfrac{P_0}{p}\right)^{\frac{R^*}{C_p^*}} 
+    \left\{ Q - \dfrac{p}{R^*} \left[ \dot{C_p^*} + \ln{\left(\dfrac{p}{P_0}\right)} \left(\dfrac{C_v^*}{C_p^*}\dot{C_p^*} - \dot{C_v^*} \right) \right] \right\},
 \label{eq:diabatic_heating}
 \end{align}
 %%
 where $Q$ is the diabatic heating with the unit J/(m$^3$s).
+The second term in the braces accounts for changes in $\rho\theta$ arising from temporal variations in the thermodynamic properties of the atmospheric mixture, 
+rather than from diabatic heating itself.
 
 
 When the traditional approximation is applied to the governing equations in global model, 
