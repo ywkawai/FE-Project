@@ -48,23 +48,35 @@ The incoming solar radiation used by the simplified radiation scheme is prescrib
 Two types of idealized forcing are currently available: a spatially uniform constant flux and an annual-mean insolation that varies with latitude.
 These settings are configured in \namelist{PARAM_ATMOS_SOLARINS_SIMPLE}.
 
-
-The choice of \nmitem{SOLARINS_TYPE} determines how the incoming solar flux is specified.
 %%
 \editboxtwo{
 \verb|&PARAM_ATMOS_SOLARINS_SIMPLE | & \\
-\verb|SOLARINS_TYPE          = "ANNUAL_MEAN",| & ; Type of idealized solar insolation; \\
-                                               & ;   ANNUAL\_MEAN or CONST \\
+\verb|SOLARINS_TYPE          = "ANNUAL_MEAN",| & ; Choose from solar-insolation types in Table \ref{tab:solarins_type} \\
 \verb|ORBIT_REFERENCE_YEAR   = 2000,|           & ; Reference year for orbital parameters \\
 \verb|ANNUAL_MEAN_YEAR       = 2000,|           & ; Year used for the annual-mean calculation \\
 \verb|ANNUAL_SAMPLES_PER_DAY = 1,|              & ; Number of samples per day \\
 \verb|/ | & \\
 }
-When \verb|SOLARINS_TYPE="ANNUAL_MEAN"| is selected, the daily-mean solar insolation is calculated from the orbital configuration and latitude and then averaged over \nmitem{ANNUAL_MEAN_YEAR}.
-The default is \verb|"ANNUAL_MEAN"|.
-\nmitem{ORBIT_REFERENCE_YEAR} specifies the reference year used to initialize the orbital parameters in the SCALE solar-insolation module.
-\nmitem{ANNUAL_SAMPLES_PER_DAY} specifies the number of equally spaced samples used within each day when forming the annual mean.
-The default value is one sample per day.
+%%
+\begin{table}[htbp]
+\caption{Incoming solar radiation options available in \scaledg.}
+\label{tab:solarins_type_list}
+\begin{center}
+\begin{tabularx}{150mm}{lXX}
+\hline
+\rowcolor[gray]{0.9}
+\verb|SOLARINS_TYPE| & Description & Reference \\
+\hline
+\verb|CONST|       & Spatially uniform incoming solar radiation             & \\
+\verb|ANNUAL_MEAN| & Annual-mean incoming solar radiation                   & \\
+\verb|FRIERSON2006| & Idealized latitudinal distribution of incoming solar radiation & \cite{Frierson2006} \\
+\hline
+\end{tabularx}
+\end{center}
+\end{table}
+%%
+The choice of \nmitem{SOLARINS_TYPE} determines how the incoming solar flux is specified.
+The available options are summarized in Table~\ref{tab:solarins_type_list}.
 
 
 When \verb|SOLARINS_TYPE="CONST"| is selected, \nmitem{CONST_FLUX} is applied uniformly over the model domain.
@@ -75,6 +87,27 @@ When \verb|SOLARINS_TYPE="CONST"| is selected, \nmitem{CONST_FLUX} is applied un
 \verb|CONST_FLUX             = 340.D0,|         & ; Constant incoming solar flux [W m$^{-2}$] \\
 \verb|/ | & \\
 }
+
+When \verb|SOLARINS_TYPE="ANNUAL_MEAN"| is selected, the daily-mean solar insolation is calculated from the orbital configuration and latitude and then averaged over \nmitem{ANNUAL_MEAN_YEAR}.
+The default is \verb|"ANNUAL_MEAN"|.
+\nmitem{ORBIT_REFERENCE_YEAR} specifies the reference year used to initialize the orbital parameters in the SCALE solar-insolation module.
+\nmitem{ANNUAL_SAMPLES_PER_DAY} specifies the number of equally spaced samples used within each day when forming the annual mean.
+The default value is one sample per day.
+
+
+When \verb|FRIERSON2006| is selected, 
+the incoming solar radiation is prescribed using the idealized latitudinal distribution proposed by \cite{Frierson2006}:
+%
+\begin{equation}
+S(\phi) = \frac{S_0}{4} \left[1+ \frac{\Delta_s}{4}\left(1 - 3\sin^2\phi\right)\right],
+\label{eq:solarins_frierson2006}
+\end{equation}
+%
+where $S_0$ is the solar constant, $\phi$ is latitude, and 
+$\Delta_s$ controls the meridional contrast of the incoming solar radiation.
+The parameter $\Delta_s$ can be specified by \nmitem{FRIERSON2006_DELTA_s} in \namelist{PARAM_ATMOS_SOLARINS_SIMPLE}.
+Its default value is 1.4, following \cite{Frierson2006}.
+The incoming solar radiation is independent of longitude and time; therefore, diurnal and seasonal variations are not included.
 
 
 %------------------------------------------------------------------------
