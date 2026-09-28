@@ -232,6 +232,7 @@ contains
       end do
       !$acc update device(this%is_f, this%Nnode_LCMeshAllFace)
       !$acc enter data copyin(this%commdata_list)
+
 #ifdef _OPENACC
       do n=1, mesh%LOCAL_MESH_NUM
       do f=1, this%nfaces_comm
@@ -244,6 +245,10 @@ contains
         allocate( this%VMapB2(bufsize_per_field) )
         !$acc enter data create(this%VMapB2)
       end if
+
+    else
+      LOG_ERROR("MeshFieldCommBase_Init",*) 'field_num_tot <= 0. Check!'
+      call PRC_abort
     end if 
 
     this%MPI_pc_flag = .false.
