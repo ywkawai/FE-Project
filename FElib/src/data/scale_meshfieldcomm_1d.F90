@@ -88,6 +88,8 @@ contains
     type(ElementBase1D), pointer :: elem
     integer :: n
     integer :: Nnode_LCMeshFace(COMM_FACE_NUM,mesh1d%LOCAL_MESH_NUM)
+    integer :: bufsize_per_field
+    logical :: use_vmap_wide_flag
     !-----------------------------------------------------------------------------
     
     this%mesh1d => mesh1d 
@@ -100,29 +102,32 @@ contains
     else
       this%haloSize_1D = 1
     end if
+
+    if ( this%haloSize_1D > 1 ) then
+      use_vmap_wide_flag = .true.
+    else
+      use_vmap_wide_flag = .false.
+    end if
     
     !-
-    allocate( this%VMapB_size(this%mesh1d%LOCAL_MESH_NUM) )
-
-    this%bufsize_per_field =  mesh1d%refElem1D%Nfp * 2 * this%haloSize_1D
+    bufsize_per_field =  mesh1d%refElem1D%Nfp * 2 * this%haloSize_1D
 
     do n=1, this%mesh1d%LOCAL_MESH_NUM
       Nnode_LCMeshFace(:,n) = (/ 1, 1 /) * this%haloSize_1D
     end do
     
-    call MeshFieldCommBase_Init( this, sfield_num, hvfield_num, 0, this%bufsize_per_field, 2, Nnode_LCMeshFace, mesh1d)  
+    call MeshFieldCommBase_Init( this, &
+      sfield_num, hvfield_num, 0,                         &
+      bufsize_per_field, COMM_FACE_NUM, Nnode_LCMeshFace, &
+      mesh1d, use_vmap_wide_flag                          )  
   
-    if ( this%haloSize_1D > 1 ) then
-      this%use_vmap_wide_flag = .true.
-      allocate( this%VMapB2(this%bufsize_per_field) )
-
+    if ( use_vmap_wide_flag ) then
       lcmesh => this%mesh1d%lcmesh_list(1)      
       call MeshUtil1D_genPatchBoundaryMap_wide( this%VMapB2, &
         lcmesh%VMapB, this%haloSize_1D,                      &
         lcmesh%Ne,                                           &
         elem%Np )
-    else
-      this%use_vmap_wide_flag = .false.
+      !$acc update device(this%VMapB2)
     end if
 
     do n=1, this%mesh1d%LOCAL_MESH_NUM
@@ -133,6 +138,8 @@ contains
         this%VMapB_size(n) = size(lcmesh%VMapB)
       end if
     end do
+    !$acc update device(this%VMapB_size)
+
     return
   end subroutine MeshFieldComm1D_Init
 
@@ -141,7 +148,6 @@ contains
     implicit none
     class(MeshFieldComm1D), intent(inout) :: this
     !-----------------------------------------------------------------------------
-
     call MeshFieldCommBase_Final( this )
     return
   end subroutine MeshFieldComm1D_Final

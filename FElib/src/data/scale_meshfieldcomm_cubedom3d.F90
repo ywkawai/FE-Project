@@ -91,12 +91,13 @@ contains
     type(ElementBase3D), pointer :: elem
     integer :: n
     integer :: Nnode_LCMeshFace(COMM_FACE_NUM,mesh3d%LOCAL_MESH_NUM)
+    integer :: bufsize_per_field
+    logical :: use_vmap_wide_flag
     !-----------------------------------------------------------------------------
     
     this%mesh3d => mesh3d
     lcmesh => mesh3d%lcmesh_list(1)
     elem => lcmesh%refElem3D
-
 
     !-
     if ( present(haloSize_h1D) ) then
@@ -110,11 +111,15 @@ contains
       this%haloSize_v = 1
     end if
 
-    !-
-    allocate( this%VMapB_size(this%mesh3d%LOCAL_MESH_NUM) )
+    if ( this%haloSize_h1D > 1 .or. this%haloSize_v > 1 ) then
+      use_vmap_wide_flag = .true.
+    else
+      use_vmap_wide_flag = .false.
+    end if
 
-    this%bufsize_per_field =  2 * (lcmesh%NeX + lcmesh%NeY) * lcmesh%NeZ*elem%Nfp_h*this%haloSize_h1D &
-                            + 2 * lcmesh%NeX*lcmesh%NeY * elem%Nfp_v*this%haloSize_v
+    !-
+    bufsize_per_field =  2 * (lcmesh%NeX + lcmesh%NeY) * lcmesh%NeZ*elem%Nfp_h*this%haloSize_h1D &
+                      +  2 * lcmesh%NeX*lcmesh%NeY * elem%Nfp_v*this%haloSize_v
     
 
     do n=1, this%mesh3d%LOCAL_MESH_NUM
@@ -124,21 +129,19 @@ contains
         + (/ 0, 0, 0, 0, 1, 1 /) * lcmesh%NeX*lcmesh%NeY * lcmesh%refElem3D%Nfp_v*this%haloSize_v
     end do
 
-    call MeshFieldCommBase_Init( this, sfield_num, hvfield_num, htensorfield_num, this%bufsize_per_field, COMM_FACE_NUM, Nnode_LCMeshFace, mesh3d )  
+    call MeshFieldCommBase_Init( this, &
+      sfield_num, hvfield_num, htensorfield_num,          &
+      bufsize_per_field, COMM_FACE_NUM, Nnode_LCMeshFace, &
+      mesh3d, use_vmap_wide_flag )  
   
     !-
-    if ( this%haloSize_h1D > 1 .or. this%haloSize_v > 1) then
-      this%use_vmap_wide_flag = .true.
-      allocate( this%VMapB2(this%bufsize_per_field) )
-
+    if ( use_vmap_wide_flag ) then
       lcmesh => this%mesh3d%lcmesh_list(1)      
       call MeshUtil3D_genPatchBoundaryMap_wide( this%VMapB2, &
         lcmesh%VMapB, this%haloSize_h1D, this%haloSize_v,    &
         lcmesh%NeX, lcmesh%NeY, lcmesh%NeZ,                  &
         elem%Nfp_h, elem%Nfp_v, elem%Nnode_h1D, elem%Nnode_v )
-      !$acc enter data copyin(this%VMapB2)
-    else
-      this%use_vmap_wide_flag = .false.
+      !$acc update device(this%VMapB2)
     end if
 
     do n=1, this%mesh3d%LOCAL_MESH_NUM
@@ -149,7 +152,7 @@ contains
         this%VMapB_size(n) = size(lcmesh%VMapB)
       end if
     end do
-    !$acc enter data copyin(this%VMapB_size)
+    !$acc update device(this%VMapB_size)
 
     return
   end subroutine MeshFieldCommCubeDom3D_Init

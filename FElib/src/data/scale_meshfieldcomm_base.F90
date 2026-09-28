@@ -71,8 +71,8 @@ module scale_meshfieldcomm_base
     integer, allocatable :: request_recv(:)
 
     type(LocalMeshCommData), allocatable :: commdata_list(:,:)
-    integer, allocatable :: is_f(:,:)
-    integer, allocatable :: Nnode_LCMeshAllFace(:)
+    integer, allocatable :: is_f(:,:)              
+    integer, allocatable :: Nnode_LCMeshAllFace(:) !< Array to store the number of nodes for all faces of local meshes
 
     logical :: MPI_pc_flag                !< Flag whether persistent communication is used
     logical :: use_mpi_pc_fujitsu_ext     !< Flag whether Fujitsu extension routines are used for persistent communication
@@ -84,9 +84,9 @@ module scale_meshfieldcomm_base
     integer :: obj_ind
 
     !-
-    logical :: use_vmap_wide_flag
-    integer, allocatable :: VMapB_size(:)
-    integer, allocatable :: VMapB2(:)
+    logical :: use_vmap_wide_flag          !< Flag whether to use wide VMapB
+    integer, allocatable :: VMapB_size(:)  !< Array to store the size of VMapB for each local mesh
+    integer, allocatable :: VMapB2(:)      !< Array to store the mapping of VMapB for each local mesh
   contains
     procedure(MeshFieldCommBase_put), public, deferred :: Put   
     procedure(MeshFieldCommBase_get), public, deferred :: Get
@@ -160,21 +160,23 @@ module scale_meshfieldcomm_base
 
 contains
 
-!> Initialize a base object to manage data communication of fields
-!!
-!! @param sfield_num Number of scalar fields
-!! @param hvfield_num Number of horizontal vector fields
-!! @param htensorfield_num Number of horizontal tensor fields
-!! @param bufsize_per_field Buffer size per a field
-!! @param comm_face_num Number of faces on a local mesh which perform data communication
-!! @param Nnode_LCMeshFace Array to store the number of nodes  
+  !> Initialize a base object to manage data communication of fields
+  !!
+  !! @param sfield_num Number of scalar fields
+  !! @param hvfield_num Number of horizontal vector fields
+  !! @param htensorfield_num Number of horizontal tensor fields
+  !! @param bufsize_per_field Buffer size per a field
+  !! @param comm_face_num Number of faces on a local mesh which perform data communication
+  !! @param Nnode_LCMeshFace Array to store the number of nodes  
+  !! @param mesh Object to manage the computational mesh
+  !! @param use_vmap_wide_flag Flag to indicate whether to use wide halo mapping
 !OCL SERIAL
   subroutine MeshFieldCommBase_Init( this, &
-    sfield_num, hvfield_num, htensorfield_num, bufsize_per_field, comm_face_num, &
-    Nnode_LCMeshFace, mesh )
+    sfield_num, hvfield_num, htensorfield_num,          &
+    bufsize_per_field, comm_face_num, Nnode_LCMeshFace, &
+    mesh, use_vmap_wide_flag )
 
-    implicit none
-    
+    implicit none    
     class(MeshFieldCommBase), intent(inout) :: this
     class(Meshbase), intent(in), target :: mesh
     integer, intent(in) :: sfield_num
@@ -183,6 +185,7 @@ contains
     integer, intent(in) :: bufsize_per_field
     integer, intent(in) :: comm_face_num
     integer, intent(in) :: Nnode_LCMeshFace(comm_face_num,mesh%LOCAL_MESH_NUM)
+    logical, intent(in) :: use_vmap_wide_flag
 
     integer :: n, f
     class(LocalMeshBase), pointer :: lcmesh
@@ -195,7 +198,11 @@ contains
     this%htensorfield_num = htensorfield_num
     this%field_num_tot = sfield_num + hvfield_num*2 + htensorfield_num*4
     this%nfaces_comm = comm_face_num
-    !$acc update device(this%sfield_num, this%hvfield_num, this%htensorfield_num, this%field_num_tot, this%nfaces_comm)
+    this%bufsize_per_field = bufsize_per_field
+
+    this%use_vmap_wide_flag = use_vmap_wide_flag
+    !$acc update device(this%sfield_num, this%hvfield_num, this%htensorfield_num, this%field_num_tot, this%nfaces_comm, this%bufsize_per_field)
+    !$acc update device(this%use_vmap_wide_flag)
     !$acc enter data attach(this%mesh)
 
     if (this%field_num_tot > 0) then
@@ -208,7 +215,8 @@ contains
       allocate( this%commdata_list(comm_face_num,mesh%LOCAL_MESH_NUM) )
       allocate( this%is_f(comm_face_num,mesh%LOCAL_MESH_NUM) ) 
       allocate( this%Nnode_LCMeshAllFace(mesh%LOCAL_MESH_NUM) )
-      !$acc enter data create(this%is_f, this%Nnode_LCMeshAllFace)
+      allocate( this%VMapB_size(this%mesh%LOCAL_MESH_NUM) )
+      !$acc enter data create(this%is_f, this%Nnode_LCMeshAllFace, this%VMapB_size)
 
       do n=1, mesh%LOCAL_MESH_NUM
         this%is_f(1,n) = 1
@@ -231,6 +239,11 @@ contains
       end do
       end do
 #endif
+
+      if ( this%use_vmap_wide_flag ) then
+        allocate( this%VMapB2(bufsize_per_field) )
+        !$acc enter data create(this%VMapB2)
+      end if
     end if 
 
     this%MPI_pc_flag = .false.
@@ -245,12 +258,11 @@ contains
     return
   end subroutine MeshFieldCommBase_Init
 
-!> Finalize a base object to manage data communication of fields
-!!
+  !> Finalize a base object to manage data communication of fields
+  !!
 !OCL SERIAL
   subroutine MeshFieldCommBase_Final( this )
     implicit none
-    
     class(MeshFieldCommBase), intent(inout) :: this
 
     integer :: n, f
@@ -259,13 +271,7 @@ contains
     !-----------------------------------------------------------------------------
 
     if (this%field_num_tot > 0) then
-      if ( this%MPI_pc_flag ) then
-        do ireq=1, this%req_counter
-          call MPI_request_free( this%request_pc(ireq), ierr )
-        end do           
-        deallocate( this%request_pc ) 
-      end if
-
+      
       !$acc exit data delete(this%send_buf, this%recv_buf)
       deallocate( this%send_buf, this%recv_buf )
       !$acc exit data delete(this%request_send, this%request_recv)
@@ -299,10 +305,10 @@ contains
     return
   end subroutine MeshFieldCommBase_Final
 
-!> Prepare persistent communication
-!!
-!! @param use_mpi_pc_fujitsu_ext Flag whether the extension routines of Fujitsu MPI are used
-!!
+  !> Prepare persistent communication
+  !!
+  !! @param use_mpi_pc_fujitsu_ext Flag whether the extension routines of Fujitsu MPI are used
+  !!
 !OCL SERIAL
   subroutine MeshFieldCommBase_prepare_PC( this, &
     use_mpi_pc_fujitsu_ext )
@@ -360,8 +366,8 @@ contains
 !OCL SERIAL
   subroutine MeshFieldCommBase_exchange_core( this, commdata_list, do_wait )
 #ifdef __FUJITSU
-     use mpi_ext, only: &
-       FJMPI_prequest_startall
+    use mpi_ext, only: &
+      FJMPI_prequest_startall
 #endif
 !    use mpi, only: &
 !      MPI_startall
@@ -597,7 +603,7 @@ contains
     end subroutine set_bounddata
   end subroutine MeshFieldCommBase_wait_core
 
-!> Extract halo data from data array with MeshField object and set it to the receiving buffer
+  !> Extract halo data from data array with MeshField object and set it to the receiving buffer
 !OCL SERIAL
   subroutine MeshFieldCommBase_extract_bounddata(var, refElem, mesh, buf)
     implicit none
@@ -618,7 +624,7 @@ contains
     return
   end subroutine MeshFieldCommBase_extract_bounddata
 
-!> Extract halo data from data array with MeshField object and set it to the receiving buffer
+  !> Extract halo data from data array with MeshField object and set it to the receiving buffer
 !OCL SERIAL
   subroutine MeshFieldCommBase_extract_bounddata2(var, VMapB, VMapB_size, NpxNeA, buf)
     implicit none
@@ -639,11 +645,11 @@ contains
     return
   end subroutine MeshFieldCommBase_extract_bounddata2  
 
-!> Extract halo data from data array with MeshField object and set it to the receiving buffer
-!!
-!! Note: We assume that the size of VmapB is the same for all local meshes. 
-!! For the future, this subroutine should be modified to handle the case with different sizes of VmapB among local meshes.
-!!
+  !> Extract halo data from data array with MeshField object and set it to the receiving buffer
+  !!
+  !! Note: We assume that the size of VmapB is the same for all local meshes. 
+  !! For the future, this subroutine should be modified to handle the case with different sizes of VmapB among local meshes.
+  !!
 !OCL SERIAL
   subroutine MeshFieldCommBase_extract_bounddata_2(field_list, dim, varid_s, lcmesh_list, vmapB_size, buf)
     implicit none
@@ -718,7 +724,7 @@ contains
     end subroutine extract_bounddata_var2
   end subroutine MeshFieldCommBase_extract_bounddata_2
 
-!> Extract halo data from data array with MeshField object and set it to the recieving buffer
+  !> Extract halo data from data array with MeshField object and set it to the receiving buffer
 !OCL SERIAL
   subroutine MeshFieldCommBase_extract_bounddata_3(field_list, dim, varid_s, lcmesh_list, VMapB2, VMapB2_size, buf)
     implicit none
@@ -796,7 +802,7 @@ contains
     end subroutine extract_bounddata_var2
   end subroutine MeshFieldCommBase_extract_bounddata_3
 
-!> Extract halo data from the receiving buffer and set it to data array with MeshField object
+  !> Extract halo data from the receiving buffer and set it to data array with MeshField object
   subroutine MeshFieldCommBase_set_bounddata(buf, refElem, mesh, var)
     implicit none
     
@@ -820,7 +826,7 @@ contains
     return
   end subroutine MeshFieldCommBase_set_bounddata  
 
-!> Extract halo data from the recieving buffer and set it to data array with MeshField object
+  !> Extract halo data from the receiving buffer and set it to data array with MeshField object
   subroutine MeshFieldCommBase_set_bounddata_3(buf, refElem, mesh, vmapB, vmapB_size, var)
     implicit none
     
@@ -951,6 +957,7 @@ contains
 #endif
 
   !> Initialize persistent communication for sending halo data
+!OCL SERIAL
   subroutine LocalMeshCommData_pc_init_send( this, &
     req_counter, req, obj_ind_ ,      &
     use_mpi_pc_fujisu_ext             )
@@ -1007,6 +1014,7 @@ contains
     return
   end subroutine LocalMeshCommData_pc_init_send
   !> Initialize persistent communication for receiving halo data
+!OCL SERIAL
   subroutine LocalMeshCommData_pc_init_recv( this, &
     req_counter, req, obj_ind_,       &
     use_mpi_pc_fujisu_ext             )
@@ -1063,9 +1071,9 @@ contains
   end subroutine LocalMeshCommData_pc_init_recv
 
   !> Finalize an object to manage data communication of fields for a face on a local mesh
+!OCL SERIAL
   subroutine LocalMeshCommData_Final( this )
     implicit none
-    
     class(LocalMeshCommData), intent(inout) :: this
     !-----------------------------------------------------------------------------
 

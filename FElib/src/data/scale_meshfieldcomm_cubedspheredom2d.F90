@@ -99,6 +99,8 @@ contains
     type(ElementBase2D), pointer :: elem
     integer :: n
     integer :: Nnode_LCMeshFace(COMM_FACE_NUM,mesh2d%LOCAL_MESH_NUM)
+    integer :: bufsize_per_field
+    logical :: use_vmap_wide_flag
     !-----------------------------------------------------------------------------
     
     this%mesh2d => mesh2d
@@ -112,31 +114,33 @@ contains
       this%haloSize_1D = 1
     end if
 
-    !-
-    allocate( this%VMapB_size(this%mesh2d%LOCAL_MESH_NUM) )
+    if ( this%haloSize_1D > 1 ) then
+      use_vmap_wide_flag = .true.
+    else
+      use_vmap_wide_flag = .false.
+    end if
 
-    this%bufsize_per_field = 2*(lcmesh%NeX + lcmesh%NeY) * elem%Nfp*this%haloSize_1D
+    !-
+    bufsize_per_field = 2*(lcmesh%NeX + lcmesh%NeY) * elem%Nfp*this%haloSize_1D
 
     do n=1, this%mesh2d%LOCAL_MESH_NUM
       lcmesh => this%mesh2d%lcmesh_list(n)
       Nnode_LCMeshFace(:,n) = (/ lcmesh%NeX, lcmesh%NeY, lcmesh%NeX, lcmesh%NeY /) * lcmesh%refElem2D%Nfp*this%haloSize_1D
     end do
 
-    call MeshFieldCommBase_Init( this, sfield_num, hvfield_num, htensorfield_num, this%bufsize_per_field, COMM_FACE_NUM, Nnode_LCMeshFace, mesh2d)  
+    call MeshFieldCommBase_Init( this, &
+    sfield_num, hvfield_num, htensorfield_num,          &
+    bufsize_per_field, COMM_FACE_NUM, Nnode_LCMeshFace, &
+    mesh2d, use_vmap_wide_flag )  
 
     !-
-    if ( this%haloSize_1D > 1 ) then
-      this%use_vmap_wide_flag = .true.
-      allocate( this%VMapB2(this%bufsize_per_field) )
-
+    if ( use_vmap_wide_flag ) then
       lcmesh => this%mesh2d%lcmesh_list(1)      
       call MeshUtilCubedSphere2D_genPatchBoundaryMap_wide( this%VMapB2, &
         lcmesh%VMapB, this%haloSize_1D,                      &
         lcmesh%NeX, lcmesh%NeY,                              &
         elem%Nfp )
-      !$acc enter data copyin(this%VMapB2)
-    else
-      this%use_vmap_wide_flag = .false.
+      !$acc update device(this%VMapB2)
     end if
 
     do n=1, this%mesh2d%LOCAL_MESH_NUM
@@ -147,7 +151,7 @@ contains
         this%VMapB_size(n) = size(lcmesh%VMapB)
       end if
     end do
-    !$acc enter data copyin(this%VMapB_size)
+    !$acc update device(this%VMapB_size)
 
     !-
     if (hvfield_num > 0) then
