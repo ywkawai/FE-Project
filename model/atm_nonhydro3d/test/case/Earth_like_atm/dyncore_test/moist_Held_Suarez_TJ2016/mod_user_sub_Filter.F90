@@ -39,9 +39,6 @@ module mod_user_sub_Filter
     MeshFieldCommCubedSphereDom3D
   use scale_meshfieldcomm_base, only: &
     MeshFieldContainer
-
-  use mod_user_sub_data, only: &
-    MeshFieldCommCubedSphereDom3D_2
   !-----------------------------------------------------------------------------
   implicit none
   private
@@ -51,9 +48,7 @@ module mod_user_sub_Filter
   !
   type, public :: Filter
     real(RP), allocatable :: FilterMat_h1D(:,:)
-  
-    type(MeshFieldCommCubedSphereDom3D) :: vars_comm
-    type(MeshFieldCommCubedSphereDom3D_2) :: vars_comm_2
+    type(MeshFieldCommCubedSphereDom3D) :: vars_comm_wide
   contains
     procedure :: Init => USER_sub_Filter_Init
     procedure :: Apply => USER_sub_apply_filter
@@ -89,8 +84,8 @@ contains
 
     select type(mesh3D)
     type is (MeshCubedSphereDom3D)
-      call this%vars_comm%Init( 1, 0, 0, mesh3D )
-      call this%vars_comm_2%Init( 1, 0, 0, mesh3D )
+      call this%vars_comm_wide%Init( 1, 0, 0, mesh3D,         &
+        haloSize_h1D=mesh3D%refElem3D%Nnode_h1D, haloSize_v=1 )
     end select
     
     return
@@ -113,17 +108,13 @@ contains
     !-----------------------------------------------------
 
     comm_vars_list(1)%field3d => q
-    ! call this%vars_comm%Put(comm_vars_list, 1)
-    ! call this%vars_comm%Exchange()
-    ! call this%vars_comm%Get(comm_vars_list, 1)
-    call this%vars_comm_2%Put(comm_vars_list, 1)
-    call this%vars_comm_2%Exchange()
-    call this%vars_comm_2%Get(comm_vars_list, 1)
+    call this%vars_comm_wide%Put(comm_vars_list, 1)
+    call this%vars_comm_wide%Exchange()
+    call this%vars_comm_wide%Get(comm_vars_list, 1)
 
     do n=1, mesh3D%LOCAL_MESH_NUM
       lmesh3D => mesh3D%lcmesh_list(n)
       elem3D => lmesh3D%refElem3D
-!      allocate( tmp3D(0:elem3D%Nnode_h1D+1,0:elem3D%Nnode_h1D+1,elem3D%Nnode_v,lmesh3D%Ne) )
       allocate( tmp3D(-elem3D%Nnode_h1D+1:2*elem3D%Nnode_h1D,-elem3D%Nnode_h1D+1:2*elem3D%Nnode_h1D,elem3D%Nnode_v,lmesh3D%Ne) )
 
       call extract_tmp3D( tmp3D, &
@@ -135,12 +126,9 @@ contains
     end do
 
     comm_vars_list(1)%field3d => q
-    ! call this%vars_comm%Put(comm_vars_list, 1)
-    ! call this%vars_comm%Exchange()
-    ! call this%vars_comm%Get(comm_vars_list, 1)
-    call this%vars_comm_2%Put(comm_vars_list, 1)
-    call this%vars_comm_2%Exchange()
-    call this%vars_comm_2%Get(comm_vars_list, 1)
+    call this%vars_comm_wide%Put(comm_vars_list, 1)
+    call this%vars_comm_wide%Exchange()
+    call this%vars_comm_wide%Get(comm_vars_list, 1)
 
     do n=1, mesh3D%LOCAL_MESH_NUM
       lmesh3D => mesh3D%lcmesh_list(n)
