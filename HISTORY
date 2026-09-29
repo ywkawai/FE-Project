@@ -13,7 +13,7 @@
   * Enhance documentation for physical parameterizations and model configurations.
 * Fix bugs
    * Fix the treatment of latent heat of vaporization in the large-scale condensation scheme.
-   * Fix a subroutine to build the hydrostatic basic state when the lapse rate of PT is set to be 0
+   * Fix a subroutine to build the hydrostatic basic state when the lapse rate of PT is set to be 0.
 
 
 = 2026-07-11 (1.1.1)

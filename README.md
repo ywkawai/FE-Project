@@ -54,12 +54,12 @@ Please see ``INSTALL.md''.
 - Hirofumi Tomita
 
 ## Acknowledgements
-This project is supported by 
-[Developing strategies for coupling high-order dynamical core and physics processes considering future high-resolution atmospheric simulations](https://kaken.nii.ac.jp/ja/grant/KAKENHI-PROJECT-25K17471/)(MEXT KAKENHI Grant Number 25K17471), 
-[the Transformative Research Areas B: DNA Climate Science](https://dna-climate.org/) (MEXT KAKENHI Grant Number JP20H05731), 
-[Moonshot Goal 8: Realization of a society safe from the threat of extreme winds and rains by controlling and modifying the weather by 2050](https://www.jst.go.jp/moonshot/program/goal8/) ([Development of an atmospheric simulation model for probability estimation for local atmospheric phenomena](https://moonshot8-modeldev.riken.jp)), JICA and JST SATREPS (grant Number: JPMJSA2109), JST AIP Grant Number JPMJCR19U2, and the Foundation for Computational Science (FOCUS) Establishing Supercomputing Center of Excellence. 
-The model development and validation experiments are
-performed using supercomputers (Oakbridge-CX and Wisteria) at the University of Tokyo and Fugaku at RIKEN (Project IDs: ra000005, hp200271, hp230278).
+[Developing strategies for coupling high-order dynamical core and physics processes considering future high-resolution atmospheric simulations](https://kaken.nii.ac.jp/ja/grant/KAKENHI-PROJECT-25K17471/)(MEXT KAKENHI Grant Number 25K17471; FY2025-), 
+JICA and JST SATREPS (Grant Number: JPMJSA2109；FY2021-), 
+and the Foundation for Computational Science (FOCUS) Establishing Supercomputing Center of Excellence. The project was also supported by
+[Moonshot Goal8 Realization of a society safe from the threat of extreme winds and rains by controlling and modifying the weather by 2050](https://www.jst.go.jp/moonshot/program/goal8/) ([Development of an atmospheric simulation model for probability estimation for local atmospheric phenomena](https://moonshot8-modeldev.riken.jp))(FY2022-FY2024), [the Transformative Research Areas B: DNA Climate Science](https://dna-climate.org/) (MEXT KAKENHI Grant Number JP20H05731; FY2020-FY2023), and JST AIP Grant Number JPMJCR19U2.
+
+The model development and validation experiments have been performed using the supercomputers Oakbridge-CX and Wisteria at the University of Tokyo and Fugaku at RIKEN (Project IDs: ra000005, hp200271, hp230278).
 
 ## General references
 - Kawai, Y. and H. Tomita, 2025, Development of a high-order global dynamical core using the discontinuous Galerkin method for an atmospheric large-eddy simulation (LES) and proposal of test cases: SCALE-DG v0.8.0. Geosci. Model Dev., 18, 725-762.
