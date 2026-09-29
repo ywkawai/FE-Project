@@ -560,7 +560,7 @@ contains
       QTRC(:,ke) = QTRC0(:,ke)
     end do    
     call atm_dyn_dgm_tracer_modalfilter_apply( QTRC, & ! (inout)
-      DENS_hyd, DDENS, lmesh, elem, elem_optr ) ! (in)
+      DENS_hyd, DDENS, DDENS, lmesh, elem, elem_optr ) ! (in)
     return
   end subroutine apply_modal_filter_qtrc_core
 end module mod_atmos_phy_preproc

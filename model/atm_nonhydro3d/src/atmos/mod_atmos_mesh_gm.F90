@@ -26,7 +26,6 @@ module mod_atmos_mesh_gm
   use scale_localmesh_3d, only: LocalMesh3D
   use scale_meshfieldcomm_cubedspheredom3d, only: MeshFieldCommCubedSphereDom3D
   use scale_sparsemat, only: sparsemat
-  use scale_file_base_meshfield, only: FILE_base_meshfield
   use scale_file_restart_meshfield, only: FILE_restart_meshfield_component
 
   use scale_model_var_manager, only: ModelVarManager
@@ -135,8 +134,6 @@ contains
     logical :: is_spec_FZ
     
     integer :: ierr
-
-    type(FILE_base_meshfield) :: file_topo
     !-------------------------------------------
 
     LOG_NEWLINE
@@ -194,16 +191,8 @@ contains
     call this%PrepairElementOperation( Element_operation_type, SpMV_storage_format )
 
     !- Set topography & vertical coordinate
-    
-    if ( TOPO_IN_BASENAME /= '' ) then
-      LOG_INFO("ATMOS_MESH_setup",*) 'Read topography data'
 
-      call file_topo%Init(1, meshcubedsphere2D=this%mesh%mesh2D )
-      call file_topo%Open( TOPO_IN_BASENAME, myrank=PRC_myrank )
-      call file_topo%Read_Var( MFTYPE2D_XY, TOPO_IN_VARNAME, this%topography%topo )
-      call file_topo%Close()
-      call file_topo%Final()
-    end if
+    call this%Read_topography_file( TOPO_IN_BASENAME, TOPO_IN_VARNAME, this%mesh%mesh2D, dom_zmin )
 
     this%vcoord_type_id = MeshUtil_get_VCoord_TypeID( VERTICAL_COORD_NAME )
     call this%Setup_vcoordinate()
@@ -277,9 +266,9 @@ contains
 
 !OCL SERIAL
   subroutine AtmosMeshGM_setup_restartfile2( this, restart_file, &
-    in_basename, in_postfix_timelabel,                         &
-    out_basename, out_postfix_timelabel,                       &
-    out_dtype, out_title, var_num                              )
+    in_basename, in_postfix_timelabel,                           &
+    out_basename, out_postfix_timelabel,                         &
+    out_dtype, out_title, var_num, dim_name_postfix              )                            
     implicit none
     class(AtmosMeshGM), target, intent(inout) :: this
     class(FILE_restart_meshfield_component), intent(inout) :: restart_file
@@ -290,10 +279,12 @@ contains
     character(*), intent(in) :: out_title
     character(*), intent(in) :: out_dtype  
     integer, intent(in) :: var_num  
+    character(len=*), intent(in) :: dim_name_postfix
     !-----------------------------------------------------------
 
-    call restart_file%Init('ATMOS', in_basename, in_postfix_timelabel,    &
-      out_basename, out_postfix_timelabel, out_dtype, out_title, var_num, &
+    call restart_file%Init('ATMOS', in_basename, in_postfix_timelabel, &
+      out_basename, out_postfix_timelabel, out_dtype, out_title,       &
+      var_num, dim_name_postfix,                                       &
       meshcubedsphere3D=this%mesh )
 
   end subroutine AtmosMeshGM_setup_restartfile2

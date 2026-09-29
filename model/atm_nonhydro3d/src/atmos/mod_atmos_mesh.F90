@@ -61,6 +61,7 @@ module mod_atmos_mesh
     procedure(AtmosMesh_calc_UVMet), public, deferred :: Calc_UVmet
     generic :: Setup_restartfile => Setup_restartfile1, Setup_restartfile2
     procedure(AtmosMesh_setup_vcoord), public, deferred :: Setup_vcoordinate
+    procedure :: Read_topography_file => AtmosMesh_read_topography_file
   end type AtmosMesh
 
   interface
@@ -76,7 +77,7 @@ module mod_atmos_mesh
     subroutine AtmosMesh_setup_restartfile2( this, restart_file, &
       in_basename, in_postfix_timelabel,                         &
       out_basename, out_postfix_timelabel,                       &
-      out_dtype, out_title, var_num                              )
+      out_dtype, out_title, var_num, dim_name_postfix            )
       import AtmosMesh
       import FILE_restart_meshfield_component
       class(AtmosMesh), target, intent(inout) :: this
@@ -88,6 +89,7 @@ module mod_atmos_mesh
       character(*), intent(in) :: out_title
       character(*), intent(in) :: out_dtype  
       integer, intent(in) :: var_num  
+      character(*), intent(in) :: dim_name_postfix
     end subroutine AtmosMesh_setup_restartfile2
   end interface
   interface
@@ -168,5 +170,55 @@ contains
 
     return
   end subroutine AtmosMesh_Final
+
+!OCL SERIAL
+  subroutine AtmosMesh_read_topography_file( this,      &
+    TOPO_IN_BASENAME, TOPO_IN_VARNAME, mesh2D, dom_zmin )
+    use scale_file_base_meshfield, only: FILE_base_meshfield
+    use scale_mesh_rectdom2d, only: MeshRectDom2D
+    use scale_mesh_cubedspheredom2d, only: MeshCubedSphereDom2D
+    use scale_mesh_base2d, only: &
+      MFTYPE2D_XY => MeshBase2D_DIMTYPEID_XY    
+    implicit none
+    class(AtmosMesh), target, intent(inout) :: this
+    character(*), intent(in) :: TOPO_IN_BASENAME
+    character(*), intent(in) :: TOPO_IN_VARNAME
+    class(MeshBase2D), intent(in), target :: mesh2D
+    real(RP), intent(in) :: dom_zmin
+
+    type(FILE_base_meshfield) :: file_topo
+
+    integer :: idom, ke2D
+    class(LocalMesh2D), pointer :: lcmesh2D
+    !-------------------------------------------
+
+    if ( trim(TOPO_IN_BASENAME) /= '' ) then
+      LOG_INFO("ATMOS_MESH_setup",*) 'Read topography data'
+
+      select type(mesh2D)
+      type is (MeshRectDom2D)
+        call file_topo%Init(1, mesh2D=mesh2D )
+      type is (MeshCubedSphereDom2D)
+        call file_topo%Init(1, meshCubedSphere2D=mesh2D )
+      end select
+      
+      call file_topo%Open( TOPO_IN_BASENAME, myrank=PRC_myrank )
+      call file_topo%Read_Var( MFTYPE2D_XY, TOPO_IN_VARNAME, this%topography%topo )
+      call file_topo%Close()
+      call file_topo%Final()
+    else
+      LOG_INFO("ATMOS_MESH_setup",*) 'No topography data is specified. Set the topography to a constant value: ', dom_zmin
+
+      do idom=1, mesh2D%LOCAL_MESH_NUM
+        lcmesh2D => mesh2D%lcmesh_list(idom)
+        !$omp parallel do
+        do ke2D=lcmesh2D%NeS, lcmesh2D%NeE
+          this%topography%topo%local(idom)%val(:,ke2D) = dom_zmin
+        end do
+      end do
+    end if
+    
+    return
+  end subroutine AtmosMesh_read_topography_file
 
 end module mod_atmos_mesh

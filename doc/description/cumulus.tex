@@ -1,0 +1,339 @@
+\section{Cumulus parameterization}
+{\bf \Large
+\begin{tabular}{ccc}
+\hline
+  Corresponding author & : & Yuta Kawai\\
+\hline
+\end{tabular}
+}
+
+Cumulus parameterization represents the effects of unresolved moist convection on the resolved atmospheric state.
+In SCALE-DG, a moist convective adjustment scheme is available as a simple representation of cumulus convection.
+
+\subsection{Moist convective adjustment}
+\label{subsec:moist_convective_adjustment}
+%%
+The scheme is based on the concept of \citet{manabe1965}.
+Saturated convective instability is diagnosed from the vertical distribution of saturated moist static energy (MSE) in nearly saturated layers.
+If such instability is detected, the unstable layer is adjusted toward a moist-neutral thermodynamic profile
+subject to column-integrated MSE conservation and the available-water constraint.
+Water vapor condensed during the adjustment is immediately removed as precipitation.
+The adjustment is repeated until no saturated convective instability remains in the column.
+The overall procedure of the adjustment is summarized in Fig.~\ref{fig:mca_procedure}.
+
+
+The saturated MSE is defined as
+%
+\begin{align}
+ h_s = C_{p}(q_{v,s}) T + gz + L q_{v,s},
+\label{eq:mca_hsat}
+\end{align}
+%
+where
+$C_{p}(q_v) = (1-q_v) C_{p,d} + q_v C_{p,v}$
+and $q_{v,s}$ is the saturation specific humidity.
+A layer is regarded as potentially convectively unstable when it is nearly saturated and $h_s$ decreases with height, i.e.,
+%
+\begin{align}
+ \frac{\partial h_s}{\partial z} < 0.
+ \label{eq:mca_instability}
+\end{align}
+%
+In practice, small thresholds are introduced for relative humidity and the vertical difference of $h_s$
+in order to avoid triggering the adjustment by numerical noise.
+The contiguous layer satisfying these criteria is referred to as the \textit{diagnosed unstable core} $\mathcal{C}$.
+The \textit{adjustment region} $\mathcal{A}$ is the layer over which the moist-neutral profile and the column-integrated constraints are imposed.
+It initially corresponds to $\mathcal{C}$ but may be extended vertically when necessary to obtain a water-feasible and energy-conserving adjusted state.
+
+For a given $\mathcal{A}$, the adjusted thermodynamic profile is determined using the temperature $T_b$ at the base of $\mathcal{A}$ as a single scalar degree of freedom.
+For each trial value of $T_b$, a moist-neutral temperature profile is constructed by requiring vertically uniform saturated MSE:
+%
+\begin{align}
+ h_s(\widetilde{T}(z;T_b),\widetilde{p}(z;T_b),z) = h_{s,0},
+ \label{eq:mca_neutral}
+\end{align}
+%
+where a tilde denotes a trial state before the diagnosed precipitation is removed.
+Equation~\eqref{eq:mca_neutral} is integrated upward from $T_b$ to obtain $\widetilde{T}(z;T_b)$.
+
+The corresponding water-vapor profile is constructed subject to the saturation constraint.
+Nodes that are nearly saturated within $\mathcal{C}$ are adjusted to saturation,
+%
+\begin{align}
+ \widetilde{q}_v(z;T_b)
+ =
+ q_{v,s}\left(\widetilde{T}(z;T_b),\widetilde{p}(z;T_b)\right),
+\end{align}
+%
+whereas at the other nodes within $\mathcal{A}$,
+%
+\begin{align}
+ \widetilde{q}_v(z;T_b)
+ =
+ \min \left[
+ q_v^*,
+ q_{v,s}\left(\widetilde{T}(z;T_b),\widetilde{p}(z;T_b)\right)
+ \right].
+\label{eq:mca_qv}
+\end{align}
+%
+Here, the asterisk denotes the state before the adjustment.
+During this trial-profile construction, the density $\rho^*$ is held fixed, while the pressure is updated through
+%
+\begin{align*}
+ \widetilde{p} = \rho^* R(\widetilde{q}_v)\widetilde{T}, \qquad
+ R(q_v) = (1-q_v)R_d + q_v R_v.
+\end{align*}
+%
+The moist-neutral profile and pressure are determined consistently by iteration.
+
+For each $T_b$, the column-integrated water vapor and MSE of the resulting trial profile are
+%
+\begin{align*}
+ W(T_b)
+ =
+ \int_{\mathcal{A}} \rho^* \widetilde{q}_v(z;T_b)\,dz ,
+ \qquad
+ H(T_b)
+ =
+ \int_{\mathcal{A}} \rho^*
+ \left[
+ C_p(\widetilde{q}_v)\widetilde{T}
+ + gz
+ + L\widetilde{q}_v
+ \right] dz ,
+\end{align*}
+%
+and their values before the adjustment are
+%
+\begin{align*}
+ W^*
+ =
+ \int_{\mathcal{A}} \rho^* q_v^*\,dz ,
+ \qquad
+ H^*
+ =
+ \int_{\mathcal{A}} \rho^*
+ \left[
+ C_p(q_v^*)T^*
+ + gz
+ + Lq_v^*
+ \right] dz .
+\end{align*}
+%
+The available-water constraint first restricts the admissible range of $T_b$ according to
+%
+\begin{align}
+ W(T_b) \le W^*.
+ \label{eq:mca_water_constraint}
+\end{align}
+%
+Within this range, $T_b$ is determined by imposing conservation of the column-integrated MSE:
+%
+\begin{align}
+ H(T_b) = H^*.
+ \label{eq:mca_energy_constraint}
+\end{align}
+%
+Thus, the water constraint restricts the admissible family of trial profiles, and the MSE constraint selects the final value of $T_b$.
+If no such solution exists within the initially diagnosed unstable core, $\mathcal{A}$ is progressively extended vertically and the calculation is repeated.
+This extension is a numerical procedure for obtaining a consistent adjusted state and does not represent physical entrainment.
+
+Once $T_b$ has been determined, the reduction in column-integrated water vapor is immediately removed as precipitation:
+%
+\begin{align}
+ P_{\rm MCA}
+ =
+ W^* - W(T_b)
+ =
+ \int_{\mathcal{A}}
+ \rho^*
+ \left(q_v^*-\widetilde{q}_v\right) dz
+ \ge 0.
+ \label{eq:mca_precip}
+\end{align}
+%
+The precipitation mass is distributed within $\mathcal{A}$ over nodes where the local water-vapor mass density decreases.
+No condensate is retained as a prognostic cloud-water variable.
+
+
+After the state has been updated, saturated convective instability is diagnosed again over the entire column.
+If another unstable core is found, the adjustment procedure described above is repeated using the updated state.
+This diagnosis--adjustment cycle continues until no saturated convective instability remains in the column.
+The precipitation produced in successive adjustments is accumulated throughout this cycle.
+
+
+Let $\rho_{\rm precip}(z)$ denote the accumulated local precipitation mass density after completion of the diagnosis--adjustment cycle.
+The final density is obtained as
+%%
+\begin{align*}
+\rho^{\rm adj} = \rho^* - \rho_{\rm precip}.
+\end{align*}
+%%
+The specific humidity changes consistently with the reduced density, 
+while the water-vapor mass density remains unchanged during this final precipitation-removal step.
+The pressure, potential temperature, and other thermodynamic quantities are then recomputed consistently to obtain the final adjusted state.
+
+
+The adjustment is applied over one physics time step $\Delta t_{\rm MCA}$.
+The tendencies are
+%
+\begin{align}
+ S_{\rho,{\rm MCA}}
+ &=
+ \frac{\rho^{\rm adj}-\rho^*}{\Delta t_{\rm MCA}},
+ \\
+ S_{\rho\theta,{\rm MCA}}
+ &=
+ \frac{ \rho^{\rm adj}\theta^{\rm adj} - \rho^*\theta^* } {\Delta t_{\rm MCA}},
+ \\
+ S_{\rho q_v,{\rm MCA}}
+ &=
+ \frac{ \rho^{\rm adj}q_v^{\rm adj} - \rho^*q_v^* } {\Delta t_{\rm MCA}} .
+ \label{eq:mca_tendencies}
+\end{align}
+%
+The precipitation mass flux and the associated energy flux removed from the atmospheric column are diagnosed from the precipitation due to the adjustment.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[
+  font=\scriptsize,
+  scale=0.8,
+  node distance=3mm,
+  box/.style={
+    rectangle,
+    rounded corners,
+    draw=black,
+    align=center,
+    text width=5.6cm,
+    minimum height=6mm,
+    inner sep=2.5pt
+  },
+  decision/.style={
+    diamond,
+    draw=black,
+    align=center,
+    aspect=3.2,
+    inner sep=0.5pt
+  },
+  arrow/.style={
+    ->,
+    >=Stealth,
+    semithick
+  }
+]
+
+\node[box] (initial)
+{Initial atmospheric state};
+
+\node[box, below=of initial] (diagnose)
+{Diagnose saturated convective instability\\
+and determine the unstable core $\mathcal{C}$};
+
+\node[decision, below=of diagnose] (unstable)
+{Unstable core exists?};
+
+\node[box, below=5mm of unstable] (region)
+{Define the adjustment region $\mathcal{A}$};
+
+\node[box, below=of region] (trial)
+{For a trial $T_b$, construct the moist-neutral profile\\
+$\widetilde{T}(z;T_b)$, $\widetilde{q}_v(z;T_b)$, and
+$\widetilde{p}(z;T_b)$};
+
+\node[box, below=of trial] (water)
+{Restrict the admissible range of $T_b$\\
+by $W(T_b)\le W^*$};
+
+\node[decision, below=4mm of water] (waterfeasible)
+{Water-feasible range exists?};
+
+\node[box, below=5mm of waterfeasible] (energy)
+{Determine $T_b$ within the feasible range\\
+from $H(T_b)=H^*$};
+
+\node[decision, below=4mm of energy] (energysol)
+{Energy-conserving solution exists?};
+
+\node[box, right=20mm of energysol, text width=3.0cm] (extend)
+{Extend $\mathcal{A}$ vertically};
+
+\node[box, below=5mm of energysol] (precip)
+{Diagnose and accumulate precipitation};
+
+\node[box, below=of precip] (update)
+{Update the atmospheric state};
+
+\node[box, right=22mm of unstable, text width=4.0cm] (final)
+{Construct the final adjusted state\\
+using accumulated precipitation};
+
+\node[box, below=of final, text width=4.0cm] (tendency)
+{Evaluate MCA tendencies over $\Delta t_{\rm MCA}$};
+
+\draw[arrow] (initial) -- (diagnose);
+\draw[arrow] (diagnose) -- (unstable);
+
+\draw[arrow]
+  (unstable)
+  -- node[right, font=\scriptsize] {yes}
+  (region);
+
+\draw[arrow]
+  (unstable.east)
+  -- node[above, font=\scriptsize] {no}
+  (final.west);
+
+\draw[arrow] (region) -- (trial);
+\draw[arrow] (trial) -- (water);
+\draw[arrow] (water) -- (waterfeasible);
+
+\draw[arrow]
+  (waterfeasible)
+  -- node[right, font=\scriptsize] {yes}
+  (energy);
+
+\draw[arrow] (energy) -- (energysol);
+
+\draw[arrow]
+  (energysol)
+  -- node[right, font=\scriptsize] {yes}
+  (precip);
+
+\draw[arrow]
+  (waterfeasible.east)
+  -- node[above, font=\scriptsize] {no}
+  ++(11mm,0)
+  |- (extend.north);
+
+\draw[arrow]
+  (energysol.east)
+  -- node[above, font=\scriptsize] {no}
+  (extend.west);
+
+\draw[arrow]
+  (extend.north)
+  |- (trial.east);
+
+\draw[arrow] (precip) -- (update);
+
+\draw[arrow]
+  (update.west)
+  -- ++(-10mm,0)
+  |- (diagnose.west);
+
+\draw[arrow] (final) -- (tendency);
+
+\end{tikzpicture}
+\caption{
+Schematic procedure of the moist convective adjustment scheme.
+The available-water constraint first restricts the admissible range of $T_b$,
+and the MSE constraint then determines $T_b$ within this range.
+The diagnosis--adjustment cycle is repeated until no saturated convective
+instability remains in the column.
+}
+\label{fig:mca_procedure}
+\end{figure}

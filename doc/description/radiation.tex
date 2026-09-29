@@ -1,0 +1,300 @@
+\section{Radiation}\label{sec:radiation}
+
+{\bf \Large
+\begin{tabular}{ccc}
+\hline
+  Corresponding author & : & Yuta Kawai\\
+\hline
+\end{tabular}
+}
+\\
+
+Radiative transfer describes the propagation of electromagnetic radiation through the atmosphere and determines the radiative heating and cooling resulting from the absorption, emission, and, in general, scattering of radiation.
+
+\subsection{Basic formulation of radiative transfer}
+%%
+The following formulation follows the standard theory of radiative transfer~\citep[e.g.,][]{Liou2002}.
+In general, the specific intensity depends on the position, propagation direction, wavelength, and time.
+For a given wavelength and propagation direction, the radiative transfer equation is written as
+%%
+\begin{equation}
+  \frac{dI_\lambda(\bm{\sigma})}{ds} =
+  -\chi_\lambda I_\lambda(\bm{\sigma})
+  +\kappa_\lambda B_\lambda
+  +\sigma_{s,\lambda}\mathcal{S}_\lambda(\bm{\sigma}),
+\label{eq:radiation_transfer_equation_general_form}
+\end{equation}
+%%
+where $I_\lambda(\bm{\sigma})$ is the specific intensity at wavelength $\lambda$ in the propagation direction $\bm{\sigma}$,
+$s$ is the distance along the radiation path,
+$\kappa_\lambda$ and $\sigma_{s,\lambda}$ are the absorption and scattering coefficients, respectively,
+$\chi_\lambda=\kappa_\lambda+\sigma_{s,\lambda}$ is the extinction coefficient,
+and $B_\lambda$ is the Planck function. $\mathcal{S}_\lambda$ is the scattering source function defined as
+%%
+\begin{equation}
+  \mathcal{S}_\lambda(\bm{\Omega}) = \frac{1}{4\pi}\int_{4\pi} I_\lambda(\bm{\Omega}') P_\lambda(\bm{\Omega},\bm{\Omega}') d\bm{\Omega}',
+\end{equation}
+%%
+where $P_\lambda(\bm{\Omega},\bm{\Omega}')$ is the scattering phase function that describes the angular distribution of scattered radiation.
+Introducing the optical thickness $\tau_\lambda$ defined as
+%%
+\begin{equation}
+  d\tau_\lambda = \chi_\lambda ds,
+\end{equation}
+%%
+Eq.\,\eqref{eq:radiation_transfer_equation_general_form} becomes
+%%
+\begin{equation}
+  \frac{dI_\lambda}{d\tau_\lambda} = - I_\lambda + S_\lambda.
+\label{eq:radiation_transfer_equation_general_form_tau}
+\end{equation}
+Here, $S_\lambda$ is the source function defined as
+%%
+\begin{align}
+  S_\lambda &= \frac{\kappa_\lambda B_\lambda + \sigma_{s,\lambda} J_\lambda}{\chi_\lambda} \\
+            &= (1-\omega_\lambda) B_\lambda + \omega_\lambda J_\lambda,
+\end{align}
+%%
+where $\omega_\lambda = \sigma_{s,\lambda}/\chi_\lambda$ is the single scattering albedo.
+
+
+In atmospheric simulations, the radiative transfer is typically solved independently in each atmospheric column under the plane-parallel approximation, 
+whereby horizontal radiative transport is neglected.
+We introduce the optical thickness along the vertical direction $z$ as
+%%
+\begin{equation}
+  d\tau_{\lambda,z}= -\chi_\lambda dz= - \chi_\lambda \mu\, ds = -\mu\, d\tau_\lambda,
+\end{equation}
+%%
+where $\mu$ is the cosine of the zenith angle $\theta$. 
+Thus, we can rewrite Eq.\,\eqref{eq:radiation_transfer_equation_general_form_tau} as
+%%
+\begin{equation}
+  \mu \frac{dI_\lambda}{d\tau_{\lambda,z}} = I_\lambda - S_\lambda. 
+\label{eq:radiation_transfer_equation_general_form_plane_parallel}
+\end{equation}
+The equation for the radiative fluxes is obtained by integrating Eq.\,\eqref{eq:radiation_transfer_equation_general_form_plane_parallel} over the semi-sphere as
+%%
+\begin{align}
+ \dfrac{dF_\lambda^\uparrow}{d\tau_{\lambda,z}} =&  
+   4\pi J_\lambda^\uparrow 
+ - 2\pi (1-\omega_\lambda) B_\lambda
+ - \dfrac{\omega_\lambda}{2}\int_0^1 d\mu \int_{4\pi} P_\lambda(\bm{\Omega},\bm{\Omega}') I_\lambda(\bm{\Omega}') d\Omega', \\
+  \dfrac{dF_\lambda^\downarrow}{d\tau_{\lambda,z}} =& 
+ - 4\pi J_\lambda^\downarrow 
+ + 2\pi (1-\omega_\lambda) B_\lambda
+ + \dfrac{\omega_\lambda}{2}\int_{-1}^0 d\mu \int_{4\pi} P_\lambda(\bm{\Omega},\bm{\Omega}') I_\lambda(\bm{\Omega}') d\Omega'. \label{eq:rte_general_form_plane_parallel_flux}
+\end{align}
+%%
+Here, superscripts $\uparrow$ and $\downarrow$ indicate the quantities integrated over the upward and downward hemispheres, respectively, 
+$J_\lambda$ is the mean intensity defined as 
+\begin{align}
+  J_\lambda = \frac{1}{4\pi}\int_{4\pi} I_\lambda(\bm{\Omega}) d\Omega,
+\end{align}
+%%
+and the upward and downward fluxes are defined as
+%%
+\begin{align}
+F_\lambda^\uparrow =2\pi \int_0^1 I_\lambda(\mu)\mu\,d\mu,\;\;
+F_\lambda^\downarrow =2\pi \int_{-1}^0 I_\lambda(\mu)|\mu|\,d\mu,
+\end{align}
+%%
+where both fluxes are defined as positive quantities.
+
+
+
+The hemispherically integrated equations are not closed because they still contain the angular moments of the radiation field and the scattering integral. 
+In the two-stream approximation~\citep{Toon1989}, the angular dependence within each hemisphere is represented by a single effective propagation direction. 
+The resulting angular integration is approximated using a diffusivity factor $D_\lambda$,
+which accounts for the increased optical path length of obliquely propagating radiation. 
+Then, the two-stream equations can therefore be written schematically as
+\begin{align}
+\frac{dF_\lambda^\uparrow}{d\tau_{\lambda,z}}
+&= D_\lambda^\uparrow \left( F_\lambda^\uparrow -\pi S_\lambda^\uparrow \right), \\
+\frac{dF_\lambda^\downarrow}{d\tau_{\lambda,z}}
+&=
+-D_\lambda^\downarrow \left( F_\lambda^\downarrow -\pi S_\lambda^\downarrow \right),
+\label{eq:rte_twostream_approx}
+\end{align}
+%%
+where $D_\lambda^\uparrow$ and $D_\lambda^\downarrow$ are the diffusivity factors determined by the adopted angular quadrature,
+$S_\lambda^\uparrow$ and $S_\lambda^\downarrow$ denote the corresponding hemispherically averaged source functions.
+Note that the source term $\pi S_\lambda$ is not obtained by directly evaluating $2\pi\int_0^1 S_\lambda\,d\mu$. 
+Rather, it appears as part of the angular closure introduced in the two-stream approximation.
+
+
+In the current version of SCALE-DG, 
+the spectral dependence is treated separately in each radiation scheme by dividing the spectrum into one or more bands.
+Furthermore, the scattering is neglected in all radiation schemes.
+Consequently, 
+$\sigma_{s,\lambda} = 0$ and $\chi_\lambda = \kappa_\lambda$, and the source function is simplified as $S_\lambda = B_\lambda$.
+The radiation transfer equation in Eq.\,\eqref{eq:rte_twostream_approx} using the two-stream approximation therefore becomes
+%%
+\begin{align}
+  \frac{dF_\lambda^\uparrow}{d\tau_{\lambda,z}} = D^\uparrow_\lambda \left( F_\lambda^\uparrow - \pi B_\lambda \right), \\
+  \frac{dF_\lambda^\downarrow}{d\tau_{\lambda,z}} = -D^\downarrow_\lambda \left( F_\lambda^\downarrow - \pi B_\lambda \right).
+\label{eq:rte_general_form_plane_parallel_flux_no_scattering}
+\end{align}
+
+
+The following sections describe the radiation schemes currently available in SCALE-DG.
+Although the parameterizations of optical properties differ among the schemes, 
+all are based on Eq.\,\eqref{eq:rte_general_form_plane_parallel_flux_no_scattering}.
+
+
+\subsection{Gray radiation scheme}\label{sec:gray_radiation}
+%%
+As the simplest radiation model incorporating moisture feedback, a gray radiation model is provided. 
+This scheme is gray in infrared so that a single optical thickness is defined for the entire longwave spectrum, 
+which includes a parameterization of long-wave absorption by CO$_2$.
+
+
+Following Eq.\,(5) in \cite{Vallis2018}, 
+the vertical gradient of longwave optical thickness is parameterized as
+%%
+\begin{equation}
+\frac{\partial \tau_{\mathrm{LW}}}{\partial \sigma}
+=
+a_{\mathrm{LW}}\mu + b_{\mathrm{LW}} q_v + c_{\mathrm{LW}} \ln\!\left(\frac{C_{\mathrm{CO_2}}}{360}\right),
+\label{eq:gray_radiation_tau}
+\end{equation}
+%%
+where $\sigma=p/P_0$, $q_v$ is the specific humidity,
+$C_{\mathrm{CO_2}}$ is the atmospheric CO$_2$ concentration [ppm],
+$\mu$ is a prescribed scaling factor,
+and $a_{\mathrm{LW}}$, $b_{\mathrm{LW}}$, and $c_{\mathrm{LW}}$ are empirical coefficients.
+
+\cite{Byrne2013} used $(a_{\mathrm{LW}}, b_{\mathrm{LW}}, c_{\mathrm{LW}})= (0.8678,\,1997.9,\,0)$
+with the coefficients obtained by fitting this parameterization to the longwave optical depths employed by ~\cite{Frierson2006}.
+Their idealized experiments used a planetary albedo of approximately $0.38$.
+For experiments employing an albedo closer to that of Earth, approximately $0.30$, 
+\cite{Vallis2018} suggested $(a_{\mathrm{LW}}, b_{\mathrm{LW}}, c_{\mathrm{LW}})= (0.1627,\,1997.9,\,0.17)$.
+The latter parameter set also includes the explicit parameterization of longwave absorption by CO$_2$,
+which was derived using output from the Santa Barbara DISORT Atmospheric Radiative Transfer model (SBDART)~\citep{Ricchiazzi1998}.
+
+
+SCALE-DG uses the coefficient set of \cite{Vallis2018} by default, 
+while the \cite{Byrne2013} set is also available as an alternative.
+
+
+\subsection{Two-band infrared and one-band solar radiation scheme}\label{sec:two_band_radiation}
+%%
+This scheme has two infrared bands and one shortwave band, as described in \cite{Geen2016}, 
+which provides an intermediate complexity between gray radiation and more sophisticated radiation schemes.
+All bands were originally parameterized by fitting to data from SBDART for a range of atmospheric profiles. 
+ \cite{Vallis2018} includes the CO$_2$ absorption in each band and changes the functional form of the non-window optical depth.
+ The upward flux of shortwave radiation is assumed to be transparent.
+
+Following Eq.\,(6) in \cite{Vallis2018},
+the optical thickness in the shortwave band ($< 4~\mu\mathrm{m}$) is parameterized as
+%%
+\begin{equation}
+\frac{\partial \tau_{\mathrm{SW}}}{\partial \sigma}
+= a_{\mathrm{SW}} + b_{\mathrm{SW}}(\tau_{\mathrm{SW}}) q_v
++ c_{\mathrm{SW}} \ln\!\left(\frac{C_{\mathrm{CO_2}}}{360}\right),
+\label{eq:2bandLW_1bandSW_rad_tau_sw}
+\end{equation}
+%%
+where the humidity coefficient depends on the accumulated optical thickness as,
+%%
+\begin{equation}
+\ln b_{\mathrm{SW}} (\tau_{\mathrm{SW}}) = \frac{0.01887}{\tau_{\mathrm{SW}}+0.009522}
++ \frac{1.603}{(\tau_{\mathrm{SW}}+0.5194)^2}.
+\label{eq:twoband_bsw}
+\end{equation}
+%%
+This dependence approximately represents the saturation of water-vapor absorption in the shortwave spectrum.
+
+The longwave optical thickness is divided into a non-window band in 8-14$~\mu\mathrm{m}$ and an atmospheric window band in other long-wave wavelengths ($> 4~\mu\mathrm{m}$).
+Following Eq.\,(7) in \cite{Vallis2018}, 
+the non-window component is parameterized as
+%%
+\begin{equation}
+\frac{\partial \tau_{\mathrm{LW}}^{\mathrm{nw}}}{\partial \sigma}
+=
+a_{\mathrm{LW}} + b_{\mathrm{LW}} \ln\!\left(1+c_{\mathrm{LW}} q_v\right)
++ d_{\mathrm{LW}} \ln\!\left(\frac{C_{\mathrm{CO_2}}}{360~\mathrm{ppm}}\right),
+\label{eq:twoband_tau_lw}
+\end{equation}
+%%
+while the atmospheric window band is expressed as
+%%
+\begin{equation}
+\frac{\partial \tau_{\mathrm{LW}}^{\mathrm{win}}}{\partial \sigma}
+= a_{\mathrm{win}} + b_{\mathrm{win}} q_v + c_{\mathrm{win}} q_v^2
++ d_{\mathrm{win}} \ln\!\left(\frac{C_{\mathrm{CO_2}}}{360~\mathrm{ppm}}\right).
+\label{eq:twoband_tau_window}
+\end{equation}
+%%
+The total longwave flux is obtained as the weighted sum of the two bands. 
+Fixed weighting factors $R_{\mathrm{nw}}$ and $R_{\mathrm{win}}$ are prescribed for the non-window and window components, respectively.
+
+The default parameter values adopted in the Isca implementation of Vallis et al.~\cite{Vallis2018} are 
+%%
+\begin{align}
+(a_{\mathrm{SW}}, c_{\mathrm{SW}}) &= (0.0596,\,0.0029), \\
+(a_{\mathrm{LW}}, b_{\mathrm{LW}}, c_{\mathrm{LW}}, d_{\mathrm{LW}}) &= (0.1000,\,23.8,\,254.0,\,0.2023), \\
+(a_{\mathrm{win}}, b_{\mathrm{win}}, c_{\mathrm{win}}, d_{\mathrm{win}}) &= (0.2150,\,147.11,\,10814.0,\,0.0954).
+\end{align}
+%%
+The partitioning factors for the longwave radiation are
+$R_{\mathrm{nw}}=0.6268$ and $R_{\mathrm{win}}=0.3732$.
+
+
+\subsection{Common formulation}
+%%
+The gray, one-band, and two-band radiation schemes share the same numerical procedure for evaluating radiative fluxes.
+The parameterizations described in the preceding sections determine the optical-thickness gradient $\partial\tau/\partial\sigma$,
+whereas the radiative transfer equations are solved using a common discretization and integration procedure.
+
+Radiative transfer is solved independently for each vertical column.
+The vertical grid used for the radiation calculation coincides with the DG nodal grid.
+For each interval between adjacent DG nodes, the optical thickness for each band is
+approximated by
+%%
+\begin{equation}
+\Delta\tau = \left(\frac{\partial\tau}{\partial\sigma}\right) \Delta\sigma,
+\label{eq:dtau}
+\end{equation}
+%%
+where
+$\Delta\sigma=\Delta p/P_0$,
+and the optical-thickness gradient is evaluated using the arithmetic mean of the thermodynamic variables at the two adjacent nodes.
+For the one-band solar radiation scheme,
+the coefficient $b_{\mathrm{SW}}$ depends on the accumulated shortwave optical thickness and is therefore evaluated sequentially from the model top downward.
+
+Radiative fluxes are calculated using the two-stream approximation without scattering.
+Assuming that the optical thickness and the Planck source function are constant within each vertical interval,
+the analytical solution of the radiative-transfer equation gives the upward and downward longwave fluxes as
+%%
+\begin{align}
+F^{\uparrow}_{k+1} &= F^{\uparrow}_{k} e^{-D\Delta\tau}
++ \mathcal{B}\left(1-e^{-D\Delta\tau}\right), \\
+F^{\downarrow}_{k} &= F^{\downarrow}_{k+1} e^{-D\Delta\tau} +\mathcal{B} \left(1-e^{-D\Delta\tau}\right),
+\end{align}
+%%
+where $k$ is the vertical index, 
+$D$ is the diffusivity factor, 
+and $\mathcal{B}=\sigma_{\mathrm{SB}}T^4$ is the blackbody emission.
+When the radiation schemes described in Secs.\,\ref{sec:gray_radiation} and \ref{sec:two_band_radiation} are used, we set $D=1$.
+For the two-band scheme, the above calculation is applied independently to the non-window and window bands, 
+and the total longwave flux is obtained as their weighted sum.
+
+The downward shortwave flux is evaluated only by atmospheric attenuation,
+%%
+\begin{equation}
+F^{\downarrow}_{k} = F^{\downarrow}_{k+1} e^{-\Delta\tau},
+\end{equation}
+%%
+whereas the upward shortwave flux at the surface is determined by the prescribed surface albedo.
+In the present implementation, the atmosphere is assumed to be
+transparent to upward shortwave radiation.
+
+
+Finally, the net radiative flux,
+%%
+\begin{equation}
+F_{\mathrm{net}} = F^{\uparrow} - F^{\downarrow},
+\end{equation}
+%%
+is differentiated in the vertical direction using the DG derivative operator to obtain the radiative heating rate.

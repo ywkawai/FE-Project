@@ -23,9 +23,16 @@ module scale_atm_phy_mp_lscond
     Rvap => CONST_Rvap,    &
     CPdry => CONST_CPdry,  & 
     CVdry => CONST_CVdry,  & 
-    LHV0 => CONST_LHV0,    &
     PRES00 => CONST_PRE00, &
     Grav => CONST_GRAV
+  use scale_atmos_hydrometeor, only: &
+    CP_VAPOR, &
+    CP_WATER, &
+    CP_ICE,   &
+    CV_VAPOR, &
+    CV_WATER, &
+    CV_ICE,   &
+    LHV
   
   use scale_element_base, only: &
     ElementBase1D, ElementBase3D
@@ -117,11 +124,6 @@ contains
 
     use scale_atmos_saturation, only: &
       ATMOS_SATURATION_pres2qsat_liq
-    use scale_atmos_hydrometeor, only: &
-      CP_VAPOR, &
-      CP_WATER, &
-      CV_VAPOR, &
-      CV_WATER
     use scale_const, only: &
       CL => CONST_CL
     implicit none
@@ -145,7 +147,7 @@ contains
     real(RP) :: d_e(KA)
     real(RP) :: cptot_(KA)
     real(RP) :: cvtot_(KA)
-    real(RP) :: coef1
+    real(RP) :: coef1(KA)
     real(RP) :: coef2
 
     integer :: i, j
@@ -159,13 +161,15 @@ contains
       Qsat                                ) ! (out)
 
 
-    coef1 = LHV0**2 / ( CVDry * Rvap )
-    coef2 = Rvap / LHV0
+    coef2 = Rvap / LHV
     rdt = 1.0_RP / dt
 
-    !$omp parallel do private(i,j, d_qc, d_cv, d_cp, d_e, cptot_, cvtot_) collapse(2)
+    !$omp parallel do private(i,j, d_qc, d_cv, d_cp, d_e, cptot_, cvtot_, coef1) collapse(2)
     do j=JS, JE
     do i=IS, IE
+  !    coef1 = LHV**2 / ( CVDry * Rvap )
+      coef1(:) = LHV * ( LHV + ( CV_VAPOR - CV_WATER ) * TEMP(:,i,j) ) / ( CVtot(:,i,j) * Rvap )
+
       d_qc(:) = max( ( QTRC(:,i,j,I_QV) - Qsat(:,i,j) ) / ( 1.0_RP + coef1 / TEMP(:,i,j)**2 * ( 1.0_RP - coef2 * TEMP(:,i,j) ) * Qsat(:,i,j) ), &
                      0.0_RP )
 
@@ -180,15 +184,13 @@ contains
                 + CV_WATER * d_qc(:)
       cvtot_(:) = CVtot(:,i,j) + d_cv(:)
 
-      d_e(:) = LHV0 * d_qc(:)
+      d_e(:) = LHV * d_qc(:)
       RHOE_t(:,i,j) = DENS(:,i,j) * d_e(:) * rdt
 
-      !* It is better to update CPtot and CVtot after updating QTRC, 
-      !* but we tetatively skip the update of them in the adjustment process to avoid the complexity of the code.
-      !
-      ! TEMP(:,i,j) = ( TEMP(:,i,j) * CVtot(:,i,j) + d_e(:) ) / cvtot_(:)
-      ! CPtot(:,i,j) = cptot_(:)
-      ! CVtot(:,i,j) = cvtot_(:)
+
+      TEMP(:,i,j) = ( TEMP(:,i,j) * CVtot(:,i,j) + d_e(:) ) / cvtot_(:)
+      CPtot(:,i,j) = cptot_(:)
+      CVtot(:,i,j) = cvtot_(:)
     end do
     end do
 
@@ -205,12 +207,7 @@ contains
     QHA, QLA, QIA, lcmesh, elem, elem1D        ) ! (in)
     
     use scale_const, only: &
-      UNDEF => CONST_UNDEF8
-    use scale_atmos_hydrometeor, only: &
-      CV_WATER, &
-      CP_WATER, &
-      CV_ICE,   &
-      CP_ICE    
+      UNDEF => CONST_UNDEF8    
     implicit none
 
     class(LocalMesh3D), intent(in) :: lcmesh
@@ -326,11 +323,8 @@ contains
     !$omp parallel do collapse(2)
     do ke2D = 1, lcmesh%Ne2D
     do ke_z = 1, lcmesh%NeZ  
-      !* It is better to update CPtot and CVtot after updating DENS, 
-      !* but we tentatively skip the update of them in the precipitation process to avoid the complexity of the code.
-      !
-      ! CPtot(:,ke_z,ke2D) = RHOCP(:,ke_z,ke2D) / DENS(:,ke_z,ke2D)
-      ! CVtot(:,ke_z,ke2D) = RHOCV(:,ke_z,ke2D) / DENS(:,ke_z,ke2D)
+      CPtot(:,ke_z,ke2D) = RHOCP(:,ke_z,ke2D) / DENS(:,ke_z,ke2D)
+      CVtot(:,ke_z,ke2D) = RHOCV(:,ke_z,ke2D) / DENS(:,ke_z,ke2D)
     end do
     end do
 

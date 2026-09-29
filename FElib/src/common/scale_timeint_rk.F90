@@ -1895,10 +1895,11 @@ contains
 
     tintbuf_ind = this%tend_buf_indmap(nowstage)
 
-    if ( this%nstage == 1 ) then
+    if ( nowstage == 1 .and. (.not. this%imex_flag) ) then
       !$omp parallel do
-      !$acc parallel loop collapse(1) present( q, varTmp_1d )
+      !$acc parallel loop collapse(1) present( q, var0_1d, varTmp_1d )
       do i=is, ie
+        var0_1d(i,varID) = q(i)
         varTmp_1d(i,varID) = q(i)
       end do
     end if
@@ -1932,15 +1933,6 @@ contains
     !$omp parallel private( s, coef_a_ex_dt, coef_a_im_dt, coef_b_ex_dt, coef_b_im_dt ) &
     !$omp private( i )
     !$acc parallel present( q, var0_1D, varTmp_1D, tend_buf1D_ex, tend_buf1D_im )
-
-    if ( nowstage == 1 .and. (.not. this%imex_flag) ) then
-      !$omp do
-      !$acc loop
-      do i=is, ie
-        var0_1D(i,varID) = q(i)
-        varTmp_1D(i,varID) = q(i)
-      end do
-    end if 
 
     if ( this%imex_flag ) then
       coef_b_ex_dt = this%coef_b_ex(nowstage) * this%dt
@@ -2227,11 +2219,12 @@ contains
 
     tintbuf_ind = this%tend_buf_indmap(nowstage)
 
-    if ( this%nstage == 1 ) then
+    if ( nowstage == 1 .and. (.not. this%imex_flag) ) then
       !$omp parallel do
-      !$acc parallel loop collapse(2) present( q, varTmp_2d )
+      !$acc parallel loop collapse(2) present( q, var0_2d, varTmp_2d )
       do j=js, je
       do i=is, ie
+        var0_2d(i,j,varID) = q(i,j)
         varTmp_2d(i,j,varID) = q(i,j)
       end do
       end do
@@ -2270,17 +2263,6 @@ contains
     !$omp parallel private( s, coef_a_ex_dt, coef_a_im_dt, coef_b_ex_dt, coef_b_im_dt ) &
     !$omp private( i,j )
     !$acc parallel present( q, var0_2D, varTmp_2D, tend_buf2D_ex, tend_buf2D_im )
-
-    if ( nowstage == 1 .and. (.not. this%imex_flag) ) then
-      !$omp do
-      !$acc loop collapse(2)
-      do j=js, je
-      do i=is, ie
-        var0_2D(i,j,varID) = q(i,j)
-        varTmp_2D(i,j,varID) = q(i,j)
-      end do
-      end do
-    end if 
 
     if ( this%imex_flag ) then
       coef_b_ex_dt = this%coef_b_ex(nowstage) * this%dt
@@ -2601,12 +2583,13 @@ contains
 
     tintbuf_ind = this%tend_buf_indmap(nowstage)
 
-    if ( this%nstage == 1 ) then
+    if ( nowstage == 1 .and. (.not. this%imex_flag) ) then
       !$omp parallel do collapse(2)
-      !$acc parallel loop collapse(3) present( q, varTmp_3d )
+      !$acc parallel loop collapse(3) present( q, var0_3d, varTmp_3d )
       do k=ks, ke
       do j=js, je
       do i=is, ie
+        var0_3d(i,j,k,varID) = q(i,j,k)
         varTmp_3d(i,j,k,varID) = q(i,j,k)
       end do
       end do
@@ -2650,19 +2633,6 @@ contains
     !$omp parallel private( s, coef_a_ex_dt, coef_a_im_dt, coef_b_ex_dt, coef_b_im_dt ) &
     !$omp private( i,j,k )
     !$acc parallel present( q, var0_3D, varTmp_3D, tend_buf3D_ex, tend_buf3D_im )
-
-    if ( nowstage == 1 .and. (.not. this%imex_flag) ) then
-      !$omp do collapse(2)
-      !$acc loop collapse(3)
-      do k=ks, ke
-      do j=js, je
-      do i=is, ie
-        var0_3D(i,j,k,varID) = q(i,j,k)
-        varTmp_3D(i,j,k,varID) = q(i,j,k)
-      end do
-      end do
-      end do
-    end if 
 
     if ( this%imex_flag ) then
       coef_b_ex_dt = this%coef_b_ex(nowstage) * this%dt

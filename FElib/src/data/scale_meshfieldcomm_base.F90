@@ -72,6 +72,7 @@ module scale_meshfieldcomm_base
 
     type(LocalMeshCommData), allocatable :: commdata_list(:,:)
     integer, allocatable :: is_f(:,:)
+    integer, allocatable :: Nnode_LCMeshAllFace(:)
 
     logical :: MPI_pc_flag                !< Flag whether persistent communication is used
     logical :: use_mpi_pc_fujitsu_ext     !< Flag whether Fujitsu extension routines are used for persistent communication
@@ -97,6 +98,7 @@ module scale_meshfieldcomm_base
   public :: MeshFieldCommBase_exchange_core
   public :: MeshFieldCommBase_wait_core
   public :: MeshFieldCommBase_extract_bounddata
+  public :: MeshFieldCommBase_extract_bounddata2
   public :: MeshFieldCommBase_extract_bounddata_2
   public :: MeshFieldCommBase_extract_bounddata_3
   public :: MeshFieldCommBase_set_bounddata
@@ -205,20 +207,22 @@ contains
 
       allocate( this%commdata_list(comm_face_num,mesh%LOCAL_MESH_NUM) )
       allocate( this%is_f(comm_face_num,mesh%LOCAL_MESH_NUM) ) 
-      !$acc enter data create(this%is_f)
+      allocate( this%Nnode_LCMeshAllFace(mesh%LOCAL_MESH_NUM) )
+      !$acc enter data create(this%is_f, this%Nnode_LCMeshAllFace)
 
       do n=1, mesh%LOCAL_MESH_NUM
         this%is_f(1,n) = 1
         do f=2, this%nfaces_comm
           this%is_f(f,n) = this%is_f(f-1,n) + Nnode_LCMeshFace(f-1,n)
         end do
+        this%Nnode_LCMeshAllFace(n) = sum(Nnode_LCMeshFace(:,n))
 
         call mesh%GetLocalMesh(n, lcmesh)
         do f=1, this%nfaces_comm
           call this%commdata_list(f,n)%Init( this, lcmesh, f, Nnode_LCMeshFace(f,n) )
         end do
       end do
-      !$acc update device(this%is_f)
+      !$acc update device(this%is_f, this%Nnode_LCMeshAllFace)
       !$acc enter data copyin(this%commdata_list)
 #ifdef _OPENACC
       do n=1, mesh%LOCAL_MESH_NUM
@@ -265,8 +269,8 @@ contains
         call this%commdata_list(f,n)%Final()
       end do
       end do     
-      !$acc exit data delete(this%commdata_list, this%is_f)
-      deallocate( this%commdata_list, this%is_f )
+      !$acc exit data delete(this%commdata_list, this%is_f, this%Nnode_LCMeshAllFace)
+      deallocate( this%commdata_list, this%is_f, this%Nnode_LCMeshAllFace )
 
       if ( this%MPI_pc_flag ) then
         do ireq=1, this%req_counter
@@ -275,6 +279,16 @@ contains
         deallocate( this%request_pc ) 
       end if
     end if
+
+    if ( allocated(this%VMapB_size) ) then
+      !$acc exit data delete(this%VMapB_size)
+      deallocate(this%VMapB_size)
+    end if
+    if ( this%use_vmap_wide_flag ) then
+      !$acc exit data delete(this%VMapB2)
+      deallocate( this%VMapB2 )
+    end if
+
     return
   end subroutine MeshFieldCommBase_Final
 
@@ -368,6 +382,18 @@ contains
 !    call PROF_rapstart( 'meshfiled_comm_ex_core', 3)
     !
     if ( this%MPI_pc_flag ) then
+#ifdef _OPENACC
+      do n=1, this%mesh%LOCAL_MESH_NUM      
+      do f=1, this%nfaces_comm
+        lcommdata => commdata_list(f,n)
+        if ( lcommdata%s_rank /= lcommdata%lcmesh%PRC_myrank ) then
+          !$acc update host(lcommdata%send_buf) async(1)
+        end if
+      end do
+      end do
+      !$acc wait(1)
+
+#endif
       !$omp parallel
       !$omp master
       if ( this%use_mpi_pc_fujitsu_ext ) then
@@ -379,16 +405,23 @@ contains
         call MPI_startall( this%req_counter, this%request_pc(1:this%req_counter), ierr )
       end if
       !$omp end master
+      
       !$omp do collapse(2) private(lcommdata)
       do n=1, this%mesh%LOCAL_MESH_NUM      
       do f=1, this%nfaces_comm
         lcommdata => commdata_list(f,n)
         if ( lcommdata%s_rank == lcommdata%lcmesh%PRC_myrank ) then
+#ifdef _OPENACC
+          call set_recvbuf_from_sendbuf_lc( commdata_list(abs(lcommdata%s_faceID), lcommdata%s_tilelocalID)%recv_buf, &
+                  lcommdata%send_buf, size(lcommdata%send_buf) )          
+#else
           commdata_list(abs(lcommdata%s_faceID), lcommdata%s_tilelocalID)%recv_buf(:,:) &
             = lcommdata%send_buf(:,:)
+#endif
         end if
       end do 
       end do
+      !$acc wait(1)
       !$omp end parallel
     else
       this%req_counter = 0
@@ -462,7 +495,7 @@ contains
     do n=1, this%mesh%LOCAL_MESH_NUM
     do f=1, this%nfaces_comm
         if ( commdata_list(f,n)%s_rank /= commdata_list(f,n)%lcmesh%PRC_myrank ) then
-          !$acc update device( commdata_list(f,n)%recv_buf )
+          !$acc update device( commdata_list(f,n)%recv_buf ) async(1)
         end if
     end do
     end do
@@ -486,7 +519,7 @@ contains
       end do
       
       !$omp parallel do private(var_id,n,i,f) collapse(3)
-      !$acc parallel loop gang collapse(3) present(field_list, commdata_list) copyin(irs, ire, val_size)
+      !$acc parallel loop gang collapse(3) present(field_list, commdata_list) copyin(irs, ire, val_size) async(1)
       do n=1, this%mesh%LOCAL_MESH_NUM
       do i=1, size(field_list)
       do f=1, this%nfaces_comm
@@ -508,11 +541,11 @@ contains
       do f=1, this%nfaces_comm
         var_id = varid_s + i - 1
         if (dim==1) then
-          !$acc update device( field_list(var_id)%field1d%local(n)%val(irs(f,n):ire(f,n)) )
+          !$acc update device( field_list(var_id)%field1d%local(n)%val(irs(f,n):ire(f,n)) ) async(1)
         else if (dim==2) then
-          !$acc update device( field_list(var_id)%field2d%local(n)%val(irs(f,n):ire(f,n)) )
+          !$acc update device( field_list(var_id)%field2d%local(n)%val(irs(f,n):ire(f,n)) ) async(1)
         else if (dim==3) then
-          !$acc update device( field_list(var_id)%field3d%local(n)%val(irs(f,n):ire(f,n)) )
+          !$acc update device( field_list(var_id)%field3d%local(n)%val(irs(f,n):ire(f,n)) ) async(1)
         end if
       end do ! end loop for face
       end do
@@ -530,7 +563,7 @@ contains
       end do
 
       !$omp parallel do private(n,var_id,f) collapse(3)
-      !$acc parallel loop gang collapse(3) present(this%recv_buf, commdata_list) copyin(irs, ire)
+      !$acc parallel loop gang collapse(3) present(this%recv_buf, commdata_list) copyin(irs, ire) async(1)
       do n=1, this%mesh%LOCAL_MESH_NUM
       do var_id=1, this%field_num_tot
       do f=1, this%nfaces_comm
@@ -543,6 +576,8 @@ contains
       end do
       end do
     end if
+
+    !$acc wait(1)
 !   call PROF_rapend( 'meshfiled_comm_wait_post', 2)
     return
   contains
@@ -617,10 +652,10 @@ contains
   subroutine MeshFieldCommBase_extract_bounddata_2(field_list, dim, varid_s, lcmesh_list, vmapB_size, buf)
     implicit none
     type(MeshFieldContainer), intent(in), target :: field_list(:)
-    integer, intent(in) :: varid_s
-    integer, intent(in) :: dim
-    class(LocalMeshBase), intent(in), target :: lcmesh_list(:)
-    integer, intent(in) :: vmapB_size                                            !< The size of VmapB (we assume that the size of VmapB is the same for all local meshes)
+    integer, intent(in) :: varid_s                                               !< Starting variable ID to extract halo data
+    integer, intent(in) :: dim                                                   !< Number of dimensions of the field (1, 2, or 3)
+    class(LocalMeshBase), intent(in), target :: lcmesh_list(:)                   !< Array of local mesh objects to extract halo data
+    integer, intent(in) :: vmapB_size                                            !< Size of VmapB (we assume that the size of VmapB is the same for all local meshes)
     real(RP), intent(out) :: buf(vmapB_size,size(field_list),size(lcmesh_list))
 
     class(LocalMeshBase), pointer :: lcmesh
@@ -660,6 +695,7 @@ contains
       !!$acc update host( buf(:,varid_s:field_num,n) )
     end do
     !$acc wait(1)
+
     return
   contains
 !OCL SERIAL
@@ -867,7 +903,8 @@ contains
 
     if ( this%s_rank /= this%lcmesh%PRC_myrank ) then
 
-      !$acc update host(this%send_buf)
+      !$acc update host(this%send_buf) async(1)
+      !$acc wait(1)
 
       req_counter = req_counter + 1
 
@@ -885,7 +922,7 @@ contains
       
     else if ( this%s_rank == this%lcmesh%PRC_myrank ) then
 #ifdef _OPENACC
-      call set_recvbuf_from_sendbuf( lccommdat_list(abs(this%s_faceID), this%s_tilelocalID)%recv_buf, &
+      call set_recvbuf_from_sendbuf_lc( lccommdat_list(abs(this%s_faceID), this%s_tilelocalID)%recv_buf, &
         this%send_buf, size(this%send_buf) )
 #else      
       lccommdat_list(abs(this%s_faceID), this%s_tilelocalID)%recv_buf(:,:) &
@@ -894,8 +931,9 @@ contains
     end if         
     
     return
-  contains
-    subroutine set_recvbuf_from_sendbuf( recv_buf, send_buf, buf_size )
+  end subroutine LocalMeshCommData_SendRecv
+#ifdef _OPENACC
+  subroutine set_recvbuf_from_sendbuf_lc( recv_buf, send_buf, buf_size )
       implicit none
       integer, intent(in) :: buf_size
       real(RP), intent(out) :: recv_buf(buf_size)
@@ -908,8 +946,8 @@ contains
         recv_buf(i) = send_buf(i)
       end do
       return
-    end subroutine set_recvbuf_from_sendbuf
-  end subroutine LocalMeshCommData_SendRecv
+  end subroutine set_recvbuf_from_sendbuf_lc
+#endif
 
   !> Initialize persistent communication for sending halo data
   subroutine LocalMeshCommData_pc_init_send( this, &

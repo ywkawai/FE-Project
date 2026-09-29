@@ -202,7 +202,7 @@ contains
   
     real(RP) :: rgamm
 
-    integer :: ke
+    integer :: ke, p
     integer :: ierr
     !-----------------------------------------------------------------------------
 
@@ -221,6 +221,8 @@ contains
     !---
 
     allocate( PRES_purtub(elem%Np,lcmesh%NeA) )
+    !$acc data create(PRES_purtub)
+
     call mkinitutil_calc_cosinebell_global( PRES_purtub,  & ! (out)
       DPRES, rh, lonc, latc, RPlanet,                     & ! (in)
       x, y, z, lcmesh, elem,                              & ! (in)
@@ -234,14 +236,18 @@ contains
     rgamm = CvDry / CpDry
 
     !$omp parallel do
+    !$acc parallel loop gang present(DRHOT, PRES_hyd,PRES_purtub, lcmesh, elem)
     do ke=lcmesh%NeS, lcmesh%NeE
-      DRHOT(:,ke) = PRES00/Rdry * ( &
-         ( ( PRES_hyd(:,ke) + PRES_purtub(:,ke) ) / PRES00 )**rgamm  &
-       - ( PRES_hyd(:,ke) / PRES00 )**rgamm                          )
+      do p=1, elem%Np
+        DRHOT(p,ke) = PRES00/Rdry * ( &
+          ( ( PRES_hyd(p,ke) + PRES_purtub(p,ke) ) / PRES00 )**rgamm  &
+        - ( PRES_hyd(p,ke) / PRES00 )**rgamm                          )
 
-      DDENS(:,ke) = PRES_purtub(:,ke) / ( Rdry * TEMP0 )      
+        DDENS(p,ke) = PRES_purtub(p,ke) / ( Rdry * TEMP0 )      
+      end do
     end do
 
+    !$acc end data
     return
   end subroutine exp_SetInitCond_sound_wave
 

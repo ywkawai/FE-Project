@@ -505,9 +505,9 @@ contains
           if ( rkstage == this%tint(1)%nstage .and. this%MODALFILTER_FLAG ) then
             call PROF_rapstart( 'ATM_DYN_update_qtrc_modalfilter', 3)
             call atm_dyn_dgm_tracer_modalfilter_apply( &
-              QTRC_tmp%local(n)%val,                              & ! (inout)
-              DENS_hyd%local(n)%val, DDENS_TRC%local(n)%val,      & ! (in)
-              lcmesh3D, lcmesh3D%refElem3D, element_operation     ) ! (in)
+              QTRC_tmp%local(n)%val,                                             & ! (inout)
+              DENS_hyd%local(n)%val, DDENS_TRC%local(n)%val, DDENS%local(n)%val, & ! (in)
+              lcmesh3D, lcmesh3D%refElem3D, element_operation                    ) ! (in)
             call PROF_rapend( 'ATM_DYN_update_qtrc_modalfilter', 3)
           end if
 
@@ -528,6 +528,7 @@ contains
       end do ! end for RK loop
 
       do n=1, mesh3D%LOCAL_MESH_NUM
+        lcmesh3D => mesh3D%lcmesh_list(n)
         !$omp parallel do
         do ke=lcmesh3D%NeS, lcmesh3D%NeE
           QTRC%local(n)%val(:,ke) = ( DENS_hyd%local(n)%val(:,ke) + DDENS_TRC%local(n)%val(:,ke) ) &

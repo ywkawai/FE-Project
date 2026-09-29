@@ -32,6 +32,9 @@
 \usepackage{mathrsfs}
 \usepackage{subcaption}
 
+\usepackage{tikz}
+\usetikzlibrary{positioning,shapes.geometric,arrows.meta}
+
 \begin{document}
 \maketitle
 \tableofcontents
@@ -55,8 +58,22 @@
 \newpage
 \chapter{Physical parameterization}
 \input{turbulence}
+\input{pbl_turbulence}
+%
+\newpage
 \input{microphysics}
+%
+\newpage
+\input{cumulus}
+%
+\newpage
+\input{radiation}
+%
+\newpage
 \input{surface_flux}
+%
+\newpage
+\input{ocean}
 
 
 %%%

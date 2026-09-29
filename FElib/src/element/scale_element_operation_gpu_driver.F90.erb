@@ -79,6 +79,13 @@ contains
     type is (ElementOperationTensorProd3D_P<%=p%>)
         this%elem_optr_tensorprod3D_P<%=p%> => elem_optr_base3D
         !$acc enter data attach(this%elem_optr_tensorprod3D_P<%=p%>)
+        !$acc update device(this%elem_optr_tensorprod3D_P<%=p%>%IntrpMat_VPOrdM1_tr)
+        !$acc update device(this%elem_optr_tensorprod3D_P<%=p%>%D1D)
+        !$acc update device(this%elem_optr_tensorprod3D_P<%=p%>%D1D_tr)
+        !$acc update device(this%elem_optr_tensorprod3D_P<%=p%>%Lift_mat)
+        !$acc update device(this%elem_optr_tensorprod3D_P<%=p%>%MFilter_h1D)
+        !$acc update device(this%elem_optr_tensorprod3D_P<%=p%>%MFilter_h1D_tr)
+        !$acc update device(this%elem_optr_tensorprod3D_P<%=p%>%MFilter_v1D_tr)
 % end
     class default
       LOG_INFO("ElementOperationGPU_Init",*) "Unsupported type is specified for elem_optr_base3D. Check!"

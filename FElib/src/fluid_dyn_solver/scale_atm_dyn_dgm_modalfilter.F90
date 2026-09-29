@@ -228,10 +228,13 @@ contains
     return
   end subroutine atm_dyn_dgm_modalfilter_apply
 #endif
+
+
+!> Apply a modal filtering to tracer variables 
 !OCL SERIAL
   subroutine atm_dyn_dgm_tracer_modalfilter_apply(  &
     QTRC_,                                   & ! (inout)
-    DENS_hyd_, DDENS_,                       & ! (in)
+    DENS_hyd_, DDENS0_, DDENS_,              & ! (in)
     lmesh, elem, elem_operation              ) ! (in)
 
     implicit none
@@ -240,7 +243,8 @@ contains
     class(ElementBase), intent(in) :: elem    
     real(RP), intent(inout)  :: QTRC_(elem%Np,lmesh%NeA)
     real(RP), intent(in)  :: DENS_hyd_(elem%Np,lmesh%NeA)
-    real(RP), intent(in)  :: DDENS_(elem%Np,lmesh%NeA)
+    real(RP), intent(in)  :: DDENS0_(elem%Np,lmesh%NeA)
+    real(RP), intent(in)  :: DDENS_ (elem%Np,lmesh%NeA)
     class(ElementOperationBase3D), intent(in) :: elem_operation
 
     integer :: ke
@@ -248,25 +252,84 @@ contains
     real(RP) :: work(elem%Np)
     real(RP) :: tmp_out(elem%Np)
     real(RP) :: weight(elem%Np)
+
+    real(RP) :: qtrc_avg
+    real(RP) :: GsqrtRHOQ_ref(elem%Np)
     integer :: kk
     !------------------------------------
 
-    !$omp parallel do private( tmp, tmp_out, work, kk, weight )
+    !$omp parallel do private( tmp, tmp_out, work, kk, weight, qtrc_avg, GsqrtRHOQ_ref )
     do ke=lmesh%NeS, lmesh%NeE
+
+      !    ( dens_hyd + ddens0 ) * ( qtrc_av + dqtrc )
+      ! = ( dens_hyd + ddens ) * qtrc_avg + dens_ * dqtrc
+      ! 
+      !  dens_hyd * qtrc_avg + qtrc_avg [ MF * ddens ] 
+      ! + MF_q [ dqtrc ]
+      qtrc_avg = 0.125_RP * sum(elem%IntWeight_lgl(:) * QTRC_(:,ke))
+      GsqrtRHOQ_ref(:) = lmesh%Gsqrt(:,ke) * qtrc_avg * ( &
+        DENS_hyd_(:,ke) + DDENS_(:,ke) - DDENS0_(:,ke) )
 
       do kk=1, elem%Np
         weight(kk) = lmesh%Gsqrt(kk,ke) &
-                   * ( DENS_hyd_(kk,ke) + DDENS_(kk,ke) ) 
-        tmp(kk) = weight(kk) * QTRC_(kk,ke)
+                   * ( DENS_hyd_(kk,ke) + DDENS0_(kk,ke) ) 
+!        tmp(kk) = weight(kk) * QTRC_(kk,ke)
+        tmp(kk) = weight(kk) * QTRC_(kk,ke) &
+                - GsqrtRHOQ_ref(kk)
       end do
 
+      ! del(RHO Q) = RHOQ - RHO_hyd Q_avg
+      !            = (RHO_hyd + dRHO) (Q_avg + dQ) - RHO_hyd Q_avg
+      !            = RHO_hyd dQ + dRHO Q_avg + dR
+      ! RHOQ = RHO_hyd Q_avg + del(RHO Q)
       call elem_operation%ModalFilter_tracer( tmp, work, &
         tmp_out )
 
-      QTRC_(:,ke) = tmp_out(:) / weight(:)
+      QTRC_(:,ke) = ( GsqrtRHOQ_ref(:) + tmp_out(:) ) / weight(:)
     end do    
 
     return
   end subroutine atm_dyn_dgm_tracer_modalfilter_apply
+
+! !OCL SERIAL
+!   subroutine atm_dyn_dgm_tracer_modalfilter_apply(  &
+!     QTRC_,                                   & ! (inout)
+!     DENS_hyd_, DDENS_,                       & ! (in)
+!     lmesh, elem, elem_operation              ) ! (in)
+
+!     implicit none
+
+!     class(LocalMeshBase), intent(in) :: lmesh
+!     class(ElementBase), intent(in) :: elem    
+!     real(RP), intent(inout)  :: QTRC_(elem%Np,lmesh%NeA)
+!     real(RP), intent(in)  :: DENS_hyd_(elem%Np,lmesh%NeA)
+!     real(RP), intent(in)  :: DDENS_(elem%Np,lmesh%NeA)
+!     class(ElementOperationBase3D), intent(in) :: elem_operation
+
+!     integer :: ke
+!     real(RP) :: tmp(elem%Np)
+!     real(RP) :: work(elem%Np)
+!     real(RP) :: tmp_out(elem%Np)
+!     real(RP) :: weight(elem%Np)
+!     integer :: kk
+!     !------------------------------------
+
+!     !$omp parallel do private( tmp, tmp_out, work, kk, weight )
+!     do ke=lmesh%NeS, lmesh%NeE
+
+!       do kk=1, elem%Np
+!         weight(kk) = lmesh%Gsqrt(kk,ke) &
+!                    * ( DENS_hyd_(kk,ke) + DDENS_(kk,ke) ) 
+!         tmp(kk) = weight(kk) * QTRC_(kk,ke)
+!       end do
+
+!       call elem_operation%ModalFilter_tracer( tmp, work, &
+!         tmp_out )
+
+!       QTRC_(:,ke) = tmp_out(:) / weight(:)
+!     end do    
+
+!     return
+!   end subroutine atm_dyn_dgm_tracer_modalfilter_apply
 
 end module scale_atm_dyn_dgm_modalfilter

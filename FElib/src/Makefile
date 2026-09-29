@@ -23,7 +23,9 @@ VPATH = \
 	fluid_dyn_solver: \
 	surface:          \
 	turbulence:       \
+	bl_turbulence:    \
 	microphysics:     \
+	cumulus:          \
 	radiation:        \
 	model_framework:
 
@@ -105,6 +107,7 @@ OBJS_NAME_DATA = \
 	scale_meshfield_statistics.o             \
 	scale_meshfield_fvm_util.o               \
 	scale_meshfield_filter_operation_base.o  \
+	scale_meshfield_filter_operation_1d.o    \
 	scale_meshfield_filter_operation_2d.o    \
 	scale_meshfield_filter_operation_3d.o    \
 	scale_meshfield_analysis_numerror_base.o \
@@ -150,6 +153,7 @@ OBJS_NAME_FLUID_DYN_SOLVER = \
 	scale_atm_dyn_dgm_nonhydro3d_rhot_hevi_splitform.o   \
 	scale_atm_dyn_dgm_nonhydro3d_hevi_gmres.o            \
 	scale_atm_dyn_dgm_globalnonhydro3d_rhot_heve.o       \
+	scale_atm_dyn_dgm_globalnonhydro3d_rhot_heve_gpu.o   \
 	scale_atm_dyn_dgm_globalnonhydro3d_etot_heve.o       \
 	scale_atm_dyn_dgm_globalnonhydro3d_rhot_hevi.o       \
 	scale_atm_dyn_dgm_globalnonhydro3d_etot_hevi.o       \
@@ -171,12 +175,20 @@ OBJS_NAME_TURBULENCE = \
 	scale_atm_phy_tb_dgm_globalsmg.o \
 	scale_atm_phy_tb_dgm_common.o 
 
+OBJS_NAME_BL_TURBULENCE = \
+	scale_atm_phy_bl_dgm_mynn_lv2.o \
+	scale_atm_phy_bl_dgm_common.o
+
 OBJS_NAME_MICROPHYS = \
 	scale_atm_phy_mp_dgm_common.o \
 	scale_atm_phy_mp_lscond.o
 
+OBJS_NAME_CP = \
+	scale_atm_phy_cp_dgm_mconv_adjustment.o
+
 OBJS_NAME_RADIATION = \
-	scale_atm_phy_rd_dgm_gray.o   \
+	scale_atm_phy_rd_solarins_simple.o \
+	scale_atm_phy_rd_dgm_simple.o      \
 	scale_atm_phy_rd_dgm_common.o
 
 OBJS_NAME_MODEL_FRAMEWORK = \
@@ -196,7 +208,9 @@ OBJS_NAME = \
 	$(OBJS_NAME_FLUID_DYN_SOLVER) \
 	$(OBJS_NAME_SURFACE)          \
 	$(OBJS_NAME_TURBULENCE)       \
+	$(OBJS_NAME_BL_TURBULENCE)    \
 	$(OBJS_NAME_MICROPHYS)        \
+	$(OBJS_NAME_CP)               \
 	$(OBJS_NAME_RADIATION)        \
 	$(OBJS_NAME_MODEL_FRAMEWORK)
 
@@ -211,6 +225,7 @@ OBJS_NAME_SCALELIB = \
 	scale_prc_cartesC.o      \
 	scale_comm_cartesC.o     \
 	scale_atmos_thermodyn.o  \
+	scale_atmos_solarins.o   \
 	scale_atmos_saturation.o \
 	scale_atmos_grid_cartesC_index.o   \
 	scale_atmos_grid_cartesC.o         \

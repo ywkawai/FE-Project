@@ -21,6 +21,8 @@ module mod_user
 
   use mod_atmos_component, only: &
     AtmosComponent
+  use mod_ocean_component, only: &
+    OceanComponent
   use mod_user_base, only: &
     UserBase
   !-----------------------------------------------------------------------------
@@ -34,6 +36,7 @@ module mod_user
   contains
     procedure :: mkinit_ => USER_mkinit
     generic :: mkinit => mkinit_
+    procedure :: mkinit_ocn => USER_mkinit_ocn
     procedure :: setup_ => USER_setup
     generic :: setup => setup_
   end type User
@@ -56,10 +59,18 @@ contains
   subroutine USER_mkinit( this, atm )
     implicit none
     class(User), intent(inout) :: this
-    class(AtmosComponent), intent(inout) :: atm
+    class(AtmosComponent), intent(inout), target :: atm
     !------------------------------------------
     return
   end subroutine USER_mkinit
+!OCL SERIAL
+  subroutine USER_mkinit_ocn( this, ocn )
+    implicit none
+    class(User), intent(inout) :: this
+    class(OceanComponent), intent(inout), target :: ocn
+    !------------------------------------------
+    return
+  end subroutine USER_mkinit_ocn
 
 !OCL SERIAL  
   subroutine USER_setup( this, atm )

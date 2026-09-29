@@ -69,6 +69,7 @@ module mod_atmos_phy_mp_vars
   contains
     procedure :: Init => AtmosPhyMpVars_Init
     procedure :: Final => AtmosPhyMpVars_Final
+    procedure :: Setup => AtmosPhyMpVars_Setup
     procedure :: History => AtmosPhyMpVars_history
   end type AtmosPhyMpVars
 
@@ -134,18 +135,32 @@ contains
 !OCL SERIAL
   subroutine AtmosPhyMpVars_Init( this, model_mesh, &
     QS_MP, QE_MP, QA_MP )
-
-    use scale_tracer, only: &
-      TRACER_NAME, TRACER_DESC, TRACER_UNIT
-    use scale_file_history, only: &
-      FILE_HISTORY_reg
-
     implicit none
     class(AtmosPhyMpVars), target, intent(inout) :: this
     class(ModelMeshBase), target, intent(in) :: model_mesh
     integer, intent(in) :: QS_MP
     integer, intent(in) :: QE_MP
     integer, intent(in) :: QA_MP
+    !--------------------------------------------------
+
+    LOG_INFO('AtmosPhyMpVars_Init',*)
+
+    this%QS = QS_MP
+    this%QE = QE_MP
+    this%QA = QA_MP
+    this%TENDS_NUM_TOT = ATMOS_PHY_MP_TENDS_NUM1 + QE_MP - QS_MP + 1
+    return
+  end subroutine AtmosPhyMpVars_Init
+
+  !> Setup variable objects with cloud microphysics component
+  subroutine AtmosPhyMpVars_Setup( this, model_mesh )
+    use scale_tracer, only: &
+      TRACER_NAME, TRACER_DESC, TRACER_UNIT
+    use scale_file_history, only: &
+      FILE_HISTORY_reg
+    implicit none
+    class(AtmosPhyMpVars), target, intent(inout) :: this
+    class(ModelMeshBase), target, intent(in) :: model_mesh
 
     integer :: iv
     integer :: iq
@@ -159,13 +174,6 @@ contains
     type(VariableInfo) :: qtrc_tp_vinfo_tmp
     type(VariableInfo) :: qtrc_vterm_vinfo_tmp
     !--------------------------------------------------
-
-    LOG_INFO('AtmosPhyMpVars_Init',*)
-
-    this%QS = QS_MP
-    this%QE = QE_MP
-    this%QA = QA_MP
-    this%TENDS_NUM_TOT = ATMOS_PHY_MP_TENDS_NUM1 + QE_MP - QS_MP + 1
 
     !- Initialize auxiliary and diagnostic variables
 
@@ -250,7 +258,7 @@ contains
     end do
     
     return
-  end subroutine AtmosPhyMpVars_Init
+  end subroutine AtmosPhyMpVars_Setup
 
 !> Finalize an object to manage variables with cloud microphysics component  
 !OCL SERIAL

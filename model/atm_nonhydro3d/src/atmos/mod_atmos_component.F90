@@ -44,6 +44,7 @@ module mod_atmos_component
   use mod_atmos_phy_rd , only: AtmosPhyRd
   use mod_atmos_phy_cp , only: AtmosPhyCp
   use mod_atmos_phy_bl, only: AtmosPhyBl
+  use mod_cpl_component, only: CouplerComponent
 
   !-----------------------------------------------------------------------------
   implicit none
@@ -69,12 +70,17 @@ module mod_atmos_component
     type(AtmosPhyRd ) :: phy_rd_proc    !< Object to manage radiation process
     type(AtmosPhyCp ) :: phy_cp_proc    !< Object to manage cumulus parameterization process
     type(AtmosPhyBl ) :: phy_bl_proc    !< Object to manage PBL turbulence parameterization process
+
+    type(CouplerComponent), pointer :: coupler_ptr !< Pointer of coupler component
   contains
     procedure, public :: setup => Atmos_setup 
-    procedure, public :: setup_vars => Atmos_setup_vars    
+    procedure, public :: setup_vars => Atmos_setup_vars  
+    procedure, public :: set_coupler => Atmos_set_coupler  
     procedure, public :: calc_tendency => Atmos_calc_tendency
+    procedure, public :: calc_tendency_from_sflux => Atmos_calc_tendency_from_sflux
     procedure, public :: update => Atmos_update
     procedure, public :: set_surface => Atmos_set_surface
+    procedure, public :: get_surface => Atmos_get_surface
     procedure, public :: finalize => Atmos_finalize
   end type AtmosComponent
 
@@ -244,6 +250,7 @@ contains
     !- Setup the module for atmosphere / physics / PBL turbulence parameterization
     call this%phy_bl_proc%ModelComponentProc_Init( 'AtmosPhysBl', ATMOS_PHY_BL_DO )
     call this%phy_bl_proc%setup( this%mesh, this%time_manager )
+    call this%phy_bl_proc%SetDynBC( this%dyn_proc%dyncore_driver%boundary_cond )
 
     !- Setup
 
@@ -259,39 +266,80 @@ contains
 !OCL SERIAL
   subroutine Atmos_setup_vars( this )
     use mod_atmos_phy_sfc_vars, only: &
-      SFCTEMP_ID => ATMOS_PHY_SF_SVAR_TEMP_ID
+      SFCTEMP_ID => ATMOS_PHY_SF_SVAR_TEMP_ID, &
+      SFC_ALB_ID => ATMOS_PHY_SF_SVAR_ALB_ID
     implicit none
     class(AtmosComponent), intent(inout) :: this
     !----------------------------------------------------------
 
     call PROF_rapstart( 'ATM_setup_vars', 1)
 
+    LOG_INFO('AtmosComponent_setup_vars',*) 'Atmosphere model components '
+
     call this%vars%Init( this%mesh )
 
+    !- Cloud microphysics component
     if ( this%phy_mp_proc%IsActivated() ) then
-      call this%vars%Regist_physvar_manager( &
-        this%phy_mp_proc%vars%auxvars2D_manager )
-
-      call this%vars%Setup_container( this%phy_mp_proc%atm_var_container_typeid, this%mesh )
+      call this%phy_mp_proc%vars%Setup( this%mesh )
       call this%phy_mp_proc%Set_primary_atmvars_container( this%vars%container )
+
+      call this%vars%Regist_physvar_manager( mp_AUXVARS2D_manager=this%phy_mp_proc%vars%auxvars2D_manager )
+      call this%vars%Setup_container( this%phy_mp_proc%atm_var_container_typeid, this%mesh )
     end if
+    !- Surface component
     if ( this%phy_sfc_proc%IsActivated() ) then
+      call this%phy_sfc_proc%vars%Setup( this%mesh )
+
       call this%vars%Setup_container( this%phy_sfc_proc%atm_var_container_typeid, this%mesh )
     end if
-    if ( this%phy_rd_proc%IsActivated() ) then
-       if ( .not. this%phy_sfc_proc%IsActivated() ) then
-         LOG_ERROR('ATM_setup_vars',*) 'ATMOS_PHY_RD_DO requires ATMOS_PHY_SF_DO to provide SFC_TEMP.'
-         call PRC_abort
-       end if      
-      call this%phy_rd_proc%SetSfcTemp( this%phy_sfc_proc%vars%SFC_VARS(SFCTEMP_ID) )
+    !- Turbulence component
+    if ( this%phy_tb_proc%IsActivated() ) then
+      call this%phy_tb_proc%vars%Setup( this%mesh )
     end if
+    !- Radiation component
+    if ( this%phy_rd_proc%IsActivated() ) then
+      if ( .not. this%phy_sfc_proc%IsActivated() ) then
+        LOG_ERROR('ATM_setup_vars',*) 'ATMOS_PHY_RD_DO requires ATMOS_PHY_SF_DO to provide SFC_TEMP.'
+        call PRC_abort
+      end if
+      call this%phy_rd_proc%vars%Setup( this%mesh )
+      call this%phy_rd_proc%SetSfcVars( this%phy_sfc_proc%vars%SFC_VARS(SFCTEMP_ID), &
+                                        this%phy_sfc_proc%vars%SFC_VARS(SFC_ALB_ID) )
+    end if
+    !- Cumulus parameterization component
+    if ( this%phy_cp_proc%IsActivated() ) then
+      call this%phy_cp_proc%vars%Setup( this%mesh )
+      call this%vars%Regist_physvar_manager( cp_AUXVARS2D_manager=this%phy_cp_proc%vars%auxvars2D_manager )
 
+      if ( this%phy_mp_proc%IsActivated() ) then
+        call this%phy_mp_proc%Set_CP_tends_manager( this%phy_cp_proc%vars%tends_manager )
+      end if      
+    end if
+    !- PBL component
+    if ( this%phy_bl_proc%IsActivated() ) then
+      call this%phy_bl_proc%vars%Setup( this%mesh )
+    end if
 
     call PROF_rapend( 'ATM_setup_vars', 1)
     return
   end subroutine Atmos_setup_vars
 
-!> Calculate tendencies with the atmospheric component
+  !> Set coupler component to the atmospheric component
+!OCL SERIAL
+  subroutine Atmos_set_coupler( this, coupler )
+    implicit none
+    class(AtmosComponent), intent(inout) :: this
+    class(CouplerComponent), target, intent(inout) :: coupler
+    !----------------------------------------------------------
+    this%coupler_ptr => coupler
+
+    if ( this%phy_sfc_proc%IsActivated() ) then
+      call this%phy_sfc_proc%set_coupler_flag( coupler%IsActivated() )
+    end if
+    return
+  end subroutine Atmos_set_coupler
+
+  !> Calculate tendencies with the atmospheric component
 !OCL SERIAL
   subroutine Atmos_calc_tendency( this, force )
     use scale_tracer, only: QA
@@ -324,7 +372,8 @@ contains
     integer :: Np
 
     class(AtmosVarsContainer), pointer :: vars_primary_container
-    class(AtmosVarsContainer), pointer :: vars_container    
+    class(AtmosVarsContainer), pointer :: vars_container
+    
     !------------------------------------------------------------------
     
     call PROF_rapstart( 'ATM_tendency', 1)
@@ -333,8 +382,9 @@ contains
     call this%mesh%GetModelMesh( mesh )
     call this%vars%Get_container( ATM_VARS_CONTAINER_PRIMARY_ID, & ! (in)
       vars_primary_container ) ! (out)
-
-    !########## Get Surface Boundary from coupler ##########
+    
+    !########## Get Surface Boundary from coupler ##########    
+    call this%Get_surface()
     
     
     !########## calculate tendency ##########
@@ -399,6 +449,22 @@ contains
     call this%vars%PreprocOperationForPhys( this%dyn_proc%dyncore_driver )
     call PROF_rapend('ATM_PreOptrForPhys', 1)
 
+    !- Cumulus parameterization
+
+    if ( this%phy_cp_proc%IsActivated() ) then
+      call PROF_rapstart('ATM_Cumulus', 1)
+      tm_process_id = this%phy_cp_proc%tm_process_id
+      is_update = this%time_manager%Do_process(tm_process_id) .or. force
+
+      call this%vars%Get_container( this%phy_cp_proc%atm_var_container_typeid, & ! (in)
+        vars_container ) ! (out)
+      
+      call this%phy_cp_proc%calc_tendency( &
+        this%mesh, vars_container%PROGVARS_manager, vars_container%QTRCVARS_manager, &
+        vars_container%AUXVARS_manager, vars_primary_container%PHYTENDS_manager, is_update   )
+      call PROF_rapend('ATM_Cumulus', 1)
+    end if
+
     !- Cloud Microphysics
 
     if ( this%phy_mp_proc%IsActivated() ) then
@@ -447,25 +513,84 @@ contains
       call PROF_rapend('ATM_Turbulence', 1)
     end if
 
-    !- Cumulus parameterization
 
-    if ( this%phy_cp_proc%IsActivated() ) then
-      call PROF_rapstart('ATM_Cumulus', 1)
-      tm_process_id = this%phy_cp_proc%tm_process_id
-      is_update = this%time_manager%Do_process(tm_process_id) .or. force
-
-      call this%vars%Get_container( this%phy_cp_proc%atm_var_container_typeid, & ! (in)
-        vars_container ) ! (out)
+    if ( .not. this%coupler_ptr%IsActivated() ) then
+    
+      !- Surface flux
       
-      call this%phy_cp_proc%calc_tendency( &
-        this%mesh, vars_container%PROGVARS_manager, vars_container%QTRCVARS_manager, &
-        vars_container%AUXVARS_manager, vars_primary_container%PHYTENDS_manager, is_update   )
-      call PROF_rapend('ATM_Cumulus', 1)
+      if ( this%phy_sfc_proc%IsActivated() ) then
+        call PROF_rapstart('ATM_SurfaceFlux', 1)
+        tm_process_id = this%phy_sfc_proc%tm_process_id
+        is_update = this%time_manager%Do_process(tm_process_id) .or. force
+
+        call this%vars%Get_container( this%phy_sfc_proc%atm_var_container_typeid, & ! (in)
+          vars_container ) ! (out)
+        
+        call this%phy_sfc_proc%calc_tendency( &
+          this%mesh, vars_container%PROGVARS_manager, vars_container%QTRCVARS_manager, &
+          vars_container%AUXVARS_manager, vars_primary_container%PHYTENDS_manager, is_update   )
+        call PROF_rapend('ATM_SurfaceFlux', 1)
+      end if
+      
+      !- Planetary boundary layer
+
+      if ( this%phy_bl_proc%IsActivated() ) then
+        call PROF_rapstart('ATM_PBL', 1)
+        tm_process_id = this%phy_bl_proc%tm_process_id
+        is_update = this%time_manager%Do_process(tm_process_id) .or. force
+
+        call this%vars%Get_container( this%phy_bl_proc%atm_var_container_typeid, & ! (in)
+          vars_container ) ! (out)
+        
+        call this%phy_bl_proc%calc_tendency( &
+          this%mesh, vars_container%PROGVARS_manager, vars_container%QTRCVARS_manager, &
+          vars_container%AUXVARS_manager, vars_primary_container%PHYTENDS_manager, is_update   )
+        call PROF_rapend('ATM_PBL', 1)
+      end if
+
     end if
 
+    !* setup surface condition
+    call this%set_surface( countup=.true. )
 
-!    if ( .not. CPL_sw ) then    
-    
+    call PROF_rapend( 'ATM_tendency', 1)
+    return  
+  end subroutine Atmos_calc_tendency
+
+!> Calculate tendencies with surface flux based on surface quantities managed by coupler component
+!OCL SERIAL
+  subroutine Atmos_calc_tendency_from_sflux( this, force )
+    use scale_tracer, only: QA
+    use scale_atm_dyn_dgm_nonhydro3d_common, only: &
+      PHYTEND_NUM1 => PHYTEND_NUM, &
+      DENS_tp => PHYTEND_DENS_ID,  &
+      MOMX_tp => PHYTEND_MOMX_ID,  &
+      MOMY_tp => PHYTEND_MOMY_ID,  &
+      MOMZ_tp => PHYTEND_MOMZ_ID,  &
+      RHOT_tp =>  PHYTEND_RHOT_ID, &
+      RHOH_p => PHYTEND_RHOH_ID    
+    use mod_atmos_vars, only: &
+      AtmosVars_GetLocalMeshPhyTends
+
+    implicit none
+    class(AtmosComponent), intent(inout) :: this
+    logical, intent(in) :: force
+
+    integer :: tm_process_id
+    logical :: is_update
+
+    class(AtmosVarsContainer), pointer :: vars_primary_container
+    class(AtmosVarsContainer), pointer :: vars_container
+    !------------------------------------------------------------
+
+    if ( .not. this%coupler_ptr%IsActivated() ) return
+
+    call this%vars%Get_container( ATM_VARS_CONTAINER_PRIMARY_ID, & ! (in)
+      vars_primary_container ) ! (out)
+
+    !########## Get Surface Boundary from coupler ##########    
+    call this%Get_surface()
+
     !- Surface flux
     
     if ( this%phy_sfc_proc%IsActivated() ) then
@@ -497,14 +622,10 @@ contains
         vars_container%AUXVARS_manager, vars_primary_container%PHYTENDS_manager, is_update   )
       call PROF_rapend('ATM_PBL', 1)
     end if
+    return
+  end subroutine Atmos_calc_tendency_from_sflux
 
-!   end if
-
-    call PROF_rapend( 'ATM_tendency', 1)
-    return  
-  end subroutine Atmos_calc_tendency
-
-!> Update variables with the atmospheric component
+  !> Update variables with the atmospheric component
 !OCL SERIAL
   subroutine Atmos_update( this )
     implicit none
@@ -556,14 +677,30 @@ contains
     return  
   end subroutine Atmos_update
 
+  !> Set atmospheric quantites to coupler component
 !OCL SERIAL
-  subroutine Atmos_set_surface( this )
+  subroutine Atmos_set_surface( this, countup )
+    use scale_atmos_hydrometeor, only: &
+      ATMOS_HYDROMETEOR_dry, &
+      I_QV    
+    use scale_atm_dyn_dgm_nonhydro3d_common, only: &
+      PRGVAR_DDENS_ID, PRGVAR_MOMZ_ID, PRGVAR_MOMX_ID, PRGVAR_MOMY_ID, &
+      AUXVAR_DENSHYDRO_ID, AUXVAR_Rtot_ID, AUXVAR_PRES_ID
     use mod_atmos_vars, only: &
       AtmosVars_GetLocalMeshSfcVar
+    use mod_atmos_vars_container, only: &
+      PREC_ENGI_ID => ATMOS_AUXVARS2D_PREC_ENGI_ID
     use mod_atmos_phy_mp_vars, only: &
       AtmosPhyMpVars_GetLocalMeshFields_sfcflx
+    use mod_atmos_phy_cp_vars, only: &
+      AtmosPhyCpVars_GetLocalMeshFields_sfcflx
+    use mod_atmos_phy_rd_vars, only: &
+      RD_SFLX_LW_dif_ID => ATMOS_PHY_RD_AUX2D_SFLX_LW_dn_ID, &
+      RD_SFLX_SW_dir_ID => ATMOS_PHY_RD_AUX2D_SFLX_SW_dn_ID
+    use mod_cpl_component, only: CouplerComponent
     implicit none
     class(AtmosComponent), intent(inout) :: this
+    logical, intent(in) :: countup
 
     class(MeshBase), pointer :: mesh
     class(MeshBase2D), pointer :: mesh2D
@@ -573,7 +710,9 @@ contains
 
     class(LocalMeshFieldBase), pointer :: PREC, PREC_ENGI
     class(LocalMeshFieldBase), pointer :: SFLX_rain_MP, SFLX_snow_MP, SFLX_ENGI_MP
+    class(LocalMeshFieldBase), pointer :: SFLX_rain_CP, SFLX_snow_CP, SFLX_ENGI_CP
 
+    integer :: iq
     !--------------------------------------------------
 
     call PROF_rapstart( 'ATM_sfc_exch', 1)
@@ -584,7 +723,7 @@ contains
       call mesh%GetMesh2D( mesh2D )
     end select
 
-    !- sum of rainfall from mp and cp
+    !- Sum up precipitation and energy fluxes from cloud microphysics and cumulus parameterization components
 
     do n=1, mesh2D%LOCAL_MESH_NUM
       call AtmosVars_GetLocalMeshSfcVar( n, &
@@ -608,14 +747,82 @@ contains
           PREC_ENGI%val(:,ke) = PREC_ENGI%val(:,ke) + SFLX_ENGI_MP%val(:,ke)
         end do
       end if
-   end do
+
+      if ( this%phy_cp_proc%IsActivated() ) then
+        call AtmosPhyCpVars_GetLocalMeshFields_sfcflx( n, &
+          mesh2D, this%phy_cp_proc%vars%auxvars2D_manager, & ! (in)
+          SFLX_rain_CP, SFLX_snow_CP, SFLX_ENGI_CP         ) ! (out)
+
+        !$omp parallel do private(ke)
+        do ke=lcmesh%NeS, lcmesh%NeE
+          PREC     %val(:,ke) = PREC     %val(:,ke) + SFLX_rain_CP%val(:,ke) + SFLX_snow_CP%val(:,ke)
+          PREC_ENGI%val(:,ke) = PREC_ENGI%val(:,ke) + SFLX_ENGI_CP%val(:,ke)
+        end do
+      end if
+    end do
+
+    if ( this%coupler_ptr%IsActivated() ) then
+      if ( ATMOS_HYDROMETEOR_dry ) then
+        iq = 0
+      else
+        iq = I_QV
+      end if    
+      call this%coupler_ptr%vars%PutAtm( &
+        this%vars%container%PROG_VARS(PRGVAR_DDENS_ID),     &
+        this%vars%container%PROG_VARS(PRGVAR_MOMZ_ID),      &
+        this%vars%container%PROG_VARS(PRGVAR_MOMX_ID),      &
+        this%vars%container%PROG_VARS(PRGVAR_MOMY_ID),      &
+        this%vars%container%QTRC_VARS(iq),                  &
+        this%vars%container%AUX_VARS(AUXVAR_PRES_ID),       &
+        this%vars%container%AUX_VARS(AUXVAR_Rtot_ID),       &
+        this%vars%container%AUX_VARS(AUXVAR_DENSHYDRO_ID),  &
+        this%phy_rd_proc%vars%auxvars2D(RD_SFLX_SW_dir_ID), &
+        this%phy_rd_proc%vars%auxvars2D(RD_SFLX_LW_dif_ID), &
+        this%vars%container%AUX_VARS2D(PREC_ENGI_ID),       &
+        countup )
+    end if
 
     call PROF_rapend( 'ATM_sfc_exch', 1)
 
     return
   end subroutine Atmos_set_surface
 
-!> Finalize an object to manage the atmospheric component
+  !> Get surface quantities from coupler component
+!OCL SERIAL
+  subroutine Atmos_get_surface( this )
+    use mod_atmos_vars, only: &
+      AtmosVars_GetLocalMeshSfcVar
+    use mod_atmos_phy_sfc_vars, only: &
+      SFCTEMP_ID => ATMOS_PHY_SF_SVAR_TEMP_ID, &
+      SFCALB_ID => ATMOS_PHY_SF_SVAR_ALB_ID,   &
+      SFLX_MW_ID => ATMOS_PHY_SF_SFLX_MW_ID,   &
+      SFLX_MU_ID => ATMOS_PHY_SF_SFLX_MU_ID,   &
+      SFLX_MV_ID => ATMOS_PHY_SF_SFLX_MV_ID,   &
+      SFLX_SH_ID => ATMOS_PHY_SF_SFLX_SH_ID,   &
+      SFLX_LH_ID => ATMOS_PHY_SF_SFLX_LH_ID,   &
+      SFLX_QV_ID => ATMOS_PHY_SF_SFLX_QV_ID
+    use mod_cpl_component, only: CouplerComponent      
+    implicit none
+    class(AtmosComponent), intent(inout), target :: this
+    !--------------------------------------------------
+
+    if ( .not. this%coupler_ptr%IsActivated() ) return
+
+    call PROF_rapstart( 'ATM_sfc_exch', 1)
+    call this%coupler_ptr%vars%Get_SFC_ATM( &
+      this%phy_sfc_proc%vars%SFC_VARS(SFCTEMP_ID), &
+      this%phy_sfc_proc%vars%SFC_VARS(SFCALB_ID),  &
+      this%phy_sfc_proc%vars%SFC_FLX(SFLX_MW_ID),  &
+      this%phy_sfc_proc%vars%SFC_FLX(SFLX_MU_ID),  &
+      this%phy_sfc_proc%vars%SFC_FLX(SFLX_MV_ID),  &
+      this%phy_sfc_proc%vars%SFC_FLX(SFLX_SH_ID),  &
+      this%phy_sfc_proc%vars%SFC_FLX(SFLX_LH_ID),  &
+      this%phy_sfc_proc%vars%SFC_FLX(SFLX_QV_ID)   )
+    call PROF_rapend( 'ATM_sfc_exch', 1)
+    return
+  end subroutine Atmos_get_surface
+
+  !> Finalize an object to manage the atmospheric component
 !OCL SERIAL
   subroutine Atmos_finalize( this )
     implicit none

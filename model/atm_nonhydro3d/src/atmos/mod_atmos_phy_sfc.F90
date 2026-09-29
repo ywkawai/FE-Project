@@ -60,8 +60,11 @@ module mod_atmos_phy_sfc
 
     integer :: SFCFLX_TYPEID            !< Type id of surface scheme
     type(AtmosPhySfcVars) :: vars       !< An object to manage variables with surface component
+
+    logical :: CPL_sw  !< Switch to indicate if the coupler is activated
   contains
-    procedure, public :: setup => AtmosPhySfc_setup 
+    procedure, public :: setup => AtmosPhySfc_setup
+    procedure, public :: set_coupler_flag => AtmosPhySfc_set_coupler_flag
     procedure, public :: calc_tendency => AtmosPhySfc_calc_tendency
     procedure, public :: update => AtmosPhySfc_update
     procedure, public :: finalize => AtmosPhySfc_finalize
@@ -158,7 +161,7 @@ contains
       this%tm_process_id )                                                        ! (out)
 
     !- initialize the variables 
-    call this%vars%Init( model_mesh )      
+    call this%vars%Init( model_mesh, DEFAULT_SFC_TEMP )      
 
     !--- Set the type of surface flux scheme
 
@@ -180,21 +183,28 @@ contains
       this%mesh => model_mesh
     end select
 
-    !-- Set default values
-    call this%vars%SetDefaultVal( DEFAULT_SFC_TEMP )
-
     return
   end subroutine AtmosPhySfc_setup
 
-!> Calculate tendencies associated with a surface model
-!!
-!!
-!! @param model_mesh Object to manage computational mesh of atmospheric model 
-!! @param prgvars_list Object to mange prognostic variables with atmospheric dynamical core
-!! @param trcvars_list Object to mange auxiliary variables 
-!! @param forcing_list Object to mange forcing terms
-!! @param is_update Flag to specify whether the tendencies are updated in this call
-!!
+  !> Set switch to indicate if the coupler is activated
+  subroutine AtmosPhySfc_set_coupler_flag( this, cpl_sw )
+    implicit none
+    class(AtmosPhySfc), intent(inout) :: this
+    logical, intent(in) :: cpl_sw
+    !--------------------------------------------------
+    this%CPL_sw = cpl_sw
+    return
+  end subroutine AtmosPhySfc_set_coupler_flag
+
+  !> Calculate tendencies associated with a surface model
+  !!
+  !!
+  !! @param model_mesh Object to manage computational mesh of atmospheric model 
+  !! @param prgvars_list Object to mange prognostic variables with atmospheric dynamical core
+  !! @param trcvars_list Object to mange auxiliary variables 
+  !! @param forcing_list Object to mange forcing terms
+  !! @param is_update Flag to specify whether the tendencies are updated in this call
+  !!
 !OCL SERIAL
   subroutine AtmosPhySfc_calc_tendency( &
     this, model_mesh, prgvars_list, trcvars_list, &
@@ -419,7 +429,7 @@ contains
 
     !-------------------------------------------------
 
-    if (is_update_sflx) then
+    if ( is_update_sflx .and. (.not. this%CPL_sw) ) then
       !$omp parallel do collapse(2) private( &
       !$omp ke, hSliceZ0, hsliceZ1,          &
       !$omp dens                             )
@@ -479,7 +489,7 @@ contains
 
       call convert_LocalOrth2UVVec( &
         this%mesh%ptr_mesh, lcmesh2D%pos_en(:,:,1), lcmesh2D%pos_en(:,:,2), Z1(:,:), elem2D%Np*lcmesh2D%Ne, &
-        SFLX_MU, SFLX_MV ) ! (inout)
+        SFLX_MU(:,lcmesh2D%NeS:lcmesh2D%NeE), SFLX_MV(:,lcmesh2D%NeS:lcmesh2D%NeE) ) ! (inout)
 
     end if
 
@@ -541,12 +551,12 @@ contains
     class(LocalMesh2D), intent(in) :: lmesh2D
     class(ElementBase2D), intent(in) :: elem2D   
     real(RP), intent(out) ::  del_flux(elem%NfpTot*lmesh%Ne,5)
-    real(RP), intent(in) :: sflx_mu(elem2D%Np,lmesh2D%Ne)
-    real(RP), intent(in) :: sflx_mv(elem2D%Np,lmesh2D%Ne)
-    real(RP), intent(in) :: sflx_mw(elem2D%Np,lmesh2D%Ne)
-    real(RP), intent(in) :: sflx_sh(elem2D%Np,lmesh2D%Ne)
-    real(RP), intent(in) :: sflx_qv(elem2D%Np,lmesh2D%Ne)
-    real(RP), intent(in) :: SFC_TEMP(elem2D%Np,lmesh2D%Ne)
+    real(RP), intent(in) :: sflx_mu(elem2D%Np,lmesh2D%NeA)
+    real(RP), intent(in) :: sflx_mv(elem2D%Np,lmesh2D%NeA)
+    real(RP), intent(in) :: sflx_mw(elem2D%Np,lmesh2D%NeA)
+    real(RP), intent(in) :: sflx_sh(elem2D%Np,lmesh2D%NeA)
+    real(RP), intent(in) :: sflx_qv(elem2D%Np,lmesh2D%NeA)
+    real(RP), intent(in) :: SFC_TEMP(elem2D%Np,lmesh2D%NeA)
     real(RP), intent(in) :: nz(elem%NfpTot*lmesh%Ne)
 
     integer :: ke2D, p

@@ -17,6 +17,7 @@ module mod_atmos_phy_bl_vars
   use scale_precision
   use scale_io
   use scale_prc
+  use scale_tracer, only: QA
 
   use scale_element_base, only: ElementBase3D
   use scale_mesh_base, only: MeshBase
@@ -56,6 +57,9 @@ module mod_atmos_phy_bl_vars
     type(MeshField3D), allocatable :: tends(:)     !< Array of tendency variables
     type(ModelVarManager) :: tends_manager         !< Object to manage tendencies
 
+    type(MeshField3D), allocatable :: diagvars(:)
+    type(ModelVarManager) :: diagvars_manager
+
     integer :: QS      !< Start index of tracer variables with PBL turbulence parameterization
     integer :: QE      !< End index of tracer variables with PBL turbulence parameterization
     integer :: QA      !< Number of tracer variables with PBL turbulence parameterization
@@ -64,8 +68,11 @@ module mod_atmos_phy_bl_vars
   contains
     procedure :: Init => AtmosPhyBlVars_Init
     procedure :: Final => AtmosPhyBlVars_Final
+    procedure :: Setup => AtmosPhyBlVars_Setup
     procedure :: History => AtmosPhyBlVars_history
   end type AtmosPhyBlVars
+
+  public :: AtmosPhyBlVars_GetLocalMeshFields_tend
 
   !-----------------------------------------------------------------------------
   !
@@ -85,6 +92,20 @@ module mod_atmos_phy_bl_vars
     VariableInfo( ATMOS_PHY_BL_RHOT_t_ID, 'BL_RHOT_t', 'tendency of rho*PT in BL process',               &
                   'kg/m3.K/s', 3, 'XYZ',  ''                                                          )  /
 
+  integer, public, parameter :: ATMOS_PHY_BL_DIAG_TKE_ID     = 1
+  integer, public, parameter :: ATMOS_PHY_BL_DIAG_NU_ID      = 2
+  integer, public, parameter :: ATMOS_PHY_BL_DIAG_KH_ID      = 3
+  integer, public, parameter :: ATMOS_PHY_BL_DIAG_NUM        = 3
+
+  type(VariableInfo) :: ATMOS_PHY_BL_DIAG_VINFO(ATMOS_PHY_BL_DIAG_NUM)
+  DATA ATMOS_PHY_BL_DIAG_VINFO / &
+    VariableInfo( ATMOS_PHY_BL_DIAG_TKE_ID, 'TKE', 'SGS turbulence kinetic energy',   &
+                  'm2/s2',  3, 'XYZ',  ''                                          ), &
+    VariableInfo( ATMOS_PHY_BL_DIAG_NU_ID, 'NU', 'eddy viscosity',                    &
+                  'm2/s',  3, 'XYZ',  ''                                           ), &
+    VariableInfo( ATMOS_PHY_BL_DIAG_KH_ID, 'KH', 'eddy diffusion',                    &
+                  'm2/s',  3, 'XYZ',  ''                                           )  /
+
   !-----------------------------------------------------------------------------
   !
   !++ Private procedures
@@ -94,18 +115,33 @@ contains
 !OCL SERIAL
   subroutine AtmosPhyBlVars_Init( this, model_mesh, &
     QS_BL, QE_BL, QA_BL )
-
-    use scale_tracer, only: &
-      TRACER_NAME, TRACER_DESC, TRACER_UNIT
-    use scale_file_history, only: &
-      FILE_HISTORY_reg
-
     implicit none
     class(AtmosPhyBlVars), target, intent(inout) :: this
     class(ModelMeshBase), target, intent(in) :: model_mesh
     integer, intent(in) :: QS_BL
     integer, intent(in) :: QE_BL
     integer, intent(in) :: QA_BL
+    !----------------------------------------------------
+
+    LOG_INFO('AtmosPhyBlVars_Init',*)
+
+    this%QS = QS_BL
+    this%QE = QE_BL
+    this%QA = QA_BL
+    return
+  end subroutine AtmosPhyBlVars_Init
+
+  !> Setup variable objects
+!OCL SERIAL
+  subroutine AtmosPhyBlVars_Setup( this, model_mesh )
+    use scale_tracer, only: &
+      TRACER_NAME, TRACER_DESC, TRACER_UNIT, &
+      QA
+    use scale_file_history, only: &
+      FILE_HISTORY_reg
+    implicit none
+    class(AtmosPhyBlVars), target, intent(inout) :: this
+    class(ModelMeshBase), target, intent(in) :: model_mesh
 
     integer :: iv
     integer :: iq
@@ -120,12 +156,7 @@ contains
     type(VariableInfo) :: qtrc_vterm_vinfo_tmp
     !----------------------------------------------------
 
-    LOG_INFO('AtmosPhyBlVars_Init',*)
-
-    this%QS = QS_BL
-    this%QE = QE_BL
-    this%QA = QA_BL
-    this%TENDS_NUM_TOT = ATMOS_PHY_BL_TENDS_NUM1 + QE_BL - QS_BL + 1
+    this%TENDS_NUM_TOT = ATMOS_PHY_BL_TENDS_NUM1 + QA
 
     !- Initialize auxiliary and diagnostic variables
 
@@ -138,45 +169,49 @@ contains
     
     call mesh3D%GetMesh2D( mesh2D )
 
-    !----
+    !- Initialize tendency variables
 
     call this%tends_manager%Init()
     allocate( this%tends(this%TENDS_NUM_TOT) )
 
     reg_file_hist = .true.    
-    do iv = 1, ATMOS_PHY_BL_TENDS_NUM1
-      call this%tends_manager%Regist(           &
-        ATMOS_PHY_BL_TEND_VINFO(iv), mesh3D,    &
-        this%tends(iv), reg_file_hist           )
-      
-      do n = 1, mesh3D%LOCAL_MESH_NUM
-        this%tends(iv)%local(n)%val(:,:) = 0.0_RP
-      end do         
+    do iv=1, ATMOS_PHY_BL_TENDS_NUM1
+      call this%tends_manager%Regist( &
+        ATMOS_PHY_BL_TEND_VINFO(iv), mesh3D,            &
+        this%tends(iv), reg_file_hist, fill_zero=.true. )         
     end do
 
     qtrc_tp_vinfo_tmp%ndims    = 3
     qtrc_tp_vinfo_tmp%dim_type = 'XYZ'
     qtrc_tp_vinfo_tmp%STDNAME  = ''
     
-    do iq = 1, this%QA
+    do iq = 1, QA
       iv = ATMOS_PHY_BL_TENDS_NUM1 + iq 
       qtrc_tp_vinfo_tmp%keyID = iv
-      qtrc_tp_vinfo_tmp%NAME  = 'BL_'//trim(TRACER_NAME(this%QS+iq-1))//'_t'
-      qtrc_tp_vinfo_tmp%DESC  = 'tendency of rho*'//trim(TRACER_NAME(this%QS+iq-1))//' in BL process'
+      qtrc_tp_vinfo_tmp%NAME  = 'BL_'//trim(TRACER_NAME(iq))//'_t'
+      qtrc_tp_vinfo_tmp%DESC  = 'tendency of rho*'//trim(TRACER_NAME(iq))//' in BL process'
       qtrc_tp_vinfo_tmp%UNIT  = 'kg/m3/s'
 
       reg_file_hist = .true.
       call this%tends_manager%Regist( &
-        qtrc_tp_vinfo_tmp, mesh3D,              & 
-        this%tends(iv), reg_file_hist           ) 
-      
-      do n = 1, mesh3D%LOCAL_MESH_NUM
-        this%tends(iv)%local(n)%val(:,:) = 0.0_RP
-      end do         
-    end do    
+        qtrc_tp_vinfo_tmp, mesh3D,                      & 
+        this%tends(iv), reg_file_hist, fill_zero=.true. )
+    end do
+
+    !- Initialize diagnostic variables
+    
+    call this%diagvars_manager%Init()
+    allocate( this%diagvars(ATMOS_PHY_BL_DIAG_NUM) )
+
+    reg_file_hist = .true.
+    do iv=1, ATMOS_PHY_BL_DIAG_NUM
+      call this%diagvars_manager%Regist( &
+        ATMOS_PHY_BL_DIAG_VINFO(iv), mesh3D,               &
+        this%diagvars(iv), reg_file_hist, fill_zero=.true. )
+    end do
 
     return
-  end subroutine AtmosPhyBlVars_Init
+  end subroutine AtmosPhyBlVars_Setup
 
   !> Finalize an object to manage variables with planetary boundary layer (PBL) turbulence parameterization component  
 !OCL SERIAL
@@ -184,15 +219,94 @@ contains
     implicit none
     class(AtmosPhyBlVars), intent(inout) :: this
     !----------------------------------------------------
+
+    LOG_INFO('AtmosPhyBlVars_Final',*)
+
+    call this%tends_manager%Final()
+    deallocate( this%tends )
+
+    call this%diagvars_manager%Final()
+    deallocate( this%diagvars )
     return
   end subroutine AtmosPhyBlVars_Final
 
+!OCL SERIAL
+  subroutine AtmosPhyBlVars_GetLocalMeshFields_tend( domID, mesh, bl_tends_list, &
+    bl_RHOU_t, bl_RHOV_t, bl_RHOT_t, bl_RHOQ_t,                                  &
+    lcmesh3D                                                                     &
+    )
+
+    use scale_mesh_base, only: MeshBase
+    use scale_meshfield_base, only: MeshFieldBase
+    implicit none
+
+    integer, intent(in) :: domID
+    class(MeshBase), intent(in) :: mesh
+    class(ModelVarManager), intent(inout) :: bl_tends_list
+    class(LocalMeshFieldBase), pointer, intent(out) :: bl_RHOU_t
+    class(LocalMeshFieldBase), pointer, intent(out) :: bl_RHOV_t
+    class(LocalMeshFieldBase), pointer, intent(out) :: bl_RHOT_t
+    type(LocalMeshFieldBaseList), intent(out), optional :: bl_RHOQ_t(:)
+    class(LocalMesh3D), pointer, intent(out), optional :: lcmesh3D
+
+    class(MeshFieldBase), pointer :: field   
+    class(LocalMeshBase), pointer :: lcmesh
+
+    integer :: iq
+    !-------------------------------------------------------
+
+    !--
+    call bl_tends_list%Get(ATMOS_PHY_BL_RHOU_t_ID, field)
+    call field%GetLocalMeshField(domID, bl_RHOU_t)
+
+    call bl_tends_list%Get(ATMOS_PHY_BL_RHOV_t_ID, field)
+    call field%GetLocalMeshField(domID, bl_RHOV_t)
+
+    call bl_tends_list%Get(ATMOS_PHY_BL_RHOT_t_ID, field)
+    call field%GetLocalMeshField(domID, bl_RHOT_t)
+
+    !---
+    if ( present(bl_RHOQ_t) ) then
+      do iq = 1, size(bl_RHOQ_t)
+        call bl_tends_list%Get(ATMOS_PHY_BL_TENDS_NUM1 + iq, field)
+        call field%GetLocalMeshField(domID, bl_RHOQ_t(iq)%ptr)
+      end do    
+    end if
+
+    if (present(lcmesh3D)) then
+      call mesh%GetLocalMesh( domID, lcmesh )
+      nullify( lcmesh3D )
+
+      select type(lcmesh)
+      type is (LocalMesh3D)
+        if (present(lcmesh3D)) lcmesh3D => lcmesh
+      end select
+    end if
+
+    return
+  end subroutine AtmosPhyBlVars_GetLocalMeshFields_tend
+
+  !> Put data with BL variables to history file
 !OCL SERIAL
   subroutine AtmosPhyBlVars_history( this )
     use scale_file_history_meshfield, only: FILE_HISTORY_meshfield_put
     implicit none
     class(AtmosPhyBlVars), intent(inout) :: this
+
+    integer :: v
+    integer :: hst_id
     !----------------------------------------------------
+
+    do v=1, this%TENDS_NUM_TOT
+      hst_id = this%tends(v)%hist_id
+      if ( hst_id > 0 ) call FILE_HISTORY_meshfield_put( hst_id, this%tends(v) )
+    end do
+
+    do v=1, ATMOS_PHY_BL_DIAG_NUM
+      hst_id = this%diagvars(v)%hist_id
+      if ( hst_id > 0 ) call FILE_HISTORY_meshfield_put( hst_id, this%diagvars(v) )
+    end do    
+
     return
   end subroutine AtmosPhyBlVars_history
 

@@ -149,6 +149,8 @@ contains
   subroutine AtmosVarsContainer_Init( this, &
     container_type, phy_preproc_file_basename,     &
     atm_mesh )
+    use scale_const, only: &
+       UNDEF => CONST_UNDEF    
     use scale_tracer, only: &
       TRACER_NAME, TRACER_DESC, TRACER_UNIT
     use scale_atm_dyn_dgm_nonhydro3d_common, only: &
@@ -162,6 +164,7 @@ contains
     class(AtmosMesh), target, intent(inout) :: atm_mesh
 
     integer :: iv
+    integer :: idom
 
     type(VariableInfo) :: prgvar_info(PRGVAR_NUM)
     logical :: do_setup_phytend
@@ -215,7 +218,7 @@ contains
     call atm_mesh%Create_communicator( &
       PRGVAR_SCALAR_NUM, PRGVAR_HVEC_NUM, 0,              & ! (in)
       this%PROGVARS_manager,                              & ! (inout)
-      this%PROG_VARS(:),                                  & ! (in)
+      this%PROG_VARS,                                     & ! (in)
       this%PROG_VARS_commID                               ) ! (out)
         
 
@@ -230,7 +233,7 @@ contains
     call atm_mesh%Create_communicator( &
       AUXVAR_NUM, 0, 0,                & ! (in)
       this%AUXVARS_manager,            & ! (inout)
-      this%AUX_VARS(:),                & ! (in)
+      this%AUX_VARS,                   & ! (in)
       this%AUX_VARS_commID             ) ! (out)
 
     ! Output list of prognostic variables
@@ -262,7 +265,10 @@ contains
         call this%AUXVARS2D_manager%Regist(    &
           ATMOS_AUXVARS2D_VINFO(iv), mesh2D,   & ! (in) 
           this%AUX_VARS2D(iv),                 & ! (inout)
-          reg_file_hist, fill_zero=.true.      ) ! (in)
+          reg_file_hist                        ) ! (in)
+        do idom=1, mesh2D%LOCAL_MESH_NUM
+          this%AUX_VARS2D(iv)%local(idom)%val(:,:) = UNDEF
+        end do
       end do
     end if
 
@@ -387,7 +393,6 @@ contains
 
     class(LocalMesh3D), pointer :: lcmesh3D
     integer :: n
-    integer :: ke
 
     type(MeshField3D) :: field_work_UVmet(2)
     logical :: is_UVmet
@@ -428,21 +433,46 @@ contains
       else
         call field_work_UVmet(1)%Init( 'Umet', '', field_work%mesh )
         call field_work_UVmet(2)%Init( 'Vmet', '', field_work%mesh )
+        
         call this%mesh%Calc_UVmet( &
           this%PROG_VARS(PRGVAR_MOMX_ID), this%PROG_VARS(PRGVAR_MOMY_ID), & ! (in)
           field_work_UVmet(1), field_work_UVmet(2)                        ) ! (inout)
-        !$omp parallel do
-        do ke=lcmesh3D%NeS, lcmesh3D%NeE
-          field_work%local(n)%val(:,ke) = field_work_UVmet(UVmet_i)%local(n)%val(:,ke) &
-            / ( this%AUX_VARS (AUXVAR_DENSHYDRO_ID)%local(n)%val(:,ke)                 &
-              + this%PROG_VARS(PRGVAR_DDENS_ID   )%local(n)%val(:,ke)                  )
-        end do
+        call MOMtoVel( field_work%local(n)%val,            & ! (out)
+          field_work_UVmet(UVmet_i)%local(n)%val,          & ! (in)
+          this%PROG_VARS(PRGVAR_DDENS_ID)%local(n)%val,    & ! (in)
+          this%AUX_VARS(AUXVAR_DENSHYDRO_ID)%local(n)%val, & ! (in)
+          lcmesh3D, lcmesh3D%refElem3D ) ! (in)
+        
         call field_work_UVmet(1)%Final()
         call field_work_UVmet(2)%Final()
       end if
     end do
     !$acc wait(1)
     return
+  contains
+    subroutine MOMtoVel( vel, &
+      mom, ddens, dens_hyd, lmesh, elem )
+      implicit none
+      class(LocalMesh3D), intent(in) :: lmesh
+      class(ElementBase3D), intent(in) :: elem
+      real(RP), intent(inout) :: vel(elem%Np,lmesh%NeA)
+      real(RP), intent(in) :: mom(elem%Np,lmesh%NeA)
+      real(RP), intent(in) :: ddens(elem%Np,lmesh%NeA)
+      real(RP), intent(in) :: dens_hyd(elem%Np,lmesh%NeA)
+
+      integer :: ke, p
+      !-----------------------------------------------
+
+      !$omp parallel do
+      !$acc parallel loop collapse(2) present(vel, mom, ddens, dens_hyd) async(1)
+      do ke =lmesh%NeS, lmesh%NeE
+      do p = 1, elem%Np
+        vel(p,ke) = mom(p,ke) / ( ddens(p,ke) + dens_hyd(p,ke) )
+      end do
+      end do
+
+      return
+    end subroutine MOMtoVel
   end subroutine AtmosVarsContainer_CalcDiagvar
 
   !> Calculate specific heat coefficients which are weighted by the mass of dry air and tracers

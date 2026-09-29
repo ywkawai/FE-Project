@@ -1,0 +1,54 @@
+\section{Cumulus parameterization}
+
+Cumulus parameterization represents the effects of unresolved moist convection on the resolved atmospheric state.
+The cumulus parameterization component is activated by (\verb|ATMOS_PHY_CP_DO|) in [\verb|PARAM_ATMOS|].
+The cumulus parameterization scheme and its calling interval are specified in [\verb|PARAM_ATMOS_PHY_CP|].
+
+\editboxtwo{
+ \verb|&PARAM_ATMOS | & \\
+ \verb|ATMOS_PHY_CP_DO = .true.,| & ; Enable cumulus parameterization \\
+ \verb|/ | & \\
+}
+\editboxtwo{
+ \verb|&PARAM_ATMOS_PHY_CP | & \\
+ \verb|CP_TYPE      = "MOIST_CONV_ADJUSTMENT",| & ; Choose from cumulus parameterization schemes in Table \ref{tab:cp_scheme_list} \\
+ \verb|TIME_DT      = 60.D0,| & ; Time interval of cumulus parameterization process \\
+ \verb|TIME_DT_UNIT = "SEC",| & ; Unit for \verb|TIME_DT| \\
+ \verb|/ | & \\
+}
+
+The available choices of (\verb|CP_TYPE|) are listed in Table \ref{tab:cp_scheme_list}.
+(\verb|TIME_DT|) and (\verb|TIME_DT_UNIT|) specify the time interval of the cumulus parameterization process.
+
+\begin{table}[htbp]
+\caption{Cumulus parameterization schemes available in SCALE-DG.}
+\label{tab:cp_scheme_list}
+\begin{center}
+\begin{tabularx}{150mm}{lXX}
+\hline
+\rowcolor[gray]{0.9}
+\verb|CP_TYPE| & Description & Reference \\
+\hline
+\verb|MOIST_CONV_ADJUSTMENT| & Moist convective adjustment scheme & \cite{manabe1965} \\
+\hline
+\end{tabularx}
+\end{center}
+\end{table}
+
+
+\subsection{Moist convective adjustment scheme}
+%%%
+The moist convective adjustment (MCA) scheme is a simple cumulus parameterization based on the concept of \cite{manabe1965}.
+The scheme diagnoses saturated convective instability in nearly saturated atmospheric columns and adjusts unstable layers toward a moist-neutral thermodynamic state.
+
+Saturated convective instability is diagnosed using the vertical distribution of saturated moist static energy (MSE).
+When a nearly saturated layer has saturated MSE decreasing with height, a contiguous unstable region is identified and subject to the adjustment.
+The adjusted thermodynamic profile is determined so as to satisfy the available-water constraint and conservation of column-integrated MSE.
+If a consistent adjusted state cannot be obtained within the initially diagnosed unstable region, the adjustment region is extended vertically and the calculation is repeated.
+
+Water vapor removed by the adjustment is diagnosed as precipitation and is immediately removed from the atmospheric column; no condensate is retained by the MCA scheme.
+After each adjustment, the atmospheric state is updated and saturated convective instability is diagnosed again over the entire column.
+This diagnosis--adjustment cycle is repeated until no saturated convective instability remains.
+
+The MCA scheme is applied at the interval specified by \nmitem{TIME_DT} and \nmitem{TIME_DT_UNIT} in the cumulus parameterization process.
+The precipitation generated during the successive adjustments is accumulated within each call of the scheme and contributes to the surface precipitation flux.

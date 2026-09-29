@@ -24,8 +24,9 @@ module mod_experiment
   use scale_meshfieldcomm_cubedom3d, only: MeshFieldCommCubeDom3D  
   use scale_meshfieldcomm_cubedspheredom3d, only: MeshFieldCommCubedSphereDom3D
   use scale_meshfield_base, only: MeshField3D
-  use scale_element_base, only: ElementBase3D
+  use scale_element_base, only: ElementBase2D, ElementBase3D
   use scale_element_hexahedral, only: HexahedralElement
+  use scale_localmesh_2d, only: LocalMesh2D
   use scale_localmesh_3d, only: LocalMesh3D
   use scale_localmeshfield_base, only: LocalMeshFieldBase
 
@@ -40,6 +41,7 @@ module mod_experiment
   type, public :: Experiment
     character(len=H_SHORT) :: label
     procedure(exp_SetInitCond_lc), pointer :: setInitCond_lc => null()
+    procedure(exp_SetInitCond_lc_ocn), pointer :: setInitCond_lc_ocn => null()
     procedure(exp_geostrophic_balance_correction_lc), pointer :: geostrophic_balance_correction_lc => null()
   contains
     procedure, public :: Init_Base => experiment_Init
@@ -47,7 +49,9 @@ module mod_experiment
     procedure, public :: Final_Base => experiment_Final
     generic :: Final => Final_Base
     procedure, public :: SetInitCond => experiment_SetInitCond
+    procedure, public :: SetInitCond_ocn => experiment_SetInitCond_ocn
     procedure, public :: Regist_SetInitCond => experiment_regist_set_initcond
+    procedure, public :: Regist_SetInitCond_ocn => experiment_regist_set_initcond_ocn
     procedure, public :: Regist_geostrophic_balance_correction => experiment_regist_geostrophic_balance_correction
   end type Experiment
 
@@ -107,6 +111,47 @@ module mod_experiment
       real(RP), intent(inout) :: MOMZ(elem%Np,lcmesh%NeA)
       real(RP), intent(inout) :: DRHOT(elem%Np,lcmesh%NeA)
     end subroutine exp_geostrophic_balance_correction_lc
+
+    subroutine exp_SetInitCond_lc_ocn( &
+      this, U, V, W, TEMP, SALT,                                        &
+      SFC_TEMP,                                                         &
+      SFC_ALB_IR_dir, SFC_ALB_IR_dif, SFC_ALB_NIR_dir, SFC_ALB_NIR_dif, &
+      SFC_ALB_VIS_dir, SFC_ALB_VIS_dif,                                 &
+      x, y, z, dom_xmin, dom_xmax, dom_ymin, dom_ymax, dom_zmin, &
+      dom_zmax, lcmesh, elem, lcmesh2D, elem2D )
+
+      import Experiment
+      import LocalMesh3D 
+      import ElementBase3D
+      import LocalMesh2D
+      import ElementBase2D
+      import TracerLocalMeshField_ptr
+      import RP
+
+      class(Experiment), intent(inout) :: this
+      type(LocalMesh3D), intent(in) :: lcmesh
+      class(ElementBase3D), intent(in) :: elem
+      type(LocalMesh2D), intent(in) :: lcmesh2D
+      class(ElementBase2D), intent(in) :: elem2D
+      real(RP), intent(out) :: U(elem%Np,lcmesh%NeA)
+      real(RP), intent(out) :: V(elem%Np,lcmesh%NeA)
+      real(RP), intent(out) :: W(elem%Np,lcmesh%NeA)
+      real(RP), intent(out) :: TEMP(elem%Np,lcmesh%NeA)
+      real(RP), intent(out) :: SALT(elem%Np,lcmesh%NeA)
+      real(RP), intent(out) :: SFC_TEMP(elem2D%Np,lcmesh2D%NeA)
+      real(RP), intent(out) :: SFC_ALB_IR_dir(elem2D%Np,lcmesh2D%NeA)
+      real(RP), intent(out) :: SFC_ALB_IR_dif(elem2D%Np,lcmesh2D%NeA)
+      real(RP), intent(out) :: SFC_ALB_NIR_dir(elem2D%Np,lcmesh2D%NeA)
+      real(RP), intent(out) :: SFC_ALB_NIR_dif(elem2D%Np,lcmesh2D%NeA)
+      real(RP), intent(out) :: SFC_ALB_VIS_dir(elem2D%Np,lcmesh2D%NeA)
+      real(RP), intent(out) :: SFC_ALB_VIS_dif(elem2D%Np,lcmesh2D%NeA)
+      real(RP), intent(in) :: x(elem%Np,lcmesh%Ne)
+      real(RP), intent(in) :: y(elem%Np,lcmesh%Ne)
+      real(RP), intent(in) :: z(elem%Np,lcmesh%Ne)
+      real(RP), intent(in) :: dom_xmin, dom_xmax
+      real(RP), intent(in) :: dom_ymin, dom_ymax      
+      real(RP), intent(in) :: dom_zmin, dom_zmax
+    end subroutine exp_SetInitCond_lc_ocn
   end interface
 
   !-----------------------------------------------------------------------------
@@ -135,6 +180,7 @@ contains
     this%label = exp_name
 
     this%setInitCond_lc => experiment_SetInitCond_lc_dummy
+    this%setInitCond_lc_ocn => experiment_SetInitCond_lc_ocn_dummy
     this%geostrophic_balance_correction_lc => experiment_geostrophic_balance_correction_lc_dummy
 
     return
@@ -154,7 +200,7 @@ contains
     interface
       subroutine exp_SetInitCond_lc( &
         this, &
-        DENS_hyd, PRES_hyd, DDENS, MOMX, MOMY, MOMZ, DRHOT,  &
+        DENS_hyd, PRES_hyd, DDENS, MOMX, MOMY, MOMZ, DRHOT,        &
         tracer_field_list,                                         &
         x, y, z, dom_xmin, dom_xmax, dom_ymin, dom_ymax, dom_zmin, &
         dom_zmax, lcmesh, elem )
@@ -189,6 +235,56 @@ contains
     this%setInitCond_lc => exp_SetInitCond_lc
     return
   end subroutine experiment_regist_set_initcond
+
+  subroutine experiment_regist_set_initcond_ocn( this, exp_SetInitCond_lc_ocn )
+    implicit none
+    class(Experiment), intent(inout) :: this
+    interface
+      subroutine exp_SetInitCond_lc_ocn( &
+        this, U, V, W, TEMP, SALT,                                        &
+        SFC_TEMP,                                                         &
+        SFC_ALB_IR_dir, SFC_ALB_IR_dif, SFC_ALB_NIR_dir, SFC_ALB_NIR_dif, &
+        SFC_ALB_VIS_dir, SFC_ALB_VIS_dif,                                 &
+        x, y, z, dom_xmin, dom_xmax, dom_ymin, dom_ymax, dom_zmin,        &
+        dom_zmax, lcmesh, elem, lcmesh2D, elem2D )
+
+        import Experiment
+        import LocalMesh3D 
+        import ElementBase3D
+        import LocalMesh2D
+        import ElementBase2D
+        import RP
+
+        class(Experiment), intent(inout) :: this
+        type(LocalMesh3D), intent(in) :: lcmesh
+        class(ElementBase3D), intent(in) :: elem
+        type(LocalMesh2D), intent(in) :: lcmesh2D
+        class(ElementBase2D), intent(in) :: elem2D
+        real(RP), intent(out) :: U(elem%Np,lcmesh%NeA)
+        real(RP), intent(out) :: V(elem%Np,lcmesh%NeA)
+        real(RP), intent(out) :: W(elem%Np,lcmesh%NeA)
+        real(RP), intent(out) :: TEMP(elem%Np,lcmesh%NeA)
+        real(RP), intent(out) :: SALT(elem%Np,lcmesh%NeA)
+        real(RP), intent(out) :: SFC_TEMP(elem2D%Np,lcmesh2D%NeA)
+        real(RP), intent(out) :: SFC_ALB_IR_dir(elem2D%Np,lcmesh2D%NeA)
+        real(RP), intent(out) :: SFC_ALB_IR_dif(elem2D%Np,lcmesh2D%NeA)
+        real(RP), intent(out) :: SFC_ALB_NIR_dir(elem2D%Np,lcmesh2D%NeA)
+        real(RP), intent(out) :: SFC_ALB_NIR_dif(elem2D%Np,lcmesh2D%NeA)
+        real(RP), intent(out) :: SFC_ALB_VIS_dir(elem2D%Np,lcmesh2D%NeA)
+        real(RP), intent(out) :: SFC_ALB_VIS_dif(elem2D%Np,lcmesh2D%NeA)
+        real(RP), intent(in) :: x(elem%Np,lcmesh%Ne)
+        real(RP), intent(in) :: y(elem%Np,lcmesh%Ne)
+        real(RP), intent(in) :: z(elem%Np,lcmesh%Ne)
+        real(RP), intent(in) :: dom_xmin, dom_xmax
+        real(RP), intent(in) :: dom_ymin, dom_ymax      
+        real(RP), intent(in) :: dom_zmin, dom_zmax
+      end subroutine exp_SetInitCond_lc_ocn
+    end interface    
+    !----------------------------------------------------------------------
+
+    this%setInitCond_lc_ocn => exp_SetInitCond_lc_ocn
+    return
+  end subroutine experiment_regist_set_initcond_ocn 
 
   subroutine experiment_regist_geostrophic_balance_correction( this, exp_geostrophic_balance_correction_lc )
     implicit none
@@ -263,6 +359,8 @@ contains
 
     type(TracerLocalMeshField_ptr) :: tracer_field_list(max(1,QA))
     integer :: iq
+
+    real(RP) :: xmin_gl, xmax_gl, ymin_gl, ymax_gl, zmin_gl, zmax_gl
     !----------------------------------------------------------------------
     
     mesh => model_mesh%ptr_mesh
@@ -281,22 +379,18 @@ contains
 
       select type (mesh)
       type is (MeshCubeDom3D)
-        call this%setInitCond_lc( &
-          DENS_hyd%val, PRES_hyd%val,                                                         & ! (out)
-          DDENS%val, MOMX%val, MOMY%val, MOMZ%val, DRHOT%val,                                 & ! (out)
-          tracer_field_list,                                                                  & ! (inout)
-          lcmesh3D%pos_en(:,:,1), lcmesh3D%pos_en(:,:,2), lcmesh3D%pos_en(:,:,3),             & ! (in)
-          mesh%xmin_gl, mesh%xmax_gl, mesh%ymin_gl, mesh%ymax_gl, mesh%zmin_gl, mesh%zmax_gl, & ! (in)
-          lcmesh3D, lcmesh3D%refElem3D )                                                        ! (in) 
+        xmin_gl = mesh%xmin_gl; xmax_gl = mesh%xmax_gl; ymin_gl = mesh%ymin_gl; ymax_gl = mesh%ymax_gl; zmin_gl = mesh%zmin_gl; zmax_gl = mesh%zmax_gl
       type is (MeshCubedSphereDom3D)
-        call this%setInitCond_lc( &
-          DENS_hyd%val, PRES_hyd%val,                                                         & ! (out)
-          DDENS%val, MOMX%val, MOMY%val, MOMZ%val, DRHOT%val,                                 & ! (out)
-          tracer_field_list,                                                                  & ! (inout)          
-          lcmesh3D%pos_en(:,:,1), lcmesh3D%pos_en(:,:,2), lcmesh3D%pos_en(:,:,3),             & ! (in)
-          mesh%xmin_gl, mesh%xmax_gl, mesh%ymin_gl, mesh%ymax_gl, mesh%zmin_gl, mesh%zmax_gl, & ! (in)
-          lcmesh3D, lcmesh3D%refElem3D )                                                        ! (in)   
+        xmin_gl = mesh%xmin_gl; xmax_gl = mesh%xmax_gl; ymin_gl = mesh%ymin_gl; ymax_gl = mesh%ymax_gl; zmin_gl = mesh%zmin_gl; zmax_gl = mesh%zmax_gl
       end select
+      call this%setInitCond_lc( &
+        DENS_hyd%val, PRES_hyd%val,                                                         & ! (out)
+        DDENS%val, MOMX%val, MOMY%val, MOMZ%val, DRHOT%val,                                 & ! (out)
+        tracer_field_list,                                                                  & ! (inout)
+        lcmesh3D%pos_en(:,:,1), lcmesh3D%pos_en(:,:,2), lcmesh3D%pos_en(:,:,3),             & ! (in)
+        xmin_gl, xmax_gl, ymin_gl, ymax_gl, zmin_gl, zmax_gl,                               & ! (in)
+        lcmesh3D, lcmesh3D%refElem3D )                                                        ! (in) 
+
     end do
 
     !------------------------------------------------------
@@ -352,6 +446,63 @@ contains
     return
   end subroutine experiment_SetInitCond
   
+  subroutine experiment_SetInitCond_ocn( this, &
+    model_mesh, ocn_prgvars_manager, ocn_auxvars2D_manager )
+    
+    use scale_meshfield_base, only: MeshFieldBase
+    use scale_model_var_manager, only: ModelVarManager
+    use scale_meshfieldcomm_base, only: MeshFieldContainer 
+
+    use mod_ocean_vars, only: OceanVars_GetLocalMeshPrgVars
+    use mod_ocean_mesh, only: OceanMesh
+    
+    implicit none
+
+    class(Experiment), intent(inout) :: this
+    class(OceanMesh), target, intent(in) :: model_mesh
+    class(ModelVarManager), intent(inout) :: ocn_prgvars_manager
+    class(ModelVarManager), intent(inout) :: ocn_auxvars2D_manager
+
+    class(LocalMeshFieldBase), pointer :: U, V, W, TEMP, SALT
+    class(LocalMeshFieldBase), pointer :: SFC_TEMP
+    class(LocalMeshFieldBase), pointer :: SFC_ALB_IR_dir, SFC_ALB_IR_dif, SFC_ALB_NIR_dir, SFC_ALB_NIR_dif, SFC_ALB_VIS_dir, SFC_ALB_VIS_dif
+    integer :: n
+    class(LocalMesh3D), pointer :: lcmesh3D
+    class(MeshBase3D), pointer :: mesh
+
+    real(RP) :: xmin_gl, xmax_gl, ymin_gl, ymax_gl, zmin_gl, zmax_gl
+    !----------------------------------------------------------------------
+    
+    mesh => model_mesh%ptr_mesh
+    
+    do n=1, mesh%LOCAL_MESH_NUM
+      call OceanVars_GetLocalMeshPrgVars( n, &
+        mesh, ocn_prgvars_manager, ocn_auxvars2D_manager, &
+        U, V, W, TEMP, SALT, SFC_TEMP,                    &
+        SFC_ALB_IR_dir, SFC_ALB_IR_dif,                   &
+        SFC_ALB_NIR_dir, SFC_ALB_NIR_dif,                 &
+        SFC_ALB_VIS_dir, SFC_ALB_VIS_dif,                 &
+        lcmesh3D                                          )
+
+      select type (mesh)
+      type is (MeshCubeDom3D)
+        xmin_gl = mesh%xmin_gl; xmax_gl = mesh%xmax_gl; ymin_gl = mesh%ymin_gl; ymax_gl = mesh%ymax_gl; zmin_gl = mesh%zmin_gl; zmax_gl = mesh%zmax_gl
+      type is (MeshCubedSphereDom3D)
+        xmin_gl = mesh%xmin_gl; xmax_gl = mesh%xmax_gl; ymin_gl = mesh%ymin_gl; ymax_gl = mesh%ymax_gl; zmin_gl = mesh%zmin_gl; zmax_gl = mesh%zmax_gl
+      end select
+
+      call this%setInitCond_lc_ocn( &
+        U%val, V%val, W%val, TEMP%val, SALT%val,                                            & ! (out)
+        SFC_TEMP%val,                                                                       & ! (out)
+        SFC_ALB_IR_dir%val, SFC_ALB_IR_dif%val, SFC_ALB_NIR_dir%val, SFC_ALB_NIR_dif%val,   & ! (out)
+        SFC_ALB_VIS_dir%val, SFC_ALB_VIS_dif%val,                                           & ! (out)
+        lcmesh3D%pos_en(:,:,1), lcmesh3D%pos_en(:,:,2), lcmesh3D%pos_en(:,:,3),             & ! (in)
+        xmin_gl, xmax_gl, ymin_gl, ymax_gl, zmin_gl, zmax_gl,                               & ! (in)
+        lcmesh3D, lcmesh3D%refElem3D, lcmesh3D%lcmesh2D, lcmesh3D%lcmesh2D%refElem2D        ) ! (in)
+    end do
+    return
+  end subroutine experiment_SetInitCond_ocn
+
   !------
 !OCL SERIAL  
   subroutine experiment_SetInitCond_lc_dummy( this,                   &
@@ -381,6 +532,42 @@ contains
 
     return
   end subroutine experiment_SetInitCond_lc_dummy
+
+  subroutine experiment_SetInitCond_lc_ocn_dummy( this,                  &
+    U, V, W, TEMP, SALT,                                                 &
+    SFC_TEMP,                                                            &
+    SFC_ALB_IR_dir, SFC_ALB_IR_dif, SFC_ALB_NIR_dir, SFC_ALB_NIR_dif,    &
+    SFC_ALB_VIS_dir, SFC_ALB_VIS_dif,                                    &
+    x, y, z, dom_xmin, dom_xmax, dom_ymin, dom_ymax, dom_zmin, dom_zmax, &
+    lcmesh, elem, lcmesh2D, elem2D )
+    implicit none
+
+    class(Experiment), intent(inout) :: this
+    type(LocalMesh3D), intent(in) :: lcmesh
+    class(ElementBase3D), intent(in) :: elem
+    type(LocalMesh2D), intent(in) :: lcmesh2D
+    class(ElementBase2D), intent(in) :: elem2D
+    real(RP), intent(out) :: U(elem%Np,lcmesh%NeA)
+    real(RP), intent(out) :: V(elem%Np,lcmesh%NeA)
+    real(RP), intent(out) :: W(elem%Np,lcmesh%NeA)
+    real(RP), intent(out) :: TEMP(elem%Np,lcmesh%NeA)
+    real(RP), intent(out) :: SALT(elem%Np,lcmesh%NeA)
+    real(RP), intent(out) :: SFC_TEMP(elem2D%Np,lcmesh2D%NeA)
+    real(RP), intent(out) :: SFC_ALB_IR_dir(elem2D%Np,lcmesh2D%NeA)
+    real(RP), intent(out) :: SFC_ALB_IR_dif(elem2D%Np,lcmesh2D%NeA)
+    real(RP), intent(out) :: SFC_ALB_NIR_dir(elem2D%Np,lcmesh2D%NeA)
+    real(RP), intent(out) :: SFC_ALB_NIR_dif(elem2D%Np,lcmesh2D%NeA)
+    real(RP), intent(out) :: SFC_ALB_VIS_dir(elem2D%Np,lcmesh2D%NeA)
+    real(RP), intent(out) :: SFC_ALB_VIS_dif(elem2D%Np,lcmesh2D%NeA)
+    real(RP), intent(in) :: x(elem%Np,lcmesh%Ne)
+    real(RP), intent(in) :: y(elem%Np,lcmesh%Ne)
+    real(RP), intent(in) :: z(elem%Np,lcmesh%Ne)
+    real(RP), intent(in) :: dom_xmin, dom_xmax
+    real(RP), intent(in) :: dom_ymin, dom_ymax      
+    real(RP), intent(in) :: dom_zmin, dom_zmax
+    !---------------------------------------------------
+    return
+  end subroutine experiment_SetInitCond_lc_ocn_dummy  
 
   subroutine experiment_geostrophic_balance_correction_lc_dummy( this,    &
     DENS_hyd, PRES_hyd, DDENS, MOMX, MOMY, MOMZ, DRHOT,   &

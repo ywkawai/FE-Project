@@ -225,6 +225,7 @@ contains
 
     logical :: monitor_flag(SW_PROGVARS_NUM)
     integer :: DV_id
+    character(len=H_SHORT) :: dim_name_postfix = ""
     !--------------------------------------------------
 
     LOG_INFO('SWVars_Init',*)
@@ -344,7 +345,7 @@ contains
       call this%restart_file%Init('SW',                             &
         IN_BASENAME, IN_POSTFIX_TIMELABEL,                          &
         OUT_BASENAME, OUT_POSTFIX_TIMELABEL, OUT_DTYPE, OUT_TITLE,  &
-        SW_PROGVARS_NUM + SW_AUXVARS_NUM,                           &
+        SW_PROGVARS_NUM + SW_AUXVARS_NUM, dim_name_postfix,         &
         meshCubedSphere2D=sw_mesh%mesh                              )
     else
       call this%restart_file%Init('SW',      &

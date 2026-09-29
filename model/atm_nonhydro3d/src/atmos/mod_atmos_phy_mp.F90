@@ -97,12 +97,17 @@ module mod_atmos_phy_mp
     type(ModalFilter) :: modalfilter_3D  !< Modal filter in 3D
 
     logical :: PostFilterOnlyApplyRHOH   !< Flag whether the post filter is applied only to RHOH or not
+
+    logical :: CP_flag
+    class(MeshFieldBase), pointer :: ptr_CP_RHOT_t
+
   contains
     procedure, public :: setup => AtmosPhyMp_setup 
     procedure, public :: calc_tendency => AtmosPhyMp_calc_tendency
     procedure, public :: update => AtmosPhyMp_update
     procedure, public :: finalize => AtmosPhyMp_finalize
     procedure, public :: Set_primary_atmvars_container => AtmosPhyMp_set_primary_atmvars_container
+    procedure, public :: Set_CP_tends_manager => AtmosPhyMp_set_CP_tends_manager
     procedure, private :: calc_tendency_core => AtmosPhyMp_calc_tendency_core
 !-
     procedure, private :: create_PostFilter => AtmosPhyMp_create_PostFilter
@@ -432,6 +437,10 @@ contains
       this%modalFilter_flag = .false.
     end if
 
+    !
+    this%CP_flag = .false.
+    this%ptr_CP_RHOT_t => null()
+
     return
   end subroutine AtmosPhyMp_setup
 
@@ -446,6 +455,19 @@ contains
     this%primary_atmvars_container => primary_atmvars_container
     return
   end subroutine AtmosPhyMp_set_primary_atmvars_container
+
+  subroutine AtmosPhyMp_set_CP_tends_manager( this, CP_tends_manager )
+    use mod_atmos_phy_cp_vars, only: &
+      CP_RHOT_t_ID => ATMOS_PHY_CP_RHOT_t_ID    
+    implicit none
+    class(AtmosPhyMp), intent(inout) :: this
+    class(ModelVarManager), intent(inout) :: CP_tends_manager
+    !--------------------------------------------------
+
+    this%CP_flag = .true.
+    call CP_tends_manager%Get( CP_RHOT_t_ID, this%ptr_CP_RHOT_t )
+    return
+  end subroutine AtmosPhyMp_set_CP_tends_manager
 
 !> Calculate tendencies associated with cloud microphysics
 !!
@@ -501,6 +523,9 @@ contains
     class(LocalMeshFieldBase), pointer :: mp_DENS_t, mp_MOMX_t, mp_MOMY_t, mp_MOMZ_t, mp_RHOT_t, mp_RHOH, mp_EVAP
     type(LocalMeshFieldBaseList) :: mp_RHOQ_t(this%vars%QS:this%vars%QE)
     class(LocalMeshFieldBase), pointer :: SFLX_rain, SFLX_snow, SFLX_engi
+
+    class(LocalMeshFieldBase), pointer :: CP_RHOT_t
+    logical, allocatable :: CP_mask(:,:)
     
     integer :: n
     integer :: ke
@@ -566,6 +591,16 @@ contains
           mesh, this%vars%auxvars2D_manager,              &
           SFLX_rain, SFLX_snow, SFLX_engi                 )     
 
+        !-
+        allocate( CP_mask(lcmesh%refElem3D%Np,lcmesh%Ne) )
+        if ( this%CP_flag ) then
+          call this%ptr_CP_RHOT_t%GetLocalMeshField( n, CP_RHOT_t )
+          where ( abs(CP_RHOT_t%val(:,lcmesh%NeS:lcmesh%NeE)) > 1.0E-12_RP )
+            CP_mask(:,:) = .true.
+          elsewhere
+            CP_mask(:,:) = .false.
+          end where
+        end if
         call PROF_rapend('ATM_PHY_MP_get_localmesh_ptr', 2)   
 
         !- Calculate tendencies associated with cloud microphysics
@@ -577,9 +612,12 @@ contains
             DDENS%val, DDENS_pri%val, MOMX_pri%val, MOMY_pri%val, MOMZ_pri%val, PT%val, QTRC,  QTRC_pri, & ! (in)
             PRES%val, PRES_pri%val, PRES_hyd%val, DENS_hyd%val,                                          & ! (in)
             Rtot%val, Rtot_pri%val, CVtot%val, CVtot_pri%val, CPtot%val, CPtot_pri%val,                  & ! (in)
+            CP_mask,                                                                               & ! (in)
             model_mesh%DOptrMat(3), model_mesh%LiftOptrMat,                                              & ! (in)
             lcmesh, lcmesh%refElem3D, lcmesh%lcmesh2D, lcmesh%lcmesh2D%refElem2D, this%elem_v1D          ) ! (in)
         call PROF_rapend('ATM_PHY_MP_cal_tend', 2)
+
+        deallocate( CP_mask )
       end do
 
       if ( this%gFilter_flag ) then
@@ -741,6 +779,7 @@ contains
     DDENS, DDENS_pri, RHOU, RHOV, MOMZ, PT, QTRC, QTRC_pri, & ! (in)
     PRES, PRES_pri, PRES_hyd, DENS_hyd,                     & ! (in)
     Rtot, Rtot_pri, CVtot, CVtot_pri, CPtot, CPtot_pri,     & ! (in)
+    CP_mask,                                                & ! (in)
     Dz, Lift,                                               & ! (in)
     lcmesh, elem3D, lcmesh2D, elem2D, elem_v1D              ) ! (in)
 
@@ -804,6 +843,7 @@ contains
     real(RP), intent(in) :: CVtot_pri(elem3D%Np,lcmesh%NeA)
     real(RP), intent(in) :: CPtot(elem3D%Np,lcmesh%NeA)
     real(RP), intent(in) :: CPtot_pri(elem3D%Np,lcmesh%NeA)
+    logical, intent(in) :: CP_mask(elem3D%Np,lcmesh%Ne)
     class(SparseMat), intent(in) :: Dz
     class(SparseMat), intent(in) :: Lift
 
@@ -903,6 +943,7 @@ contains
       call calc_tendency_lscond( this, &
         RHOQ_t_MP, CPtot_t, CVtot_t, RHOE_t, EVAPORATE,  & ! (out)
         DENS, QTRC, PRES, DENS_hyd, Rtot, CVtot, CPtot,  & ! (in)
+        CP_mask,                                         & ! (in)
         rdt_MP, lcmesh, elem3D )                           ! (in)
 
       lscond_flag = .true.
@@ -1431,6 +1472,7 @@ contains
   subroutine calc_tendency_lscond( this, &
     RHOQ_t_MP, CPtot_t, CVtot_t, RHOE_t, EVAPORATE,  & ! (out)
     DENS, QTRC, PRES, DENS_hyd, Rtot, CVtot, CPtot,  & ! (in)
+    CP_mask,                                         & ! (in)
     rdt_MP, lcmesh, elem3D )                           ! (in)
 
     use scale_atm_phy_mp_lscond, only:    &
@@ -1452,15 +1494,19 @@ contains
     real(RP), intent(in) :: Rtot (elem3D%Np,lcmesh%NeA)
     real(RP), intent(in) :: CVtot(elem3D%Np,lcmesh%NeA)
     real(RP), intent(in) :: CPtot(elem3D%Np,lcmesh%NeA)
+    logical, intent(in) :: CP_mask(elem3D%Np,lcmesh%Ne)
     real(RP), intent(in) :: rdt_MP
 
     real(RP) :: TEMP1(elem3D%Np,lcmesh%NeA)
     real(RP) :: CPtot1(elem3D%Np,lcmesh%NeA)
     real(RP) :: CVtot1(elem3D%Np,lcmesh%NeA)
+    real(RP) :: dqc_CP(elem3D%Np,lcmesh%NeA)
     real(RP) :: QTRC1(elem3D%Np,lcmesh%NeA,this%vars%QS:this%vars%QE)
 
     integer :: ke
     integer :: iq
+
+    real(RP) :: sw(elem3D%Np,lcmesh%Ne)
     !------------------------------------------------------------
 
     !$omp parallel private(ke, iq)
@@ -1469,8 +1515,17 @@ contains
       TEMP1(:,ke) = PRES(:,ke) / ( DENS(:,ke) * Rtot(:,ke) )
       CPtot1(:,ke) = CPtot(:,ke)
       CVtot1(:,ke) = CVtot(:,ke)
+
+      sw(:,ke) = 1.0_RP
     end do
-    !$omp end do
+    if ( this%CP_flag ) then
+      !$omp do
+      do ke = lcmesh%NeS, lcmesh%NeE
+        where (CP_mask(:,ke))
+          sw(:,ke) = 0.0_RP
+        end where
+      end do
+    end if
     !$omp do collapse(2)
     do iq = this%vars%QS, this%vars%QE
     do ke = lcmesh%NeS, lcmesh%NeE
@@ -1490,17 +1545,20 @@ contains
     !$omp do collapse(2)
     do iq = this%vars%QS, this%vars%QE
     do ke = lcmesh%NeS, lcmesh%NeE
-      RHOQ_t_MP(iq)%ptr%val(:,ke) = ( QTRC1(:,ke,iq) - QTRC(iq)%ptr%val(:,ke) ) * DENS(:,ke) * rdt_MP
+      RHOQ_t_MP(iq)%ptr%val(:,ke) = sw(:,ke) * ( QTRC1(:,ke,iq) - QTRC(iq)%ptr%val(:,ke) ) * DENS(:,ke) * rdt_MP
     end do  
     end do
     !$omp end do
     !$omp do
     do ke = lcmesh%NeS, lcmesh%NeE
-      CPtot_t(:,ke) = ( CPtot1(:,ke) - CPtot(:,ke) ) * rdt_MP
-      CVtot_t(:,ke) = ( CVtot1(:,ke) - CVtot(:,ke) ) * rdt_MP
+      CPtot_t(:,ke) = sw(:,ke) * ( CPtot1(:,ke) - CPtot(:,ke) ) * rdt_MP
+      CVtot_t(:,ke) = sw(:,ke) *  ( CVtot1(:,ke) - CVtot(:,ke) ) * rdt_MP
+      
+      RHOE_t(:,ke) = sw(:,ke) * RHOE_t(:,ke)
     end do
     !$omp end do
     !$omp end parallel
+
     return
   end subroutine calc_tendency_lscond
   

@@ -77,6 +77,7 @@ module mod_atmos_phy_tb_vars
   contains
     procedure :: Init => AtmosPhyTbVars_Init
     procedure :: Final => AtmosPhyTbVars_Final
+    procedure :: Setup => AtmosPhyTbVars_Setup
     procedure :: History => AtmosPhyTbVars_history
   end type AtmosPhyTbVars
 
@@ -93,16 +94,24 @@ contains
 !!
 !! @param model_mesh Object to manage computational mesh of atmospheric model 
 !OCL SERIAL
-  subroutine AtmosPhyTbVars_Init( this, model_mesh )
-
-    use scale_tracer, only: &
-      TRACER_NAME, TRACER_DESC, TRACER_UNIT    
-    use scale_atm_phy_tb_dgm_common, only: &
-      atm_phy_tb_dgm_common_setup_variables
-    
+  subroutine AtmosPhyTbVars_Init( this, model_mesh )    
     implicit none
     class(AtmosPhyTbVars), target, intent(inout) :: this
     class(ModelMeshBase), target, intent(in) :: model_mesh
+    !--------------------------------------------------
+
+    LOG_INFO('AtmosPhyTbVars_Init',*)
+    return
+  end subroutine AtmosPhyTbVars_Init
+
+  !> Setup variables objects
+!OCL SERIAL
+  subroutine AtmosPhyTbVars_Setup( this, model_mesh )
+    use scale_atm_phy_tb_dgm_common, only: &
+      atm_phy_tb_dgm_common_setup_variables
+    implicit none
+    class(AtmosPhyTbVars), intent(inout) :: this
+    class(ModelMeshBase), intent(in), target :: model_mesh
 
     integer :: iv
     integer :: iq
@@ -110,13 +119,11 @@ contains
 
     class(AtmosMesh), pointer :: atm_mesh
     class(MeshBase2D), pointer :: mesh2D
-    class(MeshBase3D), pointer :: mesh3D
+    class(MeshBase3D), pointer :: mesh3D    
     !--------------------------------------------------
 
-    LOG_INFO('AtmosPhyTbVars_Init',*)
-
     this%TENDS_NUM_TOT = ATMOS_PHY_TB_TENDS_NUM1 + QA
-
+    
     !- Initialize auxiliary and diagnostic variables
 
     nullify( atm_mesh )
@@ -154,9 +161,9 @@ contains
       this%auxvars_manager,            & ! (inout)
       this%auxvars(:),                 & ! (in)
       this%auxvars_commid              ) ! (out)
-
+    
     return
-  end subroutine AtmosPhyTbVars_Init
+  end subroutine AtmosPhyTbVars_Setup
 
 !> Finalize an object to manage variables with atmospheric SGS turbulent component
 !OCL SERIAL
