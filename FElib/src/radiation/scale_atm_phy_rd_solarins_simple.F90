@@ -92,7 +92,8 @@ contains
         ORBIT_REFERENCE_YEAR,             &
         ANNUAL_MEAN_YEAR,                 &
         ANNUAL_SAMPLES_PER_DAY,           &
-        CACHE_ANNUAL_MEAN
+        CACHE_ANNUAL_MEAN,                &
+        FRIERSON2006_DELTA_s
 
     integer :: ierr
     !------------------------------------------------------------------------------
