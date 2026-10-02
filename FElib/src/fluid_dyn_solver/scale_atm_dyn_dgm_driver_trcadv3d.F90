@@ -599,8 +599,8 @@ contains
     DENS_hyd, PRES_hyd, dt, mesh3D, IS_THERMVAR_RHOT  ) ! (in)
     use scale_atmos_hydrometeor, only: &
       QLA, QIA
-    use scale_atm_phy_mp_dgm_common, only: &
-      atm_phy_mp_dgm_common_negative_fixer
+    use scale_atm_phy_cloud_dgm_common, only: &
+      atm_phy_cloud_dgm_common_negative_fixer
     implicit none
     class(ModelVarManager), intent(inout) :: TRC_VARS
     class(MeshField3D), intent(inout) :: DDENS
@@ -633,14 +633,14 @@ contains
       lcmesh3D => mesh3D%lcmesh_list(n)
 
       if ( IS_THERMVAR_RHOT ) then
-        call atm_phy_mp_dgm_common_negative_fixer( &
+        call atm_phy_cloud_dgm_common_negative_fixer( &
           lc_qtrc, DDENS%local(n)%val, PRES%local(n)%val,            & ! (inout)
           CVtot%local(n)%val, CPtot%local(n)%val, Rtot%local(n)%val, & ! (inout)
           DENS_hyd%local(n)%val, PRES_hyd%local(n)%val,              & ! (in)
           dt, lcmesh3D, lcmesh3D%refElem3D, QA, QLA, QIA,            & ! (in)
           DRHOT=THERM%local(n)%val                                   ) ! (inout)
       else
-        call atm_phy_mp_dgm_common_negative_fixer( &
+        call atm_phy_cloud_dgm_common_negative_fixer( &
           lc_qtrc, DDENS%local(n)%val, PRES%local(n)%val,            & ! (inout)
           CVtot%local(n)%val, CPtot%local(n)%val, Rtot%local(n)%val, & ! (inout)
           DENS_hyd%local(n)%val, PRES_hyd%local(n)%val,              & ! (in)

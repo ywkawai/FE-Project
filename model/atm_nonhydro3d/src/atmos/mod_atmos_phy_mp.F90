@@ -141,8 +141,6 @@ contains
   subroutine AtmosPhyMp_setup( this, model_mesh, tm_parent_comp )
     use scale_const, only: &
       EPS => CONST_EPS
-    use scale_tracer, only: &
-      TRACER_regist
     use scale_atmos_hydrometeor, only: &
       ATMOS_HYDROMETEOR_regist
     use scale_atmos_phy_mp_kessler, only: &
@@ -612,7 +610,7 @@ contains
             DDENS%val, DDENS_pri%val, MOMX_pri%val, MOMY_pri%val, MOMZ_pri%val, PT%val, QTRC,  QTRC_pri, & ! (in)
             PRES%val, PRES_pri%val, PRES_hyd%val, DENS_hyd%val,                                          & ! (in)
             Rtot%val, Rtot_pri%val, CVtot%val, CVtot_pri%val, CPtot%val, CPtot_pri%val,                  & ! (in)
-            CP_mask,                                                                               & ! (in)
+            CP_mask,                                                                                     & ! (in)
             model_mesh%DOptrMat(3), model_mesh%LiftOptrMat,                                              & ! (in)
             lcmesh, lcmesh%refElem3D, lcmesh%lcmesh2D, lcmesh%lcmesh2D%refElem2D, this%elem_v1D          ) ! (in)
         call PROF_rapend('ATM_PHY_MP_cal_tend', 2)
@@ -800,13 +798,11 @@ contains
 
     use scale_sparsemat, only: SparseMat
 
-    use scale_atm_phy_mp_dgm_common, only:  &
-      atm_phy_mp_dgm_common_gen_intweight,         &
-      atm_phy_mp_dgm_common_precipitation,         &
-      atm_phy_mp_dgm_common_precipitation_momentum
-    use scale_atm_phy_mp_lscond, only: &
-      ATMOS_PHY_MP_lscond_precipitation, &
-      ATMOS_PHY_MP_lscond_precipitation_momentum
+    use scale_atm_phy_cloud_dgm_common, only: &
+      atm_phy_cloud_dgm_common_sedimentation,              &
+      atm_phy_cloud_dgm_common_sedimentation_momentum,     &
+      atm_phy_cloud_dgm_common_condensate_removal,         &
+      atm_phy_cloud_dgm_common_condensate_removal_momentum
     implicit none
 
     class(AtmosPhyMp), intent(inout) :: this
@@ -894,7 +890,7 @@ contains
 
     integer :: vmapM(elem3D%NfpTot,lcmesh%NeZ)
     integer :: vmapP(elem3D%NfpTot,lcmesh%NeZ)
-    real(RP) :: IntWeight(elem3D%Nfaces,elem3D%NfpTot)
+    real(RP) :: FaceIntWeight(elem3D%Nfaces,elem3D%NfpTot)
     real(RP) :: nz(elem3D%NfpTot,lcmesh%NeZ,lcmesh%Ne2D)
 
     logical :: lscond_flag
@@ -903,10 +899,8 @@ contains
     rdt_MP = 1.0_RP / this%dtsec
     domid  = lcmesh%lcdomID
 
-    call lcmesh%GetVmapZ1D( vmapM, vmapP ) ! (out)
-    
-    call atm_phy_mp_dgm_common_gen_intweight( IntWeight, & ! (out)
-      lcmesh                                             ) ! (in)
+    call lcmesh%GetVmapZ1D( vmapM, vmapP )              ! (out)    
+    call elem3D%Generate_FaceIntweight( FaceIntWeight ) ! (out)
     
     !$omp parallel do private(ke)
     do ke = lcmesh%NeS, lcmesh%NeE
@@ -1074,19 +1068,19 @@ contains
       do step = 1, this%nstep_sedimentation
 
         if ( lscond_flag ) then
-          call ATMOS_PHY_MP_lscond_precipitation( &
+          call atm_phy_cloud_dgm_common_condensate_removal( &
             DENS2_pri, RHOQ2_pri, CPtot2_pri, CVtot2_pri, RHOE2_pri, & ! (inout)
             SFLX_rain, SFLX_snow, SFLX_ENGI,                         & ! (inout)
             TEMP2_pri, this%dtsec_sedimentation,                     & ! (in)
             this%vars%QE - this%vars%QS, QLA, QIA,                   & ! (in)
             lcmesh, elem3D, elem_v1D )                                 ! (in)
         else
-          call atm_phy_mp_dgm_common_precipitation( &
+          call atm_phy_cloud_dgm_common_sedimentation( &
             DENS2_pri, RHOQ2_pri, CPtot2_pri, CVtot2_pri, RHOE2_pri, & ! (inout)
             FLX_hydro, SFLX_rain, SFLX_snow, SFLX_ENGI,              & ! (inout)
             TEMP2_pri, vterm,                                        & ! (in)
             this%dtsec_sedimentation, this%rnstep_sedimentation,     & ! (in)
-            this%Dz, this%Lift, nz, vmapM, vmapP, IntWeight,         & ! (in)
+            this%Dz, this%Lift, nz, vmapM, vmapP, FaceIntWeight,     & ! (in)
             this%vars%QE - this%vars%QS, QLA, QIA,                   & ! (in)
             lcmesh, elem3D )                                           ! (in)
         end if
@@ -1137,12 +1131,12 @@ contains
       !- Sedimentation of momentum
 
       if ( lscond_flag ) then
-        call ATMOS_PHY_MP_lscond_precipitation_momentum( &
+        call atm_phy_cloud_dgm_common_condensate_removal_momentum( &
           RHOU_t_MP, RHOV_t_MP, MOMZ_t_MP,                       & ! (out)
           DENS0_pri, RHOU2_pri, RHOV2_pri, MOMZ2_pri, DENS2_pri, & ! (in)
           rdt_MP, lcmesh, elem3D                                 ) ! (in)
       else
-        call atm_phy_mp_dgm_common_precipitation_momentum( &
+        call atm_phy_cloud_dgm_common_sedimentation_momentum( &
           RHOU_t_MP, RHOV_t_MP, MOMZ_t_MP,                       & ! (out)
           DENS0_pri, RHOU2_pri, RHOV2_pri, MOMZ2_pri, FLX_hydro, & ! (in)
           this%Dz, this%Lift, nz, vmapM, vmapP,                  & ! (in)
