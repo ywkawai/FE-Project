@@ -93,6 +93,7 @@ module mod_atmos_vars
    
     !-
     type(ModelVarManager), pointer :: ptr_MP_AUXVARS2D_manager
+    type(ModelVarManager), pointer :: ptr_MAC_AUXVARS2D_manager
     type(ModelVarManager), pointer :: ptr_CP_AUXVARS2D_manager
 
     logical :: moist
@@ -468,16 +469,20 @@ contains
   !! to output surface variables with precipitation fluxes
 !OCL SERIAL
   subroutine AtmosVars_Regist_physvar_manager( this, &
-    mp_AUXVARS2D_manager, cp_AUXVARS2D_manager )
+    mp_AUXVARS2D_manager, mac_AUXVARS2D_manager, cp_AUXVARS2D_manager )
     implicit none
 
     class(AtmosVars), target, intent(inout) :: this
     type(ModelVarManager), intent(in), target, optional:: mp_AUXVARS2D_manager
+    type(ModelVarManager), intent(in), target, optional:: mac_AUXVARS2D_manager
     type(ModelVarManager), intent(in), target, optional:: cp_AUXVARS2D_manager
     !----------------------------------------------
 
     if ( present(mp_AUXVARS2D_manager) ) then
       this%ptr_MP_AUXVARS2D_manager => mp_AUXVARS2D_manager
+    end if
+    if ( present(mac_AUXVARS2D_manager) ) then
+      this%ptr_MAC_AUXVARS2D_manager => mac_AUXVARS2D_manager
     end if
     if ( present(cp_AUXVARS2D_manager) ) then
       this%ptr_CP_AUXVARS2D_manager => cp_AUXVARS2D_manager

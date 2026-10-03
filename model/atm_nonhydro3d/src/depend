@@ -1,4 +1,4 @@
-$(BUILD_DIR)/mod_atmos_component.o: atmos/mod_atmos_component.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_dyn.o $(BUILD_DIR)/mod_atmos_mesh.o $(BUILD_DIR)/mod_atmos_mesh_gm.o $(BUILD_DIR)/mod_atmos_mesh_rm.o $(BUILD_DIR)/mod_atmos_phy_bl.o $(BUILD_DIR)/mod_atmos_phy_cp.o $(BUILD_DIR)/mod_atmos_phy_mp.o $(BUILD_DIR)/mod_atmos_phy_mp_vars.o $(BUILD_DIR)/mod_atmos_phy_rd.o $(BUILD_DIR)/mod_atmos_phy_rd_vars.o $(BUILD_DIR)/mod_atmos_phy_sfc.o $(BUILD_DIR)/mod_atmos_phy_sfc_vars.o $(BUILD_DIR)/mod_atmos_phy_tb.o $(BUILD_DIR)/mod_atmos_vars.o $(BUILD_DIR)/mod_atmos_vars_container.o $(BUILD_DIR)/mod_cpl_component.o
+$(BUILD_DIR)/mod_atmos_component.o: atmos/mod_atmos_component.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_dyn.o $(BUILD_DIR)/mod_atmos_mesh.o $(BUILD_DIR)/mod_atmos_mesh_gm.o $(BUILD_DIR)/mod_atmos_mesh_rm.o $(BUILD_DIR)/mod_atmos_phy_bl.o $(BUILD_DIR)/mod_atmos_phy_cp.o $(BUILD_DIR)/mod_atmos_phy_cp_vars.o $(BUILD_DIR)/mod_atmos_phy_mac.o $(BUILD_DIR)/mod_atmos_phy_mp.o $(BUILD_DIR)/mod_atmos_phy_mp_vars.o $(BUILD_DIR)/mod_atmos_phy_rd.o $(BUILD_DIR)/mod_atmos_phy_rd_vars.o $(BUILD_DIR)/mod_atmos_phy_sfc.o $(BUILD_DIR)/mod_atmos_phy_sfc_vars.o $(BUILD_DIR)/mod_atmos_phy_tb.o $(BUILD_DIR)/mod_atmos_vars.o $(BUILD_DIR)/mod_atmos_vars_container.o $(BUILD_DIR)/mod_cpl_component.o
 $(BUILD_DIR)/mod_atmos_dyn.o: atmos/mod_atmos_dyn.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_dyn_vars.o $(BUILD_DIR)/mod_atmos_mesh.o $(BUILD_DIR)/mod_atmos_vars.o
 $(BUILD_DIR)/mod_atmos_dyn_vars.o: atmos/mod_atmos_dyn_vars.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_mesh.o
 $(BUILD_DIR)/mod_atmos_mesh.o: atmos/mod_atmos_mesh.F90 $(DEPENDLIB)
@@ -8,7 +8,9 @@ $(BUILD_DIR)/mod_atmos_phy_bl.o: atmos/mod_atmos_phy_bl.F90 $(DEPENDLIB) $(BUILD
 $(BUILD_DIR)/mod_atmos_phy_bl_vars.o: atmos/mod_atmos_phy_bl_vars.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_mesh.o
 $(BUILD_DIR)/mod_atmos_phy_cp.o: atmos/mod_atmos_phy_cp.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_mesh.o $(BUILD_DIR)/mod_atmos_phy_cp_vars.o $(BUILD_DIR)/mod_atmos_vars.o $(BUILD_DIR)/mod_atmos_vars_container.o
 $(BUILD_DIR)/mod_atmos_phy_cp_vars.o: atmos/mod_atmos_phy_cp_vars.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_mesh.o
-$(BUILD_DIR)/mod_atmos_phy_mp.o: atmos/mod_atmos_phy_mp.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_mesh.o $(BUILD_DIR)/mod_atmos_phy_mp_vars.o $(BUILD_DIR)/mod_atmos_vars.o $(BUILD_DIR)/mod_atmos_vars_container.o
+$(BUILD_DIR)/mod_atmos_phy_mac.o: atmos/mod_atmos_phy_mac.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_mesh.o $(BUILD_DIR)/mod_atmos_phy_cp_vars.o $(BUILD_DIR)/mod_atmos_phy_mac_vars.o $(BUILD_DIR)/mod_atmos_vars.o $(BUILD_DIR)/mod_atmos_vars_container.o
+$(BUILD_DIR)/mod_atmos_phy_mac_vars.o: atmos/mod_atmos_phy_mac_vars.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_mesh.o
+$(BUILD_DIR)/mod_atmos_phy_mp.o: atmos/mod_atmos_phy_mp.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_mesh.o $(BUILD_DIR)/mod_atmos_phy_cp_vars.o $(BUILD_DIR)/mod_atmos_phy_mp_vars.o $(BUILD_DIR)/mod_atmos_vars.o $(BUILD_DIR)/mod_atmos_vars_container.o
 $(BUILD_DIR)/mod_atmos_phy_mp_vars.o: atmos/mod_atmos_phy_mp_vars.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_mesh.o
 $(BUILD_DIR)/mod_atmos_phy_preproc.o: atmos/mod_atmos_phy_preproc.F90 $(DEPENDLIB)
 $(BUILD_DIR)/mod_atmos_phy_rd.o: atmos/mod_atmos_phy_rd.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_mesh.o $(BUILD_DIR)/mod_atmos_phy_rd_vars.o $(BUILD_DIR)/mod_atmos_vars.o $(BUILD_DIR)/mod_atmos_vars_container.o
@@ -17,7 +19,7 @@ $(BUILD_DIR)/mod_atmos_phy_sfc.o: atmos/mod_atmos_phy_sfc.F90 $(DEPENDLIB) $(BUI
 $(BUILD_DIR)/mod_atmos_phy_sfc_vars.o: atmos/mod_atmos_phy_sfc_vars.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_mesh.o
 $(BUILD_DIR)/mod_atmos_phy_tb.o: atmos/mod_atmos_phy_tb.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_mesh.o $(BUILD_DIR)/mod_atmos_phy_tb_vars.o $(BUILD_DIR)/mod_atmos_vars.o
 $(BUILD_DIR)/mod_atmos_phy_tb_vars.o: atmos/mod_atmos_phy_tb_vars.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_mesh.o
-$(BUILD_DIR)/mod_atmos_vars.o: atmos/mod_atmos_vars.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_mesh.o $(BUILD_DIR)/mod_atmos_phy_mp_vars.o $(BUILD_DIR)/mod_atmos_vars_container.o
+$(BUILD_DIR)/mod_atmos_vars.o: atmos/mod_atmos_vars.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_mesh.o $(BUILD_DIR)/mod_atmos_phy_cp_vars.o $(BUILD_DIR)/mod_atmos_phy_mp_vars.o $(BUILD_DIR)/mod_atmos_vars_container.o
 $(BUILD_DIR)/mod_atmos_vars_container.o: atmos/mod_atmos_vars_container.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_mesh.o $(BUILD_DIR)/mod_atmos_phy_preproc.o
 $(BUILD_DIR)/mod_cpl_component.o: coupler/mod_cpl_component.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_cpl_vars.o
 $(BUILD_DIR)/mod_cpl_vars.o: coupler/mod_cpl_vars.F90 $(DEPENDLIB) $(BUILD_DIR)/mod_atmos_vars_container.o $(BUILD_DIR)/mod_ocean_vars.o
@@ -50,6 +52,8 @@ MODS =	\
 	mod_atmos_phy_bl_vars.mod	\
 	mod_atmos_phy_cp.mod	\
 	mod_atmos_phy_cp_vars.mod	\
+	mod_atmos_phy_mac.mod	\
+	mod_atmos_phy_mac_vars.mod	\
 	mod_atmos_phy_mp.mod	\
 	mod_atmos_phy_mp_vars.mod	\
 	mod_atmos_phy_preproc.mod	\
