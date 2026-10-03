@@ -14,19 +14,21 @@ include $(TOPDIR)/Mkinclude
 LIBNAME=libScaleFECore$(POSTFIX).a
 
 VPATH = \
-	common:           \
-	element:          \
-	mesh:             \
-	data:             \
-	file:             \
-	multigrid_solver: \
-	fluid_dyn_solver: \
-	surface:          \
-	turbulence:       \
-	bl_turbulence:    \
-	microphysics:     \
-	cumulus:          \
-	radiation:        \
+	common:              \
+	element:             \
+	mesh:                \
+	data:                \
+	file:                \
+	multigrid_solver:    \
+	fluid_dyn_solver:    \
+	surface:             \
+	turbulence:          \
+	bl_turbulence:       \
+	cloud/microphysics:  \
+	cloud/macrophysics:  \
+	cloud/common:        \
+	cumulus:             \
+	radiation:           \
 	model_framework:
 
 LIBVERSION = $(shell git rev-parse --short HEAD 2> /dev/null)
@@ -180,8 +182,11 @@ OBJS_NAME_BL_TURBULENCE = \
 	scale_atm_phy_bl_dgm_common.o
 
 OBJS_NAME_MICROPHYS = \
-	scale_atm_phy_mp_dgm_common.o \
 	scale_atm_phy_mp_lscond.o
+OBJS_NAME_MACROPHYS = \
+	scale_atm_phy_mac_sundqvist.o
+OBJS_NAME_CLOUD_COMMON = \
+	scale_atm_phy_cloud_dgm_common.o
 
 OBJS_NAME_CP = \
 	scale_atm_phy_cp_dgm_mconv_adjustment.o
@@ -210,6 +215,8 @@ OBJS_NAME = \
 	$(OBJS_NAME_TURBULENCE)       \
 	$(OBJS_NAME_BL_TURBULENCE)    \
 	$(OBJS_NAME_MICROPHYS)        \
+	$(OBJS_NAME_MACROPHYS)        \
+	$(OBJS_NAME_CLOUD_COMMON)     \
 	$(OBJS_NAME_CP)               \
 	$(OBJS_NAME_RADIATION)        \
 	$(OBJS_NAME_MODEL_FRAMEWORK)
