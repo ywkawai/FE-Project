@@ -30,10 +30,13 @@ module scale_atm_phy_cloud_dgm_common
     GRAV => CONST_GRAV,    &
     PRES00 => CONST_PRE00
   use scale_atmos_hydrometeor, only: &
+    CV_VAPOR, &
+    CP_VAPOR, &
     CV_WATER, &
     CP_WATER, &
     CV_ICE,   &
-    CP_ICE  
+    CP_ICE,   &
+    LHV
 
   use scale_sparsemat
   use scale_element_base, only: &
@@ -119,8 +122,7 @@ contains
     real(RP) :: DzRHOQ(elem%Np,lcmesh%NeZ,lcmesh%Ne2D)
     real(RP) :: DzRHOE(elem%Np,lcmesh%NeZ,lcmesh%Ne2D)
     real(RP) :: dDENS(elem%Np)
-    real(RP) :: CP(QHA)
-    real(RP) :: CV(QHA)
+    real(RP) :: CP(QHA), CV(QHA)
 
     real(RP) :: fct_coef(elem%Np,lcmesh%NeZ,lcmesh%Ne2D)
     real(RP) :: RHOQ0, RHOQ1, RHOQ_tmp(elem%Np)
@@ -139,18 +141,8 @@ contains
     real(RP) :: delz
     !-------------------------------------------------------
 
-    do iq = 1, QHA
-      if ( iq > QLA + QIA ) then
-        CP(iq) = UNDEF 
-        CV(iq) = UNDEF
-      else if ( iq > QLA ) then ! ice water
-        CP(iq) = CP_ICE
-        CV(iq) = CV_ICE
-      else                      ! liquid water
-        CP(iq) = CP_WATER
-        CV(iq) = CV_WATER
-      end if
-    end do
+    call set_hydrometeor_heat_capacity( QLA, QIA, QHA, & ! (in)
+      CP, CV) ! (out)
 
     !$omp parallel do collapse(2)
     do ke2D = 1, lcmesh%Ne2D
@@ -161,7 +153,9 @@ contains
     end do
     end do
 
+    ! Process each hydrometeor category separately
     do iq = 1, QHA
+    
       call atm_phy_cloud_dgm_sedimentation_get_delflux_dq( &
         del_flux(:,:,:,:),                                                      & ! (out)
         DENS0(:,:,:), RHOQ(:,:,:,iq), TEMP(:,:,:), CV(iq), nz(:,:,:), vmapM(:,:), vmapP(:,:), & ! (in)
@@ -369,8 +363,11 @@ contains
     DENS, RHOQ, CPtot, CVtot, RHOE,            & ! (inout)
     sflx_rain, sflx_snow, esflx,               & ! (inout)
     TEMP, dt,                                  & ! (in)
-    QHA, QLA, QIA, lcmesh, elem, elem1D        ) ! (in)
-
+    QHA, QLA, QIA, QS, lcmesh, elem, elem1D,   & ! (in)
+    do_evap_precip, tau_evap_precip,           & ! (in, optional)
+    RHOQV                                      ) ! (inout, optional)
+    use scale_atmos_saturation, only: &
+      ATMOS_SATURATION_pres2qsat_liq
     implicit none
     class(LocalMesh3D), intent(in) :: lcmesh
     class(ElementBase3D), intent(in) :: elem
@@ -386,7 +383,11 @@ contains
     real(RP), intent(in) :: TEMP (elem%Np,lcmesh%NeZ,lcmesh%Ne2D)
     real(RP), intent(in) :: dt
     integer, intent(in) :: QLA, QIA
+    integer, intent(in) :: QS        !< Start index for hydrometeor loop
     class(ElementBase1D), intent(in) :: elem1D
+    logical, intent(in), optional :: do_evap_precip
+    real(RP), intent(in), optional :: tau_evap_precip
+    real(RP), intent(inout), optional :: RHOQV(elem%Np,lcmesh%NeZ,lcmesh%Ne2D)
 
     real(RP) :: RHOCP(elem%Np,lcmesh%NeZ,lcmesh%Ne2D)
     real(RP) :: RHOCV(elem%Np,lcmesh%NeZ,lcmesh%Ne2D)
@@ -394,36 +395,64 @@ contains
     real(RP) :: dDENS(elem%Np)
     real(RP) :: dInternalEn(elem%Np)
 
-    real(RP) :: vint_weight(elem%Nnode_v,elem%Nnode_h1D**2)
-    real(RP) :: condens_vint_lc(elem%Nnode_h1D**2)
-    real(RP) :: ien_vint_lc(elem%Nnode_h1D**2)
+    real(RP) :: vint_weight(elem%Nnode_h1D**2,elem%Nnode_v)
+    real(RP) :: r_dz
+
+    real(RP) :: precip_mass_lc  (elem%Nnode_h1D**2)
+    real(RP) :: precip_energy_lc(elem%Nnode_h1D**2)
 
     real(RP) :: eflx(elem%Np)
-    real(RP) :: CP(QHA)
-    real(RP) :: CV(QHA)
+    real(RP) :: CP(QHA), CV(QHA)
 
-    integer :: ke2D, p2D
-    integer :: ke_z, ke
+    integer :: ke2D, ke_z, ke
+    integer :: p2D, pz, p
     integer :: iq
 
     real(RP) :: rdt
+
+    logical :: l_do_evap_precip
+    real(RP) :: l_tau_evap_precip
+    real(RP) :: relax_factor
+    real(RP) :: dens_work, qsat_work
+    real(RP) :: dm_evap, drho_evap, precip_energy_evap
     !-------------------------------------------------------
 
-    do iq = 1, QHA
-      if ( iq > QLA + QIA ) then
-        CP(iq) = UNDEF 
-        CV(iq) = UNDEF
-      else if ( iq > QLA ) then ! ice water
-        CP(iq) = CP_ICE
-        CV(iq) = CV_ICE
-      else                      ! liquid water
-        CP(iq) = CP_WATER
-        CV(iq) = CV_WATER
-      end if
-    end do
+    call set_hydrometeor_heat_capacity( QLA, QIA, QHA, & ! (in)
+      CP, CV) ! (out)
 
     rdt = 1.0_RP / dt
 
+    ! Set local flags for optional evaporation and precipitation parameters
+
+    if ( present(do_evap_precip) ) then
+      l_do_evap_precip = do_evap_precip
+    else
+      l_do_evap_precip = .false.
+    end if
+
+    if ( l_do_evap_precip .and. ( .not. present(RHOQV) ) ) then
+      LOG_INFO("atm_phy_cloud_dgm_common_condensate_removal",*) "RHOQV must be present when do_evap_precip is true. Check!"
+      call PRC_abort
+    end if
+
+    if ( l_do_evap_precip ) then
+      if ( present(tau_evap_precip) ) then
+        l_tau_evap_precip = tau_evap_precip
+      else
+        LOG_INFO("atm_phy_cloud_dgm_common_condensate_removal",*) "tau_evap_precip must be present when do_evap_precip is true. Check!"
+        call PRC_abort
+      end if
+    end if
+
+    ! Set relaxation factor for evaporation and precipitation
+    if ( l_do_evap_precip ) then
+      relax_factor = 1.0_RP - exp(- dt / l_tau_evap_precip)
+    else
+      relax_factor = 0.0_RP
+    end if
+
+    ! Calculate initial local values for specific heat and density
+    
     !$omp parallel do collapse(2)
     do ke2D = 1, lcmesh%Ne2D
     do ke_z = 1, lcmesh%NeZ
@@ -432,52 +461,96 @@ contains
     end do
     end do
 
-    do iq = 1, QHA
-      !$omp parallel do private(ke2D,ke_z,ke,p2D, &
-      !$omp dDENS, vint_weight, condens_vint_lc, dInternalEn, ien_vint_lc)
+    ! Process each hydrometeor category separately
+    do iq = QS, QLA + QIA
+
+      !$omp parallel do private(ke2D,ke_z,ke,p2D,pz,p, &
+      !$omp dDENS, vint_weight, r_dz, precip_mass_lc, dInternalEn, precip_energy_lc, &
+      !$omp dens_work, qsat_work, dm_evap, drho_evap, precip_energy_evap             )
       do ke2D = 1, lcmesh%Ne2D
-      do ke_z = 1, lcmesh%NeZ
-        ke = ke2D + (ke_z-1)*lcmesh%Ne2D
 
-        dDENS(:) = - RHOQ(:,ke_z,ke2D,iq)
-        RHOQ(:,ke_z,ke2D,iq) = 0.0_RP
+        precip_mass_lc(:) = 0.0_RP
+        precip_energy_lc(:) = 0.0_RP
 
-        do p2D=1, elem%Nnode_h1D**2
-          vint_weight(:,p2D) = 0.5_RP * elem1D%IntWeight_lgl(:) * ( lcmesh%zlev(elem%Colmask(elem%Nnode_v,p2D),ke) - lcmesh%zlev(elem%Colmask(1,p2D),ke) )
-        end do
+        do ke_z = lcmesh%NeZ, 1, -1
+          ke = ke2D + (ke_z-1)*lcmesh%Ne2D
 
-        do p2D=1, elem%Nnode_h1D**2
-          condens_vint_lc(p2D) = sum( vint_weight(:,p2D) * dDENS(elem%Colmask(:,p2D)) )
-        end do
-      
+          dDENS      (:) = - RHOQ(:,ke_z,ke2D,iq)
+          dInternalEn(:) = - RHOQ(:,ke_z,ke2D,iq) * CV(iq) * TEMP(:,ke_z,ke2D)
+
+          RHOQ(:,ke_z,ke2D,iq) = 0.0_RP
+
+          RHOCP(:,ke_z,ke2D) = RHOCP(:,ke_z,ke2D) + CP(iq) * dDENS(:)
+          RHOCV(:,ke_z,ke2D) = RHOCV(:,ke_z,ke2D) + CV(iq) * dDENS(:)
+
+          !-- Accumulate condensate and related internal energy vertically
+
+          do pz=1, elem%Nnode_v
+          do p2D=1, elem%Nnode_h1D**2
+            vint_weight(p2D,pz) = 0.5_RP * elem1D%IntWeight_lgl(pz) &
+                                * ( lcmesh%zlev(elem%Colmask(elem%Nnode_v,p2D),ke) - lcmesh%zlev(elem%Colmask(1,p2D),ke) )
+          end do
+          end do
+
+          do pz=elem%Nnode_v, 1, -1
+            do p2D=1, elem%Nnode_h1D**2
+              p = elem%Colmask(pz,p2D)
+              precip_mass_lc  (p2D) = precip_mass_lc  (p2D) - vint_weight(p2D,pz) * dDENS(p)
+              precip_energy_lc(p2D) = precip_energy_lc(p2D) - vint_weight(p2D,pz) * dInternalEn(p)
+
+              !- Evaporation of diagnostic liquid precipitation
+              ! Here evaporation is applied only to liquid precipitation.
+              ! Ice/snow should preferably use qsat_ice and sublimation latent heat separately.            
+              if ( l_do_evap_precip .and. iq <= QLA ) then
+                if ( precip_mass_lc(p2D) > 0.0_RP ) then
+                  dens_work = DENS(p,ke_z,ke2D) + dDENS(p)
+                  call ATMOS_SATURATION_pres2qsat_liq( &
+                    TEMP(p,ke_z,ke2D), dens_work, &
+                    qsat_work )
+                  
+                  dm_evap = max(qsat_work - RHOQV(p,ke_z,ke2D) / dens_work, 0.0_RP) * relax_factor &
+                          * dens_work * vint_weight(p2D,pz)
+                  dm_evap = min(dm_evap, precip_mass_lc(p2D))
+
+                  if ( dm_evap > 0.0_RP ) then
+                    r_dz = 1.0_RP / vint_weight(p2D,pz)
+                    drho_evap = dm_evap * r_dz
+
+                    precip_energy_evap = dm_evap / precip_mass_lc(p2D) * precip_energy_lc(p2D)
+
+                    precip_mass_lc  (p2D) = precip_mass_lc  (p2D) - dm_evap
+                    precip_energy_lc(p2D) = precip_energy_lc(p2D) - precip_energy_evap
+
+                    dDENS      (p) = dDENS      (p) + drho_evap
+                    dInternalEn(p) = dInternalEn(p) + precip_energy_evap * r_dz &
+                                  - LHV * drho_evap
+
+                    RHOQV(p,ke_z,ke2D) = RHOQV(p,ke_z,ke2D) + drho_evap
+                    RHOCP(p,ke_z,ke2D) = RHOCP(p,ke_z,ke2D) + CP_VAPOR * drho_evap
+                    RHOCV(p,ke_z,ke2D) = RHOCV(p,ke_z,ke2D) + CV_VAPOR * drho_evap
+                  end if
+                end if
+              end if
+
+            end do
+          end do
+
+          !--- Update density and internal energy
+
+          DENS (:,ke_z,ke2D) = DENS(:,ke_z,ke2D) + dDENS(:)
+          RHOE(:,ke_z,ke2D) = RHOE(:,ke_z,ke2D) + dInternalEn(:)
+        end do ! ke_z loop
+
+        ! Note that the sign is negative for downward flux              
         if ( iq > QLA ) then ! ice water
-            sflx_snow(:,ke2D) = sflx_snow(:,ke2D)  &
-                              + condens_vint_lc(:) * rdt
+          sflx_snow(:,ke2D) = sflx_snow(:,ke2D) - precip_mass_lc(:) * rdt
         else                 ! liquid water
-            sflx_rain(:,ke2D) = sflx_rain(:,ke2D)  &
-                              + condens_vint_lc(:) * rdt
+          sflx_rain(:,ke2D) = sflx_rain(:,ke2D) - precip_mass_lc(:) * rdt
         end if
+        esflx(:,ke2D) = esflx(:,ke2D) - precip_energy_lc(:) * rdt
 
-        !--- update density
-
-        RHOCP(:,ke_z,ke2D) = RHOCP(:,ke_z,ke2D) + CP(iq) * dDENS(:)
-        RHOCV(:,ke_z,ke2D) = RHOCV(:,ke_z,ke2D) + CV(iq) * dDENS(:)
-        DENS (:,ke_z,ke2D) = DENS(:,ke_z,ke2D) + dDENS(:)
-
-        !--- update internal energy   
-
-        dInternalEn(:) = CP(iq) * dDENS(:) * TEMP(:,ke_z,ke2D)
-
-        do p2D=1, elem%Nnode_h1D**2
-          ien_vint_lc(p2D) = sum( vint_weight(:,p2D) * dInternalEn(elem%Colmask(:,p2D))  )
-        end do
-        esflx(:,ke2D) = esflx(:,ke2D) &
-                      + ien_vint_lc(:) * rdt
-
-        RHOE(:,ke_z,ke2D) = RHOE(:,ke_z,ke2D) + dInternalEn(:)
-      end do
-      end do
-    end do
+      end do ! ke2D loop
+    end do ! iq loop
 
     !$omp parallel do collapse(2)
     do ke2D = 1, lcmesh%Ne2D
@@ -511,9 +584,7 @@ contains
     real(RP), intent(in) :: DENS_new(elem%Np,lcmesh%NeZ,lcmesh%Ne2D)
     real(RP), intent(in) :: rdt_MP
     
-    integer :: ke2D
-    integer :: ke_z
-    integer :: ke
+    integer :: ke2D, ke_z, ke
     real(RP) :: coef(elem%Np)
     !----------------------------------------------------------
 
@@ -663,6 +734,34 @@ contains
   end subroutine atm_phy_cloud_dgm_common_negative_fixer
 
 !- private ---------------------------------------------------------------------
+
+!OCL SERIA
+  subroutine set_hydrometeor_heat_capacity( QLA, QIA, QHA, &
+    CP, CV )
+    implicit none
+    integer, intent(in) :: QLA, QIA
+    integer, intent(in) :: QHA
+    real(RP), intent(out) :: CP(QHA)
+    real(RP), intent(out) :: CV(QHA)
+
+    integer :: iq
+    !----------------------------------------
+
+    do iq = 1, QHA
+      if ( iq > QLA + QIA ) then
+        CP(iq) = UNDEF 
+        CV(iq) = UNDEF
+      else if ( iq > QLA ) then ! ice water
+        CP(iq) = CP_ICE
+        CV(iq) = CV_ICE
+      else                      ! liquid water
+        CP(iq) = CP_WATER
+        CV(iq) = CV_WATER
+      end if
+    end do
+
+    return
+  end subroutine set_hydrometeor_heat_capacity
 
 !OCL SERIAL
   subroutine atm_phy_cloud_dgm_netOutwardFlux( &

@@ -474,7 +474,7 @@ contains
 !! @param prgvars_list Object to manage prognostic variables with atmospheric dynamical core
 !! @param trcvars_list Object to manage auxiliary variables 
 !! @param forcing_list Object to manage forcing terms
-!! @param is_update Flag to speicfy whether the tendencies are updated in this call
+!! @param is_update Flag to specify whether the tendencies are updated in this call
 !!
 !OCL SERIAL
   subroutine AtmosPhyMp_calc_tendency( &
@@ -1072,7 +1072,7 @@ contains
             DENS2_pri, RHOQ2_pri, CPtot2_pri, CVtot2_pri, RHOE2_pri, & ! (inout)
             SFLX_rain, SFLX_snow, SFLX_ENGI,                         & ! (inout)
             TEMP2_pri, this%dtsec_sedimentation,                     & ! (in)
-            this%vars%QE - this%vars%QS, QLA, QIA,                   & ! (in)
+            this%vars%QE - this%vars%QS, QLA, QIA, 1,                & ! (in)
             lcmesh, elem3D, elem_v1D )                                 ! (in)
         else
           call atm_phy_cloud_dgm_common_sedimentation( &
