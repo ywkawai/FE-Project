@@ -504,6 +504,8 @@ contains
     cvtot0 = cvtot
 
     dcv = CV_WATER - CV_VAPOR
+    
+    dq_sat = 0.0_RP
 
     ! Saturation state before correction
 
