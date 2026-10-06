@@ -126,36 +126,26 @@ contains
   !> Setup an object to manage variables with a cloud component  
 !OCL SERIAL
   subroutine AtmosPhyMacVars_Init( this, model_mesh, &
-    QS_CLD, QE_CLD, QA_CLD )
-    use scale_atmos_hydrometeor, only: &
-       N_HYD, &
-       HYD_NAME
-    use scale_tracer, only: &
-      TRACER_NAME, TRACER_DESC, TRACER_UNIT
-    use scale_file_history, only: &
-      FILE_HISTORY_reg
+    QS_mac, QE_mac, QA_mac )
     implicit none
     class(AtmosPhyMacVars), target, intent(inout) :: this
     class(ModelMeshBase), target, intent(in) :: model_mesh
-    integer, intent(in) :: QS_CLD
-    integer, intent(in) :: QE_CLD
-    integer, intent(in) :: QA_CLD
+    integer, intent(in) :: QS_mac
+    integer, intent(in) :: QE_mac
+    integer, intent(in) :: QA_mac
     !---------------------------------------------------
 
     LOG_INFO('AtmosPhyMacVars_Init',*)
 
-    this%QS = QS_CLD
-    this%QE = QE_CLD
-    this%QA = QA_CLD
-    this%TENDS_NUM_TOT = ATMOS_PHY_MAC_TENDS_NUM1 + QE_CLD - QS_CLD + 1
+    this%QS = QS_mac
+    this%QE = QE_mac
+    this%QA = QA_mac
+    this%TENDS_NUM_TOT = ATMOS_PHY_MAC_TENDS_NUM1 + QE_mac - QS_mac + 1
     return
   end subroutine AtmosPhyMacVars_Init
 
   !> Setup variable objects with cloud macrophysics component in atmospheric model
   subroutine AtmosPhyMacVars_Setup( this, model_mesh )
-    use scale_atmos_hydrometeor, only: &
-      N_HYD,   &
-      HYD_NAME
     use scale_tracer, only: &
       TRACER_NAME, TRACER_DESC, TRACER_UNIT
     use scale_file_history, only: &
@@ -166,7 +156,6 @@ contains
 
     integer :: iv
     integer :: iq
-    integer :: n
     logical :: reg_file_hist
 
     class(AtmosMesh), pointer :: atm_mesh
@@ -177,8 +166,6 @@ contains
     type(VariableInfo) :: qtrc_vterm_vinfo_tmp
     !----------------------------------------------------
 
-
-    this%TENDS_NUM_TOT = ATMOS_PHY_MAC_TENDS_NUM1 + N_HYD
 
     !- Initialize auxiliary and diagnostic variables
 
@@ -198,34 +185,28 @@ contains
 
     reg_file_hist = .true.    
     do iv = 1, ATMOS_PHY_MAC_TENDS_NUM1
-      call this%tends_manager%Regist(           &
-        ATMOS_PHY_MAC_TEND_VINFO(iv), mesh3D,   &
-        this%tends(iv), reg_file_hist           )
-      
-      do n = 1, mesh3D%LOCAL_MESH_NUM
-        this%tends(iv)%local(n)%val(:,:) = 0.0_RP
-      end do         
+      call this%tends_manager%Regist( &
+        ATMOS_PHY_MAC_TEND_VINFO(iv), mesh3D, &
+        this%tends(iv), reg_file_hist,        &
+        fill_zero=.true.                      )
     end do
 
     qtrc_tp_vinfo_tmp%ndims    = 3
     qtrc_tp_vinfo_tmp%dim_type = 'XYZ'
     qtrc_tp_vinfo_tmp%STDNAME  = ''
     
-    do iq = 1, N_HYD
+    do iq = 1, this%QA
       iv = ATMOS_PHY_MAC_TENDS_NUM1 + iq 
       qtrc_tp_vinfo_tmp%keyID = iv
-      qtrc_tp_vinfo_tmp%NAME  = 'MAC_'//trim(HYD_NAME(iq))//'_t'
-      qtrc_tp_vinfo_tmp%DESC  = 'tendency of rho*'//trim(HYD_NAME(iq))//' in cloud process'
+      qtrc_tp_vinfo_tmp%NAME  = 'MAC_'//trim(TRACER_NAME(this%QS+iq-1))//'_t'
+      qtrc_tp_vinfo_tmp%DESC  = 'tendency of rho*'//trim(TRACER_NAME(this%QS+iq-1))//' in cloud macrophysics process'
       qtrc_tp_vinfo_tmp%UNIT  = 'kg/m3/s'
 
       reg_file_hist = .true.
       call this%tends_manager%Regist( &
-        qtrc_tp_vinfo_tmp, mesh3D,              & 
-        this%tends(iv), reg_file_hist           ) 
-      
-      do n = 1, mesh3D%LOCAL_MESH_NUM
-        this%tends(iv)%local(n)%val(:,:) = 0.0_RP
-      end do         
+        qtrc_tp_vinfo_tmp, mesh3D,     & 
+        this%tends(iv), reg_file_hist, &
+        fill_zero=.true.               ) 
     end do    
 
     !--
@@ -236,12 +217,9 @@ contains
     reg_file_hist = .true.    
     do iv = 1, ATMOS_PHY_MAC_AUX2D_NUM
       call this%auxvars2D_manager%Regist( &
-        ATMOS_PHY_MAC_AUX2D_VINFO(iv), mesh2D,   & ! (in) 
-        this%auxvars2D(iv), reg_file_hist        ) ! (out)
-      
-      do n = 1, mesh3D%LOCAL_MESH_NUM
-        this%auxvars2D(iv)%local(n)%val(:,:) = 0.0_RP
-      end do         
+        ATMOS_PHY_MAC_AUX2D_VINFO(iv), mesh2D, &
+        this%auxvars2D(iv), reg_file_hist,     &
+        fill_zero=.true.                       ) 
     end do
 
     return

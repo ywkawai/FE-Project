@@ -106,7 +106,7 @@ module mod_atmos_vars
 
     type(FILE_restart_meshfield_component) :: restart_file !< Object to manage restart file for atmospheric component
     
-    character(len=H_MID) :: phy_preproc_file_basename !< Basename of configuration file for preprocesses before physics
+    character(len=H_MID) :: phy_preproc_file_basename      !< Basename of configuration file for preprocesses before physics
 
     logical :: check_range
     logical :: check_total
@@ -379,6 +379,7 @@ contains
     !-- Set the pointer of 2D auxiliary variable manager with MP and CP components to output precipitation fluxes
 
     nullify( this%ptr_MP_AUXVARS2D_manager )
+    nullify( this%ptr_MAC_AUXVARS2D_manager )
     nullify( this%ptr_CP_AUXVARS2D_manager )
 
     return
@@ -967,25 +968,28 @@ contains
 
     do n=1, field_work%mesh%LOCAL_MESH_NUM
       lcmesh2D => field_work%mesh%lcmesh_list(n)
-      call vars_calc_diagnoseVar2D_lc( field_name, field_work%local(n)%val,  &
-        this%ptr_MP_AUXVARS2D_manager, this%ptr_CP_AUXVARS2D_manager,        &
-        field_work%mesh, lcmesh2D, lcmesh2D%refElem2D                        )
+      call vars_calc_diagnoseVar2D_lc( field_name, field_work%local(n)%val,                           &
+        this%ptr_MP_AUXVARS2D_manager, this%ptr_MAC_AUXVARS2D_manager, this%ptr_CP_AUXVARS2D_manager, &
+        field_work%mesh, lcmesh2D, lcmesh2D%refElem2D                                                 )
     end do
     !$acc wait(1)
     return
   end subroutine AtmosVars_CalcDiagvar2D
 
-!--- private -----
+!--- private subroutines --------------------------------------------------
 
 !OCL SERIAL
   subroutine vars_calc_diagnoseVar2D_lc( field_name, & ! (in)
     var_out,                                         & ! (out)
-    MP_auxvars2D, CP_auxvars2D, mesh2D, lcmesh, elem )  ! (in)
+    MP_auxvars2D, MAC_auxvars2D, CP_auxvars2D,       & ! (inout)
+    mesh2D, lcmesh, elem )  ! (in)
 
     use mod_atmos_phy_mp_vars, only: &
       AtmosPhyMpVars_GetLocalMeshFields_sfcflx
     use mod_atmos_phy_cp_vars, only: &
       AtmosPhyCpVars_GetLocalMeshFields_sfcflx
+    use mod_atmos_phy_mac_vars, only: &
+      AtmosPhyMacVars_GetLocalMeshFields_sfcflx
 
     implicit none
     class(LocalMesh2D), intent(in) :: lcmesh
@@ -993,17 +997,21 @@ contains
     character(*), intent(in) :: field_name
     real(RP), intent(out) :: var_out(elem%Np,lcmesh%NeA)
     type(ModelVarManager), intent(inout), pointer :: MP_auxvars2D
+    type(ModelVarManager), intent(inout), pointer :: MAC_auxvars2D
     type(ModelVarManager), intent(inout), pointer :: CP_auxvars2D
     class(MeshBase2D), intent(in) :: mesh2D
 
     integer :: ke, p
 
-    logical :: sw_MP, sw_CP
+    logical :: sw_MP, sw_MAC
+    logical :: sw_CP
     class(LocalMeshFieldBase), pointer :: SFLX_rain_MP, SFLX_snow_MP, SFLX_ENGI_MP
+    class(LocalMeshFieldBase), pointer :: SFLX_rain_MAC, SFLX_snow_MAC, SFLX_ENGI_MAC
     class(LocalMeshFieldBase), pointer :: SFLX_rain_CP, SFLX_snow_CP, SFLX_ENGI_CP
     !-------------------------------------------------------------------------
 
     sw_MP = associated(MP_auxvars2D)
+    sw_MAC = associated(MAC_auxvars2D)
     sw_CP = associated(CP_auxvars2D)
 
     select case(trim(field_name))
@@ -1012,6 +1020,11 @@ contains
         call AtmosPhyMpVars_GetLocalMeshFields_sfcflx( &
           lcmesh%lcdomID, mesh2D, MP_auxvars2D,        &
           SFLX_rain_MP, SFLX_snow_MP, SFLX_ENGI_MP     )
+      end if
+      if ( sw_MAC ) then
+        call AtmosPhyMacVars_GetLocalMeshFields_sfcflx( &
+          lcmesh%lcdomID, mesh2D, MAC_auxvars2D,        &
+          SFLX_rain_MAC, SFLX_snow_MAC, SFLX_ENGI_MAC     )
       end if
       if ( sw_CP ) then
         call AtmosPhyCpVars_GetLocalMeshFields_sfcflx( &
@@ -1037,6 +1050,15 @@ contains
         do ke=lcmesh%NeS, lcmesh%NeE
         do p=1, elem%Np
           var_out(p,ke) = var_out(p,ke) + SFLX_rain_MP%val(p,ke)
+        end do
+        end do
+      end if
+      if ( sw_MAC ) then
+        !$omp do
+        !$acc loop collapse(2)
+        do ke=lcmesh%NeS, lcmesh%NeE
+        do p=1, elem%Np
+          var_out(p,ke) = var_out(p,ke) + SFLX_rain_MAC%val(p,ke)
         end do
         end do
       end if
@@ -1067,6 +1089,15 @@ contains
         do ke=lcmesh%NeS, lcmesh%NeE
         do p=1, elem%Np
           var_out(p,ke) = var_out(p,ke) + SFLX_snow_MP%val(p,ke)
+        end do
+        end do
+      end if
+      if ( sw_MAC ) then
+        !$omp do
+        !$acc loop collapse(2)
+        do ke=lcmesh%NeS, lcmesh%NeE
+        do p=1, elem%Np
+          var_out(p,ke) = var_out(p,ke) + SFLX_snow_MAC%val(p,ke)
         end do
         end do
       end if

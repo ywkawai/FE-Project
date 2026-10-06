@@ -496,6 +496,22 @@ contains
       call PROF_rapend('ATM_Microphysics', 1)
     end if
     
+    !- Cloud Macrophysics
+
+    if ( this%phy_mac_proc%IsActivated() ) then
+      call PROF_rapstart('ATM_Macrophysics', 1)
+      tm_process_id = this%phy_mac_proc%tm_process_id
+      is_update = this%time_manager%Do_process(tm_process_id) .or. force
+
+      call this%vars%Get_container( this%phy_mac_proc%atm_var_container_typeid, & ! (in)
+        vars_container ) ! (out)
+      
+      call this%phy_mac_proc%calc_tendency( &
+        this%mesh, vars_container%PROGVARS_manager, vars_container%QTRCVARS_manager, &
+        vars_container%AUXVARS_manager, vars_primary_container%PHYTENDS_manager, is_update   )
+      call PROF_rapend('ATM_Macrophysics', 1)
+    end if
+
     !- Radiation
 
     if ( this%phy_rd_proc%IsActivated() ) then
@@ -707,6 +723,8 @@ contains
       PREC_ENGI_ID => ATMOS_AUXVARS2D_PREC_ENGI_ID
     use mod_atmos_phy_mp_vars, only: &
       AtmosPhyMpVars_GetLocalMeshFields_sfcflx
+    use mod_atmos_phy_mac_vars, only: &
+      AtmosPhyMacVars_GetLocalMeshFields_sfcflx
     use mod_atmos_phy_cp_vars, only: &
       AtmosPhyCpVars_GetLocalMeshFields_sfcflx
     use mod_atmos_phy_rd_vars, only: &
@@ -726,6 +744,7 @@ contains
     class(LocalMeshFieldBase), pointer :: PREC, PREC_ENGI
     class(LocalMeshFieldBase), pointer :: SFLX_rain_MP, SFLX_snow_MP, SFLX_ENGI_MP
     class(LocalMeshFieldBase), pointer :: SFLX_rain_CP, SFLX_snow_CP, SFLX_ENGI_CP
+    class(LocalMeshFieldBase), pointer :: SFLX_rain_MAC, SFLX_snow_MAC, SFLX_ENGI_MAC
 
     integer :: iq
     !--------------------------------------------------
@@ -760,6 +779,18 @@ contains
         do ke=lcmesh%NeS, lcmesh%NeE
           PREC     %val(:,ke) = PREC     %val(:,ke) + SFLX_rain_MP%val(:,ke) + SFLX_snow_MP%val(:,ke)
           PREC_ENGI%val(:,ke) = PREC_ENGI%val(:,ke) + SFLX_ENGI_MP%val(:,ke)
+        end do
+      end if
+
+      if ( this%phy_mac_proc%IsActivated() ) then
+        call AtmosPhyMacVars_GetLocalMeshFields_sfcflx( n, &
+          mesh2D, this%phy_mac_proc%vars%auxvars2D_manager, & ! (in)
+          SFLX_rain_MAC, SFLX_snow_MAC, SFLX_ENGI_MAC       ) ! (out)
+
+        !$omp parallel do private(ke)
+        do ke=lcmesh%NeS, lcmesh%NeE
+          PREC     %val(:,ke) = PREC     %val(:,ke) + SFLX_rain_MAC%val(:,ke) + SFLX_snow_MAC%val(:,ke)
+          PREC_ENGI%val(:,ke) = PREC_ENGI%val(:,ke) + SFLX_ENGI_MAC%val(:,ke)
         end do
       end if
 

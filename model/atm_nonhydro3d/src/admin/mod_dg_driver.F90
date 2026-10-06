@@ -173,6 +173,7 @@ contains
       if ( atmos%dyn_proc%IsActivated() ) call atmos%dyn_proc%dyn_vars%History()
       if ( atmos%phy_tb_proc%IsActivated() ) call atmos%phy_tb_proc%vars%History()
       if ( atmos%phy_mp_proc%IsActivated() ) call atmos%phy_mp_proc%vars%History()
+      if ( atmos%phy_mac_proc%IsActivated() ) call atmos%phy_mac_proc%vars%History()
       if ( atmos%phy_sfc_proc%IsActivated() ) call atmos%phy_sfc_proc%vars%History()
       if ( atmos%phy_rd_proc%IsActivated() ) call atmos%phy_rd_proc%vars%History()
       if ( atmos%phy_bl_proc%IsActivated() ) call atmos%phy_bl_proc%vars%History()
@@ -364,6 +365,7 @@ contains
       if ( atmos%phy_sfc_proc%IsActivated() ) call atmos%phy_sfc_proc%vars%History()
       if ( atmos%phy_tb_proc%IsActivated() ) call atmos%phy_tb_proc%vars%History()
       if ( atmos%phy_mp_proc%IsActivated() ) call atmos%phy_mp_proc%vars%History()
+      if ( atmos%phy_mac_proc%IsActivated() ) call atmos%phy_mac_proc%vars%History()
       if ( atmos%phy_rd_proc%IsActivated() ) call atmos%phy_rd_proc%vars%History()
       if ( atmos%phy_bl_proc%IsActivated() ) call atmos%phy_bl_proc%vars%History()
       if ( atmos%phy_cp_proc%IsActivated() ) call atmos%phy_cp_proc%vars%History()
@@ -419,6 +421,5 @@ contains
 
     return
   end subroutine restart_write
-
 
 end module mod_dg_driver

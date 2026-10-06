@@ -126,7 +126,7 @@ contains
     real(DP) :: TIME_DT                             = UNDEF8 !< Timestep for cloud model
     character(len=H_SHORT) :: TIME_DT_UNIT          = 'SEC'  !< Unit of timestep
 
-    character(len=H_MID) :: mac_TYPE = 'NONE'              !< Type of a cloud model scheme
+    character(len=H_MID) :: mac_TYPE = 'NONE'                !< Type of a cloud model scheme
 
     logical :: do_precipitation     !< Flag whether sedimentation (precipitation) is applied
     logical :: evap_precip          !< Apply evaporation of precipitation?
@@ -199,7 +199,7 @@ contains
     !--- Set the type of mac model
 
     select case( mac_TYPE )
-    case( 'Sundqvist' )
+    case( 'SUNDQVIST' )
       this%mac_TYPEID = mac_TYPEID_SUNDQVIST
 
       call ATMOS_HYDROMETEOR_regist( &
@@ -220,7 +220,8 @@ contains
 
     this%atm_var_container_typeid = atm_var_container_typeid
 
-    !- Initialize the variables 
+    !- Initialize the variables
+    QE_mac = QS_mac + QA_mac - 1
     call this%vars%Init( model_mesh, QS_mac, QE_mac, QA_mac )
 
     !-
@@ -228,12 +229,9 @@ contains
 
     !- Setup a module for cloud modules
 
-    select case( mac_TYPE )
-    case( 'Sundqvist' )
-      call ATMOS_PHY_mac_sundqvist_setup()
-    case default
-      LOG_ERROR("ATMOS_phy_mac_setup",*) 'Not appropriate mac model type. Check!'
-      call PRC_abort
+    select case( this%mac_TYPEID )
+    case( mac_TYPEID_SUNDQVIST )
+      call ATMOS_PHY_mac_SUNDQVIST_setup()
     end select
 
     return
@@ -274,6 +272,7 @@ contains
       AtmosVars_GetLocalMeshPhyTends
     use mod_atmos_phy_mac_vars, only: &
       AtmosPhyMacVars_GetLocalMeshFields_tend,   &
+      AtmosPhyMacVars_GetLocalMeshFields_sfcflx, &
       SFLX_RAIN_ID => ATMOS_phy_mac_AUX2D_SFLX_RAIN_ID, &
       SFLX_ENGI_ID => ATMOS_phy_mac_AUX2D_SFLX_ENGI_ID
     implicit none
@@ -343,6 +342,10 @@ contains
           mac_DENS_t, mac_MOMX_t, mac_MOMY_t, mac_MOMZ_t, mac_RHOT_t, mac_RHOH, mac_EVAP, &
           mac_RHOQ_t, lcmesh                                                              )
 
+        call AtmosPhyMacVars_GetLocalMeshFields_sfcflx( n, &
+          mesh, this%vars%auxvars2D_manager,               &
+          SFLX_rain, SFLX_snow, SFLX_engi                  )     
+
         !-
         allocate( CP_mask(lcmesh%refElem3D%Np,lcmesh%Ne) )
         if ( this%CP_flag ) then
@@ -385,9 +388,9 @@ contains
       !$omp do
       do ke=lcmesh%NeS, lcmesh%NeE
         DENS_tp%val(:,ke) = DENS_tp%val(:,ke) + mac_DENS_t%val(:,ke)
-        ! MOMX_tp%val(:,ke) = MOMX_tp%val(:,ke) + mac_MOMX_t%val(:,ke)
-        ! MOMY_tp%val(:,ke) = MOMY_tp%val(:,ke) + mac_MOMY_t%val(:,ke)
-        ! MOMZ_tp%val(:,ke) = MOMZ_tp%val(:,ke) + mac_MOMZ_t%val(:,ke)
+        MOMX_tp%val(:,ke) = MOMX_tp%val(:,ke) + mac_MOMX_t%val(:,ke)
+        MOMY_tp%val(:,ke) = MOMY_tp%val(:,ke) + mac_MOMY_t%val(:,ke)
+        MOMZ_tp%val(:,ke) = MOMZ_tp%val(:,ke) + mac_MOMZ_t%val(:,ke)
         RHOH_p %val(:,ke) = RHOH_p %val(:,ke) + mac_RHOH  %val(:,ke)
       end do
       !$omp end do
@@ -561,9 +564,9 @@ contains
     select case( this%mac_TYPEID )
     case( mac_TYPEID_SUNDQVIST )
       call calc_tendency_Sundqvist( this, &
-        RHOQ_t_mac, CPtot_t, CVtot_t, RHOE_t, EVAPORATE,  & ! (out)
+        RHOQ_t_mac, CPtot_t, CVtot_t, RHOE_t, EVAPORATE, & ! (out)
         DENS, QTRC, PRES, DENS_hyd, Rtot, CVtot, CPtot,  & ! (in)
-        rdt_mac, lcmesh, elem3D )                          ! (in)
+        CP_mask, rdt_mac, lcmesh, elem3D )                 ! (in)
     end select
 
     !$omp parallel do
@@ -606,9 +609,7 @@ contains
         ke = ke2D + (ke_z-1)*lcmesh%Ne2D
         RHOQ(:,ke_z,ke2D,iq) = DENS(:,ke) * QTRC(iq)%ptr%val(:,ke) &
                              + RHOQ_t_mac(iq)%ptr%val(:,ke) * this%dtsec
-        RHOQ2(:,ke_z,ke2D,iq) = RHOQ2(:,ke_z,ke2D,iq  )
-        CPtot2(:,ke_z,ke2D) = CPtot(:,ke)
-        CVtot2(:,ke_z,ke2D) = CVtot(:,ke)
+        RHOQ2(:,ke_z,ke2D,iq) = RHOQ(:,ke_z,ke2D,iq)
       end do
       end do
       end do
@@ -690,8 +691,9 @@ contains
   !!
 !OCL SERIAL
   subroutine calc_tendency_Sundqvist( this, &
-    RHOQ_t_mac, CPtot_t, CVtot_t, RHOE_t, EVAPORATE,  & ! (out)
+    RHOQ_t_mac, CPtot_t, CVtot_t, RHOE_t, EVAPORATE, & ! (out)
     DENS, QTRC, PRES, DENS_hyd, Rtot, CVtot, CPtot,  & ! (in)
+    CP_mask,                                         & ! (in)
     rdt_mac, lcmesh, elem3D )                          ! (in)
 
     use scale_atmos_hydrometeor, only: &
@@ -715,6 +717,7 @@ contains
     real(RP), intent(in) :: Rtot (elem3D%Np,lcmesh%NeA)
     real(RP), intent(in) :: CVtot(elem3D%Np,lcmesh%NeA)
     real(RP), intent(in) :: CPtot(elem3D%Np,lcmesh%NeA)
+    logical, intent(in) :: CP_mask(elem3D%Np,lcmesh%Ne)
     real(RP), intent(in) :: rdt_mac
 
     real(RP) :: TEMP1(elem3D%Np,lcmesh%NeA)
@@ -725,14 +728,14 @@ contains
     integer :: ke
     integer :: iq
 
-    ! real(RP) :: RHOQ_t(elem3D%Np)
-    ! real(RP) :: RHOQ_pri(elem3D%Np)
-    ! real(RP) :: RHOQ_t_cor(elem3D%Np)
-    ! real(RP) :: RHOQV_t(elem3D%Np,lcmesh%Ne)
+    real(RP) :: RHOQ_t(elem3D%Np)
+    real(RP) :: RHOQ_pri(elem3D%Np)
+    real(RP) :: RHOQ_t_cor(elem3D%Np)
+    real(RP) :: RHOQV_t(elem3D%Np,lcmesh%Ne)
 
     real(RP) :: QR_tmp(elem3D%Np,lcmesh%NeA)
 
-    real(RP) :: LAYER_MASS(elem3D%Np,lcmesh%NeA)
+    real(RP) :: sw(elem3D%Np,lcmesh%Ne)
     !------------------------------------------------------------
 
     !$omp parallel private(ke, iq)
@@ -741,16 +744,24 @@ contains
       TEMP1(:,ke) = PRES(:,ke) / ( DENS(:,ke) * Rtot(:,ke) )
       CPtot1(:,ke) = CPtot(:,ke)
       CVtot1(:,ke) = CVtot(:,ke)
-      ! RHOQV_t(:,ke) = 0.0_RP
+      RHOQV_t(:,ke) = 0.0_RP
+
+      sw(:,ke) = 1.0_RP
     end do
-    !$omp end do
+    if ( this%CP_flag ) then
+      !$omp do
+      do ke = lcmesh%NeS, lcmesh%NeE
+        where (CP_mask(:,ke))
+          sw(:,ke) = 0.0_RP
+        end where
+      end do
+    end if
     !$omp do collapse(2)
     do iq = this%vars%QS, this%vars%QE
     do ke = lcmesh%NeS, lcmesh%NeE
       QTRC1(:,ke,iq) = QTRC(iq)%ptr%val(:,ke)
     end do
     end do
-    !$omp end do
     !$omp end parallel
 
     call ATMOS_PHY_mac_sundqvist_adjustment( &
@@ -759,25 +770,30 @@ contains
       TEMP1, QTRC1, CPtot1, CVtot1,                                          & ! (inout)
       EVAPORATE, RHOE_t                                                      ) ! (out)
   
-    ! do ke = lcmesh%NeS, lcmesh%NeE
-    ! do iq = this%vars%QS+1, this%vars%QE      
-    !   RHOQ_t(:) = ( QTRC1(:,ke,iq) - QTRC(iq)%ptr%val(:,ke) ) * DENS(:,ke) * rdt_mac
-
-    !   RHOQ_pri(:) = DENS_pri(:,ke) * QTRC_pri(iq)%ptr%val(:,ke)
-    !   RHOQ_t_cor(:) = max( RHOQ_t(:), - RHOQ_pri(:) * rdt_mac )
-
-    !   RHOQV_t(:,ke) = RHOQV_t(:,ke) - RHOQ_t_cor(:)
-    !   RHOE_t(:,ke) = RHOE_t(:,ke) + LHV * ( RHOQ_t_cor(:) - RHOQ_t(:) )
-    !   RHOQ_t_mac(iq)%ptr%val(:,ke) = RHOQ_t_cor(:)
-    ! end do  
-    ! end do
-    !$omp parallel do
+    !$omp parallel private(ke, iq, RHOQ_t, RHOQ_t_cor, RHOQ_pri)
+    !$omp do collapse(2)
     do ke = lcmesh%NeS, lcmesh%NeE
-!      RHOQ_t_mac(this%vars%QS)%ptr%val(:,ke) = RHOQV_t(:,ke)
+    do iq = this%vars%QS+1, this%vars%QE      
+      RHOQ_t(:) = ( QTRC1(:,ke,iq) - QTRC(iq)%ptr%val(:,ke) ) * DENS(:,ke) * rdt_mac
 
-      CPtot_t(:,ke) = ( CPtot1(:,ke) - CPtot(:,ke) ) * rdt_mac
-      CVtot_t(:,ke) = ( CVtot1(:,ke) - CVtot(:,ke) ) * rdt_mac
+      RHOQ_pri(:) = DENS(:,ke) * QTRC(iq)%ptr%val(:,ke)
+      RHOQ_t_cor(:) = max( RHOQ_t(:), - RHOQ_pri(:) * rdt_mac ) * sw(:,ke)
+
+      RHOQV_t(:,ke) = RHOQV_t(:,ke) - RHOQ_t_cor(:)
+      RHOE_t(:,ke) = ( RHOE_t(:,ke) + LHV * ( RHOQ_t_cor(:) - RHOQ_t(:) ) ) * sw(:,ke)
+      RHOQ_t_mac(iq)%ptr%val(:,ke) = RHOQ_t_cor(:)
+    end do  
     end do
+    !$omp end do
+    !$omp do
+    do ke = lcmesh%NeS, lcmesh%NeE
+      RHOQ_t_mac(this%vars%QS)%ptr%val(:,ke) = RHOQV_t(:,ke)
+
+      CPtot_t(:,ke) = ( CPtot1(:,ke) - CPtot(:,ke) ) * rdt_mac * sw(:,ke)
+      CVtot_t(:,ke) = ( CVtot1(:,ke) - CVtot(:,ke) ) * rdt_mac * sw(:,ke)
+    end do
+    !$omp end do
+    !$omp end parallel
     return
   end subroutine calc_tendency_Sundqvist
 
