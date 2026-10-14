@@ -56,6 +56,7 @@ module mod_user
   use mod_experiment, only: Experiment
 
   use scale_atm_dyn_dgm_nonhydro3d_common, only: &
+    PHYTEND_NUM1 => PHYTEND_NUM, &
     DENS_p  => PHYTEND_DENS_ID, &
     MOMX_p  => PHYTEND_MOMX_ID, &
     MOMY_p  => PHYTEND_MOMY_ID, &
@@ -88,6 +89,7 @@ module mod_user
     procedure :: setup_ => USER_setup
     generic :: setup => setup_
     procedure :: calc_tendency => USER_calc_tendency
+    procedure :: setup_vars => USER_setup_vars
     procedure :: update => USER_update
   end type User
 
@@ -137,7 +139,7 @@ contains
     type(Experiment) :: exp_manager
     !------------------------------------------
 
-    call exp_manager%Init( 'Held_Suarez' )
+    call exp_manager%Init( 'Moist_HStest_TJ2016' )
     call exp_manager%Regist_SetInitCond( exp_SetInitCond_Held_Suarez )
     call this%UserBase%mkinit( atm, exp_manager )
     call exp_manager%Final()
@@ -165,22 +167,7 @@ contains
        BL_VARS_CONTAINER_ID, &
        APPLY_NewFilter, FilterShape, FilterWidthFac
     integer :: ierr    
-
-    integer :: n, ke2D
-    class(MeshBase2D), pointer :: mesh2D
-    class(LocalMesh3D), pointer :: lcmesh3D
-    class(LocalMesh2D), pointer :: lcmesh2D
-
-    type(MeshField2D), pointer :: SfcTemp
-
-    real(RP), allocatable :: gl_pts(:)
-    integer :: p1,p2,p3,p_
-    real(RP), allocatable :: invV_PordM1(:,:)
-    class(ElementBase3D), pointer :: elem3D
-
-    integer :: iv
     !------------------------------------------
-
 
     LOG_NEWLINE
     LOG_INFO("USER_setup",*) 'Setup'
@@ -204,21 +191,6 @@ contains
 
     call this%UserBase%Setup( atm, USER_do )
 
-    !--
-    call atm%mesh%ptr_mesh%GetMesh2D( mesh2D )
-    SfcTemp => atm%phy_sfc_proc%vars%SFC_VARS(ATMOS_PHY_SF_SVAR_TEMP_ID)
-
-    do n=1, atm%mesh%ptr_mesh%LOCAL_MESH_NUM
-      lcmesh3D => atm%mesh%ptr_mesh%lcmesh_list(n)
-      lcmesh2D => lcmesh3D%lcmesh2D
-      !$omp parallel do private(ke2D)
-      do ke2D=lcmesh2D%NeS, lcmesh2D%NeE
-        SfcTemp%local(n)%val(:,ke2D) = &
-            Ts_DelT * exp( - 0.5_RP * ( lcmesh3D%lat2D(:,ke2D) / Ts_DelLat )**2 ) &
-          + Ts_Tmin
-      end do
-    end do
-
     !- Setup BL mixing
     call USER_sub_BLmixing_Init( atm%mesh%ptr_mesh )
     is_setup_bl_vars_container = .false.
@@ -229,19 +201,45 @@ contains
   end subroutine USER_setup
 
 !OCL SERIAL
+  subroutine USER_setup_vars( this, atm )
+    use scale_meshfield_base, only: MeshFieldBase
+    use mod_atmos_phy_sfc_vars, only: ATMOS_PHY_SF_SVAR_TEMP_ID  
+    implicit none
+    class(User), intent(inout) :: this
+    class(AtmosComponent), intent(inout) :: atm
+
+    integer :: n, ke2D
+    class(MeshBase2D), pointer :: mesh2D
+    class(LocalMesh3D), pointer :: lcmesh3D
+    class(LocalMesh2D), pointer :: lcmesh2D
+
+    class(MeshFieldBase), pointer :: SfcTemp
+    class(LocalMeshFieldBase), pointer :: SfcTemp_lc
+    !---------------------------------------------------------------------------
+
+    call atm%mesh%ptr_mesh%GetMesh2D( mesh2D )
+    call atm%phy_sfc_proc%vars%SFCVARS_manager%Get( ATMOS_PHY_SF_SVAR_TEMP_ID, SfcTemp )
+
+    do n=1, mesh2D%LOCAL_MESH_NUM
+      lcmesh3D => atm%mesh%ptr_mesh%lcmesh_list(n)
+      lcmesh2D => mesh2D%lcmesh_list(n)
+      call SfcTemp%GetLocalMeshField( n, SfcTemp_lc )
+      !$omp parallel do private(ke2D)
+      do ke2D=lcmesh2D%NeS, lcmesh2D%NeE
+        SfcTemp_lc%val(:,ke2D) = &
+            Ts_DelT * exp( - 0.5_RP * ( lcmesh3D%lat2D(:,ke2D) / Ts_DelLat )**2 ) &
+          + Ts_Tmin
+      end do
+    end do
+
+    return
+  end subroutine USER_setup_vars
+
+!OCL SERIAL
   subroutine USER_calc_tendency( this, atm )
     use scale_time_manager, only:  TIME_NOWSTEP
-    use scale_prc 
     use scale_file_history_meshfield, only: &
-      FILE_HISTORY_meshfield_in    
-    use scale_atm_dyn_dgm_nonhydro3d_common, only: &
-      PHYTEND_NUM1 => PHYTEND_NUM, &
-      DENS_p  => PHYTEND_DENS_ID, &
-      MOMX_p  => PHYTEND_MOMX_ID, &
-      MOMY_p  => PHYTEND_MOMY_ID, &
-      MOMZ_p  => PHYTEND_MOMZ_ID, &
-      RHOT_p  => PHYTEND_RHOT_ID, &
-      RHOH_p  => PHYTEND_RHOH_ID      
+      FILE_HISTORY_meshfield_in        
     implicit none
     class(User), intent(inout) :: this 
     class(AtmosComponent), intent(inout) :: atm
@@ -377,13 +375,7 @@ contains
     
     use mod_experiment, only: &
       TracerLocalMeshField_ptr
-
-    use scale_const, only: &
-      PRES00 => CONST_PRE00, &
-      RPlanet => CONST_Radius, &
-      CPdry => CONST_CPdry, &     
-      CVdry => CONST_CVdry
-
+    
     use scale_tracer, only: &
       TRACER_CV, TRACER_CP
     use scale_atmos_hydrometeor, only: &

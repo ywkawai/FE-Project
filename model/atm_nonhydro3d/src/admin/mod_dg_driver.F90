@@ -272,11 +272,13 @@ contains
     call atmos%set_coupler( coupler )
     call ocean%set_coupler( coupler )
 
-    call atmos%setup_vars()
+    ! setup variables
 
+    call atmos%setup_vars()
     if ( ocean%IsActivated() ) call ocean%setup_vars()
     if ( coupler%IsActivated() ) call coupler%setup_vars( atmos%mesh%ptr_mesh, ocean%mesh%ptr_mesh )
-    
+    call user_%setup_vars( atmos )
+
     ! report information of time intervals
     call TIME_manager_report_timeintervals
 
