@@ -40,6 +40,7 @@ module mod_user_base
     procedure :: mkfinal => USER_base_mkfinal
     procedure :: setup_base => USER_base_setup
     generic :: setup => setup_base
+    procedure :: setup_vars => USER_base_setup_vars
     procedure :: final => USER_base_final
     procedure :: calc_tendency => USER_base_calc_tendency
     procedure :: update_pre => USER_base_update_pre
@@ -112,6 +113,14 @@ contains
     
     return
   end subroutine USER_base_setup
+
+  subroutine USER_base_setup_vars( this, atm )
+    implicit none
+    class(UserBase), intent(inout) :: this
+    class(AtmosComponent), intent(inout) :: atm
+    !------------------------------------------  
+    return
+  end subroutine USER_base_setup_vars
 
   subroutine USER_base_final( this )
     implicit none

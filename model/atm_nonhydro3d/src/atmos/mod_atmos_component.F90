@@ -41,6 +41,7 @@ module mod_atmos_component
   use mod_atmos_phy_sfc, only: AtmosPhySfc
   use mod_atmos_phy_tb , only: AtmosPhyTb
   use mod_atmos_phy_mp , only: AtmosPhyMp
+  use mod_atmos_phy_mac, only: AtmosPhyMac
   use mod_atmos_phy_rd , only: AtmosPhyRd
   use mod_atmos_phy_cp , only: AtmosPhyCp
   use mod_atmos_phy_bl, only: AtmosPhyBl
@@ -67,6 +68,7 @@ module mod_atmos_component
     type(AtmosPhySfc) :: phy_sfc_proc   !< Object to manage surface process
     type(AtmosPhyTb ) :: phy_tb_proc    !< Object to manage sub-grid scale turbulence process
     type(AtmosPhyMp ) :: phy_mp_proc    !< Object to manage cloud microphysics process
+    type(AtmosPhyMac) :: phy_mac_proc   !< Object to manage cloud macrophysics process
     type(AtmosPhyRd ) :: phy_rd_proc    !< Object to manage radiation process
     type(AtmosPhyCp ) :: phy_cp_proc    !< Object to manage cumulus parameterization process
     type(AtmosPhyBl ) :: phy_bl_proc    !< Object to manage PBL turbulence parameterization process
@@ -129,13 +131,14 @@ contains
     real(DP) :: TIME_DT_RESTART                     = UNDEF8  !< Timestep value when outputting restart file for atmospheric component
     character(len=H_SHORT) :: TIME_DT_RESTART_UNIT  = 'SEC'   !< Timestep unit when outputting restart file for atmospheric component
 
-    logical :: ATMOS_DYN_DO    = .true.  !< Flag whether dynamics process is considered
-    logical :: ATMOS_PHY_SF_DO = .false. !< Flag whether surface process is considered
-    logical :: ATMOS_PHY_TB_DO = .false. !< Flag whether SGS turbulent process is considered
-    logical :: ATMOS_PHY_MP_DO = .false. !< Flag whether cloud microphysics process is considered
-    logical :: ATMOS_PHY_RD_DO = .false. !< Flag whether radiation process is considered
-    logical :: ATMOS_PHY_CP_DO = .false. !< Flag whether cumulus parameterization process is considered
-    logical :: ATMOS_PHY_BL_DO = .false. !< Flag whether PBL turbulence parameterization process is considered
+    logical :: ATMOS_DYN_DO     = .true.  !< Flag whether dynamics process is considered
+    logical :: ATMOS_PHY_SF_DO  = .false. !< Flag whether surface process is considered
+    logical :: ATMOS_PHY_TB_DO  = .false. !< Flag whether SGS turbulent process is considered
+    logical :: ATMOS_PHY_MP_DO  = .false. !< Flag whether cloud microphysics process is considered
+    logical :: ATMOS_PHY_MAC_DO = .false. !< Flag whether cloud macrophysics process is considered
+    logical :: ATMOS_PHY_RD_DO  = .false. !< Flag whether radiation process is considered
+    logical :: ATMOS_PHY_CP_DO  = .false. !< Flag whether cumulus parameterization process is considered
+    logical :: ATMOS_PHY_BL_DO  = .false. !< Flag whether PBL turbulence parameterization process is considered
     character(len=H_SHORT) :: ATMOS_MESH_TYPE = 'REGIONAL'  !< Name of mesh type for atmospheric component ('REGIONAL' or 'GLOBAL')
 
     logical :: ATMOS_USE_QV    = .false. !< Flag whether QV is used although cloud microphysics is not considered
@@ -152,6 +155,7 @@ contains
       ATMOS_PHY_SF_DO,       &
       ATMOS_PHY_TB_DO,       &
       ATMOS_PHY_MP_DO,       &    
+      ATMOS_PHY_MAC_DO,      &
       ATMOS_PHY_RD_DO,       &
       ATMOS_PHY_CP_DO,       &
       ATMOS_PHY_BL_DO,       &
@@ -216,6 +220,10 @@ contains
     !- Setup the module for atmosphere / physics / cloud microphysics
     call this%phy_mp_proc%ModelComponentProc_Init( 'AtmosPhysMp', ATMOS_PHY_MP_DO )
     call this%phy_mp_proc%setup( this%mesh, this%time_manager )
+
+    !- Setup the module for atmosphere / physics / cloud macrophysics
+    call this%phy_mac_proc%ModelComponentProc_Init( 'AtmosPhysMac', ATMOS_PHY_MAC_DO )
+    call this%phy_mac_proc%setup( this%mesh, this%time_manager )
 
     !-- Regist qv if needed
     if ( ATMOS_HYDROMETEOR_dry .and. ATMOS_USE_QV ) then
@@ -286,11 +294,16 @@ contains
       call this%vars%Regist_physvar_manager( mp_AUXVARS2D_manager=this%phy_mp_proc%vars%auxvars2D_manager )
       call this%vars%Setup_container( this%phy_mp_proc%atm_var_container_typeid, this%mesh )
     end if
+    !- Cloud macrophysics component
+    if ( this%phy_mac_proc%IsActivated() ) then
+      call this%phy_mac_proc%vars%Setup( this%mesh )
+
+      call this%vars%Regist_physvar_manager( mac_AUXVARS2D_manager=this%phy_mac_proc%vars%auxvars2D_manager )
+      call this%vars%Setup_container( this%phy_mac_proc%atm_var_container_typeid, this%mesh )
+    end if
     !- Surface component
     if ( this%phy_sfc_proc%IsActivated() ) then
       call this%phy_sfc_proc%vars%Setup( this%mesh )
-
-      call this%vars%Setup_container( this%phy_sfc_proc%atm_var_container_typeid, this%mesh )
     end if
     !- Turbulence component
     if ( this%phy_tb_proc%IsActivated() ) then
@@ -313,7 +326,10 @@ contains
 
       if ( this%phy_mp_proc%IsActivated() ) then
         call this%phy_mp_proc%Set_CP_tends_manager( this%phy_cp_proc%vars%tends_manager )
-      end if      
+      end if
+      if ( this%phy_mac_proc%IsActivated() ) then
+        call this%phy_mac_proc%Set_CP_tends_manager( this%phy_cp_proc%vars%tends_manager )
+      end if
     end if
     !- PBL component
     if ( this%phy_bl_proc%IsActivated() ) then
@@ -481,6 +497,22 @@ contains
       call PROF_rapend('ATM_Microphysics', 1)
     end if
     
+    !- Cloud Macrophysics
+
+    if ( this%phy_mac_proc%IsActivated() ) then
+      call PROF_rapstart('ATM_Macrophysics', 1)
+      tm_process_id = this%phy_mac_proc%tm_process_id
+      is_update = this%time_manager%Do_process(tm_process_id) .or. force
+
+      call this%vars%Get_container( this%phy_mac_proc%atm_var_container_typeid, & ! (in)
+        vars_container ) ! (out)
+      
+      call this%phy_mac_proc%calc_tendency( &
+        this%mesh, vars_container%PROGVARS_manager, vars_container%QTRCVARS_manager, &
+        vars_container%AUXVARS_manager, vars_primary_container%PHYTENDS_manager, is_update   )
+      call PROF_rapend('ATM_Macrophysics', 1)
+    end if
+
     !- Radiation
 
     if ( this%phy_rd_proc%IsActivated() ) then
@@ -692,6 +724,8 @@ contains
       PREC_ENGI_ID => ATMOS_AUXVARS2D_PREC_ENGI_ID
     use mod_atmos_phy_mp_vars, only: &
       AtmosPhyMpVars_GetLocalMeshFields_sfcflx
+    use mod_atmos_phy_mac_vars, only: &
+      AtmosPhyMacVars_GetLocalMeshFields_sfcflx
     use mod_atmos_phy_cp_vars, only: &
       AtmosPhyCpVars_GetLocalMeshFields_sfcflx
     use mod_atmos_phy_rd_vars, only: &
@@ -711,6 +745,7 @@ contains
     class(LocalMeshFieldBase), pointer :: PREC, PREC_ENGI
     class(LocalMeshFieldBase), pointer :: SFLX_rain_MP, SFLX_snow_MP, SFLX_ENGI_MP
     class(LocalMeshFieldBase), pointer :: SFLX_rain_CP, SFLX_snow_CP, SFLX_ENGI_CP
+    class(LocalMeshFieldBase), pointer :: SFLX_rain_MAC, SFLX_snow_MAC, SFLX_ENGI_MAC
 
     integer :: iq
     !--------------------------------------------------
@@ -745,6 +780,18 @@ contains
         do ke=lcmesh%NeS, lcmesh%NeE
           PREC     %val(:,ke) = PREC     %val(:,ke) + SFLX_rain_MP%val(:,ke) + SFLX_snow_MP%val(:,ke)
           PREC_ENGI%val(:,ke) = PREC_ENGI%val(:,ke) + SFLX_ENGI_MP%val(:,ke)
+        end do
+      end if
+
+      if ( this%phy_mac_proc%IsActivated() ) then
+        call AtmosPhyMacVars_GetLocalMeshFields_sfcflx( n, &
+          mesh2D, this%phy_mac_proc%vars%auxvars2D_manager, & ! (in)
+          SFLX_rain_MAC, SFLX_snow_MAC, SFLX_ENGI_MAC       ) ! (out)
+
+        !$omp parallel do private(ke)
+        do ke=lcmesh%NeS, lcmesh%NeE
+          PREC     %val(:,ke) = PREC     %val(:,ke) + SFLX_rain_MAC%val(:,ke) + SFLX_snow_MAC%val(:,ke)
+          PREC_ENGI%val(:,ke) = PREC_ENGI%val(:,ke) + SFLX_ENGI_MAC%val(:,ke)
         end do
       end if
 
@@ -837,6 +884,7 @@ contains
     call this%phy_sfc_proc%finalize()
     call this%phy_tb_proc%finalize()
     call this%phy_mp_proc%finalize()
+    call this%phy_mac_proc%finalize()
     call this%phy_rd_proc%finalize()
     call this%phy_cp_proc%finalize()
     call this%phy_bl_proc%finalize()

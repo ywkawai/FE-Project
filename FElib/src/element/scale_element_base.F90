@@ -139,6 +139,7 @@ module scale_element_base
     real(RP), allocatable :: Sx2(:,:) !< Elementwise stiffness matrix for the x2-coordinate direction    
     real(RP), allocatable :: Sx3(:,:) !< Elementwise stiffness matrix for the x3-coordinate direction
   contains
+    procedure :: Generate_FaceIntweight => ElementBase3D_gen_FaceIntweight
     procedure :: Generate_L2ProjMat => ElementBase3D_gen_L2ProjMat
     procedure :: Generate_InterpMat => ElementBase3D_gen_InterpMat
     procedure :: Generate_ModalTruncationMat => ElementBase3D_gen_ModalTruncationMat
@@ -495,6 +496,57 @@ contains
 
     return
   end subroutine ElementBase3D_Final
+
+!OCL SERIAL
+  subroutine  ElementBase3D_gen_FaceIntweight( this, & ! (in)
+    FaceIntWeight ) ! (out)
+    use scale_polynomial, only: Polynomial_GenGaussLobattoPtIntWeight
+    implicit none
+    class(ElementBase3D), intent(in) :: this
+    real(RP), intent(out) :: FaceIntWeight(this%Nfaces,this%NfpTot)
+
+    real(RP) :: intWeight_lgl1DPts_h(this%Nnode_h1D)
+    real(RP) :: intWeight_lgl1DPts_v(this%Nnode_v)   
+    real(RP) :: intWeight_h(this%Nnode_h1D*this%Nnode_v) 
+    real(RP) :: intWeight_v(this%Nnode_h1D**2)  
+    
+    integer :: f
+    integer :: i, j, k, l
+    integer :: is, ie
+    !--------------------------------------------
+
+    FaceIntWeight(:,:) = 0.0_RP
+
+    intWeight_lgl1DPts_h(:) = Polynomial_GenGaussLobattoPtIntWeight(this%PolyOrder_h)
+    intWeight_lgl1DPts_v(:) = Polynomial_GenGaussLobattoPtIntWeight(this%PolyOrder_v)
+
+    do f=1, this%Nfaces_h
+      do k=1, this%Nnode_v
+      do i=1, this%Nnode_h1D
+        l = i + (k-1)*this%Nnode_h1D
+        intWeight_h(l) = intWeight_lgl1DPts_h(i) * intWeight_lgl1DPts_v(k)
+      end do
+      end do
+
+      is = (f-1)*this%Nfp_h + 1
+      ie = is + this%Nfp_h - 1
+      FaceIntWeight(f,is:ie) = intWeight_h(:)
+    end do
+
+    do f=1, this%Nfaces_v
+      do j=1, this%Nnode_h1D
+      do i=1, this%Nnode_h1D
+        l = i + (j-1)*this%Nnode_h1D
+        intWeight_v(l) = intWeight_lgl1DPts_h(i) * intWeight_lgl1DPts_h(j)
+      end do
+      end do
+
+      is = this%Nfaces_h*this%Nfp_h + (f-1)*this%Nfp_v + 1
+      ie = is + this%Nfp_v - 1
+      FaceIntWeight(this%Nfaces_h+f,is:ie) = intWeight_v(:)
+    end do
+    return
+  end subroutine ElementBase3D_gen_FaceIntweight
 
   !> Generate a projection matrix for L2 projection.
   !! This matrix maps nodal values on elem_in to nodal values on elem. It is intended for p-restriction, i.e. elem order <= elem_in order.

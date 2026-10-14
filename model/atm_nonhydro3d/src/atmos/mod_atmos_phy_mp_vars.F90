@@ -105,7 +105,7 @@ module mod_atmos_phy_mp_vars
     VariableInfo( ATMOS_PHY_MP_RHOH_ID  , 'MP_RHOH', 'diabatic heating rate in MP process',              &
                   'J/kg/s',   3, 'XYZ',  ''                                                           ), & 
     VariableInfo( ATMOS_PHY_MP_EVAPORATE_ID, 'mp_EVAPORATE', 'number concentration of evaporated cloud', &
-                  'm-3'   ,   3, 'XYZ',  ''                                                           )  /                   
+                  'num/m3/s'   ,   3, 'XYZ',  ''                                                      )  /                   
 
 
   integer, public, parameter :: ATMOS_PHY_MP_AUX2D_SFLX_RAIN_ID   = 1
@@ -164,7 +164,6 @@ contains
 
     integer :: iv
     integer :: iq
-    integer :: n
     logical :: reg_file_hist
 
     class(AtmosMesh), pointer :: atm_mesh
@@ -193,13 +192,10 @@ contains
 
     reg_file_hist = .true.    
     do iv = 1, ATMOS_PHY_MP_TENDS_NUM1
-      call this%tends_manager%Regist(           &
-        ATMOS_PHY_MP_TEND_VINFO(iv), mesh3D,    &
-        this%tends(iv), reg_file_hist           )
-      
-      do n = 1, mesh3D%LOCAL_MESH_NUM
-        this%tends(iv)%local(n)%val(:,:) = 0.0_RP
-      end do         
+      call this%tends_manager%Regist( &
+        ATMOS_PHY_MP_TEND_VINFO(iv), mesh3D, &
+        this%tends(iv), reg_file_hist,       &
+        fill_zero=.true.                     )
     end do
 
     qtrc_tp_vinfo_tmp%ndims    = 3
@@ -215,12 +211,9 @@ contains
 
       reg_file_hist = .true.
       call this%tends_manager%Regist( &
-        qtrc_tp_vinfo_tmp, mesh3D,              & 
-        this%tends(iv), reg_file_hist           ) 
-      
-      do n = 1, mesh3D%LOCAL_MESH_NUM
-        this%tends(iv)%local(n)%val(:,:) = 0.0_RP
-      end do         
+        qtrc_tp_vinfo_tmp, mesh3D,     & 
+        this%tends(iv), reg_file_hist, &
+        fill_zero=.true.               ) 
     end do    
 
     !--
@@ -249,12 +242,9 @@ contains
     reg_file_hist = .true.    
     do iv = 1, ATMOS_PHY_MP_AUX2D_NUM
       call this%auxvars2D_manager%Regist( &
-        ATMOS_PHY_MP_AUX2D_VINFO(iv), mesh2D,    & ! (in) 
-        this%auxvars2D(iv), reg_file_hist        ) ! (out)
-      
-      do n = 1, mesh3D%LOCAL_MESH_NUM
-        this%auxvars2D(iv)%local(n)%val(:,:) = 0.0_RP
-      end do         
+        ATMOS_PHY_MP_AUX2D_VINFO(iv), mesh2D, &
+        this%auxvars2D(iv), reg_file_hist,    &
+        fill_zero=.true.                      ) 
     end do
     
     return

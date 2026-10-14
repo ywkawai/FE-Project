@@ -559,8 +559,8 @@ contains
 
     use scale_atmos_hydrometeor, only: &
       QLA, QIA
-    use scale_atm_phy_mp_dgm_common, only: &
-      atm_phy_mp_dgm_common_negative_fixer    
+    use scale_atm_phy_cloud_dgm_common, only: &
+      atm_phy_cloud_dgm_common_negative_fixer
     implicit none
     class(AtmosVarsContainer), intent(inout), target :: this
     class(AtmosVarsContainer), intent(in), target :: container_ori
@@ -601,7 +601,7 @@ contains
       call this%QTRCVARS_manager%GetLocalMeshFieldList( trcid_list, n, lc_qtrc )
 
       lcmesh3D => mesh3D%lcmesh_list(n)
-      call atm_phy_mp_dgm_common_negative_fixer( &
+      call atm_phy_cloud_dgm_common_negative_fixer( &
         lc_qtrc, this%PROG_VARS(PRGVAR_DDENS_ID)%local(n)%val, this%AUX_VARS(AUXVAR_PRES_ID)%local(n)%val, &
         this%AUX_VARS(AUXVAR_CVtot_ID)%local(n)%val, this%AUX_VARS(AUXVAR_CPtot_ID)%local(n)%val, &
         this%AUX_VARS(AUXVAR_Rtot_ID)%local(n)%val, &        

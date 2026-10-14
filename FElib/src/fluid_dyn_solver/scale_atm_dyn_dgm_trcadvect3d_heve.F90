@@ -71,6 +71,7 @@ module scale_atm_dyn_dgm_trcadvect3d_heve
 
 contains
 
+  !> Initialize the tracer advection module
 !OCL SERIAL
   subroutine atm_dyn_dgm_trcadvect3d_heve_Init( mesh, FaceIntMat )
     use scale_polynomial, only: Polynomial_GenGaussLobattoPtIntWeight
@@ -80,59 +81,16 @@ contains
 
     class(LocalMesh3D), pointer :: lcmesh
     class(ElementBase3D), pointer :: elem
-    real(RP), allocatable :: intWeight_lgl1DPts_h(:)
-    real(RP), allocatable :: intWeight_lgl1DPts_v(:)   
-    real(RP), allocatable :: intWeight_h(:) 
-    real(RP), allocatable :: intWeight_v(:)  
-    
-    integer :: f
-    integer :: i, j, k, l
-    integer :: is, ie
-
-    real(RP), allocatable :: IntWeight(:,:)
+    real(RP), allocatable :: FaceIntWeight(:,:)
     !-------------------------------------------------------------
 
     lcmesh => mesh%lcmesh_list(1)
     elem => lcmesh%refElem3D
-    allocate( IntWeight(elem%Nfaces,elem%NfpTot) )
-    IntWeight(:,:) = 0.0_RP
+    
+    allocate( FaceIntWeight(elem%Nfaces,elem%NfpTot) )
+    call elem%Generate_FaceIntweight( FaceIntWeight ) ! (out)
 
-    allocate( intWeight_lgl1DPts_h(elem%Nnode_h1D) )
-    allocate( intWeight_lgl1DPts_v(elem%Nnode_v) )
-    allocate( intWeight_h(elem%Nnode_h1D*elem%Nnode_v) )
-    allocate( intWeight_v(elem%Nnode_h1D**2) )
-
-    intWeight_lgl1DPts_h(:) = Polynomial_GenGaussLobattoPtIntWeight(elem%PolyOrder_h)
-    intWeight_lgl1DPts_v(:) = Polynomial_GenGaussLobattoPtIntWeight(elem%PolyOrder_v)
-
-    do f=1, elem%Nfaces_h
-      do k=1, elem%Nnode_v
-      do i=1, elem%Nnode_h1D
-        l = i + (k-1)*elem%Nnode_h1D
-        intWeight_h(l) = intWeight_lgl1DPts_h(i) * intWeight_lgl1DPts_v(k)
-      end do
-      end do
-
-      is = (f-1)*elem%Nfp_h + 1
-      ie = is + elem%Nfp_h - 1
-      IntWeight(f,is:ie) = intWeight_h(:)
-    end do
-
-    do f=1, elem%Nfaces_v
-      do j=1, elem%Nnode_h1D
-      do i=1, elem%Nnode_h1D
-        l = i + (j-1)*elem%Nnode_h1D
-        intWeight_v(l) = intWeight_lgl1DPts_h(i) * intWeight_lgl1DPts_h(j)
-      end do
-      end do
-
-      is = elem%Nfaces_h*elem%Nfp_h + (f-1)*elem%Nfp_v + 1
-      ie = is + elem%Nfp_v - 1
-      IntWeight(elem%Nfaces_h+f,is:ie) = intWeight_v(:)
-    end do
-
-    call FaceIntMat%Init( IntWeight )
-
+    call FaceIntMat%Init( FaceIntWeight )
     return
   end subroutine atm_dyn_dgm_trcadvect3d_heve_Init
   
@@ -140,7 +98,6 @@ contains
   subroutine atm_dyn_dgm_trcadvect3d_heve_Final()
     implicit none
     !--------------------------------------------
-
     return    
   end subroutine atm_dyn_dgm_trcadvect3d_heve_Final
 
