@@ -133,11 +133,11 @@ module mod_atmos_phy_mp
 
 contains
 
-!> Setup a component of cloud microphysics
-!!
-!! @param model_mesh Object to manage computational mesh of atmospheric model 
-!! @param tm_parent_comp Object to mange a temporal scheme in a parent component
-!!
+  !> Setup a component of cloud microphysics
+  !!
+  !! @param model_mesh Object to manage computational mesh of atmospheric model 
+  !! @param tm_parent_comp Object to mange a temporal scheme in a parent component
+  !!
   subroutine AtmosPhyMp_setup( this, model_mesh, tm_parent_comp )
     use scale_const, only: &
       EPS => CONST_EPS
@@ -435,7 +435,7 @@ contains
       this%modalFilter_flag = .false.
     end if
 
-    !
+    ! Setup flag and pointers for cumulus parameterization
     this%CP_flag = .false.
     this%ptr_CP_RHOT_t => null()
 
@@ -1221,7 +1221,7 @@ contains
       RHOE_t, EVAPORATE                                                      ) ! (out)
   
     !$omp parallel private(ke, iq, RHOQ_t, RHOQ_t_cor, RHOQ_pri)
-    !$omp do collapse(2)
+    !$omp do
     do ke = lcmesh%NeS, lcmesh%NeE
     do iq = this%vars%QS+1, this%vars%QE      
       RHOQ_t(:) = ( QTRC1(:,ke,iq) - QTRC(iq)%ptr%val(:,ke) ) * DENS(:,ke) * rdt_MP

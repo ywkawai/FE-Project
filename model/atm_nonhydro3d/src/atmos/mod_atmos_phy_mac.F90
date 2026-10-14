@@ -66,7 +66,7 @@ module mod_atmos_phy_mac
     logical :: do_precipitation    !< Apply sedimentation (precipitation)?  
     logical :: evap_precip         !< Apply evaporation of precipitation?
     real(RP) :: tau_evap_precip    !< Timescale for evaporation of precipitation
-    real(RP) :: dtsec !< Timestep for cloud macrophysics model
+    real(RP) :: dtsec              !< Timestep for cloud macrophysics model
 
     type(LineElement) :: v_elem1D
 
@@ -127,9 +127,9 @@ contains
 
     character(len=H_MID) :: mac_TYPE = 'NONE'                !< Type of a cloud model scheme
 
-    logical :: do_precipitation     !< Flag whether sedimentation (precipitation) is applied
-    logical :: evap_precip          !< Apply evaporation of precipitation?
-    real(RP) :: tau_evap_precip     !< Timescale for evaporation of precipitation [s]
+    logical :: do_precipitation         !< Flag whether sedimentation (precipitation) is applied
+    logical :: evap_precip              !< Apply evaporation of precipitation?
+    real(RP) :: tau_evap_precip         !< Timescale for evaporation of precipitation [s]
 
     integer :: atm_var_container_typeid !< Type ID of variable container for mac model
 
@@ -232,6 +232,10 @@ contains
     case( mac_TYPEID_SUNDQVIST )
       call ATMOS_PHY_mac_SUNDQVIST_setup()
     end select
+
+    ! Setup flag and pointers for cumulus parameterization
+    this%CP_flag = .false.
+    this%ptr_CP_RHOT_t => null()
 
     return
   end subroutine AtmosPhyMac_setup
@@ -682,6 +686,17 @@ contains
         RHOU_t_mac, RHOV_t_mac, MOMZ_t_mac,                    & ! (out)
         DENS0, RHOU2, RHOV2, MOMZ2, DENS2,                     & ! (in)
         rdt_mac, lcmesh, elem3D                                ) ! (in)
+    
+    else ! if not doing sedimentation
+
+      !$omp parallel do
+      do ke=lcmesh%NeS, lcmesh%NeE
+        DENS_t_mac(:,ke) = 0.0_RP
+        RHOU_t_mac(:,ke) = 0.0_RP
+        RHOV_t_mac(:,ke) = 0.0_RP
+        MOMZ_t_mac(:,ke) = 0.0_RP
+      end do
+
     end if
 
     return
@@ -772,7 +787,7 @@ contains
       EVAPORATE, RHOE_t                                                      ) ! (out)
   
     !$omp parallel private(ke, iq, RHOQ_t, RHOQ_t_cor, RHOQ_pri)
-    !$omp do collapse(2)
+    !$omp do
     do ke = lcmesh%NeS, lcmesh%NeE
     do iq = this%vars%QS+1, this%vars%QE      
       RHOQ_t(:) = ( QTRC1(:,ke,iq) - QTRC(iq)%ptr%val(:,ke) ) * DENS(:,ke) * rdt_mac

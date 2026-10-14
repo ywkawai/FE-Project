@@ -51,19 +51,19 @@ module mod_atmos_phy_mac_vars
   !++ Public type & procedures
   !
 
-  !> Derived type to manage variables with cloud component in atmospheric model
+  !> Derived type to manage variables with cloud macrophysics component in atmospheric model
   type, public :: AtmosPhyMacVars
-    type(MeshField3D), allocatable :: tends(:)     !< Array of tendency variables with cloud component
-    type(ModelVarManager) :: tends_manager         !< Object to manage tendencies with cloud component
+    type(MeshField3D), allocatable :: tends(:)     !< Array of tendency variables with cloud macrophysics component
+    type(ModelVarManager) :: tends_manager         !< Object to manage tendencies with cloud macrophysics component
 
-    type(MeshField2D), allocatable :: auxvars2D(:) !< Array of 2D auxiliary variables with cloud component
-    type(ModelVarManager) :: auxvars2D_manager     !< Object to manage 2D auxiliary variables with cloud component
+    type(MeshField2D), allocatable :: auxvars2D(:) !< Array of 2D auxiliary variables with cloud macrophysics component
+    type(ModelVarManager) :: auxvars2D_manager     !< Object to manage 2D auxiliary variables with cloud macrophysics component
 
-    integer :: QS      !< Start index of tracer variables with cloud component
-    integer :: QE      !< End index of tracer variables with cloud component
-    integer :: QA      !< Number of tracer variables with cloud component
+    integer :: QS             !< Start index of tracer variables with cloud macrophysics component
+    integer :: QE             !< End index of tracer variables with cloud macrophysics component
+    integer :: QA             !< Number of tracer variables with cloud macrophysics component
 
-    integer :: TENDS_NUM_TOT                        !< Number of tendency variables with cloud component
+    integer :: TENDS_NUM_TOT  !< Number of tendency variables with cloud macrophysics component
   contains
     procedure :: Init => AtmosPhyMacVars_Init
     procedure :: Final => AtmosPhyMacVars_Final
@@ -102,7 +102,7 @@ module mod_atmos_phy_mac_vars
     VariableInfo( ATMOS_PHY_MAC_RHOH_ID  , 'MAC_RHOH', 'diabatic heating rate in MAC process',             &
                   'J/kg/s',   3, 'XYZ',  ''                                                           ),   & 
     VariableInfo( ATMOS_PHY_MAC_EVAPORATE_ID, 'MAC_EVAPORATE', 'number concentration of evaporated cloud in MAC process', &
-                  'm-3'   ,   3, 'XYZ',  ''                                                           )    /                   
+                  'num/m3/s'   ,   3, 'XYZ',  ''                                                      )    /                   
 
   integer, public, parameter :: ATMOS_PHY_MAC_AUX2D_SFLX_RAIN_ID   = 1
   integer, public, parameter :: ATMOS_PHY_MAC_AUX2D_SFLX_SNOW_ID   = 2
@@ -122,6 +122,7 @@ module mod_atmos_phy_mac_vars
   !
   !++ Private procedures
   !
+
 contains
   !> Setup an object to manage variables with a cloud component  
 !OCL SERIAL

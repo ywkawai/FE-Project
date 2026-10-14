@@ -105,7 +105,7 @@ module mod_atmos_phy_mp_vars
     VariableInfo( ATMOS_PHY_MP_RHOH_ID  , 'MP_RHOH', 'diabatic heating rate in MP process',              &
                   'J/kg/s',   3, 'XYZ',  ''                                                           ), & 
     VariableInfo( ATMOS_PHY_MP_EVAPORATE_ID, 'mp_EVAPORATE', 'number concentration of evaporated cloud', &
-                  'm-3'   ,   3, 'XYZ',  ''                                                           )  /                   
+                  'num/m3/s'   ,   3, 'XYZ',  ''                                                      )  /                   
 
 
   integer, public, parameter :: ATMOS_PHY_MP_AUX2D_SFLX_RAIN_ID   = 1
