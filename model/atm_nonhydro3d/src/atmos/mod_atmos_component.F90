@@ -299,6 +299,7 @@ contains
       call this%phy_mac_proc%vars%Setup( this%mesh )
 
       call this%vars%Regist_physvar_manager( mac_AUXVARS2D_manager=this%phy_mac_proc%vars%auxvars2D_manager )
+      call this%vars%Setup_container( this%phy_mac_proc%atm_var_container_typeid, this%mesh )
     end if
     !- Surface component
     if ( this%phy_sfc_proc%IsActivated() ) then
@@ -883,6 +884,7 @@ contains
     call this%phy_sfc_proc%finalize()
     call this%phy_tb_proc%finalize()
     call this%phy_mp_proc%finalize()
+    call this%phy_mac_proc%finalize()
     call this%phy_rd_proc%finalize()
     call this%phy_cp_proc%finalize()
     call this%phy_bl_proc%finalize()

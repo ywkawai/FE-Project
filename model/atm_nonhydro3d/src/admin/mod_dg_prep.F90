@@ -226,11 +226,14 @@ contains
     call coupler%evaluate_activation( ocean )
     call user_%setup( atmos )
 
+    ! setup variables
+
     call atmos%setup_vars()
     call atmos%set_coupler( coupler )
 
     if ( ocean%IsActivated() ) call ocean%setup_vars()
     if ( coupler%IsActivated() ) call coupler%setup_vars( atmos%mesh%ptr_mesh, ocean%mesh%ptr_mesh )
+    call user_%setup_vars( atmos )
 
     ! setup mktopo
     call MKTOPO_setup
