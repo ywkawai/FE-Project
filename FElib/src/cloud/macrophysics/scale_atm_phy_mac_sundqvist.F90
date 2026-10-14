@@ -106,12 +106,11 @@ module scale_atm_phy_mac_sundqvist
 
   !- Scheme parameters
 
-  real(RP), private :: RH_CRIT         = 0.80_RP
+  real(RP), private :: RH_CRIT         = 0.80_RP    !< Critical relative humidity for cloud formation
   real(RP), private :: TAU_COND        = 600.0_RP   !< Relaxation time scale for subgrid condensation [s]
   real(RP), private :: TAU_EVAP_CLOUD  = 600.0_RP   !< Relaxation time scale for cloud-water evaporation [s]
   real(RP), private :: QC_CRIT         = 5.0E-4_RP  !< Characteristic in-cloud QC for precipitation formation [kg/kg]
   real(RP), private :: TAU_PRECIP      = 1000.0_RP  !< Precipitation conversion timescale [s]
-  real(RP), private :: TAU_EVAP_PRECIP = 1800.0_RP  !< Evaporation time scale for falling precipitation [s]
   real(RP), private :: RE_CLOUD        = 8.0E-6_RP  !< Fixed effective radius of cloud liquid water [m]
 
 
@@ -122,7 +121,7 @@ contains
   !> Setup a module to configure the Sundqvist-type cloud scheme
   subroutine ATMOS_PHY_mac_sundqvist_setup()
     use scale_prc, only: &
-       PRC_abort
+      PRC_abort
     implicit none
 
     namelist / PARAM_ATMOS_PHY_MAC_sundqvist / &
@@ -131,7 +130,6 @@ contains
       TAU_EVAP_CLOUD,  &
       QC_CRIT,         &
       TAU_PRECIP,      &
-      TAU_EVAP_PRECIP, &
       RE_CLOUD
 
     integer :: ierr
@@ -164,11 +162,14 @@ contains
   !> Perform the Sundqvist-type cloud adjustment
   !!
   subroutine ATMOS_PHY_MAC_sundqvist_adjustment( &
-     KA, KS, KE, IA, IS, IE, JA, JS, JE,         & ! (in)
-     DENS, PRES, dt,                             & ! (in)
-     TEMP, QTRC, CPtot, CVtot,                   & ! (inout)
-     EVAPORATE, RHOE_t                           ) ! (out)
+    KA, KS, KE, IA, IS, IE, JA, JS, JE,         & ! (in)
+    DENS, PRES, dt,                             & ! (in)
+    TEMP, QTRC, CPtot, CVtot,                   & ! (inout)
+    EVAPORATE, RHOE_t                           ) ! (out)
 
+    use scale_const, only: &
+      DWATR => CONST_DWATR, &
+      PI    => CONST_PI       
     implicit none
     integer,  intent(in) :: KA, KS, KE
     integer,  intent(in) :: IA, IS, IE
@@ -180,7 +181,7 @@ contains
     real(RP), intent(inout) :: QTRC (KA,IA,JA,QA_CLD)
     real(RP), intent(inout) :: CPtot(KA,IA,JA)
     real(RP), intent(inout) :: CVtot(KA,IA,JA)
-    real(RP), intent(out) :: EVAPORATE(KA,IA,JA)
+    real(RP), intent(out) :: EVAPORATE(KA,IA,JA)  !< Number of evaporated cloud [num/m3/s]
     real(RP), intent(out) :: RHOE_t   (KA,IA,JA)
 
     real(RP) :: dens_
@@ -336,6 +337,8 @@ contains
                     - dq_sat * rdt
       
        RHOE_t(k,i,j) = dens_ * ( - LHV * qv_t_phase )
+       EVAPORATE(k,i,j) = dq_evap &
+                        * dens_ / (4.0_RP/3.0_RP*PI*DWATR*RE_CLOUD**3)  ! mass -> number (assuming constant particle radius as re_cloud)
     end do
     end do
     end do
