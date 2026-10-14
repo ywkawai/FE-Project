@@ -16,6 +16,19 @@
 !! @author Yuta Kawai, Team SCALE
 !!
 !! @Reference
+!!   Sundqvist, H. (1978):
+!!     A parameterization scheme for non-convective condensation including prediction of cloud water content.
+!!     Quarterly Journal of the Royal Meteorological Society, 104, 677-690.
+!!
+!!   Sundqvist, H., E. Berge, and J. E. Kristjansson (1989):
+!!     Condensation and cloud parameterization studies with a mesoscale numerical weather prediction model.
+!!     Monthly Weather Review, 117, 1641-1657.
+!!
+!! @note
+!!   This implementation follows the Sundqvist-type concepts of relative-humidity-based fractional cloudiness and prognostic cloud liquid water, 
+!!   together with a smooth cloud-water-dependent precipitation conversion. 
+!!   Some closure assumptions and relaxation formulations are specific to the present SCALE-DG implementation
+!!   and do not reproduce the original Sundqvist formulations exactly.
 !!
 !<
 !-------------------------------------------------------------------------------
@@ -82,7 +95,6 @@ module scale_atm_phy_mac_sundqvist
        'kg/kg', &
        'kg/kg'  /)
 
-
   !-----------------------------------------------------------------------------
   !++ Private parameters & variables
   !
@@ -142,17 +154,14 @@ contains
     return
   end subroutine ATMOS_PHY_MAC_sundqvist_setup
 
+  !> Finalize a module for the Sundqvist-type cloud scheme
   subroutine ATMOS_PHY_MAC_sundqvist_finalize()
     implicit none
     !--------------------------------------------------
     return
   end subroutine ATMOS_PHY_MAC_sundqvist_finalize
 
-  !> Sundqvist-type cloud adjustment
-  !!
-  !! QV <-> QC
-  !! QC -> diagnostic precipitation
-  !! PRECIP_GEN is NOT a prognostic rain-water tracer.
+  !> Perform the Sundqvist-type cloud adjustment
   !!
   subroutine ATMOS_PHY_MAC_sundqvist_adjustment( &
      KA, KS, KE, IA, IS, IE, JA, JS, JE,         & ! (in)
@@ -287,9 +296,9 @@ contains
        !- 7. One-sided supersaturation correction
        
        call mac_sundqvist_supersat_correct( dens_, & ! (in)
-          temp_work, qv_work, qc_work,               & ! (inout)
-          cptot_work, cvtot_work,                    & ! (inout)
-          dq_sat                                     ) ! (out)
+          temp_work, qv_work, qc_work,             & ! (inout)
+          cptot_work, cvtot_work,                  & ! (inout)
+          dq_sat                                   ) ! (out)
 
        !- 8. In-cloud condensate
 
@@ -385,9 +394,9 @@ contains
   !! QC_INCLOUD = QC / cloud_fraction
 !OCL SERIAL
   subroutine ATMOS_PHY_mac_sundqvist_incloud_water( &
-       KA, KS, KE, IA, IS, IE, JA, JS, JE,            &
-       QC, CLDFRAC,                                   &
-       QC_INCLOUD                                     )
+       KA, KS, KE, IA, IS, IE, JA, JS, JE,          & ! (in)
+       QC, CLDFRAC,                                 & ! (in)
+       QC_INCLOUD                                   ) ! (out)
 
     implicit none
     integer, intent(in) :: KA, KS, KE
@@ -415,7 +424,6 @@ contains
 
     return
   end subroutine ATMOS_PHY_mac_sundqvist_incloud_water
-
 
   !> Calculate the effective radius
   !!

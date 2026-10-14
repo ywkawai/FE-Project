@@ -89,20 +89,20 @@ module mod_atmos_phy_mac_vars
 
   type(VariableInfo), public :: ATMOS_PHY_MAC_TEND_VINFO(ATMOS_PHY_MAC_TENDS_NUM1)
   DATA ATMOS_PHY_MAC_TEND_VINFO / &
-    VariableInfo( ATMOS_PHY_MAC_DENS_t_ID, 'MAC_DENS_t', 'tendency of x-momentum in CLD process',           &
-                   'kg/m3/s',  3, 'XYZ',  ''                                                          ), &
-    VariableInfo( ATMOS_PHY_MAC_MOMX_t_ID, 'MAC_MOMX_t', 'tendency of x-momentum in CLD process',           &
-                  'kg/m2/s2',  3, 'XYZ',  ''                                                          ), &
-    VariableInfo( ATMOS_PHY_MAC_MOMY_t_ID, 'MAC_MOMY_t', 'tendency of y-momentum in CLD process',           &
-                  'kg/m2/s2',  3, 'XYZ',  ''                                                          ), &
-    VariableInfo( ATMOS_PHY_MAC_MOMZ_t_ID, 'MAC_MOMZ_t', 'tendency of z-momentum in CLD process',           &
-                  'kg/m2/s2',  3, 'XYZ',  ''                                                          ), &
-    VariableInfo( ATMOS_PHY_MAC_RHOT_t_ID, 'MAC_RHOT_t', 'tendency of rho*PT in CLD process',               &
-                  'kg/m3.K/s', 3, 'XYZ',  ''                                                          ), &
-    VariableInfo( ATMOS_PHY_MAC_RHOH_ID  , 'MAC_RHOH', 'diabatic heating rate in CLD process',              &
-                  'J/kg/s',   3, 'XYZ',  ''                                                           ), & 
-    VariableInfo( ATMOS_PHY_MAC_EVAPORATE_ID, 'MAC_EVAPORATE', 'number concentration of evaporated cloud', &
-                  'm-3'   ,   3, 'XYZ',  ''                                                           )  /                   
+    VariableInfo( ATMOS_PHY_MAC_DENS_t_ID, 'MAC_DENS_t', 'tendency of density in MAC process',             &
+                   'kg/m3/s',  3, 'XYZ',  ''                                                          ),   &
+    VariableInfo( ATMOS_PHY_MAC_MOMX_t_ID, 'MAC_MOMX_t', 'tendency of x-momentum in MAC process',          &
+                  'kg/m2/s2',  3, 'XYZ',  ''                                                          ),   &
+    VariableInfo( ATMOS_PHY_MAC_MOMY_t_ID, 'MAC_MOMY_t', 'tendency of y-momentum in MAC process',          &
+                  'kg/m2/s2',  3, 'XYZ',  ''                                                          ),   &
+    VariableInfo( ATMOS_PHY_MAC_MOMZ_t_ID, 'MAC_MOMZ_t', 'tendency of z-momentum in MAC process',          &
+                  'kg/m2/s2',  3, 'XYZ',  ''                                                          ),   &
+    VariableInfo( ATMOS_PHY_MAC_RHOT_t_ID, 'MAC_RHOT_t', 'tendency of rho*PT in MAC process',              &
+                  'kg/m3.K/s', 3, 'XYZ',  ''                                                          ),   &
+    VariableInfo( ATMOS_PHY_MAC_RHOH_ID  , 'MAC_RHOH', 'diabatic heating rate in MAC process',             &
+                  'J/kg/s',   3, 'XYZ',  ''                                                           ),   & 
+    VariableInfo( ATMOS_PHY_MAC_EVAPORATE_ID, 'MAC_EVAPORATE', 'number concentration of evaporated cloud in MAC process', &
+                  'm-3'   ,   3, 'XYZ',  ''                                                           )    /                   
 
   integer, public, parameter :: ATMOS_PHY_MAC_AUX2D_SFLX_RAIN_ID   = 1
   integer, public, parameter :: ATMOS_PHY_MAC_AUX2D_SFLX_SNOW_ID   = 2
@@ -232,14 +232,13 @@ contains
     class(AtmosPhyMacVars), intent(inout) :: this
     !----------------------------------------------------
 
-     LOG_INFO('AtmosPhyMacVars_Final',*)
+    LOG_INFO('AtmosPhyMacVars_Final',*)
 
-     call this%tends_manager%Final()
-     deallocate( this%tends )
+    call this%tends_manager%Final()
+    deallocate( this%tends )
 
-     call this%auxvars2D_manager%Final()
-     deallocate( this%auxvars2D )
-
+    call this%auxvars2D_manager%Final()
+    deallocate( this%auxvars2D )
     return
   end subroutine AtmosPhyMacVars_Final
 
@@ -247,9 +246,7 @@ contains
   subroutine AtmosPhyMacVars_GetLocalMeshFields_tend( domID, mesh, MAC_tends_list,   &
     MAC_DENS_t, MAC_MOMX_t, MAC_MOMY_t, MAC_MOMZ_t, MAC_RHOT_t, MAC_RHOH, MAC_EVAP,  &
     MAC_RHOQ_t,                                                                      &
-    lcmesh3D                                                                         &
-    )
-
+    lcmesh3D                                                                         )
     use scale_mesh_base, only: MeshBase
     use scale_meshfield_base, only: MeshFieldBase
     implicit none

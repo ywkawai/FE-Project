@@ -117,7 +117,6 @@ contains
       ATMOS_PHY_mac_sundqvist_tracer_descriptions, &
       ATMOS_PHY_mac_sundqvist_tracer_units
 
-
     implicit none
     class(AtmosPhyMac), intent(inout) :: this
     class(ModelMeshBase), target, intent(in) :: model_mesh
@@ -456,9 +455,9 @@ contains
     return
   end subroutine AtmosPhyMac_finalize
 
-!- private ------------------------------------------------
+!- private subroutines ------------------------------------------------
 
-  !> Calculate tendencies associated with cloud microphysics and precipitation for each local mesh
+  !> Calculate tendencies associated with cloud macrophysics and sedimentation for each local mesh
 !OCL SERIAL
   subroutine AtmosPhyMac_calc_tendency_core( this, &
     DENS_t_mac, RHOU_t_mac, RHOV_t_mac, MOMZ_t_mac, RHOQ_t_mac,  & ! (out)
@@ -525,6 +524,7 @@ contains
 
     real(RP) :: RHOQ(elem3D%Np,lcmesh%NeZ,lcmesh%Ne2D,this%vars%QS+1:this%vars%QE)
     real(RP) :: RHOQ2(elem3D%Np,lcmesh%NeZ,lcmesh%Ne2D,this%vars%QS+1:this%vars%QE)
+    real(RP) :: RHOQV(elem3D%Np,lcmesh%NeZ,lcmesh%Ne2D)
     real(RP) :: RHOQV2(elem3D%Np,lcmesh%NeZ,lcmesh%Ne2D)
     real(RP) :: DENS0(elem3D%Np,lcmesh%NeZ,lcmesh%Ne2D)
     real(RP) :: DENS2(elem3D%Np,lcmesh%NeZ,lcmesh%Ne2D)
@@ -559,7 +559,7 @@ contains
       DENS(:,ke) = DENS_hyd(:,ke) + DDENS(:,ke)
     end do    
 
-    !- Calculate tendencies of cloud processes ----------------------
+    !- Calculate tendencies of cloud microphysics processes ----------------------
 
     select case( this%mac_TYPEID )
     case( mac_TYPEID_SUNDQVIST )
@@ -572,11 +572,11 @@ contains
     !$omp parallel do
     do ke = lcmesh%NeS, lcmesh%NeE
       RHOH_mac(:,ke) = RHOE_t(:,ke) &
-        - ( CPtot_t(:,ke) + log( PRES(:,ke) / PRE00 ) * ( CVtot(:,ke) / CPtot(:,ke) * CPtot(:,ke) - CVtot(:,ke) ) ) &
+        - ( CPtot_t(:,ke) + log( PRES(:,ke) / PRE00 ) * ( CVtot(:,ke) / CPtot(:,ke) * CPtot_t(:,ke) - CVtot_t(:,ke) ) ) &
         * PRES(:,ke) / Rtot(:,ke)
     end do
 
-    !- Calculate precipitation processes if enabled ----------------------
+    !- Calculate sedimentation processes if enabled ----------------------
 
     if ( this%do_precipitation ) then
       !$omp parallel private(ke,ke2D,ke_z,iq)
@@ -594,11 +594,12 @@ contains
         TEMP2(:,ke_z,ke2D) = PRES(:,ke) / ( DENS0(:,ke_z,ke2D) * Rtot(:,ke) )
         CPtot2(:,ke_z,ke2D) = CPtot(:,ke)
         CVtot2(:,ke_z,ke2D) = CVtot(:,ke)
-        RHOE(:,ke_z,ke2D) = TEMP2(:,ke_z,ke2D) * DENS0(:,ke_z,ke2D) * CVtot(:,ke)
+        RHOE (:,ke_z,ke2D) = TEMP2(:,ke_z,ke2D) * DENS0(:,ke_z,ke2D) * CVtot(:,ke)
         RHOE2(:,ke_z,ke2D) = RHOE(:,ke_z,ke2D)
 
-        RHOQV2(:,ke_z,ke2D) = DENS(:,ke) * QTRC(iq_QV)%ptr%val(:,ke) &
+        RHOQV (:,ke_z,ke2D) = DENS(:,ke) * QTRC(iq_QV)%ptr%val(:,ke) &
                             + RHOQ_t_mac(iq_QV)%ptr%val(:,ke) * this%dtsec
+        RHOQV2(:,ke_z,ke2D) = RHOQV(:,ke_z,ke2D)
       end do
       end do
       !$omp end do
@@ -657,7 +658,7 @@ contains
 
         if ( this%evap_precip ) then
           RHOQ_t_mac(iq_QV)%ptr%val(:,ke) = RHOQ_t_mac(iq_QV)%ptr%val(:,ke) &
-            + ( RHOQV2(:,ke_z,ke2D) - DENS(:,ke) * QTRC(iq_QV)%ptr%val(:,ke) ) * rdt_mac
+            + ( RHOQV2(:,ke_z,ke2D) - RHOQV(:,ke_z,ke2D) ) * rdt_mac
         end if
       end do
       end do
@@ -687,7 +688,7 @@ contains
   end subroutine AtmosPhyMac_calc_tendency_core
 
 
-  !> Calculate tendencies of cloud microphysics processes with Kessler scheme
+  !> Calculate tendencies of cloud microphysics processes with the Sundqvist scheme
   !!
 !OCL SERIAL
   subroutine calc_tendency_Sundqvist( this, &
