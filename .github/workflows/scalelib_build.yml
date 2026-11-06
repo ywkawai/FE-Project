@@ -3,34 +3,110 @@ name: build_scalelib
 on:
   push:
     branches: 
-      - feature/scalelib_build 
+      - feature/scalelib_build
+  workflow_dispatch: 
+
+permissions:
+  contents: read
+
+env:
+  SCALE_VERSION: "5.5.5"
+  SCALE_SYS: Linux64-gnu-ompi
+  PACKAGE_NAME: scalelib_ubuntu_latest
 
 jobs:
   build:
-    name: Build
+    name: Build SCALE library
     runs-on: ubuntu-latest
-    steps:
 
-    - name: Install Fortran compiler & NetCDF & OpenMPI & openssh
+    steps:
+    - name: Install build dependencies
       run: |
         sudo apt-get update
+        sudo apt-get install -y \
+            build-essential \
+            gfortran \
+            libnetcdf-dev \
+            libnetcdff-dev \
+            openmpi-bin \
+            libopenmpi-dev \
+            openssh-client \
+            rsync \
+            zip \
+            curl  
+    
+    - name: Show build environment
+      run: |
+        echo "=== OS ==="
+        cat /etc/os-release
 
-        echo "Install Fortran compiler .."
-        sudo apt-get install -y gfortran
-        
-        echo "Install NetCDF library .."
-        sudo apt-get install -y libnetcdf-dev libnetcdff-dev
+        echo "=== Fortran compiler ==="
+        gfortran --version
+        mpifort --version
 
-        echo "Install OpenMPI library .."
-        sudo apt-get install -y openmpi-bin libopenmpi-dev
+        echo "=== MPI ==="
+        mpirun --version
 
-        echo "Install openssh .."
-        sudo apt-get install -y openssh-client rsync    
+        echo "=== NetCDF ==="
+        nc-config --version
+        nf-config --version
+    
+    - name: Download and build SCALE library
+      run: |
+        set -euo pipefail
+
+        scale_dir="${GITHUB_WORKSPACE}/scale"
+        mkdir -p "${scale_dir}"
+        cd "${scale_dir}"
+
+        echo "=== Download SCALE ${SCALE_VERSION} ==="
+        curl -fL --retry 3 \
+          -o scale.tar.gz \
+          "https://scale.riken.jp/archives/scale-${SCALE_VERSION}.tar.gz"
+
+        echo "=== Extract SCALE ==="
+        tar -xzf scale.tar.gz --strip-components=1
+
+        echo "=== Build dc_utils ==="
+        make -j 2 -C dc_utils
+
+        echo "=== Build scalelib ==="
+        make -j 2 -C scalelib/src
+
+        echo "=== Check build outputs ==="
+        test -d include
+        test -d lib
+        test -d scalelib/include
+        test -n "$(find lib -maxdepth 1 -type f -print -quit)"
+
+        echo "=== Libraries ==="
+        ls -lh lib/
+
+        echo "=== Package ==="
+        mkdir -p "${PACKAGE_NAME}/scalelib/include"
+
+        cp -a include "${PACKAGE_NAME}/"
+        cp -a lib "${PACKAGE_NAME}/"
+        cp -a scalelib/include/. \
+          "${PACKAGE_NAME}/scalelib/include/"
+
+        zip -qr "${PACKAGE_NAME}.zip" "${PACKAGE_NAME}"
+
+        echo "=== Package contents ==="
+        unzip -l "${PACKAGE_NAME}.zip" | tail -n 10
+    
+    - name: Upload build artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ env.PACKAGE_NAME }}
+        path: ${{ github.workspace }}/scale/${{ env.PACKAGE_NAME }}.zip
+        if-no-files-found: error
+        retention-days: 1
 
     - name: Install SSH key
       uses: shimataro/ssh-key-action@v2
       with:
-        key: ${{ secrets.SSH_KEY }} 
+        key: ${{ secrets.SSH_KEY }}
         name: id_rsa
         known_hosts: ${{ secrets.KNOWN_HOSTS }}
         config: |
@@ -38,34 +114,21 @@ jobs:
             HostName ${{ secrets.SCALELIB_SERVER_HOST }}
             User ${{ secrets.SCALELIB_SERVER_USER }}
             IdentityFile ~/.ssh/id_rsa
-    
-    - name: Build SCALE library & Send it to a server
+            IdentitiesOnly yes
+            BatchMode yes
+
+    - name: Send SCALE library to server
       run: |
-        export SCALE_INST_DIR=${GITHUB_WORKSPACE}/../scale
-        mkdir -p ${SCALE_INST_DIR} && cd ${SCALE_INST_DIR}
+        set -euo pipefail
 
-        echo "Download SCALE library .."
-        wget -q https://scale.riken.jp/archives/scale-5.5.5.tar.gz
-        tar xzf scale-5.5.5.tar.gz --strip-components 1
+        cd "${GITHUB_WORKSPACE}/scale"
 
-        echo "Build SCALE library .."
-        export SCALE_SYS=Linux64-gnu-ompi
-        make -j 2 -C dc_utils
-        make -j 2 -C scalelib/src
+        echo "=== Upload SCALE library ==="
+        rsync -av --progress \
+          "${PACKAGE_NAME}.zip" \
+          "scalelib_host:FE-Project_GitActions/"
 
-        echo "Package .. & rsync"
-        export tmp_dir=scalelib_ubuntu_latest
-        mkdir ${tmp_dir}
-        mkdir -p ${tmp_dir}/scalelib/include
-        cp -r ./include ${tmp_dir}
-        cp -r ./lib ${tmp_dir}
-        cp -r scalelib/include/*.h ${tmp_dir}/scalelib/include/
-        zip -r ${tmp_dir}.zip ${tmp_dir}
-
-        rsync ${tmp_dir}.zip scalelib_host:FE-Project_GitActions/
-
-
-
+        echo "=== Upload completed ==="
 
 
 
