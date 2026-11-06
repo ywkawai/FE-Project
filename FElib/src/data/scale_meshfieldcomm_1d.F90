@@ -236,7 +236,7 @@ contains
     do f=1, this%nfaces_comm      
       commdata => this%commdata_list(f,n)
       call push_localsendbuf( commdata%send_buf,                       & ! (inout)
-        this%send_buf(:,:,n), commdata%s_faceID, f,                    & ! (in)
+        this%send_buf(:,:,n), commdata%s_faceID, this%is_f(f,n),       & ! (in)
         commdata%Nnode_LCMeshFace, this%bufsize_per_field,             & ! (in)
         this%field_num_tot, this%mesh1D%lcmesh_list(n), this%haloSize_1D ) ! (in)
     end do

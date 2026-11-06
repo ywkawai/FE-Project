@@ -298,9 +298,9 @@ contains
         call AtmosVars_GetLocalMeshQTRC_Qv( n, mesh,                     &
           this%primary_atmvars_container%QTRCVARS_manager, forcing_list, &
           QV, RHOQv_tp                                                   ) 
-        call AtmosVars_GetLocalMeshPhyAuxVars( n, &
-          mesh, auxvars_list,                     &
-          PRES, PT                                )
+        call AtmosVars_GetLocalMeshPhyAuxVars( n,               &
+          mesh, this%primary_atmvars_container%AUXVARS_manager, &
+          PRES, PT                                              )
 
         call AtmosPhySfcVars_GetLocalMeshFields( n,                      &
           mesh, this%vars%SFCVARS_manager, this%vars%SFCFLX_manager,     &
@@ -558,10 +558,12 @@ contains
       lcmesh%normal_fn(:,:,3),              &
       lcmesh, elem, lcmesh2D, elem2D        )
     
+    rPRE00 = 1.0_RP / PRES00
+
     if ( .not. ATMOS_HYDROMETEOR_dry ) then
     
-      !$omp parallel do private(ke, iq, LiftDelFlx,    &
-      !$omp RHOCP_t, RHOCV_t, DENS_t_SF, work, &
+      !$omp parallel do private(ke, iq, LiftDelFlx, &
+      !$omp RHOCP_t, RHOCV_t, DENS_t_SF, work,      &
       !$omp CP_t_x_dens, CV_t_x_dens )
       do ke2D=1, lcmesh2D%Ne
         ke = ke2D
