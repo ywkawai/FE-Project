@@ -43,6 +43,8 @@ module mod_atmos_phy_sfc
   use mod_atmos_mesh, only: AtmosMesh
   use mod_atmos_phy_sfc_vars, only: AtmosPhySfcVars
 
+  use mod_atmos_vars_container, only: AtmosVarsContainer
+
   !-----------------------------------------------------------------------------
   implicit none
   private
@@ -62,12 +64,15 @@ module mod_atmos_phy_sfc
     type(AtmosPhySfcVars) :: vars       !< An object to manage variables with surface component
 
     logical :: CPL_sw  !< Switch to indicate if the coupler is activated
+
+    type(AtmosVarsContainer), pointer :: primary_atmvars_container !< Pointer to the primary atmospheric variable container
   contains
     procedure, public :: setup => AtmosPhySfc_setup
     procedure, public :: set_coupler_flag => AtmosPhySfc_set_coupler_flag
     procedure, public :: calc_tendency => AtmosPhySfc_calc_tendency
     procedure, public :: update => AtmosPhySfc_update
     procedure, public :: finalize => AtmosPhySfc_finalize
+    procedure, public :: set_primary_atmvars_container => AtmosPhySfc_set_primary_atmvars_container
   end type AtmosPhySfc
 
   !-----------------------------------------------------------------------------
@@ -187,6 +192,7 @@ contains
   end subroutine AtmosPhySfc_setup
 
   !> Set switch to indicate if the coupler is activated
+  !!
   subroutine AtmosPhySfc_set_coupler_flag( this, cpl_sw )
     implicit none
     class(AtmosPhySfc), intent(inout) :: this
@@ -196,8 +202,19 @@ contains
     return
   end subroutine AtmosPhySfc_set_coupler_flag
 
-  !> Calculate tendencies associated with a surface model
+  !> Set a pointer to the primary atmospheric variable container
   !!
+  subroutine AtmosPhySfc_set_primary_atmvars_container( this, primary_atmvars_container )
+    implicit none
+    class(AtmosPhySfc), intent(inout) :: this
+    type(AtmosVarsContainer), intent(in), target :: primary_atmvars_container
+    !--------------------------------------------------
+
+    this%primary_atmvars_container => primary_atmvars_container
+    return
+  end subroutine AtmosPhySfc_set_primary_atmvars_container
+
+  !> Calculate tendencies associated with a surface model
   !!
   !! @param model_mesh Object to manage computational mesh of atmospheric model 
   !! @param prgvars_list Object to mange prognostic variables with atmospheric dynamical core
@@ -213,6 +230,8 @@ contains
     use scale_tracer, only: &
       TRACER_inq_id
 
+    use scale_meshfield_base, only: MeshField3D
+
     use mod_atmos_vars, only: &
       AtmosVars_GetLocalMeshPrgVars,    &
       AtmosVars_GetLocalMeshPhyTends,   &
@@ -221,6 +240,11 @@ contains
       AtmosVars_GetLocalMeshQTRCPhyTend
     use mod_atmos_phy_sfc_vars, only: &
       AtmosPhySfcVars_GetLocalMeshFields
+
+    use scale_atm_dyn_dgm_nonhydro3d_common, only: &
+      DENS_VID => PRGVAR_DDENS_ID, MOMX_VID => PRGVAR_MOMX_ID, &
+      MOMY_VID => PRGVAR_MOMY_ID,  MOMZ_VID => PRGVAR_MOMZ_ID, &
+      PRES_VID => AUXVAR_PRES_ID   
     implicit none
     
     class(AtmosPhySfc), intent(inout) :: this
@@ -242,6 +266,8 @@ contains
     class(LocalMeshFieldBase), pointer :: SFLX_MU, SFLX_MV, SFLX_MW, SFLX_SH, SFLX_LH, SFLX_QV
     class(LocalMeshFieldBase), pointer :: SFC_TEMP
 
+    class(MeshField3D), pointer :: DDENS_c, MOMX_c, MOMY_c, MOMZ_c, PRES_c
+
     integer :: n
     integer :: iq
     !--------------------------------------------------
@@ -251,25 +277,33 @@ contains
 
     if (is_update) then
 
+      call prgvars_list%Get3D( MOMZ_VID, MOMZ_c  )
+      call prgvars_list%Get3D( MOMX_VID, MOMX_c  )
+      call prgvars_list%Get3D( MOMY_VID, MOMY_c  )
+      call prgvars_list%Get3D( DENS_VID, DDENS_c )
+      call auxvars_list%Get3D( PRES_VID, PRES_c )
+
       do n=1, mesh%LOCAL_MESH_NUM
         call PROF_rapstart( 'ATM_PHY_SFC_get_localmesh_ptr', 2)         
         call AtmosVars_GetLocalMeshPrgVars( n,  &
-          mesh, prgvars_list, auxvars_list,       &
-          DDENS, MOMX, MOMY, MOMZ, DRHOT,         &
-          DENS_hyd, PRES_hyd, Rtot, CVtot, CPtot, &
-          lcmesh                                  )
+          mesh, this%primary_atmvars_container%PROGVARS_manager, &
+          this%primary_atmvars_container%AUXVARS_manager,        &
+          DDENS, MOMX, MOMY, MOMZ, DRHOT,                        &
+          DENS_hyd, PRES_hyd, Rtot, CVtot, CPtot,                &
+          lcmesh                                                 )
         call AtmosVars_GetLocalMeshPhyTends( n,        &
           mesh, forcing_list,                          &
           DENS_tp, MOMX_tp, MOMY_tp, MOMZ_tp, RHOT_tp, &
-          RHOH_p  )
-        call AtmosVars_GetLocalMeshQTRC_Qv( n, mesh, trcvars_list, forcing_list, &
-          QV, RHOQv_tp )
-        call AtmosVars_GetLocalMeshPhyAuxVars( n,      &
-          mesh, auxvars_list,                          &
-          PRES, PT )
+          RHOH_p                                       )
+        call AtmosVars_GetLocalMeshQTRC_Qv( n, mesh,                     &
+          this%primary_atmvars_container%QTRCVARS_manager, forcing_list, &
+          QV, RHOQv_tp                                                   ) 
+        call AtmosVars_GetLocalMeshPhyAuxVars( n, &
+          mesh, auxvars_list,                     &
+          PRES, PT                                )
 
-        call AtmosPhySfcVars_GetLocalMeshFields( n,    &
-          mesh, this%vars%SFCVARS_manager, this%vars%SFCFLX_manager, &
+        call AtmosPhySfcVars_GetLocalMeshFields( n,                      &
+          mesh, this%vars%SFCVARS_manager, this%vars%SFCFLX_manager,     &
           SFC_TEMP, SFLX_MU, SFLX_MV, SFLX_MW, SFLX_SH, SFLX_LH, SFLX_QV )
         call PROF_rapend( 'ATM_PHY_SFC_get_localmesh_ptr', 2)   
 
@@ -278,8 +312,10 @@ contains
           DENS_tp%val, MOMX_tp%val, MOMY_tp%val, MOMZ_tp%val, RHOH_p%val, RHOQv_tp%val, &
           SFLX_MU%val, SFLX_MV%val, SFLX_MW%val, SFLX_SH%val, SFLX_LH%val, SFLX_QV%val, &
           DDENS%val, MOMX%val, MOMY%val, MOMZ%val, DRHOT%val, QV%val,                   &
+          DDENS_c%local(n)%val, MOMX_c%local(n)%val, MOMY_c%local(n)%val,               &
+          MOMZ_c%local(n)%val, PRES_c%local(n)%val,                                     &          
           DENS_hyd%val, PRES_hyd%val,                                                   &
-          PRES%val, PT%val, Rtot%val, SFC_TEMP%val,                                     &
+          PRES%val, PT%val, Rtot%val, CVtot%val, CPtot%val, SFC_TEMP%val,               & 
           model_mesh%DOptrMat(3), model_mesh%SOptrMat(3), model_mesh%LiftOptrMat,       &
           lcmesh, lcmesh%refElem3D, lcmesh%lcmesh2D, lcmesh%lcmesh2D%refElem2D          )
         call PROF_rapend( 'ATM_PHY_SFC_cal_tend', 2)
@@ -338,9 +374,9 @@ contains
   subroutine cal_tend_from_sfcflx( this, is_update_sflx, &
     DENS_tp, MOMX_tp, MOMY_tp, MOMZ_tp, RHOH_p, RHOQV_tp, &
     SFLX_MU, SFLX_MV, SFLX_MW, SFLX_SH, SFLX_LH, SFLX_QV, &
-    DDENS, MOMX, MOMY, MOMZ, DRHOT,                       &
-    QV,                                                   &
-    DENS_hyd, PRES_hyd, PRES, PT, Rtot,                   &
+    DDENS, MOMX, MOMY, MOMZ, DRHOT, QV,                   &
+    DDENS_c, MOMX_c, MOMY_c, MOMZ_c, PRES_c,              &
+    DENS_hyd, PRES_hyd, PRES, PT, Rtot, CVtot, CPtot,     &
     SFC_TEMP,                                             & 
     Dz, Sz, Lift,                                         &
     lcmesh, elem, lcmesh2D, elem2D )
@@ -355,7 +391,10 @@ contains
       LHV, &
       I_QV
     use scale_tracer, only: &
-      TRACER_CV, QA
+      TRACER_CV, TRACER_CP, &
+      TRACER_MASS,          &
+      TRACER_ENGI0,         &
+      QA
     use scale_atmos_phy_sf_const, only: &
        ATMOS_PHY_SF_const_flux
     use scale_atm_phy_sf_bulk_simple, only: &
@@ -390,11 +429,18 @@ contains
     real(RP), intent(in) :: MOMZ(elem%Np,lcmesh%NeA)
     real(RP), intent(in) :: DRHOT(elem%Np,lcmesh%NeA)
     real(RP), intent(in) :: QV(elem%Np,lcmesh%NeA)
+    real(RP), intent(in) :: DDENS_c(elem%Np,lcmesh%NeA)
+    real(RP), intent(in) :: MOMX_c(elem%Np,lcmesh%NeA)
+    real(RP), intent(in) :: MOMY_c(elem%Np,lcmesh%NeA)
+    real(RP), intent(in) :: MOMZ_c(elem%Np,lcmesh%NeA)
+    real(RP), intent(in) :: PRES_c(elem%Np,lcmesh%NeA)
     real(RP), intent(in) :: PRES_hyd(elem%Np,lcmesh%NeA)
     real(RP), intent(in) :: DENS_hyd(elem%Np,lcmesh%NeA)
     real(RP), intent(in) :: PRES(elem%Np,lcmesh%NeA)
     real(RP), intent(in) :: PT(elem%Np,lcmesh%NeA)
     real(RP), intent(in) :: Rtot(elem%Np,lcmesh%NeA)
+    real(RP), intent(in) :: CVtot(elem%Np,lcmesh%NeA)
+    real(RP), intent(in) :: CPtot(elem%Np,lcmesh%NeA)    
     real(RP), intent(in) :: SFC_TEMP(elem2D%Np,lcmesh2D%NeA)
     type(SparseMat), intent(in) :: Dz, Sz, Lift
 
@@ -410,7 +456,6 @@ contains
     real(RP) :: SFC_DENS(elem2D%Np,lcmesh2D%Ne)
 
     real(RP) :: SFLX_QTRC(elem2D%Np,lcmesh2D%Ne,max(1,QA))
-    real(RP) :: SFLX_ENGI(elem2D%Np,lcmesh2D%Ne)
 
     ! dummy
     real(RP) :: U10(elem2D%Np,lcmesh2D%Ne)
@@ -421,15 +466,26 @@ contains
     integer :: hsliceZ0, hsliceZ1
     integer :: ij
     integer :: iq
+    integer :: p
+
     real(RP) :: dens
-    real(RP) :: LiftDelFlx(elem%Np)
-    real(RP) :: del_flux(elem%NfpTot,lcmesh%Ne,5)
+    real(RP) :: LiftDelFlx(elem%Np), LiftDelFlx_c(elem%Np)
+    real(RP) :: del_flux(elem%NfpTot,lcmesh%Ne,6)
 
-    real(RP) :: SFLX_MU1, SFLX_MV1
+    real(RP) :: TEMP(elem%Np)
+    real(RP) :: RHOCV_t(elem%Np), RHOCP_t(elem%Np)
+    real(RP) :: CP_t_x_dens, CV_t_x_dens
+    real(RP) :: DENS_t_SF(elem%Np)
+    real(RP) :: work
 
+    real(RP) :: SFLX_RHOH_trc(elem%Np,lcmesh2D%Ne)
+    integer :: ps, pe    
+
+    real(RP) :: rPRE00
     !-------------------------------------------------
 
     if ( is_update_sflx .and. (.not. this%CPL_sw) ) then
+
       !$omp parallel do collapse(2) private( &
       !$omp ke, hSliceZ0, hsliceZ1,          &
       !$omp dens                             )
@@ -440,20 +496,20 @@ contains
         hsliceZ0 = elem%Hslice(ij,1)
         hsliceZ1 = elem%Hslice(ij,2)
 
-        dens = DENS_hyd(hsliceZ1,ke) + DDENS(hsliceZ1,ke)
-        ATM_U(ij,ke2D) = MOMX(hsliceZ1,ke) / dens
-        ATM_V(ij,ke2D) = MOMY(hsliceZ1,ke) / dens
+        dens = DENS_hyd(hsliceZ1,ke) + DDENS_c(hsliceZ1,ke)
+        ATM_U(ij,ke2D) = MOMX_c(hsliceZ1,ke) / dens
+        ATM_V(ij,ke2D) = MOMY_c(hsliceZ1,ke) / dens
         ATM_W(ij,ke2D) = 0.0_RP
         ATM_PRES(ij,ke2D) = PRES(hsliceZ1,ke)
 !        ATM_TEMP(ij,ke2D) = ATM_PRES(ij,ke2D) / ( Rtot(hsliceZ1,ke) * dens )
 
-        ATM_QV(ij,ke2D) = QV(hsliceZ1,ke)
-
         SFC_DENS(ij,ke2D) = DENS_hyd(hsliceZ0,ke) + DDENS(hsliceZ0,ke)
-        SFC_PRES(ij,ke2D) = PRES(hsliceZ0,ke)
+
         ! Tentative: 
-        ATM_TEMP(ij,ke2D) = SFC_PRES(ij,ke2D) / ( Rtot(hsliceZ0,ke) * SFC_DENS(ij,ke2D) )
+        ATM_TEMP(ij,ke2D) = PRES(hsliceZ0,ke) / ( Rtot(hsliceZ0,ke) * SFC_DENS(ij,ke2D) )
         ATM_QV(ij,ke2D) = QV(hsliceZ0,ke)
+        SFC_DENS(ij,ke2D) = DENS_hyd(hsliceZ0,ke) + DDENS_c(hsliceZ0,ke)
+        SFC_PRES(ij,ke2D) = PRES_c(hsliceZ0,ke)
 
         Z1(ij,ke2D) = lcmesh%zlev(hsliceZ1,ke)
         DZ1(ij,ke2D) = Z1(ij,ke2D) - lcmesh%zlev(hsliceZ0,ke)
@@ -502,6 +558,46 @@ contains
       lcmesh%normal_fn(:,:,3),              &
       lcmesh, elem, lcmesh2D, elem2D        )
     
+    if ( .not. ATMOS_HYDROMETEOR_dry ) then
+    
+      !$omp parallel do private(ke, iq, LiftDelFlx,    &
+      !$omp RHOCP_t, RHOCV_t, DENS_t_SF, work, &
+      !$omp CP_t_x_dens, CV_t_x_dens )
+      do ke2D=1, lcmesh2D%Ne
+        ke = ke2D
+        RHOCP_t(:) = 0.0_RP; RHOCV_t(:) = 0.0_RP
+        DENS_t_SF(:) = 0.0_RP
+
+        call sparsemat_matmul( Lift, lcmesh%Fscale(:,ke)*del_flux(:,ke,6), LiftDelFlx )
+        SFLX_RHOH_trc(:,ke) = - LiftDelFlx(:)
+
+!       do iq=1, QA
+          iq = I_QV
+          SFLX_QTRC(:,ke2D,iq) = SFLX_QV(:,ke2D)
+
+          call sparsemat_matmul( Lift, lcmesh%Fscale(:,ke)*del_flux(:,ke,5), LiftDelFlx )
+          RHOQv_tp(:,ke) = RHOQv_tp(:,ke) - LiftDelFlx(:)
+
+          do p=1, elem%Np
+            work = - LiftDelFlx(p)
+            DENS_t_SF(p) = DENS_t_SF(p) + work * TRACER_MASS(iq)
+            RHOCP_t(p) = RHOCP_t(p) + work * TRACER_CP(iq)
+            RHOCV_t(p) = RHOCV_t(p) + work * TRACER_CV(iq)
+          end do
+!       end do
+
+        DENS_tp(:,ke) = DENS_tp(:,ke) + DENS_t_SF(:)
+        do p=1, elem%Np
+          CP_t_x_dens = RHOCP_t(p) - CPtot(p,ke) * DENS_t_SF(p)  ! DENS d(CP) = d(RHOCP) - CP d(DENS)
+          CV_t_x_dens = RHOCV_t(p) - CVtot(p,ke) * DENS_t_SF(p)  ! DENS d(CV) = d(RHOCV) - CV d(DENS)
+
+          work = PRES(p,ke) / ( Rtot(p,ke) * ( DENS_hyd(p,ke) + DDENS(p,ke) ) )
+          SFLX_RHOH_trc(p,ke) = SFLX_RHOH_trc(p,ke) &
+            - ( CP_t_x_dens + log(PRES(p,ke) * RPRE00 ) * ( CVtot(p,ke) / CPtot(p,ke) * CP_t_x_dens - CV_t_x_dens ) ) * work
+        end do
+      end do
+    end if
+
     !$omp parallel do private(ke, iq, LiftDelFlx)
     do ke2D=1, lcmesh2D%Ne
       ke = ke2D
@@ -519,12 +615,7 @@ contains
       RHOH_p (:,ke) = RHOH_p (:,ke) - LiftDelFlx(:) 
 
       if ( .not. ATMOS_HYDROMETEOR_dry ) then
-        SFLX_QTRC(:,ke2D,I_QV) = SFLX_QV(:,ke2D)
-        SFLX_ENGI(:,ke2D) = SFLX_QV(:,ke2D) * ( TRACER_CV(I_QV) * SFC_TEMP(:,ke2D) + LHV )
-
-        call sparsemat_matmul( Lift, lcmesh%Fscale(:,ke)*del_flux(:,ke,5), LiftDelFlx )
-        RHOQv_tp(:,ke) = RHOQv_tp(:,ke) - LiftDelFlx(:)
-        DENS_tp(:,ke) = DENS_tp(:,ke) - LiftDelFlx(:)
+        RHOH_p(:,ke) = RHOH_p(:,ke) + SFLX_RHOH_trc(:,ke)
       end if 
     end do
 
@@ -543,14 +634,14 @@ contains
       LHV, &
       I_QV
     use scale_tracer, only: &
-      TRACER_CV, QA    
+      QA, TRACER_CV, TRACER_ENGI0  
     implicit none
 
     class(LocalMesh3D), intent(in) :: lmesh
     class(ElementBase3D), intent(in) :: elem  
     class(LocalMesh2D), intent(in) :: lmesh2D
     class(ElementBase2D), intent(in) :: elem2D   
-    real(RP), intent(out) ::  del_flux(elem%NfpTot*lmesh%Ne,5)
+    real(RP), intent(out) ::  del_flux(elem%NfpTot*lmesh%Ne,6)
     real(RP), intent(in) :: sflx_mu(elem2D%Np,lmesh2D%NeA)
     real(RP), intent(in) :: sflx_mv(elem2D%Np,lmesh2D%NeA)
     real(RP), intent(in) :: sflx_mw(elem2D%Np,lmesh2D%NeA)
@@ -561,9 +652,11 @@ contains
 
     integer :: ke2D, p
     integer :: i
+    integer :: iq
+    real(RP) :: sflx_dens    
     !------------------------------------------------------------------------
 
-    !$omp parallel private(i)
+    !$omp parallel private(i, iq, sflx_dens)
     !$omp workshare
     del_flux(:,:) = 0.0_RP
     !$omp end workshare
@@ -586,8 +679,15 @@ contains
       do ke2D=1, lmesh2D%Ne
       do p=1, elem2D%Np
         i = elem%Nfaces_h*elem%Nfp_h + p + (ke2D-1)*elem%NfpTot
-        del_flux(i,4) = del_flux(i,4) &
-          + sflx_qv(p,ke2D) * ( TRACER_CV(I_QV) * SFC_TEMP(p,ke2D) + 0.0_RP * LHV ) * nz(i)
+        del_flux(i,6) = sflx_qv(p,ke2D) * ( TRACER_CV(I_QV) * SFC_TEMP(p,ke2D) + LHV ) * nz(i)
+
+        ! do iq=1, QA
+          iq = I_QV
+          sflx_dens = sflx_qv(p,ke2D)
+
+          del_flux(i,6) = del_flux(i,6) &
+            - TRACER_ENGI0(iq) * sflx_dens * nz(i)
+        ! end do          
       end do
       end do
     end if     
