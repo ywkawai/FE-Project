@@ -12,12 +12,12 @@ permissions:
 env:
   SCALE_VERSION: "5.5.5"
   SCALE_SYS: Linux64-gnu-ompi
-  PACKAGE_NAME: scalelib_ubuntu_latest
+  PACKAGE_NAME: scalelib_ubuntu_latest_ubuntu2404_gnu_ompi
 
 jobs:
   build:
     name: Build SCALE library
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
     - name: Install build dependencies
