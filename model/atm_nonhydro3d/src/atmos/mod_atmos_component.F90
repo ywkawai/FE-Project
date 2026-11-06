@@ -304,6 +304,9 @@ contains
     !- Surface component
     if ( this%phy_sfc_proc%IsActivated() ) then
       call this%phy_sfc_proc%vars%Setup( this%mesh )
+      call this%phy_sfc_proc%Set_primary_atmvars_container( this%vars%container )
+      
+      call this%vars%Setup_container( this%phy_sfc_proc%atm_var_container_typeid, this%mesh )
     end if
     !- Turbulence component
     if ( this%phy_tb_proc%IsActivated() ) then
