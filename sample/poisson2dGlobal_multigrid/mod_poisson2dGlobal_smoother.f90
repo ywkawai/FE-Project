@@ -52,6 +52,7 @@ module mod_poisson2dGlobal_smoother
   type, public, extends(MGSmootherBase2D) :: MGSmoother_Poisson2D
     integer :: num_internal_itr_max                !< Maximum number of internal iterations associated with local element solve
     real(RP) :: residual_threshold_l2_internal_itr !< Threshold for each internal iteration associated with local element solve
+    real(RP) :: penalty_coef                       !< Coefficient C_tau in the penalty parameter
   contains
     procedure :: Init => MGSmoother_Poisson2D_Init
     procedure :: Final => MGSmoother_Poisson2D_Final
@@ -73,7 +74,19 @@ module mod_poisson2dGlobal_smoother
   integer, parameter :: AUXVAR_QX_ID = 1  !< Contravariant component of grad(q) in the alpha direction
   integer, parameter :: AUXVAR_QY_ID = 2  !< Contravariant component of grad(q) in the beta direction
 
-  real(RP), parameter :: PENALTY_COEF = 1.2_RP  !< Coefficient C_tau in the penalty parameter
+  !> Default value of the coefficient C_tau in the penalty parameter.
+  !! A value close to the coercivity limit (e.g., 1.2) is insufficient on cubed-sphere meshes:
+  !! near cube vertices, where the metric is most distorted, coarse p=1 h-MG levels have nearly singular modes,
+  !! and the coarse-grid correction amplifies them (the V-cycle stagnates or diverges as the h-levels increase).
+  real(RP), parameter :: PENALTY_COEF_DEFAULT = 3.0_RP
+
+  !> Number of colors in the multicolor (block) Gauss-Seidel method.
+  !! On a cubed-sphere mesh, the red-black ordering in each tile is not consistent across 
+  !! some panel boundaries (panel 2-5, 2-6, 4-5, 4-6), and the element graph is not 2-colorable 
+  !! because three elements are mutually adjacent at each cube vertex. 
+  !! Thus, the red-black color in each tile is combined with a panel group (panels 1-4 or panels 5-6),
+  !! which gives a proper 4-coloring: color = 2 * panel_group + mod(i+j,2).
+  integer, parameter :: NUM_COLOR = 4
 
 contains
   !> Initialization
@@ -95,6 +108,8 @@ contains
 
     character(len=H_SHORT) :: elem_solver = "PCG" !< Element solver type (only "PCG" is supported in this sample)
 
+    real(RP) :: penalty_coef = PENALTY_COEF_DEFAULT !< Coefficient C_tau in the penalty parameter (common to all MG levels)
+
     namelist /PARAM_MGSmoother/ &
       num_smooth_itr_max,             &
       residual_threshold_ratio_l2,    &
@@ -103,7 +118,8 @@ contains
       history_residual_step,          &
       num_smooth_itr_max_internal,    &
       residual_threshold_l2_internal, &
-      elem_solver
+      elem_solver,                    &
+      penalty_coef
 
     integer :: ierr
     !---------------------------------------------------------------------------
@@ -127,6 +143,12 @@ contains
 
     this%num_internal_itr_max = num_smooth_itr_max_internal
     this%residual_threshold_l2_internal_itr = residual_threshold_l2_internal
+
+    if ( penalty_coef <= 0.0_RP ) then
+      LOG_ERROR("MGSmoother_Poisson2D_Init",*) "penalty_coef must be positive. Check!", penalty_coef
+      call PRC_abort
+    end if
+    this%penalty_coef = penalty_coef
 
     !-
     select case ( trim(adjustl(elem_solver)) )
@@ -186,14 +208,9 @@ contains
     integer :: ke
 
     type(MeshFieldContainer) :: var_comm_list(1)
-    integer :: color_id_offset
+    integer :: ic
+    integer :: color_seq
     !---------------------------------------------------------------------------
-
-    if ( pre_or_post_smooth == MGSmoother_PRE_ID ) then
-      color_id_offset = 2
-    else
-      color_id_offset = 1
-    end if
 
     if ( zero_initial_guess ) then
       do ldomID=1, mesh2D%LOCAL_MESH_NUM
@@ -218,21 +235,21 @@ contains
       call PROF_rapend( "Poisson2dGlobal_smoother_res", 1 )
     end if
 
-    call PROF_rapstart( "Poisson2dGlobal_smoother_rb", 1 )
-    ! Red
-    call this%advance_itr_1step_color( &
-      q, res,                                          &
-      f, aux_var(AUXVAR_QX_ID), aux_var(AUXVAR_QY_ID), &
-      var_comm, aux_comm, Dx, Dy, Lift, mesh2D,        &
-      .false., mod(color_id_offset,2)                  )
-
-    ! Black
-    call this%advance_itr_1step_color( &
-      q, res,                                          &
-      f, aux_var(AUXVAR_QX_ID), aux_var(AUXVAR_QY_ID), &
-      var_comm, aux_comm, Dx, Dy, Lift, mesh2D,        &
-      .false., mod(color_id_offset+1,2)                )
-    call PROF_rapend( "Poisson2dGlobal_smoother_rb", 1 )
+    call PROF_rapstart( "Poisson2dGlobal_smoother_mc", 1 )
+    ! Multicolor ordering: 0,1,2,3 for pre-smoothing and 3,2,1,0 for post-smoothing
+    do ic=1, NUM_COLOR
+      if ( pre_or_post_smooth == MGSmoother_PRE_ID ) then
+        color_seq = ic - 1
+      else
+        color_seq = NUM_COLOR - ic
+      end if
+      call this%advance_itr_1step_color( &
+        q, res,                                          &
+        f, aux_var(AUXVAR_QX_ID), aux_var(AUXVAR_QY_ID), &
+        var_comm, aux_comm, Dx, Dy, Lift, mesh2D,        &
+        .false., color_seq                               )
+    end do
+    call PROF_rapend( "Poisson2dGlobal_smoother_mc", 1 )
 
     if ( cal_res_flag ) then
       call this%advance_itr_1step_color( &
@@ -252,12 +269,14 @@ contains
 !-- private -----------------------
 
   !> Update q for elements with a specified color (or evaluate the residual if cal_res_flag = .true.)
+  !! color_seq (0, ..., NUM_COLOR-1) = 2 * panel_group + color_id, 
+  !! where panel_group = 1 for panels 5 and 6 (otherwise 0) and color_id is the red-black color in each tile.
 !OCL SERIAL
   subroutine Poisson2dGlobal_smoother_advance_itr_1step_color( this, &
     q, res,                                                    &
     f, qx, qy,                                                 &
     var_comm, aux_comm, Dx, Dy, Lift, mesh2D,                  &
-    cal_res_flag, color_id )
+    cal_res_flag, color_seq )
     implicit none
     class(MGSmoother_Poisson2D), intent(inout) :: this
     type(MeshField2D), intent(inout), target :: q
@@ -272,10 +291,12 @@ contains
     type(SparseMat), intent(in) :: Lift
     class(MeshBase2D), intent(in), target :: mesh2D
     logical, intent(in) :: cal_res_flag
-    integer, intent(in) :: color_id
+    integer, intent(in) :: color_seq
 
     integer :: ldomID
     class(LocalMesh2D), pointer :: lmesh2D
+    integer :: color_id
+    integer :: panel_group
 
     type(MeshFieldContainer) :: var_comm_list(1)
     type(MeshFieldContainer) :: aux_comm_list(2)
@@ -304,8 +325,18 @@ contains
     call aux_comm%Exchange()
     call aux_comm%Get( aux_comm_list, 1 )
 
+    color_id = mod( color_seq, 2 )
     do ldomID=1, mesh2D%LOCAL_MESH_NUM
       lmesh2D => mesh2D%lcmesh_list(ldomID)
+
+      ! Skip local meshes which do not belong to the panel group of the current color
+      if ( lmesh2D%panelID == 5 .or. lmesh2D%panelID == 6 ) then
+        panel_group = 1
+      else
+        panel_group = 0
+      end if
+      if ( ( .not. cal_res_flag ) .and. panel_group /= color_seq / 2 ) cycle
+
       call this%cal_q_lc_elem_PCG( &
         q%local(ldomID)%val, res%local(ldomID)%val,               &
         color_id, cal_res_flag, f%local(ldomID)%val,              &
@@ -353,6 +384,10 @@ contains
 
   !> Element-block Gauss-Seidel update with the PCG method for element-local problems
   !! (or evaluation of the residual, res = rhs - A q, if cal_res = .true.)
+  !! The element-local problem A~_KK dq = r is solved as (M A~_KK) dq = M r, 
+  !! because M A~_KK (M: mass matrix of the reference element) is (approximately) symmetric,
+  !! while A~_KK itself is not symmetric in the Euclidean inner product. 
+  !! Applying the CG method directly to A~_KK can break down for elements near panel corners.
 !OCL SERIAL
   subroutine cal_q_lc_elem_PCG( this, q, res,  &
     color_id, cal_res, rhs, qx, qy,            &
@@ -399,6 +434,10 @@ contains
 
     real(RP) :: PmatDiag(elem%Np)
     real(RP) :: hk
+    real(RP) :: int_w(elem%Np)     !< Row sums of the mass matrix (used to scale the preconditioner)
+    real(RP) :: MassMat1D(elem%Nfp,elem%Nfp) !< 1D mass matrix (M = M1D x M1D for the quadrilateral element)
+    real(RP) :: ones(elem%Np)
+    real(RP) :: Mr(elem%Np)
     real(RP), parameter :: c1 = 1.0_RP
     real(RP), parameter :: c2 = 1.0_RP
 
@@ -417,11 +456,16 @@ contains
 
     parity_max = merge(0, 1, cal_res)
 
+    ! Extract the 1D mass matrix from the 2D one: M(i1+(j1-1)Nfp, i2+(j2-1)Nfp) = M1D(i1,i2) * M1D(j1,j2)
+    MassMat1D(:,:) = elem%M(1:elem%Nfp,1:elem%Nfp) / sqrt( elem%M(1,1) )
+    ones(:) = 1.0_RP
+    call apply_mass_tensor2D( int_w, ones, MassMat1D, elem%Nfp )
+
     !$omp parallel private( j0, j_int, ncol, i, ke, &
     !$omp gtau, Fx,Fy,BndFlx,LiftDFlx,              &
     !$omp Sig,Sig_e, Ax,x,r,z,q_,                   &
     !$omp rnorm0,rnorm, rz_old,rz_new, alpha,beta,  &
-    !$omp itr, PmatDiag, hk )
+    !$omp itr, PmatDiag, hk, Mr )
     do parity=0, parity_max
 
       if ( cal_res ) then
@@ -444,7 +488,7 @@ contains
 
         !- Penalty parameter (tau~ = tau * Gsqrt * G^{ij} n_i n_j on the face nodes)
         call cal_penalty( gtau, &
-          ke, iM, lmesh, elem   )
+          ke, iM, this%penalty_coef, lmesh, elem )
 
         call eval_Ax( Ax, &
           ke, q, qx, qy, gtau,            &
@@ -456,13 +500,16 @@ contains
         if ( cal_res ) then
           res(:,ke) = r(:)
         else
+          ! Mass-matrix-weighted residual for the system (M A~_KK) dq = M r
+          call apply_mass_tensor2D( Mr, r, MassMat1D, elem%Nfp )
+          r(:) = Mr(:)
           rnorm0 = sqrt( sum( r(:) * r(:) ) )
 
           if ( rnorm0 > 1.0E-16_RP ) then
             ! Precond: physical element width is estimated using the covariant metric
             hk = 4.0_RP / maxval( lmesh%Escale(:,ke,1,1) / sqrt( lmesh%G_ij(:,ke,1,1) ) &
                                 + lmesh%Escale(:,ke,2,2) / sqrt( lmesh%G_ij(:,ke,2,2) ) )
-            PmatDiag(:) = lmesh%Gsqrt(:,ke) * ( c1 * elem%PolyOrder**2 / hk + c2 / hk**2 )
+            PmatDiag(:) = int_w(:) * lmesh%Gsqrt(:,ke) * ( c1 * elem%PolyOrder**2 / hk + c2 / hk**2 )
 
             x(:) = q(:,ke)
             z(:) = r(:) / PmatDiag(:)
@@ -477,6 +524,8 @@ contains
                 ke, q_, gtau, Sig, Sig_e,  &
                 BndFlx, Fx, Fy, LiftDFlx,  &
                 Dx, Dy, Lift, iM, lmesh, elem )
+              call apply_mass_tensor2D( Mr, Ax, MassMat1D, elem%Nfp )
+              Ax(:) = Mr(:)
 
               alpha = rz_old / sum(q_(:) * Ax(:))
               x(:) = x(:) + alpha * q_(:)
@@ -519,13 +568,14 @@ contains
   !! the metric of the own element is used.
 !OCL SERIAL
   subroutine cal_penalty( gtau, &
-    ke, iM, lmesh, elem )
+    ke, iM, penalty_coef, lmesh, elem )
     implicit none
     class(LocalMesh2D), intent(in) :: lmesh
     class(ElementBase2D), intent(in) :: elem
     real(RP), intent(out) :: gtau(elem%NfpTot)
     integer, intent(in) :: ke
     integer, intent(in) :: iM(elem%NfpTot)
+    real(RP), intent(in) :: penalty_coef  !< Coefficient C_tau
 
     real(RP) :: nx(elem%NfpTot), ny(elem%NfpTot)
     !------------------------------------------
@@ -533,7 +583,7 @@ contains
     nx(:) = lmesh%normal_fn(:,ke,1)
     ny(:) = lmesh%normal_fn(:,ke,2)
 
-    gtau(:) = PENALTY_COEF * 0.5_RP * real( elem%PolyOrder * ( elem%PolyOrder + 1 ), kind=RP ) &
+    gtau(:) = penalty_coef * 0.5_RP * real( elem%PolyOrder * ( elem%PolyOrder + 1 ), kind=RP ) &
             * lmesh%Fscale(:,ke) * lmesh%Gsqrt(iM,ke)                                  &
             * (            lmesh%GIJ(iM,ke,1,1) * nx(:) * nx(:)                        &
                 + 2.0_RP * lmesh%GIJ(iM,ke,1,2) * nx(:) * ny(:)                        &
@@ -766,5 +816,41 @@ contains
       + 0.5_RP * gtau(:) * dq(:)
     return
   end subroutine cal_bndflx_itr_2
+
+
+  !> Apply the mass matrix of a quadrilateral element using its tensor-product structure:
+  !! y = (M1D x M1D) x, i.e., y(i,j) = sum_{a,b} M1D(i,a) M1D(j,b) x(a,b)
+!OCL SERIAL
+  subroutine apply_mass_tensor2D( y, x, M1D, Nfp )
+    implicit none
+    integer, intent(in) :: Nfp
+    real(RP), intent(out) :: y(Nfp,Nfp)
+    real(RP), intent(in) :: x(Nfp,Nfp)
+    real(RP), intent(in) :: M1D(Nfp,Nfp)
+
+    real(RP) :: tmp(Nfp,Nfp)
+    integer :: i, j, a
+    !-------------------------------------------
+
+    ! tmp(i,b) = sum_a M1D(i,a) x(a,b)
+    do j=1, Nfp
+    do i=1, Nfp
+      tmp(i,j) = 0.0_RP
+      do a=1, Nfp
+        tmp(i,j) = tmp(i,j) + M1D(i,a) * x(a,j)
+      end do
+    end do
+    end do
+    ! y(i,j) = sum_b M1D(j,b) tmp(i,b)
+    do j=1, Nfp
+    do i=1, Nfp
+      y(i,j) = 0.0_RP
+      do a=1, Nfp
+        y(i,j) = y(i,j) + M1D(j,a) * tmp(i,a)
+      end do
+    end do
+    end do
+    return
+  end subroutine apply_mass_tensor2D
 
 end module mod_poisson2dGlobal_smoother
