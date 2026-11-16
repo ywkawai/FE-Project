@@ -7,7 +7,7 @@
 !<
 !-------------------------------------------------------------------------------
 #include "scaleFElib.h"
-program test_poison2d_multigrid
+program test_poisson2d_multigrid
   !-----------------------------------------------------------------------------
   !
   !++ used modules
@@ -173,7 +173,7 @@ contains
     
     !-- setup scale_io
     conf_name = IO_ARG_getfname( ismaster )
-    call IO_setup( "test_poison2d_multigrid", conf_name )
+    call IO_setup( "test_poisson2d_multigrid", conf_name )
     
     !-- setup log
     call IO_LOG_setup( myrank, ismaster )   
@@ -304,4 +304,4 @@ contains
     call PRC_MPIfinish()
     return
   end subroutine final
-end program test_poison2d_multigrid
+end program test_poisson2d_multigrid

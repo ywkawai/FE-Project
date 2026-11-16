@@ -7,7 +7,7 @@
 !<
 !-------------------------------------------------------------------------------
 #include "scaleFElib.h"
-program test_multigrid3d
+program test_poisson3d_multigrid
   !-----------------------------------------------------------------------------
   !
   !++ used modules
@@ -25,7 +25,7 @@ program test_multigrid3d
   use scale_mesh_cubedom3d, only: MeshCubeDom3D
   use scale_mesh_hierarchy_3d, only: MeshHierarchy3D
 
-  use scale_meshfield_base, only: MeshField3d
+  use scale_meshfield_base, only: MeshField3D
 
   use scale_file_history_meshfield, only: &
     FILE_HISTORY_meshfield_put,           &
@@ -314,4 +314,4 @@ contains
     call PRC_MPIfinish()
     return
   end subroutine final
-end program test_multigrid3d
+end program test_poisson3d_multigrid
