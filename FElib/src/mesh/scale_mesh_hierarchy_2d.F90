@@ -428,7 +428,7 @@ contains
       lcmesh_c => coarse_lcmesh_list(lcdomID_c)
 
       i_c = (ke2i(ke)+1)/2; j_c = (ke2j(ke)+1)/2
-      ke_c = i_c + (j_c-1)*lcmesh_c%NeX/2
+      ke_c = i_c + (j_c-1)*lcmesh_c%NeX
       this%Ic2f_emap(ke) = ke_c
 
       i = ke2i(ke) - 2*(i_c-1)
