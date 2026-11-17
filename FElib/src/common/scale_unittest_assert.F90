@@ -132,6 +132,7 @@ contains
       else
         call report_failure( label, 'The condition is false.' )
       end if
+      call abort_if_required()
     end if
     return
   end subroutine UNITTEST_assert_true
@@ -151,6 +152,7 @@ contains
     else
       write(msg,'(a,es15.7,a,es15.7)') 'val=', val, ' is not less than bound=', bound
       call report_failure( label, msg )
+      call abort_if_required()
     end if
     return
   end subroutine UNITTEST_assert_less
@@ -170,6 +172,7 @@ contains
     else
       write(msg,'(a,es15.7,a,es15.7)') 'val=', val, ' is not greater than bound=', bound
       call report_failure( label, msg )
+      call abort_if_required()
     end if
     return
   end subroutine UNITTEST_assert_greater
