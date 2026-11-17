@@ -25,6 +25,7 @@ module scale_mesh_hierarchy_2d
   use scale_localmesh_2d, only: LocalMesh2D
   use scale_mesh_base2d, only: MeshBase2D
   use scale_mesh_rectdom2d, only: MeshRectDom2D
+  use scale_mesh_cubedspheredom2d, only: MeshCubedSphereDom2D
 
   use scale_mesh_hierarchy_base, only: &
     MeshHierarchyBase_Init, &
@@ -136,6 +137,18 @@ contains
       call PRC_abort
     end if
 
+    !- Check the consistency of the number of elements in h-mesh levels
+    if ( h_LEVEL_NUM > 0 ) then
+      select type(parent_mesh)
+      type is (MeshRectDom2D)
+        call check_hlevel_NeG( NeGX_list, NeGY_list, h_LEVEL_NUM, &
+          parent_mesh%NeGX, parent_mesh%NeGY, .false.             )
+      type is (MeshCubedSphereDom2D)
+        call check_hlevel_NeG( NeGX_list, NeGY_list, h_LEVEL_NUM, &
+          parent_mesh%NeGX, parent_mesh%NeGY, .true.              )
+      end select
+    end if
+
     !- Setup p-mesh hierarchy
 
     allocate( this%elem2D_list(p_LEVEL_NUM) )
@@ -152,6 +165,10 @@ contains
         call construct_rectdom2D_mesh( this, this%p_mesh_list(poly_lev)%ptr, &
           parent_mesh%NeGX, parent_mesh%NeGY,     &
           parent_mesh, this%elem2D_list(poly_lev) )
+      type is (MeshCubedSphereDom2D)
+        call construct_cubedspheredom2D_mesh( this, this%p_mesh_list(poly_lev)%ptr, &
+          parent_mesh%NeGX, parent_mesh%NeGY,     &
+          parent_mesh, this%elem2D_list(poly_lev) )
       end select
     end do
 
@@ -164,25 +181,30 @@ contains
 
     !- Setup h-mesh hierarchy
 
-    allocate( this%h_mesh_list(this%NUM_hMG_LEVEL) )
+    if ( this%NUM_hMG_LEVEL > 0 ) then
+      allocate( this%h_mesh_list(this%NUM_hMG_LEVEL) )
 
-    this%h_mesh_list(MESH_HIERARCHY_hMG_FINEST_LEVEL)%ptr => this%p_mesh_list(this%NUM_pMG_LEVEL)%ptr
-    do h_lev=MESH_HIERARCHY_hMG_FINEST_LEVEL + 1, this%NUM_hMG_LEVEL
-      select type(parent_mesh)
-      type is (MeshRectDom2D)
-        call construct_rectdom2D_mesh( this, this%h_mesh_list(h_lev)%ptr, &
-          NeGX_list(h_lev), NeGY_list(h_lev),                             &
-          parent_mesh, this%elem2D_list(p_LEVEL_NUM) )
-      end select
-    end do
+      this%h_mesh_list(MESH_HIERARCHY_hMG_FINEST_LEVEL)%ptr => this%p_mesh_list(this%NUM_pMG_LEVEL)%ptr
+      do h_lev=MESH_HIERARCHY_hMG_FINEST_LEVEL + 1, this%NUM_hMG_LEVEL
+        select type(parent_mesh)
+        type is (MeshRectDom2D)
+          call construct_rectdom2D_mesh( this, this%h_mesh_list(h_lev)%ptr, &
+            NeGX_list(h_lev), NeGY_list(h_lev),                             &
+            parent_mesh, this%elem2D_list(p_LEVEL_NUM) )
+        type is (MeshCubedSphereDom2D)
+          call construct_cubedspheredom2D_mesh( this, this%h_mesh_list(h_lev)%ptr, &
+            NeGX_list(h_lev), NeGY_list(h_lev),                                    &
+            parent_mesh, this%elem2D_list(p_LEVEL_NUM) )
+        end select
+      end do
 
-    allocate( this%h_level(this%NUM_hMG_LEVEL) )
+      allocate( this%h_level(this%NUM_hMG_LEVEL) )
 
-    do h_lev=MESH_HIERARCHY_hMG_FINEST_LEVEL, this%NUM_hMG_LEVEL
-      call this%h_level(h_lev)%Init( h_lev, this%h_mesh_list(h_lev)%ptr, &
-        this%h_mesh_list, this%NUM_hMG_LEVEL, MESH_HIERARCHY_TYPE_hMG )
-    end do
-
+      do h_lev=MESH_HIERARCHY_hMG_FINEST_LEVEL, this%NUM_hMG_LEVEL
+        call this%h_level(h_lev)%Init( h_lev, this%h_mesh_list(h_lev)%ptr, &
+          this%h_mesh_list, this%NUM_hMG_LEVEL, MESH_HIERARCHY_TYPE_hMG )
+      end do
+    end if
     return
   end subroutine MeshHierarchy2D_Init
 
@@ -209,24 +231,30 @@ contains
       select type(mesh2D_ptr)
       type is (MeshRectDom2D)
         call mesh2D_ptr%Final()
+      type is (MeshCubedSphereDom2D)
+        call mesh2D_ptr%Final()
       end select
     end do
     deallocate( this%p_mesh_list )
 
     ! h-mesh hierarchy finalization
-    do h_lev=MESH_HIERARCHY_hMG_FINEST_LEVEL, this%NUM_hMG_LEVEL
-      call this%h_level(h_lev)%Final()
-    end do
-    deallocate( this%h_level )
+    if ( this%NUM_hMG_LEVEL > 0 ) then
+      do h_lev=MESH_HIERARCHY_hMG_FINEST_LEVEL, this%NUM_hMG_LEVEL
+        call this%h_level(h_lev)%Final()
+      end do
+      deallocate( this%h_level )
 
-    do h_lev=MESH_HIERARCHY_hMG_FINEST_LEVEL + 1, this%NUM_hMG_LEVEL
-      mesh2D_ptr => this%h_mesh_list(h_lev)%ptr
-      select type(mesh2D_ptr)
-      type is (MeshRectDom2D)
-        call mesh2D_ptr%Final()
-      end select
-    end do
-    deallocate( this%h_mesh_list )
+      do h_lev=MESH_HIERARCHY_hMG_FINEST_LEVEL + 1, this%NUM_hMG_LEVEL
+        mesh2D_ptr => this%h_mesh_list(h_lev)%ptr
+        select type(mesh2D_ptr)
+        type is (MeshRectDom2D)
+          call mesh2D_ptr%Final()
+        type is (MeshCubedSphereDom2D)
+          call mesh2D_ptr%Final()
+        end select
+      end do
+      deallocate( this%h_mesh_list )
+    end if
     
     !-
     call MeshHierarchyBase_Final( this )
@@ -244,11 +272,11 @@ contains
       MeshHierarchy_construct_pMG_mat1D
     implicit none
     class(MeshHierarchyLevel2D), intent(inout) :: this
-    integer, intent(in) :: level_id
-    class(MeshBase2D), intent(in) :: mesh2D
-    integer, intent(in) :: LEVEL_NUM
-    class(MeshPtr2D), intent(in), target :: mesh_list(LEVEL_NUM)
-    integer, intent(in) :: hierarchy_type
+    integer, intent(in) :: level_id                                 !< ID of the hierarchy level
+    class(MeshBase2D), intent(in) :: mesh2D                         !< Object for the 2D mesh at this hierarchy level
+    integer, intent(in) :: LEVEL_NUM                                !< Total number of levels in the hierarchy
+    class(MeshPtr2D), intent(in), target :: mesh_list(LEVEL_NUM)    !< Array of mesh pointers for each level
+    integer, intent(in) :: hierarchy_type                           !< Type of the mesh hierarchy (p-MG or h-MG)
 
     integer :: ldom_id
     !-------------------------------------------------------------
@@ -291,7 +319,7 @@ contains
 
       do ldom_id=1, mesh2D%LOCAL_MESH_NUM
         call this%mg_local(ldom_id)%Init( mesh_list(level_id)%ptr%lcmesh_list(ldom_id), &
-          this%coarse_mesh%ptr%lcmesh_list, mesh_list(level_id)%ptr%refElem2D           )
+          this%coarse_mesh%ptr%lcmesh_list, ldom_id, mesh_list(level_id)%ptr%refElem2D  )
       end do
     end if
 
@@ -325,12 +353,13 @@ contains
   !> Initialize an object for 2D local mesh data for multigrid
 !OCL SERIAL
   subroutine MeshHierarchyLocalMGData2D_Init( this, &
-    lcmesh2D, coarse_lcmesh_list, elem2D )
+    lcmesh2D, coarse_lcmesh_list, lcdomID, elem2D )
     use scale_mesh_hierarchy_base, only: MeshHierarchyLocalMGDataBase_Init
     implicit none
     class(MeshHierarchyLocalMGData2D), intent(inout) :: this
     class(LocalMesh2D), intent(in) :: lcmesh2D
     class(LocalMesh2D), intent(in), target :: coarse_lcmesh_list(:)
+    integer, intent(in) :: lcdomID                                  !< Local domain ID of the fine local mesh
     class(ElementBase2D), intent(in) :: elem2D
 
     integer :: i, j
@@ -359,10 +388,25 @@ contains
 
     
     ! Current implementation assumes identical tileID & lcdomID in both coarsened meshes          
+
+    if ( mod(lcmesh2D%NeX,2) /= 0 .or. mod(lcmesh2D%NeY,2) /= 0 ) then
+      LOG_ERROR('MeshHierarchyLocalMGData2D_Init',*) 'NeX/NeY of each local mesh must be even for h-MG coarsening. NeX, NeY=', lcmesh2D%NeX, lcmesh2D%NeY
+      call PRC_abort
+    end if
+
+    lcmesh_c => coarse_lcmesh_list(lcdomID)
+
+    if (      lcmesh_c%NeX * 2 /= lcmesh2D%NeX .or. lcmesh_c%NeY * 2 /= lcmesh2D%NeY &
+         .or. lcmesh_c%tileID  /= lcmesh2D%tileID ) then
+      LOG_ERROR('MeshHierarchyLocalMGData2D_Init',*) 'Inconsistent coarse local mesh (NeX, NeY, tileID).'
+      call PRC_abort
+    end if
+
     this%CoarseLocalMesh_tileIDlist(1) = lcmesh2D%tileID
-    this%CoarseLocalMesh_lcdomIDlist(1) = 1
+    this%CoarseLocalMesh_lcdomIDlist(1) = lcdomID
 
     ! Preparation
+
     do j=1, lcmesh2D%NeY
     do i=1, lcmesh2D%NeX
       ke = i + (j-1)*lcmesh2D%NeX
@@ -376,6 +420,7 @@ contains
 !    write(*,*) "  Constructing local MG data for h-mesh..."
 
     allocate( this%If2c_emap(4,lcmesh2D%Ne/4) )
+    this%If2c_emap(:,:) = 0
 
     do ke=lcmesh2D%NeS, lcmesh2D%NeE
       lcTileID_c = this%CoarseLocalMesh_tileIDlist(1)
@@ -384,7 +429,7 @@ contains
       lcmesh_c => coarse_lcmesh_list(lcdomID_c)
 
       i_c = (ke2i(ke)+1)/2; j_c = (ke2j(ke)+1)/2
-      ke_c = i_c + (j_c-1)*lcmesh2D%NeX/2
+      ke_c = i_c + (j_c-1)*lcmesh_c%NeX
       this%Ic2f_emap(ke) = ke_c
 
       i = ke2i(ke) - 2*(i_c-1)
@@ -403,7 +448,14 @@ contains
           (/ ( 1.0_RP - r_c ) * ( 1.0_RP - s_c ), ( 1.0_RP + r_c ) * ( 1.0_RP - s_c ),  &
              ( 1.0_RP - r_c ) * ( 1.0_RP + s_c ), ( 1.0_RP + r_c ) * ( 1.0_RP + s_c )  /)
       end do
-    end do  
+    end do
+
+    ! Every coarse element must have exactly four child elements
+    if ( any( this%If2c_emap(:,:) == 0 ) ) then
+      LOG_ERROR('MeshHierarchyLocalMGData2D_Init',*) 'Some coarse elements have no child elements in the fine mesh. Check the element mapping!'
+      call PRC_abort
+    end if
+        
     return
   end subroutine MeshHierarchyLocalMGData2D_Init
 
@@ -418,7 +470,62 @@ contains
     return
   end subroutine MeshHierarchyLocalMGData2D_Final
 
-!-
+!- Private subroutines -------------------------------------------
+
+  !> Check the consistency of the number of elements specified for h-mesh levels
+!OCL SERIAL
+  subroutine check_hlevel_NeG( NeGX_list, NeGY_list, h_LEVEL_NUM, &
+    NeGX, NeGY, is_cubedsphere )
+    implicit none
+    integer, intent(in) :: h_LEVEL_NUM              !< Number of h-mesh levels
+    integer, intent(in) :: NeGX_list(h_LEVEL_NUM)   !< Number of elements in x-direction for h-mesh levels
+    integer, intent(in) :: NeGY_list(h_LEVEL_NUM)   !< Number of elements in y-direction for h-mesh levels
+    integer, intent(in) :: NeGX                     !< Number of elements in x-direction of the parent mesh
+    integer, intent(in) :: NeGY                     !< Number of elements in y-direction of the parent mesh
+    logical, intent(in) :: is_cubedsphere           !< Flag whether the parent mesh is a cubed-sphere mesh
+
+    integer :: h_lev
+    logical :: err_flag
+    !-------------------------------------------------------------
+
+    err_flag = .false.
+
+    ! The finest h-mesh level shares the mesh with the coarsest p-mesh level,
+    ! and thus has the same number of elements as the parent mesh.
+    if ( NeGX_list(1) /= NeGX .or. NeGY_list(1) /= NeGY ) then
+      LOG_ERROR('MeshHierarchy2D_Init',*) 'NeGX_list(1)/NeGY_list(1) must equal NeGX/NeGY of the parent mesh. ', &
+        'NeGX_list(1), NeGY_list(1)=', NeGX_list(1), NeGY_list(1), ', NeGX, NeGY=', NeGX, NeGY
+      err_flag = .true.
+    end if
+
+    ! The number of elements must be halved at each coarsening step.
+    do h_lev=1, h_LEVEL_NUM-1
+      if (      NeGX_list(h_lev+1)*2 /= NeGX_list(h_lev) &
+           .or. NeGY_list(h_lev+1)*2 /= NeGY_list(h_lev) ) then
+        LOG_ERROR('MeshHierarchy2D_Init',*) 'The number of elements must be halved at each h-mesh level. ', &
+          'h_lev=', h_lev, ': (NeGX, NeGY)=', NeGX_list(h_lev), NeGY_list(h_lev), &
+          ' -> ', NeGX_list(h_lev+1), NeGY_list(h_lev+1)
+        err_flag = .true.
+      end if
+    end do
+
+    ! For cubed-sphere meshes, each panel must have the same number of elements in both directions.
+    if ( is_cubedsphere ) then
+      do h_lev=1, h_LEVEL_NUM
+        if ( NeGX_list(h_lev) /= NeGY_list(h_lev) ) then
+          LOG_ERROR('MeshHierarchy2D_Init',*) 'For cubed-sphere meshes, NeGX_list must equal NeGY_list. ', &
+            'h_lev=', h_lev, ': NeGX, NeGY=', NeGX_list(h_lev), NeGY_list(h_lev)
+          err_flag = .true.
+        end if
+      end do
+    end if
+
+    if ( err_flag ) call PRC_abort
+
+    return
+  end subroutine check_hlevel_NeG
+
+  !> Construct a rectangular domain 2D mesh as a child mesh
 !OCL SERIAL
   subroutine construct_rectdom2D_mesh( this, child_mesh_base_ptr, &
     NeGX, NeGY,         &
@@ -438,11 +545,37 @@ contains
     call child_mesh_ptr%Init( NeGX, NeGY,                                                  &
       parent_mesh%xmin_gl, parent_mesh%xmax_gl, parent_mesh%ymin_gl, parent_mesh%ymax_gl,  &
       parent_mesh%isPeriodicX, parent_mesh%isPeriodicY,                                    &
-      elem2D, 1, parent_mesh%NprcX, parent_mesh%NprcY )
+      elem2D, parent_mesh%LOCAL_MESH_NUM, parent_mesh%NprcX, parent_mesh%NprcY             )
 
     call child_mesh_ptr%Generate()
 
     child_mesh_base_ptr => child_mesh_ptr
     return
   end subroutine construct_rectdom2D_mesh
+
+  !> Construct a cubed-sphere domain 2D mesh as a child mesh
+!OCL SERIAL
+  subroutine construct_cubedspheredom2D_mesh( this, child_mesh_base_ptr, &
+    NeGX, NeGY,         &
+    parent_mesh, elem2D )
+    implicit none
+    class(MeshHierarchy2D), intent(inout) :: this
+    class(MeshBase2D), intent(out), pointer :: child_mesh_base_ptr
+    integer, intent(in) :: NeGX
+    integer, intent(in) :: NeGY
+    type(MeshCubedSphereDom2D), intent(in) :: parent_mesh
+    type(QuadrilateralElement), intent(in) :: elem2D
+
+    type(MeshCubedSphereDom2D), pointer :: child_mesh_ptr
+    !-------------------------------------------------------------
+
+    allocate( child_mesh_ptr )
+    call child_mesh_ptr%Init( NeGX, NeGY, parent_mesh%RPlanet,      &
+      elem2D, parent_mesh%LOCAL_MESH_NUM, nproc=parent_mesh%PRC_NUM )
+
+    call child_mesh_ptr%Generate()
+
+    child_mesh_base_ptr => child_mesh_ptr
+    return
+  end subroutine construct_cubedspheredom2D_mesh
 end module scale_mesh_hierarchy_2d

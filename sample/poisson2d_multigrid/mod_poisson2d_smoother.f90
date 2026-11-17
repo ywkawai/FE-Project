@@ -375,6 +375,11 @@ contains
     return
   end subroutine cal_grad_lc
 
+  !> Element-block Gauss-Seidel update with the PCG method for element-local problems
+  !! (or evaluation of the residual, res = rhs - A q, if cal_res = .true.)
+  !! The element-local problem A_KK dq = r is solved as (M A_KK) dq = M r, 
+  !! because M A_KK (M: mass matrix of the reference element) is symmetric,
+  !! while A_KK itself is not symmetric in the Euclidean inner product.
 !OCL SERIAL
   subroutine cal_q_lc_elem_PCG( this, q, res,        &
     color_id, cal_res, is_mg_top_level, rhs, qx, qy, &
@@ -426,6 +431,10 @@ contains
 
     real(RP) :: PmatDiag(elem%Np)
     real(RP) :: hk
+    real(RP) :: int_w(elem%Np)     !< Row sums of the mass matrix (used to scale the preconditioner)
+    real(RP) :: MassMat1D(elem%Nfp,elem%Nfp) !< 1D mass matrix (M = M1D x M1D for the quadrilateral element)
+    real(RP) :: ones(elem%Np)
+    real(RP) :: Mr(elem%Np)
     real(RP), parameter :: c1 = 1.0_RP
     real(RP), parameter :: c2 = 1.0_RP
 
@@ -444,11 +453,16 @@ contains
 
     parity_max = merge(0, 1, cal_res)
 
+    ! Extract the 1D mass matrix from the 2D one: M(i1+(j1-1)Nfp, i2+(j2-1)Nfp) = M1D(i1,i2) * M1D(j1,j2)
+    MassMat1D(:,:) = elem%M(1:elem%Nfp,1:elem%Nfp) / sqrt( elem%M(1,1) )
+    ones(:) = 1.0_RP
+    call apply_mass_tensor2D( int_w, ones, MassMat1D, elem%Nfp )
+
     !$omp parallel private( j0, j_int, ncol, i, ke, &
     !$omp gtau, Fx,Fy,BndFlx,LiftDFlx,              &
     !$omp Grad_q,Grad_q_e, Ax,x,r,z,q_,             &
     !$omp rnorm0,rnorm, rz_old,rz_new, alpha,beta,  &
-    !$omp itr, PmatDiag, hk )
+    !$omp itr, PmatDiag, hk, Mr )
     do parity=0, parity_max
 
       if ( cal_res ) then
@@ -482,12 +496,15 @@ contains
         if ( cal_res ) then
           res(:,ke) = r(:)
         else
+          ! Mass-matrix-weighted residual for the system (M A_KK) dq = M r
+          call apply_mass_tensor2D( Mr, r, MassMat1D, elem%Nfp )
+          r(:) = Mr(:)
           rnorm0 = sqrt( sum( r(:) * r(:) ) )
 
           if ( rnorm0 > 1.0E-16_RP ) then
             ! Precond
             hk = 4.0_RP / maxval(lmesh%Escale(:,ke,1,1) + lmesh%Escale(:,ke,2,2))
-            PmatDiag(:) = c1 * elem%PolyOrder**2 / hk + c2 / hk**2
+            PmatDiag(:) = int_w(:) * ( c1 * elem%PolyOrder**2 / hk + c2 / hk**2 )
 
             x(:) = q(:,ke)
             z(:) = r(:) / PmatDiag(:)
@@ -502,6 +519,8 @@ contains
                 ke, q_, gtau, Grad_q, Grad_q_e, &
                 BndFlx, Fx, Fy, LiftDFlx,       &
                 Dx, Dy, Lift, iM, lmesh, elem   )
+              call apply_mass_tensor2D( Mr, Ax, MassMat1D, elem%Nfp )
+              Ax(:) = Mr(:)
 
               alpha = rz_old / sum(q_(:) * Ax(:))
               x(:) = x(:) + alpha * q_(:)
@@ -997,5 +1016,41 @@ contains
     end do; end do
     return
   end subroutine construct_OPT11_elem
+
+
+  !> Apply the mass matrix of a quadrilateral element using its tensor-product structure:
+  !! y = (M1D x M1D) x, i.e., y(i,j) = sum_{a,b} M1D(i,a) M1D(j,b) x(a,b)
+!OCL SERIAL
+  subroutine apply_mass_tensor2D( y, x, M1D, Nfp )
+    implicit none
+    integer, intent(in) :: Nfp
+    real(RP), intent(out) :: y(Nfp,Nfp)
+    real(RP), intent(in) :: x(Nfp,Nfp)
+    real(RP), intent(in) :: M1D(Nfp,Nfp)
+
+    real(RP) :: tmp(Nfp,Nfp)
+    integer :: i, j, a
+    !-------------------------------------------
+
+    ! tmp(i,b) = sum_a M1D(i,a) x(a,b)
+    do j=1, Nfp
+    do i=1, Nfp
+      tmp(i,j) = 0.0_RP
+      do a=1, Nfp
+        tmp(i,j) = tmp(i,j) + M1D(i,a) * x(a,j)
+      end do
+    end do
+    end do
+    ! y(i,j) = sum_b M1D(j,b) tmp(i,b)
+    do j=1, Nfp
+    do i=1, Nfp
+      y(i,j) = 0.0_RP
+      do a=1, Nfp
+        y(i,j) = y(i,j) + M1D(j,a) * tmp(i,a)
+      end do
+    end do
+    end do
+    return
+  end subroutine apply_mass_tensor2D
 
 end module mod_poisson2d_smoother

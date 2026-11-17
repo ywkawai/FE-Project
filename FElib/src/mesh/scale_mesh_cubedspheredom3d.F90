@@ -111,18 +111,18 @@ contains
     implicit none
 
     class(MeshCubedSphereDom3D), intent(inout) :: this
-    integer, intent(in) :: NeGX
-    integer, intent(in) :: NeGY
-    integer, intent(in) :: NeGZ
-    real(RP), intent(in) :: RPlanet
-    real(RP), intent(in) :: dom_Zmin
-    real(RP), intent(in) :: dom_zmax
-    type(HexahedralElement), intent(in), target :: refElem
-    integer, intent(in) :: NLocalMeshPerPrc
-    integer, intent(in), optional :: nproc
-    integer, intent(in), optional :: myrank
-    real(RP), intent(in), optional :: FZ(NeGZ+1)
-    logical, intent(in), optional :: shallow_approx
+    integer, intent(in) :: NeGX                              !< Number of elements in the X-direction on each panel
+    integer, intent(in) :: NeGY                              !< Number of elements in the Y-direction on each panel
+    integer, intent(in) :: NeGZ                              !< Number of elements in the Z-direction
+    real(RP), intent(in) :: RPlanet                          !< Radius of the planet (or sphere) for the cubed-sphere mesh
+    real(RP), intent(in) :: dom_zmin                         !< Minimum Z-coordinate of the domain
+    real(RP), intent(in) :: dom_zmax                         !< Maximum Z-coordinate of the domain
+    type(HexahedralElement), intent(in), target :: refElem   !< Object representing the reference hexahedral element
+    integer, intent(in) :: NLocalMeshPerPrc                  !< Number of local meshes per process
+    integer, intent(in), optional :: nproc                   !< Total number of processes
+    integer, intent(in), optional :: myrank                  !< Rank of the current process
+    real(RP), intent(in), optional :: FZ(NeGZ+1)             !< Z-coordinate of the faces
+    logical, intent(in), optional :: shallow_approx          !< Flag for shallow approximation
 
     integer :: k
     real(RP) :: dz
@@ -139,7 +139,6 @@ contains
     this%zmin_gl = dom_zmin
     this%zmax_gl = dom_zmax
     this%RPlanet = RPlanet
-    this%dom_vol = 4.0_RP / 3.0_RP * PI * ( ( dom_zmax + RPlanet )**3 - ( dom_zmin + RPlanet )**3 )
 
 
     !- Fz
@@ -160,6 +159,12 @@ contains
       this%shallow_approx = shallow_approx
     else
       this%shallow_approx = .true.
+    end if
+
+    if ( this%shallow_approx ) then
+      this%dom_vol = 4.0_RP * PI * RPlanet**2 * ( dom_zmax - dom_zmin )
+    else
+      this%dom_vol = 4.0_RP / 3.0_RP * PI * ( ( dom_zmax + RPlanet )**3 - ( dom_zmin + RPlanet )**3 )
     end if
 
     !--

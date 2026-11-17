@@ -7,7 +7,7 @@
 !<
 !-------------------------------------------------------------------------------
 #include "scaleFElib.h"
-program test_multigrid3d
+program test_poisson3d_multigrid
   !-----------------------------------------------------------------------------
   !
   !++ used modules
@@ -25,7 +25,7 @@ program test_multigrid3d
   use scale_mesh_cubedom3d, only: MeshCubeDom3D
   use scale_mesh_hierarchy_3d, only: MeshHierarchy3D
 
-  use scale_meshfield_base, only: MeshField3d
+  use scale_meshfield_base, only: MeshField3D
 
   use scale_file_history_meshfield, only: &
     FILE_HISTORY_meshfield_put,           &
@@ -72,27 +72,36 @@ program test_multigrid3d
 
 contains
 !OCL SERIAL
-  subroutine set_rhs_lc( f_, qexact_, lmesh, elem )
+  !> Set the exact solution and the right-hand side:
+  !! q = - sin(2 pi (x-1/4)) sin(2 pi (y-1/4)) cos(2 pi kz (z-zmin)/Lz),  f = - (2 + (kz/Lz)^2) (2 pi)^2 q
+  !! where Lz = zmax - zmin, so that q is periodic in the vertical direction (kz = 0 gives the solution independent of z)
+  subroutine set_rhs_lc( f_, qexact_, lmesh, elem, kz, zmin, zmax )
     implicit none
     class(LocalMesh3D), intent(in) :: lmesh
     class(ElementBase3D), intent(in) :: elem
     real(RP), intent(out) :: f_(elem%Np,lmesh%NeA)
     real(RP), intent(out) :: qexact_(elem%Np,lmesh%NeA)
+    integer, intent(in) :: kz   !< Vertical wavenumber of the exact solution (number of waves in the vertical domain)
+    real(RP), intent(in) :: zmin !< Bottom of the domain
+    real(RP), intent(in) :: zmax !< Top of the domain
 
     integer :: ke
+    real(RP) :: kz_eff
     real(RP) :: x(elem%Np)
     real(RP) :: y(elem%Np)
     real(RP) :: z(elem%Np)
     !-----------------------------------------
 
+    kz_eff = real(kz,kind=RP) / ( zmax - zmin )
     do ke=lmesh%NeS, lmesh%NeE
       x(:) = lmesh%pos_en(:,ke,1)
       y(:) = lmesh%pos_en(:,ke,2)
       z(:) = lmesh%pos_en(:,ke,3)
       
       qexact_(:,ke) = - sin( 2.0_RP * PI * ( x(:) - 0.25_RP) ) &
-                      * sin( 2.0_RP * PI * ( y(:) - 0.25_RP) )
-      f_(:,ke) = - qexact_(:,ke) * (2.0_RP*PI)**2 * 2.0_RP
+                      * sin( 2.0_RP * PI * ( y(:) - 0.25_RP) ) &
+                      * cos( 2.0_RP * PI * kz_eff * ( z(:) - zmin ) )
+      f_(:,ke) = - qexact_(:,ke) * (2.0_RP*PI)**2 * ( 2.0_RP + kz_eff**2 )
 
     end do
     return
@@ -110,8 +119,8 @@ contains
     use scale_file_history, only: FILE_HISTORY_reg  
 
     use mod_poisson3d_smoother, only: &
-      MGSmoother_Possion3D_AUX_SCALAR_NUM, &
-      MGSmoother_Possion3D_AUX_HVEC_NUM
+      MGSmoother_Poisson3D_AUX_SCALAR_NUM, &
+      MGSmoother_Poisson3D_AUX_HVEC_NUM
     implicit none
 
     !-
@@ -120,7 +129,7 @@ contains
     real(RP), parameter :: dom_ymin =   0.0_RP
     real(RP), parameter :: dom_ymax = + 1.0_RP
     real(RP), parameter :: dom_zmin =   0.0_RP
-    real(RP), parameter :: dom_zmax = + 1.0_RP
+    real(RP), parameter :: dom_zmax = + 1.0E-1_RP
 
     integer            :: NprcX               = 2
     integer            :: NprcY               = 2
@@ -128,12 +137,14 @@ contains
     integer            :: NeGY                = 2
     integer            :: NeGZ                = 2
     integer            :: PolyOrder           = 1
+    integer            :: VertWaveNum         = 1   !< Vertical wavenumber of the exact solution (0: independent of z)
     logical, parameter :: LumpedMassMatFlag   = .false.
     character(len=H_SHORT) :: TINTEG_SCHEME_TYPE
 
     namelist /PARAM_TEST/ &
       NprcX, NprcY,                &
-      NeGX, NeGY, NeGZ, PolyOrder
+      NeGX, NeGY, NeGZ, PolyOrder, &
+      VertWaveNum
 
     !-
     integer, parameter :: pMG_LV_LIST_MAX = 16
@@ -179,7 +190,7 @@ contains
     
     !-- setup scale_io
     conf_name = IO_ARG_getfname( ismaster )
-    call IO_setup( "test_multigrid3d", conf_name )
+    call IO_setup( "test_poisson3d_multigrid", conf_name )
     
     !-- setup log
     call IO_LOG_setup( myrank, ismaster )   
@@ -265,7 +276,7 @@ contains
     !- Setup an object to provide a MG solver   
     LOG_INFO("Poisson3d_MG_Init",*) "Setup MG solver"
     call mg_solver%Init( mesh_hierarchy, smoother, &
-      MGSmoother_Possion3D_AUX_SCALAR_NUM, MGSmoother_Possion3D_AUX_HVEC_NUM )
+      MGSmoother_Poisson3D_AUX_SCALAR_NUM, MGSmoother_Poisson3D_AUX_HVEC_NUM )
 
     call mg_solver%Set_vcycle_parameter( MG_Vcyc_Num_Max, &
       MG_Threshold_Ratio_Residual_L2,  &
@@ -274,7 +285,8 @@ contains
 
     !- Set the right-hand side and initial guess
     do ldom=1, mesh%LOCAL_MESH_NUM
-      call set_rhs_lc( f%local(ldom)%val, qexact%local(ldom)%val, mesh%lcmesh_list(ldom), refElem )
+      call set_rhs_lc( f%local(ldom)%val, qexact%local(ldom)%val, mesh%lcmesh_list(ldom), refElem, VertWaveNum, &
+        mesh%zmin_gl, mesh%zmax_gl )
       q%local(ldom)%val(:,:) = 0.0_RP
     end do
 
@@ -314,4 +326,4 @@ contains
     call PRC_MPIfinish()
     return
   end subroutine final
-end program test_multigrid3d
+end program test_poisson3d_multigrid

@@ -103,10 +103,10 @@ contains
     use scale_multigrid_solver_base, only: MultiGridSolverBase_Init
     implicit none
     class(MultiGridSolver3D), intent(inout) :: this
-    class(MeshHierarchy3D), intent(in), target :: mesh_hierarchy
-    class(MGSmootherBase3D), intent(in), target :: mg_smoother
-    integer, intent(in) :: aux_var_num
-    integer, intent(in) :: aux_vec_num
+    class(MeshHierarchy3D), intent(in), target :: mesh_hierarchy !< Object to manage 3D mesh hierarchy
+    class(MGSmootherBase3D), intent(in), target :: mg_smoother   !< Object to provide a smoother of the multigrid method
+    integer, intent(in) :: aux_var_num                           !< Number of auxiliary scalar variables used in the smoother
+    integer, intent(in) :: aux_vec_num                           !< Number of auxiliary horizontal vector variables used in the smoother
 
     integer :: lev_p
     integer :: lev_h
@@ -170,8 +170,8 @@ contains
     implicit none
     class(MultiGridSolver3D), intent(inout) :: this
 
-    class(MeshField3D), intent(inout), target :: q
-    class(MeshField3D), intent(inout) :: f
+    class(MeshField3D), intent(inout), target :: q !< Solution (input: initial guess, output: approximate solution)
+    class(MeshField3D), intent(inout) :: f         !< Right-hand side of the linear system
 
     integer :: vcyc_itr
 
@@ -212,14 +212,16 @@ contains
   end subroutine MultiGridSolver3D_solve
 
   !> Do a V-cycle in 3D domain
+  !! This subroutine recursively advances the p-MG levels. 
+  !! When the h-MG hierarchy is used, the h-MG V-cycle is invoked at the coarsest part of the p-MG hierarchy.
 !OCL SERIAL
   recursive subroutine MultiGridSolver3D_do_Vcycle( this, &
     mg_level, f_in, vcyc_itr )
     implicit none
     class(MultiGridSolver3D), intent(inout), target :: this
-    integer, intent(in) :: mg_level
-    type(MeshField3D), intent(inout) :: f_in
-    integer, intent(in) :: vcyc_itr
+    integer, intent(in) :: mg_level          !< Level ID in the p-MG hierarchy
+    type(MeshField3D), intent(inout) :: f_in !< Right-hand side at the current level (restricted residual on coarser levels)
+    integer, intent(in) :: vcyc_itr          !< Iteration number of V-cycles
 
     logical :: invoke_hMG
 
@@ -297,12 +299,14 @@ contains
     return
   end subroutine MultiGridSolver3D_do_Vcycle
 
+  !> Do a V-cycle for the h-MG hierarchy in 3D domain
+  !! This subroutine recursively advances the h-MG levels (the mesh is coarsened only in the horizontal directions). 
 !OCL SERIAL
   recursive subroutine MultiGridSolver3D_do_hMG_Vcycle( this, mg_level, f_in )
     implicit none
     class(MultiGridSolver3D), intent(inout), target :: this
-    integer, intent(in) :: mg_level
-    type(MeshField3D), intent(inout) :: f_in
+    integer, intent(in) :: mg_level          !< Level ID in the h-MG hierarchy
+    type(MeshField3D), intent(inout) :: f_in !< Right-hand side at the current level (restricted residual)
 
     class(MeshHierarchy3D), pointer :: mesh_hierarchy
     class(MGFieldSet3D), pointer :: fs_h
@@ -358,14 +362,16 @@ contains
   end subroutine MultiGridSolver3D_do_hMG_Vcycle
 
 !--
+  !> Restrict a residual field from the p-MG level p_lev to the coarser level p_lev+1
+  !! The L2 projection between polynomial spaces with different orders is used.
 !OCL SERIAL
   subroutine MultiGridSolver3D_Operate_pMG_restriction( this, res_c, &
     res, p_lev )
     implicit none
     class(MultiGridSolver3D), intent(in), target :: this
-    class(MeshField3D), intent(inout) :: res_c
-    class(MeshField3D), intent(in) :: res
-    integer, intent(in) :: p_lev
+    class(MeshField3D), intent(inout) :: res_c !< Restricted residual on the coarser p-MG level (p_lev+1)
+    class(MeshField3D), intent(in) :: res      !< Residual on the p-MG level p_lev
+    integer, intent(in) :: p_lev               !< Level ID in the p-MG hierarchy (finer level)
 
     class(MeshHierarchy3D), pointer :: hierarchy
     integer :: ldomID
@@ -388,14 +394,15 @@ contains
     return
   end subroutine MultiGridSolver3D_Operate_pMG_restriction
 
+  !> Interpolate a correction from the coarser p-MG level p_lev+1 and add it to the field on the level p_lev
 !OCL SERIAL
   subroutine MultiGridSolver3D_Operate_pMG_correction( this, dq, &
     cor_c, p_lev )
     implicit none
     class(MultiGridSolver3D), intent(in), target :: this
-    class(MeshField3D), intent(inout) :: dq
-    class(MeshField3D), intent(in) :: cor_c
-    integer, intent(in) :: p_lev
+    class(MeshField3D), intent(inout) :: dq !< Field on the p-MG level p_lev to which the interpolated correction is added
+    class(MeshField3D), intent(in) :: cor_c !< Correction on the coarser p-MG level (p_lev+1)
+    integer, intent(in) :: p_lev            !< Level ID in the p-MG hierarchy (finer level)
 
     class(MeshHierarchy3D), pointer :: hierarchy
 
@@ -416,15 +423,17 @@ contains
     return
   end subroutine MultiGridSolver3D_Operate_pMG_correction
 
+  !> Restrict a residual field from the h-MG level h_lev to the coarser level h_lev+1
+  !! The transpose of the interpolation operator (Ic2f), weighted by the mass matrix, is used.
 !OCL SERIAL
   subroutine MultiGridSolver3D_Operate_hMG_restriction( this, res_c, &
     res, h_lev )
     use scale_meshfield_base, only: MeshField3D
     implicit none
     class(MultiGridSolver3D), intent(in), target :: this
-    class(MeshField3D), intent(inout) :: res_c
-    class(MeshField3D), intent(in) :: res
-    integer, intent(in) :: h_lev
+    class(MeshField3D), intent(inout) :: res_c !< Restricted residual on the coarser h-MG level (h_lev+1)
+    class(MeshField3D), intent(in) :: res      !< Residual on the h-MG level h_lev
+    integer, intent(in) :: h_lev               !< Level ID in the h-MG hierarchy (finer level)
 
     class(MeshHierarchy3D), pointer :: hierarchy
 
@@ -446,15 +455,17 @@ contains
     return
   end subroutine MultiGridSolver3D_Operate_hMG_restriction
 
+  !> Interpolate a correction from the coarser h-MG level h_lev+1 and add it to the field on the level h_lev
+  !! The trilinear interpolation operator (Ic2f) is used.
 !OCL SERIAL
   subroutine MultiGridSolver3D_Operate_hMG_correction( this, dq, &
     cor_c, h_lev )
     use scale_meshfield_base, only: MeshField3D
     implicit none
     class(MultiGridSolver3D), intent(in), target :: this
-    class(MeshField3D), intent(inout) :: dq
-    class(MeshField3D), intent(in) :: cor_c
-    integer, intent(in) :: h_lev
+    class(MeshField3D), intent(inout) :: dq !< Field on the h-MG level h_lev to which the interpolated correction is added
+    class(MeshField3D), intent(in) :: cor_c !< Correction on the coarser h-MG level (h_lev+1)
+    integer, intent(in) :: h_lev            !< Level ID in the h-MG hierarchy (finer level)
 
     integer :: ldomID
     class(MeshBase3D), pointer :: mesh3D
