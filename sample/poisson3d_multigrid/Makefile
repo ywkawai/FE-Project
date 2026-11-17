@@ -24,6 +24,6 @@ vis:
 clean_analysis:
 	rm -f analysis
 
-$(BUILD_DIR)/test_multigrid3d.o : \
+$(BUILD_DIR)/test_poisson3d_multigrid.o : \
 	$(BUILD_DIR)/mod_poisson3d_smoother.o
 

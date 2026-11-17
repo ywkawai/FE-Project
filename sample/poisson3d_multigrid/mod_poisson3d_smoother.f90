@@ -37,6 +37,7 @@ module mod_poisson3d_smoother
   type, public, extends(MGSmootherBase3D) :: MGSmoother_Poisson3D
     integer :: num_internal_itr_max                !< Maximum number of internal iterations associated with local element solve
     real(RP) :: residual_threshold_l2_internal_itr !< Threshold for each internal iteration associated with local element solve
+    real(RP) :: penalty_coef                       !< Coefficient C_tau in the penalty parameter
 
     integer :: elem_solver_type_id  !< Element solver type ID
 
@@ -52,8 +53,8 @@ module mod_poisson3d_smoother
   end type MGSmoother_Poisson3D
 
   ! public :: poisson_smoother_evaluate_error_norm
-  integer, parameter, public :: MGSmoother_Possion3D_AUX_SCALAR_NUM  = 1
-  integer, parameter, public :: MGSmoother_Possion3D_AUX_HVEC_NUM    = 1
+  integer, parameter, public :: MGSmoother_Poisson3D_AUX_SCALAR_NUM  = 1
+  integer, parameter, public :: MGSmoother_Poisson3D_AUX_HVEC_NUM    = 1
 
   !-----------------------------------------------------------------------------
   !
@@ -67,6 +68,9 @@ module mod_poisson3d_smoother
 
   integer, parameter :: ELEM_SOLVER_DIRECT_ID = 1
   integer, parameter :: ELEM_SOLVER_PCG_ID    = 2
+
+  !> Default value of the coefficient C_tau in the penalty parameter
+  real(RP), parameter :: PENALTY_COEF_DEFAULT = 1.2_RP
 
 contains
   !> Initialization
@@ -89,6 +93,8 @@ contains
 
     character(len=H_SHORT) :: elem_solver = "PCG" !< Element solver type ("DIRECT" or "PCG")
 
+    real(RP) :: penalty_coef = PENALTY_COEF_DEFAULT !< Coefficient C_tau in the penalty parameter (common to all MG levels)
+
     namelist /PARAM_MGSmoother/ &
       num_smooth_itr_max,             &
       residual_threshold_ratio_l2,    &
@@ -97,7 +103,8 @@ contains
       history_residual_step,          &
       num_smooth_itr_max_internal,    &
       residual_threshold_l2_internal, &
-      elem_solver
+      elem_solver,                    &
+      penalty_coef
 
     integer :: ierr
 
@@ -124,6 +131,12 @@ contains
 
     this%num_internal_itr_max = num_smooth_itr_max_internal
     this%residual_threshold_l2_internal_itr = residual_threshold_l2_internal
+
+    if ( penalty_coef <= 0.0_RP ) then
+      LOG_ERROR("MGSmoother_Poisson3D_Init",*) "penalty_coef must be positive. Check!", penalty_coef
+      call PRC_abort
+    end if
+    this%penalty_coef = penalty_coef
 
     !-
     select case ( trim(adjustl(elem_solver)) )
@@ -396,6 +409,11 @@ contains
     return
   end subroutine cal_grad_lc
 
+  !> Element-block Gauss-Seidel update with the PCG method for element-local problems
+  !! (or evaluation of the residual, res = rhs - A q, if cal_res = .true.)
+  !! The element-local problem A_KK dq = r is solved as (M A_KK) dq = M r, 
+  !! because M A_KK (M: mass matrix of the reference element) is symmetric,
+  !! while A_KK itself is not symmetric in the Euclidean inner product.
 !OCL SERIAL
   subroutine cal_q_lc_elem_PCG( this, q, res,       &
     color_id, cal_res, is_mg_top_level, rhs, qx, qy,qz, &
@@ -447,6 +465,11 @@ contains
 
     real(RP) :: PmatDiag(elem%Np)
     real(RP) :: hk
+    real(RP) :: int_w(elem%Np)            !< Row sums of the mass matrix (used to scale the preconditioner)
+    real(RP) :: M1D_h(elem%Nnode_h1D,elem%Nnode_h1D) !< 1D mass matrix (horizontal)
+    real(RP) :: M1D_v(elem%Nnode_v,elem%Nnode_v)     !< 1D mass matrix (vertical)
+    real(RP) :: ones(elem%Np)
+    real(RP) :: Mr(elem%Np)
     real(RP), parameter :: c1 = 1.0_RP
     real(RP), parameter :: c2 = 1.0_RP
 
@@ -469,11 +492,16 @@ contains
     end do
     end do
 
+    !- 1D mass matrices: M = M1D_v x M1D_h x M1D_h
+    call get_mass1D( M1D_h, M1D_v, elem )
+    ones(:) = 1.0_RP
+    call apply_mass_tensor3D( int_w, ones, M1D_h, M1D_v, elem%Nnode_h1D, elem%Nnode_v )
+
   !$omp parallel private(i,j,k,ke,ii,i0,ncol,    &
   !$omp gtau, Fx,Fy,Fz,BndFlx,LiftDFlx,          &
   !$omp Grad_q,Grad_q_e, Ax,x,r,z,q_,            &
   !$omp rnorm0,rnorm, rz_old,rz_new, alpha,beta, &
-  !$omp itr, PmatDiag, hk ) 
+  !$omp itr, PmatDiag, hk, Mr ) 
   !$omp do collapse(2)
     do k=1, lmesh%NeZ
     do j=1, lmesh%NeY
@@ -483,7 +511,7 @@ contains
         ncol = lmesh%NeX
       else
         i0 = 1 + modulo(color_id - modulo(j + k, 2), 2)  ! 1 or 2
-        ncol = (lmesh%NeX - i0)/2 + 1
+        ncol = (lmesh%NeX - i0 + 2)/2   ! number of i in {i0, i0+2, ...} <= NeX (0 if NeX < i0)
         if ( ncol < 1 ) cycle
       end if
 
@@ -496,7 +524,7 @@ contains
         ke = i + (j-1)*lmesh%NeX + (k-1)*lmesh%NeX*lmesh%NeY
         
         !-
-        gtau(:) = lmesh%Fscale(:,ke) * elem%PolyOrder_h * ( elem%PolyOrder_h + 1 ) * 0.5_RP * 1.2_RP
+        gtau(:) = lmesh%Fscale(:,ke) * elem%PolyOrder_h * ( elem%PolyOrder_h + 1 ) * 0.5_RP * this%penalty_coef
 
         call eval_Ax( Ax, &
           ke, q, qx, qy, qz, gtau,              &
@@ -508,12 +536,15 @@ contains
         if ( cal_res ) then
           res(:,ke) = r(:)
         else
+          ! Mass-matrix-weighted residual for the system (M A_KK) dq = M r
+          call apply_mass_tensor3D( Mr, r, M1D_h, M1D_v, elem%Nnode_h1D, elem%Nnode_v )
+          r(:) = Mr(:)
           rnorm0 = sqrt( sum( r(:) * r(:) ) )
 
           if ( rnorm0 > 1.0E-16_RP ) then
             ! Precond
             hk = 6.0_RP / maxval(lmesh%Escale(:,ke,1,1) + lmesh%Escale(:,ke,2,2) + lmesh%Escale(:,ke,3,3))
-            PmatDiag(:) = c1 * elem%PolyOrder_h**2 / hk + c2 / hk**2
+            PmatDiag(:) = int_w(:) * ( c1 * elem%PolyOrder_h**2 / hk + c2 / hk**2 )
 
             x(:) = q(:,ke)
             z(:) = r(:) / PmatDiag(:)
@@ -528,6 +559,8 @@ contains
                 ke, q_, gtau, Grad_q, Grad_q_e, &
                 BndFlx, Fx, Fy, Fz, LiftDFlx,   &
                 Dx, Dy, Dz, Lift, iM, lmesh, elem )
+              call apply_mass_tensor3D( Mr, Ax, M1D_h, M1D_v, elem%Nnode_h1D, elem%Nnode_v )
+              Ax(:) = Mr(:)
 
               alpha = rz_old / sum(q_(:) * Ax(:))
               x(:) = x(:) + alpha * q_(:)
@@ -729,7 +762,7 @@ contains
     Grad_q(:,2) = Grad_q_e(:,2) + LiftDFlx(:)
 
     call sparsemat_matmul( Lift, lmesh%Fscale(:,ke)*BndFlx(:,3), LiftDFlx )
-    Grad_q(:,3) = Grad_q_e(:,3) !+ LiftDFlx(:)
+    Grad_q(:,3) = Grad_q_e(:,3) + LiftDFlx(:)
 
     !-
     call cal_bndflx_itr_2( BndFlx(:,4), &
@@ -742,7 +775,7 @@ contains
     call sparsemat_matmul( Lift, lmesh%Fscale(:,ke)*BndFlx(:,4), LiftDFlx )
     Ax(:) = lmesh%Escale(:,ke,1,1) * Fx(:) &
           + lmesh%Escale(:,ke,2,2) * Fy(:) &
-          + 0.0_RP * lmesh%Escale(:,ke,3,3) * Fz(:) &
+          + lmesh%Escale(:,ke,3,3) * Fz(:) &
           + LiftDFlx(:)
     return
   end subroutine eval_Ax_itr
@@ -799,7 +832,7 @@ contains
         ( 0.5_RP * (          + qx_e(:) ) - qx(:) ) * nx(:) &
       + ( 0.5_RP * (          + qy_e(:) ) - qy(:) ) * ny(:) &
       + ( 0.5_RP * (          + qz_e(:) ) - qz(:) ) * nz(:) &
-      + 0.5_RP * gtau(:) * dq(:) * (1.0_RP-nz(:)**2)
+      + 0.5_RP * gtau(:) * dq(:)
     return
   end subroutine cal_bndflx_itr_2  
 
@@ -942,7 +975,7 @@ contains
         ncol = lmesh%NeX
       else
         i0 = 1 + modulo(color_id - modulo(j + k, 2), 2)  ! 1 or 2
-        ncol = (lmesh%NeX - i0)/2 + 1
+        ncol = (lmesh%NeX - i0 + 2)/2   ! number of i in {i0, i0+2, ...} <= NeX (0 if NeX < i0)
         if ( ncol < 1 ) cycle
       end if
 
@@ -994,7 +1027,7 @@ contains
             Lift_y(:,p) = lmesh%Gsqrt(:,ke) * lny * Lift_(:,p)
           end do
           
-          gtau_ = elem%PolyOrder_h * ( elem%PolyOrder_h + 1 ) * lmesh%Fscale(vid_s,ke) * 0.5_RP * 1.2_RP
+          gtau_ = elem%PolyOrder_h * ( elem%PolyOrder_h + 1 ) * lmesh%Fscale(vid_s,ke) * 0.5_RP * this%penalty_coef
           
           GsqrtDn1(:,:) = lnx * GsqrtDx(:,:) + lny * GsqrtDy(:,:)
 
@@ -1036,7 +1069,7 @@ contains
             Lift_z(:,p) = lmesh%Gsqrt(:,ke) * Lift_(:,p)
           end do
           
-          gtau_ = elem%PolyOrder_v * (elem%PolyOrder_v + 1 ) * lmesh%Fscale(vid_s,ke) * 0.5_RP * 1.2_RP
+          gtau_ = elem%PolyOrder_v * (elem%PolyOrder_v + 1 ) * lmesh%Fscale(vid_s,ke) * 0.5_RP * this%penalty_coef
           
           OPT11(:,:) = OPT11(:,:) + 0.5_RP * ( &
             - gtau_ * mmE(:,:) + matmul(mmE, GsqrtDn1) &
@@ -1119,5 +1152,77 @@ contains
     return
   end subroutine construct_OPT11_elem
   
+!- Mass matrix with the tensor-product structure ---------------------------------
+
+  !> Extract 1D mass matrices from the 3D mass matrix of a hexahedral element
+  !! (PolyOrder_h = PolyOrder_v is assumed, so that M1D_h = M1D_v).
+!OCL SERIAL
+  subroutine get_mass1D( M1D_h, M1D_v, elem )
+    implicit none
+    class(ElementBase3D), intent(in) :: elem
+    real(RP), intent(out) :: M1D_h(elem%Nnode_h1D,elem%Nnode_h1D)
+    real(RP), intent(out) :: M1D_v(elem%Nnode_v,elem%Nnode_v)
+
+    real(RP) :: m11
+    integer :: k1, k2, Nh2
+    !---------------------------------
+    m11 = elem%M(1,1)**(1.0_RP/3.0_RP)
+    M1D_h(:,:) = elem%M(1:elem%Nnode_h1D,1:elem%Nnode_h1D) / m11**2
+    Nh2 = elem%Nnode_h1D**2
+    do k2=1, elem%Nnode_v
+    do k1=1, elem%Nnode_v
+      M1D_v(k1,k2) = elem%M(1+(k1-1)*Nh2,1+(k2-1)*Nh2) / m11**2
+    end do
+    end do
+    return
+  end subroutine get_mass1D
+
+  !> Apply the mass matrix of a hexahedral element using its tensor-product structure:
+  !! y(i,j,k) = sum_{a,b,c} M1D_h(i,a) M1D_h(j,b) M1D_v(k,c) x(a,b,c)
+!OCL SERIAL
+  subroutine apply_mass_tensor3D( y, x, M1D_h, M1D_v, Nh, Nv )
+    implicit none
+    integer, intent(in) :: Nh, Nv
+    real(RP), intent(out) :: y(Nh,Nh,Nv)
+    real(RP), intent(in) :: x(Nh,Nh,Nv)
+    real(RP), intent(in) :: M1D_h(Nh,Nh)
+    real(RP), intent(in) :: M1D_v(Nv,Nv)
+
+    real(RP) :: t1(Nh,Nh,Nv), t2(Nh,Nh,Nv)
+    integer :: i, j, k, a
+    !-------------------------------------------
+    do k=1, Nv
+    do j=1, Nh
+    do i=1, Nh
+      t1(i,j,k) = 0.0_RP
+      do a=1, Nh
+        t1(i,j,k) = t1(i,j,k) + M1D_h(i,a) * x(a,j,k)
+      end do
+    end do
+    end do
+    end do
+    do k=1, Nv
+    do j=1, Nh
+    do i=1, Nh
+      t2(i,j,k) = 0.0_RP
+      do a=1, Nh
+        t2(i,j,k) = t2(i,j,k) + M1D_h(j,a) * t1(i,a,k)
+      end do
+    end do
+    end do
+    end do
+    do k=1, Nv
+    do j=1, Nh
+    do i=1, Nh
+      y(i,j,k) = 0.0_RP
+      do a=1, Nv
+        y(i,j,k) = y(i,j,k) + M1D_v(k,a) * t2(i,j,a)
+      end do
+    end do
+    end do
+    end do
+    return
+  end subroutine apply_mass_tensor3D
+
 end module mod_poisson3d_smoother
 
