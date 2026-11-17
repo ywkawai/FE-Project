@@ -25,6 +25,7 @@ module scale_mesh_hierarchy_3d
   use scale_localmesh_3d, only: LocalMesh3D
   use scale_mesh_base3d, only: MeshBase3D
   use scale_mesh_cubedom3d, only: MeshCubeDom3D
+  use scale_mesh_cubedspheredom3d, only: MeshCubedSphereDom3D
 
   use scale_mesh_hierarchy_base, only: &
     MeshHierarchyBase_Init, &
@@ -149,7 +150,28 @@ contains
           call PRC_abort
         end if
       end do
+
+      !- Check the consistency of the number of elements in h-mesh levels
+      select type(parent_mesh)
+      type is (MeshCubeDom3D)
+        call check_hlevel_NeG3D( NeGX_list, NeGY_list, NeGZ_list, h_LEVEL_NUM, &
+          parent_mesh%NeGX, parent_mesh%NeGY, parent_mesh%NeGZ, .false.        )
+      type is (MeshCubedSphereDom3D)
+        call check_hlevel_NeG3D( NeGX_list, NeGY_list, NeGZ_list, h_LEVEL_NUM, &
+          parent_mesh%NeGX, parent_mesh%NeGY, parent_mesh%NeGZ, .true.         )
+      end select
     end if
+
+    !- Currently, only the shallow approximation is supported for cubed-sphere meshes.
+    !  Without the shallow approximation (and with topography), the geometric information with the vertical coordinate
+    !  (e.g., the factor gam^2 in Gsqrt) must be consistently set on all coarse meshes, which is not implemented yet.
+    select type(parent_mesh)
+    type is (MeshCubedSphereDom3D)
+      if ( .not. parent_mesh%shallow_approx ) then
+        LOG_ERROR('MeshHierarchy3D_Init',*) 'Currently, only shallow_approx=.true. is supported for cubed-sphere meshes. Check!'
+        call PRC_abort
+      end if
+    end select
 
     !- Setup p-mesh hierarchy
 
@@ -167,6 +189,10 @@ contains
         call construct_cubedom3D_mesh( this, this%p_mesh_list(poly_lev)%ptr,    &
           parent_mesh%NeGX, parent_mesh%NeGY, parent_mesh%NeGZ, parent_mesh%FZ, &
           parent_mesh, this%elem3D_list(poly_lev) )
+      type is (MeshCubedSphereDom3D)
+        call construct_cubedspheredom3D_mesh( this, this%p_mesh_list(poly_lev)%ptr, &
+          parent_mesh%NeGX, parent_mesh%NeGY, parent_mesh%NeGZ,                     &
+          parent_mesh, this%elem3D_list(poly_lev)                                   )
       end select
     end do
 
@@ -182,13 +208,18 @@ contains
     if ( this%NUM_hMG_LEVEL > 0 ) then
       allocate( this%h_mesh_list(this%NUM_hMG_LEVEL) )
 
-      this%h_mesh_list(MESH_HIERARCHY_hMG_FINEST_LEVEL)%ptr => parent_mesh
+      ! The finest h-mesh level shares the mesh with the coarsest p-mesh level (p=1), as in the 2D case.
+      this%h_mesh_list(MESH_HIERARCHY_hMG_FINEST_LEVEL)%ptr => this%p_mesh_list(this%NUM_pMG_LEVEL)%ptr
       do h_lev=MESH_HIERARCHY_hMG_FINEST_LEVEL + 1, this%NUM_hMG_LEVEL
         select type(parent_mesh)
         type is (MeshCubeDom3D)
           call construct_cubedom3D_mesh( this, this%h_mesh_list(h_lev)%ptr,       &
             NeGX_list(h_lev), NeGY_list(h_lev), NeGZ_list(h_lev), parent_mesh%FZ, &
             parent_mesh, this%elem3D_list(p_LEVEL_NUM) )
+        type is (MeshCubedSphereDom3D)
+          call construct_cubedspheredom3D_mesh( this, this%h_mesh_list(h_lev)%ptr, &
+            NeGX_list(h_lev), NeGY_list(h_lev), NeGZ_list(h_lev),                  &
+            parent_mesh, this%elem3D_list(p_LEVEL_NUM)                             )
         end select
       end do
 
@@ -226,6 +257,8 @@ contains
       select type(mesh3D_ptr)
       type is (MeshCubeDom3D)
         call mesh3D_ptr%Final()
+      type is (MeshCubedSphereDom3D)
+        call mesh3D_ptr%Final()
       end select
     end do
     deallocate( this%p_mesh_list )
@@ -241,6 +274,8 @@ contains
         mesh3D_ptr => this%h_mesh_list(h_lev)%ptr
         select type(mesh3D_ptr)
         type is (MeshCubeDom3D)
+          call mesh3D_ptr%Final()
+        type is (MeshCubedSphereDom3D)
           call mesh3D_ptr%Final()
         end select
       end do
@@ -310,7 +345,7 @@ contains
       
       do ldom_id=1, mesh3D%LOCAL_MESH_NUM
         call this%mg_local(ldom_id)%Init( mesh_list(level_id)%ptr%lcmesh_list(ldom_id), &
-          this%coarse_mesh%ptr%lcmesh_list, mesh_list(level_id)%ptr%refElem3D           )
+          this%coarse_mesh%ptr%lcmesh_list, ldom_id, mesh_list(level_id)%ptr%refElem3D  )
       end do
     end if
 
@@ -338,12 +373,13 @@ contains
 !> Initialize an object to manage 3D local mesh data for multigrid
 !OCL SERIAL
   subroutine MeshHierarchyLocalMGData3D_Init( this, &
-    lcmesh3D, coarse_lcmesh_list, elem3D )
+    lcmesh3D, coarse_lcmesh_list, lcdomID, elem3D )
     use scale_mesh_hierarchy_base, only: MeshHierarchyLocalMGDataBase_Init
     implicit none
     class(MeshHierarchyLocalMGData3D), intent(inout) :: this
     class(LocalMesh3D), intent(in) :: lcmesh3D
     class(LocalMesh3D), intent(in), target :: coarse_lcmesh_list(:)
+    integer, intent(in) :: lcdomID              !< Local domain ID of the fine local mesh
     class(ElementBase3D), intent(in) :: elem3D
 
     integer :: i, j, k
@@ -375,8 +411,19 @@ contains
       lcmesh3D )
 
     ! Current implementation assumes identical tileID & lcdomID in both coarsened meshes          
+    if ( mod(lcmesh3D%NeX,2) /= 0 .or. mod(lcmesh3D%NeY,2) /= 0 ) then
+      LOG_ERROR('MeshHierarchyLocalMGData3D_Init',*) 'NeX/NeY of each local mesh must be even for h-MG coarsening. NeX, NeY=', lcmesh3D%NeX, lcmesh3D%NeY
+      call PRC_abort
+    end if
+    lcmesh_c => coarse_lcmesh_list(lcdomID)
+    if (      lcmesh_c%NeX * 2 /= lcmesh3D%NeX .or. lcmesh_c%NeY * 2 /= lcmesh3D%NeY &
+         .or. lcmesh_c%NeZ     /= lcmesh3D%NeZ .or. lcmesh_c%tileID  /= lcmesh3D%tileID ) then
+      LOG_ERROR('MeshHierarchyLocalMGData3D_Init',*) 'Inconsistent coarse local mesh (NeX, NeY, NeZ, tileID).'
+      call PRC_abort
+    end if
+
     this%CoarseLocalMesh_tileIDlist(1) = lcmesh3D%tileID
-    this%CoarseLocalMesh_lcdomIDlist(1) = 1
+    this%CoarseLocalMesh_lcdomIDlist(1) = lcdomID
 
     ! Preparation
     do k=1, lcmesh3D%NeZ
@@ -392,6 +439,7 @@ contains
     ! and construct interpolation operator
 
     allocate( this%If2c_emap(4,lcmesh3D%Ne/4) )
+    this%If2c_emap(:,:) = 0
 
     do ke=lcmesh3D%NeS, lcmesh3D%NeE
       lcTileID_c = this%CoarseLocalMesh_tileIDlist(1)
@@ -424,6 +472,12 @@ contains
                ( 1.0_RP - r_c ) * ( 1.0_RP + s_c ) * ( 1.0_RP + t_c ), ( 1.0_RP + r_c ) * ( 1.0_RP + s_c ) * ( 1.0_RP + t_c )  /)
       end do
     end do  
+
+    ! Every coarse element must have exactly four child elements
+    if ( any( this%If2c_emap(:,:) == 0 ) ) then
+      LOG_ERROR('MeshHierarchyLocalMGData3D_Init',*) 'Some coarse elements have no child elements in the fine mesh. Check the element mapping!'
+      call PRC_abort
+    end if
     return
   end subroutine MeshHierarchyLocalMGData3D_Init
 
@@ -439,6 +493,7 @@ contains
   end subroutine MeshHierarchyLocalMGData3D_Final
 
 !-
+  !> Construct a cubed-sphere domain 3D mesh as a child mesh
 !OCL SERIAL
   subroutine construct_cubedom3D_mesh( this, child_mesh_base_ptr, &
     NeGX, NeGY, NeGZ, FZ, &
@@ -469,4 +524,90 @@ contains
     child_mesh_base_ptr => child_mesh_ptr
     return
   end subroutine construct_cubedom3D_mesh
+  
+  !> Construct a cubed-sphere domain 3D mesh as a child mesh
+!OCL SERIAL
+  subroutine construct_cubedspheredom3D_mesh( this, child_mesh_base_ptr, &
+    NeGX, NeGY, NeGZ,                                                      &
+    parent_mesh, elem3D                                                    )
+    implicit none
+    class(MeshHierarchy3D), intent(inout) :: this
+    class(MeshBase3D), intent(out), pointer :: child_mesh_base_ptr
+    integer, intent(in) :: NeGX
+    integer, intent(in) :: NeGY
+    integer, intent(in) :: NeGZ
+    type(MeshCubedSphereDom3D), intent(in) :: parent_mesh
+    type(HexahedralElement), intent(in) :: elem3D
+
+    type(MeshCubedSphereDom3D), pointer :: child_mesh_ptr
+    !-------------------------------------------------------------
+
+    ! The layout of tiles must be identical to that of the parent mesh (assumed in h-MG)
+    allocate( child_mesh_ptr )
+    call child_mesh_ptr%Init( NeGX, NeGY, NeGZ, parent_mesh%RPlanet,       &
+      parent_mesh%zmin_gl, parent_mesh%zmax_gl,                             &
+      elem3D, parent_mesh%LOCAL_MESH_NUM, nproc=parent_mesh%PRC_NUM,        &
+      FZ=parent_mesh%FZ, shallow_approx=parent_mesh%shallow_approx          )
+
+    call child_mesh_ptr%Generate()
+
+    child_mesh_base_ptr => child_mesh_ptr
+    return
+  end subroutine construct_cubedspheredom3D_mesh
+
+  !> Check the consistency of the number of elements specified for h-mesh levels (3D)
+!OCL SERIAL
+  subroutine check_hlevel_NeG3D( NeGX_list, NeGY_list, NeGZ_list, h_LEVEL_NUM, &
+    NeGX, NeGY, NeGZ, is_cubedsphere )
+    implicit none
+    integer, intent(in) :: h_LEVEL_NUM              !< Number of h-mesh levels
+    integer, intent(in) :: NeGX_list(h_LEVEL_NUM)   !< Number of elements in x-direction for h-mesh levels
+    integer, intent(in) :: NeGY_list(h_LEVEL_NUM)   !< Number of elements in y-direction for h-mesh levels
+    integer, intent(in) :: NeGZ_list(h_LEVEL_NUM)   !< Number of elements in z-direction for h-mesh levels
+    integer, intent(in) :: NeGX                     !< Number of elements in x-direction of the parent mesh
+    integer, intent(in) :: NeGY                     !< Number of elements in y-direction of the parent mesh
+    integer, intent(in) :: NeGZ                     !< Number of elements in z-direction of the parent mesh
+    logical, intent(in) :: is_cubedsphere           !< Flag whether the parent mesh is a cubed-sphere mesh
+
+    integer :: h_lev
+    logical :: err_flag
+    !-------------------------------------------------------------
+
+    err_flag = .false.
+
+    ! The finest h-mesh level shares the mesh with the coarsest p-mesh level, 
+    ! and thus has the same number of elements as the parent mesh.
+    if ( NeGX_list(1) /= NeGX .or. NeGY_list(1) /= NeGY .or. NeGZ_list(1) /= NeGZ ) then
+      LOG_ERROR('MeshHierarchy3D_Init',*) 'NeGX_list(1)/NeGY_list(1)/NeGZ_list(1) must equal NeGX/NeGY/NeGZ of the parent mesh. ', &
+        'NeGX_list(1), NeGY_list(1), NeGZ_list(1)=', NeGX_list(1), NeGY_list(1), NeGZ_list(1), ', NeGX, NeGY, NeGZ=', NeGX, NeGY, NeGZ
+      err_flag = .true.
+    end if
+
+    ! The number of horizontal elements must be halved at each coarsening step.
+    do h_lev=1, h_LEVEL_NUM-1
+      if (      NeGX_list(h_lev+1)*2 /= NeGX_list(h_lev) &
+           .or. NeGY_list(h_lev+1)*2 /= NeGY_list(h_lev) ) then
+        LOG_ERROR('MeshHierarchy3D_Init',*) 'The number of horizontal elements must be halved at each h-mesh level. ', &
+          'h_lev=', h_lev, ': (NeGX, NeGY)=', NeGX_list(h_lev), NeGY_list(h_lev), &
+          ' -> ', NeGX_list(h_lev+1), NeGY_list(h_lev+1)
+        err_flag = .true.
+      end if
+    end do
+
+    ! For cubed-sphere meshes, each panel must have the same number of elements in both horizontal directions.
+    if ( is_cubedsphere ) then
+      do h_lev=1, h_LEVEL_NUM
+        if ( NeGX_list(h_lev) /= NeGY_list(h_lev) ) then
+          LOG_ERROR('MeshHierarchy3D_Init',*) 'For cubed-sphere meshes, NeGX_list must equal NeGY_list. ', &
+            'h_lev=', h_lev, ': NeGX, NeGY=', NeGX_list(h_lev), NeGY_list(h_lev)
+          err_flag = .true.
+        end if
+      end do
+    end if
+
+    if ( err_flag ) call PRC_abort
+
+    return
+  end subroutine check_hlevel_NeG3D
+
 end module scale_mesh_hierarchy_3d

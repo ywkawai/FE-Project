@@ -359,7 +359,7 @@ contains
     class(MeshHierarchyLocalMGData2D), intent(inout) :: this
     class(LocalMesh2D), intent(in) :: lcmesh2D
     class(LocalMesh2D), intent(in), target :: coarse_lcmesh_list(:)
-    integer, intent(in) :: lcdomID
+    integer, intent(in) :: lcdomID                                  !< Local domain ID of the fine local mesh
     class(ElementBase2D), intent(in) :: elem2D
 
     integer :: i, j
@@ -420,6 +420,7 @@ contains
 !    write(*,*) "  Constructing local MG data for h-mesh..."
 
     allocate( this%If2c_emap(4,lcmesh2D%Ne/4) )
+    this%If2c_emap(:,:) = 0
 
     do ke=lcmesh2D%NeS, lcmesh2D%NeE
       lcTileID_c = this%CoarseLocalMesh_tileIDlist(1)
@@ -447,7 +448,14 @@ contains
           (/ ( 1.0_RP - r_c ) * ( 1.0_RP - s_c ), ( 1.0_RP + r_c ) * ( 1.0_RP - s_c ),  &
              ( 1.0_RP - r_c ) * ( 1.0_RP + s_c ), ( 1.0_RP + r_c ) * ( 1.0_RP + s_c )  /)
       end do
-    end do  
+    end do
+
+    ! Every coarse element must have exactly four child elements
+    if ( any( this%If2c_emap(:,:) == 0 ) ) then
+      LOG_ERROR('MeshHierarchyLocalMGData2D_Init',*) 'Some coarse elements have no child elements in the fine mesh. Check the element mapping!'
+      call PRC_abort
+    end if
+        
     return
   end subroutine MeshHierarchyLocalMGData2D_Init
 
