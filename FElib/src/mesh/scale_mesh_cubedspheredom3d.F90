@@ -161,7 +161,7 @@ contains
       this%shallow_approx = .true.
     end if
 
-    if ( shallow_approx ) then
+    if ( this%shallow_approx ) then
       this%dom_vol = 4.0_RP * PI * RPlanet**2 * ( dom_zmax - dom_zmin )
     else
       this%dom_vol = 4.0_RP / 3.0_RP * PI * ( ( dom_zmax + RPlanet )**3 - ( dom_zmin + RPlanet )**3 )
