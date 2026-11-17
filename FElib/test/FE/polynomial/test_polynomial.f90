@@ -89,7 +89,7 @@ contains
     if (maxval(abs(LGLpts - lgl_pts_ans)) > CHECK_EPS) then
       LOG_ERROR('chechk_value',*) 'Error of LGL points are large. Check!', &
         "answer=", lgl_pts_ans
-      stop
+      error stop 1
     end if
 
     write(*,*) "--"
@@ -103,7 +103,7 @@ contains
     if (maxval(abs(LGL_intw - lgl_intw_ans)) > CHECK_EPS) then
       LOG_ERROR('chechk_value',*) 'Error of LGL weights are large. Check!', &
         "answer=", lgl_intw_ans
-      stop
+      error stop 1
     end if
 
     write(*,*) "--"    
@@ -111,7 +111,7 @@ contains
     if (maxval(abs(GLpts - gl_pts_ans)) > CHECK_EPS) then
       LOG_ERROR('chechk_value',*) 'Error of GL points are large. Check!', &
         "answer=", gl_pts_ans
-      stop
+      error stop 1
     end if
 
     write(*,*) "--"
@@ -119,7 +119,7 @@ contains
     if (maxval(abs(GL_intw - gl_intw_ans)) > CHECK_EPS) then
       LOG_ERROR('chechk_value',*) 'Error of GL weights are large. Check!', &
         "answer=", gl_intw_ans
-      stop
+      error stop 1
     end if    
     write(*,*) "**************************************"
 

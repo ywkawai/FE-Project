@@ -175,7 +175,7 @@ contains
     !----------------------------------------------
 
     write(*,*) "* ", lbl, ": IPIV=", ipiv(:)
-    if ( sum( ipiv(:) - ipiv_ans(:) ) == 0 ) then
+    if ( all( ipiv(:) == ipiv_ans(:) ) ) then
         write(*,*) "=> OK!"
     else
         write(*,*) "=> IPIV is wrong. Check!"

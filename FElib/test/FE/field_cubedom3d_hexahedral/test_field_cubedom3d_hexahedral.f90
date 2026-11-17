@@ -87,6 +87,9 @@ program test_field3d
     write(*,*) "tileID=", lcmesh%tileID
     call calc_grad( dudx%local(n)%val, dudy%local(n)%val, dudz%local(n)%val, &
       u%local(n)%val, lcmesh, lcmesh%refElem3D )
+    !$acc update host(dudx%local(n)%val, dudy%local(n)%val, dudz%local(n)%val)
+    call check_grad( dudx%local(n)%val, dudy%local(n)%val, dudz%local(n)%val, &
+      lcmesh, refElem )
 
   end do
   !----
@@ -294,7 +297,7 @@ contains
         iM = lcmesh_%VMapM(fnid,ke)
         iP = lcmesh_%VMapP(fnid,ke)
         write(*,'(a,3(i3),a,i10,a,i10,a,3i4)') "ke, f, p =", ke,f+refElem%Nfaces_h,p,  &
-          " : q- = ", int(lcfield_fl(iM)), ",  q+ =", int(lcfield_fl(iM)),            &
+          " : q- = ", int(lcfield_fl(iM)), ",  q+ =", int(lcfield_fl(iP)),            &
           ", normal=", int(lcmesh_%normal_fn(fnid,ke,:))
       end do
       end do
@@ -418,6 +421,55 @@ contains
 
     return
   end subroutine check_halo_data
+
+  !> Compare the DG gradient of u = sin(pi x) sin(pi y) sin(pi z) with the analytical solution
+  subroutine check_grad( dudx_, dudy_, dudz_, lmesh, elem )
+    implicit none
+    class(LocalMesh3D), intent(in) :: lmesh
+    class(HexahedralElement), intent(in) :: elem
+    real(RP), intent(in) :: dudx_(elem%Np,lmesh%NeA)
+    real(RP), intent(in) :: dudy_(elem%Np,lmesh%NeA)
+    real(RP), intent(in) :: dudz_(elem%Np,lmesh%NeA)
+
+    integer :: ke, d
+    real(RP) :: x(elem%Np), y(elem%Np), z(elem%Np), w(elem%Np)
+    real(RP) :: grad_ans(elem%Np,3)
+    real(RP) :: l2err(3), l2norm(3), rel_err(3)
+    character(len=4), parameter :: lbl(3) = (/ 'dudx', 'dudy', 'dudz' /)
+
+    ! Relative L2 error tolerance for PolyOrder=2, NeGX=NeGY=NeGZ=3
+    ! (measured value: 2.413E-01 for each component)
+    real(RP), parameter :: GRAD_ERR_TOL = 0.25_RP
+    !------------------------------------------------
+
+    l2err(:) = 0.0_RP; l2norm(:) = 0.0_RP
+    do ke=lmesh%NeS, lmesh%NeE
+      x(:) = lmesh%pos_en(:,ke,1); y(:) = lmesh%pos_en(:,ke,2); z(:) = lmesh%pos_en(:,ke,3)
+      w(:) = lmesh%J(:,ke) * elem%IntWeight_lgl(:)
+      grad_ans(:,1) = PI * cos( PI * x(:) ) * sin( PI * y(:) ) * sin( PI * z(:) )
+      grad_ans(:,2) = PI * sin( PI * x(:) ) * cos( PI * y(:) ) * sin( PI * z(:) )
+      grad_ans(:,3) = PI * sin( PI * x(:) ) * sin( PI * y(:) ) * cos( PI * z(:) )
+
+      l2err(1) = l2err(1) + sum( w(:) * ( dudx_(:,ke) - grad_ans(:,1) )**2 )
+      l2err(2) = l2err(2) + sum( w(:) * ( dudy_(:,ke) - grad_ans(:,2) )**2 )
+      l2err(3) = l2err(3) + sum( w(:) * ( dudz_(:,ke) - grad_ans(:,3) )**2 )
+      do d=1, 3
+        l2norm(d) = l2norm(d) + sum( w(:) * grad_ans(:,d)**2 )
+      end do
+    end do
+    rel_err(:) = sqrt( l2err(:) / l2norm(:) )
+
+    do d=1, 3
+      write(*,'(a,a,a,es12.5)') " ", lbl(d), ": relative L2 error=", rel_err(d)
+      if ( .not. ( rel_err(d) < GRAD_ERR_TOL ) ) then ! also catch NaN
+        LOG_ERROR('check_grad',*) 'The error of '//lbl(d)//' is too large!', &
+          ' rel_err=', rel_err(d), ' tol=', GRAD_ERR_TOL
+        call PRC_abort
+      end if
+    end do
+
+    return
+  end subroutine check_grad
 
   subroutine calc_grad( dudx_, dudy_, dudz_, &
       u_, lmesh, elem                        )

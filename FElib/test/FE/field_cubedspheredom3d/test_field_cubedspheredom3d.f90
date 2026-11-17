@@ -63,7 +63,7 @@ program test_field_cubedspheredom3d
   write(*,*) "* Check data communication.."
   call perform_comm()
 
-  do n=1, 1!mesh%LOCAL_MESH_NUM
+  do n=1, mesh%LOCAL_MESH_NUM
     lcmesh => mesh%lcmesh_list(n)
     
     write(*,*) "Check interior & halo data.."
@@ -194,7 +194,7 @@ contains
     real(RP), intent(in) :: lcfield_fl(refElem%Np*lcmesh_%NeA)
     
     integer :: ke, f, p
-    integer :: iM, iP, fnid
+    integer :: fnid
     integer :: ans(refElem%Np)
     !------------------------------
 
@@ -207,27 +207,69 @@ contains
       do f=1, refElem%Nfaces_h
       do p=1, refElem%Nfp_h
         fnid = p + (f-1)*refElem%Nfp_h
-        iM = lcmesh_%VMapM(fnid,ke)
-        iP = lcmesh_%VMapP(fnid,ke)
-        write(*,'(a,3(i3),a,i10,a,i10,a,3i4)') "ke, f, p =", ke,f,p,           &
-          " : q- = ", int(lcfield_fl(iM)), ",  q+ =", int(lcfield_fl(iP)),    &
-          ", normal=", int(lcmesh_%normal_fn(fnid,ke,:))
+        call check_face_node( lcmesh_, lcfield_fl, ke, f, fnid )
       end do
       end do
       do f=1, refElem%Nfaces_v
       do p=1, refElem%Nfp_v
         fnid = p + refElem%Nfaces_h*refElem%Nfp_h + (f-1)*refElem%Nfp_v
-        iM = lcmesh_%VMapM(fnid,ke)
-        iP = lcmesh_%VMapP(fnid,ke)
-        write(*,'(a,3(i3),a,i10,a,i10,a,3i4)') "ke, f, p =", ke,f+refElem%Nfaces_h,p,  &
-          " : q- = ", int(lcfield_fl(iM)), ",  q+ =", int(lcfield_fl(iM)),            &
-          ", normal=", int(lcmesh_%normal_fn(fnid,ke,:))
+        call check_face_node( lcmesh_, lcfield_fl, ke, refElem%Nfaces_h+f, fnid )
       end do
       end do
     end do
 
     return
   end subroutine check_interior_data
+
+  !> Check the data at a face node of element ke
+  !! - q- (iM) is the value of element ke itself
+  !! - If q+ (iP) refers to an interior element, the element must be EToE(ke,f),
+  !!   q+ must be unchanged by communication, and the positions of iM and iP must coincide.
+  !!   (Values at halo nodes are checked in check_halo_data.)
+  subroutine check_face_node( lcmesh_, lcfield_fl, ke, f, fnid )
+    implicit none
+
+    type(LocalMesh3D), intent(in) :: lcmesh_
+    real(RP), intent(in) :: lcfield_fl(refElem%Np*lcmesh_%NeA)
+    integer, intent(in) :: ke, f, fnid
+
+    integer :: iM, iP, keM, keP, pM, pP
+    integer :: d
+    real(RP) :: posM, posP
+    real(RP), parameter :: POS_EPS = 1.0E-12_RP
+    !------------------------------
+
+    iM = lcmesh_%VMapM(fnid,ke)
+    iP = lcmesh_%VMapP(fnid,ke)
+    write(*,'(a,3(i3),a,i10,a,i10,a,3i4)') "ke, f, fnid =", ke,f,fnid,  &
+      " : q- = ", int(lcfield_fl(iM)), ",  q+ =", int(lcfield_fl(iP)),  &
+      ", normal=", int(lcmesh_%normal_fn(fnid,ke,:))
+
+    keM = (iM - 1) / refElem%Np + 1
+    pM  = iM - (keM - 1) * refElem%Np
+    call assert( ke, (/ keM /), (/ ke /), 'check_interior_data', 'element of VMapM', 1 )
+    call assert( ke, (/ int(lcfield_fl(iM)) /), (/ int(get_field_val(lcmesh_%tileID, keM, pM)) /), &
+                 'check_interior_data', 'q-', 1 )
+
+    if ( iP > refElem%Np * lcmesh_%Ne ) return ! halo
+
+    keP = (iP - 1) / refElem%Np + 1
+    pP  = iP - (keP - 1) * refElem%Np
+    call assert( ke, (/ keP /), (/ lcmesh_%EToE(ke,f) /), 'check_interior_data', 'element of VMapP', 1 )
+    call assert( ke, (/ int(lcfield_fl(iP)) /), (/ int(get_field_val(lcmesh_%tileID, keP, pP)) /), &
+                 'check_interior_data', 'q+', 1 )
+    do d=1, 3
+      posM = lcmesh_%pos_en(pM,keM,d)
+      posP = lcmesh_%pos_en(pP,keP,d)
+      if ( abs(posM - posP) > POS_EPS * max(1.0_RP, abs(posM)) ) then
+        LOG_ERROR('check_interior_data',*) 'Positions of q- and q+ are inconsistent!', &
+          ' ke=', ke, ' f=', f, ' fnid=', fnid, ' dim=', d, ': pos-=', posM, ' pos+=', posP
+        call PRC_abort
+      end if
+    end do
+
+    return
+  end subroutine check_face_node
 
   subroutine check_halo_data(n, lcmesh_, lcfield, lcfield_fl)
     implicit none
