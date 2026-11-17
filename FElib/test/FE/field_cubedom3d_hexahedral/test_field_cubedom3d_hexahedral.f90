@@ -30,6 +30,10 @@ program test_field3d
     FILE_HISTORY_meshfield_write,   &
     FILE_HISTORY_meshfield_finalize
 
+  use mod_test_meshfield_util, only: &
+    TEST_field_val, TEST_perform_comm, TEST_check_face_node
+  use scale_unittest_util, only: UNITTEST_init, UNITTEST_final
+  use scale_unittest_assert, only: UNITTEST_assert_equal, UNITTEST_assert_less
   implicit none
 
   integer, parameter :: NeGX = 3
@@ -87,6 +91,9 @@ program test_field3d
     write(*,*) "tileID=", lcmesh%tileID
     call calc_grad( dudx%local(n)%val, dudy%local(n)%val, dudz%local(n)%val, &
       u%local(n)%val, lcmesh, lcmesh%refElem3D )
+    !$acc update host(dudx%local(n)%val, dudy%local(n)%val, dudz%local(n)%val)
+    call check_grad( dudx%local(n)%val, dudy%local(n)%val, dudz%local(n)%val, &
+      lcmesh, refElem )
 
   end do
   !----
@@ -107,19 +114,11 @@ contains
     !$acc parallel loop collapse(2) present(lmesh,val)
     do ke=lmesh%NeS, lmesh%NeE
     do p=1, elem%Np
-      val(p,ke) = get_field_val_func(tileID, ke, p)
+      val(p,ke) = TEST_field_val(tileID, ke, p)
     end do
     end do
   end subroutine get_field_val
 
-  elemental function get_field_val_func(tileID,ke,p) result(val)
-    integer, intent(in) :: tileID, ke, p
-    real(RP) :: val
-    !---
-    !$acc routine seq
-    val = tileID*1000000 + ke*1000 + p
-  end function get_field_val_func
-  
   subroutine get_field_u(val, lmesh, elem)
     class(LocalMesh3D), intent(in) :: lmesh
     class(HexahedralElement), intent(in) :: elem
@@ -140,29 +139,14 @@ contains
 
 
   subroutine init()
-    use scale_calendar, only: CALENDAR_setup
     implicit none
 
     integer :: comm, myrank, nprocs
     logical :: ismaster
     !---------
 
-    call PRC_MPIstart( comm )
-    
-    call PRC_SINGLECOM_setup( comm,    & ! [IN]
-      nprocs, myrank, ismaster )         ! [OUT]
-    
-    call PRC_ERRHANDLER_setup( .false., ismaster ) ! [IN]
-    
-    ! setup scale_io
-    call IO_setup( "test", allow_noconf = .true. )
-    
-    ! setup log
-    call IO_LOG_setup( myrank, ismaster )   
-    
-    ! setup calendar & initial time
-    call CALENDAR_setup
-    call TIME_manager_Init
+    call UNITTEST_init( "test_field_cubedom3d_hexahedral",          &
+      comm=comm, myrank=myrank, nprocs=nprocs, ismaster=ismaster, use_time=.true. )
 
     !------
     call refElem%Init(PolyOrder_h, PolyOrder_v, .true.)
@@ -233,27 +217,19 @@ contains
     call Lift%Final()    
     call refElem%Final()
     
-    call TIME_manager_Final()
-    call PRC_MPIfinish()
+    call UNITTEST_final()
 
     return
   end subroutine final
 
   subroutine perform_comm()
     implicit none
-
     type(MeshFieldContainer) :: field_list(2)
     !---------------------------
 
     field_list(1)%field3d => q
     field_list(2)%field3d => u
-
-    write(*,*) " - Put.."
-    call fields_comm%Put(field_list, 1)
-    write(*,*) " - Exchange.."
-    call fields_comm%Exchange()
-    write(*,*) " - Get.."
-    call fields_comm%Get(field_list, 1)
+    call TEST_perform_comm( fields_comm, field_list )
 
     return
   end subroutine perform_comm
@@ -267,7 +243,7 @@ contains
     real(RP), intent(in) :: lcfield_fl(refElem%Np*lcmesh_%NeA)
     
     integer :: ke, f, p
-    integer :: iM, iP, fnid
+    integer :: fnid
     real(RP) :: ans(refElem%Np,lcmesh_%NeA)
     !------------------------------
 
@@ -277,25 +253,17 @@ contains
     !$acc update host(ans)
     
     do ke=lcmesh_%NeS, lcmesh_%NeE
-      call assert(ke, int(lcfield(:,ke)), int(ans(:,ke)), 'check_interior_data', 'q', refElem%Np)
+      call UNITTEST_assert_equal( int(lcfield(:,ke)), int(ans(:,ke)), 'check_interior_data: q', idx=ke )
       do f=1, refElem%Nfaces_h
       do p=1, refElem%Nfp_h
         fnid = p + (f-1)*refElem%Nfp_h
-        iM = lcmesh_%VMapM(fnid,ke)
-        iP = lcmesh_%VMapP(fnid,ke)
-        write(*,'(a,3(i3),a,i10,a,i10,a,3i4)') "ke, f, p =", ke,f,p,           &
-          " : q- = ", int(lcfield_fl(iM)), ",  q+ =", int(lcfield_fl(iP)),    &
-          ", normal=", int(lcmesh_%normal_fn(fnid,ke,:))
+        call TEST_check_face_node( lcmesh_, lcfield_fl, ke, f, fnid )
       end do
       end do
       do f=1, refElem%Nfaces_v
       do p=1, refElem%Nfp_v
         fnid = p + refElem%Nfaces_h*refElem%Nfp_h + (f-1)*refElem%Nfp_v
-        iM = lcmesh_%VMapM(fnid,ke)
-        iP = lcmesh_%VMapP(fnid,ke)
-        write(*,'(a,3(i3),a,i10,a,i10,a,3i4)') "ke, f, p =", ke,f+refElem%Nfaces_h,p,  &
-          " : q- = ", int(lcfield_fl(iM)), ",  q+ =", int(lcfield_fl(iM)),            &
-          ", normal=", int(lcmesh_%normal_fn(fnid,ke,:))
+        call TEST_check_face_node( lcmesh_, lcfield_fl, ke, f+refElem%Nfaces_h, fnid )
       end do
       end do
     end do
@@ -344,12 +312,12 @@ contains
     do i=1, NeX
       ke = i + (NeY-1)*NeX  + (k-1)*NeX*NeY
       do fp=1, Nfp_h
-        ans_bx(fp,i,k) = get_field_val_func(mesh%tileID_globalMap(1,tileID), ke, refElem%Fmask_h(fp,3))
+        ans_bx(fp,i,k) = TEST_field_val(mesh%tileID_globalMap(1,tileID), ke, refElem%Fmask_h(fp,3))
       end do
     end do
     end do
-    call assert( -1, int(lcfield_fl(haloInd_s:haloInd_e)), ans_bx(:,:,:),     &
-                 'check_halo_data', 'q_halo_south', Nfp_h*NeX*NeZ )
+    call UNITTEST_assert_equal( int(lcfield_fl(haloInd_s:haloInd_e)), ans_bx(:,:,:), &
+      'check_halo_data: q_halo_south' )
 
     haloInd_s = haloInd_e + 1    
     haloInd_e = haloInd_s + Nfp_h*NeY*NeZ - 1
@@ -357,12 +325,12 @@ contains
     do j=1, NeY
       ke = 1 + (j-1)*NeX + (k-1)*NeX*NeY
       do fp=1, Nfp_h
-        ans_by(fp,j,k) = get_field_val_func(mesh%tileID_globalMap(2,tileID), ke, refElem%Fmask_h(fp,4))
+        ans_by(fp,j,k) = TEST_field_val(mesh%tileID_globalMap(2,tileID), ke, refElem%Fmask_h(fp,4))
       end do
     end do
     end do
-    call assert( -1, int(lcfield_fl(haloInd_s:haloInd_e)), ans_by(:,:,:),     &
-      'check_halo_data', 'q_halo_east', Nfp_h*NeY*NeZ )
+    call UNITTEST_assert_equal( int(lcfield_fl(haloInd_s:haloInd_e)), ans_by(:,:,:), &
+      'check_halo_data: q_halo_east' )
 
     haloInd_s = haloInd_e + 1    
     haloInd_e = haloInd_s + Nfp_h*NeX*NeZ - 1    
@@ -370,12 +338,12 @@ contains
     do i=1, NeX
       ke = i + (k-1)*NeX*NeY
       do fp=1, Nfp_h
-        ans_bx(fp,i,k) = get_field_val_func(mesh%tileID_globalMap(3,tileID), ke, refElem%Fmask_h(fp,1))
+        ans_bx(fp,i,k) = TEST_field_val(mesh%tileID_globalMap(3,tileID), ke, refElem%Fmask_h(fp,1))
       end do
     end do
     end do
-    call assert( -1, int(lcfield_fl(haloInd_s:haloInd_e)), ans_bx(:,:,:),     &
-                 'check_halo_data', 'q_halo_north', Nfp_h*NeX*NeZ )
+    call UNITTEST_assert_equal( int(lcfield_fl(haloInd_s:haloInd_e)), ans_bx(:,:,:), &
+      'check_halo_data: q_halo_north' )
 
     haloInd_s = haloInd_e + 1    
     haloInd_e = haloInd_s + Nfp_h*NeY*NeZ - 1    
@@ -383,12 +351,12 @@ contains
     do j=1, NeY
       ke = NeX + (j-1)*NeX + (k-1)*NeX*NeY
       do fp=1, Nfp_h
-        ans_by(fp,j,k) = get_field_val_func(mesh%tileID_globalMap(4,tileID), ke, refElem%Fmask_h(fp,2))
+        ans_by(fp,j,k) = TEST_field_val(mesh%tileID_globalMap(4,tileID), ke, refElem%Fmask_h(fp,2))
       end do
     end do
     end do
-    call assert( -1, int(lcfield_fl(haloInd_s:haloInd_e)), ans_by(:,:,:),     &
-      'check_halo_data', 'q_halo_west', Nfp_h*NeY*NeZ )    
+    call UNITTEST_assert_equal( int(lcfield_fl(haloInd_s:haloInd_e)), ans_by(:,:,:), &
+      'check_halo_data: q_halo_west' )    
 
     haloInd_s = haloInd_e + 1   
     haloInd_e = haloInd_s + Nfp_v*NeX*NeY - 1
@@ -396,12 +364,12 @@ contains
     do i=1, NeX
       ke = i + (j-1)*NeX + (NeZ-1)*NeX*NeY
       do fp=1, Nfp_v
-        ans_bz(fp,i,j) = get_field_val_func(mesh%tileID_globalMap(5,tileID), ke, refElem%Fmask_v(fp,2))
+        ans_bz(fp,i,j) = TEST_field_val(mesh%tileID_globalMap(5,tileID), ke, refElem%Fmask_v(fp,2))
       end do
     end do
     end do
-    call assert( -1, int(lcfield_fl(haloInd_s:haloInd_e)), ans_bz(:,:,:),     &
-                  'check_halo_data', 'q_halo_bottom', Nfp_v*NeX*NeY )
+    call UNITTEST_assert_equal( int(lcfield_fl(haloInd_s:haloInd_e)), ans_bz(:,:,:), &
+      'check_halo_data: q_halo_bottom' )
 
     haloInd_s = haloInd_e + 1   
     haloInd_e = haloInd_s + Nfp_v*NeX*NeY - 1
@@ -409,15 +377,60 @@ contains
     do i=1, NeX
       ke = i + (j-1)*NeX
       do fp=1, Nfp_v
-        ans_bz(fp,i,j) = get_field_val_func(mesh%tileID_globalMap(6,tileID), ke, refElem%Fmask_v(fp,1))
+        ans_bz(fp,i,j) = TEST_field_val(mesh%tileID_globalMap(6,tileID), ke, refElem%Fmask_v(fp,1))
       end do
     end do
     end do
-    call assert( -1, int(lcfield_fl(haloInd_s:haloInd_e)), ans_bz(:,:,:),     &
-                  'check_halo_data', 'q_halo_top', Nfp_v*NeX*NeY ) 
+    call UNITTEST_assert_equal( int(lcfield_fl(haloInd_s:haloInd_e)), ans_bz(:,:,:), &
+      'check_halo_data: q_halo_top' ) 
 
     return
   end subroutine check_halo_data
+
+  !> Compare the DG gradient of u = sin(pi x) sin(pi y) sin(pi z) with the analytical solution
+  subroutine check_grad( dudx_, dudy_, dudz_, lmesh, elem )
+    implicit none
+    class(LocalMesh3D), intent(in) :: lmesh
+    class(HexahedralElement), intent(in) :: elem
+    real(RP), intent(in) :: dudx_(elem%Np,lmesh%NeA)
+    real(RP), intent(in) :: dudy_(elem%Np,lmesh%NeA)
+    real(RP), intent(in) :: dudz_(elem%Np,lmesh%NeA)
+
+    integer :: ke, d
+    real(RP) :: x(elem%Np), y(elem%Np), z(elem%Np), w(elem%Np)
+    real(RP) :: grad_ans(elem%Np,3)
+    real(RP) :: l2err(3), l2norm(3), rel_err(3)
+    character(len=4), parameter :: lbl(3) = (/ 'dudx', 'dudy', 'dudz' /)
+
+    ! Relative L2 error tolerance for PolyOrder=2, NeGX=NeGY=NeGZ=3
+    ! (measured value: 2.413E-01 for each component)
+    real(RP), parameter :: GRAD_ERR_TOL = 0.25_RP
+    !------------------------------------------------
+
+    l2err(:) = 0.0_RP; l2norm(:) = 0.0_RP
+    do ke=lmesh%NeS, lmesh%NeE
+      x(:) = lmesh%pos_en(:,ke,1); y(:) = lmesh%pos_en(:,ke,2); z(:) = lmesh%pos_en(:,ke,3)
+      w(:) = lmesh%J(:,ke) * elem%IntWeight_lgl(:)
+      grad_ans(:,1) = PI * cos( PI * x(:) ) * sin( PI * y(:) ) * sin( PI * z(:) )
+      grad_ans(:,2) = PI * sin( PI * x(:) ) * cos( PI * y(:) ) * sin( PI * z(:) )
+      grad_ans(:,3) = PI * sin( PI * x(:) ) * sin( PI * y(:) ) * cos( PI * z(:) )
+
+      l2err(1) = l2err(1) + sum( w(:) * ( dudx_(:,ke) - grad_ans(:,1) )**2 )
+      l2err(2) = l2err(2) + sum( w(:) * ( dudy_(:,ke) - grad_ans(:,2) )**2 )
+      l2err(3) = l2err(3) + sum( w(:) * ( dudz_(:,ke) - grad_ans(:,3) )**2 )
+      do d=1, 3
+        l2norm(d) = l2norm(d) + sum( w(:) * grad_ans(:,d)**2 )
+      end do
+    end do
+    rel_err(:) = sqrt( l2err(:) / l2norm(:) )
+
+    do d=1, 3
+      write(*,'(a,a,a,es12.5)') " ", lbl(d), ": relative L2 error=", rel_err(d)
+      call UNITTEST_assert_less( rel_err(d), GRAD_ERR_TOL, 'check_grad: relative L2 error of '//lbl(d) )
+    end do
+
+    return
+  end subroutine check_grad
 
   subroutine calc_grad( dudx_, dudy_, dudz_, &
       u_, lmesh, elem                        )
@@ -494,25 +507,5 @@ contains
     return
   end subroutine calc_grad_delflx
 
-  subroutine assert(k, vals, ans, assert_name, var_name, val_size)
-    integer, intent(in) :: val_size
-    integer, intent(in) :: k
-    integer, intent(in) :: vals(val_size)
-    integer, intent(in) :: ans(val_size)
-    character(*), intent(in) :: assert_name
-    character(*), intent(in) :: var_name
-
-    real(RP), parameter :: EPS = 1.0E-15_RP
-    !--------------------------------------
-
-    write(*,*) trim(var_name), "=", vals(:)
-    if ( sum(dble(vals(:) - ans(:))**2) > EPS ) then
-      LOG_ERROR(assert_name,*) 'The value of '//trim(var_name)//' is unexcepted!', &
-        ' k=', k, ": val=", vals(:), " ans=", ans(:)
-      call PRC_abort
-    end if
-
-    return
-  end subroutine assert
 
 end program test_field3d

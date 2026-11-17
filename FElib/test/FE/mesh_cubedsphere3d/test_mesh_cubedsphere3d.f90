@@ -8,6 +8,10 @@ program test_mesh_cubedsphere3d
   use scale_mesh_cubedspheredom3d
   use scale_localmesh_3d
 
+  use mod_test_meshfield_util, only: &
+    TEST_elemID3D, TEST_nodeID3D
+  use scale_unittest_util, only: UNITTEST_init, UNITTEST_final
+  use scale_unittest_assert, only: UNITTEST_assert_equal
   implicit none
 
   type(HexahedralElement) :: refElem
@@ -41,19 +45,9 @@ contains
     logical :: ismaster
     !-------------------------------
 
-    call PRC_MPIstart( comm )
-    
-    call PRC_SINGLECOM_setup( comm,    & ! [IN]
-      nprocs, myrank, ismaster )         ! [OUT]
-    
-      call PRC_ERRHANDLER_setup( .false., ismaster ) ! [IN]
-    
-    ! setup scale_io
-    call IO_setup( "test", allow_noconf = .true. )
-    
-    ! setup log
-    call IO_LOG_setup( myrank, ismaster )   
-    
+    call UNITTEST_init( "test_mesh_cubedsphere3d",          &
+      comm=comm, myrank=myrank, nprocs=nprocs, ismaster=ismaster )
+
     !------
     call refElem%Init(PolyOrder_h, PolyOrder_v, .true.)
 
@@ -71,7 +65,7 @@ contains
     call mesh%Final()
     call refElem%Final()
     
-    call PRC_MPIfinish()
+    call UNITTEST_final()
 
     return
   end subroutine final  
@@ -113,16 +107,16 @@ contains
     do i=1, NeX
       ke = i + (j-1)*NeX + (k-1)*NeX*NeY
       EToE_ans(:,ke) = (/ &
-        elemID(lcmesh,i,j-1,k), elemID(lcmesh,i+1,j,k), elemID(lcmesh,i,j+1,k), elemID(lcmesh,i-1,j,k), &
-        elemID(lcmesh,i,j,k-1), elemID(lcmesh,i,j,k+1) /)
+        TEST_elemID3D(lcmesh,i,j-1,k), TEST_elemID3D(lcmesh,i+1,j,k), TEST_elemID3D(lcmesh,i,j+1,k), TEST_elemID3D(lcmesh,i-1,j,k), &
+        TEST_elemID3D(lcmesh,i,j,k-1), TEST_elemID3D(lcmesh,i,j,k+1) /)
       EToF_ans(:,ke) = (/ 3, 4, 1, 2, 6, 5 /)
       do q=1, Nnode_v
       do p=1, Nnode_h1D
         n = p + (q-1)*Nnode_h1D
         VMapM_h_ans(n,:,ke) = (ke-1)*Np &
-          + (/ nodeID(elem,p,1,q), nodeID(elem,Nnode_h1D,p,q), nodeID(elem,p,Nnode_h1D,q), nodeID(elem,1,p,q)  /)
+          + (/ TEST_nodeID3D(elem,p,1,q), TEST_nodeID3D(elem,Nnode_h1D,p,q), TEST_nodeID3D(elem,p,Nnode_h1D,q), TEST_nodeID3D(elem,1,p,q)  /)
         VMapP_h_ans(n,:,ke) = (EToE_ans(1:Nfaces_h,ke)-1)*Np &
-          + (/ nodeID(elem,p,Nnode_h1D,q), nodeID(elem,1,p,q), nodeID(elem,p,1,q), nodeID(elem,Nnode_h1D,p,q)  /)
+          + (/ TEST_nodeID3D(elem,p,Nnode_h1D,q), TEST_nodeID3D(elem,1,p,q), TEST_nodeID3D(elem,p,1,q), TEST_nodeID3D(elem,Nnode_h1D,p,q)  /)
       end do
       end do
 
@@ -130,9 +124,9 @@ contains
       do p=1, Nnode_h1D
         n = p + (q-1)*Nnode_h1D
         VMapM_v_ans(n,:,ke) = (ke-1)*Np &
-          + (/ nodeID(elem,p,q,1), nodeID(elem,p,q,Nnode_v)  /)
+          + (/ TEST_nodeID3D(elem,p,q,1), TEST_nodeID3D(elem,p,q,Nnode_v)  /)
         VMapP_v_ans(n,:,ke) = (EToE_ans(Nfaces_h+1:elem%Nfaces,ke)-1)*Np &
-          + (/ nodeID(elem,p,q,Nnode_v), nodeID(elem,p,q,1)  /)
+          + (/ TEST_nodeID3D(elem,p,q,Nnode_v), TEST_nodeID3D(elem,p,q,1)  /)
       end do
       end do
 
@@ -194,18 +188,18 @@ contains
     
     do ke=1, lcmesh%Ne
       write(*,*) "k=", ke
-      call assert(ke, lcmesh%EToE(ke,:), EToE_ans(:,ke), "EtoE", elem%Nfaces)
-      call assert(ke, lcmesh%EToF(ke,:), EToF_ans(:,ke), "EtoF", elem%Nfaces)
+      call UNITTEST_assert_equal( lcmesh%EToE(ke,:), EToE_ans(:,ke), "EtoE", idx=ke )
+      call UNITTEST_assert_equal( lcmesh%EToF(ke,:), EToF_ans(:,ke), "EtoF", idx=ke )
       
       vs = 1
       ve = Nfp_h*elem%Nfaces_h
-      call assert(ke, lcmesh%VMapM(vs:ve,ke), VMapM_h_ans(:,:,ke), "VMapM_h", Nfp_h*elem%Nfaces_h)
-      call assert(ke, lcmesh%VMapP(vs:ve,ke), VMapP_h_ans(:,:,ke), "VMapP_h", Nfp_h*elem%Nfaces_h)
+      call UNITTEST_assert_equal( lcmesh%VMapM(vs:ve,ke), VMapM_h_ans(:,:,ke), "VMapM_h", idx=ke )
+      call UNITTEST_assert_equal( lcmesh%VMapP(vs:ve,ke), VMapP_h_ans(:,:,ke), "VMapP_h", idx=ke )
      
       vs = ve+1
       ve = elem%NfpTot
-      call assert(ke, lcmesh%VMapM(vs:ve,ke), VMapM_v_ans(:,:,ke), "VMapM_v", Nfp_v*elem%Nfaces_v)
-      call assert(ke, lcmesh%VMapP(vs:ve,ke), VMapP_v_ans(:,:,ke), "VMapP_v", Nfp_v*elem%Nfaces_v)
+      call UNITTEST_assert_equal( lcmesh%VMapM(vs:ve,ke), VMapM_v_ans(:,:,ke), "VMapM_v", idx=ke )
+      call UNITTEST_assert_equal( lcmesh%VMapP(vs:ve,ke), VMapP_v_ans(:,:,ke), "VMapP_v", idx=ke )
       write(*,*) "--------------------------"
     end do 
     write(*,*) "***********************************************************************"
@@ -213,42 +207,6 @@ contains
     return
   end subroutine check_connectivity
 
-  subroutine assert(k, vals, ans, name, val_size)
-    integer, intent(in) :: val_size
-    integer, intent(in) :: k
-    integer, intent(in) :: vals(val_size)
-    integer, intent(in) :: ans(val_size)
-    character(*), intent(in) :: name
-
-    real(RP), parameter :: EPS = 1.0E-15_RP
-
-    !--------------------------------------
-
-    write(*,*) trim(name), "=", vals(:)
-    if ( sum((vals(:) - ans(:))**2) > EPS ) then
-      LOG_ERROR('chechk_connectivity',*) 'The value of '//trim(name)//' is unexcepted!', &
-        ' k=', k, ": val=", vals(:), " ans=", ans(:)
-      call PRC_abort
-    end if    
-  end subroutine assert
-
-  function elemID(lmesh, i, j, k) result(eid)
-    type(LocalMesh3D), intent(in) :: lmesh
-    integer, intent(in) :: i, j, k
-    integer :: eid
-    !--------------------------------------
-    eid = i + (j-1)*lmesh%NeX + (k-1)*lmesh%NeX*lmesh%NeY
-    return
-  end function elemID
-
-  function nodeID(elem, i, j, k) result(nid)
-    type(HexahedralElement), intent(in) :: elem
-    integer, intent(in) :: i, j, k
-    integer :: nid
-    !--------------------------------------
-    nid = i + (j-1)*elem%Nnode_h1D + (k-1)*elem%Nnode_h1D**2
-    return
-  end function nodeID
 
   !--------------------------
 

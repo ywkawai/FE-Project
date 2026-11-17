@@ -53,7 +53,9 @@ OBJS_NAME_COMMON = \
 	scale_gmres.o                   \
 	scale_geographic_coord_cnv.o    \
 	scale_cubedsphere_coord_cnv.o   \
-	scale_coriolis_param.o
+	scale_coriolis_param.o          \
+	scale_unittest_assert.o         \
+	scale_unittest_util.o
 
 OBJS_NAME_ELEMENT = \
 	scale_element_base.o          \

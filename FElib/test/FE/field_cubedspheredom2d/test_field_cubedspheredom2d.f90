@@ -28,6 +28,10 @@ program test_field_cubedspheredom2d
     FILE_HISTORY_meshfield_write,   &
     FILE_HISTORY_meshfield_finalize
 
+  use mod_test_meshfield_util, only: &
+    TEST_field_val, TEST_perform_comm, TEST_check_face_node, TEST_get_face_index
+  use scale_unittest_util, only: UNITTEST_init, UNITTEST_final
+  use scale_unittest_assert, only: UNITTEST_assert_equal
   implicit none
 
   integer, parameter :: PolyOrder = 2
@@ -65,8 +69,8 @@ program test_field_cubedspheredom2d
     
     write(*,*) "Check interior & halo data.."
     write(*,*) "tileID=", lcmesh%tileID
-    ! call check_interior_data(n, mesh%lcmesh_list(n), q%local(n)%val, q%local(n)%val)
-    ! call check_halo_data(n, mesh%lcmesh_list(n), q%local(n)%val, q%local(n)%val)
+    call check_interior_data(n, mesh%lcmesh_list(n), q%local(n)%val, q%local(n)%val)
+    call check_halo_data(n, mesh%lcmesh_list(n), q%local(n)%val, q%local(n)%val)
   end do
   !----
 
@@ -74,20 +78,7 @@ program test_field_cubedspheredom2d
 
 contains
 !OCL SERIAL
-  elemental function get_field_val(tileID, k, p) result(val)
-    implicit none
-    integer, intent(in) :: tileID, k, p
-    real(RP) :: val
-    !----------------------------
-    val = tileID*1000000 + k*1000 + p
-
-    return
-  end function get_field_val
-
-!OCL SERIAL
   subroutine init()
-    use scale_calendar, only: CALENDAR_setup
-    use scale_const, only: CONST_setup
     implicit none
 
     integer :: comm, myrank, nprocs
@@ -97,25 +88,8 @@ contains
     integer :: ke, p
     !---------
 
-    call PRC_MPIstart( comm )
-    
-    call PRC_SINGLECOM_setup( comm,    & ! [IN]
-      nprocs, myrank, ismaster )         ! [OUT]
-    
-    call PRC_ERRHANDLER_setup( .false., ismaster ) ! [IN]
-    
-    ! setup scale_io
-    call IO_setup( "test", allow_noconf = .true. )
-    
-    ! setup log
-    call IO_LOG_setup( myrank, ismaster )   
-    
-    ! setup calendar & initial time
-    call CALENDAR_setup
-    call TIME_manager_Init
-
-    ! setup constant
-    call CONST_setup
+    call UNITTEST_init( "test_field_cubedspheredom2d",          &
+      comm=comm, myrank=myrank, nprocs=nprocs, ismaster=ismaster, use_const=.true., use_time=.true. )
 
     !------
     call refElem%Init(PolyOrder, .true.)
@@ -144,7 +118,7 @@ contains
       !$omp parallel do private(p)
       do ke=lcmesh%NeS, lcmesh%NeE
         do p=1, refElem%Np
-          q%local(domid)%val(p,ke) = get_field_val(lcmesh%tileID, ke, p)
+          q%local(domid)%val(p,ke) = TEST_field_val(lcmesh%tileID, ke, p)
         end do
         lon%local(domid)%val(:,ke) = lcmesh%lon(:,ke)
         lat%local(domid)%val(:,ke) = lcmesh%lat(:,ke)
@@ -175,61 +149,56 @@ contains
     call mesh%Final()
     call refElem%Final()
     
-    call TIME_manager_Final()
-    call PRC_MPIfinish()
+    call UNITTEST_final()
 
     return
   end subroutine final
 
-!OCL SERIAL
   subroutine perform_comm()
+    implicit none
     type(MeshFieldContainer) :: field_list(1)
     !---------------------------
 
     field_list(1)%field2d => q
-    write(*,*) " - Put.."
-    call fields_comm%Put(field_list, 1)
-    write(*,*) " - Exchange.."
-    call fields_comm%Exchange()
-    write(*,*) " - Get.."
-    call fields_comm%Get(field_list, 1)
+    call TEST_perform_comm( fields_comm, field_list )
 
+    return
   end subroutine perform_comm
     
-!OCL SERIAL
   subroutine check_interior_data(n, lcmesh_, lcfield, lcfield_fl)
+    implicit none
+
     integer, intent(in) :: n
     type(LocalMesh2D), intent(in) :: lcmesh_
     real(RP), intent(in) :: lcfield(refElem%Np,lcmesh_%NeA)
     real(RP), intent(in) :: lcfield_fl(refElem%Np*lcmesh_%NeA)
     
-    integer :: k, f, p
-    integer :: iM, iP, fnid
+    integer :: ke, f, p
+    integer :: fnid
     integer :: ans(refElem%Np)
     !------------------------------
 
-    do k=lcmesh_%NeS, lcmesh_%NeE
+    do ke=lcmesh_%NeS, lcmesh_%NeE
       do p=1, refElem%Np
-        ans(p) = get_field_val(lcmesh_%tileID,k,p)
+        ans(p) = TEST_field_val(lcmesh_%tileID,ke,p)
       end do
 
-      call assert(k, int(lcfield(:,k)), ans(:), 'check_interior_data', 'q', refElem%Np)
+      call UNITTEST_assert_equal( int(lcfield(:,ke)), ans(:), 'check_interior_data: q', idx=ke )
       do f=1, refElem%Nfaces
       do p=1, refElem%Nfp
-        fnid = p+(f-1)*refElem%Nfp
-        iM = lcmesh_%VMapM(fnid,k)
-        iP = lcmesh_%VMapP(fnid,k)
-        write(*,'(a,3(i3),a,i10,a,i10,a,3i4)') "k , f, p =", k,f,p,           &
-          " : q- = ", int(lcfield_fl(iM)), ",  q+ =", int(lcfield_fl(iP)),  &
-          ", normal=", int(lcmesh_%normal_fn(fnid,k,:))
+        fnid = p + (f-1)*refElem%Nfp
+        call TEST_check_face_node( lcmesh_, lcfield_fl, ke, f, fnid )
       end do
       end do
-
     end do
 
+    return
   end subroutine check_interior_data
 
-!OCL SERIAL
+  !> Check the values in halo 
+  !! The halo data are stored in the order of south, east, north, and west boundaries. 
+  !! The answer is obtained from the neighbor tile, considering the face ID of the neighbor tile 
+  !! and the orientation of the face (tileFaceID_globalMap). 
   subroutine check_halo_data(n, lcmesh_, lcfield, lcfield_fl)
     implicit none
 
@@ -238,85 +207,40 @@ contains
     real(RP), intent(in) :: lcfield(refElem%Np,lcmesh_%NeA)
     real(RP), intent(in) :: lcfield_fl(refElem%Np*lcmesh_%NeA)
     
-    integer :: ans_bx(refElem%Nfp,lcmesh_%NeX)
-    integer :: ans_by(refElem%Nfp,lcmesh_%NeY)    
+    integer :: ans(refElem%Nfp,max(lcmesh_%NeX,lcmesh_%NeY))
     integer :: haloInd_s, haloInd_e
-    integer :: i, j, k, f, fp
+    integer :: i, fph, f
+    integer :: ke, fp
     integer :: tileID
-
+    integer :: s_face(4)
+    integer :: Ne1D(4)
+    character(len=5), parameter :: face_name(4) = (/ 'south', 'east ', 'north', 'west ' /)
     !------------------------------
 
     tileID = lcmesh_%tileID
+    s_face(:) = mesh%tileFaceID_globalMap(:,tileID)
+    Ne1D(:) = (/ lcmesh_%NeX, lcmesh_%NeY, lcmesh_%NeX, lcmesh_%NeY /)
 
     write(*,*) "Check values in halo.."
     write(*,*) "tileID_globalMap=", mesh%tileID_globalMap(:,tileID)
-    write(*,*) "tileFaceID_globalMap=", mesh%tileFaceID_globalMap(:,tileID)
+    write(*,*) "tileFaceID_globalMap=", s_face(:)
 
-
-    haloInd_s = refElem%Np*lcmesh_%Ne + 1    
-    haloInd_e = haloInd_s + refElem%Nfp*lcmesh_%NeX - 1
-    do i=1, lcmesh_%NeX
-      k = i + (lcmesh_%NeY-1)*lcmesh_%NeX
-      do fp=1, refElem%Nfp
-        ans_bx(fp,i) = get_field_val(mesh%tileID_globalMap(1,tileID), k, refElem%Fmask(fp,3))
+    haloInd_e = refElem%Np*lcmesh_%Ne
+    do f=1, 4
+      haloInd_s = haloInd_e + 1
+      haloInd_e = haloInd_s + refElem%Nfp*Ne1D(f) - 1
+      do i=1, Ne1D(f)
+      do fph=1, refElem%Nfp
+        call TEST_get_face_index( s_face(f), Ne1D(f), refElem%Nfp, i, fph, &
+          ke, fp )
+        ans(fph,i) = TEST_field_val(mesh%tileID_globalMap(f,tileID), ke, refElem%Fmask(fp,abs(s_face(f))))
       end do
+      end do
+      call UNITTEST_assert_equal( int(lcfield_fl(haloInd_s:haloInd_e)), ans(:,1:Ne1D(f)), &
+        'check_halo_data: q_halo_'//trim(face_name(f)), idx=tileID )
     end do
-    call assert( -1, int(lcfield_fl(haloInd_s:haloInd_e)), ans_bx(:,:),     &
-                 'check_halo_data', 'q_halo_south', refElem%Nfp*lcmesh_%NeX)
 
-    haloInd_s = haloInd_e + 1    
-    haloInd_e = haloInd_s + refElem%Nfp*lcmesh_%NeY - 1
-    do j=1, lcmesh_%NeY
-      k = 1 + (j-1)*lcmesh_%NeX
-      do fp=1, refElem%Nfp
-        ans_by(fp,j) = get_field_val(mesh%tileID_globalMap(2,tileID), k, refElem%Fmask(fp,4))
-      end do
-    end do
-    call assert( -1, int(lcfield_fl(haloInd_s:haloInd_e)), ans_by(:,:),     &
-      'check_halo_data', 'q_halo_east', refElem%Nfp*lcmesh_%NeY)
-
-    haloInd_s = haloInd_e + 1    
-    haloInd_e = haloInd_s + refElem%Nfp*lcmesh_%NeX - 1    
-    do i=1, lcmesh_%NeX
-      k = i
-      do fp=1, refElem%Nfp
-        ans_bx(fp,i) = get_field_val(mesh%tileID_globalMap(3,tileID), k, refElem%Fmask(fp,1))
-      end do
-    end do
-    call assert( -1, int(lcfield_fl(haloInd_s:haloInd_e)), ans_bx(:,:),     &
-                 'check_halo_data', 'q_halo_north', refElem%Nfp*lcmesh_%NeX)
-
-    haloInd_s = haloInd_e + 1    
-    haloInd_e = haloInd_s + refElem%Nfp*lcmesh_%NeY - 1    
-    do j=1, lcmesh_%NeY
-      k = lcmesh_%NeX + (j-1)*lcmesh_%NeX
-      do fp=1, refElem%Nfp
-        ans_by(fp,j) = get_field_val(mesh%tileID_globalMap(4,tileID), k, refElem%Fmask(fp,2))
-      end do
-    end do    
-    call assert( -1, int(lcfield_fl(haloInd_s:haloInd_e)), ans_by(:,:),     &
-      'check_halo_data', 'q_halo_west', refElem%Nfp*lcmesh_%NeY)    
-
+    return
   end subroutine check_halo_data
-
-!OCL SERIAL
-  subroutine assert(k, vals, ans, assert_name, var_name, val_size)
-    integer, intent(in) :: val_size
-    integer, intent(in) :: k
-    integer, intent(in) :: vals(val_size)
-    integer, intent(in) :: ans(val_size)
-    character(*), intent(in) :: assert_name
-    character(*), intent(in) :: var_name
-
-    real(RP), parameter :: EPS = 1.0E-15_RP
-    !--------------------------------------
-
-    write(*,*) trim(var_name), "=", vals(:)
-    if ( sum((vals(:) - ans(:))**2) > EPS ) then
-      LOG_ERROR(assert_name,*) 'The value of '//trim(var_name)//' is unexcepted!', &
-        ' k=', k, ": val=", vals(:), " ans=", ans(:)
-      call PRC_abort
-    end if    
-  end subroutine assert
 
 end program test_field_cubedspheredom2d

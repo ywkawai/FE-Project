@@ -131,5 +131,7 @@ $(BUILD_DIR)/scale_sparsemat.o: common/scale_sparsemat.F90 $(DEPENDLIB)
 $(BUILD_DIR)/scale_time_manager.o: common/scale_time_manager.F90 $(DEPENDLIB)
 $(BUILD_DIR)/scale_timeint_rk.o: common/scale_timeint_rk.F90 $(DEPENDLIB) $(BUILD_DIR)/scale_timeint_rk_butcher_tab.o
 $(BUILD_DIR)/scale_timeint_rk_butcher_tab.o: common/scale_timeint_rk_butcher_tab.F90 $(DEPENDLIB) $(BUILD_DIR)/scale_linalgebra.o
+$(BUILD_DIR)/scale_unittest_assert.o: common/scale_unittest_assert.F90 $(DEPENDLIB)
+$(BUILD_DIR)/scale_unittest_util.o: common/scale_unittest_util.F90 $(DEPENDLIB) $(BUILD_DIR)/scale_time_manager.o $(BUILD_DIR)/scale_unittest_assert.o
 $(BUILD_DIR)/scale_variableinfo.o: data/scale_variableinfo.F90 $(DEPENDLIB)
 

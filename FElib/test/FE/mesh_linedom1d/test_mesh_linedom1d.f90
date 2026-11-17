@@ -8,6 +8,8 @@ program test_mesh_linedom1d
   use scale_localmesh_1d
   use scale_mesh_linedom1d
 
+  use scale_unittest_util, only: UNITTEST_init, UNITTEST_final
+  use scale_unittest_assert, only: UNITTEST_assert_equal
   implicit none
 
   integer, parameter :: NeGX = 4
@@ -35,19 +37,9 @@ contains
     integer :: comm, myrank, nprocs
     logical :: ismaster
 
-    call PRC_MPIstart( comm )
-    
-    call PRC_SINGLECOM_setup( comm,    & ! [IN]
-      nprocs, myrank, ismaster )         ! [OUT]
-    
-    call PRC_ERRHANDLER_setup( .false., ismaster ) ! [IN]
-    
-    ! setup scale_io
-    call IO_setup( "test", allow_noconf = .true. )
-    
-    ! setup log
-    call IO_LOG_setup( myrank, ismaster )   
-    
+    call UNITTEST_init( "test_mesh_linedom1d",          &
+      comm=comm, myrank=myrank, nprocs=nprocs, ismaster=ismaster )
+
     !------
     call refElem%Init(PolyOrder, .true.)
 
@@ -65,7 +57,7 @@ contains
     call mesh%Final()
     call refElem%Final()
     
-    call PRC_MPIfinish()
+    call UNITTEST_final()
 
   end subroutine final
 
@@ -115,10 +107,10 @@ contains
 
     do k=1, lcmesh%Ne
       write(*,*) "k=", k
-      call assert(k, lcmesh%EToE(k,:), EToE_ans(:,k), "EtoE")
-      call assert(k, lcmesh%EToF(k,:), EToF_ans(:,k), "EtoF")
-      call assert(k, lcmesh%VMapM(:,k), VMapM_ans(:,k), "VMapM")
-      call assert(k, lcmesh%VMapP(:,k), VMapP_ans(:,k), "VMapP")
+      call UNITTEST_assert_equal( lcmesh%EToE(k,:), EToE_ans(:,k), "EtoE", idx=k )
+      call UNITTEST_assert_equal( lcmesh%EToF(k,:), EToF_ans(:,k), "EtoF", idx=k )
+      call UNITTEST_assert_equal( lcmesh%VMapM(:,k), VMapM_ans(:,k), "VMapM", idx=k )
+      call UNITTEST_assert_equal( lcmesh%VMapP(:,k), VMapP_ans(:,k), "VMapP", idx=k )
       write(*,*) "--------------------------"
     end do 
 
@@ -126,22 +118,5 @@ contains
     write(*,*) "***********************************************************************"
   end subroutine check_connectivity
 
-  subroutine assert(k, vals, ans, name)
-    integer, intent(in) :: k
-    integer, intent(in) :: vals(:)
-    integer, intent(in) :: ans(size(vals))
-    character(*), intent(in) :: name
-
-    real(RP), parameter :: EPS = 1.0E-15_RP
-
-    !--------------------------------------
-
-    write(*,*) trim(name), "=", vals(:)
-    if ( sum((vals(:) - ans(:))**2) > EPS ) then
-      LOG_ERROR('chechk_connectivity',*) 'The value of '//trim(name)//' is unexcepted!', &
-        ' k=', k, ": val=", vals(:), " ans=", ans(:)
-      call PRC_abort
-    end if    
-  end subroutine assert
 
 end program test_mesh_linedom1d

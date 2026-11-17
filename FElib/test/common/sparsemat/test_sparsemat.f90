@@ -6,6 +6,8 @@ program test_sparsemat
     EPS => CONST_EPS
   use scale_prc
   use scale_sparsemat
+  use scale_unittest_util, only: UNITTEST_init, UNITTEST_final
+  use scale_unittest_assert, only: UNITTEST_assert_close
   implicit none
 
   integer, parameter :: N = 5 
@@ -17,7 +19,6 @@ program test_sparsemat
   !----------------------------------------
 
   !* Initialize
-  write(*,*) "- Start test_sparsemat .."
   call init()
 
   !* Print original matrix
@@ -30,93 +31,58 @@ program test_sparsemat
   !* Check the storage 
   write(*,*) "- Print buffer information (CSR format)"
   call Acsr%Print()
-  write(*,*) "- Check consistency of storage data (CSR format)..."
-  do j=1, N
-  do i=1, N
-    if ( abs(A(i,j)) > EPS ) then
-      if ( abs(Acsr%GetVal(i,j) - A(i,j)) > EPS ) then
-        write(*,'(a,2i3,a,2f12.5)') "GetVal: Buffer data is inconsitent to original matrix data! i,j=", i, j, &
-          ": A(i,j), storage data=", A(i,j), Acsr%GetVal(i,j)
-        call PRC_abort
-      end if
-    end if
-  end do
-  end do
-  write(*,*) "OK!"
+  call check_storage( Acsr, "GetVal (CSR format)" )
 
   write(*,*) "- Print buffer information (ELL format)"
   call Aell%Print()
-  write(*,*) "- Check consistency of storage data (ELL format)..."
-  do j=1, N
-  do i=1, N
-    if ( abs(A(i,j)) > EPS ) then
-      if ( abs(Aell%GetVal(i,j) - A(i,j)) > EPS ) then
-        write(*,'(a,2i3,a,2f12.5)') "GetVal: Buffer data is inconsitent to original matrix data! i,j=", i, j, &
-          ": A(i,j), storage data'=", A(i,j), Aell%GetVal(i,j)
-        call PRC_abort
-      end if
-    end if
-  end do
-  end do
-  write(*,*) "OK!"
+  call check_storage( Aell, "GetVal (ELL format)" )
   
   !* Check SpMV operation
 
-  write(*,*) "- Check the result of SpMV operation.."
-
   x(:) = 1.0_RP
-
   b_ans(:) = matmul(A,x)
-  write(*,'(a,5i5)') "* Answer b=", int(b_ans(:))
 
   call sparsemat_matmul(Acsr, x, b)
-  write(*,'(a,5i5)') "* CSR format: b=", int(b(:))
-  do i=1, N
-    if ( abs(b(i) - b_ans(i)) > EPS ) then
-      write(*,'(a,i3,a,2f12.5)') "SpMV (CSR format): the result is invalid! i=", i, &
-        ": b, b_answer=", b(i), b_ans(i)
-    call PRC_abort
-    end if  
-  end do
-  write(*,*) "OK!"
+  call UNITTEST_assert_close( b(:), b_ans(:), "SpMV (CSR format)", rtol=0.0_RP, atol=EPS )
 
   call sparsemat_matmul(Aell, x, b)
-  write(*,'(a,5i5)') "* ELL format: b=", int(b(:))
-  do i=1, N
-    if ( abs(b(i) - b_ans(i)) > EPS ) then
-      write(*,'(a,i3,a,2f12.5)') "SpMV (ELL format): the result is invalid! i=", i, &
-        ": b, b_answer=", b(i), b_ans(i)
-    call PRC_abort
-    end if  
-  end do
-  write(*,*) "OK!"
-
+  call UNITTEST_assert_close( b(:), b_ans(:), "SpMV (ELL format)", rtol=0.0_RP, atol=EPS )
 
   !* Finalize
 
   call final()
-  write(*,*) 'test_sparsemat has been succeeded!'
 
 contains  
+  !> Check consistency of storage data with the original matrix (only for nonzero elements)
+  subroutine check_storage( Amat, lbl )
+    implicit none
+    type(SparseMat), intent(in) :: Amat
+    character(len=*), intent(in) :: lbl
+
+    real(RP) :: A_stored(N,N)
+    integer :: i_, j_
+    !-----------------------------------
+
+    do j_=1, N
+    do i_=1, N
+      if ( abs(A(i_,j_)) > EPS ) then
+        A_stored(i_,j_) = Amat%GetVal(i_,j_)
+      else
+        A_stored(i_,j_) = A(i_,j_)
+      end if
+    end do
+    end do
+    call UNITTEST_assert_close( A_stored(:,:), A(:,:), lbl, rtol=0.0_RP, atol=EPS )
+
+    return
+  end subroutine check_storage
+
   subroutine init()
     implicit none
 
-    integer :: comm, myrank, nprocs
-    logical :: ismaster  
     !-----------------------------------
 
-    call PRC_MPIstart( comm )
-    
-    call PRC_SINGLECOM_setup( comm,    & ! [IN]
-      nprocs, myrank, ismaster )         ! [OUT]
-    
-    call PRC_ERRHANDLER_setup( .false., ismaster ) ! [IN]
-
-    ! setup scale_io
-    call IO_setup( "test_sparsemat", "test.conf", allow_noconf = .false. )
-
-    ! setup log
-    call IO_LOG_setup( myrank, ismaster )   
+    call UNITTEST_init( "test_sparsemat", conf_fname="test.conf", allow_noconf=.false. )
 
     !-
     A(1,:) = (/ 1.0_RP, 3.0_RP, 0.0_RP, 0.0_RP, 0.0_RP /)
@@ -136,7 +102,7 @@ contains
     !-----------------------------------
     call Acsr%Final()
     call Aell%Final()
-    call PRC_MPIfinish()
+    call UNITTEST_final()
     return
   end subroutine final
 

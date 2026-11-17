@@ -13,6 +13,7 @@ program test_model_framework
   use scale_meshfield_base, only: MeshField1D
   use mod_atmos_component, only: &
     AtmosComponent
+  use scale_unittest_util, only: UNITTEST_init, UNITTEST_final
 
   implicit none
 
@@ -24,42 +25,24 @@ program test_model_framework
 
 contains
   subroutine init()
-    use scale_calendar, only: CALENDAR_setup
-    use scale_time_manager, only: TIME_manager_Init
-
-    integer :: comm, myrank, nprocs
-    logical :: ismaster
-    integer :: n, k, p
-
+    implicit none
     !---------
-    call PRC_MPIstart( comm )
-    
-    call PRC_SINGLECOM_setup( comm,    & ! [IN]
-      nprocs, myrank, ismaster )         ! [OUT]
-    
-    call PRC_ERRHANDLER_setup( .false., ismaster ) ! [IN]
-    
-    ! setup scale_io
-    call IO_setup( "test_model_framework", "test.conf", allow_noconf = .false. )
-    
-    ! setup log
-    call IO_LOG_setup( myrank, ismaster )   
-    
+
+    call UNITTEST_init( "test_model_framework", conf_fname="test.conf", allow_noconf=.false., &
+      use_time=.true. )
+
     !------
-    call TIME_manager_Init()
     call atmos%setup()
 
     return
   end subroutine init
 
   subroutine final()
-    use scale_time_manager, only: TIME_manager_Final
     implicit none
     !------------------
 
     call atmos%finalize()
-    call TIME_manager_Final()
-    call PRC_MPIfinish()
+    call UNITTEST_final()
 
     return
   end subroutine final
