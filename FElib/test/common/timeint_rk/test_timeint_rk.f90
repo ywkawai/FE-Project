@@ -8,6 +8,8 @@ program test_timeint_rk
 
   use scale_timeint_rk, only: &
     timeint_rk
+  use scale_unittest_util, only: UNITTEST_init, UNITTEST_final
+  use scale_unittest_assert, only: UNITTEST_assert_true
   
   implicit none
 
@@ -24,7 +26,6 @@ program test_timeint_rk
 
   !-------------------------------
 
-  write(*,*) 'Start test_timint_rk..'
   call init()
 
   !****
@@ -46,7 +47,6 @@ program test_timeint_rk
   call check_ShuOsher2Butcher()
 
   call final()
-  write(*,*) 'test_timeint_rk has been succeeded!'
 
 contains
   subroutine check_tscheme_ex( temporal_scheme_name, check_ord )
@@ -92,10 +92,8 @@ contains
     write(*,'(a,a,f5.2,a,e12.5,a,e12.5)') trim(tname), ": conv rate=", conv_rate, &
       ', error1=', error1, ", error2=", error2
 
-    if ( conv_rate < check_ord ) then
-      write(*,*) "Convergence rate is too low. Check!"
-      call PRC_abort
-    end if
+    call UNITTEST_assert_true( conv_rate >= check_ord, trim(tname)//': convergence rate', &
+      'Convergence rate is too low.' )
 
     return
   end subroutine check_terror
@@ -327,32 +325,16 @@ contains
     type(timeint_rk), intent(in) :: tint
     real(RP), intent(in) :: a_ans(tint%nstage,tint%nstage)
     real(RP), intent(in) :: b_ans(tint%nstage)
-    integer :: i
     !---------------------------------
 
-    write(*,*) 'check_ShuOsher2Butcher: ', trim(tint_label), ".."
+    ! Conversion from Shu-Osher form into Butcher form
+    call UNITTEST_assert_true( &
+      sqrt( sum( ( a_ans(:,:) - tint%coef_a_ex(:,:) )**2 ) ) <= 1.0E-14_RP * dble(tint%nstage**2), &
+      'check_ShuOsher2Butcher: '//trim(tint_label)//': a', 'Fail to convert Shu-Osher form into Butcher form.' )
+    call UNITTEST_assert_true( &
+      sqrt( sum( ( b_ans(:) - tint%coef_b_ex(:) )**2 ) ) <= 1.0E-14_RP * dble(tint%nstage), &
+      'check_ShuOsher2Butcher: '//trim(tint_label)//': b', 'Fail to convert Shu-Osher form into Butcher form.' )
 
-    if ( sqrt( sum( ( a_ans(:,:) - tint%coef_a_ex(:,:) )**2 ) ) > 1.0E-14_RP * dble(tint%nstage**2) ) then
-      write(*,*) "Fail to convert Shu-Osher form into Bucher form. Check!"
-      write(*,*) "a: "
-      do i=1, tint%nstage
-        write(*,*) tint%coef_a_ex(i,:)
-      end do
-      write(*,*) "a_ans: "
-      do i=1, tint%nstage
-        write(*,*) a_ans(i,:)
-      end do
-      call PRC_abort      
-    end if
-
-    if ( sqrt( sum( ( b_ans(:) - tint%coef_b_ex(:) )**2 ) ) > 1.0E-14_RP * dble(tint%nstage) ) then
-      write(*,*) "Fail to convert Shu-Osher form into Bucher form. Check!"
-      write(*,*) "b: ", tint%coef_b_ex(:)
-      write(*,*) "b_ans: ", b_ans(:)
-      call PRC_abort
-    end if
-
-    write(*,*) "Correct!"
     return
   end subroutine check_ButcherMat
   
@@ -362,22 +344,9 @@ contains
   subroutine init()
     implicit none
 
-    integer :: comm, myrank, nprocs
-    logical :: ismaster  
     !------------------------------
 
-    call PRC_MPIstart( comm )
-    
-    call PRC_SINGLECOM_setup( comm,    & ! [IN]
-      nprocs, myrank, ismaster )         ! [OUT]
-    
-    call PRC_ERRHANDLER_setup( .false., ismaster ) ! [IN]
-
-    ! setup scale_io                                                                                                                                                                                 
-    call IO_setup( "test_time_manager", "test.conf", allow_noconf = .true. )
-  
-    ! setup log
-    call IO_LOG_setup( myrank, ismaster )   
+    call UNITTEST_init( "test_timeint_rk", conf_fname="test.conf" )
 
     return
   end subroutine init
@@ -386,7 +355,7 @@ contains
     implicit none
     !------------------------------
 
-    call PRC_MPIfinish()
+    call UNITTEST_final()
 
     return
   end subroutine final

@@ -3,6 +3,8 @@ program test_polynomial
   use scale_precision
   use scale_io
   use scale_polynomial
+  use scale_unittest_util, only: UNITTEST_init, UNITTEST_final
+  use scale_unittest_assert, only: UNITTEST_assert_close
   implicit none
 
   !----------------------------------------------
@@ -46,19 +48,19 @@ program test_polynomial
 
  !----------------------------------------------------------------------------------------
 
-  write(*,*) "Start test_polynomial..."
+  call UNITTEST_init( "test_polynomial" )
 
-  call chechk_value(1, lgl_pts_n1, lgl_intw_n1, gl_pts_n1, gl_intw_n1)
-  call chechk_value(2, lgl_pts_n2, lgl_intw_n2, gl_pts_n2, gl_intw_n2)
-  call chechk_value(3, lgl_pts_n3, lgl_intw_n3, gl_pts_n3, gl_intw_n3)
-  call chechk_value(4, lgl_pts_n4, lgl_intw_n4, gl_pts_n4, gl_intw_n4)
+  call check_value(1, lgl_pts_n1, lgl_intw_n1, gl_pts_n1, gl_intw_n1)
+  call check_value(2, lgl_pts_n2, lgl_intw_n2, gl_pts_n2, gl_intw_n2)
+  call check_value(3, lgl_pts_n3, lgl_intw_n3, gl_pts_n3, gl_intw_n3)
+  call check_value(4, lgl_pts_n4, lgl_intw_n4, gl_pts_n4, gl_intw_n4)
 
   call output_expandfunc(4, 200)
 
-  write(*,*) "test_polynomial has been succeeded!"
+  call UNITTEST_final()
 
 contains
-  subroutine chechk_value(Norder, lgl_pts_ans, lgl_intw_ans, gl_pts_ans, gl_intw_ans)
+  subroutine check_value(Norder, lgl_pts_ans, lgl_intw_ans, gl_pts_ans, gl_intw_ans)
     integer, intent(in) :: Norder
     real(RP), intent(in) :: lgl_pts_ans(Norder+1)
     real(RP), intent(in) :: lgl_intw_ans(Norder+1)
@@ -73,6 +75,7 @@ contains
     integer :: l
     
     real(RP), parameter :: CHECK_EPS = 5.0E-15_RP
+    character(len=H_SHORT) :: lbl_prefix
 
    !--------------------------------------------------------------------
 
@@ -83,47 +86,25 @@ contains
     GLpts(:) = Polynomial_GenGaussLegendrePt(Norder)
     GL_intw(:) = Polynomial_GenGaussLegendrePtIntWeight(Norder)
 
-    write(*,*) "******** Norder=", Norder
-    
-    write(*,*) "- LGLpts:", LGLpts(:)
-    if (maxval(abs(LGLpts - lgl_pts_ans)) > CHECK_EPS) then
-      LOG_ERROR('chechk_value',*) 'Error of LGL points are large. Check!', &
-        "answer=", lgl_pts_ans
-      error stop 1
-    end if
+    write(lbl_prefix,'(a,i0,a)') 'Norder=', Norder, ': '
 
-    write(*,*) "--"
+    write(*,*) "******** Norder=", Norder
     write(*,*) "- Legendre (at LGLpts): "
     do l=1, Norder+1
       write(*,*) l-1, ":", Legendre_LGLPts(:,l)
     end do
 
-    write(*,*) "--"
-    write(*,*) "LGL weight:",  LGL_intw(:)
-    if (maxval(abs(LGL_intw - lgl_intw_ans)) > CHECK_EPS) then
-      LOG_ERROR('chechk_value',*) 'Error of LGL weights are large. Check!', &
-        "answer=", lgl_intw_ans
-      error stop 1
-    end if
+    call UNITTEST_assert_close( LGLpts(:), lgl_pts_ans(:), trim(lbl_prefix)//'LGL points', &
+      rtol=0.0_RP, atol=CHECK_EPS )
+    call UNITTEST_assert_close( LGL_intw(:), lgl_intw_ans(:), trim(lbl_prefix)//'LGL weights', &
+      rtol=0.0_RP, atol=CHECK_EPS )
+    call UNITTEST_assert_close( GLpts(:), gl_pts_ans(:), trim(lbl_prefix)//'GL points', &
+      rtol=0.0_RP, atol=CHECK_EPS )
+    call UNITTEST_assert_close( GL_intw(:), gl_intw_ans(:), trim(lbl_prefix)//'GL weights', &
+      rtol=0.0_RP, atol=CHECK_EPS )
 
-    write(*,*) "--"    
-    write(*,*) "- GLpts:", GLpts(:)
-    if (maxval(abs(GLpts - gl_pts_ans)) > CHECK_EPS) then
-      LOG_ERROR('chechk_value',*) 'Error of GL points are large. Check!', &
-        "answer=", gl_pts_ans
-      error stop 1
-    end if
-
-    write(*,*) "--"
-    write(*,*) "GL weight:",  GL_intw(:)
-    if (maxval(abs(GL_intw - gl_intw_ans)) > CHECK_EPS) then
-      LOG_ERROR('chechk_value',*) 'Error of GL weights are large. Check!', &
-        "answer=", gl_intw_ans
-      error stop 1
-    end if    
-    write(*,*) "**************************************"
-
-  end subroutine chechk_value
+    return
+  end subroutine check_value
 
   subroutine output_expandfunc(Norder, Nnode_intrp)
     integer, intent(in) :: Norder

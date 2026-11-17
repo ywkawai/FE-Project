@@ -82,6 +82,12 @@ clean:
 $(BUILD_DIR)/%.o: %.f90
 	$(FC) $(FFLAGS) $(ADDITIONAL_FFLAGS) -DVERSION_MACRO=\"$(VERSION)\" -I$(BUILD_DIR) -I$(MODDIR) $(CONTRIB_INCLUDE) -I$(SCALEFELIBDIR)/include  $(SCALE_NETCDF_INCLUDE) $(MODDIROPT) $(BUILD_DIR) -o $@ -c $<
 
+# Common utility modules for unit tests (FElib/test/util)
+#  (These are compiled in the build directory of each test when listed in OBJS)
+FELIB_TEST_UTIL_DIR = $(FELIB_TEST_DIR)/util
+$(BUILD_DIR)/%.o: $(FELIB_TEST_UTIL_DIR)/%.f90
+	$(FC) $(FFLAGS) $(ADDITIONAL_FFLAGS) -DVERSION_MACRO=\"$(VERSION)\" -I$(BUILD_DIR) -I$(MODDIR) $(CONTRIB_INCLUDE) -I$(SCALEFELIBDIR)/include  $(SCALE_NETCDF_INCLUDE) $(MODDIROPT) $(BUILD_DIR) -o $@ -c $<
+
 run: jobshell
 	@if [ $(JOBSUB) = "pjsub" ]; then \
 		JID=$$($(JOBSUB) -z jid run.sh $(JOBSUB_OPTION)); if [ $$? -ne 0 ]; then exit 1; fi; \

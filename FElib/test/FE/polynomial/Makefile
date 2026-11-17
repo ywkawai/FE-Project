@@ -11,6 +11,7 @@ FELIB_TEST_DIR = ../../
 BINNAME = test_polynomial
 OBJS    =
 
+RUNCONF         = test.conf
 TPROC           = 1
 OMP_NUM_THREADS = 1
 

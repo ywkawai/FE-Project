@@ -26,6 +26,10 @@ program test_field1d
     FILE_HISTORY_meshfield_write,   &
     FILE_HISTORY_meshfield_finalize
 
+  use mod_test_meshfield_util, only: &
+    TEST_field_val, TEST_perform_comm, TEST_check_face_node
+  use scale_unittest_util, only: UNITTEST_init, UNITTEST_final
+  use scale_unittest_assert, only: UNITTEST_assert_equal
   implicit none
 
   integer, parameter :: NeGX = 4
@@ -86,41 +90,18 @@ contains
     !$acc parallel loop collapse(2) present(lmesh,val)
     do ke=lmesh%NeS, lmesh%NeE
     do p=1, elem%Np
-      val(p,ke) = get_field_val_func(tileID, ke, p)
+      val(p,ke) = TEST_field_val(tileID, ke, p)
     end do
     end do
   end subroutine get_field_val
 
-  elemental function get_field_val_func(tileID,ke,p) result(val)
-    integer, intent(in) :: tileID, ke, p
-    real(RP) :: val
-    !---
-    !$acc routine seq
-    val = tileID*1000000 + ke*1000 + p
-  end function get_field_val_func
-  
   subroutine init()
-    use scale_calendar, only: CALENDAR_setup
 
     integer :: comm, myrank, nprocs
     logical :: ismaster
     !---------
-    call PRC_MPIstart( comm )
-    
-    call PRC_SINGLECOM_setup( comm,    & ! [IN]
-      nprocs, myrank, ismaster )         ! [OUT]
-    
-    call PRC_ERRHANDLER_setup( .false., ismaster ) ! [IN]
-    
-    ! setup scale_io
-    call IO_setup( "test", allow_noconf = .true. )
-    
-    ! setup log
-    call IO_LOG_setup( myrank, ismaster )   
-    
-    ! setup calendar & initial time
-    call CALENDAR_setup
-    call TIME_manager_Init
+    call UNITTEST_init( "test_field_linedom1d",          &
+      comm=comm, myrank=myrank, nprocs=nprocs, ismaster=ismaster, use_time=.true. )
 
     !------
     call refElem%Init(PolyOrder, .true.)
@@ -159,23 +140,19 @@ contains
     call mesh%Final()
     call refElem%Final()
     
-    call TIME_manager_Final()    
-    call PRC_MPIfinish()
+    call UNITTEST_final()
 
   end subroutine final
 
   subroutine perform_comm()
+    implicit none
     type(MeshFieldContainer) :: field_list(1)
     !---------------------------
 
     field_list(1)%field1d => q
-    write(*,*) " - Put.."
-    call fields_comm%Put(field_list, 1)
-    write(*,*) " - Exchange.."
-    call fields_comm%Exchange()
-    write(*,*) " - Get.."
-    call fields_comm%Get(field_list, 1)
+    call TEST_perform_comm( fields_comm, field_list )
 
+    return
   end subroutine perform_comm
 
   subroutine check_interior_data(n, lcmesh_, lcfield, lcfield_fl)
@@ -185,7 +162,7 @@ contains
     real(RP), intent(in) :: lcfield_fl(refElem%Np*lcmesh_%NeA)
     
     integer :: ke, f, p
-    integer :: iM, iP, fnid
+    integer :: fnid
     real(RP) :: ans(refElem%Np,lcmesh_%NeA)
     !------------------------------
 
@@ -195,15 +172,11 @@ contains
     !$acc update host(ans)
 
     do ke=lcmesh_%NeS, lcmesh_%NeE
-      call assert(ke, int(lcfield(:,ke)), int(ans(:,ke)), 'check_interior_data', 'q', refElem%Np)
+      call UNITTEST_assert_equal( int(lcfield(:,ke)), int(ans(:,ke)), 'check_interior_data: q', idx=ke )
       do f=1, refElem%Nfaces
       do p=1, refElem%Nfp
         fnid = p+(f-1)*refElem%Nfp
-        iM = lcmesh_%VMapM(fnid,ke)
-        iP = lcmesh_%VMapP(fnid,ke)
-        write(*,'(a,3(i3),a,i10,a,i10,a,i10)') "k , f, p =", ke,f,p,           &
-          " : q- = ", int(lcfield_fl(iM)), ",  q+ =", int(lcfield_fl(iP)),  &
-          ", nx=", int(lcmesh_%normal_fn(fnid,ke,1))
+        call TEST_check_face_node( lcmesh_, lcfield_fl, ke, f, fnid )
       end do
       end do
     end do
@@ -230,31 +203,12 @@ contains
     haloInd_s = refElem%Np*lcmesh_%Ne + 1
     haloInd_e = haloInd_s + 2 - 1
 
-    ans(1) = get_field_val_func(mesh%tileID_globalMap(1,n), lcmesh_%Ne, refElem%Np) 
-    ans(2) = get_field_val_func(mesh%tileID_globalMap(2,n), 1, 1) 
+    ans(1) = TEST_field_val(mesh%tileID_globalMap(1,n), lcmesh_%Ne, refElem%Np) 
+    ans(2) = TEST_field_val(mesh%tileID_globalMap(2,n), 1, 1) 
     
-    call assert( -1, int(lcfield_fl(haloInd_s:haloInd_e)), ans(:), &
-                 'check_halo_data', 'q_halo', 2)
+    call UNITTEST_assert_equal( int(lcfield_fl(haloInd_s:haloInd_e)), ans(:), 'check_halo_data: q_halo' )
 
   end subroutine check_halo_data
 
-  subroutine assert(k, vals, ans, assert_name, var_name, val_size)
-    integer, intent(in) :: val_size
-    integer, intent(in) :: k
-    integer, intent(in) :: vals(val_size)
-    integer, intent(in) :: ans(val_size)
-    character(*), intent(in) :: assert_name
-    character(*), intent(in) :: var_name
-
-    real(RP), parameter :: EPS = 1.0E-15_RP
-    !--------------------------------------
-
-    write(*,*) trim(var_name), "=", vals(:)
-    if ( sum((vals(:) - ans(:))**2) > EPS ) then
-      LOG_ERROR(assert_name,*) 'The value of '//trim(var_name)//' is unexcepted!', &
-        ' k=', k, ": val=", vals(:), " ans=", ans(:)
-      call PRC_abort
-    end if    
-  end subroutine assert
 
 end program test_field1d

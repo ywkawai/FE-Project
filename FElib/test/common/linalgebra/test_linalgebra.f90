@@ -3,6 +3,9 @@ program test_linalgebra
   use scale_precision
   use scale_prc
   use scale_io
+  use scale_unittest_util, only: UNITTEST_init, UNITTEST_final
+  use scale_unittest_assert, only: &
+    UNITTEST_assert_equal, UNITTEST_assert_less
   implicit none
 
   real(RP), allocatable :: A(:,:)
@@ -23,7 +26,6 @@ program test_linalgebra
   call test_SolveLinEq()
   call test_SolveLinEq_bndmat()
 
-  write(*,*) "Test of LinAlgebra module has been succeeded!"
   call final()
 
 contains
@@ -31,24 +33,10 @@ contains
     implicit none
     !-----------------------------------------
 
-    integer :: comm, myrank, nprocs
-    logical :: ismaster  
-
     integer :: i, j
     !-----------------------------------
 
-    call PRC_MPIstart( comm )
-    
-    call PRC_SINGLECOM_setup( comm,    & ! [IN]
-      nprocs, myrank, ismaster )         ! [OUT]
-    
-    call PRC_ERRHANDLER_setup( .false., ismaster ) ! [IN]
-
-    ! setup scale_io                                                                                                                                                                                 
-    call IO_setup( "test_linalgebra", "test.conf", allow_noconf = .true. )
-  
-    ! setup log
-    call IO_LOG_setup( myrank, ismaster )   
+    call UNITTEST_init( "test_linalgebra", conf_fname="test.conf" )
     !----
 
     KL = 1; KU = 2
@@ -153,15 +141,7 @@ contains
     else
       l2error = sqrt( sum( (x(:) - X_ans)**2 ) ) / real(N, kind=RP)
     end if
-    write(*,*) "* ", lbl, ": x=", x(:)
-    write(*,*) "l2error=", l2error
-
-    if ( l2error < EPS ) then
-        write(*,*) "=> OK!"
-    else
-        write(*,*) "=> The error is too large. Check!"
-        call PRC_abort
-    end if
+    call UNITTEST_assert_less( l2error, EPS, lbl )
 
     return
   end subroutine check_ans
@@ -171,16 +151,9 @@ contains
     integer, intent(in) :: ipiv(N)
     character(len=*), intent(in) :: lbl
 
-    real(RP) :: l2error
     !----------------------------------------------
 
-    write(*,*) "* ", lbl, ": IPIV=", ipiv(:)
-    if ( all( ipiv(:) == ipiv_ans(:) ) ) then
-        write(*,*) "=> OK!"
-    else
-        write(*,*) "=> IPIV is wrong. Check!"
-        call PRC_abort
-    end if
+    call UNITTEST_assert_equal( ipiv(:), ipiv_ans(:), lbl )
     return
   end subroutine check_ipiv
 
@@ -188,7 +161,7 @@ contains
     implicit none
     !------------------------------
 
-    call PRC_MPIfinish()
+    call UNITTEST_final()
 
     return
   end subroutine final

@@ -8,6 +8,8 @@ program test_fast_fourier_transform
 
   use scale_fast_fourier_transform, only: &
     FastFourierTransform1D
+  use scale_unittest_util, only: UNITTEST_init, UNITTEST_final
+  use scale_unittest_assert, only: UNITTEST_assert_less
   
   implicit none
 
@@ -15,7 +17,6 @@ program test_fast_fourier_transform
   integer, parameter :: N2 = 240
   !-------------------------------
 
-  write(*,*) 'Start test_fast_fourier_transform ..'
   call init()
 
   !****
@@ -23,7 +24,6 @@ program test_fast_fourier_transform
   call test_FFT( N2 )
 
   call final()
-  write(*,*) 'test_fast_fourier_transform has been succeeded!'
 
 contains
   !---------------------------------------------------------------------------------
@@ -77,22 +77,9 @@ contains
   subroutine init()
     implicit none
 
-    integer :: comm, myrank, nprocs
-    logical :: ismaster  
     !------------------------------
 
-    call PRC_MPIstart( comm )
-    
-    call PRC_SINGLECOM_setup( comm,    & ! [IN]
-      nprocs, myrank, ismaster )         ! [OUT]
-    
-    call PRC_ERRHANDLER_setup( .false., ismaster ) ! [IN]
-
-    ! setup scale_io                                                                                                                                                                                 
-    call IO_setup( "test_fast_fourier_transformation", "test.conf", allow_noconf = .true. )
-  
-    ! setup log
-    call IO_LOG_setup( myrank, ismaster ) 
+    call UNITTEST_init( "test_fast_fourier_transform", conf_fname="test.conf" )
     return
   end subroutine init
 
@@ -100,7 +87,7 @@ contains
     implicit none
     !------------------------------
 
-    call PRC_MPIfinish()
+    call UNITTEST_final()
     return
   end subroutine final
 
@@ -116,15 +103,7 @@ contains
     !----------------------------------------------
 
     l2error = sqrt( sum( (x(:) - X_ans_(:))**2 ) ) / real(N, kind=RP)
-    write(*,*) "* ", lbl, ": x=", x(:)
-    write(*,*) "l2error=", l2error
-
-    if ( l2error < EPS ) then
-        write(*,*) "=> OK!"
-    else
-        write(*,*) "=> The error is too large. Check!"
-        call PRC_abort
-    end if
+    call UNITTEST_assert_less( l2error, EPS, lbl )
     return
   end subroutine check_ans
   subroutine check_ans_cmplx( x, lbl, x_ans_, N )
@@ -139,15 +118,7 @@ contains
     !----------------------------------------------
 
     l2error = sqrt( sum( abs(x(:) - X_ans_(:))**2 ) ) / real(N, kind=RP)
-    write(*,*) "* ", lbl, ": x=", x(:)
-    write(*,*) "l2error=", l2error
-
-    if ( l2error < EPS ) then
-        write(*,*) "=> OK!"
-    else
-        write(*,*) "=> The error is too large. Check!"
-        call PRC_abort
-    end if
+    call UNITTEST_assert_less( l2error, EPS, lbl )
     return
   end subroutine check_ans_cmplx
 end program test_fast_fourier_transform

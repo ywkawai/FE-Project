@@ -5,6 +5,7 @@ program test_time_manager
   use scale_io
   use scale_time_manager
   use scale_calendar, only: CALENDAR_date2char    
+  use scale_unittest_util, only: UNITTEST_init, UNITTEST_final
 
   implicit none
 
@@ -17,7 +18,6 @@ program test_time_manager
 
   !-------------------------------
 
-  write(*,*) 'Start test_time_manager..'
   call init()
 
   !****
@@ -44,17 +44,12 @@ program test_time_manager
   !****
 
   call final()
-  write(*,*) 'test_time_manager has been succeeded!'
 
 contains  
   subroutine init()
     use scale_const, only: &
       UNDEF8 => CONST_UNDEF8
-    use scale_calendar, only: CALENDAR_setup
     implicit none
-
-    integer :: comm, myrank, nprocs
-    logical :: ismaster
 
     real(DP) :: TIME_DT
     real(DP) :: TIME_DT_RESTART
@@ -77,28 +72,10 @@ contains
     namelist /PARAM_OCN_DYN/ &
       TIME_DT, TIME_DT_UNIT
     integer :: ierr
-
-    character(len=H_LONG) :: cnf_fname              ! config file for launcher
     !-------------------------------------------------
 
-    call PRC_MPIstart( comm )
-    
-    call PRC_SINGLECOM_setup( comm,    & ! [IN]
-      nprocs, myrank, ismaster )         ! [OUT]
-    
-    call PRC_ERRHANDLER_setup( .false., ismaster ) ! [IN]
-
-    ! setup scale_io
-    cnf_fname = IO_ARG_getfname( ismaster )
-    call IO_setup( "test_time_manager", cnf_fname, allow_noconf = .false. )
-
-    ! setup log
-    call IO_LOG_setup( myrank, ismaster )   
-
-    ! setup calendar & initial time
-    call CALENDAR_setup
-
-    call TIME_manager_Init
+    ! The configuration file is given by the command line argument
+    call UNITTEST_init( "test_time_manager", allow_noconf=.false., use_time=.true. )
 
     ! setup ATMOS ------------------
 
@@ -254,11 +231,10 @@ contains
     implicit none
     !-------------------------------------------------
 
-    call TIME_manager_Final()
     call tm_atm%Final()
     call tm_ocn%Final()
 
-    call PRC_MPIfinish()
+    call UNITTEST_final()
 
     return
   end subroutine final

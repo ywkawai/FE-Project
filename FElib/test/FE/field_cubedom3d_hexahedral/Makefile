@@ -9,7 +9,7 @@ TOPDIR      = $(abspath ../../../..)
 FELIB_TEST_DIR = ../../
 
 BINNAME = test_field_cubedom3d_hexahedral
-OBJS    =
+OBJS    = mod_test_meshfield_util.o
 
 RUNCONF         = test.conf
 TPROC           = 1

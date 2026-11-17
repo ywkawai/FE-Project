@@ -12,6 +12,8 @@ program test_element_operation_hexahedral
   use scale_element_operation_base
   use scale_element_operation_general
   use scale_element_operation_tensorprod3D
+  use scale_unittest_util, only: UNITTEST_init, UNITTEST_final
+  use scale_unittest_assert, only: UNITTEST_assert_true
 
   implicit none
 
@@ -55,12 +57,12 @@ contains
     call Lift%Init( refElem%Lift, storage_format=SpMV_StorageFormat )
 
     call elem_oper_general%Init( refElem, Dx, Dy, Dz, Lift )
-    call check_operation_p( elem_oper_general, refElem )
+    call check_operation_p( elem_oper_general, refElem, 'general' )
 
     LOG_INFO("check_operation",*)  'Elementwise operations using low computational cost kernels assuming tensor product elements .. porder=', porder
 
     call ElementOperationTensorprod3D_create( refElem, elem_oper_tensorprod )
-    call check_operation_p( elem_oper_tensorprod, refElem )
+    call check_operation_p( elem_oper_tensorprod, refElem, 'tensorprod3D' )
 
     !---------------------
     call elem_oper_general%Final()
@@ -70,10 +72,13 @@ contains
     return
   end subroutine check_operation
 
-  subroutine check_operation_p( elem_oper, elem )
+  subroutine check_operation_p( elem_oper, elem, oper_name )
     implicit none
     class(ElementOperationBase3D), intent(in) :: elem_oper
     class(ElementBase3D), intent(in) :: elem
+    character(len=*), intent(in) :: oper_name
+
+    character(len=H_MID) :: lbl
 
     real(RP) :: dat_in(elem%Np)
     real(RP) :: dat_in_vec(elem%Np,3)
@@ -120,19 +125,21 @@ contains
     call gen_dat( elem, dat_in_vec(:,3), 3.0_RP )
     call gen_div( elem, dat_out_lift_ans, Escale, Gsqrt, dat_out_div_ans )
 
+    write(lbl,'(a,a,i0,a)') trim(oper_name), ' (porder=', elem%PolyOrder_h, '): '
+
     !--
     call elem_oper%Dx( dat_in, dat_out_grad(:,1) )
-    call assert( dat_out_grad(:,1), dat_out_grad_ans(:,1), 'Check values', 'Dx', elem%Np )
+    call assert( dat_out_grad(:,1), dat_out_grad_ans(:,1), trim(lbl)//' Dx' )
     
     call elem_oper%Dy( dat_in, dat_out_grad(:,2) )
-    call assert( dat_out_grad(:,2), dat_out_grad_ans(:,2), 'Check values', 'Dy', elem%Np )
+    call assert( dat_out_grad(:,2), dat_out_grad_ans(:,2), trim(lbl)//' Dy' )
 
     call elem_oper%Dz( dat_in, dat_out_grad(:,3) )
-    call assert( dat_out_grad(:,3), dat_out_grad_ans(:,3), 'Check values', 'Dz', elem%Np )
+    call assert( dat_out_grad(:,3), dat_out_grad_ans(:,3), trim(lbl)//' Dz' )
 
     !--
     call elem_oper%Lift( dat_in_f, dat_out_lift )
-    call assert( dat_out_lift, dat_out_lift_ans, 'Check values', 'Lift', elem%Np )
+    call assert( dat_out_lift, dat_out_lift_ans, trim(lbl)//' Lift' )
 
     !--
     call elem_oper%Div( dat_in_vec, dat_in_f, &
@@ -141,7 +148,7 @@ contains
                      + Escale(2,:) * dat_out_grad(:,2) &
                      + Escale(3,:) * dat_out_grad(:,3) &
                      + dat_out_grad(:,4) ) / Gsqrt(:)
-    call assert( dat_out_div, dat_out_div_ans(:), 'Check values', 'Div', elem%Np )
+    call assert( dat_out_div, dat_out_div_ans(:), trim(lbl)//' Div' )
 
     return
   end subroutine check_operation_p
@@ -199,63 +206,40 @@ contains
 
   subroutine init()
     implicit none
-    integer :: comm, myrank, nprocs
-    logical :: ismaster
-
     !----------------------------------------------
 
-    call PRC_MPIstart( comm )
-    
-    call PRC_SINGLECOM_setup( comm,    & ! [IN]
-      nprocs, myrank, ismaster )         ! [OUT]
-    
-      call PRC_ERRHANDLER_setup( .false., ismaster ) ! [IN]
-    
-    ! setup scale_io
-    call IO_setup( "test", allow_noconf = .true. )
-    
-    ! setup log
-    call IO_LOG_setup( myrank, ismaster )   
-    
-    !------
-    LOG_INFO("init",*) 'Initialization has succeeded.'
+    call UNITTEST_init( "test_element_operation_hexahedral" )
 
     return
   end subroutine init
 
   subroutine final()
     implicit none
-    LOG_INFO("Final",*) 'Finalize ...'
+    !----------------------------------------------
 
-    call PRC_MPIfinish()
+    call UNITTEST_final()
     return
   end subroutine final
 
   !--------------------------
-  
-  subroutine assert(vals, ans, assert_name, var_name, val_size)
-    integer, intent(in) :: val_size
-    real(RP), intent(in) :: vals(val_size)
-    real(RP), intent(in) :: ans(val_size)
-    character(*), intent(in) :: assert_name
-    character(*), intent(in) :: var_name
+
+  !> Check that the squared L2 norm of (vals - ans) is less than or equal to EPS
+  subroutine assert( vals, ans, label )
+    implicit none
+    real(RP), intent(in) :: vals(:)
+    real(RP), intent(in) :: ans(size(vals))
+    character(*), intent(in) :: label
 
     real(RP), parameter :: EPS = 1.0E-15_RP
     real(RP) :: l2_error
-    integer :: i
+    character(len=H_MID) :: msg
     !--------------------------------------
 
-    l2_error = sum((vals(:) - ans(:))**2)
-    write(IO_FID_LOG,'(a,a,ES18.8,a)', advance='no') trim(var_name), ": l2error", sqrt(l2_error), ': val='
-    do i=1, val_size
-      write(IO_FID_LOG, '(f12.5)', advance='no') vals(i)
-    end do
-    write(IO_FID_LOG,*)
-    if ( l2_error > EPS ) then
-      LOG_ERROR(assert_name,*) 'The value of '//trim(var_name)//' is unexcepted!', &
-        "val=", vals(:), " ans=", ans(:)
-      call PRC_abort
-    end if    
+    l2_error = sum( (vals(:) - ans(:))**2 )
+    write(msg,'(a,es12.4)') 'The error is too large: l2error=', sqrt(l2_error)
+    call UNITTEST_assert_true( l2_error <= EPS, label, msg )
+
+    return
   end subroutine assert
 
 end program test_element_operation_hexahedral
