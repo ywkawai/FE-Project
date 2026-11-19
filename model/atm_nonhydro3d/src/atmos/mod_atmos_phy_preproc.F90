@@ -75,10 +75,10 @@ module mod_atmos_phy_preproc
       class(PhysPreProcBase), intent(inout) :: this
       type(MeshField3D), intent(inout) :: PRG_VARS(PRGVAR_NUM)
       type(MeshField3D), intent(inout) :: AUX_VARS(AUXVAR_NUM)
-      type(MeshField3D), intent(inout) :: QTRC_VARS(0:QA)
+      type(MeshField3D), intent(inout) :: QTRC_VARS(0:)
       type(MeshField3D), intent(in) :: PRG_VARS0(PRGVAR_NUM)
       type(MeshField3D), intent(in) :: AUX_VARS0(AUXVAR_NUM)
-      type(MeshField3D), intent(in) :: QTRC_VARS0(0:QA)
+      type(MeshField3D), intent(in) :: QTRC_VARS0(0:)
     end subroutine PhysPreProcModalBase_operate
 
     subroutine PhysPreProcModalBase_Final( this )
@@ -158,10 +158,10 @@ contains
     class(PhysPreProcNone), intent(inout) :: this
     type(MeshField3D), intent(inout) :: PRG_VARS(PRGVAR_NUM)
     type(MeshField3D), intent(inout) :: AUX_VARS(AUXVAR_NUM)
-    type(MeshField3D), intent(inout) :: QTRC_VARS(0:QA)
+    type(MeshField3D), intent(inout) :: QTRC_VARS(0:)
     type(MeshField3D), intent(in) :: PRG_VARS0(PRGVAR_NUM)
     type(MeshField3D), intent(in) :: AUX_VARS0(AUXVAR_NUM)
-    type(MeshField3D), intent(in) :: QTRC_VARS0(0:QA)
+    type(MeshField3D), intent(in) :: QTRC_VARS0(0:)
 
     integer :: n
     integer :: iq, iqs
@@ -242,10 +242,10 @@ contains
     class(PhysPreProcModalFilter), intent(inout) :: this
     type(MeshField3D), intent(inout) :: PRG_VARS(PRGVAR_NUM)
     type(MeshField3D), intent(inout) :: AUX_VARS(AUXVAR_NUM)
-    type(MeshField3D), intent(inout) :: QTRC_VARS(0:QA)
+    type(MeshField3D), intent(inout) :: QTRC_VARS(0:)
     type(MeshField3D), intent(in) :: PRG_VARS0(PRGVAR_NUM)
     type(MeshField3D), intent(in) :: AUX_VARS0(AUXVAR_NUM)
-    type(MeshField3D), intent(in) :: QTRC_VARS0(0:QA)
+    type(MeshField3D), intent(in) :: QTRC_VARS0(0:)
 
     integer :: n
     integer :: iq, iqs
@@ -339,10 +339,10 @@ contains
     class(PhysPreProcGlobalFilter), intent(inout) :: this
     type(MeshField3D), intent(inout) :: PRG_VARS(PRGVAR_NUM)
     type(MeshField3D), intent(inout) :: AUX_VARS(AUXVAR_NUM)
-    type(MeshField3D), intent(inout) :: QTRC_VARS(0:QA)
+    type(MeshField3D), intent(inout) :: QTRC_VARS(0:)
     type(MeshField3D), intent(in) :: PRG_VARS0(PRGVAR_NUM)
     type(MeshField3D), intent(in) :: AUX_VARS0(AUXVAR_NUM)
-    type(MeshField3D), intent(in) :: QTRC_VARS0(0:QA)
+    type(MeshField3D), intent(in) :: QTRC_VARS0(0:)
 
     integer :: n
     integer :: iq, iqs
