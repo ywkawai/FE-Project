@@ -32,8 +32,9 @@ __all__ = [
     "lagrange_matrix", "quad_weights", "mass_matrix",
     "ref_nodes_of", "element_width", "apply_along", "map_dataset",
     "interp_ref", "integrate", "mean", "element_mean",
+    "range_weights", "integrate_range", "mean_range",
     "composite", "composite_x", "composite_y", "composite_xy",
-    "modal_coeffs", "composite_legendre", "lock_ratio",
+    "modal_coeffs", "composite_legendre", "lock_ratio", "lock_ratio_of", "lock_stats_of",
 ]
 
 #: element/node dimension names for each direction
@@ -374,6 +375,90 @@ def mean(obj: XrObj, dims: Union[str, Iterable[str]] = "x",
     return _keep_attrs(num / den, obj)
 
 
+def _element_bounds(obj: XrObj, d: str) -> Tuple[np.ndarray, np.ndarray]:
+    """Left/right physical boundaries (Ne,) of the elements along ``d``."""
+    kdim, pdim = ELEM_DIMS[d]
+    if not (d in obj.coords and set(obj[d].dims) == {kdim, pdim}):
+        raise KeyError(f"coordinate '{d}({kdim},{pdim})' is needed")
+    xi = ref_nodes_of(obj, d)
+    width = element_width(obj, d).values
+    c = obj[d].transpose(kdim, pdim).values
+    left = c[:, 0] - (xi[0] + 1.0) * 0.5 * width
+    return left, left + width
+
+
+def range_weights(obj: XrObj, d: str, lo: Optional[float] = None, hi: Optional[float] = None,
+                  nq: Optional[int] = None) -> xr.DataArray:
+    """Quadrature weights W(k<d>, p<d>) of the integral over the physical range [lo, hi].
+
+    ``sum(W * q)`` over ``(k<d>, p<d>)`` is the integral of the element polynomials of
+    ``q`` over [lo, hi] along ``d``.  The range may cut elements: on the overlapping part
+    of each element an ``nq``-point Gauss-Legendre rule (default Np: exact for degree
+    2Np-1) is used, so the result is exact for the DG polynomials.
+    ``lo`` / ``hi`` = None means the domain boundary.
+    """
+    kdim, pdim = ELEM_DIMS[d]
+    xi = ref_nodes_of(obj, d)
+    left, right = _element_bounds(obj, d)
+    lo = left[0] if lo is None else float(lo)
+    hi = right[-1] if hi is None else float(hi)
+    if not hi > lo:
+        raise ValueError(f"empty range [{lo}, {hi}] along '{d}'")
+    r, w = gl_nodes(nq or xi.size)
+    W = np.zeros((left.size, xi.size))
+    for k in range(left.size):
+        a, b = max(lo, left[k]), min(hi, right[k])
+        if b <= a:
+            continue
+        s = a + 0.5 * (b - a) * (1.0 + r)
+        xq = 2.0 * (s - left[k]) / (right[k] - left[k]) - 1.0
+        W[k] = (0.5 * (b - a) * w) @ lagrange_matrix(xi, xq)
+    if not W.any():
+        raise ValueError(f"range [{lo}, {hi}] does not overlap the elements along '{d}' "
+                         f"([{left[0]}, {right[-1]}])")
+    coords = {kdim: obj[kdim].values} if kdim in obj.coords else None
+    return xr.DataArray(W, dims=(kdim, pdim), coords=coords,
+                        attrs={"range": (max(lo, left[0]), min(hi, right[-1]))})
+
+
+def integrate_range(obj: XrObj, d: str = "z", lo: Optional[float] = None,
+                    hi: Optional[float] = None) -> XrObj:
+    """Integral over the physical range [lo, hi] along one direction (exact, cuts elements).
+
+    Example: ``integrate_range(da, "z", 0.0, 1200.0)`` integrates from the surface to 1.2 km.
+    ``(k<d>, p<d>)`` are reduced.
+    """
+    kdim, pdim = ELEM_DIMS[d]
+
+    def _f(da):
+        attrs = _integral_attrs(da, (d,))
+        W = range_weights(da, d, lo, hi)
+        base = da.drop_vars([c for c in da.coords if (set(da[c].dims) & {kdim, pdim})])
+        out = xr.dot(base, W.drop_vars([c for c in W.coords]), dims=(kdim, pdim))
+        out.attrs = attrs
+        out.name = da.name
+        return out
+    return map_dataset(_f, obj, (d,))
+
+
+def mean_range(obj: XrObj, d: str = "z", lo: Optional[float] = None,
+               hi: Optional[float] = None) -> XrObj:
+    """Mean over the physical range [lo, hi] along one direction (e.g. a layer mean in z).
+
+    The range is clipped to the domain; the mean is the integral divided by the length
+    of the clipped range.  Attributes are kept and ``dg_range`` records the range.
+    """
+    def _f(da):
+        W = range_weights(da, d, lo, hi)
+        a, b = W.attrs["range"]
+        out = integrate_range(da, d, lo, hi) / (b - a)
+        out.attrs = dict(da.attrs)
+        out.attrs["dg_range_" + d] = f"{a:g}-{b:g}"
+        out.name = da.name
+        return out
+    return map_dataset(_f, obj, (d,))
+
+
 def element_mean(obj: XrObj, dims: Union[str, Iterable[str]] = "x") -> XrObj:
     """Mean of the element polynomial over each element (``p<d>`` is reduced, ``k<d>`` kept)."""
     dirs = _parse_dirs(dims)
@@ -476,6 +561,56 @@ def lock_ratio(a: XrObj, sample_dims: Sequence[str] = ("kx", "ky", "time"), ddof
     return a.mean(dims) / a.std(dims, ddof=ddof)
 
 
+def lock_stats_of(da: xr.DataArray, dims: Union[str, Iterable[str]] = "xy",
+                  sample_dims: Sequence[str] = ("kx", "ky", "time"),
+                  modes: Optional[Sequence[Tuple[int, ...]]] = None, ddof: int = 1) -> xr.Dataset:
+    """Statistics of the modal coefficients a of a field: ``mean`` <a>, ``std`` sigma(a) and
+    the locking ratio ``R`` = <a>/sigma(a), over ``sample_dims``.
+
+    ``mean`` and ``std`` have the units of ``da`` (orthonormal Legendre coefficients).
+    See :func:`lock_ratio_of` for the arguments.
+    """
+    dirs = _parse_dirs(dims)
+    a = modal_coeffs(da, dirs)
+    if modes is not None:
+        sel = []
+        for m in modes:
+            if len(m) != len(dirs):
+                raise ValueError(f"mode {m} does not match dims {dirs}")
+            sel.append(a.sel({MODE_DIMS[d]: int(mi) for d, mi in zip(dirs, m)}, drop=True))
+        a = xr.concat(sel, dim=xr.DataArray(["".join(str(int(mi)) for mi in m) for m in modes],
+                                            dims="mode", name="mode"))
+    sd = [d for d in sample_dims if d in a.dims]
+    mean_a = a.mean(sd)
+    std_a = a.std(sd, ddof=ddof)
+    units = da.attrs.get("units", "")
+    out = xr.Dataset({"mean": mean_a, "std": std_a, "R": mean_a / std_a})
+    out["mean"].attrs = {"long_name": "<a>", "units": units}
+    out["std"].attrs = {"long_name": "sigma(a)", "units": units}
+    out["R"].attrs = {"long_name": "<a>/sigma(a)", "units": "1"}
+    return out
+
+
+def lock_ratio_of(da: xr.DataArray, dims: Union[str, Iterable[str]] = "xy",
+                  sample_dims: Sequence[str] = ("kx", "ky", "time"),
+                  modes: Optional[Sequence[Tuple[int, ...]]] = None, ddof: int = 1) -> xr.DataArray:
+    """Locking ratios R = <a>/sigma(a) of a field: ``lock_ratio(modal_coeffs(da))``.
+
+    Parameters
+    ----------
+    da : element-form field with the node dims of ``dims`` (e.g. a 2-D horizontal field
+        per time, or a layer mean of a 3-D field from :func:`mean_range`).
+    sample_dims : dims over which <.> and sigma are taken.
+    modes : optional list of mode tuples to return only those, e.g. ``[(2, 0), (0, 2)]``
+        for R_e of a horizontal field (order of the tuple = order of ``dims``).  The
+        result then has a dimension ``mode`` with labels like ``"20"``.  Selecting the
+        modes before computing saves time with dask arrays.
+
+    Use :func:`lock_stats_of` to get <a> and sigma(a) as well.
+    """
+    return lock_stats_of(da, dims, sample_dims, modes, ddof)["R"]
+
+
 # ---------------------------------------------------------------------------
 # Self test
 # ---------------------------------------------------------------------------
@@ -546,6 +681,31 @@ def _selftest(verbose: bool = True) -> None:
     da["x"].attrs["units"] = "m"; da["y"].attrs["units"] = "m"
     assert mean(da, "xy").attrs["units"] == "kg" and element_mean(da, "x").attrs["long_name"] == "q"
     assert integrate(da, "xy").attrs["units"] == "kg m2" and integrate(da, "x").attrs["units"] == "kg m"
+    # integral / mean over a range that cuts elements (exact)
+    cub = _make_test_array(func=lambda X, Y: X ** 3 + 0.0 * Y)
+    Ir = integrate_range(cub, "x", 0.3, 2.7).isel(ky=0, py=0)
+    assert abs(float(Ir) - (2.7 ** 4 - 0.3 ** 4) / 4.0) < 1e-12
+    Mr = mean_range(cub, "x", 0.3, 2.7).isel(ky=0, py=0)
+    assert abs(float(Mr) - (2.7 ** 4 - 0.3 ** 4) / 4.0 / 2.4) < 1e-12
+    assert abs(float(mean_range(cub, "x", None, None).isel(ky=0, py=0)) - 4.0 ** 3 / 4.0) < 1e-12
+    assert abs(float(mean_range(cub, "x", -5.0, 10.0).isel(ky=0, py=0)) - 4.0 ** 3 / 4.0) < 1e-12
+    assert mean_range(cub, "x", 0.3, 2.7).dims == ("ky", "py")
+    try:
+        mean_range(cub, "x", 5.0, 6.0)
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("range outside the domain must raise")
+    # lock ratio with selected modes
+    rng = np.random.default_rng(1)
+    noise = _make_test_array() * 0 + rng.normal(size=_make_test_array().shape)
+    edge = noise + 0.5 * (3 * noise["xi"] ** 2 - 1)          # P2 bias in xi
+    Rm = lock_ratio_of(edge, sample_dims=("kx", "ky"), modes=[(2, 0), (0, 2)])
+    assert list(Rm["mode"].values) == ["20", "02"] and float(Rm.sel(mode="20")) > float(abs(Rm.sel(mode="02")))
+    st = lock_stats_of(edge, sample_dims=("kx", "ky"), modes=[(2, 0), (0, 2)])
+    assert np.allclose(st["R"].values, Rm.values) and np.allclose((st["mean"] / st["std"]).values, Rm.values)
+    full = lock_ratio(modal_coeffs(edge), ("kx", "ky"))
+    assert np.isclose(float(full.sel(mx=2, my=0)), float(Rm.sel(mode="20")))
     # Dataset path
     ds = xr.Dataset({"a": da, "b": da * 2, "t": xr.DataArray([0.0, 1.0], dims="time")})
     m = mean(ds, "xy")

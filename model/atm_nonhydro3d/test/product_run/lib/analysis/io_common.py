@@ -372,6 +372,32 @@ def to_node_form(obj: Union[xr.Dataset, xr.DataArray]) -> Union[xr.Dataset, xr.D
 # Opening outputs
 # ---------------------------------------------------------------------------
 
+def _open_rank_file(path: str, chunks, decode_times: bool) -> xr.Dataset:
+    with warnings.catch_warnings():
+        # year-0001 dates cannot be numpy datetime64: use cftime silently
+        warnings.filterwarnings("ignore", message=".*year zero convention.*")
+        warnings.filterwarnings("ignore", message=".*Unable to decode time axis.*")
+        try:
+            return xr.open_dataset(path, chunks=chunks, decode_times=decode_times,
+                                   use_cftime=True if decode_times else None)
+        except OSError as e:
+            raise OSError(f"cannot open {path} ({e}). If the run is still being written, "
+                          "set HDF5_USE_FILE_LOCKING=FALSE before the first netCDF file is opened "
+                          "(importing analysis.io_common first does this).") from e
+
+
+def _select_variables(ds: xr.Dataset, variables) -> xr.Dataset:
+    if variables is None:
+        return ds
+    keep = [v for v in variables if v in ds.data_vars]
+    missing = set(variables) - set(keep)
+    if missing:
+        raise KeyError(f"variables not found: {sorted(missing)}")
+    if "time_bnds" in ds.data_vars and "time_bnds" not in keep:
+        keep.append("time_bnds")
+    return ds[keep]
+
+
 def _select_ranks(mesh: MeshInfo, files: Sequence[str], ranks, region) -> List[int]:
     if ranks is not None:
         sel = sorted(int(r) for r in ranks)
@@ -433,7 +459,6 @@ def open_dg_dataset(basename: str, mesh: Optional[MeshInfo] = None,
     Surface fluxes such as ``RAIN`` are written with the downward direction negative
     (RAIN <= 0); flip the sign for precipitation rates.
     check : verify element boundaries when converting to element form.
-
     Returns
     -------
     Dataset whose element indices ``kx, ky, kz`` are global.
@@ -447,25 +472,7 @@ def open_dg_dataset(basename: str, mesh: Optional[MeshInfo] = None,
     grid = _rank_grid(mesh, sel)
 
     def _open(r):
-        with warnings.catch_warnings():
-            # year-0001 dates cannot be numpy datetime64: use cftime silently
-            warnings.filterwarnings("ignore", message=".*year zero convention.*")
-            warnings.filterwarnings("ignore", message=".*Unable to decode time axis.*")
-            try:
-                ds = xr.open_dataset(files[r], chunks=chunks, decode_times=decode_times,
-                                     use_cftime=True if decode_times else None)
-            except OSError as e:
-                raise OSError(f"cannot open {files[r]} ({e}). If the run is still being written, "
-                              "set HDF5_USE_FILE_LOCKING=FALSE before the first netCDF file is opened "
-                              "(importing analysis.io_common first does this).") from e
-        if variables is not None:
-            keep = [v for v in variables if v in ds.data_vars]
-            missing = set(variables) - set(keep)
-            if missing:
-                raise KeyError(f"variables not found: {sorted(missing)}")
-            if "time_bnds" in ds.data_vars and "time_bnds" not in keep:
-                keep.append("time_bnds")
-            ds = ds[keep]
+        ds = _select_variables(_open_rank_file(files[r], chunks, decode_times), variables)
         if as_float64:
             for v in ds.data_vars:
                 if ds[v].dtype == np.float32:
