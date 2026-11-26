@@ -158,11 +158,20 @@ def order_cases(reports, cases=None):
         if missing:
             raise SystemExit(f"no JSON for case(s): {', '.join(missing)} (run make_report.py first)")
         return list(cases)
-    names = sorted(reports)
-    if REFERENCE_CASE in names:
-        names.remove(REFERENCE_CASE)
-        names.insert(0, REFERENCE_CASE)
-    return names
+    return sorted(reports, key=case_sort_key)
+
+
+def case_sort_key(case):
+    """Order by the processing: reference (asis), post only, pre only, then pre + post; within
+    a group Reconstruction2 pre-processing first, from weak to strong smoothing (larger Nr
+    first), then other pre-processing (e.g. moment reconstruction A3M4), then by name."""
+    def nr(kind):
+        m = re.search(kind + r"PR2p(\d+)", case)
+        return int(m.group(1)) + 1 if m else 0
+    has_pre, has_post = "Pre" in case, "Post" in case
+    group = 0 if case == REFERENCE_CASE else (1 if not has_pre else (2 if not has_post else 3))
+    other_pre = has_pre and not re.search(r"PrePR2p\d+", case)
+    return (group, other_pre, -nr("Pre"), -nr("Post"), case)
 
 
 def collect(reports, cases):
@@ -385,7 +394,7 @@ def fig_heatmap(rows, variables, layers, cases, se):
                 if abs(vals[i, j]) < SIG_FACTOR * ses[i, j]:
                     txt = f"({txt})"
                 txt += f"\n\u00b1{ses[i, j]:.3f}"
-            ax.text(j, i, txt, ha="center", va="center", fontsize=7.5, linespacing=1.1,
+            ax.text(j, i, txt, ha="center", va="center", fontsize=7.5 if len(cases) <= 5 else 6.5, linespacing=1.1,
                     color="white" if abs(vals[i, j]) > 0.6 * HEATMAP_VMAX else "black")
     ax.set_xticks(range(len(cases)))
     ax.set_xticklabels(cases, rotation=20, ha="right")
@@ -527,7 +536,7 @@ def fig_tvis_map(crit, variables, layers, cases, criteria, tab, dt):
                 vals[i, j] = min(x[key][0], 1e11)
                 insig = np.isfinite(x["SE"]) and abs(x["R"]) < SIG_FACTOR * x["SE"]
                 txt = _tvis_text(x[key][0], dt)
-                ax.text(j, i, f"({txt})" if insig else txt, ha="center", va="center", fontsize=7,
+                ax.text(j, i, f"({txt})" if insig else txt, ha="center", va="center", fontsize=7 if len(cases) <= 5 else 5.8,
                         color="white" if vals[i, j] < periods[0] or vals[i, j] > periods[-1] * 10 else "black")
         im = ax.imshow(np.ma.masked_invalid(vals), cmap=cmap, norm=norm, aspect="auto")
         ax.set_facecolor("#e0e0e0")
@@ -590,11 +599,11 @@ def fig_criteria_map(crit, variables, layers, cases, criteria, tab):
                 sym, _, col = STATUS[st]
                 x0 = j - 0.45 + k * 0.9 / nc
                 ax.add_patch(plt.Rectangle((x0, i - 0.42), 0.9 / nc, 0.84, facecolor=col, edgecolor="white"))
-                ax.text(x0 + 0.45 / nc, i, sym, ha="center", va="center", fontsize=8)
+                ax.text(x0 + 0.45 / nc, i, sym, ha="center", va="center", fontsize=8 if len(cases) * nc <= 30 else 5.5)
     for j in range(len(cases)):
         for k, (name, _, _) in enumerate(criteria):
             ax.text(j - 0.45 + (k + 0.5) * 0.9 / nc, -0.75, str(k + 1), ha="center", va="bottom",
-                    fontsize=7, color="0.3")
+                    fontsize=7 if len(cases) * nc <= 30 else 5, color="0.3")
     ax.set_xlim(-0.5, len(cases) - 0.5)
     ax.set_ylim(len(labels) - 0.5, -1.0)
     ax.set_xticks(range(len(cases)))
@@ -770,11 +779,14 @@ def _days(t):
 
 
 def _processing(case):
-    """(pre, post) of a case name like PrePR2p11_PostPR2p7."""
+    """(pre, post) of a case name like PrePR2p11_PostPR2p7 or PreA3M4_PostPR2p7."""
     def one(kind):
         m = re.search(kind + r"PR2p(\d+)", case)
         if m:
             return f"Reconstruction2 (Nr = {int(m.group(1)) + 1})"
+        m = re.search(kind + r"A(\d+)M(\d+)", case)
+        if m:
+            return f"モーメント再構築 A{m.group(1)}M{m.group(2)}"
         m = re.search(kind + r"([A-Za-z0-9]+)", case)
         return m.group(1) if m else "なし"
     return one("Pre"), one("Post")

@@ -80,10 +80,10 @@ RANGES = {
     "PREC_MAP": (0.0, 1.0),           # p.4  time-mean precipitation (contourf)
     "PREC_COMP": (0.05, 0.25),        # p.5, p.6  precipitation composite (colour and 1-D value axis)
     "MP_RHOH_COMP": (-0.01, 0.01),    # p.7  x-composite of MP_RHOH
-    "W_COMP": (-0.0025, 0.0025),      # p.7  x-composite of W
+    "W_COMP": (-0.002, 0.002),      # p.7  x-composite of W
     "DDENS_COMP": (-5e-5,5e-5),       # p.8  x-composite of DDENS (deviation from the horizontal mean)
-    "PT_COMP": (-0.1,0.1),            # p.8  x-composite of PT    (deviation from the horizontal mean)
-    "QV_COMP": (-5e-4,5e-4),          # p.8  x-composite of QV    (deviation from the horizontal mean)
+    "PT_COMP": (-8e-2,8e-2),            # p.8  x-composite of PT    (deviation from the horizontal mean)
+    "QV_COMP": (-4e-4,4e-4),          # p.8  x-composite of QV    (deviation from the horizontal mean)
 }
 ZLIM = (0.0, 20.0)                    # height range of the x-z plots [km]
 CMAP_XZ = "jet"
