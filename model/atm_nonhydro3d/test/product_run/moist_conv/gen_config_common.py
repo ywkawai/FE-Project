@@ -29,10 +29,15 @@ Files in the resolution directory (cfg.here):
 How run.conf is built:
   1. A namelist group in run_<CASE>_template.conf replaces the group of the same name in the
      common template. The whole group is replaced, so write all variables you need in it.
-     Groups that appear more than once (HISTORY_ITEM, MONITOR_ITEM) are never replaced.
-  2. Other groups and comments in the case template are inserted at the line containing
-     @@CASE_SPECIFIC@@ in the common template (appended at the end if there is no such line).
-  3. Placeholders written as a KEY in curly braces are replaced with the values from build_params().
+  2. Entries of repeatable groups (HISTORY_ITEM, MONITOR_ITEM; REPEATABLE_GROUPS) are never
+     replaced. They are appended after the last entry of the same group in the common
+     template, together with the comment lines directly above them. An entry whose
+     name='...' is already in the common template is skipped (no duplicate output item).
+  3. Other groups and comments in the case template are inserted at the line beginning with
+     #@@CASE_SPECIFIC@@ in the common template (appended at the end if there is no such line).
+     A line that only mentions the marker in its text is not a marker.
+     This is also where repeatable entries go if the common template has no entry of that group.
+  4. Placeholders written as a KEY in curly braces are replaced with the values from build_params().
      A brace preceded by '$' (bash ${VAR}) is left alone. An unknown KEY is an error.
 
 Usage (in the resolution directory):
@@ -52,6 +57,9 @@ from datetime import date, timedelta
 from pathlib import Path
 
 CASE_MARKER = "@@CASE_SPECIFIC@@"
+#: The marker line: '#@@CASE_SPECIFIC@@ ...' at the beginning of the line. A comment that merely
+#: mentions the marker (e.g. the explanation in the header of the common template) is not a marker.
+CASE_MARKER_LINE = re.compile(r"^\s*#?\s*" + re.escape(CASE_MARKER))
 
 
 # ============================================================================
@@ -180,40 +188,85 @@ def attach_comments(items):
     return out
 
 
+#: Namelist groups that may appear more than once (one entry per item). They are never
+#: replaced; entries from a case template are appended after the last entry of the same
+#: group in the common template.
+REPEATABLE_GROUPS = {"HISTORY_ITEM", "MONITOR_ITEM"}
+
+NML_ITEM_NAME = re.compile(r"\bname\s*=\s*['\"]([^'\"]+)['\"]", re.IGNORECASE)
+
+
+def item_key(it):
+    """(group, item name) of a repeatable group entry, e.g. ('HISTORY_ITEM', 'QV'); None if no name."""
+    for line in it["lines"]:
+        if NML_BEGIN.match(line) or not line.lstrip().startswith("#"):
+            m = NML_ITEM_NAME.search(strip_comment(line))
+            if m:
+                return it["name"], m.group(1).strip().upper()
+    return None
+
+
 def merge(common_text, case_text, common_fname, case_fname):
-    """Merge the case template into the common template (see the module docstring)."""
+    """Merge the case template into the common template (see the module docstring).
+
+    Returns (merged text, replaced group names, notes) where notes are messages about
+    repeatable entries that were appended or skipped as duplicates.
+    """
     common = split_items(common_text, common_fname)
     case = attach_comments(split_items(case_text, case_fname))
 
-    count = {}
-    for it in common:
+    count, last_index, common_keys = {}, {}, set()
+    for i, it in enumerate(common):
         if it["kind"] == "nml":
             count[it["name"]] = count.get(it["name"], 0) + 1
+            last_index[it["name"]] = i
+            if it["name"] in REPEATABLE_GROUPS and item_key(it):
+                common_keys.add(item_key(it))
 
     replaced = {}
     inserted = []
+    appended = {}      # group name -> lines appended after its last entry in the common template
+    notes = []
     for it in case:
-        if it["kind"] == "nml" and count.get(it["name"]) == 1:
+        if it["kind"] == "nml" and it["name"] in REPEATABLE_GROUPS:
+            key = item_key(it)
+            if key in common_keys:
+                notes.append(f"&{key[0]} name='{key[1]}' is already in {common_fname} (skipped)")
+                continue
+            if key:
+                common_keys.add(key)
+            if it["name"] in last_index:
+                appended.setdefault(it["name"], []).extend(it["lines"])
+                notes.append(f"&{it['name']}" + (f" name='{key[1]}'" if key else "")
+                             + f" appended after the entries of {common_fname}")
+            else:
+                inserted.extend(it["lines"])
+        elif it["kind"] == "nml" and count.get(it["name"]) == 1:
             if it["name"] in replaced:
                 sys.exit(f"ERROR: {case_fname}: &{it['name']} appears twice")
             replaced[it["name"]] = it["lines"]
         else:
             inserted.extend(it["lines"])
 
+    after = {last_index[g]: lines for g, lines in appended.items()}
     out = []
     has_marker = False
-    for it in common:
+    for i, it in enumerate(common):
         if it["kind"] == "nml" and it["name"] in replaced:
             out.extend(replaced[it["name"]])
-        elif it["kind"] == "text" and CASE_MARKER in it["lines"][0]:
+        elif it["kind"] == "text" and CASE_MARKER_LINE.match(it["lines"][0]):
+            if has_marker:
+                sys.exit(f"ERROR: {common_fname}: more than one {CASE_MARKER} line")
             has_marker = True
             out.extend(inserted)
         else:
             out.extend(it["lines"])
+        if i in after:
+            out.extend(after[i])
     if not has_marker:
         out.append("\n")
         out.extend(inserted)
-    return "".join(out), sorted(replaced)
+    return "".join(out), sorted(replaced), notes
 
 
 PLACEHOLDER = re.compile(r"(?<![$])\{([A-Za-z_]\w*)\}")
@@ -243,6 +296,7 @@ def required_container_files(conf):
     base = nml_value(conf, "PARAM_ATMOS_VARS", "PHY_PREPROC_FILE_BASENAME") or "phy_preoperation"
     ids = set()
     for group, var in [("PARAM_ATMOS_PHY_MP", "atm_var_container_typeid"),
+                       ("PARAM_ATMOS_PHY_SFC", "atm_var_container_typeid"),
                        ("PARAM_USER", "BL_VARS_CONTAINER_ID")]:
         v = nml_value(conf, group, var)
         if v is not None and int(v) >= 2:
@@ -349,10 +403,12 @@ def generate_case(cfg, case, common_text, job_text, writer, templates):
     case_fname = cfg.CASE_TEMPLATE.format(case=case)
     if not (cfg.here / case_fname).exists():
         sys.exit(f"ERROR: {case_fname} not found. available cases: {' '.join(templates)}")
-    merged, replaced = merge(common_text, (cfg.here / case_fname).read_text(),
-                             cfg.COMMON_TEMPLATE, case_fname)
+    merged, replaced, notes = merge(common_text, (cfg.here / case_fname).read_text(),
+                                    cfg.COMMON_TEMPLATE, case_fname)
     print(f"=== case {case}: {case_fname} replaces "
           f"{', '.join('&' + r for r in replaced) or '(nothing)'}")
+    for note in notes:
+        print(f"    {note}")
 
     case_dir = cfg.here / case
     for irun in range(1, cfg.nrun + 1):
