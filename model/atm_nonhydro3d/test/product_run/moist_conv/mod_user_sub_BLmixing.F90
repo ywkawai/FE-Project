@@ -117,10 +117,10 @@ contains
     LOG_NML(PARAM_USER_BLmixing)
 
     !--
-    call MOMX_tp_BL%Init( "MOMX_tp_BL", "kg.m-2.s-2", mesh3D)
-    call MOMY_tp_BL%Init( "MOMY_tp_BL", "kg.m-2.s-2", mesh3D)
-    call RHOT_tp_BL%Init( "RHOT_tp_BL", "kg.m-3.K/s", mesh3D)
-    call RHOQ_tp_BL%Init( "RHOQ_tp_BL", "kg.m-3.K/s", mesh3D)
+    call MOMX_tp_BL%Init( "BL_MOMX_t", "kg.m-2.s-2", mesh3D)
+    call MOMY_tp_BL%Init( "BL_MOMY_t", "kg.m-2.s-2", mesh3D)
+    call RHOT_tp_BL%Init( "BL_RHOT_t", "kg.m-3.K/s", mesh3D)
+    call RHOQ_tp_BL%Init( "BL_RHOQ_t", "kg.m-3.K/s", mesh3D)
     call VViscCoef_BL%Init( "VViscCoef_BL", "m2/s", mesh3D )
     call VDiffCoef_BL%Init( "VDiffCoef_BL", "m2/s", mesh3D )
     call HFLX_BL%Init( "HFLX_BL", "m2/s", mesh3D )
@@ -198,7 +198,10 @@ contains
         RHOT_tp%local(n)%val(:,ke) = RHOT_tp%local(n)%val(:,ke) + RHOT_tp_BL%local(n)%val(:,ke)
         RHOQv_tp%local(n)%val(:,ke) =  RHOQv_tp%local(n)%val(:,ke) + RHOQ_tp_BL%local(n)%val(:,ke)
       end do
-    end do  
+    end do 
+
+    call FILE_HISTORY_meshfield_in( RHOT_tp_BL, "RHOT_tp_BL")
+    call FILE_HISTORY_meshfield_in( RHOQ_tp_BL, "RHOQ_tp_BL")
 
     return
   end subroutine USER_sub_BLmixing_calc_tendency

@@ -10,6 +10,9 @@
 !!           - Horizontally uniform basic state given by smooth vertical profiles of
 !!             potential temperature and relative humidity
 !!           - Newtonian relaxation of temperature toward a horizontally uniform reference profile T_ref(z)
+!!             (TREF_RELAX_TYPE = 'THETA' (default): rho*theta is relaxed toward rho*theta_eq with
+!!              theta_eq = T_ref (P00/PRE_ref)^(Rtot/CPtot), the form used in the experiments on Fugaku;
+!!              TREF_RELAX_TYPE = 'HS': T is relaxed toward T_ref at fixed density, as in the moist Held-Suarez test)
 !!           - Surface sensible heat and moisture fluxes given by the bulk formula (ATMOS_PHY_SF, SIMPLE)
 !!             with a fixed ground temperature
 !!           - Simple boundary-layer vertical mixing (mod_user_sub_BLmixing)
@@ -65,6 +68,8 @@ module mod_user
     MOMX_p  => PHYTEND_MOMX_ID,  &
     MOMY_p  => PHYTEND_MOMY_ID,  &
     RHOT_p  => PHYTEND_RHOT_ID
+  use scale_atm_dyn_dgm_nonhydro3d_common, only: &
+    AUXVAR_THERMHYDRO_ID
 
   use mod_atmos_vars, only: &
     AtmosVarsContainer,               &
@@ -155,10 +160,18 @@ module mod_user
   real(RP) :: TAU_SPONGE    = 43200.0_RP             !< E-folding time of the sponge layer at the model top [s] (<=0: off)
   logical  :: SPONGE_DAMP_TEMP = .true.              !< If true, temperature is also relaxed toward T_ref in the sponge layer
                                                      !< (the form used in the experiments on Fugaku)
+  character(len=H_SHORT) :: TREF_RELAX_TYPE = 'THETA' !< Form of the Newtonian relaxation toward T_ref
+                                                     !<  'THETA': d(rho theta)/dt = -(rho theta - rho theta_eq)/tau at fixed density,
+                                                     !<           theta_eq = T_ref (P00/PRE_ref)^(Rtot/CPtot), PRE_ref = horizontal mean pressure
+                                                     !<           at the same time as T_ref (default; the form used in the experiments on Fugaku).
+                                                     !<           With 'HS', the model top tended to become unstable owing to strong horizontal winds.
+                                                     !<  'HS'   : dT/dt = -(T - T_ref)/tau at fixed density (moist Held-Suarez form)
 
   !-- Reference temperature profile T_ref(z) -----------------------------
   logical :: is_Tref_ready
   real(RP), allocatable :: Tref_z(:,:)               !< T_ref at the vertical nodes (Nnode_v, NeZ)
+  real(RP), allocatable :: PREref_z(:,:)             !< PRE_ref (horizontal mean pressure) at the vertical nodes (Nnode_v, NeZ)
+  logical :: relax_theta                             !< .true. if TREF_RELAX_TYPE = 'THETA'
 
   logical :: is_setup_bl_vars_container
 
@@ -196,7 +209,8 @@ contains
        Tref_step,            &
        TAU_RAD_BL, TAU_RAD_FT, TAU_RAD_STR, &
        PBL_MOM_TAU, PBL_MOM_TYPE, PBL_MOM_SIGB, &
-       SPONGE_HEIGHT, TAU_SPONGE, SPONGE_DAMP_TEMP
+       SPONGE_HEIGHT, TAU_SPONGE, SPONGE_DAMP_TEMP, &
+       TREF_RELAX_TYPE
     integer :: ierr
     !------------------------------------------
 
@@ -220,6 +234,16 @@ contains
     case( 'HEIGHT', 'SIGMA' )
     case default
       LOG_ERROR("USER_setup",*) 'Unsupported PBL_MOM_TYPE: '//trim(PBL_MOM_TYPE)//'. Check!'
+      call PRC_abort
+    end select
+
+    select case( trim(TREF_RELAX_TYPE) )
+    case( 'HS' )
+      relax_theta = .false.
+    case( 'THETA' )
+      relax_theta = .true.
+    case default
+      LOG_ERROR("USER_setup",*) 'Unsupported TREF_RELAX_TYPE: '//trim(TREF_RELAX_TYPE)//'. Check!'
       call PRC_abort
     end select
 
@@ -335,13 +359,14 @@ contains
     class(LocalMeshFieldBase), pointer :: DENS_hyd, PRES_hyd
     class(LocalMeshFieldBase), pointer :: PRES, PT
     class(LocalMeshFieldBase), pointer :: Rtot, CVtot, CPtot
+    class(LocalMeshFieldBase), pointer :: THERM_hyd
     class(ElementBase3D), pointer :: elem3D
 
     integer :: n
     integer :: ke, ke2D, ke_z
     integer :: p, p_v, Nh2D
 
-    real(RP), allocatable :: DENS(:), T(:), Tref(:), sig(:), PRES_sfc(:)
+    real(RP), allocatable :: DENS(:), T(:), Tref(:), PREref(:), PTeq(:), sig(:), PRES_sfc(:)
     real(RP), allocatable :: rtauT(:), rtauV(:), sfac(:), zlev(:)
 
     real(RP) :: dom_zmax
@@ -363,15 +388,18 @@ contains
       call AtmosVars_GetLocalMeshPhyAuxVars( n, atm%mesh%ptr_mesh, &
         atm%vars%AUXVARS_manager, PRES, PT                         )
 
+      !- Hydrostatic part of RHOT (RHOT = THERM_hyd + DRHOT)
+      THERM_hyd => atm%vars%container%AUX_VARS(AUXVAR_THERMHYDRO_ID)%local(n)
+
       elem3D => lcmesh%refElem3D
       Nh2D = elem3D%Nnode_h1D**2
       dom_zmax = lcmesh%zmax
 
-      allocate( DENS(elem3D%Np), T(elem3D%Np), Tref(elem3D%Np), sig(elem3D%Np) )
+      allocate( DENS(elem3D%Np), T(elem3D%Np), Tref(elem3D%Np), PREref(elem3D%Np), PTeq(elem3D%Np), sig(elem3D%Np) )
       allocate( PRES_sfc(Nh2D) )
       allocate( rtauT(elem3D%Np), rtauV(elem3D%Np), sfac(elem3D%Np), zlev(elem3D%Np) )
 
-      !$omp parallel do private(ke2D, ke_z, p, p_v, DENS, T, Tref, PRES_sfc, sig, rtauT, rtauV, sfac, zlev)
+      !$omp parallel do private(ke2D, ke_z, p, p_v, DENS, T, Tref, PREref, PTeq, PRES_sfc, sig, rtauT, rtauV, sfac, zlev)
       do ke=lcmesh%NeS, lcmesh%NeE
         ke2D = lcmesh%EMap3Dto2D(ke)
         ke_z = (ke - 1) / lcmesh%Ne2D + 1
@@ -380,6 +408,7 @@ contains
         do p=1, elem3D%Np
           p_v = (p - 1) / Nh2D + 1
           Tref(p) = Tref_z(p_v,ke_z)
+          PREref(p) = PREref_z(p_v,ke_z)
         end do
 
         DENS(:) = DENS_hyd%val(:,ke) + DDENS%val(:,ke)
@@ -407,14 +436,24 @@ contains
           end select
         end if
 
-        !- Newtonian relaxation of temperature (the same form as the moist Held-Suarez test)
+        !- Newtonian relaxation of temperature
         !  As in the experiments on Fugaku, the sponge rate is added to the relaxation rate (SPONGE_DAMP_TEMP).
         rtauT(:) = 1.0_RP / calc_tau_rad( zlev(:), elem3D%Np )
         if ( SPONGE_DAMP_TEMP ) rtauT(:) = rtauT(:) + sfac(:)
 
-        DRHOT%val(:,ke) = DRHOT%val(:,ke) &
-                        - dt * rtauT(:) * ( 1.0_RP - Tref(:) / T(:) ) * DENS(:) * PT%val(:,ke)     &
-                        / ( 1.0_RP + dt * rtauT(:) * ( 1.0_RP + (gamm - 1.0_RP) * Tref(:) / T(:) ) )
+        if ( relax_theta ) then
+          !- 'THETA' (Fugaku form): rho*theta is relaxed toward rho*theta_eq at fixed density, where
+          !  theta_eq = T_ref (P00/PRE_ref)^(Rtot/CPtot) is a fixed function of height.
+          !  Backward Euler: RHOT^{n+1} = ( RHOT^n + dt/tau * DENS * theta_eq ) / ( 1 + dt/tau ), RHOT = THERM_hyd + DRHOT
+          PTeq(:) = Tref(:) * ( PRES00 / PREref(:) )**( Rtot%val(:,ke) / CPtot%val(:,ke) )
+          DRHOT%val(:,ke) = ( DRHOT%val(:,ke) + dt * rtauT(:) * ( DENS(:) * PTeq(:) - THERM_hyd%val(:,ke) ) ) &
+                          / ( 1.0_RP + dt * rtauT(:) )
+        else
+          !- 'HS' (moist Held-Suarez form): T is relaxed toward T_ref at fixed density.
+          DRHOT%val(:,ke) = DRHOT%val(:,ke) &
+                          - dt * rtauT(:) * ( 1.0_RP - Tref(:) / T(:) ) * DENS(:) * PT%val(:,ke)     &
+                          / ( 1.0_RP + dt * rtauT(:) * ( 1.0_RP + (gamm - 1.0_RP) * Tref(:) / T(:) ) )
+        end if
 
         !- Rayleigh damping of momentum (PBL + sponge), treated with a single implicit step as on Fugaku
         !  MOMZ is damped by the PBL term only for PBL_MOM_TYPE = 'HEIGHT' (the Fugaku form).
@@ -427,7 +466,7 @@ contains
         end if
       end do
 
-      deallocate( DENS, T, Tref, sig, PRES_sfc )
+      deallocate( DENS, T, Tref, PREref, PTeq, sig, PRES_sfc )
       deallocate( rtauT, rtauV, sfac, zlev )
     end do
     call atm%vars%Calc_diagnostics()
@@ -531,10 +570,11 @@ contains
     return
   end function calc_tau_rad
 
-  !> Set the reference temperature profile T_ref(z)
+  !> Set the reference temperature profile T_ref(z) and the reference pressure profile PRE_ref(z)
   !!
-  !! T_ref(z) is the horizontal mean of temperature at the initial time:
-  !!  - If in_filebase_Tref is specified, temperature 'T' at the time step Tref_step is read from the history file.
+  !! T_ref(z) (PRE_ref(z)) is the horizontal mean of temperature (pressure) at the initial time:
+  !!  - If in_filebase_Tref is specified, 'T' (and 'PRES' for TREF_RELAX_TYPE = 'THETA') at the time step Tref_step
+  !!    is read from the history file.
   !!    The history file must have been written with the same mesh and the same process decomposition.
   !!  - Otherwise, the current model state (the initial state of this run) is used.
   !! Since the mesh is horizontally uniform with a flat bottom, all columns share the same vertical node positions.
@@ -557,12 +597,13 @@ contains
 
     type(FILE_base_meshfield) :: file
     type(MeshField3D) :: T_in
+    type(MeshField3D) :: P_in
     logical :: use_file
 
     integer :: n, ke, ke_z, p, p_v, Nh2D, Nnode_v, NeZ
-    real(DP), allocatable :: sum_wT(:,:), sum_w(:,:)
-    real(DP), allocatable :: sum_wT_g(:,:), sum_w_g(:,:)
-    real(RP), allocatable :: T(:)
+    real(DP), allocatable :: sum_wT(:,:), sum_wP(:,:), sum_w(:,:)
+    real(DP), allocatable :: sum_wT_g(:,:), sum_wP_g(:,:), sum_w_g(:,:)
+    real(RP), allocatable :: T(:), Pr(:)
     real(RP) :: w
     integer :: ierr
     !------------------------------------------
@@ -579,6 +620,11 @@ contains
     !- T_in is always allocated. NOTE: Referencing an unallocated field even in a branch which is not executed
     !  can cause a segmentation fault with aggressive optimization (e.g., -Kpreex of the Fujitsu compiler).
     call T_in%Init( "T_in", "K", mesh3D )
+    call P_in%Init( "P_in", "Pa", mesh3D )
+    do n=1, mesh3D%LOCAL_MESH_NUM
+      T_in%local(n)%val(:,:) = 0.0_RP
+      P_in%local(n)%val(:,:) = 0.0_RP
+    end do
 
     if ( use_file ) then
       LOG_INFO("USER_setup_Tref",*) 'T_ref is computed from the history file: ', trim(in_filebase_Tref), ', step=', Tref_step
@@ -591,6 +637,9 @@ contains
       end select
       call file%Open( in_filebase_Tref, myrank=PRC_myrank )
       call file%Read_Var( MF3D_XYZT, 'T', T_in, step=Tref_step )
+      if ( relax_theta ) then
+        call file%Read_Var( MF3D_XYZT, 'PRES', P_in, step=Tref_step )
+      end if
       call file%Close()
       call file%Final()
     else
@@ -604,49 +653,64 @@ contains
           atm%vars%AUXVARS_manager, PRES, PT                           )
         do ke=lcmesh%NeS, lcmesh%NeE
           T_in%local(n)%val(:,ke) = PRES%val(:,ke) / ( Rtot%val(:,ke) * ( DENS_hyd%val(:,ke) + DDENS%val(:,ke) ) )
+          P_in%local(n)%val(:,ke) = PRES%val(:,ke)
         end do
       end do
     end if
 
-    allocate( sum_wT(Nnode_v,NeZ), sum_w(Nnode_v,NeZ) )
-    allocate( sum_wT_g(Nnode_v,NeZ), sum_w_g(Nnode_v,NeZ) )
+    allocate( sum_wT(Nnode_v,NeZ), sum_wP(Nnode_v,NeZ), sum_w(Nnode_v,NeZ) )
+    allocate( sum_wT_g(Nnode_v,NeZ), sum_wP_g(Nnode_v,NeZ), sum_w_g(Nnode_v,NeZ) )
     sum_wT(:,:) = 0.0_DP
+    sum_wP(:,:) = 0.0_DP
     sum_w (:,:) = 0.0_DP
 
     do n=1, mesh3D%LOCAL_MESH_NUM
       lcmesh => mesh3D%lcmesh_list(n)
       elem3D => lcmesh%refElem3D
 
-      allocate( T(elem3D%Np) )
+      allocate( T(elem3D%Np), Pr(elem3D%Np) )
       do ke=lcmesh%NeS, lcmesh%NeE
         ke_z = (ke - 1) / lcmesh%Ne2D + 1
         T(:) = T_in%local(n)%val(:,ke)
+        Pr(:) = P_in%local(n)%val(:,ke)
         do p=1, elem3D%Np
           p_v = (p - 1) / Nh2D + 1
           w = elem3D%IntWeight_lgl(p) * lcmesh%J(p,ke) * lcmesh%Gsqrt(p,ke)
           sum_wT(p_v,ke_z) = sum_wT(p_v,ke_z) + real( w * T(p), kind=DP )
+          sum_wP(p_v,ke_z) = sum_wP(p_v,ke_z) + real( w * Pr(p), kind=DP )
           sum_w (p_v,ke_z) = sum_w (p_v,ke_z) + real( w, kind=DP )
         end do
       end do
-      deallocate( T )
+      deallocate( T, Pr )
     end do
 
     call MPI_Allreduce( sum_wT, sum_wT_g, Nnode_v*NeZ, MPI_DOUBLE_PRECISION, MPI_SUM, PRC_LOCAL_COMM_WORLD, ierr )
+    call MPI_Allreduce( sum_wP, sum_wP_g, Nnode_v*NeZ, MPI_DOUBLE_PRECISION, MPI_SUM, PRC_LOCAL_COMM_WORLD, ierr )
     call MPI_Allreduce( sum_w,  sum_w_g,  Nnode_v*NeZ, MPI_DOUBLE_PRECISION, MPI_SUM, PRC_LOCAL_COMM_WORLD, ierr )
 
     if ( allocated(Tref_z) ) deallocate( Tref_z )
     allocate( Tref_z(Nnode_v,NeZ) )
     Tref_z(:,:) = real( sum_wT_g(:,:) / sum_w_g(:,:), kind=RP )
 
-    LOG_INFO("USER_setup_Tref",*) 'T_ref at the vertical nodes (ke_z, p_v, T_ref [K]):'
+    !- PRE_ref is always allocated (used only for TREF_RELAX_TYPE = 'THETA').
+    !  For 'HS' with in_filebase_Tref, PRES is not read and PRE_ref is set to PRES00 (dummy, not used).
+    if ( allocated(PREref_z) ) deallocate( PREref_z )
+    allocate( PREref_z(Nnode_v,NeZ) )
+    PREref_z(:,:) = real( sum_wP_g(:,:) / sum_w_g(:,:), kind=RP )
+    if ( use_file .and. ( .not. relax_theta ) ) PREref_z(:,:) = PRES00
+
+    LOG_INFO("USER_setup_Tref",*) 'TREF_RELAX_TYPE = ', trim(TREF_RELAX_TYPE)
+    LOG_INFO("USER_setup_Tref",*) 'T_ref at the vertical nodes (ke_z, p_v, T_ref [K], PRE_ref [Pa], theta_eq(dry) [K]):'
     do ke_z=1, NeZ
     do p_v=1, Nnode_v
-      LOG_INFO_CONT('(2I4,F10.3)') ke_z, p_v, Tref_z(p_v,ke_z)
+      LOG_INFO_CONT('(2I4,F10.3,F14.3,F10.3)') ke_z, p_v, Tref_z(p_v,ke_z), PREref_z(p_v,ke_z), &
+        Tref_z(p_v,ke_z) * ( PRES00 / PREref_z(p_v,ke_z) )**( Rdry / CPdry )
     end do
     end do
 
     call T_in%Final()
-    deallocate( sum_wT, sum_w, sum_wT_g, sum_w_g )
+    call P_in%Final()
+    deallocate( sum_wT, sum_wP, sum_w, sum_wT_g, sum_wP_g, sum_w_g )
 
     return
   end subroutine setup_Tref
