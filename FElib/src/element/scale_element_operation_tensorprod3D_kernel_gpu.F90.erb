@@ -565,7 +565,12 @@ contains
 %   for jj in 2..np_div3-1
                + tmp_vec_in_y(<%=jj%>) * Mat_tr(<%=jj%>,j) &
 %   end
-               + tmp_vec_in_y(<%=np_div3*2%>) * Mat_tr(<%=np_div3*2%>,j) 
+               + tmp_vec_in_y(<%=np_div3%>) * Mat_tr(<%=np_div3%>,j) 
+          tmp2 = tmp_vec_in_y(<%=np_div3+1%>) * Mat_tr(<%=np_div3+1%>,j) &
+%   for jj in np_div3+2..np_div3*2-1
+               + tmp_vec_in_y(<%=jj%>) * Mat_tr(<%=jj%>,j) &
+%   end
+               + tmp_vec_in_y(<%=np_div3*2%>) * Mat_tr(<%=np_div3*2%>,j)
           tmp3 = tmp_vec_in_y(<%=np_div3*2+1%>) * Mat_tr(<%=np_div3*2+1%>,j) &
 %   for jj in np_div3*2+2..np-1
                + tmp_vec_in_y(<%=jj%>) * Mat_tr(<%=jj%>,j) &

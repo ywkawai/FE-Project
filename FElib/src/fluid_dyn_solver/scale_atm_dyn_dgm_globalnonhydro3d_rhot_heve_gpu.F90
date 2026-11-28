@@ -381,17 +381,16 @@ contains
         MOMX_dt(ph,pz,ke) = - tend_tmp(ph,MOMX_VID,pz,ke) &
                           - ( G11 * DPhydDx(ph,pz,ke) + G12 * DPhydDy(ph,pz,ke) )     &
                           - twoOVdel2 * Y *                                           &
-                            ( X * Y * u_ + ( 1.0_RP + Y**2 ) * v_ ) * MOMX_(ph,pz,ke) &
+                            ( X * Y * u_ - ( 1.0_RP + Y**2 ) * v_ ) * MOMX_(ph,pz,ke) &
                           + cor_x
         MOMY_dt(ph,pz,ke) = - tend_tmp(ph,MOMY_VID,pz,ke) &
                           - ( G12 * DPhydDx(ph,pz,ke) + G22 * DPhydDy(ph,pz,ke) )       &
-                          - twoOVdel2 * Y *                                             &
+                          - twoOVdel2 * X *                                             &
                             ( - ( 1.0_RP + X**2 ) * u_ + X * Y * v_ ) * MOMY_(ph,pz,ke) &
-                          - cor_y
+                          + cor_y
       end do
     end do
     end do
-    !$acc end parallel
     return
   end subroutine cal_tend_interior_gpu
 

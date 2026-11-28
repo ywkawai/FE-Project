@@ -272,8 +272,8 @@ contains
           v_ = MOMY_(p,ke) * RDENS_
           GsqrtDPRES_ = Gsqrt_ * DPRES_(p,ke)
 
-          Flux2D_(ph,1,pz,ke) = Gsqrt_ * MOMX_(p,ke) * v_ + GsqrtDPRES_
-          Flux2D_(ph,2,pz,ke) = Gsqrt_ * MOMY_(p,ke) * v_
+          Flux2D_(ph,1,pz,ke) = Gsqrt_ * MOMX_(p,ke) * v_
+          Flux2D_(ph,2,pz,ke) = Gsqrt_ * MOMY_(p,ke) * v_ + GsqrtDPRES_
           FluxZ_store(ph,MOMY_VID,pz,ke) = FluxZ_store(ph,DENS_VID,pz,ke) * v_ + GsqrtDPRES_ * lmesh%GI3(p,ke,2)
         end do
         call Div_kplane( element3D_operation_driver, Flux2D_(:,:,pz,ke), lmesh%Escale(:,ke,1,1), lmesh%Escale(:,ke,2,2), pz, &
@@ -622,7 +622,6 @@ contains
       end do
     end do
     end do
-    !$acc end parallel
     return
   end subroutine atm_dyn_dgm_nonhydro3d_rhot_heve_cal_tend_interior_gpu
 

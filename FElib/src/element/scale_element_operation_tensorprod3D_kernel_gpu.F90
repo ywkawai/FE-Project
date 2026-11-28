@@ -3843,7 +3843,10 @@ contains
 
           tmp1 = tmp_vec_in_y(1) * Mat_tr(1,j) &
                + tmp_vec_in_y(2) * Mat_tr(2,j) &
-               + tmp_vec_in_y(6) * Mat_tr(6,j) 
+               + tmp_vec_in_y(3) * Mat_tr(3,j) 
+          tmp2 = tmp_vec_in_y(4) * Mat_tr(4,j) &
+               + tmp_vec_in_y(5) * Mat_tr(5,j) &
+               + tmp_vec_in_y(6) * Mat_tr(6,j)
           tmp3 = tmp_vec_in_y(7) * Mat_tr(7,j) &
                + tmp_vec_in_y(8) * Mat_tr(8,j) &
                + tmp_vec_in_y(9) * Mat_tr(9,j) 
@@ -4405,7 +4408,10 @@ contains
 
           tmp1 = tmp_vec_in_y(1) * Mat_tr(1,j) &
                + tmp_vec_in_y(2) * Mat_tr(2,j) &
-               + tmp_vec_in_y(6) * Mat_tr(6,j) 
+               + tmp_vec_in_y(3) * Mat_tr(3,j) 
+          tmp2 = tmp_vec_in_y(4) * Mat_tr(4,j) &
+               + tmp_vec_in_y(5) * Mat_tr(5,j) &
+               + tmp_vec_in_y(6) * Mat_tr(6,j)
           tmp3 = tmp_vec_in_y(7) * Mat_tr(7,j) &
                + tmp_vec_in_y(8) * Mat_tr(8,j) &
                + tmp_vec_in_y(9) * Mat_tr(9,j) &
@@ -4987,7 +4993,11 @@ contains
           tmp1 = tmp_vec_in_y(1) * Mat_tr(1,j) &
                + tmp_vec_in_y(2) * Mat_tr(2,j) &
                + tmp_vec_in_y(3) * Mat_tr(3,j) &
-               + tmp_vec_in_y(8) * Mat_tr(8,j) 
+               + tmp_vec_in_y(4) * Mat_tr(4,j) 
+          tmp2 = tmp_vec_in_y(5) * Mat_tr(5,j) &
+               + tmp_vec_in_y(6) * Mat_tr(6,j) &
+               + tmp_vec_in_y(7) * Mat_tr(7,j) &
+               + tmp_vec_in_y(8) * Mat_tr(8,j)
           tmp3 = tmp_vec_in_y(9) * Mat_tr(9,j) &
                + tmp_vec_in_y(10) * Mat_tr(10,j) &
                + tmp_vec_in_y(11) * Mat_tr(11,j) 
@@ -5586,7 +5596,11 @@ contains
           tmp1 = tmp_vec_in_y(1) * Mat_tr(1,j) &
                + tmp_vec_in_y(2) * Mat_tr(2,j) &
                + tmp_vec_in_y(3) * Mat_tr(3,j) &
-               + tmp_vec_in_y(8) * Mat_tr(8,j) 
+               + tmp_vec_in_y(4) * Mat_tr(4,j) 
+          tmp2 = tmp_vec_in_y(5) * Mat_tr(5,j) &
+               + tmp_vec_in_y(6) * Mat_tr(6,j) &
+               + tmp_vec_in_y(7) * Mat_tr(7,j) &
+               + tmp_vec_in_y(8) * Mat_tr(8,j)
           tmp3 = tmp_vec_in_y(9) * Mat_tr(9,j) &
                + tmp_vec_in_y(10) * Mat_tr(10,j) &
                + tmp_vec_in_y(11) * Mat_tr(11,j) &
@@ -6204,7 +6218,11 @@ contains
           tmp1 = tmp_vec_in_y(1) * Mat_tr(1,j) &
                + tmp_vec_in_y(2) * Mat_tr(2,j) &
                + tmp_vec_in_y(3) * Mat_tr(3,j) &
-               + tmp_vec_in_y(8) * Mat_tr(8,j) 
+               + tmp_vec_in_y(4) * Mat_tr(4,j) 
+          tmp2 = tmp_vec_in_y(5) * Mat_tr(5,j) &
+               + tmp_vec_in_y(6) * Mat_tr(6,j) &
+               + tmp_vec_in_y(7) * Mat_tr(7,j) &
+               + tmp_vec_in_y(8) * Mat_tr(8,j)
           tmp3 = tmp_vec_in_y(9) * Mat_tr(9,j) &
                + tmp_vec_in_y(10) * Mat_tr(10,j) &
                + tmp_vec_in_y(11) * Mat_tr(11,j) &
@@ -6842,7 +6860,12 @@ contains
                + tmp_vec_in_y(2) * Mat_tr(2,j) &
                + tmp_vec_in_y(3) * Mat_tr(3,j) &
                + tmp_vec_in_y(4) * Mat_tr(4,j) &
-               + tmp_vec_in_y(10) * Mat_tr(10,j) 
+               + tmp_vec_in_y(5) * Mat_tr(5,j) 
+          tmp2 = tmp_vec_in_y(6) * Mat_tr(6,j) &
+               + tmp_vec_in_y(7) * Mat_tr(7,j) &
+               + tmp_vec_in_y(8) * Mat_tr(8,j) &
+               + tmp_vec_in_y(9) * Mat_tr(9,j) &
+               + tmp_vec_in_y(10) * Mat_tr(10,j)
           tmp3 = tmp_vec_in_y(11) * Mat_tr(11,j) &
                + tmp_vec_in_y(12) * Mat_tr(12,j) &
                + tmp_vec_in_y(13) * Mat_tr(13,j) &
@@ -7497,7 +7520,12 @@ contains
                + tmp_vec_in_y(2) * Mat_tr(2,j) &
                + tmp_vec_in_y(3) * Mat_tr(3,j) &
                + tmp_vec_in_y(4) * Mat_tr(4,j) &
-               + tmp_vec_in_y(10) * Mat_tr(10,j) 
+               + tmp_vec_in_y(5) * Mat_tr(5,j) 
+          tmp2 = tmp_vec_in_y(6) * Mat_tr(6,j) &
+               + tmp_vec_in_y(7) * Mat_tr(7,j) &
+               + tmp_vec_in_y(8) * Mat_tr(8,j) &
+               + tmp_vec_in_y(9) * Mat_tr(9,j) &
+               + tmp_vec_in_y(10) * Mat_tr(10,j)
           tmp3 = tmp_vec_in_y(11) * Mat_tr(11,j) &
                + tmp_vec_in_y(12) * Mat_tr(12,j) &
                + tmp_vec_in_y(13) * Mat_tr(13,j) &
@@ -8171,7 +8199,12 @@ contains
                + tmp_vec_in_y(2) * Mat_tr(2,j) &
                + tmp_vec_in_y(3) * Mat_tr(3,j) &
                + tmp_vec_in_y(4) * Mat_tr(4,j) &
-               + tmp_vec_in_y(10) * Mat_tr(10,j) 
+               + tmp_vec_in_y(5) * Mat_tr(5,j) 
+          tmp2 = tmp_vec_in_y(6) * Mat_tr(6,j) &
+               + tmp_vec_in_y(7) * Mat_tr(7,j) &
+               + tmp_vec_in_y(8) * Mat_tr(8,j) &
+               + tmp_vec_in_y(9) * Mat_tr(9,j) &
+               + tmp_vec_in_y(10) * Mat_tr(10,j)
           tmp3 = tmp_vec_in_y(11) * Mat_tr(11,j) &
                + tmp_vec_in_y(12) * Mat_tr(12,j) &
                + tmp_vec_in_y(13) * Mat_tr(13,j) &
